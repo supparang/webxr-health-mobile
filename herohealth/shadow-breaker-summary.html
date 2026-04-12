@@ -9,9 +9,9 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --sky1:#dff4ff;
-      --sky2:#eefcff;
-      --sky3:#fff7da;
+      --bg1:#dff4ff;
+      --bg2:#eefcff;
+      --bg3:#fff7da;
 
       --card:#fffdf6;
       --card2:#f8fff3;
@@ -31,60 +31,37 @@
       --violet:#c6b7ff;
 
       --shadow:0 18px 40px rgba(111,157,183,.16);
-      --radius:26px;
 
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       min-height:100%;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
-      color:var(--text);
       background:
         radial-gradient(circle at 12% 14%, rgba(127,207,255,.34), transparent 28%),
         radial-gradient(circle at 88% 10%, rgba(255,220,120,.22), transparent 24%),
-        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 48%, var(--sky3) 100%);
+        linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 48%, var(--bg3) 100%);
+      color:var(--text);
     }
 
-    button,a{
-      font:inherit;
-      color:inherit;
-      text-decoration:none;
-    }
+    a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; }
 
-    .bg-clouds{
-      position:fixed;
-      inset:0;
-      overflow:hidden;
-      pointer-events:none;
-      z-index:0;
-    }
-
-    .cloud{
-      position:absolute;
-      background:rgba(255,255,255,.65);
-      border-radius:999px;
-      filter:blur(1px);
-      box-shadow:0 10px 24px rgba(255,255,255,.22);
-    }
-    .c1{ width:140px; height:44px; left:6%; top:9%; }
-    .c2{ width:190px; height:58px; right:8%; top:13%; }
-    .c3{ width:120px; height:38px; left:18%; bottom:18%; }
-    .c4{ width:170px; height:52px; right:20%; bottom:24%; }
-
-    .shell{
-      position:relative;
-      z-index:1;
-      width:min(1040px,100%);
+    .wrap{
+      max-width:980px;
       margin:0 auto;
       padding:
         calc(14px + var(--sat))
-        14px
-        calc(18px + var(--sab));
+        calc(14px + var(--sar))
+        calc(20px + var(--sab))
+        calc(14px + var(--sal));
+      min-height:100vh;
     }
 
     .topbar{
@@ -96,13 +73,13 @@
       margin-bottom:12px;
     }
 
-    .top-pill,.back-btn{
+    .topBtn,.topPill{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:46px;
+      min-height:42px;
       padding:10px 14px;
-      border-radius:18px;
+      border-radius:16px;
       background:rgba(255,255,255,.88);
       border:1px solid var(--line);
       color:var(--text);
@@ -110,7 +87,7 @@
       font-weight:1000;
     }
 
-    .top-pill{
+    .topPill{
       border-radius:999px;
       color:#5f7b88;
     }
@@ -121,24 +98,20 @@
       background:linear-gradient(180deg, var(--card), var(--card2));
       box-shadow:var(--shadow);
       padding:18px;
-      padding-right:120px;
-      position:relative;
       overflow:hidden;
+      position:relative;
     }
 
-    .hero-badge{
+    .hero::before{
+      content:"";
       position:absolute;
-      right:18px;
-      top:18px;
-      width:86px;
-      height:86px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg, #fff8d8, #ffe79b);
-      border:1px solid #f6d97a;
-      box-shadow:0 10px 22px rgba(255,190,59,.22);
-      font-size:2.2rem;
+      right:-20px;
+      top:-20px;
+      width:180px;
+      height:180px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,217,106,.35), transparent 65%);
+      pointer-events:none;
     }
 
     .kicker{
@@ -153,15 +126,17 @@
       color:#5f7b88;
       font-size:.82rem;
       font-weight:1000;
+      position:relative;
+      z-index:1;
     }
 
-    .title{
-      margin:12px 0 8px;
-      font-size:clamp(1.9rem, 5vw, 3rem);
-      line-height:1.05;
+    h1{
+      margin:12px 0 6px;
+      font-size:clamp(1.8rem, 5vw, 2.8rem);
+      line-height:1.02;
       color:#4f8f2c;
-      font-weight:1000;
-      word-break:break-word;
+      position:relative;
+      z-index:1;
     }
 
     .sub{
@@ -169,171 +144,153 @@
       line-height:1.55;
       font-size:1rem;
       font-weight:800;
-      max-width:60ch;
+      position:relative;
+      z-index:1;
     }
 
-    .hero-note{
+    .hero-badge{
       margin-top:14px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:42px;
-      padding:10px 14px;
-      border-radius:999px;
-      background:#fff;
-      border:1px solid var(--line);
-      color:#6f675f;
-      font-weight:1000;
-      box-shadow:0 8px 16px rgba(111,157,183,.10);
-    }
-
-    .grid{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:12px;
-      margin-top:14px;
-    }
-
-    .stat{
-      border-radius:22px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, var(--card), var(--card2));
-      box-shadow:var(--shadow);
-      padding:14px;
-      text-align:center;
-    }
-
-    .stat .k{
-      font-size:.82rem;
-      color:#7b7a72;
-      font-weight:1000;
-    }
-
-    .stat .v{
-      margin-top:8px;
-      font-size:1.45rem;
-      color:#5a4a3f;
-      font-weight:1000;
-      line-height:1.15;
-      word-break:break-word;
-    }
-
-    .panel-wrap{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
+      grid-template-columns:88px 1fr;
       gap:14px;
-      margin-top:14px;
-    }
-
-    .panel{
+      align-items:center;
+      padding:14px;
       border-radius:24px;
       border:1px solid var(--line);
-      background:linear-gradient(180deg, var(--card), var(--card2));
-      box-shadow:var(--shadow);
-      padding:16px;
-    }
-
-    .panel-title{
-      font-size:1.02rem;
-      color:#5a4a3f;
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-
-    .message{
-      padding:14px;
-      border-radius:20px;
-      background:linear-gradient(180deg, #dff4ff, #eefcff);
-      border:1px solid #bfe3f2;
-      color:#5b6670;
-      line-height:1.6;
-      font-weight:900;
-    }
-
-    .badge-card{
-      display:grid;
-      grid-template-columns:72px 1fr;
-      gap:12px;
-      align-items:center;
-      padding:14px;
-      border-radius:22px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, #fffdf6, #f8fff3);
-      box-shadow:0 8px 18px rgba(111,157,183,.10);
+      background:rgba(255,255,255,.76);
+      box-shadow:0 10px 18px rgba(111,157,183,.08);
+      position:relative;
+      z-index:1;
     }
 
     .badge-icon{
-      width:72px;
-      height:72px;
-      border-radius:22px;
+      width:88px;
+      height:88px;
+      border-radius:26px;
       display:grid;
       place-items:center;
+      font-size:2.4rem;
       background:linear-gradient(180deg, #fff8d8, #ffe79b);
       border:1px solid #f6d97a;
-      font-size:2rem;
+      box-shadow:0 10px 18px rgba(244,187,57,.16);
     }
 
     .badge-title{
-      font-size:1rem;
+      font-size:1.08rem;
       font-weight:1000;
       color:#5a4a3f;
     }
 
     .badge-desc{
       margin-top:4px;
-      font-size:.92rem;
-      line-height:1.5;
       color:#786c61;
+      line-height:1.5;
       font-weight:800;
     }
 
-    .boss-box{
+    .hero-message{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:linear-gradient(180deg, #dff4ff, #eefcff);
+      border:1px solid #bfe3f2;
+      color:#5b6670;
+      line-height:1.55;
+      font-weight:900;
+      position:relative;
+      z-index:1;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .stat{
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.78);
+      box-shadow:0 10px 18px rgba(111,157,183,.08);
+      padding:12px;
+      text-align:center;
+    }
+
+    .stat-k{
+      font-size:.8rem;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+
+    .stat-v{
+      margin-top:6px;
+      font-size:1.18rem;
+      color:#5a4a3f;
+      font-weight:1000;
+    }
+
+    .section{
+      margin-top:14px;
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, var(--card), var(--card2));
+      box-shadow:var(--shadow);
+      padding:14px;
+    }
+
+    .section-title{
+      font-size:1rem;
+      font-weight:1000;
+      color:#5a4a3f;
+      margin-bottom:10px;
+    }
+
+    .summary-list{
       display:grid;
       gap:10px;
     }
 
-    .boss-pill{
+    .summary-item{
       display:flex;
       justify-content:space-between;
-      gap:10px;
-      align-items:center;
-      min-height:52px;
-      padding:12px 14px;
+      gap:12px;
+      align-items:flex-start;
+      padding:12px;
       border-radius:18px;
-      background:#fff;
       border:1px solid var(--line);
-      box-shadow:0 8px 16px rgba(111,157,183,.08);
-      font-weight:1000;
-      color:#5c544a;
+      background:rgba(255,255,255,.76);
     }
 
-    .boss-pill .left{
-      color:#7b7a72;
-      font-size:.88rem;
+    .summary-item .label{
+      color:#746d66;
       font-weight:900;
+      font-size:.92rem;
+      line-height:1.4;
     }
 
-    .boss-pill .right{
-      text-align:right;
-      font-size:1rem;
+    .summary-item .value{
+      color:#5a4a3f;
       font-weight:1000;
-      word-break:break-word;
+      font-size:.94rem;
+      text-align:right;
+      line-height:1.4;
     }
 
     .actions{
       display:flex;
-      gap:12px;
+      gap:10px;
       flex-wrap:wrap;
-      margin-top:14px;
+      margin-top:16px;
     }
 
     .btn{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:54px;
-      padding:12px 16px;
-      border-radius:20px;
+      min-height:46px;
+      padding:10px 14px;
+      border-radius:18px;
       border:1px solid var(--line);
       background:#fff;
       color:var(--text);
@@ -348,10 +305,10 @@
       color:#fffdf6;
     }
 
-    .btn.blue{
-      background:linear-gradient(180deg, var(--blue), var(--blue2));
-      border-color:#72c1ef;
-      color:#fff;
+    .btn.yellow{
+      background:linear-gradient(180deg, #ffd96a, #ffbe3b);
+      border-color:#f4bb39;
+      color:#6a4a00;
     }
 
     .btn.ghost{
@@ -359,396 +316,308 @@
       color:#5d6a70;
     }
 
-    .mini{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:rgba(255,255,255,.78);
-      border:1px solid var(--line);
-      color:#7b7a72;
-      font-size:.85rem;
-      line-height:1.5;
-      font-weight:800;
-      word-break:break-word;
-    }
-
     .empty{
-      text-align:center;
-      padding:18px;
-      border-radius:22px;
-      border:1px dashed var(--line-strong);
-      background:rgba(255,255,255,.60);
-      color:#7b7a72;
-      font-weight:900;
+      margin-top:14px;
+      padding:16px;
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.82);
+      color:#6f6d66;
       line-height:1.6;
+      font-weight:900;
     }
 
-    @media (max-width: 960px){
-      .grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .panel-wrap{ grid-template-columns:1fr; }
+    .footnote{
+      margin-top:12px;
+      color:#7b7a72;
+      font-size:.84rem;
+      line-height:1.45;
+      font-weight:800;
     }
 
-    @media (max-width: 640px){
-      .shell{
+    @media (max-width:900px){
+      .grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media (max-width:640px){
+      .wrap{
         padding:
           calc(10px + var(--sat))
-          10px
-          calc(14px + var(--sab));
+          calc(10px + var(--sar))
+          calc(16px + var(--sab))
+          calc(10px + var(--sal));
       }
 
       .topbar{
         align-items:stretch;
       }
 
-      .top-pill,.back-btn,.btn{
+      .topBtn,.topPill,.btn{
         width:100%;
+      }
+
+      .hero-badge{
+        grid-template-columns:1fr;
+        text-align:center;
+      }
+
+      .badge-icon{
+        margin:0 auto;
       }
 
       .grid{
         grid-template-columns:1fr 1fr;
-        gap:10px;
       }
 
-      .hero{
-        padding:14px;
-        padding-right:84px;
+      .summary-item{
+        flex-direction:column;
       }
 
-      .hero-badge{
-        right:12px;
-        top:12px;
-        width:64px;
-        height:64px;
-        border-radius:18px;
-        font-size:1.5rem;
-      }
-
-      .title{
-        font-size:clamp(1.55rem, 8vw, 2.15rem);
-        line-height:1.06;
-      }
-
-      .stat{
-        padding:12px;
-      }
-
-      .stat .v{
-        font-size:1.2rem;
+      .summary-item .value{
+        text-align:left;
       }
 
       .actions{
         flex-direction:column;
-        gap:12px;
-      }
-
-      .badge-card{
-        grid-template-columns:64px 1fr;
-      }
-
-      .badge-icon{
-        width:64px;
-        height:64px;
-        border-radius:18px;
-        font-size:1.7rem;
-      }
-
-      .boss-pill{
-        flex-direction:column;
-        align-items:flex-start;
-      }
-
-      .boss-pill .right{
-        text-align:left;
       }
     }
   </style>
 </head>
 <body>
-  <div class="bg-clouds" aria-hidden="true">
-    <div class="cloud c1"></div>
-    <div class="cloud c2"></div>
-    <div class="cloud c3"></div>
-    <div class="cloud c4"></div>
-  </div>
-
-  <main class="shell">
+  <div class="wrap">
     <div class="topbar">
-      <a id="btnBackHubTop" class="back-btn" href="./hub.html">← กลับ HUB</a>
-      <div class="top-pill">Shadow Breaker • Summary</div>
+      <a id="btnBackHubTop" class="topBtn" href="./hub.html">← กลับ HUB</a>
+      <div class="topPill">Shadow Breaker • Summary</div>
     </div>
 
     <section class="hero">
-      <div class="hero-badge" id="heroBadge">🏅</div>
       <div class="kicker">HeroHealth • Exercise Zone</div>
-      <h1 class="title">สรุปผล Shadow Breaker</h1>
-      <div class="sub" id="heroSub">
-        มาดูผลการเล่นรอบล่าสุดกันว่าไปได้ไกลแค่ไหน และได้เหรียญอะไรกลับบ้าน
-      </div>
-      <div class="hero-note" id="heroNote">พร้อมสำหรับรอบถัดไปแล้ว!</div>
-    </section>
+      <h1>สรุปผล Shadow Breaker</h1>
+      <div class="sub">ดูผลรอบล่าสุด เก็บกำลังใจ แล้วค่อยลุยรอบต่อไปกัน</div>
 
-    <section id="summaryContent" style="display:none;">
+      <div class="hero-badge">
+        <div id="badgeIcon" class="badge-icon">🏅</div>
+        <div>
+          <div id="badgeTitle" class="badge-title">Shadow Starter</div>
+          <div id="badgeDesc" class="badge-desc">เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
+        </div>
+      </div>
+
+      <div id="heroMessage" class="hero-message">
+        เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ
+      </div>
+
       <div class="grid">
-        <div class="stat">
-          <div class="k">คะแนน</div>
-          <div class="v" id="statScore">0</div>
-        </div>
-        <div class="stat">
-          <div class="k">ความแม่นยำ</div>
-          <div class="v" id="statAcc">0%</div>
-        </div>
-        <div class="stat">
-          <div class="k">คอมโบสูงสุด</div>
-          <div class="v" id="statCombo">0</div>
-        </div>
-        <div class="stat">
-          <div class="k">เกรด</div>
-          <div class="v" id="statGrade">C</div>
-        </div>
-        <div class="stat">
-          <div class="k">บอสที่ผ่าน</div>
-          <div class="v" id="statBosses">0</div>
-        </div>
-        <div class="stat">
-          <div class="k">ด่านสุดท้าย</div>
-          <div class="v" id="statPhase">1</div>
-        </div>
-        <div class="stat">
-          <div class="k">พลาด</div>
-          <div class="v" id="statMiss">0</div>
-        </div>
-        <div class="stat">
-          <div class="k">เวลา</div>
-          <div class="v" id="statTime">0 วินาที</div>
-        </div>
-      </div>
-
-      <div class="panel-wrap">
-        <section class="panel">
-          <div class="panel-title">ข้อความจากโค้ช</div>
-          <div id="resultMessage" class="message">
-            เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม
-          </div>
-
-          <div style="height:12px"></div>
-
-          <div class="panel-title">เหรียญของรอบนี้</div>
-          <div class="badge-card">
-            <div id="badgeIcon" class="badge-icon">🏅</div>
-            <div>
-              <div id="badgeTitle" class="badge-title">Shadow Starter</div>
-              <div id="badgeDesc" class="badge-desc">เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
-            </div>
-          </div>
-
-          <div class="actions">
-            <a id="btnReplay" class="btn primary" href="./shadow-breaker-vr.html">เล่นอีกครั้ง</a>
-            <a id="btnBackHub" class="btn blue" href="./hub.html">กลับ HUB</a>
-            <button id="btnClear" class="btn ghost" type="button">ล้างผลล่าสุด</button>
-          </div>
-
-          <div class="mini" id="metaBox">
-            ผู้เล่น: anon
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-title">เส้นทางที่ไปได้รอบนี้</div>
-          <div class="boss-box">
-            <div class="boss-pill">
-              <span class="left">บอสที่ไปไกลสุด</span>
-              <span class="right" id="bestBoss">Bubble Glove</span>
-            </div>
-            <div class="boss-pill">
-              <span class="left">โหมด</span>
-              <span class="right" id="bestMode">normal</span>
-            </div>
-            <div class="boss-pill">
-              <span class="left">ระดับความยาก</span>
-              <span class="right" id="bestDiff">normal</span>
-            </div>
-            <div class="boss-pill">
-              <span class="left">เวลาที่ตั้งไว้</span>
-              <span class="right" id="bestTime">80 วินาที</span>
-            </div>
-            <div class="boss-pill">
-              <span class="left">เหตุผลที่จบเกม</span>
-              <span class="right" id="endReason">ended</span>
-            </div>
-            <div class="boss-pill">
-              <span class="left">วันที่เล่น</span>
-              <span class="right" id="playedAt">-</span>
-            </div>
-          </div>
-
-          <div class="mini">
-            รอบต่อไปลองตั้งเป้าหมายง่าย ๆ เช่น “ผ่านบอสเพิ่มอีก 1 ตัว” หรือ “ทำความแม่นยำให้เกิน 80%”
-          </div>
-        </section>
+        <div class="stat"><div class="stat-k">เวลา</div><div id="statTime" class="stat-v">0 วินาที</div></div>
+        <div class="stat"><div class="stat-k">คะแนน</div><div id="statScore" class="stat-v">0</div></div>
+        <div class="stat"><div class="stat-k">ความแม่นยำ</div><div id="statAcc" class="stat-v">0%</div></div>
+        <div class="stat"><div class="stat-k">เกรด</div><div id="statGrade" class="stat-v">C</div></div>
       </div>
     </section>
 
-    <section id="emptyState" class="empty">
-      ยังไม่พบผลล่าสุดของ Shadow Breaker สำหรับผู้เล่นนี้<br />
-      ลองเข้าเล่นเกมก่อน แล้วค่อยกลับมาดูหน้าสรุปอีกครั้ง
+    <section class="section">
+      <div class="section-title">รายละเอียดรอบล่าสุด</div>
+      <div class="summary-list">
+        <div class="summary-item"><div class="label">PID</div><div id="detailPid" class="value">-</div></div>
+        <div class="summary-item"><div class="label">โหมด</div><div id="detailMode" class="value">-</div></div>
+        <div class="summary-item"><div class="label">ระดับความท้าทาย</div><div id="detailDiff" class="value">-</div></div>
+        <div class="summary-item"><div class="label">คอมโบสูงสุด</div><div id="detailCombo" class="value">0</div></div>
+        <div class="summary-item"><div class="label">จำนวนพลาด</div><div id="detailMiss" class="value">0</div></div>
+        <div class="summary-item"><div class="label">บอสที่ผ่าน</div><div id="detailBosses" class="value">0</div></div>
+        <div class="summary-item"><div class="label">บอสที่ไปถึงไกลสุด</div><div id="detailBestBoss" class="value">-</div></div>
+        <div class="summary-item"><div class="label">จบด่านที่</div><div id="detailPhase" class="value">1</div></div>
+        <div class="summary-item"><div class="label">เหตุผลที่จบเกม</div><div id="detailEndReason" class="value">-</div></div>
+        <div class="summary-item"><div class="label">เวลาเล่นที่ตั้งไว้</div><div id="detailTimeSec" class="value">0 วินาที</div></div>
+      </div>
+
+      <div class="actions">
+        <a id="btnReplay" class="btn primary" href="./shadow-breaker-vr.html">▶ เล่นอีกครั้ง</a>
+        <a id="btnBackHub" class="btn yellow" href="./hub.html">← กลับ HUB</a>
+        <button id="btnReload" class="btn ghost" type="button">รีโหลดข้อมูล</button>
+      </div>
+
+      <div class="footnote">
+        หน้านี้จะอ่านผลล่าสุดของ Shadow Breaker จากเครื่องนี้ก่อน ถ้ายังไม่พบข้อมูล อาจเพิ่งยังไม่เคยจบรอบ หรือ localStorage ถูกล้าง
+      </div>
     </section>
-  </main>
+
+    <div id="emptyBox" class="empty" style="display:none;">
+      ยังไม่พบสรุปผลล่าสุดของ Shadow Breaker ในเครื่องนี้<br />
+      ลองกลับไปเล่นเกมให้จบรอบก่อน แล้วค่อยกลับมาดูอีกครั้ง
+    </div>
+  </div>
 
   <script>
     (function(){
       'use strict';
 
-      const q = new URLSearchParams(location.search);
-      const pid = String(q.get('pid') || 'anon').trim() || 'anon';
-      const hub = String(q.get('hub') || './hub.html').trim() || './hub.html';
+      const $ = (s)=>document.querySelector(s);
 
-      const $ = (id)=>document.getElementById(id);
+      const els = {
+        btnBackHubTop: $('#btnBackHubTop'),
+        btnBackHub: $('#btnBackHub'),
+        btnReplay: $('#btnReplay'),
+        btnReload: $('#btnReload'),
 
-      const btnBackHubTop = $('btnBackHubTop');
-      const btnBackHub = $('btnBackHub');
-      const btnReplay = $('btnReplay');
+        badgeIcon: $('#badgeIcon'),
+        badgeTitle: $('#badgeTitle'),
+        badgeDesc: $('#badgeDesc'),
+        heroMessage: $('#heroMessage'),
 
-      if (btnBackHubTop) btnBackHubTop.href = hub;
-      if (btnBackHub) btnBackHub.href = hub;
+        statTime: $('#statTime'),
+        statScore: $('#statScore'),
+        statAcc: $('#statAcc'),
+        statGrade: $('#statGrade'),
 
-      function safeJsonParse(v, fallback=null){
-        try{ return JSON.parse(v); }catch(_){ return fallback; }
+        detailPid: $('#detailPid'),
+        detailMode: $('#detailMode'),
+        detailDiff: $('#detailDiff'),
+        detailCombo: $('#detailCombo'),
+        detailMiss: $('#detailMiss'),
+        detailBosses: $('#detailBosses'),
+        detailBestBoss: $('#detailBestBoss'),
+        detailPhase: $('#detailPhase'),
+        detailEndReason: $('#detailEndReason'),
+        detailTimeSec: $('#detailTimeSec'),
+
+        emptyBox: $('#emptyBox')
+      };
+
+      function qs(k, d=''){
+        try{
+          const v = new URL(location.href).searchParams.get(k);
+          return v == null ? d : v;
+        }catch(_){
+          return d;
+        }
       }
 
-      function loadSummaryForPid(playerId){
+      function safeJsonParse(raw){
+        try{
+          return JSON.parse(raw);
+        }catch(_){
+          return null;
+        }
+      }
+
+      function loadSummary(){
+        const pid = String(qs('pid','')).trim() || 'anon';
+
         const keys = [
-          `SB_LAST_SUMMARY:${playerId}`,
-          `HHA_LAST_SUMMARY:shadowbreaker:${playerId}`,
-          'HHA_LAST_SUMMARY'
+          'HHA_LAST_SUMMARY',
+          `HHA_LAST_SUMMARY:shadowbreaker:${pid}`,
+          `SB_LAST_SUMMARY:${pid}`
         ];
 
         for (const key of keys){
           try{
             const raw = localStorage.getItem(key);
             if (!raw) continue;
-            const obj = safeJsonParse(raw, null);
-            if (!obj || typeof obj !== 'object') continue;
-            if (obj.game && obj.game !== 'shadowbreaker') continue;
-            if (!obj.game && key === 'HHA_LAST_SUMMARY') continue;
-            if (obj.pid && String(obj.pid).trim() !== playerId && key !== 'HHA_LAST_SUMMARY') continue;
-            return obj;
+            const data = safeJsonParse(raw);
+            if (data && String(data.game || '').toLowerCase() === 'shadowbreaker') {
+              return data;
+            }
+            if (data && key !== 'HHA_LAST_SUMMARY') {
+              return data;
+            }
           }catch(_){}
         }
+
         return null;
       }
 
-      function formatDate(iso){
-        if (!iso) return '-';
-        try{
-          const d = new Date(iso);
-          if (Number.isNaN(d.getTime())) return String(iso);
-          return d.toLocaleString('th-TH', {
-            year:'numeric',
-            month:'short',
-            day:'numeric',
-            hour:'2-digit',
-            minute:'2-digit'
-          });
-        }catch(_){
-          return String(iso);
-        }
+      function textMode(mode){
+        return String(mode || '').toLowerCase() === 'research' ? 'โหมดวิจัย' : 'โหมดเด็ก';
       }
 
-      function reasonLabel(reason){
+      function textEndReason(reason){
         const r = String(reason || '').toLowerCase();
         if (r === 'final_clear') return 'ชนะบอสสุดท้าย';
         if (r === 'time_up') return 'หมดเวลา';
         if (r === 'hp_zero') return 'พลังหมด';
-        if (!r) return '-';
-        return r;
+        if (r === 'ended') return 'จบรอบ';
+        if (r === 'manual_export') return 'บันทึกด้วยตนเอง';
+        return reason || '-';
       }
 
-      function buildReplayHref(sum){
-        const url = new URL('./shadow-breaker-vr.html', location.href);
-        const replayView =
-          String(sum?.view || new URLSearchParams(location.search).get('view') || 'mobile');
+      function buildHeroMessage(summary){
+        const bosses = Number(summary?.bossesCleared || 0);
+        const endReason = String(summary?.end_reason || '').toLowerCase();
 
-        url.searchParams.set('pid', String(sum?.pid || pid || 'anon'));
-        url.searchParams.set('diff', String(sum?.diff || 'normal'));
-        url.searchParams.set('time', String(sum?.timeSec || 80));
-        url.searchParams.set('mode', String(sum?.mode || 'normal'));
-        url.searchParams.set('view', replayView);
+        if (endReason === 'final_clear') return 'สุดยอดมาก! ผ่านบอสสุดท้ายแล้ว หนูเป็นฮีโร่ของวันนี้ 🎉';
+        if (bosses >= 3) return 'เก่งมาก ไปได้ไกลมากแล้ว อีกนิดเดียวก็ถึงบอสสุดท้าย';
+        if (bosses >= 1) return 'ยอดเยี่ยม ผ่านบอสได้แล้ว ลองอีกครั้งเพื่อไปต่อให้ไกลขึ้น';
+        return 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ';
+      }
+
+      function buildReplayHref(summary){
+        const hub = String(qs('hub','') || summary?.hub || './hub.html');
+        const url = new URL('./shadow-breaker-vr.html', location.href);
+
+        url.searchParams.set('pid', String(summary?.pid || qs('pid','anon') || 'anon'));
+        url.searchParams.set('diff', String(summary?.diff || qs('diff','normal') || 'normal'));
+        url.searchParams.set('time', String(summary?.timeSec || qs('time','70') || '70'));
+        url.searchParams.set('mode', String(summary?.mode || qs('mode','normal') || 'normal'));
+        url.searchParams.set('view', String(summary?.view || qs('view','mobile') || 'mobile'));
         url.searchParams.set('hub', hub);
 
-        if (sum?.studyId) url.searchParams.set('studyId', String(sum.studyId));
-        if (sum?.group) url.searchParams.set('group', String(sum.group));
-        if (sum?.conditionGroup) url.searchParams.set('conditionGroup', String(sum.conditionGroup));
+        if (summary?.studyId) url.searchParams.set('studyId', String(summary.studyId));
+        if (summary?.group) url.searchParams.set('group', String(summary.group));
+        if (summary?.conditionGroup) url.searchParams.set('conditionGroup', String(summary.conditionGroup));
 
         return url.toString();
       }
 
-      function render(sum){
-        $('summaryContent').style.display = '';
-        $('emptyState').style.display = 'none';
+      function applyLinks(summary){
+        const hub = String(qs('hub','') || summary?.hub || './hub.html');
 
-        const badge = sum.badge || {
-          icon:'🥊',
-          title:'Shadow Starter',
-          desc:'เริ่มต้นได้ดี ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม'
-        };
-
-        $('heroBadge').textContent = badge.icon || '🥊';
-        $('heroNote').textContent =
-          (sum.grade === 'S' || sum.grade === 'A')
-            ? 'วันนี้ทำได้ยอดเยี่ยมมาก!'
-            : (Number(sum.bossesCleared || 0) >= 1 ? 'ผ่านบอสได้แล้ว เก่งมาก!' : 'เริ่มต้นได้ดี ลองอีกครั้งได้นะ');
-
-        $('statScore').textContent = String(sum.scoreFinal ?? 0);
-        $('statAcc').textContent = `${Number(sum.accPct ?? 0).toFixed(1)}%`;
-        $('statCombo').textContent = String(sum.comboMax ?? 0);
-        $('statGrade').textContent = String(sum.grade || 'C');
-        $('statBosses').textContent = String(sum.bossesCleared ?? 0);
-        $('statPhase').textContent = String(sum.phaseFinal ?? 1);
-        $('statMiss').textContent = String(sum.missTotal ?? 0);
-        $('statTime').textContent = `${Number(sum.elapsedSec ?? 0).toFixed(1)} วินาที`;
-
-        $('resultMessage').textContent =
-          String(sum.end_reason || '') === 'final_clear'
-            ? 'สุดยอดมาก! วันนี้หนูชนะบอสสุดท้ายได้แล้ว 🎉'
-            : (sum.bossesCleared >= 3
-                ? 'เก่งมาก ไปได้ไกลมากแล้ว อีกนิดเดียวก็ถึงบอสสุดท้าย'
-                : (sum.bossesCleared >= 1
-                    ? 'เยี่ยมมาก ผ่านบอสได้แล้ว ลองอีกครั้งเพื่อไปต่อให้ไกลขึ้น'
-                    : 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ'));
-
-        $('badgeIcon').textContent = badge.icon || '🥊';
-        $('badgeTitle').textContent = badge.title || 'Shadow Starter';
-        $('badgeDesc').textContent = badge.desc || 'เริ่มต้นได้ดี ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
-
-        $('bestBoss').textContent = String(sum.bestReachedBoss || 'Bubble Glove');
-        $('bestMode').textContent = String(sum.mode || 'normal');
-        $('bestDiff').textContent = String(sum.diff || 'normal');
-        $('bestTime').textContent = `${String(sum.timeSec || 80)} วินาที`;
-        $('endReason').textContent = reasonLabel(sum.end_reason);
-        $('playedAt').textContent = formatDate(sum.timestampIso || sum.ts || Date.now());
-
-        $('metaBox').textContent =
-          `ผู้เล่น: ${String(sum.pid || pid)} • session: ${String(sum.sessionId || '-')} • studyId: ${String(sum.studyId || '-')}`;
-
-        if (btnReplay) btnReplay.href = buildReplayHref(sum);
+        if (els.btnBackHubTop) els.btnBackHubTop.href = hub;
+        if (els.btnBackHub) els.btnBackHub.href = hub;
+        if (els.btnReplay) els.btnReplay.href = buildReplayHref(summary);
       }
 
-      const summary = loadSummaryForPid(pid);
+      function render(summary){
+        if (!summary){
+          els.emptyBox.style.display = '';
+          return;
+        }
 
-      if (summary) {
+        els.emptyBox.style.display = 'none';
+
+        els.badgeIcon.textContent = summary?.badge?.icon || '🏅';
+        els.badgeTitle.textContent = summary?.badge?.title || 'Shadow Starter';
+        els.badgeDesc.textContent = summary?.badge?.desc || 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
+        els.heroMessage.textContent = buildHeroMessage(summary);
+
+        els.statTime.textContent = `${Number(summary?.elapsedSec || 0).toFixed(1)} วินาที`;
+        els.statScore.textContent = String(summary?.scoreFinal || 0);
+        els.statAcc.textContent = `${Number(summary?.accPct || 0).toFixed(1)}%`;
+        els.statGrade.textContent = String(summary?.grade || 'C');
+
+        els.detailPid.textContent = String(summary?.pid || '-');
+        els.detailMode.textContent = textMode(summary?.mode);
+        els.detailDiff.textContent = String(summary?.diff || '-');
+        els.detailCombo.textContent = String(summary?.comboMax || 0);
+        els.detailMiss.textContent = String(summary?.missTotal || 0);
+        els.detailBosses.textContent = String(summary?.bossesCleared || 0);
+        els.detailBestBoss.textContent = String(summary?.bestReachedBoss || '-');
+        els.detailPhase.textContent = String(summary?.phaseFinal || 1);
+        els.detailEndReason.textContent = textEndReason(summary?.end_reason);
+        els.detailTimeSec.textContent = `${Number(summary?.timeSec || 0)} วินาที`;
+
+        applyLinks(summary);
+      }
+
+      function boot(){
+        const summary = loadSummary();
         render(summary);
-      } else {
-        $('summaryContent').style.display = 'none';
-        $('emptyState').style.display = '';
       }
 
-      $('btnClear')?.addEventListener('click', ()=>{
-        try{
-          localStorage.removeItem(`SB_LAST_SUMMARY:${pid}`);
-          localStorage.removeItem(`HHA_LAST_SUMMARY:shadowbreaker:${pid}`);
-        }catch(_){}
-        location.reload();
-      });
+      els.btnReload?.addEventListener('click', boot);
+
+      boot();
     })();
   </script>
 </body>
