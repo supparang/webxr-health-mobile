@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Route Guard</title>
+  <title>HeroHealth • GoodJunk VR Router</title>
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
   <style>
@@ -18,10 +18,13 @@
       --green2:#58c33f;
       --blue:#7fcfff;
       --blue2:#58b7f5;
+      --orange:#ffd37a;
+      --orange2:#ffb84d;
       --shadow:0 18px 40px rgba(86,155,194,.16);
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -41,7 +44,7 @@
     }
 
     .card{
-      width:min(92vw,560px);
+      width:min(92vw,620px);
       border-radius:28px;
       border:3px solid var(--line);
       background:linear-gradient(180deg,#fffef9,#f7fff4);
@@ -78,6 +81,26 @@
       font-weight:900;
     }
 
+    .chips{
+      margin-top:14px;
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .chip{
+      min-height:34px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:rgba(255,255,255,.92);
+      color:#6c6a61;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+    }
+
     .actions{
       margin-top:16px;
       display:grid;
@@ -110,19 +133,29 @@
       background:linear-gradient(180deg,var(--green),var(--green2));
       color:#133b09;
     }
+
+    .btn.retry{
+      background:linear-gradient(180deg,var(--orange),var(--orange2));
+      color:#5a3b11;
+    }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="icon">🍔</div>
     <h1>กำลังจัดเส้นทาง GoodJunk</h1>
-    <p id="statusText">
-      กรุณารอสักครู่ ระบบกำลังพาไปหน้าที่ถูกต้อง
-    </p>
+    <p id="statusText">กรุณารอสักครู่ ระบบกำลังพาไปหน้าที่ถูกต้อง</p>
+
+    <div class="chips">
+      <div class="chip" id="chipMode">MODE • -</div>
+      <div class="chip" id="chipEntry">ENTRY • -</div>
+      <div class="chip" id="chipRoom">ROOM • -</div>
+    </div>
 
     <div class="actions">
       <a id="btnLauncher" class="btn primary" href="./goodjunk-launcher.html">🎮 ไป Launcher</a>
       <a id="btnHub" class="btn hub" href="./hub-v2.html">🏠 กลับ Hub</a>
+      <button id="btnRetry" class="btn retry" type="button">🔄 ลองใหม่</button>
     </div>
   </div>
 
@@ -131,9 +164,37 @@
       'use strict';
 
       const q = new URLSearchParams(location.search);
+
       const statusText = document.getElementById('statusText');
       const btnLauncher = document.getElementById('btnLauncher');
       const btnHub = document.getElementById('btnHub');
+      const btnRetry = document.getElementById('btnRetry');
+      const chipMode = document.getElementById('chipMode');
+      const chipEntry = document.getElementById('chipEntry');
+      const chipRoom = document.getElementById('chipRoom');
+
+      const MULTI_MODES = ['duet', 'race', 'battle', 'coop'];
+
+      const PLAY_PATHS = {
+        duet: './vr-goodjunk/goodjunk-duet-play.html',
+        race: './vr-goodjunk/goodjunk-race-play.html',
+        battle: './vr-goodjunk/goodjunk-battle-play.html',
+        coop: './vr-goodjunk/goodjunk-coop-play.html'
+      };
+
+      const LOBBY_PATHS = {
+        duet: './goodjunk-duet-lobby.html',
+        race: './goodjunk-race-lobby.html',
+        battle: './goodjunk-battle-lobby.html',
+        coop: './goodjunk-coop-lobby.html'
+      };
+
+      const MAX_PLAYERS_BY_MODE = {
+        duet: '2',
+        battle: '2',
+        race: '10',
+        coop: '10'
+      };
 
       function first(){
         for (let i = 0; i < arguments.length; i++) {
@@ -143,6 +204,19 @@
         return '';
       }
 
+      function clean(v, fallback=''){
+        const s = String(v || '').trim();
+        return s || fallback;
+      }
+
+      function lower(v){
+        return clean(v).toLowerCase();
+      }
+
+      function setText(text){
+        if (statusText) statusText.textContent = text;
+      }
+
       function passTo(url){
         q.forEach((v, k) => {
           if (v != null && v !== '') url.searchParams.set(k, v);
@@ -150,44 +224,174 @@
         return url;
       }
 
-      const hub = first(q.get('hub'), new URL('./hub-v2.html', location.href).toString());
-      if (btnHub) btnHub.href = hub;
+      function removeParams(url, names){
+        names.forEach((name) => {
+          try { url.searchParams.delete(name); } catch (_) {}
+        });
+        return url;
+      }
 
-      const launcherUrl = passTo(new URL('./goodjunk-launcher.html', location.href)).toString();
-      if (btnLauncher) btnLauncher.href = launcherUrl;
+      function buildHubUrl() {
+        return first(q.get('hub'), new URL('./hub-v2.html', location.href).toString());
+      }
 
-      const entry = String(first(q.get('entry'), '')).toLowerCase();
-      const mode = String(first(q.get('mode'), '')).toLowerCase();
-      const phaseBoss = String(first(q.get('phaseBoss'), '')).toLowerCase();
-      const boss = String(first(q.get('boss'), '')).toLowerCase();
-      const theme = String(first(q.get('theme'), '')).toLowerCase();
+      function buildLauncherUrl() {
+        return passTo(new URL('./goodjunk-launcher.html', location.href)).toString();
+      }
 
-      const isSoloBoss =
-        entry === 'solo-boss' ||
-        phaseBoss === '1' ||
-        boss === '1' ||
-        theme === 'phaseboss' ||
-        (mode === 'solo' && (phaseBoss === '1' || boss === '1'));
+      function resolveMode() {
+        const mode = lower(q.get('mode'));
+        const entry = lower(q.get('entry'));
+        const recommendedMode = lower(q.get('recommendedMode'));
 
-      if (isSoloBoss) {
-        if (statusText) {
-          statusText.textContent = 'ตรวจพบเส้นทาง Solo Boss — กำลังย้ายไป gameplay core ใหม่';
-        }
+        if (MULTI_MODES.includes(mode)) return mode;
+        if (MULTI_MODES.includes(entry)) return entry;
+        if (MULTI_MODES.includes(recommendedMode)) return recommendedMode;
 
-        const target = passTo(new URL('./goodjunk-solo-boss.html', location.href));
+        return '';
+      }
+
+      function isSoloBossRequested() {
+        const entry = lower(q.get('entry'));
+        const mode = lower(q.get('mode'));
+        const recommendedMode = lower(q.get('recommendedMode'));
+        const phaseBoss = lower(q.get('phaseBoss'));
+        const boss = lower(q.get('boss'));
+        const theme = lower(q.get('theme'));
+
+        return (
+          entry === 'solo-boss' ||
+          recommendedMode === 'solo-boss' ||
+          phaseBoss === '1' ||
+          boss === '1' ||
+          theme === 'phaseboss' ||
+          (mode === 'solo' && (phaseBoss === '1' || boss === '1'))
+        );
+      }
+
+      function hasRoom() {
+        return !!clean(first(q.get('roomId'), q.get('room')), '');
+      }
+
+      function buildMultiTarget(mode) {
+        const path = hasRoom() ? PLAY_PATHS[mode] : LOBBY_PATHS[mode];
+        const url = passTo(new URL(path, location.href));
+
+        removeParams(url, ['phaseBoss', 'boss']);
+
+        url.searchParams.set('mode', mode);
+        url.searchParams.set('entry', mode);
+        url.searchParams.set('recommendedMode', mode);
+        url.searchParams.set('maxPlayers', MAX_PLAYERS_BY_MODE[mode] || '2');
+        url.searchParams.set('theme', 'goodjunk');
+
+        if (!url.searchParams.get('game')) url.searchParams.set('game', 'goodjunk');
+        if (!url.searchParams.get('gameId')) url.searchParams.set('gameId', 'goodjunk');
+        if (!url.searchParams.get('zone')) url.searchParams.set('zone', 'nutrition');
+        if (!url.searchParams.get('cat')) url.searchParams.set('cat', 'nutrition');
+        if (!url.searchParams.get('view')) url.searchParams.set('view', 'mobile');
+        if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
+
+        return url.toString();
+      }
+
+      function buildSoloBossTarget() {
+        const url = passTo(new URL('./goodjunk-solo-boss.html', location.href));
+
+        removeParams(url, [
+          'room',
+          'roomId',
+          'role',
+          'host',
+          'wait',
+          'autostart',
+          'modeLocked',
+          'roomReady',
+          'maxPlayers'
+        ]);
+
+        url.searchParams.set('mode', 'solo');
+        url.searchParams.set('entry', 'solo-boss');
+        url.searchParams.set('recommendedMode', 'solo-boss');
+        url.searchParams.set('phaseBoss', '1');
+        url.searchParams.set('boss', '1');
+        url.searchParams.set('theme', 'goodjunk');
+
+        if (!url.searchParams.get('game')) url.searchParams.set('game', 'goodjunk');
+        if (!url.searchParams.get('gameId')) url.searchParams.set('gameId', 'goodjunk');
+        if (!url.searchParams.get('zone')) url.searchParams.set('zone', 'nutrition');
+        if (!url.searchParams.get('cat')) url.searchParams.set('cat', 'nutrition');
+        if (!url.searchParams.get('view')) url.searchParams.set('view', 'mobile');
+        if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
+
+        return url.toString();
+      }
+
+      function go(url, delayMs){
         setTimeout(function(){
-          location.replace(target.toString());
-        }, 80);
+          location.replace(url);
+        }, delayMs);
+      }
+
+      const hubUrl = buildHubUrl();
+      const launcherUrl = buildLauncherUrl();
+      const requestedMode = resolveMode();
+      const soloBoss = isSoloBossRequested();
+      const roomValue = clean(first(q.get('roomId'), q.get('room')), '-');
+
+      if (btnHub) btnHub.href = hubUrl;
+      if (btnLauncher) btnLauncher.href = launcherUrl;
+      if (btnRetry) {
+        btnRetry.addEventListener('click', function () {
+          location.reload();
+        });
+      }
+
+      if (chipMode) chipMode.textContent = `MODE • ${requestedMode || (soloBoss ? 'solo' : '-')}`;
+      if (chipEntry) chipEntry.textContent = `ENTRY • ${clean(q.get('entry'), '-')}`;
+      if (chipRoom) chipRoom.textContent = `ROOM • ${roomValue}`;
+
+      if (requestedMode) {
+        const target = buildMultiTarget(requestedMode);
+
+        setText(
+          hasRoom()
+            ? (
+              requestedMode === 'duet'
+                ? 'ตรวจพบโหมด Duet พร้อม room — กำลังพาไปหน้าเล่น duet'
+                : requestedMode === 'race'
+                  ? 'ตรวจพบโหมด Race พร้อม room — กำลังพาไปหน้าเล่น race'
+                  : requestedMode === 'battle'
+                    ? 'ตรวจพบโหมด Battle พร้อม room — กำลังพาไปหน้าเล่น battle'
+                    : 'ตรวจพบโหมด Co-op พร้อม room — กำลังพาไปหน้าเล่น co-op'
+            )
+            : (
+              requestedMode === 'duet'
+                ? 'ตรวจพบโหมด Duet — กำลังพาไปหน้า lobby ของ duet'
+                : requestedMode === 'race'
+                  ? 'ตรวจพบโหมด Race — กำลังพาไปหน้า lobby ของ race'
+                  : requestedMode === 'battle'
+                    ? 'ตรวจพบโหมด Battle — กำลังพาไปหน้า lobby ของ battle'
+                    : 'ตรวจพบโหมด Co-op — กำลังพาไปหน้า lobby ของ co-op'
+            )
+        );
+
+        if (btnLauncher) btnLauncher.href = target;
+        go(target, 80);
         return;
       }
 
-      if (statusText) {
-        statusText.textContent = 'ไม่ใช่เส้นทาง Solo Boss — จะกลับไปหน้า Launcher ให้เลือกโหมด';
+      if (soloBoss) {
+        const target = buildSoloBossTarget();
+
+        setText('ตรวจพบเส้นทาง Solo Boss — กำลังย้ายไป gameplay core ใหม่');
+        if (btnLauncher) btnLauncher.href = target;
+        go(target, 80);
+        return;
       }
 
-      setTimeout(function(){
-        location.replace(launcherUrl);
-      }, 180);
+      setText('ไม่พบโหมดที่ล็อกไว้ — จะกลับไปหน้า Launcher ให้เลือกโหมด');
+      go(launcherUrl, 180);
     })();
   </script>
 </body>
