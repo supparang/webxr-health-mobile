@@ -584,41 +584,6 @@
       font-weight:900;
     }
 
-    .safety-meter{
-      display:grid;
-      gap:10px;
-    }
-
-    .meter{
-      display:grid;
-      gap:6px;
-    }
-
-    .meter-head{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:center;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .bar{
-      height:14px;
-      border-radius:999px;
-      overflow:hidden;
-      background:#f0f7f1;
-      border:2px solid var(--line);
-    }
-
-    .bar-fill{
-      height:100%;
-      width:0%;
-      border-radius:inherit;
-      transition:width .18s ease;
-      background:linear-gradient(90deg,var(--blue2),var(--green2));
-    }
-
     .coach-quick{
       min-height:44px;
       border-radius:16px;
@@ -1305,7 +1270,7 @@
     </section>
 
     <div class="footer-note">
-      Fitness Planner • plan builder + actual run phase + summary bridge
+      Fitness Planner • player-defined plan • actual run • summary • cooldown bridge
     </div>
   </div>
 
@@ -1317,6 +1282,8 @@
     const Bridge = window.HHFitnessBridge || null;
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
+
+    const PLAN_STORAGE_KEY = 'HHA_FITNESS_PLANNER_CUSTOM_PLAN_V1';
 
     const TASK_LIBRARY = [
       {
@@ -1742,6 +1709,64 @@
       };
     }
 
+    function stripRuntimeFromTask(task) {
+      const clone = { ...task };
+      delete clone.runtime;
+      return clone;
+    }
+
+    function serializePlan() {
+      return {
+        warmup: state.plan.warmup.map(stripRuntimeFromTask),
+        main: state.plan.main.map(stripRuntimeFromTask),
+        cooldown: state.plan.cooldown.map(stripRuntimeFromTask)
+      };
+    }
+
+    function saveCustomPlan() {
+      try {
+        localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(serializePlan()));
+      } catch (_) {}
+    }
+
+    function normalizeStoredTask(task) {
+      const lib = getTaskById(task?.id);
+      if (!lib) return null;
+      return cloneTask(lib);
+    }
+
+    function loadCustomPlan() {
+      try {
+        const raw = localStorage.getItem(PLAN_STORAGE_KEY);
+        if (!raw) return false;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return false;
+
+        const warmup = Array.isArray(parsed.warmup) ? parsed.warmup : [];
+        const main = Array.isArray(parsed.main) ? parsed.main : [];
+        const cooldown = Array.isArray(parsed.cooldown) ? parsed.cooldown : [];
+
+        state.plan.warmup = warmup.map(normalizeStoredTask).filter(Boolean);
+        state.plan.main = main.map(normalizeStoredTask).filter(Boolean);
+        state.plan.cooldown = cooldown.map(normalizeStoredTask).filter(Boolean);
+
+        return (
+          state.plan.warmup.length > 0 ||
+          state.plan.main.length > 0 ||
+          state.plan.cooldown.length > 0
+        );
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function clearSavedPlan() {
+      try {
+        localStorage.removeItem(PLAN_STORAGE_KEY);
+      } catch (_) {}
+    }
+
     function updatePills() {
       const mode = cleanText(q('mode', q('run', 'quick')), 'quick');
       const diff = cleanText(q('diff', 'normal'), 'normal');
@@ -1756,16 +1781,13 @@
       const hub = buildHubUrl();
       const fit = buildFitnessUrl();
 
-      [
-        els.btnBackFitnessTop,
-        els.btnBackFitnessSide,
-        els.btnBackFitnessRun
-      ].forEach((node) => { if (node) node.href = fit; });
+      [els.btnBackFitnessTop, els.btnBackFitnessSide, els.btnBackFitnessRun].forEach((node) => {
+        if (node) node.href = fit;
+      });
 
-      [
-        els.btnBackHubTop,
-        els.btnBackHubSide
-      ].forEach((node) => { if (node) node.href = hub; });
+      [els.btnBackHubTop, els.btnBackHubSide].forEach((node) => {
+        if (node) node.href = hub;
+      });
 
       if (els.btnSummaryFitness) {
         els.btnSummaryFitness.href = fit;
@@ -1964,6 +1986,7 @@
           const z = btn.getAttribute('data-zone');
           const i = numberOr(btn.getAttribute('data-index'), 0);
           state.plan[z].splice(i, 1);
+          saveCustomPlan();
           refreshBuilder();
         });
       });
@@ -1980,6 +2003,7 @@
           if (dir === 'down' && i < arr.length - 1) {
             [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
           }
+          saveCustomPlan();
           refreshBuilder();
         });
       });
@@ -2001,6 +2025,7 @@
       const task = getTaskById(taskId);
       if (!task || !state.plan[zone]) return;
       state.plan[zone].push(cloneTask(task));
+      saveCustomPlan();
       showToast(`เพิ่ม ${task.title} ไปที่ ${zone}`);
       refreshBuilder();
     }
@@ -2031,11 +2056,15 @@
       state.plan.warmup = [];
       state.plan.main = [];
       state.plan.cooldown = [];
+      clearSavedPlan();
       refreshBuilder();
     }
 
     function autoPlan() {
-      clearPlan();
+      state.plan.warmup = [];
+      state.plan.main = [];
+      state.plan.cooldown = [];
+
       const diff = cleanText(q('diff', 'normal'), 'normal');
       const themeTasks = availableByTheme();
 
@@ -2052,15 +2081,16 @@
         state.plan.cooldown.push(cloneTask(task));
       });
 
+      saveCustomPlan();
       refreshBuilder();
       showToast('✨ จัดแผนอัตโนมัติแล้ว');
     }
 
     function flattenPlan() {
       return [
-        ...state.plan.warmup.map((t) => ({ ...t, phase:'Warm-up' })),
-        ...state.plan.main.map((t) => ({ ...t, phase:'Main' })),
-        ...state.plan.cooldown.map((t) => ({ ...t, phase:'Cooldown' }))
+        ...state.plan.warmup.map((t) => ({ ...cloneTask(stripRuntimeFromTask(t)), phase:'Warm-up' })),
+        ...state.plan.main.map((t) => ({ ...cloneTask(stripRuntimeFromTask(t)), phase:'Main' })),
+        ...state.plan.cooldown.map((t) => ({ ...cloneTask(stripRuntimeFromTask(t)), phase:'Cooldown' }))
       ];
     }
 
@@ -2513,11 +2543,18 @@
     }
 
     function initDefaultPlan() {
-      autoPlan();
+      const hasLoadedCustomPlan = loadCustomPlan();
+
+      if (!hasLoadedCustomPlan) {
+        autoPlan();
+      } else {
+        refreshBuilder();
+        showToast('📋 โหลดแผนที่ผู้เล่นจัดไว้แล้ว');
+      }
 
       const mode = cleanText(q('mode', q('run', 'quick')), 'quick');
-      if (mode === 'quick') {
-        els.coachLine.textContent = 'โหมด quick พร้อมแล้ว กดเล่นตามแผนได้ทันที';
+      if (mode === 'quick' && hasLoadedCustomPlan) {
+        els.coachLine.textContent = 'ใช้แผนที่ผู้เล่นจัดไว้แล้ว กดเล่นตามแผนได้ทันที';
       }
     }
 
