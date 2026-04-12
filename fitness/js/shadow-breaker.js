@@ -4,7 +4,7 @@
 
 'use strict';
 
-import { initShadowBreaker } from './engine.js';
+import { initShadowBreaker } from './engine.js?v=20260411a';
 
 const SB_BOOT_VERSION = 'v20260411a-SB-BOOTSTRAP-SAFE';
 let booted = false;
@@ -35,7 +35,6 @@ function buildBootContext() {
   const ctx = {
     patch: SB_BOOT_VERSION,
 
-    // HeroHealth common params
     pid: qs('pid', 'anon'),
     name: qs('name', 'Hero'),
     nick: qs('nick', qs('name', 'Hero')),
@@ -45,26 +44,22 @@ function buildBootContext() {
     seed: qs('seed', String(Date.now())),
     hub: qs('hub', defaultHub),
 
-    // Shadow Breaker specific
-    mode: qs('mode', 'mixed'),          // flow | boxing | mixed
-    body: qs('body', 'standing'),       // standing | sitting
-    intensity: qs('intensity', 'move'), // learn | move | power
-    duration: qnum('duration', qnum('time', 6)), // minutes preferred; fallback to time
+    mode: qs('mode', 'mixed'),
+    body: qs('body', 'standing'),
+    intensity: qs('intensity', 'move'),
+    duration: qnum('duration', qnum('time', 6)),
     diff: qs('diff', 'normal'),
 
-    // optional pass-through
     zone: qs('zone', 'fitness'),
     game: qs('game', 'shadowbreaker'),
     gameId: qs('gameId', 'shadowbreaker'),
     cat: qs('cat', 'fitness'),
     theme: qs('theme', 'shadowbreaker'),
 
-    // debug / logging
     debug: qbool('debug', false),
     log: qbool('log', false)
   };
 
-  // normalize duration
   if (![3, 6, 10].includes(Number(ctx.duration))) {
     ctx.duration = 6;
   }
@@ -257,10 +252,7 @@ function bootShadowBreaker() {
   }
 
   try {
-    // JS อนุญาตให้ส่ง arg เกินได้
-    // engine เก่ารับ 0 arg ก็ยังทำงานได้
     initShadowBreaker(ctx);
-
     hideBootMessage();
 
     if (ctx.debug || ctx.log) {
