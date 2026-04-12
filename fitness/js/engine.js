@@ -1,10 +1,10 @@
 // === /fitness/js/engine.js ===
 // Shadow Breaker engine
-// PATCH v20260411a-SB-ENGINE-CTX-SESSION-SUMMARY
+// PATCH v20260411b-SB-ENGINE-CTX-SESSION-SUMMARY
 
 'use strict';
 
-const SB_ENGINE_VERSION = 'v20260411a-SB-ENGINE-CTX-SESSION-SUMMARY';
+const SB_ENGINE_VERSION = 'v20260411b-SB-ENGINE-CTX-SESSION-SUMMARY';
 const SB_GLOBAL_KEY = '__SB_ENGINE_SINGLETON__';
 
 export function initShadowBreaker(ctx = {}) {
@@ -364,11 +364,13 @@ async function runRound(engine, round) {
   state.boss.active = false;
   ui.setCue('ผ่านรอบแล้ว!', 'hit');
   ui.setCoachText(round.type === 'boss' ? 'เก่งมาก! ผ่านบอสแล้ว' : 'ดีมาก ไปต่อรอบหน้า');
+
   if (round.type === 'boss') {
     state.boss.clears += 1;
     state.boss.hp = 0;
     logger.emit('sb_boss_clear', { roundIndex: round.index });
   }
+
   await sleep(800);
 }
 
@@ -648,9 +650,10 @@ function updateAccuracy(state) {
 }
 
 function calcBossHpFromActions(actions, state) {
-  const hitCount = actions.filter(a => a.spawned).length - state.actions.timeoutMiss;
-  const resolved = Math.max(0, hitCount - state.actions.freeAction);
-  return Math.max(0, actions.length - resolved);
+  const resolved = actions.filter(a => a.spawned).length;
+  const misses = state.actions.timeoutMiss;
+  const successful = Math.max(0, resolved - misses);
+  return Math.max(0, actions.length - successful);
 }
 
 /* ------------------------------------------------------------------ */
@@ -662,6 +665,7 @@ async function completeSession(engine, reason = 'natural_end') {
   if (engine.ended) return;
 
   engine.ended = true;
+  engine.running = false;
   state.session.endRequested = true;
   state.session.reasonEnded = reason;
   state.session.endedAt = Date.now();
@@ -702,7 +706,9 @@ async function completeSession(engine, reason = 'natural_end') {
 function endSession(reason, state, ui, logger) {
   if (state.session.endRequested) return;
   state.session.endRequested = true;
+
   logger.emit('sb_session_abort_request', { reason });
+
   ui.showOverlay(`
     <h2 style="margin:0 0 10px">ต้องการออกจากเกมหรือไม่</h2>
     <div class="sb-actions">
@@ -1476,6 +1482,22 @@ function nextCoachLine(round, state) {
   if (round.style === 'boxing') return 'ชัดจังหวะ ชัดหมัด';
   if (state.cfg.body === 'sitting') return 'ใช้ช่วงแขนและลำตัวให้เต็มที่';
   return 'ดีมาก รักษาจังหวะนี้ไว้';
+}
+
+function actionLabel(action) {
+  return {
+    jab: 'JAB',
+    cross: 'CROSS',
+    hook_left: 'HOOK L',
+    hook_right: 'HOOK R',
+    uppercut_left: 'UP L',
+    uppercut_right: 'UP R',
+    guard: 'BLOCK',
+    duck: 'DUCK',
+    slip_left: 'SLIP L',
+    slip_right: 'SLIP R',
+    flow_hit: 'FLOW'
+  }[action] || 'HIT';
 }
 
 function estimateTier(state) {
