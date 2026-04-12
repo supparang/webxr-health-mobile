@@ -3,106 +3,318 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk • Duet Play</title>
+  <title>HeroHealth • GoodJunk Duet Play</title>
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d8;
+      --line:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#7b7a72;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --orange:#ffd37a;
+      --orange2:#ffb84d;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(255,255,255,.84), transparent 18%),
+        radial-gradient(circle at 86% 10%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
+    }
+
+    body{
+      min-height:100dvh;
+      display:grid;
+      place-items:center;
+      padding:18px;
+    }
+
+    .card{
+      width:min(92vw,640px);
+      border-radius:28px;
+      border:3px solid var(--line);
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      box-shadow:var(--shadow);
+      padding:22px 20px;
+      text-align:center;
+    }
+
+    .icon{
+      width:96px;
+      height:96px;
+      margin:0 auto 10px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      font-size:46px;
+      background:linear-gradient(180deg,#fff3de,#ffe0b8);
+      border:3px solid #ffd89b;
+    }
+
+    h1{
+      margin:0;
+      font-size:30px;
+      line-height:1.06;
+      font-weight:1000;
+      color:#67a91c;
+    }
+
+    p{
+      margin:10px 0 0;
+      font-size:14px;
+      line-height:1.7;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .chips{
+      margin-top:14px;
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .chip{
+      min-height:34px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:rgba(255,255,255,.92);
+      color:#6c6a61;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+    }
+
+    .actions{
+      margin-top:16px;
+      display:grid;
+      gap:10px;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:46px;
+      padding:11px 16px;
+      border-radius:16px;
+      font-size:15px;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+      color:inherit;
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#08374d;
+    }
+
+    .btn.hub{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#133b09;
+    }
+
+    .btn.retry{
+      background:linear-gradient(180deg,var(--orange),var(--orange2));
+      color:#5a3b11;
+    }
+  </style>
 </head>
 <body>
-  <script type="module">
-    import { bootGoodJunkModePlay } from './goodjunk-mode-play-router.js?v=20260411b-GJ-MODE-PLAY-ROUTER-ROOM-NORMALIZE';
+  <div class="card">
+    <div class="icon">🤝</div>
+    <h1>กำลังเข้า GoodJunk Duet</h1>
+    <p id="statusText">ระบบกำลังตรวจสอบห้องและพาไปหน้าที่ถูกต้อง</p>
 
-    function qs(name, fallback = '') {
-      try {
-        return new URL(location.href).searchParams.get(name) ?? fallback;
-      } catch (_) {
-        return fallback;
+    <div class="chips">
+      <div class="chip" id="chipMode">MODE • duet</div>
+      <div class="chip" id="chipRoom">ROOM • -</div>
+      <div class="chip" id="chipRole">ROLE • player</div>
+    </div>
+
+    <div class="actions">
+      <a id="btnLobby" class="btn primary" href="./goodjunk-duet-lobby.html">👥 ไป Lobby</a>
+      <a id="btnHub" class="btn hub" href="../hub-v2.html">🏠 กลับ Hub</a>
+      <button id="btnRetry" class="btn retry" type="button">🔄 ลองใหม่</button>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const q = new URLSearchParams(location.search);
+
+      const statusText = document.getElementById('statusText');
+      const chipMode = document.getElementById('chipMode');
+      const chipRoom = document.getElementById('chipRoom');
+      const chipRole = document.getElementById('chipRole');
+      const btnLobby = document.getElementById('btnLobby');
+      const btnHub = document.getElementById('btnHub');
+      const btnRetry = document.getElementById('btnRetry');
+
+      const LOBBY_PATH = './goodjunk-duet-lobby.html';
+      const RUNTIME_PATH = './goodjunk-duet-runtime.html';
+
+      function clean(v, fallback=''){
+        const s = String(v || '').trim();
+        return s || fallback;
       }
-    }
 
-    function clean(v, fallback = '') {
-      const s = String(v ?? '').trim();
-      return s || fallback;
-    }
+      function lower(v){
+        return clean(v).toLowerCase();
+      }
 
-    function buildUrl(path, extra = {}, base = location.href) {
-      const u = new URL(path, base);
-      Object.entries(extra).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') {
-          u.searchParams.set(k, String(v));
+      function first(){
+        for (let i = 0; i < arguments.length; i++) {
+          const v = arguments[i];
+          if (String(v || '').trim()) return String(v).trim();
         }
-      });
-      return u.toString();
-    }
-
-    function ensureNormalizedSearch() {
-      const url = new URL(location.href);
-      const p = url.searchParams;
-
-      const pid = clean(p.get('pid'), 'anon');
-      const name = clean(p.get('name') || p.get('nick'), 'Hero');
-      const nick = clean(p.get('nick') || p.get('name'), name);
-      const diff = clean(p.get('diff'), 'normal');
-      const time = clean(p.get('time'), '90');
-      const view = clean(p.get('view'), 'mobile');
-      const hub = clean(p.get('hub'), '../hub.html');
-      const run = clean(p.get('run'), 'play');
-      const seed = clean(p.get('seed'), String(Date.now()));
-      const zone = clean(p.get('zone'), 'nutrition');
-      const cat = clean(p.get('cat'), 'nutrition');
-      const game = clean(p.get('game'), 'goodjunk');
-      const gameId = clean(p.get('gameId'), 'goodjunk');
-      const theme = clean(p.get('theme'), 'goodjunk');
-      const studyId = clean(p.get('studyId'), '');
-      const conditionGroup = clean(p.get('conditionGroup'), '');
-
-      const roomId = clean(p.get('roomId') || p.get('room'), '');
-      if (roomId) {
-        p.set('roomId', roomId);
-        p.set('room', roomId);
+        return '';
       }
 
-      p.set('mode', 'duet');
-      p.set('entry', clean(p.get('entry'), 'duet'));
-      p.set('recommendedMode', 'duet');
-
-      if (!p.get('cdnext')) {
-        const cdnext = buildUrl('../goodjunk-launcher.html', {
-          pid,
-          name,
-          nick,
-          diff,
-          time,
-          hub,
-          view,
-          run,
-          seed,
-          zone,
-          cat,
-          game,
-          gameId,
-          theme,
-          recommendedMode: 'duet',
-          studyId,
-          conditionGroup
-        }, location.href);
-
-        p.set('cdnext', cdnext);
+      function setText(text){
+        if (statusText) statusText.textContent = text;
       }
 
-      const normalizedHref = url.toString();
-      if (normalizedHref !== location.href) {
-        history.replaceState(null, '', normalizedHref);
+      function passTo(url){
+        q.forEach((v, k) => {
+          if (v != null && v !== '') url.searchParams.set(k, v);
+        });
+        return url;
       }
-    }
 
-    ensureNormalizedSearch();
+      function removeParams(url, names){
+        names.forEach((name) => {
+          try { url.searchParams.delete(name); } catch (_) {}
+        });
+        return url;
+      }
 
-    bootGoodJunkModePlay({
-      mode: 'duet',
-      title: 'GoodJunk • Duet Play',
-      subtitle: 'กำลังเข้าโหมด duet และคง room เดิมไว้ให้ครบ',
-      emoji: '🤝',
-      targetPath: './goodjunk-duet-runtime.html',
-      launcherPath: '../goodjunk-launcher.html'
-    });
+      function go(url, delayMs){
+        setTimeout(function(){
+          location.replace(url);
+        }, delayMs);
+      }
+
+      const roomId = clean(first(q.get('roomId'), q.get('room')), '');
+      const role = clean(first(q.get('role'), 'player'), 'player');
+      const hub = clean(q.get('hub'), new URL('../hub-v2.html', location.href).toString());
+
+      function buildLobbyUrl() {
+        const url = passTo(new URL(LOBBY_PATH, location.href));
+
+        removeParams(url, ['phaseBoss', 'boss']);
+
+        url.searchParams.set('mode', 'duet');
+        url.searchParams.set('entry', 'duet');
+        url.searchParams.set('recommendedMode', 'duet');
+        url.searchParams.set('maxPlayers', '2');
+        url.searchParams.set('theme', 'goodjunk');
+
+        if (!url.searchParams.get('game')) url.searchParams.set('game', 'goodjunk');
+        if (!url.searchParams.get('gameId')) url.searchParams.set('gameId', 'goodjunk');
+        if (!url.searchParams.get('zone')) url.searchParams.set('zone', 'nutrition');
+        if (!url.searchParams.get('cat')) url.searchParams.set('cat', 'nutrition');
+        if (!url.searchParams.get('view')) url.searchParams.set('view', 'mobile');
+        if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
+
+        return url.toString();
+      }
+
+      function buildRuntimeUrl() {
+        const url = passTo(new URL(RUNTIME_PATH, location.href));
+
+        removeParams(url, ['phaseBoss', 'boss']);
+
+        url.searchParams.set('mode', 'duet');
+        url.searchParams.set('entry', 'duet');
+        url.searchParams.set('recommendedMode', 'duet');
+        url.searchParams.set('maxPlayers', '2');
+        url.searchParams.set('theme', 'goodjunk');
+        url.searchParams.set('roomId', roomId);
+        url.searchParams.set('room', roomId);
+        url.searchParams.set('role', role);
+
+        if (!url.searchParams.get('game')) url.searchParams.set('game', 'goodjunk');
+        if (!url.searchParams.get('gameId')) url.searchParams.set('gameId', 'goodjunk');
+        if (!url.searchParams.get('zone')) url.searchParams.set('zone', 'nutrition');
+        if (!url.searchParams.get('cat')) url.searchParams.set('cat', 'nutrition');
+        if (!url.searchParams.get('view')) url.searchParams.set('view', 'mobile');
+        if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
+
+        return url.toString();
+      }
+
+      const lobbyUrl = buildLobbyUrl();
+
+      if (btnLobby) btnLobby.href = lobbyUrl;
+      if (btnHub) btnHub.href = hub;
+      if (btnRetry) {
+        btnRetry.addEventListener('click', function () {
+          location.reload();
+        });
+      }
+
+      if (chipMode) chipMode.textContent = 'MODE • duet';
+      if (chipRoom) chipRoom.textContent = `ROOM • ${roomId || '-'}`;
+      if (chipRole) chipRole.textContent = `ROLE • ${role}`;
+
+      window.__GJ_RUN_CTX__ = {
+        pid: clean(q.get('pid'), 'anon'),
+        name: clean(first(q.get('name'), q.get('nick')), 'Hero'),
+        nick: clean(first(q.get('nick'), q.get('name')), 'Hero'),
+        studyId: clean(q.get('studyId'), ''),
+        roomId: roomId,
+        role: role,
+        mode: 'duet',
+        entry: 'duet',
+        recommendedMode: 'duet',
+        diff: clean(q.get('diff'), 'normal'),
+        time: clean(q.get('time'), '90'),
+        seed: clean(q.get('seed'), String(Date.now())),
+        startAt: 0,
+        hub: hub,
+        nextAfterCooldown: clean(q.get('nextAfterCooldown'), lobbyUrl),
+        cdnext: clean(q.get('cdnext'), lobbyUrl),
+        view: clean(q.get('view'), 'mobile'),
+        run: clean(q.get('run'), 'play'),
+        gameId: clean(q.get('gameId'), 'goodjunk'),
+        game: clean(q.get('game'), 'goodjunk'),
+        cat: clean(q.get('cat'), 'nutrition'),
+        zone: clean(q.get('zone'), 'nutrition')
+      };
+
+      if (!roomId) {
+        setText('ยังไม่พบ room ของ duet — จะพากลับไปหน้า lobby');
+        go(lobbyUrl, 120);
+        return;
+      }
+
+      const runtimeUrl = buildRuntimeUrl();
+      setText('ตรวจพบห้อง duet แล้ว — กำลังพาไปหน้าเล่น');
+      go(runtimeUrl, 80);
+    })();
   </script>
 </body>
 </html>
