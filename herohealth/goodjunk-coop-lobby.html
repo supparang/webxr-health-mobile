@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Co-op Lobby</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+
+  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-page-base.css" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script src="./firebase-config.js"></script>
+  <script src="./gj-room-adapter.js"></script>
+
+  <style>
+    :root{
+      --gjp-bg1:#12081f;
+      --gjp-bg2:#2f1454;
+      --gjp-bg3:#5b2fa0;
+      --gjp-good:#22c55e;
+      --gjp-info:#38bdf8;
+      --gjp-warn:#f59e0b;
+      --gjp-team:#a78bfa;
+    }
+
+    .gj-page--mode-coop{
+      background:
+        radial-gradient(900px 520px at 10% 10%, rgba(167,139,250,.18), transparent 60%),
+        radial-gradient(900px 560px at 90% 0%, rgba(56,189,248,.12), transparent 60%),
+        radial-gradient(700px 420px at 50% 100%, rgba(34,197,94,.10), transparent 60%),
+        linear-gradient(180deg,var(--gjp-bg1),var(--gjp-bg2) 48%,var(--gjp-bg3));
+    }
+
+    .gj-page__icon--coop{
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 40%),
+        linear-gradient(135deg, rgba(167,139,250,.22), rgba(56,189,248,.18));
+    }
+
+    .gj-fieldGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .gj-field{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .gj-field label{
+      font-size:13px;
+      color:var(--gjp-muted);
+      font-weight:1000;
+    }
+
+    .gj-field input,
+    .gj-field select{
+      min-height:48px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(2,6,23,.76);
+      color:var(--gjp-text);
+      padding:10px 12px;
+      outline:none;
+      width:100%;
+    }
+
+    .gj-field input:focus,
+    .gj-field select:focus{
+      outline:3px solid rgba(167,139,250,.28);
+      outline-offset:2px;
+    }
+
+    .gj-roomRow{
+      display:grid;
+      grid-template-columns:1fr auto auto;
+      gap:10px;
+      align-items:end;
+    }
+
+    .gj-playerList{
+      display:grid;
+      gap:10px;
+    }
+
+    .gj-playerRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+    }
+
+    .gj-playerName{
+      font-size:14px;
+      font-weight:1000;
+      color:#fff;
+      word-break:break-word;
+    }
+
+    .gj-playerTag{
+      min-height:30px;
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#fff;
+      white-space:nowrap;
+    }
+
+    .gj-playerTag--host{
+      border-color:rgba(167,139,250,.34);
+      background:rgba(167,139,250,.16);
+      color:#f6f2ff;
+    }
+
+    .gj-playerTag--guest{
+      border-color:rgba(56,189,248,.34);
+      background:rgba(56,189,248,.16);
+      color:#eefbff;
+    }
+
+    .gj-chipRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .gj-chip{
+      min-height:32px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      font-size:11px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+    }
+
+    .gj-chip--good{
+      border-color:rgba(34,197,94,.30);
+      background:rgba(34,197,94,.16);
+      color:#f0fff5;
+    }
+
+    .gj-chip--info{
+      border-color:rgba(56,189,248,.30);
+      background:rgba(56,189,248,.16);
+      color:#eefbff;
+    }
+
+    .gj-chip--warn{
+      border-color:rgba(245,158,11,.30);
+      background:rgba(245,158,11,.16);
+      color:#fff7db;
+    }
+
+    .gj-chip--team{
+      border-color:rgba(167,139,250,.30);
+      background:rgba(167,139,250,.16);
+      color:#f6f2ff;
+    }
+
+    .gj-log{
+      min-height:84px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.05);
+      padding:12px 14px;
+      color:#efe8ff;
+      font-size:12px;
+      line-height:1.55;
+      font-weight:900;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .gj-notice--good{
+      border-color:rgba(34,197,94,.30);
+      background:rgba(34,197,94,.16);
+      color:#f0fff5;
+    }
+
+    .gj-notice--warn{
+      border-color:rgba(245,158,11,.30);
+      background:rgba(245,158,11,.16);
+      color:#fff7db;
+    }
+
+    .gj-notice--bad{
+      border-color:rgba(239,68,68,.30);
+      background:rgba(239,68,68,.16);
+      color:#fff1f2;
+    }
+
+    @media (max-width:900px){
+      .gj-fieldGrid{ grid-template-columns:1fr; }
+      .gj-roomRow{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body class="gj-page gj-page--mode-coop">
+  <header class="gj-page__hero">
+    <div class="gj-page__brand">
+      <div class="gj-page__icon gj-page__icon--coop">🫶</div>
+      <div class="gj-page__titles">
+        <h1 class="gj-page__title">GoodJunk Co-op Lobby</h1>
+        <p class="gj-page__subtitle">ช่วยกันเก็บ good เพื่อทำ Team Goal • 2–10 คน • Host สร้างห้องแล้วกดเริ่มเอง</p>
+      </div>
+    </div>
+
+    <div class="gj-page__heroActions">
+      <a id="btnBackLauncherTop" class="gj-btn" href="#">กลับ Launcher</a>
+      <a id="btnBackHubTop" class="gj-btn gj-btn--team" href="#">กลับ Hub</a>
+    </div>
+  </header>
+
+  <section class="gj-page__stats">
+    <div class="gj-statCard">
+      <div class="gj-statCard__label">Room</div>
+      <div id="statRoom" class="gj-statCard__value">-</div>
+    </div>
+
+    <div class="gj-statCard">
+      <div class="gj-statCard__label">Role</div>
+      <div id="statRole" class="gj-statCard__value">-</div>
+    </div>
+
+    <div class="gj-statCard">
+      <div class="gj-statCard__label">Players</div>
+      <div id="statPlayers" class="gj-statCard__value">0/10</div>
+    </div>
+
+    <div class="gj-statCard">
+      <div class="gj-statCard__label">Status</div>
+      <div id="statStatus" class="gj-statCard__value">waiting</div>
+    </div>
+  </section>
+
+  <main class="gj-page__body">
+    <section class="gj-panel">
+      <div class="gj-panel__title">ตั้งค่าห้อง Co-op</div>
+      <div class="gj-panel__sub">โหมดนี้ช่วยกันเก็บ good/junk เพื่อไปให้ถึง Team Goal • ไม่มี boss • เริ่มได้เมื่อมีอย่างน้อย 2 คน</div>
+
+      <div class="gj-fieldGrid">
+        <div class="gj-field">
+          <label for="nick">ชื่อเล่น</label>
+          <input id="nick" placeholder="เช่น Hero" />
+        </div>
+
+        <div class="gj-field">
+          <label for="pid">PID</label>
+          <input id="pid" placeholder="เช่น anon" />
+        </div>
+
+        <div class="gj-field">
+          <label for="diff">ความยาก</label>
+          <select id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+
+        <div class="gj-field">
+          <label for="time">เวลา</label>
+          <select id="time">
+            <option value="60">60s</option>
+            <option value="90" selected>90s</option>
+            <option value="120">120s</option>
+          </select>
+        </div>
+
+        <div class="gj-field">
+          <label for="view">มุมมอง</label>
+          <select id="view">
+            <option value="mobile" selected>mobile</option>
+            <option value="desktop">desktop</option>
+            <option value="cvr">cvr</option>
+          </select>
+        </div>
+
+        <div class="gj-field">
+          <label for="hub">Hub</label>
+          <input id="hub" placeholder="./hub.html" />
+        </div>
+      </div>
+
+      <div class="gj-roomRow">
+        <div class="gj-field" style="margin:0">
+          <label for="room">Room Code</label>
+          <input id="room" placeholder="เช่น CP-AB12CD" />
+        </div>
+
+        <button id="btnRandomRoom" class="gj-btn gj-btn--warn" type="button">สุ่มห้อง</button>
+        <button id="btnCopyRoom" class="gj-btn gj-btn--primary" type="button">คัดลอก</button>
+      </div>
+
+      <div class="gj-chipRow">
+        <div id="chipRoomState" class="gj-chip gj-chip--warn">ยังไม่พร้อม</div>
+        <div class="gj-chip gj-chip--team">2–10 คน</div>
+        <div class="gj-chip gj-chip--info">Host ต้องกดเริ่ม</div>
+      </div>
+    </section>
+
+    <section class="gj-panel">
+      <div class="gj-panel__title">ผู้เล่นในห้อง</div>
+      <div class="gj-panel__sub">ครบอย่างน้อย 2 คนแล้ว Host จะกดเริ่ม Co-op ได้</div>
+
+      <div id="playerList" class="gj-playerList">
+        <div class="gj-playerRow">
+          <div class="gj-playerName">ยังไม่มีผู้เล่น</div>
+          <div class="gj-playerTag">0</div>
+        </div>
+      </div>
+
+      <div id="logBox" class="gj-log">Booting co-op lobby…</div>
+    </section>
+  </main>
+
+  <footer class="gj-page__footer">
+    <div id="noticeBox" class="gj-notice gj-notice--warn">
+      ยังไม่มีห้อง • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือให้ Host สร้างก่อนแล้วค่อยกด “เข้าห้องนี้”
+    </div>
+
+    <div class="gj-actions">
+      <button id="btnCreateRoom" class="gj-btn gj-btn--good" type="button">สร้างห้อง</button>
+      <button id="btnJoinRoom" class="gj-btn gj-btn--primary" type="button">เข้าห้องนี้</button>
+      <button id="btnLeaveRoom" class="gj-btn" type="button">ออกจากห้อง</button>
+      <button id="btnStartCoop" class="gj-btn gj-btn--team" type="button" disabled>เริ่ม Co-op</button>
+    </div>
+  </footer>
+
+  <script type="module">
+    const MODE = 'coop';
+    const MIN_PLAYERS = 2;
+    const MAX_PLAYERS = 10;
+    const PLAY_PATH = './goodjunk-coop-play.html';
+
+    let roomApi = null;
+    let unsub = null;
+    let lastRoom = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    const qs = (k, d='') => {
+      try { return new URL(location.href).searchParams.get(k) ?? d; }
+      catch (_) { return d; }
+    };
+
+    function clean(v, d=''){
+      const s = String(v ?? '').trim();
+      return s || d;
+    }
+
+    function nowText(){
+      return new Date().toLocaleTimeString('th-TH', { hour12:false });
+    }
+
+    function log(msg){
+      const el = $('logBox');
+      if (!el) return;
+      el.textContent = `[${nowText()}] ${msg}`;
+    }
+
+    function buildUrl(path, extra = {}, base = location.href){
+      const u = new URL(path, base);
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          u.searchParams.set(k, String(v));
+        }
+      });
+      return u.toString();
+    }
+
+    function randomRoomCode(){
+      const part = Math.random().toString(36).slice(2, 8).toUpperCase();
+      return `CP-${part}`;
+    }
+
+    function ctx(){
+      return {
+        mode: MODE,
+        entry: 'coop',
+        pid: clean($('pid').value, 'anon'),
+        name: clean($('nick').value, 'Hero'),
+        nick: clean($('nick').value, 'Hero'),
+        room: clean($('room').value, ''),
+        roomId: clean($('room').value, ''),
+        diff: clean($('diff').value, 'normal'),
+        time: clean($('time').value, '90'),
+        view: clean($('view').value, 'mobile'),
+        hub: clean($('hub').value, './hub.html'),
+        run: clean(qs('run', 'play'), 'play'),
+        seed: clean(qs('seed', String(Date.now())), String(Date.now())),
+        zone: clean(qs('zone', 'nutrition'), 'nutrition'),
+        cat: clean(qs('cat', 'nutrition'), 'nutrition'),
+        game: clean(qs('game', 'goodjunk'), 'goodjunk'),
+        gameId: clean(qs('gameId', 'goodjunk'), 'goodjunk'),
+        theme: clean(qs('theme', 'goodjunk'), 'goodjunk'),
+        studyId: clean(qs('studyId', ''), ''),
+        conditionGroup: clean(qs('conditionGroup', ''), '')
+      };
+    }
+
+    function buildLauncherUrl(){
+      const p = ctx();
+      return buildUrl('./goodjunk-launcher.html', {
+        pid: p.pid,
+        name: p.name,
+        nick: p.nick,
+        diff: p.diff,
+        time: p.time,
+        hub: p.hub,
+        view: p.view,
+        run: p.run,
+        seed: p.seed,
+        zone: p.zone,
+        cat: p.cat,
+        game: p.game,
+        gameId: p.gameId,
+        theme: p.theme,
+        recommendedMode: 'coop',
+        studyId: p.studyId,
+        conditionGroup: p.conditionGroup
+      });
+    }
+
+    function buildPlayUrl(room, role='guest'){
+      const p = ctx();
+      return buildUrl(PLAY_PATH, {
+        mode: 'coop',
+        entry: 'coop',
+        recommendedMode: 'coop',
+        roomId: room?.roomId || p.roomId,
+        room: room?.roomId || p.roomId,
+        pid: p.pid,
+        name: p.name,
+        nick: p.nick,
+        diff: room?.diff || p.diff,
+        time: room?.time || p.time,
+        view: p.view,
+        hub: p.hub,
+        run: p.run,
+        seed: p.seed,
+        zone: p.zone,
+        cat: p.cat,
+        game: p.game,
+        gameId: p.gameId,
+        theme: p.theme,
+        studyId: p.studyId,
+        conditionGroup: p.conditionGroup,
+        role,
+        host: role === 'host' ? '1' : '0',
+        wait: '1',
+        autostart: '1',
+        modeLocked: '1',
+        roomReady: '1',
+        maxPlayers: String(room?.cap || MAX_PLAYERS),
+        cdnext: buildLauncherUrl()
+      });
+    }
+
+    function applyBackLinks(){
+      const launcherHref = buildLauncherUrl();
+      const hubHref = clean($('hub').value, './hub.html');
+      $('btnBackLauncherTop').href = launcherHref;
+      $('btnBackHubTop').href = hubHref;
+    }
+
+    function hydrateInputs(){
+      $('nick').value = qs('name', qs('nick', 'Hero'));
+      $('pid').value = qs('pid', 'anon');
+      $('room').value = qs('room', qs('roomId', ''));
+      $('diff').value = qs('diff', 'normal');
+      $('time').value = qs('time', '90');
+      $('view').value = qs('view', 'mobile');
+      $('hub').value = qs('hub', './hub.html');
+      if (!$('room').value) $('room').value = randomRoomCode();
+    }
+
+    function updateNotice(kind, text){
+      const box = $('noticeBox');
+      box.className = `gj-notice gj-notice--${kind}`;
+      box.innerHTML = text;
+    }
+
+    function updateRoomStateChip(kind, text){
+      const chip = $('chipRoomState');
+      chip.className = `gj-chip gj-chip--${kind}`;
+      chip.textContent = text;
+    }
+
+    function updateStats(room, me = null){
+      const count = room?.players ? Object.keys(room.players).length : 0;
+      $('statRoom').textContent = room?.roomId || clean($('room').value, '-');
+      $('statRole').textContent = me?.role || '-';
+      $('statPlayers').textContent = `${count}/${room?.cap || MAX_PLAYERS}`;
+      $('statStatus').textContent = room?.status || 'waiting';
+    }
+
+    function renderPlayers(room){
+      const wrap = $('playerList');
+      const playersObj = room?.players || {};
+      const players = Object.values(playersObj)
+        .filter(Boolean)
+        .sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
+
+      if (!players.length) {
+        wrap.innerHTML = `
+          <div class="gj-playerRow">
+            <div class="gj-playerName">ยังไม่มีผู้เล่น</div>
+            <div class="gj-playerTag">0</div>
+          </div>
+        `;
+        return;
+      }
+
+      wrap.innerHTML = players.map((p, idx) => `
+        <div class="gj-playerRow">
+          <div class="gj-playerName">${idx + 1}. ${String(p.name || p.nick || p.pid || 'Player')}</div>
+          <div class="gj-playerTag ${p.role === 'host' ? 'gj-playerTag--host' : 'gj-playerTag--guest'}">
+            ${p.role === 'host' ? '👑 Host' : '🤝 Team'}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function setStartEnabled(enabled){
+      $('btnStartCoop').disabled = !enabled;
+    }
+
+    function getMe(room){
+      const p = ctx();
+      return room?.players?.[p.pid] || null;
+    }
+
+    function syncRoomUi(room){
+      lastRoom = room || null;
+      const me = getMe(room);
+      const count = room?.players ? Object.keys(room.players).length : 0;
+      const cap = room?.cap || MAX_PLAYERS;
+
+      updateStats(room, me);
+      renderPlayers(room);
+
+      if (!room) {
+        updateNotice('warn', 'ยังไม่พบห้องนี้ในระบบ • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือให้ Host สร้างก่อนแล้วค่อยกด “เข้าห้องนี้”');
+        updateRoomStateChip('warn', 'ยังไม่พร้อม');
+        setStartEnabled(false);
+        log('ROOM_NOT_FOUND');
+        return;
+      }
+
+      if (room.mode !== MODE) {
+        updateNotice('bad', 'room นี้ไม่ใช่โหมด coop');
+        updateRoomStateChip('warn', 'ผิดโหมด');
+        setStartEnabled(false);
+        log('ROOM_MODE_MISMATCH');
+        return;
+      }
+
+      if (!me) {
+        updateNotice('bad', 'PID นี้ยังไม่ได้อยู่ในห้อง • กด “เข้าห้องนี้” ก่อน');
+        updateRoomStateChip('warn', 'ยังไม่พร้อม');
+        setStartEnabled(false);
+        log('PLAYER_NOT_IN_ROOM');
+        return;
+      }
+
+      if (count < MIN_PLAYERS) {
+        if (me.role === 'host') {
+          updateNotice('warn', `คุณเป็น Host • ตอนนี้มีผู้เล่น ${count}/${cap} คน ต้องมีอย่างน้อย ${MIN_PLAYERS} คนก่อน`);
+        } else {
+          updateNotice('warn', `คุณเข้าห้องแล้ว • ตอนนี้มีผู้เล่น ${count}/${cap} คน รอให้ครบอย่างน้อย ${MIN_PLAYERS} คน และรอ Host กดเริ่ม`);
+        }
+        updateRoomStateChip('warn', `รอผู้เล่น ${count}/${cap}`);
+        setStartEnabled(false);
+        log(`WAITING_PLAYER ${count}/${cap}`);
+        return;
+      }
+
+      if (count > cap) {
+        updateNotice('bad', `ห้องนี้มีผู้เล่นเกินกำหนด (${count}/${cap})`);
+        updateRoomStateChip('warn', 'ผู้เล่นเกิน');
+        setStartEnabled(false);
+        log(`ROOM_OVERFLOW ${count}/${cap}`);
+        return;
+      }
+
+      if (room.status !== 'started') {
+        if (me.role === 'host') {
+          updateNotice('good', `ห้องพร้อมแล้ว • มีผู้เล่น ${count}/${cap} คน คุณสามารถกด “เริ่ม Co-op” ได้`);
+          updateRoomStateChip('good', 'พร้อมเริ่ม');
+          setStartEnabled(true);
+          log('READY_FOR_HOST_START');
+        } else {
+          updateNotice('warn', `ห้องพร้อมแล้ว • มีผู้เล่น ${count}/${cap} คน ตอนนี้รอ Host กด “เริ่ม Co-op”`);
+          updateRoomStateChip('team', 'รอ Host เริ่ม');
+          setStartEnabled(false);
+          log('WAITING_HOST_START');
+        }
+        return;
+      }
+
+      updateNotice('good', 'ห้องเริ่มแล้ว • กำลังพาไปหน้า Co-op Play');
+      updateRoomStateChip('good', 'กำลังเข้าเล่น');
+      setStartEnabled(false);
+      log('ROOM_STARTED');
+
+      const href = buildPlayUrl(room, me.role || 'guest');
+      setTimeout(() => {
+        location.href = href;
+      }, 350);
+    }
+
+    async function loadAndSyncRoom(){
+      const roomId = clean($('room').value, '');
+      if (!roomId || !roomApi) {
+        syncRoomUi(null);
+        return;
+      }
+
+      try {
+        const room = await roomApi.loadRoom(roomId);
+        syncRoomUi(room);
+      } catch (err) {
+        log(`LOAD_FAIL ${String(err?.message || err || 'unknown')}`);
+      }
+    }
+
+    function stopWatch(){
+      if (typeof unsub === 'function') {
+        try { unsub(); } catch (_) {}
+      }
+      unsub = null;
+    }
+
+    function startWatchRoom(){
+      stopWatch();
+      const roomId = clean($('room').value, '');
+      if (!roomApi || !roomId) return;
+
+      try {
+        unsub = roomApi.subscribeRoom(roomId, (room) => {
+          syncRoomUi(room);
+        });
+      } catch (err) {
+        log(`WATCH_FAIL ${String(err?.message || err || 'unknown')}`);
+      }
+    }
+
+    function makeHostPlayer(){
+      const p = ctx();
+      return {
+        pid: p.pid,
+        name: p.name,
+        nick: p.nick,
+        role: 'host',
+        joinedAt: Date.now(),
+        ready: true
+      };
+    }
+
+    function makeGuestPlayer(){
+      const p = ctx();
+      return {
+        pid: p.pid,
+        name: p.name,
+        nick: p.nick,
+        role: 'guest',
+        joinedAt: Date.now(),
+        ready: true
+      };
+    }
+
+    async function onCreateRoom(){
+      const p = ctx();
+      if (!roomApi) return;
+      if (!p.roomId) $('room').value = randomRoomCode();
+
+      const roomId = clean($('room').value, '');
+      try {
+        await roomApi.createRoom({
+          roomId,
+          mode: MODE,
+          status: 'waiting',
+          hostPid: p.pid,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          startedAt: 0,
+          diff: p.diff,
+          time: p.time,
+          cap: MAX_PLAYERS,
+          players: { [p.pid]: makeHostPlayer() }
+        });
+
+        log(`ROOM_CREATED ${roomId}`);
+        startWatchRoom();
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'CREATE_FAILED');
+        updateNotice('bad', `สร้างห้องไม่สำเร็จ: <b>${msg}</b>`);
+        log(`CREATE_FAIL ${msg}`);
+        await loadAndSyncRoom();
+      }
+    }
+
+    async function onJoinRoom(){
+      if (!roomApi) return;
+      const roomId = clean($('room').value, '');
+      if (!roomId) {
+        updateNotice('bad', 'ยังไม่มี room code');
+        log('JOIN_FAIL no room code');
+        return;
+      }
+
+      try {
+        await roomApi.joinRoom(roomId, makeGuestPlayer(), MAX_PLAYERS);
+        log(`JOIN_OK ${roomId}`);
+        startWatchRoom();
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'JOIN_FAILED');
+        updateNotice('bad', `เข้าห้องไม่สำเร็จ: <b>${msg}</b>`);
+        log(`JOIN_FAIL ${msg}`);
+        await loadAndSyncRoom();
+      }
+    }
+
+    async function onLeaveRoom(){
+      const p = ctx();
+      if (!roomApi) return;
+
+      const roomId = clean($('room').value, '');
+      if (!roomId) {
+        updateNotice('warn', 'ยังไม่มี room ให้ออก');
+        return;
+      }
+
+      try {
+        await roomApi.leaveRoom(roomId, p.pid);
+        log(`LEAVE_OK ${roomId}`);
+        stopWatch();
+        await loadAndSyncRoom();
+        startWatchRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'LEAVE_FAILED');
+        updateNotice('bad', `ออกจากห้องไม่สำเร็จ: <b>${msg}</b>`);
+        log(`LEAVE_FAIL ${msg}`);
+      }
+    }
+
+    async function onStartCoop(){
+      const p = ctx();
+      if (!roomApi) return;
+
+      const roomId = clean($('room').value, '');
+      if (!roomId) {
+        updateNotice('bad', 'ยังไม่มี room');
+        return;
+      }
+
+      try {
+        await roomApi.startRoom(roomId, p.pid);
+        log(`START_COOP ${roomId}`);
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'START_FAILED');
+        updateNotice('bad', `เริ่มเกมไม่สำเร็จ: <b>${msg}</b>`);
+        log(`START_FAIL ${msg}`);
+        await loadAndSyncRoom();
+      }
+    }
+
+    async function copyRoom(){
+      const roomId = clean($('room').value, '');
+      if (!roomId) return;
+
+      try {
+        await navigator.clipboard.writeText(roomId);
+        updateNotice('good', `คัดลอก room code แล้ว: <b>${roomId}</b>`);
+        log(`COPY_ROOM ${roomId}`);
+      } catch (_) {
+        updateNotice('warn', `คัดลอกไม่สำเร็จ แต่ room คือ <b>${roomId}</b>`);
+        log(`COPY_FAIL ${roomId}`);
+      }
+    }
+
+    function bind(){
+      $('btnRandomRoom').addEventListener('click', () => {
+        $('room').value = randomRoomCode();
+        applyBackLinks();
+        startWatchRoom();
+        loadAndSyncRoom();
+      });
+
+      $('btnCopyRoom').addEventListener('click', copyRoom);
+      $('btnCreateRoom').addEventListener('click', onCreateRoom);
+      $('btnJoinRoom').addEventListener('click', onJoinRoom);
+      $('btnLeaveRoom').addEventListener('click', onLeaveRoom);
+      $('btnStartCoop').addEventListener('click', onStartCoop);
+
+      ['nick','pid','room','diff','time','view','hub'].forEach((id) => {
+        $(id).addEventListener('input', applyBackLinks);
+        $(id).addEventListener('change', applyBackLinks);
+      });
+
+      $('room').addEventListener('change', () => {
+        startWatchRoom();
+        loadAndSyncRoom();
+      });
+
+      window.addEventListener('beforeunload', stopWatch);
+    }
+
+    async function getRoomAdapter(){
+      if (window.GJRoomAdapter && typeof window.GJRoomAdapter.makeRoomAdapter === 'function') {
+        return await window.GJRoomAdapter.makeRoomAdapter(MODE);
+      }
+      throw new Error('NO_SHARED_ROOM_ADAPTER');
+    }
+
+    async function init(){
+      hydrateInputs();
+      applyBackLinks();
+      bind();
+
+      try {
+        roomApi = await getRoomAdapter();
+        log('USING_SHARED_FIREBASE_ADAPTER');
+        startWatchRoom();
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'adapter init failed');
+        updateNotice('bad', 'หน้านี้ยังไม่ได้ต่อระบบห้องแบบแชร์ข้ามเครื่องจริง ๆ จึงสร้าง/เข้าห้องข้ามมือถือไม่ได้');
+        $('btnCreateRoom').disabled = true;
+        $('btnJoinRoom').disabled = true;
+        $('btnLeaveRoom').disabled = true;
+        $('btnStartCoop').disabled = true;
+        log(msg);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
