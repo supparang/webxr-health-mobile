@@ -12,7 +12,6 @@
       --mut:#4d6b84;
       --line:#cfeaf7;
       --card:#ffffff;
-      --sky:#9ae6ff;
       --yellow:#ffe66d;
       --pink:#ffc7df;
       --green:#b9f5c9;
@@ -22,6 +21,7 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -177,7 +177,7 @@
       color:#12324b;
       cursor:pointer;
       box-shadow:var(--shadow);
-      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
+      transition:transform .12s ease, filter .12s ease;
     }
 
     .mode-btn:hover, .action-btn:hover{
@@ -400,6 +400,22 @@
             <button id="btnClearProgress" class="action-btn mini">🧹 ล้าง progress ล่าสุด</button>
           </div>
         </div>
+
+        <div class="card" id="records-card">
+          <h2>สถิติและประวัติ</h2>
+
+          <div id="best-status" class="mini-item">
+            <strong>Best Record</strong><br />
+            ยังไม่มีสถิติ
+          </div>
+
+          <div id="history-list" class="mini-list" style="margin-top:12px;">
+            <div class="mini-item">
+              <strong>History</strong><br />
+              ยังไม่มีประวัติการเล่น
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -407,7 +423,6 @@
   <script src="./handwash-shared.js"></script>
   <script>
     const qs = new URLSearchParams(location.search);
-
     const VIEW_KEY = 'HHA_HANDWASH_LAST_VIEW';
 
     const els = {
@@ -417,6 +432,7 @@
       time: document.getElementById('time'),
       miniTime: document.getElementById('miniTime'),
       hub: document.getElementById('hub'),
+
       btnHowto: document.getElementById('btnHowto'),
       btnMain: document.getElementById('btnMain'),
       btnMini: document.getElementById('btnMini'),
@@ -424,7 +440,11 @@
       btnResume: document.getElementById('btnResume'),
       btnReplayFlow: document.getElementById('btnReplayFlow'),
       btnClearProgress: document.getElementById('btnClearProgress'),
+
       lastStatus: document.getElementById('last-status'),
+      bestStatus: document.getElementById('best-status'),
+      historyList: document.getElementById('history-list'),
+
       modeButtons: [...document.querySelectorAll('[data-view]')]
     };
 
@@ -476,7 +496,7 @@
       return clampInt(els.miniTime.value, 45, 60);
     }
 
-    function baseParams(view, gameTimeOverride, extra = {}) {
+    function baseParams(view, gameTimeOverride, extra = {}){
       const params = new URLSearchParams();
       params.set('pid', (els.pid.value || 'anon').trim() || 'anon');
       params.set('name', (els.name.value || 'Hero').trim() || 'Hero');
@@ -492,7 +512,7 @@
       params.set('theme', 'handwash');
 
       Object.entries(extra).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') {
+        if (v !== undefined && v !== null && v !== ''){
           params.set(k, String(v));
         }
       });
@@ -500,17 +520,17 @@
       return params;
     }
 
-    function buildMiniUrl(view) {
+    function buildMiniUrl(view){
       return `./handwash-mini-order.html?${baseParams(view, safeMiniTimeValue()).toString()}`;
     }
 
-    function buildMainUrl(view) {
+    function buildMainUrl(view){
       const miniUrl = buildMiniUrl(view);
       const params = baseParams(view, safeTimeValue(), { next: miniUrl });
       return `./handwash-vr.html?${params.toString()}`;
     }
 
-    function buildHowtoUrl(view) {
+    function buildHowtoUrl(view){
       const mainUrl = buildMainUrl(view);
       const params = baseParams(view, safeTimeValue(), { next: mainUrl });
       return `./handwash-howto.html?${params.toString()}`;
@@ -518,9 +538,9 @@
 
     function stageLabel(stage){
       const map = {
-        'launcher': 'Launcher',
-        'howto': 'Howto',
-        'main': 'Main Game',
+        launcher: 'Launcher',
+        howto: 'Howto',
+        main: 'Main Game',
         'mini-order': 'Mini Order'
       };
       return map[stage] || stage || '-';
@@ -557,13 +577,13 @@
       });
     }
 
-    function openUrl(url) {
+    function openUrl(url){
       setStoredView(selectedView);
       location.href = url;
     }
 
     function renderLastStatus(){
-      if (!window.HandwashShared) {
+      if (!window.HandwashShared){
         els.lastStatus.innerHTML = `
           <strong>สถานะล่าสุด</strong><br />
           ยังไม่พบ handwash-shared.js
@@ -612,6 +632,109 @@
       }
     }
 
+    function computeBestRecord(history){
+      if (!Array.isArray(history) || !history.length) return null;
+
+      const successOnly = history.filter(item => item && item.success);
+      const pool = successOnly.length ? successOnly : history;
+
+      let best = pool[0];
+
+      for (const item of pool){
+        if (!item) continue;
+
+        const bestScore = Number(best.score || 0);
+        const itemScore = Number(item.score || 0);
+
+        const bestStars = Number(best.stars || 0);
+        const itemStars = Number(item.stars || 0);
+
+        const bestMiss = Number(best.miss || 999999);
+        const itemMiss = Number(item.miss || 999999);
+
+        const bestTime = Number(best.timeLeft || 0);
+        const itemTime = Number(item.timeLeft || 0);
+
+        if (itemStars > bestStars){
+          best = item;
+          continue;
+        }
+
+        if (itemStars === bestStars && itemScore > bestScore){
+          best = item;
+          continue;
+        }
+
+        if (itemStars === bestStars && itemScore === bestScore && itemMiss < bestMiss){
+          best = item;
+          continue;
+        }
+
+        if (itemStars === bestStars && itemScore === bestScore && itemMiss === bestMiss && itemTime > bestTime){
+          best = item;
+        }
+      }
+
+      return best;
+    }
+
+    function renderRecords(){
+      if (!window.HandwashShared){
+        els.bestStatus.innerHTML = `
+          <strong>Best Record</strong><br />
+          ยังไม่พบ handwash-shared.js
+        `;
+        els.historyList.innerHTML = `
+          <div class="mini-item"><strong>History</strong><br />ยังไม่พบ handwash-shared.js</div>
+        `;
+        return;
+      }
+
+      const history = HandwashShared.getHistory();
+      const best = computeBestRecord(history);
+
+      if (!best){
+        els.bestStatus.innerHTML = `
+          <strong>Best Record</strong><br />
+          ยังไม่มีสถิติ
+        `;
+        els.historyList.innerHTML = `
+          <div class="mini-item"><strong>History</strong><br />ยังไม่มีประวัติการเล่น</div>
+        `;
+        return;
+      }
+
+      els.bestStatus.innerHTML = `
+        <strong>Best Record</strong><br />
+        Stage: ${stageLabel(best.stage)}<br />
+        คะแนน: ${best.score || 0}<br />
+        ดาว: ${'⭐'.repeat(best.stars || 0) || '—'}<br />
+        Miss: ${best.miss || 0}<br />
+        เวลาคงเหลือ: ${best.timeLeft || 0}s
+      `;
+
+      const top3 = history.slice(0, 3);
+
+      els.historyList.innerHTML = top3.map((item, idx) => {
+        const ok = item.success ? 'สำเร็จ' : 'ไม่สำเร็จ';
+        const when = item.finishedAt
+          ? new Date(item.finishedAt).toLocaleString('th-TH')
+          : '-';
+
+        return `
+          <div class="mini-item">
+            <strong>รอบ ${idx + 1}</strong><br />
+            Stage: ${stageLabel(item.stage)}<br />
+            ผลลัพธ์: ${ok}<br />
+            คะแนน: ${item.score || 0}<br />
+            ดาว: ${'⭐'.repeat(item.stars || 0) || '—'}<br />
+            เวลา: ${item.timeLeft || 0}s<br />
+            เวลาเล่น: ${when}
+          </div>
+        `;
+      }).join('');
+    }
+
     els.modeButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         selectedView = btn.dataset.view;
@@ -657,17 +780,16 @@
     });
 
     els.btnClearProgress.addEventListener('click', () => {
-      try{
-        localStorage.removeItem('HHA_LAST_SUMMARY');
-        localStorage.removeItem('HHA_HANDWASH_LAST');
-        localStorage.removeItem('HHA_HANDWASH_HISTORY');
-        localStorage.removeItem('HHA_HANDWASH_FLOW');
-      }catch{}
+      if (window.HandwashShared){
+        HandwashShared.clearAll();
+      }
       renderLastStatus();
+      renderRecords();
     });
 
     syncModeButtons();
     renderLastStatus();
+    renderRecords();
   </script>
 </body>
 </html>
