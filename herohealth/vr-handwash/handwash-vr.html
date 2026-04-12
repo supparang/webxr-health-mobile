@@ -446,6 +446,8 @@
         <div class="chips">
           <div class="chip" id="who-chip">WHO 0/7</div>
           <div class="chip" id="coverage-chip">Coverage 0%</div>
+          <div class="chip" id="combo-chip">Combo 0</div>
+          <div class="chip" id="fever-chip">Fever 0%</div>
           <div class="chip" id="time-chip">90s</div>
         </div>
       </div>
@@ -521,6 +523,14 @@
           <small>ดาว</small>
           <div class="stars" id="sum-stars">⭐</div>
         </div>
+        <div class="summary-box">
+          <small>Best Combo</small>
+          <span id="sum-combo">0</span>
+        </div>
+        <div class="summary-box">
+          <small>Badge</small>
+          <span id="sum-badges">—</span>
+        </div>
       </div>
 
       <div class="actions">
@@ -544,7 +554,6 @@
       <a-plane width="1.96" height="1.58" color="#0f2741" position="0 0 0.001" material="opacity:0.98"></a-plane>
       <a-text value="Handwash VR" color="#ffffff" width="2.6" align="center" position="0 0.78 0.02"></a-text>
 
-      <!-- faucet -->
       <a-entity id="faucet-group" position="-0.70 0.28 0.02">
         <a-box id="faucet-btn" class="focusable" width="0.28" height="0.11" depth="0.03" color="#7dd3fc" material="emissive:#7dd3fc; emissiveIntensity:0.45"></a-box>
         <a-cylinder position="0 -0.16 0" radius="0.03" height="0.28" color="#9ec8e3"></a-cylinder>
@@ -556,7 +565,6 @@
                 animation="property: position; to: 0 0.22 0.02; dir: alternate; loop: true; dur: 500"></a-cone>
       </a-entity>
 
-      <!-- soap -->
       <a-entity id="soap-group" position="0.70 0.28 0.02" visible="false"
                 animation__pulse="property: scale; dir: alternate; loop: true; dur: 650; to: 1.04 1.04 1.04">
         <a-box id="soap-target" class="focusable" width="0.30" height="0.12" depth="0.16" color="#ff4fa3" material="emissive:#ff9ecb; emissiveIntensity:0.65"></a-box>
@@ -570,15 +578,13 @@
         <a-text id="soap-callout" class="focusable" value="ใส่สบู่" align="center" color="#ffffff" width="1.2" position="0 0.20 0.05"></a-text>
       </a-entity>
 
-      <!-- towel -->
-      <a-entity id="towel-group" position="0 -0.60 0.03" visible="false">
-        <a-box id="towel-btn" class="focusable" width="0.54" height="0.12" depth="0.03" color="#fde68a" material="emissive:#fde68a; emissiveIntensity:0.45"></a-box>
-        <a-plane id="towel-hitbox" class="focusable" width="0.70" height="0.28" color="#fff" opacity="0.001" material="transparent:true" position="0 0 0.04"></a-plane>
+      <a-entity id="towel-group" position="0 -0.26 0.03" visible="false">
+        <a-box id="towel-btn" class="focusable" width="0.72" height="0.14" depth="0.03" color="#fde68a" material="emissive:#fde68a; emissiveIntensity:0.75"></a-box>
+        <a-plane id="towel-hitbox" class="focusable" width="0.92" height="0.42" color="#fff" opacity="0.001" material="transparent:true" position="0 0.02 0.04"></a-plane>
         <a-plane id="towel-callout-bg" class="focusable" width="0.56" height="0.12" color="#12314d" opacity="0.96" material="transparent:true" position="0 0.18 0.04"></a-plane>
         <a-text id="towel-callout" class="focusable" value="เช็ดมือ" align="center" color="#ffffff" width="1.1" position="0 0.18 0.05"></a-text>
       </a-entity>
 
-      <!-- hand board -->
       <a-entity id="hand-root" position="0 -0.02 0.03">
         <a-box width="0.46" height="0.46" depth="0.03" color="#f4e3d4" position="0 0.02 0.01"></a-box>
         <a-box width="0.07" height="0.28" depth="0.03" color="#f4e3d4" position="-0.18 0.34 0.01"></a-box>
@@ -590,7 +596,6 @@
         <a-box width="0.16" height="0.20" depth="0.03" color="#d2a787" position="0 -0.34 0.01"></a-box>
         <a-box width="0.78" height="0.08" depth="0.02" color="#22364d" position="0 -0.50 -0.01"></a-box>
 
-        <!-- water -->
         <a-entity id="water-group" visible="false">
           <a-plane id="water-zone" class="focusable" width="1.02" height="1.08" color="#66e6ff" opacity="0.18" material="transparent:true" position="0 0.02 0.06"></a-plane>
           <a-plane width="0.24" height="1.00" color="#56dbff" opacity="0.75" material="transparent:true" position="-0.82 0.10 0.05"></a-plane>
@@ -637,22 +642,18 @@
     </a-entity>
   </a-scene>
 
-  <div class="hidden">
-    <span id="debug-hidden"></span>
-  </div>
-
   <script src="./handwash-shared.js"></script>
   <script>
-    const qs = (k, d='') => {
+    const qsParam = (k, d='') => {
       try { return new URL(location.href).searchParams.get(k) ?? d; }
       catch { return d; }
     };
 
-    const DIFF = String(qs('diff', 'normal')).toLowerCase();
-    const START_TIME = Math.max(60, parseInt(qs('time', '90'), 10) || 90);
-    const HUB_URL = qs('hub', '');
-    const NEXT_URL = qs('next', '');
-    const PID = qs('pid', 'anon');
+    const DIFF = String(qsParam('diff', 'normal')).toLowerCase();
+    const START_TIME = Math.max(60, parseInt(qsParam('time', '90'), 10) || 90);
+    const HUB_URL = qsParam('hub', '');
+    const NEXT_URL = qsParam('next', '');
+    const PID = qsParam('pid', 'anon');
 
     const PRESET = {
       easy:   { wet:1.2, rinse:1.4, dry:3, palms:4, backs:4, between:4, backfingers:4, thumbs:3, fingertips:4, wrists:3 },
@@ -720,7 +721,15 @@
       lastTs:0,
       hudCompact:false,
       waterOn:false,
-      hasSoap:false
+      hasSoap:false,
+
+      combo: 0,
+      bestCombo: 0,
+      fever: 0,
+      feverActive: false,
+      feverTimer: 0,
+      badges: [],
+      idleTimer: 0
     };
 
     const ui = {
@@ -735,6 +744,8 @@
       coach:document.getElementById('coach'),
       whoChip:document.getElementById('who-chip'),
       coverageChip:document.getElementById('coverage-chip'),
+      comboChip:document.getElementById('combo-chip'),
+      feverChip:document.getElementById('fever-chip'),
       timeChip:document.getElementById('time-chip'),
 
       startOverlay:document.getElementById('start-overlay'),
@@ -746,6 +757,8 @@
       sumTime:document.getElementById('sum-time'),
       sumMiss:document.getElementById('sum-miss'),
       sumStars:document.getElementById('sum-stars'),
+      sumCombo:document.getElementById('sum-combo'),
+      sumBadges:document.getElementById('sum-badges'),
 
       startBtn:document.getElementById('start-btn'),
       restartBtn:document.getElementById('restart-btn'),
@@ -841,6 +854,65 @@
       return Math.round(((state.stepIndex + local) / STEPS.length) * 100);
     }
 
+    function resetCombo(){
+      state.combo = 0;
+    }
+
+    function addFever(amount){
+      state.fever = clamp(state.fever + amount, 0, 100);
+    }
+
+    function activateFever(){
+      if (state.fever < 100 || state.feverActive) return false;
+      state.fever = 0;
+      state.feverActive = true;
+      state.feverTimer = 6.0;
+      setCoach('BUBBLE BOOST! คะแนนคูณสองชั่วคราว');
+      return true;
+    }
+
+    function rewardAction(baseScore, feverGain = 8){
+      state.combo += 1;
+      state.bestCombo = Math.max(state.bestCombo, state.combo);
+
+      addFever(feverGain);
+
+      const comboBonus = Math.min(40, state.combo * 2);
+      const scoreGain = (baseScore + comboBonus) * (state.feverActive ? 2 : 1);
+      state.score += scoreGain;
+
+      state.idleTimer = 0;
+
+      if (state.combo >= 3 && state.combo < 6) {
+        setCoach('GOOD! ทำต่อเนื่องได้ดี');
+      } else if (state.combo >= 6 && state.combo < 10) {
+        setCoach('GREAT! มือสะอาดขึ้นเร็วมาก');
+      } else if (state.combo >= 10) {
+        setCoach('SUPER CLEAN! เก่งมาก');
+      }
+    }
+
+    function punishAction(msg){
+      state.miss += 1;
+      state.timeLeft = Math.max(0, state.timeLeft - 0.8);
+      state.combo = 0;
+      state.fever = Math.max(0, state.fever - 12);
+      setCoach(msg || 'ยังไม่ใช่ขั้นตอนนี้');
+    }
+
+    function computeBadges(success){
+      const badges = [];
+      if (!success) return badges;
+
+      if (state.miss === 0) badges.push('No Miss Hero');
+      if (whoDoneCount() === 7) badges.push('WHO Master');
+      if (state.bestCombo >= 8) badges.push('Combo Clean');
+      if (state.timeLeft >= START_TIME * 0.35) badges.push('Fast Clean');
+      if (state.feverActive || state.bestCombo >= 10) badges.push('Bubble Boost');
+
+      return badges;
+    }
+
     function setFaucetVisible(show){
       faucetGroup.setAttribute('visible', !!show);
     }
@@ -875,7 +947,7 @@
     }
 
     function setTowelHighlight(on){
-      towelBtn.setAttribute('material', 'emissiveIntensity', on ? 1.0 : 0.45);
+      towelBtn.setAttribute('material', 'emissiveIntensity', on ? 1.0 : 0.75);
       towelCalloutBg.setAttribute('material', 'opacity', on ? 1.0 : 0.82);
       towelCallout.setAttribute('color', on ? '#ffe66d' : '#ffffff');
     }
@@ -935,6 +1007,10 @@
       ui.whoChip.textContent = `WHO ${whoDoneCount()}/${STEPS.filter(s=>s.who).length}`;
       ui.coverageChip.textContent = `Coverage ${coveragePercent()}%`;
       ui.timeChip.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
+      ui.comboChip.textContent = `Combo ${state.combo}`;
+      ui.feverChip.textContent = state.feverActive
+        ? `Fever ON ${Math.ceil(state.feverTimer)}s`
+        : `Fever ${Math.round(state.fever)}%`;
     }
 
     function updateUI(){
@@ -956,7 +1032,7 @@
       } else if(step.id === 'soap'){
         setCoach('เล็งป้าย “ใส่สบู่” แล้วแตะ');
       } else if(step.id === 'dry'){
-        setCoach('เล็งป้าย “เช็ดมือ” แล้วแตะให้ครบ');
+        setCoach('มองลงกลางล่างของกระดาน เล็งป้าย “เช็ดมือ” แล้วแตะซ้ำให้ครบ');
       }
 
       updateProgress();
@@ -968,26 +1044,23 @@
 
       clearHighlights();
       clearTargets();
-      setFaucetVisible(true);
-      setSoapVisible(false);
-      setTowelVisible(false);
-      setWaterVisible(state.waterOn);
+
+      setFaucetVisible(step.id === 'faucet' || step.id === 'wet' || step.id === 'rinse');
+      setSoapVisible(step.id === 'soap');
+      setTowelVisible(step.id === 'dry');
+      setWaterVisible(state.waterOn && (step.id === 'wet' || step.id === 'rinse'));
 
       if(step.id === 'faucet'){
         setFaucetHighlight(true);
       } else if(step.id === 'wet'){
-        setWaterVisible(state.waterOn);
         setWaterHighlight(true);
       } else if(step.id === 'soap'){
-        setSoapVisible(true);
         setSoapHighlight(true);
       } else if(step.type === 'zones'){
         spawnTargetsForStep(step.id, step.need);
       } else if(step.id === 'rinse'){
-        setWaterVisible(state.waterOn);
         setWaterHighlight(true);
       } else if(step.id === 'dry'){
-        setTowelVisible(true);
         setTowelHighlight(true);
       }
     }
@@ -1019,9 +1092,7 @@
     }
 
     function wrongAction(msg='ยังไม่ใช่ขั้นตอนนี้'){
-      state.miss += 1;
-      state.timeLeft = Math.max(0, state.timeLeft - 0.8);
-      setCoach(msg);
+      punishAction(msg);
       updateProgress();
     }
 
@@ -1048,7 +1119,7 @@
     function activateFaucet(){
       const step = currentStep();
       if(!step || step.id !== 'faucet') return wrongAction('ตอนนี้ยังไม่ถึงขั้นเปิดน้ำ');
-      state.score += 60;
+      rewardAction(36, 10);
       burstAt({x:-0.70,y:0.28,z:0.05}, '#67e8f9');
       finishStep();
     }
@@ -1056,7 +1127,7 @@
     function activateSoap(){
       const step = currentStep();
       if(!step || step.id !== 'soap') return wrongAction('ตอนนี้ยังไม่ถึงขั้นใส่สบู่');
-      state.score += 70;
+      rewardAction(42, 12);
       burstAt({x:0.70,y:0.28,z:0.05}, '#ffffff');
       finishStep();
     }
@@ -1065,8 +1136,8 @@
       const step = currentStep();
       if(!step || step.id !== 'dry') return wrongAction('ตอนนี้ยังไม่ถึงขั้นเช็ดมือ');
       state.stepValue += 1;
-      state.score += 25;
-      burstAt({x:0.0,y:-0.60,z:0.05}, '#fde68a');
+      rewardAction(16, 6);
+      burstAt({x:0.0,y:-0.26,z:0.05}, '#fde68a');
       if(state.stepValue >= step.need){
         finishStep();
       } else {
@@ -1086,7 +1157,7 @@
       if(el.parentNode) el.parentNode.removeChild(el);
 
       state.stepValue += 1;
-      state.score += 30;
+      rewardAction(20, 7);
       updateUI();
 
       if(state.stepValue >= step.need){
@@ -1114,6 +1185,37 @@
       const cy = window.innerHeight / 2;
 
       for (const el of targets){
+        el.object3D.updateMatrixWorld();
+        _proj.setFromMatrixPosition(el.object3D.matrixWorld);
+        _proj.project(camera3D);
+
+        const sx = (_proj.x * 0.5 + 0.5) * window.innerWidth;
+        const sy = (-_proj.y * 0.5 + 0.5) * window.innerHeight;
+        const d = Math.hypot(sx - cx, sy - cy);
+
+        if (d < bestD){
+          bestD = d;
+          best = el;
+        }
+      }
+
+      return bestD <= maxPx ? best : null;
+    }
+
+    function getNearestCenterElement(ids = [], maxPx = 180){
+      const camera3D = cam ? cam.getObject3D('camera') : null;
+      if (!camera3D) return null;
+
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+
+      let best = null;
+      let bestD = Infinity;
+
+      for (const id of ids){
+        const el = document.getElementById(id);
+        if (!el) continue;
+
         el.object3D.updateMatrixWorld();
         _proj.setFromMatrixPosition(el.object3D.matrixWorld);
         _proj.project(camera3D);
@@ -1196,10 +1298,17 @@
           activateDry();
           return true;
         }
-        if(isNearObjectAim(towelGroup, 0.972)){
+
+        const nearDry = getNearestCenterElement(
+          ['towel-btn','towel-hitbox','towel-callout-bg','towel-callout'],
+          190
+        );
+
+        if (nearDry){
           activateDry();
           return true;
         }
+
         return false;
       }
 
@@ -1230,6 +1339,8 @@
     function saveMainSummary(success, stars){
       if (!window.HandwashShared) return;
 
+      const badges = computeBadges(success);
+
       HandwashShared.recordSummary({
         stage: 'main',
         nextStage: success ? 'mini-order' : 'mini-order',
@@ -1240,9 +1351,9 @@
         timeLeft: Math.max(0, Math.ceil(state.timeLeft)),
         accuracy: Math.max(0, Math.round(100 - (state.miss * 5))),
         progress: success ? 100 : coveragePercent(),
-        bestStreak: 0,
+        bestStreak: state.bestCombo,
         whoDone: whoDoneCount(),
-        notes: success ? 'Main game completed' : 'Main game incomplete'
+        notes: badges.join(', ') || (success ? 'Main game completed' : 'Main game incomplete')
       });
     }
 
@@ -1255,6 +1366,7 @@
       setSoapVisible(false);
 
       const stars = computeStars(success);
+      state.badges = computeBadges(success);
       saveMainSummary(success, stars);
 
       ui.sumTitle.textContent = success ? 'ล้างมือสำเร็จ!' : 'หมดเวลาก่อน';
@@ -1263,6 +1375,9 @@
       ui.sumTime.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
       ui.sumMiss.textContent = String(state.miss);
       ui.sumStars.textContent = stars > 0 ? '⭐'.repeat(stars) : '—';
+      ui.sumCombo.textContent = String(state.bestCombo);
+      ui.sumBadges.textContent = state.badges.length ? state.badges.join(', ') : '—';
+
       ui.summaryOverlay.classList.remove('hidden');
       setHudCompact(false);
 
@@ -1282,6 +1397,14 @@
       state.lastTs = 0;
       state.waterOn = false;
       state.hasSoap = false;
+
+      state.combo = 0;
+      state.bestCombo = 0;
+      state.fever = 0;
+      state.feverActive = false;
+      state.feverTimer = 0;
+      state.badges = [];
+      state.idleTimer = 0;
 
       clearTargets();
       clearHighlights();
@@ -1404,6 +1527,17 @@
       const step = currentStep();
       const el = getFocusedEl();
 
+      if(step && step.type === 'zones'){
+        state.idleTimer += dt;
+        if(state.idleTimer >= 5){
+          state.idleTimer = 0;
+          state.score = Math.max(0, state.score - 5);
+          state.combo = 0;
+          setCoach('รีบหน่อย เชื้อโรคกลับมาแล้ว!');
+          updateProgress();
+        }
+      }
+
       if(step && step.type === 'hold'){
         const onWater =
           el &&
@@ -1415,12 +1549,25 @@
           setWaterHighlight(true);
 
           if(state.stepValue >= step.need){
-            state.score += step.id === 'wet' ? 80 : 90;
+            rewardAction(step.id === 'wet' ? 48 : 56, 10);
             finishStep();
             return;
           }
         } else {
           setWaterHighlight(true);
+        }
+      }
+
+      if (!state.feverActive && state.fever >= 100){
+        activateFever();
+      }
+
+      if (state.feverActive){
+        state.feverTimer -= dt;
+        if (state.feverTimer <= 0){
+          state.feverActive = false;
+          state.feverTimer = 0;
+          setCoach('Bubble Boost หมดเวลาแล้ว ลุยต่อ!');
         }
       }
 
