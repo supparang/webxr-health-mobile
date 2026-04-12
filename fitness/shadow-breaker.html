@@ -2,10 +2,513 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <title>HeroHealth • Shadow Breaker</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="../herohealth/favicon.ico" />
+  <style>
+    :root{
+      --bg1:#dff4ff; --bg2:#eefcff; --bg3:#fff7da;
+      --card:#fffdf6; --card2:#f8fff3; --line:#bfe3f2;
+      --text:#4d4a42; --muted:#7b7a72;
+      --green:#7ed957; --green2:#58c33f; --blue:#7fcfff; --blue2:#58b7f5;
+      --yellow:#ffd45c; --yellow2:#ffbe3b; --violet:#c6b7ff;
+      --shadow:0 18px 40px rgba(111,157,183,.16);
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+
+      --sb-theme1:rgba(56,189,248,.22);
+      --sb-theme2:rgba(59,130,246,.14);
+      --sb-themeBorder:rgba(56,189,248,.26);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; min-height:100%; overflow:hidden;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
+      background:
+        radial-gradient(circle at 12% 14%, rgba(127,207,255,.34), transparent 28%),
+        radial-gradient(circle at 88% 10%, rgba(255,220,120,.22), transparent 24%),
+        linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 48%, var(--bg3) 100%);
+      color:var(--text);
+    }
+    button,input,select{ font:inherit; }
+    .view{ display:none; min-height:100vh; }
+    .view.is-active{ display:block; }
+
+    .shell{
+      max-width:1120px; margin:0 auto; min-height:100vh;
+      padding:
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(12px + var(--sab))
+        calc(12px + var(--sal));
+    }
+
+    .card{
+      border-radius:24px; border:1px solid var(--line);
+      background:linear-gradient(180deg, var(--card), var(--card2));
+      box-shadow:var(--shadow); padding:14px;
+    }
+
+    .topbar{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      flex-wrap:wrap; margin-bottom:12px;
+    }
+    .pill, .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      min-height:42px; padding:10px 14px; border-radius:16px;
+      border:1px solid var(--line); background:#fff; color:var(--text);
+      font-weight:1000; text-decoration:none;
+    }
+    .pill{ border-radius:999px; color:#5f7b88; }
+    .btn.primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffdf6; }
+    .btn.violet{ background:linear-gradient(180deg,#d9d0ff,#b8a8ff); color:#4b3c82; }
+    .btn.good{ background:linear-gradient(180deg,#ffd96a,#ffbe3b); color:#6a4a00; }
+    .btn.ghost{ background:linear-gradient(180deg,#eef9ff,#e3f5ff); color:#5d6a70; }
+
+    .title{
+      margin:10px 0 6px; font-size:clamp(1.8rem,5vw,2.6rem); line-height:1.04; color:#4f8f2c;
+    }
+    .sub{ color:#786c61; line-height:1.55; font-weight:800; }
+    .grid{
+      display:grid; grid-template-columns:1fr .95fr; gap:14px; margin-top:14px;
+    }
+    .field{ display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+    .label{ font-size:.82rem; color:#6c6a62; font-weight:1000; }
+    .input,.select{
+      width:100%; min-height:46px; padding:10px 12px; border-radius:16px;
+      border:1px solid var(--line); background:#fff; color:var(--text); outline:none;
+    }
+    .modeRow,.actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .modeChip{
+      display:inline-flex; align-items:center; justify-content:center;
+      min-height:42px; padding:10px 14px; border-radius:999px;
+      border:1px solid var(--line); background:#fff; font-weight:1000; cursor:pointer;
+    }
+    .modeChip.is-active{ background:linear-gradient(180deg,#8fe388,#58c33f); color:#fffdf6; }
+
+    .howto{
+      display:none; margin-top:12px; padding:12px; border-radius:18px;
+      border:1px solid var(--line); background:#fff; line-height:1.55; font-weight:800; color:#746d66;
+    }
+
+    .play-wrap{
+      position:relative;
+      min-height:calc(100vh - 24px - var(--sat) - var(--sab));
+      border-radius:28px;
+      overflow:hidden;
+      border:1px solid var(--sb-themeBorder);
+      background:
+        radial-gradient(circle at 50% 18%, var(--sb-theme1), transparent 34%),
+        linear-gradient(180deg, #f8fcff 0%, #dfefff 42%, #cfe4ff 100%);
+      box-shadow:var(--shadow);
+    }
+
+    .play-wrap::after{
+      content:"";
+      position:absolute; inset:auto 0 0 0; height:42%;
+      background:
+        linear-gradient(180deg, rgba(120,140,190,.08), rgba(100,120,170,.18)),
+        linear-gradient(180deg, #d7deea, #bfc8d9);
+      pointer-events:none;
+    }
+
+    .hud-top, .hud-bottom{
+      position:absolute; left:12px; right:12px; z-index:5;
+      display:grid; gap:10px;
+    }
+    .hud-top{ top:12px; }
+    .hud-bottom{ bottom:12px; }
+
+    .hud-grid{
+      display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px;
+    }
+    .hud-card{
+      padding:10px 12px; border-radius:18px; background:rgba(255,255,255,.86);
+      border:1px solid var(--line); box-shadow:0 8px 16px rgba(111,157,183,.10);
+      text-align:center;
+    }
+    .hud-k{ font-size:.78rem; color:#7b7a72; font-weight:1000; }
+    .hud-v{ margin-top:4px; font-size:1.05rem; font-weight:1000; color:#5a4a3f; }
+
+    .boss-row{
+      display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;
+    }
+    .boss-meta{
+      display:grid; grid-template-columns:72px 1fr; gap:10px; align-items:center;
+      padding:10px 12px; border-radius:18px; background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+    }
+    .boss-face{
+      width:72px; height:72px; border-radius:20px; display:grid; place-items:center;
+      font-size:2rem; background:linear-gradient(180deg,#fff8d8,#ffe79b); border:1px solid #f6d97a;
+    }
+    .boss-name{ font-size:1rem; font-weight:1000; color:#5a4a3f; }
+    .boss-desc{ font-size:.84rem; line-height:1.4; color:#7b7a72; font-weight:800; margin-top:4px; }
+    .boss-bars{
+      display:grid; gap:8px; padding:10px 12px; border-radius:18px; background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+      min-width:240px;
+    }
+    .bar-label{ display:flex; justify-content:space-between; gap:10px; font-size:.82rem; color:#6f675f; font-weight:1000; }
+    .bar{ height:12px; border-radius:999px; overflow:hidden; background:#dcecf5; border:1px solid #c5dfec; }
+    .bar-fill{ height:100%; width:100%; background:linear-gradient(90deg,#8fe388,#58c33f); }
+    .bar-fill.boss{ background:linear-gradient(90deg,#ffd96a,#ffbe3b); }
+
+    .target-layer{
+      position:absolute; inset:0; z-index:3;
+    }
+    .sb-target{
+      position:absolute; border:none; border-radius:999px;
+      display:grid; place-items:center; cursor:pointer; user-select:none;
+      box-shadow:0 12px 20px rgba(111,157,183,.16), inset 0 8px 16px rgba(255,255,255,.24);
+      transition:transform .08s ease, opacity .12s ease;
+      font-size:1.6rem;
+      color:#2b3e4c;
+    }
+    .sb-target:active{ transform:scale(.96); }
+    .sb-target--normal{ background:radial-gradient(circle at 35% 32%, #f4ffe8, #c8f0b8 56%, #8ddd68 100%); }
+    .sb-target--decoy{ background:radial-gradient(circle at 35% 32%, #ffffff, #eceff4 55%, #cfd6df 100%); }
+    .sb-target--bomb{ background:radial-gradient(circle at 35% 32%, #fff3f0, #ffc4b5 55%, #ff8e74 100%); }
+    .sb-target--heal{ background:radial-gradient(circle at 35% 32%, #f3fff4, #cef5d0 55%, #93df9c 100%); }
+    .sb-target--shield{ background:radial-gradient(circle at 35% 32%, #edf6ff, #cbe3ff 55%, #8ebcff 100%); }
+    .sb-target--bossface{
+      background:radial-gradient(circle at 35% 32%, #fff6dc, #ffe09a 55%, #ffbf43 100%);
+      border:3px solid rgba(255,255,255,.92);
+    }
+    .sb-target.is-expiring{ opacity:0; transform:scale(.84); }
+    .sb-target.is-cvr-focus{ outline:4px solid rgba(255,255,255,.95); }
+
+    .center-msg{
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      z-index:6; min-height:46px; padding:12px 16px; border-radius:18px;
+      background:rgba(255,255,255,.92); border:1px solid var(--line);
+      font-weight:1000; color:#5a4a3f; box-shadow:0 12px 22px rgba(111,157,183,.12);
+      pointer-events:none;
+    }
+
+    .boss-banner{
+      position:absolute; left:50%; top:26%; transform:translateX(-50%) scale(.94);
+      z-index:7; min-width:min(92vw,520px); padding:16px; border-radius:22px;
+      background:linear-gradient(180deg,#fffdf6,#f8fff3); border:1px solid var(--line);
+      box-shadow:0 18px 30px rgba(111,157,183,.16); text-align:center;
+      opacity:0; pointer-events:none; transition:opacity .18s ease, transform .18s ease;
+    }
+    .boss-banner.is-show{ opacity:1; transform:translateX(-50%) scale(1); }
+    .boss-banner-title{ font-size:1.2rem; font-weight:1000; color:#4f8f2c; }
+    .boss-banner-sub{ margin-top:6px; font-weight:900; color:#746d66; }
+
+    .boss-speech{
+      position:absolute; right:14px; top:138px; z-index:7; width:min(320px,72vw);
+      padding:12px; border-radius:20px; background:rgba(255,255,255,.92); border:1px solid var(--line);
+      box-shadow:0 14px 24px rgba(111,157,183,.12); opacity:0; transform:translateY(-6px);
+      transition:opacity .16s ease, transform .16s ease;
+      pointer-events:none;
+    }
+    .boss-speech.is-show{ opacity:1; transform:translateY(0); }
+    .boss-speech-head{ display:grid; grid-template-columns:44px 1fr; gap:10px; align-items:center; }
+    .boss-speech-emoji{
+      width:44px; height:44px; border-radius:14px; display:grid; place-items:center; font-size:1.4rem;
+      background:linear-gradient(180deg,#fff8d8,#ffe79b); border:1px solid #f6d97a;
+    }
+    .boss-speech-name{ font-size:.95rem; font-weight:1000; color:#5a4a3f; }
+    .boss-speech-text{ margin-top:8px; font-size:.88rem; font-weight:900; line-height:1.45; color:#746d66; }
+
+    .hud-actions{
+      display:grid; grid-template-columns:1fr auto auto; gap:10px; align-items:center;
+    }
+    .fever-card{
+      padding:10px 12px; border-radius:18px; background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+    }
+    .fever-top{ display:flex; justify-content:space-between; gap:10px; align-items:center; font-size:.84rem; font-weight:1000; color:#5a4a3f; }
+    .fever-hint{ margin-top:6px; font-size:.8rem; font-weight:900; color:#7b7a72; }
+    .toggleWrap{
+      display:inline-flex; align-items:center; gap:8px; min-height:46px; padding:10px 12px;
+      border-radius:18px; background:rgba(255,255,255,.88); border:1px solid var(--line); font-weight:1000;
+    }
+
+    .view-result .card{
+      max-width:920px; margin:0 auto;
+    }
+    .result-grid{
+      display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-top:12px;
+    }
+    .result-stat{
+      padding:12px; border-radius:18px; background:#fff; border:1px solid var(--line); text-align:center;
+    }
+    .result-stat .k{ font-size:.8rem; color:#7b7a72; font-weight:1000; }
+    .result-stat .v{ margin-top:6px; font-size:1.2rem; font-weight:1000; color:#5a4a3f; }
+    .result-msg{
+      margin-top:12px; padding:14px; border-radius:20px; background:linear-gradient(180deg,#dff4ff,#eefcff);
+      border:1px solid #bfe3f2; color:#5b6670; line-height:1.6; font-weight:900;
+    }
+    .badge-card{
+      margin-top:12px; display:grid; grid-template-columns:72px 1fr; gap:12px; align-items:center;
+      padding:14px; border-radius:22px; border:1px solid var(--line); background:#fff;
+    }
+    .badge-icon{
+      width:72px; height:72px; border-radius:22px; display:grid; place-items:center; font-size:2rem;
+      background:linear-gradient(180deg,#fff8d8,#ffe79b); border:1px solid #f6d97a;
+    }
+    .badge-title{ font-size:1rem; font-weight:1000; color:#5a4a3f; }
+    .badge-desc{ margin-top:4px; font-size:.92rem; line-height:1.5; color:#786c61; font-weight:800; }
+
+    .cvr-crosshair{
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:4;
+      width:34px; height:34px; border-radius:999px; border:3px solid rgba(255,255,255,.96);
+      box-shadow:0 0 0 3px rgba(95,123,136,.12);
+      display:none; pointer-events:none;
+    }
+    .cvr-crosshair::before,.cvr-crosshair::after{
+      content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      background:#fff; border-radius:999px;
+    }
+    .cvr-crosshair::before{ width:16px; height:3px; }
+    .cvr-crosshair::after{ width:3px; height:16px; }
+
+    #sb-wrap[data-view-mode="cvr"] .cvr-crosshair{ display:block; }
+
+    @media (max-width:960px){
+      .grid{ grid-template-columns:1fr; }
+      .result-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .hud-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .boss-row{ grid-template-columns:1fr; }
+    }
+    @media (max-width:640px){
+      .shell{
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(10px + var(--sab))
+          calc(10px + var(--sal));
+      }
+      .hud-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .boss-meta{ grid-template-columns:56px 1fr; }
+      .boss-face{ width:56px; height:56px; font-size:1.6rem; }
+      .hud-actions{ grid-template-columns:1fr; }
+      .boss-speech{ display:none; }
+      .result-grid{ grid-template-columns:1fr 1fr; }
+      .badge-card{ grid-template-columns:64px 1fr; }
+      .badge-icon{ width:64px; height:64px; font-size:1.7rem; }
+    }
+  </style>
 </head>
 <body>
-  <script type="module" src="./js/shadow-breaker.js?v=20260411a"></script>
+  <div id="sb-wrap" data-view-mode="mobile">
+    <section id="sb-view-menu" class="view view-menu is-active">
+      <div class="shell">
+        <div class="topbar">
+          <a id="sb-link-hub" class="btn ghost" href="../herohealth/hub.html">← กลับ HUB</a>
+          <div class="pill">Shadow Breaker • Run</div>
+        </div>
+
+        <div class="card">
+          <div class="pill" style="margin-bottom:10px;">HeroHealth • Exercise Zone</div>
+          <h1 class="title">Shadow Breaker</h1>
+          <div class="sub">แตะเป้าดี เก็บคอมโบ สะสมพลังพิเศษ แล้วฝ่าบอสให้ไกลที่สุด</div>
+
+          <div class="grid">
+            <section>
+              <div class="field">
+                <label class="label" for="sb-input-pid">PID</label>
+                <input id="sb-input-pid" class="input" placeholder="เช่น anon" />
+              </div>
+
+              <div class="field">
+                <label class="label" for="sb-input-diff">ระดับความท้าทาย</label>
+                <select id="sb-input-diff" class="select">
+                  <option value="easy">ง่าย</option>
+                  <option value="normal" selected>ปกติ</option>
+                  <option value="hard">ยาก</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label class="label" for="sb-input-time">เวลาเล่น</label>
+                <select id="sb-input-time" class="select">
+                  <option value="60">60 วินาที</option>
+                  <option value="70" selected>70 วินาที</option>
+                  <option value="80">80 วินาที</option>
+                  <option value="90">90 วินาที</option>
+                </select>
+              </div>
+
+              <div class="modeRow">
+                <button id="sb-tab-normal" class="modeChip is-active" type="button">โหมดเด็ก</button>
+                <button id="sb-tab-research" class="modeChip" type="button">โหมดวิจัย</button>
+              </div>
+
+              <div id="sb-mode-desc" class="sub" style="margin-top:10px;">เล่นสนุกได้เลย ไม่ต้องกรอกข้อมูลเพิ่ม</div>
+
+              <div id="sb-research-fields" style="display:none;">
+                <div class="field">
+                  <label class="label" for="sb-input-group">Group</label>
+                  <input id="sb-input-group" class="input" placeholder="เช่น control / exp" />
+                </div>
+                <div class="field">
+                  <label class="label" for="sb-input-note">Note</label>
+                  <input id="sb-input-note" class="input" placeholder="หมายเหตุเพิ่มเติม" />
+                </div>
+              </div>
+
+              <div class="actions">
+                <button id="sb-btn-play" class="btn primary" type="button">▶ เริ่มเล่น</button>
+                <button id="sb-btn-research" class="btn good" type="button">📋 เข้าโหมดวิจัย</button>
+                <button id="sb-btn-howto" class="btn ghost" type="button">วิธีเล่น</button>
+              </div>
+
+              <div id="sb-howto" class="howto">
+                1) แตะเป้าดีเพื่อเก็บคะแนน<br />
+                2) อย่าแตะเป้าหลอกหรือบอมบ์<br />
+                3) สะสมพลังพิเศษแล้วกดใช้ในจังหวะสำคัญ
+              </div>
+            </section>
+
+            <section class="card" style="padding:12px;">
+              <div class="cardTitle" style="font-weight:1000;color:#5a4a3f;">บอสในวันนี้</div>
+              <div style="display:grid;gap:10px;">
+                <div class="boss-meta">
+                  <div class="boss-face" id="sb-meta-emoji">🫧</div>
+                  <div>
+                    <div class="boss-name" id="sb-meta-name">Bubble Glove</div>
+                    <div class="boss-desc" id="sb-meta-desc">เป้ากลมใหญ่ ตีง่าย เหมาะเริ่มต้น</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sb-view-play" class="view view-play">
+      <div class="shell">
+        <div class="play-wrap">
+          <div class="hud-top">
+            <div class="hud-grid">
+              <div class="hud-card"><div class="hud-k">เวลา</div><div id="sb-text-time" class="hud-v">70.0 s</div></div>
+              <div class="hud-card"><div class="hud-k">คะแนน</div><div id="sb-text-score" class="hud-v">0</div></div>
+              <div class="hud-card"><div class="hud-k">คอมโบ</div><div id="sb-text-combo" class="hud-v">0</div></div>
+              <div class="hud-card"><div class="hud-k">ด่าน</div><div id="sb-text-phase" class="hud-v">1</div></div>
+              <div class="hud-card"><div class="hud-k">พลาด</div><div id="sb-text-miss" class="hud-v">0</div></div>
+            </div>
+
+            <div class="boss-row">
+              <div class="boss-meta">
+                <div id="sb-stage-boss-face" class="boss-face">🫧</div>
+                <div>
+                  <div id="sb-stage-boss-name" class="boss-name">Bubble Glove</div>
+                  <div id="sb-current-boss-name" class="boss-desc">Bubble Glove</div>
+                </div>
+              </div>
+
+              <div class="boss-bars">
+                <div>
+                  <div class="bar-label"><span>พลังเรา</span><span>100</span></div>
+                  <div class="bar"><div id="sb-hp-you-top" class="bar-fill"></div></div>
+                </div>
+                <div>
+                  <div class="bar-label"><span>พลังบอส</span><span id="sb-boss-phase-label">1</span></div>
+                  <div class="bar"><div id="sb-hp-boss-top" class="bar-fill boss"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="sb-target-layer" class="target-layer"></div>
+          <div id="sb-cvr-crosshair" class="cvr-crosshair"></div>
+          <div id="sb-msg-main" class="center-msg">พร้อมแล้ว!</div>
+
+          <div id="sb-boss-banner" class="boss-banner">
+            <div id="sb-boss-banner-title" class="boss-banner-title">ผ่านบอสแล้ว!</div>
+            <div id="sb-boss-banner-sub" class="boss-banner-sub">เก่งมาก เตรียมลุยด่านต่อไป</div>
+          </div>
+
+          <div id="sb-boss-speech" class="boss-speech">
+            <div class="boss-speech-head">
+              <div id="sb-boss-speech-emoji" class="boss-speech-emoji">🫧</div>
+              <div id="sb-boss-speech-name" class="boss-speech-name">Bubble Glove</div>
+            </div>
+            <div id="sb-boss-speech-text" class="boss-speech-text">แตะฟองให้ทันนะ!</div>
+          </div>
+
+          <div class="hud-bottom">
+            <div class="hud-actions">
+              <div class="fever-card">
+                <div class="fever-top">
+                  <span>พลังพิเศษ</span>
+                  <span id="sb-label-fever">0%</span>
+                </div>
+                <div class="bar" style="margin-top:8px;"><div id="sb-fever-bar" class="bar-fill boss" style="width:0%"></div></div>
+                <div id="sb-fever-hint" class="fever-hint">ตีแม่น ๆ เพื่อเปิดพลังพิเศษ</div>
+              </div>
+
+              <label class="toggleWrap">
+                <input id="sb-btn-pause" type="checkbox" />
+                <span>พักเกม</span>
+              </label>
+
+              <button id="sb-btn-fever" class="btn good" type="button">⚡ พลังพิเศษ</button>
+            </div>
+
+            <div class="boss-bars">
+              <div>
+                <div class="bar-label"><span>พลังเรา</span><span>bottom</span></div>
+                <div class="bar"><div id="sb-hp-you-bottom" class="bar-fill"></div></div>
+              </div>
+              <div>
+                <div class="bar-label"><span>พลังบอส</span><span id="sb-boss-shield-label">0</span></div>
+                <div class="bar"><div id="sb-hp-boss-bottom" class="bar-fill boss"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sb-view-result" class="view view-result">
+      <div class="shell">
+        <div class="card">
+          <div class="pill">Shadow Breaker • Result</div>
+          <h1 class="title">สรุปในเกม</h1>
+          <div id="sb-res-message" class="result-msg">เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ</div>
+
+          <div class="result-grid">
+            <div class="result-stat"><div class="k">เวลา</div><div id="sb-res-time" class="v">0 วินาที</div></div>
+            <div class="result-stat"><div class="k">คะแนน</div><div id="sb-res-score" class="v">0</div></div>
+            <div class="result-stat"><div class="k">คอมโบสูงสุด</div><div id="sb-res-max-combo" class="v">0</div></div>
+            <div class="result-stat"><div class="k">พลาด</div><div id="sb-res-miss" class="v">0</div></div>
+            <div class="result-stat"><div class="k">ด่าน</div><div id="sb-res-phase" class="v">1</div></div>
+            <div class="result-stat"><div class="k">บอสที่ผ่าน</div><div id="sb-res-boss-cleared" class="v">0</div></div>
+            <div class="result-stat"><div class="k">ความแม่นยำ</div><div id="sb-res-acc" class="v">0%</div></div>
+            <div class="result-stat"><div class="k">เกรด</div><div id="sb-res-grade" class="v">C</div></div>
+          </div>
+
+          <div class="badge-card">
+            <div id="sb-res-badge-icon" class="badge-icon">🏅</div>
+            <div>
+              <div id="sb-res-badge-title" class="badge-title">Shadow Starter</div>
+              <div id="sb-res-badge-desc" class="badge-desc">เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="sb-btn-result-retry" class="btn primary" type="button">เล่นอีกครั้ง</button>
+            <button id="sb-btn-result-menu" class="btn violet" type="button">กลับ HUB</button>
+            <button id="sb-btn-download-events" class="btn ghost" type="button">ดาวน์โหลด events</button>
+            <button id="sb-btn-download-session" class="btn ghost" type="button">ดาวน์โหลด session</button>
+            <button id="sb-btn-back-menu" class="btn ghost" type="button">กลับเมนูเกม</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="./shadow-breaker.js?v=20260328c-shadowbreaker-final"></script>
 </body>
 </html>
