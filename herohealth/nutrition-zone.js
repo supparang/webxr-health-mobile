@@ -42,42 +42,42 @@ const STORAGE = {
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-function first(...vals){
-  for (const v of vals){
+function first(...vals) {
+  for (const v of vals) {
     if (String(v || '').trim()) return String(v).trim();
   }
   return '';
 }
 
-function cleanEnum(v, allow, fallback){
+function cleanEnum(v, allow, fallback) {
   v = String(v || '').trim().toLowerCase();
   return allow.includes(v) ? v : fallback;
 }
 
-function numIn(v, fallback, min, max){
+function numIn(v, fallback, min, max) {
   const n = Number(v);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(max, n));
 }
 
-function readJson(key, fallback = null){
-  try{
+function readJson(key, fallback = null) {
+  try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
-  }catch(_){
+  } catch (_) {
     return fallback;
   }
 }
 
-function writeJson(key, value){
-  try{
+function writeJson(key, value) {
+  try {
     localStorage.setItem(key, JSON.stringify(value));
-  }catch(_){}
+  } catch (_) {}
 }
 
-function todayKey(){
+function todayKey() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 const ctx = {
@@ -92,22 +92,35 @@ const ctx = {
   seed: first(qs.get('seed'), String(Date.now()))
 };
 
-try { localStorage.setItem('HH_PID', ctx.pid); } catch(_) {}
-try { localStorage.setItem('HH_NAME', ctx.name); } catch(_) {}
+try { localStorage.setItem('HH_PID', ctx.pid); } catch (_) {}
+try { localStorage.setItem('HH_NAME', ctx.name); } catch (_) {}
 
-function buildGameUrl(key){
+function buildSearchParamsForLinks() {
+  const sp = new URLSearchParams(qs.toString());
+  sp.set('pid', ctx.pid);
+  sp.set('name', ctx.name);
+  sp.set('run', ctx.run);
+  sp.set('diff', ctx.diff);
+  sp.set('time', ctx.time);
+  sp.set('view', ctx.view);
+  sp.set('hubRoot', ctx.hubRoot);
+  if (ctx.studyId) sp.set('studyId', ctx.studyId);
+  if (!sp.get('seed')) sp.set('seed', ctx.seed);
+  return sp;
+}
+
+function buildGameUrl(key) {
   const game = GAME_META[key];
   if (!game) return '#';
 
   const overrides = {};
-
   if (key === 'goodjunk') {
     overrides.recommendedMode = 'solo-boss';
   }
 
   return buildZoneGameUrl({
     basePath: game.path,
-    searchParams: qs,
+    searchParams: buildSearchParamsForLinks(),
     zone: 'nutrition',
     gameKey: key,
     currentHref: location.href,
@@ -115,7 +128,7 @@ function buildGameUrl(key){
   });
 }
 
-function rememberGame(key){
+function rememberGame(key) {
   const game = GAME_META[key];
   if (!game) return;
 
@@ -141,10 +154,10 @@ function rememberGame(key){
 
   try {
     localStorage.setItem('HHA_LAST_ZONE', 'nutrition');
-  } catch(_) {}
+  } catch (_) {}
 }
 
-function findRecentKey(){
+function findRecentKey() {
   const recent = readJson(STORAGE.recent, null);
   if (recent?.key && GAME_META[recent.key]) return recent.key;
 
@@ -162,11 +175,11 @@ function findRecentKey(){
   return '';
 }
 
-function getActiveFilter(){
+function getActiveFilter() {
   return $('#filterRow .filter-chip.active')?.dataset.filter || 'all';
 }
 
-function pickFeaturedKey(activeFilter = 'all'){
+function pickFeaturedKey(activeFilter = 'all') {
   const played = readJson(STORAGE.played, []);
   const order = ['plate', 'goodjunk', 'groups', 'hydration'];
 
@@ -177,10 +190,10 @@ function pickFeaturedKey(activeFilter = 'all'){
     return activeFilter === 'all' || filters.includes(activeFilter);
   });
 
-  return allowed.find(k => !played.includes(k)) || allowed[0] || 'plate';
+  return allowed.find((k) => !played.includes(k)) || allowed[0] || 'plate';
 }
 
-function renderHeader(){
+function renderHeader() {
   const hubBtn = $('#hubBtn');
   const playerPill = $('#playerPill');
   const modePill = $('#modePill');
@@ -206,7 +219,7 @@ function renderHeader(){
   }
 
   if (timeSelect) {
-    timeSelect.value = ['60','90','120'].includes(ctx.time) ? ctx.time : '90';
+    timeSelect.value = ['60', '90', '120'].includes(ctx.time) ? ctx.time : '90';
     if (!timeSelect.__bound) {
       timeSelect.__bound = true;
       timeSelect.addEventListener('change', () => {
@@ -217,7 +230,7 @@ function renderHeader(){
   }
 }
 
-function renderFeatured(){
+function renderFeatured() {
   const key = pickFeaturedKey(getActiveFilter());
   const game = GAME_META[key];
   if (!game) return;
@@ -231,7 +244,7 @@ function renderFeatured(){
   if (sub) sub.textContent = game.sub;
 
   if (tags) {
-    tags.innerHTML = game.tags.map(tag => `<span class="tag">${tag}</span>`).join('');
+    tags.innerHTML = game.tags.map((tag) => `<span class="tag">${tag}</span>`).join('');
   }
 
   if (btn) {
@@ -245,7 +258,7 @@ function renderFeatured(){
   }
 }
 
-function renderRecent(){
+function renderRecent() {
   const recentKey = findRecentKey();
   const recentArea = $('#recentArea');
   const recentName = $('#recentName');
@@ -272,7 +285,7 @@ function renderRecent(){
       </div>
 
       <div class="tag-row">
-        ${game.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+        ${game.tags.map((tag) => `<span class="tag">${tag}</span>`).join('')}
       </div>
 
       <div class="game-actions">
@@ -288,7 +301,7 @@ function renderRecent(){
   }
 }
 
-function patchAllLinks(){
+function patchAllLinks() {
   const map = {
     plate: '#btnPlate',
     goodjunk: '#btnGoodJunk',
@@ -312,7 +325,7 @@ function patchAllLinks(){
   renderRecent();
 }
 
-function bindFilters(){
+function bindFilters() {
   const row = $('#filterRow');
   if (!row || row.__bound) return;
   row.__bound = true;
@@ -321,7 +334,7 @@ function bindFilters(){
     const btn = ev.target.closest('.filter-chip');
     if (!btn) return;
 
-    $$('.filter-chip', row).forEach(chip => chip.classList.remove('active'));
+    $$('.filter-chip', row).forEach((chip) => chip.classList.remove('active'));
     btn.classList.add('active');
 
     const filter = btn.dataset.filter || 'all';
@@ -335,7 +348,7 @@ function bindFilters(){
   });
 }
 
-function renderProgress(){
+function renderProgress() {
   const played = readJson(STORAGE.played, []);
   const all = readJson(STORAGE.daily, {});
   const day = todayKey();
@@ -351,7 +364,7 @@ function renderProgress(){
   if (recentName && !recentKey) recentName.textContent = '-';
 }
 
-function bindContinue(){
+function bindContinue() {
   const btn = $('#continueBtn');
   if (!btn || btn.__bound) return;
   btn.__bound = true;
@@ -363,7 +376,7 @@ function bindContinue(){
   });
 }
 
-function boot(){
+function boot() {
   renderHeader();
   bindFilters();
   bindContinue();
