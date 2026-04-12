@@ -1,6 +1,6 @@
 export function qget(searchParams, key, fallback = '') {
   const v = searchParams.get(key);
-  return (v == null || v === '') ? fallback : v;
+  return v == null || v === '' ? fallback : v;
 }
 
 export function setParamIfValue(params, key, value) {
@@ -30,11 +30,11 @@ export function applyZoneReturnParams({
   const zoneReturn = buildZoneReturnUrl(currentHref);
 
   const passKeys = [
-    'pid','name','nickName','studyId',
-    'run','diff','view','time','seed',
-    'debug','api','log',
-    'studentKey','schoolCode','classRoom','studentNo',
-    'conditionGroup','sessionNo','weekNo','teacher','grade'
+    'pid', 'name', 'nickName', 'studyId',
+    'run', 'diff', 'view', 'time', 'seed',
+    'debug', 'api', 'log',
+    'studentKey', 'schoolCode', 'classRoom', 'studentNo',
+    'conditionGroup', 'sessionNo', 'weekNo', 'teacher', 'grade'
   ];
 
   passKeys.forEach((k) => {
@@ -53,7 +53,12 @@ export function applyZoneReturnParams({
   params.set('cat', zone);
 
   params.set('hubRoot', hubRoot);
+
+  // backward compatibility:
+  // old pages still read "hub" as the place to return to
   params.set('hub', zoneReturn);
+
+  // new standard params
   params.set('zoneReturn', zoneReturn);
   params.set('next', zoneReturn);
 
