@@ -236,9 +236,9 @@
       display:flex;
       justify-content:flex-start;
       align-items:end;
-      pointer-events:none;
       gap:10px;
       flex-wrap:wrap;
+      pointer-events:none;
     }
 
     .status-card{
@@ -260,41 +260,6 @@
       font-size:13px;
       font-weight:1000;
       margin-bottom:3px;
-    }
-
-    .action-card{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      pointer-events:auto;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
-      text-decoration:none;
-      cursor:pointer;
-      min-height:42px;
-      padding:10px 14px;
-      border-radius:16px;
-      font-size:13px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      box-shadow:var(--shadow);
-      color:#143447;
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-    }
-
-    .btn.hub{
-      color:#133b09;
-      background:linear-gradient(180deg,var(--green),var(--green2));
-    }
-
-    .btn.retry{
-      color:#4f3410;
-      background:linear-gradient(180deg,var(--orange),var(--orange2));
     }
 
     .error{
@@ -389,12 +354,6 @@
           <div id="engineStatusText">เริ่มต้นตัวโหลด engine...</div>
           <div class="mini-note" id="engineStatusMini">ถ้าไฟล์ JS อยู่ path อื่น ให้แก้ ENGINE_CANDIDATES ด้านล่าง</div>
         </div>
-
-        <div class="action-card">
-          <a id="btnLauncher" class="btn" href="./goodjunk-launcher.html">🎮 ไป Launcher</a>
-          <a id="btnHub" class="btn hub" href="./hub.html">🏠 กลับ Hub</a>
-          <button id="btnRetry" class="btn retry" type="button">🔄 ลองใหม่</button>
-        </div>
       </div>
     </div>
   </div>
@@ -405,14 +364,6 @@
 
       const q = new URLSearchParams(location.search);
       const $ = (id) => document.getElementById(id);
-
-      function first() {
-        for (let i = 0; i < arguments.length; i++) {
-          const v = arguments[i];
-          if (String(v || '').trim()) return String(v).trim();
-        }
-        return '';
-      }
 
       function clean(v, fallback='') {
         const s = String(v || '').trim();
@@ -436,10 +387,9 @@
         const mode = clean(p.get('mode'), '');
         const entry = clean(p.get('entry'), '');
         const recommendedMode = clean(p.get('recommendedMode'), '');
-        const phaseBoss = clean(p.get('phaseBoss'), '');
-        const boss = clean(p.get('boss'), '');
 
-        const looksMulti = ['duet','race','battle','coop'].includes(mode) ||
+        const looksMulti =
+          ['duet','race','battle','coop'].includes(mode) ||
           ['duet','race','battle','coop'].includes(entry) ||
           ['duet','race','battle','coop'].includes(recommendedMode);
 
@@ -469,17 +419,11 @@
           history.replaceState(null, '', normalizedHref);
         }
 
-        return {
-          hadMultiParams: looksMulti,
-          mode,
-          entry,
-          recommendedMode,
-          phaseBoss,
-          boss
-        };
+        return { hadMultiParams: looksMulti };
       }
 
       const normalizeInfo = normalizeSoloQuery();
+      const hubHref = clean(q.get('hub'), new URL('./hub.html', location.href).toString());
 
       const launcherHref = buildUrl('./goodjunk-launcher.html', {
         pid: clean(q.get('pid'), 'anon'),
@@ -488,7 +432,7 @@
         diff: clean(q.get('diff'), 'normal'),
         time: clean(q.get('time'), '150'),
         seed: clean(q.get('seed'), String(Date.now())),
-        hub: clean(q.get('hub'), new URL('./hub.html', location.href).toString()),
+        hub: hubHref,
         view: clean(q.get('view'), 'mobile'),
         run: clean(q.get('run'), 'play'),
         zone: clean(q.get('zone'), 'nutrition'),
@@ -496,7 +440,9 @@
         game: clean(q.get('game'), 'goodjunk'),
         gameId: clean(q.get('gameId'), 'goodjunk'),
         theme: 'goodjunk',
-        recommendedMode: 'solo-boss'
+        recommendedMode: 'solo-boss',
+        studyId: clean(q.get('studyId'), ''),
+        conditionGroup: clean(q.get('conditionGroup'), '')
       });
 
       const runCtx = {
@@ -513,8 +459,8 @@
         time: clean(q.get('time'), '150'),
         seed: clean(q.get('seed'), String(Date.now())),
         startAt: 0,
-        hub: clean(q.get('hub'), new URL('./hub.html', location.href).toString()),
-        nextAfterCooldown: clean(q.get('nextAfterCooldown'), ''),
+        hub: hubHref,
+        nextAfterCooldown: clean(q.get('nextAfterCooldown'), launcherHref),
         cdnext: clean(q.get('cdnext'), launcherHref),
         view: clean(q.get('view'), 'mobile'),
         run: clean(q.get('run'), 'play'),
@@ -532,7 +478,7 @@
         soloBossOnly: true,
         multiplayerBoss: false
       };
-      window.HHA_CLOUD_ENDPOINT = clean(q.get('api'), clean(window.HHA_CLOUD_ENDPOINT, ''));
+      window.HHA_CLOUD_ENDPOINT = String(q.get('api') || window.HHA_CLOUD_ENDPOINT || '').trim();
 
       const ENGINE_CANDIDATES = [
         '/webxr-health-mobile/herohealth/goodjunk-solo-phaseboss-v2.js',
@@ -540,16 +486,76 @@
         './js/goodjunk-solo-phaseboss-v2.js'
       ];
 
-      const btnLauncher = $('btnLauncher');
-      const btnHub = $('btnHub');
-      const btnRetry = $('btnRetry');
+      function ensureActionButtons() {
+        let dock = document.querySelector('.bottomDock');
+        if (!dock) return;
 
-      if (btnLauncher) btnLauncher.href = launcherHref;
-      if (btnHub) btnHub.href = runCtx.hub;
-      if (btnRetry) {
-        btnRetry.addEventListener('click', () => {
-          location.reload();
-        });
+        let actionCard = document.getElementById('soloActionCard');
+        if (actionCard) return;
+
+        actionCard = document.createElement('div');
+        actionCard.id = 'soloActionCard';
+        actionCard.style.display = 'flex';
+        actionCard.style.gap = '8px';
+        actionCard.style.flexWrap = 'wrap';
+        actionCard.style.pointerEvents = 'auto';
+
+        function makeBtn(label, href, bg, color, isButton) {
+          const el = document.createElement(isButton ? 'button' : 'a');
+          el.textContent = label;
+          el.style.minHeight = '42px';
+          el.style.padding = '10px 14px';
+          el.style.borderRadius = '16px';
+          el.style.fontSize = '13px';
+          el.style.fontWeight = '1000';
+          el.style.display = 'inline-flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.boxShadow = '0 18px 40px rgba(86,155,194,.16)';
+          el.style.textDecoration = 'none';
+          el.style.border = 'none';
+          el.style.cursor = 'pointer';
+          el.style.background = bg;
+          el.style.color = color;
+
+          if (isButton) {
+            el.type = 'button';
+          } else {
+            el.href = href;
+          }
+          return el;
+        }
+
+        const btnLauncher = makeBtn(
+          '🎮 ไป Launcher',
+          launcherHref,
+          'linear-gradient(180deg,#7fcfff,#58b7f5)',
+          '#143447',
+          false
+        );
+
+        const btnHub = makeBtn(
+          '🏠 กลับ Hub',
+          hubHref,
+          'linear-gradient(180deg,#7ed957,#58c33f)',
+          '#133b09',
+          false
+        );
+
+        const btnRetry = makeBtn(
+          '🔄 ลองใหม่',
+          '',
+          'linear-gradient(180deg,#ffd37a,#ffb84d)',
+          '#4f3410',
+          true
+        );
+
+        btnRetry.addEventListener('click', () => location.reload());
+
+        actionCard.appendChild(btnLauncher);
+        actionCard.appendChild(btnHub);
+        actionCard.appendChild(btnRetry);
+        dock.appendChild(actionCard);
       }
 
       function setStatus(title, text, isError = false) {
@@ -609,16 +615,17 @@
       function verifyEngineStarted() {
         const mount = document.getElementById('gameMount');
         if (!mount) return false;
-        return mount.children.length > 0;
+        return mount.children.length > 0 || !!window.__GJ_ENGINE_MOUNTED__;
       }
 
       async function loadEngine() {
         updatePills();
+        ensureActionButtons();
 
         if (normalizeInfo.hadMultiParams) {
           setStatus(
             'ตรวจพบพารามิเตอร์ multi',
-            'หน้านี้จะบังคับเป็น solo-boss เท่านั้น จึงล้างค่าของ multiplayer ออกแล้วและจะเดินต่อแบบ solo'
+            'หน้านี้บังคับเป็น solo-boss เท่านั้น จึงล้างค่าของ multiplayer ออกแล้วและจะเดินต่อแบบ solo'
           );
         }
 
@@ -669,6 +676,7 @@
 
       try {
         updatePills();
+        ensureActionButtons();
         setStatus('กำลังเตรียมเกม…', 'เริ่มต้นตัวโหลด engine...');
         loadEngine();
       } catch (err) {
