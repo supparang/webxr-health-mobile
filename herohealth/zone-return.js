@@ -93,3 +93,58 @@ export function buildZoneGameUrl({
   url.search = params.toString();
   return url.toString();
 }
+
+export function patchAnchorHref(anchorEl, href, onBeforeNavigate) {
+  if (!anchorEl) return;
+  anchorEl.href = href;
+
+  if (!anchorEl.__zoneReturnBound && typeof onBeforeNavigate === 'function') {
+    anchorEl.__zoneReturnBound = true;
+    anchorEl.addEventListener('click', onBeforeNavigate);
+  }
+}
+
+export function rememberZoneGame({
+  zone,
+  gameKey,
+  gameTitle = ''
+}) {
+  const z = String(zone || '').trim().toUpperCase();
+  const recentKey = `HHA_LAST_GAME_BY_ZONE_${z}`;
+  const playedKey = `HHA_ZONE_PLAYED_${z}`;
+  const dailyKey = `HHA_ZONE_DAILY_${z}`;
+
+  try {
+    localStorage.setItem('HHA_LAST_ZONE', String(zone || '').trim().toLowerCase());
+  } catch (_) {}
+
+  try {
+    localStorage.setItem(recentKey, JSON.stringify({
+      key: gameKey,
+      title: gameTitle || gameKey,
+      at: Date.now()
+    }));
+  } catch (_) {}
+
+  try {
+    const played = JSON.parse(localStorage.getItem(playedKey) || '[]');
+    if (Array.isArray(played) && !played.includes(gameKey)) {
+      played.push(gameKey);
+      localStorage.setItem(playedKey, JSON.stringify(played));
+    }
+  } catch (_) {}
+
+  try {
+    const d = new Date();
+    const day =
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const daily = JSON.parse(localStorage.getItem(dailyKey) || '{}');
+    const row = daily[day] || { count: 0, lastKey: '' };
+    row.count += 1;
+    row.lastKey = gameKey;
+    daily[day] = row;
+
+    localStorage.setItem(dailyKey, JSON.stringify(daily));
+  } catch (_) {}
+}
