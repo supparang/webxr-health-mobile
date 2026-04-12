@@ -3,471 +3,26 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle Play Gate</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
-
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-
-  <script src="./firebase-config.js"></script>
-  <script src="./gj-room-adapter.js"></script>
-
-  <style>
-    :root{
-      --bg1:#241405;
-      --bg2:#5a2d08;
-      --bg3:#9a540f;
-      --panel:rgba(25,14,5,.80);
-      --stroke:rgba(255,255,255,.14);
-      --text:#fffaf4;
-      --muted:#ffe8d3;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --info:#38bdf8;
-      --battle:#f97316;
-      --bad:#ef4444;
-      --shadow:0 20px 60px rgba(0,0,0,.34);
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
-      color:var(--text);
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-      background:
-        radial-gradient(900px 520px at 10% 10%, rgba(249,115,22,.22), transparent 60%),
-        radial-gradient(900px 560px at 90% 0%, rgba(245,158,11,.16), transparent 60%),
-        radial-gradient(700px 420px at 50% 100%, rgba(239,68,68,.10), transparent 60%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
-    }
-
-    body{ overflow-x:hidden; }
-
-    .app{
-      max-width:960px;
-      margin:0 auto;
-      min-height:100dvh;
-      padding:
-        calc(14px + var(--sat))
-        calc(14px + var(--sar))
-        calc(18px + var(--sab))
-        calc(14px + var(--sal));
-      display:grid;
-      place-items:center;
-    }
-
-    .shell{
-      width:min(100%, 920px);
-      display:grid;
-      gap:12px;
-    }
-
-    .panel{
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      backdrop-filter:blur(12px);
-      border-radius:28px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .hero{
-      padding:18px;
-      display:grid;
-      gap:14px;
-    }
-
-    .heroTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .brand{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      min-width:0;
-    }
-
-    .icon{
-      width:72px;
-      height:72px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      font-size:36px;
-      border:1px solid rgba(255,255,255,.14);
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 38%),
-        linear-gradient(135deg, rgba(249,115,22,.24), rgba(245,158,11,.18));
-      box-shadow:0 12px 26px rgba(0,0,0,.16);
-      flex:0 0 auto;
-    }
-
-    .title{
-      font-size:30px;
-      line-height:1.05;
-      font-weight:1000;
-      color:#fff;
-    }
-
-    .sub{
-      margin-top:6px;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
-      font-weight:900;
-    }
-
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .btn{
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#fff;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:10px 14px;
-      font-size:14px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:0 10px 20px rgba(0,0,0,.16);
-      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
-    }
-
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.05);
-    }
-
-    .btn.info{
-      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
-      border-color:rgba(56,189,248,.34);
-      color:#eefbff;
-    }
-
-    .btn.battle{
-      background:linear-gradient(180deg, rgba(249,115,22,.24), rgba(249,115,22,.14));
-      border-color:rgba(249,115,22,.34);
-      color:#fff3eb;
-    }
-
-    .stats{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .stat{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      padding:12px;
-      min-height:84px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      gap:6px;
-    }
-
-    .label{
-      font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .value{
-      font-size:22px;
-      line-height:1.15;
-      font-weight:1000;
-      color:#fff;
-      word-break:break-word;
-    }
-
-    .body{
-      padding:18px;
-      display:grid;
-      gap:12px;
-    }
-
-    .notice{
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      padding:14px 16px;
-      font-size:14px;
-      line-height:1.7;
-      font-weight:900;
-      color:#fff7ed;
-    }
-
-    .notice.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
-      color:#f0fff5;
-    }
-
-    .notice.warn{
-      border-color:rgba(245,158,11,.28);
-      background:rgba(245,158,11,.14);
-      color:#fff7db;
-    }
-
-    .notice.bad{
-      border-color:rgba(239,68,68,.28);
-      background:rgba(239,68,68,.14);
-      color:#fff1f2;
-    }
-
-    .players{
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      padding:12px;
-      display:grid;
-      gap:10px;
-    }
-
-    .playersHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .playersTitle{
-      font-size:16px;
-      font-weight:1000;
-      color:#fff;
-    }
-
-    .chip{
-      min-height:32px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#fff;
-      font-size:11px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    .chip.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.16);
-      color:#f0fff5;
-    }
-
-    .chip.warn{
-      border-color:rgba(245,158,11,.28);
-      background:rgba(245,158,11,.16);
-      color:#fff7db;
-    }
-
-    .chip.battle{
-      border-color:rgba(249,115,22,.28);
-      background:rgba(249,115,22,.16);
-      color:#fff3eb;
-    }
-
-    .playerList{
-      display:grid;
-      gap:10px;
-    }
-
-    .playerRow{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:12px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(255,255,255,.06);
-    }
-
-    .playerName{
-      font-size:14px;
-      font-weight:1000;
-      color:#fff;
-    }
-
-    .playerRole{
-      min-height:30px;
-      padding:7px 10px;
-      border-radius:999px;
-      font-size:11px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#fff;
-    }
-
-    .playerRole.host{
-      border-color:rgba(249,115,22,.34);
-      background:rgba(249,115,22,.16);
-      color:#fff3eb;
-    }
-
-    .playerRole.guest{
-      border-color:rgba(56,189,248,.34);
-      background:rgba(56,189,248,.16);
-      color:#eefbff;
-    }
-
-    .log{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(24,9,3,.34);
-      padding:12px 14px;
-      color:#ffedd5;
-      font-size:12px;
-      line-height:1.55;
-      font-weight:900;
-      min-height:74px;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-
-    @media (max-width:780px){
-      .stats{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-      .heroTop{
-        align-items:flex-start;
-      }
-      .actions{
-        justify-content:flex-start;
-      }
-      .title{
-        font-size:24px;
-      }
-    }
-
-    @media (max-width:560px){
-      .stats{
-        grid-template-columns:1fr;
-      }
-    }
-  </style>
+  <title>GoodJunk • Battle Play</title>
 </head>
 <body>
-  <div class="app">
-    <div class="shell">
-      <section class="panel hero">
-        <div class="heroTop">
-          <div class="brand">
-            <div class="icon">⚔️</div>
-            <div>
-              <div class="title">GoodJunk Battle • Ready Gate</div>
-              <div class="sub">รอให้ Host กดเริ่มก่อน แล้วค่อยเข้าเกม Battle จริง</div>
-            </div>
-          </div>
-
-          <div class="actions">
-            <a id="btnBackLobby" class="btn" href="#">กลับ Lobby</a>
-            <a id="btnBackHub" class="btn battle" href="#">กลับ Hub</a>
-            <button id="btnRefresh" class="btn info" type="button">รีเฟรช</button>
-          </div>
-        </div>
-
-        <div class="stats">
-          <div class="stat">
-            <div class="label">Room</div>
-            <div id="statRoom" class="value">-</div>
-          </div>
-          <div class="stat">
-            <div class="label">Role</div>
-            <div id="statRole" class="value">-</div>
-          </div>
-          <div class="stat">
-            <div class="label">Players</div>
-            <div id="statPlayers" class="value">0/2</div>
-          </div>
-          <div class="stat">
-            <div class="label">Status</div>
-            <div id="statStatus" class="value">waiting</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel body">
-        <div id="noticeBox" class="notice warn">กำลังตรวจสอบสถานะห้อง…</div>
-
-        <div class="players">
-          <div class="playersHead">
-            <div class="playersTitle">ผู้เล่นในห้อง</div>
-            <div id="chipState" class="chip warn">checking</div>
-          </div>
-
-          <div id="playerList" class="playerList">
-            <div class="playerRow">
-              <div class="playerName">ยังไม่มีข้อมูลผู้เล่น</div>
-              <div class="playerRole">-</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="log" id="logBox">Booting battle play gate…</div>
-      </section>
-    </div>
-  </div>
-
   <script type="module">
-    const MODE = 'battle';
-    const REQUIRED_PLAYERS = 2;
-    const ENGINE_PATH = './vr-goodjunk/goodjunk-battle-play.html';
+    import { bootGoodJunkModePlay } from './vr-goodjunk/goodjunk-mode-play-router.js?v=20260411c-GJ-MODE-PLAY-ROUTER-CDNEXT-ROOM-STABLE';
 
-    let roomApi = null;
-    let unsub = null;
-    let redirecting = false;
+    function qs(name, fallback = '') {
+      try {
+        return new URL(location.href).searchParams.get(name) ?? fallback;
+      } catch (_) {
+        return fallback;
+      }
+    }
 
-    const $ = (id) => document.getElementById(id);
-
-    const qs = (k, d='') => {
-      try { return new URL(location.href).searchParams.get(k) ?? d; }
-      catch (_) { return d; }
-    };
-
-    function clean(v, d=''){
+    function clean(v, fallback = '') {
       const s = String(v ?? '').trim();
-      return s || d;
+      return s || fallback;
     }
 
-    function nowText(){
-      return new Date().toLocaleTimeString('th-TH', { hour12:false });
-    }
-
-    function log(msg){
-      $('logBox').textContent = `[${nowText()}] ${msg}`;
-    }
-
-    function buildUrl(path, extra = {}, base = location.href){
+    function buildUrl(path, extra = {}, base = location.href) {
       const u = new URL(path, base);
       Object.entries(extra).forEach(([k, v]) => {
         if (v !== undefined && v !== null && v !== '') {
@@ -477,282 +32,78 @@
       return u.toString();
     }
 
-    function ctx(){
-      return {
-        pid: clean(qs('pid', 'anon')),
-        name: clean(qs('name', qs('nick', 'Hero'))),
-        nick: clean(qs('nick', qs('name', 'Hero'))),
-        roomId: clean(qs('roomId', qs('room', ''))),
-        diff: clean(qs('diff', 'normal')),
-        time: clean(qs('time', '90')),
-        view: clean(qs('view', 'mobile')),
-        hub: clean(qs('hub', './hub.html')),
-        run: clean(qs('run', 'play')),
-        seed: clean(qs('seed', String(Date.now()))),
-        zone: clean(qs('zone', 'nutrition')),
-        cat: clean(qs('cat', 'nutrition')),
-        game: clean(qs('game', 'goodjunk')),
-        gameId: clean(qs('gameId', 'goodjunk')),
-        theme: clean(qs('theme', 'goodjunk')),
-        studyId: clean(qs('studyId', '')),
-        conditionGroup: clean(qs('conditionGroup', ''))
-      };
-    }
+    function ensureNormalizedSearch() {
+      const url = new URL(location.href);
+      const p = url.searchParams;
 
-    function buildLobbyUrl(){
-      const p = ctx();
-      return buildUrl('./goodjunk-battle-lobby.html', {
-        mode: 'battle',
-        entry: 'battle',
-        recommendedMode: 'battle',
-        pid: p.pid,
-        name: p.name,
-        nick: p.nick,
-        diff: p.diff,
-        time: p.time,
-        view: p.view,
-        hub: p.hub,
-        run: p.run,
-        seed: p.seed,
-        zone: p.zone,
-        cat: p.cat,
-        game: p.game,
-        gameId: p.gameId,
-        theme: p.theme,
-        roomId: p.roomId,
-        room: p.roomId,
-        studyId: p.studyId,
-        conditionGroup: p.conditionGroup
-      });
-    }
+      const pid = clean(p.get('pid'), 'anon');
+      const name = clean(p.get('name') || p.get('nick'), 'Hero');
+      const nick = clean(p.get('nick') || p.get('name'), name);
+      const diff = clean(p.get('diff'), 'normal');
+      const time = clean(p.get('time'), '90');
+      const view = clean(p.get('view'), 'mobile');
+      const hub = clean(p.get('hub'), './hub.html');
+      const run = clean(p.get('run'), 'play');
+      const seed = clean(p.get('seed'), String(Date.now()));
+      const zone = clean(p.get('zone'), 'nutrition');
+      const cat = clean(p.get('cat'), 'nutrition');
+      const game = clean(p.get('game'), 'goodjunk');
+      const gameId = clean(p.get('gameId'), 'goodjunk');
+      const theme = clean(p.get('theme'), 'goodjunk');
+      const studyId = clean(p.get('studyId'), '');
+      const conditionGroup = clean(p.get('conditionGroup'), '');
+      const roomId = clean(p.get('roomId') || p.get('room'), '');
 
-    function buildEngineUrl(room, meRole='guest'){
-      const p = ctx();
-      return buildUrl(ENGINE_PATH, {
-        mode: 'battle',
-        entry: 'battle',
-        roomId: room?.roomId || p.roomId,
-        room: room?.roomId || p.roomId,
-        pid: p.pid,
-        name: p.name,
-        nick: p.nick,
-        diff: room?.diff || p.diff,
-        time: room?.time || p.time,
-        view: p.view,
-        hub: p.hub,
-        run: p.run,
-        seed: p.seed,
-        zone: p.zone,
-        cat: p.cat,
-        game: p.game,
-        gameId: p.gameId,
-        theme: p.theme,
-        studyId: p.studyId,
-        conditionGroup: p.conditionGroup,
-        role: meRole,
-        host: meRole === 'host' ? '1' : '0',
-        wait: '0',
-        autostart: '1',
-        modeLocked: '1',
-        roomReady: '1',
-        maxPlayers: String(REQUIRED_PLAYERS)
-      });
-    }
-
-    function applyLinks(){
-      $('btnBackLobby').href = buildLobbyUrl();
-      $('btnBackHub').href = ctx().hub;
-    }
-
-    function updateNotice(kind, text){
-      $('noticeBox').className = `notice ${kind}`;
-      $('noticeBox').innerHTML = text;
-    }
-
-    function updateChip(kind, text){
-      $('chipState').className = `chip ${kind}`;
-      $('chipState').textContent = text;
-    }
-
-    function getMe(room){
-      return room?.players?.[ctx().pid] || null;
-    }
-
-    function renderPlayers(room){
-      const wrap = $('playerList');
-      const playersObj = room?.players || {};
-      const players = Object.values(playersObj)
-        .filter(Boolean)
-        .sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
-
-      if (!players.length) {
-        wrap.innerHTML = `
-          <div class="playerRow">
-            <div class="playerName">ยังไม่มีผู้เล่น</div>
-            <div class="playerRole">-</div>
-          </div>
-        `;
-        return;
+      if (roomId) {
+        p.set('roomId', roomId);
+        p.set('room', roomId);
       }
 
-      wrap.innerHTML = players.map((p, idx) => `
-        <div class="playerRow">
-          <div class="playerName">${idx + 1}. ${String(p.name || p.nick || p.pid || 'Player')}</div>
-          <div class="playerRole ${p.role === 'host' ? 'host' : 'guest'}">${p.role === 'host' ? '⚔️ Host' : '🛡️ Guest'}</div>
-        </div>
-      `).join('');
-    }
+      p.set('mode', 'battle');
+      p.set('entry', clean(p.get('entry'), 'battle'));
+      p.set('recommendedMode', 'battle');
+      p.set('maxPlayers', '2');
 
-    function updateStats(room, me=null){
-      const count = room?.players ? Object.keys(room.players).length : 0;
-      $('statRoom').textContent = room?.roomId || clean(ctx().roomId, '-');
-      $('statRole').textContent = me?.role || '-';
-      $('statPlayers').textContent = `${count}/${REQUIRED_PLAYERS}`;
-      $('statStatus').textContent = room?.status || 'waiting';
-    }
+      if (!p.get('cdnext')) {
+        const cdnext = buildUrl('./goodjunk-launcher.html', {
+          pid,
+          name,
+          nick,
+          diff,
+          time,
+          hub,
+          view,
+          run,
+          seed,
+          zone,
+          cat,
+          game,
+          gameId,
+          theme,
+          recommendedMode: 'battle',
+          studyId,
+          conditionGroup
+        }, location.href);
 
-    function stopWatch(){
-      if (typeof unsub === 'function') {
-        try { unsub(); } catch (_) {}
-      }
-      unsub = null;
-    }
-
-    function tryEnterGame(room){
-      if (redirecting) return;
-
-      const me = getMe(room);
-      const count = room?.players ? Object.keys(room.players).length : 0;
-
-      if (!room || !me) return;
-      if (room.mode !== MODE) return;
-      if (count !== REQUIRED_PLAYERS) return;
-      if (room.status !== 'started') return;
-
-      redirecting = true;
-      updateNotice('good', 'ห้องเริ่มแล้ว • กำลังพาเข้าเกม Battle จริง');
-      updateChip('good', 'entering');
-      log('ROOM_STARTED -> ENTER_ENGINE');
-
-      const href = buildEngineUrl(room, me.role || 'guest');
-      setTimeout(() => {
-        location.href = href;
-      }, 450);
-    }
-
-    function syncRoomUi(room){
-      const me = getMe(room);
-      const count = room?.players ? Object.keys(room.players).length : 0;
-
-      updateStats(room, me);
-      renderPlayers(room);
-
-      if (!room) {
-        updateNotice('bad', 'ยังไม่พบห้องนี้ในระบบ • กลับไปที่ Lobby แล้วสร้างห้องหรือเข้าห้องใหม่');
-        updateChip('warn', 'no-room');
-        log('ROOM_NOT_FOUND');
-        return;
+        p.set('cdnext', cdnext);
       }
 
-      if (room.mode !== MODE) {
-        updateNotice('bad', 'room นี้ไม่ใช่โหมด battle');
-        updateChip('warn', 'wrong-mode');
-        log('ROOM_MODE_MISMATCH');
-        return;
-      }
-
-      if (!me) {
-        updateNotice('bad', 'PID นี้ยังไม่ได้อยู่ในห้อง • กลับ Lobby แล้วเข้าห้องใหม่');
-        updateChip('warn', 'not-in-room');
-        log('PLAYER_NOT_IN_ROOM');
-        return;
-      }
-
-      if (count < REQUIRED_PLAYERS) {
-        if (me.role === 'host') {
-          updateNotice('warn', `คุณเป็น Host • ตอนนี้ยังมีผู้เล่นไม่ครบ 2 คน กรุณารออีก ${REQUIRED_PLAYERS - count} คน`);
-        } else {
-          updateNotice('warn', 'คุณเข้าห้องแล้ว • ตอนนี้รอให้ห้องครบ 2 คน และรอ Host กดเริ่ม');
-        }
-        updateChip('warn', `waiting ${count}/2`);
-        log(`WAITING_PLAYER ${count}/2`);
-        return;
-      }
-
-      if (count > REQUIRED_PLAYERS) {
-        updateNotice('bad', `ห้องนี้มีผู้เล่นเกินกำหนด (${count}/2)`);
-        updateChip('warn', 'overflow');
-        log(`ROOM_OVERFLOW ${count}/2`);
-        return;
-      }
-
-      if (room.status !== 'started') {
-        if (me.role === 'host') {
-          updateNotice('good', 'ห้องพร้อมแล้ว • กลับไปหน้า Lobby แล้วกด “เริ่ม Battle” ได้');
-        } else {
-          updateNotice('warn', 'ห้องพร้อมแล้ว • ตอนนี้รอ Host กด “เริ่ม Battle”');
-        }
-        updateChip('battle', 'ready');
-        log('READY_WAIT_START');
-        return;
-      }
-
-      tryEnterGame(room);
-    }
-
-    async function loadAndSyncRoom(){
-      const p = ctx();
-      if (!roomApi || !p.roomId) {
-        syncRoomUi(null);
-        return;
-      }
-      try {
-        const room = await roomApi.loadRoom(p.roomId);
-        syncRoomUi(room);
-      } catch (err) {
-        log(`LOAD_FAIL ${String(err?.message || err || 'unknown')}`);
+      const normalizedHref = url.toString();
+      if (normalizedHref !== location.href) {
+        history.replaceState(null, '', normalizedHref);
       }
     }
 
-    function startWatchRoom(){
-      stopWatch();
-      const p = ctx();
-      if (!roomApi || !p.roomId) return;
+    ensureNormalizedSearch();
 
-      try {
-        unsub = roomApi.subscribeRoom(p.roomId, (room) => {
-          syncRoomUi(room);
-        });
-      } catch (err) {
-        log(`WATCH_FAIL ${String(err?.message || err || 'unknown')}`);
-      }
-    }
-
-    async function getRoomAdapter(){
-      if (window.GJRoomAdapter && typeof window.GJRoomAdapter.makeRoomAdapter === 'function') {
-        return await window.GJRoomAdapter.makeRoomAdapter(MODE);
-      }
-      throw new Error('NO_SHARED_ROOM_ADAPTER');
-    }
-
-    $('btnRefresh').addEventListener('click', () => loadAndSyncRoom());
-    window.addEventListener('beforeunload', stopWatch);
-
-    async function init(){
-      applyLinks();
-      try {
-        roomApi = await getRoomAdapter();
-        log('USING_SHARED_FIREBASE_ADAPTER');
-        startWatchRoom();
-        await loadAndSyncRoom();
-      } catch (err) {
-        updateNotice('bad', 'หน้า play gate นี้ยังต่อ shared room ไม่สำเร็จ จึงยังเข้าเกมจริงไม่ได้');
-        updateChip('warn', 'adapter-fail');
-        log(String(err?.message || err || 'adapter init failed'));
-      }
-    }
-
-    init();
+    bootGoodJunkModePlay({
+      mode: 'battle',
+      title: 'GoodJunk • Battle Play',
+      subtitle: 'กำลังเข้าโหมด battle และคง room เดิมไว้ให้ครบ',
+      emoji: '⚔️',
+      targetPath: './vr-goodjunk/goodjunk-battle-runtime.html',
+      launcherPath: './goodjunk-launcher.html'
+    });
   </script>
 </body>
 </html>
