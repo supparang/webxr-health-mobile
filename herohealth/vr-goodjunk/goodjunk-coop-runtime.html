@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk • Co-op Runtime</title>
+  <script src="./goodjunk-mp-finish.js"></script>
+  <style>
+    :root{
+      --bg1:#12081f;
+      --bg2:#2f1454;
+      --bg3:#5b2fa0;
+      --panel:rgba(18,8,31,.82);
+      --stroke:rgba(255,255,255,.14);
+      --text:#f9f7ff;
+      --muted:#efe8ff;
+      --good:#22c55e;
+      --info:#38bdf8;
+      --warn:#f59e0b;
+      --team:#a78bfa;
+      --shadow:0 20px 60px rgba(0,0,0,.34);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(900px 520px at 10% 10%, rgba(167,139,250,.18), transparent 60%),
+        radial-gradient(900px 560px at 90% 0%, rgba(56,189,248,.12), transparent 60%),
+        radial-gradient(700px 420px at 50% 100%, rgba(34,197,94,.10), transparent 60%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
+      color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    }
+
+    body{ overflow-x:hidden; }
+
+    .shell{
+      min-height:100dvh;
+      max-width:920px;
+      margin:0 auto;
+      padding:18px;
+      display:grid;
+      place-items:center;
+    }
+
+    .card{
+      width:min(100%, 860px);
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      backdrop-filter:blur(12px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .hero{
+      padding:20px;
+      display:grid;
+      gap:14px;
+    }
+
+    .top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .icon{
+      width:74px;
+      height:74px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      font-size:38px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 40%),
+        linear-gradient(135deg, rgba(167,139,250,.20), rgba(56,189,248,.16));
+      box-shadow:0 12px 28px rgba(0,0,0,.16);
+      flex:0 0 auto;
+    }
+
+    .title{
+      font-size:30px;
+      line-height:1.08;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .subtitle{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      min-height:46px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:10px 14px;
+      font-size:14px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:0 10px 20px rgba(0,0,0,.16);
+      transition:transform .12s ease, filter .12s ease;
+    }
+
+    .btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.05);
+    }
+
+    .btn.info{
+      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
+      border-color:rgba(56,189,248,.34);
+      color:#eefbff;
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.14));
+      border-color:rgba(34,197,94,.34);
+      color:#f0fff5;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .stat{
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      padding:12px;
+      min-height:82px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:6px;
+    }
+
+    .label{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .value{
+      font-size:22px;
+      line-height:1.15;
+      font-weight:1000;
+      color:#fff;
+      word-break:break-word;
+    }
+
+    .body{
+      padding:0 20px 20px;
+      display:grid;
+      gap:12px;
+    }
+
+    .notice{
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      padding:14px 16px;
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+      color:#fff7ed;
+    }
+
+    .notice.info{
+      border-color:rgba(56,189,248,.28);
+      background:rgba(56,189,248,.14);
+      color:#eefbff;
+    }
+
+    .notice.good{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.14);
+      color:#f0fff5;
+    }
+
+    .notice.warn{
+      border-color:rgba(245,158,11,.28);
+      background:rgba(245,158,11,.14);
+      color:#fff7db;
+    }
+
+    .log{
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(18,8,31,.34);
+      padding:12px 14px;
+      color:#efe8ff;
+      font-size:12px;
+      line-height:1.55;
+      font-weight:900;
+      min-height:72px;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    @media (max-width:780px){
+      .stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .top{ align-items:flex-start; }
+      .actions{ justify-content:flex-start; }
+      .title{ font-size:24px; }
+    }
+
+    @media (max-width:560px){
+      .stats{ grid-template-columns:1fr; }
+      .shell{ padding:12px; }
+      .hero{ padding:16px; }
+      .body{ padding:0 16px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <div class="hero">
+        <div class="top">
+          <div class="brand">
+            <div class="icon">🫶</div>
+            <div>
+              <div class="title">GoodJunk • Co-op Runtime</div>
+              <div class="subtitle">กำลังตรวจสอบ query และส่งต่อเข้า engine หลักของโหมด Co-op</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <a id="btnLobby" class="btn" href="#">กลับ Lobby</a>
+            <a id="btnHub" class="btn info" href="#">กลับ Hub</a>
+            <a id="btnLauncher" class="btn good" href="#">กลับ Launcher</a>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="label">Mode</div>
+            <div id="statMode" class="value">coop</div>
+          </div>
+          <div class="stat">
+            <div class="label">Room</div>
+            <div id="statRoom" class="value">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">Role</div>
+            <div id="statRole" class="value">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">Patch</div>
+            <div id="statPatch" class="value">runtime-r1</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="body">
+        <div id="noticeBox" class="notice info">
+          กำลังเตรียมเข้า engine หลัก…
+        </div>
+
+        <div id="logBox" class="log">booting coop runtime…</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const PATCH = 'runtime-r1-coop-cdnext-room-stable';
+    const ENGINE_PATH = './goodjunk-vr.html';
+
+    const $ = (id) => document.getElementById(id);
+
+    function qs(name, fallback = '') {
+      try {
+        return new URL(location.href).searchParams.get(name) ?? fallback;
+      } catch (_) {
+        return fallback;
+      }
+    }
+
+    function clean(v, fallback = '') {
+      const s = String(v ?? '').trim();
+      return s || fallback;
+    }
+
+    function buildUrl(path, extra = {}, base = location.href) {
+      const u = new URL(path, base);
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          u.searchParams.set(k, String(v));
+        }
+      });
+      return u.toString();
+    }
+
+    function setNotice(kind = 'info', text = '') {
+      const el = $('noticeBox');
+      if (!el) return;
+      el.className = `notice ${kind}`;
+      el.innerHTML = text;
+    }
+
+    function setLog(text = '') {
+      const el = $('logBox');
+      if (!el) return;
+      el.textContent = `[${new Date().toLocaleTimeString('th-TH', { hour12:false })}] ${text}`;
+    }
+
+    function readCtx() {
+      const roomId = clean(qs('roomId', qs('room', '')));
+      return {
+        mode: 'coop',
+        entry: clean(qs('entry', 'coop')),
+        pid: clean(qs('pid', 'anon')),
+        name: clean(qs('name', qs('nick', 'Hero'))),
+        nick: clean(qs('nick', qs('name', 'Hero'))),
+        roomId,
+        room: roomId,
+        diff: clean(qs('diff', 'normal')),
+        time: clean(qs('time', '90')),
+        view: clean(qs('view', 'mobile')),
+        hub: clean(qs('hub', '../hub.html')),
+        run: clean(qs('run', 'play')),
+        seed: clean(qs('seed', String(Date.now()))),
+        zone: clean(qs('zone', 'nutrition')),
+        cat: clean(qs('cat', 'nutrition')),
+        game: clean(qs('game', 'goodjunk')),
+        gameId: clean(qs('gameId', 'goodjunk')),
+        theme: clean(qs('theme', 'goodjunk')),
+        studyId: clean(qs('studyId', '')),
+        conditionGroup: clean(qs('conditionGroup', '')),
+        role: clean(qs('role', qs('host', '0') === '1' ? 'host' : 'guest')),
+        host: qs('host', '0') === '1' ? '1' : '0',
+        wait: clean(qs('wait', '0')),
+        autostart: clean(qs('autostart', '1')),
+        modeLocked: clean(qs('modeLocked', '1')),
+        roomReady: clean(qs('roomReady', '1')),
+        maxPlayers: clean(qs('maxPlayers', '10')),
+        recommendedMode: clean(qs('recommendedMode', 'coop')),
+        cdnext: clean(qs('cdnext', ''))
+      };
+    }
+
+    function buildLauncherUrl(ctx) {
+      return buildUrl('../goodjunk-launcher.html', {
+        pid: ctx.pid,
+        name: ctx.name,
+        nick: ctx.nick,
+        diff: ctx.diff,
+        time: ctx.time,
+        hub: ctx.hub,
+        view: ctx.view,
+        run: ctx.run,
+        seed: ctx.seed,
+        zone: ctx.zone,
+        cat: ctx.cat,
+        game: ctx.game,
+        gameId: ctx.gameId,
+        theme: ctx.theme,
+        recommendedMode: 'coop',
+        studyId: ctx.studyId,
+        conditionGroup: ctx.conditionGroup
+      });
+    }
+
+    function buildLobbyUrl(ctx) {
+      return buildUrl('../goodjunk-coop-lobby.html', {
+        mode: 'coop',
+        entry: 'coop',
+        recommendedMode: 'coop',
+        pid: ctx.pid,
+        name: ctx.name,
+        nick: ctx.nick,
+        diff: ctx.diff,
+        time: ctx.time,
+        view: ctx.view,
+        hub: ctx.hub,
+        run: ctx.run,
+        seed: ctx.seed,
+        zone: ctx.zone,
+        cat: ctx.cat,
+        game: ctx.game,
+        gameId: ctx.gameId,
+        theme: ctx.theme,
+        roomId: ctx.roomId,
+        room: ctx.roomId,
+        studyId: ctx.studyId,
+        conditionGroup: ctx.conditionGroup
+      });
+    }
+
+    function ensureCdnext(ctx) {
+      return ctx.cdnext || buildLauncherUrl(ctx);
+    }
+
+    function normalizeSearch(ctx) {
+      const url = new URL(location.href);
+      const p = url.searchParams;
+
+      p.set('mode', 'coop');
+      p.set('entry', ctx.entry);
+
+      p.set('pid', ctx.pid);
+      p.set('name', ctx.name);
+      p.set('nick', ctx.nick);
+
+      if (ctx.roomId) {
+        p.set('roomId', ctx.roomId);
+        p.set('room', ctx.roomId);
+      }
+
+      p.set('diff', ctx.diff);
+      p.set('time', ctx.time);
+      p.set('view', ctx.view);
+      p.set('hub', ctx.hub);
+      p.set('run', ctx.run);
+      p.set('seed', ctx.seed);
+      p.set('zone', ctx.zone);
+      p.set('cat', ctx.cat);
+      p.set('game', ctx.game);
+      p.set('gameId', ctx.gameId);
+      p.set('theme', ctx.theme);
+
+      if (ctx.studyId) p.set('studyId', ctx.studyId);
+      if (ctx.conditionGroup) p.set('conditionGroup', ctx.conditionGroup);
+
+      p.set('role', ctx.role);
+      p.set('host', ctx.host);
+      p.set('wait', '0');
+      p.set('autostart', ctx.autostart);
+      p.set('modeLocked', '1');
+      p.set('roomReady', '1');
+      p.set('maxPlayers', clean(ctx.maxPlayers, '10'));
+      p.set('recommendedMode', 'coop');
+      p.set('cdnext', ensureCdnext(ctx));
+
+      const href = url.toString();
+      if (href !== location.href) {
+        history.replaceState(null, '', href);
+      }
+    }
+
+    function buildEngineHref(ctx) {
+      return buildUrl(ENGINE_PATH, {
+        mode: 'coop',
+        entry: 'coop',
+        pid: ctx.pid,
+        name: ctx.name,
+        nick: ctx.nick,
+        roomId: ctx.roomId,
+        room: ctx.roomId,
+        diff: ctx.diff,
+        time: ctx.time,
+        view: ctx.view,
+        hub: ctx.hub,
+        run: ctx.run,
+        seed: ctx.seed,
+        zone: ctx.zone,
+        cat: ctx.cat,
+        game: ctx.game,
+        gameId: ctx.gameId,
+        theme: ctx.theme,
+        studyId: ctx.studyId,
+        conditionGroup: ctx.conditionGroup,
+        role: ctx.role,
+        host: ctx.host,
+        wait: '0',
+        autostart: ctx.autostart,
+        modeLocked: '1',
+        roomReady: '1',
+        maxPlayers: clean(ctx.maxPlayers, '10'),
+        recommendedMode: 'coop',
+        cdnext: ensureCdnext(ctx)
+      });
+    }
+
+    function renderStats(ctx) {
+      $('statMode').textContent = 'coop';
+      $('statRoom').textContent = ctx.roomId || '-';
+      $('statRole').textContent = ctx.role || '-';
+      $('statPatch').textContent = PATCH;
+    }
+
+    async function goEngine(ctx) {
+      const href = buildEngineHref(ctx);
+      setNotice('good', 'พร้อมแล้ว กำลังส่งต่อไปยัง engine หลักของ GoodJunk');
+      setLog(`forward -> ${href}`);
+      await new Promise(resolve => setTimeout(resolve, 180));
+      location.href = href;
+    }
+
+    async function init() {
+      const ctx = readCtx();
+      normalizeSearch(ctx);
+      renderStats(ctx);
+
+      const lobbyHref = buildLobbyUrl(ctx);
+      const launcherHref = buildLauncherUrl(ctx);
+
+      $('btnLobby').href = lobbyHref;
+      $('btnHub').href = ctx.hub;
+      $('btnLauncher').href = launcherHref;
+
+      setLog(`mode=coop room=${ctx.roomId || '-'} role=${ctx.role || '-'} cdnext=${ensureCdnext(ctx)}`);
+
+      if (!ctx.roomId) {
+        setNotice('warn', 'ไม่พบ room id กำลังกลับหน้า lobby');
+        setLog('missing roomId -> lobby');
+        setTimeout(() => {
+          location.href = lobbyHref;
+        }, 220);
+        return;
+      }
+
+      await goEngine(ctx);
+    }
+
+    init().catch((err) => {
+      setNotice('warn', 'เข้า engine ไม่สำเร็จ กำลังกลับหน้า lobby');
+      setLog(`runtime failed: ${String(err?.message || err || 'unknown error')}`);
+      const ctx = readCtx();
+      setTimeout(() => {
+        location.href = buildLobbyUrl(ctx);
+      }, 260);
+    });
+  </script>
+</body>
+</html>
