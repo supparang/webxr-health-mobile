@@ -1380,7 +1380,9 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { buildZoneGameUrl, buildHubRoot } from './zone-return.js';
+
     (() => {
       'use strict';
 
@@ -1449,87 +1451,67 @@
       }
 
       function buildHubUrl() {
-        return qget('hub', new URL('./hub-v2.html', location.href).toString());
-      }
-
-      function buildBaseParams() {
-        const params = new URLSearchParams();
-
-        const passthroughKeys = [
-          'pid','name','nickName','studyId',
-          'run','diff','view','time','seed',
-          'debug','api','log',
-          'studentKey','schoolCode','classRoom','studentNo',
-          'conditionGroup','sessionNo','weekNo'
-        ];
-
-        passthroughKeys.forEach((k) => {
-          const v = qs.get(k);
-          if (v != null && v !== '') params.set(k, v);
-        });
-
-        if (!params.get('pid')) params.set('pid', 'anon');
-        if (!params.get('name')) params.set('name', qget('nickName', 'Hero'));
-        if (!params.get('diff')) params.set('diff', 'normal');
-        if (!params.get('view')) params.set('view', 'mobile');
-        if (!params.get('time')) params.set('time', '90');
-        if (!params.get('seed')) params.set('seed', String(Date.now()));
-
-        params.set('zone', 'fitness');
-        params.set('cat', 'fitness');
-        params.set('hub', location.href);
-
-        return params;
+        return buildHubRoot(qs, location.href);
       }
 
       function buildJumpDuckUrl(mode) {
-        const url = new URL('./jump-duck-vr.html', location.href);
-        const params = buildBaseParams();
-
-        params.set('game', 'jumpduck');
-        params.set('gameId', 'jumpduck');
-        params.set('theme', 'jumpduck');
-        params.set('focus', 'jumpduck');
-        params.set('featured', 'jumpduck');
+        const overrides = {
+          game: 'jumpduck',
+          gameId: 'jumpduck',
+          theme: 'jumpduck',
+          focus: 'jumpduck',
+          featured: 'jumpduck'
+        };
 
         if (mode === 'play') {
-          params.set('run', 'play');
-          params.set('gate', '1');
-          params.set('cooldown', '1');
-          params.set('returnPhase', 'cooldown');
+          overrides.run = 'play';
+          overrides.gate = '1';
+          overrides.cooldown = '1';
+          overrides.returnPhase = 'cooldown';
         } else if (mode === 'quick') {
-          params.set('run', 'play');
-          params.set('gate', '0');
-          params.set('cooldown', '1');
-          params.set('returnPhase', 'cooldown');
+          overrides.run = 'play';
+          overrides.gate = '0';
+          overrides.cooldown = '1';
+          overrides.returnPhase = 'cooldown';
         } else if (mode === 'research') {
-          params.set('run', 'research');
-          params.set('gate', '1');
-          params.set('cooldown', '1');
-          params.set('returnPhase', 'cooldown');
+          overrides.run = 'research';
+          overrides.gate = '1';
+          overrides.cooldown = '1';
+          overrides.returnPhase = 'cooldown';
         } else if (mode === 'demo') {
-          params.set('run', 'demo');
-          params.set('diff', 'easy');
-          params.set('time', '60');
-          params.set('gate', '0');
-          params.set('cooldown', '0');
-          params.set('returnPhase', 'hub');
+          overrides.run = 'demo';
+          overrides.diff = 'easy';
+          overrides.time = '60';
+          overrides.gate = '0';
+          overrides.cooldown = '0';
+          overrides.returnPhase = 'hub';
         }
 
-        url.search = params.toString();
-        return url.toString();
+        return buildZoneGameUrl({
+          basePath: './jump-duck-vr.html',
+          searchParams: qs,
+          zone: 'fitness',
+          gameKey: 'jumpduck',
+          currentHref: location.href,
+          overrides
+        });
       }
 
       function buildFitnessGameUrl(page, overrides = {}) {
-        const url = new URL(`./${page}`, location.href);
-        const params = buildBaseParams();
+        const gameKey = String(
+          overrides.gameId ||
+          overrides.game ||
+          page.replace('.html', '').replace(/-vr$/,'').replace(/-/g,'')
+        );
 
-        Object.keys(overrides).forEach((k) => {
-          params.set(k, String(overrides[k]));
+        return buildZoneGameUrl({
+          basePath: `./${page}`,
+          searchParams: qs,
+          zone: 'fitness',
+          gameKey,
+          currentHref: location.href,
+          overrides
         });
-
-        url.search = params.toString();
-        return url.toString();
       }
 
       function bindZoneLinks() {
