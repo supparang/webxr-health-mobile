@@ -5,6 +5,7 @@
   const HANDWASH_LAST_KEY = 'HHA_HANDWASH_LAST';
   const HANDWASH_HISTORY_KEY = 'HHA_HANDWASH_HISTORY';
   const HANDWASH_FLOW_KEY = 'HHA_HANDWASH_FLOW';
+  const MAX_HISTORY_ITEMS = 30;
 
   function safeJsonParse(text, fallback){
     try{
@@ -14,11 +15,38 @@
     }
   }
 
+  function safeGetItem(key, fallback = null){
+    try{
+      const value = localStorage.getItem(key);
+      return value == null ? fallback : value;
+    }catch{
+      return fallback;
+    }
+  }
+
+  function safeSetItem(key, value){
+    try{
+      localStorage.setItem(key, value);
+      return true;
+    }catch{
+      return false;
+    }
+  }
+
+  function safeRemoveItem(key){
+    try{
+      localStorage.removeItem(key);
+      return true;
+    }catch{
+      return false;
+    }
+  }
+
   function nowIso(){
     return new Date().toISOString();
   }
 
-  function qs(name, fallback=''){
+  function qs(name, fallback = ''){
     try{
       return new URL(location.href).searchParams.get(name) ?? fallback;
     }catch{
@@ -26,64 +54,87 @@
     }
   }
 
-  function clamp(n, min, max){
-    return Math.max(min, Math.min(max, Number(n) || 0));
+  function clamp(value, min, max){
+    const n = Number(value);
+    if (!Number.isFinite(n)) return min;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function toInt(value, fallback = 0){
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function normalizeString(value, fallback = ''){
+    const text = String(value ?? '').trim();
+    return text || fallback;
   }
 
   function buildBaseCtx(extra = {}){
     return {
-      pid: qs('pid', 'anon'),
-      name: qs('name', 'Hero'),
-      diff: qs('diff', 'normal'),
-      view: qs('view', 'mobile'),
-      run: qs('run', 'play'),
-      zone: qs('zone', 'hygiene'),
-      cat: qs('cat', 'hygiene'),
-      game: qs('game', 'handwash'),
-      gameId: qs('gameId', 'handwash'),
-      theme: qs('theme', 'handwash'),
-      hub: qs('hub', ''),
-      time: clamp(qs('time', '0'), 0, 9999),
+      pid: normalizeString(qs('pid', 'anon'), 'anon'),
+      name: normalizeString(qs('name', 'Hero'), 'Hero'),
+      diff: normalizeString(qs('diff', 'normal'), 'normal'),
+      view: normalizeString(qs('view', 'mobile'), 'mobile'),
+      run: normalizeString(qs('run', 'play'), 'play'),
+      zone: normalizeString(qs('zone', 'hygiene'), 'hygiene'),
+      cat: normalizeString(qs('cat', 'hygiene'), 'hygiene'),
+      game: normalizeString(qs('game', 'handwash'), 'handwash'),
+      gameId: normalizeString(qs('gameId', 'handwash'), 'handwash'),
+      theme: normalizeString(qs('theme', 'handwash'), 'handwash'),
+      hub: normalizeString(qs('hub', ''), ''),
+      time: clamp(toInt(qs('time', '0'), 0), 0, 99999),
       ...extra
     };
   }
 
   function makeSummary(payload = {}){
     const base = buildBaseCtx({
-      stage: payload.stage || 'unknown'
+      stage: normalizeString(payload.stage, 'unknown')
     });
 
     return {
       ...base,
       success: !!payload.success,
-      score: clamp(payload.score, 0, 999999),
-      stars: clamp(payload.stars, 0, 3),
-      miss: clamp(payload.miss, 0, 999999),
-      timeLeft: clamp(payload.timeLeft, 0, 999999),
-      accuracy: clamp(payload.accuracy, 0, 100),
-      progress: clamp(payload.progress, 0, 100),
-      bestStreak: clamp(payload.bestStreak, 0, 999999),
-      whoDone: clamp(payload.whoDone, 0, 7),
-      notes: payload.notes || '',
-      finishedAt: payload.finishedAt || nowIso()
+      score: clamp(toInt(payload.score, 0), 0, 9999999),
+      stars: clamp(toInt(payload.stars, 0), 0, 3),
+      miss: clamp(toInt(payload.miss, 0), 0, 999999),
+      timeLeft: clamp(toInt(payload.timeLeft, 0), 0, 999999),
+      accuracy: clamp(Number(payload.accuracy ?? 0), 0, 100),
+      progress: clamp(Number(payload.progress ?? 0), 0, 100),
+      bestStreak: clamp(toInt(payload.bestStreak, 0), 0, 999999),
+      whoDone: clamp(toInt(payload.whoDone, 0), 0, 7),
+      notes: normalizeString(payload.notes, ''),
+      finishedAt: normalizeString(payload.finishedAt, nowIso())
     };
   }
 
+  function getLastSummary(){
+    const raw = safeGetItem(HANDWASH_LAST_KEY, null);
+    return raw ? safeJsonParse(raw, null) : null;
+  }
+
+  function getHistory(){
+    const raw = safeGetItem(HANDWASH_HISTORY_KEY, '[]');
+    const parsed = safeJsonParse(raw, []);
+    return Array.isArray(parsed) ? parsed : [];
+  }
+
+  function getFlowState(){
+    const raw = safeGetItem(HANDWASH_FLOW_KEY, null);
+    return raw ? safeJsonParse(raw, null) : null;
+  }
+
   function saveLastSummary(summary){
-    try{
-      localStorage.setItem(LAST_SUMMARY_KEY, JSON.stringify(summary));
-      localStorage.setItem(HANDWASH_LAST_KEY, JSON.stringify(summary));
-    }catch{}
+    safeSetItem(LAST_SUMMARY_KEY, JSON.stringify(summary));
+    safeSetItem(HANDWASH_LAST_KEY, JSON.stringify(summary));
     return summary;
   }
 
-  function pushHistory(summary, maxItems = 30){
-    try{
-      const raw = localStorage.getItem(HANDWASH_HISTORY_KEY);
-      const list = Array.isArray(safeJsonParse(raw, [])) ? safeJsonParse(raw, []) : [];
-      list.unshift(summary);
-      localStorage.setItem(HANDWASH_HISTORY_KEY, JSON.stringify(list.slice(0, maxItems)));
-    }catch{}
+  function pushHistory(summary, maxItems = MAX_HISTORY_ITEMS){
+    const list = getHistory();
+    list.unshift(summary);
+    safeSetItem(HANDWASH_HISTORY_KEY, JSON.stringify(list.slice(0, maxItems)));
     return summary;
   }
 
@@ -91,40 +142,13 @@
     const base = buildBaseCtx();
     const payload = {
       ...base,
-      currentStage: flowState.currentStage || '',
-      nextStage: flowState.nextStage || '',
+      currentStage: normalizeString(flowState.currentStage, ''),
+      nextStage: normalizeString(flowState.nextStage, ''),
       success: !!flowState.success,
-      updatedAt: flowState.updatedAt || nowIso()
+      updatedAt: normalizeString(flowState.updatedAt, nowIso())
     };
-    try{
-      localStorage.setItem(HANDWASH_FLOW_KEY, JSON.stringify(payload));
-    }catch{}
+    safeSetItem(HANDWASH_FLOW_KEY, JSON.stringify(payload));
     return payload;
-  }
-
-  function getLastSummary(){
-    try{
-      return safeJsonParse(localStorage.getItem(HANDWASH_LAST_KEY), null);
-    }catch{
-      return null;
-    }
-  }
-
-  function getHistory(){
-    try{
-      const parsed = safeJsonParse(localStorage.getItem(HANDWASH_HISTORY_KEY), []);
-      return Array.isArray(parsed) ? parsed : [];
-    }catch{
-      return [];
-    }
-  }
-
-  function getFlowState(){
-    try{
-      return safeJsonParse(localStorage.getItem(HANDWASH_FLOW_KEY), null);
-    }catch{
-      return null;
-    }
   }
 
   function recordSummary(payload = {}){
@@ -132,11 +156,20 @@
     saveLastSummary(summary);
     pushHistory(summary);
     saveFlowState({
-      currentStage: payload.stage || '',
-      nextStage: payload.nextStage || '',
-      success: !!payload.success
+      currentStage: summary.stage,
+      nextStage: normalizeString(payload.nextStage, ''),
+      success: summary.success,
+      updatedAt: summary.finishedAt
     });
     return summary;
+  }
+
+  function clearAll(){
+    safeRemoveItem(LAST_SUMMARY_KEY);
+    safeRemoveItem(HANDWASH_LAST_KEY);
+    safeRemoveItem(HANDWASH_HISTORY_KEY);
+    safeRemoveItem(HANDWASH_FLOW_KEY);
+    return true;
   }
 
   window.HandwashShared = {
@@ -148,15 +181,17 @@
     },
     qs,
     clamp,
+    toInt,
     nowIso,
     buildBaseCtx,
     makeSummary,
-    saveLastSummary,
-    pushHistory,
-    saveFlowState,
     getLastSummary,
     getHistory,
     getFlowState,
-    recordSummary
+    saveLastSummary,
+    pushHistory,
+    saveFlowState,
+    recordSummary,
+    clearAll
   };
 })();
