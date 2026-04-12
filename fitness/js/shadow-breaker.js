@@ -4,9 +4,9 @@
 
 'use strict';
 
-import { initShadowBreaker } from './engine.js?v=20260411a';
+import { initShadowBreaker } from './engine.js?v=20260411b';
 
-const SB_BOOT_VERSION = 'v20260411a-SB-BOOTSTRAP-SAFE';
+const SB_BOOT_VERSION = 'v20260411b-SB-BOOTSTRAP-SAFE';
 let booted = false;
 
 function qs(key, fallback = '') {
