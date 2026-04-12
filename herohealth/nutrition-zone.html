@@ -660,7 +660,7 @@
               <p class="game-sub">จัดหมวดอาหารให้ถูกต้อง</p>
             </div>
           </div>
-          <p class="game-desc">เข้าเกมหลักของ Groups ตาม path จริงของโปรเจกต์</p>
+          <p class="game-desc">ฝึกจัดหมวดอาหารให้ถูกต้อง และจำกลุ่มอาหารให้แม่นขึ้น</p>
           <div class="tag-row">
             <span class="tag">ฝึกจำ</span>
             <span class="tag">จัดหมวด</span>
@@ -680,7 +680,7 @@
               <p class="game-sub">เรียนรู้เรื่องการดื่มน้ำและดูแลร่างกาย</p>
             </div>
           </div>
-          <p class="game-desc">เข้าเกม Hydration ตาม path จริงของโปรเจกต์</p>
+          <p class="game-desc">เรียนรู้การดื่มน้ำให้พอดี และดูแลร่างกายให้สดชื่นแข็งแรง</p>
           <div class="tag-row">
             <span class="tag">เล่นสั้น</span>
             <span class="tag">สุขภาพ</span>
@@ -717,5 +717,108 @@
   </div>
 
   <script type="module" src="./nutrition-zone.js?v=20260412-zone-return-v1"></script>
+
+  <script>
+  (function(){
+    'use strict';
+
+    const qs = new URLSearchParams(location.search);
+    const $ = (id) => document.getElementById(id);
+
+    function qget(key, fallback=''){
+      const v = qs.get(key);
+      return (v == null || v === '') ? fallback : v;
+    }
+
+    function buildHubRoot(){
+      return qget('hubRoot', qget('hub', new URL('./hub-v2.html', location.href).toString()));
+    }
+
+    function buildZoneReturn(){
+      return new URL(location.href).toString();
+    }
+
+    function buildGameUrl(basePath, gameKey, extra = {}){
+      const url = new URL(basePath, location.href);
+      const params = new URLSearchParams();
+
+      const passKeys = [
+        'pid','name','nickName','studyId',
+        'run','diff','view','time','seed',
+        'debug','api','log',
+        'studentKey','schoolCode','classRoom','studentNo',
+        'conditionGroup','sessionNo','weekNo','teacher','grade'
+      ];
+
+      passKeys.forEach((k) => {
+        const v = qs.get(k);
+        if (v != null && v !== '') params.set(k, v);
+      });
+
+      if (!params.get('pid')) params.set('pid', 'anon');
+      if (!params.get('name')) params.set('name', qget('nickName', 'Hero'));
+      if (!params.get('diff')) params.set('diff', 'normal');
+      if (!params.get('view')) params.set('view', 'mobile');
+      if (!params.get('time')) params.set('time', '90');
+      if (!params.get('seed')) params.set('seed', String(Date.now()));
+
+      const hubRoot = buildHubRoot();
+      const zoneReturn = buildZoneReturn();
+
+      params.set('zone', 'nutrition');
+      params.set('cat', 'nutrition');
+      params.set('hubRoot', hubRoot);
+      params.set('hub', zoneReturn);
+      params.set('zoneReturn', zoneReturn);
+      params.set('next', zoneReturn);
+
+      params.set('game', gameKey);
+      params.set('gameId', gameKey);
+      params.set('theme', gameKey);
+
+      Object.keys(extra).forEach((k) => {
+        params.set(k, String(extra[k]));
+      });
+
+      url.search = params.toString();
+      return url.toString();
+    }
+
+    function bindLink(id, href){
+      const el = $(id);
+      if (!el) return;
+      el.href = href;
+    }
+
+    function patchLinks(){
+      const hubBtn = $('hubBtn');
+      if (hubBtn) hubBtn.href = buildHubRoot();
+
+      bindLink('btnPlate', buildGameUrl('./plate-launcher.html', 'plate'));
+      bindLink('btnGoodJunk', buildGameUrl('./goodjunk-launcher.html', 'goodjunk', {
+        recommendedMode: 'solo-boss'
+      }));
+      bindLink('btnGroups', buildGameUrl('./group-v1.html', 'groups'));
+      bindLink('btnHydration', buildGameUrl('./hydration-vr.html', 'hydration'));
+      bindLink('featuredPlayBtn', buildGameUrl('./plate-launcher.html', 'plate'));
+    }
+
+    function bindContinue(){
+      const continueBtn = $('continueBtn');
+      if (!continueBtn || continueBtn.__fallbackBound) return;
+      continueBtn.__fallbackBound = true;
+      continueBtn.addEventListener('click', function(){
+        location.href = buildGameUrl('./plate-launcher.html', 'plate');
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      patchLinks();
+      bindContinue();
+    });
+
+    window.addEventListener('focus', patchLinks);
+  })();
+  </script>
 </body>
 </html>
