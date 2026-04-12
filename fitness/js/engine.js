@@ -1,1949 +1,1417 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine
-// PATCH v20260412a-SB-ENGINE-CLEAN-READY
+// Shadow Breaker Engine
+// FULL PATCH v20260328c-SHADOWBREAKER-FINAL-CLEAN-PRODUCTION-FLOW
 
-'use strict';
+(function(){
+  'use strict';
 
-const SB_ENGINE_VERSION = 'v20260412a-SB-ENGINE-CLEAN-READY';
-const SB_GLOBAL_KEY = '__SB_ENGINE_SINGLETON__';
+  const WIN = window;
+  const DOC = document;
+  const $ = (s, root=DOC) => root.querySelector(s);
+  const nowMs = () => (WIN.performance && performance.now) ? performance.now() : Date.now();
 
-export function initShadowBreaker(ctx = {}) {
-  if (window[SB_GLOBAL_KEY]?.running) {
-    console.warn('[ShadowBreaker] engine already running');
-    return window[SB_GLOBAL_KEY].api;
+  function qs(k, d=''){
+    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+    catch(_){ return d; }
   }
 
-  const cfg = normalizeConfig(ctx);
-  const ui = createUiShell();
-  const logger = createLogger(cfg);
-  const rng = createRng(cfg.seed);
-  const state = createState(cfg, logger.sessionId);
-  const plan = buildSessionPlan(cfg);
+  function clamp(v, a, b){
+    v = Number(v);
+    if(!Number.isFinite(v)) v = a;
+    return Math.max(a, Math.min(b, v));
+  }
 
-  const engine = {
-    version: SB_ENGINE_VERSION,
-    cfg,
-    state,
-    ui,
-    logger,
-    rng,
-    running: true,
-    started: false,
-    ended: false,
-    activeCleanup: [],
-    api: {
-      version: SB_ENGINE_VERSION,
-      getState: () => structuredCloneSafe(state),
-      getConfig: () => ({ ...cfg }),
-      submitAction: (action, meta = {}) => consumeAction(action, state, ui, logger, meta),
-      pause: () => setPaused(true, state, ui),
-      resume: () => setPaused(false, state, ui),
-      endSession: (reason = 'manual_end') => endSession(reason, state, ui, logger),
-      openHelp: () => openHelp(ui),
-      closeOverlay: () => ui.hideOverlay()
+  function loadJson(key, fallback=null){
+    try{
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    }catch(_){
+      return fallback;
     }
-  };
-
-  window[SB_GLOBAL_KEY] = engine;
-  window.ShadowBreaker = engine.api;
-
-  bindGlobalInputs(engine);
-  persistBootSnapshot(cfg, state);
-
-  logger.emit('sb_session_init', {
-    patch: SB_ENGINE_VERSION,
-    sessionPlan: plan.map(r => ({
-      index: r.index,
-      type: r.type,
-      style: r.style,
-      sec: r.sec
-    }))
-  });
-
-  showStartOverlay(engine, plan);
-  return engine.api;
-}
-
-/* ------------------------------------------------------------------ */
-/* config / state */
-/* ------------------------------------------------------------------ */
-
-function normalizeConfig(ctx = {}) {
-  const origin = location.origin || '';
-  const defaultHub = `${origin}/webxr-health-mobile/herohealth/hub.html`;
-
-  const mode = pickOne(ctx.mode, ['flow', 'boxing', 'mixed'], 'mixed');
-  const body = pickOne(ctx.body, ['standing', 'sitting'], 'standing');
-  const intensity = pickOne(ctx.intensity, ['learn', 'move', 'power'], 'move');
-  const duration = pickOneNum(Number(ctx.duration || 6), [3, 6, 10], 6);
-  const run = pickOne(ctx.run, ['play', 'research', 'demo'], 'play');
-
-  return {
-    patch: SB_ENGINE_VERSION,
-    pid: String(ctx.pid || 'anon'),
-    name: String(ctx.name || 'Hero'),
-    nick: String(ctx.nick || ctx.name || 'Hero'),
-    studyId: String(ctx.studyId || ''),
-    run,
-    view: String(ctx.view || 'mobile'),
-    seed: String(ctx.seed || Date.now()),
-    hub: String(ctx.hub || defaultHub),
-    cooldown: String(ctx.cooldown || ''),
-    mode,
-    body,
-    intensity,
-    durationMin: duration,
-    diff: String(ctx.diff || 'normal'),
-    zone: String(ctx.zone || 'fitness'),
-    cat: String(ctx.cat || 'fitness'),
-    game: String(ctx.game || 'shadowbreaker'),
-    gameId: String(ctx.gameId || 'shadowbreaker'),
-    theme: String(ctx.theme || 'shadowbreaker'),
-    debug: !!ctx.debug,
-    log: !!ctx.log
-  };
-}
-
-function createState(cfg, sessionId) {
-  return {
-    session: {
-      sessionId,
-      startedAt: 0,
-      endedAt: 0,
-      roundIndex: 0,
-      phase: 'boot',
-      pause: false,
-      endRequested: false,
-      reasonEnded: ''
-    },
-    cfg,
-    runtime: {
-      currentExpected: null,
-      roundStartMs: 0,
-      roundEndMs: 0,
-      lastActionAt: 0,
-      actionHistory: [],
-      passiveCueKey: ''
-    },
-    score: {
-      total: 0,
-      stars: 0,
-      combo: 0,
-      comboMax: 0,
-      accuracy: 100
-    },
-    actions: {
-      totalActions: 0,
-      totalPunches: 0,
-      jab: 0,
-      cross: 0,
-      hook_left: 0,
-      hook_right: 0,
-      uppercut_left: 0,
-      uppercut_right: 0,
-      guard: 0,
-      duck: 0,
-      slip_left: 0,
-      slip_right: 0,
-      flow_hit: 0,
-      miss: 0,
-      timeoutMiss: 0,
-      freeAction: 0
-    },
-    exercise: {
-      activeMs: 0,
-      recoveryMs: 0,
-      warmupMs: 0,
-      wrapMs: 0,
-      punchesPerMin: 0,
-      estimatedTier: 'light',
-      leftHits: 0,
-      rightHits: 0,
-      balancePct: 50
-    },
-    boss: {
-      active: false,
-      hp: 0,
-      hpMax: 0,
-      clears: 0
-    },
-    summary: null
-  };
-}
-
-/* ------------------------------------------------------------------ */
-/* session plan */
-/* ------------------------------------------------------------------ */
-
-function buildSessionPlan(cfg) {
-  const recoveryMul =
-    cfg.intensity === 'learn' ? 1.15 :
-    cfg.intensity === 'power' ? 0.9 : 1.0;
-
-  const plans = {
-    3: [
-      { type: 'warmup', style: 'flow', sec: 20, label: 'Warm Up' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 0), sec: 40, label: labelForStyle(cfg.mode, 0) },
-      { type: 'recovery', style: 'flow', sec: Math.round(15 * recoveryMul), label: 'Recover' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 1), sec: 40, label: labelForStyle(cfg.mode, 1) },
-      { type: 'recovery', style: 'flow', sec: Math.round(15 * recoveryMul), label: 'Recover' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 2), sec: 40, label: labelForStyle(cfg.mode, 2) },
-      { type: 'boss', style: 'boxing', sec: 20, label: 'Boss Burst' },
-      { type: 'wrap', style: 'flow', sec: 10, label: 'Wrap Up' }
-    ],
-    6: [
-      { type: 'warmup', style: 'flow', sec: 30, label: 'Warm Up' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 0), sec: 45, label: labelForStyle(cfg.mode, 0) },
-      { type: 'recovery', style: 'flow', sec: Math.round(15 * recoveryMul), label: 'Recover' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 1), sec: 45, label: labelForStyle(cfg.mode, 1) },
-      { type: 'recovery', style: 'flow', sec: Math.round(15 * recoveryMul), label: 'Recover' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 2), sec: 45, label: labelForStyle(cfg.mode, 2) },
-      { type: 'recovery', style: 'flow', sec: Math.round(15 * recoveryMul), label: 'Recover' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 3), sec: 45, label: labelForStyle(cfg.mode, 3) },
-      { type: 'boss', style: 'boxing', sec: 35, label: 'Boss Burst' },
-      { type: 'wrap', style: 'flow', sec: 20, label: 'Wrap Up' }
-    ],
-    10: [
-      { type: 'warmup', style: 'flow', sec: 45, label: 'Warm Up' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 0), sec: 50, label: labelForStyle(cfg.mode, 0) },
-      { type: 'recovery', style: 'flow', sec: 18, label: 'Recover' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 1), sec: 50, label: labelForStyle(cfg.mode, 1) },
-      { type: 'recovery', style: 'flow', sec: 18, label: 'Recover' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 2), sec: 55, label: labelForStyle(cfg.mode, 2) },
-      { type: 'recovery', style: 'flow', sec: 18, label: 'Recover' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 3), sec: 55, label: labelForStyle(cfg.mode, 3) },
-      { type: 'recovery', style: 'flow', sec: 18, label: 'Recover' },
-      { type: 'boss', style: 'boxing', sec: 45, label: 'Boss Burst' },
-      { type: 'active', style: pickRoundStyle(cfg.mode, 4), sec: 45, label: labelForStyle(cfg.mode, 4) },
-      { type: 'wrap', style: 'flow', sec: 25, label: 'Wrap Up' }
-    ]
-  };
-
-  return plans[cfg.durationMin].map((r, idx) => ({ ...r, index: idx + 1 }));
-}
-
-function pickRoundStyle(mode, idx) {
-  if (mode === 'flow') return 'flow';
-  if (mode === 'boxing') return 'boxing';
-  const seq = ['flow', 'boxing', 'mixed', 'boxing', 'mixed'];
-  return seq[idx % seq.length];
-}
-
-function labelForStyle(mode, idx) {
-  const style = pickRoundStyle(mode, idx);
-  return style === 'flow' ? 'Flow' : style === 'boxing' ? 'Boxing' : 'Mixed';
-}
-
-/* ------------------------------------------------------------------ */
-/* engine boot flow */
-/* ------------------------------------------------------------------ */
-
-function showStartOverlay(engine, plan) {
-  const { ui, cfg } = engine;
-
-  ui.showOverlay(`
-    <h2 style="margin:0 0 10px">Shadow Breaker</h2>
-    <p style="margin:6px 0 12px">
-      <strong>${escapeHtml(cfg.nick)}</strong> • ${escapeHtml(cfg.mode.toUpperCase())} • ${escapeHtml(cfg.body.toUpperCase())} • ${escapeHtml(cfg.intensity.toUpperCase())} • ${cfg.durationMin} นาที
-    </p>
-
-    <div class="sb-card-grid">
-      <div class="sb-mini-card">
-        <strong>วิธีเล่น</strong>
-        <div>กดปุ่มล่างจอ หรือส่ง action จาก motion/VR input</div>
-      </div>
-      <div class="sb-mini-card">
-        <strong>โหมดปัจจุบัน</strong>
-        <div>${escapeHtml(cfg.mode)} / ${escapeHtml(cfg.body)} / ${escapeHtml(cfg.intensity)}</div>
-      </div>
-    </div>
-
-    <div style="margin-top:12px">
-      <strong>ลำดับเซสชัน</strong>
-      <div class="sb-plan-list">
-        ${plan.map(r => `<div class="sb-plan-row"><span>${escapeHtml(r.label)}</span><span>${r.sec}s</span></div>`).join('')}
-      </div>
-    </div>
-
-    <div class="sb-actions">
-      <button class="sb-btn sb-btn-primary" data-sb-start="1">เริ่มเล่น</button>
-      <button class="sb-btn sb-btn-secondary" data-sb-help="1">ดูวิธีเล่น</button>
-      <a class="sb-btn sb-btn-secondary" href="${escapeAttr(cfg.hub)}">กลับ HUB</a>
-    </div>
-  `);
-
-  const startBtn = ui.overlay.querySelector('[data-sb-start="1"]');
-  const helpBtn = ui.overlay.querySelector('[data-sb-help="1"]');
-
-  startBtn.addEventListener('click', async () => {
-    ui.hideOverlay();
-    await startSession(engine, plan);
-  }, { once: true });
-
-  helpBtn.addEventListener('click', () => openHelp(ui), { once: true });
-}
-
-async function startSession(engine, plan) {
-  const { state, ui, logger } = engine;
-  if (engine.started || engine.ended) return;
-
-  engine.started = true;
-  state.session.startedAt = Date.now();
-  state.session.phase = 'countdown';
-
-  logger.emit('sb_session_start', { phase: 'countdown' });
-  await countdown(ui, state);
-
-  for (const round of plan) {
-    if (state.session.endRequested || engine.ended) break;
-    await runRound(engine, round);
   }
 
-  if (!engine.ended) {
-    await completeSession(engine, 'natural_end');
-  }
-}
-
-async function runRound(engine, round) {
-  const { state, ui, logger, rng } = engine;
-
-  state.session.phase = round.type;
-  state.session.roundIndex = round.index;
-  state.runtime.currentExpected = null;
-  state.runtime.roundStartMs = nowMs();
-  state.runtime.roundEndMs = state.runtime.roundStartMs + round.sec * 1000;
-  state.runtime.passiveCueKey = '';
-
-  ui.setStageText(round.type === 'boss' ? 'Boss Phase' : `${round.label} Round`);
-  ui.setCoachText(nextCoachLine(round, state));
-  ui.setCue(round.type === 'recovery' ? 'BREATHE' : 'READY', 'info');
-  ui.renderHud(state, round, Math.ceil(round.sec));
-
-  logger.emit(round.type === 'boss' ? 'sb_boss_start' : 'sb_round_start', {
-    roundIndex: round.index,
-    roundType: round.type,
-    roundStyle: round.style,
-    roundSec: round.sec
-  });
-
-  if (round.type === 'warmup' || round.type === 'recovery' || round.type === 'wrap') {
-    await runPassiveRound(engine, round);
-    return;
+  function saveJson(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){}
   }
 
-  const actions = buildRoundActions(round, state.cfg, rng);
-
-  if (round.type === 'boss') {
-    state.boss.active = true;
-    state.boss.hpMax = actions.length;
-    state.boss.hp = actions.length;
-  } else {
-    state.boss.active = false;
-    state.boss.hpMax = 0;
-    state.boss.hp = 0;
+  function escCsv(v){
+    return String(v ?? '').replace(/"/g, '""');
   }
 
-  while (nowMs() < state.runtime.roundEndMs) {
-    if (state.session.endRequested || engine.ended) return;
-    await waitIfPaused(state);
-
-    const remainSec = Math.max(0, Math.ceil((state.runtime.roundEndMs - nowMs()) / 1000));
-    maybeSpawnExpected(state, ui, logger, round, actions);
-    maybeTimeoutExpected(state, ui, logger);
-
-    state.exercise.activeMs += 80;
-    ui.renderHud(state, round, remainSec);
-    await sleep(80);
+  function rowsToCsv(rows){
+    rows = Array.isArray(rows) ? rows : [];
+    if(!rows.length) return '';
+    const keySet = new Set();
+    rows.forEach(r => Object.keys(r || {}).forEach(k => keySet.add(k)));
+    const keys = Array.from(keySet);
+    const header = keys.map(k => `"${escCsv(k)}"`).join(',');
+    const body = rows.map(r => keys.map(k => `"${escCsv(r?.[k])}"`).join(','));
+    return [header, ...body].join('\n');
   }
 
-  state.runtime.currentExpected = null;
-  state.boss.active = false;
-  ui.clearTarget();
-  ui.setCue('ผ่านรอบแล้ว!', 'hit');
-  ui.setCoachText(round.type === 'boss' ? 'เก่งมาก! ผ่านบอสแล้ว' : 'ดีมาก ไปต่อรอบหน้า');
-
-  if (round.type === 'boss') {
-    state.boss.clears += 1;
-    state.boss.hp = 0;
-    logger.emit('sb_boss_clear', { roundIndex: round.index });
+  function downloadTextFile(filename, text, mime='text/plain;charset=utf-8'){
+    const blob = new Blob([text], { type:mime });
+    const a = DOC.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
   }
 
-  await sleep(800);
-}
+  function hhDayKey(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
 
-async function runPassiveRound(engine, round) {
-  const { state, ui } = engine;
-
-  while (nowMs() < state.runtime.roundEndMs) {
-    if (state.session.endRequested || engine.ended) return;
-    await waitIfPaused(state);
-
-    const remainSec = Math.max(0, Math.ceil((state.runtime.roundEndMs - nowMs()) / 1000));
-
-    if (round.type === 'warmup') {
-      state.exercise.warmupMs += 80;
-
-      const cueKey = remainSec % 4 === 0 ? 'jab' : remainSec % 4 === 2 ? 'cross' : '';
-      if (cueKey && cueKey !== state.runtime.passiveCueKey) {
-        state.runtime.passiveCueKey = cueKey;
-        const lbl = actionLabel(cueKey);
-        ui.showTarget({ action: cueKey, label: lbl, expiresMs: 900 }, 'warmup');
-        ui.setCue(lbl, 'info');
-        ui.setCoachText(cueKey === 'jab' ? 'ต่อยเบา ๆ จับจังหวะ' : 'สลับแขนอีกข้าง');
-      }
+  function xmur3(str){
+    str = String(str || '');
+    let h = 1779033703 ^ str.length;
+    for(let i=0;i<str.length;i++){
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
     }
-
-    if (round.type === 'recovery') {
-      state.exercise.recoveryMs += 80;
-      ui.clearTarget();
-      ui.setCue('BREATHE', 'info');
-      ui.setCoachText('พักหายใจลึก ๆ');
-    }
-
-    if (round.type === 'wrap') {
-      state.exercise.wrapMs += 80;
-      ui.clearTarget();
-      ui.setCue('EASY', 'info');
-      ui.setCoachText('ค่อย ๆ ผ่อนแรง');
-    }
-
-    ui.renderHud(state, round, remainSec);
-    await sleep(80);
+    return function(){
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= h >>> 16) >>> 0;
+    };
   }
 
-  ui.clearTarget();
-  ui.setCue('', 'info');
-}
+  function mulberry32(a){
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
 
-/* ------------------------------------------------------------------ */
-/* actions / matching */
-/* ------------------------------------------------------------------ */
+  function createSeededRandom(seedStr){
+    const seedFn = xmur3(seedStr);
+    const seed = seedFn();
+    return mulberry32(seed);
+  }
 
-function buildRoundActions(round, cfg, rng) {
-  const style = round.style || 'mixed';
-  const cadence = getCadenceSec(cfg.intensity, round.type);
-  const total = Math.max(1, Math.floor(round.sec / cadence));
-  const pool = getActionPool(style, cfg.body, round.type);
+  function choice(rng, arr){
+    if(!arr || !arr.length) return null;
+    return arr[Math.floor(rng() * arr.length)];
+  }
 
-  let t = 1.05;
-  const out = [];
+  function shortIsoNow(){
+    return new Date().toISOString();
+  }
 
-  for (let i = 0; i < total; i++) {
-    const action = pickFromPool(pool, style, round.type, rng, cfg.body);
-    out.push({
-      index: i + 1,
-      atSec: Number(t.toFixed(2)),
-      action,
-      label: actionLabel(action),
-      scoreValue: scoreForAction(action, cfg, round.type),
-      expiresMs: timeoutWindowMs(cfg.intensity, round.type)
+  function getViewMode(){
+    const root = DOC.getElementById('sb-wrap');
+    const dv = String(root?.dataset?.viewMode || '').toLowerCase();
+    if (dv === 'pc' || dv === 'mobile' || dv === 'cvr') return dv;
+
+    const qv = String(qs('view','')).toLowerCase();
+    if (qv === 'pc' || qv === 'mobile' || qv === 'cvr') return qv;
+
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ? 'mobile' : 'pc';
+  }
+
+  function buildCooldownGateUrl(summary){
+    const hubUrl = String(summary?.hub || qs('hub','') || '../herohealth/hub.html');
+    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(summary?.pid || 'anon')}&hub=${encodeURIComponent(hubUrl)}&diff=${encodeURIComponent(summary?.diff || 'normal')}&mode=${encodeURIComponent(summary?.mode || 'normal')}`;
+
+    const u = new URL('/webxr-health-mobile/herohealth/warmup-gate.html', location.origin);
+
+    [
+      'run','mode','diff','time','seed','studyId','phase','conditionGroup','log',
+      'view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode',
+      'planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade','game'
+    ].forEach(k=>{
+      const v = qs(k,'');
+      if(v !== '') u.searchParams.set(k, v);
     });
-    t += cadence;
+
+    u.searchParams.set('phase', 'cooldown');
+    u.searchParams.set('gatePhase', 'cooldown');
+    u.searchParams.set('game', 'shadowbreaker');
+    u.searchParams.set('gameId', 'shadowbreaker');
+    u.searchParams.set('cat', 'fitness');
+    u.searchParams.set('theme', 'shadowbreaker');
+    u.searchParams.set('zone', 'fitness');
+    u.searchParams.set('pid', String(summary?.pid || qs('pid','anon') || 'anon'));
+    u.searchParams.set('hub', hubUrl);
+    u.searchParams.set('finalGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
+    u.searchParams.set('plannedGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
+    u.searchParams.set('cdnext', summaryUrl);
+    u.searchParams.set('forcegate', '1');
+
+    return u.toString();
   }
 
-  return out;
-}
+  function buildReplayLauncherHref(){
+    const hubUrl = String(qs('hub','') || '../herohealth/hub.html');
+    const url = new URL('/webxr-health-mobile/herohealth/shadow-breaker-vr.html', location.origin);
 
-function getCadenceSec(intensity, roundType) {
-  const base = intensity === 'learn' ? 1.65 : intensity === 'power' ? 1.0 : 1.28;
-  return roundType === 'boss' ? Math.max(0.75, base * 0.84) : base;
-}
+    url.searchParams.set('pid', String(STATE.pid || 'anon'));
+    url.searchParams.set('diff', String(STATE.diff || 'normal'));
+    url.searchParams.set('time', String(Math.round((STATE.totalMs || 70000) / 1000)));
+    url.searchParams.set('mode', String(STATE.mode || 'normal'));
+    url.searchParams.set('view', String(getViewMode() || 'mobile'));
+    url.searchParams.set('hub', hubUrl);
 
-function timeoutWindowMs(intensity, roundType) {
-  const base = intensity === 'learn' ? 1300 : intensity === 'power' ? 900 : 1100;
-  return roundType === 'boss' ? Math.max(780, base - 120) : base;
-}
+    const studyId = String(qs('studyId','')).trim();
+    const group = String(qs('group','') || DOM.inputGroup?.value || '').trim();
+    const conditionGroup = String(qs('conditionGroup','')).trim();
 
-function getActionPool(style, body, roundType) {
-  const flow = ['jab', 'cross', 'flow_hit', 'hook_left', 'hook_right'];
-  const boxing = ['jab', 'cross', 'hook_left', 'hook_right', 'uppercut_left', 'uppercut_right', 'guard'];
-  const mixed = ['jab', 'cross', 'hook_left', 'hook_right', 'uppercut_left', 'uppercut_right', 'guard', 'flow_hit'];
+    if (studyId) url.searchParams.set('studyId', studyId);
+    if (group) url.searchParams.set('group', group);
+    if (conditionGroup) url.searchParams.set('conditionGroup', conditionGroup);
 
-  let pool = style === 'flow' ? flow : style === 'boxing' ? boxing : mixed;
-
-  if (body === 'standing') {
-    pool = pool.concat(['duck']);
+    return url.toString();
   }
 
-  if (roundType === 'boss') {
-    pool = pool.concat(['jab', 'cross', 'hook_left', 'hook_right']);
+  function goBackHubNow(){
+    const hubUrl = String(qs('hub','') || '../herohealth/hub.html');
+    try{
+      location.href = hubUrl;
+    }catch(_){
+      location.assign(hubUrl);
+    }
   }
 
-  return pool;
-}
+  const BOSSES = [
+    {
+      key:'bubble',
+      name:'Bubble Glove',
+      emoji:'🫧',
+      speech:'แตะฟองให้ทันนะ!',
+      clearTitle:'ผ่านบอสแล้ว!',
+      clearSub:'เก่งมาก เตรียมลุยด่านต่อไป',
+      desc:'เป้ากลมใหญ่ ตีง่าย เหมาะเริ่มต้น',
+      theme:{ theme1:'rgba(56,189,248,.22)', theme2:'rgba(59,130,246,.14)', border:'rgba(56,189,248,.26)' }
+    },
+    {
+      key:'meteor',
+      name:'Meteor Punch',
+      emoji:'☄️',
+      speech:'มาเร็วขึ้นอีกนิด!',
+      clearTitle:'ผ่านอีกบอสแล้ว!',
+      clearSub:'ยอดเยี่ยม ไปต่อกันเลย',
+      desc:'เป้าเร็วขึ้น เริ่มมีบอมบ์มากขึ้น',
+      theme:{ theme1:'rgba(245,158,11,.22)', theme2:'rgba(239,68,68,.12)', border:'rgba(245,158,11,.26)' }
+    },
+    {
+      key:'hydra',
+      name:'Neon Hydra',
+      emoji:'🐉',
+      speech:'แตะให้ทันนะ ระวังหลายเป้า!',
+      clearTitle:'ใกล้สำเร็จแล้ว!',
+      clearSub:'เหลืออีกนิดเดียวจะถึงบอสสุดท้าย',
+      desc:'หลายเป้าพร้อมกัน ต้องตั้งสมาธิ',
+      theme:{ theme1:'rgba(167,139,250,.24)', theme2:'rgba(99,102,241,.16)', border:'rgba(167,139,250,.26)' }
+    },
+    {
+      key:'final',
+      name:'Final Boss',
+      emoji:'👑',
+      speech:'ถึงด่านสุดท้ายแล้ว ลุยเลย!',
+      clearTitle:'ชนะแล้ว!',
+      clearSub:'หนูเป็นฮีโร่ของวันนี้ 🎉',
+      desc:'ด่านสุดท้าย เป้าบอสเด่นที่สุด',
+      theme:{ theme1:'rgba(250,204,21,.24)', theme2:'rgba(244,114,182,.16)', border:'rgba(250,204,21,.30)' }
+    }
+  ];
 
-function pickFromPool(pool, style, roundType, rng, body) {
-  const bonus = [];
-
-  if (style === 'flow') bonus.push('flow_hit', 'jab', 'cross');
-  if (style === 'boxing') bonus.push('jab', 'cross', 'guard');
-  if (style === 'mixed') bonus.push('jab', 'cross', 'flow_hit');
-
-  if (roundType === 'boss') {
-    bonus.push('jab', 'cross', 'hook_left', 'hook_right');
-    if (body === 'standing') bonus.push('duck');
+  function bossIndexToName(i){
+    return BOSSES[clamp(i,0,BOSSES.length-1)]?.name || 'Boss';
   }
 
-  const bag = pool.concat(bonus);
-  return bag[Math.floor(rng() * bag.length)];
-}
+  function gradeFromScore(score, acc, bossesCleared){
+    score = Number(score || 0);
+    acc = Number(acc || 0);
+    bossesCleared = Number(bossesCleared || 0);
 
-function scoreForAction(action, cfg, roundType) {
-  const base = {
-    jab: 100,
-    cross: 115,
-    hook_left: 125,
-    hook_right: 125,
-    uppercut_left: 135,
-    uppercut_right: 135,
-    guard: 90,
-    duck: 110,
-    slip_left: 110,
-    slip_right: 110,
-    flow_hit: 95
-  }[action] || 100;
-
-  const mul =
-    cfg.intensity === 'learn' ? 1.0 :
-    cfg.intensity === 'power' ? 1.3 : 1.15;
-
-  const bossMul = roundType === 'boss' ? 1.15 : 1.0;
-  return Math.round(base * mul * bossMul);
-}
-
-function maybeSpawnExpected(state, ui, logger, round, actions) {
-  if (state.runtime.currentExpected) return;
-
-  const elapsedSec = (nowMs() - state.runtime.roundStartMs) / 1000;
-  const next = actions.find(a => !a.spawned && elapsedSec >= a.atSec);
-  if (!next) return;
-
-  next.spawned = true;
-  next.spawnAtMs = nowMs();
-  next.expiresAtMs = next.spawnAtMs + next.expiresMs;
-  state.runtime.currentExpected = next;
-
-  ui.setCue(next.label, 'info');
-  ui.showTarget(next, round.type);
-  ui.setStageText(round.type === 'boss' ? `Boss • ${next.label}` : `${round.label} Round`);
-
-  logger.emit('sb_target_spawn', {
-    roundIndex: round.index,
-    actionType: next.action,
-    scoreValue: next.scoreValue
-  });
-}
-
-function maybeTimeoutExpected(state, ui, logger) {
-  const exp = state.runtime.currentExpected;
-  if (!exp) return;
-  if (nowMs() <= exp.expiresAtMs) return;
-
-  state.actions.miss += 1;
-  state.actions.timeoutMiss += 1;
-  state.score.combo = 0;
-  updateAccuracy(state);
-
-  logger.emit('sb_target_timeout', {
-    actionType: exp.action,
-    roundIndex: state.session.roundIndex
-  });
-
-  ui.missTarget();
-  state.runtime.currentExpected = null;
-  ui.setCue('MISS', 'miss');
-}
-
-function consumeAction(action, state, ui, logger, meta = {}) {
-  if (!action || state.session.endRequested) return false;
-  if (state.session.pause) return false;
-
-  state.runtime.lastActionAt = nowMs();
-  state.runtime.actionHistory.push({
-    at: state.runtime.lastActionAt,
-    action,
-    source: meta.source || 'unknown'
-  });
-  if (state.runtime.actionHistory.length > 60) {
-    state.runtime.actionHistory.shift();
+    if(bossesCleared >= 4 || (score >= 1800 && acc >= 85)) return 'S';
+    if(bossesCleared >= 3 || (score >= 1300 && acc >= 75)) return 'A';
+    if(bossesCleared >= 2 || (score >= 800 && acc >= 62)) return 'B';
+    return 'C';
   }
 
-  bumpActionCount(state, action);
+  function badgeFromSummary(sum){
+    const bosses = Number(sum.bossesCleared || 0);
+    const score = Number(sum.scoreFinal || sum.score || 0);
+    const acc = Number(sum.accPct || 0);
+    const miss = Number(sum.missTotal || sum.miss || 0);
+    const bestBoss = String(sum.bestReachedBoss || '');
 
-  logger.emit('sb_input', {
-    actionType: action,
-    source: meta.source || 'manual',
-    roundIndex: state.session.roundIndex
-  });
-
-  const exp = state.runtime.currentExpected;
-  if (!exp) {
-    state.actions.freeAction += 1;
-    logger.emit('sb_free_action', {
-      actionType: action,
-      source: meta.source || 'manual',
-      roundIndex: state.session.roundIndex
-    });
-    return false;
+    if(bosses >= 4) return { icon:'👑', title:'Final Hero', desc:'ผ่านบอสสุดท้ายได้แล้ว เก่งที่สุดเลย' };
+    if(bestBoss.toLowerCase().includes('hydra')) return { icon:'🐉', title:'Hydra Hero', desc:'ไปไกลถึง Neon Hydra แล้ว' };
+    if(bestBoss.toLowerCase().includes('meteor')) return { icon:'☄️', title:'Meteor Hero', desc:'ผ่าน Meteor Punch ได้ยอดเยี่ยม' };
+    if(acc >= 88 && score >= 1000) return { icon:'🎯', title:'Aim Star', desc:'ตีแม่นมาก น่าภูมิใจสุด ๆ' };
+    if(miss <= 3 && score >= 700) return { icon:'🛡️', title:'Careful Hero', desc:'พลาดน้อยมาก เล่นได้นิ่งเลย' };
+    return { icon:'🥊', title:'Shadow Starter', desc:'เริ่มต้นได้ดี ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม' };
   }
 
-  if (isActionMatch(action, exp.action)) {
-    registerHit(action, exp, state, ui, logger, meta);
-    return true;
-  }
+  const DOM = {
+    wrap: $('#sb-wrap'),
 
-  registerMiss(action, exp, state, ui, logger, meta);
-  return false;
-}
+    viewMenu: $('#sb-view-menu'),
+    viewPlay: $('#sb-view-play'),
+    viewResult: $('#sb-view-result'),
 
-function registerHit(action, exp, state, ui, logger, meta) {
-  state.score.total += exp.scoreValue;
-  state.score.combo += 1;
-  state.score.comboMax = Math.max(state.score.comboMax, state.score.combo);
-  state.score.stars = calcStars(state.score.total, state.cfg.durationMin);
+    inputDiff: $('#sb-input-diff'),
+    inputTime: $('#sb-input-time'),
+    inputPid: $('#sb-input-pid'),
+    inputGroup: $('#sb-input-group'),
+    inputNote: $('#sb-input-note'),
 
-  countHandSide(action, state);
-  updateAccuracy(state);
+    btnPlay: $('#sb-btn-play'),
+    btnResearch: $('#sb-btn-research'),
+    btnHowto: $('#sb-btn-howto'),
+    howto: $('#sb-howto'),
 
-  if (state.session.phase === 'boss') {
-    state.boss.hp = Math.max(0, state.boss.hp - 1);
-  }
+    btnResultRetry: $('#sb-btn-result-retry'),
+    btnResultMenu: $('#sb-btn-result-menu'),
+    btnDownloadEvents: $('#sb-btn-download-events'),
+    btnDownloadSession: $('#sb-btn-download-session'),
+    btnBackMenu: $('#sb-btn-back-menu'),
+    btnPause: $('#sb-btn-pause'),
+    btnFever: $('#sb-btn-fever'),
 
-  logger.emit('sb_target_hit', {
-    actionType: action,
-    expectedType: exp.action,
-    scoreDelta: exp.scoreValue,
-    combo: state.score.combo,
-    source: meta.source || 'manual',
-    roundIndex: state.session.roundIndex
-  });
+    targetLayer: $('#sb-target-layer'),
+    cvrCrosshair: $('#sb-cvr-crosshair'),
+    msgMain: $('#sb-msg-main'),
 
-  ui.hitTarget();
-  state.runtime.currentExpected = null;
-  ui.setCue('HIT!', 'hit');
-}
+    textTime: $('#sb-text-time'),
+    textScore: $('#sb-text-score'),
+    textCombo: $('#sb-text-combo'),
+    textPhase: $('#sb-text-phase'),
+    textMiss: $('#sb-text-miss'),
 
-function registerMiss(action, exp, state, ui, logger, meta) {
-  state.actions.miss += 1;
-  state.score.combo = 0;
-  updateAccuracy(state);
+    currentBossName: $('#sb-current-boss-name'),
+    bossPhaseLabel: $('#sb-boss-phase-label'),
+    bossShieldLabel: $('#sb-boss-shield-label'),
 
-  logger.emit('sb_target_miss', {
-    actionType: action,
-    expectedType: exp.action,
-    source: meta.source || 'manual',
-    roundIndex: state.session.roundIndex
-  });
+    bossBanner: $('#sb-boss-banner'),
+    bossBannerTitle: $('#sb-boss-banner-title'),
+    bossBannerSub: $('#sb-boss-banner-sub'),
 
-  ui.missTarget();
-  ui.setCue('MISS', 'miss');
-}
+    bossSpeech: $('#sb-boss-speech'),
+    bossSpeechEmoji: $('#sb-boss-speech-emoji'),
+    bossSpeechName: $('#sb-boss-speech-name'),
+    bossSpeechText: $('#sb-boss-speech-text'),
 
-function bumpActionCount(state, action) {
-  state.actions.totalActions += 1;
+    stageBossFace: $('#sb-stage-boss-face'),
+    stageBossName: $('#sb-stage-boss-name'),
+    metaEmoji: $('#sb-meta-emoji'),
+    metaName: $('#sb-meta-name'),
+    metaDesc: $('#sb-meta-desc'),
 
-  if (!(action in state.actions)) {
-    state.actions[action] = 0;
-  }
-  state.actions[action] += 1;
+    hpYouTop: $('#sb-hp-you-top'),
+    hpBossTop: $('#sb-hp-boss-top'),
+    hpYouBottom: $('#sb-hp-you-bottom'),
+    hpBossBottom: $('#sb-hp-boss-bottom'),
 
-  if (['jab', 'cross', 'hook_left', 'hook_right', 'uppercut_left', 'uppercut_right', 'flow_hit'].includes(action)) {
-    state.actions.totalPunches += 1;
-  }
-}
+    feverBar: $('#sb-fever-bar'),
+    labelFever: $('#sb-label-fever'),
+    feverHint: $('#sb-fever-hint'),
 
-function countHandSide(action, state) {
-  if (['jab', 'hook_left', 'uppercut_left'].includes(action)) state.exercise.leftHits += 1;
-  if (['cross', 'hook_right', 'uppercut_right'].includes(action)) state.exercise.rightHits += 1;
-}
+    resTime: $('#sb-res-time'),
+    resScore: $('#sb-res-score'),
+    resMaxCombo: $('#sb-res-max-combo'),
+    resMiss: $('#sb-res-miss'),
+    resPhase: $('#sb-res-phase'),
+    resBossCleared: $('#sb-res-boss-cleared'),
+    resAcc: $('#sb-res-acc'),
+    resGrade: $('#sb-res-grade'),
+    resMessage: $('#sb-res-message'),
+    resBadgeIcon: $('#sb-res-badge-icon'),
+    resBadgeTitle: $('#sb-res-badge-title'),
+    resBadgeDesc: $('#sb-res-badge-desc'),
 
-function isActionMatch(actual, expected) {
-  if (actual === expected) return true;
+    linkHub: $('#sb-link-hub'),
 
-  if (expected === 'flow_hit' && ['jab', 'cross', 'hook_left', 'hook_right', 'flow_hit'].includes(actual)) {
-    return true;
-  }
-
-  return false;
-}
-
-function updateAccuracy(state) {
-  const attempts = Math.max(1, state.actions.totalActions);
-  const hits = Math.max(0, attempts - state.actions.miss);
-  state.score.accuracy = (hits / attempts) * 100;
-
-  const lrTotal = state.exercise.leftHits + state.exercise.rightHits;
-  state.exercise.balancePct = lrTotal > 0
-    ? Math.round((state.exercise.leftHits / lrTotal) * 100)
-    : 50;
-}
-
-/* ------------------------------------------------------------------ */
-/* summary / finish */
-/* ------------------------------------------------------------------ */
-
-async function completeSession(engine, reason = 'natural_end') {
-  const { state, ui, logger, cfg } = engine;
-  if (engine.ended) return;
-
-  engine.ended = true;
-  engine.running = false;
-  state.session.endRequested = true;
-  state.session.reasonEnded = reason;
-  state.session.endedAt = Date.now();
-
-  finalizeMetrics(state);
-
-  logger.emit('sb_summary_prepare', {
-    reason,
-    score: state.score.total,
-    stars: state.score.stars
-  });
-
-  const summary = buildSummaryPayload(state);
-  const selfReport = await openSummaryFlow(ui, summary, logger);
-  const saved = saveSummary(summary, selfReport);
-
-  state.summary = saved;
-
-  logger.emit('sb_session_end', {
-    reason,
-    score: saved.score,
-    stars: saved.stars,
-    estimatedTier: saved.estimatedTier
-  });
-
-  persistFinalSnapshot(saved);
-
-  const nextUrl = cfg.cooldown || cfg.hub;
-  ui.showOverlay(`
-    <h2 style="margin:0 0 10px">เสร็จแล้ว</h2>
-    <p style="margin:6px 0">บันทึกผลเรียบร้อย</p>
-    <div class="sb-actions">
-      <a class="sb-btn sb-btn-primary" href="${escapeAttr(nextUrl)}">${cfg.cooldown ? 'ไปต่อช่วงผ่อนแรง' : 'กลับ HUB'}</a>
-    </div>
-  `);
-}
-
-function endSession(reason, state, ui, logger) {
-  if (state.session.endRequested) return;
-  state.session.endRequested = true;
-
-  logger.emit('sb_session_abort_request', { reason });
-
-  ui.showOverlay(`
-    <h2 style="margin:0 0 10px">ต้องการออกจากเกมหรือไม่</h2>
-    <div class="sb-actions">
-      <button class="sb-btn sb-btn-primary" data-sb-confirm-exit="1">ออกจากเกม</button>
-      <button class="sb-btn sb-btn-secondary" data-sb-cancel-exit="1">เล่นต่อ</button>
-    </div>
-  `);
-
-  const yes = ui.overlay.querySelector('[data-sb-confirm-exit="1"]');
-  const no = ui.overlay.querySelector('[data-sb-cancel-exit="1"]');
-
-  yes.addEventListener('click', () => {
-    ui.hideOverlay();
-    const engine = window[SB_GLOBAL_KEY];
-    if (engine) completeSession(engine, reason);
-  }, { once: true });
-
-  no.addEventListener('click', () => {
-    state.session.endRequested = false;
-    ui.hideOverlay();
-  }, { once: true });
-}
-
-function buildSummaryPayload(state) {
-  return {
-    patch: SB_ENGINE_VERSION,
-    sessionId: state.session.sessionId,
-    mode: state.cfg.mode,
-    body: state.cfg.body,
-    intensity: state.cfg.intensity,
-    durationMin: state.cfg.durationMin,
-    run: state.cfg.run,
-    pid: state.cfg.pid,
-    nick: state.cfg.nick,
-    score: state.score.total,
-    stars: state.score.stars,
-    comboMax: state.score.comboMax,
-    accuracy: Math.round(state.score.accuracy),
-    totalActions: state.actions.totalActions,
-    totalPunches: state.actions.totalPunches,
-    jab: state.actions.jab,
-    cross: state.actions.cross,
-    hook: state.actions.hook_left + state.actions.hook_right,
-    uppercut: state.actions.uppercut_left + state.actions.uppercut_right,
-    guard: state.actions.guard,
-    duck: state.actions.duck,
-    flowHit: state.actions.flow_hit,
-    miss: state.actions.miss,
-    timeoutMiss: state.actions.timeoutMiss,
-    activeMs: Math.round(state.exercise.activeMs),
-    recoveryMs: Math.round(state.exercise.recoveryMs),
-    warmupMs: Math.round(state.exercise.warmupMs),
-    wrapMs: Math.round(state.exercise.wrapMs),
-    punchesPerMin: Math.round(state.exercise.punchesPerMin),
-    estimatedTier: state.exercise.estimatedTier,
-    leftHits: state.exercise.leftHits,
-    rightHits: state.exercise.rightHits,
-    balancePct: state.exercise.balancePct,
-    bossClears: state.boss.clears,
-    startedAt: state.session.startedAt,
-    endedAt: state.session.endedAt,
-    createdAtIso: new Date().toISOString()
+    tabNormal: $('#sb-tab-normal'),
+    tabResearch: $('#sb-tab-research'),
+    researchFields: $('#sb-research-fields'),
+    modeDesc: $('#sb-mode-desc')
   };
-}
 
-async function openSummaryFlow(ui, summary, logger) {
-  ui.showOverlay(`
-    <h2 style="margin:0 0 10px">Shadow Breaker Summary</h2>
+  const STATE = {
+    mode:'normal',
+    isPlaying:false,
+    isPaused:false,
+    isEnding:false,
+    sessionId:'',
+    startTs:0,
+    lastFrame:0,
+    elapsedMs:0,
+    totalMs:70000,
+    pid:'anon',
+    diff:'normal',
+    seed:'',
+    rng:null,
 
-    <div class="sb-card-grid">
-      <div class="sb-mini-card">
-        <strong>Score</strong>
-        <div>${summary.score}</div>
-      </div>
-      <div class="sb-mini-card">
-        <strong>Stars</strong>
-        <div>${summary.stars}</div>
-      </div>
-      <div class="sb-mini-card">
-        <strong>Accuracy</strong>
-        <div>${summary.accuracy}%</div>
-      </div>
-      <div class="sb-mini-card">
-        <strong>Punches/min</strong>
-        <div>${summary.punchesPerMin}</div>
-      </div>
-    </div>
+    phaseIndex:0,
+    bossesCleared:0,
+    bestReachedBoss:'Bubble Glove',
 
-    <div style="margin-top:12px">
-      <strong>Quick Coach</strong>
-      <p style="margin:8px 0 0">${escapeHtml(summaryCoachText(summary))}</p>
-    </div>
+    score:0,
+    combo:0,
+    comboMax:0,
+    missTotal:0,
+    hitCount:0,
+    tapCount:0,
+    accPct:0,
 
-    <div class="sb-actions">
-      <button class="sb-btn sb-btn-primary" data-sb-go-report="1">ต่อไป</button>
-    </div>
-  `);
+    hpYou:100,
+    hpBoss:100,
+    shield:0,
+    fever:0,
+    feverOn:false,
+    feverRemainMs:0,
 
-  logger.emit('sb_summary_open', {
-    score: summary.score,
-    stars: summary.stars,
-    estimatedTier: summary.estimatedTier
-  });
+    spawnClock:0,
+    speechClock:0,
+    bossBannerClock:0,
+    stageMessageClock:0,
 
-  await waitOverlayClick(ui.overlay, '[data-sb-go-report="1"]');
+    entities:[],
+    events:[],
+    sessionSummary:null,
 
-  ui.showOverlay(`
-    <h2 style="margin:0 0 10px">หลังเล่นรู้สึกอย่างไร</h2>
-    <form id="sb-self-report-form">
-      <label class="sb-field">
-        <span>เหนื่อยแค่ไหน (0–10)</span>
-        <input type="range" name="rpe" min="0" max="10" value="5" />
-      </label>
+    latestBossBadge:null,
+    cvrFocusId:null,
+    cvrLastShotMs:0
+  };
 
-      <label class="sb-field">
-        <span>สนุกแค่ไหน (1–5)</span>
-        <input type="range" name="enjoyment" min="1" max="5" value="4" />
-      </label>
+  function setView(name){
+    DOM.viewMenu?.classList.remove('is-active');
+    DOM.viewPlay?.classList.remove('is-active');
+    DOM.viewResult?.classList.remove('is-active');
 
-      <label class="sb-field">
-        <span>ยากแค่ไหน (1–5)</span>
-        <input type="range" name="difficulty" min="1" max="5" value="3" />
-      </label>
-
-      <label class="sb-field">
-        <span>ล้า/ปวดแขนแค่ไหน (0–5)</span>
-        <input type="range" name="pain" min="0" max="5" value="1" />
-      </label>
-
-      <label class="sb-field">
-        <span>ตอนนี้รู้สึกสดชื่นขึ้นไหม (1–5)</span>
-        <input type="range" name="refresh" min="1" max="5" value="4" />
-      </label>
-
-      <div class="sb-actions">
-        <button type="submit" class="sb-btn sb-btn-primary">บันทึกผล</button>
-      </div>
-    </form>
-  `);
-
-  const values = await waitSelfReportSubmit(ui.overlay);
-  logger.emit('sb_self_report_submit', values);
-  ui.hideOverlay();
-  return values;
-}
-
-function summaryCoachText(summary) {
-  if (summary.accuracy >= 80 && summary.punchesPerMin >= 35) {
-    return 'จังหวะดีมาก เล่นต่อเนื่องและอยู่ในโซนที่ดี';
-  }
-  if (summary.accuracy < 60) {
-    return 'รอบหน้าลองช้าลงนิด แล้วตาม cue ให้ชัดก่อน';
-  }
-  if (summary.punchesPerMin < 28) {
-    return 'รอบหน้าลองเพิ่มความต่อเนื่องอีกนิด จะได้ความฟิตชัดขึ้น';
-  }
-  return 'ทำได้ดีแล้ว รอบหน้าลอง Mixed หรือ Power เพื่อเพิ่มความท้าทาย';
-}
-
-function saveSummary(summary, selfReport) {
-  const payload = { ...summary, selfReport };
-
-  try {
-    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
-    localStorage.setItem('SB_LAST_SUMMARY', JSON.stringify(payload));
-
-    const history = JSON.parse(localStorage.getItem('HHA_SUMMARY_HISTORY') || '[]');
-    history.push(payload);
-    localStorage.setItem('HHA_SUMMARY_HISTORY', JSON.stringify(history.slice(-50)));
-
-    const sbHistory = JSON.parse(localStorage.getItem('SB_SUMMARY_HISTORY') || '[]');
-    sbHistory.push(payload);
-    localStorage.setItem('SB_SUMMARY_HISTORY', JSON.stringify(sbHistory.slice(-50)));
-
-    localStorage.setItem('SB_LAST_CONFIG', JSON.stringify({
-      mode: summary.mode,
-      body: summary.body,
-      intensity: summary.intensity,
-      durationMin: summary.durationMin
-    }));
-  } catch (_) {}
-
-  return payload;
-}
-
-function finalizeMetrics(state) {
-  updateAccuracy(state);
-
-  const durMin = Math.max(1 / 60, (state.session.endedAt - state.session.startedAt) / 60000);
-  state.exercise.punchesPerMin = state.actions.totalPunches / durMin;
-  state.exercise.estimatedTier = estimateTier(state);
-}
-
-/* ------------------------------------------------------------------ */
-/* UI */
-/* ------------------------------------------------------------------ */
-
-function createUiShell() {
-  let root = document.getElementById('sb-engine-root');
-  if (root) {
-    return bindUiRefs(root);
+    if(name === 'menu') DOM.viewMenu?.classList.add('is-active');
+    else if(name === 'play') DOM.viewPlay?.classList.add('is-active');
+    else if(name === 'result') DOM.viewResult?.classList.add('is-active');
   }
 
-  root = document.createElement('section');
-  root.id = 'sb-engine-root';
-  root.className = 'sb-shell';
-  root.innerHTML = `
-    <style>
-      #sb-engine-root.sb-shell{
-        min-height:100vh;
-        background:radial-gradient(circle at top, #182847 0%, #0b1427 56%, #050913 100%);
-        color:#fff;
-        font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-        position:relative;
-        overflow:hidden;
+  function setUiMode(mode){
+    STATE.mode = mode === 'research' ? 'research' : 'normal';
+
+    if(DOM.wrap) DOM.wrap.dataset.uiMode = STATE.mode === 'research' ? 'research' : 'child';
+
+    if(DOM.tabNormal) DOM.tabNormal.classList.toggle('is-active', STATE.mode !== 'research');
+    if(DOM.tabResearch) DOM.tabResearch.classList.toggle('is-active', STATE.mode === 'research');
+
+    if(DOM.researchFields) DOM.researchFields.style.display = STATE.mode === 'research' ? '' : 'none';
+    if(DOM.modeDesc){
+      DOM.modeDesc.textContent = STATE.mode === 'research'
+        ? 'โหมดวิจัย: ใช้เก็บข้อมูลการทดลอง'
+        : 'เล่นสนุกได้เลย ไม่ต้องกรอกข้อมูลเพิ่ม';
+    }
+
+    const vm = getViewMode();
+    if (vm === 'mobile' && DOM.currentBossName) DOM.currentBossName.textContent = currentBoss().name || 'Boss';
+    if (vm === 'cvr' && DOM.btnPause) DOM.btnPause.checked = false;
+  }
+
+  function applyBossTheme(boss){
+    if(!boss || !DOM.wrap) return;
+    DOM.wrap.style.setProperty('--sb-theme1', boss.theme?.theme1 || 'rgba(59,130,246,.22)');
+    DOM.wrap.style.setProperty('--sb-theme2', boss.theme?.theme2 || 'rgba(167,139,250,.14)');
+    DOM.wrap.style.setProperty('--sb-themeBorder', boss.theme?.border || 'rgba(148,163,184,.18)');
+
+    if(DOM.stageBossFace) DOM.stageBossFace.textContent = boss.emoji || '🥊';
+    if(DOM.stageBossName) DOM.stageBossName.textContent = boss.name || 'Boss';
+    if(DOM.metaEmoji) DOM.metaEmoji.textContent = boss.emoji || '🥊';
+    if(DOM.metaName) DOM.metaName.textContent = boss.name || 'Boss';
+    if(DOM.metaDesc) DOM.metaDesc.textContent = boss.desc || '';
+    if(DOM.currentBossName) DOM.currentBossName.textContent = boss.name || 'Boss';
+    if(DOM.bossPhaseLabel) DOM.bossPhaseLabel.textContent = String(STATE.phaseIndex + 1);
+  }
+
+  function currentBoss(){
+    return BOSSES[clamp(STATE.phaseIndex, 0, BOSSES.length-1)];
+  }
+
+  function getCrosshairPoint(){
+    const stageRect = DOM.targetLayer?.getBoundingClientRect?.();
+    if (!stageRect) return { x:0, y:0 };
+    return { x: stageRect.width / 2, y: stageRect.height / 2 };
+  }
+
+  function entityCenter(ent){
+    return {
+      x: Number(ent.x || 0) + Number(ent.size || 0) / 2,
+      y: Number(ent.y || 0) + Number(ent.size || 0) / 2
+    };
+  }
+
+  function dist2(ax, ay, bx, by){
+    const dx = ax - bx;
+    const dy = ay - by;
+    return dx*dx + dy*dy;
+  }
+
+  function getCvrFocusEntity(){
+    const viewMode = getViewMode();
+    if (viewMode !== 'cvr') return null;
+
+    const pt = getCrosshairPoint();
+    const alive = STATE.entities.filter(e => e && e.alive);
+    if (!alive.length) return null;
+
+    let best = null;
+    let bestD2 = Infinity;
+
+    for (const ent of alive){
+      const c = entityCenter(ent);
+      const d2 = dist2(pt.x, pt.y, c.x, c.y);
+      const focusRadius =
+        ent.type === 'bossface' ? 196 :
+        ent.type === 'normal' ? 180 :
+        ent.type === 'heal' || ent.type === 'shield' ? 166 : 156;
+
+      if (d2 <= focusRadius * focusRadius && d2 < bestD2){
+        best = ent;
+        bestD2 = d2;
       }
-      .sb-hud{
-        position:absolute;
-        background:rgba(10,18,38,.72);
-        backdrop-filter:blur(8px);
-        border:1px solid rgba(255,255,255,.09);
-        border-radius:16px;
-        padding:10px 12px;
-        line-height:1.5;
-        font-size:14px;
-        z-index:10;
+    }
+    return best;
+  }
+
+  function updateCvrFocusVisual(){
+    const viewMode = getViewMode();
+    if (viewMode !== 'cvr'){
+      STATE.cvrFocusId = null;
+      STATE.entities.forEach(e => e?.el?.classList?.remove('is-cvr-focus'));
+      return;
+    }
+
+    const focused = getCvrFocusEntity();
+    STATE.cvrFocusId = focused?.id || null;
+
+    for (const ent of STATE.entities){
+      ent?.el?.classList?.toggle('is-cvr-focus', !!focused && ent.id === focused.id);
+    }
+  }
+
+  function showBossSpeech(text, durMs=1800){
+    const boss = currentBoss();
+    const viewMode = getViewMode();
+
+    if(!DOM.bossSpeech) return;
+
+    if(viewMode === 'mobile'){
+      hideBossSpeech();
+      if(text){
+        setCenterMsg(text, Math.min(1200, durMs));
       }
-      .sb-top{ left:12px; right:12px; top:12px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-      .sb-left{ left:12px; top:92px; width:148px; }
-      .sb-right{ right:12px; top:92px; width:148px; }
-      .sb-stage{
-        position:absolute;
-        inset:0;
-        display:grid;
-        place-items:center;
-        padding:108px 16px 176px;
-        text-align:center;
-        z-index:7;
-        pointer-events:none;
+      return;
+    }
+
+    if(DOM.bossSpeechEmoji) DOM.bossSpeechEmoji.textContent = boss.emoji || '🥊';
+    if(DOM.bossSpeechName) DOM.bossSpeechName.textContent = boss.name || 'Boss';
+    if(DOM.bossSpeechText) DOM.bossSpeechText.textContent = text || boss.speech || '';
+    DOM.bossSpeech.classList.add('is-show');
+    STATE.speechClock = durMs;
+  }
+
+  function hideBossSpeech(){
+    DOM.bossSpeech?.classList.remove('is-show');
+    STATE.speechClock = 0;
+  }
+
+  function showBossBanner(title, sub, durMs=1800){
+    if(DOM.bossBannerTitle) DOM.bossBannerTitle.textContent = title || 'ผ่านบอสแล้ว!';
+    if(DOM.bossBannerSub) DOM.bossBannerSub.textContent = sub || '';
+    DOM.bossBanner?.classList.add('is-show');
+    STATE.bossBannerClock = durMs;
+  }
+
+  function hideBossBanner(){
+    DOM.bossBanner?.classList.remove('is-show');
+    STATE.bossBannerClock = 0;
+  }
+
+  function setCenterMsg(text, durMs=1100){
+    if(DOM.msgMain) DOM.msgMain.textContent = text || '';
+    const viewMode = getViewMode();
+    STATE.stageMessageClock = viewMode === 'mobile'
+      ? Math.min(durMs, 800)
+      : durMs;
+  }
+
+  function updateHud(){
+    const remainSec = Math.max(0, (STATE.totalMs - STATE.elapsedMs) / 1000);
+    if(DOM.textTime) DOM.textTime.textContent = `${remainSec.toFixed(1)} s`;
+    if(DOM.textScore) DOM.textScore.textContent = String(Math.round(STATE.score));
+    if(DOM.textCombo) DOM.textCombo.textContent = String(STATE.combo);
+    if(DOM.textPhase) DOM.textPhase.textContent = String(STATE.phaseIndex + 1);
+    if(DOM.textMiss) DOM.textMiss.textContent = String(STATE.missTotal);
+
+    const youW = `${clamp(STATE.hpYou,0,100)}%`;
+    const bossW = `${clamp(STATE.hpBoss,0,100)}%`;
+    if(DOM.hpYouTop) DOM.hpYouTop.style.width = youW;
+    if(DOM.hpYouBottom) DOM.hpYouBottom.style.width = youW;
+    if(DOM.hpBossTop) DOM.hpBossTop.style.width = bossW;
+    if(DOM.hpBossBottom) DOM.hpBossBottom.style.width = bossW;
+
+    const feverPct = clamp(STATE.fever, 0, 100);
+    if(DOM.feverBar) DOM.feverBar.style.width = `${feverPct}%`;
+    if(DOM.labelFever) DOM.labelFever.textContent = `${Math.round(feverPct)}%`;
+    if(DOM.feverHint){
+      if(STATE.feverOn) DOM.feverHint.textContent = 'พลังพิเศษเปิดอยู่! แตะเร็วเลย';
+      else if(feverPct >= 100) DOM.feverHint.textContent = 'พร้อมแล้ว! กดพลังพิเศษได้เลย';
+      else DOM.feverHint.textContent = 'ตีแม่น ๆ เพื่อเปิดพลังพิเศษ';
+    }
+
+    if(DOM.bossShieldLabel) DOM.bossShieldLabel.textContent = String(Math.round(STATE.shield || 0));
+  }
+
+  function resetTargetLayer(){
+    STATE.entities.forEach(e=>{
+      try{ e.el?.remove(); }catch(_){}
+    });
+    STATE.entities = [];
+    if(DOM.targetLayer) DOM.targetLayer.innerHTML = '';
+  }
+
+  function makeEntity(type, opts={}){
+    const el = DOC.createElement('button');
+    el.type = 'button';
+    el.className = `sb-target sb-target--${type}`;
+    el.setAttribute('aria-label', type);
+
+    const stageRect = DOM.targetLayer.getBoundingClientRect();
+    const viewMode = getViewMode();
+
+    const sizeBase =
+      viewMode === 'mobile'
+        ? (STATE.diff === 'easy' ? 92 : STATE.diff === 'hard' ? 76 : 82)
+        : viewMode === 'cvr'
+          ? (STATE.diff === 'easy' ? 116 : STATE.diff === 'hard' ? 92 : 100)
+          : (STATE.diff === 'easy' ? 88 : STATE.diff === 'hard' ? 68 : 78);
+
+    const size =
+      type === 'bossface' ? sizeBase + 8 :
+      type === 'bomb' ? sizeBase - 8 :
+      type === 'heal' || type === 'shield' ? sizeBase - 4 : sizeBase;
+
+    const w = Math.max(160, stageRect.width);
+    const h = Math.max(320, stageRect.height);
+
+    let spawnLeft = 12;
+    let spawnRight = w - size - 12;
+    let spawnTop = 84;
+    let spawnBottom = h - size - 24;
+
+    if (viewMode === 'mobile') {
+      spawnLeft = 14;
+      spawnRight = w - size - 14;
+      spawnTop = Math.max(146, h * 0.27);
+      spawnBottom = h - size - 44;
+    }
+
+    if (viewMode === 'pc') {
+      spawnLeft = 16;
+      spawnRight = w - size - 170;
+      spawnTop = Math.max(76, h * 0.17);
+      spawnBottom = h - size - 20;
+    }
+
+    if (viewMode === 'cvr') {
+      spawnLeft = 28;
+      spawnRight = w - size - 28;
+      spawnTop = Math.max(104, h * 0.20);
+      spawnBottom = h - size - 60;
+    }
+
+    const x = opts.x != null ? opts.x : spawnLeft + STATE.rng() * Math.max(10, spawnRight - spawnLeft);
+    const y = opts.y != null ? opts.y : spawnTop + STATE.rng() * Math.max(10, spawnBottom - spawnTop);
+
+    let emoji = '🎯';
+    if(type === 'normal') emoji = choice(STATE.rng, ['⭐','🎯','✨']);
+    if(type === 'decoy') emoji = '👀';
+    if(type === 'bomb') emoji = '💣';
+    if(type === 'heal') emoji = '🩹';
+    if(type === 'shield') emoji = '🛡️';
+    if(type === 'bossface') emoji = currentBoss().emoji || '👑';
+    el.textContent = emoji;
+
+    const ttl =
+      opts.ttl != null ? opts.ttl :
+      type === 'heal' || type === 'shield' ? 1700 :
+      type === 'bomb' ? (STATE.diff === 'hard' ? 1180 : 1380) :
+      type === 'bossface' ? 1750 :
+      (STATE.diff === 'easy' ? 1720 : STATE.diff === 'hard' ? 1180 : 1420);
+
+    const ent = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2,9)}`,
+      type,
+      el,
+      x, y, size,
+      born: nowMs(),
+      ttl,
+      alive:true,
+      hit:false
+    };
+
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+
+    el.addEventListener('click', ()=>{
+      onTapEntity(ent);
+    });
+
+    DOM.targetLayer.appendChild(el);
+    STATE.entities.push(ent);
+
+    logEvent('spawn', {
+      ent_id: ent.id,
+      ent_type: ent.type,
+      x: Math.round(x),
+      y: Math.round(y),
+      size,
+      ttl
+    });
+
+    return ent;
+  }
+
+  function removeEntity(ent, reason='remove'){
+    if(!ent || !ent.alive) return;
+    ent.alive = false;
+    try{
+      ent.el?.classList.add('is-expiring');
+      setTimeout(()=>{ try{ ent.el?.remove(); }catch(_){} }, 110);
+    }catch(_){}
+    logEvent('despawn', { ent_id: ent.id, ent_type: ent.type, reason });
+  }
+
+  function onTapEntity(ent){
+    if(!STATE.isPlaying || STATE.isPaused || !ent || !ent.alive) return;
+
+    if (getViewMode() === 'cvr') {
+      const focused = getCvrFocusEntity();
+      if (!focused || focused.id !== ent.id) return;
+    }
+
+    STATE.tapCount += 1;
+    ent.hit = true;
+
+    if(ent.type === 'normal'){
+      const gain = STATE.feverOn ? 35 : 20;
+      STATE.score += gain + Math.min(STATE.combo, 12) * 2;
+      STATE.combo += 1;
+      STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
+      STATE.hitCount += 1;
+      STATE.fever = clamp(STATE.fever + 10, 0, 100);
+      STATE.hpBoss = clamp(STATE.hpBoss - (STATE.feverOn ? 18 : 10), 0, 100);
+      setCenterMsg(choice(STATE.rng, ['เยี่ยม!','เก่งมาก!','โดนแล้ว!','สุดยอด!']), 380);
+      logEvent('hit_good', { ent_id: ent.id, ent_type: ent.type, score: STATE.score });
+    } else if(ent.type === 'bossface'){
+      const gain = STATE.feverOn ? 60 : 35;
+      STATE.score += gain;
+      STATE.combo += 1;
+      STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
+      STATE.hitCount += 1;
+      STATE.fever = clamp(STATE.fever + 12, 0, 100);
+      STATE.hpBoss = clamp(STATE.hpBoss - (STATE.feverOn ? 28 : 18), 0, 100);
+      setCenterMsg(choice(STATE.rng, ['โดนบอสแล้ว!','อีกนิดเดียว!','เก่งมาก!','ลุยเลย!']), 450);
+      logEvent('hit_boss', { ent_id: ent.id, ent_type: ent.type, score: STATE.score });
+    } else if(ent.type === 'heal'){
+      STATE.hpYou = clamp(STATE.hpYou + 18, 0, 100);
+      STATE.score += 6;
+      setCenterMsg('พลังมาแล้ว!', 500);
+      logEvent('pickup_heal', { ent_id: ent.id });
+    } else if(ent.type === 'shield'){
+      STATE.shield = clamp(STATE.shield + 18, 0, 100);
+      STATE.score += 8;
+      setCenterMsg('ได้โล่แล้ว!', 500);
+      logEvent('pickup_shield', { ent_id: ent.id });
+    } else if(ent.type === 'bomb' || ent.type === 'decoy'){
+      const blocked = STATE.shield > 0;
+      if(blocked){
+        STATE.shield = clamp(STATE.shield - 15, 0, 100);
+        setCenterMsg('โล่ช่วยไว้!', 420);
+        logEvent('blocked_bad', { ent_id: ent.id, ent_type: ent.type });
+      } else {
+        STATE.hpYou = clamp(STATE.hpYou - (ent.type === 'bomb' ? 18 : 10), 0, 100);
+        STATE.combo = 0;
+        STATE.missTotal += 1;
+        setCenterMsg(ent.type === 'bomb' ? 'โอ๊ะ ระวังบอมบ์!' : 'อ๊ะ เป้าหลอก!', 550);
+        logEvent('hit_bad', { ent_id: ent.id, ent_type: ent.type, hp_you: STATE.hpYou });
       }
-      .sb-stage-text{
-        font-size:clamp(22px,4vw,44px);
-        font-weight:800;
-        opacity:.96;
-        text-shadow:0 0 26px rgba(130,200,255,.18);
+    }
+
+    removeEntity(ent, 'tap');
+    updateHud();
+
+    if(STATE.hpBoss <= 0){
+      onBossClear();
+    } else if(STATE.hpYou <= 0){
+      endGame('hp_zero');
+    }
+  }
+
+  function cvrShoot(){
+    if(!STATE.isPlaying || STATE.isPaused) return;
+    if (getViewMode() !== 'cvr') return;
+
+    const now = nowMs();
+    if (now - STATE.cvrLastShotMs < 160) return;
+    STATE.cvrLastShotMs = now;
+
+    const target = getCvrFocusEntity();
+    if (target){
+      logEvent('cvr_shoot_hit', { ent_id: target.id, ent_type: target.type });
+      onTapEntity(target);
+    } else {
+      STATE.tapCount += 1;
+      STATE.combo = 0;
+      logEvent('cvr_shoot_blank', {});
+      setCenterMsg('ลองเล็งใหม่อีกนิด', 260);
+      updateHud();
+    }
+  }
+
+  function spawnPack(dtMs){
+    STATE.spawnClock -= dtMs;
+    if(STATE.spawnClock > 0) return;
+
+    const baseGap =
+      STATE.diff === 'easy' ? 880 :
+      STATE.diff === 'hard' ? 580 : 720;
+
+    const phaseMul = [1.00, 0.92, 0.84, 0.78][clamp(STATE.phaseIndex,0,3)] || 1;
+    STATE.spawnClock = baseGap * phaseMul;
+
+    let goodCount = 1;
+    let badChance = 0.22;
+    let decoyChance = 0.16;
+    let utilityChance = 0.09;
+    let bossFaceChance = 0.13;
+
+    if(STATE.phaseIndex === 1){
+      badChance = 0.27; decoyChance = 0.18; bossFaceChance = 0.17;
+    } else if(STATE.phaseIndex === 2){
+      goodCount = 2; badChance = 0.29; decoyChance = 0.23; bossFaceChance = 0.21;
+    } else if(STATE.phaseIndex === 3){
+      goodCount = 2; badChance = 0.33; decoyChance = 0.24; bossFaceChance = 0.26;
+    }
+
+    if(STATE.feverOn){
+      goodCount += 1;
+      bossFaceChance += 0.07;
+      badChance *= 0.78;
+    }
+
+    for(let i=0;i<goodCount;i++) makeEntity('normal');
+    if(STATE.rng() < badChance) makeEntity('bomb');
+    if(STATE.rng() < decoyChance) makeEntity('decoy');
+    if(STATE.rng() < utilityChance){
+      makeEntity(STATE.rng() < 0.5 ? 'heal' : 'shield');
+    }
+
+    if(STATE.rng() < bossFaceChance){
+      const stageRect = DOM.targetLayer.getBoundingClientRect();
+      const viewMode = getViewMode();
+
+      let bx = null;
+      let by = null;
+
+      if (viewMode === 'mobile') {
+        bx = stageRect.width * (0.18 + STATE.rng() * 0.40);
+        by = stageRect.height * (0.40 + STATE.rng() * 0.22);
+      } else if (viewMode === 'pc') {
+        bx = stageRect.width * (0.14 + STATE.rng() * 0.46);
+        by = stageRect.height * (0.24 + STATE.rng() * 0.48);
+      } else if (viewMode === 'cvr') {
+        bx = stageRect.width * (0.16 + STATE.rng() * 0.58);
+        by = stageRect.height * (0.26 + STATE.rng() * 0.46);
       }
-      .sb-target-layer{
-        position:absolute;
-        inset:96px 16px 170px;
-        z-index:8;
-        pointer-events:none;
-      }
-      .sb-target-lane{
-        position:absolute;
-        left:50%;
-        top:54%;
-        width:2px;
-        height:180px;
-        transform:translate(-50%,-50%);
-        background:linear-gradient(180deg, rgba(255,255,255,.02) 0%, rgba(140,200,255,.3) 38%, rgba(255,255,255,.02) 100%);
-        filter:drop-shadow(0 0 12px rgba(120,190,255,.16));
-        opacity:.9;
-      }
-      .sb-target{
-        position:absolute;
-        width:88px;
-        height:88px;
-        border-radius:999px;
-        display:grid;
-        place-items:center;
-        font-weight:900;
-        font-size:16px;
-        color:#fff;
-        border:2px solid rgba(255,255,255,.22);
-        box-shadow:
-          0 0 0 6px rgba(255,255,255,.04),
-          0 14px 30px rgba(0,0,0,.24),
-          0 0 22px rgba(140,200,255,.22);
-        animation:sbTargetPop .18s ease-out;
-        backdrop-filter:blur(3px);
-      }
-      .sb-target::after{
-        content:'';
-        position:absolute;
-        inset:-10px;
-        border-radius:inherit;
-        border:1px dashed rgba(255,255,255,.12);
-      }
-      .sb-target-ring{
-        position:absolute;
-        inset:-18px;
-        border-radius:inherit;
-        border:4px solid rgba(255,255,255,.82);
-        box-shadow:0 0 16px rgba(255,255,255,.18);
-        animation:sbRingShrink var(--ring-ms, 1100ms) linear forwards;
-      }
-      .sb-target-core{
-        position:absolute;
-        inset:0;
-        border-radius:inherit;
-        display:grid;
-        place-items:center;
-      }
-      .sb-target-glow{
-        position:absolute;
-        inset:-22px;
-        border-radius:inherit;
-        background:radial-gradient(circle, rgba(255,255,255,.18) 0%, rgba(120,190,255,.10) 42%, rgba(0,0,0,0) 72%);
-        filter:blur(10px);
-        pointer-events:none;
-      }
-      .sb-target-label{
-        position:absolute;
-        left:50%;
-        top:calc(100% + 10px);
-        transform:translateX(-50%);
-        font-size:14px;
-        font-weight:900;
-        letter-spacing:.04em;
-        white-space:nowrap;
-        color:#fff;
-        text-shadow:0 2px 10px rgba(0,0,0,.45);
-      }
-      .sb-target-hint{
-        position:absolute;
-        right:-8px;
-        top:-8px;
-        min-width:26px;
-        height:26px;
-        padding:0 8px;
-        border-radius:999px;
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        font-size:11px;
-        font-weight:900;
-        color:#0d1b2a;
-        background:#fff;
-        box-shadow:0 8px 20px rgba(0,0,0,.18);
-      }
-      .sb-target.is-jab{
-        background:radial-gradient(circle at 35% 30%, #8fd3ff 0%, #3a86ff 55%, #143d8f 100%);
-        left:50%;
-        top:42%;
-        transform:translate(-50%,-50%);
-      }
-      .sb-target.is-cross{
-        background:radial-gradient(circle at 35% 30%, #9bf6ff 0%, #4cc9f0 55%, #1c6aa5 100%);
-        left:64%;
-        top:42%;
-        transform:translate(-50%,-50%);
-      }
-      .sb-target.is-hook-left{
-        background:radial-gradient(circle at 35% 30%, #ffb3d9 0%, #ff6fb1 55%, #b83280 100%);
-        left:28%;
-        top:42%;
-        transform:translate(-50%,-50%);
-      }
-      .sb-target.is-hook-right{
-        background:radial-gradient(circle at 35% 30%, #ffc7a8 0%, #ff9f68 55%, #d46a1d 100%);
-        left:72%;
-        top:42%;
-        transform:translate(-50%,-50%);
-      }
-      .sb-target.is-uppercut-left{
-        background:radial-gradient(circle at 35% 30%, #caffbf 0%, #71dd7a 55%, #2d8a3c 100%);
-        left:40%;
-        top:58%;
-        transform:translate(-50%,-50%);
-      }
-      .sb-target.is-uppercut-right{
-        background:radial-gradient(circle at 35% 30%, #fdffb6 0%, #f7d64a 55%, #c49311 100%);
-        left:60%;
-        top:58%;
-        transform:translate(-50%,-50%);
-      }
-      .sb-target.is-guard{
-        width:112px;
-        height:112px;
-        border-radius:24px;
-        background:linear-gradient(180deg, #d7e9ff 0%, #7fb3ff 45%, #275cc9 100%);
-        left:50%;
-        top:40%;
-        transform:translate(-50%,-50%);
-      }
-      .sb-target.is-duck{
-        width:78%;
-        height:20px;
-        border-radius:999px;
-        background:linear-gradient(90deg, #ffd6a5 0%, #ffad66 50%, #f47c20 100%);
-        left:50%;
-        top:38%;
-        transform:translate(-50%,-50%);
-        box-shadow:0 8px 20px rgba(0,0,0,.24), 0 0 20px rgba(255,173,102,.24);
-      }
-      .sb-target.is-flow{
-        width:120px;
-        height:120px;
-        background:
-          radial-gradient(circle at 50% 50%, rgba(255,255,255,.95) 0 10%, rgba(92,214,255,.95) 11% 32%, rgba(36,120,255,.88) 33% 56%, rgba(13,43,93,.85) 57% 100%);
-        left:50%;
-        top:45%;
-        transform:translate(-50%,-50%);
-      }
-      .sb-target.is-boss{
-        width:132px;
-        height:132px;
-        background:radial-gradient(circle at 35% 30%, #ffcad4 0%, #ff6b8a 45%, #8f1d3e 100%);
-        left:50%;
-        top:36%;
-        transform:translate(-50%,-50%);
-        box-shadow:
-          0 0 0 8px rgba(255,255,255,.04),
-          0 18px 34px rgba(0,0,0,.28),
-          0 0 30px rgba(255,107,138,.35);
-      }
-      .sb-boss-weakpoints{
-        position:absolute;
-        inset:-18px;
-        pointer-events:none;
-      }
-      .sb-boss-wp{
-        position:absolute;
-        width:20px;
-        height:20px;
-        border-radius:999px;
-        background:rgba(255,255,255,.22);
-        border:2px solid rgba(255,255,255,.44);
-        box-shadow:0 0 10px rgba(255,255,255,.12);
-      }
-      .sb-boss-wp.is-active{
-        background:#fff4b3;
-        border-color:#fff;
-        box-shadow:0 0 16px rgba(255,244,179,.55);
-        transform:scale(1.12);
-      }
-      .sb-boss-wp.is-top{ left:50%; top:-10px; transform:translateX(-50%); }
-      .sb-boss-wp.is-right{ right:-10px; top:50%; transform:translateY(-50%); }
-      .sb-boss-wp.is-bottom{ left:50%; bottom:-10px; transform:translateX(-50%); }
-      .sb-boss-wp.is-left{ left:-10px; top:50%; transform:translateY(-50%); }
-      .sb-target-hit{
-        animation:sbTargetHit .18s ease-out forwards;
-      }
-      .sb-target-miss{
-        animation:sbTargetMiss .2s ease-out forwards;
-      }
-      .sb-cue{
-        position:absolute;
-        left:50%;
-        bottom:126px;
-        transform:translateX(-50%);
-        min-width:160px;
-        text-align:center;
-        padding:14px 18px;
-        border-radius:999px;
-        font-size:26px;
-        font-weight:900;
-        background:rgba(255,255,255,.09);
-        border:1px solid rgba(255,255,255,.14);
-        z-index:10;
-      }
-      .sb-cue.is-hit{ background:rgba(60,210,120,.22); }
-      .sb-cue.is-miss{ background:rgba(255,90,90,.22); }
-      .sb-cue.is-info{ background:rgba(90,160,255,.22); }
-      .sb-coach{
-        position:absolute;
-        left:50%;
-        transform:translateX(-50%);
-        bottom:84px;
-        font-size:14px;
-        opacity:.95;
-        background:rgba(14,24,46,.62);
-        padding:8px 12px;
-        border-radius:999px;
-        z-index:10;
-      }
-      .sb-pad{
-        position:absolute;
-        left:12px;
-        right:12px;
-        bottom:12px;
-        display:grid;
-        grid-template-columns:repeat(4,minmax(0,1fr));
-        gap:8px;
-        z-index:10;
-      }
-      .sb-pad button{
-        border:0;
-        border-radius:14px;
-        padding:12px 8px;
-        font-weight:800;
-        font-size:14px;
-        background:#d8ecff;
-        color:#123;
-        box-shadow:0 8px 20px rgba(0,0,0,.18);
-      }
-      .sb-pad button[data-action="duck"]{
-        background:#fff2c8;
-      }
-      .sb-tools{
-        position:absolute;
-        top:12px;
-        right:12px;
-        display:flex;
-        gap:8px;
-        z-index:12;
-      }
-      .sb-tool-btn{
-        border:0;
-        border-radius:12px;
-        padding:8px 10px;
-        font-weight:700;
-        background:rgba(255,255,255,.14);
-        color:#fff;
-      }
-      .sb-overlay{
-        position:absolute;
-        inset:0;
-        z-index:30;
-      }
-      .sb-overlay[hidden]{ display:none; }
-      .sb-overlay-backdrop{
-        position:absolute;
-        inset:0;
-        background:rgba(4,8,18,.72);
-      }
-      .sb-overlay-card{
-        position:absolute;
-        left:50%;
-        top:50%;
-        transform:translate(-50%,-50%);
-        width:min(92vw,760px);
-        max-height:86vh;
-        overflow:auto;
-        background:#fff;
-        color:#172338;
-        border-radius:24px;
-        padding:20px;
-        box-shadow:0 24px 64px rgba(0,0,0,.28);
-      }
-      .sb-card-grid{
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:12px;
-      }
-      .sb-mini-card{
-        background:#f4f8ff;
-        border-radius:16px;
-        padding:12px 14px;
-      }
-      .sb-plan-list{
-        margin-top:8px;
-        display:grid;
-        gap:6px;
-      }
-      .sb-plan-row{
-        display:flex;
-        justify-content:space-between;
-        gap:12px;
-        padding:8px 10px;
-        border-radius:12px;
-        background:#f6f8fc;
-      }
-      .sb-actions{
-        display:flex;
-        gap:10px;
-        flex-wrap:wrap;
-        justify-content:flex-end;
-        margin-top:14px;
-      }
-      .sb-btn{
-        appearance:none;
-        border:0;
-        border-radius:14px;
-        padding:12px 16px;
-        font-weight:800;
-        text-decoration:none;
-        cursor:pointer;
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-      }
-      .sb-btn-primary{
-        background:#3b82f6;
-        color:#fff;
-      }
-      .sb-btn-secondary{
-        background:#eaf2ff;
-        color:#13325b;
-      }
-      .sb-field{
-        display:block;
-        margin:10px 0;
-      }
-      .sb-field span{
-        display:block;
-        font-weight:700;
-        margin-bottom:6px;
-      }
-      .sb-field input[type="range"]{
-        width:100%;
-      }
-      @keyframes sbTargetPop{
-        from{ opacity:0; transform:translate(-50%,-50%) scale(.78); }
-        to{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-      }
-      @keyframes sbTargetHit{
-        from{ opacity:1; filter:brightness(1); }
-        to{ opacity:0; filter:brightness(1.6); transform:translate(-50%,-50%) scale(1.18); }
-      }
-      @keyframes sbTargetMiss{
-        from{ opacity:1; }
-        to{ opacity:0; transform:translate(-50%,-50%) scale(.86); }
-      }
-      @keyframes sbRingShrink{
-        from{ transform:scale(1.95); opacity:.94; }
-        to{ transform:scale(1.0); opacity:.22; }
-      }
-      @media (max-width:680px){
-        .sb-left,.sb-right{
-          top:auto;
-          bottom:174px;
-          width:calc(50vw - 20px);
-          font-size:12px;
+
+      makeEntity('bossface', { x: bx, y: by });
+    }
+  }
+
+  function updateEntities(tsNow){
+    for(const ent of STATE.entities){
+      if(!ent.alive) continue;
+      const age = tsNow - ent.born;
+      if(age >= ent.ttl){
+        if(ent.type === 'normal' || ent.type === 'bossface'){
+          STATE.combo = 0;
+          STATE.missTotal += 1;
+          STATE.hpYou = clamp(STATE.hpYou - (ent.type === 'bossface' ? 7 : 4), 0, 100);
+          logEvent('expire_penalty', { ent_id: ent.id, ent_type: ent.type, hp_you: STATE.hpYou });
+        } else {
+          logEvent('expire_neutral', { ent_id: ent.id, ent_type: ent.type });
         }
-        .sb-left{ left:12px; }
-        .sb-right{ right:12px; }
-        .sb-cue{
-          bottom:142px;
-          font-size:22px;
-        }
-        .sb-card-grid{
-          grid-template-columns:1fr;
-        }
-        .sb-target{
-          width:72px;
-          height:72px;
-          font-size:14px;
-        }
-        .sb-target.is-guard{
-          width:96px;
-          height:96px;
-        }
-        .sb-target.is-flow{
-          width:104px;
-          height:104px;
-        }
-        .sb-target.is-boss{
-          width:116px;
-          height:116px;
-        }
-        .sb-target-hint{
-          font-size:10px;
-          min-width:24px;
-          height:24px;
-        }
+        removeEntity(ent, 'ttl');
       }
-    </style>
+    }
+    STATE.entities = STATE.entities.filter(e => e.alive);
+  }
 
-    <div class="sb-tools">
-      <button class="sb-tool-btn" data-sb-pause="1">Pause</button>
-      <button class="sb-tool-btn" data-sb-help-btn="1">Help</button>
-      <button class="sb-tool-btn" data-sb-exit="1">Exit</button>
-    </div>
+  function activateFever(){
+    if(!STATE.isPlaying || STATE.isPaused) return;
+    if(STATE.fever < 100 || STATE.feverOn) return;
+    STATE.feverOn = true;
+    STATE.feverRemainMs = 5500;
+    STATE.fever = 100;
+    setCenterMsg('สปีดอัป!', 800);
+    logEvent('fever_on', {});
+    updateHud();
+  }
 
-    <div class="sb-hud sb-top" data-sb-top></div>
-    <div class="sb-hud sb-left" data-sb-left></div>
-    <div class="sb-hud sb-right" data-sb-right></div>
+  function updateFever(dtMs){
+    if(!STATE.feverOn) return;
+    STATE.feverRemainMs -= dtMs;
+    if(STATE.feverRemainMs <= 0){
+      STATE.feverOn = false;
+      STATE.fever = 0;
+      setCenterMsg('พลังพิเศษหมดแล้ว', 600);
+      logEvent('fever_off', {});
+    }
+  }
 
-    <div class="sb-stage" data-sb-stage><div class="sb-stage-text">Shadow Breaker</div></div>
-    <div class="sb-target-layer" data-sb-target-layer></div>
-    <div class="sb-cue is-info" data-sb-cue></div>
-    <div class="sb-coach" data-sb-coach></div>
+  function onBossClear(){
+    const boss = currentBoss();
+    STATE.bossesCleared = Math.max(STATE.bossesCleared, STATE.phaseIndex + 1);
+    STATE.bestReachedBoss = boss.name;
+    STATE.latestBossBadge = { icon: boss.emoji, title: boss.name };
 
-    <div class="sb-pad" data-sb-pad>
-      <button data-action="jab">JAB</button>
-      <button data-action="cross">CROSS</button>
-      <button data-action="hook_left">HOOK L</button>
-      <button data-action="hook_right">HOOK R</button>
-      <button data-action="uppercut_left">UP L</button>
-      <button data-action="uppercut_right">UP R</button>
-      <button data-action="guard">BLOCK</button>
-      <button data-action="duck">DUCK</button>
-    </div>
+    logEvent('boss_clear', {
+      phase: STATE.phaseIndex + 1,
+      boss_key: boss.key,
+      boss_name: boss.name,
+      bosses_cleared: STATE.bossesCleared
+    });
 
-    <div class="sb-overlay" data-sb-overlay hidden>
-      <div class="sb-overlay-backdrop"></div>
-      <div class="sb-overlay-card" data-sb-overlay-card></div>
-    </div>
-  `;
+    removeAllLiveTargets();
+    showBossBanner(boss.clearTitle, boss.clearSub, 1800);
 
-  document.body.appendChild(root);
-  return bindUiRefs(root);
-}
+    if(STATE.phaseIndex >= BOSSES.length - 1){
+      setTimeout(()=>endGame('final_clear'), 1200);
+      return;
+    }
 
-function bindUiRefs(root) {
-  const top = root.querySelector('[data-sb-top]');
-  const left = root.querySelector('[data-sb-left]');
-  const right = root.querySelector('[data-sb-right]');
-  const stage = root.querySelector('[data-sb-stage]');
-  const targetLayer = root.querySelector('[data-sb-target-layer]');
-  const cue = root.querySelector('[data-sb-cue]');
-  const coach = root.querySelector('[data-sb-coach]');
-  const overlay = root.querySelector('[data-sb-overlay]');
-  const overlayCard = root.querySelector('[data-sb-overlay-card]');
-  const pad = root.querySelector('[data-sb-pad]');
+    STATE.phaseIndex += 1;
+    STATE.hpBoss = 100;
+    applyBossTheme(currentBoss());
+    setTimeout(()=>{
+      showBossSpeech(currentBoss().speech, 1800);
+      setCenterMsg(`ด่าน ${STATE.phaseIndex + 1}`, 800);
+      updateHud();
+    }, 900);
+  }
 
-  return {
-    root,
-    top,
-    left,
-    right,
-    stage,
-    targetLayer,
-    cue,
-    coach,
-    overlay,
-    overlayCard,
-    pad,
+  function removeAllLiveTargets(){
+    STATE.entities.forEach(e => removeEntity(e, 'phase_shift'));
+    STATE.entities = [];
+    if(DOM.targetLayer) DOM.targetLayer.innerHTML = '';
+  }
 
-    renderHud(state, round, remainSec) {
-      top.innerHTML = `
-        <div><strong>${escapeHtml(round?.label || 'Ready')}</strong></div>
-        <div>${escapeHtml(state.cfg.mode.toUpperCase())} • ${escapeHtml(state.cfg.intensity.toUpperCase())} • ${escapeHtml(state.cfg.body.toUpperCase())}</div>
-        <div>เหลือ ${Math.max(0, remainSec)} วิ</div>
-      `;
+  function computeSummary(endReason){
+    const totalTimeSec = Math.max(0, STATE.elapsedMs / 1000);
+    const acc = STATE.tapCount > 0 ? (STATE.hitCount / STATE.tapCount) * 100 : 0;
+    STATE.accPct = acc;
 
-      left.innerHTML = `
-        <div>Score: <strong>${state.score.total}</strong></div>
-        <div>Stars: <strong>${state.score.stars}</strong></div>
-        <div>Combo: <strong>${state.score.combo}</strong></div>
-        <div>Acc: <strong>${Math.round(state.score.accuracy)}%</strong></div>
-      `;
+    const grade = gradeFromScore(STATE.score, acc, STATE.bossesCleared);
+    const badge = badgeFromSummary({
+      scoreFinal: Math.round(STATE.score),
+      accPct: acc,
+      bossesCleared: STATE.bossesCleared,
+      bestReachedBoss: STATE.bestReachedBoss,
+      missTotal: STATE.missTotal
+    });
 
-      right.innerHTML = `
-        <div>Punches: <strong>${state.actions.totalPunches}</strong></div>
-        <div>Boss: <strong>${state.boss.hp}</strong></div>
-        <div>Tier: <strong>${state.exercise.estimatedTier}</strong></div>
-        <div>Round: <strong>${state.session.roundIndex}</strong></div>
-      `;
+    const hubUrl = String(qs('hub','') || '../herohealth/hub.html');
+    const teacherUrl = `../herohealth/teacher-panel.html?game=shadowbreaker&pid=${encodeURIComponent(STATE.pid)}`;
+    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(STATE.pid)}&hub=${encodeURIComponent(hubUrl)}&diff=${encodeURIComponent(STATE.diff)}&mode=${encodeURIComponent(STATE.mode)}`;
+    const runUrl = `../herohealth/shadow-breaker-vr.html?pid=${encodeURIComponent(STATE.pid)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(Math.round(STATE.totalMs/1000))}&view=${encodeURIComponent(getViewMode())}&zone=fitness&hub=${encodeURIComponent(hubUrl)}`;
 
-      const duckBtn = pad.querySelector('[data-action="duck"]');
-      if (duckBtn) {
-        duckBtn.disabled = state.cfg.body !== 'standing';
-        duckBtn.style.opacity = state.cfg.body === 'standing' ? '1' : '.45';
+    const summaryBase = {
+      game:'shadowbreaker',
+      projectTag:'shadowbreaker',
+      pid: STATE.pid,
+      mode: STATE.mode,
+      runMode: STATE.mode,
+      diff: STATE.diff,
+      timeSec: Math.round(STATE.totalMs / 1000),
+      elapsedSec: Number(totalTimeSec.toFixed(2)),
+      scoreFinal: Math.round(STATE.score),
+      accPct: Number(acc.toFixed(2)),
+      comboMax: STATE.comboMax,
+      missTotal: STATE.missTotal,
+      bossesCleared: STATE.bossesCleared,
+      bestReachedBoss: STATE.bestReachedBoss,
+      phaseFinal: STATE.phaseIndex + 1,
+      grade,
+      badge,
+      hpYouEnd: Math.round(STATE.hpYou),
+      hpBossEnd: Math.round(STATE.hpBoss),
+      sessionId: STATE.sessionId,
+      studyId: String(qs('studyId','')).trim(),
+      group: String(qs('group','') || DOM.inputGroup?.value || '').trim(),
+      conditionGroup: String(qs('conditionGroup','') || '').trim(),
+      note: String(DOM.inputNote?.value || '').trim(),
+      end_reason: endReason || 'ended',
+      timestampIso: shortIsoNow(),
+      hub: hubUrl,
+      view: getViewMode()
+    };
+
+    const cooldownUrl = buildCooldownGateUrl(summaryBase);
+
+    return {
+      ...summaryBase,
+      __extraJson: JSON.stringify({
+        summaryUrl,
+        teacherUrl,
+        runUrl,
+        hubUrl,
+        cooldownUrl
+      })
+    };
+  }
+
+  function persistSummary(summary){
+    if(!summary) return;
+
+    STATE.sessionSummary = summary;
+
+    const pid = summary.pid || 'anon';
+    const bestScoreKey = `SB_BEST_SCORE:${pid}`;
+    const oldBest = Number(localStorage.getItem(bestScoreKey) || '0') || 0;
+    if((summary.scoreFinal || 0) >= oldBest){
+      localStorage.setItem(bestScoreKey, String(summary.scoreFinal || 0));
+    }
+
+    localStorage.setItem(`SB_BEST_REACHED_BOSS:${pid}`, String(summary.bestReachedBoss || ''));
+    saveJson(`SB_BEST_BADGE:${pid}`, summary.badge || null);
+    saveJson(`SB_LAST_SUMMARY:${pid}`, summary);
+    saveJson(`HHA_LAST_SUMMARY:shadowbreaker:${pid}`, summary);
+    saveJson('HHA_LAST_SUMMARY', summary);
+
+    const histKey = `SB_SUMMARY_HISTORY:${pid}`;
+    const hist = loadJson(histKey, []);
+    const nextHist = [summary, ...(Array.isArray(hist) ? hist : [])].slice(0, 200);
+    saveJson(histKey, nextHist);
+
+    const allKey = `SB_SUMMARY_HISTORY:ALL`;
+    const allHist = loadJson(allKey, []);
+    const nextAll = [summary, ...(Array.isArray(allHist) ? allHist : [])].slice(0, 500);
+    saveJson(allKey, nextAll);
+
+    try{
+      localStorage.setItem(`SB_DONE_TODAY:${pid}:${hhDayKey()}`, '1');
+      localStorage.setItem(`HHA_GAME_DONE::shadowbreaker::${pid}::${hhDayKey()}`, '1');
+    }catch(_){}
+
+    console.log('[SB] persistSummary', {
+      pid: summary?.pid,
+      grade: summary?.grade,
+      score: summary?.scoreFinal,
+      bestBoss: summary?.bestReachedBoss
+    });
+  }
+
+  function renderResult(summary){
+    if(!summary) return;
+
+    if(DOM.resTime) DOM.resTime.textContent = `${Number(summary.elapsedSec || 0).toFixed(1)} วินาที`;
+    if(DOM.resScore) DOM.resScore.textContent = String(summary.scoreFinal || 0);
+    if(DOM.resMaxCombo) DOM.resMaxCombo.textContent = String(summary.comboMax || 0);
+    if(DOM.resMiss) DOM.resMiss.textContent = String(summary.missTotal || 0);
+    if(DOM.resPhase) DOM.resPhase.textContent = String(summary.phaseFinal || 1);
+    if(DOM.resBossCleared) DOM.resBossCleared.textContent = String(summary.bossesCleared || 0);
+    if(DOM.resAcc) DOM.resAcc.textContent = `${Number(summary.accPct || 0).toFixed(1)}%`;
+    if(DOM.resGrade) DOM.resGrade.textContent = String(summary.grade || 'C');
+
+    if(DOM.resBadgeIcon) DOM.resBadgeIcon.textContent = summary.badge?.icon || '🏅';
+    if(DOM.resBadgeTitle) DOM.resBadgeTitle.textContent = summary.badge?.title || 'Shadow Starter';
+    if(DOM.resBadgeDesc) DOM.resBadgeDesc.textContent = summary.badge?.desc || 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
+
+    if(DOM.resMessage){
+      if(summary.end_reason === 'final_clear'){
+        DOM.resMessage.textContent = 'หนูผ่านบอสสุดท้ายได้แล้ว สุดยอดมาก 🎉';
+      } else if((summary.bossesCleared || 0) >= 3){
+        DOM.resMessage.textContent = 'เก่งมาก ไปได้ไกลมากแล้ว อีกนิดเดียวก็ถึงบอสสุดท้าย';
+      } else if((summary.bossesCleared || 0) >= 1){
+        DOM.resMessage.textContent = 'ยอดเยี่ยม ผ่านบอสได้แล้ว ลองอีกครั้งเพื่อไปต่อ';
+      } else {
+        DOM.resMessage.textContent = 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ';
       }
-    },
+    }
+  }
 
-    setStageText(text) {
-      stage.innerHTML = `<div class="sb-stage-text">${escapeHtml(text || '')}</div>`;
-    },
-
-    setCue(text, tone = 'info') {
-      cue.className = `sb-cue is-${tone || 'info'}`;
-      cue.textContent = text || '';
-    },
-
-    setCoachText(text) {
-      coach.textContent = text || '';
-    },
-
-    showTarget(expected, roundType = 'active') {
-      if (!targetLayer) return;
-
-      const cls = targetClassForAction(expected?.action, roundType);
-      const label = escapeHtml(expected?.label || 'HIT');
-      const ringMs = Math.max(300, Number(expected?.expiresMs || 1100));
-      const bossWeakClass = bossWeakClassForAction(expected?.action);
-
-      targetLayer.innerHTML = `
-        <div class="sb-target-lane"></div>
-        <div class="sb-target ${cls}" style="--ring-ms:${ringMs}ms">
-          <div class="sb-target-glow"></div>
-          <div class="sb-target-ring"></div>
-          <div class="sb-target-core"></div>
-          <div class="sb-target-hint">${label}</div>
-          ${roundType === 'boss' ? `
-            <div class="sb-boss-weakpoints">
-              <div class="sb-boss-wp is-top ${bossWeakClass === 'is-top' ? 'is-active' : ''}"></div>
-              <div class="sb-boss-wp is-right ${bossWeakClass === 'is-right' ? 'is-active' : ''}"></div>
-              <div class="sb-boss-wp is-bottom ${bossWeakClass === 'is-bottom' ? 'is-active' : ''}"></div>
-              <div class="sb-boss-wp is-left ${bossWeakClass === 'is-left' ? 'is-active' : ''}"></div>
-            </div>
-          ` : ''}
-          <div class="sb-target-label">${label}</div>
+  function showInlineEndOverlay(summary){
+    let box = DOC.getElementById('sb-inline-end-overlay');
+    if (!box) {
+      box = DOC.createElement('div');
+      box.id = 'sb-inline-end-overlay';
+      box.style.position = 'fixed';
+      box.style.inset = '0';
+      box.style.zIndex = '9999';
+      box.style.display = 'grid';
+      box.style.placeItems = 'center';
+      box.style.background = 'rgba(20,30,40,.34)';
+      box.innerHTML = `
+        <div style="width:min(92vw,520px);border-radius:24px;background:linear-gradient(180deg,#fffdf6,#f8fff3);border:1px solid #bfe3f2;box-shadow:0 18px 40px rgba(0,0,0,.18);padding:18px;text-align:center;color:#4d4a42;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans Thai',sans-serif;">
+          <div id="sb-inline-end-icon" style="font-size:2.2rem;">🏅</div>
+          <div style="margin-top:8px;font-size:1.2rem;font-weight:1000;">สรุปรอบนี้</div>
+          <div id="sb-inline-end-msg" style="margin-top:8px;line-height:1.5;font-weight:900;color:#6b6a62;">เก่งมาก</div>
+          <div style="margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+            <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #d8eef5;"><div style="font-size:.8rem;color:#7b7a72;font-weight:1000;">คะแนน</div><div id="sb-inline-end-score" style="margin-top:4px;font-size:1.2rem;font-weight:1000;">0</div></div>
+            <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #d8eef5;"><div style="font-size:.8rem;color:#7b7a72;font-weight:1000;">เกรด</div><div id="sb-inline-end-grade" style="margin-top:4px;font-size:1.2rem;font-weight:1000;">C</div></div>
+            <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #d8eef5;"><div style="font-size:.8rem;color:#7b7a72;font-weight:1000;">บอสที่ผ่าน</div><div id="sb-inline-end-boss" style="margin-top:4px;font-size:1.2rem;font-weight:1000;">0</div></div>
+            <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #d8eef5;"><div style="font-size:.8rem;color:#7b7a72;font-weight:1000;">ความแม่นยำ</div><div id="sb-inline-end-acc" style="margin-top:4px;font-size:1.2rem;font-weight:1000;">0%</div></div>
+          </div>
         </div>
       `;
-    },
-
-    hitTarget() {
-      if (!targetLayer) return;
-      const el = targetLayer.querySelector('.sb-target');
-      const lane = targetLayer.querySelector('.sb-target-lane');
-      if (!el) return;
-
-      el.classList.add('sb-target-hit');
-      if (lane) lane.style.opacity = '.25';
-
-      setTimeout(() => {
-        if (targetLayer) targetLayer.innerHTML = '';
-      }, 180);
-    },
-
-    missTarget() {
-      if (!targetLayer) return;
-      const el = targetLayer.querySelector('.sb-target');
-      const lane = targetLayer.querySelector('.sb-target-lane');
-      if (!el) return;
-
-      el.classList.add('sb-target-miss');
-      if (lane) lane.style.opacity = '.14';
-
-      setTimeout(() => {
-        if (targetLayer) targetLayer.innerHTML = '';
-      }, 200);
-    },
-
-    clearTarget() {
-      if (!targetLayer) return;
-      targetLayer.innerHTML = '';
-    },
-
-    showOverlay(html) {
-      overlayCard.innerHTML = html;
-      overlay.hidden = false;
-    },
-
-    hideOverlay() {
-      overlay.hidden = true;
-      overlayCard.innerHTML = '';
+      DOC.body.appendChild(box);
     }
-  };
-}
 
-function openHelp(ui) {
-  ui.showOverlay(`
-    <h2 style="margin:0 0 10px">วิธีเล่น Shadow Breaker</h2>
-    <div class="sb-card-grid">
-      <div class="sb-mini-card">
-        <strong>กดปุ่มตาม cue</strong>
-        <div>เช่น JAB, CROSS, HOOK, BLOCK</div>
-      </div>
-      <div class="sb-mini-card">
-        <strong>ถ้าต่อ VR/motion</strong>
-        <div>เรียก <code>window.ShadowBreaker.submitAction('jab')</code></div>
-      </div>
-    </div>
-    <div class="sb-actions">
-      <button class="sb-btn sb-btn-primary" data-sb-close-help="1">ปิด</button>
-    </div>
-  `);
+    const msg =
+      summary.end_reason === 'final_clear'
+        ? 'สุดยอดมาก! ผ่านบอสสุดท้ายแล้ว'
+        : (Number(summary.bossesCleared || 0) >= 1
+            ? 'ผ่านบอสได้แล้ว เก่งมาก!'
+            : 'เริ่มต้นได้ดี ลองอีกครั้งได้นะ');
 
-  const closeBtn = ui.overlay.querySelector('[data-sb-close-help="1"]');
-  closeBtn.addEventListener('click', () => ui.hideOverlay(), { once: true });
-}
+    const q = (id) => DOC.getElementById(id);
+    q('sb-inline-end-icon').textContent = summary.badge?.icon || '🏅';
+    q('sb-inline-end-msg').textContent = msg;
+    q('sb-inline-end-score').textContent = String(summary.scoreFinal || 0);
+    q('sb-inline-end-grade').textContent = String(summary.grade || 'C');
+    q('sb-inline-end-boss').textContent = String(summary.bossesCleared || 0);
+    q('sb-inline-end-acc').textContent = `${Number(summary.accPct || 0).toFixed(1)}%`;
 
-/* ------------------------------------------------------------------ */
-/* input binding */
-/* ------------------------------------------------------------------ */
-
-function bindGlobalInputs(engine) {
-  const { ui, state, logger } = engine;
-
-  ui.pad.querySelectorAll('button[data-action]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      consumeAction(btn.dataset.action, state, ui, logger, { source: 'pad' });
-    });
-  });
-
-  const pauseBtn = ui.root.querySelector('[data-sb-pause="1"]');
-  const helpBtn = ui.root.querySelector('[data-sb-help-btn="1"]');
-  const exitBtn = ui.root.querySelector('[data-sb-exit="1"]');
-
-  pauseBtn.addEventListener('click', () => {
-    if (state.session.pause) setPaused(false, state, ui);
-    else setPaused(true, state, ui);
-  });
-
-  helpBtn.addEventListener('click', () => openHelp(ui));
-  exitBtn.addEventListener('click', () => endSession('manual_exit', state, ui, logger));
-
-  const keyHandler = (ev) => {
-    const map = {
-      KeyJ: 'jab',
-      KeyK: 'cross',
-      KeyA: 'hook_left',
-      KeyL: 'hook_right',
-      KeyU: 'uppercut_left',
-      KeyI: 'uppercut_right',
-      KeyG: 'guard',
-      KeyD: 'duck'
-    };
-    const action = map[ev.code];
-    if (!action) return;
-    consumeAction(action, state, ui, logger, { source: 'keyboard' });
-  };
-
-  const customHandler = (ev) => {
-    const action = ev?.detail?.action;
-    if (!action) return;
-    consumeAction(action, state, ui, logger, {
-      source: ev?.detail?.source || 'custom_event'
-    });
-  };
-
-  const shootHandler = () => {
-    consumeAction('jab', state, ui, logger, { source: 'hha:shoot' });
-  };
-
-  const beforeUnloadHandler = () => {
-    persistLiveSnapshot(state);
-  };
-
-  document.addEventListener('keydown', keyHandler);
-  document.addEventListener('sb:action', customHandler);
-  window.addEventListener('hha:shoot', shootHandler);
-  window.addEventListener('beforeunload', beforeUnloadHandler);
-
-  engine.activeCleanup.push(() => document.removeEventListener('keydown', keyHandler));
-  engine.activeCleanup.push(() => document.removeEventListener('sb:action', customHandler));
-  engine.activeCleanup.push(() => window.removeEventListener('hha:shoot', shootHandler));
-  engine.activeCleanup.push(() => window.removeEventListener('beforeunload', beforeUnloadHandler));
-}
-
-function setPaused(flag, state, ui) {
-  state.session.pause = !!flag;
-  if (state.session.pause) {
-    ui.showOverlay(`
-      <h2 style="margin:0 0 10px">พักเกมชั่วคราว</h2>
-      <div class="sb-actions">
-        <button class="sb-btn sb-btn-primary" data-sb-resume="1">เล่นต่อ</button>
-      </div>
-    `);
-    const btn = ui.overlay.querySelector('[data-sb-resume="1"]');
-    btn.addEventListener('click', () => {
-      state.session.pause = false;
-      ui.hideOverlay();
-    }, { once: true });
-    return;
+    return box;
   }
-  ui.hideOverlay();
-}
 
-async function waitIfPaused(state) {
-  while (state.session.pause && !state.session.endRequested) {
-    await sleep(100);
+  function goToCooldown(summary){
+    const target = buildCooldownGateUrl(summary);
+    console.log('[SB] goToCooldown', {
+      pid: summary?.pid,
+      score: summary?.scoreFinal,
+      bossesCleared: summary?.bossesCleared,
+      target
+    });
+    try{
+      location.href = target;
+    }catch(_){
+      location.assign(target);
+    }
   }
-}
 
-/* ------------------------------------------------------------------ */
-/* logger */
-/* ------------------------------------------------------------------ */
+  function endGame(reason='ended'){
+    if(STATE.isEnding) return;
+    STATE.isEnding = true;
+    STATE.isPlaying = false;
 
-function createLogger(cfg) {
-  const sessionId = `sb_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  let seq = 0;
-  const queue = [];
+    removeAllLiveTargets();
+    hideBossBanner();
+    hideBossSpeech();
 
-  return {
-    sessionId,
-    emit(eventType, payload = {}) {
-      const item = {
-        sessionId,
-        eventSeq: ++seq,
-        eventType,
-        tsMs: Date.now(),
-        tsIso: new Date().toISOString(),
-        pid: cfg.pid,
-        studyId: cfg.studyId,
-        game: 'shadowbreaker',
-        zone: cfg.zone,
-        styleMode: cfg.mode,
-        bodyMode: cfg.body,
-        intensity: cfg.intensity,
-        durationMin: cfg.durationMin,
-        run: cfg.run,
-        view: cfg.view,
-        ...payload
-      };
+    const summary = computeSummary(reason);
+    persistSummary(summary);
+    renderResult(summary);
 
-      queue.push(item);
-      persistLogQueue(sessionId, queue);
+    try{
+      showInlineEndOverlay(summary);
+      setTimeout(()=>goToCooldown(summary), 900);
+      return;
+    }catch(_){}
 
-      try {
-        if (window.HHA?.logger?.event) {
-          window.HHA.logger.event(item.eventType, item);
-        } else if (window.HHA?.emitEvent) {
-          window.HHA.emitEvent(item.eventType, item);
-        } else if (cfg.debug || cfg.log) {
-          console.log('[SB LOG]', item);
-        }
-      } catch (err) {
-        console.warn('[SB LOG ERROR]', err);
+    goToCooldown(summary);
+  }
+
+  function resetRuntimeOnly(){
+    STATE.isPlaying = false;
+    STATE.isPaused = false;
+    STATE.isEnding = false;
+    STATE.elapsedMs = 0;
+    STATE.lastFrame = 0;
+    STATE.phaseIndex = 0;
+    STATE.bossesCleared = 0;
+    STATE.bestReachedBoss = bossIndexToName(0);
+
+    STATE.score = 0;
+    STATE.combo = 0;
+    STATE.comboMax = 0;
+    STATE.missTotal = 0;
+    STATE.hitCount = 0;
+    STATE.tapCount = 0;
+    STATE.accPct = 0;
+
+    STATE.hpYou = 100;
+    STATE.hpBoss = 100;
+    STATE.shield = 0;
+    STATE.fever = 0;
+    STATE.feverOn = false;
+    STATE.feverRemainMs = 0;
+
+    STATE.spawnClock = 0;
+    STATE.speechClock = 0;
+    STATE.bossBannerClock = 0;
+    STATE.stageMessageClock = 0;
+
+    STATE.entities = [];
+    STATE.events = [];
+    STATE.sessionSummary = null;
+    STATE.latestBossBadge = null;
+    STATE.cvrFocusId = null;
+    STATE.cvrLastShotMs = 0;
+
+    if(DOM.btnPause) DOM.btnPause.checked = false;
+    resetTargetLayer();
+    updateCvrFocusVisual();
+    updateHud();
+  }
+
+  function buildSessionId(){
+    return `sb_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  }
+
+  function logEvent(type, data){
+    STATE.events.push({
+      ts_ms: Math.round(STATE.elapsedMs),
+      ts_iso: shortIsoNow(),
+      sessionId: STATE.sessionId,
+      pid: STATE.pid,
+      type,
+      ...data
+    });
+  }
+
+  function startGame(mode='normal'){
+    if (STATE.isPlaying && !STATE.isEnding) return;
+
+    const oldOverlay = DOC.getElementById('sb-inline-end-overlay');
+    if (oldOverlay) oldOverlay.remove();
+
+    setUiMode(mode);
+    resetRuntimeOnly();
+
+    STATE.mode = mode === 'research' ? 'research' : 'normal';
+    STATE.pid = String(qs('pid','') || DOM.inputPid?.value || 'anon').trim() || 'anon';
+    STATE.diff = String(qs('diff','') || DOM.inputDiff?.value || 'normal').trim() || 'normal';
+
+    const qTime = Number(qs('time',''));
+    const uiTime = Number(DOM.inputTime?.value || '70');
+    const chosenSec = Number.isFinite(qTime) && qTime > 0 ? qTime : uiTime;
+    STATE.totalMs = clamp(chosenSec, 40, 180) * 1000;
+
+    STATE.seed = String(qs('seed','') || `${STATE.pid}_${STATE.mode}_${STATE.diff}_${STATE.totalMs}_${Date.now()}`);
+    STATE.rng = createSeededRandom(STATE.seed);
+    STATE.sessionId = buildSessionId();
+    STATE.startTs = Date.now();
+    STATE.bestReachedBoss = currentBoss().name;
+
+    applyBossTheme(currentBoss());
+
+    showBossSpeech(currentBoss().speech, 1800);
+    if (getViewMode() === 'cvr') setCenterMsg('แตะจอเพื่อยิงจากกลางจอ', 1200);
+    else setCenterMsg('พร้อมแล้ว!', 900);
+
+    STATE.isPlaying = true;
+    STATE.isPaused = false;
+    STATE.isEnding = false;
+
+    setView('play');
+    updateHud();
+
+    logEvent('session_start', {
+      mode: STATE.mode,
+      diff: STATE.diff,
+      time_sec: Math.round(STATE.totalMs/1000),
+      seed: STATE.seed,
+      view: getViewMode()
+    });
+
+    console.log('[SB] startGame', {
+      mode: STATE.mode,
+      diff: STATE.diff,
+      totalMs: STATE.totalMs,
+      seed: STATE.seed,
+      view: getViewMode(),
+      pid: STATE.pid
+    });
+
+    requestAnimationFrame(loop);
+  }
+
+  function gotoMenu(){
+    STATE.isPlaying = false;
+    STATE.isPaused = false;
+    STATE.isEnding = false;
+    resetRuntimeOnly();
+    setView('menu');
+  }
+
+  function openHowTo(){
+    if(!DOM.howto) return;
+    DOM.howto.style.display = DOM.howto.style.display === 'block' ? 'none' : 'block';
+  }
+
+  function loop(ts){
+    if(!STATE.isPlaying) return;
+
+    if(!STATE.lastFrame) STATE.lastFrame = ts;
+    const dt = Math.min(50, Math.max(0, ts - STATE.lastFrame));
+    STATE.lastFrame = ts;
+
+    if(!STATE.isPaused){
+      STATE.elapsedMs += dt;
+      updateEntities(nowMs());
+      spawnPack(dt);
+      updateFever(dt);
+
+      if(STATE.speechClock > 0){
+        STATE.speechClock -= dt;
+        if(STATE.speechClock <= 0) hideBossSpeech();
       }
+      if(STATE.bossBannerClock > 0){
+        STATE.bossBannerClock -= dt;
+        if(STATE.bossBannerClock <= 0) hideBossBanner();
+      }
+      if(STATE.stageMessageClock > 0){
+        STATE.stageMessageClock -= dt;
+        if(STATE.stageMessageClock <= 0 && DOM.msgMain) DOM.msgMain.textContent = '';
+      }
+
+      if(STATE.elapsedMs >= STATE.totalMs){
+        endGame('time_up');
+        return;
+      }
+
+      if(STATE.hpYou <= 0){
+        endGame('hp_zero');
+        return;
+      }
+
+      updateCvrFocusVisual();
+      updateHud();
     }
-  };
-}
 
-function persistLogQueue(sessionId, queue) {
-  try {
-    localStorage.setItem(`SB_LOG_QUEUE_${sessionId}`, JSON.stringify(queue.slice(-400)));
-  } catch (_) {}
-}
-
-/* ------------------------------------------------------------------ */
-/* persistence */
-/* ------------------------------------------------------------------ */
-
-function persistBootSnapshot(cfg, state) {
-  try {
-    localStorage.setItem('SB_BOOT_CTX', JSON.stringify(cfg));
-    localStorage.setItem('SB_LIVE_STATE', JSON.stringify({
-      patch: SB_ENGINE_VERSION,
-      sessionId: state.session.sessionId,
-      cfg
-    }));
-  } catch (_) {}
-}
-
-function persistLiveSnapshot(state) {
-  try {
-    localStorage.setItem('SB_LIVE_STATE', JSON.stringify({
-      patch: SB_ENGINE_VERSION,
-      sessionId: state.session.sessionId,
-      roundIndex: state.session.roundIndex,
-      phase: state.session.phase,
-      score: state.score,
-      actions: state.actions,
-      exercise: state.exercise,
-      tsIso: new Date().toISOString()
-    }));
-  } catch (_) {}
-}
-
-function persistFinalSnapshot(summary) {
-  try {
-    localStorage.setItem('SB_FINAL_SUMMARY', JSON.stringify(summary));
-  } catch (_) {}
-}
-
-/* ------------------------------------------------------------------ */
-/* helpers */
-/* ------------------------------------------------------------------ */
-
-async function countdown(ui, state) {
-  for (let i = 3; i >= 1; i--) {
-    ui.setStageText(String(i));
-    ui.setCue('READY', 'info');
-    ui.setCoachText(i === 1 ? 'ไปกันเลย!' : 'เตรียมตัว');
-    await sleep(900);
+    requestAnimationFrame(loop);
   }
-  ui.setStageText('GO!');
-  ui.setCue('START', 'hit');
-  state.session.phase = 'running';
-  await sleep(600);
-}
 
-function nextCoachLine(round, state) {
-  if (round.type === 'recovery') return 'พักหายใจลึก ๆ แล้วไปต่อ';
-  if (round.type === 'warmup') return 'เริ่มช้า ๆ จับจังหวะก่อน';
-  if (round.type === 'wrap') return 'ค่อย ๆ ผ่อนแรง';
-  if (round.type === 'boss') return 'บอสมาแล้ว เก็บจังหวะให้ดี';
-
-  if (state.score.accuracy < 55) return 'ช้าลงนิด แล้วเน้นให้ตรง cue';
-  if (round.style === 'flow') return 'ต่อเนื่องลื่น ๆ ไม่ต้องรีบมาก';
-  if (round.style === 'boxing') return 'ชัดจังหวะ ชัดหมัด';
-  if (state.cfg.body === 'sitting') return 'ใช้ช่วงแขนและลำตัวให้เต็มที่';
-  return 'ดีมาก รักษาจังหวะนี้ไว้';
-}
-
-function actionLabel(action) {
-  return {
-    jab: 'JAB',
-    cross: 'CROSS',
-    hook_left: 'HOOK L',
-    hook_right: 'HOOK R',
-    uppercut_left: 'UP L',
-    uppercut_right: 'UP R',
-    guard: 'BLOCK',
-    duck: 'DUCK',
-    slip_left: 'SLIP L',
-    slip_right: 'SLIP R',
-    flow_hit: 'FLOW'
-  }[action] || 'HIT';
-}
-
-function targetClassForAction(action, roundType = 'active') {
-  if (roundType === 'boss') return 'is-boss';
-
-  return {
-    jab: 'is-jab',
-    cross: 'is-cross',
-    hook_left: 'is-hook-left',
-    hook_right: 'is-hook-right',
-    uppercut_left: 'is-uppercut-left',
-    uppercut_right: 'is-uppercut-right',
-    guard: 'is-guard',
-    duck: 'is-duck',
-    flow_hit: 'is-flow'
-  }[action] || 'is-jab';
-}
-
-function bossWeakClassForAction(action) {
-  return {
-    jab: 'is-top',
-    cross: 'is-right',
-    hook_left: 'is-left',
-    hook_right: 'is-right',
-    uppercut_left: 'is-bottom',
-    uppercut_right: 'is-bottom',
-    guard: 'is-top',
-    duck: 'is-bottom',
-    flow_hit: 'is-top'
-  }[action] || 'is-top';
-}
-
-function estimateTier(state) {
-  const ppm = state.exercise.punchesPerMin || 0;
-  const mode = state.cfg.intensity;
-
-  if (mode === 'power' && ppm >= 42) return 'vigorous';
-  if (ppm >= 34) return 'moderate';
-  if (mode === 'learn' && ppm < 28) return 'light';
-  return ppm >= 24 ? 'light-moderate' : 'light';
-}
-
-function calcStars(score, durationMin) {
-  const table = {
-    3: [1200, 3000, 5500],
-    6: [2200, 4800, 8200],
-    10: [3200, 6800, 11000]
-  }[durationMin] || [1200, 3000, 5500];
-
-  if (score >= table[2]) return 3;
-  if (score >= table[1]) return 2;
-  if (score >= table[0]) return 1;
-  return 0;
-}
-
-function waitOverlayClick(root, selector) {
-  return new Promise((resolve) => {
-    const el = root.querySelector(selector);
-    el.addEventListener('click', () => resolve(), { once: true });
-  });
-}
-
-function waitSelfReportSubmit(root) {
-  return new Promise((resolve) => {
-    const form = root.querySelector('#sb-self-report-form');
-    form.addEventListener('submit', (ev) => {
-      ev.preventDefault();
-      const fd = new FormData(form);
-      resolve({
-        rpe: Number(fd.get('rpe')),
-        enjoyment: Number(fd.get('enjoyment')),
-        difficulty: Number(fd.get('difficulty')),
-        pain: Number(fd.get('pain')),
-        refresh: Number(fd.get('refresh'))
-      });
-    }, { once: true });
-  });
-}
-
-function createRng(seedStr) {
-  let h = 1779033703 ^ String(seedStr).length;
-  for (let i = 0; i < String(seedStr).length; i++) {
-    h = Math.imul(h ^ String(seedStr).charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
+  function exportEventsCsv(){
+    if(!STATE.events.length) return;
+    downloadTextFile(`shadowbreaker_events_${STATE.pid || 'anon'}.csv`, rowsToCsv(STATE.events), 'text/csv;charset=utf-8');
   }
-  let a = ((h ^ (h >>> 16)) >>> 0) || 1;
-  return function rng() {
-    a |= 0;
-    a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
-function structuredCloneSafe(v) {
-  try {
-    return structuredClone(v);
-  } catch (_) {
-    return JSON.parse(JSON.stringify(v));
+  function exportSessionCsv(){
+    const sum = STATE.sessionSummary || computeSummary('manual_export');
+    downloadTextFile(`shadowbreaker_session_${STATE.pid || 'anon'}.csv`, rowsToCsv([sum]), 'text/csv;charset=utf-8');
   }
-}
 
-function pickOne(v, allowed, fallback) {
-  return allowed.includes(String(v)) ? String(v) : fallback;
-}
+  function bindDom(){
+    DOM.btnPlay?.addEventListener('click', ()=> startGame('normal'));
+    DOM.btnResearch?.addEventListener('click', ()=> startGame('research'));
+    DOM.btnHowto?.addEventListener('click', openHowTo);
+    DOM.btnBackMenu?.addEventListener('click', gotoMenu);
 
-function pickOneNum(v, allowed, fallback) {
-  return allowed.includes(Number(v)) ? Number(v) : fallback;
-}
+    DOM.btnResultRetry?.addEventListener('click', ()=>{
+      try{
+        location.href = buildReplayLauncherHref();
+      }catch(_){
+        location.assign(buildReplayLauncherHref());
+      }
+    });
 
-function nowMs() {
-  return (window.performance && performance.now) ? performance.now() : Date.now();
-}
+    DOM.btnResultMenu?.addEventListener('click', ()=>{
+      goBackHubNow();
+    });
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+    DOM.btnDownloadEvents?.addEventListener('click', exportEventsCsv);
+    DOM.btnDownloadSession?.addEventListener('click', exportSessionCsv);
 
-function escapeHtml(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, (m) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[m]));
-}
+    DOM.btnPause?.addEventListener('change', ()=>{
+      STATE.isPaused = !!DOM.btnPause.checked;
+      logEvent(STATE.isPaused ? 'pause_on' : 'pause_off', {});
+    });
 
-function escapeAttr(s) {
-  return String(s == null ? '' : s).replace(/"/g, '&quot;');
-}
+    DOM.btnFever?.addEventListener('click', activateFever);
+
+    DOM.tabNormal?.addEventListener('click', ()=> setUiMode('normal'));
+    DOM.tabResearch?.addEventListener('click', ()=> setUiMode('research'));
+
+    DOM.targetLayer?.addEventListener('pointerdown', ()=>{
+      if (getViewMode() === 'cvr') cvrShoot();
+    });
+
+    DOC.addEventListener('keydown', (ev)=>{
+      if (getViewMode() !== 'cvr') return;
+      if (ev.code === 'Space' || ev.code === 'Enter') {
+        ev.preventDefault();
+        cvrShoot();
+      }
+    });
+
+    WIN.addEventListener('hha:shoot', ()=>{
+      if (getViewMode() === 'cvr') cvrShoot();
+    });
+  }
+
+  function initFromQuery(){
+    const hub = String(qs('hub','')).trim();
+    if(hub && DOM.linkHub) DOM.linkHub.href = hub;
+
+    const mode = String(qs('mode', qs('run','normal'))).toLowerCase();
+    const finalMode = (mode === 'research') ? 'research' : 'normal';
+    setUiMode(finalMode);
+
+    if(DOM.inputDiff){
+      const qDiff = String(qs('diff','normal')).toLowerCase();
+      if(['easy','normal','hard'].includes(qDiff)) DOM.inputDiff.value = qDiff;
+    }
+
+    if(DOM.inputTime){
+      const qTime = String(qs('time','70'));
+      if(qTime) DOM.inputTime.value = qTime;
+    }
+
+    if(DOM.inputPid){
+      DOM.inputPid.value = String(qs('pid','anon')).trim() || 'anon';
+    }
+
+    if(DOM.inputGroup){
+      DOM.inputGroup.value = String(qs('group','')).trim();
+    }
+
+    const gameId = String(qs('game','')).toLowerCase();
+    const gatePhase = String(qs('phase','')).toLowerCase();
+    const gatePhase2 = String(qs('gatePhase','')).toLowerCase();
+    const gateSkip = String(qs('wgskip','0')).toLowerCase();
+    const warmupDone = String(qs('warmupDone','0')).toLowerCase();
+    const auto = String(qs('auto','0')).toLowerCase();
+
+    const fromWarmupGate =
+      gameId === 'shadowbreaker' && (
+        gateSkip === '1' ||
+        warmupDone === '1' ||
+        gatePhase === 'play' ||
+        gatePhase === 'game' ||
+        gatePhase2 === 'warmup'
+      );
+
+    const autostart =
+      ['1','true','yes','on'].includes(auto) ||
+      fromWarmupGate;
+
+    if (autostart) {
+      setTimeout(()=>{
+        startGame(finalMode);
+      }, 0);
+    }
+  }
+
+  bindDom();
+  initFromQuery();
+  updateHud();
+})();
