@@ -1,7 +1,7 @@
 // === /fitness/js/engine.js ===
 // Shadow Breaker Engine
 // FULL PATCH v20260328c-SHADOWBREAKER-FINAL-CLEAN-PRODUCTION-FLOW
-
+export function initShadowBreaker(ctx = {}) {
 (function(){
   'use strict';
 
