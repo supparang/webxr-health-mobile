@@ -277,6 +277,23 @@
     if (!ui.summary) return false;
     if (!ui.summary.classList.contains('show')) return false;
 
+    if (['duet','race','battle','coop'].includes(mode)) {
+      const textNodes = [
+        ui.sumTitle,
+        ui.sumSub,
+        ui.sumCoach,
+        ui.sumNextHint,
+        ui.sumExportBox
+      ].filter(Boolean);
+
+      textNodes.forEach((node) => {
+        const txt = String(node.textContent || '');
+        if (/Rage Finale|Boss Medal|Boss Clear|Junk King|Run Variant/i.test(txt)) {
+          node.textContent = '';
+        }
+      });
+    }
+
     if (mode === 'duet') renderDuet(ui, state);
     else if (mode === 'race') renderRace(ui, state);
     else if (mode === 'battle') renderBattle(ui, state);
