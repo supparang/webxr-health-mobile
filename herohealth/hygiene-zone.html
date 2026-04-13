@@ -1201,8 +1201,8 @@
           sub: 'ฝึกแปรงฟันให้ครบทุกบริเวณอย่างสนุก',
           path: './vr-brush-kids/brush.html'
         },
-        germ: {
-          key: 'germ',
+        germdetective: {
+          key: 'germdetective',
           title: 'Germ Detective',
           sub: 'ตามหาเชื้อโรคและเรียนรู้การป้องกัน',
           path: './germ-detective/germ-rush-run.html'
@@ -1247,11 +1247,6 @@
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       }
 
-      function qget(key, fallback = ''){
-        const v = qs.get(key);
-        return (v == null || v === '') ? fallback : v;
-      }
-
       function buildGameUrl(key, overrides = {}) {
         const game = GAME_META[key];
         if (!game) return '#';
@@ -1283,7 +1278,7 @@
 
         if (txt.includes('handwash')) return 'handwash';
         if (txt.includes('brush')) return 'brush';
-        if (txt.includes('germ')) return 'germ';
+        if (txt.includes('germ')) return 'germdetective';
         if (txt.includes('mask')) return 'maskcough';
         if (txt.includes('clean')) return 'cleanobjects';
         if (txt.includes('bath')) return 'bath';
@@ -1346,9 +1341,9 @@
         bindLink('btnQuickBrush', 'brush', { run:'play', time:'60' });
         bindLink('btnResearchBrush', 'brush', { run:'research' });
 
-        bindLink('btnPlayGerm', 'germ');
-        bindLink('btnQuickGerm', 'germ', { run:'play', time:'60' });
-        bindLink('btnResearchGerm', 'germ', { run:'research' });
+        bindLink('btnPlayGerm', 'germdetective');
+        bindLink('btnQuickGerm', 'germdetective', { run:'play', time:'60' });
+        bindLink('btnResearchGerm', 'germdetective', { run:'research' });
 
         bindLink('btnPlayMaskCough', 'maskcough');
         bindLink('btnQuickMaskCough', 'maskcough', { run:'play', time:'60' });
@@ -1405,14 +1400,14 @@
         if (todayCountEl) todayCountEl.textContent = String(todayCount);
       }
 
-      function makePickerItem({ title, badge, sub, playHref, quickHref, researchHref }) {
+      function makePickerItem({ key, title, badge, sub, playHref, quickHref, researchHref }) {
         const wrap = document.createElement('div');
         wrap.className = 'picker-item';
 
         const actions = [
-          playHref ? `<a class="btn primary" href="${playHref}" data-zone-memory="hygiene">▶ Play</a>` : '',
-          quickHref ? `<a class="btn secondary" href="${quickHref}" data-zone-memory="hygiene">⚡ Quick</a>` : '',
-          researchHref ? `<a class="btn secondary" href="${researchHref}" data-zone-memory="hygiene">🧪 Research</a>` : ''
+          playHref ? `<a class="btn primary" href="${playHref}" data-zone-memory="hygiene" data-game-key="${key}" data-game-title="${title}">▶ Play</a>` : '',
+          quickHref ? `<a class="btn secondary" href="${quickHref}" data-zone-memory="hygiene" data-game-key="${key}" data-game-title="${title}">⚡ Quick</a>` : '',
+          researchHref ? `<a class="btn secondary" href="${researchHref}" data-zone-memory="hygiene" data-game-key="${key}" data-game-title="${title}">🧪 Research</a>` : ''
         ].filter(Boolean).join('');
 
         wrap.innerHTML = `
@@ -1427,6 +1422,11 @@
         wrap.querySelectorAll('[data-zone-memory="hygiene"]').forEach((node) => {
           node.addEventListener('click', () => {
             localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
+            rememberZoneGame({
+              zone: 'hygiene',
+              gameKey: node.dataset.gameKey,
+              gameTitle: node.dataset.gameTitle
+            });
           });
         });
 
@@ -1459,13 +1459,13 @@
             researchHref: buildGameUrl('brush', { run:'research' })
           },
           {
-            key: 'germ',
+            key: 'germdetective',
             title: '🦠 Germ Detective',
             badge: 'Detective',
             sub: 'ตามหาเชื้อโรคและเรียนรู้การป้องกัน',
-            playHref: buildGameUrl('germ'),
-            quickHref: buildGameUrl('germ', { run:'play', time:'60' }),
-            researchHref: buildGameUrl('germ', { run:'research' })
+            playHref: buildGameUrl('germdetective'),
+            quickHref: buildGameUrl('germdetective', { run:'play', time:'60' }),
+            researchHref: buildGameUrl('germdetective', { run:'research' })
           },
           {
             key: 'maskcough',
@@ -1561,6 +1561,12 @@
         });
       }
 
+      function refreshZoneUi(){
+        renderRecent();
+        renderProgress();
+        renderPicker('all');
+      }
+
       function boot(){
         patchHubLinks();
         patchGameLinks();
@@ -1568,6 +1574,11 @@
         renderProgress();
         bindModal();
         renderPicker('all');
+
+        window.addEventListener('focus', refreshZoneUi);
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) refreshZoneUi();
+        });
       }
 
       boot();
