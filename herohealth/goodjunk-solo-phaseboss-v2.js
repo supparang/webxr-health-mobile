@@ -12,7 +12,7 @@
 
     const DEBUG = q.get('debug') === '1';
 
-    const GJ_BOSS_BUILD = '20260408b-GJ-SOLOBOSS-FLOW-FINAL';
+    const GJ_BOSS_BUILD = '20260413a-GJ-SOLOBOSS-CHILD-SUMMARY';
     const GJ_CANONICAL_HUB_ROOT =
       'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
 
@@ -798,6 +798,65 @@
       if (stageKey === 'C') return 'อ่านช่องปลอดภัยก่อน';
       if (stageKey === 'RAGE') return 'โผล่ไวมาก ตีต่อเนื่อง';
       return 'เป้าทองใหญ่ แตะให้ทัน';
+    }
+
+    function childGradeFromRaw(rawGrade) {
+      const g = String(rawGrade || '').toUpperCase();
+      if (g === 'S') return 'S';
+      if (g === 'A') return 'A';
+      if (g === 'B') return 'B';
+      return 'C';
+    }
+
+    function childTitleFromResult(bossClear, visibleGrade) {
+      if (bossClear && visibleGrade === 'S') return 'สุดยอด! ชนะบอสแล้ว';
+      if (bossClear) return 'เก่งมาก! ชนะบอสแล้ว';
+      if (state.phase >= 2) return 'เก่งมาก! ไปได้ไกลแล้ว';
+      return 'ดีมาก! ลองอีกครั้งนะ';
+    }
+
+    function childSubFromResult(bossClear) {
+      if (bossClear) return 'เก็บอาหารดีและเอาชนะ Junk King ได้แล้ว';
+      if (state.phase >= 2) return 'อีกนิดเดียวก็จะชนะบอสแล้ว';
+      return 'รอบหน้าลองเก็บอาหารดีให้ต่อเนื่องมากขึ้น';
+    }
+
+    function childCoachMessage(bossClear, visibleGrade) {
+      if (bossClear && visibleGrade === 'S') {
+        return 'สุดยอด! ทั้งเก่งและหลบ junk ได้ดีมาก';
+      }
+      if (bossClear && visibleGrade === 'A') {
+        return 'เก่งมาก! ชนะบอสได้แล้ว';
+      }
+      if (bossClear) {
+        return 'ดีมาก! ชนะบอสแล้ว ลองทำให้พลาดน้อยลงอีกนิด';
+      }
+      if (state.phase >= 2) {
+        return 'ดีมาก! อีกนิดเดียวก็ถึงชัยชนะ';
+      }
+      return 'เริ่มได้ดีแล้ว ลองแตะอาหารดีให้มากขึ้น';
+    }
+
+    function childNextHint(bossClear) {
+      if (bossClear) return 'เป้าหมายต่อไป: ชนะบอสแบบพลาดน้อยลง';
+      if (state.phase >= 2) return 'เป้าหมายต่อไป: ไปให้ถึงบอสแล้วตีต่อเนื่อง';
+      return 'เป้าหมายต่อไป: เก็บอาหารดีให้ต่อเนื่องและหลบ junk';
+    }
+
+    function childRibbonText(bossClear, visibleGrade) {
+      if (bossClear && visibleGrade === 'S') return '🏆 สุดยอดมาก';
+      if (bossClear) return '🎉 ชนะบอสแล้ว';
+      if (state.phase >= 2) return '⭐ ไปได้ไกลแล้ว';
+      return '💪 ลองอีกครั้ง';
+    }
+
+    function buildChildVisibleSummaryHtml() {
+      return `
+        <div class="gjsb-stat"><div class="k">คะแนน</div><div class="v">${state.score}</div></div>
+        <div class="gjsb-stat"><div class="k">เก็บอาหารดี</div><div class="v">${state.hitsGood}</div></div>
+        <div class="gjsb-stat"><div class="k">พลาด</div><div class="v">${state.miss}</div></div>
+        <div class="gjsb-stat"><div class="k">คอมโบสูงสุด</div><div class="v">${state.bestStreak}</div></div>
+      `;
     }
 
     function injectStyle() {
@@ -1728,6 +1787,12 @@
           10%{ opacity:1; }
           100%{ transform:translate3d(var(--dx, 0px), var(--dy, 110vh), 0) rotate(var(--rot, 540deg)); opacity:0; }
         }
+        .gjsb-exportBox{
+          display:none !important;
+        }
+        #btnCopyJson{
+          display:none !important;
+        }
         @media (max-width:720px){
           .gjsb-bar{
             grid-template-columns:repeat(3,minmax(0,1fr));
@@ -2186,13 +2251,10 @@
       burstMedalAndStars();
 
       if (bossClear && state.boss.rageTriggered) {
-        addSummaryRibbon('🔥 Rage Finale Clear');
         spawnVictoryConfetti(34);
       } else if (bossClear) {
-        addSummaryRibbon('👑 Boss Clear');
         spawnVictoryConfetti(26);
       } else {
-        addSummaryRibbon('⭐ Great Try');
         spawnVictoryConfetti(18);
       }
     }
@@ -3529,9 +3591,10 @@
       state.metrics.clearTimeMs = nowMs() - state.metrics.runStartAt;
 
       const stars = starsFromSummary(bossClear);
-      const grade = calcGrade(bossClear);
-      const medal = medalEmojiForGrade(grade);
-      const payload = buildResearchPayload(bossClear, grade);
+      const rawGrade = calcGrade(bossClear);
+      const visibleGrade = childGradeFromRaw(rawGrade);
+      const medal = medalEmojiForGrade(visibleGrade);
+      const payload = buildResearchPayload(bossClear, rawGrade);
       saveResearchPayload(payload);
       const isRageClear = !!(bossClear && state.boss.rageTriggered);
 
@@ -3542,8 +3605,8 @@
       dailyMeta.bestScore = Math.max(dailyMeta.bestScore || 0, state.score);
       dailyMeta.bestStreak = Math.max(dailyMeta.bestStreak || 0, state.bestStreak);
 
-      if (!dailyMeta.bestGrade || gradeScore(grade) > gradeScore(dailyMeta.bestGrade)) {
-        dailyMeta.bestGrade = grade;
+      if (!dailyMeta.bestGrade || gradeScore(rawGrade) > gradeScore(dailyMeta.bestGrade)) {
+        dailyMeta.bestGrade = rawGrade;
       }
 
       dailyMeta.rematchStreak = bossClear ? (dailyMeta.rematchStreak || 0) + 1 : 0;
@@ -3551,7 +3614,7 @@
       const metaReward = computeBossRewardMeta({
         bossClear,
         rageClear: isRageClear,
-        grade,
+        grade: rawGrade,
         miss: state.miss,
         bestStreak: state.bestStreak,
         score: state.score
@@ -3573,78 +3636,39 @@
       const hubSnapshot = buildHubSnapshot({
         bossClear,
         rageClear: isRageClear,
-        grade,
+        grade: rawGrade,
         metaReward,
         dailyChallenge: dailyResult
       });
       saveHubSnapshot(hubSnapshot);
 
-      ui.sumTitle.textContent =
-        isRageClear ? 'Rage Finale Clear!' :
-        bossClear ? 'Food Hero Complete!' :
-        'Great Job!';
-
-      ui.sumSub.textContent =
-        isRageClear
-          ? 'เธอฝ่าช่วง Rage Finale และโค่น Junk King ได้แบบสุดมันส์'
-          : bossClear
-            ? 'เธอช่วยปกป้องเมืองอาหารดีและเอาชนะ Junk King ได้แล้ว'
-            : state.phase >= 2
-              ? 'ผ่านด่านก่อนบอสได้ดีมาก รอบหน้าลุยต่อได้อีก'
-              : 'เริ่มต้นได้ดีมาก เก็บอาหารดีต่อไปนะ';
+      ui.sumTitle.textContent = childTitleFromResult(bossClear, visibleGrade);
+      ui.sumSub.textContent = childSubFromResult(bossClear);
 
       ui.sumStars.textContent = '⭐'.repeat(stars);
-      ui.sumGrade.textContent = grade;
-      ui.sumGrade.className = 'gjsb-grade ' + grade.toLowerCase();
+      ui.sumGrade.textContent = visibleGrade;
+      ui.sumGrade.className = 'gjsb-grade ' + visibleGrade.toLowerCase();
       ui.sumMedal.textContent = medal;
 
-      runVictoryPolish(bossClear, grade);
-      addSummaryRibbon(
-        isRageClear
-          ? `🔥 ${metaReward.reward}`
-          : bossClear
-            ? `🏆 ${metaReward.reward}`
-            : `⭐ ${metaReward.reward}`
-      );
+      runVictoryPolish(bossClear, visibleGrade);
+      addSummaryRibbon(childRibbonText(bossClear, visibleGrade));
 
-      ui.sumGrid.innerHTML = `
-        <div class="gjsb-stat"><div class="k">ระดับ</div><div class="v">${diffKey}</div></div>
-        <div class="gjsb-stat"><div class="k">คะแนน</div><div class="v">${state.score}</div></div>
-        <div class="gjsb-stat"><div class="k">พลาด</div><div class="v">${state.miss}</div></div>
-        <div class="gjsb-stat"><div class="k">คอมโบสูงสุด</div><div class="v">${state.bestStreak}</div></div>
-        <div class="gjsb-stat"><div class="k">แตะของดี</div><div class="v">${state.hitsGood}</div></div>
-        <div class="gjsb-stat"><div class="k">ตีบอส</div><div class="v">${state.powerHits}</div></div>
-        <div class="gjsb-stat"><div class="k">โดนพายุขยะ</div><div class="v">${state.stormHits}</div></div>
-        <div class="gjsb-stat"><div class="k">โดนของลวง</div><div class="v">${state.baitHits}</div></div>
-        <div class="gjsb-stat"><div class="k">เป้าหายไป</div><div class="v">${state.weakMissed}</div></div>
-        <div class="gjsb-stat"><div class="k">ถึงไหนแล้ว</div><div class="v">${getReachedLabel(bossClear)}</div></div>
-        <div class="gjsb-stat"><div class="k">เวลาเจอบอส</div><div class="v">${state.metrics.bossDurationMs ? (state.metrics.bossDurationMs / 1000).toFixed(1) + 's' : '-'}</div></div>
-        <div class="gjsb-stat"><div class="k">Run Variant</div><div class="v">${state.replay.runLabel || 'Balanced'}</div></div>
-        ${buildMetaSummaryHtml(metaReward, dailyResult, dailyMeta)}
-      `;
+      ui.sumGrid.innerHTML = buildChildVisibleSummaryHtml();
 
-      ui.sumCoach.textContent = coachMessage(bossClear);
-      ui.sumNextHint.textContent = nextHintMessage(bossClear);
+      ui.sumCoach.textContent = childCoachMessage(bossClear, visibleGrade);
+      ui.sumNextHint.textContent = childNextHint(bossClear);
 
-      ui.sumCoach.textContent += ` • วันนี้ได้ ${metaReward.badge}`;
-      ui.sumNextHint.textContent += dailyResult.done
-        ? ' • Daily challenge วันนี้สำเร็จแล้ว'
-        : ` • Daily challenge: ${dailyResult.title}`;
+      ui.sumExportBox.innerHTML = '';
+      ui.sumExportBox.style.display = 'none';
 
-      ui.sumExportBox.innerHTML = `
-        <strong>payload พร้อม export แล้ว</strong><br>
-        sessionId: ${payload.sessionId}<br>
-        events: ${payload.events.length}<br>
-        grade: ${payload.outcome.grade}<br>
-        bossClear: ${payload.outcome.bossClear ? 'yes' : 'no'}<br>
-        launcher: ${getLauncherHref()}<br>
-        hubRoot: ${getHubRootHref()}
-      `;
+      if (ui.btnCopyJson) {
+        ui.btnCopyJson.style.display = 'none';
+      }
 
       if (ui && ui.btnReplay) {
         ui.btnReplay.textContent =
           bossClear
-            ? `🔥 เล่นอีกครั้ง (${dailyMeta.rematchStreak})`
+            ? '🔁 เล่นอีกครั้ง'
             : '🔁 ลองใหม่';
       }
 
@@ -3667,7 +3691,8 @@
         phaseReached: state.boss.active ? 'boss' : ('phase-' + state.phase),
         bossStageReached: state.boss.stageReached,
         rageTriggered: !!state.boss.rageTriggered,
-        finalGrade: grade,
+        finalGrade: rawGrade,
+        visibleGrade: visibleGrade,
         rewardTitle: metaReward.reward,
         rewardBadge: metaReward.badge,
         dailyChallengeTitle: dailyResult.title,
@@ -3682,7 +3707,7 @@
       writeRematchState({
         count: state.replay.rematchCount + 1,
         lastSeed: String(ctx.seed || ''),
-        lastGrade: grade,
+        lastGrade: rawGrade,
         lastBossStage: String(state.boss.stageReached || '')
       });
 
