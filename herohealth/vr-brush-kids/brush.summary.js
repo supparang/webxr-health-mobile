@@ -1,130 +1,143 @@
-const LAST_KEY = 'HHA_LAST_SUMMARY';
-const HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
+// /herohealth/vr-brush-kids/brush.summary.js
 
-const CANONICAL_GAME_ID = 'brush';
-const CANONICAL_GAME_VARIANT = 'kids-vr';
-const CANONICAL_GAME_TITLE = 'Brush Kids';
-const CANONICAL_ZONE = 'hygiene';
+import { GAME_ID, GAME_VARIANT, GAME_TITLE, ZONE } from './brush.constants.js';
 
-export function buildBrushResult({ state, totalZones, modeLabel }) {
-  const coveragePercent = getCoveragePercent(state.zones);
-  const zonesDone = state.zones.filter(z => z.done).length;
-  const durationPlayedSec = Math.round(state.elapsedMs / 1000);
+function clamp(v, a, b) {
+  return Math.max(a, Math.min(b, v));
+}
 
-  const finalRank = getBrushRank({
-    coveragePercent,
-    zonesDone,
-    totalZones,
-    warnings: state.warnings
+export function buildPhaseBreakdown(state) {
+  return Object.entries(state.metrics.phaseStats || {}).map(([phaseId, p]) => {
+    const attempts = p.attempts || 0;
+    const valid = p.valid || 0;
+    return {
+      phaseId,
+      durationMs: p.durationMs || 0,
+      attempts,
+      valid,
+      accuracyPercent: attempts ? Math.round((valid / attempts) * 100) : 0,
+      cleanGain: Math.round(p.cleanGain || 0),
+      scoreGain: Math.round(p.scoreGain || 0)
+    };
   });
+}
 
-  const advice = getBrushAdvice({
-    coveragePercent,
-    zonesDone,
-    totalZones,
-    warnings: state.warnings
+export function buildZoneBreakdown(state) {
+  return (state.zones || []).map((z) => {
+    const attempts = (z.hits || 0) + (z.misses || 0);
+    return {
+      zoneId: z.id,
+      zoneLabel: z.label,
+      cleanPercent: Math.round(z.cleanPercent || 0),
+      threatPercentEnd: Math.round(z.threatPercent || 0),
+      done: !!z.done,
+      attempts,
+      valid: z.hits || 0,
+      misses: z.misses || 0,
+      accuracyPercent: attempts ? Math.round(((z.hits || 0) / attempts) * 100) : 0,
+      dwellMs: z.dwellMs || 0,
+      patternType: z.patternType || 'horizontal'
+    };
   });
+}
 
-  const summaryTitle =
-    coveragePercent >= 90 ? 'ฟันสดใสสุด ๆ!' :
-    coveragePercent >= 75 ? 'ฟันสะอาดขึ้นมาก!' :
-    coveragePercent >= 60 ? 'เก่งมาก ใกล้ครบแล้ว!' :
-    'พยายามได้ดีมาก!';
+export function buildSummaryAdvice(result) {
+  const tips = [];
+  if ((result.scanSummary?.accuracyPercent || 0) < 60) tips.push('ลองสังเกตจุดสกปรกให้ชัดก่อนเริ่มแปรง');
+  if ((result.accuracyPercent || 0) < 60) tips.push('ควรแปรงตามทิศให้ตรงและสม่ำเสมอขึ้น');
+  if ((result.zoneBalancePercent || 0) < 60) tips.push('ควรกระจายเวลาไปทุกโซนให้สมดุลขึ้น');
+  if ((result.bossBreakSummary?.played && !result.bossBreakSummary?.success)) tips.push('ฝึกจับจังหวะจุดอ่อนของบอสให้แม่นขึ้น');
+  return tips.length ? tips.join(' • ') : 'ยอดเยี่ยมมาก วันนี้ช่วยทั้งปากได้ดีมาก';
+}
 
+export function buildCsvRow(result) {
   return {
-    gameId: CANONICAL_GAME_ID,
-    gameVariant: CANONICAL_GAME_VARIANT,
-    gameTitle: CANONICAL_GAME_TITLE,
-    zone: CANONICAL_ZONE,
-
-    modeId: state.mode.id,
-    modeLabel,
-
-    durationPlannedSec: state.mode.durationSec,
-    durationPlayedSec,
-    timeText: formatTime(durationPlayedSec),
-
-    coveragePercent,
-    zonesDone,
-    zonesTotal: totalZones,
-
-    warnings: state.warnings,
-    comboMax: state.comboMax,
-    sparkleCount: state.sparkleCount,
-
-    finalRank,
-    advice,
-    summaryTitle,
-    coachMoodFinal: getCoachMood(coveragePercent, state.warnings),
-
-    zoneStatus: state.zones.map(z => ({
-      id: z.id,
-      label: z.label,
-      clean: Math.round(z.clean),
-      dwellMs: z.dwellMs,
-      visited: !!z.visited,
-      done: !!z.done
-    })),
-
-    endedAtIso: new Date().toISOString()
+    sessionId: result.sessionId,
+    gameId: GAME_ID,
+    variant: GAME_VARIANT,
+    pid: result.pid || '',
+    name: result.name || '',
+    modeId: result.modeId || '',
+    diff: result.diff || '',
+    view: result.view || '',
+    startedAt: result.startedAt,
+    endedAt: result.endedAt,
+    elapsedSec: result.elapsedSec,
+    finalScore: result.finalScore,
+    finalRank: result.finalRank,
+    coveragePercent: result.coveragePercent,
+    accuracyPercent: result.accuracyPercent,
+    patternQualityPercent: result.patternQualityPercent,
+    zoneBalancePercent: result.zoneBalancePercent,
+    bossRecoveryScore: result.bossRecoveryScore,
+    scanPlayed: result.scanSummary?.played ? 1 : 0,
+    scanAccuracyPercent: result.scanSummary?.accuracyPercent || 0,
+    bossBreakPlayed: result.bossBreakSummary?.played ? 1 : 0,
+    bossBreakAccuracyPercent: result.bossBreakSummary?.accuracyPercent || 0,
+    bossBreakSuccess: result.bossBreakSummary?.success ? 1 : 0
   };
 }
 
-export function saveBrushSummary(result) {
-  try {
-    localStorage.setItem(LAST_KEY, JSON.stringify(result));
-  } catch {}
-}
+export function buildBrushV5Result({ state, ctx }) {
+  const hits = state.metrics.hits || 0;
+  const misses = state.metrics.misses || 0;
+  const attempts = hits + misses;
+  const coveragePercent = Math.round((state.zones || []).reduce((a, z) => a + (z.cleanPercent || 0), 0) / Math.max(1, state.zones.length));
+  const accuracyPercent = attempts ? Math.round((hits / attempts) * 100) : 0;
+  const zoneCleanValues = (state.zones || []).map(z => z.cleanPercent || 0);
+  const avg = zoneCleanValues.length ? zoneCleanValues.reduce((a, b) => a + b, 0) / zoneCleanValues.length : 0;
+  const spread = zoneCleanValues.length ? zoneCleanValues.reduce((a, v) => a + Math.abs(v - avg), 0) / zoneCleanValues.length : 100;
+  const zoneBalancePercent = clamp(Math.round(100 - spread), 0, 100);
+  const patternQualityPercent = clamp(Math.round(accuracyPercent * 0.7 + (state.score.comboMax || 0) * 2), 0, 100);
+  const bossRecoveryScore = clamp(Math.round((state.boss?.cleared ? 70 : 20) + (100 - (state.threat?.percent || 100)) * 0.3), 0, 100);
 
-export function pushBrushSummaryHistory(result, limit = 20) {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    const arr = raw ? JSON.parse(raw) : [];
-    arr.unshift(result);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(arr.slice(0, limit)));
-  } catch {}
-}
+  let finalRank = 'C';
+  if (coveragePercent >= 90 && accuracyPercent >= 85) finalRank = 'S';
+  else if (coveragePercent >= 80 && accuracyPercent >= 75) finalRank = 'A';
+  else if (coveragePercent >= 65 && accuracyPercent >= 60) finalRank = 'B';
 
-export function getBrushRank({ coveragePercent, zonesDone, totalZones, warnings }) {
-  if (coveragePercent >= 90 && zonesDone >= totalZones && warnings <= 3) {
-    return 'Sparkle Hero';
-  }
-  if (coveragePercent >= 75 && zonesDone >= Math.max(5, totalZones - 1)) {
-    return 'Clean Star';
-  }
-  if (coveragePercent >= 60 && zonesDone >= Math.max(4, totalZones - 2)) {
-    return 'Smile Helper';
-  }
-  return 'Keep Practicing';
-}
+  const result = {
+    sessionId: ctx.sessionId,
+    gameId: GAME_ID,
+    gameVariant: GAME_VARIANT,
+    gameTitle: GAME_TITLE,
+    zone: ZONE,
 
-export function getBrushAdvice({ coveragePercent, zonesDone, totalZones, warnings }) {
-  if (coveragePercent < 60) {
-    return 'ครั้งหน้าลองแปรงให้ครบทุกโซนและค่อย ๆ ถูอย่างสม่ำเสมอนะ';
-  }
-  if (zonesDone < totalZones) {
-    return 'ยังเหลือบางโซนอยู่ ลองดูแผนที่ฟันให้ครบทุกส่วนอีกนิด';
-  }
-  if (warnings >= 5) {
-    return 'ดีมากแล้ว ลองช้าลงอีกนิด จะสะอาดขึ้นกว่าเดิม';
-  }
-  return 'ยอดเยี่ยม! รักษานิสัยแปรงแบบนี้ต่อไปได้เลย';
-}
+    pid: ctx.pid || '',
+    name: ctx.name || '',
+    studyId: ctx.studyId || '',
+    modeId: ctx.modeId || '',
+    diff: ctx.diff || '',
+    view: ctx.view || '',
+    runMode: ctx.runMode || '',
+    seed: ctx.seed || '',
 
-function getCoachMood(coveragePercent, warnings) {
-  if (coveragePercent >= 85 && warnings <= 3) return 'happy';
-  if (coveragePercent >= 60) return 'neutral';
-  if (warnings >= 6) return 'sad';
-  return 'fever';
-}
+    startedAt: state.time.startedAtIso,
+    endedAt: new Date().toISOString(),
+    elapsedSec: Math.round(state.time.elapsedMs / 1000),
 
-function getCoveragePercent(zones) {
-  const total = zones.reduce((sum, z) => sum + z.clean, 0);
-  return Math.round((total / (zones.length * 100)) * 100);
-}
+    finalScore: Math.round(state.score.total || 0),
+    finalRank,
 
-function formatTime(totalSec) {
-  const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
-  const ss = String(totalSec % 60).padStart(2, '0');
-  return `${mm}:${ss}`;
+    coveragePercent,
+    accuracyPercent,
+    patternQualityPercent,
+    zoneBalancePercent,
+    bossRecoveryScore,
+
+    comboMax: Math.floor(state.score.comboMax || 0),
+    warnings: state.metrics.warnings || 0,
+    misses,
+
+    scanSummary: { ...state.scan },
+    bossBreakSummary: { ...state.bossBreak },
+    bossSummary: { ...state.boss },
+
+    phaseBreakdown: buildPhaseBreakdown(state),
+    zoneBreakdown: buildZoneBreakdown(state)
+  };
+
+  result.summaryAdvice = buildSummaryAdvice(result);
+  result.csvRow = buildCsvRow(result);
+  return result;
 }
