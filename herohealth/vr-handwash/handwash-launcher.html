@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Handwash Launcher</title>
+
   <style>
     :root{
       --bg1:#dff6ff;
@@ -12,12 +13,17 @@
       --mut:#4d6b84;
       --line:#cfeaf7;
       --card:#ffffff;
+      --cyan:#bff4ff;
+      --cyan-strong:#67e8f9;
       --yellow:#ffe66d;
       --pink:#ffc7df;
       --green:#b9f5c9;
       --blue:#c8f2ff;
       --shadow:0 14px 30px rgba(19,50,75,.12);
       --radius:24px;
+      --ok:#16a34a;
+      --warn:#f59e0b;
+      --soft:#eef8fd;
     }
 
     *{ box-sizing:border-box; }
@@ -36,7 +42,7 @@
     }
 
     .shell{
-      max-width:1080px;
+      max-width:1120px;
       margin:0 auto;
       display:grid;
       gap:16px;
@@ -104,12 +110,7 @@
 
     .grid{
       display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:16px;
-    }
-
-    .side-stack{
-      display:grid;
+      grid-template-columns:1.08fr .92fr;
       gap:16px;
     }
 
@@ -123,7 +124,7 @@
 
     .card h2{
       margin:0 0 12px;
-      font-size:1.18rem;
+      font-size:1.14rem;
     }
 
     .field-grid{
@@ -160,39 +161,34 @@
       box-shadow:0 0 0 4px rgba(125,211,252,.20);
     }
 
-    .mode-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+    .mode-row{
+      display:flex;
+      flex-wrap:wrap;
       gap:10px;
       margin-top:12px;
     }
 
-    .mode-btn, .action-btn{
+    .mode-btn{
       appearance:none;
       border:none;
-      border-radius:20px;
-      padding:14px 14px;
+      border-radius:18px;
+      padding:13px 16px;
       font:inherit;
       font-weight:900;
       color:#12324b;
       cursor:pointer;
       box-shadow:var(--shadow);
-      transition:transform .12s ease, filter .12s ease;
+      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease, outline-color .12s ease;
+      outline:3px solid transparent;
     }
 
-    .mode-btn:hover, .action-btn:hover{
+    .mode-btn:hover{
       transform:translateY(-1px);
       filter:brightness(1.01);
     }
 
-    .mode-btn:active, .action-btn:active{
-      transform:translateY(0);
-    }
-
     .mode-btn.active{
-      outline:3px solid #63e6ff;
-      outline-offset:2px;
-      transform:translateY(-1px);
+      outline-color:#22d3ee;
     }
 
     .mode-mobile{ background:linear-gradient(180deg,#dff8ff 0%, #baeefe 100%); }
@@ -205,26 +201,31 @@
       margin-top:12px;
     }
 
+    .action-btn{
+      appearance:none;
+      border:none;
+      border-radius:20px;
+      padding:14px 14px;
+      font:inherit;
+      font-weight:900;
+      color:#12324b;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+      transition:transform .12s ease, filter .12s ease;
+      text-align:left;
+    }
+
+    .action-btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.01);
+    }
+
     .action-btn.full{ background:linear-gradient(180deg,#fff5b1 0%, #ffe66d 100%); }
     .action-btn.howto{ background:linear-gradient(180deg,#dff8ff 0%, #b9efff 100%); }
     .action-btn.main{ background:linear-gradient(180deg,#dcfff2 0%, #baf4cf 100%); }
     .action-btn.mini{ background:linear-gradient(180deg,#ffe6f1 0%, #ffcde2 100%); }
-
-    .mini-list{
-      display:grid;
-      gap:10px;
-      margin-top:8px;
-    }
-
-    .mini-item{
-      background:#f7fcff;
-      border:1px solid #d7ecf8;
-      border-radius:16px;
-      padding:12px;
-      color:#28465d;
-      font-weight:800;
-      line-height:1.45;
-    }
+    .action-btn.resume{ background:linear-gradient(180deg,#edfdf7 0%, #c7f9dd 100%); }
+    .action-btn.clear{ background:linear-gradient(180deg,#fff1f2 0%, #ffd5da 100%); }
 
     .flow{
       display:grid;
@@ -241,6 +242,119 @@
       text-align:center;
       font-weight:900;
       color:#28465d;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .flow-box.ok{
+      background:#effcf3;
+      border-color:#c8efd1;
+      color:#166534;
+    }
+
+    .flow-box.now{
+      background:#ecfeff;
+      border-color:#bff4ff;
+      color:#0f766e;
+    }
+
+    .flow-box small{
+      display:block;
+      margin-top:6px;
+      font-weight:800;
+      color:#5c7890;
+    }
+
+    .flow-box.ok small,
+    .flow-box.now small{
+      color:inherit;
+      opacity:.88;
+    }
+
+    .status-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#effcf3;
+      color:#166534;
+      font-weight:900;
+      margin-top:8px;
+    }
+
+    .status-pill.warn{
+      background:#fff8e6;
+      color:#92400e;
+    }
+
+    .status-pill.muted{
+      background:#eef8fd;
+      color:#48657f;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:8px;
+    }
+
+    .summary-box{
+      background:#f8fcff;
+      border:1px solid #d8edf8;
+      border-radius:18px;
+      padding:12px;
+      font-weight:900;
+      color:#0f172a;
+    }
+
+    .summary-box small{
+      display:block;
+      margin-bottom:5px;
+      color:#64748b;
+      font-weight:800;
+    }
+
+    .history-list{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .history-item{
+      background:#f7fcff;
+      border:1px solid #d7ecf8;
+      border-radius:16px;
+      padding:12px;
+      color:#28465d;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .history-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:4px;
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#ecfeff;
+      color:#0f766e;
+      font-size:.82rem;
+      font-weight:900;
+    }
+
+    .tag.fail{
+      background:#fff1f2;
+      color:#b91c1c;
     }
 
     .tiny{
@@ -251,11 +365,17 @@
       line-height:1.45;
     }
 
-    .hidden{
-      display:none !important;
+    .muted-box{
+      background:#f9fcfe;
+      border:1px dashed #cfe3ef;
+      border-radius:16px;
+      padding:12px;
+      color:#5c7890;
+      font-weight:800;
+      line-height:1.45;
     }
 
-    @media (max-width:900px){
+    @media (max-width:940px){
       .grid{
         grid-template-columns:1fr;
       }
@@ -275,12 +395,12 @@
         grid-template-columns:1fr;
       }
 
-      .mode-grid{
-        grid-template-columns:1fr;
-      }
-
       .flow{
         grid-template-columns:1fr 1fr;
+      }
+
+      .summary-grid{
+        grid-template-columns:1fr;
       }
     }
   </style>
@@ -300,11 +420,23 @@
         </div>
       </div>
 
-      <div class="flow">
-        <div class="flow-box">1. Howto</div>
-        <div class="flow-box">2. Main Game</div>
-        <div class="flow-box">3. Mini Order</div>
-        <div class="flow-box">4. Hub</div>
+      <div class="flow" id="flowBoxes">
+        <div class="flow-box" data-stage-box="howto">
+          1. Howto
+          <small id="flowHowtoSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="main">
+          2. Main Game
+          <small id="flowMainSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="mini-order">
+          3. Mini Order
+          <small id="flowMiniSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="hub">
+          4. Hub
+          <small id="flowHubSub">ปลายทาง</small>
+        </div>
       </div>
     </section>
 
@@ -333,12 +465,12 @@
           </div>
 
           <div class="field">
-            <label for="time">เวลาเกมหลัก (วินาที)</label>
+            <label for="time">เวลา Main Game (วินาที)</label>
             <input id="time" class="input" type="number" min="60" step="10" value="90" />
           </div>
 
           <div class="field">
-            <label for="miniTime">เวลา mini-order (วินาที)</label>
+            <label for="miniTime">เวลา Mini Order (วินาที)</label>
             <input id="miniTime" class="input" type="number" min="45" step="5" value="60" />
           </div>
 
@@ -348,82 +480,73 @@
           </div>
         </div>
 
-        <div class="mode-grid">
-          <button class="mode-btn mode-mobile" data-view="mobile">📱 เริ่มแบบ Mobile</button>
-          <button class="mode-btn mode-pc" data-view="pc">🖥️ เริ่มแบบ PC</button>
-          <button class="mode-btn mode-vr" data-view="cvr">🥽 เริ่มแบบ Cardboard</button>
+        <div class="mode-row">
+          <button class="mode-btn mode-mobile active" data-view="mobile" type="button">📱 Mobile</button>
+          <button class="mode-btn mode-pc" data-view="pc" type="button">🖥️ PC</button>
+          <button class="mode-btn mode-vr" data-view="cvr" type="button">🥽 Cardboard</button>
         </div>
 
         <div class="tiny">
-          ปุ่มด้านบนจะพาเข้า <strong>full flow</strong> ทั้งชุดทันที โดยส่งค่าพารามิเตอร์เดียวกันให้ทุกไฟล์
+          เลือกโหมดก่อน แล้วใช้ปุ่มด้านขวาเพื่อเข้าเล่นแบบครบ flow หรือเข้าเฉพาะส่วนที่ต้องการเทส
+        </div>
+
+        <div class="action-stack">
+          <button id="btnResume" class="action-btn resume" type="button">▶️ เล่นต่อจากจุดล่าสุด</button>
+          <button id="btnFull" class="action-btn full" type="button">🚀 เปิด Full Flow</button>
+          <button id="btnHowto" class="action-btn howto" type="button">🫧 เปิด Howto / Warmup</button>
+          <button id="btnMain" class="action-btn main" type="button">🎯 เปิด Main Game</button>
+          <button id="btnMini" class="action-btn mini" type="button">🧩 เปิด Mini Order</button>
+          <button id="btnClear" class="action-btn clear" type="button">🗑️ ล้าง progress ของ Handwash</button>
         </div>
       </div>
 
-      <div class="side-stack">
-        <div class="card">
-          <h2>เข้าแต่ละส่วนแยกได้</h2>
+      <div class="card">
+        <h2>สถานะล่าสุด</h2>
 
-          <div class="action-stack">
-            <button id="btnHowto" class="action-btn howto">🫧 เปิด Howto / Warmup</button>
-            <button id="btnMain" class="action-btn main">🎯 เปิด Main Game</button>
-            <button id="btnMini" class="action-btn mini">🧩 เปิด Mini Order</button>
-            <button id="btnFull" class="action-btn full">🚀 เปิด Full Flow</button>
+        <div id="resumeStatus" class="status-pill muted">ยังไม่พบ progress ของ Handwash</div>
+
+        <div class="summary-grid">
+          <div class="summary-box">
+            <small>ด่านล่าสุด</small>
+            <span id="lastStage">—</span>
           </div>
-
-          <div class="mini-list">
-            <div class="mini-item">
-              <strong>Howto</strong><br />
-              ใช้สำหรับ Remember / Understand / Apply เบื้องต้น
-            </div>
-            <div class="mini-item">
-              <strong>Main Game</strong><br />
-              ใช้สำหรับ Apply เป็นหลัก และมี Analyze บางส่วน
-            </div>
-            <div class="mini-item">
-              <strong>Mini Order</strong><br />
-              ใช้สำหรับ Analyze / Evaluate โดยเรียงลำดับ 7 ขั้น
-            </div>
+          <div class="summary-box">
+            <small>ผลล่าสุด</small>
+            <span id="lastResult">—</span>
+          </div>
+          <div class="summary-box">
+            <small>คะแนนล่าสุด</small>
+            <span id="lastScore">—</span>
+          </div>
+          <div class="summary-box">
+            <small>ดาวล่าสุด</small>
+            <span id="lastStars">—</span>
           </div>
         </div>
 
-        <div class="card" id="progress-card">
-          <h2>ความคืบหน้าล่าสุด</h2>
-
-          <div id="last-status" class="mini-item">
-            <strong>สถานะล่าสุด</strong><br />
-            ยังไม่มีผลการเล่นล่าสุด
-          </div>
-
-          <div class="action-stack" style="margin-top:12px;">
-            <button id="btnResume" class="action-btn full hidden">▶️ เล่นต่อจากจุดล่าสุด</button>
-            <button id="btnReplayFlow" class="action-btn howto">🔁 เริ่ม flow ใหม่ทั้งหมด</button>
-            <button id="btnClearProgress" class="action-btn mini">🧹 ล้าง progress ล่าสุด</button>
-          </div>
+        <div class="tiny" id="latestMeta">
+          ถ้ายังว่างอยู่ แปลว่ายังไม่มี summary ของ Handwash ถูกบันทึกในเบราว์เซอร์นี้
         </div>
+      </div>
+    </section>
 
-        <div class="card" id="records-card">
-          <h2>สถิติและประวัติ</h2>
-
-          <div id="best-status" class="mini-item">
-            <strong>Best Record</strong><br />
-            ยังไม่มีสถิติ
-          </div>
-
-          <div id="history-list" class="mini-list" style="margin-top:12px;">
-            <div class="mini-item">
-              <strong>History</strong><br />
-              ยังไม่มีประวัติการเล่น
-            </div>
-          </div>
-        </div>
+    <section class="card">
+      <h2>ประวัติที่พบในเครื่องนี้</h2>
+      <div id="historyList" class="history-list">
+        <div class="muted-box">ยังไม่พบประวัติของ Handwash</div>
       </div>
     </section>
   </main>
 
-  <script src="./handwash-shared.js"></script>
   <script>
     const qs = new URLSearchParams(location.search);
-    const VIEW_KEY = 'HHA_HANDWASH_LAST_VIEW';
+
+    const STAGES = ['howto', 'main', 'mini-order'];
+    const STAGE_LABEL = {
+      'howto': 'Howto',
+      'main': 'Main Game',
+      'mini-order': 'Mini Order'
+    };
 
     const els = {
       pid: document.getElementById('pid'),
@@ -433,76 +556,59 @@
       miniTime: document.getElementById('miniTime'),
       hub: document.getElementById('hub'),
 
+      btnResume: document.getElementById('btnResume'),
+      btnFull: document.getElementById('btnFull'),
       btnHowto: document.getElementById('btnHowto'),
       btnMain: document.getElementById('btnMain'),
       btnMini: document.getElementById('btnMini'),
-      btnFull: document.getElementById('btnFull'),
-      btnResume: document.getElementById('btnResume'),
-      btnReplayFlow: document.getElementById('btnReplayFlow'),
-      btnClearProgress: document.getElementById('btnClearProgress'),
+      btnClear: document.getElementById('btnClear'),
 
-      lastStatus: document.getElementById('last-status'),
-      bestStatus: document.getElementById('best-status'),
-      historyList: document.getElementById('history-list'),
+      lastStage: document.getElementById('lastStage'),
+      lastResult: document.getElementById('lastResult'),
+      lastScore: document.getElementById('lastScore'),
+      lastStars: document.getElementById('lastStars'),
+      latestMeta: document.getElementById('latestMeta'),
+      resumeStatus: document.getElementById('resumeStatus'),
+      historyList: document.getElementById('historyList'),
 
+      flowHowtoSub: document.getElementById('flowHowtoSub'),
+      flowMainSub: document.getElementById('flowMainSub'),
+      flowMiniSub: document.getElementById('flowMiniSub'),
+      flowHubSub: document.getElementById('flowHubSub'),
+      stageBoxes: [...document.querySelectorAll('[data-stage-box]')],
       modeButtons: [...document.querySelectorAll('[data-view]')]
     };
 
-    function clampInt(value, min, fallback){
-      const n = parseInt(value, 10);
-      if (!Number.isFinite(n)) return fallback;
-      return Math.max(min, n);
-    }
-
-    function getStoredView(){
-      try{
-        return localStorage.getItem(VIEW_KEY) || '';
-      }catch{
-        return '';
-      }
-    }
-
-    function setStoredView(view){
-      try{
-        localStorage.setItem(VIEW_KEY, view);
-      }catch{}
-    }
-
     const defaultHub = qs.get('hub') || new URL('../hub-v2.html', location.href).href;
-
-    let selectedView =
-      qs.get('view') ||
-      getStoredView() ||
-      ((window.HandwashShared && HandwashShared.getLastSummary() && HandwashShared.getLastSummary().view) || 'mobile');
+    let selectedView = qs.get('view') || 'mobile';
 
     els.pid.value = qs.get('pid') || 'anon';
     els.name.value = qs.get('name') || 'Hero';
     els.diff.value = qs.get('diff') || 'normal';
-    els.time.value = String(clampInt(qs.get('time') || '90', 60, 90));
-    els.miniTime.value = String(clampInt(qs.get('miniTime') || '60', 45, 60));
+    els.time.value = qs.get('time') || '90';
+    els.miniTime.value = qs.get('miniTime') || '60';
     els.hub.value = defaultHub;
 
-    function syncModeButtons(){
+    function setActiveView(view){
+      selectedView = view;
       els.modeButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.view === selectedView);
+        btn.classList.toggle('active', btn.dataset.view === view);
       });
     }
 
-    function safeTimeValue(){
-      return clampInt(els.time.value, 60, 90);
-    }
+    setActiveView(selectedView);
 
-    function safeMiniTimeValue(){
-      return clampInt(els.miniTime.value, 45, 60);
-    }
+    els.modeButtons.forEach(btn => {
+      btn.addEventListener('click', () => setActiveView(btn.dataset.view));
+    });
 
     function baseParams(view, gameTimeOverride, extra = {}){
       const params = new URLSearchParams();
-      params.set('pid', (els.pid.value || 'anon').trim() || 'anon');
-      params.set('name', (els.name.value || 'Hero').trim() || 'Hero');
+      params.set('pid', els.pid.value.trim() || 'anon');
+      params.set('name', els.name.value.trim() || 'Hero');
       params.set('diff', els.diff.value || 'normal');
       params.set('time', String(gameTimeOverride));
-      params.set('hub', (els.hub.value || defaultHub).trim() || defaultHub);
+      params.set('hub', els.hub.value.trim() || defaultHub);
       params.set('view', view);
       params.set('run', 'play');
       params.set('zone', 'hygiene');
@@ -510,286 +616,379 @@
       params.set('game', 'handwash');
       params.set('gameId', 'handwash');
       params.set('theme', 'handwash');
+      params.set('seed', String(Date.now()));
 
       Object.entries(extra).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== ''){
-          params.set(k, String(v));
-        }
+        if (v !== undefined && v !== null && v !== '') params.set(k, String(v));
       });
 
       return params;
     }
 
     function buildMiniUrl(view){
-      return `./handwash-mini-order.html?${baseParams(view, safeMiniTimeValue()).toString()}`;
+      return `./handwash-mini-order.html?${baseParams(view, els.miniTime.value).toString()}`;
     }
 
     function buildMainUrl(view){
       const miniUrl = buildMiniUrl(view);
-      const params = baseParams(view, safeTimeValue(), { next: miniUrl });
+      const params = baseParams(view, els.time.value, { next: miniUrl });
       return `./handwash-vr.html?${params.toString()}`;
     }
 
     function buildHowtoUrl(view){
       const mainUrl = buildMainUrl(view);
-      const params = baseParams(view, safeTimeValue(), { next: mainUrl });
+      const params = baseParams(view, els.time.value, { next: mainUrl });
       return `./handwash-howto.html?${params.toString()}`;
     }
 
-    function stageLabel(stage){
-      const map = {
-        launcher: 'Launcher',
-        howto: 'Howto',
-        main: 'Main Game',
-        'mini-order': 'Mini Order'
-      };
-      return map[stage] || stage || '-';
-    }
-
-    function buildStageUrl(stage, view){
-      if (stage === 'howto') return buildHowtoUrl(view);
-      if (stage === 'main') return buildMainUrl(view);
-      if (stage === 'mini-order') return buildMiniUrl(view);
-      return buildHowtoUrl(view);
-    }
-
-    function getResumeTarget(last){
-      if (!last) return null;
-
-      if (last.stage === 'howto' && !last.success) return 'howto';
-      if (last.stage === 'howto' && last.success) return 'main';
-
-      if (last.stage === 'main' && !last.success) return 'main';
-      if (last.stage === 'main' && last.success) return 'mini-order';
-
-      if (last.stage === 'mini-order' && !last.success) return 'mini-order';
-      if (last.stage === 'mini-order' && last.success) return null;
-
-      return 'howto';
-    }
-
-    function markFlow(currentStage, nextStage){
-      if (!window.HandwashShared) return;
-      HandwashShared.saveFlowState({
-        currentStage,
-        nextStage,
-        success: false
-      });
-    }
-
     function openUrl(url){
-      setStoredView(selectedView);
       location.href = url;
     }
 
-    function renderLastStatus(){
-      if (!window.HandwashShared){
-        els.lastStatus.innerHTML = `
-          <strong>สถานะล่าสุด</strong><br />
-          ยังไม่พบ handwash-shared.js
-        `;
-        els.btnResume.classList.add('hidden');
+    function parseJsonSafe(text){
+      try{
+        return JSON.parse(text);
+      }catch{
+        return null;
+      }
+    }
+
+    function looksLikeHandwashEntry(obj, key=''){
+      if (!obj || typeof obj !== 'object') return false;
+
+      const stage = String(obj.stage || '').toLowerCase();
+      const game = String(obj.game || obj.gameId || obj.theme || '').toLowerCase();
+      const notes = String(obj.notes || '').toLowerCase();
+      const k = String(key || '').toLowerCase();
+
+      if (game.includes('handwash')) return true;
+      if (k.includes('handwash')) return true;
+
+      const validStage = STAGES.includes(stage);
+      const hasHandwashHint = notes.includes('handwash');
+
+      return validStage && hasHandwashHint;
+    }
+
+    function normalizeEntry(obj, key=''){
+      if (!looksLikeHandwashEntry(obj, key)) return null;
+
+      const stage = String(obj.stage || '').toLowerCase();
+      const tsRaw = obj.timestamp || obj.updatedAt || obj.createdAt || obj.savedAt || obj.date || Date.now();
+      const timestamp = Number.isFinite(Number(tsRaw)) ? Number(tsRaw) : Date.parse(tsRaw) || Date.now();
+
+      return {
+        stage,
+        success: !!obj.success,
+        score: Number(obj.score || 0),
+        stars: Number(obj.stars || 0),
+        miss: Number(obj.miss || 0),
+        timeLeft: Number(obj.timeLeft || 0),
+        progress: Number(obj.progress || 0),
+        notes: String(obj.notes || ''),
+        timestamp,
+        key
+      };
+    }
+
+    function collectEntriesFromValue(value, key=''){
+      const out = [];
+
+      function walk(node){
+        if (!node) return;
+
+        if (Array.isArray(node)){
+          node.forEach(walk);
+          return;
+        }
+
+        if (typeof node === 'object'){
+          const normalized = normalizeEntry(node, key);
+          if (normalized) out.push(normalized);
+
+          Object.values(node).forEach(child => {
+            if (child && typeof child === 'object') walk(child);
+          });
+        }
+      }
+
+      walk(value);
+      return out;
+    }
+
+    function getEntriesFromHandwashShared(){
+      const api = window.HandwashShared;
+      if (!api) return [];
+
+      const maybeLists = [];
+      if (typeof api.getHistory === 'function') maybeLists.push(api.getHistory());
+      if (typeof api.listSummaries === 'function') maybeLists.push(api.listSummaries());
+      if (typeof api.getSummaries === 'function') maybeLists.push(api.getSummaries());
+
+      const entries = [];
+      maybeLists.forEach(val => {
+        if (!val) return;
+        collectEntriesFromValue(val, 'HandwashShared').forEach(e => entries.push(e));
+      });
+
+      return entries;
+    }
+
+    function getEntriesFromLocalStorage(){
+      const entries = [];
+
+      for (let i = 0; i < localStorage.length; i++){
+        const key = localStorage.key(i);
+        if (!key) continue;
+
+        const keyLower = key.toLowerCase();
+
+        if (
+          !keyLower.includes('handwash') &&
+          key !== 'HHA_LAST_SUMMARY' &&
+          key !== 'HHA_LAST_SUMMARY_GLOBAL'
+        ){
+          continue;
+        }
+
+        const raw = localStorage.getItem(key);
+        const parsed = parseJsonSafe(raw);
+        if (!parsed) continue;
+
+        collectEntriesFromValue(parsed, key).forEach(e => entries.push(e));
+      }
+
+      return entries;
+    }
+
+    function dedupeEntries(entries){
+      const seen = new Set();
+      const out = [];
+
+      entries
+        .sort((a,b) => b.timestamp - a.timestamp)
+        .forEach(entry => {
+          const sig = [
+            entry.stage,
+            entry.timestamp,
+            entry.score,
+            entry.stars,
+            entry.miss,
+            entry.progress,
+            entry.notes
+          ].join('|');
+
+          if (seen.has(sig)) return;
+          seen.add(sig);
+          out.push(entry);
+        });
+
+      return out;
+    }
+
+    function getAllEntries(){
+      const all = [
+        ...getEntriesFromHandwashShared(),
+        ...getEntriesFromLocalStorage()
+      ];
+      return dedupeEntries(all);
+    }
+
+    function latestEntry(entries){
+      return entries.length ? entries[0] : null;
+    }
+
+    function latestSuccessfulByStage(entries, stage){
+      return entries.find(e => e.stage === stage && e.success) || null;
+    }
+
+    function latestAnyByStage(entries, stage){
+      return entries.find(e => e.stage === stage) || null;
+    }
+
+    function formatTime(ts){
+      try{
+        return new Date(ts).toLocaleString('th-TH', {
+          year:'numeric',
+          month:'short',
+          day:'numeric',
+          hour:'2-digit',
+          minute:'2-digit'
+        });
+      }catch{
+        return '—';
+      }
+    }
+
+    function renderLatest(entries){
+      const latest = latestEntry(entries);
+
+      if (!latest){
+        els.lastStage.textContent = '—';
+        els.lastResult.textContent = '—';
+        els.lastScore.textContent = '—';
+        els.lastStars.textContent = '—';
+        els.latestMeta.textContent = 'ถ้ายังว่างอยู่ แปลว่ายังไม่มี summary ของ Handwash ถูกบันทึกในเบราว์เซอร์นี้';
+        els.resumeStatus.textContent = 'ยังไม่พบ progress ของ Handwash';
+        els.resumeStatus.className = 'status-pill muted';
         return;
       }
 
-      const last = HandwashShared.getLastSummary();
-      const flow = HandwashShared.getFlowState();
+      els.lastStage.textContent = STAGE_LABEL[latest.stage] || latest.stage;
+      els.lastResult.textContent = latest.success ? 'ผ่าน' : 'ยังไม่ผ่าน';
+      els.lastScore.textContent = String(latest.score ?? 0);
+      els.lastStars.textContent = latest.stars > 0 ? '⭐'.repeat(latest.stars) : '—';
+      els.latestMeta.textContent = `ล่าสุดเมื่อ ${formatTime(latest.timestamp)} • miss ${latest.miss} • progress ${latest.progress}%`;
 
-      if (!last){
-        els.lastStatus.innerHTML = `
-          <strong>สถานะล่าสุด</strong><br />
-          ยังไม่มีผลการเล่นล่าสุด
-        `;
-        els.btnResume.classList.add('hidden');
-        return;
-      }
-
-      const resultText = last.success ? 'สำเร็จ' : 'ยังไม่สำเร็จ';
-      const nextStage = getResumeTarget(last);
-      const nextStageLabel = nextStage ? stageLabel(nextStage) : 'ครบ flow แล้ว';
-
-      els.lastStatus.innerHTML = `
-        <strong>สถานะล่าสุด</strong><br />
-        Stage ล่าสุด: ${stageLabel(last.stage)}<br />
-        ผลลัพธ์: ${resultText}<br />
-        คะแนน: ${last.score || 0}<br />
-        ดาว: ${'⭐'.repeat(last.stars || 0) || '—'}<br />
-        Miss: ${last.miss || 0}<br />
-        มุมมองล่าสุด: ${last.view || selectedView}<br />
-        เล่นต่อที่: ${nextStageLabel}
-      `;
-
-      if (flow && flow.updatedAt){
-        els.lastStatus.innerHTML += `<br />อัปเดตล่าสุด: ${new Date(flow.updatedAt).toLocaleString('th-TH')}`;
-      }
-
-      if (nextStage){
-        els.btnResume.classList.remove('hidden');
-        els.btnResume.dataset.stage = nextStage;
-        els.btnResume.textContent = `▶️ เล่นต่อที่ ${stageLabel(nextStage)}`;
+      const nextStage = computeResumeStage(entries);
+      if (nextStage === 'done'){
+        els.resumeStatus.textContent = 'ครบทุกด่านแล้ว พร้อมกลับ Hub หรือเริ่มรอบใหม่';
+        els.resumeStatus.className = 'status-pill';
+      } else if (nextStage){
+        els.resumeStatus.textContent = `เล่นต่อได้ที่ ${STAGE_LABEL[nextStage] || nextStage}`;
+        els.resumeStatus.className = 'status-pill warn';
       } else {
-        els.btnResume.classList.add('hidden');
+        els.resumeStatus.textContent = 'ยังไม่พบ progress ของ Handwash';
+        els.resumeStatus.className = 'status-pill muted';
       }
     }
 
-    function computeBestRecord(history){
-      if (!Array.isArray(history) || !history.length) return null;
+    function renderFlow(entries){
+      const howtoDone = !!latestSuccessfulByStage(entries, 'howto');
+      const mainDone = !!latestSuccessfulByStage(entries, 'main');
+      const miniDone = !!latestSuccessfulByStage(entries, 'mini-order');
+      const resumeStage = computeResumeStage(entries);
 
-      const successOnly = history.filter(item => item && item.success);
-      const pool = successOnly.length ? successOnly : history;
+      els.stageBoxes.forEach(box => box.classList.remove('ok', 'now'));
 
-      let best = pool[0];
+      const howtoBox = document.querySelector('[data-stage-box="howto"]');
+      const mainBox = document.querySelector('[data-stage-box="main"]');
+      const miniBox = document.querySelector('[data-stage-box="mini-order"]');
+      const hubBox = document.querySelector('[data-stage-box="hub"]');
 
-      for (const item of pool){
-        if (!item) continue;
+      els.flowHowtoSub.textContent = howtoDone ? 'ผ่านแล้ว' : 'ยังไม่เริ่ม';
+      els.flowMainSub.textContent = mainDone ? 'ผ่านแล้ว' : howtoDone ? 'พร้อมเล่น' : 'รอ Howto';
+      els.flowMiniSub.textContent = miniDone ? 'ผ่านแล้ว' : mainDone ? 'พร้อมเล่น' : 'รอ Main';
+      els.flowHubSub.textContent = miniDone ? 'พร้อมกลับ' : 'ปลายทาง';
 
-        const bestScore = Number(best.score || 0);
-        const itemScore = Number(item.score || 0);
+      if (howtoDone) howtoBox.classList.add('ok');
+      if (mainDone) mainBox.classList.add('ok');
+      if (miniDone) miniBox.classList.add('ok');
+      if (miniDone) hubBox.classList.add('now');
 
-        const bestStars = Number(best.stars || 0);
-        const itemStars = Number(item.stars || 0);
-
-        const bestMiss = Number(best.miss || 999999);
-        const itemMiss = Number(item.miss || 999999);
-
-        const bestTime = Number(best.timeLeft || 0);
-        const itemTime = Number(item.timeLeft || 0);
-
-        if (itemStars > bestStars){
-          best = item;
-          continue;
-        }
-
-        if (itemStars === bestStars && itemScore > bestScore){
-          best = item;
-          continue;
-        }
-
-        if (itemStars === bestStars && itemScore === bestScore && itemMiss < bestMiss){
-          best = item;
-          continue;
-        }
-
-        if (itemStars === bestStars && itemScore === bestScore && itemMiss === bestMiss && itemTime > bestTime){
-          best = item;
-        }
+      if (!miniDone){
+        const currentBox = document.querySelector(`[data-stage-box="${resumeStage || 'howto'}"]`);
+        if (currentBox && !currentBox.classList.contains('ok')) currentBox.classList.add('now');
       }
-
-      return best;
     }
 
-    function renderRecords(){
-      if (!window.HandwashShared){
-        els.bestStatus.innerHTML = `
-          <strong>Best Record</strong><br />
-          ยังไม่พบ handwash-shared.js
-        `;
-        els.historyList.innerHTML = `
-          <div class="mini-item"><strong>History</strong><br />ยังไม่พบ handwash-shared.js</div>
-        `;
+    function renderHistory(entries){
+      if (!entries.length){
+        els.historyList.innerHTML = `<div class="muted-box">ยังไม่พบประวัติของ Handwash</div>`;
         return;
       }
 
-      const history = HandwashShared.getHistory();
-      const best = computeBestRecord(history);
-
-      if (!best){
-        els.bestStatus.innerHTML = `
-          <strong>Best Record</strong><br />
-          ยังไม่มีสถิติ
-        `;
-        els.historyList.innerHTML = `
-          <div class="mini-item"><strong>History</strong><br />ยังไม่มีประวัติการเล่น</div>
-        `;
-        return;
-      }
-
-      els.bestStatus.innerHTML = `
-        <strong>Best Record</strong><br />
-        Stage: ${stageLabel(best.stage)}<br />
-        คะแนน: ${best.score || 0}<br />
-        ดาว: ${'⭐'.repeat(best.stars || 0) || '—'}<br />
-        Miss: ${best.miss || 0}<br />
-        เวลาคงเหลือ: ${best.timeLeft || 0}s
-      `;
-
-      const top3 = history.slice(0, 3);
-
-      els.historyList.innerHTML = top3.map((item, idx) => {
-        const ok = item.success ? 'สำเร็จ' : 'ไม่สำเร็จ';
-        const when = item.finishedAt
-          ? new Date(item.finishedAt).toLocaleString('th-TH')
-          : '-';
+      const rows = entries.slice(0, 8).map(entry => {
+        const tagClass = entry.success ? 'tag' : 'tag fail';
+        const tagText = entry.success ? 'ผ่าน' : 'ยังไม่ผ่าน';
+        const stage = STAGE_LABEL[entry.stage] || entry.stage;
+        const stars = entry.stars > 0 ? '⭐'.repeat(entry.stars) : '—';
 
         return `
-          <div class="mini-item">
-            <strong>รอบ ${idx + 1}</strong><br />
-            Stage: ${stageLabel(item.stage)}<br />
-            ผลลัพธ์: ${ok}<br />
-            คะแนน: ${item.score || 0}<br />
-            ดาว: ${'⭐'.repeat(item.stars || 0) || '—'}<br />
-            เวลา: ${item.timeLeft || 0}s<br />
-            เวลาเล่น: ${when}
+          <div class="history-item">
+            <div class="history-head">
+              <div><strong>${stage}</strong></div>
+              <div class="${tagClass}">${tagText}</div>
+            </div>
+            <div>คะแนน ${entry.score} • ดาว ${stars} • miss ${entry.miss} • progress ${entry.progress}%</div>
+            <div class="tiny">บันทึกเมื่อ ${formatTime(entry.timestamp)}</div>
           </div>
         `;
       }).join('');
+
+      els.historyList.innerHTML = rows;
     }
 
-    els.modeButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        selectedView = btn.dataset.view;
-        syncModeButtons();
-        markFlow('launcher', 'howto');
-        openUrl(buildHowtoUrl(selectedView));
-      });
+    function computeResumeStage(entries){
+      const howtoDone = !!latestSuccessfulByStage(entries, 'howto');
+      const mainDone = !!latestSuccessfulByStage(entries, 'main');
+      const miniDone = !!latestSuccessfulByStage(entries, 'mini-order');
+
+      if (!howtoDone) return 'howto';
+      if (!mainDone) return 'main';
+      if (!miniDone) return 'mini-order';
+      return 'done';
+    }
+
+    function buildResumeUrl(view){
+      const stage = computeResumeStage(getAllEntries());
+
+      if (stage === 'main') return buildMainUrl(view);
+      if (stage === 'mini-order') return buildMiniUrl(view);
+      if (stage === 'done') return els.hub.value.trim() || defaultHub;
+      return buildHowtoUrl(view);
+    }
+
+    function refreshView(){
+      const entries = getAllEntries();
+      renderLatest(entries);
+      renderFlow(entries);
+      renderHistory(entries);
+    }
+
+    function removeDetectedHandwashKeys(){
+      const keysToRemove = [];
+
+      for (let i = 0; i < localStorage.length; i++){
+        const key = localStorage.key(i);
+        if (!key) continue;
+
+        const raw = localStorage.getItem(key);
+        const parsed = parseJsonSafe(raw);
+
+        if (key.toLowerCase().includes('handwash')){
+          keysToRemove.push(key);
+          continue;
+        }
+
+        if ((key === 'HHA_LAST_SUMMARY' || key === 'HHA_LAST_SUMMARY_GLOBAL') && parsed){
+          const entries = collectEntriesFromValue(parsed, key);
+          if (entries.length){
+            keysToRemove.push(key);
+          }
+        }
+      }
+
+      [...new Set(keysToRemove)].forEach(key => localStorage.removeItem(key));
+    }
+
+    els.btnResume.addEventListener('click', () => {
+      openUrl(buildResumeUrl(selectedView));
+    });
+
+    els.btnFull.addEventListener('click', () => {
+      openUrl(buildHowtoUrl(selectedView));
     });
 
     els.btnHowto.addEventListener('click', () => {
-      markFlow('launcher', 'howto');
       openUrl(buildHowtoUrl(selectedView));
     });
 
     els.btnMain.addEventListener('click', () => {
-      markFlow('launcher', 'main');
       openUrl(buildMainUrl(selectedView));
     });
 
     els.btnMini.addEventListener('click', () => {
-      markFlow('launcher', 'mini-order');
       openUrl(buildMiniUrl(selectedView));
     });
 
-    els.btnFull.addEventListener('click', () => {
-      markFlow('launcher', 'howto');
-      openUrl(buildHowtoUrl(selectedView));
+    els.btnClear.addEventListener('click', () => {
+      removeDetectedHandwashKeys();
+      refreshView();
+      alert('ล้าง progress ของ Handwash ในเบราว์เซอร์นี้แล้ว');
     });
 
-    els.btnResume.addEventListener('click', () => {
-      const stage = els.btnResume.dataset.stage || 'howto';
-      const last = window.HandwashShared ? HandwashShared.getLastSummary() : null;
-      const view = (last && last.view) || selectedView || 'mobile';
-      selectedView = view;
-      syncModeButtons();
-      markFlow('launcher', stage);
-      openUrl(buildStageUrl(stage, view));
-    });
-
-    els.btnReplayFlow.addEventListener('click', () => {
-      markFlow('launcher', 'howto');
-      openUrl(buildHowtoUrl(selectedView));
-    });
-
-    els.btnClearProgress.addEventListener('click', () => {
-      if (window.HandwashShared){
-        HandwashShared.clearAll();
-      }
-      renderLastStatus();
-      renderRecords();
-    });
-
-    syncModeButtons();
-    renderLastStatus();
-    renderRecords();
+    refreshView();
   </script>
 </body>
 </html>
