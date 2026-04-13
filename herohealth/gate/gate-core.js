@@ -1,9 +1,9 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260408b-GJ-SOLOBOSS-FLOW-FINAL
+// FULL PATCH v20260413a-GATE-CORE-STABLE-IDS-FINAL
 
 import * as GateGames from './gate-games.js?v=20260408b-GJ-SOLOBOSS-FLOW-FINAL';
 
-const PATCH = 'v20260408b-GJ-SOLOBOSS-FLOW-FINAL';
+const PATCH = 'v20260413a-GATE-CORE-STABLE-IDS-FINAL';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -481,16 +481,45 @@ function phaseTitle(ctx) {
   return ctx.meta?.warmupTitle || `${ctx.meta?.label || 'Game'} Warmup`;
 }
 
+function emitGateUiEvent(root, ctx, refs, reason = 'render') {
+  try {
+    if (!root) return;
+
+    root.dataset.gateReady = '1';
+    root.dataset.gateGame = String(ctx?.game || '');
+    root.dataset.gatePhase = String(ctx?.phase || '');
+
+    root.dispatchEvent(new CustomEvent('gate:ui', {
+      detail: {
+        reason,
+        ctx,
+        refs: {
+          shell: refs?.shell || null,
+          stage: refs?.stage || null,
+          footer: refs?.footer || null,
+          heroTitle: refs?.heroTitle || null,
+          heroSub: refs?.heroSub || null
+        }
+      }
+    }));
+  } catch {}
+}
+
 function renderShell(root, ctx) {
   root.innerHTML = `
-    <div class="gate-shell">
-      <div class="gate-card">
-        <div class="gate-hero">
+    <div
+      class="gate-shell"
+      data-gate-shell="1"
+      data-gate-phase="${esc(ctx.phase)}"
+      data-gate-game="${esc(ctx.game)}"
+    >
+      <div class="gate-card" data-role="gate-card">
+        <div class="gate-hero" data-role="gate-hero">
           <div class="gate-kicker">HeroHealth Gate • ${esc(ctx.phase)}</div>
-          <h1 class="gate-title" id="gateHeroTitle">${esc(phaseTitle(ctx))}</h1>
-          <p class="gate-sub" id="gateHeroSub">หน้าเดียวสำหรับ warmup และ cooldown โดยแยกด้วย <code>?phase=warmup</code> หรือ <code>?gatePhase=warmup</code></p>
+          <h1 class="gate-title" id="gateTitle">${esc(phaseTitle(ctx))}</h1>
+          <p class="gate-sub" id="gateDesc">หน้าเดียวสำหรับ warmup และ cooldown โดยแยกด้วย <code>?phase=warmup</code> หรือ <code>?gatePhase=warmup</code></p>
 
-          <div class="gate-meta">
+          <div class="gate-meta" data-role="gate-meta">
             <div class="gate-chip">game: ${esc(ctx.game || '-')}</div>
             <div class="gate-chip">cat: ${esc(ctx.cat || '-')}</div>
             <div class="gate-chip">pid: ${esc(ctx.pid || '-')}</div>
@@ -498,7 +527,7 @@ function renderShell(root, ctx) {
             <div class="gate-chip">${esc(PATCH)}</div>
           </div>
 
-          <div class="gate-topstats">
+          <div class="gate-topstats" data-role="gate-topstats">
             <div class="gate-topstat">
               <div class="gate-topstat-label">เวลา</div>
               <div class="gate-topstat-value" id="gateStatTime">-</div>
@@ -518,29 +547,39 @@ function renderShell(root, ctx) {
           </div>
         </div>
 
-        <div class="gate-stage">
-          <div class="gate-stage-inner">
-            <div id="gateStage"></div>
+        <div class="gate-stage" data-role="gate-stage-wrap">
+          <div class="gate-stage-inner" id="gateShellInner" data-role="gate-stage-inner">
+            <div id="gateStage" data-role="gate-stage"></div>
           </div>
         </div>
 
-        <div class="gate-footer">
-          <div id="gateFooter"></div>
+        <div class="gate-footer" data-role="gate-footer-wrap">
+          <div id="gateFooter" data-role="gate-footer"></div>
         </div>
       </div>
     </div>
   `;
 
-  return {
+  const refs = {
+    shell: root.querySelector('[data-gate-shell="1"]'),
     stage: root.querySelector('#gateStage'),
     footer: root.querySelector('#gateFooter'),
     statTime: root.querySelector('#gateStatTime'),
     statScore: root.querySelector('#gateStatScore'),
     statMiss: root.querySelector('#gateStatMiss'),
     statAcc: root.querySelector('#gateStatAcc'),
-    heroTitle: root.querySelector('#gateHeroTitle'),
-    heroSub: root.querySelector('#gateHeroSub')
+    heroTitle: root.querySelector('#gateTitle'),
+    heroSub: root.querySelector('#gateDesc')
   };
+
+  if (refs.footer) {
+    refs.footer.__gateRoot = root;
+    refs.footer.__gateCtx = ctx;
+    refs.footer.__gateRefs = refs;
+  }
+
+  emitGateUiEvent(root, ctx, refs, 'render-shell');
+  return refs;
 }
 
 function applyStats(refs, stats = {}) {
@@ -554,10 +593,18 @@ function applyStats(refs, stats = {}) {
 
 function setHeroTitle(refs, text = '') {
   if (refs?.heroTitle) refs.heroTitle.textContent = String(text || '');
+
+  const root = refs?.footer?.__gateRoot || null;
+  const ctx = refs?.footer?.__gateCtx || null;
+  emitGateUiEvent(root, ctx, refs, 'set-title');
 }
 
 function setHeroSub(refs, text = '') {
   if (refs?.heroSub) refs.heroSub.textContent = String(text || '');
+
+  const root = refs?.footer?.__gateRoot || null;
+  const ctx = refs?.footer?.__gateCtx || null;
+  emitGateUiEvent(root, ctx, refs, 'set-sub');
 }
 
 function linesHtml(lines = []) {
@@ -595,17 +642,41 @@ function setActions(container, items = []) {
 
   const wrap = document.createElement('div');
   wrap.className = 'gate-actions';
+  wrap.id = 'gateActions';
+  wrap.dataset.role = 'actions';
 
-  items.forEach(item => {
+  items.forEach((item, index) => {
     const btn = document.createElement('button');
-    btn.className = `gate-btn ${item.primary ? 'gate-btn-primary' : 'gate-btn-ghost'}`;
     btn.type = 'button';
+
+    const isPrimary = !!item.primary;
+    btn.className = `gate-btn ${isPrimary ? 'gate-btn-primary btn-primary' : 'gate-btn-ghost btn-secondary'}`;
+
+    if (index === 0) btn.id = 'gatePrimaryBtn';
+    else if (index === 1) btn.id = 'gateSecondaryBtn';
+    else btn.id = `gateActionBtn${index + 1}`;
+
+    let role = item.role || '';
+    if (!role) {
+      if (isPrimary) role = 'continue';
+      else if (index === 1 || (index === 0 && items.length === 1)) role = 'back';
+      else role = 'action';
+    }
+
+    btn.dataset.role = role;
+    btn.dataset.actionKey = item.actionKey || role;
     btn.textContent = item.label || 'ตกลง';
     btn.addEventListener('click', item.onClick);
+
     wrap.appendChild(btn);
   });
 
   container.appendChild(wrap);
+
+  const gateRoot = container.__gateRoot || null;
+  const gateCtx = container.__gateCtx || null;
+  const gateRefs = container.__gateRefs || null;
+  emitGateUiEvent(gateRoot, gateCtx, gateRefs, 'set-actions');
 }
 
 function toast(message = '') {
@@ -1078,10 +1149,12 @@ async function bootPhase(stage, ctx, api) {
     console.error('[gate-core] phase runner failed:', err);
     renderError(stage, 'Phase runner failed', err);
     setActions(api.footer, [
-      { label: 'กลับ HUB', onClick: () => goHub(ctx) },
+      { label: 'กลับ HUB', role: 'back', actionKey: 'hub', onClick: () => goHub(ctx) },
       {
         label: ctx.phase === 'cooldown' ? 'ไปต่อ' : 'เข้าเกมหลัก',
         primary: true,
+        role: 'continue',
+        actionKey: 'error-skip',
         onClick: () => api.complete({ source: 'error-skip' })
       }
     ]);
@@ -1100,8 +1173,19 @@ function showAlreadyDone(stage, footer, ctx) {
       );
 
       setActions(footer, [
-        { label: 'กลับ Launcher', primary: true, onClick: () => { location.href = launcherHref; } },
-        { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
+        {
+          label: 'กลับ Launcher',
+          primary: true,
+          role: 'continue',
+          actionKey: 'launcher',
+          onClick: () => { location.href = launcherHref; }
+        },
+        {
+          label: 'กลับหน้าหลัก',
+          role: 'back',
+          actionKey: 'hub',
+          onClick: () => goHub(ctx)
+        }
       ]);
 
       setTimeout(() => {
@@ -1117,7 +1201,13 @@ function showAlreadyDone(stage, footer, ctx) {
     );
 
     setActions(footer, [
-      { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
+      {
+        label: 'กลับหน้าหลัก',
+        primary: true,
+        role: 'continue',
+        actionKey: 'hub',
+        onClick: () => goHub(ctx)
+      }
     ]);
 
     setTimeout(() => {
@@ -1137,12 +1227,19 @@ function showAlreadyDone(stage, footer, ctx) {
       {
         label: 'เข้าเกมหลัก',
         primary: true,
+        role: 'continue',
+        actionKey: 'run',
         onClick: () => {
           if (trySpecialGateRedirect(ctx, 'warmup', { source: 'already-done' })) return;
           goRun(ctx);
         }
       },
-      { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+      {
+        label: 'กลับ HUB',
+        role: 'back',
+        actionKey: 'hub',
+        onClick: () => goHub(ctx)
+      }
     ]);
 
     setTimeout(() => {
@@ -1159,8 +1256,19 @@ function showAlreadyDone(stage, footer, ctx) {
   );
 
   setActions(footer, [
-    { label: 'เข้าเกมหลัก', primary: true, onClick: () => goRun(ctx) },
-    { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+    {
+      label: 'เข้าเกมหลัก',
+      primary: true,
+      role: 'continue',
+      actionKey: 'run',
+      onClick: () => goRun(ctx)
+    },
+    {
+      label: 'กลับ HUB',
+      role: 'back',
+      actionKey: 'hub',
+      onClick: () => goHub(ctx)
+    }
   ]);
 
   setTimeout(() => {
@@ -1176,7 +1284,13 @@ function showInvalidGame(stage, footer, ctx) {
   );
 
   setActions(footer, [
-    { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) }
+    {
+      label: 'กลับ HUB',
+      primary: true,
+      role: 'continue',
+      actionKey: 'hub',
+      onClick: () => goHub(ctx)
+    }
   ]);
 }
 
@@ -1192,6 +1306,10 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
   const refs = renderShell(root, ctx);
   const { stage, footer } = refs;
+
+  root.__gateCtx = ctx;
+  root.__gateRefs = refs;
+  root.__gateApi = null;
 
   applyStats(refs, {
     time: ctx.phase === 'cooldown' ? 0 : (ctx.time || '-'),
@@ -1268,12 +1386,19 @@ export async function bootGate(root = document.getElementById('gate-app')) {
           {
             label: 'เข้าเกมหลัก',
             primary: true,
+            role: 'continue',
+            actionKey: 'run',
             onClick: () => {
               if (trySpecialGateRedirect(ctx, 'warmup', payload)) return;
               goRun(ctx);
             }
           },
-          { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+          {
+            label: 'กลับ HUB',
+            role: 'back',
+            actionKey: 'hub',
+            onClick: () => goHub(ctx)
+          }
         ]);
 
         await delay(180);
@@ -1322,15 +1447,32 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
       if (completionTarget.href && completionTarget.kind === 'hub') {
         setActions(footer, [
-          { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
+          {
+            label: 'กลับหน้าหลัก',
+            primary: true,
+            role: 'continue',
+            actionKey: 'hub',
+            onClick: () => goHub(ctx)
+          }
         ]);
         return;
       }
 
       if (completionTarget.href) {
         setActions(footer, [
-          { label: completionTarget.label || 'ไปต่อ', primary: true, onClick: () => goCompletion(ctx, payload) },
-          { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
+          {
+            label: completionTarget.label || 'ไปต่อ',
+            primary: true,
+            role: 'continue',
+            actionKey: completionTarget.kind || 'next',
+            onClick: () => goCompletion(ctx, payload)
+          },
+          {
+            label: 'กลับหน้าหลัก',
+            role: 'back',
+            actionKey: 'hub',
+            onClick: () => goHub(ctx)
+          }
         ]);
         return;
       }
@@ -1338,14 +1480,31 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       const launcherHref = resolveLauncherHref(ctx);
       if (launcherHref) {
         setActions(footer, [
-          { label: 'กลับ Launcher', primary: true, onClick: () => { location.href = launcherHref; } },
-          { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
+          {
+            label: 'กลับ Launcher',
+            primary: true,
+            role: 'continue',
+            actionKey: 'launcher',
+            onClick: () => { location.href = launcherHref; }
+          },
+          {
+            label: 'กลับหน้าหลัก',
+            role: 'back',
+            actionKey: 'hub',
+            onClick: () => goHub(ctx)
+          }
         ]);
         return;
       }
 
       setActions(footer, [
-        { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
+        {
+          label: 'กลับหน้าหลัก',
+          primary: true,
+          role: 'continue',
+          actionKey: 'hub',
+          onClick: () => goHub(ctx)
+        }
       ]);
 
       return;
@@ -1361,10 +1520,17 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       console.error('[gate-core] fail:', err);
       renderError(stage, 'Gate fail', err);
       setActions(footer, [
-        { label: 'กลับ HUB', onClick: () => goHub(ctx) },
+        {
+          label: 'กลับ HUB',
+          role: 'back',
+          actionKey: 'hub',
+          onClick: () => goHub(ctx)
+        },
         {
           label: ctx.phase === 'cooldown' ? 'ไปต่อ' : 'เข้าเกมหลัก',
           primary: true,
+          role: 'continue',
+          actionKey: 'fail-skip',
           onClick: () => api.complete({ source: 'fail-skip' })
         }
       ]);
@@ -1382,6 +1548,9 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       return goCompletion(ctx, payload);
     }
   };
+
+  root.__gateApi = api;
+  emitGateUiEvent(root, ctx, refs, 'api-ready');
 
   const alreadyDone = !shouldForceGate(ctx) && getDailyDone(ctx, ctx.phase);
   if (alreadyDone) {
