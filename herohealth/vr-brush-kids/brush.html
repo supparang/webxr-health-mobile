@@ -3,29 +3,46 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Brush Kids</title>
-  <meta name="theme-color" content="#8fdcff" />
+  <title>Brush V5 • Mouth Rescue Adventure</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#8bdcff" />
   <style>
     :root{
-      --sky1:#ecfbff;
-      --sky2:#d3f2ff;
-      --sky3:#fff7de;
-      --ink:#25506a;
-      --muted:#64839a;
-      --line:#d9eef8;
-      --card:rgba(255,255,255,.92);
-      --card2:rgba(255,255,255,.96);
-      --blue:#67cfff;
-      --blue2:#35b6f3;
-      --pink:#ffc8e0;
-      --pink2:#ff9ec8;
-      --yellow:#ffe47f;
-      --green:#7be19c;
-      --green2:#56cd7d;
-      --red:#ff8c8c;
-      --shadow:0 14px 34px rgba(43,103,138,.14);
-      --shadow-strong:0 22px 56px rgba(32,88,125,.18);
-      --radius:28px;
+      --bg1:#e9fbff;
+      --bg2:#dff4ff;
+      --bg3:#fff8de;
+
+      --card:#ffffff;
+      --card2:#f8fdff;
+      --line:#d7eef8;
+      --line-strong:#bfe4f5;
+
+      --ink:#23404d;
+      --muted:#5f7f8f;
+
+      --blue:#72d7ff;
+      --blue2:#48bff3;
+      --pink:#ffb8d9;
+      --pink2:#ff95c7;
+      --mint:#bff7da;
+      --mint2:#8eecc0;
+      --yellow:#ffe07f;
+      --yellow2:#ffc85c;
+      --danger:#ff8fa1;
+      --danger2:#ff667e;
+
+      --shadow:0 12px 30px rgba(71,156,197,.16);
+      --shadow-soft:0 8px 20px rgba(71,156,197,.10);
+
+      --top-h:84px;
+      --bottom-h:110px;
+      --left-w:170px;
+      --radius:24px;
+
+      --safe-top:env(safe-area-inset-top, 0px);
+      --safe-right:env(safe-area-inset-right, 0px);
+      --safe-bottom:env(safe-area-inset-bottom, 0px);
+      --safe-left:env(safe-area-inset-left, 0px);
     }
 
     *{ box-sizing:border-box; }
@@ -33,850 +50,771 @@
     html,body{
       margin:0;
       min-height:100%;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Kanit,sans-serif;
-      color:var(--ink);
       background:
-        radial-gradient(circle at top center, rgba(255,255,255,.98) 0%, rgba(255,255,255,.92) 18%, rgba(226,247,255,.94) 50%, rgba(177,228,252,.98) 100%);
+        radial-gradient(circle at top left, #ffffff 0%, var(--bg1) 34%, var(--bg2) 72%, #d7f3ff 100%);
+      color:var(--ink);
+      font-family:ui-rounded, "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+      overflow:hidden;
     }
 
-    body{
-      padding:clamp(12px,2vw,20px);
+    button, input{
+      font:inherit;
     }
 
-    .shell{
-      width:min(1200px,100%);
-      margin:0 auto;
-      display:grid;
-      gap:14px;
+    #brushApp{
+      position:relative;
+      min-height:100dvh;
+      overflow:hidden;
     }
 
-    .card{
-      background:var(--card);
-      border:3px solid rgba(255,255,255,.95);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
-      -webkit-backdrop-filter:blur(10px);
+    #sceneStage{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 58%, rgba(255,255,255,.95) 0 12%, rgba(255,213,224,.92) 12% 26%, rgba(255,171,196,.88) 26% 39%, rgba(255,133,171,.84) 39% 55%, rgba(255,225,232,.58) 55% 70%, transparent 70%),
+        radial-gradient(circle at 50% 40%, rgba(255,255,255,.80), transparent 36%),
+        linear-gradient(180deg, #ffd7e8 0%, #ffc7dd 48%, #ffbad3 100%);
     }
 
-    .hero{
-      padding:18px;
-      display:grid;
-      grid-template-columns:1.2fr .8fr;
-      gap:14px;
-      align-items:stretch;
+    .mouth-glow,
+    .mouth-floor,
+    .mouth-teeth,
+    .mouth-tongue,
+    .mouth-targets{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      pointer-events:none;
     }
 
-    .eyebrow{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#eefaff;
-      border:2px solid #dff3fb;
-      color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-      letter-spacing:.05em;
-      text-transform:uppercase;
+    .mouth-glow{
+      top:8%;
+      width:min(82vw, 900px);
+      height:min(62vw, 620px);
+      border-radius:50%;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.95) 0 16%, rgba(255,198,214,.95) 16% 30%, rgba(255,127,167,.55) 30% 58%, transparent 58%);
+      filter:blur(6px);
+      opacity:.95;
     }
 
-    h1{
-      margin:10px 0 6px;
-      font-size:clamp(34px,5vw,56px);
-      line-height:.95;
+    .mouth-floor{
+      bottom:10%;
+      width:min(84vw, 940px);
+      height:min(55vw, 520px);
+      border-radius:50%;
+      background:
+        radial-gradient(circle at 50% 36%, rgba(255,255,255,.92) 0 10%, rgba(255,190,211,.95) 10% 28%, rgba(255,134,173,.92) 28% 62%, rgba(255,86,141,.86) 62% 100%);
+      box-shadow:
+        inset 0 -24px 40px rgba(172,22,76,.16),
+        inset 0 22px 30px rgba(255,255,255,.26);
     }
 
-    .hero p{
-      margin:0;
-      color:var(--muted);
-      font-size:18px;
-      line-height:1.35;
-      font-weight:800;
+    .mouth-tongue{
+      bottom:13%;
+      width:min(50vw, 520px);
+      height:min(20vw, 180px);
+      border-radius:48% 48% 56% 56%;
+      background:
+        radial-gradient(circle at 50% 35%, rgba(255,182,203,.95) 0 18%, rgba(255,120,165,.95) 18% 72%, rgba(239,79,134,.95) 72% 100%);
+      box-shadow:inset 0 10px 12px rgba(255,255,255,.28);
     }
 
-    .chip-row{
-      margin-top:14px;
+    .mouth-teeth{
+      top:18%;
+      width:min(76vw, 820px);
+      height:min(52vw, 520px);
+    }
+
+    .jaw{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      width:100%;
       display:flex;
-      flex-wrap:wrap;
-      gap:8px;
+      justify-content:center;
+      gap:10px;
+      pointer-events:none;
     }
 
-    .chip{
-      padding:8px 12px;
-      border-radius:999px;
-      background:#eefaff;
-      border:2px solid #dff3fb;
-      font-size:14px;
+    .jaw.upper{ top:0; }
+    .jaw.lower{ bottom:0; }
+
+    .tooth{
+      width:min(7vw, 62px);
+      height:min(10vw, 86px);
+      border-radius:18px 18px 22px 22px;
+      background:
+        linear-gradient(180deg, #ffffff 0%, #f9fdff 52%, #edf9ff 100%);
+      border:2px solid rgba(222,240,248,.98);
+      box-shadow:
+        0 8px 18px rgba(80,146,178,.14),
+        inset 0 10px 10px rgba(255,255,255,.95);
+    }
+
+    .jaw.upper .tooth:nth-child(1),
+    .jaw.upper .tooth:nth-child(6),
+    .jaw.lower .tooth:nth-child(1),
+    .jaw.lower .tooth:nth-child(6){
+      transform:translateY(14px) scale(.94);
+    }
+
+    .jaw.upper .tooth:nth-child(2),
+    .jaw.upper .tooth:nth-child(5),
+    .jaw.lower .tooth:nth-child(2),
+    .jaw.lower .tooth:nth-child(5){
+      transform:translateY(6px) scale(.98);
+    }
+
+    .mouth-targets{
+      top:16%;
+      width:min(78vw, 860px);
+      height:min(54vw, 560px);
+      pointer-events:none;
+    }
+
+    .zone-ring{
+      position:absolute;
+      width:84px;
+      height:84px;
+      border-radius:50%;
+      border:4px dashed rgba(255,255,255,.96);
+      background:radial-gradient(circle, rgba(255,255,255,.18), rgba(114,215,255,.18));
+      box-shadow:0 0 0 8px rgba(114,215,255,.12);
+      animation:floatPulse 1.9s ease-in-out infinite;
+    }
+
+    .zone-ring.z1{ top:18%; left:13%; }
+    .zone-ring.z2{ top:9%; left:45%; }
+    .zone-ring.z3{ top:18%; right:13%; }
+    .zone-ring.z4{ bottom:19%; left:13%; }
+    .zone-ring.z5{ bottom:8%; left:45%; }
+    .zone-ring.z6{ bottom:19%; right:13%; }
+
+    @keyframes floatPulse{
+      0%,100%{ transform:scale(1); opacity:.90; }
+      50%{ transform:scale(1.08); opacity:1; }
+    }
+
+    #topHud,
+    #leftHud,
+    #bottomHud,
+    #coachLayer{
+      position:fixed;
+      z-index:10;
+    }
+
+    #topHud{
+      top:calc(12px + var(--safe-top));
+      left:calc(12px + var(--safe-left));
+      right:calc(12px + var(--safe-right));
+      display:grid;
+      grid-template-columns:repeat(5, minmax(0, 1fr));
+      gap:10px;
+      align-items:start;
+      pointer-events:none;
+    }
+
+    .hud-chip{
+      min-height:72px;
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,252,255,.95));
+      border:2px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:8px 10px;
+    }
+
+    .hud-chip strong{
+      display:block;
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:4px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .hud-chip span{
+      display:block;
+      font-size:22px;
       font-weight:900;
       color:var(--ink);
+      line-height:1.05;
     }
 
-    .hero-actions{
+    #leftHud{
+      top:calc(108px + var(--safe-top));
+      left:calc(12px + var(--safe-left));
+      width:min(160px, 32vw);
       display:grid;
-      gap:12px;
-      align-content:start;
-    }
-
-    .mode-row,
-    .action-row{
-      display:flex;
-      flex-wrap:wrap;
       gap:10px;
     }
 
-    .btn{
+    .zone-btn{
       appearance:none;
       border:none;
-      outline:none;
-      cursor:pointer;
-      border-radius:22px;
-      padding:12px 16px;
-      min-height:50px;
-      font:inherit;
-      font-weight:900;
-      font-size:16px;
-      color:var(--ink);
-      background:linear-gradient(180deg,#ffffff,#f4fbff);
-      border:3px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      transition:transform .15s ease, filter .15s ease;
-    }
-
-    .btn:hover{ transform:translateY(-1px); }
-    .btn:active{ transform:scale(.98); }
-
-    .btn.is-active{
-      background:linear-gradient(180deg,#8fe5ff,#59cafb);
-      color:#083b53;
-    }
-
-    .btn-start{
-      background:linear-gradient(180deg,#8fe5ff,#59cafb);
-      color:#083b53;
-    }
-
-    .btn-help{
-      background:linear-gradient(180deg,#fff1b9,#ffe47f);
-      color:#6a5200;
-    }
-
-    .btn-pause{
-      background:linear-gradient(180deg,#ffd7e6,#ffbdd7);
-      color:#6a264a;
-    }
-
-    .hud{
-      padding:14px;
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:12px;
-    }
-
-    .metric{
-      padding:14px;
-      min-height:100px;
-      display:grid;
-      align-content:center;
-      gap:8px;
-      text-align:center;
-    }
-
-    .metric-label{
-      font-size:13px;
-      line-height:1;
-      color:var(--muted);
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-    }
-
-    .metric-value{
-      font-size:30px;
-      line-height:1;
-      font-weight:900;
-      color:var(--ink);
-    }
-
-    .goal-card{
-      grid-column:1 / -1;
-      padding:14px;
-      display:grid;
-      gap:10px;
-    }
-
-    .goal-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .goal-title{
-      font-size:18px;
-      font-weight:900;
-      color:var(--ink);
-    }
-
-    .goal-sub{
-      color:var(--muted);
-      font-weight:800;
-      font-size:14px;
-    }
-
-    .goal-track,
-    .pattern-track,
-    .zone-track{
-      width:100%;
-      height:16px;
-      background:linear-gradient(180deg,#ddf4fc,#caeaf7);
-      border-radius:999px;
-      overflow:hidden;
-      border:3px solid rgba(255,255,255,.95);
-      box-shadow:inset 0 2px 7px rgba(37,80,106,.08);
-    }
-
-    .goal-fill,
-    .pattern-fill,
-    .zone-fill{
-      width:0%;
-      height:100%;
-      border-radius:999px;
-      transition:width .2s ease;
-      background:linear-gradient(90deg,#7ce19d,#75e9ff,#ffe47f);
-      box-shadow:0 0 14px rgba(117,233,255,.28);
-    }
-
-    .status-strip{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .status-pill{
-      background:#f5fcff;
-      border:2px solid #e2f4fb;
       border-radius:20px;
+      min-height:58px;
       padding:10px 12px;
-      display:grid;
-      gap:4px;
+      text-align:left;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(246,252,255,.96));
+      border:2px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-soft);
+      color:var(--ink);
+      font-weight:900;
+      cursor:pointer;
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
     }
 
-    .status-pill span:first-child{
+    .zone-btn:hover,
+    .zone-btn:active{
+      transform:translateY(-1px) scale(1.01);
+      box-shadow:var(--shadow);
+    }
+
+    .zone-btn[data-state="idle"]{
+      border-color:#e2f2fb;
+    }
+
+    .zone-btn[data-state="active"]{
+      border-color:#84dfff;
+      background:linear-gradient(180deg,#f5fdff,#e8f9ff);
+    }
+
+    .zone-btn[data-state="done"]{
+      border-color:#b2efcf;
+      background:linear-gradient(180deg,#f7fff9,#e9fff0);
+    }
+
+    #bottomHud{
+      left:calc(12px + var(--safe-left));
+      right:calc(12px + var(--safe-right));
+      bottom:calc(12px + var(--safe-bottom));
+      display:grid;
+      grid-template-columns:1.25fr 1fr 1fr;
+      gap:10px;
+      align-items:end;
+      pointer-events:none;
+    }
+
+    .bottom-card{
+      min-height:92px;
+      border-radius:24px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,252,255,.96));
+      border:2px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      padding:12px 14px;
+      display:grid;
+      gap:6px;
+    }
+
+    .bottom-card strong{
       font-size:12px;
       color:var(--muted);
-      font-weight:900;
       text-transform:uppercase;
+      letter-spacing:.04em;
     }
 
-    .status-pill span:last-child{
-      font-size:18px;
-      color:var(--ink);
-      font-weight:900;
-      line-height:1.1;
-    }
-
-    .play-grid{
-      display:grid;
-      grid-template-columns:.95fr 1.05fr;
-      gap:14px;
-      align-items:stretch;
-    }
-
-    .map-card,
-    .brush-card{
-      padding:16px;
-      display:grid;
-      gap:12px;
-      min-height:480px;
-    }
-
-    .section-title{
-      font-size:22px;
-      line-height:1;
+    .bottom-card .big{
+      font-size:24px;
       font-weight:900;
       color:var(--ink);
-    }
-
-    .section-sub{
-      font-size:14px;
-      color:var(--muted);
-      font-weight:800;
-    }
-
-    .mouth-map{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:12px;
-      align-content:start;
-    }
-
-    .tooth-zone{
-      appearance:none;
-      border:none;
-      outline:none;
-      cursor:pointer;
-      position:relative;
-      min-height:118px;
-      border-radius:24px;
-      padding:12px;
-      background:linear-gradient(180deg,#ffffff,#f5fbff);
-      border:3px solid rgba(255,255,255,.98);
-      box-shadow:var(--shadow);
-      text-align:left;
-      color:var(--ink);
-      display:grid;
-      gap:8px;
-      transition:transform .16s ease, box-shadow .16s ease;
-    }
-
-    .tooth-zone:hover{ transform:translateY(-1px); }
-    .tooth-zone:active{ transform:scale(.985); }
-
-    .zone-top{
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-      align-items:start;
-    }
-
-    .zone-name{
-      font-size:18px;
       line-height:1.05;
-      font-weight:900;
     }
 
-    .zone-percent{
-      font-size:16px;
-      font-weight:900;
-      color:var(--muted);
-      white-space:nowrap;
-    }
-
-    .zone-helper{
-      font-size:13px;
-      color:var(--muted);
-      font-weight:800;
-      line-height:1.2;
-    }
-
-    .brush-card-top{
-      display:grid;
-      gap:10px;
-    }
-
-    .pattern-badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#eefaff;
-      border:2px solid #dff3fb;
+    .bottom-card .sub{
       font-size:14px;
-      font-weight:900;
-      color:var(--ink);
-      width:max-content;
-      max-width:100%;
-    }
-
-    .pattern-hint{
       color:var(--muted);
-      font-size:15px;
       font-weight:800;
       line-height:1.25;
     }
 
-    .pattern-row{
+    #coachLayer{
+      right:calc(12px + var(--safe-right));
+      top:calc(104px + var(--safe-top));
+      width:min(320px, 42vw);
       display:grid;
-      gap:8px;
-    }
-
-    .pattern-progress-text{
-      color:var(--muted);
-      font-size:14px;
-      font-weight:900;
-    }
-
-    .brush-pad{
-      position:relative;
-      min-height:340px;
-      border-radius:28px;
-      background:
-        radial-gradient(circle at center, rgba(255,255,255,.72) 0%, rgba(255,255,255,.52) 18%, rgba(211,242,255,.55) 58%, rgba(177,228,252,.66) 100%);
-      border:3px solid rgba(255,255,255,.98);
-      box-shadow:inset 0 0 0 2px rgba(223,243,251,.7), var(--shadow);
-      overflow:hidden;
-      touch-action:none;
-    }
-
-    .brush-pad::before{
-      content:"";
-      position:absolute;
-      inset:14px;
-      border-radius:24px;
-      border:2px dashed rgba(101,177,214,.4);
+      gap:10px;
       pointer-events:none;
     }
 
-    .brush-pad-guide{
-      position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
-      text-align:center;
-      padding:20px;
-      pointer-events:none;
-    }
-
-    .brush-pad-guide-box{
-      max-width:360px;
-      background:rgba(255,255,255,.82);
+    .coach-card{
+      min-height:120px;
+      border-radius:26px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,253,255,.96));
       border:2px solid rgba(255,255,255,.96);
-      border-radius:22px;
-      padding:16px 18px;
       box-shadow:var(--shadow);
-    }
-
-    .brush-pad-guide-title{
-      font-size:20px;
-      font-weight:900;
-      color:var(--ink);
-      margin-bottom:6px;
-    }
-
-    .brush-pad-guide-text{
-      font-size:15px;
-      color:var(--muted);
-      font-weight:800;
-      line-height:1.3;
-    }
-
-    .brush-cursor{
-      position:absolute;
-      left:50%;
-      top:50%;
-      width:58px;
-      height:58px;
-      border-radius:999px;
-      transform:translate(-50%,-50%);
-      border:4px solid rgba(53,182,243,.9);
-      box-shadow:0 0 0 8px rgba(53,182,243,.15);
-      background:rgba(255,255,255,.42);
-      pointer-events:none;
-      z-index:4;
-      transition:opacity .18s ease;
-    }
-
-    .coach{
-      padding:14px 16px;
+      padding:14px;
       display:grid;
-      grid-template-columns:auto 1fr;
+      grid-template-columns:68px 1fr;
       gap:12px;
       align-items:center;
     }
 
     .coach-face{
-      width:58px;
-      height:58px;
-      border-radius:18px;
+      width:68px;
+      height:68px;
+      border-radius:22px;
       display:grid;
       place-items:center;
-      background:linear-gradient(180deg,#fff3ba,#ffe17a);
-      font-size:30px;
-      box-shadow:inset 0 2px 0 rgba(255,255,255,.75);
-    }
-
-    .coach-title{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-      margin-bottom:4px;
+      font-size:34px;
+      background:linear-gradient(180deg,#dff7ff,#c7efff);
+      border:2px solid #b9e7fa;
+      box-shadow:inset 0 8px 12px rgba(255,255,255,.62);
     }
 
     .coach-line{
-      font-size:22px;
-      line-height:1.1;
+      font-size:18px;
+      line-height:1.3;
       font-weight:900;
       color:var(--ink);
+    }
+
+    .action-bar{
+      position:fixed;
+      z-index:12;
+      left:50%;
+      transform:translateX(-50%);
+      top:calc(98px + var(--safe-top));
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      min-height:52px;
+      padding:12px 18px;
+      font-weight:900;
+      color:var(--ink);
+      background:linear-gradient(180deg,#ffffff,#f1fbff);
+      border:2px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-soft);
+      cursor:pointer;
+      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
+    }
+
+    .btn:hover,
+    .btn:active{
+      transform:translateY(-1px) scale(1.01);
+      box-shadow:var(--shadow);
+      filter:saturate(1.05);
+    }
+
+    .btn-start{
+      background:linear-gradient(180deg,#bff7da,#8fecc0);
+      color:#1d5a40;
+    }
+
+    .btn-pause{
+      background:linear-gradient(180deg,#fff0c7,#ffe08e);
+      color:#6a5200;
+    }
+
+    .btn-back{
+      background:linear-gradient(180deg,#efe6ff,#dbc9ff);
+      color:#4a2d7a;
+    }
+
+    .helper-card{
+      position:fixed;
+      z-index:10;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:calc(124px + var(--safe-bottom));
+      width:min(440px, calc(100vw - 28px));
+      min-height:56px;
+      padding:12px 16px;
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,252,255,.96));
+      border:2px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      font-size:15px;
+      font-weight:900;
+      color:var(--muted);
+      pointer-events:none;
     }
 
     .modal{
       position:fixed;
       inset:0;
-      background:rgba(24,54,73,.34);
+      z-index:40;
+      background:rgba(30, 65, 84, .26);
       backdrop-filter:blur(8px);
-      -webkit-backdrop-filter:blur(8px);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      z-index:100;
+      display:grid;
+      place-items:center;
+      padding:16px;
     }
 
-    .modal.is-open{ display:flex; }
-
     .modal-card{
-      width:min(900px,100%);
-      max-height:min(88vh,900px);
+      width:min(760px, 100%);
+      max-height:min(92dvh, 920px);
       overflow:auto;
-      background:var(--card2);
-      border:3px solid rgba(255,255,255,.98);
-      border-radius:32px;
-      box-shadow:var(--shadow-strong);
-      padding:20px;
+      border-radius:28px;
+      padding:18px;
+      background:linear-gradient(180deg,#ffffff,#f8fdff);
+      border:2px solid rgba(255,255,255,.96);
+      box-shadow:0 24px 54px rgba(50,122,154,.22);
       display:grid;
-      gap:16px;
+      gap:14px;
     }
 
     .summary-grid{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:12px;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:10px;
     }
 
     .summary-box{
-      padding:14px;
-      border-radius:24px;
-      background:linear-gradient(180deg,#fff,#f6fcff);
-      border:3px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      text-align:center;
+      min-height:104px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#fff,#f7fcff);
+      border:2px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-soft);
       display:grid;
-      gap:8px;
+      place-items:center;
+      text-align:center;
+      padding:10px;
+    }
+
+    .metric-label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      margin-bottom:6px;
     }
 
     .summary-box b{
-      font-size:28px;
+      font-size:30px;
       line-height:1;
       color:var(--ink);
     }
 
-    .summary-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      justify-content:center;
+    .summary-title{
+      font-size:28px;
+      font-weight:1000;
+      text-align:center;
+      color:var(--ink);
     }
 
-    .help-list{
-      margin:0;
-      padding-left:18px;
-      display:grid;
-      gap:8px;
+    .summary-sub{
+      font-size:15px;
+      text-align:center;
       color:var(--muted);
       font-weight:800;
-      font-size:16px;
       line-height:1.35;
     }
 
-    [hidden]{ display:none !important; }
+    .summary-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
 
     @media (max-width: 960px){
-      .hero,
-      .play-grid{
+      #topHud{
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+      }
+
+      #leftHud{
+        width:min(150px, 36vw);
+      }
+
+      #bottomHud{
         grid-template-columns:1fr;
       }
 
-      .hud{
-        grid-template-columns:repeat(2,minmax(0,1fr));
+      #coachLayer{
+        width:min(300px, 52vw);
       }
 
       .summary-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
+        grid-template-columns:repeat(2, minmax(0, 1fr));
       }
     }
 
-    @media (max-width: 680px){
-      body{ padding:10px; }
-
-      .hud,
-      .status-strip,
-      .summary-grid{
-        grid-template-columns:1fr;
+    @media (max-width: 720px){
+      :root{
+        --top-h:72px;
       }
 
-      .mouth-map{
-        grid-template-columns:repeat(2,minmax(0,1fr));
+      #topHud{
+        top:calc(8px + var(--safe-top));
+        left:calc(8px + var(--safe-left));
+        right:calc(8px + var(--safe-right));
+        gap:8px;
+      }
+
+      .hud-chip{
+        min-height:64px;
+      }
+
+      .hud-chip span{
+        font-size:19px;
+      }
+
+      .action-bar{
+        top:auto;
+        bottom:calc(196px + var(--safe-bottom));
+        width:calc(100vw - 16px);
+      }
+
+      #leftHud{
+        top:auto;
+        left:calc(8px + var(--safe-left));
+        right:calc(8px + var(--safe-right));
+        bottom:calc(292px + var(--safe-bottom));
+        width:auto;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+      }
+
+      .zone-btn{
+        min-height:52px;
+        font-size:14px;
+      }
+
+      #coachLayer{
+        top:auto;
+        right:calc(8px + var(--safe-right));
+        left:calc(8px + var(--safe-left));
+        width:auto;
+        bottom:calc(126px + var(--safe-bottom));
+      }
+
+      .coach-card{
+        min-height:92px;
+        grid-template-columns:54px 1fr;
+        padding:12px;
+      }
+
+      .coach-face{
+        width:54px;
+        height:54px;
+        font-size:28px;
       }
 
       .coach-line{
-        font-size:18px;
-      }
-
-      .metric-value{
-        font-size:26px;
-      }
-
-      .section-title{
-        font-size:20px;
-      }
-
-      .zone-name{
-        font-size:17px;
-      }
-
-      .hero p{
         font-size:16px;
       }
 
-      .btn{
-        width:100%;
-        justify-content:center;
+      .helper-card{
+        bottom:calc(112px + var(--safe-bottom));
+        width:calc(100vw - 16px);
+        font-size:14px;
       }
 
-      .mode-row,
-      .action-row,
-      .summary-actions{
-        display:grid;
-        grid-template-columns:1fr;
+      .summary-grid{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .mouth-glow{
+        top:15%;
+        width:min(92vw, 640px);
+        height:min(72vw, 420px);
+      }
+
+      .mouth-floor{
+        bottom:16%;
+        width:min(94vw, 700px);
+        height:min(64vw, 360px);
+      }
+
+      .mouth-tongue{
+        bottom:18%;
+        width:min(62vw, 380px);
+        height:min(22vw, 120px);
+      }
+
+      .mouth-teeth,
+      .mouth-targets{
+        width:min(90vw, 700px);
+        height:min(62vw, 420px);
+      }
+
+      .zone-ring{
+        width:66px;
+        height:66px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <section class="card hero">
-      <div>
-        <div class="eyebrow">🦷 HeroHealth • Hygiene Zone</div>
-        <h1>Brush Kids</h1>
-        <p>
-          เลือกโซนฟัน แล้วแปรงตามลายที่โค้ชบอก<br />
-          ทำทีละส่วนให้ครบ เพื่อให้ฟันสะอาดทั่วทั้งปาก
-        </p>
-        <div class="chip-row">
-          <div class="chip">Learn / Challenge</div>
-          <div class="chip">PC / Mobile / cVR-lite</div>
-          <div class="chip">Child-friendly</div>
-          <div class="chip">Summary + Cooldown + HUB</div>
+  <div id="brushApp">
+    <div id="sceneStage" aria-hidden="true">
+      <div class="mouth-glow"></div>
+      <div class="mouth-floor"></div>
+      <div class="mouth-tongue"></div>
+
+      <div class="mouth-teeth">
+        <div class="jaw upper">
+          <div class="tooth"></div>
+          <div class="tooth"></div>
+          <div class="tooth"></div>
+          <div class="tooth"></div>
+          <div class="tooth"></div>
+          <div class="tooth"></div>
+        </div>
+        <div class="jaw lower">
+          <div class="tooth"></div>
+          <div class="tooth"></div>
+          <div class="tooth"></div>
+          <div class="tooth"></div>
+          <div class="tooth"></div>
+          <div class="tooth"></div>
         </div>
       </div>
 
-      <div class="hero-actions">
-        <div class="mode-row">
-          <button id="btnLearn" class="btn" type="button">โหมดเรียนรู้</button>
-          <button id="btnChallenge" class="btn" type="button">โหมดท้าทาย</button>
-        </div>
-        <div class="action-row">
-          <button id="btnStart" class="btn btn-start" type="button">เริ่มเกม</button>
-          <button id="btnPause" class="btn btn-pause" type="button">พักเกม</button>
-          <button id="btnHelp" class="btn btn-help" type="button">วิธีเล่น</button>
-        </div>
+      <div class="mouth-targets">
+        <div class="zone-ring z1"></div>
+        <div class="zone-ring z2"></div>
+        <div class="zone-ring z3"></div>
+        <div class="zone-ring z4"></div>
+        <div class="zone-ring z5"></div>
+        <div class="zone-ring z6"></div>
       </div>
-    </section>
+    </div>
 
-    <section class="card hud">
-      <div class="card metric">
-        <div class="metric-label">เวลา</div>
-        <div id="timeText" class="metric-value">02:00</div>
-      </div>
-
-      <div class="card metric">
-        <div class="metric-label">สะอาดรวม</div>
-        <div id="coverageText" class="metric-value">0%</div>
-      </div>
-
-      <div class="card metric">
-        <div class="metric-label">คอมโบสูงสุด</div>
-        <div id="comboText" class="metric-value">0</div>
-      </div>
-
-      <div class="card metric">
-        <div class="metric-label">ช่วงเกม</div>
-        <div id="phaseText" class="metric-value">เตรียมพร้อม</div>
-      </div>
-
-      <div class="card goal-card">
-        <div class="goal-head">
-          <div>
-            <div class="goal-title">ภารกิจหลัก</div>
-            <div id="goalMiniText" class="goal-sub">แปรงให้ครบทุกโซน</div>
-          </div>
-          <div id="miniMissionText" class="goal-sub">เริ่มได้เลย</div>
-        </div>
-
-        <div class="goal-track">
-          <div id="goalFill" class="goal-fill"></div>
-        </div>
-
-        <div class="status-strip">
-          <div class="status-pill">
-            <span>โซนที่เสร็จ</span>
-            <span id="zonesDoneText">0 / 6</span>
-          </div>
-          <div class="status-pill">
-            <span>โซนปัจจุบัน</span>
-            <span id="activeZoneText">ยังไม่ได้เลือก</span>
-          </div>
-          <div class="status-pill">
-            <span>ความเร็ว</span>
-            <span id="speedText">ปกติ</span>
-          </div>
-          <div class="status-pill">
-            <span>เตือน</span>
-            <span id="warnText">0</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="play-grid">
-      <section class="card map-card">
+    <div id="topHud">
+      <div class="hud-chip">
         <div>
-          <div class="section-title">แผนที่ฟัน</div>
-          <div class="section-sub">แตะเลือกโซน หรือให้เกมแนะนำอัตโนมัติในโหมดเรียนรู้</div>
+          <strong>Time</strong>
+          <span id="timeText">90s</span>
         </div>
-
-        <div class="mouth-map">
-          <button class="tooth-zone" type="button" data-zone="upper-left">
-            <div class="zone-top">
-              <span class="zone-name">บนซ้าย</span>
-              <span class="zone-percent">0%</span>
-            </div>
-            <div class="zone-track"><div class="zone-fill"></div></div>
-            <div class="zone-helper">แปรงซ้าย ↔ ขวา</div>
-          </button>
-
-          <button class="tooth-zone" type="button" data-zone="upper-front">
-            <div class="zone-top">
-              <span class="zone-name">บนหน้า</span>
-              <span class="zone-percent">0%</span>
-            </div>
-            <div class="zone-track"><div class="zone-fill"></div></div>
-            <div class="zone-helper">วนเป็นวงกลม</div>
-          </button>
-
-          <button class="tooth-zone" type="button" data-zone="upper-right">
-            <div class="zone-top">
-              <span class="zone-name">บนขวา</span>
-              <span class="zone-percent">0%</span>
-            </div>
-            <div class="zone-track"><div class="zone-fill"></div></div>
-            <div class="zone-helper">แปรงซ้าย ↔ ขวา</div>
-          </button>
-
-          <button class="tooth-zone" type="button" data-zone="lower-left">
-            <div class="zone-top">
-              <span class="zone-name">ล่างซ้าย</span>
-              <span class="zone-percent">0%</span>
-            </div>
-            <div class="zone-track"><div class="zone-fill"></div></div>
-            <div class="zone-helper">แปรงขึ้น ↕ ลง</div>
-          </button>
-
-          <button class="tooth-zone" type="button" data-zone="lower-front">
-            <div class="zone-top">
-              <span class="zone-name">ล่างหน้า</span>
-              <span class="zone-percent">0%</span>
-            </div>
-            <div class="zone-track"><div class="zone-fill"></div></div>
-            <div class="zone-helper">วนเป็นวงกลม</div>
-          </button>
-
-          <button class="tooth-zone" type="button" data-zone="lower-right">
-            <div class="zone-top">
-              <span class="zone-name">ล่างขวา</span>
-              <span class="zone-percent">0%</span>
-            </div>
-            <div class="zone-track"><div class="zone-fill"></div></div>
-            <div class="zone-helper">แปรงขึ้น ↕ ลง</div>
-          </button>
-        </div>
-      </section>
-
-      <section class="card brush-card">
-        <div class="brush-card-top">
-          <div class="section-title">พื้นที่แปรงฟัน</div>
-          <div class="section-sub">ลาก/ปัดในพื้นที่นี้ หรือใช้กลางจอในโหมด cVR-lite</div>
-
-          <div id="patternBadge" class="pattern-badge">เลือกโซนก่อน</div>
-          <div id="patternHint" class="pattern-hint">เลือกโซนก่อน แล้วถูตามลายที่บอก</div>
-
-          <div class="pattern-row">
-            <div class="pattern-track">
-              <div id="patternProgressFill" class="pattern-fill"></div>
-            </div>
-            <div id="patternProgressText" class="pattern-progress-text">0 / 2 รอบ</div>
-          </div>
-        </div>
-
-        <div id="brushPad" class="brush-pad" aria-label="พื้นที่สำหรับแปรงฟัน">
-          <div class="brush-pad-guide">
-            <div class="brush-pad-guide-box">
-              <div class="brush-pad-guide-title">เริ่มตรงนี้</div>
-              <div class="brush-pad-guide-text">
-                เลือกโซนฟันด้านซ้ายก่อน แล้วปัดแปรงในกรอบนี้ตามลายที่โค้ชบอก
-              </div>
-            </div>
-          </div>
-          <div id="brushCursor" class="brush-cursor"></div>
-        </div>
-      </section>
-    </section>
-
-    <section class="card coach">
-      <div id="coachFace" class="coach-face">🦷</div>
-      <div>
-        <div class="coach-title">Hero Coach</div>
-        <div id="coachLine" class="coach-line">เริ่มแปรงให้ทั่วทุกโซนกันเลย!</div>
       </div>
-    </section>
-  </div>
+      <div class="hud-chip">
+        <div>
+          <strong>Score</strong>
+          <span id="scoreText">0</span>
+        </div>
+      </div>
+      <div class="hud-chip">
+        <div>
+          <strong>Combo</strong>
+          <span id="comboText">0</span>
+        </div>
+      </div>
+      <div class="hud-chip">
+        <div>
+          <strong>Threat</strong>
+          <span id="threatText">0%</span>
+        </div>
+      </div>
+      <div class="hud-chip">
+        <div>
+          <strong>Scene</strong>
+          <span id="sceneText">launcher</span>
+        </div>
+      </div>
+    </div>
 
-  <div id="helpModal" class="modal" hidden>
-    <div class="modal-card">
-      <div class="section-title">วิธีเล่น Brush Kids</div>
-      <ul class="help-list">
-        <li>เลือกโซนฟันทางซ้ายก่อน แล้วค่อยเริ่มแปรง</li>
-        <li>ทำตามลายที่บอก เช่น ซ้าย-ขวา, ขึ้น-ลง หรือวนเป็นวงกลม</li>
-        <li>โหมดเรียนรู้จะช่วยเลือกโซนถัดไปให้เอง</li>
-        <li>โหมดท้าทายต้องบริหารเวลาและเก็บทุกโซนให้ครบ</li>
-        <li>โหมด cVR-lite ใช้กลางจอและปุ่มยิง/แตะเพื่อแปรง</li>
-      </ul>
-      <div class="summary-actions">
-        <button id="btnCloseHelp" class="btn btn-start" type="button">เข้าใจแล้ว</button>
+    <div class="action-bar">
+      <button id="btnStart" class="btn btn-start" type="button">▶ Start</button>
+      <button id="btnPause" class="btn btn-pause" type="button">⏸ Pause</button>
+      <button id="btnBackHub" class="btn btn-back" type="button">↩ Back Hub</button>
+    </div>
+
+    <div id="leftHud">
+      <button class="zone-btn" data-zone="upper-left" data-state="idle" type="button">บนซ้าย 0%</button>
+      <button class="zone-btn" data-zone="upper-front" data-state="idle" type="button">บนหน้า 0%</button>
+      <button class="zone-btn" data-zone="upper-right" data-state="idle" type="button">บนขวา 0%</button>
+      <button class="zone-btn" data-zone="lower-left" data-state="idle" type="button">ล่างซ้าย 0%</button>
+      <button class="zone-btn" data-zone="lower-front" data-state="idle" type="button">ล่างหน้า 0%</button>
+      <button class="zone-btn" data-zone="lower-right" data-state="idle" type="button">ล่างขวา 0%</button>
+    </div>
+
+    <div id="coachLayer">
+      <div class="coach-card">
+        <div class="coach-face" id="coachFace">🪥</div>
+        <div class="coach-line" id="coachLine">พร้อมช่วยฟันแล้ว กดเริ่มได้เลย</div>
+      </div>
+    </div>
+
+    <div class="helper-card">
+      ปุ่มลัดทดสอบ: <strong>Space</strong> = hit, <strong>Q/W/E/A/S/D</strong> = เลือกโซน
+    </div>
+
+    <div id="bottomHud">
+      <div class="bottom-card">
+        <strong>Mission</strong>
+        <div class="big" id="objectiveText">เตรียมภารกิจกู้ฟัน</div>
+        <div class="sub">Scan → Clean → Boss Break → Boss → Summary</div>
+      </div>
+
+      <div class="bottom-card">
+        <strong>Scan</strong>
+        <div class="big" id="scanTimerText"></div>
+        <div class="sub" id="scanFoundText"></div>
+      </div>
+
+      <div class="bottom-card">
+        <strong>Boss Break</strong>
+        <div class="big" id="bossBreakTimerText"></div>
+        <div class="sub">
+          Shield: <span id="bossShieldText"></span>
+          &nbsp;•&nbsp;
+          Hits: <span id="bossBreakCountText"></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="summaryModal" class="modal" hidden>
+      <div class="modal-card">
+        <div class="summary-title">Brush V5 Summary</div>
+        <div class="summary-sub">สรุปผลรอบนี้หลังช่วยทั้งปากเสร็จ</div>
+
+        <div class="summary-grid">
+          <div class="summary-box">
+            <div>
+              <span class="metric-label">Rank</span>
+              <b id="summaryRank">-</b>
+            </div>
+          </div>
+          <div class="summary-box">
+            <div>
+              <span class="metric-label">Score</span>
+              <b id="summaryScore">0</b>
+            </div>
+          </div>
+          <div class="summary-box">
+            <div>
+              <span class="metric-label">Coverage</span>
+              <b id="summaryCoverage">0%</b>
+            </div>
+          </div>
+          <div class="summary-box">
+            <div>
+              <span class="metric-label">Accuracy</span>
+              <b id="summaryAccuracy">0%</b>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom-card" style="min-height:120px;">
+          <strong>Coach Advice</strong>
+          <div class="sub" id="summaryAdvice">ลองเล่นอีกรอบเพื่อดูความต่างของผลลัพธ์</div>
+        </div>
+
+        <div class="summary-actions">
+          <button id="btnReplay" class="btn btn-start" type="button">🔁 Replay</button>
+          <button id="btnBackHubSummary" class="btn btn-back" type="button" onclick="location.href=(new URLSearchParams(location.search).get('hub')||'../hub.html')">↩ Back Hub</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <div id="summaryModal" class="modal" hidden>
-    <div class="modal-card">
-      <div class="section-title" id="summaryTitle">สรุปผลการแปรง</div>
-      <div class="chip-row">
-        <div class="chip">อันดับ: <span id="summaryRank">-</span></div>
-        <div class="chip">เวลาใช้: <span id="summaryTime">00:00</span></div>
-      </div>
-
-      <div class="summary-grid">
-        <div class="summary-box">
-          <span class="metric-label">สะอาดรวม</span>
-          <b id="summaryCoverage">0%</b>
-        </div>
-        <div class="summary-box">
-          <span class="metric-label">โซนที่เสร็จ</span>
-          <b id="summaryZones">0 / 6</b>
-        </div>
-        <div class="summary-box">
-          <span class="metric-label">คำเตือน</span>
-          <b id="summaryWarn">0</b>
-        </div>
-        <div class="summary-box">
-          <span class="metric-label">คำแนะนำ</span>
-          <b id="summaryAdvice">เริ่มได้ดีแล้ว</b>
-        </div>
-      </div>
-
-      <div class="summary-actions">
-        <button id="btnReplay" class="btn btn-start" type="button">เล่นอีกครั้ง</button>
-        <button id="btnBackHub" class="btn" type="button">กลับ HUB</button>
-      </div>
-    </div>
-  </div>
-
-  <script type="module" src="./brush.js?v=20260412a-hh-brush-kids-main"></script>
+  <script type="module" src="./brush.js"></script>
 </body>
 </html>
