@@ -9,7 +9,7 @@
 
   <style>
     :root{
-      --bg:rgba(8,20,36,.86);
+      --bg:rgba(7,18,34,.86);
       --panel:rgba(255,255,255,.10);
       --line:#63e6ff;
       --ink:#ffffff;
@@ -50,7 +50,7 @@
       top:10px;
       left:50%;
       transform:translateX(-50%);
-      width:min(94%,700px);
+      width:min(94%,680px);
       background:var(--bg);
       color:#fff;
       padding:14px 14px 12px;
@@ -62,7 +62,7 @@
     }
 
     #ui-layer.compact{
-      width:min(94%,470px);
+      width:min(94%,460px);
       padding:10px 12px;
     }
 
@@ -86,11 +86,12 @@
       font-size:1rem;
       font-weight:900;
       color:#baf4ff;
+      letter-spacing:.01em;
     }
 
     .title-sub{
       margin-top:4px;
-      font-size:1.18rem;
+      font-size:1.2rem;
       line-height:1.15;
       font-weight:900;
       color:#fff;
@@ -202,18 +203,18 @@
       position:absolute;
       left:10px;
       right:10px;
-      bottom:10px;
+      bottom:4px;
       margin:auto;
       width:auto;
       max-width:760px;
-      background:rgba(255,255,255,.92);
+      background:rgba(255,255,255,.90);
       color:#0f172a;
-      border-radius:16px;
-      padding:10px 12px;
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
+      border-radius:14px;
+      padding:7px 10px;
+      box-shadow:0 8px 18px rgba(0,0,0,.14);
       font-weight:800;
-      font-size:.92rem;
-      line-height:1.3;
+      font-size:.82rem;
+      line-height:1.25;
       pointer-events:none;
     }
 
@@ -416,9 +417,9 @@
       #coach{
         left:8px;
         right:8px;
-        bottom:8px;
-        padding:9px 11px;
-        font-size:.84rem;
+        bottom:2px;
+        padding:7px 9px;
+        font-size:.76rem;
       }
 
       .card{
@@ -438,13 +439,14 @@
     <div id="ui-layer">
       <div class="top-row">
         <div class="title-wrap">
-          <div class="title-main">Handwash Mini Order</div>
+          <div class="title-main">Mini Order</div>
           <div class="title-sub" id="step-name">เรียงลำดับ 7 ขั้นให้ถูกต้อง</div>
         </div>
 
         <div class="chips">
           <div class="chip" id="order-chip">ลำดับ 1/7</div>
           <div class="chip" id="score-chip">คะแนน 0</div>
+          <div class="chip" id="combo-chip">Combo 0</div>
           <div class="chip" id="time-chip">60s</div>
         </div>
       </div>
@@ -452,9 +454,9 @@
       <div id="guide-panel">
         <div id="guide-icon" class="guide-image">🧩</div>
         <div id="guide-copy">
-          <div id="step-count">Bloom: Analyze / Evaluate</div>
-          <div id="step-desc">เลือกการ์ดที่เป็น “ขั้นตอนถัดไปที่ถูกต้อง” จากการ์ดที่สลับลำดับอยู่บนกระดาน</div>
-          <div id="action-prompt">เล็งการ์ดที่ถูก แล้วแตะจอ</div>
+          <div id="step-count">Review Game</div>
+          <div id="step-desc">เลือกการ์ดของขั้นตอนถัดไปให้ถูกต้อง เรียงจาก 1 ถึง 7</div>
+          <div id="action-prompt">เริ่มที่ “ฝ่ามือถูฝ่ามือ” ก่อน</div>
         </div>
       </div>
 
@@ -469,7 +471,7 @@
       </div>
     </div>
 
-    <div id="coach">หาการ์ดของขั้นตอนที่ 1 แล้วแตะ ระบบจะช่วยจับการ์ดที่ใกล้กลางจอที่สุด</div>
+    <div id="coach">เล็งการ์ดขั้นตอนถัดไป แล้วแตะจอเพื่อเลือก</div>
   </div>
 
   <div id="controls">
@@ -480,15 +482,15 @@
 
   <div class="overlay" id="start-overlay">
     <div class="card">
-      <div class="badge">🧼 Handwash Mini Game</div>
-      <h1>เรียงลำดับ 7 ขั้นการล้างมือ</h1>
-      <p>เกมนี้ใช้ทบทวนหลังเล่น main game เด็กต้องเลือก “ขั้นตอนถัดไปที่ถูกต้อง” ให้ครบทั้ง 7 ขั้น</p>
+      <div class="badge">🧠 Handwash Mini Order</div>
+      <h1>เรียงลำดับ 7 ขั้น WHO</h1>
+      <p>มินิเกมนี้ใช้สำหรับทบทวนว่า 7 ขั้นการถูมือควรเรียงอย่างไร เลือกการ์ดจากขั้นแรกไปขั้นสุดท้ายให้ครบ</p>
 
       <div class="tips">
-        <div class="tip">🎯 เล็งกากบาทกลางจอไปที่การ์ด</div>
+        <div class="tip">🎯 เล็งการ์ดด้วยวงกลมฟ้ากลางจอ</div>
         <div class="tip">👆 แตะจอ / คลิก / กด Space หรือ Enter เพื่อเลือก</div>
-        <div class="tip">🧠 เลือกทีละใบจากลำดับที่ 1 ไปจนถึง 7</div>
-        <div class="tip">✨ ถ้าเล็งใกล้การ์ดพอ ระบบจะช่วยจับให้</div>
+        <div class="tip">✅ เลือกถูกจะได้ combo และคะแนนเพิ่ม</div>
+        <div class="tip">⚠️ เลือกผิดจะเสียเวลาและ combo รีเซ็ต</div>
       </div>
 
       <div class="actions">
@@ -520,6 +522,14 @@
           <small>ดาว</small>
           <div class="stars" id="sum-stars">⭐</div>
         </div>
+        <div class="summary-box">
+          <small>Best Combo</small>
+          <span id="sum-combo">0</span>
+        </div>
+        <div class="summary-box">
+          <small>Badge</small>
+          <span id="sum-badges">—</span>
+        </div>
       </div>
 
       <div class="actions">
@@ -533,16 +543,14 @@
     <a-entity light="type: ambient; intensity: 1.12; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.9; color: #fff8e0" position="1 3 2"></a-entity>
 
-    <a-sky color="#08213a"></a-sky>
+    <a-entity id="board-root" position="0 1.02 -1.70" rotation="-8 0 0">
+      <a-plane width="2.40" height="1.82" color="#0b1c30" material="opacity:0.98"></a-plane>
+      <a-plane width="2.22" height="1.66" color="#0f2741" position="0 0 0.001" material="opacity:0.98"></a-plane>
 
-    <a-entity id="board-root" position="0 1.02 -1.7" rotation="-18 0 0">
-      <a-plane width="2.25" height="1.75" color="#0b1c30" material="opacity:0.98"></a-plane>
-      <a-plane width="2.08" height="1.58" color="#0f2741" position="0 0 0.001" material="opacity:0.98"></a-plane>
+      <a-text value="Mini Order" color="#ffffff" width="2.8" align="center" position="0 0.82 0.02"></a-text>
+      <a-text value="เรียงให้ถูกจากขั้นที่ 1 ถึง 7" color="#baf4ff" width="2.0" align="center" position="0 0.68 0.02"></a-text>
 
-      <a-text value="เรียงลำดับ 7 ขั้นการล้างมือ" color="#ffffff" width="2.6" align="center" position="0 0.76 0.02"></a-text>
-      <a-text value="เลือกการ์ดที่เป็นขั้นตอนถัดไป" color="#a5e9ff" width="2.1" align="center" position="0 0.62 0.02"></a-text>
-
-      <a-entity id="slot-layer"></a-entity>
+      <a-entity id="slot-row" position="0 0.48 0.03"></a-entity>
       <a-entity id="card-layer"></a-entity>
       <a-entity id="fx-layer"></a-entity>
     </a-entity>
@@ -562,44 +570,38 @@
     </a-entity>
   </a-scene>
 
+  <script src="./handwash-shared.js"></script>
   <script>
-    const qs = (k, d='') => {
+    const qsParam = (k, d='') => {
       try { return new URL(location.href).searchParams.get(k) ?? d; }
       catch { return d; }
     };
 
-    const HUB_URL = qs('hub', '');
-    const PID = qs('pid', 'anon');
-    const START_TIME = Math.max(45, parseInt(qs('time', '60'), 10) || 60);
+    const START_TIME = Math.max(45, parseInt(qsParam('time', '60'), 10) || 60);
+    const HUB_URL = qsParam('hub', '');
 
     const STEPS = [
-      { id:'palms',       icon:'👐', title:'ฝ่ามือถูฝ่ามือ',        short:'ฝ่ามือ' },
-      { id:'backs',       icon:'🖐️', title:'ฝ่ามือถูหลังมือ',       short:'หลังมือ' },
-      { id:'between',     icon:'🤝', title:'ถูซอกนิ้ว',             short:'ซอกนิ้ว' },
-      { id:'backfingers', icon:'👊', title:'หลังนิ้วถูฝ่ามือ',      short:'หลังนิ้ว' },
-      { id:'thumbs',      icon:'👍', title:'ถูนิ้วหัวแม่มือ',       short:'นิ้วโป้ง' },
-      { id:'fingertips',  icon:'💅', title:'ถูปลายนิ้วบนฝ่ามือ',    short:'ปลายนิ้ว' },
-      { id:'wrists',      icon:'⌚', title:'ถูรอบข้อมือ',           short:'ข้อมือ' }
+      { id:'palms', order:1, icon:'👐', label:'ฝ่ามือถูฝ่ามือ', short:'ฝ่ามือ' },
+      { id:'backs', order:2, icon:'🖐️', label:'ฝ่ามือถูหลังมือ', short:'หลังมือ' },
+      { id:'between', order:3, icon:'🤝', label:'ถูซอกนิ้ว', short:'ซอกนิ้ว' },
+      { id:'backfingers', order:4, icon:'👊', label:'หลังนิ้วถูฝ่ามือ', short:'หลังนิ้ว' },
+      { id:'thumbs', order:5, icon:'👍', label:'ถูนิ้วหัวแม่มือ', short:'หัวแม่มือ' },
+      { id:'fingertips', order:6, icon:'💅', label:'ถูปลายนิ้วบนฝ่ามือ', short:'ปลายนิ้ว' },
+      { id:'wrists', order:7, icon:'⌚', label:'ถูรอบข้อมือ', short:'ข้อมือ' }
     ];
 
     const CARD_POSITIONS = [
-      {x:-0.62, y: 0.22, z:0.02},
-      {x: 0.00, y: 0.22, z:0.02},
-      {x: 0.62, y: 0.22, z:0.02},
-      {x:-0.62, y:-0.10, z:0.02},
-      {x: 0.00, y:-0.10, z:0.02},
-      {x: 0.62, y:-0.10, z:0.02},
-      {x: 0.00, y:-0.42, z:0.02}
+      {x:-0.72, y:0.10, z:0.03},
+      {x:-0.24, y:0.10, z:0.03},
+      {x: 0.24, y:0.10, z:0.03},
+      {x: 0.72, y:0.10, z:0.03},
+      {x:-0.48, y:-0.48, z:0.03},
+      {x: 0.00, y:-0.48, z:0.03},
+      {x: 0.48, y:-0.48, z:0.03}
     ];
 
     const SLOT_POSITIONS = [
-      {x:-0.84, y:0.48, z:0.02},
-      {x:-0.56, y:0.48, z:0.02},
-      {x:-0.28, y:0.48, z:0.02},
-      {x: 0.00, y:0.48, z:0.02},
-      {x: 0.28, y:0.48, z:0.02},
-      {x: 0.56, y:0.48, z:0.02},
-      {x: 0.84, y:0.48, z:0.02}
+      -0.72, -0.48, -0.24, 0.00, 0.24, 0.48, 0.72
     ];
 
     const state = {
@@ -614,21 +616,28 @@
       bestStreak:0,
       lastActionAt:0,
       lastTs:0,
-      hudCompact:false
+      hudCompact:false,
+
+      combo: 0,
+      bestCombo: 0,
+      idleTimer: 0,
+      badges: []
     };
 
     const ui = {
       layer:document.getElementById('ui-layer'),
-      stepName:document.getElementById('step-name'),
       stepCount:document.getElementById('step-count'),
+      stepName:document.getElementById('step-name'),
       stepDesc:document.getElementById('step-desc'),
       guideIcon:document.getElementById('guide-icon'),
       prompt:document.getElementById('action-prompt'),
       fill:document.getElementById('fill'),
       progressText:document.getElementById('progress-text'),
       coach:document.getElementById('coach'),
+
       orderChip:document.getElementById('order-chip'),
       scoreChip:document.getElementById('score-chip'),
+      comboChip:document.getElementById('combo-chip'),
       timeChip:document.getElementById('time-chip'),
 
       startOverlay:document.getElementById('start-overlay'),
@@ -640,6 +649,8 @@
       sumTime:document.getElementById('sum-time'),
       sumMiss:document.getElementById('sum-miss'),
       sumStars:document.getElementById('sum-stars'),
+      sumCombo:document.getElementById('sum-combo'),
+      sumBadges:document.getElementById('sum-badges'),
 
       startBtn:document.getElementById('start-btn'),
       restartBtn:document.getElementById('restart-btn'),
@@ -654,23 +665,22 @@
     const cam = document.getElementById('cam');
     const cursor = document.getElementById('cursor');
     const cardLayer = document.getElementById('card-layer');
-    const slotLayer = document.getElementById('slot-layer');
+    const slotRow = document.getElementById('slot-row');
     const fxLayer = document.getElementById('fx-layer');
 
-    const slotEntities = [];
     const _proj = new THREE.Vector3();
 
-    function setBtnText(){
-      ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
-      if (HUB_URL) ui.hubBtn.classList.remove('hidden');
-    }
-
     function clamp(v,min,max){
-      return Math.max(min,Math.min(max,v));
+      return Math.max(min, Math.min(max, v));
     }
 
     function isMobileLike(){
       return window.matchMedia('(max-width: 680px)').matches;
+    }
+
+    function setBtnText(){
+      ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
+      if (HUB_URL) ui.hubBtn.classList.remove('hidden');
     }
 
     function setCoach(text){
@@ -683,23 +693,88 @@
       ui.hudToggleBtn.textContent = state.hudCompact ? 'SHOW HUD' : 'HIDE HUD';
     }
 
-    function shuffle(arr){
-      const a = arr.slice();
-      for(let i=a.length-1;i>0;i--){
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
-    }
-
     function progressPercent(){
       return Math.round((state.nextIndex / STEPS.length) * 100);
     }
 
     function accuracyPercent(){
-      const total = state.nextIndex + state.miss;
-      if (total <= 0) return 100;
-      return Math.round((state.nextIndex / total) * 100);
+      const totalAttempts = STEPS.length + state.miss;
+      if (totalAttempts <= 0) return 100;
+      return Math.round((STEPS.length / totalAttempts) * 100);
+    }
+
+    function rewardPick(baseScore = 10){
+      state.combo += 1;
+      state.bestCombo = Math.max(state.bestCombo, state.combo);
+      state.streak += 1;
+      state.bestStreak = Math.max(state.bestStreak, state.streak);
+
+      const comboBonus = Math.min(20, state.combo * 2);
+      state.score += baseScore + comboBonus;
+      state.idleTimer = 0;
+
+      if (state.combo >= 3 && state.combo < 6){
+        setCoach('GOOD! จำลำดับได้ดี');
+      } else if (state.combo >= 6 && state.combo < 10){
+        setCoach('GREAT! เรียงได้ต่อเนื่องมาก');
+      } else if (state.combo >= 10){
+        setCoach('ORDER MASTER! เก่งมาก');
+      }
+    }
+
+    function punishPick(){
+      state.miss += 1;
+      state.streak = 0;
+      state.combo = 0;
+      state.score = Math.max(0, state.score - 2);
+      state.timeLeft = Math.max(0, state.timeLeft - 1.2);
+    }
+
+    function computeMiniBadges(success){
+      const badges = [];
+      if (!success) return badges;
+
+      if (state.miss === 0) badges.push('No Miss Hero');
+      if (state.bestCombo >= 5) badges.push('Combo Thinker');
+      if (state.bestCombo >= 7) badges.push('Order Master');
+      if (state.timeLeft >= START_TIME * 0.35) badges.push('Fast Recall');
+      if (accuracyPercent() >= 85) badges.push('Sharp Memory');
+      return badges;
+    }
+
+    function shuffleArray(list){
+      const arr = [...list];
+      for(let i = arr.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function burstAt(pos, color='#7dd3fc'){
+      for(let i=0;i<8;i++){
+        const fx = document.createElement('a-sphere');
+        fx.setAttribute('radius', 0.022 + Math.random()*0.01);
+        fx.setAttribute('color', color);
+        fx.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+        fx.setAttribute('material', 'shader: flat; opacity: 0.96; transparent: true');
+
+        const dx = (Math.random()-0.5)*0.16;
+        const dy = 0.03 + Math.random()*0.10;
+        const dz = (Math.random()-0.5)*0.10;
+
+        fx.setAttribute('animation__move', `property: position; to: ${pos.x+dx} ${pos.y+dy} ${pos.z+dz}; dur: 360; easing: easeOutQuad`);
+        fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 360; easing: linear');
+
+        fxLayer.appendChild(fx);
+        setTimeout(()=>{ if(fx.parentNode) fx.parentNode.removeChild(fx); }, 390);
+      }
+    }
+
+    function updateProgress(){
+      const pct = progressPercent();
+      ui.fill.style.width = pct + '%';
+      ui.progressText.textContent = pct + '%';
     }
 
     function updateUI(){
@@ -707,189 +782,152 @@
 
       ui.orderChip.textContent = `ลำดับ ${Math.min(state.nextIndex + 1, STEPS.length)}/${STEPS.length}`;
       ui.scoreChip.textContent = `คะแนน ${state.score}`;
+      ui.comboChip.textContent = `Combo ${state.combo}`;
       ui.timeChip.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
 
-      ui.fill.style.width = progressPercent() + '%';
-      ui.progressText.textContent = progressPercent() + '%';
-
-      if(nextStep){
-        ui.stepName.textContent = `หา "${nextStep.title}"`;
-        ui.stepCount.textContent = `ความแม่นยำ ${accuracyPercent()}% • streak ${state.streak}`;
-        ui.stepDesc.textContent = `เลือกการ์ดที่เป็นขั้นตอนลำดับที่ ${state.nextIndex + 1} ให้ถูกต้อง`;
+      if (nextStep){
+        ui.stepCount.textContent = `เลือกขั้นที่ ${nextStep.order}`;
+        ui.stepName.textContent = nextStep.label;
+        ui.stepDesc.textContent = `เลือกการ์ดขั้นตอนถัดไปให้ถูกต้อง ตอนนี้ต้องเลือก “${nextStep.label}”`;
         ui.guideIcon.textContent = nextStep.icon;
-        ui.prompt.textContent = `เล็งการ์ด "${nextStep.short}" แล้วแตะจอ`;
-        setCoach(`ตอนนี้ต้องเลือกขั้นที่ ${state.nextIndex + 1}: ${nextStep.title}`);
+        ui.prompt.textContent = `เริ่มที่ “${nextStep.short}”`;
       } else {
-        ui.stepName.textContent = 'ครบทั้ง 7 ขั้นแล้ว!';
-        ui.stepCount.textContent = `ความแม่นยำ ${accuracyPercent()}% • best streak ${state.bestStreak}`;
-        ui.stepDesc.textContent = 'ยอดเยี่ยมมาก จำลำดับได้ครบแล้ว';
+        ui.stepCount.textContent = 'สำเร็จ';
+        ui.stepName.textContent = 'เรียงครบแล้ว!';
+        ui.stepDesc.textContent = 'ยอดเยี่ยมมาก จำลำดับ 7 ขั้นได้ครบแล้ว';
         ui.guideIcon.textContent = '✨';
-        ui.prompt.textContent = 'สำเร็จ';
-        setCoach('ทำครบแล้ว เก่งมาก');
+        ui.prompt.textContent = 'ทบทวนสำเร็จ';
       }
+
+      updateProgress();
     }
 
     function buildSlots(){
-      slotLayer.innerHTML = '';
-      slotEntities.length = 0;
-
-      SLOT_POSITIONS.forEach((p, i)=>{
+      slotRow.innerHTML = '';
+      SLOT_POSITIONS.forEach((x, idx)=>{
         const wrap = document.createElement('a-entity');
-        wrap.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+        wrap.id = `slot-${idx}`;
+        wrap.setAttribute('position', `${x} 0 0`);
 
-        const bg = document.createElement('a-plane');
-        bg.setAttribute('width', '0.23');
-        bg.setAttribute('height', '0.15');
-        bg.setAttribute('color', '#14324f');
-        bg.setAttribute('material', 'opacity:0.96');
-        wrap.appendChild(bg);
+        const ring = document.createElement('a-ring');
+        ring.setAttribute('radius-inner', '0.07');
+        ring.setAttribute('radius-outer', '0.11');
+        ring.setAttribute('color', '#3b4d62');
+        ring.setAttribute('material', 'shader: flat; opacity: 0.95');
 
-        const line = document.createElement('a-plane');
-        line.setAttribute('width', '0.235');
-        line.setAttribute('height', '0.155');
-        line.setAttribute('color', '#63e6ff');
-        line.setAttribute('material', 'opacity:0.18');
-        line.setAttribute('position', '0 0 -0.002');
-        wrap.appendChild(line);
+        const text = document.createElement('a-text');
+        text.setAttribute('value', String(idx + 1));
+        text.setAttribute('align', 'center');
+        text.setAttribute('width', '0.6');
+        text.setAttribute('color', '#d9fbff');
+        text.setAttribute('position', '0 -0.03 0.01');
 
-        const num = document.createElement('a-text');
-        num.setAttribute('value', String(i+1));
-        num.setAttribute('align', 'center');
-        num.setAttribute('color', '#9fe8ff');
-        num.setAttribute('width', '0.55');
-        num.setAttribute('position', '0 0.03 0.01');
-        wrap.appendChild(num);
-
-        const label = document.createElement('a-text');
-        label.setAttribute('value', '');
-        label.setAttribute('align', 'center');
-        label.setAttribute('color', '#ffffff');
-        label.setAttribute('width', '0.80');
-        label.setAttribute('position', '0 -0.03 0.01');
-        wrap.appendChild(label);
-
-        slotLayer.appendChild(wrap);
-        slotEntities.push({ wrap, bg, line, num, label });
+        wrap.appendChild(ring);
+        wrap.appendChild(text);
+        slotRow.appendChild(wrap);
       });
     }
 
-    function markSlotDone(idx){
-      const slot = slotEntities[idx];
-      const step = STEPS[idx];
-      if(!slot || !step) return;
-
-      slot.bg.setAttribute('color', '#0f5c43');
-      slot.line.setAttribute('material', 'opacity:0.48');
-      slot.label.setAttribute('value', step.short);
-      slot.num.setAttribute('color', '#d4fff0');
+    function markSlotDone(stepIndex){
+      const slot = document.getElementById(`slot-${stepIndex}`);
+      if (!slot) return;
+      const ring = slot.querySelector('a-ring');
+      const text = slot.querySelector('a-text');
+      if (ring) ring.setAttribute('color', '#86efac');
+      if (text) text.setAttribute('color', '#0f5c43');
     }
 
     function resetSlots(){
-      slotEntities.forEach((slot, i)=>{
-        slot.bg.setAttribute('color', '#14324f');
-        slot.line.setAttribute('material', 'opacity:0.18');
-        slot.label.setAttribute('value', '');
-        slot.num.setAttribute('color', '#9fe8ff');
-        slot.num.setAttribute('value', String(i+1));
-      });
+      buildSlots();
+    }
+
+    function makeCard(step, pos){
+      const wrap = document.createElement('a-entity');
+      wrap.classList.add('focusable');
+      wrap.dataset.stepId = step.id;
+      wrap.dataset.order = String(step.order);
+      wrap.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+
+      const plate = document.createElement('a-plane');
+      plate.classList.add('card-face');
+      plate.setAttribute('width', '0.40');
+      plate.setAttribute('height', '0.52');
+      plate.setAttribute('color', '#f8fcff');
+      plate.setAttribute('material', 'shader: flat; opacity: 0.98');
+
+      const shadow = document.createElement('a-plane');
+      shadow.setAttribute('width', '0.44');
+      shadow.setAttribute('height', '0.56');
+      shadow.setAttribute('color', '#16314c');
+      shadow.setAttribute('material', 'shader: flat; opacity: 0.34');
+      shadow.setAttribute('position', '0 -0.01 -0.01');
+
+      const icon = document.createElement('a-text');
+      icon.setAttribute('value', step.icon);
+      icon.setAttribute('align', 'center');
+      icon.setAttribute('width', '0.80');
+      icon.setAttribute('position', '0 0.12 0.01');
+
+      const label = document.createElement('a-text');
+      label.setAttribute('value', step.label);
+      label.setAttribute('align', 'center');
+      label.setAttribute('width', '1.15');
+      label.setAttribute('wrap-count', '12');
+      label.setAttribute('color', '#12324b');
+      label.setAttribute('position', '0 -0.08 0.01');
+
+      const orderTag = document.createElement('a-plane');
+      orderTag.setAttribute('width', '0.16');
+      orderTag.setAttribute('height', '0.10');
+      orderTag.setAttribute('color', '#dff8ff');
+      orderTag.setAttribute('position', '0 0.22 0.01');
+
+      const orderText = document.createElement('a-text');
+      orderText.setAttribute('value', `#${step.order}`);
+      orderText.setAttribute('align', 'center');
+      orderText.setAttribute('width', '0.42');
+      orderText.setAttribute('color', '#0f766e');
+      orderText.setAttribute('position', '0 0.19 0.02');
+
+      const hitbox = document.createElement('a-plane');
+      hitbox.classList.add('focusable');
+      hitbox.setAttribute('width', '0.46');
+      hitbox.setAttribute('height', '0.58');
+      hitbox.setAttribute('color', '#fff');
+      hitbox.setAttribute('opacity', '0.001');
+      hitbox.setAttribute('material', 'transparent:true');
+      hitbox.setAttribute('position', '0 0 0.03');
+
+      wrap.appendChild(shadow);
+      wrap.appendChild(plate);
+      wrap.appendChild(icon);
+      wrap.appendChild(label);
+      wrap.appendChild(orderTag);
+      wrap.appendChild(orderText);
+      wrap.appendChild(hitbox);
+
+      return wrap;
     }
 
     function buildCards(){
       cardLayer.innerHTML = '';
+      const order = shuffleArray(STEPS);
+      state.shuffled = order;
 
-      state.shuffled.forEach((stepIndex, posIndex)=>{
-        const step = STEPS[stepIndex];
-        const p = CARD_POSITIONS[posIndex];
-
-        const wrap = document.createElement('a-entity');
-        wrap.classList.add('card-wrap');
-        wrap.dataset.stepIndex = String(stepIndex);
-        wrap.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
-        wrap.setAttribute('id', `card-wrap-${stepIndex}`);
-
-        const shadow = document.createElement('a-plane');
-        shadow.setAttribute('width', '0.52');
-        shadow.setAttribute('height', '0.24');
-        shadow.setAttribute('color', '#00111d');
-        shadow.setAttribute('material', 'opacity:0.40');
-        shadow.setAttribute('position', '0 -0.01 -0.01');
-        wrap.appendChild(shadow);
-
-        const face = document.createElement('a-plane');
-        face.classList.add('focusable','card-hit','card-face');
-        face.dataset.stepIndex = String(stepIndex);
-        face.setAttribute('width', '0.50');
-        face.setAttribute('height', '0.22');
-        face.setAttribute('color', '#17324f');
-        face.setAttribute('material', 'opacity:0.98');
-        wrap.appendChild(face);
-
-        const border = document.createElement('a-plane');
-        border.setAttribute('width', '0.505');
-        border.setAttribute('height', '0.225');
-        border.setAttribute('color', '#63e6ff');
-        border.setAttribute('material', 'opacity:0.18');
-        border.setAttribute('position', '0 0 -0.002');
-        wrap.appendChild(border);
-
-        const hit = document.createElement('a-plane');
-        hit.classList.add('focusable','card-hit');
-        hit.dataset.stepIndex = String(stepIndex);
-        hit.setAttribute('width', '0.56');
-        hit.setAttribute('height', '0.28');
-        hit.setAttribute('color', '#ffffff');
-        hit.setAttribute('opacity', '0.001');
-        hit.setAttribute('material', 'transparent:true');
-        hit.setAttribute('position', '0 0 0.01');
-        wrap.appendChild(hit);
-
-        const icon = document.createElement('a-text');
-        icon.setAttribute('value', step.icon);
-        icon.setAttribute('align', 'center');
-        icon.setAttribute('color', '#ffe66d');
-        icon.setAttribute('width', '0.42');
-        icon.setAttribute('position', '0 0.05 0.02');
-        wrap.appendChild(icon);
-
-        const label = document.createElement('a-text');
-        label.setAttribute('value', step.title);
-        label.setAttribute('align', 'center');
-        label.setAttribute('color', '#ffffff');
-        label.setAttribute('width', '1.25');
-        label.setAttribute('position', '0 -0.05 0.02');
-        wrap.appendChild(label);
-
-        cardLayer.appendChild(wrap);
+      order.forEach((step, idx)=>{
+        const pos = CARD_POSITIONS[idx];
+        const card = makeCard(step, pos);
+        cardLayer.appendChild(card);
       });
     }
 
-    function burstAt(pos, color='#7dd3fc'){
-      for(let i=0;i<8;i++){
-        const fx = document.createElement('a-sphere');
-        fx.setAttribute('radius', 0.020 + Math.random()*0.01);
-        fx.setAttribute('color', color);
-        fx.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-        fx.setAttribute('material', 'shader: flat; opacity: 0.96; transparent: true');
-
-        const dx = (Math.random()-0.5)*0.15;
-        const dy = 0.03 + Math.random()*0.10;
-        const dz = (Math.random()-0.5)*0.10;
-
-        fx.setAttribute('animation__move', `property: position; to: ${pos.x+dx} ${pos.y+dy} ${pos.z+dz}; dur: 340; easing: easeOutQuad`);
-        fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 340; easing: linear');
-
-        fxLayer.appendChild(fx);
-        setTimeout(()=>{ if(fx.parentNode) fx.parentNode.removeChild(fx); }, 380);
-      }
-    }
-
     function flashWrongCard(wrap){
-      if(!wrap) return;
+      if (!wrap) return;
       const face = wrap.querySelector('.card-face');
-      if(!face) return;
-      face.setAttribute('color', '#8b1e3f');
+      if (!face) return;
+      face.setAttribute('color', '#fecaca');
       setTimeout(()=>{
-        if(face.parentNode) face.setAttribute('color', '#17324f');
+        if (face.parentNode) face.setAttribute('color', '#f8fcff');
       }, 220);
     }
 
@@ -897,9 +935,7 @@
       const face = wrap.querySelector('.card-face');
       if(face) face.setAttribute('color', '#0f5c43');
 
-      state.score += 10 + Math.min(20, state.streak * 2);
-      state.streak += 1;
-      state.bestStreak = Math.max(state.bestStreak, state.streak);
+      rewardPick(10);
 
       markSlotDone(stepIndex);
 
@@ -919,21 +955,10 @@
     }
 
     function handleWrongCard(wrap){
-      state.miss += 1;
-      state.streak = 0;
-      state.score = Math.max(0, state.score - 2);
-      state.timeLeft = Math.max(0, state.timeLeft - 1.2);
+      punishPick();
       flashWrongCard(wrap);
+      setCoach('ยังไม่ใช่ขั้นตอนถัดไป ลองใหม่');
       updateUI();
-    }
-
-    function handleCardSelection(stepIndex, wrap){
-      if(state.ended || !state.started) return;
-      if(stepIndex === state.nextIndex){
-        handleCorrectCard(wrap, stepIndex);
-      } else {
-        handleWrongCard(wrap);
-      }
     }
 
     function getFocusedEl(){
@@ -942,25 +967,24 @@
       return rc.intersectedEls[0];
     }
 
-    function resolveCardWrap(el){
-      if(!el) return null;
-      if(el.classList && el.classList.contains('card-wrap')) return el;
-      if(typeof el.closest === 'function') return el.closest('.card-wrap');
-      return null;
+    function getCardWrapFromEl(el){
+      if (!el) return null;
+      if (el.dataset && el.dataset.stepId) return el;
+      return el.closest ? el.closest('[data-step-id]') : null;
     }
 
-    function getNearestCenterCard(maxPx = 170){
+    function getNearestCenterCard(maxPx = 190){
       const camera3D = cam ? cam.getObject3D('camera') : null;
       if (!camera3D) return null;
 
-      const hits = [...cardLayer.querySelectorAll('.card-hit')];
+      const cards = [...cardLayer.querySelectorAll('[data-step-id]')];
       let best = null;
       let bestD = Infinity;
 
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
 
-      for (const el of hits){
+      for (const el of cards){
         el.object3D.updateMatrixWorld();
         _proj.setFromMatrixPosition(el.object3D.matrixWorld);
         _proj.project(camera3D);
@@ -978,57 +1002,73 @@
       return bestD <= maxPx ? best : null;
     }
 
+    function trySelectCard(wrap){
+      if (!wrap || state.ended || !state.started) return false;
+
+      const expected = STEPS[state.nextIndex];
+      if (!expected) return false;
+
+      const selectedOrder = parseInt(wrap.dataset.order, 10);
+      if (selectedOrder === expected.order){
+        handleCorrectCard(wrap, state.nextIndex);
+      } else {
+        handleWrongCard(wrap);
+      }
+      return true;
+    }
+
     function triggerFocused(){
       const now = performance.now();
       if(now - state.lastActionAt < 120) return false;
       state.lastActionAt = now;
 
-      let el = getFocusedEl();
+      const el = getFocusedEl();
+      const wrap = getCardWrapFromEl(el);
 
-      if(!el){
-        el = getNearestCenterCard(170);
-      } else {
-        const wrap = resolveCardWrap(el);
-        if(!wrap) el = getNearestCenterCard(170);
+      if (wrap){
+        return trySelectCard(wrap);
       }
 
-      const wrap = resolveCardWrap(el);
-      if(!wrap) return false;
+      const nearCard = getNearestCenterCard(190);
+      if (nearCard){
+        return trySelectCard(nearCard);
+      }
 
-      const stepIndex = parseInt(wrap.dataset.stepIndex, 10);
-      if(Number.isNaN(stepIndex)) return false;
-
-      handleCardSelection(stepIndex, wrap);
-      return true;
+      return false;
     }
 
     function computeStars(success){
       if(!success) return 0;
-      if(state.miss <= 1 && state.timeLeft >= START_TIME * 0.40) return 3;
-      if(state.miss <= 4) return 2;
+      if(state.miss === 0 && state.timeLeft >= START_TIME * 0.35) return 3;
+      if(state.miss <= 3) return 2;
       return 1;
     }
 
     function saveLastSummary(success, stars){
-      const payload = {
-        gameId: 'handwash-mini-order',
-        pid: PID,
-        success: !!success,
+      if (!window.HandwashShared) return;
+
+      const badges = computeMiniBadges(success);
+
+      HandwashShared.recordSummary({
+        stage: 'mini-order',
+        nextStage: 'hub',
+        success,
         score: state.score,
-        timeLeft: Math.max(0, Math.ceil(state.timeLeft)),
-        miss: state.miss,
         stars,
-        bestStreak: state.bestStreak,
-        finishedAt: new Date().toISOString()
-      };
-      try{
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
-      }catch{}
+        miss: state.miss,
+        timeLeft: Math.max(0, Math.ceil(state.timeLeft)),
+        accuracy: accuracyPercent(),
+        progress: progressPercent(),
+        bestStreak: state.bestCombo,
+        whoDone: 7,
+        notes: badges.join(', ') || (success ? 'Mini order completed' : 'Mini order incomplete')
+      });
     }
 
     function endGame(success){
       state.ended = true;
       const stars = computeStars(success);
+      state.badges = computeMiniBadges(success);
       saveLastSummary(success, stars);
 
       ui.sumTitle.textContent = success ? 'เรียงลำดับสำเร็จ!' : 'หมดเวลาก่อน';
@@ -1039,6 +1079,9 @@
       ui.sumTime.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
       ui.sumMiss.textContent = String(state.miss);
       ui.sumStars.textContent = stars > 0 ? '⭐'.repeat(stars) : '—';
+      ui.sumCombo.textContent = String(state.bestCombo);
+      ui.sumBadges.textContent = state.badges.length ? state.badges.join(', ') : '—';
+
       ui.summaryOverlay.classList.remove('hidden');
       setHudCompact(false);
       updateUI();
@@ -1055,9 +1098,11 @@
       state.bestStreak = 0;
       state.lastActionAt = 0;
       state.lastTs = 0;
-      state.shuffled = shuffle(STEPS.map((_,i)=>i));
+      state.combo = 0;
+      state.bestCombo = 0;
+      state.idleTimer = 0;
+      state.badges = [];
 
-      buildSlots();
       resetSlots();
       buildCards();
 
@@ -1066,13 +1111,14 @@
 
       setHudCompact(isMobileLike());
       updateUI();
+      setCoach('เริ่มที่ “ฝ่ามือถูฝ่ามือ” ก่อน');
     }
 
     ui.startBtn.addEventListener('click', startGame);
     ui.restartBtn.addEventListener('click', startGame);
 
     ui.hubBtn.addEventListener('click', ()=>{
-      if(HUB_URL) location.href = HUB_URL;
+      if (HUB_URL) location.href = HUB_URL;
     });
 
     ui.hudToggleBtn.addEventListener('click', ()=>{
@@ -1095,13 +1141,8 @@
       setCoach('จัดมุมมองใหม่แล้ว');
     });
 
-    cardLayer.addEventListener('click', (e)=>{
-      const wrap = resolveCardWrap(e.target);
-      if(!wrap) return;
-      const stepIndex = parseInt(wrap.dataset.stepIndex, 10);
-      if(Number.isNaN(stepIndex)) return;
-      handleCardSelection(stepIndex, wrap);
-    });
+    scene.addEventListener('enter-vr', setBtnText);
+    scene.addEventListener('exit-vr', setBtnText);
 
     window.addEventListener('keydown', (e)=>{
       if(e.code === 'Space' || e.code === 'Enter'){
@@ -1116,13 +1157,15 @@
       triggerFocused();
     });
 
-    scene.addEventListener('enter-vr', setBtnText);
-    scene.addEventListener('exit-vr', setBtnText);
-
     window.addEventListener('resize', ()=>{
-      if(state.started && !state.ended){
+      if (state.started && !state.ended) {
         setHudCompact(isMobileLike());
       }
+    });
+
+    window.addEventListener('beforeunload', ()=>{
+      if (!state.started || state.ended) return;
+      saveLastSummary(false, 0);
     });
 
     function loop(ts){
@@ -1139,16 +1182,24 @@
 
       state.timeLeft = Math.max(0, state.timeLeft - dt);
       if(state.timeLeft <= 0){
+        updateUI();
         endGame(false);
         return;
+      }
+
+      state.idleTimer += dt;
+      if (state.idleTimer >= 5){
+        state.idleTimer = 0;
+        state.score = Math.max(0, state.score - 3);
+        state.combo = 0;
+        setCoach('รีบหน่อย ลำดับเริ่มสับสนแล้ว!');
       }
 
       updateUI();
     }
 
-    buildSlots();
-    resetSlots();
     setBtnText();
+    resetSlots();
     setHudCompact(isMobileLike());
     updateUI();
     requestAnimationFrame(loop);
