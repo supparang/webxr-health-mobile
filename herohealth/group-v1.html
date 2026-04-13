@@ -133,6 +133,10 @@
       background:#fff;
       border:1px solid var(--line);
       box-shadow:var(--shadow);
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
     }
 
     .btn.primary{
@@ -501,14 +505,15 @@
         <div class="brandMark">🥦</div>
         <div>
           <h1>Food Groups v1</h1>
-          <p>ตัวหลักของเกม Groups — เลือกโหมดแล้วเริ่มเล่นได้เลย</p>
+          <p>ตัวหลักของเกม Groups — zone-first และส่งค่ากลับ Nutrition Zone ให้ครบ</p>
         </div>
       </div>
 
       <div class="actions">
         <button class="btn" id="btnContinue" type="button">▶ เล่นล่าสุด</button>
         <button class="btn" id="btnMini" type="button">✨ Mini VR</button>
-        <button class="btn primary" id="btnBackHub" type="button">🏠 กลับ HUB</button>
+        <button class="btn primary" id="btnBackZone" type="button">🍎 กลับ Nutrition Zone</button>
+        <button class="btn" id="btnBackHub" type="button">🏠 กลับ HUB</button>
       </div>
     </header>
 
@@ -517,7 +522,7 @@
         <div>
           <h2>หน้าเกมหลักของ Groups</h2>
           <p>
-            หน้านี้เป็นตัวหลักของเกม Groups ตามโครงที่ตกลงไว้
+            หน้านี้คือ launcher หลักของเกม Groups ใน Nutrition Zone
             ตอนนี้เปิดให้เล่นจริงก่อน 2 โหมดคือ <b>Solo</b> และ <b>Race</b>
             ส่วน Battle, Duet และ Coop แสดงไว้ก่อนแล้วค่อยเปิดภายหลัง
           </p>
@@ -525,16 +530,16 @@
           <div class="heroChips">
             <span class="chip">🥇 Solo พร้อมเล่น</span>
             <span class="chip">🏁 Race พร้อมเล่น</span>
-            <span class="chip">⚔️ Battle เร็ว ๆ นี้</span>
-            <span class="chip">🤝 Duet เร็ว ๆ นี้</span>
-            <span class="chip">🧩 Coop เร็ว ๆ นี้</span>
+            <span class="chip">🖥️ รองรับ PC</span>
+            <span class="chip">📱 รองรับ Mobile</span>
+            <span class="chip">🥽 รองรับ cVR</span>
           </div>
         </div>
 
         <div class="heroPanel">
           <div class="panelCard">
             <div class="panelLabel">Main Game</div>
-            <div class="panelValue">groups-v1.html</div>
+            <div class="panelValue">group-v1.html</div>
           </div>
           <div class="panelCard">
             <div class="panelLabel">Mini Game</div>
@@ -543,6 +548,10 @@
           <div class="panelCard">
             <div class="panelLabel">ตอนนี้เปิดจริง</div>
             <div class="panelValue">Solo • Race</div>
+          </div>
+          <div class="panelCard">
+            <div class="panelLabel">View</div>
+            <div class="panelValue" id="viewLabel">mobile</div>
           </div>
         </div>
       </div>
@@ -566,8 +575,9 @@
           </div>
         </div>
         <div class="modeActions">
-          <button class="modeBtn play" data-mode="solo" type="button">เล่น Solo</button>
-          <button class="modeBtn alt" data-mode="solo" data-view="mobile" type="button">เล่นบนมือถือ</button>
+          <button class="modeBtn play" data-mode="solo" data-view="pc" type="button">เล่น Solo • PC</button>
+          <button class="modeBtn alt" data-mode="solo" data-view="mobile" type="button">เล่น Solo • Mobile</button>
+          <button class="modeBtn alt" data-mode="solo" data-view="cvr" type="button">เล่น Solo • cVR</button>
         </div>
       </article>
 
@@ -588,8 +598,8 @@
           </div>
         </div>
         <div class="modeActions">
-          <button class="modeBtn play" data-mode="race" type="button">เข้า Race Lobby</button>
-          <button class="modeBtn alt" data-mode="race" data-action="join" type="button">มีรหัสห้องแล้ว</button>
+          <button class="modeBtn play" data-mode="race" data-view="mobile" type="button">เข้า Race Lobby</button>
+          <button class="modeBtn alt" data-mode="race" data-action="join" data-view="mobile" type="button">มีรหัสห้องแล้ว</button>
         </div>
       </article>
 
@@ -656,28 +666,33 @@
 
     <section class="footerNote">
       หน้านี้คือ <b>ตัวหลักของเกม Groups</b> ส่วน <b>groups-vr.html</b> เป็นหน้ารอง/mini game
-      สำหรับทางเข้าย่อยหรือ quick access เพิ่มเติม
+      และทุกทางออกจากเกมควรกลับมาที่ <b>Nutrition Zone</b> ก่อน ไม่ใช่เด้งกลับ Hub โดยตรง
     </section>
   </main>
 
   <div class="toast" id="toast">โหมดนี้กำลังเตรียมเปิดเร็ว ๆ นี้</div>
 
-  <script>
+  <script type="module">
+    import { buildZoneGameUrl, buildHubRoot, rememberZoneGame } from './zone-return.js';
+
     (() => {
       'use strict';
 
       const q = new URLSearchParams(location.search);
-      const hubUrl = q.get('hub') || './hub.html';
+
+      const $ = (id) => document.getElementById(id);
 
       const els = {
-        btnContinue: document.getElementById('btnContinue'),
-        btnBackHub: document.getElementById('btnBackHub'),
-        btnMini: document.getElementById('btnMini'),
-        toast: document.getElementById('toast')
+        btnContinue: $('btnContinue'),
+        btnBackZone: $('btnBackZone'),
+        btnBackHub: $('btnBackHub'),
+        btnMini: $('btnMini'),
+        toast: $('toast'),
+        viewLabel: $('viewLabel')
       };
 
       const ROUTES = {
-        hub: './hub.html',
+        zone: './nutrition-zone.html',
         mini: './groups-vr.html',
         soloRun: './vr-groups/groups.html',
         raceLobby: './vr-groups/groups-race-lobby.html'
@@ -686,9 +701,135 @@
       const LAST_MODE_KEY = 'HHA_GROUPS_LAST_MODE';
       const LAST_URL_KEY = 'HHA_GROUPS_LAST_URL';
 
-      const BASE_PARAMS = buildBaseParams();
+      const hubRoot = buildHubRoot(q, location.href);
+      const zoneUrl = buildZoneUrl();
 
       bindEvents();
+      renderMeta();
+
+      function renderMeta() {
+        if (els.viewLabel) {
+          els.viewLabel.textContent = q.get('view') || 'mobile';
+        }
+      }
+
+      function first(...vals) {
+        for (const v of vals) {
+          const s = String(v ?? '').trim();
+          if (s) return s;
+        }
+        return '';
+      }
+
+      function buildZoneUrl() {
+        const u = new URL(ROUTES.zone, location.href);
+
+        const passKeys = [
+          'pid','name','nickName','studyId',
+          'run','diff','view','time','seed',
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo',
+          'conditionGroup','sessionNo','weekNo','teacher','grade'
+        ];
+
+        passKeys.forEach((k) => {
+          const v = q.get(k);
+          if (v != null && v !== '') u.searchParams.set(k, v);
+        });
+
+        if (!u.searchParams.get('pid')) u.searchParams.set('pid', 'anon');
+        if (!u.searchParams.get('name')) u.searchParams.set('name', first(q.get('name'), q.get('nickName'), 'Player'));
+        if (!u.searchParams.get('diff')) u.searchParams.set('diff', 'normal');
+        if (!u.searchParams.get('time')) u.searchParams.set('time', '60');
+        if (!u.searchParams.get('view')) u.searchParams.set('view', 'mobile');
+
+        u.searchParams.set('hubRoot', hubRoot);
+        u.searchParams.set('hub', hubRoot);
+
+        return u.toString();
+      }
+
+      function buildBaseSearch(viewOverride = '') {
+        const s = new URLSearchParams(q.toString());
+
+        if (!s.get('pid')) s.set('pid', 'anon');
+        if (!s.get('name')) s.set('name', first(q.get('name'), q.get('nickName'), 'Player'));
+        if (!s.get('diff')) s.set('diff', 'normal');
+        if (!s.get('time')) s.set('time', '60');
+        if (!s.get('run')) s.set('run', 'play');
+
+        s.set('view', viewOverride || s.get('view') || 'mobile');
+        s.set('hubRoot', hubRoot);
+
+        return s;
+      }
+
+      function buildSoloUrl(view = 'mobile') {
+        const sp = buildBaseSearch(view);
+
+        return buildZoneGameUrl({
+          basePath: ROUTES.soloRun,
+          searchParams: sp,
+          zone: 'nutrition',
+          gameKey: 'groups',
+          currentHref: location.href,
+          overrides: {
+            mode: 'solo',
+            view,
+            seed: String(Date.now())
+          }
+        });
+      }
+
+      function buildRaceLobbyUrl(joinOnly = false, view = 'mobile') {
+        const sp = buildBaseSearch(view);
+
+        return buildZoneGameUrl({
+          basePath: ROUTES.raceLobby,
+          searchParams: sp,
+          zone: 'nutrition',
+          gameKey: 'groups',
+          currentHref: location.href,
+          overrides: {
+            mode: 'race',
+            race: '1',
+            join: joinOnly ? '1' : '',
+            view,
+            seed: String(Date.now())
+          }
+        });
+      }
+
+      function buildMiniUrl() {
+        const sp = buildBaseSearch(q.get('view') || 'mobile');
+
+        return buildZoneGameUrl({
+          basePath: ROUTES.mini,
+          searchParams: sp,
+          zone: 'nutrition',
+          gameKey: 'groups',
+          currentHref: location.href,
+          overrides: {
+            mode: 'mini',
+            seed: String(Date.now())
+          }
+        });
+      }
+
+      function saveLast(mode, href) {
+        try {
+          localStorage.setItem(LAST_MODE_KEY, mode);
+          localStorage.setItem(LAST_URL_KEY, href);
+        } catch (_) {}
+      }
+
+      function markGroupsStart() {
+        rememberZoneGame({
+          zone: 'nutrition',
+          gameKey: 'groups',
+          gameTitle: 'Groups'
+        });
+      }
 
       function bindEvents() {
         document.querySelectorAll('[data-mode="solo"]').forEach((btn) => {
@@ -696,6 +837,7 @@
             const view = btn.dataset.view || 'mobile';
             const href = buildSoloUrl(view);
             saveLast('solo', href);
+            markGroupsStart();
             location.href = href;
           });
         });
@@ -703,8 +845,10 @@
         document.querySelectorAll('[data-mode="race"]').forEach((btn) => {
           btn.addEventListener('click', () => {
             const joinOnly = btn.dataset.action === 'join';
-            const href = buildRaceLobbyUrl(joinOnly);
+            const view = btn.dataset.view || q.get('view') || 'mobile';
+            const href = buildRaceLobbyUrl(joinOnly, view);
             saveLast('race', href);
+            markGroupsStart();
             location.href = href;
           });
         });
@@ -720,6 +864,7 @@
             try {
               const lastUrl = localStorage.getItem(LAST_URL_KEY);
               if (lastUrl) {
+                markGroupsStart();
                 location.href = lastUrl;
                 return;
               }
@@ -728,68 +873,24 @@
           });
         }
 
+        if (els.btnBackZone) {
+          els.btnBackZone.addEventListener('click', () => {
+            location.href = zoneUrl;
+          });
+        }
+
         if (els.btnBackHub) {
           els.btnBackHub.addEventListener('click', () => {
-            location.href = hubUrl;
+            location.href = hubRoot;
           });
         }
 
         if (els.btnMini) {
           els.btnMini.addEventListener('click', () => {
-            const url = new URL(ROUTES.mini, location.href);
-            for (const [k, v] of q.entries()) url.searchParams.set(k, v);
-            if (!url.searchParams.get('hub')) url.searchParams.set('hub', hubUrl);
-            location.href = url.toString();
+            markGroupsStart();
+            location.href = buildMiniUrl();
           });
         }
-      }
-
-      function buildBaseParams() {
-        const p = new URLSearchParams();
-
-        for (const [k, v] of q.entries()) {
-          p.set(k, v);
-        }
-
-        if (!p.get('pid')) p.set('pid', 'anon');
-        if (!p.get('name')) p.set('name', 'Player');
-        if (!p.get('diff')) p.set('diff', 'normal');
-        if (!p.get('time')) p.set('time', '60');
-        if (!p.get('view')) p.set('view', 'mobile');
-        if (!p.get('run')) p.set('run', 'play');
-        if (!p.get('hub')) p.set('hub', hubUrl);
-
-        p.set('game', 'groups');
-        p.set('gameId', 'groups');
-        p.set('zone', 'nutrition');
-        p.set('cat', 'nutrition');
-        p.set('theme', 'groups');
-
-        return p;
-      }
-
-      function buildSoloUrl(view = 'mobile') {
-        const p = new URLSearchParams(BASE_PARAMS.toString());
-        p.set('mode', 'solo');
-        p.set('view', view);
-        p.set('seed', String(Date.now()));
-        return `${ROUTES.soloRun}?${p.toString()}`;
-      }
-
-      function buildRaceLobbyUrl(joinOnly = false) {
-        const p = new URLSearchParams(BASE_PARAMS.toString());
-        p.set('mode', 'race');
-        p.set('race', '1');
-        p.set('seed', String(Date.now()));
-        if (joinOnly) p.set('join', '1');
-        return `${ROUTES.raceLobby}?${p.toString()}`;
-      }
-
-      function saveLast(mode, href) {
-        try {
-          localStorage.setItem(LAST_MODE_KEY, mode);
-          localStorage.setItem(LAST_URL_KEY, href);
-        } catch (_) {}
       }
 
       function showToast(text) {
