@@ -1,3 +1,6 @@
+// /herohealth/goodjunk-solo-phaseboss-v2.js
+// PATCH v20260413a-GJ-SOLO-BOSS-CHILD-SUMMARY
+
 (function () {
   'use strict';
 
@@ -12,7 +15,7 @@
 
     const DEBUG = q.get('debug') === '1';
 
-    const GJ_BOSS_BUILD = '20260413a-GJ-SOLOBOSS-CHILD-SUMMARY';
+    const GJ_BOSS_BUILD = 'v20260413a-GJ-SOLO-BOSS-CHILD-SUMMARY';
     const GJ_CANONICAL_HUB_ROOT =
       'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
 
@@ -36,6 +39,7 @@
       run: q.get('run') || 'play',
       gameId: q.get('gameId') || 'goodjunk',
       zone: q.get('zone') || 'nutrition',
+      cat: q.get('cat') || 'nutrition',
       roomId: q.get('roomId') || '',
       conditionGroup: q.get('conditionGroup') || '',
       log: q.get('log') || '',
@@ -195,14 +199,6 @@
     function dlog() {
       if (!DEBUG) return;
       try { console.log('[GJSB]', ...arguments); } catch (_) {}
-    }
-
-    function safeAbsUrl(raw, fallback='') {
-      const value = String(raw || '').trim();
-      try {
-        if (value) return new URL(value, location.href).toString();
-      } catch (_) {}
-      return String(fallback || '');
     }
 
     function getHubRootHref() {
@@ -560,19 +556,6 @@
       storageSet(GJ_HUB_SNAPSHOT_KEY, JSON.stringify(snapshot));
     }
 
-    function buildMetaSummaryHtml(metaReward, dailyResult, dailyMeta) {
-      return `
-        <div class="gjsb-stat"><div class="k">เหรียญรางวัล</div><div class="v">${metaReward.badge}</div></div>
-        <div class="gjsb-stat"><div class="k">ของรางวัล</div><div class="v">${metaReward.reward}</div></div>
-        <div class="gjsb-stat"><div class="k">ภารกิจวันนี้</div><div class="v">${dailyResult.done ? '✅ สำเร็จ' : '⏳ ยังไม่สำเร็จ'}</div></div>
-        <div class="gjsb-stat"><div class="k">เป้าหมาย</div><div class="v">${dailyResult.title}</div></div>
-        <div class="gjsb-stat"><div class="k">วันนี้เล่น</div><div class="v">${dailyMeta.plays}</div></div>
-        <div class="gjsb-stat"><div class="k">เล่นต่อเนื่อง</div><div class="v">${dailyMeta.rematchStreak}</div></div>
-        <div class="gjsb-stat"><div class="k">ชนะบอสวันนี้</div><div class="v">${dailyMeta.clears}</div></div>
-        <div class="gjsb-stat"><div class="k">ชนะ Rage วันนี้</div><div class="v">${dailyMeta.rageClears}</div></div>
-      `;
-    }
-
     function buildSessionVariant() {
       const rematchInfo = readRematchState();
       const count = rematchInfo.count || 0;
@@ -800,65 +783,6 @@
       return 'เป้าทองใหญ่ แตะให้ทัน';
     }
 
-    function childGradeFromRaw(rawGrade) {
-      const g = String(rawGrade || '').toUpperCase();
-      if (g === 'S') return 'S';
-      if (g === 'A') return 'A';
-      if (g === 'B') return 'B';
-      return 'C';
-    }
-
-    function childTitleFromResult(bossClear, visibleGrade) {
-      if (bossClear && visibleGrade === 'S') return 'สุดยอด! ชนะบอสแล้ว';
-      if (bossClear) return 'เก่งมาก! ชนะบอสแล้ว';
-      if (state.phase >= 2) return 'เก่งมาก! ไปได้ไกลแล้ว';
-      return 'ดีมาก! ลองอีกครั้งนะ';
-    }
-
-    function childSubFromResult(bossClear) {
-      if (bossClear) return 'เก็บอาหารดีและเอาชนะ Junk King ได้แล้ว';
-      if (state.phase >= 2) return 'อีกนิดเดียวก็จะชนะบอสแล้ว';
-      return 'รอบหน้าลองเก็บอาหารดีให้ต่อเนื่องมากขึ้น';
-    }
-
-    function childCoachMessage(bossClear, visibleGrade) {
-      if (bossClear && visibleGrade === 'S') {
-        return 'สุดยอด! ทั้งเก่งและหลบ junk ได้ดีมาก';
-      }
-      if (bossClear && visibleGrade === 'A') {
-        return 'เก่งมาก! ชนะบอสได้แล้ว';
-      }
-      if (bossClear) {
-        return 'ดีมาก! ชนะบอสแล้ว ลองทำให้พลาดน้อยลงอีกนิด';
-      }
-      if (state.phase >= 2) {
-        return 'ดีมาก! อีกนิดเดียวก็ถึงชัยชนะ';
-      }
-      return 'เริ่มได้ดีแล้ว ลองแตะอาหารดีให้มากขึ้น';
-    }
-
-    function childNextHint(bossClear) {
-      if (bossClear) return 'เป้าหมายต่อไป: ชนะบอสแบบพลาดน้อยลง';
-      if (state.phase >= 2) return 'เป้าหมายต่อไป: ไปให้ถึงบอสแล้วตีต่อเนื่อง';
-      return 'เป้าหมายต่อไป: เก็บอาหารดีให้ต่อเนื่องและหลบ junk';
-    }
-
-    function childRibbonText(bossClear, visibleGrade) {
-      if (bossClear && visibleGrade === 'S') return '🏆 สุดยอดมาก';
-      if (bossClear) return '🎉 ชนะบอสแล้ว';
-      if (state.phase >= 2) return '⭐ ไปได้ไกลแล้ว';
-      return '💪 ลองอีกครั้ง';
-    }
-
-    function buildChildVisibleSummaryHtml() {
-      return `
-        <div class="gjsb-stat"><div class="k">คะแนน</div><div class="v">${state.score}</div></div>
-        <div class="gjsb-stat"><div class="k">เก็บอาหารดี</div><div class="v">${state.hitsGood}</div></div>
-        <div class="gjsb-stat"><div class="k">พลาด</div><div class="v">${state.miss}</div></div>
-        <div class="gjsb-stat"><div class="k">คอมโบสูงสุด</div><div class="v">${state.bestStreak}</div></div>
-      `;
-    }
-
     function injectStyle() {
       if (document.getElementById(STYLE_ID)) return;
 
@@ -903,6 +827,7 @@
         .gjsb-cloud.c1{ left:6%; top:8%; }
         .gjsb-cloud.c2{ left:64%; top:13%; transform:scale(1.18); }
         .gjsb-cloud.c3{ left:30%; top:22%; transform:scale(.9); }
+
         .gjsb-topHud{
           position:absolute;
           left:8px;
@@ -941,6 +866,7 @@
           60%{ transform:scale(1.04); }
           100%{ transform:scale(1); }
         }
+
         .gjsb-banner{
           justify-self:center;
           min-height:34px;
@@ -972,6 +898,7 @@
           60%{ transform:translateY(0) scale(1.04); }
           100%{ transform:translateY(0) scale(1); }
         }
+
         .gjsb-progressWrap{
           height:8px;
           border-radius:999px;
@@ -988,6 +915,7 @@
           background:linear-gradient(90deg,#7fcfff,#7ed957);
           transition:transform .1s linear;
         }
+
         .gjsb-utilRow{
           display:flex;
           gap:6px;
@@ -1012,6 +940,7 @@
           background:#eefbff;
           color:#2d6f94;
         }
+
         .gjsb-arenaOverlay{
           position:absolute;
           inset:96px 10px 120px 10px;
@@ -1043,12 +972,11 @@
         }
         .gjsb-lane.warn::after{
           opacity:1;
-          background:
-            repeating-linear-gradient(
-              -45deg,
-              rgba(255,120,120,.16) 0 12px,
-              rgba(255,255,255,0) 12px 24px
-            );
+          background:repeating-linear-gradient(
+            -45deg,
+            rgba(255,120,120,.16) 0 12px,
+            rgba(255,255,255,0) 12px 24px
+          );
         }
         .gjsb-lane.safe{
           background:linear-gradient(180deg, rgba(179,241,255,.18), rgba(127,207,255,.10));
@@ -1104,6 +1032,7 @@
           font-size:9px;
           opacity:.94;
         }
+
         .gjsb-stageCue{
           position:absolute;
           left:50%;
@@ -1149,6 +1078,7 @@
           font-weight:1000;
           color:#6c6a61;
         }
+
         .gjsb-tutorial{
           position:absolute;
           inset:0;
@@ -1159,9 +1089,7 @@
           backdrop-filter:blur(5px);
           padding:16px;
         }
-        .gjsb-tutorial.show{
-          display:grid;
-        }
+        .gjsb-tutorial.show{ display:grid; }
         .gjsb-tutorialCard{
           width:min(92vw,520px);
           border-radius:26px;
@@ -1230,6 +1158,7 @@
           color:#6c6a61;
           border:3px solid #d7edf7;
         }
+
         .gjsb-boss{
           position:absolute;
           right:10px;
@@ -1357,6 +1286,7 @@
           font-weight:1000;
           color:#7b7a72;
         }
+
         .gjsb-item{
           position:absolute;
           left:0;
@@ -1430,6 +1360,7 @@
           0%,100%{ box-shadow:0 10px 22px rgba(86,155,194,.18); filter:brightness(1); }
           50%{ box-shadow:0 0 0 4px rgba(255,224,138,.22), 0 10px 22px rgba(86,155,194,.18); filter:brightness(1.06); }
         }
+
         .gjsb-trail{
           position:absolute;
           border-radius:20px;
@@ -1457,6 +1388,7 @@
           from{ opacity:1; transform:translate(-50%,-10%); }
           to{ opacity:0; transform:translate(-50%,-150%); }
         }
+
         .gjsb-stage.hitstop{
           animation:gjsbHitStop .08s steps(1,end) 1;
         }
@@ -1467,6 +1399,7 @@
         .gjsb-stage.rage-vignette{
           box-shadow:inset 0 0 0 4px rgba(255,110,110,.14), inset 0 0 90px rgba(255,80,80,.12);
         }
+
         .gjsb-finisherFlash{
           position:absolute;
           inset:0;
@@ -1483,6 +1416,7 @@
           14%{ opacity:1; transform:scale(1.01); }
           100%{ opacity:0; transform:scale(1.05); }
         }
+
         .gjsb-pause{
           position:absolute;
           inset:0;
@@ -1540,6 +1474,7 @@
           color:#6c6a61;
           border:3px solid #d7edf7;
         }
+
         .gjsb-stage.victory-lock::after{
           content:'';
           position:absolute;
@@ -1577,6 +1512,7 @@
           80%{ transform:translate3d(2px,-1px,0); }
           100%{ transform:translate3d(0,0,0); }
         }
+
         .gjsb-summary{
           position:absolute;
           inset:0;
@@ -1593,7 +1529,7 @@
         .gjsb-summary-card{
           position:relative;
           overflow:hidden;
-          width:min(94vw,760px);
+          width:min(94vw,680px);
           max-height:88vh;
           overflow:auto;
           border-radius:28px;
@@ -1622,18 +1558,7 @@
           background:radial-gradient(circle, rgba(255,255,255,.28), rgba(255,255,255,0) 70%);
           pointer-events:none;
         }
-        .gjsb-summary-card::after{
-          content:'';
-          position:absolute;
-          right:-24px;
-          top:-24px;
-          width:120px;
-          height:120px;
-          border-radius:28px;
-          background:linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,0));
-          transform:rotate(18deg);
-          pointer-events:none;
-        }
+
         .gjsb-summary-card.grade-s{
           border-color:#ffe08a !important;
           box-shadow:0 24px 56px rgba(255,181,71,.22), 0 0 0 8px rgba(255,247,219,.40);
@@ -1641,6 +1566,7 @@
         .gjsb-summary-card.grade-a{ border-color:#cfe9b8 !important; }
         .gjsb-summary-card.grade-b{ border-color:#cdeeff !important; }
         .gjsb-summary-card.grade-c{ border-color:#ead7c6 !important; }
+
         .gjsb-summary-head{
           text-align:center;
           margin-bottom:14px;
@@ -1665,6 +1591,7 @@
           38%{ transform:scale(1.12) rotate(6deg); }
           100%{ transform:scale(1) rotate(0); }
         }
+
         .gjsb-grade{
           margin-top:10px;
           display:inline-flex;
@@ -1683,6 +1610,7 @@
         .gjsb-grade.a{ color:#45802d; border-color:#cfe9b8; background:#f7fff0; }
         .gjsb-grade.b{ color:#2d6f8b; border-color:#cdeeff; background:#f1fbff; }
         .gjsb-grade.c{ color:#8b6a53; border-color:#ead7c6; background:#fff8f3; }
+
         .gjsb-stars{
           font-size:30px;
           line-height:1;
@@ -1695,6 +1623,7 @@
           0%{ letter-spacing:-6px; opacity:.2; transform:translateY(8px) scale(.94); }
           100%{ letter-spacing:0; opacity:1; transform:translateY(0) scale(1); }
         }
+
         .gjsb-victory-ribbon{
           margin:10px auto 0;
           display:inline-flex;
@@ -1710,6 +1639,7 @@
           font-weight:1000;
           box-shadow:0 8px 18px rgba(255,181,71,.12);
         }
+
         .gjsb-summary-grid{
           display:grid;
           grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1732,9 +1662,9 @@
           font-weight:1000;
           line-height:1.2;
         }
+
         .gjsb-coach,
-        .gjsb-nextHint,
-        .gjsb-exportBox{
+        .gjsb-nextHint{
           margin-top:12px;
           border-radius:18px;
           background:linear-gradient(180deg,#fffef6,#fff);
@@ -1745,6 +1675,11 @@
           color:#6b675f;
           font-weight:1000;
         }
+
+        .gjsb-exportBox{
+          display:none !important;
+        }
+
         .gjsb-actions{
           display:grid;
           gap:10px;
@@ -1765,6 +1700,7 @@
         .gjsb-btn.replay{ background:linear-gradient(180deg,#7ed957,#58c33f); color:#173b0b; }
         .gjsb-btn.cooldown{ background:linear-gradient(180deg,#7fcfff,#58b7f5); color:#08374d; }
         .gjsb-btn.hub{ background:#fff; color:#6c6a61; border:3px solid #d7edf7; }
+
         .gjsb-confetti-layer{
           position:absolute;
           inset:0;
@@ -1787,12 +1723,7 @@
           10%{ opacity:1; }
           100%{ transform:translate3d(var(--dx, 0px), var(--dy, 110vh), 0) rotate(var(--rot, 540deg)); opacity:0; }
         }
-        .gjsb-exportBox{
-          display:none !important;
-        }
-        #btnCopyJson{
-          display:none !important;
-        }
+
         @media (max-width:720px){
           .gjsb-bar{
             grid-template-columns:repeat(3,minmax(0,1fr));
@@ -1840,7 +1771,7 @@
             bottom:92px;
           }
           .gjsb-summary-grid{
-            grid-template-columns:1fr;
+            grid-template-columns:1fr 1fr;
           }
         }
       `;
@@ -1933,7 +1864,6 @@
               <div class="gjsb-pauseCard">
                 <div class="gjsb-pauseTitle">พักก่อนนะ</div>
                 <div class="gjsb-pauseSub" id="pauseSub">เกมถูกหยุดไว้ชั่วคราว กดเล่นต่อได้เมื่อพร้อม</div>
-
                 <div class="gjsb-pauseActions">
                   <button class="gjsb-pauseBtn resume" id="btnResume" type="button">▶️ เล่นต่อ</button>
                   <button class="gjsb-pauseBtn hub" id="btnPauseHub" type="button">🏠 กลับ HUB</button>
@@ -1947,7 +1877,7 @@
                   <div class="gjsb-medal" id="sumMedal">🥈</div>
                   <div class="gjsb-grade b" id="sumGrade">B</div>
                   <h2 id="sumTitle" style="margin:8px 0 0;font-size:38px;line-height:1.05;color:#67a91c;">Great Job!</h2>
-                  <div id="sumSub" style="margin-top:6px;font-size:15px;color:#7b7a72;font-weight:1000;">มาดูผลการเล่นรอบนี้กัน</div>
+                  <div id="sumSub" style="margin-top:6px;font-size:15px;color:#7b7a72;font-weight:1000;">มาดูผลรอบนี้แบบสั้น ๆ กัน</div>
                   <div class="gjsb-stars" id="sumStars">⭐</div>
                 </div>
 
@@ -2251,10 +2181,13 @@
       burstMedalAndStars();
 
       if (bossClear && state.boss.rageTriggered) {
+        addSummaryRibbon('🔥 Rage Finale Clear');
         spawnVictoryConfetti(34);
       } else if (bossClear) {
+        addSummaryRibbon('👑 Boss Clear');
         spawnVictoryConfetti(26);
       } else {
+        addSummaryRibbon('⭐ Great Try');
         spawnVictoryConfetti(18);
       }
     }
@@ -3228,18 +3161,18 @@
 
     function nextHintMessage(bossClear) {
       if (bossClear && state.boss.rageTriggered && state.miss <= 3) {
-        return 'เป้าหมายต่อไป: ชนะช่วงสุดท้ายแบบพลาดน้อยมาก';
+        return 'ครั้งหน้า ลองชนะช่วงสุดท้ายแบบพลาดให้น้อยที่สุด';
       }
       if (bossClear) {
-        return 'เป้าหมายต่อไป: ลองผ่าน Rage Finale ให้เนียนขึ้น';
+        return 'ครั้งหน้า ลองผ่าน Rage Finale ให้เก่งขึ้นอีก';
       }
       if (state.boss.active) {
-        return 'เป้าหมายต่อไป: อ่านช่องปลอดภัยแล้วตีต่อเนื่อง';
+        return 'ครั้งหน้า อ่านช่องปลอดภัยก่อน แล้วค่อยตีต่อเนื่อง';
       }
       if (state.phase >= 2) {
-        return 'เป้าหมายต่อไป: ไปให้ถึงบอสให้เร็วขึ้น';
+        return 'ครั้งหน้า ไปให้ถึงบอสให้เร็วขึ้น';
       }
-      return 'เป้าหมายต่อไป: รักษาคอมโบให้นานขึ้น';
+      return 'ครั้งหน้า ลองรักษาคอมโบให้นานขึ้น';
     }
 
     function getReachedLabel(bossClear) {
@@ -3490,45 +3423,65 @@
     }
 
     function bindButtons() {
-      ui.btnReplay.addEventListener('click', function () {
-        safeNavigate(buildReplayUrl());
-      });
+      if (!ui.btnReplay.__bound) {
+        ui.btnReplay.__bound = true;
+        ui.btnReplay.addEventListener('click', function () {
+          safeNavigate(buildReplayUrl());
+        });
+      }
 
-      ui.btnCooldown.addEventListener('click', function () {
-        safeNavigate(buildCooldownUrl());
-      });
+      if (!ui.btnCooldown.__bound) {
+        ui.btnCooldown.__bound = true;
+        ui.btnCooldown.addEventListener('click', function () {
+          safeNavigate(buildCooldownUrl());
+        });
+      }
 
-      ui.btnCopyJson.addEventListener('click', async function () {
-        const payload = window.HHA_LAST_BOSS_PAYLOAD || null;
-        if (!payload) {
-          ui.sumExportBox.textContent = 'ยังไม่มี payload ให้คัดลอก';
-          return;
-        }
-        const ok = await safeCopyText(JSON.stringify(payload, null, 2));
-        ui.sumExportBox.innerHTML = ok ? '<strong>คัดลอก JSON แล้ว</strong>' : '<strong>คัดลอกไม่สำเร็จ</strong>';
-      });
+      if (!ui.btnCopyJson.__bound) {
+        ui.btnCopyJson.__bound = true;
+        ui.btnCopyJson.addEventListener('click', async function () {
+          const payload = window.HHA_LAST_BOSS_PAYLOAD || null;
+          if (!payload) return;
+          await safeCopyText(JSON.stringify(payload, null, 2));
+        });
+      }
 
-      ui.btnHub.addEventListener('click', function () {
-        safeNavigate(getHubRootHref());
-      });
+      if (!ui.btnHub.__bound) {
+        ui.btnHub.__bound = true;
+        ui.btnHub.addEventListener('click', function () {
+          safeNavigate(getHubRootHref());
+        });
+      }
 
-      ui.btnPause.addEventListener('click', function () {
-        if (state.paused) resumeGame();
-        else pauseGame('manual');
-      });
+      if (!ui.btnPause.__bound) {
+        ui.btnPause.__bound = true;
+        ui.btnPause.addEventListener('click', function () {
+          if (state.paused) resumeGame();
+          else pauseGame('manual');
+        });
+      }
 
-      ui.btnMute.addEventListener('click', function () {
-        state.muted = !state.muted;
-        renderHud();
-      });
+      if (!ui.btnMute.__bound) {
+        ui.btnMute.__bound = true;
+        ui.btnMute.addEventListener('click', function () {
+          state.muted = !state.muted;
+          renderHud();
+        });
+      }
 
-      ui.btnResume.addEventListener('click', function () {
-        resumeGame();
-      });
+      if (!ui.btnResume.__bound) {
+        ui.btnResume.__bound = true;
+        ui.btnResume.addEventListener('click', function () {
+          resumeGame();
+        });
+      }
 
-      ui.btnPauseHub.addEventListener('click', function () {
-        safeNavigate(getHubRootHref());
-      });
+      if (!ui.btnPauseHub.__bound) {
+        ui.btnPauseHub.__bound = true;
+        ui.btnPauseHub.addEventListener('click', function () {
+          safeNavigate(getHubRootHref());
+        });
+      }
 
       if (ui.btnTutorialGo && !ui.btnTutorialGo.__bound) {
         ui.btnTutorialGo.__bound = true;
@@ -3540,39 +3493,87 @@
         ui.btnTutorialSkip.addEventListener('click', hideTutorialOverlay);
       }
 
-      document.addEventListener('visibilitychange', function () {
-        if (document.hidden && !state.ended && !(ui && ui.summary && ui.summary.classList.contains('show'))) {
-          pauseGame('hidden');
-        }
-      });
+      if (!bindButtons._globalBound) {
+        bindButtons._globalBound = true;
 
-      window.addEventListener('blur', function () {
-        if (!state.ended) pauseGame('hidden');
-      });
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden && !state.ended && !(ui && ui.summary && ui.summary.classList.contains('show'))) {
+            pauseGame('hidden');
+          }
+        });
 
-      window.addEventListener('resize', function () {
-        renderHud();
-      }, { passive: true });
+        window.addEventListener('blur', function () {
+          if (!state.ended) pauseGame('hidden');
+        });
 
-      window.addEventListener('keydown', function (ev) {
-        if (state.ended) return;
-
-        if (ev.key === 'p' || ev.key === 'P') {
-          ev.preventDefault();
-          if (state.paused) resumeGame();
-          else pauseGame('manual');
-        }
-
-        if (ev.key === 'm' || ev.key === 'M') {
-          ev.preventDefault();
-          state.muted = !state.muted;
+        window.addEventListener('resize', function () {
           renderHud();
-        }
-      });
+        }, { passive: true });
 
-      window.addEventListener('beforeunload', function () {
-        beforeNavigationCleanup();
-      });
+        window.addEventListener('keydown', function (ev) {
+          if (state.ended) return;
+
+          if (ev.key === 'p' || ev.key === 'P') {
+            ev.preventDefault();
+            if (state.paused) resumeGame();
+            else pauseGame('manual');
+          }
+
+          if (ev.key === 'm' || ev.key === 'M') {
+            ev.preventDefault();
+            state.muted = !state.muted;
+            renderHud();
+          }
+        });
+
+        window.addEventListener('beforeunload', function () {
+          beforeNavigationCleanup();
+        });
+      }
+    }
+
+    function buildVisibleSummaryGrid(bossClear, grade) {
+      const clearLabel = bossClear
+        ? (state.boss.rageTriggered ? 'ชนะ Rage Finale' : 'ชนะบอส')
+        : (state.boss.active ? 'ถึงด่านบอส' : state.phase >= 2 ? 'ผ่าน Phase 2' : 'ผ่าน Phase 1');
+
+      return `
+        <div class="gjsb-stat"><div class="k">เกรด</div><div class="v">${grade}</div></div>
+        <div class="gjsb-stat"><div class="k">คะแนน</div><div class="v">${state.score}</div></div>
+        <div class="gjsb-stat"><div class="k">คอมโบสูงสุด</div><div class="v">${state.bestStreak}</div></div>
+        <div class="gjsb-stat"><div class="k">ไปได้ถึง</div><div class="v">${clearLabel}</div></div>
+      `;
+    }
+
+    function childTitle(bossClear) {
+      if (bossClear && state.boss.rageTriggered) return 'สุดยอดมาก!';
+      if (bossClear) return 'ชนะบอสแล้ว!';
+      if (state.boss.active) return 'เกือบชนะแล้ว!';
+      if (state.phase >= 2) return 'เก่งมาก!';
+      return 'เริ่มได้ดี!';
+    }
+
+    function childSub(bossClear) {
+      if (bossClear && state.boss.rageTriggered) return 'เธอผ่านด่านสุดท้ายและโค่น Junk King ได้แล้ว';
+      if (bossClear) return 'เธอเอาชนะ Junk King ได้สำเร็จ';
+      if (state.boss.active) return 'เธอไปถึงบอสแล้ว รอบหน้ามีลุ้นชนะ';
+      if (state.phase >= 2) return 'เธอผ่านด่านก่อนเจอบอสได้ดีมาก';
+      return 'เล่นต่ออีกนิดแล้วจะเก่งขึ้นแน่นอน';
+    }
+
+    function childCoach(bossClear) {
+      if (bossClear && state.miss <= 3) return 'ยอดเยี่ยมมาก! ทั้งไวและแม่น';
+      if (bossClear) return 'ดีมาก! รอบหน้าลองพลาดให้น้อยลงอีก';
+      if (state.boss.active) return 'เกือบแล้ว! ลองอ่านเป้าทองกับของลวงให้เร็วขึ้น';
+      return 'รักษาคอมโบให้ได้นานขึ้น แล้วคะแนนจะพุ่งเร็วมาก';
+    }
+
+    function childNextHint(bossClear) {
+      if (bossClear && state.boss.rageTriggered) return 'ภารกิจต่อไป: ลองชนะอีกครั้งแบบพลาดน้อยกว่าเดิม';
+      if (bossClear) return 'ภารกิจต่อไป: ลองผ่าน Rage Finale ให้ได้';
+      if (state.boss.active) return 'ภารกิจต่อไป: หา SAFE lane แล้วตีต่อเนื่อง';
+      if (state.phase >= 2) return 'ภารกิจต่อไป: ไปถึงบอสให้เร็วขึ้น';
+      return 'ภารกิจต่อไป: เก็บของดีติดกันให้ยาวขึ้น';
     }
 
     function endGame(bossClear) {
@@ -3591,10 +3592,9 @@
       state.metrics.clearTimeMs = nowMs() - state.metrics.runStartAt;
 
       const stars = starsFromSummary(bossClear);
-      const rawGrade = calcGrade(bossClear);
-      const visibleGrade = childGradeFromRaw(rawGrade);
-      const medal = medalEmojiForGrade(visibleGrade);
-      const payload = buildResearchPayload(bossClear, rawGrade);
+      const grade = calcGrade(bossClear);
+      const medal = medalEmojiForGrade(grade);
+      const payload = buildResearchPayload(bossClear, grade);
       saveResearchPayload(payload);
       const isRageClear = !!(bossClear && state.boss.rageTriggered);
 
@@ -3605,8 +3605,8 @@
       dailyMeta.bestScore = Math.max(dailyMeta.bestScore || 0, state.score);
       dailyMeta.bestStreak = Math.max(dailyMeta.bestStreak || 0, state.bestStreak);
 
-      if (!dailyMeta.bestGrade || gradeScore(rawGrade) > gradeScore(dailyMeta.bestGrade)) {
-        dailyMeta.bestGrade = rawGrade;
+      if (!dailyMeta.bestGrade || gradeScore(grade) > gradeScore(dailyMeta.bestGrade)) {
+        dailyMeta.bestGrade = grade;
       }
 
       dailyMeta.rematchStreak = bossClear ? (dailyMeta.rematchStreak || 0) + 1 : 0;
@@ -3614,7 +3614,7 @@
       const metaReward = computeBossRewardMeta({
         bossClear,
         rageClear: isRageClear,
-        grade: rawGrade,
+        grade,
         miss: state.miss,
         bestStreak: state.bestStreak,
         score: state.score
@@ -3636,31 +3636,36 @@
       const hubSnapshot = buildHubSnapshot({
         bossClear,
         rageClear: isRageClear,
-        grade: rawGrade,
+        grade,
         metaReward,
         dailyChallenge: dailyResult
       });
       saveHubSnapshot(hubSnapshot);
 
-      ui.sumTitle.textContent = childTitleFromResult(bossClear, visibleGrade);
-      ui.sumSub.textContent = childSubFromResult(bossClear);
-
+      ui.sumTitle.textContent = childTitle(bossClear);
+      ui.sumSub.textContent = childSub(bossClear);
       ui.sumStars.textContent = '⭐'.repeat(stars);
-      ui.sumGrade.textContent = visibleGrade;
-      ui.sumGrade.className = 'gjsb-grade ' + visibleGrade.toLowerCase();
+      ui.sumGrade.textContent = grade;
+      ui.sumGrade.className = 'gjsb-grade ' + grade.toLowerCase();
       ui.sumMedal.textContent = medal;
 
-      runVictoryPolish(bossClear, visibleGrade);
-      addSummaryRibbon(childRibbonText(bossClear, visibleGrade));
+      runVictoryPolish(bossClear, grade);
+      addSummaryRibbon(
+        isRageClear
+          ? '🔥 ชนะช่วงสุดท้าย'
+          : bossClear
+            ? '👑 ชนะบอส'
+            : '⭐ ไปต่อได้อีก'
+      );
 
-      ui.sumGrid.innerHTML = buildChildVisibleSummaryHtml();
-
-      ui.sumCoach.textContent = childCoachMessage(bossClear, visibleGrade);
+      ui.sumGrid.innerHTML = buildVisibleSummaryGrid(bossClear, grade);
+      ui.sumCoach.textContent = childCoach(bossClear);
       ui.sumNextHint.textContent = childNextHint(bossClear);
 
-      ui.sumExportBox.innerHTML = '';
-      ui.sumExportBox.style.display = 'none';
-
+      if (ui.sumExportBox) {
+        ui.sumExportBox.style.display = 'none';
+        ui.sumExportBox.textContent = '';
+      }
       if (ui.btnCopyJson) {
         ui.btnCopyJson.style.display = 'none';
       }
@@ -3668,7 +3673,7 @@
       if (ui && ui.btnReplay) {
         ui.btnReplay.textContent =
           bossClear
-            ? '🔁 เล่นอีกครั้ง'
+            ? `🔥 เล่นอีกครั้ง (${dailyMeta.rematchStreak})`
             : '🔁 ลองใหม่';
       }
 
@@ -3691,8 +3696,7 @@
         phaseReached: state.boss.active ? 'boss' : ('phase-' + state.phase),
         bossStageReached: state.boss.stageReached,
         rageTriggered: !!state.boss.rageTriggered,
-        finalGrade: rawGrade,
-        visibleGrade: visibleGrade,
+        finalGrade: grade,
         rewardTitle: metaReward.reward,
         rewardBadge: metaReward.badge,
         dailyChallengeTitle: dailyResult.title,
@@ -3707,7 +3711,7 @@
       writeRematchState({
         count: state.replay.rematchCount + 1,
         lastSeed: String(ctx.seed || ''),
-        lastGrade: rawGrade,
+        lastGrade: grade,
         lastBossStage: String(state.boss.stageReached || '')
       });
 
@@ -3835,6 +3839,7 @@
       if (ui && ui.score) ui.score.classList.remove('emph');
       if (ui && ui.stageCue) ui.stageCue.classList.remove('show');
       if (ui && ui.tutorialOverlay) ui.tutorialOverlay.classList.remove('show');
+      if (ui && ui.summary) ui.summary.classList.remove('show');
 
       state.metrics.runStartAt = nowMs();
       state.lastTs = performance.now();
