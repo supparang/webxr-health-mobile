@@ -1,51 +1,1156 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Duet Runtime</title>
+  <title>HeroHealth • GoodJunk Duet Runtime</title>
   <meta name="theme-color" content="#9fe3ff" />
-  <script src="./goodjunk-vr-summary-rewrite-hotfix.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="./firebase-config.js"></script>
-  <script src="./hha-room.js"></script>
-  <script src="/herohealth/herohealth-logger.js"></script>
-  <script src="./goodjunk-duet-play-bridge.js"></script>
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#eefcff;
+      --grass1:#8de15d;
+      --grass2:#6ccb48;
+
+      --card:#fffef9;
+      --line:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#7b7a72;
+
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --warn:#ffd37a;
+      --warn2:#ffb84d;
+      --danger:#ffd2d2;
+      --danger2:#ffb0b0;
+
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(255,255,255,.84), transparent 18%),
+        radial-gradient(circle at 86% 10%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
+      overflow:hidden;
+    }
+
+    body{ min-height:100dvh; }
+
+    #app{
+      position:relative;
+      width:100vw;
+      height:100dvh;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 15% 14%, rgba(255,255,255,.72), transparent 15%),
+        radial-gradient(circle at 83% 10%, rgba(255,255,255,.60), transparent 16%),
+        linear-gradient(180deg,#8fd8ff 0%, #bfe8ff 48%, #eefcff 100%);
+    }
+
+    .cloud{
+      position:absolute;
+      border-radius:999px;
+      background:rgba(255,255,255,.65);
+      filter:blur(1px);
+      box-shadow:
+        42px 0 0 4px rgba(255,255,255,.70),
+        82px 6px 0 0 rgba(255,255,255,.58);
+      opacity:.95;
+      pointer-events:none;
+      animation:cloudFloat linear infinite;
+    }
+
+    .cloud.c1{ width:110px; height:34px; left:8%; top:12%; animation-duration:26s; }
+    .cloud.c2{ width:130px; height:38px; left:62%; top:14%; animation-duration:32s; }
+    .cloud.c3{ width:92px; height:28px; left:28%; top:24%; animation-duration:29s; }
+
+    @keyframes cloudFloat{
+      from{ transform:translateX(-3vw); }
+      to{ transform:translateX(10vw); }
+    }
+
+    .hud{
+      position:absolute;
+      left:8px;
+      right:8px;
+      top:calc(8px + var(--sat));
+      z-index:30;
+      display:grid;
+      gap:6px;
+      pointer-events:none;
+    }
+
+    .hud-row{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:6px;
+    }
+
+    .pill{
+      min-height:42px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:8px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.90);
+      border:3px solid var(--line);
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+      color:#5d5952;
+      font-size:13px;
+      font-weight:1000;
+      pointer-events:auto;
+      user-select:none;
+    }
+
+    .banner{
+      justify-self:center;
+      min-height:40px;
+      padding:10px 16px;
+      border-radius:999px;
+      background:#fff;
+      border:3px solid var(--line);
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+      color:#6a655e;
+      font-size:15px;
+      font-weight:1000;
+      pointer-events:auto;
+      user-select:none;
+      text-align:center;
+    }
+
+    #playfield{
+      position:absolute;
+      inset:92px 0 102px 0;
+      overflow:hidden;
+      z-index:10;
+    }
+
+    .ground{
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height:92px;
+      background:linear-gradient(180deg,var(--grass1),var(--grass2));
+      box-shadow:inset 0 4px 0 rgba(255,255,255,.25);
+      z-index:8;
+    }
+
+    .item{
+      position:absolute;
+      border:none;
+      cursor:pointer;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      box-shadow:0 10px 24px rgba(86,155,194,.14);
+      border:3px solid var(--line);
+      background:rgba(255,255,255,.92);
+      user-select:none;
+      -webkit-user-select:none;
+      touch-action:manipulation;
+      will-change:transform;
+    }
+
+    .item.good{
+      background:linear-gradient(180deg,#f7fff1,#ffffff);
+    }
+
+    .item.junk{
+      background:linear-gradient(180deg,#fff3f3,#ffffff);
+      border-color:var(--danger);
+    }
+
+    .emoji{
+      font-size:38px;
+      line-height:1;
+      pointer-events:none;
+    }
+
+    .label{
+      position:absolute;
+      left:6px;
+      right:6px;
+      bottom:4px;
+      text-align:center;
+      font-size:10px;
+      font-weight:1000;
+      color:#68645c;
+      pointer-events:none;
+    }
+
+    .fx{
+      position:absolute;
+      transform:translate(-50%,-50%);
+      z-index:25;
+      font-size:18px;
+      font-weight:1000;
+      pointer-events:none;
+      animation:floatFx .7s ease forwards;
+      text-shadow:0 8px 18px rgba(0,0,0,.12);
+    }
+
+    @keyframes floatFx{
+      from{ opacity:1; transform:translate(-50%,-10%); }
+      to{ opacity:0; transform:translate(-50%,-150%); }
+    }
+
+    .controls{
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:calc(10px + var(--sab));
+      z-index:35;
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      padding:0 14px;
+      pointer-events:none;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      min-height:48px;
+      padding:12px 18px;
+      border-radius:18px;
+      font-size:16px;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+      pointer-events:auto;
+    }
+
+    .btn.pause{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#08374d;
+    }
+
+    .btn.end{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#173b0b;
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg,var(--warn),var(--warn2));
+      color:#5a3b11;
+    }
+
+    .overlay{
+      position:absolute;
+      inset:0;
+      z-index:80;
+      display:none;
+      place-items:center;
+      padding:16px;
+      background:rgba(255,255,255,.34);
+      backdrop-filter:blur(6px);
+    }
+
+    .overlay.show{ display:grid; }
+
+    .card{
+      width:min(92vw,620px);
+      max-height:88vh;
+      overflow:auto;
+      border-radius:28px;
+      border:4px solid var(--line);
+      background:linear-gradient(180deg,#fffef9,#f8fff3);
+      box-shadow:0 24px 52px rgba(86,155,194,.22);
+      padding:18px;
+    }
+
+    .center{ text-align:center; }
+
+    .medal{
+      width:100px;
+      height:100px;
+      margin:0 auto 10px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      font-size:48px;
+      background:linear-gradient(180deg,#fff8d8,#fffef6);
+      border:4px solid #d7edf7;
+    }
+
+    .grade{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:110px;
+      padding:10px 18px;
+      border-radius:999px;
+      background:#fff;
+      border:3px solid #d7edf7;
+      color:#5a6f80;
+      font-size:30px;
+      font-weight:1000;
+    }
+
+    .title{
+      margin:12px 0 0;
+      font-size:42px;
+      line-height:1.04;
+      color:#67a91c;
+      font-weight:1000;
+    }
+
+    .sub{
+      margin-top:8px;
+      font-size:16px;
+      line-height:1.6;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .stars{
+      margin-top:10px;
+      font-size:30px;
+      line-height:1;
+    }
+
+    .summary-grid{
+      margin-top:18px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+
+    .summary-stat{
+      padding:16px;
+      border-radius:18px;
+      border:3px solid #d7edf7;
+      background:#fff;
+    }
+
+    .summary-stat .k{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .summary-stat .v{
+      margin-top:8px;
+      font-size:54px;
+      line-height:1;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .summary-actions{
+      margin-top:16px;
+      display:grid;
+      gap:10px;
+    }
+
+    @media (max-width:720px){
+      .hud-row{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .pill{
+        min-height:38px;
+        font-size:12px;
+        padding:7px 8px;
+      }
+
+      #playfield{
+        inset:116px 0 96px 0;
+      }
+
+      .item{
+        border-radius:22px;
+      }
+
+      .emoji{
+        font-size:34px;
+      }
+
+      .title{
+        font-size:34px;
+      }
+
+      .summary-stat .v{
+        font-size:48px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div id="gameMount" style="position:fixed;inset:0;"></div>
+  <div id="app">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+
+    <div class="hud">
+      <div class="hud-row">
+        <div class="pill" id="hudMode">🤝 DUET</div>
+        <div class="pill" id="hudScore">Score • 0</div>
+        <div class="pill" id="hudTime">Time • 1:30</div>
+        <div class="pill" id="hudMiss">Miss • 0</div>
+        <div class="pill" id="hudStreak">Streak • 0</div>
+      </div>
+      <div class="banner" id="hudBanner">เก็บ good ต่อไป!</div>
+    </div>
+
+    <div id="playfield"></div>
+    <div class="ground"></div>
+
+    <div class="controls">
+      <button id="btnPause" class="btn pause" type="button">⏸ Pause</button>
+      <button id="btnEnd" class="btn end" type="button">✅ จบเกม</button>
+    </div>
+
+    <div id="pauseOverlay" class="overlay">
+      <div class="card center">
+        <div class="medal">⏸️</div>
+        <div class="title" style="font-size:32px;">พักก่อนนะ</div>
+        <div class="sub">กดเล่นต่อเมื่อพร้อม</div>
+        <div class="summary-actions">
+          <button id="btnResume" class="btn end" type="button">▶️ เล่นต่อ</button>
+          <button id="btnPauseToHub" class="btn pause" type="button">🏠 กลับ Hub</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="duetSummary" class="overlay"></div>
+  </div>
+
   <script>
     (function () {
+      'use strict';
+
       const q = new URLSearchParams(location.search);
-      window.__GJ_RUN_CTX__ = {
-        ...(window.__GJ_RUN_CTX__ || {}),
+      const DEBUG = q.get('debug') === '1';
+
+      const GOOD = ['🍎','🍌','🍉','🥕','🥦','🐟','🥛','🍇'];
+      const JUNK = ['🍔','🍟','🍩','🍫','🍕','🥤','🧁','🍭'];
+
+      const DIFF = {
+        easy: {
+          spawnMs: 980,
+          itemVyMin: 90,
+          itemVyMax: 150,
+          scoreGood: 14,
+          penalty: 6,
+          goodRatio: 0.70
+        },
+        normal: {
+          spawnMs: 760,
+          itemVyMin: 120,
+          itemVyMax: 195,
+          scoreGood: 12,
+          penalty: 8,
+          goodRatio: 0.66
+        },
+        hard: {
+          spawnMs: 610,
+          itemVyMin: 145,
+          itemVyMax: 230,
+          scoreGood: 10,
+          penalty: 10,
+          goodRatio: 0.62
+        }
+      };
+
+      const diffKey = DIFF[q.get('diff')] ? q.get('diff') : 'normal';
+      const cfg = DIFF[diffKey];
+
+      const STORAGE_SUMMARY_KEY = 'HHA_GJ_DUET_LAST_SUMMARY';
+      const STORAGE_RAW_KEY = 'HHA_GJ_DUET_LAST_RAW';
+
+      const ui = {
+        app: document.getElementById('app'),
+        playfield: document.getElementById('playfield'),
+        hudMode: document.getElementById('hudMode'),
+        hudScore: document.getElementById('hudScore'),
+        hudTime: document.getElementById('hudTime'),
+        hudMiss: document.getElementById('hudMiss'),
+        hudStreak: document.getElementById('hudStreak'),
+        hudBanner: document.getElementById('hudBanner'),
+        btnPause: document.getElementById('btnPause'),
+        btnEnd: document.getElementById('btnEnd'),
+        pauseOverlay: document.getElementById('pauseOverlay'),
+        btnResume: document.getElementById('btnResume'),
+        btnPauseToHub: document.getElementById('btnPauseToHub'),
+        duetSummary: document.getElementById('duetSummary')
+      };
+
+      const state = {
         pid: q.get('pid') || 'anon',
         name: q.get('name') || q.get('nick') || 'Hero',
-        nick: q.get('nick') || q.get('name') || 'Hero',
-        studyId: q.get('studyId') || '',
         roomId: q.get('roomId') || q.get('room') || '',
-        matchId: q.get('matchId') || '',
-        room: q.get('room') || q.get('roomId') || '',
-        role: q.get('role') || 'player',
-        mode: 'duet',
-        entry: 'duet',
-        recommendedMode: 'duet',
-        diff: q.get('diff') || 'normal',
-        time: q.get('time') || '90',
-        seed: q.get('seed') || String(Date.now()),
-        hub: q.get('hub') || '../hub-v2.html',
+        diff: diffKey,
         view: q.get('view') || 'mobile',
-        run: q.get('run') || 'play',
-        gameId: q.get('gameId') || 'goodjunk',
-        game: q.get('game') || 'goodjunk',
-        cat: q.get('cat') || 'nutrition',
-        zone: q.get('zone') || 'nutrition',
-        maxPlayers: '2'
+        seed: q.get('seed') || String(Date.now()),
+        hub: q.get('hub') || '../hub.html',
+
+        running: false,
+        paused: false,
+        ended: false,
+        finalizing: false,
+        summaryShown: false,
+        muted: false,
+
+        rafId: 0,
+        lastTs: 0,
+        spawnAcc: 0,
+        seq: 0,
+        timers: new Set(),
+
+        score: 0,
+        miss: 0,
+        streak: 0,
+        bestStreak: 0,
+        goodHits: 0,
+        junkHits: 0,
+
+        timeTotal: Math.max(30, Number(q.get('time') || 90)) * 1000,
+        timeLeft: Math.max(30, Number(q.get('time') || 90)) * 1000,
+
+        items: [],
+        resultSnapshot: null
       };
+
+      function dlog() {
+        if (!DEBUG) return;
+        try { console.log('[GJ-DUET]', ...arguments); } catch (_) {}
+      }
+
+      function clamp(v, a, b) {
+        return Math.max(a, Math.min(b, v));
+      }
+
+      function fmtTime(ms) {
+        const total = Math.max(0, Math.ceil(ms / 1000));
+        const m = Math.floor(total / 60);
+        const s = total % 60;
+        return `${m}:${String(s).padStart(2, '0')}`;
+      }
+
+      function randomRange(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function safeTimeout(fn, ms) {
+        const id = setTimeout(() => {
+          state.timers.delete(id);
+          try { fn(); } catch (err) { console.error(err); }
+        }, ms);
+        state.timers.add(id);
+        return id;
+      }
+
+      function clearAllTimers() {
+        state.timers.forEach((id) => {
+          try { clearTimeout(id); } catch (_) {}
+          try { clearInterval(id); } catch (_) {}
+        });
+        state.timers.clear();
+      }
+
+      function playTone(freq, duration, type, gainValue) {
+        try {
+          if (state.muted) return;
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          if (!playTone._ctx) playTone._ctx = new AC();
+          const ac = playTone._ctx;
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+
+          osc.type = type || 'triangle';
+          osc.frequency.value = freq || 440;
+          gain.gain.value = gainValue || 0.02;
+
+          osc.connect(gain);
+          gain.connect(ac.destination);
+
+          const now = ac.currentTime;
+          gain.gain.setValueAtTime(gainValue || 0.02, now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + (duration || 0.08));
+
+          osc.start(now);
+          osc.stop(now + (duration || 0.08));
+        } catch (_) {}
+      }
+
+      function playSfx(kind) {
+        if (kind === 'good') {
+          playTone(760, 0.05, 'triangle', 0.02);
+          safeTimeout(() => playTone(960, 0.05, 'triangle', 0.016), 40);
+          return;
+        }
+        if (kind === 'bad') {
+          playTone(220, 0.08, 'sawtooth', 0.022);
+        }
+      }
+
+      function setBanner(text) {
+        ui.hudBanner.textContent = text;
+      }
+
+      function renderHud() {
+        ui.hudMode.textContent = '🤝 DUET';
+        ui.hudScore.textContent = `Score • ${state.score}`;
+        ui.hudTime.textContent = `Time • ${fmtTime(state.timeLeft)}`;
+        ui.hudMiss.textContent = `Miss • ${state.miss}`;
+        ui.hudStreak.textContent = `Streak • ${state.streak}`;
+      }
+
+      function stageRect() {
+        return ui.playfield.getBoundingClientRect();
+      }
+
+      function fx(x, y, text, color) {
+        const el = document.createElement('div');
+        el.className = 'fx';
+        el.textContent = text;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.color = color || '#333';
+        ui.playfield.appendChild(el);
+
+        safeTimeout(() => {
+          try { el.remove(); } catch (_) {}
+        }, 760);
+      }
+
+      function drawItem(item) {
+        item.el.style.transform = `translate(${item.x}px, ${item.y}px)`;
+      }
+
+      function createItem(type, emoji, x, y, size, vx, vy) {
+        const id = 'it-' + (++state.seq);
+
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'item ' + type;
+        el.style.width = size + 'px';
+        el.style.height = size + 'px';
+        el.innerHTML = `
+          <div class="emoji">${emoji}</div>
+          <div class="label">${type}</div>
+        `;
+
+        const item = {
+          id,
+          type,
+          emoji,
+          x,
+          y,
+          size,
+          vx,
+          vy,
+          dead: false,
+          el
+        };
+
+        el.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault();
+          onItemTap(item);
+        }, { passive: false });
+
+        ui.playfield.appendChild(el);
+        state.items.push(item);
+        drawItem(item);
+
+        return item;
+      }
+
+      function removeItem(item) {
+        if (!item || item.dead) return;
+        item.dead = true;
+        try { item.el.remove(); } catch (_) {}
+      }
+
+      function removeAllItems() {
+        state.items.forEach((item) => {
+          if (item && item.el && item.el.remove) {
+            try { item.el.remove(); } catch (_) {}
+          }
+        });
+        state.items.length = 0;
+      }
+
+      function spawnItem() {
+        const r = stageRect();
+        const isGood = Math.random() < cfg.goodRatio;
+        const type = isGood ? 'good' : 'junk';
+        const emoji = isGood
+          ? GOOD[Math.floor(Math.random() * GOOD.length)]
+          : JUNK[Math.floor(Math.random() * JUNK.length)];
+
+        const size = randomRange(68, 86);
+        const x = clamp(randomRange(10, r.width - size - 10), 10, r.width - size - 10);
+        const y = -size - randomRange(0, 30);
+        const vx = randomRange(-35, 35);
+        const vy = randomRange(cfg.itemVyMin, cfg.itemVyMax);
+
+        createItem(type, emoji, x, y, size, vx, vy);
+      }
+
+      function onItemTap(item) {
+        if (!state.running || state.paused || state.ended || state.finalizing || !item || item.dead) return;
+
+        const cx = item.x + item.size / 2;
+        const cy = item.y + item.size / 2;
+
+        if (item.type === 'good') {
+          state.goodHits += 1;
+          state.streak += 1;
+          state.bestStreak = Math.max(state.bestStreak, state.streak);
+
+          const bonus = Math.min(10, Math.floor(state.streak / 3) * 2);
+          const gain = cfg.scoreGood + bonus;
+          state.score += gain;
+
+          fx(cx, cy, '+' + gain, '#2f8f2f');
+          playSfx('good');
+          setBanner(state.streak >= 3 ? 'เก็บ good ต่อเนื่องได้ดีมาก!' : 'ดีมาก! เก็บ good ต่อไป');
+        } else {
+          state.junkHits += 1;
+          state.miss += 1;
+          state.streak = 0;
+          state.score = Math.max(0, state.score - cfg.penalty);
+
+          fx(cx, cy, 'MISS', '#d16b27');
+          playSfx('bad');
+          setBanner('ระวัง junk นะ');
+        }
+
+        removeItem(item);
+        renderHud();
+      }
+
+      function updateItems(dt) {
+        const r = stageRect();
+
+        for (let i = state.items.length - 1; i >= 0; i--) {
+          const item = state.items[i];
+          if (!item || item.dead) {
+            state.items.splice(i, 1);
+            continue;
+          }
+
+          item.x += item.vx * dt / 1000;
+          item.y += item.vy * dt / 1000;
+
+          if (item.x <= 8) {
+            item.x = 8;
+            item.vx = Math.abs(item.vx);
+          }
+          if (item.x + item.size >= r.width - 8) {
+            item.x = r.width - item.size - 8;
+            item.vx = -Math.abs(item.vx);
+          }
+
+          drawItem(item);
+
+          if (item.y > r.height + item.size * 0.5) {
+            if (item.type === 'good') {
+              state.miss += 1;
+              state.streak = 0;
+            }
+            removeItem(item);
+            state.items.splice(i, 1);
+          }
+        }
+      }
+
+      function calcDuetGrade({ score, miss, good }) {
+        if (score >= 1200 && miss <= 8 && good >= 70) return 'S';
+        if (score >= 900 && miss <= 14 && good >= 55) return 'A';
+        if (score >= 650 && good >= 35) return 'B';
+        return 'C';
+      }
+
+      function buildPayload(reason = 'timeup') {
+        return {
+          source: 'goodjunk-duet-runtime',
+          mode: 'DUET',
+          reason,
+          score: Number(state.score || 0),
+          miss: Number(state.miss || 0),
+          good: Number(state.goodHits || 0),
+          junk: Number(state.junkHits || 0),
+          streak: Number(state.bestStreak || 0),
+          grade: calcDuetGrade({
+            score: Number(state.score || 0),
+            miss: Number(state.miss || 0),
+            good: Number(state.goodHits || 0)
+          }),
+          ts: Date.now(),
+          pid: state.pid || 'anon',
+          name: state.name || 'Hero',
+          hub: state.hub || '../hub.html'
+        };
+      }
+
+      function savePayload(payload) {
+        try {
+          localStorage.setItem(STORAGE_SUMMARY_KEY, JSON.stringify({
+            score: payload.score,
+            grade: payload.grade,
+            good: payload.good,
+            miss: payload.miss,
+            ts: payload.ts
+          }));
+        } catch (_) {}
+
+        try {
+          localStorage.setItem(STORAGE_RAW_KEY, JSON.stringify(payload));
+        } catch (_) {}
+
+        window.HHA_LAST_DUET_PAYLOAD = payload;
+      }
+
+      function hideLegacySummaryDom() {
+        const selectors = [
+          '#summary',
+          '#result',
+          '#resultPanel',
+          '#summaryPanel',
+          '.summary',
+          '.result',
+          '.result-panel',
+          '.summary-panel',
+          '[id*="summary"]',
+          '[id*="result"]'
+        ];
+
+        selectors.forEach((sel) => {
+          document.querySelectorAll(sel).forEach((el) => {
+            if (!el) return;
+            if (el === ui.duetSummary) return;
+            el.style.display = 'none';
+            el.setAttribute('aria-hidden', 'true');
+          });
+        });
+
+        document.querySelectorAll('div,section,article').forEach((el) => {
+          const t = String(el.innerText || '').trim();
+          if (!t) return;
+          if (
+            t.includes('คอมโบสูงสุด') ||
+            t.includes('โหมด') ||
+            t.includes('ระบบกำลังบันทึกผล') ||
+            t.includes('สรุปของเราออกแล้ว')
+          ) {
+            el.style.display = 'none';
+            el.setAttribute('aria-hidden', 'true');
+          }
+        });
+      }
+
+      function showSummary(payload) {
+        hideLegacySummaryDom();
+
+        const title =
+          payload.grade === 'S' ? 'สุดยอด!' :
+          payload.grade === 'A' ? 'เยี่ยมมาก!' :
+          payload.grade === 'B' ? 'ดีมาก!' : 'สู้ต่อได้!';
+
+        const stars =
+          payload.grade === 'S' ? '⭐⭐⭐' :
+          payload.grade === 'A' ? '⭐⭐' : '⭐';
+
+        ui.duetSummary.innerHTML = `
+          <div class="card">
+            <div class="center">
+              <div class="medal">🏅</div>
+              <div class="grade">${payload.grade}</div>
+              <h2 class="title">${title}</h2>
+              <div class="sub">จบเกมแล้ว มาดูผลงานรอบนี้กัน</div>
+              <div class="stars">${stars}</div>
+            </div>
+
+            <div class="summary-grid">
+              <div class="summary-stat">
+                <div class="k">คะแนน</div>
+                <div class="v">${payload.score}</div>
+              </div>
+
+              <div class="summary-stat">
+                <div class="k">เกรด</div>
+                <div class="v">${payload.grade}</div>
+              </div>
+
+              <div class="summary-stat">
+                <div class="k">เก็บ good</div>
+                <div class="v">${payload.good}</div>
+              </div>
+
+              <div class="summary-stat">
+                <div class="k">โดน junk / miss</div>
+                <div class="v">${payload.miss}</div>
+              </div>
+            </div>
+
+            <div class="summary-actions">
+              <button id="btnReplay" class="btn end" type="button">🔁 เล่นอีกครั้ง</button>
+              <button id="btnToHub" class="btn pause" type="button">🏠 กลับ Hub</button>
+            </div>
+          </div>
+        `;
+
+        ui.duetSummary.classList.add('show');
+
+        const btnReplay = document.getElementById('btnReplay');
+        const btnToHub = document.getElementById('btnToHub');
+
+        if (btnReplay) {
+          btnReplay.addEventListener('click', function () {
+            location.reload();
+          });
+        }
+
+        if (btnToHub) {
+          btnToHub.addEventListener('click', function () {
+            location.href = state.hub;
+          });
+        }
+      }
+
+      function finalizeRemoteIfNeeded(payload) {
+        try {
+          if (typeof window.HHA_DUET_REMOTE_FINALIZE === 'function') {
+            window.HHA_DUET_REMOTE_FINALIZE(payload);
+            return;
+          }
+          if (typeof window.finalizeRemoteIfNeeded === 'function' &&
+              window.finalizeRemoteIfNeeded !== finalizeRemoteIfNeeded) {
+            window.finalizeRemoteIfNeeded(payload);
+          }
+        } catch (err) {
+          console.warn('[GJ-DUET finalizeRemoteIfNeeded skipped]', err);
+        }
+      }
+
+      function stopRuntimeLoop() {
+        state.running = false;
+        try { cancelAnimationFrame(state.rafId); } catch (_) {}
+        clearAllTimers();
+      }
+
+      function finishDuetGame(reason = 'timeup') {
+        if (state.finalizing || state.summaryShown) return;
+
+        state.finalizing = true;
+        state.ended = true;
+        state.paused = false;
+
+        dlog('finishDuetGame', reason);
+
+        stopRuntimeLoop();
+        removeAllItems();
+        hideLegacySummaryDom();
+        renderHud();
+
+        const payload = buildPayload(reason);
+        state.resultSnapshot = payload;
+        savePayload(payload);
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            try {
+              showSummary(payload);
+              state.summaryShown = true;
+            } catch (err) {
+              console.error('[GJ-DUET summary failed]', err);
+              alert('จบเกมแล้ว แต่หน้า summary มีปัญหา');
+            } finally {
+              state.finalizing = false;
+            }
+
+            finalizeRemoteIfNeeded(payload);
+          });
+        });
+      }
+
+      function endGame(reason) {
+        finishDuetGame(reason || 'legacy_end');
+      }
+
+      function finishGame(reason) {
+        finishDuetGame(reason || 'legacy_finish');
+      }
+
+      window.finishDuetGame = finishDuetGame;
+      window.endGame = endGame;
+      window.finishGame = finishGame;
+
+      window.mountSummary = function () {};
+      window.renderSummary = function () {};
+      window.updateSummary = function () {};
+      window.showResult = function () {};
+      window.openSummary = function () {};
+
+      function pauseGame() {
+        if (state.ended || state.finalizing || state.paused) return;
+        state.paused = true;
+        ui.pauseOverlay.classList.add('show');
+      }
+
+      function resumeGame() {
+        if (state.ended || state.finalizing || !state.paused) return;
+        state.paused = false;
+        ui.pauseOverlay.classList.remove('show');
+        state.lastTs = performance.now();
+      }
+
+      function bindUi() {
+        ui.btnPause.onclick = function () {
+          if (state.paused) resumeGame();
+          else pauseGame();
+        };
+
+        ui.btnEnd.onclick = function () {
+          finishDuetGame('manual_end');
+        };
+
+        ui.btnResume.onclick = function () {
+          resumeGame();
+        };
+
+        ui.btnPauseToHub.onclick = function () {
+          location.href = state.hub;
+        };
+
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden && !state.ended && !state.finalizing) {
+            pauseGame();
+          }
+        });
+
+        window.addEventListener('blur', function () {
+          if (!state.ended && !state.finalizing) {
+            pauseGame();
+          }
+        });
+
+        window.addEventListener('beforeunload', function () {
+          stopRuntimeLoop();
+        });
+
+        window.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Escape' || ev.key === 'p' || ev.key === 'P') {
+            ev.preventDefault();
+            if (state.paused) resumeGame();
+            else pauseGame();
+          }
+        });
+      }
+
+      function updateGame(dt) {
+        if (state.paused || state.ended || state.finalizing) return;
+
+        state.timeLeft -= dt;
+        if (state.timeLeft < 0) state.timeLeft = 0;
+
+        state.spawnAcc += dt;
+        while (state.spawnAcc >= cfg.spawnMs) {
+          state.spawnAcc -= cfg.spawnMs;
+          spawnItem();
+        }
+
+        updateItems(dt);
+        renderHud();
+
+        if (state.timeLeft <= 0) {
+          finishDuetGame('timeup');
+        }
+      }
+
+      function gameLoop(ts) {
+        if (!state.running || state.ended || state.finalizing) return;
+
+        const dt = Math.min(40, (ts - (state.lastTs || ts)) || 16);
+        state.lastTs = ts;
+
+        try {
+          updateGame(dt);
+        } catch (err) {
+          console.error('[GJ-DUET loop failed]', err);
+          finishDuetGame('runtime_error');
+          return;
+        }
+
+        if (!state.ended && !state.finalizing) {
+          state.rafId = requestAnimationFrame(gameLoop);
+        }
+      }
+
+      function startGame() {
+        hideLegacySummaryDom();
+
+        state.ended = false;
+        state.finalizing = false;
+        state.summaryShown = false;
+        state.running = true;
+        state.paused = false;
+
+        ui.duetSummary.classList.remove('show');
+        ui.duetSummary.innerHTML = '';
+        ui.pauseOverlay.classList.remove('show');
+
+        state.score = 0;
+        state.miss = 0;
+        state.streak = 0;
+        state.bestStreak = 0;
+        state.goodHits = 0;
+        state.junkHits = 0;
+        state.timeLeft = state.timeTotal;
+        state.spawnAcc = 0;
+
+        removeAllItems();
+        renderHud();
+        setBanner('เก็บ good ต่อไป!');
+
+        state.lastTs = performance.now();
+        state.rafId = requestAnimationFrame(gameLoop);
+
+        dlog('started', {
+          pid: state.pid,
+          roomId: state.roomId,
+          diff: state.diff,
+          time: state.timeTotal
+        });
+      }
+
+      const duetLegacyObserver = new MutationObserver(() => {
+        if (state.summaryShown || state.finalizing) {
+          hideLegacySummaryDom();
+        }
+      });
+
+      duetLegacyObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+
+      bindUi();
+      startGame();
     })();
   </script>
-  <script src="./goodjunk-multi-runtime-core.js"></script>
 </body>
 </html>
