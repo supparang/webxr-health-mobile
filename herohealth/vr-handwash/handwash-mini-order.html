@@ -12,11 +12,7 @@
       --bg:rgba(7,18,34,.86);
       --panel:rgba(255,255,255,.10);
       --line:#63e6ff;
-      --ink:#ffffff;
       --yellow:#ffe66d;
-      --cyan:#67e8f9;
-      --green:#86efac;
-      --pink:#ff72b6;
       --shadow:0 12px 30px rgba(0,0,0,.28);
     }
 
@@ -462,7 +458,7 @@
 
       <div class="progress-wrap">
         <div class="progress-top">
-          <span id="progress-label">ความคืบหน้า</span>
+          <span>ความคืบหน้า</span>
           <span id="progress-text">0%</span>
         </div>
         <div class="progress-bar">
@@ -543,14 +539,14 @@
     <a-entity light="type: ambient; intensity: 1.12; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.9; color: #fff8e0" position="1 3 2"></a-entity>
 
-    <a-entity id="board-root" position="0 1.02 -1.70" rotation="-8 0 0">
-      <a-plane width="2.40" height="1.82" color="#0b1c30" material="opacity:0.98"></a-plane>
-      <a-plane width="2.22" height="1.66" color="#0f2741" position="0 0 0.001" material="opacity:0.98"></a-plane>
+    <a-entity id="board-root" position="0 1.08 -1.66" rotation="-8 0 0">
+      <a-plane width="2.42" height="1.86" color="#0b1c30" material="opacity:0.98"></a-plane>
+      <a-plane width="2.24" height="1.70" color="#0f2741" position="0 0 0.001" material="opacity:0.98"></a-plane>
 
-      <a-text value="Mini Order" color="#ffffff" width="2.8" align="center" position="0 0.82 0.02"></a-text>
-      <a-text value="เรียงให้ถูกจากขั้นที่ 1 ถึง 7" color="#baf4ff" width="2.0" align="center" position="0 0.68 0.02"></a-text>
+      <a-text value="Mini Order" color="#ffffff" width="2.8" align="center" position="0 0.84 0.02"></a-text>
+      <a-text value="เรียงให้ถูกจากขั้นที่ 1 ถึง 7" color="#baf4ff" width="2.0" align="center" position="0 0.70 0.02"></a-text>
 
-      <a-entity id="slot-row" position="0 0.48 0.03"></a-entity>
+      <a-entity id="slot-row" position="0 0.52 0.03"></a-entity>
       <a-entity id="card-layer"></a-entity>
       <a-entity id="fx-layer"></a-entity>
     </a-entity>
@@ -562,8 +558,7 @@
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.011; radiusOuter: 0.02"
                   material="color: #00f2ff; shader: flat"
-                  raycaster="objects: .focusable">
-        </a-entity>
+                  raycaster="objects: .focusable"></a-entity>
       </a-camera>
       <a-entity laser-controls="hand: left" raycaster="objects: .focusable"></a-entity>
       <a-entity laser-controls="hand: right" raycaster="objects: .focusable"></a-entity>
@@ -591,18 +586,16 @@
     ];
 
     const CARD_POSITIONS = [
-      {x:-0.72, y:0.10, z:0.03},
-      {x:-0.24, y:0.10, z:0.03},
-      {x: 0.24, y:0.10, z:0.03},
-      {x: 0.72, y:0.10, z:0.03},
-      {x:-0.48, y:-0.48, z:0.03},
-      {x: 0.00, y:-0.48, z:0.03},
-      {x: 0.48, y:-0.48, z:0.03}
+      {x:-0.72, y:0.08, z:0.03},
+      {x:-0.24, y:0.08, z:0.03},
+      {x: 0.24, y:0.08, z:0.03},
+      {x: 0.72, y:0.08, z:0.03},
+      {x:-0.48, y:-0.52, z:0.03},
+      {x: 0.00, y:-0.52, z:0.03},
+      {x: 0.48, y:-0.52, z:0.03}
     ];
 
-    const SLOT_POSITIONS = [
-      -0.72, -0.48, -0.24, 0.00, 0.24, 0.48, 0.72
-    ];
+    const SLOT_POSITIONS = [-0.72, -0.48, -0.24, 0.00, 0.24, 0.48, 0.72];
 
     const state = {
       started:false,
@@ -617,11 +610,10 @@
       lastActionAt:0,
       lastTs:0,
       hudCompact:false,
-
-      combo: 0,
-      bestCombo: 0,
-      idleTimer: 0,
-      badges: []
+      combo:0,
+      bestCombo:0,
+      idleTimer:0,
+      badges:[]
     };
 
     const ui = {
@@ -790,7 +782,7 @@
         ui.stepName.textContent = nextStep.label;
         ui.stepDesc.textContent = `เลือกการ์ดขั้นตอนถัดไปให้ถูกต้อง ตอนนี้ต้องเลือก “${nextStep.label}”`;
         ui.guideIcon.textContent = nextStep.icon;
-        ui.prompt.textContent = `เริ่มที่ “${nextStep.short}”`;
+        ui.prompt.textContent = `ตอนนี้ต้องเลือก “${nextStep.short}”`;
       } else {
         ui.stepCount.textContent = 'สำเร็จ';
         ui.stepName.textContent = 'เรียงครบแล้ว!';
@@ -848,30 +840,30 @@
       wrap.dataset.order = String(step.order);
       wrap.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
 
-      const plate = document.createElement('a-plane');
-      plate.classList.add('card-face');
-      plate.setAttribute('width', '0.40');
-      plate.setAttribute('height', '0.52');
-      plate.setAttribute('color', '#f8fcff');
-      plate.setAttribute('material', 'shader: flat; opacity: 0.98');
-
       const shadow = document.createElement('a-plane');
-      shadow.setAttribute('width', '0.44');
-      shadow.setAttribute('height', '0.56');
+      shadow.setAttribute('width', '0.46');
+      shadow.setAttribute('height', '0.58');
       shadow.setAttribute('color', '#16314c');
       shadow.setAttribute('material', 'shader: flat; opacity: 0.34');
       shadow.setAttribute('position', '0 -0.01 -0.01');
+
+      const plate = document.createElement('a-plane');
+      plate.classList.add('card-face');
+      plate.setAttribute('width', '0.42');
+      plate.setAttribute('height', '0.54');
+      plate.setAttribute('color', '#f8fcff');
+      plate.setAttribute('material', 'shader: flat; opacity: 0.98');
 
       const icon = document.createElement('a-text');
       icon.setAttribute('value', step.icon);
       icon.setAttribute('align', 'center');
       icon.setAttribute('width', '0.80');
-      icon.setAttribute('position', '0 0.12 0.01');
+      icon.setAttribute('position', '0 0.14 0.01');
 
       const label = document.createElement('a-text');
       label.setAttribute('value', step.label);
       label.setAttribute('align', 'center');
-      label.setAttribute('width', '1.15');
+      label.setAttribute('width', '1.18');
       label.setAttribute('wrap-count', '12');
       label.setAttribute('color', '#12324b');
       label.setAttribute('position', '0 -0.08 0.01');
@@ -880,19 +872,19 @@
       orderTag.setAttribute('width', '0.16');
       orderTag.setAttribute('height', '0.10');
       orderTag.setAttribute('color', '#dff8ff');
-      orderTag.setAttribute('position', '0 0.22 0.01');
+      orderTag.setAttribute('position', '0 0.23 0.01');
 
       const orderText = document.createElement('a-text');
       orderText.setAttribute('value', `#${step.order}`);
       orderText.setAttribute('align', 'center');
       orderText.setAttribute('width', '0.42');
       orderText.setAttribute('color', '#0f766e');
-      orderText.setAttribute('position', '0 0.19 0.02');
+      orderText.setAttribute('position', '0 0.20 0.02');
 
       const hitbox = document.createElement('a-plane');
       hitbox.classList.add('focusable');
-      hitbox.setAttribute('width', '0.46');
-      hitbox.setAttribute('height', '0.58');
+      hitbox.setAttribute('width', '0.48');
+      hitbox.setAttribute('height', '0.60');
       hitbox.setAttribute('color', '#fff');
       hitbox.setAttribute('opacity', '0.001');
       hitbox.setAttribute('material', 'transparent:true');
@@ -933,10 +925,9 @@
 
     function handleCorrectCard(wrap, stepIndex){
       const face = wrap.querySelector('.card-face');
-      if(face) face.setAttribute('color', '#0f5c43');
+      if(face) face.setAttribute('color', '#dcfce7');
 
       rewardPick(10);
-
       markSlotDone(stepIndex);
 
       const p = wrap.object3D.position;
@@ -973,7 +964,7 @@
       return el.closest ? el.closest('[data-step-id]') : null;
     }
 
-    function getNearestCenterCard(maxPx = 190){
+    function getNearestCenterCard(maxPx = 220){
       const camera3D = cam ? cam.getObject3D('camera') : null;
       if (!camera3D) return null;
 
@@ -1029,7 +1020,7 @@
         return trySelectCard(wrap);
       }
 
-      const nearCard = getNearestCenterCard(190);
+      const nearCard = getNearestCenterCard(220);
       if (nearCard){
         return trySelectCard(nearCard);
       }
@@ -1049,9 +1040,8 @@
 
       const badges = computeMiniBadges(success);
 
-      HandwashShared.recordSummary({
+      HandwashShared.saveSummary({
         stage: 'mini-order',
-        nextStage: 'hub',
         success,
         score: state.score,
         stars,
@@ -1061,7 +1051,7 @@
         progress: progressPercent(),
         bestStreak: state.bestCombo,
         whoDone: 7,
-        notes: badges.join(', ') || (success ? 'Mini order completed' : 'Mini order incomplete')
+        notes: badges.join(', ') || (success ? 'Handwash mini-order completed' : 'Handwash mini-order incomplete')
       });
     }
 
