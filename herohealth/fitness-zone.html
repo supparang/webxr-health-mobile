@@ -1334,7 +1334,7 @@
           <h3 class="side-title">🗺️ Game Picker</h3>
           <p class="side-note">กดเปิด modal เพื่อเลือกเกมและทางเข้าเล่นได้จากหน้าเดียว</p>
           <button class="btn secondary" id="btnOpenPickerSide" type="button">เปิด Game Picker</button>
-          <div class="picker-list" id="quickAccessBox">
+          <div class="picker-list" id="libraryBox">
             <div class="picker-item">
               <div class="picker-head">
                 <div class="picker-title">🏃 JumpDuck</div>
@@ -1380,14 +1380,13 @@
     </div>
   </div>
 
-  <script type="module">
-    import { buildZoneGameUrl, buildHubRoot } from './zone-return.js';
-
+  <script>
     (() => {
       'use strict';
 
       const LAST_ZONE_KEY = 'HHA_LAST_ZONE';
       const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
+      const LAST_SUMMARY_GLOBAL_KEY = 'HHA_LAST_SUMMARY_GLOBAL';
       const JUMPDUCK_SUMMARY_KEY = 'HHA_LAST_SUMMARY_JUMPDUCK';
 
       const $ = (id) => document.getElementById(id);
@@ -1397,6 +1396,27 @@
         const v = qs.get(key);
         return (v == null || v === '') ? fallback : v;
       }
+
+      function safeAbsUrl(raw, fallback) {
+        const value = String(raw || '').trim();
+        try{
+          if (value) return new URL(value, location.href).toString();
+        }catch(_){}
+        return new URL(fallback, location.href).toString();
+      }
+
+      const ctx = {
+        pid: qget('pid', 'anon'),
+        name: qget('name', qget('nickName', 'Hero')),
+        diff: qget('diff', 'normal'),
+        run: qget('run', 'play'),
+        view: qget('view', 'mobile'),
+        time: qget('time', '90'),
+        seed: qget('seed', String(Date.now())),
+        studyId: qget('studyId', ''),
+        hubRoot: safeAbsUrl(qget('hubRoot', qget('hub', './hub-v2.html')), './hub-v2.html'),
+        zoneReturn: new URL(location.href).toString()
+      };
 
       const el = {
         btnBackHub: $('btnBackHub'),
@@ -1423,6 +1443,10 @@
         gameCardJumpduck: $('gameCard-jumpduck')
       };
 
+      function setLastZone(zone) {
+        try { localStorage.setItem(LAST_ZONE_KEY, zone); } catch (_) {}
+      }
+
       function safeJsonParse(raw, fallback = null) {
         try { return JSON.parse(raw); } catch (_) { return fallback; }
       }
@@ -1438,96 +1462,113 @@
 
       function readJumpDuckSummary() {
         const jd = readJsonKey(JUMPDUCK_SUMMARY_KEY);
-        if (jd && String(jd.game || '').toLowerCase() === 'jumpduck') return jd;
+        if (jd && String(jd.game || '').toLowerCase().includes('jump')) return jd;
 
         const generic = readJsonKey(LAST_SUMMARY_KEY);
-        if (generic && String(generic.game || '').toLowerCase() === 'jumpduck') return generic;
+        if (generic && String(generic.game || '').toLowerCase().includes('jump')) return generic;
+
+        const global = readJsonKey(LAST_SUMMARY_GLOBAL_KEY);
+        if (global && String(global.game || '').toLowerCase().includes('jump')) return global;
 
         return null;
       }
 
-      function setLastZone(zone) {
-        try { localStorage.setItem(LAST_ZONE_KEY, zone); } catch (_) {}
-      }
+      function passCommon(url) {
+        const passthroughKeys = [
+          'pid','name','nickName','studyId',
+          'run','diff','view','time','seed',
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo',
+          'conditionGroup','sessionNo','weekNo'
+        ];
 
-      function buildHubUrl() {
-        return buildHubRoot(qs, location.href);
+        passthroughKeys.forEach((k) => {
+          const v = qs.get(k);
+          if (v != null && v !== '') url.searchParams.set(k, v);
+        });
+
+        if (!url.searchParams.get('pid')) url.searchParams.set('pid', ctx.pid);
+        if (!url.searchParams.get('name')) url.searchParams.set('name', ctx.name);
+        if (!url.searchParams.get('diff')) url.searchParams.set('diff', ctx.diff);
+        if (!url.searchParams.get('view')) url.searchParams.set('view', ctx.view);
+        if (!url.searchParams.get('time')) url.searchParams.set('time', ctx.time);
+        if (!url.searchParams.get('seed')) url.searchParams.set('seed', ctx.seed);
+        if (!url.searchParams.get('run')) url.searchParams.set('run', ctx.run);
+        if (!url.searchParams.get('studyId') && ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
+
+        url.searchParams.set('zone', 'fitness');
+        url.searchParams.set('cat', 'fitness');
+        url.searchParams.set('hubRoot', ctx.hubRoot);
+        url.searchParams.set('hub', ctx.zoneReturn);
+        url.searchParams.set('zoneReturn', ctx.zoneReturn);
+        url.searchParams.set('next', ctx.zoneReturn);
+
+        return url;
       }
 
       function buildJumpDuckUrl(mode) {
-        const overrides = {
-          game: 'jumpduck',
-          gameId: 'jumpduck',
-          theme: 'jumpduck',
-          focus: 'jumpduck',
-          featured: 'jumpduck'
-        };
+        const url = new URL('./jump-duck-vr.html', location.href);
+        passCommon(url);
+
+        url.searchParams.set('game', 'jumpduck');
+        url.searchParams.set('gameId', 'jumpduck');
+        url.searchParams.set('theme', 'jumpduck');
+        url.searchParams.set('focus', 'jumpduck');
+        url.searchParams.set('featured', 'jumpduck');
 
         if (mode === 'play') {
-          overrides.run = 'play';
-          overrides.gate = '1';
-          overrides.cooldown = '1';
-          overrides.returnPhase = 'cooldown';
+          url.searchParams.set('run', 'play');
+          url.searchParams.set('gate', '1');
+          url.searchParams.set('cooldown', '1');
+          url.searchParams.set('returnPhase', 'cooldown');
         } else if (mode === 'quick') {
-          overrides.run = 'play';
-          overrides.gate = '0';
-          overrides.cooldown = '1';
-          overrides.returnPhase = 'cooldown';
+          url.searchParams.set('run', 'play');
+          url.searchParams.set('gate', '0');
+          url.searchParams.set('cooldown', '1');
+          url.searchParams.set('returnPhase', 'cooldown');
         } else if (mode === 'research') {
-          overrides.run = 'research';
-          overrides.gate = '1';
-          overrides.cooldown = '1';
-          overrides.returnPhase = 'cooldown';
+          url.searchParams.set('run', 'research');
+          url.searchParams.set('gate', '1');
+          url.searchParams.set('cooldown', '1');
+          url.searchParams.set('returnPhase', 'cooldown');
         } else if (mode === 'demo') {
-          overrides.run = 'demo';
-          overrides.diff = 'easy';
-          overrides.time = '60';
-          overrides.gate = '0';
-          overrides.cooldown = '0';
-          overrides.returnPhase = 'hub';
+          url.searchParams.set('run', 'demo');
+          url.searchParams.set('diff', 'easy');
+          url.searchParams.set('time', '60');
+          url.searchParams.set('gate', '0');
+          url.searchParams.set('cooldown', '0');
+          url.searchParams.set('returnPhase', 'hub');
         }
 
-        return buildZoneGameUrl({
-          basePath: './jump-duck-vr.html',
-          searchParams: qs,
-          zone: 'fitness',
-          gameKey: 'jumpduck',
-          currentHref: location.href,
-          overrides
-        });
+        return url.toString();
       }
 
       function buildFitnessGameUrl(page, overrides = {}) {
-        const gameKey = String(
-          overrides.gameId ||
-          overrides.game ||
-          page.replace('.html', '').replace(/-vr$/,'').replace(/-/g,'')
-        );
+        const url = new URL(`./${page}`, location.href);
+        passCommon(url);
 
-        return buildZoneGameUrl({
-          basePath: `./${page}`,
-          searchParams: qs,
-          zone: 'fitness',
-          gameKey,
-          currentHref: location.href,
-          overrides
+        Object.keys(overrides).forEach((k) => {
+          const val = overrides[k];
+          if (val === null || val === undefined || val === '') url.searchParams.delete(k);
+          else url.searchParams.set(k, String(val));
         });
+
+        return url.toString();
       }
 
       function bindZoneLinks() {
         [
-          ['btnOpenHub', buildHubUrl()],
-          ['btnSideHub', buildHubUrl()]
+          ['btnOpenHub', ctx.hubRoot],
+          ['btnSideHub', ctx.hubRoot]
         ].forEach(([id, href]) => {
           const node = $(id);
           if (node) node.href = href;
         });
 
-        const hubBtn = el.btnBackHub;
-        if (hubBtn && !hubBtn.__bound) {
-          hubBtn.__bound = true;
-          hubBtn.addEventListener('click', function () {
-            location.href = buildHubUrl();
+        if (el.btnBackHub && !el.btnBackHub.__bound) {
+          el.btnBackHub.__bound = true;
+          el.btnBackHub.addEventListener('click', function () {
+            location.href = ctx.hubRoot;
           });
         }
 
@@ -1607,9 +1648,9 @@
 
         const score = Number(summary.score || 0);
         const stars = Number(summary.stars || 0);
-        const rhythm = Number(summary.rhythmAccuracy || 0);
-        const landing = Number(summary.landingControl || 0);
-        const posts = Number(summary.postsCleared || 0);
+        const rhythm = Number(summary.rhythmAccuracy || summary.rhythm || 0);
+        const landing = Number(summary.landingControl || summary.landing || 0);
+        const posts = Number(summary.postsCleared || summary.posts || 0);
 
         el.recentStripSub.textContent = `JumpDuck ล่าสุด • Score ${score} • พร้อมเล่นต่อได้ทันที`;
         el.recentScore.textContent = String(score);
@@ -1674,7 +1715,7 @@
 
         const summary = readJumpDuckSummary();
         const jumpduckExtra = summary
-          ? `ล่าสุด ${Number(summary.stars || 0)}⭐ • Rhythm ${Number(summary.rhythmAccuracy || 0)}%`
+          ? `ล่าสุด ${Number(summary.stars || 0)}⭐ • Rhythm ${Number(summary.rhythmAccuracy || summary.rhythm || 0)}%`
           : 'เหมาะกับการเริ่มเล่นใน Fitness Zone';
 
         const allItems = [
@@ -1807,12 +1848,23 @@
         });
       }
 
+      function refreshZoneUi() {
+        bindZoneLinks();
+        renderRecent();
+        renderPicker('all');
+      }
+
       function boot() {
         bindZoneLinks();
         renderRecent();
         bindModal();
         renderPicker('all');
         focusJumpDuckIfNeeded();
+
+        window.addEventListener('focus', refreshZoneUi);
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) refreshZoneUi();
+        });
       }
 
       boot();
