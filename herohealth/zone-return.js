@@ -1,155 +1,81 @@
-export function qget(searchParams, key, fallback = '') {
-  const v = searchParams.get(key);
-  return v == null || v === '' ? fallback : v;
-}
+﻿(function (W, D) {
+  'use strict';
 
-export function setParamIfValue(params, key, value) {
-  if (value == null || value === '') return;
-  params.set(key, String(value));
-}
+  const byId = (id) => D.getElementById(id);
+  const toast = byId('toast');
 
-export function buildHubRoot(searchParams, currentHref) {
-  return qget(
-    searchParams,
-    'hubRoot',
-    qget(searchParams, 'hub', new URL('./hub-v2.html', currentHref).toString())
-  );
-}
-
-export function buildZoneReturnUrl(currentHref) {
-  return new URL(currentHref).toString();
-}
-
-export function applyZoneReturnParams({
-  searchParams,
-  params,
-  zone,
-  currentHref
-}) {
-  const hubRoot = buildHubRoot(searchParams, currentHref);
-  const zoneReturn = buildZoneReturnUrl(currentHref);
-
-  const passKeys = [
-    'pid', 'name', 'nickName', 'studyId',
-    'run', 'diff', 'view', 'time', 'seed',
-    'debug', 'api', 'log',
-    'studentKey', 'schoolCode', 'classRoom', 'studentNo',
-    'conditionGroup', 'sessionNo', 'weekNo', 'teacher', 'grade'
-  ];
-
-  passKeys.forEach((k) => {
-    const v = searchParams.get(k);
-    if (v != null && v !== '') params.set(k, v);
-  });
-
-  if (!params.get('pid')) params.set('pid', 'anon');
-  if (!params.get('name')) params.set('name', qget(searchParams, 'nickName', 'Hero'));
-  if (!params.get('diff')) params.set('diff', 'normal');
-  if (!params.get('view')) params.set('view', 'mobile');
-  if (!params.get('time')) params.set('time', '90');
-  if (!params.get('seed')) params.set('seed', String(Date.now()));
-
-  params.set('zone', zone);
-  params.set('cat', zone);
-
-  params.set('hubRoot', hubRoot);
-
-  // backward compatibility:
-  // old pages still read "hub" as the place to return to
-  params.set('hub', zoneReturn);
-
-  // new standard params
-  params.set('zoneReturn', zoneReturn);
-  params.set('next', zoneReturn);
-
-  return {
-    params,
-    hubRoot,
-    zoneReturn
+  const ZONES = {
+    hygiene: './hygiene-zone.html',
+    nutrition: './nutrition-zone.html',
+    fitness: './fitness-zone.html'
   };
-}
 
-export function buildZoneGameUrl({
-  basePath,
-  searchParams,
-  zone,
-  gameKey,
-  currentHref,
-  overrides = {}
-}) {
-  const url = new URL(basePath, currentHref);
-  const params = new URLSearchParams();
-
-  applyZoneReturnParams({
-    searchParams,
-    params,
-    zone,
-    currentHref
-  });
-
-  params.set('game', gameKey);
-  params.set('gameId', gameKey);
-  params.set('theme', gameKey);
-
-  Object.keys(overrides).forEach((k) => {
-    params.set(k, String(overrides[k]));
-  });
-
-  url.search = params.toString();
-  return url.toString();
-}
-
-export function patchAnchorHref(anchorEl, href, onBeforeNavigate) {
-  if (!anchorEl) return;
-  anchorEl.href = href;
-
-  if (!anchorEl.__zoneReturnBound && typeof onBeforeNavigate === 'function') {
-    anchorEl.__zoneReturnBound = true;
-    anchorEl.addEventListener('click', onBeforeNavigate);
+  function showToast(message) {
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    W.clearTimeout(showToast._timer);
+    showToast._timer = W.setTimeout(() => toast.classList.remove('show'), 1800);
   }
-}
 
-export function rememberZoneGame({
-  zone,
-  gameKey,
-  gameTitle = ''
-}) {
-  const z = String(zone || '').trim().toUpperCase();
-  const recentKey = `HHA_LAST_GAME_BY_ZONE_${z}`;
-  const playedKey = `HHA_ZONE_PLAYED_${z}`;
-  const dailyKey = `HHA_ZONE_DAILY_${z}`;
-
-  try {
-    localStorage.setItem('HHA_LAST_ZONE', String(zone || '').trim().toLowerCase());
-  } catch (_) {}
-
-  try {
-    localStorage.setItem(recentKey, JSON.stringify({
-      key: gameKey,
-      title: gameTitle || gameKey,
-      at: Date.now()
-    }));
-  } catch (_) {}
-
-  try {
-    const played = JSON.parse(localStorage.getItem(playedKey) || '[]');
-    if (Array.isArray(played) && !played.includes(gameKey)) {
-      played.push(gameKey);
-      localStorage.setItem(playedKey, JSON.stringify(played));
+  function readLastGame() {
+    try {
+      return localStorage.getItem('HH_FITNESS_LAST_GAME_V1') ||
+        localStorage.getItem('HHA_LAST_ZONE') ||
+        '';
+    } catch (_) {
+      return '';
     }
-  } catch (_) {}
+  }
 
-  try {
-    const d = new Date();
-    const day =
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  function pickRecommendedUrl() {
+    const last = String(readLastGame() || '').toLowerCase();
+    if (last.includes('hygiene')) return ZONES.hygiene;
+    if (last.includes('nutrition')) return ZONES.nutrition;
+    return ZONES.fitness;
+  }
 
-    const daily = JSON.parse(localStorage.getItem(dailyKey) || '{}');
-    const row = daily[day] || { count: 0, lastKey: '' };
-    row.count += 1;
-    row.lastKey = gameKey;
-    daily[day] = row;
+  function bindLinks() {
+    const recommended = byId('btnQuickRecommended');
+    if (recommended) recommended.href = pickRecommendedUrl();
 
-    localStorage.setItem(dailyKey, JSON.stringify(daily));
-  } catch (_) {}
-}
+    const allGames = byId('btnQuickAllGames');
+    if (allGames) allGames.href = ZONES.fitness;
+  }
+
+  function bindButtons() {
+    const btnSettings = byId('btnSettings');
+    const btnRewards = byId('btnRewards');
+
+    if (btnSettings) {
+      btnSettings.addEventListener('click', () => {
+        showToast('หน้า local app พร้อมใช้งานแล้ว');
+      });
+    }
+
+    if (btnRewards) {
+      btnRewards.addEventListener('click', () => {
+        showToast('รางวัลจะอิงจากผลการเล่นในแต่ละโซน');
+      });
+    }
+  }
+
+  function refreshProfile() {
+    const quickline = byId('heroQuickline');
+    if (quickline) {
+      quickline.textContent = 'เริ่มจาก Fitness ได้เลย หรือเลือกโซนที่ต้องการจากการ์ดด้านล่าง';
+    }
+  }
+
+  function boot() {
+    bindLinks();
+    bindButtons();
+    refreshProfile();
+  }
+
+  if (D.readyState === 'loading') {
+    D.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
+})(window, document);
