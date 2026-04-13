@@ -1,8 +1,3 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/herohealth/hub-v2.js b/herohealth/hub-v2.js
-index 45bc1768942bb5045ad8dbf5ba3304c5a57acc31..7fff15347fca63ab94788156fd43bc42bbf18a0c 100644
-+++ b/herohealth/hub-v2.js
-@@ -615,87 +615,56 @@
          ta.style.left = '-9999px';
          D.body.appendChild(ta);
          ta.select();
