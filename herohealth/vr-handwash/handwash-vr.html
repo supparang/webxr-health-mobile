@@ -434,7 +434,6 @@
   </style>
 </head>
 <body>
-
   <div id="hud">
     <div id="ui-layer">
       <div class="top-row">
@@ -535,7 +534,8 @@
 
       <div class="actions">
         <button class="btn primary" id="restart-btn" type="button">เล่นอีกครั้ง</button>
-        <button class="btn blue hidden" id="next-btn" type="button">ไปเกมเรียงลำดับ</button>
+        <button class="btn blue hidden" id="next-btn" type="button">ไปเกมถัดไป</button>
+        <button class="btn blue" id="zone-btn" type="button">กลับ Hygiene Zone</button>
         <button class="btn blue hidden" id="hub-btn" type="button">กลับ HUB</button>
       </div>
     </div>
@@ -637,23 +637,37 @@
           <a-entity id="target-layer-camera"></a-entity>
         </a-entity>
       </a-camera>
+
       <a-entity laser-controls="hand: left" raycaster="objects: .focusable"></a-entity>
       <a-entity laser-controls="hand: right" raycaster="objects: .focusable"></a-entity>
     </a-entity>
   </a-scene>
 
-  <script src="./handwash-shared.js"></script>
   <script>
     const qsParam = (k, d='') => {
       try { return new URL(location.href).searchParams.get(k) ?? d; }
       catch { return d; }
     };
 
+    const safeAbsUrl = (raw, fallback='') => {
+      const value = String(raw || '').trim();
+      try{
+        if (value) return new URL(value, location.href).toString();
+      }catch(_){}
+      try{
+        return new URL(fallback || './hygiene-zone.html', location.href).toString();
+      }catch(_){
+        return './hygiene-zone.html';
+      }
+    };
+
     const DIFF = String(qsParam('diff', 'normal')).toLowerCase();
     const START_TIME = Math.max(60, parseInt(qsParam('time', '90'), 10) || 90);
-    const HUB_URL = qsParam('hub', '');
-    const NEXT_URL = qsParam('next', '');
+    const HUB_ROOT_URL = safeAbsUrl(qsParam('hubRoot', qsParam('hub', './hub.html')), './hub.html');
+    const ZONE_RETURN_URL = safeAbsUrl(qsParam('zoneReturn', qsParam('hub', './hygiene-zone.html')), './hygiene-zone.html');
+    const NEXT_URL = safeAbsUrl(qsParam('next', ''), '');
     const PID = qsParam('pid', 'anon');
+    const PLAYER_NAME = qsParam('name', qsParam('nick', 'Hero'));
 
     const PRESET = {
       easy:   { wet:1.2, rinse:1.4, dry:3, palms:4, backs:4, between:4, backfingers:4, thumbs:3, fingertips:4, wrists:3 },
@@ -692,64 +706,75 @@
         {x: 0.10,y:0.08,z:0.06}, {x: 0.14,y:0.03,z:0.06}, {x: 0.18,y:0.08,z:0.06}
       ],
       backfingers: [
-        {x:-0.18,y:0.10,z:0.01}, {x:-0.13,y:0.11,z:0.01}, {x:-0.08,y:0.10,z:0.01},
-        {x: 0.08,y:0.10,z:0.01}, {x: 0.13,y:0.11,z:0.01}
+        {x:-0.17,y:0.15,z:0.02}, {x:-0.11,y:0.18,z:0.02}, {x:-0.05,y:0.16,z:0.02},
+        {x: 0.05,y:0.16,z:0.02}, {x: 0.11,y:0.18,z:0.02}, {x: 0.17,y:0.15,z:0.02}
       ],
       thumbs: [
-        {x:-0.26,y:0.00,z:0.06}, {x:-0.24,y:-0.05,z:0.06},
-        {x: 0.26,y:0.00,z:0.06}, {x: 0.24,y:-0.05,z:0.06}
+        {x:-0.31,y:0.05,z:0.05}, {x:-0.28,y:-0.02,z:0.05},
+        {x:0.31,y:0.05,z:0.05}, {x:0.28,y:-0.02,z:0.05},
+        {x:-0.31,y:0.11,z:0.05}, {x:0.31,y:0.11,z:0.05}
       ],
       fingertips: [
-        {x:-0.20,y:0.15,z:0.09}, {x:-0.14,y:0.17,z:0.09}, {x:-0.08,y:0.15,z:0.09},
-        {x: 0.08,y:0.15,z:0.09}, {x: 0.14,y:0.17,z:0.09}, {x: 0.20,y:0.15,z:0.09}
+        {x:-0.18,y:0.28,z:0.07}, {x:-0.10,y:0.36,z:0.07}, {x:-0.03,y:0.30,z:0.07},
+        {x:0.03,y:0.30,z:0.07}, {x:0.10,y:0.36,z:0.07}, {x:0.18,y:0.28,z:0.07}
       ],
       wrists: [
-        {x:-0.26,y:-0.05,z:0.02}, {x:-0.26,y:-0.10,z:0.02},
-        {x: 0.26,y:-0.05,z:0.02}, {x: 0.26,y:-0.10,z:0.02}
+        {x:-0.08,y:-0.25,z:0.04}, {x:0.08,y:-0.25,z:0.04},
+        {x:-0.08,y:-0.36,z:0.04}, {x:0.08,y:-0.36,z:0.04},
+        {x:-0.18,y:-0.30,z:0.04}, {x:0.18,y:-0.30,z:0.04}
       ]
     };
 
     const state = {
       started:false,
       ended:false,
+      success:false,
       stepIndex:0,
-      stepValue:0,
+      progress:0,
+      stepNeed:1,
       score:0,
       miss:0,
+      combo:0,
+      bestCombo:0,
+      fever:0,
+      coverage:0,
+      whoDone:0,
+      holdValue:0,
       timeLeft:START_TIME,
-      lastActionAt:0,
       lastTs:0,
-      hudCompact:false,
-      waterOn:false,
-      hasSoap:false,
-
-      combo: 0,
-      bestCombo: 0,
-      fever: 0,
-      feverActive: false,
-      feverTimer: 0,
-      badges: [],
-      idleTimer: 0
+      hudCompact:false
     };
 
     const ui = {
       layer:document.getElementById('ui-layer'),
-      stepCount:document.getElementById('step-count'),
       stepName:document.getElementById('step-name'),
+      stepCount:document.getElementById('step-count'),
       stepDesc:document.getElementById('step-desc'),
+      actionPrompt:document.getElementById('action-prompt'),
       guideIcon:document.getElementById('guide-icon'),
-      prompt:document.getElementById('action-prompt'),
-      fill:document.getElementById('fill'),
-      progressText:document.getElementById('progress-text'),
-      coach:document.getElementById('coach'),
+
       whoChip:document.getElementById('who-chip'),
       coverageChip:document.getElementById('coverage-chip'),
       comboChip:document.getElementById('combo-chip'),
       feverChip:document.getElementById('fever-chip'),
       timeChip:document.getElementById('time-chip'),
 
+      progressText:document.getElementById('progress-text'),
+      fill:document.getElementById('fill'),
+      coach:document.getElementById('coach'),
+
       startOverlay:document.getElementById('start-overlay'),
       summaryOverlay:document.getElementById('summary-overlay'),
+
+      startBtn:document.getElementById('start-btn'),
+      restartBtn:document.getElementById('restart-btn'),
+      nextBtn:document.getElementById('next-btn'),
+      zoneBtn:document.getElementById('zone-btn'),
+      hubBtn:document.getElementById('hub-btn'),
+
+      hudToggleBtn:document.getElementById('hud-toggle-btn'),
+      vrBtn:document.getElementById('vr-btn'),
+      recenterBtn:document.getElementById('recenter-btn'),
 
       sumTitle:document.getElementById('sum-title'),
       sumDesc:document.getElementById('sum-desc'),
@@ -760,15 +785,9 @@
       sumCombo:document.getElementById('sum-combo'),
       sumBadges:document.getElementById('sum-badges'),
 
-      startBtn:document.getElementById('start-btn'),
-      restartBtn:document.getElementById('restart-btn'),
-      nextBtn:document.getElementById('next-btn'),
-      hubBtn:document.getElementById('hub-btn'),
-      vrBtn:document.getElementById('vr-btn'),
-      recenterBtn:document.getElementById('recenter-btn'),
-      hudToggleBtn:document.getElementById('hud-toggle-btn'),
-
-      bubbles:document.getElementById('bubbles-fx')
+      bubblesFx:document.getElementById('bubbles-fx'),
+      germsL:document.getElementById('germs-l'),
+      germsR:document.getElementById('germs-r')
     };
 
     const scene = document.getElementById('scene');
@@ -776,7 +795,6 @@
     const cam = document.getElementById('cam');
     const cursor = document.getElementById('cursor');
 
-    const faucetGroup = document.getElementById('faucet-group');
     const faucetBtn = document.getElementById('faucet-btn');
     const faucetHitbox = document.getElementById('faucet-hitbox');
     const faucetArrow = document.getElementById('faucet-arrow');
@@ -785,8 +803,8 @@
 
     const soapGroup = document.getElementById('soap-group');
     const soapTarget = document.getElementById('soap-target');
-    const soapArrow = document.getElementById('soap-arrow');
     const soapHitbox = document.getElementById('soap-hitbox');
+    const soapArrow = document.getElementById('soap-arrow');
     const soapHalo = document.getElementById('soap-halo');
     const soapCalloutBg = document.getElementById('soap-callout-bg');
     const soapCallout = document.getElementById('soap-callout');
@@ -809,30 +827,20 @@
     const _toObj = new THREE.Vector3();
     const _proj = new THREE.Vector3();
 
-    function setBtnText(){
-      ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
-      if (HUB_URL) ui.hubBtn.classList.remove('hidden');
-    }
-
-    function clamp(v,min,max){
-      return Math.max(min,Math.min(max,v));
-    }
-
     function isMobileLike(){
       return window.matchMedia('(max-width: 680px)').matches;
     }
 
-    function getHandsBasePosition(){
-      return isMobileLike() ? '0 -0.18 -0.42' : '0 -0.24 -0.50';
+    function setBtnText(){
+      ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
     }
 
-    function resetHandsPose(){
-      const hands = document.getElementById('hands');
-      if (hands) hands.setAttribute('position', getHandsBasePosition());
+    function clamp(v, min, max){
+      return Math.max(min, Math.min(max, v));
     }
 
-    function setCoach(text){
-      ui.coach.textContent = text;
+    function currentStep(){
+      return STEPS[state.stepIndex] || null;
     }
 
     function setHudCompact(on){
@@ -841,80 +849,20 @@
       ui.hudToggleBtn.textContent = state.hudCompact ? 'SHOW HUD' : 'HIDE HUD';
     }
 
-    function currentStep(){
-      return STEPS[state.stepIndex] || null;
+    function setCoach(text){
+      ui.coach.textContent = text;
     }
 
-    function whoDoneCount(){
-      return STEPS.slice(0, state.stepIndex).filter(s => s && s.who).length;
+    function resetHandsPose(){
+      ui.bubblesFx.setAttribute('visible', false);
+      ui.germsL.setAttribute('visible', true);
+      ui.germsR.setAttribute('visible', true);
+      ui.germsL.setAttribute('material','opacity',0.50);
+      ui.germsR.setAttribute('material','opacity',0.50);
     }
 
-    function coveragePercent(){
-      const local = currentStep() ? clamp(state.stepValue / (currentStep().need || 1), 0, 1) : 0;
-      return Math.round(((state.stepIndex + local) / STEPS.length) * 100);
-    }
-
-    function resetCombo(){
-      state.combo = 0;
-    }
-
-    function addFever(amount){
-      state.fever = clamp(state.fever + amount, 0, 100);
-    }
-
-    function activateFever(){
-      if (state.fever < 100 || state.feverActive) return false;
-      state.fever = 0;
-      state.feverActive = true;
-      state.feverTimer = 6.0;
-      setCoach('BUBBLE BOOST! คะแนนคูณสองชั่วคราว');
-      return true;
-    }
-
-    function rewardAction(baseScore, feverGain = 8){
-      state.combo += 1;
-      state.bestCombo = Math.max(state.bestCombo, state.combo);
-
-      addFever(feverGain);
-
-      const comboBonus = Math.min(40, state.combo * 2);
-      const scoreGain = (baseScore + comboBonus) * (state.feverActive ? 2 : 1);
-      state.score += scoreGain;
-
-      state.idleTimer = 0;
-
-      if (state.combo >= 3 && state.combo < 6) {
-        setCoach('GOOD! ทำต่อเนื่องได้ดี');
-      } else if (state.combo >= 6 && state.combo < 10) {
-        setCoach('GREAT! มือสะอาดขึ้นเร็วมาก');
-      } else if (state.combo >= 10) {
-        setCoach('SUPER CLEAN! เก่งมาก');
-      }
-    }
-
-    function punishAction(msg){
-      state.miss += 1;
-      state.timeLeft = Math.max(0, state.timeLeft - 0.8);
-      state.combo = 0;
-      state.fever = Math.max(0, state.fever - 12);
-      setCoach(msg || 'ยังไม่ใช่ขั้นตอนนี้');
-    }
-
-    function computeBadges(success){
-      const badges = [];
-      if (!success) return badges;
-
-      if (state.miss === 0) badges.push('No Miss Hero');
-      if (whoDoneCount() === 7) badges.push('WHO Master');
-      if (state.bestCombo >= 8) badges.push('Combo Clean');
-      if (state.timeLeft >= START_TIME * 0.35) badges.push('Fast Clean');
-      if (state.feverActive || state.bestCombo >= 10) badges.push('Bubble Boost');
-
-      return badges;
-    }
-
-    function setFaucetVisible(show){
-      faucetGroup.setAttribute('visible', !!show);
+    function setWaterVisible(show){
+      waterGroup.setAttribute('visible', !!show);
     }
 
     function setSoapVisible(show){
@@ -925,243 +873,210 @@
       towelGroup.setAttribute('visible', !!show);
     }
 
-    function setWaterVisible(show){
-      waterGroup.setAttribute('visible', !!show);
-    }
-
-    function setFaucetHighlight(on){
-      faucetBtn.setAttribute('material', 'emissiveIntensity', on ? 1.0 : 0.45);
-      faucetArrow.setAttribute('visible', !!on);
-      faucetCallout.setAttribute('color', on ? '#ffe66d' : '#ffffff');
-      faucetCalloutBg.setAttribute('material', 'opacity', on ? 1.0 : 0.82);
-    }
-
-    function setSoapHighlight(on){
-      soapTarget.setAttribute('material', 'emissive', on ? '#ffd84d' : '#ff9ecb');
-      soapTarget.setAttribute('material', 'emissiveIntensity', on ? 1.25 : 0.65);
-      soapArrow.setAttribute('material', 'emissive', on ? '#fff7b8' : '#000000');
-      soapArrow.setAttribute('material', 'emissiveIntensity', on ? 0.85 : 0);
-      soapHalo.setAttribute('material', 'opacity', on ? 0.72 : 0.22);
-      soapCalloutBg.setAttribute('material', 'opacity', on ? 1.0 : 0.82);
-      soapCallout.setAttribute('color', on ? '#ffe66d' : '#ffffff');
-    }
-
-    function setTowelHighlight(on){
-      towelBtn.setAttribute('material', 'emissiveIntensity', on ? 1.0 : 0.75);
-      towelCalloutBg.setAttribute('material', 'opacity', on ? 1.0 : 0.82);
-      towelCallout.setAttribute('color', on ? '#ffe66d' : '#ffffff');
-    }
-
-    function setWaterHighlight(on){
-      waterZone.setAttribute('material', 'opacity', on ? 0.24 : 0.10);
-    }
-
-    function clearHighlights(){
-      setFaucetHighlight(false);
-      setSoapHighlight(false);
-      setTowelHighlight(false);
-      setWaterHighlight(false);
-    }
-
-    function isNearObjectAim(objEl, dotThreshold=0.974){
-      if (!cam || !objEl) return false;
-      cam.object3D.updateMatrixWorld();
-      objEl.object3D.updateMatrixWorld();
-      cam.object3D.getWorldPosition(_camPos);
-      cam.object3D.getWorldDirection(_camDir);
-      objEl.object3D.getWorldPosition(_objPos);
-      _toObj.copy(_objPos).sub(_camPos).normalize();
-      return _camDir.dot(_toObj) > dotThreshold;
-    }
-
     function clearTargets(){
       targetLayer.innerHTML = '';
     }
 
-    function burstAt(pos, color='#7dd3fc'){
+    function spawnZoneTargets(stepId, need){
+      clearTargets();
+      const pts = (ZONES[stepId] || []).slice(0, need);
+      pts.forEach((p, idx) => {
+        const t = document.createElement('a-sphere');
+        t.classList.add('focusable');
+        t.dataset.step = stepId;
+        t.dataset.hit = '0';
+        t.setAttribute('radius', stepId === 'wrists' ? 0.08 : 0.07);
+        t.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+        t.setAttribute('color', stepId === 'backs' ? '#86efac' : '#67e8f9');
+        t.setAttribute('material', `transparent:true; opacity:0.96; emissive:${stepId === 'backs' ? '#86efac' : '#67e8f9'}; emissiveIntensity:0.84`);
+        t.setAttribute('animation__float', `property: position; dir: alternate; loop: true; dur: ${800 + idx*50}; to: ${p.x} ${p.y + 0.02} ${p.z}`);
+        targetLayer.appendChild(t);
+      });
+    }
+
+    function updateWhoChip(){
+      ui.whoChip.textContent = `WHO ${state.whoDone}/7`;
+    }
+
+    function updateCoverage(){
+      const totalWhoNeeds =
+        PRESET.palms + PRESET.backs + PRESET.between + PRESET.backfingers +
+        PRESET.thumbs + PRESET.fingertips + PRESET.wrists;
+
+      let totalDone = 0;
+      for (let i = 0; i < STEPS.length; i++){
+        const s = STEPS[i];
+        if (!s.who) continue;
+        if (i < state.stepIndex) totalDone += s.need;
+        else if (i === state.stepIndex) totalDone += state.progress;
+      }
+
+      state.coverage = Math.round((totalDone / totalWhoNeeds) * 100);
+      ui.coverageChip.textContent = `Coverage ${state.coverage}%`;
+    }
+
+    function updateCombo(){
+      ui.comboChip.textContent = `Combo ${state.combo}`;
+    }
+
+    function updateFever(){
+      ui.feverChip.textContent = `Fever ${state.fever}%`;
+    }
+
+    function updateTime(){
+      ui.timeChip.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
+    }
+
+    function updateProgress(){
+      const pct = clamp(Math.round((state.progress / state.stepNeed) * 100), 0, 100);
+      ui.progressText.textContent = `${pct}%`;
+      ui.fill.style.width = `${pct}%`;
+    }
+
+    function updateGermsVisual(){
+      const pct = clamp(state.coverage, 0, 100) / 100;
+      const opacity = clamp(0.50 - pct * 0.38, 0.08, 0.50);
+      ui.germsL.setAttribute('material','opacity',opacity);
+      ui.germsR.setAttribute('material','opacity',opacity);
+      if (state.stepIndex >= 2) {
+        ui.bubblesFx.setAttribute('visible', true);
+      }
+    }
+
+    function renderStep(){
+      const step = currentStep();
+      if (!step) return;
+
+      ui.stepName.textContent = step.title;
+      ui.stepCount.textContent = step.who ? `WHO step ${state.whoDone + 1}/7` : 'โหมด VR / Mobile';
+      ui.stepDesc.textContent = step.desc;
+      ui.actionPrompt.textContent = step.prompt;
+      ui.guideIcon.textContent = step.icon;
+      updateWhoChip();
+      updateCoverage();
+      updateCombo();
+      updateFever();
+      updateTime();
+      updateProgress();
+      updateGermsVisual();
+
+      setCoach(step.prompt);
+    }
+
+    function bumpCombo(){
+      state.combo += 1;
+      state.bestCombo = Math.max(state.bestCombo, state.combo);
+      state.fever = clamp(state.fever + 8, 0, 100);
+      updateCombo();
+      updateFever();
+    }
+
+    function breakCombo(msg='ยังไม่ใช่ขั้นตอนนี้'){
+      state.combo = 0;
+      state.miss += 1;
+      state.fever = clamp(state.fever - 12, 0, 100);
+      updateCombo();
+      updateFever();
+      setCoach(msg);
+    }
+
+    function finishStep(){
+      const step = currentStep();
+      if (step && step.who) {
+        state.whoDone += 1;
+      }
+
+      state.stepIndex += 1;
+      state.progress = 0;
+      state.holdValue = 0;
+
+      const next = currentStep();
+      if (!next){
+        finishGame(true);
+        return;
+      }
+
+      state.stepNeed = next.need;
+      clearTargets();
+      setWaterVisible(next.type === 'hold');
+      setSoapVisible(next.id === 'soap');
+      setTowelVisible(next.id === 'dry');
+
+      if (next.type === 'zones') {
+        spawnZoneTargets(next.id, next.need);
+      }
+
+      renderStep();
+    }
+
+    function activateFaucet(){
+      const step = currentStep();
+      if (!state.started || state.ended || !step || step.id !== 'faucet') return;
+      state.score += 60;
+      bumpCombo();
+      finishStep();
+    }
+
+    function activateSoap(){
+      const step = currentStep();
+      if (!state.started || state.ended || !step || step.id !== 'soap') return;
+      state.score += 80;
+      ui.bubblesFx.setAttribute('visible', true);
+      bumpCombo();
+      finishStep();
+    }
+
+    function activateDry(){
+      const step = currentStep();
+      if (!state.started || state.ended || !step || step.id !== 'dry') return;
+      state.progress += 1;
+      state.score += 45;
+      bumpCombo();
+      renderStep();
+      if (state.progress >= state.stepNeed) finishStep();
+    }
+
+    function activateZone(el){
+      const step = currentStep();
+      if (!state.started || state.ended || !step || step.type !== 'zones') return;
+      if (!el || el.dataset.hit === '1') return;
+      if (el.dataset.step !== step.id){
+        breakCombo('ให้แตะเป้าของขั้นตอนนี้ก่อน');
+        return;
+      }
+
+      el.dataset.hit = '1';
+      const p = el.object3D.position;
+      burstAt({x:p.x, y:p.y, z:p.z}, step.id === 'backs' ? '#86efac' : '#67e8f9');
+      if (el.parentNode) el.parentNode.removeChild(el);
+
+      state.progress += 1;
+      state.score += 35;
+      bumpCombo();
+      renderStep();
+
+      if (state.progress >= state.stepNeed) finishStep();
+    }
+
+    function burstAt(pos, color='#67e8f9'){
       for(let i=0;i<8;i++){
         const fx = document.createElement('a-sphere');
-        fx.setAttribute('radius', 0.022 + Math.random()*0.01);
+        fx.setAttribute('radius', 0.016 + Math.random()*0.012);
         fx.setAttribute('color', color);
         fx.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-        fx.setAttribute('material', 'shader: flat; opacity: 0.96; transparent: true');
+        fx.setAttribute('material', 'shader: flat; opacity: 0.94; transparent: true');
 
         const dx = (Math.random()-0.5)*0.16;
-        const dy = 0.03 + Math.random()*0.10;
+        const dy = 0.04 + Math.random()*0.11;
         const dz = (Math.random()-0.5)*0.10;
 
         fx.setAttribute('animation__move', `property: position; to: ${pos.x+dx} ${pos.y+dy} ${pos.z+dz}; dur: 360; easing: easeOutQuad`);
         fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 360; easing: linear');
 
         fxLayer.appendChild(fx);
-        setTimeout(()=>{ if(fx.parentNode) fx.parentNode.removeChild(fx); }, 390);
-      }
-    }
-
-    function updateProgress(){
-      const step = currentStep();
-      const pct = step ? clamp(Math.round((state.stepValue / step.need) * 100), 0, 100) : 0;
-      ui.fill.style.width = pct + '%';
-      ui.progressText.textContent = pct + '%';
-
-      ui.whoChip.textContent = `WHO ${whoDoneCount()}/${STEPS.filter(s=>s.who).length}`;
-      ui.coverageChip.textContent = `Coverage ${coveragePercent()}%`;
-      ui.timeChip.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
-      ui.comboChip.textContent = `Combo ${state.combo}`;
-      ui.feverChip.textContent = state.feverActive
-        ? `Fever ON ${Math.ceil(state.feverTimer)}s`
-        : `Fever ${Math.round(state.fever)}%`;
-    }
-
-    function updateUI(){
-      const step = currentStep();
-      if(!step) return;
-
-      ui.stepCount.textContent = `ขั้นตอน ${state.stepIndex + 1}/${STEPS.length}`;
-      ui.stepName.textContent = step.title;
-      ui.stepDesc.textContent = step.desc;
-      ui.guideIcon.textContent = step.icon;
-      ui.prompt.textContent = step.prompt;
-
-      if(step.type === 'zones'){
-        setCoach('เล็งวงกลมฟ้าไปใกล้เป้าแล้วแตะจอ ระบบจะช่วยจับเป้าให้');
-      } else if(step.type === 'hold'){
-        setCoach('เล็งค้างในโซนสีน้ำเงินจนแถบเต็ม');
-      } else if(step.id === 'faucet'){
-        setCoach('เล็งป้าย “เปิดน้ำ” แล้วแตะ');
-      } else if(step.id === 'soap'){
-        setCoach('เล็งป้าย “ใส่สบู่” แล้วแตะ');
-      } else if(step.id === 'dry'){
-        setCoach('มองลงกลางล่างของกระดาน เล็งป้าย “เช็ดมือ” แล้วแตะซ้ำให้ครบ');
-      }
-
-      updateProgress();
-    }
-
-    function applyStepVisuals(){
-      const step = currentStep();
-      if(!step) return;
-
-      clearHighlights();
-      clearTargets();
-
-      setFaucetVisible(step.id === 'faucet' || step.id === 'wet' || step.id === 'rinse');
-      setSoapVisible(step.id === 'soap');
-      setTowelVisible(step.id === 'dry');
-      setWaterVisible(state.waterOn && (step.id === 'wet' || step.id === 'rinse'));
-
-      if(step.id === 'faucet'){
-        setFaucetHighlight(true);
-      } else if(step.id === 'wet'){
-        setWaterHighlight(true);
-      } else if(step.id === 'soap'){
-        setSoapHighlight(true);
-      } else if(step.type === 'zones'){
-        spawnTargetsForStep(step.id, step.need);
-      } else if(step.id === 'rinse'){
-        setWaterHighlight(true);
-      } else if(step.id === 'dry'){
-        setTowelHighlight(true);
-      }
-    }
-
-    function spawnTargetsForStep(stepId, count){
-      const pts = (ZONES[stepId] || []).slice(0, count);
-      pts.forEach((p, idx)=>{
-        const t = document.createElement('a-sphere');
-        t.classList.add('focusable');
-        t.dataset.kind = stepId;
-        t.dataset.hit = '0';
-
-        const r = (stepId === 'thumbs' || stepId === 'wrists') ? 0.10 : 0.09;
-        t.setAttribute('radius', r);
-        t.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
-        t.setAttribute('color', stepId === 'backs' ? '#86efac' : '#7dd3fc');
-        t.setAttribute('material', `transparent: true; opacity: 0.96; emissive: ${stepId === 'backs' ? '#22c55e' : '#22d3ee'}; emissiveIntensity: 0.85`);
-        t.setAttribute('animation__float', `property: position; dir: alternate; loop: true; dur: ${800 + idx*40}; to: ${p.x} ${p.y + 0.025} ${p.z}`);
-        targetLayer.appendChild(t);
-      });
-    }
-
-    function prepareStep(){
-      state.stepValue = 0;
-      applyStepVisuals();
-      updateUI();
-      if (isMobileLike()) setHudCompact(true);
-      resetHandsPose();
-    }
-
-    function wrongAction(msg='ยังไม่ใช่ขั้นตอนนี้'){
-      punishAction(msg);
-      updateProgress();
-    }
-
-    function finishStep(){
-      const step = currentStep();
-      if(step && step.id === 'faucet'){
-        state.waterOn = true;
-      }
-      if(step && step.id === 'soap'){
-        state.hasSoap = true;
-        if (ui.bubbles) ui.bubbles.setAttribute('visible', true);
-      }
-
-      state.stepIndex += 1;
-
-      if(state.stepIndex >= STEPS.length){
-        endGame(true);
-        return;
-      }
-
-      prepareStep();
-    }
-
-    function activateFaucet(){
-      const step = currentStep();
-      if(!step || step.id !== 'faucet') return wrongAction('ตอนนี้ยังไม่ถึงขั้นเปิดน้ำ');
-      rewardAction(36, 10);
-      burstAt({x:-0.70,y:0.28,z:0.05}, '#67e8f9');
-      finishStep();
-    }
-
-    function activateSoap(){
-      const step = currentStep();
-      if(!step || step.id !== 'soap') return wrongAction('ตอนนี้ยังไม่ถึงขั้นใส่สบู่');
-      rewardAction(42, 12);
-      burstAt({x:0.70,y:0.28,z:0.05}, '#ffffff');
-      finishStep();
-    }
-
-    function activateDry(){
-      const step = currentStep();
-      if(!step || step.id !== 'dry') return wrongAction('ตอนนี้ยังไม่ถึงขั้นเช็ดมือ');
-      state.stepValue += 1;
-      rewardAction(16, 6);
-      burstAt({x:0.0,y:-0.26,z:0.05}, '#fde68a');
-      if(state.stepValue >= step.need){
-        finishStep();
-      } else {
-        updateUI();
-      }
-    }
-
-    function activateZone(el){
-      const step = currentStep();
-      if(!step || step.type !== 'zones') return wrongAction('ตอนนี้ยังไม่ใช่ขั้นแตะเป้าบนมือ');
-      if(!el || el.dataset.hit === '1') return;
-      if(el.dataset.kind !== step.id) return wrongAction('ให้แตะเป้าของขั้นตอนนี้ก่อน');
-
-      el.dataset.hit = '1';
-      const p = el.object3D.position;
-      burstAt({x:p.x, y:p.y, z:p.z}, step.id === 'backs' ? '#86efac' : '#7dd3fc');
-      if(el.parentNode) el.parentNode.removeChild(el);
-
-      state.stepValue += 1;
-      rewardAction(20, 7);
-      updateUI();
-
-      if(state.stepValue >= step.need){
-        finishStep();
+        setTimeout(()=>{
+          if(fx.parentNode) fx.parentNode.removeChild(fx);
+        }, 390);
       }
     }
 
@@ -1171,12 +1086,24 @@
       return rc.intersectedEls[0];
     }
 
-    function getNearestCenterTarget(maxPx = 140){
+    function isNearAimTo(el, threshold = 0.973){
+      if (!cam || !el) return false;
+      cam.object3D.updateMatrixWorld();
+      el.object3D.updateMatrixWorld();
+      cam.object3D.getWorldPosition(_camPos);
+      cam.object3D.getWorldDirection(_camDir);
+      el.object3D.getWorldPosition(_objPos);
+      _toObj.copy(_objPos).sub(_camPos).normalize();
+      return _camDir.dot(_toObj) > threshold;
+    }
+
+    function getNearestCurrentZoneTarget(maxPx = 150){
       const camera3D = cam ? cam.getObject3D('camera') : null;
-      if (!camera3D) return null;
+      const step = currentStep();
+      if (!camera3D || !step || step.type !== 'zones') return null;
 
       const targets = [...targetLayer.querySelectorAll('.focusable')]
-        .filter(el => el.dataset.hit !== '1');
+        .filter(el => el.dataset.hit !== '1' && el.dataset.step === step.id);
 
       let best = null;
       let bestD = Infinity;
@@ -1188,38 +1115,6 @@
         el.object3D.updateMatrixWorld();
         _proj.setFromMatrixPosition(el.object3D.matrixWorld);
         _proj.project(camera3D);
-
-        const sx = (_proj.x * 0.5 + 0.5) * window.innerWidth;
-        const sy = (-_proj.y * 0.5 + 0.5) * window.innerHeight;
-        const d = Math.hypot(sx - cx, sy - cy);
-
-        if (d < bestD){
-          bestD = d;
-          best = el;
-        }
-      }
-
-      return bestD <= maxPx ? best : null;
-    }
-
-    function getNearestCenterElement(ids = [], maxPx = 180){
-      const camera3D = cam ? cam.getObject3D('camera') : null;
-      if (!camera3D) return null;
-
-      const cx = window.innerWidth / 2;
-      const cy = window.innerHeight / 2;
-
-      let best = null;
-      let bestD = Infinity;
-
-      for (const id of ids){
-        const el = document.getElementById(id);
-        if (!el) continue;
-
-        el.object3D.updateMatrixWorld();
-        _proj.setFromMatrixPosition(el.object3D.matrixWorld);
-        _proj.project(camera3D);
-
         const sx = (_proj.x * 0.5 + 0.5) * window.innerWidth;
         const sy = (-_proj.y * 0.5 + 0.5) * window.innerHeight;
         const d = Math.hypot(sx - cx, sy - cy);
@@ -1234,191 +1129,188 @@
     }
 
     function triggerFocused(){
-      const now = performance.now();
-      if(now - state.lastActionAt < 120) return false;
-      state.lastActionAt = now;
-
-      const step = currentStep();
       const el = getFocusedEl();
-      if(!step) return false;
+      const step = currentStep();
+      if (!state.started || state.ended || !step) return false;
 
-      if(step.id === 'faucet'){
-        if(
-          el &&
-          (
-            el.id === 'faucet-btn' ||
-            el.id === 'faucet-hitbox' ||
-            el.id === 'faucet-arrow' ||
-            el.id === 'faucet-callout' ||
-            el.id === 'faucet-callout-bg'
-          )
-        ){
+      if (step.id === 'faucet'){
+        if (el && (el.id === 'faucet-btn' || el.id === 'faucet-hitbox' || el.id === 'faucet-arrow' || el.id === 'faucet-callout-bg' || el.id === 'faucet-callout' || isNearAimTo(faucetBtn))) {
           activateFaucet();
           return true;
         }
-        if(isNearObjectAim(faucetGroup, 0.974)){
-          activateFaucet();
-          return true;
-        }
+        breakCombo('ต้องเริ่มจากเปิดน้ำก่อน');
         return false;
       }
 
-      if(step.id === 'soap'){
-        if(
-          el &&
-          (
-            el.id === 'soap-target' ||
-            el.id === 'soap-arrow' ||
-            el.id === 'soap-hitbox' ||
-            el.id === 'soap-halo' ||
-            el.id === 'soap-callout-bg' ||
-            el.id === 'soap-callout'
-          )
-        ){
+      if (step.id === 'soap'){
+        if (el && (el.id === 'soap-target' || el.id === 'soap-hitbox' || el.id === 'soap-arrow' || el.id === 'soap-halo' || el.id === 'soap-callout-bg' || el.id === 'soap-callout' || isNearAimTo(soapTarget))) {
           activateSoap();
           return true;
         }
-        if(isNearObjectAim(soapGroup, 0.972)){
-          activateSoap();
-          return true;
-        }
+        breakCombo('ขั้นนี้ต้องใส่สบู่ก่อน');
         return false;
       }
 
-      if(step.id === 'dry'){
-        if(
-          el &&
-          (
-            el.id === 'towel-btn' ||
-            el.id === 'towel-hitbox' ||
-            el.id === 'towel-callout-bg' ||
-            el.id === 'towel-callout'
-          )
-        ){
+      if (step.id === 'dry'){
+        if (el && (el.id === 'towel-btn' || el.id === 'towel-hitbox' || el.id === 'towel-callout-bg' || el.id === 'towel-callout' || isNearAimTo(towelBtn))) {
           activateDry();
           return true;
         }
-
-        const nearDry = getNearestCenterElement(
-          ['towel-btn','towel-hitbox','towel-callout-bg','towel-callout'],
-          190
-        );
-
-        if (nearDry){
-          activateDry();
-          return true;
-        }
-
+        breakCombo('ขั้นนี้ต้องเช็ดมือให้แห้ง');
         return false;
       }
 
-      if(step.type === 'zones'){
-        if(el && el.classList.contains('focusable') && el.parentNode === targetLayer){
+      if (step.type === 'zones'){
+        if (el && el.classList.contains('focusable') && el.parentNode === targetLayer){
           activateZone(el);
           return true;
         }
-
-        const nearTarget = getNearestCenterTarget(140);
-        if (nearTarget){
-          activateZone(nearTarget);
+        const near = getNearestCurrentZoneTarget(150);
+        if (near){
+          activateZone(near);
           return true;
         }
+        breakCombo('เล็งใกล้เป้าบนมือแล้วแตะอีกครั้ง');
         return false;
       }
 
       return false;
     }
 
-    function computeStars(success){
-      if(!success) return 0;
-      if(state.miss <= 2 && state.timeLeft >= START_TIME * 0.35) return 3;
-      if(state.miss <= 5) return 2;
-      return 1;
-    }
-
     function saveMainSummary(success, stars){
-      if (!window.HandwashShared) return;
-
-      const badges = computeBadges(success);
-
-      HandwashShared.recordSummary({
-        stage: 'main',
-        nextStage: success ? 'mini-order' : 'mini-order',
-        success,
-        score: state.score,
+      const payload = {
+        game:'handwash',
+        zone:'hygiene',
+        pid:PID,
+        name:PLAYER_NAME,
+        diff:DIFF,
+        score:Math.round(state.score),
+        miss:state.miss,
+        bestCombo:state.bestCombo,
         stars,
-        miss: state.miss,
-        timeLeft: Math.max(0, Math.ceil(state.timeLeft)),
-        accuracy: Math.max(0, Math.round(100 - (state.miss * 5))),
-        progress: success ? 100 : coveragePercent(),
-        bestStreak: state.bestCombo,
-        whoDone: whoDoneCount(),
-        notes: badges.join(', ') || (success ? 'Main game completed' : 'Main game incomplete')
-      });
+        timeLeft:Math.max(0, Math.ceil(state.timeLeft)),
+        success:Boolean(success),
+        updatedAt:Date.now()
+      };
+
+      try{
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+        localStorage.setItem('HHA_LAST_SUMMARY_HANDWASH', JSON.stringify(payload));
+        localStorage.setItem('HHA_LAST_SUMMARY_GLOBAL', JSON.stringify(payload));
+      }catch(_){}
     }
 
-    function endGame(success){
+    function computeStars(){
+      if (!state.success) return 1;
+      let stars = 1;
+      if (state.score >= 700) stars += 1;
+      if (state.miss <= 5) stars += 1;
+      if (state.timeLeft >= 15) stars += 1;
+      return clamp(stars, 1, 4);
+    }
+
+    function finishGame(success){
       state.ended = true;
+      state.success = !!success;
       clearTargets();
-      clearHighlights();
       setWaterVisible(false);
-      setTowelVisible(false);
       setSoapVisible(false);
+      setTowelVisible(false);
 
-      const stars = computeStars(success);
-      state.badges = computeBadges(success);
-      saveMainSummary(success, stars);
-
-      ui.sumTitle.textContent = success ? 'ล้างมือสำเร็จ!' : 'หมดเวลาก่อน';
-      ui.sumDesc.textContent = success ? 'ยอดเยี่ยมมาก ทำครบทุกขั้นตอนแล้ว' : 'ลองใหม่อีกครั้ง แล้วทำให้ครบตามลำดับ';
-      ui.sumScore.textContent = String(state.score);
-      ui.sumTime.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
-      ui.sumMiss.textContent = String(state.miss);
-      ui.sumStars.textContent = stars > 0 ? '⭐'.repeat(stars) : '—';
-      ui.sumCombo.textContent = String(state.bestCombo);
-      ui.sumBadges.textContent = state.badges.length ? state.badges.join(', ') : '—';
+      const stars = computeStars();
+      const badges = [];
+      if (state.coverage >= 90) badges.push('WHO Pro');
+      if (state.bestCombo >= 10) badges.push('Combo Hero');
+      if (state.miss <= 3) badges.push('Clean Hands');
+      if (!badges.length) badges.push('Good Start');
 
       ui.summaryOverlay.classList.remove('hidden');
-      setHudCompact(false);
+      ui.sumTitle.textContent = success ? 'ล้างมือสำเร็จ!' : 'หมดเวลาแล้ว';
+      ui.sumDesc.textContent = success
+        ? 'ยอดเยี่ยมมาก ทำครบทุกขั้นตอนแล้ว'
+        : 'เกือบผ่านแล้ว ลองใหม่อีกครั้งเพื่อทำครบทุกขั้นตอน';
+      ui.sumScore.textContent = String(Math.round(state.score));
+      ui.sumTime.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
+      ui.sumMiss.textContent = String(state.miss);
+      ui.sumStars.textContent = '⭐'.repeat(stars);
+      ui.sumCombo.textContent = String(state.bestCombo);
+      ui.sumBadges.textContent = badges.join(' • ');
 
-      if (success && NEXT_URL) ui.nextBtn.classList.remove('hidden');
-      else ui.nextBtn.classList.add('hidden');
+      ui.nextBtn.classList.toggle('hidden', !NEXT_URL);
+      ui.hubBtn.classList.toggle('hidden', !HUB_ROOT_URL);
+
+      saveMainSummary(success, stars);
+
+      ui.stepName.textContent = success ? 'สำเร็จ!' : 'จบรอบนี้';
+      ui.stepCount.textContent = success ? 'ล้างมือครบทุกขั้นตอน' : 'ยังไม่ครบทุกขั้นตอน';
+      ui.stepDesc.textContent = success ? 'พร้อมกลับไปที่ Hygiene Zone ได้เลย' : 'เล่นอีกครั้งเพื่อเก็บขั้นตอนให้ครบ';
+      ui.actionPrompt.textContent = success ? 'สรุปพร้อมแล้ว' : 'ลองใหม่อีกครั้ง';
+      ui.guideIcon.textContent = success ? '🏁' : '⏰';
+      ui.progressText.textContent = '100%';
+      ui.fill.style.width = '100%';
+      updateWhoChip();
+      updateCoverage();
+      updateCombo();
+      updateFever();
+      updateTime();
+      setCoach(success ? 'เก่งมาก พร้อมกลับ Hygiene Zone ได้เลย' : 'ใกล้สำเร็จแล้ว ลองใหม่อีกครั้งนะ');
+      setHudCompact(false);
     }
 
     function startGame(){
       state.started = true;
       state.ended = false;
+      state.success = false;
       state.stepIndex = 0;
-      state.stepValue = 0;
+      state.progress = 0;
+      state.stepNeed = STEPS[0].need;
       state.score = 0;
       state.miss = 0;
-      state.timeLeft = START_TIME;
-      state.lastActionAt = 0;
-      state.lastTs = 0;
-      state.waterOn = false;
-      state.hasSoap = false;
-
       state.combo = 0;
       state.bestCombo = 0;
       state.fever = 0;
-      state.feverActive = false;
-      state.feverTimer = 0;
-      state.badges = [];
-      state.idleTimer = 0;
-
-      clearTargets();
-      clearHighlights();
-      setSoapVisible(false);
-      setTowelVisible(false);
-      setWaterVisible(false);
-      if (ui.bubbles) ui.bubbles.setAttribute('visible', false);
+      state.coverage = 0;
+      state.whoDone = 0;
+      state.holdValue = 0;
+      state.timeLeft = START_TIME;
+      state.lastTs = 0;
 
       ui.startOverlay.classList.add('hidden');
       ui.summaryOverlay.classList.add('hidden');
-      ui.nextBtn.classList.add('hidden');
+
+      resetHandsPose();
+      clearTargets();
+      setWaterVisible(false);
+      setSoapVisible(false);
+      setTowelVisible(false);
 
       setHudCompact(isMobileLike());
-      prepareStep();
+      renderStep();
+    }
+
+    function updateHoldStep(dt){
+      const step = currentStep();
+      if (!step || step.type !== 'hold') return;
+
+      let lookingAtWater = false;
+      const focused = getFocusedEl();
+      if (focused && (focused.id === 'water-zone' || focused === waterZone)) {
+        lookingAtWater = true;
+      } else {
+        lookingAtWater = isNearAimTo(waterZone, 0.965);
+      }
+
+      if (lookingAtWater) {
+        state.progress = clamp(state.progress + dt, 0, state.stepNeed);
+        state.score += dt * 20;
+        state.fever = clamp(state.fever + dt * 6, 0, 100);
+        updateFever();
+        renderStep();
+        if (state.progress >= state.stepNeed) {
+          bumpCombo();
+          finishStep();
+        }
+      }
     }
 
     faucetBtn.addEventListener('click', activateFaucet);
@@ -1464,8 +1356,12 @@
       if (NEXT_URL) location.href = NEXT_URL;
     });
 
+    ui.zoneBtn.addEventListener('click', ()=>{
+      location.href = ZONE_RETURN_URL;
+    });
+
     ui.hubBtn.addEventListener('click', ()=>{
-      if(HUB_URL) location.href = HUB_URL;
+      if(HUB_ROOT_URL) location.href = HUB_ROOT_URL;
     });
 
     ui.hudToggleBtn.addEventListener('click', ()=>{
@@ -1501,8 +1397,8 @@
 
     window.addEventListener('beforeunload', ()=>{
       if (!state.started || state.ended) return;
-      const stars = 0;
-      saveMainSummary(false, stars);
+      state.success = false;
+      saveMainSummary(false, 1);
     });
 
     function loop(ts){
@@ -1518,66 +1414,19 @@
       state.lastTs = ts;
 
       state.timeLeft = Math.max(0, state.timeLeft - dt);
-      if(state.timeLeft <= 0){
-        updateProgress();
-        endGame(false);
+      updateTime();
+
+      if (state.timeLeft <= 0){
+        finishGame(false);
         return;
       }
 
-      const step = currentStep();
-      const el = getFocusedEl();
-
-      if(step && step.type === 'zones'){
-        state.idleTimer += dt;
-        if(state.idleTimer >= 5){
-          state.idleTimer = 0;
-          state.score = Math.max(0, state.score - 5);
-          state.combo = 0;
-          setCoach('รีบหน่อย เชื้อโรคกลับมาแล้ว!');
-          updateProgress();
-        }
-      }
-
-      if(step && step.type === 'hold'){
-        const onWater =
-          el &&
-          el.id === 'water-zone' &&
-          state.waterOn;
-
-        if(onWater){
-          state.stepValue = clamp(state.stepValue + dt, 0, step.need);
-          setWaterHighlight(true);
-
-          if(state.stepValue >= step.need){
-            rewardAction(step.id === 'wet' ? 48 : 56, 10);
-            finishStep();
-            return;
-          }
-        } else {
-          setWaterHighlight(true);
-        }
-      }
-
-      if (!state.feverActive && state.fever >= 100){
-        activateFever();
-      }
-
-      if (state.feverActive){
-        state.feverTimer -= dt;
-        if (state.feverTimer <= 0){
-          state.feverActive = false;
-          state.feverTimer = 0;
-          setCoach('Bubble Boost หมดเวลาแล้ว ลุยต่อ!');
-        }
-      }
-
-      updateProgress();
+      updateHoldStep(dt);
     }
 
     setBtnText();
-    resetHandsPose();
     setHudCompact(isMobileLike());
-    updateUI();
+    renderStep();
     requestAnimationFrame(loop);
   </script>
 </body>
