@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -194,5 +194,224 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="./hub-v2.js?v=20260413b-hub-kidminimal"></script>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+
+      function qget(key, fallback = '') {
+        const v = qs.get(key);
+        return (v == null || v === '') ? fallback : v;
+      }
+
+      function first(...vals){
+        for (const v of vals){
+          if (String(v || '').trim()) return String(v).trim();
+        }
+        return '';
+      }
+
+      function safeAbsUrl(raw, fallback) {
+        const value = String(raw || '').trim();
+        try{
+          if (value) return new URL(value, location.href).toString();
+        }catch(_){}
+        return new URL(fallback, location.href).toString();
+      }
+
+      const ctx = {
+        pid: first(qget('pid'), 'anon'),
+        name: first(qget('name'), qget('nickName'), 'Hero'),
+        diff: first(qget('diff'), 'normal'),
+        view: first(qget('view'), 'mobile'),
+        time: first(qget('time'), '90'),
+        run: first(qget('run'), 'play'),
+        studyId: first(qget('studyId'), ''),
+        seed: first(qget('seed'), String(Date.now())),
+        hubRoot: new URL(location.href).toString(),
+        zoneReturn: new URL(location.href).toString()
+      };
+
+      function readJson(key, fallback = null) {
+        try{
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function setLastZone(zone){
+        try{
+          localStorage.setItem('HHA_LAST_ZONE', zone);
+        }catch(_){}
+      }
+
+      function passCommon(url, zone = '') {
+        const passthroughKeys = [
+          'pid','name','nickName','studyId',
+          'run','diff','view','time','seed',
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo',
+          'conditionGroup','sessionNo','weekNo'
+        ];
+
+        passthroughKeys.forEach((k) => {
+          const v = qs.get(k);
+          if (v != null && v !== '') url.searchParams.set(k, v);
+        });
+
+        if (!url.searchParams.get('pid')) url.searchParams.set('pid', ctx.pid);
+        if (!url.searchParams.get('name')) url.searchParams.set('name', ctx.name);
+        if (!url.searchParams.get('diff')) url.searchParams.set('diff', ctx.diff);
+        if (!url.searchParams.get('view')) url.searchParams.set('view', ctx.view);
+        if (!url.searchParams.get('time')) url.searchParams.set('time', ctx.time);
+        if (!url.searchParams.get('seed')) url.searchParams.set('seed', ctx.seed);
+        if (!url.searchParams.get('run')) url.searchParams.set('run', ctx.run);
+        if (!url.searchParams.get('studyId') && ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
+
+        if (zone) {
+          url.searchParams.set('zone', zone);
+          url.searchParams.set('cat', zone);
+        }
+
+        url.searchParams.set('hubRoot', ctx.hubRoot);
+        url.searchParams.set('hub', ctx.hubRoot);
+        url.searchParams.set('zoneReturn', ctx.hubRoot);
+        url.searchParams.set('next', ctx.hubRoot);
+
+        return url;
+      }
+
+      function buildZoneUrl(path, zone) {
+        const url = new URL(path, location.href);
+        passCommon(url, zone);
+        return url.toString();
+      }
+
+      function buildPlannerUrl() {
+        const url = new URL('./fitness-planner.html', location.href);
+        passCommon(url, 'fitness');
+        url.searchParams.set('game', 'fitnessplanner');
+        url.searchParams.set('gameId', 'fitnessplanner');
+        url.searchParams.set('theme', 'fitnessplanner');
+        return url.toString();
+      }
+
+      function bindZoneLink(id, href, zone) {
+        const node = $(id);
+        if (!node) return;
+        node.href = href;
+        if (!node.__zoneBound) {
+          node.__zoneBound = true;
+          node.addEventListener('click', () => setLastZone(zone));
+        }
+      }
+
+      function applyZoneLinks() {
+        bindZoneLink('btnPlayHygiene', buildZoneUrl('./hygiene-zone.html', 'hygiene'), 'hygiene');
+        bindZoneLink('btnPlayNutrition', buildZoneUrl('./nutrition-zone.html', 'nutrition'), 'nutrition');
+        bindZoneLink('btnPlayFitness', buildZoneUrl('./fitness-zone.html', 'fitness'), 'fitness');
+        bindZoneLink('btnFitnessPlanner', buildPlannerUrl(), 'fitness');
+      }
+
+      function pickRecommendedZone() {
+        const lastZone = String(localStorage.getItem('HHA_LAST_ZONE') || '').toLowerCase();
+        if (['hygiene','nutrition','fitness'].includes(lastZone)) return lastZone;
+        return 'fitness';
+      }
+
+      function getZoneHref(zone) {
+        if (zone === 'hygiene') return buildZoneUrl('./hygiene-zone.html', 'hygiene');
+        if (zone === 'nutrition') return buildZoneUrl('./nutrition-zone.html', 'nutrition');
+        return buildZoneUrl('./fitness-zone.html', 'fitness');
+      }
+
+      function refreshFeaturedTexts() {
+        const hygRecent = readJson('HHA_LAST_GAME_BY_ZONE_HYGIENE', null);
+        const nutriRecent = readJson('HHA_NUTRITION_RECENT', null);
+        const fitRecent =
+          readJson('HHA_LAST_SUMMARY_JUMPDUCK', null) ||
+          readJson('HHA_LAST_SUMMARY', null) ||
+          readJson('HHA_LAST_SUMMARY_GLOBAL', null);
+
+        const hygFeatured = $('hygFeatured');
+        const nutriFeatured = $('nutriFeatured');
+        const fitFeatured = $('fitFeatured');
+
+        if (hygFeatured && hygRecent?.title) hygFeatured.textContent = hygRecent.title;
+        if (nutriFeatured && nutriRecent?.title) nutriFeatured.textContent = nutriRecent.title;
+
+        if (fitFeatured) {
+          const fitGame = String(fitRecent?.game || '').toLowerCase();
+          if (fitGame.includes('jump')) fitFeatured.textContent = 'JumpDuck';
+          else if (fitGame.includes('shadow')) fitFeatured.textContent = 'Shadow Breaker';
+          else if (fitGame.includes('rhythm')) fitFeatured.textContent = 'Rhythm Boxer';
+          else if (fitGame.includes('balance')) fitFeatured.textContent = 'Balance Hold';
+        }
+      }
+
+      function refreshQuickUi() {
+        const zone = pickRecommendedZone();
+        const btnQuickRecommended = $('btnQuickRecommended');
+        const btnQuickAllGames = $('btnQuickAllGames');
+        const heroQuickline = $('heroQuickline');
+
+        if (btnQuickRecommended) {
+          btnQuickRecommended.href = getZoneHref(zone);
+          btnQuickRecommended.textContent =
+            zone === 'hygiene' ? '🧼 เริ่มโซนแนะนำ' :
+            zone === 'nutrition' ? '🥗 เริ่มโซนแนะนำ' :
+            '🏃 เริ่มโซนแนะนำ';
+          if (!btnQuickRecommended.__bound) {
+            btnQuickRecommended.__bound = true;
+            btnQuickRecommended.addEventListener('click', () => setLastZone(zone));
+          }
+        }
+
+        if (btnQuickAllGames) {
+          btnQuickAllGames.href = getZoneHref(zone);
+          if (!btnQuickAllGames.__bound) {
+            btnQuickAllGames.__bound = true;
+            btnQuickAllGames.addEventListener('click', () => setLastZone(zone));
+          }
+        }
+
+        if (heroQuickline) {
+          if (zone === 'hygiene') heroQuickline.textContent = 'กลับไปต่อที่ Hygiene Zone ได้เลย';
+          else if (zone === 'nutrition') heroQuickline.textContent = 'กลับไปต่อที่ Nutrition Zone ได้เลย';
+          else heroQuickline.textContent = 'วันนี้ลองเริ่มที่ Fitness Zone ก่อนก็สนุกมาก';
+        }
+      }
+
+      function refreshProfileName() {
+        const playerName = $('playerName');
+        const playerMeta = $('playerMeta');
+        if (playerName) playerName.textContent = ctx.name || 'Hero';
+        if (playerMeta) {
+          playerMeta.textContent = ctx.pid && ctx.pid !== 'anon'
+            ? `รหัสผู้เล่น: ${ctx.pid} • พร้อมผจญภัย`
+            : 'ฮีโร่ประจำวัน • พร้อมผจญภัย';
+        }
+      }
+
+      function refreshAll() {
+        applyZoneLinks();
+        refreshQuickUi();
+        refreshFeaturedTexts();
+        refreshProfileName();
+      }
+
+      refreshAll();
+
+      window.addEventListener('focus', refreshAll);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) refreshAll();
+      });
+    })();
+  </script>
 </body>
 </html>
