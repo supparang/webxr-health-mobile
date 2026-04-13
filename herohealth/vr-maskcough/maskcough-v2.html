@@ -65,7 +65,8 @@
         <button id="btnRetry" class="btn accent" type="button">↻ เล่นใหม่</button>
         <button id="btnBurst" class="btn accent" type="button">💥 พลังพิเศษ</button>
         <button id="btnPause" class="btn" type="button">⏸ พัก</button>
-        <button id="btnBack" class="btn ghost" type="button">🏰 กลับ HUB</button>
+        <button id="btnBackZoneTop" class="btn ghost" type="button">🧼 กลับ Hygiene Zone</button>
+        <button id="btnBack" class="btn ghost" type="button">🏠 กลับ HUB</button>
       </div>
 
       <div class="help">
@@ -103,6 +104,7 @@
 
       <div class="end-actions">
         <button id="btnEndRetry" class="btn accent" type="button">↻ เล่นอีกครั้ง</button>
+        <button id="btnEndZone" class="btn" type="button">🧼 กลับ Hygiene Zone</button>
         <button id="btnEndBack" class="btn primary" type="button">➡ ไป Cooldown</button>
       </div>
     </div>
@@ -112,5 +114,111 @@
 
   <script src="../vr/vr-ui.js?v=20260306a"></script>
   <script src="./maskcough-v2.js?v=20260322a-p5-research"></script>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+
+      const q = (k, d='') => {
+        const v = qs.get(k);
+        return (v == null || v === '') ? d : v;
+      };
+
+      const safeAbsUrl = (raw, fallback='') => {
+        const value = String(raw || '').trim();
+        try{
+          if (value) return new URL(value, location.href).toString();
+        }catch(_){}
+        try{
+          return new URL(fallback || './hygiene-zone.html', location.href).toString();
+        }catch(_){
+          return './hygiene-zone.html';
+        }
+      };
+
+      const HUB_ROOT_URL = safeAbsUrl(q('hubRoot', q('hub', '../hub.html')), '../hub.html');
+      const ZONE_RETURN_URL = safeAbsUrl(q('zoneReturn', q('hub', '../hygiene-zone.html')), '../hygiene-zone.html');
+      const NEXT_URL_RAW = String(q('next', '')).trim();
+      const NEXT_URL = NEXT_URL_RAW ? safeAbsUrl(NEXT_URL_RAW, '') : '';
+      const PID = q('pid', 'anon');
+      const PLAYER_NAME = q('name', q('nick', 'Hero'));
+
+      function rememberMaskCough() {
+        try{
+          localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
+
+          localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
+            key: 'maskcough',
+            title: 'MaskCough',
+            at: Date.now()
+          }));
+
+          const playedKey = 'HHA_ZONE_PLAYED_HYGIENE';
+          const played = JSON.parse(localStorage.getItem(playedKey) || '[]');
+          if (Array.isArray(played) && !played.includes('maskcough')) {
+            played.push('maskcough');
+            localStorage.setItem(playedKey, JSON.stringify(played));
+          }
+
+          const dailyKey = 'HHA_ZONE_DAILY_HYGIENE';
+          const d = new Date();
+          const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          const all = JSON.parse(localStorage.getItem(dailyKey) || '{}');
+          const row = all[day] || { count:0, lastKey:'' };
+          row.count += 1;
+          row.lastKey = 'maskcough';
+          all[day] = row;
+          localStorage.setItem(dailyKey, JSON.stringify(all));
+
+          localStorage.setItem('HHA_MASKCOUGH_LAST_PLAYER', JSON.stringify({
+            pid: PID,
+            name: PLAYER_NAME,
+            updatedAt: Date.now()
+          }));
+        }catch(_){}
+      }
+
+      function bindRemember(id){
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('click', rememberMaskCough);
+      }
+
+      function forceNavigate(id, target){
+        const el = document.getElementById(id);
+        if (!el || !target) return;
+
+        el.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopImmediatePropagation();
+          location.href = target;
+        }, true);
+      }
+
+      bindRemember('btnStart');
+      bindRemember('btnRetry');
+      bindRemember('btnEndRetry');
+
+      forceNavigate('btnBackZoneTop', ZONE_RETURN_URL);
+      forceNavigate('btnEndZone', ZONE_RETURN_URL);
+      forceNavigate('btnBack', HUB_ROOT_URL);
+
+      if (NEXT_URL) {
+        forceNavigate('btnEndBack', NEXT_URL);
+      } else {
+        const btnEndBack = document.getElementById('btnEndBack');
+        if (btnEndBack) {
+          btnEndBack.textContent = '🧼 กลับ Hygiene Zone';
+        }
+        forceNavigate('btnEndBack', ZONE_RETURN_URL);
+      }
+
+      window.__MASKCOUGH_ZONE_RETURN__ = ZONE_RETURN_URL;
+      window.__MASKCOUGH_HUB_ROOT__ = HUB_ROOT_URL;
+      window.__MASKCOUGH_NEXT__ = NEXT_URL || ZONE_RETURN_URL;
+    })();
+  </script>
 </body>
 </html>
