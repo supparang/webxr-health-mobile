@@ -11,9 +11,7 @@
   <style>
     :root{
       --bg:rgba(10,28,48,.80);
-      --panel:rgba(255,255,255,.12);
       --line:#63e6ff;
-      --ink:#ffffff;
       --yellow:#ffd84d;
       --shadow:0 12px 30px rgba(0,0,0,.26);
     }
@@ -168,7 +166,7 @@
       margin:auto;
       width:auto;
       max-width:560px;
-      background:rgba(255,255,255,.88);
+      background:rgba(255,255,255,.90);
       color:#0f172a;
       border-radius:14px;
       padding:7px 10px;
@@ -391,7 +389,7 @@
         <div id="guide-icon" class="guide-image">🧼</div>
         <div id="guide-copy">
           <div id="step-desc">เริ่มจากแตะบริเวณสบู่จริงก่อน แล้วระบบจะพาไปฝึก 7 ขั้นตอนการถูมือทีละขั้น</div>
-          <div id="action-prompt">เล็งป้าย “ใส่สบู่” หรือบริเวณสบู่แล้วแตะจอ</div>
+          <div id="action-prompt">เล็งป้าย “ใส่สบู่” แล้วแตะจอ</div>
         </div>
       </div>
 
@@ -425,7 +423,7 @@
         <div class="tip">🎯 เล็งวงกลมฟ้ากลางจอไปที่วัตถุหรือเป้า</div>
         <div class="tip">👆 แตะจอ / คลิก / กด Space หรือ Enter เพื่อเลือก</div>
         <div class="tip">🧼 เริ่มจากป้าย “ใส่สบู่”</div>
-        <div class="tip">🖐️ ขั้นแรกแตะที่ฝ่ามือซ้ายและขวาได้เลย</div>
+        <div class="tip">🖐️ ขั้นแรกแตะฝ่ามือซ้ายและขวาได้เลย</div>
       </div>
 
       <div class="actions">
@@ -467,7 +465,7 @@
     <a-entity light="type: ambient; intensity: 1.15; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.9; color: #fff7dd" position="1 3 2"></a-entity>
 
-    <!-- sink + soap -->
+    <!-- sink -->
     <a-entity position="0 0.18 -1.18">
       <a-box position="0 0.84 0" width="1.55" height="0.1" depth="0.82" color="#bfc9d6"></a-box>
       <a-box position="0 0.40 0" width="1.45" height="0.8" depth="0.72" color="#e5edf5"></a-box>
@@ -478,13 +476,11 @@
       <a-entity id="soap-group"
                 position="0.18 1.02 0.02"
                 animation__pulse="property: scale; dir: alternate; loop: true; dur: 650; to: 1.04 1.04 1.04">
-
         <a-box id="soap-target"
                class="focusable"
                width="0.34" height="0.14" depth="0.20"
                color="#ff4fa3"
-               material="emissive: #ff9ecb; emissiveIntensity: 0.65">
-        </a-box>
+               material="emissive: #ff9ecb; emissiveIntensity: 0.65"></a-box>
 
         <a-plane id="soap-hitbox"
                  class="focusable"
@@ -492,8 +488,7 @@
                  width="0.62" height="0.54"
                  color="#ffffff"
                  opacity="0.001"
-                 material="transparent: true">
-        </a-plane>
+                 material="transparent: true"></a-plane>
 
         <a-ring id="soap-halo"
                 class="focusable"
@@ -502,8 +497,7 @@
                 radius-outer="0.30"
                 color="#ffd84d"
                 material="shader: flat; transparent: true; opacity: 0.55"
-                animation="property: rotation; to: 0 0 360; loop: true; dur: 4000; easing: linear">
-        </a-ring>
+                animation="property: rotation; to: 0 0 360; loop: true; dur: 4000; easing: linear"></a-ring>
 
         <a-cone id="soap-arrow"
                 class="focusable"
@@ -512,8 +506,7 @@
                 radius-bottom="0.10"
                 height="0.22"
                 color="#ffd84d"
-                animation="property: position; to: 0 0.32 0; dir: alternate; loop: true; dur: 500">
-        </a-cone>
+                animation="property: position; to: 0 0.32 0; dir: alternate; loop: true; dur: 500"></a-cone>
 
         <a-plane id="soap-callout-bg"
                  class="focusable"
@@ -522,8 +515,7 @@
                  height="0.16"
                  color="#12314d"
                  opacity="0.95"
-                 material="transparent:true">
-        </a-plane>
+                 material="transparent:true"></a-plane>
 
         <a-text id="soap-callout"
                 class="focusable"
@@ -531,11 +523,95 @@
                 align="center"
                 color="#ffffff"
                 width="1.3"
-                position="0 0.25 0.05">
-        </a-text>
+                position="0 0.25 0.05"></a-text>
       </a-entity>
     </a-entity>
 
+    <!-- fixed hands board in world-space -->
+    <a-entity id="hands-board" position="0 1.08 -1.00" rotation="-8 0 0">
+      <a-plane width="1.28" height="0.92" color="#fff7d6" material="opacity:0.95"></a-plane>
+
+      <a-entity id="hands" position="0 -0.02 0.03">
+        <!-- left hand -->
+        <a-entity id="left-hand" position="-0.22 0 0" rotation="-2 0 8">
+          <a-box width="0.22" height="0.28" depth="0.06" color="#ffdbac"></a-box>
+          <a-box width="0.04" height="0.16" depth="0.05" color="#ffdbac" position="-0.08 0.22 0"></a-box>
+          <a-box width="0.04" height="0.22" depth="0.05" color="#ffdbac" position="-0.025 0.25 0"></a-box>
+          <a-box width="0.04" height="0.20" depth="0.05" color="#ffdbac" position="0.03 0.24 0"></a-box>
+          <a-box width="0.04" height="0.15" depth="0.05" color="#ffdbac" position="0.085 0.20 0"></a-box>
+          <a-cylinder radius="0.045" height="0.13" rotation="0 0 48" color="#ffdbac" position="-0.14 -0.04 0"></a-cylinder>
+
+          <a-plane id="left-palm-hit"
+                   class="focusable palm-hit"
+                   data-kind="palms"
+                   data-side="left"
+                   width="0.30" height="0.34"
+                   position="0 0 0.05"
+                   color="#ffe66d"
+                   opacity="0.18"
+                   material="transparent:true"
+                   visible="false"></a-plane>
+
+          <a-text id="left-palm-label"
+                  value="ฝ่ามือซ้าย"
+                  align="center"
+                  width="0.85"
+                  color="#12324b"
+                  position="0 -0.23 0.06"
+                  visible="false"></a-text>
+
+          <a-sphere id="germs-l"
+                    radius="0.12"
+                    material="color: #8b5cf6; opacity: 0.34; transparent: true; shader: flat"
+                    position="0 0 0.04"></a-sphere>
+        </a-entity>
+
+        <!-- right hand -->
+        <a-entity id="right-hand" position="0.22 0 0" rotation="-2 0 -8">
+          <a-box width="0.22" height="0.28" depth="0.06" color="#ffdbac"></a-box>
+          <a-box width="0.04" height="0.16" depth="0.05" color="#ffdbac" position="0.08 0.22 0"></a-box>
+          <a-box width="0.04" height="0.22" depth="0.05" color="#ffdbac" position="0.025 0.25 0"></a-box>
+          <a-box width="0.04" height="0.20" depth="0.05" color="#ffdbac" position="-0.03 0.24 0"></a-box>
+          <a-box width="0.04" height="0.15" depth="0.05" color="#ffdbac" position="-0.085 0.20 0"></a-box>
+          <a-cylinder radius="0.045" height="0.13" rotation="0 0 -48" color="#ffdbac" position="0.14 -0.04 0"></a-cylinder>
+
+          <a-plane id="right-palm-hit"
+                   class="focusable palm-hit"
+                   data-kind="palms"
+                   data-side="right"
+                   width="0.30" height="0.34"
+                   position="0 0 0.05"
+                   color="#ffe66d"
+                   opacity="0.18"
+                   material="transparent:true"
+                   visible="false"></a-plane>
+
+          <a-text id="right-palm-label"
+                  value="ฝ่ามือขวา"
+                  align="center"
+                  width="0.85"
+                  color="#12324b"
+                  position="0 -0.23 0.06"
+                  visible="false"></a-text>
+
+          <a-sphere id="germs-r"
+                    radius="0.12"
+                    material="color: #8b5cf6; opacity: 0.34; transparent: true; shader: flat"
+                    position="0 0 0.04"></a-sphere>
+
+          <a-entity id="bubbles-fx" visible="false">
+            <a-sphere radius="0.04" color="#ffffff" position="-0.03 0.06 0.08"></a-sphere>
+            <a-sphere radius="0.03" color="#ffffff" position="0.05 -0.03 0.08"></a-sphere>
+            <a-sphere radius="0.025" color="#dff8ff" position="0.02 0.01 0.09"></a-sphere>
+          </a-entity>
+        </a-entity>
+
+        <a-entity id="target-layer"></a-entity>
+        <a-entity id="fx-layer"></a-entity>
+      </a-entity>
+    </a-entity>
+
+    <!-- player -->
     <a-entity id="player-rig">
       <a-camera id="cam" position="0 1.6 0" look-controls>
         <a-entity id="cursor"
@@ -543,87 +619,7 @@
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.011; radiusOuter: 0.02"
                   material="color: #00f2ff; shader: flat"
-                  raycaster="objects: .focusable">
-        </a-entity>
-
-        <!-- hands -->
-        <a-entity id="hands" position="0 -0.02 -0.30">
-
-          <!-- left hand -->
-          <a-entity id="left-hand" position="-0.20 0 0" rotation="-2 0 8">
-            <a-box width="0.22" height="0.28" depth="0.06" color="#ffdbac"></a-box>
-            <a-box width="0.04" height="0.16" depth="0.05" color="#ffdbac" position="-0.08 0.22 0"></a-box>
-            <a-box width="0.04" height="0.22" depth="0.05" color="#ffdbac" position="-0.025 0.25 0"></a-box>
-            <a-box width="0.04" height="0.20" depth="0.05" color="#ffdbac" position="0.03 0.24 0"></a-box>
-            <a-box width="0.04" height="0.15" depth="0.05" color="#ffdbac" position="0.085 0.20 0"></a-box>
-            <a-cylinder radius="0.045" height="0.13" rotation="0 0 48" color="#ffdbac" position="-0.14 -0.04 0"></a-cylinder>
-
-            <a-plane id="left-palm-hit"
-                     class="focusable palm-hit"
-                     data-kind="palms"
-                     data-side="left"
-                     width="0.26" height="0.30"
-                     position="0 0 0.05"
-                     color="#ffe66d"
-                     opacity="0.12"
-                     material="transparent:true"
-                     visible="false">
-            </a-plane>
-
-            <a-text id="left-palm-label"
-                    value="ฝ่ามือซ้าย"
-                    align="center"
-                    width="0.85"
-                    color="#12324b"
-                    position="0 -0.23 0.06"
-                    visible="false">
-            </a-text>
-
-            <a-sphere id="germs-l" radius="0.12" material="color: #8b5cf6; opacity: 0.34; transparent: true; shader: flat" position="0 0 0.04"></a-sphere>
-          </a-entity>
-
-          <!-- right hand -->
-          <a-entity id="right-hand" position="0.20 0 0" rotation="-2 0 -8">
-            <a-box width="0.22" height="0.28" depth="0.06" color="#ffdbac"></a-box>
-            <a-box width="0.04" height="0.16" depth="0.05" color="#ffdbac" position="0.08 0.22 0"></a-box>
-            <a-box width="0.04" height="0.22" depth="0.05" color="#ffdbac" position="0.025 0.25 0"></a-box>
-            <a-box width="0.04" height="0.20" depth="0.05" color="#ffdbac" position="-0.03 0.24 0"></a-box>
-            <a-box width="0.04" height="0.15" depth="0.05" color="#ffdbac" position="-0.085 0.20 0"></a-box>
-            <a-cylinder radius="0.045" height="0.13" rotation="0 0 -48" color="#ffdbac" position="0.14 -0.04 0"></a-cylinder>
-
-            <a-plane id="right-palm-hit"
-                     class="focusable palm-hit"
-                     data-kind="palms"
-                     data-side="right"
-                     width="0.26" height="0.30"
-                     position="0 0 0.05"
-                     color="#ffe66d"
-                     opacity="0.12"
-                     material="transparent:true"
-                     visible="false">
-            </a-plane>
-
-            <a-text id="right-palm-label"
-                    value="ฝ่ามือขวา"
-                    align="center"
-                    width="0.85"
-                    color="#12324b"
-                    position="0 -0.23 0.06"
-                    visible="false">
-            </a-text>
-
-            <a-sphere id="germs-r" radius="0.12" material="color: #8b5cf6; opacity: 0.34; transparent: true; shader: flat" position="0 0 0.04"></a-sphere>
-
-            <a-entity id="bubbles-fx" visible="false">
-              <a-sphere radius="0.04" color="#ffffff" position="-0.03 0.06 0.08"></a-sphere>
-              <a-sphere radius="0.03" color="#ffffff" position="0.05 -0.03 0.08"></a-sphere>
-              <a-sphere radius="0.025" color="#dff8ff" position="0.02 0.01 0.09"></a-sphere>
-            </a-entity>
-          </a-entity>
-
-          <a-entity id="target-layer"></a-entity>
-          <a-entity id="fx-layer"></a-entity>
-        </a-entity>
+                  raycaster="objects: .focusable"></a-entity>
       </a-camera>
 
       <a-entity laser-controls="hand: left" raycaster="objects: .focusable"></a-entity>
@@ -677,15 +673,12 @@
       bubbles:document.getElementById('bubbles-fx'),
       germsL:document.getElementById('germs-l'),
       germsR:document.getElementById('germs-r'),
-
       leftPalmHit:document.getElementById('left-palm-hit'),
       rightPalmHit:document.getElementById('right-palm-hit'),
       leftPalmLabel:document.getElementById('left-palm-label'),
       rightPalmLabel:document.getElementById('right-palm-label'),
-
       startOverlay:document.getElementById('start-overlay'),
       summaryOverlay:document.getElementById('summary-overlay'),
-
       startBtn:document.getElementById('start-btn'),
       restartBtn:document.getElementById('restart-btn'),
       nextBtn:document.getElementById('next-btn'),
@@ -728,16 +721,7 @@
       return window.matchMedia('(max-width: 680px)').matches;
     }
 
-    function getHandsBasePosition(){
-      return isMobileLike() ? '0 -0.02 -0.30' : '0 -0.10 -0.38';
-    }
-
-    function resetHandsPose(){
-      const hands = document.getElementById('hands');
-      if (hands) hands.setAttribute('position', getHandsBasePosition());
-    }
-
-    function setCoachCompact(text){
+    function setCoach(text){
       ui.coach.textContent = text;
     }
 
@@ -765,15 +749,13 @@
       ui.rightPalmHit.setAttribute('visible', !!show);
       ui.leftPalmLabel.setAttribute('visible', !!show);
       ui.rightPalmLabel.setAttribute('visible', !!show);
-
       ui.leftPalmHit.dataset.hit = '0';
       ui.rightPalmHit.dataset.hit = '0';
       state.hitSides.left = false;
       state.hitSides.right = false;
-
       if(show){
-        ui.leftPalmHit.setAttribute('material', 'opacity', 0.14);
-        ui.rightPalmHit.setAttribute('material', 'opacity', 0.14);
+        ui.leftPalmHit.setAttribute('material', 'opacity', 0.18);
+        ui.rightPalmHit.setAttribute('material', 'opacity', 0.18);
       }
     }
 
@@ -850,7 +832,7 @@
         ui.stepDesc.textContent = 'เริ่มจากแตะบริเวณสบู่จริงก่อน แล้วระบบจะพาไปฝึก 7 ขั้นตอนการถูมือทีละขั้น';
         ui.guideIcon.textContent = '🧼';
         ui.prompt.textContent = 'เล็งป้าย “ใส่สบู่” แล้วแตะจอ';
-        setCoachCompact('เล็งวงกลมฟ้าตรงกลางไปที่ป้าย “ใส่สบู่” แล้วแตะจอ 1 ครั้ง');
+        setCoach('เล็งวงกลมฟ้ากลางจอไปที่ป้าย “ใส่สบู่” แล้วแตะ 1 ครั้ง');
         ui.fill.style.width = '0%';
         ui.progressText.textContent = '0%';
         return;
@@ -864,9 +846,9 @@
         ui.prompt.textContent = step.prompt;
 
         if (step.id === 'palms'){
-          setCoachCompact('แตะที่ฝ่ามือซ้ายและขวาได้เลย ไม่ต้องเล็งจุดเล็ก');
+          setCoach('แตะฝ่ามือซ้าย 1 ครั้ง แล้วแตะฝ่ามือขวา 1 ครั้ง');
         } else {
-          setCoachCompact('เล็งวงกลมฟ้าไปใกล้เป้าแล้วแตะจอ ระบบจะช่วยจับเป้าให้');
+          setCoach('เล็งวงกลมฟ้าไปใกล้เป้าแล้วแตะจอ ระบบจะช่วยจับเป้าให้');
         }
 
         updateProgress();
@@ -915,14 +897,8 @@
         t.setAttribute('radius', r);
         t.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
         t.setAttribute('color', stepId === 'backs' ? '#86efac' : '#7dd3fc');
-        t.setAttribute(
-          'material',
-          `transparent: true; opacity: 0.96; emissive: ${stepId === 'backs' ? '#22c55e' : '#22d3ee'}; emissiveIntensity: 0.85`
-        );
-        t.setAttribute(
-          'animation__float',
-          `property: position; dir: alternate; loop: true; dur: ${800 + idx*40}; to: ${p.x} ${p.y + 0.025} ${p.z}`
-        );
+        t.setAttribute('material', `transparent: true; opacity: 0.96; emissive: ${stepId === 'backs' ? '#22c55e' : '#22d3ee'}; emissiveIntensity: 0.85`);
+        t.setAttribute('animation__float', `property: position; dir: alternate; loop: true; dur: ${800 + idx*40}; to: ${p.x} ${p.y + 0.025} ${p.z}`);
         targetLayer.appendChild(t);
       });
     }
@@ -945,12 +921,11 @@
       resetHands();
       updateUI();
       if (isMobileLike()) setHudCompact(true);
-      resetHandsPose();
     }
 
     function wrongAction(msg='ยังไม่ใช่ขั้นตอนนี้'){
       state.miss += 1;
-      setCoachCompact(msg);
+      setCoach(msg);
     }
 
     function finishStep(){
@@ -979,18 +954,18 @@
 
     function activatePalm(side){
       const step = currentStep();
-      if(!step || step.id !== 'palms') return wrongAction('ตอนนี้ให้แตะตามเป้าของขั้นตอนนี้');
+      if(!step || step.id !== 'palms') return;
 
       if(state.hitSides[side]) return;
-
       state.hitSides[side] = true;
+
       const el = side === 'left' ? ui.leftPalmHit : ui.rightPalmHit;
       el.dataset.hit = '1';
-      el.setAttribute('material', 'opacity', 0.28);
+      el.setAttribute('material', 'opacity', 0.34);
 
       const pos = side === 'left'
-        ? {x:-0.20, y:0.00, z:0.05}
-        : {x:0.20, y:0.00, z:0.05};
+        ? {x:-0.22, y:0.00, z:0.06}
+        : {x:0.22, y:0.00, z:0.06};
 
       burstAt(pos, '#ffe66d');
 
@@ -1009,7 +984,7 @@
       if(!step || !el) return;
 
       if(step.id === 'palms'){
-        const side = el.dataset.side || (el.id === 'left-hand' ? 'left' : el.id === 'right-hand' ? 'right' : '');
+        const side = el.dataset.side;
         if(side){
           activatePalm(side);
         } else {
@@ -1044,7 +1019,7 @@
       return rc.intersectedEls[0];
     }
 
-    function getNearestCenterTarget(maxPx = 260){
+    function getNearestCenterTarget(maxPx = 240){
       const camera3D = cam ? cam.getObject3D('camera') : null;
       if (!camera3D) return null;
 
@@ -1053,7 +1028,6 @@
 
       let best = null;
       let bestD = Infinity;
-
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
 
@@ -1075,7 +1049,7 @@
       return bestD <= maxPx ? best : null;
     }
 
-    function getNearestCenterElement(ids = [], maxPx = 280){
+    function getNearestCenterElement(ids = [], maxPx = 320){
       const camera3D = cam ? cam.getObject3D('camera') : null;
       if (!camera3D) return null;
 
@@ -1150,7 +1124,6 @@
           activateTarget(nearPalm);
           return true;
         }
-
         return false;
       }
 
@@ -1159,7 +1132,7 @@
         return true;
       }
 
-      const nearTarget = getNearestCenterTarget(260);
+      const nearTarget = getNearestCenterTarget(240);
       if (nearTarget){
         activateTarget(nearTarget);
         return true;
@@ -1175,9 +1148,7 @@
         ? 7
         : Math.max(0, state.currentIdx + (state.hasSoap ? 1 : 0));
 
-      const progress = success
-        ? 100
-        : Math.max(0, Math.round((doneSteps / 7) * 100));
+      const progress = success ? 100 : Math.max(0, Math.round((doneSteps / 7) * 100));
 
       HandwashShared.recordSummary({
         stage: 'howto',
@@ -1214,7 +1185,6 @@
       ui.bubbles.setAttribute('visible', 'false');
       setSoapVisible(true);
       setSoapHighlight(true);
-      resetHandsPose();
 
       ui.startOverlay.classList.add('hidden');
       ui.summaryOverlay.classList.add('hidden');
@@ -1239,7 +1209,6 @@
       saveHowtoSummary(true);
 
       ui.summaryOverlay.classList.remove('hidden');
-
       ui.stepCount.textContent = 'สำเร็จ';
       ui.stepName.textContent = 'ล้างมือครบ 7 ขั้นแล้ว!';
       ui.stepDesc.textContent = 'ยอดเยี่ยมมาก ตอนนี้พร้อมไปเล่น handwash game ตัวหลักต่อได้เลย';
@@ -1247,7 +1216,7 @@
       ui.prompt.textContent = 'ฝึกสำเร็จ';
       ui.fill.style.width = '100%';
       ui.progressText.textContent = '100%';
-      setCoachCompact('ทำครบทุกขั้นแล้ว เก่งมาก');
+      setCoach('ทำครบทุกขั้นแล้ว เก่งมาก');
       setHudCompact(false);
 
       if (NEXT_URL) ui.nextBtn.classList.remove('hidden');
@@ -1304,8 +1273,7 @@
     ui.recenterBtn.addEventListener('click', ()=>{
       rig.object3D.position.set(0,0,0);
       rig.object3D.rotation.set(0,0,0);
-      resetHandsPose();
-      setCoachCompact('จัดมุมมองใหม่แล้ว');
+      setCoach('จัดมุมมองใหม่แล้ว');
     });
 
     scene.addEventListener('enter-vr', setBtnText);
@@ -1314,7 +1282,6 @@
     window.addEventListener('resize', ()=>{
       if (state.started && !state.ended) {
         setHudCompact(isMobileLike());
-        resetHandsPose();
       }
     });
 
@@ -1324,7 +1291,6 @@
     });
 
     setBtnText();
-    resetHandsPose();
     setHudCompact(isMobileLike());
     updateUI();
   </script>
