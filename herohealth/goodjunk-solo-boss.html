@@ -19,11 +19,7 @@
       --muted:#7b7a72;
 
       --green:#7ed957;
-      --green2:#58c33f;
       --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --orange:#ffd37a;
-      --orange2:#ffb84d;
       --shadow:0 18px 40px rgba(86,155,194,.16);
 
       --sat:env(safe-area-inset-top,0px);
@@ -236,13 +232,11 @@
       display:flex;
       justify-content:flex-start;
       align-items:end;
-      gap:10px;
-      flex-wrap:wrap;
       pointer-events:none;
     }
 
     .status-card{
-      width:min(88vw,320px);
+      width:min(88vw,340px);
       background:linear-gradient(180deg,#fffef9,#f7fff4);
       border:3px solid var(--line);
       border-radius:18px;
@@ -365,119 +359,34 @@
       const q = new URLSearchParams(location.search);
       const $ = (id) => document.getElementById(id);
 
-      function clean(v, fallback='') {
-        const s = String(v || '').trim();
-        return s || fallback;
-      }
-
-      function buildUrl(path, extra = {}, base = location.href) {
-        const u = new URL(path, base);
-        Object.entries(extra).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && v !== '') {
-            u.searchParams.set(k, String(v));
-          }
-        });
-        return u.toString();
-      }
-
-      function normalizeSoloQuery() {
-        const url = new URL(location.href);
-        const p = url.searchParams;
-
-        const mode = clean(p.get('mode'), '');
-        const entry = clean(p.get('entry'), '');
-        const recommendedMode = clean(p.get('recommendedMode'), '');
-
-        const looksMulti =
-          ['duet','race','battle','coop'].includes(mode) ||
-          ['duet','race','battle','coop'].includes(entry) ||
-          ['duet','race','battle','coop'].includes(recommendedMode);
-
-        if (looksMulti) {
-          p.delete('room');
-          p.delete('roomId');
-          p.delete('role');
-          p.delete('host');
-          p.delete('wait');
-          p.delete('autostart');
-          p.delete('modeLocked');
-          p.delete('roomReady');
-          p.delete('maxPlayers');
-        }
-
-        p.set('mode', 'solo');
-        p.set('entry', 'solo-boss');
-        p.set('recommendedMode', 'solo-boss');
-        p.set('phaseBoss', '1');
-        p.set('boss', '1');
-        p.set('game', clean(p.get('game'), 'goodjunk'));
-        p.set('gameId', clean(p.get('gameId'), 'goodjunk'));
-        p.set('theme', 'goodjunk');
-
-        const normalizedHref = url.toString();
-        if (normalizedHref !== location.href) {
-          history.replaceState(null, '', normalizedHref);
-        }
-
-        return { hadMultiParams: looksMulti };
-      }
-
-      const normalizeInfo = normalizeSoloQuery();
-      const hubHref = clean(q.get('hub'), new URL('./hub.html', location.href).toString());
-
-      const launcherHref = buildUrl('./goodjunk-launcher.html', {
-        pid: clean(q.get('pid'), 'anon'),
-        name: clean(q.get('name'), clean(q.get('nick'), 'Hero')),
-        nick: clean(q.get('nick'), clean(q.get('name'), 'Hero')),
-        diff: clean(q.get('diff'), 'normal'),
-        time: clean(q.get('time'), '150'),
-        seed: clean(q.get('seed'), String(Date.now())),
-        hub: hubHref,
-        view: clean(q.get('view'), 'mobile'),
-        run: clean(q.get('run'), 'play'),
-        zone: clean(q.get('zone'), 'nutrition'),
-        cat: clean(q.get('cat'), 'nutrition'),
-        game: clean(q.get('game'), 'goodjunk'),
-        gameId: clean(q.get('gameId'), 'goodjunk'),
-        theme: 'goodjunk',
-        recommendedMode: 'solo-boss',
-        studyId: clean(q.get('studyId'), ''),
-        conditionGroup: clean(q.get('conditionGroup'), '')
-      });
-
       const runCtx = {
-        pid: clean(q.get('pid'), 'anon'),
-        name: clean(q.get('name'), clean(q.get('nick'), '')),
-        nick: clean(q.get('nick'), clean(q.get('name'), '')),
-        studyId: clean(q.get('studyId'), ''),
+        pid: q.get('pid') || 'anon',
+        name: q.get('name') || q.get('nick') || q.get('nickName') || 'Hero',
+        nick: q.get('nick') || q.get('name') || q.get('nickName') || 'Hero',
+        studyId: q.get('studyId') || '',
         roomId: '',
         role: 'player',
         mode: 'solo',
-        entry: 'solo-boss',
-        recommendedMode: 'solo-boss',
-        diff: clean(q.get('diff'), 'normal'),
-        time: clean(q.get('time'), '150'),
-        seed: clean(q.get('seed'), String(Date.now())),
+        diff: q.get('diff') || 'normal',
+        time: q.get('time') || '150',
+        seed: q.get('seed') || String(Date.now()),
         startAt: 0,
-        hub: hubHref,
-        nextAfterCooldown: clean(q.get('nextAfterCooldown'), launcherHref),
-        cdnext: clean(q.get('cdnext'), launcherHref),
-        view: clean(q.get('view'), 'mobile'),
-        run: clean(q.get('run'), 'play'),
-        gameId: clean(q.get('gameId'), 'goodjunk'),
-        game: clean(q.get('game'), 'goodjunk'),
-        cat: clean(q.get('cat'), 'nutrition'),
-        zone: clean(q.get('zone'), 'nutrition'),
-        boss: true,
-        phaseBoss: true
+        hub: q.get('hub') || new URL('./hub.html', location.href).toString(),
+        nextAfterCooldown: q.get('nextAfterCooldown') || '',
+        cdnext: q.get('cdnext') || '',
+        view: q.get('view') || 'mobile',
+        run: q.get('run') || 'play',
+        gameId: q.get('gameId') || 'goodjunk',
+        zone: q.get('zone') || 'nutrition',
+        cat: q.get('cat') || 'nutrition',
+        conditionGroup: q.get('conditionGroup') || '',
+        log: q.get('log') || '',
+        ai: q.get('ai') || '',
+        pro: q.get('pro') || '',
+        research: q.get('research') || ''
       };
 
       window.__GJ_RUN_CTX__ = runCtx;
-      window.__GOODJUNK_SOLO_RULES__ = {
-        mode: 'solo',
-        soloBossOnly: true,
-        multiplayerBoss: false
-      };
       window.HHA_CLOUD_ENDPOINT = String(q.get('api') || window.HHA_CLOUD_ENDPOINT || '').trim();
 
       const ENGINE_CANDIDATES = [
@@ -485,76 +394,6 @@
         './goodjunk-solo-phaseboss-v2.js',
         './js/goodjunk-solo-phaseboss-v2.js'
       ];
-
-      function ensureActionButtons() {
-        const dock = document.querySelector('.bottomDock');
-        if (!dock) return;
-
-        let actionCard = document.getElementById('soloActionCard');
-        if (actionCard) return;
-
-        actionCard = document.createElement('div');
-        actionCard.id = 'soloActionCard';
-        actionCard.style.display = 'flex';
-        actionCard.style.gap = '8px';
-        actionCard.style.flexWrap = 'wrap';
-        actionCard.style.pointerEvents = 'auto';
-
-        function makeBtn(label, href, bg, color, isButton) {
-          const el = document.createElement(isButton ? 'button' : 'a');
-          el.textContent = label;
-          el.style.minHeight = '42px';
-          el.style.padding = '10px 14px';
-          el.style.borderRadius = '16px';
-          el.style.fontSize = '13px';
-          el.style.fontWeight = '1000';
-          el.style.display = 'inline-flex';
-          el.style.alignItems = 'center';
-          el.style.justifyContent = 'center';
-          el.style.boxShadow = '0 18px 40px rgba(86,155,194,.16)';
-          el.style.textDecoration = 'none';
-          el.style.border = 'none';
-          el.style.cursor = 'pointer';
-          el.style.background = bg;
-          el.style.color = color;
-
-          if (isButton) el.type = 'button';
-          else el.href = href;
-
-          return el;
-        }
-
-        const btnLauncher = makeBtn(
-          '🎮 ไป Launcher',
-          launcherHref,
-          'linear-gradient(180deg,#7fcfff,#58b7f5)',
-          '#143447',
-          false
-        );
-
-        const btnHub = makeBtn(
-          '🏠 กลับ Hub',
-          hubHref,
-          'linear-gradient(180deg,#7ed957,#58c33f)',
-          '#133b09',
-          false
-        );
-
-        const btnRetry = makeBtn(
-          '🔄 ลองใหม่',
-          '',
-          'linear-gradient(180deg,#ffd37a,#ffb84d)',
-          '#4f3410',
-          true
-        );
-
-        btnRetry.addEventListener('click', () => location.reload());
-
-        actionCard.appendChild(btnLauncher);
-        actionCard.appendChild(btnHub);
-        actionCard.appendChild(btnRetry);
-        dock.appendChild(actionCard);
-      }
 
       function setStatus(title, text, isError = false) {
         const t1 = $('engineStatusTitle');
@@ -566,20 +405,24 @@
         }
       }
 
-      function showBootError(message) {
-        ensureActionButtons();
-        setStatus('เกิดปัญหาใน engine', String(message || 'Unknown engine error'), true);
-      }
-
-      function hideLoading() {
+      function hideStatusSoon() {
         const card = $('engineStatusCard');
-        if (card) {
-          setTimeout(() => { card.style.display = 'none'; }, 320);
-        }
+        if (!card) return;
+        setTimeout(() => { card.style.display = 'none'; }, 420);
       }
 
-      window.__GJ_SHOW_BOOT_ERROR__ = showBootError;
-      window.__GJ_HIDE_LOADING__ = hideLoading;
+      window.__GJ_HIDE_LOADING__ = function () {
+        setStatus('เข้าเกมแล้ว', 'solo boss engine mounted สำเร็จ');
+        hideStatusSoon();
+      };
+
+      window.__GJ_SHOW_BOOT_ERROR__ = function (msg) {
+        setStatus(
+          'เกิดปัญหาใน gameplay core',
+          String(msg || 'Unknown boot error'),
+          true
+        );
+      };
 
       function updatePills() {
         const pillPlayer = $('pillPlayer');
@@ -587,7 +430,7 @@
         const pillTime = $('pillTime');
         const pillMode = $('pillMode');
 
-        if (pillPlayer) pillPlayer.textContent = `PLAYER • ${runCtx.name || runCtx.nick || runCtx.pid || '-'}`;
+        if (pillPlayer) pillPlayer.textContent = `PLAYER • ${runCtx.name || runCtx.pid || '-'}`;
         if (pillDiff) pillDiff.textContent = `LEVEL • ${runCtx.diff}`;
         if (pillTime) pillTime.textContent = `TIME • ${runCtx.time}`;
         if (pillMode) pillMode.textContent = 'MODE • solo boss';
@@ -633,14 +476,6 @@
 
       async function loadEngine() {
         updatePills();
-        ensureActionButtons();
-
-        if (normalizeInfo.hadMultiParams) {
-          setStatus(
-            'ตรวจพบพารามิเตอร์ multi',
-            'หน้านี้บังคับเป็น solo-boss เท่านั้น จึงล้างค่าของ multiplayer ออกแล้วและจะเดินต่อแบบ solo'
-          );
-        }
 
         let lastErr = null;
 
@@ -667,8 +502,8 @@
               }
 
               setStatus('เข้าเกมแล้ว', `solo boss engine loaded: ${src}`);
-              hideLoading();
-            }, 120);
+              hideStatusSoon();
+            }, 140);
 
             return;
           } catch (err) {
@@ -686,7 +521,6 @@
 
       try {
         updatePills();
-        ensureActionButtons();
         setStatus('กำลังเตรียมเกม…', 'เริ่มต้นตัวโหลด engine...');
         loadEngine();
       } catch (err) {
