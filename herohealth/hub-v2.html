@@ -1,170 +1,198 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/herohealth/hub-v2.html b/herohealth/hub-v2.html
-index a4625530ea3d0dbdb895e2fa0d1740a788e6c1c3..93006d4855138783ef72db22f18839526d2e0a43 100644
---- a/herohealth/hub-v2.html
-+++ b/herohealth/hub-v2.html
-@@ -1,184 +1,116 @@
- <!doctype html>
- <html lang="th">
- <head>
-   <meta charset="utf-8" />
-   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-   <title>HeroHealth — Hub v2</title>
-   <meta name="color-scheme" content="light" />
-   <meta name="theme-color" content="#9fe3ff" />
-   <link rel="icon" href="./favicon.ico" />
-   <link rel="stylesheet" href="./hub-v2.css?v=20260413b-hub-kidminimal" />
- </head>
- <body>
-   <div class="bg-clouds" aria-hidden="true">
-     <div class="cloud c1"></div>
-     <div class="cloud c2"></div>
-     <div class="cloud c3"></div>
-   </div>
- 
-   <main class="shell">
-     <header class="topbar">
-       <button id="btnSettings" class="icon-btn" type="button" aria-label="ตั้งค่า">⚙️</button>
- 
-       <div class="brand-pill brand-pill--logo" aria-label="HeroHealth">
-         <img
-           class="brand-logo"
-           src="./assets/logo-system/logos/hub-logo.svg"
-           alt="HeroHealth Hub Logo"
-           onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
-         />
-         <div class="brand-logo-fallback" hidden aria-hidden="true">🛡️</div>
- 
-         <div class="brand-copy">
-           <h1 class="brand-title">HeroHealth</h1>
-           <p class="brand-sub">Hygiene • Nutrition • Exercise</p>
-         </div>
-       </div>
- 
-       <button id="btnRewards" class="icon-btn" type="button" aria-label="รางวัล">🏆</button>
-     </header>
- 
-     <div id="hhHubBrandMount" class="hh-hub-brand-mount"></div>
- 
-     <section class="hero">
-       <div class="panel welcome">
-         <div>
-           <div class="hello">🌈 ฮีโร่น้อย พร้อมผจญภัย!</div>
-           <h1>เล่นสนุก แล้วแข็งแรงไปด้วยกัน</h1>
-           <p>เลือกดินแดนที่อยากไป แล้วเก็บดาว เหรียญ และพลังสุขภาพกันเลย</p>
-           <div id="heroQuickline" class="hero-quickline">วันนี้ลองเล่นให้ครบ 3 โซนกันนะ</div>
+﻿<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth - Hub v2</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="./favicon.ico" />
+  <link rel="stylesheet" href="./hub-v2.css?v=20260413b-hub-kidminimal" />
+</head>
+<body>
+  <div class="bg-clouds" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+  </div>
 
-           <div class="hero-cta-row">
-            <button id="btnQuickRecommended" class="btn primary small" type="button">🎮 เริ่มเกมแนะนำ</button>
-           </div>
-         </div>
- 
-         <div class="hero-kid" aria-hidden="true"></div>
-       </div>
- 
-       <div class="panel profile-card">
-         <div class="avatar" aria-hidden="true"></div>
- 
-         <div class="profile-main">
-           <h2 id="playerName">Rocky</h2>
-           <p class="profile-meta" id="playerMeta">ฮีโร่ประจำวัน • พร้อมผจญภัย</p>
- 
-           <div class="chips">
-             <div class="chip"><span>⭐</span><span>Lv. <b id="playerLevel">5</b></span></div>
-             <div class="chip gold"><span>🪙</span><span><b id="playerCoins">380</b> Coins</span></div>
-             <div class="chip green"><span>❤️</span><span><b id="playerHearts">8</b> Hearts</span></div>
-           </div>
-         </div>
- 
-         <div class="mini-badges">
-           <div class="mini-badge">
-             <span class="n" id="badgeStars">12</span>
-             <span class="t">Stars</span>
-           </div>
-           <div class="mini-badge">
-             <span class="n" id="badgeWins">4</span>
-             <span class="t">Wins</span>
-           </div>
-           <div class="mini-badge">
-             <span class="n" id="badgeStreak">3</span>
-             <span class="t">Streak</span>
-           </div>
-         </div>
-       </div>
-     </section>
- 
-     <section class="content content--kid-minimal">
-       <div class="zones">
-         <article id="zoneCard-hygiene" class="zone-card hygiene" data-zone-card="hygiene">
-           <div class="zone-left">
-             <div class="zone-top">
-               <img class="zone-logo" src="./assets/logo-system/logos/brush-logo.svg" alt="Hygiene Zone"
-                 onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
-               <div class="zone-logo-fallback" hidden aria-hidden="true">🫧</div>
-               <div>
-                 <h2 class="zone-name">Hygiene Zone</h2>
-                 <p class="zone-sub">ล้างมือ แปรงฟัน ป้องกันเชื้อโรค</p>
-                 <p class="zone-sub mascot-sub">เพื่อนคู่หู: ฟองฟู่บับเบิล 🫧</p>
-               </div>
-             </div>
- 
-             <div class="zone-stats">
-               <div class="pill">🏅 Level <b id="hygLevel">5</b></div>
-               <div class="pill">🎯 เป้าหมายวันนี้: เล่น 1 เกม</div>
-               <div class="pill">⭐ ดาวโซน <b id="hygStars">4/5</b></div>
-               <div class="pill featured-pill">🎮 แนะนำ: <b id="hygFeatured">Germ Detective</b></div>
-               <div class="pill recent-pill" id="hygRecentPill" hidden>🕹️ ล่าสุด: <b id="hygRecentText">-</b></div>
-             </div>
- 
-             <div class="zone-progress">
-               <div class="progress-head">
-                 <span>ความคืบหน้าโซน</span>
-               <div class="pill">⭐ ดาวโซน <b id="fitStars">2/5</b></div>
-               <div class="pill featured-pill">🎮 แนะนำ: <b id="fitFeatured">Jump &amp; Duck</b></div>
-               <div class="pill recent-pill" id="fitRecentPill" hidden>🕹️ ล่าสุด: <b id="fitRecentText">-</b></div>
-             </div>
- 
-             <div class="zone-progress">
-               <div class="progress-head">
-                 <span>ความคืบหน้าโซน</span>
-                 <span id="fitProgressText">40%</span>
-               </div>
-               <div class="bar"><div id="fitFill" class="fill" style="width:40%"></div></div>
-             </div>
- 
-             <div id="fitPreview" class="zone-preview" hidden></div>
-           </div>
- 
-           <div class="zone-right">
-             <div class="zone-art fitness" aria-hidden="true"></div>
-             <div class="actions">
-               <a id="btnPlayFitness" class="btn primary" href="./fitness-zone.html">🏃 เล่นเลย</a>
-               <a id="btnFitnessPlanner" class="btn secondary" href="./fitness-planner.html">🗓️ Planner</a>
-               <button id="btnZoneFitness" class="btn secondary" type="button">ดูเกมในโซน</button>
-             </div>
-           </div>
-         </article>
+  <main class="shell">
+    <header class="topbar">
+      <button id="btnSettings" class="icon-btn" type="button" aria-label="ตั้งค่า">⚙️</button>
 
-       </div>
- 
-       <aside class="side">
-         <section class="panel section">
-           <h3 class="section-title">🧭 วิธีเล่นแบบง่าย</h3>
-           <div class="mission-list">
+      <div class="brand-pill brand-pill--logo" aria-label="HeroHealth">
+        <img
+          class="brand-logo"
+          src="./assets/logo-system/logos/hub-logo.svg"
+          alt="HeroHealth Hub Logo"
+          onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
+        />
+        <div class="brand-logo-fallback" hidden aria-hidden="true">🛡️</div>
+
+        <div class="brand-copy">
+          <h1 class="brand-title">HeroHealth</h1>
+          <p class="brand-sub">Hygiene • Nutrition • Fitness</p>
+        </div>
+      </div>
+
+      <button id="btnRewards" class="icon-btn" type="button" aria-label="รางวัล">🏆</button>
+    </header>
+
+    <div id="hhHubBrandMount" class="hh-hub-brand-mount"></div>
+
+    <section class="hero">
+      <div class="panel welcome">
+        <div>
+          <div class="hello">🌈 ฮีโร่น้อย พร้อมผจญภัย!</div>
+          <h1>เลือกโซนแล้วเริ่มเล่นได้ทันที</h1>
+          <p>หน้า Hub นี้รวม 3 โซน 15 เกมของ HeroHealth เพื่อให้เด็ก ป.5 เข้าเล่นได้ง่ายจากจุดเดียว</p>
+          <div id="heroQuickline" class="hero-quickline">วันนี้ลองเล่นให้ครบ 3 โซนกันนะ</div>
+
+          <div class="hero-cta-row">
+            <a id="btnQuickRecommended" class="btn primary small" href="./fitness-zone.html">🎮 เริ่มเกมแนะนำ</a>
+            <a id="btnQuickAllGames" class="btn secondary small" href="./fitness-zone.html">🗺️ ดูทุกเกม</a>
+          </div>
+        </div>
+
+        <div class="hero-kid" aria-hidden="true"></div>
+      </div>
+
+      <div class="panel profile-card">
+        <div class="avatar" aria-hidden="true"></div>
+
+        <div class="profile-main">
+          <h2 id="playerName">Rocky</h2>
+          <p class="profile-meta" id="playerMeta">ฮีโร่ประจำวัน • พร้อมผจญภัย</p>
+
+          <div class="chips">
+            <div class="chip"><span>⭐</span><span>Lv. <b id="playerLevel">5</b></span></div>
+            <div class="chip gold"><span>🪙</span><span><b id="playerCoins">380</b> Coins</span></div>
+            <div class="chip green"><span>❤️</span><span><b id="playerHearts">8</b> Hearts</span></div>
+          </div>
+        </div>
+
+        <div class="mini-badges">
+          <div class="mini-badge">
+            <span class="n" id="badgeStars">12</span>
+            <span class="t">Stars</span>
+          </div>
+          <div class="mini-badge">
+            <span class="n" id="badgeWins">4</span>
+            <span class="t">Wins</span>
+          </div>
+          <div class="mini-badge">
+            <span class="n" id="badgeStreak">3</span>
+            <span class="t">Streak</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="content content--kid-minimal">
+      <div class="zones">
+        <article id="zoneCard-hygiene" class="zone-card hygiene" data-zone-card="hygiene">
+          <div class="zone-left">
+            <div class="zone-top">
+              <img class="zone-logo" src="./assets/logo-system/logos/brush-logo.svg" alt="Hygiene Zone"
+                onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+              <div class="zone-logo-fallback" hidden aria-hidden="true">🧼</div>
+              <div>
+                <h2 class="zone-name">Hygiene Zone</h2>
+                <p class="zone-sub">ล้างมือ แปรงฟัน อาบน้ำ และป้องกันเชื้อโรค</p>
+                <p class="zone-sub mascot-sub">6 เกม: Handwash, Brush, Bath, Germ Detective, Clean Objects, MaskCough</p>
+              </div>
+            </div>
+
+            <div class="zone-stats">
+              <div class="pill">🏅 Level <b id="hygLevel">5</b></div>
+              <div class="pill">⭐ ดาวโซน <b id="hygStars">4/6</b></div>
+              <div class="pill featured-pill">🎮 แนะนำ: <b id="hygFeatured">Handwash</b></div>
+            </div>
+          </div>
+
+          <div class="zone-right">
+            <div class="zone-art hygiene" aria-hidden="true"></div>
+            <div class="actions">
+              <a id="btnPlayHygiene" class="btn primary" href="./hygiene-zone.html">🧼 เข้าโซน Hygiene</a>
+            </div>
+          </div>
+        </article>
+
+        <article id="zoneCard-nutrition" class="zone-card nutrition" data-zone-card="nutrition">
+          <div class="zone-left">
+            <div class="zone-top">
+              <img class="zone-logo" src="./assets/logo-system/logos/goodjunk-logo.svg" alt="Nutrition Zone"
+                onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+              <div class="zone-logo-fallback" hidden aria-hidden="true">🥗</div>
+              <div>
+                <h2 class="zone-name">Nutrition Zone</h2>
+                <p class="zone-sub">เรียนรู้การเลือกอาหารและน้ำให้ดีต่อสุขภาพ</p>
+                <p class="zone-sub mascot-sub">4 เกม: GoodJunk, Groups, Hydration, Plate</p>
+              </div>
+            </div>
+
+            <div class="zone-stats">
+              <div class="pill">🏅 Level <b id="nutriLevel">4</b></div>
+              <div class="pill">⭐ ดาวโซน <b id="nutriStars">3/4</b></div>
+              <div class="pill featured-pill">🎮 แนะนำ: <b id="nutriFeatured">Plate</b></div>
+            </div>
+          </div>
+
+          <div class="zone-right">
+            <div class="zone-art nutrition" aria-hidden="true"></div>
+            <div class="actions">
+              <a id="btnPlayNutrition" class="btn primary" href="./nutrition-zone.html">🥗 เข้าโซน Nutrition</a>
+            </div>
+          </div>
+        </article>
+
+        <article id="zoneCard-fitness" class="zone-card fitness" data-zone-card="fitness">
+          <div class="zone-left">
+            <div class="zone-top">
+              <img class="zone-logo" src="./assets/logo-system/logos/game-logo-exercise.svg" alt="Fitness Zone"
+                onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+              <div class="zone-logo-fallback" hidden aria-hidden="true">🏃</div>
+              <div>
+                <h2 class="zone-name">Fitness Zone</h2>
+                <p class="zone-sub">ขยับร่างกาย ฝึกความไว ความแม่น และการวางแผน</p>
+                <p class="zone-sub mascot-sub">5 เกม: Shadow Breaker, JumpDuck, Balance Hold, Rhythm Boxer, Fitness Planner</p>
+              </div>
+            </div>
+
+            <div class="zone-stats">
+              <div class="pill">🏅 Level <b id="fitLevel">5</b></div>
+              <div class="pill">⭐ ดาวโซน <b id="fitStars">2/5</b></div>
+              <div class="pill featured-pill">🎮 แนะนำ: <b id="fitFeatured">JumpDuck</b></div>
+            </div>
+          </div>
+
+          <div class="zone-right">
+            <div class="zone-art fitness" aria-hidden="true"></div>
+            <div class="actions">
+              <a id="btnPlayFitness" class="btn primary" href="./fitness-zone.html">🏃 เข้าโซน Fitness</a>
+              <a id="btnFitnessPlanner" class="btn secondary" href="./fitness-planner.html">🗓️ Planner</a>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <aside class="side">
+        <section class="panel section">
+          <h3 class="section-title">วิธีเล่นแบบง่าย</h3>
+          <div class="mission-list">
             <div class="mission-item"><strong>1) เลือกโซนที่ชอบ</strong><small>Hygiene / Nutrition / Fitness</small></div>
-            <div class="mission-item"><strong>2) กดปุ่ม เล่นเลย</strong><small>เริ่มเกมทันที ไม่ต้องตั้งค่าเพิ่ม</small></div>
-             <div class="mission-item"><strong>3) เล่นวันละนิดให้ครบ 3 โซน</strong><small>สนุกและได้สุขภาพดีทุกวัน</small></div>
-           </div>
-         </section>
-       </aside>
-     </section>
- 
+            <div class="mission-item"><strong>2) กดเข้าโซน</strong><small>ไปหน้า zone แล้วเลือกเกมที่ต้องการ</small></div>
+            <div class="mission-item"><strong>3) เล่นให้ครบทั้ง 3 โซน</strong><small>เก็บประสบการณ์ให้ครบทั้งระบบ</small></div>
+          </div>
+        </section>
+      </aside>
+    </section>
 
-     <p class="footer-note">HeroHealth Hub v2 • สำหรับเด็ก ป.5 • เรียบง่าย • เล่นได้ทันที</p>
-   </main>
- 
-   <div id="toast" class="toast" role="status" aria-live="polite"></div>
- 
-    <script src="./hub-v2.js?v=20260413b-hub-kidminimal"></script>
- </body>
+    <p class="footer-note">HeroHealth Hub v2 • เวอร์ชัน local app • พร้อมเชื่อม 3 โซน 15 เกม</p>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="./hub-v2.js?v=20260413b-hub-kidminimal"></script>
+</body>
 </html>
