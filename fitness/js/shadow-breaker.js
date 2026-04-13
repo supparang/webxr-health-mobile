@@ -163,6 +163,34 @@
 
   function buildReplayLauncherHref(){
     const hubUrl = String(qs('hub', '') || '../herohealth/hub.html');
+
+    if (isPlannerFlow()) {
+      const url = new URL('/webxr-health-mobile/fitness/shadow-breaker.html', location.origin);
+
+      url.searchParams.set('pid', String(STATE.pid || 'anon'));
+      url.searchParams.set('diff', String(STATE.diff || 'normal'));
+      url.searchParams.set('time', String(Math.round((STATE.totalMs || 70000) / 1000)));
+      url.searchParams.set('mode', String(STATE.mode || 'normal'));
+      url.searchParams.set('run', String(STATE.mode || 'play'));
+      url.searchParams.set('view', String(getViewMode() || 'mobile'));
+      url.searchParams.set('hub', hubUrl);
+      url.searchParams.set('plannerFlow', '1');
+      url.searchParams.set('fpStrict', '1');
+      url.searchParams.set('gate', '0');
+      url.searchParams.set('cooldown', '0');
+      url.searchParams.set('returnPhase', 'planner');
+
+      const studyId = String(qs('studyId', '')).trim();
+      const group = String(qs('group', '') || DOM.inputGroup?.value || '').trim();
+      const conditionGroup = String(qs('conditionGroup', '')).trim();
+
+      if (studyId) url.searchParams.set('studyId', studyId);
+      if (group) url.searchParams.set('group', group);
+      if (conditionGroup) url.searchParams.set('conditionGroup', conditionGroup);
+
+      return url.toString();
+    }
+
     const url = new URL('/webxr-health-mobile/herohealth/shadow-breaker-vr.html', location.origin);
 
     url.searchParams.set('pid', String(STATE.pid || 'anon'));
@@ -189,6 +217,50 @@
       location.href = hubUrl;
     }catch(_){
       location.assign(hubUrl);
+    }
+  }
+
+  function isPlannerFlow(){
+    const plannerFlow = String(qs('plannerFlow', '0')).toLowerCase();
+    const fpStrict = String(qs('fpStrict', '0')).toLowerCase();
+    const cooldown = String(qs('cooldown', '1')).toLowerCase();
+    const returnPhase = String(qs('returnPhase', '')).toLowerCase();
+    const hubUrl = String(qs('hub', '')).trim();
+
+    return (
+      plannerFlow === '1' ||
+      fpStrict === '1' ||
+      cooldown === '0' ||
+      returnPhase === 'planner' ||
+      hubUrl.includes('fpResume=1')
+    );
+  }
+
+  function buildPostRunTarget(summary){
+    const hubUrl = String(summary?.hub || qs('hub', '') || '../herohealth/hub.html').trim();
+
+    if (isPlannerFlow()) {
+      return hubUrl;
+    }
+
+    return buildCooldownGateUrl(summary);
+  }
+
+  function goToPostRun(summary){
+    const target = buildPostRunTarget(summary);
+
+    console.log('[SB] goToPostRun', {
+      pid: summary?.pid,
+      score: summary?.scoreFinal,
+      bossesCleared: summary?.bossesCleared,
+      plannerFlow: isPlannerFlow(),
+      target
+    });
+
+    try{
+      location.href = target;
+    }catch(_){
+      location.assign(target);
     }
   }
 
@@ -1069,6 +1141,10 @@
       else if ((summary.bossesCleared || 0) >= 1) DOM.resMessage.textContent = 'ยอดเยี่ยม ผ่านบอสได้แล้ว ลองอีกครั้งเพื่อไปต่อ';
       else DOM.resMessage.textContent = 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ';
     }
+
+    if (DOM.btnResultMenu) {
+      DOM.btnResultMenu.textContent = isPlannerFlow() ? 'กลับแผน' : 'กลับ HUB';
+    }
   }
 
   function showInlineEndOverlay(summary){
@@ -1147,13 +1223,17 @@
     persistSummary(summary);
     renderResult(summary);
 
+    if (DOM.btnResultMenu) {
+      DOM.btnResultMenu.textContent = isPlannerFlow() ? 'กลับแผน' : 'กลับ HUB';
+    }
+
     try{
       showInlineEndOverlay(summary);
-      setTimeout(() => goToCooldown(summary), 900);
+      setTimeout(() => goToPostRun(summary), 900);
       return;
     }catch(_){}
 
-    goToCooldown(summary);
+    goToPostRun(summary);
   }
 
   function resetRuntimeOnly(){
@@ -1346,6 +1426,18 @@
     });
 
     DOM.btnResultMenu?.addEventListener('click', () => {
+      const summary = STATE.sessionSummary || computeSummary('manual_back');
+
+      if (isPlannerFlow()) {
+        const target = String(summary?.hub || qs('hub', '') || '../herohealth/hub.html');
+        try{
+          location.href = target;
+        }catch(_){
+          location.assign(target);
+        }
+        return;
+      }
+
       goBackHubNow();
     });
 
@@ -1424,6 +1516,13 @@
 
     const autostart = ['1', 'true', 'yes', 'on'].includes(auto) || fromWarmupGate;
     if (autostart) setTimeout(() => startGame(finalMode), 0);
+
+    console.log('[SB] initFromQuery', {
+      plannerFlow: isPlannerFlow(),
+      hub: qs('hub', ''),
+      cooldown: qs('cooldown', ''),
+      returnPhase: qs('returnPhase', '')
+    });
   }
 
   bindDom();
