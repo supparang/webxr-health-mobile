@@ -1,0 +1,1954 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • JumpDuck</title>
+  <meta name="theme-color" content="#9be7ff" />
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --bg1:#dff7ff;
+      --bg2:#bfeaff;
+      --bg3:#fff7d8;
+      --grass:#dff6d8;
+      --card:#ffffff;
+      --cardSoft:rgba(255,255,255,.88);
+      --ink:#18324b;
+      --muted:#5f7c92;
+      --line:#cfe8f4;
+      --primary:#3db7ff;
+      --primary2:#228be6;
+      --green:#6fd35f;
+      --green2:#4cb645;
+      --yellow:#ffd85d;
+      --orange:#ffb347;
+      --pink:#ff9cca;
+      --red:#ff7d7d;
+      --purple:#b699ff;
+      --shadow:0 18px 40px rgba(18,50,75,.12);
+      --safeTop:env(safe-area-inset-top,0px);
+      --safeBottom:env(safe-area-inset-bottom,0px);
+      --arenaH:min(62vh,560px);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:ui-rounded,"SF Pro Rounded","Nunito","Trebuchet MS","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,.8), transparent 34%),
+        linear-gradient(180deg,var(--bg1) 0%, var(--bg2) 48%, var(--bg3) 100%);
+      overflow-x:hidden;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    button,input,select,textarea{
+      font:inherit;
+      color:inherit;
+    }
+
+    .hidden{ display:none !important; }
+
+    .bg-clouds{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:0;
+    }
+
+    .cloud{
+      position:absolute;
+      border-radius:999px;
+      background:rgba(255,255,255,.84);
+      box-shadow:0 8px 20px rgba(255,255,255,.34);
+      opacity:.95;
+    }
+    .cloud::before,.cloud::after{
+      content:"";
+      position:absolute;
+      border-radius:inherit;
+      background:inherit;
+    }
+    .cloud.c1{ width:160px;height:46px; top:8%; left:6%; animation:float 12s ease-in-out infinite; }
+    .cloud.c1::before{ width:58px;height:58px; left:18px; top:-20px; }
+    .cloud.c1::after{ width:66px;height:66px; right:20px; top:-25px; }
+
+    .cloud.c2{ width:190px;height:54px; top:14%; right:8%; animation:float 14s ease-in-out infinite reverse; }
+    .cloud.c2::before{ width:66px;height:66px; left:18px; top:-24px; }
+    .cloud.c2::after{ width:74px;height:74px; right:18px; top:-28px; }
+
+    .cloud.c3{ width:120px;height:38px; top:22%; left:44%; animation:float 13s ease-in-out infinite; }
+    .cloud.c3::before{ width:44px;height:44px; left:14px; top:-16px; }
+    .cloud.c3::after{ width:50px;height:50px; right:16px; top:-20px; }
+
+    @keyframes float{
+      0%,100%{ transform:translateY(0px); }
+      50%{ transform:translateY(-8px); }
+    }
+
+    .app{
+      position:relative;
+      z-index:1;
+      width:min(1180px,100%);
+      margin:0 auto;
+      padding:
+        calc(12px + var(--safeTop))
+        12px
+        calc(16px + var(--safeBottom))
+        12px;
+      display:grid;
+      gap:12px;
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .brand-pill,
+    .top-actions a,
+    .top-actions button,
+    .icon-btn{
+      border:2px solid var(--line);
+      border-radius:999px;
+      background:var(--cardSoft);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
+    }
+
+    .icon-btn{
+      min-width:48px;
+      min-height:48px;
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      text-decoration:none;
+      border:none;
+    }
+
+    .brand-pill{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
+    }
+
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,var(--primary),var(--pink));
+      color:#fff;
+      font-size:16px;
+      box-shadow:0 8px 18px rgba(34,139,230,.24);
+    }
+
+    .brand-copy{
+      display:grid;
+      gap:2px;
+      min-width:0;
+    }
+
+    .brand-title{
+      margin:0;
+      font-size:18px;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .brand-sub{
+      margin:0;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .headline{
+      min-width:0;
+      display:grid;
+      gap:3px;
+      padding:0 4px;
+    }
+
+    .headline-title{
+      font-size:clamp(24px,4vw,38px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .headline-sub{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .top-actions a,
+    .top-actions button{
+      min-height:46px;
+      padding:10px 14px;
+      text-decoration:none;
+      cursor:pointer;
+      font-weight:1000;
+      border:none;
+    }
+
+    .card{
+      background:var(--cardSoft);
+      border:2px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+    }
+
+    .screen{
+      display:grid;
+      gap:12px;
+    }
+
+    .hero-card{
+      padding:18px;
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+      align-items:center;
+      overflow:hidden;
+      position:relative;
+      background:
+        radial-gradient(circle at 15% 12%, rgba(255,255,255,.9), transparent 18%),
+        radial-gradient(circle at 88% 10%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.08));
+    }
+
+    .hero-copy{
+      display:grid;
+      gap:10px;
+    }
+
+    .hero-kicker{
+      width:max-content;
+      min-height:32px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 12px;
+      border-radius:999px;
+      border:2px solid #cfeeff;
+      background:#eefbff;
+      color:#2d6f8b;
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.08em;
+    }
+
+    .hero-title{
+      margin:0;
+      font-size:clamp(34px,5vw,60px);
+      line-height:.95;
+      font-weight:1000;
+    }
+
+    .hero-sub{
+      margin:0;
+      font-size:15px;
+      line-height:1.6;
+      color:var(--muted);
+      font-weight:900;
+      max-width:740px;
+    }
+
+    .hero-tags{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .hero-tag{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid rgba(132,189,205,.28);
+      color:#5d6e7a;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .hero-cta{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      min-height:46px;
+      padding:10px 16px;
+      border-radius:999px;
+      border:none;
+      cursor:pointer;
+      font-weight:1000;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      box-shadow:var(--shadow);
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(135deg,#fff,#eefbff);
+      border:2px solid rgba(132,189,205,.3);
+      color:var(--ink);
+    }
+
+    .btn.warn{
+      background:linear-gradient(135deg,#fff4d8,#ffe4b5);
+      border:2px solid #ffe2a8;
+      color:#9d6016;
+    }
+
+    .hero-art{
+      min-height:260px;
+      border-radius:28px;
+      border:2px dashed rgba(132,189,205,.32);
+      background:
+        linear-gradient(180deg,#bfe8ff 0%, #dcf6ff 42%, #eefed9 43%, #dff6d4 100%);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero-art .lane{
+      position:absolute;
+      inset:16px 16px 22px 16px;
+      border-radius:28px;
+      border:2px dashed rgba(255,255,255,.5);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.06)),
+        linear-gradient(90deg, rgba(255,255,255,.24), rgba(255,255,255,.08));
+    }
+
+    .hero-art .cue{
+      position:absolute;
+      top:28px;
+      left:50%;
+      transform:translateX(-50%);
+      width:min(220px,58%);
+      min-height:96px;
+      border-radius:24px;
+      border:3px solid rgba(255,255,255,.9);
+      background:linear-gradient(180deg,#ffffff,#eef9ff);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      box-shadow:0 18px 32px rgba(0,0,0,.12);
+      font-weight:1000;
+    }
+
+    .hero-art .cue .emoji{
+      font-size:38px;
+      line-height:1;
+    }
+
+    .hero-art .cue .label{
+      font-size:22px;
+      line-height:1.1;
+      color:#4d4a42;
+    }
+
+    .hero-art .beat{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:58px;
+      width:min(360px,72%);
+      height:16px;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(255,255,255,.18), rgba(255,255,255,.96), rgba(255,255,255,.18));
+      box-shadow:0 0 0 8px rgba(118,207,255,.22);
+    }
+
+    .hero-art .runner{
+      position:absolute;
+      left:50%;
+      bottom:2px;
+      transform:translateX(-50%);
+      width:150px;
+      height:132px;
+    }
+
+    .runner .head{
+      position:absolute;
+      left:50%;
+      top:10px;
+      transform:translateX(-50%);
+      width:48px;
+      height:48px;
+      border-radius:50%;
+      background:#fff0d0;
+      border:3px solid rgba(77,74,67,.12);
+    }
+
+    .runner .body{
+      position:absolute;
+      left:50%;
+      top:48px;
+      transform:translateX(-50%);
+      width:64px;
+      height:44px;
+      border-radius:18px 18px 14px 14px;
+      background:linear-gradient(180deg,#8fd6ff,#55b9f7);
+      border:3px solid rgba(77,74,67,.09);
+    }
+
+    .runner .arm,
+    .runner .leg{
+      position:absolute;
+      background:#fff0d0;
+      border-radius:999px;
+      border:3px solid rgba(77,74,67,.09);
+    }
+
+    .runner .arm{ width:14px;height:48px; top:54px; }
+    .runner .arm.left{ left:38px; transform:rotate(24deg); }
+    .runner .arm.right{ right:38px; transform:rotate(-24deg); }
+    .runner .leg{ width:16px;height:56px; top:88px; }
+    .runner .leg.left{ left:56px; transform:rotate(10deg); }
+    .runner .leg.right{ right:56px; transform:rotate(-10deg); }
+
+    .menu-grid{
+      display:grid;
+      grid-template-columns:1fr 320px;
+      gap:12px;
+      align-items:start;
+    }
+
+    .menu-main{
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .section-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .section-title{
+      margin:0;
+      font-size:20px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .section-note{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .form-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:13px;
+      color:#4d4a42;
+      font-weight:1000;
+    }
+
+    .field input,
+    .field select,
+    .field textarea{
+      min-height:46px;
+      border-radius:16px;
+      border:2px solid rgba(132,189,205,.3);
+      background:#fff;
+      padding:10px 12px;
+      outline:none;
+    }
+
+    .field textarea{
+      min-height:90px;
+      resize:vertical;
+    }
+
+    .mission-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .mission-card{
+      border-radius:20px;
+      border:2px solid rgba(132,189,205,.28);
+      background:#fff;
+      padding:12px;
+      display:grid;
+      gap:6px;
+    }
+
+    .mission-card strong{
+      font-size:14px;
+      line-height:1.2;
+      color:#4d4a42;
+    }
+
+    .mission-card span{
+      font-size:12px;
+      line-height:1.45;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .menu-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .side{
+      display:grid;
+      gap:12px;
+      position:sticky;
+      top:calc(10px + var(--safeTop));
+    }
+
+    .side-card{
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .side-title{
+      margin:0;
+      font-size:16px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .side-note{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .quick-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .quick-item{
+      border-radius:16px;
+      border:2px solid rgba(132,189,205,.28);
+      background:#fff;
+      padding:10px;
+      display:grid;
+      gap:5px;
+    }
+
+    .quick-item strong{
+      font-size:14px;
+      color:#4d4a42;
+    }
+
+    .quick-item span{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .play-shell{
+      display:grid;
+      grid-template-columns:300px minmax(0,1fr);
+      gap:12px;
+      align-items:start;
+    }
+
+    .hud-side{
+      padding:14px;
+      display:grid;
+      gap:12px;
+      position:sticky;
+      top:calc(10px + var(--safeTop));
+    }
+
+    .hud-block{
+      border-radius:22px;
+      border:2px solid rgba(132,189,205,.28);
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(247,255,251,.92));
+      padding:12px;
+      display:grid;
+      gap:10px;
+    }
+
+    .hud-block h3{
+      margin:0;
+      font-size:14px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .mini-card{
+      border-radius:16px;
+      border:2px solid rgba(132,189,205,.26);
+      background:#fff;
+      padding:10px;
+    }
+
+    .mini-k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .mini-v{
+      display:block;
+      margin-top:4px;
+      font-size:17px;
+      line-height:1.15;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .prog-wrap{
+      display:grid;
+      gap:8px;
+    }
+
+    .prog-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      font-size:12px;
+      font-weight:1000;
+      color:#5d6e7a;
+    }
+
+    .prog-bar{
+      height:14px;
+      border-radius:999px;
+      background:#e8f4fa;
+      border:2px solid #d7edf7;
+      overflow:hidden;
+    }
+
+    .prog-fill{
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#7fcfff,#7ed957);
+      transition:width .15s linear;
+    }
+
+    .prog-fill.fever{
+      background:linear-gradient(90deg,#ffd85d,#ff9e57,#ff7d7d);
+    }
+
+    .boss-bar{
+      height:14px;
+      border-radius:999px;
+      background:#f5e4e4;
+      border:2px solid #ffd3d3;
+      overflow:hidden;
+    }
+
+    .boss-fill{
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#ff8a8a,#ef4444);
+      transition:width .15s linear;
+    }
+
+    .play-main{
+      display:grid;
+      gap:12px;
+    }
+
+    .arena-card{
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .arena-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .arena-title{
+      font-size:20px;
+      font-weight:1000;
+      color:#4d4a42;
+      margin:0;
+    }
+
+    .arena-sub{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .arena-chip-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .chip{
+      min-height:32px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid rgba(132,189,205,.28);
+      color:#5d6e7a;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 6px 12px rgba(18,50,75,.06);
+    }
+
+    #jd-play-area{
+      position:relative;
+      min-height:var(--arenaH);
+      border-radius:28px;
+      border:2px solid rgba(132,189,205,.3);
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255,255,255,.85), transparent 24%),
+        linear-gradient(180deg,#bfe8ff 0%, #d9f5ff 42%, #eefed9 43%, #dff6d4 100%);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.45);
+    }
+
+    #jd-play-area.phase-1{
+      box-shadow:inset 0 0 0 2px rgba(118,207,255,.18);
+    }
+
+    #jd-play-area.phase-2{
+      box-shadow:inset 0 0 0 2px rgba(125,217,87,.2);
+    }
+
+    #jd-play-area.phase-3{
+      box-shadow:inset 0 0 0 2px rgba(255,176,79,.26);
+    }
+
+    #jd-play-area.final-rush{
+      animation:finalRushPulse 1s ease-in-out infinite;
+    }
+
+    #jd-play-area.boss-frenzy{
+      animation:frenzyPulse .7s ease-in-out infinite;
+    }
+
+    @keyframes finalRushPulse{
+      0%,100%{ box-shadow:inset 0 0 0 2px rgba(255,176,79,.28), 0 0 0 0 rgba(255,176,79,0); }
+      50%{ box-shadow:inset 0 0 0 2px rgba(255,176,79,.45), 0 0 0 8px rgba(255,176,79,.08); }
+    }
+
+    @keyframes frenzyPulse{
+      0%,100%{ box-shadow:inset 0 0 0 2px rgba(248,113,113,.34), 0 0 0 0 rgba(248,113,113,0); }
+      50%{ box-shadow:inset 0 0 0 2px rgba(248,113,113,.5), 0 0 0 10px rgba(248,113,113,.08); }
+    }
+
+    .play-lane{
+      position:absolute;
+      inset:18px 18px 24px 18px;
+      border-radius:28px;
+      border:2px dashed rgba(255,255,255,.52);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.08)),
+        linear-gradient(90deg, rgba(255,255,255,.25), rgba(255,255,255,.08));
+    }
+
+    #jd-hitline{
+      position:absolute;
+      left:144px;
+      top:18px;
+      bottom:24px;
+      width:10px;
+      border-radius:999px;
+      background:linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,.26));
+      box-shadow:0 0 0 8px rgba(118,207,255,.16);
+      z-index:5;
+    }
+
+    #jd-hitline::after{
+      content:"HIT";
+      position:absolute;
+      top:10px;
+      left:50%;
+      transform:translateX(-50%);
+      min-width:48px;
+      height:26px;
+      padding:0 8px;
+      display:grid;
+      place-items:center;
+      border-radius:999px;
+      background:rgba(255,255,255,.96);
+      border:2px solid #d7edf7;
+      color:#2d6f8b;
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.12);
+    }
+
+    #jd-arena{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    .jd-lane-guide{
+      position:absolute;
+      left:18px;
+      right:18px;
+      border-top:2px dashed rgba(24,50,75,.12);
+      z-index:4;
+      pointer-events:none;
+    }
+
+    .jd-lane-low{
+      bottom:118px;
+    }
+
+    .jd-lane-high{
+      bottom:252px;
+    }
+
+    .jd-lane-label{
+      position:absolute;
+      left:26px;
+      z-index:4;
+      padding:4px 8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      border:2px solid rgba(132,189,205,.22);
+      color:#5d6e7a;
+      font-size:10px;
+      font-weight:1000;
+      pointer-events:none;
+    }
+
+    .jd-lane-label-low{
+      bottom:126px;
+    }
+
+    .jd-lane-label-high{
+      bottom:260px;
+    }
+
+    #jd-obstacles{
+      position:absolute;
+      inset:0;
+      z-index:12;
+    }
+
+    .ground-mark{
+      position:absolute;
+      left:18px;
+      right:18px;
+      bottom:24px;
+      height:78px;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.65), rgba(255,255,255,.18) 45%, rgba(255,255,255,0) 70%);
+      border:2px dashed rgba(69,183,245,.28);
+      pointer-events:none;
+    }
+
+    #jd-avatar{
+      position:absolute;
+      left:13.5%;
+      bottom:24px;
+      width:120px;
+      height:138px;
+      transform:translateX(-50%);
+      z-index:8;
+      filter:drop-shadow(0 12px 18px rgba(0,0,0,.1));
+      transition:transform .12s ease, bottom .12s ease;
+    }
+
+    #jd-avatar .head{
+      position:absolute;
+      left:50%;
+      top:8px;
+      transform:translateX(-50%);
+      width:42px;
+      height:42px;
+      border-radius:50%;
+      background:#fff0d0;
+      border:3px solid rgba(77,74,67,.12);
+    }
+
+    #jd-avatar .body{
+      position:absolute;
+      left:50%;
+      top:42px;
+      transform:translateX(-50%);
+      width:56px;
+      height:40px;
+      border-radius:16px 16px 12px 12px;
+      background:linear-gradient(180deg,#8fd6ff,#55b9f7);
+      border:3px solid rgba(77,74,67,.09);
+    }
+
+    #jd-avatar .arm,
+    #jd-avatar .leg{
+      position:absolute;
+      background:#fff0d0;
+      border-radius:999px;
+      border:3px solid rgba(77,74,67,.09);
+    }
+
+    #jd-avatar .arm{ width:12px;height:42px; top:48px; }
+    #jd-avatar .arm.left{ left:26px; transform:rotate(24deg); }
+    #jd-avatar .arm.right{ right:26px; transform:rotate(-24deg); }
+    #jd-avatar .leg{ width:14px;height:46px; top:84px; }
+    #jd-avatar .leg.left{ left:42px; transform:rotate(10deg); }
+    #jd-avatar .leg.right{ right:42px; transform:rotate(-10deg); }
+
+    #jd-avatar.avatar-idle{
+      transform:translateX(-50%) translateY(0);
+    }
+
+    #jd-avatar.avatar-jump{
+      transform:translateX(-50%) translateY(-18px) scale(1.02);
+    }
+
+    #jd-avatar.avatar-duck{
+      transform:translateX(-50%) translateY(10px) scaleY(.86);
+    }
+
+    #jd-tele{
+      position:absolute;
+      left:50%;
+      top:18px;
+      transform:translateX(-50%);
+      z-index:20;
+      pointer-events:none;
+    }
+
+    .teleBox{
+      min-height:44px;
+      padding:10px 16px;
+      border-radius:999px;
+      background:rgba(255,255,255,.95);
+      border:2px solid #d7edf7;
+      box-shadow:0 14px 28px rgba(18,50,75,.12);
+      color:#2d6f8b;
+      font-size:15px;
+      font-weight:1000;
+      display:grid;
+      place-items:center;
+      opacity:0;
+      transform:translateY(-10px) scale(.96);
+      transition:opacity .16s ease, transform .16s ease;
+    }
+
+    #jd-tele.on .teleBox{
+      opacity:1;
+      transform:translateY(0) scale(1);
+    }
+
+    #jd-boss-intro{
+      position:absolute;
+      inset:0;
+      z-index:22;
+      display:grid;
+      place-items:center;
+      pointer-events:none;
+      background:rgba(20,40,60,.08);
+      backdrop-filter:blur(2px);
+    }
+
+    .bossIntroCard{
+      min-width:min(460px,86vw);
+      max-width:86vw;
+      padding:18px 20px;
+      border-radius:28px;
+      background:linear-gradient(180deg,#fff7e0,#fff);
+      border:3px solid #ffe2a8;
+      color:#9d6016;
+      box-shadow:0 24px 44px rgba(255,176,79,.18);
+      text-align:center;
+      font-weight:1000;
+      font-size:24px;
+      line-height:1.2;
+      opacity:0;
+      transform:scale(.92);
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    #jd-boss-intro.on .bossIntroCard{
+      opacity:1;
+      transform:scale(1);
+    }
+
+    #jd-judge{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%) scale(.9);
+      z-index:24;
+      min-width:190px;
+      padding:14px 18px;
+      border-radius:24px;
+      background:rgba(255,255,255,.95);
+      border:3px solid rgba(255,255,255,.92);
+      box-shadow:0 18px 32px rgba(0,0,0,.12);
+      text-align:center;
+      font-size:28px;
+      font-weight:1000;
+      color:#4d4a42;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .14s ease, transform .14s ease;
+    }
+
+    #jd-judge.show{
+      opacity:1;
+      transform:translate(-50%,-50%) scale(1);
+    }
+
+    #jd-rush-banner{
+      position:absolute;
+      right:14px;
+      top:14px;
+      z-index:21;
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#fff0e0,#fff);
+      border:2px solid #ffd7a8;
+      color:#b45309;
+      box-shadow:0 16px 28px rgba(255,176,79,.18);
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .rushText{
+      letter-spacing:.04em;
+    }
+
+    .controls-row{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .control-btn{
+      min-height:74px;
+      border:none;
+      border-radius:24px;
+      cursor:pointer;
+      font-weight:1000;
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(247,253,255,.92));
+      border:2px solid rgba(132,189,205,.3);
+      box-shadow:0 10px 20px rgba(0,0,0,.06);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:8px;
+    }
+
+    .control-btn .emoji{
+      font-size:26px;
+      line-height:1;
+    }
+
+    .control-btn .txt{
+      font-size:15px;
+      line-height:1.05;
+    }
+
+    .control-btn .sub{
+      margin-top:3px;
+      font-size:11px;
+      color:var(--muted);
+    }
+
+    .footer-note{
+      text-align:center;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      padding-bottom:6px;
+    }
+
+    .result-shell{
+      display:grid;
+      gap:12px;
+    }
+
+    .result-hero{
+      padding:18px;
+      display:grid;
+      gap:14px;
+      text-align:center;
+    }
+
+    .rank-wrap{
+      display:grid;
+      justify-items:center;
+      gap:10px;
+    }
+
+    #jd-rank-badge{
+      width:108px;
+      height:108px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      font-size:44px;
+      font-weight:1000;
+      color:#fff;
+      background:linear-gradient(135deg,#94a3b8,#64748b);
+      box-shadow:0 18px 34px rgba(18,50,75,.16);
+      border:4px solid rgba(255,255,255,.86);
+    }
+
+    #jd-rank-badge.rank-s{ background:linear-gradient(135deg,#ffd85d,#ff9e57); }
+    #jd-rank-badge.rank-a{ background:linear-gradient(135deg,#7dd957,#4cb645); }
+    #jd-rank-badge.rank-b{ background:linear-gradient(135deg,#7fcfff,#228be6); }
+    #jd-rank-badge.rank-c{ background:linear-gradient(135deg,#b699ff,#8b5cf6); }
+    #jd-rank-badge.rank-d{ background:linear-gradient(135deg,#ff9cca,#fb7185); }
+
+    #jd-result-title{
+      margin:0;
+      font-size:clamp(28px,4vw,42px);
+      line-height:1.02;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    #jd-result-sub{
+      margin:0;
+      font-size:14px;
+      line-height:1.55;
+      color:var(--muted);
+      font-weight:900;
+      max-width:760px;
+      justify-self:center;
+    }
+
+    .reward-card{
+      margin-top:4px;
+      border-radius:24px;
+      border:2px solid rgba(132,189,205,.28);
+      background:linear-gradient(180deg,#fffef8,#ffffff);
+      padding:14px;
+      display:grid;
+      gap:8px;
+    }
+
+    .reward-main{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      font-size:22px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    #jd-result-reward-icon{
+      font-size:32px;
+      line-height:1;
+    }
+
+    #jd-result-reward-sub{
+      font-size:13px;
+      line-height:1.5;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .result-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .result-card{
+      border-radius:20px;
+      border:2px solid rgba(132,189,205,.28);
+      background:#fff;
+      padding:14px;
+      text-align:center;
+    }
+
+    .result-k{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .result-v{
+      margin-top:4px;
+      font-size:28px;
+      line-height:1.05;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .result-meta{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .coach-card{
+      padding:16px;
+      display:grid;
+      gap:10px;
+    }
+
+    .coach-head{
+      display:grid;
+      gap:4px;
+    }
+
+    .coach-head h3{
+      margin:0;
+      font-size:20px;
+      color:#4d4a42;
+      font-weight:1000;
+    }
+
+    .coach-head p{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .coach-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .coach-tip{
+      border-radius:16px;
+      border:2px solid rgba(132,189,205,.26);
+      background:#fff;
+      padding:10px 12px;
+      font-size:13px;
+      line-height:1.5;
+      color:#4d4a42;
+      font-weight:900;
+    }
+
+    .data-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .data-card{
+      border-radius:18px;
+      border:2px solid rgba(132,189,205,.26);
+      background:#fff;
+      padding:12px;
+    }
+
+    .data-k{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .data-v{
+      margin-top:4px;
+      font-size:18px;
+      line-height:1.15;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .result-actions,
+    .export-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .log-box{
+      border-radius:18px;
+      border:2px dashed rgba(132,189,205,.3);
+      background:rgba(255,255,255,.72);
+      padding:12px;
+      font-size:12px;
+      color:#5d6e7a;
+      font-weight:1000;
+      min-height:46px;
+      display:flex;
+      align-items:center;
+    }
+
+    @media (max-width: 1040px){
+      .menu-grid,
+      .play-shell{
+        grid-template-columns:1fr;
+      }
+
+      .side,
+      .hud-side{
+        position:relative;
+        top:auto;
+      }
+    }
+
+    @media (max-width: 860px){
+      .hero-card{
+        grid-template-columns:1fr;
+      }
+
+      .form-grid,
+      .mission-grid,
+      .result-grid,
+      .result-meta,
+      .data-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media (max-width: 820px){
+      #jd-avatar{
+        width:104px;
+        height:122px;
+        bottom:20px;
+      }
+
+      .jd-lane-low{
+        bottom:128px;
+      }
+
+      .jd-lane-high{
+        bottom:270px;
+      }
+
+      .jd-lane-label-low{
+        bottom:136px;
+      }
+
+      .jd-lane-label-high{
+        bottom:278px;
+      }
+    }
+
+    @media (max-width: 760px){
+      .topbar{
+        grid-template-columns:1fr;
+      }
+
+      .controls-row{
+        grid-template-columns:1fr;
+      }
+
+      .arena-top{
+        align-items:flex-start;
+      }
+    }
+
+    @media (max-width: 560px){
+      .form-grid,
+      .mission-grid,
+      .result-grid,
+      .result-meta,
+      .data-grid{
+        grid-template-columns:1fr;
+      }
+
+      .hero-cta,
+      .menu-actions,
+      .result-actions,
+      .export-actions{
+        flex-direction:column;
+      }
+
+      #jd-rank-badge{
+        width:92px;
+        height:92px;
+        font-size:38px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-clouds" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+  </div>
+
+  <main class="app">
+    <header class="topbar">
+      <div class="brand-pill">
+        <div class="brand-icon">🏃</div>
+        <div class="brand-copy">
+          <h1 class="brand-title">HeroHealth</h1>
+          <p class="brand-sub">Fitness Zone • JumpDuck</p>
+        </div>
+      </div>
+
+      <div class="headline">
+        <div class="headline-title">JumpDuck</div>
+        <div class="headline-sub">low = jump • high = duck • child-friendly • training / test / research</div>
+      </div>
+
+      <div class="top-actions">
+        <a id="jd-back-hub-menu" href="./hub-v2.html">🏠 HUB</a>
+      </div>
+    </header>
+
+    <!-- MENU -->
+    <section id="view-menu" class="screen">
+      <section class="card hero-card">
+        <div class="hero-copy">
+          <div class="hero-kicker">FITNESS FEATURED</div>
+          <h2 class="hero-title">JumpDuck</h2>
+          <p class="hero-sub">
+            เกมฝึกอ่านอุปสรรคและตอบสนองให้ถูกจังหวะ
+            <strong>low obstacle = jump</strong> และ
+            <strong>high obstacle = duck</strong>
+            พร้อมระบบ boss, final rush, AI coach, และสรุปผลหลังเล่น
+          </p>
+
+          <div class="hero-tags">
+            <span class="hero-tag">⬆️ Jump</span>
+            <span class="hero-tag">⬇️ Duck</span>
+            <span class="hero-tag">🎯 Accuracy</span>
+            <span class="hero-tag">👾 Boss</span>
+            <span class="hero-tag">🧪 Research</span>
+          </div>
+
+          <div class="hero-cta">
+            <button class="btn primary" data-action="start" type="button">▶ เริ่มเล่น</button>
+            <button class="btn secondary" data-action="tutorial" type="button">🎓 Tutorial 30s</button>
+          </div>
+        </div>
+
+        <div class="hero-art" aria-hidden="true">
+          <div class="lane"></div>
+          <div class="cue">
+            <div>
+              <div class="emoji">⬆️</div>
+              <div class="label">JUMP</div>
+            </div>
+          </div>
+          <div class="beat"></div>
+          <div class="runner">
+            <div class="head"></div>
+            <div class="body"></div>
+            <div class="arm left"></div>
+            <div class="arm right"></div>
+            <div class="leg left"></div>
+            <div class="leg right"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="menu-grid">
+        <section class="card menu-main">
+          <div class="section-head">
+            <div>
+              <h3 class="section-title">⚙️ ตั้งค่าก่อนเล่น</h3>
+              <p class="section-note">เลือกโหมด ความยาก และระยะเวลาให้เหมาะกับการสอน การทดลอง หรือการเล่นทั่วไป</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label for="jd-mode">โหมด</label>
+              <select id="jd-mode">
+                <option value="training">training</option>
+                <option value="test">test</option>
+                <option value="research">research</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="jd-diff">ความยาก</label>
+              <select id="jd-diff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="jd-duration">เวลา (วินาที)</label>
+              <select id="jd-duration">
+                <option value="30">30</option>
+                <option value="45">45</option>
+                <option value="60" selected>60</option>
+                <option value="90">90</option>
+                <option value="120">120</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="jd-research-block" class="card" style="padding:14px; display:grid; gap:10px;">
+            <div class="section-head">
+              <div>
+                <h3 class="section-title" style="font-size:16px;">🧪 Research Metadata</h3>
+                <p class="section-note">จะโชว์เมื่อเลือกโหมด research</p>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="jd-participant-id">Participant ID</label>
+                <input id="jd-participant-id" type="text" placeholder="anon-001" />
+              </div>
+
+              <div class="field">
+                <label for="jd-group">Group</label>
+                <input id="jd-group" type="text" placeholder="control / experimental" />
+              </div>
+
+              <div class="field">
+                <label for="jd-note">Note</label>
+                <textarea id="jd-note" placeholder="หมายเหตุรอบทดลอง"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-head">
+            <div>
+              <h3 class="section-title">🎯 Mission Guides</h3>
+              <p class="section-note">เลือกตามเป้าหมายที่ต้องการได้เลย</p>
+            </div>
+          </div>
+
+          <div class="mission-grid">
+            <div class="mission-card">
+              <strong>เริ่มง่าย</strong>
+              <span>training + easy + 30s เหมาะกับสาธิตหรือเด็กเริ่มเล่น</span>
+            </div>
+            <div class="mission-card">
+              <strong>มาตรฐาน</strong>
+              <span>training + normal + 60s เหมาะกับเล่นจริงทั่วไป</span>
+            </div>
+            <div class="mission-card">
+              <strong>เก็บข้อมูล</strong>
+              <span>research + normal/hard พร้อม export CSV และ teacher summary</span>
+            </div>
+          </div>
+
+          <div class="menu-actions">
+            <button class="btn primary" data-action="start" type="button">▶ เริ่มจากค่าปัจจุบัน</button>
+            <button class="btn secondary" data-action="tutorial" type="button">🎓 เล่นแบบ Tutorial</button>
+          </div>
+        </section>
+
+        <aside class="side">
+          <section class="card side-card">
+            <h3 class="side-title">📘 วิธีเล่นสั้น ๆ</h3>
+            <p class="side-note">อ่าน obstacle แล้วตอบสนองให้ถูก</p>
+            <div class="quick-list">
+              <div class="quick-item">
+                <strong>low obstacle</strong>
+                <span>กด Jump</span>
+              </div>
+              <div class="quick-item">
+                <strong>high obstacle</strong>
+                <span>กด Duck</span>
+              </div>
+              <div class="quick-item">
+                <strong>Boss / Final Rush</strong>
+                <span>อย่ากดเร็วเกินไป รักษาคอมโบและ stability</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="card side-card">
+            <h3 class="side-title">🕹️ Control</h3>
+            <div class="quick-list">
+              <div class="quick-item">
+                <strong>มือถือ</strong>
+                <span>แตะปุ่มล่าง หรือแตะบน/ล่างใน play area</span>
+              </div>
+              <div class="quick-item">
+                <strong>คีย์บอร์ด</strong>
+                <span>ArrowUp / W = Jump • ArrowDown / S = Duck</span>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </section>
+
+    <!-- PLAY -->
+    <section id="view-play" class="screen hidden">
+      <section class="play-shell">
+        <aside class="card hud-side">
+          <section class="hud-block">
+            <h3>LIVE HUD</h3>
+            <div class="mini-grid">
+              <div class="mini-card">
+                <span class="mini-k">Mode</span>
+                <span class="mini-v" id="hud-mode">training</span>
+              </div>
+              <div class="mini-card">
+                <span class="mini-k">Diff</span>
+                <span class="mini-v" id="hud-diff">normal</span>
+              </div>
+              <div class="mini-card">
+                <span class="mini-k">Time</span>
+                <span class="mini-v" id="hud-time">60.0</span>
+              </div>
+              <div class="mini-card">
+                <span class="mini-k">Phase</span>
+                <span class="mini-v" id="hud-phase">1 • warmup</span>
+              </div>
+              <div class="mini-card">
+                <span class="mini-k">Score</span>
+                <span class="mini-v" id="hud-score">0</span>
+              </div>
+              <div class="mini-card">
+                <span class="mini-k">Combo</span>
+                <span class="mini-v" id="hud-combo">0</span>
+              </div>
+              <div class="mini-card">
+                <span class="mini-k">Stability</span>
+                <span class="mini-v" id="hud-stability">100%</span>
+              </div>
+              <div class="mini-card">
+                <span class="mini-k">Boss HP</span>
+                <span class="mini-v" id="hud-boss">—</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="hud-block">
+            <h3>Pattern / Rush / Boss</h3>
+            <div class="mini-grid">
+              <div class="mini-card">
+                <span class="mini-k">Pattern Need</span>
+                <span class="mini-v" id="hud-pattern">—</span>
+              </div>
+              <div class="mini-card">
+                <span class="mini-k">Rush</span>
+                <span class="mini-v" id="hud-rush">—</span>
+              </div>
+              <div class="mini-card">
+                <span class="mini-k">Boss Label</span>
+                <span class="mini-v" id="hud-boss-label">—</span>
+              </div>
+              <div class="mini-card">
+                <span class="mini-k">Boss Status</span>
+                <span class="mini-v" id="hud-boss-status">—</span>
+              </div>
+              <div class="mini-card" style="grid-column:1 / -1;">
+                <span class="mini-k">Boss Compact</span>
+                <span class="mini-v" id="hud-boss-compact">—</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="hud-block">
+            <h3>Progress</h3>
+            <div class="prog-wrap">
+              <div class="prog-head">
+                <span>Run Progress</span>
+                <span id="hud-prog-text">0%</span>
+              </div>
+              <div class="prog-bar">
+                <div class="prog-fill" id="hud-prog-fill"></div>
+              </div>
+            </div>
+
+            <div class="prog-wrap">
+              <div class="prog-head">
+                <span>Fever</span>
+                <span id="hud-fever-status">Ready</span>
+              </div>
+              <div class="prog-bar">
+                <div class="prog-fill fever" id="hud-fever-fill"></div>
+              </div>
+            </div>
+
+            <div id="boss-bar-wrap" class="prog-wrap hidden">
+              <div class="prog-head">
+                <span>Boss HP</span>
+                <span id="hud-boss-status-right">—</span>
+              </div>
+              <div class="boss-bar">
+                <div class="boss-fill" id="hud-boss-fill"></div>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="play-main">
+          <section class="card arena-card">
+            <div class="arena-top">
+              <div>
+                <h2 class="arena-title">JumpDuck Run</h2>
+                <p class="arena-sub">low = jump • high = duck • lane แยกระดับขาและหัวชัดขึ้นแล้ว</p>
+              </div>
+
+              <div class="arena-chip-row">
+                <a id="jd-back-hub-play" class="chip" href="./hub-v2.html">🏠 HUB</a>
+                <div class="chip">⬆️ Jump Lane</div>
+                <div class="chip">⬇️ Duck Lane</div>
+              </div>
+            </div>
+
+            <div id="jd-play-area">
+              <div class="play-lane"></div>
+
+              <div id="jd-arena">
+                <div class="jd-lane-guide jd-lane-low" aria-hidden="true"></div>
+                <div class="jd-lane-guide jd-lane-high" aria-hidden="true"></div>
+                <div class="jd-lane-label jd-lane-label-low" aria-hidden="true">JUMP LANE</div>
+                <div class="jd-lane-label jd-lane-label-high" aria-hidden="true">DUCK LANE</div>
+
+                <div id="jd-hitline"></div>
+                <div id="jd-obstacles"></div>
+                <div class="ground-mark"></div>
+
+                <div id="jd-avatar" class="avatar-idle" aria-hidden="true">
+                  <div class="head"></div>
+                  <div class="body"></div>
+                  <div class="arm left"></div>
+                  <div class="arm right"></div>
+                  <div class="leg left"></div>
+                  <div class="leg right"></div>
+                </div>
+              </div>
+
+              <div id="jd-tele" class="hidden">
+                <div class="teleBox">READY</div>
+              </div>
+
+              <div id="jd-boss-intro" class="hidden">
+                <div class="bossIntroCard" id="jd-boss-intro-text">BOSS</div>
+              </div>
+
+              <div id="jd-judge">READY!</div>
+
+              <div id="jd-rush-banner" class="hidden">
+                <span>⚠️</span>
+                <span class="rushText">FINAL RUSH!</span>
+              </div>
+            </div>
+
+            <div class="controls-row">
+              <button id="btn-jump" class="control-btn" type="button">
+                <span class="emoji">⬆️</span>
+                <span class="txt">JUMP</span>
+                <span class="sub">แตะ / W / ↑</span>
+              </button>
+
+              <button id="btn-duck" class="control-btn" type="button">
+                <span class="emoji">⬇️</span>
+                <span class="txt">DUCK</span>
+                <span class="sub">แตะ / S / ↓</span>
+              </button>
+
+              <button id="btn-stop-early" class="control-btn" type="button">
+                <span class="emoji">⏹️</span>
+                <span class="txt">STOP</span>
+                <span class="sub">จบรอบก่อนเวลา</span>
+              </button>
+            </div>
+          </section>
+
+          <p class="footer-note">
+            เล่นบนคอมใช้คีย์บอร์ดได้ • เล่นบนมือถือแตะปุ่มหรือแตะบน/ล่างของสนามได้
+          </p>
+        </section>
+      </section>
+    </section>
+
+    <!-- RESULT -->
+    <section id="view-result" class="screen hidden">
+      <section class="card result-hero">
+        <div class="rank-wrap">
+          <div id="jd-rank-badge" class="rank-c">C</div>
+          <h2 id="jd-result-title">ผ่านด่านฝึกแล้ว!</h2>
+          <p id="jd-result-sub">สรุปรอบล่าสุดของ JumpDuck</p>
+        </div>
+
+        <div class="reward-card">
+          <div class="reward-main">
+            <span id="jd-result-reward-icon">⭐</span>
+            <span id="jd-result-reward">Keep Training</span>
+          </div>
+          <div id="jd-result-reward-sub">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</div>
+          <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+            <span class="chip">Boss: <b id="jd-result-boss">—</b></span>
+            <span class="chip">Pattern: <b id="jd-result-pattern">—</b></span>
+            <span class="chip">Rush: <b id="jd-result-rush">—</b></span>
+          </div>
+        </div>
+
+        <div class="result-grid">
+          <div class="result-card">
+            <div class="result-k">Score</div>
+            <div class="result-v" id="res-score-big">0</div>
+          </div>
+          <div class="result-card">
+            <div class="result-k">Accuracy</div>
+            <div class="result-v" id="res-acc-big">0%</div>
+          </div>
+          <div class="result-card">
+            <div class="result-k">Best Combo</div>
+            <div class="result-v" id="res-combo-big">0</div>
+          </div>
+          <div class="result-card">
+            <div class="result-k">Boss End</div>
+            <div class="result-v" id="res-boss-end-big">—</div>
+          </div>
+        </div>
+
+        <div class="result-meta">
+          <div class="result-card">
+            <div class="result-k">Phase End</div>
+            <div class="result-v" id="res-phase-end">-</div>
+          </div>
+          <div class="result-card">
+            <div class="result-k">Pattern End</div>
+            <div class="result-v" id="res-pattern">-</div>
+          </div>
+          <div class="result-card">
+            <div class="result-k">Boss Label</div>
+            <div class="result-v" id="res-boss-label">-</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card coach-card">
+        <div class="coach-head">
+          <h3 id="jd-coach-title">AI Coach</h3>
+          <p id="jd-coach-summary">สรุปคำแนะนำหลังจบเกม</p>
+        </div>
+
+        <div class="coach-list">
+          <div class="coach-tip" id="jd-coach-tip-1">—</div>
+          <div class="coach-tip" id="jd-coach-tip-2">—</div>
+        </div>
+      </section>
+
+      <section class="card" style="padding:16px; display:grid; gap:12px;">
+        <div class="section-head">
+          <div>
+            <h3 class="section-title">📊 Session Summary</h3>
+            <p class="section-note">ข้อมูลรอบล่าสุดสำหรับผู้สอน / research / export</p>
+          </div>
+        </div>
+
+        <div class="data-grid">
+          <div class="data-card"><div class="data-k">Mode</div><div class="data-v" id="res-mode">-</div></div>
+          <div class="data-card"><div class="data-k">Diff</div><div class="data-v" id="res-diff">-</div></div>
+          <div class="data-card"><div class="data-k">Duration</div><div class="data-v" id="res-duration">-</div></div>
+          <div class="data-card"><div class="data-k">Rush</div><div class="data-v" id="res-rush">-</div></div>
+
+          <div class="data-card"><div class="data-k">Total Obstacles</div><div class="data-v" id="res-total-obs">0</div></div>
+          <div class="data-card"><div class="data-k">Hits</div><div class="data-v" id="res-hits">0</div></div>
+          <div class="data-card"><div class="data-k">Miss</div><div class="data-v" id="res-miss">0</div></div>
+          <div class="data-card"><div class="data-k">Accuracy</div><div class="data-v" id="res-acc">0%</div></div>
+
+          <div class="data-card"><div class="data-k">Jump Hit</div><div class="data-v" id="res-jump-hit">0</div></div>
+          <div class="data-card"><div class="data-k">Duck Hit</div><div class="data-v" id="res-duck-hit">0</div></div>
+          <div class="data-card"><div class="data-k">Jump Miss</div><div class="data-v" id="res-jump-miss">0</div></div>
+          <div class="data-card"><div class="data-k">Duck Miss</div><div class="data-v" id="res-duck-miss">0</div></div>
+
+          <div class="data-card"><div class="data-k">RT Mean</div><div class="data-v" id="res-rt-mean">0</div></div>
+          <div class="data-card"><div class="data-k">Stability End</div><div class="data-v" id="res-stability-min">0%</div></div>
+          <div class="data-card"><div class="data-k">Score</div><div class="data-v" id="res-score">0</div></div>
+          <div class="data-card"><div class="data-k">Rank</div><div class="data-v" id="res-rank">C</div></div>
+        </div>
+
+        <div class="export-actions">
+          <button id="jd-btn-dl-events" class="btn secondary" type="button">📄 Export Events CSV</button>
+          <button id="jd-btn-dl-sessions" class="btn secondary" type="button">🧾 Export Sessions CSV</button>
+          <button id="jd-btn-dl-teacher" class="btn secondary" type="button">🧑‍🏫 Export Teacher CSV</button>
+          <button id="jd-btn-send-log" class="btn warn" type="button">☁️ Send Log</button>
+        </div>
+
+        <div id="jd-log-status" class="log-box"></div>
+      </section>
+
+      <section class="result-actions">
+        <button id="jd-btn-continue-flow" class="btn primary" data-action="continue-flow" type="button">🧘 ไป Cooldown</button>
+        <button class="btn secondary" data-action="play-again" type="button">🔁 เล่นอีกครั้ง</button>
+        <button class="btn secondary" data-action="back-menu" type="button">⬅️ กลับ Launcher</button>
+        <a id="jd-back-hub-result" class="btn secondary" href="./hub-v2.html">🏠 กลับ HUB</a>
+      </section>
+    </section>
+
+    <p class="footer-note">
+      HeroHealth • JumpDuck • child-friendly • training / test / research ready
+    </p>
+  </main>
+
+  <script src="./jumpduck.js"></script>
+</body>
+</html>
