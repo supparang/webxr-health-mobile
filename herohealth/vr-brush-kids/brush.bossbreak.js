@@ -1,0 +1,64 @@
+// /herohealth/vr-brush-kids/brush.bossbreak.js
+
+export function createBrushBossBreakEngine(config = {}) {
+  let state = null;
+
+  function buildWeakPoints(targetGoal = 4) {
+    return Array.from({ length: targetGoal }, (_, i) => ({
+      id: `wp-${i + 1}`,
+      hit: false
+    }));
+  }
+
+  return {
+    start(ctx = {}) {
+      state = {
+        active: true,
+        roundId: `bossbreak-${Date.now()}`,
+        startedAtMs: performance.now(),
+        durationSec: ctx.durationSec || config.durationSec || 7,
+        targetGoal: ctx.targetGoal || config.targetGoal || 4,
+        hits: 0,
+        misses: 0,
+        weakPoints: buildWeakPoints(ctx.targetGoal || config.targetGoal || 4)
+      };
+      return state;
+    },
+    hitWeakPoint(id) {
+      if (!state?.active) return { ok: false };
+      const wp = state.weakPoints.find(x => x.id === id);
+      if (!wp || wp.hit) {
+        state.misses += 1;
+        return { ok: false, miss: true };
+      }
+      wp.hit = true;
+      state.hits += 1;
+      if (state.hits >= state.targetGoal) state.active = false;
+      return { ok: true, hit: true, weakPointId: id };
+    },
+    tick() {
+      if (!state?.active) return;
+      const elapsedSec = (performance.now() - state.startedAtMs) / 1000;
+      if (elapsedSec >= state.durationSec) state.active = false;
+    },
+    isComplete() {
+      return !state?.active;
+    },
+    buildResult() {
+      if (!state) return null;
+      const attempts = state.hits + state.misses;
+      const success = state.hits >= state.targetGoal;
+      return {
+        played: true,
+        roundId: state.roundId,
+        hits: state.hits,
+        misses: state.misses,
+        targetGoal: state.targetGoal,
+        accuracyPercent: attempts ? Math.round((state.hits / attempts) * 100) : 0,
+        success,
+        damageWindowMs: success ? 6000 : 2500,
+        finishedInMs: Math.round(performance.now() - state.startedAtMs)
+      };
+    }
+  };
+}
