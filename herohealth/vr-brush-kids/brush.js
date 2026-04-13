@@ -1,545 +1,325 @@
-import { createBrushUI } from './brush.ui.js';
+// /herohealth/vr-brush-kids/brush.js
+// Brush V5 — first playable skeleton
+// PATCH v20260413-brush-v5-first-playable-skeleton
+
 import {
-  buildBrushResult,
-  saveBrushSummary,
-  pushBrushSummaryHistory
-} from './brush.summary.js';
+  GAME_ID,
+  GAME_VARIANT,
+  GAME_TITLE,
+  SCENE_IDS,
+  MODE_CONFIG,
+  ZONE_DEFS,
+  COACH_LINES,
+  THREAT_RULES,
+  FEVER_RULES,
+  SCORE_RULES
+} from './brush.constants.js';
+
+import { createBrushUI } from './brush.ui.js';
 import { createBrushLogger } from './brush.logger.js';
+import { buildBrushV5Result } from './brush.summary.js';
+import { createBrushScanEngine } from './brush.scan.js';
+import { createBrushBossBreakEngine } from './brush.bossbreak.js';
+import { createBrushStorage } from './brush.storage.js';
+import { createBrushAudio } from './brush.audio.js';
 
 const qs = new URLSearchParams(location.search);
 
-const GAME_ID = 'brush';
-const GAME_TITLE = 'Brush Kids';
-const GAME_VARIANT = qs.get('variant') || 'kids-vr';
-const ZONE = 'hygiene';
-
-const VIEW_MODE = normalizeView(qs.get('view') || '');
-
-const ZONE_DEFS = [
-  { id: 'upper-left',  label: 'บนซ้าย' },
-  { id: 'upper-front', label: 'บนหน้า' },
-  { id: 'upper-right', label: 'บนขวา' },
-  { id: 'lower-left',  label: 'ล่างซ้าย' },
-  { id: 'lower-front', label: 'ล่างหน้า' },
-  { id: 'lower-right', label: 'ล่างขวา' }
-];
-
-const TOTAL_ZONES = ZONE_DEFS.length;
-const ZONE_TARGET = 100;
-
-const HUB_URL =
-  qs.get('hub') ||
-  `${location.origin}/webxr-health-mobile/herohealth/hub-v2.html`;
-
-const AUTO_START = ['1', 'true', 'yes'].includes(String(qs.get('autostart') || '').toLowerCase());
-
-const MODE_CONFIG = {
-  learn: {
-    id: 'learn',
-    label: 'โหมดเรียนรู้ 2 นาที',
-    durationSec: Number(qs.get('time')) || 120,
-    goalText: 'แปรงให้ครบทุกโซนในเวลาที่กำหนด',
-    miniMissionGuided: 'เลือกโซน แล้วถูตามลายการแปรง',
-    miniMissionRun: 'รักษาลายการแปรงให้ต่อเนื่อง'
-  },
-  challenge: {
-    id: 'challenge',
-    label: 'โหมดท้าทาย 3 นาที',
-    durationSec: Number(qs.get('time')) || 180,
-    goalText: 'เก็บทุกโซนให้ครบและลดคำเตือนให้มากที่สุด',
-    miniMissionGuided: 'เริ่มช้า ๆ แล้วทำตามลายการแปรง',
-    miniMissionRun: 'ทำลายการแปรงให้แม่นและสม่ำเสมอ'
-  }
-};
-
-const PHASE_TEXT = {
-  intro: 'เตรียมพร้อม',
-  guided: 'ฝึกตามโค้ช',
-  cleanRun: 'แปรงให้ทั่ว',
-  boss: 'เคลียร์คราบตัวป่วน',
-  summary: 'สรุปผล'
-};
-
-const PATTERN_META = {
-  horizontal: {
-    label: 'ลาย: ซ้าย ↔ ขวา',
-    hint: 'ถูซ้าย-ขวาให้ต่อเนื่อง'
-  },
-  vertical: {
-    label: 'ลาย: ขึ้น ↕ ลง',
-    hint: 'ถูขึ้น-ลงให้ต่อเนื่อง'
-  },
-  circle: {
-    label: 'ลาย: วน ⟳ เป็นวง',
-    hint: 'ลากวนเป็นวงกลมเบา ๆ'
-  }
-};
-
-const COACH_LINES = {
-  start: [
-    'เริ่มแปรงให้ทั่วทุกโซนกันเลย!',
-    'ค่อย ๆ แปรงนะ จะสะอาดกว่า'
-  ],
-  cvrStart: [
-    'โหมด VR: เลือกโซนก่อน แล้วกดกลางจอเพื่อแปรง',
-    'โหมด VR: มองกลางจอแล้วแตะเพื่อแปรง'
-  ],
-  noZone: [
-    'เลือกโซนฟันก่อนนะ',
-    'แตะแผนที่ฟันทางซ้ายก่อน'
-  ],
-  tooFast: [
-    'ช้าลงนิดหนึ่งนะ',
-    'ค่อย ๆ ถู จะสะอาดกว่า'
-  ],
-  zoneDone: [
-    'เยี่ยม! โซนนี้สะอาดแล้ว',
-    'เก่งมาก ไปต่ออีกโซนได้เลย'
-  ],
-  nextZone: [
-    'เก่งมาก ไปต่อโซนถัดไปเลย',
-    'เยี่ยม! เปลี่ยนไปแปรงอีกโซนได้แล้ว'
-  ],
-  patternLoop: [
-    'ลายการแปรงถูกต้อง เก่งมาก!',
-    'เยี่ยมเลย ทำตามลายได้ดีมาก'
-  ],
-  autoPick: [
-    'เลือกโซนให้แล้ว เริ่มแปรงได้เลย',
-    'มาเริ่มจากโซนนี้ก่อนนะ'
-  ],
-  boss: [
-    'คราบตัวป่วนกลับมาแล้ว!',
-    'รีบเก็บงานให้ครบเลย'
-  ],
-  finishGood: [
-    'สุดยอด! ฟันสะอาดสดใส',
-    'วันนี้ทำได้ดีมากเลย'
-  ],
-  finishMid: [
-    'ดีมากแล้ว ลองเก็บให้ครบอีกนิด',
-    'ครั้งหน้าลองให้ทั่วกว่านี้อีกหน่อย'
-  ],
-  finishLow: [
-    'ไม่เป็นไร ลองใหม่อีกรอบได้',
-    'ครั้งหน้าค่อย ๆ แปรงให้ทั่วนะ'
-  ]
-};
-
-const state = {
-  mode: MODE_CONFIG[qs.get('mode')] || MODE_CONFIG.learn,
-  running: false,
-  paused: false,
-  phaseId: 'intro',
-  elapsedMs: 0,
-  lastTs: 0,
-  activeZoneId: null,
-  recommendedZoneId: null,
-  isPointerDown: false,
-  lastBrushAt: 0,
-  combo: 0,
-  comboMax: 0,
-  warnings: 0,
-  sparkleCount: 0,
-  speedLabel: 'ปกติ',
-  bossTriggered: false,
-  zones: buildZones(),
-  centerBrushBurstLeft: 0,
-  centerBrushIntervalMs: 70,
-  pattern: buildPatternState(
-    'horizontal',
-    'intro',
-    (MODE_CONFIG[qs.get('mode')] || MODE_CONFIG.learn).id
-  )
-};
-
 const el = {
+  app: document.getElementById('brushApp'),
+  sceneStage: document.getElementById('sceneStage'),
+
+  timeText: document.getElementById('timeText'),
+  scoreText: document.getElementById('scoreText'),
+  comboText: document.getElementById('comboText'),
+  threatText: document.getElementById('threatText'),
+  sceneText: document.getElementById('sceneText'),
+
   coachFace: document.getElementById('coachFace'),
   coachLine: document.getElementById('coachLine'),
 
-  timeText: document.getElementById('timeText'),
-  coverageText: document.getElementById('coverageText'),
-  comboText: document.getElementById('comboText'),
-  phaseText: document.getElementById('phaseText'),
+  scanTimerText: document.getElementById('scanTimerText'),
+  scanFoundText: document.getElementById('scanFoundText'),
+  objectiveText: document.getElementById('objectiveText'),
 
-  goalFill: document.getElementById('goalFill'),
-  goalMiniText: document.getElementById('goalMiniText'),
+  bossShieldText: document.getElementById('bossShieldText'),
+  bossBreakTimerText: document.getElementById('bossBreakTimerText'),
+  bossBreakCountText: document.getElementById('bossBreakCountText'),
 
-  zonesDoneText: document.getElementById('zonesDoneText'),
-  activeZoneText: document.getElementById('activeZoneText'),
-  speedText: document.getElementById('speedText'),
-  warnText: document.getElementById('warnText'),
-  miniMissionText: document.getElementById('miniMissionText'),
-
-  patternBadge: document.getElementById('patternBadge'),
-  patternHint: document.getElementById('patternHint'),
-  patternProgressFill: document.getElementById('patternProgressFill'),
-  patternProgressText: document.getElementById('patternProgressText'),
-
-  brushPad: document.getElementById('brushPad'),
-  brushCursor: document.getElementById('brushCursor'),
-
-  btnLearn: document.getElementById('btnLearn'),
-  btnChallenge: document.getElementById('btnChallenge'),
-  btnStart: document.getElementById('btnStart'),
-  btnPause: document.getElementById('btnPause'),
-  btnHelp: document.getElementById('btnHelp'),
-  btnCloseHelp: document.getElementById('btnCloseHelp'),
-  btnReplay: document.getElementById('btnReplay'),
-  btnBackHub: document.getElementById('btnBackHub'),
-
-  helpModal: document.getElementById('helpModal'),
   summaryModal: document.getElementById('summaryModal'),
-
-  summaryTitle: document.getElementById('summaryTitle'),
   summaryRank: document.getElementById('summaryRank'),
-  summaryTime: document.getElementById('summaryTime'),
+  summaryScore: document.getElementById('summaryScore'),
   summaryCoverage: document.getElementById('summaryCoverage'),
-  summaryZones: document.getElementById('summaryZones'),
-  summaryWarn: document.getElementById('summaryWarn'),
-  summaryAdvice: document.getElementById('summaryAdvice')
+  summaryAccuracy: document.getElementById('summaryAccuracy'),
+  summaryAdvice: document.getElementById('summaryAdvice'),
+
+  btnStart: document.getElementById('btnStart'),
+  btnReplay: document.getElementById('btnReplay'),
+  btnPause: document.getElementById('btnPause'),
+  btnBackHub: document.getElementById('btnBackHub')
 };
 
 const ui = createBrushUI(el);
-const logger = createBrushLogger(readRunContext());
+const storage = createBrushStorage();
+const audio = createBrushAudio();
+
+const ctx = readRunContext();
+const logger = createBrushLogger(ctx);
+const scanEngine = createBrushScanEngine();
+const bossBreakEngine = createBrushBossBreakEngine();
+
+const state = createInitialState(ctx);
 
 init();
 
 function init() {
   bindEvents();
-  syncLoggerContext();
-  setMode(state.mode.id, { silent: true });
-
-  ui.setViewMode?.(VIEW_MODE);
-
-  if (VIEW_MODE === 'cvr') {
-    ui.setCoach('neutral', randomPick(COACH_LINES.cvrStart));
-    ui.showCenterHint?.(true);
-  } else {
-    ui.setCoach('neutral', randomPick(COACH_LINES.start));
-    ui.showCenterHint?.(false);
-  }
-
-  renderAll();
-
-  if (AUTO_START) {
-    startGame();
-  }
+  safeHideSummary();
+  ui.renderCoach?.('🪥', 'พร้อมช่วยฟันแล้ว กดเริ่มได้เลย');
+  renderFrame();
 }
 
 function readRunContext() {
+  const modeId = qs.get('mode') || 'adventure';
+  const mode = MODE_CONFIG[modeId] || MODE_CONFIG.adventure;
+
   return {
-    pid: qs.get('pid') || '',
+    sessionId: '',
+    pid: qs.get('pid') || 'anon',
+    name: qs.get('name') || 'Hero',
     studyId: qs.get('studyId') || '',
     phase: qs.get('phase') || '',
     conditionGroup: qs.get('conditionGroup') || '',
+    modeId: mode.id,
+    modeLabel: mode.label,
+    diff: qs.get('diff') || 'normal',
+    view: qs.get('view') || 'mobile',
     runMode: qs.get('run') || 'play',
     seed: qs.get('seed') || '',
-    view: VIEW_MODE,
-    log: qs.get('log') || '',
-    modeId: state.mode.id,
-    variant: GAME_VARIANT,
+    hub: qs.get('hub') || '../hub.html',
     gameId: GAME_ID,
-    gameTitle: GAME_TITLE,
-    zone: ZONE
+    gameVariant: GAME_VARIANT,
+    gameTitle: GAME_TITLE
   };
 }
 
-function syncLoggerContext() {
-  logger.updateContext({
-    pid: qs.get('pid') || '',
-    studyId: qs.get('studyId') || '',
-    phase: qs.get('phase') || '',
-    conditionGroup: qs.get('conditionGroup') || '',
-    runMode: qs.get('run') || 'play',
-    seed: qs.get('seed') || '',
-    view: VIEW_MODE,
-    log: qs.get('log') || '',
-    modeId: state.mode.id,
-    variant: GAME_VARIANT,
-    gameId: GAME_ID,
-    gameTitle: GAME_TITLE,
-    zone: ZONE
-  });
+function createZone(def, index) {
+  const patternRotation = ['horizontal', 'circle', 'horizontal', 'vertical', 'circle', 'vertical'];
+
+  return {
+    id: def.id,
+    label: def.label,
+    order: index,
+    cleanPercent: 0,
+    threatPercent: 0,
+    visited: false,
+    done: false,
+    hits: 0,
+    misses: 0,
+    dwellMs: 0,
+    patternType: patternRotation[index] || 'horizontal',
+    completedAtMs: 0
+  };
+}
+
+function createZones() {
+  return ZONE_DEFS.map(createZone);
+}
+
+function createInitialState(runCtx) {
+  const mode = MODE_CONFIG[runCtx.modeId] || MODE_CONFIG.adventure;
+
+  return {
+    ctx: runCtx,
+    running: false,
+    paused: false,
+
+    sceneId: SCENE_IDS.launcher,
+    previousSceneId: '',
+    sceneEnteredAtMs: 0,
+
+    time: {
+      startedAtIso: '',
+      lastTs: 0,
+      elapsedMs: 0,
+      durationPlannedSec: mode.durationSec,
+      remainingSec: mode.durationSec
+    },
+
+    score: {
+      total: 0,
+      combo: 0,
+      comboMax: 0,
+      feverActive: false,
+      feverEndAtMs: 0
+    },
+
+    threat: {
+      percent: 0
+    },
+
+    zones: createZones(),
+    activeZoneId: 'upper-front',
+
+    scan: {
+      played: false,
+      active: false,
+      roundId: '',
+      startedAtMs: 0,
+      durationSec: 0,
+      targetGoal: 0,
+      hits: 0,
+      misses: 0,
+      specialHits: 0,
+      accuracyPercent: 0,
+      completedGoal: false,
+      bonusType: '',
+      bonusValue: 0,
+      finishedInMs: 0
+    },
+
+    bossBreak: {
+      played: false,
+      active: false,
+      roundId: '',
+      startedAtMs: 0,
+      durationSec: 0,
+      targetGoal: 0,
+      hits: 0,
+      misses: 0,
+      accuracyPercent: 0,
+      success: false,
+      damageWindowMs: 0,
+      finishedInMs: 0
+    },
+
+    boss: {
+      active: false,
+      bossId: 'plaque-king',
+      phase: 'shield',
+      hpPercent: 100,
+      weakPointHits: 0,
+      cleared: false,
+      damageWindowEndAtMs: 0
+    },
+
+    metrics: {
+      hits: 0,
+      misses: 0,
+      warnings: 0,
+      phaseStats: makePhaseStats(),
+      lastAdvice: ''
+    }
+  };
+}
+
+function makePhaseStats() {
+  return {
+    intro: makePhaseStat(),
+    scan: makePhaseStat(),
+    guided: makePhaseStat(),
+    pressure: makePhaseStat(),
+    fever: makePhaseStat(),
+    bossBreak: makePhaseStat(),
+    boss: makePhaseStat()
+  };
+}
+
+function makePhaseStat() {
+  return {
+    durationMs: 0,
+    attempts: 0,
+    valid: 0,
+    cleanGain: 0,
+    scoreGain: 0
+  };
 }
 
 function bindEvents() {
-  el.btnLearn?.addEventListener('click', () => setMode('learn'));
-  el.btnChallenge?.addEventListener('click', () => setMode('challenge'));
-  el.btnStart?.addEventListener('click', startGame);
-  el.btnPause?.addEventListener('click', togglePause);
-
-  el.btnHelp?.addEventListener('click', () => ui.openHelp(true));
-  el.btnCloseHelp?.addEventListener('click', () => ui.openHelp(false));
-
-  el.btnReplay?.addEventListener('click', replay);
-  el.btnBackHub?.addEventListener('click', goCooldownThenHub);
-
-  document.querySelectorAll('.tooth-zone').forEach(btn => {
-    btn.addEventListener('click', () => selectZone(btn.dataset.zone || ''));
+  el.btnStart?.addEventListener('click', async () => {
+    await audio.unlock();
+    startGame();
   });
 
-  bindBrushInput(el.brushPad);
+  el.btnReplay?.addEventListener('click', async () => {
+    await audio.unlock();
+    replayGame();
+  });
 
-  document.addEventListener('hha:shoot', () => {
-    if (!state.running || state.paused) return;
-    if (VIEW_MODE !== 'cvr') return;
-    handleCenterBrushBurst();
+  el.btnPause?.addEventListener('click', () => {
+    togglePause();
+  });
+
+  el.btnBackHub?.addEventListener('click', () => {
+    backToHub();
+  });
+
+  document.querySelectorAll('[data-zone]').forEach((node) => {
+    node.addEventListener('click', () => {
+      const zoneId = node.getAttribute('data-zone') || '';
+      if (!zoneId) return;
+      onZoneSelect(zoneId, 'manual');
+    });
   });
 
   window.addEventListener('keydown', (e) => {
-    if (VIEW_MODE !== 'cvr') return;
-    if (e.code === 'Enter' || e.code === 'Space') {
-      if (!state.running || state.paused) return;
-      handleCenterBrushBurst();
+    if (!state.running || state.paused) return;
+
+    if (e.code === 'Space') {
       e.preventDefault();
+      simulateBrushHit();
     }
+
+    if (e.code === 'KeyQ') onZoneSelect('upper-left', 'keyboard');
+    if (e.code === 'KeyW') onZoneSelect('upper-front', 'keyboard');
+    if (e.code === 'KeyE') onZoneSelect('upper-right', 'keyboard');
+    if (e.code === 'KeyA') onZoneSelect('lower-left', 'keyboard');
+    if (e.code === 'KeyS') onZoneSelect('lower-front', 'keyboard');
+    if (e.code === 'KeyD') onZoneSelect('lower-right', 'keyboard');
   });
 
   window.addEventListener('beforeunload', () => {
-    logger.flush();
+    try {
+      logger.flush();
+    } catch {}
   });
 }
 
-function bindBrushInput(node) {
-  if (!node) return;
-
-  node.addEventListener('pointerdown', (e) => {
-    state.isPointerDown = true;
-    node.setPointerCapture?.(e.pointerId);
-    ui.moveBrushCursor(e, el.brushPad, el.brushCursor);
-
-    if (VIEW_MODE === 'cvr') {
-      handleCenterBrushBurst();
-      return;
-    }
-
-    handleBrushMove(e);
-  });
-
-  node.addEventListener('pointermove', (e) => {
-    ui.moveBrushCursor(e, el.brushPad, el.brushCursor);
-
-    if (!state.isPointerDown) return;
-    if (VIEW_MODE === 'cvr') return;
-
-    handleBrushMove(e);
-  });
-
-  node.addEventListener('pointerup', () => {
-    state.isPointerDown = false;
-    state.pattern.lastPos = null;
-    state.pattern.lastAngle = null;
-  });
-
-  node.addEventListener('pointercancel', () => {
-    state.isPointerDown = false;
-    state.pattern.lastPos = null;
-    state.pattern.lastAngle = null;
-  });
-}
-
-function buildZones() {
-  return ZONE_DEFS.map(z => mkZone(z.id, z.label));
-}
-
-function mkZone(id, label) {
-  return {
-    id,
-    label,
-    clean: 0,
-    dwellMs: 0,
-    visited: false,
-    done: false,
-    milestone: 0,
-    announcedDone: false
-  };
-}
-
-function normalizeView(v) {
-  const s = String(v || '').toLowerCase();
-  if (s === 'cvr' || s === 'vr' || s === 'cardboard') return 'cvr';
-  if (s === 'mobile' || s === 'touch') return 'mobile';
-  return 'pc';
-}
-
-function getZoneById(zoneId) {
-  return state.zones.find(z => z.id === zoneId) || null;
-}
-
-function getRecommendedZoneId() {
-  const remaining = state.zones.filter(z => !z.done);
-  if (!remaining.length) return null;
-
-  if (state.mode.id === 'learn') {
-    for (const item of ZONE_DEFS) {
-      const zone = remaining.find(z => z.id === item.id);
-      if (zone) return zone.id;
-    }
-  }
-
-  remaining.sort((a, b) => a.clean - b.clean);
-  return remaining[0]?.id || null;
-}
-
-function autoPickRecommendedZone(reason = 'auto_pick') {
-  const zoneId = getRecommendedZoneId();
-  if (!zoneId) return null;
-
-  state.activeZoneId = zoneId;
-  state.recommendedZoneId = zoneId;
-  assignPatternForCurrentZone();
-
-  const zone = getZoneById(zoneId);
-  if (zone) {
-    ui.flashZone?.(zoneId);
-    ui.setCoach('happy', `${randomPick(COACH_LINES.autoPick)}: ${zone.label}`);
-    logger.event(reason, {
-      timeFromStartMs: Math.round(state.elapsedMs),
-      gameId: GAME_ID,
-      gameVariant: GAME_VARIANT,
-      zoneId: zone.id,
-      zoneLabel: zone.label,
-      patternType: state.pattern.type
-    });
-  }
-
-  renderAll();
-  return zone;
-}
-
-function buildPatternState(type, phaseId, modeId) {
-  const meta = PATTERN_META[type] || PATTERN_META.horizontal;
-
-  let cyclesTarget = 2;
-  if (phaseId === 'cleanRun') cyclesTarget = modeId === 'challenge' ? 3 : 2;
-  if (phaseId === 'boss') cyclesTarget = 2;
-
-  return {
-    type,
-    label: meta.label,
-    hint: meta.hint,
-    progress: 0,
-    cyclesDone: 0,
-    cyclesTarget,
-    lastPos: null,
-    lastAngle: null,
-    lastDirection: 0
-  };
-}
-
-function getPatternTypeForZone(zoneId, phaseId) {
-  if (!zoneId) return 'horizontal';
-  if (phaseId === 'boss') return 'circle';
-
-  const map = {
-    'upper-left': 'horizontal',
-    'upper-front': 'circle',
-    'upper-right': 'horizontal',
-    'lower-left': 'vertical',
-    'lower-front': 'circle',
-    'lower-right': 'vertical'
-  };
-
-  return map[zoneId] || 'horizontal';
-}
-
-function assignPatternForCurrentZone() {
-  const type = getPatternTypeForZone(state.activeZoneId, state.phaseId);
-  state.pattern = buildPatternState(type, state.phaseId, state.mode.id);
-}
-
-function setMode(modeId, options = {}) {
-  state.mode = MODE_CONFIG[modeId] || MODE_CONFIG.learn;
-  syncLoggerContext();
-
-  if (state.activeZoneId) assignPatternForCurrentZone();
-
-  if (!options.silent) {
-    logger.event('mode_change', {
-      modeId: state.mode.id,
-      modeLabel: state.mode.label,
-      gameId: GAME_ID,
-      gameVariant: GAME_VARIANT
-    });
-  }
-
-  renderAll();
+function safeHideSummary() {
+  if (el.summaryModal) el.summaryModal.hidden = true;
 }
 
 function startGame() {
-  ui.openHelp(false);
-  ui.closeSummary();
+  const fresh = createInitialState(ctx);
+  Object.assign(state, fresh);
 
-  resetRunState();
-  syncLoggerContext();
+  safeHideSummary();
 
   state.running = true;
   state.paused = false;
-  state.phaseId = 'guided';
-  state.lastTs = performance.now();
+  state.time.startedAtIso = new Date().toISOString();
+  state.time.lastTs = performance.now();
 
   logger.startSession({
-    gameId: GAME_ID,
-    gameVariant: GAME_VARIANT,
-    gameTitle: GAME_TITLE,
-    zone: ZONE,
-    modeId: state.mode.id,
-    modeLabel: state.mode.label,
-    durationPlannedSec: state.mode.durationSec
+    pid: state.ctx.pid,
+    modeId: state.ctx.modeId,
+    modeLabel: state.ctx.modeLabel,
+    diff: state.ctx.diff,
+    view: state.ctx.view,
+    durationPlannedSec: state.time.durationPlannedSec
   });
 
-  logger.event('game_start', {
-    timeFromStartMs: 0,
-    gameId: GAME_ID,
-    gameVariant: GAME_VARIANT,
-    gameTitle: GAME_TITLE,
-    zone: ZONE,
-    modeId: state.mode.id,
-    durationPlannedSec: state.mode.durationSec,
-    viewMode: VIEW_MODE
+  logger.event('brush_mission_start_click', {
+    modeId: state.ctx.modeId,
+    diff: state.ctx.diff,
+    view: state.ctx.view
   });
 
-  if (VIEW_MODE === 'cvr') {
-    ui.setCoach('neutral', randomPick(COACH_LINES.cvrStart));
-  } else {
-    ui.setCoach('neutral', randomPick(COACH_LINES.start));
-  }
-
-  if (state.mode.id === 'learn') {
-    autoPickRecommendedZone('auto_pick_start');
-  }
-
-  renderAll();
-  requestAnimationFrame(loop);
+  enterScene(SCENE_IDS.intro);
+  requestAnimationFrame(tick);
 }
 
-function resetRunState() {
-  state.running = false;
-  state.paused = false;
-  state.phaseId = 'intro';
-  state.elapsedMs = 0;
-  state.lastTs = 0;
-  state.activeZoneId = null;
-  state.recommendedZoneId = null;
-  state.isPointerDown = false;
-  state.lastBrushAt = 0;
-  state.combo = 0;
-  state.comboMax = 0;
-  state.warnings = 0;
-  state.sparkleCount = 0;
-  state.speedLabel = 'ปกติ';
-  state.bossTriggered = false;
-  state.zones = buildZones();
-  state.centerBrushBurstLeft = 0;
-  state.pattern = buildPatternState('horizontal', 'intro', state.mode.id);
-
-  if (el.btnPause) el.btnPause.textContent = 'พักเกม';
-  renderAll();
-}
-
-function replay() {
-  ui.closeSummary();
+function replayGame() {
   startGame();
 }
 
@@ -547,585 +327,715 @@ function togglePause() {
   if (!state.running) return;
 
   state.paused = !state.paused;
-  if (el.btnPause) el.btnPause.textContent = state.paused ? 'เล่นต่อ' : 'พักเกม';
 
-  logger.event(state.paused ? 'pause' : 'resume', {
-    timeFromStartMs: Math.round(state.elapsedMs),
-    gameId: GAME_ID,
-    gameVariant: GAME_VARIANT
+  logger.event(state.paused ? 'brush_pause' : 'brush_resume', {
+    sceneId: state.sceneId,
+    elapsedMs: Math.round(state.time.elapsedMs)
   });
 
   if (!state.paused) {
-    state.lastTs = performance.now();
-    requestAnimationFrame(loop);
+    state.time.lastTs = performance.now();
+    requestAnimationFrame(tick);
   }
+
+  ui.renderCoach?.(state.paused ? '⏸️' : '🪥', state.paused ? 'พักเกมอยู่' : 'กลับมาเล่นต่อแล้ว');
 }
 
-function loop(ts) {
-  if (!state.running || state.paused) return;
-
-  const dt = Math.max(0, ts - state.lastTs);
-  state.lastTs = ts;
-  state.elapsedMs += dt;
-
-  updatePhase();
-  renderAll();
-
-  if (state.elapsedMs >= state.mode.durationSec * 1000) {
-    finishGame();
-    return;
-  }
-
-  requestAnimationFrame(loop);
-}
-
-function updatePhase() {
-  const sec = state.elapsedMs / 1000;
-  const duration = state.mode.durationSec;
-
-  let nextPhase = 'guided';
-
-  if (sec >= duration * 0.82) {
-    nextPhase = 'boss';
-  } else if (sec >= duration * 0.2) {
-    nextPhase = 'cleanRun';
-  }
-
-  if (nextPhase === 'boss' && !state.bossTriggered) {
-    state.bossTriggered = true;
-    reviveWeakZones();
-    ui.setCoach('fever', randomPick(COACH_LINES.boss));
-
-    logger.event('boss_start', {
-      timeFromStartMs: Math.round(state.elapsedMs),
-      gameId: GAME_ID,
-      gameVariant: GAME_VARIANT,
-      coveragePercent: getCoveragePercent()
-    });
-  }
-
-  if (nextPhase !== state.phaseId) {
-    state.phaseId = nextPhase;
-    if (state.activeZoneId) {
-      assignPatternForCurrentZone();
-    }
-  }
-}
-
-function reviveWeakZones() {
-  state.zones.forEach(z => {
-    if (z.clean < 70) {
-      z.clean = Math.max(25, z.clean - 18);
-      z.done = false;
-      z.announcedDone = false;
-      z.milestone = Math.floor(z.clean / 25) * 25;
-    }
+function backToHub() {
+  logger.event('brush_back_hub_click', {
+    sceneId: state.sceneId,
+    elapsedMs: Math.round(state.time.elapsedMs)
   });
+  logger.flush();
+  location.href = state.ctx.hub;
 }
 
-function selectZone(zoneId) {
-  state.activeZoneId = zoneId;
-  state.recommendedZoneId = zoneId;
-  assignPatternForCurrentZone();
-
-  const zone = getActiveZone();
-  if (zone) {
-    ui.flashZone?.(zone.id);
-    ui.setCoach('neutral', `ตอนนี้แปรงโซน${zone.label}นะ`);
-
-    logger.event('zone_select', {
-      timeFromStartMs: Math.round(state.elapsedMs),
-      gameId: GAME_ID,
-      gameVariant: GAME_VARIANT,
-      zoneId: zone.id,
-      zoneLabel: zone.label,
-      patternType: state.pattern.type
-    });
-  }
-
-  renderAll();
-}
-
-function createSyntheticBrushPoint(stepIndex = 0) {
-  const phase = stepIndex % 8;
-
-  if (state.pattern.type === 'horizontal') {
-    return { x: 0.25 + (phase / 7) * 0.5, y: 0.5 };
-  }
-
-  if (state.pattern.type === 'vertical') {
-    return { x: 0.5, y: 0.25 + (phase / 7) * 0.5 };
-  }
-
-  const angle = (stepIndex / 8) * Math.PI * 2;
-  return {
-    x: 0.5 + Math.cos(angle) * 0.18,
-    y: 0.5 + Math.sin(angle) * 0.18
-  };
-}
-
-function handleCenterBrushBurst() {
-  let zone = getActiveZone();
-
-  if (!zone) {
-    zone = autoPickRecommendedZone('auto_pick_cvr');
-    if (!zone) {
-      issueWarning('warning_no_zone', randomPick(COACH_LINES.noZone));
-      return;
-    }
-  }
-
-  for (let i = 0; i < 3; i++) {
-    const pos = createSyntheticBrushPoint(state.centerBrushBurstLeft + i);
-    const patternResult = updatePatternProgress(pos);
-
-    if (patternResult.match < 0.12) continue;
-
-    updateZoneCleaning(
-      zone,
-      { key: 'good', label: 'ดีมาก', gain: 1.2 },
-      patternResult.match,
-      patternResult.cycleCompleted,
-      patternResult.loopCompleted
-    );
-
-    state.combo += 1;
-    state.comboMax = Math.max(state.comboMax, state.combo);
-
-    maybeEmitZoneMilestone(zone);
-    maybeCelebrateZone(zone);
-  }
-
-  state.centerBrushBurstLeft += 3;
-  renderAll();
-}
-
-function handleBrushMove(e) {
+function tick(ts) {
   if (!state.running || state.paused) return;
 
-  let zone = getActiveZone();
-  if (!zone) {
-    if (state.mode.id === 'learn') {
-      zone = autoPickRecommendedZone('auto_pick_learn');
-    } else {
-      issueWarning('warning_no_zone', randomPick(COACH_LINES.noZone));
-      return;
-    }
-  }
+  const dt = Math.max(0, ts - state.time.lastTs);
+  state.time.lastTs = ts;
 
-  const pos = getNormPos(e, el.brushPad);
-  if (!pos) return;
-
-  const now = performance.now();
-  const delta = now - state.lastBrushAt;
-  state.lastBrushAt = now;
-
-  const speed = classifySpeed(delta);
-  state.speedLabel = speed.label;
-
-  if (speed.key === 'fast') {
-    issueWarning('warning_fast', randomPick(COACH_LINES.tooFast));
-    return;
-  }
-
-  const patternResult = updatePatternProgress(pos);
-
-  if (patternResult.match < 0.12) {
-    renderAll();
-    return;
-  }
-
-  updateZoneCleaning(
-    zone,
-    speed,
-    patternResult.match,
-    patternResult.cycleCompleted,
-    patternResult.loopCompleted
+  state.time.elapsedMs += dt;
+  state.time.remainingSec = Math.max(
+    0,
+    state.time.durationPlannedSec - Math.floor(state.time.elapsedMs / 1000)
   );
 
-  state.combo += 1;
-  state.comboMax = Math.max(state.comboMax, state.combo);
+  accumulatePhaseDuration(state.sceneId, dt);
+  updateScene(dt);
+  updateGlobalSystems(dt);
+  renderFrame();
 
-  maybeEmitZoneMilestone(zone);
-  maybeCelebrateZone(zone);
-
-  if (patternResult.cycleCompleted) {
-    logger.event('pattern_cycle', {
-      timeFromStartMs: Math.round(state.elapsedMs),
-      gameId: GAME_ID,
-      gameVariant: GAME_VARIANT,
-      zoneId: zone.id,
-      patternType: state.pattern.type,
-      patternCyclesDone: state.pattern.cyclesDone,
-      patternCyclesTarget: state.pattern.cyclesTarget
-    });
+  if (
+    state.time.remainingSec <= 0 &&
+    state.sceneId !== SCENE_IDS.finish &&
+    state.sceneId !== SCENE_IDS.summary
+  ) {
+    enterScene(SCENE_IDS.finish, { reason: 'timer_end' });
+    return;
   }
 
-  if (patternResult.loopCompleted) {
-    ui.setCoach('happy', randomPick(COACH_LINES.patternLoop));
-    logger.event('pattern_loop_complete', {
-      timeFromStartMs: Math.round(state.elapsedMs),
-      gameId: GAME_ID,
-      gameVariant: GAME_VARIANT,
-      zoneId: zone.id,
-      patternType: state.pattern.type
-    });
-  }
-
-  if ((state.combo % 12) === 0) {
-    logger.event('brush_combo', {
-      timeFromStartMs: Math.round(state.elapsedMs),
-      gameId: GAME_ID,
-      gameVariant: GAME_VARIANT,
-      combo: state.combo,
-      comboMax: state.comboMax
-    });
-  }
-
-  renderAll();
+  requestAnimationFrame(tick);
 }
 
-function updatePatternProgress(nextPos) {
-  const p = state.pattern;
-  const prev = p.lastPos;
-
-  if (!prev) {
-    p.lastPos = nextPos;
-    if (p.type === 'circle') {
-      p.lastAngle = Math.atan2(nextPos.y - 0.5, nextPos.x - 0.5);
-    }
-    return { match: 0, cycleCompleted: false, loopCompleted: false };
-  }
-
-  const dx = nextPos.x - prev.x;
-  const dy = nextPos.y - prev.y;
-  const dist = Math.hypot(dx, dy);
-
-  p.lastPos = nextPos;
-
-  if (dist < 0.004) {
-    return { match: 0, cycleCompleted: false, loopCompleted: false };
-  }
-
-  let match = 0;
-  let progressAdd = 0;
-
-  if (p.type === 'horizontal') {
-    const ax = Math.abs(dx);
-    const ay = Math.abs(dy);
-    match = clamp((ax / (ax + ay + 0.0001) - 0.25) / 0.75, 0, 1);
-
-    const dir = Math.sign(dx);
-    progressAdd += match * 14;
-
-    if (ax > 0.014 && dir !== 0 && p.lastDirection !== 0 && dir !== p.lastDirection) {
-      progressAdd += 18;
-    }
-    if (ax > 0.014 && dir !== 0) {
-      p.lastDirection = dir;
-    }
-  } else if (p.type === 'vertical') {
-    const ax = Math.abs(dx);
-    const ay = Math.abs(dy);
-    match = clamp((ay / (ax + ay + 0.0001) - 0.25) / 0.75, 0, 1);
-
-    const dir = Math.sign(dy);
-    progressAdd += match * 14;
-
-    if (ay > 0.014 && dir !== 0 && p.lastDirection !== 0 && dir !== p.lastDirection) {
-      progressAdd += 18;
-    }
-    if (ay > 0.014 && dir !== 0) {
-      p.lastDirection = dir;
-    }
-  } else {
-    const cx = nextPos.x - 0.5;
-    const cy = nextPos.y - 0.5;
-    const radius = Math.hypot(cx, cy);
-    const angle = Math.atan2(cy, cx);
-
-    let deltaAngle = 0;
-    if (p.lastAngle !== null) {
-      deltaAngle = normalizeAngle(angle - p.lastAngle);
-    }
-    p.lastAngle = angle;
-
-    const ringFit = radius > 0.12 && radius < 0.42 ? 1 : 0.35;
-    match = clamp((Math.abs(deltaAngle) / 0.14) * ringFit, 0, 1);
-    progressAdd += match * 16;
-  }
-
-  p.progress = clamp(p.progress + progressAdd, 0, 100);
-
-  let cycleCompleted = false;
-  let loopCompleted = false;
-
-  if (p.progress >= 100) {
-    cycleCompleted = true;
-    p.progress = 0;
-    p.cyclesDone += 1;
-    p.lastDirection = 0;
-
-    if (p.cyclesDone >= p.cyclesTarget) {
-      loopCompleted = true;
-      p.cyclesDone = 0;
-    }
-  }
-
-  return { match, cycleCompleted, loopCompleted };
+function accumulatePhaseDuration(sceneId, dt) {
+  const stat = state.metrics.phaseStats?.[sceneId];
+  if (stat) stat.durationMs += dt;
 }
 
-function classifySpeed(deltaMs) {
-  if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
-    return { key: 'ok', label: 'ปกติ', gain: 1.0 };
+function updateScene(dt) {
+  switch (state.sceneId) {
+    case SCENE_IDS.intro:
+      updateIntro(dt);
+      return;
+    case SCENE_IDS.scan:
+      updateScan(dt);
+      return;
+    case SCENE_IDS.guided:
+      updateGuided(dt);
+      return;
+    case SCENE_IDS.pressure:
+      updatePressure(dt);
+      return;
+    case SCENE_IDS.bossBreak:
+      updateBossBreak(dt);
+      return;
+    case SCENE_IDS.boss:
+      updateBoss(dt);
+      return;
+    case SCENE_IDS.finish:
+      updateFinish(dt);
+      return;
+    default:
+      return;
   }
-  if (deltaMs < 16) return { key: 'fast', label: 'เร็วไป', gain: 0.25 };
-  if (deltaMs < 34) return { key: 'good', label: 'ดีมาก', gain: 1.35 };
-  if (deltaMs < 80) return { key: 'ok', label: 'ปกติ', gain: 1.0 };
-  return { key: 'slow', label: 'ช้า', gain: 0.72 };
 }
 
-function issueWarning(type, coachLine) {
-  state.warnings += 1;
-  state.combo = 0;
-  ui.setCoach('sad', coachLine);
+function updateIntro() {
+  const sceneAge = performance.now() - state.sceneEnteredAtMs;
+  if (sceneAge >= 1600) {
+    enterScene(SCENE_IDS.scan);
+  }
+}
 
-  logger.event(type, {
-    timeFromStartMs: Math.round(state.elapsedMs),
-    gameId: GAME_ID,
-    gameVariant: GAME_VARIANT,
-    warnings: state.warnings,
-    activeZoneId: state.activeZoneId || ''
+function updateScan(dt) {
+  scanEngine.tick(dt);
+
+  if (scanEngine.isComplete()) {
+    completeScanMiniGame(scanEngine.buildResult());
+  }
+}
+
+function updateGuided() {
+  const sceneAge = performance.now() - state.sceneEnteredAtMs;
+  if (sceneAge >= 12000) {
+    enterScene(SCENE_IDS.pressure);
+  }
+}
+
+function updatePressure() {
+  if (
+    !state.score.feverActive &&
+    state.score.combo >= FEVER_RULES.comboThreshold
+  ) {
+    startFever('combo');
+  }
+
+  const sceneAge = performance.now() - state.sceneEnteredAtMs;
+  if (sceneAge >= 42000) {
+    enterScene(SCENE_IDS.bossBreak);
+  }
+}
+
+function updateBossBreak(dt) {
+  bossBreakEngine.tick(dt);
+
+  if (bossBreakEngine.isComplete()) {
+    completeBossBreakMiniGame(bossBreakEngine.buildResult());
+  }
+}
+
+function updateBoss() {
+  const now = performance.now();
+
+  if (
+    state.boss.damageWindowEndAtMs > 0 &&
+    now > state.boss.damageWindowEndAtMs &&
+    !state.boss.cleared
+  ) {
+    state.boss.phase = 'shield';
+    logger.event('brush_boss_damage_window_end', {
+      bossId: state.boss.bossId,
+      bossHpPercent: Math.round(state.boss.hpPercent)
+    });
+    enterScene(SCENE_IDS.finish, { reason: 'boss_window_end' });
+  }
+
+  if (state.boss.hpPercent <= 0 && !state.boss.cleared) {
+    state.boss.cleared = true;
+    logger.event('brush_boss_clear', {
+      bossId: state.boss.bossId,
+      weakPointHits: state.boss.weakPointHits
+    });
+    enterScene(SCENE_IDS.finish, { reason: 'boss_clear' });
+  }
+}
+
+function updateFinish() {
+  const sceneAge = performance.now() - state.sceneEnteredAtMs;
+  if (sceneAge >= 1200) {
+    enterScene(SCENE_IDS.summary);
+  }
+}
+
+function updateGlobalSystems(dt) {
+  const dtSec = dt / 1000;
+
+  if (
+    state.sceneId === SCENE_IDS.guided ||
+    state.sceneId === SCENE_IDS.pressure ||
+    state.sceneId === SCENE_IDS.boss
+  ) {
+    let rise = THREAT_RULES.passiveRisePerSec;
+
+    if (state.sceneId === SCENE_IDS.pressure) rise += 1.5;
+    if (state.sceneId === SCENE_IDS.boss) rise += 2;
+
+    state.threat.percent = clamp(state.threat.percent + rise * dtSec, 0, 100);
+  }
+
+  if (state.score.feverActive && performance.now() >= state.score.feverEndAtMs) {
+    endFever();
+  }
+
+  updateZoneThreatSpread(dtSec);
+  updateActiveZoneAutoCompletion();
+}
+
+function updateZoneThreatSpread(dtSec) {
+  const activeId = state.activeZoneId;
+
+  state.zones.forEach((zone) => {
+    if (zone.done) return;
+
+    if (zone.id === activeId) {
+      zone.threatPercent = clamp(zone.threatPercent - THREAT_RULES.cleanDropPerHit * dtSec, 0, 100);
+      return;
+    }
+
+    zone.threatPercent = clamp(
+      zone.threatPercent + THREAT_RULES.zoneIgnoredRisePerSec * 0.25 * dtSec,
+      0,
+      100
+    );
+  });
+}
+
+function updateActiveZoneAutoCompletion() {
+  state.zones.forEach((zone) => {
+    if (!zone.done && zone.cleanPercent >= 100) {
+      zone.done = true;
+      zone.completedAtMs = Math.round(state.time.elapsedMs);
+    }
+  });
+}
+
+function enterScene(sceneId, detail = {}) {
+  state.previousSceneId = state.sceneId;
+  state.sceneId = sceneId;
+  state.sceneEnteredAtMs = performance.now();
+
+  logger.setScene(sceneId);
+  logger.event('brush_scene_enter', { sceneId, ...detail });
+
+  switch (sceneId) {
+    case SCENE_IDS.intro:
+      ui.renderCoach?.('👀', randomPick(COACH_LINES.intro));
+      logger.event('brush_intro_start', {
+        highlightedZoneId: state.activeZoneId
+      });
+      break;
+
+    case SCENE_IDS.scan:
+      startScanMiniGame();
+      break;
+
+    case SCENE_IDS.guided:
+      ui.renderCoach?.('🙂', randomPick(COACH_LINES.guided));
+      logger.event('brush_guided_start', {
+        activeZoneId: state.activeZoneId
+      });
+      break;
+
+    case SCENE_IDS.pressure:
+      ui.renderCoach?.('⚠️', randomPick(COACH_LINES.pressure));
+      logger.event('brush_pressure_phase_start', {
+        threatPercent: Math.round(state.threat.percent)
+      });
+      break;
+
+    case SCENE_IDS.bossBreak:
+      startBossBreakMiniGame();
+      break;
+
+    case SCENE_IDS.boss:
+      startBossPhase();
+      break;
+
+    case SCENE_IDS.finish:
+      ui.renderCoach?.('✨', randomPick(COACH_LINES.finish));
+      logger.event('brush_finish_sequence_start', {
+        bossCleared: state.boss.cleared
+      });
+      audio.victory();
+      break;
+
+    case SCENE_IDS.summary:
+      finishGame();
+      break;
+
+    default:
+      break;
+  }
+
+  renderFrame();
+}
+
+function startScanMiniGame() {
+  const mode = MODE_CONFIG[state.ctx.modeId] || MODE_CONFIG.adventure;
+
+  const scanState = scanEngine.start({
+    durationSec: mode.scanSec,
+    targetGoal: mode.targetScanCount
   });
 
-  renderAll();
+  state.scan = {
+    ...state.scan,
+    ...scanState,
+    played: true,
+    active: true
+  };
+
+  logger.event('brush_scan_start', {
+    scanRoundId: state.scan.roundId,
+    scanTargetGoal: state.scan.targetGoal,
+    scanDurationSec: state.scan.durationSec
+  });
+
+  ui.renderCoach?.('🔎', randomPick(COACH_LINES.scan));
 }
 
-function updateZoneCleaning(zone, speed, patternMatch, cycleCompleted, loopCompleted) {
-  const phaseBonus = state.phaseId === 'boss' ? 1.10 : 1.0;
-  const cycleBonus = cycleCompleted ? 3 : 0;
-  const loopBonus = loopCompleted ? 8 : 0;
+function completeScanMiniGame(result) {
+  state.scan = {
+    ...state.scan,
+    ...result,
+    active: false
+  };
 
-  const gain = 1.4 * speed.gain * phaseBonus * patternMatch;
-  zone.clean = clamp(zone.clean + gain + cycleBonus + loopBonus, 0, ZONE_TARGET);
-  zone.dwellMs += 40;
-  zone.visited = true;
-  zone.done = zone.clean >= ZONE_TARGET;
-}
+  const scoreGain =
+    (state.scan.hits || 0) * SCORE_RULES.scanHit +
+    (state.scan.specialHits || 0) * (SCORE_RULES.scanSpecialHit - SCORE_RULES.scanHit);
 
-function maybeEmitZoneMilestone(zone) {
-  const step = Math.floor(zone.clean / 25) * 25;
-  if (step > zone.milestone && step <= 100) {
-    zone.milestone = step;
+  state.score.total += scoreGain;
 
-    logger.event('zone_progress', {
-      timeFromStartMs: Math.round(state.elapsedMs),
-      gameId: GAME_ID,
-      gameVariant: GAME_VARIANT,
-      zoneId: zone.id,
-      zoneLabel: zone.label,
-      cleanValue: Math.round(zone.clean),
-      milestone: step,
-      coveragePercent: getCoveragePercent()
+  const scanStat = state.metrics.phaseStats.scan;
+  scanStat.attempts += (state.scan.hits || 0) + (state.scan.misses || 0);
+  scanStat.valid += (state.scan.hits || 0);
+  scanStat.scoreGain += scoreGain;
+
+  if ((state.scan.accuracyPercent || 0) >= 75) {
+    state.scan.bonusType = 'threatReduction';
+    state.scan.bonusValue = 10;
+    state.threat.percent = clamp(state.threat.percent - 10, 0, 100);
+
+    logger.event('brush_scan_bonus_awarded', {
+      scanRoundId: state.scan.roundId,
+      bonusType: state.scan.bonusType,
+      bonusValue: state.scan.bonusValue
     });
   }
+
+  logger.event('brush_scan_complete', {
+    ...state.scan
+  });
+
+  enterScene(SCENE_IDS.guided);
 }
 
-function maybeCelebrateZone(zone) {
-  if (zone.done && !zone.announcedDone) {
-    zone.announcedDone = true;
-    state.sparkleCount += 1;
-    ui.setCoach('happy', randomPick(COACH_LINES.zoneDone));
+function startBossBreakMiniGame() {
+  const mode = MODE_CONFIG[state.ctx.modeId] || MODE_CONFIG.adventure;
 
-    logger.event('zone_complete', {
-      timeFromStartMs: Math.round(state.elapsedMs),
-      gameId: GAME_ID,
-      gameVariant: GAME_VARIANT,
+  const bossBreakState = bossBreakEngine.start({
+    durationSec: mode.bossBreakSec,
+    targetGoal: 4
+  });
+
+  state.bossBreak = {
+    ...state.bossBreak,
+    ...bossBreakState,
+    played: true,
+    active: true
+  };
+
+  logger.event('brush_boss_break_start', {
+    bossRoundId: state.bossBreak.roundId,
+    targetGoal: state.bossBreak.targetGoal,
+    timerSec: state.bossBreak.durationSec
+  });
+
+  ui.renderCoach?.('💥', randomPick(COACH_LINES.bossBreak));
+}
+
+function completeBossBreakMiniGame(result) {
+  state.bossBreak = {
+    ...state.bossBreak,
+    ...result,
+    active: false
+  };
+
+  const scoreGain = (state.bossBreak.hits || 0) * SCORE_RULES.bossBreakHit;
+  state.score.total += scoreGain;
+  state.boss.weakPointHits += state.bossBreak.hits || 0;
+
+  const bossBreakStat = state.metrics.phaseStats.bossBreak;
+  bossBreakStat.attempts += (state.bossBreak.hits || 0) + (state.bossBreak.misses || 0);
+  bossBreakStat.valid += (state.bossBreak.hits || 0);
+  bossBreakStat.scoreGain += scoreGain;
+
+  if (state.bossBreak.success) {
+    state.score.total += SCORE_RULES.bossBreakPerfect;
+    logger.event('brush_boss_break_success', { ...state.bossBreak });
+    audio.shieldBreak();
+  } else {
+    logger.event('brush_boss_break_fail', { ...state.bossBreak });
+  }
+
+  enterScene(SCENE_IDS.boss);
+}
+
+function startBossPhase() {
+  state.boss.active = true;
+  state.boss.phase = 'burst';
+  state.boss.damageWindowEndAtMs = performance.now() + (state.bossBreak.damageWindowMs || 2500);
+
+  logger.event('brush_boss_start', {
+    bossId: state.boss.bossId,
+    bossType: 'plaqueKing',
+    damageWindowMs: state.bossBreak.damageWindowMs || 2500
+  });
+
+  logger.event('brush_boss_damage_window_open', {
+    bossId: state.boss.bossId,
+    damageWindowMs: state.boss.damageWindowEndAtMs - performance.now()
+  });
+
+  ui.renderCoach?.('👑', randomPick(COACH_LINES.boss));
+}
+
+function onZoneSelect(zoneId, source = 'manual') {
+  if (!state.running) return;
+
+  const zone = state.zones.find((z) => z.id === zoneId);
+  if (!zone) return;
+
+  const previousZoneId = state.activeZoneId;
+  state.activeZoneId = zoneId;
+  zone.visited = true;
+
+  logger.event('brush_zone_select', {
+    zoneId,
+    zoneLabel: zone.label,
+    source,
+    previousZoneId
+  });
+
+  ui.renderCoach?.('🦷', `ตอนนี้ช่วยโซน ${zone.label}`);
+  renderFrame();
+}
+
+function simulateBrushHit() {
+  if (!state.running || state.paused) return;
+  if (![SCENE_IDS.guided, SCENE_IDS.pressure, SCENE_IDS.boss].includes(state.sceneId)) return;
+
+  const zone = state.zones.find((z) => z.id === state.activeZoneId);
+  if (!zone) return;
+
+  const scoreMultiplier = state.score.feverActive ? FEVER_RULES.scoreMultiplier : 1;
+  const cleanMultiplier = state.score.feverActive ? FEVER_RULES.cleanMultiplier : 1;
+
+  const cleanGain = 2 * cleanMultiplier;
+  const scoreGain = SCORE_RULES.patternHit * scoreMultiplier;
+
+  zone.cleanPercent = clamp(zone.cleanPercent + cleanGain, 0, 100);
+  zone.threatPercent = clamp(zone.threatPercent - THREAT_RULES.cleanDropPerHit, 0, 100);
+  zone.hits += 1;
+  zone.visited = true;
+  zone.dwellMs += 120;
+
+  state.metrics.hits += 1;
+  state.score.total += Math.round(scoreGain);
+  state.score.combo += 1;
+  state.score.comboMax = Math.max(state.score.comboMax, state.score.combo);
+  state.threat.percent = clamp(state.threat.percent - THREAT_RULES.cleanDropPerHit, 0, 100);
+
+  const stat = state.metrics.phaseStats[state.sceneId];
+  if (stat) {
+    stat.attempts += 1;
+    stat.valid += 1;
+    stat.cleanGain += cleanGain;
+    stat.scoreGain += scoreGain;
+  }
+
+  logger.event('brush_pattern_hit', {
+    zoneId: zone.id,
+    zoneLabel: zone.label,
+    patternType: zone.patternType,
+    cleanGain,
+    combo: state.score.combo,
+    threatPercent: Math.round(state.threat.percent)
+  });
+
+  if (state.sceneId === SCENE_IDS.boss) {
+    const bossDamage = state.score.feverActive ? 10 : 6;
+    state.boss.hpPercent = clamp(state.boss.hpPercent - bossDamage, 0, 100);
+
+    logger.event('brush_boss_hit', {
+      bossId: state.boss.bossId,
+      bossHpPercent: Math.round(state.boss.hpPercent),
+      damage: bossDamage
+    });
+  }
+
+  if (!state.score.feverActive && state.score.combo >= FEVER_RULES.comboThreshold) {
+    startFever('combo');
+  }
+
+  if (!zone.done && zone.cleanPercent >= 100) {
+    zone.done = true;
+    zone.completedAtMs = Math.round(state.time.elapsedMs);
+    state.score.total += SCORE_RULES.zoneComplete;
+
+    logger.event('brush_zone_complete', {
       zoneId: zone.id,
       zoneLabel: zone.label,
-      cleanValue: Math.round(zone.clean),
-      coveragePercent: getCoveragePercent()
+      completedAtMs: zone.completedAtMs
     });
 
-    if (state.mode.id === 'learn') {
-      const nextZoneId = getRecommendedZoneId();
-      if (nextZoneId && nextZoneId !== zone.id) {
-        state.activeZoneId = nextZoneId;
-        state.recommendedZoneId = nextZoneId;
-        assignPatternForCurrentZone();
+    audio.zoneComplete();
+  }
 
-        const nextZone = getZoneById(nextZoneId);
-        if (nextZone) {
-          ui.flashZone?.(nextZone.id);
-          ui.setCoach('happy', `${randomPick(COACH_LINES.nextZone)}: ${nextZone.label}`);
-        }
-      }
-    }
+  audio.hit();
+  renderFrame();
+}
+
+function simulateBrushMiss(reason = 'wrongPattern') {
+  if (!state.running || state.paused) return;
+
+  const zone = state.zones.find((z) => z.id === state.activeZoneId);
+  if (zone) zone.misses += 1;
+
+  state.metrics.misses += 1;
+  state.metrics.warnings += 1;
+
+  const stat = state.metrics.phaseStats[state.sceneId];
+  if (stat) stat.attempts += 1;
+
+  logger.event('brush_pattern_miss', {
+    zoneId: zone?.id || '',
+    zoneLabel: zone?.label || '',
+    missReason: reason,
+    comboBeforeBreak: state.score.combo
+  });
+
+  state.score.combo = 0;
+  audio.miss();
+  renderFrame();
+}
+
+function startFever(triggerType = 'combo') {
+  state.score.feverActive = true;
+  state.score.feverEndAtMs = performance.now() + FEVER_RULES.durationMs;
+
+  logger.event('brush_fever_start', {
+    triggerType,
+    multiplier: FEVER_RULES.scoreMultiplier,
+    durationMs: FEVER_RULES.durationMs
+  });
+
+  ui.renderCoach?.('🔥', randomPick(COACH_LINES.fever));
+  audio.feverStart();
+}
+
+function endFever() {
+  state.score.feverActive = false;
+  state.score.feverEndAtMs = 0;
+
+  logger.event('brush_fever_end', {
+    comboMax: state.score.comboMax
+  });
+}
+
+function renderFrame() {
+  const accuracyPercent = getRunningAccuracyPercent();
+  const coveragePercent = getRunningCoveragePercent();
+
+  ui.renderTopHud?.({
+    timeText: `${state.time.remainingSec}s`,
+    scoreText: state.score.total,
+    comboText: state.score.combo,
+    threatText: `${Math.round(state.threat.percent)}%`,
+    sceneText: state.sceneId,
+    accuracyText: `${accuracyPercent}%`,
+    coverageText: `${coveragePercent}%`,
+    feverActive: state.score.feverActive
+  });
+
+  ui.renderMiniMap?.(
+    state.zones.map((z) => ({
+      ...z,
+      active: z.id === state.activeZoneId
+    }))
+  );
+
+  if (state.sceneId === SCENE_IDS.scan && state.scan.active) {
+    const remain = Math.max(
+      0,
+      Math.ceil(state.scan.durationSec - ((performance.now() - state.scan.startedAtMs) / 1000))
+    );
+
+    ui.renderScanHud?.({
+      timerText: `${remain}s`,
+      foundText: `${state.scan.hits || 0} / ${state.scan.targetGoal || 0}`,
+      objectiveText: 'หาจุดสกปรกอันตราย'
+    });
+  } else {
+    ui.renderScanHud?.({
+      timerText: '',
+      foundText: '',
+      objectiveText: ''
+    });
+  }
+
+  if (state.sceneId === SCENE_IDS.bossBreak && state.bossBreak.active) {
+    const remain = Math.max(
+      0,
+      Math.ceil(state.bossBreak.durationSec - ((performance.now() - state.bossBreak.startedAtMs) / 1000))
+    );
+
+    ui.renderBossBreakHud?.({
+      shieldText: `${Math.max(0, (state.bossBreak.targetGoal || 0) - (state.bossBreak.hits || 0))}`,
+      timerText: `${remain}s`,
+      countText: `${state.bossBreak.hits || 0} / ${state.bossBreak.targetGoal || 0}`
+    });
+  } else {
+    ui.renderBossBreakHud?.({
+      shieldText: '',
+      timerText: '',
+      countText: ''
+    });
   }
 }
 
 function finishGame() {
   state.running = false;
-  state.phaseId = 'summary';
 
-  const result = buildBrushResult({
+  const result = buildBrushV5Result({
     state,
-    totalZones: TOTAL_ZONES,
-    modeLabel: state.mode.label
+    ctx: {
+      ...state.ctx,
+      sessionId: logger.sessionId
+    }
   });
 
-  result.gameId = GAME_ID;
-  result.gameVariant = GAME_VARIANT;
-  result.gameTitle = GAME_TITLE;
-  result.zone = ZONE;
-  result.zonesDone = getZonesDoneCount();
-  result.totalZones = TOTAL_ZONES;
-  result.warnings = state.warnings;
-  result.timeText = formatTime(Math.floor(state.elapsedMs / 1000));
+  storage.saveLastResult(result);
+  storage.appendCsvRow(result.csvRow);
 
-  saveBrushSummary(result);
-  pushBrushSummaryHistory(result);
+  logger.event('brush_summary_show', {
+    finalRank: result.finalRank,
+    finalScore: result.finalScore,
+    coveragePercent: result.coveragePercent,
+    accuracyPercent: result.accuracyPercent
+  });
 
   logger.finish(result);
-  logger.event('summary_shown', {
-    timeFromStartMs: Math.round(state.elapsedMs),
-    gameId: GAME_ID,
-    gameVariant: GAME_VARIANT,
-    coveragePercent: result.coveragePercent,
-    finalRank: result.finalRank
-  });
   logger.flush();
 
-  if (result.coveragePercent >= 85) {
-    ui.setCoach('happy', randomPick(COACH_LINES.finishGood));
-  } else if (result.coveragePercent >= 60) {
-    ui.setCoach('neutral', randomPick(COACH_LINES.finishMid));
-  } else {
-    ui.setCoach('sad', randomPick(COACH_LINES.finishLow));
-  }
-
-  ui.openSummary(result);
-  renderAll();
+  ui.renderSummary?.(result);
 }
 
-function goCooldownThenHub() {
-  logger.flush();
-
-  const cooldown = new URL('../gate/cooldown-gate.html', import.meta.url);
-  cooldown.searchParams.set('game', GAME_ID);
-  cooldown.searchParams.set('variant', GAME_VARIANT);
-  cooldown.searchParams.set('zone', ZONE);
-  cooldown.searchParams.set('hub', HUB_URL);
-  cooldown.searchParams.set('next', HUB_URL);
-
-  [
-    'pid',
-    'studyId',
-    'phase',
-    'conditionGroup',
-    'run',
-    'seed',
-    'view',
-    'log',
-    'name',
-    'diff',
-    'time'
-  ].forEach(k => {
-    const v = qs.get(k);
-    if (v) cooldown.searchParams.set(k, v);
-  });
-
-  location.href = cooldown.href;
+function getRunningCoveragePercent() {
+  const total = state.zones.reduce((acc, z) => acc + (z.cleanPercent || 0), 0);
+  return Math.round(total / Math.max(1, state.zones.length));
 }
 
-function getActiveZone() {
-  return state.zones.find(z => z.id === state.activeZoneId) || null;
+function getRunningAccuracyPercent() {
+  const attempts = state.metrics.hits + state.metrics.misses;
+  return attempts ? Math.round((state.metrics.hits / attempts) * 100) : 0;
 }
 
-function getCoveragePercent() {
-  const sum = state.zones.reduce((acc, z) => acc + z.clean, 0);
-  return Math.round(sum / (TOTAL_ZONES * ZONE_TARGET) * 100);
-}
-
-function getZonesDoneCount() {
-  return state.zones.filter(z => z.done).length;
-}
-
-function getNormPos(e, pad) {
-  if (!pad) return null;
-  const rect = pad.getBoundingClientRect();
-  if (!rect.width || !rect.height) return null;
-
-  return {
-    x: clamp((e.clientX - rect.left) / rect.width, 0, 1),
-    y: clamp((e.clientY - rect.top) / rect.height, 0, 1)
-  };
-}
-
-function renderAll() {
-  state.recommendedZoneId = getRecommendedZoneId();
-
-  ui.renderZones(state.zones, state.activeZoneId, {
-    recommendedZoneId: state.recommendedZoneId
-  });
-
-  ui.renderHud({
-    modeId: state.mode.id,
-    timeText: formatTime(
-      Math.max(0, state.mode.durationSec - Math.floor(state.elapsedMs / 1000))
-    ),
-    coveragePercent: getCoveragePercent(),
-    comboMax: state.comboMax,
-    phaseText: PHASE_TEXT[state.phaseId] || 'เล่นอยู่',
-    zonesDone: getZonesDoneCount(),
-    zonesTotal: TOTAL_ZONES,
-    activeZoneLabel: getActiveZone()?.label || 'ยังไม่ได้เลือก',
-    speedLabel: state.speedLabel,
-    warnings: state.warnings,
-    goalText: state.mode.goalText,
-    miniMissionText: getMiniMissionText()
-  });
-
-  ui.renderPattern({
-    label: state.activeZoneId ? state.pattern.label : 'เลือกโซนก่อน',
-    hint: state.activeZoneId
-      ? state.pattern.hint
-      : 'เลือกโซนก่อน แล้วถูตามลายที่บอก',
-    progressPercent: state.pattern.progress,
-    progressText: `${state.pattern.cyclesDone} / ${state.pattern.cyclesTarget} รอบ`
-  });
-}
-
-function getMiniMissionText() {
-  if (state.phaseId === 'guided') return state.mode.miniMissionGuided;
-  if (state.phaseId === 'cleanRun') return state.mode.miniMissionRun;
-  if (state.phaseId === 'boss') return 'โหมด boss ใช้การวนเป็นวงกลมเพื่อเก็บงาน';
-  if (state.phaseId === 'summary') return 'ดูผลลัพธ์ของวันนี้ได้เลย';
-
-  if (state.mode.id === 'learn') {
-    return 'โหมดเรียนรู้จะช่วยแนะนำโซนถัดไปให้';
-  }
-
-  return 'เริ่มได้เลย';
-}
-
-function formatTime(totalSec) {
-  const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
-  const ss = String(totalSec % 60).padStart(2, '0');
-  return `${mm}:${ss}`;
-}
-
-function normalizeAngle(rad) {
-  let a = rad;
-  while (a > Math.PI) a -= Math.PI * 2;
-  while (a < -Math.PI) a += Math.PI * 2;
-  return a;
+function clamp(v, a, b) {
+  return Math.max(a, Math.min(b, v));
 }
 
 function randomPick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function clamp(v, min, max) {
-  return Math.min(max, Math.max(min, v));
-}
+// debug hooks
+window.brushHit = simulateBrushHit;
+window.brushMiss = simulateBrushMiss;
+window.brushScanPick = (id) => {
+  const result = scanEngine.pickTarget(id);
+  if (!result?.ok) return result;
+
+  if (result.hit) {
+    state.scan.hits = (state.scan.hits || 0) + 1;
+    if (result.target?.special) {
+      state.scan.specialHits = (state.scan.specialHits || 0) + 1;
+    }
+    logger.event('brush_scan_hit', {
+      scanRoundId: state.scan.roundId,
+      targetId: result.target?.id || id,
+      targetType: result.target?.type || '',
+      zoneId: result.target?.zoneId || '',
+      special: !!result.target?.special
+    });
+    audio.scanHit();
+  } else {
+    state.scan.misses = (state.scan.misses || 0) + 1;
+    logger.event('brush_scan_miss', {
+      scanRoundId: state.scan.roundId,
+      targetId: id
+    });
+    audio.miss();
+  }
+
+  renderFrame();
+  return result;
+};
+
+window.brushBossBreakHit = (id) => {
+  const result = bossBreakEngine.hitWeakPoint(id);
+  if (!result) return result;
+
+  if (result.hit) {
+    state.bossBreak.hits = (state.bossBreak.hits || 0) + 1;
+    logger.event('brush_boss_break_hit', {
+      bossRoundId: state.bossBreak.roundId,
+      weakPointId: id,
+      hitIndex: state.bossBreak.hits
+    });
+    audio.bossBreakHit();
+  } else if (result.miss) {
+    state.bossBreak.misses = (state.bossBreak.misses || 0) + 1;
+    logger.event('brush_boss_break_miss', {
+      bossRoundId: state.bossBreak.roundId,
+      weakPointId: id
+    });
+    audio.miss();
+  }
+
+  renderFrame();
+  return result;
+};
