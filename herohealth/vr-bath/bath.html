@@ -86,6 +86,8 @@
           <button id="btnLearn" class="btn learn" type="button">Learn Mode</button>
           <button id="btnFlip" class="btn" type="button">สลับ หน้า/หลัง</button>
           <button id="btnHelp" class="btn" type="button">วิธีเล่น</button>
+          <button id="btnZoneTop" class="btn" type="button">กลับ Hygiene Zone</button>
+          <button id="btnHubTop" class="btn" type="button">กลับ HUB</button>
         </div>
 
         <div id="phaseBanner" class="phaseBanner hidden"></div>
@@ -117,6 +119,8 @@
             <div class="row">
               <button id="btnReadyStart" class="btn primary" type="button">เริ่มแบบปกติ</button>
               <button id="btnReadyLearn" class="btn learn" type="button">เริ่มแบบสอนทีละขั้น</button>
+              <button id="btnReadyZone" class="btn" type="button">กลับ Hygiene Zone</button>
+              <button id="btnReadyHub" class="btn" type="button">กลับ HUB</button>
             </div>
           </div>
         </div>
@@ -224,6 +228,7 @@
               <button id="btnPlayPlan" class="btn primary" type="button">เล่นตามแผน</button>
               <button id="btnReplay" class="btn" type="button">เล่นใหม่</button>
               <button id="btnCooldown" class="btn" type="button">ไป Cooldown</button>
+              <button id="btnEndZone" class="btn" type="button">กลับ Hygiene Zone</button>
               <button id="btnExport" class="btn" type="button">Export Report</button>
               <button id="btnBack" class="btn" type="button">กลับ HUB</button>
             </div>
@@ -238,5 +243,116 @@
   </div>
 
   <script src="./bath.js?v=20260314-bath-pack12-ui"></script>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+
+      const q = (k, d='') => {
+        const v = qs.get(k);
+        return (v == null || v === '') ? d : v;
+      };
+
+      const safeAbsUrl = (raw, fallback='') => {
+        const value = String(raw || '').trim();
+        try{
+          if (value) return new URL(value, location.href).toString();
+        }catch(_){}
+        try{
+          return new URL(fallback || '../hygiene-zone.html', location.href).toString();
+        }catch(_){
+          return '../hygiene-zone.html';
+        }
+      };
+
+      const HUB_ROOT_URL = safeAbsUrl(q('hubRoot', q('hub', '../hub.html')), '../hub.html');
+      const ZONE_RETURN_URL = safeAbsUrl(q('zoneReturn', q('hub', '../hygiene-zone.html')), '../hygiene-zone.html');
+      const NEXT_URL_RAW = String(q('next', '')).trim();
+      const NEXT_URL = NEXT_URL_RAW ? safeAbsUrl(NEXT_URL_RAW, '') : '';
+      const PID = q('pid', 'anon');
+      const PLAYER_NAME = q('name', q('nick', 'Hero'));
+
+      function rememberBath(){
+        try{
+          localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
+
+          localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
+            key: 'bath',
+            title: 'Bath',
+            at: Date.now()
+          }));
+
+          const playedKey = 'HHA_ZONE_PLAYED_HYGIENE';
+          const played = JSON.parse(localStorage.getItem(playedKey) || '[]');
+          if (Array.isArray(played) && !played.includes('bath')) {
+            played.push('bath');
+            localStorage.setItem(playedKey, JSON.stringify(played));
+          }
+
+          const dailyKey = 'HHA_ZONE_DAILY_HYGIENE';
+          const d = new Date();
+          const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          const all = JSON.parse(localStorage.getItem(dailyKey) || '{}');
+          const row = all[day] || { count:0, lastKey:'' };
+          row.count += 1;
+          row.lastKey = 'bath';
+          all[day] = row;
+          localStorage.setItem(dailyKey, JSON.stringify(all));
+
+          localStorage.setItem('HHA_BATH_LAST_PLAYER', JSON.stringify({
+            pid: PID,
+            name: PLAYER_NAME,
+            updatedAt: Date.now()
+          }));
+        }catch(_){}
+      }
+
+      function bindRemember(id){
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('click', rememberBath);
+      }
+
+      function forceNavigate(id, target){
+        const el = document.getElementById(id);
+        if (!el || !target) return;
+
+        el.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopImmediatePropagation();
+          location.href = target;
+        }, true);
+      }
+
+      bindRemember('btnStart');
+      bindRemember('btnLearn');
+      bindRemember('btnReadyStart');
+      bindRemember('btnReadyLearn');
+      bindRemember('btnReplay');
+      bindRemember('btnPlayPlan');
+
+      forceNavigate('btnZoneTop', ZONE_RETURN_URL);
+      forceNavigate('btnReadyZone', ZONE_RETURN_URL);
+      forceNavigate('btnEndZone', ZONE_RETURN_URL);
+
+      forceNavigate('btnHubTop', HUB_ROOT_URL);
+      forceNavigate('btnReadyHub', HUB_ROOT_URL);
+      forceNavigate('btnBack', HUB_ROOT_URL);
+
+      if (NEXT_URL) {
+        forceNavigate('btnCooldown', NEXT_URL);
+      } else {
+        const btnCooldown = document.getElementById('btnCooldown');
+        if (btnCooldown) btnCooldown.textContent = 'กลับ Hygiene Zone';
+        forceNavigate('btnCooldown', ZONE_RETURN_URL);
+      }
+
+      window.__BATH_ZONE_RETURN__ = ZONE_RETURN_URL;
+      window.__BATH_HUB_ROOT__ = HUB_ROOT_URL;
+      window.__BATH_NEXT__ = NEXT_URL || ZONE_RETURN_URL;
+    })();
+  </script>
 </body>
 </html>
