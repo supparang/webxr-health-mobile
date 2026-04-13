@@ -278,6 +278,35 @@
       box-shadow:0 8px 18px rgba(60,175,252,.25);
     }
 
+    .btn.zone{
+      background:linear-gradient(180deg,#8be7ba,#56cd84);
+      box-shadow:0 12px 24px rgba(86,205,132,.28);
+    }
+
+    .btn.hub{
+      background:linear-gradient(180deg,#dceefd,#b9ddf8);
+      color:#235b84;
+      box-shadow:0 12px 24px rgba(80,149,209,.22);
+    }
+
+    .btn.cooldown{
+      background:linear-gradient(180deg,#ffe8a8,#ffd166);
+      color:#6d5400;
+      box-shadow:0 12px 24px rgba(255,209,102,.30);
+    }
+
+    .button-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-top:18px;
+    }
+
+    .button-row .btn{
+      margin-top:0;
+    }
+
     .danger-line{
       position:absolute;
       left:50%;
@@ -356,6 +385,8 @@
       .summary-grid{ grid-template-columns:1fr 1fr; }
       #phase-banner .big{ font-size:28px; }
       #phase-banner .small{ font-size:15px; }
+      .button-row{ display:grid; grid-template-columns:1fr; }
+      .button-row .btn{ width:100%; }
     }
   </style>
 </head>
@@ -371,7 +402,11 @@
         <div class="guide-item">👑 ตอนท้ายจะมี <b>Boss Object</b> ชิ้นใหญ่ ต้องช่วยกันถูให้สะอาดหมด</div>
       </div>
 
-      <button id="start-btn" class="btn">เริ่มภารกิจ</button>
+      <div class="button-row">
+        <button id="start-btn" class="btn">เริ่มภารกิจ</button>
+        <button id="start-zone-btn" class="btn zone" type="button">🧼 กลับ Hygiene Zone</button>
+        <button id="start-hub-btn" class="btn hub" type="button">🏠 กลับ HUB</button>
+      </div>
     </div>
   </div>
 
@@ -468,11 +503,40 @@
         </ul>
       </div>
 
-      <button id="restart-btn" class="btn">เล่นอีกครั้ง</button>
+      <div class="button-row">
+        <button id="restart-btn" class="btn">เล่นอีกครั้ง</button>
+        <button id="summary-next-btn" class="btn cooldown" type="button">➡ ไป Cooldown</button>
+        <button id="summary-zone-btn" class="btn zone" type="button">🧼 กลับ Hygiene Zone</button>
+        <button id="summary-hub-btn" class="btn hub" type="button">🏠 กลับ HUB</button>
+      </div>
     </div>
   </div>
 
   <script>
+    const qsParam = (k, d='') => {
+      try { return new URL(location.href).searchParams.get(k) ?? d; }
+      catch { return d; }
+    };
+
+    const safeAbsUrl = (raw, fallback='') => {
+      const value = String(raw || '').trim();
+      try{
+        if (value) return new URL(value, location.href).toString();
+      }catch(_){}
+      try{
+        return new URL(fallback || '../hygiene-zone.html', location.href).toString();
+      }catch(_){
+        return '../hygiene-zone.html';
+      }
+    };
+
+    const HUB_ROOT_URL = safeAbsUrl(qsParam('hubRoot', qsParam('hub', '../hub.html')), '../hub.html');
+    const ZONE_RETURN_URL = safeAbsUrl(qsParam('zoneReturn', qsParam('hub', '../hygiene-zone.html')), '../hygiene-zone.html');
+    const NEXT_URL_RAW = String(qsParam('next', '')).trim();
+    const NEXT_URL = NEXT_URL_RAW ? safeAbsUrl(NEXT_URL_RAW, '') : '';
+    const PID = qsParam('pid', 'anon');
+    const PLAYER_NAME = qsParam('name', qsParam('nick', 'Hero'));
+
     let scene, camera, renderer, clock;
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
@@ -511,7 +575,15 @@
       finalScore: document.getElementById('finalScore'),
       finalCleaned: document.getElementById('finalCleaned'),
       finalBestCombo: document.getElementById('finalBestCombo'),
-      finalMissed: document.getElementById('finalMissed')
+      finalMissed: document.getElementById('finalMissed'),
+
+      startBtn: document.getElementById('start-btn'),
+      restartBtn: document.getElementById('restart-btn'),
+      startZoneBtn: document.getElementById('start-zone-btn'),
+      startHubBtn: document.getElementById('start-hub-btn'),
+      summaryNextBtn: document.getElementById('summary-next-btn'),
+      summaryZoneBtn: document.getElementById('summary-zone-btn'),
+      summaryHubBtn: document.getElementById('summary-hub-btn')
     };
 
     const state = {
@@ -535,6 +607,73 @@
       bossClear:false
     };
 
+    function rememberCleanObjects(){
+      try{
+        localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
+
+        localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
+          key: 'cleanobjects',
+          title: 'Clean Objects',
+          at: Date.now()
+        }));
+
+        const playedKey = 'HHA_ZONE_PLAYED_HYGIENE';
+        const played = JSON.parse(localStorage.getItem(playedKey) || '[]');
+        if (Array.isArray(played) && !played.includes('cleanobjects')) {
+          played.push('cleanobjects');
+          localStorage.setItem(playedKey, JSON.stringify(played));
+        }
+
+        const dailyKey = 'HHA_ZONE_DAILY_HYGIENE';
+        const d = new Date();
+        const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const all = JSON.parse(localStorage.getItem(dailyKey) || '{}');
+        const row = all[day] || { count:0, lastKey:'' };
+        row.count += 1;
+        row.lastKey = 'cleanobjects';
+        all[day] = row;
+        localStorage.setItem(dailyKey, JSON.stringify(all));
+
+        localStorage.setItem('HHA_CLEANOBJECTS_LAST_PLAYER', JSON.stringify({
+          pid: PID,
+          name: PLAYER_NAME,
+          updatedAt: Date.now()
+        }));
+      }catch(_){}
+    }
+
+    function saveSummary(){
+      try{
+        const payload = {
+          game:'cleanobjects',
+          zone:'hygiene',
+          pid:PID,
+          name:PLAYER_NAME,
+          score:state.score,
+          cleaned:state.cleaned,
+          missed:state.missed,
+          bestCombo:state.bestCombo,
+          bossClear:state.bossClear,
+          updatedAt:Date.now()
+        };
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+        localStorage.setItem('HHA_LAST_SUMMARY_CLEANOBJECTS', JSON.stringify(payload));
+        localStorage.setItem('HHA_LAST_SUMMARY_GLOBAL', JSON.stringify(payload));
+      }catch(_){}
+    }
+
+    function goZone(){
+      location.href = ZONE_RETURN_URL;
+    }
+
+    function goHub(){
+      location.href = HUB_ROOT_URL;
+    }
+
+    function goNextOrZone(){
+      location.href = NEXT_URL || ZONE_RETURN_URL;
+    }
+
     function init(){
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0xdff6ff);
@@ -556,6 +695,11 @@
       createWorld();
       bindEvents();
       updateUI();
+
+      if(!NEXT_URL){
+        ui.summaryNextBtn.textContent = '🧼 กลับ Hygiene Zone';
+      }
+
       animate();
     }
 
@@ -660,8 +804,20 @@
       window.addEventListener('pointercancel', ()=> pointerDown = false);
       window.addEventListener('resize', onResize);
 
-      document.getElementById('start-btn').onclick = startGame;
-      document.getElementById('restart-btn').onclick = startGame;
+      ui.startBtn.onclick = () => {
+        rememberCleanObjects();
+        startGame();
+      };
+      ui.restartBtn.onclick = () => {
+        rememberCleanObjects();
+        startGame();
+      };
+
+      ui.startZoneBtn.onclick = goZone;
+      ui.startHubBtn.onclick = goHub;
+      ui.summaryZoneBtn.onclick = goZone;
+      ui.summaryHubBtn.onclick = goHub;
+      ui.summaryNextBtn.onclick = goNextOrZone;
     }
 
     function onResize(){
@@ -703,7 +859,7 @@
       state.spawnEvery = 1.0;
       state.bossClear = false;
       updateUI();
-      setTip('แตะหรือลากถูบนวัตถุได้เลย');
+      setTip('แตะหรือลากนิ้วถูบนวัตถุได้เลย');
       setCoach('พร้อมไหม? เดี๋ยวเริ่มจากช่วงซ้อมก่อน');
       updateMissionUI('ภารกิจ', 0, 1, 'เตรียมพร้อม');
     }
@@ -761,6 +917,8 @@
       }else{
         setCoach('ลองใหม่ได้อีกครั้ง คราวหน้าถูให้เร็วและต่อเนื่องขึ้น');
       }
+
+      saveSummary();
     }
 
     function calcStars(){
@@ -1440,6 +1598,11 @@
 
       renderer.render(scene, camera);
     }
+
+    window.addEventListener('beforeunload', () => {
+      if (!state.active) return;
+      saveSummary();
+    });
 
     init();
   </script>
