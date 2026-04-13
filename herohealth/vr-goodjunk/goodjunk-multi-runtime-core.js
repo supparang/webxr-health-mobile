@@ -7,6 +7,16 @@
   const ctx = W.__GJ_RUN_CTX__ || {};
   const MODE = String(ctx.mode || 'duet').trim().toLowerCase();
 
+  if (['duet','race','battle','coop'].includes(MODE)) {
+    if (W.__GJ_RUN_CTX__) {
+      W.__GJ_RUN_CTX__.phaseBoss = false;
+      W.__GJ_RUN_CTX__.boss = false;
+      W.__GJ_RUN_CTX__.entry = MODE;
+      W.__GJ_RUN_CTX__.recommendedMode = MODE;
+      W.__GJ_RUN_CTX__.mode = MODE;
+    }
+  }
+
   const GOOD = ['🍎','🥕','🥦','🍌','🥛','🥗','🍉','🐟'];
   const JUNK = ['🍟','🍩','🍭','🍔','🥤','🍕','🧁','🍫'];
 
@@ -22,13 +32,6 @@
     race: '🏁',
     battle: '⚔️',
     coop: '🫶'
-  };
-
-  const MODE_TITLE = {
-    duet: 'GoodJunk Duet',
-    race: 'GoodJunk Race',
-    battle: 'GoodJunk Battle',
-    coop: 'GoodJunk Co-op'
   };
 
   function clean(v, fallback='') {
