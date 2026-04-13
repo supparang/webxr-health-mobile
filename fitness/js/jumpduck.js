@@ -95,7 +95,6 @@
   const btnDlSessions = $('#jd-btn-dl-sessions');
   const btnDlTeacher = $('#jd-btn-dl-teacher');
   const btnSendLog = $('#jd-btn-send-log');
-  const btnContinueFlow = $('#jd-btn-continue-flow');
   const logStatus = $('#jd-log-status');
 
   const qs = (k, d = '') => {
@@ -104,11 +103,6 @@
     } catch (_) {
       return d;
     }
-  };
-
-  const qbool = (k, d = false) => {
-    const v = String(qs(k, d ? '1' : '0')).toLowerCase();
-    return ['1', 'true', 'yes', 'y', 'on'].includes(v);
   };
 
   const HHA_CTX = {
@@ -126,33 +120,165 @@
     ai: qs('ai', ''),
     debug: qs('debug', ''),
     hub: qs('hub', './'),
+    launcher: qs('launcher', './jumpduck.html'),
     mode: qs('mode', 'training'),
     duration: qs('duration', qs('time', '60')),
     pro: qs('pro', ''),
     phaseTune: qs('phaseTune', 'dynamicABC')
   };
 
-  const JD_FLOW = {
-    cooldownEnabled: qbool('cooldown', false),
-    cooldownGate: qs('cooldownGate', './warmup-gate.html'),
-    cooldownReturn: qs('cooldownReturn', HHA_CTX.hub || './fitness-zone.html'),
-    launcher: qs('launcher', ''),
-    zoneReturn: qs('zoneReturn', HHA_CTX.hub || './fitness-zone.html')
-  };
-
   let state = null;
   let rafId = 0;
 
-  function hhFitnessBaseSnapshot() {
-    const s = state;
-    const durationSec = s && s.duration
-      ? Math.round(Number(s.duration || 0) / 1000)
-      : Number(HHA_CTX.duration || HHA_CTX.time || 60);
+  /* ===== Flow helpers ===== */
+  function jdSafeAbsUrl(raw, fallback = '') {
+    const value = String(raw || '').trim();
+    try {
+      if (value) return new URL(value, location.href).href;
+    } catch (_) {}
+    return fallback || '';
+  }
+
+  function jdBuildBaseFlowCtx(overrides = {}) {
+    const hubUrl = jdSafeAbsUrl(
+      overrides.hub ?? HHA_CTX.hub ?? qs('hub', './fitness-zone.html'),
+      new URL('./fitness-zone.html', location.href).href
+    );
+
+    const launcherUrl = jdSafeAbsUrl(
+      overrides.launcher ?? HHA_CTX.launcher ?? qs('launcher', './jumpduck.html'),
+      new URL('./jumpduck.html', location.href).href
+    );
+
+    const gateUrl = jdSafeAbsUrl(
+      overrides.gate ?? './warmup-gate.html',
+      new URL('./warmup-gate.html', location.href).href
+    );
 
     return {
+      pid: String(overrides.pid ?? HHA_CTX.pid ?? 'anon').trim() || 'anon',
+      name: String(overrides.name ?? qs('name', qs('nickName', 'Hero'))).trim() || 'Hero',
+      studyId: String(overrides.studyId ?? HHA_CTX.studyId ?? '').trim(),
+      run: String(overrides.run ?? HHA_CTX.run ?? 'play').trim() || 'play',
+      diff: String(overrides.diff ?? HHA_CTX.diff ?? 'normal').trim().toLowerCase() || 'normal',
+      time: String(overrides.time ?? HHA_CTX.time ?? HHA_CTX.duration ?? '60').trim() || '60',
+      view: String(overrides.view ?? HHA_CTX.view ?? 'mobile').trim().toLowerCase() || 'mobile',
+      seed: String(overrides.seed ?? HHA_CTX.seed ?? Date.now()).trim(),
+      debug: String(overrides.debug ?? HHA_CTX.debug ?? '').trim(),
+      log: String(overrides.log ?? HHA_CTX.log ?? '').trim(),
+      api: String(overrides.api ?? HHA_CTX.api ?? '').trim(),
+      ai: String(overrides.ai ?? HHA_CTX.ai ?? '').trim(),
+      mode: String(overrides.mode ?? HHA_CTX.mode ?? 'training').trim().toLowerCase() || 'training',
+      launcher: launcherUrl,
+      gate: gateUrl,
+      hub: hubUrl,
+
+      game: 'jump-duck',
+      gameId: 'jump-duck',
+      theme: 'jump-duck',
       zone: 'fitness',
-      gameId: 'jumpduck',
-      game: 'jumpduck',
+      cat: 'fitness'
+    };
+  }
+
+  function jdWithCommonParams(url, ctx, extra = {}) {
+    const u = new URL(url, location.href);
+
+    u.searchParams.set('pid', ctx.pid);
+    u.searchParams.set('name', ctx.name);
+    u.searchParams.set('run', ctx.run);
+    u.searchParams.set('diff', ctx.diff);
+    u.searchParams.set('time', ctx.time);
+    u.searchParams.set('view', ctx.view);
+    u.searchParams.set('seed', ctx.seed);
+    u.searchParams.set('mode', ctx.mode);
+
+    u.searchParams.set('game', ctx.game);
+    u.searchParams.set('gameId', ctx.gameId);
+    u.searchParams.set('theme', ctx.theme);
+    u.searchParams.set('zone', ctx.zone);
+    u.searchParams.set('cat', ctx.cat);
+
+    u.searchParams.set('hub', ctx.hub);
+    u.searchParams.set('launcher', ctx.launcher);
+
+    if (ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
+    if (ctx.debug) u.searchParams.set('debug', ctx.debug);
+    if (ctx.log) u.searchParams.set('log', ctx.log);
+    if (ctx.api) u.searchParams.set('api', ctx.api);
+    if (ctx.ai) u.searchParams.set('ai', ctx.ai);
+
+    Object.entries(extra).forEach(([k, v]) => {
+      if (v == null) return;
+      const sv = String(v);
+      if (!sv) return;
+      u.searchParams.set(k, sv);
+    });
+
+    return u.toString();
+  }
+
+  function jdBuildLauncherUrl(overrides = {}) {
+    const ctx = jdBuildBaseFlowCtx(overrides);
+    return jdWithCommonParams(ctx.launcher, ctx);
+  }
+
+  function jdBuildRunUrl(overrides = {}) {
+    const ctx = jdBuildBaseFlowCtx(overrides);
+    return jdWithCommonParams(ctx.launcher, ctx, {
+      wgskip: '1',
+      autostart: '1',
+      entry: 'warmup-gate'
+    });
+  }
+
+  function jdBuildWarmupGateUrl(overrides = {}) {
+    const ctx = jdBuildBaseFlowCtx(overrides);
+    const runUrl = jdBuildRunUrl(overrides);
+
+    return jdWithCommonParams(ctx.gate, ctx, {
+      phase: 'warmup',
+      next: runUrl,
+      cdnext: ctx.launcher
+    });
+  }
+
+  function jdBuildCooldownGateUrl(summary = {}, overrides = {}) {
+    const ctx = jdBuildBaseFlowCtx(overrides);
+
+    return jdWithCommonParams(ctx.gate, ctx, {
+      phase: 'cooldown',
+      next: ctx.launcher,
+      cdnext: ctx.launcher,
+      score: Number(summary.score || 0),
+      accuracy: Number(summary.accuracy || 0),
+      bestStreak: Number(summary.bestStreak || 0),
+      grade: String(summary.rank || summary.grade || 'C').trim().toUpperCase()
+    });
+  }
+
+  function jdMaybeAutoStartAfterWarmup() {
+    const wgskip = qs('wgskip', '') === '1';
+    const autostart = qs('autostart', '') === '1';
+
+    if (!wgskip || !autostart) return;
+    if (window.__JD_AUTO_STARTED__) return;
+    window.__JD_AUTO_STARTED__ = true;
+
+    queueMicrotask(() => {
+      const startBtn = document.querySelector('[data-action="start"]');
+      if (startBtn) startBtn.click();
+    });
+  }
+
+  /* ===== HeroHealth Fitness Recent Bridge ===== */
+  function hhFitnessBaseSnapshot() {
+    const s = state;
+    const durationSec = s && s.duration ? Math.round(Number(s.duration || 0) / 1000) : Number(HHA_CTX.duration || HHA_CTX.time || 60);
+    return {
+      zone: 'fitness',
+      gameId: 'jump-duck',
+      game: 'jump-duck',
       pid: String(HHA_CTX.pid || 'anon'),
       name: String(qs('name', qs('nickName', 'Hero')) || 'Hero'),
       studyId: String(HHA_CTX.studyId || ''),
@@ -166,8 +292,6 @@
       combo: Number(s?.combo || 0),
       bestStreak: Number(s?.maxCombo || 0),
       stability: Number(s?.stability || 0),
-      phaseEnd: Number(s?.phase || 0),
-      bossDown: !!(s?.bossActive && Number(s?.bossHp || 100) <= 0),
       result: String(s?.ended ? 'summary' : (s?.running ? 'running' : 'idle')),
       href: location.href,
       path: location.pathname
@@ -198,45 +322,6 @@
 
   function hhFitnessGoHub(extra = {}) {
     hhFitnessMark('go_hub', extra);
-  }
-
-  function buildCooldownUrl() {
-    const gate = new URL(JD_FLOW.cooldownGate || './warmup-gate.html', location.href);
-    const passthrough = new URLSearchParams(location.search);
-
-    passthrough.set('phase', 'cooldown');
-    passthrough.set('hub', JD_FLOW.cooldownReturn || HHA_CTX.hub || './fitness-zone.html');
-    passthrough.set('next', JD_FLOW.cooldownReturn || HHA_CTX.hub || './fitness-zone.html');
-    passthrough.set('zone', 'fitness');
-    passthrough.set('cat', 'fitness');
-    passthrough.set('game', 'jumpduck');
-    passthrough.set('gameId', 'jumpduck');
-    passthrough.set('theme', 'jumpduck');
-
-    gate.search = passthrough.toString();
-    return gate.toString();
-  }
-
-  function goZoneReturn() {
-    location.href = JD_FLOW.zoneReturn || JD_FLOW.cooldownReturn || HHA_CTX.hub || './fitness-zone.html';
-  }
-
-  function goLauncherOrMenu() {
-    if (JD_FLOW.launcher) {
-      location.href = JD_FLOW.launcher;
-      return;
-    }
-
-    stopLoop();
-    clearRunTimers(state);
-    resetTransientUI();
-    clearArena();
-    showView('menu');
-  }
-
-  function syncFlowButtons() {
-    if (!btnContinueFlow) return;
-    btnContinueFlow.textContent = JD_FLOW.cooldownEnabled ? '🧘 ไป Cooldown' : '🏃 กลับ Fitness Zone';
   }
 
   const JD_VISUALS = {
@@ -376,62 +461,6 @@
     maxPressureLevel: 2
   };
 
-  const JD_STORE_KEYS = {
-    SUMMARY_FULL: 'HHA_LAST_SUMMARY',
-    SUMMARY_BRIDGE: 'HHA_LAST_SUMMARY_JUMPDUCK',
-    EVENTS_JSON: 'HHA_LAST_EVENTS_JUMPDUCK',
-    EVENTS_CSV: 'HHA_LAST_EVENTS_JUMPDUCK_CSV',
-    SESSIONS_CSV: 'HHA_LAST_SESSIONS_JUMPDUCK_CSV',
-    TEACHER_JSON: 'HHA_LAST_TEACHER_SUMMARY_JUMPDUCK',
-    TEACHER_CSV: 'HHA_LAST_TEACHER_SUMMARY_JUMPDUCK_CSV',
-    PENDING_UPLOADS: 'JD_PENDING_UPLOADS'
-  };
-
-  const JD_EXPORT_COLUMNS = {
-    events: [
-      'sessionId','pid','t_ms','eventType',
-      'mode','diff','phase','phaseLabel','progress','rushStage','finalRush',
-      'bossKey','bossLabel','bossHp','bossPhase2','bossFrenzy',
-      'score','combo','maxCombo','stability','fever','feverActive',
-      'assistLevel','pressureLevel','directorReason','tuneKey',
-      'obstacleId','obstacleNeed','obstacleType','obstacleVariant','obstacleVisual','obstacleFeint',
-      'pattern','patternTag','spawnX','obstacleSpeed',
-      'inputType','judge','gain','reason','liveNoMiss',
-      'streakTier','streakLabel','bonus',
-      'endReason','rank','accPct','sessionScoreFinal',
-      'durationSec'
-    ],
-    sessions: [
-      'sessionId','pid','mode','diff',
-      'durationSec','endReason',
-      'scoreFinal','rank','accPct',
-      'totalObstacles','totalHit','totalMiss',
-      'jumpHit','duckHit','jumpMiss','duckMiss',
-      'jumpAcc','duckAcc',
-      'maxCombo','liveNoMiss','rushSurviveAwarded',
-      'bossKey','bossLabel','bossDown','bossHpEnd','bossPhase2','bossBreakMoments',
-      'spawnCountLow','spawnCountHigh','spawnCountHeavy','spawnCountMini','spawnCountFeint',
-      'phase1Hit','phase2Hit','phase3Hit',
-      'phase1Miss','phase2Miss','phase3Miss',
-      'rushHit','rushMiss',
-      'stabilityEnd','phaseEnd','progressEnd','lastPattern',
-      'tuneKey','assistLevelEnd','pressureLevelEnd','directorReason','directorDeterministic',
-      'weaknessTags','strengthTags',
-      'timestampIso'
-    ],
-    teacher: [
-      'sessionId','pid','mode','diff',
-      'scoreFinal','accPct','rank','maxCombo',
-      'jumpAcc','duckAcc',
-      'phase1Miss','phase2Miss','phase3Miss','rushMiss',
-      'bossLabel','bossHpEnd','bossDown','bossPhase2',
-      'assistLevelEnd','pressureLevelEnd','directorReason',
-      'weaknessTags','strengthTags',
-      'coachHeadline','coachTip1','coachTip2',
-      'flags','timestampIso'
-    ]
-  };
-
   function showView(name) {
     viewMenu?.classList.add('hidden');
     viewPlay?.classList.add('hidden');
@@ -503,34 +532,15 @@
   function escCsv(v) {
     if (v == null) return '';
     const s = String(v);
-    if (s.includes('"') || s.includes(',') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
+    if (s.includes('"') || s.includes(',') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
     return s;
   }
 
-  function toCsv(rows, preferredColumns = []) {
+  function toCsv(rows) {
     if (!rows || !rows.length) return '';
-
-    const seen = new Set();
-    const cols = [];
-
-    preferredColumns.forEach((c) => {
-      if (!seen.has(c)) {
-        seen.add(c);
-        cols.push(c);
-      }
-    });
-
-    rows.forEach((row) => {
-      Object.keys(row || {}).forEach((c) => {
-        if (!seen.has(c)) {
-          seen.add(c);
-          cols.push(c);
-        }
-      });
-    });
-
+    const cols = Object.keys(rows[0]);
     const out = [cols.join(',')];
-    rows.forEach((r) => out.push(cols.map((c) => escCsv(r?.[c])).join(',')));
+    rows.forEach(r => out.push(cols.map(c => escCsv(r[c])).join(',')));
     return out.join('\n');
   }
 
@@ -553,187 +563,9 @@
     logStatus.style.color = ok ? '#22c55e' : '#f59e0b';
   }
 
-  function jdStarsFromSummary(summary) {
-    const rank = String(summary?.rank || '').toUpperCase();
-    const acc = Number(summary?.accPct || 0);
-    const bossDown = !!summary?.sessionFeatures?.bossDown;
-
-    if (rank === 'S') return 3;
-    if (rank === 'A') return bossDown ? 3 : 2;
-    if (rank === 'B') return acc >= 70 ? 2 : 1;
-    if (rank === 'C') return acc >= 55 ? 1 : 0;
-    return 0;
-  }
-
-  function jdBridgePostsCleared(summary) {
-    const acc = Number(summary?.accPct || 0);
-    return Math.max(0, Math.min(7, Math.round((acc / 100) * 7)));
-  }
-
-  function saveJumpDuckBridgeArtifacts(summary) {
-    if (!summary) return null;
-
-    const sf = summary.sessionFeatures || {};
-    const teacher = summary.teacherSummary || {};
-    const events = Array.isArray(summary.eventLog) ? summary.eventLog : [];
-
-    const bridge = {
-      game: 'jumpduck',
-      gameId: 'jumpduck',
-      zone: 'fitness',
-      pid: String(sf.pid || HHA_CTX.pid || 'anon'),
-      mode: String(sf.mode || HHA_CTX.mode || 'training'),
-      diff: String(sf.diff || HHA_CTX.diff || 'normal'),
-      timeSec: Number(sf.durationSec || 0),
-      score: Number(sf.scoreFinal || 0),
-      stars: Number(summary.stars || jdStarsFromSummary(summary)),
-      rank: String(sf.rank || summary.rank || 'C'),
-      rhythmAccuracy: Number(sf.accPct || summary.accPct || 0),
-      landingControl: Number(sf.stabilityEnd || 0),
-      postsCleared: jdBridgePostsCleared(summary),
-      bestCombo: Number(sf.maxCombo || 0),
-      missCount: Number(sf.totalMiss || 0),
-      bossDown: !!sf.bossDown,
-      bossLabel: String(sf.bossLabel || ''),
-      rushStage: String(summary.rushStage || ''),
-      lastPattern: String(summary.pattern || sf.lastPattern || ''),
-      updatedAt: String(summary.timestampIso || nowIso()),
-      hub: String(HHA_CTX.hub || './')
-    };
-
-    saveJson(JD_STORE_KEYS.SUMMARY_BRIDGE, bridge);
-    saveJson(JD_STORE_KEYS.EVENTS_JSON, events);
-    saveJson(JD_STORE_KEYS.TEACHER_JSON, teacher);
-
-    try {
-      localStorage.setItem(JD_STORE_KEYS.EVENTS_CSV, toCsv(events, JD_EXPORT_COLUMNS.events));
-      localStorage.setItem(JD_STORE_KEYS.SESSIONS_CSV, toCsv([sf], JD_EXPORT_COLUMNS.sessions));
-      localStorage.setItem(JD_STORE_KEYS.TEACHER_CSV, toCsv([teacher], JD_EXPORT_COLUMNS.teacher));
-      localStorage.setItem('HHA_LAST_ZONE', 'fitness');
-      localStorage.setItem('HHA_RECOMMENDED_ZONE', 'fitness');
-      localStorage.setItem('HHA_NEXT_ZONE', 'fitness');
-    } catch (_) {}
-
-    try {
-      window.HH_FITNESS_LASTGAME?.writeSnapshot({
-        ...hhFitnessBaseSnapshot(),
-        event: 'result_saved',
-        score: Number(bridge.score || 0),
-        miss: Number(bridge.missCount || 0),
-        bestStreak: Number(bridge.bestCombo || 0),
-        rank: String(bridge.rank || ''),
-        bossDown: !!bridge.bossDown,
-        result: 'summary'
-      });
-    } catch (_) {}
-
-    return bridge;
-  }
-
-  function jdBuildUploadPayload(summary) {
-    return {
-      source: 'jumpduck',
-      sentAt: nowIso(),
-      client: {
-        href: location.href,
-        path: location.pathname,
-        userAgent: navigator.userAgent
-      },
-      ctx: {
-        pid: HHA_CTX.pid || 'anon',
-        run: HHA_CTX.run || 'play',
-        diff: HHA_CTX.diff || 'normal',
-        studyId: HHA_CTX.studyId || '',
-        seed: HHA_CTX.seed || '',
-        view: HHA_CTX.view || '',
-        mode: HHA_CTX.mode || '',
-        hub: HHA_CTX.hub || ''
-      },
-      summary: summary?.sessionFeatures || {},
-      teacherSummary: summary?.teacherSummary || {},
-      analysis: summary?.analysis || {},
-      reward: {
-        rank: summary?.rank || '',
-        rewardLabel: summary?.rewardLabel || '',
-        rewardKey: summary?.rewardKey || '',
-        bossTitle: summary?.bossTitle || '',
-        stars: Number(summary?.stars || 0)
-      },
-      events: Array.isArray(summary?.eventLog) ? summary.eventLog : []
-    };
-  }
-
-  async function jdPostJson(url, payload, timeoutMs = 12000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-
-      const text = await res.text().catch(() => '');
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}${text ? `: ${text.slice(0, 180)}` : ''}`);
-      }
-
-      return { ok: true, text };
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  function jdQueuePendingUpload(payload) {
-    const list = loadJson(JD_STORE_KEYS.PENDING_UPLOADS, []);
-    list.push(payload);
-    saveJson(JD_STORE_KEYS.PENDING_UPLOADS, list);
-  }
-
-  async function jdSendSummaryToApi(summary) {
-    const api = String(HHA_CTX.api || '').trim();
-    if (!api) {
-      return { ok: false, reason: 'no-api' };
-    }
-
-    const payload = jdBuildUploadPayload(summary);
-    try {
-      await jdPostJson(api, payload);
-      return { ok: true };
-    } catch (err) {
-      jdQueuePendingUpload(payload);
-      return {
-        ok: false,
-        reason: err?.message || 'upload-failed'
-      };
-    }
-  }
-
-  async function jdFlushPendingUploads() {
-    const api = String(HHA_CTX.api || '').trim();
-    if (!api) return;
-
-    const queue = loadJson(JD_STORE_KEYS.PENDING_UPLOADS, []);
-    if (!Array.isArray(queue) || !queue.length) return;
-
-    const remain = [];
-    for (const payload of queue) {
-      try {
-        await jdPostJson(api, payload, 10000);
-      } catch (_) {
-        remain.push(payload);
-      }
-    }
-    saveJson(JD_STORE_KEYS.PENDING_UPLOADS, remain);
-  }
-
   function setHubLinks() {
     const hub = HHA_CTX.hub || '#';
-    ['jd-back-hub-menu', 'jd-back-hub-play', 'jd-back-hub-result'].forEach((id) => {
+    ['jd-back-hub-menu', 'jd-back-hub-play', 'jd-back-hub-result'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
         el.href = hub;
@@ -1247,7 +1079,7 @@
 
   function clearArena() {
     if (obsLayer) obsLayer.innerHTML = '';
-    document.querySelectorAll('.jd-score-pop').forEach((el) => el.remove());
+    document.querySelectorAll('.jd-score-pop').forEach(el => el.remove());
 
     if (avatar) {
       avatar.classList.remove('avatar-jump', 'avatar-duck');
@@ -1293,14 +1125,14 @@
     let avatarLeftPct;
 
     if (profile === 'tiny') {
-      hitLineX = 108;
-      avatarLeftPct = 0.082;
+      hitLineX = 86;
+      avatarLeftPct = 0.088;
     } else if (profile === 'compact') {
-      hitLineX = 124;
-      avatarLeftPct = 0.095;
+      hitLineX = 102;
+      avatarLeftPct = 0.108;
     } else {
-      hitLineX = 154;
-      avatarLeftPct = 0.118;
+      hitLineX = 144;
+      avatarLeftPct = 0.135;
     }
 
     return {
@@ -1362,25 +1194,6 @@
 
     if (!s.userBaseSpeedLocked) {
       s.baseSpeed = tune.speedBase;
-    }
-
-    const lowGuide = document.querySelector('.jd-lane-low');
-    const highGuide = document.querySelector('.jd-lane-high');
-    const lowLabel = document.querySelector('.jd-lane-label-low');
-    const highLabel = document.querySelector('.jd-lane-label-high');
-
-    if (lowGuide && highGuide) {
-      if (m.profile === 'tiny' || m.profile === 'compact') {
-        lowGuide.style.bottom = '128px';
-        highGuide.style.bottom = '270px';
-        if (lowLabel) lowLabel.style.bottom = '136px';
-        if (highLabel) highLabel.style.bottom = '278px';
-      } else {
-        lowGuide.style.bottom = '118px';
-        highGuide.style.bottom = '252px';
-        if (lowLabel) lowLabel.style.bottom = '126px';
-        if (highLabel) highLabel.style.bottom = '260px';
-      }
     }
   }
 
@@ -1560,7 +1373,7 @@
 
     const pool = type === 'low' ? JD_VISUALS.low : JD_VISUALS.high;
     const visual = visualKey
-      ? (pool.find((v) => v.key === visualKey) || pool[0])
+      ? (pool.find(v => v.key === visualKey) || pool[0])
       : jdPick(pool, s.rng);
 
     const behavior = jdObstacleBehaviorByVisualKey(visual.key);
@@ -1593,6 +1406,7 @@
       resolved: false,
       spawnedAt: performance.now(),
       el,
+
       variant: behavior.variant,
       speedMul: behavior.speedMul,
       bonusScore: behavior.bonusScore,
@@ -1611,10 +1425,10 @@
 
     if (s.phase === 1) {
       if (type === 'low') {
-        const easy = pool.filter((v) => ['low-hurdle', 'low-box', 'low-cones'].includes(v.key));
+        const easy = pool.filter(v => ['low-hurdle', 'low-box', 'low-cones'].includes(v.key));
         return (easy[Math.floor(rng() * easy.length)] || pool[0]).key;
       } else {
-        const easy = pool.filter((v) => ['high-bar', 'high-ribbon', 'high-tape'].includes(v.key));
+        const easy = pool.filter(v => ['high-bar', 'high-ribbon', 'high-tape'].includes(v.key));
         return (easy[Math.floor(rng() * easy.length)] || pool[0]).key;
       }
     }
@@ -1637,10 +1451,10 @@
 
     if (s.phase === 2) {
       if (type === 'low') {
-        const mid = pool.filter((v) => ['low-hurdle', 'low-box', 'low-bench', 'low-cones', 'low-mini'].includes(v.key));
+        const mid = pool.filter(v => ['low-hurdle', 'low-box', 'low-bench', 'low-cones', 'low-mini'].includes(v.key));
         return (mid[Math.floor(rng() * mid.length)] || pool[0]).key;
       } else {
-        const mid = pool.filter((v) => ['high-bar', 'high-ribbon', 'high-beam', 'high-tape', 'high-mini'].includes(v.key));
+        const mid = pool.filter(v => ['high-bar', 'high-ribbon', 'high-beam', 'high-tape', 'high-mini'].includes(v.key));
         return (mid[Math.floor(rng() * mid.length)] || pool[0]).key;
       }
     }
@@ -1652,49 +1466,49 @@
     const rng = s.rng || Math.random;
     const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
 
-    let baseGap = Number(s.gapBase || (compact ? 178 : 146));
+    let baseGap = Number(s.gapBase || (compact ? 160 : 136));
     const style = jdPatternSpacingStyle(s.lastPattern || '');
 
     if (style === 'tempo') {
-      const unit = compact ? 132 : 108;
-      return unit + (indexInSeq % 2 === 0 ? 0 : 8);
+      const unit = compact ? 118 : 96;
+      return unit + (indexInSeq % 2 === 0 ? 0 : 6);
     }
 
     if (style === 'mirror') {
-      const mirrorSetsCompact = [138, 156, 156, 138, 148, 148];
-      const mirrorSetsDesktop = [108, 132, 132, 108, 124, 124];
+      const mirrorSetsCompact = [126, 144, 144, 126, 138, 138];
+      const mirrorSetsDesktop = [98, 124, 124, 98, 118, 118];
       const arr = compact ? mirrorSetsCompact : mirrorSetsDesktop;
       return arr[indexInSeq] ?? arr[arr.length - 1];
     }
 
     if (style === 'shield') {
-      const shieldGap = compact ? 128 : 102;
-      return shieldGap + (seqLength >= 5 ? 4 : 0);
+      const shieldGap = compact ? 116 : 92;
+      return shieldGap + (seqLength >= 5 ? 2 : 0);
     }
 
     if (style === 'chaos') {
-      const compactChaos = [138, 126, 118, 110, 102, 96, 92];
-      const desktopChaos = [112, 104, 96, 90, 84, 78, 74];
+      const compactChaos = [128, 116, 104, 96, 88, 84, 82];
+      const desktopChaos = [104, 96, 88, 80, 74, 70, 68];
       const arr = compact ? compactChaos : desktopChaos;
-      return arr[indexInSeq] ?? (compact ? 92 : 74);
+      return arr[indexInSeq] ?? (compact ? 82 : 68);
     }
 
     if (style === 'feint') {
-      const compactFeint = [146, 130, 116, 108, 102];
-      const desktopFeint = [118, 106, 96, 88, 82];
+      const compactFeint = [134, 118, 96, 88, 84];
+      const desktopFeint = [108, 98, 84, 78, 72];
       const arr = compact ? compactFeint : desktopFeint;
-      return arr[indexInSeq] ?? (compact ? 108 : 82);
+      return arr[indexInSeq] ?? (compact ? 88 : 72);
     }
 
     if (s.finalRush) baseGap -= 4;
     if (s.bossActive) baseGap -= 3;
     if (s.bossFrenzy) baseGap -= 4;
 
-    if (seqLength >= 4) baseGap -= 2;
+    if (seqLength >= 4) baseGap -= 4;
     if (seqLength >= 5) baseGap -= 2;
 
     const jitter = compact ? (12 + Math.floor(rng() * 12)) : (8 + Math.floor(rng() * 10));
-    return Math.max(compact ? 126 : 96, baseGap + (indexInSeq * 4) + jitter);
+    return Math.max(compact ? 108 : 82, baseGap + (indexInSeq * 2) + jitter);
   }
 
   function jdFeintChance(s) {
@@ -1718,25 +1532,25 @@
     if (!s || !obs?.el) return;
 
     const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
-    const groundBottom = compact ? 90 : 78;
+    const groundBottom = compact ? 104 : 86;
 
-    let bottomPx = groundBottom;
+    let bottomPx = groundBottom - 4;
 
     if (obs.type === 'low') {
       if (obs.variant === 'heavy') {
-        bottomPx = groundBottom + 0;
+        bottomPx = groundBottom - 8;
       } else if (obs.variant === 'mini') {
-        bottomPx = groundBottom + 8;
+        bottomPx = groundBottom + 2;
       } else {
-        bottomPx = groundBottom + 4;
+        bottomPx = groundBottom - 4;
       }
     } else {
       if (obs.variant === 'heavy') {
-        bottomPx = groundBottom + (compact ? 154 : 142);
+        bottomPx = groundBottom + (compact ? 130 : 118);
       } else if (obs.variant === 'mini') {
-        bottomPx = groundBottom + (compact ? 140 : 130);
+        bottomPx = groundBottom + (compact ? 116 : 108);
       } else {
-        bottomPx = groundBottom + (compact ? 148 : 136);
+        bottomPx = groundBottom + (compact ? 122 : 110);
       }
     }
 
@@ -1757,10 +1571,17 @@
     return Math.max(72, fieldH - bottom - h - 12);
   }
 
+  function jdPatternTagFromPool(pattern) {
+    return jdPatternTag(pattern);
+  }
+
   function jdDirectorPushEvent(s, kind) {
     if (!s) return;
     s.recentWindow = Array.isArray(s.recentWindow) ? s.recentWindow : [];
-    s.recentWindow.push({ kind, t: performance.now() });
+    s.recentWindow.push({
+      kind,
+      t: performance.now()
+    });
     if (s.recentWindow.length > 12) s.recentWindow.shift();
   }
 
@@ -1772,6 +1593,7 @@
       pid: s.pid,
       t_ms: Math.round(performance.now() - s.startedAt),
       eventType: type,
+
       mode: s.mode,
       diff: s.diff,
       phase: s.phase,
@@ -1779,21 +1601,25 @@
       progress: Number((s.progress || 0).toFixed(4)),
       rushStage: s.rushStage || '',
       finalRush: !!s.finalRush,
+
       bossKey: s.bossProfile?.key || '',
       bossLabel: s.bossProfile?.label || '',
       bossHp: Number(s.bossHp || 0),
       bossPhase2: !!s.bossPhase2,
       bossFrenzy: !!s.bossFrenzy,
+
       score: Number(s.score || 0),
       combo: Number(s.combo || 0),
       maxCombo: Number(s.maxCombo || 0),
       stability: Number(s.stability || 0),
       fever: Number(s.fever || 0),
       feverActive: !!s.feverActive,
+
       assistLevel: Number(s.assistLevel || 0),
       pressureLevel: Number(s.pressureLevel || 0),
       directorReason: s.lastDirectorReason || '',
       tuneKey: s.tuneKey || '',
+
       ...payload
     };
 
@@ -1856,10 +1682,14 @@
     let out = [...pool];
 
     if (s.assistLevel >= 2) {
-      out = out.filter((p) => !['feint3', 'feintLate3', 'chaosBurst6', 'tempoAlt6', 'mirrorEcho'].includes(p));
+      out = out.filter(p => ![
+        'feint3', 'feintLate3', 'chaosBurst6', 'tempoAlt6', 'mirrorEcho'
+      ].includes(p));
       out.push('single', 'alt2', 'pair');
     } else if (s.assistLevel === 1) {
-      out = out.filter((p) => !['chaosBurst6', 'tempoAlt6'].includes(p));
+      out = out.filter(p => ![
+        'chaosBurst6', 'tempoAlt6'
+      ].includes(p));
       out.push('alt2', 'zigzag3');
     }
 
@@ -1897,7 +1727,11 @@
       spawnMs *= 0.97;
     }
 
-    return { speed, spawnMs, hitHalfWindow };
+    return {
+      speed,
+      spawnMs,
+      hitHalfWindow
+    };
   }
 
   function jdPickPattern(s) {
@@ -1916,13 +1750,17 @@
         if (s.bossProfile.key === 'tempo') {
           pool = ['tempo121', 'tempo221', 'tempoAlt6', 'alt4'];
         } else if (s.bossProfile.key === 'feint') {
-          pool = compact ? ['feintLate2', 'fakePair', 'alt2'] : ['feintLate2', 'feintLate3', 'fakePair', 'alt2'];
+          pool = compact
+            ? ['feintLate2', 'fakePair', 'alt2']
+            : ['feintLate2', 'feintLate3', 'fakePair', 'alt2'];
         } else if (s.bossProfile.key === 'shield') {
           pool = ['shieldPair', 'shieldWall', 'shieldBreaker', 'pair'];
         } else if (s.bossProfile.key === 'mirror') {
           pool = ['mirrorABBA', 'mirrorBAAB', 'mirrorEcho', 'mirror4'];
         } else if (s.bossProfile.key === 'chaos') {
-          pool = compact ? ['chaosBurst5', 'burst4', 'zigzag3'] : ['chaosBurst5', 'chaosBurst6', 'chaosLadder', 'burst4'];
+          pool = compact
+            ? ['chaosBurst5', 'burst4', 'zigzag3']
+            : ['chaosBurst5', 'chaosBurst6', 'chaosLadder', 'burst4'];
         }
       }
 
@@ -1934,7 +1772,7 @@
     let pool = Array.isArray(phaseCfg.patterns) ? [...phaseCfg.patterns] : ['single'];
 
     if (s.mode === 'training' && s.phase === 1) {
-      pool = pool.filter((p) => !['burst4', 'burst5', 'mirror4'].includes(p));
+      pool = pool.filter(p => !['burst4', 'burst5', 'mirror4'].includes(p));
     }
 
     if (rushStage === 'warning') {
@@ -1954,15 +1792,18 @@
   }
 
   function jdSpawnWave(s) {
-    if (!s || !s.arena || !s.running) return;
+    if (!s || !s.arena) return;
+    if (!s.running) return;
 
     const rng = s.rng || Math.random;
     const pattern = jdPickPattern(s);
     const seq = jdPatternToSeq(pattern, rng);
+
     const startX = Number(s.startXBase || 300);
     const feintChance = jdFeintChance(s);
 
     s.lastPattern = pattern;
+
     let cursorX = startX;
 
     seq.forEach((type, index) => {
@@ -1977,6 +1818,7 @@
       }
 
       const visualKey = jdPickVisualKey(s, type);
+
       const obs = jdCreateObstacle(s, {
         type,
         x: cursorX,
@@ -2007,8 +1849,8 @@
         obstacleVariant: obs.variant || 'normal',
         obstacleVisual: obs.visualKey || '',
         obstacleFeint: !!obs.feint,
-        pattern,
-        patternTag: jdPatternTag(pattern),
+        pattern: pattern,
+        patternTag: jdPatternTagFromPool(pattern),
         spawnX: Number(obs.x || 0),
         obstacleSpeed: Number(obs.speed || 0)
       });
@@ -2016,6 +1858,7 @@
       s.obstacles.push(obs);
       s.arena.appendChild(obs.el);
       s.totalObstacles = Number(s.totalObstacles || 0) + 1;
+
       cursorX += jdWaveGap(s, index, seq.length);
     });
 
@@ -2056,13 +1899,22 @@
     if (now < s.nextBossBurstAt) return;
 
     const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
+
     jdSpawnWave(s);
 
     let nextMs = Number(s.bossProfile.burstEveryMs || 4200);
 
-    if (s.bossProfile.key === 'chaos') nextMs *= compact ? 0.97 : 0.92;
-    if (s.bossFrenzy) nextMs *= compact ? 0.86 : 0.76;
-    if (s.finalRush) nextMs *= compact ? 0.95 : 0.90;
+    if (s.bossProfile.key === 'chaos') {
+      nextMs *= compact ? 0.97 : 0.92;
+    }
+
+    if (s.bossFrenzy) {
+      nextMs *= compact ? 0.86 : 0.76;
+    }
+
+    if (s.finalRush) {
+      nextMs *= compact ? 0.95 : 0.90;
+    }
 
     s.nextBossBurstAt = now + Math.max(compact ? 1320 : 1050, Math.round(nextMs));
   }
@@ -2109,6 +1961,7 @@
     let base = 0;
     if (judge === 'perfect') base = 20;
     else if (judge === 'good') base = 12;
+    else base = 0;
 
     const comboBonus = Math.min(14, Math.floor((s.combo || 0) * 0.9));
     let gain = base + comboBonus;
@@ -2243,7 +2096,9 @@
       );
     }
 
-    jdLogEvent(s, 'no_miss_bonus', { bonus: Number(bonus || 0) });
+    jdLogEvent(s, 'no_miss_bonus', {
+      bonus: Number(bonus || 0)
+    });
   }
 
   function jdAwardRushSurviveIfEligible(s) {
@@ -2270,13 +2125,17 @@
       );
     }
 
-    jdLogEvent(s, 'rush_survive_bonus', { bonus: Number(bonus || 0) });
+    jdLogEvent(s, 'rush_survive_bonus', {
+      bonus: Number(bonus || 0)
+    });
   }
 
   function jdMaybeTriggerBossPhase2(s) {
     if (!s || !s.bossActive || !s.bossProfile) return;
     if (s.bossPhase2Triggered) return;
-    if (Number(s.bossHp || 100) > 50) return;
+
+    const hp = Number(s.bossHp || 100);
+    if (hp > 50) return;
 
     s.bossPhase2Triggered = true;
     s.bossPhase2 = true;
@@ -2332,8 +2191,12 @@
       );
     }
 
-    if (s.phaseMiss && s.phaseMiss[s.phase] != null) s.phaseMiss[s.phase] += 1;
-    if (s.finalRush) s.rushMiss = Number(s.rushMiss || 0) + 1;
+    if (s.phaseMiss && s.phaseMiss[s.phase] != null) {
+      s.phaseMiss[s.phase] += 1;
+    }
+    if (s.finalRush) {
+      s.rushMiss = Number(s.rushMiss || 0) + 1;
+    }
 
     jdLogEvent(s, 'miss', {
       obstacleId: obs?.id || '',
@@ -2342,7 +2205,7 @@
       obstacleVariant: obs?.variant || '',
       obstacleVisual: obs?.visualKey || '',
       obstacleFeint: !!obs?.feint,
-      reason,
+      reason: reason,
       liveNoMiss: !!s.liveNoMiss
     });
 
@@ -2390,7 +2253,9 @@
         s.bossChain = 0;
       }
 
-      if (s.bossPhase2) dmg += 1;
+      if (s.bossPhase2) {
+        dmg += 1;
+      }
 
       s.bossHp = Math.max(0, Number(s.bossHp || 100) - dmg);
       if (s.playRoot) jdFlash(s.playRoot, 'bosshit');
@@ -2400,8 +2265,12 @@
 
     jdAwardLiveStreakReward(s);
 
-    if (s.phaseHit && s.phaseHit[s.phase] != null) s.phaseHit[s.phase] += 1;
-    if (s.finalRush) s.rushHit = Number(s.rushHit || 0) + 1;
+    if (s.phaseHit && s.phaseHit[s.phase] != null) {
+      s.phaseHit[s.phase] += 1;
+    }
+    if (s.finalRush) {
+      s.rushHit = Number(s.rushHit || 0) + 1;
+    }
 
     jdLogEvent(s, 'hit', {
       obstacleId: obs?.id || '',
@@ -2410,15 +2279,18 @@
       obstacleVariant: obs?.variant || '',
       obstacleVisual: obs?.visualKey || '',
       obstacleFeint: !!obs?.feint,
-      judge,
+      judge: judge,
       gain: Number(gain || 0),
       liveNoMiss: !!s.liveNoMiss
     });
 
     let judgeText = judge === 'perfect' ? '✨ PERFECT!' : '✅ GOOD!';
 
-    if (obs?.variant === 'heavy' && judge === 'perfect') judgeText = '💥 POWER CLEAR!';
-    else if (obs?.variant === 'mini' && judge === 'perfect') judgeText = '⚡ QUICK READ!';
+    if (obs?.variant === 'heavy' && judge === 'perfect') {
+      judgeText = '💥 POWER CLEAR!';
+    } else if (obs?.variant === 'mini' && judge === 'perfect') {
+      judgeText = '⚡ QUICK READ!';
+    }
 
     if (s.bossActive && s.bossProfile?.key === 'tempo' && judge === 'perfect') {
       judgeText = '🎵 ON BEAT!';
@@ -2432,12 +2304,15 @@
       judgeText = '🛡️ SHIELD BREAK!';
     }
 
-    if (s.bossActive && s.bossProfile?.key === 'mirror' && ['mirrorABBA', 'mirrorBAAB', 'mirrorEcho', 'mirror4'].includes(s.lastPattern || '')) {
+    if (s.bossActive && s.bossProfile?.key === 'mirror' && ['mirrorABBA','mirrorBAAB','mirrorEcho','mirror4'].includes(s.lastPattern || '')) {
       judgeText = '🪞 MIRROR MASTER!';
     }
 
-    if (s.rushStage === 'survive' && judge === 'perfect') judgeText = '🔥 CLUTCH!';
-    else if (s.rushStage === 'peak' && judge === 'perfect') judgeText = '⚡ HOLD IT!';
+    if (s.rushStage === 'survive' && judge === 'perfect') {
+      judgeText = '🔥 CLUTCH!';
+    } else if (s.rushStage === 'peak' && judge === 'perfect') {
+      judgeText = '⚡ HOLD IT!';
+    }
 
     jdShowJudge(judgeText);
   }
@@ -2482,7 +2357,9 @@
       }
     }
 
-    if (s.feverActive) speed *= compact ? 1.04 : 1.06;
+    if (s.feverActive) {
+      speed *= compact ? 1.04 : 1.06;
+    }
 
     if (s.bossActive && s.bossProfile) {
       speed *= (s.bossProfile.speedMul || 1);
@@ -2885,28 +2762,35 @@
       pid: sf.pid || '',
       mode: sf.mode || '',
       diff: sf.diff || '',
+
       scoreFinal: Number(sf.scoreFinal || 0),
       accPct: Number(sf.accPct || 0),
       rank: sf.rank || '',
       maxCombo: Number(sf.maxCombo || 0),
+
       jumpAcc: Number(sf.jumpAcc || 0),
       duckAcc: Number(sf.duckAcc || 0),
+
       phase1Miss: Number(sf.phase1Miss || 0),
       phase2Miss: Number(sf.phase2Miss || 0),
       phase3Miss: Number(sf.phase3Miss || 0),
       rushMiss: Number(sf.rushMiss || 0),
+
       bossLabel: sf.bossLabel || '',
       bossHpEnd: Number(sf.bossHpEnd || 0),
       bossDown: !!sf.bossDown,
       bossPhase2: !!sf.bossPhase2,
+
       assistLevelEnd: Number(sf.assistLevelEnd || 0),
       pressureLevelEnd: Number(sf.pressureLevelEnd || 0),
       directorReason: sf.directorReason || '',
+
       weaknessTags: (analysis.weaknesses || []).join('|'),
       strengthTags: (analysis.strengths || []).join('|'),
       coachHeadline: coach.headline || '',
       coachTip1: coach.primaryTip || '',
       coachTip2: coach.secondaryTip || '',
+
       flags: flags.join('|'),
       timestampIso: sf.timestampIso || summary?.timestampIso || ''
     };
@@ -2922,53 +2806,63 @@
       pid: s.pid,
       mode: s.mode,
       diff: s.diff,
+
       durationSec: Number(((s.duration || 0) / 1000).toFixed(2)),
       endReason: endReason || '',
+
       scoreFinal: Number(s.score || 0),
       rank: rank || '',
       accPct: Number(analysis?.accPct || 0),
+
       totalObstacles: total,
       totalHit: hit,
       totalMiss: miss,
+
       jumpHit: Number(s.jumpHit || 0),
       duckHit: Number(s.duckHit || 0),
       jumpMiss: Number(s.jumpMiss || 0),
       duckMiss: Number(s.duckMiss || 0),
+
       jumpAcc: Number(analysis?.jumpAcc || 0),
       duckAcc: Number(analysis?.duckAcc || 0),
+
       maxCombo: Number(s.maxCombo || 0),
       liveNoMiss: !!s.liveNoMiss,
       rushSurviveAwarded: !!s.rushSurviveAwarded,
+
       bossKey: s.bossProfile?.key || '',
       bossLabel: s.bossProfile?.label || '',
       bossDown: !!(s.bossActive && (s.bossHp || 0) <= 0),
       bossHpEnd: Number(s.bossHp || 0),
       bossPhase2: !!s.bossPhase2,
       bossBreakMoments: Number(s.bossBreakMoments || 0),
+
       spawnCountLow: Number(s.spawnCountLow || 0),
       spawnCountHigh: Number(s.spawnCountHigh || 0),
       spawnCountHeavy: Number(s.spawnCountHeavy || 0),
       spawnCountMini: Number(s.spawnCountMini || 0),
       spawnCountFeint: Number(s.spawnCountFeint || 0),
+
       phase1Hit: Number(s.phaseHit?.[1] || 0),
       phase2Hit: Number(s.phaseHit?.[2] || 0),
       phase3Hit: Number(s.phaseHit?.[3] || 0),
+
       phase1Miss: Number(s.phaseMiss?.[1] || 0),
       phase2Miss: Number(s.phaseMiss?.[2] || 0),
       phase3Miss: Number(s.phaseMiss?.[3] || 0),
+
       rushHit: Number(s.rushHit || 0),
       rushMiss: Number(s.rushMiss || 0),
-      stabilityEnd: Number(s.stability || 0),
-      phaseEnd: Number(s.phase || 0),
-      progressEnd: Number((s.progress || 0).toFixed(4)),
-      lastPattern: String(s.lastPattern || ''),
+
       tuneKey: s.tuneKey || '',
       assistLevelEnd: Number(s.assistLevel || 0),
       pressureLevelEnd: Number(s.pressureLevel || 0),
       directorReason: s.lastDirectorReason || '',
       directorDeterministic: !!s.directorDeterministic,
+
       weaknessTags: (analysis?.weaknesses || []).join('|'),
       strengthTags: (analysis?.strengths || []).join('|'),
+
       timestampIso: nowIso()
     };
   }
@@ -3020,23 +2914,29 @@
     const s = {
       running: true,
       ended: false,
+
       pid: String(HHA_CTX.pid || 'anon'),
       diff: opts.diff,
       mode: opts.mode,
       duration: opts.durationMs,
       participant: buildParticipant(opts.mode),
+
       startedAt: performance.now(),
       elapsed: 0,
       timeLeft: opts.durationMs,
       lastNow: 0,
+
       rng,
+
       phase: 1,
       progress: 0,
       phaseLabel: 'warmup',
+
       baseSpeed: 6.0,
       currentSpeed: 6.0,
       currentSpawnMs: 900,
       userBaseSpeedLocked: false,
+
       hit: 0,
       miss: 0,
       jumpHit: 0,
@@ -3047,14 +2947,17 @@
       combo: 0,
       maxCombo: 0,
       stability: 100,
+
       fever: 0,
       feverActive: false,
       feverUntil: 0,
+
       totalObstacles: 0,
       nextObsId: 1,
       obstacles: [],
       nextSpawnAt: 0,
       lastInput: null,
+
       bossActive: false,
       bossHp: 100,
       bossProfile: null,
@@ -3064,14 +2967,17 @@
       bossBreakMoments: 0,
       nextBossBurstAt: 0,
       bossChain: 0,
+
       finalRush: false,
       rushStage: '',
       lastPattern: '',
+
       liveNoMiss: true,
       streakTier: 0,
       streakBurstsAwarded: {},
       noMissBonusAwarded: false,
       rushSurviveAwarded: false,
+
       directorEnabled: JD_DIRECTOR_CONFIG.enabled,
       directorDeterministic: (opts.mode === 'research' && JD_DIRECTOR_CONFIG.researchDeterministic),
       assistLevel: 0,
@@ -3081,6 +2987,7 @@
       recentWindow: [],
       lastDirectorReason: '',
       lastDirectorAt: 0,
+
       sessionId: `jd-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
       eventLog: [],
       spawnCountLow: 0,
@@ -3092,6 +2999,12 @@
       phaseHit: { 1: 0, 2: 0, 3: 0 },
       rushHit: 0,
       rushMiss: 0,
+
+      summaryPayload: null,
+      cooldownUrl: '',
+      endRank: '',
+      endAccPct: 0,
+
       layoutProfile: metrics.profile,
       arenaWidth: metrics.width,
       hitLineX: metrics.hitLineX,
@@ -3100,6 +3013,7 @@
       gapBase: 170,
       removeX: -170,
       tuneKey: 'A',
+
       playRoot,
       arena: obsLayer,
       avatar
@@ -3165,56 +3079,19 @@
     const noMiss = miss === 0;
     const rtMean = 0;
 
-    const analysis = jdAnalyzeRun(s);
-    const sessionFeatures = jdBuildSessionFeatures(s, analysis, '', endReason);
     const rank = jdRankByPerformance(accPct, miss, s.maxCombo || 0, bossDown);
-    sessionFeatures.rank = rank;
     const reward = jdRewardFromRank(rank, accPct, bossDown, noMiss);
     const bossBadge = jdBossBadge(s);
     const bossTitle = jdBossSpecificTitle(s, rank, bossDown, noMiss);
-
-    const summary = {
-      game: 'jumpduck',
-      gameId: 'jumpduck',
-      pid: String(HHA_CTX.pid || 'anon'),
-      scoreFinal: Number(s.score || 0),
-      accPct: Number(accPct.toFixed(2)),
-      rank,
-      stars: jdStarsFromSummary({ rank, accPct, sessionFeatures }),
-      bossVariant: s.bossProfile?.key || '',
-      bossLabel: s.bossProfile?.label || '',
-      bossTitle: bossTitle || '',
-      rewardLabel: reward.label,
-      rewardKey: reward.key,
-      end_reason: endReason,
-      missTotal: miss,
-      comboMax: s.maxCombo,
-      timestampIso: nowIso(),
-      pattern: s.lastPattern || '',
-      rush: !!s.finalRush,
-      rushStage: s.rushStage || '',
-      tuneKey: s.tuneKey || 'A',
-      liveNoMiss: !!s.liveNoMiss,
-      bossPhase2: !!s.bossPhase2,
-      bossBreakMoments: Number(s.bossBreakMoments || 0),
-      assistLevel: Number(s.assistLevel || 0),
-      pressureLevel: Number(s.pressureLevel || 0),
-      directorReason: s.lastDirectorReason || '',
-      analysis,
-      sessionFeatures,
-      eventLog: Array.isArray(s.eventLog) ? s.eventLog : []
-    };
-
+    const analysis = jdAnalyzeRun(s);
     const coach = jdBuildCoachMessage(s, analysis);
-    summary.coach = coach;
-
+    const sessionFeatures = jdBuildSessionFeatures(s, analysis, rank, endReason);
     const teacherSummary = jdBuildTeacherSummary({
       sessionFeatures,
       analysis,
       coach,
-      timestampIso: summary.timestampIso
+      timestampIso: nowIso()
     });
-    summary.teacherSummary = teacherSummary;
 
     const pid = String(HHA_CTX.pid || 'anon');
     const profileKey = `JD_PROFILE:${pid}`;
@@ -3274,15 +3151,46 @@
       sessionScoreFinal: Number(s.score || 0)
     });
 
+    const summary = {
+      game: 'jumpduck',
+      pid,
+      scoreFinal: s.score,
+      accPct: Number(accPct.toFixed(2)),
+      rank,
+      bossVariant: s.bossProfile?.key || '',
+      bossLabel: s.bossProfile?.label || '',
+      bossTitle: bossTitle || '',
+      rewardLabel: reward.label,
+      rewardKey: reward.key,
+      end_reason: endReason,
+      missTotal: miss,
+      comboMax: s.maxCombo,
+      timestampIso: nowIso(),
+      pattern: s.lastPattern || '',
+      rush: !!s.finalRush,
+      rushStage: s.rushStage || '',
+      tuneKey: s.tuneKey || 'A',
+      liveNoMiss: !!s.liveNoMiss,
+      bossPhase2: !!s.bossPhase2,
+      bossBreakMoments: Number(s.bossBreakMoments || 0),
+      assistLevel: Number(s.assistLevel || 0),
+      pressureLevel: Number(s.pressureLevel || 0),
+      directorReason: s.lastDirectorReason || '',
+      analysis,
+      coach,
+      sessionFeatures,
+      teacherSummary,
+      eventLog: Array.isArray(s.eventLog) ? s.eventLog : []
+    };
+
     saveLastSummary(summary);
-    saveJumpDuckBridgeArtifacts(summary);
 
     try {
       window.HH_FITNESS_LASTGAME?.writeSnapshot({
         event: 'summary_ready',
         zone: 'fitness',
-        gameId: 'jumpduck',
-        game: 'jumpduck',
+        gameId: 'jump-duck',
+        game: 'jump-duck',
         score: Number(s.score || 0),
         miss: Number(s.miss || 0),
         bestStreak: Number(s.maxCombo || 0),
@@ -3332,13 +3240,52 @@
       coach
     });
 
+    s.endRank = rank;
+    s.endAccPct = Number(accPct.toFixed(2));
+
+    s.summaryPayload = {
+      score: Number(s.score || 0),
+      accuracy: Number(accPct.toFixed(2)),
+      bestStreak: Number(s.maxCombo || 0),
+      rank: rank || 'C'
+    };
+
+    s.cooldownUrl = jdBuildCooldownGateUrl(s.summaryPayload, {
+      mode: s.mode || HHA_CTX.mode || 'training',
+      diff: s.diff || HHA_CTX.diff || 'normal',
+      time: String(Math.round((s.duration || 0) / 1000) || HHA_CTX.time || 60),
+      run: HHA_CTX.run || 'play',
+      view: HHA_CTX.view || 'mobile',
+      pid: HHA_CTX.pid || 'anon',
+      name: qs('name', qs('nickName', 'Hero')),
+      studyId: HHA_CTX.studyId || '',
+      seed: HHA_CTX.seed || Date.now(),
+      hub: HHA_CTX.hub || qs('hub', './fitness-zone.html'),
+      launcher: HHA_CTX.launcher || qs('launcher', './jumpduck.html')
+    });
+
+    const continueFlowBtn =
+      document.getElementById('jd-btn-continue-flow') ||
+      document.querySelector('[data-action="continue-flow"]');
+
+    if (continueFlowBtn && !continueFlowBtn.__jdCooldownBound) {
+      continueFlowBtn.__jdCooldownBound = true;
+      continueFlowBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const url = state?.cooldownUrl || s.cooldownUrl;
+        if (url) location.href = url;
+      });
+    }
+
     s.finished = true;
     s.finishing = false;
     showView('result');
   }
 
   function jdTick(now) {
-    if (!state || !state.running || state.finished || state.finishing) return;
+    if (!state) return;
+    if (!state.running) return;
+    if (state.finished || state.finishing) return;
 
     if (!state.lastNow) state.lastNow = now;
     const dt = now - state.lastNow;
@@ -3451,25 +3398,45 @@
     rafId = requestAnimationFrame(jdTick);
   }
 
-  function bindAction(action, handler) {
-    document.querySelectorAll(`[data-action="${action}"]`).forEach((node) => {
-      if (node.__boundAction) return;
-      node.__boundAction = true;
-      node.addEventListener('click', handler);
-    });
-  }
-
   function bindEvents() {
-    bindAction('start', () => {
+    document.querySelector('[data-action="start"]')?.addEventListener('click', (ev) => {
+      ev.preventDefault();
       if (state && state.running) return;
-      startGame({
-        mode: (elMode?.value || HHA_CTX.mode || 'training').toLowerCase(),
-        diff: (elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase(),
-        durationMs: ((parseInt(elDuration?.value || HHA_CTX.duration || '60', 10) || 60) * 1000)
+
+      const wgskip = qs('wgskip', '') === '1';
+      const autostart = qs('autostart', '') === '1';
+
+      const selectedMode = (elMode?.value || HHA_CTX.mode || 'training').toLowerCase();
+      const selectedDiff = (elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase();
+      const selectedTime = String(parseInt(elDuration?.value || HHA_CTX.duration || HHA_CTX.time || '60', 10) || 60);
+
+      if (wgskip && autostart) {
+        startGame({
+          mode: selectedMode,
+          diff: selectedDiff,
+          durationMs: (parseInt(selectedTime, 10) || 60) * 1000
+        });
+        return;
+      }
+
+      const warmupUrl = jdBuildWarmupGateUrl({
+        mode: selectedMode,
+        diff: selectedDiff,
+        time: selectedTime,
+        run: HHA_CTX.run || 'play',
+        view: HHA_CTX.view || 'mobile',
+        pid: HHA_CTX.pid || 'anon',
+        name: qs('name', qs('nickName', 'Hero')),
+        studyId: HHA_CTX.studyId || '',
+        seed: HHA_CTX.seed || Date.now(),
+        hub: HHA_CTX.hub || qs('hub', './fitness-zone.html'),
+        launcher: HHA_CTX.launcher || qs('launcher', './jumpduck.html')
       });
+
+      location.href = warmupUrl;
     });
 
-    bindAction('tutorial', () => {
+    document.querySelector('[data-action="tutorial"]')?.addEventListener('click', () => {
       if (state && state.running) return;
       startGame({
         mode: 'training',
@@ -3479,7 +3446,9 @@
       jdTelegraph('Tutorial: low = jump • high = duck', 1200);
     });
 
-    bindAction('play-again', () => {
+    document.querySelector('[data-action="play-again"]')?.addEventListener('click', (ev) => {
+      ev.preventDefault();
+
       hhFitnessRematch({
         score: Number(state?.score || 0),
         miss: Number(state?.miss || 0),
@@ -3487,38 +3456,41 @@
         result: 'rematch'
       });
 
-      stopLoop();
-      clearRunTimers(state);
-      resetTransientUI();
-      clearArena();
-      showView('menu');
-    });
-
-    bindAction('back-menu', () => {
-      hhFitnessMark('back_launcher', {
-        score: Number(state?.score || 0),
-        miss: Number(state?.miss || 0),
-        bestStreak: Number(state?.maxCombo || 0),
-        result: 'launcher'
+      const warmupUrl = jdBuildWarmupGateUrl({
+        mode: (state?.mode || elMode?.value || HHA_CTX.mode || 'training').toLowerCase(),
+        diff: (state?.diff || elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase(),
+        time: String(Math.round((state?.duration || 0) / 1000) || parseInt(elDuration?.value || HHA_CTX.duration || '60', 10) || 60),
+        run: HHA_CTX.run || 'play',
+        view: HHA_CTX.view || 'mobile',
+        pid: HHA_CTX.pid || 'anon',
+        name: qs('name', qs('nickName', 'Hero')),
+        studyId: HHA_CTX.studyId || '',
+        seed: Date.now(),
+        hub: HHA_CTX.hub || qs('hub', './fitness-zone.html'),
+        launcher: HHA_CTX.launcher || qs('launcher', './jumpduck.html')
       });
 
-      goLauncherOrMenu();
+      location.href = warmupUrl;
     });
 
-    bindAction('continue-flow', () => {
-      hhFitnessMark('continue_flow', {
-        score: Number(state?.score || 0),
-        miss: Number(state?.miss || 0),
-        bestStreak: Number(state?.maxCombo || 0),
-        result: JD_FLOW.cooldownEnabled ? 'cooldown' : 'zone-return'
+    document.querySelector('[data-action="back-menu"]')?.addEventListener('click', (ev) => {
+      ev.preventDefault();
+
+      const launcherUrl = jdBuildLauncherUrl({
+        mode: elMode?.value || HHA_CTX.mode || 'training',
+        diff: elDiff?.value || HHA_CTX.diff || 'normal',
+        time: String(parseInt(elDuration?.value || HHA_CTX.duration || HHA_CTX.time || '60', 10) || 60),
+        run: HHA_CTX.run || 'play',
+        view: HHA_CTX.view || 'mobile',
+        pid: HHA_CTX.pid || 'anon',
+        name: qs('name', qs('nickName', 'Hero')),
+        studyId: HHA_CTX.studyId || '',
+        seed: HHA_CTX.seed || Date.now(),
+        hub: HHA_CTX.hub || qs('hub', './fitness-zone.html'),
+        launcher: HHA_CTX.launcher || qs('launcher', './jumpduck.html')
       });
 
-      if (JD_FLOW.cooldownEnabled) {
-        location.href = buildCooldownUrl();
-        return;
-      }
-
-      goZoneReturn();
+      location.href = launcherUrl;
     });
 
     $('#btn-jump')?.addEventListener('click', () => jdHandleInput(state, 'jump'));
@@ -3528,6 +3500,16 @@
       jdFinishRun(state, 'stop-early');
     });
 
+    const continueFlowBtn =
+      document.getElementById('jd-btn-continue-flow') ||
+      document.querySelector('[data-action="continue-flow"]');
+
+    continueFlowBtn?.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const url = state?.cooldownUrl || '';
+      if (url) location.href = url;
+    });
+
     if (playRoot) {
       playRoot.addEventListener('pointerdown', (ev) => {
         if (!state || !state.running) return;
@@ -3535,7 +3517,7 @@
         const midY = rect.top + rect.height / 2;
         if (ev.clientY < midY) jdHandleInput(state, 'jump');
         else jdHandleInput(state, 'duck');
-      }, { passive: true });
+      }, { passive:true });
     }
 
     window.addEventListener('keydown', (ev) => {
@@ -3551,7 +3533,9 @@
     });
 
     window.addEventListener('pagehide', () => {
-      if (!state || state.finished || state.finishing) return;
+      if (!state) return;
+      if (state.finished) return;
+      if (state.finishing) return;
 
       hhFitnessGoHub({
         score: Number(state?.score || 0),
@@ -3562,71 +3546,40 @@
     });
 
     btnDlEvents?.addEventListener('click', () => {
-      const csv = localStorage.getItem(JD_STORE_KEYS.EVENTS_CSV) || '';
-      const events = loadJson(JD_STORE_KEYS.EVENTS_JSON, []);
-
-      if (!csv && (!Array.isArray(events) || !events.length)) {
+      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      if (!summary || !Array.isArray(summary.eventLog || [])) {
         setLogStatus('ยังไม่มี event log ให้ export', false);
         return;
       }
 
-      downloadCsv(csv || toCsv(events, JD_EXPORT_COLUMNS.events), `jd-events-${Date.now()}.csv`);
+      downloadCsv(toCsv(summary.eventLog), `jd-events-${Date.now()}.csv`);
       setLogStatus('export events.csv เรียบร้อย', true);
     });
 
     btnDlSessions?.addEventListener('click', () => {
-      const csv = localStorage.getItem(JD_STORE_KEYS.SESSIONS_CSV) || '';
-      const summary = loadJson(JD_STORE_KEYS.SUMMARY_FULL, null);
-
-      if (!csv && !summary?.sessionFeatures) {
+      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      if (!summary || !summary.sessionFeatures) {
         setLogStatus('ยังไม่มี session summary ให้ export', false);
         return;
       }
 
-      downloadCsv(
-        csv || toCsv([summary.sessionFeatures], JD_EXPORT_COLUMNS.sessions),
-        `jd-sessions-${Date.now()}.csv`
-      );
+      downloadCsv(toCsv([summary.sessionFeatures]), `jd-sessions-${Date.now()}.csv`);
       setLogStatus('export sessions.csv เรียบร้อย', true);
     });
 
     btnDlTeacher?.addEventListener('click', () => {
-      const csv = localStorage.getItem(JD_STORE_KEYS.TEACHER_CSV) || '';
-      const teacher = loadJson(JD_STORE_KEYS.TEACHER_JSON, null);
-
-      if (!csv && !teacher) {
+      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      if (!summary || !summary.teacherSummary) {
         setLogStatus('ยังไม่มี teacher summary ให้ export', false);
         return;
       }
 
-      downloadCsv(
-        csv || toCsv([teacher], JD_EXPORT_COLUMNS.teacher),
-        `jd-teacher-summary-${Date.now()}.csv`
-      );
+      downloadCsv(toCsv([summary.teacherSummary]), `jd-teacher-summary-${Date.now()}.csv`);
       setLogStatus('export teacher-summary.csv เรียบร้อย', true);
     });
 
     btnSendLog?.addEventListener('click', async () => {
-      const api = String(HHA_CTX.api || '').trim();
-      if (!api) {
-        setLogStatus('ยังไม่ได้ส่ง เพราะไม่มี api= ใน URL', false);
-        return;
-      }
-
-      const summary = loadJson(JD_STORE_KEYS.SUMMARY_FULL, null);
-      if (!summary) {
-        setLogStatus('ยังไม่มี summary สำหรับส่ง', false);
-        return;
-      }
-
-      setLogStatus('กำลังส่ง log...', true);
-      const res = await jdSendSummaryToApi(summary);
-
-      if (res.ok) {
-        setLogStatus('ส่ง log สำเร็จ', true);
-      } else {
-        setLogStatus(`ส่งไม่สำเร็จ • queue ไว้แล้ว (${res.reason || 'unknown'})`, false);
-      }
+      setLogStatus('ยังไม่ได้เปิด cloud logger ใน patch นี้', false);
     });
 
     elMode?.addEventListener('change', updateResearchVisibility);
@@ -3643,17 +3596,10 @@
     if (elPidInput) elPidInput.value = HHA_CTX.pid || 'anon';
 
     bindEvents();
-    syncFlowButtons();
     resetPlayHUD();
     resetResultHUD();
     showView('menu');
-
-    jdFlushPendingUploads();
-    window.addEventListener('online', jdFlushPendingUploads);
-
-    hhFitnessMark('menu_ready', {
-      result: 'menu'
-    });
+    jdMaybeAutoStartAfterWarmup();
   }
 
   init();
