@@ -736,7 +736,8 @@
 
         <div class="row">
           <button id="startBtn" class="action-btn primary">เริ่มภารกิจ</button>
-          <button id="backHubBtn" class="action-btn secondary" style="display:none;">กลับ HUB</button>
+          <button id="startZoneBtn" class="action-btn secondary">กลับ Hygiene Zone</button>
+          <button id="backHubBtn" class="action-btn secondary">กลับ HUB</button>
         </div>
       </div>
     </div>
@@ -780,7 +781,8 @@
         <div class="row" style="margin-top:18px;">
           <button id="replayBtn" class="action-btn primary">เล่นอีกครั้ง</button>
           <button id="nextBtn" class="action-btn secondary" style="display:none;">ไปต่อ</button>
-          <button id="summaryHubBtn" class="action-btn secondary" style="display:none;">กลับ HUB</button>
+          <button id="summaryZoneBtn" class="action-btn secondary">กลับ Hygiene Zone</button>
+          <button id="summaryHubBtn" class="action-btn secondary">กลับ HUB</button>
         </div>
       </div>
     </div>
@@ -807,6 +809,25 @@
       obj.time = Number(obj.time || 63);
       return obj;
     })();
+
+    const safeAbsUrl = (raw, fallback='') => {
+      const value = String(raw || '').trim();
+      try{
+        if (value) return new URL(value, location.href).toString();
+      }catch(_){}
+      try{
+        return new URL(fallback || '../hygiene-zone.html', location.href).toString();
+      }catch(_){
+        return '../hygiene-zone.html';
+      }
+    };
+
+    const HUB_ROOT_URL = safeAbsUrl(query.hubRoot || query.hub || '../hub.html', '../hub.html');
+    const ZONE_RETURN_URL = safeAbsUrl(query.zoneReturn || '../hygiene-zone.html', '../hygiene-zone.html');
+    const NEXT_URL_RAW = String(query.next || '').trim();
+    const NEXT_URL = NEXT_URL_RAW ? safeAbsUrl(NEXT_URL_RAW, '') : '';
+    const PID = query.pid || 'anon';
+    const PLAYER_NAME = query.name || query.nick || 'Hero';
 
     const ui = {
       infectionValue: $('infectionValue'),
@@ -858,7 +879,82 @@
     const game = createGermRushGame({ query, ui, refs });
     game.mount();
 
+    function rememberGermRush(){
+      try{
+        localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
+
+        localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
+          key: 'germdetective',
+          title: 'Germ Detective',
+          at: Date.now()
+        }));
+
+        const playedKey = 'HHA_ZONE_PLAYED_HYGIENE';
+        const played = JSON.parse(localStorage.getItem(playedKey) || '[]');
+        if (Array.isArray(played) && !played.includes('germdetective')) {
+          played.push('germdetective');
+          localStorage.setItem(playedKey, JSON.stringify(played));
+        }
+
+        const dailyKey = 'HHA_ZONE_DAILY_HYGIENE';
+        const d = new Date();
+        const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const all = JSON.parse(localStorage.getItem(dailyKey) || '{}');
+        const row = all[day] || { count:0, lastKey:'' };
+        row.count += 1;
+        row.lastKey = 'germdetective';
+        all[day] = row;
+        localStorage.setItem(dailyKey, JSON.stringify(all));
+
+        localStorage.setItem('HHA_GERMRUSH_LAST_PLAYER', JSON.stringify({
+          pid: PID,
+          name: PLAYER_NAME,
+          updatedAt: Date.now()
+        }));
+      }catch(_){}
+    }
+
+    function bindRemember(id){
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('click', rememberGermRush);
+    }
+
+    function forceNavigate(id, target){
+      const el = $(id);
+      if (!el || !target) return;
+      el.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        location.href = target;
+      }, true);
+    }
+
+    bindRemember('startBtn');
+    bindRemember('replayBtn');
+
+    forceNavigate('startZoneBtn', ZONE_RETURN_URL);
+    forceNavigate('summaryZoneBtn', ZONE_RETURN_URL);
+    forceNavigate('backHubBtn', HUB_ROOT_URL);
+    forceNavigate('summaryHubBtn', HUB_ROOT_URL);
+
+    if (NEXT_URL) {
+      const nextBtn = $('nextBtn');
+      if (nextBtn) nextBtn.style.display = '';
+      forceNavigate('nextBtn', NEXT_URL);
+    } else {
+      const nextBtn = $('nextBtn');
+      if (nextBtn) {
+        nextBtn.style.display = '';
+        nextBtn.textContent = 'กลับ Hygiene Zone';
+      }
+      forceNavigate('nextBtn', ZONE_RETURN_URL);
+    }
+
     window.GermRushGame = game;
+    window.__GERMRUSH_ZONE_RETURN__ = ZONE_RETURN_URL;
+    window.__GERMRUSH_HUB_ROOT__ = HUB_ROOT_URL;
+    window.__GERMRUSH_NEXT__ = NEXT_URL || ZONE_RETURN_URL;
   </script>
 </body>
 </html>
