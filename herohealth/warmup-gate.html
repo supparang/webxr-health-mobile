@@ -639,7 +639,7 @@
   <div id="gate-app"></div>
 
   <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260408b-GJ-SOLOBOSS-FLOW-FINAL';
+    import bootGate from './gate/gate-core.js?v=20260413a-GATE-CORE-STABLE-IDS-FINAL';
 
     const root = document.getElementById('gate-app');
 
@@ -838,9 +838,22 @@
       });
     }
 
-    function initGameGatePatches(){
-      initGroupsGatePatch();
-      initJumpDuckGatePatch();
+    function safeNum(v, fallback){
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function cleanName(v){
+      return String(v || '').trim().replace(/\s+/g, ' ').slice(0, 24);
+    }
+
+    function escapeHtml(s){
+      return String(s ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
     }
 
     function buildBaseCtx(){
@@ -868,102 +881,165 @@
       };
     }
 
-    function initGroupsGatePatch(){
-      const ctx = buildBaseCtx();
-
-      const isGroups =
+    function isGroupsCtx(ctx){
+      return (
         ctx.game === 'groups' ||
         ctx.gameId === 'groups' ||
-        ctx.theme === 'groups';
-
-      if (!isGroups) return;
-
-      const observer = new MutationObserver(() => {
-        applyGroupsPatch(ctx);
-      });
-
-      observer.observe(root, { childList:true, subtree:true });
-      applyGroupsPatch(ctx);
+        ctx.theme === 'groups'
+      );
     }
 
-    function applyGroupsPatch(ctx){
-      const refs = getGateRefs();
-      if (!refs || !refs.primaryBtn || !refs.shell) return;
-
-      if (ctx.phase === 'warmup') {
-        applyGroupsWarmupPatch(ctx, refs);
-      } else if (ctx.phase === 'cooldown') {
-        applyGroupsCooldownPatch(ctx, refs);
-      }
-    }
-
-    function initJumpDuckGatePatch(){
-      const ctx = buildBaseCtx();
-
-      const isJumpDuck =
+    function isJumpDuckCtx(ctx){
+      return (
         ctx.game === 'jumpduck' ||
         ctx.game === 'jump-duck' ||
         ctx.gameId === 'jumpduck' ||
         ctx.gameId === 'jump-duck' ||
         ctx.theme === 'jumpduck' ||
-        ctx.theme === 'jump-duck';
-
-      if (!isJumpDuck) return;
-
-      const observer = new MutationObserver(() => {
-        applyJumpDuckPatch(ctx);
-      });
-
-      observer.observe(root, { childList:true, subtree:true });
-      applyJumpDuckPatch(ctx);
-    }
-
-    function applyJumpDuckPatch(ctx){
-      const refs = getGateRefs();
-      if (!refs || !refs.primaryBtn || !refs.shell) return;
-
-      if (ctx.phase === 'warmup') {
-        applyJumpDuckWarmupPatch(ctx, refs);
-      } else if (ctx.phase === 'cooldown') {
-        applyJumpDuckCooldownPatch(ctx, refs);
-      }
+        ctx.theme === 'jump-duck'
+      );
     }
 
     function getGateRefs(){
       const titleEl =
-        root.querySelector('#gateTitle, .gate-title, h1');
+        root.querySelector('#gateTitle') ||
+        root.querySelector('#gateHeroTitle') ||
+        root.querySelector('.gate-title') ||
+        root.querySelector('h1');
 
       const descEl =
-        root.querySelector('#gateDesc, .gate-desc, .subtitle, p');
+        root.querySelector('#gateDesc') ||
+        root.querySelector('#gateHeroSub') ||
+        root.querySelector('.gate-desc') ||
+        root.querySelector('.subtitle') ||
+        root.querySelector('.gate-sub') ||
+        root.querySelector('p');
 
       const primaryBtn =
-        root.querySelector('#btnContinue, #continueBtn, .btn-primary, button[data-role="continue"]') ||
+        root.querySelector('#gatePrimaryBtn') ||
+        root.querySelector('#btnContinue') ||
+        root.querySelector('#continueBtn') ||
+        root.querySelector('button[data-role="continue"]') ||
+        root.querySelector('.btn-primary') ||
         root.querySelector('button');
 
       const secondaryBtn =
-        root.querySelector('#btnSecondary, #backBtn, .btn-secondary, button[data-role="back"]') ||
+        root.querySelector('#gateSecondaryBtn') ||
+        root.querySelector('#btnSecondary') ||
+        root.querySelector('#backBtn') ||
+        root.querySelector('button[data-role="back"]') ||
+        root.querySelector('.btn-secondary') ||
         root.querySelectorAll('button')[1] ||
         null;
 
-      let shell = primaryBtn ? primaryBtn.parentElement : null;
-      while (shell && shell !== root && !(titleEl && shell.contains(titleEl))) {
-        shell = shell.parentElement;
-      }
-      if (!shell || shell === root) {
-        shell = root.firstElementChild || root;
-      }
+      const shell =
+        root.querySelector('[data-gate-shell="1"]') ||
+        root.querySelector('[data-role="gate-card"]') ||
+        root.querySelector('.gate-card') ||
+        root.firstElementChild ||
+        root;
+
+      const footer =
+        root.querySelector('#gateFooter') ||
+        root.querySelector('[data-role="gate-footer"]') ||
+        null;
+
+      const stage =
+        root.querySelector('#gateStage') ||
+        root.querySelector('[data-role="gate-stage"]') ||
+        null;
 
       return {
         titleEl,
         descEl,
         primaryBtn,
         secondaryBtn,
-        shell
+        shell,
+        footer,
+        stage
       };
+    }
+
+    function buildNextUrl(ctx){
+      const nextUrl = new URL(ctx.next || ctx.hub, location.href);
+
+      if (!nextUrl.searchParams.get('pid')) nextUrl.searchParams.set('pid', ctx.pid || 'anon');
+      if (!nextUrl.searchParams.get('name') && ctx.name) nextUrl.searchParams.set('name', ctx.name);
+      if (!nextUrl.searchParams.get('studyId') && ctx.studyId) nextUrl.searchParams.set('studyId', ctx.studyId);
+      if (!nextUrl.searchParams.get('view')) nextUrl.searchParams.set('view', ctx.view || 'mobile');
+      if (ctx.debug) nextUrl.searchParams.set('debug', '1');
+
+      return nextUrl.toString();
+    }
+
+    function buildGroupsLead(grade, accuracy){
+      if (grade === 'S') return 'ยอดเยี่ยมมาก! รอบนี้ทั้งไวและแม่นสุด ๆ';
+      if (grade === 'A') return 'ดีมากเลย! รอบนี้ทำได้แม่นมาก';
+      if (grade === 'B') return 'ทำได้ดีนะ ลองเพิ่มความแม่นอีกนิดในรอบหน้า';
+      if (accuracy >= 60) return 'เริ่มได้ดีแล้ว รอบหน้าลองดูหมวดเป้าหมายให้ชัดขึ้นอีกหน่อย';
+      return 'พักสั้น ๆ ก่อน แล้วค่อยกลับไปลองใหม่อีกครั้งนะ';
+    }
+
+    function buildJumpDuckLead(rank, accuracy){
+      if (rank === 'S') return 'สุดยอดมาก! รอบนี้ทั้งแม่นและนิ่งมาก';
+      if (rank === 'A') return 'ดีมาก! จังหวะเริ่มคมและอ่าน lane ได้ดี';
+      if (rank === 'B') return 'ทำได้ดีแล้ว ลองรักษาจังหวะให้สม่ำเสมอขึ้นอีกนิด';
+      if (accuracy >= 60) return 'เริ่มจับ low / high ได้แล้ว รอบหน้าลองกดให้คมขึ้นอีกหน่อย';
+      return 'พักสั้น ๆ ก่อน แล้วค่อยกลับไปลองใหม่อีกครั้งนะ';
+    }
+
+    function gradeToStars(grade){
+      if (grade === 'S') return '⭐⭐⭐';
+      if (grade === 'A') return '⭐⭐⭐';
+      if (grade === 'B') return '⭐⭐☆';
+      return '⭐☆☆';
+    }
+
+    function rankToStars(rank){
+      if (rank === 'S') return '⭐⭐⭐';
+      if (rank === 'A') return '⭐⭐⭐';
+      if (rank === 'B') return '⭐⭐☆';
+      if (rank === 'C') return '⭐☆☆';
+      return '⭐☆☆';
+    }
+
+    function persistGroupsCooldownSnapshot(ctx){
+      try{
+        localStorage.setItem('HHA_LAST_COOLDOWN_SUMMARY', JSON.stringify({
+          patch: 'groups-cooldown-summary',
+          game: 'groups',
+          mode: ctx.mode || 'solo',
+          pid: ctx.pid,
+          name: ctx.name,
+          score: ctx.score,
+          accuracy: ctx.accuracy,
+          bestStreak: ctx.bestStreak,
+          grade: ctx.grade,
+          ts: Date.now()
+        }));
+      }catch{}
+    }
+
+    function persistJumpDuckCooldownSnapshot(ctx){
+      try{
+        localStorage.setItem('HHA_LAST_COOLDOWN_SUMMARY_JUMPDUCK', JSON.stringify({
+          patch: 'jumpduck-cooldown-summary',
+          game: 'jumpduck',
+          mode: ctx.mode || 'training',
+          pid: ctx.pid,
+          name: ctx.name,
+          score: ctx.score,
+          accuracy: ctx.accuracy,
+          bestStreak: ctx.bestStreak,
+          rank: ctx.grade,
+          ts: Date.now()
+        }));
+      }catch{}
     }
 
     function applyGroupsWarmupPatch(ctx, refs){
       const { titleEl, descEl, primaryBtn, secondaryBtn, shell } = refs;
+      if (!primaryBtn || !shell) return;
 
       const CATS = [
         { id:'g1', short:'หมู่ 1', name:'โปรตีน', icon:'🥚' },
@@ -1072,27 +1148,6 @@
         });
       }
 
-      if (ctx.debug && !root.querySelector('#groupsWarmupDebug')) {
-        const dbg = document.createElement('pre');
-        dbg.id = 'groupsWarmupDebug';
-        dbg.style.marginTop = '12px';
-        dbg.style.padding = '12px';
-        dbg.style.borderRadius = '16px';
-        dbg.style.background = 'rgba(255,255,255,.9)';
-        dbg.style.border = '1px solid #d9edf7';
-        dbg.style.color = '#5f7f95';
-        dbg.style.fontSize = '11px';
-        dbg.style.fontWeight = '1000';
-        dbg.style.whiteSpace = 'pre-wrap';
-        dbg.textContent =
-          'PATCH: groups-warmup-minigame\n' +
-          'phase: warmup\n' +
-          'game: groups\n' +
-          'next: ' + ctx.next + '\n' +
-          'hub: ' + ctx.hub;
-        shell.appendChild(dbg);
-      }
-
       function onPrimaryClick(ev){
         ev.preventDefault();
         ev.stopImmediatePropagation();
@@ -1133,11 +1188,8 @@
         updateHud();
 
         if (state.timeLeft <= 0){
-          if (state.correct >= GOAL_NEED) {
-            finishSuccess();
-          } else {
-            finishFail();
-          }
+          if (state.correct >= GOAL_NEED) finishSuccess();
+          else finishFail();
         }
       }
 
@@ -1152,7 +1204,20 @@
         noteEl.textContent = 'ผ่านมินิเกมอุ่นเครื่องแล้ว กำลังพาไปหน้าเกมหลัก...';
         targetTextEl.textContent = 'สุดยอด! พร้อมเข้า Groups Solo แล้ว 🚀';
 
-        persistWarmup();
+        try{
+          localStorage.setItem('HHA_GROUPS_LAST_WARMUP', JSON.stringify({
+            patch: 'groups-warmup-minigame',
+            ts: Date.now(),
+            pid: ctx.pid,
+            name: ctx.name,
+            targetGroup: state.targetCat?.id || '',
+            correct: state.correct,
+            timeLeft: state.timeLeft,
+            success: true,
+            next: ctx.next
+          }));
+        }catch{}
+
         setTimeout(goNext, 700);
       }
 
@@ -1250,7 +1315,7 @@
           state.correct += 1;
           updateHud();
 
-          if (state.correct >= GOAL_NEED){
+          if (state.correct >= GOAL_NEED) {
             finishSuccess();
           } else {
             setTimeout(spawnBatch, 120);
@@ -1279,22 +1344,6 @@
           clearInterval(state.tickId);
           state.tickId = 0;
         }
-      }
-
-      function persistWarmup(){
-        try{
-          localStorage.setItem('HHA_GROUPS_LAST_WARMUP', JSON.stringify({
-            patch: 'groups-warmup-minigame',
-            ts: Date.now(),
-            pid: ctx.pid,
-            name: ctx.name,
-            targetGroup: state.targetCat?.id || '',
-            correct: state.correct,
-            timeLeft: state.timeLeft,
-            success: true,
-            next: ctx.next
-          }));
-        }catch{}
       }
 
       function goNext(){
@@ -1331,26 +1380,19 @@
 
     function applyGroupsCooldownPatch(ctx, refs){
       const { titleEl, descEl, primaryBtn, secondaryBtn, shell } = refs;
+      if (!primaryBtn || !shell) return;
 
       const oldMini = root.querySelector('#groupsWarmupMini');
       if (oldMini) oldMini.remove();
 
-      if (titleEl) {
-        titleEl.textContent = 'คูลดาวน์หลังจบเกม Food Groups';
-      }
-
+      if (titleEl) titleEl.textContent = 'คูลดาวน์หลังจบเกม Food Groups';
       if (descEl) {
         descEl.textContent =
           `${cleanName(ctx.name || ctx.pid || 'ผู้เล่น')} เล่นจบรอบแล้ว มาหายใจช้า ๆ ผ่อนคลายสั้น ๆ ก่อนกลับไปที่ HUB กันนะ`;
       }
 
-      if (primaryBtn) {
-        primaryBtn.textContent = 'กลับไปที่ HUB';
-      }
-
-      if (secondaryBtn) {
-        secondaryBtn.textContent = 'กลับหน้าหลัก';
-      }
+      primaryBtn.textContent = 'กลับไปที่ HUB';
+      if (secondaryBtn) secondaryBtn.textContent = 'กลับหน้าหลัก';
 
       let card = root.querySelector('#groupsCooldownSummaryCard');
       if (!card) {
@@ -1362,7 +1404,7 @@
             <div class="gcs-grade ${String(ctx.grade || 'C').toLowerCase()}">${escapeHtml(ctx.grade || 'C')}</div>
           </div>
 
-          <p class="gcs-lead">${escapeHtml(buildLead(ctx.grade, ctx.accuracy))} ${escapeHtml(gradeToStars(ctx.grade))}</p>
+          <p class="gcs-lead">${escapeHtml(buildGroupsLead(ctx.grade, ctx.accuracy))} ${escapeHtml(gradeToStars(ctx.grade))}</p>
 
           <div class="gcs-grid">
             <div class="gcs-item">
@@ -1396,7 +1438,8 @@
         primaryBtn.dataset.groupsCooldownBound = '1';
         primaryBtn.addEventListener('click', (ev) => {
           ev.preventDefault();
-          persistCooldownSnapshot(ctx);
+          ev.stopImmediatePropagation();
+          persistGroupsCooldownSnapshot(ctx);
           location.href = buildNextUrl(ctx);
         }, true);
       }
@@ -1405,6 +1448,7 @@
         secondaryBtn.dataset.groupsCooldownBound = '1';
         secondaryBtn.addEventListener('click', (ev) => {
           ev.preventDefault();
+          ev.stopImmediatePropagation();
           location.href = ctx.hub;
         }, true);
       }
@@ -1412,6 +1456,7 @@
 
     function applyJumpDuckWarmupPatch(ctx, refs){
       const { titleEl, descEl, primaryBtn, secondaryBtn, shell } = refs;
+      if (!primaryBtn || !shell) return;
 
       const GOAL_NEED = 4;
       const TIME_LIMIT = ctx.diff === 'hard' ? 10 : (ctx.diff === 'easy' ? 14 : 12);
@@ -1548,6 +1593,7 @@
         secondaryBtn.addEventListener('click', (ev) => {
           if (state.phase === 'playing') return;
           ev.preventDefault();
+          ev.stopImmediatePropagation();
           location.href = ctx.hub;
         });
       }
@@ -1560,27 +1606,6 @@
       if (!btnDuck.dataset.jumpDuckBound) {
         btnDuck.dataset.jumpDuckBound = '1';
         btnDuck.addEventListener('click', () => onAction('duck'));
-      }
-
-      if (ctx.debug && !root.querySelector('#jumpDuckWarmupDebug')) {
-        const dbg = document.createElement('pre');
-        dbg.id = 'jumpDuckWarmupDebug';
-        dbg.style.marginTop = '12px';
-        dbg.style.padding = '12px';
-        dbg.style.borderRadius = '16px';
-        dbg.style.background = 'rgba(255,255,255,.9)';
-        dbg.style.border = '1px solid #d9edf7';
-        dbg.style.color = '#5f7f95';
-        dbg.style.fontSize = '11px';
-        dbg.style.fontWeight = '1000';
-        dbg.style.whiteSpace = 'pre-wrap';
-        dbg.textContent =
-          'PATCH: jumpduck-warmup-mini\n' +
-          'phase: warmup\n' +
-          'game: jumpduck\n' +
-          'next: ' + ctx.next + '\n' +
-          'hub: ' + ctx.hub;
-        shell.appendChild(dbg);
       }
 
       function onPrimaryClick(ev){
@@ -1622,11 +1647,8 @@
         updateHud();
 
         if (state.timeLeft <= 0){
-          if (state.correct >= GOAL_NEED) {
-            finishSuccess();
-          } else {
-            finishFail();
-          }
+          if (state.correct >= GOAL_NEED) finishSuccess();
+          else finishFail();
         }
       }
 
@@ -1684,7 +1706,20 @@
         feedbackEl.className = 'jwm-feedback good';
         targetTextEl.textContent = 'ผ่านมินิเกมอุ่นเครื่องแล้ว กำลังพาไปหน้า JumpDuck...';
 
-        persistJumpDuckWarmup();
+        try{
+          localStorage.setItem('HHA_JUMPDUCK_LAST_WARMUP', JSON.stringify({
+            patch: 'jumpduck-warmup-mini',
+            ts: Date.now(),
+            pid: ctx.pid,
+            name: ctx.name,
+            correct: state.correct,
+            wrong: state.wrong,
+            timeLeft: state.timeLeft,
+            success: true,
+            next: ctx.next
+          }));
+        }catch{}
+
         setTimeout(goNext, 700);
       }
 
@@ -1713,22 +1748,6 @@
         }
       }
 
-      function persistJumpDuckWarmup(){
-        try{
-          localStorage.setItem('HHA_JUMPDUCK_LAST_WARMUP', JSON.stringify({
-            patch: 'jumpduck-warmup-mini',
-            ts: Date.now(),
-            pid: ctx.pid,
-            name: ctx.name,
-            correct: state.correct,
-            wrong: state.wrong,
-            timeLeft: state.timeLeft,
-            success: true,
-            next: ctx.next
-          }));
-        }catch{}
-      }
-
       function goNext(){
         location.href = ctx.next;
       }
@@ -1736,26 +1755,19 @@
 
     function applyJumpDuckCooldownPatch(ctx, refs){
       const { titleEl, descEl, primaryBtn, secondaryBtn, shell } = refs;
+      if (!primaryBtn || !shell) return;
 
       const oldMini = root.querySelector('#jumpDuckWarmupMini');
       if (oldMini) oldMini.remove();
 
-      if (titleEl) {
-        titleEl.textContent = 'คูลดาวน์หลังจบเกม JumpDuck';
-      }
-
+      if (titleEl) titleEl.textContent = 'คูลดาวน์หลังจบเกม JumpDuck';
       if (descEl) {
         descEl.textContent =
           `${cleanName(ctx.name || ctx.pid || 'ผู้เล่น')} เล่นจบรอบแล้ว มาพักสั้น ๆ หายใจช้า ๆ ก่อนกลับไปที่ Fitness Zone กันนะ`;
       }
 
-      if (primaryBtn) {
-        primaryBtn.textContent = 'กลับ Fitness Zone';
-      }
-
-      if (secondaryBtn) {
-        secondaryBtn.textContent = 'กลับ HUB';
-      }
+      primaryBtn.textContent = 'กลับ Fitness Zone';
+      if (secondaryBtn) secondaryBtn.textContent = 'กลับ HUB';
 
       let card = root.querySelector('#jumpduckCooldownSummaryCard');
       if (!card) {
@@ -1805,6 +1817,7 @@
         primaryBtn.dataset.jumpduckCooldownBound = '1';
         primaryBtn.addEventListener('click', (ev) => {
           ev.preventDefault();
+          ev.stopImmediatePropagation();
           persistJumpDuckCooldownSnapshot(ctx);
           location.href = buildNextUrl(ctx);
         }, true);
@@ -1814,104 +1827,47 @@
         secondaryBtn.dataset.jumpduckCooldownBound = '1';
         secondaryBtn.addEventListener('click', (ev) => {
           ev.preventDefault();
+          ev.stopImmediatePropagation();
           location.href = ctx.hub;
         }, true);
       }
     }
 
-    function buildNextUrl(ctx){
-      const nextUrl = new URL(ctx.next || ctx.hub, location.href);
+    function applyGameSpecificPatch(){
+      const ctx = buildBaseCtx();
+      const refs = getGateRefs();
 
-      if (!nextUrl.searchParams.get('pid')) nextUrl.searchParams.set('pid', ctx.pid || 'anon');
-      if (!nextUrl.searchParams.get('name') && ctx.name) nextUrl.searchParams.set('name', ctx.name);
-      if (!nextUrl.searchParams.get('studyId') && ctx.studyId) nextUrl.searchParams.set('studyId', ctx.studyId);
-      if (!nextUrl.searchParams.get('view')) nextUrl.searchParams.set('view', ctx.view || 'mobile');
-      if (ctx.debug) nextUrl.searchParams.set('debug', '1');
+      if (isGroupsCtx(ctx)) {
+        if (ctx.phase === 'warmup') applyGroupsWarmupPatch(ctx, refs);
+        else applyGroupsCooldownPatch(ctx, refs);
+      }
 
-      return nextUrl.toString();
+      if (isJumpDuckCtx(ctx)) {
+        if (ctx.phase === 'warmup') applyJumpDuckWarmupPatch(ctx, refs);
+        else applyJumpDuckCooldownPatch(ctx, refs);
+      }
     }
 
-    function persistCooldownSnapshot(ctx){
-      try{
-        localStorage.setItem('HHA_LAST_COOLDOWN_SUMMARY', JSON.stringify({
-          patch: 'groups-cooldown-summary',
-          game: 'groups',
-          mode: ctx.mode || 'solo',
-          pid: ctx.pid,
-          name: ctx.name,
-          score: ctx.score,
-          accuracy: ctx.accuracy,
-          bestStreak: ctx.bestStreak,
-          grade: ctx.grade,
-          ts: Date.now()
-        }));
-      }catch{}
-    }
+    function initGameGatePatches(){
+      if (root.__gatePatchReady) return;
+      root.__gatePatchReady = true;
 
-    function persistJumpDuckCooldownSnapshot(ctx){
-      try{
-        localStorage.setItem('HHA_LAST_COOLDOWN_SUMMARY_JUMPDuck', JSON.stringify({
-          patch: 'jumpduck-cooldown-summary',
-          game: 'jumpduck',
-          mode: ctx.mode || 'training',
-          pid: ctx.pid,
-          name: ctx.name,
-          score: ctx.score,
-          accuracy: ctx.accuracy,
-          bestStreak: ctx.bestStreak,
-          rank: ctx.grade,
-          ts: Date.now()
-        }));
-      }catch{}
-    }
+      const rerun = () => {
+        applyGameSpecificPatch();
+      };
 
-    function buildLead(grade, accuracy){
-      if (grade === 'S') return 'ยอดเยี่ยมมาก! รอบนี้ทั้งไวและแม่นสุด ๆ';
-      if (grade === 'A') return 'ดีมากเลย! รอบนี้ทำได้แม่นมาก';
-      if (grade === 'B') return 'ทำได้ดีนะ ลองเพิ่มความแม่นอีกนิดในรอบหน้า';
-      if (accuracy >= 60) return 'เริ่มได้ดีแล้ว รอบหน้าลองดูหมวดเป้าหมายให้ชัดขึ้นอีกหน่อย';
-      return 'พักสั้น ๆ ก่อน แล้วค่อยกลับไปลองใหม่อีกครั้งนะ';
-    }
+      rerun();
 
-    function buildJumpDuckLead(rank, accuracy){
-      if (rank === 'S') return 'สุดยอดมาก! รอบนี้ทั้งแม่นและนิ่งมาก';
-      if (rank === 'A') return 'ดีมาก! จังหวะเริ่มคมและอ่าน lane ได้ดี';
-      if (rank === 'B') return 'ทำได้ดีแล้ว ลองรักษาจังหวะให้สม่ำเสมอขึ้นอีกนิด';
-      if (accuracy >= 60) return 'เริ่มจับ low / high ได้แล้ว รอบหน้าลองกดให้คมขึ้นอีกหน่อย';
-      return 'พักสั้น ๆ ก่อน แล้วค่อยกลับไปลองใหม่อีกครั้งนะ';
-    }
+      root.addEventListener('gate:ui', () => {
+        rerun();
+      });
 
-    function gradeToStars(grade){
-      if (grade === 'S') return '⭐⭐⭐';
-      if (grade === 'A') return '⭐⭐⭐';
-      if (grade === 'B') return '⭐⭐☆';
-      return '⭐☆☆';
-    }
+      const observer = new MutationObserver(() => {
+        rerun();
+      });
 
-    function rankToStars(rank){
-      if (rank === 'S') return '⭐⭐⭐';
-      if (rank === 'A') return '⭐⭐⭐';
-      if (rank === 'B') return '⭐⭐☆';
-      if (rank === 'C') return '⭐☆☆';
-      return '⭐☆☆';
-    }
-
-    function safeNum(v, fallback){
-      const n = Number(v);
-      return Number.isFinite(n) ? n : fallback;
-    }
-
-    function cleanName(v){
-      return String(v || '').trim().replace(/\s+/g, ' ').slice(0, 24);
-    }
-
-    function escapeHtml(s){
-      return String(s ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
+      observer.observe(root, { childList:true, subtree:true });
+      root.__gatePatchObserver = observer;
     }
 
     bootGate(root)
