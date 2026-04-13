@@ -1,22 +1,2599 @@
-<!-- === /herohealth/fitness-planner/planner.html ===
-HeroHealth • Fitness Planner (RUN) — PRODUCTION
-FULL v20260301-PLANNER-HTML
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Fitness Planner</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="google" content="notranslate" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe9b1" />
   <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --bg1:#f2fff6;
+      --bg2:#e5fbec;
+      --bg3:#fff9e3;
+
+      --card:#ffffff;
+      --card-soft:#fbfffc;
+
+      --line:#d8eee0;
+      --line-strong:#bfe4ca;
+
+      --text:#3f423d;
+      --muted:#73776f;
+
+      --green:#7fd957;
+      --green2:#57bf39;
+      --teal:#66dac5;
+      --teal2:#2fb99e;
+      --blue:#7ccfff;
+      --blue2:#49b1f0;
+      --yellow:#ffd95f;
+      --orange:#ffb55d;
+      --pink:#ff98c9;
+      --pink2:#ff73b0;
+      --red:#ff7f7f;
+      --purple:#b89cff;
+
+      --shadow:0 18px 46px rgba(63,66,61,.10);
+      --shadow-soft:0 10px 24px rgba(63,66,61,.07);
+
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; }
+    body{
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.92), transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+    }
+
+    a{ color:inherit; text-decoration:none; }
+    button,input,select{ font:inherit; }
+    .hidden{ display:none !important; }
+
+    .app{
+      width:min(1420px, calc(100% - 14px));
+      margin:0 auto;
+      padding:
+        calc(10px + var(--safe-top))
+        0
+        calc(14px + var(--safe-bottom));
+      display:grid;
+      gap:12px;
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .brand,
+    .top-link,
+    .mini-chip{
+      min-height:48px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,var(--green),var(--teal));
+      color:#fff;
+      font-size:15px;
+    }
+
+    .title-wrap{ min-width:0; }
+    .title-wrap h1{
+      margin:0;
+      font-size:clamp(24px,4vw,40px);
+      line-height:1;
+      font-weight:1000;
+    }
+    .title-wrap p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:center;
+    }
+
+    .screen{
+      display:grid;
+      gap:12px;
+    }
+
+    .panel{
+      background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(255,252,246,.93));
+      border:2px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .panel-inner{
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .hero-strip{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+      align-items:center;
+    }
+
+    .hero-note{
+      border-radius:22px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:14px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .hero-note h2{
+      margin:0;
+      font-size:20px;
+      line-height:1.1;
+    }
+
+    .hero-note p{
+      margin:8px 0 0;
+      color:var(--muted);
+      line-height:1.5;
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .week-grid{
+      display:grid;
+      grid-template-columns:repeat(7,minmax(230px,1fr));
+      gap:12px;
+      align-items:start;
+      overflow:auto;
+      padding-bottom:4px;
+    }
+
+    .fp-day-card{
+      border:2px solid var(--line);
+      border-radius:22px;
+      padding:12px;
+      background:#fff;
+      display:grid;
+      gap:10px;
+      box-shadow:var(--shadow-soft);
+      min-height:100%;
+    }
+
+    .fp-day-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+    }
+
+    .fp-day-label{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .fp-day-limit,
+    .fp-day-energy{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .fp-phase-block{
+      border:2px dashed var(--line-strong);
+      border-radius:16px;
+      padding:8px;
+      display:grid;
+      gap:8px;
+      background:#fbfffc;
+    }
+
+    .fp-phase-head{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:center;
+    }
+
+    .fp-phase-head strong{
+      font-size:14px;
+      line-height:1.1;
+    }
+
+    .fp-phase-head span{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:900;
+      text-align:right;
+    }
+
+    .fp-phase-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .fp-phase-empty{
+      min-height:44px;
+      display:grid;
+      place-items:center;
+      border-radius:12px;
+      background:rgba(0,0,0,.02);
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      text-align:center;
+      padding:8px;
+    }
+
+    .fp-mini-task{
+      border-radius:14px;
+      padding:8px;
+      background:#fff;
+      border:2px solid var(--line);
+      display:grid;
+      gap:8px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .fp-mini-task-top{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+    }
+
+    .fp-mini-task-title{
+      display:flex;
+      gap:8px;
+      min-width:0;
+      flex:1 1 auto;
+    }
+
+    .fp-mini-emoji{
+      font-size:20px;
+      line-height:1;
+      flex:0 0 auto;
+    }
+
+    .fp-mini-task-title strong{
+      display:block;
+      font-size:14px;
+      line-height:1.1;
+    }
+
+    .fp-mini-task-title small{
+      display:block;
+      margin-top:4px;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.3;
+    }
+
+    .fp-mini-remove,
+    .fp-mini-actions button,
+    .fp-phase-add button,
+    .fp-phase-add select,
+    .fp-day-play,
+    .play-btn,
+    .summary-btn{
+      border:none;
+      border-radius:12px;
+      padding:8px 10px;
+      font:inherit;
+    }
+
+    .fp-mini-remove,
+    .fp-mini-actions button,
+    .fp-phase-add button,
+    .fp-day-play,
+    .play-btn,
+    .summary-btn{
+      cursor:pointer;
+    }
+
+    .fp-mini-remove{
+      background:#fff5f5;
+      color:#9b3434;
+      font-size:11px;
+      font-weight:1000;
+      border:2px solid #ffdede;
+      white-space:nowrap;
+    }
+
+    .fp-mini-actions{
+      display:flex;
+      gap:6px;
+    }
+
+    .fp-mini-actions button{
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+      min-width:40px;
+    }
+
+    .fp-phase-add{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+    }
+
+    .fp-phase-add select{
+      min-height:40px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:var(--text);
+      outline:none;
+    }
+
+    .fp-phase-add button{
+      min-height:40px;
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .fp-day-actions{
+      display:grid;
+      margin-top:2px;
+    }
+
+    .fp-day-play{
+      min-height:46px;
+      font-weight:1000;
+      background:linear-gradient(135deg,var(--blue),var(--blue2));
+      color:#fff;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .real-game-badge{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:linear-gradient(135deg,#fff7da,#ffe7a6);
+      border:2px solid rgba(255,181,93,.38);
+      color:#8b5a12;
+      font-size:11px;
+      font-weight:1000;
+      white-space:nowrap;
+      width:max-content;
+    }
+
+    .builder-tools{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .builder-chip-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .run-layout{
+      display:grid;
+      gap:12px;
+    }
+
+    .run-topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .hud-row{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .hud-box{
+      min-height:68px;
+      padding:10px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      gap:4px;
+    }
+
+    .hud-box .k{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .hud-box .v{
+      font-size:20px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .run-main{
+      display:grid;
+      grid-template-columns:1.02fr .98fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .run-card{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      min-height:560px;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.65), transparent 30%),
+        linear-gradient(180deg,#f9fffb,#fffaf0);
+      border-radius:22px;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .run-task-title{
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+    }
+
+    .run-task-icon{
+      width:72px;
+      height:72px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:34px;
+      box-shadow:var(--shadow-soft);
+      flex:0 0 auto;
+    }
+
+    .c-green{ background:linear-gradient(135deg,var(--green),var(--green2)); }
+    .c-blue{ background:linear-gradient(135deg,var(--blue),var(--blue2)); }
+    .c-teal{ background:linear-gradient(135deg,var(--teal),var(--teal2)); }
+    .c-pink{ background:linear-gradient(135deg,var(--pink),var(--pink2)); }
+    .c-orange{ background:linear-gradient(135deg,var(--orange),#ff9650); }
+    .c-purple{ background:linear-gradient(135deg,var(--purple),#8a7cf0); }
+
+    .run-task-copy h2{
+      margin:0;
+      font-size:30px;
+      line-height:1.05;
+    }
+
+    .run-task-copy p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .run-progress{
+      display:grid;
+      gap:8px;
+    }
+
+    .run-progress-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .task-progress-bar{
+      height:18px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#edf8ef;
+      border:2px solid var(--line);
+    }
+
+    .task-progress-fill{
+      height:100%;
+      width:0%;
+      border-radius:inherit;
+      background:linear-gradient(90deg,var(--green2),var(--teal2));
+      transition:width .18s ease;
+    }
+
+    .task-stage{
+      min-height:220px;
+      border-radius:24px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      padding:16px;
+      display:grid;
+      gap:14px;
+      align-content:start;
+    }
+
+    .task-stage-center{
+      min-height:120px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#fbfffc,#fffdf7);
+      border:2px dashed var(--line-strong);
+      display:grid;
+      place-items:center;
+      padding:14px;
+      text-align:center;
+    }
+
+    .stage-emoji{
+      font-size:54px;
+      line-height:1;
+    }
+
+    .stage-text{
+      margin-top:8px;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.25;
+    }
+
+    .stage-sub{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .task-control-card{
+      min-height:140px;
+      align-content:start;
+      border-radius:22px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .task-control-card h3{
+      margin:0;
+      font-size:16px;
+    }
+
+    .task-control-actions{
+      display:grid;
+      gap:10px;
+    }
+
+    .play-btn{
+      min-height:58px;
+      font-size:18px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .play-btn.tap{
+      background:linear-gradient(135deg,var(--blue),var(--blue2));
+      color:#fff;
+    }
+
+    .play-btn.hold{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .play-btn.breath{
+      background:linear-gradient(135deg,var(--pink),var(--pink2));
+      color:#fff;
+    }
+
+    .play-btn.skip{
+      background:#fff;
+      color:var(--text);
+      border:2px solid var(--line);
+    }
+
+    .run-side{
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .summary-card,
+    .coach-card{
+      border-radius:22px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .coach-top{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .coach-face{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      background:linear-gradient(135deg,var(--yellow),var(--orange));
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      box-shadow:var(--shadow-soft);
+      flex:0 0 auto;
+    }
+
+    .coach-title{
+      font-size:16px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .coach-sub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .coach-quick{
+      min-height:44px;
+      border-radius:16px;
+      padding:10px 12px;
+      background:#fbfffc;
+      border:2px solid var(--line);
+      font-weight:1000;
+      line-height:1.35;
+    }
+
+    .plan-queue{
+      display:grid;
+      gap:8px;
+    }
+
+    .queue-item{
+      min-height:48px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-weight:1000;
+    }
+
+    .queue-item.current{
+      background:#eefcf0;
+      border-color:#b8e5c2;
+      transform:translateY(-1px);
+    }
+
+    .queue-item.done{
+      background:#effced;
+      color:#2d7a3d;
+    }
+
+    .queue-item.skipped{
+      background:#fff5ea;
+      color:#8a5a12;
+    }
+
+    .overlay-toast{
+      position:fixed;
+      left:50%;
+      bottom:22px;
+      transform:translateX(-50%);
+      min-width:240px;
+      max-width:min(90vw,560px);
+      padding:14px 16px;
+      border-radius:18px;
+      background:rgba(31,41,55,.92);
+      color:#fff;
+      font-weight:1000;
+      box-shadow:0 16px 32px rgba(0,0,0,.22);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease,transform .18s ease;
+      z-index:60;
+      text-align:center;
+    }
+
+    .overlay-toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .summary-panel{
+      position:fixed;
+      left:50%;
+      bottom:20px;
+      transform:translateX(-50%);
+      width:min(920px, calc(100% - 16px));
+      z-index:70;
+      display:none;
+      padding:16px;
+      border-radius:28px;
+      background:rgba(255,255,255,.98);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      gap:12px;
+    }
+
+    .summary-panel.show{
+      display:grid;
+    }
+
+    .summary-head{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .rank-badge{
+      width:88px;
+      height:88px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      font-size:40px;
+      font-weight:1000;
+      background:linear-gradient(135deg,#fff,#edfceb);
+      border:3px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .summary-copy h2{
+      margin:0;
+      font-size:30px;
+      line-height:1.08;
+    }
+
+    .summary-copy p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .summary-stat{
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+    }
+
+    .summary-stat .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .summary-stat .v{
+      display:block;
+      margin-top:5px;
+      font-size:20px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .summary-actions{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .summary-btn{
+      min-height:50px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .summary-btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .summary-btn.secondary{
+      background:#fff;
+      border:2px solid var(--line);
+      color:var(--text);
+    }
+
+    .summary-btn.ghost{
+      background:linear-gradient(135deg,#fffaf3,#fff0d8);
+      border:2px solid rgba(255,181,93,.30);
+      color:var(--text);
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    @media (max-width:1320px){
+      .week-grid{
+        grid-template-columns:repeat(3,minmax(240px,1fr));
+      }
+    }
+
+    @media (max-width:1180px){
+      .run-main{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:840px){
+      .topbar,
+      .run-topbar,
+      .hero-strip{
+        grid-template-columns:1fr;
+      }
+
+      .hud-row,
+      .summary-grid,
+      .summary-actions{
+        grid-template-columns:1fr;
+      }
+
+      .week-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-  <!-- Planner SAFE จะสร้าง UI เอง ถ้าไม่มี element -->
-  <div id="app"></div>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">📋</div>
+        <div>HeroHealth</div>
+      </div>
 
-  <!-- ✅ Load SAFE -->
-  <script src="./planner.safe.js?v=20260301"></script>
+      <div class="title-wrap">
+        <h1>Fitness Planner</h1>
+        <p>เลือก Warm-up + Main + Cooldown เอง แล้วเล่นตามแผนจริงทีละข้อ</p>
+      </div>
+
+      <div class="top-actions">
+        <a id="btnBackFitnessTop" class="top-link" href="../fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnBackHubTop" class="top-link" href="../hub-v2.html">🏠 HUB</a>
+        <div id="pillMode" class="mini-chip">🔥 planner</div>
+        <div id="pillDiff" class="mini-chip">🎯 normal</div>
+        <div id="pillPid" class="mini-chip">🪪 anon</div>
+      </div>
+    </header>
+
+    <section id="builderScreen" class="screen">
+      <div class="panel">
+        <div class="panel-inner">
+          <div class="hero-strip">
+            <div class="hero-note">
+              <h2>แผนนี้ใช้ phase ที่เลือกเองจริง</h2>
+              <p>
+                ระบบนี้จะใช้ <strong>Warm-up → Main → Cooldown</strong> ที่ผู้เล่นจัดเองใน planner
+                ไม่ใช่ Warm-up/Cooldown จาก gate
+              </p>
+            </div>
+
+            <div class="builder-chip-row">
+              <div class="mini-chip">✅ planner phases only</div>
+              <div class="mini-chip">🎮 real game resume</div>
+              <div class="mini-chip">🚫 no gate warmup</div>
+            </div>
+          </div>
+
+          <div class="builder-tools">
+            <div class="builder-chip-row">
+              <div class="mini-chip">Mon–Fri ≤ 10m</div>
+              <div class="mini-chip">Sat–Sun ≤ 14m</div>
+            </div>
+            <div class="builder-chip-row">
+              <div class="real-game-badge">🎮 REAL GAME</div>
+            </div>
+          </div>
+
+          <div id="weekGrid" class="week-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="runScreen" class="screen hidden">
+      <div class="run-layout">
+        <div class="run-topbar">
+          <a id="btnBackFitnessRun" class="top-link" href="../fitness-zone.html">🏃 Fitness Zone</a>
+          <div class="mini-chip">📋 Planner Run • own phases only</div>
+          <button id="btnFinishEarly" class="top-link" type="button">⏹️ Finish</button>
+        </div>
+
+        <div class="hud-row">
+          <div class="hud-box"><span class="k">Mode</span><span id="hudMode" class="v">planner</span></div>
+          <div class="hud-box"><span class="k">Time</span><span id="hudTime" class="v">90</span></div>
+          <div class="hud-box"><span class="k">Task</span><span id="hudTask" class="v">1/4</span></div>
+          <div class="hud-box"><span class="k">Score</span><span id="hudScore" class="v">0</span></div>
+          <div class="hud-box"><span class="k">Done</span><span id="hudDone" class="v">0%</span></div>
+        </div>
+
+        <div class="run-main">
+          <div class="run-card">
+            <div class="run-task-title">
+              <div id="runTaskIcon" class="run-task-icon c-green">🚶</div>
+              <div class="run-task-copy">
+                <h2 id="runTaskTitle">Warm-up</h2>
+                <p id="runTaskSub">เริ่มจากภารกิจแรกของแผน</p>
+              </div>
+            </div>
+
+            <div class="run-progress">
+              <div class="run-progress-head">
+                <span id="runProgressLabel">progress</span>
+                <strong id="runProgressText">0%</strong>
+              </div>
+              <div class="task-progress-bar">
+                <div id="runProgressFill" class="task-progress-fill"></div>
+              </div>
+            </div>
+
+            <div class="task-stage">
+              <div class="task-stage-center">
+                <div>
+                  <div id="stageEmoji" class="stage-emoji">🚶</div>
+                  <div id="stageText" class="stage-text">เริ่มทำตาม task ปัจจุบัน</div>
+                  <div id="stageSub" class="stage-sub">planner warm-up / main / cooldown only</div>
+                </div>
+              </div>
+
+              <div class="task-control-card">
+                <h3 id="controlTitle">TASK</h3>
+                <div id="controlHint" class="coach-quick">กดปุ่มเพื่อทำ task นี้</div>
+                <div class="task-control-actions">
+                  <button id="actionPrimary" class="play-btn tap" type="button">✅ ทำ</button>
+                  <button id="actionSecondary" class="play-btn skip" type="button">⏭️ ข้าม</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="run-side">
+            <div class="coach-card">
+              <div class="coach-top">
+                <div class="coach-face">🙂</div>
+                <div>
+                  <div class="coach-title">Coach Hero</div>
+                  <div class="coach-sub">planner-selected phases</div>
+                </div>
+              </div>
+              <div id="runCoachBadge" class="mini-chip">Warm-up</div>
+              <div id="runCoachLine" class="coach-quick">แผนนี้ใช้ Warm-up / Main / Cooldown ที่เลือกเอง ไม่ใช้ gate</div>
+            </div>
+
+            <div class="summary-card">
+              <div class="hero-note" style="padding:10px;">
+                <h2 style="font-size:16px;">Plan Queue</h2>
+                <p style="margin-top:6px;">ระบบจะเล่นตามลำดับของแผนที่เลือกไว้จริง</p>
+              </div>
+              <div id="queueCount" class="mini-chip">0 task</div>
+              <div id="queueList" class="plan-queue"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="overlay-toast">พร้อมแล้ว!</div>
+
+    <section id="summaryPanel" class="summary-panel">
+      <div class="summary-head">
+        <div id="rankBadge" class="rank-badge">A</div>
+        <div class="summary-copy">
+          <h2 id="summaryTitle">เยี่ยมมาก!</h2>
+          <p id="summarySub">นี่คือผลสรุปของ planner phases ที่เลือกเอง</p>
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-stat"><span class="k">Score</span><span id="summaryScore" class="v">0</span></div>
+        <div class="summary-stat"><span class="k">Done</span><span id="summaryDone" class="v">0</span></div>
+        <div class="summary-stat"><span class="k">Total</span><span id="summaryTotal" class="v">0</span></div>
+        <div class="summary-stat"><span class="k">Skip</span><span id="summarySkip" class="v">0</span></div>
+        <div class="summary-stat"><span class="k">Completion</span><span id="summaryPct" class="v">0%</span></div>
+      </div>
+
+      <div class="summary-actions">
+        <button id="btnPlayAgain" class="summary-btn primary" type="button">🔁 เล่นอีกครั้ง</button>
+        <a id="btnSummaryFitness" class="summary-btn secondary" href="../fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnSummaryHub" class="summary-btn ghost" href="../hub-v2.html">🏠 HUB</a>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      Fitness Planner • planner-selected Warm-up / Main / Cooldown • real game resume • no gate substitution
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const FP_ACTIVE_RUN_KEY = 'HHA_FP_ACTIVE_RUN_V1';
+    const WEEK_PLAN_STORAGE_KEY = 'HHA_FP_WEEK_PLAN_V2';
+    const FP_STRICT_PLANNER_FLOW = true;
+
+    const DAY_KEYS = ['mon','tue','wed','thu','fri','sat','sun'];
+    const DAY_LABELS = {
+      mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun'
+    };
+    const DAY_LIMITS = {
+      mon:10, tue:10, wed:10, thu:10, fri:10, sat:14, sun:14
+    };
+
+    const REAL_GAME_ROUTES = {
+      'balance-hold': '../balance-hold-vr.html',
+      'jumpduck': '../jump-duck-vr.html',
+      'rhythm-boxer': '../rhythm-boxer-vr.html'
+    };
+
+    const TASK_LIBRARY = [
+      {
+        id:'stretch-start',
+        title:'Stretch Start',
+        subtitle:'ยืดแขน ไหล่ และลำตัวเบา ๆ',
+        zone:'warmup',
+        icon:'🤸',
+        color:'c-teal',
+        mechanic:'hold',
+        target:6,
+        unit:'sec',
+        score:20,
+        safety:8,
+        balance:4,
+        variety:3,
+        fun:4,
+        instruction:'กดค้างไว้จน progress เต็ม'
+      },
+      {
+        id:'slow-march',
+        title:'Slow March',
+        subtitle:'ย่ำเท้าช้า ๆ เพื่อปลุกร่างกาย',
+        zone:'warmup',
+        icon:'🚶',
+        color:'c-green',
+        mechanic:'tap',
+        target:14,
+        unit:'rep',
+        score:18,
+        safety:5,
+        balance:3,
+        variety:2,
+        fun:5,
+        instruction:'กดปุ่มซ้ำให้ครบจำนวนครั้ง'
+      },
+      {
+        id:'arm-swing',
+        title:'Arm Swing',
+        subtitle:'แกว่งแขนตามจังหวะให้ต่อเนื่อง',
+        zone:'warmup',
+        icon:'💪',
+        color:'c-blue',
+        mechanic:'tap',
+        target:16,
+        unit:'rep',
+        score:18,
+        safety:4,
+        balance:2,
+        variety:3,
+        fun:6,
+        instruction:'แตะปุ่มใหญ่ตามจังหวะ'
+      },
+      {
+        id:'jump-reach',
+        title:'Jump Reach',
+        subtitle:'ทำท่ากระโดดแตะเป้าจำลองเบา ๆ',
+        zone:'main',
+        icon:'🦘',
+        color:'c-blue',
+        mechanic:'launch',
+        target:1,
+        unit:'game',
+        score:60,
+        safety:3,
+        balance:4,
+        variety:5,
+        fun:10,
+        instruction:'เข้าเล่น JumpDuck จริง แล้วกลับมาที่แผน',
+        linkedGame: {
+          gameId:'jumpduck',
+          label:'JumpDuck',
+          routeKey:'jumpduck'
+        }
+      },
+      {
+        id:'balance-hold',
+        title:'Balance Hold',
+        subtitle:'คุมการทรงตัวให้นิ่งตามเวลาที่กำหนด',
+        zone:'main',
+        icon:'🧍',
+        color:'c-purple',
+        mechanic:'launch',
+        target:1,
+        unit:'game',
+        score:62,
+        safety:5,
+        balance:10,
+        variety:4,
+        fun:7,
+        instruction:'เข้าเล่น Balance Hold จริง แล้วกลับมาที่แผน',
+        linkedGame: {
+          gameId:'balance-hold',
+          label:'Balance Hold',
+          routeKey:'balance-hold'
+        }
+      },
+      {
+        id:'power-step',
+        title:'Power Step',
+        subtitle:'ขยับตัวต่อเนื่องแบบสั้น ๆ ให้จังหวะสวย',
+        zone:'main',
+        icon:'⚡',
+        color:'c-orange',
+        mechanic:'launch',
+        target:1,
+        unit:'game',
+        score:58,
+        safety:3,
+        balance:4,
+        variety:6,
+        fun:10,
+        instruction:'เข้าเล่น Rhythm Boxer จริง แล้วกลับมาที่แผน',
+        linkedGame: {
+          gameId:'rhythm-boxer',
+          label:'Rhythm Boxer',
+          routeKey:'rhythm-boxer'
+        }
+      },
+      {
+        id:'breath-reset',
+        title:'Breath Reset',
+        subtitle:'หายใจเข้า-ออกตามรอบเพื่อผ่อนคลาย',
+        zone:'cooldown',
+        icon:'🌬️',
+        color:'c-pink',
+        mechanic:'breath',
+        target:4,
+        unit:'cycle',
+        score:16,
+        safety:10,
+        balance:6,
+        variety:2,
+        fun:3,
+        instruction:'กด Inhale และ Exhale สลับกัน'
+      },
+      {
+        id:'water-break',
+        title:'Water Break',
+        subtitle:'พักดื่มน้ำและฟื้นตัวก่อนจบแผน',
+        zone:'cooldown',
+        icon:'🥤',
+        color:'c-teal',
+        mechanic:'hold',
+        target:4,
+        unit:'sec',
+        score:12,
+        safety:10,
+        balance:3,
+        variety:1,
+        fun:3,
+        instruction:'กดค้างไว้เหมือนพักฟื้นตัว'
+      },
+      {
+        id:'smile-finish',
+        title:'Smile Finish',
+        subtitle:'เช็กว่าร่างกายพร้อมและจบแผนด้วยพลังดี ๆ',
+        zone:'cooldown',
+        icon:'😊',
+        color:'c-green',
+        mechanic:'tap',
+        target:6,
+        unit:'rep',
+        score:14,
+        safety:5,
+        balance:3,
+        variety:2,
+        fun:8,
+        instruction:'กดปุ่มให้ครบเพื่อจบแผนอย่างสดใส'
+      }
+    ];
+
+    const state = {
+      weekPlan: {},
+      metrics: {
+        safety: 10,
+        balance: 20,
+        variety: 20,
+        fun: 30
+      },
+      run: {
+        active: false,
+        tasks: [],
+        index: 0,
+        score: 0,
+        done: 0,
+        skipped: 0,
+        leftSec: 90,
+        totalSec: 90,
+        timer: 0,
+        holdTick: 0,
+        mode: 'planner',
+        diff: 'normal',
+        sessionId: '',
+        pendingLaunch: null,
+        resumeCheckTimer: 0,
+        resumePendingTaskId: '',
+        strictPlannerFlow: true,
+        flowOrigin: 'planner-selected-phases'
+      }
+    };
+
+    function q(key, fallback='') {
+      try {
+        const v = new URL(location.href).searchParams.get(key);
+        return v == null ? fallback : v;
+      } catch (_) {
+        return fallback;
+      }
+    }
+
+    function safeJsonParse(raw, fallback = null) {
+      try { return JSON.parse(raw); } catch (_) { return fallback; }
+    }
+
+    function canonicalGameId(v) {
+      return String(v || '').trim().toLowerCase();
+    }
+
+    function deepClone(v) {
+      try {
+        if (typeof structuredClone === 'function') return structuredClone(v);
+      } catch (_) {}
+      return safeJsonParse(JSON.stringify(v), null);
+    }
+
+    function plannerUsesOwnPhases() {
+      return FP_STRICT_PLANNER_FLOW === true;
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      if (!toast) return;
+      toast.textContent = text;
+      toast.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 1400);
+    }
+
+    function buildHubUrl() {
+      const raw = q('hub', '');
+      if (raw) {
+        try { return new URL(raw, location.href).toString(); } catch (_) {}
+      }
+      return new URL('../hub-v2.html', location.href).toString();
+    }
+
+    function buildFitnessUrl() {
+      const u = new URL('../fitness-zone.html', location.href);
+      const pass = [
+        'pid','name','nick','studyId','run','view','diff','time','seed',
+        'debug','api','log','studentKey','schoolCode','classRoom','studentNo','nickName'
+      ];
+      pass.forEach((k) => {
+        const v = q(k, '');
+        if (v) u.searchParams.set(k, v);
+      });
+      u.searchParams.set('zone', 'fitness');
+      u.searchParams.set('hub', buildHubUrl());
+      u.searchParams.set('focus', 'fitness-planner');
+      u.searchParams.set('featured', 'fitness-planner');
+      return u.toString();
+    }
+
+    function createEmptyDayPlan(dayKey) {
+      return {
+        day: dayKey,
+        warmup: [],
+        main: [],
+        cooldown: []
+      };
+    }
+
+    function normalizeTaskForDay(task) {
+      const cloned = deepClone(task);
+      if (!cloned.runtime) {
+        cloned.runtime = {
+          progress: 0,
+          done: false,
+          skipped: false,
+          breathState: 'inhale'
+        };
+      }
+      return cloned;
+    }
+
+    function normalizeWeekPlan(raw) {
+      const out = {};
+      DAY_KEYS.forEach((dayKey) => {
+        const src = raw?.[dayKey];
+        if (!src) {
+          out[dayKey] = createEmptyDayPlan(dayKey);
+          return;
+        }
+
+        if (Array.isArray(src.items)) {
+          out[dayKey] = {
+            day: dayKey,
+            warmup: [],
+            main: src.items.map(normalizeTaskForDay),
+            cooldown: []
+          };
+          return;
+        }
+
+        out[dayKey] = {
+          day: dayKey,
+          warmup: Array.isArray(src.warmup) ? src.warmup.map(normalizeTaskForDay) : [],
+          main: Array.isArray(src.main) ? src.main.map(normalizeTaskForDay) : [],
+          cooldown: Array.isArray(src.cooldown) ? src.cooldown.map(normalizeTaskForDay) : []
+        };
+      });
+      return out;
+    }
+
+    function saveWeekPlan() {
+      try {
+        localStorage.setItem(WEEK_PLAN_STORAGE_KEY, JSON.stringify(state.weekPlan));
+      } catch (_) {}
+    }
+
+    function loadWeekPlan() {
+      try {
+        const raw = localStorage.getItem(WEEK_PLAN_STORAGE_KEY);
+        const parsed = raw ? safeJsonParse(raw, null) : null;
+        state.weekPlan = normalizeWeekPlan(parsed || {});
+      } catch (_) {
+        state.weekPlan = normalizeWeekPlan({});
+      }
+    }
+
+    function saveActiveRun() {
+      try {
+        const payload = {
+          run: {
+            active: !!state.run.active,
+            tasks: state.run.tasks || [],
+            index: Number(state.run.index || 0),
+            score: Number(state.run.score || 0),
+            done: Number(state.run.done || 0),
+            skipped: Number(state.run.skipped || 0),
+            leftSec: Number(state.run.leftSec || 90),
+            totalSec: Number(state.run.totalSec || 90),
+            mode: String(state.run.mode || 'planner'),
+            diff: String(state.run.diff || 'normal'),
+            sessionId: String(state.run.sessionId || ''),
+            pendingLaunch: state.run.pendingLaunch || null
+          },
+          metrics: {
+            safety: Number(state.metrics?.safety || 10),
+            balance: Number(state.metrics?.balance || 20),
+            variety: Number(state.metrics?.variety || 20),
+            fun: Number(state.metrics?.fun || 30)
+          },
+          savedAt: Date.now()
+        };
+        localStorage.setItem(FP_ACTIVE_RUN_KEY, JSON.stringify(payload));
+      } catch (_) {}
+    }
+
+    function loadActiveRun() {
+      try {
+        const raw = localStorage.getItem(FP_ACTIVE_RUN_KEY);
+        return raw ? safeJsonParse(raw, null) : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function clearActiveRun() {
+      try { localStorage.removeItem(FP_ACTIVE_RUN_KEY); } catch (_) {}
+    }
+
+    function restoreActiveRunFromStorage() {
+      const stored = loadActiveRun();
+      if (!stored || !stored.run || !Array.isArray(stored.run.tasks)) return false;
+
+      state.run.active = !!stored.run.active;
+      state.run.tasks = stored.run.tasks;
+      state.run.index = Number(stored.run.index || 0);
+      state.run.score = Number(stored.run.score || 0);
+      state.run.done = Number(stored.run.done || 0);
+      state.run.skipped = Number(stored.run.skipped || 0);
+      state.run.leftSec = Number(stored.run.leftSec || 90);
+      state.run.totalSec = Number(stored.run.totalSec || 90);
+      state.run.mode = String(stored.run.mode || 'planner');
+      state.run.diff = String(stored.run.diff || 'normal');
+      state.run.sessionId = String(stored.run.sessionId || '');
+      state.run.pendingLaunch = stored.run.pendingLaunch || null;
+      state.run.resumeCheckTimer = 0;
+      state.run.resumePendingTaskId = '';
+      state.run.strictPlannerFlow = true;
+      state.run.flowOrigin = 'planner-selected-phases';
+
+      if (stored.metrics) {
+        state.metrics = {
+          safety: Number(stored.metrics.safety || 10),
+          balance: Number(stored.metrics.balance || 20),
+          variety: Number(stored.metrics.variety || 20),
+          fun: Number(stored.metrics.fun || 30)
+        };
+      }
+
+      return true;
+    }
+
+    function readLastSummary() {
+      try {
+        const raw = localStorage.getItem('HHA_LAST_SUMMARY');
+        return raw ? safeJsonParse(raw, null) : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function readMatchingChildSummary(expectedGameId, launchedAtMs = 0) {
+      const last = readLastSummary();
+      if (!last) return null;
+
+      const gotGameId = canonicalGameId(last.game || last.gameId);
+      const wantGameId = canonicalGameId(expectedGameId);
+      if (gotGameId !== wantGameId) return null;
+
+      const ts =
+        Number(last.ts || 0) ||
+        Number(last.timestamp || 0) ||
+        Number(last.savedAt || 0) ||
+        (last.timestampIso ? Date.parse(last.timestampIso) : 0);
+
+      if (launchedAtMs && ts && ts + 1000 < launchedAtMs) {
+        return null;
+      }
+
+      return last;
+    }
+
+    function getResumeInfoFromUrl() {
+      return {
+        enabled: String(q('fpResume', '0')) === '1',
+        taskId: String(q('fpTaskId', '') || '').trim(),
+        gameId: String(q('fpGameId', '') || '').trim(),
+        sessionId: String(q('fpSessionId', '') || '').trim(),
+        launchedAt: Number(q('fpLaunchedAt', '0') || 0)
+      };
+    }
+
+    function clearResumeParamsFromUrl() {
+      const u = new URL(location.href);
+      ['fpResume', 'fpTaskId', 'fpGameId', 'fpSessionId', 'fpLaunchedAt'].forEach((k) => {
+        u.searchParams.delete(k);
+      });
+      history.replaceState({}, '', u.toString());
+    }
+
+    function buildPlannerResumeUrl(task, sessionId) {
+      const u = new URL(location.href);
+      u.searchParams.set('fpResume', '1');
+      u.searchParams.set('fpTaskId', task.id || '');
+      u.searchParams.set('fpGameId', task.linkedGame?.gameId || '');
+      u.searchParams.set('fpSessionId', sessionId || '');
+      u.searchParams.set('fpLaunchedAt', String(Date.now()));
+      return u.toString();
+    }
+
+    function buildRealGameUrlFromTask(task, sessionId) {
+      const gameId = task?.linkedGame?.gameId || '';
+      const route = REAL_GAME_ROUTES[gameId];
+      if (!route) return null;
+
+      const u = new URL(route, location.href);
+
+      const pid = String(q('pid', 'anon') || 'anon').trim();
+      const name = String(q('name', q('nickName', 'Player')) || 'Player').trim();
+      const studyId = String(q('studyId', '') || '').trim();
+      const diff = String(q('diff', 'normal') || 'normal').trim();
+      const time = String(q('time', '90') || '90').trim();
+      const view = String(q('view', 'mobile') || 'mobile').trim();
+      const run = String(q('run', 'play') || 'play').trim();
+      const seed = String(q('seed', Date.now()) || Date.now()).trim();
+
+      u.searchParams.set('pid', pid);
+      u.searchParams.set('name', name);
+      if (studyId) u.searchParams.set('studyId', studyId);
+
+      u.searchParams.set('diff', diff);
+      u.searchParams.set('time', time);
+      u.searchParams.set('view', view);
+      u.searchParams.set('run', run);
+      u.searchParams.set('seed', seed);
+
+      u.searchParams.set('zone', 'fitness');
+      u.searchParams.set('cat', 'fitness');
+      u.searchParams.set('game', gameId);
+      u.searchParams.set('gameId', gameId);
+      u.searchParams.set('theme', gameId);
+
+      u.searchParams.set('plannerFlow', '1');
+      u.searchParams.set('fpStrict', '1');
+      u.searchParams.set('gate', '0');
+      u.searchParams.set('cooldown', '0');
+      u.searchParams.set('returnPhase', 'planner');
+      u.searchParams.set('hub', buildPlannerResumeUrl(task, sessionId));
+
+      [
+        'studentKey','schoolCode','classRoom','studentNo','nickName',
+        'api','debug','phase','conditionGroup','sessionNo','weekNo','log'
+      ].forEach((k) => {
+        const v = q(k, '');
+        if (v != null && v !== '') u.searchParams.set(k, v);
+      });
+
+      return u.toString();
+    }
+
+    function stopPlannerRunTimer() {
+      if (state.run.timer) {
+        clearInterval(state.run.timer);
+        state.run.timer = 0;
+      }
+    }
+
+    function clearHoldTick() {
+      if (state.run.holdTick) {
+        clearInterval(state.run.holdTick);
+        state.run.holdTick = 0;
+      }
+    }
+
+    function clearResumeCheckTimer() {
+      if (state.run.resumeCheckTimer) {
+        clearInterval(state.run.resumeCheckTimer);
+        state.run.resumeCheckTimer = 0;
+      }
+    }
+
+    function restartPlannerRunTimer() {
+      stopPlannerRunTimer();
+
+      state.run.timer = setInterval(() => {
+        if (!state.run.active) return;
+
+        state.run.leftSec -= 1;
+        if (state.run.leftSec <= 0) {
+          state.run.leftSec = 0;
+          updateHud();
+          finishRun('timeup');
+          return;
+        }
+
+        if (state.run.leftSec === 30) showToast('⏰ เหลือ 30 วินาที');
+        if (state.run.leftSec === 10) showToast('⚠️ เหลือ 10 วินาที');
+
+        saveActiveRun();
+        updateHud();
+      }, 1000);
+    }
+
+    function showBuilder() {
+      const builder = document.getElementById('builderScreen');
+      const runner = document.getElementById('runScreen');
+      const summary = document.getElementById('summaryPanel');
+
+      if (builder) builder.classList.remove('hidden');
+      if (runner) runner.classList.add('hidden');
+      if (summary) summary.classList.remove('show');
+    }
+
+    function showRun() {
+      const builder = document.getElementById('builderScreen');
+      const runner = document.getElementById('runScreen');
+      const summary = document.getElementById('summaryPanel');
+
+      if (builder) builder.classList.add('hidden');
+      if (runner) runner.classList.remove('hidden');
+      if (summary) summary.classList.remove('show');
+    }
+
+    function currentTask() {
+      return state?.run?.tasks?.[state.run.index] || null;
+    }
+
+    function getTaskById(taskId) {
+      return TASK_LIBRARY.find((t) => t.id === taskId) || null;
+    }
+
+    function taskMinutes(task) {
+      if (!task) return 0;
+      if (typeof task.minutes === 'number' && task.minutes > 0) return task.minutes;
+
+      if (task.mechanic === 'launch') {
+        if (task.id === 'balance-hold') return 6;
+        if (task.id === 'jump-reach') return 6;
+        if (task.id === 'power-step') return 4;
+        return 5;
+      }
+
+      if (task.zone === 'warmup') return 2;
+      if (task.zone === 'cooldown') return 2;
+      return 4;
+    }
+
+    function totalMinutesForDay(dayPlan) {
+      const all = [
+        ...(dayPlan?.warmup || []),
+        ...(dayPlan?.main || []),
+        ...(dayPlan?.cooldown || [])
+      ];
+      return all.reduce((sum, task) => sum + taskMinutes(task), 0);
+    }
+
+    function dayEnergyScore(dayPlan) {
+      const all = [
+        ...(dayPlan?.warmup || []),
+        ...(dayPlan?.main || []),
+        ...(dayPlan?.cooldown || [])
+      ];
+      if (!all.length) return 0;
+      const raw = all.reduce((sum, task) => sum + Number(task.fun || 0) + Number(task.balance || 0), 0);
+      return Math.min(10, +(raw / (all.length * 2)).toFixed(1));
+    }
+
+    function addTaskToDayPhase(dayKey, phase, taskId) {
+      const day = state.weekPlan[dayKey];
+      if (!day) return;
+
+      const task = getTaskById(taskId);
+      if (!task) return;
+
+      day[phase].push(normalizeTaskForDay(task));
+      saveWeekPlan();
+      renderWeekPlanner();
+      showToast(`เพิ่ม ${task.title} ลง ${DAY_LABELS[dayKey]} • ${phase}`);
+    }
+
+    function removeTaskFromDayPhase(dayKey, phase, index) {
+      const day = state.weekPlan[dayKey];
+      if (!day || !Array.isArray(day[phase])) return;
+
+      day[phase].splice(index, 1);
+      saveWeekPlan();
+      renderWeekPlanner();
+    }
+
+    function moveTaskInDayPhase(dayKey, phase, index, direction) {
+      const day = state.weekPlan[dayKey];
+      if (!day || !Array.isArray(day[phase])) return;
+
+      const arr = day[phase];
+      if (direction === 'up' && index > 0) {
+        [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
+      }
+      if (direction === 'down' && index < arr.length - 1) {
+        [arr[index + 1], arr[index]] = [arr[index], arr[index + 1]];
+      }
+
+      saveWeekPlan();
+      renderWeekPlanner();
+    }
+
+    function renderMiniTaskCard(dayKey, phase, task, index) {
+      const badge = task.mechanic === 'launch' && task.linkedGame
+        ? `<div class="real-game-badge">🎮 REAL GAME</div>`
+        : '';
+
+      return `
+        <div class="fp-mini-task">
+          <div class="fp-mini-task-top">
+            <div class="fp-mini-task-title">
+              <span class="fp-mini-emoji">${task.icon || '🎯'}</span>
+              <div>
+                <strong>${task.title}</strong>
+                <small>${task.mechanic === 'launch' && task.linkedGame ? task.linkedGame.label : `${taskMinutes(task)} นาที`}</small>
+                ${badge}
+              </div>
+            </div>
+            <button class="fp-mini-remove" data-remove-day="${dayKey}" data-remove-phase="${phase}" data-remove-index="${index}" type="button">ลบ</button>
+          </div>
+
+          <div class="fp-mini-actions">
+            <button data-move-day="${dayKey}" data-move-phase="${phase}" data-move-index="${index}" data-move-dir="up" type="button">⬆</button>
+            <button data-move-day="${dayKey}" data-move-phase="${phase}" data-move-index="${index}" data-move-dir="down" type="button">⬇</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPhaseBlock(dayKey, phaseKey, title, subtitle) {
+      const day = state.weekPlan[dayKey];
+      const list = day?.[phaseKey] || [];
+
+      const addOptions = TASK_LIBRARY
+        .filter((task) => {
+          if (phaseKey === 'warmup') return task.zone === 'warmup';
+          if (phaseKey === 'cooldown') return task.zone === 'cooldown';
+          return task.zone === 'main';
+        })
+        .map((task) => `<option value="${task.id}">${task.title}</option>`)
+        .join('');
+
+      return `
+        <div class="fp-phase-block fp-phase-${phaseKey}">
+          <div class="fp-phase-head">
+            <strong>${title}</strong>
+            <span>${subtitle}</span>
+          </div>
+
+          <div class="fp-phase-list">
+            ${list.length
+              ? list.map((task, index) => renderMiniTaskCard(dayKey, phaseKey, task, index)).join('')
+              : `<div class="fp-phase-empty">ยังไม่มี ${title}</div>`
+            }
+          </div>
+
+          <div class="fp-phase-add">
+            <select data-add-select-day="${dayKey}" data-add-select-phase="${phaseKey}">
+              <option value="">+ เพิ่ม</option>
+              ${addOptions}
+            </select>
+            <button data-add-btn-day="${dayKey}" data-add-btn-phase="${phaseKey}" type="button">เพิ่ม</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDayCard(dayKey) {
+      const day = state.weekPlan[dayKey];
+      const used = totalMinutesForDay(day);
+      const limit = DAY_LIMITS[dayKey] || 10;
+      const energy = dayEnergyScore(day);
+
+      return `
+        <article class="fp-day-card">
+          <div class="fp-day-head">
+            <div>
+              <div class="fp-day-label">${DAY_LABELS[dayKey]}</div>
+              <div class="fp-day-limit">${used}/${limit}m</div>
+            </div>
+            <div class="fp-day-energy">energy ${energy}/10</div>
+          </div>
+
+          ${renderPhaseBlock(dayKey, 'warmup', 'Warm-up', 'เริ่มปลุกร่างกาย')}
+          ${renderPhaseBlock(dayKey, 'main', 'Main', 'ช่วงออกกำลังกายจริง')}
+          ${renderPhaseBlock(dayKey, 'cooldown', 'Cooldown', 'จบแบบผ่อนคลาย')}
+
+          <div class="fp-day-actions">
+            <button class="fp-day-play" data-play-day="${dayKey}" type="button">▶ เล่น</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderWeekPlanner() {
+      const mount = document.getElementById('weekGrid');
+      if (!mount) return;
+
+      mount.innerHTML = DAY_KEYS.map(renderDayCard).join('');
+
+      mount.querySelectorAll('[data-add-btn-day]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const dayKey = btn.getAttribute('data-add-btn-day');
+          const phase = btn.getAttribute('data-add-btn-phase');
+          const select = mount.querySelector(`[data-add-select-day="${dayKey}"][data-add-select-phase="${phase}"]`);
+          const taskId = select?.value || '';
+          if (!taskId) {
+            showToast('เลือก task ก่อน');
+            return;
+          }
+          addTaskToDayPhase(dayKey, phase, taskId);
+        });
+      });
+
+      mount.querySelectorAll('[data-remove-day]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          removeTaskFromDayPhase(
+            btn.getAttribute('data-remove-day'),
+            btn.getAttribute('data-remove-phase'),
+            Number(btn.getAttribute('data-remove-index') || 0)
+          );
+        });
+      });
+
+      mount.querySelectorAll('[data-move-day]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          moveTaskInDayPhase(
+            btn.getAttribute('data-move-day'),
+            btn.getAttribute('data-move-phase'),
+            Number(btn.getAttribute('data-move-index') || 0),
+            btn.getAttribute('data-move-dir')
+          );
+        });
+      });
+
+      mount.querySelectorAll('[data-play-day]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const dayKey = btn.getAttribute('data-play-day');
+          startRunForDay(dayKey);
+        });
+      });
+    }
+
+    function updatePills() {
+      const pillMode = document.getElementById('pillMode');
+      const pillDiff = document.getElementById('pillDiff');
+      const pillPid = document.getElementById('pillPid');
+
+      if (pillMode) pillMode.textContent = '🔥 planner';
+      if (pillDiff) pillDiff.textContent = `🎯 ${String(q('diff', 'normal') || 'normal')}`;
+      if (pillPid) pillPid.textContent = `🪪 ${String(q('pid', 'anon') || 'anon')}`;
+    }
+
+    function applyLinks() {
+      const fit = buildFitnessUrl();
+      const hub = buildHubUrl();
+
+      const idsFit = ['btnBackFitnessTop','btnBackFitnessRun','btnSummaryFitness'];
+      idsFit.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.href = fit;
+      });
+
+      const idsHub = ['btnBackHubTop','btnSummaryHub'];
+      idsHub.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.href = hub;
+      });
+    }
+
+    function flattenDayPlan(dayKey) {
+      const day = state.weekPlan?.[dayKey];
+      if (!day) return [];
+
+      return [
+        ...(day.warmup || []).map((task) => ({ ...deepClone(task), phase:'Warm-up' })),
+        ...(day.main || []).map((task) => ({ ...deepClone(task), phase:'Main' })),
+        ...(day.cooldown || []).map((task) => ({ ...deepClone(task), phase:'Cooldown' }))
+      ].filter(Boolean);
+    }
+
+    function startRunForDay(dayKey) {
+      const day = state.weekPlan?.[dayKey];
+      if (!day) {
+        showToast('ยังไม่พบแผนของวันนี้');
+        return;
+      }
+
+      const warmup = Array.isArray(day.warmup) ? day.warmup : [];
+      const main = Array.isArray(day.main) ? day.main : [];
+      const cooldown = Array.isArray(day.cooldown) ? day.cooldown : [];
+
+      if (!warmup.length) {
+        showToast('วันนี้ยังไม่มี Warm-up');
+        return;
+      }
+      if (!main.length) {
+        showToast('วันนี้ยังไม่มี Main');
+        return;
+      }
+      if (!cooldown.length) {
+        showToast('วันนี้ยังไม่มี Cooldown');
+        return;
+      }
+
+      const tasks = [
+        ...warmup.map((task) => ({ ...deepClone(task), phase:'Warm-up' })),
+        ...main.map((task) => ({ ...deepClone(task), phase:'Main' })),
+        ...cooldown.map((task) => ({ ...deepClone(task), phase:'Cooldown' }))
+      ].filter(Boolean);
+
+      state.run.active = true;
+      state.run.tasks = tasks.map((task) => ({
+        ...task,
+        runtime: {
+          progress: 0,
+          done: false,
+          skipped: false,
+          breathState: 'inhale'
+        }
+      }));
+
+      state.run.index = 0;
+      state.run.score = 0;
+      state.run.done = 0;
+      state.run.skipped = 0;
+      state.run.leftSec = Number(q('time', '90') || 90);
+      state.run.totalSec = state.run.leftSec;
+      state.run.mode = 'planner';
+      state.run.diff = String(q('diff', 'normal') || 'normal');
+      state.run.sessionId = `fp-${dayKey}-${Date.now()}`;
+      state.run.pendingLaunch = null;
+      state.run.resumeCheckTimer = 0;
+      state.run.resumePendingTaskId = '';
+      state.run.strictPlannerFlow = true;
+      state.run.flowOrigin = 'planner-selected-phases';
+
+      showRun();
+      renderQueue();
+      updateHud();
+      renderCurrentTask();
+      saveActiveRun();
+      restartPlannerRunTimer();
+
+      showToast(`เริ่มแผน ${DAY_LABELS[dayKey]} • Warm-up → Main → Cooldown`);
+    }
+
+    function updateHud() {
+      const hudMode = document.getElementById('hudMode');
+      const hudTime = document.getElementById('hudTime');
+      const hudTask = document.getElementById('hudTask');
+      const hudScore = document.getElementById('hudScore');
+      const hudDone = document.getElementById('hudDone');
+
+      const total = state.run.tasks.length || 1;
+      const pct = Math.round((state.run.done / total) * 100);
+
+      if (hudMode) hudMode.textContent = state.run.mode || 'planner';
+      if (hudTime) hudTime.textContent = String(Math.max(0, state.run.leftSec || 0));
+      if (hudTask) hudTask.textContent = `${Math.min(state.run.index + 1, total)}/${total}`;
+      if (hudScore) hudScore.textContent = String(state.run.score || 0);
+      if (hudDone) hudDone.textContent = `${pct}%`;
+    }
+
+    function renderQueue() {
+      const queueList = document.getElementById('queueList');
+      const queueCount = document.getElementById('queueCount');
+      if (!queueList || !queueCount) return;
+
+      queueCount.textContent = `${state.run.tasks.length} task`;
+
+      queueList.innerHTML = state.run.tasks.map((task, idx) => {
+        const stateText = task.runtime?.done
+          ? '✅'
+          : task.runtime?.skipped
+            ? '⏭️'
+            : idx === state.run.index
+              ? '🔵'
+              : '⚪';
+
+        const child = task.runtime?.childResult;
+        const childBits = [];
+        if (child?.rank) childBits.push(child.rank);
+        if (child?.stars) childBits.push(`${child.stars}⭐`);
+        if (child?.bonus) childBits.push(`+${child.bonus}`);
+
+        return `
+          <div class="queue-item ${task.runtime?.done ? 'done' : (task.runtime?.skipped ? 'skipped' : (idx === state.run.index ? 'current' : ''))}">
+            <span>${stateText}</span>
+            <span>${task.phase} • ${task.title}${task.linkedGame ? ' • 🎮' : ''}${childBits.length ? ` • ${childBits.join(' • ')}` : ''}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderCurrentTask() {
+      const task = currentTask();
+      if (!task) return;
+
+      const runTaskIcon = document.getElementById('runTaskIcon');
+      const runTaskTitle = document.getElementById('runTaskTitle');
+      const runTaskSub = document.getElementById('runTaskSub');
+      const runProgressLabel = document.getElementById('runProgressLabel');
+      const runProgressText = document.getElementById('runProgressText');
+      const runProgressFill = document.getElementById('runProgressFill');
+      const stageEmoji = document.getElementById('stageEmoji');
+      const stageText = document.getElementById('stageText');
+      const stageSub = document.getElementById('stageSub');
+      const controlTitle = document.getElementById('controlTitle');
+      const controlHint = document.getElementById('controlHint');
+      const runCoachBadge = document.getElementById('runCoachBadge');
+      const runCoachLine = document.getElementById('runCoachLine');
+
+      const pct = Math.max(0, Math.min(100, Math.round((task.runtime.progress / task.target) * 100)));
+      const realGameLabel = task.mechanic === 'launch' && task.linkedGame
+        ? ` • REAL GAME • ${task.linkedGame.label}`
+        : '';
+
+      if (runTaskIcon) {
+        runTaskIcon.className = `run-task-icon ${task.color}`;
+        runTaskIcon.textContent = task.icon;
+      }
+      if (runTaskTitle) runTaskTitle.textContent = task.title;
+      if (runTaskSub) runTaskSub.textContent = `${task.phase} • ${task.subtitle}${realGameLabel}`;
+      if (runProgressLabel) runProgressLabel.textContent = `${task.runtime.progress}/${task.target} ${task.unit}`;
+      if (runProgressText) runProgressText.textContent = `${pct}%`;
+      if (runProgressFill) runProgressFill.style.width = `${pct}%`;
+
+      if (stageEmoji) stageEmoji.textContent = task.icon;
+      if (stageText) stageText.textContent = task.instruction || 'ทำตามคำสั่งให้ครบ';
+      if (stageSub) stageSub.textContent = `${task.phase} • เป้าหมาย ${task.target} ${task.unit}${realGameLabel}`;
+
+      if (controlTitle) controlTitle.textContent = `${String(task.mechanic || '').toUpperCase()} TASK`;
+      if (controlHint) {
+        if (task.mechanic === 'launch' && task.linkedGame) {
+          controlHint.textContent = `กดเพื่อเข้า ${task.linkedGame.label} แล้วกลับมาทำ task ถัดไป`;
+        } else if (task.mechanic === 'tap') {
+          controlHint.textContent = `กดให้ครบ ${task.target} ${task.unit}`;
+        } else if (task.mechanic === 'hold') {
+          controlHint.textContent = `กดค้างให้ครบ ${task.target} ${task.unit}`;
+        } else {
+          controlHint.textContent = `ทำให้ครบ ${task.target} รอบ`;
+        }
+      }
+
+      if (runCoachBadge) runCoachBadge.textContent = task.phase || '-';
+      if (runCoachLine) {
+        if (task.mechanic === 'launch' && task.linkedGame) {
+          runCoachLine.textContent = `ข้อนี้จะพาเข้า ${task.linkedGame.label} จริง • ไม่ใช้ gate warmup/cooldown`;
+        } else {
+          runCoachLine.textContent = 'แผนนี้ใช้ Warm-up / Main / Cooldown ที่เลือกเอง ไม่ใช้ gate';
+        }
+      }
+
+      renderTaskControls(task);
+      renderQueue();
+      updateHud();
+    }
+
+    function launchCurrentTaskRealGame() {
+      const task = currentTask();
+      if (!task) {
+        showToast('ยังไม่มี task ปัจจุบัน');
+        return;
+      }
+
+      if (!(task.mechanic === 'launch' && task.linkedGame && task.linkedGame.gameId)) {
+        showToast('task นี้ไม่ใช่เกมจริง');
+        return;
+      }
+
+      state.run.sessionId = state.run.sessionId || `fp-${Date.now()}`;
+
+      state.run.pendingLaunch = {
+        taskId: task.id,
+        gameId: task.linkedGame.gameId,
+        label: task.linkedGame.label || task.title,
+        launchedAt: Date.now(),
+        strictPlannerFlow: true
+      };
+
+      saveActiveRun();
+
+      const url = buildRealGameUrlFromTask(task, state.run.sessionId);
+      if (!url) {
+        showToast('ยังไม่พบ path เกมจริง');
+        return;
+      }
+
+      location.href = url;
+    }
+
+    function childResultFromSummary(summary) {
+      const score = Number(summary?.scoreFinal || summary?.score || 0);
+      const rank = String(summary?.rank || '-');
+      const stars = Number(summary?.stars || summary?.starCount || 0);
+      const combo = Number(summary?.comboMax || summary?.maxCombo || summary?.combo || 0);
+      const completionPct =
+        Number(summary?.completionPct || 0) ||
+        Number(summary?.accPct || 0) ||
+        Number(summary?.accuracy || 0);
+
+      let bonus = Math.max(24, Math.round(score * 0.12));
+      if (rank === 'S') bonus += 18;
+      else if (rank === 'A') bonus += 12;
+      else if (rank === 'B') bonus += 8;
+      if (stars >= 3) bonus += 8;
+      if (combo >= 10) bonus += 6;
+      if (completionPct >= 90) bonus += 8;
+
+      return { score, rank, stars, combo, completionPct, bonus };
+    }
+
+    function applyTaskReward(task) {
+      state.metrics.safety = Math.min(100, Number(state.metrics.safety || 10) + Number(task.safety || 0) * 0.15);
+      state.metrics.balance = Math.min(100, Number(state.metrics.balance || 20) + Number(task.balance || 0) * 0.15);
+      state.metrics.variety = Math.min(100, Number(state.metrics.variety || 20) + Number(task.variety || 0) * 0.12);
+      state.metrics.fun = Math.min(100, Number(state.metrics.fun || 30) + Number(task.fun || 0) * 0.15);
+    }
+
+    function finalizeReturnedRealGameTask(task, summary) {
+      if (!task || !summary) return false;
+      if (task.runtime?.done) return true;
+
+      const child = childResultFromSummary(summary);
+
+      task.runtime.progress = task.target || 1;
+      task.runtime.done = true;
+      task.runtime.childResult = child;
+
+      state.run.done += 1;
+      state.run.score += Number(child.bonus || 0);
+      applyTaskReward(task);
+
+      state.run.pendingLaunch = null;
+      renderQueue();
+      updateHud();
+      renderCurrentTask();
+      saveActiveRun();
+
+      showToast(`✅ จบ ${task.linkedGame?.label || task.title} • ${child.rank} • +${child.bonus}`);
+      return true;
+    }
+
+    function startResumePolling(task, resume) {
+      clearResumeCheckTimer();
+
+      let tries = 0;
+      state.run.resumePendingTaskId = task.id;
+
+      state.run.resumeCheckTimer = setInterval(() => {
+        tries += 1;
+
+        const summary = readMatchingChildSummary(resume.gameId, resume.launchedAt);
+        if (summary) {
+          clearResumeCheckTimer();
+          finalizeReturnedRealGameTask(task, summary);
+
+          setTimeout(() => {
+            state.run.index += 1;
+            if (state.run.index >= state.run.tasks.length) {
+              finishRun('plan-complete');
+              return;
+            }
+            renderCurrentTask();
+          }, 450);
+
+          return;
+        }
+
+        if (tries >= 8) {
+          clearResumeCheckTimer();
+          renderCurrentTask();
+          showToast('กลับมาแล้ว แต่ยังไม่เจอผลเกมล่าสุด กดเล่นอีกครั้งหรือกดข้ามได้');
+        }
+      }, 1000);
+    }
+
+    function tryResumeFromChildGame() {
+      const resume = getResumeInfoFromUrl();
+      if (!resume.enabled) return false;
+
+      const restored = restoreActiveRunFromStorage();
+      if (!restored) {
+        clearResumeParamsFromUrl();
+        return false;
+      }
+
+      const task = currentTask();
+      if (!task) {
+        clearResumeParamsFromUrl();
+        return false;
+      }
+
+      showRun();
+
+      const expectedTaskOk = String(task.id || '') === resume.taskId;
+      const expectedGameOk = canonicalGameId(task.linkedGame?.gameId) === canonicalGameId(resume.gameId);
+
+      clearResumeParamsFromUrl();
+
+      if (!expectedTaskOk || !expectedGameOk) {
+        renderQueue();
+        updateHud();
+        renderCurrentTask();
+        restartPlannerRunTimer();
+        return true;
+      }
+
+      const summary = readMatchingChildSummary(resume.gameId, resume.launchedAt);
+
+      if (summary) {
+        finalizeReturnedRealGameTask(task, summary);
+
+        setTimeout(() => {
+          state.run.index += 1;
+          if (state.run.index >= state.run.tasks.length) {
+            finishRun('plan-complete');
+            return;
+          }
+          renderCurrentTask();
+        }, 450);
+      } else {
+        renderQueue();
+        updateHud();
+        renderCurrentTask();
+        showToast('กลับมาแล้ว กำลังรอผลจากเกมลูก...');
+        startResumePolling(task, resume);
+      }
+
+      restartPlannerRunTimer();
+      return true;
+    }
+
+    function checkTaskDone() {
+      const task = currentTask();
+      if (!task) return;
+
+      if (task.runtime.progress >= task.target) {
+        task.runtime.done = true;
+        state.run.done += 1;
+        state.run.score += Number(task.score || 0);
+        applyTaskReward(task);
+
+        renderQueue();
+        updateHud();
+        showToast(`✅ ${task.title}`);
+
+        setTimeout(() => {
+          state.run.index += 1;
+          if (state.run.index >= state.run.tasks.length) {
+            finishRun('plan-complete');
+            return;
+          }
+          renderCurrentTask();
+        }, 420);
+      } else {
+        renderCurrentTask();
+      }
+
+      saveActiveRun();
+    }
+
+    function skipCurrentTask() {
+      const task = currentTask();
+      if (!task) return;
+
+      if (!task.runtime.skipped && !task.runtime.done) {
+        task.runtime.skipped = true;
+        state.run.skipped += 1;
+        state.run.score += 6;
+      }
+
+      renderQueue();
+      updateHud();
+      saveActiveRun();
+      showToast(`⏭️ ข้าม ${task.title}`);
+
+      setTimeout(() => {
+        state.run.index += 1;
+        if (state.run.index >= state.run.tasks.length) {
+          finishRun('plan-complete');
+          return;
+        }
+        renderCurrentTask();
+      }, 360);
+    }
+
+    function renderTaskControls(task) {
+      clearHoldTick();
+
+      const primary = document.getElementById('actionPrimary');
+      const secondary = document.getElementById('actionSecondary');
+      if (!primary || !secondary || !task) return;
+
+      primary.onpointerdown = null;
+      primary.onpointerup = null;
+      primary.onpointerleave = null;
+      primary.onpointercancel = null;
+      primary.onclick = null;
+      secondary.onclick = null;
+
+      if (task.mechanic === 'launch' && task.linkedGame) {
+        primary.className = 'play-btn tap';
+        primary.textContent = `▶ เล่น ${task.linkedGame.label} จริง`;
+        primary.onclick = () => {
+          launchCurrentTaskRealGame();
+        };
+
+        secondary.className = 'play-btn skip';
+        secondary.textContent = '⏭️ ข้ามข้อนี้';
+        secondary.onclick = () => {
+          skipCurrentTask();
+        };
+        return;
+      }
+
+      if (task.mechanic === 'tap') {
+        primary.className = 'play-btn tap';
+        primary.textContent = `✅ ทำ 1 ${task.unit}`;
+        primary.onclick = () => {
+          task.runtime.progress += 1;
+          showToast(`+1 ${task.unit}`);
+          checkTaskDone();
+        };
+
+        secondary.className = 'play-btn skip';
+        secondary.textContent = '⏭️ ข้ามข้อนี้';
+        secondary.onclick = () => {
+          skipCurrentTask();
+        };
+        return;
+      }
+
+      if (task.mechanic === 'hold') {
+        primary.className = 'play-btn hold';
+        primary.textContent = '✋ กดค้าง';
+
+        const startHold = () => {
+          clearHoldTick();
+          state.run.holdTick = setInterval(() => {
+            task.runtime.progress = Math.min(task.target, +(task.runtime.progress + 0.1).toFixed(1));
+            checkTaskDone();
+          }, 100);
+        };
+
+        const stopHold = () => {
+          clearHoldTick();
+        };
+
+        primary.onpointerdown = startHold;
+        primary.onpointerup = stopHold;
+        primary.onpointerleave = stopHold;
+        primary.onpointercancel = stopHold;
+
+        secondary.className = 'play-btn skip';
+        secondary.textContent = '⏭️ ข้ามข้อนี้';
+        secondary.onclick = () => {
+          skipCurrentTask();
+        };
+        return;
+      }
+
+      primary.className = 'play-btn breath';
+      primary.textContent = task.runtime.breathState === 'inhale' ? '🌬️ หายใจเข้า' : '😮‍💨 หายใจออก';
+      primary.onclick = () => {
+        if (task.runtime.breathState === 'inhale') {
+          task.runtime.breathState = 'exhale';
+          primary.textContent = '😮‍💨 หายใจออก';
+          showToast('หายใจเข้าแล้ว');
+        } else {
+          task.runtime.breathState = 'inhale';
+          task.runtime.progress += 1;
+          primary.textContent = '🌬️ หายใจเข้า';
+          showToast(`ครบ ${task.runtime.progress}/${task.target} รอบ`);
+          checkTaskDone();
+        }
+      };
+
+      secondary.className = 'play-btn skip';
+      secondary.textContent = '⏭️ ข้ามข้อนี้';
+      secondary.onclick = () => {
+        skipCurrentTask();
+      };
+    }
+
+    function bindBuilderButtons() {
+      document.getElementById('btnFinishEarly')?.addEventListener('click', () => {
+        finishRun('manual-finish');
+      });
+    }
+
+    function rankFromResult(score, pct, skipped) {
+      if (pct >= 100 && skipped === 0 && score >= 180) return 'S';
+      if (pct >= 85 && skipped <= 1 && score >= 140) return 'A';
+      if (pct >= 65 && score >= 100) return 'B';
+      if (pct >= 45) return 'C';
+      return 'D';
+    }
+
+    function configureSummaryActions(reason) {
+      const btnSummaryFitness = document.getElementById('btnSummaryFitness');
+      const btnSummaryHub = document.getElementById('btnSummaryHub');
+      const summarySub = document.getElementById('summarySub');
+
+      if (btnSummaryFitness) {
+        btnSummaryFitness.textContent = '🏃 Fitness Zone';
+        btnSummaryFitness.href = buildFitnessUrl();
+      }
+
+      if (btnSummaryHub) {
+        btnSummaryHub.textContent = '🏠 HUB';
+        btnSummaryHub.href = buildHubUrl();
+      }
+
+      if (summarySub && plannerUsesOwnPhases()) {
+        const base = summarySub.textContent || '';
+        if (!base.includes('planner phases only')) {
+          summarySub.textContent = `${base} • planner phases only`;
+        }
+      }
+    }
+
+    function finishRun(reason) {
+      if (!state.run.active) return;
+
+      state.run.active = false;
+      stopPlannerRunTimer();
+      clearResumeCheckTimer();
+      clearHoldTick();
+      clearActiveRun();
+      state.run.pendingLaunch = null;
+
+      const total = state.run.tasks.length || 1;
+      const done = state.run.done;
+      const skipped = state.run.skipped;
+      const pct = Math.round((done / total) * 100);
+      const rank = rankFromResult(state.run.score, pct, skipped);
+
+      const rankBadge = document.getElementById('rankBadge');
+      const summaryTitle = document.getElementById('summaryTitle');
+      const summarySub = document.getElementById('summarySub');
+      const summaryScore = document.getElementById('summaryScore');
+      const summaryDone = document.getElementById('summaryDone');
+      const summaryTotal = document.getElementById('summaryTotal');
+      const summarySkip = document.getElementById('summarySkip');
+      const summaryPct = document.getElementById('summaryPct');
+      const summaryPanel = document.getElementById('summaryPanel');
+
+      if (rankBadge) rankBadge.textContent = rank;
+      if (summaryTitle) {
+        if (rank === 'S') summaryTitle.textContent = 'สุดยอด! ทำตามแผนครบเป๊ะ';
+        else if (rank === 'A') summaryTitle.textContent = 'เยี่ยมมาก! แผนนี้เล่นได้ดีมาก';
+        else if (rank === 'B') summaryTitle.textContent = 'ดีมาก! เกือบครบทั้งแผนแล้ว';
+        else summaryTitle.textContent = 'เริ่มได้ดีแล้ว ลองใหม่อีกครั้ง';
+      }
+      if (summarySub) summarySub.textContent = 'สรุปของ Warm-up / Main / Cooldown ที่เลือกเอง';
+      if (summaryScore) summaryScore.textContent = String(state.run.score);
+      if (summaryDone) summaryDone.textContent = String(done);
+      if (summaryTotal) summaryTotal.textContent = String(total);
+      if (summarySkip) summarySkip.textContent = String(skipped);
+      if (summaryPct) summaryPct.textContent = `${pct}%`;
+
+      configureSummaryActions(reason);
+
+      const summary = {
+        game: 'fitness-planner',
+        gameId: 'fitness-planner',
+        zone: 'fitness',
+        scoreFinal: state.run.score,
+        rank,
+        result: reason,
+        timeSec: state.run.totalSec,
+        tasksDone: done,
+        tasksTotal: total,
+        completionPct: pct,
+        skipCount: skipped,
+        timestampIso: new Date().toISOString()
+      };
+
+      try {
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      } catch (_) {}
+
+      if (summaryPanel) summaryPanel.classList.add('show');
+      showToast('📋 จบแผนแล้ว');
+    }
+
+    function bindSummaryButtons() {
+      document.getElementById('btnPlayAgain')?.addEventListener('click', () => {
+        const summary = document.getElementById('summaryPanel');
+        if (summary) summary.classList.remove('show');
+        showBuilder();
+      });
+    }
+
+    function initPlannerRunEnginePatch() {
+      const resumed = tryResumeFromChildGame();
+      if (!resumed) {
+        showBuilder();
+      }
+    }
+
+    function initDefaultPlan() {
+      // โหลดเดิมแล้ว ถ้ายังว่างให้ใส่ตัวอย่างเริ่มต้น
+      const hasAny = DAY_KEYS.some((dayKey) => {
+        const day = state.weekPlan[dayKey];
+        return day && (day.warmup.length || day.main.length || day.cooldown.length);
+      });
+
+      if (hasAny) return;
+
+      state.weekPlan.mon.warmup.push(normalizeTaskForDay(getTaskById('slow-march')));
+      state.weekPlan.mon.main.push(normalizeTaskForDay(getTaskById('balance-hold')));
+      state.weekPlan.mon.cooldown.push(normalizeTaskForDay(getTaskById('breath-reset')));
+
+      state.weekPlan.tue.warmup.push(normalizeTaskForDay(getTaskById('arm-swing')));
+      state.weekPlan.tue.main.push(normalizeTaskForDay(getTaskById('jump-reach')));
+      state.weekPlan.tue.cooldown.push(normalizeTaskForDay(getTaskById('smile-finish')));
+
+      state.weekPlan.wed.warmup.push(normalizeTaskForDay(getTaskById('stretch-start')));
+      state.weekPlan.wed.main.push(normalizeTaskForDay(getTaskById('power-step')));
+      state.weekPlan.wed.cooldown.push(normalizeTaskForDay(getTaskById('water-break')));
+
+      saveWeekPlan();
+      renderWeekPlanner();
+    }
+
+    function init() {
+      loadWeekPlan();
+      updatePills();
+      applyLinks();
+      renderWeekPlanner();
+      initDefaultPlan();
+      bindBuilderButtons();
+      bindSummaryButtons();
+      initPlannerRunEnginePatch();
+    }
+
+    init();
+  })();
+  </script>
 </body>
 </html>
