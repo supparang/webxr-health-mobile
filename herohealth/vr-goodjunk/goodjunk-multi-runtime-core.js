@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   const W = window;
@@ -95,6 +95,16 @@
     attacksReceived: 0,
     rank: 1,
     leaderScore: 0,
+
+    myPid: clean(ctx.pid || 'anon'),
+    myUid: clean(ctx.uid || ''),
+    partnerPid: '',
+    partnerName: '',
+    partnerScore: 0,
+    partnerMiss: 0,
+    partnerBestStreak: 0,
+    duetResultsReady: false,
+    duetWaiting: false,
 
     items: new Map(),
     seq: 0
@@ -642,6 +652,72 @@
     return u.toString();
   }
 
+  function findDuetEntryByPid(source, pid) {
+    const rows = Object.values(source || {});
+    const target = clean(pid || '');
+    return rows.find((row) => clean((row && (row.pid || row.name || row.nick)) || '') === target) || null;
+  }
+
+  function findDuetPartner(source, pid) {
+    const rows = Object.values(source || {});
+    const target = clean(pid || '');
+    return rows.find((row) => clean((row && (row.pid || row.name || row.nick)) || '') !== target) || null;
+  }
+
+  function applyDuetRoomUpdate(detail) {
+    if (MODE !== 'duet' || !detail) return;
+
+    const results = detail.results || {};
+    const players = detail.players || [];
+    state.myUid = clean(detail.uid || state.myUid || '');
+
+    const myRow = (state.myUid && results[state.myUid]) || findDuetEntryByPid(results, state.myPid) || null;
+    const partnerRow = Object.keys(results || {}).map((key) => ({ key, row: results[key] || {} }))
+      .find((entry) => String(entry.key || '') !== String(state.myUid || '') && clean((entry.row && (entry.row.pid || entry.row.name || entry.row.nick)) || '') !== '')
+      ?.row || findDuetPartner(results, state.myPid) || null;
+    const partnerPlayer = Array.isArray(players)
+      ? players.find((p) => clean((p && p.pid) || '') !== state.myPid)
+      : null;
+
+    state.partnerPid = clean((partnerRow && partnerRow.pid) || (partnerPlayer && partnerPlayer.pid) || '');
+    state.partnerName = clean((partnerRow && (partnerRow.name || partnerRow.nick || partnerRow.pid)) || (partnerPlayer && (partnerPlayer.name || partnerPlayer.pid)) || '');
+    state.partnerScore = Math.max(0, Number((partnerRow && partnerRow.score) || 0) || 0);
+    state.partnerMiss = Math.max(0, Number((partnerRow && partnerRow.miss) || 0) || 0);
+    state.partnerBestStreak = Math.max(0, Number((partnerRow && partnerRow.bestStreak) || 0) || 0);
+
+    const myScore = Math.max(0, Number((myRow && myRow.score) || state.score || 0) || 0);
+    const myMiss = Math.max(0, Number((myRow && myRow.miss) || state.miss || 0) || 0);
+    const myCombo = Math.max(0, Number((myRow && myRow.bestStreak) || state.bestStreak || 0) || 0);
+
+    state.teamScore = myScore + state.partnerScore;
+    state.teamMiss = myMiss + state.partnerMiss;
+    state.teamCombo = Math.max(myCombo, state.partnerBestStreak);
+    state.duetResultsReady = !!partnerRow;
+    state.duetWaiting = !partnerRow;
+
+    if (ui.summary && ui.summary.classList.contains('show') && W.GJSummaryRewriteHotfix && typeof W.GJSummaryRewriteHotfix.rewriteSummaryNow === 'function') {
+      W.GJSummaryRewriteHotfix.rewriteSummaryNow();
+    }
+  }
+
+  function buildDuetLocalSummary() {
+    return {
+      score: state.score,
+      scoreFinal: state.score,
+      miss: state.miss,
+      misses: state.miss,
+      bestStreak: state.bestStreak,
+      accuracy: 0,
+      contribution: state.score,
+      goodHit: state.hitsGood,
+      junkHit: state.hitsBad,
+      team_score: state.teamScore || state.score,
+      teamScore: state.teamScore || state.score,
+      result: state.duetResultsReady ? 'pair-finished' : 'waiting-partner',
+      durationSec: Math.round(state.timeTotal / 1000)
+    };
+  }
+
   function emitFx(x, y, text, color) {
     const el = D.createElement('div');
     el.className = 'gj-fx';
@@ -859,6 +935,15 @@
     state.rank = MODE === 'race' ? (state.score >= state.leaderScore - 8 ? 1 : 2) : state.rank;
     state.enemyScore = MODE === 'battle' ? Math.max(state.enemyScore, Math.round(state.score * 0.92)) : state.enemyScore;
 
+    if (MODE === 'duet') {
+      state.duetWaiting = true;
+      try {
+        if (typeof W.HHA_DUET_FINISH === 'function') {
+          Promise.resolve(W.HHA_DUET_FINISH(buildDuetLocalSummary())).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
     openSummary();
   }
 
@@ -949,6 +1034,19 @@
       });
     }
 
+    if (MODE === 'duet') {
+      W.addEventListener('gj:duet-room-update', function (evt) {
+        applyDuetRoomUpdate(evt && evt.detail ? evt.detail : null);
+      });
+
+      W.addEventListener('gj:duet-local-finished', function () {
+        state.duetWaiting = true;
+        if (ui.summary && ui.summary.classList.contains('show') && W.GJSummaryRewriteHotfix && typeof W.GJSummaryRewriteHotfix.rewriteSummaryNow === 'function') {
+          W.GJSummaryRewriteHotfix.rewriteSummaryNow();
+        }
+      });
+    }
+
     W.addEventListener('blur', function () {
       if (!state.ended) pauseGame();
     });
@@ -969,3 +1067,7 @@
 
   start();
 })();
+
+
+
+

@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   const W = window;
@@ -92,45 +92,55 @@
   }
 
   function renderDuet(ui, state) {
-    const teamScore = sumNum(state.teamScore, state.score, 0);
-    const teamMiss = sumNum(state.teamMiss, state.miss, 0);
-    const teamCombo = sumNum(state.teamCombo, state.bestStreak, state.streak, 0);
+    const myScore = sumNum(state.score, state.meScore, 0);
+    const partnerScore = sumNum(state.partnerScore, state.otherScore, 0);
+    const teamScore = sumNum(state.teamScore, myScore + partnerScore, 0);
+    const myMiss = sumNum(state.miss, 0);
+    const partnerMiss = sumNum(state.partnerMiss, 0);
+    const teamMiss = sumNum(state.teamMiss, myMiss + partnerMiss, 0);
+    const myCombo = sumNum(state.bestStreak, state.streak, 0);
+    const partnerCombo = sumNum(state.partnerBestStreak, 0);
+    const teamCombo = sumNum(state.teamCombo, Math.max(myCombo, partnerCombo), 0);
     const goodHit = sumNum(state.hitsGood, state.goodHit, 0);
     const junkHit = sumNum(state.hitsBad, state.junkHit, 0);
-    const durationSec = Math.round(sumNum(state.timeTotal, 90000) / 1000);
+    const partnerReady = !!(state.partnerPid || state.partnerName || partnerScore || partnerMiss || partnerCombo);
+    const partnerLabel = clean(state.partnerName, clean(state.partnerPid, 'Partner'));
 
     if (ui.sumTitle) ui.sumTitle.textContent = 'Duet Complete!';
-    if (ui.sumSub) ui.sumSub.textContent = 'สรุปผลการเล่นแบบ 2 คน';
-    setBadge(ui, 'TEAM', '🤝', '⭐⭐');
+    if (ui.sumSub) ui.sumSub.textContent = partnerReady ? 'à¸ªà¸£à¸¸à¸›à¸œà¸¥à¸à¸²à¸£à¹€à¸¥à¹ˆà¸™à¹à¸šà¸š 2 à¸„à¸™' : 'à¸£à¸­à¸œà¸¥à¸ˆà¸²à¸à¸œà¸¹à¹‰à¹€à¸¥à¹ˆà¸™à¸­à¸µà¸à¸à¹ˆà¸²à¸¢';
+    setBadge(ui, partnerReady ? 'TEAM' : 'WAIT', partnerReady ? 'ðŸ¤' : 'â³', partnerReady ? 'â­â­' : 'â­');
 
     if (ui.sumGrid) {
       ui.sumGrid.innerHTML = [
-        summaryStat('โหมด', 'Duet'),
-        summaryStat('Team Score', teamScore),
-        summaryStat('Team Miss', teamMiss),
+        summaryStat('à¹‚à¸«à¸¡à¸”', 'Duet'),
+        summaryStat('à¸„à¸°à¹à¸™à¸™à¹€à¸£à¸²', myScore),
+        summaryStat('à¸„à¸°à¹à¸™à¸™à¹€à¸žà¸·à¹ˆà¸­à¸™', partnerReady ? partnerScore : 'à¸£à¸­à¸œà¸¥'),
+        summaryStat('à¸„à¸°à¹à¸™à¸™à¸£à¸§à¸¡à¸—à¸µà¸¡', teamScore),
+        summaryStat('Miss à¸£à¸§à¸¡à¸—à¸µà¸¡', teamMiss),
         summaryStat('Best Team Combo', teamCombo),
-        summaryStat('แตะของดี', goodHit),
-        summaryStat('โดน junk', junkHit),
-        summaryStat('เวลาเล่น', `${durationSec}s`),
-        summaryStat('ผลลัพธ์', 'finished')
+        summaryStat('à¹à¸•à¸°à¸‚à¸­à¸‡à¸”à¸µ', goodHit),
+        summaryStat('à¹‚à¸”à¸™ junk', junkHit)
       ].join('');
     }
 
-    if (ui.sumCoach) ui.sumCoach.textContent = 'ช่วยกันเก็บ good ได้ดีมาก';
-    if (ui.sumNextHint) ui.sumNextHint.textContent = 'เป้าหมายต่อไป: ทำ Team Combo ให้สูงขึ้น';
-    if (ui.sumExportBox) ui.sumExportBox.innerHTML = `<strong>duet summary</strong><br>mode: duet<br>teamScore: ${teamScore}`;
+    if (ui.sumCoach) ui.sumCoach.textContent = partnerReady ? 'à¸ªà¸£à¸¸à¸›à¸„à¸°à¹à¸™à¸™à¸„à¸£à¸šà¸—à¸±à¹‰à¸‡à¸ªà¸­à¸‡à¸à¹ˆà¸²à¸¢à¹à¸¥à¹‰à¸§' : 'à¸ªà¹ˆà¸‡à¸œà¸¥à¸‚à¸­à¸‡à¹€à¸£à¸²à¹à¸¥à¹‰à¸§ à¸à¸³à¸¥à¸±à¸‡à¸£à¸­à¸œà¸¥à¸ˆà¸²à¸à¹€à¸žà¸·à¹ˆà¸­à¸™';
+    if (ui.sumNextHint) ui.sumNextHint.textContent = partnerReady ? `à¹€à¸£à¸² ${myScore} â€¢ ${partnerLabel} ${partnerScore} â€¢ à¸£à¸§à¸¡à¸—à¸µà¸¡ ${teamScore}` : 'à¸«à¸™à¹‰à¸²à¸ªà¸£à¸¸à¸›à¸™à¸µà¹‰à¸ˆà¸°à¸­à¸±à¸›à¹€à¸”à¸•à¹€à¸­à¸‡à¹€à¸¡à¸·à¹ˆà¸­à¹€à¸žà¸·à¹ˆà¸­à¸™à¸ªà¹ˆà¸‡à¸œà¸¥à¸„à¸£à¸š';
+    if (ui.sumExportBox) ui.sumExportBox.innerHTML = `<strong>duet summary</strong><br>me: ${myScore}<br>partner: ${partnerReady ? partnerScore : '-'}<br>team: ${teamScore}`;
 
-    if (ui.btnReplay) ui.btnReplay.textContent = '🤝 เล่น Duet ใหม่';
-    if (ui.btnCooldown) ui.btnCooldown.textContent = '🧊 ไป Cooldown';
-    if (ui.btnHub) ui.btnHub.textContent = '🏠 กลับ HUB';
+    if (ui.btnReplay) ui.btnReplay.textContent = 'ðŸ¤ à¹€à¸¥à¹ˆà¸™ Duet à¹ƒà¸«à¸¡à¹ˆ';
+    if (ui.btnCooldown) ui.btnCooldown.textContent = 'ðŸ§Š à¹„à¸› Cooldown';
+    if (ui.btnHub) ui.btnHub.textContent = 'ðŸ  à¸à¸¥à¸±à¸š HUB';
 
     saveSummary('duet', {
-      result: 'finished',
+      result: partnerReady ? 'pair-finished' : 'waiting-partner',
+      score: myScore,
+      partnerScore,
       teamScore,
       teamMiss,
       teamCombo,
       goodHit,
-      junkHit
+      junkHit,
+      partnerName: partnerLabel
     });
   }
 

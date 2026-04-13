@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-duet-play-bridge.js
@@ -13,7 +13,7 @@
   if (W.__GJ_DUET_PLAY_BRIDGE_LOADED__) return;
   W.__GJ_DUET_PLAY_BRIDGE_LOADED__ = true;
 
-  const HUB_FALLBACK = '../hub.html';
+  const HUB_FALLBACK = '../hub-v2.html';
   const PROGRESS_MIN_MS = 140;
   const PRESENCE_PING_MS = 1500;
   const START_POLL_MS = 80;
@@ -246,6 +246,22 @@
           return;
         }
 
+        try {
+          W.dispatchEvent(new CustomEvent('gj:duet-room-update', {
+            detail: {
+              room: room || null,
+              meta,
+              players,
+              results,
+              roomId: S.ctx.room_id,
+              matchId: meta.matchId || S.ctx.match_id || '',
+              uid: S.uid || '',
+              pid: S.ctx.pid || 'anon',
+              hostReadyToFinish: !!(players.length >= 2 && Object.values(results).filter((r) => !!r.finished).length >= 2)
+            }
+          }));
+        } catch (_) {}
+
         if (isHost() && !S.finished) {
           const done = Object.values(results).filter((r) => !!r.finished);
           if (players.length >= 2 && done.length >= 2 && meta.matchId) {
@@ -467,6 +483,21 @@
     }
 
     saveLastSummary(sessionRow);
+    try {
+      W.dispatchEvent(new CustomEvent('gj:duet-local-finished', {
+        detail: {
+          roomId: S.ctx.room_id,
+          matchId: S.ctx.match_id,
+          pid: S.ctx.pid,
+          score,
+          miss,
+          bestStreak,
+          contribution,
+          accuracy,
+          summary: sessionRow
+        }
+      }));
+    } catch (_) {}
     showResultMount();
     hideCountdown();
     stopTimers();
@@ -546,3 +577,4 @@
     console.error('[duet-bridge] init failed', err);
   });
 })();
+
