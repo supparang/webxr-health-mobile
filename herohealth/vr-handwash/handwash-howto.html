@@ -15,7 +15,6 @@
       --line:#63e6ff;
       --ink:#ffffff;
       --yellow:#ffd84d;
-      --pink:#ff72b6;
       --shadow:0 12px 30px rgba(0,0,0,.26);
     }
 
@@ -398,7 +397,7 @@
 
       <div class="progress-wrap">
         <div class="progress-top">
-          <span id="progress-label">คืบหน้า</span>
+          <span>คืบหน้า</span>
           <span id="progress-text">0%</span>
         </div>
         <div class="progress-bar">
@@ -407,7 +406,7 @@
       </div>
     </div>
 
-    <div id="coach">เล็งวงกลมฟ้าตรงกลางไปที่ป้าย “ใส่สบู่” หรือบริเวณสบู่ แล้วแตะจอ 1 ครั้ง</div>
+    <div id="coach">เล็งวงกลมฟ้าตรงกลางไปที่ป้าย “ใส่สบู่” แล้วแตะจอ 1 ครั้ง</div>
   </div>
 
   <div id="controls">
@@ -423,10 +422,10 @@
       <p>เวอร์ชันนี้เป็น <strong>How to Play / Warmup Mini-game</strong> เพื่อให้เด็กเข้าใจว่าแต่ละขั้นควรถูส่วนไหนของมือบ้างก่อนเข้าเกมหลัก</p>
 
       <div class="tips">
-        <div class="tip">🎯 เล็งกากบาทกลางจอไปที่วัตถุหรือเป้า</div>
+        <div class="tip">🎯 เล็งวงกลมฟ้ากลางจอไปที่วัตถุหรือเป้า</div>
         <div class="tip">👆 แตะจอ / คลิก / กด Space หรือ Enter เพื่อเลือก</div>
-        <div class="tip">🧼 เริ่มจากป้าย “ใส่สบู่” หรือบริเวณสบู่จริง</div>
-        <div class="tip">🥽 เข้า Cardboard ได้ด้วย ENTER VR</div>
+        <div class="tip">🧼 เริ่มจากป้าย “ใส่สบู่”</div>
+        <div class="tip">🖐️ ขั้นแรกแตะที่ฝ่ามือซ้ายและขวาได้เลย</div>
       </div>
 
       <div class="actions">
@@ -464,15 +463,11 @@
   </div>
 
   <a-scene id="scene" vr-mode-ui="enabled: false" renderer="colorManagement: true; antialias: true">
-    <a-assets>
-      <a-mixin id="hand-part" geometry="primitive: box; width: 0.40; height: 0.26; depth: 0.09"></a-mixin>
-    </a-assets>
-
     <a-entity environment="preset: forest; dressingAmount: 18; groundColor: #b9f3d0; groundColor2: #86efac; skyColor: #bfe9ff"></a-entity>
-
     <a-entity light="type: ambient; intensity: 1.15; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.9; color: #fff7dd" position="1 3 2"></a-entity>
 
+    <!-- sink + soap -->
     <a-entity position="0 0.18 -1.18">
       <a-box position="0 0.84 0" width="1.55" height="0.1" depth="0.82" color="#bfc9d6"></a-box>
       <a-box position="0 0.40 0" width="1.45" height="0.8" depth="0.72" color="#e5edf5"></a-box>
@@ -551,22 +546,80 @@
                   raycaster="objects: .focusable">
         </a-entity>
 
-        <a-entity id="hands" position="0 -0.18 -0.42">
-          <a-entity id="left-hand" mixin="hand-part" position="-0.16 0 0" rotation="-2 0 8" material="color: #ffdbac">
-            <a-sphere id="germs-l" radius="0.15" material="color: #8b5cf6; opacity: 0.50; transparent: true; shader: flat" position="0 0 0.05"></a-sphere>
+        <!-- hands -->
+        <a-entity id="hands" position="0 -0.02 -0.30">
+
+          <!-- left hand -->
+          <a-entity id="left-hand" position="-0.20 0 0" rotation="-2 0 8">
+            <a-box width="0.22" height="0.28" depth="0.06" color="#ffdbac"></a-box>
+            <a-box width="0.04" height="0.16" depth="0.05" color="#ffdbac" position="-0.08 0.22 0"></a-box>
+            <a-box width="0.04" height="0.22" depth="0.05" color="#ffdbac" position="-0.025 0.25 0"></a-box>
+            <a-box width="0.04" height="0.20" depth="0.05" color="#ffdbac" position="0.03 0.24 0"></a-box>
+            <a-box width="0.04" height="0.15" depth="0.05" color="#ffdbac" position="0.085 0.20 0"></a-box>
+            <a-cylinder radius="0.045" height="0.13" rotation="0 0 48" color="#ffdbac" position="-0.14 -0.04 0"></a-cylinder>
+
+            <a-plane id="left-palm-hit"
+                     class="focusable palm-hit"
+                     data-kind="palms"
+                     data-side="left"
+                     width="0.26" height="0.30"
+                     position="0 0 0.05"
+                     color="#ffe66d"
+                     opacity="0.12"
+                     material="transparent:true"
+                     visible="false">
+            </a-plane>
+
+            <a-text id="left-palm-label"
+                    value="ฝ่ามือซ้าย"
+                    align="center"
+                    width="0.85"
+                    color="#12324b"
+                    position="0 -0.23 0.06"
+                    visible="false">
+            </a-text>
+
+            <a-sphere id="germs-l" radius="0.12" material="color: #8b5cf6; opacity: 0.34; transparent: true; shader: flat" position="0 0 0.04"></a-sphere>
           </a-entity>
 
-          <a-entity id="right-hand" mixin="hand-part" position="0.16 0 0" rotation="-2 0 -8" material="color: #ffdbac">
-            <a-sphere id="germs-r" radius="0.15" material="color: #8b5cf6; opacity: 0.50; transparent: true; shader: flat" position="0 0 0.05"></a-sphere>
+          <!-- right hand -->
+          <a-entity id="right-hand" position="0.20 0 0" rotation="-2 0 -8">
+            <a-box width="0.22" height="0.28" depth="0.06" color="#ffdbac"></a-box>
+            <a-box width="0.04" height="0.16" depth="0.05" color="#ffdbac" position="0.08 0.22 0"></a-box>
+            <a-box width="0.04" height="0.22" depth="0.05" color="#ffdbac" position="0.025 0.25 0"></a-box>
+            <a-box width="0.04" height="0.20" depth="0.05" color="#ffdbac" position="-0.03 0.24 0"></a-box>
+            <a-box width="0.04" height="0.15" depth="0.05" color="#ffdbac" position="-0.085 0.20 0"></a-box>
+            <a-cylinder radius="0.045" height="0.13" rotation="0 0 -48" color="#ffdbac" position="0.14 -0.04 0"></a-cylinder>
+
+            <a-plane id="right-palm-hit"
+                     class="focusable palm-hit"
+                     data-kind="palms"
+                     data-side="right"
+                     width="0.26" height="0.30"
+                     position="0 0 0.05"
+                     color="#ffe66d"
+                     opacity="0.12"
+                     material="transparent:true"
+                     visible="false">
+            </a-plane>
+
+            <a-text id="right-palm-label"
+                    value="ฝ่ามือขวา"
+                    align="center"
+                    width="0.85"
+                    color="#12324b"
+                    position="0 -0.23 0.06"
+                    visible="false">
+            </a-text>
+
+            <a-sphere id="germs-r" radius="0.12" material="color: #8b5cf6; opacity: 0.34; transparent: true; shader: flat" position="0 0 0.04"></a-sphere>
+
             <a-entity id="bubbles-fx" visible="false">
               <a-sphere radius="0.04" color="#ffffff" position="-0.03 0.06 0.08"></a-sphere>
               <a-sphere radius="0.03" color="#ffffff" position="0.05 -0.03 0.08"></a-sphere>
               <a-sphere radius="0.025" color="#dff8ff" position="0.02 0.01 0.09"></a-sphere>
             </a-entity>
           </a-entity>
-
-          <a-cylinder position="-0.27 -0.14 -0.01" radius="0.05" height="0.18" rotation="0 0 8" color="#ffdbac"></a-cylinder>
-          <a-cylinder position="0.27 -0.14 -0.01" radius="0.05" height="0.18" rotation="0 0 -8" color="#ffdbac"></a-cylinder>
 
           <a-entity id="target-layer"></a-entity>
           <a-entity id="fx-layer"></a-entity>
@@ -588,10 +641,10 @@
     const NEXT_URL = qsParam('next', '');
 
     const STEPS = [
-      { id:'palms', name:'ฝ่ามือถูฝ่ามือ', icon:'👐', desc:'แตะเป้าบนฝ่ามือทั้งสองข้างให้ครบ เพื่อสื่อว่าต้องถูฝ่ามือเข้าหากัน', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
-      { id:'backs', name:'ฝ่ามือถูหลังมือ', icon:'🖐️', desc:'แตะเป้าบนหลังมือทั้งสองข้าง เพื่อสื่อว่าต้องถูหลังมือสลับกัน', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
+      { id:'palms', name:'ฝ่ามือถูฝ่ามือ', icon:'👐', desc:'แตะที่ฝ่ามือซ้ายและขวาได้เลย', needed:2, prompt:'แตะฝ่ามือซ้ายและขวาให้ครบ' },
+      { id:'backs', name:'ฝ่ามือถูหลังมือ', icon:'🖐️', desc:'แตะเป้าบนหลังมือทั้งสองข้างให้ครบ', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
       { id:'between', name:'ถูซอกนิ้ว', icon:'🤝', desc:'แตะเป้าตรงซอกนิ้วทั้งสองข้างให้ครบ', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
-      { id:'backfingers', name:'หลังนิ้วถูฝ่ามือ', icon:'👊', desc:'แตะเป้าตรงแนวหลังนิ้ว เพื่อสื่อว่าต้องพับนิ้วแล้วถูบนฝ่ามืออีกข้าง', needed:5, prompt:'แตะเป้าบนมือให้ครบ' },
+      { id:'backfingers', name:'หลังนิ้วถูฝ่ามือ', icon:'👊', desc:'แตะเป้าตรงแนวหลังนิ้วให้ครบ', needed:5, prompt:'แตะเป้าบนมือให้ครบ' },
       { id:'thumbs', name:'ถูนิ้วหัวแม่มือ', icon:'👍', desc:'แตะเป้าตรงหัวแม่มือซ้ายและขวาให้ครบ', needed:4, prompt:'แตะเป้าบนมือให้ครบ' },
       { id:'fingertips', name:'ถูปลายนิ้วบนฝ่ามือ', icon:'💅', desc:'แตะเป้าตรงปลายนิ้วและปลายเล็บให้ครบ', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
       { id:'wrists', name:'ถูรอบข้อมือ', icon:'⌚', desc:'ปิดท้ายด้วยแตะเป้ารอบข้อมือซ้ายและขวา', needed:4, prompt:'แตะเป้าบนมือให้ครบ' }
@@ -607,7 +660,8 @@
       miss:0,
       currentNeeded:1,
       lastActionAt:0,
-      hudCompact:false
+      hudCompact:false,
+      hitSides:{ left:false, right:false }
     };
 
     const ui = {
@@ -623,6 +677,11 @@
       bubbles:document.getElementById('bubbles-fx'),
       germsL:document.getElementById('germs-l'),
       germsR:document.getElementById('germs-r'),
+
+      leftPalmHit:document.getElementById('left-palm-hit'),
+      rightPalmHit:document.getElementById('right-palm-hit'),
+      leftPalmLabel:document.getElementById('left-palm-label'),
+      rightPalmLabel:document.getElementById('right-palm-label'),
 
       startOverlay:document.getElementById('start-overlay'),
       summaryOverlay:document.getElementById('summary-overlay'),
@@ -670,7 +729,7 @@
     }
 
     function getHandsBasePosition(){
-      return isMobileLike() ? '0 -0.18 -0.42' : '0 -0.24 -0.50';
+      return isMobileLike() ? '0 -0.02 -0.30' : '0 -0.10 -0.38';
     }
 
     function resetHandsPose(){
@@ -696,9 +755,26 @@
     function resetHands(){
       ui.germsL.setAttribute('visible', true);
       ui.germsR.setAttribute('visible', true);
-      ui.germsL.setAttribute('material','opacity',0.55);
-      ui.germsR.setAttribute('material','opacity',0.55);
+      ui.germsL.setAttribute('material','opacity',0.34);
+      ui.germsR.setAttribute('material','opacity',0.34);
       ui.bubbles.setAttribute('visible', state.hasSoap);
+    }
+
+    function setPalmFocus(show){
+      ui.leftPalmHit.setAttribute('visible', !!show);
+      ui.rightPalmHit.setAttribute('visible', !!show);
+      ui.leftPalmLabel.setAttribute('visible', !!show);
+      ui.rightPalmLabel.setAttribute('visible', !!show);
+
+      ui.leftPalmHit.dataset.hit = '0';
+      ui.rightPalmHit.dataset.hit = '0';
+      state.hitSides.left = false;
+      state.hitSides.right = false;
+
+      if(show){
+        ui.leftPalmHit.setAttribute('material', 'opacity', 0.14);
+        ui.rightPalmHit.setAttribute('material', 'opacity', 0.14);
+      }
     }
 
     function setSoapVisible(show){
@@ -708,12 +784,9 @@
     function setSoapHighlight(on){
       soapTarget.setAttribute('material', 'emissive', on ? '#ffd84d' : '#ff9ecb');
       soapTarget.setAttribute('material', 'emissiveIntensity', on ? 1.25 : 0.65);
-
       soapArrow.setAttribute('material', 'emissive', on ? '#fff7b8' : '#000000');
       soapArrow.setAttribute('material', 'emissiveIntensity', on ? 0.85 : 0);
-
       soapHalo.setAttribute('material', 'opacity', on ? 0.72 : 0.22);
-
       soapCalloutBg.setAttribute('material', 'opacity', on ? 1.0 : 0.82);
       soapCallout.setAttribute('color', on ? '#ffe66d' : '#ffffff');
     }
@@ -763,9 +836,9 @@
       ui.fill.style.width = pct + '%';
       ui.progressText.textContent = pct + '%';
 
-      const germOpacity = 0.55 * (1 - pct / 100);
-      ui.germsL.setAttribute('material', 'opacity', clamp(germOpacity,0,0.55));
-      ui.germsR.setAttribute('material', 'opacity', clamp(germOpacity,0,0.55));
+      const germOpacity = 0.34 * (1 - pct / 100);
+      ui.germsL.setAttribute('material', 'opacity', clamp(germOpacity,0,0.34));
+      ui.germsR.setAttribute('material', 'opacity', clamp(germOpacity,0,0.34));
     }
 
     function updateUI(){
@@ -776,8 +849,8 @@
         ui.stepName.textContent = 'กดสบู่ก่อนเริ่มฝึก';
         ui.stepDesc.textContent = 'เริ่มจากแตะบริเวณสบู่จริงก่อน แล้วระบบจะพาไปฝึก 7 ขั้นตอนการถูมือทีละขั้น';
         ui.guideIcon.textContent = '🧼';
-        ui.prompt.textContent = 'เล็งป้าย “ใส่สบู่” หรือบริเวณสบู่แล้วแตะจอ';
-        setCoachCompact('เล็งวงกลมฟ้าตรงกลางไปที่ป้าย “ใส่สบู่” หรือบริเวณสบู่ แล้วแตะจอ 1 ครั้ง');
+        ui.prompt.textContent = 'เล็งป้าย “ใส่สบู่” แล้วแตะจอ';
+        setCoachCompact('เล็งวงกลมฟ้าตรงกลางไปที่ป้าย “ใส่สบู่” แล้วแตะจอ 1 ครั้ง');
         ui.fill.style.width = '0%';
         ui.progressText.textContent = '0%';
         return;
@@ -789,7 +862,13 @@
         ui.stepDesc.textContent = step.desc;
         ui.guideIcon.textContent = step.icon;
         ui.prompt.textContent = step.prompt;
-        setCoachCompact('เล็งวงกลมฟ้าไปใกล้เป้าแล้วแตะจอ ระบบจะช่วยจับเป้าให้');
+
+        if (step.id === 'palms'){
+          setCoachCompact('แตะที่ฝ่ามือซ้ายและขวาได้เลย ไม่ต้องเล็งจุดเล็ก');
+        } else {
+          setCoachCompact('เล็งวงกลมฟ้าไปใกล้เป้าแล้วแตะจอ ระบบจะช่วยจับเป้าให้');
+        }
+
         updateProgress();
       }
     }
@@ -798,33 +877,29 @@
       clearTargets();
 
       const sets = {
-        palms: [
-          {x:-0.20,y:0.00,z:0.07}, {x:-0.14,y:0.03,z:0.07}, {x:-0.08,y:0.00,z:0.07},
-          {x: 0.08,y:0.00,z:0.07}, {x: 0.14,y:0.03,z:0.07}, {x: 0.20,y:0.00,z:0.07}
-        ],
         backs: [
-          {x:-0.20,y:0.00,z:-0.01}, {x:-0.14,y:0.03,z:-0.01}, {x:-0.08,y:0.00,z:-0.01},
-          {x: 0.08,y:0.00,z:-0.01}, {x: 0.14,y:0.03,z:-0.01}, {x: 0.20,y:0.00,z:-0.01}
+          {x:-0.30,y:0.02,z:0.05}, {x:-0.23,y:0.06,z:0.05}, {x:-0.16,y:0.02,z:0.05},
+          {x: 0.16,y:0.02,z:0.05}, {x: 0.23,y:0.06,z:0.05}, {x: 0.30,y:0.02,z:0.05}
         ],
         between: [
-          {x:-0.18,y:0.08,z:0.06}, {x:-0.14,y:0.03,z:0.06}, {x:-0.10,y:0.08,z:0.06},
-          {x: 0.10,y:0.08,z:0.06}, {x: 0.14,y:0.03,z:0.06}, {x: 0.18,y:0.08,z:0.06}
+          {x:-0.26,y:0.12,z:0.05}, {x:-0.22,y:0.18,z:0.05}, {x:-0.17,y:0.12,z:0.05},
+          {x: 0.17,y:0.12,z:0.05}, {x: 0.22,y:0.18,z:0.05}, {x: 0.26,y:0.12,z:0.05}
         ],
         backfingers: [
-          {x:-0.18,y:0.10,z:0.01}, {x:-0.13,y:0.11,z:0.01}, {x:-0.08,y:0.10,z:0.01},
-          {x: 0.08,y:0.10,z:0.01}, {x: 0.13,y:0.11,z:0.01}
+          {x:-0.26,y:0.22,z:0.05}, {x:-0.21,y:0.25,z:0.05}, {x:-0.16,y:0.21,z:0.05},
+          {x: 0.16,y:0.21,z:0.05}, {x: 0.21,y:0.25,z:0.05}
         ],
         thumbs: [
-          {x:-0.26,y:0.00,z:0.06}, {x:-0.24,y:-0.05,z:0.06},
-          {x: 0.26,y:0.00,z:0.06}, {x: 0.24,y:-0.05,z:0.06}
+          {x:-0.37,y:-0.02,z:0.05}, {x:-0.34,y:-0.09,z:0.05},
+          {x: 0.37,y:-0.02,z:0.05}, {x: 0.34,y:-0.09,z:0.05}
         ],
         fingertips: [
-          {x:-0.20,y:0.15,z:0.09}, {x:-0.14,y:0.17,z:0.09}, {x:-0.08,y:0.15,z:0.09},
-          {x: 0.08,y:0.15,z:0.09}, {x: 0.14,y:0.17,z:0.09}, {x: 0.20,y:0.15,z:0.09}
+          {x:-0.27,y:0.30,z:0.06}, {x:-0.22,y:0.35,z:0.06}, {x:-0.17,y:0.30,z:0.06},
+          {x: 0.17,y:0.30,z:0.06}, {x: 0.22,y:0.35,z:0.06}, {x: 0.27,y:0.30,z:0.06}
         ],
         wrists: [
-          {x:-0.26,y:-0.05,z:0.02}, {x:-0.26,y:-0.10,z:0.02},
-          {x: 0.26,y:-0.05,z:0.02}, {x: 0.26,y:-0.10,z:0.02}
+          {x:-0.20,y:-0.22,z:0.04}, {x:-0.26,y:-0.19,z:0.04},
+          {x: 0.20,y:-0.22,z:0.04}, {x: 0.26,y:-0.19,z:0.04}
         ]
       };
 
@@ -855,9 +930,18 @@
     function prepareStep(){
       const step = currentStep();
       if(!step) return;
+
       state.currentNeeded = step.needed;
       state.progress = 0;
-      spawnTargetsForStep(step.id, step.needed);
+      clearTargets();
+      setPalmFocus(false);
+
+      if(step.id === 'palms'){
+        setPalmFocus(true);
+      } else {
+        spawnTargetsForStep(step.id, step.needed);
+      }
+
       resetHands();
       updateUI();
       if (isMobileLike()) setHudCompact(true);
@@ -871,6 +955,7 @@
 
     function finishStep(){
       clearTargets();
+      setPalmFocus(false);
       state.currentIdx += 1;
       if(state.currentIdx >= STEPS.length){
         win();
@@ -892,10 +977,47 @@
       prepareStep();
     }
 
+    function activatePalm(side){
+      const step = currentStep();
+      if(!step || step.id !== 'palms') return wrongAction('ตอนนี้ให้แตะตามเป้าของขั้นตอนนี้');
+
+      if(state.hitSides[side]) return;
+
+      state.hitSides[side] = true;
+      const el = side === 'left' ? ui.leftPalmHit : ui.rightPalmHit;
+      el.dataset.hit = '1';
+      el.setAttribute('material', 'opacity', 0.28);
+
+      const pos = side === 'left'
+        ? {x:-0.20, y:0.00, z:0.05}
+        : {x:0.20, y:0.00, z:0.05};
+
+      burstAt(pos, '#ffe66d');
+
+      state.progress += 1;
+      state.score += 40;
+      updateUI();
+
+      if(state.progress >= state.currentNeeded){
+        finishStep();
+      }
+    }
+
     function activateTarget(el){
       if(!state.started || state.ended || !state.hasSoap) return;
       const step = currentStep();
       if(!step || !el) return;
+
+      if(step.id === 'palms'){
+        const side = el.dataset.side || (el.id === 'left-hand' ? 'left' : el.id === 'right-hand' ? 'right' : '');
+        if(side){
+          activatePalm(side);
+        } else {
+          wrongAction('แตะที่ฝ่ามือซ้ายและขวา');
+        }
+        return;
+      }
+
       if(el.dataset.hit === '1') return;
       if(el.dataset.kind !== step.id){
         wrongAction('ให้แตะเป้าของขั้นตอนนี้ก่อน');
@@ -922,7 +1044,7 @@
       return rc.intersectedEls[0];
     }
 
-    function getNearestCenterTarget(maxPx = 140){
+    function getNearestCenterTarget(maxPx = 260){
       const camera3D = cam ? cam.getObject3D('camera') : null;
       if (!camera3D) return null;
 
@@ -936,6 +1058,36 @@
       const cy = window.innerHeight / 2;
 
       for (const el of targets){
+        el.object3D.updateMatrixWorld();
+        _proj.setFromMatrixPosition(el.object3D.matrixWorld);
+        _proj.project(camera3D);
+
+        const sx = (_proj.x * 0.5 + 0.5) * window.innerWidth;
+        const sy = (-_proj.y * 0.5 + 0.5) * window.innerHeight;
+        const d = Math.hypot(sx - cx, sy - cy);
+
+        if (d < bestD){
+          bestD = d;
+          best = el;
+        }
+      }
+
+      return bestD <= maxPx ? best : null;
+    }
+
+    function getNearestCenterElement(ids = [], maxPx = 280){
+      const camera3D = cam ? cam.getObject3D('camera') : null;
+      if (!camera3D) return null;
+
+      let best = null;
+      let bestD = Infinity;
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+
+      for (const id of ids){
+        const el = document.getElementById(id);
+        if (!el || el.getAttribute('visible') === false) continue;
+
         el.object3D.updateMatrixWorld();
         _proj.setFromMatrixPosition(el.object3D.matrixWorld);
         _proj.project(camera3D);
@@ -984,12 +1136,30 @@
         return false;
       }
 
+      const step = currentStep();
+      if(!step) return false;
+
+      if(step.id === 'palms'){
+        if(el && el.classList.contains('palm-hit')){
+          activateTarget(el);
+          return true;
+        }
+
+        const nearPalm = getNearestCenterElement(['left-palm-hit', 'right-palm-hit'], 320);
+        if(nearPalm){
+          activateTarget(nearPalm);
+          return true;
+        }
+
+        return false;
+      }
+
       if(el && el.classList.contains('focusable') && el.parentNode === targetLayer){
         activateTarget(el);
         return true;
       }
 
-      const nearTarget = getNearestCenterTarget(140);
+      const nearTarget = getNearestCenterTarget(260);
       if (nearTarget){
         activateTarget(nearTarget);
         return true;
@@ -1035,8 +1205,11 @@
       state.miss = 0;
       state.currentNeeded = 1;
       state.lastActionAt = 0;
+      state.hitSides.left = false;
+      state.hitSides.right = false;
 
       clearTargets();
+      setPalmFocus(false);
       resetHands();
       ui.bubbles.setAttribute('visible', 'false');
       setSoapVisible(true);
@@ -1054,6 +1227,7 @@
     function win(){
       state.ended = true;
       clearTargets();
+      setPalmFocus(false);
       ui.germsL.setAttribute('visible', false);
       ui.germsR.setAttribute('visible', false);
       ui.bubbles.setAttribute('visible', false);
@@ -1085,6 +1259,9 @@
     soapHalo.addEventListener('click', activateSoap);
     soapCalloutBg.addEventListener('click', activateSoap);
     soapCallout.addEventListener('click', activateSoap);
+
+    ui.leftPalmHit.addEventListener('click', ()=>activatePalm('left'));
+    ui.rightPalmHit.addEventListener('click', ()=>activatePalm('right'));
 
     targetLayer.addEventListener('click', (e)=>{
       const t = e.target;
