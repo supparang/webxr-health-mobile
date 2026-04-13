@@ -3,40 +3,39 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Fitness Planner</title>
+  <title>HeroHealth • Fitness Planner Launcher</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe9b1" />
   <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
-      --bg1:#f2fff6;
-      --bg2:#e5fbec;
-      --bg3:#fff9e3;
+      --bg1:#effff4;
+      --bg2:#ddf8e8;
+      --bg3:#fff7de;
 
       --card:#ffffff;
       --card-soft:#fbfffc;
 
-      --line:#d8eee0;
-      --line-strong:#bfe4ca;
+      --line:#d7eedf;
+      --line-strong:#bfe3ca;
 
-      --text:#3f423d;
-      --muted:#73776f;
+      --text:#42463f;
+      --muted:#71776f;
 
       --green:#7fd957;
       --green2:#57bf39;
       --teal:#66dac5;
-      --teal2:#2fb99e;
+      --teal2:#2eb99d;
       --blue:#7ccfff;
-      --blue2:#49b1f0;
+      --blue2:#48b0ef;
       --yellow:#ffd95f;
       --orange:#ffb55d;
       --pink:#ff98c9;
-      --pink2:#ff73b0;
-      --red:#ff7f7f;
-      --purple:#b89cff;
+      --pink2:#ff72af;
+      --purple:#ba9cff;
 
-      --shadow:0 18px 46px rgba(63,66,61,.10);
-      --shadow-soft:0 10px 24px rgba(63,66,61,.07);
+      --shadow:0 18px 44px rgba(66,70,63,.10);
+      --shadow-soft:0 10px 24px rgba(66,70,63,.07);
 
       --safe-top:env(safe-area-inset-top,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
@@ -50,15 +49,14 @@
       color:var(--text);
       background:
         radial-gradient(circle at top left, rgba(255,255,255,.92), transparent 30%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+        linear-gradient(180deg,var(--bg1),var(--bg2) 54%,var(--bg3));
     }
 
     a{ color:inherit; text-decoration:none; }
     button,input,select{ font:inherit; }
-    .hidden{ display:none !important; }
 
     .app{
-      width:min(1380px, calc(100% - 14px));
+      width:min(1240px, calc(100% - 14px));
       margin:0 auto;
       padding:
         calc(10px + var(--safe-top))
@@ -77,7 +75,7 @@
 
     .brand,
     .top-link,
-    .mini-chip{
+    .pill{
       min-height:48px;
       display:inline-flex;
       align-items:center;
@@ -102,19 +100,15 @@
       font-size:15px;
     }
 
-    .title-wrap{
-      min-width:0;
-    }
-
     .title-wrap h1{
       margin:0;
-      font-size:clamp(24px,4vw,40px);
+      font-size:clamp(24px,4vw,42px);
       line-height:1;
       font-weight:1000;
     }
 
     .title-wrap p{
-      margin:4px 0 0;
+      margin:5px 0 0;
       color:var(--muted);
       font-size:13px;
       font-weight:900;
@@ -128,14 +122,9 @@
       align-items:center;
     }
 
-    .screen{
+    .layout{
       display:grid;
-      gap:12px;
-    }
-
-    .builder-layout{
-      display:grid;
-      grid-template-columns:.9fr 1.22fr .72fr;
+      grid-template-columns:1.05fr .95fr;
       gap:12px;
       align-items:start;
     }
@@ -149,814 +138,372 @@
     }
 
     .panel-inner{
-      padding:14px;
+      padding:16px;
       display:grid;
-      gap:12px;
+      gap:14px;
     }
 
-    .section-title{
-      display:flex;
+    .hero{
+      min-height:100%;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.75), transparent 25%),
+        linear-gradient(180deg,#fbfffc,#fffaf2);
+    }
+
+    .hero-head{
+      display:grid;
+      gap:10px;
+    }
+
+    .hero-badge{
+      width:max-content;
+      min-height:34px;
+      display:inline-flex;
       align-items:center;
-      justify-content:space-between;
+      justify-content:center;
       gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .section-title h2,
-    .section-title h3{
-      margin:0;
-      font-size:16px;
-    }
-
-    .section-title span{
-      color:var(--muted);
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
       font-size:12px;
       font-weight:1000;
     }
 
-    .today-card,
-    .coach-card,
-    .safe-card,
-    .summary-card,
-    .run-card,
-    .result-card,
-    .task-detail,
-    .task-control-card{
-      border-radius:22px;
-      border:2px solid var(--line);
-      background:#fff;
-      box-shadow:var(--shadow-soft);
+    .hero-head h2{
+      margin:0;
+      font-size:clamp(28px,4vw,54px);
+      line-height:.95;
     }
 
-    .today-card,
-    .coach-card,
-    .safe-card,
-    .summary-card,
-    .task-detail,
-    .task-control-card{
+    .hero-head p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:14px;
+      font-weight:900;
+      max-width:720px;
+    }
+
+    .plan-preview{
+      border-radius:26px;
+      border:2px solid var(--line);
+      background:
+        radial-gradient(circle at 20% 18%, rgba(255,255,255,.88), transparent 22%),
+        linear-gradient(180deg,#f6fff8,#fffef5);
       padding:14px;
       display:grid;
       gap:10px;
     }
 
-    .goal-list{
+    .plan-flow{
       display:grid;
-      gap:8px;
-    }
-
-    .goal-item{
-      min-height:46px;
-      border-radius:16px;
-      background:#fbfffc;
-      border:2px solid var(--line);
-      padding:10px 12px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-weight:1000;
-    }
-
-    .goal-item.done{
-      background:#effced;
-      color:#2f7e43;
-    }
-
-    .legend-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .legend-chip{
-      min-height:30px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      font-size:11px;
-      font-weight:1000;
-    }
-
-    .available-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
+      grid-template-columns:repeat(3,minmax(0,1fr));
       gap:10px;
     }
 
-    .task-pool-card{
-      padding:12px;
+    .flow-card{
+      min-height:140px;
       border-radius:22px;
-      background:linear-gradient(180deg,#fff,#f9fffb);
       border:2px solid var(--line);
+      background:#fff;
       box-shadow:var(--shadow-soft);
+      padding:14px;
       display:grid;
-      gap:10px;
-      cursor:grab;
+      gap:8px;
+      align-content:start;
     }
 
-    .task-pool-card.dragging{
-      opacity:.45;
-      transform:scale(.98);
-    }
-
-    .pool-top{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:flex-start;
-    }
-
-    .pool-icon{
-      width:48px;
-      height:48px;
-      border-radius:16px;
+    .flow-icon{
+      width:54px;
+      height:54px;
+      border-radius:18px;
       display:grid;
       place-items:center;
-      font-size:24px;
       color:#fff;
+      font-size:26px;
       box-shadow:var(--shadow-soft);
-      flex:0 0 auto;
     }
 
     .c-green{ background:linear-gradient(135deg,var(--green),var(--green2)); }
     .c-blue{ background:linear-gradient(135deg,var(--blue),var(--blue2)); }
-    .c-teal{ background:linear-gradient(135deg,var(--teal),var(--teal2)); }
     .c-pink{ background:linear-gradient(135deg,var(--pink),var(--pink2)); }
     .c-orange{ background:linear-gradient(135deg,var(--orange),#ff9650); }
     .c-purple{ background:linear-gradient(135deg,var(--purple),#8a7cf0); }
+    .c-teal{ background:linear-gradient(135deg,var(--teal),var(--teal2)); }
 
-    .pool-badge{
+    .flow-card strong{
+      font-size:18px;
+      line-height:1.05;
+    }
+
+    .flow-card span{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+      font-weight:900;
+    }
+
+    .real-game-badge{
       min-height:28px;
-      padding:5px 10px;
-      border-radius:999px;
-      background:#eef9ef;
-      border:2px solid var(--line);
-      color:#4c7d5d;
-      font-size:11px;
-      font-weight:1000;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      white-space:nowrap;
-    }
-
-    .pool-title{
-      font-size:22px;
-      line-height:1.05;
+      gap:6px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:linear-gradient(135deg,#fff7da,#ffe7a6);
+      border:2px solid rgba(255,181,93,.38);
+      color:#8b5a12;
+      font-size:11px;
       font-weight:1000;
+      width:max-content;
     }
 
-    .pool-sub{
-      color:var(--muted);
-      line-height:1.45;
-      font-size:13px;
-      font-weight:900;
-      min-height:38px;
-    }
-
-    .pool-meta{
+    .hero-strip{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
     }
 
-    .pool-meta span{
-      min-height:28px;
+    .mini-pill{
+      min-height:34px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      padding:5px 10px;
+      padding:7px 11px;
       border-radius:999px;
       background:#fff;
       border:2px solid var(--line);
-      font-size:11px;
-      font-weight:1000;
-    }
-
-    .pool-actions{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:8px;
-    }
-
-    .add-row{
-      display:grid;
-      grid-template-columns:1fr 1fr 1fr;
-      gap:8px;
-    }
-
-    .small-btn,
-    .action-btn{
-      min-height:42px;
-      border:none;
-      border-radius:16px;
-      cursor:pointer;
-      font-weight:1000;
       box-shadow:var(--shadow-soft);
+      font-size:12px;
+      font-weight:1000;
     }
 
-    .small-btn{
+    .hero-actions{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .btn{
+      border:none;
+      border-radius:18px;
+      min-height:54px;
+      padding:12px 14px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      text-align:center;
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .btn.secondary{
       background:#fff;
       border:2px solid var(--line);
       color:var(--text);
     }
 
-    .small-btn.primary{
-      background:linear-gradient(135deg,var(--green),var(--green2));
-      border:none;
-      color:#fff;
+    .btn.ghost{
+      background:linear-gradient(135deg,#fffaf3,#fff0d8);
+      border:2px solid rgba(255,181,93,.28);
+      color:var(--text);
     }
 
-    .board-panel{
+    .side{
+      display:grid;
+      gap:12px;
+    }
+
+    .section{
+      border-radius:24px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:var(--shadow-soft);
       padding:14px;
       display:grid;
       gap:12px;
-      background:
-        radial-gradient(circle at top left, rgba(255,255,255,.65), transparent 32%),
-        linear-gradient(180deg,#fbfffc,#fffdf5);
     }
 
-    .board-head{
+    .section-head{
       display:flex;
-      align-items:flex-start;
       justify-content:space-between;
       gap:10px;
+      align-items:flex-start;
       flex-wrap:wrap;
     }
 
-    .board-head h2{
+    .section-head h3{
       margin:0;
-      font-size:24px;
+      font-size:18px;
       line-height:1.1;
     }
 
-    .board-head p{
+    .section-head p{
       margin:4px 0 0;
       color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-    }
-
-    .board-columns{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:12px;
-    }
-
-    .drop-zone{
-      border-radius:24px;
-      border:2px dashed var(--line-strong);
-      background:rgba(255,255,255,.84);
-      padding:14px;
-      display:grid;
-      gap:10px;
-      min-height:170px;
-      transition:background .18s ease,border-color .18s ease,transform .18s ease;
-    }
-
-    .drop-zone.over{
-      border-color:var(--green2);
-      background:#f2fff3;
-      transform:translateY(-2px);
-    }
-
-    .zone-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .zone-head strong{
-      font-size:18px;
-    }
-
-    .zone-head span{
-      color:var(--muted);
       font-size:12px;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .field-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:12px;
+      color:var(--muted);
       font-weight:1000;
     }
 
-    .planned-list{
-      display:grid;
-      gap:10px;
-    }
-
-    .planned-item{
-      padding:12px;
-      border-radius:18px;
-      background:#fff;
-      border:2px solid var(--line);
-      display:grid;
-      gap:8px;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .planned-item-top{
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      justify-content:space-between;
-    }
-
-    .planned-item-title{
-      display:flex;
-      gap:10px;
-      min-width:0;
-      flex:1 1 auto;
-    }
-
-    .planned-item-title .ico{
-      width:42px;
-      height:42px;
+    .field input,
+    .field select{
+      width:100%;
+      min-height:46px;
       border-radius:14px;
-      display:grid;
-      place-items:center;
-      color:#fff;
-      font-size:20px;
-      flex:0 0 auto;
-    }
-
-    .planned-item-title .txt strong{
-      display:block;
-      font-size:18px;
-      line-height:1.08;
-    }
-
-    .planned-item-title .txt small{
-      display:block;
-      margin-top:4px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      line-height:1.35;
-    }
-
-    .planned-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .planned-actions button{
-      min-height:34px;
-      border:none;
-      border-radius:999px;
-      padding:6px 10px;
-      cursor:pointer;
-      font-size:11px;
-      font-weight:1000;
+      border:2px solid var(--line);
       background:#fff;
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-    }
-
-    .board-actions{
-      display:grid;
-      grid-template-columns:1fr 1fr 1fr;
-      gap:10px;
-    }
-
-    .big-btn{
-      min-height:52px;
-      border:none;
-      border-radius:18px;
-      cursor:pointer;
-      font-weight:1000;
-      box-shadow:var(--shadow-soft);
-      font-size:15px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      text-decoration:none;
-    }
-
-    .big-btn.primary{
-      background:linear-gradient(135deg,var(--green),var(--green2));
-      color:#fff;
-    }
-
-    .big-btn.secondary{
-      background:#fff;
-      border:2px solid var(--line);
       color:var(--text);
+      padding:0 12px;
+      outline:none;
     }
 
-    .big-btn.ghost{
-      background:linear-gradient(135deg,#fffaf3,#fff0d8);
-      border:2px solid rgba(255,181,93,.30);
-      color:var(--text);
-    }
-
-    .coach-card .coach-top{
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-
-    .coach-face{
-      width:56px;
-      height:56px;
-      border-radius:18px;
-      background:linear-gradient(135deg,var(--yellow),var(--orange));
+    .choice-grid{
       display:grid;
-      place-items:center;
-      font-size:28px;
-      box-shadow:var(--shadow-soft);
-      flex:0 0 auto;
-    }
-
-    .coach-title{
-      font-size:16px;
-      font-weight:1000;
-      line-height:1.1;
-    }
-
-    .coach-sub{
-      margin-top:4px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .coach-quick{
-      min-height:44px;
-      border-radius:16px;
-      padding:10px 12px;
-      background:#fbfffc;
-      border:2px solid var(--line);
-      font-weight:1000;
-      line-height:1.35;
-    }
-
-    .right-actions{
-      display:grid;
-      gap:10px;
-    }
-
-    .run-layout{
-      display:grid;
-      gap:12px;
-    }
-
-    .run-topbar{
-      display:grid;
-      grid-template-columns:auto 1fr auto;
-      gap:10px;
-      align-items:center;
-    }
-
-    .hud-row{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
+      grid-template-columns:repeat(3,minmax(0,1fr));
       gap:8px;
     }
 
-    .hud-box{
-      min-height:68px;
+    .choice{
+      position:relative;
+    }
+
+    .choice input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .choice label{
+      min-height:66px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      place-items:center;
+      text-align:center;
       padding:10px;
-      border-radius:18px;
-      background:#fff;
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-      display:grid;
+      cursor:pointer;
+      font-weight:1000;
       gap:4px;
     }
 
-    .hud-box .k{
+    .choice label small{
       font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .hud-box .v{
-      font-size:20px;
-      line-height:1.1;
-      font-weight:1000;
-    }
-
-    .run-main{
-      display:grid;
-      grid-template-columns:1.02fr .98fr;
-      gap:12px;
-      align-items:start;
-    }
-
-    .run-card{
-      padding:16px;
-      display:grid;
-      gap:12px;
-      min-height:560px;
-      background:
-        radial-gradient(circle at top left, rgba(255,255,255,.65), transparent 30%),
-        linear-gradient(180deg,#f9fffb,#fffaf0);
-    }
-
-    .run-task-title{
-      display:flex;
-      align-items:flex-start;
-      gap:12px;
-    }
-
-    .run-task-icon{
-      width:72px;
-      height:72px;
-      border-radius:22px;
-      display:grid;
-      place-items:center;
-      color:#fff;
-      font-size:34px;
-      box-shadow:var(--shadow-soft);
-      flex:0 0 auto;
-    }
-
-    .run-task-copy h2{
-      margin:0;
-      font-size:30px;
-      line-height:1.05;
-    }
-
-    .run-task-copy p{
-      margin:6px 0 0;
-      color:var(--muted);
-      font-size:14px;
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .run-progress{
-      display:grid;
-      gap:8px;
-    }
-
-    .run-progress-head{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:center;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .task-progress-bar{
-      height:18px;
-      border-radius:999px;
-      overflow:hidden;
-      background:#edf8ef;
-      border:2px solid var(--line);
-    }
-
-    .task-progress-fill{
-      height:100%;
-      width:0%;
-      border-radius:inherit;
-      background:linear-gradient(90deg,var(--green2),var(--teal2));
-      transition:width .18s ease;
-    }
-
-    .task-stage{
-      min-height:220px;
-      border-radius:24px;
-      background:#fff;
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-      padding:16px;
-      display:grid;
-      gap:14px;
-      align-content:start;
-    }
-
-    .task-stage-center{
-      min-height:120px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#fbfffc,#fffdf7);
-      border:2px dashed var(--line-strong);
-      display:grid;
-      place-items:center;
-      padding:14px;
-      text-align:center;
-    }
-
-    .stage-emoji{
-      font-size:54px;
-      line-height:1;
-    }
-
-    .stage-text{
-      margin-top:8px;
-      font-size:18px;
-      font-weight:1000;
       line-height:1.25;
-    }
-
-    .stage-sub{
-      margin-top:6px;
       color:var(--muted);
-      font-size:13px;
       font-weight:900;
-      line-height:1.35;
     }
 
-    .task-control-card{
-      min-height:140px;
-      align-content:start;
+    .choice input:checked + label{
+      border-color:#9fdfae;
+      background:#f2fff4;
+      transform:translateY(-1px);
     }
 
-    .task-control-card h3{
-      margin:0;
-      font-size:16px;
-    }
-
-    .task-control-actions{
-      display:grid;
-      gap:10px;
-    }
-
-    .play-btn{
-      min-height:58px;
-      border:none;
-      border-radius:20px;
-      cursor:pointer;
-      font-size:18px;
-      font-weight:1000;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .play-btn.tap{
-      background:linear-gradient(135deg,var(--blue),var(--blue2));
-      color:#fff;
-    }
-
-    .play-btn.hold{
-      background:linear-gradient(135deg,var(--green),var(--green2));
-      color:#fff;
-    }
-
-    .play-btn.breath{
-      background:linear-gradient(135deg,var(--pink),var(--pink2));
-      color:#fff;
-    }
-
-    .play-btn.skip{
-      background:#fff;
-      color:var(--text);
+    .recommend-box{
+      border-radius:18px;
       border:2px solid var(--line);
-    }
-
-    .run-side{
-      display:grid;
-      gap:12px;
-      align-content:start;
-    }
-
-    .plan-queue{
+      background:#fbfffc;
+      padding:12px;
       display:grid;
       gap:8px;
     }
 
-    .queue-item{
-      min-height:48px;
+    .recommend-title{
+      font-size:15px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+
+    .recommend-sub{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.45;
+      font-weight:900;
+    }
+
+    .recommend-chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .recommend-chips span{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .recent-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .recent-stat{
       padding:10px 12px;
       border-radius:16px;
       background:#fff;
       border:2px solid var(--line);
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-weight:1000;
     }
 
-    .queue-item.current{
-      background:#eefcf0;
-      border-color:#b8e5c2;
-      transform:translateY(-1px);
-    }
-
-    .queue-item.done{
-      background:#effced;
-      color:#2d7a3d;
-    }
-
-    .queue-item.skipped{
-      background:#fff5ea;
-      color:#8a5a12;
-    }
-
-    .overlay-toast{
-      position:fixed;
-      left:50%;
-      bottom:22px;
-      transform:translateX(-50%);
-      min-width:240px;
-      max-width:min(90vw,560px);
-      padding:14px 16px;
-      border-radius:18px;
-      background:rgba(31,41,55,.92);
-      color:#fff;
-      font-weight:1000;
-      box-shadow:0 16px 32px rgba(0,0,0,.22);
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .18s ease,transform .18s ease;
-      z-index:60;
-      text-align:center;
-    }
-
-    .overlay-toast.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
-    }
-
-    .summary-panel{
-      position:fixed;
-      left:50%;
-      bottom:20px;
-      transform:translateX(-50%);
-      width:min(920px, calc(100% - 16px));
-      z-index:70;
-      display:none;
-      padding:16px;
-      border-radius:28px;
-      background:rgba(255,255,255,.98);
-      border:2px solid var(--line);
-      box-shadow:var(--shadow);
-      gap:12px;
-    }
-
-    .summary-panel.show{
-      display:grid;
-    }
-
-    .summary-head{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:12px;
-      align-items:center;
-    }
-
-    .rank-badge{
-      width:88px;
-      height:88px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      font-size:40px;
-      font-weight:1000;
-      background:linear-gradient(135deg,#fff,#edfceb);
-      border:3px solid var(--line);
-      box-shadow:var(--shadow-soft);
-    }
-
-    .summary-copy h2{
-      margin:0;
-      font-size:30px;
-      line-height:1.08;
-    }
-
-    .summary-copy p{
-      margin:6px 0 0;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .summary-stat{
-      padding:10px 12px;
-      border-radius:18px;
-      background:#fff;
-      border:2px solid var(--line);
-    }
-
-    .summary-stat .k{
+    .recent-stat .k{
       display:block;
       font-size:11px;
       color:var(--muted);
       font-weight:1000;
     }
 
-    .summary-stat .v{
+    .recent-stat .v{
       display:block;
       margin-top:5px;
-      font-size:20px;
-      font-weight:1000;
+      font-size:18px;
       line-height:1.1;
+      font-weight:1000;
     }
 
-    .summary-actions{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
+    .preview-url{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:11px;
+      line-height:1.45;
+      color:#455;
+      background:rgba(255,255,255,.82);
+      border-radius:16px;
+      border:2px dashed var(--line-strong);
+      padding:10px;
+      word-break:break-all;
     }
 
     .footer-note{
@@ -966,25 +513,19 @@
       font-weight:900;
     }
 
-    @media (max-width:1180px){
-      .builder-layout,
-      .run-main{
+    @media (max-width:1100px){
+      .layout{
         grid-template-columns:1fr;
       }
     }
 
-    @media (max-width:840px){
+    @media (max-width:860px){
       .topbar,
-      .run-topbar{
-        grid-template-columns:1fr;
-      }
-
-      .available-grid,
-      .hud-row,
-      .summary-grid,
-      .summary-actions,
-      .board-actions,
-      .add-row{
+      .hero-actions,
+      .field-grid,
+      .plan-flow,
+      .recent-grid,
+      .choice-grid{
         grid-template-columns:1fr;
       }
     }
@@ -999,610 +540,330 @@
       </div>
 
       <div class="title-wrap">
-        <h1>Fitness Planner</h1>
-        <p>วางแผนกิจกรรมรายวัน แล้วเล่นตามแผนจริงทีละข้อ</p>
+        <h1>Fitness Planner Launcher</h1>
+        <p>เข้า planner แล้วจัด Warm-up + Main + Cooldown ของตัวเอง จากนั้นเล่นตามแผนจริง</p>
       </div>
 
       <div class="top-actions">
-        <a id="btnBackFitnessTop" class="top-link" href="../fitness-zone.html">🏃 Fitness Zone</a>
-        <a id="btnBackHubTop" class="top-link" href="../hub-v2.html">🏠 HUB</a>
-        <div id="pillMode" class="mini-chip">🔥 quick</div>
-        <div id="pillDiff" class="mini-chip">🎯 normal</div>
-        <div id="pillPid" class="mini-chip">🪪 anon</div>
+        <a id="btnBackFitness" class="top-link" href="../fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnBackHub" class="top-link" href="../hub-v2.html">🏠 HUB</a>
       </div>
     </header>
 
-    <section id="builderScreen" class="screen">
-      <div class="builder-layout">
-        <div class="panel">
-          <div class="panel-inner">
-            <section class="today-card">
-              <div class="section-title">
-                <h3>🎯 ภารกิจวันนี้</h3>
-                <span id="todayGoalSub">ทำให้ครบ 1 แผน</span>
-              </div>
-              <div id="goalList" class="goal-list"></div>
-              <div class="legend-row">
-                <div class="legend-chip">🟢 เสร็จ</div>
-                <div class="legend-chip">🟠 ข้าม</div>
-                <div class="legend-chip">🔵 กำลังทำ</div>
-                <div class="legend-chip">🟣 จบแผน</div>
-              </div>
-            </section>
-
-            <section class="summary-card">
-              <div class="section-title">
-                <h3>📚 เลือกกิจกรรม</h3>
-                <span>ลากลงแผน หรือกดใส่ช่องได้เลย</span>
-              </div>
-              <div id="availableGrid" class="available-grid"></div>
-            </section>
-          </div>
-        </div>
-
-        <div class="panel board-panel">
-          <div class="board-head">
-            <div>
-              <h2>🧩 กระดานวางแผน</h2>
-              <p>เรียงให้ครบ Warm-up → Main → Cooldown แล้วกดเล่นตามแผนจริง</p>
-            </div>
-            <div class="legend-row">
-              <div class="legend-chip">ลากได้</div>
-              <div class="legend-chip">แตะใส่ช่องได้</div>
-              <div class="legend-chip">เล่นตามลำดับจริง</div>
-            </div>
+    <main class="layout">
+      <section class="panel hero">
+        <div class="panel-inner">
+          <div class="hero-head">
+            <div class="hero-badge">✨ planner phases only • no gate substitution</div>
+            <h2>เลือกแผนเอง แล้วเล่นตามแผนจริง</h2>
+            <p>
+              หน้านี้จะพาเข้า <strong>planner.html</strong> ซึ่งใช้
+              <strong>Warm-up → Main → Cooldown ที่ผู้เล่นเลือกเอง</strong>
+              ไม่ใช่ warmup/cooldown ของ gate และถ้ามี task แบบเกมจริง ระบบจะเด้งเข้าเกมลูกจริงแล้วกลับมานับ task ต่อให้อัตโนมัติ
+            </p>
           </div>
 
-          <div class="board-columns">
-            <section class="drop-zone" data-zone="warmup">
-              <div class="zone-head">
+          <div class="plan-preview">
+            <div class="plan-flow">
+              <div class="flow-card">
+                <div class="flow-icon c-green">🔥</div>
                 <strong>Warm-up</strong>
-                <span>เริ่มปลุกร่างกาย</span>
+                <span>เริ่มปลุกร่างกายจาก task ที่ผู้เล่นเลือกเองก่อนเสมอ</span>
               </div>
-              <div id="warmupList" class="planned-list"></div>
-            </section>
 
-            <section class="drop-zone" data-zone="main">
-              <div class="zone-head">
+              <div class="flow-card">
+                <div class="flow-icon c-blue">🎮</div>
                 <strong>Main</strong>
-                <span>ช่วงออกกำลังกายจริง</span>
+                <span>เลือกกิจกรรมหลักหรือเกมจริง เช่น JumpDuck / Balance Hold / Rhythm Boxer</span>
+                <div class="real-game-badge">🎮 REAL GAME</div>
               </div>
-              <div id="mainList" class="planned-list"></div>
-            </section>
 
-            <section class="drop-zone" data-zone="cooldown">
-              <div class="zone-head">
+              <div class="flow-card">
+                <div class="flow-icon c-pink">🌬️</div>
                 <strong>Cooldown</strong>
-                <span>จบแบบผ่อนคลาย</span>
-              </div>
-              <div id="cooldownList" class="planned-list"></div>
-            </section>
-          </div>
-
-          <div class="board-actions">
-            <button id="btnClearPlan" class="big-btn secondary" type="button">🧹 ล้างแผน</button>
-            <button id="btnAutoPlan" class="big-btn ghost" type="button">✨ สุ่มแผนใหม่</button>
-            <button id="btnStartPlan" class="big-btn primary" type="button">▶ เล่นตามแผน</button>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-inner">
-            <section class="coach-card">
-              <div class="coach-top">
-                <div class="coach-face">🙂</div>
-                <div>
-                  <div class="coach-title">Coach Hero</div>
-                  <div class="coach-sub">ช่วยวางแผนและเล่นทีละข้อ</div>
-                </div>
-              </div>
-              <div id="coachLine" class="coach-quick">ยังไม่มีแผนเลย ลองเริ่มด้วย Warm-up ก่อนนะ</div>
-            </section>
-
-            <section class="safe-card">
-              <div class="section-title">
-                <h3>Safety</h3>
-                <span id="metricSafetyValue">10</span>
-              </div>
-              <div class="bar"><div id="metricSafetyFill" class="bar-fill"></div></div>
-
-              <div class="section-title">
-                <h3>Balance</h3>
-                <span id="metricBalanceValue">20</span>
-              </div>
-              <div class="bar"><div id="metricBalanceFill" class="bar-fill"></div></div>
-
-              <div class="section-title">
-                <h3>Variety</h3>
-                <span id="metricVarietyValue">20</span>
-              </div>
-              <div class="bar"><div id="metricVarietyFill" class="bar-fill"></div></div>
-
-              <div class="section-title">
-                <h3>Fun</h3>
-                <span id="metricFunValue">30</span>
-              </div>
-              <div class="bar"><div id="metricFunFill" class="bar-fill"></div></div>
-            </section>
-
-            <div class="right-actions">
-              <a id="btnBackFitnessSide" class="big-btn secondary" href="../fitness-zone.html">🏃 กลับ Fitness Zone</a>
-              <a id="btnBackHubSide" class="big-btn ghost" href="../hub-v2.html">🏠 กลับ HUB</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="runScreen" class="screen hidden">
-      <div class="run-layout">
-        <div class="run-topbar">
-          <a id="btnBackFitnessRun" class="top-link" href="../fitness-zone.html">🏃 Fitness Zone</a>
-          <div class="mini-chip">📋 Fitness Planner Run</div>
-          <button id="btnFinishEarly" class="top-link" type="button">⏹️ Finish</button>
-        </div>
-
-        <div class="hud-row">
-          <div class="hud-box"><span class="k">Mode</span><span id="hudMode" class="v">quick</span></div>
-          <div class="hud-box"><span class="k">Time</span><span id="hudTime" class="v">90</span></div>
-          <div class="hud-box"><span class="k">Task</span><span id="hudTask" class="v">1/4</span></div>
-          <div class="hud-box"><span class="k">Score</span><span id="hudScore" class="v">0</span></div>
-          <div class="hud-box"><span class="k">Done</span><span id="hudDone" class="v">0%</span></div>
-        </div>
-
-        <div class="run-main">
-          <div class="run-card">
-            <div class="run-task-title">
-              <div id="runTaskIcon" class="run-task-icon c-green">🚶</div>
-              <div class="run-task-copy">
-                <h2 id="runTaskTitle">Warm-up</h2>
-                <p id="runTaskSub">เริ่มจากภารกิจแรกของแผน</p>
-              </div>
-            </div>
-
-            <div class="run-progress">
-              <div class="run-progress-head">
-                <span id="runProgressLabel">progress</span>
-                <strong id="runProgressText">0%</strong>
-              </div>
-              <div class="task-progress-bar">
-                <div id="runProgressFill" class="task-progress-fill"></div>
-              </div>
-            </div>
-
-            <div class="task-stage">
-              <div class="task-stage-center">
-                <div>
-                  <div id="stageEmoji" class="stage-emoji">🚶</div>
-                  <div id="stageText" class="stage-text">แตะปุ่มเพื่อทำซ้ำตามจำนวนที่กำหนด</div>
-                  <div id="stageSub" class="stage-sub">ทำตามคำสั่งของแต่ละ task ให้ครบก่อนข้อถัดไป</div>
-                </div>
-              </div>
-
-              <div class="task-control-card">
-                <h3 id="controlTitle">วิธีเล่น</h3>
-                <div id="controlHint" class="coach-quick">กดปุ่มใหญ่เพื่อเพิ่ม progress</div>
-                <div class="task-control-actions">
-                  <button id="actionPrimary" class="play-btn tap" type="button">✅ ทำ 1 ครั้ง</button>
-                  <button id="actionSecondary" class="play-btn skip" type="button">⏭️ ข้ามข้อนี้</button>
-                </div>
+                <span>ปิดท้ายจาก task ที่เลือกเองใน planner โดยไม่เรียก gate มาซ้อน</span>
               </div>
             </div>
           </div>
 
-          <div class="run-side">
-            <div class="coach-card">
-              <div class="section-title">
-                <h3>Coach Hero</h3>
-                <span id="runCoachBadge">กำลังเล่น</span>
-              </div>
-              <div id="runCoachLine" class="coach-quick">เริ่มจากข้อแรกก่อน แล้วค่อยไปข้อถัดไป</div>
-            </div>
+          <div class="hero-strip">
+            <div class="mini-pill">✅ own warm-up</div>
+            <div class="mini-pill">✅ own cooldown</div>
+            <div class="mini-pill">🎮 child-game resume</div>
+            <div class="mini-pill">🚫 gate warmup/cooldown</div>
+          </div>
 
-            <div class="summary-card">
-              <div class="section-title">
-                <h3>Plan Queue</h3>
-                <span id="queueCount">0 task</span>
-              </div>
-              <div id="queueList" class="plan-queue"></div>
-            </div>
-
-            <div class="safe-card">
-              <div class="section-title">
-                <h3>Session Stats</h3>
-                <span id="sessionPct">0%</span>
-              </div>
-              <div class="bar"><div id="sessionPctFill" class="bar-fill"></div></div>
-
-              <div class="section-title">
-                <h3>Safety</h3>
-                <span id="runMetricSafety">10</span>
-              </div>
-              <div class="bar"><div id="runMetricSafetyFill" class="bar-fill"></div></div>
-
-              <div class="section-title">
-                <h3>Balance</h3>
-                <span id="runMetricBalance">20</span>
-              </div>
-              <div class="bar"><div id="runMetricBalanceFill" class="bar-fill"></div></div>
-
-              <div class="section-title">
-                <h3>Variety</h3>
-                <span id="runMetricVariety">20</span>
-              </div>
-              <div class="bar"><div id="runMetricVarietyFill" class="bar-fill"></div></div>
-
-              <div class="section-title">
-                <h3>Fun</h3>
-                <span id="runMetricFun">30</span>
-              </div>
-              <div class="bar"><div id="runMetricFunFill" class="bar-fill"></div></div>
-            </div>
+          <div class="hero-actions">
+            <button id="btnStartPlanner" class="btn primary" type="button">▶ เข้า Planner ตอนนี้</button>
+            <button id="btnQuickPreset" class="btn secondary" type="button">✨ ใช้ค่าแนะนำ</button>
+            <button id="btnUseRecent" class="btn ghost" type="button">🕹️ ใช้ค่าจากล่าสุด</button>
+            <a id="btnPlannerDirect" class="btn secondary" href="./planner.html">📋 เปิด planner.html ตรง</a>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <div id="toast" class="overlay-toast">พร้อมแล้ว!</div>
+      <aside class="side">
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Player</h3>
+              <p>ค่าพื้นฐานที่จะส่งเข้า planner และเกมลูก</p>
+            </div>
+          </div>
 
-    <section id="summaryPanel" class="summary-panel">
-      <div class="summary-head">
-        <div id="rankBadge" class="rank-badge">A</div>
-        <div class="summary-copy">
-          <h2 id="summaryTitle">เยี่ยมมาก!</h2>
-          <p id="summarySub">นี่คือผลสรุปรอบล่าสุดของ Fitness Planner</p>
-        </div>
-      </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="pid">PID</label>
+              <input id="pid" type="text" placeholder="anon" />
+            </div>
+            <div class="field">
+              <label for="name">Name</label>
+              <input id="name" type="text" placeholder="Player" />
+            </div>
+            <div class="field">
+              <label for="studyId">Study ID</label>
+              <input id="studyId" type="text" placeholder="optional" />
+            </div>
+            <div class="field">
+              <label for="seed">Seed</label>
+              <input id="seed" type="text" placeholder="auto" />
+            </div>
+          </div>
+        </section>
 
-      <div class="summary-grid">
-        <div class="summary-stat"><span class="k">Score</span><span id="summaryScore" class="v">0</span></div>
-        <div class="summary-stat"><span class="k">Done</span><span id="summaryDone" class="v">0</span></div>
-        <div class="summary-stat"><span class="k">Total</span><span id="summaryTotal" class="v">0</span></div>
-        <div class="summary-stat"><span class="k">Skip</span><span id="summarySkip" class="v">0</span></div>
-        <div class="summary-stat"><span class="k">Completion</span><span id="summaryPct" class="v">0%</span></div>
-      </div>
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Difficulty</h3>
+              <p>ค่าพวกนี้จะถูกส่งเข้า planner และส่งต่อให้เกมลูก</p>
+            </div>
+          </div>
 
-      <div class="summary-actions">
-        <button id="btnPlayAgain" class="big-btn primary" type="button">🔁 เล่นอีกครั้ง</button>
-        <a id="btnSummaryFitness" class="big-btn secondary" href="../fitness-zone.html">🏃 Fitness Zone</a>
-        <a id="btnSummaryHub" class="big-btn ghost" href="../hub-v2.html">🏠 HUB</a>
-      </div>
-    </section>
+          <div class="choice-grid">
+            <div class="choice">
+              <input id="diff-easy" name="diff" type="radio" value="easy" />
+              <label for="diff-easy">Easy<small>เล่นง่ายขึ้น</small></label>
+            </div>
+            <div class="choice">
+              <input id="diff-normal" name="diff" type="radio" value="normal" checked />
+              <label for="diff-normal">Normal<small>สมดุลที่สุด</small></label>
+            </div>
+            <div class="choice">
+              <input id="diff-hard" name="diff" type="radio" value="hard" />
+              <label for="diff-hard">Hard<small>ท้าทายขึ้น</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Time</h3>
+              <p>เวลาสำหรับ planner run</p>
+            </div>
+          </div>
+
+          <div class="choice-grid">
+            <div class="choice">
+              <input id="time-60" name="time" type="radio" value="60" />
+              <label for="time-60">60s<small>สั้น</small></label>
+            </div>
+            <div class="choice">
+              <input id="time-90" name="time" type="radio" value="90" checked />
+              <label for="time-90">90s<small>แนะนำ</small></label>
+            </div>
+            <div class="choice">
+              <input id="time-120" name="time" type="radio" value="120" />
+              <label for="time-120">120s<small>ยาวขึ้น</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>View</h3>
+              <p>โหมดการแสดงผลสำหรับเกมลูก</p>
+            </div>
+          </div>
+
+          <div class="choice-grid">
+            <div class="choice">
+              <input id="view-mobile" name="view" type="radio" value="mobile" checked />
+              <label for="view-mobile">Mobile<small>แตะจอ</small></label>
+            </div>
+            <div class="choice">
+              <input id="view-pc" name="view" type="radio" value="pc" />
+              <label for="view-pc">PC<small>คีย์บอร์ด</small></label>
+            </div>
+            <div class="choice">
+              <input id="view-cvr" name="view" type="radio" value="cvr" />
+              <label for="view-cvr">cVR<small>เก็บ param ไว้</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Run</h3>
+              <p>โหมดที่ส่งเข้า planner / เกมลูก</p>
+            </div>
+          </div>
+
+          <div class="choice-grid">
+            <div class="choice">
+              <input id="run-play" name="run" type="radio" value="play" checked />
+              <label for="run-play">Play<small>เล่นทั่วไป</small></label>
+            </div>
+            <div class="choice">
+              <input id="run-research" name="run" type="radio" value="research" />
+              <label for="run-research">Research<small>เก็บค่า study</small></label>
+            </div>
+            <div class="choice">
+              <input id="run-demo" name="run" type="radio" value="demo" />
+              <label for="run-demo">Demo<small>สาธิต</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Recommended</h3>
+              <p>คำแนะนำจากผลล่าสุด</p>
+            </div>
+          </div>
+
+          <div class="recommend-box">
+            <div id="recommendTitle" class="recommend-title">แนะนำค่าเริ่มต้น</div>
+            <div id="recommendSub" class="recommend-sub">ระบบจะเลือกค่าที่เหมาะกับ planner flow ให้</div>
+            <div id="recommendChips" class="recommend-chips">
+              <span>planner</span>
+              <span>Normal</span>
+              <span>90s</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Recent</h3>
+              <p>ผลล่าสุดจาก planner หรือเกมลูก</p>
+            </div>
+          </div>
+
+          <div class="recent-grid">
+            <div class="recent-stat"><span class="k">Game</span><span id="recentGame" class="v">-</span></div>
+            <div class="recent-stat"><span class="k">Rank</span><span id="recentRank" class="v">-</span></div>
+            <div class="recent-stat"><span class="k">Score</span><span id="recentScore" class="v">-</span></div>
+            <div class="recent-stat"><span class="k">Type</span><span id="recentType" class="v">-</span></div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Launch Preview</h3>
+              <p>URL ที่จะเปิดเมื่อกดเข้า planner</p>
+            </div>
+          </div>
+
+          <div id="previewUrl" class="preview-url">preview url</div>
+        </section>
+      </aside>
+    </main>
 
     <div class="footer-note">
-      Fitness Planner • player-defined plan • actual run • summary • cooldown bridge
+      Fitness Planner Launcher • planner-selected Warm-up / Main / Cooldown • real game resume • no gate substitution
     </div>
   </div>
 
-  <script src="../fitness-zone-bridge.js"></script>
   <script>
   (() => {
     'use strict';
 
-    const Bridge = window.HHFitnessBridge || null;
-    const qs = new URLSearchParams(location.search);
+    const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
+
     const $ = (id) => document.getElementById(id);
-
-    const PLAN_STORAGE_KEY = 'HHA_FITNESS_PLANNER_CUSTOM_PLAN_V1';
-
-    const TASK_LIBRARY = [
-      {
-        id:'stretch-start',
-        title:'Stretch Start',
-        subtitle:'ยืดแขน ไหล่ และลำตัวเบา ๆ',
-        zone:'warmup',
-        icon:'🤸',
-        color:'c-teal',
-        mechanic:'hold',
-        target:6,
-        unit:'sec',
-        score:32,
-        safety:8,
-        balance:4,
-        variety:3,
-        fun:4,
-        instruction:'กดค้างไว้จน progress เต็ม'
-      },
-      {
-        id:'slow-march',
-        title:'Slow March',
-        subtitle:'ย่ำเท้าช้า ๆ เพื่อปลุกร่างกาย',
-        zone:'warmup',
-        icon:'🚶',
-        color:'c-green',
-        mechanic:'tap',
-        target:14,
-        unit:'rep',
-        score:34,
-        safety:5,
-        balance:3,
-        variety:2,
-        fun:5,
-        instruction:'กดปุ่มซ้ำให้ครบจำนวนครั้ง'
-      },
-      {
-        id:'arm-swing',
-        title:'Arm Swing',
-        subtitle:'แกว่งแขนตามจังหวะให้ต่อเนื่อง',
-        zone:'warmup',
-        icon:'💪',
-        color:'c-blue',
-        mechanic:'tap',
-        target:16,
-        unit:'rep',
-        score:36,
-        safety:4,
-        balance:2,
-        variety:3,
-        fun:6,
-        instruction:'แตะปุ่มใหญ่ตามจังหวะ'
-      },
-      {
-        id:'jump-reach',
-        title:'Jump Reach',
-        subtitle:'ทำท่ากระโดดแตะเป้าจำลองเบา ๆ',
-        zone:'main',
-        icon:'🦘',
-        color:'c-blue',
-        mechanic:'tap',
-        target:18,
-        unit:'rep',
-        score:48,
-        safety:3,
-        balance:4,
-        variety:5,
-        fun:9,
-        instruction:'กดปุ่มทุกครั้งแทนการทำซ้ำ'
-      },
-      {
-        id:'balance-hold',
-        title:'Balance Hold',
-        subtitle:'คุมการทรงตัวให้นิ่งตามเวลาที่กำหนด',
-        zone:'main',
-        icon:'🧍',
-        color:'c-purple',
-        mechanic:'hold',
-        target:8,
-        unit:'sec',
-        score:52,
-        safety:5,
-        balance:10,
-        variety:4,
-        fun:6,
-        instruction:'กดค้างไว้เพื่อรักษาการทรงตัว'
-      },
-      {
-        id:'power-step',
-        title:'Power Step',
-        subtitle:'ขยับตัวต่อเนื่องแบบสั้น ๆ ให้จังหวะสวย',
-        zone:'main',
-        icon:'⚡',
-        color:'c-orange',
-        mechanic:'tap',
-        target:20,
-        unit:'rep',
-        score:50,
-        safety:3,
-        balance:4,
-        variety:6,
-        fun:9,
-        instruction:'แตะปุ่มใหญ่ให้ครบจำนวนครั้ง'
-      },
-      {
-        id:'breath-reset',
-        title:'Breath Reset',
-        subtitle:'หายใจเข้า-ออกตามรอบเพื่อผ่อนคลาย',
-        zone:'cooldown',
-        icon:'🌬️',
-        color:'c-pink',
-        mechanic:'breath',
-        target:4,
-        unit:'cycle',
-        score:28,
-        safety:10,
-        balance:6,
-        variety:2,
-        fun:3,
-        instruction:'กด Inhale และ Exhale สลับกัน'
-      },
-      {
-        id:'water-break',
-        title:'Water Break',
-        subtitle:'พักดื่มน้ำและฟื้นตัวก่อนจบแผน',
-        zone:'cooldown',
-        icon:'🥤',
-        color:'c-teal',
-        mechanic:'hold',
-        target:4,
-        unit:'sec',
-        score:24,
-        safety:10,
-        balance:3,
-        variety:1,
-        fun:3,
-        instruction:'กดค้างไว้เหมือนพักฟื้นตัว'
-      },
-      {
-        id:'smile-finish',
-        title:'Smile Finish',
-        subtitle:'เช็กว่าร่างกายพร้อมและจบแผนด้วยพลังดี ๆ',
-        zone:'cooldown',
-        icon:'😊',
-        color:'c-green',
-        mechanic:'tap',
-        target:6,
-        unit:'rep',
-        score:22,
-        safety:5,
-        balance:3,
-        variety:2,
-        fun:8,
-        instruction:'กดปุ่มให้ครบเพื่อจบแผนอย่างสดใส'
-      }
-    ];
-
-    const ABS_GATE = new URL('../warmup-gate.html', location.href).href;
+    const qs = new URLSearchParams(location.search);
 
     const els = {
-      builderScreen: $('builderScreen'),
-      runScreen: $('runScreen'),
-      summaryPanel: $('summaryPanel'),
-      toast: $('toast'),
-
-      btnBackFitnessTop: $('btnBackFitnessTop'),
-      btnBackHubTop: $('btnBackHubTop'),
-      btnBackFitnessSide: $('btnBackFitnessSide'),
-      btnBackHubSide: $('btnBackHubSide'),
-      btnBackFitnessRun: $('btnBackFitnessRun'),
-      btnSummaryFitness: $('btnSummaryFitness'),
-      btnSummaryHub: $('btnSummaryHub'),
-
-      pillMode: $('pillMode'),
-      pillDiff: $('pillDiff'),
-      pillPid: $('pillPid'),
-
-      goalList: $('goalList'),
-      todayGoalSub: $('todayGoalSub'),
-      availableGrid: $('availableGrid'),
-      warmupList: $('warmupList'),
-      mainList: $('mainList'),
-      cooldownList: $('cooldownList'),
-
-      btnClearPlan: $('btnClearPlan'),
-      btnAutoPlan: $('btnAutoPlan'),
-      btnStartPlan: $('btnStartPlan'),
-
-      coachLine: $('coachLine'),
-      metricSafetyValue: $('metricSafetyValue'),
-      metricBalanceValue: $('metricBalanceValue'),
-      metricVarietyValue: $('metricVarietyValue'),
-      metricFunValue: $('metricFunValue'),
-      metricSafetyFill: $('metricSafetyFill'),
-      metricBalanceFill: $('metricBalanceFill'),
-      metricVarietyFill: $('metricVarietyFill'),
-      metricFunFill: $('metricFunFill'),
-
-      hudMode: $('hudMode'),
-      hudTime: $('hudTime'),
-      hudTask: $('hudTask'),
-      hudScore: $('hudScore'),
-      hudDone: $('hudDone'),
-
-      runTaskIcon: $('runTaskIcon'),
-      runTaskTitle: $('runTaskTitle'),
-      runTaskSub: $('runTaskSub'),
-      runProgressLabel: $('runProgressLabel'),
-      runProgressText: $('runProgressText'),
-      runProgressFill: $('runProgressFill'),
-      stageEmoji: $('stageEmoji'),
-      stageText: $('stageText'),
-      stageSub: $('stageSub'),
-      controlTitle: $('controlTitle'),
-      controlHint: $('controlHint'),
-      actionPrimary: $('actionPrimary'),
-      actionSecondary: $('actionSecondary'),
-      queueList: $('queueList'),
-      queueCount: $('queueCount'),
-      runCoachLine: $('runCoachLine'),
-      runCoachBadge: $('runCoachBadge'),
-      sessionPct: $('sessionPct'),
-      sessionPctFill: $('sessionPctFill'),
-      runMetricSafety: $('runMetricSafety'),
-      runMetricBalance: $('runMetricBalance'),
-      runMetricVariety: $('runMetricVariety'),
-      runMetricFun: $('runMetricFun'),
-      runMetricSafetyFill: $('runMetricSafetyFill'),
-      runMetricBalanceFill: $('runMetricBalanceFill'),
-      runMetricVarietyFill: $('runMetricVarietyFill'),
-      runMetricFunFill: $('runMetricFunFill'),
-
-      btnFinishEarly: $('btnFinishEarly'),
-      btnPlayAgain: $('btnPlayAgain'),
-
-      summaryTitle: $('summaryTitle'),
-      summarySub: $('summarySub'),
-      summaryScore: $('summaryScore'),
-      summaryDone: $('summaryDone'),
-      summaryTotal: $('summaryTotal'),
-      summarySkip: $('summarySkip'),
-      summaryPct: $('summaryPct'),
-      rankBadge: $('rankBadge')
+      pid: $('pid'),
+      name: $('name'),
+      studyId: $('studyId'),
+      seed: $('seed'),
+      btnBackFitness: $('btnBackFitness'),
+      btnBackHub: $('btnBackHub'),
+      btnStartPlanner: $('btnStartPlanner'),
+      btnPlannerDirect: $('btnPlannerDirect'),
+      btnQuickPreset: $('btnQuickPreset'),
+      btnUseRecent: $('btnUseRecent'),
+      previewUrl: $('previewUrl'),
+      recommendTitle: $('recommendTitle'),
+      recommendSub: $('recommendSub'),
+      recommendChips: $('recommendChips'),
+      recentGame: $('recentGame'),
+      recentRank: $('recentRank'),
+      recentScore: $('recentScore'),
+      recentType: $('recentType')
     };
 
-    const state = {
-      plan: {
-        warmup: [],
-        main: [],
-        cooldown: []
-      },
-      metrics: {
-        safety: 10,
-        balance: 20,
-        variety: 20,
-        fun: 30
-      },
-      run: {
-        active: false,
-        tasks: [],
-        index: 0,
-        score: 0,
-        done: 0,
-        skipped: 0,
-        leftSec: 90,
-        totalSec: 90,
-        timer: 0,
-        holdTick: 0,
-        mode: 'quick',
-        diff: 'normal',
-        cooldownRedirectTimer: 0
+    const ABS_PLANNER = new URL('./planner.html', location.href).href;
+    const ABS_FITNESS = new URL('../fitness-zone.html', location.href).href;
+    const ABS_HUB = new URL('../hub-v2.html', location.href).href;
+
+    function safeJsonParse(raw, fallback = null) {
+      try { return JSON.parse(raw); } catch (_) { return fallback; }
+    }
+
+    function readSummary() {
+      try {
+        const raw = localStorage.getItem(LAST_SUMMARY_KEY);
+        return raw ? safeJsonParse(raw, null) : null;
+      } catch (_) {
+        return null;
       }
-    };
+    }
 
-    function q(key, fallback='') {
+    function readOrDefault(key, fallback) {
       const v = qs.get(key);
-      return v == null || v === '' ? fallback : v;
+      return (v == null || v === '') ? fallback : v;
     }
 
-    function numberOr(value, fallback = 0) {
-      const n = Number(value);
-      return Number.isFinite(n) ? n : fallback;
+    function readRadio(name, fallback) {
+      const node = document.querySelector(`input[name="${name}"]:checked`);
+      return node ? node.value : fallback;
     }
 
-    function cleanText(value, fallback='') {
-      const s = String(value || '').trim();
-      return s || fallback;
+    function setRadio(name, value, fallbackId) {
+      const node = document.querySelector(`input[name="${name}"][value="${value}"]`);
+      if (node) node.checked = true;
+      else if (fallbackId) $(fallbackId).checked = true;
     }
 
-    function canonicalGameId(gameId) {
-      if (Bridge && typeof Bridge.canonicalGameId === 'function') {
-        return Bridge.canonicalGameId(gameId);
-      }
-      return String(gameId || '').trim().toLowerCase();
+    function cleanText(v, fallback='') {
+      return String(v || '').trim() || fallback;
+    }
+
+    function buildSeed() {
+      return cleanText(els.seed.value, String(Date.now()));
     }
 
     function buildHubUrl() {
-      if (Bridge && typeof Bridge.buildHubUrl === 'function') return Bridge.buildHubUrl();
-      const raw = q('hub', '');
-      if (raw) {
-        try { return new URL(raw, location.href).toString(); } catch (_) {}
-      }
-      return new URL('../hub-v2.html', location.href).toString();
+      const raw = readOrDefault('hub', ABS_HUB);
+      try { return new URL(raw, location.href).toString(); }
+      catch (_) { return ABS_HUB; }
     }
 
     function buildFitnessUrl() {
-      if (Bridge && typeof Bridge.buildFitnessZoneUrl === 'function') {
-        return Bridge.buildFitnessZoneUrl({
-          focus: 'fitness-planner',
-          featured: 'fitness-planner'
-        });
-      }
-      const u = new URL('../fitness-zone.html', location.href);
-      const pass = [
+      const u = new URL(ABS_FITNESS);
+      [
         'pid','name','nick','studyId','run','view','diff','time','seed',
         'debug','api','log','studentKey','schoolCode','classRoom','studentNo','nickName'
-      ];
-      pass.forEach((k) => {
-        const v = q(k, '');
+      ].forEach((k) => {
+        const v = readOrDefault(k, '');
         if (v) u.searchParams.set(k, v);
       });
       u.searchParams.set('zone', 'fitness');
@@ -1612,979 +873,195 @@
       return u.toString();
     }
 
-    function buildCooldownUrl() {
-      const u = new URL(ABS_GATE);
-      const pid = cleanText(q('pid', 'anon'), 'anon');
-      const name = cleanText(q('name', q('nickName', 'Player')), 'Player');
-      const studyId = cleanText(q('studyId', ''), '');
-      const diff = cleanText(q('diff', 'normal'), 'normal');
-      const time = cleanText(q('time', '90'), '90');
-      const seed = cleanText(q('seed', String(Date.now())), String(Date.now()));
-      const view = cleanText(q('view', 'mobile'), 'mobile');
-      const run = cleanText(q('run', 'play'), 'play');
-      const mode = cleanText(q('mode', run), run);
-      const hub = buildHubUrl();
+    function buildPlannerUrl(patch = {}) {
+      const u = new URL(ABS_PLANNER);
+      const pid = cleanText(els.pid.value, 'anon');
+      const name = cleanText(els.name.value, 'Player');
+      const studyId = cleanText(els.studyId.value, '');
+      const diff = patch.diff || readRadio('diff', 'normal');
+      const time = patch.time || readRadio('time', '90');
+      const view = patch.view || readRadio('view', 'mobile');
+      const run = patch.run || readRadio('run', 'play');
+      const seed = patch.seed || buildSeed();
 
-      u.searchParams.set('phase', 'cooldown');
       u.searchParams.set('pid', pid);
       u.searchParams.set('name', name);
       if (studyId) u.searchParams.set('studyId', studyId);
 
-      u.searchParams.set('zone', 'fitness');
-      u.searchParams.set('cat', 'fitness');
-      u.searchParams.set('game', 'fitness-planner');
-      u.searchParams.set('gameId', 'fitness-planner');
-      u.searchParams.set('theme', cleanText(q('theme', 'planner'), 'planner'));
       u.searchParams.set('diff', diff);
       u.searchParams.set('time', time);
-      u.searchParams.set('seed', seed);
       u.searchParams.set('view', view);
       u.searchParams.set('run', run);
-      u.searchParams.set('mode', mode);
-      u.searchParams.set('hub', hub);
+      u.searchParams.set('seed', seed);
 
-      u.searchParams.set('gate', '1');
-      u.searchParams.set('cooldown', '1');
-      u.searchParams.set('returnPhase', 'hub');
-      u.searchParams.set('dur', cleanText(q('dur', '20'), '20'));
-      u.searchParams.set('cdur', cleanText(q('cdur', '20'), '20'));
-      u.searchParams.set('next', hub);
+      u.searchParams.set('plannerFlow', '1');
+      u.searchParams.set('fpStrict', '1');
+      u.searchParams.set('gate', '0');
+      u.searchParams.set('cooldown', '0');
+      u.searchParams.set('hub', buildHubUrl());
 
       [
         'studentKey','schoolCode','classRoom','studentNo','nickName',
         'api','debug','phase','conditionGroup','sessionNo','weekNo','log'
       ].forEach((k) => {
-        const v = q(k, '');
+        const v = readOrDefault(k, '');
         if (v) u.searchParams.set(k, v);
       });
 
       return u.toString();
     }
 
-    function cooldownEnabled() {
-      return cleanText(q('cooldown', '1'), '1') === '1';
-    }
-
-    function clearCooldownRedirect() {
-      if (state.run.cooldownRedirectTimer) {
-        clearTimeout(state.run.cooldownRedirectTimer);
-        state.run.cooldownRedirectTimer = 0;
+    function recommendFromSummary(summary) {
+      if (!summary) {
+        return {
+          title: 'แนะนำค่าเริ่มต้นสำหรับ planner',
+          sub: 'เริ่มด้วย Normal 90s แล้วค่อยจัดแผนเองใน planner',
+          diff: 'normal',
+          time: '90',
+          view: 'mobile',
+          run: 'play',
+          chips: ['planner', 'Normal', '90s', 'own phases']
+        };
       }
-    }
 
-    function getLastSummary() {
-      try {
-        const raw = localStorage.getItem('HHA_LAST_SUMMARY');
-        const data = raw ? JSON.parse(raw) : null;
-        if (!data) return null;
-        const g = canonicalGameId(data.game || data.gameId);
-        return g === 'fitness-planner' ? data : null;
-      } catch (_) {
-        return null;
+      const game = String(summary.game || summary.gameId || '').toLowerCase();
+      const rank = String(summary.rank || '-');
+      const score = Number(summary.scoreFinal || summary.score || 0);
+
+      if (game === 'fitness-planner' && (rank === 'S' || rank === 'A')) {
+        return {
+          title: 'พร้อมเพิ่มความท้าทายแล้ว',
+          sub: 'แนะนำให้ใช้ Hard หรือ Research แล้วจัด real game task เพิ่มใน Main',
+          diff: 'hard',
+          time: '90',
+          view: 'pc',
+          run: 'research',
+          chips: ['planner', 'Hard', 'Research', 'real-game main']
+        };
       }
-    }
 
-    function showToast(text) {
-      els.toast.textContent = text;
-      els.toast.classList.add('show');
-      clearTimeout(els.toast._timer);
-      els.toast._timer = setTimeout(() => {
-        els.toast.classList.remove('show');
-      }, 1200);
-    }
+      if (score >= 120 || rank === 'B') {
+        return {
+          title: 'กำลังไปได้ดี',
+          sub: 'ใช้ Normal 90s ต่อ แล้วจัด Warm-up / Main / Cooldown ให้ครบทั้งวัน',
+          diff: 'normal',
+          time: '90',
+          view: 'mobile',
+          run: 'play',
+          chips: ['planner', 'Normal', '90s', 'full phases']
+        };
+      }
 
-    function cloneTask(task) {
       return {
-        ...task,
-        runtime: {
-          progress: 0,
-          done: false,
-          skipped: false,
-          breathState: 'inhale'
-        }
+        title: 'เริ่มแบบง่ายก่อน',
+        sub: 'ใช้ Easy 60s แล้วค่อยเข้าไปจัด task แบบเบา ๆ ใน planner',
+        diff: 'easy',
+        time: '60',
+        view: 'mobile',
+        run: 'play',
+        chips: ['planner', 'Easy', '60s', 'starter']
       };
     }
 
-    function stripRuntimeFromTask(task) {
-      const clone = { ...task };
-      delete clone.runtime;
-      return clone;
-    }
-
-    function serializePlan() {
-      return {
-        warmup: state.plan.warmup.map(stripRuntimeFromTask),
-        main: state.plan.main.map(stripRuntimeFromTask),
-        cooldown: state.plan.cooldown.map(stripRuntimeFromTask)
-      };
-    }
-
-    function saveCustomPlan() {
-      try {
-        localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(serializePlan()));
-      } catch (_) {}
-    }
-
-    function normalizeStoredTask(task) {
-      const lib = getTaskById(task?.id);
-      if (!lib) return null;
-      return cloneTask(lib);
-    }
-
-    function loadCustomPlan() {
-      try {
-        const raw = localStorage.getItem(PLAN_STORAGE_KEY);
-        if (!raw) return false;
-
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== 'object') return false;
-
-        const warmup = Array.isArray(parsed.warmup) ? parsed.warmup : [];
-        const main = Array.isArray(parsed.main) ? parsed.main : [];
-        const cooldown = Array.isArray(parsed.cooldown) ? parsed.cooldown : [];
-
-        state.plan.warmup = warmup.map(normalizeStoredTask).filter(Boolean);
-        state.plan.main = main.map(normalizeStoredTask).filter(Boolean);
-        state.plan.cooldown = cooldown.map(normalizeStoredTask).filter(Boolean);
-
-        return (
-          state.plan.warmup.length > 0 ||
-          state.plan.main.length > 0 ||
-          state.plan.cooldown.length > 0
-        );
-      } catch (_) {
-        return false;
-      }
-    }
-
-    function clearSavedPlan() {
-      try {
-        localStorage.removeItem(PLAN_STORAGE_KEY);
-      } catch (_) {}
-    }
-
-    function updatePills() {
-      const mode = cleanText(q('mode', q('run', 'quick')), 'quick');
-      const diff = cleanText(q('diff', 'normal'), 'normal');
-      const pid = cleanText(q('pid', 'anon'), 'anon');
-
-      els.pillMode.textContent = `🔥 ${mode}`;
-      els.pillDiff.textContent = `🎯 ${diff}`;
-      els.pillPid.textContent = `🪪 ${pid}`;
-    }
-
-    function applyLinks() {
-      const hub = buildHubUrl();
-      const fit = buildFitnessUrl();
-
-      [els.btnBackFitnessTop, els.btnBackFitnessSide, els.btnBackFitnessRun].forEach((node) => {
-        if (node) node.href = fit;
-      });
-
-      [els.btnBackHubTop, els.btnBackHubSide].forEach((node) => {
-        if (node) node.href = hub;
-      });
-
-      if (els.btnSummaryFitness) {
-        els.btnSummaryFitness.href = fit;
-        els.btnSummaryFitness.textContent = '🏃 Fitness Zone';
-      }
-      if (els.btnSummaryHub) {
-        els.btnSummaryHub.href = hub;
-        els.btnSummaryHub.textContent = '🏠 HUB';
-      }
-    }
-
-    function renderRecentHints() {
-      const last = getLastSummary();
-      if (!last) {
-        els.todayGoalSub.textContent = 'ทำให้ครบ 1 แผน';
-        return;
-      }
-      els.todayGoalSub.textContent =
-        `ล่าสุด ${last.rank || '-'} • done ${numberOr(last.tasksDone, 0)}/${numberOr(last.tasksTotal, 0)} • ${numberOr(last.completionPct, 0)}%`;
-    }
-
-    function currentPlanCount() {
-      return state.plan.warmup.length + state.plan.main.length + state.plan.cooldown.length;
-    }
-
-    function updateBuilderCoach() {
-      const w = state.plan.warmup.length;
-      const m = state.plan.main.length;
-      const c = state.plan.cooldown.length;
-      const total = currentPlanCount();
-
-      if (!total) {
-        els.coachLine.textContent = 'ยังไม่มีแผนเลย ลองเริ่มด้วย Warm-up ก่อนนะ';
-      } else if (!w) {
-        els.coachLine.textContent = 'ขาด Warm-up อยู่ ใส่กิจกรรมอุ่นร่างกายก่อนเริ่มเล่นจริง';
-      } else if (!m) {
-        els.coachLine.textContent = 'ต่อด้วย Main อย่างน้อย 1 กิจกรรม เพื่อให้แผนนี้เล่นจริงได้';
-      } else if (!c) {
-        els.coachLine.textContent = 'อย่าลืมใส่ Cooldown ด้วย จะได้จบแผนแบบสมบูรณ์';
-      } else {
-        els.coachLine.textContent = `พร้อมแล้ว! แผนนี้มี ${total} กิจกรรม กด “เล่นตามแผน” ได้เลย`;
-      }
-
-      updateGoals();
-    }
-
-    function uniqueTags(tasks) {
-      const set = new Set();
-      tasks.forEach((t) => (t.tags || []).forEach((tag) => set.add(tag)));
-      return set.size;
-    }
-
-    function recalcBuilderMetrics() {
-      const all = [...state.plan.warmup, ...state.plan.main, ...state.plan.cooldown];
-      const safety = Math.min(100, 10 + all.reduce((s, t) => s + numberOr(t.safety, 0), 0));
-      const balance = Math.min(100, 20 + all.reduce((s, t) => s + numberOr(t.balance, 0), 0));
-      const variety = Math.min(100, 20 + uniqueTags(all) * 7);
-      const fun = Math.min(100, 30 + all.reduce((s, t) => s + numberOr(t.fun, 0), 0));
-
-      state.metrics = { safety, balance, variety, fun };
-
-      setMetricUI('metricSafety', safety);
-      setMetricUI('metricBalance', balance);
-      setMetricUI('metricVariety', variety);
-      setMetricUI('metricFun', fun);
-    }
-
-    function setMetricUI(prefix, value) {
-      const v = Math.round(value);
-      const valueNode = els[`${prefix}Value`];
-      const fillNode = els[`${prefix}Fill`];
-      if (valueNode) valueNode.textContent = String(v);
-      if (fillNode) fillNode.style.width = `${v}%`;
-    }
-
-    function updateGoals() {
-      const goals = [
-        { ok: state.plan.warmup.length > 0, text:'ต้องมี Warm-up ก่อนเริ่ม' },
-        { ok: state.plan.cooldown.length > 0, text:'ต้องมี Cooldown ปิดท้าย' },
-        { ok: state.plan.main.length > 0, text:'ต้องมีกิจกรรมหลักอย่างน้อย 1 ข้อ' },
-        { ok: currentPlanCount() >= 3, text:'วางแผนอย่างน้อย 3 กิจกรรม' }
-      ];
-
-      els.goalList.innerHTML = goals.map((goal) => `
-        <div class="goal-item ${goal.ok ? 'done' : ''}">
-          <span>${goal.ok ? '✅' : '📍'}</span>
-          <span>${goal.text}</span>
-        </div>
-      `).join('');
-    }
-
-    function availableByTheme() {
-      const theme = cleanText(q('theme', 'mix'), 'mix');
-      if (theme === 'balance') {
-        return TASK_LIBRARY.filter((t) => ['balance-hold','stretch-start','breath-reset','water-break','slow-march'].includes(t.id));
-      }
-      if (theme === 'cardio') {
-        return TASK_LIBRARY.filter((t) => ['slow-march','arm-swing','jump-reach','power-step','water-break'].includes(t.id));
-      }
-      if (theme === 'recovery') {
-        return TASK_LIBRARY.filter((t) => ['stretch-start','breath-reset','water-break','slow-march','smile-finish'].includes(t.id));
-      }
-      return TASK_LIBRARY;
-    }
-
-    function renderAvailable() {
-      const list = availableByTheme();
-      els.availableGrid.innerHTML = list.map((task) => `
-        <article class="task-pool-card" draggable="true" data-task-id="${task.id}">
-          <div class="pool-top">
-            <div style="display:flex;gap:10px;min-width:0;">
-              <div class="pool-icon ${task.color}">${task.icon}</div>
-              <div style="min-width:0;">
-                <div class="pool-title">${task.title}</div>
-                <div class="pool-sub">${task.subtitle}</div>
-              </div>
-            </div>
-            <div class="pool-badge">${task.zone.toUpperCase()}</div>
-          </div>
-
-          <div class="pool-meta">
-            <span>${task.mechanic}</span>
-            <span>${task.target} ${task.unit}</span>
-            <span>+${task.score} score</span>
-          </div>
-
-          <div class="pool-actions">
-            <div class="add-row">
-              <button class="small-btn" data-add-zone="warmup" data-task-id="${task.id}" type="button">ใส่ W</button>
-              <button class="small-btn" data-add-zone="main" data-task-id="${task.id}" type="button">ใส่ M</button>
-              <button class="small-btn" data-add-zone="cooldown" data-task-id="${task.id}" type="button">ใส่ C</button>
-            </div>
-          </div>
-        </article>
-      `).join('');
-
-      els.availableGrid.querySelectorAll('.task-pool-card').forEach((card) => {
-        card.addEventListener('dragstart', (e) => {
-          card.classList.add('dragging');
-          e.dataTransfer.setData('text/plain', card.getAttribute('data-task-id'));
-        });
-        card.addEventListener('dragend', () => {
-          card.classList.remove('dragging');
-        });
-      });
-
-      els.availableGrid.querySelectorAll('[data-add-zone]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          addTaskToZone(btn.getAttribute('data-task-id'), btn.getAttribute('data-add-zone'));
-        });
-      });
-    }
-
-    function renderZoneList(zone, targetEl) {
-      const list = state.plan[zone];
-      if (!list.length) {
-        targetEl.innerHTML = `
-          <div class="planned-item" style="opacity:.7;border-style:dashed;">
-            <div class="planned-item-top">
-              <div class="planned-item-title">
-                <div class="ico c-green">➕</div>
-                <div class="txt">
-                  <strong>ลากกิจกรรมมาวาง</strong>
-                  <small>หรือกดปุ่ม ใส่ W / M / C จากการ์ดด้านซ้าย</small>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
+    function renderRecent(summary) {
+      if (!summary) {
+        els.recentGame.textContent = '-';
+        els.recentRank.textContent = '-';
+        els.recentScore.textContent = '-';
+        els.recentType.textContent = 'none';
         return;
       }
 
-      targetEl.innerHTML = list.map((task, index) => `
-        <article class="planned-item">
-          <div class="planned-item-top">
-            <div class="planned-item-title">
-              <div class="ico ${task.color}">${task.icon}</div>
-              <div class="txt">
-                <strong>${task.title}</strong>
-                <small>${task.subtitle}</small>
-              </div>
-            </div>
-            <div class="pool-badge">${index + 1}</div>
-          </div>
+      const game = String(summary.game || summary.gameId || '-');
+      const rank = String(summary.rank || '-');
+      const score = Number(summary.scoreFinal || summary.score || 0);
 
-          <div class="planned-actions">
-            <button data-move="up" data-zone="${zone}" data-index="${index}" type="button">⬆️ ขึ้น</button>
-            <button data-move="down" data-zone="${zone}" data-index="${index}" type="button">⬇️ ลง</button>
-            <button data-remove data-zone="${zone}" data-index="${index}" type="button">🗑️ ลบ</button>
-          </div>
-        </article>
-      `).join('');
+      els.recentGame.textContent = game;
+      els.recentRank.textContent = rank;
+      els.recentScore.textContent = String(score || '-');
+      els.recentType.textContent = game === 'fitness-planner' ? 'planner' : 'child game';
+    }
 
-      targetEl.querySelectorAll('[data-remove]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const z = btn.getAttribute('data-zone');
-          const i = numberOr(btn.getAttribute('data-index'), 0);
-          state.plan[z].splice(i, 1);
-          saveCustomPlan();
-          refreshBuilder();
-        });
-      });
+    function renderRecommendation(rec) {
+      els.recommendTitle.textContent = rec.title;
+      els.recommendSub.textContent = rec.sub;
+      els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${x}</span>`).join('');
+    }
 
-      targetEl.querySelectorAll('[data-move]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const dir = btn.getAttribute('data-move');
-          const z = btn.getAttribute('data-zone');
-          const i = numberOr(btn.getAttribute('data-index'), 0);
-          const arr = state.plan[z];
-          if (dir === 'up' && i > 0) {
-            [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
-          }
-          if (dir === 'down' && i < arr.length - 1) {
-            [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
-          }
-          saveCustomPlan();
-          refreshBuilder();
-        });
+    function applyRecommendation(rec) {
+      setRadio('diff', rec.diff, 'diff-normal');
+      setRadio('time', rec.time, 'time-90');
+      setRadio('view', rec.view, 'view-mobile');
+      setRadio('run', rec.run, 'run-play');
+      refreshPreview();
+    }
+
+    function refreshPreview() {
+      els.previewUrl.textContent = buildPlannerUrl();
+      els.btnPlannerDirect.href = buildPlannerUrl();
+    }
+
+    function bindInputs() {
+      [
+        els.pid, els.name, els.studyId, els.seed,
+        ...document.querySelectorAll('input[type="radio"]')
+      ].forEach((node) => {
+        node.addEventListener('input', refreshPreview);
+        node.addEventListener('change', refreshPreview);
       });
     }
 
-    function refreshBuilder() {
-      renderZoneList('warmup', els.warmupList);
-      renderZoneList('main', els.mainList);
-      renderZoneList('cooldown', els.cooldownList);
-      recalcBuilderMetrics();
-      updateBuilderCoach();
-    }
-
-    function getTaskById(taskId) {
-      return TASK_LIBRARY.find((t) => t.id === taskId) || null;
-    }
-
-    function addTaskToZone(taskId, zone) {
-      const task = getTaskById(taskId);
-      if (!task || !state.plan[zone]) return;
-      state.plan[zone].push(cloneTask(task));
-      saveCustomPlan();
-      showToast(`เพิ่ม ${task.title} ไปที่ ${zone}`);
-      refreshBuilder();
-    }
-
-    function bindDropZones() {
-      document.querySelectorAll('.drop-zone').forEach((zoneEl) => {
-        const zone = zoneEl.getAttribute('data-zone');
-
-        zoneEl.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          zoneEl.classList.add('over');
-        });
-
-        zoneEl.addEventListener('dragleave', () => {
-          zoneEl.classList.remove('over');
-        });
-
-        zoneEl.addEventListener('drop', (e) => {
-          e.preventDefault();
-          zoneEl.classList.remove('over');
-          const taskId = e.dataTransfer.getData('text/plain');
-          addTaskToZone(taskId, zone);
-        });
-      });
-    }
-
-    function clearPlan() {
-      state.plan.warmup = [];
-      state.plan.main = [];
-      state.plan.cooldown = [];
-      clearSavedPlan();
-      refreshBuilder();
-    }
-
-    function autoPlan() {
-      state.plan.warmup = [];
-      state.plan.main = [];
-      state.plan.cooldown = [];
-
-      const diff = cleanText(q('diff', 'normal'), 'normal');
-      const themeTasks = availableByTheme();
-
-      const warmups = themeTasks.filter((t) => t.zone === 'warmup');
-      const mains = themeTasks.filter((t) => t.zone === 'main');
-      const cooldowns = themeTasks.filter((t) => t.zone === 'cooldown');
-
-      const mainCount = diff === 'easy' ? 1 : (diff === 'hard' ? 2 : 2);
-
-      if (warmups[0]) state.plan.warmup.push(cloneTask(warmups[0]));
-      mains.slice(0, mainCount).forEach((task) => state.plan.main.push(cloneTask(task)));
-      cooldowns.slice(0, 2).forEach((task, idx) => {
-        if (diff === 'easy' && idx > 0) return;
-        state.plan.cooldown.push(cloneTask(task));
-      });
-
-      saveCustomPlan();
-      refreshBuilder();
-      showToast('✨ จัดแผนอัตโนมัติแล้ว');
-    }
-
-    function flattenPlan() {
-      return [
-        ...state.plan.warmup.map((t) => ({ ...cloneTask(stripRuntimeFromTask(t)), phase:'Warm-up' })),
-        ...state.plan.main.map((t) => ({ ...cloneTask(stripRuntimeFromTask(t)), phase:'Main' })),
-        ...state.plan.cooldown.map((t) => ({ ...cloneTask(stripRuntimeFromTask(t)), phase:'Cooldown' }))
-      ];
-    }
-
-    function validatePlan() {
-      if (!state.plan.warmup.length) {
-        showToast('ต้องมี Warm-up ก่อน');
-        return false;
-      }
-      if (!state.plan.main.length) {
-        showToast('ต้องมี Main อย่างน้อย 1 ข้อ');
-        return false;
-      }
-      if (!state.plan.cooldown.length) {
-        showToast('ต้องมี Cooldown ด้วย');
-        return false;
-      }
-      return true;
-    }
-
-    function showBuilder() {
-      clearCooldownRedirect();
-      els.builderScreen.classList.remove('hidden');
-      els.runScreen.classList.add('hidden');
-      els.summaryPanel.classList.remove('show');
-    }
-
-    function showRun() {
-      clearCooldownRedirect();
-      els.summaryPanel.classList.remove('show');
-      els.builderScreen.classList.add('hidden');
-      els.runScreen.classList.remove('hidden');
-    }
-
-    function completionPct() {
-      const total = state.run.tasks.length || 1;
-      return Math.round((state.run.done / total) * 100);
-    }
-
-    function updateRunMetricsDisplay() {
-      const m = state.metrics;
-      els.runMetricSafety.textContent = Math.round(m.safety);
-      els.runMetricBalance.textContent = Math.round(m.balance);
-      els.runMetricVariety.textContent = Math.round(m.variety);
-      els.runMetricFun.textContent = Math.round(m.fun);
-
-      els.runMetricSafetyFill.style.width = `${Math.round(m.safety)}%`;
-      els.runMetricBalanceFill.style.width = `${Math.round(m.balance)}%`;
-      els.runMetricVarietyFill.style.width = `${Math.round(m.variety)}%`;
-      els.runMetricFunFill.style.width = `${Math.round(m.fun)}%`;
-
-      els.sessionPct.textContent = `${completionPct()}%`;
-      els.sessionPctFill.style.width = `${completionPct()}%`;
-    }
-
-    function updateHud() {
-      els.hudMode.textContent = cleanText(q('mode', q('run', 'quick')), 'quick');
-      els.hudTime.textContent = String(Math.max(0, state.run.leftSec));
-      els.hudTask.textContent = `${Math.min(state.run.index + 1, state.run.tasks.length)}/${state.run.tasks.length}`;
-      els.hudScore.textContent = String(state.run.score);
-      els.hudDone.textContent = `${completionPct()}%`;
-      updateRunMetricsDisplay();
-    }
-
-    function queueStatus(task, idx) {
-      if (task.runtime.done) return 'done';
-      if (task.runtime.skipped) return 'skipped';
-      if (idx === state.run.index) return 'current';
-      return '';
-    }
-
-    function renderQueue() {
-      els.queueCount.textContent = `${state.run.tasks.length} task`;
-      els.queueList.innerHTML = state.run.tasks.map((task, idx) => `
-        <div class="queue-item ${queueStatus(task, idx)}">
-          <span>${task.runtime.done ? '✅' : (task.runtime.skipped ? '⏭️' : (idx === state.run.index ? '🔵' : '⚪'))}</span>
-          <span>${task.phase} • ${task.title}</span>
-        </div>
-      `).join('');
-    }
-
-    function currentTask() {
-      return state.run.tasks[state.run.index] || null;
-    }
-
-    function taskPercent(task) {
-      return Math.max(0, Math.min(100, Math.round((task.runtime.progress / task.target) * 100)));
-    }
-
-    function renderCurrentTask() {
-      const task = currentTask();
-      if (!task) return;
-
-      els.runTaskIcon.className = `run-task-icon ${task.color}`;
-      els.runTaskIcon.textContent = task.icon;
-      els.runTaskTitle.textContent = task.title;
-      els.runTaskSub.textContent = `${task.phase} • ${task.subtitle}`;
-      els.runProgressLabel.textContent = `${task.runtime.progress}/${task.target} ${task.unit}`;
-      els.runProgressText.textContent = `${taskPercent(task)}%`;
-      els.runProgressFill.style.width = `${taskPercent(task)}%`;
-
-      els.stageEmoji.textContent = task.icon;
-      els.stageText.textContent = task.instruction;
-      els.stageSub.textContent = `${task.phase} • เป้าหมาย ${task.target} ${task.unit}`;
-
-      els.controlTitle.textContent = `${task.mechanic.toUpperCase()} TASK`;
-      els.runCoachBadge.textContent = task.phase;
-      els.runCoachLine.textContent = coachLineForTask(task);
-      els.controlHint.textContent = controlHintForTask(task);
-
-      renderTaskControls(task);
-      renderQueue();
-      updateHud();
-    }
-
-    function coachLineForTask(task) {
-      if (task.phase === 'Warm-up') {
-        return 'เริ่มเบา ๆ ก่อน อย่ารีบ ทำให้ครบแล้วค่อยไปข้อหลัก';
-      }
-      if (task.phase === 'Main') {
-        return 'ตอนนี้คือช่วงเล่นจริง ทำให้เต็มที่แต่ยังคุมจังหวะให้ดี';
-      }
-      return 'ช่วงท้ายแล้ว ค่อย ๆ จบแผนแบบผ่อนคลาย';
-    }
-
-    function controlHintForTask(task) {
-      if (task.mechanic === 'tap') {
-        return `กดปุ่มใหญ่ซ้ำให้ครบ ${task.target} ${task.unit}`;
-      }
-      if (task.mechanic === 'hold') {
-        return `กดค้างไว้ให้ครบ ${task.target} ${task.unit}`;
-      }
-      return `กดสลับ หายใจเข้า / หายใจออก ให้ครบ ${task.target} รอบ`;
-    }
-
-    function clearHoldTick() {
-      if (state.run.holdTick) {
-        clearInterval(state.run.holdTick);
-        state.run.holdTick = 0;
-      }
-    }
-
-    function renderTaskControls(task) {
-      clearHoldTick();
-
-      if (task.mechanic === 'tap') {
-        els.actionPrimary.className = 'play-btn tap';
-        els.actionPrimary.textContent = `✅ ทำ 1 ${task.unit}`;
-        els.actionPrimary.onpointerdown = null;
-        els.actionPrimary.onpointerup = null;
-        els.actionPrimary.onpointerleave = null;
-        els.actionPrimary.onclick = () => {
-          task.runtime.progress += 1;
-          showToast(`+1 ${task.unit}`);
-          checkTaskDone();
-        };
-      } else if (task.mechanic === 'hold') {
-        els.actionPrimary.className = 'play-btn hold';
-        els.actionPrimary.textContent = '✋ กดค้าง';
-        els.actionPrimary.onclick = null;
-
-        const startHold = () => {
-          clearHoldTick();
-          state.run.holdTick = setInterval(() => {
-            task.runtime.progress = Math.min(task.target, +(task.runtime.progress + 0.1).toFixed(1));
-            checkTaskDone();
-          }, 100);
-        };
-
-        const stopHold = () => clearHoldTick();
-
-        els.actionPrimary.onpointerdown = startHold;
-        els.actionPrimary.onpointerup = stopHold;
-        els.actionPrimary.onpointerleave = stopHold;
-        els.actionPrimary.onpointercancel = stopHold;
-      } else {
-        els.actionPrimary.className = 'play-btn breath';
-        els.actionPrimary.textContent = task.runtime.breathState === 'inhale' ? '🌬️ หายใจเข้า' : '😮‍💨 หายใจออก';
-        els.actionPrimary.onpointerdown = null;
-        els.actionPrimary.onpointerup = null;
-        els.actionPrimary.onpointerleave = null;
-        els.actionPrimary.onclick = () => {
-          if (task.runtime.breathState === 'inhale') {
-            task.runtime.breathState = 'exhale';
-            els.actionPrimary.textContent = '😮‍💨 หายใจออก';
-            showToast('หายใจเข้าแล้ว');
-          } else {
-            task.runtime.breathState = 'inhale';
-            task.runtime.progress += 1;
-            els.actionPrimary.textContent = '🌬️ หายใจเข้า';
-            showToast(`ครบ ${task.runtime.progress}/${task.target} รอบ`);
-            checkTaskDone();
-          }
-        };
-      }
-
-      els.actionSecondary.onclick = () => {
-        skipCurrentTask();
-      };
-    }
-
-    function applyTaskReward(task) {
-      state.run.score += numberOr(task.score, 0);
-      state.metrics.safety = Math.min(100, state.metrics.safety + numberOr(task.safety, 0) * 0.35);
-      state.metrics.balance = Math.min(100, state.metrics.balance + numberOr(task.balance, 0) * 0.35);
-      state.metrics.variety = Math.min(100, state.metrics.variety + numberOr(task.variety, 0) * 0.25);
-      state.metrics.fun = Math.min(100, state.metrics.fun + numberOr(task.fun, 0) * 0.30);
-    }
-
-    function checkTaskDone() {
-      const task = currentTask();
-      if (!task) return;
-
-      if (task.runtime.progress >= task.target) {
-        clearHoldTick();
-        task.runtime.done = true;
-        state.run.done += 1;
-        applyTaskReward(task);
-        showToast(`✅ ${task.title}`);
-        nextTaskAfterDelay();
-      }
-
-      renderCurrentTask();
-    }
-
-    function skipCurrentTask() {
-      const task = currentTask();
-      if (!task) return;
-      clearHoldTick();
-      task.runtime.skipped = true;
-      state.run.skipped += 1;
-      state.run.score += 6;
-      showToast(`⏭️ ข้าม ${task.title}`);
-      nextTaskAfterDelay();
-    }
-
-    function nextTaskAfterDelay() {
-      renderQueue();
-      updateHud();
-      setTimeout(() => {
-        state.run.index += 1;
-        if (state.run.index >= state.run.tasks.length) {
-          finishRun('plan-complete');
-          return;
-        }
-        renderCurrentTask();
-      }, 420);
-    }
-
-    function startRun() {
-      if (!validatePlan()) return;
-
-      clearCooldownRedirect();
-
-      state.run.active = true;
-      state.run.tasks = flattenPlan();
-      state.run.index = 0;
-      state.run.score = 0;
-      state.run.done = 0;
-      state.run.skipped = 0;
-      state.run.leftSec = numberOr(q('time', '90'), 90);
-      state.run.totalSec = state.run.leftSec;
-      state.run.mode = cleanText(q('mode', q('run', 'quick')), 'quick');
-      state.run.diff = cleanText(q('diff', 'normal'), 'normal');
-
-      showRun();
-      renderQueue();
-      renderCurrentTask();
-      updateHud();
-
-      Bridge?.markStart?.('fitness-planner', {
-        result: 'playing',
-        href: location.href,
-        mode: state.run.mode,
-        diff: state.run.diff,
-        timeSec: state.run.totalSec,
-        theme: cleanText(q('theme', 'mix'), 'mix')
-      });
-
-      clearInterval(state.run.timer);
-      state.run.timer = setInterval(() => {
-        if (!state.run.active) return;
-        state.run.leftSec -= 1;
-        if (state.run.leftSec <= 0) {
-          state.run.leftSec = 0;
-          updateHud();
-          finishRun('timeup');
-          return;
-        }
-
-        if (state.run.leftSec === 30) showToast('⏰ เหลือ 30 วินาที');
-        if (state.run.leftSec === 10) showToast('⚠️ เหลือ 10 วินาที');
-        updateHud();
-      }, 1000);
-    }
-
-    function rankFromResult(score, pct, skipped) {
-      if (pct >= 100 && skipped === 0 && score >= 180) return 'S';
-      if (pct >= 85 && skipped <= 1 && score >= 140) return 'A';
-      if (pct >= 65 && score >= 100) return 'B';
-      if (pct >= 45) return 'C';
-      return 'D';
-    }
-
-    function configureSummaryActions(reason) {
-      clearCooldownRedirect();
-
-      const fitnessUrl = buildFitnessUrl();
-      const hubUrl = buildHubUrl();
-
-      if (cooldownEnabled()) {
-        const cooldownUrl = buildCooldownUrl();
-
-        els.btnSummaryFitness.textContent = '🌬️ ไป Cooldown';
-        els.btnSummaryFitness.href = cooldownUrl;
-
-        els.btnSummaryHub.textContent = '🏃 Fitness Zone';
-        els.btnSummaryHub.href = fitnessUrl;
-
-        els.summarySub.textContent += ' • ต่อไปจะเข้าสู่ Cooldown';
-
-        state.run.cooldownRedirectTimer = setTimeout(() => {
-          location.href = cooldownUrl;
-        }, 1800);
-      } else {
-        els.btnSummaryFitness.textContent = '🏃 Fitness Zone';
-        els.btnSummaryFitness.href = fitnessUrl;
-
-        els.btnSummaryHub.textContent = '🏠 HUB';
-        els.btnSummaryHub.href = hubUrl;
-      }
-    }
-
-    function finishRun(reason) {
-      if (!state.run.active) return;
-      state.run.active = false;
-      clearInterval(state.run.timer);
-      clearHoldTick();
-
-      const total = state.run.tasks.length || 1;
-      const done = state.run.done;
-      const skipped = state.run.skipped;
-      const pct = Math.round((done / total) * 100);
-      const rank = rankFromResult(state.run.score, pct, skipped);
-
-      els.summaryPanel.classList.add('show');
-      els.summaryScore.textContent = String(state.run.score);
-      els.summaryDone.textContent = String(done);
-      els.summaryTotal.textContent = String(total);
-      els.summarySkip.textContent = String(skipped);
-      els.summaryPct.textContent = `${pct}%`;
-      els.rankBadge.textContent = rank;
-
-      if (rank === 'S') {
-        els.summaryTitle.textContent = 'สุดยอด! วางแผนและเล่นครบเป๊ะ';
-        els.summarySub.textContent = 'นี่ไม่ใช่แค่จัดแผน แต่หนูเล่นตามแผนจนจบจริง ๆ แล้ว';
-      } else if (rank === 'A') {
-        els.summaryTitle.textContent = 'เยี่ยมมาก! แผนนี้เล่นได้ดีมาก';
-        els.summarySub.textContent = 'ทำตามลำดับได้ดีและควบคุมแผนได้ต่อเนื่อง';
-      } else if (rank === 'B') {
-        els.summaryTitle.textContent = 'ดีมาก! เกือบครบทั้งแผนแล้ว';
-        els.summarySub.textContent = 'ลองลดการข้ามและทำให้ครบทุกข้อในรอบถัดไป';
-      } else {
-        els.summaryTitle.textContent = 'เริ่มได้ดีแล้ว ลองใหม่อีกครั้ง';
-        els.summarySub.textContent = 'รอบหน้าลองทำ Warm-up → Main → Cooldown ให้ครบยิ่งขึ้น';
-      }
-
-      const summaryPayload = {
-        scoreFinal: state.run.score,
-        rank,
-        result: reason,
-        timeSec: state.run.totalSec,
-        diff: state.run.diff,
-        mode: state.run.mode,
-        run: cleanText(q('run', 'play'), 'play'),
-        theme: cleanText(q('theme', 'mix'), 'mix'),
-        snapshotExtra: {
-          href: location.href,
-          hub: buildHubUrl(),
-          tasksDone: done,
-          tasksTotal: total,
-          completionPct: pct,
-          skipCount: skipped,
-          safety: Math.round(state.metrics.safety),
-          balance: Math.round(state.metrics.balance),
-          variety: Math.round(state.metrics.variety),
-          fun: Math.round(state.metrics.fun)
-        },
-        summaryExtra: {
-          href: location.href,
-          hub: buildHubUrl(),
-          tasksDone: done,
-          tasksTotal: total,
-          completionPct: pct,
-          skipCount: skipped,
-          safety: Math.round(state.metrics.safety),
-          balance: Math.round(state.metrics.balance),
-          variety: Math.round(state.metrics.variety),
-          fun: Math.round(state.metrics.fun)
-        }
-      };
-
-      if (Bridge?.markFinish) {
-        Bridge.markFinish('fitness-planner', summaryPayload);
-      } else {
-        const summary = {
-          game: 'fitness-planner',
-          gameId: 'fitness-planner',
-          zone: 'fitness',
-          scoreFinal: state.run.score,
-          rank,
-          result: reason,
-          timeSec: state.run.totalSec,
-          tasksDone: done,
-          tasksTotal: total,
-          completionPct: pct,
-          skipCount: skipped,
-          timestampIso: new Date().toISOString()
-        };
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-        localStorage.setItem('HH_FITNESS_LAST_GAME_V1', JSON.stringify({
-          zone: 'fitness',
-          gameId: 'fitness-planner',
-          ts: Date.now(),
-          mode: state.run.mode,
-          time: String(state.run.totalSec),
-          score: state.run.score,
-          rank
-        }));
-      }
-
-      configureSummaryActions(reason);
-    }
-
-    function initSummaryButtons() {
-      els.btnPlayAgain.addEventListener('click', () => {
-        clearCooldownRedirect();
-        showBuilder();
-      });
-    }
-
-    function bindBuilderButtons() {
-      els.btnClearPlan.addEventListener('click', () => {
-        clearPlan();
-        showToast('ล้างแผนแล้ว');
-      });
-
-      els.btnAutoPlan.addEventListener('click', autoPlan);
-      els.btnStartPlan.addEventListener('click', startRun);
-      els.btnFinishEarly.addEventListener('click', () => finishRun('manual-finish'));
-    }
-
-    function initDefaultPlan() {
-      const hasLoadedCustomPlan = loadCustomPlan();
-
-      if (!hasLoadedCustomPlan) {
-        autoPlan();
-      } else {
-        refreshBuilder();
-        showToast('📋 โหลดแผนที่ผู้เล่นจัดไว้แล้ว');
-      }
-
-      const mode = cleanText(q('mode', q('run', 'quick')), 'quick');
-      if (mode === 'quick' && hasLoadedCustomPlan) {
-        els.coachLine.textContent = 'ใช้แผนที่ผู้เล่นจัดไว้แล้ว กดเล่นตามแผนได้ทันที';
-      }
-    }
-
-    function initGoalsAndMetrics() {
-      updateGoals();
-      recalcBuilderMetrics();
+    function goPlanner(patch = {}) {
+      location.href = buildPlannerUrl(patch);
     }
 
     function init() {
-      updatePills();
-      applyLinks();
-      renderRecentHints();
-      renderAvailable();
-      bindDropZones();
-      bindBuilderButtons();
-      initSummaryButtons();
-      initGoalsAndMetrics();
-      initDefaultPlan();
+      els.btnBackFitness.href = buildFitnessUrl();
+      els.btnBackHub.href = buildHubUrl();
 
-      Bridge?.installBasicHooks?.('fitness-planner', {
-        fitnessLinkSelectors: [
-          '#btnBackFitnessTop',
-          '#btnBackFitnessSide',
-          '#btnBackFitnessRun',
-          '#btnSummaryFitness',
-          'a[href*="fitness-zone.html"]'
-        ]
+      els.pid.value = readOrDefault('pid', 'anon');
+      els.name.value = readOrDefault('name', readOrDefault('nick', 'Player'));
+      els.studyId.value = readOrDefault('studyId', '');
+      els.seed.value = readOrDefault('seed', String(Date.now()));
+
+      setRadio('diff', readOrDefault('diff', 'normal'), 'diff-normal');
+      setRadio('time', readOrDefault('time', '90'), 'time-90');
+      setRadio('view', readOrDefault('view', 'mobile'), 'view-mobile');
+      setRadio('run', readOrDefault('run', 'play'), 'run-play');
+
+      const summary = readSummary();
+      const rec = recommendFromSummary(summary);
+
+      renderRecent(summary);
+      renderRecommendation(rec);
+      bindInputs();
+
+      els.btnQuickPreset.addEventListener('click', () => {
+        applyRecommendation(rec);
       });
 
-      Bridge?.markOpen?.('fitness-planner', {
-        result: 'planner-open',
-        href: location.href,
-        theme: cleanText(q('theme', 'mix'), 'mix')
+      els.btnUseRecent.addEventListener('click', () => {
+        if (!summary) {
+          applyRecommendation(rec);
+          return;
+        }
+
+        setRadio('diff', cleanText(summary.diff, rec.diff || 'normal'), 'diff-normal');
+        setRadio('time', cleanText(summary.timeSec || summary.time, rec.time || '90'), 'time-90');
+        setRadio('view', readOrDefault('view', rec.view || 'mobile'), 'view-mobile');
+        setRadio('run', rec.run || 'play', 'run-play');
+        refreshPreview();
       });
+
+      els.btnStartPlanner.addEventListener('click', () => {
+        goPlanner();
+      });
+
+      if (!qs.get('diff') && !qs.get('time') && !qs.get('run')) {
+        applyRecommendation(rec);
+      } else {
+        refreshPreview();
+      }
     }
 
     init();
