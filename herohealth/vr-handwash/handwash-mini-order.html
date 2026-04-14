@@ -530,7 +530,7 @@
 
       <div class="actions">
         <button class="btn primary" id="restart-btn" type="button">เล่นอีกครั้ง</button>
-        <button class="btn blue hidden" id="hub-btn" type="button">กลับ HUB</button>
+        <button class="btn blue hidden" id="hub-btn" type="button">กลับ Hygiene Zone</button>
       </div>
     </div>
   </div>
@@ -572,8 +572,138 @@
       catch { return d; }
     };
 
+    function firstNonEmpty(...vals){
+      for (const v of vals){
+        if (String(v || '').trim()) return String(v).trim();
+      }
+      return '';
+    }
+
+    function safeAbsUrl(raw, fallbackPath){
+      const value = String(raw || '').trim();
+      try{
+        if (value) return new URL(value, location.href).toString();
+      }catch(_){}
+      return new URL(fallbackPath, location.href).toString();
+    }
+
+    function looksLikeHubUrl(urlText){
+      const txt = String(urlText || '').toLowerCase();
+      return txt.includes('/hub.html') || txt.includes('/hub-v2.html');
+    }
+
+    function looksLikeZoneUrl(urlText){
+      return String(urlText || '').toLowerCase().includes('hygiene-zone.html');
+    }
+
+    function buildHubRoot(){
+      const explicitHubRoot = firstNonEmpty(qsParam('hubRoot', ''));
+      if (explicitHubRoot) return safeAbsUrl(explicitHubRoot, '../hub-v2.html');
+
+      const legacyHub = firstNonEmpty(qsParam('hub', ''));
+      if (legacyHub && looksLikeHubUrl(legacyHub)) {
+        return safeAbsUrl(legacyHub, '../hub-v2.html');
+      }
+
+      return safeAbsUrl('../hub-v2.html', '../hub-v2.html');
+    }
+
+    function buildFallbackZoneReturn(){
+      const hubRoot = buildHubRoot();
+      const url = new URL('../hygiene-zone.html', location.href);
+
+      [
+        'pid','name','nick','nickName','studyId',
+        'diff','view','time','run',
+        'debug','api','log',
+        'studentKey','schoolCode','classRoom','studentNo',
+        'conditionGroup','sessionNo','weekNo','teacher','grade'
+      ].forEach((key) => {
+        const v = qsParam(key, '');
+        if (v) url.searchParams.set(key, v);
+      });
+
+      if (!url.searchParams.get('pid')) url.searchParams.set('pid', 'anon');
+      if (!url.searchParams.get('name')) {
+        url.searchParams.set(
+          'name',
+          firstNonEmpty(qsParam('name', ''), qsParam('nickName', ''), qsParam('nick', ''), 'Hero')
+        );
+      }
+      if (!url.searchParams.get('diff')) url.searchParams.set('diff', 'normal');
+      if (!url.searchParams.get('view')) url.searchParams.set('view', 'mobile');
+      if (!url.searchParams.get('time')) url.searchParams.set('time', '90');
+      if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
+
+      url.searchParams.set('zone', 'hygiene');
+      url.searchParams.set('cat', 'hygiene');
+      url.searchParams.set('hubRoot', hubRoot);
+      url.searchParams.set('hub', hubRoot);
+
+      return url.toString();
+    }
+
+    function buildZoneReturn(){
+      const explicitZoneReturn = firstNonEmpty(qsParam('zoneReturn', ''));
+      if (explicitZoneReturn) return safeAbsUrl(explicitZoneReturn, '../hygiene-zone.html');
+
+      const legacyHub = firstNonEmpty(qsParam('hub', ''));
+      if (legacyHub && looksLikeZoneUrl(legacyHub)) {
+        return safeAbsUrl(legacyHub, '../hygiene-zone.html');
+      }
+
+      return buildFallbackZoneReturn();
+    }
+
+    function resolveNextUrl(){
+      const explicitNext = firstNonEmpty(qsParam('next', ''));
+      if (explicitNext) {
+        const nextAbs = safeAbsUrl(explicitNext, buildZoneReturn());
+        if (nextAbs !== new URL(location.href).toString()) return nextAbs;
+      }
+      return buildZoneReturn();
+    }
+
+    function rememberZoneState(){
+      try{
+        localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
+      }catch(_){}
+
+      try{
+        localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
+          key:'handwash',
+          title:'Handwash',
+          at:Date.now()
+        }));
+      }catch(_){}
+
+      try{
+        const playedKey = 'HHA_ZONE_PLAYED_HYGIENE';
+        const played = JSON.parse(localStorage.getItem(playedKey) || '[]');
+        if (Array.isArray(played) && !played.includes('handwash')) {
+          played.push('handwash');
+          localStorage.setItem(playedKey, JSON.stringify(played));
+        }
+      }catch(_){}
+
+      try{
+        const dailyKey = 'HHA_ZONE_DAILY_HYGIENE';
+        const d = new Date();
+        const day =
+          `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const daily = JSON.parse(localStorage.getItem(dailyKey) || '{}');
+        const row = daily[day] || { count:0, lastKey:'' };
+        row.count += 1;
+        row.lastKey = 'handwash';
+        daily[day] = row;
+        localStorage.setItem(dailyKey, JSON.stringify(daily));
+      }catch(_){}
+    }
+
     const START_TIME = Math.max(45, parseInt(qsParam('time', '60'), 10) || 60);
-    const HUB_URL = qsParam('hub', '');
+    const HUB_ROOT_URL = buildHubRoot();
+    const ZONE_RETURN_URL = buildZoneReturn();
+    const NEXT_URL = resolveNextUrl();
 
     const STEPS = [
       { id:'palms', order:1, icon:'👐', label:'ฝ่ามือถูฝ่ามือ', short:'ฝ่ามือ' },
@@ -672,7 +802,12 @@
 
     function setBtnText(){
       ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
-      if (HUB_URL) ui.hubBtn.classList.remove('hidden');
+
+      const target = NEXT_URL || ZONE_RETURN_URL || HUB_ROOT_URL;
+      if (target) {
+        ui.hubBtn.classList.remove('hidden');
+        ui.hubBtn.textContent = looksLikeZoneUrl(target) ? 'กลับ Hygiene Zone' : 'กลับ HUB';
+      }
     }
 
     function setCoach(text){
@@ -1060,6 +1195,7 @@
       const stars = computeStars(success);
       state.badges = computeMiniBadges(success);
       saveLastSummary(success, stars);
+      rememberZoneState();
 
       ui.sumTitle.textContent = success ? 'เรียงลำดับสำเร็จ!' : 'หมดเวลาก่อน';
       ui.sumDesc.textContent = success
@@ -1093,6 +1229,7 @@
       state.idleTimer = 0;
       state.badges = [];
 
+      rememberZoneState();
       resetSlots();
       buildCards();
 
@@ -1108,7 +1245,11 @@
     ui.restartBtn.addEventListener('click', startGame);
 
     ui.hubBtn.addEventListener('click', ()=>{
-      if (HUB_URL) location.href = HUB_URL;
+      const target = NEXT_URL || ZONE_RETURN_URL || HUB_ROOT_URL;
+      if (target) {
+        rememberZoneState();
+        location.href = target;
+      }
     });
 
     ui.hudToggleBtn.addEventListener('click', ()=>{
@@ -1189,6 +1330,7 @@
     }
 
     setBtnText();
+    rememberZoneState();
     resetSlots();
     setHudCompact(isMobileLike());
     updateUI();
