@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Rhythm Boxer Main</title>
   <link rel="icon" href="../favicon.ico" />
-  <script type="module" src="../vr/vr-ui.js?v=20260307b"></script>
   <link rel="stylesheet" href="./boxer.css" />
 </head>
 <body>
@@ -124,19 +123,19 @@
 
       <div class="arena" id="arena" aria-label="Rhythm Boxer play area">
         <div class="lane-grid">
-          <div class="lane lane-jab" data-action="jab"></div>
-          <div class="lane lane-cross" data-action="cross"></div>
-          <div class="lane lane-block" data-action="block"></div>
-          <div class="lane lane-duck" data-action="duck"></div>
+          <div class="lane lane-jab" data-action="jab" data-lane="0"></div>
+          <div class="lane lane-cross" data-action="cross" data-lane="1"></div>
+          <div class="lane lane-block" data-action="block" data-lane="2"></div>
+          <div class="lane lane-duck" data-action="duck" data-lane="3"></div>
         </div>
 
         <div class="hit-line" id="hitLine"></div>
 
         <div class="lane-hit-row" id="laneHitRow" aria-label="แตะ lane ตอนโน้ตถึงเส้น">
-          <button class="lane-hit" data-action="jab" type="button" aria-label="Tap Jab lane"></button>
-          <button class="lane-hit" data-action="cross" type="button" aria-label="Tap Cross lane"></button>
-          <button class="lane-hit" data-action="block" type="button" aria-label="Tap Block lane"></button>
-          <button class="lane-hit" data-action="duck" type="button" aria-label="Tap Duck lane"></button>
+          <button class="lane-hit" data-action="jab" data-lane="0" type="button" aria-label="Tap Jab lane"></button>
+          <button class="lane-hit" data-action="cross" data-lane="1" type="button" aria-label="Tap Cross lane"></button>
+          <button class="lane-hit" data-action="block" data-lane="2" type="button" aria-label="Tap Block lane"></button>
+          <button class="lane-hit" data-action="duck" data-lane="3" type="button" aria-label="Tap Duck lane"></button>
         </div>
 
         <div class="note-layer" id="noteLayer"></div>
