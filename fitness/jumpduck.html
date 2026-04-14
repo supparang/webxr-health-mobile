@@ -5,42 +5,44 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • JumpDuck</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#9ad7ff" />
+  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="../herohealth/favicon.ico" />
 
   <style>
     :root{
-      --bg1:#f5fbff;
-      --bg2:#eef9ff;
-      --bg3:#fff8ef;
+      --bg1:#eefbff;
+      --bg2:#f9fdff;
+      --bg3:#fff9ef;
 
       --card:#ffffff;
-      --card2:#f9fdff;
+      --card2:#f8fdff;
 
       --line:#d7edf7;
-      --line2:#c7e6f4;
+      --line2:#c7e5f5;
 
-      --text:#4d463f;
-      --muted:#7a736b;
+      --text:#4f4943;
+      --muted:#7c756d;
 
-      --blue:#6fc6ff;
-      --blue2:#49aef1;
+      --blue:#7fcfff;
+      --blue2:#4baef0;
       --pink:#ff9dca;
-      --pink2:#ff78b1;
-      --green:#83dc75;
-      --green2:#56c455;
-      --yellow:#ffd96b;
-      --yellow2:#ffbc38;
-      --red:#ff8e8e;
-      --red2:#f36d6d;
+      --pink2:#ff78b3;
+      --green:#84dc76;
+      --green2:#58c33f;
+      --yellow:#ffd86e;
+      --yellow2:#ffbb37;
+      --red:#ff9898;
+      --red2:#f16f6f;
+      --purple:#b99cff;
+      --purple2:#8f75ef;
 
-      --shadow:0 18px 40px rgba(88,153,190,.14);
-      --shadow-soft:0 10px 24px rgba(88,153,190,.10);
+      --safe-top:env(safe-area-inset-top, 0px);
+      --safe-right:env(safe-area-inset-right, 0px);
+      --safe-bottom:env(safe-area-inset-bottom, 0px);
+      --safe-left:env(safe-area-inset-left, 0px);
 
-      --safe-top: env(safe-area-inset-top, 0px);
-      --safe-right: env(safe-area-inset-right, 0px);
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
-      --safe-left: env(safe-area-inset-left, 0px);
+      --shadow:0 18px 40px rgba(86,155,194,.14);
+      --shadow-soft:0 10px 24px rgba(86,155,194,.10);
     }
 
     *{ box-sizing:border-box; }
@@ -49,7 +51,7 @@
       margin:0;
       min-height:100%;
       background:
-        radial-gradient(circle at top, #ffffff, transparent 34%),
+        radial-gradient(circle at top, #ffffff, transparent 30%),
         linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
       color:var(--text);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -64,14 +66,14 @@
         calc(12px + var(--safe-left));
     }
 
-    .hidden{ display:none !important; }
-
     .app{
-      width:min(980px,100%);
+      width:min(1180px,100%);
       margin:0 auto;
       display:grid;
       gap:14px;
     }
+
+    .hidden{ display:none !important; }
 
     .topbar{
       display:flex;
@@ -88,22 +90,22 @@
       min-width:0;
     }
 
-    .brand-badge{
-      width:56px;
-      height:56px;
+    .brand-icon{
+      width:58px;
+      height:58px;
       border-radius:18px;
       display:grid;
       place-items:center;
-      font-size:28px;
       background:linear-gradient(180deg,#fff,#f2fbff);
       border:2px solid var(--line);
       box-shadow:var(--shadow-soft);
+      font-size:28px;
       flex:0 0 auto;
     }
 
     .brand-copy h1{
       margin:0;
-      font-size:clamp(28px,4vw,44px);
+      font-size:clamp(26px,4vw,42px);
       line-height:1;
       font-weight:1000;
       color:#7a4b2e;
@@ -112,23 +114,23 @@
 
     .brand-copy p{
       margin:6px 0 0;
-      color:#7c756d;
-      font-weight:900;
-      line-height:1.4;
+      color:#7b756d;
       font-size:13px;
+      line-height:1.45;
+      font-weight:900;
     }
 
     .chip-link,
-    .chip{
+    .icon-link{
       display:inline-flex;
       align-items:center;
       justify-content:center;
       min-height:42px;
       padding:10px 14px;
       border-radius:999px;
-      border:2px solid var(--line);
       background:#fff;
-      color:#5f7484;
+      border:2px solid var(--line);
+      color:#657786;
       text-decoration:none;
       font-size:14px;
       font-weight:1000;
@@ -142,17 +144,10 @@
       box-shadow:var(--shadow);
     }
 
-    .menu-wrap,
-    .result-wrap{
+    .hero{
       padding:18px;
       display:grid;
-      gap:14px;
-    }
-
-    .hero-card{
-      padding:18px;
-      display:grid;
-      grid-template-columns:1.2fr .9fr;
+      grid-template-columns:1.1fr .9fr;
       gap:14px;
       align-items:stretch;
     }
@@ -167,19 +162,21 @@
       display:inline-flex;
       align-items:center;
       width:max-content;
+      min-height:34px;
       padding:8px 12px;
       border-radius:999px;
-      background:#f2fbff;
+      background:#f1fbff;
       border:2px solid var(--line);
-      color:#76a5c7;
+      color:#72a5c7;
       font-size:12px;
       font-weight:1000;
       letter-spacing:.08em;
+      text-transform:uppercase;
     }
 
     .hero-copy h2{
       margin:0;
-      font-size:clamp(34px,6vw,74px);
+      font-size:clamp(34px,6vw,64px);
       line-height:.96;
       font-weight:1000;
       color:#7b4b2e;
@@ -191,13 +188,13 @@
       font-size:15px;
       line-height:1.7;
       font-weight:900;
-      color:#766d66;
+      color:#756d66;
     }
 
     .tag-row{
       display:flex;
-      gap:8px;
       flex-wrap:wrap;
+      gap:8px;
     }
 
     .tag{
@@ -206,7 +203,7 @@
       border-radius:999px;
       background:#fff;
       border:2px solid var(--line);
-      color:#687a88;
+      color:#687c89;
       font-size:13px;
       font-weight:1000;
     }
@@ -217,95 +214,66 @@
       border-radius:24px;
       overflow:hidden;
       background:
-        radial-gradient(circle at 72% 12%, rgba(255,255,255,.9), transparent 24%),
-        linear-gradient(180deg,#dff3ff 0%,#d8f0ff 48%,#dff3cf 48%,#d8f0c9 100%);
+        radial-gradient(circle at 72% 10%, rgba(255,255,255,.88), transparent 24%),
+        linear-gradient(180deg,#def3ff 0%,#d8efff 48%,#ddefcc 48%,#d7efc9 100%);
       border:2px solid var(--line);
     }
 
-    .hero-track{
-      position:absolute;
-      inset:0;
-    }
-
-    .hero-track::before,
-    .hero-track::after{
-      content:"";
-      position:absolute;
-      top:0;
-      bottom:0;
-      width:10px;
-      background:rgba(255,255,255,.28);
-      border-left:2px solid rgba(255,255,255,.26);
-      border-right:2px solid rgba(255,255,255,.26);
-    }
-
-    .hero-track::before{ left:28%; }
-    .hero-track::after{ left:44%; }
-
-    .hero-ground-line{
+    .hero-ground{
       position:absolute;
       left:8%;
       right:8%;
       bottom:68px;
-      border-top:3px dashed rgba(124,145,110,.30);
+      border-top:3px dashed rgba(124,145,110,.28);
     }
 
-    .hero-kid{
+    .hero-runner{
       position:absolute;
       left:12%;
-      bottom:56px;
-      width:104px;
-      height:132px;
+      bottom:34px;
+      width:112px;
+      height:140px;
     }
 
-    .hero-kid .head{
+    .hero-runner .head{
       position:absolute;
-      left:24px;
+      left:28px;
       top:0;
-      width:58px;
-      height:58px;
+      width:54px;
+      height:54px;
       border-radius:50%;
       background:#f2e4bf;
-      border:3px solid #e4d4af;
+      border:3px solid #e5d5b0;
     }
 
-    .hero-kid .body{
+    .hero-runner .body{
       position:absolute;
-      left:16px;
+      left:18px;
       top:52px;
-      width:74px;
+      width:76px;
       height:56px;
       border-radius:18px;
-      background:linear-gradient(180deg,#78c8ff,#4fa9ea);
+      background:linear-gradient(180deg,#79c9ff,#50a9ea);
       border:3px solid #6abaf0;
     }
 
-    .hero-kid .arm-l,
-    .hero-kid .arm-r,
-    .hero-kid .leg-l,
-    .hero-kid .leg-r{
+    .hero-runner .arm-l,
+    .hero-runner .arm-r,
+    .hero-runner .leg-l,
+    .hero-runner .leg-r{
       position:absolute;
       background:#f2e4bf;
-      border:3px solid #e4d4af;
+      border:3px solid #e5d5b0;
       border-radius:999px;
-      transform-origin:center top;
     }
 
-    .hero-kid .arm-l{
-      left:2px; top:60px; width:20px; height:58px; transform:rotate(30deg);
-    }
-    .hero-kid .arm-r{
-      right:2px; top:60px; width:20px; height:58px; transform:rotate(-28deg);
-    }
-    .hero-kid .leg-l{
-      left:28px; top:100px; width:22px; height:60px; transform:rotate(10deg);
-    }
-    .hero-kid .leg-r{
-      left:56px; top:100px; width:22px; height:60px; transform:rotate(-10deg);
-    }
+    .hero-runner .arm-l{ left:2px; top:58px; width:18px; height:56px; transform:rotate(24deg); }
+    .hero-runner .arm-r{ right:2px; top:58px; width:18px; height:56px; transform:rotate(-24deg); }
+    .hero-runner .leg-l{ left:28px; top:100px; width:20px; height:54px; transform:rotate(8deg); }
+    .hero-runner .leg-r{ left:56px; top:100px; width:20px; height:54px; transform:rotate(-8deg); }
 
-    .hero-obstacle-low,
-    .hero-obstacle-high{
+    .hero-low,
+    .hero-high{
       position:absolute;
       right:12%;
       border-radius:20px;
@@ -314,71 +282,90 @@
       box-shadow:0 14px 28px rgba(100,160,190,.14);
     }
 
-    .hero-obstacle-low{
-      bottom:60px;
-      width:82px;
-      height:46px;
+    .hero-low{
+      bottom:58px;
+      width:92px;
+      height:50px;
     }
 
-    .hero-obstacle-high{
-      bottom:156px;
-      width:82px;
-      height:20px;
+    .hero-high{
+      bottom:158px;
+      width:104px;
+      height:24px;
     }
 
-    .config-grid{
+    .menu-grid{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      grid-template-columns:1.02fr .98fr;
+      gap:14px;
+    }
+
+    .card{
+      background:#fff;
+      border:2px solid var(--line);
+      border-radius:24px;
+      padding:16px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .card h3{
+      margin:0 0 12px;
+      font-size:20px;
+      font-weight:1000;
+      color:#6b4327;
+    }
+
+    .card p{
+      margin:0;
+      color:#766e66;
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+    }
+
+    .form-grid{
+      display:grid;
       gap:12px;
     }
 
     .field{
-      background:#fff;
-      border:2px solid var(--line);
-      border-radius:20px;
-      padding:12px;
       display:grid;
       gap:8px;
-      min-width:0;
     }
 
     .field label{
-      font-size:12px;
+      font-size:13px;
+      color:#7990a0;
       font-weight:1000;
-      color:#6e8798;
       text-transform:uppercase;
-      letter-spacing:.06em;
+      letter-spacing:.05em;
     }
 
     .field select,
     .field input,
     .field textarea{
       width:100%;
-      border:2px solid #d9edf7;
-      border-radius:14px;
-      background:#fcfeff;
-      color:#4f4841;
+      min-height:48px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      padding:12px 14px;
       font:inherit;
-      font-weight:900;
-      padding:12px 12px;
+      box-shadow:var(--shadow-soft);
       outline:none;
     }
 
     .field textarea{
-      min-height:94px;
+      min-height:90px;
       resize:vertical;
     }
 
-    .research-block{
+    .btn-row{
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      grid-template-columns:1fr 1fr 1fr;
       gap:12px;
-    }
-
-    .cta-row{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
+      margin-top:14px;
     }
 
     .btn{
@@ -388,10 +375,10 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:54px;
+      min-height:52px;
       padding:12px 16px;
       border-radius:20px;
-      font-size:18px;
+      font-size:16px;
       font-weight:1000;
       cursor:pointer;
       box-shadow:var(--shadow-soft);
@@ -408,246 +395,96 @@
       border:2px solid var(--line);
     }
 
-    .small-btn-row{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
+    .btn.yellow{
+      background:linear-gradient(180deg,var(--yellow),var(--yellow2));
+      color:#6f4500;
     }
 
-    .play-wrap{
-      padding:14px;
+    .quick-metrics{
       display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
     }
 
-    .hud-top{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .hud-card{
+    .metric{
+      border-radius:20px;
       background:#fff;
       border:2px solid var(--line);
-      border-radius:18px;
-      padding:10px 12px;
+      padding:14px;
       box-shadow:var(--shadow-soft);
-      min-width:0;
     }
 
-    .hud-label{
-      font-size:11px;
-      color:#7c94a3;
+    .metric .k{
+      font-size:12px;
+      color:#7b92a0;
       font-weight:1000;
       text-transform:uppercase;
       letter-spacing:.06em;
     }
 
-    .hud-value{
-      margin-top:4px;
-      font-size:18px;
+    .metric .v{
+      margin-top:8px;
+      font-size:26px;
+      line-height:1;
       font-weight:1000;
-      color:#524b44;
-      line-height:1.2;
-      word-break:break-word;
+      color:#504943;
     }
 
-    .hud-mid{
+    .research-block{
+      margin-top:12px;
+      padding:14px;
+      border-radius:20px;
+      background:#fffaf1;
+      border:2px dashed #ecdba4;
+    }
+
+    .research-block h4{
+      margin:0 0 10px;
+      font-size:16px;
+      color:#7b5c20;
+      font-weight:1000;
+    }
+
+    .play-shell{
       display:grid;
-      grid-template-columns:1.25fr .95fr;
+      gap:14px;
+    }
+
+    .hud-wrap{
+      display:grid;
       gap:12px;
-      align-items:start;
     }
 
-    .play-area{
-      position:relative;
-      min-height:520px;
-      border-radius:28px;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 72% 8%, rgba(255,255,255,.9), transparent 24%),
-        linear-gradient(180deg,#dff3ff 0%,#d7efff 48%,#dcefcf 48%,#d8efcb 100%);
-      border:3px solid var(--line);
-      box-shadow:var(--shadow);
-      user-select:none;
-      -webkit-user-select:none;
-      touch-action:manipulation;
+    .hud-grid{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
     }
 
-    .lane{
-      position:absolute;
-      top:0;
-      bottom:0;
-      width:10px;
-      background:rgba(255,255,255,.24);
-      border-left:2px solid rgba(255,255,255,.26);
-      border-right:2px solid rgba(255,255,255,.26);
-      pointer-events:none;
-    }
-
-    .lane.l1{ left:28%; }
-    .lane.l2{ left:44%; }
-
-    .ground-line{
-      position:absolute;
-      left:6%;
-      right:6%;
-      bottom:92px;
-      border-top:3px dashed rgba(124,145,110,.28);
-      pointer-events:none;
-      z-index:2;
-    }
-
-    .hitline{
-      position:absolute;
-      top:0;
-      bottom:0;
-      width:3px;
-      background:rgba(99,160,190,.24);
-      box-shadow:0 0 0 6px rgba(111,198,255,.08);
-      z-index:3;
-      pointer-events:none;
-    }
-
-    .hitline::before{
-      content:"";
-      position:absolute;
-      left:-6px;
-      bottom:82px;
-      width:15px;
-      height:15px;
-      border-radius:50%;
-      background:#fff;
-      border:3px solid #7fcfff;
-    }
-
-    .avatar{
-      position:absolute;
-      bottom:34px;
-      width:112px;
-      height:148px;
-      z-index:8;
-      transition:transform .14s ease, bottom .14s ease;
-    }
-
-    .avatar-head{
-      position:absolute;
-      left:28px;
-      top:0;
-      width:58px;
-      height:58px;
-      border-radius:50%;
-      background:#f2e4bf;
-      border:3px solid #e4d4af;
-    }
-
-    .avatar-body{
-      position:absolute;
-      left:18px;
-      top:54px;
-      width:78px;
-      height:58px;
+    .hud-card{
       border-radius:18px;
-      background:linear-gradient(180deg,#78c8ff,#4fa9ea);
-      border:3px solid #6abaf0;
-    }
-
-    .avatar-arm-l,
-    .avatar-arm-r,
-    .avatar-leg-l,
-    .avatar-leg-r{
-      position:absolute;
-      background:#f2e4bf;
-      border:3px solid #e4d4af;
-      border-radius:999px;
-      transform-origin:center top;
-      transition:transform .14s ease, top .14s ease;
-    }
-
-    .avatar-arm-l{ left:2px; top:60px; width:20px; height:58px; transform:rotate(32deg); }
-    .avatar-arm-r{ right:2px; top:60px; width:20px; height:58px; transform:rotate(-28deg); }
-    .avatar-leg-l{ left:30px; top:102px; width:22px; height:60px; transform:rotate(8deg); }
-    .avatar-leg-r{ left:58px; top:102px; width:22px; height:60px; transform:rotate(-8deg); }
-
-    .avatar.avatar-jump{
-      transform:translateY(-48px);
-    }
-    .avatar.avatar-jump .avatar-leg-l{ transform:rotate(-20deg); }
-    .avatar.avatar-jump .avatar-leg-r{ transform:rotate(20deg); }
-    .avatar.avatar-jump .avatar-arm-l{ transform:rotate(-18deg); }
-    .avatar.avatar-jump .avatar-arm-r{ transform:rotate(18deg); }
-
-    .avatar.avatar-duck{
-      transform:translateY(18px) scaleY(.82);
-    }
-    .avatar.avatar-duck .avatar-leg-l{ transform:rotate(46deg); top:108px; }
-    .avatar.avatar-duck .avatar-leg-r{ transform:rotate(-46deg); top:108px; }
-
-    .tele,
-    .boss-intro,
-    .judge,
-    .rush-banner{
-      position:absolute;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:25;
-      pointer-events:none;
-    }
-
-    .tele{
-      top:16px;
-      opacity:0;
-      transition:opacity .14s ease, transform .14s ease;
-    }
-    .tele.on{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
-    }
-
-    .teleBox,
-    .bossIntroBox,
-    .rushText{
-      min-height:46px;
-      padding:12px 18px;
-      border-radius:999px;
-      background:rgba(255,255,255,.95);
+      background:#fff;
       border:2px solid var(--line);
+      padding:10px 12px;
       box-shadow:var(--shadow-soft);
+      min-width:0;
+    }
+
+    .hud-card .k{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      color:#7b92a0;
       font-weight:1000;
-      color:#5e6f7c;
-      text-align:center;
     }
 
-    .boss-intro{
-      top:74px;
-      opacity:0;
-      transition:opacity .14s ease, transform .14s ease;
-    }
-    .boss-intro.on{
-      opacity:1;
-    }
-
-    .judge{
-      top:126px;
-      min-height:46px;
-      padding:12px 18px;
-      border-radius:999px;
-      background:rgba(255,255,255,.96);
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
+    .hud-card .v{
+      margin-top:6px;
+      font-size:19px;
+      line-height:1.1;
       font-weight:1000;
-      color:#6a625a;
-      text-align:center;
-      opacity:0;
-      transition:opacity .12s ease, transform .12s ease;
-    }
-    .judge.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(-4px);
-    }
-
-    .rush-banner{
-      top:182px;
+      color:#514943;
+      word-break:break-word;
     }
 
     .progress-panel{
@@ -670,9 +507,9 @@
       align-items:center;
       justify-content:space-between;
       gap:10px;
+      color:#728796;
       font-size:13px;
       font-weight:1000;
-      color:#6e8494;
     }
 
     .bar{
@@ -691,112 +528,329 @@
     }
 
     .bar-fill.fever{
-      background:linear-gradient(90deg,#ffd35e,#ff9e66);
+      background:linear-gradient(90deg,#b899ff,#7fcfff);
     }
 
-    .bar-fill.boss{
-      background:linear-gradient(90deg,#ff9a9a,#ef5555);
-    }
-
-    .hud-side-grid{
+    .boss-bar-wrap{
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
+      gap:6px;
     }
 
-    .side-note{
+    .play-grid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:14px;
+    }
+
+    .game-stage{
+      position:relative;
+      min-height:520px;
+      overflow:hidden;
+      border-radius:28px;
+      background:
+        radial-gradient(circle at 72% 10%, rgba(255,255,255,.9), transparent 24%),
+        linear-gradient(180deg,#def3ff 0%,#d8efff 48%,#ddefcc 48%,#d7efc9 100%);
+      border:3px solid var(--line);
+      box-shadow:var(--shadow);
+    }
+
+    .arena{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    .arena-ground{
+      position:absolute;
+      left:6%;
+      right:6%;
+      bottom:86px;
+      border-top:3px dashed rgba(124,145,110,.28);
+      z-index:2;
+    }
+
+    .arena-lane{
+      position:absolute;
+      top:0;
+      bottom:0;
+      width:10px;
+      background:rgba(255,255,255,.24);
+      border-left:2px solid rgba(255,255,255,.26);
+      border-right:2px solid rgba(255,255,255,.26);
+      z-index:1;
+    }
+
+    .arena-lane.l1{ left:28%; }
+    .arena-lane.l2{ left:44%; }
+
+    .runner{
+      position:absolute;
+      left:13%;
+      bottom:26px;
+      width:112px;
+      height:146px;
+      z-index:10;
+      transition:transform .14s ease;
+    }
+
+    .runner .head{
+      position:absolute;
+      left:28px;
+      top:0;
+      width:56px;
+      height:56px;
+      border-radius:50%;
+      background:#f2e4bf;
+      border:3px solid #e5d5b0;
+    }
+
+    .runner .body{
+      position:absolute;
+      left:18px;
+      top:54px;
+      width:78px;
+      height:58px;
       border-radius:18px;
-      background:#fffef7;
-      border:2px dashed #ecdca1;
-      padding:12px;
-      color:#73663d;
-      font-size:13px;
-      line-height:1.7;
-      font-weight:1000;
+      background:linear-gradient(180deg,#79c9ff,#50a9ea);
+      border:3px solid #6abaf0;
     }
 
-    .controls{
+    .runner .arm-l,
+    .runner .arm-r,
+    .runner .leg-l,
+    .runner .leg-r{
+      position:absolute;
+      background:#f2e4bf;
+      border:3px solid #e5d5b0;
+      border-radius:999px;
+      transition:transform .14s ease, top .14s ease;
+    }
+
+    .runner .arm-l{ left:4px; top:60px; width:18px; height:58px; transform:rotate(24deg); }
+    .runner .arm-r{ right:4px; top:60px; width:18px; height:58px; transform:rotate(-24deg); }
+    .runner .leg-l{ left:30px; top:104px; width:20px; height:58px; transform:rotate(8deg); }
+    .runner .leg-r{ left:58px; top:104px; width:20px; height:58px; transform:rotate(-8deg); }
+
+    .runner.avatar-jump{ transform:translateY(-42px); }
+    .runner.avatar-jump .leg-l{ transform:rotate(-18deg); }
+    .runner.avatar-jump .leg-r{ transform:rotate(18deg); }
+    .runner.avatar-jump .arm-l{ transform:rotate(-18deg); }
+    .runner.avatar-jump .arm-r{ transform:rotate(18deg); }
+
+    .runner.avatar-duck{ transform:translateY(16px) scaleY(.84); }
+    .runner.avatar-duck .leg-l{ transform:rotate(44deg); top:108px; }
+    .runner.avatar-duck .leg-r{ transform:rotate(-44deg); top:108px; }
+
+    .tele,
+    .boss-intro,
+    .judge,
+    .rush-banner{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:30;
+      pointer-events:none;
+    }
+
+    .tele{
+      top:16px;
+    }
+
+    .tele .teleBox{
+      min-height:42px;
+      padding:10px 16px;
+      border-radius:999px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-weight:1000;
+      color:#6a6159;
+    }
+
+    .boss-intro{
+      top:72px;
+    }
+
+    .boss-intro-box{
+      min-height:46px;
+      padding:12px 18px;
+      border-radius:999px;
+      background:rgba(255,245,245,.96);
+      border:2px solid #f0c9c9;
+      box-shadow:var(--shadow-soft);
+      font-weight:1000;
+      color:#8a3f3f;
+    }
+
+    .judge{
+      top:132px;
+      min-height:44px;
+      padding:10px 16px;
+      border-radius:999px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-weight:1000;
+      color:#6a6159;
+      opacity:0;
+      transition:opacity .12s ease, transform .12s ease;
+    }
+
+    .judge.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(-4px);
+    }
+
+    .rush-banner{
+      right:14px;
+      left:auto;
+      top:14px;
+      transform:none;
+    }
+
+    .rush-pill{
+      min-height:40px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#ffb1d3,#ff7eb8);
+      color:#fff;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .control-panel{
       display:grid;
-      grid-template-columns:1fr 1fr 1fr;
       gap:12px;
     }
 
-    .control-btn{
+    .control-box{
+      background:#fff;
+      border:2px solid var(--line);
+      border-radius:24px;
+      padding:16px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .control-box h3{
+      margin:0 0 12px;
+      font-size:18px;
+      font-weight:1000;
+      color:#6b4327;
+    }
+
+    .control-note{
+      color:#766e66;
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+      margin:0;
+    }
+
+    .action-buttons{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .action-big{
       appearance:none;
       border:none;
-      min-height:86px;
-      border-radius:26px;
-      font-size:20px;
+      min-height:88px;
+      border-radius:24px;
+      font-size:24px;
       font-weight:1000;
       cursor:pointer;
       box-shadow:var(--shadow-soft);
     }
 
-    .control-btn.jump{
-      background:linear-gradient(180deg,#6fc6ff,#49aef1);
+    .action-big.jump{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
       color:#fff;
     }
 
-    .control-btn.duck{
-      background:linear-gradient(180deg,#ff9dca,#ff78b1);
+    .action-big.duck{
+      background:linear-gradient(180deg,var(--pink),var(--pink2));
       color:#fff;
     }
 
-    .control-btn.hub{
-      background:#eef5f8;
-      color:#5f6c75;
-      border:2px solid var(--line);
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
+    .mini-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:12px;
     }
 
-    .result-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
+    .result-shell{
+      display:grid;
+      gap:14px;
+    }
+
+    .result-hero{
+      padding:18px;
+      display:grid;
+      grid-template-columns:1.04fr .96fr;
+      gap:14px;
+      align-items:start;
     }
 
     .rank-badge{
-      min-width:74px;
-      height:74px;
+      width:94px;
+      height:94px;
       border-radius:50%;
       display:grid;
       place-items:center;
-      font-size:34px;
+      font-size:40px;
       font-weight:1000;
-      border:3px solid var(--line);
-      box-shadow:var(--shadow-soft);
       background:#fff;
-      color:#6a625a;
+      border:3px solid var(--line);
+      color:#6a6159;
+      box-shadow:var(--shadow-soft);
     }
-    .rank-s{ background:#fff8d7; border-color:#ffe08a; color:#9f6b00; }
-    .rank-a{ background:#f2ffe5; border-color:#cae8a4; color:#4c8225; }
-    .rank-b{ background:#eefaff; border-color:#cde7f6; color:#3c6a85; }
-    .rank-c{ background:#fff5ef; border-color:#efd8c5; color:#8b6148; }
-    .rank-d{ background:#fff1f1; border-color:#f1c7c7; color:#985353; }
+
+    .rank-badge.rank-s{ background:#fff7d8; border-color:#ffe08a; color:#9d6900; }
+    .rank-badge.rank-a{ background:#f3ffe7; border-color:#cde8a3; color:#4f8427; }
+    .rank-badge.rank-b{ background:#eefaff; border-color:#cae6f6; color:#3d6b86; }
+    .rank-badge.rank-c{ background:#fff5ef; border-color:#efd8c7; color:#8a6148; }
+    .rank-badge.rank-d{ background:#fff1f1; border-color:#f0c8c8; color:#975353; }
 
     .result-copy{
-      flex:1 1 280px;
-      min-width:0;
+      display:grid;
+      gap:8px;
+      align-content:start;
     }
 
     .result-copy h2{
       margin:0;
-      font-size:clamp(26px,4vw,42px);
-      line-height:1.05;
+      font-size:clamp(30px,5vw,52px);
+      line-height:1;
       font-weight:1000;
       color:#7b4b2e;
     }
 
     .result-copy p{
-      margin:8px 0 0;
-      color:#776f67;
-      line-height:1.6;
+      margin:0;
+      color:#766e66;
+      line-height:1.7;
+      font-size:15px;
       font-weight:900;
+    }
+
+    .result-chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .result-chip{
+      min-height:36px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:#687c89;
+      font-size:13px;
+      font-weight:1000;
     }
 
     .reward-card{
@@ -804,10 +858,10 @@
       grid-template-columns:84px 1fr;
       gap:12px;
       align-items:center;
-      padding:14px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#fffef5,#fff);
-      border:2px solid #f0e0a5;
+      padding:16px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffef6,#fff);
+      border:2px solid #efdca5;
     }
 
     .reward-icon{
@@ -817,7 +871,7 @@
       display:grid;
       place-items:center;
       background:#fff;
-      border:2px solid #f0e0a5;
+      border:2px solid #efdca5;
       font-size:42px;
     }
 
@@ -826,55 +880,55 @@
       font-size:24px;
       line-height:1.1;
       font-weight:1000;
-      color:#80591b;
+      color:#7f5a1d;
     }
 
     .reward-copy p{
       margin:6px 0 0;
-      color:#7c745d;
+      color:#7a725c;
       line-height:1.6;
-      font-weight:900;
       font-size:14px;
+      font-weight:900;
     }
 
-    .result-biggrid{
+    .summary-grid{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
       gap:12px;
     }
 
-    .big-stat{
+    .sum-card{
       border-radius:22px;
       background:#fff;
       border:2px solid var(--line);
       padding:14px;
-      text-align:center;
       box-shadow:var(--shadow-soft);
+      min-width:0;
     }
 
-    .big-stat .k{
+    .sum-card .k{
       font-size:12px;
-      color:#7891a1;
+      color:#7990a0;
       font-weight:1000;
       text-transform:uppercase;
       letter-spacing:.06em;
     }
 
-    .big-stat .v{
+    .sum-card .v{
       margin-top:8px;
-      font-size:30px;
+      font-size:28px;
       line-height:1;
       font-weight:1000;
       color:#534c45;
+      word-break:break-word;
     }
 
-    .result-grid{
+    .coach-grid{
       display:grid;
-      grid-template-columns:1.15fr .95fr;
-      gap:12px;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
     }
 
-    .summary-card,
     .coach-card,
     .export-card{
       background:#fff;
@@ -884,7 +938,6 @@
       box-shadow:var(--shadow-soft);
     }
 
-    .summary-card h3,
     .coach-card h3,
     .export-card h3{
       margin:0 0 12px;
@@ -893,244 +946,146 @@
       color:#6b4327;
     }
 
-    .summary-table{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-
-    .sum-item{
-      border-radius:18px;
-      background:#f8fdff;
-      border:1px solid var(--line);
-      padding:12px;
-    }
-
-    .sum-item .k{
-      font-size:12px;
-      font-weight:1000;
-      color:#7b92a0;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-    }
-
-    .sum-item .v{
-      margin-top:6px;
-      font-size:22px;
-      font-weight:1000;
-      line-height:1.1;
-      color:#4d4740;
-      word-break:break-word;
-    }
-
-    .coach-box{
-      display:grid;
-      gap:10px;
-    }
-
     .coach-head{
-      border-radius:18px;
-      background:#fffef6;
-      border:2px dashed #eadb9f;
-      padding:12px;
+      display:grid;
+      gap:6px;
+      margin-bottom:10px;
     }
 
-    .coach-head h4{
-      margin:0;
+    .coach-head strong{
       font-size:18px;
-      color:#76511d;
-      font-weight:1000;
+      color:#5f3f9a;
     }
 
     .coach-head p{
-      margin:6px 0 0;
-      color:#776e58;
-      line-height:1.6;
-      font-weight:900;
+      margin:0;
+      color:#766e66;
       font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+    }
+
+    .tip-list{
+      display:grid;
+      gap:10px;
     }
 
     .tip{
       border-radius:18px;
       background:#f8fdff;
-      border:1px solid var(--line);
+      border:2px solid var(--line);
       padding:12px;
-      color:#667884;
+      color:#6b665f;
+      font-size:14px;
       line-height:1.7;
       font-weight:900;
-      font-size:14px;
     }
 
     .export-actions{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
-    }
-
-    .export-actions .btn{
-      min-height:48px;
-      font-size:15px;
-      border-radius:18px;
-    }
-
-    .log-status{
       margin-top:10px;
-      min-height:24px;
+    }
+
+    .export-actions.three{
+      grid-template-columns:1fr 1fr 1fr;
+    }
+
+    .status{
+      margin-top:12px;
+      min-height:22px;
       font-size:13px;
       font-weight:1000;
-      color:#8b7b63;
+      color:#7b92a0;
     }
 
-    .bottom-actions{
+    .footer-actions{
       display:grid;
       grid-template-columns:1fr 1fr 1fr;
       gap:12px;
     }
 
-    .footer-note{
-      text-align:center;
-      color:#8b847c;
-      font-size:12px;
-      font-weight:1000;
-      margin-top:2px;
-    }
-
-    @media (max-width:920px){
-      .hero-card,
-      .hud-mid,
-      .result-grid{
+    @media (max-width:980px){
+      .hero,
+      .menu-grid,
+      .play-grid,
+      .result-hero,
+      .coach-grid{
         grid-template-columns:1fr;
       }
 
-      .config-grid{
-        grid-template-columns:1fr 1fr;
+      .hud-grid{
+        grid-template-columns:repeat(3,minmax(0,1fr));
       }
 
-      .research-block{
-        grid-template-columns:1fr;
+      .summary-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
-      .result-biggrid{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .controls{
-        grid-template-columns:1fr;
-      }
-
-      .bottom-actions{
+      .btn-row,
+      .footer-actions{
         grid-template-columns:1fr;
       }
     }
 
-    @media (max-width:640px){
-      body{
-        padding:
-          calc(10px + var(--safe-top))
-          calc(10px + var(--safe-right))
-          calc(14px + var(--safe-bottom))
-          calc(10px + var(--safe-left));
-      }
-
-      .hero-copy h2{
-        font-size:48px;
-      }
-
-      .config-grid,
-      .cta-row,
-      .small-btn-row,
-      .hud-top,
-      .hud-side-grid,
-      .summary-table,
+    @media (max-width:720px){
+      .hud-grid,
+      .summary-grid,
+      .quick-metrics,
+      .action-buttons,
+      .mini-actions,
       .export-actions,
-      .result-biggrid{
+      .export-actions.three{
         grid-template-columns:1fr;
       }
 
-      .play-area{
+      .game-stage{
         min-height:460px;
       }
-
-      .avatar{
-        width:96px;
-        height:136px;
-      }
-
-      .avatar-head{
-        width:52px;
-        height:52px;
-        left:24px;
-      }
-
-      .avatar-body{
-        width:70px;
-        height:54px;
-        left:14px;
-        top:50px;
-      }
-
-      .avatar-arm-l,
-      .avatar-arm-r{
-        width:18px;
-        height:54px;
-        top:56px;
-      }
-
-      .avatar-leg-l,
-      .avatar-leg-r{
-        width:20px;
-        height:54px;
-        top:96px;
-      }
-
-      .avatar-leg-l{ left:24px; }
-      .avatar-leg-r{ left:52px; }
     }
   </style>
 </head>
 <body>
   <main class="app">
-    <!-- MENU -->
-    <section id="view-menu" class="menu-wrap">
-      <header class="topbar">
-        <div class="brand">
-          <div class="brand-badge">🏃</div>
-          <div class="brand-copy">
-            <h1>JumpDuck</h1>
-            <p>เกมฝึก jump + duck + landing + beat แบบ child-friendly</p>
-          </div>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">🏃</div>
+        <div class="brand-copy">
+          <h1>JumpDuck</h1>
+          <p>low = jump • high = duck • child-friendly fitness mode</p>
         </div>
+      </div>
 
-        <a
-          id="jd-back-hub-menu"
-          class="chip-link"
-          href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html"
-        >🏠 กลับ Fitness Zone</a>
-      </header>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a id="jd-go-zone-menu" class="chip-link" href="#">🏠 Fitness Zone</a>
+        <a id="jd-back-hub-menu" class="chip-link" href="#">🗺️ กลับโซน</a>
+      </div>
+    </header>
 
-      <section class="panel hero-card">
+    <!-- MENU -->
+    <section id="view-menu">
+      <section class="panel hero">
         <div class="hero-copy">
-          <div class="kicker">FITNESS FEATURED</div>
-          <h2>JumpDuck</h2>
+          <div class="kicker">Fitness Adventure</div>
+          <h2>Jump<br>Duck</h2>
           <p>
-            เกมฝึกจังหวะกระโดดและหมอบสำหรับเด็ก อ่าน cue ง่าย เห็นชัด เล่นได้ทั้งแบบทั่วไป
-            แบบซ้อมเร็ว และแบบ research run
+            อ่านอุปสรรคให้ไว แล้วเลือกให้ถูก
+            <b>สิ่งกีดขวางต่ำ = JUMP</b> และ
+            <b>สิ่งกีดขวางสูง = DUCK</b>
           </p>
 
           <div class="tag-row">
-            <div class="tag">🐱 Rhythm</div>
-            <div class="tag">⬆️ Jump</div>
-            <div class="tag">⬇️ Duck</div>
-            <div class="tag">🟠 Landing Hold</div>
-            <div class="tag">⭐ Summary</div>
+            <div class="tag">🎯 reaction training</div>
+            <div class="tag">⚡ pattern reading</div>
+            <div class="tag">🏆 boss + rush</div>
           </div>
         </div>
 
         <div class="hero-art" aria-hidden="true">
-          <div class="hero-track"></div>
-          <div class="hero-ground-line"></div>
+          <div class="hero-ground"></div>
 
-          <div class="hero-kid">
+          <div class="hero-runner">
             <div class="head"></div>
             <div class="body"></div>
             <div class="arm-l"></div>
@@ -1139,392 +1094,333 @@
             <div class="leg-r"></div>
           </div>
 
-          <div class="hero-obstacle-low"></div>
-          <div class="hero-obstacle-high"></div>
+          <div class="hero-low"></div>
+          <div class="hero-high"></div>
         </div>
       </section>
 
-      <section class="panel" style="padding:16px;">
-        <div class="config-grid">
-          <div class="field">
-            <label for="jd-mode">Mode</label>
-            <select id="jd-mode">
-              <option value="training">training</option>
-              <option value="test">test</option>
-              <option value="research">research</option>
-            </select>
+      <section class="menu-grid">
+        <section class="card">
+          <h3>🎮 ตั้งค่าการเล่น</h3>
+
+          <div class="form-grid">
+            <div class="field">
+              <label for="jd-mode">Mode</label>
+              <select id="jd-mode">
+                <option value="training">training</option>
+                <option value="test">test</option>
+                <option value="research">research</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="jd-diff">Difficulty</label>
+              <select id="jd-diff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="jd-duration">Duration</label>
+              <select id="jd-duration">
+                <option value="30">30 sec</option>
+                <option value="45">45 sec</option>
+                <option value="60" selected>60 sec</option>
+                <option value="90">90 sec</option>
+              </select>
+            </div>
           </div>
 
-          <div class="field">
-            <label for="jd-diff">Difficulty</label>
-            <select id="jd-diff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
+          <div id="jd-research-block" class="research-block hidden">
+            <h4>Research Context</h4>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="jd-participant-id">Participant ID</label>
+                <input id="jd-participant-id" type="text" placeholder="anon" />
+              </div>
+
+              <div class="field">
+                <label for="jd-group">Group</label>
+                <input id="jd-group" type="text" placeholder="control / experiment" />
+              </div>
+
+              <div class="field">
+                <label for="jd-note">Note</label>
+                <textarea id="jd-note" placeholder="optional note"></textarea>
+              </div>
+            </div>
           </div>
 
-          <div class="field">
-            <label for="jd-duration">Duration</label>
-            <select id="jd-duration">
-              <option value="30">30s</option>
-              <option value="45">45s</option>
-              <option value="60" selected>60s</option>
-              <option value="90">90s</option>
-            </select>
+          <div class="btn-row">
+            <button class="btn primary" data-action="start" type="button">🚀 Start</button>
+            <button class="btn yellow" data-action="tutorial" type="button">🧠 Tutorial</button>
+            <a id="jd-control-hub" class="btn secondary" href="#">🏠 Fitness Zone</a>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>📘 วิธีเล่น</h3>
+          <p>
+            ดูรูปร่างของสิ่งกีดขวางให้ชัด
+            ถ้าอยู่ระดับขาให้ <b>กระโดด</b> ถ้าอยู่ระดับหัวให้ <b>หมอบ</b>
+            ช่วงท้ายจะมี <b>boss</b> และ <b>final rush</b> ให้ท้าทายมากขึ้น
+          </p>
+
+          <div class="quick-metrics" style="margin-top:14px;">
+            <div class="metric">
+              <div class="k">Input</div>
+              <div class="v">Jump / Duck</div>
+            </div>
+            <div class="metric">
+              <div class="k">Goal</div>
+              <div class="v">High Score</div>
+            </div>
+            <div class="metric">
+              <div class="k">Boss</div>
+              <div class="v">Phase 3</div>
+            </div>
+            <div class="metric">
+              <div class="k">Return</div>
+              <div class="v">Fitness Zone</div>
+            </div>
           </div>
 
-          <div class="field">
-            <label>Flow</label>
-            <input type="text" value="Warmup → Run → Cooldown → Fitness Zone" readonly />
+          <div style="margin-top:14px;padding:14px;border-radius:20px;background:#fffef6;border:2px dashed #eadb9e;color:#73673f;font-size:14px;line-height:1.7;font-weight:1000;">
+            เคล็ดลับ: อย่ากดเร็วเกินไป ให้รอให้อุปสรรคเข้าระยะก่อน แล้วค่อยตัดสินใจ
           </div>
-        </div>
-
-        <div id="jd-research-block" class="research-block hidden" style="margin-top:12px;">
-          <div class="field">
-            <label for="jd-participant-id">Participant ID</label>
-            <input id="jd-participant-id" type="text" placeholder="anon" />
-          </div>
-
-          <div class="field">
-            <label for="jd-group">Group</label>
-            <input id="jd-group" type="text" placeholder="A / B / control / experiment" />
-          </div>
-
-          <div class="field">
-            <label for="jd-note">Note</label>
-            <textarea id="jd-note" placeholder="บันทึกเพิ่มเติม"></textarea>
-          </div>
-        </div>
-
-        <div class="cta-row" style="margin-top:12px;">
-          <button class="btn primary" type="button" data-action="start">🎮 เริ่มเล่น</button>
-          <button class="btn secondary" type="button" data-action="tutorial">🧪 Tutorial 30s</button>
-        </div>
-
-        <div class="small-btn-row" style="margin-top:10px;">
-          <a
-            class="btn secondary"
-            href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html"
-            id="jd-go-zone-menu"
-          >🏠 กลับ Fitness Zone</a>
-
-          <a
-            class="btn secondary"
-            href="https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html"
-            id="jd-reset-menu"
-          >🔄 รีโหลดหน้าเกม</a>
-        </div>
+        </section>
       </section>
     </section>
 
     <!-- PLAY -->
-    <section id="view-play" class="play-wrap hidden">
-      <header class="topbar">
-        <div class="brand">
-          <div class="brand-badge">⚡</div>
-          <div class="brand-copy">
-            <h1 style="font-size:38px;">JumpDuck Run</h1>
-            <p>อ่านทาง • ตัดสินใจไว • คุมคอมโบให้ยาว</p>
-          </div>
-        </div>
+    <section id="view-play" class="hidden">
+      <div class="play-shell">
+        <section class="hud-wrap">
+          <div class="hud-grid">
+            <div class="hud-card"><div class="k">Mode</div><div id="hud-mode" class="v">training</div></div>
+            <div class="hud-card"><div class="k">Diff</div><div id="hud-diff" class="v">normal</div></div>
+            <div class="hud-card"><div class="k">Time</div><div id="hud-time" class="v">60.0</div></div>
+            <div class="hud-card"><div class="k">Phase</div><div id="hud-phase" class="v">1 • warmup</div></div>
+            <div class="hud-card"><div class="k">Score</div><div id="hud-score" class="v">0</div></div>
 
-        <a
-          id="jd-back-hub-play"
-          class="chip-link"
-          href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html"
-        >🏠 กลับ Fitness Zone</a>
-      </header>
+            <div class="hud-card"><div class="k">Combo</div><div id="hud-combo" class="v">0</div></div>
+            <div class="hud-card"><div class="k">Stability</div><div id="hud-stability" class="v">100%</div></div>
+            <div class="hud-card"><div class="k">Boss HP</div><div id="hud-boss" class="v">—</div></div>
+            <div class="hud-card"><div class="k">Pattern</div><div id="hud-pattern" class="v">—</div></div>
+            <div class="hud-card"><div class="k">Rush</div><div id="hud-rush" class="v">—</div></div>
 
-      <div class="hud-top">
-        <div class="hud-card">
-          <div class="hud-label">mode</div>
-          <div class="hud-value" id="hud-mode">training</div>
-        </div>
-
-        <div class="hud-card">
-          <div class="hud-label">difficulty</div>
-          <div class="hud-value" id="hud-diff">normal</div>
-        </div>
-
-        <div class="hud-card">
-          <div class="hud-label">time</div>
-          <div class="hud-value" id="hud-time">60.0</div>
-        </div>
-
-        <div class="hud-card">
-          <div class="hud-label">phase</div>
-          <div class="hud-value" id="hud-phase">1 • warmup</div>
-        </div>
-      </div>
-
-      <div class="hud-mid">
-        <section id="jd-play-area" class="play-area panel">
-          <div class="lane l1"></div>
-          <div class="lane l2"></div>
-          <div class="ground-line"></div>
-          <div id="jd-hitline" class="hitline" style="left:102px;"></div>
-
-          <div id="jd-tele" class="tele hidden">
-            <div class="teleBox">READY</div>
+            <div class="hud-card"><div class="k">Boss Label</div><div id="hud-boss-label" class="v">—</div></div>
+            <div class="hud-card"><div class="k">Boss Status</div><div id="hud-boss-status" class="v">—</div></div>
+            <div class="hud-card"><div class="k">Compact</div><div id="hud-boss-compact" class="v">—</div></div>
           </div>
 
-          <div id="jd-boss-intro" class="boss-intro hidden">
-            <div id="jd-boss-intro-text" class="bossIntroBox">Boss incoming</div>
-          </div>
+          <div class="progress-panel">
+            <div class="meter">
+              <div class="meter-head">
+                <span>Progress</span>
+                <strong id="hud-prog-text">0%</strong>
+              </div>
+              <div class="bar">
+                <div id="hud-prog-fill" class="bar-fill"></div>
+              </div>
+            </div>
 
-          <div id="jd-judge" class="judge">PERFECT</div>
+            <div class="meter">
+              <div class="meter-head">
+                <span>Fever</span>
+                <strong id="fever-status">Ready</strong>
+              </div>
+              <div class="bar">
+                <div id="hud-fever-fill" class="bar-fill fever"></div>
+              </div>
+            </div>
 
-          <div id="jd-rush-banner" class="rush-banner hidden">
-            <div class="rushText">FINAL RUSH!</div>
-          </div>
-
-          <div id="jd-arena" style="position:absolute; inset:0; z-index:6;">
-            <div id="jd-obstacles" style="position:absolute; inset:0; z-index:12;"></div>
-
-            <div id="jd-avatar" class="avatar avatar-idle" style="left:10.8%;">
-              <div class="avatar-head"></div>
-              <div class="avatar-body"></div>
-              <div class="avatar-arm-l"></div>
-              <div class="avatar-arm-r"></div>
-              <div class="avatar-leg-l"></div>
-              <div class="avatar-leg-r"></div>
+            <div id="boss-bar-wrap" class="boss-bar-wrap hidden">
+              <div class="meter-head">
+                <span>Boss Bar</span>
+                <strong id="hud-boss-status-right">—</strong>
+              </div>
+              <div class="bar">
+                <div id="hud-boss-fill" class="bar-fill"></div>
+              </div>
             </div>
           </div>
         </section>
 
-        <aside class="progress-panel">
-          <div class="hud-side-grid">
-            <div class="hud-card">
-              <div class="hud-label">score</div>
-              <div class="hud-value" id="hud-score">0</div>
-            </div>
+        <section class="play-grid">
+          <section id="jd-play-area" class="game-stage">
+            <div class="arena">
+              <div class="arena-lane l1"></div>
+              <div class="arena-lane l2"></div>
+              <div class="arena-ground"></div>
 
-            <div class="hud-card">
-              <div class="hud-label">combo</div>
-              <div class="hud-value" id="hud-combo">0</div>
-            </div>
+              <div id="jd-tele" class="tele hidden">
+                <div class="teleBox">ready</div>
+              </div>
 
-            <div class="hud-card">
-              <div class="hud-label">stability</div>
-              <div class="hud-value" id="hud-stability">100%</div>
-            </div>
+              <div id="jd-boss-intro" class="boss-intro hidden">
+                <div class="boss-intro-box" id="jd-boss-intro-text">boss intro</div>
+              </div>
 
-            <div class="hud-card">
-              <div class="hud-label">boss hp</div>
-              <div class="hud-value" id="hud-boss">—</div>
-            </div>
+              <div id="jd-judge" class="judge">PERFECT</div>
 
-            <div class="hud-card">
-              <div class="hud-label">pattern</div>
-              <div class="hud-value" id="hud-pattern">—</div>
-            </div>
+              <div id="jd-rush-banner" class="rush-banner hidden">
+                <div class="rush-pill rushText">FINAL RUSH!</div>
+              </div>
 
-            <div class="hud-card">
-              <div class="hud-label">rush</div>
-              <div class="hud-value" id="hud-rush">—</div>
-            </div>
+              <div id="jd-arena">
+                <div id="jd-avatar" class="runner avatar-idle">
+                  <div class="head"></div>
+                  <div class="body"></div>
+                  <div class="arm-l"></div>
+                  <div class="arm-r"></div>
+                  <div class="leg-l"></div>
+                  <div class="leg-r"></div>
+                </div>
 
-            <div class="hud-card">
-              <div class="hud-label">boss label</div>
-              <div class="hud-value" id="hud-boss-label">—</div>
+                <div id="jd-obstacles"></div>
+              </div>
             </div>
+          </section>
 
-            <div class="hud-card">
-              <div class="hud-label">boss compact</div>
-              <div class="hud-value" id="hud-boss-compact">—</div>
-            </div>
-          </div>
+          <aside class="control-panel">
+            <section class="control-box">
+              <h3>🎯 Current Mission</h3>
+              <p class="control-note">
+                low obstacle = JUMP<br>
+                high obstacle = DUCK
+              </p>
 
-          <div class="hud-card">
-            <div class="hud-label">boss status</div>
-            <div class="hud-value" id="hud-boss-status">—</div>
-          </div>
+              <div class="action-buttons">
+                <button id="btn-jump" class="action-big jump" type="button">⬆️ JUMP</button>
+                <button id="btn-duck" class="action-big duck" type="button">⬇️ DUCK</button>
+              </div>
+            </section>
 
-          <div class="meter">
-            <div class="meter-head">
-              <span>Progress</span>
-              <strong id="hud-prog-text">0%</strong>
-            </div>
-            <div class="bar">
-              <div id="hud-prog-fill" class="bar-fill"></div>
-            </div>
-          </div>
+            <section class="control-box">
+              <h3>🛠️ Quick Actions</h3>
+              <p class="control-note">
+                กลับโซนได้ทุกเวลา หรือหยุดรอบนี้ก่อนก็ได้
+              </p>
 
-          <div class="meter">
-            <div class="meter-head">
-              <span>Fever</span>
-              <strong id="hud-fever-status">Ready</strong>
-            </div>
-            <div class="bar">
-              <div id="hud-fever-fill" class="bar-fill fever"></div>
-            </div>
-          </div>
-
-          <div id="boss-bar-wrap" class="meter hidden">
-            <div class="meter-head">
-              <span>Boss Bar</span>
-              <strong id="hud-boss-status-right">—</strong>
-            </div>
-            <div class="bar">
-              <div id="hud-boss-fill" class="bar-fill boss"></div>
-            </div>
-          </div>
-
-          <div class="side-note">
-            แตะครึ่งบนของสนามเพื่อ <b>JUMP</b><br />
-            แตะครึ่งล่างของสนามเพื่อ <b>DUCK</b><br />
-            หรือใช้ปุ่มใหญ่ด้านล่างก็ได้
-          </div>
-        </aside>
-      </div>
-
-      <div class="controls">
-        <button id="btn-jump" class="control-btn jump" type="button">⬆️ JUMP</button>
-        <button id="btn-duck" class="control-btn duck" type="button">⬇️ DUCK</button>
-        <a
-          id="jd-control-hub"
-          class="control-btn hub"
-          href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html"
-        >🏠 HUB</a>
-      </div>
-
-      <div class="bottom-actions">
-        <button id="btn-stop-early" class="btn secondary" type="button">⏹️ จบรอบก่อนเวลา</button>
-        <button class="btn secondary" type="button" data-action="back-menu">🏠 กลับ Fitness Zone</button>
-        <a class="btn secondary" href="https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html">🔄 รีโหลดหน้าเกม</a>
+              <div class="mini-actions">
+                <a id="jd-back-hub-play" class="btn secondary" href="#">🏠 Fitness Zone</a>
+                <button id="btn-stop-early" class="btn secondary" type="button">⏹️ Stop Early</button>
+                <button class="btn secondary" data-action="back-menu" type="button">↩️ Exit to Zone</button>
+              </div>
+            </section>
+          </aside>
+        </section>
       </div>
     </section>
 
     <!-- RESULT -->
-    <section id="view-result" class="result-wrap hidden">
-      <header class="topbar">
-        <div class="brand">
-          <div class="brand-badge">🏅</div>
-          <div class="brand-copy">
-            <h1 style="font-size:38px;">JumpDuck Summary</h1>
-            <p>สรุปผล • ข้อแนะนำ • flow ต่อไปยัง cooldown และ Fitness Zone</p>
-          </div>
-        </div>
-
-        <a
-          id="jd-back-hub-result"
-          class="chip-link"
-          href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html"
-        >🏠 กลับ Fitness Zone</a>
-      </header>
-
-      <section class="panel" style="padding:16px;">
-        <div class="result-head">
-          <div id="jd-rank-badge" class="rank-badge rank-c">C</div>
-
+    <section id="view-result" class="hidden">
+      <div class="result-shell">
+        <section class="panel result-hero">
           <div class="result-copy">
-            <h2 id="jd-result-title">ผ่านด่านฝึกแล้ว!</h2>
-            <p id="jd-result-sub">สรุปรอบล่าสุดของ JumpDuck</p>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+              <div id="jd-rank-badge" class="rank-badge rank-c">C</div>
+              <div>
+                <h2 id="jd-result-title">ผ่านด่านฝึกแล้ว!</h2>
+                <p id="jd-result-sub">สรุปรอบล่าสุดของ JumpDuck</p>
+              </div>
+            </div>
+
+            <div class="result-chip-row">
+              <div class="result-chip">Boss: <b id="jd-result-boss">—</b></div>
+              <div class="result-chip">Pattern: <b id="jd-result-pattern">—</b></div>
+              <div class="result-chip">Rush: <b id="jd-result-rush">—</b></div>
+            </div>
           </div>
-        </div>
 
-        <div class="reward-card" style="margin-top:14px;">
-          <div id="jd-result-reward-icon" class="reward-icon">⭐</div>
-          <div class="reward-copy">
-            <h3 id="jd-result-reward">Keep Training</h3>
-            <p id="jd-result-reward-sub">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</p>
-          </div>
-        </div>
-
-        <div class="tag-row" style="margin-top:12px;">
-          <div class="tag">👾 Boss: <b id="jd-result-boss">—</b></div>
-          <div class="tag">🧩 Pattern: <b id="jd-result-pattern">—</b></div>
-          <div class="tag">🚀 Rush: <b id="jd-result-rush">—</b></div>
-        </div>
-      </section>
-
-      <div class="result-biggrid">
-        <div class="big-stat">
-          <div class="k">Score</div>
-          <div class="v" id="res-score-big">0</div>
-        </div>
-        <div class="big-stat">
-          <div class="k">Accuracy</div>
-          <div class="v" id="res-acc-big">0%</div>
-        </div>
-        <div class="big-stat">
-          <div class="k">Max Combo</div>
-          <div class="v" id="res-combo-big">0</div>
-        </div>
-        <div class="big-stat">
-          <div class="k">Boss End</div>
-          <div class="v" id="res-boss-end-big">—</div>
-        </div>
-      </div>
-
-      <div class="result-grid">
-        <section class="summary-card">
-          <h3>📊 Session Summary</h3>
-
-          <div class="summary-table">
-            <div class="sum-item"><div class="k">Mode</div><div class="v" id="res-mode">-</div></div>
-            <div class="sum-item"><div class="k">Diff</div><div class="v" id="res-diff">-</div></div>
-            <div class="sum-item"><div class="k">Duration</div><div class="v" id="res-duration">-</div></div>
-            <div class="sum-item"><div class="k">Total Obstacles</div><div class="v" id="res-total-obs">0</div></div>
-            <div class="sum-item"><div class="k">Hits</div><div class="v" id="res-hits">0</div></div>
-            <div class="sum-item"><div class="k">Miss</div><div class="v" id="res-miss">0</div></div>
-            <div class="sum-item"><div class="k">Jump Hit</div><div class="v" id="res-jump-hit">0</div></div>
-            <div class="sum-item"><div class="k">Duck Hit</div><div class="v" id="res-duck-hit">0</div></div>
-            <div class="sum-item"><div class="k">Jump Miss</div><div class="v" id="res-jump-miss">0</div></div>
-            <div class="sum-item"><div class="k">Duck Miss</div><div class="v" id="res-duck-miss">0</div></div>
-            <div class="sum-item"><div class="k">Accuracy</div><div class="v" id="res-acc">0%</div></div>
-            <div class="sum-item"><div class="k">RT Mean</div><div class="v" id="res-rt-mean">0</div></div>
-            <div class="sum-item"><div class="k">Stability Min</div><div class="v" id="res-stability-min">0%</div></div>
-            <div class="sum-item"><div class="k">Score</div><div class="v" id="res-score">0</div></div>
-            <div class="sum-item"><div class="k">Rank</div><div class="v" id="res-rank">C</div></div>
-            <div class="sum-item"><div class="k">Phase End</div><div class="v" id="res-phase-end">-</div></div>
-            <div class="sum-item"><div class="k">Pattern</div><div class="v" id="res-pattern">-</div></div>
-            <div class="sum-item"><div class="k">Boss Label</div><div class="v" id="res-boss-label">-</div></div>
-            <div class="sum-item"><div class="k">Rush</div><div class="v" id="res-rush">-</div></div>
+          <div class="reward-card">
+            <div id="jd-result-reward-icon" class="reward-icon">⭐</div>
+            <div class="reward-copy">
+              <h3 id="jd-result-reward">Keep Training</h3>
+              <p id="jd-result-reward-sub">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</p>
+            </div>
           </div>
         </section>
 
-        <section class="coach-card">
-          <h3>🤖 AI Coach</h3>
+        <section class="summary-grid">
+          <div class="sum-card"><div class="k">Score</div><div id="res-score-big" class="v">0</div></div>
+          <div class="sum-card"><div class="k">Accuracy</div><div id="res-acc-big" class="v">0%</div></div>
+          <div class="sum-card"><div class="k">Best Combo</div><div id="res-combo-big" class="v">0</div></div>
+          <div class="sum-card"><div class="k">Boss End</div><div id="res-boss-end-big" class="v">—</div></div>
+        </section>
 
-          <div class="coach-box">
+        <section class="summary-grid">
+          <div class="sum-card"><div class="k">Mode</div><div id="res-mode" class="v">-</div></div>
+          <div class="sum-card"><div class="k">Diff</div><div id="res-diff" class="v">-</div></div>
+          <div class="sum-card"><div class="k">Duration</div><div id="res-duration" class="v">-</div></div>
+          <div class="sum-card"><div class="k">Total Obs</div><div id="res-total-obs" class="v">0</div></div>
+
+          <div class="sum-card"><div class="k">Hits</div><div id="res-hits" class="v">0</div></div>
+          <div class="sum-card"><div class="k">Miss</div><div id="res-miss" class="v">0</div></div>
+          <div class="sum-card"><div class="k">Jump Hit</div><div id="res-jump-hit" class="v">0</div></div>
+          <div class="sum-card"><div class="k">Duck Hit</div><div id="res-duck-hit" class="v">0</div></div>
+
+          <div class="sum-card"><div class="k">Jump Miss</div><div id="res-jump-miss" class="v">0</div></div>
+          <div class="sum-card"><div class="k">Duck Miss</div><div id="res-duck-miss" class="v">0</div></div>
+          <div class="sum-card"><div class="k">Acc</div><div id="res-acc" class="v">0%</div></div>
+          <div class="sum-card"><div class="k">RT Mean</div><div id="res-rt-mean" class="v">0</div></div>
+
+          <div class="sum-card"><div class="k">Stability</div><div id="res-stability-min" class="v">0%</div></div>
+          <div class="sum-card"><div class="k">Score Final</div><div id="res-score" class="v">0</div></div>
+          <div class="sum-card"><div class="k">Rank</div><div id="res-rank" class="v">C</div></div>
+          <div class="sum-card"><div class="k">Phase End</div><div id="res-phase-end" class="v">-</div></div>
+
+          <div class="sum-card"><div class="k">Pattern</div><div id="res-pattern" class="v">-</div></div>
+          <div class="sum-card"><div class="k">Boss Label</div><div id="res-boss-label" class="v">-</div></div>
+          <div class="sum-card"><div class="k">Rush</div><div id="res-rush" class="v">-</div></div>
+        </section>
+
+        <section class="coach-grid">
+          <section class="coach-card">
+            <h3>🧠 AI Coach</h3>
+
             <div class="coach-head">
-              <h4 id="jd-coach-title">AI Coach</h4>
+              <strong id="jd-coach-title">AI Coach</strong>
               <p id="jd-coach-summary">สรุปคำแนะนำหลังจบเกม</p>
             </div>
 
-            <div id="jd-coach-tip-1" class="tip">—</div>
-            <div id="jd-coach-tip-2" class="tip">—</div>
-          </div>
+            <div class="tip-list">
+              <div id="jd-coach-tip-1" class="tip">—</div>
+              <div id="jd-coach-tip-2" class="tip">—</div>
+            </div>
+          </section>
+
+          <section class="export-card">
+            <h3>📦 Export / Research</h3>
+
+            <div class="export-actions three">
+              <button id="jd-btn-dl-events" class="btn secondary" type="button">events.csv</button>
+              <button id="jd-btn-dl-sessions" class="btn secondary" type="button">sessions.csv</button>
+              <button id="jd-btn-dl-teacher" class="btn secondary" type="button">teacher.csv</button>
+            </div>
+
+            <div class="export-actions" style="margin-top:10px;">
+              <button id="jd-btn-send-log" class="btn secondary" type="button">☁️ Send Log</button>
+              <button id="jd-btn-continue-flow" class="btn primary" type="button">🧘 ไป Cooldown</button>
+            </div>
+
+            <div id="jd-log-status" class="status"></div>
+          </section>
+        </section>
+
+        <section class="footer-actions">
+          <a id="jd-back-hub-result" class="btn secondary" href="#">🏠 Fitness Zone</a>
+          <button class="btn yellow" data-action="play-again" type="button">🔁 Play Again</button>
+          <button class="btn secondary" data-action="back-menu" type="button">↩️ Exit to Zone</button>
         </section>
       </div>
-
-      <section class="export-card">
-        <h3>📁 Export / Flow</h3>
-
-        <div class="export-actions">
-          <button id="jd-btn-dl-events" class="btn secondary" type="button">📄 events.csv</button>
-          <button id="jd-btn-dl-sessions" class="btn secondary" type="button">🧾 sessions.csv</button>
-          <button id="jd-btn-dl-teacher" class="btn secondary" type="button">👩‍🏫 teacher-summary.csv</button>
-          <button id="jd-btn-send-log" class="btn secondary" type="button">☁️ ส่ง log</button>
-        </div>
-
-        <div id="jd-log-status" class="log-status"></div>
-      </section>
-
-      <div class="bottom-actions">
-        <button id="jd-btn-continue-flow" class="btn primary" type="button">🧘 ไป Cooldown</button>
-        <button class="btn secondary" type="button" data-action="play-again">🔁 เล่นใหม่</button>
-        <button class="btn secondary" type="button" data-action="back-menu">🏠 กลับ Fitness Zone</button>
-      </div>
-
-      <p class="footer-note">
-        JumpDuck • Warmup → Run → Cooldown → Fitness Zone
-      </p>
     </section>
   </main>
 
-  <script src="./js/jumpduck.js?v=20260414a-zone-return-final"></script>
+  <script src="./js/jumpduck.js?v=20260414b-full-merged-final"></script>
 </body>
 </html>
