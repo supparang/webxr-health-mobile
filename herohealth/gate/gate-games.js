@@ -1,7 +1,7 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260413b-GATE-GAMES-REGISTRY-FINAL
+// FULL PATCH v20260414b-GATE-GAMES-JD-FITNESS-PATH
 
-const PATCH = 'v20260413b-GATE-GAMES-REGISTRY-FINAL';
+const PATCH = 'v20260414b-GATE-GAMES-JD-FITNESS-PATH';
 
 const DEFAULTS = {
   title: '',
@@ -243,12 +243,9 @@ export const GAME_REGISTRY = {
       '../group-v1.html',
       '../groups-vr.html'
     ],
-
-    /* ใช้ warmup-gate.html patch ฝั่ง page แทน module */
     warmupFile: null,
     cooldownFile: null,
     styleFile: null,
-
     summaryPath: '../group-v1.html',
     warmupTitle: 'Food Groups Warmup',
     cooldownTitle: 'Food Groups Cooldown'
@@ -365,21 +362,16 @@ export const GAME_REGISTRY = {
     zone: 'fitness',
     cat: 'fitness',
     theme: 'jump-duck',
-
-    /* ใช้หน้าใหม่ที่มี menu / play / result รวมอยู่แล้วเป็นตัวหลัก */
-    runFile: '../jumpduck.html',
+    runFile: '../fitness/jumpduck.html',
     runCandidates: [
-      '../jumpduck.html',
+      '../fitness/jumpduck.html',
       '../jump-duck-vr.html',
       '../fitness/jump-duck.html'
     ],
-
-    /* ใช้ warmup-gate.html patch ฝั่ง page แทน module */
     warmupFile: null,
     cooldownFile: null,
     styleFile: null,
-
-    summaryPath: '../jumpduck.html',
+    summaryPath: '../fitness/jumpduck.html',
     warmupTitle: 'JumpDuck Warmup',
     cooldownTitle: 'JumpDuck Cooldown'
   }),
