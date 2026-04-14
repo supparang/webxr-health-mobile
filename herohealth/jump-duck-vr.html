@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • JumpDuck</title>
-  <meta name="color-scheme" content="light" />
+  <title>HeroHealth • JumpDuck Redirect</title>
   <meta name="theme-color" content="#9fe3ff" />
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="./favicon.ico" />
 
   <style>
     :root{
@@ -19,15 +20,12 @@
       --blue2:#4aaef0;
       --green:#7ed957;
       --green2:#58c33f;
-      --yellow:#ffe08a;
-      --orange:#ffb35c;
-      --red:#ff7676;
-      --red2:#ef4444;
       --shadow:0 18px 36px rgba(63,122,156,.14);
-      --radius:24px;
+      --radius:28px;
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -38,103 +36,45 @@
       color:var(--text);
     }
 
-    a{ color:inherit; text-decoration:none; }
-    button,select,input,textarea{ font:inherit; }
-    .hidden{ display:none !important; }
-
-    .page{
-      min-height:100dvh;
-      padding:14px;
+    body{
       display:grid;
-      align-items:start;
-      justify-items:center;
-    }
-
-    .shell{
-      width:min(1120px,100%);
-      display:grid;
-      gap:14px;
+      place-items:center;
+      padding:18px;
     }
 
     .card{
+      width:min(760px,100%);
       background:var(--card);
       border:2px solid var(--line);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
-    }
-
-    .btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      min-height:46px;
-      border-radius:18px;
-      padding:12px 16px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-    }
-
-    .btn.primary{
-      background:linear-gradient(180deg,var(--green),var(--green2));
-      color:#173b0b;
-    }
-
-    .btn.secondary{
-      background:#fff;
-      color:var(--text);
-      border:2px solid var(--line);
-    }
-
-    .btn.warn{
-      background:linear-gradient(180deg,#ffd7d7,#ffb1b1);
-      color:#7a1f1f;
-    }
-
-    .mini-link{
-      min-height:40px;
-      padding:10px 14px;
-      border-radius:16px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:var(--text);
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-    }
-
-    .menu-shell{
-      padding:18px;
+      padding:22px;
       display:grid;
       gap:16px;
     }
 
     .hero{
       display:grid;
-      grid-template-columns:1.15fr .85fr;
+      grid-template-columns:1.1fr .9fr;
       gap:16px;
       align-items:center;
     }
 
-    .hero-copy h1{
+    .copy h1{
       margin:0 0 8px;
-      font-size:clamp(30px,5vw,52px);
+      font-size:clamp(28px,5vw,46px);
       line-height:1.04;
       color:#1e5678;
     }
 
-    .hero-copy p{
+    .copy p{
       margin:0;
       color:var(--muted);
       line-height:1.7;
       font-weight:900;
     }
 
-    .hero-badges{
+    .pills{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
@@ -142,6 +82,9 @@
     }
 
     .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
       min-height:36px;
       padding:8px 12px;
       border-radius:999px;
@@ -150,14 +93,11 @@
       color:#567186;
       font-size:13px;
       font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
     }
 
-    .hero-visual{
-      min-height:220px;
-      border-radius:28px;
+    .visual{
+      min-height:210px;
+      border-radius:24px;
       border:2px solid var(--line);
       background:
         radial-gradient(circle at 50% 18%, rgba(255,255,255,.85), transparent 25%),
@@ -166,34 +106,30 @@
       overflow:hidden;
     }
 
-    .hero-track{
+    .track{
       position:absolute;
-      left:8%;
-      right:8%;
-      bottom:28px;
+      left:10%;
+      right:10%;
+      bottom:26px;
       height:16px;
       border-radius:999px;
       background:linear-gradient(180deg,#8ec5df,#5aa9d6);
       box-shadow:inset 0 2px 0 rgba(255,255,255,.6);
     }
 
-    .hero-runner,
-    .hero-duckbar{
+    .runner{
       position:absolute;
-    }
-
-    .hero-runner{
-      left:18%;
-      bottom:38px;
+      left:22%;
+      bottom:40px;
       width:86px;
-      height:98px;
+      height:96px;
       border-radius:28px;
       background:linear-gradient(180deg,#fff,#ffe9c9);
       border:2px solid rgba(255,255,255,.7);
       box-shadow:0 10px 20px rgba(63,122,156,.14);
     }
 
-    .hero-runner::before{
+    .runner::before{
       content:"🐶";
       position:absolute;
       left:50%;
@@ -209,7 +145,7 @@
       font-size:22px;
     }
 
-    .hero-runner::after{
+    .runner::after{
       content:"🐾";
       position:absolute;
       right:-8px;
@@ -224,9 +160,10 @@
       font-size:16px;
     }
 
-    .hero-duckbar{
+    .bar{
+      position:absolute;
       right:12%;
-      top:56px;
+      top:58px;
       width:140px;
       height:20px;
       border-radius:999px;
@@ -234,1274 +171,214 @@
       box-shadow:0 10px 18px rgba(239,68,68,.18);
     }
 
-    .menu-grid{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
-    }
-
-    .panel{
-      padding:16px;
-      display:grid;
-      gap:12px;
-    }
-
-    .panel h2,.panel h3{
-      margin:0;
-      line-height:1.1;
-    }
-
-    .panel-sub{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    .form-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .field{
-      display:grid;
-      gap:6px;
-    }
-
-    .field label{
-      font-size:12px;
-      font-weight:1000;
-      color:#678296;
-    }
-
-    .field select,
-    .field input,
-    .field textarea{
-      min-height:44px;
-      border-radius:16px;
-      border:2px solid var(--line);
-      background:#fff;
-      color:var(--text);
-      padding:10px 12px;
-      outline:none;
-    }
-
-    .field textarea{
-      min-height:88px;
-      resize:vertical;
-    }
-
-    .research-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .cta-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-    }
-
-    .menu-footer{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-    }
-
-    .play-shell{
-      display:grid;
-      gap:12px;
-    }
-
-    .hud-top{
-      padding:12px;
-      display:grid;
-      gap:10px;
-    }
-
-    .hud-row{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .hud-pill{
-      border-radius:16px;
-      border:2px solid var(--line);
-      background:#fff;
-      min-height:54px;
-      padding:8px 10px;
-      display:grid;
-      align-content:center;
-      gap:4px;
-    }
-
-    .hud-pill .k{
-      font-size:12px;
-      font-weight:1000;
-      color:#6f8797;
-    }
-
-    .hud-pill .v{
-      font-size:18px;
-      font-weight:1000;
-      color:#24435a;
-      line-height:1.1;
-    }
-
-    .meter-row{
-      display:grid;
-      grid-template-columns:1fr 1fr 1fr;
-      gap:8px;
-    }
-
-    .meter-card{
-      border-radius:16px;
-      border:2px solid var(--line);
-      background:#fff;
-      padding:10px;
-      display:grid;
-      gap:8px;
-    }
-
-    .meter-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      font-size:12px;
-      font-weight:1000;
-      color:#6f8797;
-    }
-
-    .meter{
-      height:12px;
-      border-radius:999px;
-      overflow:hidden;
-      background:#edf5f8;
-      border:2px solid var(--line);
-    }
-
-    .meter-fill{
-      height:100%;
-      width:0%;
-      transition:width .14s linear;
-      border-radius:999px;
-      background:linear-gradient(90deg,var(--blue),var(--green));
-    }
-
-    .play-stage{
-      position:relative;
-      overflow:hidden;
-      min-height:64dvh;
-      border-radius:28px;
-      background:
-        radial-gradient(circle at top, rgba(255,255,255,.82), transparent 28%),
-        linear-gradient(180deg,#dff6ff 0%, #f7fdff 64%, #dff7d2 64%, #b9ef9f 100%);
-      border:2px solid var(--line);
-      box-shadow:var(--shadow);
-    }
-
-    #jd-play-area{
-      position:relative;
-      min-height:64dvh;
-      overflow:hidden;
-      touch-action:manipulation;
-      user-select:none;
-      -webkit-user-select:none;
-    }
-
-    #jd-arena{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-    }
-
-    #jd-hitline{
-      position:absolute;
-      top:10%;
-      bottom:12%;
-      width:4px;
-      border-radius:999px;
-      background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.9),rgba(255,255,255,.2));
-      box-shadow:0 0 18px rgba(255,255,255,.45);
-      z-index:5;
-    }
-
-    #jd-ground{
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:22%;
-      background:
-        radial-gradient(circle at 16% 40%, rgba(255,255,255,.45), transparent 18%),
-        radial-gradient(circle at 72% 32%, rgba(255,255,255,.38), transparent 18%),
-        linear-gradient(180deg,#b8ef9f,#8eda72);
-      border-top:2px solid rgba(101,176,86,.26);
-      z-index:1;
-    }
-
-    /* ===== DOG HERO ===== */
-    #jd-avatar{
-      position:absolute;
-      bottom:18%;
-      width:96px;
-      height:124px;
-      z-index:8;
-      transition:transform .16s ease;
-      transform-origin:50% 100%;
-      filter:drop-shadow(0 12px 18px rgba(63,122,156,.18));
-    }
-
-    #jd-avatar.avatar-idle{
-      transform:translateY(0) scale(1);
-      animation:jdDogIdleBob 1.6s ease-in-out infinite;
-    }
-
-    #jd-avatar.avatar-jump{
-      transform:translateY(-62px) scale(1.04) rotate(-4deg);
-    }
-
-    #jd-avatar.avatar-duck{
-      transform:translateY(8px) scaleY(.80) scaleX(1.04);
-    }
-
-    @keyframes jdDogIdleBob{
-      0%,100%{ transform:translateY(0) scale(1); }
-      50%{ transform:translateY(-3px) scale(1.01); }
-    }
-
-    .jd-dog-head{
-      position:absolute;
-      left:50%;
-      top:0;
-      width:66px;
-      height:64px;
-      transform:translateX(-50%);
-      border-radius:50%;
-      background:linear-gradient(180deg,#ffe9c9,#ffd29b);
-      border:3px solid rgba(255,255,255,.88);
-      box-shadow:0 8px 18px rgba(63,122,156,.12);
-      overflow:visible;
-    }
-
-    .jd-dog-ear{
-      position:absolute;
-      top:8px;
-      width:24px;
-      height:30px;
-      background:linear-gradient(180deg,#9b6b43,#7b5435);
-      border-radius:18px 18px 14px 14px;
-      border:2px solid rgba(255,255,255,.35);
-      transform-origin:50% 0%;
-      transition:transform .16s ease;
-    }
-
-    .jd-dog-ear.left{
-      left:-6px;
-      transform:rotate(-26deg);
-    }
-
-    .jd-dog-ear.right{
-      right:-6px;
-      transform:rotate(26deg);
-    }
-
-    .jd-dog-face{
-      position:absolute;
-      inset:0;
-    }
-
-    .jd-dog-eye{
-      position:absolute;
-      top:26px;
-      width:8px;
-      height:12px;
-      border-radius:999px;
-      background:#2f4455;
-      transform-origin:center center;
-      animation:jdDogBlink 3.2s infinite;
-    }
-
-    .jd-dog-eye.left{ left:18px; }
-    .jd-dog-eye.right{ right:18px; }
-
-    @keyframes jdDogBlink{
-      0%,46%,48%,100%{ transform:scaleY(1); }
-      47%{ transform:scaleY(.12); }
-    }
-
-    .jd-dog-cheek{
-      position:absolute;
-      top:35px;
-      width:10px;
-      height:6px;
-      border-radius:999px;
-      background:rgba(255,150,170,.65);
-    }
-
-    .jd-dog-cheek.left{ left:10px; }
-    .jd-dog-cheek.right{ right:10px; }
-
-    .jd-dog-muzzle{
-      position:absolute;
-      left:50%;
-      bottom:8px;
-      width:28px;
-      height:18px;
-      transform:translateX(-50%);
-      border-radius:999px 999px 12px 12px;
-      background:linear-gradient(180deg,#fff8ef,#ffe9d6);
-      border:2px solid rgba(255,255,255,.72);
-    }
-
-    .jd-dog-nose{
-      position:absolute;
-      left:50%;
-      top:2px;
-      width:10px;
-      height:8px;
-      transform:translateX(-50%);
-      border-radius:999px;
-      background:#5a3d2d;
-    }
-
-    .jd-dog-mouth{
-      position:absolute;
-      left:50%;
-      bottom:2px;
-      width:16px;
-      height:8px;
-      transform:translateX(-50%);
-      border-bottom:3px solid #d96f7d;
-      border-radius:0 0 12px 12px;
-      transition:all .14s ease;
-    }
-
-    .jd-dog-body{
-      position:absolute;
-      left:50%;
-      bottom:14px;
-      width:60px;
-      height:60px;
-      transform:translateX(-50%);
-      border-radius:24px 24px 18px 18px;
-      background:linear-gradient(180deg,#8fd8ff,#5db8f4);
-      border:3px solid rgba(255,255,255,.88);
-      box-shadow:0 10px 20px rgba(63,122,156,.14);
-    }
-
-    .jd-dog-badge{
-      position:absolute;
-      left:50%;
-      top:10px;
-      transform:translateX(-50%);
-      width:22px;
-      height:22px;
-      display:grid;
-      place-items:center;
-      border-radius:50%;
-      background:#fff6bf;
-      border:2px solid #ffe08a;
-      color:#c08a00;
-      font-size:12px;
-      font-weight:1100;
-    }
-
-    .jd-dog-arm,
-    .jd-dog-leg{
-      position:absolute;
-      background:#ffd79d;
-      border:2px solid rgba(255,255,255,.55);
-    }
-
-    .jd-dog-arm{
-      top:14px;
-      width:12px;
-      height:26px;
-      border-radius:999px;
-      transition:transform .16s ease;
-    }
-
-    .jd-dog-arm.left{
-      left:-6px;
-      transform:rotate(22deg);
-    }
-
-    .jd-dog-arm.right{
-      right:-6px;
-      transform:rotate(-22deg);
-    }
-
-    .jd-dog-leg{
-      bottom:-10px;
-      width:12px;
-      height:24px;
-      border-radius:999px;
-      transition:transform .16s ease;
-    }
-
-    .jd-dog-leg.left{ left:12px; }
-    .jd-dog-leg.right{ right:12px; }
-
-    .jd-dog-leg.left::after,
-    .jd-dog-leg.right::after{
-      content:"";
-      position:absolute;
-      left:-4px;
-      right:-4px;
-      bottom:-4px;
-      height:10px;
-      border-radius:999px;
-      background:#fff1dc;
-      border:2px solid rgba(255,255,255,.65);
-    }
-
-    .jd-dog-tail{
-      position:absolute;
-      right:-10px;
-      bottom:10px;
-      width:18px;
-      height:34px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#ffd79d,#f3b96c);
-      border:2px solid rgba(255,255,255,.55);
-      transform:rotate(26deg);
-      transform-origin:20% 100%;
-      animation:jdDogTail 1s ease-in-out infinite;
-    }
-
-    @keyframes jdDogTail{
-      0%,100%{ transform:rotate(26deg); }
-      50%{ transform:rotate(42deg); }
-    }
-
-    .jd-dog-cape{
-      position:absolute;
-      left:50%;
-      top:50px;
-      width:34px;
-      height:34px;
-      transform:translateX(-50%);
-      background:linear-gradient(180deg,#ff9fc2,#ff6b9a);
-      clip-path:polygon(50% 0%, 100% 18%, 82% 100%, 50% 82%, 18% 100%, 0% 18%);
-      opacity:.92;
-      z-index:-1;
-      filter:drop-shadow(0 6px 10px rgba(239,68,68,.14));
-      transition:all .16s ease;
-    }
-
-    .jd-dog-float-paw{
-      position:absolute;
-      right:-2px;
-      top:-8px;
-      width:28px;
-      height:28px;
-      display:grid;
-      place-items:center;
-      border-radius:50%;
-      background:#fff9d6;
-      border:2px solid #ffe08a;
-      font-size:14px;
-      box-shadow:0 6px 12px rgba(255,208,115,.18);
-      animation:jdDogPawFloat 1.2s ease-in-out infinite;
-    }
-
-    @keyframes jdDogPawFloat{
-      0%,100%{ transform:translateY(0) rotate(0deg); }
-      50%{ transform:translateY(-4px) rotate(8deg); }
-    }
-
-    #jd-avatar.avatar-jump .jd-dog-ear.left{
-      transform:rotate(-10deg) translateY(-2px);
-    }
-    #jd-avatar.avatar-jump .jd-dog-ear.right{
-      transform:rotate(10deg) translateY(-2px);
-    }
-    #jd-avatar.avatar-jump .jd-dog-arm.left{
-      transform:rotate(-24deg) translateY(-3px);
-    }
-    #jd-avatar.avatar-jump .jd-dog-arm.right{
-      transform:rotate(24deg) translateY(-3px);
-    }
-    #jd-avatar.avatar-jump .jd-dog-leg.left{
-      transform:rotate(10deg);
-    }
-    #jd-avatar.avatar-jump .jd-dog-leg.right{
-      transform:rotate(-10deg);
-    }
-    #jd-avatar.avatar-jump .jd-dog-cape{
-      transform:translateX(-50%) translateY(4px) scaleY(1.08);
-    }
-
-    #jd-avatar.avatar-duck .jd-dog-ear.left{
-      transform:rotate(-34deg) translateY(4px);
-    }
-    #jd-avatar.avatar-duck .jd-dog-ear.right{
-      transform:rotate(34deg) translateY(4px);
-    }
-    #jd-avatar.avatar-duck .jd-dog-arm.left{
-      transform:rotate(42deg) translateY(4px);
-    }
-    #jd-avatar.avatar-duck .jd-dog-arm.right{
-      transform:rotate(-42deg) translateY(4px);
-    }
-    #jd-avatar.avatar-duck .jd-dog-cape{
-      transform:translateX(-50%) scaleY(.78);
-    }
-
-    #jd-avatar.mood-happy .jd-dog-mouth{
-      width:16px;
-      height:8px;
-      border-bottom:3px solid #d96f7d;
-      border-radius:0 0 12px 12px;
-    }
-
-    #jd-avatar.mood-focus .jd-dog-mouth{
-      width:12px;
-      height:4px;
-      border-bottom:3px solid #cc7b86;
-      border-radius:0 0 8px 8px;
-    }
-
-    #jd-avatar.mood-wow .jd-dog-mouth{
-      width:10px;
-      height:10px;
-      border:3px solid #d96f7d;
-      border-top:0;
-      border-radius:0 0 12px 12px;
-    }
-
-    #jd-avatar.mood-sad .jd-dog-mouth{
-      width:16px;
-      height:8px;
-      border-top:3px solid #cc7b86;
-      border-bottom:0;
-      border-radius:12px 12px 0 0;
-      bottom:2px;
-    }
-
-    #jd-avatar.mood-fever .jd-dog-body{
-      background:linear-gradient(180deg,#ffe08a,#ff9f43);
-      box-shadow:
-        0 10px 20px rgba(63,122,156,.14),
-        0 0 24px rgba(255,179,92,.28);
-    }
-
-    #jd-avatar.mood-fever .jd-dog-badge{
-      background:#fff;
-      color:#ef4444;
-      border-color:#ffd59e;
-      transform:translateX(-50%) scale(1.08);
-    }
-
-    #jd-avatar.mood-fever .jd-dog-float-paw{
-      background:#fff0b8;
-      animation:jdDogPawFever .72s ease-in-out infinite;
-    }
-
-    @keyframes jdDogPawFever{
-      0%,100%{ transform:translateY(0) rotate(0deg) scale(1); }
-      50%{ transform:translateY(-5px) rotate(10deg) scale(1.12); }
-    }
-
-    #jd-avatar.mood-fever .jd-dog-cape{
-      background:linear-gradient(180deg,#ffb36b,#ff6b6b);
-    }
-
-    #jd-avatar.mood-bossdown{
-      animation:jdDogCheer .48s ease-in-out infinite alternate;
-    }
-
-    @keyframes jdDogCheer{
-      from{ transform:translateY(-2px) scale(1.02) rotate(-2deg); }
-      to{ transform:translateY(-10px) scale(1.06) rotate(2deg); }
-    }
-
-    #jd-avatar.rank-s .jd-dog-body{
-      background:linear-gradient(180deg,#ffe694,#ffcf52);
-    }
-    #jd-avatar.rank-a .jd-dog-body{
-      background:linear-gradient(180deg,#c7f3a5,#7ed957);
-    }
-    #jd-avatar.rank-b .jd-dog-body{
-      background:linear-gradient(180deg,#aee8ff,#67c7ff);
-    }
-    #jd-avatar.rank-c .jd-dog-body{
-      background:linear-gradient(180deg,#ffd8b0,#ffb76b);
-    }
-    #jd-avatar.rank-d .jd-dog-body{
-      background:linear-gradient(180deg,#ffd2d2,#ff8f8f);
-    }
-
-    #jd-obstacles{
-      position:absolute;
-      inset:0;
-      z-index:9;
-    }
-
-    .overlay{
-      position:absolute;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:20;
-      pointer-events:none;
-    }
-
-    #jd-tele{ top:16px; }
-    #jd-boss-intro{ top:74px; }
-
-    .overlay-box{
-      min-height:44px;
-      padding:10px 16px;
-      border-radius:999px;
-      background:rgba(255,255,255,.96);
-      border:2px solid var(--line);
-      color:#23435a;
-      font-size:15px;
-      font-weight:1000;
-      box-shadow:0 10px 22px rgba(63,122,156,.12);
-      display:grid;
-      place-items:center;
-      text-align:center;
-    }
-
-    #jd-judge{
-      position:absolute;
-      left:50%;
-      bottom:24%;
-      transform:translateX(-50%) translateY(18px) scale(.92);
-      min-width:180px;
-      min-height:48px;
-      padding:12px 16px;
-      border-radius:999px;
-      background:rgba(255,255,255,.98);
-      border:2px solid #ffe08a;
-      color:#7a5c14;
-      font-size:16px;
-      font-weight:1100;
-      z-index:21;
-      opacity:0;
-      pointer-events:none;
-      transition:transform .16s ease, opacity .16s ease;
-      display:grid;
-      place-items:center;
-      text-align:center;
-    }
-
-    #jd-judge.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0) scale(1);
-    }
-
-    #jd-rush-banner{
-      position:absolute;
-      left:50%;
-      top:20px;
-      transform:translateX(-50%);
-      z-index:19;
-      pointer-events:none;
-    }
-
-    .rush-chip{
-      min-height:42px;
-      padding:10px 18px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#ffd7d7,#ffb1b1);
-      border:2px solid #fecaca;
-      color:#8b1f1f;
-      font-size:16px;
-      font-weight:1100;
-      box-shadow:0 12px 24px rgba(239,68,68,.18);
-    }
-
-    .play-controls{
-      padding:12px;
-      display:grid;
-      gap:10px;
-    }
-
-    .tap-note{
-      color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-      line-height:1.7;
-      text-align:center;
-    }
-
-    .control-row{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-
-    .control-btn{
-      min-height:62px;
-      border-radius:22px;
-      font-size:18px;
-      font-weight:1100;
-    }
-
-    .control-footer{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      justify-content:center;
-    }
-
-    .result-shell{
-      padding:18px;
-      display:grid;
-      gap:14px;
-    }
-
-    .result-head{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:14px;
-      align-items:start;
-    }
-
-    #jd-rank-badge{
-      min-width:86px;
-      min-height:86px;
-      border-radius:26px;
-      display:grid;
-      place-items:center;
-      font-size:34px;
-      font-weight:1100;
-      background:#fff;
-      border:3px solid var(--line);
-      color:#5f7f95;
-      box-shadow:0 12px 22px rgba(63,122,156,.10);
-    }
-
-    #jd-rank-badge.rank-s{ background:#fff7d9; border-color:#ffe298; color:#9b6700; }
-    #jd-rank-badge.rank-a{ background:#f5ffe9; border-color:#cfe8a8; color:#4f842d; }
-    #jd-rank-badge.rank-b{ background:#eefaff; border-color:#cae6f6; color:#3b6b87; }
-    #jd-rank-badge.rank-c{ background:#fff5ef; border-color:#f2d9ca; color:#865c45; }
-    #jd-rank-badge.rank-d{ background:#ffeaea; border-color:#fecaca; color:#8b1f1f; }
-
-    .result-copy h2{
-      margin:0 0 6px;
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.04;
-      color:#1e5678;
-    }
-
-    .result-copy p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    .reward-card,
-    .coach-card,
-    .summary-card{
-      border-radius:22px;
-      border:2px solid var(--line);
-      background:#fff;
-      padding:14px;
-    }
-
-    .reward-top{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      margin-bottom:8px;
-    }
-
-    #jd-result-reward-icon{
-      width:54px;
-      height:54px;
-      display:grid;
-      place-items:center;
-      border-radius:18px;
-      font-size:28px;
-      background:#fff8d8;
-      border:2px solid #ffe08a;
-    }
-
-    #jd-result-reward{
-      font-size:22px;
-      font-weight:1100;
-      line-height:1.1;
-      color:#6b5b1e;
-    }
-
-    #jd-result-reward-sub{
-      color:#7c776d;
-      font-size:14px;
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    .big-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .big-stat{
+    .status{
       border-radius:20px;
       border:2px solid var(--line);
       background:#fff;
-      padding:14px;
+      padding:14px 16px;
       display:grid;
-      gap:6px;
+      gap:8px;
     }
 
-    .big-stat .k{
-      font-size:12px;
-      font-weight:1000;
-      color:#6f8797;
-    }
-
-    .big-stat .v{
-      font-size:28px;
-      font-weight:1100;
-      color:#24435a;
-      line-height:1.04;
-    }
-
-    .detail-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .detail-item{
-      border-radius:18px;
-      border:2px solid var(--line);
-      background:#fff;
-      padding:12px;
-      display:grid;
-      gap:4px;
-    }
-
-    .detail-item .k{
-      font-size:12px;
-      font-weight:1000;
-      color:#6f8797;
-    }
-
-    .detail-item .v{
+    .status strong{
       font-size:18px;
-      font-weight:1100;
       color:#24435a;
-      line-height:1.12;
+    }
+
+    .status p{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
       word-break:break-word;
     }
 
-    .coach-card h3{
-      margin:0 0 6px;
-      color:#24435a;
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
     }
 
-    .coach-card p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    .coach-list{
-      display:grid;
-      gap:8px;
-      margin-top:10px;
-    }
-
-    .coach-tip{
-      border-radius:16px;
-      background:#fffef7;
-      border:2px dashed #eadb9e;
-      color:#6d6340;
-      padding:10px 12px;
-      font-size:13px;
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      min-height:46px;
+      border-radius:18px;
+      padding:12px 16px;
+      font:inherit;
       font-weight:1000;
-      line-height:1.7;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
     }
 
-    .footer-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
+    .btn.primary{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#173b0b;
     }
 
-    .exports{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
+    .btn.secondary{
+      background:#fff;
+      color:var(--text);
+      border:2px solid var(--line);
     }
 
-    .footer-note{
+    .mini{
       color:var(--muted);
       font-size:12px;
-      font-weight:900;
       line-height:1.7;
+      font-weight:900;
     }
 
-    @media (max-width: 920px){
-      .hero,.menu-grid{
+    @media (max-width: 760px){
+      .hero{
         grid-template-columns:1fr;
-      }
-      .hud-row,.meter-row,.big-grid,.detail-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-      .form-grid,.research-grid{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width: 620px){
-      .page{ padding:10px; }
-      .menu-shell,.result-shell,.panel{ padding:14px; }
-      .hud-row,.meter-row,.big-grid,.detail-grid,.control-row{
-        grid-template-columns:1fr;
-      }
-      .result-head{
-        grid-template-columns:1fr;
-      }
-      .hero-copy h1{
-        font-size:34px;
-      }
-      #jd-play-area,.play-stage{
-        min-height:58dvh;
-      }
-      .control-btn{
-        min-height:58px;
       }
     }
   </style>
 </head>
 <body>
-  <main class="page">
-    <div class="shell">
-
-      <section id="view-menu">
-        <div class="card menu-shell">
-          <div class="hero">
-            <div class="hero-copy">
-              <h1>JumpDuck</h1>
-              <p>ลูกหมาฮีโร่วิ่งลุยด่าน • ต่ำ = Jump • สูง = Duck • ไปให้ถึงบอสแล้วปิดให้ได้</p>
-              <div class="hero-badges">
-                <div class="pill">🐶 Dog Hero</div>
-                <div class="pill">🏃 Fitness Zone</div>
-                <div class="pill">👾 Boss + Final Rush</div>
-              </div>
-            </div>
-
-            <div class="hero-visual" aria-hidden="true">
-              <div class="hero-duckbar"></div>
-              <div class="hero-runner"></div>
-              <div class="hero-track"></div>
-            </div>
-          </div>
-
-          <div class="menu-grid">
-            <section class="card panel">
-              <h2>ตั้งค่าเกม</h2>
-              <div class="panel-sub">เลือกโหมด ความยาก และเวลาเล่น ก่อนกดเริ่มได้เลย</div>
-
-              <div class="form-grid">
-                <div class="field">
-                  <label for="jd-mode">Mode</label>
-                  <select id="jd-mode">
-                    <option value="training">training</option>
-                    <option value="test">test</option>
-                    <option value="research">research</option>
-                  </select>
-                </div>
-
-                <div class="field">
-                  <label for="jd-diff">Difficulty</label>
-                  <select id="jd-diff">
-                    <option value="easy">easy</option>
-                    <option value="normal" selected>normal</option>
-                    <option value="hard">hard</option>
-                  </select>
-                </div>
-
-                <div class="field">
-                  <label for="jd-duration">Duration</label>
-                  <select id="jd-duration">
-                    <option value="30">30s</option>
-                    <option value="60" selected>60s</option>
-                    <option value="90">90s</option>
-                    <option value="120">120s</option>
-                  </select>
-                </div>
-              </div>
-
-              <div id="jd-research-block" class="hidden">
-                <div class="research-grid">
-                  <div class="field">
-                    <label for="jd-participant-id">Participant ID</label>
-                    <input id="jd-participant-id" type="text" placeholder="anon" />
-                  </div>
-
-                  <div class="field">
-                    <label for="jd-group">Group</label>
-                    <input id="jd-group" type="text" placeholder="control / experiment" />
-                  </div>
-
-                  <div class="field" style="grid-column:1/-1">
-                    <label for="jd-note">Note</label>
-                    <textarea id="jd-note" placeholder="บันทึกเพิ่มเติม"></textarea>
-                  </div>
-                </div>
-              </div>
-
-              <div class="cta-row">
-                <button class="btn primary" data-action="start" type="button">▶️ Start Run</button>
-                <button class="btn secondary" data-action="tutorial" type="button">🎓 Tutorial 30s</button>
-              </div>
-            </section>
-
-            <section class="card panel">
-              <h3>วิธีเล่น</h3>
-              <div class="panel-sub">
-                แตะด้านบนของฉากเพื่อ <b>Jump</b><br>
-                แตะด้านล่างของฉากเพื่อ <b>Duck</b><br>
-                รักษา combo, อ่าน pattern และเอาชนะบอสช่วงท้าย
-              </div>
-
-              <div class="pill">ต่ำระดับขา = Jump</div>
-              <div class="pill">สูงระดับหัว = Duck</div>
-              <div class="pill">ใกล้พลาดมาก = Close Bonus</div>
-              <div class="pill">ท้ายเกม = Final Rush</div>
-
-              <div class="menu-footer">
-                <a id="jd-go-zone-menu" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏃 กลับ Fitness Zone</a>
-                <a id="jd-back-hub-menu" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🗺️ Zone Home</a>
-              </div>
-            </section>
-          </div>
+  <main class="card">
+    <section class="hero">
+      <div class="copy">
+        <h1>JumpDuck</h1>
+        <p>หน้านี้เป็น path เก่า ระบบกำลังพาไปหน้าเล่นใหม่ของ JumpDuck อัตโนมัติ</p>
+        <div class="pills">
+          <div class="pill">🐶 Dog Hero</div>
+          <div class="pill">🏃 Fitness Zone</div>
+          <div class="pill">➡️ Auto Redirect</div>
         </div>
-      </section>
+      </div>
 
-      <section id="view-play" class="hidden">
-        <div class="play-shell">
+      <div class="visual" aria-hidden="true">
+        <div class="bar"></div>
+        <div class="runner"></div>
+        <div class="track"></div>
+      </div>
+    </section>
 
-          <section class="card hud-top">
-            <div class="hud-row">
-              <div class="hud-pill"><div class="k">Mode</div><div id="hud-mode" class="v">training</div></div>
-              <div class="hud-pill"><div class="k">Difficulty</div><div id="hud-diff" class="v">normal</div></div>
-              <div class="hud-pill"><div class="k">Time</div><div id="hud-time" class="v">60.0</div></div>
-              <div class="hud-pill"><div class="k">Phase</div><div id="hud-phase" class="v">1 • warmup</div></div>
-            </div>
+    <section class="status">
+      <strong id="redirectStatus">กำลังเตรียม redirect...</strong>
+      <p id="redirectTarget">-</p>
+    </section>
 
-            <div class="hud-row">
-              <div class="hud-pill"><div class="k">Score</div><div id="hud-score" class="v">0</div></div>
-              <div class="hud-pill"><div class="k">Combo</div><div id="hud-combo" class="v">0</div></div>
-              <div class="hud-pill"><div class="k">Stability</div><div id="hud-stability" class="v">100%</div></div>
-              <div class="hud-pill"><div class="k">Boss HP</div><div id="hud-boss" class="v">—</div></div>
-            </div>
+    <div class="actions">
+      <a id="btnGoNow" class="btn primary" href="#">▶️ ไปหน้า JumpDuck ตอนนี้</a>
+      <a id="btnGoZone" class="btn secondary" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏃 กลับ Fitness Zone</a>
+    </div>
 
-            <div class="meter-row">
-              <div class="meter-card">
-                <div class="meter-head"><span>Progress</span><strong id="hud-prog-text">0%</strong></div>
-                <div class="meter"><div id="hud-prog-fill" class="meter-fill"></div></div>
-              </div>
-
-              <div class="meter-card">
-                <div class="meter-head"><span>Fever</span><strong id="fever-status">Ready</strong></div>
-                <div class="meter"><div id="hud-fever-fill" class="meter-fill"></div></div>
-              </div>
-
-              <div id="boss-bar-wrap" class="meter-card hidden">
-                <div class="meter-head"><span>Boss Core</span><strong id="hud-boss-status-right">—</strong></div>
-                <div class="meter"><div id="hud-boss-fill" class="meter-fill" style="background:linear-gradient(90deg,#ffb35c,#ef4444)"></div></div>
-              </div>
-            </div>
-
-            <div class="hud-row">
-              <div class="hud-pill"><div class="k">Pattern</div><div id="hud-pattern" class="v">—</div></div>
-              <div class="hud-pill"><div class="k">Rush</div><div id="hud-rush" class="v">—</div></div>
-              <div class="hud-pill"><div class="k">Boss</div><div id="hud-boss-label" class="v">—</div></div>
-              <div class="hud-pill"><div class="k">Compact</div><div id="hud-boss-compact" class="v">—</div></div>
-            </div>
-
-            <div class="hud-pill">
-              <div class="k">Boss Status</div>
-              <div id="hud-boss-status" class="v">—</div>
-            </div>
-          </section>
-
-          <section class="play-stage">
-            <div id="jd-play-area">
-              <div id="jd-arena">
-                <div id="jd-hitline"></div>
-                <div id="jd-ground"></div>
-
-                <div id="jd-avatar" class="avatar-idle dog-hero mood-happy" aria-hidden="true">
-                  <div class="jd-dog-head">
-                    <div class="jd-dog-ear left"></div>
-                    <div class="jd-dog-ear right"></div>
-                    <div class="jd-dog-face">
-                      <div class="jd-dog-eye left"></div>
-                      <div class="jd-dog-eye right"></div>
-                      <div class="jd-dog-cheek left"></div>
-                      <div class="jd-dog-cheek right"></div>
-                      <div class="jd-dog-muzzle">
-                        <div class="jd-dog-nose"></div>
-                        <div class="jd-dog-mouth"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="jd-dog-body">
-                    <div class="jd-dog-badge">★</div>
-                    <div class="jd-dog-arm left"></div>
-                    <div class="jd-dog-arm right"></div>
-                    <div class="jd-dog-leg left"></div>
-                    <div class="jd-dog-leg right"></div>
-                    <div class="jd-dog-tail"></div>
-                  </div>
-
-                  <div class="jd-dog-cape"></div>
-                  <div class="jd-dog-float-paw">🐾</div>
-                </div>
-
-                <div id="jd-obstacles"></div>
-
-                <div id="jd-tele" class="overlay hidden">
-                  <div class="overlay-box teleBox">แตะบน = JUMP • แตะล่าง = DUCK</div>
-                </div>
-
-                <div id="jd-boss-intro" class="overlay hidden">
-                  <div id="jd-boss-intro-text" class="overlay-box">Boss incoming!</div>
-                </div>
-
-                <div id="jd-rush-banner" class="hidden">
-                  <div class="rush-chip rushText">FINAL RUSH!</div>
-                </div>
-
-                <div id="jd-judge">READY!</div>
-              </div>
-            </div>
-          </section>
-
-          <section class="card play-controls">
-            <div class="tap-note">แตะด้านบนของฉากเพื่อกระโดด • แตะด้านล่างเพื่อหมอบ • บนคีย์บอร์ดใช้ W / ↑ และ S / ↓</div>
-
-            <div class="control-row">
-              <button id="btn-jump" class="btn primary control-btn" type="button">⬆️ JUMP</button>
-              <button id="btn-duck" class="btn secondary control-btn" type="button">⬇️ DUCK</button>
-            </div>
-
-            <div class="control-footer">
-              <button id="btn-stop-early" class="btn warn" type="button">⏹️ Stop Early</button>
-              <a id="jd-control-hub" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏃 กลับ Fitness Zone</a>
-              <a id="jd-back-hub-play" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🗺️ Zone Home</a>
-            </div>
-          </section>
-
-        </div>
-      </section>
-
-      <section id="view-result" class="hidden">
-        <div class="card result-shell">
-
-          <div class="result-head">
-            <div id="jd-rank-badge" class="rank-c">C</div>
-
-            <div class="result-copy">
-              <h2 id="jd-result-title">ผ่านด่านฝึกแล้ว!</h2>
-              <p id="jd-result-sub">สรุปรอบล่าสุดของ JumpDuck</p>
-            </div>
-          </div>
-
-          <section class="reward-card">
-            <div class="reward-top">
-              <div id="jd-result-reward-icon">⭐</div>
-              <div>
-                <div id="jd-result-reward">Keep Training</div>
-                <div id="jd-result-reward-sub">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</div>
-              </div>
-            </div>
-
-            <div class="detail-grid">
-              <div class="detail-item"><div class="k">Boss</div><div id="jd-result-boss" class="v">—</div></div>
-              <div class="detail-item"><div class="k">Pattern</div><div id="jd-result-pattern" class="v">—</div></div>
-              <div class="detail-item"><div class="k">Rush</div><div id="jd-result-rush" class="v">—</div></div>
-              <div class="detail-item"><div class="k">Result Rank</div><div id="res-rank" class="v">C</div></div>
-            </div>
-          </section>
-
-          <div class="big-grid">
-            <div class="big-stat"><div class="k">Score</div><div id="res-score-big" class="v">0</div></div>
-            <div class="big-stat"><div class="k">Accuracy</div><div id="res-acc-big" class="v">0%</div></div>
-            <div class="big-stat"><div class="k">Best Combo</div><div id="res-combo-big" class="v">0</div></div>
-            <div class="big-stat"><div class="k">Boss End</div><div id="res-boss-end-big" class="v">—</div></div>
-          </div>
-
-          <section class="coach-card">
-            <h3 id="jd-coach-title">AI Coach</h3>
-            <p id="jd-coach-summary">สรุปคำแนะนำหลังจบเกม</p>
-
-            <div class="coach-list">
-              <div id="jd-coach-tip-1" class="coach-tip">—</div>
-              <div id="jd-coach-tip-2" class="coach-tip">—</div>
-            </div>
-          </section>
-
-          <section class="summary-card">
-            <div class="detail-grid">
-              <div class="detail-item"><div class="k">Mode</div><div id="res-mode" class="v">-</div></div>
-              <div class="detail-item"><div class="k">Difficulty</div><div id="res-diff" class="v">-</div></div>
-              <div class="detail-item"><div class="k">Duration</div><div id="res-duration" class="v">-</div></div>
-              <div class="detail-item"><div class="k">Total Obstacles</div><div id="res-total-obs" class="v">0</div></div>
-
-              <div class="detail-item"><div class="k">Hits</div><div id="res-hits" class="v">0</div></div>
-              <div class="detail-item"><div class="k">Miss</div><div id="res-miss" class="v">0</div></div>
-              <div class="detail-item"><div class="k">Jump Hit</div><div id="res-jump-hit" class="v">0</div></div>
-              <div class="detail-item"><div class="k">Duck Hit</div><div id="res-duck-hit" class="v">0</div></div>
-
-              <div class="detail-item"><div class="k">Jump Miss</div><div id="res-jump-miss" class="v">0</div></div>
-              <div class="detail-item"><div class="k">Duck Miss</div><div id="res-duck-miss" class="v">0</div></div>
-              <div class="detail-item"><div class="k">Accuracy</div><div id="res-acc" class="v">0%</div></div>
-              <div class="detail-item"><div class="k">Mean RT</div><div id="res-rt-mean" class="v">0</div></div>
-
-              <div class="detail-item"><div class="k">Min Stability</div><div id="res-stability-min" class="v">0%</div></div>
-              <div class="detail-item"><div class="k">Score</div><div id="res-score" class="v">0</div></div>
-              <div class="detail-item"><div class="k">Phase End</div><div id="res-phase-end" class="v">-</div></div>
-              <div class="detail-item"><div class="k">Boss Label</div><div id="res-boss-label" class="v">-</div></div>
-
-              <div class="detail-item"><div class="k">Pattern End</div><div id="res-pattern" class="v">-</div></div>
-              <div class="detail-item"><div class="k">Rush End</div><div id="res-rush" class="v">-</div></div>
-            </div>
-          </section>
-
-          <div class="exports">
-            <button id="jd-btn-dl-events" class="btn secondary" type="button">📥 events.csv</button>
-            <button id="jd-btn-dl-sessions" class="btn secondary" type="button">📥 sessions.csv</button>
-            <button id="jd-btn-dl-teacher" class="btn secondary" type="button">📥 teacher-summary.csv</button>
-            <button id="jd-btn-send-log" class="btn secondary" type="button">☁️ Send Log</button>
-          </div>
-
-          <div id="jd-log-status" class="footer-note"></div>
-
-          <div class="footer-actions">
-            <button class="btn primary" data-action="play-again" type="button">🔁 Play Again</button>
-            <button id="jd-btn-continue-flow" class="btn secondary" type="button">➡️ Continue Flow</button>
-            <a id="jd-back-hub-result" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏃 กลับ Fitness Zone</a>
-            <button class="btn secondary" data-action="back-menu" type="button">🗺️ Back to Zone</button>
-          </div>
-
-          <div class="footer-note">
-            JumpDuck • Dog Hero • Fitness Zone
-          </div>
-        </div>
-      </section>
-
+    <div class="mini">
+      wrapper นี้มีไว้กัน path เก่า 404 / โหลด JS ผิดตำแหน่ง โดยจะส่งต่อ query สำคัญไปยังหน้าใหม่ให้อัตโนมัติ
     </div>
   </main>
 
-  <script src="./js/jumpduck.js?v=20260414f-JUMPDuck-DOGHERO-FINAL"></script>
+  <script>
+    (function () {
+      const FITNESS_ZONE = 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
+      const TARGET_PAGE  = 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
+
+      const statusEl = document.getElementById('redirectStatus');
+      const targetEl = document.getElementById('redirectTarget');
+      const btnGoNow = document.getElementById('btnGoNow');
+      const btnGoZone = document.getElementById('btnGoZone');
+
+      function looksLikeFitnessRoot(href) {
+        const s = String(href || '').toLowerCase();
+        return (
+          s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
+          s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
+          s.endsWith('/webxr-health-mobile/fitness') ||
+          s.endsWith('/webxr-health-mobile/fitness/')
+        );
+      }
+
+      function safeAbsUrl(raw, fallback = '') {
+        const value = String(raw || '').trim();
+        try {
+          if (value) return new URL(value, location.href).href;
+        } catch (_) {}
+        try {
+          if (fallback) return new URL(fallback, location.href).href;
+        } catch (_) {}
+        return fallback || '';
+      }
+
+      function buildTarget() {
+        const inUrl = new URL(location.href);
+        const q = new URLSearchParams(inUrl.search);
+
+        const rawHub = safeAbsUrl(q.get('hub') || '', '');
+        const rawHubRoot = safeAbsUrl(q.get('hubRoot') || '', '');
+        const rawLauncher = safeAbsUrl(q.get('launcher') || '', '');
+
+        q.delete('phase');
+        q.delete('gatePhase');
+        q.delete('next');
+        q.delete('nextKey');
+        q.delete('cdnext');
+        q.delete('forcegate');
+        q.delete('resetGate');
+
+        q.set('game', 'jump-duck');
+        q.set('gameId', 'jump-duck');
+        q.set('theme', 'jump-duck');
+        q.set('zone', 'fitness');
+        q.set('cat', 'fitness');
+
+        if (!q.get('pid')) q.set('pid', 'anon');
+        if (!q.get('run')) q.set('run', 'play');
+        if (!q.get('diff')) q.set('diff', 'normal');
+        if (!q.get('time')) q.set('time', '60');
+        if (!q.get('view')) q.set('view', 'mobile');
+        if (!q.get('mode')) q.set('mode', 'training');
+        if (!q.get('seed')) q.set('seed', String(Date.now()));
+
+        if (!rawHub || looksLikeFitnessRoot(rawHub)) {
+          q.set('hub', FITNESS_ZONE);
+        } else {
+          q.set('hub', rawHub);
+        }
+
+        if (!rawHubRoot || looksLikeFitnessRoot(rawHubRoot)) {
+          q.set('hubRoot', FITNESS_ZONE);
+        } else {
+          q.set('hubRoot', rawHubRoot);
+        }
+
+        if (!rawLauncher || looksLikeFitnessRoot(rawLauncher)) {
+          q.set('launcher', TARGET_PAGE);
+        } else {
+          q.set('launcher', rawLauncher);
+        }
+
+        q.set('from', 'herohealth-jumpduck-wrapper');
+
+        const out = new URL(TARGET_PAGE);
+        out.search = q.toString();
+        return out.href;
+      }
+
+      const finalHref = buildTarget();
+
+      targetEl.textContent = finalHref;
+      btnGoNow.href = finalHref;
+      btnGoZone.href = FITNESS_ZONE;
+
+      statusEl.textContent = 'กำลังพาไปหน้าใหม่ของ JumpDuck...';
+
+      setTimeout(() => {
+        try {
+          location.replace(finalHref);
+        } catch (err) {
+          console.error('[jump-duck wrapper] redirect failed:', err);
+          statusEl.textContent = 'redirect อัตโนมัติไม่สำเร็จ กดปุ่มด้านล่างแทน';
+        }
+      }, 180);
+    })();
+  </script>
 </body>
 </html>
