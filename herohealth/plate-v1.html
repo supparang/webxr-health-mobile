@@ -3,968 +3,219 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Plate v1 Launcher</title>
-  <meta name="color-scheme" content="light" />
+  <title>HeroHealth • Balanced Plate</title>
   <meta name="theme-color" content="#9fe3ff" />
-  <link rel="icon" href="./favicon.ico" />
-
-  <style>
-    :root{
-      --sky1:#dff4ff;
-      --sky2:#eefbff;
-      --sky3:#fff9df;
-
-      --line:#cfe7f3;
-      --text:#4d4a42;
-      --muted:#7a7a72;
-
-      --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --green:#7ed957;
-      --green2:#58c33f;
-      --shadow:0 16px 36px rgba(59,130,246,.10);
-    }
-
-    *{ box-sizing:border-box; }
-
-    [hidden]{
-      display:none !important;
-    }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(1200px 700px at 10% -10%, rgba(127,207,255,.38), transparent 55%),
-        radial-gradient(900px 620px at 100% 0%, rgba(255,212,92,.22), transparent 50%),
-        linear-gradient(180deg, var(--sky1), var(--sky2) 45%, var(--sky3));
-    }
-
-    body{
-      padding:
-        max(16px, env(safe-area-inset-top))
-        max(16px, env(safe-area-inset-right))
-        max(18px, env(safe-area-inset-bottom))
-        max(16px, env(safe-area-inset-left));
-    }
-
-    body.modal-open-fix{
-      overflow:auto !important;
-      touch-action:auto !important;
-    }
-
-    .reward-modal[hidden],
-    .reward-backdrop[hidden],
-    .popup-reward[hidden],
-    .popup-backdrop[hidden],
-    .hh-modal[hidden],
-    .hh-backdrop[hidden]{
-      display:none !important;
-      opacity:0 !important;
-      visibility:hidden !important;
-      pointer-events:none !important;
-    }
-
-    .reward-modal:not(.show):not(.open):not(.active),
-    .reward-backdrop:not(.show):not(.open):not(.active),
-    .popup-reward:not(.show):not(.open):not(.active),
-    .popup-backdrop:not(.show):not(.open):not(.active){
-      pointer-events:none !important;
-    }
-
-    .shell{
-      max-width:1100px;
-      margin:0 auto;
-      display:grid;
-      gap:18px;
-    }
-
-    .hero{
-      position:relative;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.72);
-      border-radius:32px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.88), rgba(255,255,255,.72));
-      box-shadow:var(--shadow);
-      padding:22px;
-    }
-
-    .hero::before{
-      content:"";
-      position:absolute;
-      inset:auto -40px -40px auto;
-      width:220px;
-      height:220px;
-      border-radius:999px;
-      background:radial-gradient(circle, rgba(127,207,255,.28), transparent 70%);
-      pointer-events:none;
-    }
-
-    .heroTop{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:14px;
-      flex-wrap:wrap;
-    }
-
-    .brand{
-      display:grid;
-      gap:8px;
-      min-width:0;
-    }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:34px;
-      width:max-content;
-      padding:0 14px;
-      border-radius:999px;
-      background:linear-gradient(180deg, #ffffff, #f8fdff);
-      border:1px solid var(--line);
-      font-size:12px;
-      font-weight:1000;
-      color:#4b6f86;
-      box-shadow:0 8px 18px rgba(127,207,255,.12);
-    }
-
-    h1{
-      margin:0;
-      font-size:clamp(28px, 5vw, 42px);
-      line-height:1.05;
-      font-weight:1000;
-      letter-spacing:-.02em;
-    }
-
-    .sub{
-      margin:0;
-      max-width:760px;
-      color:var(--muted);
-      font-size:15px;
-      line-height:1.65;
-      font-weight:700;
-    }
-
-    .heroActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
-      text-decoration:none;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      min-height:48px;
-      padding:0 16px;
-      border-radius:999px;
-      font-size:14px;
-      font-weight:1000;
-      color:var(--text);
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 10px 22px rgba(59,130,246,.10);
-      transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
-    }
-
-    .btn:hover{ transform:translateY(-1px); }
-
-    .btn.primary{
-      color:#fff;
-      border-color:transparent;
-      background:linear-gradient(180deg, var(--blue2), #3598ea);
-      box-shadow:0 12px 24px rgba(88,183,245,.24);
-    }
-
-    .btn.success{
-      color:#fff;
-      border-color:transparent;
-      background:linear-gradient(180deg, var(--green), var(--green2));
-      box-shadow:0 12px 24px rgba(88,195,63,.22);
-    }
-
-    .btn.warn{
-      color:#7b4c00;
-      background:linear-gradient(180deg, #fff3bf, #ffe395);
-      border-color:#f4d878;
-    }
-
-    .chips{
-      margin-top:14px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    .chip{
-      min-height:34px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:0 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.78);
-      border:1px solid var(--line);
-      font-size:12px;
-      font-weight:1000;
-      color:#5d7485;
-    }
-
-    .layout{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:18px;
-    }
-
-    .panel{
-      border:1px solid rgba(255,255,255,.72);
-      border-radius:28px;
-      background:linear-gradient(180deg, rgba(255,255,255,.90), rgba(255,255,255,.76));
-      box-shadow:var(--shadow);
-      padding:18px;
-    }
-
-    .panel h2{
-      margin:0 0 12px 0;
-      font-size:20px;
-      line-height:1.15;
-      font-weight:1000;
-    }
-
-    .panel p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.65;
-      font-weight:700;
-    }
-
-    .cards{
-      display:grid;
-      gap:14px;
-    }
-
-    .modeCard{
-      position:relative;
-      overflow:hidden;
-      display:grid;
-      gap:12px;
-      border:1px solid var(--line);
-      border-radius:24px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,253,255,.88));
-      padding:16px;
-      box-shadow:0 12px 22px rgba(59,130,246,.08);
-    }
-
-    .modeCard.main{
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.96), rgba(242,252,255,.90));
-    }
-
-    .modeCard.mini{
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,250,240,.90));
-    }
-
-    .modeCard::after{
-      content:"";
-      position:absolute;
-      right:-26px;
-      bottom:-26px;
-      width:120px;
-      height:120px;
-      border-radius:999px;
-      opacity:.5;
-      pointer-events:none;
-      background:radial-gradient(circle, rgba(127,207,255,.25), transparent 68%);
-    }
-
-    .modeHead{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .modeTag{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:0 12px;
-      border-radius:999px;
-      font-size:11px;
-      font-weight:1000;
-      letter-spacing:.06em;
-      border:1px solid var(--line);
-      background:#fff;
-      color:#557082;
-    }
-
-    .modeTitle{
-      margin:0;
-      font-size:22px;
-      font-weight:1000;
-      line-height:1.08;
-    }
-
-    .modeSub{
-      margin:0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
-      font-weight:700;
-    }
-
-    .featureList{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:8px;
-    }
-
-    .feature{
-      min-height:40px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:16px;
-      background:rgba(255,255,255,.78);
-      border:1px solid #dcecf5;
-      font-size:13px;
-      font-weight:900;
-      color:#5a7080;
-    }
-
-    .modeActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .sideGrid{
-      display:grid;
-      gap:14px;
-    }
-
-    .miniPanel{
-      border:1px solid var(--line);
-      border-radius:22px;
-      background:rgba(255,255,255,.80);
-      padding:14px;
-    }
-
-    .miniPanel h3{
-      margin:0 0 10px 0;
-      font-size:16px;
-      font-weight:1000;
-    }
-
-    .kv{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:8px;
-    }
-
-    .kvItem{
-      min-height:44px;
-      display:grid;
-      align-content:center;
-      gap:2px;
-      padding:8px 10px;
-      border-radius:16px;
-      background:rgba(255,255,255,.86);
-      border:1px solid #dcecf5;
-    }
-
-    .kvItem .k{
-      font-size:11px;
-      color:#7a8a96;
-      font-weight:1000;
-      letter-spacing:.04em;
-    }
-
-    .kvItem .v{
-      font-size:14px;
-      color:#4c5963;
-      font-weight:1000;
-      word-break:break-word;
-    }
-
-    .steps{
-      display:grid;
-      gap:8px;
-    }
-
-    .step{
-      min-height:46px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:rgba(255,255,255,.86);
-      border:1px solid #dcecf5;
-      font-size:13px;
-      line-height:1.45;
-      font-weight:900;
-      color:#586d7c;
-    }
-
-    .stepNum{
-      flex:0 0 auto;
-      width:28px;
-      height:28px;
-      display:grid;
-      place-items:center;
-      border-radius:999px;
-      background:linear-gradient(180deg, #bde8ff, #97d6ff);
-      color:#2a668b;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .footerBar{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-      border:1px solid rgba(255,255,255,.72);
-      border-radius:24px;
-      background:linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.72));
-      box-shadow:var(--shadow);
-      padding:14px 16px;
-    }
-
-    .footerText{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.6;
-      font-weight:700;
-    }
-
-    .debug{
-      display:none;
-      margin-top:8px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:#0f172a;
-      color:#cbd5e1;
-      font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
-      white-space:pre-wrap;
-      overflow:auto;
-    }
-
-    body.debug .debug{ display:block; }
-
-    @media (max-width: 960px){
-      .layout{ grid-template-columns:1fr; }
-    }
-
-    @media (max-width: 760px){
-      .hero{ padding:16px; border-radius:26px; }
-      .panel{ padding:14px; border-radius:24px; }
-      .featureList{ grid-template-columns:1fr; }
-      .kv{ grid-template-columns:1fr; }
-      .footerBar{ align-items:flex-start; }
-      .heroActions,
-      .modeActions{ width:100%; }
-      .heroActions .btn,
-      .modeActions .btn,
-      .footerBar .btn{
-        flex:1 1 100%;
-      }
-    }
-  </style>
+  <meta name="color-scheme" content="light" />
 </head>
 <body>
-  <div class="shell">
-    <section class="hero">
-      <div class="heroTop">
-        <div class="brand">
-          <div class="badge">🍽 HeroHealth • Plate v1 Launcher</div>
-          <h1>Plate v1</h1>
-          <p class="sub">
-            หน้าเข้าเกมหลักของ Plate ตามที่ตกลงไว้ โดยแยกชัดว่า
-            <strong>Main Game</strong> ใช้สำหรับรอบเล่นหลัก และ
-            <strong>Mini Game</strong> ใช้สำหรับรอบสั้นหรือเล่นต่อแบบเร็ว
+  <main class="plateLauncher">
+
+    <!-- HERO -->
+    <section class="plateHero" id="plateHero">
+      <div class="plateHero-left">
+        <div class="plateHero-badge">🍽️</div>
+
+        <div class="plateHero-copy">
+          <p class="eyebrow">HeroHealth • Nutrition Zone</p>
+          <h1 class="plateHero-title">Balanced Plate</h1>
+          <p class="plateHero-sub">
+            จัดจานสุขภาพให้ครบ 5 หมู่ เริ่มจาก Quick Plate แล้วไปเกมหลัก
+          </p>
+
+          <div class="plateHero-actions">
+            <button type="button" class="btnPrimary" id="btnStartSolo">
+              เริ่มเล่นเดี่ยว
+            </button>
+
+            <button type="button" class="btnSecondary" id="btnHowTo">
+              ดูวิธีเล่น
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="plateHero-right" aria-hidden="true">
+        <div class="heroDishPreview">
+          <div class="heroDishPreview-ring">
+            <div class="heroDishPreview-food f1">🍚</div>
+            <div class="heroDishPreview-food f2">🐟</div>
+            <div class="heroDishPreview-food f3">🥬</div>
+            <div class="heroDishPreview-food f4">🍌</div>
+            <div class="heroDishPreview-food f5">🫗</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TODAY PROGRESS -->
+    <section class="todayStrip" id="todayStrip" aria-label="ความคืบหน้าวันนี้">
+      <article class="todayCard">
+        <span class="todayLabel">จานวันนี้</span>
+        <strong class="todayValue" id="todayPlates">0</strong>
+      </article>
+
+      <article class="todayCard">
+        <span class="todayLabel">Perfect</span>
+        <strong class="todayValue" id="todayPerfect">0</strong>
+      </article>
+
+      <article class="todayCard">
+        <span class="todayLabel">สติกเกอร์</span>
+        <strong class="todayValue" id="todayStickers">0</strong>
+      </article>
+
+      <article class="todayCard todayCard-quest">
+        <span class="todayLabel">ภารกิจวันนี้</span>
+        <strong class="todayValue" id="todayQuest">0/3</strong>
+      </article>
+    </section>
+
+    <!-- SOLO MAIN CARD -->
+    <section class="mainEntryCard" id="mainEntryCard">
+      <div class="mainEntry-head">
+        <div class="mainEntry-titleWrap">
+          <span class="readyPill">พร้อมเล่น</span>
+          <h2 class="mainEntry-title">เล่นเดี่ยว</h2>
+          <p class="mainEntry-sub">
+            เริ่มจาก Quick Plate แบบสั้น ๆ แล้วไปจัดจานจริงในเกมหลัก
           </p>
         </div>
 
-        <div class="heroActions">
-          <a id="hubBtn" class="btn" href="./hub-v2.html">🏠 กลับ HUB</a>
-          <button id="continueBtn" class="btn primary" type="button">▶️ เล่นล่าสุด</button>
+        <div class="mainEntry-icon" aria-hidden="true">🌟</div>
+      </div>
+
+      <div class="mainEntry-grid">
+        <div class="mainEntry-panel">
+          <div class="mainEntry-panelTitle">เส้นทางการเล่น</div>
+          <div class="mainFlow">
+            <div class="flowChip">Warmup</div>
+            <div class="flowArrow">→</div>
+            <div class="flowChip">Quick Plate</div>
+            <div class="flowArrow">→</div>
+            <div class="flowChip flowChip-strong">Main Game</div>
+          </div>
+
+          <div class="mainEntry-actions">
+            <button type="button" class="btnPrimary" id="btnPlayNow">
+              เริ่มเล่นเดี่ยว
+            </button>
+            <button type="button" class="btnSecondary" id="btnContinueLatest">
+              เล่นต่อจากล่าสุด
+            </button>
+          </div>
+        </div>
+
+        <div class="mainEntry-panel">
+          <div class="mainEntry-panelTitle">ผลล่าสุด</div>
+          <div class="latestResultCard" id="latestResultCard">
+            <div class="latestResult-line" id="latestResultText">
+              ยังไม่ได้เล่นวันนี้
+            </div>
+            <div class="latestResult-reward" id="latestRewardText">
+              รางวัลล่าสุด: ยังไม่มี
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUICK PLATE PREVIEW -->
+    <section class="miniPreviewCard" id="quickPlatePreview">
+      <div class="miniPreview-left">
+        <div class="miniPreview-badge">⚡</div>
+        <div>
+          <h2 class="miniPreview-title">Quick Plate</h2>
+          <p class="miniPreview-sub">อุ่นเครื่องก่อนเล่นจริง</p>
+          <p class="miniPreview-text">
+            จัดให้ถูก 4 ชิ้นใน 20 วินาที แล้วไปเกมหลักต่อทันที
+          </p>
         </div>
       </div>
 
-      <div class="chips">
-        <div class="chip">PID: <span id="chipPid">anon</span></div>
-        <div class="chip">VIEW: <span id="chipView">mobile</span></div>
-        <div class="chip">RUN: <span id="chipRun">play</span></div>
-        <div class="chip">DIFF: <span id="chipDiff">normal</span></div>
-        <div class="chip">HUB: <span id="chipHub">hub-v2</span></div>
-      </div>
-    </section>
+      <div class="miniPreview-right">
+        <div class="miniPreview-meta">
+          <span class="miniMeta">20 วินาที</span>
+          <span class="miniMeta">4 ชิ้น</span>
+          <span class="miniMeta">Warmup</span>
+        </div>
 
-    <section class="layout">
-      <div class="panel">
-        <h2>เลือกทางเข้าเล่น</h2>
-        <p>
-          ใช้หน้าตัวนี้เป็น launcher หลักจาก Hub v2 แล้วค่อยแยกไปยัง
-          main game หรือ mini game ตามวัตถุประสงค์ของการเล่น
-        </p>
-
-        <div style="height:14px"></div>
-
-        <div class="cards">
-          <article class="modeCard main">
-            <div class="modeHead">
-              <div>
-                <div class="modeTag">MAIN GAME</div>
-                <div style="height:8px"></div>
-                <h3 class="modeTitle">Plate Solo Main</h3>
-              </div>
-              <div class="modeTag">/herohealth/plate/plate-solo.html</div>
-            </div>
-
-            <p class="modeSub">
-              โหมดหลักของเกม Plate Solo ที่มี phase, boss path, lock-on, objective toast,
-              pause overlay และ end summary ครบกว่า
-            </p>
-
-            <div class="featureList">
-              <div class="feature">🎯 main learning loop</div>
-              <div class="feature">👑 boss path ครบ 5 หมู่</div>
-              <div class="feature">⚡ fever / reward / bonus</div>
-              <div class="feature">📊 summary แบบ HeroHealth</div>
-            </div>
-
-            <div class="modeActions">
-              <button id="playMainBtn" class="btn success" type="button">🚀 เข้า Main Game</button>
-              <button id="playMainEasyBtn" class="btn" type="button">🙂 Easy</button>
-              <button id="playMainNormalBtn" class="btn" type="button">⭐ Normal</button>
-              <button id="playMainHardBtn" class="btn" type="button">🔥 Hard</button>
-            </div>
-          </article>
-
-          <article class="modeCard mini">
-            <div class="modeHead">
-              <div>
-                <div class="modeTag">MINI GAME</div>
-                <div style="height:8px"></div>
-                <h3 class="modeTitle">Quick Plate VR / Mini</h3>
-              </div>
-              <div class="modeTag">/herohealth/plate/plate-vr.html</div>
-            </div>
-
-            <p class="modeSub">
-              รอบสั้น เล่นเร็ว เข้าไว เหมาะสำหรับ warmup / เล่นซ้ำ / ใช้เป็น quick activity
-            </p>
-
-            <div class="featureList">
-              <div class="feature">⚡ เล่นสั้นกว่า</div>
-              <div class="feature">📱 เข้าไวจากมือถือ</div>
-              <div class="feature">🎮 เหมาะเป็น mini game</div>
-              <div class="feature">🔁 เล่นต่อจาก summary ได้</div>
-            </div>
-
-            <div class="modeActions">
-              <button id="playMiniBtn" class="btn warn" type="button">⚡ เข้า Mini Game</button>
-              <button id="playMini60Btn" class="btn" type="button">60s</button>
-              <button id="playMini90Btn" class="btn" type="button">90s</button>
-            </div>
-          </article>
+        <div class="miniPreview-actions">
+          <button type="button" class="btnSecondary" id="btnTryQuickPlate">
+            ลอง Quick Plate
+          </button>
         </div>
       </div>
-
-      <aside class="sideGrid">
-        <section class="panel">
-          <h2>ค่าที่จะส่งต่อ</h2>
-          <div class="miniPanel">
-            <div class="kv">
-              <div class="kvItem">
-                <div class="k">pid</div>
-                <div id="kvPid" class="v">anon</div>
-              </div>
-              <div class="kvItem">
-                <div class="k">hub</div>
-                <div id="kvHub" class="v">./hub-v2.html</div>
-              </div>
-              <div class="kvItem">
-                <div class="k">view</div>
-                <div id="kvView" class="v">mobile</div>
-              </div>
-              <div class="kvItem">
-                <div class="k">run</div>
-                <div id="kvRun" class="v">play</div>
-              </div>
-              <div class="kvItem">
-                <div class="k">diff</div>
-                <div id="kvDiff" class="v">normal</div>
-              </div>
-              <div class="kvItem">
-                <div class="k">time</div>
-                <div id="kvTime" class="v">90</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>การใช้ตาม flow</h2>
-          <div class="miniPanel">
-            <div class="steps">
-              <div class="step"><div class="stepNum">1</div><div>Hub v2 เรียกมาที่ <strong>plate-v1.html</strong></div></div>
-              <div class="step"><div class="stepNum">2</div><div>เลือก <strong>Main Game</strong> เพื่อเข้า warmup ก่อน แล้วไป Plate Solo ตัวหลัก</div></div>
-              <div class="step"><div class="stepNum">3</div><div>เลือก <strong>Mini Game</strong> เพื่อเข้า <strong>plate-vr.html</strong> ตรง ๆ</div></div>
-              <div class="step"><div class="stepNum">4</div><div>ทุกทางส่ง <code>hub=...hub-v2.html</code> กลับได้ถูก</div></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>debug</h2>
-          <div class="miniPanel">
-            <p>เปิด <code>&debug=1</code> เพื่อดูค่าที่ launcher จะส่งต่อ</p>
-            <div id="debugBox" class="debug"></div>
-          </div>
-        </section>
-      </aside>
     </section>
 
-    <section class="footerBar">
-      <div class="footerText">
-        Plate v1 = <strong>master launcher</strong> • Main Game = <strong>plate/plate-solo.html</strong> • Mini Game = <strong>plate/plate-vr.html</strong>
+    <!-- HOW TO PLAY -->
+    <section class="howSection" id="howSection">
+      <div class="sectionTitleWrap">
+        <h2 class="sectionTitle">เล่นยังไง</h2>
+        <p class="sectionSub">ง่ายมาก แค่ 3 ขั้น</p>
       </div>
-      <button id="copyMainLinkBtn" class="btn" type="button">🔗 คัดลอกลิงก์ Main Game</button>
+
+      <div class="howGrid">
+        <article class="howCard">
+          <div class="howIcon">1️⃣</div>
+          <h3 class="howTitle">เลือกอาหาร</h3>
+          <p class="howText">แตะอาหารจากถาดที่คิดว่าเหมาะกับจาน</p>
+        </article>
+
+        <article class="howCard">
+          <div class="howIcon">2️⃣</div>
+          <h3 class="howTitle">ดูหมู่ให้ถูก</h3>
+          <p class="howText">คิดว่าอาหารนั้นควรอยู่ส่วนไหนของจาน</p>
+        </article>
+
+        <article class="howCard">
+          <div class="howIcon">3️⃣</div>
+          <h3 class="howTitle">วางให้ครบ</h3>
+          <p class="howText">ครบ 5 หมู่แล้วจะได้โบนัสและรางวัลเพิ่ม</p>
+        </article>
+      </div>
     </section>
-  </div>
 
-  <script>
-    (() => {
-      'use strict';
+    <!-- COMING SOON -->
+    <section class="modeFutureSection" id="modeFutureSection">
+      <div class="sectionTitleWrap">
+        <h2 class="sectionTitle">โหมดที่กำลังมา</h2>
+        <p class="sectionSub">เตรียมไว้สำหรับเล่นกับเพื่อนในภายหลัง</p>
+      </div>
 
-      const U = new URL(location.href);
+      <div class="futureModeGrid">
+        <article class="futureModeCard">
+          <div class="futureModeIcon">🏁</div>
+          <div class="futureModeTitle">Race</div>
+          <div class="futureModeStatus">เร็ว ๆ นี้</div>
+        </article>
 
-      const HUB_DEFAULT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
-      const MAIN_RUN_URL = './plate/plate-solo.html';
-      const MINI_RUN_URL = './plate/plate-vr.html';
-      const WARMUP_URL   = './warmup-gate.html';
+        <article class="futureModeCard">
+          <div class="futureModeIcon">👫</div>
+          <div class="futureModeTitle">Duet</div>
+          <div class="futureModeStatus">เร็ว ๆ นี้</div>
+        </article>
 
-      function q(name, fallback = '') {
-        const v = U.searchParams.get(name);
-        return v == null || v === '' ? fallback : v;
-      }
+        <article class="futureModeCard">
+          <div class="futureModeIcon">🤝</div>
+          <div class="futureModeTitle">Coop</div>
+          <div class="futureModeStatus">เร็ว ๆ นี้</div>
+        </article>
 
-      function normalizeHub(raw){
-        raw = String(raw || '').trim();
-        if (!raw) return HUB_DEFAULT;
-        try{
-          const u = new URL(raw, location.href);
-          u.pathname = u.pathname
-            .replace('/herohealth/hub.html', '/herohealth/hub-v2.html')
-            .replace('/herohealth/plate/hub.html', '/herohealth/hub-v2.html')
-            .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub-v2.html');
-          return u.toString();
-        }catch(_){
-          return HUB_DEFAULT;
-        }
-      }
+        <article class="futureModeCard">
+          <div class="futureModeIcon">⚔️</div>
+          <div class="futureModeTitle">Battle</div>
+          <div class="futureModeStatus">เร็ว ๆ นี้</div>
+        </article>
+      </div>
+    </section>
 
-      const CTX = {
-        pid: q('pid', 'anon'),
-        name: q('name', ''),
-        studyId: q('studyId', ''),
-        view: q('view', 'mobile').toLowerCase(),
-        run: q('run', 'play').toLowerCase(),
-        diff: q('diff', 'normal').toLowerCase(),
-        time: q('time', '90'),
-        seed: q('seed', String(Date.now())),
-        pro: q('pro', '0'),
-        cooldown: q('cooldown', q('cd', '0')),
-        hub: normalizeHub(q('hub', HUB_DEFAULT)),
-        debug: q('debug', '0')
-      };
+    <!-- BACK HUB -->
+    <section class="bottomActions">
+      <button type="button" class="btnGhost" id="btnBackHub">
+        กลับ HUB
+      </button>
+    </section>
 
-      const $ = (id) => document.getElementById(id);
-
-      function setText(id, value){
-        const el = $(id);
-        if (el) el.textContent = String(value ?? '');
-      }
-
-      function hardCloseRewardPopup() {
-        const selectors = [
-          '#rewardModal',
-          '#rewardBackdrop',
-          '#popupReward',
-          '#popupBackdrop',
-          '.reward-modal',
-          '.reward-backdrop',
-          '.popup-reward',
-          '.popup-backdrop',
-          '.hh-modal',
-          '.hh-backdrop',
-          '[data-reward-modal]',
-          '[data-reward-backdrop]',
-          '[role="dialog"]'
-        ];
-
-        selectors.forEach(sel => {
-          document.querySelectorAll(sel).forEach(el => {
-            el.classList.remove('show', 'open', 'active', 'is-open', 'visible');
-            el.setAttribute('hidden', '');
-            el.setAttribute('aria-hidden', 'true');
-            el.style.display = 'none';
-            el.style.opacity = '0';
-            el.style.visibility = 'hidden';
-            el.style.pointerEvents = 'none';
-          });
-        });
-
-        document.body.classList.remove('modal-open', 'dialog-open', 'reward-open');
-        document.body.classList.add('modal-open-fix');
-        document.body.style.overflow = 'auto';
-        document.body.style.pointerEvents = 'auto';
-      }
-
-      function forceGo(url) {
-        hardCloseRewardPopup();
-        setTimeout(() => {
-          location.href = url;
-        }, 30);
-      }
-
-      function buildRunUrl(basePath, patch = {}) {
-        const url = new URL(basePath, location.href);
-
-        const params = {
-          pid: CTX.pid,
-          name: CTX.name,
-          studyId: CTX.studyId,
-          hub: CTX.hub,
-          view: CTX.view,
-          run: CTX.run,
-          diff: CTX.diff,
-          time: CTX.time,
-          seed: String(Date.now()),
-          pro: CTX.pro,
-          cooldown: CTX.cooldown,
-          zone: 'nutrition',
-          cat: 'nutrition',
-          game: 'plate',
-          gameId: 'plate',
-          theme: 'plate',
-          ...patch
-        };
-
-        Object.entries(params).forEach(([k, v]) => {
-          if (v == null || v === '') return;
-          url.searchParams.set(k, String(v));
-        });
-
-        if (CTX.debug === '1') {
-          url.searchParams.set('debug', '1');
-        }
-
-        return url.toString();
-      }
-
-      function buildWarmupUrl(nextUrl, patch = {}) {
-        const url = new URL(WARMUP_URL, location.href);
-
-        const params = {
-          phase: 'warmup',
-          gatePhase: 'warmup',
-          pid: CTX.pid,
-          name: CTX.name,
-          studyId: CTX.studyId,
-          hub: CTX.hub,
-          view: CTX.view,
-          run: CTX.run,
-          diff: CTX.diff,
-          time: CTX.time,
-          seed: String(Date.now()),
-          zone: 'nutrition',
-          cat: 'nutrition',
-          game: 'plate',
-          gameId: 'plate',
-          theme: 'plate',
-          next: nextUrl,
-          ...patch
-        };
-
-        Object.entries(params).forEach(([k, v]) => {
-          if (v == null || v === '') return;
-          url.searchParams.set(k, String(v));
-        });
-
-        if (CTX.debug === '1') {
-          url.searchParams.set('debug', '1');
-        }
-
-        return url.toString();
-      }
-
-      function saveLastLaunch(data){
-        try{
-          localStorage.setItem('HHA_LAST_PLATE_LAUNCH', JSON.stringify(data));
-        }catch(_){}
-      }
-
-      function goMain(extra = {}){
-        const runUrl = buildRunUrl(MAIN_RUN_URL, {
-          mode: 'solo',
-          ...extra
-        });
-
-        const warmupUrl = buildWarmupUrl(runUrl);
-
-        saveLastLaunch({
-          kind: 'main',
-          url: warmupUrl,
-          next: runUrl,
-          ts: Date.now()
-        });
-
-        forceGo(warmupUrl);
-      }
-
-      function goMini(extra = {}){
-        const runUrl = buildRunUrl(MINI_RUN_URL, {
-          mode: 'mini',
-          mini: '1',
-          time: extra.time || '60',
-          ...extra
-        });
-
-        saveLastLaunch({
-          kind: 'mini',
-          url: runUrl,
-          ts: Date.now()
-        });
-
-        forceGo(runUrl);
-      }
-
-      function goContinue(){
-        try{
-          const raw = localStorage.getItem('HHA_LAST_PLATE_LAUNCH');
-          if (!raw) {
-            goMain();
-            return;
-          }
-
-          const last = JSON.parse(raw || '{}');
-          if (!last || !last.url) {
-            goMain();
-            return;
-          }
-
-          forceGo(String(last.url));
-        }catch(_){
-          goMain();
-        }
-      }
-
-      async function copyText(text){
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(text);
-        }
-      }
-
-      function refreshUi(){
-        setText('chipPid', CTX.pid);
-        setText('chipView', CTX.view);
-        setText('chipRun', CTX.run);
-        setText('chipDiff', CTX.diff);
-        setText('chipHub', CTX.hub.includes('hub-v2') ? 'hub-v2' : CTX.hub);
-
-        setText('kvPid', CTX.pid);
-        setText('kvHub', CTX.hub);
-        setText('kvView', CTX.view);
-        setText('kvRun', CTX.run);
-        setText('kvDiff', CTX.diff);
-        setText('kvTime', CTX.time);
-
-        const hubBtn = $('hubBtn');
-        if (hubBtn) hubBtn.href = CTX.hub;
-
-        if (CTX.debug === '1') {
-          document.body.classList.add('debug');
-          const mainUrl = buildRunUrl(MAIN_RUN_URL, { mode:'solo' });
-          const mainWarmupUrl = buildWarmupUrl(mainUrl);
-          const miniUrl = buildRunUrl(MINI_RUN_URL, { mini:'1', mode:'mini', time:'60' });
-          const box = $('debugBox');
-          if (box) {
-            box.textContent =
-`CTX
-${JSON.stringify(CTX, null, 2)}
-
-MAIN RUN
-${mainUrl}
-
-MAIN WARMUP
-${mainWarmupUrl}
-
-MINI RUN
-${miniUrl}`;
-          }
-        }
-      }
-
-      $('playMainBtn')?.addEventListener('click', () => goMain());
-      $('playMainEasyBtn')?.addEventListener('click', () => goMain({ diff:'easy' }));
-      $('playMainNormalBtn')?.addEventListener('click', () => goMain({ diff:'normal' }));
-      $('playMainHardBtn')?.addEventListener('click', () => goMain({ diff:'hard' }));
-
-      $('playMiniBtn')?.addEventListener('click', () => goMini({ time:'60' }));
-      $('playMini60Btn')?.addEventListener('click', () => goMini({ time:'60' }));
-      $('playMini90Btn')?.addEventListener('click', () => goMini({ time:'90' }));
-
-      $('continueBtn')?.addEventListener('click', goContinue);
-
-      $('copyMainLinkBtn')?.addEventListener('click', async () => {
-        try{
-          await copyText(buildWarmupUrl(buildRunUrl(MAIN_RUN_URL, { mode:'solo' })));
-          $('copyMainLinkBtn').textContent = '✅ คัดลอกแล้ว';
-          setTimeout(() => {
-            $('copyMainLinkBtn').textContent = '🔗 คัดลอกลิงก์ Main Game';
-          }, 1200);
-        }catch(_){}
-      });
-
-      document.addEventListener('click', (ev) => {
-        const t = ev.target.closest('button, a');
-        if (!t) return;
-
-        const txt = (t.textContent || '').trim();
-        if (
-          txt.includes('เยี่ยมเลย') ||
-          txt.includes('ตกลง') ||
-          txt.includes('ปิด') ||
-          txt.includes('โอเค')
-        ) {
-          setTimeout(hardCloseRewardPopup, 0);
-        }
-      }, true);
-
-      window.addEventListener('pageshow', hardCloseRewardPopup);
-      window.addEventListener('load', hardCloseRewardPopup);
-
-      refreshUi();
-    })();
-  </script>
+  </main>
 </body>
 </html>
