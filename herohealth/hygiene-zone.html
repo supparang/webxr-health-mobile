@@ -1,1588 +1,658 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Hygiene Zone</title>
-  <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#9ee7ff" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta name="theme-color" content="#8be8ff" />
+
   <style>
     :root{
-      --sky1:#e9fbff;
-      --sky2:#d7f4ff;
-      --sky3:#fff8de;
-      --card:#fffefc;
-      --ink:#4f4a43;
-      --muted:#7a766f;
-      --line:#c9eaf3;
-      --blue:#76cfff;
-      --blue2:#45b7f5;
-      --green:#7dd957;
-      --green2:#56c43c;
-      --yellow:#ffd45d;
-      --pink:#ff97c6;
-      --mint:#9ee7c4;
-      --shadow:0 16px 36px rgba(77,74,67,.12);
-      --safe-top:env(safe-area-inset-top,0px);
-      --safe-bottom:env(safe-area-inset-bottom,0px);
+      --bg1:#dff6ff;
+      --bg2:#f7fdff;
+      --ink:#12324b;
+      --mut:#537089;
+      --line:#cfeaf7;
+      --card:#ffffff;
+      --card2:#f7fdff;
+      --sky:#9ae6ff;
+      --yellow:#ffe66d;
+      --pink:#ffc7df;
+      --green:#b9f5c9;
+      --blue:#c8f2ff;
+      --purple:#e6dbff;
+      --shadow:0 14px 30px rgba(19,50,75,.12);
+      --radius:26px;
+      --ok:#16a34a;
+      --warn:#f59e0b;
+      --soft:#eef8fd;
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
       background:
-        radial-gradient(circle at top, rgba(255,255,255,.6), transparent 34%),
-        linear-gradient(180deg,var(--sky1) 0%, var(--sky2) 48%, var(--sky3) 100%);
+        radial-gradient(circle at top right, #ffffff 0%, #f6fdff 24%, #e9faff 45%, #dff6ff 100%);
+      font-family:"Segoe UI",system-ui,sans-serif;
       color:var(--ink);
-      font-family:ui-rounded,"SF Pro Rounded","Nunito","Trebuchet MS","Noto Sans Thai",system-ui,sans-serif;
-      overflow-x:hidden;
-      -webkit-tap-highlight-color:transparent;
     }
 
-    a,button,input,select{
-      font:inherit;
-      color:inherit;
-    }
-
-    .bg-bubbles{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      overflow:hidden;
-      z-index:0;
-    }
-
-    .bubble{
-      position:absolute;
-      border-radius:50%;
-      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.95), rgba(255,255,255,.28));
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,.55), 0 10px 22px rgba(118,207,255,.18);
-      opacity:.9;
-      animation:floatBubble 8s ease-in-out infinite;
-    }
-    .bubble.b1{ width:42px;height:42px; top:9%; left:9%; }
-    .bubble.b2{ width:22px;height:22px; top:14%; left:15%; animation-duration:10s; }
-    .bubble.b3{ width:32px;height:32px; top:17%; right:10%; animation-duration:9s; }
-    .bubble.b4{ width:18px;height:18px; top:24%; right:18%; animation-duration:11s; }
-    .bubble.b5{ width:52px;height:52px; bottom:18%; left:8%; animation-duration:12s; }
-    .bubble.b6{ width:24px;height:24px; bottom:11%; right:10%; animation-duration:9.5s; }
-
-    @keyframes floatBubble{
-      0%,100%{ transform:translateY(0) scale(1); }
-      50%{ transform:translateY(-10px) scale(1.03); }
+    body{
+      padding:18px 12px 30px;
     }
 
     .shell{
-      position:relative;
-      z-index:1;
-      width:min(1180px,100%);
+      max-width:1180px;
       margin:0 auto;
-      padding:
-        calc(12px + var(--safe-top))
-        12px
-        calc(18px + var(--safe-bottom))
-        12px;
       display:grid;
-      gap:12px;
+      gap:16px;
     }
 
-    .topbar{
-      display:grid;
-      grid-template-columns:auto 1fr auto;
-      gap:10px;
-      align-items:center;
-    }
-
-    .icon-btn,
-    .top-actions a,
-    .top-actions button{
+    .hero{
+      background:linear-gradient(180deg,#ffffff 0%, #f7fdff 100%);
       border:2px solid var(--line);
-      border-radius:999px;
-      background:rgba(255,255,255,.88);
+      border-radius:32px;
+      padding:20px;
       box-shadow:var(--shadow);
-    }
-
-    .icon-btn{
-      min-width:48px;
-      min-height:48px;
       display:grid;
-      place-items:center;
-      cursor:pointer;
-    }
-
-    .headline{
-      min-width:0;
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-      padding:0 4px;
-    }
-
-    .headline .title{
-      font-size:clamp(22px,4vw,36px);
-      font-weight:1000;
-      line-height:1;
-    }
-
-    .headline .sub{
-      color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-    }
-
-    .top-actions{
-      display:flex;
-      gap:8px;
-      justify-content:flex-end;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .top-actions a,
-    .top-actions button{
-      min-height:46px;
-      padding:10px 14px;
-      text-decoration:none;
-      cursor:pointer;
-      font-weight:1000;
-    }
-
-    .card{
-      background:rgba(255,255,255,.88);
-      border:2px solid var(--line);
-      border-radius:30px;
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
-    }
-
-    .zone-hero{
+      gap:16px;
       overflow:hidden;
       position:relative;
-      padding:18px;
-      display:grid;
-      gap:14px;
-      background:
-        radial-gradient(circle at 14% 12%, rgba(255,255,255,.9), transparent 18%),
-        radial-gradient(circle at 88% 10%, rgba(255,255,255,.72), transparent 18%),
-        linear-gradient(180deg, rgba(255,255,255,.26), rgba(255,255,255,.08));
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-30px;
+      top:-30px;
+      width:180px;
+      height:180px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(139,232,255,.45) 0%, rgba(139,232,255,0) 70%);
+      pointer-events:none;
     }
 
     .hero-top{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
+      display:flex;
+      gap:16px;
       align-items:center;
+      flex-wrap:wrap;
+      position:relative;
+      z-index:1;
+    }
+
+    .badge{
+      width:92px;
+      height:92px;
+      border-radius:50%;
+      background:linear-gradient(180deg,#8be8ff 0%,#22d3ee 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2.6rem;
+      box-shadow:inset 0 0 0 6px rgba(255,255,255,.35);
+      flex:0 0 auto;
     }
 
     .hero-copy{
+      min-width:0;
+      flex:1 1 320px;
+    }
+
+    .kicker{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#ecfeff;
+      border:1px solid #bdf4ff;
+      font-weight:900;
+      color:#0f766e;
+      margin-bottom:10px;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(1.75rem, 4vw, 2.55rem);
+      line-height:1.05;
+    }
+
+    .lead{
+      margin:10px 0 0;
+      font-size:1rem;
+      line-height:1.55;
+      color:var(--mut);
+      font-weight:700;
+      max-width:880px;
+    }
+
+    .toolbar{
       display:grid;
+      grid-template-columns:1.25fr .75fr;
+      gap:16px;
+      align-items:start;
+    }
+
+    .panel{
+      background:var(--card);
+      border:2px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+
+    .panel h2{
+      margin:0 0 12px;
+      font-size:1.08rem;
+    }
+
+    .mode-row{
+      display:flex;
+      flex-wrap:wrap;
       gap:10px;
     }
 
-    .hero-kicker{
-      width:max-content;
-      padding:8px 12px;
-      border-radius:999px;
-      border:2px solid rgba(132,189,205,.35);
-      background:rgba(255,255,255,.92);
-      font-size:12px;
-      letter-spacing:.08em;
-      color:#5ea8d0;
-      font-weight:1000;
-    }
-
-    .hero-title{
-      margin:0;
-      font-size:clamp(34px,5vw,56px);
-      line-height:.94;
-      font-weight:1000;
-    }
-
-    .hero-sub{
-      margin:0;
-      font-size:15px;
-      line-height:1.58;
-      color:var(--muted);
-      font-weight:900;
-      max-width:720px;
-    }
-
-    .hero-tags{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .hero-tag{
-      min-height:30px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid rgba(132,189,205,.32);
-      color:#5d6e7a;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .hero-actions{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .btn{
+    .mode-btn, .action-btn, .game-btn{
+      appearance:none;
       border:none;
-      border-radius:999px;
-      min-height:46px;
-      padding:10px 14px;
+      border-radius:18px;
+      padding:13px 16px;
+      font:inherit;
+      font-weight:900;
+      color:#12324b;
       cursor:pointer;
-      font-weight:1000;
       box-shadow:var(--shadow);
+      transition:transform .12s ease, filter .12s ease, outline-color .12s ease;
+      outline:3px solid transparent;
       text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      text-align:center;
+      gap:8px;
     }
 
-    .btn.primary{
-      background:linear-gradient(135deg,var(--blue),var(--blue2));
-      color:#fff;
+    .mode-btn:hover, .action-btn:hover, .game-btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.01);
     }
 
-    .btn.secondary{
-      background:linear-gradient(135deg,#fff,#eefbff);
-      color:var(--ink);
-      border:2px solid rgba(132,189,205,.32);
+    .mode-btn.active{
+      outline-color:#22d3ee;
     }
 
-    .hero-art{
-      min-height:260px;
-      border-radius:28px;
-      border:2px dashed rgba(132,189,205,.34);
-      position:relative;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 30% 24%, rgba(255,255,255,.75), transparent 18%),
-        linear-gradient(180deg,#c9efff 0%, #dff8ff 48%, #eefed9 100%);
-    }
+    .mode-mobile{ background:linear-gradient(180deg,#dff8ff 0%, #baeefe 100%); }
+    .mode-pc{ background:linear-gradient(180deg,#fff6ba 0%, #ffe66d 100%); }
+    .mode-vr{ background:linear-gradient(180deg,#ffe3ef 0%, #ffc9de 100%); }
 
-    .hero-art .sink{
-      position:absolute;
-      left:50%;
-      bottom:28px;
-      transform:translateX(-50%);
-      width:min(78%, 360px);
-      height:122px;
-      border-radius:26px 26px 32px 32px;
-      background:linear-gradient(180deg,#f8fdff,#d7e9f3);
-      box-shadow:inset 0 0 0 3px rgba(255,255,255,.78);
-    }
-
-    .hero-art .faucet{
-      position:absolute;
-      left:50%;
-      top:54px;
-      transform:translateX(-50%);
-      width:108px;
-      height:68px;
-      border-radius:18px 18px 10px 10px;
-      background:linear-gradient(180deg,#9db2be,#6e8798);
-    }
-
-    .hero-art .soap{
-      position:absolute;
-      right:18%;
-      top:98px;
-      width:82px;
-      height:52px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#ff97c6,#ff6fb1);
-      box-shadow:0 12px 18px rgba(255,111,177,.18);
-    }
-
-    .hero-art .foam{
-      position:absolute;
-      left:22%;
-      top:74px;
-      width:74px;
-      height:74px;
-      border-radius:50%;
-      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.96), rgba(255,255,255,.32));
-      box-shadow:0 10px 20px rgba(118,207,255,.18);
-      animation:floatBubble 7.5s ease-in-out infinite;
-    }
-
-    .hero-art .foam.small{
-      width:34px;
-      height:34px;
-      left:31%;
-      top:54px;
-      animation-duration:9s;
-    }
-
-    .strip{
-      border-radius:24px;
-      border:2px solid rgba(132,189,205,.34);
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(247,255,251,.92));
-      padding:14px;
-      display:grid;
-      gap:10px;
-    }
-
-    .strip-head{
+    .action-stack{
       display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
       flex-wrap:wrap;
+      gap:10px;
     }
 
-    .strip-title{
-      font-size:16px;
-      font-weight:1000;
-      color:#4d4a42;
-    }
+    .action-btn.handwash{ background:linear-gradient(180deg,#dcfff2 0%, #baf4cf 100%); }
+    .action-btn.back{ background:linear-gradient(180deg,#e8f6ff 0%, #cfe7ff 100%); }
 
-    .strip-sub{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .stat-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .stat-pill{
-      border-radius:16px;
-      border:2px solid rgba(132,189,205,.32);
-      background:#fff;
-      padding:10px;
-    }
-
-    .stat-pill .k{
-      display:block;
-      font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .stat-pill .v{
-      display:block;
-      margin-top:4px;
-      font-size:18px;
-      font-weight:1000;
-      color:#4d4a42;
-      line-height:1.15;
-    }
-
-    .mission-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .mission-card{
-      border-radius:18px;
-      border:2px solid rgba(132,189,205,.32);
-      background:#fff;
-      padding:12px;
-      display:grid;
-      gap:6px;
-    }
-
-    .mission-card strong{
-      font-size:14px;
-      line-height:1.2;
-      color:#4d4a42;
-    }
-
-    .mission-card span{
-      font-size:12px;
+    .tiny{
+      margin-top:10px;
+      font-size:.86rem;
+      color:#5c7890;
+      font-weight:700;
       line-height:1.45;
-      color:var(--muted);
-      font-weight:900;
     }
 
-    .mission-actions{
+    .featured{
+      background:linear-gradient(180deg,#ffffff 0%, #faffff 100%);
+      border:2px solid #bdf4ff;
+    }
+
+    .featured-flow{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .content{
-      display:grid;
-      grid-template-columns:minmax(0,1fr) 320px;
-      gap:12px;
-      align-items:start;
-    }
-
-    .games-panel{
-      padding:16px;
-      display:grid;
-      gap:12px;
-    }
-
-    .section-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
+      grid-template-columns:repeat(5,minmax(0,1fr));
       gap:10px;
-      flex-wrap:wrap;
+      margin-top:12px;
     }
 
-    .section-title{
-      font-size:20px;
-      font-weight:1000;
-      margin:0;
-      color:#4d4a42;
-    }
-
-    .section-note{
-      margin:0;
-      color:var(--muted);
-      font-size:13px;
+    .flow-box{
+      background:#f8fdff;
+      border:1px solid #d7ecf8;
+      border-radius:18px;
+      padding:12px;
+      text-align:center;
       font-weight:900;
+      color:#28465d;
     }
 
-    .games-grid{
+    .flow-box small{
+      display:block;
+      margin-top:6px;
+      font-weight:800;
+      color:#5c7890;
+    }
+
+    .cards{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
+      gap:16px;
     }
 
     .game-card{
-      position:relative;
+      background:var(--card);
+      border:2px solid var(--line);
       border-radius:28px;
-      border:2px solid rgba(132,189,205,.32);
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(247,255,251,.92));
-      padding:14px;
+      box-shadow:var(--shadow);
+      padding:18px;
       display:grid;
       gap:12px;
-      box-shadow:0 10px 20px rgba(0,0,0,.05);
-      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-      scroll-margin-top:22px;
     }
 
-    .game-card:hover{
-      transform:translateY(-2px);
-      box-shadow:0 18px 28px rgba(0,0,0,.07);
-    }
+    .game-card.handwash{ background:linear-gradient(180deg,#ffffff 0%, #f7fffb 100%); }
+    .game-card.germ{ background:linear-gradient(180deg,#ffffff 0%, #f8fdff 100%); }
+    .game-card.mask{ background:linear-gradient(180deg,#ffffff 0%, #fffdf7 100%); }
+    .game-card.brush{ background:linear-gradient(180deg,#ffffff 0%, #fff8fd 100%); }
 
-    .game-card.handwash-featured{
-      border:3px solid #bfe8ff;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.7), transparent 24%),
-        linear-gradient(180deg,#fffefb,#ffffff);
-      box-shadow:
-        0 0 0 4px rgba(127,207,255,.16),
-        0 22px 40px rgba(86,155,194,.14);
-    }
-
-    .game-ribbon{
-      position:absolute;
-      top:12px;
-      right:12px;
-      z-index:2;
-      min-height:34px;
-      padding:7px 12px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#eefbff,#ffffff);
-      border:2px solid #cdeeff;
-      color:#2d6f8b;
-      font-size:12px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      box-shadow:0 10px 20px rgba(86,155,194,.12);
-    }
-
-    .game-top{
-      display:grid;
-      gap:8px;
-    }
-
-    .game-title-row{
+    .card-head{
       display:flex;
-      justify-content:space-between;
+      gap:12px;
       align-items:flex-start;
-      gap:10px;
     }
 
-    .game-title{
-      font-size:22px;
-      line-height:1;
-      font-weight:1000;
-      color:#4d4a42;
-      margin:0;
-    }
-
-    .game-sub{
-      margin:0;
-      font-size:13px;
-      line-height:1.5;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .game-art{
-      min-height:148px;
-      border-radius:22px;
-      border:2px dashed rgba(132,189,205,.3);
-      position:relative;
-      overflow:hidden;
-    }
-
-    .game-art.handwash{
-      background:
-        radial-gradient(circle at 28% 24%, rgba(255,255,255,.78), transparent 18%),
-        linear-gradient(180deg,#caefff 0%, #e0f9ff 44%, #f3fff0 100%);
-    }
-
-    .game-art.brush{
-      background:
-        radial-gradient(circle at 28% 24%, rgba(255,255,255,.78), transparent 18%),
-        linear-gradient(180deg,#e4f8ff 0%, #f2fdff 44%, #fff5ef 100%);
-    }
-
-    .game-art.germ{
-      background:
-        radial-gradient(circle at 28% 24%, rgba(255,255,255,.78), transparent 18%),
-        linear-gradient(180deg,#e9f2ff 0%, #f3f8ff 44%, #fff6dc 100%);
-    }
-
-    .game-art.mask{
-      background:
-        radial-gradient(circle at 28% 24%, rgba(255,255,255,.78), transparent 18%),
-        linear-gradient(180deg,#e8fbff 0%, #f1ffff 44%, #eef7ff 100%);
-    }
-
-    .game-art.clean{
-      background:
-        radial-gradient(circle at 28% 24%, rgba(255,255,255,.78), transparent 18%),
-        linear-gradient(180deg,#effff6 0%, #f8fffb 44%, #fff8e5 100%);
-    }
-
-    .game-art.bath{
-      background:
-        radial-gradient(circle at 28% 24%, rgba(255,255,255,.78), transparent 18%),
-        linear-gradient(180deg,#dff5ff 0%, #f2fbff 44%, #eefeff 100%);
-    }
-
-    .game-tags{
+    .game-icon{
+      width:68px;
+      height:68px;
+      border-radius:20px;
       display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .game-tag{
-      min-height:28px;
-      display:inline-flex;
       align-items:center;
       justify-content:center;
-      padding:5px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid rgba(132,189,205,.3);
-      color:#5d6e7a;
-      font-size:11px;
-      font-weight:1000;
+      font-size:2rem;
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);
+      flex:0 0 auto;
     }
 
-    .game-actions{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px;
+    .icon-handwash{ background:linear-gradient(180deg,#8be8ff 0%,#22d3ee 100%); }
+    .icon-germ{ background:linear-gradient(180deg,#d8f8ff 0%,#9ee9ff 100%); }
+    .icon-mask{ background:linear-gradient(180deg,#fff4b9 0%,#ffe27a 100%); }
+    .icon-brush{ background:linear-gradient(180deg,#ffe1ef 0%,#ffc8de 100%); }
+
+    .card-copy{
+      min-width:0;
+      flex:1 1 auto;
     }
 
-    .game-actions .btn-wide{
-      grid-column:1 / -1;
-    }
-
-    .side{
-      display:grid;
-      gap:12px;
-      position:sticky;
-      top:calc(10px + var(--safe-top));
-    }
-
-    .side-card{
-      padding:14px;
-      display:grid;
-      gap:10px;
-    }
-
-    .side-title{
+    .card-title{
       margin:0;
-      font-size:16px;
-      color:#4d4a42;
-      font-weight:1000;
-    }
-
-    .side-note{
-      margin:0;
-      font-size:13px;
-      line-height:1.5;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .quick-list{
-      display:grid;
-      gap:8px;
-    }
-
-    .quick-item{
-      border-radius:16px;
-      border:2px solid rgba(132,189,205,.28);
-      background:#fff;
-      padding:10px;
-      display:grid;
-      gap:6px;
-    }
-
-    .quick-item strong{
-      font-size:14px;
-      color:#4d4a42;
+      font-size:1.2rem;
       line-height:1.15;
     }
 
-    .quick-item span{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.4;
+    .card-sub{
+      margin:6px 0 0;
+      color:var(--mut);
+      font-weight:700;
+      line-height:1.5;
     }
 
-    .picker-list{
-      display:grid;
-      gap:10px;
-    }
-
-    .picker-item{
-      display:grid;
-      gap:8px;
-      padding:12px;
-      border-radius:18px;
-      border:2px solid rgba(132,189,205,.3);
-      background:#fff;
-    }
-
-    .picker-head{
+    .pill-row{
       display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
       flex-wrap:wrap;
+      gap:8px;
     }
 
-    .picker-title{
-      font-size:15px;
-      color:#4d4a42;
-      font-weight:1000;
-    }
-
-    .picker-badge{
-      min-height:28px;
-      padding:4px 10px;
-      border-radius:999px;
-      background:#eefbff;
-      border:2px solid #cdeeff;
-      color:#2d6f8b;
-      font-size:11px;
-      font-weight:1000;
+    .pill{
       display:inline-flex;
       align-items:center;
-      justify-content:center;
-    }
-
-    .picker-sub{
-      font-size:13px;
-      line-height:1.5;
-      color:var(--muted);
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#eef8fd;
+      color:#37566e;
       font-weight:900;
+      font-size:.84rem;
     }
 
-    .picker-actions{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
+    .pill.ok{
+      background:#effcf3;
+      color:#166534;
     }
+
+    .game-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .game-btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
+    .game-btn.secondary{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
+    .game-btn.alt{ background:linear-gradient(180deg,#dcfff2 0%,#baf4cf 100%); }
 
     .footer-note{
-      text-align:center;
-      font-size:12px;
-      color:var(--muted);
-      font-weight:800;
-      padding-bottom:6px;
-    }
-
-    .modal{
-      position:fixed;
-      inset:0;
-      z-index:50;
-      display:none;
-    }
-
-    .modal.show{
-      display:block;
-    }
-
-    .modal-backdrop{
-      position:absolute;
-      inset:0;
-      background:rgba(40,56,70,.28);
-      backdrop-filter:blur(6px);
-    }
-
-    .modal-card{
-      position:relative;
-      z-index:1;
-      width:min(920px, calc(100vw - 20px));
-      max-height:min(88dvh, 900px);
-      overflow:auto;
-      margin:calc(16px + var(--safe-top)) auto 16px;
-      padding:18px;
-      border-radius:28px;
-      border:2px solid var(--line);
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,255,251,.96));
-      box-shadow:0 24px 60px rgba(0,0,0,.18);
-      display:grid;
-      gap:12px;
-    }
-
-    .modal-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .modal-head h3{
-      margin:0;
-      font-size:24px;
-      color:#4d4a42;
-      font-weight:1000;
-    }
-
-    .modal-close{
-      min-width:42px;
-      min-height:42px;
-      border:none;
-      border-radius:999px;
-      background:linear-gradient(135deg,#fff,#eefbff);
-      border:2px solid rgba(132,189,205,.32);
-      cursor:pointer;
-      font-weight:1000;
-    }
-
-    .modal-sub{
-      margin:0;
-      font-size:13px;
-      color:var(--muted);
-      font-weight:900;
+      background:#f8fcff;
+      border:1px dashed #cfe3ef;
+      border-radius:18px;
+      padding:14px 16px;
+      color:#56728a;
+      font-weight:700;
       line-height:1.5;
     }
 
-    .picker-toolbar{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    @media (max-width: 1020px){
-      .content{
+    @media (max-width:980px){
+      .toolbar{
         grid-template-columns:1fr;
       }
-      .side{
-        position:relative;
-        top:auto;
-      }
-    }
-
-    @media (max-width: 840px){
-      .hero-top{
-        grid-template-columns:1fr;
-      }
-      .games-grid{
-        grid-template-columns:1fr;
-      }
-      .mission-grid,
-      .mission-actions{
-        grid-template-columns:1fr;
-      }
-      .hero-actions{
+      .cards{
         grid-template-columns:1fr;
       }
     }
 
-    @media (max-width: 760px){
-      .topbar{
-        grid-template-columns:1fr;
-      }
-      .stat-grid,
-      .picker-actions{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-      .game-actions{
-        grid-template-columns:1fr;
-      }
-      .game-actions .btn-wide{
-        grid-column:auto;
+    @media (max-width:760px){
+      .featured-flow{
+        grid-template-columns:1fr 1fr;
       }
     }
 
-    @media (max-width: 560px){
-      .stat-grid,
-      .picker-actions{
-        grid-template-columns:1fr;
+    @media (max-width:680px){
+      body{
+        padding:14px 10px 26px;
       }
-      .game-ribbon{
-        position:static;
-        width:max-content;
-        margin-left:auto;
+
+      .hero, .panel, .game-card{
+        padding:14px;
+        border-radius:22px;
+      }
+
+      .badge{
+        width:76px;
+        height:76px;
+        font-size:2.2rem;
+      }
+
+      .game-icon{
+        width:58px;
+        height:58px;
+        border-radius:18px;
+        font-size:1.7rem;
+      }
+
+      .action-stack,
+      .game-actions,
+      .mode-row{
+        display:grid;
+        grid-template-columns:1fr;
       }
     }
   </style>
 </head>
 <body>
-  <div class="bg-bubbles" aria-hidden="true">
-    <div class="bubble b1"></div>
-    <div class="bubble b2"></div>
-    <div class="bubble b3"></div>
-    <div class="bubble b4"></div>
-    <div class="bubble b5"></div>
-    <div class="bubble b6"></div>
-  </div>
-
   <main class="shell">
-    <header class="topbar">
-      <button id="btnBackHub" class="icon-btn" type="button" aria-label="กลับ Hub">🏠</button>
-
-      <div class="headline">
-        <div class="title">Hygiene Zone</div>
-        <div class="sub">ดูแลความสะอาดของร่างกายและของใช้ • child-friendly • zone-first</div>
-      </div>
-
-      <div class="top-actions">
-        <a id="btnOpenHub" href="./hub-v2.html">🏠 HUB</a>
-        <button id="btnOpenPicker" type="button">🗺️ เลือกเกม</button>
-      </div>
-    </header>
-
-    <section class="card zone-hero">
+    <section class="hero">
       <div class="hero-top">
+        <div class="badge">🫧</div>
         <div class="hero-copy">
-          <div class="hero-kicker">HYGIENE FEATURED</div>
-          <h1 class="hero-title">Handwash</h1>
-          <p class="hero-sub">
-            เกมฝึกล้างมือแบบเข้าใจง่ายสำหรับเด็ก เรียนรู้ลำดับและส่วนของมือที่ต้องถูให้ครบ
-            เหมาะทั้งแบบเล่นทั่วไป ซ้อมเร็ว และ research run
+          <div class="kicker">HeroHealth • Hygiene Zone</div>
+          <h1>โซนสุขอนามัย</h1>
+          <p class="lead">
+            ฝึกทักษะสุขอนามัยส่วนบุคคลผ่านเกมแบบ child-friendly โดยตอนนี้เส้นทางของ
+            <strong>Handwash</strong> ถูกจัดเป็นชุดเต็มแล้ว:
+            <strong>Howto → Practice Lab → Main Game → Mini Order → Hub</strong>
           </p>
-
-          <div class="hero-tags">
-            <span class="hero-tag">🧼 Handwash</span>
-            <span class="hero-tag">🫧 Clean</span>
-            <span class="hero-tag">👋 Steps</span>
-            <span class="hero-tag">⭐ Summary</span>
-          </div>
-
-          <div class="hero-actions">
-            <a class="btn primary" id="btnHeroPlay" href="./vr-handwash/handwash-vr.html">▶ เล่น Handwash</a>
-            <a class="btn secondary" id="btnHeroQuick" href="./vr-handwash/handwash-vr.html">⚡ Quick Play</a>
-            <a class="btn secondary" id="btnHeroResearch" href="./vr-handwash/handwash-vr.html">🧪 Research</a>
-          </div>
         </div>
+      </div>
+    </section>
 
-        <div class="hero-art" aria-hidden="true">
-          <div class="foam"></div>
-          <div class="foam small"></div>
-          <div class="faucet"></div>
-          <div class="soap"></div>
-          <div class="sink"></div>
+    <section class="toolbar">
+      <div class="panel">
+        <h2>เลือกโหมดการเล่น</h2>
+        <div class="mode-row">
+          <button class="mode-btn mode-mobile active" data-view="mobile" type="button">📱 Mobile</button>
+          <button class="mode-btn mode-pc" data-view="pc" type="button">🖥️ PC</button>
+          <button class="mode-btn mode-vr" data-view="cvr" type="button">🥽 Cardboard</button>
+        </div>
+        <div class="tiny">
+          โหมดที่เลือกจะถูกส่งต่อไปยังทุกเกมใน Hygiene Zone อัตโนมัติ
         </div>
       </div>
 
-      <section class="strip" id="recentStrip">
-        <div class="strip-head">
-          <div class="strip-title">🕹️ Hygiene ล่าสุด</div>
-          <div class="strip-sub" id="recentStripSub">ยังไม่มีผลล่าสุด • เริ่มด้วย Handwash ได้เลย</div>
+      <div class="panel">
+        <h2>ทางลัด</h2>
+        <div class="action-stack">
+          <button class="action-btn handwash" id="btn-featured-handwash" type="button">🧼 เข้า Handwash Suite</button>
+          <button class="action-btn back" id="btn-back-hub" type="button">🏠 กลับ Hub</button>
         </div>
-
-        <div class="stat-grid">
-          <div class="stat-pill"><span class="k">ล่าสุด</span><span class="v" id="recentName">-</span></div>
-          <div class="stat-pill"><span class="k">เล่นแล้ว</span><span class="v" id="playedCount">0/6</span></div>
-          <div class="stat-pill"><span class="k">วันนี้</span><span class="v" id="todayCount">0</span></div>
-          <div class="stat-pill"><span class="k">แนะนำ</span><span class="v" id="featuredName">Handwash</span></div>
+        <div class="tiny">
+          ปุ่ม Handwash จะพาเข้า <strong>./vr-handwash/handwash-launcher.html</strong> โดยตรง
         </div>
-      </section>
-
-      <section class="strip">
-        <div class="strip-head">
-          <div class="strip-title">🎯 Quick Missions</div>
-          <div class="strip-sub">เลือกทางเข้าเล่นที่เหมาะกับเป้าหมายวันนี้</div>
-        </div>
-
-        <div class="mission-grid">
-          <div class="mission-card">
-            <strong>เริ่มแบบมาตรฐาน</strong>
-            <span>เข้าเล่น Handwash แบบปกติ</span>
-          </div>
-          <div class="mission-card">
-            <strong>ซ้อมเร็ว</strong>
-            <span>เข้าเกมสั้น 60 วินาที</span>
-          </div>
-          <div class="mission-card">
-            <strong>โหมดวิจัย</strong>
-            <span>เข้าเล่นด้วยพารามิเตอร์ research</span>
-          </div>
-        </div>
-
-        <div class="mission-actions">
-          <a class="btn primary" id="btnMissionPlay" href="./vr-handwash/handwash-vr.html">▶ Standard Play</a>
-          <a class="btn secondary" id="btnMissionQuick" href="./vr-handwash/handwash-vr.html">⚡ Quick Play</a>
-          <a class="btn secondary" id="btnMissionDemo" href="./vr-handwash/handwash-vr.html">🎈 Demo 60s</a>
-          <a class="btn secondary" id="btnMissionResearch" href="./vr-handwash/handwash-vr.html">🧪 Research</a>
-        </div>
-      </section>
+      </div>
     </section>
 
-    <section class="content">
-      <section class="card games-panel">
-        <div class="section-head">
-          <div>
-            <h2 class="section-title">🫧 เกมใน Hygiene Zone</h2>
-            <p class="section-note">เริ่มจาก Handwash ได้เลย หรือเลือกเกมอื่นในโซนตามที่ต้องการ</p>
-          </div>
-          <button class="btn secondary" id="btnOpenPickerInline" type="button">🗺️ ทุกเกมทุกทางเข้า</button>
+    <section class="panel featured">
+      <h2>Featured Flow • Handwash</h2>
+      <div class="featured-flow">
+        <div class="flow-box">
+          1. Howto
+          <small>สอนวิธีกด</small>
         </div>
-
-        <div class="games-grid">
-          <article class="game-card handwash-featured">
-            <div class="game-ribbon">🎯 Featured</div>
-            <div class="game-top">
-              <div class="game-title-row">
-                <div>
-                  <h3 class="game-title">Handwash</h3>
-                  <p class="game-sub">ฝึกล้างมือให้ถูกขั้นตอน และรู้ว่าควรถูตรงไหนของมือ</p>
-                </div>
-              </div>
-              <div class="game-art handwash"></div>
-              <div class="game-tags">
-                <span class="game-tag">🧼 ล้างมือ</span>
-                <span class="game-tag">👋 ขั้นตอน</span>
-                <span class="game-tag">✨ สะอาด</span>
-              </div>
-            </div>
-            <div class="game-actions">
-              <a class="btn primary btn-wide" id="btnPlayHandwash" href="./vr-handwash/handwash-vr.html">▶ เล่น Handwash</a>
-              <a class="btn secondary" id="btnQuickHandwash" href="./vr-handwash/handwash-vr.html">⚡ Quick</a>
-              <a class="btn secondary" id="btnResearchHandwash" href="./vr-handwash/handwash-vr.html">🧪 Research</a>
-            </div>
-          </article>
-
-          <article class="game-card">
-            <div class="game-top">
-              <div class="game-title-row">
-                <div>
-                  <h3 class="game-title">Brush</h3>
-                  <p class="game-sub">ฝึกแปรงฟันให้ครบทุกบริเวณอย่างสนุก</p>
-                </div>
-              </div>
-              <div class="game-art brush"></div>
-              <div class="game-tags">
-                <span class="game-tag">🪥 แปรงฟัน</span>
-                <span class="game-tag">😁 ฟันสะอาด</span>
-                <span class="game-tag">⭐ เด็ก</span>
-              </div>
-            </div>
-            <div class="game-actions">
-              <a class="btn primary btn-wide" id="btnPlayBrush" href="./vr-brush-kids/brush.html">▶ เล่น Brush</a>
-              <a class="btn secondary" id="btnQuickBrush" href="./vr-brush-kids/brush.html">⚡ Quick</a>
-              <a class="btn secondary" id="btnResearchBrush" href="./vr-brush-kids/brush.html">🧪 Research</a>
-            </div>
-          </article>
-
-          <article class="game-card">
-            <div class="game-top">
-              <div class="game-title-row">
-                <div>
-                  <h3 class="game-title">Germ Detective</h3>
-                  <p class="game-sub">ตามหาเชื้อโรคและเรียนรู้การป้องกัน</p>
-                </div>
-              </div>
-              <div class="game-art germ"></div>
-              <div class="game-tags">
-                <span class="game-tag">🦠 เชื้อโรค</span>
-                <span class="game-tag">🔎 สังเกต</span>
-                <span class="game-tag">🛡️ ป้องกัน</span>
-              </div>
-            </div>
-            <div class="game-actions">
-              <a class="btn primary btn-wide" id="btnPlayGerm" href="./germ-detective/germ-rush-run.html">▶ เล่น Germ Detective</a>
-              <a class="btn secondary" id="btnQuickGerm" href="./germ-detective/germ-rush-run.html">⚡ Quick</a>
-              <a class="btn secondary" id="btnResearchGerm" href="./germ-detective/germ-rush-run.html">🧪 Research</a>
-            </div>
-          </article>
-
-          <article class="game-card">
-            <div class="game-top">
-              <div class="game-title-row">
-                <div>
-                  <h3 class="game-title">MaskCough</h3>
-                  <p class="game-sub">ฝึกไอ จาม และใช้หน้ากากอย่างเหมาะสม</p>
-                </div>
-              </div>
-              <div class="game-art mask"></div>
-              <div class="game-tags">
-                <span class="game-tag">😷 หน้ากาก</span>
-                <span class="game-tag">🤧 ไอจาม</span>
-                <span class="game-tag">✅ ปลอดภัย</span>
-              </div>
-            </div>
-            <div class="game-actions">
-              <a class="btn primary btn-wide" id="btnPlayMaskCough" href="./vr-maskcough/maskcough-v2.html">▶ เล่น MaskCough</a>
-              <a class="btn secondary" id="btnQuickMaskCough" href="./vr-maskcough/maskcough-v2.html">⚡ Quick</a>
-              <a class="btn secondary" id="btnResearchMaskCough" href="./vr-maskcough/maskcough-v2.html">🧪 Research</a>
-            </div>
-          </article>
-
-          <article class="game-card">
-            <div class="game-top">
-              <div class="game-title-row">
-                <div>
-                  <h3 class="game-title">Clean Objects</h3>
-                  <p class="game-sub">ฝึกทำความสะอาดสิ่งของในชีวิตประจำวัน</p>
-                </div>
-              </div>
-              <div class="game-art clean"></div>
-              <div class="game-tags">
-                <span class="game-tag">🧽 ทำความสะอาด</span>
-                <span class="game-tag">✨ ของใช้</span>
-                <span class="game-tag">🪄 สะอาด</span>
-              </div>
-            </div>
-            <div class="game-actions">
-              <a class="btn primary btn-wide" id="btnPlayCleanObjects" href="./clean-objects-v3/clean-objects-v2.html">▶ เล่น Clean Objects</a>
-              <a class="btn secondary" id="btnQuickCleanObjects" href="./clean-objects-v3/clean-objects-v2.html">⚡ Quick</a>
-              <a class="btn secondary" id="btnResearchCleanObjects" href="./clean-objects-v3/clean-objects-v2.html">🧪 Research</a>
-            </div>
-          </article>
-
-          <article class="game-card">
-            <div class="game-top">
-              <div class="game-title-row">
-                <div>
-                  <h3 class="game-title">Bath</h3>
-                  <p class="game-sub">ฝึกขั้นตอนการอาบน้ำและดูแลร่างกาย</p>
-                </div>
-              </div>
-              <div class="game-art bath"></div>
-              <div class="game-tags">
-                <span class="game-tag">🛁 อาบน้ำ</span>
-                <span class="game-tag">🧴 ร่างกาย</span>
-                <span class="game-tag">💧 สดชื่น</span>
-              </div>
-            </div>
-            <div class="game-actions">
-              <a class="btn primary btn-wide" id="btnPlayBath" href="./vr-bath/bath.html">▶ เล่น Bath</a>
-              <a class="btn secondary" id="btnQuickBath" href="./vr-bath/bath.html">⚡ Quick</a>
-              <a class="btn secondary" id="btnResearchBath" href="./vr-bath/bath.html">🧪 Research</a>
-            </div>
-          </article>
+        <div class="flow-box">
+          2. Practice
+          <small>ฝึกโซน/ท่าถู</small>
         </div>
-      </section>
-
-      <aside class="side">
-        <section class="card side-card">
-          <h3 class="side-title">🎯 แนะนำตอนนี้</h3>
-          <p class="side-note" id="sideRecommendText">เริ่มจาก Handwash แบบมาตรฐานได้เลย</p>
-          <div class="quick-list">
-            <div class="quick-item">
-              <strong>เริ่มง่ายสุด</strong>
-              <span>Handwash • Standard Play</span>
-            </div>
-            <div class="quick-item">
-              <strong>อยากซ้อมสั้น</strong>
-              <span>Handwash • Quick 60s</span>
-            </div>
-            <div class="quick-item">
-              <strong>อยากเรียนต่อ</strong>
-              <span>Brush หรือ Germ Detective</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="card side-card">
-          <h3 class="side-title">🧭 ทางเข้าด่วน</h3>
-          <div class="quick-list">
-            <a class="btn primary" id="btnSidePlay" href="./vr-handwash/handwash-vr.html">▶ Handwash</a>
-            <a class="btn secondary" id="btnSideQuick" href="./vr-handwash/handwash-vr.html">⚡ Quick Play</a>
-            <a class="btn secondary" id="btnSideResearch" href="./vr-handwash/handwash-vr.html">🧪 Research</a>
-            <a class="btn secondary" id="btnSideHub" href="./hub-v2.html">🏠 กลับ HUB</a>
-          </div>
-        </section>
-
-        <section class="card side-card">
-          <h3 class="side-title">🗺️ Game Picker</h3>
-          <p class="side-note">เปิดเลือกเกมและทางเข้าเล่นได้จากหน้าเดียว</p>
-          <button class="btn secondary" id="btnOpenPickerSide" type="button">เปิด Game Picker</button>
-          <div class="picker-list">
-            <div class="picker-item">
-              <div class="picker-head">
-                <div class="picker-title">🧼 Handwash</div>
-                <span class="picker-badge">Quick Access</span>
-              </div>
-              <div class="picker-sub">เข้าเล่น Handwash ได้ทันทีจาก Hygiene Zone</div>
-              <div class="picker-actions">
-                <a class="btn primary" id="btnLibraryPlay" href="./vr-handwash/handwash-vr.html">▶ Play</a>
-                <a class="btn secondary" id="btnLibraryQuick" href="./vr-handwash/handwash-vr.html">⚡ Quick</a>
-              </div>
-            </div>
-          </div>
-        </section>
-      </aside>
+        <div class="flow-box">
+          3. Main Game
+          <small>เล่นจริงเต็มรอบ</small>
+        </div>
+        <div class="flow-box">
+          4. Mini Order
+          <small>ทบทวนลำดับ</small>
+        </div>
+        <div class="flow-box">
+          5. Hub
+          <small>กลับโซนหลัก</small>
+        </div>
+      </div>
     </section>
 
-    <p class="footer-note">
-      HeroHealth Hygiene Zone • child-friendly • zone-first • featured Handwash flow
-    </p>
+    <section class="cards">
+      <article class="game-card handwash">
+        <div class="card-head">
+          <div class="game-icon icon-handwash">🧼</div>
+          <div class="card-copy">
+            <h3 class="card-title">Handwash Suite</h3>
+            <p class="card-sub">
+              ชุดเกมล้างมือแบบครบ flow ตั้งแต่ howto, practice, main game จนถึง mini review
+            </p>
+          </div>
+        </div>
+
+        <div class="pill-row">
+          <div class="pill ok">Featured</div>
+          <div class="pill">Bloom-ready flow</div>
+          <div class="pill">Howto → Practice → Main → Review</div>
+        </div>
+
+        <div class="game-actions">
+          <button class="game-btn primary" id="btn-open-handwash" type="button">เข้าเล่น Handwash</button>
+          <button class="game-btn secondary" id="btn-open-handwash-main" type="button">เข้า Main Game ตรง</button>
+        </div>
+      </article>
+
+      <article class="game-card germ">
+        <div class="card-head">
+          <div class="game-icon icon-germ">🦠</div>
+          <div class="card-copy">
+            <h3 class="card-title">Germ Detective</h3>
+            <p class="card-sub">
+              เกมตามล่าเชื้อโรค ฝึกสังเกตและตอบสนองต่อแหล่งปนเปื้อนในฉาก
+            </p>
+          </div>
+        </div>
+
+        <div class="pill-row">
+          <div class="pill">Reaction</div>
+          <div class="pill">Observation</div>
+        </div>
+
+        <div class="game-actions">
+          <button class="game-btn alt" id="btn-open-germ" type="button">เข้า Germ Detective</button>
+        </div>
+      </article>
+
+      <article class="game-card mask">
+        <div class="card-head">
+          <div class="game-icon icon-mask">😷</div>
+          <div class="card-copy">
+            <h3 class="card-title">Mask & Cough VR</h3>
+            <p class="card-sub">
+              ฝึกสวมหน้ากากและมารยาทการไอ/จามให้ถูกต้องในสถานการณ์จำลอง
+            </p>
+          </div>
+        </div>
+
+        <div class="pill-row">
+          <div class="pill">Behavior</div>
+          <div class="pill">Safety</div>
+        </div>
+
+        <div class="game-actions">
+          <button class="game-btn alt" id="btn-open-mask" type="button">เข้า Mask &amp; Cough</button>
+        </div>
+      </article>
+
+      <article class="game-card brush">
+        <div class="card-head">
+          <div class="game-icon icon-brush">🪥</div>
+          <div class="card-copy">
+            <h3 class="card-title">Brush Hero</h3>
+            <p class="card-sub">
+              ฝึกแปรงฟันแบบ child-friendly ผ่านเป้าหมายและ feedback ที่ชัดเจน
+            </p>
+          </div>
+        </div>
+
+        <div class="pill-row">
+          <div class="pill">Routine</div>
+          <div class="pill">Child-friendly</div>
+        </div>
+
+        <div class="game-actions">
+          <button class="game-btn alt" id="btn-open-brush" type="button">เข้า Brush Hero</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="footer-note">
+      หมายเหตุ: หน้า Handwash ถูกผูกให้เข้า <strong>./vr-handwash/handwash-launcher.html</strong> แล้ว
+      ส่วน path ของเกมอื่น หากชื่อไฟล์จริงต่างจากนี้ ให้แก้เฉพาะในตัวแปร <strong>PATHS</strong> ด้านล่าง
+    </section>
   </main>
 
-  <div id="gamePicker" class="modal" aria-hidden="true">
-    <div class="modal-backdrop" data-close-picker></div>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
-      <div class="modal-head">
-        <h3 id="pickerTitle">เลือกเกมใน Hygiene Zone</h3>
-        <button class="modal-close" type="button" data-close-picker aria-label="ปิด">✕</button>
-      </div>
+  <script>
+    const current = new URL(location.href);
+    const q = current.searchParams;
 
-      <p class="modal-sub">เลือกเกมที่อยากเล่นได้เลย โดย Handwash ถูกแนะนำเป็นเกมเด่นของโซนนี้</p>
+    const PATHS = {
+      hub: q.get('hub') || './hub-v2.html',
 
-      <div class="picker-toolbar">
-        <button id="pickerShowRecommended" class="btn secondary" type="button">🎯 Recommended</button>
-        <button id="pickerShowRecent" class="btn secondary" type="button">🕹️ Recent</button>
-        <button id="pickerShowAllModes" class="btn secondary" type="button">🗺️ All Games</button>
-      </div>
+      // confirmed
+      handwashLauncher: './vr-handwash/handwash-launcher.html',
+      handwashMain: './handwash-v2.html',
 
-      <div class="picker-list" id="pickerList"></div>
-    </div>
-  </div>
+      // adjust these if your filenames differ
+      germ: './vr-germ-detective/germ-detective-vr.html',
+      mask: './vr-maskcough/maskcough-vr.html',
+      brush: './vr-brush-kids/brush.html'
+    };
 
-  <script type="module">
-    import { buildZoneGameUrl, buildHubRoot, rememberZoneGame } from './zone-return.js';
+    let selectedView = q.get('view') || localStorage.getItem('HH_HYGIENE_VIEW') || 'mobile';
 
-    (() => {
-      'use strict';
+    const modeButtons = [...document.querySelectorAll('[data-view]')];
 
-      const qs = new URLSearchParams(location.search);
-      const $ = (id) => document.getElementById(id);
+    function setActiveView(view){
+      selectedView = view;
+      localStorage.setItem('HH_HYGIENE_VIEW', view);
+      modeButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === view);
+      });
+    }
 
-      const GAME_META = {
-        handwash: {
-          key: 'handwash',
-          title: 'Handwash',
-          sub: 'ฝึกล้างมือให้ถูกขั้นตอน และรู้ว่าควรถูตรงไหนของมือ',
-          path: './vr-handwash/handwash-vr.html'
-        },
-        brush: {
-          key: 'brush',
-          title: 'Brush',
-          sub: 'ฝึกแปรงฟันให้ครบทุกบริเวณอย่างสนุก',
-          path: './vr-brush-kids/brush.html'
-        },
-        germdetective: {
-          key: 'germdetective',
-          title: 'Germ Detective',
-          sub: 'ตามหาเชื้อโรคและเรียนรู้การป้องกัน',
-          path: './germ-detective/germ-rush-run.html'
-        },
-        maskcough: {
-          key: 'maskcough',
-          title: 'MaskCough',
-          sub: 'ฝึกไอ จาม และใช้หน้ากากอย่างเหมาะสม',
-          path: './vr-maskcough/maskcough-v2.html'
-        },
-        cleanobjects: {
-          key: 'cleanobjects',
-          title: 'Clean Objects',
-          sub: 'ฝึกทำความสะอาดสิ่งของในชีวิตประจำวัน',
-          path: './clean-objects-v3/clean-objects-v2.html'
-        },
-        bath: {
-          key: 'bath',
-          title: 'Bath',
-          sub: 'ฝึกขั้นตอนการอาบน้ำและดูแลร่างกาย',
-          path: './vr-bath/bath.html'
+    modeButtons.forEach(btn => {
+      btn.addEventListener('click', () => setActiveView(btn.dataset.view));
+    });
+
+    setActiveView(selectedView);
+
+    function buildCommonParams(gameId, theme, extra = {}){
+      const params = new URLSearchParams();
+
+      params.set('pid', q.get('pid') || 'anon');
+      params.set('name', q.get('name') || 'Hero');
+      params.set('diff', q.get('diff') || 'normal');
+      params.set('time', extra.time || q.get('time') || '90');
+      params.set('miniTime', extra.miniTime || q.get('miniTime') || '60');
+      params.set('view', selectedView);
+      params.set('run', q.get('run') || 'play');
+      params.set('zone', 'hygiene');
+      params.set('cat', 'hygiene');
+      params.set('game', gameId);
+      params.set('gameId', gameId);
+      params.set('theme', theme);
+      params.set('hub', current.href);
+      params.set('seed', String(Date.now()));
+
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          params.set(k, String(v));
         }
-      };
+      });
 
-      const STORAGE = {
-        recent: 'HHA_LAST_GAME_BY_ZONE_HYGIENE',
-        played: 'HHA_ZONE_PLAYED_HYGIENE',
-        daily: 'HHA_ZONE_DAILY_HYGIENE'
-      };
+      return params;
+    }
 
-      function readJson(key, fallback = null){
-        try{
-          const raw = localStorage.getItem(key);
-          return raw ? JSON.parse(raw) : fallback;
-        }catch(_){
-          return fallback;
-        }
-      }
+    function openGame(path, gameId, theme, extra = {}){
+      const url = new URL(path, current.href);
+      const params = buildCommonParams(gameId, theme, extra);
 
-      function todayKey(){
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      }
+      params.forEach((value, key) => {
+        url.searchParams.set(key, value);
+      });
 
-      function buildGameUrl(key, overrides = {}) {
-        const game = GAME_META[key];
-        if (!game) return '#';
+      location.href = url.toString();
+    }
 
-        return buildZoneGameUrl({
-          basePath: game.path,
-          searchParams: qs,
-          zone: 'hygiene',
-          gameKey: key,
-          currentHref: location.href,
-          overrides: {
-            game: key,
-            gameId: key,
-            theme: key,
-            ...overrides
-          }
-        });
-      }
+    function openHandwashSuite(){
+      openGame(PATHS.handwashLauncher, 'handwash', 'handwash', {
+        time: q.get('time') || '90',
+        miniTime: q.get('miniTime') || '60'
+      });
+    }
 
-      function findRecentKey(){
-        const recent = readJson(STORAGE.recent, null);
-        if (recent?.key && GAME_META[recent.key]) return recent.key;
+    function openHandwashMain(){
+      openGame(PATHS.handwashMain, 'handwash', 'handwash', {
+        time: q.get('time') || '90',
+        miniTime: q.get('miniTime') || '60'
+      });
+    }
 
-        const summary =
-          readJson('HHA_LAST_SUMMARY', null) ||
-          readJson('HHA_LAST_SUMMARY_GLOBAL', null);
+    function goHub(){
+      location.href = new URL(PATHS.hub, current.href).toString();
+    }
 
-        const txt = JSON.stringify(summary || {}).toLowerCase();
+    document.getElementById('btn-featured-handwash').addEventListener('click', openHandwashSuite);
+    document.getElementById('btn-open-handwash').addEventListener('click', openHandwashSuite);
+    document.getElementById('btn-open-handwash-main').addEventListener('click', openHandwashMain);
 
-        if (txt.includes('handwash')) return 'handwash';
-        if (txt.includes('brush')) return 'brush';
-        if (txt.includes('germ')) return 'germdetective';
-        if (txt.includes('mask')) return 'maskcough';
-        if (txt.includes('clean')) return 'cleanobjects';
-        if (txt.includes('bath')) return 'bath';
+    document.getElementById('btn-open-germ').addEventListener('click', () => {
+      openGame(PATHS.germ, 'germ-detective', 'germ-detective', { time: q.get('time') || '90' });
+    });
 
-        return '';
-      }
+    document.getElementById('btn-open-mask').addEventListener('click', () => {
+      openGame(PATHS.mask, 'maskcough', 'maskcough', { time: q.get('time') || '90' });
+    });
 
-      function bindLink(id, key, overrides = {}) {
-        const el = $(id);
-        if (!el) return;
+    document.getElementById('btn-open-brush').addEventListener('click', () => {
+      openGame(PATHS.brush, 'brush', 'brush', { time: q.get('time') || '90' });
+    });
 
-        el.href = buildGameUrl(key, overrides);
-
-        if (!el.__bound) {
-          el.__bound = true;
-          el.addEventListener('click', () => {
-            rememberZoneGame({
-              zone: 'hygiene',
-              gameKey: key,
-              gameTitle: GAME_META[key].title
-            });
-          });
-        }
-      }
-
-      function patchHubLinks(){
-        const hubRoot = buildHubRoot(qs, location.href);
-
-        const btnBackHub = $('btnBackHub');
-        const btnOpenHub = $('btnOpenHub');
-        const btnSideHub = $('btnSideHub');
-
-        [btnOpenHub, btnSideHub].forEach((node) => {
-          if (node) node.href = hubRoot;
-        });
-
-        if (btnBackHub && !btnBackHub.__bound) {
-          btnBackHub.__bound = true;
-          btnBackHub.addEventListener('click', () => {
-            location.href = hubRoot;
-          });
-        }
-      }
-
-      function patchGameLinks(){
-        bindLink('btnHeroPlay', 'handwash');
-        bindLink('btnHeroQuick', 'handwash', { run:'play', time:'60' });
-        bindLink('btnHeroResearch', 'handwash', { run:'research' });
-
-        bindLink('btnMissionPlay', 'handwash');
-        bindLink('btnMissionQuick', 'handwash', { run:'play', time:'60' });
-        bindLink('btnMissionDemo', 'handwash', { run:'demo', diff:'easy', time:'60' });
-        bindLink('btnMissionResearch', 'handwash', { run:'research' });
-
-        bindLink('btnPlayHandwash', 'handwash');
-        bindLink('btnQuickHandwash', 'handwash', { run:'play', time:'60' });
-        bindLink('btnResearchHandwash', 'handwash', { run:'research' });
-
-        bindLink('btnPlayBrush', 'brush');
-        bindLink('btnQuickBrush', 'brush', { run:'play', time:'60' });
-        bindLink('btnResearchBrush', 'brush', { run:'research' });
-
-        bindLink('btnPlayGerm', 'germdetective');
-        bindLink('btnQuickGerm', 'germdetective', { run:'play', time:'60' });
-        bindLink('btnResearchGerm', 'germdetective', { run:'research' });
-
-        bindLink('btnPlayMaskCough', 'maskcough');
-        bindLink('btnQuickMaskCough', 'maskcough', { run:'play', time:'60' });
-        bindLink('btnResearchMaskCough', 'maskcough', { run:'research' });
-
-        bindLink('btnPlayCleanObjects', 'cleanobjects');
-        bindLink('btnQuickCleanObjects', 'cleanobjects', { run:'play', time:'60' });
-        bindLink('btnResearchCleanObjects', 'cleanobjects', { run:'research' });
-
-        bindLink('btnPlayBath', 'bath');
-        bindLink('btnQuickBath', 'bath', { run:'play', time:'60' });
-        bindLink('btnResearchBath', 'bath', { run:'research' });
-
-        bindLink('btnSidePlay', 'handwash');
-        bindLink('btnSideQuick', 'handwash', { run:'play', time:'60' });
-        bindLink('btnSideResearch', 'handwash', { run:'research' });
-
-        bindLink('btnLibraryPlay', 'handwash');
-        bindLink('btnLibraryQuick', 'handwash', { run:'play', time:'60' });
-      }
-
-      function renderRecent(){
-        const recentKey = findRecentKey();
-        const recentName = $('recentName');
-        const recentStripSub = $('recentStripSub');
-        const sideRecommendText = $('sideRecommendText');
-        const featuredName = $('featuredName');
-
-        if (!recentKey || !GAME_META[recentKey]) {
-          if (recentName) recentName.textContent = '-';
-          if (recentStripSub) recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Handwash ได้เลย';
-          if (featuredName) featuredName.textContent = 'Handwash';
-          if (sideRecommendText) sideRecommendText.textContent = 'เริ่มจาก Handwash แบบมาตรฐานได้เลย';
-          return;
-        }
-
-        const game = GAME_META[recentKey];
-        if (recentName) recentName.textContent = game.title;
-        if (recentStripSub) recentStripSub.textContent = `${game.title} ล่าสุด • พร้อมเล่นต่อได้ทันที`;
-        if (featuredName) featuredName.textContent = game.title;
-        if (sideRecommendText) sideRecommendText.textContent = `แนะนำให้เล่น ${game.title} ต่อ หรือเลือกเกมอื่นใน Hygiene Zone`;
-      }
-
-      function renderProgress(){
-        const played = readJson(STORAGE.played, []);
-        const daily = readJson(STORAGE.daily, {});
-        const day = todayKey();
-        const todayCount = Number(daily?.[day]?.count || 0);
-
-        const playedCount = $('playedCount');
-        const todayCountEl = $('todayCount');
-
-        if (playedCount) playedCount.textContent = `${Array.isArray(played) ? played.length : 0}/6`;
-        if (todayCountEl) todayCountEl.textContent = String(todayCount);
-      }
-
-      function makePickerItem({ key, title, badge, sub, playHref, quickHref, researchHref }) {
-        const wrap = document.createElement('div');
-        wrap.className = 'picker-item';
-
-        const actions = [
-          playHref ? `<a class="btn primary" href="${playHref}" data-zone-memory="hygiene" data-game-key="${key}" data-game-title="${title}">▶ Play</a>` : '',
-          quickHref ? `<a class="btn secondary" href="${quickHref}" data-zone-memory="hygiene" data-game-key="${key}" data-game-title="${title}">⚡ Quick</a>` : '',
-          researchHref ? `<a class="btn secondary" href="${researchHref}" data-zone-memory="hygiene" data-game-key="${key}" data-game-title="${title}">🧪 Research</a>` : ''
-        ].filter(Boolean).join('');
-
-        wrap.innerHTML = `
-          <div class="picker-head">
-            <div class="picker-title">${title}</div>
-            <span class="picker-badge">${badge}</span>
-          </div>
-          <div class="picker-sub">${sub}</div>
-          <div class="picker-actions">${actions}</div>
-        `;
-
-        wrap.querySelectorAll('[data-zone-memory="hygiene"]').forEach((node) => {
-          node.addEventListener('click', () => {
-            localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
-            rememberZoneGame({
-              zone: 'hygiene',
-              gameKey: node.dataset.gameKey,
-              gameTitle: node.dataset.gameTitle
-            });
-          });
-        });
-
-        return wrap;
-      }
-
-      function renderPicker(mode = 'all'){
-        const pickerList = $('pickerList');
-        if (!pickerList) return;
-
-        pickerList.innerHTML = '';
-
-        const allItems = [
-          {
-            key: 'handwash',
-            title: '🧼 Handwash',
-            badge: 'Featured',
-            sub: 'ฝึกล้างมือให้ถูกขั้นตอนและถูกส่วนของมือ',
-            playHref: buildGameUrl('handwash'),
-            quickHref: buildGameUrl('handwash', { run:'play', time:'60' }),
-            researchHref: buildGameUrl('handwash', { run:'research' })
-          },
-          {
-            key: 'brush',
-            title: '🪥 Brush',
-            badge: 'Tooth Care',
-            sub: 'ฝึกแปรงฟันให้ครบทุกบริเวณ',
-            playHref: buildGameUrl('brush'),
-            quickHref: buildGameUrl('brush', { run:'play', time:'60' }),
-            researchHref: buildGameUrl('brush', { run:'research' })
-          },
-          {
-            key: 'germdetective',
-            title: '🦠 Germ Detective',
-            badge: 'Detective',
-            sub: 'ตามหาเชื้อโรคและเรียนรู้การป้องกัน',
-            playHref: buildGameUrl('germdetective'),
-            quickHref: buildGameUrl('germdetective', { run:'play', time:'60' }),
-            researchHref: buildGameUrl('germdetective', { run:'research' })
-          },
-          {
-            key: 'maskcough',
-            title: '😷 MaskCough',
-            badge: 'Safety',
-            sub: 'ฝึกไอจามและใช้หน้ากากอย่างเหมาะสม',
-            playHref: buildGameUrl('maskcough'),
-            quickHref: buildGameUrl('maskcough', { run:'play', time:'60' }),
-            researchHref: buildGameUrl('maskcough', { run:'research' })
-          },
-          {
-            key: 'cleanobjects',
-            title: '🧽 Clean Objects',
-            badge: 'Cleaning',
-            sub: 'ฝึกทำความสะอาดสิ่งของในชีวิตประจำวัน',
-            playHref: buildGameUrl('cleanobjects'),
-            quickHref: buildGameUrl('cleanobjects', { run:'play', time:'60' }),
-            researchHref: buildGameUrl('cleanobjects', { run:'research' })
-          },
-          {
-            key: 'bath',
-            title: '🛁 Bath',
-            badge: 'Body Care',
-            sub: 'ฝึกขั้นตอนการอาบน้ำและดูแลร่างกาย',
-            playHref: buildGameUrl('bath'),
-            quickHref: buildGameUrl('bath', { run:'play', time:'60' }),
-            researchHref: buildGameUrl('bath', { run:'research' })
-          }
-        ];
-
-        let items = allItems;
-
-        if (mode === 'recommended') {
-          items = [allItems[0]];
-        } else if (mode === 'recent') {
-          const recentKey = findRecentKey();
-          const found = allItems.find((x) => x.key === recentKey);
-          items = found ? [found] : [allItems[0]];
-        }
-
-        items.forEach((item) => pickerList.appendChild(makePickerItem(item)));
-      }
-
-      function openPicker(mode = 'all'){
-        const gamePicker = $('gamePicker');
-        if (!gamePicker) return;
-        renderPicker(mode);
-        gamePicker.classList.add('show');
-        gamePicker.setAttribute('aria-hidden', 'false');
-      }
-
-      function closePicker(){
-        const gamePicker = $('gamePicker');
-        if (!gamePicker) return;
-        gamePicker.classList.remove('show');
-        gamePicker.setAttribute('aria-hidden', 'true');
-      }
-
-      function bindModal(){
-        ['btnOpenPicker','btnOpenPickerInline','btnOpenPickerSide'].forEach((id) => {
-          const btn = $(id);
-          if (!btn || btn.__bound) return;
-          btn.__bound = true;
-          btn.addEventListener('click', () => openPicker('all'));
-        });
-
-        const pickerShowRecommended = $('pickerShowRecommended');
-        if (pickerShowRecommended && !pickerShowRecommended.__bound) {
-          pickerShowRecommended.__bound = true;
-          pickerShowRecommended.addEventListener('click', () => renderPicker('recommended'));
-        }
-
-        const pickerShowRecent = $('pickerShowRecent');
-        if (pickerShowRecent && !pickerShowRecent.__bound) {
-          pickerShowRecent.__bound = true;
-          pickerShowRecent.addEventListener('click', () => renderPicker('recent'));
-        }
-
-        const pickerShowAllModes = $('pickerShowAllModes');
-        if (pickerShowAllModes && !pickerShowAllModes.__bound) {
-          pickerShowAllModes.__bound = true;
-          pickerShowAllModes.addEventListener('click', () => renderPicker('all'));
-        }
-
-        document.querySelectorAll('[data-close-picker]').forEach((node) => {
-          if (node.__bound) return;
-          node.__bound = true;
-          node.addEventListener('click', closePicker);
-        });
-
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') closePicker();
-        });
-      }
-
-      function refreshZoneUi(){
-        renderRecent();
-        renderProgress();
-        renderPicker('all');
-      }
-
-      function boot(){
-        patchHubLinks();
-        patchGameLinks();
-        renderRecent();
-        renderProgress();
-        bindModal();
-        renderPicker('all');
-
-        window.addEventListener('focus', refreshZoneUi);
-        document.addEventListener('visibilitychange', () => {
-          if (!document.hidden) refreshZoneUi();
-        });
-      }
-
-      boot();
-    })();
+    document.getElementById('btn-back-hub').addEventListener('click', goHub);
   </script>
 </body>
 </html>
