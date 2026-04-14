@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Shadow Breaker v1 Summary</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#dff4ff;
+      --bg2:#eefcff;
+      --bg3:#fff7da;
+
+      --card:#fffdf6;
+      --card2:#f8fff3;
+      --line:#bfe3f2;
+      --line-strong:#98d4ec;
+
+      --text:#4d4a42;
+      --muted:#7b7a72;
+
+      --green:#7ed957;
+      --green2:#58c33f;
+      --yellow:#ffd45c;
+      --yellow2:#ffbe3b;
+
+      --shadow:0 18px 40px rgba(111,157,183,.16);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
+      background:
+        radial-gradient(circle at 12% 14%, rgba(127,207,255,.34), transparent 28%),
+        radial-gradient(circle at 88% 10%, rgba(255,220,120,.22), transparent 24%),
+        linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 48%, var(--bg3) 100%);
+      color:var(--text);
+    }
+
+    a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; }
+
+    .wrap{
+      max-width:980px;
+      margin:0 auto;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(20px + var(--sab))
+        calc(14px + var(--sal));
+      min-height:100vh;
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+
+    .topBtn,.topPill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:16px;
+      background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+      color:var(--text);
+      box-shadow:var(--shadow);
+      font-weight:1000;
+    }
+
+    .topPill{
+      border-radius:999px;
+      color:#5f7b88;
+    }
+
+    .hero{
+      border-radius:28px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, var(--card), var(--card2));
+      box-shadow:var(--shadow);
+      padding:18px;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      right:-20px;
+      top:-20px;
+      width:180px;
+      height:180px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,217,106,.35), transparent 65%);
+      pointer-events:none;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid var(--line);
+      color:#5f7b88;
+      font-size:.82rem;
+      font-weight:1000;
+      position:relative;
+      z-index:1;
+    }
+
+    h1{
+      margin:12px 0 6px;
+      font-size:clamp(1.8rem, 5vw, 2.8rem);
+      line-height:1.02;
+      color:#4f8f2c;
+      position:relative;
+      z-index:1;
+    }
+
+    .sub{
+      color:#786c61;
+      line-height:1.55;
+      font-size:1rem;
+      font-weight:800;
+      position:relative;
+      z-index:1;
+    }
+
+    .hero-badge{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:88px 1fr;
+      gap:14px;
+      align-items:center;
+      padding:14px;
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.76);
+      box-shadow:0 10px 18px rgba(111,157,183,.08);
+      position:relative;
+      z-index:1;
+    }
+
+    .badge-icon{
+      width:88px;
+      height:88px;
+      border-radius:26px;
+      display:grid;
+      place-items:center;
+      font-size:2.4rem;
+      background:linear-gradient(180deg, #fff8d8, #ffe79b);
+      border:1px solid #f6d97a;
+      box-shadow:0 10px 18px rgba(244,187,57,.16);
+    }
+
+    .badge-title{
+      font-size:1.08rem;
+      font-weight:1000;
+      color:#5a4a3f;
+    }
+
+    .badge-desc{
+      margin-top:4px;
+      color:#786c61;
+      line-height:1.5;
+      font-weight:800;
+    }
+
+    .hero-message{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:linear-gradient(180deg, #dff4ff, #eefcff);
+      border:1px solid #bfe3f2;
+      color:#5b6670;
+      line-height:1.55;
+      font-weight:900;
+      position:relative;
+      z-index:1;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .stat{
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.78);
+      box-shadow:0 10px 18px rgba(111,157,183,.08);
+      padding:12px;
+      text-align:center;
+    }
+
+    .stat-k{
+      font-size:.8rem;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+
+    .stat-v{
+      margin-top:6px;
+      font-size:1.18rem;
+      color:#5a4a3f;
+      font-weight:1000;
+    }
+
+    .section{
+      margin-top:14px;
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, var(--card), var(--card2));
+      box-shadow:var(--shadow);
+      padding:14px;
+    }
+
+    .section-title{
+      font-size:1rem;
+      font-weight:1000;
+      color:#5a4a3f;
+      margin-bottom:10px;
+    }
+
+    .summary-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .summary-item{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      padding:12px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.76);
+    }
+
+    .summary-item .label{
+      color:#746d66;
+      font-weight:900;
+      font-size:.92rem;
+      line-height:1.4;
+    }
+
+    .summary-item .value{
+      color:#5a4a3f;
+      font-weight:1000;
+      font-size:.94rem;
+      text-align:right;
+      line-height:1.4;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:46px;
+      padding:10px 14px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:0 10px 18px rgba(111,157,183,.12);
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg, var(--green), var(--green2));
+      border-color:#74c864;
+      color:#fffdf6;
+    }
+
+    .btn.yellow{
+      background:linear-gradient(180deg, #ffd96a, #ffbe3b);
+      border-color:#f4bb39;
+      color:#6a4a00;
+    }
+
+    .btn.ghost{
+      background:linear-gradient(180deg, #eef9ff, #e3f5ff);
+      color:#5d6a70;
+    }
+
+    .empty{
+      margin-top:14px;
+      padding:16px;
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.82);
+      color:#6f6d66;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .footnote{
+      margin-top:12px;
+      color:#7b7a72;
+      font-size:.84rem;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    @media (max-width:900px){
+      .grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width:640px){
+      .wrap{
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(16px + var(--sab))
+          calc(10px + var(--sal));
+      }
+
+      .topbar{ align-items:stretch; }
+      .topBtn,.topPill,.btn{ width:100%; }
+
+      .hero-badge{
+        grid-template-columns:1fr;
+        text-align:center;
+      }
+
+      .badge-icon{ margin:0 auto; }
+      .grid{ grid-template-columns:1fr 1fr; }
+
+      .summary-item{
+        flex-direction:column;
+      }
+
+      .summary-item .value{
+        text-align:left;
+      }
+
+      .actions{ flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <a id="btnBackHubTop" class="topBtn" href="./hub.html">← กลับ HUB</a>
+      <div class="topPill">Shadow Breaker v1 • Summary</div>
+    </div>
+
+    <section class="hero">
+      <div class="kicker">HeroHealth • Exercise Zone</div>
+      <h1>สรุปผล Shadow Breaker v1</h1>
+      <div class="sub">ดูผลรอบล่าสุด เก็บกำลังใจ แล้วค่อยลุยรอบต่อไปกัน</div>
+
+      <div class="hero-badge">
+        <div id="badgeIcon" class="badge-icon">🏅</div>
+        <div>
+          <div id="badgeTitle" class="badge-title">Shadow Starter</div>
+          <div id="badgeDesc" class="badge-desc">เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
+        </div>
+      </div>
+
+      <div id="heroMessage" class="hero-message">
+        เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ
+      </div>
+
+      <div class="grid">
+        <div class="stat"><div class="stat-k">เวลา</div><div id="statTime" class="stat-v">0 วินาที</div></div>
+        <div class="stat"><div class="stat-k">คะแนน</div><div id="statScore" class="stat-v">0</div></div>
+        <div class="stat"><div class="stat-k">ความแม่นยำ</div><div id="statAcc" class="stat-v">0%</div></div>
+        <div class="stat"><div class="stat-k">เกรด</div><div id="statGrade" class="stat-v">C</div></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">รายละเอียดรอบล่าสุด</div>
+      <div class="summary-list">
+        <div class="summary-item"><div class="label">PID</div><div id="detailPid" class="value">-</div></div>
+        <div class="summary-item"><div class="label">โหมด</div><div id="detailMode" class="value">-</div></div>
+        <div class="summary-item"><div class="label">ระดับความท้าทาย</div><div id="detailDiff" class="value">-</div></div>
+        <div class="summary-item"><div class="label">คอมโบสูงสุด</div><div id="detailCombo" class="value">0</div></div>
+        <div class="summary-item"><div class="label">จำนวนพลาด</div><div id="detailMiss" class="value">0</div></div>
+        <div class="summary-item"><div class="label">บอสที่ผ่าน</div><div id="detailBosses" class="value">0</div></div>
+        <div class="summary-item"><div class="label">บอสที่ไปถึงไกลสุด</div><div id="detailBestBoss" class="value">-</div></div>
+        <div class="summary-item"><div class="label">จบด่านที่</div><div id="detailPhase" class="value">1</div></div>
+        <div class="summary-item"><div class="label">เหตุผลที่จบเกม</div><div id="detailEndReason" class="value">-</div></div>
+        <div class="summary-item"><div class="label">เวลาเล่นที่ตั้งไว้</div><div id="detailTimeSec" class="value">0 วินาที</div></div>
+      </div>
+
+      <div class="actions">
+        <a id="btnReplay" class="btn primary" href="./shadow-breaker-v1.html">▶ เล่นอีกครั้ง</a>
+        <a id="btnBackHub" class="btn yellow" href="./hub.html">← กลับ HUB</a>
+        <button id="btnReload" class="btn ghost" type="button">รีโหลดข้อมูล</button>
+      </div>
+
+      <div class="footnote">
+        หน้านี้จะอ่านผลล่าสุดของ Shadow Breaker v1 จากเครื่องนี้ก่อน ถ้ายังไม่พบข้อมูล อาจเพิ่งยังไม่เคยจบรอบ หรือ localStorage ถูกล้าง
+      </div>
+    </section>
+
+    <div id="emptyBox" class="empty" style="display:none;">
+      ยังไม่พบสรุปผลล่าสุดของ Shadow Breaker v1 ในเครื่องนี้<br>
+      ลองกลับไปเล่นเกมให้จบรอบก่อน แล้วค่อยกลับมาดูอีกครั้ง
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const $ = (s)=>document.querySelector(s);
+
+      const els = {
+        btnBackHubTop: $('#btnBackHubTop'),
+        btnBackHub: $('#btnBackHub'),
+        btnReplay: $('#btnReplay'),
+        btnReload: $('#btnReload'),
+
+        badgeIcon: $('#badgeIcon'),
+        badgeTitle: $('#badgeTitle'),
+        badgeDesc: $('#badgeDesc'),
+        heroMessage: $('#heroMessage'),
+
+        statTime: $('#statTime'),
+        statScore: $('#statScore'),
+        statAcc: $('#statAcc'),
+        statGrade: $('#statGrade'),
+
+        detailPid: $('#detailPid'),
+        detailMode: $('#detailMode'),
+        detailDiff: $('#detailDiff'),
+        detailCombo: $('#detailCombo'),
+        detailMiss: $('#detailMiss'),
+        detailBosses: $('#detailBosses'),
+        detailBestBoss: $('#detailBestBoss'),
+        detailPhase: $('#detailPhase'),
+        detailEndReason: $('#detailEndReason'),
+        detailTimeSec: $('#detailTimeSec'),
+
+        emptyBox: $('#emptyBox')
+      };
+
+      function qs(k, d=''){
+        try{
+          const v = new URL(location.href).searchParams.get(k);
+          return v == null ? d : v;
+        }catch(_){
+          return d;
+        }
+      }
+
+      function safeJsonParse(raw){
+        try{ return JSON.parse(raw); }
+        catch(_){ return null; }
+      }
+
+      function loadSummary(){
+        const pid = String(qs('pid','')).trim() || 'anon';
+
+        const keys = [
+          'HHA_LAST_SUMMARY',
+          `HHA_LAST_SUMMARY:shadow-breaker-v1:${pid}`,
+          `SBV1_LAST_SUMMARY:${pid}`
+        ];
+
+        for (const key of keys){
+          try{
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            const data = safeJsonParse(raw);
+            if (data && String(data.game || '').toLowerCase() === 'shadow-breaker-v1') return data;
+            if (data && key !== 'HHA_LAST_SUMMARY') return data;
+          }catch(_){}
+        }
+
+        return null;
+      }
+
+      function textMode(mode){
+        return String(mode || '').toLowerCase() === 'research' ? 'โหมดวิจัย' : 'โหมดเด็ก';
+      }
+
+      function textEndReason(reason){
+        const r = String(reason || '').toLowerCase();
+        if (r === 'final_clear') return 'ชนะบอสสุดท้าย';
+        if (r === 'time_up') return 'หมดเวลา';
+        if (r === 'hp_zero') return 'พลังหมด';
+        if (r === 'ended') return 'จบรอบ';
+        if (r === 'manual_export') return 'บันทึกด้วยตนเอง';
+        return reason || '-';
+      }
+
+      function buildHeroMessage(summary){
+        const bosses = Number(summary?.bossesCleared || 0);
+        const endReason = String(summary?.end_reason || '').toLowerCase();
+
+        if (endReason === 'final_clear') return 'สุดยอดมาก! ผ่านบอสสุดท้ายแล้ว หนูเป็นฮีโร่ของวันนี้ 🎉';
+        if (bosses >= 3) return 'เก่งมาก ไปได้ไกลมากแล้ว อีกนิดเดียวก็ถึงบอสสุดท้าย';
+        if (bosses >= 1) return 'ยอดเยี่ยม ผ่านบอสได้แล้ว ลองอีกครั้งเพื่อไปต่อให้ไกลขึ้น';
+        return 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ';
+      }
+
+      function buildReplayHref(summary){
+        const hub = String(qs('hub','') || summary?.hub || './hub.html');
+        const url = new URL('./shadow-breaker-v1.html', location.href);
+
+        url.searchParams.set('pid', String(summary?.pid || qs('pid','anon') || 'anon'));
+        url.searchParams.set('diff', String(summary?.diff || qs('diff','normal') || 'normal'));
+        url.searchParams.set('time', String(summary?.timeSec || qs('time','70') || '70'));
+        url.searchParams.set('mode', String(summary?.mode || qs('mode','normal') || 'normal'));
+        url.searchParams.set('view', String(summary?.view || qs('view','mobile') || 'mobile'));
+        url.searchParams.set('hub', hub);
+
+        if (summary?.studyId) url.searchParams.set('studyId', String(summary.studyId));
+        if (summary?.group) url.searchParams.set('group', String(summary.group));
+        if (summary?.conditionGroup) url.searchParams.set('conditionGroup', String(summary.conditionGroup));
+
+        return url.toString();
+      }
+
+      function applyLinks(summary){
+        const hub = String(qs('hub','') || summary?.hub || './hub.html');
+        if (els.btnBackHubTop) els.btnBackHubTop.href = hub;
+        if (els.btnBackHub) els.btnBackHub.href = hub;
+        if (els.btnReplay) els.btnReplay.href = buildReplayHref(summary);
+      }
+
+      function render(summary){
+        if (!summary){
+          els.emptyBox.style.display = '';
+          return;
+        }
+
+        els.emptyBox.style.display = 'none';
+
+        els.badgeIcon.textContent = summary?.badge?.icon || '🏅';
+        els.badgeTitle.textContent = summary?.badge?.title || 'Shadow Starter';
+        els.badgeDesc.textContent = summary?.badge?.desc || 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
+        els.heroMessage.textContent = buildHeroMessage(summary);
+
+        els.statTime.textContent = `${Number(summary?.elapsedSec || 0).toFixed(1)} วินาที`;
+        els.statScore.textContent = String(summary?.scoreFinal || 0);
+        els.statAcc.textContent = `${Number(summary?.accPct || 0).toFixed(1)}%`;
+        els.statGrade.textContent = String(summary?.grade || 'C');
+
+        els.detailPid.textContent = String(summary?.pid || '-');
+        els.detailMode.textContent = textMode(summary?.mode);
+        els.detailDiff.textContent = String(summary?.diff || '-');
+        els.detailCombo.textContent = String(summary?.comboMax || 0);
+        els.detailMiss.textContent = String(summary?.missTotal || 0);
+        els.detailBosses.textContent = String(summary?.bossesCleared || 0);
+        els.detailBestBoss.textContent = String(summary?.bestReachedBoss || '-');
+        els.detailPhase.textContent = String(summary?.phaseFinal || 1);
+        els.detailEndReason.textContent = textEndReason(summary?.end_reason);
+        els.detailTimeSec.textContent = `${Number(summary?.timeSec || 0)} วินาที`;
+
+        applyLinks(summary);
+      }
+
+      function boot(){
+        const summary = loadSummary();
+        render(summary);
+      }
+
+      els.btnReload?.addEventListener('click', boot);
+      boot();
+    })();
+  </script>
+</body>
+</html>
