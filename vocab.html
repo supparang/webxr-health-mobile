@@ -645,6 +645,17 @@ function renderBackground(t){
   function openHistory(){ renderHistory(); document.getElementById('historyWrap').classList.remove('hidden'); }
   function closeHistory(){ document.getElementById('historyWrap').classList.add('hidden'); }
 
+
+  function on(id, eventName, handler){
+    const el = document.getElementById(id);
+    if(!el){
+      console.warn('Missing element id:', id);
+      return null;
+    }
+    el.addEventListener(eventName, handler);
+    return el;
+  }
+
   document.querySelectorAll('.bankBtn').forEach(btn=>btn.addEventListener('click',()=>{
     bank = btn.dataset.bank;
     document.querySelectorAll('.bankBtn').forEach(b=>b.classList.toggle('active', b===btn));
@@ -655,26 +666,26 @@ function renderBackground(t){
     document.querySelectorAll('.modeBtn').forEach(b=>b.classList.toggle('active', b===btn));
     updateBestChip();
   }));
-  document.getElementById('startBtn').addEventListener('click', startGame);
-  document.getElementById('howBtn').addEventListener('click',()=>{
+  on('startBtn','click', startGame);
+  on('howBtn','click',()=>{
     document.getElementById('helpText').textContent = 'เล่น 14 ด่านต่อ run • ถ้าตอบผิด คำนั้นมีโอกาสถูกเรียกกลับมาอีกในช่วงท้าย • จบแล้วเปิด dashboard ดู weakest term ได้';
   });
-  document.getElementById('dashboardBtn').addEventListener('click', openDashboard);
-  document.getElementById('closeDashBtn').addEventListener('click', closeDashboard);
-  document.getElementById('historyBtn').addEventListener('click', openHistory);
-  document.getElementById('closeHistoryBtn').addEventListener('click', closeHistory);
-  document.getElementById('clearHistoryBtn').addEventListener('click',()=>{ localStorage.removeItem(STORAGE.sessions); renderHistory(); });
-  document.getElementById('clearDataBtn').addEventListener('click',()=>{
+  on('dashboardBtn','click', openDashboard);
+  on('closeDashBtn','click', closeDashboard);
+  on('historyBtn','click', openHistory);
+  on('closeHistoryBtn','click', closeHistory);
+  on('clearHistoryBtn','click',()=>{ localStorage.removeItem(STORAGE.sessions); renderHistory(); });
+  on('clearDataBtn','click',()=>{
     localStorage.removeItem(STORAGE.teacher);
     localStorage.removeItem(STORAGE.sessions);
     localStorage.removeItem(bestKey());
     renderDashboard(); renderHistory(); updateBestChip();
   });
   els.replayFloating.addEventListener('click', startGame);
-  document.getElementById('downloadJsonBtn').addEventListener('click',()=>{ download('teacher_summary_v7.json', exportJson(), 'application/json'); els.exportStatus.textContent='Downloaded JSON'; });
-  document.getElementById('downloadCsvBtn').addEventListener('click',()=>{ download('teacher_summary_v7.csv', exportCsv(), 'text/csv'); els.exportStatus.textContent='Downloaded CSV'; });
-  document.getElementById('copyJsonBtn').addEventListener('click', async()=>{ const ok=await copyText(exportJson()); els.exportStatus.textContent = ok?'Copied JSON':'Copy JSON failed'; });
-  document.getElementById('copyCsvBtn').addEventListener('click', async()=>{ const ok=await copyText(exportCsv()); els.exportStatus.textContent = ok?'Copied CSV':'Copy CSV failed'; });
+  on('downloadJsonBtn','click',()=>{ download('teacher_summary_v7.json', exportJson(), 'application/json'); els.exportStatus.textContent='Downloaded JSON'; });
+  on('downloadCsvBtn','click',()=>{ download('teacher_summary_v7.csv', exportCsv(), 'text/csv'); els.exportStatus.textContent='Downloaded CSV'; });
+  on('copyJsonBtn','click', async()=>{ const ok=await copyText(exportJson()); els.exportStatus.textContent = ok?'Copied JSON':'Copy JSON failed'; });
+  on('copyCsvBtn','click', async()=>{ const ok=await copyText(exportCsv()); els.exportStatus.textContent = ok?'Copied CSV':'Copy CSV failed'; });
 
   canvas.addEventListener('mousemove', e=>pointerMove(e.clientX,e.clientY));
   canvas.addEventListener('mousedown', e=>pointerFire(e.clientX,e.clientY));
