@@ -29,18 +29,22 @@
       --sal:env(safe-area-inset-left,0px);
     }
 
-    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+      touch-action:manipulation;
+    }
 
     html,body{
       margin:0;
       min-height:100%;
+      overflow:hidden;
       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 12% 10%, rgba(255,255,255,.90), transparent 18%),
-        radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
         linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
-      overflow:hidden;
     }
 
     body{ min-height:100dvh; }
@@ -67,6 +71,7 @@
         84px 6px 0 0 rgba(255,255,255,.36);
       pointer-events:none;
       animation:floatCloud linear infinite;
+      z-index:0;
     }
 
     .cloud.c1{ width:120px; height:34px; left:6%; top:11%; animation-duration:28s; }
@@ -80,7 +85,9 @@
 
     #hud{
       position:absolute;
-      left:0; right:0; top:0;
+      left:0;
+      right:0;
+      top:0;
       z-index:30;
       padding:
         calc(10px + var(--sat))
@@ -94,7 +101,7 @@
 
     .hud-row{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      grid-template-columns:repeat(5,minmax(0,1fr));
       gap:8px;
       align-items:center;
     }
@@ -114,6 +121,9 @@
       text-align:center;
       padding:8px 10px;
       pointer-events:auto;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     .banner{
@@ -152,12 +162,16 @@
 
     #ground{
       position:absolute;
-      left:0; right:0; bottom:0;
+      left:0;
+      right:0;
+      bottom:0;
       height:16%;
       background:
         linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,0) 22%),
         linear-gradient(180deg,#94e462,#67c94c);
       box-shadow:inset 0 4px 0 rgba(255,255,255,.24);
+      z-index:1;
+      pointer-events:none;
     }
 
     .item{
@@ -173,7 +187,7 @@
       user-select:none;
       -webkit-user-select:none;
       cursor:pointer;
-      touch-action:manipulation;
+      z-index:8;
     }
 
     .item.good{
@@ -194,7 +208,9 @@
 
     .item .label{
       position:absolute;
-      left:0; right:0; bottom:6px;
+      left:0;
+      right:0;
+      bottom:6px;
       text-align:center;
       font-size:10px;
       font-weight:1000;
@@ -220,7 +236,9 @@
 
     #controls{
       position:absolute;
-      left:0; right:0; bottom:0;
+      left:0;
+      right:0;
+      bottom:0;
       z-index:32;
       padding:
         10px
@@ -256,6 +274,7 @@
     }
 
     #pauseOverlay,
+    #waitingOverlay,
     #summaryOverlay{
       position:absolute;
       inset:0;
@@ -268,6 +287,7 @@
     }
 
     #pauseOverlay.show,
+    #waitingOverlay.show,
     #summaryOverlay.show{
       display:grid;
     }
@@ -283,20 +303,23 @@
       color:#5c5850;
     }
 
-    .pause-card{
-      width:min(88vw,420px);
+    .pause-card,
+    .wait-card{
+      width:min(88vw,460px);
       padding:20px 18px;
       text-align:center;
     }
 
-    .pause-title{
+    .pause-title,
+    .wait-title{
       font-size:28px;
       line-height:1.06;
       font-weight:1000;
       color:#67a91c;
     }
 
-    .pause-sub{
+    .pause-sub,
+    .wait-sub{
       margin-top:8px;
       font-size:14px;
       line-height:1.6;
@@ -304,13 +327,15 @@
       font-weight:900;
     }
 
-    .pause-actions{
+    .pause-actions,
+    .wait-actions{
       margin-top:16px;
       display:grid;
       gap:10px;
     }
 
-    .pause-btn{
+    .pause-btn,
+    .wait-btn{
       min-height:46px;
       border:none;
       border-radius:18px;
@@ -324,7 +349,8 @@
       color:#173b0b;
     }
 
-    .pause-btn.hub{
+    .pause-btn.hub,
+    .wait-btn.soft{
       background:#fff;
       border:3px solid #d7edf7;
       color:#6b665e;
@@ -472,10 +498,6 @@
       color:#645f57;
     }
 
-    .hidden{
-      display:none !important;
-    }
-
     @media (max-width:760px){
       .hud-row{
         grid-template-columns:repeat(3,minmax(0,1fr));
@@ -485,10 +507,6 @@
         min-height:36px;
         font-size:11px;
         padding:6px 8px;
-      }
-
-      #controls{
-        justify-content:flex-end;
       }
 
       .ctl{
@@ -535,6 +553,7 @@
     <div id="hud">
       <div class="hud-row">
         <div class="pill" id="pillMode">🤝 DUET</div>
+        <div class="pill" id="pillPlayer">PLAYER • Hero</div>
         <div class="pill" id="pillScore">Score • 0</div>
         <div class="pill" id="pillTime">Time • 1:30</div>
         <div class="pill" id="pillMiss">Miss • 0</div>
@@ -556,7 +575,19 @@
         <div class="pause-sub">เกมหยุดไว้ชั่วคราว กดเล่นต่อได้เลยเมื่อพร้อม</div>
         <div class="pause-actions">
           <button class="pause-btn resume" id="btnResume" type="button">▶️ เล่นต่อ</button>
-          <button class="pause-btn hub" id="btnPauseHub" type="button">🏠 กลับ Hub</button>
+          <button class="pause-btn hub" id="btnPauseHub" type="button">🏠 กลับ Lobby</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="waitingOverlay">
+      <div class="dialog wait-card">
+        <div class="wait-title">กำลังรวมคะแนนทีม…</div>
+        <div class="wait-sub" id="waitText">
+          ส่งผลของเราแล้ว รออีกเครื่องและกำลังสร้างสรุปทีมกลางของห้อง
+        </div>
+        <div class="wait-actions">
+          <button class="wait-btn soft" id="btnWaitLobby" type="button">🏠 กลับ Lobby</button>
         </div>
       </div>
     </div>
@@ -567,29 +598,29 @@
           <div class="summary-medal" id="sumMedal">🥈</div>
           <div class="summary-grade grade-b" id="sumGrade">B</div>
           <div class="summary-title" id="sumTitle">ดีมาก!</div>
-          <div class="summary-sub" id="sumSub">จบเกมแล้ว มาดูผลงานรอบนี้กัน</div>
+          <div class="summary-sub" id="sumSub">จบเกมแล้ว มาดูผลงานของทีมกัน</div>
           <div class="summary-star">⭐</div>
         </div>
 
         <div class="summary-grid">
           <div class="sum-card">
-            <div class="sum-k">คะแนน</div>
+            <div class="sum-k">คะแนนทีม</div>
             <div class="sum-v" id="sumScore">0</div>
           </div>
           <div class="sum-card">
-            <div class="sum-k">เกรด</div>
+            <div class="sum-k">เกรดทีม</div>
             <div class="sum-v" id="sumGradeText">B</div>
           </div>
           <div class="sum-card">
-            <div class="sum-k">เก็บ good</div>
+            <div class="sum-k">เก็บ good รวม</div>
             <div class="sum-v" id="sumGood">0</div>
           </div>
           <div class="sum-card">
-            <div class="sum-k">โดน junk / miss</div>
+            <div class="sum-k">โดน junk / miss รวม</div>
             <div class="sum-v" id="sumMiss">0</div>
           </div>
           <div class="sum-card">
-            <div class="sum-k">คอมโบสูงสุด</div>
+            <div class="sum-k">คอมโบสูงสุดของทีม</div>
             <div class="sum-v small" id="sumBest">0</div>
           </div>
           <div class="sum-card">
@@ -598,10 +629,10 @@
           </div>
         </div>
 
-        <div class="summary-note" id="sumNote">สู้ต่อได้อีก! รอบหน้าลองพลาดให้น้อยลง</div>
+        <div class="summary-note" id="sumNote">ช่วยกันได้ดีมาก รอบหน้าลองหลบ junk ให้มากขึ้น</div>
 
         <div class="summary-actions">
-          <button class="summary-btn replay" id="btnReplay" type="button">🔁 เล่นอีกครั้ง</button>
+          <button class="summary-btn replay" id="btnReplay" type="button">🔁 กลับ Lobby</button>
           <button class="summary-btn hub" id="btnHub" type="button">🏠 กลับ Hub</button>
         </div>
       </div>
@@ -614,24 +645,23 @@
       'use strict';
 
       const qs = new URLSearchParams(location.search);
+      const boot = window.HHA_DUET_ROOM_BOOT || null;
       const DEBUG = qs.get('debug') === '1';
-      const roomBoot = window.HHA_DUET_ROOM_BOOT || null;
+
+      const GOOD = ['🍎','🍌','🍉','🥕','🥦','🍇','🍍','🐟','🥛'];
+      const JUNK = ['🍔','🍟','🍩','🍭','🥤','🍕','🧁','🍫'];
 
       const ctx = {
         pid: String(qs.get('pid') || 'anon').trim(),
         name: String(qs.get('name') || qs.get('nick') || 'Hero').trim(),
-        roomId: String(qs.get('roomId') || qs.get('room') || '').trim(),
         role: String(qs.get('role') || '').trim().toLowerCase(),
-        mode: 'DUET',
+        roomId: String(qs.get('roomId') || qs.get('room') || '').trim().toUpperCase(),
+        matchId: String(qs.get('matchId') || '').trim(),
         diff: String(qs.get('diff') || 'normal').trim().toLowerCase(),
         timeSec: Math.max(30, Number(qs.get('time') || 90)),
         hub: String(qs.get('hub') || '../hub-v2.html').trim(),
-        runtimePath: './goodjunk-duet-runtime.html',
         lobbyPath: './goodjunk-duet-lobby.html'
       };
-
-      const GOOD = ['🍎','🍌','🍉','🥕','🥦','🍇','🍍','🐟','🥛'];
-      const JUNK = ['🍔','🍟','🍩','🍭','🥤','🍕','🧁','🍫'];
 
       const DIFF = {
         easy:   { spawnMs: 980, speedMin: 72,  speedMax: 118, goodChance: 0.78 },
@@ -644,6 +674,7 @@
       const ui = {
         arena: document.getElementById('arena'),
         pillMode: document.getElementById('pillMode'),
+        pillPlayer: document.getElementById('pillPlayer'),
         pillScore: document.getElementById('pillScore'),
         pillTime: document.getElementById('pillTime'),
         pillMiss: document.getElementById('pillMiss'),
@@ -655,6 +686,9 @@
         btnPauseHub: document.getElementById('btnPauseHub'),
 
         pauseOverlay: document.getElementById('pauseOverlay'),
+        waitingOverlay: document.getElementById('waitingOverlay'),
+        waitText: document.getElementById('waitText'),
+        btnWaitLobby: document.getElementById('btnWaitLobby'),
 
         summaryOverlay: document.getElementById('summaryOverlay'),
         sumMedal: document.getElementById('sumMedal'),
@@ -673,19 +707,21 @@
       };
 
       const state = {
-        matchId: String(qs.get('matchId') || '').trim(),
         running: false,
         paused: false,
         ended: false,
         summaryShown: false,
-        finishBusy: false,
-        roomSummaryUnsub: function(){},
+        publishStarted: false,
+        finalized: false,
+        waitingVisible: false,
+        finalSummaryUnsub: function(){},
         lastTs: 0,
         spawnAcc: 0,
         timeLeftMs: ctx.timeSec * 1000,
         raf: 0,
         seq: 0,
         items: new Map(),
+
         score: 0,
         miss: 0,
         good: 0,
@@ -697,6 +733,14 @@
       function dlog() {
         if (!DEBUG) return;
         try { console.log('[GJ-DUET-RUNTIME]', ...arguments); } catch (_) {}
+      }
+
+      function now() {
+        return Date.now();
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
       }
 
       function clamp(v, a, b) {
@@ -716,8 +760,36 @@
         }, ms);
       }
 
+      function arenaRect() {
+        return ui.arena.getBoundingClientRect();
+      }
+
+      function buildLobbyUrl() {
+        const url = new URL(ctx.lobbyPath, location.href);
+        const passthrough = [
+          'pid','name','nick','studyId','hub','zone','cat','game','gameId',
+          'theme','run','view','diff','time','seed','api','log','debug'
+        ];
+
+        passthrough.forEach((k) => {
+          const v = qs.get(k);
+          if (v != null && v !== '') url.searchParams.set(k, v);
+        });
+
+        url.searchParams.set('roomId', ctx.roomId || (boot ? boot.getRoomId() : ''));
+        url.searchParams.set('room', ctx.roomId || (boot ? boot.getRoomId() : ''));
+        url.searchParams.set('mode', 'duet');
+        url.searchParams.set('entry', 'duet');
+        url.searchParams.set('role', ctx.role || (boot && boot.isHost() ? 'host' : 'guest'));
+        url.searchParams.set('host', (ctx.role === 'host' || (boot && boot.isHost())) ? '1' : '0');
+        return url.toString();
+      }
+
+      function go(url) {
+        location.href = url;
+      }
+
       function setBanner(text, ms) {
-        if (!ui.banner) return;
         ui.banner.textContent = text;
         ui.banner.classList.add('show');
 
@@ -740,37 +812,12 @@
         }, 740);
       }
 
-      function arenaRect() {
-        return ui.arena.getBoundingClientRect();
-      }
-
-      function buildLobbyUrl() {
-        const url = new URL(ctx.lobbyPath, location.href);
-        const passthrough = [
-          'pid','name','nick','studyId','hub','zone','cat','game','gameId',
-          'theme','run','view','diff','time','seed','api','log','debug'
-        ];
-
-        passthrough.forEach(function (k) {
-          const v = qs.get(k);
-          if (v != null && v !== '') url.searchParams.set(k, v);
-        });
-
-        if (ctx.roomId) {
-          url.searchParams.set('roomId', ctx.roomId);
-          url.searchParams.set('room', ctx.roomId);
-        }
-        url.searchParams.set('mode', 'duet');
-        url.searchParams.set('entry', 'duet');
-
-        if (ctx.role) url.searchParams.set('role', ctx.role);
-        if (qs.get('host')) url.searchParams.set('host', qs.get('host'));
-
-        return url.toString();
-      }
-
-      function go(url) {
-        location.href = url;
+      function renderHud() {
+        ui.pillMode.textContent = '🤝 DUET';
+        ui.pillPlayer.textContent = 'PLAYER • ' + ctx.name;
+        ui.pillScore.textContent = 'Score • ' + state.score;
+        ui.pillTime.textContent = 'Time • ' + fmtTime(state.timeLeftMs);
+        ui.pillMiss.textContent = 'Miss • ' + state.miss;
       }
 
       function clearItems() {
@@ -780,20 +827,13 @@
         state.items.clear();
       }
 
-      function renderHud() {
-        ui.pillMode.textContent = '🤝 DUET';
-        ui.pillScore.textContent = 'Score • ' + state.score;
-        ui.pillTime.textContent = 'Time • ' + fmtTime(state.timeLeftMs);
-        ui.pillMiss.textContent = 'Miss • ' + state.miss;
-      }
-
       function spawnItem() {
-        if (state.ended) return;
+        if (state.ended || state.paused) return;
 
         const r = arenaRect();
         const size = Math.round(clamp(70 + Math.random() * 18, 70, 88));
-        const good = Math.random() < cfg.goodChance;
-        const emoji = good
+        const isGood = Math.random() < cfg.goodChance;
+        const emoji = isGood
           ? GOOD[Math.floor(Math.random() * GOOD.length)]
           : JUNK[Math.floor(Math.random() * JUNK.length)];
 
@@ -802,16 +842,16 @@
 
         const el = document.createElement('button');
         el.type = 'button';
-        el.className = 'item ' + (good ? 'good' : 'junk');
+        el.className = 'item ' + (isGood ? 'good' : 'junk');
         el.innerHTML =
           '<div class="emoji">' + emoji + '</div>' +
-          '<div class="label">' + (good ? 'good' : 'junk') + '</div>';
+          '<div class="label">' + (isGood ? 'good' : 'junk') + '</div>';
 
         ui.arena.appendChild(el);
 
         const item = {
           id: 'it-' + (++state.seq),
-          good: good,
+          good: isGood,
           x: x,
           y: y,
           size: size,
@@ -845,15 +885,16 @@
             fx(cx, cy, '+' + gain, '#2f8f2f');
 
             if (state.streak === 3 || state.streak === 6 || state.streak === 10) {
-              setBanner('เก็บ good ต่อไป!', 700);
+              setBanner('เก็บ good ต่อไป!', 720);
             }
           } else {
             state.junk += 1;
             state.miss += 1;
             state.streak = 0;
             state.score = Math.max(0, state.score - 8);
+
             fx(cx, cy, 'MISS', '#d16b27');
-            setBanner('ระวัง junk!', 700);
+            setBanner('ระวัง junk!', 720);
           }
 
           item.dead = true;
@@ -898,107 +939,186 @@
         });
       }
 
-      function calcGrade(summary) {
-        const score = Number(summary.score || 0);
-        const miss = Number(summary.miss || 0);
-        const good = Number(summary.good || 0);
-        const eff = good - miss;
-
-        if (score >= 980 && eff >= 45 && miss <= 10) return 'S';
-        if (score >= 900 && eff >= 40 && miss <= 16) return 'A';
-        if (score >= 650 && eff >= 22) return 'B';
-        return 'C';
-      }
-
-      function medalForGrade(grade) {
-        if (grade === 'S') return '🏆';
-        if (grade === 'A') return '🥇';
-        if (grade === 'B') return '🥈';
-        return '🥉';
-      }
-
-      function titleForGrade(grade) {
-        if (grade === 'S') return 'ยอดเยี่ยม!';
-        if (grade === 'A') return 'เก่งมาก!';
-        if (grade === 'B') return 'ดีมาก!';
-        return 'สู้ต่อได้!';
-      }
-
-      function noteForGrade(grade) {
-        if (grade === 'S') return 'สุดยอดเลย! เก็บ good ได้แม่นมากและพลาดน้อยมาก';
-        if (grade === 'A') return 'เยี่ยมเลย! อีกนิดเดียวก็ถึงระดับสูงสุดแล้ว';
-        if (grade === 'B') return 'ทำได้ดีมาก รอบหน้าลองหลบ junk ให้มากขึ้น';
-        return 'ไม่เป็นไร รอบหน้าลองแตะ good ให้ต่อเนื่องขึ้น';
-      }
-
-      function buildLocalSummary(reason) {
-        const payload = {
-          final: true,
-          mode: 'DUET',
-          roomId: ctx.roomId,
-          matchId: state.matchId,
+      function buildLocalPlayerResult(reason) {
+        return {
           pid: ctx.pid,
           name: ctx.name,
           score: state.score,
-          miss: state.miss,
           good: state.good,
           junk: state.junk,
+          miss: state.miss,
           streak: state.bestStreak,
-          grade: 'C',
           reason: String(reason || 'timeup'),
-          hub: ctx.hub,
-          ts: Date.now(),
-          by: {
-            pid: ctx.pid,
-            name: ctx.name
-          }
+          submittedAt: now()
         };
-        payload.grade = calcGrade(payload);
-        return payload;
       }
 
-      function applySummary(summary) {
-        const grade = String(summary.grade || calcGrade(summary)).toUpperCase();
+      function showWaiting(text) {
+        ui.waitText.textContent = text || 'ส่งผลของเราแล้ว รออีกเครื่องและกำลังสร้างสรุปทีมกลางของห้อง';
+        ui.waitingOverlay.classList.add('show');
+        state.waitingVisible = true;
+      }
 
-        ui.sumMedal.textContent = medalForGrade(grade);
+      function hideWaiting() {
+        ui.waitingOverlay.classList.remove('show');
+        state.waitingVisible = false;
+      }
+
+      function pauseGame() {
+        if (state.ended || state.summaryShown) return;
+        state.paused = true;
+        ui.pauseOverlay.classList.add('show');
+      }
+
+      function resumeGame() {
+        if (state.ended || state.summaryShown) return;
+        state.paused = false;
+        state.lastTs = performance.now();
+        ui.pauseOverlay.classList.remove('show');
+      }
+
+      function applyTeamSummary(summary) {
+        if (!summary) return;
+
+        const grade = String(summary.grade || 'C').toUpperCase();
+
+        ui.sumMedal.textContent = String(summary.medal || (
+          grade === 'S' ? '🏆' :
+          grade === 'A' ? '🥇' :
+          grade === 'B' ? '🥈' : '🥉'
+        ));
+
         ui.sumGrade.textContent = grade;
         ui.sumGrade.className = 'summary-grade grade-' + grade.toLowerCase();
-        ui.sumTitle.textContent = titleForGrade(grade);
-        ui.sumSub.textContent = 'จบเกมแล้ว มาดูผลงานรอบนี้กัน';
 
-        ui.sumScore.textContent = Math.max(0, Number(summary.score || 0));
+        ui.sumTitle.textContent = String(summary.title || (
+          grade === 'S' ? 'ยอดเยี่ยม!' :
+          grade === 'A' ? 'เก่งมาก!' :
+          grade === 'B' ? 'ดีมาก!' : 'สู้ต่อได้!'
+        ));
+
+        ui.sumSub.textContent = 'จบเกมแล้ว มาดูผลงานของทีมกัน';
+        ui.sumScore.textContent = String(Math.max(0, Number(summary.score || 0)));
         ui.sumGradeText.textContent = grade;
-        ui.sumGood.textContent = Math.max(0, Number(summary.good || 0));
-        ui.sumMiss.textContent = Math.max(0, Number(summary.miss || 0));
-        ui.sumBest.textContent = Math.max(0, Number(summary.streak || 0));
+        ui.sumGood.textContent = String(Math.max(0, Number(summary.good || 0)));
+        ui.sumMiss.textContent = String(Math.max(0, Number(summary.miss || 0)));
+        ui.sumBest.textContent = String(Math.max(0, Number(summary.streak || 0)));
         ui.sumMode.textContent = 'DUET';
-        ui.sumNote.textContent = noteForGrade(grade);
+        ui.sumNote.textContent = String(summary.note || 'ช่วยกันได้ดีมาก รอบหน้าลองหลบ junk ให้มากขึ้น');
 
+        hideWaiting();
+        ui.pauseOverlay.classList.remove('show');
         ui.summaryOverlay.classList.add('show');
         state.summaryShown = true;
       }
 
-      function showSummaryIfNeeded(summary) {
-        if (state.summaryShown) {
-          applySummary(summary);
-          return;
+      async function ensureRoomAndMatch() {
+        if (!boot) return;
+
+        await boot.ensureRoom();
+
+        ctx.roomId = ctx.roomId || boot.getRoomId();
+        ctx.role = ctx.role || boot.getRole();
+        ctx.matchId = ctx.matchId || await boot.ensureMatchId(false);
+
+        await boot.setPresence({
+          ready: true,
+          inRuntime: true,
+          runtimeAt: now()
+        });
+
+        try {
+          const existing = await boot.readFinalSummary(ctx.matchId);
+          if (existing && existing.final) {
+            state.ended = true;
+            state.running = false;
+            applyTeamSummary(existing);
+            return true;
+          }
+        } catch (_) {}
+
+        try {
+          state.finalSummaryUnsub = await boot.subscribeFinalSummary(ctx.matchId, function (summary) {
+            if (!summary || !summary.final) return;
+            state.ended = true;
+            state.running = false;
+            state.finalized = true;
+            clearItems();
+            try { cancelAnimationFrame(state.raf); } catch (_) {}
+            applyTeamSummary(summary);
+          });
+        } catch (err) {
+          console.error(err);
         }
-        applySummary(summary);
+
+        return false;
       }
 
-      function withTimeout(promise, ms) {
-        return Promise.race([
-          promise,
-          new Promise(function (resolve) {
-            safeTimeout(function () { resolve(null); }, ms);
-          })
-        ]);
+      async function finalizeTeamSummary(reason) {
+        if (!boot || state.finalized) return null;
+
+        try {
+          const quickExisting = await boot.readFinalSummary(ctx.matchId);
+          if (quickExisting && quickExisting.final) {
+            state.finalized = true;
+            return quickExisting;
+          }
+        } catch (_) {}
+
+        showWaiting('ส่งผลของเราแล้ว กำลังรออีกเครื่องและรวมคะแนนทีม…');
+
+        const localResult = buildLocalPlayerResult(reason);
+        await boot.publishPlayerResult(ctx.matchId, localResult);
+
+        try {
+          const results = await boot.waitForAllPlayerResults(ctx.matchId, {
+            expectedPlayers: 2,
+            timeoutMs: 4500,
+            intervalMs: 250
+          });
+
+          const finishedCount = Object.keys(results || {}).filter((k) => results[k]).length;
+
+          let summary = await boot.finalizeMatchFromRoomResults(ctx.matchId, {
+            expectedPlayers: 2,
+            force: finishedCount >= 2,
+            reason: reason || 'finished'
+          });
+
+          if (!summary) {
+            summary = await boot.finalizeMatchFromRoomResults(ctx.matchId, {
+              expectedPlayers: 2,
+              force: true,
+              reason: 'timeout_force_finalize'
+            });
+          }
+
+          if (summary && summary.final) {
+            state.finalized = true;
+            return summary;
+          }
+        } catch (err) {
+          console.error('[GJ-DUET finalizeTeamSummary]', err);
+        }
+
+        for (let i = 0; i < 20; i++) {
+          await sleep(300);
+          try {
+            const finalSummary = await boot.readFinalSummary(ctx.matchId);
+            if (finalSummary && finalSummary.final) {
+              state.finalized = true;
+              return finalSummary;
+            }
+          } catch (_) {}
+        }
+
+        return null;
       }
 
-      async function finishGame(reason) {
-        if (state.finishBusy || state.ended) return;
+      async function endGame(reason) {
+        if (state.publishStarted || state.summaryShown) return;
 
-        state.finishBusy = true;
+        state.publishStarted = true;
         state.ended = true;
         state.running = false;
         state.paused = false;
@@ -1007,40 +1127,18 @@
         clearItems();
         ui.pauseOverlay.classList.remove('show');
 
-        const localSummary = buildLocalSummary(reason);
+        let summary = null;
 
-        let publishPromise = Promise.resolve(localSummary);
-        if (roomBoot && state.matchId) {
-          publishPromise = roomBoot.publishFinalSummary(state.matchId, localSummary)
-            .then(function (remote) { return remote || localSummary; })
-            .catch(function () { return localSummary; });
+        if (boot && ctx.matchId) {
+          summary = await finalizeTeamSummary(reason || 'finished');
         }
 
-        const quick = await withTimeout(publishPromise, 450);
-        showSummaryIfNeeded(quick || localSummary);
+        if (summary && summary.final) {
+          applyTeamSummary(summary);
+          return;
+        }
 
-        publishPromise.then(function (remote) {
-          if (remote) showSummaryIfNeeded(remote);
-        }).catch(function () {});
-
-        try {
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
-            source: 'goodjunk-duet-runtime',
-            ts: Date.now(),
-            roomId: ctx.roomId,
-            matchId: state.matchId,
-            pid: ctx.pid,
-            name: ctx.name,
-            score: localSummary.score,
-            miss: localSummary.miss,
-            good: localSummary.good,
-            junk: localSummary.junk,
-            streak: localSummary.streak,
-            grade: localSummary.grade,
-            mode: 'DUET',
-            hub: ctx.hub
-          }));
-        } catch (_) {}
+        showWaiting('ยังไม่ได้รับสรุปทีมจากห้อง ลองรอสักครู่หรือกลับ Lobby');
       }
 
       function loop(ts) {
@@ -1055,7 +1153,7 @@
           if (state.timeLeftMs <= 0) {
             state.timeLeftMs = 0;
             renderHud();
-            finishGame('timeup');
+            endGame('timeup');
             return;
           }
 
@@ -1072,19 +1170,6 @@
         state.raf = requestAnimationFrame(loop);
       }
 
-      function pauseGame() {
-        if (state.ended) return;
-        state.paused = true;
-        ui.pauseOverlay.classList.add('show');
-      }
-
-      function resumeGame() {
-        if (state.ended) return;
-        state.paused = false;
-        state.lastTs = performance.now();
-        ui.pauseOverlay.classList.remove('show');
-      }
-
       function bindEvents() {
         ui.btnPause.addEventListener('click', function () {
           if (state.paused) resumeGame();
@@ -1096,11 +1181,15 @@
         });
 
         ui.btnEnd.addEventListener('click', function () {
-          finishGame('manual_end');
+          endGame('manual_end');
         });
 
         ui.btnPauseHub.addEventListener('click', function () {
-          go(ctx.hub);
+          go(buildLobbyUrl());
+        });
+
+        ui.btnWaitLobby.addEventListener('click', function () {
+          go(buildLobbyUrl());
         });
 
         ui.btnReplay.addEventListener('click', function () {
@@ -1126,54 +1215,37 @@
             else pauseGame();
           }
         });
-      }
 
-      async function initMatch() {
-        if (!roomBoot) {
-          state.matchId = state.matchId || ('LOCAL-' + Date.now());
-          return;
-        }
-
-        state.matchId =
-          state.matchId ||
-          await roomBoot.ensureMatchId(false);
-
-        dlog('match ready', state.matchId);
-
-        try {
-          const existing = await roomBoot.readFinalSummary(state.matchId);
-          if (existing && existing.final) {
-            state.ended = true;
-            state.running = false;
-            showSummaryIfNeeded(existing);
-            return;
-          }
-        } catch (_) {}
-
-        try {
-          state.roomSummaryUnsub = roomBoot.subscribeFinalSummary(state.matchId, function (summary) {
-            if (!summary || !summary.final) return;
-            showSummaryIfNeeded(summary);
-          });
-        } catch (_) {}
+        window.addEventListener('beforeunload', function () {
+          try {
+            if (state.finalSummaryUnsub) state.finalSummaryUnsub();
+          } catch (_) {}
+        });
       }
 
       async function start() {
         bindEvents();
         renderHud();
+        setBanner('เก็บ good ต่อไป!', 1200);
 
-        await initMatch();
-        if (state.summaryShown) return;
+        const summaryAlreadyExists = await ensureRoomAndMatch();
+        if (summaryAlreadyExists || state.summaryShown) return;
 
         state.running = true;
         state.lastTs = performance.now();
-        setBanner('เก็บ good ต่อไป!', 1200);
         state.raf = requestAnimationFrame(loop);
+
+        dlog('runtime started', {
+          roomId: ctx.roomId,
+          matchId: ctx.matchId,
+          role: ctx.role,
+          diff: ctx.diff
+        });
       }
 
       start().catch(function (err) {
-        console.error('[GJ-DUET-RUNTIME start failed]', err);
-        finishGame('boot_error');
+        console.error('[GJ-DUET runtime start failed]', err);
+        showWaiting('เริ่มเกมไม่สำเร็จ ลองกลับ Lobby แล้วเข้าใหม่');
       });
     })();
   </script>
