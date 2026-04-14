@@ -237,11 +237,6 @@
     return u.toString();
   }
 
-  function jdBuildLauncherUrl(overrides = {}) {
-    const ctx = jdBuildBaseFlowCtx(overrides);
-    return jdWithCommonParams(ctx.launcher, ctx);
-  }
-
   function jdBuildRunUrl(overrides = {}) {
     const ctx = jdBuildBaseFlowCtx(overrides);
     return jdWithCommonParams(ctx.launcher, ctx, {
@@ -258,7 +253,7 @@
     return jdWithCommonParams(ctx.gate, ctx, {
       phase: 'warmup',
       next: runUrl,
-      cdnext: ctx.launcher
+      cdnext: ctx.hub
     });
   }
 
@@ -267,8 +262,8 @@
 
     return jdWithCommonParams(ctx.gate, ctx, {
       phase: 'cooldown',
-      next: ctx.launcher,
-      cdnext: ctx.launcher,
+      next: ctx.hub,
+      cdnext: ctx.hub,
       score: Number(summary.score || 0),
       accuracy: Number(summary.accuracy || 0),
       bestStreak: Number(summary.bestStreak || 0),
@@ -3475,22 +3470,7 @@
 
     document.querySelector('[data-action="back-menu"]')?.addEventListener('click', (ev) => {
       ev.preventDefault();
-
-      const launcherUrl = jdBuildLauncherUrl({
-        mode: elMode?.value || HHA_CTX.mode || 'training',
-        diff: elDiff?.value || HHA_CTX.diff || 'normal',
-        time: String(parseInt(elDuration?.value || HHA_CTX.duration || HHA_CTX.time || '60', 10) || 60),
-        run: HHA_CTX.run || 'play',
-        view: HHA_CTX.view || 'mobile',
-        pid: HHA_CTX.pid || 'anon',
-        name: qs('name', qs('nickName', 'Hero')),
-        studyId: HHA_CTX.studyId || '',
-        seed: HHA_CTX.seed || Date.now(),
-        hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
-        launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
-      });
-
-      location.href = launcherUrl;
+      location.href = jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB);
     });
 
     $('#btn-jump')?.addEventListener('click', () => jdHandleInput(state, 'jump'));
