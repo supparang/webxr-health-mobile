@@ -1,3 +1,6 @@
+// === /fitness/js/jumpduck.js ===
+// FULL PATCH v20260414d-ZONE-FIRST-JUMPDUCK-FINAL
+
 'use strict';
 
 (function () {
@@ -38,7 +41,7 @@
   const progFill = $('#hud-prog-fill');
   const progText = $('#hud-prog-text');
   const feverFill = $('#hud-fever-fill');
-  const feverStatus = $('#hud-fever-status');
+  const feverStatus = $('#fever-status');
 
   const bossBarWrap = $('#boss-bar-wrap');
   const bossFill = $('#hud-boss-fill');
@@ -106,27 +109,6 @@
     }
   };
 
-  const HHA_CTX = {
-    run: qs('run', 'play'),
-    diff: qs('diff', 'normal'),
-    time: qs('time', '60'),
-    seed: qs('seed', ''),
-    studyId: qs('studyId', ''),
-    phase: qs('phase', ''),
-    conditionGroup: qs('conditionGroup', ''),
-    log: qs('log', ''),
-    view: qs('view', ''),
-    pid: qs('pid', 'anon'),
-    api: qs('api', ''),
-    ai: qs('ai', ''),
-    debug: qs('debug', ''),
-    hub: qs('hub', './'),
-    mode: qs('mode', 'training'),
-    duration: qs('duration', qs('time', '60')),
-    pro: qs('pro', ''),
-    phaseTune: qs('phaseTune', 'dynamicABC')
-  };
-
   const JD_FITNESS_ZONE_FALLBACK =
     'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
 
@@ -136,13 +118,13 @@
   const JD_LAUNCHER_FALLBACK =
     'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
 
-  let state = null;
-  let rafId = 0;
-
   function jdAbsUrl(raw, fallback = '') {
     const value = String(raw || '').trim();
     try {
       if (value) return new URL(value, location.href).href;
+    } catch (_) {}
+    try {
+      if (fallback) return new URL(fallback, location.href).href;
     } catch (_) {}
     return fallback || '';
   }
@@ -157,109 +139,73 @@
     );
   }
 
-  function jdResolveFitnessZoneHref() {
-    const rawHub = String(HHA_CTX.hub || '').trim();
-    const absHub = jdAbsUrl(rawHub, JD_FITNESS_ZONE_FALLBACK);
-
-    if (!rawHub) return JD_FITNESS_ZONE_FALLBACK;
-    if (jdLooksLikeFitnessRoot(absHub)) return JD_FITNESS_ZONE_FALLBACK;
-
-    const low = absHub.toLowerCase();
-    if (
-      low.includes('/herohealth/fitness-zone.html') ||
-      low.includes('/herohealth/hub.html') ||
-      low.includes('/herohealth/hub-v2.html')
-    ) {
-      if (low.includes('/herohealth/fitness-zone.html')) return absHub;
-      return JD_FITNESS_ZONE_FALLBACK;
-    }
-
-    return absHub || JD_FITNESS_ZONE_FALLBACK;
+  function jdNormalizeZoneHref(raw = '') {
+    const abs = jdAbsUrl(raw, JD_FITNESS_ZONE_FALLBACK);
+    if (!abs) return JD_FITNESS_ZONE_FALLBACK;
+    if (jdLooksLikeFitnessRoot(abs)) return JD_FITNESS_ZONE_FALLBACK;
+    return abs;
   }
 
-  function jdResolveLauncherHref() {
-    const rawLauncher = String(qs('launcher', '') || '').trim();
-    if (rawLauncher) {
-      return jdAbsUrl(rawLauncher, JD_LAUNCHER_FALLBACK);
-    }
-    return jdAbsUrl(location.href, JD_LAUNCHER_FALLBACK);
-  }
+  function jdCurrentLauncherHref() {
+    const u = new URL(JD_LAUNCHER_FALLBACK, location.href);
 
-  function jdBuildCooldownHref(summary = null) {
-    const gateBase = jdAbsUrl(JD_WARMUP_GATE_FALLBACK, JD_WARMUP_GATE_FALLBACK);
-    const u = new URL(gateBase, location.href);
+    const paramsToKeep = [
+      'pid','name','nickName','run','diff','time','view','seed',
+      'mode','game','gameId','theme','zone','cat','studyId','debug','log','api'
+    ];
 
-    const zoneHref = jdResolveFitnessZoneHref();
-    const launcherHref = jdResolveLauncherHref();
+    const src = new URL(location.href);
+    paramsToKeep.forEach((key) => {
+      const v = src.searchParams.get(key);
+      if (v != null && v !== '') u.searchParams.set(key, v);
+    });
 
-    const safeSummary = summary && typeof summary === 'object' ? summary : {};
-    const score = Number(
-      safeSummary.scoreFinal ??
-      safeSummary.score ??
-      state?.score ??
-      0
-    );
-
-    const acc = Number(
-      safeSummary.accPct ??
-      safeSummary.analysis?.accPct ??
-      0
-    );
-
-    const bestStreak = Number(
-      safeSummary.comboMax ??
-      safeSummary.sessionFeatures?.maxCombo ??
-      state?.maxCombo ??
-      0
-    );
-
-    const grade = String(
-      safeSummary.rank ??
-      safeSummary.sessionFeatures?.rank ??
-      'C'
-    ).toUpperCase();
-
-    u.searchParams.set('pid', String(HHA_CTX.pid || 'anon'));
-    u.searchParams.set('name', String(qs('name', qs('nickName', 'Hero')) || 'Hero'));
-    u.searchParams.set('run', String(HHA_CTX.run || 'play'));
-    u.searchParams.set('diff', String((state?.diff || HHA_CTX.diff || 'normal')).toLowerCase());
-    u.searchParams.set('time', String(Math.round((state?.duration || Number(HHA_CTX.duration || HHA_CTX.time || 60) * 1000) / 1000)));
-    u.searchParams.set('view', String(HHA_CTX.view || 'mobile'));
-    u.searchParams.set('seed', String(HHA_CTX.seed || ''));
-    u.searchParams.set('mode', String(state?.mode || HHA_CTX.mode || 'training'));
-
-    u.searchParams.set('game', 'jump-duck');
-    u.searchParams.set('gameId', 'jump-duck');
-    u.searchParams.set('theme', 'jump-duck');
-    u.searchParams.set('zone', 'fitness');
-    u.searchParams.set('cat', 'fitness');
-
-    u.searchParams.set('phase', 'cooldown');
-    u.searchParams.set('hub', zoneHref);
-    u.searchParams.set('hubRoot', zoneHref);
-    u.searchParams.set('launcher', launcherHref);
-    u.searchParams.set('next', zoneHref);
-    u.searchParams.set('cdnext', zoneHref);
-
-    u.searchParams.set('score', String(score));
-    u.searchParams.set('accuracy', String(Number.isFinite(acc) ? Number(acc.toFixed(1)) : 0));
-    u.searchParams.set('bestStreak', String(bestStreak));
-    u.searchParams.set('grade', grade);
-
-    if (HHA_CTX.studyId) u.searchParams.set('studyId', String(HHA_CTX.studyId));
-    if (HHA_CTX.debug) u.searchParams.set('debug', '1');
-
+    u.searchParams.set('hub', jdZoneHref());
     return u.toString();
   }
 
-  function jdGoFitnessZone() {
-    location.href = jdResolveFitnessZoneHref();
+  function jdZoneHref() {
+    return jdNormalizeZoneHref(qs('hub', qs('hubRoot', JD_FITNESS_ZONE_FALLBACK)));
   }
 
-  /* ===== HeroHealth Fitness Recent Bridge ===== */
+  function jdLauncherHref() {
+    const launcher = jdAbsUrl(qs('launcher', ''), '');
+    if (launcher) return launcher;
+    return jdCurrentLauncherHref();
+  }
+
+  const HHA_CTX = {
+    run: qs('run', 'play'),
+    diff: qs('diff', 'normal'),
+    time: qs('time', '60'),
+    seed: qs('seed', ''),
+    studyId: qs('studyId', ''),
+    phase: qs('phase', ''),
+    conditionGroup: qs('conditionGroup', ''),
+    log: qs('log', ''),
+    view: qs('view', 'mobile'),
+    pid: qs('pid', 'anon'),
+    api: qs('api', ''),
+    ai: qs('ai', ''),
+    debug: qs('debug', ''),
+    hub: jdZoneHref(),
+    hubRoot: jdZoneHref(),
+    launcher: jdLauncherHref(),
+    mode: qs('mode', 'training'),
+    duration: qs('duration', qs('time', '60')),
+    pro: qs('pro', ''),
+    phaseTune: qs('phaseTune', 'dynamicABC')
+  };
+
+  let state = null;
+  let rafId = 0;
+
   function hhFitnessBaseSnapshot() {
     const s = state;
-    const durationSec = s && s.duration ? Math.round(Number(s.duration || 0) / 1000) : Number(HHA_CTX.duration || HHA_CTX.time || 60);
+    const durationSec = s && s.duration
+      ? Math.round(Number(s.duration || 0) / 1000)
+      : Number(HHA_CTX.duration || HHA_CTX.time || 60);
+
     return {
       zone: 'fitness',
       gameId: 'jump-duck',
@@ -279,7 +225,9 @@
       stability: Number(s?.stability || 0),
       result: String(s?.ended ? 'summary' : (s?.running ? 'running' : 'idle')),
       href: location.href,
-      path: location.pathname
+      path: location.pathname,
+      hub: jdZoneHref(),
+      launcher: jdLauncherHref()
     };
   }
 
@@ -362,7 +310,6 @@
       feintChance: 0.00,
       speedMul: 1.08
     },
-
     feint: {
       key: 'feint',
       label: 'Feint Boss',
@@ -373,7 +320,6 @@
       feintChance: 0.38,
       speedMul: 0.98
     },
-
     shield: {
       key: 'shield',
       label: 'Shield Boss',
@@ -384,7 +330,6 @@
       feintChance: 0.00,
       speedMul: 1.00
     },
-
     mirror: {
       key: 'mirror',
       label: 'Mirror Boss',
@@ -395,7 +340,6 @@
       feintChance: 0.03,
       speedMul: 1.04
     },
-
     chaos: {
       key: 'chaos',
       label: 'Chaos Boss',
@@ -506,6 +450,8 @@
   function saveLastSummary(summary) {
     try {
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      localStorage.setItem(`HHA_LAST_SUMMARY:jump-duck:${String(HHA_CTX.pid || 'anon')}`, JSON.stringify(summary));
+
       const histKey = 'HHA_SUMMARY_HISTORY';
       const old = JSON.parse(localStorage.getItem(histKey) || '[]');
       old.unshift(summary);
@@ -548,21 +494,24 @@
     logStatus.style.color = ok ? '#22c55e' : '#f59e0b';
   }
 
+  function setHrefIf(id, href) {
+    const el = document.getElementById(id);
+    if (el) el.href = href;
+  }
+
   function setHubLinks() {
-    const hub = jdResolveFitnessZoneHref();
+    const zoneHref = jdZoneHref();
 
     [
-      'jd-back-hub-menu',
-      'jd-back-hub-play',
-      'jd-back-hub-result',
       'jd-go-zone-menu',
-      'jd-control-hub'
-    ].forEach(id => {
+      'jd-back-hub-menu',
+      'jd-control-hub',
+      'jd-back-hub-play',
+      'jd-back-hub-result'
+    ].forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
-
-      el.href = hub;
-
+      el.href = zoneHref;
       if (!el.__hhFitnessHubBound) {
         el.__hhFitnessHubBound = true;
         el.addEventListener('click', () => {
@@ -1068,11 +1017,6 @@
       logStatus.textContent = '';
       logStatus.style.color = '';
     }
-
-    if (btnContinueFlow) {
-      btnContinueFlow.disabled = false;
-      delete btnContinueFlow.dataset.cooldownHref;
-    }
   }
 
   function clearArena() {
@@ -1199,103 +1143,76 @@
     switch (pattern) {
       case 'single':
         return [rng() < 0.5 ? 'low' : 'high'];
-
       case 'alt2': {
         const a = rng() < 0.5 ? 'low' : 'high';
         const b = a === 'low' ? 'high' : 'low';
         return [a, b];
       }
-
       case 'alt4': {
         const a = rng() < 0.5 ? 'low' : 'high';
         const b = a === 'low' ? 'high' : 'low';
         return [a, b, a, b];
       }
-
       case 'pair': {
         const a = rng() < 0.5 ? 'low' : 'high';
         return [a, a];
       }
-
       case 'zigzag3': {
         const a = rng() < 0.5 ? 'low' : 'high';
         const b = a === 'low' ? 'high' : 'low';
         return [a, b, a];
       }
-
       case 'mirror4': {
         const a = rng() < 0.5 ? 'low' : 'high';
         const b = a === 'low' ? 'high' : 'low';
         return [a, b, b, a];
       }
-
       case 'burst4':
         return ['low', 'high', 'low', 'high'];
-
       case 'burst5':
         return ['low', 'high', 'low', 'high', 'low'];
-
       case 'double-low-high':
         return ['low', 'low', 'high'];
-
       case 'double-high-low':
         return ['high', 'high', 'low'];
-
       case 'feint2':
         return [rng() < 0.5 ? 'low' : 'high', rng() < 0.5 ? 'low' : 'high'];
-
       case 'feint3':
         return [
           rng() < 0.5 ? 'low' : 'high',
           rng() < 0.5 ? 'low' : 'high',
           rng() < 0.5 ? 'low' : 'high'
         ];
-
       case 'tempo221':
         return ['low', 'low', 'high', 'high', 'low'];
-
       case 'tempo121':
         return ['low', 'high', 'high', 'low'];
-
       case 'tempoAlt6':
         return ['low', 'high', 'low', 'high', 'low', 'high'];
-
       case 'feintLate2':
         return ['low', 'high'];
-
       case 'feintLate3':
         return ['high', 'low', 'high'];
-
       case 'fakePair':
         return ['low', 'low'];
-
       case 'shieldPair':
         return ['low', 'low', 'high', 'high'];
-
       case 'shieldWall':
         return ['low', 'high', 'low', 'high'];
-
       case 'shieldBreaker':
         return ['high', 'high', 'low', 'low', 'high'];
-
       case 'mirrorABBA':
         return ['low', 'high', 'high', 'low'];
-
       case 'mirrorBAAB':
         return ['high', 'low', 'low', 'high'];
-
       case 'mirrorEcho':
         return ['low', 'high', 'low', 'high', 'high', 'low'];
-
       case 'chaosBurst5':
         return ['low', 'high', 'low', 'high', 'high'];
-
       case 'chaosBurst6':
         return ['low', 'high', 'low', 'high', 'low', 'high'];
-
       case 'chaosLadder':
         return ['low', 'low', 'high', 'low', 'high', 'high'];
-
       default:
         return [rng() < 0.5 ? 'low' : 'high'];
     }
@@ -3053,6 +2970,63 @@
     rafId = requestAnimationFrame(jdTick);
   }
 
+  function jdBuildCooldownHref(summary = null) {
+    const gateBase = jdAbsUrl(JD_WARMUP_GATE_FALLBACK, JD_WARMUP_GATE_FALLBACK);
+    const u = new URL(gateBase, location.href);
+
+    const zoneHref = jdZoneHref();
+    const launcherHref = jdLauncherHref();
+
+    const pid = String(HHA_CTX.pid || 'anon');
+    const name = String(qs('name', qs('nickName', 'Hero')) || 'Hero');
+    const diff = String(state?.diff || HHA_CTX.diff || 'normal');
+    const time = String(Math.round(Number((state?.duration || Number(HHA_CTX.time || 60) * 1000) / 1000)));
+    const view = String(HHA_CTX.view || 'mobile');
+    const seed = String(HHA_CTX.seed || qs('seed', '') || Date.now());
+    const run = String(HHA_CTX.run || 'play');
+
+    u.searchParams.set('phase', 'cooldown');
+    u.searchParams.set('game', 'jump-duck');
+    u.searchParams.set('gameId', 'jump-duck');
+    u.searchParams.set('theme', 'jump-duck');
+    u.searchParams.set('zone', 'fitness');
+    u.searchParams.set('cat', 'fitness');
+
+    u.searchParams.set('pid', pid);
+    u.searchParams.set('name', name);
+    u.searchParams.set('run', run);
+    u.searchParams.set('diff', diff);
+    u.searchParams.set('time', time);
+    u.searchParams.set('view', view);
+    u.searchParams.set('seed', seed);
+
+    u.searchParams.set('hub', zoneHref);
+    u.searchParams.set('hubRoot', zoneHref);
+    u.searchParams.set('launcher', launcherHref);
+    u.searchParams.set('next', zoneHref);
+    u.searchParams.set('cdnext', zoneHref);
+
+    if (HHA_CTX.studyId) u.searchParams.set('studyId', HHA_CTX.studyId);
+    if (HHA_CTX.debug) u.searchParams.set('debug', HHA_CTX.debug);
+    if (HHA_CTX.log) u.searchParams.set('log', HHA_CTX.log);
+    if (HHA_CTX.api) u.searchParams.set('api', HHA_CTX.api);
+    if (state?.mode) u.searchParams.set('mode', state.mode);
+
+    const score = Number(summary?.scoreFinal ?? state?.score ?? 0);
+    const miss = Number(summary?.missTotal ?? state?.miss ?? 0);
+    const acc = Number(summary?.accPct ?? 0);
+    const bestStreak = Number(summary?.comboMax ?? state?.maxCombo ?? 0);
+    const grade = String(summary?.rank || 'C');
+
+    u.searchParams.set('score', String(score));
+    u.searchParams.set('miss', String(miss));
+    u.searchParams.set('accuracy', String(Number(acc.toFixed ? acc.toFixed(1) : acc)));
+    u.searchParams.set('bestStreak', String(bestStreak));
+    u.searchParams.set('grade', grade);
+
+    return u.toString();
+  }
+
   function jdFinishRun(s, endReason) {
     if (!canFinishRun(s)) return;
 
@@ -3146,6 +3120,8 @@
 
     const summary = {
       game: 'jumpduck',
+      gameId: 'jump-duck',
+      zone: 'fitness',
       pid,
       scoreFinal: s.score,
       accPct: Number(accPct.toFixed(2)),
@@ -3173,17 +3149,15 @@
       coach,
       sessionFeatures,
       teacherSummary,
-      eventLog: Array.isArray(s.eventLog) ? s.eventLog : []
+      eventLog: Array.isArray(s.eventLog) ? s.eventLog : [],
+      summaryHref: jdZoneHref(),
+      launcherHref: jdLauncherHref(),
+      cooldownHref: ''
     };
 
+    summary.cooldownHref = jdBuildCooldownHref(summary);
+
     saveLastSummary(summary);
-
-    const cooldownHref = jdBuildCooldownHref(summary);
-
-    if (btnContinueFlow) {
-      btnContinueFlow.dataset.cooldownHref = cooldownHref;
-      btnContinueFlow.disabled = false;
-    }
 
     try {
       window.HH_FITNESS_LASTGAME?.writeSnapshot({
@@ -3195,7 +3169,9 @@
         miss: Number(s.miss || 0),
         bestStreak: Number(s.maxCombo || 0),
         rank: rank || '',
-        result: endReason || 'end'
+        result: endReason || 'end',
+        hub: jdZoneHref(),
+        launcher: jdLauncherHref()
       });
     } catch (_) {}
 
@@ -3239,6 +3215,10 @@
       analysis,
       coach
     });
+
+    if (btnContinueFlow) {
+      btnContinueFlow.dataset.cooldownHref = summary.cooldownHref;
+    }
 
     s.finished = true;
     s.finishing = false;
@@ -3361,6 +3341,10 @@
     rafId = requestAnimationFrame(jdTick);
   }
 
+  function goZoneNow() {
+    location.href = jdZoneHref();
+  }
+
   function bindEvents() {
     document.querySelector('[data-action="start"]')?.addEventListener('click', () => {
       if (state && state.running) return;
@@ -3397,22 +3381,16 @@
     });
 
     document.querySelectorAll('[data-action="back-menu"]').forEach((el) => {
-      if (el.__jdBackBound) return;
-      el.__jdBackBound = true;
-
+      if (el.__jdBoundBackMenu) return;
+      el.__jdBoundBackMenu = true;
       el.addEventListener('click', () => {
         hhFitnessGoHub({
           score: Number(state?.score || 0),
           miss: Number(state?.miss || 0),
           bestStreak: Number(state?.maxCombo || 0),
-          result: state?.ended ? 'summary-back-zone' : (state?.running ? 'leave-to-zone' : 'menu-to-zone')
+          result: state?.ended ? 'summary' : (state?.running ? 'in-progress' : 'menu')
         });
-
-        stopLoop();
-        clearRunTimers(state);
-        resetTransientUI();
-        clearArena();
-        jdGoFitnessZone();
+        goZoneNow();
       });
     });
 
@@ -3422,6 +3400,14 @@
       if (!state || state.finished || state.finishing) return;
       jdFinishRun(state, 'stop-early');
     });
+
+    if (btnContinueFlow) {
+      btnContinueFlow.addEventListener('click', () => {
+        const summary = loadJson(`HHA_LAST_SUMMARY:jump-duck:${String(HHA_CTX.pid || 'anon')}`, loadJson('HHA_LAST_SUMMARY', null));
+        const href = btnContinueFlow.dataset.cooldownHref || jdBuildCooldownHref(summary);
+        location.href = href;
+      });
+    }
 
     if (playRoot) {
       playRoot.addEventListener('pointerdown', (ev) => {
@@ -3459,7 +3445,7 @@
     });
 
     btnDlEvents?.addEventListener('click', () => {
-      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      const summary = loadJson(`HHA_LAST_SUMMARY:jump-duck:${String(HHA_CTX.pid || 'anon')}`, loadJson('HHA_LAST_SUMMARY', null));
       if (!summary || !Array.isArray(summary.eventLog || [])) {
         setLogStatus('ยังไม่มี event log ให้ export', false);
         return;
@@ -3470,7 +3456,7 @@
     });
 
     btnDlSessions?.addEventListener('click', () => {
-      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      const summary = loadJson(`HHA_LAST_SUMMARY:jump-duck:${String(HHA_CTX.pid || 'anon')}`, loadJson('HHA_LAST_SUMMARY', null));
       if (!summary || !summary.sessionFeatures) {
         setLogStatus('ยังไม่มี session summary ให้ export', false);
         return;
@@ -3481,7 +3467,7 @@
     });
 
     btnDlTeacher?.addEventListener('click', () => {
-      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      const summary = loadJson(`HHA_LAST_SUMMARY:jump-duck:${String(HHA_CTX.pid || 'anon')}`, loadJson('HHA_LAST_SUMMARY', null));
       if (!summary || !summary.teacherSummary) {
         setLogStatus('ยังไม่มี teacher summary ให้ export', false);
         return;
@@ -3493,30 +3479,6 @@
 
     btnSendLog?.addEventListener('click', async () => {
       setLogStatus('ยังไม่ได้เปิด cloud logger ใน patch นี้', false);
-    });
-
-    btnContinueFlow?.addEventListener('click', () => {
-      const summary = loadJson('HHA_LAST_SUMMARY', null);
-      const cooldownHref =
-        btnContinueFlow.dataset.cooldownHref ||
-        jdBuildCooldownHref(summary);
-
-      hhFitnessSummaryEnd({
-        mode: state?.mode || HHA_CTX.mode || 'training',
-        diff: state?.diff || HHA_CTX.diff || 'normal',
-        time: String(Math.round((state?.duration || Number(HHA_CTX.duration || HHA_CTX.time || 60) * 1000) / 1000)),
-        score: Number(state?.score || summary?.scoreFinal || 0),
-        miss: Number(state?.miss || summary?.missTotal || 0),
-        combo: Number(state?.combo || 0),
-        bestStreak: Number(state?.maxCombo || summary?.comboMax || 0),
-        stability: Number(state?.stability || 0),
-        rank: String(summary?.rank || 'C'),
-        accPct: Number(summary?.accPct || summary?.analysis?.accPct || 0),
-        bossDown: !!summary?.sessionFeatures?.bossDown,
-        result: 'go-cooldown'
-      });
-
-      location.href = cooldownHref;
     });
 
     elMode?.addEventListener('change', updateResearchVisibility);
@@ -3535,20 +3497,6 @@
     bindEvents();
     resetPlayHUD();
     resetResultHUD();
-
-    const zoneHref = jdResolveFitnessZoneHref();
-
-    [
-      'jd-go-zone-menu',
-      'jd-control-hub',
-      'jd-back-hub-menu',
-      'jd-back-hub-play',
-      'jd-back-hub-result'
-    ].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.href = zoneHref;
-    });
-
     showView('menu');
   }
 
