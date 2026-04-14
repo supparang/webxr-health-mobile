@@ -621,19 +621,164 @@
       catch { return d; }
     };
 
-    function buildFallbackMainUrl(){
-      const url = new URL('../handwash-v2.html', location.href);
+    function firstNonEmpty(...vals){
+      for (const v of vals){
+        if (String(v || '').trim()) return String(v).trim();
+      }
+      return '';
+    }
+
+    function safeAbsUrl(raw, fallbackPath){
+      const value = String(raw || '').trim();
+      try{
+        if (value) return new URL(value, location.href).toString();
+      }catch(_){}
+      return new URL(fallbackPath, location.href).toString();
+    }
+
+    function looksLikeZoneOrHub(urlText){
+      const txt = String(urlText || '').toLowerCase();
+      return (
+        txt.includes('hygiene-zone.html') ||
+        txt.includes('/hub.html') ||
+        txt.includes('/hub-v2.html')
+      );
+    }
+
+    function buildHubRoot(){
+      return safeAbsUrl(
+        firstNonEmpty(qsParam('hubRoot', ''), looksLikeZoneOrHub(qsParam('hub', '')) ? qsParam('hub', '') : ''),
+        '../hub-v2.html'
+      );
+    }
+
+    function buildZoneReturn(){
+      const explicit = firstNonEmpty(qsParam('zoneReturn', ''));
+      if (explicit) return safeAbsUrl(explicit, '../hygiene-zone.html');
+
+      const legacyHub = firstNonEmpty(qsParam('hub', ''));
+      if (legacyHub && legacyHub.toLowerCase().includes('hygiene-zone.html')) {
+        return safeAbsUrl(legacyHub, '../hygiene-zone.html');
+      }
+
+      return safeAbsUrl('../hygiene-zone.html', '../hygiene-zone.html');
+    }
+
+    function applyCommonGameParams(url){
       const incoming = new URL(location.href).searchParams;
-      const keep = ['pid','name','diff','time','hub','view','run','zone','cat','game','gameId','theme'];
-      keep.forEach(key => {
+      const keep = [
+        'pid','name','nick','nickName','studyId',
+        'diff','time','view','run','debug','api','log',
+        'studentKey','schoolCode','classRoom','studentNo',
+        'conditionGroup','sessionNo','weekNo','teacher','grade'
+      ];
+
+      keep.forEach((key) => {
         const v = incoming.get(key);
         if (v != null && v !== '') url.searchParams.set(key, v);
       });
+
+      if (!url.searchParams.get('pid')) url.searchParams.set('pid', 'anon');
+      if (!url.searchParams.get('name')) {
+        url.searchParams.set(
+          'name',
+          firstNonEmpty(
+            incoming.get('name'),
+            incoming.get('nickName'),
+            incoming.get('nick'),
+            'Hero'
+          )
+        );
+      }
+      if (!url.searchParams.get('diff')) url.searchParams.set('diff', 'normal');
+      if (!url.searchParams.get('view')) url.searchParams.set('view', 'mobile');
+      if (!url.searchParams.get('time')) url.searchParams.set('time', '90');
+      if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
+      if (!url.searchParams.get('seed')) url.searchParams.set('seed', String(Date.now()));
+
+      const hubRoot = buildHubRoot();
+      const zoneReturn = buildZoneReturn();
+
+      url.searchParams.set('zone', 'hygiene');
+      url.searchParams.set('cat', 'hygiene');
+      url.searchParams.set('game', 'handwash');
+      url.searchParams.set('gameId', 'handwash');
+      url.searchParams.set('theme', 'handwash');
+
+      url.searchParams.set('hubRoot', hubRoot);
+      url.searchParams.set('hub', zoneReturn);
+      url.searchParams.set('zoneReturn', zoneReturn);
+      url.searchParams.set('next', zoneReturn);
+
+      url.searchParams.set('practice', '1');
+      url.searchParams.set('fromPractice', '1');
+
+      return url;
+    }
+
+    function buildFallbackMainUrl(){
+      const explicitMain = firstNonEmpty(
+        qsParam('main', ''),
+        qsParam('mainGame', ''),
+        qsParam('mainUrl', '')
+      );
+
+      const url = new URL(explicitMain || '../handwash-v2.html', location.href);
+      applyCommonGameParams(url);
       url.searchParams.set('seed', String(Date.now()));
       return url.toString();
     }
 
-    const NEXT_URL = qsParam('next', buildFallbackMainUrl());
+    function resolveNextMainUrl(){
+      const explicitMain = firstNonEmpty(
+        qsParam('main', ''),
+        qsParam('mainGame', ''),
+        qsParam('mainUrl', '')
+      );
+
+      if (explicitMain) {
+        const url = new URL(explicitMain, location.href);
+        applyCommonGameParams(url);
+        return url.toString();
+      }
+
+      const rawNext = firstNonEmpty(qsParam('next', ''));
+      if (rawNext) {
+        const nextAbs = safeAbsUrl(rawNext, '../handwash-v2.html');
+        const zoneReturn = buildZoneReturn();
+        const hubRoot = buildHubRoot();
+        const isBadNext =
+          nextAbs === zoneReturn ||
+          nextAbs === hubRoot ||
+          nextAbs === new URL(location.href).toString() ||
+          looksLikeZoneOrHub(nextAbs);
+
+        if (!isBadNext) {
+          const url = new URL(nextAbs);
+          applyCommonGameParams(url);
+          return url.toString();
+        }
+      }
+
+      return buildFallbackMainUrl();
+    }
+
+    function rememberHandwashRecent(){
+      try{
+        localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
+      }catch(_){}
+
+      try{
+        localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
+          key: 'handwash',
+          title: 'Handwash',
+          at: Date.now()
+        }));
+      }catch(_){}
+    }
+
+    const NEXT_URL = resolveNextMainUrl();
+    const ZONE_RETURN_URL = buildZoneReturn();
     const START_TIME = Math.max(60, parseInt(qsParam('time', '90'), 10) || 90);
 
     const MODULE_META = {
@@ -673,13 +818,6 @@
       { module:'drill', key:'fingertips',  title:'WHO 6 • ถูปลายนิ้วบนฝ่ามือ',  desc:'ซ้อมขั้นนี้แบบย่อ', prompt:'แตะปลายนิ้วซ้ายและขวา', required:['left-fingertips','right-fingertips'], showLabels:false, icon:'💅' },
       { module:'drill', key:'wrists',      title:'WHO 7 • ถูรอบข้อมือ',          desc:'ซ้อมขั้นนี้แบบย่อ', prompt:'แตะข้อมือซ้ายและขวา', required:['left-wrists','right-wrists'], showLabels:false, icon:'⌚' }
     ];
-
-    const MODULE_TOTALS = PLAN.reduce((acc, item) => {
-      acc[item.module] = (acc[item.module] || 0) + 1;
-      return acc;
-    }, {});
-
-    const MODULE_ORDER = ['zones', 'motions', 'drill'];
 
     const state = {
       started:false,
@@ -1054,18 +1192,6 @@
       }
     }
 
-    function moduleTaskCounts(module){
-      return PLAN.filter(item => item.module === module).length;
-    }
-
-    function moduleTaskIndex(currentModule, taskIndex){
-      let idx = 0;
-      for (let i = 0; i <= taskIndex; i++){
-        if (PLAN[i].module === currentModule) idx++;
-      }
-      return idx;
-    }
-
     function updateUI(){
       const task = currentTask();
       if (!task) return;
@@ -1088,7 +1214,7 @@
       ui.progressText.textContent = `${overallPercent()}%`;
 
       if (task.module === 'zones'){
-        buildLegend(`${STEP_THEME[task.key].label} = ${STEP_THEME[task.key].color ? STEP_THEME[task.key].label : ''}`.replace(' = ', ' = ').replace('undefined',''), STEP_THEME[task.key].color);
+        buildLegend(`สีนี้คือ ${STEP_THEME[task.key].label}`, STEP_THEME[task.key].color);
       } else if (task.module === 'motions'){
         buildMotionCue(task, task.prompt, STEP_THEME[task.key].color);
         buildLegend(`สีนี้คือ ${STEP_THEME[task.key].label}`, STEP_THEME[task.key].color);
@@ -1333,6 +1459,8 @@
       state.sequenceIndex = 0;
       state.badges = [];
 
+      rememberHandwashRecent();
+
       ui.startOverlay.classList.add('hidden');
       ui.summaryOverlay.classList.add('hidden');
 
@@ -1342,7 +1470,11 @@
 
     ui.startBtn.addEventListener('click', startPractice);
     ui.restartBtn.addEventListener('click', startPractice);
-    ui.nextBtn.addEventListener('click', ()=>{ location.href = NEXT_URL; });
+
+    ui.nextBtn.addEventListener('click', ()=>{
+      rememberHandwashRecent();
+      location.href = NEXT_URL;
+    });
 
     ui.hudToggleBtn.addEventListener('click', ()=>{
       setHudCompact(!state.hudCompact);
@@ -1421,6 +1553,7 @@
     }
 
     buildZones();
+    rememberHandwashRecent();
     setBtnText();
     setHudCompact(isMobileLike());
     updateUI();
