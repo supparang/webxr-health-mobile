@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Shadow Breaker Launcher</title>
+  <meta name="theme-color" content="#0b1427" />
+  <style>
+    :root{
+      --bg1:#173052;
+      --bg2:#0b1427;
+      --bg3:#050913;
+      --card:rgba(255,255,255,.95);
+      --ink:#172338;
+      --mut:#5d6b82;
+      --blue:#3b82f6;
+      --blue2:#215fd3;
+      --line:#dbe5f5;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+    body{
+      min-height:100dvh;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:#fff;
+      background:
+        radial-gradient(circle at top, var(--bg1) 0%, var(--bg2) 56%, var(--bg3) 100%);
+    }
+
+    .wrap{
+      width:min(980px, 100%);
+      margin:0 auto;
+      padding:20px 16px 40px;
+    }
+
+    .hero{
+      padding:18px 18px 12px;
+      border-radius:28px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow:0 18px 44px rgba(0,0,0,.18);
+      backdrop-filter:blur(8px);
+    }
+
+    .eyebrow{
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.18em;
+      opacity:.85;
+      text-transform:uppercase;
+    }
+
+    h1{
+      margin:8px 0 6px;
+      font-size:clamp(28px,5vw,48px);
+      line-height:1.04;
+    }
+
+    .sub{
+      margin:0;
+      max-width:760px;
+      font-size:15px;
+      line-height:1.55;
+      color:rgba(255,255,255,.9);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.2fr .9fr;
+      gap:16px;
+      margin-top:16px;
+    }
+
+    .card{
+      background:var(--card);
+      color:var(--ink);
+      border-radius:24px;
+      padding:18px;
+      box-shadow:0 18px 44px rgba(0,0,0,.16);
+    }
+
+    .card h2{
+      margin:0 0 12px;
+      font-size:20px;
+    }
+
+    .fields{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field span{
+      font-size:13px;
+      font-weight:800;
+      color:var(--mut);
+    }
+
+    .field select,
+    .field input{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px 12px;
+      font:inherit;
+      color:var(--ink);
+      background:#fff;
+    }
+
+    .tips{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .tip{
+      border-radius:16px;
+      padding:12px 14px;
+      background:#f4f8ff;
+      color:#22344e;
+    }
+
+    .tip strong{
+      display:block;
+      margin-bottom:4px;
+      font-size:14px;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      border-radius:16px;
+      padding:13px 16px;
+      font-weight:900;
+      font-size:14px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .btn-primary{
+      background:linear-gradient(180deg, var(--blue) 0%, var(--blue2) 100%);
+      color:#fff;
+      box-shadow:0 12px 24px rgba(59,130,246,.28);
+    }
+
+    .btn-secondary{
+      background:#eaf2ff;
+      color:#14325d;
+    }
+
+    .btn-ghost{
+      background:#fff;
+      color:#172338;
+      border:1px solid var(--line);
+    }
+
+    .meta{
+      margin-top:12px;
+      display:grid;
+      gap:8px;
+      font-size:13px;
+      color:var(--mut);
+      word-break:break-word;
+    }
+
+    .pillrow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .pill{
+      padding:8px 10px;
+      border-radius:999px;
+      background:#f4f8ff;
+      color:#234;
+      font-size:12px;
+      font-weight:800;
+    }
+
+    @media (max-width:780px){
+      .grid{
+        grid-template-columns:1fr;
+      }
+      .fields{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">HeroHealth • Fitness</div>
+      <h1>Shadow Breaker</h1>
+      <p class="sub">
+        เลือกเข้าเล่นแบบฝึกก่อนหรือเข้าเกมหลักเลยก็ได้ โดยรอบนี้จะส่งค่าตั้งทั้งหมดต่อกันครบ
+        ทั้ง <strong>trainer</strong>, <strong>main game</strong>, และ <strong>summary</strong>
+      </p>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>ตั้งค่ารอบเล่น</h2>
+
+        <div class="fields">
+          <label class="field">
+            <span>Mode</span>
+            <select id="sb-mode">
+              <option value="mixed">Mixed</option>
+              <option value="boxing">Boxing</option>
+              <option value="flow">Flow</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Body</span>
+            <select id="sb-body">
+              <option value="standing">Standing</option>
+              <option value="sitting">Sitting</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Intensity</span>
+            <select id="sb-intensity">
+              <option value="learn">Learn</option>
+              <option value="move">Move</option>
+              <option value="power">Power</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Duration (main game)</span>
+            <select id="sb-duration">
+              <option value="3">3 นาที</option>
+              <option value="6">6 นาที</option>
+              <option value="10">10 นาที</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Trainer time</span>
+            <select id="sb-trainer-time">
+              <option value="30">30 วิ</option>
+              <option value="36">36 วิ</option>
+              <option value="45">45 วิ</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Trainer targets</span>
+            <select id="sb-trainer-targets">
+              <option value="10">10 เป้า</option>
+              <option value="12">12 เป้า</option>
+              <option value="16">16 เป้า</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="pillrow">
+          <div class="pill" id="pill-view">view: mobile</div>
+          <div class="pill" id="pill-run">run: play</div>
+          <div class="pill" id="pill-diff">diff: normal</div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="btn-trainer" type="button">ฝึกก่อนเล่น</button>
+          <button class="btn btn-secondary" id="btn-main" type="button">เข้าเกมหลักเลย</button>
+          <a class="btn btn-ghost" id="btn-back" href="#">กลับ</a>
+        </div>
+
+        <div class="meta" id="meta-box"></div>
+      </div>
+
+      <div class="card">
+        <h2>แนวทางแนะนำ</h2>
+
+        <div class="tips">
+          <div class="tip">
+            <strong>สำหรับเด็กหรือผู้เล่นใหม่</strong>
+            เริ่มด้วย <b>Trainer</b> ก่อน แล้วค่อยเข้า main game จะเข้าใจ hit zone เร็วกว่า
+          </div>
+          <div class="tip">
+            <strong>ถ้าอยากทดสอบเกมหลักทันที</strong>
+            กด <b>เข้าเกมหลักเลย</b> ได้ โดย launcher จะยังแนบพารามิเตอร์กลับมาที่ summary
+          </div>
+          <div class="tip">
+            <strong>Flow รอบนี้</strong>
+            Launcher → Trainer → Shadow Breaker → Summary → กลับ Launcher / HUB
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const qs = (k, d = '') => {
+        try {
+          const v = new URL(location.href).searchParams.get(k);
+          return v == null || v === '' ? d : v;
+        } catch (_) {
+          return d;
+        }
+      };
+
+      const origin = location.origin || '';
+      const DEFAULT_HUB = qs('hub', origin + '/webxr-health-mobile/herohealth/fitness-zone.html');
+      const TRAINER_URL = origin + '/webxr-health-mobile/fitness/shadow-breaker-trainer.html';
+      const MAIN_URL = origin + '/webxr-health-mobile/fitness/shadow-breaker.html';
+
+      const $ = (id) => document.getElementById(id);
+
+      const elMode = $('sb-mode');
+      const elBody = $('sb-body');
+      const elIntensity = $('sb-intensity');
+      const elDuration = $('sb-duration');
+      const elTrainerTime = $('sb-trainer-time');
+      const elTrainerTargets = $('sb-trainer-targets');
+      const elMeta = $('meta-box');
+
+      const storageKey = 'SB_LAUNCHER_LAST_CONFIG';
+
+      function getBaseCtx() {
+        return {
+          pid: qs('pid', 'anon'),
+          name: qs('name', 'Hero'),
+          nick: qs('nick', qs('name', 'Hero')),
+          studyId: qs('studyId', ''),
+          run: qs('run', 'play'),
+          view: qs('view', 'mobile'),
+          diff: qs('diff', 'normal'),
+          seed: qs('seed', String(Date.now())),
+          hub: DEFAULT_HUB,
+          zone: qs('zone', 'fitness'),
+          cat: qs('cat', 'fitness'),
+          game: qs('game', 'shadowbreaker'),
+          gameId: qs('gameId', 'shadowbreaker'),
+          theme: qs('theme', 'shadowbreaker')
+        };
+      }
+
+      function saveConfig() {
+        const payload = readForm();
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(payload));
+        } catch (_) {}
+      }
+
+      function loadConfig() {
+        try {
+          return JSON.parse(localStorage.getItem(storageKey) || '{}');
+        } catch (_) {
+          return {};
+        }
+      }
+
+      function readForm() {
+        return {
+          mode: elMode.value,
+          body: elBody.value,
+          intensity: elIntensity.value,
+          duration: elDuration.value,
+          trainerTime: elTrainerTime.value,
+          trainerTargets: elTrainerTargets.value
+        };
+      }
+
+      function applyForm() {
+        const saved = loadConfig();
+
+        elMode.value = qs('mode', saved.mode || 'mixed');
+        elBody.value = qs('body', saved.body || 'standing');
+        elIntensity.value = qs('intensity', saved.intensity || 'move');
+        elDuration.value = String(qs('duration', qs('time', saved.duration || '6')));
+        elTrainerTime.value = String(qs('trainerTime', saved.trainerTime || '36'));
+        elTrainerTargets.value = String(qs('trainerTargets', saved.trainerTargets || '12'));
+      }
+
+      function buildUrl(base, extra = {}) {
+        const ctx = getBaseCtx();
+        const form = readForm();
+        const url = new URL(base, location.href);
+
+        const launcherSelf = new URL(location.href);
+        launcherSelf.searchParams.set('mode', form.mode);
+        launcherSelf.searchParams.set('body', form.body);
+        launcherSelf.searchParams.set('intensity', form.intensity);
+        launcherSelf.searchParams.set('duration', form.duration);
+        launcherSelf.searchParams.set('trainerTime', form.trainerTime);
+        launcherSelf.searchParams.set('trainerTargets', form.trainerTargets);
+
+        const pairs = {
+          pid: ctx.pid,
+          name: ctx.name,
+          nick: ctx.nick,
+          studyId: ctx.studyId,
+          run: ctx.run,
+          view: ctx.view,
+          diff: ctx.diff,
+          seed: String(Date.now()),
+          hub: ctx.hub,
+          zone: ctx.zone,
+          cat: ctx.cat,
+          game: 'shadowbreaker',
+          gameId: 'shadowbreaker',
+          theme: 'shadowbreaker',
+          mode: form.mode,
+          body: form.body,
+          intensity: form.intensity,
+          duration: form.duration,
+          launcher: launcherSelf.toString()
+        };
+
+        Object.entries(pairs).forEach(([k, v]) => {
+          if (v != null && String(v) !== '') url.searchParams.set(k, String(v));
+        });
+
+        Object.entries(extra).forEach(([k, v]) => {
+          if (v == null || String(v) === '') return;
+          url.searchParams.set(k, String(v));
+        });
+
+        return url.toString();
+      }
+
+      function renderMeta() {
+        const ctx = getBaseCtx();
+        $('pill-view').textContent = 'view: ' + ctx.view;
+        $('pill-run').textContent = 'run: ' + ctx.run;
+        $('pill-diff').textContent = 'diff: ' + ctx.diff;
+        $('btn-back').href = ctx.hub;
+
+        const trainerPreview = buildUrl(TRAINER_URL, {
+          time: elTrainerTime.value,
+          targets: elTrainerTargets.value,
+          next: buildUrl(MAIN_URL)
+        });
+
+        const mainPreview = buildUrl(MAIN_URL);
+
+        elMeta.innerHTML = `
+          <div><strong>Trainer next:</strong> ${escapeHtml(trainerPreview)}</div>
+          <div><strong>Main direct:</strong> ${escapeHtml(mainPreview)}</div>
+        `;
+      }
+
+      function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, (m) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[m]));
+      }
+
+      applyForm();
+      renderMeta();
+
+      [elMode, elBody, elIntensity, elDuration, elTrainerTime, elTrainerTargets].forEach((el) => {
+        el.addEventListener('change', () => {
+          saveConfig();
+          renderMeta();
+        });
+      });
+
+      $('btn-trainer').addEventListener('click', () => {
+        saveConfig();
+        location.href = buildUrl(TRAINER_URL, {
+          time: elTrainerTime.value,
+          targets: elTrainerTargets.value,
+          trainer: '1',
+          next: buildUrl(MAIN_URL)
+        });
+      });
+
+      $('btn-main').addEventListener('click', () => {
+        saveConfig();
+        location.href = buildUrl(MAIN_URL, {
+          trainer: '0'
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
