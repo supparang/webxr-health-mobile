@@ -4,7 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>VR Vocabulary Storm v7</title>
-    <link rel="icon" href="./favicon.ico" />
 <style>
 :root{
   --bg1:#0f172a; --bg2:#1e3a8a; --panel:rgba(10,16,35,.82); --line:rgba(255,255,255,.12);
@@ -46,6 +45,16 @@ canvas{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
 .teacherStat{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:12px}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .pill{appearance:none;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:12px 14px;color:var(--text);cursor:pointer}
+.replayFloating{
+  position:fixed; left:50%; bottom:26px; transform:translateX(-50%);
+  z-index:60; min-width:280px; max-width:80vw;
+  border:0; border-radius:22px; padding:16px 28px;
+  background:linear-gradient(135deg,#22c55e,#16a34a);
+  color:#fff; font-size:20px; font-weight:1000; cursor:pointer;
+  box-shadow:0 16px 36px rgba(0,0,0,.30), 0 0 0 4px rgba(255,255,255,.14) inset;
+  display:none;
+}
+.replayFloating.show{display:block}
 .small{font-size:12px;color:#cbd5e1}
 .mono{font-family:ui-monospace,Consolas,monospace}
 table{width:100%;border-collapse:collapse;margin-top:12px}
@@ -102,6 +111,7 @@ th{color:#93c5fd}
     </div>
     <div class="legend" id="helpText">ยิงคำตอบที่ถูก, รักษา HP, สร้าง combo, คำที่ผิดจะวนกลับมาอีกในช่วงท้ายของ run</div>
   </div>
+<button id="replayFloating" class="replayFloating">PLAY AGAIN</button>
 </div>
 
 <div class="overlay hidden" id="teacherWrap">
@@ -356,6 +366,7 @@ th{color:#93c5fd}
   }
 
   function startGame(){
+    els.replayFloating.classList.remove('show');
     session = {bank, mode, startedAt:new Date().toISOString(), endedAt:null, score:0, win:false, termStats:{}, events:[]};
     score=0; combo=0; hp=4; stageIndex=0; gameStarted=true; gameOver=false; summary=null; phase='idle';
     setupStage();
@@ -422,7 +433,9 @@ th{color:#93c5fd}
     currentPrompt = `${win?'MISSION CLEAR':'MISSION FAILED'} • RANK ${summary.grade}`;
     updateBestChip();
     updateHud();
-    targets = [{id:'replay', term:'replay', text:`PLAY AGAIN ${score}`, angle:0, radiusBase:0, radiusPulse:0, speed:0, yWave:0, x:width*0.5, y:height*0.84, z:1, scale:1.1, w:320, h:94, hitFlash:0, color: win ? '#4ade80' : '#fb7185'}];
+    els.replayFloating.textContent = `PLAY AGAIN ${score}`;
+    els.replayFloating.classList.add('show');
+    targets = [];
     beep(520,.08,'triangle',.04); setTimeout(()=>beep(780,.07,'triangle',.04),60); setTimeout(()=>beep(1040,.08,'triangle',.04),120);
   }
 
@@ -641,6 +654,7 @@ th{color:#93c5fd}
     localStorage.removeItem(bestKey());
     renderDashboard(); renderHistory(); updateBestChip();
   });
+  els.replayFloating.addEventListener('click', startGame);
   document.getElementById('downloadJsonBtn').addEventListener('click',()=>{ download('teacher_summary_v7.json', exportJson(), 'application/json'); els.exportStatus.textContent='Downloaded JSON'; });
   document.getElementById('downloadCsvBtn').addEventListener('click',()=>{ download('teacher_summary_v7.csv', exportCsv(), 'text/csv'); els.exportStatus.textContent='Downloaded CSV'; });
   document.getElementById('copyJsonBtn').addEventListener('click', async()=>{ const ok=await copyText(exportJson()); els.exportStatus.textContent = ok?'Copied JSON':'Copy JSON failed'; });
@@ -688,14 +702,14 @@ th{color:#93c5fd}
     }
 
     if(gameOver && summary){
-      const w=Math.min(860,width*.88), h=280, x=(width-w)/2, y=height*.52;
+      const w=Math.min(860,width*.88), h=236, x=(width-w)/2, y=height*.46;
       drawRoundRect(x,y,w,h,26,'rgba(9,18,37,.92)', summary.win ? '#4ade80' : '#fb7185');
       ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='900 30px Arial';
       ctx.fillText(`${summary.win?'MISSION CLEAR':'MISSION FAILED'} • RANK ${summary.grade}`, width/2, y+38);
       ctx.fillStyle='#67e8f9'; ctx.font='800 22px Arial'; ctx.fillText(`Score ${summary.score} • Weakest ${String(summary.weakest).toUpperCase()}`, width/2, y+84);
       ctx.fillStyle='#dbe7ff';
       drawWrapped(`Bank: ${summary.bank} • Mode: ${summary.mode.toUpperCase()} • Correct ${summary.correct} • Mistakes ${summary.mistakes}`, width/2, y+128, w-40, 2, 18);
-      drawWrapped(`Tap replay button below to run again`, width/2, y+170, w-40, 1, 18);
+      drawWrapped(`Tap the green PLAY AGAIN button below to run again`, width/2, y+170, w-40, 1, 18);
     }
 
     renderEffects(16.67);
