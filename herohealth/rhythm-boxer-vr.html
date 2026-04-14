@@ -1,13 +1,13 @@
-<!-- /herohealth/rhythm-boxer-vr.html -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Rhythm Boxer</title>
+  <title>HeroHealth • Rhythm Boxer Launcher</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#ffacd1" />
   <link rel="icon" href="../herohealth/favicon.ico" />
+
   <style>
     :root{
       --bg1:#fff1f8;
@@ -63,7 +63,7 @@
       padding:
         calc(10px + var(--safe-top))
         0
-        calc(14px + var(--safe-bottom));
+        calc(16px + var(--safe-bottom));
       display:grid;
       gap:12px;
     }
@@ -127,11 +127,11 @@
       flex-wrap:wrap;
     }
 
-    .shell{
+    .hero{
       display:grid;
-      grid-template-columns:1.08fr .92fr;
+      grid-template-columns:1.06fr .94fr;
       gap:12px;
-      align-items:start;
+      align-items:stretch;
     }
 
     .panel{
@@ -141,7 +141,7 @@
       box-shadow:var(--shadow);
     }
 
-    .menu-panel{
+    .hero-main{
       padding:18px;
       display:grid;
       gap:14px;
@@ -150,13 +150,13 @@
       overflow:hidden;
     }
 
-    .menu-panel::after{
+    .hero-main::after{
       content:"";
       position:absolute;
       right:-30px;
       bottom:-36px;
-      width:240px;
-      height:240px;
+      width:260px;
+      height:260px;
       border-radius:50%;
       background:radial-gradient(circle, rgba(255,157,207,.20), transparent 64%);
       pointer-events:none;
@@ -190,12 +190,167 @@
       font-size:15px;
       font-weight:900;
       line-height:1.55;
-      max-width:720px;
+      max-width:760px;
     }
 
-    .preview{
+    .mode-split{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .mode-card{
       position:relative;
-      min-height:320px;
+      padding:16px;
+      border-radius:28px;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      gap:12px;
+      min-height:280px;
+      overflow:hidden;
+    }
+
+    .mode-card.main{
+      background:linear-gradient(180deg,#fff,#f2f9ff);
+    }
+
+    .mode-card.bloom{
+      background:linear-gradient(180deg,#fff,#fff3fb);
+    }
+
+    .mode-card::after{
+      content:"";
+      position:absolute;
+      right:-22px;
+      bottom:-26px;
+      width:160px;
+      height:160px;
+      border-radius:50%;
+      pointer-events:none;
+      opacity:.85;
+    }
+
+    .mode-card.main::after{
+      background:radial-gradient(circle, rgba(127,207,255,.20), transparent 64%);
+    }
+
+    .mode-card.bloom::after{
+      background:radial-gradient(circle, rgba(184,153,255,.20), transparent 64%);
+    }
+
+    .mode-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .mode-icon{
+      width:58px;
+      height:58px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:26px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .mode-card.main .mode-icon{
+      background:linear-gradient(135deg,var(--blue),var(--blue2));
+    }
+
+    .mode-card.bloom .mode-icon{
+      background:linear-gradient(135deg,var(--purple),var(--pink2));
+    }
+
+    .mode-chip{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .mode-title{
+      margin:0;
+      font-size:28px;
+      line-height:1.04;
+      font-weight:1000;
+    }
+
+    .mode-desc{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.52;
+    }
+
+    .mode-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .mode-item{
+      min-height:42px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .mode-item .tag{
+      min-width:74px;
+      min-height:26px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:4px 8px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:10px;
+      font-weight:1000;
+    }
+
+    .path-row{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .path-pill{
+      min-height:56px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:10px;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.25;
+    }
+
+    .preview-visual{
+      position:relative;
+      min-height:240px;
       border-radius:28px;
       border:2px dashed var(--line-strong);
       overflow:hidden;
@@ -204,7 +359,7 @@
         linear-gradient(180deg,#261236 0%, #4d235f 56%, #ffd694 57%, #fff2d2 100%);
     }
 
-    .preview-arena{
+    .preview-stage{
       position:absolute;
       inset:20px 18px 42px 18px;
       border-radius:24px;
@@ -215,8 +370,8 @@
       position:absolute;
       left:50%;
       transform:translateX(-50%);
-      bottom:82px;
-      width:min(430px,72%);
+      bottom:84px;
+      width:min(440px,74%);
       height:14px;
       border-radius:999px;
       background:linear-gradient(90deg,rgba(255,255,255,.24),rgba(255,255,255,.96),rgba(255,255,255,.24));
@@ -225,8 +380,8 @@
 
     .preview-note{
       position:absolute;
-      right:96px;
-      top:116px;
+      right:94px;
+      top:118px;
       width:78px;
       height:78px;
       border-radius:22px;
@@ -245,8 +400,8 @@
       top:34px;
       transform:translateX(-50%);
       min-width:220px;
-      max-width:min(82%,360px);
-      min-height:104px;
+      max-width:min(82%,380px);
+      min-height:108px;
       padding:12px 14px;
       border-radius:26px;
       border:3px solid rgba(255,255,255,.88);
@@ -276,135 +431,13 @@
       font-weight:900;
     }
 
-    .preview-avatar{
-      position:absolute;
-      left:110px;
-      bottom:54px;
-      width:180px;
-      height:170px;
-      filter:drop-shadow(0 12px 16px rgba(0,0,0,.15));
-    }
-
-    .preview-avatar .head{
-      position:absolute;
-      left:50%;
-      top:10px;
-      transform:translateX(-50%);
-      width:58px;
-      height:58px;
-      border-radius:50%;
-      background:#ffe0bf;
-      border:3px solid rgba(67,63,61,.1);
-    }
-
-    .preview-avatar .body{
-      position:absolute;
-      left:50%;
-      top:60px;
-      transform:translateX(-50%);
-      width:84px;
-      height:60px;
-      border-radius:24px 24px 18px 18px;
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-      border:3px solid rgba(67,63,61,.1);
-    }
-
-    .preview-avatar .arm,
-    .preview-avatar .leg{
-      position:absolute;
-      background:#ffe0bf;
-      border-radius:999px;
-      border:3px solid rgba(67,63,61,.08);
-    }
-
-    .preview-avatar .arm{ width:16px; height:56px; top:66px; }
-    .preview-avatar .arm.left{ left:34px; transform:rotate(38deg); }
-    .preview-avatar .arm.right{ right:34px; transform:rotate(-38deg); }
-    .preview-avatar .leg{ width:18px; height:62px; top:110px; }
-    .preview-avatar .leg.left{ left:64px; transform:rotate(10deg); }
-    .preview-avatar .leg.right{ right:64px; transform:rotate(-10deg); }
-
-    .chips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    .chip{
-      min-height:34px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .stats-strip{
-      display:grid;
-      gap:10px;
-      padding:14px;
-      border-radius:24px;
-      border:2px solid var(--line);
-      background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,248,252,.94));
-    }
-
-    .stats-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .stats-head strong{
-      font-size:16px;
-    }
-
-    .stats-head span{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .stats-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .stat{
-      padding:10px 12px;
-      border-radius:16px;
-      background:#fff;
-      border:2px solid var(--line);
-    }
-
-    .stat .k{
-      display:block;
-      font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .stat .v{
-      display:block;
-      margin-top:4px;
-      font-size:18px;
-      font-weight:1000;
-      line-height:1.1;
-    }
-
-    .menu-side{
+    .side-panel{
       padding:16px;
       display:grid;
       gap:12px;
       position:sticky;
       top:calc(10px + var(--safe-top));
+      align-content:start;
     }
 
     .card-block{
@@ -548,6 +581,35 @@
       font-weight:1000;
     }
 
+    .recent-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .recent-box{
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .recent-box .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .recent-box .v{
+      display:block;
+      margin-top:4px;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
     .launch-actions{
       display:grid;
       gap:10px;
@@ -583,6 +645,16 @@
       border:2px solid rgba(255,179,91,.30);
     }
 
+    .btn.info{
+      background:linear-gradient(135deg,#fff,#eef7ff);
+      border:2px solid rgba(127,207,255,.34);
+    }
+
+    .btn.purple{
+      background:linear-gradient(135deg,var(--purple),var(--purple2));
+      color:#fff;
+    }
+
     .preview-url{
       font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
       font-size:11px;
@@ -593,6 +665,7 @@
       border:2px dashed var(--line-strong);
       padding:10px;
       word-break:break-all;
+      white-space:pre-wrap;
     }
 
     .footer-note{
@@ -602,20 +675,36 @@
       font-weight:900;
     }
 
-    @media (max-width:1100px){
-      .shell{ grid-template-columns:1fr; }
-      .menu-side{ position:relative; top:auto; }
+    @media (max-width:1120px){
+      .hero{
+        grid-template-columns:1fr;
+      }
+      .side-panel{
+        position:relative;
+        top:auto;
+      }
     }
 
-    @media (max-width:780px){
+    @media (max-width:860px){
       .topbar{
         grid-template-columns:1fr;
       }
-      .stats-grid,
-      .grid-3{
+      .mode-split{
         grid-template-columns:1fr;
       }
-      .grid-2{
+      .path-row{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+      .recent-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media (max-width:620px){
+      .grid-3,
+      .grid-2,
+      .recent-grid,
+      .path-row{
         grid-template-columns:1fr;
       }
     }
@@ -630,8 +719,8 @@
       </div>
 
       <div class="headline">
-        <h1 class="headline-title">Rhythm Boxer</h1>
-        <p class="headline-sub">Rhythm • Timing • Combo • Beat • Fitness Zone</p>
+        <h1 class="headline-title">Rhythm Boxer Launcher</h1>
+        <p class="headline-sub">Main Game = Apply • Bloom Pack = Learn / Analyze / Create</p>
       </div>
 
       <div class="top-actions">
@@ -640,19 +729,65 @@
       </div>
     </header>
 
-    <section class="shell">
-      <section class="panel menu-panel">
-        <div class="badge">✨ child-friendly • rhythm • beat • summary • warmup+cooldown</div>
+    <section class="hero">
+      <section class="panel hero-main">
+        <div class="badge">✨ launcher integrated • bloom pack • warmup + cooldown • 3 modes</div>
 
         <h2 class="hero-title">Rhythm<br>Boxer</h2>
 
         <p class="hero-copy">
-          เกมนี้ฝึก <strong>การจับจังหวะ ตีตาม beat และรักษาคอมโบ</strong>
-          เด็กจะได้ฝึก timing แบบสนุก มีโน้ตชัด เข้าใจง่าย และค่อย ๆ เล่นจนผ่านช่วง boss ได้
+          หน้านี้เป็น launcher หลักของ Rhythm Boxer แบบเต็ม
+          โดยแยกชัดว่า <strong>Main Game</strong> ใช้สำหรับเล่นจริงและฝึกการนำไปใช้
+          ส่วน <strong>Bloom Pack</strong> ใช้สำหรับปูพื้นก่อนเล่นด้วย mini games ตามระดับการเรียนรู้
         </p>
 
-        <div class="preview">
-          <div class="preview-arena"></div>
+        <div class="mode-split">
+          <article class="mode-card main">
+            <div class="mode-top">
+              <div class="mode-icon">🥊</div>
+              <div class="mode-chip">APPLY</div>
+            </div>
+
+            <h3 class="mode-title">Main Game</h3>
+            <p class="mode-desc">
+              เข้าเกมหลักเพื่อฝึกจับจังหวะ ตีตาม beat รักษา combo และผ่าน boss phase
+            </p>
+
+            <div class="mode-list">
+              <div class="mode-item"><span class="tag">Flow</span> Warmup → Main Game → Cooldown</div>
+              <div class="mode-item"><span class="tag">Use</span> เล่นจริง / ทดสอบ input / เก็บผล</div>
+              <div class="mode-item"><span class="tag">Bloom</span> Apply</div>
+            </div>
+          </article>
+
+          <article class="mode-card bloom">
+            <div class="mode-top">
+              <div class="mode-icon">🌟</div>
+              <div class="mode-chip">LEARN PATHS</div>
+            </div>
+
+            <h3 class="mode-title">Bloom Pack</h3>
+            <p class="mode-desc">
+              เข้า mini games เพื่อฝึกก่อนเล่นจริง เช่น จำสัญลักษณ์ เข้าใจ hit line วิเคราะห์ pattern และสร้าง combo เอง
+            </p>
+
+            <div class="mode-list">
+              <div class="mode-item"><span class="tag">Learn</span> Beat Badge Match → Hit Line Coach</div>
+              <div class="mode-item"><span class="tag">Analyze</span> Pattern Detective</div>
+              <div class="mode-item"><span class="tag">Create</span> Combo Composer</div>
+            </div>
+          </article>
+        </div>
+
+        <div class="path-row">
+          <div class="path-pill">Remember</div>
+          <div class="path-pill">Understand</div>
+          <div class="path-pill">Analyze</div>
+          <div class="path-pill">Create</div>
+        </div>
+
+        <div class="preview-visual">
+          <div class="preview-stage"></div>
           <div class="preview-hitline"></div>
           <div class="preview-note">♪</div>
 
@@ -660,44 +795,13 @@
             <div>
               <div class="emoji">🥊</div>
               <div class="label">Punch on Beat</div>
-              <div class="hint">ต่อยตามจังหวะเมื่อโน้ตถึงเส้น</div>
+              <div class="hint">เลือก Main Game หรือเข้า Bloom Pack ก่อนก็ได้</div>
             </div>
           </div>
-
-          <div class="preview-avatar" aria-hidden="true">
-            <div class="head"></div>
-            <div class="body"></div>
-            <div class="arm left"></div>
-            <div class="arm right"></div>
-            <div class="leg left"></div>
-            <div class="leg right"></div>
-          </div>
         </div>
-
-        <div class="chips">
-          <div class="chip">🥁 Rhythm</div>
-          <div class="chip">🎯 Timing</div>
-          <div class="chip">🔥 Combo</div>
-          <div class="chip">🎵 Beat</div>
-          <div class="chip">⭐ Summary</div>
-        </div>
-
-        <section class="stats-strip">
-          <div class="stats-head">
-            <strong>🕹️ ผลล่าสุด</strong>
-            <span id="recentStripSub">ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย</span>
-          </div>
-
-          <div class="stats-grid">
-            <div class="stat"><span class="k">Rank</span><span id="recentRank" class="v">-</span></div>
-            <div class="stat"><span class="k">Score</span><span id="recentScore" class="v">-</span></div>
-            <div class="stat"><span class="k">Accuracy</span><span id="recentAcc" class="v">-</span></div>
-            <div class="stat"><span class="k">Combo</span><span id="recentCombo" class="v">-</span></div>
-          </div>
-        </section>
       </section>
 
-      <aside class="panel menu-side">
+      <aside class="panel side-panel">
         <section class="card-block">
           <h3>PLAYER</h3>
 
@@ -718,13 +822,13 @@
         </section>
 
         <section class="card-block">
-          <h3>RECOMMENDED SETTINGS</h3>
+          <h3>RECOMMENDED ENTRY</h3>
 
           <div class="recommend-box">
             <div id="recommendTitle" class="recommend-title">แนะนำค่าเริ่มต้น</div>
-            <div id="recommendSub" class="recommend-sub">ระบบจะเลือกค่าที่เหมาะจากผลล่าสุดให้</div>
+            <div id="recommendSub" class="recommend-sub">ระบบจะช่วยบอกว่าเหมาะเริ่มจาก Main Game หรือ Bloom Pack</div>
             <div id="recommendChips" class="recommend-chips">
-              <span>Normal</span><span>90s</span><span>Mobile</span>
+              <span>Normal</span><span>60s</span><span>Mobile</span><span>Main</span>
             </div>
             <button id="btnApplyRecommended" class="btn secondary" type="button">✨ ใช้ค่าที่แนะนำ</button>
           </div>
@@ -735,7 +839,7 @@
           <div class="grid-3">
             <div class="toggle">
               <input id="diff-easy" name="diff" type="radio" value="easy" />
-              <label for="diff-easy">Easy<small>โน้ตอ่านง่าย</small></label>
+              <label for="diff-easy">Easy<small>เริ่มง่าย</small></label>
             </div>
             <div class="toggle">
               <input id="diff-normal" name="diff" type="radio" value="normal" checked />
@@ -743,7 +847,7 @@
             </div>
             <div class="toggle">
               <input id="diff-hard" name="diff" type="radio" value="hard" />
-              <label for="diff-hard">Hard<small>จังหวะแน่นขึ้น</small></label>
+              <label for="diff-hard">Hard<small>คิดและกดแน่นขึ้น</small></label>
             </div>
           </div>
         </section>
@@ -752,16 +856,16 @@
           <h3>TIME</h3>
           <div class="grid-3">
             <div class="toggle">
-              <input id="time-60" name="time" type="radio" value="60" />
-              <label for="time-60">60s<small>สั้น</small></label>
+              <input id="time-60" name="time" type="radio" value="60" checked />
+              <label for="time-60">60s<small>แนะนำ</small></label>
             </div>
             <div class="toggle">
-              <input id="time-90" name="time" type="radio" value="90" checked />
-              <label for="time-90">90s<small>แนะนำ</small></label>
+              <input id="time-90" name="time" type="radio" value="90" />
+              <label for="time-90">90s<small>ยาวขึ้น</small></label>
             </div>
             <div class="toggle">
               <input id="time-120" name="time" type="radio" value="120" />
-              <label for="time-120">120s<small>ยาวขึ้น</small></label>
+              <label for="time-120">120s<small>นานขึ้น</small></label>
             </div>
           </div>
         </section>
@@ -775,7 +879,7 @@
             </div>
             <div class="toggle">
               <input id="view-pc" name="view" type="radio" value="pc" />
-              <label for="view-pc">PC<small>คีย์บอร์ด</small></label>
+              <label for="view-pc">PC<small>keyboard</small></label>
             </div>
             <div class="toggle">
               <input id="view-cvr" name="view" type="radio" value="cvr" />
@@ -785,27 +889,13 @@
         </section>
 
         <section class="card-block">
-          <h3>RUN MODE</h3>
-          <div class="grid-2">
-            <div class="toggle">
-              <input id="run-play" name="run" type="radio" value="play" checked />
-              <label for="run-play">Play<small>เล่นทั่วไป</small></label>
-            </div>
-            <div class="toggle">
-              <input id="run-research" name="run" type="radio" value="research" />
-              <label for="run-research">Research<small>seed/logging</small></label>
-            </div>
-          </div>
-        </section>
-
-        <section class="card-block">
           <h3>FLOW</h3>
-          <p>โหมดมาตรฐานจะไปตามลำดับ <strong>warmup-gate → rhythm-boxer → summary → cooldown → hub/zone</strong></p>
+          <p>Flow มาตรฐานจะใช้ <strong>warmup → game → cooldown → hub</strong></p>
 
           <div class="grid-2">
             <div class="toggle">
               <input id="gate-on" name="gate" type="radio" value="1" checked />
-              <label for="gate-on">Warmup ON<small>ใช้ gate ก่อนเข้าเกม</small></label>
+              <label for="gate-on">Warmup ON<small>ใช้ gate ก่อนเข้า</small></label>
             </div>
             <div class="toggle">
               <input id="gate-off" name="gate" type="radio" value="0" />
@@ -813,48 +903,54 @@
             </div>
           </div>
 
-          <div class="grid-2">
+          <div class="grid-2" style="margin-top:8px;">
             <div class="toggle">
               <input id="cooldown-on" name="cooldown" type="radio" value="1" checked />
-              <label for="cooldown-on">Cooldown ON<small>ส่ง param ไว้พร้อม</small></label>
+              <label for="cooldown-on">Cooldown ON<small>จบแล้วเข้าคูลดาวน์</small></label>
             </div>
             <div class="toggle">
               <input id="cooldown-off" name="cooldown" type="radio" value="0" />
-              <label for="cooldown-off">Cooldown OFF<small>จบแล้วกลับ hub/zone</small></label>
+              <label for="cooldown-off">Cooldown OFF<small>จบแล้วกลับทันที</small></label>
             </div>
           </div>
         </section>
 
         <section class="card-block">
-          <h3>SEED</h3>
-          <div class="field">
-            <label for="seed">Seed</label>
-            <input id="seed" type="text" placeholder="auto" />
+          <h3>LAST RESULT</h3>
+          <p id="recentSub">ยังไม่มีผลล่าสุดของ Rhythm Boxer / Bloom Pack</p>
+
+          <div class="recent-grid">
+            <div class="recent-box"><span class="k">Game</span><span id="recentGame" class="v">-</span></div>
+            <div class="recent-box"><span class="k">Rank</span><span id="recentRank" class="v">-</span></div>
+            <div class="recent-box"><span class="k">Score</span><span id="recentScore" class="v">-</span></div>
+            <div class="recent-box"><span class="k">Acc / Replay</span><span id="recentAcc" class="v">-</span></div>
           </div>
         </section>
 
         <section class="card-block">
           <h3>LAUNCH</h3>
           <div class="launch-actions">
-            <button id="btnStartStandard" class="btn primary" type="button">▶ Start with Current Settings</button>
-            <button id="btnQuickPlay" class="btn secondary" type="button">⚡ Quick Play Now</button>
+            <button id="btnStartMainGame" class="btn primary" type="button">🥊 Start Main Game</button>
+            <button id="btnBloomPack" class="btn purple" type="button">🌟 Open Bloom Pack</button>
+            <button id="btnQuickLearn" class="btn secondary" type="button">🎯 Quick Learn Path</button>
+            <button id="btnQuickAnalyze" class="btn secondary" type="button">🧩 Quick Analyze Path</button>
+            <button id="btnQuickCreate" class="btn secondary" type="button">🎼 Quick Create Lab</button>
             <button id="btnUseLastPattern" class="btn ghost" type="button">🕹️ ใช้ค่าจากล่าสุด</button>
           </div>
-          <div id="previewUrl" class="preview-url">preview url</div>
         </section>
 
-        <div class="footer-note">
-          Launcher นี้ส่งค่า pid / diff / time / seed / hub / run / view / gate / cooldown ให้ครบ
-        </div>
+        <section class="card-block">
+          <h3>PREVIEW URL</h3>
+          <div id="previewUrl" class="preview-url">preview url</div>
+        </section>
       </aside>
     </section>
 
     <div class="footer-note">
-      HeroHealth • Rhythm Boxer • launcher-only • run page = /herohealth/vr-rhythm-boxer-main/boxer.html
+      Rhythm Boxer Launcher • Main Game + Bloom Pack integrated
     </div>
   </div>
 
-  <script src="../herohealth/fitness-zone-bridge.js"></script>
   <script>
     (function () {
       'use strict';
@@ -862,45 +958,45 @@
       const qs = new URLSearchParams(location.search);
       const $ = (id) => document.getElementById(id);
 
-      function q(k, d='') {
-        const v = qs.get(k);
-        return v == null || v === '' ? d : v;
-      }
-
       const els = {
         pid: $('pid'),
         name: $('name'),
         studyId: $('studyId'),
-        seed: $('seed'),
 
         btnBackFitnessTop: $('btnBackFitnessTop'),
         btnBackHubTop: $('btnBackHubTop'),
-        btnStartStandard: $('btnStartStandard'),
-        btnQuickPlay: $('btnQuickPlay'),
+
+        btnStartMainGame: $('btnStartMainGame'),
+        btnBloomPack: $('btnBloomPack'),
+        btnQuickLearn: $('btnQuickLearn'),
+        btnQuickAnalyze: $('btnQuickAnalyze'),
+        btnQuickCreate: $('btnQuickCreate'),
         btnUseLastPattern: $('btnUseLastPattern'),
         btnApplyRecommended: $('btnApplyRecommended'),
 
         previewUrl: $('previewUrl'),
-        recentStripSub: $('recentStripSub'),
-        recentRank: $('recentRank'),
-        recentScore: $('recentScore'),
-        recentAcc: $('recentAcc'),
-        recentCombo: $('recentCombo'),
 
         recommendTitle: $('recommendTitle'),
         recommendSub: $('recommendSub'),
-        recommendChips: $('recommendChips')
-      };
+        recommendChips: $('recommendChips'),
 
-      const Bridge = window.HHFitnessBridge;
+        recentSub: $('recentSub'),
+        recentGame: $('recentGame'),
+        recentRank: $('recentRank'),
+        recentScore: $('recentScore'),
+        recentAcc: $('recentAcc')
+      };
 
       const ABS_HUB = new URL('../herohealth/hub-v2.html', location.href).href;
       const ABS_FITNESS = new URL('../herohealth/fitness-zone.html', location.href).href;
-      const ABS_RUN = new URL('../herohealth/vr-rhythm-boxer-main/boxer.html', location.href).href;
+      const ABS_BLOOM = new URL('../herohealth/vr-rhythm-boxer-bloom/index.html', location.href).href;
+      const ABS_MAIN = new URL('../herohealth/vr-rhythm-boxer-main/boxer.html', location.href).href;
       const ABS_GATE = new URL('../herohealth/warmup-gate.html', location.href).href;
 
-      const PLAN_DAY = q('planDay', '');
-      const PLAN_SLOT = q('planSlot', '');
+      function q(k, d='') {
+        const v = qs.get(k);
+        return v == null || v === '' ? d : v;
+      }
 
       function setRadio(name, value) {
         const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
@@ -919,35 +1015,142 @@
         return u.toString();
       }
 
-      function buildRunUrl() {
-        const u = new URL(ABS_RUN);
+      function sharedParams(targetUrl, extra = {}) {
+        const u = new URL(targetUrl, location.href);
 
-        u.searchParams.set('game', 'rhythm-boxer');
-        u.searchParams.set('gameId', 'rhythmboxer');
-        u.searchParams.set('theme', 'rhythmboxer');
-        u.searchParams.set('zone', 'fitness');
-        u.searchParams.set('cat', 'fitness');
+        const pid = els.pid.value || q('pid', 'anon');
+        const name = els.name.value || q('name', q('nickName', 'Player'));
+        const studyId = els.studyId.value || q('studyId', '');
+
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('name', name);
+        if (studyId) u.searchParams.set('studyId', studyId);
 
         u.searchParams.set('diff', readRadio('diff', q('diff', 'normal')));
-        u.searchParams.set('time', readRadio('time', q('time', '90')));
+        u.searchParams.set('time', readRadio('time', q('time', '60')));
         u.searchParams.set('view', readRadio('view', q('view', 'mobile')));
-        u.searchParams.set('run', readRadio('run', q('run', 'play')));
+        u.searchParams.set('run', q('run', 'play'));
+
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('theme', 'rhythmboxer');
+
+        u.searchParams.set('hub', buildFitnessBackUrl());
         u.searchParams.set('gate', readRadio('gate', q('gate', '1')));
         u.searchParams.set('cooldown', readRadio('cooldown', q('cooldown', '1')));
-        u.searchParams.set('hub', q('hub', ABS_HUB));
-
-        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
-        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
-        u.searchParams.set('seed', els.seed.value || q('seed', String(Date.now())));
-
-        if (els.studyId.value) u.searchParams.set('studyId', els.studyId.value);
-        if (PLAN_DAY) u.searchParams.set('planDay', PLAN_DAY);
-        if (PLAN_SLOT) u.searchParams.set('planSlot', PLAN_SLOT);
+        u.searchParams.set('seed', q('seed', String(Date.now())));
 
         [
-          'debug','api','log','studentKey','schoolCode',
-          'classRoom','studentNo','nickName','teacher',
-          'teacherMode','export','exportMode','autoNext','cdur'
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+
+        Object.entries(extra).forEach(([k, v]) => {
+          if (v == null || v === '') return;
+          u.searchParams.set(k, String(v));
+        });
+
+        return u.toString();
+      }
+
+      function buildMainGameUrl(extra = {}) {
+        return sharedParams(ABS_MAIN, Object.assign({
+          game: 'rhythmboxer',
+          gameId: 'rhythmboxer',
+          back: ABS_BLOOM
+        }, extra));
+      }
+
+      function buildLearnChain() {
+        const main = buildMainGameUrl({ entry: 'learn' });
+        const hit = sharedParams('../herohealth/vr-rhythm-boxer-bloom/hit-line-coach.html', {
+          game: 'hit-line-coach',
+          gameId: 'hit-line-coach',
+          back: ABS_BLOOM,
+          next: main,
+          entry: 'learn'
+        });
+        return sharedParams('../herohealth/vr-rhythm-boxer-bloom/beat-badge-match.html', {
+          game: 'beat-badge-match',
+          gameId: 'beat-badge-match',
+          back: ABS_BLOOM,
+          next: hit,
+          entry: 'learn'
+        });
+      }
+
+      function buildAnalyzeChain() {
+        const main = buildMainGameUrl({ entry: 'analyze' });
+        return sharedParams('../herohealth/vr-rhythm-boxer-bloom/pattern-detective.html', {
+          game: 'pattern-detective',
+          gameId: 'pattern-detective',
+          back: ABS_BLOOM,
+          next: main,
+          entry: 'analyze'
+        });
+      }
+
+      function buildCreateChain() {
+        const main = buildMainGameUrl({ entry: 'create' });
+        return sharedParams('../herohealth/vr-rhythm-boxer-bloom/combo-composer.html', {
+          game: 'combo-composer',
+          gameId: 'combo-composer',
+          back: ABS_BLOOM,
+          next: main,
+          entry: 'create'
+        });
+      }
+
+      function buildWarmupUrl(nextUrl, entryName) {
+        const gateOn = readRadio('gate', q('gate', '1')) === '1';
+        if (!gateOn) return nextUrl;
+
+        return sharedParams(ABS_GATE, {
+          phase: 'warmup',
+          gatePhase: 'warmup',
+          next: nextUrl,
+          entry: entryName || '',
+          dur: q('dur', '20'),
+          cdur: q('cdur', '20'),
+          game: 'rhythm-boxer',
+          gameId: 'rhythm-boxer'
+        });
+      }
+
+      function buildBloomPackUrl(entry = 'learn', autostart = false) {
+        const u = new URL(ABS_BLOOM);
+
+        const pid = els.pid.value || q('pid', 'anon');
+        const name = els.name.value || q('name', q('nickName', 'Player'));
+        const studyId = els.studyId.value || q('studyId', '');
+
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('name', name);
+        if (studyId) u.searchParams.set('studyId', studyId);
+
+        u.searchParams.set('diff', readRadio('diff', q('diff', 'normal')));
+        u.searchParams.set('time', readRadio('time', q('time', '60')));
+        u.searchParams.set('view', readRadio('view', q('view', 'mobile')));
+        u.searchParams.set('run', q('run', 'play'));
+
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('theme', 'rhythmboxer');
+        u.searchParams.set('hub', buildFitnessBackUrl());
+
+        u.searchParams.set('gate', readRadio('gate', q('gate', '1')));
+        u.searchParams.set('cooldown', readRadio('cooldown', q('cooldown', '1')));
+        u.searchParams.set('seed', q('seed', String(Date.now())));
+
+        u.searchParams.set('entry', entry);
+        if (autostart) u.searchParams.set('autostart', '1');
+
+        [
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName'
         ].forEach((k) => {
           const v = q(k, '');
           if (v) u.searchParams.set(k, v);
@@ -956,284 +1159,250 @@
         return u.toString();
       }
 
-      function baseRunUrl(patch = {}) {
-        const u = new URL(ABS_RUN);
+      function gameLabel(game) {
+        const g = String(game || '').toLowerCase();
+        if (g === 'beat-badge-match') return 'Beat Badge Match';
+        if (g === 'hit-line-coach') return 'Hit Line Coach';
+        if (g === 'pattern-detective') return 'Pattern Detective';
+        if (g === 'combo-composer') return 'Combo Composer';
+        if (g === 'rhythmboxer' || g === 'rhythm-boxer') return 'Main Game';
+        return '-';
+      }
 
+      function readRecentSummary() {
         const pid = els.pid.value || q('pid', 'anon');
-        const name = els.name.value || q('name', q('nickName', 'Player'));
-        const studyId = els.studyId.value || q('studyId', '');
-        const diff = patch.diff || readRadio('diff', q('diff', 'normal'));
-        const time = patch.time || readRadio('time', q('time', '90'));
-        const view = patch.view || readRadio('view', q('view', 'mobile'));
-        const run = patch.run || readRadio('run', q('run', 'play'));
-        const gate = String(patch.gate ?? readRadio('gate', q('gate', '1')));
-        const cooldown = String(patch.cooldown ?? readRadio('cooldown', q('cooldown', '1')));
-        const seed = patch.seed || (els.seed.value || q('seed', String(Date.now())));
-        const hub = patch.hub || buildFitnessBackUrl();
+        const keys = [
+          'HHA_LAST_SUMMARY',
+          `HHA_LAST_SUMMARY:combo-composer:${pid}`,
+          `HHA_LAST_SUMMARY:pattern-detective:${pid}`,
+          `HHA_LAST_SUMMARY:hit-line-coach:${pid}`,
+          `HHA_LAST_SUMMARY:beat-badge-match:${pid}`,
+          `HHA_LAST_SUMMARY:rhythmboxer:${pid}`
+        ];
 
-        u.search = '';
-        u.searchParams.set('pid', pid);
-        u.searchParams.set('name', name);
-        u.searchParams.set('zone', 'fitness');
-        u.searchParams.set('cat', 'fitness');
-        u.searchParams.set('game', 'rhythm-boxer');
-        u.searchParams.set('gameId', 'rhythmboxer');
-        u.searchParams.set('theme', 'rhythmboxer');
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', String(time));
-        u.searchParams.set('view', view);
-        u.searchParams.set('run', run);
-        u.searchParams.set('gate', gate);
-        u.searchParams.set('cooldown', cooldown);
-        u.searchParams.set('hub', hub);
-        u.searchParams.set('seed', seed);
-
-        if (studyId) u.searchParams.set('studyId', studyId);
-        if (PLAN_DAY) u.searchParams.set('planDay', PLAN_DAY);
-        if (PLAN_SLOT) u.searchParams.set('planSlot', PLAN_SLOT);
-
-        [
-          'debug','api','log','studentKey','schoolCode',
-          'classRoom','studentNo','nickName','teacher',
-          'teacherMode','export','exportMode','autoNext','cdur'
-        ].forEach((k) => {
-          const v = q(k, '');
-          if (v) u.searchParams.set(k, v);
-        });
-
-        return u;
-      }
-
-      function buildWarmupUrl(runUrl, patch = {}) {
-        const u = new URL(ABS_GATE);
-
-        u.searchParams.set('phase', 'warmup');
-        u.searchParams.set('gatePhase', 'warmup');
-        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
-        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
-
-        if (els.studyId.value || q('studyId', '')) {
-          u.searchParams.set('studyId', els.studyId.value || q('studyId', ''));
+        for (const key of keys) {
+          try {
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            const obj = JSON.parse(raw);
+            if (obj && obj.game) return obj;
+          } catch (_) {}
         }
-
-        u.searchParams.set('zone', 'fitness');
-        u.searchParams.set('cat', 'fitness');
-        u.searchParams.set('game', 'rhythm-boxer');
-        u.searchParams.set('gameId', 'rhythmboxer');
-        u.searchParams.set('theme', 'rhythmboxer');
-
-        u.searchParams.set('diff', patch.diff || readRadio('diff', q('diff', 'normal')));
-        u.searchParams.set('time', patch.time || readRadio('time', q('time', '90')));
-        u.searchParams.set('seed', patch.seed || (els.seed.value || q('seed', String(Date.now()))));
-        u.searchParams.set('hub', patch.hub || buildFitnessBackUrl());
-        u.searchParams.set('view', patch.view || readRadio('view', q('view', 'mobile')));
-        u.searchParams.set('run', patch.run || readRadio('run', q('run', 'play')));
-
-        u.searchParams.set('gate', '1');
-        u.searchParams.set('cooldown', String(patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'))));
-        u.searchParams.set('returnPhase', (String(patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'))) === '1') ? 'cooldown' : 'hub');
-        u.searchParams.set('dur', patch.dur || '20');
-        u.searchParams.set('cdur', patch.cdur || q('cdur', '20'));
-        u.searchParams.set('next', runUrl.href);
-
-        if (PLAN_DAY) u.searchParams.set('planDay', PLAN_DAY);
-        if (PLAN_SLOT) u.searchParams.set('planSlot', PLAN_SLOT);
-
-        [
-          'debug','api','log','studentKey','schoolCode',
-          'classRoom','studentNo','nickName','teacher',
-          'teacherMode','export','exportMode','autoNext'
-        ].forEach((k) => {
-          const v = q(k, '');
-          if (v) u.searchParams.set(k, v);
-        });
-
-        return u;
-      }
-
-      function setPreview() {
-        els.previewUrl.textContent = buildRunUrl();
+        return null;
       }
 
       function renderRecent() {
-        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
-        const game = String(last?.game || '').toLowerCase();
-
-        if (!last || (game !== 'rhythm-boxer' && game !== 'rhythmboxer')) {
-          els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
+        const last = readRecentSummary();
+        if (!last) {
+          els.recentSub.textContent = 'ยังไม่มีผลล่าสุดของ Rhythm Boxer / Bloom Pack';
+          els.recentGame.textContent = '-';
           els.recentRank.textContent = '-';
           els.recentScore.textContent = '-';
           els.recentAcc.textContent = '-';
-          els.recentCombo.textContent = '-';
           return;
         }
 
-        els.recentStripSub.textContent =
-          `Score ${Number(last.scoreFinal || last.score || 0)} • miss ${Number(last.missTotal || last.misses || last.miss || 0)}`;
+        const score =
+          last.scoreFinal ??
+          last.score ??
+          last.replaySuccess ??
+          0;
 
+        const acc =
+          last.accPct != null ? `${Number(last.accPct)}%`
+          : (last.replayTotal != null ? `${Number(last.replaySuccess || 0)}/${Number(last.replayTotal || 0)}` : '-');
+
+        els.recentSub.textContent = `ผลล่าสุดจาก ${gameLabel(last.game)} พร้อมใช้เลือกเส้นทางถัดไป`;
+        els.recentGame.textContent = gameLabel(last.game);
         els.recentRank.textContent = String(last.rank || '-');
-        els.recentScore.textContent = String(Number(last.scoreFinal || last.score || 0));
-        els.recentAcc.textContent = `${Number(last.accPct || last.accuracy || 0)}%`;
-        els.recentCombo.textContent = String(Number(last.comboMax || last.maxCombo || last.combo || 0));
+        els.recentScore.textContent = String(score);
+        els.recentAcc.textContent = String(acc);
       }
 
       function recommendFromSummary() {
-        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
-        const game = String(last?.game || '').toLowerCase();
+        const last = readRecentSummary();
 
-        if (!last || (game !== 'rhythm-boxer' && game !== 'rhythmboxer')) {
+        if (!last) {
           return {
-            title: 'แนะนำค่าเริ่มต้น',
-            sub: 'เริ่มแบบสมดุลก่อน เพื่อฝึกฟัง beat และกดให้ตรงจังหวะ',
+            title: 'เริ่มจาก Main Game ได้เลย',
+            sub: 'ถ้ายังไม่แน่ใจ ให้ใช้ Main Game แบบ Normal 60s ก่อน แล้วค่อยกลับมาเลือก Bloom Pack',
             diff: 'normal',
-            time: '90',
+            time: '60',
             view: q('view', 'mobile'),
-            run: 'play',
-            gate: '1',
-            cooldown: '1',
-            chips: ['Normal','90s',q('view','mobile'),'Standard']
+            chips: ['Normal','60s','Mobile','Main'],
+            target: 'main'
           };
         }
 
-        const acc = Number(last.accPct || last.accuracy || 0);
-        const combo = Number(last.comboMax || last.maxCombo || last.combo || 0);
-        const miss = Number(last.missTotal || last.misses || last.miss || 0);
+        const game = String(last.game || '').toLowerCase();
+        const acc = Number(last.accPct || last.replayAccPct || 0);
         const rank = String(last.rank || '').toUpperCase();
 
-        if (acc < 50 || miss >= 10) {
+        if (game === 'beat-badge-match' && acc < 75) {
           return {
-            title: 'ลดความยากก่อน',
-            sub: 'ใช้ Easy 60 วินาที เพื่อจับ beat และลดความกดดันของโน้ต',
+            title: 'ควรทวน Remember ก่อน',
+            sub: 'เริ่มที่ Learn Path เพื่อจำ badge และเข้าใจ hit line ก่อน',
             diff: 'easy',
             time: '60',
             view: 'mobile',
-            run: 'play',
-            gate: '1',
-            cooldown: '1',
-            chips: ['Easy','60s','Beat Focus','Standard']
+            chips: ['Easy','60s','Learn Path','Remember'],
+            target: 'learn'
           };
         }
 
-        if ((rank === 'S' || rank === 'A') && acc >= 84 && combo >= 12) {
+        if (game === 'hit-line-coach' && acc < 75) {
           return {
-            title: 'พร้อมอัปเกรดความท้าทายแล้ว',
-            sub: 'ลอง Hard หรือ Research เพื่อเจอ pattern แน่นขึ้นและเก็บ combo ยาวกว่าเดิม',
-            diff: 'hard',
-            time: '90',
-            view: 'pc',
-            run: 'research',
-            gate: '1',
-            cooldown: '1',
-            chips: ['Hard','90s','PC','Research']
+            title: 'ควรฝึก Understand ต่อ',
+            sub: 'เข้า Learn Path ต่อเพื่อให้แตะตรง hit line แม่นขึ้น',
+            diff: 'easy',
+            time: '60',
+            view: 'mobile',
+            chips: ['Easy','60s','Learn Path','Understand'],
+            target: 'learn'
+          };
+        }
+
+        if ((game === 'pattern-detective' || rank === 'A' || rank === 'S') && acc >= 80) {
+          return {
+            title: 'พร้อมไป Analyze / Main แล้ว',
+            sub: 'ลอง Analyze Path หรือเข้า Main Game เพื่อใช้ทักษะกับเกมจริง',
+            diff: 'normal',
+            time: '60',
+            view: q('view', 'mobile'),
+            chips: ['Normal','60s','Analyze','Main Ready'],
+            target: 'analyze'
+          };
+        }
+
+        if (game === 'combo-composer') {
+          return {
+            title: 'พร้อมเล่น Main Game',
+            sub: 'เมื่อสร้าง combo ได้แล้ว ให้เข้า Main Game เพื่อใช้ในรอบจริง',
+            diff: q('diff', 'normal'),
+            time: q('time', '60'),
+            view: q('view', 'mobile'),
+            chips: ['Main Game','Apply','Combo Ready'],
+            target: 'main'
           };
         }
 
         return {
-          title: 'กำลังไปได้ดี',
-          sub: 'แนะนำ Normal 90 วินาที เพื่อดัน timing และรักษา combo ให้ต่อเนื่องขึ้น',
+          title: 'เริ่มจาก Bloom Pack ได้คุ้มสุด',
+          sub: 'ถ้ายังไม่แน่ใจว่าควรเริ่มอะไร ให้เข้า Learn Path ก่อน',
           diff: 'normal',
-          time: '90',
+          time: '60',
           view: 'mobile',
-          run: 'play',
-          gate: '1',
-          cooldown: '1',
-          chips: ['Normal','90s','Combo Focus','Standard']
+          chips: ['Normal','60s','Bloom Pack','Learn'],
+          target: 'learn'
         };
       }
 
-      function applyRec(rec) {
+      function applyRecommendation(rec) {
         setRadio('diff', rec.diff);
         setRadio('time', rec.time);
         setRadio('view', rec.view);
-        setRadio('run', rec.run === 'research' ? 'research' : 'play');
-        setRadio('gate', rec.gate);
-        setRadio('cooldown', rec.cooldown);
 
         els.recommendTitle.textContent = rec.title;
         els.recommendSub.textContent = rec.sub;
         els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${x}</span>`).join('');
-        setPreview();
+
+        renderPreview();
       }
 
-      function launchWithCurrentSettings() {
-        const runUrl = baseRunUrl();
-        const gate = readRadio('gate', q('gate', '1'));
-        location.href = gate === '1'
-          ? buildWarmupUrl(runUrl).href
-          : runUrl.href;
-      }
+      function renderPreview() {
+        const learn = buildWarmupUrl(buildLearnChain(), 'learn');
+        const analyze = buildWarmupUrl(buildAnalyzeChain(), 'analyze');
+        const create = buildWarmupUrl(buildCreateChain(), 'create');
+        const main = buildWarmupUrl(buildMainGameUrl({ entry: 'main' }), 'main');
+        const bloom = buildBloomPackUrl('learn', false);
 
-      function launchQuick() {
-        const runUrl = baseRunUrl({
-          diff: 'easy',
-          time: '60',
-          run: 'play',
-          gate: '0',
-          cooldown: '1',
-          view: 'mobile'
-        });
-        location.href = runUrl.href;
-      }
-
-      function useLastPattern() {
-        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
-        const game = String(last?.game || '').toLowerCase();
-        if (!last || (game !== 'rhythm-boxer' && game !== 'rhythmboxer')) return;
-
-        setRadio('diff', String(last.diff || 'normal'));
-        setRadio('time', String(last.timeSec || last.durationSec || '90'));
-        setRadio('view', q('view', 'mobile'));
-        setRadio('run', 'play');
-        setRadio('gate', '1');
-        setRadio('cooldown', '1');
-        setPreview();
+        els.previewUrl.textContent = [
+          'Main Game',
+          main,
+          '',
+          'Bloom Pack Index',
+          bloom,
+          '',
+          'Learn Path',
+          learn,
+          '',
+          'Analyze Path',
+          analyze,
+          '',
+          'Create Lab',
+          create
+        ].join('\n');
       }
 
       function initLauncherMode() {
         els.pid.value = q('pid', 'anon');
         els.name.value = q('name', q('nickName', 'Player'));
         els.studyId.value = q('studyId', '');
-        els.seed.value = q('seed', String(Date.now()));
 
         setRadio('diff', q('diff', 'normal'));
-        setRadio('time', q('time', '90'));
+        setRadio('time', q('time', '60'));
         setRadio('view', q('view', 'mobile'));
-        setRadio('run', q('run', 'play'));
         setRadio('gate', q('gate', '1'));
         setRadio('cooldown', q('cooldown', '1'));
 
         const fitnessUrl = buildFitnessBackUrl();
         els.btnBackFitnessTop.href = fitnessUrl;
-
-        const hubUrl = q('hub', ABS_HUB);
-        els.btnBackHubTop.href = hubUrl;
+        els.btnBackHubTop.href = q('hub', ABS_HUB);
 
         const rec = recommendFromSummary();
-        applyRec(rec);
+        applyRecommendation(rec);
         renderRecent();
 
-        els.btnApplyRecommended.addEventListener('click', () => applyRec(recommendFromSummary()));
-        els.btnStartStandard.addEventListener('click', launchWithCurrentSettings);
-        els.btnQuickPlay.addEventListener('click', launchQuick);
-        els.btnUseLastPattern.addEventListener('click', useLastPattern);
+        els.btnApplyRecommended?.addEventListener('click', () => {
+          applyRecommendation(rec);
+        });
+
+        els.btnStartMainGame?.addEventListener('click', () => {
+          location.href = buildWarmupUrl(buildMainGameUrl({ entry: 'main' }), 'main');
+        });
+
+        els.btnBloomPack?.addEventListener('click', () => {
+          location.href = buildBloomPackUrl('learn', false);
+        });
+
+        els.btnQuickLearn?.addEventListener('click', () => {
+          location.href = buildWarmupUrl(buildLearnChain(), 'learn');
+        });
+
+        els.btnQuickAnalyze?.addEventListener('click', () => {
+          location.href = buildWarmupUrl(buildAnalyzeChain(), 'analyze');
+        });
+
+        els.btnQuickCreate?.addEventListener('click', () => {
+          location.href = buildWarmupUrl(buildCreateChain(), 'create');
+        });
+
+        els.btnUseLastPattern?.addEventListener('click', () => {
+          const last = readRecentSummary();
+          if (!last) return;
+
+          setRadio('diff', String(last.diff || 'normal'));
+          setRadio('time', String(last.timeSec || '60'));
+          setRadio('view', q('view', 'mobile'));
+          renderPreview();
+        });
 
         [
-          ...document.querySelectorAll('input[type="radio"]'),
-          els.pid, els.name, els.studyId, els.seed
+          els.pid, els.name, els.studyId,
+          ...document.querySelectorAll('input[type="radio"]')
         ].forEach((el) => {
           if (!el) return;
-          el.addEventListener('input', setPreview);
-          el.addEventListener('change', setPreview);
+          el.addEventListener('input', () => {
+            renderPreview();
+            renderRecent();
+          });
+          el.addEventListener('change', () => {
+            renderPreview();
+            renderRecent();
+          });
         });
-      }
 
-      if (Bridge) {
-        Bridge.installBasicHooks('rhythm-boxer', {
-          fitnessLinkSelectors: [
-            '#btnBackFitnessTop',
-            'a[href*="fitness-zone.html"]'
-          ]
-        });
+        renderPreview();
       }
 
       initLauncherMode();
