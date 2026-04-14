@@ -1,2091 +1,1141 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Handwash Trainer V2</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#0ea5e9" />
-  <link rel="icon" href="./favicon.ico" />
+  <title>HeroHealth • Handwash Main Game</title>
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
 
   <style>
     :root{
-      --bg1:#04111d;
-      --bg2:#0b2238;
-      --bg3:#0f3b5f;
-
-      --panel:rgba(5,16,28,.78);
-      --panel2:rgba(9,26,44,.72);
-      --stroke:rgba(148,163,184,.20);
-
-      --text:#eaf6ff;
-      --muted:#b7d6ea;
-
-      --cyan:#22d3ee;
-      --blue:#38bdf8;
-      --indigo:#60a5fa;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --pink:#f472b6;
-      --violet:#a78bfa;
-      --yellow:#fde047;
-
-      --shadow:0 18px 48px rgba(0,0,0,.30);
-      --shadow-soft:0 10px 26px rgba(0,0,0,.22);
-      --radius:18px;
-      --radius-lg:24px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --bg:rgba(7,18,34,.88);
+      --panel:rgba(255,255,255,.10);
+      --line:#63e6ff;
+      --yellow:#ffe66d;
+      --shadow:0 12px 30px rgba(0,0,0,.28);
+      --text:#e8fbff;
+      --mut:#a8d8e8;
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
-      min-height:100%;
-      background:
-        radial-gradient(1200px 700px at 12% -10%, rgba(34,211,238,.18), transparent 60%),
-        radial-gradient(1000px 640px at 100% 0%, rgba(96,165,250,.18), transparent 56%),
-        linear-gradient(180deg, var(--bg3), var(--bg1) 38%, #03101b 100%);
-      color:var(--text);
-      font-family: ui-rounded, "Noto Sans Thai", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      overscroll-behavior:none;
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    body{
-      min-height:100vh;
-      display:flex;
-    }
-
-    button{
-      font:inherit;
-      cursor:pointer;
-      border:none;
-      outline:none;
-    }
-
-    .hw-game{
       width:100%;
-      min-height:100vh;
-      display:grid;
-      grid-template-rows:auto auto auto auto auto auto 1fr auto;
-      position:relative;
+      height:100%;
       overflow:hidden;
-      padding:
-        max(12px, var(--sat))
-        max(12px, var(--sar))
-        max(12px, var(--sab))
-        max(12px, var(--sal));
-      gap:10px;
+      font-family:"Segoe UI",system-ui,sans-serif;
+      background:#03111f;
+      color:#fff;
+      touch-action:manipulation;
     }
 
-    .hw-scene{
-      position:absolute;
+    a-scene{
+      position:fixed !important;
+      inset:0 !important;
+      background:linear-gradient(180deg,#07111f 0%, #06213a 58%, #041221 100%);
+    }
+
+    #hud{
+      position:fixed;
       inset:0;
+      z-index:20;
       pointer-events:none;
-      overflow:hidden;
     }
 
-    .hw-scene-bg{
+    #ui-layer{
       position:absolute;
-      inset:-10%;
-      background:
-        radial-gradient(420px 260px at 15% 20%, rgba(34,211,238,.16), transparent 65%),
-        radial-gradient(500px 320px at 85% 12%, rgba(59,130,246,.20), transparent 60%),
-        radial-gradient(340px 220px at 50% 82%, rgba(244,114,182,.10), transparent 62%);
-      filter: blur(10px);
-      opacity:.95;
-      transform:translateZ(0);
+      top:10px;
+      left:50%;
+      transform:translateX(-50%);
+      width:min(94%,760px);
+      background:var(--bg);
+      color:#fff;
+      padding:14px 14px 12px;
+      border-radius:22px;
+      border:2px solid rgba(99,230,255,.35);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
+      transition:opacity .18s ease, transform .18s ease;
     }
 
-    .hw-bubbles{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-      pointer-events:none;
-      opacity:.55;
+    #ui-layer.compact{
+      width:min(94%,500px);
+      padding:10px 12px;
     }
 
-    .hw-bubble{
-      position:absolute;
-      bottom:-80px;
-      width:20px;
-      height:20px;
-      border-radius:50%;
-      border:1px solid rgba(255,255,255,.18);
-      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.55), rgba(255,255,255,.10));
-      animation: floatBubble linear infinite;
+    #ui-layer.compact #guide-panel,
+    #ui-layer.compact .progress-wrap{
+      display:none;
     }
 
-    @keyframes floatBubble{
-      from{ transform:translateY(0) scale(.85); opacity:0; }
-      12%{ opacity:.75; }
-      to{ transform:translateY(-120vh) scale(1.15); opacity:0; }
-    }
-
-    .hw-card{
-      background:linear-gradient(180deg, rgba(8,24,39,.86), rgba(4,15,26,.84));
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow-soft);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-
-    .hw-hud-top{
-      position:relative;
-      z-index:2;
-      display:grid;
-      grid-template-columns:1fr auto 1fr;
-      gap:10px;
-      align-items:stretch;
-    }
-
-    .hw-hud-box{
-      min-height:80px;
-      border-radius:18px;
-      padding:12px 14px;
+    .top-row{
       display:flex;
-      align-items:center;
+      justify-content:space-between;
       gap:12px;
+      align-items:flex-start;
     }
 
-    .hw-hud-left{ justify-content:flex-start; }
-    .hw-hud-center{
-      justify-content:center;
-      text-align:center;
-      min-width:120px;
-    }
-    .hw-hud-right{
-      justify-content:flex-end;
-      text-align:right;
-    }
-
-    .hw-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      border-radius:999px;
-      padding:8px 12px;
-      background:rgba(56,189,248,.14);
-      border:1px solid rgba(56,189,248,.24);
-      font-weight:800;
-      font-size:.95rem;
-      line-height:1;
-      white-space:nowrap;
-    }
-
-    .hw-chip-dot{
-      width:10px;
-      height:10px;
-      border-radius:50%;
-      background:var(--cyan);
-      box-shadow:0 0 0 5px rgba(34,211,238,.14);
-      flex:0 0 auto;
-    }
-
-    .hw-phase-wrap{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
+    .title-wrap{
       min-width:0;
     }
 
-    .hw-phase-label{
-      font-size:1.15rem;
+    .title-main{
+      font-size:1rem;
       font-weight:900;
+      color:#baf4ff;
       letter-spacing:.01em;
     }
 
-    .hw-phase-sub{
-      color:var(--muted);
-      font-size:.9rem;
-    }
-
-    .hw-clean-pct{
-      font-size:1.7rem;
-      font-weight:1000;
-      line-height:1;
-      color:#bff5ff;
-      text-shadow:0 0 24px rgba(34,211,238,.20);
-    }
-
-    .hw-clean-label{
-      color:var(--muted);
-      font-size:.9rem;
+    .title-sub{
       margin-top:4px;
-    }
-
-    .hw-timer{
-      font-size:1.85rem;
-      font-weight:1000;
-      line-height:1;
-      color:#fff7d6;
-    }
-
-    .hw-timer-label{
-      color:var(--muted);
-      font-size:.88rem;
-      margin-top:4px;
-    }
-
-    .hw-step-panel{
-      position:relative;
-      z-index:2;
-      display:grid;
-      grid-template-columns:repeat(4, minmax(0, 1fr));
-      gap:10px;
-    }
-
-    .hw-step{
-      border-radius:16px;
-      padding:12px 10px;
-      text-align:center;
+      font-size:1.2rem;
+      line-height:1.15;
       font-weight:900;
-      font-size:.95rem;
-      border:1px solid var(--stroke);
-      background:rgba(8,22,37,.72);
-      color:var(--muted);
-      transition:transform .18s ease, border-color .18s ease, background .18s ease, color .18s ease, box-shadow .18s ease;
-      box-shadow:var(--shadow-soft);
+      color:#fff;
     }
 
-    .hw-step.is-active{
-      position:relative;
-      color:white;
-      border-color:rgba(34,211,238,.40);
-      background:linear-gradient(180deg, rgba(14,116,144,.34), rgba(8,23,37,.84));
-      transform:translateY(-1px);
-      box-shadow:0 10px 28px rgba(14,165,233,.18);
-      animation: hwStepPulse 1.25s ease-in-out infinite;
-    }
-
-    .hw-step.is-active::after{
-      content:"ตอนนี้";
-      position:absolute;
-      top:6px;
-      right:6px;
-      font-size:.66rem;
-      font-weight:1000;
-      padding:4px 6px;
-      border-radius:999px;
-      color:#03263d;
-      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
-    }
-
-    .hw-step.is-done{
-      color:#ecfdf5;
-      border-color:rgba(34,197,94,.36);
-      background:linear-gradient(180deg, rgba(22,101,52,.28), rgba(8,23,37,.84));
-    }
-
-    @keyframes hwStepPulse{
-      0%,100%{ box-shadow:0 10px 28px rgba(14,165,233,.18); }
-      50%{ box-shadow:0 10px 34px rgba(14,165,233,.30); }
-    }
-
-    .hw-coach-bar{
-      position:relative;
-      z-index:2;
-      min-height:58px;
-      border-radius:16px;
-      padding:14px 16px;
+    .chips{
       display:flex;
-      align-items:center;
-      gap:10px;
-      background:linear-gradient(180deg, rgba(6,18,31,.84), rgba(5,16,28,.78));
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow-soft);
-      font-weight:800;
-      line-height:1.35;
-    }
-
-    .hw-coach-bar.is-warn{
-      border-color:rgba(245,158,11,.34);
-      background:linear-gradient(180deg, rgba(56,26,7,.84), rgba(5,16,28,.78));
-    }
-
-    .hw-coach-bar.is-good{
-      border-color:rgba(34,197,94,.30);
-      background:linear-gradient(180deg, rgba(10,41,22,.84), rgba(5,16,28,.78));
-    }
-
-    .hw-coach-face{
-      width:36px;
-      height:36px;
-      border-radius:50%;
-      display:grid;
-      place-items:center;
-      background:rgba(56,189,248,.14);
-      border:1px solid rgba(56,189,248,.24);
-      flex:0 0 auto;
-      font-size:1.1rem;
-    }
-
-    .hw-who-panel{
-      position:relative;
-      z-index:2;
-      border-radius:18px;
-      padding:12px;
-    }
-
-    .hw-who-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:10px;
       flex-wrap:wrap;
-    }
-
-    .hw-who-title{
-      font-size:1rem;
-      font-weight:1000;
-    }
-
-    .hw-who-now{
-      font-size:.92rem;
-      color:var(--muted);
-      font-weight:800;
-    }
-
-    .hw-who-progress{
-      width:100%;
-      height:10px;
-      border-radius:999px;
-      overflow:hidden;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.08);
-      margin-bottom:10px;
-    }
-
-    .hw-who-progress-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg, #22d3ee, #34d399);
-      box-shadow:0 0 24px rgba(34,211,238,.18);
-      transition:width .22s ease;
-    }
-
-    .hw-who-steps{
-      display:grid;
-      grid-template-columns:repeat(7, minmax(0,1fr));
+      justify-content:flex-end;
       gap:8px;
     }
 
-    .hw-who-step{
-      position:relative;
-      overflow:hidden;
-      border-radius:14px;
-      padding:10px 8px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.08);
-      text-align:center;
-      min-height:76px;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-    }
-
-    .hw-who-step-num{
-      width:26px;
-      height:26px;
-      border-radius:50%;
-      display:grid;
-      place-items:center;
-      font-size:.86rem;
-      font-weight:1000;
-      background:rgba(255,255,255,.08);
-      color:var(--text);
-    }
-
-    .hw-who-step-label{
-      font-size:.78rem;
-      line-height:1.15;
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(103,232,249,.14);
+      border:1px solid rgba(103,232,249,.18);
+      color:#e6fbff;
       font-weight:900;
-      color:var(--muted);
+      font-size:.9rem;
+      white-space:nowrap;
     }
 
-    .hw-who-step-mini{
-      font-size:.68rem;
-      color:var(--muted);
-      line-height:1;
-    }
-
-    .hw-who-step.is-active{
-      background:linear-gradient(180deg, rgba(14,165,233,.18), rgba(255,255,255,.04));
-      border-color:rgba(56,189,248,.34);
-      box-shadow:0 0 0 4px rgba(56,189,248,.08);
-      transform:translateY(-1px);
-      animation: hwWhoPulse 1.35s ease-in-out infinite;
-    }
-
-    .hw-who-step.is-active .hw-who-step-num{
-      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
-      color:#03263d;
-    }
-
-    .hw-who-step.is-active .hw-who-step-label{
-      color:#ecfeff;
-    }
-
-    .hw-who-step.is-active::after{
-      content:"กำลังทำ";
-      position:absolute;
-      top:6px;
-      right:6px;
-      font-size:.66rem;
-      font-weight:1000;
-      padding:4px 6px;
-      border-radius:999px;
-      color:#03263d;
-      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
-    }
-
-    .hw-who-step.is-done{
-      background:linear-gradient(180deg, rgba(34,197,94,.16), rgba(255,255,255,.04));
-      border-color:rgba(34,197,94,.28);
-    }
-
-    .hw-who-step.is-done .hw-who-step-num{
-      background:linear-gradient(180deg, #86efac, #22c55e);
-      color:#052e16;
-    }
-
-    .hw-who-step.is-done .hw-who-step-label{
-      color:#ecfdf5;
-    }
-
-    .hw-who-step.is-done::after{
-      content:"ผ่าน";
-      position:absolute;
-      top:6px;
-      right:6px;
-      font-size:.66rem;
-      font-weight:1000;
-      padding:4px 6px;
-      border-radius:999px;
-      color:#052e16;
-      background:linear-gradient(180deg, #86efac, #22c55e);
-    }
-
-    @keyframes hwWhoPulse{
-      0%,100%{ box-shadow:0 0 0 4px rgba(56,189,248,.08); }
-      50%{ box-shadow:0 0 0 7px rgba(56,189,248,.14); }
-    }
-
-    .hw-motion-panel{
-      position:relative;
-      z-index:2;
-      border-radius:18px;
-      padding:12px 14px;
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-height:76px;
-    }
-
-    .hw-motion-icon{
-      width:52px;
-      height:52px;
+    #guide-panel{
+      margin-top:10px;
+      padding:12px;
+      background:var(--panel);
       border-radius:16px;
       display:grid;
-      place-items:center;
-      flex:0 0 auto;
-      font-size:1.55rem;
-      font-weight:1000;
-      color:#03263d;
-      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
-      box-shadow:0 12px 24px rgba(14,165,233,.18);
+      grid-template-columns:78px 1fr;
+      gap:12px;
+      align-items:center;
     }
 
-    .hw-motion-copy{
+    .guide-image{
+      width:78px;
+      height:78px;
+      border-radius:50%;
+      background:linear-gradient(180deg,#8aeaff 0%,#22d3ee 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2rem;
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.18);
+    }
+
+    #guide-copy{
       min-width:0;
     }
 
-    .hw-motion-kicker{
-      font-size:.78rem;
-      color:var(--muted);
+    #step-count{
+      font-size:.95rem;
       font-weight:900;
-      margin-bottom:4px;
+      color:#63e6ff;
     }
 
-    .hw-motion-title{
-      font-size:1rem;
-      font-weight:1000;
-      line-height:1.2;
-    }
-
-    .hw-motion-text{
-      font-size:.92rem;
-      color:var(--muted);
-      line-height:1.35;
+    #step-desc{
       margin-top:4px;
+      font-size:1rem;
+      line-height:1.4;
+      font-weight:700;
+      color:#eefcff;
     }
 
-    .hw-motion-panel.is-good{
-      border-color:rgba(34,197,94,.28);
-      background:linear-gradient(180deg, rgba(10,41,22,.84), rgba(5,16,28,.78));
+    #action-prompt{
+      display:inline-block;
+      margin-top:8px;
+      background:var(--yellow);
+      color:#111827;
+      padding:8px 12px;
+      border-radius:999px;
+      font-weight:900;
+      font-size:.92rem;
+      animation:pulse 1s infinite;
     }
 
-    .hw-motion-panel.is-done .hw-motion-icon{
-      background:linear-gradient(180deg, #86efac, #22c55e);
-      color:#052e16;
+    .progress-wrap{
+      margin-top:10px;
+      display:grid;
+      gap:4px;
     }
 
-    .hw-assist-panel{
-      position:relative;
-      z-index:2;
-      border-radius:18px;
-      padding:12px 14px;
+    .progress-top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-weight:800;
+      color:#d9fbff;
+      font-size:.88rem;
+    }
+
+    .progress-bar{
+      width:100%;
+      height:14px;
+      background:#0b1220;
+      border-radius:999px;
+      overflow:hidden;
+      border:2px solid #63e6ff;
+    }
+
+    #fill{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#60ff9d 0%,#00e5ff 100%);
+      transition:width .12s linear;
+    }
+
+    #coach{
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:4px;
+      margin:auto;
+      width:auto;
+      max-width:760px;
+      background:rgba(255,255,255,.90);
+      color:#0f172a;
+      border-radius:14px;
+      padding:7px 10px;
+      box-shadow:0 8px 18px rgba(0,0,0,.14);
+      font-weight:800;
+      font-size:.82rem;
+      line-height:1.25;
+      pointer-events:none;
+    }
+
+    #controls{
+      position:fixed;
+      right:10px;
+      bottom:74px;
+      z-index:30;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      pointer-events:auto;
+      max-width:72vw;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:8px 12px;
+      font-weight:900;
+      font-size:.88rem;
+      cursor:pointer;
+      box-shadow:0 8px 20px rgba(0,0,0,.18);
+      border:2px solid rgba(255,255,255,.95);
+      color:#0f172a;
+      background:rgba(255,255,255,.95);
+    }
+
+    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
+    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
+    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%); }
+    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%); }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:40;
       display:flex;
       align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      min-height:76px;
+      justify-content:center;
+      padding:18px;
+      background:rgba(8,20,40,.44);
+      backdrop-filter:blur(8px);
     }
 
-    .hw-assist-left{ min-width:0; }
-    .hw-assist-kicker{
-      font-size:.76rem;
-      color:var(--muted);
+    .card{
+      width:min(820px,100%);
+      background:rgba(255,255,255,.97);
+      color:#0f172a;
+      border-radius:28px;
+      border:2px solid rgba(255,255,255,.98);
+      padding:22px;
+      box-shadow:0 20px 60px rgba(0,0,0,.22);
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#dcfff2;
+      color:#047857;
       font-weight:900;
-      margin-bottom:4px;
-    }
-    .hw-assist-title{
-      font-size:1rem;
-      font-weight:1000;
-      line-height:1.2;
-    }
-    .hw-assist-sub{
-      font-size:.9rem;
-      color:var(--muted);
-      line-height:1.35;
-      margin-top:4px;
+      margin-bottom:10px;
     }
 
-    .hw-assist-right{
-      flex:0 0 auto;
-      min-width:84px;
-      text-align:center;
-      border-radius:14px;
-      padding:10px 12px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.08);
+    .card h1{
+      margin:0 0 10px;
+      font-size:1.7rem;
+      line-height:1.15;
     }
 
-    .hw-assist-mini{
-      font-size:.72rem;
-      color:var(--muted);
-      font-weight:900;
-    }
-    .hw-assist-remain{
-      margin-top:2px;
-      font-size:1.35rem;
-      font-weight:1000;
-      line-height:1;
-      color:#bff5ff;
+    .card p{
+      margin:0 0 12px;
+      color:#334155;
+      line-height:1.5;
+      font-weight:700;
     }
 
-    .hw-stage{
-      position:relative;
-      z-index:2;
+    .tips{
       display:grid;
-      grid-template-columns:minmax(0,1fr) 280px;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:10px;
+      margin:14px 0 16px;
+    }
+
+    .tip{
+      background:#f5fbff;
+      border:1px solid #d7ecf8;
+      border-radius:16px;
+      padding:12px;
+      font-weight:800;
+      color:#1f2937;
+      line-height:1.45;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+
+    .summary-shell{
+      width:min(1180px,100%);
+      background:linear-gradient(180deg,#04111e 0%, #071b30 100%);
+      color:var(--text);
+      border-radius:28px;
+      border:1px solid rgba(99,230,255,.18);
+      box-shadow:0 24px 80px rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+
+    .summary-head{
+      padding:18px 20px 12px;
+      display:flex;
+      flex-wrap:wrap;
       gap:12px;
-      min-height:0;
-      align-items:stretch;
+      justify-content:space-between;
+      align-items:flex-start;
+      border-bottom:1px solid rgba(99,230,255,.12);
     }
 
-    .hw-hand-shell{
-      min-height:460px;
-      border-radius:24px;
-      padding:14px;
-      position:relative;
-      overflow:hidden;
+    .summary-head h2{
+      margin:0;
+      font-size:1.45rem;
+      line-height:1.1;
+      color:#fff;
     }
 
-    .hw-hand-stage{
-      position:relative;
-      min-height:100%;
-      border-radius:20px;
-      background:
-        radial-gradient(520px 260px at 50% 0%, rgba(255,255,255,.05), transparent 70%),
-        linear-gradient(180deg, rgba(9,28,46,.95), rgba(5,16,28,.94));
-      border:1px solid rgba(148,163,184,.18);
-      overflow:hidden;
+    .summary-head p{
+      margin:6px 0 0;
+      color:var(--mut);
+      font-weight:700;
+    }
+
+    .summary-stars{
+      font-size:2rem;
+      letter-spacing:.18rem;
+      color:#fde047;
+      font-weight:900;
+    }
+
+    .summary-grid{
+      padding:16px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .summary-card{
+      min-height:150px;
+      background:linear-gradient(180deg,#071a2d 0%, #081728 100%);
+      border:1px solid rgba(99,230,255,.14);
+      border-radius:22px;
+      padding:16px;
       box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
     }
 
-    .hw-hand-base,
-    .hw-zone-layer,
-    .hw-germ-layer,
-    .hw-highlight-layer,
-    .hw-trail-layer{
-      position:absolute;
-      inset:0;
-    }
-
-    /* PATCH v20260321-handwash-pointer-fix */
-    .hw-hand-base,
-    .hw-germ-layer,
-    .hw-highlight-layer,
-    .hw-trail-layer{
-      pointer-events:none;
-    }
-
-    .hw-zone-layer{
-      pointer-events:none;
-      z-index:3;
-    }
-
-    .hw-hand-base{
-      display:grid;
-      place-items:center;
-    }
-
-    .hw-hand-illustration{
-      width:min(86%, 560px);
-      aspect-ratio: 1 / 1.15;
-      position:relative;
-      filter: drop-shadow(0 18px 36px rgba(0,0,0,.30));
-    }
-
-    .hw-palm{
-      position:absolute;
-      left:50%;
-      bottom:12%;
-      transform:translateX(-50%);
-      width:42%;
-      height:46%;
-      border-radius:40% 40% 42% 42% / 28% 28% 52% 52%;
-      background:linear-gradient(180deg, #f8c9ae, #e8a47f);
-      box-shadow:inset 0 10px 20px rgba(255,255,255,.18), inset 0 -14px 24px rgba(0,0,0,.12);
-    }
-
-    .hw-thumb{
-      position:absolute;
-      width:18%;
-      height:18%;
-      background:linear-gradient(180deg, #f4c1a2, #dfa17d);
-      border-radius:48% 52% 45% 55% / 52% 40% 60% 48%;
-      box-shadow:inset 0 6px 12px rgba(255,255,255,.14), inset 0 -8px 14px rgba(0,0,0,.12);
-      transform-origin:center;
-    }
-
-    .hw-thumb.left{ left:19%; top:47%; transform:rotate(-30deg); }
-    .hw-thumb.right{ right:19%; top:47%; transform:rotate(30deg); }
-
-    .hw-finger{
-      position:absolute;
-      bottom:52%;
-      width:11%;
-      border-radius:28px 28px 18px 18px;
-      background:linear-gradient(180deg, #f6c7aa, #e3a07c);
-      box-shadow:inset 0 6px 12px rgba(255,255,255,.15), inset 0 -8px 14px rgba(0,0,0,.12);
-    }
-
-    .hw-finger.f1{ left:27%; height:30%; }
-    .hw-finger.f2{ left:40%; height:38%; }
-    .hw-finger.f3{ left:52%; height:40%; }
-    .hw-finger.f4{ left:65%; height:32%; }
-
-    .hw-wrist{
-      position:absolute;
-      left:50%;
-      bottom:0;
-      transform:translateX(-50%);
-      width:22%;
-      height:16%;
-      border-radius:0 0 26px 26px;
-      background:linear-gradient(180deg, #e3a07c, #ca8059);
-      box-shadow:inset 0 5px 10px rgba(255,255,255,.10), inset 0 -8px 14px rgba(0,0,0,.12);
-    }
-
-    .hw-zone{
-      position:absolute;
-      z-index:4;
-      border-radius:24px;
-      border:2px dashed rgba(255,255,255,.18);
-      background:rgba(255,255,255,.02);
-      transition:transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease, opacity .18s ease, filter .18s ease;
-      cursor:pointer;
-      user-select:none;
-      touch-action:none;
-      pointer-events:auto;
-    }
-
-    .hw-zone::after{
-      content:attr(data-label);
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform:translate(-50%, -50%);
-      font-size:.8rem;
-      font-weight:900;
-      color:rgba(255,255,255,.92);
-      background:rgba(3,10,18,.46);
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:999px;
-      padding:6px 10px;
-      white-space:nowrap;
-      pointer-events:none;
-    }
-
-    .hw-zone:hover{
-      transform:translateY(-1px);
-      border-color:rgba(56,189,248,.42);
-      background:rgba(56,189,248,.06);
-    }
-
-    .hw-zone.is-active{
-      border-color:rgba(34,211,238,.54);
-      background:rgba(34,211,238,.10);
-      box-shadow:0 0 0 6px rgba(34,211,238,.10), inset 0 0 0 1px rgba(255,255,255,.06);
-    }
-
-    .hw-zone.is-clean{
-      border-style:solid;
-      border-color:rgba(34,197,94,.46);
-      background:rgba(34,197,94,.12);
-      box-shadow:0 0 0 6px rgba(34,197,94,.08);
-    }
-
-    .hw-zone.is-dirty{
-      border-color:rgba(244,114,182,.28);
-    }
-
-    .hw-zone.is-wrong{
-      border-color:rgba(239,68,68,.62) !important;
-      background:rgba(239,68,68,.12) !important;
-      animation: hwWrongShake .26s linear 1;
-    }
-
-    .hw-zone.is-dim{
-      opacity:.18;
-      filter:saturate(.6);
-    }
-
-    .hw-zone.is-target{
-      border-color:rgba(253,224,71,.75) !important;
-      background:rgba(253,224,71,.08) !important;
-      box-shadow:0 0 0 8px rgba(253,224,71,.10);
-    }
-
-    @keyframes hwWrongShake{
-      0%{ transform:translateX(0); }
-      25%{ transform:translateX(-4px); }
-      50%{ transform:translateX(4px); }
-      75%{ transform:translateX(-3px); }
-      100%{ transform:translateX(0); }
-    }
-
-    .hw-germ-cluster{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-      border-radius:inherit;
-    }
-
-    .hw-germ-dot{
-      position:absolute;
-      width:12px;
-      height:12px;
-      border-radius:50%;
-      background:
-        radial-gradient(circle at 35% 35%, rgba(255,255,255,.92), rgba(244,114,182,.74) 45%, rgba(236,72,153,.46));
-      box-shadow:0 0 14px rgba(244,114,182,.20);
-      opacity:.88;
-      animation:germPulse 2.1s ease-in-out infinite;
-    }
-
-    @keyframes germPulse{
-      0%,100%{ transform:scale(1); }
-      50%{ transform:scale(1.18); }
-    }
-
-    .hw-highlight{
-      position:absolute;
-      border-radius:24px;
-      border:2px solid rgba(253,224,71,.72);
-      box-shadow:0 0 0 8px rgba(253,224,71,.10);
-      animation: highlightBlink 1.35s ease-in-out infinite;
-      pointer-events:none;
-    }
-
-    @keyframes highlightBlink{
-      0%,100%{ opacity:.42; }
-      50%{ opacity:.96; }
-    }
-
-    .hw-trail-dot{
-      position:absolute;
-      width:14px;
-      height:14px;
-      border-radius:50%;
-      background:rgba(125,211,252,.75);
-      box-shadow:0 0 18px rgba(34,211,238,.30);
-      pointer-events:none;
-      transform:translate(-50%,-50%);
-      animation: trailFade .55s linear forwards;
-    }
-
-    @keyframes trailFade{
-      from{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-      to{ opacity:0; transform:translate(-50%,-50%) scale(.45); }
-    }
-
-    .hw-side{
-      display:grid;
-      gap:12px;
-      align-content:start;
-    }
-
-    .hw-side-card{
-      border-radius:20px;
-      padding:14px;
-    }
-
-    .hw-side-title{
-      font-weight:1000;
-      margin-bottom:10px;
+    .summary-card h3{
+      margin:0 0 12px;
+      color:#f3fbff;
       font-size:1rem;
     }
 
-    .hw-list{
-      display:grid;
-      gap:8px;
-    }
-
-    .hw-pill{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:14px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.06);
-      font-weight:800;
-      min-width:0;
-    }
-
-    .hw-pill span:last-child{
-      font-size:.86rem;
-      color:var(--muted);
-      white-space:nowrap;
-    }
-
-    .hw-stars{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      justify-content:center;
-      font-size:1.7rem;
-      letter-spacing:.08em;
-      color:rgba(255,255,255,.28);
-      min-height:46px;
-    }
-
-    .hw-stars .on{ color:#fde047; text-shadow:0 0 22px rgba(253,224,71,.18); }
-
-    .hw-meter{
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.08);
-    }
-
-    .hw-meter-fill{
-      height:100%;
-      width:0%;
-      background:linear-gradient(90deg, #22d3ee, #34d399);
-      box-shadow:0 0 24px rgba(34,211,238,.18);
-      transition:width .22s ease;
-    }
-
-    .hw-mini-note{
-      font-size:.9rem;
-      color:var(--muted);
-      line-height:1.4;
-    }
-
-    .hw-tool-bar{
-      position:relative;
-      z-index:2;
-      display:grid;
-      grid-template-columns:repeat(6, minmax(0, 1fr));
-      gap:10px;
-    }
-
-    .hw-tool-btn{
-      min-height:58px;
-      border-radius:16px;
-      font-weight:1000;
-      color:#03263d;
-      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
-      box-shadow:0 14px 26px rgba(14,165,233,.18);
-      transition:transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
-      position:relative;
-    }
-
-    .hw-tool-btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.03);
-    }
-
-    .hw-tool-btn:active{
-      transform:translateY(1px) scale(.99);
-    }
-
-    .hw-tool-btn[disabled]{
-      opacity:.42;
-      cursor:not-allowed;
-      box-shadow:none;
-      filter:saturate(.7);
-    }
-
-    .hw-tool-btn--ghost{
-      color:var(--text);
-      background:linear-gradient(180deg, rgba(17,33,50,.92), rgba(9,18,30,.88));
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow-soft);
-    }
-
-    .hw-tool-btn--warn{
-      color:#fffaf0;
-      background:linear-gradient(180deg, #f59e0b, #d97706);
-    }
-
-    .hw-tool-btn--good{
-      color:#ecfdf5;
-      background:linear-gradient(180deg, #22c55e, #16a34a);
-    }
-
-    .hw-tool-btn.is-cta{
-      position:relative;
-      animation: hwCtaPulse 1.05s ease-in-out infinite;
-      transform-origin:center;
-    }
-
-    .hw-tool-btn.is-cta::after{
-      content:"กดเลย";
-      position:absolute;
-      top:-8px;
-      right:8px;
-      font-size:.66rem;
-      font-weight:1000;
-      padding:4px 6px;
-      border-radius:999px;
-      color:#03263d;
-      background:linear-gradient(180deg, #fde68a, #facc15);
-      box-shadow:0 8px 18px rgba(250,204,21,.18);
-    }
-
-    .hw-tool-btn.is-cta-rinse{
-      box-shadow:0 0 0 4px rgba(245,158,11,.16), 0 16px 30px rgba(245,158,11,.24);
-    }
-
-    .hw-tool-btn.is-cta-dry{
-      box-shadow:0 0 0 4px rgba(34,197,94,.16), 0 16px 30px rgba(34,197,94,.24);
-    }
-
-    .hw-tool-btn.is-cta-soap{
-      box-shadow:0 0 0 4px rgba(34,211,238,.16), 0 16px 30px rgba(14,165,233,.24);
-    }
-
-    @keyframes hwCtaPulse{
-      0%,100%{ transform:translateY(0) scale(1); }
-      50%{ transform:translateY(-1px) scale(1.03); }
-    }
-
-    .hw-toast{
-      position:fixed;
-      left:50%;
-      bottom:calc(max(12px, var(--sab)) + 84px);
-      transform:translateX(-50%);
-      z-index:90;
-      min-width:min(92vw, 440px);
-      max-width:min(92vw, 520px);
-      padding:14px 16px;
-      border-radius:16px;
-      font-weight:900;
-      text-align:center;
-      background:rgba(3,10,18,.92);
-      border:1px solid rgba(56,189,248,.28);
-      box-shadow:0 18px 38px rgba(0,0,0,.35);
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .2s ease, transform .2s ease;
-    }
-
-    .hw-toast.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(-4px);
-    }
-
-    .hw-overlay{
-      position:fixed;
-      inset:0;
-      z-index:110;
-      display:grid;
-      place-items:center;
-      background:rgba(2,6,14,.72);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      padding:20px;
-    }
-
-    .hw-dialog{
-      width:min(96vw, 680px);
-      max-height:88vh;
-      overflow:auto;
-      border-radius:28px;
-      background:
-        radial-gradient(700px 260px at 50% -15%, rgba(34,211,238,.12), transparent 60%),
-        linear-gradient(180deg, rgba(7,21,36,.98), rgba(4,13,24,.98));
-      border:1px solid rgba(148,163,184,.20);
-      box-shadow:0 28px 70px rgba(0,0,0,.42);
-      padding:22px 20px 18px;
-    }
-
-    .hw-dialog h2{
-      margin:0 0 10px;
-      font-size:1.45rem;
-      line-height:1.15;
-    }
-
-    .hw-dialog p{
-      margin:0 0 10px;
-      color:var(--muted);
-      line-height:1.55;
-    }
-
-    .hw-dialog-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:16px;
-    }
-
-    .hw-dialog-actions button{
-      min-height:48px;
-      border-radius:14px;
-      padding:0 16px;
-      font-weight:900;
-      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
-      color:#03263d;
-    }
-
-    .hw-dialog-actions .ghost{
-      background:linear-gradient(180deg, rgba(17,33,50,.92), rgba(9,18,30,.88));
-      color:var(--text);
-      border:1px solid var(--stroke);
-    }
-
-    .hw-summary-hero{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:12px;
-      margin:14px 0 12px;
-    }
-
-    .hw-summary-hero-main,
-    .hw-summary-hero-side{
-      border-radius:18px;
-      padding:14px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.08);
-    }
-
-    .hw-summary-hero-label{
-      font-size:.9rem;
-      color:var(--muted);
-      font-weight:900;
-      margin-bottom:6px;
-    }
-
-    .hw-summary-hero-score{
-      font-size:2.4rem;
+    .summary-big{
+      font-size:3rem;
       line-height:1;
       font-weight:1000;
-      color:#bff5ff;
-      text-shadow:0 0 22px rgba(34,211,238,.16);
+      color:#baf4ff;
     }
 
-    .hw-summary-hero-sub{
+    .summary-sub{
       margin-top:8px;
-      font-size:.9rem;
-      color:var(--muted);
-      line-height:1.35;
-    }
-
-    .hw-summary-hero-side{
-      display:grid;
-      gap:10px;
-      align-content:start;
-    }
-
-    .hw-summary-hero-chip{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:14px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.06);
-    }
-
-    .hw-summary-hero-chip span{
-      font-size:.86rem;
-      color:var(--muted);
+      color:var(--mut);
       font-weight:800;
+      line-height:1.45;
     }
 
-    .hw-summary-hero-chip strong{
-      font-size:1rem;
-      font-weight:1000;
-    }
-
-    .hw-summary-grid{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:12px;
-      margin-top:14px;
-      align-items:start;
-    }
-
-    .hw-summary-card{
-      border-radius:18px;
-      padding:14px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.08);
-      min-height:100%;
-    }
-
-    .hw-summary-card h3{
-      margin:0 0 10px;
-      font-size:1rem;
+    .pill-row{
       display:flex;
-      align-items:center;
-      justify-content:space-between;
       gap:10px;
-    }
-
-    .hw-summary-card h3::after{
-      content:"";
-      width:8px;
-      height:8px;
-      border-radius:50%;
-      background:rgba(56,189,248,.7);
-      box-shadow:0 0 0 5px rgba(56,189,248,.10);
-      flex:0 0 auto;
-    }
-
-    .hw-summary-big{
-      font-size:2rem;
-      font-weight:1000;
-      line-height:1;
-      color:#bff5ff;
-    }
-
-    .hw-summary-list{
-      margin:0;
-      padding-left:18px;
-      color:var(--muted);
-      line-height:1.5;
-    }
-
-    .hw-summary-list li{ margin-bottom:6px; }
-
-    .hw-summary-badges{
-      display:flex;
       flex-wrap:wrap;
-      gap:8px;
-      margin-top:10px;
+      margin-top:12px;
     }
 
-    .hw-badge{
-      border-radius:999px;
-      padding:8px 12px;
-      font-size:.88rem;
-      font-weight:900;
-      background:rgba(34,197,94,.14);
-      border:1px solid rgba(34,197,94,.24);
-      color:#ecfdf5;
-    }
-
-    .hw-badge.warn{
-      background:rgba(245,158,11,.14);
-      border-color:rgba(245,158,11,.24);
-      color:#fff7ed;
-    }
-
-    .hw-badge.info{
-      background:rgba(56,189,248,.14);
-      border-color:rgba(56,189,248,.24);
-      color:#e0f2fe;
-    }
-
-    .hw-help-grid{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:10px;
-      margin-top:14px;
-    }
-
-    .hw-help-item{
-      border-radius:16px;
-      padding:12px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.08);
-    }
-
-    .hw-help-item strong{
-      display:block;
-      margin-bottom:4px;
-    }
-
-    .hw-start-dialog{
-      width:min(96vw, 560px);
-      text-align:center;
-    }
-
-    .hw-start-badge{
+    .pill{
       display:inline-flex;
       align-items:center;
-      justify-content:center;
-      gap:8px;
-      margin:0 auto 10px;
-      padding:8px 14px;
+      gap:6px;
+      padding:10px 14px;
       border-radius:999px;
-      font-weight:1000;
-      background:rgba(56,189,248,.14);
-      border:1px solid rgba(56,189,248,.24);
-      color:#e0f2fe;
+      background:#0f3455;
+      border:1px solid rgba(99,230,255,.18);
+      color:#dff8ff;
+      font-weight:900;
     }
 
-    .hw-start-lead{
-      font-size:1rem;
-      line-height:1.5;
-      color:var(--muted);
-      margin-bottom:14px;
-    }
-
-    .hw-start-steps{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:10px;
-      margin:14px 0;
-    }
-
-    .hw-start-step{
-      display:flex;
+    .status-pill{
+      display:inline-flex;
       align-items:center;
-      gap:10px;
-      padding:12px;
-      border-radius:16px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.08);
-      text-align:left;
+      gap:8px;
+      padding:12px 16px;
+      border-radius:999px;
+      background:rgba(34,197,94,.18);
+      border:1px solid rgba(34,197,94,.32);
+      color:#bbf7d0;
+      font-weight:900;
     }
 
-    .hw-start-step span{
-      width:32px;
-      height:32px;
-      border-radius:50%;
-      display:grid;
-      place-items:center;
-      flex:0 0 auto;
-      font-weight:1000;
-      color:#03263d;
-      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
+    .status-pill.fail{
+      background:rgba(245,158,11,.14);
+      border-color:rgba(245,158,11,.28);
+      color:#fde68a;
     }
 
-    .hw-start-step strong{
-      font-size:1rem;
-      line-height:1.2;
-    }
-
-    .hw-start-tip{
-      border-radius:16px;
-      padding:12px 14px;
-      margin-top:6px;
-      background:rgba(253,224,71,.08);
-      border:1px solid rgba(253,224,71,.18);
-      color:#fef9c3;
+    .list{
+      margin:0;
+      padding-left:18px;
+      color:#d9edf7;
       font-weight:800;
-      line-height:1.4;
+      line-height:1.8;
     }
 
-    .hw-summary-actions{
-      position:sticky;
-      bottom:0;
-      z-index:4;
-      margin-top:16px;
-      padding-top:12px;
-      background:linear-gradient(180deg, rgba(7,21,36,0), rgba(7,21,36,.96) 34%);
+    .bottom-actions{
+      padding:0 16px 16px;
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
     }
 
-    .hw-summary-actions button:first-child{
-      background:linear-gradient(180deg, #86efac, #22c55e);
-      color:#052e16;
+    .hidden{ display:none !important; }
+
+    @keyframes pulse{
+      0%{ transform:scale(1); }
+      50%{ transform:scale(1.04); }
+      100%{ transform:scale(1); }
     }
 
-    .hw-summary-actions button:nth-child(2){
-      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
-      color:#03263d;
-    }
-
-    .hw-summary-empty{
-      color:var(--muted);
-      font-style:italic;
-    }
-
-    .hw-hidden{ display:none !important; }
-
-    @media (max-width: 980px){
-      .hw-stage{
+    @media (max-width:860px){
+      .summary-grid{
         grid-template-columns:1fr;
       }
-      .hw-side{
-        grid-template-columns:repeat(3, minmax(0,1fr));
-      }
-      .hw-hand-shell{
-        min-height:420px;
-      }
-      .hw-who-steps{
-        grid-template-columns:repeat(4, minmax(0,1fr));
-      }
     }
 
-    @media (max-width: 720px){
-      .hw-game{
-        gap:8px;
-        padding:
-          max(8px, var(--sat))
-          max(8px, var(--sar))
-          max(8px, var(--sab))
-          max(8px, var(--sal));
+    @media (max-width:680px){
+      #ui-layer{
+        top:6px;
+        width:calc(100% - 12px);
+        padding:10px 10px 8px;
+        border-radius:18px;
       }
 
-      .hw-hud-top{
-        grid-template-columns:1fr 1fr;
-        grid-template-areas:
-          "left left"
-          "center right";
-        gap:8px;
-      }
-
-      .hw-hud-left{
-        grid-area:left;
-        flex-direction:column;
-        align-items:flex-start;
-        justify-content:flex-start;
-        min-height:auto;
-        padding:10px 12px;
-        gap:8px;
-      }
-
-      .hw-hud-center{
-        grid-area:center;
-        min-height:72px;
-        padding:10px 12px;
-      }
-
-      .hw-hud-right{
-        grid-area:right;
-        min-height:72px;
-        padding:10px 12px;
-      }
-
-      .hw-phase-wrap{
-        width:100%;
-        min-width:0;
-        gap:4px;
-      }
-
-      .hw-phase-label{
-        font-size:1rem;
-        line-height:1.15;
-        word-break:break-word;
-      }
-
-      .hw-phase-sub{
-        font-size:.84rem;
-        line-height:1.3;
-        display:-webkit-box;
-        -webkit-line-clamp:2;
-        -webkit-box-orient:vertical;
-        overflow:hidden;
-      }
-
-      .hw-chip{
-        font-size:.88rem;
-        padding:7px 10px;
-      }
-
-      .hw-clean-pct,
-      .hw-timer{
-        font-size:1.45rem;
-      }
-
-      .hw-clean-label,
-      .hw-timer-label{
-        font-size:.82rem;
-      }
-
-      .hw-step-panel{
-        grid-template-columns:repeat(2, minmax(0, 1fr));
-        gap:8px;
-      }
-
-      .hw-step{
-        padding:10px 8px;
-        font-size:.92rem;
-      }
-
-      .hw-step.is-active::after,
-      .hw-tool-btn.is-cta::after,
-      .hw-who-step.is-active::after,
-      .hw-who-step.is-done::after{
-        font-size:.62rem;
-        padding:3px 5px;
-      }
-
-      .hw-coach-bar{
-        min-height:50px;
-        padding:10px 12px;
-        font-size:.96rem;
-        line-height:1.3;
-      }
-
-      .hw-coach-face{
-        width:32px;
-        height:32px;
-        font-size:1rem;
-      }
-
-      .hw-who-panel{
-        padding:10px;
-      }
-
-      .hw-who-head{
-        align-items:flex-start;
-        margin-bottom:8px;
-      }
-
-      .hw-who-title{
-        font-size:.95rem;
-      }
-
-      .hw-who-now{
-        font-size:.84rem;
-        line-height:1.3;
-      }
-
-      .hw-who-steps{
-        grid-template-columns:repeat(2, minmax(0,1fr));
-        gap:8px;
-      }
-
-      .hw-who-step{
-        min-height:64px;
-        padding:8px 6px;
-      }
-
-      .hw-who-step-label{
-        font-size:.74rem;
-      }
-
-      .hw-motion-panel{
-        padding:10px 12px;
-        gap:10px;
-        min-height:68px;
-      }
-
-      .hw-motion-icon{
-        width:46px;
-        height:46px;
-        border-radius:14px;
-        font-size:1.35rem;
-      }
-
-      .hw-motion-kicker{
-        font-size:.72rem;
-      }
-
-      .hw-motion-title{
-        font-size:.95rem;
-      }
-
-      .hw-motion-text{
-        font-size:.84rem;
-      }
-
-      .hw-assist-panel{
-        padding:10px 12px;
-        min-height:68px;
-      }
-
-      .hw-assist-title{
-        font-size:.95rem;
-      }
-
-      .hw-assist-sub{
-        font-size:.83rem;
-      }
-
-      .hw-assist-right{
-        min-width:72px;
+      #ui-layer.compact{
+        width:calc(100% - 14px);
         padding:8px 10px;
       }
 
-      .hw-assist-remain{
-        font-size:1.2rem;
-      }
-
-      .hw-stage{
-        grid-template-columns:1fr;
+      .top-row{
+        flex-direction:column;
         gap:8px;
       }
 
-      .hw-hand-shell{
-        min-height:340px;
+      .chips{
+        justify-content:flex-start;
+      }
+
+      #guide-panel{
+        grid-template-columns:64px 1fr;
+        gap:8px;
         padding:8px;
       }
 
-      .hw-hand-stage{
-        min-height:320px;
+      .guide-image{
+        width:64px;
+        height:64px;
+        font-size:1.6rem;
       }
 
-      .hw-side{
-        grid-template-columns:1fr;
-        gap:8px;
+      .title-sub{
+        font-size:1rem;
       }
 
-      .hw-side-card{
-        padding:12px;
+      #step-desc{
+        font-size:.88rem;
       }
 
-      .hw-side-title{
-        font-size:.95rem;
-        margin-bottom:8px;
+      #action-prompt{
+        font-size:.82rem;
+        padding:6px 10px;
       }
 
-      .hw-mini-note{
-        font-size:.84rem;
+      #controls{
+        right:8px;
+        bottom:66px;
+        max-width:74vw;
       }
 
-      .hw-tool-bar{
-        position:sticky;
-        bottom:calc(var(--sab) + 6px);
-        z-index:60;
-        grid-template-columns:repeat(3, minmax(0, 1fr));
-        gap:8px;
-        padding-top:2px;
+      .btn{
+        padding:8px 10px;
+        font-size:.82rem;
       }
 
-      .hw-tool-btn{
-        min-height:52px;
-        font-size:.92rem;
-        border-radius:14px;
+      #coach{
+        left:8px;
+        right:8px;
+        bottom:2px;
+        padding:7px 9px;
+        font-size:.76rem;
       }
 
-      .hw-tool-btn.is-cta::after{
-        top:-7px;
-        right:6px;
+      .card{
+        padding:18px;
+        border-radius:22px;
       }
 
-      .hw-zone{
-        border-width:3px;
+      .card h1{
+        font-size:1.35rem;
       }
 
-      .hw-zone::after{
-        display:none;
+      .summary-head{
+        padding:16px;
       }
 
-      .hw-zone.is-active::after{
-        display:block;
-        font-size:.72rem;
-        padding:5px 8px;
-        max-width:78%;
-        white-space:normal;
-        text-align:center;
-        line-height:1.1;
+      .summary-big{
+        font-size:2.5rem;
       }
 
-      .hw-zone[data-zone="palmLeft"]{
-        left:22% !important;
-        top:41% !important;
-        width:25% !important;
-        height:30% !important;
-      }
-
-      .hw-zone[data-zone="palmRight"]{
-        right:22% !important;
-        top:41% !important;
-        width:25% !important;
-        height:30% !important;
-      }
-
-      .hw-zone[data-zone="backLeft"]{
-        left:17% !important;
-        top:25% !important;
-        width:24% !important;
-        height:21% !important;
-      }
-
-      .hw-zone[data-zone="backRight"]{
-        right:17% !important;
-        top:25% !important;
-        width:24% !important;
-        height:21% !important;
-      }
-
-      .hw-zone[data-zone="betweenFingers"]{
-        left:33% !important;
-        top:15% !important;
-        width:34% !important;
-        height:18% !important;
-      }
-
-      .hw-zone[data-zone="backFingers"]{
-        left:31% !important;
-        top:28% !important;
-        width:38% !important;
-        height:15% !important;
-      }
-
-      .hw-zone[data-zone="thumbs"]{
-        left:13% !important;
-        top:43% !important;
-        width:21% !important;
-        height:17% !important;
-      }
-
-      .hw-zone[data-zone="fingertips"]{
-        left:27% !important;
-        top:4% !important;
-        width:46% !important;
-        height:12% !important;
-      }
-
-      .hw-zone[data-zone="wrists"]{
-        left:35% !important;
-        bottom:4% !important;
-        width:30% !important;
-        height:14% !important;
-      }
-
-      .hw-summary-hero{
-        grid-template-columns:1fr;
-        gap:10px;
-      }
-
-      .hw-summary-hero-main,
-      .hw-summary-hero-side{
-        padding:12px;
-      }
-
-      .hw-summary-hero-score{
-        font-size:2rem;
-      }
-
-      .hw-summary-grid,
-      .hw-help-grid{
-        grid-template-columns:1fr;
-      }
-
-      .hw-summary-actions{
-        display:grid;
-        grid-template-columns:1fr;
-        gap:8px;
-      }
-
-      .hw-summary-actions button{
-        width:100%;
-        min-height:52px;
-      }
-
-      .hw-start-dialog{
-        width:min(96vw, 520px);
-      }
-
-      .hw-start-steps{
-        grid-template-columns:1fr;
-        gap:8px;
-      }
-
-      .hw-start-step{
-        padding:11px 12px;
-      }
-
-      .hw-start-lead{
-        font-size:.95rem;
-      }
-
-      .hw-start-tip{
-        font-size:.92rem;
-      }
-    }
-
-    @media (max-width: 520px){
-      .hw-hud-box{
-        border-radius:16px;
-      }
-
-      .hw-hand-shell{
-        min-height:310px;
-      }
-
-      .hw-hand-stage{
-        min-height:290px;
-      }
-
-      .hw-stars{
-        font-size:1.45rem;
-      }
-
-      .hw-dialog{
-        width:min(96vw, 560px);
-        padding:16px 14px 14px;
-        border-radius:20px;
-      }
-
-      .hw-dialog h2{
-        font-size:1.2rem;
+      .bottom-actions{
+        padding:0 16px 16px;
       }
     }
   </style>
 </head>
 <body>
-  <div id="hwGame" class="hw-game" data-game="handwash" data-phase="intro">
-    <div class="hw-scene" aria-hidden="true">
-      <div class="hw-scene-bg"></div>
-      <div class="hw-bubbles" id="hwBubbles"></div>
-    </div>
-
-    <header class="hw-hud-top">
-      <section class="hw-hud-box hw-card hw-hud-left">
-        <div class="hw-chip">
-          <span class="hw-chip-dot"></span>
-          <span id="hwMissionChipText">Handwash Trainer</span>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-top">
+        <div class="badge">🧼</div>
+        <div class="hero-copy">
+          <div class="kicker">HeroHealth • Hygiene Zone</div>
+          <h1>Handwash Launcher</h1>
+          <p class="lead">
+            หน้าเข้าเล่นชุด Handwash แบบครบ flow:
+            <strong>Howto → Practice Lab → Main Game → Mini Order → Hub</strong>
+          </p>
         </div>
-        <div class="hw-phase-wrap">
-          <div id="hwPhaseLabel" class="hw-phase-label">เริ่มล้างมือ</div>
-          <div id="hwPhaseSub" class="hw-phase-sub">กดสบู่ก่อน</div>
-        </div>
-      </section>
-
-      <section class="hw-hud-box hw-card hw-hud-center">
-        <div>
-          <div id="hwCleanPct" class="hw-clean-pct">0%</div>
-          <div class="hw-clean-label">สะอาดแล้ว</div>
-        </div>
-      </section>
-
-      <section class="hw-hud-box hw-card hw-hud-right">
-        <div>
-          <div id="hwTimer" class="hw-timer">90</div>
-          <div class="hw-timer-label">วินาที</div>
-        </div>
-      </section>
-    </header>
-
-    <section id="hwStepPanel" class="hw-step-panel" aria-label="ขั้นตอนการล้างมือ">
-      <div class="hw-step is-active" data-step="soap">1. ใส่สบู่</div>
-      <div class="hw-step" data-step="scrub">2. ถูมือ</div>
-      <div class="hw-step" data-step="rinse">3. ล้างน้ำ</div>
-      <div class="hw-step" data-step="dry">4. เช็ดมือ</div>
-    </section>
-
-    <section id="hwCoachBar" class="hw-coach-bar">
-      <div class="hw-coach-face" aria-hidden="true">🫧</div>
-      <div id="hwCoachText">กด “เริ่มเล่น”</div>
-    </section>
-
-    <section id="hwWhoPanel" class="hw-who-panel hw-card" aria-label="WHO 7 ขั้นตอนการถูมือ">
-      <div class="hw-who-head">
-        <div class="hw-who-title">WHO 7 ขั้นตอน</div>
-        <div id="hwWhoNow" class="hw-who-now">ขั้นที่ 1: ฝ่ามือ</div>
       </div>
-      <div class="hw-who-progress">
-        <div id="hwWhoProgressFill" class="hw-who-progress-fill"></div>
-      </div>
-      <div id="hwWhoSteps" class="hw-who-steps"></div>
-    </section>
 
-    <section id="hwMotionPanel" class="hw-motion-panel hw-card" aria-label="วิธีลากตอนนี้">
-      <div id="hwMotionIcon" class="hw-motion-icon">↺</div>
-      <div class="hw-motion-copy">
-        <div class="hw-motion-kicker">วิธีเล่นตอนนี้</div>
-        <div id="hwMotionTitle" class="hw-motion-title">ฝ่ามือ</div>
-        <div id="hwMotionText" class="hw-motion-text">แตะซ้ำ ๆ หรือถูในกรอบเหลือง</div>
+      <div class="flow" id="flowBoxes">
+        <div class="flow-box" data-stage-box="howto">
+          1. Howto
+          <small id="flowHowtoSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="practice">
+          2. Practice
+          <small id="flowPracticeSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="main">
+          3. Main Game
+          <small id="flowMainSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="mini-order">
+          4. Mini Order
+          <small id="flowMiniSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="hub">
+          5. Hub
+          <small id="flowHubSub">ปลายทาง</small>
+        </div>
       </div>
     </section>
 
-    <section id="hwAssistPanel" class="hw-assist-panel hw-card" aria-label="ตัวช่วยขั้นปัจจุบัน">
-      <div class="hw-assist-left">
-        <div class="hw-assist-kicker">ตอนนี้ต้องทำ</div>
-        <div id="hwAssistTitle" class="hw-assist-title">ฝ่ามือ</div>
-        <div id="hwAssistSub" class="hw-assist-sub">แตะหรือถูในกรอบเหลือง</div>
+    <section class="grid">
+      <div class="card">
+        <h2>ตั้งค่าการเล่น</h2>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" class="input" value="anon" />
+          </div>
+
+          <div class="field">
+            <label for="name">ชื่อผู้เล่น</label>
+            <input id="name" class="input" value="Hero" />
+          </div>
+
+          <div class="field">
+            <label for="diff">ความยาก</label>
+            <select id="diff" class="select">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">เวลา Practice/Main (วินาที)</label>
+            <input id="time" class="input" type="number" min="60" step="10" value="90" />
+          </div>
+
+          <div class="field">
+            <label for="miniTime">เวลา Mini Order (วินาที)</label>
+            <input id="miniTime" class="input" type="number" min="45" step="5" value="60" />
+          </div>
+
+          <div class="field">
+            <label for="hub">Hub URL</label>
+            <input id="hub" class="input" />
+          </div>
+        </div>
+
+        <div class="mode-row">
+          <button class="mode-btn mode-mobile active" data-view="mobile" type="button">📱 Mobile</button>
+          <button class="mode-btn mode-pc" data-view="pc" type="button">🖥️ PC</button>
+          <button class="mode-btn mode-vr" data-view="cvr" type="button">🥽 Cardboard</button>
+        </div>
+
+        <div class="tiny">
+          เลือกโหมดก่อน แล้วใช้ปุ่มด้านล่างเพื่อเข้าเล่นแบบครบ flow หรือเข้าเฉพาะส่วนที่ต้องการเทส
+        </div>
+
+        <div class="action-stack">
+          <button id="btnResume" class="action-btn resume" type="button">▶️ เล่นต่อจากจุดล่าสุด</button>
+          <button id="btnFull" class="action-btn full" type="button">🚀 เปิด Full Flow</button>
+          <button id="btnHowto" class="action-btn howto" type="button">🫧 เปิด Howto</button>
+          <button id="btnPractice" class="action-btn practice" type="button">🧪 เปิด Practice Lab</button>
+          <button id="btnMain" class="action-btn main" type="button">🎯 เปิด Main Game</button>
+          <button id="btnMini" class="action-btn mini" type="button">🧩 เปิด Mini Order</button>
+          <button id="btnClear" class="action-btn clear" type="button">🗑️ ล้าง progress ของ Handwash</button>
+        </div>
       </div>
-      <div class="hw-assist-right">
-        <div class="hw-assist-mini">เหลืออีก</div>
-        <div id="hwAssistRemain" class="hw-assist-remain">0</div>
+
+      <div class="card">
+        <h2>สถานะล่าสุด</h2>
+
+        <div id="resumeStatus" class="status-pill muted">ยังไม่พบ progress ของ Handwash</div>
+
+        <div class="summary-grid">
+          <div class="summary-box">
+            <small>ด่านล่าสุด</small>
+            <span id="lastStage">—</span>
+          </div>
+          <div class="summary-box">
+            <small>ผลล่าสุด</small>
+            <span id="lastResult">—</span>
+          </div>
+          <div class="summary-box">
+            <small>คะแนนล่าสุด</small>
+            <span id="lastScore">—</span>
+          </div>
+          <div class="summary-box">
+            <small>ดาวล่าสุด</small>
+            <span id="lastStars">—</span>
+          </div>
+        </div>
+
+        <div class="tiny" id="latestMeta">
+          ถ้ายังว่างอยู่ แปลว่ายังไม่มี summary ของ Handwash ถูกบันทึกในเบราว์เซอร์นี้
+        </div>
       </div>
     </section>
 
-    <section class="hw-stage">
-      <div class="hw-hand-shell hw-card">
-        <div id="hwHandStage" class="hw-hand-stage" aria-label="พื้นที่ฝึกล้างมือ">
-          <div id="hwHandBase" class="hw-hand-base">
-            <div class="hw-hand-illustration" aria-hidden="true">
-              <div class="hw-palm"></div>
-              <div class="hw-thumb left"></div>
-              <div class="hw-thumb right"></div>
-              <div class="hw-finger f1"></div>
-              <div class="hw-finger f2"></div>
-              <div class="hw-finger f3"></div>
-              <div class="hw-finger f4"></div>
-              <div class="hw-wrist"></div>
-            </div>
-          </div>
-
-          <div id="hwZoneLayer" class="hw-zone-layer">
-            <button class="hw-zone is-dirty" id="zone-palm-left" data-zone="palmLeft" data-label="ฝ่ามือซ้าย"
-              style="left:25%; top:44%; width:21%; height:26%;"></button>
-
-            <button class="hw-zone is-dirty" id="zone-palm-right" data-zone="palmRight" data-label="ฝ่ามือขวา"
-              style="right:25%; top:44%; width:21%; height:26%;"></button>
-
-            <button class="hw-zone is-dirty" id="zone-back-left" data-zone="backLeft" data-label="หลังมือซ้าย"
-              style="left:20%; top:28%; width:20%; height:18%;"></button>
-
-            <button class="hw-zone is-dirty" id="zone-back-right" data-zone="backRight" data-label="หลังมือขวา"
-              style="right:20%; top:28%; width:20%; height:18%;"></button>
-
-            <button class="hw-zone is-dirty" id="zone-between-fingers" data-zone="betweenFingers" data-label="ซอกนิ้ว"
-              style="left:37%; top:18%; width:26%; height:16%;"></button>
-
-            <button class="hw-zone is-dirty" id="zone-back-fingers" data-zone="backFingers" data-label="หลังนิ้ว"
-              style="left:35%; top:31%; width:30%; height:12%;"></button>
-
-            <button class="hw-zone is-dirty" id="zone-thumbs" data-zone="thumbs" data-label="นิ้วโป้ง"
-              style="left:17%; top:45%; width:16%; height:13%;"></button>
-
-            <button class="hw-zone is-dirty" id="zone-fingertips" data-zone="fingertips" data-label="ปลายนิ้ว"
-              style="left:31%; top:7%; width:38%; height:10%;"></button>
-
-            <button class="hw-zone is-dirty" id="zone-wrists" data-zone="wrists" data-label="ข้อมือ"
-              style="left:39%; bottom:6%; width:22%; height:12%;"></button>
-          </div>
-
-          <div id="hwGermLayer" class="hw-germ-layer"></div>
-          <div id="hwHighlightLayer" class="hw-highlight-layer"></div>
-          <div id="hwTrailLayer" class="hw-trail-layer"></div>
-        </div>
+    <section class="card">
+      <h2>ประวัติที่พบในเครื่องนี้</h2>
+      <div id="historyList" class="history-list">
+        <div class="muted-box">ยังไม่พบประวัติของ Handwash</div>
       </div>
-
-      <aside class="hw-side">
-        <section class="hw-side-card hw-card">
-          <div class="hw-side-title">จุดที่ยังสกปรก</div>
-          <div id="hwDirtyZones" class="hw-list">
-            <div class="hw-pill"><span>ฝ่ามือซ้าย</span><span>ยังไม่สะอาด</span></div>
-          </div>
-        </section>
-
-        <section class="hw-side-card hw-card">
-          <div class="hw-side-title">ดาวที่คาดว่าจะได้</div>
-          <div id="hwStarsPreview" class="hw-stars" aria-label="ดาวความสำเร็จ">
-            <span class="on">★</span><span>★</span><span>★</span>
-          </div>
-          <div class="hw-mini-note">ทำครบ WHO 7 ขั้น และครบสบู่/ล้างน้ำ/เช็ดมือ จะได้คะแนนดีมาก</div>
-        </section>
-
-        <section class="hw-side-card hw-card">
-          <div class="hw-side-title">ความสะอาดรวม</div>
-          <div class="hw-meter" aria-hidden="true">
-            <div id="hwCoverageFill" class="hw-meter-fill"></div>
-          </div>
-          <div id="hwCoverageText" class="hw-mini-note" style="margin-top:10px;">ยังไม่เริ่มถูมือ</div>
-        </section>
-      </aside>
     </section>
+  </main>
 
-    <footer class="hw-tool-bar">
-      <button id="hwBtnSoap" class="hw-tool-btn">สบู่</button>
-      <button id="hwBtnRinse" class="hw-tool-btn hw-tool-btn--warn" disabled>ล้างน้ำ</button>
-      <button id="hwBtnDry" class="hw-tool-btn hw-tool-btn--good" disabled>เช็ดมือ</button>
-      <button id="hwBtnHelp" class="hw-tool-btn hw-tool-btn--ghost">ช่วย</button>
-      <button id="hwBtnPause" class="hw-tool-btn hw-tool-btn--ghost">พัก</button>
-      <button id="hwBtnBackHub" class="hw-tool-btn hw-tool-btn--ghost">กลับ HUB</button>
-    </footer>
+  <script>
+    const qs = new URLSearchParams(location.search);
 
-    <div id="hwToast" class="hw-toast" aria-live="polite">พร้อมเริ่ม</div>
+    const STAGES = ['howto', 'practice', 'main', 'mini-order'];
+    const STAGE_LABEL = {
+      'howto': 'Howto',
+      'practice': 'Practice Lab',
+      'main': 'Main Game',
+      'mini-order': 'Mini Order'
+    };
 
-    <div id="hwStartOverlay" class="hw-overlay" role="dialog" aria-modal="true" aria-labelledby="hwStartTitle">
-      <div class="hw-dialog hw-start-dialog">
-        <div class="hw-start-badge">🫧 Handwash Trainer</div>
-        <h2 id="hwStartTitle">ล้างมือให้สะอาดกันเถอะ</h2>
-        <p class="hw-start-lead">เล่น 4 ขั้นง่าย ๆ แล้วฝึก WHO 7 ขั้นตอนให้ครบ</p>
+    const els = {
+      pid: document.getElementById('pid'),
+      name: document.getElementById('name'),
+      diff: document.getElementById('diff'),
+      time: document.getElementById('time'),
+      miniTime: document.getElementById('miniTime'),
+      hub: document.getElementById('hub'),
 
-        <div class="hw-start-steps">
-          <div class="hw-start-step"><span>1</span><strong>กดสบู่</strong></div>
-          <div class="hw-start-step"><span>2</span><strong>ทำ WHO 7 ขั้น</strong></div>
-          <div class="hw-start-step"><span>3</span><strong>ล้างน้ำ</strong></div>
-          <div class="hw-start-step"><span>4</span><strong>เช็ดมือ</strong></div>
-        </div>
+      btnResume: document.getElementById('btnResume'),
+      btnFull: document.getElementById('btnFull'),
+      btnHowto: document.getElementById('btnHowto'),
+      btnPractice: document.getElementById('btnPractice'),
+      btnMain: document.getElementById('btnMain'),
+      btnMini: document.getElementById('btnMini'),
+      btnClear: document.getElementById('btnClear'),
 
-        <div class="hw-start-tip">
-          ดูกรอบที่เด่นกว่าโซนอื่น แล้วแตะหรือถูในจุดนั้นซ้ำ ๆ
-        </div>
+      lastStage: document.getElementById('lastStage'),
+      lastResult: document.getElementById('lastResult'),
+      lastScore: document.getElementById('lastScore'),
+      lastStars: document.getElementById('lastStars'),
+      latestMeta: document.getElementById('latestMeta'),
+      resumeStatus: document.getElementById('resumeStatus'),
+      historyList: document.getElementById('historyList'),
 
-        <div class="hw-dialog-actions">
-          <button id="hwStartPlayBtn">เริ่มเล่น</button>
-          <button id="hwStartHowBtn" class="ghost">ดูวิธีเล่น</button>
-        </div>
-      </div>
-    </div>
+      flowHowtoSub: document.getElementById('flowHowtoSub'),
+      flowPracticeSub: document.getElementById('flowPracticeSub'),
+      flowMainSub: document.getElementById('flowMainSub'),
+      flowMiniSub: document.getElementById('flowMiniSub'),
+      flowHubSub: document.getElementById('flowHubSub'),
+      stageBoxes: [...document.querySelectorAll('[data-stage-box]')],
+      modeButtons: [...document.querySelectorAll('[data-view]')]
+    };
 
-    <div id="hwHelpOverlay" class="hw-overlay hw-hidden" role="dialog" aria-modal="true" aria-labelledby="hwHelpTitle">
-      <div class="hw-dialog">
-        <h2 id="hwHelpTitle">วิธีเล่น Handwash Trainer</h2>
-        <p>เริ่มจากกดสบู่ จากนั้นทำ WHO 7 ขั้นทีละขั้น แล้วค่อยล้างน้ำและเช็ดมือ</p>
+    const defaultHub = qs.get('hub') || new URL('../hub-v2.html', location.href).href;
+    let selectedView = qs.get('view') || 'mobile';
 
-        <div class="hw-help-grid">
-          <div class="hw-help-item">
-            <strong>1) กดสบู่</strong>
-            เริ่มเกมและเปิดโหมดถูมือ
-          </div>
-          <div class="hw-help-item">
-            <strong>2) ทำทีละขั้น</strong>
-            เกมจะบอกว่าตอนนี้ต้องถูตรงไหน
-          </div>
-          <div class="hw-help-item">
-            <strong>3) ครบ 7 ขั้น</strong>
-            ปุ่มล้างน้ำจะเด่นขึ้นให้กดต่อ
-          </div>
-          <div class="hw-help-item">
-            <strong>4) เช็ดมือและดูสรุป</strong>
-            ดูว่าผ่าน WHO กี่ขั้นและได้คะแนนเท่าไร
-          </div>
-        </div>
+    els.pid.value = qs.get('pid') || 'anon';
+    els.name.value = qs.get('name') || 'Hero';
+    els.diff.value = qs.get('diff') || 'normal';
+    els.time.value = qs.get('time') || '90';
+    els.miniTime.value = qs.get('miniTime') || '60';
+    els.hub.value = defaultHub;
 
-        <div class="hw-dialog-actions">
-          <button id="hwHelpClose">เข้าใจแล้ว</button>
-        </div>
-      </div>
-    </div>
+    function setActiveView(view){
+      selectedView = view;
+      els.modeButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === view);
+      });
+    }
 
-    <div id="hwPauseOverlay" class="hw-overlay hw-hidden" role="dialog" aria-modal="true" aria-labelledby="hwPauseTitle">
-      <div class="hw-dialog">
-        <h2 id="hwPauseTitle">พักเกมชั่วคราว</h2>
-        <p>พร้อมเมื่อไรกดเล่นต่อได้เลย</p>
-        <div class="hw-dialog-actions">
-          <button id="hwResumeBtn">เล่นต่อ</button>
-          <button id="hwRestartBtn" class="ghost">เริ่มใหม่</button>
-        </div>
-      </div>
-    </div>
+    setActiveView(selectedView);
 
-    <div id="hwSummaryOverlay" class="hw-overlay hw-hidden" role="dialog" aria-modal="true" aria-labelledby="hwSummaryTitle">
-      <div class="hw-dialog">
-        <h2 id="hwSummaryTitle">สรุปผลการล้างมือ</h2>
-        <p id="hwSummaryLead">วันนี้หนูล้างมือได้ดีมาก ลองดูว่าขั้นไหนเก่งแล้ว และขั้นไหนควรฝึกเพิ่มนะ</p>
+    els.modeButtons.forEach(btn => {
+      btn.addEventListener('click', () => setActiveView(btn.dataset.view));
+    });
 
-        <div class="hw-summary-hero">
-          <div class="hw-summary-hero-main">
-            <div class="hw-summary-hero-label">ผลลัพธ์หลัก</div>
-            <div id="hwSummaryHeroScore" class="hw-summary-hero-score">0</div>
-            <div id="hwSummaryHeroSub" class="hw-summary-hero-sub">คะแนนวิจัยรวม</div>
-          </div>
+    function baseParams(view, gameTimeOverride, extra = {}){
+      const params = new URLSearchParams();
+      params.set('pid', (els.pid.value || 'anon').trim() || 'anon');
+      params.set('name', (els.name.value || 'Hero').trim() || 'Hero');
+      params.set('diff', els.diff.value || 'normal');
+      params.set('time', String(gameTimeOverride));
+      params.set('hub', (els.hub.value || defaultHub).trim() || defaultHub);
+      params.set('view', view);
+      params.set('run', 'play');
+      params.set('zone', 'hygiene');
+      params.set('cat', 'hygiene');
+      params.set('game', 'handwash');
+      params.set('gameId', 'handwash');
+      params.set('theme', 'handwash');
+      params.set('seed', String(Date.now()));
 
-          <div class="hw-summary-hero-side">
-            <div class="hw-summary-hero-chip">
-              <span>WHO</span>
-              <strong id="hwSummaryHeroWho">0 / 7</strong>
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          params.set(k, String(v));
+        }
+      });
+
+      return params;
+    }
+
+    function buildMiniUrl(view){
+      return `./handwash-mini-order.html?${baseParams(view, els.miniTime.value).toString()}`;
+    }
+
+    function buildMainUrl(view){
+      const miniUrl = buildMiniUrl(view);
+      const params = baseParams(view, els.time.value, { next: miniUrl });
+      return `../handwash-v2.html?${params.toString()}`;
+    }
+
+    function buildPracticeUrl(view){
+      const mainUrl = buildMainUrl(view);
+      const params = baseParams(view, els.time.value, { next: mainUrl });
+      return `./handwash-vr.html?${params.toString()}`;
+    }
+
+    function buildHowtoUrl(view){
+      const practiceUrl = buildPracticeUrl(view);
+      const params = baseParams(view, els.time.value, { next: practiceUrl });
+      return `./handwash-howto.html?${params.toString()}`;
+    }
+
+    function openUrl(url){
+      location.href = url;
+    }
+
+    function parseJsonSafe(text){
+      try{
+        return JSON.parse(text);
+      }catch{
+        return null;
+      }
+    }
+
+    function looksLikeHandwashEntry(obj, key=''){
+      if (!obj || typeof obj !== 'object') return false;
+
+      const stage = String(obj.stage || '').toLowerCase();
+      const game = String(obj.game || obj.gameId || obj.theme || '').toLowerCase();
+      const notes = String(obj.notes || '').toLowerCase();
+      const k = String(key || '').toLowerCase();
+
+      if (game.includes('handwash')) return true;
+      if (k.includes('handwash')) return true;
+
+      const validStage = STAGES.includes(stage);
+      const hasHandwashHint = notes.includes('handwash');
+
+      return validStage && hasHandwashHint;
+    }
+
+    function normalizeEntry(obj, key=''){
+      if (!looksLikeHandwashEntry(obj, key)) return null;
+
+      const stage = String(obj.stage || '').toLowerCase();
+      const tsRaw = obj.timestamp || obj.updatedAt || obj.createdAt || obj.savedAt || obj.date || Date.now();
+      const timestamp = Number.isFinite(Number(tsRaw)) ? Number(tsRaw) : (Date.parse(tsRaw) || Date.now());
+
+      return {
+        stage,
+        success: !!obj.success,
+        score: Number(obj.score || 0),
+        stars: Number(obj.stars || 0),
+        miss: Number(obj.miss || 0),
+        timeLeft: Number(obj.timeLeft || 0),
+        progress: Number(obj.progress || 0),
+        notes: String(obj.notes || ''),
+        timestamp,
+        key
+      };
+    }
+
+    function collectEntriesFromValue(value, key=''){
+      const out = [];
+
+      function walk(node){
+        if (!node) return;
+
+        if (Array.isArray(node)){
+          node.forEach(walk);
+          return;
+        }
+
+        if (typeof node === 'object'){
+          const normalized = normalizeEntry(node, key);
+          if (normalized) out.push(normalized);
+
+          Object.values(node).forEach(child => {
+            if (child && typeof child === 'object') walk(child);
+          });
+        }
+      }
+
+      walk(value);
+      return out;
+    }
+
+    function getEntriesFromLocalStorage(){
+      const entries = [];
+
+      for (let i = 0; i < localStorage.length; i++){
+        const key = localStorage.key(i);
+        if (!key) continue;
+
+        const keyLower = key.toLowerCase();
+        if (
+          !keyLower.includes('handwash') &&
+          key !== 'HHA_LAST_SUMMARY' &&
+          key !== 'HHA_LAST_SUMMARY_GLOBAL'
+        ){
+          continue;
+        }
+
+        const raw = localStorage.getItem(key);
+        const parsed = parseJsonSafe(raw);
+        if (!parsed) continue;
+
+        collectEntriesFromValue(parsed, key).forEach(e => entries.push(e));
+      }
+
+      return entries;
+    }
+
+    function dedupeEntries(entries){
+      const seen = new Set();
+      const out = [];
+
+      entries
+        .sort((a,b) => b.timestamp - a.timestamp)
+        .forEach(entry => {
+          const sig = [
+            entry.stage,
+            entry.timestamp,
+            entry.score,
+            entry.stars,
+            entry.miss,
+            entry.progress,
+            entry.notes
+          ].join('|');
+
+          if (seen.has(sig)) return;
+          seen.add(sig);
+          out.push(entry);
+        });
+
+      return out;
+    }
+
+    function getAllEntries(){
+      return dedupeEntries(getEntriesFromLocalStorage());
+    }
+
+    function latestEntry(entries){
+      return entries.length ? entries[0] : null;
+    }
+
+    function latestSuccessfulByStage(entries, stage){
+      return entries.find(e => e.stage === stage && e.success) || null;
+    }
+
+    function formatTime(ts){
+      try{
+        return new Date(ts).toLocaleString('th-TH', {
+          year:'numeric',
+          month:'short',
+          day:'numeric',
+          hour:'2-digit',
+          minute:'2-digit'
+        });
+      }catch{
+        return '—';
+      }
+    }
+
+    function computeResumeStage(entries){
+      const howtoDone = !!latestSuccessfulByStage(entries, 'howto');
+      const practiceDone = !!latestSuccessfulByStage(entries, 'practice');
+      const mainDone = !!latestSuccessfulByStage(entries, 'main');
+      const miniDone = !!latestSuccessfulByStage(entries, 'mini-order');
+
+      if (!howtoDone) return 'howto';
+      if (!practiceDone) return 'practice';
+      if (!mainDone) return 'main';
+      if (!miniDone) return 'mini-order';
+      return 'done';
+    }
+
+    function buildResumeUrl(view){
+      const stage = computeResumeStage(getAllEntries());
+
+      if (stage === 'practice') return buildPracticeUrl(view);
+      if (stage === 'main') return buildMainUrl(view);
+      if (stage === 'mini-order') return buildMiniUrl(view);
+      if (stage === 'done') return (els.hub.value || defaultHub).trim() || defaultHub;
+      return buildHowtoUrl(view);
+    }
+
+    function renderLatest(entries){
+      const latest = latestEntry(entries);
+
+      if (!latest){
+        els.lastStage.textContent = '—';
+        els.lastResult.textContent = '—';
+        els.lastScore.textContent = '—';
+        els.lastStars.textContent = '—';
+        els.latestMeta.textContent = 'ถ้ายังว่างอยู่ แปลว่ายังไม่มี summary ของ Handwash ถูกบันทึกในเบราว์เซอร์นี้';
+        els.resumeStatus.textContent = 'ยังไม่พบ progress ของ Handwash';
+        els.resumeStatus.className = 'status-pill muted';
+        return;
+      }
+
+      els.lastStage.textContent = STAGE_LABEL[latest.stage] || latest.stage;
+      els.lastResult.textContent = latest.success ? 'ผ่าน' : 'ยังไม่ผ่าน';
+      els.lastScore.textContent = String(latest.score ?? 0);
+      els.lastStars.textContent = latest.stars > 0 ? '⭐'.repeat(latest.stars) : '—';
+      els.latestMeta.textContent = `ล่าสุดเมื่อ ${formatTime(latest.timestamp)} • miss ${latest.miss} • progress ${latest.progress}%`;
+
+      const nextStage = computeResumeStage(entries);
+      if (nextStage === 'done'){
+        els.resumeStatus.textContent = 'ครบทุกด่านแล้ว พร้อมกลับ Hub หรือเริ่มรอบใหม่';
+        els.resumeStatus.className = 'status-pill';
+      } else if (nextStage){
+        els.resumeStatus.textContent = `เล่นต่อได้ที่ ${STAGE_LABEL[nextStage] || nextStage}`;
+        els.resumeStatus.className = 'status-pill warn';
+      } else {
+        els.resumeStatus.textContent = 'ยังไม่พบ progress ของ Handwash';
+        els.resumeStatus.className = 'status-pill muted';
+      }
+    }
+
+    function renderFlow(entries){
+      const howtoDone = !!latestSuccessfulByStage(entries, 'howto');
+      const practiceDone = !!latestSuccessfulByStage(entries, 'practice');
+      const mainDone = !!latestSuccessfulByStage(entries, 'main');
+      const miniDone = !!latestSuccessfulByStage(entries, 'mini-order');
+      const resumeStage = computeResumeStage(entries);
+
+      els.stageBoxes.forEach(box => box.classList.remove('ok', 'now'));
+
+      const howtoBox = document.querySelector('[data-stage-box="howto"]');
+      const practiceBox = document.querySelector('[data-stage-box="practice"]');
+      const mainBox = document.querySelector('[data-stage-box="main"]');
+      const miniBox = document.querySelector('[data-stage-box="mini-order"]');
+      const hubBox = document.querySelector('[data-stage-box="hub"]');
+
+      els.flowHowtoSub.textContent = howtoDone ? 'ผ่านแล้ว' : 'ยังไม่เริ่ม';
+      els.flowPracticeSub.textContent = practiceDone ? 'ผ่านแล้ว' : howtoDone ? 'พร้อมเล่น' : 'รอ Howto';
+      els.flowMainSub.textContent = mainDone ? 'ผ่านแล้ว' : practiceDone ? 'พร้อมเล่น' : 'รอ Practice';
+      els.flowMiniSub.textContent = miniDone ? 'ผ่านแล้ว' : mainDone ? 'พร้อมเล่น' : 'รอ Main';
+      els.flowHubSub.textContent = miniDone ? 'พร้อมกลับ' : 'ปลายทาง';
+
+      if (howtoDone) howtoBox.classList.add('ok');
+      if (practiceDone) practiceBox.classList.add('ok');
+      if (mainDone) mainBox.classList.add('ok');
+      if (miniDone) miniBox.classList.add('ok');
+      if (miniDone) hubBox.classList.add('now');
+
+      if (!miniDone){
+        const currentBox = document.querySelector(`[data-stage-box="${resumeStage || 'howto'}"]`);
+        if (currentBox && !currentBox.classList.contains('ok')) currentBox.classList.add('now');
+      }
+    }
+
+    function renderHistory(entries){
+      if (!entries.length){
+        els.historyList.innerHTML = `<div class="muted-box">ยังไม่พบประวัติของ Handwash</div>`;
+        return;
+      }
+
+      const rows = entries.slice(0, 8).map(entry => {
+        const tagClass = entry.success ? 'tag' : 'tag fail';
+        const tagText = entry.success ? 'ผ่าน' : 'ยังไม่ผ่าน';
+        const stage = STAGE_LABEL[entry.stage] || entry.stage;
+        const stars = entry.stars > 0 ? '⭐'.repeat(entry.stars) : '—';
+
+        return `
+          <div class="history-item">
+            <div class="history-head">
+              <div><strong>${stage}</strong></div>
+              <div class="${tagClass}">${tagText}</div>
             </div>
-            <div class="hw-summary-hero-chip">
-              <span>Coverage</span>
-              <strong id="hwSummaryHeroCoverage">0%</strong>
-            </div>
-            <div class="hw-summary-hero-chip">
-              <span>ดาว</span>
-              <strong id="hwSummaryHeroStars">0</strong>
-            </div>
+            <div>คะแนน ${entry.score} • ดาว ${stars} • miss ${entry.miss} • progress ${entry.progress}%</div>
+            <div class="tiny">บันทึกเมื่อ ${formatTime(entry.timestamp)}</div>
           </div>
-        </div>
+        `;
+      }).join('');
 
-        <div class="hw-summary-grid">
-          <section class="hw-summary-card">
-            <h3>ความสะอาดรวม</h3>
-            <div id="hwSummaryCoverage" class="hw-summary-big">0%</div>
-            <div id="hwSummaryStars" class="hw-stars" style="justify-content:flex-start; margin-top:10px;">
-              <span>★</span><span>★</span><span>★</span>
-            </div>
-          </section>
+      els.historyList.innerHTML = rows;
+    }
 
-          <section class="hw-summary-card">
-            <h3>ทำครบไหม</h3>
-            <div id="hwSummaryBadges" class="hw-summary-badges">
-              <span class="hw-badge info">ใส่สบู่</span>
-              <span class="hw-badge warn">ล้างน้ำ</span>
-              <span class="hw-badge warn">เช็ดมือ</span>
-            </div>
-          </section>
+    function refreshView(){
+      const entries = getAllEntries();
+      renderLatest(entries);
+      renderFlow(entries);
+      renderHistory(entries);
+    }
 
-          <section class="hw-summary-card">
-            <h3>WHO 7 ขั้น</h3>
-            <div id="hwSummaryWhoScore" class="hw-summary-big">0 / 7</div>
-            <div id="hwSummaryWhoText" class="hw-mini-note" style="margin-top:10px;">ยังไม่มีข้อมูล</div>
-          </section>
+    function removeDetectedHandwashKeys(){
+      const keysToRemove = [];
 
-          <section class="hw-summary-card">
-            <h3>คะแนนวิจัย</h3>
-            <div id="hwSummaryResearchScore" class="hw-summary-big">0</div>
-            <div id="hwSummaryResearchText" class="hw-mini-note" style="margin-top:10px;">ยังไม่มีข้อมูล</div>
-            <div class="hw-summary-badges" id="hwSummaryResearchBadges">
-              <span class="hw-badge info">WHO 0</span>
-              <span class="hw-badge info">Coverage 0</span>
-              <span class="hw-badge info">Completion 0</span>
-            </div>
-          </section>
+      for (let i = 0; i < localStorage.length; i++){
+        const key = localStorage.key(i);
+        if (!key) continue;
 
-          <section class="hw-summary-card">
-            <h3>WHO ขั้นที่ผ่านแล้ว</h3>
-            <ul id="hwSummaryWhoDoneList" class="hw-summary-list">
-              <li>ยังไม่มีข้อมูล</li>
-            </ul>
-          </section>
+        const raw = localStorage.getItem(key);
+        const parsed = parseJsonSafe(raw);
 
-          <section class="hw-summary-card">
-            <h3>WHO ขั้นที่ควรฝึกเพิ่ม</h3>
-            <ul id="hwSummaryWhoMissedList" class="hw-summary-list">
-              <li>ยังไม่มีข้อมูล</li>
-            </ul>
-          </section>
-        </div>
+        if (key.toLowerCase().includes('handwash')){
+          keysToRemove.push(key);
+          continue;
+        }
 
-        <div class="hw-dialog-actions hw-summary-actions">
-          <button id="hwSummaryReplay">เล่นอีกครั้ง</button>
-          <button id="hwSummaryNext">ไป Germ Detective</button>
-          <button id="hwSummaryBackHub" class="ghost">กลับ HUB</button>
-        </div>
-      </div>
-    </div>
-  </div>
+        if ((key === 'HHA_LAST_SUMMARY' || key === 'HHA_LAST_SUMMARY_GLOBAL') && parsed){
+          const entries = collectEntriesFromValue(parsed, key);
+          if (entries.length){
+            keysToRemove.push(key);
+          }
+        }
+      }
 
-  <script type="module" src="./js/handwash.safe.v2.js?v=20260320j-mobile-assist"></script>
+      [...new Set(keysToRemove)].forEach(key => localStorage.removeItem(key));
+    }
+
+    els.btnResume.addEventListener('click', () => {
+      openUrl(buildResumeUrl(selectedView));
+    });
+
+    els.btnFull.addEventListener('click', () => {
+      openUrl(buildHowtoUrl(selectedView));
+    });
+
+    els.btnHowto.addEventListener('click', () => {
+      openUrl(buildHowtoUrl(selectedView));
+    });
+
+    els.btnPractice.addEventListener('click', () => {
+      openUrl(buildPracticeUrl(selectedView));
+    });
+
+    els.btnMain.addEventListener('click', () => {
+      openUrl(buildMainUrl(selectedView));
+    });
+
+    els.btnMini.addEventListener('click', () => {
+      openUrl(buildMiniUrl(selectedView));
+    });
+
+    els.btnClear.addEventListener('click', () => {
+      removeDetectedHandwashKeys();
+      refreshView();
+      alert('ล้าง progress ของ Handwash ในเบราว์เซอร์นี้แล้ว');
+    });
+
+    refreshView();
+  </script>
 </body>
 </html>
