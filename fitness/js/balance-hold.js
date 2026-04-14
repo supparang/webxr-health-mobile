@@ -1,7 +1,7 @@
 // === /fitness/js/balance-hold.js ===
-// Balance Hold — production merge patch
+// Balance Hold — production merge patch + STRICT PLANNER FLOW
 // tutorial + anti-cheese + teacher export + hub snapshot + boss phase
-// FINAL PATCH v20260411-balancehold-prod-merge
+// FINAL PATCH v20260414a-balancehold-strict-planner
 
 (() => {
   'use strict';
@@ -28,6 +28,49 @@
   const nowMs = () => (W.performance && performance.now ? performance.now() : Date.now());
 
   const TEACHER_EXPORT_LAST_KEY = 'HHA_BALANCE_TEACHER_EXPORT_LAST_V1';
+
+  function bhSafeAbsUrl(raw, fallback = '') {
+    const value = String(raw || '').trim();
+    try {
+      if (value) return new URL(value, location.href).toString();
+    } catch (_) {}
+    return fallback || '';
+  }
+
+  function bhNormalizeHubUrl(raw) {
+    const fallback = '../herohealth/fitness-planner.html';
+    const href = bhSafeAbsUrl(raw, bhSafeAbsUrl(fallback, fallback));
+    const s = String(href || '').toLowerCase();
+
+    if (
+      !href ||
+      s.endsWith('/webxr-health-mobile/fitness') ||
+      s.endsWith('/webxr-health-mobile/fitness/') ||
+      s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
+      s === 'https://supparang.github.io/webxr-health-mobile/fitness/'
+    ) {
+      return bhSafeAbsUrl(fallback, fallback);
+    }
+
+    return href;
+  }
+
+  function bhIsPlannerStrictFlow() {
+    const hubUrl = String(q('hub', '')).toLowerCase();
+    return (
+      q('plannerFlow', '') === '1' ||
+      q('fpStrict', '') === '1' ||
+      String(q('cooldown', '')).toLowerCase() === '0' ||
+      String(q('returnPhase', '')).toLowerCase() === 'planner' ||
+      hubUrl.includes('fitness-planner') ||
+      hubUrl.includes('fpresume=1') ||
+      hubUrl.includes('plan=')
+    );
+  }
+
+  function bhPlannerReturnUrl() {
+    return bhNormalizeHubUrl(q('hub', '../herohealth/fitness-planner.html'));
+  }
 
   const ctx = {
     pid: q('pid', 'anon'),
@@ -58,7 +101,9 @@
     weekNo: q('weekNo', ''),
     sessionNo: q('sessionNo', ''),
     grade: q('grade', ''),
-    teacher: q('teacher', '')
+    teacher: q('teacher', ''),
+
+    plannerStrict: bhIsPlannerStrictFlow()
   };
 
   const root = $('#bhGame');
@@ -168,7 +213,8 @@
       view: ctx.view,
       seed: ctx.seed,
       weekNo: ctx.weekNo,
-      sessionNo: ctx.sessionNo
+      sessionNo: ctx.sessionNo,
+      plannerStrict: ctx.plannerStrict ? 1 : 0
     };
   }
 
@@ -215,7 +261,8 @@
       gameId: ctx.gameId,
       sessionId,
       reason,
-      ts: new Date().toISOString()
+      ts: new Date().toISOString(),
+      plannerStrict: ctx.plannerStrict ? 1 : 0
     };
     emitWindowEvent('hha:flush', payload);
 
@@ -996,7 +1043,8 @@
       adaptive_hold_scale: 1,
       adaptive_move_scale: 1,
       adaptive_drift_scale: 1,
-      observation: buildTeacherObservation(summary)
+      observation: buildTeacherObservation(summary),
+      planner_strict: ctx.plannerStrict ? 1 : 0
     };
   }
 
@@ -1032,7 +1080,8 @@
       `Strength: ${summary.strengthLabel || '-'}`,
       `Support: ${summary.supportLabel || '-'}`,
       `Next Suggestion: ${summary.teacherSuggestion || '-'}`,
-      `Observation: ${buildTeacherObservation(summary)}`
+      `Observation: ${buildTeacherObservation(summary)}`,
+      `Planner Strict: ${ctx.plannerStrict ? 'Yes' : 'No'}`
     ].join('\n');
   }
 
@@ -1524,7 +1573,7 @@
       bestPost: best ? best.title : '',
       hardestPost: hardest ? hardest.title : '',
       cooldownEnabled: ctx.cooldown,
-      hub: ctx.hub,
+      hub: ctx.plannerStrict ? bhPlannerReturnUrl() : ctx.hub,
       ts: new Date().toISOString(),
       validHoldMs,
       invalidHoldMs,
@@ -1540,6 +1589,7 @@
       bossScore,
       bossStars,
       bossStageClears,
+      plannerStrict: ctx.plannerStrict ? 1 : 0,
       scoreParts: {
         stability: G.scoreParts.stability,
         recovery: G.scoreParts.recovery,
@@ -1588,7 +1638,8 @@
       gameId: ctx.gameId,
       score: G.totalScore,
       stars: G.stars,
-      ts: summary.ts
+      ts: summary.ts,
+      plannerStrict: ctx.plannerStrict ? 1 : 0
     });
 
     logEvent('session_end', {
@@ -1621,6 +1672,10 @@
   }
 
   function buildCooldownUrl() {
+    if (ctx.plannerStrict) {
+      return bhPlannerReturnUrl();
+    }
+
     const p = new URLSearchParams();
 
     const keys = [
@@ -1670,7 +1725,9 @@
       </div>
     `).join('');
 
-    const primaryLabel = ctx.cooldown ? 'คูลดาวน์แล้วกลับ HUB' : 'กลับ HUB';
+    const primaryLabel = ctx.plannerStrict
+      ? 'กลับ Planner'
+      : (ctx.cooldown ? 'คูลดาวน์แล้วกลับ HUB' : 'กลับ HUB');
 
     showOverlay(`
       <div class="bh-summary-card">
@@ -1763,6 +1820,12 @@
 
     if (nextBtn) {
       nextBtn.addEventListener('click', () => {
+        if (ctx.plannerStrict) {
+          logEvent('summary_action', { action: 'back_planner' });
+          safeNavigate(bhPlannerReturnUrl(), 'back_planner');
+          return;
+        }
+
         if (ctx.cooldown) {
           logEvent('summary_action', { action: 'cooldown_then_hub' });
           safeNavigate(buildCooldownUrl(), 'cooldown_redirect');
@@ -2347,7 +2410,8 @@
       time_setting: ctx.time,
       cooldown_enabled: ctx.cooldown ? 1 : 0,
       gate_enabled: ctx.gate ? 1 : 0,
-      boss_enabled: shouldUseBossPhase() ? 1 : 0
+      boss_enabled: shouldUseBossPhase() ? 1 : 0,
+      planner_strict: ctx.plannerStrict ? 1 : 0
     });
 
     emitWindowEvent('hha:session-start', {
@@ -2355,7 +2419,8 @@
       gameId: ctx.gameId,
       pid: ctx.pid,
       diff: ctx.diff,
-      seed: ctx.seed
+      seed: ctx.seed,
+      plannerStrict: ctx.plannerStrict ? 1 : 0
     });
 
     saveSessionMeta({
@@ -2364,7 +2429,8 @@
       pid: ctx.pid,
       diff: ctx.diff,
       seed: ctx.seed,
-      ts: new Date().toISOString()
+      ts: new Date().toISOString(),
+      plannerStrict: ctx.plannerStrict ? 1 : 0
     });
 
     showTutorialOverlay();
