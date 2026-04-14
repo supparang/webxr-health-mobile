@@ -1,12 +1,12 @@
 // === /fitness/js/shadow-breaker.js ===
 // Shadow Breaker bootstrap
-// PATCH v20260412m-SB-BOOTSTRAP-SAFE
+// PATCH v20260412n-SB-BOOTSTRAP-SAFE
 
 'use strict';
 
-import { initShadowBreaker } from './engine.js?v=20260412m';
+import { initShadowBreaker } from './engine.js?v=20260412n';
 
-const SB_BOOT_VERSION = 'v20260412m-SB-BOOTSTRAP-SAFE';
+const SB_BOOT_VERSION = 'v20260412n-SB-BOOTSTRAP-SAFE';
 let booted = false;
 
 function qs(key, fallback = '') {
