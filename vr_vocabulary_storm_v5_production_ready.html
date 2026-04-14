@@ -1,0 +1,1253 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>VR Vocabulary Storm v5 Production Ready</title>
+  <style>
+    :root{
+      --panel:rgba(9,18,37,.84);
+      --line:rgba(255,255,255,.14);
+      --text:#f8fbff;
+      --muted:#c7d4ff;
+      --cyan:#67e8f9;
+      --pink:#f472b6;
+      --yellow:#fde047;
+      --green:#4ade80;
+      --red:#fb7185;
+      --violet:#a78bfa;
+      --bg1:#67d8ff;
+      --bg2:#dbeafe;
+      --ink:#111827;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;height:100%;overflow:hidden;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background:linear-gradient(180deg,var(--bg1) 0%,var(--bg2) 100%);
+    }
+    #app{position:fixed;inset:0;overflow:hidden}
+    canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;z-index:1;cursor:crosshair}
+    .hud{
+      position:fixed;left:10px;right:10px;top:10px;z-index:30;
+      display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr;gap:10px;pointer-events:none;color:var(--text)
+    }
+    .card{
+      background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:10px 12px;
+      box-shadow:0 14px 36px rgba(0,0,0,.22);backdrop-filter:blur(8px)
+    }
+    .big{font-size:15px;font-weight:900;letter-spacing:.02em}
+    .sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.35}
+    .bar{height:9px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:8px}
+    .fill{height:100%;width:100%;background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));transform-origin:left center}
+    .bottom{
+      position:fixed;left:10px;right:10px;bottom:10px;z-index:30;
+      display:flex;justify-content:space-between;gap:10px;pointer-events:none;color:var(--text)
+    }
+    .chip{
+      background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:10px 14px;font-size:12px;
+      box-shadow:0 12px 30px rgba(0,0,0,.18)
+    }
+    .menu,.fallback,.teacherPanelWrap{
+      position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:20px;
+      background:radial-gradient(circle at top,#162347 0%,#090d19 48%,#05070f 100%);color:var(--text)
+    }
+    .teacherPanelWrap{display:none;z-index:55}
+    .panel{
+      width:min(1120px,96vw);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:30px;
+      padding:24px;box-shadow:0 30px 80px rgba(0,0,0,.35)
+    }
+    .title{font-size:34px;font-weight:1000;line-height:1.05;margin:0}
+    .desc{margin-top:10px;color:#dbe7ff;line-height:1.6;font-size:15px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .mode,.bank,.missionCard,.launcherCard,.toggleBtn{
+      appearance:none;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:22px;padding:14px;
+      transition:.18s ease;text-align:left;color:var(--text);cursor:pointer
+    }
+    .missionCard{cursor:default}
+    .mode:hover,.bank:hover,.launcherCard:hover,.toggleBtn:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.55)}
+    .mode.active,.bank.active,.launcherCard.active,.toggleBtn.active{
+      outline:3px solid var(--cyan);
+      box-shadow:0 0 0 4px rgba(103,232,249,.15), 0 14px 28px rgba(103,232,249,.14) inset;
+      background:rgba(103,232,249,.10)
+    }
+    .bank.locked{opacity:.48;filter:grayscale(.15)}
+    .mode h3,.bank h3,.missionCard h3,.launcherCard h3{margin:0 0 6px;font-size:16px}
+    .mode p,.bank p,.missionCard p,.launcherCard p{margin:0;color:#cad7ff;font-size:13px;line-height:1.45}
+    .actions{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px;margin-top:18px}
+    .btn{
+      appearance:none;border:0;border-radius:20px;padding:15px 18px;font-size:16px;font-weight:1000;cursor:pointer;color:#06101b;
+      background:linear-gradient(135deg,#67e8f9,#a78bfa);box-shadow:0 14px 30px rgba(103,232,249,.22)
+    }
+    .btn.alt{background:linear-gradient(135deg,#fde047,#fb7185);color:#311314}
+    .btn.ghost{background:linear-gradient(135deg,#dbeafe,#93c5fd);color:#172554}
+    .legend{margin-top:14px;font-size:13px;color:#c7d4ff}
+    .teacherBox{
+      max-height:min(85vh,900px);overflow:auto
+    }
+    .teacherStats{
+      display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px
+    }
+    .teacherStat{
+      background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:12px
+    }
+    .teacherList{
+      margin-top:14px;padding:0;list-style:none;display:grid;gap:10px
+    }
+    .teacherList li{
+      background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:10px 12px
+    }
+    #fallback{display:none;z-index:60}
+    @media (max-width:980px){
+      .hud{grid-template-columns:1fr 1fr}
+      .grid2,.grid3,.grid4,.actions,.teacherStats{grid-template-columns:1fr}
+      .title{font-size:28px}
+      .bottom{flex-direction:column;align-items:stretch}
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gameCanvas" aria-label="VR Vocabulary Storm v5 Production Ready"></canvas>
+
+  <div class="hud">
+    <div class="card">
+      <div class="big">VR VOCABULARY STORM v5</div>
+      <div class="sub" id="hudPrompt">เลือก bank แล้วกด START STORM เพื่อเข้าเวที</div>
+      <div class="bar"><div class="fill" id="timeFill"></div></div>
+    </div>
+    <div class="card">
+      <div class="big" id="hudScore">Score 0</div>
+      <div class="sub" id="hudRound">Mission 0 / 4</div>
+    </div>
+    <div class="card">
+      <div class="big" id="hudCombo">Combo x0</div>
+      <div class="sub" id="hudMode">Mode SPEED</div>
+    </div>
+    <div class="card">
+      <div class="big" id="hudHp">HP 3</div>
+      <div class="sub" id="hudState">พร้อมลุย</div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="chip">PC/Mobile: คลิกหรือแตะเป้าหมายให้แม่น • เร่งคอมโบ ปล่อยสตอร์ม แล้วไล่เก็บแต้มแบบไม่ยั้ง</div>
+    <div class="chip" id="bestChip">Best 0 • Bank CORE</div>
+  </div>
+
+  <div class="menu" id="menu">
+    <div class="panel">
+      <h1 class="title">สนามพายุคำศัพท์สาย IT / AI</h1>
+      <div class="desc">
+        เวอร์ชันนี้พร้อมทั้งสอนและมันส์จริง: มี 4 mission ต่อรอบ, 4 bank คำศัพท์, 3 โหมดเล่น,
+        ระบบ Storm/Frenzy, ปลดล็อก bank ตามฝีมือ, เอฟเฟกต์เดือด และสรุปผลสำหรับครูหลังจบเกม
+      </div>
+
+      <div style="margin-top:16px" class="grid3">
+        <button class="launcherCard active" data-view="pc"><h3>🖥 PC / Laptop</h3><p>เล็งเมาส์ไว ยิงคม เก็บคอมโบแบบเต็มมือ</p></button>
+        <button class="launcherCard" data-view="mobile"><h3>📱 Mobile</h3><p>แตะเป้าหมายตรง ๆ เล่นเร็ว ลุ้นทุกช็อต</p></button>
+        <button class="launcherCard" data-view="cvr"><h3>🥽 Cardboard Style</h3><p>ฟีล crosshair กลางจอ เหมือนยิงใน VR</p></button>
+      </div>
+
+      <div style="margin-top:16px" class="grid3">
+        <button class="mode active" data-mode="speed"><h3>⚡ Speed Hunt</h3><p>ไวจัด โบนัสเวลาแรง เปิดรอบแบบเดือดทันที</p></button>
+        <button class="mode" data-mode="combo"><h3>🔥 Combo Rush</h3><p>ยิงติดกันให้ยาว ดัน Frenzy ให้สุดแล้วโกยแต้มรัว ๆ</p></button>
+        <button class="mode" data-mode="boss"><h3>👾 Boss Shield</h3><p>บอสมีโล่หลายชั้น ผิดแล้วเจ็บ แต่แตกได้สะใจมาก</p></button>
+      </div>
+
+      <div style="margin-top:16px" class="grid4">
+        <button class="bank active" data-bank="core"><h3>CORE</h3><p>พื้นฐานสาย software ยิงสนุก เข้าใจไว</p></button>
+        <button class="bank locked" data-bank="data"><h3>DATA</h3><p>ปลดเมื่อ Best ≥ 120</p></button>
+        <button class="bank locked" data-bank="ai"><h3>AI / ML</h3><p>ปลดเมื่อ Best ≥ 180</p></button>
+        <button class="bank locked" data-bank="net"><h3>NETWORK</h3><p>ปลดเมื่อ Best ≥ 240</p></button>
+      </div>
+
+      <div style="margin-top:16px" class="grid2">
+        <div class="missionCard"><h3>1) Word Hunt</h3><p>ยิงคำตอบจากโจทย์ความหมายแบบเน้นความไว</p></div>
+        <div class="missionCard"><h3>2) Workflow Builder</h3><p>เรียงขั้นตอนให้แม่น ผิดลำดับโดนลงโทษทันที</p></div>
+        <div class="missionCard"><h3>3) Debug Mission</h3><p>อ่านสถานการณ์แล้วแก้ให้ถูกภายใต้แรงกดดัน</p></div>
+        <div class="missionCard"><h3>4) Boss Battle</h3><p>เจาะโล่บอส ยิงซ้ำให้แตก แล้วปิดรอบแบบสะใจ</p></div>
+      </div>
+
+      <div style="margin-top:16px" class="grid3">
+        <button class="toggleBtn active" id="audioToggle"><h3>🔊 Audio ON</h3><p>เสียงโดน ผิด และเคลียร์รอบ</p></button>
+        <button class="toggleBtn active" id="fxToggle"><h3>✨ FX ON</h3><p>shake, burst, flash และพลัง Frenzy</p></button>
+        <button class="toggleBtn" id="teacherToggle"><h3>📊 Teacher Panel</h3><p>ดูสถิติการเล่นล่าสุดและจุดที่ควรทบทวน</p></button>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="startBtn">START STORM</button>
+        <button class="btn alt" id="howBtn">HOW TO PLAY</button>
+        <button class="btn ghost" id="summaryBtn">OPEN TEACHER SUMMARY</button>
+      </div>
+      <div class="legend" id="helpText">
+        Learn Card → Mission Battle → Explain Card → Next Mission • ปลด bank ตามคะแนนสะสม • เหมาะทั้ง warm-up, review และกิจกรรมในคาบ
+      </div>
+    </div>
+  </div>
+
+  <div class="teacherPanelWrap" id="teacherPanelWrap">
+    <div class="panel teacherBox">
+      <h2 style="margin:0">Teacher Summary</h2>
+      <div class="desc">สรุปรอบล่าสุดเพื่อดูว่าผู้เล่นเด่นภารกิจไหน พลาดจุดใด และควรทบทวน bank ไหนต่อ</div>
+      <div class="teacherStats">
+        <div class="teacherStat"><div class="big" id="tsScore">Score 0</div><div class="sub">คะแนนรอบล่าสุด</div></div>
+        <div class="teacherStat"><div class="big" id="tsBank">CORE</div><div class="sub">หมวดคำศัพท์</div></div>
+        <div class="teacherStat"><div class="big" id="tsMode">SPEED</div><div class="sub">โหมดที่เล่น</div></div>
+        <div class="teacherStat"><div class="big" id="tsMistakes">0</div><div class="sub">จำนวนข้อผิดพลาด</div></div>
+      </div>
+      <ul class="teacherList" id="teacherList"></ul>
+      <div class="actions" style="grid-template-columns:1fr 1fr;margin-top:14px">
+        <button class="btn ghost" id="closeTeacherBtn">ปิดหน้าสรุป</button>
+        <button class="btn alt" id="clearTeacherBtn">ล้างสรุปที่บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fallback" id="fallback">
+    <div class="panel">
+      <h2 style="margin:0 0 10px">Canvas ไม่พร้อมใช้งาน</h2>
+      <div class="desc">เบราว์เซอร์นี้ไม่รองรับ 2D canvas context หรือมีบางอย่างบล็อกการทำงานอยู่</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const BANKS = {
+    core: {
+      unlockAt: 0,
+      learnCards: [
+        {title:'ALGORITHM', body:'A step-by-step method used to solve a problem.'},
+        {title:'BUG', body:'An error or defect in a program.'},
+        {title:'INTERFACE', body:'The part of a system users interact with.'},
+        {title:'DEPLOYMENT', body:'Releasing a system to real users.'}
+      ],
+      wordHunt: {prompt:'ยิงคำที่หมายถึง "ลำดับขั้นตอนในการแก้ปัญหา"', answer:'algorithm', choices:['algorithm','bug','interface','deployment'], explain:'Algorithm = a step-by-step method used to solve a problem.'},
+      workflow: {prompt:'เรียง workflow ให้ถูก: พัฒนาซอฟต์แวร์ก่อนปล่อยใช้งาน', correct:['feature','testing','deployment'], choices:['testing','feature','deployment','bug'], explain:'Simple software flow: build feature → test it → deploy it.'},
+      debug: {prompt:'ระบบล่มเพราะมีข้อผิดพลาดในโค้ด ควรเลือกคำไหน?', answer:'bug', choices:['feature','interface','bug','deployment'], explain:'Bug = the defect that causes the system to fail.'},
+      boss: {prompt:'ยิงคำที่หมายถึง "ส่วนที่ผู้ใช้โต้ตอบกับระบบ"', answer:'interface', choices:['interface','feature','algorithm','bug'], explain:'Interface = the visible and interactive part of a system.'}
+    },
+    data: {
+      unlockAt: 120,
+      learnCards: [
+        {title:'DATABASE', body:'An organized system for storing data.'},
+        {title:'QUERY', body:'A request to retrieve or filter data.'},
+        {title:'RECORD', body:'One complete row of data in a table.'},
+        {title:'VISUALIZATION', body:'Presenting data using charts or visuals.'}
+      ],
+      wordHunt: {prompt:'ยิงคำที่หมายถึง "ฐานข้อมูลที่เก็บข้อมูลอย่างเป็นระบบ"', answer:'database', choices:['database','query','record','visualization'], explain:'Database = an organized system for storing data.'},
+      workflow: {prompt:'เรียง workflow ให้ถูก: การใช้งานข้อมูลแบบง่าย', correct:['database','query','visualization'], choices:['visualization','query','database','record'], explain:'Simple data flow: store in database → retrieve by query → show with visualization.'},
+      debug: {prompt:'อยากดึงข้อมูลเฉพาะบางส่วนจากตาราง ควรเลือกคำไหน?', answer:'query', choices:['database','record','query','visualization'], explain:'Query = a request used to retrieve or filter data.'},
+      boss: {prompt:'ยิงคำที่หมายถึง "หนึ่งแถวข้อมูลแบบสมบูรณ์"', answer:'record', choices:['record','database','query','visualization'], explain:'Record = one complete row in a table.'}
+    },
+    ai: {
+      unlockAt: 180,
+      learnCards: [
+        {title:'MODEL', body:'A trained system used to predict or classify.'},
+        {title:'FEATURE', body:'An input variable used by a model.'},
+        {title:'TRAINING', body:'Teaching a model using data.'},
+        {title:'ACCURACY', body:'How often the model is correct.'}
+      ],
+      wordHunt: {prompt:'ยิงคำที่หมายถึง "ระบบที่ใช้เรียนรู้หรือทำนาย"', answer:'model', choices:['model','feature','training','accuracy'], explain:'Model = a trained system used to predict or classify.'},
+      workflow: {prompt:'เรียง workflow ให้ถูก: AI pipeline แบบย่อ', correct:['feature','training','model'], choices:['model','training','feature','accuracy'], explain:'Simple AI flow: choose features → train → get a model.'},
+      debug: {prompt:'ผลทำนายแย่ลง เพราะตัวแปรนำเข้าไม่เหมาะสม ควรเลือกคำไหน?', answer:'feature', choices:['feature','accuracy','training','model'], explain:'Feature = the input variable used by the model.'},
+      boss: {prompt:'ยิงคำที่หมายถึง "ค่าความถูกต้องของโมเดล"', answer:'accuracy', choices:['accuracy','training','feature','model'], explain:'Accuracy = how often the model is correct.'}
+    },
+    net: {
+      unlockAt: 240,
+      learnCards: [
+        {title:'SERVER', body:'A computer that provides services or data.'},
+        {title:'CLIENT', body:'A device or app that requests services.'},
+        {title:'PROTOCOL', body:'A set of rules for communication.'},
+        {title:'BANDWIDTH', body:'How much data can be transferred.'}
+      ],
+      wordHunt: {prompt:'ยิงคำที่หมายถึง "เครื่องที่ให้บริการแก่เครื่องอื่น"', answer:'server', choices:['server','client','protocol','bandwidth'], explain:'Server = a computer that provides services or data.'},
+      workflow: {prompt:'เรียง workflow ให้ถูก: การสื่อสารบนเครือข่ายแบบง่าย', correct:['client','protocol','server'], choices:['server','client','protocol','bandwidth'], explain:'Simple network idea: client requests → protocol defines rules → server responds.'},
+      debug: {prompt:'อุปกรณ์เชื่อมต่อช้าเพราะส่งข้อมูลได้น้อย ควรเลือกคำไหน?', answer:'bandwidth', choices:['protocol','server','client','bandwidth'], explain:'Bandwidth = how much data can be transferred.'},
+      boss: {prompt:'ยิงคำที่หมายถึง "กฎการสื่อสารระหว่างอุปกรณ์"', answer:'protocol', choices:['bandwidth','protocol','server','client'], explain:'Protocol = a set of rules for communication.'}
+    }
+  };
+
+  const MISSION_ORDER = ['wordHunt','workflow','debug','boss'];
+  const STORAGE = {
+    bestGlobal: 'VR_VOCAB_STORM_V5_GLOBAL_BEST',
+    teacher: 'VR_VOCAB_STORM_V5_TEACHER_LAST',
+  };
+
+  const els = {
+    canvas: document.getElementById('gameCanvas'),
+    hudPrompt: document.getElementById('hudPrompt'),
+    hudScore: document.getElementById('hudScore'),
+    hudRound: document.getElementById('hudRound'),
+    hudCombo: document.getElementById('hudCombo'),
+    hudMode: document.getElementById('hudMode'),
+    hudHp: document.getElementById('hudHp'),
+    hudState: document.getElementById('hudState'),
+    timeFill: document.getElementById('timeFill'),
+    menu: document.getElementById('menu'),
+    fallback: document.getElementById('fallback'),
+    startBtn: document.getElementById('startBtn'),
+    howBtn: document.getElementById('howBtn'),
+    summaryBtn: document.getElementById('summaryBtn'),
+    helpText: document.getElementById('helpText'),
+    bestChip: document.getElementById('bestChip'),
+    modeButtons: Array.from(document.querySelectorAll('.mode')),
+    bankButtons: Array.from(document.querySelectorAll('.bank')),
+    launcherButtons: Array.from(document.querySelectorAll('.launcherCard')),
+    audioToggle: document.getElementById('audioToggle'),
+    fxToggle: document.getElementById('fxToggle'),
+    teacherToggle: document.getElementById('teacherToggle'),
+    teacherPanelWrap: document.getElementById('teacherPanelWrap'),
+    closeTeacherBtn: document.getElementById('closeTeacherBtn'),
+    clearTeacherBtn: document.getElementById('clearTeacherBtn'),
+    tsScore: document.getElementById('tsScore'),
+    tsBank: document.getElementById('tsBank'),
+    tsMode: document.getElementById('tsMode'),
+    tsMistakes: document.getElementById('tsMistakes'),
+    teacherList: document.getElementById('teacherList'),
+  };
+
+  const ctx = els.canvas.getContext('2d');
+  if(!ctx){
+    els.fallback.style.display = 'flex';
+    throw new Error('Canvas 2D context unavailable');
+  }
+
+  let width=0,height=0,dpr=1,animationId=0;
+  let gameStarted=false,gameOver=false,phase='idle';
+  let gameMode='speed', currentBank='core', currentView='pc';
+  let missionIndex=0, currentMissionKey='wordHunt', currentMission=null;
+  let score=0, combo=0, hp=3, roundStart=0, roundDuration=7000;
+  let targets=[], effects=[], mouseX=0, mouseY=0, hoverTargetId=null;
+  let currentBoard='LOCK TARGETS', phaseUntil=0, bossShield=0;
+  let summary=null, statCorrect=0, statWrong=0, statMaxCombo=0, workflowProgress=0;
+  let audioEnabled=true, fxEnabled=true, screenShake=0;
+  let stormPower=0, frenzyTimer=0, frenzyBursts=0, perfectShots=0, lastHitAt=0, lastFrameAt=0, redZoneTriggered=false;
+  let teacherData=null;
+
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function now(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
+  function shuffle(arr){
+    const a=arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+  function lerp(a,b,t){ return a + (b-a)*t; }
+  function dist(ax,ay,bx,by){ return Math.hypot(ax-bx, ay-by); }
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+  function getBestKey(){ return `VR_VOCAB_STORM_V5__${currentBank}__${gameMode}`; }
+  function isFrenzy(){ return frenzyTimer > 0; }
+  function getStormRatio(){ return clamp(stormPower / 100, 0, 1); }
+  function getRoundLeftRatio(){
+    if(!gameStarted || gameOver || phase !== 'battle' || !roundStart || !roundDuration) return 1;
+    return clamp(1 - ((now() - roundStart) / roundDuration), 0, 1);
+  }
+  function addStorm(amount){
+    if(gameOver) return;
+    stormPower = clamp(stormPower + amount, 0, 100);
+    if(stormPower >= 100) triggerFrenzy();
+  }
+  function drainStorm(amount){
+    stormPower = clamp(stormPower - amount, 0, 100);
+  }
+  function triggerFrenzy(){
+    frenzyTimer = Math.max(frenzyTimer, 4200);
+    stormPower = 0;
+    frenzyBursts += 1;
+    if (fxEnabled) screenShake = 8;
+    spawnEffect(width * 0.5, height * 0.28, 'FRENZY!', '#fde047');
+    comboBurst(width * 0.5, height * 0.3);
+    setBoard('FRENZY MODE');
+    sfxClear();
+  }
+  function registerPerfect(remain){
+    if(remain >= 0.72){
+      perfectShots += 1;
+      return true;
+    }
+    return false;
+  }
+  function hitLabel(gain, remain, prefix=''){
+    const chainFast = now() - lastHitAt < 900;
+    lastHitAt = now();
+    const parts = [];
+    if(prefix) parts.push(prefix);
+    if(isFrenzy()) parts.push('FRENZY');
+    else if(remain >= 0.72) parts.push('PERFECT');
+    else if(remain <= 0.2) parts.push('CLUTCH');
+    else if(chainFast && combo >= 2) parts.push('CHAIN');
+    const title = parts.length ? `${parts.join(' ')} ` : '';
+    return `${title}+${gain}`;
+  }
+
+  // Audio
+  let audioCtx = null;
+  function ensureAudio(){
+    if(!audioEnabled) return null;
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(AC) audioCtx = new AC();
+    }
+    return audioCtx;
+  }
+  function beep(freq=440, dur=0.08, type='sine', gain=0.03){
+    const ac = ensureAudio();
+    if(!ac) return;
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.value = gain;
+    o.connect(g); g.connect(ac.destination);
+    const t = ac.currentTime;
+    o.start(t);
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.stop(t + dur);
+  }
+  function sfxHit(){ beep(780,0.06,'triangle',0.045); setTimeout(()=>beep(980,0.05,'triangle',0.035), 35); }
+  function sfxMiss(){ beep(180,0.12,'sawtooth',0.045); }
+  function sfxClear(){ beep(520,0.08,'triangle',0.04); setTimeout(()=>beep(780,0.07,'triangle',0.04), 60); setTimeout(()=>beep(1040,0.08,'triangle',0.04), 120); }
+
+  function saveTeacherSummary(obj){
+    teacherData = obj;
+    localStorage.setItem(STORAGE.teacher, JSON.stringify(obj));
+  }
+  function loadTeacherSummary(){
+    try{
+      teacherData = JSON.parse(localStorage.getItem(STORAGE.teacher) || 'null');
+    }catch(e){ teacherData = null; }
+    renderTeacherPanel();
+  }
+  function renderTeacherPanel(){
+    const data = teacherData || { score:0, bank:'-', mode:'-', mistakes:0, items:[] };
+    els.tsScore.textContent = `Score ${data.score || 0}`;
+    els.tsBank.textContent = String(data.bank || '-').toUpperCase();
+    els.tsMode.textContent = String(data.mode || '-').toUpperCase();
+    els.tsMistakes.textContent = String(data.mistakes || 0);
+    els.teacherList.innerHTML = '';
+    const items = (data.items && data.items.length) ? data.items : ['ยังไม่มี summary ที่บันทึกไว้'];
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = item;
+      els.teacherList.appendChild(li);
+    });
+  }
+
+  function updateBankLocks(){
+    const globalBest = Number(localStorage.getItem(STORAGE.bestGlobal) || 0);
+    els.bankButtons.forEach(btn => {
+      const bank = btn.dataset.bank;
+      const need = BANKS[bank].unlockAt;
+      const unlocked = globalBest >= need;
+      btn.classList.toggle('locked', !unlocked && bank !== 'core');
+      btn.disabled = !unlocked && bank !== 'core';
+      if(!unlocked && currentBank === bank){
+        currentBank = 'core';
+      }
+    });
+  }
+
+  function loadBest(){
+    updateBankLocks();
+    const best = Number(localStorage.getItem(getBestKey()) || 0);
+    const globalBest = Number(localStorage.getItem(STORAGE.bestGlobal) || 0);
+    els.bestChip.textContent = `Best ${best} • Bank ${currentBank.toUpperCase()} • Global ${globalBest}`;
+  }
+  function saveBest(){
+    const key = getBestKey();
+    const oldBest = Number(localStorage.getItem(key) || 0);
+    if(score > oldBest) localStorage.setItem(key, String(score));
+    const oldGlobal = Number(localStorage.getItem(STORAGE.bestGlobal) || 0);
+    if(score > oldGlobal) localStorage.setItem(STORAGE.bestGlobal, String(score));
+    loadBest();
+  }
+
+  function resize(){
+    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    width = window.innerWidth;
+    height = window.innerHeight;
+    els.canvas.width = Math.floor(width * dpr);
+    els.canvas.height = Math.floor(height * dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function updateHud(){
+    const stormPct = Math.round(getStormRatio() * 100);
+    const left = getRoundLeftRatio();
+    const missionDisplay = Math.min(missionIndex + 1, MISSION_ORDER.length);
+    els.hudScore.textContent = `Score ${score}`;
+    els.hudRound.textContent = `Mission ${missionDisplay} / ${MISSION_ORDER.length}`;
+    els.hudCombo.textContent = isFrenzy() ? `Frenzy x${combo}` : `Combo x${combo}`;
+    els.hudMode.textContent = `Mode ${gameMode.toUpperCase()} • ${currentView.toUpperCase()} • Storm ${stormPct}%`;
+    els.hudHp.textContent = `HP ${hp}`;
+    els.hudPrompt.textContent = currentMission ? currentMission.prompt : 'เลือก bank แล้วกด START STORM เพื่อเข้าเวที';
+    if(!gameOver){
+      const missionName = currentMissionKey.toUpperCase();
+      const tags = [missionName];
+      if(phase === 'intro') tags.push('LEARN');
+      else if(phase === 'battle') tags.push(left <= 0.24 ? 'RED ZONE' : 'LOCK ON');
+      else if(phase === 'explain') tags.push('REVIEW');
+      else tags.push(phase.toUpperCase());
+      if(isFrenzy()) tags.push('FRENZY');
+      els.hudState.textContent = tags.join(' • ');
+    }
+  }
+
+  function setBoard(text){ currentBoard = text; }
+  function getArenaCenter(){ return { x: width * 0.5, y: height * 0.55 }; }
+
+  function roundRectPath(c, x, y, w, h, r){
+    c.beginPath();
+    c.moveTo(x+r,y); c.lineTo(x+w-r,y);
+    c.quadraticCurveTo(x+w,y,x+w,y+r);
+    c.lineTo(x+w,y+h-r);
+    c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    c.lineTo(x+r,y+h);
+    c.quadraticCurveTo(x,y+h,x,y+h-r);
+    c.lineTo(x,y+r);
+    c.quadraticCurveTo(x,y,x+r,y);
+    c.closePath();
+  }
+
+  function drawWrappedText(text, cx, cy, maxWidth, maxLines, fontSize){
+    ctx.font = `700 ${fontSize}px Arial, sans-serif`;
+    const words = String(text).split(' ');
+    const lines = [];
+    let line = '';
+    for(const word of words){
+      const test = line ? `${line} ${word}` : word;
+      if(ctx.measureText(test).width <= maxWidth || !line) line = test;
+      else { lines.push(line); line = word; }
+    }
+    if(line) lines.push(line);
+    const use = lines.slice(0,maxLines);
+    const lh = fontSize * 1.12;
+    const startY = cy - ((use.length - 1) * lh) / 2;
+    use.forEach((ln, i) => ctx.fillText(ln, cx, startY + i * lh));
+  }
+
+  function renderCenterCard(title, body, accent='#67e8f9'){
+    const w = Math.min(800, width * 0.86);
+    const h = 200;
+    const x = (width - w) / 2;
+    const y = height * 0.60;
+    roundRectPath(ctx, x, y, w, h, 24);
+    ctx.fillStyle = 'rgba(9,18,37,.90)';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = accent;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 30px Arial, sans-serif';
+    ctx.fillText(title, width / 2, y + 42);
+    ctx.fillStyle = '#dbe7ff';
+    drawWrappedText(body, width / 2, y + 112, w - 46, 4, 20);
+  }
+
+  function renderSummaryCard(){
+    if(!summary) return;
+    const w = Math.min(860, width * 0.88);
+    const h = 280;
+    const x = (width - w) / 2;
+    const y = height * 0.52;
+    roundRectPath(ctx, x, y, w, h, 26);
+    ctx.fillStyle = 'rgba(9,18,37,.92)';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = summary.win ? '#4ade80' : '#fb7185';
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 30px Arial, sans-serif';
+    ctx.fillText(summary.title, width/2, y + 38);
+
+    ctx.font = '800 22px Arial, sans-serif';
+    ctx.fillStyle = '#67e8f9';
+    ctx.fillText(`Score ${summary.score} • Rank ${summary.grade}`, width/2, y + 82);
+
+    ctx.fillStyle = '#dbe7ff';
+    drawWrappedText(`Bank: ${summary.bank.toUpperCase()} • Mode: ${summary.mode.toUpperCase()} • View: ${summary.view.toUpperCase()} • Best: ${summary.best}`, width/2, y + 120, w - 40, 2, 18);
+    drawWrappedText(`Correct ${summary.correct} • Wrong ${summary.wrong} • Max Combo ${summary.maxCombo} • Frenzy ${summary.frenzyBursts}`, width/2, y + 154, w - 40, 2, 18);
+    drawWrappedText(`Perfect ${summary.perfectShots} • ครูเปิดดูสรุปได้ทันที • แตะปุ่มด้านล่างเพื่อเล่นอีกครั้ง`, width/2, y + 190, w - 60, 2, 18);
+  }
+
+  function renderBackground(t){
+    const shake = fxEnabled ? screenShake : 0;
+    const sx = (Math.random() - 0.5) * shake;
+    const sy = (Math.random() - 0.5) * shake;
+    ctx.save();
+    ctx.translate(sx, sy);
+
+    const g = ctx.createLinearGradient(0, 0, 0, height);
+    g.addColorStop(0, '#67d8ff');
+    g.addColorStop(1, '#dbeafe');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, width, height);
+
+    if(isFrenzy()){
+      const frenzyGlow = ctx.createRadialGradient(width * 0.5, height * 0.38, 40, width * 0.5, height * 0.38, width * 0.62);
+      frenzyGlow.addColorStop(0, 'rgba(253,224,71,.34)');
+      frenzyGlow.addColorStop(0.45, 'rgba(244,114,182,.16)');
+      frenzyGlow.addColorStop(1, 'rgba(9,18,37,0)');
+      ctx.fillStyle = frenzyGlow;
+      ctx.fillRect(0, 0, width, height);
+    } else if(getRoundLeftRatio() <= 0.24 && phase === 'battle'){
+      const panicGlow = ctx.createLinearGradient(0, 0, 0, height);
+      panicGlow.addColorStop(0, 'rgba(251,113,133,.12)');
+      panicGlow.addColorStop(1, 'rgba(251,113,133,.02)');
+      ctx.fillStyle = panicGlow;
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    const horizon = height * 0.56;
+    ctx.fillStyle = '#dbeafe';
+    ctx.fillRect(0, horizon, width, height - horizon);
+
+    const center = getArenaCenter();
+    ctx.save();
+    ctx.translate(center.x, center.y + 60);
+    ctx.rotate(-0.06);
+    for(let i = 0; i < 2; i++){
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 260 + i * 80, 70 + i * 22, 0, 0, Math.PI * 2);
+      ctx.globalAlpha = i === 0 ? 0.95 : 0.75;
+      ctx.lineWidth = 14;
+      ctx.strokeStyle = isFrenzy() ? '#fde047' : (i === 0 ? '#38bdf8' : '#f472b6');
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    const pulse = 1 + Math.sin(t * 0.0018) * 0.08;
+    ctx.save();
+    ctx.translate(center.x, center.y - 30);
+    ctx.scale(pulse, pulse);
+    ctx.beginPath();
+    ctx.arc(0, 0, 32, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(103,232,249,.25)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -24); ctx.lineTo(22, 0); ctx.lineTo(0, 24); ctx.lineTo(-22, 0); ctx.closePath();
+    ctx.fillStyle = '#67e8f9';
+    ctx.fill();
+    ctx.restore();
+
+    const boardW = Math.min(920, width * 0.8);
+    const boardH = 78;
+    const bx = (width - boardW) / 2;
+    const by = Math.max(120, height * 0.18);
+    roundRectPath(ctx, bx, by, boardW, boardH, 18);
+    ctx.fillStyle = isFrenzy() ? '#c026d3' : '#2563eb';
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = `700 ${Math.max(22, Math.min(34, width * 0.022))}px Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    drawWrappedText(currentBoard, width / 2, by + boardH / 2, boardW - 40, 2, Math.max(22, Math.min(34, width * 0.022)));
+    ctx.restore();
+
+    if (screenShake > 0) screenShake = Math.max(0, screenShake - 0.35);
+  }
+
+  function makeTargetsFromChoices(choices, correct){
+    const center = getArenaCenter();
+    const boss = currentMissionKey === 'boss';
+    return shuffle(choices).map((choice, i) => ({
+      id: uid(),
+      text: String(choice).toUpperCase(),
+      rawText: choice,
+      isCorrect: correct.includes(choice),
+      color: ['#67e8f9','#fde047','#f472b6','#a78bfa'][i % 4],
+      angle: (Math.PI * 2 / choices.length) * i,
+      radiusBase: boss ? 110 : 160,
+      radiusPulse: boss ? 18 : 12,
+      speed: (boss ? 1.65 : 0.92) + i * 0.06 + missionIndex * 0.08,
+      yWave: boss ? 20 : 14,
+      x: center.x, y: center.y, z:0, scale:1,
+      w: boss ? 220 : 240,
+      h: boss ? 78 : 84,
+      hitFlash:0
+    }));
+  }
+
+  function spawnTargets(){
+    workflowProgress = 0;
+    if(currentMissionKey === 'workflow') targets = makeTargetsFromChoices(currentMission.choices, [currentMission.correct[0]]);
+    else targets = makeTargetsFromChoices(currentMission.choices, [currentMission.answer]);
+  }
+
+  function spawnEffect(x,y,text,color){
+    effects.push({x,y,text,color,life:0.9,vy:-28});
+  }
+
+  function comboBurst(x,y){
+    if(!fxEnabled) return;
+    for(let i=0;i<10;i++){
+      effects.push({
+        x:x + (Math.random()*60-30),
+        y:y + (Math.random()*60-30),
+        text:'✦', color:['#67e8f9','#fde047','#f472b6','#4ade80'][i%4],
+        life:0.65 + Math.random()*0.25, vy:-10 - Math.random()*24
+      });
+    }
+  }
+
+  function pointInTarget(px, py, target){
+    const w = target.w * target.scale;
+    const h = target.h * target.scale;
+    return px >= target.x - w/2 && px <= target.x + w/2 && py >= target.y - h/2 && py <= target.y + h/2;
+  }
+
+  function updateTargets(t){
+    if (phase !== 'battle' && !gameOver) return;
+    const center = getArenaCenter();
+    hoverTargetId = null;
+    for(const target of targets){
+      target.angle += 0.008 * target.speed;
+      const radius = target.radiusBase + Math.sin(t * 0.002 + target.speed) * target.radiusPulse;
+      target.x = center.x + Math.cos(target.angle) * radius;
+      target.y = center.y + Math.sin(target.angle * 1.7 + t * 0.0015) * target.yWave;
+      target.z = 0.55 + (Math.sin(target.angle * 1.3 + t * 0.001) + 1) * 0.25;
+      target.scale = 1 + (target.z - 0.55) * 0.65;
+      target.hitFlash = Math.max(0, target.hitFlash - 0.04);
+    }
+    const sorted = targets.slice().sort((a,b)=>a.z-b.z);
+    for(const target of sorted){
+      if(pointInTarget(mouseX, mouseY, target)) hoverTargetId = target.id;
+      renderTarget(target, target.id === hoverTargetId);
+    }
+  }
+
+  function renderTarget(target, hovered){
+    ctx.save();
+    ctx.translate(target.x, target.y);
+    ctx.scale(target.scale, target.scale);
+
+    const stormPulse = isFrenzy() ? 0.12 + Math.sin(now() * 0.01 + target.angle * 4) * 0.08 : 0;
+    ctx.globalAlpha = 0.3 + target.hitFlash * 0.4 + stormPulse;
+    ctx.beginPath();
+    ctx.arc(0, 0, hovered ? 78 : 68, 0, Math.PI * 2);
+    ctx.fillStyle = isFrenzy() ? '#fde047' : target.color;
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = hovered ? 9 : 6;
+    ctx.strokeStyle = hovered ? '#ff3b30' : (isFrenzy() ? '#fde047' : target.color);
+    roundRectPath(ctx, -120, -42, 240, 84, 20);
+    ctx.stroke();
+
+    roundRectPath(ctx, -108, -32, 216, 64, 16);
+    ctx.fillStyle = hovered ? '#fff7ed' : (isFrenzy() ? '#fff9db' : '#fff');
+    ctx.fill();
+
+    ctx.fillStyle = '#111827';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `800 ${hovered ? 28 : 26}px Arial, sans-serif`;
+    ctx.fillText(target.text, 0, 1);
+    ctx.restore();
+
+    if(hovered){
+      ctx.save();
+      ctx.strokeStyle = isFrenzy() ? '#fde047' : '#ff3b30';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(target.x, target.y, Math.max(target.w * target.scale, target.h * target.scale) * 0.33, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function renderEffects(dt){
+    for(let i=effects.length-1;i>=0;i--){
+      const fx = effects[i];
+      fx.life -= dt * 0.0012;
+      fx.y += fx.vy * dt * 0.001;
+      if(fx.life <= 0){ effects.splice(i,1); continue; }
+      ctx.save();
+      ctx.globalAlpha = fx.life;
+      if(fx.text === '✦'){
+        ctx.fillStyle = fx.color;
+        ctx.font = '900 26px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fx.text, fx.x, fx.y);
+      } else {
+        ctx.fillStyle = '#fff';
+        roundRectPath(ctx, fx.x - 68, fx.y - 20, 136, 40, 14);
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = fx.color;
+        ctx.stroke();
+        ctx.fillStyle = fx.color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = fx.text.includes('FRENZY') ? '900 26px Arial, sans-serif' : '800 22px Arial, sans-serif';
+        ctx.fillText(fx.text, fx.x, fx.y + 1);
+      }
+      ctx.restore();
+    }
+  }
+
+  function renderCrosshair(){
+    const cx = currentView === 'cvr' ? width/2 : (mouseX || width/2);
+    const cy = currentView === 'cvr' ? height/2 : (mouseY || height/2);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.strokeStyle = isFrenzy() ? '#fde047' : (hoverTargetId ? '#38bdf8' : '#ff3b30');
+    ctx.lineWidth = isFrenzy() ? 3.2 : 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-12,0); ctx.lineTo(-4,0);
+    ctx.moveTo(12,0); ctx.lineTo(4,0);
+    ctx.moveTo(0,-12); ctx.lineTo(0,-4);
+    ctx.moveTo(0,12); ctx.lineTo(0,4);
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,isFrenzy()?4.2:3,0,Math.PI*2); ctx.fillStyle=isFrenzy() ? '#fde047' : '#ff3b30'; ctx.fill();
+    ctx.restore();
+  }
+
+  function missionTitle(key){
+    if(key === 'wordHunt') return 'WORD HUNT';
+    if(key === 'workflow') return 'WORKFLOW BUILDER';
+    if(key === 'debug') return 'DEBUG MISSION';
+    return 'BOSS BATTLE';
+  }
+
+  function learnBodyForMission(key, bankData){
+    if(key === 'wordHunt') return bankData.learnCards[0].body;
+    if(key === 'workflow') return 'เรียงลำดับขั้นตอนให้ถูก ถ้ากดยิงผิดลำดับจะเสีย HP';
+    if(key === 'debug') return 'อ่านสถานการณ์แล้วเลือกคำศัพท์ที่ตรงกับปัญหา';
+    return 'เวฟสุดท้าย บอสมีโล่ 2 ชั้น ต้องยิงคำตอบให้ถูกซ้ำ';
+  }
+
+  function setMissionData(){
+    const bankData = BANKS[currentBank];
+    currentMissionKey = MISSION_ORDER[missionIndex];
+    currentMission = bankData[currentMissionKey];
+  }
+
+  function startMission(){
+    setMissionData();
+    roundDuration = currentMissionKey === 'boss' ? (gameMode === 'boss' ? 4200 : 3400) :
+                    currentMissionKey === 'workflow' ? 8500 :
+                    currentMissionKey === 'debug' ? 7000 : 6500;
+    if (gameMode === 'speed') roundDuration -= 350;
+    if (gameMode === 'combo') roundDuration += 250;
+    if (gameMode === 'boss') roundDuration -= 120;
+
+    bossShield = currentMissionKey === 'boss' && gameMode === 'boss' ? 2 : 0;
+    workflowProgress = 0;
+    redZoneTriggered = false;
+    lastHitAt = 0;
+    phase = 'intro';
+    phaseUntil = now() + 1500;
+    roundStart = 0;
+    targets = [];
+    setBoard(currentMission.prompt);
+    updateHud();
+  }
+
+  function startGame(){
+    ensureAudio();
+    els.menu.style.display = 'none';
+    gameStarted = true;
+    gameOver = false;
+    summary = null;
+    phase = 'idle';
+    missionIndex = 0;
+    score = 0;
+    combo = 0;
+    hp = 3;
+    effects = [];
+    bossShield = 0;
+    stormPower = 0;
+    frenzyTimer = 0;
+    frenzyBursts = 0;
+    perfectShots = 0;
+    redZoneTriggered = false;
+    lastHitAt = 0;
+    lastFrameAt = 0;
+    statCorrect = 0;
+    statWrong = 0;
+    statMaxCombo = 0;
+    startMission();
+  }
+
+  function loseHp(reason){
+    hp -= 1;
+    combo = 0;
+    drainStorm(34);
+    frenzyTimer = 0;
+    statWrong += 1;
+    els.hudState.textContent = reason;
+    if (fxEnabled) screenShake = 7;
+    sfxMiss();
+    updateHud();
+    if(hp <= 0){ endGame(false); return true; }
+    return false;
+  }
+
+  function gainScore(remain, extra=0){
+    let gain = 24 + extra;
+    if (gameMode === 'speed') gain += Math.round(remain * 20) + Math.min(combo * 2, 20);
+    else if (gameMode === 'combo') gain += 10 + Math.min(combo * 5, 42);
+    else gain += Math.round(remain * 12) + Math.min(combo * 4, 24);
+    if(remain >= 0.72) gain += 10;
+    if(remain <= 0.18) gain += 12;
+    if(isFrenzy()) gain = Math.round(gain * 1.6) + 14;
+    return gain;
+  }
+
+  function nextMission(){
+    missionIndex += 1;
+    if(missionIndex >= MISSION_ORDER.length){ endGame(true); return; }
+    startMission();
+  }
+
+  function completeMission(gain, x, y, label='+OK', remain=0){
+    combo += 1;
+    statCorrect += 1;
+    statMaxCombo = Math.max(statMaxCombo, combo);
+    registerPerfect(remain);
+    addStorm(24 + Math.min(combo * 2, 18) + (remain >= 0.72 ? 12 : 0));
+    score += gain;
+    spawnEffect(x, y, label, '#16a34a');
+    if (fxEnabled) { comboBurst(x,y); screenShake = isFrenzy() ? 6 : 3; }
+    sfxHit();
+    phase = 'explain';
+    phaseUntil = now() + 1400;
+    targets = [];
+    updateHud();
+  }
+
+  function handleWorkflowHit(target){
+    const expected = currentMission.correct[workflowProgress];
+    if(target.rawText === expected){
+      workflowProgress += 1;
+      addStorm(12);
+      spawnEffect(target.x, target.y, workflowProgress === currentMission.correct.length ? 'SEQUENCE LOCK' : `STEP ${workflowProgress}`, '#38bdf8');
+      sfxHit();
+      if(workflowProgress >= currentMission.correct.length){
+        const elapsed = now() - roundStart;
+        const remain = clamp(1 - (elapsed / roundDuration), 0, 1);
+        const gain = gainScore(remain, 12);
+        setBoard(`WORKFLOW COMPLETE`);
+        completeMission(gain, target.x, target.y, hitLabel(gain, remain, 'FLOW'), remain);
+      } else {
+        combo += 1;
+        statMaxCombo = Math.max(statMaxCombo, combo);
+        setBoard(`NEXT LOCK: ${currentMission.correct[workflowProgress].toUpperCase()}`);
+        targets = makeTargetsFromChoices(currentMission.choices, [currentMission.correct[workflowProgress]]);
+        updateHud();
+      }
+    } else {
+      spawnEffect(target.x, target.y, 'WRONG ORDER', '#e11d48');
+      if(loseHp(`Wrong order: ${target.rawText}`)) return;
+      phase = 'explain';
+      phaseUntil = now() + 1500;
+      targets = [];
+      setBoard(`ORDER ERROR`);
+    }
+  }
+
+  function handleBossHit(target, remain){
+    if(target.rawText === currentMission.answer){
+      if(bossShield > 0){
+        bossShield = Math.max(0, bossShield - (isFrenzy() ? 2 : 1));
+        combo += 1;
+        statMaxCombo = Math.max(statMaxCombo, combo);
+        addStorm(18);
+        spawnEffect(target.x, target.y, bossShield > 0 ? `SHIELD ${bossShield}` : 'SHIELD BREAK', '#38bdf8');
+        sfxHit();
+        if (fxEnabled) screenShake = 4;
+        setBoard(bossShield > 0 ? `BOSS SHIELD ${bossShield}` : `FINAL HIT READY`);
+        if (bossShield > 0) {
+          roundStart = now();
+          targets = makeTargetsFromChoices(currentMission.choices, [currentMission.answer]);
+          return;
+        }
+      }
+      const gain = gainScore(remain, 18);
+      completeMission(gain, target.x, target.y, hitLabel(gain, remain, 'BOSS DOWN'), remain);
+    } else {
+      spawnEffect(target.x, target.y, 'MISS', '#e11d48');
+      if(loseHp(`Wrong target: ${target.rawText}`)) return;
+      phase = 'explain';
+      phaseUntil = now() + 1500;
+      targets = [];
+      setBoard(`WRONG • ${currentMission.answer}`);
+    }
+  }
+
+  function handleTargetHit(target){
+    if(!gameStarted || gameOver || phase !== 'battle' || !currentMission) return;
+    const elapsed = now() - roundStart;
+    const remain = clamp(1 - (elapsed / roundDuration), 0, 1);
+    target.hitFlash = 1;
+
+    if(currentMissionKey === 'workflow'){ handleWorkflowHit(target); return; }
+    if(currentMissionKey === 'boss'){ handleBossHit(target, remain); return; }
+
+    if(target.rawText === currentMission.answer){
+      const gain = gainScore(remain, currentMissionKey === 'debug' ? 10 : 0);
+      setBoard(`LOCKED: ${currentMission.answer}`);
+      completeMission(gain, target.x, target.y, hitLabel(gain, remain, currentMissionKey === 'debug' ? 'FIX' : ''), remain);
+    } else {
+      spawnEffect(target.x, target.y, 'MISS', '#e11d48');
+      if(loseHp(`Wrong target: ${target.rawText}`)) return;
+      phase = 'explain';
+      phaseUntil = now() + 1500;
+      targets = [];
+      setBoard(`WRONG • ${currentMission.answer}`);
+    }
+  }
+
+  function endGame(win){
+    gameOver = true;
+    phase = 'ended';
+    targets = [];
+    const missionReached = win ? MISSION_ORDER.length : Math.min(missionIndex + 1, MISSION_ORDER.length);
+    const grade = score >= 520 ? 'S' : score >= 420 ? 'A' : score >= 320 ? 'B' : score >= 220 ? 'C' : 'D';
+    saveBest();
+    const best = Number(localStorage.getItem(getBestKey()) || 0);
+
+    summary = {
+      win, score, grade, bank: currentBank, mode: gameMode, view: currentView, best,
+      correct: statCorrect, wrong: statWrong, maxCombo: statMaxCombo, frenzyBursts, perfectShots,
+      title: win ? 'STORM CLEAR' : 'STORM DOWN'
+    };
+
+    const items = [
+      `ผ่านภารกิจ: ${win ? 'ผ่านครบ' : 'ยังไม่ครบ'}`,
+      `ไปได้ถึง mission ${missionReached} จาก ${MISSION_ORDER.length}`,
+      `ตอบผิดทั้งหมด ${statWrong} ครั้ง`,
+      `คอมโบสูงสุด ${statMaxCombo}`,
+      `เข้าสู่ Frenzy ${frenzyBursts} ครั้ง`,
+      `Perfect shot ${perfectShots} ครั้ง`,
+      `แนะนำทบทวน: ${statWrong >= 2 ? currentBank.toUpperCase() : 'พร้อมขยับไป bank ถัดไป'}`
+    ];
+    saveTeacherSummary({ score, bank: currentBank, mode: gameMode, mistakes: statWrong, items });
+
+    setBoard(`${summary.title} • RANK ${grade}`);
+    els.hudPrompt.textContent = win ? 'ผ่านครบทั้ง 4 mission แล้ว ปลดปล่อยสตอร์มสำเร็จ' : 'HP หมดก่อน พายุหยุดชั่วคราว';
+    els.hudState.textContent = win ? 'Complete' : 'Retry';
+    sfxClear();
+    updateHud();
+
+    targets = [{
+      id:'replay', text:`RUN IT BACK ${score}`, rawText:'replay', color: win ? '#4ade80' : '#fb7185',
+      angle:0, radiusBase:0, radiusPulse:0, speed:0, yWave:0,
+      x:width*0.5, y:height*0.84, z:1, scale:1.12, w:320, h:94, hitFlash:0
+    }];
+  }
+
+  function handlePointer(x,y,activate){
+    if(currentView === 'cvr'){ mouseX = width/2; mouseY = height/2; }
+    else { mouseX = x; mouseY = y; }
+    if(!activate) return;
+    const px = currentView === 'cvr' ? width/2 : x;
+    const py = currentView === 'cvr' ? height/2 : y;
+    const hit = targets.slice().sort((a,b)=>b.z-a.z).find(t => pointInTarget(px,py,t));
+    if(!hit) return;
+    if(hit.id === 'replay'){ startGame(); return; }
+    handleTargetHit(hit);
+  }
+
+  function tick(t){
+    animationId = requestAnimationFrame(tick);
+    const dt = lastFrameAt ? Math.min(40, t - lastFrameAt) : 16.67;
+    lastFrameAt = t;
+    if(frenzyTimer > 0){
+      frenzyTimer = Math.max(0, frenzyTimer - dt);
+      if(frenzyTimer === 0 && gameStarted && !gameOver){
+        spawnEffect(width * 0.5, height * 0.28, 'FRENZY END', '#fb7185');
+      }
+    }
+    renderBackground(t);
+
+    if (gameStarted && !gameOver && currentMission) {
+      if (phase === 'intro') {
+        els.timeFill.style.transform = 'scaleX(1)';
+        if (now() >= phaseUntil) {
+          phase = 'battle';
+          roundStart = now();
+          spawnTargets();
+          if(currentMissionKey === 'workflow'){
+            setBoard(`FIRST: ${currentMission.correct[0].toUpperCase()}`);
+          }
+          updateHud();
+        }
+      } else if (phase === 'battle') {
+        const elapsed = now() - roundStart;
+        const left = clamp(1 - elapsed / roundDuration, 0, 1);
+        els.timeFill.style.transform = `scaleX(${left})`;
+        if(left <= 0.24 && !redZoneTriggered){
+          redZoneTriggered = true;
+          spawnEffect(width * 0.5, height * 0.28, 'RED ZONE', '#fb7185');
+          setBoard('RED ZONE • LOCK ANSWER');
+          if (fxEnabled) screenShake = Math.max(screenShake, 5);
+        }
+        if (elapsed >= roundDuration && targets.length) {
+          targets = [];
+          if (!loseHp('Time out')) {
+            setBoard(`TIME OUT`);
+            phase = 'explain';
+            phaseUntil = now() + 1500;
+          }
+        }
+      } else if (phase === 'explain') {
+        els.timeFill.style.transform = 'scaleX(0)';
+        if (now() >= phaseUntil) nextMission();
+      }
+    }
+
+    updateTargets(t);
+
+    if (gameStarted && !gameOver && currentMission) {
+      if (phase === 'intro') {
+        renderCenterCard(
+          missionTitle(currentMissionKey),
+          learnBodyForMission(currentMissionKey, BANKS[currentBank]),
+          '#67e8f9'
+        );
+      } else if (phase === 'explain') {
+        renderCenterCard(
+          missionTitle(currentMissionKey),
+          currentMission.explain,
+          '#fde047'
+        );
+      }
+    }
+
+    if (gameOver) renderSummaryCard();
+    if(gameStarted || summary) updateHud();
+    renderEffects(dt);
+    renderCrosshair();
+  }
+
+  function attachEvents(){
+    window.addEventListener('resize', resize);
+    els.canvas.addEventListener('mousemove', e => handlePointer(e.clientX, e.clientY, false));
+    els.canvas.addEventListener('mousedown', e => handlePointer(e.clientX, e.clientY, true));
+    els.canvas.addEventListener('touchstart', e => {
+      const touch = e.changedTouches[0];
+      if(touch) handlePointer(touch.clientX, touch.clientY, true);
+    }, { passive:true });
+
+    els.startBtn.addEventListener('click', startGame);
+
+    els.howBtn.addEventListener('click', () => {
+      els.helpText.textContent = '1) Word Hunt ยิงให้ไว 2) Workflow เรียงให้แม่น 3) Debug แก้สถานการณ์ 4) Boss เจาะโล่ • คอมโบยาวจะชาร์จ Storm และเข้า Frenzy';
+    });
+
+    els.summaryBtn.addEventListener('click', () => {
+      renderTeacherPanel();
+      els.teacherPanelWrap.style.display = 'flex';
+    });
+    els.closeTeacherBtn.addEventListener('click', () => {
+      els.teacherPanelWrap.style.display = 'none';
+    });
+    els.clearTeacherBtn.addEventListener('click', () => {
+      localStorage.removeItem(STORAGE.teacher);
+      teacherData = null;
+      renderTeacherPanel();
+    });
+
+    els.modeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        gameMode = btn.dataset.mode || 'speed';
+        els.modeButtons.forEach(b => b.classList.toggle('active', b === btn));
+        loadBest();
+      });
+    });
+
+    els.bankButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        if(btn.disabled) return;
+        currentBank = btn.dataset.bank || 'core';
+        els.bankButtons.forEach(b => b.classList.toggle('active', b === btn));
+        loadBest();
+      });
+    });
+
+    els.launcherButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentView = btn.dataset.view || 'pc';
+        els.launcherButtons.forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+
+    els.audioToggle.addEventListener('click', () => {
+      audioEnabled = !audioEnabled;
+      els.audioToggle.classList.toggle('active', audioEnabled);
+      els.audioToggle.innerHTML = audioEnabled
+        ? '<h3>🔊 Audio ON</h3><p>เสียงโดน ผิด และเคลียร์รอบ</p>'
+        : '<h3>🔇 Audio OFF</h3><p>ปิดเสียงทั้งหมด</p>';
+    });
+
+    els.fxToggle.addEventListener('click', () => {
+      fxEnabled = !fxEnabled;
+      els.fxToggle.classList.toggle('active', fxEnabled);
+      els.fxToggle.innerHTML = fxEnabled
+        ? '<h3>✨ FX ON</h3><p>shake, burst, flash และพลัง Frenzy</p>'
+        : '<h3>🧊 FX OFF</h3><p>ลดเอฟเฟกต์ทั้งหมด</p>';
+    });
+
+    els.teacherToggle.addEventListener('click', () => {
+      els.teacherPanelWrap.style.display = 'flex';
+      renderTeacherPanel();
+    });
+  }
+
+  function saveTeacherSummary(obj){
+    teacherData = obj;
+    localStorage.setItem(STORAGE.teacher, JSON.stringify(obj));
+  }
+
+  function ensureAudio(){
+    if(!audioEnabled) return null;
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(AC) audioCtx = new AC();
+    }
+    return audioCtx;
+  }
+
+  function runSelfTests(){
+    console.assert(clamp(5,0,3) === 3, 'clamp upper failed');
+    console.assert(clamp(-1,0,3) === 0, 'clamp lower failed');
+    console.assert(lerp(0,10,0.5) === 5, 'lerp failed');
+    console.assert(Object.keys(BANKS).length === 4, 'bank count mismatch');
+    console.assert(MISSION_ORDER.length === 4, 'mission count mismatch');
+    console.assert(BANKS.core.workflow.correct.length === 3, 'workflow length mismatch');
+    console.assert(BANKS.ai.debug.answer === 'feature', 'ai debug answer mismatch');
+    const testTarget = { x:100, y:100, w:200, h:60, scale:1 };
+    console.assert(pointInTarget(100,100,testTarget) === true, 'pointInTarget center failed');
+    console.assert(pointInTarget(5,5,testTarget) === false, 'pointInTarget outside failed');
+  }
+
+  runSelfTests();
+  resize();
+  attachEvents();
+  loadTeacherSummary();
+  loadBest();
+  setBoard('READY TO STORM');
+  updateHud();
+  animationId = requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
