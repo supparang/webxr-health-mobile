@@ -3,6 +3,10 @@
 (function () {
   const $ = (s) => document.querySelector(s);
 
+  const JD_DEFAULT_HUB = 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
+  const JD_DEFAULT_LAUNCHER = 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
+  const JD_DEFAULT_GATE = 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html';
+
   const viewMenu = $('#view-menu');
   const viewPlay = $('#view-play');
   const viewResult = $('#view-result');
@@ -119,8 +123,8 @@
     api: qs('api', ''),
     ai: qs('ai', ''),
     debug: qs('debug', ''),
-    hub: qs('hub', './'),
-    launcher: qs('launcher', './jumpduck.html'),
+    hub: qs('hub', JD_DEFAULT_HUB),
+    launcher: qs('launcher', JD_DEFAULT_LAUNCHER),
     mode: qs('mode', 'training'),
     duration: qs('duration', qs('time', '60')),
     pro: qs('pro', ''),
@@ -130,7 +134,6 @@
   let state = null;
   let rafId = 0;
 
-  /* ===== Flow helpers ===== */
   function jdSafeAbsUrl(raw, fallback = '') {
     const value = String(raw || '').trim();
     try {
@@ -139,20 +142,36 @@
     return fallback || '';
   }
 
+  function jdNormalizeHubUrl(raw) {
+    const href = jdSafeAbsUrl(raw, JD_DEFAULT_HUB);
+    const s = String(href || '').toLowerCase();
+
+    if (
+      !href ||
+      s.endsWith('/webxr-health-mobile/fitness') ||
+      s.endsWith('/webxr-health-mobile/fitness/') ||
+      s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
+      s === 'https://supparang.github.io/webxr-health-mobile/fitness'
+    ) {
+      return JD_DEFAULT_HUB;
+    }
+
+    return href;
+  }
+
   function jdBuildBaseFlowCtx(overrides = {}) {
-    const hubUrl = jdSafeAbsUrl(
-      overrides.hub ?? HHA_CTX.hub ?? qs('hub', './fitness-zone.html'),
-      new URL('./fitness-zone.html', location.href).href
+    const hubUrl = jdNormalizeHubUrl(
+      overrides.hub ?? HHA_CTX.hub ?? qs('hub', JD_DEFAULT_HUB)
     );
 
     const launcherUrl = jdSafeAbsUrl(
-      overrides.launcher ?? HHA_CTX.launcher ?? qs('launcher', './jumpduck.html'),
-      new URL('./jumpduck.html', location.href).href
+      overrides.launcher ?? HHA_CTX.launcher ?? qs('launcher', JD_DEFAULT_LAUNCHER),
+      JD_DEFAULT_LAUNCHER
     );
 
     const gateUrl = jdSafeAbsUrl(
-      overrides.gate ?? './warmup-gate.html',
-      new URL('./warmup-gate.html', location.href).href
+      overrides.gate ?? JD_DEFAULT_GATE,
+      JD_DEFAULT_GATE
     );
 
     return {
@@ -271,7 +290,6 @@
     });
   }
 
-  /* ===== HeroHealth Fitness Recent Bridge ===== */
   function hhFitnessBaseSnapshot() {
     const s = state;
     const durationSec = s && s.duration ? Math.round(Number(s.duration || 0) / 1000) : Number(HHA_CTX.duration || HHA_CTX.time || 60);
@@ -377,7 +395,6 @@
       feintChance: 0.00,
       speedMul: 1.08
     },
-
     feint: {
       key: 'feint',
       label: 'Feint Boss',
@@ -388,7 +405,6 @@
       feintChance: 0.38,
       speedMul: 0.98
     },
-
     shield: {
       key: 'shield',
       label: 'Shield Boss',
@@ -399,7 +415,6 @@
       feintChance: 0.00,
       speedMul: 1.00
     },
-
     mirror: {
       key: 'mirror',
       label: 'Mirror Boss',
@@ -410,7 +425,6 @@
       feintChance: 0.03,
       speedMul: 1.04
     },
-
     chaos: {
       key: 'chaos',
       label: 'Chaos Boss',
@@ -564,7 +578,7 @@
   }
 
   function setHubLinks() {
-    const hub = HHA_CTX.hub || '#';
+    const hub = jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB);
     ['jd-back-hub-menu', 'jd-back-hub-play', 'jd-back-hub-result'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
@@ -2974,7 +2988,6 @@
 
       liveNoMiss: true,
       streakTier: 0,
-      streakBurstsAwarded: {},
       noMissBonusAwarded: false,
       rushSurviveAwarded: false,
 
@@ -3260,22 +3273,9 @@
       name: qs('name', qs('nickName', 'Hero')),
       studyId: HHA_CTX.studyId || '',
       seed: HHA_CTX.seed || Date.now(),
-      hub: HHA_CTX.hub || qs('hub', './fitness-zone.html'),
-      launcher: HHA_CTX.launcher || qs('launcher', './jumpduck.html')
+      hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
+      launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
     });
-
-    const continueFlowBtn =
-      document.getElementById('jd-btn-continue-flow') ||
-      document.querySelector('[data-action="continue-flow"]');
-
-    if (continueFlowBtn && !continueFlowBtn.__jdCooldownBound) {
-      continueFlowBtn.__jdCooldownBound = true;
-      continueFlowBtn.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        const url = state?.cooldownUrl || s.cooldownUrl;
-        if (url) location.href = url;
-      });
-    }
 
     s.finished = true;
     s.finishing = false;
@@ -3429,8 +3429,8 @@
         name: qs('name', qs('nickName', 'Hero')),
         studyId: HHA_CTX.studyId || '',
         seed: HHA_CTX.seed || Date.now(),
-        hub: HHA_CTX.hub || qs('hub', './fitness-zone.html'),
-        launcher: HHA_CTX.launcher || qs('launcher', './jumpduck.html')
+        hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
+        launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
       });
 
       location.href = warmupUrl;
@@ -3466,8 +3466,8 @@
         name: qs('name', qs('nickName', 'Hero')),
         studyId: HHA_CTX.studyId || '',
         seed: Date.now(),
-        hub: HHA_CTX.hub || qs('hub', './fitness-zone.html'),
-        launcher: HHA_CTX.launcher || qs('launcher', './jumpduck.html')
+        hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
+        launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
       });
 
       location.href = warmupUrl;
@@ -3486,8 +3486,8 @@
         name: qs('name', qs('nickName', 'Hero')),
         studyId: HHA_CTX.studyId || '',
         seed: HHA_CTX.seed || Date.now(),
-        hub: HHA_CTX.hub || qs('hub', './fitness-zone.html'),
-        launcher: HHA_CTX.launcher || qs('launcher', './jumpduck.html')
+        hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
+        launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
       });
 
       location.href = launcherUrl;
