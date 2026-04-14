@@ -1,4 +1,4 @@
-(function(){
+(function () {
   'use strict';
 
   const ROOT_KEY = 'HHA_HANDWASH';
@@ -8,71 +8,83 @@
     flow: `${ROOT_KEY}_FLOW`
   };
 
-  function safeParse(text, fallback){
-    try{
-      return JSON.parse(text);
-    }catch{
-      return fallback;
-    }
+  function safeParse(text, fallback) {
+    try { return JSON.parse(text); } catch { return fallback; }
   }
 
-  function read(key, fallback){
-    try{
+  function read(key, fallback) {
+    try {
       const raw = localStorage.getItem(key);
       if (raw == null) return fallback;
       return safeParse(raw, fallback);
-    }catch{
+    } catch {
       return fallback;
     }
   }
 
-  function write(key, value){
-    try{
+  function write(key, value) {
+    try {
       localStorage.setItem(key, JSON.stringify(value));
       return true;
-    }catch{
+    } catch {
       return false;
     }
   }
 
-  function remove(key){
-    try{
+  function remove(key) {
+    try {
       localStorage.removeItem(key);
       return true;
-    }catch{
+    } catch {
       return false;
     }
   }
 
-  function nowTs(){
-    return Date.now();
+  function str(value, fallback = '') {
+    const s = String(value ?? '').trim();
+    return s || fallback;
   }
 
-  function clamp(value, min, max){
+  function num(value, fallback = 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function clamp(value, min, max) {
     const n = Number(value);
     if (!Number.isFinite(n)) return min;
     return Math.max(min, Math.min(max, n));
   }
 
-  function str(value, fallback=''){
-    const s = String(value ?? '').trim();
-    return s || fallback;
-  }
-
-  function num(value, fallback=0){
-    const n = Number(value);
-    return Number.isFinite(n) ? n : fallback;
-  }
-
-  function qs(name, fallback=''){
-    try{
+  function qs(name, fallback = '') {
+    try {
       return new URL(location.href).searchParams.get(name) ?? fallback;
-    }catch{
+    } catch {
       return fallback;
     }
   }
 
-  function buildBaseContext(extra = {}){
+  function nowTs() {
+    return Date.now();
+  }
+
+  function normalizeStage(stage) {
+    const s = str(stage).toLowerCase();
+    if (s === 'howto' || s === 'practice' || s === 'main' || s === 'mini-order') return s;
+    return 'unknown';
+  }
+
+  function stageLabel(stage) {
+    switch (normalizeStage(stage)) {
+      case 'howto': return 'Howto';
+      case 'practice': return 'Practice Lab';
+      case 'main': return 'Main Game';
+      case 'mini-order': return 'Mini Order';
+      default: return 'Unknown';
+    }
+  }
+
+  function buildBaseContext(extra = {}) {
     return {
       pid: str(qs('pid', 'anon'), 'anon'),
       name: str(qs('name', 'Hero'), 'Hero'),
@@ -90,15 +102,10 @@
     };
   }
 
-  function normalizeStage(stage){
-    const s = str(stage).toLowerCase();
-    if (s === 'howto' || s === 'main' || s === 'mini-order') return s;
-    return 'unknown';
-  }
-
-  function normalizeEntry(payload = {}){
-    const entry = {
-      ...buildBaseContext(),
+  function normalizeEntry(payload = {}) {
+    const base = buildBaseContext();
+    return {
+      ...base,
       stage: normalizeStage(payload.stage),
       success: !!payload.success,
       score: Math.max(0, Math.round(num(payload.score, 0))),
@@ -112,46 +119,30 @@
       notes: str(payload.notes, ''),
       timestamp: num(payload.timestamp, nowTs())
     };
-
-    return entry;
   }
 
-  function getLast(){
+  function getLast() {
     return read(KEYS.last, null);
   }
 
-  function getHistory(){
+  function getHistory() {
     const items = read(KEYS.history, []);
     return Array.isArray(items) ? items : [];
   }
 
-  function getFlow(){
+  function getFlow() {
     return read(KEYS.flow, null);
   }
 
-  function setLast(entry){
-    return write(KEYS.last, entry);
-  }
-
-  function setHistory(items){
-    return write(KEYS.history, items);
-  }
-
-  function setFlow(flow){
-    return write(KEYS.flow, flow);
-  }
-
-  function saveSummary(payload = {}){
+  function saveSummary(payload = {}) {
     const entry = normalizeEntry(payload);
-
-    setLast(entry);
+    write(KEYS.last, entry);
 
     const history = getHistory();
     history.unshift(entry);
-    const trimmed = history.slice(0, 30);
-    setHistory(trimmed);
+    write(KEYS.history, history.slice(0, 40));
 
-    setFlow({
+    write(KEYS.flow, {
       pid: entry.pid,
       name: entry.name,
       stage: entry.stage,
@@ -162,69 +153,71 @@
     return entry;
   }
 
-  function clearAll(){
+  function clearAll() {
     remove(KEYS.last);
     remove(KEYS.history);
     remove(KEYS.flow);
   }
 
-  function stageLabel(stage){
-    switch(normalizeStage(stage)){
-      case 'howto': return 'Howto';
-      case 'main': return 'Main Game';
-      case 'mini-order': return 'Mini Order';
-      default: return 'Unknown';
-    }
+  function getLatestByStage(stage) {
+    const target = normalizeStage(stage);
+    return getHistory().find(item => normalizeStage(item.stage) === target) || null;
   }
 
-  function getLatestByStage(stage){
-    const s = normalizeStage(stage);
-    return getHistory().find(item => normalizeStage(item.stage) === s) || null;
+  function getLatestSuccessByStage(stage) {
+    const target = normalizeStage(stage);
+    return getHistory().find(item => normalizeStage(item.stage) === target && item.success) || null;
   }
 
-  function getLatestSuccessByStage(stage){
-    const s = normalizeStage(stage);
-    return getHistory().find(item => normalizeStage(item.stage) === s && item.success) || null;
-  }
-
-  function getResumeStage(){
+  function getResumeStage() {
     const howto = getLatestSuccessByStage('howto');
+    const practice = getLatestSuccessByStage('practice');
     const main = getLatestSuccessByStage('main');
     const mini = getLatestSuccessByStage('mini-order');
 
     if (!howto) return 'howto';
+    if (!practice) return 'practice';
     if (!main) return 'main';
     if (!mini) return 'mini-order';
     return 'done';
   }
 
-  function buildUrls(viewOverride=''){
+  function buildUrls(viewOverride = '') {
     const view = str(viewOverride, str(qs('view', 'mobile'), 'mobile'));
     const ctx = buildBaseContext({ view });
+
     const nextMini = new URL('./handwash-mini-order.html', location.href);
-    const nextMain = new URL('./handwash-vr.html', location.href);
+    const nextMain = new URL('../handwash-v2.html', location.href);
+    const nextPractice = new URL('./handwash-vr.html', location.href);
     const nextHowto = new URL('./handwash-howto.html', location.href);
 
     const miniParams = new URLSearchParams();
     const mainParams = new URLSearchParams();
+    const practiceParams = new URLSearchParams();
     const howtoParams = new URLSearchParams();
 
-    Object.entries(ctx).forEach(([k,v]) => {
+    Object.entries(ctx).forEach(([k, v]) => {
       if (v !== '' && v != null) {
         miniParams.set(k, String(v));
         mainParams.set(k, String(v));
+        practiceParams.set(k, String(v));
         howtoParams.set(k, String(v));
       }
     });
 
-    miniParams.set('time', String(qs('miniTime', ctx.time || 60)));
+    miniParams.set('time', String(qs('miniTime', 60)));
     mainParams.set('time', String(qs('time', ctx.time || 90)));
     mainParams.set('next', `${nextMini.pathname}?${miniParams.toString()}`);
+
+    practiceParams.set('time', String(qs('time', ctx.time || 90)));
+    practiceParams.set('next', `${nextMain.pathname}?${mainParams.toString()}`);
+
     howtoParams.set('time', String(qs('time', ctx.time || 90)));
-    howtoParams.set('next', `${nextMain.pathname}?${mainParams.toString()}`);
+    howtoParams.set('next', `${nextPractice.pathname}?${practiceParams.toString()}`);
 
     return {
       howto: `${nextHowto.pathname}?${howtoParams.toString()}`,
+      practice: `${nextPractice.pathname}?${practiceParams.toString()}`,
       main: `${nextMain.pathname}?${mainParams.toString()}`,
       'mini-order': `${nextMini.pathname}?${miniParams.toString()}`
     };
@@ -233,11 +226,12 @@
   window.HandwashShared = {
     ROOT_KEY,
     KEYS,
-    qs,
     str,
     num,
     clamp,
+    qs,
     nowTs,
+    stageLabel,
     buildBaseContext,
     normalizeEntry,
     saveSummary,
@@ -245,7 +239,6 @@
     getHistory,
     getFlow,
     clearAll,
-    stageLabel,
     getLatestByStage,
     getLatestSuccessByStage,
     getResumeStage,
