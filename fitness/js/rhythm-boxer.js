@@ -1,19 +1,6 @@
 // === /fitness/js/rhythm-boxer.js ===
-// Rhythm Boxer — FULL CLEAN FINAL + STRICT PLANNER FLOW
-// PATCH v20260414a-RB-STRICT-PLANNER-FLOW
-// ✅ smoother animation
-// ✅ beat pulse no longer fires every frame
-// ✅ note still visible long enough
-// ✅ cooldown gate flow (normal flow)
-// ✅ planner strict flow: direct play + direct return to planner/hub
-// ✅ correct path from /fitness/ -> /herohealth/
-// ✅ child-friendly
-// ✅ missions + stars + medal + badge
-// ✅ boss round
-// ✅ AI coach + AI difficulty director
-// ✅ deterministic pattern generator
-// ✅ research CSV
-// ✅ hub / planner bridge compatible
+// Rhythm Boxer — FULL CLEAN FINAL + planner strict merge
+// PATCH v20260414-RB-PLANNER-STRICT-FULL
 
 'use strict';
 
@@ -95,7 +82,7 @@
 
   function $(id){ return D.getElementById(id); }
 
-  function rbSafeAbsUrl(raw, fallback=''){
+  function rbSafeAbsUrl(raw, fallback = ''){
     const value = String(raw || '').trim();
     try{
       if(value) return new URL(value, location.href).toString();
@@ -103,29 +90,38 @@
     return fallback || '';
   }
 
-  function rbNormalizeHubUrl(raw){
-    const fallback = '../herohealth/fitness-zone.html';
-    const href = rbSafeAbsUrl(raw, rbSafeAbsUrl(fallback, fallback));
-    const s = String(href || '').toLowerCase();
+  // --------------------------------------------------
+  // params / flow
+  // --------------------------------------------------
+  const RB_DEFAULT_HUB = 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-planner.html';
+  const RB_DEFAULT_LAUNCHER = 'https://supparang.github.io/webxr-health-mobile/fitness/rhythm-boxer.html';
 
+  function rbNormalizeHubUrl(raw){
+    const href = rbSafeAbsUrl(raw, RB_DEFAULT_HUB);
+    if(!href) return RB_DEFAULT_HUB;
+
+    const s = String(href).toLowerCase();
     if(
-      !href ||
       s.endsWith('/webxr-health-mobile/fitness') ||
       s.endsWith('/webxr-health-mobile/fitness/') ||
-      s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
-      s === 'https://supparang.github.io/webxr-health-mobile/fitness/'
+      s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
+      s === 'https://supparang.github.io/webxr-health-mobile/fitness'
     ){
-      return rbSafeAbsUrl(fallback, fallback);
+      return RB_DEFAULT_HUB;
     }
-
     return href;
+  }
+
+  function rbNormalizeLauncherUrl(raw){
+    const href = rbSafeAbsUrl(raw, RB_DEFAULT_LAUNCHER);
+    return href || RB_DEFAULT_LAUNCHER;
   }
 
   function rbIsPlannerStrictFlow(){
     const hubUrl = String(qs('hub','')).toLowerCase();
     return (
-      qs('plannerFlow','') === '1' ||
-      qs('fpStrict','') === '1' ||
+      qbool('plannerFlow', false) ||
+      qbool('fpStrict', false) ||
       String(qs('cooldown','')).toLowerCase() === '0' ||
       String(qs('returnPhase','')).toLowerCase() === 'planner' ||
       hubUrl.includes('fitness-planner') ||
@@ -134,27 +130,92 @@
     );
   }
 
-  function rbPlannerReturnUrl(){
-    return rbNormalizeHubUrl(qs('hub','../herohealth/fitness-zone.html'));
+  const RB_PLANNER_STRICT = rbIsPlannerStrictFlow();
+
+  function rbPlannerReturnBase(overrides = {}){
+    return rbNormalizeHubUrl(overrides.hub ?? qs('hub', RB_DEFAULT_HUB) ?? RB_DEFAULT_HUB);
   }
 
-  // --------------------------------------------------
-  // params
-  // --------------------------------------------------
+  function rbBuildPlannerReturnUrl(summary = {}, overrides = {}){
+    const base = rbPlannerReturnBase(overrides);
+    try{
+      const u = new URL(base, location.href);
+
+      u.searchParams.set('plannerReturn', '1');
+      u.searchParams.set('completedGame', 'rhythmboxer');
+      u.searchParams.set('game', 'rhythmboxer');
+      u.searchParams.set('gameId', 'rhythmboxer');
+      u.searchParams.set('zone', 'fitness');
+      u.searchParams.set('cat', 'fitness');
+
+      if(summary?.pid) u.searchParams.set('pid', String(summary.pid));
+      if(summary?.scoreFinal != null) u.searchParams.set('score', String(summary.scoreFinal));
+      if(summary?.rank) u.searchParams.set('rank', String(summary.rank));
+      if(summary?.accPct != null) u.searchParams.set('acc', String(summary.accPct));
+      if(summary?.comboMax != null) u.searchParams.set('combo', String(summary.comboMax));
+      if(summary?.end_reason) u.searchParams.set('result', String(summary.end_reason));
+      if(summary?.stars != null) u.searchParams.set('stars', String(summary.stars));
+
+      return u.toString();
+    }catch(_){
+      return base;
+    }
+  }
+
+  function rbBuildReplayUrl(){
+    const url = new URL(
+      rbNormalizeLauncherUrl(qs('launcher', location.pathname || RB_DEFAULT_LAUNCHER)),
+      location.origin
+    );
+
+    const keys = [
+      'pid','name','nickName','nick','studyId','group','conditionGroup',
+      'run','diff','time','seed','view','hub','planDay','planSlot',
+      'zone','cat','mode','track','api','ai','debug','log'
+    ];
+
+    keys.forEach(k=>{
+      const v = qs(k,'');
+      if(v !== '') url.searchParams.set(k, v);
+    });
+
+    if(RB_PLANNER_STRICT){
+      url.searchParams.set('plannerFlow', '1');
+      url.searchParams.set('fpStrict', '1');
+      url.searchParams.set('cooldown', '0');
+      url.searchParams.set('returnPhase', 'planner');
+      url.searchParams.set('autostart', '1');
+      url.searchParams.set('wgskip', '1');
+    }
+
+    return url.toString();
+  }
+
+  function rbGoPlannerNow(summary = null){
+    const target = summary
+      ? rbBuildPlannerReturnUrl(summary)
+      : rbPlannerReturnBase();
+
+    try{
+      location.href = target;
+    }catch(_){
+      location.assign(target);
+    }
+  }
+
   const RUN = String(qs('run','play')).toLowerCase();
   const DIFF = String(qs('diff','normal')).toLowerCase();
   const TIME_SEC = clamp(qs('time','80'), 20, 300);
   const SEED = Number(qs('seed', String(Date.now()))) || Date.now();
   const PID = String(qs('pid','')).trim() || 'anon';
 
-  const HUB = String(qs('hub','')).trim();
+  const HUB = rbNormalizeHubUrl(String(qs('hub','')).trim() || RB_DEFAULT_HUB);
   const PLAN_DAY = String(qs('planDay','')).trim();
   const PLAN_SLOT = String(qs('planSlot','')).trim();
   const ZONE = String(qs('zone','fitness')).trim() || 'fitness';
   const CAT = String(qs('cat','fitness')).trim() || 'fitness';
   const GAME_ID = 'rhythmboxer';
   const AUTO_NEXT = qbool('autoNext', false);
-  const STRICT_PLANNER_FLOW = rbIsPlannerStrictFlow();
 
   // --------------------------------------------------
   // DOM refs
@@ -250,29 +311,16 @@
     const btnBack = $('hhBack');
     if(btnBack){
       btnBack.addEventListener('click', ()=>{
-        if(HUB){
-          try{ location.href = rbPlannerReturnUrl(); }
-          catch{ location.href = HUB; }
-        }else{
-          location.href = '../herohealth/hub.html';
-        }
+        rbGoPlannerNow();
       });
     }
 
     const backLink = $('rb-back-link');
     if(backLink){
-      if(HUB){
-        try{ backLink.href = rbPlannerReturnUrl(); }
-        catch{ backLink.href = HUB; }
-      }else{
-        backLink.href = '../herohealth/hub.html';
-      }
+      backLink.href = HUB || RB_DEFAULT_HUB;
       backLink.addEventListener('click', (e)=>{
-        if(HUB){
-          e.preventDefault();
-          try{ location.href = rbPlannerReturnUrl(); }
-          catch{ location.href = HUB; }
-        }
+        e.preventDefault();
+        rbGoPlannerNow();
       }, {passive:false});
     }
   })();
@@ -875,7 +923,8 @@
       mode: S.mode,
       zone: ZONE,
       cat: CAT,
-      game: GAME_ID
+      game: GAME_ID,
+      plannerStrict: RB_PLANNER_STRICT ? 1 : 0
     };
   }
 
@@ -1079,7 +1128,6 @@
       return 3200;
     }
 
-    // mobile
     if(DIFF === 'hard') return 2300;
     if(DIFF === 'easy') return 3100;
     return 2700;
@@ -1608,8 +1656,17 @@
   }
 
   function buildCooldownUrl(){
-    if(STRICT_PLANNER_FLOW){
-      return rbPlannerReturnUrl();
+    if(RB_PLANNER_STRICT){
+      const accPct = (S.shots > 0) ? (S.hits / S.shots * 100) : 0;
+      return rbBuildPlannerReturnUrl({
+        pid: PID,
+        scoreFinal: Math.round(S.score),
+        rank: computeRank(),
+        accPct: Number(accPct.toFixed(2)),
+        comboMax: S.maxCombo,
+        end_reason: S.endReason || 'timeup',
+        stars: computeReward().stars
+      });
     }
 
     const gate = new URL('../herohealth/warmup-gate.html', location.href);
@@ -1649,14 +1706,14 @@
   }
 
   function goHubNow(){
-    if(STRICT_PLANNER_FLOW){
-      location.href = rbPlannerReturnUrl();
+    if(RB_PLANNER_STRICT){
+      rbGoPlannerNow();
       return;
     }
 
     if(HUB){
       try{
-        location.href = rbNormalizeHubUrl(HUB);
+        location.href = new URL(HUB, location.href).toString();
       }catch(_){
         location.href = HUB;
       }
@@ -1742,7 +1799,7 @@
         zone: ZONE,
         cat: CAT,
         game: GAME_ID,
-        strictPlannerFlow: STRICT_PLANNER_FLOW ? 1 : 0
+        plannerStrict: RB_PLANNER_STRICT ? 1 : 0
       };
 
       const hubSummary = {
@@ -1765,7 +1822,7 @@
         bossClear: payload.bossClear,
         durationSec: Number(payload.durationSec),
         timestampIso: nowIso(),
-        hub: STRICT_PLANNER_FLOW ? rbPlannerReturnUrl() : (HUB || ''),
+        plannerStrict: RB_PLANNER_STRICT ? 1 : 0,
         __extraJson: JSON.stringify(extra)
       };
 
@@ -1788,11 +1845,11 @@
     });
 
     const shouldGoCooldown =
-      !STRICT_PLANNER_FLOW &&
+      !RB_PLANNER_STRICT &&
       (qbool('cooldown', true) || qs('returnPhase', '') === 'cooldown');
 
     const shouldAutoReturn =
-      STRICT_PLANNER_FLOW ||
+      RB_PLANNER_STRICT ||
       AUTO_NEXT ||
       (HUB && String(HUB).includes('seq=1'));
 
@@ -1810,13 +1867,12 @@
             miss: payload.miss,
             rank: payload.rank,
             stars: payload.stars,
-            strictPlannerFlow: STRICT_PLANNER_FLOW ? 1 : 0,
-            returnUrl: STRICT_PLANNER_FLOW ? rbPlannerReturnUrl() : ''
+            plannerStrict: RB_PLANNER_STRICT ? 1 : 0
           });
         }catch(_){
           goHubNow();
         }
-      }, STRICT_PLANNER_FLOW ? 700 : 900);
+      }, RB_PLANNER_STRICT ? 700 : 900);
       return;
     }
 
@@ -1861,7 +1917,7 @@
   function downloadEventsCSV(){
     const rows = S.events.slice();
     const cols = [
-      'tsIso','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','zone','cat','game',
+      'tsIso','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','zone','cat','game','plannerStrict',
       'kind','marker','tMs','lane','action','source','judge','offsetMs','score','combo','hp','fever','shield',
       'bpm','density','durSec','endReason','stars','rank'
     ];
@@ -1871,7 +1927,7 @@
   function downloadSessionsCSV(){
     const rows = S.sessions.slice();
     const cols = [
-      'tsIso','tsIsoEnd','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','zone','cat','game',
+      'tsIso','tsIsoEnd','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','zone','cat','game','plannerStrict',
       'endReason','durationSec','score','maxCombo','shots','hits','accPct',
       'perfect','great','good','miss','hpEnd','shieldEnd','feverEnd',
       'offsetAbsMeanMs','offsetAbsStdMs','rank','stars','medal','badge',
@@ -1888,6 +1944,12 @@
     const modeRadios = D.querySelectorAll('input[name="rb-mode"]');
     modeRadios.forEach(r => r.addEventListener('change', refreshModeUI));
 
+    const qTrack = String(qs('track','')).trim();
+    if(qTrack && TRACKS[qTrack]){
+      const t = D.querySelector(`input[name="rb-track"][value="${qTrack}"]`);
+      if(t) t.checked = true;
+    }
+
     if(BTN_START){
       BTN_START.addEventListener('click', ()=>{
         refreshModeUI();
@@ -1903,14 +1965,22 @@
 
     if(BTN_AGAIN){
       BTN_AGAIN.addEventListener('click', ()=>{
+        if(RB_PLANNER_STRICT){
+          try{
+            location.href = rbBuildReplayUrl();
+          }catch(_){
+            location.assign(rbBuildReplayUrl());
+          }
+          return;
+        }
         startGame();
       });
     }
 
     if(BTN_BACK_MENU){
       BTN_BACK_MENU.addEventListener('click', ()=>{
-        if(STRICT_PLANNER_FLOW){
-          goHubNow();
+        if(RB_PLANNER_STRICT){
+          rbGoPlannerNow();
           return;
         }
         showView('menu');
@@ -1939,7 +2009,7 @@
     if(typeof W.HH_END_GAME !== 'function'){
       W.HH_END_GAME = function(){
         const shouldGoCooldown =
-          !STRICT_PLANNER_FLOW &&
+          !RB_PLANNER_STRICT &&
           (qbool('cooldown', true) || qs('returnPhase', '') === 'cooldown');
 
         if(shouldGoCooldown){
@@ -1951,8 +2021,12 @@
       };
     }
 
-    if(STRICT_PLANNER_FLOW && !W.__RB_STRICT_AUTOSTARTED__){
-      W.__RB_STRICT_AUTOSTARTED__ = true;
+    const shouldAutostart =
+      RB_PLANNER_STRICT ||
+      (qbool('wgskip', false) && qbool('autostart', false)) ||
+      qbool('autostart', false);
+
+    if(shouldAutostart){
       setTimeout(()=>{
         refreshModeUI();
         startGame();
@@ -1960,7 +2034,7 @@
     }
 
     console.log('[RB] boot OK', {
-      RUN, DIFF, TIME_SEC, PID, HUB, zone:ZONE, cat:CAT, game:GAME_ID, strictPlannerFlow:STRICT_PLANNER_FLOW
+      RUN, DIFF, TIME_SEC, PID, HUB, zone:ZONE, cat:CAT, game:GAME_ID, plannerStrict:RB_PLANNER_STRICT
     });
   }
 
