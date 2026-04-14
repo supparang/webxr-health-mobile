@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Handwash Launcher</title>
-
   <style>
     :root{
       --bg1:#dff6ff;
@@ -13,395 +12,123 @@
       --mut:#4d6b84;
       --line:#cfeaf7;
       --card:#ffffff;
-      --cyan:#bff4ff;
-      --cyan-strong:#67e8f9;
-      --yellow:#ffe66d;
-      --pink:#ffc7df;
-      --green:#b9f5c9;
-      --blue:#c8f2ff;
       --shadow:0 14px 30px rgba(19,50,75,.12);
       --radius:24px;
-      --ok:#16a34a;
-      --warn:#f59e0b;
-      --soft:#eef8fd;
     }
-
     *{ box-sizing:border-box; }
-
     html,body{
-      margin:0;
-      min-height:100%;
-      background:
-        radial-gradient(circle at top right, #ffffff 0%, #f6fdff 24%, #e9faff 45%, #dff6ff 100%);
+      margin:0; min-height:100%;
+      background:radial-gradient(circle at top right,#ffffff 0%,#f6fdff 24%,#e9faff 45%,#dff6ff 100%);
       font-family:"Segoe UI",system-ui,sans-serif;
       color:var(--ink);
     }
-
-    body{
-      padding:20px 14px 40px;
-    }
-
-    .shell{
-      max-width:1120px;
-      margin:0 auto;
-      display:grid;
-      gap:16px;
-    }
-
-    .hero{
-      background:linear-gradient(180deg,#ffffff 0%, #f7fdff 100%);
+    body{ padding:20px 14px 40px; }
+    .shell{ max-width:1120px; margin:0 auto; display:grid; gap:16px; }
+    .hero,.card{
+      background:#fff;
       border:2px solid var(--line);
-      border-radius:32px;
-      padding:20px;
-      box-shadow:var(--shadow);
-      display:grid;
-      gap:16px;
-    }
-
-    .hero-top{
-      display:flex;
-      gap:16px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-
-    .badge{
-      width:88px;
-      height:88px;
-      border-radius:50%;
-      background:linear-gradient(180deg,#8be8ff 0%,#22d3ee 100%);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:2.5rem;
-      box-shadow:inset 0 0 0 6px rgba(255,255,255,.35);
-      flex:0 0 auto;
-    }
-
-    .hero-copy{
-      min-width:0;
-      flex:1 1 320px;
-    }
-
-    .kicker{
-      display:inline-block;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#ecfeff;
-      border:1px solid #bdf4ff;
-      font-weight:900;
-      color:#0f766e;
-      margin-bottom:10px;
-    }
-
-    h1{
-      margin:0;
-      font-size:clamp(1.6rem, 4vw, 2.4rem);
-      line-height:1.08;
-    }
-
-    .lead{
-      margin:10px 0 0;
-      font-size:1rem;
-      line-height:1.5;
-      color:var(--mut);
-      font-weight:700;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:1.08fr .92fr;
-      gap:16px;
-    }
-
-    .card{
-      background:var(--card);
-      border:2px solid var(--line);
-      border-radius:var(--radius);
+      border-radius:28px;
       box-shadow:var(--shadow);
       padding:18px;
     }
-
-    .card h2{
-      margin:0 0 12px;
-      font-size:1.14rem;
+    .hero-top{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    .badge{
+      width:88px; height:88px; border-radius:50%;
+      background:linear-gradient(180deg,#8be8ff 0%,#22d3ee 100%);
+      display:flex; align-items:center; justify-content:center;
+      font-size:2.5rem; box-shadow:inset 0 0 0 6px rgba(255,255,255,.35);
     }
-
-    .field-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
+    .kicker{
+      display:inline-block; padding:8px 12px; border-radius:999px;
+      background:#ecfeff; border:1px solid #bdf4ff; font-weight:900; color:#0f766e;
+      margin-bottom:10px;
     }
-
-    .field{
-      display:grid;
-      gap:6px;
+    h1{ margin:0; font-size:clamp(1.6rem,4vw,2.4rem); line-height:1.08; }
+    .lead{ margin:10px 0 0; font-size:1rem; line-height:1.5; color:var(--mut); font-weight:700; }
+    .grid{ display:grid; grid-template-columns:1.08fr .92fr; gap:16px; }
+    .card h2{ margin:0 0 12px; font-size:1.14rem; }
+    .field-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .field{ display:grid; gap:6px; }
+    .field label{ font-size:.88rem; font-weight:900; color:#31536c; }
+    .input,.select{
+      width:100%; border:2px solid #d8edf8; background:#fff; border-radius:16px;
+      padding:12px 14px; font:inherit; color:var(--ink); font-weight:800; outline:none;
     }
-
-    .field label{
-      font-size:.88rem;
-      font-weight:900;
-      color:#31536c;
-    }
-
-    .input, .select{
-      width:100%;
-      border:2px solid #d8edf8;
-      background:#fff;
-      border-radius:16px;
-      padding:12px 14px;
-      font:inherit;
-      color:var(--ink);
-      font-weight:800;
-      outline:none;
-    }
-
-    .input:focus, .select:focus{
-      border-color:#7dd3fc;
-      box-shadow:0 0 0 4px rgba(125,211,252,.20);
-    }
-
-    .mode-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .mode-btn{
-      appearance:none;
-      border:none;
-      border-radius:18px;
-      padding:13px 16px;
-      font:inherit;
-      font-weight:900;
-      color:#12324b;
-      cursor:pointer;
-      box-shadow:var(--shadow);
-      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease, outline-color .12s ease;
+    .input:focus,.select:focus{ border-color:#7dd3fc; box-shadow:0 0 0 4px rgba(125,211,252,.20); }
+    .mode-row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+    .mode-btn,.action-btn{
+      appearance:none; border:none; border-radius:18px; padding:13px 16px;
+      font:inherit; font-weight:900; color:#12324b; cursor:pointer; box-shadow:var(--shadow);
+      transition:transform .12s ease, filter .12s ease, outline-color .12s ease;
       outline:3px solid transparent;
     }
-
-    .mode-btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.01);
-    }
-
-    .mode-btn.active{
-      outline-color:#22d3ee;
-    }
-
-    .mode-mobile{ background:linear-gradient(180deg,#dff8ff 0%, #baeefe 100%); }
-    .mode-pc{ background:linear-gradient(180deg,#fff6ba 0%, #ffe66d 100%); }
-    .mode-vr{ background:linear-gradient(180deg,#ffe3ef 0%, #ffc9de 100%); }
-
-    .action-stack{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .action-btn{
-      appearance:none;
-      border:none;
-      border-radius:20px;
-      padding:14px 14px;
-      font:inherit;
-      font-weight:900;
-      color:#12324b;
-      cursor:pointer;
-      box-shadow:var(--shadow);
-      transition:transform .12s ease, filter .12s ease;
-      text-align:left;
-    }
-
-    .action-btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.01);
-    }
-
-    .action-btn.full{ background:linear-gradient(180deg,#fff5b1 0%, #ffe66d 100%); }
-    .action-btn.howto{ background:linear-gradient(180deg,#dff8ff 0%, #b9efff 100%); }
-    .action-btn.main{ background:linear-gradient(180deg,#dcfff2 0%, #baf4cf 100%); }
-    .action-btn.mini{ background:linear-gradient(180deg,#ffe6f1 0%, #ffcde2 100%); }
-    .action-btn.resume{ background:linear-gradient(180deg,#edfdf7 0%, #c7f9dd 100%); }
-    .action-btn.clear{ background:linear-gradient(180deg,#fff1f2 0%, #ffd5da 100%); }
+    .mode-btn:hover,.action-btn:hover{ transform:translateY(-1px); filter:brightness(1.01); }
+    .mode-btn.active{ outline-color:#22d3ee; }
+    .mode-mobile{ background:linear-gradient(180deg,#dff8ff 0%,#baeefe 100%); }
+    .mode-pc{ background:linear-gradient(180deg,#fff6ba 0%,#ffe66d 100%); }
+    .mode-vr{ background:linear-gradient(180deg,#ffe3ef 0%,#ffc9de 100%); }
+    .action-stack{ display:grid; gap:10px; margin-top:12px; }
+    .action-btn{ text-align:left; }
+    .action-btn.full{ background:linear-gradient(180deg,#fff5b1 0%,#ffe66d 100%); }
+    .action-btn.howto{ background:linear-gradient(180deg,#dff8ff 0%,#b9efff 100%); }
+    .action-btn.practice{ background:linear-gradient(180deg,#efe4ff 0%,#d8c2ff 100%); }
+    .action-btn.main{ background:linear-gradient(180deg,#dcfff2 0%,#baf4cf 100%); }
+    .action-btn.mini{ background:linear-gradient(180deg,#ffe6f1 0%,#ffcde2 100%); }
+    .action-btn.resume{ background:linear-gradient(180deg,#edfdf7 0%,#c7f9dd 100%); }
+    .action-btn.clear{ background:linear-gradient(180deg,#fff1f2 0%,#ffd5da 100%); }
 
     .flow{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-      margin-top:10px;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px; margin-top:10px;
     }
-
     .flow-box{
-      background:#f8fdff;
-      border:1px solid #d7ecf8;
-      border-radius:18px;
-      padding:12px;
-      text-align:center;
-      font-weight:900;
-      color:#28465d;
-      position:relative;
-      overflow:hidden;
+      background:#f8fdff; border:1px solid #d7ecf8; border-radius:18px; padding:12px;
+      text-align:center; font-weight:900; color:#28465d;
     }
-
-    .flow-box.ok{
-      background:#effcf3;
-      border-color:#c8efd1;
-      color:#166534;
-    }
-
-    .flow-box.now{
-      background:#ecfeff;
-      border-color:#bff4ff;
-      color:#0f766e;
-    }
-
-    .flow-box small{
-      display:block;
-      margin-top:6px;
-      font-weight:800;
-      color:#5c7890;
-    }
-
-    .flow-box.ok small,
-    .flow-box.now small{
-      color:inherit;
-      opacity:.88;
-    }
+    .flow-box.ok{ background:#effcf3; border-color:#c8efd1; color:#166534; }
+    .flow-box.now{ background:#ecfeff; border-color:#bff4ff; color:#0f766e; }
+    .flow-box small{ display:block; margin-top:6px; font-weight:800; color:#5c7890; }
 
     .status-pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#effcf3;
-      color:#166534;
-      font-weight:900;
-      margin-top:8px;
+      display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
+      background:#effcf3; color:#166534; font-weight:900; margin-top:8px;
     }
+    .status-pill.warn{ background:#fff8e6; color:#92400e; }
+    .status-pill.muted{ background:#eef8fd; color:#48657f; }
 
-    .status-pill.warn{
-      background:#fff8e6;
-      color:#92400e;
-    }
-
-    .status-pill.muted{
-      background:#eef8fd;
-      color:#48657f;
-    }
-
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:8px;
-    }
-
+    .summary-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:8px; }
     .summary-box{
-      background:#f8fcff;
-      border:1px solid #d8edf8;
-      border-radius:18px;
-      padding:12px;
-      font-weight:900;
-      color:#0f172a;
+      background:#f8fcff; border:1px solid #d8edf8; border-radius:18px; padding:12px;
+      font-weight:900; color:#0f172a;
     }
+    .summary-box small{ display:block; margin-bottom:5px; color:#64748b; font-weight:800; }
 
-    .summary-box small{
-      display:block;
-      margin-bottom:5px;
-      color:#64748b;
-      font-weight:800;
-    }
-
-    .history-list{
-      display:grid;
-      gap:10px;
-      margin-top:10px;
-    }
-
+    .history-list{ display:grid; gap:10px; margin-top:10px; }
     .history-item{
-      background:#f7fcff;
-      border:1px solid #d7ecf8;
-      border-radius:16px;
-      padding:12px;
-      color:#28465d;
-      font-weight:800;
-      line-height:1.45;
+      background:#f7fcff; border:1px solid #d7ecf8; border-radius:16px; padding:12px;
+      color:#28465d; font-weight:800; line-height:1.45;
     }
-
     .history-head{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:4px;
+      display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:4px;
     }
-
     .tag{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:5px 10px;
-      border-radius:999px;
-      background:#ecfeff;
-      color:#0f766e;
-      font-size:.82rem;
-      font-weight:900;
+      display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px;
+      background:#ecfeff; color:#0f766e; font-size:.82rem; font-weight:900;
     }
-
-    .tag.fail{
-      background:#fff1f2;
-      color:#b91c1c;
-    }
-
-    .tiny{
-      margin-top:10px;
-      font-size:.84rem;
-      color:#5c7890;
-      font-weight:700;
-      line-height:1.45;
-    }
-
+    .tag.fail{ background:#fff1f2; color:#b91c1c; }
+    .tiny{ margin-top:10px; font-size:.84rem; color:#5c7890; font-weight:700; line-height:1.45; }
     .muted-box{
-      background:#f9fcfe;
-      border:1px dashed #cfe3ef;
-      border-radius:16px;
-      padding:12px;
-      color:#5c7890;
-      font-weight:800;
-      line-height:1.45;
+      background:#f9fcfe; border:1px dashed #cfe3ef; border-radius:16px; padding:12px;
+      color:#5c7890; font-weight:800; line-height:1.45;
     }
-
-    @media (max-width:940px){
-      .grid{
-        grid-template-columns:1fr;
-      }
-    }
-
+    @media (max-width:940px){ .grid{ grid-template-columns:1fr; } }
     @media (max-width:680px){
-      body{
-        padding:14px 10px 28px;
-      }
-
-      .hero, .card{
-        padding:14px;
-        border-radius:22px;
-      }
-
-      .field-grid{
-        grid-template-columns:1fr;
-      }
-
-      .flow{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .summary-grid{
-        grid-template-columns:1fr;
-      }
+      body{ padding:14px 10px 28px; }
+      .hero,.card{ padding:14px; border-radius:22px; }
+      .field-grid{ grid-template-columns:1fr; }
+      .flow{ grid-template-columns:1fr 1fr; }
+      .summary-grid{ grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -410,33 +137,22 @@
     <section class="hero">
       <div class="hero-top">
         <div class="badge">🧼</div>
-        <div class="hero-copy">
+        <div>
           <div class="kicker">HeroHealth • Hygiene Zone</div>
           <h1>Handwash Launcher</h1>
           <p class="lead">
             หน้าเข้าเล่นชุด Handwash แบบครบ flow:
-            <strong>Practice Lab → Main Game → Mini Order → Hygiene Zone</strong>
+            <strong>Howto → Practice Lab → Main Game → Mini Order → Hub</strong>
           </p>
         </div>
       </div>
 
-      <div class="flow" id="flowBoxes">
-        <div class="flow-box" data-stage-box="practice">
-          1. Practice
-          <small id="flowPracticeSub">ยังไม่เริ่ม</small>
-        </div>
-        <div class="flow-box" data-stage-box="main">
-          2. Main Game
-          <small id="flowMainSub">ยังไม่เริ่ม</small>
-        </div>
-        <div class="flow-box" data-stage-box="mini-order">
-          3. Mini Order
-          <small id="flowMiniSub">ยังไม่เริ่ม</small>
-        </div>
-        <div class="flow-box" data-stage-box="zone-return">
-          4. Hygiene Zone
-          <small id="flowZoneSub">ปลายทาง</small>
-        </div>
+      <div class="flow">
+        <div class="flow-box" data-stage-box="howto">1. Howto<small id="flowHowtoSub">ยังไม่เริ่ม</small></div>
+        <div class="flow-box" data-stage-box="practice">2. Practice<small id="flowPracticeSub">ยังไม่เริ่ม</small></div>
+        <div class="flow-box" data-stage-box="main">3. Main Game<small id="flowMainSub">ยังไม่เริ่ม</small></div>
+        <div class="flow-box" data-stage-box="mini-order">4. Mini Order<small id="flowMiniSub">ยังไม่เริ่ม</small></div>
+        <div class="flow-box" data-stage-box="hub">5. Hub<small id="flowHubSub">ปลายทาง</small></div>
       </div>
     </section>
 
@@ -449,12 +165,10 @@
             <label for="pid">PID</label>
             <input id="pid" class="input" value="anon" />
           </div>
-
           <div class="field">
             <label for="name">ชื่อผู้เล่น</label>
             <input id="name" class="input" value="Hero" />
           </div>
-
           <div class="field">
             <label for="diff">ความยาก</label>
             <select id="diff" class="select">
@@ -463,25 +177,17 @@
               <option value="hard">hard</option>
             </select>
           </div>
-
           <div class="field">
-            <label for="time">เวลา Main Game (วินาที)</label>
+            <label for="time">เวลา Howto / Practice / Main (วินาที)</label>
             <input id="time" class="input" type="number" min="60" step="10" value="90" />
           </div>
-
           <div class="field">
             <label for="miniTime">เวลา Mini Order (วินาที)</label>
             <input id="miniTime" class="input" type="number" min="45" step="5" value="60" />
           </div>
-
           <div class="field">
-            <label for="hubRoot">Hub Root URL</label>
-            <input id="hubRoot" class="input" />
-          </div>
-
-          <div class="field">
-            <label for="zoneReturn">Zone Return URL</label>
-            <input id="zoneReturn" class="input" />
+            <label for="hub">Hub URL</label>
+            <input id="hub" class="input" />
           </div>
         </div>
 
@@ -492,14 +198,14 @@
         </div>
 
         <div class="tiny">
-          Launcher นี้จะสร้าง URL แบบ zone-first ให้ครบทั้ง flow:
-          Practice Lab → Main Game → Mini Order → Hygiene Zone
+          เลือกโหมดก่อน แล้วใช้ปุ่มด้านล่างเพื่อเข้าเล่นครบชุดหรือเข้าเฉพาะส่วนที่ต้องการ
         </div>
 
         <div class="action-stack">
           <button id="btnResume" class="action-btn resume" type="button">▶️ เล่นต่อจากจุดล่าสุด</button>
           <button id="btnFull" class="action-btn full" type="button">🚀 เปิด Full Flow</button>
-          <button id="btnHowto" class="action-btn howto" type="button">🫧 เปิด Practice Lab</button>
+          <button id="btnHowto" class="action-btn howto" type="button">🫧 เปิด Howto</button>
+          <button id="btnPractice" class="action-btn practice" type="button">🧪 เปิด Practice Lab</button>
           <button id="btnMain" class="action-btn main" type="button">🎯 เปิด Main Game</button>
           <button id="btnMini" class="action-btn mini" type="button">🧩 เปิด Mini Order</button>
           <button id="btnClear" class="action-btn clear" type="button">🗑️ ล้าง progress ของ Handwash</button>
@@ -544,18 +250,9 @@
     </section>
   </main>
 
+  <script src="./handwash-shared.js"></script>
   <script>
-    const qs = new URLSearchParams(location.search);
-
-    const STAGES = ['practice', 'howto', 'main', 'mini-order'];
-    const STAGE_LABEL = {
-      practice: 'Practice Lab',
-      howto: 'Howto',
-      main: 'Main Game',
-      'mini-order': 'Mini Order'
-    };
-
-    const HOWTO_STAGE_ALIASES = ['practice', 'howto'];
+    const defaultHub = new URL('../hub-v2.html', location.href).href;
 
     const els = {
       pid: document.getElementById('pid'),
@@ -563,12 +260,12 @@
       diff: document.getElementById('diff'),
       time: document.getElementById('time'),
       miniTime: document.getElementById('miniTime'),
-      hubRoot: document.getElementById('hubRoot'),
-      zoneReturn: document.getElementById('zoneReturn'),
+      hub: document.getElementById('hub'),
 
       btnResume: document.getElementById('btnResume'),
       btnFull: document.getElementById('btnFull'),
       btnHowto: document.getElementById('btnHowto'),
+      btnPractice: document.getElementById('btnPractice'),
       btnMain: document.getElementById('btnMain'),
       btnMini: document.getElementById('btnMini'),
       btnClear: document.getElementById('btnClear'),
@@ -581,136 +278,42 @@
       resumeStatus: document.getElementById('resumeStatus'),
       historyList: document.getElementById('historyList'),
 
+      flowHowtoSub: document.getElementById('flowHowtoSub'),
       flowPracticeSub: document.getElementById('flowPracticeSub'),
       flowMainSub: document.getElementById('flowMainSub'),
       flowMiniSub: document.getElementById('flowMiniSub'),
-      flowZoneSub: document.getElementById('flowZoneSub'),
+      flowHubSub: document.getElementById('flowHubSub'),
       stageBoxes: [...document.querySelectorAll('[data-stage-box]')],
       modeButtons: [...document.querySelectorAll('[data-view]')]
     };
 
-    function qget(key, fallback = ''){
-      const v = qs.get(key);
-      return v == null || v === '' ? fallback : v;
-    }
+    const incoming = new URL(location.href).searchParams;
+    let selectedView = incoming.get('view') || 'mobile';
 
-    function firstNonEmpty(...vals){
-      for (const v of vals){
-        if (String(v || '').trim()) return String(v).trim();
-      }
-      return '';
-    }
-
-    function safeAbsUrl(raw, fallback){
-      const value = String(raw || '').trim();
-      try{
-        if (value) return new URL(value, location.href).toString();
-      }catch(_){}
-      return new URL(fallback, location.href).toString();
-    }
-
-    function looksLikeHubUrl(urlText){
-      const txt = String(urlText || '').toLowerCase();
-      return txt.includes('/hub.html') || txt.includes('/hub-v2.html');
-    }
-
-    function looksLikeZoneUrl(urlText){
-      return String(urlText || '').toLowerCase().includes('hygiene-zone.html');
-    }
-
-    function buildDefaultHubRoot(){
-      const explicitHubRoot = qget('hubRoot', '');
-      if (explicitHubRoot) return safeAbsUrl(explicitHubRoot, '../hub-v2.html');
-
-      const legacyHub = qget('hub', '');
-      if (legacyHub && looksLikeHubUrl(legacyHub)) {
-        return safeAbsUrl(legacyHub, '../hub-v2.html');
-      }
-
-      return safeAbsUrl('../hub-v2.html', '../hub-v2.html');
-    }
-
-    function buildDefaultZoneReturn(){
-      const explicitZoneReturn = qget('zoneReturn', '');
-      if (explicitZoneReturn) return safeAbsUrl(explicitZoneReturn, '../hygiene-zone.html');
-
-      const legacyHub = qget('hub', '');
-      if (legacyHub && looksLikeZoneUrl(legacyHub)) {
-        return safeAbsUrl(legacyHub, '../hygiene-zone.html');
-      }
-
-      const hubRoot = buildHubRootValue();
-      const url = new URL('../hygiene-zone.html', location.href);
-      url.searchParams.set('pid', els.pid.value.trim() || 'anon');
-      url.searchParams.set('name', els.name.value.trim() || 'Hero');
-      url.searchParams.set('diff', els.diff.value || 'normal');
-      url.searchParams.set('time', String(Math.max(60, Number(els.time.value || 90) || 90)));
-      url.searchParams.set('view', selectedView);
-      url.searchParams.set('run', 'play');
-      url.searchParams.set('zone', 'hygiene');
-      url.searchParams.set('cat', 'hygiene');
-      url.searchParams.set('hubRoot', hubRoot);
-      url.searchParams.set('hub', hubRoot);
-      return url.toString();
-    }
-
-    function buildHubRootValue(){
-      return safeAbsUrl(els.hubRoot.value.trim(), buildDefaultHubRoot());
-    }
-
-    function buildZoneReturnValue(){
-      const raw = els.zoneReturn.value.trim();
-      if (raw) return safeAbsUrl(raw, buildDefaultZoneReturn());
-      return buildDefaultZoneReturn();
-    }
-
-    const defaultHubRoot = buildDefaultHubRoot();
-    let selectedView = qget('view', 'mobile');
-
-    els.pid.value = qget('pid', 'anon');
-    els.name.value = qget('name', qget('nickName', 'Hero'));
-    els.diff.value = qget('diff', 'normal');
-    els.time.value = qget('time', '90');
-    els.miniTime.value = qget('miniTime', '60');
-    els.hubRoot.value = defaultHubRoot;
-    els.zoneReturn.value = buildDefaultZoneReturn();
+    els.pid.value = incoming.get('pid') || 'anon';
+    els.name.value = incoming.get('name') || 'Hero';
+    els.diff.value = incoming.get('diff') || 'normal';
+    els.time.value = incoming.get('time') || '90';
+    els.miniTime.value = incoming.get('miniTime') || '60';
+    els.hub.value = incoming.get('hub') || defaultHub;
 
     function setActiveView(view){
       selectedView = view;
-      els.modeButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.view === view);
-      });
+      els.modeButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
     }
-
-    setActiveView(['mobile','pc','cvr'].includes(selectedView) ? selectedView : 'mobile');
+    setActiveView(selectedView);
 
     els.modeButtons.forEach(btn => {
-      btn.addEventListener('click', () => setActiveView(btn.dataset.view));
+      btn.addEventListener('click', ()=> setActiveView(btn.dataset.view));
     });
 
-    function rememberZoneState(){
-      try{
-        localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
-      }catch(_){}
-
-      try{
-        localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
-          key:'handwash',
-          title:'Handwash',
-          at:Date.now()
-        }));
-      }catch(_){}
-    }
-
-    function baseParams(view, gameTimeOverride, extra = {}){
+    function baseParams(view, timeValue, extra = {}){
       const params = new URLSearchParams();
-      const hubRoot = buildHubRootValue();
-      const zoneReturn = buildZoneReturnValue();
-
-      params.set('pid', els.pid.value.trim() || 'anon');
-      params.set('name', els.name.value.trim() || 'Hero');
+      params.set('pid', (els.pid.value || 'anon').trim() || 'anon');
+      params.set('name', (els.name.value || 'Hero').trim() || 'Hero');
       params.set('diff', els.diff.value || 'normal');
-      params.set('time', String(gameTimeOverride));
+      params.set('time', String(timeValue));
+      params.set('hub', (els.hub.value || defaultHub).trim() || defaultHub);
       params.set('view', view);
       params.set('run', 'play');
       params.set('zone', 'hygiene');
@@ -720,27 +323,6 @@
       params.set('theme', 'handwash');
       params.set('seed', String(Date.now()));
 
-      params.set('hubRoot', hubRoot);
-
-      // backward compatibility for older pages:
-      params.set('hub', zoneReturn);
-
-      // new standard:
-      params.set('zoneReturn', zoneReturn);
-      params.set('next', zoneReturn);
-
-      const studyId = qget('studyId', '');
-      if (studyId) params.set('studyId', studyId);
-
-      [
-        'debug','api','log',
-        'studentKey','schoolCode','classRoom','studentNo',
-        'conditionGroup','sessionNo','weekNo','teacher','grade'
-      ].forEach((key) => {
-        const v = qget(key, '');
-        if (v) params.set(key, v);
-      });
-
       Object.entries(extra).forEach(([k, v]) => {
         if (v !== undefined && v !== null && v !== '') params.set(k, String(v));
       });
@@ -749,237 +331,44 @@
     }
 
     function buildMiniUrl(view){
-      const params = baseParams(
-        view,
-        Math.max(45, Number(els.miniTime.value || 60) || 60),
-        {
-          stage:'mini-order',
-          next: buildZoneReturnValue()
-        }
-      );
-      return `./handwash-mini-order.html?${params.toString()}`;
+      return `./handwash-mini-order.html?${baseParams(view, els.miniTime.value).toString()}`;
     }
 
     function buildMainUrl(view){
       const miniUrl = buildMiniUrl(view);
-      const params = baseParams(
-        view,
-        Math.max(60, Number(els.time.value || 90) || 90),
-        {
-          stage:'main',
-          next: miniUrl
-        }
-      );
+      const params = baseParams(view, els.time.value, { next: miniUrl });
+      return `../handwash-v2.html?${params.toString()}`;
+    }
+
+    function buildPracticeUrl(view){
+      const mainUrl = buildMainUrl(view);
+      const params = baseParams(view, els.time.value, { next: mainUrl });
       return `./handwash-vr.html?${params.toString()}`;
     }
 
     function buildHowtoUrl(view){
-      const mainUrl = buildMainUrl(view);
-      const params = baseParams(
-        view,
-        Math.max(60, Number(els.time.value || 90) || 90),
-        {
-          stage:'practice',
-          main: mainUrl,
-          next: mainUrl
-        }
-      );
+      const practiceUrl = buildPracticeUrl(view);
+      const params = baseParams(view, els.time.value, { next: practiceUrl });
       return `./handwash-howto.html?${params.toString()}`;
     }
 
-    function openUrl(url){
-      rememberZoneState();
-      location.href = url;
+    function openUrl(url){ location.href = url; }
+
+    function computeResumeStage(){
+      return HandwashShared.getResumeStage();
     }
 
-    function parseJsonSafe(text){
-      try{
-        return JSON.parse(text);
-      }catch{
-        return null;
-      }
+    function buildResumeUrl(view){
+      const stage = computeResumeStage();
+      if (stage === 'practice') return buildPracticeUrl(view);
+      if (stage === 'main') return buildMainUrl(view);
+      if (stage === 'mini-order') return buildMiniUrl(view);
+      if (stage === 'done') return (els.hub.value || defaultHub).trim() || defaultHub;
+      return buildHowtoUrl(view);
     }
 
-    function looksLikeHandwashEntry(obj, key=''){
-      if (!obj || typeof obj !== 'object') return false;
-
-      const stage = String(obj.stage || '').toLowerCase();
-      const game = String(obj.game || obj.gameId || obj.theme || '').toLowerCase();
-      const notes = String(obj.notes || '').toLowerCase();
-      const k = String(key || '').toLowerCase();
-
-      if (game.includes('handwash')) return true;
-      if (k.includes('handwash')) return true;
-
-      const validStage = STAGES.includes(stage);
-      const hasHandwashHint = notes.includes('handwash');
-
-      return validStage && hasHandwashHint;
-    }
-
-    function normalizeEntry(obj, key=''){
-      if (!looksLikeHandwashEntry(obj, key)) return null;
-
-      const stage = String(obj.stage || '').toLowerCase();
-      const tsRaw = obj.timestamp || obj.updatedAt || obj.createdAt || obj.savedAt || obj.date || Date.now();
-      const timestamp = Number.isFinite(Number(tsRaw)) ? Number(tsRaw) : Date.parse(tsRaw) || Date.now();
-
-      return {
-        stage,
-        success: !!obj.success,
-        score: Number(obj.score || 0),
-        stars: Number(obj.stars || 0),
-        miss: Number(obj.miss || 0),
-        timeLeft: Number(obj.timeLeft || 0),
-        progress: Number(obj.progress || 0),
-        notes: String(obj.notes || ''),
-        timestamp,
-        key
-      };
-    }
-
-    function collectEntriesFromValue(value, key=''){
-      const out = [];
-
-      function walk(node){
-        if (!node) return;
-
-        if (Array.isArray(node)){
-          node.forEach(walk);
-          return;
-        }
-
-        if (typeof node === 'object'){
-          const normalized = normalizeEntry(node, key);
-          if (normalized) out.push(normalized);
-
-          Object.values(node).forEach(child => {
-            if (child && typeof child === 'object') walk(child);
-          });
-        }
-      }
-
-      walk(value);
-      return out;
-    }
-
-    function getEntriesFromHandwashShared(){
-      const api = window.HandwashShared;
-      if (!api) return [];
-
-      const maybeLists = [];
-      if (typeof api.getHistory === 'function') maybeLists.push(api.getHistory());
-      if (typeof api.listSummaries === 'function') maybeLists.push(api.listSummaries());
-      if (typeof api.getSummaries === 'function') maybeLists.push(api.getSummaries());
-
-      const entries = [];
-      maybeLists.forEach(val => {
-        if (!val) return;
-        collectEntriesFromValue(val, 'HandwashShared').forEach(e => entries.push(e));
-      });
-
-      return entries;
-    }
-
-    function getEntriesFromLocalStorage(){
-      const entries = [];
-
-      for (let i = 0; i < localStorage.length; i++){
-        const key = localStorage.key(i);
-        if (!key) continue;
-
-        const keyLower = key.toLowerCase();
-
-        if (
-          !keyLower.includes('handwash') &&
-          key !== 'HHA_LAST_SUMMARY' &&
-          key !== 'HHA_LAST_SUMMARY_GLOBAL'
-        ){
-          continue;
-        }
-
-        const raw = localStorage.getItem(key);
-        const parsed = parseJsonSafe(raw);
-        if (!parsed) continue;
-
-        collectEntriesFromValue(parsed, key).forEach(e => entries.push(e));
-      }
-
-      return entries;
-    }
-
-    function dedupeEntries(entries){
-      const seen = new Set();
-      const out = [];
-
-      entries
-        .sort((a,b) => b.timestamp - a.timestamp)
-        .forEach(entry => {
-          const sig = [
-            entry.stage,
-            entry.timestamp,
-            entry.score,
-            entry.stars,
-            entry.miss,
-            entry.progress,
-            entry.notes
-          ].join('|');
-
-          if (seen.has(sig)) return;
-          seen.add(sig);
-          out.push(entry);
-        });
-
-      return out;
-    }
-
-    function getAllEntries(){
-      const all = [
-        ...getEntriesFromHandwashShared(),
-        ...getEntriesFromLocalStorage()
-      ];
-      return dedupeEntries(all);
-    }
-
-    function latestEntry(entries){
-      return entries.length ? entries[0] : null;
-    }
-
-    function latestSuccessfulByStages(entries, stages){
-      return entries.find(e => stages.includes(e.stage) && e.success) || null;
-    }
-
-    function latestAnyByStages(entries, stages){
-      return entries.find(e => stages.includes(e.stage)) || null;
-    }
-
-    function formatTime(ts){
-      try{
-        return new Date(ts).toLocaleString('th-TH', {
-          year:'numeric',
-          month:'short',
-          day:'numeric',
-          hour:'2-digit',
-          minute:'2-digit'
-        });
-      }catch{
-        return '—';
-      }
-    }
-
-    function computeResumeStage(entries){
-      const practiceDone = !!latestSuccessfulByStages(entries, HOWTO_STAGE_ALIASES);
-      const mainDone = !!latestSuccessfulByStages(entries, ['main']);
-      const miniDone = !!latestSuccessfulByStages(entries, ['mini-order']);
-
-      if (!practiceDone) return 'practice';
-      if (!mainDone) return 'main';
-      if (!miniDone) return 'mini-order';
-      return 'done';
-    }
-
-    function renderLatest(entries){
-      const latest = latestEntry(entries);
+    function renderLatest(){
+      const latest = HandwashShared.getLast();
 
       if (!latest){
         els.lastStage.textContent = '—';
@@ -992,158 +381,103 @@
         return;
       }
 
-      els.lastStage.textContent = STAGE_LABEL[latest.stage] || latest.stage;
+      els.lastStage.textContent = HandwashShared.stageLabel(latest.stage);
       els.lastResult.textContent = latest.success ? 'ผ่าน' : 'ยังไม่ผ่าน';
-      els.lastScore.textContent = String(latest.score ?? 0);
+      els.lastScore.textContent = String(latest.score || 0);
       els.lastStars.textContent = latest.stars > 0 ? '⭐'.repeat(latest.stars) : '—';
-      els.latestMeta.textContent = `ล่าสุดเมื่อ ${formatTime(latest.timestamp)} • miss ${latest.miss} • progress ${latest.progress}%`;
 
-      const nextStage = computeResumeStage(entries);
+      const dt = new Date(latest.timestamp || Date.now());
+      els.latestMeta.textContent =
+        `ล่าสุดเมื่อ ${dt.toLocaleString('th-TH')} • miss ${latest.miss || 0} • progress ${latest.progress || 0}%`;
+
+      const nextStage = computeResumeStage();
       if (nextStage === 'done'){
-        els.resumeStatus.textContent = 'ครบทุกด่านแล้ว พร้อมกลับ Hygiene Zone หรือเริ่มรอบใหม่';
+        els.resumeStatus.textContent = 'ครบทุกด่านแล้ว พร้อมกลับ Hub หรือเริ่มใหม่';
         els.resumeStatus.className = 'status-pill';
-      } else if (nextStage){
-        els.resumeStatus.textContent = `เล่นต่อได้ที่ ${STAGE_LABEL[nextStage] || nextStage}`;
-        els.resumeStatus.className = 'status-pill warn';
       } else {
-        els.resumeStatus.textContent = 'ยังไม่พบ progress ของ Handwash';
-        els.resumeStatus.className = 'status-pill muted';
+        els.resumeStatus.textContent = `เล่นต่อได้ที่ ${HandwashShared.stageLabel(nextStage)}`;
+        els.resumeStatus.className = 'status-pill warn';
       }
     }
 
-    function renderFlow(entries){
-      const practiceDone = !!latestSuccessfulByStages(entries, HOWTO_STAGE_ALIASES);
-      const mainDone = !!latestSuccessfulByStages(entries, ['main']);
-      const miniDone = !!latestSuccessfulByStages(entries, ['mini-order']);
-      const resumeStage = computeResumeStage(entries);
+    function renderFlow(){
+      const howtoDone = !!HandwashShared.getLatestSuccessByStage('howto');
+      const practiceDone = !!HandwashShared.getLatestSuccessByStage('practice');
+      const mainDone = !!HandwashShared.getLatestSuccessByStage('main');
+      const miniDone = !!HandwashShared.getLatestSuccessByStage('mini-order');
+      const resumeStage = computeResumeStage();
 
-      els.stageBoxes.forEach(box => box.classList.remove('ok', 'now'));
+      els.stageBoxes.forEach(box => box.classList.remove('ok','now'));
 
+      const howtoBox = document.querySelector('[data-stage-box="howto"]');
       const practiceBox = document.querySelector('[data-stage-box="practice"]');
       const mainBox = document.querySelector('[data-stage-box="main"]');
       const miniBox = document.querySelector('[data-stage-box="mini-order"]');
-      const zoneBox = document.querySelector('[data-stage-box="zone-return"]');
+      const hubBox = document.querySelector('[data-stage-box="hub"]');
 
-      els.flowPracticeSub.textContent = practiceDone ? 'ผ่านแล้ว' : 'ยังไม่เริ่ม';
+      els.flowHowtoSub.textContent = howtoDone ? 'ผ่านแล้ว' : 'ยังไม่เริ่ม';
+      els.flowPracticeSub.textContent = practiceDone ? 'ผ่านแล้ว' : howtoDone ? 'พร้อมเล่น' : 'รอ Howto';
       els.flowMainSub.textContent = mainDone ? 'ผ่านแล้ว' : practiceDone ? 'พร้อมเล่น' : 'รอ Practice';
       els.flowMiniSub.textContent = miniDone ? 'ผ่านแล้ว' : mainDone ? 'พร้อมเล่น' : 'รอ Main';
-      els.flowZoneSub.textContent = miniDone ? 'พร้อมกลับโซน' : 'ปลายทาง';
+      els.flowHubSub.textContent = miniDone ? 'พร้อมกลับ' : 'ปลายทาง';
 
+      if (howtoDone) howtoBox.classList.add('ok');
       if (practiceDone) practiceBox.classList.add('ok');
       if (mainDone) mainBox.classList.add('ok');
       if (miniDone) miniBox.classList.add('ok');
-      if (miniDone) zoneBox.classList.add('now');
+      if (miniDone) hubBox.classList.add('now');
 
       if (!miniDone){
-        const currentBox =
-          resumeStage === 'practice'
-            ? practiceBox
-            : document.querySelector(`[data-stage-box="${resumeStage}"]`);
-
-        if (currentBox && !currentBox.classList.contains('ok')) {
-          currentBox.classList.add('now');
-        }
+        const currentBox = document.querySelector(`[data-stage-box="${resumeStage || 'howto'}"]`);
+        if (currentBox && !currentBox.classList.contains('ok')) currentBox.classList.add('now');
       }
     }
 
-    function renderHistory(entries){
-      if (!entries.length){
+    function renderHistory(){
+      const history = HandwashShared.getHistory();
+      if (!history.length){
         els.historyList.innerHTML = `<div class="muted-box">ยังไม่พบประวัติของ Handwash</div>`;
         return;
       }
 
-      const rows = entries.slice(0, 8).map(entry => {
+      els.historyList.innerHTML = history.slice(0, 8).map(entry => {
         const tagClass = entry.success ? 'tag' : 'tag fail';
         const tagText = entry.success ? 'ผ่าน' : 'ยังไม่ผ่าน';
-        const stage = STAGE_LABEL[entry.stage] || entry.stage;
-        const stars = entry.stars > 0 ? '⭐'.repeat(entry.stars) : '—';
+        const dt = new Date(entry.timestamp || Date.now());
 
         return `
           <div class="history-item">
             <div class="history-head">
-              <div><strong>${stage}</strong></div>
+              <div><strong>${HandwashShared.stageLabel(entry.stage)}</strong></div>
               <div class="${tagClass}">${tagText}</div>
             </div>
-            <div>คะแนน ${entry.score} • ดาว ${stars} • miss ${entry.miss} • progress ${entry.progress}%</div>
-            <div class="tiny">บันทึกเมื่อ ${formatTime(entry.timestamp)}</div>
+            <div>คะแนน ${entry.score || 0} • ดาว ${entry.stars > 0 ? '⭐'.repeat(entry.stars) : '—'} • miss ${entry.miss || 0} • progress ${entry.progress || 0}%</div>
+            <div class="tiny">บันทึกเมื่อ ${dt.toLocaleString('th-TH')}</div>
           </div>
         `;
       }).join('');
-
-      els.historyList.innerHTML = rows;
     }
 
-    function buildResumeUrl(view){
-      const stage = computeResumeStage(getAllEntries());
-
-      if (stage === 'main') return buildMainUrl(view);
-      if (stage === 'mini-order') return buildMiniUrl(view);
-      if (stage === 'done') return buildZoneReturnValue();
-      return buildHowtoUrl(view);
+    function refreshAll(){
+      renderLatest();
+      renderFlow();
+      renderHistory();
     }
 
-    function refreshView(){
-      const entries = getAllEntries();
-      renderLatest(entries);
-      renderFlow(entries);
-      renderHistory(entries);
-    }
+    els.btnResume.addEventListener('click', ()=> openUrl(buildResumeUrl(selectedView)));
+    els.btnFull.addEventListener('click', ()=> openUrl(buildHowtoUrl(selectedView)));
+    els.btnHowto.addEventListener('click', ()=> openUrl(buildHowtoUrl(selectedView)));
+    els.btnPractice.addEventListener('click', ()=> openUrl(buildPracticeUrl(selectedView)));
+    els.btnMain.addEventListener('click', ()=> openUrl(buildMainUrl(selectedView)));
+    els.btnMini.addEventListener('click', ()=> openUrl(buildMiniUrl(selectedView)));
 
-    function removeDetectedHandwashKeys(){
-      const keysToRemove = [];
-
-      for (let i = 0; i < localStorage.length; i++){
-        const key = localStorage.key(i);
-        if (!key) continue;
-
-        const raw = localStorage.getItem(key);
-        const parsed = parseJsonSafe(raw);
-
-        if (key.toLowerCase().includes('handwash')){
-          keysToRemove.push(key);
-          continue;
-        }
-
-        if ((key === 'HHA_LAST_SUMMARY' || key === 'HHA_LAST_SUMMARY_GLOBAL') && parsed){
-          const entries = collectEntriesFromValue(parsed, key);
-          if (entries.length){
-            keysToRemove.push(key);
-          }
-        }
-      }
-
-      keysToRemove.push('HHA_LAST_GAME_BY_ZONE_HYGIENE');
-
-      [...new Set(keysToRemove)].forEach(key => localStorage.removeItem(key));
-    }
-
-    els.btnResume.addEventListener('click', () => {
-      openUrl(buildResumeUrl(selectedView));
-    });
-
-    els.btnFull.addEventListener('click', () => {
-      openUrl(buildHowtoUrl(selectedView));
-    });
-
-    els.btnHowto.addEventListener('click', () => {
-      openUrl(buildHowtoUrl(selectedView));
-    });
-
-    els.btnMain.addEventListener('click', () => {
-      openUrl(buildMainUrl(selectedView));
-    });
-
-    els.btnMini.addEventListener('click', () => {
-      openUrl(buildMiniUrl(selectedView));
-    });
-
-    els.btnClear.addEventListener('click', () => {
-      removeDetectedHandwashKeys();
-      refreshView();
+    els.btnClear.addEventListener('click', ()=>{
+      HandwashShared.clearAll();
+      refreshAll();
       alert('ล้าง progress ของ Handwash ในเบราว์เซอร์นี้แล้ว');
     });
 
-    refreshView();
+    refreshAll();
   </script>
 </body>
 </html>
