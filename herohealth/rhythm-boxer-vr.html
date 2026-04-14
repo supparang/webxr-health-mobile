@@ -6,7 +6,7 @@
   <title>HeroHealth • Rhythm Boxer Launcher</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#ffacd1" />
-  <link rel="icon" href="../herohealth/favicon.ico" />
+  <link rel="icon" href="./favicon.ico" />
 
   <style>
     :root{
@@ -724,8 +724,8 @@
       </div>
 
       <div class="top-actions">
-        <a id="btnBackFitnessTop" class="top-link" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
-        <a id="btnBackHubTop" class="top-link" href="../herohealth/hub-v2.html">🏠 HUB</a>
+        <a id="btnBackFitnessTop" class="top-link" href="./fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnBackHubTop" class="top-link" href="./hub-v2.html">🏠 HUB</a>
       </div>
     </header>
 
@@ -987,11 +987,11 @@
         recentAcc: $('recentAcc')
       };
 
-      const ABS_HUB = new URL('../herohealth/hub-v2.html', location.href).href;
-      const ABS_FITNESS = new URL('../herohealth/fitness-zone.html', location.href).href;
-      const ABS_BLOOM = new URL('../herohealth/vr-rhythm-boxer-bloom/index.html', location.href).href;
-      const ABS_MAIN = new URL('../herohealth/vr-rhythm-boxer-main/boxer.html', location.href).href;
-      const ABS_GATE = new URL('../herohealth/warmup-gate.html', location.href).href;
+      const ABS_HUB = new URL('./hub-v2.html', location.href).href;
+      const ABS_FITNESS = new URL('./fitness-zone.html', location.href).href;
+      const ABS_BLOOM = new URL('./vr-rhythm-boxer-bloom/index.html', location.href).href;
+      const ABS_MAIN = new URL('./vr-rhythm-boxer-main/boxer.html', location.href).href;
+      const ABS_GATE = new URL('./warmup-gate.html', location.href).href;
 
       function q(k, d='') {
         const v = qs.get(k);
@@ -1066,14 +1066,16 @@
 
       function buildLearnChain() {
         const main = buildMainGameUrl({ entry: 'learn' });
-        const hit = sharedParams('../herohealth/vr-rhythm-boxer-bloom/hit-line-coach.html', {
+
+        const hit = sharedParams('./vr-rhythm-boxer-bloom/hit-line-coach.html', {
           game: 'hit-line-coach',
           gameId: 'hit-line-coach',
           back: ABS_BLOOM,
           next: main,
           entry: 'learn'
         });
-        return sharedParams('../herohealth/vr-rhythm-boxer-bloom/beat-badge-match.html', {
+
+        return sharedParams('./vr-rhythm-boxer-bloom/beat-badge-match.html', {
           game: 'beat-badge-match',
           gameId: 'beat-badge-match',
           back: ABS_BLOOM,
@@ -1084,7 +1086,8 @@
 
       function buildAnalyzeChain() {
         const main = buildMainGameUrl({ entry: 'analyze' });
-        return sharedParams('../herohealth/vr-rhythm-boxer-bloom/pattern-detective.html', {
+
+        return sharedParams('./vr-rhythm-boxer-bloom/pattern-detective.html', {
           game: 'pattern-detective',
           gameId: 'pattern-detective',
           back: ABS_BLOOM,
@@ -1095,7 +1098,8 @@
 
       function buildCreateChain() {
         const main = buildMainGameUrl({ entry: 'create' });
-        return sharedParams('../herohealth/vr-rhythm-boxer-bloom/combo-composer.html', {
+
+        return sharedParams('./vr-rhythm-boxer-bloom/combo-composer.html', {
           game: 'combo-composer',
           gameId: 'combo-composer',
           back: ABS_BLOOM,
@@ -1347,7 +1351,7 @@
 
         const fitnessUrl = buildFitnessBackUrl();
         els.btnBackFitnessTop.href = fitnessUrl;
-        els.btnBackHubTop.href = q('hub', ABS_HUB);
+        els.btnBackHubTop.href = ABS_HUB;
 
         const rec = recommendFromSummary();
         applyRecommendation(rec);
