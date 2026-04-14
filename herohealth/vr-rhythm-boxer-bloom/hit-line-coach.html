@@ -1,0 +1,1480 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Hit Line Coach</title>
+  <meta name="theme-color" content="#ffd7ea" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --bg1:#fff4fb;
+      --bg2:#ffe6f3;
+      --bg3:#fff8de;
+
+      --card:#ffffff;
+      --line:#efd5e5;
+      --line-strong:#eab7d3;
+
+      --text:#443f3c;
+      --muted:#756f6b;
+
+      --pink:#ff9dcd;
+      --pink-2:#ff76b5;
+      --blue:#7fcfff;
+      --blue-2:#4aaef0;
+      --green:#7ed957;
+      --green-2:#4fbd31;
+      --yellow:#ffd75d;
+      --yellow-2:#ffb83b;
+      --purple:#cba5ff;
+      --purple-2:#9878f3;
+      --red:#ff7d7d;
+
+      --shadow:0 18px 42px rgba(68,63,60,.12);
+      --shadow-soft:0 10px 22px rgba(68,63,60,.08);
+
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+
+      --lane-1:#93d6ff;
+      --lane-2:#ffcb80;
+      --lane-3:#b7ec8c;
+      --lane-4:#d9b7ff;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; min-height:100%; }
+    body{
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.94), transparent 28%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+    }
+
+    a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; }
+    .hidden{ display:none !important; }
+
+    .app{
+      width:min(1200px, calc(100% - 14px));
+      margin:0 auto;
+      padding:
+        calc(10px + var(--safe-top))
+        0
+        calc(14px + var(--safe-bottom));
+      display:grid;
+      gap:10px;
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .pill,
+    .brand{
+      min-height:46px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.9);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      background:linear-gradient(135deg,var(--pink),var(--purple));
+      font-size:15px;
+    }
+
+    .headline{
+      min-width:0;
+      padding:0 4px;
+    }
+
+    .headline h1{
+      margin:0;
+      font-size:clamp(22px,4vw,38px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .headline p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .hud{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .hud-box{
+      min-height:70px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.94);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .hud-box .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .hud-box .v{
+      display:block;
+      margin-top:6px;
+      font-size:20px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .coach-card{
+      position:relative;
+      padding:14px 16px;
+      border-radius:24px;
+      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(255,250,253,.94));
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:8px;
+    }
+
+    .coach-top{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .coach-avatar{
+      width:52px;
+      height:52px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#fff4a6,#ffd35e);
+      border:2px solid rgba(255,255,255,.9);
+      box-shadow:var(--shadow-soft);
+      font-size:24px;
+    }
+
+    .coach-copy strong{
+      display:block;
+      font-size:18px;
+      line-height:1.1;
+    }
+
+    .coach-copy span{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .mini-tags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .mini-tag{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .arena-shell{
+      position:relative;
+      min-height:620px;
+      border-radius:30px;
+      overflow:hidden;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      background:
+        radial-gradient(circle at 50% 15%, rgba(255,255,255,.18), transparent 16%),
+        linear-gradient(180deg,#251236 0%, #502462 55%, #ffd694 56%, #fff4d8 100%);
+    }
+
+    .arena{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    .lane-grid{
+      position:absolute;
+      inset:0;
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+    }
+
+    .lane{
+      position:relative;
+      border-right:1px dashed rgba(255,255,255,.16);
+    }
+
+    .lane:last-child{ border-right:0; }
+
+    .lane[data-lane="0"]{ background:linear-gradient(180deg,rgba(147,214,255,.20),rgba(147,214,255,.05)); }
+    .lane[data-lane="1"]{ background:linear-gradient(180deg,rgba(255,203,128,.20),rgba(255,203,128,.05)); }
+    .lane[data-lane="2"]{ background:linear-gradient(180deg,rgba(183,236,140,.18),rgba(183,236,140,.04)); }
+    .lane[data-lane="3"]{ background:linear-gradient(180deg,rgba(217,183,255,.18),rgba(217,183,255,.04)); }
+
+    .lane.focus{
+      box-shadow:
+        inset 0 0 0 4px rgba(255,255,255,.18),
+        inset 0 -48px 70px rgba(255,255,255,.05);
+      filter:brightness(1.06);
+    }
+
+    .lane.cue::after{
+      content:"";
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:100px;
+      height:34px;
+      border-radius:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.10) 35%, rgba(255,255,255,.22));
+      animation:cuePulse .22s ease-out;
+    }
+
+    @keyframes cuePulse{
+      0%{ opacity:0; transform:translateY(8px) scaleY(.84); }
+      35%{ opacity:1; transform:translateY(0) scaleY(1.04); }
+      100%{ opacity:.25; transform:translateY(0) scaleY(1); }
+    }
+
+    .hit-line{
+      position:absolute;
+      left:4%;
+      right:4%;
+      bottom:132px;
+      height:10px;
+      border-radius:999px;
+      background:linear-gradient(90deg,rgba(255,255,255,.35),rgba(255,247,150,.98),rgba(255,255,255,.35));
+      box-shadow:
+        0 0 0 6px rgba(255,214,97,.14),
+        0 12px 24px rgba(255,214,97,.2);
+      z-index:5;
+    }
+
+    .note-layer{
+      position:absolute;
+      inset:0;
+      z-index:6;
+      pointer-events:none;
+    }
+
+    .note{
+      position:absolute;
+      left:50%;
+      top:0;
+      transform:translate(-50%,0);
+      width:min(86px,21vw);
+      aspect-ratio:1/1;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      color:#fff;
+      border:3px solid rgba(255,255,255,.24);
+      box-shadow:0 16px 24px rgba(0,0,0,.16);
+      pointer-events:none;
+    }
+
+    .note.lane-0{ background:linear-gradient(180deg,var(--lane-1),var(--blue-2)); }
+    .note.lane-1{ background:linear-gradient(180deg,var(--lane-2),var(--yellow-2)); }
+    .note.lane-2{ background:linear-gradient(180deg,var(--lane-3),var(--green-2)); }
+    .note.lane-3{ background:linear-gradient(180deg,var(--lane-4),var(--purple-2)); }
+
+    .lane-guide{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:186px;
+      z-index:7;
+      min-width:250px;
+      max-width:min(90%,540px);
+      padding:12px 16px;
+      border-radius:22px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      text-align:center;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.3;
+    }
+
+    .lane-guide small{
+      display:block;
+      margin-top:6px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .hit-zone-row{
+      position:absolute;
+      left:4%;
+      right:4%;
+      bottom:28px;
+      height:92px;
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:0;
+      z-index:8;
+    }
+
+    .hit-zone{
+      position:relative;
+      appearance:none;
+      border:0;
+      border-right:1px dashed rgba(255,255,255,.14);
+      background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.08) 72%,rgba(255,255,255,.16));
+      cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .hit-zone:last-child{ border-right:0; }
+
+    .hit-zone::before{
+      content:"แตะตรงนี้";
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:8px;
+      min-height:40px;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      border-radius:18px;
+      font-size:14px;
+      font-weight:1000;
+      color:#3f3b38;
+      background:rgba(255,255,255,.94);
+      border:2px solid rgba(255,255,255,.85);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .hit-zone[data-lane="0"]::before{ box-shadow:0 10px 18px rgba(127,207,255,.16); }
+    .hit-zone[data-lane="1"]::before{ box-shadow:0 10px 18px rgba(255,179,91,.16); }
+    .hit-zone[data-lane="2"]::before{ box-shadow:0 10px 18px rgba(126,217,87,.16); }
+    .hit-zone[data-lane="3"]::before{ box-shadow:0 10px 18px rgba(184,153,255,.16); }
+
+    .hit-zone.glow::before{
+      border-color:#fff4a6;
+      box-shadow:
+        0 0 0 6px rgba(255,214,97,.14),
+        0 12px 24px rgba(255,214,97,.24);
+      transform:translateY(-2px);
+    }
+
+    .key-hints{
+      position:absolute;
+      left:4%;
+      right:4%;
+      bottom:8px;
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:8px;
+      z-index:9;
+      pointer-events:none;
+    }
+
+    .key-hint{
+      min-height:24px;
+      display:grid;
+      place-items:center;
+      font-size:12px;
+      font-weight:1000;
+      color:rgba(255,255,255,.92);
+      text-shadow:0 2px 8px rgba(0,0,0,.18);
+    }
+
+    .feedback{
+      position:absolute;
+      left:50%;
+      top:92px;
+      transform:translateX(-50%);
+      z-index:20;
+      min-width:160px;
+      text-align:center;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:18px;
+      font-weight:1000;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .feedback.show{
+      opacity:1;
+      animation:pop .38s cubic-bezier(.2,.8,.2,1);
+    }
+
+    @keyframes pop{
+      0%{ transform:translateX(-50%) translateY(8px) scale(.92); opacity:0; }
+      40%{ transform:translateX(-50%) translateY(-4px) scale(1.04); opacity:1; }
+      100%{ transform:translateX(-50%) translateY(0) scale(1); opacity:1; }
+    }
+
+    .countdown{
+      position:absolute;
+      inset:0;
+      z-index:18;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,rgba(255,244,251,.18),rgba(255,248,222,.16));
+      backdrop-filter:blur(2px);
+    }
+
+    .countdown-card{
+      min-width:min(320px,88vw);
+      padding:18px 16px;
+      border-radius:24px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      text-align:center;
+    }
+
+    .countdown-card .mini{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .countdown-card .num{
+      margin-top:6px;
+      font-size:74px;
+      line-height:1;
+      font-weight:1000;
+      color:#316179;
+    }
+
+    /* cVR */
+    .cvr-shell{
+      position:absolute;
+      inset:0;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:6px;
+      z-index:2;
+    }
+
+    .cvr-eye{
+      position:relative;
+      overflow:hidden;
+      border-radius:24px;
+      border:2px solid rgba(255,255,255,.12);
+    }
+
+    .cvr-crosshair{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:38px;
+      height:38px;
+      transform:translate(-50%,-50%);
+      z-index:21;
+      pointer-events:none;
+    }
+
+    .cvr-crosshair::before,
+    .cvr-crosshair::after{
+      content:"";
+      position:absolute;
+      background:#fff;
+      border-radius:999px;
+      box-shadow:
+        0 0 0 2px rgba(0,0,0,.08),
+        0 0 16px rgba(255,255,255,.16);
+    }
+
+    .cvr-crosshair::before{
+      left:50%;
+      top:0;
+      bottom:0;
+      width:2px;
+      transform:translateX(-50%);
+    }
+
+    .cvr-crosshair::after{
+      top:50%;
+      left:0;
+      right:0;
+      height:2px;
+      transform:translateY(-50%);
+    }
+
+    .cvr-focus{
+      position:absolute;
+      left:50%;
+      bottom:110px;
+      transform:translateX(-50%);
+      z-index:21;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .summary{
+      position:fixed;
+      inset:0;
+      z-index:30;
+      display:grid;
+      place-items:center;
+      padding:16px;
+      background:rgba(188,217,235,.34);
+      backdrop-filter:blur(8px);
+    }
+
+    .summary-card{
+      width:min(760px,95vw);
+      max-height:min(90svh,860px);
+      overflow:auto;
+      padding:18px;
+      border-radius:28px;
+      background:rgba(255,255,255,.98);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:12px;
+    }
+
+    .summary-card h2{
+      margin:0;
+      font-size:28px;
+      line-height:1.08;
+    }
+
+    .summary-sub{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .sum-box{
+      padding:12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .sum-box .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .sum-box .v{
+      display:block;
+      margin-top:5px;
+      font-size:22px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .summary-actions{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .btn{
+      min-height:52px;
+      border:none;
+      border-radius:999px;
+      padding:12px 16px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
+      color:inherit;
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green-2));
+      color:#fff;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(135deg,#fff,#ffeef7);
+      border:2px solid var(--line);
+    }
+
+    .btn.ghost{
+      background:linear-gradient(135deg,#fffaf1,#fff2d8);
+      border:2px solid rgba(255,183,91,.32);
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    @media (max-width:900px){
+      .hud{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .summary-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .summary-actions{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width:700px){
+      .topbar{ grid-template-columns:1fr; }
+      .hud{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .lane-guide{
+        bottom:196px;
+        font-size:16px;
+        min-width:0;
+      }
+      .lane-guide small{ font-size:11px; }
+      .hit-line{ bottom:138px; }
+      .hit-zone-row{ height:100px; }
+      .key-hints{ display:none; }
+      .summary-actions{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width:560px){
+      .app{ width:min(100%, calc(100% - 10px)); }
+      .arena-shell{ min-height:640px; }
+      .note{ width:min(74px,20vw); font-size:30px; }
+      .lane-guide{ left:50%; width:min(92%,420px); }
+      .hit-zone::before{
+        font-size:12px;
+        min-height:42px;
+      }
+      .summary-card{
+        padding:14px;
+        border-radius:22px;
+      }
+      .summary-grid{ gap:8px; }
+      .sum-box{ padding:10px; border-radius:16px; }
+      .sum-box .v{ font-size:18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a id="btnBack" class="pill" href="../rhythm-boxer-vr.html">⬅ กลับ</a>
+
+      <div class="headline">
+        <h1>Hit Line Coach</h1>
+        <p>ฝึกให้เข้าใจว่า ต้องแตะ “ตอนถึงเส้น” ไม่ใช่แตะตัวโน้ตกลางจอ</p>
+      </div>
+
+      <a id="btnHubTop" class="pill" href="../fitness-zone.html">🏃 Fitness Zone</a>
+    </header>
+
+    <section class="hud">
+      <div class="hud-box"><span class="k">View</span><span id="hudView" class="v">mobile</span></div>
+      <div class="hud-box"><span class="k">Perfect</span><span id="hudPerfect" class="v">0</span></div>
+      <div class="hud-box"><span class="k">Early</span><span id="hudEarly" class="v">0</span></div>
+      <div class="hud-box"><span class="k">Late</span><span id="hudLate" class="v">0</span></div>
+      <div class="hud-box"><span class="k">Miss</span><span id="hudMiss" class="v">0</span></div>
+      <div class="hud-box"><span class="k">Time</span><span id="hudTime" class="v">0</span></div>
+    </section>
+
+    <section class="coach-card">
+      <div class="coach-top">
+        <div class="coach-avatar">🎯</div>
+        <div class="coach-copy">
+          <strong id="coachTitle">แตะตอนถึงเส้น</strong>
+          <span id="coachText">รอให้โน้ตลงมาชนเส้นสีเหลืองก่อน แล้วกดเลนเดียวกัน</span>
+        </div>
+      </div>
+
+      <div class="mini-tags">
+        <div class="mini-tag">👊 ฟ้า = Jab</div>
+        <div class="mini-tag">💥 ส้ม = Cross</div>
+        <div class="mini-tag">🛡 เขียว = Block</div>
+        <div class="mini-tag">⬇️ ม่วง = Duck</div>
+      </div>
+    </section>
+
+    <section class="arena-shell">
+      <div id="arena" class="arena">
+        <div id="singleArena" class="arena">
+          <div class="lane-grid" id="laneGrid">
+            <div class="lane" data-lane="0"></div>
+            <div class="lane" data-lane="1"></div>
+            <div class="lane" data-lane="2"></div>
+            <div class="lane" data-lane="3"></div>
+          </div>
+
+          <div id="hitLine" class="hit-line"></div>
+          <div id="noteLayer" class="note-layer"></div>
+
+          <div id="laneGuide" class="lane-guide">
+            แตะ “ด้านล่างของเลน” ตอนโน้ตชนเส้น
+            <small>ไม่ต้องแตะตัวโน้ตที่ลอยอยู่ข้างบน</small>
+          </div>
+
+          <div id="hitZoneRow" class="hit-zone-row">
+            <button class="hit-zone" data-lane="0" type="button" aria-label="Jab zone"></button>
+            <button class="hit-zone" data-lane="1" type="button" aria-label="Cross zone"></button>
+            <button class="hit-zone" data-lane="2" type="button" aria-label="Block zone"></button>
+            <button class="hit-zone" data-lane="3" type="button" aria-label="Duck zone"></button>
+          </div>
+
+          <div id="keyHints" class="key-hints">
+            <div class="key-hint">A</div>
+            <div class="key-hint">L</div>
+            <div class="key-hint">W</div>
+            <div class="key-hint">S</div>
+          </div>
+        </div>
+
+        <div id="cvrArena" class="cvr-shell hidden">
+          <div class="cvr-eye" id="cvrEyeL">
+            <div class="lane-grid cvr-grid">
+              <div class="lane" data-lane="0"></div>
+              <div class="lane" data-lane="1"></div>
+              <div class="lane" data-lane="2"></div>
+              <div class="lane" data-lane="3"></div>
+            </div>
+            <div class="hit-line"></div>
+            <div class="note-layer" id="noteLayerL"></div>
+          </div>
+
+          <div class="cvr-eye" id="cvrEyeR">
+            <div class="lane-grid cvr-grid">
+              <div class="lane" data-lane="0"></div>
+              <div class="lane" data-lane="1"></div>
+              <div class="lane" data-lane="2"></div>
+              <div class="lane" data-lane="3"></div>
+            </div>
+            <div class="hit-line"></div>
+            <div class="note-layer" id="noteLayerR"></div>
+          </div>
+
+          <div class="cvr-crosshair" id="cvrCrosshair"></div>
+          <div class="cvr-focus" id="cvrFocus">JAB</div>
+        </div>
+
+        <div id="feedback" class="feedback"></div>
+
+        <div id="countdown" class="countdown">
+          <div class="countdown-card">
+            <div class="mini">เตรียมดูเส้นให้ดี</div>
+            <div id="countdownNum" class="num">3</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      Hit Line Coach • Remember “รอให้ถึงเส้นก่อนกด”
+    </div>
+  </div>
+
+  <div id="summary" class="summary hidden">
+    <div class="summary-card">
+      <h2 id="summaryTitle">เข้าใจการตีแล้ว!</h2>
+      <p id="summarySub" class="summary-sub">รอบนี้เราดูว่าเด็กเริ่มจับจังหวะที่เส้นได้หรือยัง</p>
+
+      <div class="summary-grid">
+        <div class="sum-box"><span class="k">Perfect</span><span id="sumPerfect" class="v">0</span></div>
+        <div class="sum-box"><span class="k">Early</span><span id="sumEarly" class="v">0</span></div>
+        <div class="sum-box"><span class="k">Late</span><span id="sumLate" class="v">0</span></div>
+        <div class="sum-box"><span class="k">Miss</span><span id="sumMiss" class="v">0</span></div>
+        <div class="sum-box"><span class="k">Accuracy</span><span id="sumAcc" class="v">0%</span></div>
+        <div class="sum-box"><span class="k">Rank</span><span id="sumRank" class="v">B</span></div>
+        <div class="sum-box"><span class="k">Best Tip</span><span id="sumTip" class="v">รอให้ถึงเส้น</span></div>
+        <div class="sum-box"><span class="k">Duration</span><span id="sumDur" class="v">0s</span></div>
+      </div>
+
+      <div class="summary-actions">
+        <button id="btnReplay" class="btn primary" type="button">🔁 เล่นอีกครั้ง</button>
+        <a id="btnNext" class="btn secondary" href="../vr-rhythm-boxer-main/boxer.html">▶ ไปด่านถัดไป</a>
+        <a id="btnMainGame" class="btn secondary" href="../vr-rhythm-boxer-main/boxer.html">🥊 ไป Main Game</a>
+        <a id="btnHub" class="btn ghost" href="../fitness-zone.html">🏃 Fitness Zone</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+
+      const ACTIONS = [
+        { lane:0, key:'a', label:'JAB', icon:'👊' },
+        { lane:1, key:'l', label:'CROSS', icon:'💥' },
+        { lane:2, key:'w', label:'BLOCK', icon:'🛡' },
+        { lane:3, key:'s', label:'DUCK', icon:'⬇️' }
+      ];
+
+      const params = {
+        pid: qs.get('pid') || 'anon',
+        name: qs.get('name') || 'Player',
+        studyId: qs.get('studyId') || '',
+        diff: qs.get('diff') || 'normal',
+        time: Number(qs.get('time') || 45),
+        seed: Number(qs.get('seed') || Date.now()),
+        view: (() => {
+          const raw = (qs.get('view') || '').toLowerCase();
+          const touchDevice =
+            (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+            /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+          if (raw === 'pc' || raw === 'mobile' || raw === 'cvr') return raw;
+          return touchDevice ? 'mobile' : 'pc';
+        })(),
+        run: qs.get('run') || 'play',
+        hub: qs.get('hub') || '../fitness-zone.html',
+        back: qs.get('back') || '../vr-rhythm-boxer-bloom/index.html',
+        next: qs.get('next') || '../vr-rhythm-boxer-main/boxer.html',
+        zone: qs.get('zone') || 'fitness',
+        cat: qs.get('cat') || 'fitness',
+        cooldown: qs.get('cooldown') || '1',
+        planDay: qs.get('planDay') || '',
+        planSlot: qs.get('planSlot') || ''
+      };
+
+      const els = {
+        btnBack: $('btnBack'),
+        btnHubTop: $('btnHubTop'),
+        hudView: $('hudView'),
+        hudPerfect: $('hudPerfect'),
+        hudEarly: $('hudEarly'),
+        hudLate: $('hudLate'),
+        hudMiss: $('hudMiss'),
+        hudTime: $('hudTime'),
+
+        coachTitle: $('coachTitle'),
+        coachText: $('coachText'),
+
+        arena: $('arena'),
+        singleArena: $('singleArena'),
+        cvrArena: $('cvrArena'),
+        laneGuide: $('laneGuide'),
+        hitLine: $('hitLine'),
+        noteLayer: $('noteLayer'),
+        noteLayerL: $('noteLayerL'),
+        noteLayerR: $('noteLayerR'),
+        hitZoneRow: $('hitZoneRow'),
+        countdown: $('countdown'),
+        countdownNum: $('countdownNum'),
+        feedback: $('feedback'),
+
+        cvrEyeL: $('cvrEyeL'),
+        cvrEyeR: $('cvrEyeR'),
+        cvrCrosshair: $('cvrCrosshair'),
+        cvrFocus: $('cvrFocus'),
+
+        summary: $('summary'),
+        summaryTitle: $('summaryTitle'),
+        summarySub: $('summarySub'),
+        sumPerfect: $('sumPerfect'),
+        sumEarly: $('sumEarly'),
+        sumLate: $('sumLate'),
+        sumMiss: $('sumMiss'),
+        sumAcc: $('sumAcc'),
+        sumRank: $('sumRank'),
+        sumTip: $('sumTip'),
+        sumDur: $('sumDur'),
+        btnReplay: $('btnReplay'),
+        btnNext: $('btnNext'),
+        btnMainGame: $('btnMainGame'),
+        btnHub: $('btnHub')
+      };
+
+      const hitZones = [...document.querySelectorAll('.hit-zone')];
+      const singleLanes = [...document.querySelectorAll('#singleArena .lane')];
+      const cvrLanes = [...document.querySelectorAll('#cvrArena .lane')];
+
+      const state = {
+        started: false,
+        ended: false,
+        startAt: 0,
+        countdownAt: performance.now(),
+        durationMs: Math.max(25000, Math.min(60000, params.time * 1000)),
+        noteTravelMs: params.view === 'pc' ? 1700 : (params.view === 'cvr' ? 1900 : 1800),
+        currentLane: 0,
+        gamma: 0,
+        gammaOffset: 0,
+        gammaSmooth: 0,
+        laneLockUntil: 0,
+        lastCueAt: 0,
+
+        perfect: 0,
+        early: 0,
+        late: 0,
+        miss: 0,
+        total: 0,
+
+        notes: [],
+        feedbackHideAt: 0
+      };
+
+      function nowIso(){ return new Date().toISOString(); }
+      function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+      function passthrough(url){
+        const u = new URL(url, location.href);
+        [
+          'pid','name','studyId','diff','time','seed','view','run','hub',
+          'zone','cat','theme','planDay','planSlot','cooldown','gate','autoNext'
+        ].forEach((k) => {
+          const v = qs.get(k);
+          if (v != null && v !== '') u.searchParams.set(k, v);
+        });
+        return u.toString();
+      }
+
+      function setLinks(){
+        els.btnBack.href = passthrough(params.back);
+        els.btnHubTop.href = passthrough(params.hub);
+        els.btnHub.href = passthrough(params.hub);
+        els.btnNext.href = passthrough(params.next);
+        els.btnMainGame.href = passthrough('../vr-rhythm-boxer-main/boxer.html');
+      }
+
+      function showFeedback(text){
+        els.feedback.textContent = text;
+        els.feedback.classList.add('show');
+        state.feedbackHideAt = performance.now() + 420;
+      }
+
+      function clearFeedback(now){
+        if (state.feedbackHideAt && now >= state.feedbackHideAt){
+          state.feedbackHideAt = 0;
+          els.feedback.classList.remove('show');
+          els.feedback.textContent = '';
+        }
+      }
+
+      function setCoach(title, text){
+        els.coachTitle.textContent = title;
+        els.coachText.textContent = text;
+      }
+
+      function updateHud(timeLeftMs){
+        els.hudView.textContent = params.view.toUpperCase();
+        els.hudPerfect.textContent = String(state.perfect);
+        els.hudEarly.textContent = String(state.early);
+        els.hudLate.textContent = String(state.late);
+        els.hudMiss.textContent = String(state.miss);
+        els.hudTime.textContent = `${Math.max(0, Math.ceil(timeLeftMs / 1000))}`;
+      }
+
+      function laneLabel(lane){
+        return ACTIONS[lane]?.label || 'JAB';
+      }
+
+      function highlightLane(lane){
+        hitZones.forEach((el) => el.classList.toggle('glow', Number(el.dataset.lane) === lane));
+        singleLanes.forEach((el) => el.classList.toggle('focus', Number(el.dataset.lane) === lane));
+        cvrLanes.forEach((el) => el.classList.toggle('focus', Number(el.dataset.lane) === lane));
+        els.cvrFocus.textContent = laneLabel(lane);
+      }
+
+      function cueLane(lane){
+        const cue = (nodes) => {
+          nodes.forEach((el) => {
+            if (Number(el.dataset.lane) === lane){
+              el.classList.add('cue');
+              setTimeout(() => el.classList.remove('cue'), 140);
+            }
+          });
+        };
+        cue(singleLanes);
+        cue(cvrLanes);
+        hitZones.forEach((el) => {
+          if (Number(el.dataset.lane) === lane){
+            el.classList.add('glow');
+            setTimeout(() => el.classList.remove('glow'), 140);
+          }
+        });
+      }
+
+      function noteNode(lane){
+        const n = document.createElement('div');
+        n.className = `note lane-${lane}`;
+        n.textContent = ACTIONS[lane].icon;
+        return n;
+      }
+
+      function generateSequence(){
+        const sequence = [];
+        let t = 1400;
+        const spacing = 1300;
+
+        const fixed = [0,1,0,2,1,3,0,1,2,3];
+        for (let i = 0; i < fixed.length; i++){
+          sequence.push({
+            id:`n${i+1}`,
+            lane: fixed[i],
+            hitTime: t,
+            judged:false,
+            result:'',
+            el:null,
+            elL:null,
+            elR:null
+          });
+          t += spacing;
+        }
+
+        state.total = sequence.length;
+        return sequence;
+      }
+
+      function buildNotes(){
+        state.notes = generateSequence();
+        for (const note of state.notes){
+          if (params.view === 'cvr'){
+            note.elL = noteNode(note.lane);
+            note.elR = noteNode(note.lane);
+            els.noteLayerL.appendChild(note.elL);
+            els.noteLayerR.appendChild(note.elR);
+          } else {
+            note.el = noteNode(note.lane);
+            els.noteLayer.appendChild(note.el);
+          }
+        }
+      }
+
+      function layoutInViewport(noteEl, lane, elapsed, viewportRect, lineY){
+        if (!noteEl) return;
+
+        const laneWidth = viewportRect.width / 4;
+        const laneCenterX = (laneWidth * lane) + (laneWidth / 2);
+        const startY = 20;
+        const progress = (elapsed - (lineY.hitTime - state.noteTravelMs)) / state.noteTravelMs;
+        const easedCore = clamp(progress, 0, 1);
+        const eased = 1 - Math.pow(1 - easedCore, 2.15);
+        const y = startY + ((lineY.px - startY) * eased);
+
+        noteEl.style.left = `${laneCenterX}px`;
+        noteEl.style.transform = `translate(-50%, ${y}px) scale(${0.88 + eased * 0.16})`;
+
+        if (progress < -0.15 || progress > 1.2) noteEl.style.display = 'none';
+        else noteEl.style.display = '';
+      }
+
+      function renderNotes(elapsed){
+        if (params.view === 'cvr'){
+          const rectL = els.cvrEyeL.getBoundingClientRect();
+          const rectR = els.cvrEyeR.getBoundingClientRect();
+          const hitLinePx = rectL.height - 132;
+
+          for (const note of state.notes){
+            if (note.judged){
+              if (note.elL) note.elL.style.display = 'none';
+              if (note.elR) note.elR.style.display = 'none';
+              continue;
+            }
+
+            layoutInViewport(note.elL, note.lane, elapsed, rectL, { hitTime: note.hitTime, px: hitLinePx });
+            layoutInViewport(note.elR, note.lane, elapsed, rectR, { hitTime: note.hitTime, px: hitLinePx });
+
+            if (note.hitTime - elapsed < 260 && note.hitTime - elapsed > 120 && performance.now() - state.lastCueAt > 80){
+              state.lastCueAt = performance.now();
+              cueLane(note.lane);
+            }
+          }
+          return;
+        }
+
+        const rect = els.singleArena.getBoundingClientRect();
+        const hitLinePx = rect.height - 132;
+
+        for (const note of state.notes){
+          if (note.judged){
+            if (note.el) note.el.style.display = 'none';
+            continue;
+          }
+
+          layoutInViewport(note.el, note.lane, elapsed, rect, { hitTime: note.hitTime, px: hitLinePx });
+
+          if (note.hitTime - elapsed < 260 && note.hitTime - elapsed > 120 && performance.now() - state.lastCueAt > 80){
+            state.lastCueAt = performance.now();
+            cueLane(note.lane);
+          }
+        }
+      }
+
+      function nearestNote(lane, elapsed){
+        let best = null;
+        let bestAbs = 999999;
+
+        for (const note of state.notes){
+          if (note.judged || note.lane !== lane) continue;
+          const d = elapsed - note.hitTime;
+          const a = Math.abs(d);
+          if (a < bestAbs){
+            bestAbs = a;
+            best = { note, offset:d };
+          }
+        }
+        return best;
+      }
+
+      function handleLaneInput(lane){
+        if (!state.started || state.ended) return;
+
+        const elapsed = performance.now() - state.startAt;
+        const found = nearestNote(lane, elapsed);
+
+        if (!found){
+          showFeedback('ยังไม่ถึงเส้น');
+          setCoach('รออีกนิด', 'ยังไม่ต้องกดตอนโน้ตอยู่สูงเกินไป');
+          return;
+        }
+
+        const { note, offset } = found;
+        const a = Math.abs(offset);
+
+        note.judged = true;
+        if (note.el) note.el.remove();
+        if (note.elL) note.elL.remove();
+        if (note.elR) note.elR.remove();
+
+        if (a <= 85){
+          state.perfect += 1;
+          note.result = 'perfect';
+          showFeedback('PERFECT!');
+          setCoach('ตรงจังหวะ!', 'แบบนี้แหละ รอให้ชนเส้นก่อนแล้วค่อยกด');
+        } else if (offset < -85 && offset >= -240){
+          state.early += 1;
+          note.result = 'early';
+          showFeedback('เร็วไป');
+          setCoach('เร็วไปนิด', 'ครั้งหน้ารอให้ลงมาใกล้เส้นกว่านี้อีกนิด');
+        } else if (offset > 85 && offset <= 240){
+          state.late += 1;
+          note.result = 'late';
+          showFeedback('ช้าไป');
+          setCoach('ช้าไปนิด', 'ต้องกดเร็วกว่านี้ตอนแตะเส้นพอดี');
+        } else {
+          state.miss += 1;
+          note.result = 'miss';
+          showFeedback('MISS');
+          setCoach('พลาดแล้ว', 'ลองมองเส้นสีเหลืองไว้ก่อน ไม่ต้องไล่แตะตัวโน้ต');
+        }
+
+        updateHud(Math.max(0, state.durationMs - elapsed));
+      }
+
+      function handleAutoMiss(elapsed){
+        for (const note of state.notes){
+          if (note.judged) continue;
+          if (elapsed > note.hitTime + 260){
+            note.judged = true;
+            note.result = 'miss';
+            state.miss += 1;
+            if (note.el) note.el.remove();
+            if (note.elL) note.elL.remove();
+            if (note.elR) note.elR.remove();
+            setCoach('มองเส้นก่อน', 'คราวหน้าไม่ต้องมองตัวโน้ตอย่างเดียว ให้ล็อกตาที่เส้นสีเหลือง');
+          }
+        }
+      }
+
+      function accuracyPercent(){
+        const ok = state.perfect + state.early + state.late;
+        const total = Math.max(1, state.total);
+        return Math.round((ok / total) * 100);
+      }
+
+      function rankOf(){
+        const acc = accuracyPercent();
+        if (state.perfect >= 7 && acc >= 90) return 'S';
+        if (state.perfect >= 5 && acc >= 82) return 'A';
+        if (acc >= 70) return 'B';
+        if (acc >= 55) return 'C';
+        return 'D';
+      }
+
+      function bestTip(){
+        if (state.early > state.late && state.early >= 2) return 'กดช้าอีกนิด รอให้ถึงเส้น';
+        if (state.late > state.early && state.late >= 2) return 'กดไวขึ้นอีกนิด ตอนชนเส้นพอดี';
+        if (state.miss >= 3) return 'ล็อกสายตาที่เส้นเหลือง แล้วดูว่าโน้ตอยู่เลนไหน';
+        return 'เยี่ยมมาก เริ่มเข้าใจ hit line แล้ว';
+      }
+
+      function saveSummary(){
+        const payload = {
+          pid: params.pid,
+          game: 'hit-line-coach',
+          gameId: 'hit-line-coach',
+          zone: params.zone,
+          cat: params.cat,
+          diff: params.diff,
+          timeSec: Math.round(state.durationMs / 1000),
+          view: params.view,
+          runMode: params.run,
+          scoreFinal: state.perfect * 3 + state.early + state.late,
+          perfect: state.perfect,
+          early: state.early,
+          late: state.late,
+          miss: state.miss,
+          accPct: accuracyPercent(),
+          rank: rankOf(),
+          learnedHitTiming: state.perfect >= 4 ? 1 : 0,
+          durationSec: Math.round(state.durationMs / 1000),
+          studyId: params.studyId,
+          planDay: params.planDay,
+          planSlot: params.planSlot,
+          timestampIso: nowIso()
+        };
+
+        try{
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+          localStorage.setItem(`HHA_LAST_SUMMARY:hit-line-coach:${params.pid}`, JSON.stringify(payload));
+
+          const histKey = `HHA_SUMMARY_HISTORY:hit-line-coach:${params.pid}`;
+          const hist = JSON.parse(localStorage.getItem(histKey) || '[]');
+          hist.push(payload);
+          localStorage.setItem(histKey, JSON.stringify(hist.slice(-30)));
+        }catch(_){}
+      }
+
+      function showSummary(){
+        state.ended = true;
+        saveSummary();
+
+        els.sumPerfect.textContent = String(state.perfect);
+        els.sumEarly.textContent = String(state.early);
+        els.sumLate.textContent = String(state.late);
+        els.sumMiss.textContent = String(state.miss);
+        els.sumAcc.textContent = `${accuracyPercent()}%`;
+        els.sumRank.textContent = rankOf();
+        els.sumTip.textContent = bestTip();
+        els.sumDur.textContent = `${Math.round(state.durationMs / 1000)}s`;
+
+        els.summaryTitle.textContent =
+          rankOf() === 'S' ? 'สุดยอดมาก!' :
+          rankOf() === 'A' ? 'เข้าใจแล้ว!' :
+          'ใกล้จับจังหวะได้แล้ว!';
+        els.summarySub.textContent =
+          'ด่านนี้เน้นให้เด็กเข้าใจว่า ต้องแตะที่เลนด้านล่างตอนโน้ตชนเส้นสีเหลือง';
+
+        els.summary.classList.remove('hidden');
+      }
+
+      function updateCvrLane(){
+        if (params.view !== 'cvr') return;
+
+        const raw = state.gamma || 0;
+        state.gammaSmooth += (raw - state.gammaSmooth) * 0.14;
+        const g = clamp(state.gammaSmooth - state.gammaOffset, -40, 40);
+
+        let lane = 0;
+        if (g < -20) lane = 0;
+        else if (g < 0) lane = 1;
+        else if (g < 20) lane = 2;
+        else lane = 3;
+
+        const now = performance.now();
+        if (now >= state.laneLockUntil && lane !== state.currentLane){
+          state.currentLane = lane;
+          state.laneLockUntil = now + 90;
+          highlightLane(lane);
+        } else if (now >= state.laneLockUntil){
+          highlightLane(state.currentLane);
+        }
+
+        requestAnimationFrame(updateCvrLane);
+      }
+
+      async function loadVrUiIfNeeded(){
+        if (params.view !== 'cvr') return;
+        try{
+          await import('../vr/vr-ui.js?v=20260307b');
+        }catch(err){
+          console.warn('[HLC] vr-ui import failed', err);
+        }
+      }
+
+      function bindInputs(){
+        hitZones.forEach((btn) => {
+          btn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            handleLaneInput(Number(btn.dataset.lane));
+          }, { passive:false });
+
+          btn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleLaneInput(Number(btn.dataset.lane));
+          }, { passive:false });
+        });
+
+        window.addEventListener('keydown', (e) => {
+          const k = String(e.key || '').toLowerCase();
+          if (k === 'a') handleLaneInput(0);
+          else if (k === 'l') handleLaneInput(1);
+          else if (k === 'w') handleLaneInput(2);
+          else if (k === 's') handleLaneInput(3);
+          else if (params.view === 'cvr' && (k === ' ' || k === 'enter')){
+            e.preventDefault();
+            handleLaneInput(state.currentLane);
+          } else if (params.view === 'cvr' && k === 'r'){
+            e.preventDefault();
+            state.gammaOffset = state.gammaSmooth || 0;
+            showFeedback('RECENTER');
+          }
+        }, { passive:false });
+
+        if (params.view === 'cvr'){
+          window.addEventListener('deviceorientation', (ev) => {
+            if (typeof ev.gamma === 'number') state.gamma = ev.gamma;
+          });
+
+          window.addEventListener('mousemove', (ev) => {
+            const ratio = ev.clientX / Math.max(1, window.innerWidth);
+            state.gamma = (ratio * 80) - 40;
+          });
+
+          window.addEventListener('hha:shoot', () => {
+            handleLaneInput(state.currentLane);
+          });
+
+          window.addEventListener('hha:recenter', () => {
+            state.gammaOffset = state.gammaSmooth || 0;
+            showFeedback('RECENTER');
+          });
+        }
+      }
+
+      function showCorrectView(){
+        if (params.view === 'cvr'){
+          els.singleArena.classList.add('hidden');
+          els.cvrArena.classList.remove('hidden');
+          els.laneGuide.innerHTML = `เล็งเลนด้วยหัว แล้วกดตอนถึงเส้น<small>ใช้ trigger / แตะ / Space ก็ได้</small>`;
+        } else {
+          els.singleArena.classList.remove('hidden');
+          els.cvrArena.classList.add('hidden');
+        }
+      }
+
+      function startCountdown(){
+        const t0 = performance.now();
+        function step(now){
+          const left = 3 - Math.floor((now - t0) / 1000);
+          els.countdownNum.textContent = String(Math.max(1, left));
+
+          if (now - t0 >= 3000){
+            els.countdown.classList.add('hidden');
+            state.started = true;
+            state.startAt = performance.now();
+            setCoach('เริ่มได้เลย', 'มองที่เส้นเหลือง แล้วแตะด้านล่างของเลนตอนโน้ตชนเส้น');
+            return;
+          }
+          requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      }
+
+      function tick(now){
+        clearFeedback(now);
+
+        if (!state.started){
+          updateHud(state.durationMs);
+          requestAnimationFrame(tick);
+          return;
+        }
+
+        const elapsed = now - state.startAt;
+        const left = Math.max(0, state.durationMs - elapsed);
+
+        renderNotes(elapsed);
+        handleAutoMiss(elapsed);
+        updateHud(left);
+
+        if (elapsed >= state.durationMs){
+          showSummary();
+          return;
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      async function boot(){
+        document.body.dataset.view = params.view;
+        setLinks();
+        showCorrectView();
+        buildNotes();
+        bindInputs();
+        updateHud(state.durationMs);
+        highlightLane(0);
+
+        if (params.view === 'cvr'){
+          await loadVrUiIfNeeded();
+          updateCvrLane();
+        }
+
+        els.btnReplay.addEventListener('click', () => {
+          const u = new URL(location.href);
+          u.searchParams.set('seed', String(Date.now()));
+          location.href = u.toString();
+        });
+
+        startCountdown();
+        requestAnimationFrame(tick);
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
