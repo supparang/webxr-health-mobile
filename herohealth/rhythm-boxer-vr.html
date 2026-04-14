@@ -1,22 +1,28 @@
+<!-- /herohealth/rhythm-boxer-vr.html -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Rhythm Boxer Launcher</title>
+  <title>HeroHealth • Rhythm Boxer</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#ffacd1" />
-  <link rel="icon" href="./favicon.ico" />
+  <link rel="icon" href="../herohealth/favicon.ico" />
   <style>
     :root{
-      --sky1:#fff0f8;
-      --sky2:#ffdff0;
-      --sky3:#fff6dd;
-      --card:#fffefb;
+      --bg1:#fff1f8;
+      --bg2:#ffe0f0;
+      --bg3:#fff8de;
+
+      --card:#ffffff;
       --card2:#fff8fc;
-      --ink:#4f4a43;
-      --muted:#7a766f;
-      --line:#f1d6e6;
+
+      --line:#f2d6e6;
+      --line-strong:#f0bdd7;
+
+      --text:#433f3d;
+      --muted:#75706b;
+
       --pink:#ff9dcf;
       --pink2:#ff74b3;
       --purple:#b899ff;
@@ -27,39 +33,42 @@
       --green2:#53bf35;
       --yellow:#ffd661;
       --orange:#ffb35b;
-      --shadow:0 16px 34px rgba(77,74,67,.12);
+      --red:#ff7a7a;
+
+      --shadow:0 18px 42px rgba(67,63,61,.12);
+      --shadow-soft:0 10px 22px rgba(67,63,61,.08);
+
       --safe-top:env(safe-area-inset-top,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:ui-rounded,"SF Pro Rounded","Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
-      color:var(--ink);
+    html,body{ margin:0; padding:0; }
+    body{
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(circle at top, rgba(255,255,255,.72), transparent 36%),
-        linear-gradient(180deg,var(--sky1) 0%, var(--sky2) 52%, var(--sky3) 100%);
+        radial-gradient(circle at top left, rgba(255,255,255,.92), transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
     }
 
     a{ color:inherit; text-decoration:none; }
-    button,input{ font:inherit; color:inherit; }
+    button{ font:inherit; }
+    .hidden{ display:none !important; }
 
     .app{
-      min-height:100dvh;
+      width:min(1280px, calc(100% - 14px));
+      margin:0 auto;
       padding:
-        calc(12px + var(--safe-top))
-        12px
-        calc(18px + var(--safe-bottom))
-        12px;
+        calc(10px + var(--safe-top))
+        0
+        calc(14px + var(--safe-bottom));
       display:grid;
       gap:12px;
     }
 
     .topbar{
-      width:min(1180px,100%);
-      margin:0 auto;
       display:grid;
       grid-template-columns:auto 1fr auto;
       gap:10px;
@@ -67,48 +76,47 @@
     }
 
     .brand,
-    .top-actions a{
-      border:2px solid var(--line);
-      border-radius:999px;
-      background:rgba(255,255,255,.86);
-      box-shadow:var(--shadow);
-      color:inherit;
-    }
-
-    .brand{
-      display:flex;
+    .top-link{
+      min-height:48px;
+      display:inline-flex;
       align-items:center;
-      gap:8px;
+      gap:10px;
       padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
       font-weight:1000;
-      white-space:nowrap;
     }
 
-    .brand .icon{
-      width:28px;height:28px;border-radius:50%;
-      display:grid;place-items:center;
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
       background:linear-gradient(135deg,var(--pink),var(--purple));
       color:#fff;
-      font-size:14px;
+      font-size:15px;
     }
 
     .headline{
       min-width:0;
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-      padding:0 4px;
+      padding:0 2px;
     }
 
-    .headline .title{
-      font-size:clamp(22px,4vw,36px);
-      font-weight:1000;
+    .headline-title{
+      margin:0;
+      font-size:clamp(22px,4vw,38px);
       line-height:1;
+      font-weight:1000;
     }
 
-    .headline .sub{
-      font-size:13px;
+    .headline-sub{
+      margin:4px 0 0;
       color:var(--muted);
+      font-size:13px;
       font-weight:900;
     }
 
@@ -119,163 +127,165 @@
       flex-wrap:wrap;
     }
 
-    .top-actions a{
-      padding:10px 14px;
-      font-weight:1000;
-    }
-
     .shell{
-      width:min(1180px,100%);
-      margin:0 auto;
       display:grid;
-      grid-template-columns:1.06fr .94fr;
+      grid-template-columns:1.08fr .92fr;
       gap:12px;
       align-items:start;
     }
 
-    .card{
-      background:rgba(255,255,255,.86);
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,252,246,.92));
       border:2px solid var(--line);
       border-radius:30px;
       box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
     }
 
-    .hero{
-      overflow:hidden;
-      position:relative;
-      min-height:760px;
+    .menu-panel{
       padding:18px;
       display:grid;
       gap:14px;
-      align-content:start;
-      background:
-        radial-gradient(circle at 15% 12%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 85% 14%, rgba(255,255,255,.72), transparent 16%),
-        linear-gradient(180deg, rgba(255,255,255,.30), rgba(255,255,255,.08));
+      min-height:760px;
+      position:relative;
+      overflow:hidden;
     }
 
-    .hero-badge{
+    .menu-panel::after{
+      content:"";
+      position:absolute;
+      right:-30px;
+      bottom:-36px;
+      width:240px;
+      height:240px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,157,207,.20), transparent 64%);
+      pointer-events:none;
+    }
+
+    .badge{
+      width:max-content;
+      min-height:38px;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:10px 14px;
+      padding:8px 14px;
       border-radius:999px;
-      background:rgba(255,255,255,.92);
-      border:2px solid rgba(255,116,179,.18);
+      background:#fff;
+      border:2px solid var(--line);
       font-size:13px;
       font-weight:1000;
-      width:max-content;
+      box-shadow:var(--shadow-soft);
     }
 
-    .hero h1{
+    .hero-title{
       margin:0;
-      font-size:clamp(34px,5vw,58px);
-      line-height:.95;
+      font-size:clamp(34px,5vw,60px);
+      line-height:.92;
+      font-weight:1000;
     }
 
-    .hero p{
+    .hero-copy{
       margin:0;
       color:var(--muted);
       font-size:15px;
-      font-weight:800;
-      line-height:1.5;
-      max-width:700px;
+      font-weight:900;
+      line-height:1.55;
+      max-width:720px;
     }
 
     .preview{
-      border:2px dashed rgba(255,116,179,.22);
-      border-radius:28px;
-      background:
-        radial-gradient(circle at 50% 18%, rgba(255,255,255,.8), transparent 18%),
-        linear-gradient(180deg,#261236 0%, #4b245f 50%, #ffd9a1 51%, #fff2cf 100%);
-      min-height:340px;
       position:relative;
+      min-height:320px;
+      border-radius:28px;
+      border:2px dashed var(--line-strong);
       overflow:hidden;
-      display:grid;
-      place-items:center;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255,255,255,.82), transparent 16%),
+        linear-gradient(180deg,#261236 0%, #4d235f 56%, #ffd694 57%, #fff2d2 100%);
     }
 
-    .preview .lane{
+    .preview-arena{
       position:absolute;
-      inset:24px 18px 44px 18px;
-      border-radius:26px;
+      inset:20px 18px 42px 18px;
+      border-radius:24px;
       border:2px dashed rgba(255,255,255,.14);
     }
 
-    .preview .beatline{
+    .preview-hitline{
       position:absolute;
       left:50%;
       transform:translateX(-50%);
-      bottom:84px;
-      width:min(420px,74%);
+      bottom:82px;
+      width:min(430px,72%);
       height:14px;
       border-radius:999px;
-      background:linear-gradient(90deg, rgba(255,255,255,.22), rgba(255,255,255,.96), rgba(255,255,255,.22));
-      box-shadow:0 0 0 8px rgba(255,116,179,.14);
+      background:linear-gradient(90deg,rgba(255,255,255,.24),rgba(255,255,255,.96),rgba(255,255,255,.24));
+      box-shadow:0 0 0 8px rgba(255,157,207,.16);
     }
 
-    .preview .note{
+    .preview-note{
       position:absolute;
-      top:120px;
-      right:112px;
-      width:72px;
-      height:72px;
+      right:96px;
+      top:116px;
+      width:78px;
+      height:78px;
       border-radius:22px;
       display:grid;
       place-items:center;
       color:#fff;
       font-size:36px;
       background:linear-gradient(180deg,var(--pink),var(--pink2));
-      border:3px solid rgba(255,255,255,.26);
+      border:3px solid rgba(255,255,255,.24);
       box-shadow:0 16px 24px rgba(0,0,0,.16);
     }
 
-    .preview .cue{
+    .preview-cue{
       position:absolute;
-      top:34px;
       left:50%;
+      top:34px;
       transform:translateX(-50%);
-      width:min(250px,66vw);
+      min-width:220px;
+      max-width:min(82%,360px);
       min-height:104px;
+      padding:12px 14px;
       border-radius:26px;
       border:3px solid rgba(255,255,255,.88);
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(246,252,255,.95));
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,252,255,.95));
       display:grid;
       place-items:center;
       text-align:center;
       box-shadow:0 16px 28px rgba(0,0,0,.12);
-      font-weight:1000;
-      padding:10px 14px;
     }
 
-    .preview .cue .emoji{
+    .preview-cue .emoji{
       font-size:40px;
       line-height:1;
     }
 
-    .preview .cue .label{
-      font-size:22px;
+    .preview-cue .label{
       margin-top:4px;
+      font-size:22px;
       line-height:1.1;
+      font-weight:1000;
     }
 
-    .preview .cue .hint{
+    .preview-cue .hint{
+      margin-top:4px;
       font-size:12px;
       color:var(--muted);
-      margin-top:5px;
+      font-weight:900;
     }
 
-    .avatar{
+    .preview-avatar{
       position:absolute;
-      left:120px;
-      bottom:56px;
-      width:176px;
-      height:168px;
-      filter:drop-shadow(0 12px 16px rgba(0,0,0,.14));
+      left:110px;
+      bottom:54px;
+      width:180px;
+      height:170px;
+      filter:drop-shadow(0 12px 16px rgba(0,0,0,.15));
     }
 
-    .avatar .head{
+    .preview-avatar .head{
       position:absolute;
       left:50%;
       top:10px;
@@ -284,11 +294,10 @@
       height:58px;
       border-radius:50%;
       background:#ffe0bf;
-      border:3px solid rgba(77,74,67,.1);
-      z-index:2;
+      border:3px solid rgba(67,63,61,.1);
     }
 
-    .avatar .body{
+    .preview-avatar .body{
       position:absolute;
       left:50%;
       top:60px;
@@ -297,23 +306,23 @@
       height:60px;
       border-radius:24px 24px 18px 18px;
       background:linear-gradient(180deg,var(--blue),var(--blue2));
-      border:3px solid rgba(77,74,67,.1);
+      border:3px solid rgba(67,63,61,.1);
     }
 
-    .avatar .arm,
-    .avatar .leg{
+    .preview-avatar .arm,
+    .preview-avatar .leg{
       position:absolute;
       background:#ffe0bf;
       border-radius:999px;
-      border:3px solid rgba(77,74,67,.08);
+      border:3px solid rgba(67,63,61,.08);
     }
 
-    .avatar .arm{ width:16px;height:56px; top:66px; }
-    .avatar .arm.left{ left:34px; transform:rotate(36deg); }
-    .avatar .arm.right{ right:34px; transform:rotate(-36deg); }
-    .avatar .leg{ width:18px;height:62px; top:110px; }
-    .avatar .leg.left{ left:64px; transform:rotate(10deg); }
-    .avatar .leg.right{ right:64px; transform:rotate(-10deg); }
+    .preview-avatar .arm{ width:16px; height:56px; top:66px; }
+    .preview-avatar .arm.left{ left:34px; transform:rotate(38deg); }
+    .preview-avatar .arm.right{ right:34px; transform:rotate(-38deg); }
+    .preview-avatar .leg{ width:18px; height:62px; top:110px; }
+    .preview-avatar .leg.left{ left:64px; transform:rotate(10deg); }
+    .preview-avatar .leg.right{ right:64px; transform:rotate(-10deg); }
 
     .chips{
       display:flex;
@@ -322,25 +331,29 @@
     }
 
     .chip{
-      padding:10px 12px;
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:8px 12px;
       border-radius:999px;
-      background:rgba(255,255,255,.9);
-      border:2px solid rgba(255,116,179,.16);
+      background:#fff;
+      border:2px solid var(--line);
       font-size:12px;
       font-weight:1000;
-      box-shadow:var(--shadow);
+      box-shadow:var(--shadow-soft);
     }
 
-    .strip{
-      border-radius:24px;
-      border:2px solid rgba(255,116,179,.18);
-      background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(247,255,251,.94));
-      padding:14px;
+    .stats-strip{
       display:grid;
       gap:10px;
+      padding:14px;
+      border-radius:24px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,248,252,.94));
     }
 
-    .strip-head{
+    .stats-head{
       display:flex;
       justify-content:space-between;
       align-items:center;
@@ -348,161 +361,45 @@
       flex-wrap:wrap;
     }
 
-    .strip-title{
+    .stats-head strong{
       font-size:16px;
-      font-weight:1000;
-      color:#4d4a42;
     }
 
-    .strip-sub{
-      font-size:12px;
+    .stats-head span{
       color:var(--muted);
+      font-size:12px;
       font-weight:1000;
     }
 
-    .stat-grid{
+    .stats-grid{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
       gap:8px;
     }
 
-    .stat-pill{
+    .stat{
+      padding:10px 12px;
       border-radius:16px;
-      border:2px solid rgba(255,116,179,.16);
       background:#fff;
-      padding:10px;
+      border:2px solid var(--line);
     }
 
-    .stat-pill .k{
+    .stat .k{
       display:block;
       font-size:11px;
       color:var(--muted);
       font-weight:1000;
     }
 
-    .stat-pill .v{
+    .stat .v{
       display:block;
       margin-top:4px;
       font-size:18px;
       font-weight:1000;
-      color:#4d4a42;
-      line-height:1.15;
+      line-height:1.1;
     }
 
-    .mode-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .mode-card{
-      border-radius:22px;
-      border:2px solid rgba(255,116,179,.18);
-      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(247,255,251,.92));
-      padding:14px;
-      display:grid;
-      gap:10px;
-    }
-
-    .mode-card .top{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:10px;
-    }
-
-    .mode-card .icon{
-      width:42px;height:42px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(135deg,#fff0f8,#fff);
-      border:2px solid rgba(255,116,179,.18);
-      font-size:22px;
-      flex:0 0 auto;
-    }
-
-    .mode-card .title{
-      font-size:18px;
-      line-height:1.08;
-      font-weight:1000;
-      color:#4d4a42;
-    }
-
-    .mode-card .sub{
-      font-size:13px;
-      line-height:1.5;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .mode-card .tags{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .mode-card .tags span{
-      min-height:28px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:5px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid rgba(255,116,179,.14);
-      font-size:11px;
-      font-weight:1000;
-      color:#5d6e7a;
-    }
-
-    .mode-actions{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:8px;
-    }
-
-    .mode-actions .btn{
-      min-height:42px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      text-decoration:none;
-    }
-
-    .feature-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .feature{
-      border-radius:24px;
-      border:2px solid rgba(255,116,179,.18);
-      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(247,255,251,.92));
-      padding:14px;
-      display:grid;
-      gap:8px;
-    }
-
-    .feature .big{
-      font-size:30px;
-      line-height:1;
-    }
-
-    .feature strong{
-      font-size:15px;
-      line-height:1.15;
-    }
-
-    .feature span{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-      line-height:1.4;
-    }
-
-    .side{
+    .menu-side{
       padding:16px;
       display:grid;
       gap:12px;
@@ -510,27 +407,53 @@
       top:calc(10px + var(--safe-top));
     }
 
-    .section{
-      border-radius:24px;
-      border:2px dashed rgba(255,116,179,.18);
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(249,255,246,.92));
+    .card-block{
       padding:14px;
+      border-radius:24px;
+      border:2px dashed var(--line-strong);
+      background:linear-gradient(180deg,#fff,#fff9fc);
       display:grid;
       gap:10px;
     }
 
-    .section h3{
+    .card-block h3{
       margin:0;
       font-size:14px;
       letter-spacing:.02em;
     }
 
-    .section p{
+    .card-block p{
       margin:0;
-      font-size:13px;
       color:var(--muted);
-      font-weight:800;
+      font-size:13px;
+      font-weight:900;
       line-height:1.45;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .field input{
+      min-height:48px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:10px 12px;
+      outline:none;
+    }
+
+    .field input:focus{
+      border-color:var(--pink2);
     }
 
     .grid-2{
@@ -556,17 +479,17 @@
     }
 
     .toggle label{
-      display:grid;
-      place-items:center;
-      min-height:68px;
+      min-height:70px;
       padding:10px;
       border-radius:20px;
-      border:2px solid rgba(255,116,179,.16);
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,252,255,.9));
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#fff,#fff8fc);
+      display:grid;
+      place-items:center;
+      text-align:center;
       font-weight:1000;
       cursor:pointer;
-      text-align:center;
-      box-shadow:0 10px 18px rgba(0,0,0,.05);
+      box-shadow:var(--shadow-soft);
     }
 
     .toggle label small{
@@ -579,44 +502,17 @@
     }
 
     .toggle input:checked + label{
-      border-color:rgba(255,116,179,.38);
-      background:linear-gradient(180deg, #ffffff, #fff0f8);
+      border-color:var(--pink2);
+      background:linear-gradient(180deg,#fff,#ffeef7);
       transform:translateY(-2px);
-      box-shadow:0 14px 24px rgba(255,116,179,.12);
-    }
-
-    .field{
-      display:grid;
-      gap:6px;
-    }
-
-    .field label{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .field input{
-      width:100%;
-      min-height:48px;
-      border-radius:16px;
-      border:2px solid rgba(255,116,179,.16);
-      padding:10px 12px;
-      background:#fff;
-      outline:none;
-    }
-
-    .field input:focus{
-      border-color:rgba(255,116,179,.38);
+      box-shadow:0 14px 24px rgba(255,116,179,.14);
     }
 
     .recommend-box{
-      border-radius:18px;
-      border:2px solid rgba(255,116,179,.16);
-      background:#fff;
       padding:12px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
       display:grid;
       gap:8px;
     }
@@ -624,20 +520,19 @@
     .recommend-title{
       font-size:14px;
       font-weight:1000;
-      color:#4d4a42;
     }
 
     .recommend-sub{
-      font-size:13px;
-      line-height:1.5;
       color:var(--muted);
+      font-size:13px;
       font-weight:900;
+      line-height:1.45;
     }
 
     .recommend-chips{
       display:flex;
-      gap:8px;
       flex-wrap:wrap;
+      gap:8px;
     }
 
     .recommend-chips span{
@@ -648,10 +543,9 @@
       padding:5px 10px;
       border-radius:999px;
       background:#fff;
-      border:2px solid rgba(255,116,179,.14);
+      border:2px solid var(--line);
       font-size:11px;
       font-weight:1000;
-      color:#5d6e7a;
     }
 
     .launch-actions{
@@ -660,28 +554,33 @@
     }
 
     .btn{
+      min-height:52px;
       border:none;
       border-radius:999px;
-      min-height:52px;
       padding:12px 16px;
       font-weight:1000;
       cursor:pointer;
-      box-shadow:var(--shadow);
+      box-shadow:var(--shadow-soft);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
     }
 
     .btn.primary{
-      background:linear-gradient(135deg, var(--green), var(--green2));
+      background:linear-gradient(135deg,var(--green),var(--green2));
       color:#fff;
     }
 
     .btn.secondary{
-      background:linear-gradient(135deg, #fff, #fff0f8);
-      border:2px solid rgba(255,116,179,.16);
+      background:linear-gradient(135deg,#fff,#ffeef7);
+      border:2px solid var(--line);
     }
 
     .btn.ghost{
-      background:linear-gradient(135deg, #fffaf2, #fff2da);
-      border:2px solid rgba(255,176,79,.28);
+      background:linear-gradient(135deg,#fffaf2,#fff2da);
+      border:2px solid rgba(255,179,91,.30);
     }
 
     .preview-url{
@@ -689,32 +588,36 @@
       font-size:11px;
       line-height:1.45;
       color:#445;
-      background:rgba(255,255,255,.76);
+      background:rgba(255,255,255,.8);
       border-radius:16px;
-      border:2px dashed rgba(255,116,179,.12);
+      border:2px dashed var(--line-strong);
       padding:10px;
       word-break:break-all;
     }
 
     .footer-note{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:800;
       text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
     }
 
-    @media (max-width: 980px){
+    @media (max-width:1100px){
       .shell{ grid-template-columns:1fr; }
-      .side{ position:relative; top:auto; }
+      .menu-side{ position:relative; top:auto; }
     }
 
-    @media (max-width: 760px){
-      .topbar{ grid-template-columns:1fr; }
-      .feature-grid,
-      .grid-3,
-      .stat-grid,
-      .mode-grid{ grid-template-columns:1fr; }
-      .mode-actions{ grid-template-columns:1fr; }
+    @media (max-width:780px){
+      .topbar{
+        grid-template-columns:1fr;
+      }
+      .stats-grid,
+      .grid-3{
+        grid-template-columns:1fr;
+      }
+      .grid-2{
+        grid-template-columns:1fr;
+      }
     }
   </style>
 </head>
@@ -722,34 +625,38 @@
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <div class="icon">🥁</div>
+        <div class="brand-icon">🥁</div>
         <div>HeroHealth</div>
       </div>
 
       <div class="headline">
-        <div class="title">Rhythm Boxer Launcher</div>
-        <div class="sub">Rhythm • Timing • Combo • Play / Quick / Research / Demo</div>
+        <h1 class="headline-title">Rhythm Boxer</h1>
+        <p class="headline-sub">Rhythm • Timing • Combo • Beat • Fitness Zone</p>
       </div>
 
       <div class="top-actions">
-        <a id="btnBackFitness" href="./fitness-zone.html">🏃 Fitness Zone</a>
-        <a id="btnHubTop" href="./hub-v2.html">🏠 HUB</a>
+        <a id="btnBackFitnessTop" class="top-link" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnBackHubTop" class="top-link" href="../herohealth/hub-v2.html">🏠 HUB</a>
       </div>
     </header>
 
-    <main class="shell">
-      <section class="card hero">
-        <div class="hero-badge">✨ Child-friendly • Rhythm • Punch • Combo • Boss</div>
+    <section class="shell">
+      <section class="panel menu-panel">
+        <div class="badge">✨ child-friendly • rhythm • beat • summary • warmup+cooldown</div>
 
-        <h1>Rhythm Boxer</h1>
-        <p>
+        <h2 class="hero-title">Rhythm<br>Boxer</h2>
+
+        <p class="hero-copy">
           เกมนี้ฝึก <strong>การจับจังหวะ ตีตาม beat และรักษาคอมโบ</strong>
-          เด็กจะได้ฝึก timing อย่างสนุก มี pattern ชัด และค่อย ๆ ผ่านด่านจนถึงช่วง boss/final round
+          เด็กจะได้ฝึก timing แบบสนุก มีโน้ตชัด เข้าใจง่าย และค่อย ๆ เล่นจนผ่านช่วง boss ได้
         </p>
 
         <div class="preview">
-          <div class="lane"></div>
-          <div class="cue">
+          <div class="preview-arena"></div>
+          <div class="preview-hitline"></div>
+          <div class="preview-note">♪</div>
+
+          <div class="preview-cue">
             <div>
               <div class="emoji">🥊</div>
               <div class="label">Punch on Beat</div>
@@ -757,10 +664,7 @@
             </div>
           </div>
 
-          <div class="beatline"></div>
-          <div class="note">♪</div>
-
-          <div class="avatar">
+          <div class="preview-avatar" aria-hidden="true">
             <div class="head"></div>
             <div class="body"></div>
             <div class="arm left"></div>
@@ -772,152 +676,61 @@
 
         <div class="chips">
           <div class="chip">🥁 Rhythm</div>
-          <div class="chip">🥊 Punch</div>
-          <div class="chip">🔥 Combo</div>
           <div class="chip">🎯 Timing</div>
+          <div class="chip">🔥 Combo</div>
+          <div class="chip">🎵 Beat</div>
           <div class="chip">⭐ Summary</div>
         </div>
 
-        <section class="strip" id="recentStrip">
-          <div class="strip-head">
-            <div class="strip-title">🕹️ Rhythm Boxer ล่าสุด</div>
-            <div class="strip-sub" id="recentStripSub">ยังไม่มีผลล่าสุด</div>
+        <section class="stats-strip">
+          <div class="stats-head">
+            <strong>🕹️ ผลล่าสุด</strong>
+            <span id="recentStripSub">ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย</span>
           </div>
 
-          <div class="stat-grid">
-            <div class="stat-pill"><span class="k">Rank</span><span class="v" id="recentRank">-</span></div>
-            <div class="stat-pill"><span class="k">Score</span><span class="v" id="recentScore">-</span></div>
-            <div class="stat-pill"><span class="k">Accuracy</span><span class="v" id="recentAcc">-</span></div>
-            <div class="stat-pill"><span class="k">Combo</span><span class="v" id="recentCombo">-</span></div>
-          </div>
-        </section>
-
-        <section class="strip">
-          <div class="strip-head">
-            <div class="strip-title">🎮 เลือกโหมดเล่น</div>
-            <div class="strip-sub">กดปุ่มในแต่ละการ์ดเพื่อ preset และเข้าเล่นทันที</div>
-          </div>
-
-          <div class="mode-grid">
-            <article class="mode-card">
-              <div class="top">
-                <div>
-                  <div class="title">Play Standard</div>
-                  <div class="sub">warmup → game → summary → cooldown</div>
-                </div>
-                <div class="icon">▶</div>
-              </div>
-              <div class="tags">
-                <span>gate on</span><span>cooldown on</span><span>90s</span>
-              </div>
-              <div class="mode-actions">
-                <button class="btn primary" id="modePlayStart" type="button">เริ่มเลย</button>
-                <button class="btn secondary" id="modePlayPreset" type="button">ใช้ค่านี้</button>
-              </div>
-            </article>
-
-            <article class="mode-card">
-              <div class="top">
-                <div>
-                  <div class="title">Quick Play</div>
-                  <div class="sub">เข้าเกมเร็ว ไม่ผ่าน warmup</div>
-                </div>
-                <div class="icon">⚡</div>
-              </div>
-              <div class="tags">
-                <span>gate off</span><span>cooldown on</span><span>เร็ว</span>
-              </div>
-              <div class="mode-actions">
-                <button class="btn primary" id="modeQuickStart" type="button">เริ่มเลย</button>
-                <button class="btn secondary" id="modeQuickPreset" type="button">ใช้ค่านี้</button>
-              </div>
-            </article>
-
-            <article class="mode-card">
-              <div class="top">
-                <div>
-                  <div class="title">Research</div>
-                  <div class="sub">seed / logging / deterministic flow</div>
-                </div>
-                <div class="icon">🧪</div>
-              </div>
-              <div class="tags">
-                <span>run=research</span><span>gate on</span><span>study</span>
-              </div>
-              <div class="mode-actions">
-                <button class="btn primary" id="modeResearchStart" type="button">เริ่มเลย</button>
-                <button class="btn secondary" id="modeResearchPreset" type="button">ใช้ค่านี้</button>
-              </div>
-            </article>
-
-            <article class="mode-card">
-              <div class="top">
-                <div>
-                  <div class="title">Demo 60s</div>
-                  <div class="sub">easy • สั้น • เหมาะสำหรับสาธิต</div>
-                </div>
-                <div class="icon">🎈</div>
-              </div>
-              <div class="tags">
-                <span>60s</span><span>easy</span><span>cooldown off</span>
-              </div>
-              <div class="mode-actions">
-                <button class="btn primary" id="modeDemoStart" type="button">เริ่มเลย</button>
-                <button class="btn secondary" id="modeDemoPreset" type="button">ใช้ค่านี้</button>
-              </div>
-            </article>
+          <div class="stats-grid">
+            <div class="stat"><span class="k">Rank</span><span id="recentRank" class="v">-</span></div>
+            <div class="stat"><span class="k">Score</span><span id="recentScore" class="v">-</span></div>
+            <div class="stat"><span class="k">Accuracy</span><span id="recentAcc" class="v">-</span></div>
+            <div class="stat"><span class="k">Combo</span><span id="recentCombo" class="v">-</span></div>
           </div>
         </section>
-
-        <div class="feature-grid">
-          <div class="feature">
-            <div class="big">🥁</div>
-            <strong>จับจังหวะ</strong>
-            <span>ฝึกฟังและตีตามจังหวะอย่างแม่นขึ้นทุกครั้ง</span>
-          </div>
-          <div class="feature">
-            <div class="big">🔥</div>
-            <strong>เก็บคอมโบ</strong>
-            <span>ต่อยต่อเนื่องให้ได้ และรักษา flow ของเกม</span>
-          </div>
-          <div class="feature">
-            <div class="big">🎯</div>
-            <strong>อ่าน pattern</strong>
-            <span>ฝึกอ่านแพทเทิร์นโน้ตและตัดสินใจให้เร็วขึ้น</span>
-          </div>
-        </div>
       </section>
 
-      <aside class="card side">
-        <section class="section">
+      <aside class="panel menu-side">
+        <section class="card-block">
           <h3>PLAYER</h3>
+
           <div class="field">
             <label for="pid">PID</label>
             <input id="pid" type="text" placeholder="anon" />
           </div>
+
           <div class="field">
             <label for="name">Name</label>
             <input id="name" type="text" placeholder="Player" />
           </div>
+
           <div class="field">
             <label for="studyId">Study ID</label>
             <input id="studyId" type="text" placeholder="optional" />
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>RECOMMENDED SETTINGS</h3>
+
           <div class="recommend-box">
-            <div class="recommend-title" id="recommendTitle">แนะนำค่าเริ่มต้น</div>
-            <div class="recommend-sub" id="recommendSub">ระบบจะเลือกค่าที่เหมาะจากผลล่าสุดให้</div>
-            <div class="recommend-chips" id="recommendChips">
+            <div id="recommendTitle" class="recommend-title">แนะนำค่าเริ่มต้น</div>
+            <div id="recommendSub" class="recommend-sub">ระบบจะเลือกค่าที่เหมาะจากผลล่าสุดให้</div>
+            <div id="recommendChips" class="recommend-chips">
               <span>Normal</span><span>90s</span><span>Mobile</span>
             </div>
             <button id="btnApplyRecommended" class="btn secondary" type="button">✨ ใช้ค่าที่แนะนำ</button>
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>DIFFICULTY</h3>
           <div class="grid-3">
             <div class="toggle">
@@ -935,12 +748,12 @@
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>TIME</h3>
           <div class="grid-3">
             <div class="toggle">
               <input id="time-60" name="time" type="radio" value="60" />
-              <label for="time-60">60s<small>สั้น กระชับ</small></label>
+              <label for="time-60">60s<small>สั้น</small></label>
             </div>
             <div class="toggle">
               <input id="time-90" name="time" type="radio" value="90" checked />
@@ -953,12 +766,12 @@
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>VIEW</h3>
           <div class="grid-3">
             <div class="toggle">
               <input id="view-mobile" name="view" type="radio" value="mobile" checked />
-              <label for="view-mobile">Mobile<small>เล่นทั่วไป</small></label>
+              <label for="view-mobile">Mobile<small>ทั่วไป</small></label>
             </div>
             <div class="toggle">
               <input id="view-pc" name="view" type="radio" value="pc" />
@@ -966,12 +779,12 @@
             </div>
             <div class="toggle">
               <input id="view-cvr" name="view" type="radio" value="cvr" />
-              <label for="view-cvr">cVR<small>เก็บ param ไว้ก่อน</small></label>
+              <label for="view-cvr">cVR<small>Cardboard</small></label>
             </div>
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>RUN MODE</h3>
           <div class="grid-2">
             <div class="toggle">
@@ -980,14 +793,14 @@
             </div>
             <div class="toggle">
               <input id="run-research" name="run" type="radio" value="research" />
-              <label for="run-research">Research<small>เน้น seed / logging</small></label>
+              <label for="run-research">Research<small>seed/logging</small></label>
             </div>
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>FLOW</h3>
-          <p>Start มาตรฐานจะไปตามลำดับ <strong>warmup-gate → rhythm-boxer → summary → cooldown → hub/zone</strong></p>
+          <p>โหมดมาตรฐานจะไปตามลำดับ <strong>warmup-gate → rhythm-boxer → summary → cooldown → hub/zone</strong></p>
 
           <div class="grid-2">
             <div class="toggle">
@@ -1012,7 +825,7 @@
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>SEED</h3>
           <div class="field">
             <label for="seed">Seed</label>
@@ -1020,266 +833,301 @@
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>LAUNCH</h3>
           <div class="launch-actions">
             <button id="btnStartStandard" class="btn primary" type="button">▶ Start with Current Settings</button>
             <button id="btnQuickPlay" class="btn secondary" type="button">⚡ Quick Play Now</button>
             <button id="btnUseLastPattern" class="btn ghost" type="button">🕹️ ใช้ค่าจากล่าสุด</button>
           </div>
-          <div class="preview-url" id="previewUrl">preview url</div>
+          <div id="previewUrl" class="preview-url">preview url</div>
         </section>
 
         <div class="footer-note">
-          Launcher นี้จะส่ง query params ให้ครบทั้ง pid / diff / time / seed / hub / run / view / gate / cooldown
+          Launcher นี้ส่งค่า pid / diff / time / seed / hub / run / view / gate / cooldown ให้ครบ
         </div>
       </aside>
-    </main>
+    </section>
+
+    <div class="footer-note">
+      HeroHealth • Rhythm Boxer • launcher-only • run page = /herohealth/vr-rhythm-boxer-main/boxer.html
+    </div>
   </div>
 
+  <script src="../herohealth/fitness-zone-bridge.js"></script>
   <script>
-  (() => {
-    'use strict';
+    (function () {
+      'use strict';
 
-    const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
-    const RHYTHM_SUMMARY_KEY = 'HHA_LAST_SUMMARY_RHYTHMBOXER';
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
 
-    const qs = new URLSearchParams(location.search);
-    const $ = (id) => document.getElementById(id);
-
-    const els = {
-      pid: $('pid'),
-      name: $('name'),
-      studyId: $('studyId'),
-      seed: $('seed'),
-      btnHubTop: $('btnHubTop'),
-      btnBackFitness: $('btnBackFitness'),
-      btnStartStandard: $('btnStartStandard'),
-      btnQuickPlay: $('btnQuickPlay'),
-      btnUseLastPattern: $('btnUseLastPattern'),
-      previewUrl: $('previewUrl'),
-      btnApplyRecommended: $('btnApplyRecommended'),
-      recommendTitle: $('recommendTitle'),
-      recommendSub: $('recommendSub'),
-      recommendChips: $('recommendChips'),
-      recentStripSub: $('recentStripSub'),
-      recentRank: $('recentRank'),
-      recentScore: $('recentScore'),
-      recentAcc: $('recentAcc'),
-      recentCombo: $('recentCombo'),
-      modePlayStart: $('modePlayStart'),
-      modePlayPreset: $('modePlayPreset'),
-      modeQuickStart: $('modeQuickStart'),
-      modeQuickPreset: $('modeQuickPreset'),
-      modeResearchStart: $('modeResearchStart'),
-      modeResearchPreset: $('modeResearchPreset'),
-      modeDemoStart: $('modeDemoStart'),
-      modeDemoPreset: $('modeDemoPreset')
-    };
-
-    const ABS_HUB = new URL('./hub-v2.html', location.href).href;
-    const ABS_FITNESS = new URL('./fitness-zone.html', location.href).href;
-    const ABS_RUN = new URL('../fitness/rhythm-boxer.html', location.href).href;
-    const ABS_GATE = new URL('./warmup-gate.html', location.href).href;
-
-    function safeJsonParse(raw, fallback = null) {
-      try { return JSON.parse(raw); } catch (_) { return fallback; }
-    }
-
-    function readJsonKey(key) {
-      try {
-        const raw = localStorage.getItem(key);
-        return raw ? safeJsonParse(raw, null) : null;
-      } catch (_) {
-        return null;
-      }
-    }
-
-    function readRhythmSummary() {
-      const rb = readJsonKey(RHYTHM_SUMMARY_KEY);
-      if (rb && String(rb.game || '').toLowerCase().includes('rhythm')) return rb;
-
-      const generic = readJsonKey(LAST_SUMMARY_KEY);
-      if (generic && String(generic.game || '').toLowerCase().includes('rhythm')) return generic;
-
-      return null;
-    }
-
-    function readOrDefault(key, fallback) {
-      const v = qs.get(key);
-      return (v == null || v === '') ? fallback : v;
-    }
-
-    function readRadio(name, fallback) {
-      const node = document.querySelector(`input[name="${name}"]:checked`);
-      return node ? node.value : fallback;
-    }
-
-    function setRadio(name, value, fallbackId) {
-      const target = document.querySelector(`input[name="${name}"][value="${value}"]`);
-      if (target) target.checked = true;
-      else if (fallbackId) $(fallbackId).checked = true;
-    }
-
-    function cleanText(v, fallback='') {
-      return String(v || '').trim() || fallback;
-    }
-
-    function buildSeed() {
-      return cleanText(els.seed.value, String(Date.now()));
-    }
-
-    function buildFitnessBackUrl() {
-      const u = new URL(readOrDefault('hub', ABS_FITNESS), location.href);
-      if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'rhythm-boxer');
-      if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'rhythm-boxer');
-      return u.toString();
-    }
-
-    function baseParams() {
-      const seed = buildSeed();
-      const hub = buildFitnessBackUrl();
-
-      return {
-        pid: cleanText(els.pid.value, 'anon'),
-        name: cleanText(els.name.value, 'Player'),
-        studyId: cleanText(els.studyId.value, ''),
-        diff: readRadio('diff', 'normal'),
-        time: readRadio('time', '90'),
-        view: readRadio('view', 'mobile'),
-        run: readRadio('run', 'play'),
-        gate: readRadio('gate', '1'),
-        cooldown: readRadio('cooldown', '1'),
-        seed,
-        hub
-      };
-    }
-
-    function copyExtraParams(url) {
-      const passthroughKeys = [
-        'studentKey','schoolCode','classRoom','studentNo','nickName',
-        'api','debug','phase','conditionGroup','sessionNo','weekNo','log'
-      ];
-
-      passthroughKeys.forEach((k) => {
+      function q(k, d='') {
         const v = qs.get(k);
-        if (v != null && v !== '') url.searchParams.set(k, v);
-      });
-    }
-
-    function buildRunUrl(modeOverride = null, patch = {}) {
-      const p = baseParams();
-      const url = new URL(ABS_RUN);
-
-      url.searchParams.set('pid', p.pid);
-      url.searchParams.set('name', p.name);
-      if (p.studyId) url.searchParams.set('studyId', p.studyId);
-
-      url.searchParams.set('zone', 'fitness');
-      url.searchParams.set('cat', 'fitness');
-      url.searchParams.set('game', 'rhythm-boxer');
-      url.searchParams.set('gameId', 'rhythm-boxer');
-      url.searchParams.set('theme', 'rhythmboxer');
-
-      url.searchParams.set('diff', patch.diff || p.diff);
-      url.searchParams.set('time', patch.time || p.time);
-      url.searchParams.set('seed', patch.seed || p.seed);
-      url.searchParams.set('hub', patch.hub || p.hub);
-      url.searchParams.set('view', patch.view || p.view);
-      url.searchParams.set('run', modeOverride || patch.run || p.run);
-
-      url.searchParams.set('gate', patch.gate || p.gate);
-      url.searchParams.set('cooldown', patch.cooldown || p.cooldown);
-      url.searchParams.set('returnPhase', (patch.cooldown || p.cooldown) === '1' ? 'cooldown' : 'hub');
-      url.searchParams.set('cdur', patch.cdur || '20');
-
-      copyExtraParams(url);
-      return url;
-    }
-
-    function buildWarmupUrl(runUrl, patch = {}) {
-      const p = baseParams();
-      const url = new URL(ABS_GATE);
-
-      url.searchParams.set('phase', 'warmup');
-      url.searchParams.set('pid', p.pid);
-      url.searchParams.set('name', p.name);
-      if (p.studyId) url.searchParams.set('studyId', p.studyId);
-
-      url.searchParams.set('zone', 'fitness');
-      url.searchParams.set('cat', 'fitness');
-      url.searchParams.set('game', 'rhythm-boxer');
-      url.searchParams.set('gameId', 'rhythm-boxer');
-      url.searchParams.set('theme', 'rhythmboxer');
-
-      url.searchParams.set('diff', patch.diff || p.diff);
-      url.searchParams.set('time', patch.time || p.time);
-      url.searchParams.set('seed', patch.seed || p.seed);
-      url.searchParams.set('hub', patch.hub || p.hub);
-      url.searchParams.set('view', patch.view || p.view);
-      url.searchParams.set('run', patch.run || p.run);
-
-      url.searchParams.set('gate', '1');
-      url.searchParams.set('cooldown', patch.cooldown || p.cooldown);
-      url.searchParams.set('returnPhase', (patch.cooldown || p.cooldown) === '1' ? 'cooldown' : 'hub');
-      url.searchParams.set('dur', patch.dur || '20');
-      url.searchParams.set('cdur', patch.cdur || '20');
-      url.searchParams.set('next', runUrl.href);
-
-      copyExtraParams(url);
-      return url;
-    }
-
-    function recommendFromSummary(summary) {
-      if (!summary) {
-        return {
-          title: 'แนะนำค่าเริ่มต้นสำหรับผู้เล่นใหม่',
-          sub: 'เริ่มแบบสมดุลก่อน เพื่อฝึกฟัง beat และกดให้ตรงจังหวะ',
-          diff: 'normal',
-          time: '90',
-          view: readOrDefault('view', 'mobile'),
-          run: 'play',
-          gate: '1',
-          cooldown: '1',
-          chips: ['Normal', '90s', readOrDefault('view', 'mobile'), 'Standard']
-        };
+        return v == null || v === '' ? d : v;
       }
 
-      const score = Number(summary.scoreFinal || summary.score || 0);
-      const rank = String(summary.rank || '').toUpperCase();
-      const acc = Number(summary.accPct || summary.accuracy || 0);
-      const combo = Number(summary.maxCombo || summary.combo || 0);
-      const miss = Number(summary.miss || summary.missTotal || 0);
+      const els = {
+        pid: $('pid'),
+        name: $('name'),
+        studyId: $('studyId'),
+        seed: $('seed'),
 
-      if (acc < 50 || miss >= 10) {
-        return {
-          title: 'แนะนำให้ผ่อนความยากก่อน',
-          sub: 'ใช้ Easy และเวลา 60 วินาที เพื่อจับ beat และลดความกดดันของโน้ต',
-          diff: 'easy',
-          time: '60',
-          view: 'mobile',
-          run: 'play',
-          gate: '1',
-          cooldown: '1',
-          chips: ['Easy', '60s', 'Rhythm Focus', 'Standard']
-        };
+        btnBackFitnessTop: $('btnBackFitnessTop'),
+        btnBackHubTop: $('btnBackHubTop'),
+        btnStartStandard: $('btnStartStandard'),
+        btnQuickPlay: $('btnQuickPlay'),
+        btnUseLastPattern: $('btnUseLastPattern'),
+        btnApplyRecommended: $('btnApplyRecommended'),
+
+        previewUrl: $('previewUrl'),
+        recentStripSub: $('recentStripSub'),
+        recentRank: $('recentRank'),
+        recentScore: $('recentScore'),
+        recentAcc: $('recentAcc'),
+        recentCombo: $('recentCombo'),
+
+        recommendTitle: $('recommendTitle'),
+        recommendSub: $('recommendSub'),
+        recommendChips: $('recommendChips')
+      };
+
+      const Bridge = window.HHFitnessBridge;
+
+      const ABS_HUB = new URL('../herohealth/hub-v2.html', location.href).href;
+      const ABS_FITNESS = new URL('../herohealth/fitness-zone.html', location.href).href;
+      const ABS_RUN = new URL('../herohealth/vr-rhythm-boxer-main/boxer.html', location.href).href;
+      const ABS_GATE = new URL('../herohealth/warmup-gate.html', location.href).href;
+
+      const PLAN_DAY = q('planDay', '');
+      const PLAN_SLOT = q('planSlot', '');
+
+      function setRadio(name, value) {
+        const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+        if (el) el.checked = true;
       }
 
-      if ((rank === 'S' || rank === 'A') && acc >= 84 && combo >= 12) {
-        return {
-          title: 'พร้อมอัปเกรดความท้าทายแล้ว',
-          sub: 'ลอง Hard หรือ Research เพื่อเจอ pattern แน่นขึ้นและเก็บ combo ยาวกว่าเดิม',
-          diff: 'hard',
-          time: '90',
-          view: 'pc',
-          run: 'research',
-          gate: '1',
-          cooldown: '1',
-          chips: ['Hard', '90s', 'PC', 'Research']
-        };
+      function readRadio(name, fallback) {
+        const el = document.querySelector(`input[name="${name}"]:checked`);
+        return el ? el.value : fallback;
       }
 
-      if (acc >= 68) {
+      function buildFitnessBackUrl() {
+        const u = new URL(q('hub', ABS_FITNESS), location.href);
+        if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'rhythm-boxer');
+        if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'rhythm-boxer');
+        return u.toString();
+      }
+
+      function buildRunUrl() {
+        const u = new URL(ABS_RUN);
+
+        u.searchParams.set('game', 'rhythm-boxer');
+        u.searchParams.set('gameId', 'rhythmboxer');
+        u.searchParams.set('theme', 'rhythmboxer');
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+
+        u.searchParams.set('diff', readRadio('diff', q('diff', 'normal')));
+        u.searchParams.set('time', readRadio('time', q('time', '90')));
+        u.searchParams.set('view', readRadio('view', q('view', 'mobile')));
+        u.searchParams.set('run', readRadio('run', q('run', 'play')));
+        u.searchParams.set('gate', readRadio('gate', q('gate', '1')));
+        u.searchParams.set('cooldown', readRadio('cooldown', q('cooldown', '1')));
+        u.searchParams.set('hub', q('hub', ABS_HUB));
+
+        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
+        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
+        u.searchParams.set('seed', els.seed.value || q('seed', String(Date.now())));
+
+        if (els.studyId.value) u.searchParams.set('studyId', els.studyId.value);
+        if (PLAN_DAY) u.searchParams.set('planDay', PLAN_DAY);
+        if (PLAN_SLOT) u.searchParams.set('planSlot', PLAN_SLOT);
+
+        [
+          'debug','api','log','studentKey','schoolCode',
+          'classRoom','studentNo','nickName','teacher',
+          'teacherMode','export','exportMode','autoNext','cdur'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+
+        return u.toString();
+      }
+
+      function baseRunUrl(patch = {}) {
+        const u = new URL(ABS_RUN);
+
+        const pid = els.pid.value || q('pid', 'anon');
+        const name = els.name.value || q('name', q('nickName', 'Player'));
+        const studyId = els.studyId.value || q('studyId', '');
+        const diff = patch.diff || readRadio('diff', q('diff', 'normal'));
+        const time = patch.time || readRadio('time', q('time', '90'));
+        const view = patch.view || readRadio('view', q('view', 'mobile'));
+        const run = patch.run || readRadio('run', q('run', 'play'));
+        const gate = String(patch.gate ?? readRadio('gate', q('gate', '1')));
+        const cooldown = String(patch.cooldown ?? readRadio('cooldown', q('cooldown', '1')));
+        const seed = patch.seed || (els.seed.value || q('seed', String(Date.now())));
+        const hub = patch.hub || buildFitnessBackUrl();
+
+        u.search = '';
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('name', name);
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'rhythm-boxer');
+        u.searchParams.set('gameId', 'rhythmboxer');
+        u.searchParams.set('theme', 'rhythmboxer');
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', String(time));
+        u.searchParams.set('view', view);
+        u.searchParams.set('run', run);
+        u.searchParams.set('gate', gate);
+        u.searchParams.set('cooldown', cooldown);
+        u.searchParams.set('hub', hub);
+        u.searchParams.set('seed', seed);
+
+        if (studyId) u.searchParams.set('studyId', studyId);
+        if (PLAN_DAY) u.searchParams.set('planDay', PLAN_DAY);
+        if (PLAN_SLOT) u.searchParams.set('planSlot', PLAN_SLOT);
+
+        [
+          'debug','api','log','studentKey','schoolCode',
+          'classRoom','studentNo','nickName','teacher',
+          'teacherMode','export','exportMode','autoNext','cdur'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+
+        return u;
+      }
+
+      function buildWarmupUrl(runUrl, patch = {}) {
+        const u = new URL(ABS_GATE);
+
+        u.searchParams.set('phase', 'warmup');
+        u.searchParams.set('gatePhase', 'warmup');
+        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
+        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
+
+        if (els.studyId.value || q('studyId', '')) {
+          u.searchParams.set('studyId', els.studyId.value || q('studyId', ''));
+        }
+
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'rhythm-boxer');
+        u.searchParams.set('gameId', 'rhythmboxer');
+        u.searchParams.set('theme', 'rhythmboxer');
+
+        u.searchParams.set('diff', patch.diff || readRadio('diff', q('diff', 'normal')));
+        u.searchParams.set('time', patch.time || readRadio('time', q('time', '90')));
+        u.searchParams.set('seed', patch.seed || (els.seed.value || q('seed', String(Date.now()))));
+        u.searchParams.set('hub', patch.hub || buildFitnessBackUrl());
+        u.searchParams.set('view', patch.view || readRadio('view', q('view', 'mobile')));
+        u.searchParams.set('run', patch.run || readRadio('run', q('run', 'play')));
+
+        u.searchParams.set('gate', '1');
+        u.searchParams.set('cooldown', String(patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'))));
+        u.searchParams.set('returnPhase', (String(patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'))) === '1') ? 'cooldown' : 'hub');
+        u.searchParams.set('dur', patch.dur || '20');
+        u.searchParams.set('cdur', patch.cdur || q('cdur', '20'));
+        u.searchParams.set('next', runUrl.href);
+
+        if (PLAN_DAY) u.searchParams.set('planDay', PLAN_DAY);
+        if (PLAN_SLOT) u.searchParams.set('planSlot', PLAN_SLOT);
+
+        [
+          'debug','api','log','studentKey','schoolCode',
+          'classRoom','studentNo','nickName','teacher',
+          'teacherMode','export','exportMode','autoNext'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+
+        return u;
+      }
+
+      function setPreview() {
+        els.previewUrl.textContent = buildRunUrl();
+      }
+
+      function renderRecent() {
+        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+        const game = String(last?.game || '').toLowerCase();
+
+        if (!last || (game !== 'rhythm-boxer' && game !== 'rhythmboxer')) {
+          els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
+          els.recentRank.textContent = '-';
+          els.recentScore.textContent = '-';
+          els.recentAcc.textContent = '-';
+          els.recentCombo.textContent = '-';
+          return;
+        }
+
+        els.recentStripSub.textContent =
+          `Score ${Number(last.scoreFinal || last.score || 0)} • miss ${Number(last.missTotal || last.misses || last.miss || 0)}`;
+
+        els.recentRank.textContent = String(last.rank || '-');
+        els.recentScore.textContent = String(Number(last.scoreFinal || last.score || 0));
+        els.recentAcc.textContent = `${Number(last.accPct || last.accuracy || 0)}%`;
+        els.recentCombo.textContent = String(Number(last.comboMax || last.maxCombo || last.combo || 0));
+      }
+
+      function recommendFromSummary() {
+        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+        const game = String(last?.game || '').toLowerCase();
+
+        if (!last || (game !== 'rhythm-boxer' && game !== 'rhythmboxer')) {
+          return {
+            title: 'แนะนำค่าเริ่มต้น',
+            sub: 'เริ่มแบบสมดุลก่อน เพื่อฝึกฟัง beat และกดให้ตรงจังหวะ',
+            diff: 'normal',
+            time: '90',
+            view: q('view', 'mobile'),
+            run: 'play',
+            gate: '1',
+            cooldown: '1',
+            chips: ['Normal','90s',q('view','mobile'),'Standard']
+          };
+        }
+
+        const acc = Number(last.accPct || last.accuracy || 0);
+        const combo = Number(last.comboMax || last.maxCombo || last.combo || 0);
+        const miss = Number(last.missTotal || last.misses || last.miss || 0);
+        const rank = String(last.rank || '').toUpperCase();
+
+        if (acc < 50 || miss >= 10) {
+          return {
+            title: 'ลดความยากก่อน',
+            sub: 'ใช้ Easy 60 วินาที เพื่อจับ beat และลดความกดดันของโน้ต',
+            diff: 'easy',
+            time: '60',
+            view: 'mobile',
+            run: 'play',
+            gate: '1',
+            cooldown: '1',
+            chips: ['Easy','60s','Beat Focus','Standard']
+          };
+        }
+
+        if ((rank === 'S' || rank === 'A') && acc >= 84 && combo >= 12) {
+          return {
+            title: 'พร้อมอัปเกรดความท้าทายแล้ว',
+            sub: 'ลอง Hard หรือ Research เพื่อเจอ pattern แน่นขึ้นและเก็บ combo ยาวกว่าเดิม',
+            diff: 'hard',
+            time: '90',
+            view: 'pc',
+            run: 'research',
+            gate: '1',
+            cooldown: '1',
+            chips: ['Hard','90s','PC','Research']
+          };
+        }
+
         return {
           title: 'กำลังไปได้ดี',
           sub: 'แนะนำ Normal 90 วินาที เพื่อดัน timing และรักษา combo ให้ต่อเนื่องขึ้น',
@@ -1289,205 +1137,107 @@
           run: 'play',
           gate: '1',
           cooldown: '1',
-          chips: ['Normal', '90s', 'Combo Focus', 'Standard']
+          chips: ['Normal','90s','Combo Focus','Standard']
         };
       }
 
-      return {
-        title: 'กลับมาซ้อมจังหวะอีกนิด',
-        sub: 'เริ่มที่ Easy 90 วินาที เพื่อฟัง beat และกดให้ตรงมากขึ้นทีละขั้น',
-        diff: 'easy',
-        time: '90',
-        view: 'mobile',
-        run: 'play',
-        gate: '1',
-        cooldown: '1',
-        chips: ['Easy', '90s', 'Beat Focus', 'Standard']
-      };
-    }
+      function applyRec(rec) {
+        setRadio('diff', rec.diff);
+        setRadio('time', rec.time);
+        setRadio('view', rec.view);
+        setRadio('run', rec.run === 'research' ? 'research' : 'play');
+        setRadio('gate', rec.gate);
+        setRadio('cooldown', rec.cooldown);
 
-    function renderRecent(summary) {
-      if (!summary) {
-        els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
-        els.recentRank.textContent = '-';
-        els.recentScore.textContent = '-';
-        els.recentAcc.textContent = '-';
-        els.recentCombo.textContent = '-';
-        return;
+        els.recommendTitle.textContent = rec.title;
+        els.recommendSub.textContent = rec.sub;
+        els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${x}</span>`).join('');
+        setPreview();
       }
 
-      els.recentStripSub.textContent =
-        `Score ${Number(summary.scoreFinal || summary.score || 0)} • miss ${Number(summary.miss || summary.missTotal || 0)}`;
-
-      els.recentRank.textContent = String(summary.rank || '-');
-      els.recentScore.textContent = String(Number(summary.scoreFinal || summary.score || 0));
-      els.recentAcc.textContent = `${Number(summary.accPct || summary.accuracy || 0)}%`;
-      els.recentCombo.textContent = String(Number(summary.maxCombo || summary.combo || 0));
-    }
-
-    function applyRecommendation(rec) {
-      setRadio('diff', rec.diff, 'diff-normal');
-      setRadio('time', rec.time, 'time-90');
-      setRadio('view', rec.view, 'view-mobile');
-      setRadio('run', rec.run, rec.run === 'research' ? 'run-research' : 'run-play');
-      setRadio('gate', rec.gate, rec.gate === '1' ? 'gate-on' : 'gate-off');
-      setRadio('cooldown', rec.cooldown, rec.cooldown === '1' ? 'cooldown-on' : 'cooldown-off');
-      refreshPreview();
-    }
-
-    function renderRecommendation(rec) {
-      els.recommendTitle.textContent = rec.title;
-      els.recommendSub.textContent = rec.sub;
-      els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${x}</span>`).join('');
-    }
-
-    function refreshPreview() {
-      const gate = readRadio('gate', '1');
-      const runUrl = buildRunUrl();
-      const launchUrl = gate === '1' ? buildWarmupUrl(runUrl) : runUrl;
-      els.previewUrl.textContent = launchUrl.href;
-    }
-
-    function go(url) {
-      location.href = url.href;
-    }
-
-    function launchCurrentSettings() {
-      const runUrl = buildRunUrl();
-      const gate = readRadio('gate', '1');
-      go(gate === '1' ? buildWarmupUrl(runUrl) : runUrl);
-    }
-
-    function launchMode(mode) {
-      if (mode === 'play') {
-        const runUrl = buildRunUrl('play', { gate: '1', cooldown: '1' });
-        go(buildWarmupUrl(runUrl, { run: 'play', cooldown: '1' }));
-        return;
+      function launchWithCurrentSettings() {
+        const runUrl = baseRunUrl();
+        const gate = readRadio('gate', q('gate', '1'));
+        location.href = gate === '1'
+          ? buildWarmupUrl(runUrl).href
+          : runUrl.href;
       }
 
-      if (mode === 'quick') {
-        go(buildRunUrl('play', { gate: '0', cooldown: '1' }));
-        return;
-      }
-
-      if (mode === 'research') {
-        const runUrl = buildRunUrl('research', { gate: '1', cooldown: '1', run: 'research', view: readRadio('view', 'mobile') });
-        go(buildWarmupUrl(runUrl, { run: 'research', cooldown: '1' }));
-        return;
-      }
-
-      if (mode === 'demo') {
-        go(buildRunUrl('demo', {
-          run: 'demo',
+      function launchQuick() {
+        const runUrl = baseRunUrl({
           diff: 'easy',
           time: '60',
+          run: 'play',
           gate: '0',
-          cooldown: '0',
+          cooldown: '1',
           view: 'mobile'
-        }));
+        });
+        location.href = runUrl.href;
       }
-    }
 
-    function presetMode(mode) {
-      if (mode === 'play') {
-        setRadio('run', 'play', 'run-play');
-        setRadio('gate', '1', 'gate-on');
-        setRadio('cooldown', '1', 'cooldown-on');
-      } else if (mode === 'quick') {
-        setRadio('run', 'play', 'run-play');
-        setRadio('gate', '0', 'gate-off');
-        setRadio('cooldown', '1', 'cooldown-on');
-      } else if (mode === 'research') {
-        setRadio('run', 'research', 'run-research');
-        setRadio('gate', '1', 'gate-on');
-        setRadio('cooldown', '1', 'cooldown-on');
-      } else if (mode === 'demo') {
-        setRadio('run', 'play', 'run-play');
-        setRadio('diff', 'easy', 'diff-easy');
-        setRadio('time', '60', 'time-60');
-        setRadio('gate', '0', 'gate-off');
-        setRadio('cooldown', '0', 'cooldown-off');
-        setRadio('view', 'mobile', 'view-mobile');
+      function useLastPattern() {
+        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+        const game = String(last?.game || '').toLowerCase();
+        if (!last || (game !== 'rhythm-boxer' && game !== 'rhythmboxer')) return;
+
+        setRadio('diff', String(last.diff || 'normal'));
+        setRadio('time', String(last.timeSec || last.durationSec || '90'));
+        setRadio('view', q('view', 'mobile'));
+        setRadio('run', 'play');
+        setRadio('gate', '1');
+        setRadio('cooldown', '1');
+        setPreview();
       }
-      refreshPreview();
-    }
 
-    function bindAll(summary, rec) {
-      [
-        els.pid, els.name, els.studyId, els.seed,
-        ...document.querySelectorAll('input[type="radio"]')
-      ].forEach((node) => {
-        node.addEventListener('input', refreshPreview);
-        node.addEventListener('change', refreshPreview);
-      });
+      function initLauncherMode() {
+        els.pid.value = q('pid', 'anon');
+        els.name.value = q('name', q('nickName', 'Player'));
+        els.studyId.value = q('studyId', '');
+        els.seed.value = q('seed', String(Date.now()));
 
-      els.btnApplyRecommended.addEventListener('click', () => applyRecommendation(rec));
-      els.btnStartStandard.addEventListener('click', launchCurrentSettings);
-      els.btnQuickPlay.addEventListener('click', () => launchMode('quick'));
+        setRadio('diff', q('diff', 'normal'));
+        setRadio('time', q('time', '90'));
+        setRadio('view', q('view', 'mobile'));
+        setRadio('run', q('run', 'play'));
+        setRadio('gate', q('gate', '1'));
+        setRadio('cooldown', q('cooldown', '1'));
 
-      els.btnUseLastPattern.addEventListener('click', () => {
-        if (!summary) {
-          applyRecommendation(rec);
-          return;
-        }
+        const fitnessUrl = buildFitnessBackUrl();
+        els.btnBackFitnessTop.href = fitnessUrl;
 
-        const fallbackView = readOrDefault('view', 'mobile');
-        setRadio('diff', String(summary.diff || rec.diff || 'normal'), 'diff-normal');
-        setRadio('time', String(summary.timeSec || summary.durationSec || rec.time || '90'), 'time-90');
-        setRadio('view', fallbackView, 'view-mobile');
-        setRadio('run', rec.run || 'play', rec.run === 'research' ? 'run-research' : 'run-play');
-        setRadio('gate', '1', 'gate-on');
-        setRadio('cooldown', '1', 'cooldown-on');
-        refreshPreview();
-      });
+        const hubUrl = q('hub', ABS_HUB);
+        els.btnBackHubTop.href = hubUrl;
 
-      els.modePlayStart.addEventListener('click', () => launchMode('play'));
-      els.modePlayPreset.addEventListener('click', () => presetMode('play'));
+        const rec = recommendFromSummary();
+        applyRec(rec);
+        renderRecent();
 
-      els.modeQuickStart.addEventListener('click', () => launchMode('quick'));
-      els.modeQuickPreset.addEventListener('click', () => presetMode('quick'));
+        els.btnApplyRecommended.addEventListener('click', () => applyRec(recommendFromSummary()));
+        els.btnStartStandard.addEventListener('click', launchWithCurrentSettings);
+        els.btnQuickPlay.addEventListener('click', launchQuick);
+        els.btnUseLastPattern.addEventListener('click', useLastPattern);
 
-      els.modeResearchStart.addEventListener('click', () => launchMode('research'));
-      els.modeResearchPreset.addEventListener('click', () => presetMode('research'));
-
-      els.modeDemoStart.addEventListener('click', () => launchMode('demo'));
-      els.modeDemoPreset.addEventListener('click', () => presetMode('demo'));
-    }
-
-    function init() {
-      const hubUrl = readOrDefault('hub', ABS_HUB);
-      const fitnessBackUrl = buildFitnessBackUrl();
-      els.btnHubTop.href = hubUrl;
-      els.btnBackFitness.href = fitnessBackUrl;
-
-      els.pid.value = readOrDefault('pid', 'anon');
-      els.name.value = readOrDefault('name', readOrDefault('nick', 'Player'));
-      els.studyId.value = readOrDefault('studyId', '');
-      els.seed.value = readOrDefault('seed', String(Date.now()));
-
-      setRadio('diff', readOrDefault('diff', 'normal'), 'diff-normal');
-      setRadio('time', readOrDefault('time', '90'), 'time-90');
-      setRadio('view', readOrDefault('view', 'mobile'), 'view-mobile');
-      setRadio('run', readOrDefault('run', 'play'), 'run-play');
-      setRadio('gate', readOrDefault('gate', '1'), 'gate-on');
-      setRadio('cooldown', readOrDefault('cooldown', '1'), 'cooldown-on');
-
-      const summary = readRhythmSummary();
-      const rec = recommendFromSummary(summary);
-
-      renderRecent(summary);
-      renderRecommendation(rec);
-      bindAll(summary, rec);
-
-      if (!qs.get('diff') && !qs.get('time') && !qs.get('run') && !qs.get('gate')) {
-        applyRecommendation(rec);
-      } else {
-        refreshPreview();
+        [
+          ...document.querySelectorAll('input[type="radio"]'),
+          els.pid, els.name, els.studyId, els.seed
+        ].forEach((el) => {
+          if (!el) return;
+          el.addEventListener('input', setPreview);
+          el.addEventListener('change', setPreview);
+        });
       }
-    }
 
-    init();
-  })();
+      if (Bridge) {
+        Bridge.installBasicHooks('rhythm-boxer', {
+          fitnessLinkSelectors: [
+            '#btnBackFitnessTop',
+            'a[href*="fitness-zone.html"]'
+          ]
+        });
+      }
+
+      initLauncherMode();
+    })();
   </script>
 </body>
 </html>
