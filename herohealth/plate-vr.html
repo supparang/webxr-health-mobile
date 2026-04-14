@@ -3,1713 +3,1642 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Plate VR Mini</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#0f172a" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-
-  <script type="module" src="../vr/vr-ui.js?v=20260307b"></script>
-
+  <title>HeroHealth • Quick Plate</title>
+  <meta name="theme-color" content="#9fe3ff" />
+  <meta name="color-scheme" content="light" />
   <style>
     :root{
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --bg1:#f7fcff;
+      --bg2:#fffef9;
+      --card:#ffffff;
+      --line:#dbeaf4;
+      --text:#284255;
+      --muted:#6d7d8b;
 
-      --hud-top-h: 96px;
-      --hud-bottom-h: 116px;
+      --sky:#7fcfff;
+      --sky-soft:#eef8ff;
+      --gold:#ffd45f;
+      --gold-soft:#fff8eb;
 
-      --txt: rgba(248,250,252,.96);
-      --mut: rgba(148,163,184,.92);
-      --line: rgba(148,163,184,.16);
-      --panel: rgba(2,6,23,.82);
-      --panel2: rgba(2,6,23,.74);
+      --ok:#6fd18b;
+      --ok-soft:#f1fff4;
 
-      --phase-glow: rgba(59,130,246,.16);
-      --phase-target-bg: rgba(15,23,42,.82);
-      --phase-target-ring: rgba(255,255,255,.14);
+      --bad:#ffb3b3;
+      --bad-soft:#fff4f4;
+
+      --g1:#ffe7ef;
+      --g2:#fff4cc;
+      --g3:#e6f8df;
+      --g4:#e7f1ff;
+      --g5:#fff0d9;
+
+      --shadow:0 12px 28px rgba(0,0,0,.06);
+      --shadow-lg:0 24px 60px rgba(0,0,0,.16);
+
+      --radius-xl:30px;
+      --radius-lg:24px;
+      --radius-md:18px;
+      --radius-sm:14px;
+
+      --maxw:1040px;
     }
 
     *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      height:100%;
-      overflow:hidden;
-      background:#020617;
-      color:var(--txt);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-    }
-
+    html{ -webkit-tap-highlight-color:transparent; }
     body{
+      margin:0;
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(1200px 720px at 15% 0%, rgba(56,189,248,.18), transparent 58%),
-        radial-gradient(820px 620px at 95% 15%, rgba(251,191,36,.12), transparent 55%),
-        linear-gradient(180deg, #020617 0%, #08111f 100%);
+        radial-gradient(circle at 10% 8%, rgba(255,232,162,.34), transparent 20%),
+        radial-gradient(circle at 92% 10%, rgba(127,207,255,.26), transparent 22%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    body[data-tone="focus"]{
-      --phase-glow: rgba(34,197,94,.18);
-      --phase-target-bg: rgba(9,31,23,.82);
-      --phase-target-ring: rgba(74,222,128,.26);
+    button{ font:inherit; }
+
+    .page{
+      width:min(100%, var(--maxw));
+      margin:0 auto;
+      padding:16px 14px 22px;
     }
 
-    body[data-tone="rush"]{
-      --phase-glow: rgba(249,115,22,.18);
-      --phase-target-bg: rgba(46,21,13,.82);
-      --phase-target-ring: rgba(251,146,60,.28);
+    .hero{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:14px;
+      align-items:center;
+      padding:18px;
+      border-radius:var(--radius-xl);
+      background:linear-gradient(180deg,#fffef8,#f8fcff);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      margin-bottom:14px;
+      animation:softFadeUp .28s ease;
     }
 
-    body[data-tone="fever"]{
-      --phase-glow: rgba(244,114,182,.22);
-      --phase-target-bg: rgba(42,16,44,.82);
-      --phase-target-ring: rgba(244,114,182,.30);
+    .heroLeft{
+      display:flex;
+      align-items:flex-start;
+      gap:14px;
+      min-width:0;
     }
 
-    #app{
-      position:fixed;
-      inset:0;
-      overflow:hidden;
-    }
-
-    #world{
-      position:absolute;
-      inset:0;
-      z-index:0;
-      pointer-events:none;
-      overflow:hidden;
-    }
-
-    .orb,
-    .ring,
-    .grid,
-    .bgGlow{
-      position:absolute;
-      transition:opacity .25s ease, transform .25s ease, filter .25s ease;
-    }
-
-    .bgGlow{
-      inset:0;
-      background:
-        radial-gradient(920px 520px at 16% 8%, rgba(125,211,252,.16), transparent 64%),
-        radial-gradient(860px 520px at 88% 18%, rgba(134,239,172,.12), transparent 62%),
-        linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,11,27,.98));
-    }
-
-    .grid{
-      inset:8% 6% 10% 6%;
-      border-radius:28px;
-      background:
-        linear-gradient(to right, transparent 0%, transparent 24.5%, rgba(255,255,255,.05) 24.5%, rgba(255,255,255,.05) 25%, transparent 25%, transparent 49.5%, rgba(255,255,255,.05) 49.5%, rgba(255,255,255,.05) 50%, transparent 50%, transparent 74.5%, rgba(255,255,255,.05) 74.5%, rgba(255,255,255,.05) 75%, transparent 75%, transparent 100%),
-        linear-gradient(to bottom, transparent 0%, transparent 24.5%, rgba(255,255,255,.05) 24.5%, rgba(255,255,255,.05) 25%, transparent 25%, transparent 49.5%, rgba(255,255,255,.05) 49.5%, rgba(255,255,255,.05) 50%, transparent 50%, transparent 74.5%, rgba(255,255,255,.05) 74.5%, rgba(255,255,255,.05) 75%, transparent 75%, transparent 100%);
-      opacity:.30;
-      mask-image: radial-gradient(circle at center, rgba(0,0,0,.96), rgba(0,0,0,.38) 72%, transparent 100%);
-      -webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,.96), rgba(0,0,0,.38) 72%, transparent 100%);
-    }
-
-    .ring{
-      inset:16% 18%;
-      border-radius:999px;
-      border:2px solid rgba(255,255,255,.10);
-      box-shadow: 0 0 0 1px rgba(255,255,255,.03) inset, 0 0 40px rgba(255,255,255,.04);
-      opacity:.40;
-      animation: ringFloat 8s ease-in-out infinite;
-    }
-
-    .orb{
-      inset:auto;
-      width:180px;
-      height:180px;
-      border-radius:999px;
-      filter:blur(14px);
-      opacity:.18;
-      mix-blend-mode:screen;
-    }
-
-    .orb.a{
-      left:-20px;
-      top:18%;
-      background:radial-gradient(circle at center, rgba(125,211,252,.32), transparent 68%);
-      animation: orbA 9s ease-in-out infinite;
-    }
-
-    .orb.b{
-      right:-34px;
-      top:30%;
-      background:radial-gradient(circle at center, rgba(134,239,172,.24), transparent 68%);
-      animation: orbB 11s ease-in-out infinite;
-    }
-
-    .orb.c{
-      left:38%;
-      bottom:-26px;
-      width:220px;
-      height:220px;
-      background:radial-gradient(circle at center, rgba(196,181,253,.18), transparent 70%);
-      animation: orbC 10s ease-in-out infinite;
-    }
-
-    @keyframes ringFloat{
-      0%{ transform:scale(1) rotate(0deg); opacity:.34; }
-      50%{ transform:scale(1.02) rotate(1.2deg); opacity:.46; }
-      100%{ transform:scale(1) rotate(0deg); opacity:.34; }
-    }
-    @keyframes orbA{
-      0%{ transform:translate3d(0,0,0) scale(1); }
-      50%{ transform:translate3d(26px,-12px,0) scale(1.06); }
-      100%{ transform:translate3d(0,0,0) scale(1); }
-    }
-    @keyframes orbB{
-      0%{ transform:translate3d(0,0,0) scale(1); }
-      50%{ transform:translate3d(-22px,18px,0) scale(1.08); }
-      100%{ transform:translate3d(0,0,0) scale(1); }
-    }
-    @keyframes orbC{
-      0%{ transform:translate3d(0,0,0) scale(1); }
-      50%{ transform:translate3d(0,-16px,0) scale(1.04); }
-      100%{ transform:translate3d(0,0,0) scale(1); }
-    }
-
-    #fxLayer{
-      position:absolute;
-      inset:0;
-      z-index:70;
-      pointer-events:none;
-      overflow:hidden;
-    }
-
-    .fxPulse{
-      position:absolute;
-      width:120px;
-      height:120px;
-      border-radius:999px;
-      border:2px solid rgba(255,255,255,.32);
-      transform:translate(-50%,-50%) scale(.55);
-      opacity:0;
-      animation: fxPulse .48s ease forwards;
-      pointer-events:none;
-      box-shadow:0 0 18px rgba(255,255,255,.12);
-    }
-
-    .fxPulse.good{
-      border-color:rgba(74,222,128,.55);
-      box-shadow:0 0 20px rgba(74,222,128,.18);
-    }
-
-    .fxPulse.bad{
-      border-color:rgba(248,113,113,.50);
-      box-shadow:0 0 20px rgba(248,113,113,.16);
-    }
-
-    .fxPulse.fever{
-      border-color:rgba(244,114,182,.56);
-      box-shadow:0 0 24px rgba(244,114,182,.20);
-    }
-
-    @keyframes fxPulse{
-      0%{ opacity:0; transform:translate(-50%,-50%) scale(.55); }
-      20%{ opacity:.88; }
-      100%{ opacity:0; transform:translate(-50%,-50%) scale(1.18); }
-    }
-
-    .phaseBanner{
-      position:absolute;
-      top:42%;
-      left:50%;
-      transform:translate(-50%,-50%);
-      font-size:28px;
-      font-weight:1000;
-      background:rgba(0,0,0,.68);
-      padding:14px 24px;
+    .heroBadge{
+      width:64px;
+      height:64px;
       border-radius:20px;
-      border:1px solid rgba(148,163,184,.25);
-      z-index:120;
-      pointer-events:none;
-      opacity:0;
-      animation: bannerIn .95s ease forwards;
-      text-align:center;
-      white-space:nowrap;
-    }
-
-    @keyframes bannerIn{
-      0%{ opacity:0; transform:translate(-50%,-50%) scale(.96); }
-      20%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
-      100%{ opacity:0; transform:translate(-50%,-50%) scale(1.03); }
-    }
-
-    .popScore{
-      position:absolute;
-      z-index:110;
-      pointer-events:none;
-      font-weight:1000;
-      font-size:16px;
-      opacity:0;
-      transform:translate(-50%,-50%) translateY(6px);
-      animation: popUp .55s ease forwards;
-      text-shadow:0 8px 20px rgba(0,0,0,.35);
-      white-space:nowrap;
-    }
-
-    @keyframes popUp{
-      0%{ opacity:0; transform:translate(-50%,-50%) translateY(8px) scale(.98); }
-      20%{ opacity:1; }
-      100%{ opacity:0; transform:translate(-50%,-50%) translateY(-16px) scale(1.03); }
-    }
-
-    #playfield{
-      position:absolute;
-      inset:var(--hud-top-h) 0 var(--hud-bottom-h) 0;
-      z-index:30;
-      pointer-events:none;
-      overflow:hidden;
-    }
-
-    #playfield .target{
-      position:absolute;
       display:grid;
       place-items:center;
-      width:62px;
-      height:62px;
-      border-radius:999px;
-      background:var(--phase-target-bg);
-      border:1px solid var(--phase-target-ring);
-      box-shadow:
-        0 10px 24px rgba(2,6,23,.36),
-        0 0 0 1px rgba(255,255,255,.03) inset,
-        0 0 18px var(--phase-glow);
-      font-size:29px;
-      line-height:1;
-      user-select:none;
-      pointer-events:auto;
-      touch-action:manipulation;
-      transition:transform .08s ease, opacity .14s ease, filter .12s ease;
-      transform:translate(-50%,-50%);
-    }
-
-    #playfield .target.hit{
-      transform:translate(-50%,-50%) scale(.88);
-      opacity:.25;
-    }
-
-    #playfield .target.expire{
-      transform:translate(-50%,-50%) scale(.78);
-      opacity:0;
-    }
-
-    #playfield .target[data-kind="shield"]{
-      background:linear-gradient(180deg, rgba(30,58,138,.72), rgba(30,41,59,.84));
-      border-color:rgba(96,165,250,.38);
-      box-shadow:0 10px 26px rgba(59,130,246,.18), 0 0 18px rgba(96,165,250,.12);
-    }
-
-    #playfield .target[data-match="1"]{
-      border-color:rgba(251,191,36,.44);
-      box-shadow:
-        0 10px 26px rgba(2,6,23,.36),
-        0 0 0 2px rgba(251,191,36,.16),
-        0 0 22px rgba(251,191,36,.14),
-        0 0 42px rgba(249,115,22,.08);
-    }
-
-    #hudTop{
-      position:absolute;
-      top:calc(var(--sat) + 6px);
-      left:max(6px, calc(var(--sal) + 6px));
-      right:max(6px, calc(var(--sar) + 6px));
-      z-index:80;
-      pointer-events:none;
-    }
-
-    .topCard{
-      background:linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.76));
-      border:1px solid rgba(148,163,184,.14);
-      border-radius:16px;
-      box-shadow:0 8px 22px rgba(2,6,23,.24), 0 0 18px var(--phase-glow);
-      padding:8px 10px;
-    }
-
-    .topMain{
-      display:grid;
-      grid-template-columns:auto auto auto auto 1fr;
-      gap:6px;
-      align-items:center;
-    }
-
-    .miniPill{
-      min-height:34px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      padding:0 10px;
-      border-radius:999px;
-      background:rgba(15,23,42,.68);
-      border:1px solid rgba(148,163,184,.12);
-      font-size:12px;
-      font-weight:1000;
-      white-space:nowrap;
-    }
-
-    .miniPill .v{
-      font-size:14px;
-      font-weight:1000;
-      font-variant-numeric:tabular-nums;
-    }
-
-    .missionLine{
-      min-width:0;
-      min-height:34px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      padding:0 10px;
-      border-radius:999px;
-      background:linear-gradient(180deg, rgba(15,23,42,.68), rgba(15,23,42,.66));
-      border:1px solid rgba(148,163,184,.12);
-      overflow:hidden;
-    }
-
-    .missionMain{
-      min-width:0;
-      display:flex;
-      align-items:center;
-      gap:6px;
-      overflow:hidden;
-      font-size:12px;
-      font-weight:1000;
-      white-space:nowrap;
-    }
-
-    .missionMain span:last-child{
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-    }
-
-    .missionMeta{
+      background:linear-gradient(180deg,#bff4ff,#7fdcff);
+      font-size:32px;
       flex:0 0 auto;
-      font-size:11px;
-      color:var(--mut);
-      font-weight:1000;
-      white-space:nowrap;
+      box-shadow:0 10px 18px rgba(127,220,255,.24);
     }
 
-    .goalThin,
-    .bar{
-      margin-top:6px;
-      height:7px;
-      border-radius:999px;
-      background:rgba(148,163,184,.18);
-      border:1px solid rgba(148,163,184,.12);
-      overflow:hidden;
-    }
-
-    .goalThin > i,
-    .bar > i{
-      display:block;
-      height:100%;
-      width:0%;
-      background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(167,139,250,.9));
-      transition:width .12s linear;
-    }
-
-    #hudBottom{
-      position:absolute;
-      left:max(8px, calc(var(--sal) + 8px));
-      right:max(8px, calc(var(--sar) + 8px));
-      bottom:calc(var(--sab) + 10px);
-      z-index:85;
-      display:grid;
-      gap:8px;
-      pointer-events:none;
-    }
-
-    .coachBar{
-      min-height:40px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:14px;
-      background:linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.76));
-      border:1px solid rgba(148,163,184,.14);
-      box-shadow:0 8px 22px rgba(2,6,23,.24), 0 0 18px var(--phase-glow);
-      font-size:12.5px;
+    .eyebrow{
+      margin:0 0 6px;
+      font-size:12px;
       font-weight:900;
-      color:var(--txt);
-      pointer-events:none;
+      color:#7a8c99;
+      letter-spacing:.04em;
+      text-transform:uppercase;
     }
 
-    .coachBar .label{
-      flex:0 0 auto;
-      font-size:11.5px;
-      color:var(--mut);
+    .heroTitle{
+      margin:0 0 6px;
+      font-size:36px;
+      line-height:1.02;
       font-weight:1000;
+      color:var(--text);
     }
 
-    .coachBar .msg{
-      min-width:0;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
+    .heroSub{
+      margin:0;
+      font-size:15px;
+      line-height:1.5;
+      color:var(--muted);
+      max-width:620px;
     }
 
-    #controls{
+    .heroRight{
       display:flex;
-      gap:6px;
-      flex-wrap:wrap;
-      pointer-events:auto;
-    }
-
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.78);
-      color:var(--txt);
-      border-radius:999px;
-      padding:8px 12px;
-      min-height:38px;
-      font-weight:1000;
-      font-size:12px;
-      cursor:pointer;
-      box-shadow:0 6px 18px rgba(2,6,23,.22);
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
       justify-content:center;
-      gap:8px;
-    }
-
-    .btn.warn{
-      border-color:rgba(245,158,11,.25);
-      background:linear-gradient(180deg, rgba(120,53,15,.86), rgba(92,45,14,.82));
-    }
-
-    .btn.primary{
-      border-color:rgba(59,130,246,.30);
-      background:linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
-    }
-
-    #drawer{
-      position:absolute;
-      left:max(10px, calc(var(--sal) + 10px));
-      right:max(10px, calc(var(--sar) + 10px));
-      bottom:calc(var(--sab) + 64px);
-      z-index:100;
-      display:none;
-      pointer-events:auto;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.94);
-      box-shadow:0 18px 50px rgba(0,0,0,.35);
-      padding:12px;
-      max-height:min(56vh, 460px);
-      overflow:auto;
-    }
-
-    .drawerHead{
-      display:flex;
       align-items:center;
-      justify-content:space-between;
+    }
+
+    .heroMiniPlate{
+      width:min(100%, 250px);
+      aspect-ratio:1/1;
+      border-radius:999px;
+      border:10px solid #eaf4fa;
+      background:#fff;
+      position:relative;
+      box-shadow:0 14px 24px rgba(0,0,0,.05);
+    }
+
+    .heroMiniFood{
+      position:absolute;
+      width:28%;
+      height:28%;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      font-size:30px;
+      box-shadow:0 8px 18px rgba(0,0,0,.05);
+    }
+
+    .heroMiniFood.f1{ left:10%; top:10%; background:var(--g2); }
+    .heroMiniFood.f2{ right:10%; top:10%; background:var(--g1); }
+    .heroMiniFood.f3{ left:10%; bottom:10%; background:var(--g3); }
+    .heroMiniFood.f4{ right:10%; bottom:10%; background:var(--g4); }
+    .heroMiniFood.f5{
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      background:var(--g5);
+    }
+
+    .hud{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
       gap:10px;
-      margin-bottom:10px;
+      margin-bottom:14px;
+      animation:softFadeUp .3s ease;
     }
 
-    .drawerTitle{
-      font-weight:1000;
-      font-size:16px;
-    }
-
-    .drawerGrid{
-      display:grid;
-      gap:12px;
-    }
-
-    .drawerCard{
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.56);
-      border-radius:16px;
+    .hudCard{
       padding:12px;
-    }
-
-    .drawerCard h4{
-      margin:0 0 8px 0;
-      font-size:12px;
-      color:var(--mut);
-      font-weight:1000;
-      letter-spacing:.2px;
-    }
-
-    .statsGrid4{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
-    .statsGrid5{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
-
-    .pill{
-      background:rgba(15,23,42,.7);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius:999px;
-      min-height:40px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      padding:8px 10px;
-      font-weight:1000;
-      font-size:12px;
+      border-radius:20px;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
       text-align:center;
+      transition:transform .16s ease, box-shadow .16s ease;
     }
 
-    .pill .v{
-      font-size:14px;
+    .hudCard.bump{
+      transform:translateY(-2px) scale(1.02);
+      box-shadow:0 12px 20px rgba(0,0,0,.08);
+    }
+
+    .hudLabel{
+      display:block;
+      margin-bottom:6px;
+      font-size:12px;
+      font-weight:900;
+      color:#738291;
+    }
+
+    .hudValue{
+      display:block;
+      font-size:24px;
+      line-height:1;
       font-weight:1000;
-      font-variant-numeric:tabular-nums;
+      color:#274458;
     }
 
-    .plateGuide{
+    .gameShell{
       display:grid;
-      gap:8px;
+      grid-template-columns:1.06fr .94fr;
+      gap:14px;
+      animation:softFadeUp .32s ease;
     }
 
-    .plateGuide .pill{
-      justify-content:flex-start;
-      border-radius:14px;
-      min-height:38px;
-      padding-inline:12px;
-    }
-
-    #endOverlay{
-      position:absolute;
-      inset:0;
-      z-index:120;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+    .boardCard,
+    .trayCard{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius-lg);
       padding:16px;
-      background:rgba(0,0,0,.55);
-      backdrop-filter:blur(8px);
-      -webkit-backdrop-filter:blur(8px);
+      box-shadow:var(--shadow);
     }
 
-    #endOverlay[aria-hidden="true"]{
-      display:none;
-    }
-
-    .endCard{
-      width:min(860px, 95vw);
-      border-radius:22px;
-      padding:16px;
-      background:linear-gradient(180deg, rgba(2,6,23,.90), rgba(2,6,23,.82));
-      border:1px solid rgba(148,163,184,.18);
-      box-shadow:0 18px 60px rgba(0,0,0,.45), 0 0 28px rgba(255,255,255,.03);
-    }
-
-    .endHead{
+    .cardHead{
       display:flex;
       align-items:flex-start;
       justify-content:space-between;
-      gap:14px;
-      flex-wrap:wrap;
+      gap:10px;
+      margin-bottom:12px;
     }
 
-    .endBadge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:28px;
+    .cardTitle{
+      margin:0 0 4px;
+      font-size:24px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .cardSub{
+      margin:0;
+      font-size:14px;
+      color:var(--muted);
+      line-height:1.45;
+    }
+
+    .goalPill{
+      min-height:34px;
       padding:0 12px;
       border-radius:999px;
-      background:rgba(251,191,36,.12);
-      border:1px solid rgba(251,191,36,.22);
-      color:rgba(255,236,179,.96);
-      font-size:11px;
-      font-weight:1000;
-      letter-spacing:.12em;
-    }
-
-    .endGradeWrap{
-      min-width:110px;
-      display:grid;
-      place-items:center;
-      text-align:center;
-    }
-
-    .endGrade{
-      width:86px;
-      height:86px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-size:36px;
-      font-weight:1000;
-      color:#fff;
-      background:
-        radial-gradient(circle at 30% 20%, rgba(255,255,255,.18), transparent 30%),
-        linear-gradient(180deg, rgba(251,191,36,.95), rgba(249,115,22,.88));
-      box-shadow:0 12px 28px rgba(249,115,22,.22), 0 0 0 2px rgba(255,255,255,.04) inset;
-    }
-
-    .endGradeLabel{
-      margin-top:6px;
-      font-size:11px;
-      font-weight:1000;
-      color:rgba(203,213,225,.88);
-      letter-spacing:.10em;
-    }
-
-    .endTopStats{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .endStat{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.72);
-      padding:12px;
-    }
-
-    .endStat.hot{
-      background:linear-gradient(180deg, rgba(249,115,22,.16), rgba(15,23,42,.76));
-      border-color:rgba(251,146,60,.20);
-    }
-
-    .endStat .k{
-      font-size:11px;
-      color:rgba(148,163,184,.90);
-      font-weight:1000;
-      letter-spacing:.06em;
-    }
-
-    .endStat .v{
-      margin-top:6px;
-      font-size:28px;
-      font-weight:1000;
-      font-variant-numeric:tabular-nums;
-      line-height:1;
-    }
-
-    .endGrid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-    }
-
-    .endPanel{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.56);
-      padding:12px;
-    }
-
-    .endPanel h4{
-      margin:0 0 10px 0;
+      display:inline-flex;
+      align-items:center;
+      background:linear-gradient(180deg,#fffdf5,#fff8eb);
+      border:1px solid #f1dfb3;
+      color:#8a6120;
       font-size:12px;
       font-weight:1000;
-      color:rgba(148,163,184,.92);
-      letter-spacing:.05em;
+      white-space:nowrap;
     }
 
-    .countGrid{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:8px;
+    .plate{
+      width:min(100%, 410px);
+      aspect-ratio:1/1;
+      margin:8px auto 12px;
+      border-radius:999px;
+      border:10px solid #eaf4fa;
+      background:#fff;
+      position:relative;
+      overflow:hidden;
     }
 
-    .countItem{
-      min-height:44px;
-      display:flex;
+    .zone{
+      position:absolute;
+      border:none;
+      cursor:pointer;
+      font-weight:900;
+      color:#2e4f63;
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.78);
+      transition:transform .14s ease, box-shadow .14s ease, filter .14s ease;
+      touch-action:manipulation;
+      overflow:hidden;
+    }
+
+    .zone:hover{ filter:brightness(1.03); }
+    .zone:active{ transform:scale(.985); }
+
+    .zone span{
+      display:inline-flex;
       align-items:center;
-      justify-content:center;
-      gap:6px;
+      min-height:28px;
       padding:0 8px;
       border-radius:999px;
-      background:rgba(15,23,42,.72);
-      border:1px solid rgba(148,163,184,.12);
+      background:rgba(255,255,255,.82);
       font-size:13px;
       font-weight:1000;
     }
 
-    .countItem strong{
-      font-size:15px;
-      font-variant-numeric:tabular-nums;
+    .zoneInner{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      padding:8px;
+      text-align:center;
     }
 
-    .endActions{
-      margin-top:14px;
+    .zoneItemEmoji{
+      font-size:26px;
+      margin-bottom:4px;
+    }
+
+    .zoneItemText{
+      display:inline-flex;
+      align-items:center;
+      min-height:24px;
+      padding:0 8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .zone-g2{ left:8%; top:8%; width:42%; height:42%; border-radius:999px 0 0 0; background:var(--g2); }
+    .zone-g1{ right:8%; top:8%; width:42%; height:42%; border-radius:0 999px 0 0; background:var(--g1); }
+    .zone-g3{ left:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 0 999px; background:var(--g3); }
+    .zone-g4{ right:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 999px 0; background:var(--g4); }
+    .zone-g5{
+      left:50%; top:50%;
+      width:26%; height:26%;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      background:var(--g5);
+    }
+
+    .zone.active{
+      outline:4px solid var(--sky);
+      transform:scale(1.02);
+    }
+
+    .zone.correctFlash{ animation:zoneOk .34s ease; }
+    .zone.wrongFlash{ animation:zoneBad .34s ease; }
+
+    @keyframes zoneOk{
+      0%{ box-shadow:0 0 0 0 rgba(111,209,139,.56); }
+      100%{ box-shadow:0 0 0 18px rgba(111,209,139,0); }
+    }
+
+    @keyframes zoneBad{
+      0%{ box-shadow:0 0 0 0 rgba(255,179,179,.58); }
+      100%{ box-shadow:0 0 0 18px rgba(255,179,179,0); }
+    }
+
+    .feedback{
+      min-height:28px;
+      text-align:center;
+      font-size:15px;
+      font-weight:900;
+      color:#3d6074;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    .feedback.pop{
+      opacity:1;
+      transform:translateY(-1px);
+    }
+
+    .trayCard .cardHead{
+      margin-bottom:10px;
+    }
+
+    .tray{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+    }
+
+    .food{
+      min-height:86px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg,#ffffff,#f8fcff);
+      cursor:pointer;
+      padding:10px;
       display:flex;
+      align-items:center;
+      gap:10px;
+      text-align:left;
+      box-shadow:0 6px 14px rgba(0,0,0,.04);
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      touch-action:manipulation;
+    }
+
+    .food:hover{
+      transform:translateY(-1px);
+      box-shadow:0 10px 18px rgba(0,0,0,.06);
+    }
+
+    .food:active{ transform:scale(.985); }
+
+    .food.selected{
+      border-color:var(--sky);
+      box-shadow:0 0 0 3px rgba(127,207,255,.22);
+      background:#eef8ff;
+    }
+
+    .food.used{
+      opacity:.44;
+      pointer-events:none;
+      filter:saturate(.7);
+    }
+
+    .foodEmoji{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:#f3f9ff;
+      font-size:24px;
+      flex:0 0 auto;
+    }
+
+    .foodMeta{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+
+    .foodName{
+      font-weight:1000;
+      color:#284255;
+      line-height:1.15;
+    }
+
+    .foodTag{
+      display:inline-flex;
+      align-items:center;
+      min-height:24px;
+      padding:0 8px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1000;
+      color:#4f6170;
+      background:#f5f9fc;
+      border:1px solid var(--line);
+      width:max-content;
+      max-width:100%;
+    }
+
+    .foodTag.x{
+      background:#fff1f1;
+      color:#9b4a4a;
+    }
+
+    .selectedBar{
+      position:sticky;
+      bottom:8px;
+      z-index:10;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:14px;
+      padding:12px 14px;
+      border-radius:20px;
+      background:rgba(255,255,255,.96);
+      border:1px solid var(--line);
+      box-shadow:0 14px 30px rgba(0,0,0,.08);
+      backdrop-filter:blur(8px);
+    }
+
+    .selectedLeft{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .selectedEmoji{
+      width:44px;
+      height:44px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:#eef8ff;
+      font-size:24px;
+      flex:0 0 auto;
+    }
+
+    .selectedTitle{
+      font-weight:1000;
+      color:#284255;
+      margin-bottom:2px;
+    }
+
+    .selectedHint{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.4;
+    }
+
+    .selectedClear{
+      min-width:96px;
+      min-height:42px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:1000;
+      color:#476072;
+      cursor:pointer;
+    }
+
+    .bottomRow{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      margin-top:14px;
+      flex-wrap:wrap;
+    }
+
+    .ghostBtn{
+      min-height:44px;
+      padding:0 14px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:1000;
+      color:#476072;
+      cursor:pointer;
+    }
+
+    .toastLayer{
+      position:fixed;
+      left:50%;
+      bottom:94px;
+      transform:translateX(-50%);
+      z-index:40;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      pointer-events:none;
+    }
+
+    .toast{
+      min-width:220px;
+      max-width:min(90vw,420px);
+      padding:12px 16px;
+      border-radius:16px;
+      background:#ffffff;
+      border:1px solid var(--line);
+      box-shadow:0 12px 24px rgba(0,0,0,.10);
+      font-weight:1000;
+      color:#284255;
+      animation:toastIn .22s ease, toastOut .22s ease 1.8s forwards;
+      text-align:center;
+    }
+
+    .toast.ok{ background:var(--ok-soft); border-color:#bdecc7; }
+    .toast.bad{ background:var(--bad-soft); border-color:#ffd0d0; }
+    .toast.info{ background:#f4fbff; border-color:#cfe8f8; }
+
+    @keyframes toastIn{
+      from{ opacity:0; transform:translateY(12px) scale(.96); }
+      to{ opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    @keyframes toastOut{
+      to{ opacity:0; transform:translateY(-6px) scale(.98); }
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      background:rgba(15,23,42,.42);
+      display:grid;
+      place-items:center;
+      padding:18px;
+      backdrop-filter:blur(8px);
+    }
+
+    .overlay[hidden]{ display:none; }
+
+    .overlayCard{
+      width:min(92vw,560px);
+      background:linear-gradient(180deg,#fffef9,#f9fcff);
+      border:1px solid var(--line);
+      border-radius:28px;
+      padding:18px;
+      box-shadow:var(--shadow-lg);
+      text-align:center;
+      animation:overlayIn .22s ease;
+    }
+
+    @keyframes overlayIn{
+      from{ opacity:0; transform:translateY(10px) scale(.97); }
+      to{ opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    .overlayBadge{
+      width:76px;
+      height:76px;
+      margin:0 auto 12px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#ffe7a1,#ffd35e);
+      font-size:38px;
+      box-shadow:0 10px 20px rgba(255,208,94,.22);
+    }
+
+    .overlayTitle{
+      margin:0 0 6px;
+      font-size:28px;
+      line-height:1.08;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .overlaySub{
+      margin:0 0 14px;
+      font-size:15px;
+      line-height:1.5;
+      color:var(--muted);
+    }
+
+    .introGoal{
+      display:flex;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+
+    .introChip{
+      min-height:34px;
+      padding:0 10px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      background:#eef8ff;
+      border:1px solid #cfe8f8;
+      color:#436175;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .overlayActions{
+      display:flex;
+      justify-content:center;
       gap:10px;
       flex-wrap:wrap;
-      justify-content:flex-end;
+      margin-top:12px;
     }
 
-    @media (max-width: 900px){
-      .statsGrid4{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .statsGrid5{ grid-template-columns:repeat(3,minmax(0,1fr)); }
-      .endTopStats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .endGrid{ grid-template-columns:1fr; }
-      .countGrid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .overlayBtn{
+      min-height:48px;
+      min-width:150px;
+      padding:0 16px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-size:16px;
+      font-weight:1000;
+      color:#2f4f63;
+      cursor:pointer;
     }
 
-    @media (max-width: 640px){
-      :root{
-        --hud-top-h: 108px;
-        --hud-bottom-h: 118px;
+    .overlayBtn.primary{
+      background:var(--sky);
+      color:#17384f;
+      border-color:#9edcff;
+    }
+
+    .endStats{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin:14px 0;
+    }
+
+    .endStat{
+      padding:12px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
+    }
+
+    .endStatLabel{
+      display:block;
+      margin-bottom:6px;
+      font-size:12px;
+      font-weight:900;
+      color:#7b8a97;
+    }
+
+    .endStatValue{
+      display:block;
+      font-size:22px;
+      line-height:1;
+      font-weight:1000;
+      color:#294457;
+    }
+
+    .endMessage{
+      padding:12px 14px;
+      border-radius:18px;
+      background:#f8fcff;
+      border:1px solid var(--line);
+      font-size:14px;
+      line-height:1.5;
+      font-weight:1000;
+      color:#476072;
+    }
+
+    .celebrateLayer{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:50;
+    }
+
+    .confetti{
+      position:absolute;
+      top:-10vh;
+      font-size:24px;
+      animation:confettiDrop linear forwards;
+    }
+
+    @keyframes confettiDrop{
+      0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+      100%{ transform:translateY(115vh) rotate(360deg); opacity:0; }
+    }
+
+    @keyframes softFadeUp{
+      from{ opacity:0; transform:translateY(10px); }
+      to{ opacity:1; transform:translateY(0); }
+    }
+
+    @media (max-width: 920px){
+      .hero,
+      .gameShell{
+        grid-template-columns:1fr;
       }
 
-      .topMain{
-        grid-template-columns:repeat(4,minmax(0,1fr));
+      .heroRight{
+        justify-content:flex-start;
+      }
+    }
+
+    @media (max-width: 700px){
+      .hud{
+        grid-template-columns:repeat(2,1fr);
       }
 
-      .miniPill{
-        min-height:30px;
-        padding:0 8px;
-        font-size:10.5px;
+      .tray{
+        grid-template-columns:1fr 1fr;
       }
 
-      .miniPill .v{
-        font-size:12px;
+      .endStats{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width: 560px){
+      .page{
+        padding:12px 10px 18px;
       }
 
-      .missionLine{
-        min-height:30px;
-        padding:0 8px;
+      .hero,
+      .boardCard,
+      .trayCard,
+      .overlayCard{
+        padding:16px;
+        border-radius:24px;
       }
 
-      #playfield .target{
+      .hero{
+        gap:12px;
+      }
+
+      .heroLeft{
+        flex-direction:column;
+      }
+
+      .heroBadge{
         width:56px;
         height:56px;
-        font-size:27px;
+        border-radius:18px;
+        font-size:28px;
       }
 
-      .countGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-
-      .endActions .btn{
-        flex:1 1 100%;
+      .heroTitle{
+        font-size:30px;
       }
 
-      .objectiveToastCard{
-        min-width:calc(100vw - 28px);
-        padding:12px;
+      .plate{
+        width:min(100%, 350px);
       }
 
-      .objectiveToastTitle{
-        font-size:clamp(18px, 6vw, 24px);
+      .selectedBar{
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      .selectedClear,
+      .overlayBtn{
+        width:100%;
+      }
+
+      .overlayActions,
+      .bottomRow{
+        flex-direction:column;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *, *::before, *::after{
+        animation:none !important;
+        transition:none !important;
+        scroll-behavior:auto !important;
       }
     }
   </style>
 </head>
-<body data-tone="focus">
-  <div id="app">
-    <div id="world" aria-hidden="true">
-      <div class="bgGlow"></div>
-      <div class="grid"></div>
-      <div class="ring"></div>
-      <div class="orb a"></div>
-      <div class="orb b"></div>
-      <div class="orb c"></div>
-    </div>
-
-    <div id="fxLayer" aria-hidden="true"></div>
-
-    <div id="playfield" aria-label="mini game targets"></div>
-
-    <div id="hudTop">
-      <div class="topCard">
-        <div class="topMain">
-          <div class="miniPill">🏆 <span id="uiScore" class="v">0</span></div>
-          <div class="miniPill">⏱️ <span id="uiTime" class="v">0</span>s</div>
-          <div class="miniPill">🍽️ <span id="uiPlate" class="v">0</span>/5</div>
-          <div class="miniPill">💥 <span id="uiMiss" class="v">0</span></div>
-
-          <div class="missionLine">
-            <div class="missionMain">
-              <span>🎯</span>
-              <span id="uiTargetText">เก็บหมู่เป้าหมาย</span>
-            </div>
-            <div class="missionMeta">
-              <span id="uiPhase">MINI</span> • <span id="uiAcc">0%</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="goalThin"><i id="uiGoalFill"></i></div>
-      </div>
-    </div>
-
-    <div id="hudBottom">
-      <div class="coachBar">
-        <div class="label">🧑‍🏫 Coach</div>
-        <div id="coachMsg" class="msg">เก็บอาหารให้ตรงหมู่ แล้วเติมให้ครบ 5 หมู่แบบไว ๆ</div>
-      </div>
-
-      <div id="controls">
-        <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
-        <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
-        <button id="btnDrawer" class="btn" type="button">📊 ดูข้อมูล</button>
-        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
-      </div>
-    </div>
-
-    <div id="drawer" aria-hidden="true">
-      <div class="drawerHead">
-        <div class="drawerTitle">⚡ Quick Plate Mini</div>
-        <button id="btnCloseDrawer" class="btn" type="button">ปิด</button>
-      </div>
-
-      <div class="drawerGrid">
-        <div class="drawerCard">
-          <h4>สถานะการเล่น</h4>
-          <div class="statsGrid4">
-            <div class="pill">🔥 <span id="uiCombo" class="v">0</span></div>
-            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
-            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
-            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
-          </div>
-          <div class="bar"><i id="uiFeverFill"></i></div>
-        </div>
-
-        <div class="drawerCard">
-          <h4>เก็บได้แล้ว</h4>
-          <div class="statsGrid5">
-            <div class="pill">🐟 <span id="uiG1" class="v">0</span></div>
-            <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
-            <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
-            <div class="pill">🍎 <span id="uiG4" class="v">0</span></div>
-            <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
-          </div>
-        </div>
-
-        <div class="drawerCard">
-          <h4>แนวคิดจานสุขภาพ</h4>
-          <div class="plateGuide">
-            <div class="pill">🥬 ผัก 1/2 จาน</div>
-            <div class="pill">🍚 ข้าว/แป้ง 1/4 จาน</div>
-            <div class="pill">🐟 โปรตีน 1/4 จาน</div>
-            <div class="pill">🍎 ผลไม้ เสริมได้พอดี</div>
-            <div class="pill">🥑 ไขมันดี เลือกอย่างพอเหมาะ</div>
-          </div>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="heroLeft">
+        <div class="heroBadge">⚡</div>
+        <div>
+          <p class="eyebrow">HeroHealth • Quick Plate</p>
+          <h1 class="heroTitle">Quick Plate</h1>
+          <p class="heroSub">
+            อุ่นเครื่องก่อนเล่นจริง จัดอาหารให้ถูก 4 ชิ้นใน 20 วินาที แล้วไปเกมหลักต่อทันที
+          </p>
         </div>
       </div>
-    </div>
 
-    <div id="endOverlay" aria-hidden="true">
-      <div class="endCard">
-        <div class="endHead">
+      <div class="heroRight" aria-hidden="true">
+        <div class="heroMiniPlate">
+          <div class="heroMiniFood f1">🍚</div>
+          <div class="heroMiniFood f2">🐟</div>
+          <div class="heroMiniFood f3">🥬</div>
+          <div class="heroMiniFood f4">🍌</div>
+          <div class="heroMiniFood f5">🫗</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="hud" aria-label="สถานะเกม">
+      <article class="hudCard" id="hudTimeCard">
+        <span class="hudLabel">เวลา</span>
+        <strong class="hudValue" id="hudTime">20</strong>
+      </article>
+
+      <article class="hudCard" id="hudProgressCard">
+        <span class="hudLabel">ถูกแล้ว</span>
+        <strong class="hudValue" id="hudProgress">0/4</strong>
+      </article>
+
+      <article class="hudCard" id="hudMistakeCard">
+        <span class="hudLabel">พลาด</span>
+        <strong class="hudValue" id="hudMistakes">0</strong>
+      </article>
+
+      <article class="hudCard">
+        <span class="hudLabel">โหมด</span>
+        <strong class="hudValue">Warmup</strong>
+      </article>
+    </section>
+
+    <section class="gameShell">
+      <section class="boardCard">
+        <div class="cardHead">
           <div>
-            <div class="endBadge" id="endBadge">QUICK PLATE</div>
-            <div style="height:6px"></div>
-            <div style="font-weight:1000;font-size:22px;line-height:1.05" id="endTitle">จบเกม</div>
-            <div style="margin-top:6px;font-size:12px;opacity:.92;word-break:break-word" id="endSub">—</div>
+            <h2 class="cardTitle">จัดจานเร็ว</h2>
+            <p class="cardSub">แตะอาหารจากถาด แล้วแตะส่วนของจานให้ถูก</p>
           </div>
+          <div class="goalPill" id="goalPill">เป้าหมาย 4 ชิ้น</div>
+        </div>
 
-          <div class="endGradeWrap">
-            <div class="endGrade" id="endGrade">A</div>
-            <div class="endGradeLabel">GRADE</div>
+        <div class="plate" id="plateBoard">
+          <button class="zone zone-g2" data-zone="g2" aria-label="หมู่คาร์โบไฮเดรต">
+            <div class="zoneInner"><span>คาร์บ</span></div>
+          </button>
+          <button class="zone zone-g1" data-zone="g1" aria-label="หมู่โปรตีน">
+            <div class="zoneInner"><span>โปรตีน</span></div>
+          </button>
+          <button class="zone zone-g3" data-zone="g3" aria-label="หมู่ผัก">
+            <div class="zoneInner"><span>ผัก</span></div>
+          </button>
+          <button class="zone zone-g4" data-zone="g4" aria-label="หมู่ผลไม้">
+            <div class="zoneInner"><span>ผลไม้</span></div>
+          </button>
+          <button class="zone zone-g5" data-zone="g5" aria-label="หมู่ไขมัน">
+            <div class="zoneInner"><span>ไขมัน</span></div>
+          </button>
+        </div>
+
+        <div class="feedback" id="feedback">แตะอาหารจากถาด แล้วแตะส่วนของจาน</div>
+      </section>
+
+      <section class="trayCard">
+        <div class="cardHead">
+          <div>
+            <h2 class="cardTitle">เลือกอาหาร</h2>
+            <p class="cardSub">มีของถูก 4 ชิ้น และตัวลวง 2 ชิ้น</p>
           </div>
         </div>
 
-        <div class="endTopStats">
-          <div class="endStat hot">
-            <div class="k">SCORE</div>
-            <div class="v" id="endScore">0</div>
-          </div>
-          <div class="endStat">
-            <div class="k">OK</div>
-            <div class="v" id="endOk">0</div>
-          </div>
-          <div class="endStat">
-            <div class="k">WRONG</div>
-            <div class="v" id="endWrong">0</div>
-          </div>
-          <div class="endStat">
-            <div class="k">PLATE</div>
-            <div class="v"><span id="endPlate">0</span>/5</div>
-          </div>
-        </div>
+        <div class="tray" id="foodTray"></div>
+      </section>
+    </section>
 
-        <div class="endGrid">
-          <div class="endPanel">
-            <h4>ครบ 5 หมู่</h4>
-            <div class="countGrid">
-              <div class="countItem">🐟 <strong id="endG1">0</strong></div>
-              <div class="countItem">🍚 <strong id="endG2">0</strong></div>
-              <div class="countItem">🥦 <strong id="endG3">0</strong></div>
-              <div class="countItem">🍎 <strong id="endG4">0</strong></div>
-              <div class="countItem">🥑 <strong id="endG5">0</strong></div>
-            </div>
-          </div>
-
-          <div class="endPanel">
-            <h4>โค้ชแนะนำ</h4>
-            <div id="endCoachTip" style="font-size:13px;line-height:1.6;color:rgba(226,232,240,.94);font-weight:900">
-              ลองเล่นอีกครั้งเพื่อเติมจานให้ครบเร็วขึ้น และรักษาคอมโบให้นานขึ้น
-            </div>
-          </div>
+    <section class="selectedBar" id="selectedBar">
+      <div class="selectedLeft">
+        <div class="selectedEmoji" id="selectedEmoji">🍽️</div>
+        <div>
+          <div class="selectedTitle" id="selectedTitle">ยังไม่ได้เลือกอาหาร</div>
+          <div class="selectedHint" id="selectedHint">เลือกอาหารจากถาดก่อน แล้วค่อยแตะส่วนของจาน</div>
         </div>
+      </div>
+      <button type="button" class="selectedClear" id="btnClearPick">ยกเลิก</button>
+    </section>
 
-        <div class="endActions">
-          <button id="btnReplay" class="btn primary" type="button">🔄 เล่นอีกครั้ง</button>
-          <a id="btnMainAfterEnd" class="btn" href="./plate-solo.html">🍽 Main Game</a>
-          <button id="btnCopy" class="btn" type="button">Copy Summary</button>
-          <button id="btnBackHub2" class="btn primary" type="button">Back HUB</button>
-        </div>
+    <div class="bottomRow">
+      <button type="button" class="ghostBtn" id="btnBackLauncher">กลับ Launcher</button>
+      <button type="button" class="ghostBtn" id="btnGoMainNow">ข้ามไปเกมหลัก</button>
+    </div>
+  </main>
+
+  <div class="overlay" id="introOverlay">
+    <div class="overlayCard">
+      <div class="overlayBadge">⚡</div>
+      <h2 class="overlayTitle">Quick Plate</h2>
+      <p class="overlaySub">
+        อุ่นเครื่องก่อนเล่นจริง จัดให้ถูก 4 ชิ้นใน 20 วินาที
+      </p>
+
+      <div class="introGoal">
+        <span class="introChip">20 วินาที</span>
+        <span class="introChip">4 ชิ้นถูก</span>
+        <span class="introChip">ไปเกมหลักต่อ</span>
+      </div>
+
+      <div class="overlayActions">
+        <button type="button" class="overlayBtn primary" id="btnStartQuick">เริ่มเลย</button>
+        <button type="button" class="overlayBtn" id="btnIntroBack">กลับ Launcher</button>
       </div>
     </div>
   </div>
 
-  <script type="module">
-    const GROUPS = [
-      { id:1, key:'protein', label:'โปรตีน', icon:'🐟', good:['🐟','🥚','🍗','🫘'] },
-      { id:2, key:'carb',    label:'ข้าว/แป้ง', icon:'🍚', good:['🍚','🍞','🥔','🍠'] },
-      { id:3, key:'veg',     label:'ผัก', icon:'🥦', good:['🥦','🥬','🥕','🥒'] },
-      { id:4, key:'fruit',   label:'ผลไม้', icon:'🍎', good:['🍎','🍌','🍉','🍇'] },
-      { id:5, key:'fat',     label:'ไขมันดี', icon:'🥑', good:['🥑','🥜','🫒','🥥'] }
-    ];
-    const WRONG_POOL = ['🍩','🥤','🍟','🧁','🍭','🍔','🍫'];
+  <div class="overlay" id="endOverlay" hidden>
+    <div class="overlayCard">
+      <div class="overlayBadge" id="endBadge">🌟</div>
+      <h2 class="overlayTitle" id="endTitle">พร้อมแล้ว ไปจัดจานจริงกัน!</h2>
+      <p class="overlaySub" id="endSub">Quick Plate เสร็จแล้ว</p>
 
-    function q(name, fallback=''){
-      try{
-        const v = new URL(location.href).searchParams.get(name);
-        return v == null || v === '' ? fallback : v;
-      }catch(_){
+      <div class="endStats">
+        <article class="endStat">
+          <span class="endStatLabel">ทำถูก</span>
+          <strong class="endStatValue" id="endCorrect">0/4</strong>
+        </article>
+        <article class="endStat">
+          <span class="endStatLabel">พลาด</span>
+          <strong class="endStatValue" id="endWrong">0</strong>
+        </article>
+        <article class="endStat">
+          <span class="endStatLabel">เวลาเหลือ</span>
+          <strong class="endStatValue" id="endRemain">0</strong>
+        </article>
+      </div>
+
+      <div class="endMessage" id="endMessage">
+        ไปต่อที่เกมหลักได้เลย
+      </div>
+
+      <div class="overlayActions">
+        <button type="button" class="overlayBtn primary" id="btnGoMain">ไปเกมหลัก</button>
+        <button type="button" class="overlayBtn" id="btnReplayQuick">เล่นอีกครั้ง</button>
+        <button type="button" class="overlayBtn" id="btnEndBack">กลับ Launcher</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toastLayer" id="toastLayer" aria-live="polite"></div>
+  <div class="celebrateLayer" id="celebrateLayer" aria-hidden="true"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* =========================
+     * helpers
+     * ========================= */
+    function qs(name, fallback = '') {
+      try {
+        return new URL(location.href).searchParams.get(name) ?? fallback;
+      } catch (_) {
         return fallback;
       }
     }
 
-    function normalizeHub(raw){
-      raw = String(raw || '').trim();
-      const DEFAULT = '../hub-v2.html';
-      if (!raw) return DEFAULT;
-      try{
-        const u = new URL(raw, location.href);
-        u.pathname = u.pathname
-          .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub-v2.html')
-          .replace('/herohealth/plate/hub.html', '/herohealth/hub-v2.html')
-          .replace('/herohealth/hub.html', '/herohealth/hub-v2.html');
-        return u.toString();
-      }catch(_){
-        return DEFAULT;
+    function clean(v, d = '') {
+      v = String(v ?? '').trim();
+      return v || d;
+    }
+
+    function num(v, d = 0) {
+      v = Number(v);
+      return Number.isFinite(v) ? v : d;
+    }
+
+    function bangkokYmd() {
+      try {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Bangkok',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).formatToParts(new Date());
+        const m = {};
+        for (const p of parts) {
+          if (p.type !== 'literal') m[p.type] = p.value;
+        }
+        return `${m.year}${m.month}${m.day}`;
+      } catch (_) {
+        const d = new Date();
+        return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
       }
     }
 
-    function xmur3(str) {
-      str = String(str || '');
-      let h = 1779033703 ^ str.length;
-      for (let i = 0; i < str.length; i += 1) {
-        h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    function safeWriteJson(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch (_) {}
+    }
+
+    function buildUrl(path, params = {}) {
+      const url = new URL(path, location.origin);
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== '' && v != null) url.searchParams.set(k, String(v));
+      });
+      return url.toString();
+    }
+
+    function setText(el, value) {
+      if (el) el.textContent = String(value);
+    }
+
+    function makeRng(seedStr) {
+      let h = 1779033703 ^ String(seedStr).length;
+      for (let i = 0; i < String(seedStr).length; i++) {
+        h = Math.imul(h ^ String(seedStr).charCodeAt(i), 3432918353);
         h = (h << 13) | (h >>> 19);
       }
       return function () {
         h = Math.imul(h ^ (h >>> 16), 2246822507);
         h = Math.imul(h ^ (h >>> 13), 3266489909);
-        return (h ^ (h >>> 16)) >>> 0;
+        h ^= h >>> 16;
+        return (h >>> 0) / 4294967296;
       };
     }
 
-    function sfc32(a, b, c, d) {
-      return function () {
-        a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-        let t = (a + b) | 0;
-        a = b ^ (b >>> 9);
-        b = (c + (c << 3)) | 0;
-        c = (c << 21) | (c >>> 11);
-        d = (d + 1) | 0;
-        t = (t + d) | 0;
-        c = (c + t) | 0;
-        return (t >>> 0) / 4294967296;
-      };
-    }
-
-    function makeRng(seedStr) {
-      const s = xmur3(String(seedStr || '0'));
-      return sfc32(s(), s(), s(), s());
-    }
-
-    const ctx = {
-      pid: q('pid', 'anon'),
-      view: q('view', 'mobile').toLowerCase(),
-      run: q('run', 'play').toLowerCase(),
-      diff: q('diff', 'normal').toLowerCase(),
-      time: Math.max(30, Number(q('time', '60')) || 60),
-      seed: q('seed', String(Date.now())),
-      hub: normalizeHub(q('hub', '../hub-v2.html')),
-      mini: q('mini', '1') === '1'
-    };
-
-    const rng = makeRng(ctx.seed);
-
-    const state = {
-      running: true,
-      paused: false,
-      ended: false,
-      raf: 0,
-      lastTick: 0,
-      spawnAcc: 0,
-      nextId: 1,
-
-      score: 0,
-      hits: 0,
-      wrong: 0,
-      miss: 0,
-      combo: 0,
-      comboMax: 0,
-
-      fever: 0,
-      feverOn: false,
-      feverTimer: 0,
-      shield: 0,
-
-      targetGroup: GROUPS[0],
-      groupRotateTimer: 8,
-      totalTime: ctx.time,
-      timeLeft: ctx.time,
-
-      counts: {1:0,2:0,3:0,4:0,5:0},
-      plateHave: 0,
-
-      targets: new Map()
-    };
-
-    const playfield = document.getElementById('playfield');
-    const drawer = document.getElementById('drawer');
-    const endOverlay = document.getElementById('endOverlay');
-
-    function clamp(v, a, b){
-      const n = Number(v);
-      if (!Number.isFinite(n)) return a;
-      return Math.max(a, Math.min(b, n));
-    }
-
-    function rand(min, max){
-      return min + (rng() * (max - min));
-    }
-
-    function pick(arr){
-      return arr[(rng() * arr.length) | 0];
-    }
-
-    function nowMs(){
-      return (performance && performance.now) ? performance.now() : Date.now();
-    }
-
-    function setText(id, text){
-      const el = document.getElementById(id);
-      if (el) el.textContent = String(text ?? '');
-    }
-
-    function setWidth(id, pct){
-      const el = document.getElementById(id);
-      if (el) el.style.width = `${clamp(pct, 0, 100)}%`;
-    }
-
-    function showBanner(text){
-      const d = document.createElement('div');
-      d.className = 'phaseBanner';
-      d.textContent = String(text || '');
-      document.getElementById('app')?.appendChild(d);
-      setTimeout(() => {
-        try { d.remove(); } catch {}
-      }, 900);
-    }
-
-    function showPop(x, y, text){
-      try{
-        const d = document.createElement('div');
-        d.className = 'popScore';
-        d.textContent = text;
-        d.style.left = `${x}px`;
-        d.style.top = `${y}px`;
-        playfield.appendChild(d);
-        setTimeout(() => {
-          try { d.remove(); } catch {}
-        }, 560);
-      }catch(_){}
-    }
-
-    function fxPulseAt(x, y, kind = 'good'){
-      const layer = document.getElementById('fxLayer');
-      if (!layer) return;
-      const el = document.createElement('div');
-      el.className = `fxPulse ${kind}`;
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
-      layer.appendChild(el);
-      setTimeout(() => {
-        try { el.remove(); } catch {}
-      }, 520);
-    }
-
-    function plateCountDistinct(){
-      let n = 0;
-      for (let i = 1; i <= 5; i += 1) {
-        if ((state.counts[i] || 0) > 0) n += 1;
+    function shuffle(arr, rng) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
       }
-      return n;
+      return a;
     }
 
-    function accuracyPct(){
-      const total = state.hits + state.wrong + state.miss;
-      return total > 0 ? Math.round((state.hits / total) * 100) : 0;
+    function nowMs() {
+      return (window.performance && performance.now) ? performance.now() : Date.now();
     }
 
-    function gradeOf(acc){
-      if (acc >= 90) return 'S';
-      if (acc >= 75) return 'A';
-      if (acc >= 60) return 'B';
-      if (acc >= 40) return 'C';
-      return 'D';
+    /* =========================
+     * context / paths
+     * ========================= */
+    const QUICK_TIME = 20;
+    const TARGET_CORRECT = 4;
+    const ctx = {
+      pid: clean(qs('pid'), 'anon'),
+      name: clean(qs('name'), 'Hero'),
+      nick: clean(qs('nick'), ''),
+      studyId: clean(qs('studyId'), ''),
+      diff: clean(qs('diff'), 'normal'),
+      time: num(qs('time'), 90), // main game time, quick plate ignores this
+      seed: clean(qs('seed'), String(Date.now())),
+      view: clean(qs('view'), 'mobile'),
+      run: clean(qs('run'), 'play'),
+      zone: clean(qs('zone'), 'nutrition'),
+      cat: clean(qs('cat'), 'nutrition'),
+      game: clean(qs('game'), 'plate'),
+      gameId: clean(qs('gameId'), 'plate'),
+      theme: clean(qs('theme'), 'plate'),
+      mode: clean(qs('mode'), 'solo'),
+      hub: clean(qs('hub'), 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'),
+      hubRoot: clean(qs('hubRoot'), ''),
+      launcher: clean(qs('launcher'), ''),
+      mainNext: clean(qs('mainNext'), '/webxr-health-mobile/herohealth/plate/plate-vr.html')
+    };
+
+    function quickPlateDoneKey() {
+      return `HHA_QUICK_PLATE_DONE_${ctx.pid}_${bangkokYmd()}`;
     }
 
-    function currentTone(){
-      if (state.feverOn) return 'fever';
-      if (state.timeLeft <= Math.max(10, state.totalTime * 0.22)) return 'rush';
-      return 'focus';
+    function markQuickPlateDone(result) {
+      try {
+        localStorage.setItem(quickPlateDoneKey(), '1');
+      } catch (_) {}
+
+      safeWriteJson('HHA_LAST_SUMMARY_QUICK_PLATE', {
+        game: 'quick-plate',
+        pid: ctx.pid,
+        result,
+        saved_at_ms: Date.now(),
+        saved_at_iso: new Date().toISOString()
+      });
     }
 
-    function updateTone(){
-      document.body.dataset.tone = currentTone();
-    }
-
-    function setCoach(kind = 'start'){
-      let text = 'เก็บอาหารให้ตรงหมู่ แล้วเติมให้ครบ 5 หมู่แบบไว ๆ';
-
-      if (kind === 'good') text = 'เยี่ยมมาก! ถูกหมู่แล้ว';
-      else if (kind === 'wrong') text = 'ลองดูใหม่อีกนิดนะ';
-      else if (kind === 'miss') text = 'ไม่เป็นไร ยังทันอยู่';
-      else if (kind === 'shield') text = 'ได้โล่แล้ว! กันพลาดได้ 1 ครั้ง';
-      else if (kind === 'fever') text = 'Fever มาแล้ว! รีบเก็บแต้ม';
-      else if (kind === 'rotate') text = `เป้าหมายใหม่: ${state.targetGroup.icon} ${state.targetGroup.label}`;
-      else if (kind === 'done') text = 'จบรอบแล้ว ลองดูผลสรุปได้เลย';
-
-      setText('coachMsg', text);
-    }
-
-    function safeRect(){
-      const w = Math.max(1, playfield.clientWidth || 1);
-      const h = Math.max(1, playfield.clientHeight || 1);
-      const isMobile = ctx.view === 'mobile';
-
-      const padX = isMobile ? 24 : 18;
-      const padTop = isMobile ? 16 : 14;
-      const padBottom = isMobile ? 22 : 18;
-
+    function sharedParams(extra = {}) {
       return {
-        left: padX,
-        right: Math.max(padX + 1, w - padX),
-        top: padTop,
-        bottom: Math.max(padTop + 1, h - padBottom),
-        width: Math.max(1, w - padX * 2),
-        height: Math.max(1, h - padTop - padBottom)
+        pid: ctx.pid,
+        name: ctx.name,
+        nick: ctx.nick,
+        studyId: ctx.studyId,
+        diff: ctx.diff,
+        time: ctx.time,
+        seed: Date.now(),
+        view: ctx.view,
+        run: ctx.run,
+        zone: ctx.zone,
+        cat: ctx.cat,
+        game: 'plate',
+        gameId: 'plate',
+        theme: 'plate',
+        mode: 'solo',
+        hub: ctx.hub,
+        hubRoot: ctx.hubRoot,
+        launcher: ctx.launcher || defaultLauncherUrl(),
+        ...extra
       };
     }
 
-    function chooseTargetInfo(){
-      const targetCorrectP = ctx.diff === 'hard' ? 0.62 : (ctx.diff === 'easy' ? 0.82 : 0.72);
-      const isCorrect = rng() < targetCorrectP;
+    function defaultLauncherUrl() {
+      return buildUrl('/webxr-health-mobile/herohealth/plate-v1.html', sharedParams());
+    }
+
+    function buildMainGameUrl() {
+      const url = new URL(ctx.mainNext || '/webxr-health-mobile/herohealth/plate/plate-vr.html', location.origin);
+      const params = sharedParams({
+        fromQuickPlate: 1,
+        quickPlateDone: 1
+      });
+
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== '' && v != null) url.searchParams.set(k, String(v));
+      });
+      return url.toString();
+    }
+
+    function buildBackLauncherUrl() {
+      if (ctx.launcher) return ctx.launcher;
+      return defaultLauncherUrl();
+    }
+
+    /* =========================
+     * data
+     * ========================= */
+    const FOOD_GROUPS = {
+      g1: { short: 'โปรตีน' },
+      g2: { short: 'คาร์บ' },
+      g3: { short: 'ผัก' },
+      g4: { short: 'ผลไม้' },
+      g5: { short: 'ไขมัน' }
+    };
+
+    const FOOD_DB = [
+      { id:'rice', label:'ข้าว', group:'g2' },
+      { id:'bread', label:'ขนมปัง', group:'g2' },
+      { id:'corn', label:'ข้าวโพด', group:'g2' },
+      { id:'potato', label:'มันฝรั่ง', group:'g2' },
+
+      { id:'fish', label:'ปลา', group:'g1' },
+      { id:'egg', label:'ไข่', group:'g1' },
+      { id:'chicken', label:'ไก่', group:'g1' },
+      { id:'milk', label:'นม', group:'g1' },
+
+      { id:'kale', label:'คะน้า', group:'g3' },
+      { id:'carrot', label:'แครอท', group:'g3' },
+      { id:'cucumber', label:'แตงกวา', group:'g3' },
+      { id:'pumpkin', label:'ฟักทอง', group:'g3' },
+
+      { id:'banana', label:'กล้วย', group:'g4' },
+      { id:'orange', label:'ส้ม', group:'g4' },
+      { id:'watermelon', label:'แตงโม', group:'g4' },
+      { id:'apple', label:'แอปเปิล', group:'g4' },
+
+      { id:'butter', label:'เนย', group:'g5' },
+      { id:'oil', label:'น้ำมันพืช', group:'g5' },
+      { id:'coconutMilk', label:'กะทิ', group:'g5' },
+
+      { id:'soda', label:'น้ำอัดลม', group:'x' },
+      { id:'cake', label:'เค้ก', group:'x' },
+      { id:'chips', label:'มันฝรั่งทอด', group:'x' },
+      { id:'bubbleTea', label:'ชานมไข่มุก', group:'x' }
+    ];
+
+    const FOOD_EMOJI = {
+      rice:'🍚', bread:'🍞', corn:'🌽', potato:'🥔',
+      fish:'🐟', egg:'🥚', chicken:'🍗', milk:'🥛',
+      kale:'🥬', carrot:'🥕', cucumber:'🥒', pumpkin:'🎃',
+      banana:'🍌', orange:'🍊', watermelon:'🍉', apple:'🍎',
+      butter:'🧈', oil:'🫗', coconutMilk:'🥥',
+      soda:'🥤', cake:'🍰', chips:'🍟', bubbleTea:'🧋'
+    };
+
+    /* =========================
+     * DOM
+     * ========================= */
+    const $introOverlay = document.getElementById('introOverlay');
+    const $endOverlay = document.getElementById('endOverlay');
+    const $foodTray = document.getElementById('foodTray');
+    const $feedback = document.getElementById('feedback');
+
+    const $hudTime = document.getElementById('hudTime');
+    const $hudProgress = document.getElementById('hudProgress');
+    const $hudMistakes = document.getElementById('hudMistakes');
+
+    const $hudTimeCard = document.getElementById('hudTimeCard');
+    const $hudProgressCard = document.getElementById('hudProgressCard');
+    const $hudMistakeCard = document.getElementById('hudMistakeCard');
+
+    const $selectedEmoji = document.getElementById('selectedEmoji');
+    const $selectedTitle = document.getElementById('selectedTitle');
+    const $selectedHint = document.getElementById('selectedHint');
+    const $btnClearPick = document.getElementById('btnClearPick');
+
+    const $btnStartQuick = document.getElementById('btnStartQuick');
+    const $btnIntroBack = document.getElementById('btnIntroBack');
+    const $btnBackLauncher = document.getElementById('btnBackLauncher');
+    const $btnGoMainNow = document.getElementById('btnGoMainNow');
+
+    const $btnGoMain = document.getElementById('btnGoMain');
+    const $btnReplayQuick = document.getElementById('btnReplayQuick');
+    const $btnEndBack = document.getElementById('btnEndBack');
+
+    const $endBadge = document.getElementById('endBadge');
+    const $endTitle = document.getElementById('endTitle');
+    const $endSub = document.getElementById('endSub');
+    const $endCorrect = document.getElementById('endCorrect');
+    const $endWrong = document.getElementById('endWrong');
+    const $endRemain = document.getElementById('endRemain');
+    const $endMessage = document.getElementById('endMessage');
+
+    const $toastLayer = document.getElementById('toastLayer');
+    const $celebrateLayer = document.getElementById('celebrateLayer');
+
+    /* =========================
+     * state
+     * ========================= */
+    const state = {
+      started: false,
+      finished: false,
+      selectedFoodId: null,
+      correctCount: 0,
+      wrongCount: 0,
+      timeLeft: QUICK_TIME,
+      targetFoods: [],
+      trayFoods: [],
+      filledZones: {},
+      usedFoodIds: [],
+      deadlineMs: 0,
+      tickTimer: 0,
+      rng: makeRng(ctx.seed)
+    };
+
+    /* =========================
+     * UI helpers
+     * ========================= */
+    function pushToast(message, type = 'info') {
+      if (!$toastLayer) return;
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      el.textContent = message;
+      $toastLayer.appendChild(el);
+      setTimeout(() => el.remove(), 2100);
+    }
+
+    function bumpCard(el) {
+      if (!el) return;
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 180);
+    }
+
+    function setFeedback(message) {
+      if (!$feedback) return;
+      $feedback.textContent = message || '';
+      $feedback.classList.remove('pop');
+      void $feedback.offsetWidth;
+      $feedback.classList.add('pop');
+      setTimeout(() => $feedback.classList.remove('pop'), 180);
+    }
+
+    function celebrate(kind = 'good') {
+      const icons = kind === 'perfect'
+        ? ['⭐️','🌟','🏆','✨','💛']
+        : ['✨','⭐️','🍽️','🎉'];
+
+      const count = kind === 'perfect' ? 16 : 10;
+
+      for (let i = 0; i < count; i++) {
+        const el = document.createElement('div');
+        el.className = 'confetti';
+        el.textContent = icons[Math.floor(Math.random() * icons.length)];
+        el.style.left = `${Math.random() * 100}%`;
+        el.style.animationDuration = `${2 + Math.random() * 1.2}s`;
+        el.style.animationDelay = `${Math.random() * .18}s`;
+        $celebrateLayer.appendChild(el);
+        setTimeout(() => el.remove(), 3400);
+      }
+    }
+
+    function syncHud() {
+      setText($hudTime, state.timeLeft);
+      setText($hudProgress, `${state.correctCount}/${TARGET_CORRECT}`);
+      setText($hudMistakes, state.wrongCount);
+    }
+
+    function syncSelectedBar() {
+      const food = state.trayFoods.find(x => x.id === state.selectedFoodId);
+      if (!food) {
+        setText($selectedEmoji, '🍽️');
+        setText($selectedTitle, 'ยังไม่ได้เลือกอาหาร');
+        setText($selectedHint, 'เลือกอาหารจากถาดก่อน แล้วค่อยแตะส่วนของจาน');
+        return;
+      }
+
+      setText($selectedEmoji, FOOD_EMOJI[food.id] || '🍎');
+      setText($selectedTitle, `เลือก: ${food.label}`);
+      setText($selectedHint, food.group === 'x'
+        ? 'อันนี้เป็นตัวลวง ลองคิดก่อนวางนะ'
+        : `แตะส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`);
+    }
+
+    function markZoneState(zoneEl, type) {
+      if (!zoneEl) return;
+      zoneEl.classList.remove('correctFlash', 'wrongFlash');
+      void zoneEl.offsetWidth;
+      zoneEl.classList.add(type === 'ok' ? 'correctFlash' : 'wrongFlash');
+    }
+
+    function fillZone(zoneId, food) {
+      const zoneEl = document.querySelector(`.zone[data-zone="${zoneId}"]`);
+      if (!zoneEl) return;
+
+      const inner = zoneEl.querySelector('.zoneInner');
+      if (!inner) return;
+
+      inner.innerHTML = `
+        <div>
+          <div class="zoneItemEmoji">${FOOD_EMOJI[food.id] || '🍎'}</div>
+          <div class="zoneItemText">${food.label}</div>
+        </div>
+      `;
+    }
+
+    function resetZones() {
+      document.querySelectorAll('.zone').forEach(zone => {
+        zone.classList.remove('active', 'correctFlash', 'wrongFlash');
+        const zoneId = zone.getAttribute('data-zone');
+        const inner = zone.querySelector('.zoneInner');
+        if (inner) {
+          inner.innerHTML = `<span>${FOOD_GROUPS[zoneId].short}</span>`;
+        }
+      });
+    }
+
+    function syncFoodUi() {
+      [...$foodTray.querySelectorAll('.food')].forEach(btn => {
+        const id = btn.dataset.id;
+        btn.classList.toggle('selected', id === state.selectedFoodId);
+        btn.classList.toggle('used', state.usedFoodIds.includes(id));
+      });
+    }
+
+    /* =========================
+     * setup round
+     * ========================= */
+    function buildRound() {
+      const allGroups = ['g2', 'g1', 'g3', 'g4', 'g5'];
+      const targetGroups = shuffle(allGroups, state.rng).slice(0, TARGET_CORRECT);
+
+      const targetFoods = targetGroups.map(group => {
+        const candidates = FOOD_DB.filter(x => x.group === group);
+        return shuffle(candidates, state.rng)[0];
+      });
+
+      const distractors = shuffle(
+        FOOD_DB.filter(x => x.group === 'x'),
+        state.rng
+      ).slice(0, 2);
+
+      state.targetFoods = targetFoods.slice();
+      state.trayFoods = shuffle([...targetFoods, ...distractors], state.rng);
+    }
+
+    function renderTray() {
+      $foodTray.innerHTML = '';
+
+      state.trayFoods.forEach(food => {
+        const btn = document.createElement('button');
+        btn.className = 'food';
+        btn.type = 'button';
+        btn.dataset.id = food.id;
+
+        btn.innerHTML = `
+          <div class="foodEmoji">${FOOD_EMOJI[food.id] || '🍎'}</div>
+          <div class="foodMeta">
+            <div class="foodName">${food.label}</div>
+            <div class="foodTag ${food.group === 'x' ? 'x' : ''}">
+              ${food.group === 'x' ? 'ลองคิดดู' : 'เลือกให้ถูกส่วน'}
+            </div>
+          </div>
+        `;
+
+        btn.addEventListener('click', () => selectFood(food.id));
+        $foodTray.appendChild(btn);
+      });
+
+      syncFoodUi();
+    }
+
+    /* =========================
+     * game logic
+     * ========================= */
+    function selectFood(foodId) {
+      if (!state.started || state.finished) return;
+      if (state.usedFoodIds.includes(foodId)) return;
+
+      const food = state.trayFoods.find(x => x.id === foodId);
+      if (!food) return;
+
+      state.selectedFoodId = foodId;
+      syncFoodUi();
+      syncSelectedBar();
+
+      if (food.group === 'x') {
+        setFeedback(`เลือก "${food.label}" แล้ว ลองคิดก่อนวางนะ`);
+      } else {
+        setFeedback(`เลือก "${food.label}" แล้ว แตะส่วน "${FOOD_GROUPS[food.group].short}"`);
+      }
+    }
+
+    function clearSelection() {
+      state.selectedFoodId = null;
+      syncFoodUi();
+      syncSelectedBar();
+    }
+
+    function judgePlacement(food, zoneId) {
+      if (food.group === 'x') return false;
+      return food.group === zoneId;
+    }
+
+    function handleZoneClick(zoneId, zoneEl) {
+      if (!state.started || state.finished) return;
+
+      if (!state.selectedFoodId) {
+        setFeedback('เลือกอาหารจากถาดก่อนนะ');
+        pushToast('เลือกอาหารจากถาดก่อนนะ', 'info');
+        return;
+      }
+
+      if (state.filledZones[zoneId]) {
+        setFeedback('ส่วนนี้มีอาหารแล้ว ลองส่วนอื่นนะ');
+        pushToast('ส่วนนี้มีอาหารแล้ว', 'info');
+        return;
+      }
+
+      const food = state.trayFoods.find(x => x.id === state.selectedFoodId);
+      if (!food) return;
+
+      const isCorrect = judgePlacement(food, zoneId);
 
       if (isCorrect) {
-        return {
-          groupId: state.targetGroup.id,
-          label: state.targetGroup.label,
-          emoji: pick(state.targetGroup.good),
-          good: true
-        };
-      }
+        state.correctCount += 1;
+        state.filledZones[zoneId] = food;
+        state.usedFoodIds.push(food.id);
 
-      if (rng() < 0.36) {
-        return {
-          groupId: 0,
-          label: 'ตัวหลอก',
-          emoji: pick(WRONG_POOL),
-          good: false
-        };
-      }
+        fillZone(zoneId, food);
+        markZoneState(zoneEl, 'ok');
 
-      const other = pick(GROUPS.filter(g => g.id !== state.targetGroup.id));
-      return {
-        groupId: other.id,
-        label: other.label,
-        emoji: pick(other.good),
-        good: false
-      };
-    }
+        setFeedback(`เยี่ยมมาก! ${food.label} ถูกหมู่แล้ว`);
+        pushToast('ถูกต้อง!', 'ok');
 
-    function createTarget(point = null){
-      if (state.ended) return;
-      if (drawer.getAttribute('aria-hidden') === 'false') return;
-      if (endOverlay.getAttribute('aria-hidden') === 'false') return;
+        bumpCard($hudProgressCard);
 
-      const safe = safeRect();
-      const info = chooseTargetInfo();
-      const id = String(state.nextId++);
-      const size = Math.round(rand(ctx.view === 'mobile' ? 52 : 56, ctx.view === 'mobile' ? 68 : 74));
-
-      const x = point?.x != null
-        ? clamp(point.x, safe.left + size * 0.6, safe.right - size * 0.6)
-        : rand(safe.left + size * 0.6, safe.right - size * 0.6);
-
-      const y = point?.y != null
-        ? clamp(point.y, safe.top + size * 0.6, safe.bottom - size * 0.6)
-        : rand(safe.top + size * 0.6, safe.top + Math.min(safe.height * 0.34, 160));
-
-      const el = document.createElement('button');
-      el.type = 'button';
-      el.className = 'target';
-      el.dataset.id = id;
-      el.dataset.group = String(info.groupId || 0);
-      el.textContent = info.emoji;
-
-      let kind = 'food';
-      if (info.good && rng() < 0.08) {
-        kind = 'shield';
-        el.dataset.kind = 'shield';
-      }
-
-      const matched = !!info.good && Number(info.groupId) === Number(state.targetGroup.id);
-      el.dataset.match = matched ? '1' : '0';
-
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
-      el.style.width = `${size}px`;
-      el.style.height = `${size}px`;
-      el.style.fontSize = `${Math.round(size * 0.48)}px`;
-
-      const speedScale = ctx.diff === 'hard' ? 1.16 : (ctx.diff === 'easy' ? 0.92 : 1);
-      const t = {
-        id,
-        el,
-        x,
-        y,
-        size,
-        born: nowMs(),
-        ttlMs: Math.round((ctx.diff === 'hard' ? 2500 : ctx.diff === 'easy' ? 3400 : 2900) * (state.feverOn ? 0.92 : 1)),
-        good: info.good,
-        groupId: info.groupId,
-        label: info.label,
-        emoji: info.emoji,
-        kind,
-        vx: rand(-20, 20),
-        vy: rand(46, 80) * speedScale
-      };
-
-      playfield.appendChild(el);
-      state.targets.set(id, t);
-
-      el.addEventListener('pointerdown', onHit, { passive:true });
-    }
-
-    function primeStartTargets(){
-      const safe = safeRect();
-      const count = ctx.view === 'mobile' ? 2 : 3;
-      for (let i = 0; i < count; i += 1) {
-        createTarget({
-          x: safe.left + safe.width * (0.32 + i * 0.18),
-          y: safe.top + 84 + (i * 24)
-        });
-      }
-    }
-
-    function removeTarget(t, mode = 'expire'){
-      if (!t || !t.el) return;
-      state.targets.delete(t.id);
-      try{
-        t.el.classList.add(mode === 'hit' ? 'hit' : 'expire');
-        t.el.removeEventListener('pointerdown', onHit);
-        setTimeout(() => {
-          try { t.el.remove(); } catch {}
-        }, 140);
-      }catch(_){
-        try { t.el.remove(); } catch {}
-      }
-    }
-
-    function clearTargets(){
-      for (const t of state.targets.values()) {
-        try {
-          t.el.removeEventListener('pointerdown', onHit);
-          t.el.remove();
-        } catch {}
-      }
-      state.targets.clear();
-    }
-
-    function rotateTargetGroup(){
-      const pool = GROUPS.filter(g => g.id !== state.targetGroup.id);
-      state.targetGroup = pick(pool);
-      setCoach('rotate');
-      showBanner(`NEW TARGET • ${state.targetGroup.icon} ${state.targetGroup.label}`);
-      updateHud();
-    }
-
-    function maybeStartFever(x, y){
-      if (state.fever >= 100 && !state.feverOn) {
-        state.feverOn = true;
-        state.feverTimer = 6;
-        updateTone();
-        setCoach('fever');
-        showBanner('FEVER!');
-        fxPulseAt(x, y, 'fever');
-      }
-    }
-
-    function onHit(ev){
-      if (!state.running || state.paused || state.ended) return;
-      const el = ev.currentTarget;
-      const id = String(el.dataset.id || '');
-      const t = state.targets.get(id);
-      if (!t) return;
-
-      const matched = !!t.good && Number(t.groupId) === Number(state.targetGroup.id);
-
-      if (matched) {
-        state.hits += 1;
-        state.combo += 1;
-        state.comboMax = Math.max(state.comboMax, state.combo);
-
-        let add = 10 + Math.min(8, state.combo);
-        if (state.feverOn) add += 4;
-        state.score += add;
-        state.fever = clamp(state.fever + 14, 0, 100);
-
-        if (t.kind === 'shield') {
-          state.shield = Math.min(3, state.shield + 1);
-          setCoach('shield');
-        } else {
-          setCoach('good');
+        if (state.correctCount >= TARGET_CORRECT) {
+          finishGame(true);
         }
-
-        if (Number(t.groupId) >= 1 && Number(t.groupId) <= 5) {
-          state.counts[t.groupId] = (state.counts[t.groupId] || 0) + 1;
-          const before = state.plateHave;
-          state.plateHave = plateCountDistinct();
-          if (before < 5 && state.plateHave === 5) {
-            state.score += 30;
-            showPop(t.x, t.y, 'ครบ 5 หมู่! +30');
-          }
-        }
-
-        maybeStartFever(t.x, t.y);
-        fxPulseAt(t.x, t.y, state.feverOn ? 'fever' : 'good');
-        showPop(t.x, t.y, `+${add}`);
-
-        if (state.hits > 0 && state.hits % 4 === 0) {
-          rotateTargetGroup();
-        }
-
-        removeTarget(t, 'hit');
       } else {
-        state.wrong += 1;
-        state.combo = 0;
+        state.wrongCount += 1;
+        markZoneState(zoneEl, 'bad');
+        setFeedback(food.group === 'x'
+          ? `${food.label} ยังไม่เหมาะกับจานสุขภาพรอบนี้`
+          : `${food.label} ยังไม่อยู่ส่วนนี้ ลองใหม่อีกนิด`);
+        pushToast('ลองอีกครั้งนิดเดียว', 'bad');
 
-        if (state.shield > 0) {
-          state.shield -= 1;
-        } else {
-          state.miss += 1;
-          state.score = Math.max(0, state.score - (ctx.diff === 'hard' ? 6 : 4));
-        }
-
-        setCoach('wrong');
-        fxPulseAt(t.x, t.y, 'bad');
-        removeTarget(t, 'hit');
+        bumpCard($hudMistakeCard);
       }
 
-      updateHud();
+      clearSelection();
+      syncHud();
     }
 
-    function updateTargets(dt){
-      const safe = safeRect();
+    function startClock() {
+      clearInterval(state.tickTimer);
+      state.deadlineMs = nowMs() + (QUICK_TIME * 1000);
+      state.tickTimer = setInterval(() => {
+        const remainMs = Math.max(0, state.deadlineMs - nowMs());
+        const nextSec = Math.ceil(remainMs / 1000);
 
-      for (const t of Array.from(state.targets.values())) {
-        t.x += t.vx * dt;
-        t.y += t.vy * dt;
-
-        const half = Math.max(18, t.size * 0.5);
-
-        if (t.x <= safe.left + half) {
-          t.x = safe.left + half;
-          t.vx *= -1;
-        } else if (t.x >= safe.right - half) {
-          t.x = safe.right - half;
-          t.vx *= -1;
+        if (nextSec !== state.timeLeft) {
+          state.timeLeft = nextSec;
+          syncHud();
+          bumpCard($hudTimeCard);
         }
 
-        if (t.el) {
-          t.el.style.left = `${t.x}px`;
-          t.el.style.top = `${t.y}px`;
+        if (remainMs <= 0) {
+          finishGame(false);
         }
-
-        if ((nowMs() - t.born) >= t.ttlMs || t.y >= safe.bottom - (half * 0.2)) {
-          const wasTarget = !!t.good && Number(t.groupId) === Number(state.targetGroup.id);
-          if (wasTarget) {
-            if (state.shield > 0) {
-              state.shield -= 1;
-            } else {
-              state.miss += 1;
-              state.combo = 0;
-            }
-            setCoach('miss');
-            fxPulseAt(t.x, t.y, 'bad');
-          }
-          removeTarget(t, 'expire');
-        }
-      }
-
-      const cap = ctx.view === 'mobile' ? 4 : 5;
-      const spawnPerSec = ctx.diff === 'hard' ? 1.22 : (ctx.diff === 'easy' ? 0.90 : 1.04);
-
-      state.spawnAcc += spawnPerSec * dt;
-      while (state.spawnAcc >= 1) {
-        state.spawnAcc -= 1;
-        if (state.targets.size < cap) {
-          createTarget();
-        }
-      }
+      }, 150);
     }
 
-    function updateFever(dt){
-      if (!state.feverOn) return;
-      state.feverTimer -= dt;
-      if (state.feverTimer <= 0) {
-        state.feverOn = false;
-        state.fever = 0;
-        updateTone();
-      }
-    }
+    function finishGame(success) {
+      if (state.finished) return;
+      state.finished = true;
+      clearInterval(state.tickTimer);
+      state.tickTimer = 0;
 
-    function updateHud(){
-      setText('uiScore', state.score);
-      setText('uiTime', Math.ceil(Math.max(0, state.timeLeft)));
-      setText('uiPlate', state.plateHave);
-      setText('uiMiss', state.miss);
-      setText('uiCombo', state.combo);
-      setText('uiGrade', gradeOf(accuracyPct()));
-      setText('uiAcc', `${accuracyPct()}%`);
-      setText('uiFever', `${Math.round(state.fever)}%`);
-      setText('uiShield', state.shield);
-      setText('uiTargetText', `เก็บ ${state.targetGroup.icon} ${state.targetGroup.label}`);
-
-      const progressPct = Math.round((state.plateHave / 5) * 100);
-      setWidth('uiGoalFill', progressPct);
-      setWidth('uiFeverFill', state.fever);
-
-      for (let i = 1; i <= 5; i += 1) {
-        setText(`uiG${i}`, state.counts[i] || 0);
-      }
-    }
-
-    function saveSummary(sum){
-      try{
-        localStorage.setItem(`HHA_LAST_SUMMARY:plate-mini:${ctx.pid}`, JSON.stringify(sum));
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({ ...sum, game: 'plate-mini' }));
-      }catch(_){}
-    }
-
-    function buildSummary(){
-      return {
-        game: 'plate-mini',
-        mode: 'mini',
-        scoreFinal: state.score,
-        grade: gradeOf(accuracyPct()),
-        accPct: accuracyPct(),
-        ok: state.hits,
-        wrong: state.wrong,
-        miss: state.miss,
-        comboMax: state.comboMax,
-        plateHave: state.plateHave,
-        counts: { ...state.counts },
-        diff: ctx.diff,
-        view: ctx.view,
-        seed: ctx.seed,
-        pid: ctx.pid
+      const perfectWarmup = success && state.wrongCount === 0;
+      const result = {
+        success,
+        perfectWarmup,
+        correctCount: state.correctCount,
+        wrongCount: state.wrongCount,
+        remainSec: Math.max(0, state.timeLeft),
+        target: TARGET_CORRECT,
+        pid: ctx.pid,
+        ts: Date.now(),
+        iso: new Date().toISOString()
       };
-    }
 
-    function renderEnd(sum){
-      setText('endTitle', 'จบ Mini Game แล้ว 🎉');
-      setText('endSub', `mode=mini • diff=${ctx.diff} • view=${ctx.view}`);
-      setText('endGrade', sum.grade);
-      setText('endScore', sum.scoreFinal);
-      setText('endOk', sum.ok);
-      setText('endWrong', sum.wrong);
-      setText('endPlate', sum.plateHave);
-      setText('endBadge', sum.grade === 'S' ? 'QUICK PLATE STAR' : 'QUICK PLATE');
-      setText('endCoachTip',
-        sum.plateHave < 5
-          ? 'ครั้งหน้าลองรีบเก็บให้ครบ 5 หมู่เร็วขึ้น แล้วค่อยเพิ่มคอมโบ'
-          : 'ยอดเยี่ยม! รอบหน้าลองรักษาคอมโบให้นานขึ้นเพื่อดันเกรดให้สูงกว่าเดิม'
-      );
+      markQuickPlateDone(result);
 
-      setText('endG1', sum.counts[1] || 0);
-      setText('endG2', sum.counts[2] || 0);
-      setText('endG3', sum.counts[3] || 0);
-      setText('endG4', sum.counts[4] || 0);
-      setText('endG5', sum.counts[5] || 0);
+      setText($endCorrect, `${state.correctCount}/${TARGET_CORRECT}`);
+      setText($endWrong, state.wrongCount);
+      setText($endRemain, `${Math.max(0, state.timeLeft)}s`);
 
-      const mainUrl = new URL('./plate-solo.html', location.href);
-      mainUrl.searchParams.set('pid', ctx.pid);
-      mainUrl.searchParams.set('hub', ctx.hub);
-      mainUrl.searchParams.set('view', ctx.view);
-      mainUrl.searchParams.set('run', ctx.run);
-      mainUrl.searchParams.set('diff', ctx.diff);
-      mainUrl.searchParams.set('time', '90');
-      mainUrl.searchParams.set('seed', String(Date.now()));
-      document.getElementById('btnMainAfterEnd').href = mainUrl.toString();
-
-      endOverlay.setAttribute('aria-hidden', 'false');
-    }
-
-    function endGame(reason = 'time'){
-      if (state.ended) return;
-      state.ended = true;
-      state.running = false;
-      try { cancelAnimationFrame(state.raf); } catch {}
-      clearTargets();
-      setCoach('done');
-
-      const sum = buildSummary();
-      sum.reason = reason;
-      saveSummary(sum);
-      renderEnd(sum);
-    }
-
-    function loop(ts){
-      if (!state.running) return;
-
-      if (state.paused || endOverlay.getAttribute('aria-hidden') === 'false') {
-        state.lastTick = ts;
-        state.raf = requestAnimationFrame(loop);
-        return;
+      if (success) {
+        setText($endBadge, perfectWarmup ? '🏆' : '🌟');
+        setText($endTitle, perfectWarmup ? 'Perfect Warmup!' : 'พร้อมแล้ว ไปจัดจานจริงกัน!');
+        setText($endSub, perfectWarmup ? 'อุ่นเครื่องได้ยอดเยี่ยมมาก' : 'Quick Plate สำเร็จแล้ว');
+        setText($endMessage, perfectWarmup
+          ? 'วางถูกครบ 4 ชิ้นแบบไม่พลาดเลย ไปต่อที่เกมหลักได้เลย'
+          : 'ทำได้ดีมาก ตอนนี้พร้อมเข้าเกมหลักแล้ว');
+        celebrate(perfectWarmup ? 'perfect' : 'good');
+      } else {
+        setText($endBadge, '💛');
+        setText($endTitle, 'ไม่เป็นไร ไปลองในเกมหลักกันต่อ');
+        setText($endSub, 'Quick Plate จบแล้ว');
+        setText($endMessage, 'แม้ยังไม่ครบ 4 ชิ้น ก็ไปต่อที่เกมหลักได้เลย');
       }
 
-      const dt = Math.min(0.05, Math.max(0.001, (ts - state.lastTick) / 1000));
-      state.lastTick = ts;
-
-      state.timeLeft = Math.max(0, state.timeLeft - dt);
-      state.groupRotateTimer = Math.max(0, state.groupRotateTimer - dt);
-
-      if (state.groupRotateTimer <= 0) {
-        rotateTargetGroup();
-        state.groupRotateTimer = 8;
-      }
-
-      updateFever(dt);
-      updateTargets(dt);
-      updateHud();
-
-      if (state.timeLeft <= 0) {
-        endGame('time');
-        return;
-      }
-
-      state.raf = requestAnimationFrame(loop);
+      $endOverlay.hidden = false;
     }
 
-    function openDrawer(){
-      drawer.style.display = 'block';
-      drawer.setAttribute('aria-hidden', 'false');
+    function resetGame() {
+      state.started = false;
+      state.finished = false;
+      state.selectedFoodId = null;
+      state.correctCount = 0;
+      state.wrongCount = 0;
+      state.timeLeft = QUICK_TIME;
+      state.targetFoods = [];
+      state.trayFoods = [];
+      state.filledZones = {};
+      state.usedFoodIds = [];
+      state.deadlineMs = 0;
+      clearInterval(state.tickTimer);
+      state.tickTimer = 0;
+
+      resetZones();
+      buildRound();
+      renderTray();
+      clearSelection();
+      syncHud();
+      setFeedback('แตะอาหารจากถาด แล้วแตะส่วนของจาน');
+      $endOverlay.hidden = true;
     }
 
-    function closeDrawer(){
-      drawer.style.display = 'none';
-      drawer.setAttribute('aria-hidden', 'true');
+    function startGame() {
+      resetGame();
+      state.started = true;
+      $introOverlay.hidden = true;
+      startClock();
     }
 
-    function tryCrosshairShoot(){
-      if (ctx.view !== 'cvr' && ctx.view !== 'vr') return;
-
-      const x = window.innerWidth / 2;
-      const y = window.innerHeight / 2;
-      const rect = playfield.getBoundingClientRect();
-
-      const localX = x - rect.left;
-      const localY = y - rect.top;
-
-      for (const t of state.targets.values()) {
-        const dx = localX - t.x;
-        const dy = localY - t.y;
-        const r = t.size * 0.5;
-        if ((dx * dx) + (dy * dy) <= (r * r)) {
-          t.el?.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true }));
-          return;
-        }
-      }
+    function goMainGame() {
+      navigate(buildMainGameUrl());
     }
 
-    document.getElementById('btnPause')?.addEventListener('click', () => {
-      state.paused = !state.paused;
-      document.getElementById('btnPause').textContent = state.paused ? '▶️ RESUME' : '⏸️ PAUSE';
+    function goLauncher() {
+      navigate(buildBackLauncherUrl());
+    }
+
+    /* =========================
+     * bind
+     * ========================= */
+    document.querySelectorAll('.zone').forEach(zone => {
+      zone.addEventListener('click', () => {
+        handleZoneClick(zone.getAttribute('data-zone'), zone);
+      });
     });
 
-    document.getElementById('btnRestart')?.addEventListener('click', () => {
-      try{
-        const u = new URL(location.href);
-        if (ctx.run !== 'research') u.searchParams.set('seed', String(Date.now()));
-        location.href = u.toString();
-      }catch(_){
-        location.reload();
-      }
-    });
+    $btnClearPick?.addEventListener('click', clearSelection);
+    $btnStartQuick?.addEventListener('click', startGame);
+    $btnReplayQuick?.addEventListener('click', startGame);
 
-    document.getElementById('btnDrawer')?.addEventListener('click', () => {
-      const open = drawer.getAttribute('aria-hidden') === 'false';
-      if (open) closeDrawer();
-      else openDrawer();
-    });
+    $btnGoMain?.addEventListener('click', goMainGame);
+    $btnGoMainNow?.addEventListener('click', goMainGame);
 
-    document.getElementById('btnCloseDrawer')?.addEventListener('click', closeDrawer);
-    document.getElementById('btnBackHub')?.addEventListener('click', () => location.href = ctx.hub);
-    document.getElementById('btnBackHub2')?.addEventListener('click', () => location.href = ctx.hub);
+    $btnIntroBack?.addEventListener('click', goLauncher);
+    $btnBackLauncher?.addEventListener('click', goLauncher);
+    $btnEndBack?.addEventListener('click', goLauncher);
 
-    document.getElementById('btnReplay')?.addEventListener('click', () => {
-      try{
-        const u = new URL(location.href);
-        if (ctx.run !== 'research') u.searchParams.set('seed', String(Date.now()));
-        location.href = u.toString();
-      }catch(_){
-        location.reload();
-      }
-    });
-
-    document.getElementById('btnCopy')?.addEventListener('click', async () => {
-      const sum = buildSummary();
-      const text =
-`Quick Plate Mini Summary
-score=${sum.scoreFinal}
-grade=${sum.grade}
-ok=${sum.ok}
-wrong=${sum.wrong}
-miss=${sum.miss}
-acc=${sum.accPct}%
-comboMax=${sum.comboMax}
-plateHave=${sum.plateHave}/5
-diff=${sum.diff}`;
-      try{
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(text);
-        }
-      }catch(_){}
-    });
-
-    window.addEventListener('hha:shoot', () => {
-      tryCrosshairShoot();
-    });
-
-    document.body.dataset.tone = 'focus';
-    closeDrawer();
-    endOverlay.setAttribute('aria-hidden', 'true');
-
-    state.targetGroup = pick(GROUPS);
-    setCoach('start');
-    updateHud();
-    showBanner('QUICK PLATE!');
-    primeStartTargets();
-
-    state.lastTick = performance.now();
-    state.raf = requestAnimationFrame(loop);
+    /* =========================
+     * boot
+     * ========================= */
+    resetGame();
+  })();
   </script>
 </body>
 </html>
