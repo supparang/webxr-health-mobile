@@ -4,634 +4,856 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Gate</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9ad7ff" />
   <style>
+    :root{
+      --bg1:#f4fbff;
+      --bg2:#edf8ff;
+      --bg3:#fff8ef;
+
+      --card:#ffffff;
+      --card2:#f9fdff;
+
+      --line:#d7edf7;
+      --line2:#c7e5f5;
+
+      --text:#514a43;
+      --muted:#7d766e;
+
+      --blue:#76caff;
+      --blue2:#4aacf0;
+      --green:#85de77;
+      --green2:#56c455;
+      --pink:#ff9eca;
+      --pink2:#ff78b1;
+      --yellow:#ffd86c;
+      --yellow2:#ffbc38;
+      --red:#ff9393;
+      --red2:#f06d6d;
+
+      --shadow:0 18px 40px rgba(88,153,190,.14);
+      --shadow-soft:0 10px 24px rgba(88,153,190,.10);
+
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
-      background:#020617;
-    }
-    body{
+      background:
+        radial-gradient(circle at top, #ffffff, transparent 32%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 50%,var(--bg3));
+      color:var(--text);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
-    #gate-app{
+
+    body{
       min-height:100dvh;
+      padding:
+        calc(12px + var(--safe-top))
+        calc(12px + var(--safe-right))
+        calc(16px + var(--safe-bottom))
+        calc(12px + var(--safe-left));
     }
 
-    /* ===== Groups Gate Patch ===== */
-    #groupsWarmupMini,
-    #groupsCooldownSummaryCard{
-      margin-top:14px;
-      border-radius:24px;
-      background:rgba(255,255,255,.9);
-      border:1px solid rgba(209,232,243,.95);
-      box-shadow:0 14px 30px rgba(95,154,182,.12);
-      padding:14px;
+    #gate-app{
+      width:min(980px,100%);
+      margin:0 auto;
     }
 
-    #groupsWarmupMini{
-      display:none;
+    .gate-shell{
+      display:grid;
+      gap:14px;
     }
 
-    #groupsWarmupMini.show{
-      display:block;
-    }
-
-    .gwm-head,
-    .gcs-head{
+    .topbar{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:8px;
+      gap:10px;
       flex-wrap:wrap;
-      margin-bottom:10px;
     }
 
-    .gwm-badge,
-    .gcs-badge{
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .brand-badge{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fff,#f2fbff);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:28px;
+      flex:0 0 auto;
+    }
+
+    .brand-copy h1{
+      margin:0;
+      font-size:clamp(26px,4vw,42px);
+      line-height:1;
+      font-weight:1000;
+      color:#7a4b2e;
+      letter-spacing:-.02em;
+    }
+
+    .brand-copy p{
+      margin:6px 0 0;
+      color:#7b756d;
+      font-size:13px;
+      line-height:1.45;
+      font-weight:900;
+    }
+
+    .chip-link,
+    .chip{
       display:inline-flex;
       align-items:center;
-      gap:8px;
+      justify-content:center;
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:#637786;
+      text-decoration:none;
+      font-size:14px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .panel{
+      background:linear-gradient(180deg,var(--card),var(--card2));
+      border:3px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+    }
+
+    .hero{
+      padding:18px;
+      display:grid;
+      grid-template-columns:1.18fr .92fr;
+      gap:14px;
+      align-items:stretch;
+    }
+
+    .hero-copy{
+      display:grid;
+      gap:10px;
+      align-content:start;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      width:max-content;
+      min-height:34px;
       padding:8px 12px;
       border-radius:999px;
       background:#f1fbff;
-      border:1px solid #d8eef8;
-      color:#5f8197;
+      border:2px solid var(--line);
+      color:#72a5c7;
       font-size:12px;
       font-weight:1000;
+      letter-spacing:.08em;
     }
 
-    .gwm-stage{
-      position:relative;
-      min-height:260px;
-      border-radius:22px;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(255,255,255,.85), transparent 45%),
-        linear-gradient(180deg, #f8fdff 0%, #effaff 60%, #e6f7ff 100%);
-      border:1px solid #d6edf7;
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
-    }
-
-    .gwm-ground{
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:54px;
-      background:
-        radial-gradient(circle at 16% 40%, rgba(255,255,255,.55), transparent 18%),
-        radial-gradient(circle at 72% 32%, rgba(255,255,255,.45), transparent 18%),
-        linear-gradient(180deg,#b8ef9f,#8eda72);
-      border-top:1px solid rgba(101,176,86,.26);
-      pointer-events:none;
-    }
-
-    .gwm-target{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:#fffef8;
-      border:1px dashed #e7da9c;
-      color:#6a613f;
-      font-size:13px;
+    .hero-copy h2{
+      margin:0;
+      font-size:clamp(34px,6vw,66px);
+      line-height:.96;
       font-weight:1000;
-      line-height:1.6;
+      color:#7b4b2e;
+      letter-spacing:-.03em;
     }
 
-    .gwm-note{
-      margin-top:10px;
-      color:#5f8197;
-      font-size:12px;
-      font-weight:1000;
-      line-height:1.7;
-    }
-
-    .gwm-item{
-      position:absolute;
-      width:96px;
-      height:96px;
-      border:0;
-      border-radius:22px;
-      background:#fff;
-      border:2px solid #dceef7;
-      box-shadow:0 12px 28px rgba(104,168,198,.16);
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap:4px;
-      cursor:pointer;
-      font:inherit;
-      color:#24435a;
-      padding:0;
-      user-select:none;
-      -webkit-user-select:none;
-      transition:transform .08s ease, box-shadow .12s ease, opacity .15s ease;
-    }
-
-    .gwm-item:active{
-      transform:scale(.96);
-    }
-
-    .gwm-item.good{
-      box-shadow:0 16px 30px rgba(91,197,95,.24);
-    }
-
-    .gwm-item.bad{
-      box-shadow:0 16px 30px rgba(255,122,122,.24);
-    }
-
-    .gwm-item-emoji{
-      font-size:34px;
-      line-height:1;
-    }
-
-    .gwm-item-label{
-      font-size:11px;
-      line-height:1.1;
-      font-weight:1000;
-      color:#5d7d92;
-      text-align:center;
-      padding:0 6px;
-    }
-
-    .gwm-pop{
-      position:absolute;
-      font-size:18px;
-      font-weight:1000;
-      pointer-events:none;
-      z-index:10;
-      animation:gwmPop .5s ease forwards;
-    }
-
-    .gwm-pop.good{ color:#45a33f; }
-    .gwm-pop.bad{ color:#df5a5a; }
-
-    @keyframes gwmPop{
-      0%{ opacity:0; transform:translate(-50%, 4px) scale(.72); }
-      20%{ opacity:1; transform:translate(-50%, -8px) scale(1); }
-      100%{ opacity:0; transform:translate(-50%, -30px) scale(1.04); }
-    }
-
-    .gcs-grade{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:56px;
-      height:40px;
-      padding:0 14px;
-      border-radius:999px;
-      font-size:20px;
-      font-weight:1000;
-      background:#fff;
-      border:2px solid #d9eef7;
-      color:#5c7b90;
-    }
-
-    .gcs-grade.s{ background:#fff7d9; border-color:#ffe298; color:#9b6700; }
-    .gcs-grade.a{ background:#f5ffe9; border-color:#cfe8a8; color:#4f842d; }
-    .gcs-grade.b{ background:#eefaff; border-color:#cae6f6; color:#3b6b87; }
-    .gcs-grade.c{ background:#fff5ef; border-color:#f2d9ca; color:#865c45; }
-
-    .gcs-lead{
-      margin:0 0 12px;
-      color:#5b7a90;
-      font-size:14px;
+    .hero-copy p{
+      margin:0;
+      font-size:15px;
       line-height:1.7;
       font-weight:900;
+      color:#756d66;
     }
 
-    .gcs-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .gcs-item{
-      border-radius:18px;
-      background:#f8fdff;
-      border:1px solid #d8edf7;
-      padding:12px 14px;
-    }
-
-    .gcs-label{
-      font-size:12px;
-      font-weight:1000;
-      color:#607f95;
-      margin-bottom:4px;
-      text-transform:uppercase;
-      letter-spacing:.03em;
-    }
-
-    .gcs-value{
-      font-size:24px;
-      line-height:1.1;
-      font-weight:1000;
-      color:#24435a;
-    }
-
-    .gcs-tip{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:#fffef7;
-      border:1px dashed #eadb9e;
-      color:#6d6340;
-      font-size:12px;
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    /* ===== JumpDuck Gate Patch ===== */
-    #jumpDuckWarmupMini,
-    #jumpduckCooldownSummaryCard{
-      margin-top:14px;
-      border-radius:24px;
-      background:rgba(255,255,255,.92);
-      border:1px solid rgba(209,232,243,.95);
-      box-shadow:0 14px 30px rgba(95,154,182,.12);
-      padding:14px;
-    }
-
-    #jumpDuckWarmupMini{
-      display:none;
-    }
-
-    #jumpDuckWarmupMini.show{
-      display:block;
-    }
-
-    .jwm-head,
-    .jcs-head{
+    .tag-row{
       display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
       flex-wrap:wrap;
-      margin-bottom:10px;
+      gap:8px;
     }
 
-    .jwm-badge,
-    .jcs-badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
+    .tag{
+      min-height:36px;
       padding:8px 12px;
       border-radius:999px;
-      background:#eef9ff;
-      border:1px solid #d8eef8;
-      color:#5f8197;
-      font-size:12px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:#687c89;
+      font-size:13px;
       font-weight:1000;
     }
 
-    .jwm-stage{
+    .hero-art{
       position:relative;
-      min-height:280px;
-      border-radius:22px;
+      min-height:240px;
+      border-radius:24px;
       overflow:hidden;
       background:
-        radial-gradient(circle at 50% 0%, rgba(255,255,255,.88), transparent 45%),
-        linear-gradient(180deg,#dff5ff 0%, #ecfbff 52%, #e9f9dc 53%, #dcf3d3 100%);
-      border:1px solid #d6edf7;
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+        radial-gradient(circle at 72% 10%, rgba(255,255,255,.9), transparent 24%),
+        linear-gradient(180deg,#def3ff 0%,#d8efff 48%,#ddefcc 48%,#d7efc9 100%);
+      border:2px solid var(--line);
     }
 
-    .jwm-lane-guide{
+    .hero-lane{
+      position:absolute;
+      top:0;
+      bottom:0;
+      width:10px;
+      background:rgba(255,255,255,.24);
+      border-left:2px solid rgba(255,255,255,.26);
+      border-right:2px solid rgba(255,255,255,.26);
+    }
+
+    .hero-lane.l1{ left:28%; }
+    .hero-lane.l2{ left:44%; }
+
+    .hero-ground{
+      position:absolute;
+      left:8%;
+      right:8%;
+      bottom:68px;
+      border-top:3px dashed rgba(124,145,110,.28);
+    }
+
+    .hero-kid{
+      position:absolute;
+      left:12%;
+      bottom:54px;
+      width:104px;
+      height:132px;
+    }
+
+    .hero-kid .head{
+      position:absolute;
+      left:24px;
+      top:0;
+      width:58px;
+      height:58px;
+      border-radius:50%;
+      background:#f2e4bf;
+      border:3px solid #e4d4af;
+    }
+
+    .hero-kid .body{
       position:absolute;
       left:16px;
-      right:16px;
-      border-top:2px dashed rgba(36,67,90,.12);
-      z-index:1;
-      pointer-events:none;
+      top:52px;
+      width:74px;
+      height:56px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#78c8ff,#4fa9ea);
+      border:3px solid #6abaf0;
     }
 
-    .jwm-lane-low{
-      bottom:88px;
-    }
-
-    .jwm-lane-high{
-      bottom:182px;
-    }
-
-    .jwm-lane-label{
+    .hero-kid .arm-l,
+    .hero-kid .arm-r,
+    .hero-kid .leg-l,
+    .hero-kid .leg-r{
       position:absolute;
-      left:20px;
-      z-index:2;
-      padding:4px 8px;
+      background:#f2e4bf;
+      border:3px solid #e4d4af;
       border-radius:999px;
-      background:rgba(255,255,255,.9);
-      border:1px solid rgba(214,237,247,.95);
-      color:#5d7d92;
-      font-size:10px;
-      font-weight:1000;
-      pointer-events:none;
     }
 
-    .jwm-lane-label-low{
-      bottom:94px;
-    }
+    .hero-kid .arm-l{ left:2px; top:60px; width:20px; height:58px; transform:rotate(30deg); }
+    .hero-kid .arm-r{ right:2px; top:60px; width:20px; height:58px; transform:rotate(-28deg); }
+    .hero-kid .leg-l{ left:28px; top:100px; width:22px; height:60px; transform:rotate(10deg); }
+    .hero-kid .leg-r{ left:56px; top:100px; width:22px; height:60px; transform:rotate(-10deg); }
 
-    .jwm-lane-label-high{
-      bottom:188px;
-    }
-
-    .jwm-ground{
+    .hero-obstacle-low,
+    .hero-obstacle-high{
       position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:54px;
-      background:
-        radial-gradient(circle at 16% 40%, rgba(255,255,255,.55), transparent 18%),
-        radial-gradient(circle at 72% 32%, rgba(255,255,255,.45), transparent 18%),
-        linear-gradient(180deg,#b8ef9f,#8eda72);
-      border-top:1px solid rgba(101,176,86,.26);
-      pointer-events:none;
-    }
-
-    .jwm-avatar{
-      position:absolute;
-      left:20px;
-      bottom:18px;
-      width:90px;
-      height:118px;
-      z-index:3;
-      filter:drop-shadow(0 10px 18px rgba(0,0,0,.08));
-    }
-
-    .jwm-avatar .head{
-      position:absolute;
-      left:50%;
-      top:8px;
-      transform:translateX(-50%);
-      width:34px;
-      height:34px;
-      border-radius:50%;
-      background:#fff0d0;
-      border:3px solid rgba(77,74,67,.12);
-    }
-
-    .jwm-avatar .body{
-      position:absolute;
-      left:50%;
-      top:38px;
-      transform:translateX(-50%);
-      width:42px;
-      height:34px;
-      border-radius:14px;
-      background:linear-gradient(180deg,#8fd6ff,#55b9f7);
-      border:3px solid rgba(77,74,67,.09);
-    }
-
-    .jwm-avatar .arm,
-    .jwm-avatar .leg{
-      position:absolute;
-      background:#fff0d0;
-      border-radius:999px;
-      border:3px solid rgba(77,74,67,.09);
-    }
-
-    .jwm-avatar .arm{ width:10px;height:34px; top:42px; }
-    .jwm-avatar .arm.left{ left:18px; transform:rotate(22deg); }
-    .jwm-avatar .arm.right{ right:18px; transform:rotate(-22deg); }
-    .jwm-avatar .leg{ width:12px;height:38px; top:72px; }
-    .jwm-avatar .leg.left{ left:30px; transform:rotate(10deg); }
-    .jwm-avatar .leg.right{ right:30px; transform:rotate(-10deg); }
-
-    .jwm-obstacle{
-      position:absolute;
-      right:28px;
-      width:120px;
-      height:86px;
-      border-radius:22px;
-      background:#fff;
-      border:2px solid #dceef7;
-      box-shadow:0 14px 30px rgba(104,168,198,.16);
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      color:#24435a;
-      transition:transform .16s ease, box-shadow .16s ease, bottom .16s ease;
-      z-index:4;
-    }
-
-    .jwm-obstacle.low{
-      bottom:54px;
-    }
-
-    .jwm-obstacle.high{
-      bottom:148px;
-    }
-
-    .jwm-obstacle-emoji{
-      font-size:36px;
-      line-height:1;
-    }
-
-    .jwm-obstacle-title{
-      font-size:13px;
-      font-weight:1000;
-      color:#24435a;
-    }
-
-    .jwm-obstacle-sub{
-      font-size:11px;
-      font-weight:1000;
-      color:#5d7d92;
-    }
-
-    .jwm-target{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:#fffef8;
-      border:1px dashed #e7da9c;
-      color:#6a613f;
-      font-size:13px;
-      font-weight:1000;
-      line-height:1.6;
-    }
-
-    .jwm-actions{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .jwm-btn{
-      min-height:66px;
-      border:0;
+      right:12%;
       border-radius:20px;
       background:#fff;
-      border:2px solid #dceef7;
-      box-shadow:0 12px 22px rgba(104,168,198,.12);
-      cursor:pointer;
+      border:3px solid #d6e9f6;
+      box-shadow:0 14px 28px rgba(100,160,190,.14);
+    }
+
+    .hero-obstacle-low{
+      bottom:60px;
+      width:82px;
+      height:46px;
+    }
+
+    .hero-obstacle-high{
+      bottom:156px;
+      width:82px;
+      height:20px;
+    }
+
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .stat-card{
+      background:#fff;
+      border:2px solid var(--line);
+      border-radius:20px;
+      padding:12px;
+      box-shadow:var(--shadow-soft);
+      min-width:0;
+    }
+
+    .stat-card .k{
+      font-size:12px;
+      color:#7a91a2;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .stat-card .v{
+      margin-top:6px;
+      font-size:22px;
+      line-height:1.1;
+      font-weight:1000;
+      color:#4f4841;
+      word-break:break-word;
+    }
+
+    .warmup-wrap{
+      padding:16px;
+      display:grid;
+      gap:14px;
+    }
+
+    .warmup-grid{
+      display:grid;
+      grid-template-columns:1.15fr .95fr;
+      gap:14px;
+      align-items:start;
+    }
+
+    .stage{
+      position:relative;
+      min-height:440px;
+      border-radius:28px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 72% 10%, rgba(255,255,255,.9), transparent 24%),
+        linear-gradient(180deg,#def3ff 0%,#d8efff 48%,#ddefcc 48%,#d7efc9 100%);
+      border:3px solid var(--line);
+      box-shadow:var(--shadow);
+    }
+
+    .stage-lane{
+      position:absolute;
+      top:0;
+      bottom:0;
+      width:10px;
+      background:rgba(255,255,255,.24);
+      border-left:2px solid rgba(255,255,255,.26);
+      border-right:2px solid rgba(255,255,255,.26);
+    }
+
+    .stage-lane.l1{ left:28%; }
+    .stage-lane.l2{ left:44%; }
+
+    .stage-ground{
+      position:absolute;
+      left:6%;
+      right:6%;
+      bottom:88px;
+      border-top:3px dashed rgba(124,145,110,.28);
+      z-index:2;
+    }
+
+    .runner{
+      position:absolute;
+      left:12%;
+      bottom:30px;
+      width:116px;
+      height:150px;
+      z-index:5;
+      transition:transform .14s ease;
+    }
+
+    .runner .head{
+      position:absolute;
+      left:26px;
+      top:0;
+      width:58px;
+      height:58px;
+      border-radius:50%;
+      background:#f2e4bf;
+      border:3px solid #e4d4af;
+    }
+
+    .runner .body{
+      position:absolute;
+      left:18px;
+      top:54px;
+      width:78px;
+      height:58px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#78c8ff,#4fa9ea);
+      border:3px solid #6abaf0;
+    }
+
+    .runner .arm-l,
+    .runner .arm-r,
+    .runner .leg-l,
+    .runner .leg-r{
+      position:absolute;
+      background:#f2e4bf;
+      border:3px solid #e4d4af;
+      border-radius:999px;
+      transition:transform .14s ease, top .14s ease;
+    }
+
+    .runner .arm-l{ left:2px; top:60px; width:20px; height:58px; transform:rotate(30deg); }
+    .runner .arm-r{ right:2px; top:60px; width:20px; height:58px; transform:rotate(-28deg); }
+    .runner .leg-l{ left:30px; top:102px; width:22px; height:60px; transform:rotate(8deg); }
+    .runner .leg-r{ left:58px; top:102px; width:22px; height:60px; transform:rotate(-8deg); }
+
+    .runner.jump{ transform:translateY(-42px); }
+    .runner.jump .leg-l{ transform:rotate(-18deg); }
+    .runner.jump .leg-r{ transform:rotate(18deg); }
+    .runner.jump .arm-l{ transform:rotate(-16deg); }
+    .runner.jump .arm-r{ transform:rotate(16deg); }
+
+    .runner.duck{ transform:translateY(16px) scaleY(.84); }
+    .runner.duck .leg-l{ transform:rotate(44deg); top:108px; }
+    .runner.duck .leg-r{ transform:rotate(-44deg); top:108px; }
+
+    .obstacle{
+      position:absolute;
+      right:12%;
+      z-index:7;
+      border-radius:22px;
+      background:#fff;
+      border:3px solid #d6e9f6;
+      box-shadow:0 14px 28px rgba(100,160,190,.14);
       display:grid;
       place-items:center;
       text-align:center;
-      padding:8px;
-      font:inherit;
-      color:#24435a;
-      transition:transform .08s ease, box-shadow .12s ease;
-    }
-
-    .jwm-btn:active{
-      transform:scale(.97);
-    }
-
-    .jwm-btn .emoji{
-      font-size:26px;
-      line-height:1;
-      margin-bottom:4px;
-    }
-
-    .jwm-btn .txt{
-      font-size:14px;
-      font-weight:1000;
-      line-height:1.05;
-    }
-
-    .jwm-btn .sub{
-      margin-top:2px;
-      font-size:11px;
-      color:#5d7d92;
+      color:#4e6b7d;
       font-weight:1000;
     }
 
-    .jwm-feedback{
-      margin-top:10px;
-      min-height:20px;
-      color:#5f8197;
+    .obstacle.low{
+      bottom:58px;
+      width:100px;
+      height:52px;
+    }
+
+    .obstacle.high{
+      bottom:164px;
+      width:110px;
+      height:24px;
+    }
+
+    .obstacle span{
+      display:block;
       font-size:12px;
-      font-weight:1000;
-      line-height:1.7;
+      padding:0 8px;
+      line-height:1.2;
     }
 
-    .jwm-feedback.good{ color:#45a33f; }
-    .jwm-feedback.bad{ color:#df5a5a; }
+    .stage-pop{
+      position:absolute;
+      left:50%;
+      top:20px;
+      transform:translateX(-50%);
+      z-index:20;
+      min-height:44px;
+      padding:10px 16px;
+      border-radius:999px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      color:#6a6159;
+      font-weight:1000;
+      opacity:0;
+      transition:opacity .14s ease, transform .14s ease;
+      pointer-events:none;
+    }
 
-    .jcs-rank{
+    .stage-pop.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(-4px);
+    }
+
+    .warmup-side{
+      display:grid;
+      gap:12px;
+    }
+
+    .mission-card,
+    .coach-card,
+    .summary-card{
+      background:#fff;
+      border:2px solid var(--line);
+      border-radius:24px;
+      padding:16px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .mission-card h3,
+    .coach-card h3,
+    .summary-card h3{
+      margin:0 0 12px;
+      font-size:18px;
+      font-weight:1000;
+      color:#6b4327;
+    }
+
+    .mission-card p,
+    .coach-card p,
+    .summary-card p{
+      margin:0;
+      color:#756d66;
+      line-height:1.7;
+      font-weight:900;
+      font-size:14px;
+    }
+
+    .meter{
+      display:grid;
+      gap:6px;
+      margin-top:12px;
+    }
+
+    .meter-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      font-size:13px;
+      font-weight:1000;
+      color:#708595;
+    }
+
+    .bar{
+      height:16px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#eef6fa;
+      border:2px solid #dceef7;
+    }
+
+    .bar-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#7fcfff,#7ed957);
+      transition:width .18s ease;
+    }
+
+    .control-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .control-btn{
+      appearance:none;
+      border:none;
+      min-height:78px;
+      border-radius:24px;
+      font-size:22px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .control-btn.jump{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fff;
+    }
+
+    .control-btn.duck{
+      background:linear-gradient(180deg,var(--pink),var(--pink2));
+      color:#fff;
+    }
+
+    .control-btn:disabled{
+      opacity:.5;
+      cursor:not-allowed;
+    }
+
+    .goal-note{
+      margin-top:12px;
+      border-radius:18px;
+      background:#fffef6;
+      border:2px dashed #eadba1;
+      padding:12px;
+      color:#73673f;
+      font-size:13px;
+      line-height:1.7;
+      font-weight:1000;
+    }
+
+    .action-row{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:12px;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-width:56px;
-      height:40px;
-      padding:0 14px;
-      border-radius:999px;
-      font-size:20px;
+      min-height:52px;
+      padding:12px 16px;
+      border-radius:20px;
+      font-size:17px;
       font-weight:1000;
-      background:#fff;
-      border:2px solid #d9eef7;
-      color:#5c7b90;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
     }
 
-    .jcs-rank.s{ background:#fff7d9; border-color:#ffe298; color:#9b6700; }
-    .jcs-rank.a{ background:#f5ffe9; border-color:#cfe8a8; color:#4f842d; }
-    .jcs-rank.b{ background:#eefaff; border-color:#cae6f6; color:#3b6b87; }
-    .jcs-rank.c{ background:#fff5ef; border-color:#f2d9ca; color:#865c45; }
-    .jcs-rank.d{ background:#fff0f2; border-color:#fecdd3; color:#be123c; }
+    .btn.primary{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#173d12;
+    }
 
-    .jcs-lead{
-      margin:0 0 12px;
-      color:#5b7a90;
-      font-size:14px;
-      line-height:1.7;
+    .btn.secondary{
+      background:#fff;
+      color:#66727a;
+      border:2px solid var(--line);
+    }
+
+    .btn.yellow{
+      background:linear-gradient(180deg,var(--yellow),var(--yellow2));
+      color:#6e4300;
+    }
+
+    .cooldown-grid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:14px;
+    }
+
+    .grade-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:84px;
+      height:84px;
+      border-radius:50%;
+      background:#fff;
+      border:3px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:34px;
+      font-weight:1000;
+      color:#6a6159;
+    }
+
+    .grade-pill.s{ background:#fff8d8; border-color:#ffe08a; color:#9e6900; }
+    .grade-pill.a{ background:#f3ffe6; border-color:#cae8a4; color:#4d8225; }
+    .grade-pill.b{ background:#eefaff; border-color:#cde7f6; color:#3c6a85; }
+    .grade-pill.c{ background:#fff5ef; border-color:#efd8c5; color:#8b6148; }
+    .grade-pill.d{ background:#fff1f1; border-color:#f1c7c7; color:#985353; }
+
+    .cooldown-head{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+
+    .cooldown-copy{
+      flex:1 1 280px;
+      min-width:0;
+    }
+
+    .cooldown-copy h2{
+      margin:0;
+      font-size:clamp(28px,4vw,42px);
+      line-height:1.05;
+      font-weight:1000;
+      color:#7b4b2e;
+    }
+
+    .cooldown-copy p{
+      margin:8px 0 0;
+      color:#776f67;
+      line-height:1.65;
       font-weight:900;
     }
 
-    .jcs-grid{
+    .summary-grid{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      margin-top:14px;
     }
 
-    .jcs-item{
-      border-radius:18px;
-      background:#f8fdff;
-      border:1px solid #d8edf7;
-      padding:12px 14px;
+    .sum-card{
+      border-radius:22px;
+      background:#fff;
+      border:2px solid var(--line);
+      padding:14px;
+      text-align:center;
+      box-shadow:var(--shadow-soft);
     }
 
-    .jcs-label{
+    .sum-card .k{
       font-size:12px;
+      color:#7990a0;
       font-weight:1000;
-      color:#607f95;
-      margin-bottom:4px;
       text-transform:uppercase;
-      letter-spacing:.03em;
+      letter-spacing:.06em;
     }
 
-    .jcs-value{
+    .sum-card .v{
+      margin-top:8px;
+      font-size:30px;
+      line-height:1;
+      font-weight:1000;
+      color:#534c45;
+    }
+
+    .reward-box{
+      display:grid;
+      grid-template-columns:84px 1fr;
+      gap:12px;
+      align-items:center;
+      padding:14px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffef5,#fff);
+      border:2px solid #f0e0a5;
+    }
+
+    .reward-icon{
+      width:84px;
+      height:84px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      border:2px solid #f0e0a5;
+      font-size:42px;
+    }
+
+    .reward-copy h3{
+      margin:0;
       font-size:24px;
       line-height:1.1;
       font-weight:1000;
-      color:#24435a;
+      color:#80591b;
     }
 
-    .jcs-tip{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:#fffef7;
-      border:1px dashed #eadb9e;
-      color:#6d6340;
-      font-size:12px;
-      line-height:1.7;
+    .reward-copy p{
+      margin:6px 0 0;
+      color:#7d745d;
+      line-height:1.6;
+      font-size:14px;
       font-weight:900;
     }
 
-    @media (max-width:720px){
-      .gcs-grid,
-      .jcs-grid{
+    .small-note{
+      color:#8a837c;
+      font-size:12px;
+      font-weight:1000;
+      text-align:center;
+      margin-top:2px;
+    }
+
+    .error-card{
+      padding:18px;
+      white-space:pre-wrap;
+      word-break:break-word;
+      line-height:1.6;
+      color:#7f1d1d;
+      background:#fff1f1;
+      border:2px solid #f3c9c9;
+      border-radius:24px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    @media (max-width:920px){
+      .hero,
+      .warmup-grid,
+      .cooldown-grid{
+        grid-template-columns:1fr;
+      }
+
+      .stats-grid{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .summary-grid{
+        grid-template-columns:1fr;
+      }
+
+      .action-row{
         grid-template-columns:1fr;
       }
     }
 
-    @media (max-width:560px){
-      .jwm-actions{
+    @media (max-width:640px){
+      .stats-grid,
+      .control-grid{
         grid-template-columns:1fr;
       }
-    }
 
-    @media (max-width:480px){
-      .gwm-stage{
-        min-height:230px;
-      }
-      .gwm-item{
-        width:86px;
-        height:86px;
-        border-radius:20px;
-      }
-      .gwm-item-emoji{
-        font-size:30px;
-      }
-      .gwm-item-label{
-        font-size:10px;
+      .stage{
+        min-height:400px;
       }
 
-      .jwm-stage{
-        min-height:250px;
+      .runner{
+        width:102px;
+        height:138px;
       }
-      .jwm-obstacle{
-        width:104px;
-        height:78px;
-        right:16px;
+
+      .runner .head{
+        width:54px;
+        height:54px;
+        left:22px;
       }
-      .jwm-obstacle-emoji{
-        font-size:32px;
+
+      .runner .body{
+        width:72px;
+        height:54px;
+        left:14px;
+        top:50px;
       }
-      .jwm-obstacle-title{
-        font-size:12px;
+
+      .runner .arm-l,
+      .runner .arm-r{
+        width:18px;
+        height:54px;
+        top:56px;
       }
-      .jwm-obstacle-sub{
-        font-size:10px;
+
+      .runner .leg-l,
+      .runner .leg-r{
+        width:20px;
+        height:54px;
+        top:96px;
       }
+
+      .runner .leg-l{ left:24px; }
+      .runner .leg-r{ left:50px; }
     }
   </style>
 </head>
@@ -639,216 +861,67 @@
   <div id="gate-app"></div>
 
   <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260413a-GATE-CORE-STABLE-IDS-FINAL';
+    import bootGate from './gate/gate-core.js?v=20260414a-jumpduck-gate-final';
 
     const root = document.getElementById('gate-app');
+    const JD_DEFAULT_HUB = 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
+    const JD_DEFAULT_LAUNCHER = 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
 
-    function qs(name, fallback=''){
-      try{
+    function qs(name, fallback = '') {
+      try {
         return new URL(location.href).searchParams.get(name) ?? fallback;
-      }catch(_){
+      } catch (_) {
         return fallback;
       }
     }
 
-    function safeAbsUrl(raw, fallback=''){
+    function safeAbsUrl(raw, fallback = '') {
       const value = String(raw || '').trim();
-      try{
+      try {
         if (value) return new URL(value, location.href).href;
-      }catch(_){}
+      } catch (_) {}
       return fallback || '';
     }
 
-    function phaseValue(){
-      const p = String(qs('phase', qs('gatePhase', 'warmup'))).trim().toLowerCase();
-      return p === 'cooldown' ? 'cooldown' : 'warmup';
-    }
+    function normalizeHubHref(raw) {
+      const href = safeAbsUrl(raw, JD_DEFAULT_HUB);
+      const s = String(href || '').toLowerCase();
 
-    function fallbackHubHref(){
-      return safeAbsUrl(
-        qs('hubRoot', qs('hub', '')),
-        new URL('./hub.html', location.href).href
-      );
-    }
-
-    function fallbackLauncherHref(){
-      return safeAbsUrl(
-        qs('launcher', qs('cdnext', '')),
-        ''
-      );
-    }
-
-    function fallbackNextHref(){
-      return safeAbsUrl(qs('next', ''), '');
-    }
-
-    function resolvePrimaryFallbackAction(){
-      const phase = phaseValue();
-
-      if (phase === 'warmup') {
-        const nextHref = fallbackNextHref();
-        if (nextHref) {
-          return {
-            label: 'เข้าเกมหลัก',
-            href: nextHref
-          };
-        }
-
-        return {
-          label: 'กลับหน้าหลัก',
-          href: fallbackHubHref()
-        };
+      if (
+        !href ||
+        s.endsWith('/webxr-health-mobile/fitness') ||
+        s.endsWith('/webxr-health-mobile/fitness/') ||
+        s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
+        s === 'https://supparang.github.io/webxr-health-mobile/fitness'
+      ) {
+        return JD_DEFAULT_HUB;
       }
-
-      const launcherHref = fallbackLauncherHref();
-      if (launcherHref) {
-        return {
-          label: 'กลับ Launcher',
-          href: launcherHref
-        };
-      }
-
-      return {
-        label: 'กลับหน้าหลัก',
-        href: fallbackHubHref()
-      };
+      return href;
     }
 
-    function renderBootError(err){
-      if (!root) return;
-
-      const phase = phaseValue();
-      const primary = resolvePrimaryFallbackAction();
-      const hubHref = fallbackHubHref();
-
-      const primaryLabel =
-        primary?.label ||
-        (phase === 'cooldown' ? 'กลับ Launcher' : 'เข้าเกมหลัก');
-
-      const primaryHref =
-        primary?.href ||
-        hubHref;
-
-      root.innerHTML = `
-        <div style="
-          min-height:100dvh;
-          display:grid;
-          place-items:center;
-          padding:18px;
-          background:
-            radial-gradient(circle at top, rgba(59,130,246,.18), transparent 32%),
-            linear-gradient(180deg,#020617 0%,#0f172a 55%,#111827 100%);
-          color:#e5e7eb;
-          font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-        ">
-          <div style="
-            width:min(760px,100%);
-            border-radius:24px;
-            background:rgba(15,23,42,.86);
-            border:1px solid rgba(148,163,184,.16);
-            box-shadow:0 20px 60px rgba(0,0,0,.34);
-            padding:22px;
-          ">
-            <div style="
-              font-size:12px;
-              font-weight:800;
-              letter-spacing:.08em;
-              text-transform:uppercase;
-              color:#93c5fd;
-              margin-bottom:8px;
-            ">HeroHealth Gate • ${phase}</div>
-
-            <h1 style="margin:0 0 10px;font-size:30px;line-height:1.05;">
-              Gate load failed
-            </h1>
-
-            <p style="margin:0 0 14px;color:#cbd5e1;line-height:1.6;">
-              ระบบโหลด ${phase === 'cooldown' ? 'cooldown' : 'warmup'} ไม่สำเร็จ
-            </p>
-
-            <pre style="
-              margin:0 0 16px;
-              white-space:pre-wrap;
-              word-break:break-word;
-              overflow:auto;
-              padding:14px;
-              border-radius:16px;
-              background:rgba(127,29,29,.28);
-              border:1px solid rgba(239,68,68,.22);
-              color:#fecaca;
-              font:600 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
-            ">${String(err?.stack || err || 'Unknown error')}</pre>
-
-            <div style="display:flex;gap:10px;flex-wrap:wrap">
-              <button id="gateReloadBtn" type="button" style="
-                appearance:none;
-                border:0;
-                border-radius:18px;
-                padding:14px 18px;
-                font-size:15px;
-                font-weight:900;
-                cursor:pointer;
-                min-width:170px;
-                background:linear-gradient(135deg,#38bdf8,#2563eb);
-                color:#fff;
-                box-shadow:0 12px 26px rgba(37,99,235,.32);
-              ">ลองใหม่</button>
-
-              <button id="gatePrimaryBtn" type="button" style="
-                appearance:none;
-                border:0;
-                border-radius:18px;
-                padding:14px 18px;
-                font-size:15px;
-                font-weight:900;
-                cursor:pointer;
-                min-width:170px;
-                background:linear-gradient(135deg,#22c55e,#16a34a);
-                color:#fff;
-                box-shadow:0 12px 26px rgba(34,197,94,.28);
-              ">${primaryLabel}</button>
-
-              <button id="gateBackBtn" type="button" style="
-                appearance:none;
-                border:1px solid rgba(148,163,184,.16);
-                border-radius:18px;
-                padding:14px 18px;
-                font-size:15px;
-                font-weight:900;
-                cursor:pointer;
-                min-width:170px;
-                background:rgba(15,23,42,.85);
-                color:#e5e7eb;
-              ">กลับหน้าหลัก</button>
-            </div>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('gateReloadBtn')?.addEventListener('click', () => {
-        location.reload();
-      });
-
-      document.getElementById('gatePrimaryBtn')?.addEventListener('click', () => {
-        location.href = primaryHref;
-      });
-
-      document.getElementById('gateBackBtn')?.addEventListener('click', () => {
-        location.href = hubHref;
-      });
+    function compactId(id = '') {
+      return String(id || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[_\s]+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/--+/g, '-')
+        .replace(/^-+|-+$/g, '');
     }
 
-    function safeNum(v, fallback){
+    function normalizeGameId(id = '') {
+      const raw = compactId(id);
+      if (raw === 'jumpduck') return 'jump-duck';
+      return raw;
+    }
+
+    function safeNum(v, fallback = 0) {
       const n = Number(v);
       return Number.isFinite(n) ? n : fallback;
     }
 
-    function cleanName(v){
-      return String(v || '').trim().replace(/\s+/g, ' ').slice(0, 24);
-    }
-
-    function escapeHtml(s){
-      return String(s ?? '')
+    function esc(s = '') {
+      return String(s)
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
         .replaceAll('>', '&gt;')
@@ -856,1028 +929,590 @@
         .replaceAll("'", '&#39;');
     }
 
-    function buildBaseCtx(){
-      const rankFromQuery = String(qs('rank', qs('grade', 'C'))).trim().toUpperCase();
-      return {
-        phase: String(qs('phase', qs('gatePhase', 'warmup'))).trim().toLowerCase(),
-        game: String(qs('game', qs('gameId', ''))).trim().toLowerCase(),
-        gameId: String(qs('gameId', qs('game', ''))).trim().toLowerCase(),
-        theme: String(qs('theme', '')).trim().toLowerCase(),
-        mode: String(qs('mode', 'solo')).trim().toLowerCase(),
-        pid: String(qs('pid', 'anon')).trim(),
-        name: String(qs('name', '')).trim(),
-        diff: String(qs('diff', 'normal')).trim().toLowerCase(),
-        time: String(qs('time', '80')).trim(),
-        run: String(qs('run', 'play')).trim().toLowerCase(),
-        hub: safeAbsUrl(qs('hub', ''), new URL('./hub.html', location.href).toString()),
-        next: safeAbsUrl(qs('next', ''), safeAbsUrl(qs('hub', ''), new URL('./hub.html', location.href).toString())),
-        view: String(qs('view', 'mobile')).trim().toLowerCase(),
-        score: safeNum(qs('score', qs('scoreFinal', '0')), 0),
-        accuracy: safeNum(qs('accuracy', qs('accPct', '0')), 0),
-        bestStreak: safeNum(qs('bestStreak', qs('maxCombo', qs('comboMax', '0'))), 0),
-        grade: rankFromQuery || 'C',
+    function buildRunUrl(ctx) {
+      const launcher = safeAbsUrl(ctx.launcher, JD_DEFAULT_LAUNCHER);
+      const u = new URL(launcher, location.href);
+
+      u.searchParams.set('pid', ctx.pid);
+      u.searchParams.set('name', ctx.name);
+      u.searchParams.set('run', ctx.run);
+      u.searchParams.set('diff', ctx.diff);
+      u.searchParams.set('time', ctx.time);
+      u.searchParams.set('view', ctx.view);
+      u.searchParams.set('seed', ctx.seed);
+      u.searchParams.set('mode', ctx.mode);
+      u.searchParams.set('game', 'jump-duck');
+      u.searchParams.set('gameId', 'jump-duck');
+      u.searchParams.set('theme', 'jump-duck');
+      u.searchParams.set('zone', 'fitness');
+      u.searchParams.set('cat', 'fitness');
+      u.searchParams.set('hub', ctx.hub);
+      u.searchParams.set('launcher', launcher);
+      u.searchParams.set('wgskip', '1');
+      u.searchParams.set('autostart', '1');
+      u.searchParams.set('entry', 'warmup-gate');
+
+      if (ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
+      if (ctx.debug) u.searchParams.set('debug', '1');
+
+      return u.toString();
+    }
+
+    function buildCtx() {
+      const game = normalizeGameId(
+        qs('game', qs('gameId', qs('theme', '')))
+      );
+
+      const phaseRaw = String(qs('phase', qs('gatePhase', 'warmup'))).trim().toLowerCase();
+      const phase = phaseRaw === 'cooldown' ? 'cooldown' : 'warmup';
+
+      const hub = normalizeHubHref(qs('hub', qs('hubRoot', JD_DEFAULT_HUB)));
+      const launcher = safeAbsUrl(qs('launcher', JD_DEFAULT_LAUNCHER), JD_DEFAULT_LAUNCHER);
+
+      const ctx = {
+        game,
+        phase,
+        pid: String(qs('pid', 'anon')).trim() || 'anon',
+        name: String(qs('name', qs('nickName', 'Hero'))).trim() || 'Hero',
         studyId: String(qs('studyId', '')).trim(),
-        debug: qs('debug') === '1'
+        run: String(qs('run', 'play')).trim() || 'play',
+        diff: String(qs('diff', 'normal')).trim().toLowerCase() || 'normal',
+        time: String(qs('time', '60')).trim() || '60',
+        view: String(qs('view', 'mobile')).trim().toLowerCase() || 'mobile',
+        seed: String(qs('seed', Date.now())).trim(),
+        mode: String(qs('mode', 'training')).trim().toLowerCase() || 'training',
+        hub,
+        launcher,
+        next: safeAbsUrl(qs('next', ''), ''),
+        cdnext: safeAbsUrl(qs('cdnext', ''), ''),
+        score: safeNum(qs('score', '0'), 0),
+        accuracy: safeNum(qs('accuracy', '0'), 0),
+        bestStreak: safeNum(qs('bestStreak', '0'), 0),
+        grade: String(qs('grade', 'C')).trim().toUpperCase() || 'C',
+        debug: qs('debug', '') === '1'
       };
+
+      if (!ctx.next) ctx.next = buildRunUrl(ctx);
+      if (!ctx.cdnext) ctx.cdnext = ctx.hub;
+
+      return ctx;
     }
 
-    function isGroupsCtx(ctx){
-      return (
-        ctx.game === 'groups' ||
-        ctx.gameId === 'groups' ||
-        ctx.theme === 'groups'
-      );
+    function renderJumpDuckShell(ctx) {
+      document.title = ctx.phase === 'cooldown'
+        ? 'HeroHealth — JumpDuck Cooldown'
+        : 'HeroHealth — JumpDuck Warmup';
+
+      root.innerHTML = `
+        <main class="gate-shell">
+          <header class="topbar">
+            <div class="brand">
+              <div class="brand-badge">${ctx.phase === 'cooldown' ? '🏅' : '🏃'}</div>
+              <div class="brand-copy">
+                <h1>${ctx.phase === 'cooldown' ? 'JumpDuck Cooldown' : 'JumpDuck Warmup'}</h1>
+                <p>${ctx.phase === 'cooldown'
+                  ? 'สรุปผลสั้น ๆ ก่อนกลับ Fitness Zone'
+                  : 'อุ่นเครื่อง jump / duck ให้พร้อมก่อนเข้าเกมหลัก'}</p>
+              </div>
+            </div>
+
+            <a class="chip-link" href="${esc(ctx.hub)}">🏠 กลับ Fitness Zone</a>
+          </header>
+
+          <section class="panel hero">
+            <div class="hero-copy">
+              <div class="kicker">${ctx.phase === 'cooldown' ? 'FITNESS COOLDOWN' : 'FITNESS WARMUP'}</div>
+              <h2>${ctx.phase === 'cooldown' ? 'Finish Strong' : 'Ready Set Go'}</h2>
+              <p>
+                ${ctx.phase === 'cooldown'
+                  ? 'พักสั้น ๆ ดูผลรอบล่าสุด แล้วค่อยกลับไปเลือกเกมต่อใน Fitness Zone'
+                  : 'มินิเกมนี้จะเช็กว่าพร้อมอ่านอุปสรรคต่ำและสูงแล้วหรือยัง low = jump / high = duck'}
+              </p>
+
+              <div class="tag-row">
+                <div class="tag">👤 ${esc(ctx.name)}</div>
+                <div class="tag">🎮 ${esc(ctx.mode)}</div>
+                <div class="tag">⚙️ ${esc(ctx.diff)}</div>
+                <div class="tag">⏱️ ${esc(ctx.time)}s</div>
+              </div>
+            </div>
+
+            <div class="hero-art" aria-hidden="true">
+              <div class="hero-lane l1"></div>
+              <div class="hero-lane l2"></div>
+              <div class="hero-ground"></div>
+
+              <div class="hero-kid">
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+              </div>
+
+              <div class="hero-obstacle-low"></div>
+              <div class="hero-obstacle-high"></div>
+            </div>
+          </section>
+
+          <section class="stats-grid">
+            <div class="stat-card">
+              <div class="k">Phase</div>
+              <div class="v">${esc(ctx.phase)}</div>
+            </div>
+            <div class="stat-card">
+              <div class="k">Game</div>
+              <div class="v">JumpDuck</div>
+            </div>
+            <div class="stat-card">
+              <div class="k">Hub</div>
+              <div class="v">Fitness Zone</div>
+            </div>
+            <div class="stat-card">
+              <div class="k">Flow</div>
+              <div class="v">${ctx.phase === 'cooldown' ? 'Zone Return' : 'Warmup → Run'}</div>
+            </div>
+          </section>
+
+          <div id="jdGateContent"></div>
+        </main>
+      `;
     }
 
-    function isJumpDuckCtx(ctx){
-      return (
-        ctx.game === 'jumpduck' ||
-        ctx.game === 'jump-duck' ||
-        ctx.gameId === 'jumpduck' ||
-        ctx.gameId === 'jump-duck' ||
-        ctx.theme === 'jumpduck' ||
-        ctx.theme === 'jump-duck'
-      );
-    }
+    function bootJumpDuckWarmup(ctx) {
+      const content = document.getElementById('jdGateContent');
+      const GOAL = 4;
+      const TIME_LIMIT = 15;
 
-    function getGateRefs(){
-      const titleEl =
-        root.querySelector('#gateTitle') ||
-        root.querySelector('#gateHeroTitle') ||
-        root.querySelector('.gate-title') ||
-        root.querySelector('h1');
+      content.innerHTML = `
+        <section class="warmup-wrap">
+          <div class="warmup-grid">
+            <section class="stage" id="jdWarmStage">
+              <div class="stage-lane l1"></div>
+              <div class="stage-lane l2"></div>
+              <div class="stage-ground"></div>
 
-      const descEl =
-        root.querySelector('#gateDesc') ||
-        root.querySelector('#gateHeroSub') ||
-        root.querySelector('.gate-desc') ||
-        root.querySelector('.subtitle') ||
-        root.querySelector('.gate-sub') ||
-        root.querySelector('p');
+              <div id="jdWarmPop" class="stage-pop">พร้อมแล้ว!</div>
 
-      const primaryBtn =
-        root.querySelector('#gatePrimaryBtn') ||
-        root.querySelector('#btnContinue') ||
-        root.querySelector('#continueBtn') ||
-        root.querySelector('button[data-role="continue"]') ||
-        root.querySelector('.btn-primary') ||
-        root.querySelector('button');
+              <div id="jdRunner" class="runner">
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="arm-l"></div>
+                <div class="arm-r"></div>
+                <div class="leg-l"></div>
+                <div class="leg-r"></div>
+              </div>
 
-      const secondaryBtn =
-        root.querySelector('#gateSecondaryBtn') ||
-        root.querySelector('#btnSecondary') ||
-        root.querySelector('#backBtn') ||
-        root.querySelector('button[data-role="back"]') ||
-        root.querySelector('.btn-secondary') ||
-        root.querySelectorAll('button')[1] ||
-        null;
+              <div id="jdObstacle" class="obstacle low">
+                <span>LOW<br>JUMP</span>
+              </div>
+            </section>
 
-      const shell =
-        root.querySelector('[data-gate-shell="1"]') ||
-        root.querySelector('[data-role="gate-card"]') ||
-        root.querySelector('.gate-card') ||
-        root.firstElementChild ||
-        root;
+            <aside class="warmup-side">
+              <section class="mission-card">
+                <h3>🎯 เป้าหมาย Warmup</h3>
+                <p id="jdWarmDesc">
+                  กดให้ถูกว่าอุปสรรคนี้ต้อง <b>JUMP</b> หรือ <b>DUCK</b>
+                  เก็บให้ครบ <b>${GOAL}</b> ครั้ง ภายใน <b>${TIME_LIMIT}</b> วินาที
+                </p>
 
-      const footer =
-        root.querySelector('#gateFooter') ||
-        root.querySelector('[data-role="gate-footer"]') ||
-        null;
+                <div class="meter">
+                  <div class="meter-head">
+                    <span>Progress</span>
+                    <strong id="jdWarmScoreText">0 / ${GOAL}</strong>
+                  </div>
+                  <div class="bar">
+                    <div id="jdWarmScoreFill" class="bar-fill"></div>
+                  </div>
+                </div>
 
-      const stage =
-        root.querySelector('#gateStage') ||
-        root.querySelector('[data-role="gate-stage"]') ||
-        null;
+                <div class="meter">
+                  <div class="meter-head">
+                    <span>Time Left</span>
+                    <strong id="jdWarmTimeText">${TIME_LIMIT}s</strong>
+                  </div>
+                  <div class="bar">
+                    <div id="jdWarmTimeFill" class="bar-fill" style="width:100%;"></div>
+                  </div>
+                </div>
 
-      return {
-        titleEl,
-        descEl,
-        primaryBtn,
-        secondaryBtn,
-        shell,
-        footer,
-        stage
+                <div class="goal-note" id="jdWarmNeedText">
+                  ตอนนี้: เห็นอุปสรรคต่ำ = กด JUMP
+                </div>
+
+                <div class="control-grid">
+                  <button id="jdWarmJump" class="control-btn jump" type="button" disabled>⬆️ JUMP</button>
+                  <button id="jdWarmDuck" class="control-btn duck" type="button" disabled>⬇️ DUCK</button>
+                </div>
+              </section>
+
+              <section class="coach-card">
+                <h3>🧠 Coach Tip</h3>
+                <p id="jdWarmCoach">
+                  จำง่าย ๆ เลย: low obstacle อยู่ระดับขา = jump, high obstacle อยู่ระดับหัว = duck
+                </p>
+              </section>
+            </aside>
+          </div>
+
+          <div class="action-row">
+            <button id="jdWarmStart" class="btn primary" type="button">🎮 เริ่ม Warmup</button>
+            <a class="btn secondary" href="${esc(ctx.hub)}">🏠 กลับ Fitness Zone</a>
+            <a class="btn secondary" href="${esc(ctx.launcher)}">🕹️ ไปหน้า JumpDuck</a>
+          </div>
+
+          <p class="small-note">เมื่อผ่าน warmup ระบบจะเข้า jumpduck.html อัตโนมัติ</p>
+        </section>
+      `;
+
+      const stage = document.getElementById('jdWarmStage');
+      const popEl = document.getElementById('jdWarmPop');
+      const runner = document.getElementById('jdRunner');
+      const obstacle = document.getElementById('jdObstacle');
+      const startBtn = document.getElementById('jdWarmStart');
+      const jumpBtn = document.getElementById('jdWarmJump');
+      const duckBtn = document.getElementById('jdWarmDuck');
+      const scoreText = document.getElementById('jdWarmScoreText');
+      const scoreFill = document.getElementById('jdWarmScoreFill');
+      const timeText = document.getElementById('jdWarmTimeText');
+      const timeFill = document.getElementById('jdWarmTimeFill');
+      const needText = document.getElementById('jdWarmNeedText');
+      const coachText = document.getElementById('jdWarmCoach');
+
+      const patterns = ['low','high','low','high','low','high','low','high'];
+      let state = {
+        started: false,
+        ended: false,
+        timerId: 0,
+        timeLeft: TIME_LIMIT,
+        correct: 0,
+        idx: 0,
+        current: 'low'
       };
-    }
 
-    function buildNextUrl(ctx){
-      const nextUrl = new URL(ctx.next || ctx.hub, location.href);
-
-      if (!nextUrl.searchParams.get('pid')) nextUrl.searchParams.set('pid', ctx.pid || 'anon');
-      if (!nextUrl.searchParams.get('name') && ctx.name) nextUrl.searchParams.set('name', ctx.name);
-      if (!nextUrl.searchParams.get('studyId') && ctx.studyId) nextUrl.searchParams.set('studyId', ctx.studyId);
-      if (!nextUrl.searchParams.get('view')) nextUrl.searchParams.set('view', ctx.view || 'mobile');
-      if (ctx.debug) nextUrl.searchParams.set('debug', '1');
-
-      return nextUrl.toString();
-    }
-
-    function buildGroupsLead(grade, accuracy){
-      if (grade === 'S') return 'ยอดเยี่ยมมาก! รอบนี้ทั้งไวและแม่นสุด ๆ';
-      if (grade === 'A') return 'ดีมากเลย! รอบนี้ทำได้แม่นมาก';
-      if (grade === 'B') return 'ทำได้ดีนะ ลองเพิ่มความแม่นอีกนิดในรอบหน้า';
-      if (accuracy >= 60) return 'เริ่มได้ดีแล้ว รอบหน้าลองดูหมวดเป้าหมายให้ชัดขึ้นอีกหน่อย';
-      return 'พักสั้น ๆ ก่อน แล้วค่อยกลับไปลองใหม่อีกครั้งนะ';
-    }
-
-    function buildJumpDuckLead(rank, accuracy){
-      if (rank === 'S') return 'สุดยอดมาก! รอบนี้ทั้งแม่นและนิ่งมาก';
-      if (rank === 'A') return 'ดีมาก! จังหวะเริ่มคมและอ่าน lane ได้ดี';
-      if (rank === 'B') return 'ทำได้ดีแล้ว ลองรักษาจังหวะให้สม่ำเสมอขึ้นอีกนิด';
-      if (accuracy >= 60) return 'เริ่มจับ low / high ได้แล้ว รอบหน้าลองกดให้คมขึ้นอีกหน่อย';
-      return 'พักสั้น ๆ ก่อน แล้วค่อยกลับไปลองใหม่อีกครั้งนะ';
-    }
-
-    function gradeToStars(grade){
-      if (grade === 'S') return '⭐⭐⭐';
-      if (grade === 'A') return '⭐⭐⭐';
-      if (grade === 'B') return '⭐⭐☆';
-      return '⭐☆☆';
-    }
-
-    function rankToStars(rank){
-      if (rank === 'S') return '⭐⭐⭐';
-      if (rank === 'A') return '⭐⭐⭐';
-      if (rank === 'B') return '⭐⭐☆';
-      if (rank === 'C') return '⭐☆☆';
-      return '⭐☆☆';
-    }
-
-    function persistGroupsCooldownSnapshot(ctx){
-      try{
-        localStorage.setItem('HHA_LAST_COOLDOWN_SUMMARY', JSON.stringify({
-          patch: 'groups-cooldown-summary',
-          game: 'groups',
-          mode: ctx.mode || 'solo',
-          pid: ctx.pid,
-          name: ctx.name,
-          score: ctx.score,
-          accuracy: ctx.accuracy,
-          bestStreak: ctx.bestStreak,
-          grade: ctx.grade,
-          ts: Date.now()
-        }));
-      }catch{}
-    }
-
-    function persistJumpDuckCooldownSnapshot(ctx){
-      try{
-        localStorage.setItem('HHA_LAST_COOLDOWN_SUMMARY_JUMPDUCK', JSON.stringify({
-          patch: 'jumpduck-cooldown-summary',
-          game: 'jumpduck',
-          mode: ctx.mode || 'training',
-          pid: ctx.pid,
-          name: ctx.name,
-          score: ctx.score,
-          accuracy: ctx.accuracy,
-          bestStreak: ctx.bestStreak,
-          rank: ctx.grade,
-          ts: Date.now()
-        }));
-      }catch{}
-    }
-
-    function applyGroupsWarmupPatch(ctx, refs){
-      const { titleEl, descEl, primaryBtn, secondaryBtn, shell } = refs;
-      if (!primaryBtn || !shell) return;
-
-      const CATS = [
-        { id:'g1', short:'หมู่ 1', name:'โปรตีน', icon:'🥚' },
-        { id:'g2', short:'หมู่ 2', name:'ข้าว-แป้ง', icon:'🍚' },
-        { id:'g3', short:'หมู่ 3', name:'ผัก', icon:'🥦' },
-        { id:'g4', short:'หมู่ 4', name:'ผลไม้', icon:'🍌' },
-        { id:'g5', short:'หมู่ 5', name:'ไขมัน', icon:'🧈' }
-      ];
-
-      const ITEMS = [
-        { label:'ไข่', emoji:'🥚', group:'g1' },
-        { label:'นม', emoji:'🥛', group:'g1' },
-        { label:'ปลา', emoji:'🐟', group:'g1' },
-
-        { label:'ข้าว', emoji:'🍚', group:'g2' },
-        { label:'ขนมปัง', emoji:'🍞', group:'g2' },
-        { label:'มันฝรั่ง', emoji:'🥔', group:'g2' },
-
-        { label:'บรอกโคลี', emoji:'🥦', group:'g3' },
-        { label:'แครอท', emoji:'🥕', group:'g3' },
-        { label:'แตงกวา', emoji:'🥒', group:'g3' },
-
-        { label:'กล้วย', emoji:'🍌', group:'g4' },
-        { label:'แอปเปิล', emoji:'🍎', group:'g4' },
-        { label:'แตงโม', emoji:'🍉', group:'g4' },
-
-        { label:'เนย', emoji:'🧈', group:'g5' },
-        { label:'น้ำมัน', emoji:'🫗', group:'g5' },
-        { label:'อะโวคาโด', emoji:'🥑', group:'g5' }
-      ];
-
-      const GOAL_NEED = 3;
-      const TIME_LIMIT = 12;
-
-      let mini = root.querySelector('#groupsWarmupMini');
-      if (!mini) {
-        mini = document.createElement('section');
-        mini.id = 'groupsWarmupMini';
-        mini.innerHTML = `
-          <div class="gwm-head">
-            <div class="gwm-badge" id="gwmTargetBadge">🎯 เป้าหมาย</div>
-            <div class="gwm-badge" id="gwmTimerBadge">⏱️ 12s</div>
-            <div class="gwm-badge" id="gwmScoreBadge">✅ 0 / ${GOAL_NEED}</div>
-          </div>
-
-          <div class="gwm-stage" id="gwmStage">
-            <div class="gwm-ground" aria-hidden="true"></div>
-          </div>
-
-          <div class="gwm-target" id="gwmTargetText">
-            อุ่นเครื่องก่อน: แตะอาหารให้ตรงหมู่ที่กำหนด
-          </div>
-
-          <div class="gwm-note" id="gwmNote">
-            เก็บให้ครบ ${GOAL_NEED} ชิ้นภายใน ${TIME_LIMIT} วินาที แล้วค่อยเข้าเกมหลัก
-          </div>
-        `;
-
-        const anchor = primaryBtn.parentElement || shell.lastElementChild || shell;
-        if (anchor && anchor.parentNode) {
-          anchor.parentNode.insertBefore(mini, anchor);
-        } else {
-          shell.appendChild(mini);
-        }
-      }
-
-      const stageEl = mini.querySelector('#gwmStage');
-      const targetBadgeEl = mini.querySelector('#gwmTargetBadge');
-      const timerBadgeEl = mini.querySelector('#gwmTimerBadge');
-      const scoreBadgeEl = mini.querySelector('#gwmScoreBadge');
-      const targetTextEl = mini.querySelector('#gwmTargetText');
-      const noteEl = mini.querySelector('#gwmNote');
-
-      if (!root.__groupsWarmupState) {
-        root.__groupsWarmupState = {
-          phase: 'intro',
-          targetCat: null,
-          correct: 0,
-          timeLeft: TIME_LIMIT,
-          tickId: 0,
-          items: []
-        };
-      }
-
-      const state = root.__groupsWarmupState;
-
-      if (state.phase === 'intro' || state.phase === 'fail') {
-        if (titleEl) titleEl.textContent = 'Warmup';
-        if (descEl) descEl.textContent = 'มาเตรียมตัวก่อนเล่นกัน พร้อมจัดจานสุขภาพแล้วไหม';
-        primaryBtn.textContent = state.phase === 'fail' ? 'ลอง warmup อีกครั้ง' : 'เริ่มมินิเกมอุ่นเครื่อง';
-        primaryBtn.disabled = false;
-        if (secondaryBtn) secondaryBtn.textContent = 'กลับ HUB';
-      }
-
-      if (!primaryBtn.dataset.groupsWarmupBound) {
-        primaryBtn.dataset.groupsWarmupBound = '1';
-        primaryBtn.addEventListener('click', onPrimaryClick, true);
-      }
-
-      if (secondaryBtn && !secondaryBtn.dataset.groupsWarmupBound) {
-        secondaryBtn.dataset.groupsWarmupBound = '1';
-        secondaryBtn.addEventListener('click', (ev) => {
-          if (state.phase === 'playing') return;
-          ev.preventDefault();
-          location.href = ctx.hub;
-        });
-      }
-
-      function onPrimaryClick(ev){
-        ev.preventDefault();
-        ev.stopImmediatePropagation();
-
-        if (state.phase === 'intro' || state.phase === 'fail') {
-          startMiniGame();
-          return;
-        }
-
-        if (state.phase === 'done') {
-          goNext();
-        }
-      }
-
-      function startMiniGame(){
-        cleanupStage();
-        state.phase = 'playing';
-        state.correct = 0;
-        state.timeLeft = TIME_LIMIT;
-        state.targetCat = pick(CATS);
-        mini.classList.add('show');
-
-        updateHud();
-
-        if (titleEl) titleEl.textContent = 'Warmup Mini Game';
-        if (descEl) descEl.textContent = 'แตะอาหารให้ตรงหมู่ก่อนเข้าเกมหลัก';
-        primaryBtn.textContent = 'กำลังเล่น...';
-        primaryBtn.disabled = true;
-        if (secondaryBtn) secondaryBtn.textContent = 'กลับ HUB';
-
-        spawnBatch();
-        clearTimer();
-        state.tickId = setInterval(onTick, 1000);
-      }
-
-      function onTick(){
-        state.timeLeft -= 1;
-        updateHud();
-
-        if (state.timeLeft <= 0){
-          if (state.correct >= GOAL_NEED) finishSuccess();
-          else finishFail();
-        }
-      }
-
-      function finishSuccess(){
-        clearTimer();
-        state.phase = 'done';
-        primaryBtn.disabled = true;
-        primaryBtn.textContent = 'กำลังเข้าเกมหลัก...';
-
-        if (titleEl) titleEl.textContent = 'Warmup ผ่านแล้ว';
-        if (descEl) descEl.textContent = 'ยอดเยี่ยม! ไปต่อที่เกมหลักกันเลย';
-        noteEl.textContent = 'ผ่านมินิเกมอุ่นเครื่องแล้ว กำลังพาไปหน้าเกมหลัก...';
-        targetTextEl.textContent = 'สุดยอด! พร้อมเข้า Groups Solo แล้ว 🚀';
-
-        try{
-          localStorage.setItem('HHA_GROUPS_LAST_WARMUP', JSON.stringify({
-            patch: 'groups-warmup-minigame',
-            ts: Date.now(),
-            pid: ctx.pid,
-            name: ctx.name,
-            targetGroup: state.targetCat?.id || '',
-            correct: state.correct,
-            timeLeft: state.timeLeft,
-            success: true,
-            next: ctx.next
-          }));
-        }catch{}
-
-        setTimeout(goNext, 700);
-      }
-
-      function finishFail(){
-        clearTimer();
-        state.phase = 'fail';
-        primaryBtn.disabled = false;
-        primaryBtn.textContent = 'ลอง warmup อีกครั้ง';
-
-        if (titleEl) titleEl.textContent = 'Warmup ยังไม่ผ่าน';
-        if (descEl) descEl.textContent = 'ลองใหม่อีกครั้ง เก็บให้ครบก่อนเข้าเกมหลักนะ';
-        noteEl.textContent = 'แตะอาหารให้ตรงหมู่ครบ 3 ชิ้นภายในเวลา แล้วจะเข้าเกมหลักต่อได้';
-        targetTextEl.textContent = 'ยังไม่ครบเป้าหมาย ลองใหม่อีกครั้ง 💪';
-      }
-
-      function spawnBatch(){
-        cleanupStage();
-
-        const targetItems = ITEMS.filter(x => x.group === state.targetCat.id);
-        const otherItems = ITEMS.filter(x => x.group !== state.targetCat.id);
-
-        const pool = [
-          pick(targetItems),
-          pick(targetItems),
-          pick(otherItems),
-          pick(otherItems)
-        ].filter(Boolean);
-
-        shuffle(pool);
-
-        const rect = stageEl.getBoundingClientRect();
-        const stageW = Math.max(280, rect.width);
-        const stageH = Math.max(220, rect.height);
-        const size = window.matchMedia('(max-width: 480px)').matches ? 86 : 96;
-
-        const spots = [];
-        for (let i = 0; i < pool.length; i += 1){
-          let x = 12;
-          let y = 16;
-          let tries = 0;
-
-          while (tries < 40){
-            x = rand(12, Math.max(12, stageW - size - 12));
-            y = rand(14, Math.max(14, stageH - size - 72));
-
-            const overlap = spots.some((p) => {
-              const dx = p.x - x;
-              const dy = p.y - y;
-              return Math.sqrt(dx * dx + dy * dy) < (size * 0.82);
-            });
-
-            if (!overlap) break;
-            tries += 1;
-          }
-
-          spots.push({ x, y });
-
-          const item = pool[i];
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'gwm-item';
-          btn.style.left = `${x}px`;
-          btn.style.top = `${y}px`;
-          btn.innerHTML = `
-            <div class="gwm-item-emoji">${item.emoji}</div>
-            <div class="gwm-item-label">${escapeHtml(item.label)}</div>
-          `;
-
-          btn.addEventListener('click', () => onHit(item, btn));
-          stageEl.appendChild(btn);
-          state.items.push(btn);
-        }
-      }
-
-      function onHit(item, btn){
-        if (state.phase !== 'playing') return;
-
-        const good = item.group === state.targetCat.id;
-        btn.classList.add(good ? 'good' : 'bad');
-
-        const rect = btn.getBoundingClientRect();
-        const stageRect = stageEl.getBoundingClientRect();
-        pop(
-          rect.left - stageRect.left + rect.width / 2,
-          rect.top - stageRect.top + 20,
-          good ? 'ถูก!' : 'ยังไม่ใช่',
-          good ? 'good' : 'bad'
-        );
-
-        setTimeout(() => {
-          try { btn.remove(); } catch(_) {}
-        }, 90);
-
-        if (good){
-          state.correct += 1;
-          updateHud();
-
-          if (state.correct >= GOAL_NEED) {
-            finishSuccess();
-          } else {
-            setTimeout(spawnBatch, 120);
-          }
-        } else {
-          setTimeout(spawnBatch, 140);
-        }
-      }
-
-      function updateHud(){
-        if (!state.targetCat) return;
-        targetBadgeEl.textContent = `🎯 ${state.targetCat.short} ${state.targetCat.name}`;
-        timerBadgeEl.textContent = `⏱️ ${state.timeLeft}s`;
-        scoreBadgeEl.textContent = `✅ ${state.correct} / ${GOAL_NEED}`;
-        targetTextEl.textContent = `เป้าหมาย: แตะ ${state.targetCat.short} ${state.targetCat.name} ${state.targetCat.icon}`;
-      }
-
-      function cleanupStage(){
-        state.items.forEach((el) => { try { el.remove(); } catch(_) {} });
-        state.items = [];
-        stageEl.querySelectorAll('.gwm-pop').forEach((el) => el.remove());
-      }
-
-      function clearTimer(){
-        if (state.tickId){
-          clearInterval(state.tickId);
-          state.tickId = 0;
-        }
-      }
-
-      function goNext(){
-        location.href = ctx.next;
-      }
-
-      function pop(x, y, text, kind){
-        const el = document.createElement('div');
-        el.className = `gwm-pop ${kind === 'good' ? 'good' : 'bad'}`;
-        el.textContent = text;
-        el.style.left = `${x}px`;
-        el.style.top = `${y}px`;
-        stageEl.appendChild(el);
-        setTimeout(() => {
-          try { el.remove(); } catch(_) {}
-        }, 520);
-      }
-
-      function pick(arr){
-        return arr[Math.floor(Math.random() * arr.length)];
-      }
-
-      function shuffle(arr){
-        for (let i = arr.length - 1; i > 0; i -= 1){
+      function shuffle(arr) {
+        const out = [...arr];
+        for (let i = out.length - 1; i > 0; i -= 1) {
           const j = Math.floor(Math.random() * (i + 1));
-          [arr[i], arr[j]] = [arr[j], arr[i]];
+          [out[i], out[j]] = [out[j], out[i]];
         }
+        return out;
       }
 
-      function rand(min, max){
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-      }
-    }
+      const seq = shuffle(patterns).slice(0, 6);
 
-    function applyGroupsCooldownPatch(ctx, refs){
-      const { titleEl, descEl, primaryBtn, secondaryBtn, shell } = refs;
-      if (!primaryBtn || !shell) return;
-
-      const oldMini = root.querySelector('#groupsWarmupMini');
-      if (oldMini) oldMini.remove();
-
-      if (titleEl) titleEl.textContent = 'คูลดาวน์หลังจบเกม Food Groups';
-      if (descEl) {
-        descEl.textContent =
-          `${cleanName(ctx.name || ctx.pid || 'ผู้เล่น')} เล่นจบรอบแล้ว มาหายใจช้า ๆ ผ่อนคลายสั้น ๆ ก่อนกลับไปที่ HUB กันนะ`;
+      function showPop(text) {
+        popEl.textContent = text;
+        popEl.classList.add('show');
+        clearTimeout(popEl._t);
+        popEl._t = setTimeout(() => {
+          popEl.classList.remove('show');
+        }, 560);
       }
 
-      primaryBtn.textContent = 'กลับไปที่ HUB';
-      if (secondaryBtn) secondaryBtn.textContent = 'กลับหน้าหลัก';
+      function setRunnerPose(type) {
+        runner.classList.remove('jump', 'duck');
+        if (type) runner.classList.add(type);
 
-      let card = root.querySelector('#groupsCooldownSummaryCard');
-      if (!card) {
-        card = document.createElement('section');
-        card.id = 'groupsCooldownSummaryCard';
-        card.innerHTML = `
-          <div class="gcs-head">
-            <div class="gcs-badge">🏁 Groups Solo จบรอบแล้ว</div>
-            <div class="gcs-grade ${String(ctx.grade || 'C').toLowerCase()}">${escapeHtml(ctx.grade || 'C')}</div>
-          </div>
+        clearTimeout(runner._t);
+        runner._t = setTimeout(() => {
+          runner.classList.remove('jump', 'duck');
+        }, 180);
+      }
 
-          <p class="gcs-lead">${escapeHtml(buildGroupsLead(ctx.grade, ctx.accuracy))} ${escapeHtml(gradeToStars(ctx.grade))}</p>
+      function currentNeedLabel(type) {
+        return type === 'low'
+          ? 'ตอนนี้: เห็นอุปสรรคต่ำ = กด JUMP'
+          : 'ตอนนี้: เห็นอุปสรรคสูง = กด DUCK';
+      }
 
-          <div class="gcs-grid">
-            <div class="gcs-item">
-              <div class="gcs-label">Score</div>
-              <div class="gcs-value">${ctx.score}</div>
-            </div>
-            <div class="gcs-item">
-              <div class="gcs-label">Accuracy</div>
-              <div class="gcs-value">${ctx.accuracy}%</div>
-            </div>
-            <div class="gcs-item">
-              <div class="gcs-label">Best Streak</div>
-              <div class="gcs-value">${ctx.bestStreak}</div>
-            </div>
-          </div>
+      function renderObstacle() {
+        state.current = seq[state.idx % seq.length] || (Math.random() > 0.5 ? 'low' : 'high');
 
-          <div class="gcs-tip">
-            ตอนนี้พักสายตา หายใจช้า ๆ และผ่อนคลายสั้น ๆ ก่อนกลับไปเลือกเกมหรือกิจกรรมต่อใน HUB
-          </div>
-        `;
+        obstacle.classList.remove('low', 'high');
+        obstacle.classList.add(state.current);
 
-        const anchor = primaryBtn.parentElement || shell.lastElementChild || shell;
-        if (anchor && anchor.parentNode) {
-          anchor.parentNode.insertBefore(card, anchor);
+        if (state.current === 'low') {
+          obstacle.innerHTML = '<span>LOW<br>JUMP</span>';
+          needText.textContent = currentNeedLabel('low');
+          coachText.textContent = 'ดีมาก ดูระดับขาไว้ก่อน ถ้าต่ำให้กระโดด';
         } else {
-          shell.appendChild(card);
+          obstacle.innerHTML = '<span>HIGH<br>DUCK</span>';
+          needText.textContent = currentNeedLabel('high');
+          coachText.textContent = 'ดีมาก ดูระดับหัวไว้ ถ้าสูงให้หมอบ';
         }
       }
 
-      if (!primaryBtn.dataset.groupsCooldownBound) {
-        primaryBtn.dataset.groupsCooldownBound = '1';
-        primaryBtn.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          ev.stopImmediatePropagation();
-          persistGroupsCooldownSnapshot(ctx);
-          location.href = buildNextUrl(ctx);
-        }, true);
+      function renderHud() {
+        scoreText.textContent = `${state.correct} / ${GOAL}`;
+        scoreFill.style.width = `${Math.min(100, (state.correct / GOAL) * 100)}%`;
+
+        timeText.textContent = `${state.timeLeft}s`;
+        timeFill.style.width = `${Math.max(0, (state.timeLeft / TIME_LIMIT) * 100)}%`;
       }
 
-      if (secondaryBtn && !secondaryBtn.dataset.groupsCooldownBound) {
-        secondaryBtn.dataset.groupsCooldownBound = '1';
-        secondaryBtn.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          ev.stopImmediatePropagation();
-          location.href = ctx.hub;
-        }, true);
-      }
-    }
-
-    function applyJumpDuckWarmupPatch(ctx, refs){
-      const { titleEl, descEl, primaryBtn, secondaryBtn, shell } = refs;
-      if (!primaryBtn || !shell) return;
-
-      const GOAL_NEED = 4;
-      const TIME_LIMIT = ctx.diff === 'hard' ? 10 : (ctx.diff === 'easy' ? 14 : 12);
-
-      const PROMPTS = [
-        {
-          id: 'low',
-          need: 'jump',
-          title: 'LOW obstacle',
-          emoji: '🟦',
-          hint: 'สิ่งกีดขวางระดับขา',
-          actionTitle: 'JUMP'
-        },
-        {
-          id: 'high',
-          need: 'duck',
-          title: 'HIGH obstacle',
-          emoji: '🟥',
-          hint: 'สิ่งกีดขวางระดับหัว',
-          actionTitle: 'DUCK'
-        }
-      ];
-
-      let mini = root.querySelector('#jumpDuckWarmupMini');
-      if (!mini) {
-        mini = document.createElement('section');
-        mini.id = 'jumpDuckWarmupMini';
-        mini.innerHTML = `
-          <div class="jwm-head">
-            <div class="jwm-badge" id="jwmPromptBadge">🎯 พร้อมอ่าน lane</div>
-            <div class="jwm-badge" id="jwmTimerBadge">⏱️ ${TIME_LIMIT}s</div>
-            <div class="jwm-badge" id="jwmScoreBadge">✅ 0 / ${GOAL_NEED}</div>
-          </div>
-
-          <div class="jwm-stage" id="jwmStage">
-            <div class="jwm-lane-guide jwm-lane-low" aria-hidden="true"></div>
-            <div class="jwm-lane-guide jwm-lane-high" aria-hidden="true"></div>
-            <div class="jwm-lane-label jwm-lane-label-low" aria-hidden="true">JUMP LANE</div>
-            <div class="jwm-lane-label jwm-lane-label-high" aria-hidden="true">DUCK LANE</div>
-
-            <div class="jwm-ground" aria-hidden="true"></div>
-
-            <div class="jwm-avatar" aria-hidden="true">
-              <div class="head"></div>
-              <div class="body"></div>
-              <div class="arm left"></div>
-              <div class="arm right"></div>
-              <div class="leg left"></div>
-              <div class="leg right"></div>
-            </div>
-
-            <div class="jwm-obstacle low" id="jwmObstacle">
-              <div class="jwm-obstacle-emoji" id="jwmObstacleEmoji">🟦</div>
-              <div class="jwm-obstacle-title" id="jwmObstacleTitle">LOW obstacle</div>
-              <div class="jwm-obstacle-sub" id="jwmObstacleSub">สิ่งกีดขวางระดับขา</div>
-            </div>
-          </div>
-
-          <div class="jwm-target" id="jwmTargetText">
-            อุ่นเครื่องก่อน: เห็นสิ่งกีดขวางแล้วตอบให้ถูก • low = jump • high = duck
-          </div>
-
-          <div class="jwm-actions">
-            <button type="button" class="jwm-btn" id="jwmBtnJump">
-              <div>
-                <div class="emoji">⬆️</div>
-                <div class="txt">JUMP</div>
-                <div class="sub">กดเมื่อเห็น low obstacle</div>
-              </div>
-            </button>
-
-            <button type="button" class="jwm-btn" id="jwmBtnDuck">
-              <div>
-                <div class="emoji">⬇️</div>
-                <div class="txt">DUCK</div>
-                <div class="sub">กดเมื่อเห็น high obstacle</div>
-              </div>
-            </button>
-          </div>
-
-          <div class="jwm-feedback" id="jwmFeedback">
-            เก็บให้ครบ ${GOAL_NEED} ครั้งภายใน ${TIME_LIMIT} วินาที แล้วค่อยเข้าเกมหลัก
-          </div>
-        `;
-
-        const anchor = primaryBtn.parentElement || shell.lastElementChild || shell;
-        if (anchor && anchor.parentNode) {
-          anchor.parentNode.insertBefore(mini, anchor);
-        } else {
-          shell.appendChild(mini);
-        }
-      }
-
-      const promptBadgeEl = mini.querySelector('#jwmPromptBadge');
-      const timerBadgeEl = mini.querySelector('#jwmTimerBadge');
-      const scoreBadgeEl = mini.querySelector('#jwmScoreBadge');
-      const targetTextEl = mini.querySelector('#jwmTargetText');
-      const feedbackEl = mini.querySelector('#jwmFeedback');
-      const obstacleEl = mini.querySelector('#jwmObstacle');
-      const obstacleEmojiEl = mini.querySelector('#jwmObstacleEmoji');
-      const obstacleTitleEl = mini.querySelector('#jwmObstacleTitle');
-      const obstacleSubEl = mini.querySelector('#jwmObstacleSub');
-      const btnJump = mini.querySelector('#jwmBtnJump');
-      const btnDuck = mini.querySelector('#jwmBtnDuck');
-
-      if (!root.__jumpDuckWarmupState) {
-        root.__jumpDuckWarmupState = {
-          phase: 'intro',
-          correct: 0,
-          wrong: 0,
-          timeLeft: TIME_LIMIT,
-          tickId: 0,
-          currentPrompt: null
-        };
-      }
-
-      const state = root.__jumpDuckWarmupState;
-
-      if (state.phase === 'intro' || state.phase === 'fail') {
-        if (titleEl) titleEl.textContent = 'Warmup';
-        if (descEl) descEl.textContent = 'มาอุ่นเครื่องก่อนเข้า JumpDuck กัน อ่าน lane ให้ชัดแล้วค่อยกด';
-        primaryBtn.textContent = state.phase === 'fail' ? 'ลอง warmup อีกครั้ง' : 'เริ่มมินิเกมอุ่นเครื่อง';
-        primaryBtn.disabled = false;
-        if (secondaryBtn) secondaryBtn.textContent = 'กลับ HUB';
-      }
-
-      if (!primaryBtn.dataset.jumpDuckWarmupBound) {
-        primaryBtn.dataset.jumpDuckWarmupBound = '1';
-        primaryBtn.addEventListener('click', onPrimaryClick, true);
-      }
-
-      if (secondaryBtn && !secondaryBtn.dataset.jumpDuckWarmupBound) {
-        secondaryBtn.dataset.jumpDuckWarmupBound = '1';
-        secondaryBtn.addEventListener('click', (ev) => {
-          if (state.phase === 'playing') return;
-          ev.preventDefault();
-          ev.stopImmediatePropagation();
-          location.href = ctx.hub;
-        });
-      }
-
-      if (!btnJump.dataset.jumpDuckBound) {
-        btnJump.dataset.jumpDuckBound = '1';
-        btnJump.addEventListener('click', () => onAction('jump'));
-      }
-
-      if (!btnDuck.dataset.jumpDuckBound) {
-        btnDuck.dataset.jumpDuckBound = '1';
-        btnDuck.addEventListener('click', () => onAction('duck'));
-      }
-
-      function onPrimaryClick(ev){
-        ev.preventDefault();
-        ev.stopImmediatePropagation();
-
-        if (state.phase === 'intro' || state.phase === 'fail') {
-          startMiniGame();
-          return;
-        }
-
-        if (state.phase === 'done') {
-          goNext();
-        }
-      }
-
-      function startMiniGame(){
-        state.phase = 'playing';
-        state.correct = 0;
-        state.wrong = 0;
-        state.timeLeft = TIME_LIMIT;
-        mini.classList.add('show');
-
-        if (titleEl) titleEl.textContent = 'JumpDuck Warmup';
-        if (descEl) descEl.textContent = 'ดูว่าของอยู่ low lane หรือ high lane แล้วตอบให้ถูก';
-        primaryBtn.textContent = 'กำลังเล่น...';
-        primaryBtn.disabled = true;
-        if (secondaryBtn) secondaryBtn.textContent = 'กลับ HUB';
-
-        updateHud();
-        nextPrompt();
-
-        clearTimer();
-        state.tickId = setInterval(onTick, 1000);
-      }
-
-      function onTick(){
-        state.timeLeft -= 1;
-        updateHud();
-
-        if (state.timeLeft <= 0){
-          if (state.correct >= GOAL_NEED) finishSuccess();
-          else finishFail();
-        }
-      }
-
-      function nextPrompt(){
-        const prompt = PROMPTS[Math.floor(Math.random() * PROMPTS.length)];
-        state.currentPrompt = prompt;
-
-        obstacleEl.classList.remove('low', 'high');
-        obstacleEl.classList.add(prompt.id === 'low' ? 'low' : 'high');
-
-        obstacleEmojiEl.textContent = prompt.emoji;
-        obstacleTitleEl.textContent = prompt.title;
-        obstacleSubEl.textContent = prompt.hint;
-
-        promptBadgeEl.textContent = `🎯 ตอบให้ถูก: ${prompt.actionTitle}`;
-        targetTextEl.textContent =
-          prompt.id === 'low'
-            ? 'เห็นสิ่งกีดขวางระดับขาแบบนี้ ต้องกด JUMP'
-            : 'เห็นสิ่งกีดขวางระดับหัวแบบนี้ ต้องกด DUCK';
-      }
-
-      function onAction(action){
-        if (state.phase !== 'playing' || !state.currentPrompt) return;
-
-        const good = state.currentPrompt.need === action;
-
-        if (good){
-          state.correct += 1;
-          feedbackEl.textContent = action === 'jump' ? 'ถูกต้อง! low obstacle = JUMP ✅' : 'ถูกต้อง! high obstacle = DUCK ✅';
-          feedbackEl.className = 'jwm-feedback good';
-          updateHud();
-
-          if (state.correct >= GOAL_NEED){
-            finishSuccess();
-          } else {
-            setTimeout(nextPrompt, 180);
-          }
-        } else {
-          state.wrong += 1;
-          feedbackEl.textContent = action === 'jump' ? 'ยังไม่ใช่ ลองดู lane ให้ชัดอีกนิด ❌' : 'ยังไม่ใช่ ลองอ่านระดับสิ่งกีดขวางอีกครั้ง ❌';
-          feedbackEl.className = 'jwm-feedback bad';
-          setTimeout(nextPrompt, 220);
-        }
-      }
-
-      function finishSuccess(){
-        clearTimer();
-        state.phase = 'done';
-        primaryBtn.disabled = true;
-        primaryBtn.textContent = 'กำลังเข้าเกมหลัก...';
-
-        if (titleEl) titleEl.textContent = 'Warmup ผ่านแล้ว';
-        if (descEl) descEl.textContent = 'ยอดเยี่ยม! พร้อมเข้า JumpDuck แล้ว';
-        feedbackEl.textContent = 'สุดยอด! พร้อมเข้าเกมหลักแล้ว 🚀';
-        feedbackEl.className = 'jwm-feedback good';
-        targetTextEl.textContent = 'ผ่านมินิเกมอุ่นเครื่องแล้ว กำลังพาไปหน้า JumpDuck...';
-
-        try{
-          localStorage.setItem('HHA_JUMPDUCK_LAST_WARMUP', JSON.stringify({
-            patch: 'jumpduck-warmup-mini',
-            ts: Date.now(),
+      function saveWarmupSnapshot(success) {
+        try {
+          localStorage.setItem('HHA_JD_LAST_WARMUP', JSON.stringify({
+            game: 'jump-duck',
             pid: ctx.pid,
             name: ctx.name,
+            diff: ctx.diff,
+            mode: ctx.mode,
+            success: !!success,
             correct: state.correct,
-            wrong: state.wrong,
+            target: GOAL,
             timeLeft: state.timeLeft,
-            success: true,
-            next: ctx.next
+            ts: Date.now(),
+            next: ctx.next,
+            hub: ctx.hub
           }));
-        }catch{}
+        } catch (_) {}
+      }
 
+      function goNext() {
+        location.href = ctx.next;
+      }
+
+      function finishSuccess() {
+        state.ended = true;
+        clearInterval(state.timerId);
+        jumpBtn.disabled = true;
+        duckBtn.disabled = true;
+        startBtn.disabled = true;
+        startBtn.textContent = 'กำลังเข้าเกมหลัก...';
+        showPop('ผ่านแล้ว! 🚀');
+        needText.textContent = 'เยี่ยมมาก! พร้อมเข้า JumpDuck แล้ว';
+        coachText.textContent = 'Warmup ผ่านแล้ว ระบบจะพาเข้าเกมหลักอัตโนมัติ';
+        saveWarmupSnapshot(true);
         setTimeout(goNext, 700);
       }
 
-      function finishFail(){
-        clearTimer();
-        state.phase = 'fail';
-        primaryBtn.disabled = false;
-        primaryBtn.textContent = 'ลอง warmup อีกครั้ง';
-
-        if (titleEl) titleEl.textContent = 'Warmup ยังไม่ผ่าน';
-        if (descEl) descEl.textContent = 'ลองใหม่อีกครั้ง อ่าน lane ให้ชัดก่อนเข้าเกมหลักนะ';
-        feedbackEl.textContent = `ได้ ${state.correct} / ${GOAL_NEED} ครั้ง ลองใหม่อีกนิด 💪`;
-        feedbackEl.className = 'jwm-feedback bad';
-        targetTextEl.textContent = 'low = jump • high = duck • ลองอีกครั้งก่อนเข้าเกมจริง';
+      function finishFail() {
+        state.ended = true;
+        clearInterval(state.timerId);
+        jumpBtn.disabled = true;
+        duckBtn.disabled = true;
+        startBtn.disabled = false;
+        startBtn.textContent = '🔁 ลอง Warmup อีกครั้ง';
+        showPop('ลองอีกครั้ง 💪');
+        needText.textContent = 'ยังไม่ครบเป้าหมาย ลองใหม่อีกครั้ง';
+        coachText.textContent = 'จำให้ชัดอีกครั้ง: low = jump / high = duck';
+        saveWarmupSnapshot(false);
       }
 
-      function updateHud(){
-        timerBadgeEl.textContent = `⏱️ ${state.timeLeft}s`;
-        scoreBadgeEl.textContent = `✅ ${state.correct} / ${GOAL_NEED}`;
-      }
+      function handleChoice(choice) {
+        if (!state.started || state.ended) return;
 
-      function clearTimer(){
-        if (state.tickId){
-          clearInterval(state.tickId);
-          state.tickId = 0;
-        }
-      }
+        const need = state.current === 'low' ? 'jump' : 'duck';
+        const ok = choice === need;
 
-      function goNext(){
-        location.href = ctx.next;
-      }
-    }
+        setRunnerPose(choice);
 
-    function applyJumpDuckCooldownPatch(ctx, refs){
-      const { titleEl, descEl, primaryBtn, secondaryBtn, shell } = refs;
-      if (!primaryBtn || !shell) return;
+        if (ok) {
+          state.correct += 1;
+          state.idx += 1;
+          showPop('ถูกต้อง!');
+          renderHud();
 
-      const oldMini = root.querySelector('#jumpDuckWarmupMini');
-      if (oldMini) oldMini.remove();
+          if (state.correct >= GOAL) {
+            finishSuccess();
+            return;
+          }
 
-      if (titleEl) titleEl.textContent = 'คูลดาวน์หลังจบเกม JumpDuck';
-      if (descEl) {
-        descEl.textContent =
-          `${cleanName(ctx.name || ctx.pid || 'ผู้เล่น')} เล่นจบรอบแล้ว มาพักสั้น ๆ หายใจช้า ๆ ก่อนกลับไปที่ Fitness Zone กันนะ`;
-      }
-
-      primaryBtn.textContent = 'กลับ Fitness Zone';
-      if (secondaryBtn) secondaryBtn.textContent = 'กลับ HUB';
-
-      let card = root.querySelector('#jumpduckCooldownSummaryCard');
-      if (!card) {
-        card = document.createElement('section');
-        card.id = 'jumpduckCooldownSummaryCard';
-        card.innerHTML = `
-          <div class="jcs-head">
-            <div class="jcs-badge">🏁 JumpDuck จบรอบแล้ว</div>
-            <div class="jcs-rank ${String(ctx.grade || 'C').toLowerCase()}">${escapeHtml(ctx.grade || 'C')}</div>
-          </div>
-
-          <p class="jcs-lead">${escapeHtml(buildJumpDuckLead(ctx.grade, ctx.accuracy))} ${escapeHtml(rankToStars(ctx.grade))}</p>
-
-          <div class="jcs-grid">
-            <div class="jcs-item">
-              <div class="jcs-label">Score</div>
-              <div class="jcs-value">${ctx.score}</div>
-            </div>
-            <div class="jcs-item">
-              <div class="jcs-label">Accuracy</div>
-              <div class="jcs-value">${ctx.accuracy}%</div>
-            </div>
-            <div class="jcs-item">
-              <div class="jcs-label">Best Streak</div>
-              <div class="jcs-value">${ctx.bestStreak}</div>
-            </div>
-            <div class="jcs-item">
-              <div class="jcs-label">Rank</div>
-              <div class="jcs-value">${escapeHtml(ctx.grade || 'C')}</div>
-            </div>
-          </div>
-
-          <div class="jcs-tip">
-            ตอนนี้พักสายตา หายใจช้า ๆ และผ่อนคลายสั้น ๆ ก่อนกลับไปเลือกเกมต่อใน Fitness Zone
-          </div>
-        `;
-
-        const anchor = primaryBtn.parentElement || shell.lastElementChild || shell;
-        if (anchor && anchor.parentNode) {
-          anchor.parentNode.insertBefore(card, anchor);
+          renderObstacle();
         } else {
-          shell.appendChild(card);
+          state.timeLeft = Math.max(0, state.timeLeft - 2);
+          showPop('ยังไม่ใช่');
+          renderHud();
+
+          if (state.timeLeft <= 0) {
+            finishFail();
+          }
         }
       }
 
-      if (!primaryBtn.dataset.jumpduckCooldownBound) {
-        primaryBtn.dataset.jumpduckCooldownBound = '1';
-        primaryBtn.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          ev.stopImmediatePropagation();
-          persistJumpDuckCooldownSnapshot(ctx);
-          location.href = buildNextUrl(ctx);
-        }, true);
+      function startWarmup() {
+        state = {
+          started: true,
+          ended: false,
+          timerId: 0,
+          timeLeft: TIME_LIMIT,
+          correct: 0,
+          idx: 0,
+          current: 'low'
+        };
+
+        startBtn.disabled = true;
+        startBtn.textContent = 'กำลังเล่น...';
+        jumpBtn.disabled = false;
+        duckBtn.disabled = false;
+
+        renderObstacle();
+        renderHud();
+        showPop('เริ่ม!');
+
+        clearInterval(state.timerId);
+        state.timerId = setInterval(() => {
+          state.timeLeft -= 1;
+          renderHud();
+
+          if (state.timeLeft <= 0) {
+            finishFail();
+          }
+        }, 1000);
       }
 
-      if (secondaryBtn && !secondaryBtn.dataset.jumpduckCooldownBound) {
-        secondaryBtn.dataset.jumpduckCooldownBound = '1';
-        secondaryBtn.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          ev.stopImmediatePropagation();
-          location.href = ctx.hub;
-        }, true);
-      }
-    }
+      startBtn.addEventListener('click', startWarmup);
+      jumpBtn.addEventListener('click', () => handleChoice('jump'));
+      duckBtn.addEventListener('click', () => handleChoice('duck'));
 
-    function applyGameSpecificPatch(){
-      const ctx = buildBaseCtx();
-      const refs = getGateRefs();
+      stage.addEventListener('pointerdown', (ev) => {
+        if (!state.started || state.ended) return;
+        const rect = stage.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        handleChoice(ev.clientY < midY ? 'jump' : 'duck');
+      }, { passive:true });
 
-      if (isGroupsCtx(ctx)) {
-        if (ctx.phase === 'warmup') applyGroupsWarmupPatch(ctx, refs);
-        else applyGroupsCooldownPatch(ctx, refs);
-      }
-
-      if (isJumpDuckCtx(ctx)) {
-        if (ctx.phase === 'warmup') applyJumpDuckWarmupPatch(ctx, refs);
-        else applyJumpDuckCooldownPatch(ctx, refs);
-      }
-    }
-
-    function initGameGatePatches(){
-      if (root.__gatePatchReady) return;
-      root.__gatePatchReady = true;
-
-      const rerun = () => {
-        applyGameSpecificPatch();
-      };
-
-      rerun();
-
-      root.addEventListener('gate:ui', () => {
-        rerun();
+      window.addEventListener('keydown', (ev) => {
+        if (!state.started || state.ended) return;
+        const k = String(ev.key || '').toLowerCase();
+        if (k === 'arrowup' || k === 'w') handleChoice('jump');
+        if (k === 'arrowdown' || k === 's') handleChoice('duck');
       });
-
-      const observer = new MutationObserver(() => {
-        rerun();
-      });
-
-      observer.observe(root, { childList:true, subtree:true });
-      root.__gatePatchObserver = observer;
     }
 
-    bootGate(root)
-      .then(() => {
-        initGameGatePatches();
-      })
-      .catch((err) => {
+    function rewardByGrade(grade) {
+      if (grade === 'S') return { icon:'🏆', title:'Legend Return', sub:'รอบนี้ยอดเยี่ยมมาก ทั้งแม่นและนิ่งสุด ๆ' };
+      if (grade === 'A') return { icon:'🥇', title:'Gold Return', sub:'ดีมากเลย! พร้อมกลับไปลุยต่อใน Fitness Zone' };
+      if (grade === 'B') return { icon:'🥈', title:'Strong Finish', sub:'จบรอบได้ดีแล้ว รอบหน้าดัน accuracy ได้อีกแน่' };
+      if (grade === 'C') return { icon:'🥉', title:'Nice Try', sub:'พักสั้น ๆ แล้วค่อยกลับไปลองใหม่อีกครั้ง' };
+      return { icon:'⭐', title:'Keep Moving', sub:'ค่อย ๆ ฝึกต่อ เดี๋ยวรอบหน้าจะดีขึ้นอีกมาก' };
+    }
+
+    function leadByGrade(grade, acc) {
+      if (grade === 'S') return 'สุดยอดมาก! รอบนี้คุมจังหวะ jump และ duck ได้เฉียบสุด ๆ';
+      if (grade === 'A') return 'เยี่ยมมาก! รอบนี้ทั้งเร็วและแม่น';
+      if (grade === 'B') return 'ทำได้ดีนะ เหลืออีกนิดก็จะขึ้นระดับสูงกว่าเดิม';
+      if (acc >= 60) return 'ผ่านได้ดีแล้ว พักก่อนแล้วค่อยกลับไปเล่นต่อ';
+      return 'ยังซ้อมต่อได้อีก แต่ตอนนี้กลับไปพักที่ Fitness Zone ก่อน';
+    }
+
+    function bootJumpDuckCooldown(ctx) {
+      const content = document.getElementById('jdGateContent');
+      const grade = String(ctx.grade || 'C').toUpperCase();
+      const reward = rewardByGrade(grade);
+
+      try {
+        localStorage.setItem('HHA_JD_LAST_COOLDOWN', JSON.stringify({
+          game: 'jump-duck',
+          pid: ctx.pid,
+          name: ctx.name,
+          score: ctx.score,
+          accuracy: ctx.accuracy,
+          bestStreak: ctx.bestStreak,
+          grade,
+          ts: Date.now(),
+          hub: ctx.hub
+        }));
+      } catch (_) {}
+
+      content.innerHTML = `
+        <section class="warmup-wrap">
+          <div class="cooldown-grid">
+            <section class="panel" style="padding:16px;">
+              <div class="cooldown-head">
+                <div class="grade-pill ${esc(grade.toLowerCase())}">${esc(grade)}</div>
+
+                <div class="cooldown-copy">
+                  <h2>JumpDuck Complete</h2>
+                  <p>${esc(leadByGrade(grade, ctx.accuracy))}</p>
+                </div>
+              </div>
+
+              <div class="summary-grid">
+                <div class="sum-card">
+                  <div class="k">Score</div>
+                  <div class="v">${ctx.score}</div>
+                </div>
+                <div class="sum-card">
+                  <div class="k">Accuracy</div>
+                  <div class="v">${ctx.accuracy}%</div>
+                </div>
+                <div class="sum-card">
+                  <div class="k">Best Streak</div>
+                  <div class="v">${ctx.bestStreak}</div>
+                </div>
+              </div>
+            </section>
+
+            <aside class="warmup-side">
+              <section class="summary-card">
+                <h3>🎁 Reward</h3>
+                <div class="reward-box">
+                  <div class="reward-icon">${reward.icon}</div>
+                  <div class="reward-copy">
+                    <h3>${esc(reward.title)}</h3>
+                    <p>${esc(reward.sub)}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="coach-card">
+                <h3>🧘 Cooldown Note</h3>
+                <p>
+                  หายใจเข้าออกช้า ๆ พักสายตาและผ่อนคลายสั้น ๆ
+                  จากนั้นค่อยกลับไปเลือกเกมถัดไปใน Fitness Zone
+                </p>
+              </section>
+            </aside>
+          </div>
+
+          <div class="action-row">
+            <a class="btn primary" href="${esc(ctx.hub)}">🏠 กลับ Fitness Zone</a>
+            <a class="btn secondary" href="${esc(ctx.launcher)}">🔁 เล่น JumpDuck อีกครั้ง</a>
+            <a class="btn secondary" href="${esc(ctx.hub)}">🗺️ ไปหน้าโซน</a>
+          </div>
+
+          <p class="small-note">Cooldown ของ JumpDuck จะพากลับ Fitness Zone เป็นหลัก</p>
+        </section>
+      `;
+    }
+
+    function renderBootError(err) {
+      root.innerHTML = `
+        <div class="error-card">
+Gate load failed
+
+${esc(String(err?.stack || err || 'Unknown error'))}
+        </div>
+      `;
+    }
+
+    async function boot() {
+      const ctx = buildCtx();
+
+      if (ctx.game === 'jump-duck') {
+        renderJumpDuckShell(ctx);
+
+        if (ctx.phase === 'cooldown') {
+          bootJumpDuckCooldown(ctx);
+        } else {
+          bootJumpDuckWarmup(ctx);
+        }
+        return;
+      }
+
+      try {
+        await bootGate(root);
+      } catch (err) {
         console.error('[warmup-gate] boot failed:', err);
         renderBootError(err);
-      });
+      }
+    }
+
+    boot();
   </script>
 </body>
 </html>
