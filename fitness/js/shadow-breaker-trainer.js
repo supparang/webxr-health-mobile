@@ -1,10 +1,10 @@
 // === /fitness/js/shadow-breaker-trainer.js ===
 // Shadow Breaker - Hit Zone Trainer
-// PATCH v20260412a-SBT-HIT-ZONE-TRAINER
+// PATCH v20260412b-SBT-HIT-ZONE-TRAINER-FLOW-FIX
 
 'use strict';
 
-const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
+const SBT_VERSION = 'v20260412b-SBT-HIT-ZONE-TRAINER-FLOW-FIX';
 
 (function () {
   const W = window;
@@ -80,6 +80,7 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
       view: qs('view', 'mobile'),
       seed: qs('seed', String(Date.now())),
       hub: qs('hub', defaultHub),
+      launcher: qs('launcher', ''),
       next: qs('next', defaultNext),
       diff: qs('diff', 'normal'),
       timeSec,
@@ -160,7 +161,6 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
   };
 
   const ui = createUi();
-
   showIntro();
 
   function createUi() {
@@ -338,6 +338,7 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
             0 0 0 6px rgba(255,255,255,.04),
             0 14px 30px rgba(0,0,0,.24);
           backdrop-filter:blur(3px);
+          pointer-events:none;
         }
 
         .sbt-target-label{
@@ -918,7 +919,7 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
       </div>
 
       <div class="sbt-actions">
-        <a class="sbt-btn sbt-btn-secondary" href="${escapeAttr(ctx.hub)}">กลับ HUB</a>
+        <a class="sbt-btn sbt-btn-secondary" href="${escapeAttr(ctx.launcher || ctx.hub)}">${ctx.launcher ? 'กลับ Launcher' : 'กลับ HUB'}</a>
         <button class="sbt-btn sbt-btn-primary" data-start="1" type="button">เริ่มฝึก</button>
       </div>
     `);
@@ -975,6 +976,7 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
     `;
     playSfx('perfect');
     await sleep(450);
+    ui.center.innerHTML = '';
 
     loop();
   }
@@ -1000,7 +1002,6 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
 
     if (state.current) {
       const t = nowMs();
-
       if (t > state.current.finalMissAtMs) {
         resolveCurrent('miss', state.current.action, { source: 'timeout' });
       }
@@ -1071,6 +1072,8 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
     const cur = state.current;
     if (!cur) return;
 
+    const anchor = ui.targetAnchor();
+
     state.current = null;
     ui.clearTarget();
 
@@ -1079,14 +1082,18 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
       state.actions[performedAction] += 1;
     }
 
-    const anchor = ui.targetAnchor();
-
     if (result === 'miss') {
       state.judgments.miss += 1;
       state.combo = 0;
       ui.popup('MISS', 'miss', anchor.x, anchor.y);
       playSfx('miss');
-      ui.setCoach('ไม่เป็นไร ลองอ่านวงให้แม่นขึ้นอีกนิด', 'warn');
+
+      if (meta.wrongAction && meta.expectedAction) {
+        ui.setCoach(`ผิดท่า • ต้องเป็น ${LABEL[meta.expectedAction] || meta.expectedAction}`, 'warn');
+      } else {
+        ui.setCoach('ไม่เป็นไร ลองอ่านวงให้แม่นขึ้นอีกนิด', 'warn');
+      }
+
       state.resolvedCount += 1;
       return;
     }
@@ -1113,6 +1120,24 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
     }
 
     state.resolvedCount += 1;
+  }
+
+  function performAction(action, source = 'unknown') {
+    if (!state.current) return;
+    ensureAudioReady();
+
+    if (action === state.current.action) {
+      resolveCurrent('hit', action, { source });
+    } else {
+      resolveCurrent('miss', action, {
+        source,
+        wrongAction: true,
+        expectedAction: state.current.action
+      });
+    }
+
+    ui.setAssistOpen(false);
+    state.runtime.assistOpen = false;
   }
 
   function ensureAudioReady() {
@@ -1199,10 +1224,15 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
     if (ctx.studyId) nextUrl.searchParams.set('studyId', ctx.studyId);
     nextUrl.searchParams.set('run', ctx.run);
     nextUrl.searchParams.set('view', ctx.view);
-    nextUrl.searchParams.set('seed', ctx.seed);
+    nextUrl.searchParams.set('seed', String(Date.now()));
     nextUrl.searchParams.set('hub', ctx.hub);
     nextUrl.searchParams.set('diff', ctx.diff);
     nextUrl.searchParams.set('trainer', '1');
+
+    if (ctx.launcher) {
+      nextUrl.searchParams.set('launcher', ctx.launcher);
+    }
+
     return nextUrl.toString();
   }
 
@@ -1248,7 +1278,7 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
     } else if (summary.late >= Math.max(3, Math.ceil(ctx.targetCount * 0.25))) {
       tips.push('ช้ากว่าจังหวะอยู่พอสมควร ลองกดก่อนวงหดสุดอีกนิด');
     } else if (summary.miss >= Math.max(3, Math.ceil(ctx.targetCount * 0.25))) {
-      tips.push('ยังหลุด timing อยู่บ้าง ควรอ่านวงให้ชัดก่อนแตะ');
+      tips.push('ยังหลุด timing หรือเลือกท่าผิดอยู่บ้าง ควรอ่านเป้าให้ชัดก่อนแตะ');
     } else {
       tips.push('ฟอร์มโอเคแล้ว เข้า main game ต่อได้');
     }
@@ -1313,7 +1343,7 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
       </div>
 
       <div class="sbt-actions">
-        <a class="sbt-btn sbt-btn-secondary" href="${escapeAttr(ctx.hub)}">กลับ HUB</a>
+        <a class="sbt-btn sbt-btn-secondary" href="${escapeAttr(ctx.launcher || ctx.hub)}">${ctx.launcher ? 'กลับ Launcher' : 'กลับ HUB'}</a>
         <button class="sbt-btn sbt-btn-secondary" data-replay="1" type="button">ฝึกอีกครั้ง</button>
         <a class="sbt-btn sbt-btn-primary" href="${escapeAttr(trainerNextUrl())}">ไป Shadow Breaker</a>
       </div>
@@ -1336,18 +1366,11 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
     clearTimeout(state.runtime.holdTimer);
     state.runtime.gestureActive = false;
 
-    ensureAudioReady();
-    resolveCurrent('hit', hit.getAttribute('data-direct-action') || state.current.action, { source: 'direct_target' });
-
-    ui.setAssistOpen(false);
-    state.runtime.assistOpen = false;
+    performAction(hit.getAttribute('data-direct-action') || state.current.action, 'direct_target');
   }
 
   function padAction(action) {
-    if (!state.current) return;
-
-    ensureAudioReady();
-    resolveCurrent('hit', action, { source: 'pad' });
+    performAction(action, 'pad');
     ui.autoHideAssist(900);
     state.runtime.assistOpen = false;
   }
@@ -1372,15 +1395,12 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
       const moveY = Math.abs(state.runtime.lastPointerY - state.runtime.gestureStartY);
 
       if (moveX < 18 && moveY < 18) {
-        ensureAudioReady();
-        resolveCurrent('hit', 'guard', { source: 'gesture_hold' });
+        performAction('guard', 'gesture_hold');
         ui.setGestureHint('BLOCK');
         setTimeout(() => {
           ui.setGestureHint('Tap target • Swipe down = Duck • Hold = Block');
         }, 700);
 
-        ui.setAssistOpen(false);
-        state.runtime.assistOpen = false;
         state.runtime.gestureActive = false;
       }
     }, 220);
@@ -1407,15 +1427,11 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
     if (dt > 520) return;
 
     if (dy > 56 && Math.abs(dy) > Math.abs(dx)) {
-      ensureAudioReady();
-      resolveCurrent('hit', 'duck', { source: 'gesture_swipe' });
+      performAction('duck', 'gesture_swipe');
       ui.setGestureHint('DUCK');
       setTimeout(() => {
         ui.setGestureHint('Tap target • Swipe down = Duck • Hold = Block');
       }, 700);
-
-      ui.setAssistOpen(false);
-      state.runtime.assistOpen = false;
     }
   }
 
@@ -1434,10 +1450,7 @@ const SBT_VERSION = 'v20260412a-SBT-HIT-ZONE-TRAINER';
     const action = map[ev.code];
     if (!action || !state.current) return;
 
-    ensureAudioReady();
-    resolveCurrent('hit', action, { source: 'keyboard' });
-    ui.setAssistOpen(false);
-    state.runtime.assistOpen = false;
+    performAction(action, 'keyboard');
   }
 
   ui.targetLayer.addEventListener('pointerdown', directTargetHandler, { passive: false });
