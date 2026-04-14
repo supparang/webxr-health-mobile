@@ -1,13 +1,16 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260414c-GATE-ZONE-NORMALIZE-FINAL
+// FULL PATCH v20260414i-JUMPDuck-DOGHERO-FITNESSZONE-CORE-FINAL
 
-import * as GateGames from './gate-games.js?v=20260414-JUMPDUCK-FITNESS-ZONE-FINAL';
+import * as GateGames from './gate-games.js?v=20260414h-JUMPDuck-DOGHERO-FITNESSZONE-LOCK';
 
-const PATCH = 'v20260414c-GATE-ZONE-NORMALIZE-FINAL';
+const PATCH = 'v20260414i-JUMPDuck-DOGHERO-FITNESSZONE-CORE-FINAL';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
 const MAX_HISTORY = 40;
+
+const FITNESS_ZONE_HREF = new URL('../fitness-zone.html', import.meta.url).href;
+const JUMPDUCK_LAUNCHER_HREF = new URL('../../fitness/jumpduck.html', import.meta.url).href;
 
 const normalizeGameId =
   typeof GateGames.normalizeGameId === 'function'
@@ -87,184 +90,6 @@ function todayStampBangkok() {
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   }
-}
-
-function resolveAbsoluteUrl(maybeUrl) {
-  if (!maybeUrl) return '';
-  try {
-    return new URL(maybeUrl, location.href).href;
-  } catch {
-    return '';
-  }
-}
-
-function inferZoneName(ctx = {}) {
-  const z = String(ctx?.zone || ctx?.cat || ctx?.meta?.zone || ctx?.meta?.cat || '').trim().toLowerCase();
-  if (z) return z;
-
-  const g = normalizeGameId(ctx?.game || ctx?.gameRaw || '');
-  if (
-    g.includes('hydration') ||
-    g.includes('plate') ||
-    g.includes('group') ||
-    g.includes('goodjunk') ||
-    g.includes('nutrition')
-  ) return 'nutrition';
-
-  if (
-    g.includes('jump') ||
-    g.includes('shadow') ||
-    g.includes('rhythm') ||
-    g.includes('balance') ||
-    g.includes('fitness')
-  ) return 'fitness';
-
-  if (
-    g.includes('brush') ||
-    g.includes('germ') ||
-    g.includes('bath') ||
-    g.includes('hygiene') ||
-    g.includes('handwash') ||
-    g.includes('mask') ||
-    g.includes('cough')
-  ) return 'hygiene';
-
-  return '';
-}
-
-function getZonePageHref(zone = '') {
-  const z = String(zone || '').trim().toLowerCase();
-
-  if (z === 'fitness') {
-    return new URL('../fitness-zone.html', import.meta.url).href;
-  }
-  if (z === 'nutrition') {
-    return new URL('../nutrition-zone.html', import.meta.url).href;
-  }
-  if (z === 'hygiene') {
-    return new URL('../hygiene-zone.html', import.meta.url).href;
-  }
-  return new URL('../hub.html', import.meta.url).href;
-}
-
-function looksLikeZoneRoot(href = '', zone = '') {
-  const s = String(href || '').toLowerCase();
-  const z = String(zone || '').trim().toLowerCase();
-  if (!s || !z) return false;
-
-  if (z === 'fitness') {
-    return (
-      s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
-      s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
-      s.endsWith('/webxr-health-mobile/fitness') ||
-      s.endsWith('/webxr-health-mobile/fitness/')
-    );
-  }
-
-  if (z === 'nutrition') {
-    return (
-      s === 'https://supparang.github.io/webxr-health-mobile/nutrition' ||
-      s === 'https://supparang.github.io/webxr-health-mobile/nutrition/' ||
-      s.endsWith('/webxr-health-mobile/nutrition') ||
-      s.endsWith('/webxr-health-mobile/nutrition/')
-    );
-  }
-
-  if (z === 'hygiene') {
-    return (
-      s === 'https://supparang.github.io/webxr-health-mobile/hygiene' ||
-      s === 'https://supparang.github.io/webxr-health-mobile/hygiene/' ||
-      s.endsWith('/webxr-health-mobile/hygiene') ||
-      s.endsWith('/webxr-health-mobile/hygiene/')
-    );
-  }
-
-  return false;
-}
-
-function looksLikeHeroHealthHub(href = '') {
-  const s = String(href || '').toLowerCase();
-  return (
-    s.includes('/herohealth/hub.html') ||
-    s.includes('/herohealth/hub-v2.html') ||
-    s.includes('/herohealth/fitness-zone.html') ||
-    s.includes('/herohealth/nutrition-zone.html') ||
-    s.includes('/herohealth/hygiene-zone.html')
-  );
-}
-
-function inferLauncherHrefFromGame(ctx = {}) {
-  const zoneHref = getZonePageHref(inferZoneName(ctx));
-  const game = normalizeGameId(ctx?.game || ctx?.gameRaw || '');
-
-  const candidates = getRunCandidatesSafe(game);
-  if (Array.isArray(candidates) && candidates.length) {
-    const first = resolveAbsoluteUrl(candidates[0]);
-    if (first) {
-      try {
-        const u = new URL(first, location.href);
-
-        const src = new URL(location.href);
-        const keys = [
-          'pid', 'name', 'nick', 'nickName', 'run', 'diff', 'time', 'view', 'seed',
-          'mode', 'studyId', 'debug', 'log', 'api', 'ai', 'pro',
-          'game', 'gameId', 'theme', 'zone', 'cat'
-        ];
-
-        keys.forEach((key) => {
-          const v = src.searchParams.get(key);
-          if (v != null && v !== '') u.searchParams.set(key, v);
-        });
-
-        u.searchParams.set('game', game);
-        u.searchParams.set('gameId', game);
-        if (!u.searchParams.get('theme')) u.searchParams.set('theme', game);
-
-        const zone = inferZoneName(ctx);
-        if (zone) {
-          if (!u.searchParams.get('zone')) u.searchParams.set('zone', zone);
-          if (!u.searchParams.get('cat')) u.searchParams.set('cat', zone);
-        }
-
-        u.searchParams.set('hub', zoneHref);
-        return u.href;
-      } catch {}
-    }
-  }
-
-  return '';
-}
-
-function normalizeCtxPaths(ctx) {
-  const zone = inferZoneName(ctx);
-  const zoneHref = getZonePageHref(zone);
-
-  const rawHub = resolveAbsoluteUrl(ctx.hub);
-  const rawHubRoot = resolveAbsoluteUrl(ctx.hubRoot);
-  const rawLauncher = resolveAbsoluteUrl(ctx.launcher);
-
-  ctx.zone = ctx.zone || zone;
-  ctx.cat = ctx.cat || zone;
-
-  if (!rawHub || looksLikeZoneRoot(rawHub, zone)) {
-    ctx.hub = zoneHref;
-  } else {
-    ctx.hub = rawHub;
-  }
-
-  if (!rawHubRoot || looksLikeZoneRoot(rawHubRoot, zone)) {
-    ctx.hubRoot = zoneHref;
-  } else {
-    ctx.hubRoot = rawHubRoot;
-  }
-
-  if (!rawLauncher || looksLikeZoneRoot(rawLauncher, zone)) {
-    ctx.launcher = inferLauncherHrefFromGame(ctx) || '';
-  } else {
-    ctx.launcher = rawLauncher;
-  }
-
-  return ctx;
 }
 
 function dailyKeyFromCtx(ctx, phase = '') {
@@ -385,6 +210,103 @@ function shouldForceGate(ctx) {
   );
 }
 
+function resolveAbsoluteUrl(maybeUrl) {
+  if (!maybeUrl) return '';
+  try {
+    return new URL(maybeUrl, location.href).href;
+  } catch {
+    return '';
+  }
+}
+
+function looksLikeHeroHealthHub(href = '') {
+  const s = String(href || '').toLowerCase();
+  return (
+    s.includes('/herohealth/hub.html') ||
+    s.includes('/herohealth/hub-v2.html') ||
+    s.includes('/herohealth/fitness-zone.html') ||
+    s.includes('/herohealth/nutrition-zone.html') ||
+    s.includes('/herohealth/hygiene-zone.html')
+  );
+}
+
+function looksLikeFitnessRoot(href = '') {
+  const s = String(href || '').toLowerCase();
+  return (
+    s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
+    s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
+    s.endsWith('/webxr-health-mobile/fitness') ||
+    s.endsWith('/webxr-health-mobile/fitness/')
+  );
+}
+
+function isJumpDuckGate(ctx) {
+  return normalizeGameId(ctx?.game || ctx?.gameRaw || '') === 'jump-duck';
+}
+
+function sanitizeHubLike(raw = '', fallback = '') {
+  const resolved = resolveAbsoluteUrl(raw);
+  if (!resolved) return fallback || '';
+  if (looksLikeFitnessRoot(resolved)) return fallback || '';
+  return resolved;
+}
+
+function buildJumpDuckLauncher(ctx) {
+  const u = new URL(JUMPDUCK_LAUNCHER_HREF);
+
+  const copyKeys = [
+    'pid', 'name', 'studyId', 'run', 'diff', 'time', 'view',
+    'seed', 'mode', 'game', 'gameId', 'theme', 'zone', 'cat'
+  ];
+
+  copyKeys.forEach(key => {
+    const value =
+      ctx?.[key] ??
+      ctx?.params?.get?.(key) ??
+      '';
+    if (value !== '' && value != null) {
+      u.searchParams.set(key, String(value));
+    }
+  });
+
+  u.searchParams.set('game', 'jump-duck');
+  u.searchParams.set('gameId', 'jump-duck');
+  u.searchParams.set('theme', 'jump-duck');
+  u.searchParams.set('zone', 'fitness');
+  u.searchParams.set('cat', 'fitness');
+  u.searchParams.set('hub', FITNESS_ZONE_HREF);
+  u.searchParams.set('hubRoot', FITNESS_ZONE_HREF);
+  u.searchParams.set('launcher', JUMPDUCK_LAUNCHER_HREF);
+
+  return u.href;
+}
+
+function patchJumpDuckCtx(ctx) {
+  if (!isJumpDuckGate(ctx)) return ctx;
+
+  const patched = { ...ctx };
+  patched.zone = 'fitness';
+  patched.cat = 'fitness';
+  patched.hub = FITNESS_ZONE_HREF;
+  patched.hubRoot = FITNESS_ZONE_HREF;
+  patched.launcher = buildJumpDuckLauncher(patched);
+
+  if (!patched.next) {
+    patched.next = buildJumpDuckLauncher({
+      ...patched,
+      wgskip: '1',
+      autostart: '1',
+      entry: 'warmup-gate'
+    });
+  }
+
+  if (!patched.cdnext) {
+    patched.cdnext = FITNESS_ZONE_HREF;
+  }
+
+  return patched;
+}
+
 function readCtx() {
   const params = new URLSearchParams(location.search);
 
@@ -405,7 +327,7 @@ function readCtx() {
 
   const phase = phaseRaw === 'cooldown' ? 'cooldown' : 'warmup';
 
-  const ctx = {
+  const base = {
     patch: PATCH,
     params,
     gameRaw,
@@ -428,7 +350,7 @@ function readCtx() {
     hubRoot: params.get('hubRoot') || '',
     launcher: params.get('launcher') || '',
     cat: params.get('cat') || meta?.cat || '',
-    zone: params.get('zone') || params.get('cat') || meta?.zone || meta?.cat || '',
+    zone: params.get('zone') || params.get('cat') || meta?.cat || '',
     scene: params.get('scene') || '',
     wgskip: params.get('wgskip') || '',
     autostart: params.get('autostart') || '',
@@ -437,7 +359,7 @@ function readCtx() {
     cdnext: params.get('cdnext') || ''
   };
 
-  return normalizeCtxPaths(ctx);
+  return patchJumpDuckCtx(base);
 }
 
 function ensureCoreStyle() {
@@ -726,7 +648,6 @@ function renderShell(root, ctx) {
 
 function applyStats(refs, stats = {}) {
   if (!refs) return;
-
   if ('time' in stats && refs.statTime) refs.statTime.textContent = String(stats.time ?? '-');
   if ('score' in stats && refs.statScore) refs.statScore.textContent = String(stats.score ?? 0);
   if ('miss' in stats && refs.statMiss) refs.statMiss.textContent = String(stats.miss ?? 0);
@@ -834,7 +755,6 @@ function buildRunParams(ctx) {
   if (ctx.name) p.set('name', ctx.name);
 
   p.set('wgskip', '1');
-  p.set('autostart', '1');
   return p;
 }
 
@@ -850,23 +770,45 @@ async function quickExists(url) {
   }
 }
 
-function resolveLauncherHref(ctx) {
-  const zone = inferZoneName(ctx);
-  const rawLauncher = String(ctx?.launcher || '').trim();
+function resolveHubHref(ctx) {
+  if (isJumpDuckGate(ctx)) {
+    return FITNESS_ZONE_HREF;
+  }
 
+  const fallbackV2 = new URL('../hub-v2.html', import.meta.url).href;
+  const fallbackClassic = new URL('../hub.html', import.meta.url).href;
+  const rawHubRoot = sanitizeHubLike(ctx?.hubRoot || '', '');
+  const rawHub = sanitizeHubLike(ctx?.hub || '', '');
+
+  if (rawHubRoot) {
+    if (looksLikeHeroHealthHub(rawHubRoot)) return rawHubRoot;
+    return rawHubRoot.toLowerCase().includes('hub-v2') ? fallbackV2 : fallbackClassic;
+  }
+
+  if (rawHub) {
+    if (looksLikeHeroHealthHub(rawHub)) return rawHub;
+    return rawHub.toLowerCase().includes('hub-v2') ? fallbackV2 : fallbackClassic;
+  }
+
+  return fallbackClassic;
+}
+
+function resolveLauncherHref(ctx) {
+  if (isJumpDuckGate(ctx)) {
+    return buildJumpDuckLauncher(ctx);
+  }
+
+  const rawLauncher = String(ctx?.launcher || '').trim();
   if (rawLauncher) {
     const abs = resolveAbsoluteUrl(rawLauncher);
-    if (abs && !looksLikeZoneRoot(abs, zone)) return abs;
+    if (abs) return abs;
   }
 
   const rawCdNext = String(ctx?.cdnext || ctx?.params?.get?.('cdnext') || '').trim();
   if (rawCdNext) {
     const abs = resolveAbsoluteUrl(rawCdNext);
-    if (abs && !looksLikeHeroHealthHub(abs) && !looksLikeZoneRoot(abs, zone)) return abs;
+    if (abs && !looksLikeHeroHealthHub(abs)) return abs;
   }
-
-  const inferred = inferLauncherHrefFromGame(ctx);
-  if (inferred) return inferred;
 
   const metaSummary =
     String(ctx?.meta?.summaryPath || ctx?.meta?.defaults?.summaryPath || '').trim();
@@ -892,6 +834,13 @@ function resolveLauncherHref(ctx) {
 }
 
 async function resolveRunHref(ctx) {
+  if (isJumpDuckGate(ctx)) {
+    if (ctx.next) {
+      const nextHref = resolveAbsoluteUrl(ctx.next);
+      if (nextHref) return nextHref;
+    }
+  }
+
   if (ctx.next) {
     const nextHref = resolveAbsoluteUrl(ctx.next);
     if (nextHref) {
@@ -935,26 +884,6 @@ async function resolveRunHref(ctx) {
   return fallback.href;
 }
 
-function resolveHubHref(ctx) {
-  const zone = inferZoneName(ctx);
-  const fallbackZone = getZonePageHref(zone);
-  const fallbackClassic = new URL('../hub.html', import.meta.url).href;
-  const raw = String(ctx?.hubRoot || ctx?.hub || '').trim();
-
-  try {
-    if (!raw) return fallbackZone || fallbackClassic;
-
-    const resolved = new URL(raw, location.href).href;
-
-    if (looksLikeZoneRoot(resolved, zone)) return fallbackZone;
-    if (looksLikeHeroHealthHub(resolved)) return resolved;
-
-    return fallbackZone || fallbackClassic;
-  } catch {
-    return fallbackZone || fallbackClassic;
-  }
-}
-
 function classifyCompletionHref(href = '') {
   const s = String(href || '').toLowerCase();
 
@@ -966,6 +895,14 @@ function classifyCompletionHref(href = '') {
 }
 
 function resolveCompletionTarget(ctx, payload = {}) {
+  if (isJumpDuckGate(ctx)) {
+    return {
+      href: FITNESS_ZONE_HREF,
+      kind: 'hub',
+      label: 'กลับ Fitness Zone'
+    };
+  }
+
   const fromPayload = resolveAbsoluteUrl(String(payload?.summaryHref || '').trim());
   if (fromPayload) {
     console.log('[GATE] resolveCompletionTarget via payload', fromPayload);
@@ -1263,6 +1200,23 @@ async function bootPhase(stage, ctx, api) {
 
 function showAlreadyDone(stage, footer, ctx) {
   if (ctx.phase === 'cooldown') {
+    if (isJumpDuckGate(ctx)) {
+      renderInfo(
+        stage,
+        'ทำ cooldown วันนี้แล้ว',
+        'วันนี้ทำ cooldown ไปแล้ว ระบบจะกลับ Fitness Zone ทันที'
+      );
+
+      setActions(footer, [
+        { label: 'กลับ Fitness Zone', primary: true, onClick: () => { location.href = FITNESS_ZONE_HREF; } }
+      ]);
+
+      setTimeout(() => {
+        location.href = FITNESS_ZONE_HREF;
+      }, 180);
+      return;
+    }
+
     const launcherHref = resolveLauncherHref(ctx);
 
     if (launcherHref) {
@@ -1325,6 +1279,24 @@ function showAlreadyDone(stage, footer, ctx) {
     return;
   }
 
+  if (isJumpDuckGate(ctx)) {
+    renderInfo(
+      stage,
+      'ทำ warmup วันนี้แล้ว',
+      'ระบบจะพาเข้า JumpDuck ต่อทันที'
+    );
+
+    setActions(footer, [
+      { label: 'เข้า JumpDuck', primary: true, onClick: () => goRun(ctx) },
+      { label: 'กลับ Fitness Zone', onClick: () => goHub(ctx) }
+    ]);
+
+    setTimeout(() => {
+      goRun(ctx);
+    }, 350);
+    return;
+  }
+
   renderInfo(
     stage,
     'ทำ warmup วันนี้แล้ว',
@@ -1377,9 +1349,13 @@ export async function bootGate(root = document.getElementById('gate-app')) {
     applyCooldownSnapshot(refs, ctx);
     setHeroSub(
       refs,
-      resolveLauncherHref(ctx)
-        ? 'สรุปผลล่าสุดพร้อมแล้ว เมื่อจบ cooldown ระบบจะพากลับ launcher ของเกมนี้'
-        : 'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดไปหน้าถัดไปหรือกลับหน้าหลัก'
+      isJumpDuckGate(ctx)
+        ? 'สรุปผลล่าสุดพร้อมแล้ว เมื่อจบ cooldown ระบบจะกลับ Fitness Zone'
+        : (
+          resolveLauncherHref(ctx)
+            ? 'สรุปผลล่าสุดพร้อมแล้ว เมื่อจบ cooldown ระบบจะพากลับ launcher ของเกมนี้'
+            : 'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดไปหน้าถัดไปหรือกลับหน้าหลัก'
+        )
     );
   }
 
@@ -1439,14 +1415,17 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
         setActions(footer, [
           {
-            label: 'เข้าเกมหลัก',
+            label: isJumpDuckGate(ctx) ? 'เข้า JumpDuck' : 'เข้าเกมหลัก',
             primary: true,
             onClick: () => {
               if (trySpecialGateRedirect(ctx, 'warmup', payload)) return;
               goRun(ctx);
             }
           },
-          { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+          {
+            label: isJumpDuckGate(ctx) ? 'กลับ Fitness Zone' : 'กลับ HUB',
+            onClick: () => goHub(ctx)
+          }
         ]);
 
         await delay(180);
@@ -1495,14 +1474,22 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
       if (completionTarget.href && completionTarget.kind === 'hub') {
         setActions(footer, [
-          { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
+          {
+            label: isJumpDuckGate(ctx) ? 'กลับ Fitness Zone' : 'กลับหน้าหลัก',
+            primary: true,
+            onClick: () => goHub(ctx)
+          }
         ]);
         return;
       }
 
       if (completionTarget.href) {
         setActions(footer, [
-          { label: completionTarget.label || 'ไปต่อ', primary: true, onClick: () => goCompletion(ctx, payload) },
+          {
+            label: completionTarget.label || 'ไปต่อ',
+            primary: true,
+            onClick: () => goCompletion(ctx, payload)
+          },
           { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
         ]);
         return;
@@ -1532,9 +1519,14 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       console.error('[gate-core] fail:', err);
       renderError(stage, 'Gate fail', err);
       setActions(footer, [
-        { label: 'กลับ HUB', onClick: () => goHub(ctx) },
         {
-          label: ctx.phase === 'cooldown' ? 'ไปต่อ' : 'เข้าเกมหลัก',
+          label: isJumpDuckGate(ctx) ? 'กลับ Fitness Zone' : 'กลับ HUB',
+          onClick: () => goHub(ctx)
+        },
+        {
+          label: ctx.phase === 'cooldown'
+            ? (isJumpDuckGate(ctx) ? 'กลับ Fitness Zone' : 'ไปต่อ')
+            : (isJumpDuckGate(ctx) ? 'เข้า JumpDuck' : 'เข้าเกมหลัก'),
           primary: true,
           onClick: () => api.complete({ source: 'fail-skip' })
         }
