@@ -1,0 +1,1733 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Combo Composer</title>
+  <meta name="theme-color" content="#dff7ea" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --bg1:#f3fff8;
+      --bg2:#e6fff1;
+      --bg3:#fff8de;
+
+      --card:#ffffff;
+      --line:#d4efe0;
+      --line-strong:#b7e2c9;
+
+      --text:#433f3d;
+      --muted:#756f6b;
+
+      --pink:#ff9dcd;
+      --pink2:#ff76b5;
+      --blue:#7fcfff;
+      --blue2:#4aaef0;
+      --green:#7ed957;
+      --green2:#4fbd31;
+      --yellow:#ffd75d;
+      --yellow2:#ffb83b;
+      --purple:#caa5ff;
+      --purple2:#9677ef;
+      --red:#ff7d7d;
+
+      --shadow:0 18px 42px rgba(67,63,61,.12);
+      --shadow-soft:0 10px 22px rgba(67,63,61,.08);
+
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; min-height:100%; }
+    body{
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.94), transparent 28%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 56%,var(--bg3));
+    }
+
+    a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; }
+    .hidden{ display:none !important; }
+
+    .app{
+      width:min(1180px, calc(100% - 14px));
+      margin:0 auto;
+      padding:
+        calc(10px + var(--safe-top))
+        0
+        calc(14px + var(--safe-bottom));
+      display:grid;
+      gap:10px;
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .pill,
+    .brand{
+      min-height:46px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.9);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      background:linear-gradient(135deg,var(--green),var(--blue2));
+      font-size:15px;
+    }
+
+    .headline{
+      min-width:0;
+      padding:0 4px;
+    }
+
+    .headline h1{
+      margin:0;
+      font-size:clamp(22px,4vw,38px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .headline p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .hud{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .hud-box{
+      min-height:70px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.94);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .hud-box .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .hud-box .v{
+      display:block;
+      margin-top:6px;
+      font-size:20px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .coach-card{
+      padding:14px 16px;
+      border-radius:24px;
+      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(250,255,252,.94));
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:8px;
+    }
+
+    .coach-top{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .coach-avatar{
+      width:52px;
+      height:52px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#dffbe9,#b8efc9);
+      border:2px solid rgba(255,255,255,.9);
+      box-shadow:var(--shadow-soft);
+      font-size:24px;
+    }
+
+    .coach-copy strong{
+      display:block;
+      font-size:18px;
+      line-height:1.1;
+    }
+
+    .coach-copy span{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .mini-tags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .mini-tag{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .game-shell{
+      position:relative;
+      padding:16px;
+      border-radius:30px;
+      background:
+        radial-gradient(circle at top center, rgba(255,255,255,.32), transparent 26%),
+        linear-gradient(180deg,#1e3b2d 0%, #2e6a4f 54%, #ffe4a1 55%, #fff7dc 100%);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      min-height:680px;
+      overflow:hidden;
+      display:grid;
+      align-content:start;
+      gap:14px;
+    }
+
+    .phase-banner{
+      position:absolute;
+      left:50%;
+      top:12px;
+      transform:translateX(-50%);
+      z-index:20;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:12px;
+      font-weight:1000;
+      color:#365245;
+    }
+
+    .builder-card,
+    .replay-card,
+    .controls-card,
+    .rule-card{
+      position:relative;
+      z-index:2;
+      padding:16px;
+      border-radius:26px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      gap:12px;
+    }
+
+    .card-title{
+      font-size:22px;
+      line-height:1.1;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .card-sub{
+      text-align:center;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .rule-list{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .rule-pill{
+      min-height:62px;
+      padding:10px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.35;
+    }
+
+    .compose-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .composer-btn,
+    .action-btn{
+      min-height:132px;
+      padding:12px;
+      border-radius:24px;
+      border:3px solid rgba(255,255,255,.88);
+      background:rgba(255,255,255,.96);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      place-items:center;
+      gap:6px;
+      text-align:center;
+      cursor:pointer;
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .composer-btn:hover,
+    .action-btn:hover{
+      transform:translateY(-2px);
+    }
+
+    .composer-btn.focus,
+    .action-btn.focus{
+      border-color:#fff4a6;
+      box-shadow:
+        0 0 0 6px rgba(255,214,97,.14),
+        0 12px 24px rgba(255,214,97,.22);
+    }
+
+    .composer-btn.l0{ background:linear-gradient(180deg,#f8fdff,#ebf8ff); }
+    .composer-btn.l1{ background:linear-gradient(180deg,#fffaf5,#fff1df); }
+    .composer-btn.l2{ background:linear-gradient(180deg,#fbfff7,#eefbe6); }
+    .composer-btn.l3{ background:linear-gradient(180deg,#fcf9ff,#f2ebff); }
+
+    .composer-icon{
+      font-size:40px;
+      line-height:1;
+    }
+
+    .composer-label{
+      font-size:17px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .composer-hint{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.3;
+    }
+
+    .sequence-wrap{
+      display:grid;
+      gap:10px;
+    }
+
+    .sequence{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      min-height:110px;
+      padding:4px 0;
+    }
+
+    .seq-slot{
+      min-width:86px;
+      min-height:86px;
+      padding:10px;
+      border-radius:24px;
+      background:#fff;
+      border:3px dashed var(--line-strong);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      gap:4px;
+    }
+
+    .seq-slot.filled{
+      border-style:solid;
+    }
+
+    .seq-slot.l0{ border-color:rgba(127,207,255,.55); background:linear-gradient(180deg,#f8fdff,#ebf8ff); }
+    .seq-slot.l1{ border-color:rgba(255,183,91,.55); background:linear-gradient(180deg,#fffaf5,#fff1df); }
+    .seq-slot.l2{ border-color:rgba(126,217,87,.55); background:linear-gradient(180deg,#fbfff7,#eefbe6); }
+    .seq-slot.l3{ border-color:rgba(184,153,255,.55); background:linear-gradient(180deg,#fcf9ff,#f2ebff); }
+
+    .seq-icon{
+      font-size:34px;
+      line-height:1;
+    }
+
+    .seq-label{
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .seq-join{
+      font-size:24px;
+      font-weight:1000;
+      color:rgba(255,255,255,.96);
+      text-shadow:0 4px 18px rgba(0,0,0,.18);
+    }
+
+    .action-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .action-btn{
+      min-height:88px;
+      background:linear-gradient(180deg,#fff,#f8fff9);
+      font-size:15px;
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .replay-stage{
+      display:grid;
+      gap:12px;
+    }
+
+    .cue-box{
+      min-height:180px;
+      border-radius:28px;
+      background:
+        radial-gradient(circle at 50% 14%, rgba(255,255,255,.24), transparent 24%),
+        linear-gradient(180deg,#203d2d 0%, #376f55 56%, #ffe4a1 57%, #fff7dc 100%);
+      border:2px dashed rgba(255,255,255,.18);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .cue-box.active{
+      box-shadow:
+        inset 0 0 0 4px rgba(255,255,255,.12),
+        0 0 0 8px rgba(255,214,97,.12);
+    }
+
+    .cue-content{
+      display:grid;
+      gap:10px;
+      place-items:center;
+    }
+
+    .cue-icon{
+      font-size:64px;
+      line-height:1;
+      filter:drop-shadow(0 10px 18px rgba(0,0,0,.14));
+    }
+
+    .cue-label{
+      font-size:28px;
+      line-height:1.05;
+      font-weight:1000;
+      color:#fff;
+      text-shadow:0 6px 16px rgba(0,0,0,.22);
+    }
+
+    .cue-help{
+      font-size:13px;
+      color:rgba(255,255,255,.92);
+      font-weight:1000;
+      text-shadow:0 4px 12px rgba(0,0,0,.18);
+    }
+
+    .replay-inputs{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .replay-btn{
+      min-height:110px;
+      padding:12px;
+      border-radius:24px;
+      border:3px solid rgba(255,255,255,.88);
+      background:rgba(255,255,255,.96);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      place-items:center;
+      gap:6px;
+      text-align:center;
+      cursor:pointer;
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .replay-btn:hover{
+      transform:translateY(-2px);
+    }
+
+    .replay-btn.focus{
+      border-color:#fff4a6;
+      box-shadow:
+        0 0 0 6px rgba(255,214,97,.14),
+        0 12px 24px rgba(255,214,97,.22);
+    }
+
+    .replay-btn.good{
+      border-color:rgba(126,217,87,.72);
+      background:linear-gradient(180deg,#fafff7,#eefbe6);
+    }
+
+    .replay-btn.bad{
+      border-color:rgba(255,125,125,.68);
+      background:linear-gradient(180deg,#fff9f9,#ffeaea);
+    }
+
+    .replay-btn.l0{ background:linear-gradient(180deg,#f8fdff,#ebf8ff); }
+    .replay-btn.l1{ background:linear-gradient(180deg,#fffaf5,#fff1df); }
+    .replay-btn.l2{ background:linear-gradient(180deg,#fbfff7,#eefbe6); }
+    .replay-btn.l3{ background:linear-gradient(180deg,#fcf9ff,#f2ebff); }
+
+    .feedback{
+      position:absolute;
+      left:50%;
+      bottom:22px;
+      transform:translateX(-50%);
+      z-index:20;
+      min-width:180px;
+      max-width:min(92%,420px);
+      text-align:center;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:18px;
+      font-weight:1000;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .feedback.show{
+      opacity:1;
+      animation:pop .4s cubic-bezier(.2,.8,.2,1);
+    }
+
+    @keyframes pop{
+      0%{ transform:translateX(-50%) translateY(8px) scale(.92); opacity:0; }
+      40%{ transform:translateX(-50%) translateY(-4px) scale(1.04); opacity:1; }
+      100%{ transform:translateX(-50%) translateY(0) scale(1); opacity:1; }
+    }
+
+    .cvr-crosshair{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:38px;
+      height:38px;
+      transform:translate(-50%,-50%);
+      z-index:21;
+      pointer-events:none;
+    }
+
+    .cvr-crosshair::before,
+    .cvr-crosshair::after{
+      content:"";
+      position:absolute;
+      background:#fff;
+      border-radius:999px;
+      box-shadow:
+        0 0 0 2px rgba(0,0,0,.08),
+        0 0 16px rgba(255,255,255,.16);
+    }
+
+    .cvr-crosshair::before{
+      left:50%;
+      top:0;
+      bottom:0;
+      width:2px;
+      transform:translateX(-50%);
+    }
+
+    .cvr-crosshair::after{
+      top:50%;
+      left:0;
+      right:0;
+      height:2px;
+      transform:translateY(-50%);
+    }
+
+    .cvr-focus{
+      position:absolute;
+      left:50%;
+      bottom:76px;
+      transform:translateX(-50%);
+      z-index:21;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+      color:#365245;
+    }
+
+    .countdown{
+      position:absolute;
+      inset:0;
+      z-index:25;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,rgba(243,255,248,.18),rgba(255,248,222,.16));
+      backdrop-filter:blur(2px);
+    }
+
+    .countdown-card{
+      min-width:min(320px,88vw);
+      padding:18px 16px;
+      border-radius:24px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      text-align:center;
+    }
+
+    .countdown-card .mini{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .countdown-card .num{
+      margin-top:6px;
+      font-size:74px;
+      line-height:1;
+      font-weight:1000;
+      color:#356247;
+    }
+
+    .summary{
+      position:fixed;
+      inset:0;
+      z-index:40;
+      display:grid;
+      place-items:center;
+      padding:16px;
+      background:rgba(188,217,235,.34);
+      backdrop-filter:blur(8px);
+    }
+
+    .summary-card{
+      width:min(780px,95vw);
+      max-height:min(90svh,860px);
+      overflow:auto;
+      padding:18px;
+      border-radius:28px;
+      background:rgba(255,255,255,.98);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:12px;
+    }
+
+    .summary-card h2{
+      margin:0;
+      font-size:28px;
+      line-height:1.08;
+    }
+
+    .summary-sub{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .sum-box{
+      padding:12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .sum-box .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .sum-box .v{
+      display:block;
+      margin-top:5px;
+      font-size:22px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .summary-actions{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .btn{
+      min-height:52px;
+      border:none;
+      border-radius:999px;
+      padding:12px 16px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
+      color:inherit;
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(135deg,#fff,#f2fff7);
+      border:2px solid var(--line);
+    }
+
+    .btn.ghost{
+      background:linear-gradient(135deg,#fffaf1,#fff2d8);
+      border:2px solid rgba(255,183,91,.32);
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    @media (max-width:980px){
+      .hud{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .rule-list{ grid-template-columns:1fr; }
+      .compose-grid,
+      .replay-inputs,
+      .action-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .summary-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .summary-actions{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width:680px){
+      .topbar{ grid-template-columns:1fr; }
+      .hud{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .compose-grid,
+      .replay-inputs,
+      .action-grid{ grid-template-columns:1fr; }
+      .sequence{ gap:8px; }
+      .seq-slot{
+        min-width:74px;
+        min-height:74px;
+        border-radius:20px;
+      }
+      .seq-icon{ font-size:28px; }
+      .seq-label{ font-size:11px; }
+    }
+
+    @media (max-width:560px){
+      .app{ width:min(100%, calc(100% - 10px)); }
+      .summary-card{
+        padding:14px;
+        border-radius:22px;
+      }
+      .summary-actions{ grid-template-columns:1fr; }
+      .sum-box{
+        padding:10px;
+        border-radius:16px;
+      }
+      .sum-box .v{ font-size:18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a id="btnBack" class="pill" href="../vr-rhythm-boxer-bloom/index.html">⬅ กลับ</a>
+
+      <div class="headline">
+        <h1>Combo Composer</h1>
+        <p>สร้าง combo ของตัวเอง แล้วลองเล่นตาม sequence ที่ออกแบบ</p>
+      </div>
+
+      <a id="btnHubTop" class="pill" href="../fitness-zone.html">🏃 Fitness Zone</a>
+    </header>
+
+    <section class="hud">
+      <div class="hud-box"><span class="k">View</span><span id="hudView" class="v">mobile</span></div>
+      <div class="hud-box"><span class="k">Phase</span><span id="hudPhase" class="v">compose</span></div>
+      <div class="hud-box"><span class="k">Length</span><span id="hudLength" class="v">0</span></div>
+      <div class="hud-box"><span class="k">Unique</span><span id="hudUnique" class="v">0</span></div>
+      <div class="hud-box"><span class="k">Replay</span><span id="hudReplay" class="v">0/0</span></div>
+      <div class="hud-box"><span class="k">Time</span><span id="hudTime" class="v">0</span></div>
+    </section>
+
+    <section class="coach-card">
+      <div class="coach-top">
+        <div class="coach-avatar">🎼</div>
+        <div class="coach-copy">
+          <strong id="coachTitle">สร้าง combo ของตัวเอง</strong>
+          <span id="coachText">เลือก action ทีละตัวให้ครบตามกติกา แล้วกดเล่นตาม combo ที่สร้างขึ้น</span>
+        </div>
+      </div>
+
+      <div class="mini-tags">
+        <div class="mini-tag">👊 Jab</div>
+        <div class="mini-tag">💥 Cross</div>
+        <div class="mini-tag">🛡 Block</div>
+        <div class="mini-tag">⬇️ Duck</div>
+      </div>
+    </section>
+
+    <section class="game-shell">
+      <div class="phase-banner" id="phaseBanner">CREATE YOUR COMBO</div>
+
+      <section class="rule-card">
+        <div class="card-title">กติกาของรอบนี้</div>
+        <div class="card-sub">สร้าง sequence ให้ครบ แล้วเล่นตามของตัวเองให้ได้มากที่สุด</div>
+        <div class="rule-list">
+          <div class="rule-pill" id="ruleLength">ความยาว 5 จังหวะ</div>
+          <div class="rule-pill" id="ruleUnique">มีอย่างน้อย 3 แบบ</div>
+          <div class="rule-pill" id="ruleRepeat">ห้ามซ้ำติดกันเกิน 2 ครั้ง</div>
+        </div>
+      </section>
+
+      <section class="builder-card" id="composeCard">
+        <div class="card-title">Compose Phase</div>
+        <div class="card-sub">กดเลือก action ด้านล่างเพื่อเรียง combo ของตัวเอง</div>
+
+        <div class="sequence-wrap">
+          <div id="sequence" class="sequence"></div>
+        </div>
+
+        <div id="composeGrid" class="compose-grid">
+          <button class="composer-btn l0 cvr-target" data-role="add" data-id="jab" type="button">
+            <div class="composer-icon">👊</div>
+            <div class="composer-label">JAB</div>
+            <div class="composer-hint">เพิ่มหมัดตรง</div>
+          </button>
+
+          <button class="composer-btn l1 cvr-target" data-role="add" data-id="cross" type="button">
+            <div class="composer-icon">💥</div>
+            <div class="composer-label">CROSS</div>
+            <div class="composer-hint">เพิ่มหมัดแรง</div>
+          </button>
+
+          <button class="composer-btn l2 cvr-target" data-role="add" data-id="block" type="button">
+            <div class="composer-icon">🛡</div>
+            <div class="composer-label">BLOCK</div>
+            <div class="composer-hint">เพิ่มการ์ดกัน</div>
+          </button>
+
+          <button class="composer-btn l3 cvr-target" data-role="add" data-id="duck" type="button">
+            <div class="composer-icon">⬇️</div>
+            <div class="composer-label">DUCK</div>
+            <div class="composer-hint">เพิ่มหลบต่ำ</div>
+          </button>
+        </div>
+
+        <div class="action-grid">
+          <button id="btnUndo" class="action-btn cvr-target" data-role="undo" type="button">↩ ลบตัวล่าสุด</button>
+          <button id="btnClear" class="action-btn cvr-target" data-role="clear" type="button">🧹 ล้างทั้งหมด</button>
+          <button id="btnPreview" class="action-btn cvr-target" data-role="preview" type="button">👀 ดู combo</button>
+          <button id="btnStartReplay" class="action-btn cvr-target" data-role="start" type="button">▶ เล่นตาม combo</button>
+        </div>
+      </section>
+
+      <section class="replay-card hidden" id="replayCard">
+        <div class="card-title">Replay Phase</div>
+        <div class="card-sub">ตอนเห็น cue ให้กด action เดียวกันตามลำดับของ combo ที่คุณสร้าง</div>
+
+        <div class="replay-stage">
+          <div class="cue-box" id="cueBox">
+            <div class="cue-content">
+              <div id="cueIcon" class="cue-icon">🎵</div>
+              <div id="cueLabel" class="cue-label">READY</div>
+              <div id="cueHelp" class="cue-help">เตรียมเล่นตาม combo ของตัวเอง</div>
+            </div>
+          </div>
+
+          <div id="replayInputs" class="replay-inputs">
+            <button class="replay-btn l0 cvr-target" data-role="replay" data-id="jab" type="button">
+              <div class="composer-icon">👊</div>
+              <div class="composer-label">JAB</div>
+            </button>
+            <button class="replay-btn l1 cvr-target" data-role="replay" data-id="cross" type="button">
+              <div class="composer-icon">💥</div>
+              <div class="composer-label">CROSS</div>
+            </button>
+            <button class="replay-btn l2 cvr-target" data-role="replay" data-id="block" type="button">
+              <div class="composer-icon">🛡</div>
+              <div class="composer-label">BLOCK</div>
+            </button>
+            <button class="replay-btn l3 cvr-target" data-role="replay" data-id="duck" type="button">
+              <div class="composer-icon">⬇️</div>
+              <div class="composer-label">DUCK</div>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div id="feedback" class="feedback"></div>
+      <div id="cvrCrosshair" class="cvr-crosshair hidden"></div>
+      <div id="cvrFocus" class="cvr-focus hidden">JAB</div>
+
+      <div id="countdown" class="countdown">
+        <div class="countdown-card">
+          <div class="mini">เตรียมสร้าง combo ของตัวเอง</div>
+          <div id="countdownNum" class="num">3</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      Combo Composer • สร้าง sequence เอง แล้วเล่นตามของที่ออกแบบ
+    </div>
+  </div>
+
+  <div id="summary" class="summary hidden">
+    <div class="summary-card">
+      <h2 id="summaryTitle">สร้าง combo ได้แล้ว!</h2>
+      <p id="summarySub" class="summary-sub">มินิเกมนี้ช่วยให้เด็กออกแบบ sequence เองและลองเล่นตาม</p>
+
+      <div class="summary-grid">
+        <div class="sum-box"><span class="k">Length</span><span id="sumLength" class="v">0</span></div>
+        <div class="sum-box"><span class="k">Unique Types</span><span id="sumUnique" class="v">0</span></div>
+        <div class="sum-box"><span class="k">Replay Success</span><span id="sumReplay" class="v">0/0</span></div>
+        <div class="sum-box"><span class="k">Rank</span><span id="sumRank" class="v">B</span></div>
+        <div class="sum-box"><span class="k">All Types</span><span id="sumAllTypes" class="v">No</span></div>
+        <div class="sum-box"><span class="k">Creativity</span><span id="sumCreativity" class="v">0</span></div>
+        <div class="sum-box"><span class="k">Pattern</span><span id="sumPattern" class="v">-</span></div>
+        <div class="sum-box"><span class="k">Tip</span><span id="sumTip" class="v">เพิ่มความหลากหลาย</span></div>
+      </div>
+
+      <div class="summary-actions">
+        <button id="btnReplayPage" class="btn primary" type="button">🔁 เล่นอีกครั้ง</button>
+        <a id="btnNext" class="btn secondary" href="../vr-rhythm-boxer-main/boxer.html">▶ ไปด่านถัดไป</a>
+        <a id="btnMainGame" class="btn secondary" href="../vr-rhythm-boxer-main/boxer.html">🥊 ไป Main Game</a>
+        <a id="btnHub" class="btn ghost" href="../fitness-zone.html">🏃 Fitness Zone</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+
+      const ACTIONS = [
+        { id:'jab', lane:0, label:'JAB', icon:'👊', cls:'l0' },
+        { id:'cross', lane:1, label:'CROSS', icon:'💥', cls:'l1' },
+        { id:'block', lane:2, label:'BLOCK', icon:'🛡', cls:'l2' },
+        { id:'duck', lane:3, label:'DUCK', icon:'⬇️', cls:'l3' }
+      ];
+
+      const byId = (id) => ACTIONS.find(a => a.id === id);
+      const byLane = (lane) => ACTIONS.find(a => a.lane === lane);
+
+      const params = {
+        pid: qs.get('pid') || 'anon',
+        name: qs.get('name') || 'Player',
+        studyId: qs.get('studyId') || '',
+        diff: (qs.get('diff') || 'normal').toLowerCase(),
+        time: Number(qs.get('time') || 60),
+        seed: Number(qs.get('seed') || Date.now()),
+        view: (() => {
+          const raw = (qs.get('view') || '').toLowerCase();
+          const touchDevice =
+            (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+            /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+          if (raw === 'pc' || raw === 'mobile' || raw === 'cvr') return raw;
+          return touchDevice ? 'mobile' : 'pc';
+        })(),
+        run: qs.get('run') || 'play',
+        hub: qs.get('hub') || '../fitness-zone.html',
+        back: qs.get('back') || '../vr-rhythm-boxer-bloom/index.html',
+        next: qs.get('next') || '../vr-rhythm-boxer-main/boxer.html',
+        zone: qs.get('zone') || 'fitness',
+        cat: qs.get('cat') || 'fitness',
+        cooldown: qs.get('cooldown') || '1',
+        planDay: qs.get('planDay') || '',
+        planSlot: qs.get('planSlot') || ''
+      };
+
+      const els = {
+        btnBack: $('btnBack'),
+        btnHubTop: $('btnHubTop'),
+        hudView: $('hudView'),
+        hudPhase: $('hudPhase'),
+        hudLength: $('hudLength'),
+        hudUnique: $('hudUnique'),
+        hudReplay: $('hudReplay'),
+        hudTime: $('hudTime'),
+
+        coachTitle: $('coachTitle'),
+        coachText: $('coachText'),
+
+        phaseBanner: $('phaseBanner'),
+        ruleLength: $('ruleLength'),
+        ruleUnique: $('ruleUnique'),
+        ruleRepeat: $('ruleRepeat'),
+
+        sequence: $('sequence'),
+        composeCard: $('composeCard'),
+        replayCard: $('replayCard'),
+        composeGrid: $('composeGrid'),
+        replayInputs: $('replayInputs'),
+
+        btnUndo: $('btnUndo'),
+        btnClear: $('btnClear'),
+        btnPreview: $('btnPreview'),
+        btnStartReplay: $('btnStartReplay'),
+
+        cueBox: $('cueBox'),
+        cueIcon: $('cueIcon'),
+        cueLabel: $('cueLabel'),
+        cueHelp: $('cueHelp'),
+
+        feedback: $('feedback'),
+        countdown: $('countdown'),
+        countdownNum: $('countdownNum'),
+        cvrCrosshair: $('cvrCrosshair'),
+        cvrFocus: $('cvrFocus'),
+
+        summary: $('summary'),
+        summaryTitle: $('summaryTitle'),
+        summarySub: $('summarySub'),
+        sumLength: $('sumLength'),
+        sumUnique: $('sumUnique'),
+        sumReplay: $('sumReplay'),
+        sumRank: $('sumRank'),
+        sumAllTypes: $('sumAllTypes'),
+        sumCreativity: $('sumCreativity'),
+        sumPattern: $('sumPattern'),
+        sumTip: $('sumTip'),
+        btnReplayPage: $('btnReplayPage'),
+        btnNext: $('btnNext'),
+        btnMainGame: $('btnMainGame'),
+        btnHub: $('btnHub')
+      };
+
+      const RULES = (() => {
+        if (params.diff === 'easy'){
+          return { length:4, minUnique:2, noTriple:true, needAll:false };
+        }
+        if (params.diff === 'hard'){
+          return { length:6, minUnique:4, noTriple:true, needAll:true };
+        }
+        return { length:5, minUnique:3, noTriple:true, needAll:false };
+      })();
+
+      const state = {
+        started: false,
+        ended: false,
+        countdownAt: performance.now(),
+        startAt: 0,
+        durationMs: Math.max(30000, Math.min(90000, params.time * 1000)),
+
+        phase:'compose',
+        combo: [],
+        previewTimer: 0,
+        previewIndex: -1,
+
+        replayIndex: 0,
+        replayHits: 0,
+        replayWrong: 0,
+        replayWindowOpen: false,
+        replayWindowTarget: '',
+        replayStepStart: 0,
+        replayTimer: 0,
+
+        feedbackHideAt: 0,
+
+        cvrIndex: 0,
+        gamma: 0,
+        gammaOffset: 0,
+        gammaSmooth: 0,
+        laneLockUntil: 0
+      };
+
+      function nowIso(){ return new Date().toISOString(); }
+      function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+      function passthrough(url){
+        const u = new URL(url, location.href);
+        [
+          'pid','name','studyId','diff','time','seed','view','run','hub',
+          'zone','cat','theme','planDay','planSlot','cooldown','gate','autoNext'
+        ].forEach((k) => {
+          const v = qs.get(k);
+          if (v != null && v !== '') u.searchParams.set(k, v);
+        });
+        return u.toString();
+      }
+
+      function setLinks(){
+        els.btnBack.href = passthrough(params.back);
+        els.btnHubTop.href = passthrough(params.hub);
+        els.btnHub.href = passthrough(params.hub);
+        els.btnNext.href = passthrough(params.next);
+        els.btnMainGame.href = passthrough('../vr-rhythm-boxer-main/boxer.html');
+      }
+
+      function updateRuleTexts(){
+        els.ruleLength.textContent = `ความยาว ${RULES.length} จังหวะ`;
+        els.ruleUnique.textContent = RULES.needAll
+          ? 'ต้องมีครบทั้ง 4 แบบ'
+          : `มีอย่างน้อย ${RULES.minUnique} แบบ`;
+        els.ruleRepeat.textContent = RULES.noTriple
+          ? 'ห้ามซ้ำติดกันเกิน 2 ครั้ง'
+          : 'ซ้ำได้';
+      }
+
+      function setCoach(title, text){
+        els.coachTitle.textContent = title;
+        els.coachText.textContent = text;
+      }
+
+      function showFeedback(text){
+        els.feedback.textContent = text;
+        els.feedback.classList.add('show');
+        state.feedbackHideAt = performance.now() + 420;
+      }
+
+      function clearFeedback(now){
+        if (state.feedbackHideAt && now >= state.feedbackHideAt){
+          state.feedbackHideAt = 0;
+          els.feedback.classList.remove('show');
+          els.feedback.textContent = '';
+        }
+      }
+
+      function uniqueTypes(combo = state.combo){
+        return [...new Set(combo)].length;
+      }
+
+      function containsAllTypes(combo = state.combo){
+        return ACTIONS.every(a => combo.includes(a.id));
+      }
+
+      function noTripleRepeat(combo = state.combo){
+        for (let i = 2; i < combo.length; i++){
+          if (combo[i] === combo[i-1] && combo[i] === combo[i-2]) return false;
+        }
+        return true;
+      }
+
+      function patternLabel(combo = state.combo){
+        if (!combo.length) return '-';
+        const joined = combo.join('-');
+
+        if (combo.length >= 4){
+          const firstHalf = combo.slice(0, Math.floor(combo.length / 2)).join('-');
+          const secondHalf = combo.slice(Math.floor(combo.length / 2)).join('-');
+          if (firstHalf === secondHalf) return 'repeat-half';
+        }
+
+        if (combo.every((v, i) => i === 0 || v !== combo[i - 1])) return 'alternating';
+        if (uniqueTypes(combo) === combo.length) return 'all-unique';
+        if (combo[0] === combo[combo.length - 1]) return 'loop-back';
+        return 'mixed-pattern';
+      }
+
+      function creativityScore(combo = state.combo){
+        let score = 0;
+        score += combo.length * 10;
+        score += uniqueTypes(combo) * 12;
+        if (containsAllTypes(combo)) score += 18;
+        if (noTripleRepeat(combo)) score += 10;
+        if (patternLabel(combo) !== 'mixed-pattern') score += 10;
+        return score;
+      }
+
+      function validateCombo(){
+        if (state.combo.length !== RULES.length){
+          return { ok:false, msg:`ต้องสร้างให้ครบ ${RULES.length} จังหวะก่อน` };
+        }
+        if (uniqueTypes(state.combo) < RULES.minUnique){
+          return { ok:false, msg:`ต้องมีอย่างน้อย ${RULES.minUnique} แบบ` };
+        }
+        if (RULES.needAll && !containsAllTypes(state.combo)){
+          return { ok:false, msg:'รอบนี้ต้องมีครบทั้ง 4 แบบ' };
+        }
+        if (RULES.noTriple && !noTripleRepeat(state.combo)){
+          return { ok:false, msg:'ห้ามซ้ำแบบเดิมติดกันเกิน 2 ครั้ง' };
+        }
+        return { ok:true, msg:'พร้อมแล้ว!' };
+      }
+
+      function updateHud(leftMs){
+        els.hudView.textContent = params.view.toUpperCase();
+        els.hudPhase.textContent = state.phase.toUpperCase();
+        els.hudLength.textContent = `${state.combo.length}/${RULES.length}`;
+        els.hudUnique.textContent = String(uniqueTypes());
+        els.hudReplay.textContent = `${state.replayHits}/${state.combo.length || 0}`;
+        els.hudTime.textContent = `${Math.max(0, Math.ceil(leftMs / 1000))}`;
+      }
+
+      function renderSequence(activeIndex = -1){
+        els.sequence.innerHTML = '';
+
+        for (let i = 0; i < RULES.length; i++){
+          const id = state.combo[i];
+          if (id){
+            const a = byId(id);
+            els.sequence.insertAdjacentHTML('beforeend', `
+              <div class="seq-slot filled ${a.cls} ${i === activeIndex ? 'focus' : ''}">
+                <div class="seq-icon">${a.icon}</div>
+                <div class="seq-label">${a.label}</div>
+              </div>
+            `);
+          } else {
+            els.sequence.insertAdjacentHTML('beforeend', `
+              <div class="seq-slot">
+                <div class="seq-icon">＋</div>
+                <div class="seq-label">Slot ${i + 1}</div>
+              </div>
+            `);
+          }
+
+          if (i < RULES.length - 1){
+            els.sequence.insertAdjacentHTML('beforeend', `<div class="seq-join">→</div>`);
+          }
+        }
+      }
+
+      function addAction(id){
+        if (state.phase !== 'compose' || state.ended) return;
+        if (state.combo.length >= RULES.length){
+          showFeedback('ครบแล้ว');
+          setCoach('ครบความยาวแล้ว', 'ลบตัวล่าสุด หรือเริ่มเล่นตาม combo ได้เลย');
+          return;
+        }
+
+        state.combo.push(id);
+        renderSequence();
+        updateHud(Math.max(0, state.durationMs - (performance.now() - state.startAt)));
+
+        const check = validateCombo();
+        if (check.ok){
+          setCoach('พร้อมแล้ว!', 'กด “เล่นตาม combo” เพื่อเข้าสู่ Replay Phase');
+        } else {
+          setCoach('สร้างต่อได้', check.msg);
+        }
+      }
+
+      function undoAction(){
+        if (state.phase !== 'compose' || state.ended) return;
+        if (!state.combo.length) return;
+        state.combo.pop();
+        renderSequence();
+        setCoach('ลบตัวล่าสุดแล้ว', 'เรียงใหม่ได้จนกว่าจะพอใจ');
+      }
+
+      function clearCombo(){
+        if (state.phase !== 'compose' || state.ended) return;
+        state.combo = [];
+        renderSequence();
+        setCoach('เริ่มใหม่ได้เลย', 'ลองสร้าง pattern ที่หลากหลายขึ้น');
+      }
+
+      function previewCombo(){
+        if (state.phase !== 'compose' || state.ended) return;
+        if (!state.combo.length){
+          showFeedback('ยังไม่มี combo');
+          return;
+        }
+
+        clearInterval(state.previewTimer);
+        let i = 0;
+        setCoach('กำลัง preview', 'ดู sequence ของตัวเองก่อนเริ่มเล่นจริง');
+
+        state.previewTimer = setInterval(() => {
+          renderSequence(i);
+          const a = byId(state.combo[i]);
+          els.cueBox.classList.add('active');
+          els.cueIcon.textContent = a.icon;
+          els.cueLabel.textContent = a.label;
+          els.cueHelp.textContent = 'นี่คือ combo ที่คุณสร้าง';
+          i++;
+
+          if (i >= state.combo.length){
+            clearInterval(state.previewTimer);
+            setTimeout(() => {
+              renderSequence(-1);
+              els.cueBox.classList.remove('active');
+              els.cueIcon.textContent = '🎵';
+              els.cueLabel.textContent = 'READY';
+              els.cueHelp.textContent = 'ดูแล้วกดเล่นตามได้เลย';
+            }, 650);
+          }
+        }, 650);
+      }
+
+      function replayButtons(){
+        return [...els.replayInputs.querySelectorAll('.replay-btn')];
+      }
+
+      function clearReplayMarks(){
+        replayButtons().forEach(btn => {
+          btn.classList.remove('good', 'bad', 'focus');
+        });
+      }
+
+      function startReplayPhase(){
+        if (state.phase !== 'compose' || state.ended) return;
+
+        const check = validateCombo();
+        if (!check.ok){
+          showFeedback(check.msg);
+          setCoach('ยังไม่พร้อม', check.msg);
+          return;
+        }
+
+        state.phase = 'replay';
+        state.replayIndex = 0;
+        state.replayHits = 0;
+        state.replayWrong = 0;
+        state.replayWindowOpen = false;
+        state.replayWindowTarget = '';
+        clearReplayMarks();
+
+        els.phaseBanner.textContent = 'REPLAY YOUR COMBO';
+        els.composeCard.classList.add('hidden');
+        els.replayCard.classList.remove('hidden');
+
+        setCoach('Replay Phase', 'ตอนเห็น cue ให้กด action เดียวกันตาม combo ของตัวเอง');
+        updateHud(Math.max(0, state.durationMs - (performance.now() - state.startAt)));
+
+        runReplayStep();
+      }
+
+      function runReplayStep(){
+        if (state.ended || state.phase !== 'replay') return;
+
+        if (state.replayIndex >= state.combo.length){
+          showSummary();
+          return;
+        }
+
+        clearReplayMarks();
+
+        const id = state.combo[state.replayIndex];
+        const a = byId(id);
+
+        els.cueBox.classList.add('active');
+        els.cueIcon.textContent = a.icon;
+        els.cueLabel.textContent = a.label;
+        els.cueHelp.textContent = 'กด action เดียวกันตอนนี้';
+        renderSequence(state.replayIndex);
+
+        state.replayWindowOpen = true;
+        state.replayWindowTarget = id;
+        state.replayStepStart = performance.now();
+
+        setTimeout(() => {
+          if (!state.replayWindowOpen) return;
+          state.replayWindowOpen = false;
+          state.replayWrong += 1;
+          showFeedback('MISS');
+          setCoach('พลาดแล้ว', 'รอบหน้าให้ตอบทันทีเมื่อเห็น cue');
+          state.replayIndex += 1;
+          updateHud(Math.max(0, state.durationMs - (performance.now() - state.startAt)));
+          runReplayStep();
+        }, 1150);
+      }
+
+      function submitReplay(id){
+        if (state.phase !== 'replay' || state.ended || !state.replayWindowOpen) return;
+
+        const target = state.replayWindowTarget;
+        const btn = replayButtons().find(b => b.dataset.id === id);
+
+        state.replayWindowOpen = false;
+
+        if (id === target){
+          state.replayHits += 1;
+          if (btn) btn.classList.add('good');
+          showFeedback('ตรงแล้ว!');
+          setCoach('ดีมาก!', 'เล่นตาม combo ของตัวเองได้ถูกต้อง');
+        } else {
+          state.replayWrong += 1;
+          if (btn) btn.classList.add('bad');
+          showFeedback('ยังไม่ตรง');
+          setCoach('ลองอีกนิด', `โจทย์คือ ${byId(target).label}`);
+        }
+
+        state.replayIndex += 1;
+        updateHud(Math.max(0, state.durationMs - (performance.now() - state.startAt)));
+
+        setTimeout(() => {
+          runReplayStep();
+        }, 520);
+      }
+
+      function accuracyReplay(){
+        return state.combo.length ? Math.round((state.replayHits / state.combo.length) * 100) : 0;
+      }
+
+      function rankOf(){
+        const creativity = creativityScore();
+        const replayAcc = accuracyReplay();
+
+        let score = 0;
+        score += creativity * 0.55;
+        score += replayAcc * 0.45;
+
+        if (score >= 88) return 'S';
+        if (score >= 76) return 'A';
+        if (score >= 64) return 'B';
+        if (score >= 50) return 'C';
+        return 'D';
+      }
+
+      function bestTip(){
+        if (state.combo.length < RULES.length) return 'สร้างให้ครบความยาวก่อน';
+        if (uniqueTypes() < RULES.minUnique) return 'เพิ่ม action ให้หลากหลายขึ้น';
+        if (!noTripleRepeat()) return 'หลีกเลี่ยงการซ้ำติดกันมากเกินไป';
+        if (accuracyReplay() < 60) return 'ตอน Replay ให้มอง cue แล้วตอบทันที';
+        if (containsAllTypes()) return 'ยอดเยี่ยม มีครบทุกแบบแล้ว';
+        return 'ดีมาก ลองออกแบบ pattern ที่ซับซ้อนขึ้นอีก';
+      }
+
+      function saveSummary(){
+        const payload = {
+          pid: params.pid,
+          game: 'combo-composer',
+          gameId: 'combo-composer',
+          zone: params.zone,
+          cat: params.cat,
+          diff: params.diff,
+          timeSec: Math.round(state.durationMs / 1000),
+          view: params.view,
+          runMode: params.run,
+
+          scoreFinal: creativityScore() + (state.replayHits * 10),
+          createdLength: state.combo.length,
+          uniqueTypes: uniqueTypes(),
+          containsAllTypes: containsAllTypes() ? 1 : 0,
+          replaySuccess: state.replayHits,
+          replayTotal: state.combo.length,
+          replayAccPct: accuracyReplay(),
+          creativityScore: creativityScore(),
+          composerPattern: patternLabel(),
+          comboText: state.combo.join('-'),
+          rank: rankOf(),
+          durationSec: Math.round(state.durationMs / 1000),
+          studyId: params.studyId,
+          planDay: params.planDay,
+          planSlot: params.planSlot,
+          timestampIso: nowIso()
+        };
+
+        try{
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+          localStorage.setItem(`HHA_LAST_SUMMARY:combo-composer:${params.pid}`, JSON.stringify(payload));
+
+          const histKey = `HHA_SUMMARY_HISTORY:combo-composer:${params.pid}`;
+          const hist = JSON.parse(localStorage.getItem(histKey) || '[]');
+          hist.push(payload);
+          localStorage.setItem(histKey, JSON.stringify(hist.slice(-30)));
+        }catch(_){}
+      }
+
+      function showSummary(){
+        state.ended = true;
+        clearInterval(state.previewTimer);
+        saveSummary();
+
+        els.sumLength.textContent = String(state.combo.length);
+        els.sumUnique.textContent = String(uniqueTypes());
+        els.sumReplay.textContent = `${state.replayHits}/${state.combo.length}`;
+        els.sumRank.textContent = rankOf();
+        els.sumAllTypes.textContent = containsAllTypes() ? 'Yes' : 'No';
+        els.sumCreativity.textContent = String(creativityScore());
+        els.sumPattern.textContent = patternLabel();
+        els.sumTip.textContent = bestTip();
+
+        els.summaryTitle.textContent =
+          rankOf() === 'S' ? 'สร้างได้สุดยอดมาก!' :
+          rankOf() === 'A' ? 'คอมโบดีมาก!' :
+          'เริ่มสร้าง pattern ของตัวเองได้แล้ว!';
+        els.summarySub.textContent =
+          'มินิเกมนี้ช่วยให้เด็กคิดและสร้าง sequence เอง ก่อนนำไปใช้ในเกมหลัก';
+
+        els.summary.classList.remove('hidden');
+      }
+
+      function cvrTargets(){
+        return [...document.querySelectorAll('.cvr-target:not(.hidden)')].filter(el => !el.closest('.hidden'));
+      }
+
+      function updateCvrFocusLabel(){
+        const target = cvrTargets()[state.cvrIndex];
+        if (!target){
+          els.cvrFocus.textContent = 'TARGET';
+          return;
+        }
+
+        const label =
+          target.dataset.id ? byId(target.dataset.id)?.label :
+          target.textContent.trim().replace(/\s+/g,' ').slice(0, 18);
+
+        els.cvrFocus.textContent = label || 'TARGET';
+      }
+
+      function highlightCvrTarget(){
+        cvrTargets().forEach((el, idx) => {
+          el.classList.toggle('focus', idx === state.cvrIndex);
+        });
+        updateCvrFocusLabel();
+      }
+
+      async function loadVrUiIfNeeded(){
+        if (params.view !== 'cvr') return;
+        try{
+          await import('../vr/vr-ui.js?v=20260307b');
+        }catch(err){
+          console.warn('[CC] vr-ui import failed', err);
+        }
+      }
+
+      function bindInputs(){
+        document.addEventListener('pointerdown', (e) => {
+          const btn = e.target.closest('[data-role]');
+          if (!btn) return;
+          e.preventDefault();
+          routeAction(btn);
+        }, { passive:false });
+
+        document.addEventListener('touchstart', (e) => {
+          const btn = e.target.closest('[data-role]');
+          if (!btn) return;
+          e.preventDefault();
+          routeAction(btn);
+        }, { passive:false });
+
+        window.addEventListener('keydown', (e) => {
+          const k = String(e.key || '').toLowerCase();
+
+          if (state.phase === 'compose'){
+            if (k === '1') addAction('jab');
+            else if (k === '2') addAction('cross');
+            else if (k === '3') addAction('block');
+            else if (k === '4') addAction('duck');
+            else if (k === 'backspace') undoAction();
+            else if (k === 'c') clearCombo();
+            else if (k === 'p') previewCombo();
+            else if (k === 'enter') startReplayPhase();
+          } else if (state.phase === 'replay'){
+            if (k === '1' || k === 'a') submitReplay('jab');
+            else if (k === '2' || k === 'l') submitReplay('cross');
+            else if (k === '3' || k === 'w') submitReplay('block');
+            else if (k === '4' || k === 's') submitReplay('duck');
+          }
+
+          if (params.view === 'cvr'){
+            if (k === ' '){
+              e.preventDefault();
+              triggerCvrTarget();
+            } else if (k === 'r'){
+              e.preventDefault();
+              state.gammaOffset = state.gammaSmooth || 0;
+              showFeedback('RECENTER');
+            }
+          }
+        }, { passive:false });
+
+        if (params.view === 'cvr'){
+          window.addEventListener('deviceorientation', (ev) => {
+            if (typeof ev.gamma === 'number') state.gamma = ev.gamma;
+          });
+
+          window.addEventListener('mousemove', (ev) => {
+            const ratio = ev.clientX / Math.max(1, window.innerWidth);
+            state.gamma = (ratio * 80) - 40;
+          });
+
+          window.addEventListener('hha:shoot', () => {
+            triggerCvrTarget();
+          });
+
+          window.addEventListener('hha:recenter', () => {
+            state.gammaOffset = state.gammaSmooth || 0;
+            showFeedback('RECENTER');
+          });
+        }
+      }
+
+      function routeAction(btn){
+        const role = btn.dataset.role;
+        const id = btn.dataset.id;
+
+        if (role === 'add') addAction(id);
+        else if (role === 'undo') undoAction();
+        else if (role === 'clear') clearCombo();
+        else if (role === 'preview') previewCombo();
+        else if (role === 'start') startReplayPhase();
+        else if (role === 'replay') submitReplay(id);
+      }
+
+      function triggerCvrTarget(){
+        const target = cvrTargets()[state.cvrIndex];
+        if (!target) return;
+        routeAction(target);
+      }
+
+      function updateCvrFocusLoop(){
+        if (params.view !== 'cvr') return;
+
+        const raw = state.gamma || 0;
+        state.gammaSmooth += (raw - state.gammaSmooth) * 0.14;
+        const g = clamp(state.gammaSmooth - state.gammaOffset, -40, 40);
+
+        const targets = cvrTargets();
+        const count = Math.max(1, targets.length);
+        const index = clamp(Math.floor(((g + 40) / 80) * count), 0, count - 1);
+
+        const now = performance.now();
+        if (now >= state.laneLockUntil && index !== state.cvrIndex){
+          state.cvrIndex = index;
+          state.laneLockUntil = now + 90;
+          highlightCvrTarget();
+        } else if (now >= state.laneLockUntil){
+          highlightCvrTarget();
+        }
+
+        requestAnimationFrame(updateCvrFocusLoop);
+      }
+
+      function showCorrectView(){
+        if (params.view === 'cvr'){
+          els.cvrCrosshair.classList.remove('hidden');
+          els.cvrFocus.classList.remove('hidden');
+        } else {
+          els.cvrCrosshair.classList.add('hidden');
+          els.cvrFocus.classList.add('hidden');
+        }
+      }
+
+      function startCountdown(){
+        const t0 = performance.now();
+        function step(now){
+          const left = 3 - Math.floor((now - t0) / 1000);
+          els.countdownNum.textContent = String(Math.max(1, left));
+
+          if (now - t0 >= 3000){
+            els.countdown.classList.add('hidden');
+            state.started = true;
+            state.startAt = performance.now();
+            renderSequence();
+            highlightCvrTarget();
+            return;
+          }
+          requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      }
+
+      function tick(now){
+        clearFeedback(now);
+
+        if (!state.started){
+          updateHud(state.durationMs);
+          requestAnimationFrame(tick);
+          return;
+        }
+
+        const elapsed = now - state.startAt;
+        const left = Math.max(0, state.durationMs - elapsed);
+        updateHud(left);
+
+        if (!state.ended && elapsed >= state.durationMs){
+          showSummary();
+          return;
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      async function boot(){
+        document.body.dataset.view = params.view;
+        setLinks();
+        updateRuleTexts();
+        showCorrectView();
+        renderSequence();
+        bindInputs();
+        updateHud(state.durationMs);
+
+        if (params.view === 'cvr'){
+          await loadVrUiIfNeeded();
+          updateCvrFocusLoop();
+        }
+
+        els.btnReplayPage.addEventListener('click', () => {
+          const u = new URL(location.href);
+          u.searchParams.set('seed', String(Date.now()));
+          location.href = u.toString();
+        });
+
+        startCountdown();
+        requestAnimationFrame(tick);
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
