@@ -1,7 +1,7 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260414b-GATE-GAMES-JD-FITNESS-PATH
+// FULL PATCH v20260414a-JUMPDUCK-FITNESS-ZONE-FINAL
 
-const PATCH = 'v20260414b-GATE-GAMES-JD-FITNESS-PATH';
+const PATCH = 'v20260414a-JUMPDUCK-FITNESS-ZONE-FINAL';
 
 const DEFAULTS = {
   title: '',
@@ -19,10 +19,6 @@ const DEFAULTS = {
   warmupTitle: '',
   cooldownTitle: ''
 };
-
-function hasOwn(obj, key) {
-  return Object.prototype.hasOwnProperty.call(obj, key);
-}
 
 function prettyTitle(id = '') {
   const raw = String(id || '')
@@ -90,14 +86,6 @@ function defaultStyleFile(gameId = '') {
   return `./games/${key}/style.css`;
 }
 
-function defaultSummaryByZone(zone = '') {
-  const z = String(zone || '').trim().toLowerCase();
-  if (z === 'nutrition') return '../nutrition-zone.html';
-  if (z === 'fitness') return '../fitness-zone.html';
-  if (z === 'hygiene') return '../hygiene-zone.html';
-  return '';
-}
-
 function makeMeta(id, cfg = {}) {
   const base = { ...DEFAULTS, ...cfg };
   const key = compactId(id);
@@ -110,34 +98,24 @@ function makeMeta(id, cfg = {}) {
     runCandidates.push(base.runFile);
   }
 
-  const zone = base.zone || inferZoneFromId(key);
-  const cat = base.cat || zone;
-
-  const warmupFile = hasOwn(cfg, 'warmupFile') ? cfg.warmupFile : '';
-  const cooldownFile = hasOwn(cfg, 'cooldownFile') ? cfg.cooldownFile : '';
-  const styleFile = hasOwn(cfg, 'styleFile') ? cfg.styleFile : '';
-
-  const summaryPath = base.summaryPath || defaultSummaryByZone(zone);
+  const summaryPath = base.summaryPath || '';
 
   return {
     id: key,
     title: base.title || prettyTitle(key),
     label: base.label || base.title || prettyTitle(key),
     emoji: base.emoji || '🎮',
-    zone,
-    cat,
+    zone: base.zone || inferZoneFromId(key),
+    cat: base.cat || inferZoneFromId(key),
     theme: base.theme || key,
     runFile: base.runFile || runCandidates[0] || '',
     runCandidates,
-
-    warmupFile,
-    cooldownFile,
-    styleFile,
-
+    warmupFile: base.warmupFile || '',
+    cooldownFile: base.cooldownFile || '',
+    styleFile: base.styleFile || '',
     summaryPath,
-    warmupTitle: base.warmupTitle || `${base.label || base.title || prettyTitle(key)} Warmup`,
-    cooldownTitle: base.cooldownTitle || `${base.label || base.title || prettyTitle(key)} Cooldown`,
-
+    warmupTitle: base.warmupTitle || '',
+    cooldownTitle: base.cooldownTitle || '',
     defaults: {
       summaryPath
     }
@@ -166,9 +144,9 @@ function inferLooseMeta(id = '') {
     warmupFile: '',
     cooldownFile: '',
     styleFile: '',
-    summaryPath: defaultSummaryByZone(zone),
-    warmupTitle: `${prettyTitle(key)} Warmup`,
-    cooldownTitle: `${prettyTitle(key)} Cooldown`
+    summaryPath: '',
+    warmupTitle: '',
+    cooldownTitle: ''
   });
 }
 
@@ -207,7 +185,7 @@ export const GAME_REGISTRY = {
     warmupFile: './games/goodjunk/warmup.js',
     cooldownFile: './games/goodjunk/cooldown.js',
     styleFile: './games/goodjunk/style.css',
-    summaryPath: '../goodjunk-launcher.html',
+    summaryPath: 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html?pid=anon&hub=https%3A%2F%2Fsupparang.github.io%2Fwebxr-health-mobile%2Fherohealth%2Fhub.html',
     warmupTitle: 'GoodJunk Warmup',
     cooldownTitle: 'GoodJunk Cooldown'
   }),
@@ -240,13 +218,10 @@ export const GAME_REGISTRY = {
     runFile: '../vr-groups/groups.html',
     runCandidates: [
       '../vr-groups/groups.html',
-      '../group-v1.html',
+      '../groups-v1.html',
       '../groups-vr.html'
     ],
-    warmupFile: null,
-    cooldownFile: null,
-    styleFile: null,
-    summaryPath: '../group-v1.html',
+    summaryPath: '../groups-v1.html',
     warmupTitle: 'Food Groups Warmup',
     cooldownTitle: 'Food Groups Cooldown'
   }),
@@ -356,8 +331,8 @@ export const GAME_REGISTRY = {
   }),
 
   'jump-duck': makeMeta('jump-duck', {
-    title: 'Jump Duck',
-    label: 'Jump Duck',
+    title: 'JumpDuck',
+    label: 'JumpDuck',
     emoji: '🏃',
     zone: 'fitness',
     cat: 'fitness',
@@ -368,10 +343,7 @@ export const GAME_REGISTRY = {
       '../jump-duck-vr.html',
       '../fitness/jump-duck.html'
     ],
-    warmupFile: null,
-    cooldownFile: null,
-    styleFile: null,
-    summaryPath: '../fitness/jumpduck.html',
+    summaryPath: '../fitness-zone.html',
     warmupTitle: 'JumpDuck Warmup',
     cooldownTitle: 'JumpDuck Cooldown'
   }),
@@ -454,10 +426,6 @@ const GAME_ALIAS = {
   groups: 'groups',
   groupsvr: 'groups',
   'groups-vr': 'groups',
-  'group-v1': 'groups',
-  groupv1: 'groups',
-  'groups-v1': 'groups',
-  groupsv1: 'groups',
   foodgroups: 'groups',
   'food-groups': 'groups',
 
@@ -487,9 +455,6 @@ const GAME_ALIAS = {
 
   'jump-duck': 'jump-duck',
   jumpduck: 'jump-duck',
-  'jump-duck-vr': 'jump-duck',
-  jumpduckvr: 'jump-duck',
-  jd: 'jump-duck',
 
   'balance-hold': 'balance-hold',
   balancehold: 'balance-hold',
@@ -527,12 +492,10 @@ export function getPhaseFile(id = '', gatePhase = 'warmup') {
     : 'warmup';
 
   if (phase === 'warmup') {
-    if (meta.warmupFile === null) return '';
     return meta.warmupFile || defaultPhaseFile(meta.id, 'warmup');
   }
 
   if (phase === 'cooldown') {
-    if (meta.cooldownFile === null) return '';
     return meta.cooldownFile || defaultPhaseFile(meta.id, 'cooldown');
   }
 
@@ -542,7 +505,6 @@ export function getPhaseFile(id = '', gatePhase = 'warmup') {
 export function getGameStyleFile(id = '') {
   const meta = getGameMeta(id);
   if (!meta) return '';
-  if (meta.styleFile === null) return '';
   return meta.styleFile || defaultStyleFile(meta.id);
 }
 
