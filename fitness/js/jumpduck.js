@@ -1,15 +1,11 @@
 // === /fitness/js/jumpduck.js ===
-// JumpDuck — FULL MERGED STRICT PLANNER FLOW
-// PATCH v20260414a-JD-STRICT-PLANNER-FLOW
+// FULL MERGED FINAL + AUTOSTART
+// PATCH v20260414f-JUMPDuck-FUNPACK-V1-V4-FITNESS-ZONE-AUTOSTART-FINAL
 
 'use strict';
 
 (function () {
   const $ = (s) => document.querySelector(s);
-
-  const JD_DEFAULT_HUB = 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
-  const JD_DEFAULT_LAUNCHER = 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
-  const JD_DEFAULT_GATE = 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html';
 
   const viewMenu = $('#view-menu');
   const viewPlay = $('#view-play');
@@ -46,7 +42,7 @@
   const progFill = $('#hud-prog-fill');
   const progText = $('#hud-prog-text');
   const feverFill = $('#hud-fever-fill');
-  const feverStatus = $('#hud-fever-status');
+  const feverStatus = $('#fever-status');
 
   const bossBarWrap = $('#boss-bar-wrap');
   const bossFill = $('#hud-boss-fill');
@@ -103,6 +99,7 @@
   const btnDlSessions = $('#jd-btn-dl-sessions');
   const btnDlTeacher = $('#jd-btn-dl-teacher');
   const btnSendLog = $('#jd-btn-send-log');
+  const btnContinueFlow = $('#jd-btn-continue-flow');
   const logStatus = $('#jd-log-status');
 
   const qs = (k, d = '') => {
@@ -113,6 +110,69 @@
     }
   };
 
+  const JD_FITNESS_ZONE_FALLBACK =
+    'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
+
+  const JD_WARMUP_GATE_FALLBACK =
+    'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html';
+
+  const JD_LAUNCHER_FALLBACK =
+    'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
+
+  function jdAbsUrl(raw, fallback = '') {
+    const value = String(raw || '').trim();
+    try {
+      if (value) return new URL(value, location.href).href;
+    } catch (_) {}
+    try {
+      if (fallback) return new URL(fallback, location.href).href;
+    } catch (_) {}
+    return fallback || '';
+  }
+
+  function jdLooksLikeFitnessRoot(href = '') {
+    const s = String(href || '').toLowerCase();
+    return (
+      s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
+      s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
+      s.endsWith('/webxr-health-mobile/fitness') ||
+      s.endsWith('/webxr-health-mobile/fitness/')
+    );
+  }
+
+  function jdNormalizeZoneHref(raw = '') {
+    const abs = jdAbsUrl(raw, JD_FITNESS_ZONE_FALLBACK);
+    if (!abs) return JD_FITNESS_ZONE_FALLBACK;
+    if (jdLooksLikeFitnessRoot(abs)) return JD_FITNESS_ZONE_FALLBACK;
+    return abs;
+  }
+
+  function jdZoneHref() {
+    return jdNormalizeZoneHref(qs('hub', qs('hubRoot', JD_FITNESS_ZONE_FALLBACK)));
+  }
+
+  function jdCurrentLauncherHref() {
+    const u = new URL(JD_LAUNCHER_FALLBACK, location.href);
+    const paramsToKeep = [
+      'pid', 'name', 'nickName', 'run', 'diff', 'time', 'view', 'seed',
+      'mode', 'game', 'gameId', 'theme', 'zone', 'cat', 'studyId',
+      'debug', 'log', 'api'
+    ];
+    const src = new URL(location.href);
+    paramsToKeep.forEach((key) => {
+      const v = src.searchParams.get(key);
+      if (v != null && v !== '') u.searchParams.set(key, v);
+    });
+    u.searchParams.set('hub', jdZoneHref());
+    return u.toString();
+  }
+
+  function jdLauncherHref() {
+    const launcher = jdAbsUrl(qs('launcher', ''), '');
+    if (launcher) return launcher;
+    return jdCurrentLauncherHref();
+  }
+
   const HHA_CTX = {
     run: qs('run', 'play'),
     diff: qs('diff', 'normal'),
@@ -122,205 +182,35 @@
     phase: qs('phase', ''),
     conditionGroup: qs('conditionGroup', ''),
     log: qs('log', ''),
-    view: qs('view', ''),
+    view: qs('view', 'mobile'),
     pid: qs('pid', 'anon'),
     api: qs('api', ''),
     ai: qs('ai', ''),
     debug: qs('debug', ''),
-    hub: qs('hub', JD_DEFAULT_HUB),
-    launcher: qs('launcher', JD_DEFAULT_LAUNCHER),
+    hub: jdZoneHref(),
+    hubRoot: jdZoneHref(),
+    launcher: jdLauncherHref(),
     mode: qs('mode', 'training'),
     duration: qs('duration', qs('time', '60')),
     pro: qs('pro', ''),
     phaseTune: qs('phaseTune', 'dynamicABC')
   };
 
+  function jdShouldAutostart() {
+    const a = String(qs('autostart', '') || '').toLowerCase();
+    const w = String(qs('wgskip', '') || '').toLowerCase();
+    return ['1', 'true', 'yes', 'on'].includes(a) || ['1', 'true', 'yes', 'on'].includes(w);
+  }
+
   let state = null;
   let rafId = 0;
 
-  function jdSafeAbsUrl(raw, fallback = '') {
-    const value = String(raw || '').trim();
-    try {
-      if (value) return new URL(value, location.href).href;
-    } catch (_) {}
-    return fallback || '';
-  }
-
-  function jdNormalizeHubUrl(raw) {
-    const href = jdSafeAbsUrl(raw, JD_DEFAULT_HUB);
-    const s = String(href || '').toLowerCase();
-
-    if (
-      !href ||
-      s.endsWith('/webxr-health-mobile/fitness') ||
-      s.endsWith('/webxr-health-mobile/fitness/') ||
-      s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
-      s === 'https://supparang.github.io/webxr-health-mobile/fitness'
-    ) {
-      return JD_DEFAULT_HUB;
-    }
-
-    return href;
-  }
-
-  function jdBuildBaseFlowCtx(overrides = {}) {
-    const hubUrl = jdNormalizeHubUrl(
-      overrides.hub ?? HHA_CTX.hub ?? qs('hub', JD_DEFAULT_HUB)
-    );
-
-    const launcherUrl = jdSafeAbsUrl(
-      overrides.launcher ?? HHA_CTX.launcher ?? qs('launcher', JD_DEFAULT_LAUNCHER),
-      JD_DEFAULT_LAUNCHER
-    );
-
-    const gateUrl = jdSafeAbsUrl(
-      overrides.gate ?? JD_DEFAULT_GATE,
-      JD_DEFAULT_GATE
-    );
-
-    return {
-      pid: String(overrides.pid ?? HHA_CTX.pid ?? 'anon').trim() || 'anon',
-      name: String(overrides.name ?? qs('name', qs('nickName', 'Hero'))).trim() || 'Hero',
-      studyId: String(overrides.studyId ?? HHA_CTX.studyId ?? '').trim(),
-      run: String(overrides.run ?? HHA_CTX.run ?? 'play').trim() || 'play',
-      diff: String(overrides.diff ?? HHA_CTX.diff ?? 'normal').trim().toLowerCase() || 'normal',
-      time: String(overrides.time ?? HHA_CTX.time ?? HHA_CTX.duration ?? '60').trim() || '60',
-      view: String(overrides.view ?? HHA_CTX.view ?? 'mobile').trim().toLowerCase() || 'mobile',
-      seed: String(overrides.seed ?? HHA_CTX.seed ?? Date.now()).trim(),
-      debug: String(overrides.debug ?? HHA_CTX.debug ?? '').trim(),
-      log: String(overrides.log ?? HHA_CTX.log ?? '').trim(),
-      api: String(overrides.api ?? HHA_CTX.api ?? '').trim(),
-      ai: String(overrides.ai ?? HHA_CTX.ai ?? '').trim(),
-      mode: String(overrides.mode ?? HHA_CTX.mode ?? 'training').trim().toLowerCase() || 'training',
-      launcher: launcherUrl,
-      gate: gateUrl,
-      hub: hubUrl,
-
-      game: 'jump-duck',
-      gameId: 'jump-duck',
-      theme: 'jump-duck',
-      zone: 'fitness',
-      cat: 'fitness'
-    };
-  }
-
-  function jdIsPlannerStrictFlow() {
-    const hubUrl = String(HHA_CTX.hub || '').toLowerCase();
-    return (
-      qs('plannerFlow', '') === '1' ||
-      qs('fpStrict', '') === '1' ||
-      String(qs('cooldown', '1')).toLowerCase() === '0' ||
-      String(qs('returnPhase', '')).toLowerCase() === 'planner' ||
-      hubUrl.includes('fitness-planner') ||
-      hubUrl.includes('fpresume=1')
-    );
-  }
-
-  function jdPlannerReturnUrl() {
-    return jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB);
-  }
-
-  function jdWithCommonParams(url, ctx, extra = {}) {
-    const u = new URL(url, location.href);
-
-    u.searchParams.set('pid', ctx.pid);
-    u.searchParams.set('name', ctx.name);
-    u.searchParams.set('run', ctx.run);
-    u.searchParams.set('diff', ctx.diff);
-    u.searchParams.set('time', ctx.time);
-    u.searchParams.set('view', ctx.view);
-    u.searchParams.set('seed', ctx.seed);
-    u.searchParams.set('mode', ctx.mode);
-
-    u.searchParams.set('game', ctx.game);
-    u.searchParams.set('gameId', ctx.gameId);
-    u.searchParams.set('theme', ctx.theme);
-    u.searchParams.set('zone', ctx.zone);
-    u.searchParams.set('cat', ctx.cat);
-
-    u.searchParams.set('hub', ctx.hub);
-    u.searchParams.set('launcher', ctx.launcher);
-
-    if (ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
-    if (ctx.debug) u.searchParams.set('debug', ctx.debug);
-    if (ctx.log) u.searchParams.set('log', ctx.log);
-    if (ctx.api) u.searchParams.set('api', ctx.api);
-    if (ctx.ai) u.searchParams.set('ai', ctx.ai);
-
-    if (jdIsPlannerStrictFlow()) {
-      u.searchParams.set('plannerFlow', '1');
-      u.searchParams.set('fpStrict', '1');
-      u.searchParams.set('cooldown', '0');
-      u.searchParams.set('returnPhase', 'planner');
-    }
-
-    Object.entries(extra).forEach(([k, v]) => {
-      if (v == null) return;
-      const sv = String(v);
-      if (!sv) return;
-      u.searchParams.set(k, sv);
-    });
-
-    return u.toString();
-  }
-
-  function jdBuildLauncherUrl(overrides = {}) {
-    const ctx = jdBuildBaseFlowCtx(overrides);
-    return jdWithCommonParams(ctx.launcher, ctx);
-  }
-
-  function jdBuildRunUrl(overrides = {}) {
-    const ctx = jdBuildBaseFlowCtx(overrides);
-    return jdWithCommonParams(ctx.launcher, ctx, {
-      wgskip: '1',
-      autostart: '1',
-      entry: 'warmup-gate'
-    });
-  }
-
-  function jdBuildWarmupGateUrl(overrides = {}) {
-    const ctx = jdBuildBaseFlowCtx(overrides);
-    const runUrl = jdBuildRunUrl(overrides);
-
-    return jdWithCommonParams(ctx.gate, ctx, {
-      phase: 'warmup',
-      next: runUrl,
-      cdnext: ctx.launcher
-    });
-  }
-
-  function jdBuildCooldownGateUrl(summary = {}, overrides = {}) {
-    const ctx = jdBuildBaseFlowCtx(overrides);
-
-    return jdWithCommonParams(ctx.gate, ctx, {
-      phase: 'cooldown',
-      next: ctx.launcher,
-      cdnext: ctx.launcher,
-      score: Number(summary.score || 0),
-      accuracy: Number(summary.accuracy || 0),
-      bestStreak: Number(summary.bestStreak || 0),
-      grade: String(summary.rank || summary.grade || 'C').trim().toUpperCase()
-    });
-  }
-
-  function jdMaybeAutoStartAfterWarmup() {
-    const wgskip = qs('wgskip', '') === '1';
-    const autostart = qs('autostart', '') === '1';
-    const plannerStrict = jdIsPlannerStrictFlow();
-
-    if (!plannerStrict && (!wgskip || !autostart)) return;
-    if (window.__JD_AUTO_STARTED__) return;
-    window.__JD_AUTO_STARTED__ = true;
-
-    queueMicrotask(() => {
-      const startBtn = document.querySelector('[data-action="start"]');
-      if (startBtn) startBtn.click();
-    });
-  }
-
   function hhFitnessBaseSnapshot() {
     const s = state;
-    const durationSec = s && s.duration ? Math.round(Number(s.duration || 0) / 1000) : Number(HHA_CTX.duration || HHA_CTX.time || 60);
+    const durationSec = s && s.duration
+      ? Math.round(Number(s.duration || 0) / 1000)
+      : Number(HHA_CTX.duration || HHA_CTX.time || 60);
+
     return {
       zone: 'fitness',
       gameId: 'jump-duck',
@@ -340,7 +230,9 @@
       stability: Number(s?.stability || 0),
       result: String(s?.ended ? 'summary' : (s?.running ? 'running' : 'idle')),
       href: location.href,
-      path: location.pathname
+      path: location.pathname,
+      hub: jdZoneHref(),
+      launcher: jdLauncherHref()
     };
   }
 
@@ -394,9 +286,9 @@
   const JD_PHASE_TABLE = {
     1: {
       label: 'warmup',
-      spawnMs: { easy: 1320, normal: 1140, hard: 980 },
-      speedMul: 0.90,
-      patterns: ['single', 'single', 'single', 'alt2']
+      spawnMs: { easy: 1180, normal: 980, hard: 860 },
+      speedMul: 0.96,
+      patterns: ['single', 'single', 'alt2', 'pair']
     },
     2: {
       label: 'pressure',
@@ -563,6 +455,8 @@
   function saveLastSummary(summary) {
     try {
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      localStorage.setItem(`HHA_LAST_SUMMARY:jump-duck:${String(HHA_CTX.pid || 'anon')}`, JSON.stringify(summary));
+
       const histKey = 'HHA_SUMMARY_HISTORY';
       const old = JSON.parse(localStorage.getItem(histKey) || '[]');
       old.unshift(summary);
@@ -606,22 +500,27 @@
   }
 
   function setHubLinks() {
-    const hub = jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB);
-    ['jd-back-hub-menu', 'jd-back-hub-play', 'jd-back-hub-result'].forEach(id => {
+    const zoneHref = jdZoneHref();
+    [
+      'jd-go-zone-menu',
+      'jd-back-hub-menu',
+      'jd-control-hub',
+      'jd-back-hub-play',
+      'jd-back-hub-result'
+    ].forEach((id) => {
       const el = document.getElementById(id);
-      if (el) {
-        el.href = hub;
-        if (!el.__hhFitnessHubBound) {
-          el.__hhFitnessHubBound = true;
-          el.addEventListener('click', () => {
-            hhFitnessGoHub({
-              score: Number(state?.score || 0),
-              miss: Number(state?.miss || 0),
-              bestStreak: Number(state?.maxCombo || 0),
-              result: state?.ended ? 'summary' : (state?.running ? 'in-progress' : 'menu')
-            });
+      if (!el) return;
+      el.href = zoneHref;
+      if (!el.__hhFitnessHubBound) {
+        el.__hhFitnessHubBound = true;
+        el.addEventListener('click', () => {
+          hhFitnessGoHub({
+            score: Number(state?.score || 0),
+            miss: Number(state?.miss || 0),
+            bestStreak: Number(state?.maxCombo || 0),
+            result: state?.ended ? 'summary' : (state?.running ? 'in-progress' : 'menu')
           });
-        }
+        });
       }
     });
   }
@@ -737,6 +636,22 @@
     root.classList.remove('fx-good', 'fx-perfect', 'fx-miss', 'fx-fever', 'fx-bosshit');
     root.classList.add(`fx-${kind}`);
     setTimeout(() => root.classList.remove(`fx-${kind}`), 180);
+  }
+
+  function jdShakeStage(root, strength = 6, duration = 160) {
+    if (!root || typeof root.animate !== 'function') return;
+    root.animate(
+      [
+        { transform: 'translateX(0px)' },
+        { transform: `translateX(${-strength}px)` },
+        { transform: `translateX(${strength}px)` },
+        { transform: 'translateX(0px)' }
+      ],
+      {
+        duration,
+        easing: 'ease-out'
+      }
+    );
   }
 
   function injectPatchCSS() {
@@ -1005,8 +920,765 @@
         border-radius:999px;
         background:linear-gradient(90deg,#fda4af,#ef4444,#fda4af);
       }
+
+      #jd-fx-layer{
+        position:absolute;
+        inset:0;
+        pointer-events:none;
+        z-index:6;
+        overflow:hidden;
+      }
+
+      .jd-speedlines{
+        position:absolute;
+        inset:0;
+        opacity:0;
+        transition:opacity .18s ease;
+      }
+
+      .jd-speedlines.speed-0{ opacity:0; }
+      .jd-speedlines.speed-1{ opacity:.16; }
+      .jd-speedlines.speed-2{ opacity:.26; }
+      .jd-speedlines.speed-3{ opacity:.38; }
+
+      .jd-speedline{
+        position:absolute;
+        top:-8%;
+        bottom:-8%;
+        width:14px;
+        border-radius:999px;
+        background:linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.95), rgba(255,255,255,0));
+        filter:blur(1px);
+        animation:jdSpeedLine 900ms linear infinite;
+      }
+
+      .jd-speedline.s1{ left:18%; animation-duration:980ms; animation-delay:-120ms; }
+      .jd-speedline.s2{ left:34%; animation-duration:760ms; animation-delay:-240ms; }
+      .jd-speedline.s3{ left:52%; animation-duration:680ms; animation-delay:-180ms; }
+      .jd-speedline.s4{ left:72%; animation-duration:820ms; animation-delay:-320ms; }
+      .jd-speedline.s5{ left:86%; animation-duration:720ms; animation-delay:-80ms; }
+
+      @keyframes jdSpeedLine{
+        0%   { transform:translateY(-18%) scaleY(.85); opacity:0; }
+        20%  { opacity:.95; }
+        100% { transform:translateY(118%) scaleY(1.12); opacity:0; }
+      }
+
+      .jd-phase-burst{
+        position:absolute;
+        left:50%;
+        top:50%;
+        transform:translate(-50%,-50%) scale(.82);
+        min-width:min(76vw, 520px);
+        max-width:84vw;
+        min-height:78px;
+        padding:16px 22px;
+        border-radius:999px;
+        display:grid;
+        place-items:center;
+        text-align:center;
+        font-size:clamp(24px, 5vw, 42px);
+        font-weight:1100;
+        letter-spacing:.02em;
+        opacity:0;
+        pointer-events:none;
+        box-shadow:0 18px 40px rgba(0,0,0,.18);
+      }
+
+      .jd-phase-burst.show{
+        animation:jdPhaseBurst 760ms ease forwards;
+      }
+
+      .jd-phase-burst.cool{
+        color:#0f3552;
+        background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(224,247,255,.98));
+        border:3px solid rgba(127,207,255,.95);
+      }
+
+      .jd-phase-burst.warn{
+        color:#6a4100;
+        background:linear-gradient(180deg, rgba(255,251,232,.98), rgba(255,236,173,.98));
+        border:3px solid rgba(255,197,70,.95);
+      }
+
+      .jd-phase-burst.danger{
+        color:#fff;
+        background:linear-gradient(180deg, rgba(255,111,111,.98), rgba(235,67,67,.98));
+        border:3px solid rgba(255,214,214,.95);
+      }
+
+      @keyframes jdPhaseBurst{
+        0%   { opacity:0; transform:translate(-50%,-50%) scale(.82); }
+        18%  { opacity:1; transform:translate(-50%,-50%) scale(1.02); }
+        72%  { opacity:1; transform:translate(-50%,-50%) scale(1); }
+        100% { opacity:0; transform:translate(-50%,-50%) scale(1.06); }
+      }
+
+      #jd-bg-parallax{
+        position:absolute;
+        inset:0;
+        overflow:hidden;
+        pointer-events:none;
+        z-index:0;
+      }
+
+      .jd-bg-track{
+        position:absolute;
+        left:-28%;
+        width:156%;
+        border-radius:999px;
+        filter:blur(14px);
+        opacity:.16;
+        will-change:transform, opacity;
+      }
+
+      .jd-bg-track.t1{
+        top:14%;
+        height:72px;
+        background:linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.95), rgba(127,207,255,.72), rgba(255,255,255,0));
+      }
+
+      .jd-bg-track.t2{
+        top:34%;
+        height:92px;
+        background:linear-gradient(90deg, rgba(255,255,255,0), rgba(255,226,161,.82), rgba(255,255,255,.94), rgba(255,255,255,0));
+        opacity:.13;
+      }
+
+      .jd-bg-track.t3{
+        top:58%;
+        height:118px;
+        background:linear-gradient(90deg, rgba(255,255,255,0), rgba(126,217,87,.55), rgba(255,255,255,.85), rgba(255,255,255,0));
+        opacity:.11;
+      }
+
+      #jd-phase-pulse{
+        position:absolute;
+        inset:-14%;
+        pointer-events:none;
+        opacity:0;
+        background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.0), rgba(255,255,255,.0) 38%, rgba(255,255,255,.25) 58%, rgba(255,255,255,0) 76%);
+      }
+
+      .jd-finisher{
+        position:absolute;
+        inset:0;
+        display:grid;
+        place-items:center;
+        pointer-events:none;
+        z-index:12;
+        opacity:0;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255,255,255,.88), rgba(255,255,255,.18) 28%, rgba(255,255,255,0) 62%);
+      }
+
+      .jd-finisher-text{
+        min-width:min(82vw, 560px);
+        max-width:86vw;
+        min-height:92px;
+        padding:18px 24px;
+        border-radius:999px;
+        display:grid;
+        place-items:center;
+        text-align:center;
+        font-size:clamp(28px, 6vw, 54px);
+        font-weight:1100;
+        letter-spacing:.03em;
+        color:#fff;
+        background:linear-gradient(180deg, rgba(255,122,122,.98), rgba(225,62,62,.98));
+        border:3px solid rgba(255,224,224,.96);
+        box-shadow:0 20px 50px rgba(210,56,56,.28);
+        transform:scale(.82);
+      }
+
+      .jd-finisher.show{
+        animation:jdFinisherFlash 520ms ease forwards;
+      }
+
+      @keyframes jdFinisherFlash{
+        0%   { opacity:0; }
+        12%  { opacity:1; }
+        100% { opacity:0; }
+      }
+
+      .jd-finisher.show .jd-finisher-text{
+        animation:jdFinisherText 520ms ease forwards;
+      }
+
+      @keyframes jdFinisherText{
+        0%   { transform:scale(.82); }
+        18%  { transform:scale(1.03); }
+        100% { transform:scale(1.08); }
+      }
+
+      #jd-nearmiss-layer{
+        position:absolute;
+        inset:0;
+        pointer-events:none;
+        z-index:11;
+        overflow:hidden;
+      }
+
+      .jd-nearmiss-sweep{
+        position:absolute;
+        width:110px;
+        height:20px;
+        border-radius:999px;
+        background:linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.96), rgba(255,199,82,.88), rgba(255,255,255,0));
+        filter:blur(1px);
+        opacity:0;
+        box-shadow:0 0 18px rgba(255,211,107,.34);
+      }
+
+      .jd-nearmiss-ring{
+        position:absolute;
+        width:62px;
+        height:62px;
+        border-radius:50%;
+        border:3px solid rgba(255,214,102,.95);
+        box-shadow:0 0 18px rgba(255,214,102,.26);
+        opacity:0;
+        background:radial-gradient(circle at center, rgba(255,244,200,.22), rgba(255,255,255,0) 62%);
+      }
+
+      .jd-nearmiss-text{
+        position:absolute;
+        min-height:28px;
+        padding:4px 10px;
+        border-radius:999px;
+        background:rgba(255,248,221,.98);
+        border:2px solid rgba(255,217,110,.95);
+        color:#8a5900;
+        font-size:12px;
+        font-weight:1100;
+        opacity:0;
+        white-space:nowrap;
+      }
+
+      .jd-rematch-banner{
+        margin-top:14px;
+        border-radius:22px;
+        background:linear-gradient(180deg,#fffef6,#fff);
+        border:2px solid #efdca5;
+        padding:14px;
+        box-shadow:0 10px 24px rgba(86,155,194,.10);
+        display:grid;
+        gap:10px;
+      }
+
+      .jd-rematch-banner-head{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        flex-wrap:wrap;
+      }
+
+      .jd-rematch-badge{
+        min-height:34px;
+        padding:8px 12px;
+        border-radius:999px;
+        background:#fff;
+        border:2px solid #efdca5;
+        color:#8a6517;
+        font-size:12px;
+        font-weight:1100;
+      }
+
+      .jd-rematch-title{
+        font-size:18px;
+        font-weight:1100;
+        color:#7b5b1f;
+      }
+
+      .jd-rematch-sub{
+        color:#766e66;
+        font-size:14px;
+        line-height:1.7;
+        font-weight:900;
+      }
+
+      .jd-rematch-chip-row{
+        display:flex;
+        flex-wrap:wrap;
+        gap:8px;
+      }
+
+      .jd-rematch-chip{
+        min-height:32px;
+        padding:7px 10px;
+        border-radius:999px;
+        background:#fff;
+        border:2px solid var(--line, #d7edf7);
+        color:#687c89;
+        font-size:12px;
+        font-weight:1000;
+      }
     `;
     document.head.appendChild(css);
+  }
+
+  function jdEnsureFXLayer() {
+    if (!playRoot) return null;
+
+    let layer = document.getElementById('jd-fx-layer');
+    if (layer) return layer;
+
+    layer = document.createElement('div');
+    layer.id = 'jd-fx-layer';
+    layer.innerHTML = `
+      <div id="jd-bg-parallax" aria-hidden="true">
+        <div id="jd-bg-track-1" class="jd-bg-track t1"></div>
+        <div id="jd-bg-track-2" class="jd-bg-track t2"></div>
+        <div id="jd-bg-track-3" class="jd-bg-track t3"></div>
+        <div id="jd-phase-pulse"></div>
+      </div>
+
+      <div id="jd-speedlines" class="jd-speedlines speed-0" aria-hidden="true">
+        <div class="jd-speedline s1"></div>
+        <div class="jd-speedline s2"></div>
+        <div class="jd-speedline s3"></div>
+        <div class="jd-speedline s4"></div>
+        <div class="jd-speedline s5"></div>
+      </div>
+
+      <div id="jd-nearmiss-layer" aria-hidden="true"></div>
+
+      <div id="jd-phase-burst" class="jd-phase-burst cool hidden" aria-hidden="true"></div>
+
+      <div id="jd-finisher" class="jd-finisher hidden" aria-hidden="true">
+        <div id="jd-finisher-text" class="jd-finisher-text">BOSS DOWN!</div>
+      </div>
+    `;
+
+    playRoot.appendChild(layer);
+    return layer;
+  }
+
+  function jdPhaseBurst(text, tone = 'cool') {
+    const el = document.getElementById('jd-phase-burst');
+    if (!el) return;
+
+    el.textContent = text || '';
+    el.classList.remove('hidden', 'show', 'cool', 'warn', 'danger');
+    el.classList.add(tone === 'danger' ? 'danger' : tone === 'warn' ? 'warn' : 'cool');
+
+    void el.offsetWidth;
+    el.classList.add('show');
+
+    clearTimeout(state?.phaseBurstTimer);
+    if (state) {
+      state.phaseBurstTimer = setTimeout(() => {
+        el.classList.remove('show');
+        el.classList.add('hidden');
+      }, 780);
+    }
+  }
+
+  function jdUpdateSpeedlines(s) {
+    const el = document.getElementById('jd-speedlines');
+    if (!el || !s) return;
+
+    el.classList.remove('speed-0', 'speed-1', 'speed-2', 'speed-3');
+
+    let level = 0;
+    if (s.phase === 2) level = 1;
+    if (s.phase === 3 || s.bossActive) level = 2;
+    if (s.finalRush || s.bossFrenzy) level = 3;
+
+    el.classList.add(`speed-${level}`);
+  }
+
+  function jdGoodWindowValue(s) {
+    const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
+
+    let goodWindow = compact ? 210 : 195;
+    if (s.diff === 'easy') {
+      goodWindow = compact ? 232 : 220;
+    } else if (s.diff === 'hard') {
+      goodWindow = compact ? 182 : 172;
+    }
+
+    if (s.finalRush) {
+      goodWindow -= compact ? 5 : 8;
+    }
+
+    if (s.bossActive) {
+      goodWindow -= compact ? 4 : 6;
+    }
+
+    return goodWindow;
+  }
+
+  function jdIsCloseCall(inputAgeMs, s) {
+    const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
+    const goodWindow = jdGoodWindowValue(s);
+    const margin = compact ? 30 : 24;
+    return inputAgeMs >= (goodWindow - margin);
+  }
+
+  function jdPhasePulse(tone = 'cool') {
+    const el = document.getElementById('jd-phase-pulse');
+    if (!el || typeof el.animate !== 'function') return;
+
+    if (tone === 'danger') {
+      el.style.background =
+        'radial-gradient(circle at 50% 50%, rgba(255,255,255,0), rgba(255,255,255,0) 28%, rgba(255,111,111,.26) 54%, rgba(255,255,255,0) 76%)';
+    } else if (tone === 'warn') {
+      el.style.background =
+        'radial-gradient(circle at 50% 50%, rgba(255,255,255,0), rgba(255,255,255,0) 30%, rgba(255,213,93,.24) 54%, rgba(255,255,255,0) 76%)';
+    } else {
+      el.style.background =
+        'radial-gradient(circle at 50% 50%, rgba(255,255,255,0), rgba(255,255,255,0) 36%, rgba(127,207,255,.22) 58%, rgba(255,255,255,0) 78%)';
+    }
+
+    el.animate(
+      [
+        { opacity: 0, transform: 'scale(.92)' },
+        { opacity: 1, transform: 'scale(1.02)', offset: 0.28 },
+        { opacity: 0, transform: 'scale(1.12)' }
+      ],
+      {
+        duration: tone === 'danger' ? 420 : 340,
+        easing: 'ease-out'
+      }
+    );
+  }
+
+  function jdUpdateBackdrop(s, dt = 16) {
+    if (!s) return;
+
+    const t1 = document.getElementById('jd-bg-track-1');
+    const t2 = document.getElementById('jd-bg-track-2');
+    const t3 = document.getElementById('jd-bg-track-3');
+    if (!t1 || !t2 || !t3) return;
+
+    const level =
+      s.finalRush ? 3 :
+      s.bossActive ? 2.5 :
+      s.phase === 3 ? 2 :
+      s.phase === 2 ? 1 : 0;
+
+    s.bgScroll1 = Number(s.bgScroll1 || 0) - dt * (0.018 + level * 0.010);
+    s.bgScroll2 = Number(s.bgScroll2 || 0) - dt * (0.028 + level * 0.012);
+    s.bgScroll3 = Number(s.bgScroll3 || 0) - dt * (0.040 + level * 0.016);
+
+    t1.style.transform = `translateX(${s.bgScroll1 % 240}px)`;
+    t2.style.transform = `translateX(${s.bgScroll2 % 280}px)`;
+    t3.style.transform = `translateX(${s.bgScroll3 % 340}px)`;
+
+    t1.style.opacity = String(0.10 + level * 0.03);
+    t2.style.opacity = String(0.09 + level * 0.035);
+    t3.style.opacity = String(0.08 + level * 0.04);
+  }
+
+  function jdAnimateSpawn(obs, s) {
+    if (!obs?.el || typeof obs.el.animate !== 'function') return;
+
+    obs.el.animate(
+      [
+        { opacity: 0, filter: 'blur(10px)' },
+        { opacity: 1, filter: 'blur(0px)' }
+      ],
+      {
+        duration: s?.finalRush ? 110 : 150,
+        easing: 'ease-out'
+      }
+    );
+
+    const shape = obs.el.querySelector('.jd-shape');
+    if (shape && typeof shape.animate === 'function') {
+      shape.animate(
+        [
+          { transform: 'translateX(-50%) scale(.72)' },
+          { transform: 'translateX(-50%) scale(1)' }
+        ],
+        {
+          duration: s?.finalRush ? 110 : 150,
+          easing: 'ease-out'
+        }
+      );
+    }
+  }
+
+  function jdRunBossFinisher(s) {
+    const wrap = document.getElementById('jd-finisher');
+    const text = document.getElementById('jd-finisher-text');
+    if (!wrap || !text) return;
+
+    const label = s?.bossProfile?.label || 'Boss';
+    const icon = s?.bossProfile?.icon || '👾';
+    text.textContent = `${icon} ${label} DOWN!`;
+
+    wrap.classList.remove('hidden', 'show');
+    void wrap.offsetWidth;
+    wrap.classList.add('show');
+
+    jdPhasePulse('danger');
+    jdShakeStage(s?.playRoot || playRoot, 10, 240);
+    jdShowJudge('🏆 BOSS DOWN!');
+    jdSfx('bossDown');
+
+    clearTimeout(state?.finisherTimer);
+    if (state) {
+      state.finisherTimer = setTimeout(() => {
+        wrap.classList.remove('show');
+        wrap.classList.add('hidden');
+      }, 540);
+    }
+  }
+
+  function jdAudioInit() {
+    if (window.__jdAudioReady) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+
+    try {
+      window.__jdAudioCtx = window.__jdAudioCtx || new AC();
+      if (window.__jdAudioCtx.state === 'suspended') {
+        window.__jdAudioCtx.resume?.();
+      }
+      window.__jdAudioReady = true;
+    } catch (_) {}
+  }
+
+  function jdPlayTone(freq = 440, duration = 0.08, type = 'sine', gain = 0.03, when = 0) {
+    const ctx = window.__jdAudioCtx;
+    if (!ctx) return;
+
+    const t0 = ctx.currentTime + when;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
+    osc.connect(g);
+    g.connect(ctx.destination);
+
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.02);
+  }
+
+  function jdSfx(kind = '') {
+    const ctx = window.__jdAudioCtx;
+    if (!ctx) return;
+
+    switch (kind) {
+      case 'perfect':
+        jdPlayTone(860, 0.05, 'triangle', 0.040, 0.00);
+        jdPlayTone(1180, 0.07, 'triangle', 0.030, 0.03);
+        break;
+      case 'good':
+        jdPlayTone(620, 0.05, 'sine', 0.028, 0.00);
+        jdPlayTone(820, 0.05, 'sine', 0.020, 0.03);
+        break;
+      case 'close':
+        jdPlayTone(540, 0.04, 'square', 0.020, 0.00);
+        jdPlayTone(720, 0.04, 'triangle', 0.018, 0.03);
+        break;
+      case 'miss':
+        jdPlayTone(220, 0.08, 'sawtooth', 0.030, 0.00);
+        break;
+      case 'warning':
+        jdPlayTone(480, 0.05, 'square', 0.024, 0.00);
+        jdPlayTone(480, 0.05, 'square', 0.024, 0.09);
+        break;
+      case 'bossIntro':
+        jdPlayTone(330, 0.08, 'sawtooth', 0.028, 0.00);
+        jdPlayTone(420, 0.08, 'sawtooth', 0.028, 0.06);
+        jdPlayTone(520, 0.10, 'triangle', 0.028, 0.12);
+        break;
+      case 'bossHit':
+        jdPlayTone(210, 0.05, 'square', 0.026, 0.00);
+        jdPlayTone(160, 0.06, 'sawtooth', 0.020, 0.03);
+        break;
+      case 'bossDown':
+        jdPlayTone(520, 0.08, 'triangle', 0.035, 0.00);
+        jdPlayTone(760, 0.10, 'triangle', 0.030, 0.06);
+        jdPlayTone(980, 0.12, 'triangle', 0.028, 0.13);
+        break;
+      case 'rush':
+        jdPlayTone(700, 0.05, 'square', 0.020, 0.00);
+        jdPlayTone(880, 0.05, 'square', 0.020, 0.05);
+        break;
+      default:
+        break;
+    }
+  }
+
+  function jdNearMissFX(s, obs) {
+    const layer = document.getElementById('jd-nearmiss-layer');
+    if (!layer || !s?.avatar || !obs) return;
+
+    const rootRect = playRoot.getBoundingClientRect();
+    const avatarRect = s.avatar.getBoundingClientRect();
+
+    const cx = avatarRect.left - rootRect.left + avatarRect.width * 0.68;
+    const cy = obs.need === 'jump'
+      ? avatarRect.top - rootRect.top + avatarRect.height * 0.82
+      : avatarRect.top - rootRect.top + avatarRect.height * 0.28;
+
+    const sweep = document.createElement('div');
+    sweep.className = 'jd-nearmiss-sweep';
+    sweep.style.left = `${cx - 34}px`;
+    sweep.style.top = `${cy - 8}px`;
+
+    const ring = document.createElement('div');
+    ring.className = 'jd-nearmiss-ring';
+    ring.style.left = `${cx - 30}px`;
+    ring.style.top = `${cy - 30}px`;
+
+    const text = document.createElement('div');
+    text.className = 'jd-nearmiss-text';
+    text.textContent = 'CLOSE!';
+    text.style.left = `${cx + 10}px`;
+    text.style.top = `${cy - 34}px`;
+
+    layer.appendChild(sweep);
+    layer.appendChild(ring);
+    layer.appendChild(text);
+
+    sweep.animate(
+      [
+        { opacity: 0, transform: 'translateX(18px) scaleX(.72)' },
+        { opacity: 1, transform: 'translateX(-10px) scaleX(1.04)', offset: 0.28 },
+        { opacity: 0, transform: 'translateX(-34px) scaleX(1.18)' }
+      ],
+      { duration: 300, easing: 'ease-out' }
+    );
+
+    ring.animate(
+      [
+        { opacity: 0, transform: 'scale(.62)' },
+        { opacity: 1, transform: 'scale(1)', offset: 0.24 },
+        { opacity: 0, transform: 'scale(1.18)' }
+      ],
+      { duration: 320, easing: 'ease-out' }
+    );
+
+    text.animate(
+      [
+        { opacity: 0, transform: 'translateY(6px) scale(.88)' },
+        { opacity: 1, transform: 'translateY(-4px) scale(1)', offset: 0.22 },
+        { opacity: 0, transform: 'translateY(-18px) scale(1.02)' }
+      ],
+      { duration: 360, easing: 'ease-out' }
+    );
+
+    setTimeout(() => {
+      sweep.remove();
+      ring.remove();
+      text.remove();
+    }, 380);
+  }
+
+  function jdNextRunMission(summary) {
+    const sf = summary?.sessionFeatures || {};
+    const analysis = summary?.analysis || {};
+    const weaknesses = analysis?.weaknesses || [];
+
+    if (weaknesses.includes('low-obstacle weakness')) {
+      return {
+        title: 'ภารกิจตาต่อไป: อ่าน Low ให้คมขึ้น',
+        sub: 'โฟกัสสิ่งกีดขวางระดับขา แล้วกระโดดให้ช้าลงนิดเพื่อความแม่น',
+        chips: ['Target: Low Read', 'Goal: Jump Accuracy', 'Style: Calm Timing'],
+        cta: '🔁 ลองแก้ Low อีกตา'
+      };
+    }
+
+    if (weaknesses.includes('high-obstacle weakness')) {
+      return {
+        title: 'ภารกิจตาต่อไป: เก็บ High ให้แม่น',
+        sub: 'พอเห็น bar / ribbon / beam ระดับหัว ให้หมอบไวแต่ไม่รีบเกิน',
+        chips: ['Target: High Read', 'Goal: Duck Accuracy', 'Style: Fast Read'],
+        cta: '🔁 ลองแก้ High อีกตา'
+      };
+    }
+
+    if (weaknesses.includes('final-rush-collapse')) {
+      return {
+        title: 'ภารกิจตาต่อไป: เอา Final Rush ให้อยู่',
+        sub: 'ช่วงท้ายไม่ต้องเร่งทุกอัน ประคองจังหวะให้รอดก่อนแล้วค่อยล่า perfect',
+        chips: ['Target: Final Rush', 'Goal: Survive', 'Style: Hold Tempo'],
+        cta: '⚡ ลุย Final Rush อีกตา'
+      };
+    }
+
+    if (!sf.bossDown) {
+      return {
+        title: 'ภารกิจตาต่อไป: ปิดบอสให้ได้',
+        sub: 'คุณมาถึงบอสแล้ว ตาต่อไปเน้นความนิ่งและรักษาคอมโบช่วงท้าย',
+        chips: ['Target: Boss Down', 'Goal: Finish Phase 3', 'Style: Steady Combo'],
+        cta: '👾 ล่าบอสอีกตา'
+      };
+    }
+
+    if ((sf.maxCombo || 0) < 12) {
+      return {
+        title: 'ภารกิจตาต่อไป: ดันคอมโบให้ทะลุ 12',
+        sub: 'พื้นฐานดีแล้ว รอบหน้าลองเล่นให้ลื่นต่อเนื่องขึ้นอีกนิด',
+        chips: ['Target: Combo 12+', 'Goal: Flow', 'Style: Smooth Chain'],
+        cta: '🔥 ดันคอมโบอีกตา'
+      };
+    }
+
+    if ((sf.accPct || 0) < 90) {
+      return {
+        title: 'ภารกิจตาต่อไป: ดัน Accuracy ขึ้นอีก',
+        sub: 'ตอนนี้เก่งแล้ว เหลือเก็บความคมอีกนิดเพื่อไต่ rank',
+        chips: ['Target: 90%+', 'Goal: Accuracy', 'Style: Clean Read'],
+        cta: '🎯 ล่าความแม่นอีกตา'
+      };
+    }
+
+    return {
+      title: 'ภารกิจตาต่อไป: ล่า Legend Run',
+      sub: 'ตอนนี้ใกล้มากแล้ว ลองรอบที่นิ่งกว่าเดิมเพื่อลุ้นรันในตำนาน',
+      chips: ['Target: S Rank', 'Goal: Legend Run', 'Style: No Miss'],
+      cta: '🏆 ล่า Legend Run'
+    };
+  }
+
+  function jdApplyRematchLoop(summary) {
+    const resultShell = document.querySelector('#view-result .result-shell');
+    if (!resultShell || !summary) return;
+
+    let box = document.getElementById('jd-rematch-banner');
+    if (!box) {
+      box = document.createElement('section');
+      box.id = 'jd-rematch-banner';
+      box.className = 'jd-rematch-banner';
+
+      const footer = document.querySelector('#view-result .footer-actions');
+      if (footer && footer.parentNode) {
+        footer.parentNode.insertBefore(box, footer);
+      } else {
+        resultShell.appendChild(box);
+      }
+    }
+
+    const mission = jdNextRunMission(summary);
+
+    box.innerHTML = `
+      <div class="jd-rematch-banner-head">
+        <div class="jd-rematch-title">${mission.title}</div>
+        <div class="jd-rematch-badge">ONE MORE RUN</div>
+      </div>
+      <div class="jd-rematch-sub">${mission.sub}</div>
+      <div class="jd-rematch-chip-row">
+        ${mission.chips.map((x) => `<div class="jd-rematch-chip">${x}</div>`).join('')}
+      </div>
+    `;
+
+    const playAgainBtn = document.querySelector('[data-action="play-again"]');
+    if (playAgainBtn) {
+      playAgainBtn.textContent = mission.cta || '🔁 Play Again';
+    }
   }
 
   function clearRunTimers(s) {
@@ -1015,6 +1687,8 @@
     if (s.teleTimer) { clearTimeout(s.teleTimer); s.teleTimer = 0; }
     if (s.bossIntroTimer) { clearTimeout(s.bossIntroTimer); s.bossIntroTimer = 0; }
     if (s.avatarResetTimer) { clearTimeout(s.avatarResetTimer); s.avatarResetTimer = 0; }
+    if (s.phaseBurstTimer) { clearTimeout(s.phaseBurstTimer); s.phaseBurstTimer = 0; }
+    if (s.finisherTimer) { clearTimeout(s.finisherTimer); s.finisherTimer = 0; }
   }
 
   function stopLoop() {
@@ -1038,6 +1712,27 @@
     }
 
     rushBanner?.classList.add('hidden');
+
+    const phaseBurst = document.getElementById('jd-phase-burst');
+    if (phaseBurst) {
+      phaseBurst.classList.remove('show');
+      phaseBurst.classList.add('hidden');
+    }
+
+    const finisher = document.getElementById('jd-finisher');
+    if (finisher) {
+      finisher.classList.remove('show');
+      finisher.classList.add('hidden');
+    }
+
+    const speedlines = document.getElementById('jd-speedlines');
+    if (speedlines) {
+      speedlines.classList.remove('speed-1', 'speed-2', 'speed-3');
+      speedlines.classList.add('speed-0');
+    }
+
+    const nearMiss = document.getElementById('jd-nearmiss-layer');
+    if (nearMiss) nearMiss.innerHTML = '';
 
     if (playRoot) {
       playRoot.classList.remove('phase-1', 'phase-2', 'phase-3', 'final-rush', 'boss-frenzy');
@@ -1117,6 +1812,9 @@
       logStatus.textContent = '';
       logStatus.style.color = '';
     }
+
+    const box = document.getElementById('jd-rematch-banner');
+    if (box) box.remove();
   }
 
   function clearArena() {
@@ -1243,103 +1941,76 @@
     switch (pattern) {
       case 'single':
         return [rng() < 0.5 ? 'low' : 'high'];
-
       case 'alt2': {
         const a = rng() < 0.5 ? 'low' : 'high';
         const b = a === 'low' ? 'high' : 'low';
         return [a, b];
       }
-
       case 'alt4': {
         const a = rng() < 0.5 ? 'low' : 'high';
         const b = a === 'low' ? 'high' : 'low';
         return [a, b, a, b];
       }
-
       case 'pair': {
         const a = rng() < 0.5 ? 'low' : 'high';
         return [a, a];
       }
-
       case 'zigzag3': {
         const a = rng() < 0.5 ? 'low' : 'high';
         const b = a === 'low' ? 'high' : 'low';
         return [a, b, a];
       }
-
       case 'mirror4': {
         const a = rng() < 0.5 ? 'low' : 'high';
         const b = a === 'low' ? 'high' : 'low';
         return [a, b, b, a];
       }
-
       case 'burst4':
         return ['low', 'high', 'low', 'high'];
-
       case 'burst5':
         return ['low', 'high', 'low', 'high', 'low'];
-
       case 'double-low-high':
         return ['low', 'low', 'high'];
-
       case 'double-high-low':
         return ['high', 'high', 'low'];
-
       case 'feint2':
         return [rng() < 0.5 ? 'low' : 'high', rng() < 0.5 ? 'low' : 'high'];
-
       case 'feint3':
         return [
           rng() < 0.5 ? 'low' : 'high',
           rng() < 0.5 ? 'low' : 'high',
           rng() < 0.5 ? 'low' : 'high'
         ];
-
       case 'tempo221':
         return ['low', 'low', 'high', 'high', 'low'];
-
       case 'tempo121':
         return ['low', 'high', 'high', 'low'];
-
       case 'tempoAlt6':
         return ['low', 'high', 'low', 'high', 'low', 'high'];
-
       case 'feintLate2':
         return ['low', 'high'];
-
       case 'feintLate3':
         return ['high', 'low', 'high'];
-
       case 'fakePair':
         return ['low', 'low'];
-
       case 'shieldPair':
         return ['low', 'low', 'high', 'high'];
-
       case 'shieldWall':
         return ['low', 'high', 'low', 'high'];
-
       case 'shieldBreaker':
         return ['high', 'high', 'low', 'low', 'high'];
-
       case 'mirrorABBA':
         return ['low', 'high', 'high', 'low'];
-
       case 'mirrorBAAB':
         return ['high', 'low', 'low', 'high'];
-
       case 'mirrorEcho':
         return ['low', 'high', 'low', 'high', 'high', 'low'];
-
       case 'chaosBurst5':
         return ['low', 'high', 'low', 'high', 'high'];
-
       case 'chaosBurst6':
         return ['low', 'high', 'low', 'high', 'low', 'high'];
-
       case 'chaosLadder':
         return ['low', 'low', 'high', 'low', 'high', 'high'];
-
       default:
         return [rng() < 0.5 ? 'low' : 'high'];
     }
@@ -1576,23 +2247,23 @@
     const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
     const groundBottom = compact ? 104 : 86;
 
-    let bottomPx = groundBottom - 4;
+    let bottomPx = groundBottom - 2;
 
     if (obs.type === 'low') {
       if (obs.variant === 'heavy') {
-        bottomPx = groundBottom - 8;
+        bottomPx = groundBottom - 10;
       } else if (obs.variant === 'mini') {
-        bottomPx = groundBottom + 2;
+        bottomPx = groundBottom + 4;
       } else {
-        bottomPx = groundBottom - 4;
+        bottomPx = groundBottom - 2;
       }
     } else {
       if (obs.variant === 'heavy') {
-        bottomPx = groundBottom + (compact ? 130 : 118);
+        bottomPx = groundBottom + (compact ? 142 : 126);
       } else if (obs.variant === 'mini') {
-        bottomPx = groundBottom + (compact ? 116 : 108);
+        bottomPx = groundBottom + (compact ? 124 : 114);
       } else {
-        bottomPx = groundBottom + (compact ? 122 : 110);
+        bottomPx = groundBottom + (compact ? 132 : 120);
       }
     }
 
@@ -1899,6 +2570,7 @@
 
       s.obstacles.push(obs);
       s.arena.appendChild(obs.el);
+      jdAnimateSpawn(obs, s);
       s.totalObstacles = Number(s.totalObstacles || 0) + 1;
 
       cursorX += jdWaveGap(s, index, seq.length);
@@ -1929,6 +2601,23 @@
     jdShowBossIntro(`${boss.icon} ${boss.label} • ${boss.intro}`);
     jdTelegraph(`${boss.icon} ${boss.label}`, 850);
     jdShowJudge(`${boss.icon} ${boss.label}`);
+    jdPhaseBurst(`${boss.icon} ${boss.label}`, 'danger');
+    jdPhasePulse('danger');
+    jdSfx('bossIntro');
+
+    if (s.playRoot && typeof s.playRoot.animate === 'function') {
+      s.playRoot.animate(
+        [
+          { transform: 'scale(1)' },
+          { transform: 'scale(1.015)' },
+          { transform: 'scale(1)' }
+        ],
+        {
+          duration: 220,
+          easing: 'ease-out'
+        }
+      );
+    }
 
     jdLogEvent(s, 'boss_start', {
       bossKey: boss.key,
@@ -2186,6 +2875,7 @@
     jdShowBossIntro(`${s.bossProfile.icon} ${s.bossProfile.label} • PHASE 2`);
     jdShowJudge('💢 PHASE 2!');
     jdTelegraph('แรงขึ้นแล้ว ระวังให้ดี!', 900);
+    jdPhasePulse('warn');
 
     s.currentSpeed *= 1.05;
     s.currentSpawnMs *= 0.94;
@@ -2221,7 +2911,10 @@
       s.bossChain = 0;
     }
 
-    if (s.playRoot) jdFlash(s.playRoot, 'miss');
+    if (s.playRoot) {
+      jdFlash(s.playRoot, 'miss');
+      jdShakeStage(s.playRoot, 6, 160);
+    }
 
     if (s.arena && obs) {
       jdScorePop(
@@ -2252,11 +2945,20 @@
     });
 
     let txt = reason === 'wrong' ? '❌ WRONG!' : 'MISS';
-    if (s.finalRush && s.rushStage === 'survive') txt = '⚠ STAY FOCUSED!';
+
+    if ((s.combo || 0) >= 8 && reason !== 'wrong') {
+      txt = '💢 COMBO BREAK!';
+    }
+
+    if (s.finalRush && s.rushStage === 'survive') {
+      txt = '⚠ STAY FOCUSED!';
+    }
+
+    jdSfx('miss');
     jdShowJudge(txt);
   }
 
-  function jdApplySuccessfulHit(s, obs, judge) {
+  function jdApplySuccessfulHit(s, obs, judge, inputAgeMs = 0) {
     s.hit = Number(s.hit || 0) + 1;
     s.combo = Number(s.combo || 0) + 1;
     s.maxCombo = Math.max(Number(s.maxCombo || 0), s.combo);
@@ -2272,6 +2974,33 @@
     s.score = Number(s.score || 0) + gain;
     jdAddFever(s, judge);
 
+    const closeCall = (judge === 'good') && jdIsCloseCall(inputAgeMs, s);
+
+    if (closeCall) {
+      const bonus = s.finalRush ? 7 : 5;
+      s.score = Number(s.score || 0) + bonus;
+
+      if (s.arena) {
+        jdScorePop(
+          s.arena,
+          obs.x + 58,
+          jdObstaclePopY(obs) - 18,
+          `+${bonus}`,
+          'good'
+        );
+      }
+
+      jdNearMissFX(s, obs);
+      jdSfx('close');
+
+      jdLogEvent(s, 'close_call_bonus', {
+        obstacleId: obs?.id || '',
+        obstacleNeed: obs?.need || '',
+        inputAgeMs: Number(inputAgeMs || 0),
+        bonus: Number(bonus || 0)
+      });
+    }
+
     if (s.playRoot) jdFlash(s.playRoot, judge === 'perfect' ? 'perfect' : 'good');
 
     if (s.arena) {
@@ -2283,6 +3012,8 @@
         judge === 'perfect' ? 'perfect' : 'good'
       );
     }
+
+    let bossDamagePreview = 0;
 
     if (s.bossActive) {
       let dmg = jdBossDamageFromJudge(judge, s);
@@ -2299,8 +3030,20 @@
         dmg += 1;
       }
 
+      bossDamagePreview = dmg;
       s.bossHp = Math.max(0, Number(s.bossHp || 100) - dmg);
+
       if (s.playRoot) jdFlash(s.playRoot, 'bosshit');
+
+      if (s.arena && bossDamagePreview > 0) {
+        jdScorePop(
+          s.arena,
+          (s.hitLineX || 120) + 68,
+          s.layoutProfile === 'tiny' ? 128 : 118,
+          `-${bossDamagePreview}`,
+          'perfect'
+        );
+      }
 
       jdMaybeTriggerBossPhase2(s);
     }
@@ -2323,10 +3066,19 @@
       obstacleFeint: !!obs?.feint,
       judge: judge,
       gain: Number(gain || 0),
+      bossDamage: Number(bossDamagePreview || 0),
       liveNoMiss: !!s.liveNoMiss
     });
 
-    let judgeText = judge === 'perfect' ? '✨ PERFECT!' : '✅ GOOD!';
+    let judgeText = judge === 'perfect' ? '✨ PERFECT!' : (closeCall ? '😮 CLOSE!' : '✅ GOOD!');
+
+    if (judge === 'perfect') {
+      if ((s.combo || 0) >= 16) judgeText = '👑 UNSTOPPABLE!';
+      else if ((s.combo || 0) >= 10) judgeText = '⚡ PERFECT CHAIN!';
+      else if ((s.combo || 0) >= 5) judgeText = '🔥 HOT STREAK!';
+    } else {
+      if ((s.combo || 0) >= 8) judgeText = '🔥 KEEP IT UP!';
+    }
 
     if (obs?.variant === 'heavy' && judge === 'perfect') {
       judgeText = '💥 POWER CLEAR!';
@@ -2346,7 +3098,7 @@
       judgeText = '🛡️ SHIELD BREAK!';
     }
 
-    if (s.bossActive && s.bossProfile?.key === 'mirror' && ['mirrorABBA','mirrorBAAB','mirrorEcho','mirror4'].includes(s.lastPattern || '')) {
+    if (s.bossActive && s.bossProfile?.key === 'mirror' && ['mirrorABBA', 'mirrorBAAB', 'mirrorEcho', 'mirror4'].includes(s.lastPattern || '')) {
       judgeText = '🪞 MIRROR MASTER!';
     }
 
@@ -2354,6 +3106,14 @@
       judgeText = '🔥 CLUTCH!';
     } else if (s.rushStage === 'peak' && judge === 'perfect') {
       judgeText = '⚡ HOLD IT!';
+    }
+
+    if (s.bossActive && bossDamagePreview > 0) {
+      jdSfx('bossHit');
+    } else if (judge === 'perfect') {
+      jdSfx('perfect');
+    } else if (!closeCall) {
+      jdSfx('good');
     }
 
     jdShowJudge(judgeText);
@@ -2412,14 +3172,14 @@
     s.finalRush = !!s.rushStage;
 
     if (s.rushStage === 'warning') {
-      speed *= compact ? 1.03 : 1.05;
-      spawnMs *= compact ? 0.97 : 0.95;
+      speed *= compact ? 1.05 : 1.07;
+      spawnMs *= compact ? 0.95 : 0.93;
     } else if (s.rushStage === 'peak') {
-      speed *= compact ? 1.08 : 1.12;
-      spawnMs *= compact ? 0.91 : 0.88;
+      speed *= compact ? 1.12 : 1.16;
+      spawnMs *= compact ? 0.87 : 0.84;
     } else if (s.rushStage === 'survive') {
-      speed *= compact ? 1.10 : 1.15;
-      spawnMs *= compact ? 0.88 : 0.84;
+      speed *= compact ? 1.15 : 1.20;
+      spawnMs *= compact ? 0.82 : 0.78;
     }
 
     if (s.bossPhase2) {
@@ -2456,10 +3216,42 @@
 
   function jdApplyPhaseFX(s) {
     if (!s || !s.playRoot) return;
+
     s.playRoot.classList.remove('phase-1', 'phase-2', 'phase-3', 'final-rush', 'boss-frenzy');
     s.playRoot.classList.add(`phase-${s.phase}`);
     if (s.finalRush) s.playRoot.classList.add('final-rush');
     if (s.bossFrenzy) s.playRoot.classList.add('boss-frenzy');
+
+    if (s.prevPhase !== s.phase) {
+      if (s.phase === 2) {
+        jdPhaseBurst('PHASE 2 • PRESSURE', 'cool');
+        jdPhasePulse('cool');
+      } else if (s.phase === 3) {
+        jdPhaseBurst('PHASE 3 • BOSS RUN', 'warn');
+        jdPhasePulse('warn');
+        jdSfx('warning');
+      }
+      s.prevPhase = s.phase;
+    }
+
+    if (s.prevRushStage !== s.rushStage) {
+      if (s.rushStage === 'warning') {
+        jdPhaseBurst('WARNING!', 'warn');
+        jdPhasePulse('warn');
+        jdSfx('warning');
+      } else if (s.rushStage === 'peak') {
+        jdPhaseBurst('FINAL RUSH!', 'danger');
+        jdPhasePulse('danger');
+        jdSfx('rush');
+      } else if (s.rushStage === 'survive') {
+        jdPhaseBurst('SURVIVE!', 'danger');
+        jdPhasePulse('danger');
+        jdSfx('rush');
+      }
+      s.prevRushStage = s.rushStage;
+    }
+
+    jdUpdateSpeedlines(s);
     jdUpdateRushBanner();
   }
 
@@ -2501,7 +3293,7 @@
           const judge = jdJudgeTiming(inputAgeMs, s);
           if (judge !== 'late') {
             obs.resolved = true;
-            jdApplySuccessfulHit(s, obs, judge);
+            jdApplySuccessfulHit(s, obs, judge, inputAgeMs);
             obs.el.remove();
             s.obstacles.splice(i, 1);
             s.lastInput = null;
@@ -2538,6 +3330,8 @@
 
   function jdHandleInput(s, type) {
     if (!s || !s.running) return;
+
+    jdAudioInit();
 
     s.lastInput = {
       type,
@@ -3016,6 +3810,7 @@
 
       liveNoMiss: true,
       streakTier: 0,
+      streakBurstsAwarded: {},
       noMissBonusAwarded: false,
       rushSurviveAwarded: false,
 
@@ -3041,11 +3836,6 @@
       rushHit: 0,
       rushMiss: 0,
 
-      summaryPayload: null,
-      cooldownUrl: '',
-      endRank: '',
-      endAccPct: 0,
-
       layoutProfile: metrics.profile,
       arenaWidth: metrics.width,
       hitLineX: metrics.hitLineX,
@@ -3054,6 +3844,12 @@
       gapBase: 170,
       removeX: -170,
       tuneKey: 'A',
+
+      prevPhase: 1,
+      prevRushStage: '',
+      bgScroll1: 0,
+      bgScroll2: 0,
+      bgScroll3: 0,
 
       playRoot,
       arena: obsLayer,
@@ -3099,6 +3895,63 @@
     });
 
     rafId = requestAnimationFrame(jdTick);
+  }
+
+  function jdBuildCooldownHref(summary = null) {
+    const gateBase = jdAbsUrl(JD_WARMUP_GATE_FALLBACK, JD_WARMUP_GATE_FALLBACK);
+    const u = new URL(gateBase, location.href);
+
+    const zoneHref = jdZoneHref();
+    const launcherHref = jdLauncherHref();
+
+    const pid = String(HHA_CTX.pid || 'anon');
+    const name = String(qs('name', qs('nickName', 'Hero')) || 'Hero');
+    const diff = String(state?.diff || HHA_CTX.diff || 'normal');
+    const time = String(Math.round(Number((state?.duration || Number(HHA_CTX.time || 60) * 1000) / 1000)));
+    const view = String(HHA_CTX.view || 'mobile');
+    const seed = String(HHA_CTX.seed || qs('seed', '') || Date.now());
+    const run = String(HHA_CTX.run || 'play');
+
+    u.searchParams.set('phase', 'cooldown');
+    u.searchParams.set('game', 'jump-duck');
+    u.searchParams.set('gameId', 'jump-duck');
+    u.searchParams.set('theme', 'jump-duck');
+    u.searchParams.set('zone', 'fitness');
+    u.searchParams.set('cat', 'fitness');
+
+    u.searchParams.set('pid', pid);
+    u.searchParams.set('name', name);
+    u.searchParams.set('run', run);
+    u.searchParams.set('diff', diff);
+    u.searchParams.set('time', time);
+    u.searchParams.set('view', view);
+    u.searchParams.set('seed', seed);
+
+    u.searchParams.set('hub', zoneHref);
+    u.searchParams.set('hubRoot', zoneHref);
+    u.searchParams.set('launcher', launcherHref);
+    u.searchParams.set('next', zoneHref);
+    u.searchParams.set('cdnext', zoneHref);
+
+    if (HHA_CTX.studyId) u.searchParams.set('studyId', HHA_CTX.studyId);
+    if (HHA_CTX.debug) u.searchParams.set('debug', HHA_CTX.debug);
+    if (HHA_CTX.log) u.searchParams.set('log', HHA_CTX.log);
+    if (HHA_CTX.api) u.searchParams.set('api', HHA_CTX.api);
+    if (state?.mode) u.searchParams.set('mode', state.mode);
+
+    const score = Number(summary?.scoreFinal ?? state?.score ?? 0);
+    const miss = Number(summary?.missTotal ?? state?.miss ?? 0);
+    const acc = Number(summary?.accPct ?? 0);
+    const bestStreak = Number(summary?.comboMax ?? state?.maxCombo ?? 0);
+    const grade = String(summary?.rank || 'C');
+
+    u.searchParams.set('score', String(score));
+    u.searchParams.set('miss', String(miss));
+    u.searchParams.set('accuracy', String(Number(acc.toFixed ? acc.toFixed(1) : acc)));
+    u.searchParams.set('bestStreak', String(bestStreak));
+    u.searchParams.set('grade', grade);
+
+    return u.toString();
   }
 
   function jdFinishRun(s, endReason) {
@@ -3194,6 +4047,8 @@
 
     const summary = {
       game: 'jumpduck',
+      gameId: 'jump-duck',
+      zone: 'fitness',
       pid,
       scoreFinal: s.score,
       accPct: Number(accPct.toFixed(2)),
@@ -3221,10 +4076,16 @@
       coach,
       sessionFeatures,
       teacherSummary,
-      eventLog: Array.isArray(s.eventLog) ? s.eventLog : []
+      eventLog: Array.isArray(s.eventLog) ? s.eventLog : [],
+      summaryHref: jdZoneHref(),
+      launcherHref: jdLauncherHref(),
+      cooldownHref: ''
     };
 
+    summary.cooldownHref = jdBuildCooldownHref(summary);
+
     saveLastSummary(summary);
+    jdApplyRematchLoop(summary);
 
     try {
       window.HH_FITNESS_LASTGAME?.writeSnapshot({
@@ -3236,7 +4097,9 @@
         miss: Number(s.miss || 0),
         bestStreak: Number(s.maxCombo || 0),
         rank: rank || '',
-        result: endReason || 'end'
+        result: endReason || 'end',
+        hub: jdZoneHref(),
+        launcher: jdLauncherHref()
       });
     } catch (_) {}
 
@@ -3281,37 +4144,23 @@
       coach
     });
 
-    s.endRank = rank;
-    s.endAccPct = Number(accPct.toFixed(2));
-
-    s.summaryPayload = {
-      score: Number(s.score || 0),
-      accuracy: Number(accPct.toFixed(2)),
-      bestStreak: Number(s.maxCombo || 0),
-      rank: rank || 'C'
-    };
-
-    if (jdIsPlannerStrictFlow()) {
-      s.cooldownUrl = jdPlannerReturnUrl();
-    } else {
-      s.cooldownUrl = jdBuildCooldownGateUrl(s.summaryPayload, {
-        mode: s.mode || HHA_CTX.mode || 'training',
-        diff: s.diff || HHA_CTX.diff || 'normal',
-        time: String(Math.round((s.duration || 0) / 1000) || HHA_CTX.time || 60),
-        run: HHA_CTX.run || 'play',
-        view: HHA_CTX.view || 'mobile',
-        pid: HHA_CTX.pid || 'anon',
-        name: qs('name', qs('nickName', 'Hero')),
-        studyId: HHA_CTX.studyId || '',
-        seed: HHA_CTX.seed || Date.now(),
-        hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
-        launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
-      });
+    if (btnContinueFlow) {
+      btnContinueFlow.dataset.cooldownHref = summary.cooldownHref;
     }
 
     s.finished = true;
     s.finishing = false;
-    showView('result');
+
+    const finisherDelay = (bossDown && endReason === 'boss-down') ? 480 : 0;
+
+    if (finisherDelay > 0) {
+      jdRunBossFinisher(s);
+      setTimeout(() => {
+        showView('result');
+      }, finisherDelay);
+    } else {
+      showView('result');
+    }
   }
 
   function jdTick(now) {
@@ -3333,13 +4182,14 @@
 
     jdUpdatePhaseAndPacing(state);
     jdApplyPhaseFX(state);
+    jdUpdateBackdrop(state, dt);
 
     if (!state.bossActive && state.progress >= 0.76) {
       jdStartBoss(state);
     }
 
     if (!state.nextSpawnAt) {
-      state.nextSpawnAt = now + 700;
+      state.nextSpawnAt = now + 420;
     }
 
     if (now >= state.nextSpawnAt) {
@@ -3430,43 +4280,18 @@
     rafId = requestAnimationFrame(jdTick);
   }
 
+  function goZoneNow() {
+    location.href = jdZoneHref();
+  }
+
   function bindEvents() {
-    document.querySelector('[data-action="start"]')?.addEventListener('click', (ev) => {
-      ev.preventDefault();
+    document.querySelector('[data-action="start"]')?.addEventListener('click', () => {
       if (state && state.running) return;
-
-      const wgskip = qs('wgskip', '') === '1';
-      const autostart = qs('autostart', '') === '1';
-      const plannerStrict = jdIsPlannerStrictFlow();
-
-      const selectedMode = (elMode?.value || HHA_CTX.mode || 'training').toLowerCase();
-      const selectedDiff = (elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase();
-      const selectedTime = String(parseInt(elDuration?.value || HHA_CTX.duration || HHA_CTX.time || '60', 10) || 60);
-
-      if (plannerStrict || (wgskip && autostart)) {
-        startGame({
-          mode: selectedMode,
-          diff: selectedDiff,
-          durationMs: (parseInt(selectedTime, 10) || 60) * 1000
-        });
-        return;
-      }
-
-      const warmupUrl = jdBuildWarmupGateUrl({
-        mode: selectedMode,
-        diff: selectedDiff,
-        time: selectedTime,
-        run: HHA_CTX.run || 'play',
-        view: HHA_CTX.view || 'mobile',
-        pid: HHA_CTX.pid || 'anon',
-        name: qs('name', qs('nickName', 'Hero')),
-        studyId: HHA_CTX.studyId || '',
-        seed: HHA_CTX.seed || Date.now(),
-        hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
-        launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
+      startGame({
+        mode: (elMode?.value || HHA_CTX.mode || 'training').toLowerCase(),
+        diff: (elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase(),
+        durationMs: ((parseInt(elDuration?.value || HHA_CTX.duration || '60', 10) || 60) * 1000)
       });
-
-      location.href = warmupUrl;
     });
 
     document.querySelector('[data-action="tutorial"]')?.addEventListener('click', () => {
@@ -3479,9 +4304,7 @@
       jdTelegraph('Tutorial: low = jump • high = duck', 1200);
     });
 
-    document.querySelector('[data-action="play-again"]')?.addEventListener('click', (ev) => {
-      ev.preventDefault();
-
+    document.querySelector('[data-action="play-again"]')?.addEventListener('click', () => {
       hhFitnessRematch({
         score: Number(state?.score || 0),
         miss: Number(state?.miss || 0),
@@ -3489,60 +4312,25 @@
         result: 'rematch'
       });
 
-      if (jdIsPlannerStrictFlow()) {
-        const replayUrl = jdBuildLauncherUrl({
-          mode: (state?.mode || elMode?.value || HHA_CTX.mode || 'training').toLowerCase(),
-          diff: (state?.diff || elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase(),
-          time: String(Math.round((state?.duration || 0) / 1000) || parseInt(elDuration?.value || HHA_CTX.duration || '60', 10) || 60),
-          run: HHA_CTX.run || 'play',
-          view: HHA_CTX.view || 'mobile',
-          pid: HHA_CTX.pid || 'anon',
-          name: qs('name', qs('nickName', 'Hero')),
-          studyId: HHA_CTX.studyId || '',
-          seed: Date.now(),
-          hub: jdPlannerReturnUrl(),
-          launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
-        });
-
-        location.href = replayUrl;
-        return;
-      }
-
-      const warmupUrl = jdBuildWarmupGateUrl({
-        mode: (state?.mode || elMode?.value || HHA_CTX.mode || 'training').toLowerCase(),
-        diff: (state?.diff || elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase(),
-        time: String(Math.round((state?.duration || 0) / 1000) || parseInt(elDuration?.value || HHA_CTX.duration || '60', 10) || 60),
-        run: HHA_CTX.run || 'play',
-        view: HHA_CTX.view || 'mobile',
-        pid: HHA_CTX.pid || 'anon',
-        name: qs('name', qs('nickName', 'Hero')),
-        studyId: HHA_CTX.studyId || '',
-        seed: Date.now(),
-        hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
-        launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
-      });
-
-      location.href = warmupUrl;
+      stopLoop();
+      clearRunTimers(state);
+      resetTransientUI();
+      clearArena();
+      showView('menu');
     });
 
-    document.querySelector('[data-action="back-menu"]')?.addEventListener('click', (ev) => {
-      ev.preventDefault();
-
-      const launcherUrl = jdBuildLauncherUrl({
-        mode: elMode?.value || HHA_CTX.mode || 'training',
-        diff: elDiff?.value || HHA_CTX.diff || 'normal',
-        time: String(parseInt(elDuration?.value || HHA_CTX.duration || HHA_CTX.time || '60', 10) || 60),
-        run: HHA_CTX.run || 'play',
-        view: HHA_CTX.view || 'mobile',
-        pid: HHA_CTX.pid || 'anon',
-        name: qs('name', qs('nickName', 'Hero')),
-        studyId: HHA_CTX.studyId || '',
-        seed: HHA_CTX.seed || Date.now(),
-        hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
-        launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
+    document.querySelectorAll('[data-action="back-menu"]').forEach((el) => {
+      if (el.__jdBoundBackMenu) return;
+      el.__jdBoundBackMenu = true;
+      el.addEventListener('click', () => {
+        hhFitnessGoHub({
+          score: Number(state?.score || 0),
+          miss: Number(state?.miss || 0),
+          bestStreak: Number(state?.maxCombo || 0),
+          result: state?.ended ? 'summary' : (state?.running ? 'in-progress' : 'menu')
+        });
+        goZoneNow();
       });
-
-      location.href = launcherUrl;
     });
 
     $('#btn-jump')?.addEventListener('click', () => jdHandleInput(state, 'jump'));
@@ -3552,28 +4340,28 @@
       jdFinishRun(state, 'stop-early');
     });
 
-    const continueFlowBtn =
-      document.getElementById('jd-btn-continue-flow') ||
-      document.querySelector('[data-action="continue-flow"]');
-
-    continueFlowBtn?.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      const url = state?.cooldownUrl || '';
-      if (url) location.href = url;
-    });
+    if (btnContinueFlow) {
+      btnContinueFlow.addEventListener('click', () => {
+        const summary = loadJson(`HHA_LAST_SUMMARY:jump-duck:${String(HHA_CTX.pid || 'anon')}`, loadJson('HHA_LAST_SUMMARY', null));
+        const href = btnContinueFlow.dataset.cooldownHref || jdBuildCooldownHref(summary);
+        location.href = href;
+      });
+    }
 
     if (playRoot) {
       playRoot.addEventListener('pointerdown', (ev) => {
         if (!state || !state.running) return;
+        jdAudioInit();
         const rect = playRoot.getBoundingClientRect();
         const midY = rect.top + rect.height / 2;
         if (ev.clientY < midY) jdHandleInput(state, 'jump');
         else jdHandleInput(state, 'duck');
-      }, { passive:true });
+      }, { passive: true });
     }
 
     window.addEventListener('keydown', (ev) => {
       if (!state || !state.running) return;
+      jdAudioInit();
       const k = String(ev.key || '').toLowerCase();
       if (k === 'arrowup' || k === 'w') jdHandleInput(state, 'jump');
       if (k === 'arrowdown' || k === 's') jdHandleInput(state, 'duck');
@@ -3598,7 +4386,7 @@
     });
 
     btnDlEvents?.addEventListener('click', () => {
-      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      const summary = loadJson(`HHA_LAST_SUMMARY:jump-duck:${String(HHA_CTX.pid || 'anon')}`, loadJson('HHA_LAST_SUMMARY', null));
       if (!summary || !Array.isArray(summary.eventLog || [])) {
         setLogStatus('ยังไม่มี event log ให้ export', false);
         return;
@@ -3609,7 +4397,7 @@
     });
 
     btnDlSessions?.addEventListener('click', () => {
-      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      const summary = loadJson(`HHA_LAST_SUMMARY:jump-duck:${String(HHA_CTX.pid || 'anon')}`, loadJson('HHA_LAST_SUMMARY', null));
       if (!summary || !summary.sessionFeatures) {
         setLogStatus('ยังไม่มี session summary ให้ export', false);
         return;
@@ -3620,7 +4408,7 @@
     });
 
     btnDlTeacher?.addEventListener('click', () => {
-      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      const summary = loadJson(`HHA_LAST_SUMMARY:jump-duck:${String(HHA_CTX.pid || 'anon')}`, loadJson('HHA_LAST_SUMMARY', null));
       if (!summary || !summary.teacherSummary) {
         setLogStatus('ยังไม่มี teacher summary ให้ export', false);
         return;
@@ -3639,6 +4427,8 @@
 
   function init() {
     injectPatchCSS();
+    jdEnsureFXLayer();
+    jdAudioInit();
     setHubLinks();
     updateResearchVisibility();
 
@@ -3651,7 +4441,17 @@
     resetPlayHUD();
     resetResultHUD();
     showView('menu');
-    jdMaybeAutoStartAfterWarmup();
+
+    if (jdShouldAutostart()) {
+      setTimeout(() => {
+        if (state && state.running) return;
+        startGame({
+          mode: (elMode?.value || HHA_CTX.mode || 'training').toLowerCase(),
+          diff: (elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase(),
+          durationMs: ((parseInt(elDuration?.value || HHA_CTX.duration || '60', 10) || 60) * 1000)
+        });
+      }, 80);
+    }
   }
 
   init();
