@@ -1,17 +1,13 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260414b-JUMPDUCK-FITNESS-ZONE-FINAL
+// FULL PATCH v20260414d-ZONE-FIRST-JUMPDUCK-FINAL
 
-import * as GateGames from './gate-games.js?v=20260414a-JUMPDUCK-FITNESS-ZONE-FINAL';
+import * as GateGames from './gate-games.js?v=20260414d-ZONE-FIRST-JUMPDUCK-FINAL';
 
-const PATCH = 'v20260414b-JUMPDUCK-FITNESS-ZONE-FINAL';
+const PATCH = 'v20260414d-ZONE-FIRST-JUMPDUCK-FINAL';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
 const MAX_HISTORY = 40;
-
-const FITNESS_ZONE_HUB = 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
-const CLASSIC_HUB = new URL('../hub.html', import.meta.url).href;
-const HUB_V2 = new URL('../hub-v2.html', import.meta.url).href;
 
 const normalizeGameId =
   typeof GateGames.normalizeGameId === 'function'
@@ -91,55 +87,6 @@ function todayStampBangkok() {
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   }
-}
-
-function resolveAbsoluteUrl(maybeUrl) {
-  if (!maybeUrl) return '';
-  try {
-    return new URL(maybeUrl, location.href).href;
-  } catch {
-    return '';
-  }
-}
-
-function isJumpDuck(ctxOrGame = '') {
-  const game =
-    typeof ctxOrGame === 'string'
-      ? ctxOrGame
-      : (ctxOrGame?.game || ctxOrGame?.gameRaw || '');
-  return normalizeGameId(game) === 'jump-duck';
-}
-
-function looksLikeHeroHealthHub(href = '') {
-  const s = String(href || '').toLowerCase();
-  return (
-    s.includes('/herohealth/hub.html') ||
-    s.includes('/herohealth/hub-v2.html') ||
-    s.includes('/herohealth/fitness-zone.html')
-  );
-}
-
-function looksLikeFitnessRoot(href = '') {
-  const s = String(href || '').toLowerCase();
-  return (
-    s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
-    s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
-    s.endsWith('/webxr-health-mobile/fitness') ||
-    s.endsWith('/webxr-health-mobile/fitness/')
-  );
-}
-
-function normalizeHubCandidate(ctx, raw = '') {
-  const abs = resolveAbsoluteUrl(raw);
-
-  if (isJumpDuck(ctx)) {
-    if (!abs) return FITNESS_ZONE_HUB;
-    if (looksLikeFitnessRoot(abs)) return FITNESS_ZONE_HUB;
-    return abs;
-  }
-
-  if (!abs) return '';
-  return abs;
 }
 
 function dailyKeyFromCtx(ctx, phase = '') {
@@ -280,10 +227,6 @@ function readCtx() {
 
   const phase = phaseRaw === 'cooldown' ? 'cooldown' : 'warmup';
 
-  const rawHub = params.get('hub') || '';
-  const rawHubRoot = params.get('hubRoot') || '';
-  const normalizedHub = normalizeHubCandidate({ game }, rawHub || rawHubRoot);
-
   return {
     patch: PATCH,
     params,
@@ -303,18 +246,17 @@ function readCtx() {
     seed: params.get('seed') || String(Date.now()),
     view: params.get('view') || 'mobile',
 
-    hub: normalizedHub || (isJumpDuck(game) ? FITNESS_ZONE_HUB : CLASSIC_HUB),
-    hubRoot: normalizedHub || (isJumpDuck(game) ? FITNESS_ZONE_HUB : CLASSIC_HUB),
+    hub: params.get('hub') || '',
+    hubRoot: params.get('hubRoot') || '',
     launcher: params.get('launcher') || '',
     cat: params.get('cat') || meta?.cat || '',
-    zone: params.get('zone') || params.get('cat') || meta?.cat || '',
+    zone: params.get('zone') || params.get('cat') || meta?.zone || meta?.cat || '',
     scene: params.get('scene') || '',
     wgskip: params.get('wgskip') || '',
     autostart: params.get('autostart') || '',
     next: params.get('next') || '',
     nextKey: params.get('nextKey') || '',
-    cdnext: params.get('cdnext') || '',
-    debug: params.get('debug') || ''
+    cdnext: params.get('cdnext') || ''
   };
 }
 
@@ -330,8 +272,8 @@ function ensureCoreStyle() {
       display:grid;
       place-items:center;
       background:
-        radial-gradient(circle at top, rgba(59,130,246,.18), transparent 32%),
-        linear-gradient(180deg, #f4fbff 0%, #edf8ff 52%, #fff8ef 100%);
+        radial-gradient(circle at top, rgba(255,255,255,.88), transparent 28%),
+        linear-gradient(180deg, #eefbff 0%, #f7fcff 52%, #fff9ef 100%);
       color:#514a43;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
@@ -339,17 +281,17 @@ function ensureCoreStyle() {
       width:min(1020px,100%);
       border-radius:26px;
       border:3px solid #d7edf7;
-      background:linear-gradient(180deg,#fff,#f9fdff);
-      box-shadow:0 18px 40px rgba(88,153,190,.14);
+      background:rgba(255,255,255,.96);
+      box-shadow:0 20px 60px rgba(88,153,190,.18);
       overflow:hidden;
     }
     .gate-hero{
       padding:22px 22px 14px;
-      border-bottom:1px solid rgba(148,163,184,.12);
+      border-bottom:2px solid rgba(215,237,247,.85);
     }
     .gate-kicker{
       font-size:12px;
-      font-weight:800;
+      font-weight:1000;
       letter-spacing:.08em;
       text-transform:uppercase;
       color:#72a5c7;
@@ -364,9 +306,9 @@ function ensureCoreStyle() {
     }
     .gate-sub{
       margin:0;
-      color:#756d66;
+      color:#6d6760;
       font-size:14px;
-      line-height:1.55;
+      line-height:1.65;
       font-weight:900;
     }
     .gate-meta{
@@ -380,9 +322,10 @@ function ensureCoreStyle() {
       border-radius:999px;
       border:2px solid #d7edf7;
       background:#fff;
-      color:#6f8290;
+      color:#6f8593;
       font-size:12px;
       font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
     .gate-topstats{
       display:grid;
@@ -394,23 +337,21 @@ function ensureCoreStyle() {
       border:2px solid #d7edf7;
       border-radius:18px;
       padding:12px;
-      background:#fff;
-      box-shadow:0 10px 24px rgba(88,153,190,.10);
+      background:linear-gradient(180deg, #ffffff, #f8fdff);
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
     .gate-topstat-label{
       font-size:12px;
       font-weight:1000;
       color:#7b92a0;
       text-transform:uppercase;
-      letter-spacing:.06em;
+      letter-spacing:.05em;
     }
     .gate-topstat-value{
       margin-top:6px;
-      font-size:22px;
+      font-size:20px;
       font-weight:1000;
-      color:#4f4841;
-      line-height:1.1;
-      word-break:break-word;
+      color:#514a43;
     }
     .gate-stage{
       min-height:360px;
@@ -421,7 +362,7 @@ function ensureCoreStyle() {
       min-height:324px;
       border-radius:22px;
       border:2px solid #d7edf7;
-      background:linear-gradient(180deg, #fff, #f9fdff);
+      background:linear-gradient(180deg, #ffffff, #f9fdff);
       padding:18px;
       position:relative;
       overflow:hidden;
@@ -435,13 +376,12 @@ function ensureCoreStyle() {
       font-size:clamp(22px,4vw,30px);
       line-height:1.1;
       color:#7a4b2e;
-      font-weight:1000;
     }
     .gate-info p{
       margin:0 auto;
-      color:#756d66;
+      color:#6d6760;
       max-width:720px;
-      line-height:1.65;
+      line-height:1.7;
       font-weight:900;
     }
     .gate-lines{
@@ -453,10 +393,10 @@ function ensureCoreStyle() {
     }
     .gate-line{
       border:2px solid #d7edf7;
-      border-radius:14px;
+      border-radius:16px;
       background:#fff;
       padding:10px 12px;
-      color:#5f7484;
+      color:#5d6c76;
       font-weight:900;
     }
     .gate-actions{
@@ -476,18 +416,19 @@ function ensureCoreStyle() {
       cursor:pointer;
       min-width:170px;
       transition:transform .15s ease, opacity .15s ease;
-      box-shadow:0 10px 24px rgba(88,153,190,.10);
     }
     .gate-btn:hover{ transform:translateY(-1px); }
     .gate-btn:active{ transform:translateY(0); }
     .gate-btn-primary{
-      background:linear-gradient(180deg, #85de77, #56c455);
+      background:linear-gradient(180deg, #84dc76, #58c33f);
       color:#173d12;
+      box-shadow:0 12px 26px rgba(88,195,63,.22);
     }
     .gate-btn-ghost{
       background:#fff;
-      color:#69727a;
+      color:#6c6a61;
       border:2px solid #d7edf7;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
     .gate-footer{
       padding:0 18px 18px;
@@ -499,8 +440,8 @@ function ensureCoreStyle() {
       transform:translateX(-50%);
       z-index:9999;
       max-width:min(90vw,720px);
-      background:rgba(255,255,255,.98);
-      color:#514a43;
+      background:#fff;
+      color:#5c5751;
       border:2px solid #d7edf7;
       border-radius:16px;
       padding:12px 14px;
@@ -518,8 +459,6 @@ function ensureCoreStyle() {
       margin-top:14px;
       white-space:pre-wrap;
       overflow:auto;
-      line-height:1.6;
-      font-weight:900;
     }
     .gate-mini-note{
       margin-top:10px;
@@ -565,7 +504,7 @@ function renderShell(root, ctx) {
 
           <div class="gate-meta">
             <div class="gate-chip">game: ${esc(ctx.game || '-')}</div>
-            <div class="gate-chip">cat: ${esc(ctx.cat || '-')}</div>
+            <div class="gate-chip">zone: ${esc(ctx.zone || '-')}</div>
             <div class="gate-chip">pid: ${esc(ctx.pid || '-')}</div>
             <div class="gate-chip">view: ${esc(ctx.view || '-')}</div>
             <div class="gate-chip">${esc(PATCH)}</div>
@@ -724,7 +663,6 @@ function buildRunParams(ctx) {
   if (ctx.roomId) p.set('roomId', ctx.roomId);
   if (ctx.studyId) p.set('studyId', ctx.studyId);
   if (ctx.name) p.set('name', ctx.name);
-  if (ctx.debug) p.set('debug', ctx.debug);
 
   p.set('wgskip', '1');
   return p;
@@ -742,6 +680,95 @@ async function quickExists(url) {
   }
 }
 
+function resolveAbsoluteUrl(maybeUrl) {
+  if (!maybeUrl) return '';
+  try {
+    return new URL(maybeUrl, location.href).href;
+  } catch {
+    return '';
+  }
+}
+
+function looksLikeHeroHealthHub(href = '') {
+  const s = String(href || '').toLowerCase();
+  return (
+    s.includes('/herohealth/hub.html') ||
+    s.includes('/herohealth/hub-v2.html')
+  );
+}
+
+function looksLikeFitnessRoot(href = '') {
+  const s = String(href || '').toLowerCase();
+  return (
+    s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
+    s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
+    s.endsWith('/webxr-health-mobile/fitness') ||
+    s.endsWith('/webxr-health-mobile/fitness/')
+  );
+}
+
+function zonePageName(zone = '') {
+  const z = String(zone || '').toLowerCase();
+  if (z === 'fitness') return 'fitness-zone.html';
+  if (z === 'nutrition') return 'nutrition-zone.html';
+  if (z === 'hygiene') return 'hygiene-zone.html';
+  return 'hub.html';
+}
+
+function zoneReturnLabel(ctx) {
+  const z = String(ctx?.meta?.zone || ctx?.zone || '').toLowerCase();
+  if (z === 'fitness') return 'กลับ Fitness Zone';
+  if (z === 'nutrition') return 'กลับ Nutrition Zone';
+  if (z === 'hygiene') return 'กลับ Hygiene Zone';
+  return 'กลับหน้าหลัก';
+}
+
+function resolveZoneHomeHref(ctx) {
+  const name = zonePageName(ctx?.meta?.zone || ctx?.zone || '');
+  return new URL(`../${name}`, import.meta.url).href;
+}
+
+function classifyCompletionHref(href = '') {
+  const s = String(href || '').toLowerCase();
+
+  if (!href) return { kind: '', label: '' };
+  if (s.includes('/herohealth/fitness-zone.html')) return { kind: 'zone', label: 'กลับ Fitness Zone' };
+  if (s.includes('/herohealth/nutrition-zone.html')) return { kind: 'zone', label: 'กลับ Nutrition Zone' };
+  if (s.includes('/herohealth/hygiene-zone.html')) return { kind: 'zone', label: 'กลับ Hygiene Zone' };
+  if (looksLikeHeroHealthHub(s)) return { kind: 'hub', label: 'กลับหน้าหลัก' };
+  if (s.includes('launcher')) return { kind: 'launcher', label: 'กลับหน้าเลือกเกม' };
+  if (s.includes('summary')) return { kind: 'summary', label: 'ไปหน้าสรุป' };
+  return { kind: 'next', label: 'ไปต่อ' };
+}
+
+function resolveHubHref(ctx) {
+  const zoneHome = resolveZoneHomeHref(ctx);
+  if (ctx?.meta?.zone) return zoneHome;
+
+  const fallbackV2 = new URL('../hub-v2.html', import.meta.url).href;
+  const fallbackClassic = new URL('../hub.html', import.meta.url).href;
+
+  const rawHubRoot = String(ctx?.hubRoot || '').trim();
+  const rawHub = String(ctx?.hub || '').trim();
+
+  const hubRootAbs = resolveAbsoluteUrl(rawHubRoot);
+  const hubAbs = resolveAbsoluteUrl(rawHub);
+
+  if (hubRootAbs) {
+    if (looksLikeHeroHealthHub(hubRootAbs)) return hubRootAbs;
+    if (looksLikeFitnessRoot(hubRootAbs)) return zoneHome;
+    return hubRootAbs;
+  }
+
+  if (hubAbs) {
+    if (looksLikeFitnessRoot(hubAbs)) return zoneHome;
+    if (looksLikeHeroHealthHub(hubAbs)) return hubAbs;
+    return hubAbs;
+  }
+
+  return rawHubRoot.toLowerCase().includes('hub-v2') ? fallbackV2 : fallbackClassic;
+}
+
 function resolveLauncherHref(ctx) {
   const rawLauncher = String(ctx?.launcher || '').trim();
   if (rawLauncher) {
@@ -749,8 +776,8 @@ function resolveLauncherHref(ctx) {
     if (abs) return abs;
   }
 
-  if (isJumpDuck(ctx)) {
-    return JD_LAUNCHER_FALLBACK(ctx);
+  if (normalizeGameId(ctx?.game) === 'jump-duck') {
+    return new URL('../../fitness/jumpduck.html', import.meta.url).href;
   }
 
   const rawCdNext = String(ctx?.cdnext || ctx?.params?.get?.('cdnext') || '').trim();
@@ -764,7 +791,7 @@ function resolveLauncherHref(ctx) {
 
   if (metaSummary) {
     try {
-      const url = new URL(metaSummary, location.href);
+      const url = new URL(metaSummary, import.meta.url);
 
       if (ctx?.pid) url.searchParams.set('pid', ctx.pid);
       if (ctx?.name) url.searchParams.set('name', ctx.name);
@@ -772,41 +799,14 @@ function resolveLauncherHref(ctx) {
       if (ctx?.time) url.searchParams.set('time', ctx.time);
       if (ctx?.view) url.searchParams.set('view', ctx.view);
 
-      const hubRoot = resolveHubHref(ctx);
-      if (hubRoot) url.searchParams.set('hub', hubRoot);
+      const zoneHome = resolveZoneHomeHref(ctx);
+      if (zoneHome) url.searchParams.set('hub', zoneHome);
 
       return url.href;
     } catch {}
   }
 
   return '';
-}
-
-function JD_LAUNCHER_FALLBACK(ctx) {
-  try {
-    const url = new URL('../fitness/jumpduck.html', import.meta.url);
-
-    url.searchParams.set('pid', ctx?.pid || 'anon');
-    if (ctx?.name) url.searchParams.set('name', ctx.name);
-    if (ctx?.studyId) url.searchParams.set('studyId', ctx.studyId);
-    url.searchParams.set('run', ctx?.run || 'play');
-    url.searchParams.set('diff', ctx?.diff || 'normal');
-    url.searchParams.set('time', ctx?.time || '60');
-    url.searchParams.set('view', ctx?.view || 'mobile');
-    url.searchParams.set('seed', ctx?.seed || String(Date.now()));
-    url.searchParams.set('mode', ctx?.params?.get('mode') || 'training');
-    url.searchParams.set('game', 'jump-duck');
-    url.searchParams.set('gameId', 'jump-duck');
-    url.searchParams.set('theme', 'jump-duck');
-    url.searchParams.set('zone', 'fitness');
-    url.searchParams.set('cat', 'fitness');
-    url.searchParams.set('hub', resolveHubHref(ctx));
-    if (ctx?.debug) url.searchParams.set('debug', ctx.debug);
-
-    return url.href;
-  } catch {
-    return 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
-  }
 }
 
 async function resolveRunHref(ctx) {
@@ -836,7 +836,7 @@ async function resolveRunHref(ctx) {
 
   for (const rel of candidates) {
     try {
-      const url = new URL(rel, location.href);
+      const url = new URL(rel, import.meta.url);
       url.search = params.toString();
 
       const ok = await quickExists(url.href);
@@ -847,51 +847,13 @@ async function resolveRunHref(ctx) {
     } catch {}
   }
 
-  const fallback = new URL(candidates[0], location.href);
+  const fallback = new URL(candidates[0], import.meta.url);
   fallback.search = params.toString();
   console.log('[GATE] resolveRunHref final fallback', fallback.href);
   return fallback.href;
 }
 
-function resolveHubHref(ctx) {
-  if (isJumpDuck(ctx)) {
-    return FITNESS_ZONE_HUB;
-  }
-
-  const raw = String(ctx?.hubRoot || ctx?.hub || '').trim();
-
-  try {
-    if (!raw) return CLASSIC_HUB;
-
-    const resolved = new URL(raw, location.href).href;
-    if (looksLikeHeroHealthHub(resolved)) return resolved;
-
-    return raw.toLowerCase().includes('hub-v2') ? HUB_V2 : CLASSIC_HUB;
-  } catch {
-    return CLASSIC_HUB;
-  }
-}
-
-function classifyCompletionHref(href = '') {
-  const s = String(href || '').toLowerCase();
-
-  if (!href) return { kind: '', label: '' };
-  if (s.includes('/herohealth/fitness-zone.html')) return { kind: 'fitness-zone', label: 'กลับ Fitness Zone' };
-  if (looksLikeHeroHealthHub(s)) return { kind: 'hub', label: 'กลับหน้าหลัก' };
-  if (s.includes('launcher')) return { kind: 'launcher', label: 'กลับหน้าเลือกเกม' };
-  if (s.includes('summary')) return { kind: 'summary', label: 'ไปหน้าสรุป' };
-  return { kind: 'next', label: 'ไปต่อ' };
-}
-
 function resolveCompletionTarget(ctx, payload = {}) {
-  if (isJumpDuck(ctx)) {
-    return {
-      href: FITNESS_ZONE_HUB,
-      kind: 'fitness-zone',
-      label: 'กลับ Fitness Zone'
-    };
-  }
-
   const fromPayload = resolveAbsoluteUrl(String(payload?.summaryHref || '').trim());
   if (fromPayload) {
     console.log('[GATE] resolveCompletionTarget via payload', fromPayload);
@@ -899,6 +861,35 @@ function resolveCompletionTarget(ctx, payload = {}) {
       href: fromPayload,
       ...classifyCompletionHref(fromPayload)
     };
+  }
+
+  if (ctx.phase === 'cooldown' && ctx?.meta?.zone) {
+    const zoneHome = resolveZoneHomeHref(ctx);
+    console.log('[GATE] resolveCompletionTarget via zoneHome', zoneHome);
+    return {
+      href: zoneHome,
+      ...classifyCompletionHref(zoneHome)
+    };
+  }
+
+  const rawCdNext = String(ctx.params.get('cdnext') || ctx.cdnext || '').trim();
+  if (rawCdNext) {
+    const href = resolveAbsoluteUrl(rawCdNext);
+    if (href) {
+      if (looksLikeFitnessRoot(href) && ctx?.meta?.zone === 'fitness') {
+        const zoneHome = resolveZoneHomeHref(ctx);
+        return {
+          href: zoneHome,
+          ...classifyCompletionHref(zoneHome)
+        };
+      }
+
+      console.log('[GATE] resolveCompletionTarget via cdnext', href);
+      return {
+        href,
+        ...classifyCompletionHref(href)
+      };
+    }
   }
 
   const fromLauncher = resolveLauncherHref(ctx);
@@ -910,21 +901,9 @@ function resolveCompletionTarget(ctx, payload = {}) {
     };
   }
 
-  const rawCdNext = String(ctx.params.get('cdnext') || ctx.cdnext || '').trim();
-  if (rawCdNext) {
-    const href = resolveAbsoluteUrl(rawCdNext);
-    if (href) {
-      console.log('[GATE] resolveCompletionTarget via cdnext', href);
-      return {
-        href,
-        ...classifyCompletionHref(href)
-      };
-    }
-  }
-
-  const metaSummary = ctx.meta?.defaults?.summaryPath || '';
+  const metaSummary = ctx.meta?.defaults?.summaryPath || ctx.meta?.summaryPath || '';
   if (metaSummary) {
-    const url = new URL(metaSummary, location.href);
+    const url = new URL(metaSummary, import.meta.url);
 
     if (ctx.pid) url.searchParams.set('pid', ctx.pid);
     if (ctx.name) url.searchParams.set('name', ctx.name);
@@ -1177,9 +1156,9 @@ async function bootPhase(stage, ctx, api) {
     console.error('[gate-core] phase runner failed:', err);
     renderError(stage, 'Phase runner failed', err);
     setActions(api.footer, [
-      { label: 'กลับ HUB', onClick: () => goHub(ctx) },
+      { label: zoneReturnLabel(ctx), onClick: () => goHub(ctx) },
       {
-        label: ctx.phase === 'cooldown' ? 'ไปต่อ' : 'เข้าเกมหลัก',
+        label: ctx.phase === 'cooldown' ? zoneReturnLabel(ctx) : 'เข้าเกมหลัก',
         primary: true,
         onClick: () => api.complete({ source: 'error-skip' })
       }
@@ -1188,56 +1167,25 @@ async function bootPhase(stage, ctx, api) {
 }
 
 function showAlreadyDone(stage, footer, ctx) {
+  const zoneLabel = zoneReturnLabel(ctx);
+
   if (ctx.phase === 'cooldown') {
-    if (isJumpDuck(ctx)) {
-      renderInfo(
-        stage,
-        'ทำ cooldown วันนี้แล้ว',
-        'วันนี้ทำ cooldown ของ JumpDuck ไปแล้ว ระบบจะกลับ Fitness Zone ทันที'
-      );
-
-      setActions(footer, [
-        { label: 'กลับ Fitness Zone', primary: true, onClick: () => { location.href = FITNESS_ZONE_HUB; } }
-      ]);
-
-      setTimeout(() => {
-        location.href = FITNESS_ZONE_HUB;
-      }, 180);
-      return;
-    }
-
-    const launcherHref = resolveLauncherHref(ctx);
-
-    if (launcherHref) {
-      renderInfo(
-        stage,
-        'ทำ cooldown วันนี้แล้ว',
-        'วันนี้ทำ cooldown ไปแล้ว ระบบจะพากลับ launcher ทันที'
-      );
-
-      setActions(footer, [
-        { label: 'กลับ Launcher', primary: true, onClick: () => { location.href = launcherHref; } },
-        { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
-      ]);
-
-      setTimeout(() => {
-        location.href = launcherHref;
-      }, 180);
-      return;
-    }
+    const zoneHref = resolveZoneHomeHref(ctx);
 
     renderInfo(
       stage,
       'ทำ cooldown วันนี้แล้ว',
-      'วันนี้ดูสรุป / cooldown ไปแล้ว ระบบจะกลับหน้าหลักทันที'
+      ctx?.meta?.zone
+        ? 'วันนี้ทำ cooldown ไปแล้ว ระบบจะกลับหน้าโซนทันที'
+        : 'วันนี้ดูสรุป / cooldown ไปแล้ว ระบบจะกลับหน้าหลักทันที'
     );
 
     setActions(footer, [
-      { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
+      { label: zoneLabel, primary: true, onClick: () => { location.href = zoneHref; } }
     ]);
 
     setTimeout(() => {
-      goHub(ctx);
+      location.href = zoneHref;
     }, 180);
     return;
   }
@@ -1258,31 +1206,13 @@ function showAlreadyDone(stage, footer, ctx) {
           goRun(ctx);
         }
       },
-      { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+      { label: zoneLabel, onClick: () => goHub(ctx) }
     ]);
 
     setTimeout(() => {
       if (trySpecialGateRedirect(ctx, 'warmup', { source: 'already-done' })) return;
       goRun(ctx);
     }, 350);
-    return;
-  }
-
-  if (isJumpDuck(ctx)) {
-    renderInfo(
-      stage,
-      'ทำ warmup วันนี้แล้ว',
-      'warmup ของ JumpDuck วันนี้ทำไปแล้ว ระบบจะพาเข้าเกมหลักต่อทันที'
-    );
-
-    setActions(footer, [
-      { label: 'เข้า JumpDuck', primary: true, onClick: () => goRun(ctx) },
-      { label: 'กลับ Fitness Zone', onClick: () => { location.href = FITNESS_ZONE_HUB; } }
-    ]);
-
-    setTimeout(() => {
-      goRun(ctx);
-    }, 300);
     return;
   }
 
@@ -1294,7 +1224,7 @@ function showAlreadyDone(stage, footer, ctx) {
 
   setActions(footer, [
     { label: 'เข้าเกมหลัก', primary: true, onClick: () => goRun(ctx) },
-    { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+    { label: zoneLabel, onClick: () => goHub(ctx) }
   ]);
 
   setTimeout(() => {
@@ -1310,7 +1240,7 @@ function showInvalidGame(stage, footer, ctx) {
   );
 
   setActions(footer, [
-    { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) }
+    { label: zoneReturnLabel(ctx), primary: true, onClick: () => goHub(ctx) }
   ]);
 }
 
@@ -1336,20 +1266,12 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
   if (ctx.phase === 'cooldown') {
     applyCooldownSnapshot(refs, ctx);
-
-    if (isJumpDuck(ctx)) {
-      setHeroSub(
-        refs,
-        'สรุปผลล่าสุดของ JumpDuck พร้อมแล้ว เมื่อจบ cooldown ระบบจะกลับ Fitness Zone'
-      );
-    } else {
-      setHeroSub(
-        refs,
-        resolveLauncherHref(ctx)
-          ? 'สรุปผลล่าสุดพร้อมแล้ว เมื่อจบ cooldown ระบบจะพากลับ launcher ของเกมนี้'
-          : 'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดไปหน้าถัดไปหรือกลับหน้าหลัก'
-      );
-    }
+    setHeroSub(
+      refs,
+      ctx?.meta?.zone
+        ? `สรุปผลล่าสุดพร้อมแล้ว เมื่อจบ cooldown ระบบจะพากลับ ${zoneReturnLabel(ctx).replace('กลับ ', '')}`
+        : 'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดไปหน้าถัดไปหรือกลับหน้าหลัก'
+    );
   }
 
   if (!ctx.game || !ctx.meta) {
@@ -1398,29 +1320,27 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
       const subtitle = payload.subtitle ||
         (ctx.phase === 'cooldown'
-          ? (isJumpDuck(ctx)
-              ? 'บันทึกผลล่าสุดเรียบร้อย กำลังพากลับ Fitness Zone'
+          ? (ctx?.meta?.zone
+              ? `บันทึกผลล่าสุดเรียบร้อย ระบบพร้อมพากลับ ${zoneReturnLabel(ctx).replace('กลับ ', '')}`
               : 'บันทึกผลล่าสุดเรียบร้อย ตรวจดูสรุปได้จากหน้านี้ แล้วค่อยไปหน้าถัดไป')
           : 'warmup เสร็จแล้ว ระบบกำลังพาเข้าเกมหลัก');
 
       const extra = linesHtml(payload.lines || []);
+      const zoneLabel = zoneReturnLabel(ctx);
 
       if (ctx.phase === 'warmup') {
         renderInfo(stage, title, subtitle, extra);
 
         setActions(footer, [
           {
-            label: isJumpDuck(ctx) ? 'เข้า JumpDuck' : 'เข้าเกมหลัก',
+            label: 'เข้าเกมหลัก',
             primary: true,
             onClick: () => {
               if (trySpecialGateRedirect(ctx, 'warmup', payload)) return;
               goRun(ctx);
             }
           },
-          {
-            label: isJumpDuck(ctx) ? 'กลับ Fitness Zone' : 'กลับ HUB',
-            onClick: () => goHub(ctx)
-          }
+          { label: zoneLabel, onClick: () => goHub(ctx) }
         ]);
 
         await delay(180);
@@ -1450,6 +1370,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
         phase: ctx.phase,
         game: ctx.game,
         cat: ctx.cat,
+        zone: ctx.zone,
         pid: ctx.pid,
         diff: ctx.diff,
         time: ctx.time,
@@ -1467,9 +1388,9 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       renderInfo(stage, title, subtitle, extra);
       applyCooldownSnapshot(refs, ctx);
 
-      if (completionTarget.href && (completionTarget.kind === 'hub' || completionTarget.kind === 'fitness-zone')) {
+      if (completionTarget.href && (completionTarget.kind === 'hub' || completionTarget.kind === 'zone')) {
         setActions(footer, [
-          { label: completionTarget.label || 'กลับหน้าหลัก', primary: true, onClick: () => goCompletion(ctx, payload) }
+          { label: completionTarget.label || zoneLabel, primary: true, onClick: () => goCompletion(ctx, payload) }
         ]);
         return;
       }
@@ -1477,7 +1398,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       if (completionTarget.href) {
         setActions(footer, [
           { label: completionTarget.label || 'ไปต่อ', primary: true, onClick: () => goCompletion(ctx, payload) },
-          { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
+          { label: zoneLabel, onClick: () => goHub(ctx) }
         ]);
         return;
       }
@@ -1486,13 +1407,13 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       if (launcherHref) {
         setActions(footer, [
           { label: 'กลับ Launcher', primary: true, onClick: () => { location.href = launcherHref; } },
-          { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
+          { label: zoneLabel, onClick: () => goHub(ctx) }
         ]);
         return;
       }
 
       setActions(footer, [
-        { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
+        { label: zoneLabel, primary: true, onClick: () => goHub(ctx) }
       ]);
 
       return;
@@ -1508,11 +1429,9 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       console.error('[gate-core] fail:', err);
       renderError(stage, 'Gate fail', err);
       setActions(footer, [
-        { label: isJumpDuck(ctx) ? 'กลับ Fitness Zone' : 'กลับ HUB', onClick: () => goHub(ctx) },
+        { label: zoneReturnLabel(ctx), onClick: () => goHub(ctx) },
         {
-          label: ctx.phase === 'cooldown'
-            ? (isJumpDuck(ctx) ? 'กลับ Fitness Zone' : 'ไปต่อ')
-            : (isJumpDuck(ctx) ? 'เข้า JumpDuck' : 'เข้าเกมหลัก'),
+          label: ctx.phase === 'cooldown' ? zoneReturnLabel(ctx) : 'เข้าเกมหลัก',
           primary: true,
           onClick: () => api.complete({ source: 'fail-skip' })
         }
