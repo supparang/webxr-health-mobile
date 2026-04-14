@@ -5,29 +5,22 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Duet Runtime</title>
   <meta name="theme-color" content="#9fe3ff" />
-  <link rel="icon" href="../favicon.ico" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
-      --sky3:#eefcff;
-      --grass1:#8de15d;
-      --grass2:#6ccb48;
-
-      --card:#fffef9;
+      --sky3:#fff7d8;
       --line:#bfe3f2;
       --text:#4d4a42;
       --muted:#7b7a72;
-
-      --blue:#7fcfff;
-      --blue2:#58b7f5;
       --green:#7ed957;
       --green2:#58c33f;
-      --warn:#ffd37a;
-      --warn2:#ffb84d;
-      --danger:#ffd2d2;
-      --danger2:#ffb0b0;
-
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd75a;
+      --yellow2:#ffbf3f;
+      --card:#fffef9;
       --shadow:0 18px 40px rgba(86,155,194,.16);
 
       --sat:env(safe-area-inset-top,0px);
@@ -36,7 +29,7 @@
       --sal:env(safe-area-inset-left,0px);
     }
 
-    *{ box-sizing:border-box; }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
     html,body{
       margin:0;
@@ -44,8 +37,8 @@
       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 12% 8%, rgba(255,255,255,.84), transparent 18%),
-        radial-gradient(circle at 86% 10%, rgba(255,255,255,.72), transparent 18%),
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.90), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
         linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
       overflow:hidden;
     }
@@ -57,340 +50,478 @@
       width:100vw;
       height:100dvh;
       overflow:hidden;
+      isolation:isolate;
       background:
-        radial-gradient(circle at 15% 14%, rgba(255,255,255,.72), transparent 15%),
-        radial-gradient(circle at 83% 10%, rgba(255,255,255,.60), transparent 16%),
-        linear-gradient(180deg,#8fd8ff 0%, #bfe8ff 48%, #eefcff 100%);
+        radial-gradient(circle at 15% 12%, rgba(255,255,255,.72), transparent 16%),
+        radial-gradient(circle at 82% 15%, rgba(255,255,255,.52), transparent 14%),
+        linear-gradient(180deg,#95dafd 0%, #bde9ff 52%, #eef9ff 86%, #c9f2ad 100%);
     }
 
     .cloud{
       position:absolute;
       border-radius:999px;
-      background:rgba(255,255,255,.65);
+      background:rgba(255,255,255,.45);
       filter:blur(1px);
       box-shadow:
-        42px 0 0 4px rgba(255,255,255,.70),
-        82px 6px 0 0 rgba(255,255,255,.58);
-      opacity:.95;
+        42px 0 0 2px rgba(255,255,255,.44),
+        84px 6px 0 0 rgba(255,255,255,.36);
       pointer-events:none;
-      animation:cloudFloat linear infinite;
+      animation:floatCloud linear infinite;
     }
 
-    .cloud.c1{ width:110px; height:34px; left:8%; top:12%; animation-duration:26s; }
-    .cloud.c2{ width:130px; height:38px; left:62%; top:14%; animation-duration:32s; }
-    .cloud.c3{ width:92px; height:28px; left:28%; top:24%; animation-duration:29s; }
+    .cloud.c1{ width:120px; height:34px; left:6%; top:11%; animation-duration:28s; }
+    .cloud.c2{ width:145px; height:38px; left:62%; top:16%; animation-duration:32s; }
+    .cloud.c3{ width:108px; height:30px; left:28%; top:24%; animation-duration:24s; }
 
-    @keyframes cloudFloat{
+    @keyframes floatCloud{
       from{ transform:translateX(-3vw); }
       to{ transform:translateX(10vw); }
     }
 
-    .hud{
+    #hud{
       position:absolute;
-      left:8px;
-      right:8px;
-      top:calc(8px + var(--sat));
+      left:0; right:0; top:0;
       z-index:30;
+      padding:
+        calc(10px + var(--sat))
+        calc(12px + var(--sar))
+        8px
+        calc(12px + var(--sal));
       display:grid;
-      gap:6px;
+      gap:8px;
       pointer-events:none;
     }
 
     .hud-row{
       display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:6px;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+      align-items:center;
     }
 
     .pill{
-      min-height:42px;
+      min-height:40px;
+      border-radius:999px;
+      border:2px solid rgba(191,227,242,.96);
+      background:rgba(255,255,255,.92);
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+      color:#5d5952;
+      font-size:12px;
+      font-weight:1000;
       display:flex;
       align-items:center;
       justify-content:center;
       text-align:center;
       padding:8px 10px;
-      border-radius:999px;
-      background:rgba(255,255,255,.90);
-      border:3px solid var(--line);
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      color:#5d5952;
-      font-size:13px;
-      font-weight:1000;
       pointer-events:auto;
-      user-select:none;
     }
 
     .banner{
       justify-self:center;
-      min-height:40px;
-      padding:10px 16px;
+      max-width:min(92vw,460px);
+      min-height:38px;
+      padding:8px 14px;
       border-radius:999px;
-      background:#fff;
-      border:3px solid var(--line);
+      border:2px solid rgba(191,227,242,.96);
+      background:rgba(255,255,255,.94);
       box-shadow:0 8px 18px rgba(86,155,194,.10);
-      color:#6a655e;
-      font-size:15px;
+      color:#6b665e;
+      font-size:12px;
       font-weight:1000;
-      pointer-events:auto;
-      user-select:none;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       text-align:center;
+      opacity:0;
+      transform:translateY(-4px);
+      transition:.18s ease;
+      pointer-events:none;
     }
 
-    #playfield{
+    .banner.show{
+      opacity:1;
+      transform:translateY(0);
+    }
+
+    #arena{
       position:absolute;
-      inset:92px 0 102px 0;
+      inset:0;
       overflow:hidden;
-      z-index:10;
+      z-index:5;
     }
 
-    .ground{
+    #ground{
       position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:92px;
-      background:linear-gradient(180deg,var(--grass1),var(--grass2));
-      box-shadow:inset 0 4px 0 rgba(255,255,255,.25);
-      z-index:8;
+      left:0; right:0; bottom:0;
+      height:16%;
+      background:
+        linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,0) 22%),
+        linear-gradient(180deg,#94e462,#67c94c);
+      box-shadow:inset 0 4px 0 rgba(255,255,255,.24);
     }
 
     .item{
       position:absolute;
-      border:none;
-      cursor:pointer;
-      border-radius:24px;
+      width:84px;
+      height:84px;
+      border-radius:26px;
+      border:3px solid #d7edf7;
+      background:rgba(255,255,255,.92);
+      box-shadow:0 12px 24px rgba(86,155,194,.16);
       display:grid;
       place-items:center;
-      box-shadow:0 10px 24px rgba(86,155,194,.14);
-      border:3px solid var(--line);
-      background:rgba(255,255,255,.92);
       user-select:none;
       -webkit-user-select:none;
+      cursor:pointer;
       touch-action:manipulation;
-      will-change:transform;
     }
 
     .item.good{
       background:linear-gradient(180deg,#f7fff1,#ffffff);
+      border-color:#d9efcf;
     }
 
     .item.junk{
-      background:linear-gradient(180deg,#fff3f3,#ffffff);
-      border-color:var(--danger);
+      background:linear-gradient(180deg,#fff2f2,#ffffff);
+      border-color:#ffd4d4;
     }
 
-    .emoji{
+    .item .emoji{
       font-size:38px;
       line-height:1;
       pointer-events:none;
     }
 
-    .label{
+    .item .label{
       position:absolute;
-      left:6px;
-      right:6px;
-      bottom:4px;
+      left:0; right:0; bottom:6px;
       text-align:center;
       font-size:10px;
       font-weight:1000;
-      color:#68645c;
+      color:#615d56;
       pointer-events:none;
     }
 
     .fx{
       position:absolute;
       transform:translate(-50%,-50%);
-      z-index:25;
+      z-index:26;
       font-size:18px;
       font-weight:1000;
+      text-shadow:0 8px 18px rgba(0,0,0,.10);
       pointer-events:none;
-      animation:floatFx .7s ease forwards;
-      text-shadow:0 8px 18px rgba(0,0,0,.12);
+      animation:fxUp .72s ease forwards;
     }
 
-    @keyframes floatFx{
+    @keyframes fxUp{
       from{ opacity:1; transform:translate(-50%,-10%); }
       to{ opacity:0; transform:translate(-50%,-150%); }
     }
 
-    .controls{
+    #controls{
       position:absolute;
-      left:0;
-      right:0;
-      bottom:calc(10px + var(--sab));
-      z-index:35;
+      left:0; right:0; bottom:0;
+      z-index:32;
+      padding:
+        10px
+        calc(12px + var(--sar))
+        calc(12px + var(--sab))
+        calc(12px + var(--sal));
       display:flex;
       justify-content:flex-end;
       gap:10px;
-      padding:0 14px;
       pointer-events:none;
     }
 
-    .btn{
-      appearance:none;
+    .ctl{
+      pointer-events:auto;
+      min-width:116px;
+      min-height:46px;
       border:none;
-      cursor:pointer;
-      min-height:48px;
-      padding:12px 18px;
       border-radius:18px;
-      font-size:16px;
+      font-size:15px;
       font-weight:1000;
       box-shadow:var(--shadow);
-      pointer-events:auto;
+      cursor:pointer;
     }
 
-    .btn.pause{
+    .ctl.pause{
       background:linear-gradient(180deg,var(--blue),var(--blue2));
       color:#08374d;
     }
 
-    .btn.end{
-      background:linear-gradient(180deg,var(--green),var(--green2));
-      color:#173b0b;
+    .ctl.end{
+      background:linear-gradient(180deg,#a8e66d,#67ca4c);
+      color:#163c0b;
     }
 
-    .btn.warn{
-      background:linear-gradient(180deg,var(--warn),var(--warn2));
-      color:#5a3b11;
-    }
-
-    .overlay{
+    #pauseOverlay,
+    #summaryOverlay{
       position:absolute;
       inset:0;
       z-index:80;
       display:none;
       place-items:center;
       padding:16px;
-      background:rgba(255,255,255,.34);
+      background:rgba(255,255,255,.28);
       backdrop-filter:blur(6px);
     }
 
-    .overlay.show{ display:grid; }
+    #pauseOverlay.show,
+    #summaryOverlay.show{
+      display:grid;
+    }
 
-    .card{
-      width:min(92vw,620px);
+    .dialog{
+      width:min(92vw,760px);
       max-height:88vh;
       overflow:auto;
-      border-radius:28px;
-      border:4px solid var(--line);
+      border-radius:30px;
+      border:5px solid var(--line);
       background:linear-gradient(180deg,#fffef9,#f8fff3);
       box-shadow:0 24px 52px rgba(86,155,194,.22);
-      padding:18px;
+      color:#5c5850;
     }
 
-    .center{ text-align:center; }
-
-    .medal{
-      width:100px;
-      height:100px;
-      margin:0 auto 10px;
-      border-radius:28px;
-      display:grid;
-      place-items:center;
-      font-size:48px;
-      background:linear-gradient(180deg,#fff8d8,#fffef6);
-      border:4px solid #d7edf7;
+    .pause-card{
+      width:min(88vw,420px);
+      padding:20px 18px;
+      text-align:center;
     }
 
-    .grade{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:110px;
-      padding:10px 18px;
-      border-radius:999px;
-      background:#fff;
-      border:3px solid #d7edf7;
-      color:#5a6f80;
-      font-size:30px;
+    .pause-title{
+      font-size:28px;
+      line-height:1.06;
       font-weight:1000;
-    }
-
-    .title{
-      margin:12px 0 0;
-      font-size:42px;
-      line-height:1.04;
       color:#67a91c;
-      font-weight:1000;
     }
 
-    .sub{
+    .pause-sub{
       margin-top:8px;
-      font-size:16px;
+      font-size:14px;
       line-height:1.6;
-      color:var(--muted);
-      font-weight:1000;
+      color:#7b7a72;
+      font-weight:900;
     }
 
-    .stars{
-      margin-top:10px;
-      font-size:30px;
-      line-height:1;
-    }
-
-    .summary-grid{
-      margin-top:18px;
-      display:grid;
-      grid-template-columns:1fr;
-      gap:12px;
-    }
-
-    .summary-stat{
-      padding:16px;
-      border-radius:18px;
-      border:3px solid #d7edf7;
-      background:#fff;
-    }
-
-    .summary-stat .k{
-      font-size:13px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .summary-stat .v{
-      margin-top:8px;
-      font-size:54px;
-      line-height:1;
-      font-weight:1000;
-      color:var(--text);
-    }
-
-    .summary-actions{
+    .pause-actions{
       margin-top:16px;
       display:grid;
       gap:10px;
     }
 
-    @media (max-width:720px){
+    .pause-btn{
+      min-height:46px;
+      border:none;
+      border-radius:18px;
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .pause-btn.resume{
+      background:linear-gradient(180deg,#7ed957,#58c33f);
+      color:#173b0b;
+    }
+
+    .pause-btn.hub{
+      background:#fff;
+      border:3px solid #d7edf7;
+      color:#6b665e;
+    }
+
+    .summary-card{
+      padding:18px 18px 20px;
+    }
+
+    .summary-head{
+      text-align:center;
+    }
+
+    .summary-medal{
+      width:138px;
+      height:138px;
+      margin:0 auto;
+      border-radius:36px;
+      border:5px solid #d7edf7;
+      background:linear-gradient(180deg,#fff7d9,#fffef7);
+      display:grid;
+      place-items:center;
+      font-size:66px;
+      box-shadow:0 14px 26px rgba(86,155,194,.12);
+    }
+
+    .summary-grade{
+      margin:16px auto 0;
+      width:min(210px,72vw);
+      min-height:74px;
+      border-radius:999px;
+      border:4px solid #d7edf7;
+      background:#fff;
+      display:grid;
+      place-items:center;
+      font-size:56px;
+      font-weight:1000;
+      color:#5e7386;
+    }
+
+    .summary-grade.grade-s{ color:#a76400; border-color:#ffe08a; background:#fff8d9; }
+    .summary-grade.grade-a{ color:#4c8c30; border-color:#cfe9b8; background:#f7fff0; }
+    .summary-grade.grade-b{ color:#5c7084; border-color:#cdeeff; background:#f5fbff; }
+    .summary-grade.grade-c{ color:#8b6a53; border-color:#ead7c6; background:#fff8f2; }
+
+    .summary-title{
+      margin:18px 0 0;
+      font-size:34px;
+      line-height:1.04;
+      font-weight:1000;
+      color:#67a91c;
+    }
+
+    .summary-sub{
+      margin:10px auto 0;
+      max-width:520px;
+      font-size:15px;
+      line-height:1.6;
+      font-weight:900;
+      color:#7b7a72;
+    }
+
+    .summary-star{
+      margin:14px auto 0;
+      font-size:62px;
+      line-height:1;
+      color:#ffd73c;
+      text-shadow:0 8px 18px rgba(255,195,51,.20);
+    }
+
+    .summary-grid{
+      margin-top:20px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .sum-card{
+      border-radius:24px;
+      border:4px solid #d7edf7;
+      background:#fff;
+      padding:16px 18px;
+      min-height:140px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+
+    .sum-k{
+      font-size:18px;
+      font-weight:1000;
+      color:#7b7a72;
+    }
+
+    .sum-v{
+      margin-top:10px;
+      font-size:72px;
+      line-height:1;
+      font-weight:1000;
+      color:#5b564f;
+      word-break:break-word;
+    }
+
+    .sum-v.small{
+      font-size:44px;
+    }
+
+    .summary-note{
+      margin-top:16px;
+      border-radius:22px;
+      border:4px solid #d7edf7;
+      background:#fff;
+      padding:14px 16px;
+      font-size:16px;
+      line-height:1.6;
+      font-weight:1000;
+      color:#6d685f;
+      text-align:center;
+    }
+
+    .summary-actions{
+      margin-top:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .summary-btn{
+      min-height:54px;
+      border:none;
+      border-radius:20px;
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+    }
+
+    .summary-btn.replay{
+      background:linear-gradient(180deg,#7ed957,#58c33f);
+      color:#173b0b;
+    }
+
+    .summary-btn.hub{
+      background:#fff;
+      border:4px solid #d7edf7;
+      color:#645f57;
+    }
+
+    .hidden{
+      display:none !important;
+    }
+
+    @media (max-width:760px){
       .hud-row{
         grid-template-columns:repeat(3,minmax(0,1fr));
       }
 
       .pill{
-        min-height:38px;
-        font-size:12px;
-        padding:7px 8px;
+        min-height:36px;
+        font-size:11px;
+        padding:6px 8px;
       }
 
-      #playfield{
-        inset:116px 0 96px 0;
+      #controls{
+        justify-content:flex-end;
       }
 
-      .item{
-        border-radius:22px;
+      .ctl{
+        min-width:100px;
+        min-height:44px;
+        font-size:14px;
       }
 
-      .emoji{
-        font-size:34px;
+      .summary-grid{
+        grid-template-columns:1fr;
       }
 
-      .title{
-        font-size:34px;
+      .summary-medal{
+        width:120px;
+        height:120px;
+        font-size:58px;
       }
 
-      .summary-stat .v{
-        font-size:48px;
+      .summary-grade{
+        min-height:66px;
+        font-size:52px;
+      }
+
+      .summary-title{
+        font-size:30px;
+      }
+
+      .sum-card{
+        min-height:126px;
+      }
+
+      .sum-v{
+        font-size:62px;
       }
     }
   </style>
@@ -401,139 +532,171 @@
     <div class="cloud c2"></div>
     <div class="cloud c3"></div>
 
-    <div class="hud">
+    <div id="hud">
       <div class="hud-row">
-        <div class="pill" id="hudMode">🤝 DUET</div>
-        <div class="pill" id="hudScore">Score • 0</div>
-        <div class="pill" id="hudTime">Time • 1:30</div>
-        <div class="pill" id="hudMiss">Miss • 0</div>
-        <div class="pill" id="hudStreak">Streak • 0</div>
+        <div class="pill" id="pillMode">🤝 DUET</div>
+        <div class="pill" id="pillScore">Score • 0</div>
+        <div class="pill" id="pillTime">Time • 1:30</div>
+        <div class="pill" id="pillMiss">Miss • 0</div>
       </div>
-      <div class="banner" id="hudBanner">เก็บ good ต่อไป!</div>
+      <div class="banner" id="banner">เก็บ good ต่อไป!</div>
     </div>
 
-    <div id="playfield"></div>
-    <div class="ground"></div>
+    <div id="arena" aria-label="game area"></div>
+    <div id="ground"></div>
 
-    <div class="controls">
-      <button id="btnPause" class="btn pause" type="button">⏸ Pause</button>
-      <button id="btnEnd" class="btn end" type="button">✅ จบเกม</button>
+    <div id="controls">
+      <button class="ctl pause" id="btnPause" type="button">⏸ Pause</button>
+      <button class="ctl end" id="btnEnd" type="button">✅ จบเกม</button>
     </div>
 
-    <div id="pauseOverlay" class="overlay">
-      <div class="card center">
-        <div class="medal">⏸️</div>
-        <div class="title" style="font-size:32px;">พักก่อนนะ</div>
-        <div class="sub">กดเล่นต่อเมื่อพร้อม</div>
-        <div class="summary-actions">
-          <button id="btnResume" class="btn end" type="button">▶️ เล่นต่อ</button>
-          <button id="btnPauseToHub" class="btn pause" type="button">🏠 กลับ Hub</button>
+    <div id="pauseOverlay">
+      <div class="dialog pause-card">
+        <div class="pause-title">พักก่อนนะ</div>
+        <div class="pause-sub">เกมหยุดไว้ชั่วคราว กดเล่นต่อได้เลยเมื่อพร้อม</div>
+        <div class="pause-actions">
+          <button class="pause-btn resume" id="btnResume" type="button">▶️ เล่นต่อ</button>
+          <button class="pause-btn hub" id="btnPauseHub" type="button">🏠 กลับ Hub</button>
         </div>
       </div>
     </div>
 
-    <div id="duetSummary" class="overlay"></div>
+    <div id="summaryOverlay">
+      <div class="dialog summary-card">
+        <div class="summary-head">
+          <div class="summary-medal" id="sumMedal">🥈</div>
+          <div class="summary-grade grade-b" id="sumGrade">B</div>
+          <div class="summary-title" id="sumTitle">ดีมาก!</div>
+          <div class="summary-sub" id="sumSub">จบเกมแล้ว มาดูผลงานรอบนี้กัน</div>
+          <div class="summary-star">⭐</div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="sum-card">
+            <div class="sum-k">คะแนน</div>
+            <div class="sum-v" id="sumScore">0</div>
+          </div>
+          <div class="sum-card">
+            <div class="sum-k">เกรด</div>
+            <div class="sum-v" id="sumGradeText">B</div>
+          </div>
+          <div class="sum-card">
+            <div class="sum-k">เก็บ good</div>
+            <div class="sum-v" id="sumGood">0</div>
+          </div>
+          <div class="sum-card">
+            <div class="sum-k">โดน junk / miss</div>
+            <div class="sum-v" id="sumMiss">0</div>
+          </div>
+          <div class="sum-card">
+            <div class="sum-k">คอมโบสูงสุด</div>
+            <div class="sum-v small" id="sumBest">0</div>
+          </div>
+          <div class="sum-card">
+            <div class="sum-k">โหมด</div>
+            <div class="sum-v small" id="sumMode">DUET</div>
+          </div>
+        </div>
+
+        <div class="summary-note" id="sumNote">สู้ต่อได้อีก! รอบหน้าลองพลาดให้น้อยลง</div>
+
+        <div class="summary-actions">
+          <button class="summary-btn replay" id="btnReplay" type="button">🔁 เล่นอีกครั้ง</button>
+          <button class="summary-btn hub" id="btnHub" type="button">🏠 กลับ Hub</button>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <script src="./goodjunk-duet-room-bootstrap.js"></script>
   <script>
     (function () {
       'use strict';
 
-      const q = new URLSearchParams(location.search);
-      const DEBUG = q.get('debug') === '1';
+      const qs = new URLSearchParams(location.search);
+      const DEBUG = qs.get('debug') === '1';
+      const roomBoot = window.HHA_DUET_ROOM_BOOT || null;
 
-      const GOOD = ['🍎','🍌','🍉','🥕','🥦','🐟','🥛','🍇'];
-      const JUNK = ['🍔','🍟','🍩','🍫','🍕','🥤','🧁','🍭'];
-
-      const DIFF = {
-        easy: {
-          spawnMs: 980,
-          itemVyMin: 90,
-          itemVyMax: 150,
-          scoreGood: 14,
-          penalty: 6,
-          goodRatio: 0.70
-        },
-        normal: {
-          spawnMs: 760,
-          itemVyMin: 120,
-          itemVyMax: 195,
-          scoreGood: 12,
-          penalty: 8,
-          goodRatio: 0.66
-        },
-        hard: {
-          spawnMs: 610,
-          itemVyMin: 145,
-          itemVyMax: 230,
-          scoreGood: 10,
-          penalty: 10,
-          goodRatio: 0.62
-        }
+      const ctx = {
+        pid: String(qs.get('pid') || 'anon').trim(),
+        name: String(qs.get('name') || qs.get('nick') || 'Hero').trim(),
+        roomId: String(qs.get('roomId') || qs.get('room') || '').trim(),
+        role: String(qs.get('role') || '').trim().toLowerCase(),
+        mode: 'DUET',
+        diff: String(qs.get('diff') || 'normal').trim().toLowerCase(),
+        timeSec: Math.max(30, Number(qs.get('time') || 90)),
+        hub: String(qs.get('hub') || '../hub-v2.html').trim(),
+        runtimePath: './goodjunk-duet-runtime.html',
+        lobbyPath: './goodjunk-duet-lobby.html'
       };
 
-      const diffKey = DIFF[q.get('diff')] ? q.get('diff') : 'normal';
-      const cfg = DIFF[diffKey];
+      const GOOD = ['🍎','🍌','🍉','🥕','🥦','🍇','🍍','🐟','🥛'];
+      const JUNK = ['🍔','🍟','🍩','🍭','🥤','🍕','🧁','🍫'];
 
-      const STORAGE_SUMMARY_KEY = 'HHA_GJ_DUET_LAST_SUMMARY';
-      const STORAGE_RAW_KEY = 'HHA_GJ_DUET_LAST_RAW';
+      const DIFF = {
+        easy:   { spawnMs: 980, speedMin: 72,  speedMax: 118, goodChance: 0.78 },
+        normal: { spawnMs: 780, speedMin: 94,  speedMax: 148, goodChance: 0.70 },
+        hard:   { spawnMs: 620, speedMin: 118, speedMax: 180, goodChance: 0.62 }
+      };
+
+      const cfg = DIFF[ctx.diff] || DIFF.normal;
 
       const ui = {
-        app: document.getElementById('app'),
-        playfield: document.getElementById('playfield'),
-        hudMode: document.getElementById('hudMode'),
-        hudScore: document.getElementById('hudScore'),
-        hudTime: document.getElementById('hudTime'),
-        hudMiss: document.getElementById('hudMiss'),
-        hudStreak: document.getElementById('hudStreak'),
-        hudBanner: document.getElementById('hudBanner'),
+        arena: document.getElementById('arena'),
+        pillMode: document.getElementById('pillMode'),
+        pillScore: document.getElementById('pillScore'),
+        pillTime: document.getElementById('pillTime'),
+        pillMiss: document.getElementById('pillMiss'),
+        banner: document.getElementById('banner'),
+
         btnPause: document.getElementById('btnPause'),
         btnEnd: document.getElementById('btnEnd'),
-        pauseOverlay: document.getElementById('pauseOverlay'),
         btnResume: document.getElementById('btnResume'),
-        btnPauseToHub: document.getElementById('btnPauseToHub'),
-        duetSummary: document.getElementById('duetSummary')
+        btnPauseHub: document.getElementById('btnPauseHub'),
+
+        pauseOverlay: document.getElementById('pauseOverlay'),
+
+        summaryOverlay: document.getElementById('summaryOverlay'),
+        sumMedal: document.getElementById('sumMedal'),
+        sumGrade: document.getElementById('sumGrade'),
+        sumTitle: document.getElementById('sumTitle'),
+        sumSub: document.getElementById('sumSub'),
+        sumScore: document.getElementById('sumScore'),
+        sumGradeText: document.getElementById('sumGradeText'),
+        sumGood: document.getElementById('sumGood'),
+        sumMiss: document.getElementById('sumMiss'),
+        sumBest: document.getElementById('sumBest'),
+        sumMode: document.getElementById('sumMode'),
+        sumNote: document.getElementById('sumNote'),
+        btnReplay: document.getElementById('btnReplay'),
+        btnHub: document.getElementById('btnHub')
       };
 
       const state = {
-        pid: q.get('pid') || 'anon',
-        name: q.get('name') || q.get('nick') || 'Hero',
-        roomId: q.get('roomId') || q.get('room') || '',
-        diff: diffKey,
-        view: q.get('view') || 'mobile',
-        seed: q.get('seed') || String(Date.now()),
-        hub: q.get('hub') || '../hub.html',
-
+        matchId: String(qs.get('matchId') || '').trim(),
         running: false,
         paused: false,
         ended: false,
-        finalizing: false,
         summaryShown: false,
-        muted: false,
-
-        rafId: 0,
+        finishBusy: false,
+        roomSummaryUnsub: function(){},
         lastTs: 0,
         spawnAcc: 0,
+        timeLeftMs: ctx.timeSec * 1000,
+        raf: 0,
         seq: 0,
-        timers: new Set(),
-
+        items: new Map(),
         score: 0,
         miss: 0,
+        good: 0,
+        junk: 0,
         streak: 0,
-        bestStreak: 0,
-        goodHits: 0,
-        junkHits: 0,
-
-        timeTotal: Math.max(30, Number(q.get('time') || 90)) * 1000,
-        timeLeft: Math.max(30, Number(q.get('time') || 90)) * 1000,
-
-        items: [],
-        resultSnapshot: null
+        bestStreak: 0
       };
 
       function dlog() {
         if (!DEBUG) return;
-        try { console.log('[GJ-DUET]', ...arguments); } catch (_) {}
+        try { console.log('[GJ-DUET-RUNTIME]', ...arguments); } catch (_) {}
       }
 
       function clamp(v, a, b) {
@@ -541,84 +704,27 @@
       }
 
       function fmtTime(ms) {
-        const total = Math.max(0, Math.ceil(ms / 1000));
-        const m = Math.floor(total / 60);
-        const s = total % 60;
-        return `${m}:${String(s).padStart(2, '0')}`;
-      }
-
-      function randomRange(min, max) {
-        return min + Math.random() * (max - min);
+        const s = Math.max(0, Math.ceil(ms / 1000));
+        const m = Math.floor(s / 60);
+        const r = s % 60;
+        return m + ':' + String(r).padStart(2, '0');
       }
 
       function safeTimeout(fn, ms) {
-        const id = setTimeout(() => {
-          state.timers.delete(id);
+        return setTimeout(function () {
           try { fn(); } catch (err) { console.error(err); }
         }, ms);
-        state.timers.add(id);
-        return id;
       }
 
-      function clearAllTimers() {
-        state.timers.forEach((id) => {
-          try { clearTimeout(id); } catch (_) {}
-          try { clearInterval(id); } catch (_) {}
-        });
-        state.timers.clear();
-      }
+      function setBanner(text, ms) {
+        if (!ui.banner) return;
+        ui.banner.textContent = text;
+        ui.banner.classList.add('show');
 
-      function playTone(freq, duration, type, gainValue) {
-        try {
-          if (state.muted) return;
-          const AC = window.AudioContext || window.webkitAudioContext;
-          if (!AC) return;
-          if (!playTone._ctx) playTone._ctx = new AC();
-          const ac = playTone._ctx;
-          const osc = ac.createOscillator();
-          const gain = ac.createGain();
-
-          osc.type = type || 'triangle';
-          osc.frequency.value = freq || 440;
-          gain.gain.value = gainValue || 0.02;
-
-          osc.connect(gain);
-          gain.connect(ac.destination);
-
-          const now = ac.currentTime;
-          gain.gain.setValueAtTime(gainValue || 0.02, now);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + (duration || 0.08));
-
-          osc.start(now);
-          osc.stop(now + (duration || 0.08));
-        } catch (_) {}
-      }
-
-      function playSfx(kind) {
-        if (kind === 'good') {
-          playTone(760, 0.05, 'triangle', 0.02);
-          safeTimeout(() => playTone(960, 0.05, 'triangle', 0.016), 40);
-          return;
-        }
-        if (kind === 'bad') {
-          playTone(220, 0.08, 'sawtooth', 0.022);
-        }
-      }
-
-      function setBanner(text) {
-        ui.hudBanner.textContent = text;
-      }
-
-      function renderHud() {
-        ui.hudMode.textContent = '🤝 DUET';
-        ui.hudScore.textContent = `Score • ${state.score}`;
-        ui.hudTime.textContent = `Time • ${fmtTime(state.timeLeft)}`;
-        ui.hudMiss.textContent = `Miss • ${state.miss}`;
-        ui.hudStreak.textContent = `Streak • ${state.streak}`;
-      }
-
-      function stageRect() {
-        return ui.playfield.getBoundingClientRect();
+        if (setBanner._timer) clearTimeout(setBanner._timer);
+        setBanner._timer = safeTimeout(function () {
+          ui.banner.classList.remove('show');
+        }, ms || 900);
       }
 
       function fx(x, y, text, color) {
@@ -628,129 +734,142 @@
         el.style.left = x + 'px';
         el.style.top = y + 'px';
         el.style.color = color || '#333';
-        ui.playfield.appendChild(el);
-
-        safeTimeout(() => {
+        ui.arena.appendChild(el);
+        safeTimeout(function () {
           try { el.remove(); } catch (_) {}
-        }, 760);
+        }, 740);
       }
 
-      function drawItem(item) {
-        item.el.style.transform = `translate(${item.x}px, ${item.y}px)`;
+      function arenaRect() {
+        return ui.arena.getBoundingClientRect();
       }
 
-      function createItem(type, emoji, x, y, size, vx, vy) {
-        const id = 'it-' + (++state.seq);
+      function buildLobbyUrl() {
+        const url = new URL(ctx.lobbyPath, location.href);
+        const passthrough = [
+          'pid','name','nick','studyId','hub','zone','cat','game','gameId',
+          'theme','run','view','diff','time','seed','api','log','debug'
+        ];
 
-        const el = document.createElement('button');
-        el.type = 'button';
-        el.className = 'item ' + type;
-        el.style.width = size + 'px';
-        el.style.height = size + 'px';
-        el.innerHTML = `
-          <div class="emoji">${emoji}</div>
-          <div class="label">${type}</div>
-        `;
-
-        const item = {
-          id,
-          type,
-          emoji,
-          x,
-          y,
-          size,
-          vx,
-          vy,
-          dead: false,
-          el
-        };
-
-        el.addEventListener('pointerdown', function (ev) {
-          ev.preventDefault();
-          onItemTap(item);
-        }, { passive: false });
-
-        ui.playfield.appendChild(el);
-        state.items.push(item);
-        drawItem(item);
-
-        return item;
-      }
-
-      function removeItem(item) {
-        if (!item || item.dead) return;
-        item.dead = true;
-        try { item.el.remove(); } catch (_) {}
-      }
-
-      function removeAllItems() {
-        state.items.forEach((item) => {
-          if (item && item.el && item.el.remove) {
-            try { item.el.remove(); } catch (_) {}
-          }
+        passthrough.forEach(function (k) {
+          const v = qs.get(k);
+          if (v != null && v !== '') url.searchParams.set(k, v);
         });
-        state.items.length = 0;
+
+        if (ctx.roomId) {
+          url.searchParams.set('roomId', ctx.roomId);
+          url.searchParams.set('room', ctx.roomId);
+        }
+        url.searchParams.set('mode', 'duet');
+        url.searchParams.set('entry', 'duet');
+
+        if (ctx.role) url.searchParams.set('role', ctx.role);
+        if (qs.get('host')) url.searchParams.set('host', qs.get('host'));
+
+        return url.toString();
+      }
+
+      function go(url) {
+        location.href = url;
+      }
+
+      function clearItems() {
+        state.items.forEach(function (item) {
+          try { item.el.remove(); } catch (_) {}
+        });
+        state.items.clear();
+      }
+
+      function renderHud() {
+        ui.pillMode.textContent = '🤝 DUET';
+        ui.pillScore.textContent = 'Score • ' + state.score;
+        ui.pillTime.textContent = 'Time • ' + fmtTime(state.timeLeftMs);
+        ui.pillMiss.textContent = 'Miss • ' + state.miss;
       }
 
       function spawnItem() {
-        const r = stageRect();
-        const isGood = Math.random() < cfg.goodRatio;
-        const type = isGood ? 'good' : 'junk';
-        const emoji = isGood
+        if (state.ended) return;
+
+        const r = arenaRect();
+        const size = Math.round(clamp(70 + Math.random() * 18, 70, 88));
+        const good = Math.random() < cfg.goodChance;
+        const emoji = good
           ? GOOD[Math.floor(Math.random() * GOOD.length)]
           : JUNK[Math.floor(Math.random() * JUNK.length)];
 
-        const size = randomRange(68, 86);
-        const x = clamp(randomRange(10, r.width - size - 10), 10, r.width - size - 10);
-        const y = -size - randomRange(0, 30);
-        const vx = randomRange(-35, 35);
-        const vy = randomRange(cfg.itemVyMin, cfg.itemVyMax);
+        const x = clamp(Math.random() * (r.width - size - 24) + 12, 12, r.width - size - 12);
+        const y = -size - Math.random() * 20;
 
-        createItem(type, emoji, x, y, size, vx, vy);
-      }
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'item ' + (good ? 'good' : 'junk');
+        el.innerHTML =
+          '<div class="emoji">' + emoji + '</div>' +
+          '<div class="label">' + (good ? 'good' : 'junk') + '</div>';
 
-      function onItemTap(item) {
-        if (!state.running || state.paused || state.ended || state.finalizing || !item || item.dead) return;
+        ui.arena.appendChild(el);
 
-        const cx = item.x + item.size / 2;
-        const cy = item.y + item.size / 2;
+        const item = {
+          id: 'it-' + (++state.seq),
+          good: good,
+          x: x,
+          y: y,
+          size: size,
+          vx: (Math.random() * 40 - 20),
+          vy: cfg.speedMin + Math.random() * (cfg.speedMax - cfg.speedMin),
+          el: el,
+          dead: false
+        };
 
-        if (item.type === 'good') {
-          state.goodHits += 1;
-          state.streak += 1;
-          state.bestStreak = Math.max(state.bestStreak, state.streak);
+        el.style.width = size + 'px';
+        el.style.height = size + 'px';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
 
-          const bonus = Math.min(10, Math.floor(state.streak / 3) * 2);
-          const gain = cfg.scoreGood + bonus;
-          state.score += gain;
+        el.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault();
+          if (state.ended || state.paused || item.dead) return;
 
-          fx(cx, cy, '+' + gain, '#2f8f2f');
-          playSfx('good');
-          setBanner(state.streak >= 3 ? 'เก็บ good ต่อเนื่องได้ดีมาก!' : 'ดีมาก! เก็บ good ต่อไป');
-        } else {
-          state.junkHits += 1;
-          state.miss += 1;
-          state.streak = 0;
-          state.score = Math.max(0, state.score - cfg.penalty);
+          const cx = item.x + item.size / 2;
+          const cy = item.y + item.size / 2;
 
-          fx(cx, cy, 'MISS', '#d16b27');
-          playSfx('bad');
-          setBanner('ระวัง junk นะ');
-        }
+          if (item.good) {
+            state.good += 1;
+            state.streak += 1;
+            state.bestStreak = Math.max(state.bestStreak, state.streak);
 
-        removeItem(item);
-        renderHud();
+            const bonus = Math.min(12, Math.floor(state.streak / 4) * 2);
+            const gain = 10 + bonus;
+            state.score += gain;
+
+            fx(cx, cy, '+' + gain, '#2f8f2f');
+
+            if (state.streak === 3 || state.streak === 6 || state.streak === 10) {
+              setBanner('เก็บ good ต่อไป!', 700);
+            }
+          } else {
+            state.junk += 1;
+            state.miss += 1;
+            state.streak = 0;
+            state.score = Math.max(0, state.score - 8);
+            fx(cx, cy, 'MISS', '#d16b27');
+            setBanner('ระวัง junk!', 700);
+          }
+
+          item.dead = true;
+          try { item.el.remove(); } catch (_) {}
+          state.items.delete(item.id);
+          renderHud();
+        }, { passive:false });
+
+        state.items.set(item.id, item);
       }
 
       function updateItems(dt) {
-        const r = stageRect();
+        const r = arenaRect();
 
-        for (let i = state.items.length - 1; i >= 0; i--) {
-          const item = state.items[i];
-          if (!item || item.dead) {
-            state.items.splice(i, 1);
-            continue;
-          }
+        state.items.forEach(function (item) {
+          if (item.dead) return;
 
           item.x += item.vx * dt / 1000;
           item.y += item.vy * dt / 1000;
@@ -764,296 +883,244 @@
             item.vx = -Math.abs(item.vx);
           }
 
-          drawItem(item);
+          item.el.style.left = item.x + 'px';
+          item.el.style.top = item.y + 'px';
 
-          if (item.y > r.height + item.size * 0.5) {
-            if (item.type === 'good') {
+          if (item.y > r.height - 92) {
+            if (item.good) {
               state.miss += 1;
               state.streak = 0;
             }
-            removeItem(item);
-            state.items.splice(i, 1);
+            item.dead = true;
+            try { item.el.remove(); } catch (_) {}
+            state.items.delete(item.id);
           }
-        }
+        });
       }
 
-      function calcDuetGrade({ score, miss, good }) {
-        if (score >= 1200 && miss <= 8 && good >= 70) return 'S';
-        if (score >= 900 && miss <= 14 && good >= 55) return 'A';
-        if (score >= 650 && good >= 35) return 'B';
+      function calcGrade(summary) {
+        const score = Number(summary.score || 0);
+        const miss = Number(summary.miss || 0);
+        const good = Number(summary.good || 0);
+        const eff = good - miss;
+
+        if (score >= 980 && eff >= 45 && miss <= 10) return 'S';
+        if (score >= 900 && eff >= 40 && miss <= 16) return 'A';
+        if (score >= 650 && eff >= 22) return 'B';
         return 'C';
       }
 
-      function buildPayload(reason = 'timeup') {
-        return {
-          source: 'goodjunk-duet-runtime',
+      function medalForGrade(grade) {
+        if (grade === 'S') return '🏆';
+        if (grade === 'A') return '🥇';
+        if (grade === 'B') return '🥈';
+        return '🥉';
+      }
+
+      function titleForGrade(grade) {
+        if (grade === 'S') return 'ยอดเยี่ยม!';
+        if (grade === 'A') return 'เก่งมาก!';
+        if (grade === 'B') return 'ดีมาก!';
+        return 'สู้ต่อได้!';
+      }
+
+      function noteForGrade(grade) {
+        if (grade === 'S') return 'สุดยอดเลย! เก็บ good ได้แม่นมากและพลาดน้อยมาก';
+        if (grade === 'A') return 'เยี่ยมเลย! อีกนิดเดียวก็ถึงระดับสูงสุดแล้ว';
+        if (grade === 'B') return 'ทำได้ดีมาก รอบหน้าลองหลบ junk ให้มากขึ้น';
+        return 'ไม่เป็นไร รอบหน้าลองแตะ good ให้ต่อเนื่องขึ้น';
+      }
+
+      function buildLocalSummary(reason) {
+        const payload = {
+          final: true,
           mode: 'DUET',
-          reason,
-          score: Number(state.score || 0),
-          miss: Number(state.miss || 0),
-          good: Number(state.goodHits || 0),
-          junk: Number(state.junkHits || 0),
-          streak: Number(state.bestStreak || 0),
-          grade: calcDuetGrade({
-            score: Number(state.score || 0),
-            miss: Number(state.miss || 0),
-            good: Number(state.goodHits || 0)
-          }),
+          roomId: ctx.roomId,
+          matchId: state.matchId,
+          pid: ctx.pid,
+          name: ctx.name,
+          score: state.score,
+          miss: state.miss,
+          good: state.good,
+          junk: state.junk,
+          streak: state.bestStreak,
+          grade: 'C',
+          reason: String(reason || 'timeup'),
+          hub: ctx.hub,
           ts: Date.now(),
-          pid: state.pid || 'anon',
-          name: state.name || 'Hero',
-          hub: state.hub || '../hub.html'
+          by: {
+            pid: ctx.pid,
+            name: ctx.name
+          }
         };
+        payload.grade = calcGrade(payload);
+        return payload;
       }
 
-      function savePayload(payload) {
-        try {
-          localStorage.setItem(STORAGE_SUMMARY_KEY, JSON.stringify({
-            score: payload.score,
-            grade: payload.grade,
-            good: payload.good,
-            miss: payload.miss,
-            ts: payload.ts
-          }));
-        } catch (_) {}
+      function applySummary(summary) {
+        const grade = String(summary.grade || calcGrade(summary)).toUpperCase();
 
-        try {
-          localStorage.setItem(STORAGE_RAW_KEY, JSON.stringify(payload));
-        } catch (_) {}
+        ui.sumMedal.textContent = medalForGrade(grade);
+        ui.sumGrade.textContent = grade;
+        ui.sumGrade.className = 'summary-grade grade-' + grade.toLowerCase();
+        ui.sumTitle.textContent = titleForGrade(grade);
+        ui.sumSub.textContent = 'จบเกมแล้ว มาดูผลงานรอบนี้กัน';
 
-        window.HHA_LAST_DUET_PAYLOAD = payload;
+        ui.sumScore.textContent = Math.max(0, Number(summary.score || 0));
+        ui.sumGradeText.textContent = grade;
+        ui.sumGood.textContent = Math.max(0, Number(summary.good || 0));
+        ui.sumMiss.textContent = Math.max(0, Number(summary.miss || 0));
+        ui.sumBest.textContent = Math.max(0, Number(summary.streak || 0));
+        ui.sumMode.textContent = 'DUET';
+        ui.sumNote.textContent = noteForGrade(grade);
+
+        ui.summaryOverlay.classList.add('show');
+        state.summaryShown = true;
       }
 
-      function hideLegacySummaryDom() {
-        const selectors = [
-          '#summary',
-          '#result',
-          '#resultPanel',
-          '#summaryPanel',
-          '.summary',
-          '.result',
-          '.result-panel',
-          '.summary-panel',
-          '[id*="summary"]',
-          '[id*="result"]'
-        ];
-
-        selectors.forEach((sel) => {
-          document.querySelectorAll(sel).forEach((el) => {
-            if (!el) return;
-            if (el === ui.duetSummary) return;
-            el.style.display = 'none';
-            el.setAttribute('aria-hidden', 'true');
-          });
-        });
-
-        document.querySelectorAll('div,section,article').forEach((el) => {
-          const t = String(el.innerText || '').trim();
-          if (!t) return;
-          if (
-            t.includes('คอมโบสูงสุด') ||
-            t.includes('โหมด') ||
-            t.includes('ระบบกำลังบันทึกผล') ||
-            t.includes('สรุปของเราออกแล้ว')
-          ) {
-            el.style.display = 'none';
-            el.setAttribute('aria-hidden', 'true');
-          }
-        });
-      }
-
-      function showSummary(payload) {
-        hideLegacySummaryDom();
-
-        const title =
-          payload.grade === 'S' ? 'สุดยอด!' :
-          payload.grade === 'A' ? 'เยี่ยมมาก!' :
-          payload.grade === 'B' ? 'ดีมาก!' : 'สู้ต่อได้!';
-
-        const stars =
-          payload.grade === 'S' ? '⭐⭐⭐' :
-          payload.grade === 'A' ? '⭐⭐' : '⭐';
-
-        ui.duetSummary.innerHTML = `
-          <div class="card">
-            <div class="center">
-              <div class="medal">🏅</div>
-              <div class="grade">${payload.grade}</div>
-              <h2 class="title">${title}</h2>
-              <div class="sub">จบเกมแล้ว มาดูผลงานรอบนี้กัน</div>
-              <div class="stars">${stars}</div>
-            </div>
-
-            <div class="summary-grid">
-              <div class="summary-stat">
-                <div class="k">คะแนน</div>
-                <div class="v">${payload.score}</div>
-              </div>
-
-              <div class="summary-stat">
-                <div class="k">เกรด</div>
-                <div class="v">${payload.grade}</div>
-              </div>
-
-              <div class="summary-stat">
-                <div class="k">เก็บ good</div>
-                <div class="v">${payload.good}</div>
-              </div>
-
-              <div class="summary-stat">
-                <div class="k">โดน junk / miss</div>
-                <div class="v">${payload.miss}</div>
-              </div>
-            </div>
-
-            <div class="summary-actions">
-              <button id="btnReplay" class="btn end" type="button">🔁 เล่นอีกครั้ง</button>
-              <button id="btnToHub" class="btn pause" type="button">🏠 กลับ Hub</button>
-            </div>
-          </div>
-        `;
-
-        ui.duetSummary.classList.add('show');
-
-        const btnReplay = document.getElementById('btnReplay');
-        const btnToHub = document.getElementById('btnToHub');
-
-        if (btnReplay) {
-          btnReplay.addEventListener('click', function () {
-            location.reload();
-          });
+      function showSummaryIfNeeded(summary) {
+        if (state.summaryShown) {
+          applySummary(summary);
+          return;
         }
-
-        if (btnToHub) {
-          btnToHub.addEventListener('click', function () {
-            location.href = state.hub;
-          });
-        }
+        applySummary(summary);
       }
 
-      function finalizeRemoteIfNeeded(payload) {
-        try {
-          if (typeof window.HHA_DUET_REMOTE_FINALIZE === 'function') {
-            window.HHA_DUET_REMOTE_FINALIZE(payload);
-            return;
-          }
-          if (typeof window.finalizeRemoteIfNeeded === 'function' &&
-              window.finalizeRemoteIfNeeded !== finalizeRemoteIfNeeded) {
-            window.finalizeRemoteIfNeeded(payload);
-          }
-        } catch (err) {
-          console.warn('[GJ-DUET finalizeRemoteIfNeeded skipped]', err);
-        }
+      function withTimeout(promise, ms) {
+        return Promise.race([
+          promise,
+          new Promise(function (resolve) {
+            safeTimeout(function () { resolve(null); }, ms);
+          })
+        ]);
       }
 
-      function stopRuntimeLoop() {
-        state.running = false;
-        try { cancelAnimationFrame(state.rafId); } catch (_) {}
-        clearAllTimers();
-      }
+      async function finishGame(reason) {
+        if (state.finishBusy || state.ended) return;
 
-      function finishDuetGame(reason = 'timeup') {
-        if (state.finalizing || state.summaryShown) return;
-
-        state.finalizing = true;
+        state.finishBusy = true;
         state.ended = true;
+        state.running = false;
         state.paused = false;
 
-        dlog('finishDuetGame', reason);
+        try { cancelAnimationFrame(state.raf); } catch (_) {}
+        clearItems();
+        ui.pauseOverlay.classList.remove('show');
 
-        stopRuntimeLoop();
-        removeAllItems();
-        hideLegacySummaryDom();
-        renderHud();
+        const localSummary = buildLocalSummary(reason);
 
-        const payload = buildPayload(reason);
-        state.resultSnapshot = payload;
-        savePayload(payload);
+        let publishPromise = Promise.resolve(localSummary);
+        if (roomBoot && state.matchId) {
+          publishPromise = roomBoot.publishFinalSummary(state.matchId, localSummary)
+            .then(function (remote) { return remote || localSummary; })
+            .catch(function () { return localSummary; });
+        }
 
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            try {
-              showSummary(payload);
-              state.summaryShown = true;
-            } catch (err) {
-              console.error('[GJ-DUET summary failed]', err);
-              alert('จบเกมแล้ว แต่หน้า summary มีปัญหา');
-            } finally {
-              state.finalizing = false;
-            }
+        const quick = await withTimeout(publishPromise, 450);
+        showSummaryIfNeeded(quick || localSummary);
 
-            finalizeRemoteIfNeeded(payload);
-          });
-        });
+        publishPromise.then(function (remote) {
+          if (remote) showSummaryIfNeeded(remote);
+        }).catch(function () {});
+
+        try {
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+            source: 'goodjunk-duet-runtime',
+            ts: Date.now(),
+            roomId: ctx.roomId,
+            matchId: state.matchId,
+            pid: ctx.pid,
+            name: ctx.name,
+            score: localSummary.score,
+            miss: localSummary.miss,
+            good: localSummary.good,
+            junk: localSummary.junk,
+            streak: localSummary.streak,
+            grade: localSummary.grade,
+            mode: 'DUET',
+            hub: ctx.hub
+          }));
+        } catch (_) {}
       }
 
-      function endGame(reason) {
-        finishDuetGame(reason || 'legacy_end');
+      function loop(ts) {
+        if (!state.running || state.ended) return;
+
+        if (!state.lastTs) state.lastTs = ts;
+        const dt = Math.min(40, ts - state.lastTs || 16);
+        state.lastTs = ts;
+
+        if (!state.paused) {
+          state.timeLeftMs -= dt;
+          if (state.timeLeftMs <= 0) {
+            state.timeLeftMs = 0;
+            renderHud();
+            finishGame('timeup');
+            return;
+          }
+
+          state.spawnAcc += dt;
+          while (state.spawnAcc >= cfg.spawnMs) {
+            state.spawnAcc -= cfg.spawnMs;
+            spawnItem();
+          }
+
+          updateItems(dt);
+          renderHud();
+        }
+
+        state.raf = requestAnimationFrame(loop);
       }
-
-      function finishGame(reason) {
-        finishDuetGame(reason || 'legacy_finish');
-      }
-
-      window.finishDuetGame = finishDuetGame;
-      window.endGame = endGame;
-      window.finishGame = finishGame;
-
-      window.mountSummary = function () {};
-      window.renderSummary = function () {};
-      window.updateSummary = function () {};
-      window.showResult = function () {};
-      window.openSummary = function () {};
 
       function pauseGame() {
-        if (state.ended || state.finalizing || state.paused) return;
+        if (state.ended) return;
         state.paused = true;
         ui.pauseOverlay.classList.add('show');
       }
 
       function resumeGame() {
-        if (state.ended || state.finalizing || !state.paused) return;
+        if (state.ended) return;
         state.paused = false;
-        ui.pauseOverlay.classList.remove('show');
         state.lastTs = performance.now();
+        ui.pauseOverlay.classList.remove('show');
       }
 
-      function bindUi() {
-        ui.btnPause.onclick = function () {
+      function bindEvents() {
+        ui.btnPause.addEventListener('click', function () {
           if (state.paused) resumeGame();
           else pauseGame();
-        };
+        });
 
-        ui.btnEnd.onclick = function () {
-          finishDuetGame('manual_end');
-        };
-
-        ui.btnResume.onclick = function () {
+        ui.btnResume.addEventListener('click', function () {
           resumeGame();
-        };
+        });
 
-        ui.btnPauseToHub.onclick = function () {
-          location.href = state.hub;
-        };
+        ui.btnEnd.addEventListener('click', function () {
+          finishGame('manual_end');
+        });
+
+        ui.btnPauseHub.addEventListener('click', function () {
+          go(ctx.hub);
+        });
+
+        ui.btnReplay.addEventListener('click', function () {
+          go(buildLobbyUrl());
+        });
+
+        ui.btnHub.addEventListener('click', function () {
+          go(ctx.hub);
+        });
 
         document.addEventListener('visibilitychange', function () {
-          if (document.hidden && !state.ended && !state.finalizing) {
-            pauseGame();
-          }
+          if (document.hidden && !state.ended) pauseGame();
         });
 
         window.addEventListener('blur', function () {
-          if (!state.ended && !state.finalizing) {
-            pauseGame();
-          }
-        });
-
-        window.addEventListener('beforeunload', function () {
-          stopRuntimeLoop();
+          if (!state.ended) pauseGame();
         });
 
         window.addEventListener('keydown', function (ev) {
-          if (ev.key === 'Escape' || ev.key === 'p' || ev.key === 'P') {
+          if (ev.key === 'p' || ev.key === 'P') {
             ev.preventDefault();
             if (state.paused) resumeGame();
             else pauseGame();
@@ -1061,95 +1128,53 @@
         });
       }
 
-      function updateGame(dt) {
-        if (state.paused || state.ended || state.finalizing) return;
-
-        state.timeLeft -= dt;
-        if (state.timeLeft < 0) state.timeLeft = 0;
-
-        state.spawnAcc += dt;
-        while (state.spawnAcc >= cfg.spawnMs) {
-          state.spawnAcc -= cfg.spawnMs;
-          spawnItem();
-        }
-
-        updateItems(dt);
-        renderHud();
-
-        if (state.timeLeft <= 0) {
-          finishDuetGame('timeup');
-        }
-      }
-
-      function gameLoop(ts) {
-        if (!state.running || state.ended || state.finalizing) return;
-
-        const dt = Math.min(40, (ts - (state.lastTs || ts)) || 16);
-        state.lastTs = ts;
-
-        try {
-          updateGame(dt);
-        } catch (err) {
-          console.error('[GJ-DUET loop failed]', err);
-          finishDuetGame('runtime_error');
+      async function initMatch() {
+        if (!roomBoot) {
+          state.matchId = state.matchId || ('LOCAL-' + Date.now());
           return;
         }
 
-        if (!state.ended && !state.finalizing) {
-          state.rafId = requestAnimationFrame(gameLoop);
-        }
+        state.matchId =
+          state.matchId ||
+          await roomBoot.ensureMatchId(false);
+
+        dlog('match ready', state.matchId);
+
+        try {
+          const existing = await roomBoot.readFinalSummary(state.matchId);
+          if (existing && existing.final) {
+            state.ended = true;
+            state.running = false;
+            showSummaryIfNeeded(existing);
+            return;
+          }
+        } catch (_) {}
+
+        try {
+          state.roomSummaryUnsub = roomBoot.subscribeFinalSummary(state.matchId, function (summary) {
+            if (!summary || !summary.final) return;
+            showSummaryIfNeeded(summary);
+          });
+        } catch (_) {}
       }
 
-      function startGame() {
-        hideLegacySummaryDom();
-
-        state.ended = false;
-        state.finalizing = false;
-        state.summaryShown = false;
-        state.running = true;
-        state.paused = false;
-
-        ui.duetSummary.classList.remove('show');
-        ui.duetSummary.innerHTML = '';
-        ui.pauseOverlay.classList.remove('show');
-
-        state.score = 0;
-        state.miss = 0;
-        state.streak = 0;
-        state.bestStreak = 0;
-        state.goodHits = 0;
-        state.junkHits = 0;
-        state.timeLeft = state.timeTotal;
-        state.spawnAcc = 0;
-
-        removeAllItems();
+      async function start() {
+        bindEvents();
         renderHud();
-        setBanner('เก็บ good ต่อไป!');
 
+        await initMatch();
+        if (state.summaryShown) return;
+
+        state.running = true;
         state.lastTs = performance.now();
-        state.rafId = requestAnimationFrame(gameLoop);
-
-        dlog('started', {
-          pid: state.pid,
-          roomId: state.roomId,
-          diff: state.diff,
-          time: state.timeTotal
-        });
+        setBanner('เก็บ good ต่อไป!', 1200);
+        state.raf = requestAnimationFrame(loop);
       }
 
-      const duetLegacyObserver = new MutationObserver(() => {
-        if (state.summaryShown || state.finalizing) {
-          hideLegacySummaryDom();
-        }
+      start().catch(function (err) {
+        console.error('[GJ-DUET-RUNTIME start failed]', err);
+        finishGame('boot_error');
       });
-
-      duetLegacyObserver.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-
-      bindUi();
-      startGame();
     })();
   </script>
 </body>
