@@ -1,0 +1,1110 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Rhythm Boxer Bloom Pack</title>
+  <meta name="theme-color" content="#f6d9ff" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --bg1:#fff4fb;
+      --bg2:#f4eaff;
+      --bg3:#fff8de;
+
+      --card:#ffffff;
+      --line:#ead9f6;
+      --line-strong:#d7bff0;
+
+      --text:#433f3d;
+      --muted:#756f6b;
+
+      --pink:#ff9dcd;
+      --pink2:#ff76b5;
+      --blue:#7fcfff;
+      --blue2:#4aaef0;
+      --green:#7ed957;
+      --green2:#4fbd31;
+      --yellow:#ffd75d;
+      --yellow2:#ffb83b;
+      --purple:#caa5ff;
+      --purple2:#9677ef;
+      --red:#ff7d7d;
+
+      --shadow:0 18px 42px rgba(67,63,61,.12);
+      --shadow-soft:0 10px 22px rgba(67,63,61,.08);
+
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; min-height:100%; }
+    body{
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.94), transparent 28%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 56%,var(--bg3));
+    }
+
+    a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; }
+    .hidden{ display:none !important; }
+
+    .app{
+      width:min(1240px, calc(100% - 14px));
+      margin:0 auto;
+      padding:
+        calc(10px + var(--safe-top))
+        0
+        calc(16px + var(--safe-bottom));
+      display:grid;
+      gap:12px;
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .pill,
+    .brand{
+      min-height:48px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      background:linear-gradient(135deg,var(--purple),var(--pink));
+      font-size:15px;
+    }
+
+    .headline{
+      min-width:0;
+      padding:0 4px;
+    }
+
+    .headline h1{
+      margin:0;
+      font-size:clamp(22px,4vw,38px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .headline p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.05fr .95fr;
+      gap:12px;
+      align-items:stretch;
+    }
+
+    .hero-main,
+    .hero-side,
+    .panel{
+      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(255,251,254,.94));
+      border:2px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+    }
+
+    .hero-main{
+      padding:18px;
+      display:grid;
+      gap:14px;
+      min-height:420px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero-main::after{
+      content:"";
+      position:absolute;
+      right:-40px;
+      bottom:-46px;
+      width:260px;
+      height:260px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(202,165,255,.22), transparent 64%);
+      pointer-events:none;
+    }
+
+    .badge{
+      width:max-content;
+      min-height:36px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .hero-title{
+      margin:0;
+      font-size:clamp(34px,5vw,60px);
+      line-height:.92;
+      font-weight:1000;
+    }
+
+    .hero-copy{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      font-weight:900;
+      line-height:1.55;
+      max-width:760px;
+    }
+
+    .hero-preview{
+      position:relative;
+      min-height:240px;
+      border-radius:28px;
+      border:2px dashed var(--line-strong);
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255,255,255,.82), transparent 16%),
+        linear-gradient(180deg,#301d48 0%, #5c3390 54%, #ffe4a1 55%, #fff7dc 100%);
+    }
+
+    .hero-layers{
+      position:absolute;
+      inset:0;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:0;
+    }
+
+    .hero-col{
+      position:relative;
+      border-right:1px dashed rgba(255,255,255,.12);
+    }
+
+    .hero-col:last-child{ border-right:0; }
+
+    .hero-card{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      width:120px;
+      min-height:112px;
+      border-radius:24px;
+      background:rgba(255,255,255,.96);
+      border:3px solid rgba(255,255,255,.82);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      gap:4px;
+      padding:10px;
+    }
+
+    .hero-card:nth-child(1){ top:18px; }
+    .hero-card:nth-child(2){ top:74px; }
+    .hero-card:nth-child(3){ top:132px; }
+
+    .hero-card .ic{
+      font-size:32px;
+      line-height:1;
+    }
+
+    .hero-card .lb{
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .hero-card.r{ background:linear-gradient(180deg,#fff,#fff4fb); }
+    .hero-card.u{ background:linear-gradient(180deg,#fff,#f4fbff); }
+    .hero-card.a{ background:linear-gradient(180deg,#fff,#f5fff1); }
+    .hero-card.n{ background:linear-gradient(180deg,#fff,#f7f2ff); }
+    .hero-card.c{ background:linear-gradient(180deg,#fff,#fff9ef); }
+
+    .hero-flow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+
+    .flow-pill{
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .hero-side{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .field input{
+      min-height:48px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:10px 12px;
+      outline:none;
+    }
+
+    .field input:focus{
+      border-color:var(--purple2);
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .toggle{
+      position:relative;
+    }
+
+    .toggle input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .toggle label{
+      min-height:68px;
+      padding:10px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#fff,#fbf7ff);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .toggle label small{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      line-height:1.25;
+    }
+
+    .toggle input:checked + label{
+      border-color:var(--purple2);
+      background:linear-gradient(180deg,#fff,#f6efff);
+      transform:translateY(-2px);
+      box-shadow:0 14px 24px rgba(151,119,239,.14);
+    }
+
+    .paths{
+      display:grid;
+      gap:12px;
+    }
+
+    .path-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .path-card{
+      padding:16px;
+      border-radius:28px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#fff,#fffafe);
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:12px;
+      align-content:start;
+      min-height:250px;
+    }
+
+    .path-card.learn{
+      background:linear-gradient(180deg,#fff,#fff7fc);
+    }
+
+    .path-card.analyze{
+      background:linear-gradient(180deg,#fff,#f9f3ff);
+    }
+
+    .path-card.create{
+      background:linear-gradient(180deg,#fff,#f4fff8);
+    }
+
+    .path-card.main{
+      background:linear-gradient(180deg,#fff,#f5fbff);
+    }
+
+    .path-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .path-icon{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:24px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .path-card.learn .path-icon{ background:linear-gradient(135deg,var(--pink),var(--pink2)); }
+    .path-card.analyze .path-icon{ background:linear-gradient(135deg,var(--purple),var(--purple2)); }
+    .path-card.create .path-icon{ background:linear-gradient(135deg,var(--green),var(--green2)); }
+    .path-card.main .path-icon{ background:linear-gradient(135deg,var(--blue),var(--blue2)); }
+
+    .path-ribbon{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .path-title{
+      margin:0;
+      font-size:24px;
+      line-height:1.06;
+      font-weight:1000;
+    }
+
+    .path-copy{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .mini-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .mini-item{
+      min-height:42px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .mini-item .tag{
+      min-width:72px;
+      min-height:26px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:4px 8px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:10px;
+      font-weight:1000;
+    }
+
+    .actions{
+      display:grid;
+      gap:10px;
+      margin-top:auto;
+    }
+
+    .btn{
+      min-height:52px;
+      border:none;
+      border-radius:999px;
+      padding:12px 16px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
+      color:inherit;
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(135deg,#fff,#f8f2ff);
+      border:2px solid var(--line);
+    }
+
+    .btn.ghost{
+      background:linear-gradient(135deg,#fffaf1,#fff2d8);
+      border:2px solid rgba(255,183,91,.32);
+    }
+
+    .btn.info{
+      background:linear-gradient(135deg,#fff,#eff7ff);
+      border:2px solid rgba(127,207,255,.42);
+    }
+
+    .recent-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .recent-box{
+      padding:12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .recent-box .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .recent-box .v{
+      display:block;
+      margin-top:5px;
+      font-size:20px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .recent-sub{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .preview-url{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:11px;
+      line-height:1.45;
+      color:#445;
+      background:rgba(255,255,255,.82);
+      border-radius:16px;
+      border:2px dashed var(--line-strong);
+      padding:10px;
+      word-break:break-all;
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    @media (max-width:1100px){
+      .hero{
+        grid-template-columns:1fr;
+      }
+      .path-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:780px){
+      .topbar{
+        grid-template-columns:1fr;
+      }
+      .grid-3{
+        grid-template-columns:1fr;
+      }
+      .grid-2{
+        grid-template-columns:1fr;
+      }
+      .recent-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media (max-width:560px){
+      .app{
+        width:min(100%, calc(100% - 10px));
+      }
+      .recent-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a id="btnBack" class="pill" href="../rhythm-boxer-vr.html">⬅ กลับ Rhythm Boxer</a>
+
+      <div class="headline">
+        <h1>Rhythm Boxer Bloom Pack</h1>
+        <p>เลือกเส้นทางฝึกเสริมเพื่อให้ครบ Remember → Understand → Analyze → Create</p>
+      </div>
+
+      <a id="btnHubTop" class="pill" href="../fitness-zone.html">🏃 Fitness Zone</a>
+    </header>
+
+    <section class="hero">
+      <section class="hero-main">
+        <div class="badge">✨ child-friendly • 3 modes • mini games • Bloom-aligned</div>
+
+        <h2 class="hero-title">Mini Game Pack<br>for Rhythm Boxer</h2>
+
+        <p class="hero-copy">
+          ชุดนี้ช่วยปูพื้นก่อนเข้า main game โดยแยกเป็นเส้นทางฝึกตามระดับการเรียนรู้
+          เพื่อให้เด็กไม่ใช่แค่ “กดตาม” แต่ค่อย ๆ เข้าใจ pattern และสร้าง combo ของตัวเองได้
+        </p>
+
+        <div class="hero-preview">
+          <div class="hero-layers">
+            <div class="hero-col">
+              <div class="hero-card r">
+                <div class="ic">🎯</div>
+                <div class="lb">Hit Line<br>Coach</div>
+              </div>
+            </div>
+            <div class="hero-col">
+              <div class="hero-card n">
+                <div class="ic">🧩</div>
+                <div class="lb">Pattern<br>Detective</div>
+              </div>
+            </div>
+            <div class="hero-col">
+              <div class="hero-card c">
+                <div class="ic">🎼</div>
+                <div class="lb">Combo<br>Composer</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-flow">
+          <div class="flow-pill">Understand</div>
+          <div class="flow-pill">Analyze</div>
+          <div class="flow-pill">Create</div>
+          <div class="flow-pill">→ Main Game</div>
+        </div>
+      </section>
+
+      <aside class="hero-side">
+        <section class="panel" style="padding:14px; border-radius:24px; box-shadow:var(--shadow-soft);">
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" type="text" placeholder="anon" />
+          </div>
+
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" type="text" placeholder="Player" />
+          </div>
+
+          <div class="field">
+            <label for="studyId">Study ID</label>
+            <input id="studyId" type="text" placeholder="optional" />
+          </div>
+        </section>
+
+        <section class="panel" style="padding:14px; border-radius:24px; box-shadow:var(--shadow-soft);">
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="diff-easy" name="diff" type="radio" value="easy" />
+              <label for="diff-easy">Easy<small>เริ่มง่าย</small></label>
+            </div>
+            <div class="toggle">
+              <input id="diff-normal" name="diff" type="radio" value="normal" checked />
+              <label for="diff-normal">Normal<small>สมดุล</small></label>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top:8px;">
+            <div class="toggle">
+              <input id="diff-hard" name="diff" type="radio" value="hard" />
+              <label for="diff-hard">Hard<small>คิดหนักขึ้น</small></label>
+            </div>
+            <div class="toggle">
+              <input id="time-60" name="time" type="radio" value="60" checked />
+              <label for="time-60">60s<small>แนะนำ</small></label>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top:8px;">
+            <div class="toggle">
+              <input id="time-90" name="time" type="radio" value="90" />
+              <label for="time-90">90s<small>นานขึ้น</small></label>
+            </div>
+            <div class="toggle">
+              <input id="view-mobile" name="view" type="radio" value="mobile" checked />
+              <label for="view-mobile">Mobile<small>ทั่วไป</small></label>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top:8px;">
+            <div class="toggle">
+              <input id="view-pc" name="view" type="radio" value="pc" />
+              <label for="view-pc">PC<small>keyboard</small></label>
+            </div>
+            <div class="toggle">
+              <input id="view-cvr" name="view" type="radio" value="cvr" />
+              <label for="view-cvr">cVR<small>Cardboard</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" style="padding:14px; border-radius:24px; box-shadow:var(--shadow-soft);">
+          <div class="recent-sub" id="recentSub">ยังไม่มีผลล่าสุดของ Bloom Pack</div>
+
+          <div class="recent-grid" style="margin-top:10px;">
+            <div class="recent-box"><span class="k">Game</span><span id="recentGame" class="v">-</span></div>
+            <div class="recent-box"><span class="k">Rank</span><span id="recentRank" class="v">-</span></div>
+            <div class="recent-box"><span class="k">Score</span><span id="recentScore" class="v">-</span></div>
+            <div class="recent-box"><span class="k">Acc / Replay</span><span id="recentAcc" class="v">-</span></div>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <section class="paths">
+      <div class="path-grid">
+        <article class="path-card learn">
+          <div class="path-top">
+            <div class="path-icon">🎯</div>
+            <div class="path-ribbon">UNDERSTAND</div>
+          </div>
+
+          <h3 class="path-title">Learn Core Path</h3>
+          <p class="path-copy">
+            เหมาะตอนเด็กยังไม่ชัดว่า “ต้องกดตรงไหน” หรือยังจับ hit line ไม่แม่น
+          </p>
+
+          <div class="mini-list">
+            <div class="mini-item"><span class="tag">Step 1</span> Hit Line Coach</div>
+            <div class="mini-item"><span class="tag">Step 2</span> Main Game</div>
+            <div class="mini-item"><span class="tag">Goal</span> เข้าใจว่าแตะตอนถึงเส้น</div>
+          </div>
+
+          <div class="actions">
+            <a id="btnLearnPath" class="btn primary" href="../vr-rhythm-boxer-bloom/hit-line-coach.html">▶ Start Learn Path</a>
+            <a id="btnLearnSingle" class="btn secondary" href="../vr-rhythm-boxer-bloom/hit-line-coach.html">🎯 Open Hit Line Coach</a>
+          </div>
+        </article>
+
+        <article class="path-card analyze">
+          <div class="path-top">
+            <div class="path-icon">🧩</div>
+            <div class="path-ribbon">ANALYZE</div>
+          </div>
+
+          <h3 class="path-title">Pattern Path</h3>
+          <p class="path-copy">
+            เหมาะตอนเด็กเริ่มคล่องแล้ว และอยากฝึกดู sequence ว่าควรเป็นตัวถัดไปอะไร
+          </p>
+
+          <div class="mini-list">
+            <div class="mini-item"><span class="tag">Step 1</span> Pattern Detective</div>
+            <div class="mini-item"><span class="tag">Step 2</span> Main Game</div>
+            <div class="mini-item"><span class="tag">Goal</span> อ่าน pattern เป็น</div>
+          </div>
+
+          <div class="actions">
+            <a id="btnAnalyzePath" class="btn primary" href="../vr-rhythm-boxer-bloom/pattern-detective.html">▶ Start Analyze Path</a>
+            <a id="btnAnalyzeSingle" class="btn secondary" href="../vr-rhythm-boxer-bloom/pattern-detective.html">🧩 Open Pattern Detective</a>
+          </div>
+        </article>
+
+        <article class="path-card create">
+          <div class="path-top">
+            <div class="path-icon">🎼</div>
+            <div class="path-ribbon">CREATE</div>
+          </div>
+
+          <h3 class="path-title">Create Lab</h3>
+          <p class="path-copy">
+            ใช้ปิดฝั่ง Bloom ระดับ Create โดยให้เด็กออกแบบ combo ของตัวเองแล้วเล่นตาม
+          </p>
+
+          <div class="mini-list">
+            <div class="mini-item"><span class="tag">Step 1</span> Combo Composer</div>
+            <div class="mini-item"><span class="tag">Step 2</span> Main Game หรือ Hub</div>
+            <div class="mini-item"><span class="tag">Goal</span> สร้าง pattern เอง</div>
+          </div>
+
+          <div class="actions">
+            <a id="btnCreateLab" class="btn primary" href="../vr-rhythm-boxer-bloom/combo-composer.html">▶ Start Create Lab</a>
+            <a id="btnCreateSingle" class="btn secondary" href="../vr-rhythm-boxer-bloom/combo-composer.html">🎼 Open Combo Composer</a>
+          </div>
+        </article>
+
+        <article class="path-card main">
+          <div class="path-top">
+            <div class="path-icon">🥊</div>
+            <div class="path-ribbon">APPLY</div>
+          </div>
+
+          <h3 class="path-title">Main Game Direct</h3>
+          <p class="path-copy">
+            เข้า Rhythm Boxer ตัวหลักทันที สำหรับรอบเล่นจริงหรือรอบที่ไม่ต้องการมินิเกมก่อน
+          </p>
+
+          <div class="mini-list">
+            <div class="mini-item"><span class="tag">Mode</span> Apply + Combo + Boss</div>
+            <div class="mini-item"><span class="tag">Flow</span> Main Game → Summary</div>
+            <div class="mini-item"><span class="tag">Use</span> เล่นตรง / เทสต์ input</div>
+          </div>
+
+          <div class="actions">
+            <a id="btnMainDirect" class="btn info" href="../vr-rhythm-boxer-main/boxer.html">🥊 Go Main Game</a>
+            <a id="btnBackLauncher" class="btn ghost" href="../rhythm-boxer-vr.html">⬅ Back to Rhythm Boxer Launcher</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" style="padding:16px;">
+      <div class="recent-sub" style="margin-bottom:8px;">
+        Preview URL ที่จะส่งค่าปัจจุบันไปยังทางเลือกที่เลือก
+      </div>
+      <div id="previewUrl" class="preview-url">preview url</div>
+    </section>
+
+    <div class="footer-note">
+      Rhythm Boxer Bloom Pack • launcher-only • pass-through params ready
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+
+      function q(k, d=''){
+        const v = qs.get(k);
+        return v == null || v === '' ? d : v;
+      }
+
+      function readRadio(name, fallback){
+        const el = document.querySelector(`input[name="${name}"]:checked`);
+        return el ? el.value : fallback;
+      }
+
+      function setRadio(name, value){
+        const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+        if (el) el.checked = true;
+      }
+
+      const els = {
+        pid: $('pid'),
+        name: $('name'),
+        studyId: $('studyId'),
+
+        btnBack: $('btnBack'),
+        btnHubTop: $('btnHubTop'),
+
+        btnLearnPath: $('btnLearnPath'),
+        btnLearnSingle: $('btnLearnSingle'),
+        btnAnalyzePath: $('btnAnalyzePath'),
+        btnAnalyzeSingle: $('btnAnalyzeSingle'),
+        btnCreateLab: $('btnCreateLab'),
+        btnCreateSingle: $('btnCreateSingle'),
+        btnMainDirect: $('btnMainDirect'),
+        btnBackLauncher: $('btnBackLauncher'),
+
+        previewUrl: $('previewUrl'),
+
+        recentSub: $('recentSub'),
+        recentGame: $('recentGame'),
+        recentRank: $('recentRank'),
+        recentScore: $('recentScore'),
+        recentAcc: $('recentAcc')
+      };
+
+      const ABS_HUB = new URL('../herohealth/hub-v2.html', location.href).href;
+      const ABS_FITNESS = new URL('../herohealth/fitness-zone.html', location.href).href;
+      const ABS_LAUNCHER = new URL('../herohealth/rhythm-boxer-vr.html', location.href).href;
+
+      const PATHS = {
+        hitLineCoach: new URL('../herohealth/vr-rhythm-boxer-bloom/hit-line-coach.html', location.href).href,
+        patternDetective: new URL('../herohealth/vr-rhythm-boxer-bloom/pattern-detective.html', location.href).href,
+        comboComposer: new URL('../herohealth/vr-rhythm-boxer-bloom/combo-composer.html', location.href).href,
+        mainGame: new URL('../herohealth/vr-rhythm-boxer-main/boxer.html', location.href).href
+      };
+
+      function baseParams(){
+        return {
+          pid: els.pid.value || q('pid', 'anon'),
+          name: els.name.value || q('name', q('nickName', 'Player')),
+          studyId: els.studyId.value || q('studyId', ''),
+          diff: readRadio('diff', q('diff', 'normal')),
+          time: readRadio('time', q('time', '60')),
+          view: readRadio('view', q('view', 'mobile')),
+          run: q('run', 'play'),
+          zone: q('zone', 'fitness'),
+          cat: q('cat', 'fitness'),
+          hub: q('hub', ABS_FITNESS),
+          cooldown: q('cooldown', '1'),
+          seed: q('seed', String(Date.now())),
+          planDay: q('planDay', ''),
+          planSlot: q('planSlot', '')
+        };
+      }
+
+      function passthroughUrl(base, extra = {}){
+        const u = new URL(base);
+        const p = { ...baseParams(), ...extra };
+
+        Object.entries(p).forEach(([k, v]) => {
+          if (v != null && String(v) !== '') u.searchParams.set(k, String(v));
+        });
+
+        [
+          'debug','api','log','studentKey','schoolCode','classRoom',
+          'studentNo','nickName','teacher','teacherMode',
+          'export','exportMode','autoNext','gate'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+
+        return u.toString();
+      }
+
+      function buildLearnPathUrl(){
+        return passthroughUrl(PATHS.hitLineCoach, {
+          back: PATHS.hitLineCoach === location.href ? ABS_LAUNCHER : new URL(location.href).href,
+          next: PATHS.mainGame
+        });
+      }
+
+      function buildAnalyzePathUrl(){
+        return passthroughUrl(PATHS.patternDetective, {
+          back: new URL(location.href).href,
+          next: PATHS.mainGame
+        });
+      }
+
+      function buildCreateLabUrl(){
+        return passthroughUrl(PATHS.comboComposer, {
+          back: new URL(location.href).href,
+          next: PATHS.mainGame
+        });
+      }
+
+      function buildMainDirectUrl(){
+        return passthroughUrl(PATHS.mainGame, {
+          back: new URL(location.href).href
+        });
+      }
+
+      function renderPreview(){
+        els.previewUrl.textContent = [
+          'Learn Path:',
+          buildLearnPathUrl(),
+          '',
+          'Analyze Path:',
+          buildAnalyzePathUrl(),
+          '',
+          'Create Lab:',
+          buildCreateLabUrl(),
+          '',
+          'Main Game:',
+          buildMainDirectUrl()
+        ].join('\n');
+      }
+
+      function bindLinks(){
+        const backLauncher = q('back', ABS_LAUNCHER);
+        const hubUrl = q('hub', ABS_FITNESS);
+
+        els.btnBack.href = backLauncher;
+        els.btnBackLauncher.href = backLauncher;
+        els.btnHubTop.href = hubUrl;
+
+        const learn = buildLearnPathUrl();
+        const analyze = buildAnalyzePathUrl();
+        const create = buildCreateLabUrl();
+        const main = buildMainDirectUrl();
+
+        els.btnLearnPath.href = learn;
+        els.btnLearnSingle.href = learn;
+
+        els.btnAnalyzePath.href = analyze;
+        els.btnAnalyzeSingle.href = analyze;
+
+        els.btnCreateLab.href = create;
+        els.btnCreateSingle.href = create;
+
+        els.btnMainDirect.href = main;
+      }
+
+      function gameLabel(game){
+        const g = String(game || '').toLowerCase();
+        if (g === 'hit-line-coach') return 'Hit Line Coach';
+        if (g === 'pattern-detective') return 'Pattern Detective';
+        if (g === 'combo-composer') return 'Combo Composer';
+        if (g === 'rhythmboxer' || g === 'rhythm-boxer') return 'Main Game';
+        return '-';
+      }
+
+      function readRecentSummary(){
+        const keys = [
+          'HHA_LAST_SUMMARY',
+          `HHA_LAST_SUMMARY:combo-composer:${els.pid.value || q('pid','anon')}`,
+          `HHA_LAST_SUMMARY:pattern-detective:${els.pid.value || q('pid','anon')}`,
+          `HHA_LAST_SUMMARY:hit-line-coach:${els.pid.value || q('pid','anon')}`,
+          `HHA_LAST_SUMMARY:rhythmboxer:${els.pid.value || q('pid','anon')}`
+        ];
+
+        for (const key of keys){
+          try{
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            const obj = JSON.parse(raw);
+            if (obj && obj.game) return obj;
+          }catch(_){}
+        }
+        return null;
+      }
+
+      function renderRecent(){
+        const last = readRecentSummary();
+        if (!last){
+          els.recentSub.textContent = 'ยังไม่มีผลล่าสุดของ Bloom Pack';
+          els.recentGame.textContent = '-';
+          els.recentRank.textContent = '-';
+          els.recentScore.textContent = '-';
+          els.recentAcc.textContent = '-';
+          return;
+        }
+
+        const score =
+          last.scoreFinal ??
+          last.score ??
+          last.replaySuccess ??
+          0;
+
+        const acc =
+          last.accPct != null ? `${Number(last.accPct)}%`
+          : (last.replayTotal != null ? `${Number(last.replaySuccess || 0)}/${Number(last.replayTotal || 0)}` : '-');
+
+        els.recentSub.textContent = `ผลล่าสุดจาก ${gameLabel(last.game)} พร้อมนำไปเลือกเส้นทางถัดไปได้`;
+        els.recentGame.textContent = gameLabel(last.game);
+        els.recentRank.textContent = String(last.rank || '-');
+        els.recentScore.textContent = String(score);
+        els.recentAcc.textContent = String(acc);
+      }
+
+      function boot(){
+        els.pid.value = q('pid', 'anon');
+        els.name.value = q('name', q('nickName', 'Player'));
+        els.studyId.value = q('studyId', '');
+
+        setRadio('diff', q('diff', 'normal'));
+        setRadio('time', q('time', '60'));
+        setRadio('view', q('view', 'mobile'));
+
+        [
+          els.pid, els.name, els.studyId,
+          ...document.querySelectorAll('input[type="radio"]')
+        ].forEach((el) => {
+          if (!el) return;
+          el.addEventListener('input', () => {
+            bindLinks();
+            renderPreview();
+            renderRecent();
+          });
+          el.addEventListener('change', () => {
+            bindLinks();
+            renderPreview();
+            renderRecent();
+          });
+        });
+
+        bindLinks();
+        renderPreview();
+        renderRecent();
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
