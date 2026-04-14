@@ -1,10 +1,10 @@
 // === /fitness/js/engine.js ===
 // Shadow Breaker engine
-// PATCH v20260412n-SB-ENGINE-HIT-BURST-POPUP-SFX
+// PATCH v20260412r-SB-ENGINE-ASSIST-HIDE-PAD
 
 'use strict';
 
-const SB_ENGINE_VERSION = 'v20260412n-SB-ENGINE-HIT-BURST-POPUP-SFX';
+const SB_ENGINE_VERSION = 'v20260412r-SB-ENGINE-ASSIST-HIDE-PAD';
 const SB_GLOBAL_KEY = '__SB_ENGINE_SINGLETON__';
 
 export function initShadowBreaker(ctx = {}) {
@@ -18,7 +18,9 @@ export function initShadowBreaker(ctx = {}) {
   const logger = createLogger(cfg);
   const rng = createRng(cfg.seed);
   const state = createState(cfg, logger.sessionId);
+
   initDirectorBaseline(state, cfg, logger);
+
   const plan = buildSessionPlan(cfg);
 
   const engine = {
@@ -40,7 +42,7 @@ export function initShadowBreaker(ctx = {}) {
       pause: () => setPaused(true, state, ui),
       resume: () => setPaused(false, state, ui),
       endSession: (reason = 'manual_end') => endSession(reason, state, ui, logger),
-      openHelp: () => openHelp(ui),
+      openHelp: () => openHelp(ui, state),
       closeOverlay: () => ui.hideOverlay(),
       getResearchBundle: () => structuredCloneSafe(state.research.exportBundle),
       exportResearchBundle: () => exportResearchBundle(state),
@@ -95,6 +97,7 @@ function normalizeConfig(ctx = {}) {
     view: String(ctx.view || 'mobile'),
     seed: String(ctx.seed || Date.now()),
     hub: String(ctx.hub || defaultHub),
+    launcher: String(ctx.launcher || ''),
     cooldown: String(ctx.cooldown || ''),
     mode,
     body,
@@ -148,7 +151,16 @@ function createState(cfg, sessionId) {
       passiveCueKey: '',
       bossCycleIndex: 0,
       musicStateKey: '',
-      audioReady: false
+      audioReady: false,
+      gestureStartX: 0,
+      gestureStartY: 0,
+      gestureStartAt: 0,
+      gestureActive: false,
+      lastPointerX: 0,
+      lastPointerY: 0,
+      guardHoldTimer: 0,
+      assistPadOpen: false,
+      assistPadAutoHideTimer: 0
     },
     score: {
       total: 0,
@@ -298,7 +310,7 @@ function labelForStyle(mode, idx) {
 }
 
 /* ------------------------------------------------------------------ */
-/* engine boot flow */
+/* boot / session */
 /* ------------------------------------------------------------------ */
 
 function showStartOverlay(engine, plan) {
@@ -312,8 +324,8 @@ function showStartOverlay(engine, plan) {
 
     <div class="sb-card-grid">
       <div class="sb-mini-card">
-        <strong>วิธีเล่น</strong>
-        <div>กดปุ่มล่างจอ หรือส่ง action จาก motion/VR input</div>
+        <strong>วิธีเล่นหลัก</strong>
+        <div>แตะเป้าโดยตรง หรือใช้ gesture / keyboard / assist controls</div>
       </div>
       <div class="sb-mini-card">
         <strong>โหมดปัจจุบัน</strong>
@@ -331,7 +343,7 @@ function showStartOverlay(engine, plan) {
     <div class="sb-actions">
       <button class="sb-btn sb-btn-primary" data-sb-start="1">เริ่มเล่น</button>
       <button class="sb-btn sb-btn-secondary" data-sb-help="1">ดูวิธีเล่น</button>
-      <a class="sb-btn sb-btn-secondary" href="${escapeAttr(cfg.hub)}">กลับ HUB</a>
+      <a class="sb-btn sb-btn-secondary" href="${escapeAttr(cfg.launcher || cfg.hub)}">${cfg.launcher ? 'กลับ Launcher' : 'กลับ HUB'}</a>
     </div>
   `);
 
@@ -339,11 +351,12 @@ function showStartOverlay(engine, plan) {
   const helpBtn = ui.overlay.querySelector('[data-sb-help="1"]');
 
   startBtn.addEventListener('click', async () => {
+    ensureAudioReady(engine.state);
     ui.hideOverlay();
     await startSession(engine, plan);
   }, { once: true });
 
-  helpBtn.addEventListener('click', () => openHelp(ui), { once: true });
+  helpBtn.addEventListener('click', () => openHelp(ui, engine.state), { once: true });
 }
 
 async function startSession(engine, plan) {
@@ -352,11 +365,17 @@ async function startSession(engine, plan) {
 
   engine.started = true;
   ensureAudioReady(state);
+
   state.session.startedAt = Date.now();
   state.session.phase = 'countdown';
 
   logger.emit('sb_session_start', { phase: 'countdown' });
+
   await countdown(ui, state);
+
+  ui.setAssistPadOpen(false);
+  state.runtime.assistPadOpen = false;
+  ui.setGestureHint('Tap target • Swipe down = Duck • Hold = Block • Swipe up-left/right = Uppercut');
 
   for (const round of plan) {
     if (state.session.endRequested || engine.ended) break;
@@ -428,6 +447,7 @@ async function runRound(engine, round) {
 
     state.exercise.activeMs += 80;
     ui.renderHud(state, round, remainSec);
+
     await sleep(80);
   }
 
@@ -574,6 +594,7 @@ async function runBossRound(engine, round) {
 
     state.exercise.activeMs += 80;
     ui.renderHud(state, round, remainSec);
+
     await sleep(80);
   }
 
@@ -658,7 +679,7 @@ function spawnBossExpected(state, ui, logger, round) {
 }
 
 /* ------------------------------------------------------------------ */
-/* actions / matching */
+/* round action generation */
 /* ------------------------------------------------------------------ */
 
 function buildRoundActions(round, cfg, rng) {
@@ -753,6 +774,10 @@ function scoreForAction(action, cfg, roundType) {
   return Math.round(base * mul * bossMul);
 }
 
+/* ------------------------------------------------------------------ */
+/* target spawning / timing */
+/* ------------------------------------------------------------------ */
+
 function maybeSpawnExpected(state, ui, logger, round, actions) {
   if (state.runtime.currentExpected) return;
 
@@ -823,6 +848,10 @@ function maybeTimeoutExpected(state, ui, logger) {
   syncMusicState(state, logger, 'timeout_miss');
 }
 
+/* ------------------------------------------------------------------ */
+/* action consume / scoring */
+/* ------------------------------------------------------------------ */
+
 function consumeAction(action, state, ui, logger, meta = {}) {
   if (!action || state.session.endRequested) return false;
   if (state.session.pause) return false;
@@ -833,6 +862,7 @@ function consumeAction(action, state, ui, logger, meta = {}) {
     action,
     source: meta.source || 'unknown'
   });
+
   if (state.runtime.actionHistory.length > 60) {
     state.runtime.actionHistory.shift();
   }
@@ -866,24 +896,17 @@ function consumeAction(action, state, ui, logger, meta = {}) {
 }
 
 function registerHit(action, exp, state, ui, logger, meta) {
-  const judgment = typeof classifyTimingJudgment === 'function'
-    ? classifyTimingJudgment(exp)
-    : 'good';
-
-  const scoreDelta = typeof scoreForJudgment === 'function'
-    ? scoreForJudgment(exp.scoreValue, judgment)
-    : exp.scoreValue;
+  const judgment = classifyTimingJudgment(exp);
+  const scoreDelta = scoreForJudgment(exp.scoreValue, judgment);
 
   state.score.total += scoreDelta;
   state.score.combo += 1;
   state.score.comboMax = Math.max(state.score.comboMax, state.score.combo);
   state.score.stars = calcStars(state.score.total, state.cfg.durationMin);
 
-  if (state.judgments) {
-    if (judgment === 'perfect') state.judgments.perfect += 1;
-    else if (judgment === 'good') state.judgments.good += 1;
-    else if (judgment === 'late') state.judgments.late += 1;
-  }
+  if (judgment === 'perfect') state.judgments.perfect += 1;
+  else if (judgment === 'good') state.judgments.good += 1;
+  else if (judgment === 'late') state.judgments.late += 1;
 
   countHandSide(action, state);
   updateAccuracy(state);
@@ -913,7 +936,7 @@ function registerHit(action, exp, state, ui, logger, meta) {
     roundIndex: state.session.roundIndex,
     bossHp: state.boss.hp,
     judgment,
-    timingDeltaMs: typeof exp.hitAtMs === 'number' ? Math.round(nowMs() - exp.hitAtMs) : 0,
+    timingDeltaMs: Math.round(nowMs() - exp.hitAtMs),
     finisherHit
   });
 
@@ -952,7 +975,7 @@ function registerHit(action, exp, state, ui, logger, meta) {
   }
 
   ui.shake('soft');
-  ui.setCue(typeof cueForJudgment === 'function' ? cueForJudgment(judgment) : 'HIT!', typeof toneForJudgment === 'function' ? toneForJudgment(judgment) : 'hit');
+  ui.setCue(cueForJudgment(judgment), toneForJudgment(judgment));
 
   if (judgment === 'perfect') {
     ui.coachMoment('คมมาก! จังหวะตรงสุด ๆ', 'hype');
@@ -1030,6 +1053,7 @@ function bumpActionCount(state, action) {
   if (!(action in state.actions)) {
     state.actions[action] = 0;
   }
+
   state.actions[action] += 1;
 
   if (['jab', 'cross', 'hook_left', 'hook_right', 'uppercut_left', 'uppercut_right', 'flow_hit'].includes(action)) {
@@ -1130,11 +1154,16 @@ async function completeSession(engine, reason = 'natural_end') {
   persistFinalSnapshot(saved);
 
   const nextUrl = cfg.cooldown || cfg.hub;
+  const backUrl = cfg.launcher || cfg.hub;
+  const replayUrl = buildReplayUrl();
+
   ui.showOverlay(`
     <h2 style="margin:0 0 10px">เสร็จแล้ว</h2>
     <p style="margin:6px 0">บันทึกผลเรียบร้อย</p>
     <div class="sb-actions">
-      <a class="sb-btn sb-btn-primary" href="${escapeAttr(nextUrl)}">${cfg.cooldown ? 'ไปต่อช่วงผ่อนแรง' : 'กลับ HUB'}</a>
+      <a class="sb-btn sb-btn-secondary" href="${escapeAttr(backUrl)}">${cfg.launcher ? 'กลับ Launcher' : 'กลับ HUB'}</a>
+      <a class="sb-btn sb-btn-secondary" href="${escapeAttr(replayUrl)}">เล่นอีกครั้ง</a>
+      <a class="sb-btn sb-btn-primary" href="${escapeAttr(nextUrl)}">${cfg.cooldown ? 'ไปต่อช่วงผ่อนแรง' : 'จบและกลับ'}</a>
     </div>
   `);
 }
@@ -1434,7 +1463,7 @@ function finalizeMetrics(state) {
 }
 
 /* ------------------------------------------------------------------ */
-/* UI */
+/* UI shell */
 /* ------------------------------------------------------------------ */
 
 function createUiShell() {
@@ -1456,6 +1485,7 @@ function createUiShell() {
         position:relative;
         overflow:hidden;
       }
+
       .sb-hud{
         position:absolute;
         background:rgba(10,18,38,.72);
@@ -1467,9 +1497,28 @@ function createUiShell() {
         font-size:14px;
         z-index:10;
       }
-      .sb-top{ left:12px; right:12px; top:12px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-      .sb-left{ left:12px; top:92px; width:148px; }
-      .sb-right{ right:12px; top:92px; width:148px; }
+
+      .sb-top{
+        left:12px;
+        right:12px;
+        top:12px;
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        flex-wrap:wrap;
+      }
+
+      .sb-left{
+        left:12px;
+        top:92px;
+        width:148px;
+      }
+
+      .sb-right{
+        right:12px;
+        top:92px;
+        width:148px;
+      }
 
       .sb-bossbar{
         position:absolute;
@@ -1480,9 +1529,11 @@ function createUiShell() {
         z-index:11;
         display:none;
       }
+
       .sb-bossbar[data-open="1"]{
         display:block;
       }
+
       .sb-bossbar-head{
         display:flex;
         justify-content:space-between;
@@ -1492,6 +1543,7 @@ function createUiShell() {
         font-size:13px;
         text-shadow:0 2px 10px rgba(0,0,0,.35);
       }
+
       .sb-bossbar-track{
         height:18px;
         border-radius:999px;
@@ -1500,6 +1552,7 @@ function createUiShell() {
         border:1px solid rgba(255,255,255,.18);
         box-shadow:0 10px 22px rgba(0,0,0,.18);
       }
+
       .sb-bossbar-fill{
         height:100%;
         width:0%;
@@ -1507,14 +1560,17 @@ function createUiShell() {
         background:linear-gradient(90deg, #ff7aa2 0%, #ff476f 48%, #b0143d 100%);
         transition:width .16s linear, filter .16s linear;
       }
+
       .sb-bossbar[data-rage="1"] .sb-bossbar-fill{
         background:linear-gradient(90deg, #ffd166 0%, #ff8c42 38%, #ff3d00 100%);
         filter:brightness(1.08);
       }
+
       .sb-bossbar[data-finisher="1"] .sb-bossbar-fill{
         background:linear-gradient(90deg, #fff4b3 0%, #ffe066 50%, #ffb703 100%);
         filter:brightness(1.18);
       }
+
       .sb-finisher-flash{
         position:absolute;
         inset:0;
@@ -1523,6 +1579,7 @@ function createUiShell() {
         opacity:0;
         background:radial-gradient(circle, rgba(255,245,180,.24) 0%, rgba(255,180,60,.16) 30%, rgba(0,0,0,0) 68%);
       }
+
       .sb-finisher-flash.is-on{
         animation:sbFinisherFlash .45s ease-out forwards;
       }
@@ -1538,9 +1595,11 @@ function createUiShell() {
         opacity:0;
         transition:opacity .18s ease;
       }
+
       .sb-phase-card[data-open="1"]{
         opacity:1;
       }
+
       .sb-phase-card-box{
         border-radius:24px;
         padding:18px 18px 16px;
@@ -1552,15 +1611,19 @@ function createUiShell() {
         backdrop-filter:blur(10px);
         animation:sbPhaseCardIn .32s ease-out;
       }
+
       .sb-phase-card[data-tone="boss"] .sb-phase-card-box{
         background:linear-gradient(180deg, rgba(88,15,38,.90) 0%, rgba(145,24,60,.82) 100%);
       }
+
       .sb-phase-card[data-tone="rage"] .sb-phase-card-box{
         background:linear-gradient(180deg, rgba(122,53,0,.92) 0%, rgba(195,67,0,.84) 100%);
       }
+
       .sb-phase-card[data-tone="finisher"] .sb-phase-card-box{
         background:linear-gradient(180deg, rgba(132,92,0,.92) 0%, rgba(219,154,0,.84) 100%);
       }
+
       .sb-phase-kicker{
         font-size:12px;
         font-weight:900;
@@ -1568,12 +1631,14 @@ function createUiShell() {
         opacity:.88;
         text-transform:uppercase;
       }
+
       .sb-phase-title{
         margin-top:6px;
         font-size:clamp(22px,4.5vw,36px);
         font-weight:1000;
         letter-spacing:.02em;
       }
+
       .sb-phase-sub{
         margin-top:6px;
         font-size:14px;
@@ -1598,6 +1663,7 @@ function createUiShell() {
         background:linear-gradient(180deg, rgba(255,96,144,.92) 0%, rgba(122,36,255,.88) 100%);
         box-shadow:0 18px 40px rgba(0,0,0,.24), 0 0 18px rgba(255,96,144,.22);
       }
+
       .sb-combo-fx.is-on{
         animation:sbComboFxIn .72s ease-out forwards;
       }
@@ -1625,23 +1691,29 @@ function createUiShell() {
         opacity:0;
         animation:sbPopupFloat .72s ease-out forwards;
       }
+
       .sb-hit-popup.is-perfect{
         background:linear-gradient(180deg, #ffe066 0%, #ffb703 100%);
         color:#442800;
       }
+
       .sb-hit-popup.is-good{
         background:linear-gradient(180deg, #7dd3fc 0%, #3b82f6 100%);
       }
+
       .sb-hit-popup.is-late{
         background:linear-gradient(180deg, #fbbf24 0%, #f97316 100%);
       }
+
       .sb-hit-popup.is-near{
         background:linear-gradient(180deg, #fcd34d 0%, #f59e0b 100%);
         color:#402200;
       }
+
       .sb-hit-popup.is-miss{
         background:linear-gradient(180deg, #fca5a5 0%, #ef4444 100%);
       }
+
       .sb-hit-popup.is-finisher{
         background:linear-gradient(180deg, #fff4b3 0%, #ffd166 48%, #ff9f1c 100%);
         color:#4f2b00;
@@ -1655,6 +1727,7 @@ function createUiShell() {
         height:0;
         pointer-events:none;
       }
+
       .sb-burst-piece{
         position:absolute;
         left:0;
@@ -1667,6 +1740,7 @@ function createUiShell() {
         animation:sbBurstFly .46s ease-out forwards;
         box-shadow:0 4px 10px rgba(0,0,0,.15);
       }
+
       .sb-burst-piece.is-ring{
         border-radius:999px;
         width:12px;
@@ -1683,18 +1757,47 @@ function createUiShell() {
         z-index:7;
         pointer-events:none;
       }
+
       .sb-stage-text{
         font-size:clamp(22px,4vw,44px);
         font-weight:800;
         opacity:.96;
         text-shadow:0 0 26px rgba(130,200,255,.18);
       }
+
+      .sb-gesture-layer{
+        position:absolute;
+        inset:96px 16px 170px;
+        z-index:6;
+        pointer-events:auto;
+        touch-action:none;
+      }
+
+      .sb-gesture-hint{
+        position:absolute;
+        left:50%;
+        top:8px;
+        transform:translateX(-50%);
+        padding:6px 10px;
+        border-radius:999px;
+        font-size:11px;
+        font-weight:800;
+        color:rgba(255,255,255,.92);
+        background:rgba(10,18,38,.42);
+        border:1px solid rgba(255,255,255,.08);
+        backdrop-filter:blur(6px);
+        white-space:nowrap;
+        pointer-events:none;
+      }
+
       .sb-target-layer{
         position:absolute;
         inset:96px 16px 170px;
         z-index:8;
         pointer-events:none;
+        touch-action:manipulation;
       }
+
       .sb-target-lane{
         position:absolute;
         left:50%;
@@ -1706,6 +1809,7 @@ function createUiShell() {
         filter:drop-shadow(0 0 12px rgba(120,190,255,.16));
         opacity:.9;
       }
+
       .sb-target{
         position:absolute;
         width:88px;
@@ -1716,12 +1820,54 @@ function createUiShell() {
         animation:sbTargetPop .14s ease-out;
         pointer-events:none;
       }
+
       .sb-target::after{
         content:'';
         position:absolute;
         inset:-10px;
         border-radius:inherit;
         border:1px dashed rgba(255,255,255,.10);
+      }
+
+      .sb-target-tapbox{
+        position:absolute;
+        inset:-16px;
+        border-radius:inherit;
+        background:transparent;
+        pointer-events:auto;
+        touch-action:manipulation;
+        cursor:pointer;
+        z-index:5;
+      }
+
+      .sb-target.is-boss .sb-target-tapbox{
+        inset:-22px;
+      }
+
+      .sb-target.is-flow .sb-target-tapbox{
+        inset:-18px;
+      }
+
+      .sb-target.is-guard .sb-target-tapbox{
+        inset:-18px;
+        border-radius:28px;
+      }
+
+      .sb-target.is-duck .sb-target-tapbox{
+        inset:-22px 0;
+        border-radius:999px;
+      }
+
+      .sb-hit-zone,
+      .sb-hit-zone-ring,
+      .sb-target-body,
+      .sb-target-glow,
+      .sb-target-core,
+      .sb-target-label,
+      .sb-target-hint,
+      .sb-boss-weakpoints,
+      .sb-boss-wp{
+        pointer-events:none;
       }
 
       .sb-hit-zone{
@@ -1769,7 +1915,6 @@ function createUiShell() {
         border-radius:inherit;
         background:radial-gradient(circle, rgba(255,255,255,.18) 0%, rgba(120,190,255,.10) 42%, rgba(0,0,0,0) 72%);
         filter:blur(10px);
-        pointer-events:none;
       }
 
       .sb-target-core{
@@ -1812,69 +1957,42 @@ function createUiShell() {
         z-index:2;
       }
 
-      .sb-target.is-jab .sb-target-body{
-        background:radial-gradient(circle at 35% 30%, #8fd3ff 0%, #3a86ff 55%, #143d8f 100%);
-      }
-      .sb-target.is-cross .sb-target-body{
-        background:radial-gradient(circle at 35% 30%, #9bf6ff 0%, #4cc9f0 55%, #1c6aa5 100%);
-      }
-      .sb-target.is-hook-left .sb-target-body{
-        background:radial-gradient(circle at 35% 30%, #ffb3d9 0%, #ff6fb1 55%, #b83280 100%);
-      }
-      .sb-target.is-hook-right .sb-target-body{
-        background:radial-gradient(circle at 35% 30%, #ffc7a8 0%, #ff9f68 55%, #d46a1d 100%);
-      }
-      .sb-target.is-uppercut-left .sb-target-body{
-        background:radial-gradient(circle at 35% 30%, #caffbf 0%, #71dd7a 55%, #2d8a3c 100%);
-      }
-      .sb-target.is-uppercut-right .sb-target-body{
-        background:radial-gradient(circle at 35% 30%, #fdffb6 0%, #f7d64a 55%, #c49311 100%);
-      }
-      .sb-target.is-guard .sb-target-body{
-        background:linear-gradient(180deg, #d7e9ff 0%, #7fb3ff 45%, #275cc9 100%);
-      }
-      .sb-target.is-flow .sb-target-body{
-        background:
-          radial-gradient(circle at 50% 50%, rgba(255,255,255,.95) 0 10%, rgba(92,214,255,.95) 11% 32%, rgba(36,120,255,.88) 33% 56%, rgba(13,43,93,.85) 57% 100%);
-      }
-      .sb-target.is-boss .sb-target-body{
-        background:radial-gradient(circle at 35% 30%, #ffcad4 0%, #ff6b8a 45%, #8f1d3e 100%);
-        box-shadow:
-          0 0 0 8px rgba(255,255,255,.04),
-          0 18px 34px rgba(0,0,0,.28),
-          0 0 30px rgba(255,107,138,.35);
-      }
-
       .sb-target.is-jab{
         left:50%;
         top:42%;
         transform:translate(-50%,-50%);
       }
+
       .sb-target.is-cross{
         left:64%;
         top:42%;
         transform:translate(-50%,-50%);
       }
+
       .sb-target.is-hook-left{
         left:28%;
         top:42%;
         transform:translate(-50%,-50%);
       }
+
       .sb-target.is-hook-right{
         left:72%;
         top:42%;
         transform:translate(-50%,-50%);
       }
+
       .sb-target.is-uppercut-left{
         left:40%;
         top:58%;
         transform:translate(-50%,-50%);
       }
+
       .sb-target.is-uppercut-right{
         left:60%;
         top:58%;
         transform:translate(-50%,-50%);
       }
+
       .sb-target.is-guard{
         width:112px;
         height:112px;
@@ -1883,6 +2001,7 @@ function createUiShell() {
         top:40%;
         transform:translate(-50%,-50%);
       }
+
       .sb-target.is-duck{
         width:78%;
         height:20px;
@@ -1891,17 +2010,7 @@ function createUiShell() {
         top:38%;
         transform:translate(-50%,-50%);
       }
-      .sb-target.is-duck .sb-hit-zone{
-        border-radius:999px;
-      }
-      .sb-target.is-duck .sb-hit-zone-ring{
-        border-radius:999px;
-      }
-      .sb-target.is-duck .sb-target-body{
-        border-radius:999px;
-        background:linear-gradient(90deg, #ffd6a5 0%, #ffad66 50%, #f47c20 100%);
-        box-shadow:0 8px 20px rgba(0,0,0,.24), 0 0 20px rgba(255,173,102,.24);
-      }
+
       .sb-target.is-flow{
         width:120px;
         height:120px;
@@ -1909,6 +2018,7 @@ function createUiShell() {
         top:45%;
         transform:translate(-50%,-50%);
       }
+
       .sb-target.is-boss{
         width:132px;
         height:132px;
@@ -1917,11 +2027,58 @@ function createUiShell() {
         transform:translate(-50%,-50%);
       }
 
+      .sb-target.is-jab .sb-target-body{
+        background:radial-gradient(circle at 35% 30%, #8fd3ff 0%, #3a86ff 55%, #143d8f 100%);
+      }
+
+      .sb-target.is-cross .sb-target-body{
+        background:radial-gradient(circle at 35% 30%, #9bf6ff 0%, #4cc9f0 55%, #1c6aa5 100%);
+      }
+
+      .sb-target.is-hook-left .sb-target-body{
+        background:radial-gradient(circle at 35% 30%, #ffb3d9 0%, #ff6fb1 55%, #b83280 100%);
+      }
+
+      .sb-target.is-hook-right .sb-target-body{
+        background:radial-gradient(circle at 35% 30%, #ffc7a8 0%, #ff9f68 55%, #d46a1d 100%);
+      }
+
+      .sb-target.is-uppercut-left .sb-target-body{
+        background:radial-gradient(circle at 35% 30%, #caffbf 0%, #71dd7a 55%, #2d8a3c 100%);
+      }
+
+      .sb-target.is-uppercut-right .sb-target-body{
+        background:radial-gradient(circle at 35% 30%, #fdffb6 0%, #f7d64a 55%, #c49311 100%);
+      }
+
+      .sb-target.is-guard .sb-target-body{
+        background:linear-gradient(180deg, #d7e9ff 0%, #7fb3ff 45%, #275cc9 100%);
+      }
+
+      .sb-target.is-duck .sb-target-body{
+        border-radius:999px;
+        background:linear-gradient(90deg, #ffd6a5 0%, #ffad66 50%, #f47c20 100%);
+        box-shadow:0 8px 20px rgba(0,0,0,.24), 0 0 20px rgba(255,173,102,.24);
+      }
+
+      .sb-target.is-flow .sb-target-body{
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255,255,255,.95) 0 10%, rgba(92,214,255,.95) 11% 32%, rgba(36,120,255,.88) 33% 56%, rgba(13,43,93,.85) 57% 100%);
+      }
+
+      .sb-target.is-boss .sb-target-body{
+        background:radial-gradient(circle at 35% 30%, #ffcad4 0%, #ff6b8a 45%, #8f1d3e 100%);
+        box-shadow:
+          0 0 0 8px rgba(255,255,255,.04),
+          0 18px 34px rgba(0,0,0,.28),
+          0 0 30px rgba(255,107,138,.35);
+      }
+
       .sb-boss-weakpoints{
         position:absolute;
         inset:-18px;
-        pointer-events:none;
       }
+
       .sb-boss-wp{
         position:absolute;
         width:20px;
@@ -1931,12 +2088,14 @@ function createUiShell() {
         border:2px solid rgba(255,255,255,.44);
         box-shadow:0 0 10px rgba(255,255,255,.12);
       }
+
       .sb-boss-wp.is-active{
         background:#fff4b3;
         border-color:#fff;
         box-shadow:0 0 16px rgba(255,244,179,.55);
         transform:scale(1.12);
       }
+
       .sb-boss-wp.is-top{ left:50%; top:-10px; transform:translateX(-50%); }
       .sb-boss-wp.is-right{ right:-10px; top:50%; transform:translateY(-50%); }
       .sb-boss-wp.is-bottom{ left:50%; bottom:-10px; transform:translateX(-50%); }
@@ -1945,9 +2104,11 @@ function createUiShell() {
       .sb-target-hit{
         animation:sbTargetHit .18s ease-out forwards !important;
       }
+
       .sb-target-miss{
         animation:sbTargetMiss .20s ease-out forwards !important;
       }
+
       .sb-target-near{
         animation:sbTargetNear .18s ease-out forwards !important;
       }
@@ -1967,6 +2128,7 @@ function createUiShell() {
         border:1px solid rgba(255,255,255,.14);
         z-index:10;
       }
+
       .sb-cue.is-hit{ background:rgba(60,210,120,.22); }
       .sb-cue.is-miss{ background:rgba(255,90,90,.22); }
       .sb-cue.is-info{ background:rgba(90,160,255,.22); }
@@ -1991,6 +2153,7 @@ function createUiShell() {
         box-shadow:0 12px 24px rgba(0,0,0,.18);
         backdrop-filter:blur(8px);
       }
+
       .sb-coach::before{
         content:'';
         position:absolute;
@@ -2003,6 +2166,7 @@ function createUiShell() {
         background:radial-gradient(circle at 35% 35%, #fff 0%, #bde0ff 38%, #6aa9ff 100%);
         box-shadow:0 0 12px rgba(130,180,255,.28);
       }
+
       .sb-coach::after{
         content:'';
         position:absolute;
@@ -2015,17 +2179,40 @@ function createUiShell() {
         border-right:1px solid rgba(255,255,255,.10);
         border-bottom:1px solid rgba(255,255,255,.10);
       }
+
       .sb-coach.is-calm{
         background:rgba(14,24,46,.72);
       }
+
       .sb-coach.is-warn{
         background:rgba(108,52,10,.84);
       }
+
       .sb-coach.is-hype{
         background:rgba(88,18,44,.84);
       }
+
       .sb-coach.is-pulse{
         animation:sbCoachPulse .42s ease-out;
+      }
+
+      .sb-assist-fab{
+        position:absolute;
+        right:14px;
+        bottom:138px;
+        z-index:19;
+        border:0;
+        border-radius:999px;
+        padding:10px 14px;
+        font-weight:900;
+        font-size:13px;
+        color:#fff;
+        background:linear-gradient(180deg, rgba(46,92,180,.96) 0%, rgba(27,57,118,.96) 100%);
+        box-shadow:0 10px 22px rgba(0,0,0,.20);
+      }
+
+      .sb-assist-fab.is-on{
+        background:linear-gradient(180deg, rgba(255,188,66,.98) 0%, rgba(232,122,25,.96) 100%);
       }
 
       .sb-pad{
@@ -2035,21 +2222,33 @@ function createUiShell() {
         bottom:12px;
         display:grid;
         grid-template-columns:repeat(4,minmax(0,1fr));
-        gap:8px;
-        z-index:10;
+        gap:6px;
+        z-index:18;
+        opacity:0;
+        transform:translateY(18px);
+        pointer-events:none;
+        transition:opacity .18s ease, transform .18s ease;
       }
+
+      .sb-pad[data-open="1"]{
+        opacity:.92;
+        transform:translateY(0);
+        pointer-events:auto;
+      }
+
       .sb-pad button{
         border:0;
-        border-radius:14px;
-        padding:12px 8px;
+        border-radius:12px;
+        padding:9px 6px;
         font-weight:800;
-        font-size:14px;
-        background:#d8ecff;
+        font-size:12px;
+        background:rgba(232,241,255,.96);
         color:#123;
-        box-shadow:0 8px 20px rgba(0,0,0,.18);
+        box-shadow:0 6px 14px rgba(0,0,0,.14);
       }
+
       .sb-pad button[data-action="duck"]{
-        background:#fff2c8;
+        background:rgba(255,242,200,.98);
       }
 
       .sb-tools{
@@ -2060,6 +2259,7 @@ function createUiShell() {
         gap:8px;
         z-index:12;
       }
+
       .sb-tool-btn{
         border:0;
         border-radius:12px;
@@ -2074,12 +2274,15 @@ function createUiShell() {
         inset:0;
         z-index:30;
       }
+
       .sb-overlay[hidden]{ display:none; }
+
       .sb-overlay-backdrop{
         position:absolute;
         inset:0;
         background:rgba(4,8,18,.72);
       }
+
       .sb-overlay-card{
         position:absolute;
         left:50%;
@@ -2094,21 +2297,25 @@ function createUiShell() {
         padding:20px;
         box-shadow:0 24px 64px rgba(0,0,0,.28);
       }
+
       .sb-card-grid{
         display:grid;
         grid-template-columns:repeat(2,minmax(0,1fr));
         gap:12px;
       }
+
       .sb-mini-card{
         background:#f4f8ff;
         border-radius:16px;
         padding:12px 14px;
       }
+
       .sb-plan-list{
         margin-top:8px;
         display:grid;
         gap:6px;
       }
+
       .sb-plan-row{
         display:flex;
         justify-content:space-between;
@@ -2117,6 +2324,7 @@ function createUiShell() {
         border-radius:12px;
         background:#f6f8fc;
       }
+
       .sb-actions{
         display:flex;
         gap:10px;
@@ -2124,6 +2332,7 @@ function createUiShell() {
         justify-content:flex-end;
         margin-top:14px;
       }
+
       .sb-btn{
         appearance:none;
         border:0;
@@ -2136,23 +2345,28 @@ function createUiShell() {
         align-items:center;
         justify-content:center;
       }
+
       .sb-btn-primary{
         background:#3b82f6;
         color:#fff;
       }
+
       .sb-btn-secondary{
         background:#eaf2ff;
         color:#13325b;
       }
+
       .sb-field{
         display:block;
         margin:10px 0;
       }
+
       .sb-field span{
         display:block;
         font-weight:700;
         margin-bottom:6px;
       }
+
       .sb-field input[type="range"]{
         width:100%;
       }
@@ -2160,6 +2374,7 @@ function createUiShell() {
       #sb-engine-root.is-shake-soft{
         animation:sbShakeSoft .18s linear;
       }
+
       #sb-engine-root.is-shake-hard{
         animation:sbShakeHard .28s linear;
       }
@@ -2285,39 +2500,70 @@ function createUiShell() {
           width:calc(50vw - 20px);
           font-size:12px;
         }
+
         .sb-left{ left:12px; }
         .sb-right{ right:12px; }
+
         .sb-cue{
           bottom:142px;
           font-size:22px;
         }
+
         .sb-card-grid{
           grid-template-columns:1fr;
         }
+
         .sb-target{
           width:72px;
           height:72px;
-          font-size:14px;
         }
+
         .sb-target.is-guard{
           width:96px;
           height:96px;
         }
+
         .sb-target.is-flow{
           width:104px;
           height:104px;
         }
+
         .sb-target.is-boss{
           width:116px;
           height:116px;
         }
+
         .sb-target-hint{
           font-size:10px;
           min-width:24px;
           height:24px;
         }
-        .sb-target-body{
-          font-size:14px;
+
+        .sb-target-tapbox{
+          inset:-20px;
+        }
+
+        .sb-target.is-boss .sb-target-tapbox{
+          inset:-26px;
+        }
+
+        .sb-target.is-duck .sb-target-tapbox{
+          inset:-26px 0;
+        }
+
+        .sb-gesture-hint{
+          font-size:10px;
+          max-width:84vw;
+          white-space:normal;
+          text-align:center;
+          line-height:1.25;
+        }
+
+        .sb-assist-fab{
+          bottom:138px;
+          right:12px;
+          padding:10px 13px;
+          font-size:12px;
         }
       }
     </style>
@@ -2356,11 +2602,20 @@ function createUiShell() {
     <div class="sb-hud sb-right" data-sb-right></div>
 
     <div class="sb-stage" data-sb-stage><div class="sb-stage-text">Shadow Breaker</div></div>
+
+    <div class="sb-gesture-layer" data-sb-gesture-layer>
+      <div class="sb-gesture-hint" data-sb-gesture-hint>Tap target • Swipe down = Duck • Hold = Block • Swipe up-left/right = Uppercut</div>
+    </div>
+
     <div class="sb-target-layer" data-sb-target-layer></div>
     <div class="sb-cue is-info" data-sb-cue></div>
     <div class="sb-coach is-calm" data-sb-coach></div>
 
-    <div class="sb-pad" data-sb-pad>
+    <button class="sb-assist-fab" data-sb-assist-toggle="1" type="button" aria-label="Assist controls">
+      Assist
+    </button>
+
+    <div class="sb-pad" data-sb-pad data-open="0">
       <button data-action="jab">JAB</button>
       <button data-action="cross">CROSS</button>
       <button data-action="hook_left">HOOK L</button>
@@ -2387,12 +2642,15 @@ function bindUiRefs(root) {
   const right = root.querySelector('[data-sb-right]');
   const stage = root.querySelector('[data-sb-stage]');
   const targetLayer = root.querySelector('[data-sb-target-layer]');
+  const gestureLayer = root.querySelector('[data-sb-gesture-layer]');
+  const gestureHint = root.querySelector('[data-sb-gesture-hint]');
   const fxLayer = root.querySelector('[data-sb-fx-layer]');
   const cue = root.querySelector('[data-sb-cue]');
   const coach = root.querySelector('[data-sb-coach]');
   const overlay = root.querySelector('[data-sb-overlay]');
   const overlayCard = root.querySelector('[data-sb-overlay-card]');
   const pad = root.querySelector('[data-sb-pad]');
+  const assistToggle = root.querySelector('[data-sb-assist-toggle="1"]');
   const bossbar = root.querySelector('[data-sb-bossbar]');
   const bossname = root.querySelector('[data-sb-bossname]');
   const bosshp = root.querySelector('[data-sb-bosshp]');
@@ -2411,12 +2669,15 @@ function bindUiRefs(root) {
     right,
     stage,
     targetLayer,
+    gestureLayer,
+    gestureHint,
     fxLayer,
     cue,
     coach,
     overlay,
     overlayCard,
     pad,
+    assistToggle,
     bossbar,
     bossname,
     bosshp,
@@ -2477,9 +2738,31 @@ function bindUiRefs(root) {
       coach.textContent = text || '';
       clearTimeout(this._coachPulseTimer);
       this._coachPulseTimer = setTimeout(() => {
-        if (!coach) return;
         coach.className = `sb-coach is-${tone || 'hype'}`;
       }, 420);
+    },
+
+    setGestureHint(text = '') {
+      gestureHint.textContent = text || '';
+      gestureHint.style.opacity = text ? '1' : '0';
+    },
+
+    setAssistPadOpen(flag) {
+      const open = !!flag;
+      pad.dataset.open = open ? '1' : '0';
+      assistToggle.classList.toggle('is-on', open);
+    },
+
+    toggleAssistPad() {
+      const isOpen = pad?.dataset.open === '1';
+      this.setAssistPadOpen(!isOpen);
+    },
+
+    autoHideAssistPad(ms = 2200) {
+      clearTimeout(this._assistHideTimer);
+      this._assistHideTimer = setTimeout(() => {
+        this.setAssistPadOpen(false);
+      }, ms);
     },
 
     showComboFx(label) {
@@ -2578,7 +2861,7 @@ function bindUiRefs(root) {
 
       clearTimeout(this._phaseTimer);
       this._phaseTimer = setTimeout(() => {
-        if (phaseCard) phaseCard.dataset.open = '0';
+        phaseCard.dataset.open = '0';
       }, ms);
     },
 
@@ -2600,10 +2883,19 @@ function bindUiRefs(root) {
       const label = escapeHtml(expected?.label || 'HIT');
       const ringMs = Math.max(300, Number(expected?.expiresMs || 1100));
       const bossWeakClass = bossWeakClassForAction(expected?.action);
+      const directAction = escapeAttr(expected?.action || '');
 
       targetLayer.innerHTML = `
         <div class="sb-target-lane"></div>
         <div class="sb-target ${cls}" style="--ring-ms:${ringMs}ms">
+          <div
+            class="sb-target-tapbox"
+            data-sb-direct-action="${directAction}"
+            role="button"
+            aria-label="${label}"
+            title="${label}"
+          ></div>
+
           <div class="sb-hit-zone"></div>
           <div class="sb-hit-zone-ring"></div>
 
@@ -2639,7 +2931,7 @@ function bindUiRefs(root) {
       if (ring) ring.style.opacity = '.2';
 
       setTimeout(() => {
-        if (targetLayer) targetLayer.innerHTML = '';
+        targetLayer.innerHTML = '';
       }, 180);
     },
 
@@ -2655,7 +2947,7 @@ function bindUiRefs(root) {
       if (ring) ring.style.opacity = '.18';
 
       setTimeout(() => {
-        if (targetLayer) targetLayer.innerHTML = '';
+        targetLayer.innerHTML = '';
       }, 180);
     },
 
@@ -2671,7 +2963,7 @@ function bindUiRefs(root) {
       if (ring) ring.style.opacity = '.14';
 
       setTimeout(() => {
-        if (targetLayer) targetLayer.innerHTML = '';
+        targetLayer.innerHTML = '';
       }, 200);
     },
 
@@ -2692,23 +2984,42 @@ function bindUiRefs(root) {
   };
 }
 
-function openHelp(ui) {
+function openHelp(ui, state) {
   ui.showOverlay(`
     <h2 style="margin:0 0 10px">วิธีเล่น Shadow Breaker</h2>
     <div class="sb-card-grid">
       <div class="sb-mini-card">
-        <strong>กดปุ่มตาม cue</strong>
-        <div>เช่น JAB, CROSS, HOOK, BLOCK</div>
+        <strong>หลักที่สุด</strong>
+        <div>แตะที่เป้าโดยตรง</div>
       </div>
       <div class="sb-mini-card">
-        <strong>ถ้าต่อ VR/motion</strong>
-        <div>เรียก <code>window.ShadowBreaker.submitAction('jab')</code></div>
+        <strong>Gesture</strong>
+        <div>Swipe down = Duck, Hold = Block, Swipe up-left/right = Uppercut</div>
+      </div>
+      <div class="sb-mini-card">
+        <strong>Assist</strong>
+        <div>กดปุ่ม Assist เพื่อเปิดปุ่มช่วยเล่นชั่วคราว</div>
+      </div>
+      <div class="sb-mini-card">
+        <strong>Keyboard</strong>
+        <div>J/K/A/L/U/I/G/D</div>
       </div>
     </div>
     <div class="sb-actions">
+      <button class="sb-btn sb-btn-secondary" data-sb-open-assist="1">เปิด Assist controls</button>
       <button class="sb-btn sb-btn-primary" data-sb-close-help="1">ปิด</button>
     </div>
   `);
+
+  const openAssistBtn = ui.overlay.querySelector('[data-sb-open-assist="1"]');
+  if (openAssistBtn) {
+    openAssistBtn.addEventListener('click', () => {
+      ui.hideOverlay();
+      state.runtime.assistPadOpen = true;
+      ui.setAssistPadOpen(true);
+      ui.autoHideAssistPad(3200);
+    }, { once: true });
+  }
 
   const closeBtn = ui.overlay.querySelector('[data-sb-close-help="1"]');
   closeBtn.addEventListener('click', () => ui.hideOverlay(), { once: true });
@@ -2725,20 +3036,32 @@ function bindGlobalInputs(engine) {
     btn.addEventListener('click', () => {
       ensureAudioReady(state);
       consumeAction(btn.dataset.action, state, ui, logger, { source: 'pad' });
+      ui.autoHideAssistPad(900);
+      state.runtime.assistPadOpen = false;
     });
   });
 
   const pauseBtn = ui.root.querySelector('[data-sb-pause="1"]');
   const helpBtn = ui.root.querySelector('[data-sb-help-btn="1"]');
   const exitBtn = ui.root.querySelector('[data-sb-exit="1"]');
+  const assistBtn = ui.root.querySelector('[data-sb-assist-toggle="1"]');
 
   pauseBtn.addEventListener('click', () => {
     if (state.session.pause) setPaused(false, state, ui);
     else setPaused(true, state, ui);
   });
 
-  helpBtn.addEventListener('click', () => openHelp(ui));
+  helpBtn.addEventListener('click', () => openHelp(ui, state));
   exitBtn.addEventListener('click', () => endSession('manual_exit', state, ui, logger));
+
+  if (assistBtn) {
+    assistBtn.addEventListener('click', () => {
+      const nextOpen = padOpenState(ui) ? false : true;
+      state.runtime.assistPadOpen = nextOpen;
+      ui.setAssistPadOpen(nextOpen);
+      if (nextOpen) ui.autoHideAssistPad(2600);
+    });
+  }
 
   const keyHandler = (ev) => {
     const map = {
@@ -2751,24 +3074,129 @@ function bindGlobalInputs(engine) {
       KeyG: 'guard',
       KeyD: 'duck'
     };
+
     const action = map[ev.code];
     if (!action) return;
+
     ensureAudioReady(state);
     consumeAction(action, state, ui, logger, { source: 'keyboard' });
+    ui.setAssistPadOpen(false);
+    state.runtime.assistPadOpen = false;
   };
 
   const customHandler = (ev) => {
     const action = ev?.detail?.action;
     if (!action) return;
+
     ensureAudioReady(state);
     consumeAction(action, state, ui, logger, {
       source: ev?.detail?.source || 'custom_event'
     });
+
+    ui.setAssistPadOpen(false);
+    state.runtime.assistPadOpen = false;
   };
 
   const shootHandler = () => {
     ensureAudioReady(state);
     consumeAction('jab', state, ui, logger, { source: 'hha:shoot' });
+    ui.setAssistPadOpen(false);
+    state.runtime.assistPadOpen = false;
+  };
+
+  const directTargetHandler = (ev) => {
+    const hit = ev.target.closest('[data-sb-direct-action]');
+    if (!hit || !ui.targetLayer || !ui.targetLayer.contains(hit)) return;
+
+    const action = hit.getAttribute('data-sb-direct-action');
+    if (!action) return;
+
+    clearTimeout(state.runtime.guardHoldTimer);
+    state.runtime.gestureActive = false;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    ensureAudioReady(state);
+    consumeAction(action, state, ui, logger, { source: 'direct_target' });
+    ui.setAssistPadOpen(false);
+    state.runtime.assistPadOpen = false;
+  };
+
+  const gesturePointerDown = (ev) => {
+    if (!ui.gestureLayer) return;
+
+    const hitTarget = ev.target.closest('[data-sb-direct-action]');
+    if (hitTarget) return;
+
+    state.runtime.gestureActive = true;
+    state.runtime.gestureStartX = ev.clientX;
+    state.runtime.gestureStartY = ev.clientY;
+    state.runtime.gestureStartAt = Date.now();
+    state.runtime.lastPointerX = ev.clientX;
+    state.runtime.lastPointerY = ev.clientY;
+
+    clearTimeout(state.runtime.guardHoldTimer);
+    state.runtime.guardHoldTimer = setTimeout(() => {
+      if (!state.runtime.gestureActive) return;
+
+      const moveX = Math.abs(state.runtime.lastPointerX - state.runtime.gestureStartX);
+      const moveY = Math.abs(state.runtime.lastPointerY - state.runtime.gestureStartY);
+
+      if (moveX < 18 && moveY < 18) {
+        ensureAudioReady(state);
+        consumeAction('guard', state, ui, logger, { source: 'gesture_hold' });
+        ui.setGestureHint('BLOCK');
+        setTimeout(() => ui.setGestureHint('Tap target • Swipe down = Duck • Hold = Block • Swipe up-left/right = Uppercut'), 700);
+        ui.setAssistPadOpen(false);
+        state.runtime.assistPadOpen = false;
+        state.runtime.gestureActive = false;
+      }
+    }, 220);
+  };
+
+  const gesturePointerMove = (ev) => {
+    if (!state.runtime.gestureActive) return;
+    state.runtime.lastPointerX = ev.clientX;
+    state.runtime.lastPointerY = ev.clientY;
+  };
+
+  const gesturePointerUp = (ev) => {
+    if (!state.runtime.gestureActive) return;
+
+    clearTimeout(state.runtime.guardHoldTimer);
+
+    const dx = ev.clientX - state.runtime.gestureStartX;
+    const dy = ev.clientY - state.runtime.gestureStartY;
+    const dt = Date.now() - state.runtime.gestureStartAt;
+    const rect = ui.gestureLayer?.getBoundingClientRect();
+
+    state.runtime.gestureActive = false;
+
+    if (!rect) return;
+    if (dt > 520) return;
+
+    const action = resolveGestureAction(dx, dy, state.runtime.gestureStartX, rect);
+    if (!action) return;
+
+    ensureAudioReady(state);
+    consumeAction(action, state, ui, logger, { source: 'gesture_swipe' });
+
+    if (action === 'duck') ui.setGestureHint('DUCK');
+    else if (action === 'uppercut_left') ui.setGestureHint('UP L');
+    else if (action === 'uppercut_right') ui.setGestureHint('UP R');
+
+    setTimeout(() => {
+      ui.setGestureHint('Tap target • Swipe down = Duck • Hold = Block • Swipe up-left/right = Uppercut');
+    }, 700);
+
+    ui.setAssistPadOpen(false);
+    state.runtime.assistPadOpen = false;
+  };
+
+  const gesturePointerCancel = () => {
+    clearTimeout(state.runtime.guardHoldTimer);
+    state.runtime.gestureActive = false;
   };
 
   const beforeUnloadHandler = () => {
@@ -2780,10 +3208,32 @@ function bindGlobalInputs(engine) {
   window.addEventListener('hha:shoot', shootHandler);
   window.addEventListener('beforeunload', beforeUnloadHandler);
 
+  if (ui.targetLayer) {
+    ui.targetLayer.addEventListener('pointerdown', directTargetHandler, { passive: false });
+  }
+
+  if (ui.gestureLayer) {
+    ui.gestureLayer.addEventListener('pointerdown', gesturePointerDown, { passive: false });
+    ui.gestureLayer.addEventListener('pointermove', gesturePointerMove, { passive: true });
+    ui.gestureLayer.addEventListener('pointerup', gesturePointerUp, { passive: false });
+    ui.gestureLayer.addEventListener('pointercancel', gesturePointerCancel, { passive: true });
+  }
+
   engine.activeCleanup.push(() => document.removeEventListener('keydown', keyHandler));
   engine.activeCleanup.push(() => document.removeEventListener('sb:action', customHandler));
   engine.activeCleanup.push(() => window.removeEventListener('hha:shoot', shootHandler));
   engine.activeCleanup.push(() => window.removeEventListener('beforeunload', beforeUnloadHandler));
+
+  if (ui.targetLayer) {
+    engine.activeCleanup.push(() => ui.targetLayer.removeEventListener('pointerdown', directTargetHandler));
+  }
+
+  if (ui.gestureLayer) {
+    engine.activeCleanup.push(() => ui.gestureLayer.removeEventListener('pointerdown', gesturePointerDown));
+    engine.activeCleanup.push(() => ui.gestureLayer.removeEventListener('pointermove', gesturePointerMove));
+    engine.activeCleanup.push(() => ui.gestureLayer.removeEventListener('pointerup', gesturePointerUp));
+    engine.activeCleanup.push(() => ui.gestureLayer.removeEventListener('pointercancel', gesturePointerCancel));
+  }
 }
 
 function setPaused(flag, state, ui) {
@@ -2795,13 +3245,16 @@ function setPaused(flag, state, ui) {
         <button class="sb-btn sb-btn-primary" data-sb-resume="1">เล่นต่อ</button>
       </div>
     `);
+
     const btn = ui.overlay.querySelector('[data-sb-resume="1"]');
     btn.addEventListener('click', () => {
       state.session.pause = false;
       ui.hideOverlay();
     }, { once: true });
+
     return;
   }
+
   ui.hideOverlay();
 }
 
@@ -2900,6 +3353,442 @@ function persistFinalSnapshot(summary) {
   try {
     localStorage.setItem('SB_FINAL_SUMMARY', JSON.stringify(summary));
   } catch (_) {}
+}
+
+/* ------------------------------------------------------------------ */
+/* research bundle / export */
+/* ------------------------------------------------------------------ */
+
+function buildResearchBundle(state, selfReport = null) {
+  const summary = buildSummaryPayload(state);
+
+  return {
+    schema: 'shadow-breaker-research-bundle/v1',
+    patch: SB_ENGINE_VERSION,
+    exportedAtIso: new Date().toISOString(),
+
+    context: {
+      sessionId: state.session.sessionId,
+      pid: state.cfg.pid,
+      nick: state.cfg.nick,
+      studyId: state.cfg.studyId,
+      run: state.cfg.run,
+      view: state.cfg.view,
+      seed: state.cfg.seed,
+      mode: state.cfg.mode,
+      body: state.cfg.body,
+      intensity: state.cfg.intensity,
+      durationMin: state.cfg.durationMin,
+      diff: state.cfg.diff,
+      adaptiveMode: state.director.mode
+    },
+
+    summary,
+
+    timing: {
+      perfect: state.judgments.perfect || 0,
+      good: state.judgments.good || 0,
+      late: state.judgments.late || 0,
+      nearMiss: state.judgments.nearMiss || 0,
+      miss: state.judgments.miss || 0,
+      judgeMiss: state.judgments.miss || 0
+    },
+
+    director: {
+      baselineWindowMul: state.director.baselineWindowMul,
+      baselineBossOffset: state.director.baselineBossOffset,
+      finalLevel: state.director.level,
+      finalTrend: state.director.trend,
+      appliedWindowMul: state.director.appliedWindowMul,
+      bossHpOffset: state.director.bossHpOffset,
+      decisionSeq: state.director.decisionSeq,
+      checkpointEvery: state.director.checkpointEvery,
+      researchLocked: state.director.researchLocked ? 1 : 0,
+      checkpoints: structuredCloneSafe(state.research.checkpoints || [])
+    },
+
+    boss: {
+      clears: state.boss.clears,
+      hpMax: state.boss.hpMax,
+      phaseHistory: structuredCloneSafe(state.research.bossPhases || [])
+    },
+
+    selfReport: selfReport || null
+  };
+}
+
+function exportResearchBundle(state) {
+  const bundle = state.research.exportBundle || buildResearchBundle(state, null);
+  const filename = `shadow-breaker-research-${state.session.sessionId}.json`;
+
+  try {
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function normalizeEventRows(bundle) {
+  const ctx = bundle?.context || {};
+  const checkpoints = bundle?.director?.checkpoints || [];
+  const bossPhases = bundle?.boss?.phaseHistory || [];
+
+  const cpEvents = checkpoints.map((cp, idx) => ({
+    session_id: ctx.sessionId || '',
+    pid: ctx.pid || '',
+    nick: ctx.nick || '',
+    event_seq: idx + 1,
+    event_type: 'adaptive_checkpoint',
+    event_phase: cp.phase || '',
+    round_index: cp.roundIndex || '',
+    at_ms: cp.atMs || '',
+    adaptive_mode: cp.adaptiveMode || '',
+    research_locked: cp.researchLocked || 0,
+    adaptive_level: cp.level || 0,
+    adaptive_trend: cp.trend || '',
+    adaptive_window_mul: cp.appliedWindowMul || '',
+    boss_hp_offset: cp.bossHpOffset || '',
+    recent_hits: cp.recentHits || 0,
+    recent_misses: cp.recentMisses || 0,
+    sample_size: cp.sampleSize || 0,
+    combo: cp.combo || 0,
+    accuracy: cp.accuracy || 0
+  }));
+
+  const bossEvents = bossPhases.map((bp, idx) => ({
+    session_id: ctx.sessionId || '',
+    pid: ctx.pid || '',
+    nick: ctx.nick || '',
+    event_seq: idx + 1,
+    event_type: `boss_${bp.phase || 'phase'}`,
+    event_phase: bp.phase || '',
+    round_index: bp.roundIndex || '',
+    at_ms: bp.atMs || '',
+    boss_hp: bp.bossHp || '',
+    boss_hp_max: bp.bossHpMax || '',
+    hp_max: bp.hpMax || '',
+    hp_left: bp.hpLeft || ''
+  }));
+
+  return cpEvents.concat(bossEvents).sort((a, b) => {
+    const av = Number(a.at_ms || 0);
+    const bv = Number(b.at_ms || 0);
+    return av - bv;
+  });
+}
+
+function flattenResearchTables(bundle) {
+  const ctx = bundle?.context || {};
+  const sum = bundle?.summary || {};
+  const timing = bundle?.timing || {};
+  const director = bundle?.director || {};
+  const selfReport = bundle?.selfReport || null;
+
+  const sessions = [{
+    schema: bundle?.schema || '',
+    patch: bundle?.patch || '',
+    exported_at_iso: bundle?.exportedAtIso || '',
+    session_id: ctx.sessionId || '',
+    pid: ctx.pid || '',
+    nick: ctx.nick || '',
+    study_id: ctx.studyId || '',
+    run: ctx.run || '',
+    view: ctx.view || '',
+    seed: ctx.seed || '',
+    mode: ctx.mode || '',
+    body: ctx.body || '',
+    intensity: ctx.intensity || '',
+    duration_min: ctx.durationMin || '',
+    diff: ctx.diff || '',
+    adaptive_mode: ctx.adaptiveMode || '',
+    score: sum.score || 0,
+    stars: sum.stars || 0,
+    accuracy: sum.accuracy || 0,
+    combo_max: sum.comboMax || 0,
+    punches_per_min: sum.punchesPerMin || 0,
+    estimated_tier: sum.estimatedTier || '',
+    boss_clears: sum.bossClears || 0,
+    left_hits: sum.leftHits || 0,
+    right_hits: sum.rightHits || 0,
+    balance_pct: sum.balancePct || 0,
+    perfect: timing.perfect || 0,
+    good: timing.good || 0,
+    late: timing.late || 0,
+    near_miss: timing.nearMiss || 0,
+    judge_miss: timing.miss || timing.judgeMiss || 0,
+    adaptive_level: director.finalLevel || 0,
+    adaptive_trend: director.finalTrend || '',
+    adaptive_window_mul: director.appliedWindowMul || 1,
+    adaptive_boss_offset: director.bossHpOffset || 0,
+    adaptive_decision_seq: director.decisionSeq || 0,
+    baseline_window_mul: director.baselineWindowMul || 1,
+    baseline_boss_offset: director.baselineBossOffset || 0
+  }];
+
+  const selfReportRows = selfReport ? [{
+    session_id: ctx.sessionId || '',
+    pid: ctx.pid || '',
+    nick: ctx.nick || '',
+    study_id: ctx.studyId || '',
+    rpe: selfReport.rpe ?? '',
+    enjoyment: selfReport.enjoyment ?? '',
+    difficulty: selfReport.difficulty ?? '',
+    pain: selfReport.pain ?? '',
+    refresh: selfReport.refresh ?? ''
+  }] : [];
+
+  const adaptiveCheckpoints = (director.checkpoints || []).map((cp, idx) => ({
+    session_id: ctx.sessionId || '',
+    pid: ctx.pid || '',
+    nick: ctx.nick || '',
+    checkpoint_seq: idx + 1,
+    decision_seq: cp.seq || 0,
+    reason: cp.reason || '',
+    at_ms: cp.atMs || '',
+    phase: cp.phase || '',
+    round_index: cp.roundIndex || '',
+    adaptive_mode: cp.adaptiveMode || '',
+    research_locked: cp.researchLocked || 0,
+    level: cp.level || 0,
+    trend: cp.trend || '',
+    applied_window_mul: cp.appliedWindowMul || '',
+    boss_hp_offset: cp.bossHpOffset || '',
+    recent_hits: cp.recentHits || 0,
+    recent_misses: cp.recentMisses || 0,
+    sample_size: cp.sampleSize || 0,
+    combo: cp.combo || 0,
+    accuracy: cp.accuracy || 0
+  }));
+
+  const events = normalizeEventRows(bundle);
+
+  return {
+    sessions,
+    events,
+    self_report: selfReportRows,
+    adaptive_checkpoints: adaptiveCheckpoints
+  };
+}
+
+function csvCell(v) {
+  if (v == null) return '';
+  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '';
+  if (typeof v === 'boolean') return v ? '1' : '0';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
+function rowsToCsv(rows) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const headers = [];
+
+  safeRows.forEach((row) => {
+    Object.keys(row || {}).forEach((k) => {
+      if (!headers.includes(k)) headers.push(k);
+    });
+  });
+
+  if (!headers.length) return '';
+
+  const escapeCsv = (value) => {
+    const s = csvCell(value);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const lines = [];
+  lines.push(headers.join(','));
+
+  safeRows.forEach((row) => {
+    lines.push(headers.map((h) => escapeCsv(row ? row[h] : '')).join(','));
+  });
+
+  return lines.join('\n');
+}
+
+function downloadTextFile(filename, text, mime = 'text/plain;charset=utf-8') {
+  try {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1200);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function exportResearchCsvTables(state) {
+  const bundle = state.research.exportBundle || buildResearchBundle(state, null);
+  const tables = state.research.exportTables || flattenResearchTables(bundle);
+  state.research.exportBundle = bundle;
+  state.research.exportTables = tables;
+
+  const base = `shadow-breaker-${state.session.sessionId}`;
+
+  const jobs = [
+    { name: `${base}-sessions.csv`, rows: tables.sessions },
+    { name: `${base}-events.csv`, rows: tables.events },
+    { name: `${base}-self-report.csv`, rows: tables.self_report },
+    { name: `${base}-adaptive-checkpoints.csv`, rows: tables.adaptive_checkpoints }
+  ];
+
+  let ok = false;
+
+  jobs.forEach((job, idx) => {
+    const csv = rowsToCsv(job.rows);
+    setTimeout(() => {
+      if (csv) downloadTextFile(job.name, csv, 'text/csv;charset=utf-8');
+    }, idx * 180);
+    if (csv) ok = true;
+  });
+
+  return ok;
+}
+
+function buildAppsScriptPayload(state, endpointOverride = '') {
+  const bundle = state.research.exportBundle || buildResearchBundle(state, null);
+  const tables = state.research.exportTables || flattenResearchTables(bundle);
+  state.research.exportBundle = bundle;
+  state.research.exportTables = tables;
+
+  const endpoint = String(endpointOverride || state.cfg.appsScriptUrl || '');
+
+  const payload = {
+    schema: 'shadow-breaker-apps-script-payload/v1',
+    patch: SB_ENGINE_VERSION,
+    sentAtIso: new Date().toISOString(),
+    endpointHint: endpoint,
+    source: 'shadowbreaker',
+    context: {
+      sessionId: state.session.sessionId,
+      pid: state.cfg.pid,
+      nick: state.cfg.nick,
+      studyId: state.cfg.studyId,
+      run: state.cfg.run,
+      view: state.cfg.view,
+      seed: state.cfg.seed,
+      mode: state.cfg.mode,
+      body: state.cfg.body,
+      intensity: state.cfg.intensity,
+      durationMin: state.cfg.durationMin,
+      diff: state.cfg.diff,
+      adaptiveMode: state.director.mode
+    },
+    sessions: structuredCloneSafe(tables.sessions || []),
+    events: structuredCloneSafe(tables.events || []),
+    self_report: structuredCloneSafe(tables.self_report || []),
+    adaptive_checkpoints: structuredCloneSafe(tables.adaptive_checkpoints || [])
+  };
+
+  state.research.lastAppsScriptPayload = payload;
+
+  try {
+    localStorage.setItem('SB_APPS_SCRIPT_LAST_PAYLOAD', JSON.stringify(payload));
+  } catch (_) {}
+
+  return payload;
+}
+
+async function sendAppsScriptPayload(state, logger, endpointOverride = '') {
+  const endpoint = String(endpointOverride || state.cfg.appsScriptUrl || '').trim();
+  const payload = buildAppsScriptPayload(state, endpoint);
+
+  if (!endpoint) {
+    const out = {
+      ok: false,
+      error: 'NO_ENDPOINT',
+      message: 'Missing Apps Script endpoint'
+    };
+
+    state.research.lastAppsScriptResult = out;
+
+    try {
+      localStorage.setItem('SB_APPS_SCRIPT_LAST_RESULT', JSON.stringify(out));
+    } catch (_) {}
+
+    logger.emit('sb_apps_script_send_error', {
+      reason: 'NO_ENDPOINT'
+    });
+
+    return out;
+  }
+
+  logger.emit('sb_apps_script_send_start', {
+    endpoint,
+    sessions: payload.sessions.length,
+    events: payload.events.length,
+    selfReport: payload.self_report.length,
+    checkpoints: payload.adaptive_checkpoints.length
+  });
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    let text = '';
+    try {
+      text = await res.text();
+    } catch (_) {}
+
+    const out = {
+      ok: !!res.ok,
+      status: res.status,
+      endpoint,
+      responseText: text
+    };
+
+    state.research.lastAppsScriptResult = out;
+
+    try {
+      localStorage.setItem('SB_APPS_SCRIPT_LAST_RESULT', JSON.stringify(out));
+    } catch (_) {}
+
+    logger.emit(res.ok ? 'sb_apps_script_send_success' : 'sb_apps_script_send_error', {
+      status: res.status,
+      endpoint,
+      ok: res.ok ? 1 : 0
+    });
+
+    return out;
+  } catch (err) {
+    const out = {
+      ok: false,
+      error: 'FETCH_ERROR',
+      endpoint,
+      message: String(err?.message || err || 'Unknown fetch error')
+    };
+
+    state.research.lastAppsScriptResult = out;
+
+    try {
+      localStorage.setItem('SB_APPS_SCRIPT_LAST_RESULT', JSON.stringify(out));
+    } catch (_) {}
+
+    logger.emit('sb_apps_script_send_error', {
+      reason: 'FETCH_ERROR',
+      endpoint,
+      message: out.message
+    });
+
+    return out;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -3031,7 +3920,6 @@ function nearMissWindowMs(intensity, roundType) {
 
 function classifyTimingJudgment(exp) {
   const delta = nowMs() - exp.hitAtMs;
-
   if (Math.abs(delta) <= 90) return 'perfect';
   if (delta < -90) return 'good';
   if (delta <= exp.graceLateMs) return 'late';
@@ -3249,13 +4137,8 @@ function updateDirectorFromPerformance(state, logger, ui, reason = '') {
 
   state.director.liveWindowMul = profile.windowMul;
 
-  if (!shouldApplyDirectorNow(state)) {
-    return;
-  }
-
-  if (profile.key === state.director.lastDecisionKey) {
-    return;
-  }
+  if (!shouldApplyDirectorNow(state)) return;
+  if (profile.key === state.director.lastDecisionKey) return;
 
   state.director.level = profile.level;
   state.director.trend = profile.trend;
@@ -3369,11 +4252,11 @@ function summaryJudgeHtml(summary) {
   const total = judgeTotal(summary);
 
   const rows = [
-    { key: 'perfect', label: 'Perfect', value: Number(summary.perfect || 0) },
-    { key: 'good', label: 'Good', value: Number(summary.good || 0) },
-    { key: 'late', label: 'Late', value: Number(summary.late || 0) },
-    { key: 'nearMiss', label: 'Near', value: Number(summary.nearMiss || 0) },
-    { key: 'judgeMiss', label: 'Miss', value: Number(summary.judgeMiss || 0) }
+    { label: 'Perfect', value: Number(summary.perfect || 0) },
+    { label: 'Good', value: Number(summary.good || 0) },
+    { label: 'Late', value: Number(summary.late || 0) },
+    { label: 'Near', value: Number(summary.nearMiss || 0) },
+    { label: 'Miss', value: Number(summary.judgeMiss || 0) }
   ];
 
   return `
@@ -3454,446 +4337,6 @@ function summaryCoachDetails(summary) {
   return lines.slice(0, 4);
 }
 
-function buildResearchBundle(state, selfReport = null) {
-  const summary = buildSummaryPayload(state);
-
-  return {
-    schema: 'shadow-breaker-research-bundle/v1',
-    patch: SB_ENGINE_VERSION,
-    exportedAtIso: new Date().toISOString(),
-
-    context: {
-      sessionId: state.session.sessionId,
-      pid: state.cfg.pid,
-      nick: state.cfg.nick,
-      studyId: state.cfg.studyId,
-      run: state.cfg.run,
-      view: state.cfg.view,
-      seed: state.cfg.seed,
-      mode: state.cfg.mode,
-      body: state.cfg.body,
-      intensity: state.cfg.intensity,
-      durationMin: state.cfg.durationMin,
-      diff: state.cfg.diff,
-      adaptiveMode: state.director.mode
-    },
-
-    summary,
-
-    timing: {
-      perfect: state.judgments?.perfect || 0,
-      good: state.judgments?.good || 0,
-      late: state.judgments?.late || 0,
-      nearMiss: state.judgments?.nearMiss || 0,
-      miss: state.judgments?.miss || 0,
-      judgeMiss: state.judgments?.miss || 0
-    },
-
-    director: {
-      baselineWindowMul: state.director.baselineWindowMul,
-      baselineBossOffset: state.director.baselineBossOffset,
-      finalLevel: state.director.level,
-      finalTrend: state.director.trend,
-      appliedWindowMul: state.director.appliedWindowMul,
-      bossHpOffset: state.director.bossHpOffset,
-      decisionSeq: state.director.decisionSeq,
-      checkpointEvery: state.director.checkpointEvery,
-      researchLocked: state.director.researchLocked ? 1 : 0,
-      checkpoints: structuredCloneSafe(state.research.checkpoints || [])
-    },
-
-    boss: {
-      clears: state.boss.clears,
-      hpMax: state.boss.hpMax,
-      phaseHistory: structuredCloneSafe(state.research.bossPhases || [])
-    },
-
-    selfReport: selfReport || null
-  };
-}
-
-function exportResearchBundle(state) {
-  const bundle = state.research.exportBundle || buildResearchBundle(state, null);
-  const filename = `shadow-breaker-research-${state.session.sessionId}.json`;
-
-  try {
-    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-function getResearchTablesOrBuild(state) {
-  if (state.research.exportTables) return state.research.exportTables;
-
-  const bundle = state.research.exportBundle || buildResearchBundle(state, null);
-  state.research.exportBundle = bundle;
-
-  const tables = flattenResearchTables(bundle);
-  state.research.exportTables = tables;
-  return tables;
-}
-
-function csvCell(v) {
-  if (v == null) return '';
-  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '';
-  if (typeof v === 'boolean') return v ? '1' : '0';
-  if (typeof v === 'object') return JSON.stringify(v);
-  return String(v);
-}
-
-function rowsToCsv(rows) {
-  const safeRows = Array.isArray(rows) ? rows : [];
-  const headers = [];
-
-  safeRows.forEach((row) => {
-    Object.keys(row || {}).forEach((k) => {
-      if (!headers.includes(k)) headers.push(k);
-    });
-  });
-
-  if (!headers.length) return '';
-
-  const escapeCsv = (value) => {
-    const s = csvCell(value);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-
-  const lines = [];
-  lines.push(headers.join(','));
-
-  safeRows.forEach((row) => {
-    lines.push(headers.map((h) => escapeCsv(row ? row[h] : '')).join(','));
-  });
-
-  return lines.join('\n');
-}
-
-function downloadTextFile(filename, text, mime = 'text/plain;charset=utf-8') {
-  try {
-    const blob = new Blob([text], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1200);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-function normalizeEventRows(bundle) {
-  const ctx = bundle?.context || {};
-  const checkpoints = bundle?.director?.checkpoints || [];
-  const bossPhases = bundle?.boss?.phaseHistory || [];
-
-  const cpEvents = checkpoints.map((cp, idx) => ({
-    session_id: ctx.sessionId || '',
-    pid: ctx.pid || '',
-    nick: ctx.nick || '',
-    event_seq: idx + 1,
-    event_type: 'adaptive_checkpoint',
-    event_phase: cp.phase || '',
-    round_index: cp.roundIndex || '',
-    at_ms: cp.atMs || '',
-    adaptive_mode: cp.adaptiveMode || '',
-    research_locked: cp.researchLocked || 0,
-    adaptive_level: cp.level || 0,
-    adaptive_trend: cp.trend || '',
-    adaptive_window_mul: cp.appliedWindowMul || '',
-    boss_hp_offset: cp.bossHpOffset || '',
-    recent_hits: cp.recentHits || 0,
-    recent_misses: cp.recentMisses || 0,
-    sample_size: cp.sampleSize || 0,
-    combo: cp.combo || 0,
-    accuracy: cp.accuracy || 0
-  }));
-
-  const bossEvents = bossPhases.map((bp, idx) => ({
-    session_id: ctx.sessionId || '',
-    pid: ctx.pid || '',
-    nick: ctx.nick || '',
-    event_seq: idx + 1,
-    event_type: `boss_${bp.phase || 'phase'}`,
-    event_phase: bp.phase || '',
-    round_index: bp.roundIndex || '',
-    at_ms: bp.atMs || '',
-    boss_hp: bp.bossHp || '',
-    boss_hp_max: bp.bossHpMax || '',
-    hp_max: bp.hpMax || '',
-    hp_left: bp.hpLeft || ''
-  }));
-
-  return cpEvents.concat(bossEvents).sort((a, b) => {
-    const av = Number(a.at_ms || 0);
-    const bv = Number(b.at_ms || 0);
-    return av - bv;
-  });
-}
-
-function flattenResearchTables(bundle) {
-  const ctx = bundle?.context || {};
-  const sum = bundle?.summary || {};
-  const timing = bundle?.timing || {};
-  const director = bundle?.director || {};
-  const selfReport = bundle?.selfReport || null;
-
-  const sessions = [{
-    schema: bundle?.schema || '',
-    patch: bundle?.patch || '',
-    exported_at_iso: bundle?.exportedAtIso || '',
-    session_id: ctx.sessionId || '',
-    pid: ctx.pid || '',
-    nick: ctx.nick || '',
-    study_id: ctx.studyId || '',
-    run: ctx.run || '',
-    view: ctx.view || '',
-    seed: ctx.seed || '',
-    mode: ctx.mode || '',
-    body: ctx.body || '',
-    intensity: ctx.intensity || '',
-    duration_min: ctx.durationMin || '',
-    diff: ctx.diff || '',
-    adaptive_mode: ctx.adaptiveMode || '',
-    score: sum.score || 0,
-    stars: sum.stars || 0,
-    accuracy: sum.accuracy || 0,
-    combo_max: sum.comboMax || 0,
-    punches_per_min: sum.punchesPerMin || 0,
-    estimated_tier: sum.estimatedTier || '',
-    boss_clears: sum.bossClears || 0,
-    left_hits: sum.leftHits || 0,
-    right_hits: sum.rightHits || 0,
-    balance_pct: sum.balancePct || 0,
-    perfect: timing.perfect || 0,
-    good: timing.good || 0,
-    late: timing.late || 0,
-    near_miss: timing.nearMiss || 0,
-    judge_miss: timing.miss || timing.judgeMiss || 0,
-    adaptive_level: director.finalLevel || 0,
-    adaptive_trend: director.finalTrend || '',
-    adaptive_window_mul: director.appliedWindowMul || 1,
-    adaptive_boss_offset: director.bossHpOffset || 0,
-    adaptive_decision_seq: director.decisionSeq || 0,
-    baseline_window_mul: director.baselineWindowMul || 1,
-    baseline_boss_offset: director.baselineBossOffset || 0
-  }];
-
-  const selfReportRows = selfReport ? [{
-    session_id: ctx.sessionId || '',
-    pid: ctx.pid || '',
-    nick: ctx.nick || '',
-    study_id: ctx.studyId || '',
-    rpe: selfReport.rpe ?? '',
-    enjoyment: selfReport.enjoyment ?? '',
-    difficulty: selfReport.difficulty ?? '',
-    pain: selfReport.pain ?? '',
-    refresh: selfReport.refresh ?? ''
-  }] : [];
-
-  const adaptiveCheckpoints = (director.checkpoints || []).map((cp, idx) => ({
-    session_id: ctx.sessionId || '',
-    pid: ctx.pid || '',
-    nick: ctx.nick || '',
-    checkpoint_seq: idx + 1,
-    decision_seq: cp.seq || 0,
-    reason: cp.reason || '',
-    at_ms: cp.atMs || '',
-    phase: cp.phase || '',
-    round_index: cp.roundIndex || '',
-    adaptive_mode: cp.adaptiveMode || '',
-    research_locked: cp.researchLocked || 0,
-    level: cp.level || 0,
-    trend: cp.trend || '',
-    applied_window_mul: cp.appliedWindowMul || '',
-    boss_hp_offset: cp.bossHpOffset || '',
-    recent_hits: cp.recentHits || 0,
-    recent_misses: cp.recentMisses || 0,
-    sample_size: cp.sampleSize || 0,
-    combo: cp.combo || 0,
-    accuracy: cp.accuracy || 0
-  }));
-
-  const events = normalizeEventRows(bundle);
-
-  return {
-    sessions,
-    events,
-    self_report: selfReportRows,
-    adaptive_checkpoints: adaptiveCheckpoints
-  };
-}
-
-function exportResearchCsvTables(state) {
-  const bundle = state.research.exportBundle || buildResearchBundle(state, null);
-  const tables = state.research.exportTables || flattenResearchTables(bundle);
-  state.research.exportBundle = bundle;
-  state.research.exportTables = tables;
-
-  const base = `shadow-breaker-${state.session.sessionId}`;
-
-  const jobs = [
-    { name: `${base}-sessions.csv`, rows: tables.sessions },
-    { name: `${base}-events.csv`, rows: tables.events },
-    { name: `${base}-self-report.csv`, rows: tables.self_report },
-    { name: `${base}-adaptive-checkpoints.csv`, rows: tables.adaptive_checkpoints }
-  ];
-
-  let ok = false;
-  jobs.forEach((job, idx) => {
-    const csv = rowsToCsv(job.rows);
-    setTimeout(() => {
-      if (csv) downloadTextFile(job.name, csv, 'text/csv;charset=utf-8');
-    }, idx * 180);
-    if (csv) ok = true;
-  });
-
-  return ok;
-}
-
-function buildAppsScriptPayload(state, endpointOverride = '') {
-  const tables = getResearchTablesOrBuild(state);
-  const endpoint = String(endpointOverride || state.cfg.appsScriptUrl || '');
-
-  const payload = {
-    schema: 'shadow-breaker-apps-script-payload/v1',
-    patch: SB_ENGINE_VERSION,
-    sentAtIso: new Date().toISOString(),
-    endpointHint: endpoint,
-    source: 'shadowbreaker',
-    context: {
-      sessionId: state.session.sessionId,
-      pid: state.cfg.pid,
-      nick: state.cfg.nick,
-      studyId: state.cfg.studyId,
-      run: state.cfg.run,
-      view: state.cfg.view,
-      seed: state.cfg.seed,
-      mode: state.cfg.mode,
-      body: state.cfg.body,
-      intensity: state.cfg.intensity,
-      durationMin: state.cfg.durationMin,
-      diff: state.cfg.diff,
-      adaptiveMode: state.director.mode
-    },
-    sessions: structuredCloneSafe(tables.sessions || []),
-    events: structuredCloneSafe(tables.events || []),
-    self_report: structuredCloneSafe(tables.self_report || []),
-    adaptive_checkpoints: structuredCloneSafe(tables.adaptive_checkpoints || [])
-  };
-
-  state.research.lastAppsScriptPayload = payload;
-
-  try {
-    localStorage.setItem('SB_APPS_SCRIPT_LAST_PAYLOAD', JSON.stringify(payload));
-  } catch (_) {}
-
-  return payload;
-}
-
-async function sendAppsScriptPayload(state, logger, endpointOverride = '') {
-  const endpoint = String(endpointOverride || state.cfg.appsScriptUrl || '').trim();
-  const payload = buildAppsScriptPayload(state, endpoint);
-
-  if (!endpoint) {
-    const out = {
-      ok: false,
-      error: 'NO_ENDPOINT',
-      message: 'Missing Apps Script endpoint'
-    };
-
-    state.research.lastAppsScriptResult = out;
-
-    try {
-      localStorage.setItem('SB_APPS_SCRIPT_LAST_RESULT', JSON.stringify(out));
-    } catch (_) {}
-
-    logger.emit('sb_apps_script_send_error', {
-      reason: 'NO_ENDPOINT'
-    });
-
-    return out;
-  }
-
-  logger.emit('sb_apps_script_send_start', {
-    endpoint,
-    sessions: payload.sessions.length,
-    events: payload.events.length,
-    selfReport: payload.self_report.length,
-    checkpoints: payload.adaptive_checkpoints.length
-  });
-
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    let text = '';
-    try {
-      text = await res.text();
-    } catch (_) {}
-
-    const out = {
-      ok: !!res.ok,
-      status: res.status,
-      endpoint,
-      responseText: text
-    };
-
-    state.research.lastAppsScriptResult = out;
-
-    try {
-      localStorage.setItem('SB_APPS_SCRIPT_LAST_RESULT', JSON.stringify(out));
-    } catch (_) {}
-
-    logger.emit(res.ok ? 'sb_apps_script_send_success' : 'sb_apps_script_send_error', {
-      status: res.status,
-      endpoint,
-      ok: res.ok ? 1 : 0
-    });
-
-    return out;
-  } catch (err) {
-    const out = {
-      ok: false,
-      error: 'FETCH_ERROR',
-      endpoint,
-      message: String(err?.message || err || 'Unknown fetch error')
-    };
-
-    state.research.lastAppsScriptResult = out;
-
-    try {
-      localStorage.setItem('SB_APPS_SCRIPT_LAST_RESULT', JSON.stringify(out));
-    } catch (_) {}
-
-    logger.emit('sb_apps_script_send_error', {
-      reason: 'FETCH_ERROR',
-      endpoint,
-      message: out.message
-    });
-
-    return out;
-  }
-}
-
 async function playPhaseCard(ui, kicker, title, sub = '', tone = 'normal', ms = 950) {
   ui.showPhaseCard(kicker, title, sub, tone, ms);
   await sleep(Math.max(320, ms - 40));
@@ -3914,6 +4357,22 @@ function currentTargetAnchor(ui) {
   } catch (_) {
     return { x: '50%', y: '50%' };
   }
+}
+
+function resolveGestureAction(dx, dy, startX, layerRect) {
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+
+  if (dy > 56 && absY > absX) {
+    return 'duck';
+  }
+
+  if (dy < -52 && absY >= absX * 0.9) {
+    const isLeftSide = startX < (layerRect.left + layerRect.width / 2);
+    return isLeftSide ? 'uppercut_left' : 'uppercut_right';
+  }
+
+  return '';
 }
 
 function getAudioCtx() {
@@ -3937,6 +4396,7 @@ function ensureAudioReady(state) {
   if (ctx.state === 'suspended') {
     try { ctx.resume(); } catch (_) {}
   }
+
   state.runtime.audioReady = ctx.state === 'running';
   return ctx;
 }
@@ -4037,13 +4497,25 @@ function waitSelfReportSubmit(root) {
   });
 }
 
+function buildReplayUrl() {
+  const url = new URL(location.href);
+  url.searchParams.set('seed', String(Date.now()));
+  return url.toString();
+}
+
+function padOpenState(ui) {
+  return ui?.pad?.dataset.open === '1';
+}
+
 function createRng(seedStr) {
   let h = 1779033703 ^ String(seedStr).length;
   for (let i = 0; i < String(seedStr).length; i++) {
     h = Math.imul(h ^ String(seedStr).charCodeAt(i), 3432918353);
     h = (h << 13) | (h >>> 19);
   }
+
   let a = ((h ^ (h >>> 16)) >>> 0) || 1;
+
   return function rng() {
     a |= 0;
     a = (a + 0x6D2B79F5) | 0;
