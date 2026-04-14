@@ -10,7 +10,7 @@
 
   const qbool = (name, d = false) => {
     const v = String(qs.get(name, d ? '1' : '0')).toLowerCase();
-    return ['1','true','yes','on','y'].includes(v);
+    return ['1', 'true', 'yes', 'on', 'y'].includes(v);
   };
 
   function xmur3(str){
@@ -36,25 +36,35 @@
     };
   }
 
+  const RAW_VIEW = String(qs.get('view') || '').toLowerCase();
+  const TOUCH_DEVICE =
+    (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+  const VIEW =
+    (RAW_VIEW === 'pc' || RAW_VIEW === 'mobile' || RAW_VIEW === 'cvr')
+      ? RAW_VIEW
+      : (TOUCH_DEVICE ? 'mobile' : 'pc');
+
   const params = {
     pid: qs.get('pid') || 'anon',
-    nick: qs.get('nick') || '',
-    mode: (qs.get('mode') || 'active').toLowerCase(),
-    diff: (qs.get('diff') || 'normal').toLowerCase(),
-    durSec: clamp(Number(qs.get('dur') || 120), 30, 600),
-    bpm: clamp(Number(qs.get('bpm') || 112), 72, 180),
-    view: (qs.get('view') || 'mobile').toLowerCase(),
+    name: qs.get('name') || qs.get('nickName') || 'Player',
+    studyId: qs.get('studyId') || '',
+    diff: String(qs.get('diff') || 'normal').toLowerCase(),
+    timeSec: clamp(Number(qs.get('time') || qs.get('dur') || 90), 30, 300),
+    bpm: clamp(Number(qs.get('bpm') || 112), 72, 160),
+    view: VIEW,
+    run: String(qs.get('run') || 'play').toLowerCase(),
     seed: qs.get('seed') || String(Date.now()),
     hub: qs.get('hub') || '../hub.html'
   };
 
   const PLAN_DAY = qs.get('planDay') || '';
   const PLAN_SLOT = qs.get('planSlot') || '';
-  const STUDY_ID = qs.get('studyId') || '';
   const CLASSROOM = qs.get('classRoom') || qs.get('classroom') || '';
   const STUDENT_NO = qs.get('studentNo') || '';
   const SCHOOL_CODE = qs.get('schoolCode') || '';
-  const NICK_NAME = qs.get('nickName') || params.nick || '';
+  const NICK_NAME = qs.get('nickName') || params.name || '';
   const TEACHER_MODE = qbool('teacher', false) || qbool('teacherMode', false);
   const EXPORT_MODE = qbool('export', false) || qbool('exportMode', false);
   const AUTO_NEXT = qbool('autoNext', false);
@@ -64,21 +74,28 @@
   const ACTIONS = {
     jab:   { lane: 0, label: 'Jab',   icon: '👊', key: 'KeyA', alt: 'ArrowLeft'  },
     cross: { lane: 1, label: 'Cross', icon: '💥', key: 'KeyL', alt: 'ArrowRight' },
-    block: { lane: 2, label: 'Block', icon: '🛡', key: 'KeyW', alt: 'ArrowUp'    },
-    duck:  { lane: 3, label: 'Duck',  icon: '⬇', key: 'KeyS', alt: 'ArrowDown'  }
+    block: { lane: 2, label: 'Block', icon: '🛡️', key: 'KeyW', alt: 'ArrowUp'    },
+    duck:  { lane: 3, label: 'Duck',  icon: '⬇️', key: 'KeyS', alt: 'ArrowDown'  }
   };
 
-  const WINDOWS = {
-    perfect: 80,
-    great: 140,
-    good: 220
-  };
+  const ACTION_BY_LANE = ['jab', 'cross', 'block', 'duck'];
+
+  function judgeWindowsByDiff(diff){
+    if(diff === 'easy') return { perfect: 108, great: 168, good: 250 };
+    if(diff === 'hard') return { perfect: 72,  great: 132, good: 210 };
+    return { perfect: 90, great: 150, good: 230 };
+  }
+
+  const WINDOWS = judgeWindowsByDiff(params.diff);
 
   const beatMs = 60000 / params.bpm;
-  const totalMs = params.durSec * 1000;
-  const travelMs = params.view === 'pc' ? 1500 : (params.view === 'cvr' ? 1700 : 1600);
+  const totalMs = params.timeSec * 1000;
+  const travelMs =
+    params.view === 'pc' ? 1500 :
+    params.view === 'cvr' ? 1700 : 1450;
+
   const startDelayMs = 3000;
-  const rng = mulberry32(xmur3(`${params.seed}|${params.pid}|${params.mode}|${params.diff}`)());
+  const rng = mulberry32(xmur3(`${params.seed}|${params.pid}|${params.diff}|${params.run}`)());
 
   const els = {
     subline: $('subline'),
@@ -173,9 +190,6 @@
     btnDlJson: $('btnDlJson')
   };
 
-  const laneEls = [...document.querySelectorAll('.lane')];
-  const laneHitButtons = [...document.querySelectorAll('.lane-hit')];
-
   const state = {
     started: false,
     ended: false,
@@ -242,34 +256,59 @@
     _cvrGammaOffset: 0,
     _cvrGammaSmoothed: 0,
     _cvrLaneLockUntil: 0,
-    _cvrLastCueAt: 0
+    _cvrLastCueAt: 0,
+    _noteMo: null
   };
 
-  const isTouchPrimary =
-    params.view === 'mobile' ||
-    ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) && params.view !== 'pc');
+  function mean(arr){
+    if(!arr || !arr.length) return null;
+    let s = 0;
+    for(const x of arr) s += x;
+    return s / arr.length;
+  }
 
-  els.subline.textContent = `${params.view.toUpperCase()} • ${params.mode.toUpperCase()} • ${params.diff.toUpperCase()} • ${params.bpm} BPM`;
-  els.btnBackHubTop.href = params.hub;
-  els.btnBackHubBottom.href = params.hub;
+  function median(arr){
+    if(!arr || !arr.length) return null;
+    const a = arr.slice().sort((x, y) => x - y);
+    const m = Math.floor(a.length / 2);
+    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+  }
+
+  function std(arr){
+    if(!arr || arr.length < 2) return null;
+    const m = mean(arr);
+    let s = 0;
+    for(const x of arr){
+      const d = x - m;
+      s += d * d;
+    }
+    return Math.sqrt(s / (arr.length - 1));
+  }
+
+  function avg(arr){
+    if(!arr || !arr.length) return 0;
+    let s = 0;
+    for(const v of arr) s += v;
+    return s / arr.length;
+  }
 
   function sessionMeta(){
     return {
       tsIso: new Date().toISOString(),
       pid: params.pid,
+      name: params.name,
       nickName: NICK_NAME,
-      studyId: STUDY_ID,
+      studyId: params.studyId,
       classRoom: CLASSROOM,
       studentNo: STUDENT_NO,
       schoolCode: SCHOOL_CODE,
       planDay: PLAN_DAY,
       planSlot: PLAN_SLOT,
       diff: params.diff,
-      mode: params.mode,
-      run: qs.get('run') || 'play',
+      run: params.run,
       seed: params.seed,
       bpm: params.bpm,
-      durationSec: params.durSec,
+      durationSec: params.timeSec,
       view: params.view,
       zone: qs.get('zone') || 'fitness',
       cat: qs.get('cat') || 'fitness',
@@ -281,6 +320,31 @@
 
   function setCoach(text){
     if(els.coachText) els.coachText.textContent = text || '';
+  }
+
+  function setHref(el, href){
+    if(el) el.href = href;
+  }
+
+  setHref(els.btnBackHubTop, params.hub);
+  setHref(els.btnBackHubBottom, params.hub);
+
+  if(els.subline){
+    els.subline.textContent = `${params.view.toUpperCase()} • ${params.run.toUpperCase()} • ${params.diff.toUpperCase()} • ${params.bpm} BPM`;
+  }
+
+  function updateBridgeStrip(){
+    if(els.bridgePid) els.bridgePid.textContent = params.pid || 'anon';
+    if(els.bridgePlanDay) els.bridgePlanDay.textContent = PLAN_DAY || '—';
+    if(els.bridgePlanSlot) els.bridgePlanSlot.textContent = PLAN_SLOT || '—';
+    if(els.bridgeStudyId) els.bridgeStudyId.textContent = params.studyId || '—';
+  }
+
+  function logEvent(ev){
+    state.events.push({
+      ...sessionMeta(),
+      ...ev
+    });
   }
 
   function currentFeedbackEl(){
@@ -310,43 +374,14 @@
     }
   }
 
-  function updateBridgeStrip(){
-    if(els.bridgePid) els.bridgePid.textContent = params.pid || 'anon';
-    if(els.bridgePlanDay) els.bridgePlanDay.textContent = PLAN_DAY || '—';
-    if(els.bridgePlanSlot) els.bridgePlanSlot.textContent = PLAN_SLOT || '—';
-    if(els.bridgeStudyId) els.bridgeStudyId.textContent = STUDY_ID || '—';
-  }
-
-  function logEvent(ev){
-    state.events.push({
-      ...sessionMeta(),
-      ...ev
-    });
-  }
-
-  function mean(arr){
-    if(!arr || !arr.length) return null;
-    let s = 0;
-    for(const x of arr) s += x;
-    return s / arr.length;
-  }
-
-  function median(arr){
-    if(!arr || !arr.length) return null;
-    const a = arr.slice().sort((x, y) => x - y);
-    const m = Math.floor(a.length / 2);
-    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
-  }
-
-  function std(arr){
-    if(!arr || arr.length < 2) return null;
-    const m = mean(arr);
-    let s = 0;
-    for(const x of arr){
-      const d = x - m;
-      s += d * d;
-    }
-    return Math.sqrt(s / (arr.length - 1));
+  function comboBurst(text){
+    const mount = params.view === 'cvr' ? els.cvrStage : els.arena;
+    if(!mount) return;
+    const el = document.createElement('div');
+    el.className = 'combo-burst';
+    el.textContent = text;
+    mount.appendChild(el);
+    setTimeout(() => el.remove(), 620);
   }
 
   function scoreFor(result, combo){
@@ -378,16 +413,6 @@
     if(weighted >= 70) return 'B';
     if(weighted >= 58) return 'C';
     return 'D';
-  }
-
-  function comboBurst(text){
-    const mount = params.view === 'cvr' ? els.cvrStage : els.arena;
-    if(!mount) return;
-    const el = document.createElement('div');
-    el.className = 'combo-burst';
-    el.textContent = text;
-    mount.appendChild(el);
-    setTimeout(() => el.remove(), 620);
   }
 
   function addFever(result){
@@ -451,16 +476,17 @@
     const acc = computeAccuracyPercent();
 
     const scoreTarget =
-      params.mode === 'cardio' ? 5000 :
-      params.mode === 'active' ? 4000 : 2800;
+      params.run === 'research' ? 2800 :
+      params.diff === 'hard' ? 4300 :
+      params.diff === 'easy' ? 2200 : 3200;
 
     const comboTarget =
-      params.diff === 'challenge' ? 24 :
-      params.diff === 'normal' ? 18 : 14;
+      params.diff === 'hard' ? 22 :
+      params.diff === 'easy' ? 12 : 16;
 
     const accTarget =
-      params.diff === 'easy' ? 78 :
-      params.diff === 'challenge' ? 84 : 82;
+      params.diff === 'hard' ? 84 :
+      params.diff === 'easy' ? 76 : 80;
 
     state.mission.score1 = state.score >= scoreTarget;
     state.mission.combo1 = state.maxCombo >= comboTarget;
@@ -542,7 +568,6 @@
     const fatigueBase =
       (missRate * 0.52) +
       (blankRate * 0.23) +
-      ((params.mode === 'cardio' ? 0.08 : 0.0)) +
       ((state.currentPhase === 'boss' && missRate > 0.18) ? 0.08 : 0.0);
 
     const fatigue = clamp(fatigueBase, 0, 1);
@@ -558,9 +583,9 @@
       if(blankRate > 0.18){
         tip = params.view === 'cvr'
           ? 'อย่ารีบยิง รอจังหวะให้เข้าเส้นก่อน'
-          : 'รอให้โน้ตแตะเส้นก่อนค่อยกด จะช่วยให้แม่นขึ้น';
+          : 'แตะตอนโน้ตถึงเส้น จะช่วยให้แม่นขึ้น';
       } else if(offMed != null && offMed > 95){
-        tip = 'จังหวะยังแกว่งนิดหน่อย ลองคุมจังหวะให้ช้าลงนิด';
+        tip = 'จังหวะยังแกว่งนิดหน่อย ลองคุมมือให้ช้าลงนิด';
       } else if(state.currentPhase === 'boss'){
         tip = 'ช่วงบอส ไม่ต้องรีบ เลือกจังหวะที่ชัวร์';
       } else if(state.maxCombo >= 18){
@@ -582,13 +607,19 @@
     updateAiHud();
   }
 
+  function phaseOfElapsed(elapsed){
+    if(elapsed < totalMs * 0.18) return 'warmup';
+    if(elapsed < totalMs * 0.78) return 'main';
+    return 'boss';
+  }
+
   function startBossBattle(){
     if(state.boss.active) return;
 
     state.boss.active = true;
     state.boss.clear = false;
     state.boss.hpMax =
-      params.diff === 'challenge' ? 28 :
+      params.diff === 'hard' ? 28 :
       params.diff === 'easy' ? 20 : 24;
 
     state.boss.hp = state.boss.hpMax;
@@ -616,6 +647,7 @@
     if(result === 'perfect') dmg = 4;
     else if(result === 'great') dmg = 3;
     else if(result === 'good') dmg = 2;
+
     if(dmg <= 0) return;
 
     state.boss.hp = Math.max(0, state.boss.hp - dmg);
@@ -628,241 +660,90 @@
     }
   }
 
-  function phaseOfElapsed(elapsed){
-    if(elapsed < totalMs * 0.18) return 'warmup';
-    if(elapsed < totalMs * 0.78) return 'main';
-    return 'boss';
-  }
-
   function applyPhase(phase){
     if(state.currentPhase === phase) return;
     state.currentPhase = phase;
 
     if(phase === 'warmup'){
-      els.phaseBanner.textContent = 'Warmup';
+      if(els.phaseBanner) els.phaseBanner.textContent = 'Warmup';
       setCoach(params.view === 'cvr' ? 'ค่อย ๆ ล็อกเป้าก่อน' : 'เริ่มจับจังหวะก่อน');
     } else if(phase === 'main'){
-      els.phaseBanner.textContent = 'Main';
-      setCoach(params.view === 'cvr' ? 'เล็ง lane แล้วค่อยยิง' : 'ดู pattern แล้วเล่นต่อเนื่อง');
+      if(els.phaseBanner) els.phaseBanner.textContent = 'Main';
+      setCoach(params.view === 'cvr' ? 'เล็ง lane แล้วค่อยยิง' : 'แตะตามเส้นให้ต่อเนื่อง');
     } else {
-      els.phaseBanner.textContent = 'Boss';
+      if(els.phaseBanner) els.phaseBanner.textContent = 'Boss';
       startBossBattle();
-      setCoach(params.view === 'cvr' ? 'รอบบอสแล้ว! เล็งให้ชัวร์' : 'รอบบอสแล้ว! กดให้แม่น');
+      setCoach(params.view === 'cvr' ? 'รอบบอสแล้ว! เล็งให้ชัวร์' : 'รอบบอสแล้ว! แตะให้แม่น');
     }
   }
-
-  function buildTeacherQualityMetrics(){
-    const judged = state.perfect + state.great + state.good + state.miss;
-    const blankRate = (judged + state.blankTap) > 0
-      ? (state.blankTap / (judged + state.blankTap)) * 100
-      : 0;
-
-    const offAbs = state.offsets.filter(Number.isFinite).map(v => Math.abs(v));
-    const offMean = mean(offAbs);
-    const offStd = std(offAbs);
-
-    let quality = 'Good';
-    if(blankRate > 18 || (offMean != null && offMean > 95)) quality = 'Fair';
-    if(blankRate > 28 || (offMean != null && offMean > 120)) quality = 'Needs Review';
-
-    return {
-      blankRate,
-      offMean,
-      offStd,
-      quality
-    };
-  }
-
-  function buildTeacherNote(metrics){
-    const notes = [];
-
-    if(metrics.quality === 'Needs Review'){
-      notes.push('ข้อมูลมีความเสี่ยงต่อการกดมั่วหรือจังหวะแกว่งสูง');
-    } else if(metrics.quality === 'Fair'){
-      notes.push('ข้อมูลใช้ได้ แต่ยังมี blank tap หรือ timing แกว่งพอสมควร');
-    } else {
-      notes.push('ข้อมูลค่อนข้างนิ่งและเหมาะกับการใช้สรุปผล');
-    }
-
-    if(state.mission.noMiss) notes.push('ผู้เล่นจบรอบโดยไม่ miss');
-    if(state.mission.bossClear) notes.push('ผ่าน boss phase');
-    if(state.ai.fatigue > 0.7) notes.push('มีสัญญาณล้าค่อนข้างสูงระหว่างเล่น');
-    if(state.maxCombo >= 20) notes.push('รักษาคอมโบได้ดี');
-    if(computeAccuracyPercent() >= 90) notes.push('ความแม่นโดยรวมสูง');
-
-    return notes.join(' • ');
-  }
-
-  function downloadText(filename, text, mime = 'text/plain;charset=utf-8'){
-    const blob = new Blob([text], { type: mime });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      URL.revokeObjectURL(a.href);
-      a.remove();
-    }, 1000);
-  }
-
-  function toCSV(rows, cols){
-    const esc = (v) => {
-      v = (v == null) ? '' : String(v);
-      if(/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
-      return v;
-    };
-
-    return [
-      cols.join(','),
-      ...rows.map(r => cols.map(c => esc(r[c])).join(','))
-    ].join('\n') + '\n';
-  }
-
-  function downloadEventsCSV(){
-    const cols = [
-      'tsIso','pid','nickName','studyId','classRoom','studentNo','schoolCode',
-      'planDay','planSlot','diff','mode','run','seed','bpm','durationSec','view','zone','cat','game',
-      'eventType','noteId','action','phase','hitTimeMs','inputElapsedMs','offsetMs','result','combo','score'
-    ];
-    downloadText(
-      `rb_main_events_${params.pid}_${Date.now()}.csv`,
-      toCSV(state.events, cols),
-      'text/csv;charset=utf-8'
-    );
-  }
-
-  function downloadSessionsCSV(){
-    const summary = state.lastSummaryPayload?.summary;
-    if(!summary) return;
-
-    const cols = [
-      'tsIso','pid','nickName','studyId','classRoom','studentNo','schoolCode',
-      'planDay','planSlot','diff','mode','run','seed','bpm','durationSec','view','zone','cat','game',
-      'score','accuracy','maxCombo','perfect','great','good','miss','blankTap',
-      'grade','stars','medal','badge',
-      'missionScore','missionCombo','missionAcc','missionNoMiss','bossClear',
-      'blankTapRate','offsetAbsMeanMs','offsetAbsStdMs','dataQuality','teacherNote'
-    ];
-
-    const row = { ...sessionMeta(), ...summary };
-
-    downloadText(
-      `rb_main_sessions_${params.pid}_${Date.now()}.csv`,
-      toCSV([row], cols),
-      'text/csv;charset=utf-8'
-    );
-  }
-
-  function downloadSummaryJSON(){
-    if(!state.lastSummaryPayload) return;
-    downloadText(
-      `rb_main_summary_${params.pid}_${Date.now()}.json`,
-      JSON.stringify(state.lastSummaryPayload, null, 2),
-      'application/json;charset=utf-8'
-    );
-  }
-
-  function buildCooldownUrl(){
-    const url = new URL('../warmup-gate.html', location.href);
-    url.searchParams.set('phase', 'cooldown');
-    url.searchParams.set('gatePhase', 'cooldown');
-    url.searchParams.set('zone', qs.get('zone') || 'fitness');
-    url.searchParams.set('cat', qs.get('cat') || 'fitness');
-    url.searchParams.set('game', 'rhythmboxer');
-    url.searchParams.set('gameId', 'rhythmboxer');
-    url.searchParams.set('theme', 'rhythmboxer');
-    url.searchParams.set('pid', params.pid || 'anon');
-    url.searchParams.set('run', qs.get('run') || 'play');
-    url.searchParams.set('diff', params.diff || 'normal');
-    url.searchParams.set('time', String(params.durSec || 120));
-    url.searchParams.set('seed', String(params.seed || Date.now()));
-    url.searchParams.set('view', params.view || 'mobile');
-    url.searchParams.set('hub', params.hub || '../hub.html');
-    url.searchParams.set('cdur', String(qs.get('cdur') || '20'));
-
-    if(PLAN_DAY) url.searchParams.set('planDay', PLAN_DAY);
-    if(PLAN_SLOT) url.searchParams.set('planSlot', PLAN_SLOT);
-    if(STUDY_ID) url.searchParams.set('studyId', STUDY_ID);
-    if(CLASSROOM) url.searchParams.set('classRoom', CLASSROOM);
-    if(STUDENT_NO) url.searchParams.set('studentNo', STUDENT_NO);
-    if(SCHOOL_CODE) url.searchParams.set('schoolCode', SCHOOL_CODE);
-
-    return url.toString();
-  }
-
-  function makePattern(label, steps){
-    const maxBeat = Math.max(...steps.map(s => s.beat));
-    return { label, steps, len: maxBeat + 1 };
-  }
-
-  const POOLS = {
-    warmup: [
-      makePattern('Jab', [{ action:'jab', beat:0 }]),
-      makePattern('Cross', [{ action:'cross', beat:0 }]),
-      makePattern('Block', [{ action:'block', beat:0 }]),
-      makePattern('Duck', [{ action:'duck', beat:0 }]),
-      makePattern('Jab → Cross', [{ action:'jab', beat:0 }, { action:'cross', beat:1 }])
-    ],
-    main: [
-      makePattern('Jab → Cross', [{ action:'jab', beat:0 }, { action:'cross', beat:1 }]),
-      makePattern('Block → Cross', [{ action:'block', beat:0 }, { action:'cross', beat:1 }]),
-      makePattern('Jab → Duck → Cross', [{ action:'jab', beat:0 }, { action:'duck', beat:1 }, { action:'cross', beat:2 }]),
-      makePattern('Jab → Cross → Block', [{ action:'jab', beat:0 }, { action:'cross', beat:1 }, { action:'block', beat:2 }]),
-      makePattern('Duck → Jab → Cross', [{ action:'duck', beat:0 }, { action:'jab', beat:1 }, { action:'cross', beat:2 }])
-    ],
-    boss: [
-      makePattern('Jab → Cross → Block', [{ action:'jab', beat:0 }, { action:'cross', beat:1 }, { action:'block', beat:2 }]),
-      makePattern('Jab → Duck → Cross → Block', [{ action:'jab', beat:0 }, { action:'duck', beat:1 }, { action:'cross', beat:2 }, { action:'block', beat:3 }]),
-      makePattern('Block → Jab → Cross → Duck', [{ action:'block', beat:0 }, { action:'jab', beat:1 }, { action:'cross', beat:2 }, { action:'duck', beat:3 }]),
-      makePattern('Jab → Cross → Duck → Cross', [{ action:'jab', beat:0 }, { action:'cross', beat:1 }, { action:'duck', beat:2 }, { action:'cross', beat:3 }])
-    ]
-  };
 
   function choosePattern(phase){
-    const pool = phase === 'warmup' ? POOLS.warmup : (phase === 'boss' ? POOLS.boss : POOLS.main);
+    const warmup = [
+      ['jab'],
+      ['cross'],
+      ['block'],
+      ['duck'],
+      ['jab', 'cross']
+    ];
 
-    if(params.diff === 'easy' && phase !== 'boss'){
-      return pool[Math.floor(rng() * Math.min(pool.length, 3))];
-    }
+    const main = [
+      ['jab', 'cross'],
+      ['block', 'cross'],
+      ['jab', 'duck', 'cross'],
+      ['cross', 'jab', 'block'],
+      ['duck', 'jab', 'cross']
+    ];
 
-    if(params.diff === 'challenge' && phase === 'boss'){
-      return pool[Math.floor(rng() * pool.length)];
-    }
+    const boss = [
+      ['jab', 'cross', 'block'],
+      ['jab', 'duck', 'cross', 'block'],
+      ['block', 'jab', 'cross', 'duck'],
+      ['jab', 'cross', 'duck', 'cross']
+    ];
 
+    const pool = phase === 'warmup' ? warmup : (phase === 'boss' ? boss : main);
     return pool[Math.floor(rng() * pool.length)];
   }
 
   function generateSchedule(){
     const notes = [];
-    let t = 1500;
+    let t = 1400;
     let id = 1;
 
-    while(t < totalMs - 800){
-      const phase = t < totalMs * 0.18 ? 'warmup' : (t < totalMs * 0.78 ? 'main' : 'boss');
+    while(t < totalMs - 700){
+      const phase = phaseOfElapsed(t);
       const pattern = choosePattern(phase);
+      const gapMul =
+        phase === 'boss' ? 0.86 :
+        phase === 'main' ? 0.95 : 1.06;
 
-      for(const step of pattern.steps){
-        const hitTime = t + (step.beat * beatMs);
-        if(hitTime >= totalMs - 240) continue;
+      pattern.forEach((action, idx) => {
+        const hitTime = t + idx * (beatMs * 0.8);
+        if(hitTime >= totalMs - 240) return;
 
         notes.push({
-          id:`n${id++}`,
-          action: step.action,
-          lane: ACTIONS[step.action].lane,
+          id: `n${id++}`,
+          action,
+          lane: ACTIONS[action].lane,
           hitTime,
           spawnTime: hitTime - travelMs,
-          judged:false,
-          result:'',
-          phase
+          judged: false,
+          result: '',
+          phase,
+          el: null,
+          elL: null,
+          elR: null
         });
-      }
+      });
 
-      t += (pattern.len + (phase === 'boss' ? 0.45 : 0.72) + rng() * 0.2) * beatMs;
+      const patternLen = Math.max(1, pattern.length);
+      const baseGap = beatMs * patternLen * gapMul;
+      const jitter = (rng() * beatMs * 0.25);
+      t += baseGap + jitter;
     }
 
     state.totalNotes = notes.length;
-    return notes.sort((a,b) => a.hitTime - b.hitTime);
+    return notes.sort((a, b) => a.hitTime - b.hitTime);
   }
 
   function currentCountdownEls(){
@@ -891,6 +772,7 @@
     const el = document.createElement('div');
     el.className = `note note--${action}`;
     el.innerHTML = `<div class="note-icon">${ACTIONS[action].icon}</div>`;
+    el.style.pointerEvents = 'none';
     return el;
   }
 
@@ -898,13 +780,13 @@
     if(params.view === 'cvr'){
       note.elL = makeNoteNode(note.action);
       note.elR = makeNoteNode(note.action);
-      els.cvrNoteLayerL.appendChild(note.elL);
-      els.cvrNoteLayerR.appendChild(note.elR);
+      if(els.cvrNoteLayerL) els.cvrNoteLayerL.appendChild(note.elL);
+      if(els.cvrNoteLayerR) els.cvrNoteLayerR.appendChild(note.elR);
       return;
     }
 
     note.el = makeNoteNode(note.action);
-    els.noteLayer.appendChild(note.el);
+    if(els.noteLayer) els.noteLayer.appendChild(note.el);
   }
 
   function layoutNoteInViewport(noteEl, lane, elapsed, spawnTime, hitTime, viewportRect, hitLineRect){
@@ -931,7 +813,7 @@
 
   function layoutNote(note, elapsed){
     if(params.view === 'cvr'){
-      if(note.elL){
+      if(note.elL && els.cvrEyeL && els.cvrHitLineL){
         layoutNoteInViewport(
           note.elL,
           note.lane,
@@ -943,7 +825,7 @@
         );
       }
 
-      if(note.elR){
+      if(note.elR && els.cvrEyeR && els.cvrHitLineR){
         layoutNoteInViewport(
           note.elR,
           note.lane,
@@ -957,7 +839,7 @@
       return;
     }
 
-    if(note.el){
+    if(note.el && els.arena && els.hitLine){
       layoutNoteInViewport(
         note.el,
         note.lane,
@@ -985,7 +867,7 @@
     return best;
   }
 
-  function pressAction(action){
+  function pressAction(action, source = ''){
     if(state.ended || !state.started) return;
 
     const elapsed = performance.now() - state.startAt;
@@ -1026,6 +908,7 @@
           eventType: 'hit',
           noteId: note.id,
           action,
+          source,
           phase: note.phase,
           hitTimeMs: Math.round(note.hitTime),
           inputElapsedMs: Math.round(elapsed),
@@ -1059,6 +942,7 @@
       eventType: 'blank_tap',
       noteId: '',
       action,
+      source,
       phase: state.currentPhase,
       hitTimeMs: '',
       inputElapsedMs: Math.round(elapsed),
@@ -1084,7 +968,7 @@
   }
 
   function cvrActions(){
-    return ['jab', 'cross', 'block', 'duck'];
+    return ACTION_BY_LANE.slice();
   }
 
   function cvrLaneFromGamma(gamma){
@@ -1201,13 +1085,6 @@
     if(els.cvrCalibGaugeFill) els.cvrCalibGaugeFill.style.width = '0%';
   }
 
-  function avg(arr){
-    if(!arr || !arr.length) return 0;
-    let s = 0;
-    for(const v of arr) s += v;
-    return s / arr.length;
-  }
-
   function updateCvrCalibration(now){
     if(params.view !== 'cvr') return;
     if(state._cvrCalibrationState !== 'sampling') return;
@@ -1223,10 +1100,7 @@
       state._cvrCalibrationState = 'done';
       if(els.cvrCalibText) els.cvrCalibText.textContent = 'Calibration สำเร็จแล้ว กำลังเริ่มเกม...';
       if(els.cvrCalibGaugeFill) els.cvrCalibGaugeFill.style.width = '100%';
-
-      setTimeout(() => {
-        armRunCountdown();
-      }, 260);
+      setTimeout(() => armRunCountdown(), 260);
     }
   }
 
@@ -1255,7 +1129,7 @@
         state._cvrDemoMode = true;
         showCvrCalibrationOverlay();
       }
-    }catch(_){
+    } catch (_){
       state._cvrPermissionResolved = true;
       state._cvrDemoMode = true;
       showCvrCalibrationOverlay();
@@ -1293,7 +1167,7 @@
     if(isPc){
       setCoach('กด A / L / W / S ตามจังหวะ');
     } else if(isMobile){
-      setCoach('แตะในช่องตอนโน้ตถึงเส้น');
+      setCoach('แตะในช่อง หรือแตะทั้งสนามตาม lane ได้เลย');
     } else {
       setCoach('หันเล็งช่องด้วยหัว แล้วแตะหรือกด trigger');
     }
@@ -1305,29 +1179,94 @@
     }
   }
 
+  async function loadVrUiIfNeeded(){
+    if(params.view !== 'cvr') return;
+    try{
+      await import('../vr/vr-ui.js?v=20260307b');
+    } catch (err){
+      console.warn('[RB] vr-ui import failed', err);
+    }
+  }
+
+  function forceNotesPointerNone(){
+    document.querySelectorAll('.note').forEach((el) => {
+      el.style.pointerEvents = 'none';
+    });
+  }
+
+  function laneFromClientX(clientX){
+    const host = els.arena || els.laneHitRow;
+    if(!host) return 0;
+
+    const laneEls = Array.from(document.querySelectorAll('.lane-grid .lane'));
+    if(laneEls.length){
+      for(let i = 0; i < laneEls.length; i++){
+        const r = laneEls[i].getBoundingClientRect();
+        if(clientX >= r.left && clientX <= r.right){
+          return i;
+        }
+      }
+    }
+
+    const rect = host.getBoundingClientRect();
+    const x = clamp(clientX - rect.left, 0, Math.max(1, rect.width - 1));
+    return clamp(Math.floor((x / Math.max(1, rect.width)) * 4), 0, 3);
+  }
+
   function bindPcInput(){
     window.addEventListener('keydown', (ev) => {
       if(ev.repeat) return;
       const action = Object.keys(ACTIONS).find((k) => ACTIONS[k].key === ev.code || ACTIONS[k].alt === ev.code);
       if(action){
         ev.preventDefault();
-        pressAction(action);
+        pressAction(action, 'key');
       }
-    });
+    }, { passive:false });
   }
 
   function bindMobileInput(){
-    laneHitButtons.forEach((btn) => {
+    forceNotesPointerNone();
+
+    if(els.noteLayer){
+      state._noteMo = new MutationObserver(() => forceNotesPointerNone());
+      state._noteMo.observe(els.noteLayer, { childList:true, subtree:true });
+    }
+
+    const laneButtons = Array.from(document.querySelectorAll('.lane-hit'));
+    laneButtons.forEach((btn) => {
       const action = btn.dataset.action;
       btn.addEventListener('pointerdown', (ev) => {
         ev.preventDefault();
-        pressAction(action);
-      });
+        pressAction(action, 'lane-hit');
+      }, { passive:false });
+
       btn.addEventListener('touchstart', (ev) => {
         ev.preventDefault();
-        pressAction(action);
+        pressAction(action, 'lane-hit-touch');
       }, { passive:false });
     });
+
+    if(els.arena){
+      els.arena.addEventListener('pointerdown', (ev) => {
+        if(!state.started || state.ended) return;
+        if(ev.target && ev.target.closest('.lane-hit')) return;
+        ev.preventDefault();
+
+        const lane = laneFromClientX(ev.clientX);
+        pressAction(ACTION_BY_LANE[lane], 'arena-pointer');
+      }, { passive:false });
+
+      els.arena.addEventListener('touchstart', (ev) => {
+        if(!state.started || state.ended) return;
+        if(ev.target && ev.target.closest('.lane-hit')) return;
+        if(!ev.touches || !ev.touches.length) return;
+        ev.preventDefault();
+
+        const t = ev.touches[0];
+        const lane = laneFromClientX(t.clientX);
+        pressAction(ACTION_BY_LANE[lane], 'arena-touch');
+      }, { passive:false });
+    }
   }
 
   function bindCvrInput(){
@@ -1377,7 +1316,7 @@
       lastTriggerAt = now;
 
       const actions = cvrActions();
-      pressAction(actions[state.currentCvrLane] || 'jab');
+      pressAction(actions[state.currentCvrLane] || 'jab', 'cvr-trigger');
     }
 
     window.addEventListener('hha:shoot', trigger);
@@ -1429,7 +1368,7 @@
         state.started = true;
         setCoach(
           params.view === 'pc' ? 'กด A / L / W / S ตามจังหวะ'
-          : params.view === 'mobile' ? 'แตะในช่องตอนโน้ตถึงเส้น'
+          : params.view === 'mobile' ? 'แตะในช่อง หรือแตะทั้งสนามตาม lane ได้เลย'
           : 'หันเล็งช่องด้วยหัว แล้วแตะหรือกด trigger'
         );
       }
@@ -1440,105 +1379,150 @@
     if(elsCd.num) elsCd.num.textContent = String(Math.ceil(remain / 1000));
   }
 
-  function buildTeacherPanel(summary){
-    const showTeacher = TEACHER_MODE || EXPORT_MODE || !!STUDY_ID;
-    if(!els.teacherPanel) return;
+  function buildTeacherQualityMetrics(){
+    const judged = state.perfect + state.great + state.good + state.miss;
+    const blankRate = (judged + state.blankTap) > 0
+      ? (state.blankTap / (judged + state.blankTap)) * 100
+      : 0;
 
-    els.teacherPanel.classList.toggle('hidden', !showTeacher);
+    const offAbs = state.offsets.filter(Number.isFinite).map(v => Math.abs(v));
+    const offMean = mean(offAbs);
+    const offStd = std(offAbs);
 
-    if(showTeacher){
-      if(els.teacherQuality) els.teacherQuality.textContent = summary.dataQuality || 'Good';
-      if(els.teacherBlankRate) els.teacherBlankRate.textContent = `${summary.blankTapRate}%`;
-      if(els.teacherOffsetMean) els.teacherOffsetMean.textContent =
-        summary.offsetAbsMeanMs == null ? '-' : `${summary.offsetAbsMeanMs} ms`;
-      if(els.teacherOffsetStd) els.teacherOffsetStd.textContent =
-        summary.offsetAbsStdMs == null ? '-' : `${summary.offsetAbsStdMs} ms`;
-      if(els.teacherNote) els.teacherNote.textContent = summary.teacherNote || '—';
-    }
+    let quality = 'Good';
+    if(blankRate > 18 || (offMean != null && offMean > 95)) quality = 'Fair';
+    if(blankRate > 28 || (offMean != null && offMean > 120)) quality = 'Needs Review';
+
+    return {
+      blankRate,
+      offMean,
+      offStd,
+      quality
+    };
   }
 
-  function nearestPhaseLabel(phase){
-    if(phase === 'warmup') return 'Warmup';
-    if(phase === 'main') return 'Main';
-    return 'Boss';
+  function buildTeacherNote(metrics){
+    const notes = [];
+
+    if(metrics.quality === 'Needs Review'){
+      notes.push('ข้อมูลมีความเสี่ยงต่อการกดมั่วหรือจังหวะแกว่งสูง');
+    } else if(metrics.quality === 'Fair'){
+      notes.push('ข้อมูลใช้ได้ แต่ยังมี blank tap หรือ timing แกว่งพอสมควร');
+    } else {
+      notes.push('ข้อมูลค่อนข้างนิ่งและเหมาะกับการใช้สรุปผล');
+    }
+
+    if(state.mission.noMiss) notes.push('ผู้เล่นจบรอบโดยไม่ miss');
+    if(state.mission.bossClear) notes.push('ผ่าน boss phase');
+    if(state.ai.fatigue > 0.7) notes.push('มีสัญญาณล้าค่อนข้างสูงระหว่างเล่น');
+    if(state.maxCombo >= 20) notes.push('รักษาคอมโบได้ดี');
+    if(computeAccuracyPercent() >= 90) notes.push('ความแม่นโดยรวมสูง');
+
+    return notes.join(' • ');
   }
 
-  function tick(now){
-    if(params.view === 'cvr'){
-      updateCvrCalibration(now);
-    }
+  function downloadText(filename, text, mime = 'text/plain;charset=utf-8'){
+    const blob = new Blob([text], { type: mime });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 1000);
+  }
 
-    updateCountdown(now);
-    clearFeedback(now);
+  function toCSV(rows, cols){
+    const esc = (v) => {
+      v = (v == null) ? '' : String(v);
+      if(/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+      return v;
+    };
 
-    if(!state.started){
-      updateHUD(0);
-      requestAnimationFrame(tick);
-      return;
-    }
+    return [
+      cols.join(','),
+      ...rows.map(r => cols.map(c => esc(r[c])).join(','))
+    ].join('\n') + '\n';
+  }
 
-    const elapsed = now - state.startAt;
-    const dt = Math.max(0, now - (state._lastTickAt || now));
-    state._lastTickAt = now;
+  function downloadEventsCSV(){
+    const cols = [
+      'tsIso','pid','name','nickName','studyId','classRoom','studentNo','schoolCode',
+      'planDay','planSlot','diff','run','seed','bpm','durationSec','view','zone','cat','game',
+      'eventType','noteId','action','source','phase','hitTimeMs','inputElapsedMs','offsetMs','result','combo','score'
+    ];
+    downloadText(
+      `rb_main_events_${params.pid}_${Date.now()}.csv`,
+      toCSV(state.events, cols),
+      'text/csv;charset=utf-8'
+    );
+  }
 
-    drainFever(dt);
-    applyPhase(phaseOfElapsed(elapsed));
-    updateHUD(elapsed);
+  function downloadSessionsCSV(){
+    const summary = state.lastSummaryPayload?.summary;
+    if(!summary) return;
 
-    for(const note of state.notes){
-      if(note.judged) continue;
+    const cols = [
+      'tsIso','pid','name','nickName','studyId','classRoom','studentNo','schoolCode',
+      'planDay','planSlot','diff','run','seed','bpm','durationSec','view','zone','cat','game',
+      'score','accuracy','maxCombo','perfect','great','good','miss','blankTap',
+      'grade','stars','medal','badge',
+      'missionScore','missionCombo','missionAcc','missionNoMiss','bossClear',
+      'blankTapRate','offsetAbsMeanMs','offsetAbsStdMs','dataQuality','teacherNote'
+    ];
 
-      if(elapsed > note.hitTime + WINDOWS.good){
-        note.judged = true;
-        note.result = 'miss';
+    const row = { ...sessionMeta(), ...summary };
 
-        if(state.shield > 0){
-          state.shield -= 1;
-          comboBurst('Shield Save!');
-        } else {
-          state.miss += 1;
-          state.combo = 0;
-        }
+    downloadText(
+      `rb_main_sessions_${params.pid}_${Date.now()}.csv`,
+      toCSV([row], cols),
+      'text/csv;charset=utf-8'
+    );
+  }
 
-        logEvent({
-          eventType: 'auto_miss',
-          noteId: note.id,
-          action: note.action,
-          phase: nearestPhaseLabel(note.phase),
-          hitTimeMs: Math.round(note.hitTime),
-          inputElapsedMs: '',
-          offsetMs: '',
-          result: 'miss',
-          combo: state.combo,
-          score: Math.round(state.score)
-        });
+  function downloadSummaryJSON(){
+    if(!state.lastSummaryPayload) return;
+    downloadText(
+      `rb_main_summary_${params.pid}_${Date.now()}.json`,
+      JSON.stringify(state.lastSummaryPayload, null, 2),
+      'application/json;charset=utf-8'
+    );
+  }
 
-        removeNoteEl(note);
-        continue;
-      }
+  function buildCooldownUrl(){
+    const url = new URL('../warmup-gate.html', location.href);
+    url.searchParams.set('phase', 'cooldown');
+    url.searchParams.set('gatePhase', 'cooldown');
+    url.searchParams.set('zone', qs.get('zone') || 'fitness');
+    url.searchParams.set('cat', qs.get('cat') || 'fitness');
+    url.searchParams.set('game', 'rhythmboxer');
+    url.searchParams.set('gameId', 'rhythmboxer');
+    url.searchParams.set('theme', 'rhythmboxer');
+    url.searchParams.set('pid', params.pid || 'anon');
+    url.searchParams.set('run', params.run || 'play');
+    url.searchParams.set('diff', params.diff || 'normal');
+    url.searchParams.set('time', String(params.timeSec || 90));
+    url.searchParams.set('seed', String(params.seed || Date.now()));
+    url.searchParams.set('view', params.view || 'mobile');
+    url.searchParams.set('hub', params.hub || '../hub.html');
+    url.searchParams.set('cdur', String(qs.get('cdur') || '20'));
 
-      layoutNote(note, elapsed);
-    }
+    if(PLAN_DAY) url.searchParams.set('planDay', PLAN_DAY);
+    if(PLAN_SLOT) url.searchParams.set('planSlot', PLAN_SLOT);
+    if(params.studyId) url.searchParams.set('studyId', params.studyId);
+    if(CLASSROOM) url.searchParams.set('classRoom', CLASSROOM);
+    if(STUDENT_NO) url.searchParams.set('studentNo', STUDENT_NO);
+    if(SCHOOL_CODE) url.searchParams.set('schoolCode', SCHOOL_CODE);
 
-    if(params.view === 'cvr'){
-      cueCvrUpcomingNotes(elapsed);
-      updateCvrFocus();
-    }
+    return url.toString();
+  }
 
-    updateMissionState();
-    updateMissionStrip();
-    updateCombatHud();
-    updateAI();
-
-    if(elapsed >= totalMs){
-      if(state.boss.active && state.boss.hp <= 0){
-        endBossBattle(true);
-      }
-      endGame();
-      return;
-    }
-
-    requestAnimationFrame(tick);
+  function buildReplayUrl(){
+    const url = new URL(location.href);
+    url.searchParams.set('seed', String(Date.now()));
+    return url.toString();
   }
 
   function endGame(){
@@ -1601,7 +1585,19 @@
     if(els.sumMissionNoMiss) els.sumMissionNoMiss.textContent = state.mission.noMiss ? '✅' : '—';
     if(els.sumBossClear) els.sumBossClear.textContent = state.mission.bossClear ? '✅' : '—';
 
-    buildTeacherPanel(summary);
+    const showTeacher = TEACHER_MODE || EXPORT_MODE || !!params.studyId;
+    if(els.teacherPanel){
+      els.teacherPanel.classList.toggle('hidden', !showTeacher);
+      if(showTeacher){
+        if(els.teacherQuality) els.teacherQuality.textContent = summary.dataQuality || 'Good';
+        if(els.teacherBlankRate) els.teacherBlankRate.textContent = `${summary.blankTapRate}%`;
+        if(els.teacherOffsetMean) els.teacherOffsetMean.textContent =
+          summary.offsetAbsMeanMs == null ? '-' : `${summary.offsetAbsMeanMs} ms`;
+        if(els.teacherOffsetStd) els.teacherOffsetStd.textContent =
+          summary.offsetAbsStdMs == null ? '-' : `${summary.offsetAbsStdMs} ms`;
+        if(els.teacherNote) els.teacherNote.textContent = summary.teacherNote || '—';
+      }
+    }
 
     if(els.btnCooldown){
       const showCooldown = qbool('cooldown', true) || params.view === 'cvr';
@@ -1609,22 +1605,18 @@
       if(showCooldown) els.btnCooldown.href = buildCooldownUrl();
     }
 
-    const showExport = EXPORT_MODE || TEACHER_MODE || !!STUDY_ID;
+    const showExport = EXPORT_MODE || TEACHER_MODE || !!params.studyId;
     if(els.btnDlEvents) els.btnDlEvents.classList.toggle('hidden', !showExport);
     if(els.btnDlSessions) els.btnDlSessions.classList.toggle('hidden', !showExport);
     if(els.btnDlJson) els.btnDlJson.classList.toggle('hidden', !showExport);
 
-    els.btnReplay.href = (() => {
-      const url = new URL(location.href);
-      url.searchParams.set('seed', String(Date.now()));
-      return url.toString();
-    })();
+    if(els.btnReplay) els.btnReplay.href = buildReplayUrl();
 
     try{
       const hubSummary = {
         pid: params.pid,
         game: 'rhythmboxer',
-        runMode: params.mode,
+        runMode: params.run,
         diff: params.diff,
         scoreFinal: summary.score,
         accPct: summary.accuracy,
@@ -1633,30 +1625,17 @@
         rank: summary.grade,
         stars: summary.stars,
         badge: summary.badge,
-        durationSec: params.durSec,
+        durationSec: params.timeSec,
         planDay: PLAN_DAY,
         planSlot: PLAN_SLOT,
-        studyId: STUDY_ID,
+        studyId: params.studyId,
         timestampIso: new Date().toISOString()
       };
 
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(hubSummary));
       localStorage.setItem(`HHA_LAST_SUMMARY:rhythmboxer:${params.pid}`, JSON.stringify(hubSummary));
       localStorage.setItem(`HHA_PLAN_RESULT:rhythmboxer:${params.pid}`, JSON.stringify(hubSummary));
-    } catch(_){}
-
-    logEvent({
-      eventType: 'session_end',
-      noteId: '',
-      action: '',
-      phase: state.currentPhase,
-      hitTimeMs: '',
-      inputElapsedMs: Math.round(params.durSec * 1000),
-      offsetMs: '',
-      result: summary.grade,
-      combo: state.maxCombo,
-      score: Math.round(state.score)
-    });
+    } catch (_){}
 
     if(els.summaryOverlay) els.summaryOverlay.classList.remove('hidden');
 
@@ -1667,9 +1646,110 @@
     }
   }
 
-  function boot(){
+  function tick(now){
+    if(params.view === 'cvr'){
+      updateCvrCalibration(now);
+    }
+
+    updateCountdown(now);
+    clearFeedback(now);
+
+    if(!state.started){
+      updateHUD(0);
+      requestAnimationFrame(tick);
+      return;
+    }
+
+    const elapsed = now - state.startAt;
+    const dt = Math.max(0, now - (state._lastTickAt || now));
+    state._lastTickAt = now;
+
+    drainFever(dt);
+    applyPhase(phaseOfElapsed(elapsed));
+    updateHUD(elapsed);
+
+    for(const note of state.notes){
+      if(note.judged) continue;
+
+      if(elapsed > note.hitTime + WINDOWS.good){
+        note.judged = true;
+        note.result = 'miss';
+
+        if(state.shield > 0){
+          state.shield -= 1;
+          comboBurst('Shield Save!');
+        } else {
+          state.miss += 1;
+          state.combo = 0;
+        }
+
+        logEvent({
+          eventType: 'auto_miss',
+          noteId: note.id,
+          action: note.action,
+          source: 'timeline',
+          phase: note.phase,
+          hitTimeMs: Math.round(note.hitTime),
+          inputElapsedMs: '',
+          offsetMs: '',
+          result: 'miss',
+          combo: state.combo,
+          score: Math.round(state.score)
+        });
+
+        removeNoteEl(note);
+        continue;
+      }
+
+      layoutNote(note, elapsed);
+    }
+
+    if(params.view === 'cvr'){
+      cueCvrUpcomingNotes(elapsed);
+      updateCvrFocus();
+    }
+
+    updateMissionState();
+    updateMissionStrip();
+    updateCombatHud();
+    updateAI();
+
+    if(elapsed >= totalMs){
+      if(state.boss.active && state.boss.hp <= 0){
+        endBossBattle(true);
+      }
+      endGame();
+      return;
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  function updateHUD(elapsed){
+    if(els.scoreValue) els.scoreValue.textContent = String(Math.round(state.score));
+    if(els.comboValue) els.comboValue.textContent = String(state.combo);
+    if(els.accValue) els.accValue.textContent = `${computeAccuracyPercent()}%`;
+
+    const secLeft = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
+    if(els.timeValue) els.timeValue.textContent = fmtTime(secLeft);
+  }
+
+  function bootExportButtons(){
+    if(els.btnDlEvents){
+      els.btnDlEvents.addEventListener('click', downloadEventsCSV);
+    }
+    if(els.btnDlSessions){
+      els.btnDlSessions.addEventListener('click', downloadSessionsCSV);
+    }
+    if(els.btnDlJson){
+      els.btnDlJson.addEventListener('click', downloadSummaryJSON);
+    }
+  }
+
+  async function boot(){
     updateBridgeStrip();
     applyViewMode();
+    await loadVrUiIfNeeded();
 
     state.notes = generateSchedule();
     state.notes.forEach(buildNoteEl);
@@ -1680,6 +1760,7 @@
     updateMissionStrip();
     updateCombatHud();
     updateAI();
+    bootExportButtons();
 
     if(els.btnCooldown){
       els.btnCooldown.addEventListener('click', (ev) => {
@@ -1689,16 +1770,6 @@
           location.href = href;
         }
       });
-    }
-
-    if(els.btnDlEvents){
-      els.btnDlEvents.addEventListener('click', downloadEventsCSV);
-    }
-    if(els.btnDlSessions){
-      els.btnDlSessions.addEventListener('click', downloadSessionsCSV);
-    }
-    if(els.btnDlJson){
-      els.btnDlJson.addEventListener('click', downloadSummaryJSON);
     }
 
     if(els.btnCvrAllowMotion){
@@ -1737,6 +1808,7 @@
       eventType: 'session_boot',
       noteId: '',
       action: '',
+      source: 'boot',
       phase: 'boot',
       hitTimeMs: '',
       inputElapsedMs: '',
