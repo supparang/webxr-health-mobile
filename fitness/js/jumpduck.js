@@ -4,7 +4,7 @@
   const $ = (s) => document.querySelector(s);
 
   const JD_DEFAULT_HUB = 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
-  const JD_DEFAULT_LAUNCHER = 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
+  const JD_DEFAULT_LAUNCHER = 'https://supparang.github.io/webxr-health-mobile/fitness/jump-duck.html';
   const JD_DEFAULT_GATE = 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html';
 
   const viewMenu = $('#view-menu');
@@ -192,9 +192,9 @@
       gate: gateUrl,
       hub: hubUrl,
 
-      game: 'jump-duck',
-      gameId: 'jump-duck',
-      theme: 'jump-duck',
+      game: 'jumpduck',
+      gameId: 'jumpduck',
+      theme: 'jumpduck',
       zone: 'fitness',
       cat: 'fitness'
     };
@@ -237,6 +237,11 @@
     return u.toString();
   }
 
+  function jdBuildLauncherUrl(overrides = {}) {
+    const ctx = jdBuildBaseFlowCtx(overrides);
+    return jdWithCommonParams(ctx.launcher, ctx);
+  }
+
   function jdBuildRunUrl(overrides = {}) {
     const ctx = jdBuildBaseFlowCtx(overrides);
     return jdWithCommonParams(ctx.launcher, ctx, {
@@ -253,7 +258,7 @@
     return jdWithCommonParams(ctx.gate, ctx, {
       phase: 'warmup',
       next: runUrl,
-      cdnext: ctx.hub
+      cdnext: ctx.launcher
     });
   }
 
@@ -262,8 +267,8 @@
 
     return jdWithCommonParams(ctx.gate, ctx, {
       phase: 'cooldown',
-      next: ctx.hub,
-      cdnext: ctx.hub,
+      next: ctx.launcher,
+      cdnext: ctx.launcher,
       score: Number(summary.score || 0),
       accuracy: Number(summary.accuracy || 0),
       bestStreak: Number(summary.bestStreak || 0),
@@ -271,17 +276,70 @@
     });
   }
 
+  function jdIsPlannerFlow() {
+    const plannerFlow = String(qs('plannerFlow', '0')).toLowerCase();
+    const fpStrict = String(qs('fpStrict', '0')).toLowerCase();
+    const cooldown = String(qs('cooldown', '1')).toLowerCase();
+    const returnPhase = String(qs('returnPhase', '')).toLowerCase();
+    const hubUrl = String(qs('hub', '')).trim();
+
+    return (
+      plannerFlow === '1' ||
+      fpStrict === '1' ||
+      cooldown === '0' ||
+      returnPhase === 'planner' ||
+      hubUrl.includes('fpResume=1')
+    );
+  }
+
+  function jdBuildPlannerReplayUrl(overrides = {}) {
+    const ctx = jdBuildBaseFlowCtx(overrides);
+    return jdWithCommonParams('/webxr-health-mobile/fitness/jump-duck.html', ctx, {
+      plannerFlow: '1',
+      fpStrict: '1',
+      gate: '0',
+      cooldown: '0',
+      returnPhase: 'planner'
+    });
+  }
+
+  function jdBuildPostRunUrl(summary = {}, overrides = {}) {
+    const ctx = jdBuildBaseFlowCtx(overrides);
+
+    if (jdIsPlannerFlow()) {
+      return ctx.hub;
+    }
+
+    return jdBuildCooldownGateUrl(summary, overrides);
+  }
+
   function jdMaybeAutoStartAfterWarmup() {
     const wgskip = qs('wgskip', '') === '1';
     const autostart = qs('autostart', '') === '1';
+    const plannerFlow = jdIsPlannerFlow();
 
-    if (!wgskip || !autostart) return;
+    if ((!wgskip || !autostart) && !plannerFlow) return;
     if (window.__JD_AUTO_STARTED__) return;
     window.__JD_AUTO_STARTED__ = true;
 
     queueMicrotask(() => {
-      const startBtn = document.querySelector('[data-action="start"]');
-      if (startBtn) startBtn.click();
+      const selectedMode = String(
+        qs('mode', qs('run', elMode?.value || HHA_CTX.mode || 'training'))
+      ).toLowerCase();
+
+      const selectedDiff = String(
+        qs('diff', elDiff?.value || HHA_CTX.diff || 'normal')
+      ).toLowerCase();
+
+      const selectedTime = String(
+        parseInt(qs('time', elDuration?.value || HHA_CTX.duration || HHA_CTX.time || '60'), 10) || 60
+      );
+
+      startGame({
+        mode: selectedMode,
+        diff: selectedDiff,
+        durationMs: (parseInt(selectedTime, 10) || 60) * 1000
+      });
     });
   }
 
@@ -290,8 +348,8 @@
     const durationSec = s && s.duration ? Math.round(Number(s.duration || 0) / 1000) : Number(HHA_CTX.duration || HHA_CTX.time || 60);
     return {
       zone: 'fitness',
-      gameId: 'jump-duck',
-      game: 'jump-duck',
+      gameId: 'jumpduck',
+      game: 'jumpduck',
       pid: String(HHA_CTX.pid || 'anon'),
       name: String(qs('name', qs('nickName', 'Hero')) || 'Hero'),
       studyId: String(HHA_CTX.studyId || ''),
@@ -529,7 +587,13 @@
 
   function saveLastSummary(summary) {
     try {
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      const payload = JSON.stringify(summary);
+      const pid = String(summary?.pid || HHA_CTX.pid || 'anon');
+
+      localStorage.setItem('HHA_LAST_SUMMARY', payload);
+      localStorage.setItem('HHA_LAST_SUMMARY_JUMPDUCK', payload);
+      localStorage.setItem(`HHA_LAST_SUMMARY:jumpduck:${pid}`, payload);
+
       const histKey = 'HHA_SUMMARY_HISTORY';
       const old = JSON.parse(localStorage.getItem(histKey) || '[]');
       old.unshift(summary);
@@ -3102,6 +3166,9 @@
     });
 
     const pid = String(HHA_CTX.pid || 'anon');
+    const plannerFlow = jdIsPlannerFlow();
+    const hubUrl = jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB);
+
     const profileKey = `JD_PROFILE:${pid}`;
     const bookKey = `JD_CARD_BOOK:${pid}`;
     const lastCardKey = `JD_LAST_CARD:${pid}`;
@@ -3161,7 +3228,10 @@
 
     const summary = {
       game: 'jumpduck',
+      gameId: 'jumpduck',
       pid,
+      hub: hubUrl,
+      plannerFlow,
       scoreFinal: s.score,
       accPct: Number(accPct.toFixed(2)),
       rank,
@@ -3197,8 +3267,8 @@
       window.HH_FITNESS_LASTGAME?.writeSnapshot({
         event: 'summary_ready',
         zone: 'fitness',
-        gameId: 'jump-duck',
-        game: 'jump-duck',
+        gameId: 'jumpduck',
+        game: 'jumpduck',
         score: Number(s.score || 0),
         miss: Number(s.miss || 0),
         bestStreak: Number(s.maxCombo || 0),
@@ -3258,7 +3328,7 @@
       rank: rank || 'C'
     };
 
-    s.cooldownUrl = jdBuildCooldownGateUrl(s.summaryPayload, {
+    s.cooldownUrl = jdBuildPostRunUrl(s.summaryPayload, {
       mode: s.mode || HHA_CTX.mode || 'training',
       diff: s.diff || HHA_CTX.diff || 'normal',
       time: String(Math.round((s.duration || 0) / 1000) || HHA_CTX.time || 60),
@@ -3268,13 +3338,29 @@
       name: qs('name', qs('nickName', 'Hero')),
       studyId: HHA_CTX.studyId || '',
       seed: HHA_CTX.seed || Date.now(),
-      hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
+      hub: hubUrl,
       launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
     });
+
+    const continueFlowBtn =
+      document.getElementById('jd-btn-continue-flow') ||
+      document.querySelector('[data-action="continue-flow"]');
+
+    if (continueFlowBtn) {
+      continueFlowBtn.textContent = plannerFlow ? 'กลับแผน' : 'ทำ Cooldown ต่อ';
+    }
 
     s.finished = true;
     s.finishing = false;
     showView('result');
+
+    if (plannerFlow) {
+      setTimeout(() => {
+        if (state === s && s.finished && s.cooldownUrl) {
+          location.href = s.cooldownUrl;
+        }
+      }, 900);
+    }
   }
 
   function jdTick(now) {
@@ -3451,6 +3537,25 @@
         result: 'rematch'
       });
 
+      if (jdIsPlannerFlow()) {
+        const replayUrl = jdBuildPlannerReplayUrl({
+          mode: (state?.mode || elMode?.value || HHA_CTX.mode || 'training').toLowerCase(),
+          diff: (state?.diff || elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase(),
+          time: String(Math.round((state?.duration || 0) / 1000) || parseInt(elDuration?.value || HHA_CTX.duration || '60', 10) || 60),
+          run: HHA_CTX.run || 'play',
+          view: HHA_CTX.view || 'mobile',
+          pid: HHA_CTX.pid || 'anon',
+          name: qs('name', qs('nickName', 'Hero')),
+          studyId: HHA_CTX.studyId || '',
+          seed: Date.now(),
+          hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
+          launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
+        });
+
+        location.href = replayUrl;
+        return;
+      }
+
       const warmupUrl = jdBuildWarmupGateUrl({
         mode: (state?.mode || elMode?.value || HHA_CTX.mode || 'training').toLowerCase(),
         diff: (state?.diff || elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase(),
@@ -3470,7 +3575,24 @@
 
     document.querySelector('[data-action="back-menu"]')?.addEventListener('click', (ev) => {
       ev.preventDefault();
-      location.href = jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB);
+
+      const target = jdIsPlannerFlow()
+        ? jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB)
+        : jdBuildLauncherUrl({
+            mode: elMode?.value || HHA_CTX.mode || 'training',
+            diff: elDiff?.value || HHA_CTX.diff || 'normal',
+            time: String(parseInt(elDuration?.value || HHA_CTX.duration || HHA_CTX.time || '60', 10) || 60),
+            run: HHA_CTX.run || 'play',
+            view: HHA_CTX.view || 'mobile',
+            pid: HHA_CTX.pid || 'anon',
+            name: qs('name', qs('nickName', 'Hero')),
+            studyId: HHA_CTX.studyId || '',
+            seed: HHA_CTX.seed || Date.now(),
+            hub: jdNormalizeHubUrl(HHA_CTX.hub || JD_DEFAULT_HUB),
+            launcher: HHA_CTX.launcher || JD_DEFAULT_LAUNCHER
+          });
+
+      location.href = target;
     });
 
     $('#btn-jump')?.addEventListener('click', () => jdHandleInput(state, 'jump'));
@@ -3579,6 +3701,15 @@
     resetPlayHUD();
     resetResultHUD();
     showView('menu');
+
+    console.log('[JD] init', {
+      plannerFlow: jdIsPlannerFlow(),
+      hub: HHA_CTX.hub,
+      cooldown: qs('cooldown', ''),
+      returnPhase: qs('returnPhase', ''),
+      launcher: JD_DEFAULT_LAUNCHER
+    });
+
     jdMaybeAutoStartAfterWarmup();
   }
 
