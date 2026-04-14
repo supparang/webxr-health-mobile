@@ -68,6 +68,31 @@
     return Date.now();
   }
 
+  function safeAbsUrl(raw, fallbackPath) {
+    const value = String(raw || '').trim();
+    try {
+      if (value) return new URL(value, location.href).toString();
+    } catch {}
+    return new URL(fallbackPath, location.href).toString();
+  }
+
+  function firstNonEmpty(...vals) {
+    for (const v of vals) {
+      const s = String(v ?? '').trim();
+      if (s) return s;
+    }
+    return '';
+  }
+
+  function looksLikeHubUrl(urlText) {
+    const txt = String(urlText || '').toLowerCase();
+    return txt.includes('/hub.html') || txt.includes('/hub-v2.html');
+  }
+
+  function looksLikeZoneUrl(urlText) {
+    return String(urlText || '').toLowerCase().includes('hygiene-zone.html');
+  }
+
   function normalizeStage(stage) {
     const s = str(stage).toLowerCase();
     if (s === 'howto' || s === 'practice' || s === 'main' || s === 'mini-order') return s;
@@ -84,20 +109,91 @@
     }
   }
 
+  function buildHubRoot() {
+    const explicitHubRoot = firstNonEmpty(qs('hubRoot', ''));
+    if (explicitHubRoot) return safeAbsUrl(explicitHubRoot, '../hub-v2.html');
+
+    const legacyHub = firstNonEmpty(qs('hub', ''));
+    if (legacyHub && looksLikeHubUrl(legacyHub)) {
+      return safeAbsUrl(legacyHub, '../hub-v2.html');
+    }
+
+    return safeAbsUrl('../hub-v2.html', '../hub-v2.html');
+  }
+
+  function buildFallbackZoneReturn(viewOverride = '') {
+    const view = str(viewOverride, str(qs('view', 'mobile'), 'mobile'));
+    const hubRoot = buildHubRoot();
+    const url = new URL('../hygiene-zone.html', location.href);
+
+    const passKeys = [
+      'pid', 'name', 'nick', 'nickName', 'studyId',
+      'diff', 'time', 'run',
+      'debug', 'api', 'log',
+      'studentKey', 'schoolCode', 'classRoom', 'studentNo',
+      'conditionGroup', 'sessionNo', 'weekNo', 'teacher', 'grade'
+    ];
+
+    passKeys.forEach((key) => {
+      const v = qs(key, '');
+      if (v !== '') url.searchParams.set(key, v);
+    });
+
+    if (!url.searchParams.get('pid')) url.searchParams.set('pid', 'anon');
+    if (!url.searchParams.get('name')) {
+      url.searchParams.set(
+        'name',
+        firstNonEmpty(qs('name', ''), qs('nickName', ''), qs('nick', ''), 'Hero')
+      );
+    }
+    if (!url.searchParams.get('diff')) url.searchParams.set('diff', 'normal');
+    if (!url.searchParams.get('time')) url.searchParams.set('time', '90');
+    if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
+
+    url.searchParams.set('view', view);
+    url.searchParams.set('zone', 'hygiene');
+    url.searchParams.set('cat', 'hygiene');
+    url.searchParams.set('hubRoot', hubRoot);
+    url.searchParams.set('hub', hubRoot);
+
+    return url.toString();
+  }
+
+  function buildZoneReturn(viewOverride = '') {
+    const explicitZoneReturn = firstNonEmpty(qs('zoneReturn', ''));
+    if (explicitZoneReturn) return safeAbsUrl(explicitZoneReturn, '../hygiene-zone.html');
+
+    const legacyHub = firstNonEmpty(qs('hub', ''));
+    if (legacyHub && looksLikeZoneUrl(legacyHub)) {
+      return safeAbsUrl(legacyHub, '../hygiene-zone.html');
+    }
+
+    return buildFallbackZoneReturn(viewOverride);
+  }
+
   function buildBaseContext(extra = {}) {
+    const view = str(extra.view, str(qs('view', 'mobile'), 'mobile'));
+    const hubRoot = buildHubRoot();
+    const zoneReturn = buildZoneReturn(view);
+
     return {
       pid: str(qs('pid', 'anon'), 'anon'),
-      name: str(qs('name', 'Hero'), 'Hero'),
+      name: str(firstNonEmpty(qs('name', ''), qs('nickName', ''), qs('nick', ''), 'Hero'), 'Hero'),
       diff: str(qs('diff', 'normal'), 'normal'),
       time: num(qs('time', 0), 0),
-      view: str(qs('view', 'mobile'), 'mobile'),
+      view,
       run: str(qs('run', 'play'), 'play'),
       zone: str(qs('zone', 'hygiene'), 'hygiene'),
       cat: str(qs('cat', 'hygiene'), 'hygiene'),
       game: str(qs('game', 'handwash'), 'handwash'),
       gameId: str(qs('gameId', 'handwash'), 'handwash'),
       theme: str(qs('theme', 'handwash'), 'handwash'),
-      hub: str(qs('hub', ''), ''),
+      studyId: str(qs('studyId', ''), ''),
+      hubRoot,
+      hub: str(qs('hub', zoneReturn), zoneReturn),
+      zoneReturn,
+      next: str(qs('next', zoneReturn), zoneReturn),
+      main: str(qs('main', ''), ''),
       ...extra
     };
   }
@@ -134,6 +230,43 @@
     return read(KEYS.flow, null);
   }
 
+  function rememberZoneState(entry) {
+    try {
+      localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
+    } catch {}
+
+    try {
+      localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
+        key: 'handwash',
+        title: 'Handwash',
+        at: entry.timestamp || nowTs()
+      }));
+    } catch {}
+
+    try {
+      const playedKey = 'HHA_ZONE_PLAYED_HYGIENE';
+      const played = safeParse(localStorage.getItem(playedKey) || '[]', []);
+      if (Array.isArray(played) && !played.includes('handwash')) {
+        played.push('handwash');
+        localStorage.setItem(playedKey, JSON.stringify(played));
+      }
+    } catch {}
+
+    try {
+      const dailyKey = 'HHA_ZONE_DAILY_HYGIENE';
+      const d = new Date();
+      const day =
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      const daily = safeParse(localStorage.getItem(dailyKey) || '{}', {});
+      const row = daily[day] || { count: 0, lastKey: '' };
+      row.count += 1;
+      row.lastKey = 'handwash';
+      daily[day] = row;
+      localStorage.setItem(dailyKey, JSON.stringify(daily));
+    } catch {}
+  }
+
   function saveSummary(payload = {}) {
     const entry = normalizeEntry(payload);
     write(KEYS.last, entry);
@@ -147,9 +280,12 @@
       name: entry.name,
       stage: entry.stage,
       success: entry.success,
-      timestamp: entry.timestamp
+      timestamp: entry.timestamp,
+      hubRoot: entry.hubRoot,
+      zoneReturn: entry.zoneReturn
     });
 
+    rememberZoneState(entry);
     return entry;
   }
 
@@ -169,57 +305,91 @@
     return getHistory().find(item => normalizeStage(item.stage) === target && item.success) || null;
   }
 
-  function getResumeStage() {
-    const howto = getLatestSuccessByStage('howto');
-    const practice = getLatestSuccessByStage('practice');
-    const main = getLatestSuccessByStage('main');
-    const mini = getLatestSuccessByStage('mini-order');
+  function getLatestSuccessByStages(stages = []) {
+    const targetSet = new Set(stages.map(normalizeStage));
+    return getHistory().find(item => targetSet.has(normalizeStage(item.stage)) && item.success) || null;
+  }
 
-    if (!howto) return 'howto';
-    if (!practice) return 'practice';
-    if (!main) return 'main';
-    if (!mini) return 'mini-order';
+  function getResumeStage() {
+    const firstStageDone = !!getLatestSuccessByStages(['howto', 'practice']);
+    const mainDone = !!getLatestSuccessByStage('main');
+    const miniDone = !!getLatestSuccessByStage('mini-order');
+
+    if (!firstStageDone) return 'practice';
+    if (!mainDone) return 'main';
+    if (!miniDone) return 'mini-order';
     return 'done';
+  }
+
+  function applyCommonParams(params, ctx, timeOverride = 0) {
+    const timeValue = timeOverride > 0 ? timeOverride : (ctx.time || 0);
+
+    params.set('pid', str(ctx.pid, 'anon'));
+    params.set('name', str(ctx.name, 'Hero'));
+    params.set('diff', str(ctx.diff, 'normal'));
+    params.set('view', str(ctx.view, 'mobile'));
+    params.set('run', str(ctx.run, 'play'));
+    params.set('zone', 'hygiene');
+    params.set('cat', 'hygiene');
+    params.set('game', 'handwash');
+    params.set('gameId', 'handwash');
+    params.set('theme', 'handwash');
+    params.set('seed', String(nowTs()));
+    params.set('hubRoot', ctx.hubRoot);
+    params.set('hub', ctx.zoneReturn);
+    params.set('zoneReturn', ctx.zoneReturn);
+    params.set('next', ctx.zoneReturn);
+
+    if (timeValue > 0) params.set('time', String(timeValue));
+    if (ctx.studyId) params.set('studyId', ctx.studyId);
+
+    [
+      'debug', 'api', 'log',
+      'studentKey', 'schoolCode', 'classRoom', 'studentNo',
+      'conditionGroup', 'sessionNo', 'weekNo', 'teacher', 'grade'
+    ].forEach((key) => {
+      const v = qs(key, '');
+      if (v) params.set(key, v);
+    });
   }
 
   function buildUrls(viewOverride = '') {
     const view = str(viewOverride, str(qs('view', 'mobile'), 'mobile'));
     const ctx = buildBaseContext({ view });
 
-    const nextMini = new URL('./handwash-mini-order.html', location.href);
-    const nextMain = new URL('../handwash-v2.html', location.href);
-    const nextPractice = new URL('./handwash-vr.html', location.href);
-    const nextHowto = new URL('./handwash-howto.html', location.href);
+    const howtoUrl = new URL('./handwash-howto.html', location.href);
+    const mainUrl = new URL('./handwash-vr.html', location.href);
+    const miniUrl = new URL('./handwash-mini-order.html', location.href);
 
     const miniParams = new URLSearchParams();
     const mainParams = new URLSearchParams();
-    const practiceParams = new URLSearchParams();
     const howtoParams = new URLSearchParams();
 
-    Object.entries(ctx).forEach(([k, v]) => {
-      if (v !== '' && v != null) {
-        miniParams.set(k, String(v));
-        mainParams.set(k, String(v));
-        practiceParams.set(k, String(v));
-        howtoParams.set(k, String(v));
-      }
-    });
+    applyCommonParams(miniParams, ctx, num(qs('miniTime', 60), 60));
+    miniParams.set('stage', 'mini-order');
+    miniParams.set('next', ctx.zoneReturn);
 
-    miniParams.set('time', String(qs('miniTime', 60)));
-    mainParams.set('time', String(qs('time', ctx.time || 90)));
-    mainParams.set('next', `${nextMini.pathname}?${miniParams.toString()}`);
+    const miniAbs = `${miniUrl.pathname}?${miniParams.toString()}`;
 
-    practiceParams.set('time', String(qs('time', ctx.time || 90)));
-    practiceParams.set('next', `${nextMain.pathname}?${mainParams.toString()}`);
+    applyCommonParams(mainParams, ctx, num(qs('time', ctx.time || 90), ctx.time || 90));
+    mainParams.set('stage', 'main');
+    mainParams.set('next', miniAbs);
 
-    howtoParams.set('time', String(qs('time', ctx.time || 90)));
-    howtoParams.set('next', `${nextPractice.pathname}?${practiceParams.toString()}`);
+    const mainAbs = `${mainUrl.pathname}?${mainParams.toString()}`;
+
+    applyCommonParams(howtoParams, ctx, num(qs('time', ctx.time || 90), ctx.time || 90));
+    howtoParams.set('stage', 'practice');
+    howtoParams.set('main', mainAbs);
+    howtoParams.set('next', mainAbs);
+
+    const howtoAbs = `${howtoUrl.pathname}?${howtoParams.toString()}`;
 
     return {
-      howto: `${nextHowto.pathname}?${howtoParams.toString()}`,
-      practice: `${nextPractice.pathname}?${practiceParams.toString()}`,
-      main: `${nextMain.pathname}?${mainParams.toString()}`,
-      'mini-order': `${nextMini.pathname}?${miniParams.toString()}`
+      howto: howtoAbs,
+      practice: howtoAbs,
+      main: mainAbs,
+      'mini-order': miniAbs,
+      done: ctx.zoneReturn
     };
   }
 
@@ -232,6 +402,8 @@
     qs,
     nowTs,
     stageLabel,
+    buildHubRoot,
+    buildZoneReturn,
     buildBaseContext,
     normalizeEntry,
     saveSummary,
@@ -241,7 +413,10 @@
     clearAll,
     getLatestByStage,
     getLatestSuccessByStage,
+    getLatestSuccessByStages,
     getResumeStage,
-    buildUrls
+    buildUrls,
+    listSummaries: getHistory,
+    getSummaries: getHistory
   };
 })();
