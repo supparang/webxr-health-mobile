@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Handwash Launcher</title>
+
   <style>
     :root{
       --bg1:#dff6ff;
@@ -12,123 +13,398 @@
       --mut:#4d6b84;
       --line:#cfeaf7;
       --card:#ffffff;
+      --cyan:#bff4ff;
+      --cyan-strong:#67e8f9;
+      --yellow:#ffe66d;
+      --pink:#ffc7df;
+      --green:#b9f5c9;
+      --blue:#c8f2ff;
       --shadow:0 14px 30px rgba(19,50,75,.12);
       --radius:24px;
+      --ok:#16a34a;
+      --warn:#f59e0b;
+      --soft:#eef8fd;
     }
+
     *{ box-sizing:border-box; }
+
     html,body{
-      margin:0; min-height:100%;
-      background:radial-gradient(circle at top right,#ffffff 0%,#f6fdff 24%,#e9faff 45%,#dff6ff 100%);
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(circle at top right, #ffffff 0%, #f6fdff 24%, #e9faff 45%, #dff6ff 100%);
       font-family:"Segoe UI",system-ui,sans-serif;
       color:var(--ink);
     }
-    body{ padding:20px 14px 40px; }
-    .shell{ max-width:1120px; margin:0 auto; display:grid; gap:16px; }
-    .hero,.card{
-      background:#fff;
+
+    body{
+      padding:20px 14px 40px;
+    }
+
+    .shell{
+      max-width:1120px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+    }
+
+    .hero{
+      background:linear-gradient(180deg,#ffffff 0%, #f7fdff 100%);
       border:2px solid var(--line);
-      border-radius:28px;
+      border-radius:32px;
+      padding:20px;
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:16px;
+    }
+
+    .hero-top{
+      display:flex;
+      gap:16px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .badge{
+      width:88px;
+      height:88px;
+      border-radius:50%;
+      background:linear-gradient(180deg,#8be8ff 0%,#22d3ee 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2.5rem;
+      box-shadow:inset 0 0 0 6px rgba(255,255,255,.35);
+      flex:0 0 auto;
+    }
+
+    .hero-copy{
+      min-width:0;
+      flex:1 1 320px;
+    }
+
+    .kicker{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#ecfeff;
+      border:1px solid #bdf4ff;
+      font-weight:900;
+      color:#0f766e;
+      margin-bottom:10px;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(1.6rem, 4vw, 2.4rem);
+      line-height:1.08;
+    }
+
+    .lead{
+      margin:10px 0 0;
+      font-size:1rem;
+      line-height:1.5;
+      color:var(--mut);
+      font-weight:700;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:16px;
+    }
+
+    .card{
+      background:var(--card);
+      border:2px solid var(--line);
+      border-radius:var(--radius);
       box-shadow:var(--shadow);
       padding:18px;
     }
-    .hero-top{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
-    .badge{
-      width:88px; height:88px; border-radius:50%;
-      background:linear-gradient(180deg,#8be8ff 0%,#22d3ee 100%);
-      display:flex; align-items:center; justify-content:center;
-      font-size:2.5rem; box-shadow:inset 0 0 0 6px rgba(255,255,255,.35);
+
+    .card h2{
+      margin:0 0 12px;
+      font-size:1.14rem;
     }
-    .kicker{
-      display:inline-block; padding:8px 12px; border-radius:999px;
-      background:#ecfeff; border:1px solid #bdf4ff; font-weight:900; color:#0f766e;
-      margin-bottom:10px;
+
+    .field-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
     }
-    h1{ margin:0; font-size:clamp(1.6rem,4vw,2.4rem); line-height:1.08; }
-    .lead{ margin:10px 0 0; font-size:1rem; line-height:1.5; color:var(--mut); font-weight:700; }
-    .grid{ display:grid; grid-template-columns:1.08fr .92fr; gap:16px; }
-    .card h2{ margin:0 0 12px; font-size:1.14rem; }
-    .field-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-    .field{ display:grid; gap:6px; }
-    .field label{ font-size:.88rem; font-weight:900; color:#31536c; }
-    .input,.select{
-      width:100%; border:2px solid #d8edf8; background:#fff; border-radius:16px;
-      padding:12px 14px; font:inherit; color:var(--ink); font-weight:800; outline:none;
+
+    .field{
+      display:grid;
+      gap:6px;
     }
-    .input:focus,.select:focus{ border-color:#7dd3fc; box-shadow:0 0 0 4px rgba(125,211,252,.20); }
-    .mode-row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
-    .mode-btn,.action-btn{
-      appearance:none; border:none; border-radius:18px; padding:13px 16px;
-      font:inherit; font-weight:900; color:#12324b; cursor:pointer; box-shadow:var(--shadow);
+
+    .field label{
+      font-size:.88rem;
+      font-weight:900;
+      color:#31536c;
+    }
+
+    .input, .select{
+      width:100%;
+      border:2px solid #d8edf8;
+      background:#fff;
+      border-radius:16px;
+      padding:12px 14px;
+      font:inherit;
+      color:var(--ink);
+      font-weight:800;
+      outline:none;
+    }
+
+    .input:focus, .select:focus{
+      border-color:#7dd3fc;
+      box-shadow:0 0 0 4px rgba(125,211,252,.20);
+    }
+
+    .mode-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .mode-btn{
+      appearance:none;
+      border:none;
+      border-radius:18px;
+      padding:13px 16px;
+      font:inherit;
+      font-weight:900;
+      color:#12324b;
+      cursor:pointer;
+      box-shadow:var(--shadow);
       transition:transform .12s ease, filter .12s ease, outline-color .12s ease;
       outline:3px solid transparent;
     }
-    .mode-btn:hover,.action-btn:hover{ transform:translateY(-1px); filter:brightness(1.01); }
-    .mode-btn.active{ outline-color:#22d3ee; }
-    .mode-mobile{ background:linear-gradient(180deg,#dff8ff 0%,#baeefe 100%); }
-    .mode-pc{ background:linear-gradient(180deg,#fff6ba 0%,#ffe66d 100%); }
-    .mode-vr{ background:linear-gradient(180deg,#ffe3ef 0%,#ffc9de 100%); }
-    .action-stack{ display:grid; gap:10px; margin-top:12px; }
-    .action-btn{ text-align:left; }
-    .action-btn.full{ background:linear-gradient(180deg,#fff5b1 0%,#ffe66d 100%); }
-    .action-btn.howto{ background:linear-gradient(180deg,#dff8ff 0%,#b9efff 100%); }
-    .action-btn.practice{ background:linear-gradient(180deg,#efe4ff 0%,#d8c2ff 100%); }
-    .action-btn.main{ background:linear-gradient(180deg,#dcfff2 0%,#baf4cf 100%); }
-    .action-btn.mini{ background:linear-gradient(180deg,#ffe6f1 0%,#ffcde2 100%); }
-    .action-btn.resume{ background:linear-gradient(180deg,#edfdf7 0%,#c7f9dd 100%); }
-    .action-btn.clear{ background:linear-gradient(180deg,#fff1f2 0%,#ffd5da 100%); }
+
+    .mode-btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.01);
+    }
+
+    .mode-btn.active{
+      outline-color:#22d3ee;
+    }
+
+    .mode-mobile{ background:linear-gradient(180deg,#dff8ff 0%, #baeefe 100%); }
+    .mode-pc{ background:linear-gradient(180deg,#fff6ba 0%, #ffe66d 100%); }
+    .mode-vr{ background:linear-gradient(180deg,#ffe3ef 0%, #ffc9de 100%); }
+
+    .action-stack{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .action-btn{
+      appearance:none;
+      border:none;
+      border-radius:20px;
+      padding:14px 14px;
+      font:inherit;
+      font-weight:900;
+      color:#12324b;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+      transition:transform .12s ease, filter .12s ease;
+      text-align:left;
+    }
+
+    .action-btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.01);
+    }
+
+    .action-btn.full{ background:linear-gradient(180deg,#fff5b1 0%, #ffe66d 100%); }
+    .action-btn.howto{ background:linear-gradient(180deg,#dff8ff 0%, #b9efff 100%); }
+    .action-btn.practice{ background:linear-gradient(180deg,#dcfff2 0%, #baf4cf 100%); }
+    .action-btn.main{ background:linear-gradient(180deg,#e9f5ff 0%, #cfe7ff 100%); }
+    .action-btn.mini{ background:linear-gradient(180deg,#ffe6f1 0%, #ffcde2 100%); }
+    .action-btn.resume{ background:linear-gradient(180deg,#edfdf7 0%, #c7f9dd 100%); }
+    .action-btn.clear{ background:linear-gradient(180deg,#fff1f2 0%, #ffd5da 100%); }
 
     .flow{
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:10px; margin-top:10px;
+      gap:10px;
+      margin-top:10px;
     }
+
     .flow-box{
-      background:#f8fdff; border:1px solid #d7ecf8; border-radius:18px; padding:12px;
-      text-align:center; font-weight:900; color:#28465d;
+      background:#f8fdff;
+      border:1px solid #d7ecf8;
+      border-radius:18px;
+      padding:12px;
+      text-align:center;
+      font-weight:900;
+      color:#28465d;
+      position:relative;
+      overflow:hidden;
     }
-    .flow-box.ok{ background:#effcf3; border-color:#c8efd1; color:#166534; }
-    .flow-box.now{ background:#ecfeff; border-color:#bff4ff; color:#0f766e; }
-    .flow-box small{ display:block; margin-top:6px; font-weight:800; color:#5c7890; }
+
+    .flow-box.ok{
+      background:#effcf3;
+      border-color:#c8efd1;
+      color:#166534;
+    }
+
+    .flow-box.now{
+      background:#ecfeff;
+      border-color:#bff4ff;
+      color:#0f766e;
+    }
+
+    .flow-box small{
+      display:block;
+      margin-top:6px;
+      font-weight:800;
+      color:#5c7890;
+    }
+
+    .flow-box.ok small,
+    .flow-box.now small{
+      color:inherit;
+      opacity:.88;
+    }
 
     .status-pill{
-      display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
-      background:#effcf3; color:#166534; font-weight:900; margin-top:8px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#effcf3;
+      color:#166534;
+      font-weight:900;
+      margin-top:8px;
     }
-    .status-pill.warn{ background:#fff8e6; color:#92400e; }
-    .status-pill.muted{ background:#eef8fd; color:#48657f; }
 
-    .summary-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:8px; }
+    .status-pill.warn{
+      background:#fff8e6;
+      color:#92400e;
+    }
+
+    .status-pill.muted{
+      background:#eef8fd;
+      color:#48657f;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:8px;
+    }
+
     .summary-box{
-      background:#f8fcff; border:1px solid #d8edf8; border-radius:18px; padding:12px;
-      font-weight:900; color:#0f172a;
+      background:#f8fcff;
+      border:1px solid #d8edf8;
+      border-radius:18px;
+      padding:12px;
+      font-weight:900;
+      color:#0f172a;
     }
-    .summary-box small{ display:block; margin-bottom:5px; color:#64748b; font-weight:800; }
 
-    .history-list{ display:grid; gap:10px; margin-top:10px; }
+    .summary-box small{
+      display:block;
+      margin-bottom:5px;
+      color:#64748b;
+      font-weight:800;
+    }
+
+    .history-list{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
     .history-item{
-      background:#f7fcff; border:1px solid #d7ecf8; border-radius:16px; padding:12px;
-      color:#28465d; font-weight:800; line-height:1.45;
+      background:#f7fcff;
+      border:1px solid #d7ecf8;
+      border-radius:16px;
+      padding:12px;
+      color:#28465d;
+      font-weight:800;
+      line-height:1.45;
     }
+
     .history-head{
-      display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:4px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:4px;
     }
+
     .tag{
-      display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px;
-      background:#ecfeff; color:#0f766e; font-size:.82rem; font-weight:900;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#ecfeff;
+      color:#0f766e;
+      font-size:.82rem;
+      font-weight:900;
     }
-    .tag.fail{ background:#fff1f2; color:#b91c1c; }
-    .tiny{ margin-top:10px; font-size:.84rem; color:#5c7890; font-weight:700; line-height:1.45; }
+
+    .tag.fail{
+      background:#fff1f2;
+      color:#b91c1c;
+    }
+
+    .tiny{
+      margin-top:10px;
+      font-size:.84rem;
+      color:#5c7890;
+      font-weight:700;
+      line-height:1.45;
+    }
+
     .muted-box{
-      background:#f9fcfe; border:1px dashed #cfe3ef; border-radius:16px; padding:12px;
-      color:#5c7890; font-weight:800; line-height:1.45;
+      background:#f9fcfe;
+      border:1px dashed #cfe3ef;
+      border-radius:16px;
+      padding:12px;
+      color:#5c7890;
+      font-weight:800;
+      line-height:1.45;
     }
-    @media (max-width:940px){ .grid{ grid-template-columns:1fr; } }
+
+    @media (max-width:940px){
+      .grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:760px){
+      .flow{
+        grid-template-columns:1fr 1fr;
+      }
+    }
+
     @media (max-width:680px){
-      body{ padding:14px 10px 28px; }
-      .hero,.card{ padding:14px; border-radius:22px; }
-      .field-grid{ grid-template-columns:1fr; }
-      .flow{ grid-template-columns:1fr 1fr; }
-      .summary-grid{ grid-template-columns:1fr; }
+      body{
+        padding:14px 10px 28px;
+      }
+
+      .hero, .card{
+        padding:14px;
+        border-radius:22px;
+      }
+
+      .field-grid{
+        grid-template-columns:1fr;
+      }
+
+      .summary-grid{
+        grid-template-columns:1fr;
+      }
     }
   </style>
 </head>
@@ -137,7 +413,7 @@
     <section class="hero">
       <div class="hero-top">
         <div class="badge">🧼</div>
-        <div>
+        <div class="hero-copy">
           <div class="kicker">HeroHealth • Hygiene Zone</div>
           <h1>Handwash Launcher</h1>
           <p class="lead">
@@ -147,12 +423,27 @@
         </div>
       </div>
 
-      <div class="flow">
-        <div class="flow-box" data-stage-box="howto">1. Howto<small id="flowHowtoSub">ยังไม่เริ่ม</small></div>
-        <div class="flow-box" data-stage-box="practice">2. Practice<small id="flowPracticeSub">ยังไม่เริ่ม</small></div>
-        <div class="flow-box" data-stage-box="main">3. Main Game<small id="flowMainSub">ยังไม่เริ่ม</small></div>
-        <div class="flow-box" data-stage-box="mini-order">4. Mini Order<small id="flowMiniSub">ยังไม่เริ่ม</small></div>
-        <div class="flow-box" data-stage-box="hub">5. Hub<small id="flowHubSub">ปลายทาง</small></div>
+      <div class="flow" id="flowBoxes">
+        <div class="flow-box" data-stage-box="howto">
+          1. Howto
+          <small id="flowHowtoSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="practice">
+          2. Practice
+          <small id="flowPracticeSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="main">
+          3. Main Game
+          <small id="flowMainSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="mini-order">
+          4. Mini Order
+          <small id="flowMiniSub">ยังไม่เริ่ม</small>
+        </div>
+        <div class="flow-box" data-stage-box="hub">
+          5. Hub
+          <small id="flowHubSub">ปลายทาง</small>
+        </div>
       </div>
     </section>
 
@@ -165,10 +456,12 @@
             <label for="pid">PID</label>
             <input id="pid" class="input" value="anon" />
           </div>
+
           <div class="field">
             <label for="name">ชื่อผู้เล่น</label>
             <input id="name" class="input" value="Hero" />
           </div>
+
           <div class="field">
             <label for="diff">ความยาก</label>
             <select id="diff" class="select">
@@ -177,14 +470,17 @@
               <option value="hard">hard</option>
             </select>
           </div>
+
           <div class="field">
-            <label for="time">เวลา Howto / Practice / Main (วินาที)</label>
+            <label for="time">เวลา Practice/Main (วินาที)</label>
             <input id="time" class="input" type="number" min="60" step="10" value="90" />
           </div>
+
           <div class="field">
             <label for="miniTime">เวลา Mini Order (วินาที)</label>
             <input id="miniTime" class="input" type="number" min="45" step="5" value="60" />
           </div>
+
           <div class="field">
             <label for="hub">Hub URL</label>
             <input id="hub" class="input" />
@@ -198,7 +494,7 @@
         </div>
 
         <div class="tiny">
-          เลือกโหมดก่อน แล้วใช้ปุ่มด้านล่างเพื่อเข้าเล่นครบชุดหรือเข้าเฉพาะส่วนที่ต้องการ
+          เลือกโหมดก่อน แล้วใช้ปุ่มด้านล่างเพื่อเข้าเล่นแบบครบ flow หรือเข้าเฉพาะส่วนที่ต้องการเทส
         </div>
 
         <div class="action-stack">
@@ -250,9 +546,16 @@
     </section>
   </main>
 
-  <script src="./handwash-shared.js"></script>
   <script>
-    const defaultHub = new URL('../hub-v2.html', location.href).href;
+    const qs = new URLSearchParams(location.search);
+
+    const STAGES = ['howto', 'practice', 'main', 'mini-order'];
+    const STAGE_LABEL = {
+      'howto': 'Howto',
+      'practice': 'Practice Lab',
+      'main': 'Main Game',
+      'mini-order': 'Mini Order'
+    };
 
     const els = {
       pid: document.getElementById('pid'),
@@ -287,32 +590,35 @@
       modeButtons: [...document.querySelectorAll('[data-view]')]
     };
 
-    const incoming = new URL(location.href).searchParams;
-    let selectedView = incoming.get('view') || 'mobile';
+    const defaultHub = qs.get('hub') || new URL('../hub-v2.html', location.href).href;
+    let selectedView = qs.get('view') || 'mobile';
 
-    els.pid.value = incoming.get('pid') || 'anon';
-    els.name.value = incoming.get('name') || 'Hero';
-    els.diff.value = incoming.get('diff') || 'normal';
-    els.time.value = incoming.get('time') || '90';
-    els.miniTime.value = incoming.get('miniTime') || '60';
-    els.hub.value = incoming.get('hub') || defaultHub;
+    els.pid.value = qs.get('pid') || 'anon';
+    els.name.value = qs.get('name') || 'Hero';
+    els.diff.value = qs.get('diff') || 'normal';
+    els.time.value = qs.get('time') || '90';
+    els.miniTime.value = qs.get('miniTime') || '60';
+    els.hub.value = defaultHub;
 
     function setActiveView(view){
       selectedView = view;
-      els.modeButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
+      els.modeButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === view);
+      });
     }
+
     setActiveView(selectedView);
 
     els.modeButtons.forEach(btn => {
-      btn.addEventListener('click', ()=> setActiveView(btn.dataset.view));
+      btn.addEventListener('click', () => setActiveView(btn.dataset.view));
     });
 
-    function baseParams(view, timeValue, extra = {}){
+    function baseParams(view, gameTimeOverride, extra = {}){
       const params = new URLSearchParams();
       params.set('pid', (els.pid.value || 'anon').trim() || 'anon');
       params.set('name', (els.name.value || 'Hero').trim() || 'Hero');
       params.set('diff', els.diff.value || 'normal');
-      params.set('time', String(timeValue));
+      params.set('time', String(gameTimeOverride));
       params.set('hub', (els.hub.value || defaultHub).trim() || defaultHub);
       params.set('view', view);
       params.set('run', 'play');
@@ -324,7 +630,9 @@
       params.set('seed', String(Date.now()));
 
       Object.entries(extra).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') params.set(k, String(v));
+        if (v !== undefined && v !== null && v !== '') {
+          params.set(k, String(v));
+        }
       });
 
       return params;
@@ -352,14 +660,174 @@
       return `./handwash-howto.html?${params.toString()}`;
     }
 
-    function openUrl(url){ location.href = url; }
+    function openUrl(url){
+      location.href = url;
+    }
 
-    function computeResumeStage(){
-      return HandwashShared.getResumeStage();
+    function parseJsonSafe(text){
+      try{
+        return JSON.parse(text);
+      }catch{
+        return null;
+      }
+    }
+
+    function looksLikeHandwashEntry(obj, key=''){
+      if (!obj || typeof obj !== 'object') return false;
+
+      const stage = String(obj.stage || '').toLowerCase();
+      const game = String(obj.game || obj.gameId || obj.theme || '').toLowerCase();
+      const notes = String(obj.notes || '').toLowerCase();
+      const k = String(key || '').toLowerCase();
+
+      if (game.includes('handwash')) return true;
+      if (k.includes('handwash')) return true;
+
+      const validStage = STAGES.includes(stage);
+      const hasHandwashHint = notes.includes('handwash');
+
+      return validStage && hasHandwashHint;
+    }
+
+    function normalizeEntry(obj, key=''){
+      if (!looksLikeHandwashEntry(obj, key)) return null;
+
+      const stage = String(obj.stage || '').toLowerCase();
+      const tsRaw = obj.timestamp || obj.updatedAt || obj.createdAt || obj.savedAt || obj.date || Date.now();
+      const timestamp = Number.isFinite(Number(tsRaw)) ? Number(tsRaw) : (Date.parse(tsRaw) || Date.now());
+
+      return {
+        stage,
+        success: !!obj.success,
+        score: Number(obj.score || 0),
+        stars: Number(obj.stars || 0),
+        miss: Number(obj.miss || 0),
+        timeLeft: Number(obj.timeLeft || 0),
+        progress: Number(obj.progress || 0),
+        notes: String(obj.notes || ''),
+        timestamp,
+        key
+      };
+    }
+
+    function collectEntriesFromValue(value, key=''){
+      const out = [];
+
+      function walk(node){
+        if (!node) return;
+
+        if (Array.isArray(node)){
+          node.forEach(walk);
+          return;
+        }
+
+        if (typeof node === 'object'){
+          const normalized = normalizeEntry(node, key);
+          if (normalized) out.push(normalized);
+
+          Object.values(node).forEach(child => {
+            if (child && typeof child === 'object') walk(child);
+          });
+        }
+      }
+
+      walk(value);
+      return out;
+    }
+
+    function getEntriesFromLocalStorage(){
+      const entries = [];
+
+      for (let i = 0; i < localStorage.length; i++){
+        const key = localStorage.key(i);
+        if (!key) continue;
+
+        const keyLower = key.toLowerCase();
+        if (
+          !keyLower.includes('handwash') &&
+          key !== 'HHA_LAST_SUMMARY' &&
+          key !== 'HHA_LAST_SUMMARY_GLOBAL'
+        ){
+          continue;
+        }
+
+        const raw = localStorage.getItem(key);
+        const parsed = parseJsonSafe(raw);
+        if (!parsed) continue;
+
+        collectEntriesFromValue(parsed, key).forEach(e => entries.push(e));
+      }
+
+      return entries;
+    }
+
+    function dedupeEntries(entries){
+      const seen = new Set();
+      const out = [];
+
+      entries
+        .sort((a,b) => b.timestamp - a.timestamp)
+        .forEach(entry => {
+          const sig = [
+            entry.stage,
+            entry.timestamp,
+            entry.score,
+            entry.stars,
+            entry.miss,
+            entry.progress,
+            entry.notes
+          ].join('|');
+
+          if (seen.has(sig)) return;
+          seen.add(sig);
+          out.push(entry);
+        });
+
+      return out;
+    }
+
+    function getAllEntries(){
+      return dedupeEntries(getEntriesFromLocalStorage());
+    }
+
+    function latestEntry(entries){
+      return entries.length ? entries[0] : null;
+    }
+
+    function latestSuccessfulByStage(entries, stage){
+      return entries.find(e => e.stage === stage && e.success) || null;
+    }
+
+    function formatTime(ts){
+      try{
+        return new Date(ts).toLocaleString('th-TH', {
+          year:'numeric',
+          month:'short',
+          day:'numeric',
+          hour:'2-digit',
+          minute:'2-digit'
+        });
+      }catch{
+        return '—';
+      }
+    }
+
+    function computeResumeStage(entries){
+      const howtoDone = !!latestSuccessfulByStage(entries, 'howto');
+      const practiceDone = !!latestSuccessfulByStage(entries, 'practice');
+      const mainDone = !!latestSuccessfulByStage(entries, 'main');
+      const miniDone = !!latestSuccessfulByStage(entries, 'mini-order');
+
+      if (!howtoDone) return 'howto';
+      if (!practiceDone) return 'practice';
+      if (!mainDone) return 'main';
+      if (!miniDone) return 'mini-order';
+      return 'done';
     }
 
     function buildResumeUrl(view){
-      const stage = computeResumeStage();
+      const stage = computeResumeStage(getAllEntries());
+
       if (stage === 'practice') return buildPracticeUrl(view);
       if (stage === 'main') return buildMainUrl(view);
       if (stage === 'mini-order') return buildMiniUrl(view);
@@ -367,8 +835,8 @@
       return buildHowtoUrl(view);
     }
 
-    function renderLatest(){
-      const latest = HandwashShared.getLast();
+    function renderLatest(entries){
+      const latest = latestEntry(entries);
 
       if (!latest){
         els.lastStage.textContent = '—';
@@ -381,33 +849,33 @@
         return;
       }
 
-      els.lastStage.textContent = HandwashShared.stageLabel(latest.stage);
+      els.lastStage.textContent = STAGE_LABEL[latest.stage] || latest.stage;
       els.lastResult.textContent = latest.success ? 'ผ่าน' : 'ยังไม่ผ่าน';
-      els.lastScore.textContent = String(latest.score || 0);
+      els.lastScore.textContent = String(latest.score ?? 0);
       els.lastStars.textContent = latest.stars > 0 ? '⭐'.repeat(latest.stars) : '—';
+      els.latestMeta.textContent = `ล่าสุดเมื่อ ${formatTime(latest.timestamp)} • miss ${latest.miss} • progress ${latest.progress}%`;
 
-      const dt = new Date(latest.timestamp || Date.now());
-      els.latestMeta.textContent =
-        `ล่าสุดเมื่อ ${dt.toLocaleString('th-TH')} • miss ${latest.miss || 0} • progress ${latest.progress || 0}%`;
-
-      const nextStage = computeResumeStage();
+      const nextStage = computeResumeStage(entries);
       if (nextStage === 'done'){
-        els.resumeStatus.textContent = 'ครบทุกด่านแล้ว พร้อมกลับ Hub หรือเริ่มใหม่';
+        els.resumeStatus.textContent = 'ครบทุกด่านแล้ว พร้อมกลับ Hub หรือเริ่มรอบใหม่';
         els.resumeStatus.className = 'status-pill';
-      } else {
-        els.resumeStatus.textContent = `เล่นต่อได้ที่ ${HandwashShared.stageLabel(nextStage)}`;
+      } else if (nextStage){
+        els.resumeStatus.textContent = `เล่นต่อได้ที่ ${STAGE_LABEL[nextStage] || nextStage}`;
         els.resumeStatus.className = 'status-pill warn';
+      } else {
+        els.resumeStatus.textContent = 'ยังไม่พบ progress ของ Handwash';
+        els.resumeStatus.className = 'status-pill muted';
       }
     }
 
-    function renderFlow(){
-      const howtoDone = !!HandwashShared.getLatestSuccessByStage('howto');
-      const practiceDone = !!HandwashShared.getLatestSuccessByStage('practice');
-      const mainDone = !!HandwashShared.getLatestSuccessByStage('main');
-      const miniDone = !!HandwashShared.getLatestSuccessByStage('mini-order');
-      const resumeStage = computeResumeStage();
+    function renderFlow(entries){
+      const howtoDone = !!latestSuccessfulByStage(entries, 'howto');
+      const practiceDone = !!latestSuccessfulByStage(entries, 'practice');
+      const mainDone = !!latestSuccessfulByStage(entries, 'main');
+      const miniDone = !!latestSuccessfulByStage(entries, 'mini-order');
+      const resumeStage = computeResumeStage(entries);
 
-      els.stageBoxes.forEach(box => box.classList.remove('ok','now'));
+      els.stageBoxes.forEach(box => box.classList.remove('ok', 'now'));
 
       const howtoBox = document.querySelector('[data-stage-box="howto"]');
       const practiceBox = document.querySelector('[data-stage-box="practice"]');
@@ -433,51 +901,97 @@
       }
     }
 
-    function renderHistory(){
-      const history = HandwashShared.getHistory();
-      if (!history.length){
+    function renderHistory(entries){
+      if (!entries.length){
         els.historyList.innerHTML = `<div class="muted-box">ยังไม่พบประวัติของ Handwash</div>`;
         return;
       }
 
-      els.historyList.innerHTML = history.slice(0, 8).map(entry => {
+      const rows = entries.slice(0, 8).map(entry => {
         const tagClass = entry.success ? 'tag' : 'tag fail';
         const tagText = entry.success ? 'ผ่าน' : 'ยังไม่ผ่าน';
-        const dt = new Date(entry.timestamp || Date.now());
+        const stage = STAGE_LABEL[entry.stage] || entry.stage;
+        const stars = entry.stars > 0 ? '⭐'.repeat(entry.stars) : '—';
 
         return `
           <div class="history-item">
             <div class="history-head">
-              <div><strong>${HandwashShared.stageLabel(entry.stage)}</strong></div>
+              <div><strong>${stage}</strong></div>
               <div class="${tagClass}">${tagText}</div>
             </div>
-            <div>คะแนน ${entry.score || 0} • ดาว ${entry.stars > 0 ? '⭐'.repeat(entry.stars) : '—'} • miss ${entry.miss || 0} • progress ${entry.progress || 0}%</div>
-            <div class="tiny">บันทึกเมื่อ ${dt.toLocaleString('th-TH')}</div>
+            <div>คะแนน ${entry.score} • ดาว ${stars} • miss ${entry.miss} • progress ${entry.progress}%</div>
+            <div class="tiny">บันทึกเมื่อ ${formatTime(entry.timestamp)}</div>
           </div>
         `;
       }).join('');
+
+      els.historyList.innerHTML = rows;
     }
 
-    function refreshAll(){
-      renderLatest();
-      renderFlow();
-      renderHistory();
+    function refreshView(){
+      const entries = getAllEntries();
+      renderLatest(entries);
+      renderFlow(entries);
+      renderHistory(entries);
     }
 
-    els.btnResume.addEventListener('click', ()=> openUrl(buildResumeUrl(selectedView)));
-    els.btnFull.addEventListener('click', ()=> openUrl(buildHowtoUrl(selectedView)));
-    els.btnHowto.addEventListener('click', ()=> openUrl(buildHowtoUrl(selectedView)));
-    els.btnPractice.addEventListener('click', ()=> openUrl(buildPracticeUrl(selectedView)));
-    els.btnMain.addEventListener('click', ()=> openUrl(buildMainUrl(selectedView)));
-    els.btnMini.addEventListener('click', ()=> openUrl(buildMiniUrl(selectedView)));
+    function removeDetectedHandwashKeys(){
+      const keysToRemove = [];
 
-    els.btnClear.addEventListener('click', ()=>{
-      HandwashShared.clearAll();
-      refreshAll();
+      for (let i = 0; i < localStorage.length; i++){
+        const key = localStorage.key(i);
+        if (!key) continue;
+
+        const raw = localStorage.getItem(key);
+        const parsed = parseJsonSafe(raw);
+
+        if (key.toLowerCase().includes('handwash')){
+          keysToRemove.push(key);
+          continue;
+        }
+
+        if ((key === 'HHA_LAST_SUMMARY' || key === 'HHA_LAST_SUMMARY_GLOBAL') && parsed){
+          const entries = collectEntriesFromValue(parsed, key);
+          if (entries.length){
+            keysToRemove.push(key);
+          }
+        }
+      }
+
+      [...new Set(keysToRemove)].forEach(key => localStorage.removeItem(key));
+    }
+
+    els.btnResume.addEventListener('click', () => {
+      openUrl(buildResumeUrl(selectedView));
+    });
+
+    els.btnFull.addEventListener('click', () => {
+      openUrl(buildHowtoUrl(selectedView));
+    });
+
+    els.btnHowto.addEventListener('click', () => {
+      openUrl(buildHowtoUrl(selectedView));
+    });
+
+    els.btnPractice.addEventListener('click', () => {
+      openUrl(buildPracticeUrl(selectedView));
+    });
+
+    els.btnMain.addEventListener('click', () => {
+      openUrl(buildMainUrl(selectedView));
+    });
+
+    els.btnMini.addEventListener('click', () => {
+      openUrl(buildMiniUrl(selectedView));
+    });
+
+    els.btnClear.addEventListener('click', () => {
+      removeDetectedHandwashKeys();
+      refreshView();
       alert('ล้าง progress ของ Handwash ในเบราว์เซอร์นี้แล้ว');
     });
 
-    refreshAll();
+    refreshView();
   </script>
 </body>
 </html>
