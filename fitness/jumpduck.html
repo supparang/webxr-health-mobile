@@ -6,6 +6,7 @@
   <title>HeroHealth • JumpDuck</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
+
   <style>
     :root{
       --bg1:#eef9ff;
@@ -51,7 +52,7 @@
     }
 
     .shell{
-      width:min(1100px,100%);
+      width:min(1120px,100%);
       display:grid;
       gap:14px;
     }
@@ -115,7 +116,7 @@
 
     .hero{
       display:grid;
-      grid-template-columns:1.2fr .8fr;
+      grid-template-columns:1.15fr .85fr;
       gap:16px;
       align-items:center;
     }
@@ -241,8 +242,7 @@
       gap:12px;
     }
 
-    .panel h2,
-    .panel h3{
+    .panel h2,.panel h3{
       margin:0;
       line-height:1.1;
     }
@@ -501,13 +501,8 @@
       pointer-events:none;
     }
 
-    #jd-tele{
-      top:16px;
-    }
-
-    #jd-boss-intro{
-      top:74px;
-    }
+    #jd-tele{ top:16px; }
+    #jd-boss-intro{ top:74px; }
 
     .overlay-box{
       min-height:44px;
@@ -801,38 +796,24 @@
     }
 
     @media (max-width: 920px){
-      .hero,
-      .menu-grid{
+      .hero,.menu-grid{
         grid-template-columns:1fr;
       }
 
-      .hud-row,
-      .meter-row,
-      .big-grid,
-      .detail-grid{
+      .hud-row,.meter-row,.big-grid,.detail-grid{
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
-      .form-grid{
-        grid-template-columns:1fr;
-      }
-
-      .research-grid{
+      .form-grid,.research-grid{
         grid-template-columns:1fr;
       }
     }
 
     @media (max-width: 620px){
       .page{ padding:10px; }
-      .menu-shell,
-      .result-shell,
-      .panel{ padding:14px; }
+      .menu-shell,.result-shell,.panel{ padding:14px; }
 
-      .hud-row,
-      .meter-row,
-      .big-grid,
-      .detail-grid,
-      .control-row{
+      .hud-row,.meter-row,.big-grid,.detail-grid,.control-row{
         grid-template-columns:1fr;
       }
 
@@ -844,8 +825,7 @@
         font-size:34px;
       }
 
-      #jd-play-area,
-      .play-stage{
+      #jd-play-area,.play-stage{
         min-height:58dvh;
       }
 
@@ -860,7 +840,7 @@
     <div class="shell">
 
       <!-- MENU -->
-      <section id="view-menu" class="view">
+      <section id="view-menu">
         <div class="card menu-shell">
           <div class="hero">
             <div class="hero-copy">
@@ -868,7 +848,7 @@
               <p>หลบสิ่งกีดขวางให้ทัน • ต่ำ = Jump • สูง = Duck • ไปให้ถึงบอสแล้วปิดให้ได้</p>
               <div class="hero-badges">
                 <div class="pill">🏃 Fitness Zone</div>
-                <div class="pill">⚡ Fun Pack Final</div>
+                <div class="pill">⚡ Fun Pack v2</div>
                 <div class="pill">👾 Boss + Final Rush</div>
               </div>
             </div>
@@ -943,8 +923,8 @@
             <section class="card panel">
               <h3>วิธีเล่น</h3>
               <div class="panel-sub">
-                แตะด้านบนของฉากเพื่อ <b>Jump</b><br/>
-                แตะด้านล่างของฉากเพื่อ <b>Duck</b><br/>
+                แตะด้านบนของฉากเพื่อ <b>Jump</b><br>
+                แตะด้านล่างของฉากเพื่อ <b>Duck</b><br>
                 รักษา combo, อ่าน pattern และเอาชนะบอสช่วงท้าย
               </div>
 
@@ -963,8 +943,9 @@
       </section>
 
       <!-- PLAY -->
-      <section id="view-play" class="view hidden">
+      <section id="view-play" class="hidden">
         <div class="play-shell">
+
           <section class="card hud-top">
             <div class="hud-row">
               <div class="hud-pill"><div class="k">Mode</div><div id="hud-mode" class="v">training</div></div>
@@ -992,7 +973,7 @@
               </div>
 
               <div id="boss-bar-wrap" class="meter-card hidden">
-                <div class="meter-head"><span id="hud-boss-label">—</span><strong id="hud-boss-status-right">—</strong></div>
+                <div class="meter-head"><span>Boss Core</span><strong id="hud-boss-status-right">—</strong></div>
                 <div class="meter"><div id="hud-boss-fill" class="meter-fill" style="background:linear-gradient(90deg,#ffb35c,#ef4444)"></div></div>
               </div>
             </div>
@@ -1001,11 +982,11 @@
               <div class="hud-pill"><div class="k">Pattern</div><div id="hud-pattern" class="v">—</div></div>
               <div class="hud-pill"><div class="k">Rush</div><div id="hud-rush" class="v">—</div></div>
               <div class="hud-pill"><div class="k">Boss</div><div id="hud-boss-label" class="v">—</div></div>
-              <div class="hud-pill"><div class="k">Status</div><div id="hud-boss-compact" class="v">—</div></div>
+              <div class="hud-pill"><div class="k">Compact</div><div id="hud-boss-compact" class="v">—</div></div>
             </div>
 
             <div class="hud-pill">
-              <div class="k">Boss Intro / Status</div>
+              <div class="k">Boss Status</div>
               <div id="hud-boss-status" class="v">—</div>
             </div>
           </section>
@@ -1055,12 +1036,14 @@
               <a id="jd-back-hub-play" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🗺️ Zone Home</a>
             </div>
           </section>
+
         </div>
       </section>
 
       <!-- RESULT -->
-      <section id="view-result" class="view hidden">
+      <section id="view-result" class="hidden">
         <div class="card result-shell">
+
           <div class="result-head">
             <div id="jd-rank-badge" class="rank-c">C</div>
 
@@ -1148,7 +1131,7 @@
           </div>
 
           <div class="footer-note">
-            JumpDuck • Fitness Zone • full merged final
+            JumpDuck • Fitness Zone • final merged UI
           </div>
         </div>
       </section>
@@ -1156,6 +1139,6 @@
     </div>
   </main>
 
-  <script src="./js/jumpduck.js?v=20260414e-JUMPDuck-FUNPACK-V1-V4-FITNESS-ZONE-FINAL"></script>
+  <script src="./js/jumpduck.js?v=20260414f-JUMPDuck-FUNPACK-V1-V4-FITNESS-ZONE-AUTOSTART-FINAL"></script>
 </body>
 </html>
