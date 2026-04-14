@@ -6,317 +6,249 @@
   <title>HeroHealth • JumpDuck</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
-  <link rel="icon" href="../herohealth/favicon.ico" />
-
   <style>
     :root{
-      --bg1:#eefbff;
-      --bg2:#f9fdff;
-      --bg3:#fff9ef;
-
+      --bg1:#eef9ff;
+      --bg2:#fff7ec;
       --card:#ffffff;
-      --card2:#f8fdff;
-
       --line:#d7edf7;
-      --line2:#c7e5f5;
-
-      --text:#4f4943;
-      --muted:#7c756d;
-
+      --text:#23435a;
+      --muted:#6c7e8a;
       --blue:#7fcfff;
-      --blue2:#4baef0;
-      --pink:#ff9dca;
-      --pink2:#ff78b3;
-      --green:#84dc76;
+      --blue2:#4aaef0;
+      --green:#7ed957;
       --green2:#58c33f;
-      --yellow:#ffd86e;
-      --yellow2:#ffbb37;
-      --red:#ff9898;
-      --red2:#f16f6f;
-      --purple:#b99cff;
-      --purple2:#8f75ef;
-
-      --safe-top:env(safe-area-inset-top, 0px);
-      --safe-right:env(safe-area-inset-right, 0px);
-      --safe-bottom:env(safe-area-inset-bottom, 0px);
-      --safe-left:env(safe-area-inset-left, 0px);
-
-      --shadow:0 18px 40px rgba(86,155,194,.14);
-      --shadow-soft:0 10px 24px rgba(86,155,194,.10);
+      --yellow:#ffe08a;
+      --orange:#ffb35c;
+      --red:#ff7676;
+      --red2:#ef4444;
+      --shadow:0 18px 36px rgba(63,122,156,.14);
+      --radius:24px;
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       min-height:100%;
-      background:
-        radial-gradient(circle at top, #ffffff, transparent 30%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
-      color:var(--text);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(127,207,255,.28), transparent 34%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
     }
 
-    body{
-      min-height:100dvh;
-      padding:
-        calc(12px + var(--safe-top))
-        calc(12px + var(--safe-right))
-        calc(16px + var(--safe-bottom))
-        calc(12px + var(--safe-left));
-    }
-
-    .app{
-      width:min(1180px,100%);
-      margin:0 auto;
-      display:grid;
-      gap:14px;
-    }
+    a{ color:inherit; text-decoration:none; }
+    button,select,input,textarea{ font:inherit; }
 
     .hidden{ display:none !important; }
 
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-width:0;
-    }
-
-    .brand-icon{
-      width:58px;
-      height:58px;
-      border-radius:18px;
+    .page{
+      min-height:100dvh;
+      padding:14px;
       display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#fff,#f2fbff);
+      align-items:start;
+      justify-items:center;
+    }
+
+    .shell{
+      width:min(1100px,100%);
+      display:grid;
+      gap:14px;
+    }
+
+    .card{
+      background:var(--card);
       border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-      font-size:28px;
-      flex:0 0 auto;
-    }
-
-    .brand-copy h1{
-      margin:0;
-      font-size:clamp(26px,4vw,42px);
-      line-height:1;
-      font-weight:1000;
-      color:#7a4b2e;
-      letter-spacing:-.02em;
-    }
-
-    .brand-copy p{
-      margin:6px 0 0;
-      color:#7b756d;
-      font-size:13px;
-      line-height:1.45;
-      font-weight:900;
-    }
-
-    .chip-link{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:42px;
-      padding:10px 14px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#657786;
-      text-decoration:none;
-      font-size:14px;
-      font-weight:1000;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .panel{
-      background:linear-gradient(180deg,var(--card),var(--card2));
-      border:3px solid var(--line);
-      border-radius:28px;
+      border-radius:var(--radius);
       box-shadow:var(--shadow);
     }
 
-    .hero{
-      padding:18px;
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
-      align-items:stretch;
-    }
-
-    .hero-copy{
-      display:grid;
-      gap:10px;
-      align-content:start;
-    }
-
-    .kicker{
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      min-height:46px;
+      border-radius:18px;
+      padding:12px 16px;
+      font-weight:1000;
       display:inline-flex;
       align-items:center;
-      width:max-content;
-      min-height:34px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#f1fbff;
-      border:2px solid var(--line);
-      color:#72a5c7;
-      font-size:12px;
-      font-weight:1000;
-      letter-spacing:.08em;
-      text-transform:uppercase;
+      justify-content:center;
+      gap:8px;
     }
 
-    .hero-copy h2{
-      margin:0;
-      font-size:clamp(34px,6vw,64px);
-      line-height:.96;
+    .btn.primary{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#173b0b;
+    }
+
+    .btn.secondary{
+      background:#fff;
+      color:var(--text);
+      border:2px solid var(--line);
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg,#ffd7d7,#ffb1b1);
+      color:#7a1f1f;
+    }
+
+    .mini-link{
+      min-height:40px;
+      padding:10px 14px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:var(--text);
       font-weight:1000;
-      color:#7b4b2e;
-      letter-spacing:-.03em;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+    }
+
+    .menu-shell{
+      padding:18px;
+      display:grid;
+      gap:16px;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:16px;
+      align-items:center;
+    }
+
+    .hero-copy h1{
+      margin:0 0 8px;
+      font-size:clamp(30px,5vw,52px);
+      line-height:1.04;
+      color:#1e5678;
     }
 
     .hero-copy p{
       margin:0;
-      font-size:15px;
+      color:var(--muted);
       line-height:1.7;
       font-weight:900;
-      color:#756d66;
     }
 
-    .tag-row{
+    .hero-badges{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
+      margin-top:12px;
     }
 
-    .tag{
+    .pill{
       min-height:36px;
       padding:8px 12px;
       border-radius:999px;
       background:#fff;
       border:2px solid var(--line);
-      color:#687c89;
+      color:#567186;
       font-size:13px;
       font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
     }
 
-    .hero-art{
-      position:relative;
-      min-height:240px;
-      border-radius:24px;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 72% 10%, rgba(255,255,255,.88), transparent 24%),
-        linear-gradient(180deg,#def3ff 0%,#d8efff 48%,#ddefcc 48%,#d7efc9 100%);
+    .hero-visual{
+      min-height:220px;
+      border-radius:28px;
       border:2px solid var(--line);
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255,255,255,.85), transparent 25%),
+        linear-gradient(180deg,#dff6ff 0%, #f7fdff 58%, #dff7d2 58%, #b9ef9f 100%);
+      position:relative;
+      overflow:hidden;
     }
 
-    .hero-ground{
+    .hero-track{
       position:absolute;
       left:8%;
       right:8%;
-      bottom:68px;
-      border-top:3px dashed rgba(124,145,110,.28);
+      bottom:28px;
+      height:16px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#8ec5df,#5aa9d6);
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.6);
+    }
+
+    .hero-runner,
+    .hero-duckbar{
+      position:absolute;
     }
 
     .hero-runner{
-      position:absolute;
-      left:12%;
-      bottom:34px;
-      width:112px;
-      height:140px;
+      left:18%;
+      bottom:44px;
+      width:70px;
+      height:90px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fff,#ffe9c9);
+      border:2px solid rgba(255,255,255,.7);
+      box-shadow:0 10px 20px rgba(63,122,156,.14);
     }
 
-    .hero-runner .head{
-      position:absolute;
-      left:28px;
-      top:0;
-      width:54px;
-      height:54px;
-      border-radius:50%;
-      background:#f2e4bf;
-      border:3px solid #e5d5b0;
-    }
-
-    .hero-runner .body{
+    .hero-runner::before{
+      content:"";
       position:absolute;
       left:18px;
-      top:52px;
-      width:76px;
-      height:56px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#79c9ff,#50a9ea);
-      border:3px solid #6abaf0;
-    }
-
-    .hero-runner .arm-l,
-    .hero-runner .arm-r,
-    .hero-runner .leg-l,
-    .hero-runner .leg-r{
-      position:absolute;
-      background:#f2e4bf;
-      border:3px solid #e5d5b0;
+      right:18px;
+      top:10px;
+      height:20px;
       border-radius:999px;
+      background:#ffdb91;
     }
 
-    .hero-runner .arm-l{ left:2px; top:58px; width:18px; height:56px; transform:rotate(24deg); }
-    .hero-runner .arm-r{ right:2px; top:58px; width:18px; height:56px; transform:rotate(-24deg); }
-    .hero-runner .leg-l{ left:28px; top:100px; width:20px; height:54px; transform:rotate(8deg); }
-    .hero-runner .leg-r{ left:56px; top:100px; width:20px; height:54px; transform:rotate(-8deg); }
-
-    .hero-low,
-    .hero-high{
+    .hero-runner::after{
+      content:"⚡";
       position:absolute;
+      right:-8px;
+      top:-10px;
+      width:34px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      background:#fff9d6;
+      border:2px solid #ffe08a;
+      font-size:18px;
+    }
+
+    .hero-duckbar{
       right:12%;
-      border-radius:20px;
-      background:#fff;
-      border:3px solid #d6e9f6;
-      box-shadow:0 14px 28px rgba(100,160,190,.14);
-    }
-
-    .hero-low{
-      bottom:58px;
-      width:92px;
-      height:50px;
-    }
-
-    .hero-high{
-      bottom:158px;
-      width:104px;
-      height:24px;
+      top:56px;
+      width:140px;
+      height:20px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#ffb35c,#ef4444);
+      box-shadow:0 10px 18px rgba(239,68,68,.18);
     }
 
     .menu-grid{
       display:grid;
-      grid-template-columns:1.02fr .98fr;
+      grid-template-columns:1.1fr .9fr;
       gap:14px;
     }
 
-    .card{
-      background:#fff;
-      border:2px solid var(--line);
-      border-radius:24px;
+    .panel{
       padding:16px;
-      box-shadow:var(--shadow-soft);
+      display:grid;
+      gap:12px;
     }
 
-    .card h3{
-      margin:0 0 12px;
-      font-size:20px;
-      font-weight:1000;
-      color:#6b4327;
-    }
-
-    .card p{
+    .panel h2,
+    .panel h3{
       margin:0;
-      color:#766e66;
+      line-height:1.1;
+    }
+
+    .panel-sub{
+      color:var(--muted);
       font-size:14px;
       line-height:1.7;
       font-weight:900;
@@ -324,1099 +256,906 @@
 
     .form-grid{
       display:grid;
-      gap:12px;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
     }
 
     .field{
       display:grid;
-      gap:8px;
+      gap:6px;
     }
 
     .field label{
-      font-size:13px;
-      color:#7990a0;
+      font-size:12px;
       font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.05em;
+      color:#678296;
     }
 
     .field select,
     .field input,
     .field textarea{
-      width:100%;
-      min-height:48px;
-      border-radius:18px;
+      min-height:44px;
+      border-radius:16px;
       border:2px solid var(--line);
       background:#fff;
       color:var(--text);
-      padding:12px 14px;
-      font:inherit;
-      box-shadow:var(--shadow-soft);
+      padding:10px 12px;
       outline:none;
     }
 
     .field textarea{
-      min-height:90px;
+      min-height:88px;
       resize:vertical;
     }
 
-    .btn-row{
-      display:grid;
-      grid-template-columns:1fr 1fr 1fr;
-      gap:12px;
-      margin-top:14px;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:52px;
-      padding:12px 16px;
-      border-radius:20px;
-      font-size:16px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .btn.primary{
-      background:linear-gradient(180deg,var(--green),var(--green2));
-      color:#173d12;
-    }
-
-    .btn.secondary{
-      background:#fff;
-      color:#69727a;
-      border:2px solid var(--line);
-    }
-
-    .btn.yellow{
-      background:linear-gradient(180deg,var(--yellow),var(--yellow2));
-      color:#6f4500;
-    }
-
-    .quick-metrics{
+    .research-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
+      gap:10px;
     }
 
-    .metric{
-      border-radius:20px;
-      background:#fff;
-      border:2px solid var(--line);
-      padding:14px;
-      box-shadow:var(--shadow-soft);
+    .cta-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
     }
 
-    .metric .k{
-      font-size:12px;
-      color:#7b92a0;
-      font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.06em;
-    }
-
-    .metric .v{
-      margin-top:8px;
-      font-size:26px;
-      line-height:1;
-      font-weight:1000;
-      color:#504943;
-    }
-
-    .research-block{
-      margin-top:12px;
-      padding:14px;
-      border-radius:20px;
-      background:#fffaf1;
-      border:2px dashed #ecdba4;
-    }
-
-    .research-block h4{
-      margin:0 0 10px;
-      font-size:16px;
-      color:#7b5c20;
-      font-weight:1000;
+    .menu-footer{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
     }
 
     .play-shell{
       display:grid;
-      gap:14px;
-    }
-
-    .hud-wrap{
-      display:grid;
       gap:12px;
     }
 
-    .hud-grid{
+    .hud-top{
+      padding:12px;
       display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
       gap:10px;
     }
 
-    .hud-card{
-      border-radius:18px;
-      background:#fff;
+    .hud-row{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .hud-pill{
+      border-radius:16px;
       border:2px solid var(--line);
-      padding:10px 12px;
-      box-shadow:var(--shadow-soft);
-      min-width:0;
+      background:#fff;
+      min-height:54px;
+      padding:8px 10px;
+      display:grid;
+      align-content:center;
+      gap:4px;
     }
 
-    .hud-card .k{
-      font-size:11px;
-      text-transform:uppercase;
-      letter-spacing:.06em;
-      color:#7b92a0;
+    .hud-pill .k{
+      font-size:12px;
       font-weight:1000;
+      color:#6f8797;
     }
 
-    .hud-card .v{
-      margin-top:6px;
-      font-size:19px;
+    .hud-pill .v{
+      font-size:18px;
+      font-weight:1000;
+      color:#24435a;
       line-height:1.1;
-      font-weight:1000;
-      color:#514943;
-      word-break:break-word;
     }
 
-    .progress-panel{
+    .meter-row{
       display:grid;
-      gap:10px;
-      background:#fff;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:8px;
+    }
+
+    .meter-card{
+      border-radius:16px;
       border:2px solid var(--line);
-      border-radius:22px;
-      padding:14px;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .meter{
+      background:#fff;
+      padding:10px;
       display:grid;
-      gap:6px;
+      gap:8px;
     }
 
     .meter-head{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:10px;
-      color:#728796;
-      font-size:13px;
+      gap:8px;
+      font-size:12px;
       font-weight:1000;
+      color:#6f8797;
     }
 
-    .bar{
-      height:16px;
+    .meter{
+      height:12px;
       border-radius:999px;
       overflow:hidden;
-      background:#eef6fa;
-      border:2px solid #dceef7;
+      background:#edf5f8;
+      border:2px solid var(--line);
     }
 
-    .bar-fill{
+    .meter-fill{
       height:100%;
       width:0%;
-      background:linear-gradient(90deg,#7fcfff,#7ed957);
-      transition:width .18s ease;
+      transition:width .14s linear;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--blue),var(--green));
     }
 
-    .bar-fill.fever{
-      background:linear-gradient(90deg,#b899ff,#7fcfff);
-    }
-
-    .boss-bar-wrap{
-      display:grid;
-      gap:6px;
-    }
-
-    .play-grid{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:14px;
-    }
-
-    .game-stage{
+    .play-stage{
       position:relative;
-      min-height:520px;
       overflow:hidden;
+      min-height:64dvh;
       border-radius:28px;
       background:
-        radial-gradient(circle at 72% 10%, rgba(255,255,255,.9), transparent 24%),
-        linear-gradient(180deg,#def3ff 0%,#d8efff 48%,#ddefcc 48%,#d7efc9 100%);
-      border:3px solid var(--line);
+        radial-gradient(circle at top, rgba(255,255,255,.82), transparent 28%),
+        linear-gradient(180deg,#dff6ff 0%, #f7fdff 64%, #dff7d2 64%, #b9ef9f 100%);
+      border:2px solid var(--line);
       box-shadow:var(--shadow);
     }
 
-    .arena{
+    #jd-play-area{
+      position:relative;
+      min-height:64dvh;
+      overflow:hidden;
+      touch-action:manipulation;
+      user-select:none;
+      -webkit-user-select:none;
+    }
+
+    #jd-arena{
       position:absolute;
       inset:0;
       overflow:hidden;
     }
 
-    .arena-ground{
+    #jd-hitline{
       position:absolute;
-      left:6%;
-      right:6%;
-      bottom:86px;
-      border-top:3px dashed rgba(124,145,110,.28);
-      z-index:2;
+      top:10%;
+      bottom:12%;
+      width:4px;
+      border-radius:999px;
+      background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.9),rgba(255,255,255,.2));
+      box-shadow:0 0 18px rgba(255,255,255,.45);
+      z-index:5;
     }
 
-    .arena-lane{
+    #jd-ground{
       position:absolute;
-      top:0;
+      left:0;
+      right:0;
       bottom:0;
-      width:10px;
-      background:rgba(255,255,255,.24);
-      border-left:2px solid rgba(255,255,255,.26);
-      border-right:2px solid rgba(255,255,255,.26);
+      height:22%;
+      background:
+        radial-gradient(circle at 16% 40%, rgba(255,255,255,.45), transparent 18%),
+        radial-gradient(circle at 72% 32%, rgba(255,255,255,.38), transparent 18%),
+        linear-gradient(180deg,#b8ef9f,#8eda72);
+      border-top:2px solid rgba(101,176,86,.26);
       z-index:1;
     }
 
-    .arena-lane.l1{ left:28%; }
-    .arena-lane.l2{ left:44%; }
-
-    .runner{
+    #jd-avatar{
       position:absolute;
-      left:13%;
-      bottom:26px;
-      width:112px;
-      height:146px;
-      z-index:10;
-      transition:transform .14s ease;
+      bottom:18%;
+      width:86px;
+      height:104px;
+      z-index:8;
+      transition:transform .16s ease;
     }
 
-    .runner .head{
+    #jd-avatar .body{
       position:absolute;
-      left:28px;
-      top:0;
-      width:56px;
-      height:56px;
-      border-radius:50%;
-      background:#f2e4bf;
-      border:3px solid #e5d5b0;
+      inset:0;
+      border-radius:26px;
+      background:linear-gradient(180deg,#fff,#ffe6c2);
+      border:2px solid rgba(255,255,255,.72);
+      box-shadow:0 12px 24px rgba(63,122,156,.16);
     }
 
-    .runner .body{
+    #jd-avatar .face{
       position:absolute;
       left:18px;
-      top:54px;
-      width:78px;
-      height:58px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#79c9ff,#50a9ea);
-      border:3px solid #6abaf0;
-    }
-
-    .runner .arm-l,
-    .runner .arm-r,
-    .runner .leg-l,
-    .runner .leg-r{
-      position:absolute;
-      background:#f2e4bf;
-      border:3px solid #e5d5b0;
+      right:18px;
+      top:10px;
+      height:22px;
       border-radius:999px;
-      transition:transform .14s ease, top .14s ease;
+      background:#ffd88f;
     }
 
-    .runner .arm-l{ left:4px; top:60px; width:18px; height:58px; transform:rotate(24deg); }
-    .runner .arm-r{ right:4px; top:60px; width:18px; height:58px; transform:rotate(-24deg); }
-    .runner .leg-l{ left:30px; top:104px; width:20px; height:58px; transform:rotate(8deg); }
-    .runner .leg-r{ left:58px; top:104px; width:20px; height:58px; transform:rotate(-8deg); }
+    #jd-avatar .mark{
+      position:absolute;
+      right:-10px;
+      top:-10px;
+      width:36px;
+      height:36px;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      background:#fff9d6;
+      border:2px solid #ffe08a;
+      box-shadow:0 6px 12px rgba(255,208,115,.18);
+      font-size:18px;
+    }
 
-    .runner.avatar-jump{ transform:translateY(-42px); }
-    .runner.avatar-jump .leg-l{ transform:rotate(-18deg); }
-    .runner.avatar-jump .leg-r{ transform:rotate(18deg); }
-    .runner.avatar-jump .arm-l{ transform:rotate(-18deg); }
-    .runner.avatar-jump .arm-r{ transform:rotate(18deg); }
+    #jd-avatar.avatar-idle{ transform:translateY(0) scale(1); }
+    #jd-avatar.avatar-jump{ transform:translateY(-56px) scale(1.02); }
+    #jd-avatar.avatar-duck{ transform:translateY(8px) scaleY(.78); }
 
-    .runner.avatar-duck{ transform:translateY(16px) scaleY(.84); }
-    .runner.avatar-duck .leg-l{ transform:rotate(44deg); top:108px; }
-    .runner.avatar-duck .leg-r{ transform:rotate(-44deg); top:108px; }
+    #jd-obstacles{
+      position:absolute;
+      inset:0;
+      z-index:9;
+    }
 
-    .tele,
-    .boss-intro,
-    .judge,
-    .rush-banner{
+    .overlay{
       position:absolute;
       left:50%;
       transform:translateX(-50%);
-      z-index:30;
+      z-index:20;
       pointer-events:none;
     }
 
-    .tele{
+    #jd-tele{
       top:16px;
     }
 
-    .tele .teleBox{
-      min-height:42px;
-      padding:10px 16px;
-      border-radius:999px;
-      background:rgba(255,255,255,.96);
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-      font-weight:1000;
-      color:#6a6159;
+    #jd-boss-intro{
+      top:74px;
     }
 
-    .boss-intro{
-      top:72px;
-    }
-
-    .boss-intro-box{
-      min-height:46px;
-      padding:12px 18px;
-      border-radius:999px;
-      background:rgba(255,245,245,.96);
-      border:2px solid #f0c9c9;
-      box-shadow:var(--shadow-soft);
-      font-weight:1000;
-      color:#8a3f3f;
-    }
-
-    .judge{
-      top:132px;
+    .overlay-box{
       min-height:44px;
       padding:10px 16px;
       border-radius:999px;
       background:rgba(255,255,255,.96);
       border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
+      color:#23435a;
+      font-size:15px;
       font-weight:1000;
-      color:#6a6159;
-      opacity:0;
-      transition:opacity .12s ease, transform .12s ease;
+      box-shadow:0 10px 22px rgba(63,122,156,.12);
+      display:grid;
+      place-items:center;
+      text-align:center;
     }
 
-    .judge.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(-4px);
-    }
-
-    .rush-banner{
-      right:14px;
-      left:auto;
-      top:14px;
-      transform:none;
-    }
-
-    .rush-pill{
-      min-height:40px;
-      padding:10px 14px;
+    #jd-judge{
+      position:absolute;
+      left:50%;
+      bottom:24%;
+      transform:translateX(-50%) translateY(18px) scale(.92);
+      min-width:180px;
+      min-height:48px;
+      padding:12px 16px;
       border-radius:999px;
-      background:linear-gradient(180deg,#ffb1d3,#ff7eb8);
-      color:#fff;
-      font-weight:1000;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .control-panel{
+      background:rgba(255,255,255,.98);
+      border:2px solid #ffe08a;
+      color:#7a5c14;
+      font-size:16px;
+      font-weight:1100;
+      z-index:21;
+      opacity:0;
+      pointer-events:none;
+      transition:transform .16s ease, opacity .16s ease;
       display:grid;
-      gap:12px;
+      place-items:center;
+      text-align:center;
     }
 
-    .control-box{
-      background:#fff;
-      border:2px solid var(--line);
-      border-radius:24px;
-      padding:16px;
-      box-shadow:var(--shadow-soft);
+    #jd-judge.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0) scale(1);
     }
 
-    .control-box h3{
-      margin:0 0 12px;
-      font-size:18px;
-      font-weight:1000;
-      color:#6b4327;
+    #jd-rush-banner{
+      position:absolute;
+      left:50%;
+      top:20px;
+      transform:translateX(-50%);
+      z-index:19;
+      pointer-events:none;
     }
 
-    .control-note{
-      color:#766e66;
-      font-size:14px;
-      line-height:1.7;
+    .rush-chip{
+      min-height:42px;
+      padding:10px 18px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#ffd7d7,#ffb1b1);
+      border:2px solid #fecaca;
+      color:#8b1f1f;
+      font-size:16px;
+      font-weight:1100;
+      box-shadow:0 12px 24px rgba(239,68,68,.18);
+    }
+
+    .play-controls{
+      padding:12px;
+      display:grid;
+      gap:10px;
+    }
+
+    .tap-note{
+      color:var(--muted);
+      font-size:13px;
       font-weight:900;
-      margin:0;
+      line-height:1.7;
+      text-align:center;
     }
 
-    .action-buttons{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
-      margin-top:14px;
-    }
-
-    .action-big{
-      appearance:none;
-      border:none;
-      min-height:88px;
-      border-radius:24px;
-      font-size:24px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .action-big.jump{
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-      color:#fff;
-    }
-
-    .action-big.duck{
-      background:linear-gradient(180deg,var(--pink),var(--pink2));
-      color:#fff;
-    }
-
-    .mini-actions{
+    .control-row{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
-      margin-top:12px;
+    }
+
+    .control-btn{
+      min-height:62px;
+      border-radius:22px;
+      font-size:18px;
+      font-weight:1100;
+    }
+
+    .control-footer{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:center;
     }
 
     .result-shell{
+      padding:18px;
       display:grid;
       gap:14px;
     }
 
-    .result-hero{
-      padding:18px;
+    .result-head{
       display:grid;
-      grid-template-columns:1.04fr .96fr;
+      grid-template-columns:auto 1fr;
       gap:14px;
       align-items:start;
     }
 
-    .rank-badge{
-      width:94px;
-      height:94px;
-      border-radius:50%;
+    #jd-rank-badge{
+      min-width:86px;
+      min-height:86px;
+      border-radius:26px;
       display:grid;
       place-items:center;
-      font-size:40px;
-      font-weight:1000;
+      font-size:34px;
+      font-weight:1100;
       background:#fff;
       border:3px solid var(--line);
-      color:#6a6159;
-      box-shadow:var(--shadow-soft);
+      color:#5f7f95;
+      box-shadow:0 12px 22px rgba(63,122,156,.10);
     }
 
-    .rank-badge.rank-s{ background:#fff7d8; border-color:#ffe08a; color:#9d6900; }
-    .rank-badge.rank-a{ background:#f3ffe7; border-color:#cde8a3; color:#4f8427; }
-    .rank-badge.rank-b{ background:#eefaff; border-color:#cae6f6; color:#3d6b86; }
-    .rank-badge.rank-c{ background:#fff5ef; border-color:#efd8c7; color:#8a6148; }
-    .rank-badge.rank-d{ background:#fff1f1; border-color:#f0c8c8; color:#975353; }
-
-    .result-copy{
-      display:grid;
-      gap:8px;
-      align-content:start;
-    }
+    #jd-rank-badge.rank-s{ background:#fff7d9; border-color:#ffe298; color:#9b6700; }
+    #jd-rank-badge.rank-a{ background:#f5ffe9; border-color:#cfe8a8; color:#4f842d; }
+    #jd-rank-badge.rank-b{ background:#eefaff; border-color:#cae6f6; color:#3b6b87; }
+    #jd-rank-badge.rank-c{ background:#fff5ef; border-color:#f2d9ca; color:#865c45; }
+    #jd-rank-badge.rank-d{ background:#ffeaea; border-color:#fecaca; color:#8b1f1f; }
 
     .result-copy h2{
-      margin:0;
-      font-size:clamp(30px,5vw,52px);
-      line-height:1;
-      font-weight:1000;
-      color:#7b4b2e;
+      margin:0 0 6px;
+      font-size:clamp(28px,5vw,42px);
+      line-height:1.04;
+      color:#1e5678;
     }
 
     .result-copy p{
       margin:0;
-      color:#766e66;
+      color:var(--muted);
       line-height:1.7;
-      font-size:15px;
       font-weight:900;
     }
 
-    .result-chip-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    .result-chip{
-      min-height:36px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#687c89;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .reward-card{
-      display:grid;
-      grid-template-columns:84px 1fr;
-      gap:12px;
-      align-items:center;
-      padding:16px;
-      border-radius:24px;
-      background:linear-gradient(180deg,#fffef6,#fff);
-      border:2px solid #efdca5;
-    }
-
-    .reward-icon{
-      width:84px;
-      height:84px;
+    .reward-card,
+    .coach-card,
+    .summary-card{
       border-radius:22px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:14px;
+    }
+
+    .reward-top{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-bottom:8px;
+    }
+
+    #jd-result-reward-icon{
+      width:54px;
+      height:54px;
       display:grid;
       place-items:center;
-      background:#fff;
-      border:2px solid #efdca5;
-      font-size:42px;
+      border-radius:18px;
+      font-size:28px;
+      background:#fff8d8;
+      border:2px solid #ffe08a;
     }
 
-    .reward-copy h3{
-      margin:0;
-      font-size:24px;
+    #jd-result-reward{
+      font-size:22px;
+      font-weight:1100;
       line-height:1.1;
-      font-weight:1000;
-      color:#7f5a1d;
+      color:#6b5b1e;
     }
 
-    .reward-copy p{
-      margin:6px 0 0;
-      color:#7a725c;
-      line-height:1.6;
+    #jd-result-reward-sub{
+      color:#7c776d;
       font-size:14px;
+      line-height:1.7;
       font-weight:900;
     }
 
-    .summary-grid{
+    .big-grid{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:12px;
+      gap:10px;
     }
 
-    .sum-card{
-      border-radius:22px;
-      background:#fff;
+    .big-stat{
+      border-radius:20px;
       border:2px solid var(--line);
+      background:#fff;
       padding:14px;
-      box-shadow:var(--shadow-soft);
-      min-width:0;
+      display:grid;
+      gap:6px;
     }
 
-    .sum-card .k{
+    .big-stat .k{
       font-size:12px;
-      color:#7990a0;
       font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.06em;
+      color:#6f8797;
     }
 
-    .sum-card .v{
-      margin-top:8px;
+    .big-stat .v{
       font-size:28px;
-      line-height:1;
+      font-weight:1100;
+      color:#24435a;
+      line-height:1.04;
+    }
+
+    .detail-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .detail-item{
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:12px;
+      display:grid;
+      gap:4px;
+    }
+
+    .detail-item .k{
+      font-size:12px;
       font-weight:1000;
-      color:#534c45;
+      color:#6f8797;
+    }
+
+    .detail-item .v{
+      font-size:18px;
+      font-weight:1100;
+      color:#24435a;
+      line-height:1.12;
       word-break:break-word;
     }
 
-    .coach-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:14px;
+    .coach-card h3{
+      margin:0 0 6px;
+      color:#24435a;
     }
 
-    .coach-card,
-    .export-card{
-      background:#fff;
-      border:2px solid var(--line);
-      border-radius:24px;
-      padding:16px;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .coach-card h3,
-    .export-card h3{
-      margin:0 0 12px;
-      font-size:18px;
-      font-weight:1000;
-      color:#6b4327;
-    }
-
-    .coach-head{
-      display:grid;
-      gap:6px;
-      margin-bottom:10px;
-    }
-
-    .coach-head strong{
-      font-size:18px;
-      color:#5f3f9a;
-    }
-
-    .coach-head p{
+    .coach-card p{
       margin:0;
-      color:#766e66;
-      font-size:14px;
+      color:var(--muted);
       line-height:1.7;
       font-weight:900;
     }
 
-    .tip-list{
+    .coach-list{
       display:grid;
-      gap:10px;
-    }
-
-    .tip{
-      border-radius:18px;
-      background:#f8fdff;
-      border:2px solid var(--line);
-      padding:12px;
-      color:#6b665f;
-      font-size:14px;
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    .export-actions{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
+      gap:8px;
       margin-top:10px;
     }
 
-    .export-actions.three{
-      grid-template-columns:1fr 1fr 1fr;
-    }
-
-    .status{
-      margin-top:12px;
-      min-height:22px;
+    .coach-tip{
+      border-radius:16px;
+      background:#fffef7;
+      border:2px dashed #eadb9e;
+      color:#6d6340;
+      padding:10px 12px;
       font-size:13px;
       font-weight:1000;
-      color:#7b92a0;
+      line-height:1.7;
     }
 
     .footer-actions{
-      display:grid;
-      grid-template-columns:1fr 1fr 1fr;
-      gap:12px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
     }
 
-    @media (max-width:980px){
+    .exports{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .footer-note{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.7;
+    }
+
+    @media (max-width: 920px){
       .hero,
-      .menu-grid,
-      .play-grid,
-      .result-hero,
-      .coach-grid{
+      .menu-grid{
         grid-template-columns:1fr;
       }
 
-      .hud-grid{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
-      .summary-grid{
+      .hud-row,
+      .meter-row,
+      .big-grid,
+      .detail-grid{
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
-      .btn-row,
-      .footer-actions{
+      .form-grid{
+        grid-template-columns:1fr;
+      }
+
+      .research-grid{
         grid-template-columns:1fr;
       }
     }
 
-    @media (max-width:720px){
-      .hud-grid,
-      .summary-grid,
-      .quick-metrics,
-      .action-buttons,
-      .mini-actions,
-      .export-actions,
-      .export-actions.three{
+    @media (max-width: 620px){
+      .page{ padding:10px; }
+      .menu-shell,
+      .result-shell,
+      .panel{ padding:14px; }
+
+      .hud-row,
+      .meter-row,
+      .big-grid,
+      .detail-grid,
+      .control-row{
         grid-template-columns:1fr;
       }
 
-      .game-stage{
-        min-height:460px;
+      .result-head{
+        grid-template-columns:1fr;
+      }
+
+      .hero-copy h1{
+        font-size:34px;
+      }
+
+      #jd-play-area,
+      .play-stage{
+        min-height:58dvh;
+      }
+
+      .control-btn{
+        min-height:58px;
       }
     }
   </style>
 </head>
 <body>
-  <main class="app">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-icon">🏃</div>
-        <div class="brand-copy">
-          <h1>JumpDuck</h1>
-          <p>low = jump • high = duck • child-friendly fitness mode</p>
-        </div>
-      </div>
+  <main class="page">
+    <div class="shell">
 
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <a id="jd-go-zone-menu" class="chip-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏠 Fitness Zone</a>
-        <a id="jd-back-hub-menu" class="chip-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🗺️ กลับโซน</a>
-      </div>
-    </header>
+      <!-- MENU -->
+      <section id="view-menu" class="view">
+        <div class="card menu-shell">
+          <div class="hero">
+            <div class="hero-copy">
+              <h1>JumpDuck</h1>
+              <p>หลบสิ่งกีดขวางให้ทัน • ต่ำ = Jump • สูง = Duck • ไปให้ถึงบอสแล้วปิดให้ได้</p>
+              <div class="hero-badges">
+                <div class="pill">🏃 Fitness Zone</div>
+                <div class="pill">⚡ Fun Pack Final</div>
+                <div class="pill">👾 Boss + Final Rush</div>
+              </div>
+            </div>
 
-    <section id="view-menu">
-      <section class="panel hero">
-        <div class="hero-copy">
-          <div class="kicker">Fitness Adventure</div>
-          <h2>Jump<br>Duck</h2>
-          <p>
-            อ่านอุปสรรคให้ไว แล้วเลือกให้ถูก
-            <b>สิ่งกีดขวางต่ำ = JUMP</b> และ
-            <b>สิ่งกีดขวางสูง = DUCK</b>
-          </p>
-
-          <div class="tag-row">
-            <div class="tag">🎯 reaction training</div>
-            <div class="tag">⚡ pattern reading</div>
-            <div class="tag">🏆 boss + rush</div>
-          </div>
-        </div>
-
-        <div class="hero-art" aria-hidden="true">
-          <div class="hero-ground"></div>
-
-          <div class="hero-runner">
-            <div class="head"></div>
-            <div class="body"></div>
-            <div class="arm-l"></div>
-            <div class="arm-r"></div>
-            <div class="leg-l"></div>
-            <div class="leg-r"></div>
+            <div class="hero-visual" aria-hidden="true">
+              <div class="hero-duckbar"></div>
+              <div class="hero-runner"></div>
+              <div class="hero-track"></div>
+            </div>
           </div>
 
-          <div class="hero-low"></div>
-          <div class="hero-high"></div>
+          <div class="menu-grid">
+            <section class="card panel">
+              <h2>ตั้งค่าเกม</h2>
+              <div class="panel-sub">เลือกโหมด ความยาก และเวลาเล่น ก่อนกดเริ่มได้เลย</div>
+
+              <div class="form-grid">
+                <div class="field">
+                  <label for="jd-mode">Mode</label>
+                  <select id="jd-mode">
+                    <option value="training">training</option>
+                    <option value="test">test</option>
+                    <option value="research">research</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="jd-diff">Difficulty</label>
+                  <select id="jd-diff">
+                    <option value="easy">easy</option>
+                    <option value="normal" selected>normal</option>
+                    <option value="hard">hard</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="jd-duration">Duration</label>
+                  <select id="jd-duration">
+                    <option value="30">30s</option>
+                    <option value="60" selected>60s</option>
+                    <option value="90">90s</option>
+                    <option value="120">120s</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="jd-research-block" class="hidden">
+                <div class="research-grid">
+                  <div class="field">
+                    <label for="jd-participant-id">Participant ID</label>
+                    <input id="jd-participant-id" type="text" placeholder="anon" />
+                  </div>
+
+                  <div class="field">
+                    <label for="jd-group">Group</label>
+                    <input id="jd-group" type="text" placeholder="control / experiment" />
+                  </div>
+
+                  <div class="field" style="grid-column:1/-1">
+                    <label for="jd-note">Note</label>
+                    <textarea id="jd-note" placeholder="บันทึกเพิ่มเติม"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cta-row">
+                <button class="btn primary" data-action="start" type="button">▶️ Start Run</button>
+                <button class="btn secondary" data-action="tutorial" type="button">🎓 Tutorial 30s</button>
+              </div>
+            </section>
+
+            <section class="card panel">
+              <h3>วิธีเล่น</h3>
+              <div class="panel-sub">
+                แตะด้านบนของฉากเพื่อ <b>Jump</b><br/>
+                แตะด้านล่างของฉากเพื่อ <b>Duck</b><br/>
+                รักษา combo, อ่าน pattern และเอาชนะบอสช่วงท้าย
+              </div>
+
+              <div class="pill">ต่ำระดับขา = Jump</div>
+              <div class="pill">สูงระดับหัว = Duck</div>
+              <div class="pill">ใกล้พลาดมาก = Close Bonus</div>
+              <div class="pill">ท้ายเกม = Final Rush</div>
+
+              <div class="menu-footer">
+                <a id="jd-go-zone-menu" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏃 กลับ Fitness Zone</a>
+                <a id="jd-back-hub-menu" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🗺️ Zone Home</a>
+              </div>
+            </section>
+          </div>
         </div>
       </section>
 
-      <section class="menu-grid">
-        <section class="card">
-          <h3>🎮 ตั้งค่าการเล่น</h3>
-
-          <div class="form-grid">
-            <div class="field">
-              <label for="jd-mode">Mode</label>
-              <select id="jd-mode">
-                <option value="training">training</option>
-                <option value="test">test</option>
-                <option value="research">research</option>
-              </select>
+      <!-- PLAY -->
+      <section id="view-play" class="view hidden">
+        <div class="play-shell">
+          <section class="card hud-top">
+            <div class="hud-row">
+              <div class="hud-pill"><div class="k">Mode</div><div id="hud-mode" class="v">training</div></div>
+              <div class="hud-pill"><div class="k">Difficulty</div><div id="hud-diff" class="v">normal</div></div>
+              <div class="hud-pill"><div class="k">Time</div><div id="hud-time" class="v">60.0</div></div>
+              <div class="hud-pill"><div class="k">Phase</div><div id="hud-phase" class="v">1 • warmup</div></div>
             </div>
 
-            <div class="field">
-              <label for="jd-diff">Difficulty</label>
-              <select id="jd-diff">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
+            <div class="hud-row">
+              <div class="hud-pill"><div class="k">Score</div><div id="hud-score" class="v">0</div></div>
+              <div class="hud-pill"><div class="k">Combo</div><div id="hud-combo" class="v">0</div></div>
+              <div class="hud-pill"><div class="k">Stability</div><div id="hud-stability" class="v">100%</div></div>
+              <div class="hud-pill"><div class="k">Boss HP</div><div id="hud-boss" class="v">—</div></div>
             </div>
 
-            <div class="field">
-              <label for="jd-duration">Duration</label>
-              <select id="jd-duration">
-                <option value="30">30 sec</option>
-                <option value="45">45 sec</option>
-                <option value="60" selected>60 sec</option>
-                <option value="90">90 sec</option>
-              </select>
-            </div>
-          </div>
-
-          <div id="jd-research-block" class="research-block hidden">
-            <h4>Research Context</h4>
-
-            <div class="form-grid">
-              <div class="field">
-                <label for="jd-participant-id">Participant ID</label>
-                <input id="jd-participant-id" type="text" placeholder="anon" />
+            <div class="meter-row">
+              <div class="meter-card">
+                <div class="meter-head"><span>Progress</span><strong id="hud-prog-text">0%</strong></div>
+                <div class="meter"><div id="hud-prog-fill" class="meter-fill"></div></div>
               </div>
 
-              <div class="field">
-                <label for="jd-group">Group</label>
-                <input id="jd-group" type="text" placeholder="control / experiment" />
+              <div class="meter-card">
+                <div class="meter-head"><span>Fever</span><strong id="fever-status">Ready</strong></div>
+                <div class="meter"><div id="hud-fever-fill" class="meter-fill"></div></div>
               </div>
 
-              <div class="field">
-                <label for="jd-note">Note</label>
-                <textarea id="jd-note" placeholder="optional note"></textarea>
-              </div>
-            </div>
-          </div>
-
-          <div class="btn-row">
-            <button class="btn primary" data-action="start" type="button">🚀 Start</button>
-            <button class="btn yellow" data-action="tutorial" type="button">🧠 Tutorial</button>
-            <a id="jd-control-hub" class="btn secondary" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏠 Fitness Zone</a>
-          </div>
-        </section>
-
-        <section class="card">
-          <h3>📘 วิธีเล่น</h3>
-          <p>
-            ดูรูปร่างของสิ่งกีดขวางให้ชัด
-            ถ้าอยู่ระดับขาให้ <b>กระโดด</b> ถ้าอยู่ระดับหัวให้ <b>หมอบ</b>
-            ช่วงท้ายจะมี <b>boss</b> และ <b>final rush</b> ให้ท้าทายมากขึ้น
-          </p>
-
-          <div class="quick-metrics" style="margin-top:14px;">
-            <div class="metric">
-              <div class="k">Input</div>
-              <div class="v">Jump / Duck</div>
-            </div>
-            <div class="metric">
-              <div class="k">Goal</div>
-              <div class="v">High Score</div>
-            </div>
-            <div class="metric">
-              <div class="k">Boss</div>
-              <div class="v">Phase 3</div>
-            </div>
-            <div class="metric">
-              <div class="k">Return</div>
-              <div class="v">Fitness Zone</div>
-            </div>
-          </div>
-
-          <div style="margin-top:14px;padding:14px;border-radius:20px;background:#fffef6;border:2px dashed #eadb9e;color:#73673f;font-size:14px;line-height:1.7;font-weight:1000;">
-            เคล็ดลับ: อย่ากดเร็วเกินไป ให้รอให้อุปสรรคเข้าระยะก่อน แล้วค่อยตัดสินใจ
-          </div>
-        </section>
-      </section>
-    </section>
-
-    <section id="view-play" class="hidden">
-      <div class="play-shell">
-        <section class="hud-wrap">
-          <div class="hud-grid">
-            <div class="hud-card"><div class="k">Mode</div><div id="hud-mode" class="v">training</div></div>
-            <div class="hud-card"><div class="k">Diff</div><div id="hud-diff" class="v">normal</div></div>
-            <div class="hud-card"><div class="k">Time</div><div id="hud-time" class="v">60.0</div></div>
-            <div class="hud-card"><div class="k">Phase</div><div id="hud-phase" class="v">1 • warmup</div></div>
-            <div class="hud-card"><div class="k">Score</div><div id="hud-score" class="v">0</div></div>
-
-            <div class="hud-card"><div class="k">Combo</div><div id="hud-combo" class="v">0</div></div>
-            <div class="hud-card"><div class="k">Stability</div><div id="hud-stability" class="v">100%</div></div>
-            <div class="hud-card"><div class="k">Boss HP</div><div id="hud-boss" class="v">—</div></div>
-            <div class="hud-card"><div class="k">Pattern</div><div id="hud-pattern" class="v">—</div></div>
-            <div class="hud-card"><div class="k">Rush</div><div id="hud-rush" class="v">—</div></div>
-
-            <div class="hud-card"><div class="k">Boss Label</div><div id="hud-boss-label" class="v">—</div></div>
-            <div class="hud-card"><div class="k">Boss Status</div><div id="hud-boss-status" class="v">—</div></div>
-            <div class="hud-card"><div class="k">Compact</div><div id="hud-boss-compact" class="v">—</div></div>
-          </div>
-
-          <div class="progress-panel">
-            <div class="meter">
-              <div class="meter-head">
-                <span>Progress</span>
-                <strong id="hud-prog-text">0%</strong>
-              </div>
-              <div class="bar">
-                <div id="hud-prog-fill" class="bar-fill"></div>
+              <div id="boss-bar-wrap" class="meter-card hidden">
+                <div class="meter-head"><span id="hud-boss-label">—</span><strong id="hud-boss-status-right">—</strong></div>
+                <div class="meter"><div id="hud-boss-fill" class="meter-fill" style="background:linear-gradient(90deg,#ffb35c,#ef4444)"></div></div>
               </div>
             </div>
 
-            <div class="meter">
-              <div class="meter-head">
-                <span>Fever</span>
-                <strong id="fever-status">Ready</strong>
-              </div>
-              <div class="bar">
-                <div id="hud-fever-fill" class="bar-fill fever"></div>
-              </div>
+            <div class="hud-row">
+              <div class="hud-pill"><div class="k">Pattern</div><div id="hud-pattern" class="v">—</div></div>
+              <div class="hud-pill"><div class="k">Rush</div><div id="hud-rush" class="v">—</div></div>
+              <div class="hud-pill"><div class="k">Boss</div><div id="hud-boss-label" class="v">—</div></div>
+              <div class="hud-pill"><div class="k">Status</div><div id="hud-boss-compact" class="v">—</div></div>
             </div>
 
-            <div id="boss-bar-wrap" class="boss-bar-wrap hidden">
-              <div class="meter-head">
-                <span>Boss Bar</span>
-                <strong id="hud-boss-status-right">—</strong>
-              </div>
-              <div class="bar">
-                <div id="hud-boss-fill" class="bar-fill"></div>
-              </div>
+            <div class="hud-pill">
+              <div class="k">Boss Intro / Status</div>
+              <div id="hud-boss-status" class="v">—</div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section class="play-grid">
-          <section id="jd-play-area" class="game-stage">
-            <div class="arena">
-              <div class="arena-lane l1"></div>
-              <div class="arena-lane l2"></div>
-              <div class="arena-ground"></div>
-
-              <div id="jd-tele" class="tele hidden">
-                <div class="teleBox">ready</div>
-              </div>
-
-              <div id="jd-boss-intro" class="boss-intro hidden">
-                <div class="boss-intro-box" id="jd-boss-intro-text">boss intro</div>
-              </div>
-
-              <div id="jd-judge" class="judge">PERFECT</div>
-
-              <div id="jd-rush-banner" class="rush-banner hidden">
-                <div class="rush-pill rushText">FINAL RUSH!</div>
-              </div>
-
+          <section class="play-stage">
+            <div id="jd-play-area">
               <div id="jd-arena">
-                <div id="jd-avatar" class="runner avatar-idle">
-                  <div class="head"></div>
+                <div id="jd-hitline"></div>
+                <div id="jd-ground"></div>
+
+                <div id="jd-avatar" class="avatar-idle" aria-hidden="true">
                   <div class="body"></div>
-                  <div class="arm-l"></div>
-                  <div class="arm-r"></div>
-                  <div class="leg-l"></div>
-                  <div class="leg-r"></div>
+                  <div class="face"></div>
+                  <div class="mark">⚡</div>
                 </div>
 
                 <div id="jd-obstacles"></div>
+
+                <div id="jd-tele" class="overlay hidden">
+                  <div class="overlay-box teleBox">แตะบน = JUMP • แตะล่าง = DUCK</div>
+                </div>
+
+                <div id="jd-boss-intro" class="overlay hidden">
+                  <div id="jd-boss-intro-text" class="overlay-box">Boss incoming!</div>
+                </div>
+
+                <div id="jd-rush-banner" class="hidden">
+                  <div class="rush-chip rushText">FINAL RUSH!</div>
+                </div>
+
+                <div id="jd-judge">READY!</div>
               </div>
             </div>
           </section>
 
-          <aside class="control-panel">
-            <section class="control-box">
-              <h3>🎯 Current Mission</h3>
-              <p class="control-note">
-                low obstacle = JUMP<br>
-                high obstacle = DUCK
-              </p>
+          <section class="card play-controls">
+            <div class="tap-note">แตะด้านบนของฉากเพื่อกระโดด • แตะด้านล่างเพื่อหมอบ • บนคีย์บอร์ดใช้ W / ↑ และ S / ↓</div>
 
-              <div class="action-buttons">
-                <button id="btn-jump" class="action-big jump" type="button">⬆️ JUMP</button>
-                <button id="btn-duck" class="action-big duck" type="button">⬇️ DUCK</button>
-              </div>
-            </section>
+            <div class="control-row">
+              <button id="btn-jump" class="btn primary control-btn" type="button">⬆️ JUMP</button>
+              <button id="btn-duck" class="btn secondary control-btn" type="button">⬇️ DUCK</button>
+            </div>
 
-            <section class="control-box">
-              <h3>🛠️ Quick Actions</h3>
-              <p class="control-note">
-                กลับโซนได้ทุกเวลา หรือหยุดรอบนี้ก่อนก็ได้
-              </p>
+            <div class="control-footer">
+              <button id="btn-stop-early" class="btn warn" type="button">⏹️ Stop Early</button>
+              <a id="jd-control-hub" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏃 กลับ Fitness Zone</a>
+              <a id="jd-back-hub-play" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🗺️ Zone Home</a>
+            </div>
+          </section>
+        </div>
+      </section>
 
-              <div class="mini-actions">
-                <a id="jd-back-hub-play" class="btn secondary" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏠 Fitness Zone</a>
-                <button id="btn-stop-early" class="btn secondary" type="button">⏹️ Stop Early</button>
-                <button class="btn secondary" data-action="back-menu" type="button">↩️ Exit to Zone</button>
-              </div>
-            </section>
-          </aside>
-        </section>
-      </div>
-    </section>
+      <!-- RESULT -->
+      <section id="view-result" class="view hidden">
+        <div class="card result-shell">
+          <div class="result-head">
+            <div id="jd-rank-badge" class="rank-c">C</div>
 
-    <section id="view-result" class="hidden">
-      <div class="result-shell">
-        <section class="panel result-hero">
-          <div class="result-copy">
-            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-              <div id="jd-rank-badge" class="rank-badge rank-c">C</div>
+            <div class="result-copy">
+              <h2 id="jd-result-title">ผ่านด่านฝึกแล้ว!</h2>
+              <p id="jd-result-sub">สรุปรอบล่าสุดของ JumpDuck</p>
+            </div>
+          </div>
+
+          <section class="reward-card">
+            <div class="reward-top">
+              <div id="jd-result-reward-icon">⭐</div>
               <div>
-                <h2 id="jd-result-title">ผ่านด่านฝึกแล้ว!</h2>
-                <p id="jd-result-sub">สรุปรอบล่าสุดของ JumpDuck</p>
+                <div id="jd-result-reward">Keep Training</div>
+                <div id="jd-result-reward-sub">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</div>
               </div>
             </div>
 
-            <div class="result-chip-row">
-              <div class="result-chip">Boss: <b id="jd-result-boss">—</b></div>
-              <div class="result-chip">Pattern: <b id="jd-result-pattern">—</b></div>
-              <div class="result-chip">Rush: <b id="jd-result-rush">—</b></div>
+            <div class="detail-grid">
+              <div class="detail-item"><div class="k">Boss</div><div id="jd-result-boss" class="v">—</div></div>
+              <div class="detail-item"><div class="k">Pattern</div><div id="jd-result-pattern" class="v">—</div></div>
+              <div class="detail-item"><div class="k">Rush</div><div id="jd-result-rush" class="v">—</div></div>
+              <div class="detail-item"><div class="k">Result Rank</div><div id="res-rank" class="v">C</div></div>
             </div>
+          </section>
+
+          <div class="big-grid">
+            <div class="big-stat"><div class="k">Score</div><div id="res-score-big" class="v">0</div></div>
+            <div class="big-stat"><div class="k">Accuracy</div><div id="res-acc-big" class="v">0%</div></div>
+            <div class="big-stat"><div class="k">Best Combo</div><div id="res-combo-big" class="v">0</div></div>
+            <div class="big-stat"><div class="k">Boss End</div><div id="res-boss-end-big" class="v">—</div></div>
           </div>
 
-          <div class="reward-card">
-            <div id="jd-result-reward-icon" class="reward-icon">⭐</div>
-            <div class="reward-copy">
-              <h3 id="jd-result-reward">Keep Training</h3>
-              <p id="jd-result-reward-sub">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</p>
-            </div>
-          </div>
-        </section>
-
-        <section class="summary-grid">
-          <div class="sum-card"><div class="k">Score</div><div id="res-score-big" class="v">0</div></div>
-          <div class="sum-card"><div class="k">Accuracy</div><div id="res-acc-big" class="v">0%</div></div>
-          <div class="sum-card"><div class="k">Best Combo</div><div id="res-combo-big" class="v">0</div></div>
-          <div class="sum-card"><div class="k">Boss End</div><div id="res-boss-end-big" class="v">—</div></div>
-        </section>
-
-        <section class="summary-grid">
-          <div class="sum-card"><div class="k">Mode</div><div id="res-mode" class="v">-</div></div>
-          <div class="sum-card"><div class="k">Diff</div><div id="res-diff" class="v">-</div></div>
-          <div class="sum-card"><div class="k">Duration</div><div id="res-duration" class="v">-</div></div>
-          <div class="sum-card"><div class="k">Total Obs</div><div id="res-total-obs" class="v">0</div></div>
-
-          <div class="sum-card"><div class="k">Hits</div><div id="res-hits" class="v">0</div></div>
-          <div class="sum-card"><div class="k">Miss</div><div id="res-miss" class="v">0</div></div>
-          <div class="sum-card"><div class="k">Jump Hit</div><div id="res-jump-hit" class="v">0</div></div>
-          <div class="sum-card"><div class="k">Duck Hit</div><div id="res-duck-hit" class="v">0</div></div>
-
-          <div class="sum-card"><div class="k">Jump Miss</div><div id="res-jump-miss" class="v">0</div></div>
-          <div class="sum-card"><div class="k">Duck Miss</div><div id="res-duck-miss" class="v">0</div></div>
-          <div class="sum-card"><div class="k">Acc</div><div id="res-acc" class="v">0%</div></div>
-          <div class="sum-card"><div class="k">RT Mean</div><div id="res-rt-mean" class="v">0</div></div>
-
-          <div class="sum-card"><div class="k">Stability</div><div id="res-stability-min" class="v">0%</div></div>
-          <div class="sum-card"><div class="k">Score Final</div><div id="res-score" class="v">0</div></div>
-          <div class="sum-card"><div class="k">Rank</div><div id="res-rank" class="v">C</div></div>
-          <div class="sum-card"><div class="k">Phase End</div><div id="res-phase-end" class="v">-</div></div>
-
-          <div class="sum-card"><div class="k">Pattern</div><div id="res-pattern" class="v">-</div></div>
-          <div class="sum-card"><div class="k">Boss Label</div><div id="res-boss-label" class="v">-</div></div>
-          <div class="sum-card"><div class="k">Rush</div><div id="res-rush" class="v">-</div></div>
-        </section>
-
-        <section class="coach-grid">
           <section class="coach-card">
-            <h3>🧠 AI Coach</h3>
+            <h3 id="jd-coach-title">AI Coach</h3>
+            <p id="jd-coach-summary">สรุปคำแนะนำหลังจบเกม</p>
 
-            <div class="coach-head">
-              <strong id="jd-coach-title">AI Coach</strong>
-              <p id="jd-coach-summary">สรุปคำแนะนำหลังจบเกม</p>
-            </div>
-
-            <div class="tip-list">
-              <div id="jd-coach-tip-1" class="tip">—</div>
-              <div id="jd-coach-tip-2" class="tip">—</div>
+            <div class="coach-list">
+              <div id="jd-coach-tip-1" class="coach-tip">—</div>
+              <div id="jd-coach-tip-2" class="coach-tip">—</div>
             </div>
           </section>
 
-          <section class="export-card">
-            <h3>📦 Export / Research</h3>
+          <section class="summary-card">
+            <div class="detail-grid">
+              <div class="detail-item"><div class="k">Mode</div><div id="res-mode" class="v">-</div></div>
+              <div class="detail-item"><div class="k">Difficulty</div><div id="res-diff" class="v">-</div></div>
+              <div class="detail-item"><div class="k">Duration</div><div id="res-duration" class="v">-</div></div>
+              <div class="detail-item"><div class="k">Total Obstacles</div><div id="res-total-obs" class="v">0</div></div>
 
-            <div class="export-actions three">
-              <button id="jd-btn-dl-events" class="btn secondary" type="button">events.csv</button>
-              <button id="jd-btn-dl-sessions" class="btn secondary" type="button">sessions.csv</button>
-              <button id="jd-btn-dl-teacher" class="btn secondary" type="button">teacher.csv</button>
+              <div class="detail-item"><div class="k">Hits</div><div id="res-hits" class="v">0</div></div>
+              <div class="detail-item"><div class="k">Miss</div><div id="res-miss" class="v">0</div></div>
+              <div class="detail-item"><div class="k">Jump Hit</div><div id="res-jump-hit" class="v">0</div></div>
+              <div class="detail-item"><div class="k">Duck Hit</div><div id="res-duck-hit" class="v">0</div></div>
+
+              <div class="detail-item"><div class="k">Jump Miss</div><div id="res-jump-miss" class="v">0</div></div>
+              <div class="detail-item"><div class="k">Duck Miss</div><div id="res-duck-miss" class="v">0</div></div>
+              <div class="detail-item"><div class="k">Accuracy</div><div id="res-acc" class="v">0%</div></div>
+              <div class="detail-item"><div class="k">Mean RT</div><div id="res-rt-mean" class="v">0</div></div>
+
+              <div class="detail-item"><div class="k">Min Stability</div><div id="res-stability-min" class="v">0%</div></div>
+              <div class="detail-item"><div class="k">Score</div><div id="res-score" class="v">0</div></div>
+              <div class="detail-item"><div class="k">Phase End</div><div id="res-phase-end" class="v">-</div></div>
+              <div class="detail-item"><div class="k">Boss Label</div><div id="res-boss-label" class="v">-</div></div>
+
+              <div class="detail-item"><div class="k">Pattern End</div><div id="res-pattern" class="v">-</div></div>
+              <div class="detail-item"><div class="k">Rush End</div><div id="res-rush" class="v">-</div></div>
             </div>
-
-            <div class="export-actions" style="margin-top:10px;">
-              <button id="jd-btn-send-log" class="btn secondary" type="button">☁️ Send Log</button>
-              <button id="jd-btn-continue-flow" class="btn primary" type="button">🧘 ไป Cooldown</button>
-            </div>
-
-            <div id="jd-log-status" class="status"></div>
           </section>
-        </section>
 
-        <section class="footer-actions">
-          <a id="jd-back-hub-result" class="btn secondary" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏠 Fitness Zone</a>
-          <button class="btn yellow" data-action="play-again" type="button">🔁 Play Again</button>
-          <button class="btn secondary" data-action="back-menu" type="button">↩️ Exit to Zone</button>
-        </section>
-      </div>
-    </section>
+          <div class="exports">
+            <button id="jd-btn-dl-events" class="btn secondary" type="button">📥 events.csv</button>
+            <button id="jd-btn-dl-sessions" class="btn secondary" type="button">📥 sessions.csv</button>
+            <button id="jd-btn-dl-teacher" class="btn secondary" type="button">📥 teacher-summary.csv</button>
+            <button id="jd-btn-send-log" class="btn secondary" type="button">☁️ Send Log</button>
+          </div>
+
+          <div id="jd-log-status" class="footer-note"></div>
+
+          <div class="footer-actions">
+            <button class="btn primary" data-action="play-again" type="button">🔁 Play Again</button>
+            <button id="jd-btn-continue-flow" class="btn secondary" type="button">➡️ Continue Flow</button>
+            <a id="jd-back-hub-result" class="mini-link" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏃 กลับ Fitness Zone</a>
+            <button class="btn secondary" data-action="back-menu" type="button">🗺️ Back to Zone</button>
+          </div>
+
+          <div class="footer-note">
+            JumpDuck • Fitness Zone • full merged final
+          </div>
+        </div>
+      </section>
+
+    </div>
   </main>
 
-  <script src="./js/jumpduck.js?v=20260414d-zone-first-jumpduck-final"></script>
+  <script src="./js/jumpduck.js?v=20260414e-JUMPDuck-FUNPACK-V1-V4-FITNESS-ZONE-FINAL"></script>
 </body>
 </html>
