@@ -1,6 +1,6 @@
 // === /fitness/js/rhythm-boxer.js ===
 // Rhythm Boxer — FULL CLEAN FINAL
-// PATCH v20260404c-RB-SMOOTHER-LONG-VISIBLE
+// PATCH v20260414a-RB-STRICT-PLANNER-FLOW
 // ✅ smoother animation
 // ✅ beat pulse no longer fires every frame
 // ✅ note still visible long enough
@@ -13,6 +13,7 @@
 // ✅ deterministic pattern generator
 // ✅ research CSV
 // ✅ hub / planner bridge compatible
+// ✅ strict planner flow patch
 
 'use strict';
 
@@ -110,6 +111,59 @@
   const CAT = String(qs('cat','fitness')).trim() || 'fitness';
   const GAME_ID = 'rhythmboxer';
   const AUTO_NEXT = qbool('autoNext', false);
+
+  function isPlannerStrictFlow(){
+    const plannerFlow = qbool('plannerFlow', false);
+    const fpStrict = qbool('fpStrict', false);
+    const cooldownOff = String(qs('cooldown', '1')).toLowerCase() === '0';
+    const returnPhase = String(qs('returnPhase', '')).toLowerCase() === 'planner';
+
+    const hubLower = String(HUB || '').toLowerCase();
+    const hubLooksPlanner =
+      hubLower.includes('fitness-planner') ||
+      hubLower.includes('fpresume=1');
+
+    return plannerFlow || fpStrict || cooldownOff || returnPhase || hubLooksPlanner;
+  }
+
+  function buildReplayUrl(){
+    const url = new URL(location.pathname, location.href);
+
+    url.searchParams.set('run', RUN || 'play');
+    url.searchParams.set('diff', DIFF || 'normal');
+    url.searchParams.set('time', String(TIME_SEC || 80));
+    url.searchParams.set('seed', String(Date.now()));
+    url.searchParams.set('pid', PID || 'anon');
+    url.searchParams.set('view', qs('view', 'pc'));
+    url.searchParams.set('zone', ZONE || 'fitness');
+    url.searchParams.set('cat', CAT || 'fitness');
+    url.searchParams.set('hub', HUB || '../herohealth/hub.html');
+
+    if (PLAN_DAY) url.searchParams.set('planDay', PLAN_DAY);
+    if (PLAN_SLOT) url.searchParams.set('planSlot', PLAN_SLOT);
+
+    if (isPlannerStrictFlow()) {
+      url.searchParams.set('plannerFlow', '1');
+      url.searchParams.set('fpStrict', '1');
+      url.searchParams.set('gate', '0');
+      url.searchParams.set('cooldown', '0');
+      url.searchParams.set('returnPhase', 'planner');
+    }
+
+    return url.toString();
+  }
+
+  function goPostRunPlanner(){
+    if (HUB) {
+      try{
+        location.href = new URL(HUB, location.href).toString();
+      }catch(_){
+        location.href = HUB;
+      }
+      return;
+    }
+    location.href = '../herohealth/hub.html';
+  }
 
   // --------------------------------------------------
   // DOM refs
@@ -1731,16 +1785,30 @@
       tsIso:nowIso()
     });
 
-    const shouldGoCooldown =
-      qbool('cooldown', true) ||
-      qs('returnPhase', '') === 'cooldown';
+    const plannerStrict = isPlannerStrictFlow();
+
+    const shouldGoCooldown = plannerStrict
+      ? false
+      : (
+          qbool('cooldown', true) ||
+          qs('returnPhase', '') === 'cooldown'
+        );
 
     const shouldAutoReturn =
-      AUTO_NEXT ||
-      (HUB && String(HUB).includes('seq=1'));
+      !plannerStrict && (
+        AUTO_NEXT ||
+        (HUB && String(HUB).includes('seq=1'))
+      );
 
     if(shouldGoCooldown){
       goCooldownSummary(550);
+      return;
+    }
+
+    if(plannerStrict){
+      setTimeout(()=>{
+        goPostRunPlanner();
+      }, 700);
       return;
     }
 
@@ -1844,6 +1912,10 @@
 
     if(BTN_AGAIN){
       BTN_AGAIN.addEventListener('click', ()=>{
+        if (isPlannerStrictFlow()) {
+          location.href = buildReplayUrl();
+          return;
+        }
         startGame();
       });
     }
@@ -1875,6 +1947,11 @@
 
     if(typeof W.HH_END_GAME !== 'function'){
       W.HH_END_GAME = function(){
+        if (isPlannerStrictFlow()) {
+          goPostRunPlanner();
+          return;
+        }
+
         const shouldGoCooldown =
           qbool('cooldown', true) ||
           qs('returnPhase', '') === 'cooldown';
@@ -1889,7 +1966,7 @@
     }
 
     console.log('[RB] boot OK', {
-      RUN, DIFF, TIME_SEC, PID, HUB, zone:ZONE, cat:CAT, game:GAME_ID
+      RUN, DIFF, TIME_SEC, PID, HUB, zone:ZONE, cat:CAT, game:GAME_ID, plannerStrict:isPlannerStrictFlow()
     });
   }
 
