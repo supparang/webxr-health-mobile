@@ -152,13 +152,6 @@
       margin:0;
     }
 
-    .muted{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.7;
-      font-weight:900;
-    }
-
     .room-box{
       margin-top:14px;
       display:grid;
@@ -372,13 +365,8 @@
           <button class="btn soft" id="btnBackHub" type="button">🏠 กลับ Hub</button>
         </div>
 
-        <div class="note" id="statusText">
-          กำลังเตรียมห้อง…
-        </div>
-
-        <div class="tiny" id="tinyText">
-          Host เป็นคนกดเริ่ม • Guest แค่กดพร้อมแล้วรอได้เลย
-        </div>
+        <div class="note" id="statusText">กำลังเตรียมห้อง…</div>
+        <div class="tiny" id="tinyText">Host เป็นคนกดเริ่ม • Guest แค่กดพร้อมแล้วรอได้เลย</div>
       </div>
 
       <div class="card">
@@ -390,303 +378,387 @@
 
   <script src="./goodjunk-duet-room-bootstrap.js"></script>
   <script>
-    (function () {
-      'use strict';
+  (function () {
+    'use strict';
 
-      const qs = new URLSearchParams(location.search);
-      const boot = window.HHA_DUET_ROOM_BOOT;
+    const qs = new URLSearchParams(location.search);
+    const boot = window.HHA_DUET_ROOM_BOOT;
 
-      const ui = {
-        roomCode: document.getElementById('roomCode'),
-        pillRole: document.getElementById('pillRole'),
-        pillPlayer: document.getElementById('pillPlayer'),
-        pillDiff: document.getElementById('pillDiff'),
-        pillTime: document.getElementById('pillTime'),
-        btnCopyRoom: document.getElementById('btnCopyRoom'),
-        btnReady: document.getElementById('btnReady'),
-        btnStart: document.getElementById('btnStart'),
-        btnBackHub: document.getElementById('btnBackHub'),
-        statusText: document.getElementById('statusText'),
-        tinyText: document.getElementById('tinyText'),
-        playersList: document.getElementById('playersList')
-      };
+    const ui = {
+      roomCode: document.getElementById('roomCode'),
+      pillRole: document.getElementById('pillRole'),
+      pillPlayer: document.getElementById('pillPlayer'),
+      pillDiff: document.getElementById('pillDiff'),
+      pillTime: document.getElementById('pillTime'),
+      btnCopyRoom: document.getElementById('btnCopyRoom'),
+      btnReady: document.getElementById('btnReady'),
+      btnStart: document.getElementById('btnStart'),
+      btnBackHub: document.getElementById('btnBackHub'),
+      statusText: document.getElementById('statusText'),
+      tinyText: document.getElementById('tinyText'),
+      playersList: document.getElementById('playersList')
+    };
 
-      const ctx = {
-        pid: String(qs.get('pid') || 'anon').trim(),
-        name: String(qs.get('name') || qs.get('nick') || 'Hero').trim(),
-        diff: String(qs.get('diff') || 'normal').trim(),
-        time: String(qs.get('time') || '90').trim(),
-        hub: String(qs.get('hub') || '../hub-v2.html').trim(),
-        view: String(qs.get('view') || 'mobile').trim(),
-        run: String(qs.get('run') || 'play').trim()
-      };
+    const ctx = {
+      pid: String(qs.get('pid') || 'anon').trim(),
+      name: String(qs.get('name') || qs.get('nick') || 'Hero').trim(),
+      diff: String(qs.get('diff') || 'normal').trim(),
+      time: String(qs.get('time') || '90').trim(),
+      hub: String(qs.get('hub') || '../hub-v2.html').trim()
+    };
 
-      let roomRunUnsub = function(){};
-      let readyPressed = false;
-      let starting = false;
+    let roomRunUnsub = function(){};
+    let playersUnsub = function(){};
+    let rematchUnsub = function(){};
+    let readyPressed = false;
+    let starting = false;
+    let navigating = false;
+    let effectiveHostPid = '';
 
-      function buildRuntimeUrl(matchId) {
-        const url = new URL('./goodjunk-duet-runtime.html', location.href);
-        const passthrough = [
-          'pid','name','nick','studyId','hub','zone','cat','game','gameId',
-          'theme','run','view','diff','time','seed','api','log','debug'
-        ];
+    function setStatus(text) {
+      ui.statusText.textContent = text;
+    }
 
-        passthrough.forEach((k) => {
-          const v = qs.get(k);
-          if (v != null && v !== '') url.searchParams.set(k, v);
-        });
+    function setTiny(text) {
+      ui.tinyText.textContent = text;
+    }
 
-        url.searchParams.set('roomId', boot.getRoomId());
-        url.searchParams.set('room', boot.getRoomId());
-        url.searchParams.set('matchId', String(matchId || '').trim());
-        url.searchParams.set('mode', 'duet');
-        url.searchParams.set('entry', 'duet');
-        url.searchParams.set('role', boot.getRole());
-        url.searchParams.set('host', boot.isHost() ? '1' : '0');
+    function roleLabel() {
+      return String(effectiveHostPid || '') === String(ctx.pid || '').trim()
+        ? 'Host'
+        : 'Guest';
+    }
 
-        if (!url.searchParams.get('zone')) url.searchParams.set('zone', 'nutrition');
-        if (!url.searchParams.get('cat')) url.searchParams.set('cat', 'nutrition');
-        if (!url.searchParams.get('game')) url.searchParams.set('game', 'goodjunk');
-        if (!url.searchParams.get('gameId')) url.searchParams.set('gameId', 'goodjunk');
-        if (!url.searchParams.get('theme')) url.searchParams.set('theme', 'goodjunk');
+    function isActingHost() {
+      return String(effectiveHostPid || '') === String(ctx.pid || '').trim();
+    }
 
-        return url.toString();
+    function showRoomFull() {
+      ui.btnReady.disabled = true;
+      ui.btnStart.disabled = true;
+      setStatus('ห้องนี้เต็มแล้ว');
+      setTiny('Duet เล่นได้ 2 คนต่อห้องเท่านั้น ให้กลับไปสร้างหรือเข้าห้องใหม่');
+    }
+
+    function buildRuntimeUrl(matchId) {
+      const url = new URL('./goodjunk-duet-runtime.html', location.href);
+      const passthrough = [
+        'pid','name','nick','studyId','hub','zone','cat','game','gameId',
+        'theme','run','view','diff','time','seed','api','log','debug'
+      ];
+
+      passthrough.forEach((k) => {
+        const v = qs.get(k);
+        if (v != null && v !== '') url.searchParams.set(k, v);
+      });
+
+      url.searchParams.set('roomId', boot.getRoomId());
+      url.searchParams.set('room', boot.getRoomId());
+      url.searchParams.set('matchId', String(matchId || '').trim());
+      url.searchParams.set('mode', 'duet');
+      url.searchParams.set('entry', 'duet');
+      url.searchParams.set('role', isActingHost() ? 'host' : 'guest');
+      url.searchParams.set('host', isActingHost() ? '1' : '0');
+
+      if (!url.searchParams.get('zone')) url.searchParams.set('zone', 'nutrition');
+      if (!url.searchParams.get('cat')) url.searchParams.set('cat', 'nutrition');
+      if (!url.searchParams.get('game')) url.searchParams.set('game', 'goodjunk');
+      if (!url.searchParams.get('gameId')) url.searchParams.set('gameId', 'goodjunk');
+      if (!url.searchParams.get('theme')) url.searchParams.set('theme', 'goodjunk');
+
+      return url.toString();
+    }
+
+    function go(url) {
+      if (navigating) return;
+      navigating = true;
+      location.replace(url);
+    }
+
+    function renderHeader() {
+      ui.roomCode.textContent = boot.getRoomId();
+      ui.pillRole.textContent = 'บทบาท • ' + roleLabel();
+      ui.pillPlayer.textContent = 'ผู้เล่น • ' + ctx.name;
+      ui.pillDiff.textContent = 'ระดับ • ' + ctx.diff;
+      ui.pillTime.textContent = 'เวลา • ' + ctx.time;
+      ui.btnStart.disabled = !isActingHost();
+    }
+
+    function avatarFor(index, role) {
+      if (role === 'host') return '👑';
+      return index === 0 ? '🧒' : '🧑';
+    }
+
+    function tagHtml(player) {
+      const tags = [];
+
+      if (String(player.pid || '') === String(effectiveHostPid || '')) {
+        tags.push('<div class="tag host">HOST</div>');
       }
 
-      function setStatus(text) {
-        ui.statusText.textContent = text;
+      if (player.ready) {
+        tags.push('<div class="tag ready">พร้อมแล้ว</div>');
+      } else {
+        tags.push('<div class="tag">รออยู่</div>');
       }
 
-      function setTiny(text) {
-        ui.tinyText.textContent = text;
-      }
+      return tags.join('');
+    }
 
-      function roleLabel() {
-        return boot.isHost() ? 'Host' : 'Guest';
-      }
+    function renderPlayers(players) {
+      const list = Array.isArray(players) ? players.slice() : [];
 
-      function renderHeader() {
-        ui.roomCode.textContent = boot.getRoomId();
-        ui.pillRole.textContent = 'บทบาท • ' + roleLabel();
-        ui.pillPlayer.textContent = 'ผู้เล่น • ' + ctx.name;
-        ui.pillDiff.textContent = 'ระดับ • ' + ctx.diff;
-        ui.pillTime.textContent = 'เวลา • ' + ctx.time;
-        ui.btnStart.disabled = !boot.isHost();
-      }
+      list.sort((a, b) => {
+        const ar = String(a.pid || '') === String(effectiveHostPid || '') ? 0 : 1;
+        const br = String(b.pid || '') === String(effectiveHostPid || '') ? 0 : 1;
+        if (ar !== br) return ar - br;
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      });
 
-      function avatarFor(index, role) {
-        if (role === 'host') return '👑';
-        return index === 0 ? '🧒' : '🧑';
-      }
-
-      function tagHtml(player) {
-        const tags = [];
-
-        if (String(player.role || '').toLowerCase() === 'host') {
-          tags.push('<div class="tag host">HOST</div>');
-        }
-
-        if (player.ready) {
-          tags.push('<div class="tag ready">พร้อมแล้ว</div>');
-        } else {
-          tags.push('<div class="tag">รออยู่</div>');
-        }
-
-        return tags.join('');
-      }
-
-      function renderPlayers(players) {
-        const list = Array.isArray(players) ? players.slice() : [];
-
-        list.sort((a, b) => {
-          const ar = String(a.role || '').toLowerCase() === 'host' ? 0 : 1;
-          const br = String(b.role || '').toLowerCase() === 'host' ? 0 : 1;
-          if (ar !== br) return ar - br;
-          return String(a.name || '').localeCompare(String(b.name || ''));
-        });
-
-        if (!list.length) {
-          ui.playersList.innerHTML = `
-            <div class="player">
-              <div class="avatar">👀</div>
-              <div>
-                <div class="player-name">ยังไม่มีผู้เล่น</div>
-                <div class="player-sub">กำลังรอข้อมูลห้อง</div>
-              </div>
-              <div class="tag">รออยู่</div>
+      if (!list.length) {
+        ui.playersList.innerHTML = `
+          <div class="player">
+            <div class="avatar">👀</div>
+            <div>
+              <div class="player-name">ยังไม่มีผู้เล่น</div>
+              <div class="player-sub">กำลังรอข้อมูลห้อง</div>
             </div>
-          `;
+            <div class="tag">รออยู่</div>
+          </div>
+        `;
+        return;
+      }
+
+      ui.playersList.innerHTML = list.map((player, idx) => `
+        <div class="player">
+          <div class="avatar">${avatarFor(idx, String(player.pid || '') === String(effectiveHostPid || '') ? 'host' : 'guest')}</div>
+          <div>
+            <div class="player-name">${String(player.name || player.pid || 'Player')}</div>
+            <div class="player-sub">
+              ${String(player.pid || '') === String(effectiveHostPid || '') ? 'เจ้าของห้องปัจจุบัน' : 'ผู้เข้าร่วมห้อง'}
+              ${player.online === false ? ' • ออฟไลน์' : ' • ออนไลน์'}
+            </div>
+          </div>
+          <div style="display:grid;gap:8px;justify-items:end;">${tagHtml(player)}</div>
+        </div>
+      `).join('');
+    }
+
+    async function refreshPlayers(playersInput) {
+      const players = Array.isArray(playersInput) ? playersInput : await boot.listPlayers();
+      effectiveHostPid = await boot.getEffectiveHostPid();
+
+      renderHeader();
+      renderPlayers(players);
+
+      const onlineCount = players.filter((p) => p && p.online !== false).length;
+      const readyCount = players.filter((p) => p && p.ready).length;
+
+      if (isActingHost()) {
+        if (onlineCount >= 2 && readyCount >= 2) {
+          setStatus('ครบ 2 คนและพร้อมแล้ว กดเริ่ม Duet ได้เลย');
+          setTiny('รอบใหม่จะสร้าง matchId ใหม่ และใช้ finalSummary กลางของห้อง');
+        } else if (onlineCount >= 2) {
+          setStatus('เข้าห้องครบแล้ว รอให้ทั้งสองคนกดพร้อม');
+          setTiny('เครื่องนี้เป็น Host ปัจจุบัน');
+        } else {
+          setStatus('รอผู้เล่นอีก 1 คนเข้าห้อง');
+          setTiny('ถ้า Host เดิมหลุด ระบบย้ายสิทธิ์มาให้เครื่องนี้แล้ว');
+        }
+      } else {
+        if (readyPressed) {
+          setStatus('กดพร้อมแล้ว รอ Host เริ่มเกม');
+          setTiny('ถ้า Host หลุด ระบบจะย้ายสิทธิ์ให้คนที่ยังอยู่');
+        } else {
+          setStatus('กด “พร้อมแล้ว” ก่อน แล้วรอ Host เริ่มเกม');
+          setTiny('ระบบนี้รองรับ host migration แล้ว');
+        }
+      }
+
+      ui.btnStart.disabled = !isActingHost();
+    }
+
+    async function copyRoomCode() {
+      const code = boot.getRoomId();
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(code);
+          setStatus('คัดลอกรหัสห้องแล้ว');
+          return;
+        }
+      } catch (_) {}
+
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = code;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        setStatus('คัดลอกรหัสห้องแล้ว');
+      } catch (_) {
+        setStatus('คัดลอกรหัสห้องไม่สำเร็จ');
+      }
+    }
+
+    async function onReady() {
+      readyPressed = true;
+      ui.btnReady.disabled = true;
+      await boot.markLobbyReady(true);
+      await boot.setPresence({ ready: true, inRuntime: false });
+      await refreshPlayers();
+
+      if (isActingHost()) {
+        setStatus('พร้อมแล้ว และเครื่องนี้เริ่มเกมได้');
+      } else {
+        setStatus('พร้อมแล้ว รอ Host เริ่มเกม');
+      }
+    }
+
+    async function onStart() {
+      if (!isActingHost() || starting) return;
+      starting = true;
+      ui.btnStart.disabled = true;
+
+      let actionLock = null;
+
+      try {
+        actionLock = await boot.acquireRoomActionLock('start_duet', 5000);
+        if (!actionLock) {
+          setStatus('มีการกดเริ่มเกมอยู่แล้ว');
+          ui.btnStart.disabled = !isActingHost();
+          starting = false;
           return;
         }
 
-        ui.playersList.innerHTML = list.map((player, idx) => `
-          <div class="player">
-            <div class="avatar">${avatarFor(idx, String(player.role || '').toLowerCase())}</div>
-            <div>
-              <div class="player-name">${String(player.name || player.pid || 'Player')}</div>
-              <div class="player-sub">
-                ${String(player.role || '').toLowerCase() === 'host' ? 'เจ้าของห้อง' : 'ผู้เข้าร่วมห้อง'}
-                ${player.online === false ? ' • ออฟไลน์' : ' • ออนไลน์'}
-              </div>
-            </div>
-            <div style="display:grid;gap:8px;justify-items:end;">${tagHtml(player)}</div>
-          </div>
-        `).join('');
-      }
-
-      async function refreshPlayers() {
         const players = await boot.listPlayers();
-        renderPlayers(players);
+        const online = players.filter((p) => p && p.online !== false);
+        const ready = players.filter((p) => p && p.ready);
 
-        const onlineCount = players.filter((p) => p && p.online !== false).length;
-        const readyCount = players.filter((p) => p && p.ready).length;
-
-        if (boot.isHost()) {
-          if (onlineCount >= 2 && readyCount >= 2) {
-            setStatus('ครบ 2 คนและพร้อมแล้ว กดเริ่ม Duet ได้เลย');
-            setTiny('เมื่อจบเกม ทั้ง 2 เครื่องจะอ่าน finalSummary กลางของห้องเดียวกัน');
-          } else if (onlineCount >= 2) {
-            setStatus('เข้าห้องครบแล้ว รอให้ทั้งสองคนกดพร้อม');
-            setTiny('Host กดเริ่มได้เมื่อทุกคนพร้อม');
-          } else {
-            setStatus('รอผู้เล่นอีก 1 คนเข้าห้อง');
-            setTiny('ส่งรหัสห้องนี้ให้อีกคนเข้าได้เลย');
-          }
-        } else {
-          if (readyPressed) {
-            setStatus('กดพร้อมแล้ว รอ Host เริ่มเกม');
-            setTiny('เมื่อ Host กดเริ่ม ระบบจะพาเข้าหน้าเล่นอัตโนมัติ');
-          } else {
-            setStatus('กด “พร้อมแล้ว” ก่อน แล้วรอ Host เริ่มเกม');
-            setTiny('ไม่ต้องกดเริ่มเอง ฝั่ง Host จะเป็นคนเริ่ม');
-          }
-        }
-      }
-
-      async function copyRoomCode() {
-        const code = boot.getRoomId();
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(code);
-            setStatus('คัดลอกรหัสห้องแล้ว');
-            return;
-          }
-        } catch (_) {}
-
-        try {
-          const ta = document.createElement('textarea');
-          ta.value = code;
-          ta.style.position = 'fixed';
-          ta.style.left = '-9999px';
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          ta.remove();
-          setStatus('คัดลอกรหัสห้องแล้ว');
-        } catch (_) {
-          setStatus('คัดลอกรหัสห้องไม่สำเร็จ');
-        }
-      }
-
-      async function onReady() {
-        readyPressed = true;
-        ui.btnReady.disabled = true;
-        await boot.markLobbyReady(true);
-        await boot.setPresence({ ready: true });
-        await refreshPlayers();
-
-        if (boot.isHost()) {
-          setStatus('Host พร้อมแล้ว รออีกฝั่งพร้อม แล้วกดเริ่มได้เลย');
-        } else {
-          setStatus('Guest พร้อมแล้ว รอ Host เริ่มเกม');
-        }
-      }
-
-      async function onStart() {
-        if (!boot.isHost() || starting) return;
-        starting = true;
-        ui.btnStart.disabled = true;
-
-        try {
-          const players = await boot.listPlayers();
-          const online = players.filter((p) => p && p.online !== false);
-          const ready = players.filter((p) => p && p.ready);
-
-          if (online.length < 2) {
-            setStatus('ยังมีผู้เล่นไม่ครบ 2 คน');
-            ui.btnStart.disabled = false;
-            starting = false;
-            return;
-          }
-
-          if (ready.length < 2) {
-            setStatus('รอให้ทั้งสองคนกดพร้อมก่อน');
-            ui.btnStart.disabled = false;
-            starting = false;
-            return;
-          }
-
-          const matchId = await boot.ensureMatchId(true);
-          await boot.resetRoomRun();
-
-          const runtimeUrl = buildRuntimeUrl(matchId);
-          await boot.startRoomRun(matchId, runtimeUrl);
-
-          setStatus('เริ่มเกมแล้ว กำลังพาเข้าหน้าเล่น…');
-        } catch (err) {
-          console.error(err);
-          setStatus('เริ่มเกมไม่สำเร็จ');
+        if (online.length > 2) {
+          setStatus('ห้องผิดปกติ มีผู้เล่นเกิน 2 คน');
           ui.btnStart.disabled = false;
           starting = false;
+          return;
         }
-      }
 
-      async function bindRoomRun() {
-        roomRunUnsub = await boot.subscribeRoomRun(function (runState) {
-          if (!runState || runState.state !== 'running' || !runState.runtimeUrl) return;
-          location.replace(runState.runtimeUrl);
+        if (online.length < 2) {
+          setStatus('ยังมีผู้เล่นไม่ครบ 2 คน');
+          ui.btnStart.disabled = false;
+          starting = false;
+          return;
+        }
+
+        if (ready.length < 2) {
+          setStatus('รอให้ทั้งสองคนกดพร้อมก่อน');
+          ui.btnStart.disabled = false;
+          starting = false;
+          return;
+        }
+
+        await boot.forceResetRoomState();
+        effectiveHostPid = await boot.getEffectiveHostPid();
+
+        const matchId = await boot.ensureMatchId(true);
+        const runtimeUrl = buildRuntimeUrl(matchId);
+
+        await boot.clearRematchSignal();
+        await boot.startRoomRun(matchId, runtimeUrl);
+        await boot.appendMatchEvent(matchId, 'match_started', {
+          source: 'lobby',
+          byHostPid: ctx.pid
         });
+
+        setStatus('เริ่มเกมแล้ว กำลังพาเข้าหน้าเล่น…');
+      } catch (err) {
+        console.error(err);
+        setStatus('เริ่มเกมไม่สำเร็จ');
+        ui.btnStart.disabled = !isActingHost();
+        starting = false;
+      } finally {
+        try { await boot.releaseRoomActionLock(actionLock); } catch (_) {}
+      }
+    }
+
+    async function tryRejoinFreshRun() {
+      const freshRun = await boot.readFreshRun(15000);
+      if (!freshRun || !freshRun.runtimeUrl || !freshRun.matchId) return false;
+
+      const finalSummary = await boot.readFinalSummary(freshRun.matchId);
+      if (finalSummary && finalSummary.final) return false;
+
+      setStatus('ตรวจพบรอบที่กำลังเล่นอยู่ กำลังพากลับเข้าเกม…');
+      go(freshRun.runtimeUrl);
+      return true;
+    }
+
+    async function bindRoomRun() {
+      roomRunUnsub = await boot.subscribeRoomRun(function (runState) {
+        if (!runState || !runState.state || runState.state !== 'running' || !runState.runtimeUrl) return;
+        go(runState.runtimeUrl);
+      });
+    }
+
+    async function bindRematch() {
+      rematchUnsub = await boot.subscribeRematch(function (signal) {
+        if (!signal || !signal.runtimeUrl || !signal.nextMatchId) return;
+        go(signal.runtimeUrl);
+      });
+    }
+
+    async function init() {
+      await boot.ensureRoom();
+
+      try {
+        await boot.setPresence({ ready: false, inRuntime: false });
+      } catch (err) {
+        if (err && err.code === 'room_full') {
+          renderHeader();
+          showRoomFull();
+          return;
+        }
+        throw err;
       }
 
-      async function init() {
-        await boot.ensureRoom();
-        await boot.setPresence({ ready: false });
-        await refreshPlayers();
-        await bindRoomRun();
+      renderHeader();
+      await refreshPlayers();
 
-        renderHeader();
+      const rejoined = await tryRejoinFreshRun();
+      if (rejoined) return;
 
-        setStatus(boot.isHost()
-          ? 'Host เข้าห้องแล้ว รอผู้เล่นอีกคน'
-          : 'Guest เข้าห้องแล้ว กดพร้อมได้เลย'
-        );
+      await bindRoomRun();
+      await bindRematch();
 
-        setTiny('ระบบนี้จะรวมผลเป็น finalSummary กลางของห้องสำหรับโหมด Duet');
-      }
-
-      ui.btnCopyRoom.addEventListener('click', copyRoomCode);
-      ui.btnReady.addEventListener('click', onReady);
-      ui.btnStart.addEventListener('click', onStart);
-      ui.btnBackHub.addEventListener('click', function () {
-        location.href = ctx.hub;
+      playersUnsub = await boot.subscribePlayers(function (players) {
+        refreshPlayers(players).catch(function(){});
       });
 
-      window.addEventListener('focus', function () {
-        refreshPlayers().catch(() => {});
-      });
+      setStatus('กำลังเตรียมห้อง…');
+      setTiny('ระบบนี้จะใช้ finalSummary กลางของห้องสำหรับโหมด Duet');
+    }
 
-      window.addEventListener('beforeunload', function () {
-        try { roomRunUnsub(); } catch (_) {}
-      });
+    ui.btnCopyRoom.addEventListener('click', copyRoomCode);
+    ui.btnReady.addEventListener('click', onReady);
+    ui.btnStart.addEventListener('click', onStart);
+    ui.btnBackHub.addEventListener('click', function () {
+      location.href = ctx.hub;
+    });
 
-      init().catch(function (err) {
-        console.error('[GJ-DUET-LOBBY init failed]', err);
-        renderHeader();
-        setStatus('โหลด lobby ไม่สำเร็จ');
-        setTiny('ตรวจ room bootstrap / firebase config อีกครั้ง');
-      });
-    })();
+    window.addEventListener('beforeunload', function () {
+      try { roomRunUnsub(); } catch (_) {}
+      try { playersUnsub(); } catch (_) {}
+      try { rematchUnsub(); } catch (_) {}
+    });
+
+    init().catch(function (err) {
+      console.error('[GJ-DUET-LOBBY init failed]', err);
+      renderHeader();
+      setStatus('โหลด lobby ไม่สำเร็จ');
+      setTiny('ตรวจ room bootstrap / firebase config อีกครั้ง');
+    });
+  })();
   </script>
 </body>
 </html>
