@@ -6,6 +6,7 @@
   <title>HeroHealth • JumpDuck</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="../herohealth/favicon.ico" />
 
   <style>
     :root{
@@ -40,7 +41,6 @@
 
     a{ color:inherit; text-decoration:none; }
     button,select,input,textarea{ font:inherit; }
-
     .hidden{ display:none !important; }
 
     .page{
@@ -185,28 +185,33 @@
 
     .hero-runner{
       left:18%;
-      bottom:44px;
-      width:70px;
-      height:90px;
-      border-radius:24px;
+      bottom:38px;
+      width:86px;
+      height:98px;
+      border-radius:28px;
       background:linear-gradient(180deg,#fff,#ffe9c9);
       border:2px solid rgba(255,255,255,.7);
       box-shadow:0 10px 20px rgba(63,122,156,.14);
     }
 
     .hero-runner::before{
-      content:"";
+      content:"🐶";
       position:absolute;
-      left:18px;
-      right:18px;
-      top:10px;
-      height:20px;
-      border-radius:999px;
-      background:#ffdb91;
+      left:50%;
+      top:-18px;
+      transform:translateX(-50%);
+      width:42px;
+      height:42px;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      background:#fff8ea;
+      border:2px solid rgba(255,255,255,.9);
+      font-size:22px;
     }
 
     .hero-runner::after{
-      content:"⚡";
+      content:"🐾";
       position:absolute;
       right:-8px;
       top:-10px;
@@ -217,7 +222,7 @@
       border-radius:50%;
       background:#fff9d6;
       border:2px solid #ffe08a;
-      font-size:18px;
+      font-size:16px;
     }
 
     .hero-duckbar{
@@ -440,52 +445,467 @@
       z-index:1;
     }
 
+    /* ===== DOG HERO — CUTE BOOST PACK ===== */
     #jd-avatar{
       position:absolute;
       bottom:18%;
-      width:86px;
-      height:104px;
+      width:110px;
+      height:136px;
       z-index:8;
+      transition:transform .16s ease;
+      transform-origin:50% 100%;
+      filter:drop-shadow(0 10px 16px rgba(63,122,156,.12));
+    }
+
+    #jd-avatar.avatar-idle{
+      transform:translateY(0) scale(1);
+      animation:jdDogIdleCute 1.7s ease-in-out infinite;
+    }
+
+    #jd-avatar.avatar-jump{
+      transform:translateY(-60px) scale(1.05) rotate(-4deg);
+    }
+
+    #jd-avatar.avatar-duck{
+      transform:translateY(8px) scaleY(.82) scaleX(1.05);
+    }
+
+    @keyframes jdDogIdleCute{
+      0%,100%{ transform:translateY(0) scale(1); }
+      50%{ transform:translateY(-2px) scale(1.015); }
+    }
+
+    .jd-dog-head{
+      position:absolute;
+      left:50%;
+      top:0;
+      width:74px;
+      height:72px;
+      transform:translateX(-50%);
+      border-radius:50%;
+      background:linear-gradient(180deg,#fff0d8,#ffd9ad);
+      border:3px solid rgba(255,255,255,.92);
+      box-shadow:0 6px 14px rgba(63,122,156,.10);
+      overflow:visible;
+    }
+
+    .jd-dog-ear{
+      position:absolute;
+      top:10px;
+      width:26px;
+      height:34px;
+      background:linear-gradient(180deg,#b88252,#94633d);
+      border-radius:20px 20px 16px 16px;
+      border:2px solid rgba(255,255,255,.35);
+      transform-origin:50% 0%;
       transition:transform .16s ease;
     }
 
-    #jd-avatar .body{
+    .jd-dog-ear.left{
+      left:-7px;
+      transform:rotate(-30deg);
+    }
+
+    .jd-dog-ear.right{
+      right:-7px;
+      transform:rotate(30deg);
+    }
+
+    .jd-dog-face{
       position:absolute;
       inset:0;
-      border-radius:26px;
-      background:linear-gradient(180deg,#fff,#ffe6c2);
-      border:2px solid rgba(255,255,255,.72);
-      box-shadow:0 12px 24px rgba(63,122,156,.16);
     }
 
-    #jd-avatar .face{
+    .jd-dog-brow{
       position:absolute;
-      left:18px;
-      right:18px;
-      top:10px;
-      height:22px;
+      top:19px;
+      width:11px;
+      height:4px;
       border-radius:999px;
-      background:#ffd88f;
+      background:#8e6543;
+      opacity:.78;
+      transition:transform .14s ease, opacity .14s ease;
     }
 
-    #jd-avatar .mark{
+    .jd-dog-brow.left{
+      left:16px;
+      transform:rotate(-8deg);
+    }
+
+    .jd-dog-brow.right{
+      right:16px;
+      transform:rotate(8deg);
+    }
+
+    .jd-dog-eye{
       position:absolute;
-      right:-10px;
-      top:-10px;
-      width:36px;
-      height:36px;
+      top:25px;
+      width:10px;
+      height:14px;
+      border-radius:999px;
+      background:#2b4050;
+      transform-origin:center center;
+      animation:jdDogBlinkCute 3.3s infinite;
+    }
+
+    .jd-dog-eye.left{ left:17px; }
+    .jd-dog-eye.right{ right:17px; }
+
+    .jd-dog-eye::after{
+      content:"";
+      position:absolute;
+      top:2px;
+      left:2px;
+      width:3px;
+      height:3px;
+      border-radius:50%;
+      background:#fff;
+      transition:transform .14s ease, opacity .14s ease;
+    }
+
+    @keyframes jdDogBlinkCute{
+      0%,46%,48%,100%{ transform:scaleY(1); }
+      47%{ transform:scaleY(.12); }
+    }
+
+    .jd-dog-cheek{
+      position:absolute;
+      top:38px;
+      width:12px;
+      height:7px;
+      border-radius:999px;
+      background:rgba(255,168,188,.78);
+      transition:transform .14s ease;
+    }
+
+    .jd-dog-cheek.left{ left:10px; }
+    .jd-dog-cheek.right{ right:10px; }
+
+    .jd-dog-muzzle{
+      position:absolute;
+      left:50%;
+      bottom:8px;
+      width:26px;
+      height:17px;
+      transform:translateX(-50%);
+      border-radius:999px 999px 12px 12px;
+      background:linear-gradient(180deg,#fffaf2,#ffe8d4);
+      border:2px solid rgba(255,255,255,.75);
+    }
+
+    .jd-dog-nose{
+      position:absolute;
+      left:50%;
+      top:2px;
+      width:9px;
+      height:7px;
+      transform:translateX(-50%);
+      border-radius:999px;
+      background:#5d4030;
+    }
+
+    .jd-dog-mouth{
+      position:absolute;
+      left:50%;
+      bottom:2px;
+      width:14px;
+      height:7px;
+      transform:translateX(-50%);
+      border-bottom:3px solid #de7a89;
+      border-radius:0 0 12px 12px;
+      transition:all .14s ease;
+    }
+
+    .jd-dog-body{
+      position:absolute;
+      left:50%;
+      bottom:16px;
+      width:58px;
+      height:54px;
+      transform:translateX(-50%);
+      border-radius:22px 22px 18px 18px;
+      background:linear-gradient(180deg,#9fe3ff,#6dc8ff);
+      border:3px solid rgba(255,255,255,.90);
+      box-shadow:0 8px 16px rgba(63,122,156,.12);
+    }
+
+    .jd-dog-badge{
+      position:absolute;
+      left:50%;
+      top:9px;
+      transform:translateX(-50%);
+      width:20px;
+      height:20px;
       display:grid;
       place-items:center;
       border-radius:50%;
-      background:#fff9d6;
+      background:#fff7c9;
       border:2px solid #ffe08a;
-      box-shadow:0 6px 12px rgba(255,208,115,.18);
-      font-size:18px;
+      color:#d49a00;
+      font-size:11px;
+      font-weight:1100;
     }
 
-    #jd-avatar.avatar-idle{ transform:translateY(0) scale(1); }
-    #jd-avatar.avatar-jump{ transform:translateY(-56px) scale(1.02); }
-    #jd-avatar.avatar-duck{ transform:translateY(8px) scaleY(.78); }
+    .jd-dog-arm,
+    .jd-dog-leg{
+      position:absolute;
+      background:#ffdca8;
+      border:2px solid rgba(255,255,255,.60);
+    }
+
+    .jd-dog-arm{
+      top:14px;
+      width:11px;
+      height:24px;
+      border-radius:999px;
+      transition:transform .16s ease;
+    }
+
+    .jd-dog-arm.left{
+      left:-6px;
+      transform:rotate(22deg);
+    }
+
+    .jd-dog-arm.right{
+      right:-6px;
+      transform:rotate(-22deg);
+    }
+
+    .jd-dog-leg{
+      bottom:-9px;
+      width:11px;
+      height:22px;
+      border-radius:999px;
+      transition:transform .16s ease;
+    }
+
+    .jd-dog-leg.left{ left:12px; }
+    .jd-dog-leg.right{ right:12px; }
+
+    .jd-dog-leg.left::after,
+    .jd-dog-leg.right::after{
+      content:"";
+      position:absolute;
+      left:-4px;
+      right:-4px;
+      bottom:-4px;
+      height:10px;
+      border-radius:999px;
+      background:#fff1dc;
+      border:2px solid rgba(255,255,255,.68);
+    }
+
+    .jd-dog-tail{
+      position:absolute;
+      right:-10px;
+      bottom:9px;
+      width:16px;
+      height:30px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#ffdca8,#f1be73);
+      border:2px solid rgba(255,255,255,.55);
+      transform:rotate(24deg);
+      transform-origin:20% 100%;
+      animation:jdDogTailCute .82s ease-in-out infinite;
+    }
+
+    @keyframes jdDogTailCute{
+      0%,100%{ transform:rotate(24deg); }
+      50%{ transform:rotate(46deg); }
+    }
+
+    .jd-dog-cape{
+      position:absolute;
+      left:50%;
+      top:54px;
+      width:36px;
+      height:34px;
+      transform:translateX(-50%);
+      background:linear-gradient(180deg,#ffb7d3,#ff7fb0);
+      clip-path:polygon(50% 0%, 100% 18%, 82% 100%, 50% 82%, 18% 100%, 0% 18%);
+      opacity:.92;
+      z-index:-1;
+      filter:drop-shadow(0 6px 10px rgba(239,68,68,.12));
+      transition:all .16s ease;
+    }
+
+    .jd-dog-float-paw{
+      position:absolute;
+      right:-2px;
+      top:-8px;
+      width:30px;
+      height:30px;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      background:#fff8de;
+      border:2px solid #ffe49f;
+      font-size:15px;
+      box-shadow:0 6px 12px rgba(255,208,115,.16);
+      animation:jdDogPawCute 1.2s ease-in-out infinite;
+    }
+
+    @keyframes jdDogPawCute{
+      0%,100%{ transform:translateY(0) rotate(0deg); }
+      50%{ transform:translateY(-4px) rotate(8deg); }
+    }
+
+    #jd-avatar.avatar-jump .jd-dog-ear.left{
+      transform:rotate(-12deg) translateY(-2px);
+    }
+    #jd-avatar.avatar-jump .jd-dog-ear.right{
+      transform:rotate(12deg) translateY(-2px);
+    }
+    #jd-avatar.avatar-jump .jd-dog-arm.left{
+      transform:rotate(-26deg) translateY(-3px);
+    }
+    #jd-avatar.avatar-jump .jd-dog-arm.right{
+      transform:rotate(26deg) translateY(-3px);
+    }
+    #jd-avatar.avatar-jump .jd-dog-leg.left{
+      transform:rotate(10deg);
+    }
+    #jd-avatar.avatar-jump .jd-dog-leg.right{
+      transform:rotate(-10deg);
+    }
+    #jd-avatar.avatar-jump .jd-dog-cape{
+      transform:translateX(-50%) translateY(4px) scaleY(1.08);
+    }
+
+    #jd-avatar.avatar-duck .jd-dog-ear.left{
+      transform:rotate(-36deg) translateY(4px);
+    }
+    #jd-avatar.avatar-duck .jd-dog-ear.right{
+      transform:rotate(36deg) translateY(4px);
+    }
+    #jd-avatar.avatar-duck .jd-dog-arm.left{
+      transform:rotate(44deg) translateY(4px);
+    }
+    #jd-avatar.avatar-duck .jd-dog-arm.right{
+      transform:rotate(-44deg) translateY(4px);
+    }
+    #jd-avatar.avatar-duck .jd-dog-cape{
+      transform:translateX(-50%) scaleY(.78);
+    }
+
+    #jd-avatar.mood-happy .jd-dog-mouth{
+      width:14px;
+      height:7px;
+      border-bottom:3px solid #de7a89;
+      border-radius:0 0 12px 12px;
+    }
+
+    #jd-avatar.mood-focus .jd-dog-mouth{
+      width:12px;
+      height:4px;
+      border-bottom:3px solid #cc7b86;
+      border-radius:0 0 8px 8px;
+    }
+
+    #jd-avatar.mood-wow .jd-dog-mouth{
+      width:10px;
+      height:10px;
+      border:3px solid #de7a89;
+      border-top:0;
+      border-radius:0 0 12px 12px;
+    }
+
+    #jd-avatar.mood-sad .jd-dog-mouth{
+      width:14px;
+      height:7px;
+      border-top:3px solid #cc7b86;
+      border-bottom:0;
+      border-radius:12px 12px 0 0;
+      bottom:2px;
+    }
+
+    #jd-avatar.mood-wow .jd-dog-brow.left{
+      transform:translateY(-2px) rotate(-16deg);
+    }
+    #jd-avatar.mood-wow .jd-dog-brow.right{
+      transform:translateY(-2px) rotate(16deg);
+    }
+
+    #jd-avatar.mood-focus .jd-dog-brow.left{
+      transform:translateY(1px) rotate(8deg);
+    }
+    #jd-avatar.mood-focus .jd-dog-brow.right{
+      transform:translateY(1px) rotate(-8deg);
+    }
+
+    #jd-avatar.mood-sad .jd-dog-brow.left{
+      transform:translateY(2px) rotate(18deg);
+    }
+    #jd-avatar.mood-sad .jd-dog-brow.right{
+      transform:translateY(2px) rotate(-18deg);
+    }
+
+    /* cute merged tweak: แก้มเด้ง + ตาวิ้งตอน wow */
+    #jd-avatar.mood-wow .jd-dog-cheek{
+      transform:scale(1.15);
+    }
+    #jd-avatar.mood-wow .jd-dog-eye::after{
+      transform:scale(1.3);
+      opacity:1;
+    }
+
+    #jd-avatar.mood-fever .jd-dog-body{
+      background:linear-gradient(180deg,#ffe89e,#ffbf5f);
+      box-shadow:
+        0 8px 16px rgba(63,122,156,.12),
+        0 0 24px rgba(255,185,92,.24);
+    }
+
+    #jd-avatar.mood-fever .jd-dog-badge{
+      background:#fff;
+      color:#ef4444;
+      border-color:#ffd59e;
+      transform:translateX(-50%) scale(1.08);
+    }
+
+    #jd-avatar.mood-fever .jd-dog-float-paw{
+      background:#fff2bc;
+      animation:jdDogPawFeverCute .72s ease-in-out infinite;
+    }
+
+    @keyframes jdDogPawFeverCute{
+      0%,100%{ transform:translateY(0) rotate(0deg) scale(1); }
+      50%{ transform:translateY(-5px) rotate(10deg) scale(1.12); }
+    }
+
+    #jd-avatar.mood-fever .jd-dog-cape{
+      background:linear-gradient(180deg,#ffbf78,#ff7a7a);
+    }
+
+    #jd-avatar.mood-bossdown{
+      animation:jdDogCheerCute .48s ease-in-out infinite alternate;
+    }
+
+    @keyframes jdDogCheerCute{
+      from{ transform:translateY(-2px) scale(1.02) rotate(-2deg); }
+      to{ transform:translateY(-10px) scale(1.06) rotate(2deg); }
+    }
+
+    /* cute merged tweak: หางแรงขึ้นตอน boss down */
+    #jd-avatar.mood-bossdown .jd-dog-tail{
+      animation-duration:.42s;
+    }
+
+    #jd-avatar.rank-s .jd-dog-body{
+      background:linear-gradient(180deg,#ffe694,#ffcf52);
+    }
+    #jd-avatar.rank-a .jd-dog-body{
+      background:linear-gradient(180deg,#c7f3a5,#7ed957);
+    }
+    #jd-avatar.rank-b .jd-dog-body{
+      background:linear-gradient(180deg,#aee8ff,#67c7ff);
+    }
+    #jd-avatar.rank-c .jd-dog-body{
+      background:linear-gradient(180deg,#ffd8b0,#ffb76b);
+    }
+    #jd-avatar.rank-d .jd-dog-body{
+      background:linear-gradient(180deg,#ffd2d2,#ff8f8f);
+    }
 
     #jd-obstacles{
       position:absolute;
@@ -799,11 +1219,9 @@
       .hero,.menu-grid{
         grid-template-columns:1fr;
       }
-
       .hud-row,.meter-row,.big-grid,.detail-grid{
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
-
       .form-grid,.research-grid{
         grid-template-columns:1fr;
       }
@@ -812,23 +1230,18 @@
     @media (max-width: 620px){
       .page{ padding:10px; }
       .menu-shell,.result-shell,.panel{ padding:14px; }
-
       .hud-row,.meter-row,.big-grid,.detail-grid,.control-row{
         grid-template-columns:1fr;
       }
-
       .result-head{
         grid-template-columns:1fr;
       }
-
       .hero-copy h1{
         font-size:34px;
       }
-
       #jd-play-area,.play-stage{
         min-height:58dvh;
       }
-
       .control-btn{
         min-height:58px;
       }
@@ -839,16 +1252,15 @@
   <main class="page">
     <div class="shell">
 
-      <!-- MENU -->
       <section id="view-menu">
         <div class="card menu-shell">
           <div class="hero">
             <div class="hero-copy">
               <h1>JumpDuck</h1>
-              <p>หลบสิ่งกีดขวางให้ทัน • ต่ำ = Jump • สูง = Duck • ไปให้ถึงบอสแล้วปิดให้ได้</p>
+              <p>ลูกหมาฮีโร่วิ่งลุยด่าน • ต่ำ = Jump • สูง = Duck • ไปให้ถึงบอสแล้วปิดให้ได้</p>
               <div class="hero-badges">
+                <div class="pill">🐶 Dog Hero</div>
                 <div class="pill">🏃 Fitness Zone</div>
-                <div class="pill">⚡ Fun Pack v2</div>
                 <div class="pill">👾 Boss + Final Rush</div>
               </div>
             </div>
@@ -942,7 +1354,6 @@
         </div>
       </section>
 
-      <!-- PLAY -->
       <section id="view-play" class="hidden">
         <div class="play-shell">
 
@@ -997,10 +1408,39 @@
                 <div id="jd-hitline"></div>
                 <div id="jd-ground"></div>
 
-                <div id="jd-avatar" class="avatar-idle" aria-hidden="true">
-                  <div class="body"></div>
-                  <div class="face"></div>
-                  <div class="mark">⚡</div>
+                <div id="jd-avatar" class="avatar-idle dog-hero mood-happy" aria-hidden="true">
+                  <div class="jd-dog-head">
+                    <div class="jd-dog-ear left"></div>
+                    <div class="jd-dog-ear right"></div>
+
+                    <div class="jd-dog-face">
+                      <div class="jd-dog-brow left"></div>
+                      <div class="jd-dog-brow right"></div>
+
+                      <div class="jd-dog-eye left"></div>
+                      <div class="jd-dog-eye right"></div>
+
+                      <div class="jd-dog-cheek left"></div>
+                      <div class="jd-dog-cheek right"></div>
+
+                      <div class="jd-dog-muzzle">
+                        <div class="jd-dog-nose"></div>
+                        <div class="jd-dog-mouth"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="jd-dog-body">
+                    <div class="jd-dog-badge">★</div>
+                    <div class="jd-dog-arm left"></div>
+                    <div class="jd-dog-arm right"></div>
+                    <div class="jd-dog-leg left"></div>
+                    <div class="jd-dog-leg right"></div>
+                    <div class="jd-dog-tail"></div>
+                  </div>
+
+                  <div class="jd-dog-cape"></div>
+                  <div class="jd-dog-float-paw">🐾</div>
                 </div>
 
                 <div id="jd-obstacles"></div>
@@ -1040,7 +1480,6 @@
         </div>
       </section>
 
-      <!-- RESULT -->
       <section id="view-result" class="hidden">
         <div class="card result-shell">
 
@@ -1131,7 +1570,7 @@
           </div>
 
           <div class="footer-note">
-            JumpDuck • Fitness Zone • final merged UI
+            JumpDuck • Dog Hero • Fitness Zone
           </div>
         </div>
       </section>
@@ -1139,6 +1578,6 @@
     </div>
   </main>
 
-  <script src="./js/jumpduck.js?v=20260414f-JUMPDuck-FUNPACK-V1-V4-FITNESS-ZONE-AUTOSTART-FINAL"></script>
+  <script src="./js/jumpduck.js?v=20260414g-JUMPDuck-DOGHERO-FITNESSZONE-FLOW-FINAL"></script>
 </body>
 </html>
