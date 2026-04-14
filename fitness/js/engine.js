@@ -1,10 +1,10 @@
 // === /fitness/js/engine.js ===
 // Shadow Breaker engine
-// PATCH v20260412m-SB-ENGINE-APPS-SCRIPT-MAPPER
+// PATCH v20260412n-SB-ENGINE-HIT-BURST-POPUP-SFX
 
 'use strict';
 
-const SB_ENGINE_VERSION = 'v20260412m-SB-ENGINE-APPS-SCRIPT-MAPPER';
+const SB_ENGINE_VERSION = 'v20260412n-SB-ENGINE-HIT-BURST-POPUP-SFX';
 const SB_GLOBAL_KEY = '__SB_ENGINE_SINGLETON__';
 
 export function initShadowBreaker(ctx = {}) {
@@ -147,7 +147,8 @@ function createState(cfg, sessionId) {
       actionHistory: [],
       passiveCueKey: '',
       bossCycleIndex: 0,
-      musicStateKey: ''
+      musicStateKey: '',
+      audioReady: false
     },
     score: {
       total: 0,
@@ -350,6 +351,7 @@ async function startSession(engine, plan) {
   if (engine.started || engine.ended) return;
 
   engine.started = true;
+  ensureAudioReady(state);
   state.session.startedAt = Date.now();
   state.session.phase = 'countdown';
 
@@ -538,6 +540,7 @@ async function runBossRound(engine, round) {
       ui.coachMoment('บอสโกรธแล้ว เร็วขึ้นอีกนิด', 'warn');
       ui.showPhaseCard('ALERT', 'RAGE MODE', 'บอสเร็วและดุดันขึ้น', 'rage', 900);
       ui.shake('soft');
+      playSfx(state, 'rage');
       syncMusicState(state, logger, 'boss_rage_start');
       pushBossPhaseLog(state, 'rage_start');
 
@@ -551,6 +554,7 @@ async function runBossRound(engine, round) {
       state.boss.finisherTriggered = true;
       ui.showPhaseCard('FINAL', 'FINISHER WINDOW', 'อีกไม่กี่หมัด ปิดบอสให้ได้', 'finisher', 900);
       ui.shake('soft');
+      playSfx(state, 'finisher');
       ui.coachMoment('อีกไม่กี่หมัด ปิดบอสให้ได้!', 'hype');
       syncMusicState(state, logger, 'boss_finisher_start');
       pushBossPhaseLog(state, 'finisher_start');
@@ -807,6 +811,10 @@ function maybeTimeoutExpected(state, ui, logger) {
     roundIndex: state.session.roundIndex
   });
 
+  const anchor = currentTargetAnchor(ui);
+  ui.showPopup('MISS', 'miss', anchor.x, anchor.y);
+  playSfx(state, 'miss');
+
   ui.missTarget();
   ui.shake('soft');
   state.runtime.currentExpected = null;
@@ -909,6 +917,26 @@ function registerHit(action, exp, state, ui, logger, meta) {
     finisherHit
   });
 
+  const anchor = currentTargetAnchor(ui);
+  const popupTone = finisherHit ? 'finisher' : judgment;
+  const popupLabel = finisherHit
+    ? `FINISHER! +${scoreDelta}`
+    : `${cueForJudgment(judgment)} +${scoreDelta}`;
+
+  ui.spawnBurst(popupTone, anchor.x, anchor.y);
+  ui.showPopup(popupLabel, popupTone, anchor.x, anchor.y);
+
+  playSfx(
+    state,
+    finisherHit
+      ? 'finisher'
+      : judgment === 'perfect'
+        ? 'perfect'
+        : judgment === 'late'
+          ? 'late'
+          : 'good'
+  );
+
   ui.hitTarget();
   state.runtime.currentExpected = null;
   ui.setBossBar(state);
@@ -934,6 +962,8 @@ function registerHit(action, exp, state, ui, logger, meta) {
 }
 
 function registerMiss(action, exp, state, ui, logger, meta) {
+  const anchor = currentTargetAnchor(ui);
+
   if (isNearMissWindow(exp)) {
     const scoreDelta = scoreForJudgment(exp.scoreValue, 'nearMiss');
 
@@ -954,6 +984,10 @@ function registerMiss(action, exp, state, ui, logger, meta) {
       roundIndex: state.session.roundIndex,
       timingDeltaMs: Math.round(nowMs() - exp.hitAtMs)
     });
+
+    ui.spawnBurst('near', anchor.x, anchor.y);
+    ui.showPopup(`NEAR +${scoreDelta}`, 'near', anchor.x, anchor.y);
+    playSfx(state, 'near');
 
     ui.nearMissTarget();
     ui.shake('soft');
@@ -978,6 +1012,9 @@ function registerMiss(action, exp, state, ui, logger, meta) {
     source: meta.source || 'manual',
     roundIndex: state.session.roundIndex
   });
+
+  ui.showPopup('MISS', 'miss', anchor.x, anchor.y);
+  playSfx(state, 'miss');
 
   ui.missTarget();
   ui.shake('soft');
@@ -1565,6 +1602,77 @@ function createUiShell() {
         animation:sbComboFxIn .72s ease-out forwards;
       }
 
+      .sb-fx-layer{
+        position:absolute;
+        inset:96px 16px 170px;
+        z-index:26;
+        pointer-events:none;
+        overflow:hidden;
+      }
+
+      .sb-hit-popup{
+        position:absolute;
+        left:var(--x, 50%);
+        top:var(--y, 50%);
+        transform:translate(-50%,-50%);
+        padding:8px 12px;
+        border-radius:999px;
+        font-weight:1000;
+        font-size:14px;
+        color:#fff;
+        white-space:nowrap;
+        box-shadow:0 10px 22px rgba(0,0,0,.18);
+        opacity:0;
+        animation:sbPopupFloat .72s ease-out forwards;
+      }
+      .sb-hit-popup.is-perfect{
+        background:linear-gradient(180deg, #ffe066 0%, #ffb703 100%);
+        color:#442800;
+      }
+      .sb-hit-popup.is-good{
+        background:linear-gradient(180deg, #7dd3fc 0%, #3b82f6 100%);
+      }
+      .sb-hit-popup.is-late{
+        background:linear-gradient(180deg, #fbbf24 0%, #f97316 100%);
+      }
+      .sb-hit-popup.is-near{
+        background:linear-gradient(180deg, #fcd34d 0%, #f59e0b 100%);
+        color:#402200;
+      }
+      .sb-hit-popup.is-miss{
+        background:linear-gradient(180deg, #fca5a5 0%, #ef4444 100%);
+      }
+      .sb-hit-popup.is-finisher{
+        background:linear-gradient(180deg, #fff4b3 0%, #ffd166 48%, #ff9f1c 100%);
+        color:#4f2b00;
+      }
+
+      .sb-burst{
+        position:absolute;
+        left:var(--x, 50%);
+        top:var(--y, 50%);
+        width:0;
+        height:0;
+        pointer-events:none;
+      }
+      .sb-burst-piece{
+        position:absolute;
+        left:0;
+        top:0;
+        width:10px;
+        height:10px;
+        border-radius:3px;
+        opacity:0;
+        transform:translate(0,0) scale(.7);
+        animation:sbBurstFly .46s ease-out forwards;
+        box-shadow:0 4px 10px rgba(0,0,0,.15);
+      }
+      .sb-burst-piece.is-ring{
+        border-radius:999px;
+        width:12px;
+        height:12px;
+      }
+
       .sb-stage{
         position:absolute;
         inset:0;
@@ -2099,9 +2207,32 @@ function createUiShell() {
         to{ opacity:0; transform:scale(1.08); filter:brightness(1.25); }
       }
 
-      @keyframes sbRingShrink{
-        from{ transform:scale(1.95); opacity:.94; }
-        to{ transform:scale(1.0); opacity:.22; }
+      @keyframes sbPopupFloat{
+        0%{
+          opacity:0;
+          transform:translate(-50%,-50%) scale(.82);
+        }
+        18%{
+          opacity:1;
+          transform:translate(-50%,-58%) scale(1);
+        }
+        100%{
+          opacity:0;
+          transform:translate(-50%,-110%) scale(.98);
+        }
+      }
+
+      @keyframes sbBurstFly{
+        0%{
+          opacity:1;
+          transform:translate(0,0) scale(.7);
+          filter:brightness(1.05);
+        }
+        100%{
+          opacity:0;
+          transform:translate(var(--dx, 0px), var(--dy, 0px)) scale(.16) rotate(var(--rot, 0deg));
+          filter:brightness(1.2);
+        }
       }
 
       @keyframes sbFinisherFlash{
@@ -2218,6 +2349,7 @@ function createUiShell() {
     </div>
 
     <div class="sb-combo-fx" data-sb-combo-fx></div>
+    <div class="sb-fx-layer" data-sb-fx-layer></div>
 
     <div class="sb-hud sb-top" data-sb-top></div>
     <div class="sb-hud sb-left" data-sb-left></div>
@@ -2255,6 +2387,7 @@ function bindUiRefs(root) {
   const right = root.querySelector('[data-sb-right]');
   const stage = root.querySelector('[data-sb-stage]');
   const targetLayer = root.querySelector('[data-sb-target-layer]');
+  const fxLayer = root.querySelector('[data-sb-fx-layer]');
   const cue = root.querySelector('[data-sb-cue]');
   const coach = root.querySelector('[data-sb-coach]');
   const overlay = root.querySelector('[data-sb-overlay]');
@@ -2278,6 +2411,7 @@ function bindUiRefs(root) {
     right,
     stage,
     targetLayer,
+    fxLayer,
     cue,
     coach,
     overlay,
@@ -2354,6 +2488,60 @@ function bindUiRefs(root) {
       comboFx.classList.remove('is-on');
       void comboFx.offsetWidth;
       comboFx.classList.add('is-on');
+    },
+
+    showPopup(label, tone = 'good', x = '50%', y = '50%') {
+      if (!fxLayer) return;
+
+      const el = document.createElement('div');
+      el.className = `sb-hit-popup is-${tone || 'good'}`;
+      el.style.setProperty('--x', typeof x === 'number' ? `${x}px` : String(x));
+      el.style.setProperty('--y', typeof y === 'number' ? `${y}px` : String(y));
+      el.textContent = label || 'HIT!';
+      fxLayer.appendChild(el);
+
+      setTimeout(() => el.remove(), 760);
+    },
+
+    spawnBurst(tone = 'good', x = '50%', y = '50%') {
+      if (!fxLayer) return;
+
+      const burst = document.createElement('div');
+      burst.className = 'sb-burst';
+      burst.style.setProperty('--x', typeof x === 'number' ? `${x}px` : String(x));
+      burst.style.setProperty('--y', typeof y === 'number' ? `${y}px` : String(y));
+
+      const palette = tone === 'perfect'
+        ? ['#fff7ae', '#ffe066', '#ffcf33', '#ffffff']
+        : tone === 'late'
+          ? ['#ffd6a5', '#ffad66', '#f97316', '#fff7ed']
+          : tone === 'near'
+            ? ['#fde68a', '#fbbf24', '#f59e0b', '#fff7ed']
+            : tone === 'miss'
+              ? ['#fecaca', '#f87171', '#ef4444', '#fff1f2']
+              : tone === 'finisher'
+                ? ['#fff4b3', '#ffd166', '#ff9f1c', '#ffffff']
+                : ['#bfdbfe', '#7dd3fc', '#3b82f6', '#eff6ff'];
+
+      const dirs = [
+        [-48, -18], [-28, -42], [0, -52], [28, -42],
+        [48, -18], [40, 18], [18, 42], [0, 52],
+        [-18, 42], [-40, 18]
+      ];
+
+      dirs.forEach((pair, i) => {
+        const piece = document.createElement('div');
+        piece.className = `sb-burst-piece ${i % 3 === 0 ? 'is-ring' : ''}`;
+        piece.style.background = palette[i % palette.length];
+        piece.style.setProperty('--dx', `${pair[0]}px`);
+        piece.style.setProperty('--dy', `${pair[1]}px`);
+        piece.style.setProperty('--rot', `${(i * 36) - 50}deg`);
+        piece.style.animationDelay = `${i * 8}ms`;
+        burst.appendChild(piece);
+      });
+
+      fxLayer.appendChild(burst);
+      setTimeout(() => burst.remove(), 520);
     },
 
     setBossBar(state) {
@@ -2535,6 +2723,7 @@ function bindGlobalInputs(engine) {
 
   ui.pad.querySelectorAll('button[data-action]').forEach(btn => {
     btn.addEventListener('click', () => {
+      ensureAudioReady(state);
       consumeAction(btn.dataset.action, state, ui, logger, { source: 'pad' });
     });
   });
@@ -2564,18 +2753,21 @@ function bindGlobalInputs(engine) {
     };
     const action = map[ev.code];
     if (!action) return;
+    ensureAudioReady(state);
     consumeAction(action, state, ui, logger, { source: 'keyboard' });
   };
 
   const customHandler = (ev) => {
     const action = ev?.detail?.action;
     if (!action) return;
+    ensureAudioReady(state);
     consumeAction(action, state, ui, logger, {
       source: ev?.detail?.source || 'custom_event'
     });
   };
 
   const shootHandler = () => {
+    ensureAudioReady(state);
     consumeAction('jab', state, ui, logger, { source: 'hha:shoot' });
   };
 
@@ -3705,6 +3897,120 @@ async function sendAppsScriptPayload(state, logger, endpointOverride = '') {
 async function playPhaseCard(ui, kicker, title, sub = '', tone = 'normal', ms = 950) {
   ui.showPhaseCard(kicker, title, sub, tone, ms);
   await sleep(Math.max(320, ms - 40));
+}
+
+function currentTargetAnchor(ui) {
+  try {
+    const body = ui?.targetLayer?.querySelector('.sb-target-body');
+    if (!body || !ui.fxLayer) return { x: '50%', y: '50%' };
+
+    const bodyRect = body.getBoundingClientRect();
+    const fxRect = ui.fxLayer.getBoundingClientRect();
+
+    const x = bodyRect.left - fxRect.left + (bodyRect.width * 0.78);
+    const y = bodyRect.top - fxRect.top + (bodyRect.height * 0.22);
+
+    return { x, y };
+  } catch (_) {
+    return { x: '50%', y: '50%' };
+  }
+}
+
+function getAudioCtx() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+
+  if (!window.__SB_AUDIO_CTX__) {
+    try {
+      window.__SB_AUDIO_CTX__ = new AC();
+    } catch (_) {
+      return null;
+    }
+  }
+  return window.__SB_AUDIO_CTX__;
+}
+
+function ensureAudioReady(state) {
+  const ctx = getAudioCtx();
+  if (!ctx) return null;
+
+  if (ctx.state === 'suspended') {
+    try { ctx.resume(); } catch (_) {}
+  }
+  state.runtime.audioReady = ctx.state === 'running';
+  return ctx;
+}
+
+function playTone(ctx, {
+  freq = 440,
+  type = 'sine',
+  attack = 0.005,
+  decay = 0.12,
+  gain = 0.04,
+  when = 0
+} = {}) {
+  if (!ctx) return;
+
+  const t0 = ctx.currentTime + when;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(gain, t0 + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + decay);
+
+  osc.connect(g);
+  g.connect(ctx.destination);
+
+  osc.start(t0);
+  osc.stop(t0 + attack + decay + 0.02);
+}
+
+function playSfx(state, kind = 'hit') {
+  const ctx = ensureAudioReady(state);
+  if (!ctx) return;
+
+  if (kind === 'perfect') {
+    playTone(ctx, { freq: 740, type: 'triangle', gain: 0.05, decay: 0.09 });
+    playTone(ctx, { freq: 980, type: 'triangle', gain: 0.035, decay: 0.08, when: 0.03 });
+    return;
+  }
+
+  if (kind === 'good' || kind === 'hit') {
+    playTone(ctx, { freq: 520, type: 'triangle', gain: 0.045, decay: 0.08 });
+    playTone(ctx, { freq: 660, type: 'triangle', gain: 0.03, decay: 0.06, when: 0.02 });
+    return;
+  }
+
+  if (kind === 'late') {
+    playTone(ctx, { freq: 420, type: 'sawtooth', gain: 0.035, decay: 0.08 });
+    return;
+  }
+
+  if (kind === 'near') {
+    playTone(ctx, { freq: 360, type: 'triangle', gain: 0.03, decay: 0.07 });
+    return;
+  }
+
+  if (kind === 'miss') {
+    playTone(ctx, { freq: 210, type: 'square', gain: 0.03, decay: 0.11 });
+    return;
+  }
+
+  if (kind === 'rage') {
+    playTone(ctx, { freq: 260, type: 'sawtooth', gain: 0.05, decay: 0.14 });
+    playTone(ctx, { freq: 190, type: 'square', gain: 0.03, decay: 0.16, when: 0.04 });
+    return;
+  }
+
+  if (kind === 'finisher') {
+    playTone(ctx, { freq: 620, type: 'triangle', gain: 0.055, decay: 0.14 });
+    playTone(ctx, { freq: 930, type: 'triangle', gain: 0.05, decay: 0.16, when: 0.03 });
+    playTone(ctx, { freq: 1240, type: 'triangle', gain: 0.04, decay: 0.18, when: 0.06 });
+  }
 }
 
 function waitOverlayClick(root, selector) {
