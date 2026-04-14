@@ -1,634 +1,872 @@
-// /herohealth/vr-goodjunk/goodjunk-duet-room-bootstrap.js
-// GoodJunk Duet Room Bootstrap + Shared Final Summary Bridge
-// PATCH v20260413b-GJ-DUET-ROOM-BOOTSTRAP-PROD
-
 (function () {
   'use strict';
 
   const qs = new URLSearchParams(location.search);
+
+  const ctx = {
+    pid: String(qs.get('pid') || 'anon').trim(),
+    name: String(qs.get('name') || qs.get('nick') || 'Hero').trim(),
+    role: String(qs.get('role') || (qs.get('host') === '1' ? 'host' : 'guest')).trim().toLowerCase(),
+    roomId: String(qs.get('roomId') || qs.get('room') || '').trim().toUpperCase(),
+    game: 'goodjunk',
+    mode: 'duet'
+  };
+
   const DEBUG = qs.get('debug') === '1';
 
-  const roomId = String(qs.get('roomId') || qs.get('room') || '').trim();
-  const pid = String(qs.get('pid') || 'anon').trim();
-  const name = String(qs.get('name') || qs.get('nick') || 'Hero').trim();
-  const role = String(qs.get('role') || '').trim().toLowerCase();
-  const hostFlag = String(qs.get('host') || '0').trim();
-  const pagePath = String(location.pathname || '').toLowerCase();
+  const FALLBACK_ROOM_PREFIX = 'DU-';
+  const LOCAL_KEY = ctx.roomId ? `HHA_GJ_DUET_ROOM__${ctx.roomId}` : 'HHA_GJ_DUET_ROOM__DEFAULT';
+  const CHANNEL_KEY = ctx.roomId ? `hha-gj-duet-room-${ctx.roomId}` : 'hha-gj-duet-room-default';
 
-  const runtimePathDefault = './goodjunk-duet-runtime.html';
-  const hubDefault = qs.get('hub') || '../hub-v2.html';
+  const bc = ('BroadcastChannel' in window)
+    ? new BroadcastChannel(CHANNEL_KEY)
+    : null;
+
+  let firebaseDb = null;
+  let firebaseReady = false;
+  let localListeners = [];
+  let beforeUnloadBound = false;
 
   function dlog() {
     if (!DEBUG) return;
     try { console.log('[GJ-DUET-BOOT]', ...arguments); } catch (_) {}
   }
 
-  function clampNum(v, fallback) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : fallback;
+  function cleanPath(path) {
+    return String(path || '')
+      .replace(/\/+/g, '/')
+      .replace(/\/$/, '');
   }
 
-  function firstNonEmpty() {
-    for (let i = 0; i < arguments.length; i++) {
-      const v = String(arguments[i] || '').trim();
-      if (v) return v;
-    }
-    return '';
+  function now() {
+    return Date.now();
   }
 
-  function isRuntimePage() {
-    return pagePath.indexOf('goodjunk-duet-runtime') >= 0;
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  function isHostLike() {
-    return role === 'host' || hostFlag === '1';
+  function clamp(v, a, b) {
+    return Math.max(a, Math.min(b, v));
   }
 
-  function randomSuffix() {
-    return Math.random().toString(36).slice(2, 8).toUpperCase();
+  function ensureRoomId(raw) {
+    const value = String(raw || '').trim().toUpperCase();
+    if (value) return value;
+    return `${FALLBACK_ROOM_PREFIX}${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   }
 
-  function createMatchId() {
-    return `MT-${Date.now()}-${randomSuffix()}`;
+  function ensureRole(raw) {
+    const value = String(raw || '').trim().toLowerCase();
+    return value === 'host' ? 'host' : 'guest';
   }
 
-  function buildLocalSummaryKey(matchId) {
-    return `HHA_GJ_DUET_SHARED_SUMMARY__${roomId || 'noroom'}__${matchId || 'default'}`;
+  function getRoomId() {
+    if (!ctx.roomId) ctx.roomId = ensureRoomId('');
+    return ctx.roomId;
   }
 
-  function buildLocalStartKey() {
-    return `HHA_GJ_DUET_RUNTIME_START__${roomId || 'noroom'}`;
+  function getRole() {
+    ctx.role = ensureRole(ctx.role || (qs.get('host') === '1' ? 'host' : 'guest'));
+    return ctx.role;
   }
 
-  function buildLocalLatestMatchKey() {
-    return `HHA_GJ_DUET_LATEST_MATCH__${roomId || 'noroom'}`;
+  function isHost() {
+    return getRole() === 'host';
   }
 
-  function safeJsonParse(text, fallback) {
-    try { return JSON.parse(text); } catch (_) { return fallback; }
+  function defaultRoomRootPath() {
+    return `/hha-battle/goodjunk/duetRooms/${getRoomId()}`;
   }
 
-  function normalizePayload(payload, matchId) {
-    const src = payload && typeof payload === 'object' ? payload : {};
-    const finalMatchId = String(matchId || src.matchId || 'default').trim() || 'default';
+  function getRoomRootPath() {
+    const explicit = String(qs.get('roomPath') || window.HHA_GJ_DUET_ROOM_PATH || '').trim();
+    return cleanPath(explicit || defaultRoomRootPath());
+  }
 
-    return {
-      source: 'goodjunk-duet-room-bootstrap',
-      final: true,
-      mode: 'DUET',
-      roomId: roomId || String(src.roomId || ''),
-      matchId: finalMatchId,
-      pid: String(src.pid || pid || 'anon'),
-      name: String(src.name || name || 'Hero'),
-      score: Math.max(0, clampNum(src.score, 0)),
-      miss: Math.max(0, clampNum(src.miss, 0)),
-      good: Math.max(0, clampNum(src.good, 0)),
-      junk: Math.max(0, clampNum(src.junk, 0)),
-      streak: Math.max(0, clampNum(src.streak, 0)),
-      grade: String(src.grade || 'C'),
-      reason: String(src.reason || 'timeup'),
-      ts: clampNum(src.ts, Date.now()),
-      hub: String(src.hub || hubDefault),
-      by: {
-        pid: String(src.by && src.by.pid || pid || 'anon'),
-        name: String(src.by && src.by.name || name || 'Hero')
+  function getMatchPath(matchId) {
+    return cleanPath(`${getRoomRootPath()}/matches/${String(matchId || '').trim()}`);
+  }
+
+  function getRunPath() {
+    return cleanPath(`${getRoomRootPath()}/currentRun`);
+  }
+
+  function getPlayersPath() {
+    return cleanPath(`${getRoomRootPath()}/players`);
+  }
+
+  function getPlayerPath(pid) {
+    return cleanPath(`${getPlayersPath()}/${String(pid || ctx.pid || 'anon').trim()}`);
+  }
+
+  function detectFirebaseDb() {
+    if (firebaseReady && firebaseDb) return firebaseDb;
+
+    try {
+      if (window.HHA_FIREBASE_DB) {
+        firebaseDb = window.HHA_FIREBASE_DB;
+        firebaseReady = true;
+        return firebaseDb;
       }
-    };
+
+      if (window.firebase && typeof window.firebase.database === 'function') {
+        firebaseDb = window.firebase.database();
+        firebaseReady = !!firebaseDb;
+        return firebaseDb;
+      }
+    } catch (_) {}
+
+    firebaseDb = null;
+    firebaseReady = false;
+    return null;
   }
 
-  function normalizeStartPayload(payload) {
-    const src = payload && typeof payload === 'object' ? payload : {};
-    return {
-      roomId: roomId,
-      matchId: String(src.matchId || '').trim(),
-      startAt: clampNum(src.startAt, Date.now()),
-      runtimePath: String(src.runtimePath || runtimePathDefault),
-      hub: String(src.hub || hubDefault),
-      diff: String(src.diff || qs.get('diff') || 'normal'),
-      time: String(src.time || qs.get('time') || '90'),
-      view: String(src.view || qs.get('view') || 'mobile'),
+  function hasFirebase() {
+    return !!detectFirebaseDb();
+  }
+
+  function dbMode() {
+    return hasFirebase() ? 'firebase' : 'local';
+  }
+
+  function ref(path) {
+    const db = detectFirebaseDb();
+    if (!db) throw new Error('firebase db unavailable');
+    return db.ref(cleanPath(path));
+  }
+
+  function readLocalRoom() {
+    try {
+      const raw = localStorage.getItem(LOCAL_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeLocalRoom(next) {
+    try {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(next || {}));
+    } catch (_) {}
+
+    try {
+      if (bc) bc.postMessage({ type: 'room:update', value: next || {} });
+    } catch (_) {}
+
+    try {
+      window.dispatchEvent(new CustomEvent('hha:gjduet-room-local-update', {
+        detail: next || {}
+      }));
+    } catch (_) {}
+  }
+
+  function ensureLocalRoomShape() {
+    const current = readLocalRoom();
+    if (current && typeof current === 'object') return current;
+
+    const initial = {
+      roomId: getRoomId(),
       mode: 'duet',
-      entry: 'duet',
-      ts: clampNum(src.ts, Date.now())
+      game: 'goodjunk',
+      createdAt: now(),
+      updatedAt: now(),
+      status: 'lobby',
+      activeMatchId: '',
+      currentRun: null,
+      players: {},
+      matches: {}
     };
+
+    writeLocalRoom(initial);
+    return initial;
   }
 
-  function readLocalSummary(matchId) {
-    try {
-      const raw = localStorage.getItem(buildLocalSummaryKey(matchId));
-      if (!raw) return null;
-      const parsed = safeJsonParse(raw, null);
-      return parsed ? normalizePayload(parsed, matchId) : null;
-    } catch (_) {
-      return null;
+  function mergeLocalRoom(mutator) {
+    const current = ensureLocalRoomShape();
+    const draft = JSON.parse(JSON.stringify(current));
+    const output = mutator(draft) || draft;
+    output.updatedAt = now();
+    writeLocalRoom(output);
+    return output;
+  }
+
+  function getRoomSnapshotValue(snap) {
+    if (!snap) return null;
+    if (typeof snap.val === 'function') return snap.val();
+    return snap.value || null;
+  }
+
+  async function readRoom() {
+    if (hasFirebase()) {
+      const snap = await ref(getRoomRootPath()).once('value');
+      return getRoomSnapshotValue(snap);
     }
+    return ensureLocalRoomShape();
   }
 
-  function writeLocalSummary(payload, matchId) {
-    const finalPayload = normalizePayload(payload, matchId);
-    try {
-      localStorage.setItem(
-        buildLocalSummaryKey(finalPayload.matchId),
-        JSON.stringify(finalPayload)
-      );
-    } catch (_) {}
-    return finalPayload;
-  }
+  async function ensureRoom() {
+    if (hasFirebase()) {
+      const roomRef = ref(getRoomRootPath());
+      const snap = await roomRef.once('value');
+      const current = getRoomSnapshotValue(snap);
 
-  function clearLocalSummary(matchId) {
-    try {
-      localStorage.removeItem(buildLocalSummaryKey(matchId));
-    } catch (_) {}
-  }
+      if (current && typeof current === 'object') {
+        return current;
+      }
 
-  function readLocalStart() {
-    try {
-      const raw = localStorage.getItem(buildLocalStartKey());
-      if (!raw) return null;
-      const parsed = safeJsonParse(raw, null);
-      return parsed ? normalizeStartPayload(parsed) : null;
-    } catch (_) {
-      return null;
+      const initial = {
+        roomId: getRoomId(),
+        mode: 'duet',
+        game: 'goodjunk',
+        createdAt: now(),
+        updatedAt: now(),
+        status: 'lobby',
+        activeMatchId: '',
+        currentRun: null,
+        players: {}
+      };
+
+      await roomRef.set(initial);
+      return initial;
     }
+
+    return ensureLocalRoomShape();
   }
 
-  function writeLocalStart(payload) {
-    const data = normalizeStartPayload(payload);
-    try {
-      localStorage.setItem(buildLocalStartKey(), JSON.stringify(data));
-    } catch (_) {}
-    return data;
+  function bindBeforeUnloadOnce() {
+    if (beforeUnloadBound) return;
+    beforeUnloadBound = true;
+
+    window.addEventListener('beforeunload', function () {
+      try {
+        leaveRoom().catch(() => {});
+      } catch (_) {}
+    });
   }
 
-  function clearLocalStart() {
-    try {
-      localStorage.removeItem(buildLocalStartKey());
-    } catch (_) {}
-  }
+  async function setPresence(extra) {
+    bindBeforeUnloadOnce();
 
-  function readLocalLatestMatchId() {
-    try {
-      return String(localStorage.getItem(buildLocalLatestMatchKey()) || '').trim();
-    } catch (_) {
-      return '';
+    const payload = Object.assign({
+      pid: ctx.pid,
+      name: ctx.name,
+      role: getRole(),
+      online: true,
+      joinedAt: now(),
+      lastSeen: now()
+    }, extra || {});
+
+    if (hasFirebase()) {
+      const playerRef = ref(getPlayerPath(ctx.pid));
+      await playerRef.update(payload);
+
+      try {
+        playerRef.onDisconnect().update({
+          online: false,
+          lastSeen: now()
+        });
+      } catch (_) {}
+
+      return payload;
     }
-  }
 
-  function writeLocalLatestMatchId(matchId) {
-    try {
-      localStorage.setItem(buildLocalLatestMatchKey(), String(matchId || '').trim());
-    } catch (_) {}
-  }
-
-  function encodeRuntimeUrl(runtimePath, startPayload) {
-    const url = new URL(runtimePath || runtimePathDefault, location.href);
-
-    const passthroughKeys = [
-      'pid', 'name', 'nick', 'studyId', 'hub', 'zone', 'cat', 'game', 'gameId',
-      'theme', 'run', 'view', 'diff', 'time', 'seed', 'api', 'log', 'debug'
-    ];
-
-    passthroughKeys.forEach((k) => {
-      const v = qs.get(k);
-      if (v != null && v !== '') url.searchParams.set(k, v);
+    mergeLocalRoom((room) => {
+      room.players = room.players || {};
+      room.players[ctx.pid] = Object.assign({}, room.players[ctx.pid] || {}, payload);
+      return room;
     });
 
-    url.searchParams.set('roomId', roomId);
-    url.searchParams.set('room', roomId);
-    url.searchParams.set('mode', 'duet');
-    url.searchParams.set('entry', 'duet');
-    url.searchParams.set('matchId', startPayload.matchId);
-    url.searchParams.set('startAt', String(startPayload.startAt));
-    url.searchParams.set('runtimePath', String(startPayload.runtimePath || runtimePathDefault));
-    url.searchParams.set('hub', String(startPayload.hub || hubDefault));
-    url.searchParams.set('diff', String(startPayload.diff || qs.get('diff') || 'normal'));
-    url.searchParams.set('time', String(startPayload.time || qs.get('time') || '90'));
-    url.searchParams.set('view', String(startPayload.view || qs.get('view') || 'mobile'));
-    url.searchParams.set('pid', pid);
-    url.searchParams.set('name', name);
-
-    if (role) url.searchParams.set('role', role);
-    if (hostFlag) url.searchParams.set('host', hostFlag);
-
-    return url.toString();
+    return payload;
   }
 
-  function installLocalFallback() {
-    dlog('install local fallback');
-
-    async function readMatchSummary(matchId) {
-      return readLocalSummary(matchId);
+  async function leaveRoom() {
+    if (hasFirebase()) {
+      try {
+        await ref(getPlayerPath(ctx.pid)).update({
+          online: false,
+          lastSeen: now()
+        });
+      } catch (_) {}
+      return;
     }
 
-    async function publishMatchSummary(matchId, payload) {
-      return writeLocalSummary(payload, matchId);
+    mergeLocalRoom((room) => {
+      room.players = room.players || {};
+      if (room.players[ctx.pid]) {
+        room.players[ctx.pid].online = false;
+        room.players[ctx.pid].lastSeen = now();
+      }
+      return room;
+    });
+  }
+
+  async function readActiveMatchId() {
+    if (hasFirebase()) {
+      const snap = await ref(`${getRoomRootPath()}/activeMatchId`).once('value');
+      return String(getRoomSnapshotValue(snap) || '').trim();
     }
 
-    async function clearMatchSummary(matchId) {
-      clearLocalSummary(matchId);
-      return true;
+    const room = ensureLocalRoomShape();
+    return String(room.activeMatchId || '').trim();
+  }
+
+  async function writeActiveMatchId(matchId) {
+    const clean = String(matchId || '').trim();
+
+    if (hasFirebase()) {
+      await ref(getRoomRootPath()).update({
+        activeMatchId: clean,
+        updatedAt: now()
+      });
+      return clean;
     }
 
-    async function readLatestMatchId() {
-      return readLocalLatestMatchId();
+    mergeLocalRoom((room) => {
+      room.activeMatchId = clean;
+      return room;
+    });
+
+    return clean;
+  }
+
+  function buildMatchId() {
+    return 'MT-' + now() + '-' + Math.random().toString(36).slice(2, 7);
+  }
+
+  async function ensureMatchId(hostCanCreate) {
+    const allowCreate = typeof hostCanCreate === 'boolean' ? hostCanCreate : isHost();
+
+    let active = await readActiveMatchId();
+    if (active) return active;
+
+    if (allowCreate) {
+      active = buildMatchId();
+
+      if (hasFirebase()) {
+        const roomRef = ref(getRoomRootPath());
+        const matchRef = ref(getMatchPath(active));
+
+        await roomRef.update({
+          activeMatchId: active,
+          updatedAt: now(),
+          status: 'lobby'
+        });
+
+        await matchRef.update({
+          matchId: active,
+          createdAt: now(),
+          updatedAt: now(),
+          mode: 'duet',
+          game: 'goodjunk',
+          roomId: getRoomId(),
+          finalSummary: null
+        });
+
+        return active;
+      }
+
+      mergeLocalRoom((room) => {
+        room.activeMatchId = active;
+        room.matches = room.matches || {};
+        room.matches[active] = Object.assign({}, room.matches[active] || {}, {
+          matchId: active,
+          createdAt: now(),
+          updatedAt: now(),
+          mode: 'duet',
+          game: 'goodjunk',
+          roomId: getRoomId(),
+          finalSummary: null
+        });
+        return room;
+      });
+
+      return active;
     }
 
-    async function writeLatestMatchId(matchId) {
-      writeLocalLatestMatchId(matchId);
-      return true;
+    for (let i = 0; i < 40; i++) {
+      await sleep(250);
+      active = await readActiveMatchId();
+      if (active) return active;
     }
 
-    async function publishStart(payload) {
-      return writeLocalStart(payload);
+    const fallback = buildMatchId();
+    await writeActiveMatchId(fallback);
+
+    if (!hasFirebase()) {
+      mergeLocalRoom((room) => {
+        room.matches = room.matches || {};
+        room.matches[fallback] = Object.assign({}, room.matches[fallback] || {}, {
+          matchId: fallback,
+          createdAt: now(),
+          updatedAt: now(),
+          mode: 'duet',
+          game: 'goodjunk',
+          roomId: getRoomId(),
+          finalSummary: null
+        });
+        return room;
+      });
+    } else {
+      await ref(getMatchPath(fallback)).update({
+        matchId: fallback,
+        createdAt: now(),
+        updatedAt: now(),
+        mode: 'duet',
+        game: 'goodjunk',
+        roomId: getRoomId(),
+        finalSummary: null
+      });
     }
 
-    async function readStart() {
-      return readLocalStart();
+    return fallback;
+  }
+
+  async function readMatch(matchId) {
+    const clean = String(matchId || '').trim();
+    if (!clean) return null;
+
+    if (hasFirebase()) {
+      const snap = await ref(getMatchPath(clean)).once('value');
+      return getRoomSnapshotValue(snap);
     }
 
-    function subscribeStart(cb) {
-      const onStorage = function (ev) {
-        if (ev.key !== buildLocalStartKey()) return;
-        const data = readLocalStart();
-        if (data && data.matchId) cb(data);
+    const room = ensureLocalRoomShape();
+    return room.matches && room.matches[clean] ? room.matches[clean] : null;
+  }
+
+  function countFinishedPlayers(resultMap) {
+    if (!resultMap || typeof resultMap !== 'object') return 0;
+    return Object.keys(resultMap).filter((k) => resultMap[k]).length;
+  }
+
+  function calcTeamGrade(summary) {
+    const score = Number(summary.score || 0);
+    const miss = Number(summary.miss || 0);
+    const good = Number(summary.good || 0);
+    const best = Number(summary.streak || 0);
+
+    if (score >= 1800 && miss <= 10 && good >= 110 && best >= 20) return 'S';
+    if (score >= 1300 && miss <= 18 && good >= 80) return 'A';
+    if (score >= 700 && good >= 40) return 'B';
+    return 'C';
+  }
+
+  function medalForGrade(grade) {
+    if (grade === 'S') return '🏆';
+    if (grade === 'A') return '🥇';
+    if (grade === 'B') return '🥈';
+    return '🥉';
+  }
+
+  function titleForGrade(grade) {
+    if (grade === 'S') return 'ยอดเยี่ยม!';
+    if (grade === 'A') return 'เก่งมาก!';
+    if (grade === 'B') return 'ดีมาก!';
+    return 'สู้ต่อได้!';
+  }
+
+  function noteForGrade(grade) {
+    if (grade === 'S') return 'ช่วยกันได้ยอดเยี่ยมมาก ทั้งแม่นและพลาดน้อย';
+    if (grade === 'A') return 'ทำงานเป็นทีมได้ดีมาก รอบหน้าลองเก็บ good ให้ต่อเนื่องขึ้นอีก';
+    if (grade === 'B') return 'ช่วยกันได้ดี รอบหน้าลองหลบ junk ให้มากขึ้น';
+    return 'เริ่มต้นได้ดี รอบหน้าช่วยกันเก็บ good ให้เยอะขึ้น';
+  }
+
+  function combineDuetSummary(matchId, playerResults) {
+    const list = Object.keys(playerResults || {})
+      .map((k) => playerResults[k])
+      .filter(Boolean);
+
+    const merged = {
+      final: true,
+      roomId: getRoomId(),
+      matchId: String(matchId || '').trim(),
+      mode: 'DUET',
+      ts: now(),
+      players: list.map((item) => ({
+        pid: String(item.pid || '').trim(),
+        name: String(item.name || '').trim(),
+        score: Number(item.score || 0),
+        good: Number(item.good || 0),
+        junk: Number(item.junk || 0),
+        miss: Number(item.miss || 0),
+        streak: Number(item.streak || 0)
+      })),
+      score: 0,
+      good: 0,
+      junk: 0,
+      miss: 0,
+      streak: 0,
+      finishedPlayers: list.length
+    };
+
+    list.forEach((item) => {
+      merged.score += Number(item.score || 0);
+      merged.good += Number(item.good || 0);
+      merged.junk += Number(item.junk || 0);
+      merged.miss += Number(item.miss || 0);
+      merged.streak = Math.max(merged.streak, Number(item.streak || 0));
+    });
+
+    merged.grade = calcTeamGrade(merged);
+    merged.medal = medalForGrade(merged.grade);
+    merged.title = titleForGrade(merged.grade);
+    merged.note = noteForGrade(merged.grade);
+
+    return merged;
+  }
+
+  async function publishPlayerResult(matchId, payload) {
+    const cleanMatchId = String(matchId || '').trim();
+    if (!cleanMatchId) throw new Error('publishPlayerResult requires matchId');
+
+    const result = Object.assign({
+      pid: ctx.pid,
+      name: ctx.name,
+      submittedAt: now()
+    }, payload || {});
+
+    if (hasFirebase()) {
+      await ref(`${getMatchPath(cleanMatchId)}/playerResults/${ctx.pid}`).set(result);
+      await ref(getMatchPath(cleanMatchId)).update({ updatedAt: now() });
+    } else {
+      mergeLocalRoom((room) => {
+        room.matches = room.matches || {};
+        room.matches[cleanMatchId] = room.matches[cleanMatchId] || {
+          matchId: cleanMatchId,
+          createdAt: now(),
+          updatedAt: now()
+        };
+        room.matches[cleanMatchId].playerResults = room.matches[cleanMatchId].playerResults || {};
+        room.matches[cleanMatchId].playerResults[ctx.pid] = result;
+        room.matches[cleanMatchId].updatedAt = now();
+        return room;
+      });
+    }
+
+    return result;
+  }
+
+  async function readPlayerResults(matchId) {
+    const cleanMatchId = String(matchId || '').trim();
+    if (!cleanMatchId) return {};
+
+    if (hasFirebase()) {
+      const snap = await ref(`${getMatchPath(cleanMatchId)}/playerResults`).once('value');
+      return getRoomSnapshotValue(snap) || {};
+    }
+
+    const match = await readMatch(cleanMatchId);
+    return (match && match.playerResults) ? match.playerResults : {};
+  }
+
+  async function readFinalSummary(matchId) {
+    const cleanMatchId = String(matchId || '').trim();
+    if (!cleanMatchId) return null;
+
+    if (hasFirebase()) {
+      const snap = await ref(`${getMatchPath(cleanMatchId)}/finalSummary`).once('value');
+      return getRoomSnapshotValue(snap);
+    }
+
+    const match = await readMatch(cleanMatchId);
+    return match && match.finalSummary ? match.finalSummary : null;
+  }
+
+  async function publishFinalSummary(matchId, summary) {
+    const cleanMatchId = String(matchId || '').trim();
+    if (!cleanMatchId) throw new Error('publishFinalSummary requires matchId');
+
+    const payload = Object.assign({}, summary || {}, {
+      final: true,
+      roomId: getRoomId(),
+      matchId: cleanMatchId,
+      publishedAt: now()
+    });
+
+    if (hasFirebase()) {
+      const finalRef = ref(`${getMatchPath(cleanMatchId)}/finalSummary`);
+      const txn = await finalRef.transaction((current) => current || payload);
+      const committed = !!(txn && txn.committed);
+      const snapshot = txn && txn.snapshot ? txn.snapshot.val() : payload;
+      await ref(getMatchPath(cleanMatchId)).update({
+        endedAt: now(),
+        updatedAt: now()
+      });
+      return committed ? payload : (snapshot || payload);
+    }
+
+    let written = payload;
+    mergeLocalRoom((room) => {
+      room.matches = room.matches || {};
+      room.matches[cleanMatchId] = room.matches[cleanMatchId] || {
+        matchId: cleanMatchId,
+        createdAt: now(),
+        updatedAt: now()
       };
-      window.addEventListener('storage', onStorage);
-      return function () {
-        window.removeEventListener('storage', onStorage);
+      if (!room.matches[cleanMatchId].finalSummary) {
+        room.matches[cleanMatchId].finalSummary = payload;
+      }
+      room.matches[cleanMatchId].endedAt = now();
+      room.matches[cleanMatchId].updatedAt = now();
+      written = room.matches[cleanMatchId].finalSummary;
+      return room;
+    });
+
+    return written;
+  }
+
+  async function finalizeMatchFromRoomResults(matchId, opts) {
+    const cleanMatchId = String(matchId || '').trim();
+    if (!cleanMatchId) throw new Error('finalizeMatchFromRoomResults requires matchId');
+
+    const options = Object.assign({
+      expectedPlayers: 2,
+      force: false,
+      reason: 'finished'
+    }, opts || {});
+
+    const existing = await readFinalSummary(cleanMatchId);
+    if (existing && existing.final) return existing;
+
+    const playerResults = await readPlayerResults(cleanMatchId);
+    const count = countFinishedPlayers(playerResults);
+
+    if (!options.force && count < options.expectedPlayers) {
+      return null;
+    }
+
+    const summary = combineDuetSummary(cleanMatchId, playerResults);
+    summary.reason = options.reason || 'finished';
+
+    return await publishFinalSummary(cleanMatchId, summary);
+  }
+
+  async function waitForAllPlayerResults(matchId, opts) {
+    const cleanMatchId = String(matchId || '').trim();
+    const options = Object.assign({
+      expectedPlayers: 2,
+      timeoutMs: 6000,
+      intervalMs: 250
+    }, opts || {});
+
+    const startedAt = now();
+
+    while ((now() - startedAt) < options.timeoutMs) {
+      const results = await readPlayerResults(cleanMatchId);
+      if (countFinishedPlayers(results) >= options.expectedPlayers) {
+        return results;
+      }
+      await sleep(options.intervalMs);
+    }
+
+    return await readPlayerResults(cleanMatchId);
+  }
+
+  async function subscribeFinalSummary(matchId, cb) {
+    const cleanMatchId = String(matchId || '').trim();
+    if (!cleanMatchId || typeof cb !== 'function') return function(){};
+
+    if (hasFirebase()) {
+      const finalRef = ref(`${getMatchPath(cleanMatchId)}/finalSummary`);
+      const handler = (snap) => {
+        const value = getRoomSnapshotValue(snap);
+        if (value && value.final) cb(value);
+      };
+      finalRef.on('value', handler);
+      return function unsubscribe() {
+        try { finalRef.off('value', handler); } catch (_) {}
       };
     }
 
-    function subscribeSummary(matchId, cb) {
-      const key = buildLocalSummaryKey(matchId);
-      const onStorage = function (ev) {
-        if (ev.key !== key) return;
-        const data = readLocalSummary(matchId);
-        if (data) cb(data);
-      };
-      window.addEventListener('storage', onStorage);
-      return function () {
-        window.removeEventListener('storage', onStorage);
-      };
+    const notify = () => {
+      const room = ensureLocalRoomShape();
+      const summary =
+        room.matches &&
+        room.matches[cleanMatchId] &&
+        room.matches[cleanMatchId].finalSummary
+          ? room.matches[cleanMatchId].finalSummary
+          : null;
+      if (summary && summary.final) cb(summary);
+    };
+
+    const winHandler = () => notify();
+    window.addEventListener('hha:gjduet-room-local-update', winHandler);
+
+    if (bc) {
+      bc.addEventListener('message', notify);
     }
 
-    return {
-      type: 'localFallback',
-      async getOrCreateMatchId(forceNew) {
-        if (forceNew) {
-          const matchId = createMatchId();
-          await writeLatestMatchId(matchId);
-          return matchId;
-        }
+    notify();
 
-        const existing =
-          firstNonEmpty(qs.get('matchId'), await readLatestMatchId());
-
-        if (existing) return existing;
-
-        const matchId = createMatchId();
-        await writeLatestMatchId(matchId);
-        return matchId;
-      },
-      readMatchSummary,
-      publishMatchSummary,
-      clearMatchSummary,
-      publishStart,
-      readStart,
-      subscribeStart,
-      subscribeSummary
+    return function unsubscribe() {
+      try { window.removeEventListener('hha:gjduet-room-local-update', winHandler); } catch (_) {}
+      try { if (bc) bc.removeEventListener('message', notify); } catch (_) {}
     };
   }
 
-  function installFirebaseBridge() {
-    if (!window.firebase || !window.firebase.database || !roomId) {
-      return installLocalFallback();
-    }
+  async function subscribeRoomRun(cb) {
+    if (typeof cb !== 'function') return function(){};
 
-    const db = window.firebase.database();
-    const roomRef = db.ref(`/hha-battle/goodjunk/duetRooms/${roomId}`);
-    const latestMatchRef = roomRef.child('latestMatchId');
-    const latestSummaryRef = roomRef.child('latestFinalSummary');
-    const finalSummaryRootRef = roomRef.child('finalSummaryByMatch');
-    const runtimeSignalRef = roomRef.child('runtimeSignal');
-
-    function summaryRef(matchId) {
-      return finalSummaryRootRef.child(String(matchId || 'default'));
-    }
-
-    function dbGet(ref) {
-      return new Promise((resolve) => {
-        ref.once('value', (snap) => resolve(snap.val()), () => resolve(null));
-      });
-    }
-
-    function dbSet(ref, value) {
-      return new Promise((resolve, reject) => {
-        ref.set(value, (err) => err ? reject(err) : resolve(true));
-      });
-    }
-
-    function dbRemove(ref) {
-      return new Promise((resolve) => {
-        ref.remove(() => resolve(true));
-      });
-    }
-
-    function dbTransaction(ref, updateFn) {
-      return new Promise((resolve) => {
-        ref.transaction(
-          updateFn,
-          function (_err, _committed, snap) {
-            resolve(snap && snap.val ? snap.val() : null);
-          },
-          false
-        );
-      });
-    }
-
-    async function readMatchSummary(matchId) {
-      const val = await dbGet(summaryRef(matchId));
-      return val ? normalizePayload(val, matchId) : null;
-    }
-
-    async function publishMatchSummary(matchId, payload) {
-      const finalPayload = normalizePayload(payload, matchId);
-
-      const out = await dbTransaction(summaryRef(matchId), function (current) {
-        if (current && current.final) return current;
-        return finalPayload;
-      });
-
-      const published = out ? normalizePayload(out, matchId) : finalPayload;
-
-      try { await dbSet(latestMatchRef, matchId); } catch (_) {}
-      try { await dbSet(latestSummaryRef, published); } catch (_) {}
-      try { writeLocalSummary(published, matchId); } catch (_) {}
-
-      return published;
-    }
-
-    async function clearMatchSummary(matchId) {
-      try { await dbRemove(summaryRef(matchId)); } catch (_) {}
-      try {
-        const latest = await dbGet(latestMatchRef);
-        if (String(latest || '') === String(matchId || '')) {
-          await dbRemove(latestSummaryRef);
-        }
-      } catch (_) {}
-      clearLocalSummary(matchId);
-      return true;
-    }
-
-    async function readLatestMatchId() {
-      const latest = await dbGet(latestMatchRef);
-      return String(latest || '').trim();
-    }
-
-    async function writeLatestMatchId(matchId) {
-      try { await dbSet(latestMatchRef, matchId); } catch (_) {}
-      writeLocalLatestMatchId(matchId);
-      return true;
-    }
-
-    async function publishStart(payload) {
-      const data = normalizeStartPayload(payload);
-
-      try {
-        await dbSet(runtimeSignalRef, data);
-      } catch (_) {}
-
-      try {
-        await dbSet(latestMatchRef, data.matchId);
-      } catch (_) {}
-
-      writeLocalLatestMatchId(data.matchId);
-      writeLocalStart(data);
-
-      return data;
-    }
-
-    async function readStart() {
-      const val = await dbGet(runtimeSignalRef);
-      return val ? normalizeStartPayload(val) : readLocalStart();
-    }
-
-    function subscribeStart(cb) {
-      const handler = function (snap) {
-        const val = snap.val();
-        if (!val) return;
-        const data = normalizeStartPayload(val);
-        try { writeLocalStart(data); } catch (_) {}
-        cb(data);
+    if (hasFirebase()) {
+      const runRef = ref(getRunPath());
+      const handler = (snap) => {
+        cb(getRoomSnapshotValue(snap) || null);
       };
-
-      runtimeSignalRef.on('value', handler);
-
-      const onStorage = function (ev) {
-        if (ev.key !== buildLocalStartKey()) return;
-        const data = readLocalStart();
-        if (data && data.matchId) cb(data);
-      };
-      window.addEventListener('storage', onStorage);
-
-      return function () {
-        try { runtimeSignalRef.off('value', handler); } catch (_) {}
-        window.removeEventListener('storage', onStorage);
+      runRef.on('value', handler);
+      return function unsubscribe() {
+        try { runRef.off('value', handler); } catch (_) {}
       };
     }
 
-    function subscribeSummary(matchId, cb) {
-      const ref = summaryRef(matchId);
+    const notify = () => {
+      const room = ensureLocalRoomShape();
+      cb(room.currentRun || null);
+    };
 
-      const handler = function (snap) {
-        const val = snap.val();
-        if (!val) return;
-        const data = normalizePayload(val, matchId);
-        try { writeLocalSummary(data, matchId); } catch (_) {}
-        cb(data);
-      };
+    const winHandler = () => notify();
+    window.addEventListener('hha:gjduet-room-local-update', winHandler);
 
-      ref.on('value', handler);
-
-      const key = buildLocalSummaryKey(matchId);
-      const onStorage = function (ev) {
-        if (ev.key !== key) return;
-        const data = readLocalSummary(matchId);
-        if (data) cb(data);
-      };
-      window.addEventListener('storage', onStorage);
-
-      return function () {
-        try { ref.off('value', handler); } catch (_) {}
-        window.removeEventListener('storage', onStorage);
-      };
+    if (bc) {
+      bc.addEventListener('message', notify);
     }
 
-    return {
-      type: 'firebase',
-      async getOrCreateMatchId(forceNew) {
-        if (forceNew) {
-          const matchId = createMatchId();
-          await writeLatestMatchId(matchId);
-          return matchId;
-        }
+    notify();
 
-        const queryMatch = firstNonEmpty(qs.get('matchId'));
-        if (queryMatch) {
-          await writeLatestMatchId(queryMatch);
-          return queryMatch;
-        }
-
-        const latest = await readLatestMatchId();
-        if (latest) return latest;
-
-        const matchId = createMatchId();
-        await writeLatestMatchId(matchId);
-        return matchId;
-      },
-      readMatchSummary,
-      publishMatchSummary,
-      clearMatchSummary,
-      publishStart,
-      readStart,
-      subscribeStart,
-      subscribeSummary
+    return function unsubscribe() {
+      try { window.removeEventListener('hha:gjduet-room-local-update', winHandler); } catch (_) {}
+      try { if (bc) bc.removeEventListener('message', notify); } catch (_) {}
     };
   }
 
-  const adapter = installFirebaseBridge();
+  async function startRoomRun(matchId, runtimeUrl) {
+    const cleanMatchId = String(matchId || '').trim();
+    const url = String(runtimeUrl || '').trim();
+    if (!cleanMatchId) throw new Error('startRoomRun requires matchId');
+    if (!url) throw new Error('startRoomRun requires runtimeUrl');
 
-  const api = {
-    roomId,
-    pid,
-    name,
-    role,
-    isRuntimePage,
-    isHostLike,
-
-    async ensureMatchId(forceNew) {
-      return await adapter.getOrCreateMatchId(!!forceNew);
-    },
-
-    async hostStartMatch(options) {
-      const opts = options && typeof options === 'object' ? options : {};
-      const runtimePath = String(opts.runtimePath || runtimePathDefault);
-      const matchId = await adapter.getOrCreateMatchId(true);
-
-      await adapter.clearMatchSummary(matchId);
-
-      const payload = normalizeStartPayload({
-        matchId,
-        startAt: Date.now(),
-        runtimePath,
-        hub: String(opts.hub || qs.get('hub') || hubDefault),
-        diff: String(opts.diff || qs.get('diff') || 'normal'),
-        time: String(opts.time || qs.get('time') || '90'),
-        view: String(opts.view || qs.get('view') || 'mobile'),
-        ts: Date.now()
-      });
-
-      await adapter.publishStart(payload);
-
-      return {
-        matchId,
-        startAt: payload.startAt,
-        payload,
-        url: encodeRuntimeUrl(runtimePath, payload)
-      };
-    },
-
-    async readCurrentStartSignal() {
-      return await adapter.readStart();
-    },
-
-    subscribeRuntimeStart(cb) {
-      return adapter.subscribeStart(cb);
-    },
-
-    buildRuntimeUrl(options) {
-      const opts = options && typeof options === 'object' ? options : {};
-      const payload = normalizeStartPayload({
-        matchId: String(opts.matchId || qs.get('matchId') || ''),
-        startAt: clampNum(opts.startAt, Date.now()),
-        runtimePath: String(opts.runtimePath || runtimePathDefault),
-        hub: String(opts.hub || qs.get('hub') || hubDefault),
-        diff: String(opts.diff || qs.get('diff') || 'normal'),
-        time: String(opts.time || qs.get('time') || '90'),
-        view: String(opts.view || qs.get('view') || 'mobile'),
-        ts: Date.now()
-      });
-
-      return {
-        payload,
-        url: encodeRuntimeUrl(payload.runtimePath, payload)
-      };
-    },
-
-    async clearCurrentMatchSummary(matchId) {
-      const m = String(matchId || qs.get('matchId') || '').trim();
-      if (!m) return false;
-      return await adapter.clearMatchSummary(m);
-    },
-
-    async readFinalSummary(matchId) {
-      const m = String(matchId || qs.get('matchId') || '').trim();
-      if (!m) return null;
-      return await adapter.readMatchSummary(m);
-    },
-
-    subscribeFinalSummary(matchId, cb) {
-      const m = String(matchId || qs.get('matchId') || '').trim();
-      if (!m) return function(){};
-      return adapter.subscribeSummary(m, cb);
-    },
-
-    async publishFinalSummary(matchId, payload) {
-      const m = String(matchId || qs.get('matchId') || '').trim();
-      if (!m) return null;
-      return await adapter.publishMatchSummary(m, payload);
-    },
-
-    debugInfo() {
-      return {
-        adapter: adapter.type,
-        roomId,
-        pid,
-        name,
-        role,
-        hostFlag,
-        pagePath
-      };
-    }
-  };
-
-  window.HHA_DUET_ROOM_BOOT = api;
-
-  window.HHA_DUET_REMOTE_READ_SUMMARY = async function () {
-    const matchId = await api.ensureMatchId(false);
-    return await api.readFinalSummary(matchId);
-  };
-
-  window.HHA_DUET_REMOTE_PUBLISH_SUMMARY = async function (payload) {
-    const matchId = await api.ensureMatchId(false);
-    return await api.publishFinalSummary(matchId, payload);
-  };
-
-  window.HHA_DUET_REMOTE_CLEAR_SUMMARY = async function () {
-    const matchId = await api.ensureMatchId(false);
-    return await api.clearCurrentMatchSummary(matchId);
-  };
-
-  window.HHA_DUET_REMOTE_SUBSCRIBE_SUMMARY = function (cb) {
-    let activeUnsub = function(){};
-
-    api.ensureMatchId(false).then(function (matchId) {
-      activeUnsub = api.subscribeFinalSummary(matchId, cb);
-    }).catch(function () {});
-
-    return function () {
-      try { activeUnsub(); } catch (_) {}
+    const payload = {
+      state: 'running',
+      roomId: getRoomId(),
+      matchId: cleanMatchId,
+      runtimeUrl: url,
+      startedAt: now(),
+      startedBy: {
+        pid: ctx.pid,
+        name: ctx.name,
+        role: getRole()
+      }
     };
+
+    if (hasFirebase()) {
+      await ref(getRoomRootPath()).update({
+        status: 'running',
+        activeMatchId: cleanMatchId,
+        updatedAt: now()
+      });
+      await ref(getRunPath()).set(payload);
+      return payload;
+    }
+
+    mergeLocalRoom((room) => {
+      room.status = 'running';
+      room.activeMatchId = cleanMatchId;
+      room.currentRun = payload;
+      return room;
+    });
+
+    return payload;
+  }
+
+  async function resetRoomRun() {
+    if (hasFirebase()) {
+      await ref(getRoomRootPath()).update({
+        status: 'lobby',
+        updatedAt: now()
+      });
+      await ref(getRunPath()).remove();
+      return;
+    }
+
+    mergeLocalRoom((room) => {
+      room.status = 'lobby';
+      room.currentRun = null;
+      return room;
+    });
+  }
+
+  async function listPlayers() {
+    if (hasFirebase()) {
+      const snap = await ref(getPlayersPath()).once('value');
+      const value = getRoomSnapshotValue(snap) || {};
+      return Object.keys(value).map((k) => value[k]).filter(Boolean);
+    }
+
+    const room = ensureLocalRoomShape();
+    const players = room.players || {};
+    return Object.keys(players).map((k) => players[k]).filter(Boolean);
+  }
+
+  async function markLobbyReady(flag) {
+    const ready = !!flag;
+    if (hasFirebase()) {
+      await ref(getPlayerPath(ctx.pid)).update({
+        ready: ready,
+        lastSeen: now()
+      });
+      return;
+    }
+
+    mergeLocalRoom((room) => {
+      room.players = room.players || {};
+      room.players[ctx.pid] = Object.assign({}, room.players[ctx.pid] || {}, {
+        pid: ctx.pid,
+        name: ctx.name,
+        role: getRole(),
+        ready: ready,
+        online: true,
+        lastSeen: now()
+      });
+      return room;
+    });
+  }
+
+  window.HHA_DUET_ROOM_BOOT = {
+    ctx,
+    getDbMode: dbMode,
+    hasFirebase,
+    getRoomId,
+    getRole,
+    isHost,
+    getRoomRootPath,
+    ensureRoom,
+    ensureMatchId,
+    readMatch,
+    readRoom,
+    setPresence,
+    leaveRoom,
+    listPlayers,
+    markLobbyReady,
+    readFinalSummary,
+    readPlayerResults,
+    publishPlayerResult,
+    publishFinalSummary,
+    finalizeMatchFromRoomResults,
+    waitForAllPlayerResults,
+    subscribeFinalSummary,
+    subscribeRoomRun,
+    startRoomRun,
+    resetRoomRun,
+    combineDuetSummary
   };
 
-  dlog('bootstrap ready', api.debugInfo());
+  dlog('boot ready', {
+    roomId: getRoomId(),
+    role: getRole(),
+    dbMode: dbMode(),
+    roomRoot: getRoomRootPath()
+  });
 })();
