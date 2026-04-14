@@ -3,63 +3,71 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Balance Hold Launcher</title>
+  <title>HeroHealth • Balance Hold</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#9ee7d6" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta name="theme-color" content="#8be3d1" />
+  <link rel="icon" href="../herohealth/favicon.ico" />
   <style>
     :root{
-      --sky1:#e7fff8;
-      --sky2:#cef7ee;
-      --sky3:#fff9de;
-      --card:#fffef9;
+      --bg1:#eefdfa;
+      --bg2:#d8f6ef;
+      --bg3:#fff8df;
+
+      --card:#ffffff;
       --card2:#f8fffd;
-      --ink:#4c4a43;
-      --muted:#79766f;
-      --line:#cfe9e1;
-      --teal:#6fdbc8;
-      --teal2:#39b9a1;
+
+      --line:#caeee5;
+      --line-strong:#a7dfd0;
+
+      --text:#433f3d;
+      --muted:#75706b;
+
+      --teal:#6fe0cc;
+      --teal2:#31bca4;
       --green:#7ed957;
       --green2:#53bf35;
       --blue:#7fcfff;
       --blue2:#4aaef0;
       --yellow:#ffd661;
       --orange:#ffb35b;
-      --pink:#ff9bc9;
-      --purple:#b899ff;
-      --shadow:0 16px 34px rgba(77,74,67,.12);
+      --pink:#ff9dcf;
+      --pink2:#ff74b3;
+      --red:#ff7a7a;
+
+      --shadow:0 18px 42px rgba(67,63,61,.12);
+      --shadow-soft:0 10px 22px rgba(67,63,61,.08);
+
       --safe-top:env(safe-area-inset-top,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:ui-rounded,"SF Pro Rounded","Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
-      color:var(--ink);
+    html,body{ margin:0; padding:0; }
+    body{
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(circle at top, rgba(255,255,255,.7), transparent 36%),
-        linear-gradient(180deg,var(--sky1) 0%, var(--sky2) 52%, var(--sky3) 100%);
+        radial-gradient(circle at top left, rgba(255,255,255,.92), transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
     }
 
     a{ color:inherit; text-decoration:none; }
-    button,input{ font:inherit; color:inherit; }
+    button{ font:inherit; }
+    .hidden{ display:none !important; }
 
     .app{
-      min-height:100dvh;
+      width:min(1280px, calc(100% - 14px));
+      margin:0 auto;
       padding:
-        calc(12px + var(--safe-top))
-        12px
-        calc(18px + var(--safe-bottom))
-        12px;
+        calc(10px + var(--safe-top))
+        0
+        calc(14px + var(--safe-bottom));
       display:grid;
       gap:12px;
     }
 
     .topbar{
-      width:min(1180px,100%);
-      margin:0 auto;
       display:grid;
       grid-template-columns:auto 1fr auto;
       gap:10px;
@@ -67,48 +75,47 @@
     }
 
     .brand,
-    .top-actions a{
-      border:2px solid var(--line);
-      border-radius:999px;
-      background:rgba(255,255,255,.86);
-      box-shadow:var(--shadow);
-      color:inherit;
-    }
-
-    .brand{
-      display:flex;
+    .top-link{
+      min-height:48px;
+      display:inline-flex;
       align-items:center;
-      gap:8px;
+      gap:10px;
       padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
       font-weight:1000;
-      white-space:nowrap;
     }
 
-    .brand .icon{
-      width:28px;height:28px;border-radius:50%;
-      display:grid;place-items:center;
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
       background:linear-gradient(135deg,var(--teal),var(--green));
       color:#fff;
-      font-size:14px;
+      font-size:15px;
     }
 
     .headline{
       min-width:0;
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-      padding:0 4px;
+      padding:0 2px;
     }
 
-    .headline .title{
-      font-size:clamp(22px,4vw,36px);
-      font-weight:1000;
+    .headline-title{
+      margin:0;
+      font-size:clamp(22px,4vw,38px);
       line-height:1;
+      font-weight:1000;
     }
 
-    .headline .sub{
-      font-size:13px;
+    .headline-sub{
+      margin:4px 0 0;
       color:var(--muted);
+      font-size:13px;
       font-weight:900;
     }
 
@@ -119,152 +126,151 @@
       flex-wrap:wrap;
     }
 
-    .top-actions a{
-      padding:10px 14px;
-      font-weight:1000;
-    }
-
     .shell{
-      width:min(1180px,100%);
-      margin:0 auto;
       display:grid;
-      grid-template-columns:1.06fr .94fr;
+      grid-template-columns:1.08fr .92fr;
       gap:12px;
       align-items:start;
     }
 
-    .card{
-      background:rgba(255,255,255,.86);
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,252,246,.92));
       border:2px solid var(--line);
       border-radius:30px;
       box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
     }
 
-    .hero{
-      overflow:hidden;
-      position:relative;
-      min-height:760px;
+    .menu-panel{
       padding:18px;
       display:grid;
       gap:14px;
-      align-content:start;
-      background:
-        radial-gradient(circle at 15% 12%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 85% 14%, rgba(255,255,255,.72), transparent 16%),
-        linear-gradient(180deg, rgba(255,255,255,.30), rgba(255,255,255,.08));
+      min-height:760px;
+      position:relative;
+      overflow:hidden;
     }
 
-    .hero-badge{
+    .menu-panel::after{
+      content:"";
+      position:absolute;
+      right:-30px;
+      bottom:-36px;
+      width:240px;
+      height:240px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(111,224,204,.20), transparent 64%);
+      pointer-events:none;
+    }
+
+    .badge{
+      width:max-content;
+      min-height:38px;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:10px 14px;
+      padding:8px 14px;
       border-radius:999px;
-      background:rgba(255,255,255,.92);
-      border:2px solid rgba(124,198,178,.35);
+      background:#fff;
+      border:2px solid var(--line);
       font-size:13px;
       font-weight:1000;
-      width:max-content;
+      box-shadow:var(--shadow-soft);
     }
 
-    .hero h1{
+    .hero-title{
       margin:0;
-      font-size:clamp(34px,5vw,58px);
-      line-height:.95;
+      font-size:clamp(34px,5vw,60px);
+      line-height:.92;
+      font-weight:1000;
     }
 
-    .hero p{
+    .hero-copy{
       margin:0;
       color:var(--muted);
       font-size:15px;
-      font-weight:800;
-      line-height:1.5;
-      max-width:700px;
+      font-weight:900;
+      line-height:1.55;
+      max-width:720px;
     }
 
     .preview{
-      border:2px dashed rgba(124,198,178,.42);
-      border-radius:28px;
-      background:
-        linear-gradient(180deg,#d6fbf4 0%, #eaffff 44%, #fff4c8 100%);
-      min-height:340px;
       position:relative;
+      min-height:320px;
+      border-radius:28px;
+      border:2px dashed var(--line-strong);
       overflow:hidden;
-      display:grid;
-      place-items:center;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255,255,255,.82), transparent 16%),
+        linear-gradient(180deg,#c6f7ed 0%, #dffcf5 48%, #fff1cf 49%, #fff8e6 100%);
     }
 
-    .preview .pad{
+    .preview-floor{
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:104px;
+      background:linear-gradient(180deg,#fff1cf,#fff8e6);
+      border-top:2px dashed rgba(67,63,61,.10);
+    }
+
+    .preview-balance-line{
       position:absolute;
       left:50%;
-      bottom:34px;
       transform:translateX(-50%);
-      width:min(420px,76%);
-      height:26px;
+      bottom:100px;
+      width:min(470px,78%);
+      height:12px;
       border-radius:999px;
-      background:linear-gradient(90deg,var(--teal),var(--green));
-      box-shadow:0 0 0 8px rgba(57,185,161,.14);
+      background:linear-gradient(90deg,var(--teal),#ffffff,var(--teal));
+      box-shadow:0 0 0 8px rgba(111,224,204,.16);
     }
 
-    .preview .ring{
-      position:absolute;
-      left:50%;
-      bottom:66px;
-      transform:translateX(-50%);
-      width:min(290px,58%);
-      aspect-ratio:1/1;
-      border-radius:50%;
-      border:16px solid rgba(127,207,255,.45);
-      box-shadow:0 0 0 14px rgba(255,255,255,.52);
-    }
-
-    .preview .cue{
+    .preview-meter{
       position:absolute;
       top:34px;
       left:50%;
       transform:translateX(-50%);
-      width:min(240px,64vw);
+      min-width:220px;
+      max-width:min(82%,360px);
       min-height:104px;
+      padding:12px 14px;
       border-radius:26px;
       border:3px solid rgba(255,255,255,.88);
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(246,252,255,.95));
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,252,255,.95));
       display:grid;
       place-items:center;
       text-align:center;
       box-shadow:0 16px 28px rgba(0,0,0,.12);
-      font-weight:1000;
-      padding:10px 14px;
     }
 
-    .preview .cue .emoji{
+    .preview-meter .emoji{
       font-size:40px;
       line-height:1;
     }
 
-    .preview .cue .label{
-      font-size:22px;
+    .preview-meter .label{
       margin-top:4px;
+      font-size:22px;
       line-height:1.1;
+      font-weight:1000;
     }
 
-    .preview .cue .hint{
+    .preview-meter .hint{
+      margin-top:4px;
       font-size:12px;
       color:var(--muted);
-      margin-top:5px;
+      font-weight:900;
     }
 
-    .avatar{
+    .preview-avatar{
       position:absolute;
       left:50%;
-      bottom:54px;
       transform:translateX(-50%);
-      width:176px;
-      height:168px;
-      filter:drop-shadow(0 12px 16px rgba(0,0,0,.08));
+      bottom:74px;
+      width:180px;
+      height:182px;
+      filter:drop-shadow(0 12px 16px rgba(0,0,0,.12));
     }
 
-    .avatar .head{
+    .preview-avatar .head{
       position:absolute;
       left:50%;
       top:10px;
@@ -273,36 +279,51 @@
       height:58px;
       border-radius:50%;
       background:#ffe0bf;
-      border:3px solid rgba(77,74,67,.1);
-      z-index:2;
+      border:3px solid rgba(67,63,61,.1);
     }
 
-    .avatar .body{
+    .preview-avatar .body{
       position:absolute;
       left:50%;
-      top:60px;
+      top:62px;
       transform:translateX(-50%);
-      width:84px;
-      height:60px;
+      width:86px;
+      height:62px;
       border-radius:24px 24px 18px 18px;
       background:linear-gradient(180deg,var(--blue),var(--blue2));
-      border:3px solid rgba(77,74,67,.1);
+      border:3px solid rgba(67,63,61,.1);
     }
 
-    .avatar .arm,
-    .avatar .leg{
+    .preview-avatar .arm,
+    .preview-avatar .leg{
       position:absolute;
       background:#ffe0bf;
       border-radius:999px;
-      border:3px solid rgba(77,74,67,.08);
+      border:3px solid rgba(67,63,61,.08);
     }
 
-    .avatar .arm{ width:16px;height:56px; top:66px; }
-    .avatar .arm.left{ left:36px; transform:rotate(10deg); }
-    .avatar .arm.right{ right:36px; transform:rotate(-10deg); }
-    .avatar .leg{ width:18px;height:62px; top:110px; }
-    .avatar .leg.left{ left:64px; transform:rotate(4deg); }
-    .avatar .leg.right{ right:64px; transform:rotate(-4deg); }
+    .preview-avatar .arm{ width:16px; height:60px; top:68px; }
+    .preview-avatar .arm.left{ left:30px; transform:rotate(14deg); }
+    .preview-avatar .arm.right{ right:30px; transform:rotate(-14deg); }
+    .preview-avatar .leg{ width:18px; height:66px; top:112px; }
+    .preview-avatar .leg.left{ left:66px; transform:rotate(5deg); }
+    .preview-avatar .leg.right{ right:66px; transform:rotate(-5deg); }
+
+    .preview-warning{
+      position:absolute;
+      right:30px;
+      top:112px;
+      width:86px;
+      height:86px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:38px;
+      background:linear-gradient(180deg,var(--orange),#ff9154);
+      border:3px solid rgba(255,255,255,.24);
+      box-shadow:0 16px 24px rgba(0,0,0,.12);
+    }
 
     .chips{
       display:flex;
@@ -311,25 +332,29 @@
     }
 
     .chip{
-      padding:10px 12px;
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:8px 12px;
       border-radius:999px;
-      background:rgba(255,255,255,.9);
-      border:2px solid rgba(124,198,178,.32);
+      background:#fff;
+      border:2px solid var(--line);
       font-size:12px;
       font-weight:1000;
-      box-shadow:var(--shadow);
+      box-shadow:var(--shadow-soft);
     }
 
-    .strip{
-      border-radius:24px;
-      border:2px solid rgba(124,198,178,.35);
-      background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(247,255,251,.94));
-      padding:14px;
+    .stats-strip{
       display:grid;
       gap:10px;
+      padding:14px;
+      border-radius:24px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,255,253,.94));
     }
 
-    .strip-head{
+    .stats-head{
       display:flex;
       justify-content:space-between;
       align-items:center;
@@ -337,161 +362,152 @@
       flex-wrap:wrap;
     }
 
-    .strip-title{
+    .stats-head strong{
       font-size:16px;
-      font-weight:1000;
-      color:#4d4a42;
     }
 
-    .strip-sub{
-      font-size:12px;
+    .stats-head span{
       color:var(--muted);
+      font-size:12px;
       font-weight:1000;
     }
 
-    .stat-grid{
+    .stats-grid{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
       gap:8px;
     }
 
-    .stat-pill{
+    .stat{
+      padding:10px 12px;
       border-radius:16px;
-      border:2px solid rgba(124,198,178,.32);
       background:#fff;
-      padding:10px;
+      border:2px solid var(--line);
     }
 
-    .stat-pill .k{
+    .stat .k{
       display:block;
       font-size:11px;
       color:var(--muted);
       font-weight:1000;
     }
 
-    .stat-pill .v{
+    .stat .v{
       display:block;
       margin-top:4px;
       font-size:18px;
       font-weight:1000;
-      color:#4d4a42;
-      line-height:1.15;
+      line-height:1.1;
     }
 
-    .mode-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .mode-card{
-      border-radius:22px;
-      border:2px solid rgba(124,198,178,.35);
-      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(247,255,251,.92));
+    .latest-report{
       padding:14px;
+      border-radius:24px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#fff,#f8fffd);
       display:grid;
       gap:10px;
     }
 
-    .mode-card .top{
+    .latest-report-head{
       display:flex;
       justify-content:space-between;
       align-items:flex-start;
       gap:10px;
-    }
-
-    .mode-card .icon{
-      width:42px;height:42px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(135deg,#eefdfa,#fff);
-      border:2px solid rgba(124,198,178,.35);
-      font-size:22px;
-      flex:0 0 auto;
-    }
-
-    .mode-card .title{
-      font-size:18px;
-      line-height:1.08;
-      font-weight:1000;
-      color:#4d4a42;
-    }
-
-    .mode-card .sub{
-      font-size:13px;
-      line-height:1.5;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .mode-card .tags{
-      display:flex;
-      gap:8px;
       flex-wrap:wrap;
     }
 
-    .mode-card .tags span{
-      min-height:28px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:5px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid rgba(124,198,178,.3);
-      font-size:11px;
-      font-weight:1000;
-      color:#5d6e7a;
-    }
-
-    .mode-actions{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:8px;
-    }
-
-    .mode-actions .btn{
-      min-height:42px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      text-decoration:none;
-    }
-
-    .feature-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .feature{
-      border-radius:24px;
-      border:2px solid rgba(124,198,178,.35);
-      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(247,255,251,.92));
-      padding:14px;
-      display:grid;
-      gap:8px;
-    }
-
-    .feature .big{
-      font-size:30px;
-      line-height:1;
-    }
-
-    .feature strong{
+    .latest-report-title{
+      margin:0;
       font-size:15px;
-      line-height:1.15;
+      font-weight:1000;
     }
 
-    .feature span{
+    .latest-report-sub{
+      margin:4px 0 0;
       color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-      line-height:1.4;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
     }
 
-    .side{
+    .latest-grade{
+      min-width:88px;
+      min-height:54px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:linear-gradient(135deg,#fff6cf,#ffd661);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      box-shadow:var(--shadow-soft);
+      border:2px solid rgba(255,214,97,.34);
+    }
+
+    .latest-grade .g{
+      font-size:18px;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .latest-grade .r{
+      margin-top:4px;
+      font-size:11px;
+      line-height:1;
+      color:#6a5d2e;
+      font-weight:1000;
+    }
+
+    .latest-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .latest-metric{
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .latest-metric .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .latest-metric .v{
+      display:block;
+      margin-top:5px;
+      font-size:18px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .latest-note{
+      padding:12px 14px;
+      border-radius:18px;
+      border:2px dashed var(--line-strong);
+      background:rgba(255,255,255,.84);
+      display:grid;
+      gap:6px;
+    }
+
+    .latest-note b{
+      font-size:14px;
+    }
+
+    .latest-note span{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .menu-side{
       padding:16px;
       display:grid;
       gap:12px;
@@ -499,27 +515,53 @@
       top:calc(10px + var(--safe-top));
     }
 
-    .section{
-      border-radius:24px;
-      border:2px dashed rgba(124,198,178,.36);
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(249,255,246,.92));
+    .card-block{
       padding:14px;
+      border-radius:24px;
+      border:2px dashed var(--line-strong);
+      background:linear-gradient(180deg,#fff,#f8fffd);
       display:grid;
       gap:10px;
     }
 
-    .section h3{
+    .card-block h3{
       margin:0;
       font-size:14px;
       letter-spacing:.02em;
     }
 
-    .section p{
+    .card-block p{
       margin:0;
-      font-size:13px;
       color:var(--muted);
-      font-weight:800;
+      font-size:13px;
+      font-weight:900;
       line-height:1.45;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .field input{
+      min-height:48px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:10px 12px;
+      outline:none;
+    }
+
+    .field input:focus{
+      border-color:var(--teal2);
     }
 
     .grid-2{
@@ -545,17 +587,17 @@
     }
 
     .toggle label{
-      display:grid;
-      place-items:center;
-      min-height:68px;
+      min-height:70px;
       padding:10px;
       border-radius:20px;
-      border:2px solid rgba(124,198,178,.32);
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,252,255,.9));
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#fff,#f8fffd);
+      display:grid;
+      place-items:center;
+      text-align:center;
       font-weight:1000;
       cursor:pointer;
-      text-align:center;
-      box-shadow:0 10px 18px rgba(0,0,0,.05);
+      box-shadow:var(--shadow-soft);
     }
 
     .toggle label small{
@@ -568,44 +610,17 @@
     }
 
     .toggle input:checked + label{
-      border-color:rgba(57,185,161,.58);
-      background:linear-gradient(180deg, #ffffff, #eefdfa);
+      border-color:var(--teal2);
+      background:linear-gradient(180deg,#fff,#edfcf8);
       transform:translateY(-2px);
-      box-shadow:0 14px 24px rgba(57,185,161,.14);
-    }
-
-    .field{
-      display:grid;
-      gap:6px;
-    }
-
-    .field label{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .field input{
-      width:100%;
-      min-height:48px;
-      border-radius:16px;
-      border:2px solid rgba(124,198,178,.32);
-      padding:10px 12px;
-      background:#fff;
-      outline:none;
-    }
-
-    .field input:focus{
-      border-color:rgba(57,185,161,.58);
+      box-shadow:0 14px 24px rgba(49,188,164,.14);
     }
 
     .recommend-box{
-      border-radius:18px;
-      border:2px solid rgba(124,198,178,.32);
-      background:#fff;
       padding:12px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
       display:grid;
       gap:8px;
     }
@@ -613,20 +628,19 @@
     .recommend-title{
       font-size:14px;
       font-weight:1000;
-      color:#4d4a42;
     }
 
     .recommend-sub{
-      font-size:13px;
-      line-height:1.5;
       color:var(--muted);
+      font-size:13px;
       font-weight:900;
+      line-height:1.45;
     }
 
     .recommend-chips{
       display:flex;
-      gap:8px;
       flex-wrap:wrap;
+      gap:8px;
     }
 
     .recommend-chips span{
@@ -637,10 +651,51 @@
       padding:5px 10px;
       border-radius:999px;
       background:#fff;
-      border:2px solid rgba(124,198,178,.3);
+      border:2px solid var(--line);
       font-size:11px;
       font-weight:1000;
-      color:#5d6e7a;
+    }
+
+    .boss-ready-box{
+      padding:12px;
+      border-radius:20px;
+      border:2px solid rgba(255,214,97,.40);
+      background:linear-gradient(180deg,#fff9e7,#fffef7);
+      display:grid;
+      gap:8px;
+    }
+
+    .boss-ready-title{
+      font-size:14px;
+      font-weight:1000;
+      color:#7b6213;
+    }
+
+    .boss-ready-sub{
+      color:#7a6f56;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .boss-ready-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .boss-chip{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid rgba(255,214,97,.34);
+      font-size:11px;
+      font-weight:1000;
+      color:#7b6213;
     }
 
     .launch-actions{
@@ -649,28 +704,33 @@
     }
 
     .btn{
+      min-height:52px;
       border:none;
       border-radius:999px;
-      min-height:52px;
       padding:12px 16px;
       font-weight:1000;
       cursor:pointer;
-      box-shadow:var(--shadow);
+      box-shadow:var(--shadow-soft);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
     }
 
     .btn.primary{
-      background:linear-gradient(135deg, var(--green), var(--green2));
+      background:linear-gradient(135deg,var(--green),var(--green2));
       color:#fff;
     }
 
     .btn.secondary{
-      background:linear-gradient(135deg, #fff, #eefdfa);
-      border:2px solid rgba(124,198,178,.32);
+      background:linear-gradient(135deg,#fff,#edfcf8);
+      border:2px solid var(--line);
     }
 
     .btn.ghost{
-      background:linear-gradient(135deg, #fffaf2, #fff2da);
-      border:2px solid rgba(255,176,79,.28);
+      background:linear-gradient(135deg,#fffaf2,#fff2da);
+      border:2px solid rgba(255,179,91,.30);
     }
 
     .preview-url{
@@ -678,32 +738,580 @@
       font-size:11px;
       line-height:1.45;
       color:#445;
-      background:rgba(255,255,255,.76);
+      background:rgba(255,255,255,.8);
       border-radius:16px;
-      border:2px dashed rgba(124,198,178,.28);
+      border:2px dashed var(--line-strong);
       padding:10px;
       word-break:break-all;
     }
 
-    .footer-note{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:800;
+    .play-shell{
+      padding:12px;
+      display:grid;
+      gap:10px;
+      min-height:760px;
+    }
+
+    .play-topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .mini-pill{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .bh-runtime-shell{
+      padding:0;
+      overflow:hidden;
+    }
+
+    #bhGame{
+      position:absolute;
+      inset:0;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:10px;
+      padding:12px;
+    }
+
+    .bh-top-ui,
+    .bh-bottom-ui{
+      position:relative;
+      z-index:3;
+      display:grid;
+      gap:8px;
+    }
+
+    .bh-top-ui{
+      grid-template-columns:1fr auto;
+      align-items:start;
+    }
+
+    .bh-pill{
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:15px;
+      font-weight:1000;
       text-align:center;
     }
 
-    @media (max-width: 980px){
-      .shell{ grid-template-columns:1fr; }
-      .side{ position:relative; top:auto; }
+    .bh-pill.right{
+      min-width:56px;
+      padding-inline:12px;
     }
 
-    @media (max-width: 760px){
-      .topbar{ grid-template-columns:1fr; }
-      .feature-grid,
+    .arena-shell{
+      position:relative;
+      min-height:560px;
+      border-radius:28px;
+      overflow:hidden;
+      border:2px solid var(--line);
+      background:
+        radial-gradient(circle at 50% 15%, rgba(255,255,255,.16), transparent 14%),
+        linear-gradient(180deg,#d2faf1 0%, #f0fffb 52%, #fff1cf 53%, #fff8e6 100%);
+    }
+
+    #bhArena{
+      position:relative;
+      min-height:360px;
+      border-radius:24px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 15%, rgba(255,255,255,.18), transparent 14%),
+        linear-gradient(180deg,#d2faf1 0%, #f0fffb 52%, #fff1cf 53%, #fff8e6 100%);
+      border:2px dashed rgba(67,63,61,.10);
+    }
+
+    #bhArena::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:70px;
+      width:min(470px,78%);
+      height:12px;
+      border-radius:999px;
+      background:linear-gradient(90deg,#6fe0cc,#ffffff,#6fe0cc);
+      box-shadow:0 0 0 8px rgba(111,224,204,.16);
+      pointer-events:none;
+    }
+
+    #bhBeat{
+      width:56px;
+      min-width:56px;
+      opacity:.24;
+    }
+
+    #bhGhost{
+      position:absolute;
+      left:50%;
+      top:56%;
+      width:52px;
+      height:86px;
+      margin-left:-26px;
+      margin-top:-43px;
+      border-radius:18px;
+      background:rgba(255,255,255,.26);
+      border:2px dashed rgba(95,136,165,.20);
+      z-index:1;
+      pointer-events:none;
+    }
+
+    #bhGhost::before{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:-28px;
+      transform:translateX(-50%);
+      width:34px;
+      height:34px;
+      border-radius:50%;
+      background:rgba(255,255,255,.42);
+      border:2px dashed rgba(95,136,165,.16);
+    }
+
+    #bhTarget,
+    #bhCursor,
+    #bhTargetPulse{
+      position:absolute;
+      border-radius:999px;
+      transform:translate(0,0);
+      pointer-events:none;
+    }
+
+    #bhTarget{
+      border:3px solid #59bdf7;
+      background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.70), rgba(127,207,255,.16));
+      box-shadow:0 0 0 6px rgba(127,207,255,.08), 0 0 18px rgba(127,207,255,.18);
+      z-index:2;
+      transition:box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+    }
+
+    #bhTarget.is-in-zone{
+      border-color:#7ed957;
+      box-shadow:0 0 0 8px rgba(126,217,87,.10), 0 0 22px rgba(126,217,87,.22);
+    }
+
+    #bhTarget.is-warning{
+      border-color:#ffb35b;
+      box-shadow:0 0 0 8px rgba(255,179,91,.10), 0 0 22px rgba(255,179,91,.22);
+    }
+
+    #bhTarget.bh-target-perfect{
+      transform:scale(1.08);
+    }
+
+    #bhCursor{
+      width:28px;
+      height:28px;
+      margin-left:-14px;
+      margin-top:-14px;
+      background:radial-gradient(circle at 32% 32%, #fff6d9, #ffb347);
+      box-shadow:0 0 0 7px rgba(255,179,71,.20);
+      z-index:3;
+      transition:box-shadow .18s ease, transform .18s ease;
+    }
+
+    #bhCursor.is-in-zone{
+      box-shadow:0 0 0 9px rgba(126,217,87,.20);
+    }
+
+    #bhCursor.is-warning{
+      box-shadow:0 0 0 9px rgba(255,179,91,.18);
+    }
+
+    #bhTargetPulse{
+      z-index:2;
+      opacity:0;
+      border:3px solid rgba(111,224,204,.60);
+    }
+
+    #bhTargetPulse.bh-pulse-on{
+      animation:bhPulse .5s ease-out;
+    }
+
+    #bhFXLayer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:5;
+    }
+
+    #bhSuccessFlash{
+      position:absolute;
+      inset:0;
+      opacity:0;
+      background:radial-gradient(circle at center, rgba(255,255,255,.18), rgba(111,224,204,.10), transparent 56%);
+    }
+
+    #bhSuccessFlash.bh-flash-on{
+      animation:bhFlash .48s ease-out;
+    }
+
+    #bhRecoverPop,
+    #bhPerfectPop,
+    #bhPostBanner{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      opacity:0;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.95);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-weight:1000;
+      text-align:center;
+    }
+
+    #bhRecoverPop{ top:20%; }
+    #bhPerfectPop{ top:28%; }
+    #bhPostBanner{ top:10%; font-size:18px; }
+
+    #bhRecoverPop.bh-pop-show,
+    #bhPerfectPop.bh-pop-show{
+      animation:bhPop 1s ease-out;
+    }
+
+    #bhPostBanner.bh-banner-show{
+      animation:bhBanner 1s ease-out;
+    }
+
+    #bhStarBurst{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+    }
+
+    #bhStarBurst .star{
+      position:absolute;
+      width:18px;
+      height:18px;
+      transform:translate(-50%,-50%);
+      opacity:0;
+    }
+
+    #bhStarBurst .star::before{
+      content:"⭐";
+      font-size:18px;
+      line-height:1;
+    }
+
+    #bhStarBurst .star.burst{
+      animation:bhStarBurst .95s ease-out forwards;
+    }
+
+    .bh-coach-wrap{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:8px;
+      align-items:center;
+    }
+
+    #bhCoachMood{
+      width:48px;
+      height:48px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:22px;
+    }
+
+    #bhCoachMood.bh-coach-bounce{
+      animation:bhCoachBounce .5s ease;
+    }
+
+    #bhCoach{
+      min-height:48px;
+      display:flex;
+      align-items:center;
+      padding:10px 14px;
+      border-radius:18px;
+      background:rgba(255,255,255,.94);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:14px;
+      font-weight:1000;
+      line-height:1.4;
+    }
+
+    #bhCoach.is-happy{ color:#2f7c44; }
+    #bhCoach.is-warn{ color:#9a5d16; }
+
+    .bh-runtime-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .bh-runtime-stat{
+      min-height:58px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .bh-runtime-stat .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .bh-runtime-stat .v{
+      display:block;
+      margin-top:5px;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    #bhProgress{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+
+    .bh-dot{
+      width:28px;
+      height:28px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .bh-dot.active{
+      background:linear-gradient(180deg,#dff5ff,#9fddff);
+      border-color:#8edcff;
+      color:#184c6a;
+    }
+
+    .bh-dot.done{
+      background:linear-gradient(180deg,#dcffd4,#7ed957);
+      border-color:#7ed957;
+      color:#1e4f17;
+    }
+
+    #bhOverlay{
+      position:absolute;
+      inset:0;
+      z-index:10;
+      display:grid;
+      place-items:center;
+      padding:16px;
+      background:rgba(255,255,255,.08);
+    }
+
+    #bhOverlay[hidden]{
+      display:none !important;
+    }
+
+    .bh-summary-card{
+      width:min(92vw, 760px);
+      padding:18px;
+      border-radius:26px;
+      background:rgba(255,255,255,.98);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:12px;
+    }
+
+    .bh-summary-card h2{
+      margin:0;
+      font-size:28px;
+      line-height:1.08;
+    }
+
+    .bh-summary-main,
+    .bh-summary-sub{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .bh-summary-main > div,
+    .bh-summary-sub > div{
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:13px;
+      line-height:1.45;
+      font-weight:1000;
+    }
+
+    .bh-summary-list{
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      overflow:hidden;
+    }
+
+    .bh-sum-head,
+    .bh-sum-row{
+      display:grid;
+      grid-template-columns:1fr 90px 90px;
+      gap:8px;
+      padding:10px 12px;
+      align-items:center;
+    }
+
+    .bh-sum-head{
+      background:linear-gradient(180deg,#f7fffd,#eefdfa);
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .bh-sum-row{
+      border-top:1px dashed var(--line);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .bh-summary-actions{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .bh-summary-actions button{
+      min-height:48px;
+      border:none;
+      border-radius:18px;
+      font-size:14px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      background:linear-gradient(180deg,#fff,#edfcf8);
+      border:2px solid var(--line);
+    }
+
+    #toast{
+      position:fixed;
+      left:50%;
+      bottom:20px;
+      transform:translateX(-50%) translateY(16px);
+      min-width:220px;
+      max-width:min(92vw,420px);
+      padding:12px 16px;
+      border-radius:999px;
+      background:rgba(67,63,61,.94);
+      color:#fff;
+      font-size:13px;
+      font-weight:1000;
+      text-align:center;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      z-index:100;
+    }
+
+    #toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    @keyframes bhPulse{
+      0%{ opacity:.8; transform:scale(.92); }
+      100%{ opacity:0; transform:scale(1.35); }
+    }
+
+    @keyframes bhFlash{
+      0%{ opacity:0; }
+      35%{ opacity:1; }
+      100%{ opacity:0; }
+    }
+
+    @keyframes bhPop{
+      0%{ opacity:0; transform:translateX(-50%) translateY(10px) scale(.92); }
+      18%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+      82%{ opacity:1; transform:translateX(-50%) translateY(-4px) scale(1); }
+      100%{ opacity:0; transform:translateX(-50%) translateY(-10px) scale(.96); }
+    }
+
+    @keyframes bhBanner{
+      0%{ opacity:0; transform:translateX(-50%) translateY(-8px) scale(.94); }
+      18%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+      80%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+      100%{ opacity:0; transform:translateX(-50%) translateY(-8px) scale(.96); }
+    }
+
+    @keyframes bhStarBurst{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.5); }
+      18%{ opacity:1; }
+      100%{ opacity:0; transform:translate(var(--tx), var(--ty)) scale(1.1); }
+    }
+
+    @keyframes bhCoachBounce{
+      0%,100%{ transform:scale(1); }
+      50%{ transform:scale(1.08); }
+    }
+
+    @media (max-width:1100px){
+      .shell{ grid-template-columns:1fr; }
+      .menu-side{ position:relative; top:auto; }
+    }
+
+    @media (max-width:780px){
+      .topbar,
+      .play-topbar{
+        grid-template-columns:1fr;
+      }
+      .stats-grid,
+      .latest-grid,
+      .boss-ready-actions,
       .grid-3,
-      .stat-grid,
-      .mode-grid{ grid-template-columns:1fr; }
-      .mode-actions{ grid-template-columns:1fr; }
+      .grid-2,
+      .bh-top-ui,
+      .bh-runtime-stats,
+      .bh-summary-main,
+      .bh-summary-sub,
+      .bh-summary-actions{
+        grid-template-columns:1fr;
+      }
+      .bh-sum-head,
+      .bh-sum-row{
+        grid-template-columns:1fr 70px 70px;
+      }
     }
   </style>
 </head>
@@ -711,44 +1319,45 @@
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <div class="icon">🧍</div>
+        <div class="brand-icon">🧍</div>
         <div>HeroHealth</div>
       </div>
 
       <div class="headline">
-        <div class="title">Balance Hold Launcher</div>
-        <div class="sub">Balance • Stability • Focus • Play / Quick / Research / Demo</div>
+        <h1 class="headline-title">Balance Hold</h1>
+        <p class="headline-sub">Balance • Stability • Focus • Endurance • Fitness Zone</p>
       </div>
 
       <div class="top-actions">
-        <a id="btnBackFitness" href="./fitness-zone.html">🏃 Fitness Zone</a>
-        <a id="btnHubTop" href="./hub-v2.html">🏠 HUB</a>
+        <a id="btnBackFitnessTop" class="top-link" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnBackHubTop" class="top-link" href="../herohealth/hub-v2.html">🏠 HUB</a>
       </div>
     </header>
 
-    <main class="shell">
-      <section class="card hero">
-        <div class="hero-badge">✨ Child-friendly • Balance • Hold • Focus • Landing</div>
+    <section id="view-menu" class="shell">
+      <section class="panel menu-panel">
+        <div class="badge">✨ child-friendly • balance • stability • summary • warmup+cooldown • boss-ready</div>
 
-        <h1>Balance Hold</h1>
-        <p>
-          เกมนี้ฝึก <strong>การทรงตัว คุมแกนลำตัว และรักษาสมาธิ</strong>
-          ให้เด็กค่อย ๆ ยืนให้นิ่ง ทนแรงกดดัน และผ่านช่วง boss/final rush ได้มั่นใจขึ้น
+        <h2 class="hero-title">Balance<br>Hold</h2>
+
+        <p class="hero-copy">
+          เกมนี้ฝึก <strong>การทรงตัว ความนิ่ง และการคุมแกนลำตัว</strong>
+          เด็กจะต้องรักษาสมดุลให้นานขึ้น รับแรงกดดันทีละช่วง และพยายามผ่านช่วงท้ายให้ได้นิ่งที่สุด
         </p>
 
         <div class="preview">
-          <div class="cue">
+          <div class="preview-floor"></div>
+          <div class="preview-balance-line"></div>
+
+          <div class="preview-meter">
             <div>
-              <div class="emoji">🧘</div>
-              <div class="label">Hold Still</div>
-              <div class="hint">คุมตัวให้นิ่ง แล้วผ่านแรงกดดัน</div>
+              <div class="emoji">🧍</div>
+              <div class="label">Hold Steady</div>
+              <div class="hint">รักษาความนิ่งให้อยู่กลางเส้น</div>
             </div>
           </div>
 
-          <div class="ring"></div>
-          <div class="pad"></div>
-
-          <div class="avatar">
+          <div class="preview-avatar" aria-hidden="true">
             <div class="head"></div>
             <div class="body"></div>
             <div class="arm left"></div>
@@ -756,161 +1365,129 @@
             <div class="leg left"></div>
             <div class="leg right"></div>
           </div>
+
+          <div class="preview-warning">⚠️</div>
         </div>
 
         <div class="chips">
           <div class="chip">🧍 Balance</div>
-          <div class="chip">🎯 Stability</div>
-          <div class="chip">🧠 Focus</div>
-          <div class="chip">🛡️ Pressure</div>
-          <div class="chip">⭐ Summary</div>
+          <div class="chip">💚 Stability</div>
+          <div class="chip">🎯 Focus</div>
+          <div class="chip">⏱️ Hold Time</div>
+          <div class="chip">👑 Boss</div>
         </div>
 
-        <section class="strip" id="recentStrip">
-          <div class="strip-head">
-            <div class="strip-title">🕹️ Balance Hold ล่าสุด</div>
-            <div class="strip-sub" id="recentStripSub">ยังไม่มีผลล่าสุด</div>
+        <section class="stats-strip">
+          <div class="stats-head">
+            <strong>🕹️ ผลล่าสุด</strong>
+            <span id="recentStripSub">ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย</span>
           </div>
 
-          <div class="stat-grid">
-            <div class="stat-pill"><span class="k">Rank</span><span class="v" id="recentRank">-</span></div>
-            <div class="stat-pill"><span class="k">Score</span><span class="v" id="recentScore">-</span></div>
-            <div class="stat-pill"><span class="k">Stability</span><span class="v" id="recentStability">-</span></div>
-            <div class="stat-pill"><span class="k">Time</span><span class="v" id="recentTime">-</span></div>
+          <div class="stats-grid">
+            <div class="stat"><span class="k">Rank</span><span id="recentRank" class="v">-</span></div>
+            <div class="stat"><span class="k">Score</span><span id="recentScore" class="v">-</span></div>
+            <div class="stat"><span class="k">Valid Hold</span><span id="recentStability" class="v">-</span></div>
+            <div class="stat"><span class="k">Out</span><span id="recentMiss" class="v">-</span></div>
           </div>
         </section>
 
-        <section class="strip">
-          <div class="strip-head">
-            <div class="strip-title">🎮 เลือกโหมดเล่น</div>
-            <div class="strip-sub">กดปุ่มในแต่ละการ์ดเพื่อ preset และเข้าเล่นทันที</div>
+        <section class="latest-report" id="latestReportCard">
+          <div class="latest-report-head">
+            <div>
+              <h3 class="latest-report-title">📘 Latest Balance Report</h3>
+              <p id="latestReportSub" class="latest-report-sub">ยังไม่มี teacher snapshot ล่าสุด</p>
+            </div>
+
+            <div class="latest-grade">
+              <div id="latestGradeText" class="g">NEW</div>
+              <div id="latestRankText" class="r">No Record</div>
+            </div>
           </div>
 
-          <div class="mode-grid">
-            <article class="mode-card">
-              <div class="top">
-                <div>
-                  <div class="title">Play Standard</div>
-                  <div class="sub">warmup → game → summary → cooldown</div>
-                </div>
-                <div class="icon">▶</div>
-              </div>
-              <div class="tags">
-                <span>gate on</span><span>cooldown on</span><span>90s</span>
-              </div>
-              <div class="mode-actions">
-                <button class="btn primary" id="modePlayStart" type="button">เริ่มเลย</button>
-                <button class="btn secondary" id="modePlayPreset" type="button">ใช้ค่านี้</button>
-              </div>
-            </article>
+          <div class="latest-grid">
+            <div class="latest-metric">
+              <span class="k">Score</span>
+              <span id="latestScoreMetric" class="v">-</span>
+            </div>
+            <div class="latest-metric">
+              <span class="k">Valid Hold</span>
+              <span id="latestValidMetric" class="v">-</span>
+            </div>
+            <div class="latest-metric">
+              <span class="k">Boss</span>
+              <span id="latestBossMetric" class="v">-</span>
+            </div>
+            <div class="latest-metric">
+              <span class="k">Best Post</span>
+              <span id="latestBestMetric" class="v">-</span>
+            </div>
+          </div>
 
-            <article class="mode-card">
-              <div class="top">
-                <div>
-                  <div class="title">Quick Play</div>
-                  <div class="sub">เข้าเกมเร็ว ไม่ผ่าน warmup</div>
-                </div>
-                <div class="icon">⚡</div>
-              </div>
-              <div class="tags">
-                <span>gate off</span><span>cooldown on</span><span>เร็ว</span>
-              </div>
-              <div class="mode-actions">
-                <button class="btn primary" id="modeQuickStart" type="button">เริ่มเลย</button>
-                <button class="btn secondary" id="modeQuickPreset" type="button">ใช้ค่านี้</button>
-              </div>
-            </article>
-
-            <article class="mode-card">
-              <div class="top">
-                <div>
-                  <div class="title">Research</div>
-                  <div class="sub">seed / logging / deterministic flow</div>
-                </div>
-                <div class="icon">🧪</div>
-              </div>
-              <div class="tags">
-                <span>run=research</span><span>gate on</span><span>study</span>
-              </div>
-              <div class="mode-actions">
-                <button class="btn primary" id="modeResearchStart" type="button">เริ่มเลย</button>
-                <button class="btn secondary" id="modeResearchPreset" type="button">ใช้ค่านี้</button>
-              </div>
-            </article>
-
-            <article class="mode-card">
-              <div class="top">
-                <div>
-                  <div class="title">Demo 60s</div>
-                  <div class="sub">easy • สั้น • เหมาะสำหรับสาธิต</div>
-                </div>
-                <div class="icon">🎈</div>
-              </div>
-              <div class="tags">
-                <span>60s</span><span>easy</span><span>cooldown off</span>
-              </div>
-              <div class="mode-actions">
-                <button class="btn primary" id="modeDemoStart" type="button">เริ่มเลย</button>
-                <button class="btn secondary" id="modeDemoPreset" type="button">ใช้ค่านี้</button>
-              </div>
-            </article>
+          <div class="latest-note">
+            <b id="latestPlanTitle">Start Balance Hold</b>
+            <span id="latestPlanSub">เริ่มรอบมาตรฐานก่อน แล้วค่อยประเมินผลหลังจบเกม</span>
+            <div id="latestPlanChips" class="recommend-chips">
+              <span>Normal</span>
+              <span>90s</span>
+              <span>Standard</span>
+            </div>
           </div>
         </section>
-
-        <div class="feature-grid">
-          <div class="feature">
-            <div class="big">🧍</div>
-            <strong>คุมสมดุล</strong>
-            <span>ฝึกยืนให้นิ่ง รู้จักควบคุมแกนกลางลำตัว</span>
-          </div>
-          <div class="feature">
-            <div class="big">🛡️</div>
-            <strong>ต้านแรงกดดัน</strong>
-            <span>รับแรงรบกวนและผ่านช่วงกดดันแบบมีสมาธิ</span>
-          </div>
-          <div class="feature">
-            <div class="big">📊</div>
-            <strong>วัดทักษะได้</strong>
-            <span>สรุป score, rank, stability และเวลาที่เอาตัวรอดได้</span>
-          </div>
-        </div>
       </section>
 
-      <aside class="card side">
-        <section class="section">
+      <aside class="panel menu-side">
+        <section class="card-block">
           <h3>PLAYER</h3>
+
           <div class="field">
             <label for="pid">PID</label>
             <input id="pid" type="text" placeholder="anon" />
           </div>
+
           <div class="field">
             <label for="name">Name</label>
             <input id="name" type="text" placeholder="Player" />
           </div>
+
           <div class="field">
             <label for="studyId">Study ID</label>
             <input id="studyId" type="text" placeholder="optional" />
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>RECOMMENDED SETTINGS</h3>
+
           <div class="recommend-box">
-            <div class="recommend-title" id="recommendTitle">แนะนำค่าเริ่มต้น</div>
-            <div class="recommend-sub" id="recommendSub">ระบบจะเลือกค่าที่เหมาะจากผลล่าสุดให้</div>
-            <div class="recommend-chips" id="recommendChips">
+            <div id="recommendTitle" class="recommend-title">แนะนำค่าเริ่มต้น</div>
+            <div id="recommendSub" class="recommend-sub">ระบบจะเลือกค่าที่เหมาะจากผลล่าสุดให้</div>
+            <div id="recommendChips" class="recommend-chips">
               <span>Normal</span><span>90s</span><span>Mobile</span>
             </div>
             <button id="btnApplyRecommended" class="btn secondary" type="button">✨ ใช้ค่าที่แนะนำ</button>
           </div>
+
+          <div id="bossReadyBox" class="boss-ready-box hidden">
+            <div class="boss-ready-title">👑 Boss Ready</div>
+            <div id="bossReadySub" class="boss-ready-sub">ผลล่าสุดพร้อมสำหรับ Final Balance Boss</div>
+            <div id="bossReadyChips" class="recommend-chips">
+              <span class="boss-chip">Hard</span>
+              <span class="boss-chip">120s</span>
+              <span class="boss-chip">Boss On</span>
+            </div>
+            <div class="boss-ready-actions">
+              <button id="btnApplyBossReady" class="btn ghost" type="button">👑 ใช้ค่ารอบบอส</button>
+              <button id="btnLaunchBossReady" class="btn primary" type="button">🚀 เข้า Boss Run</button>
+            </div>
+          </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>DIFFICULTY</h3>
           <div class="grid-3">
             <div class="toggle">
               <input id="diff-easy" name="diff" type="radio" value="easy" />
-              <label for="diff-easy">Easy<small>นิ่งง่ายขึ้น</small></label>
+              <label for="diff-easy">Easy<small>นิ่งง่ายกว่า</small></label>
             </div>
             <div class="toggle">
               <input id="diff-normal" name="diff" type="radio" value="normal" checked />
@@ -918,17 +1495,17 @@
             </div>
             <div class="toggle">
               <input id="diff-hard" name="diff" type="radio" value="hard" />
-              <label for="diff-hard">Hard<small>กดดันมากขึ้น</small></label>
+              <label for="diff-hard">Hard<small>แรงกดดันมากขึ้น</small></label>
             </div>
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>TIME</h3>
           <div class="grid-3">
             <div class="toggle">
               <input id="time-60" name="time" type="radio" value="60" />
-              <label for="time-60">60s<small>สั้น กระชับ</small></label>
+              <label for="time-60">60s<small>สั้น</small></label>
             </div>
             <div class="toggle">
               <input id="time-90" name="time" type="radio" value="90" checked />
@@ -941,12 +1518,12 @@
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>VIEW</h3>
           <div class="grid-3">
             <div class="toggle">
               <input id="view-mobile" name="view" type="radio" value="mobile" checked />
-              <label for="view-mobile">Mobile<small>เล่นทั่วไป</small></label>
+              <label for="view-mobile">Mobile<small>ทั่วไป</small></label>
             </div>
             <div class="toggle">
               <input id="view-pc" name="view" type="radio" value="pc" />
@@ -954,12 +1531,12 @@
             </div>
             <div class="toggle">
               <input id="view-cvr" name="view" type="radio" value="cvr" />
-              <label for="view-cvr">cVR<small>เก็บ param ไว้ก่อน</small></label>
+              <label for="view-cvr">cVR<small>เก็บ param</small></label>
             </div>
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>RUN MODE</h3>
           <div class="grid-2">
             <div class="toggle">
@@ -968,14 +1545,14 @@
             </div>
             <div class="toggle">
               <input id="run-research" name="run" type="radio" value="research" />
-              <label for="run-research">Research<small>เน้น seed / logging</small></label>
+              <label for="run-research">Research<small>seed/logging</small></label>
             </div>
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>FLOW</h3>
-          <p>Start มาตรฐานจะไปตามลำดับ <strong>warmup-gate → balance-hold → summary → cooldown → hub/zone</strong></p>
+          <p>โหมดมาตรฐานจะไปตามลำดับ <strong>warmup-gate → balance-hold → summary → cooldown → hub/zone</strong></p>
 
           <div class="grid-2">
             <div class="toggle">
@@ -1000,7 +1577,23 @@
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
+          <h3>BOSS PHASE</h3>
+          <p>ใช้สำหรับเปิด Final Balance Boss ตอนท้ายเกม</p>
+
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="boss-auto" name="boss" type="radio" value="" checked />
+              <label for="boss-auto">Auto<small>ปล่อยให้ระบบตัดสิน</small></label>
+            </div>
+            <div class="toggle">
+              <input id="boss-on" name="boss" type="radio" value="1" />
+              <label for="boss-on">Boss ON<small>เปิด Final Boss</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
           <h3>SEED</h3>
           <div class="field">
             <label for="seed">Seed</label>
@@ -1008,473 +1601,656 @@
           </div>
         </section>
 
-        <section class="section">
+        <section class="card-block">
           <h3>LAUNCH</h3>
           <div class="launch-actions">
             <button id="btnStartStandard" class="btn primary" type="button">▶ Start with Current Settings</button>
             <button id="btnQuickPlay" class="btn secondary" type="button">⚡ Quick Play Now</button>
             <button id="btnUseLastPattern" class="btn ghost" type="button">🕹️ ใช้ค่าจากล่าสุด</button>
           </div>
-          <div class="preview-url" id="previewUrl">preview url</div>
+          <div id="previewUrl" class="preview-url">preview url</div>
         </section>
 
         <div class="footer-note">
-          Launcher นี้จะส่ง query params ให้ครบทั้ง pid / diff / time / seed / hub / run / view / gate / cooldown
+          Launcher นี้ส่งค่า pid / diff / time / seed / hub / run / view / gate / cooldown / boss ให้ครบ
         </div>
       </aside>
-    </main>
+    </section>
+
+    <section id="view-play" class="panel play-shell hidden">
+      <div class="play-topbar">
+        <a id="bh-back-fitness-play" class="mini-pill" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+        <div class="mini-pill">🧍 Balance Hold Runtime</div>
+        <a id="bh-back-hub-play" class="mini-pill" href="../herohealth/hub-v2.html">🏠 HUB</a>
+      </div>
+
+      <div class="arena-shell bh-runtime-shell">
+        <div id="bhGame">
+          <div class="bh-top-ui">
+            <div id="bhCue" class="bh-pill">เตรียมตัว</div>
+            <div id="bhBeat" class="bh-pill right">●</div>
+          </div>
+
+          <div id="bhArena">
+            <div id="bhGhost" data-ghost="center"></div>
+            <div id="bhTarget"></div>
+            <div id="bhCursor"></div>
+            <div id="bhTargetPulse"></div>
+
+            <div id="bhFXLayer">
+              <div id="bhSuccessFlash"></div>
+              <div id="bhRecoverPop">Recover!</div>
+              <div id="bhPerfectPop">Perfect!</div>
+              <div id="bhPostBanner">POST CLEAR!</div>
+              <div id="bhStarBurst"></div>
+            </div>
+
+            <div id="bhOverlay" hidden></div>
+          </div>
+
+          <div class="bh-bottom-ui">
+            <div class="bh-coach-wrap">
+              <div id="bhCoachMood">🙂</div>
+              <div id="bhCoach">ฝึกการทรงตัว 6 ฐาน</div>
+            </div>
+
+            <div class="bh-runtime-stats">
+              <div class="bh-runtime-stat"><span class="k">POST</span><span id="bhPost" class="v">Practice</span></div>
+              <div class="bh-runtime-stat"><span class="k">STARS</span><span id="bhStars" class="v">⭐ 0</span></div>
+              <div class="bh-runtime-stat"><span class="k">SCORE</span><span id="bhScore" class="v">0</span></div>
+              <div class="bh-runtime-stat"><span class="k">PROGRESS</span><div id="bhProgress"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      HeroHealth • Balance Hold • smart launcher + runtime wrapper + teacher snapshot
+    </div>
   </div>
 
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="../herohealth/fitness-zone-bridge.js"></script>
   <script>
-  (() => {
-    'use strict';
+    (function () {
+      'use strict';
 
-    const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
-    const BALANCE_SUMMARY_KEY = 'HHA_LAST_SUMMARY_BALANCEHOLD';
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
 
-    const qs = new URLSearchParams(location.search);
-    const $ = (id) => document.getElementById(id);
+      const els = {
+        pid: $('pid'),
+        name: $('name'),
+        studyId: $('studyId'),
+        seed: $('seed'),
 
-    const els = {
-      pid: $('pid'),
-      name: $('name'),
-      studyId: $('studyId'),
-      seed: $('seed'),
-      btnHubTop: $('btnHubTop'),
-      btnBackFitness: $('btnBackFitness'),
-      btnStartStandard: $('btnStartStandard'),
-      btnQuickPlay: $('btnQuickPlay'),
-      btnUseLastPattern: $('btnUseLastPattern'),
-      previewUrl: $('previewUrl'),
-      btnApplyRecommended: $('btnApplyRecommended'),
-      recommendTitle: $('recommendTitle'),
-      recommendSub: $('recommendSub'),
-      recommendChips: $('recommendChips'),
-      recentStripSub: $('recentStripSub'),
-      recentRank: $('recentRank'),
-      recentScore: $('recentScore'),
-      recentStability: $('recentStability'),
-      recentTime: $('recentTime'),
-      modePlayStart: $('modePlayStart'),
-      modePlayPreset: $('modePlayPreset'),
-      modeQuickStart: $('modeQuickStart'),
-      modeQuickPreset: $('modeQuickPreset'),
-      modeResearchStart: $('modeResearchStart'),
-      modeResearchPreset: $('modeResearchPreset'),
-      modeDemoStart: $('modeDemoStart'),
-      modeDemoPreset: $('modeDemoPreset')
-    };
+        btnBackFitnessTop: $('btnBackFitnessTop'),
+        btnBackHubTop: $('btnBackHubTop'),
+        btnBackFitness: $('btnBackFitness'),
+        btnBackHub: $('btnBackHub'),
+        btnStartStandard: $('btnStartStandard'),
+        btnQuickPlay: $('btnQuickPlay'),
+        btnUseLastPattern: $('btnUseLastPattern'),
+        btnApplyRecommended: $('btnApplyRecommended'),
+        btnApplyBossReady: $('btnApplyBossReady'),
+        btnLaunchBossReady: $('btnLaunchBossReady'),
 
-    const ABS_HUB = new URL('./hub-v2.html', location.href).href;
-    const ABS_FITNESS = new URL('./fitness-zone.html', location.href).href;
-    const ABS_RUN = new URL('../fitness/balance-hold.html', location.href).href;
-    const ABS_GATE = new URL('./warmup-gate.html', location.href).href;
+        previewUrl: $('previewUrl'),
+        recentStripSub: $('recentStripSub'),
+        recentRank: $('recentRank'),
+        recentScore: $('recentScore'),
+        recentStability: $('recentStability'),
+        recentMiss: $('recentMiss'),
 
-    function safeJsonParse(raw, fallback = null) {
-      try { return JSON.parse(raw); } catch (_) { return fallback; }
-    }
+        recommendTitle: $('recommendTitle'),
+        recommendSub: $('recommendSub'),
+        recommendChips: $('recommendChips'),
 
-    function readJsonKey(key) {
-      try {
-        const raw = localStorage.getItem(key);
-        return raw ? safeJsonParse(raw, null) : null;
-      } catch (_) {
-        return null;
-      }
-    }
+        latestReportSub: $('latestReportSub'),
+        latestGradeText: $('latestGradeText'),
+        latestRankText: $('latestRankText'),
+        latestScoreMetric: $('latestScoreMetric'),
+        latestValidMetric: $('latestValidMetric'),
+        latestBossMetric: $('latestBossMetric'),
+        latestBestMetric: $('latestBestMetric'),
+        latestPlanTitle: $('latestPlanTitle'),
+        latestPlanSub: $('latestPlanSub'),
+        latestPlanChips: $('latestPlanChips'),
 
-    function readBalanceSummary() {
-      const bh = readJsonKey(BALANCE_SUMMARY_KEY);
-      if (bh && String(bh.game || '').toLowerCase().includes('balance')) return bh;
+        bossReadyBox: $('bossReadyBox'),
+        bossReadySub: $('bossReadySub'),
+        bossReadyChips: $('bossReadyChips'),
 
-      const generic = readJsonKey(LAST_SUMMARY_KEY);
-      if (generic && String(generic.game || '').toLowerCase().includes('balance')) return generic;
+        viewMenu: $('view-menu'),
+        viewPlay: $('view-play'),
 
-      return null;
-    }
-
-    function readOrDefault(key, fallback) {
-      const v = qs.get(key);
-      return (v == null || v === '') ? fallback : v;
-    }
-
-    function readRadio(name, fallback) {
-      const node = document.querySelector(`input[name="${name}"]:checked`);
-      return node ? node.value : fallback;
-    }
-
-    function setRadio(name, value, fallbackId) {
-      const target = document.querySelector(`input[name="${name}"][value="${value}"]`);
-      if (target) target.checked = true;
-      else if (fallbackId) $(fallbackId).checked = true;
-    }
-
-    function cleanText(v, fallback='') {
-      return String(v || '').trim() || fallback;
-    }
-
-    function buildSeed() {
-      return cleanText(els.seed.value, String(Date.now()));
-    }
-
-    function buildFitnessBackUrl() {
-      const u = new URL(readOrDefault('hub', ABS_FITNESS), location.href);
-      if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'balance-hold');
-      if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'balance-hold');
-      return u.toString();
-    }
-
-    function baseParams() {
-      const seed = buildSeed();
-      const hub = buildFitnessBackUrl();
-
-      return {
-        pid: cleanText(els.pid.value, 'anon'),
-        name: cleanText(els.name.value, 'Player'),
-        studyId: cleanText(els.studyId.value, ''),
-        diff: readRadio('diff', 'normal'),
-        time: readRadio('time', '90'),
-        view: readRadio('view', 'mobile'),
-        run: readRadio('run', 'play'),
-        gate: readRadio('gate', '1'),
-        cooldown: readRadio('cooldown', '1'),
-        seed,
-        hub
+        bhBackFitnessPlay: $('bh-back-fitness-play')
       };
-    }
 
-    function copyExtraParams(url) {
-      const passthroughKeys = [
-        'studentKey','schoolCode','classRoom','studentNo','nickName',
-        'api','debug','phase','conditionGroup','sessionNo','weekNo','log'
-      ];
+      const Bridge = window.HHFitnessBridge;
 
-      passthroughKeys.forEach((k) => {
+      const ABS_HUB = new URL('../herohealth/hub-v2.html', location.href).href;
+      const ABS_FITNESS = new URL('../herohealth/fitness-zone.html', location.href).href;
+      const ABS_LAUNCHER = new URL('../herohealth/balance-hold-vr.html', location.href).href;
+      const ABS_GATE = new URL('../herohealth/warmup-gate.html', location.href).href;
+      const TEACHER_EXPORT_LAST_KEY = 'HHA_BALANCE_TEACHER_EXPORT_LAST_V1';
+
+      function q(k, d='') {
         const v = qs.get(k);
-        if (v != null && v !== '') url.searchParams.set(k, v);
-      });
-    }
-
-    function buildRunUrl(modeOverride = null, patch = {}) {
-      const p = baseParams();
-      const url = new URL(ABS_RUN);
-
-      url.searchParams.set('pid', p.pid);
-      url.searchParams.set('name', p.name);
-      if (p.studyId) url.searchParams.set('studyId', p.studyId);
-
-      url.searchParams.set('zone', 'fitness');
-      url.searchParams.set('cat', 'fitness');
-      url.searchParams.set('game', 'balance-hold');
-      url.searchParams.set('gameId', 'balance-hold');
-      url.searchParams.set('theme', 'balancehold');
-
-      url.searchParams.set('diff', patch.diff || p.diff);
-      url.searchParams.set('time', patch.time || p.time);
-      url.searchParams.set('seed', patch.seed || p.seed);
-      url.searchParams.set('hub', patch.hub || p.hub);
-      url.searchParams.set('view', patch.view || p.view);
-      url.searchParams.set('run', modeOverride || patch.run || p.run);
-
-      url.searchParams.set('gate', patch.gate || p.gate);
-      url.searchParams.set('cooldown', patch.cooldown || p.cooldown);
-      url.searchParams.set('returnPhase', (patch.cooldown || p.cooldown) === '1' ? 'cooldown' : 'hub');
-      url.searchParams.set('cdur', patch.cdur || '20');
-
-      copyExtraParams(url);
-      return url;
-    }
-
-    function buildWarmupUrl(runUrl, patch = {}) {
-      const p = baseParams();
-      const url = new URL(ABS_GATE);
-
-      url.searchParams.set('phase', 'warmup');
-      url.searchParams.set('pid', p.pid);
-      url.searchParams.set('name', p.name);
-      if (p.studyId) url.searchParams.set('studyId', p.studyId);
-
-      url.searchParams.set('zone', 'fitness');
-      url.searchParams.set('cat', 'fitness');
-      url.searchParams.set('game', 'balance-hold');
-      url.searchParams.set('gameId', 'balance-hold');
-      url.searchParams.set('theme', 'balancehold');
-
-      url.searchParams.set('diff', patch.diff || p.diff);
-      url.searchParams.set('time', patch.time || p.time);
-      url.searchParams.set('seed', patch.seed || p.seed);
-      url.searchParams.set('hub', patch.hub || p.hub);
-      url.searchParams.set('view', patch.view || p.view);
-      url.searchParams.set('run', patch.run || p.run);
-
-      url.searchParams.set('gate', '1');
-      url.searchParams.set('cooldown', patch.cooldown || p.cooldown);
-      url.searchParams.set('returnPhase', (patch.cooldown || p.cooldown) === '1' ? 'cooldown' : 'hub');
-      url.searchParams.set('dur', patch.dur || '20');
-      url.searchParams.set('cdur', patch.cdur || '20');
-      url.searchParams.set('next', runUrl.href);
-
-      copyExtraParams(url);
-      return url;
-    }
-
-    function recommendFromSummary(summary) {
-      if (!summary) {
-        return {
-          title: 'แนะนำค่าเริ่มต้นสำหรับผู้เล่นใหม่',
-          sub: 'เริ่มแบบสมดุลก่อน เพื่อฝึกคุมตัวให้นิ่งและอ่านเกมได้ง่าย',
-          diff: 'normal',
-          time: '90',
-          view: readOrDefault('view', 'mobile'),
-          run: 'play',
-          gate: '1',
-          cooldown: '1',
-          chips: ['Normal', '90s', readOrDefault('view', 'mobile'), 'Standard']
-        };
+        return v == null || v === '' ? d : v;
       }
 
-      const score = Number(summary.scoreFinal || summary.score || 0);
-      const rank = String(summary.rank || '').toUpperCase();
-      const stability = Number(summary.stabilityMin || summary.stability || 0);
-      const miss = Number(summary.miss || summary.missTotal || 0);
-
-      if (stability < 45 || miss >= 8) {
-        return {
-          title: 'แนะนำให้ลดแรงกดดันก่อน',
-          sub: 'ใช้ Easy และเวลา 60 วินาที เพื่อฝึกคุมตัวและแก้จุดไม่นิ่ง',
-          diff: 'easy',
-          time: '60',
-          view: 'mobile',
-          run: 'play',
-          gate: '1',
-          cooldown: '1',
-          chips: ['Easy', '60s', 'Stability Focus', 'Standard']
-        };
+      function setRadio(name, value) {
+        const selector = value === ''
+          ? `input[name="${name}"][value=""]`
+          : `input[name="${name}"][value="${value}"]`;
+        const el = document.querySelector(selector);
+        if (el) el.checked = true;
       }
 
-      if ((rank === 'S' || rank === 'A') && score >= 150) {
-        return {
-          title: 'พร้อมอัปเกรดความท้าทายแล้ว',
-          sub: 'ลอง Hard หรือ Research เพื่อทดสอบการทรงตัวภายใต้แรงกดดันมากขึ้น',
-          diff: 'hard',
-          time: '90',
-          view: 'pc',
-          run: 'research',
-          gate: '1',
-          cooldown: '1',
-          chips: ['Hard', '90s', 'PC', 'Research']
-        };
+      function readRadio(name, fallback) {
+        const el = document.querySelector(`input[name="${name}"]:checked`);
+        return el ? el.value : fallback;
       }
 
-      if (stability >= 65) {
+      function readTeacherExportLast() {
+        try {
+          const raw = localStorage.getItem(TEACHER_EXPORT_LAST_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function escHtml(v) {
+        return String(v == null ? '' : v)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function buildFitnessBackUrl() {
+        const u = new URL(q('hub', ABS_FITNESS), location.href);
+        if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'balancehold');
+        if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'balancehold');
+        return u.toString();
+      }
+
+      function buildLauncherUrl() {
+        const u = new URL(ABS_LAUNCHER);
+
+        [
+          'pid','name','nick','studyId','view','debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName',
+          'weekNo','sessionNo','grade','teacher'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+
+        u.searchParams.set('game', 'balancehold');
+        u.searchParams.set('gameId', 'balancehold');
+        u.searchParams.set('theme', 'balancehold');
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('diff', readRadio('diff', q('diff', 'normal')));
+        u.searchParams.set('time', readRadio('time', q('time', '90')));
+        u.searchParams.set('view', readRadio('view', q('view', 'mobile')));
+        u.searchParams.set('run', readRadio('run', q('run', 'play')));
+        u.searchParams.set('gate', readRadio('gate', q('gate', '1')));
+        u.searchParams.set('cooldown', readRadio('cooldown', q('cooldown', '1')));
+
+        const boss = readRadio('boss', q('boss', ''));
+        if (String(boss) !== '') u.searchParams.set('boss', String(boss));
+
+        u.searchParams.set('hub', q('hub', ABS_HUB));
+        u.searchParams.set('seed', els.seed.value || String(Date.now()));
+        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
+        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
+
+        if (els.studyId.value) u.searchParams.set('studyId', els.studyId.value);
+        return u.toString();
+      }
+
+      function baseRunUrl(patch = {}) {
+        const u = new URL(ABS_LAUNCHER);
+
+        const pid = els.pid.value || q('pid', 'anon');
+        const name = els.name.value || q('name', q('nickName', 'Player'));
+        const studyId = els.studyId.value || q('studyId', '');
+        const diff = patch.diff || readRadio('diff', q('diff', 'normal'));
+        const time = patch.time || readRadio('time', q('time', '90'));
+        const view = patch.view || readRadio('view', q('view', 'mobile'));
+        const run = patch.run || readRadio('run', q('run', 'play'));
+        const gate = patch.gate ?? readRadio('gate', q('gate', '1'));
+        const cooldown = patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'));
+        const seed = patch.seed || (els.seed.value || q('seed', String(Date.now())));
+        const hub = patch.hub || buildFitnessBackUrl();
+        const boss = patch.boss ?? readRadio('boss', q('boss', ''));
+
+        u.search = '';
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('name', name);
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'balancehold');
+        u.searchParams.set('gameId', 'balancehold');
+        u.searchParams.set('theme', 'balancehold');
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', String(time));
+        u.searchParams.set('view', view);
+        u.searchParams.set('run', run);
+        u.searchParams.set('gate', String(gate));
+        u.searchParams.set('cooldown', String(cooldown));
+        u.searchParams.set('hub', hub);
+        u.searchParams.set('seed', seed);
+
+        if (String(boss) !== '') u.searchParams.set('boss', String(boss));
+        if (studyId) u.searchParams.set('studyId', studyId);
+
+        [
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName',
+          'weekNo','sessionNo','grade','teacher'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+
+        return u;
+      }
+
+      function buildWarmupUrl(runUrl, patch = {}) {
+        const u = new URL(ABS_GATE);
+
+        u.searchParams.set('phase', 'warmup');
+        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
+        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
+
+        const studyId = els.studyId.value || q('studyId', '');
+        if (studyId) u.searchParams.set('studyId', studyId);
+
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'balancehold');
+        u.searchParams.set('gameId', 'balancehold');
+        u.searchParams.set('theme', 'balancehold');
+
+        u.searchParams.set('diff', patch.diff || readRadio('diff', q('diff', 'normal')));
+        u.searchParams.set('time', patch.time || readRadio('time', q('time', '90')));
+        u.searchParams.set('seed', patch.seed || (els.seed.value || q('seed', String(Date.now()))));
+        u.searchParams.set('hub', patch.hub || buildFitnessBackUrl());
+        u.searchParams.set('view', patch.view || readRadio('view', q('view', 'mobile')));
+        u.searchParams.set('run', patch.run || readRadio('run', q('run', 'play')));
+
+        u.searchParams.set('gate', '1');
+        u.searchParams.set('cooldown', patch.cooldown ?? readRadio('cooldown', q('cooldown', '1')));
+        u.searchParams.set('returnPhase', (patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'))) === '1' ? 'cooldown' : 'hub');
+        u.searchParams.set('dur', patch.dur || '20');
+        u.searchParams.set('cdur', patch.cdur || '20');
+
+        const boss = patch.boss ?? readRadio('boss', q('boss', ''));
+        if (String(boss) !== '') u.searchParams.set('boss', String(boss));
+
+        u.searchParams.set('next', runUrl.href);
+        return u;
+      }
+
+      function setPreview() {
+        els.previewUrl.textContent = buildLauncherUrl();
+      }
+
+      function getPlanFromTeacherSnapshot(last) {
+        if (!last) {
+          return {
+            key: 'standard',
+            title: 'แนะนำค่าเริ่มต้น',
+            sub: 'เริ่มแบบสมดุลก่อน เพื่อฝึกการทรงตัวและคุมแกนให้นิ่ง',
+            diff: 'normal',
+            time: '90',
+            view: q('view', 'mobile'),
+            run: 'play',
+            gate: '1',
+            cooldown: '1',
+            boss: '',
+            chips: ['Normal','90s',q('view','mobile'),'Standard'],
+            bossReady: false
+          };
+        }
+
+        const valid = Number(last.valid_hold_ratio || 0);
+        const outCount = Number(last.out_count || 0);
+        const cheese = Number(last.cheese_flags || 0);
+        const grade = String(last.grade || 'C').toUpperCase();
+        const bossPassed = Number(last.boss_passed || 0) === 1;
+
+        if (!bossPassed && (grade === 'S' || grade === 'A' || valid >= 0.86)) {
+          return {
+            key: 'boss',
+            title: 'พร้อมเข้ารอบบอส',
+            sub: 'ผลล่าสุดบอกว่าพร้อมลอง Final Balance Boss ได้แล้ว',
+            diff: 'hard',
+            time: '120',
+            view: 'mobile',
+            run: 'play',
+            gate: '1',
+            cooldown: '1',
+            boss: '1',
+            chips: ['Hard','120s','Boss On','Finale'],
+            bossReady: true
+          };
+        }
+
+        if (cheese >= 2 || valid < 0.70 || outCount >= 6) {
+          return {
+            key: 'support',
+            title: 'ลดความยากก่อน',
+            sub: 'ใช้ Easy 60 วินาที เพื่อเพิ่ม valid hold และลดการหลุดออกนอกวง',
+            diff: 'easy',
+            time: '60',
+            view: 'mobile',
+            run: 'play',
+            gate: '1',
+            cooldown: '1',
+            boss: '0',
+            chips: ['Easy','60s','Support','Valid Hold'],
+            bossReady: false
+          };
+        }
+
+        if ((grade === 'S' || grade === 'A') && valid >= 0.88 && outCount <= 2) {
+          return {
+            key: 'challenge',
+            title: 'พร้อมอัปเกรดความท้าทายแล้ว',
+            sub: 'ลอง Hard เพื่อเพิ่มแรงกดดันและคุมความนิ่งให้ต่อเนื่องยิ่งขึ้น',
+            diff: 'hard',
+            time: '90',
+            view: 'pc',
+            run: 'play',
+            gate: '1',
+            cooldown: '1',
+            boss: '',
+            chips: ['Hard','90s','Challenge','Focus'],
+            bossReady: false
+          };
+        }
+
         return {
+          key: 'standard',
           title: 'กำลังไปได้ดี',
-          sub: 'แนะนำ Normal 90 วินาที เพื่อเก็บสมดุลและคุมแรงกดดันต่อเนื่อง',
+          sub: 'แนะนำ Normal 90 วินาที เพื่อฝึกรักษาความสม่ำเสมอของ routine',
           diff: 'normal',
           time: '90',
           view: 'mobile',
           run: 'play',
           gate: '1',
           cooldown: '1',
-          chips: ['Normal', '90s', 'Balance Focus', 'Standard']
+          boss: '',
+          chips: ['Normal','90s','Routine','Standard'],
+          bossReady: false
         };
       }
 
-      return {
-        title: 'กลับมาซ้อมความนิ่งอีกนิด',
-        sub: 'เริ่มที่ Easy 90 วินาที เพื่อคุมแกนลำตัวและจังหวะการทรงตัวให้ดีขึ้น',
-        diff: 'easy',
-        time: '90',
-        view: 'mobile',
-        run: 'play',
-        gate: '1',
-        cooldown: '1',
-        chips: ['Easy', '90s', 'Control Focus', 'Standard']
-      };
-    }
+      function renderRecent() {
+        const last = readTeacherExportLast();
+        if (!last) {
+          els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
+          els.recentRank.textContent = '-';
+          els.recentScore.textContent = '-';
+          els.recentStability.textContent = '-';
+          els.recentMiss.textContent = '-';
 
-    function renderRecent(summary) {
-      if (!summary) {
-        els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
-        els.recentRank.textContent = '-';
-        els.recentScore.textContent = '-';
-        els.recentStability.textContent = '-';
-        els.recentTime.textContent = '-';
-        return;
-      }
-
-      els.recentStripSub.textContent =
-        `Score ${Number(summary.scoreFinal || summary.score || 0)} • miss ${Number(summary.miss || summary.missTotal || 0)}`;
-
-      els.recentRank.textContent = String(summary.rank || '-');
-      els.recentScore.textContent = String(Number(summary.scoreFinal || summary.score || 0));
-      els.recentStability.textContent = `${Number(summary.stabilityMin || summary.stability || 0)}%`;
-      els.recentTime.textContent = `${Number(summary.durationSec || summary.timeSec || 90)}s`;
-    }
-
-    function applyRecommendation(rec) {
-      setRadio('diff', rec.diff, 'diff-normal');
-      setRadio('time', rec.time, 'time-90');
-      setRadio('view', rec.view, 'view-mobile');
-      setRadio('run', rec.run, rec.run === 'research' ? 'run-research' : 'run-play');
-      setRadio('gate', rec.gate, rec.gate === '1' ? 'gate-on' : 'gate-off');
-      setRadio('cooldown', rec.cooldown, rec.cooldown === '1' ? 'cooldown-on' : 'cooldown-off');
-      refreshPreview();
-    }
-
-    function renderRecommendation(rec) {
-      els.recommendTitle.textContent = rec.title;
-      els.recommendSub.textContent = rec.sub;
-      els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${x}</span>`).join('');
-    }
-
-    function refreshPreview() {
-      const gate = readRadio('gate', '1');
-      const runUrl = buildRunUrl();
-      const launchUrl = gate === '1' ? buildWarmupUrl(runUrl) : runUrl;
-      els.previewUrl.textContent = launchUrl.href;
-    }
-
-    function go(url) {
-      location.href = url.href;
-    }
-
-    function launchCurrentSettings() {
-      const runUrl = buildRunUrl();
-      const gate = readRadio('gate', '1');
-      go(gate === '1' ? buildWarmupUrl(runUrl) : runUrl);
-    }
-
-    function launchMode(mode) {
-      if (mode === 'play') {
-        const runUrl = buildRunUrl('play', { gate: '1', cooldown: '1' });
-        go(buildWarmupUrl(runUrl, { run: 'play', cooldown: '1' }));
-        return;
-      }
-
-      if (mode === 'quick') {
-        go(buildRunUrl('play', { gate: '0', cooldown: '1' }));
-        return;
-      }
-
-      if (mode === 'research') {
-        const runUrl = buildRunUrl('research', { gate: '1', cooldown: '1', run: 'research', view: readRadio('view', 'mobile') });
-        go(buildWarmupUrl(runUrl, { run: 'research', cooldown: '1' }));
-        return;
-      }
-
-      if (mode === 'demo') {
-        go(buildRunUrl('demo', {
-          run: 'demo',
-          diff: 'easy',
-          time: '60',
-          gate: '0',
-          cooldown: '0',
-          view: 'mobile'
-        }));
-      }
-    }
-
-    function presetMode(mode) {
-      if (mode === 'play') {
-        setRadio('run', 'play', 'run-play');
-        setRadio('gate', '1', 'gate-on');
-        setRadio('cooldown', '1', 'cooldown-on');
-      } else if (mode === 'quick') {
-        setRadio('run', 'play', 'run-play');
-        setRadio('gate', '0', 'gate-off');
-        setRadio('cooldown', '1', 'cooldown-on');
-      } else if (mode === 'research') {
-        setRadio('run', 'research', 'run-research');
-        setRadio('gate', '1', 'gate-on');
-        setRadio('cooldown', '1', 'cooldown-on');
-      } else if (mode === 'demo') {
-        setRadio('run', 'play', 'run-play');
-        setRadio('diff', 'easy', 'diff-easy');
-        setRadio('time', '60', 'time-60');
-        setRadio('gate', '0', 'gate-off');
-        setRadio('cooldown', '0', 'cooldown-off');
-        setRadio('view', 'mobile', 'view-mobile');
-      }
-      refreshPreview();
-    }
-
-    function bindAll(summary, rec) {
-      [
-        els.pid, els.name, els.studyId, els.seed,
-        ...document.querySelectorAll('input[type="radio"]')
-      ].forEach((node) => {
-        node.addEventListener('input', refreshPreview);
-        node.addEventListener('change', refreshPreview);
-      });
-
-      els.btnApplyRecommended.addEventListener('click', () => applyRecommendation(rec));
-      els.btnStartStandard.addEventListener('click', launchCurrentSettings);
-      els.btnQuickPlay.addEventListener('click', () => launchMode('quick'));
-
-      els.btnUseLastPattern.addEventListener('click', () => {
-        if (!summary) {
-          applyRecommendation(rec);
+          els.latestReportSub.textContent = 'ยังไม่มี teacher snapshot ล่าสุด';
+          els.latestGradeText.textContent = 'NEW';
+          els.latestRankText.textContent = 'No Record';
+          els.latestScoreMetric.textContent = '-';
+          els.latestValidMetric.textContent = '-';
+          els.latestBossMetric.textContent = '-';
+          els.latestBestMetric.textContent = '-';
           return;
         }
 
-        const fallbackView = readOrDefault('view', 'mobile');
-        setRadio('diff', String(summary.diff || rec.diff || 'normal'), 'diff-normal');
-        setRadio('time', String(summary.timeSec || summary.durationSec || rec.time || '90'), 'time-90');
-        setRadio('view', fallbackView, 'view-mobile');
-        setRadio('run', rec.run || 'play', rec.run === 'research' ? 'run-research' : 'run-play');
-        setRadio('gate', '1', 'gate-on');
-        setRadio('cooldown', '1', 'cooldown-on');
-        refreshPreview();
-      });
+        const validPct = Math.round(Number(last.valid_hold_ratio || 0) * 100);
 
-      els.modePlayStart.addEventListener('click', () => launchMode('play'));
-      els.modePlayPreset.addEventListener('click', () => presetMode('play'));
+        els.recentStripSub.textContent =
+          `Grade ${String(last.grade || 'C')} • valid hold ${validPct}%`;
 
-      els.modeQuickStart.addEventListener('click', () => launchMode('quick'));
-      els.modeQuickPreset.addEventListener('click', () => presetMode('quick'));
+        els.recentRank.textContent = String(last.rank || '-');
+        els.recentScore.textContent = String(Number(last.score_total || 0));
+        els.recentStability.textContent = `${validPct}%`;
+        els.recentMiss.textContent = String(Number(last.out_count || 0));
 
-      els.modeResearchStart.addEventListener('click', () => launchMode('research'));
-      els.modeResearchPreset.addEventListener('click', () => presetMode('research'));
-
-      els.modeDemoStart.addEventListener('click', () => launchMode('demo'));
-      els.modeDemoPreset.addEventListener('click', () => presetMode('demo'));
-    }
-
-    function init() {
-      const hubUrl = readOrDefault('hub', ABS_HUB);
-      const fitnessBackUrl = buildFitnessBackUrl();
-      els.btnHubTop.href = hubUrl;
-      els.btnBackFitness.href = fitnessBackUrl;
-
-      els.pid.value = readOrDefault('pid', 'anon');
-      els.name.value = readOrDefault('name', readOrDefault('nick', 'Player'));
-      els.studyId.value = readOrDefault('studyId', '');
-      els.seed.value = readOrDefault('seed', String(Date.now()));
-
-      setRadio('diff', readOrDefault('diff', 'normal'), 'diff-normal');
-      setRadio('time', readOrDefault('time', '90'), 'time-90');
-      setRadio('view', readOrDefault('view', 'mobile'), 'view-mobile');
-      setRadio('run', readOrDefault('run', 'play'), 'run-play');
-      setRadio('gate', readOrDefault('gate', '1'), 'gate-on');
-      setRadio('cooldown', readOrDefault('cooldown', '1'), 'cooldown-on');
-
-      const summary = readBalanceSummary();
-      const rec = recommendFromSummary(summary);
-
-      renderRecent(summary);
-      renderRecommendation(rec);
-      bindAll(summary, rec);
-
-      if (!qs.get('diff') && !qs.get('time') && !qs.get('run') && !qs.get('gate')) {
-        applyRecommendation(rec);
-      } else {
-        refreshPreview();
+        els.latestReportSub.textContent =
+          String(last.teacher_suggestion || 'ใช้ผลล่าสุดเพื่อเลือกรอบถัดไป');
+        els.latestGradeText.textContent = `Grade ${String(last.grade || 'C')}`;
+        els.latestRankText.textContent = String(last.rank || '-');
+        els.latestScoreMetric.textContent = String(Number(last.score_total || 0));
+        els.latestValidMetric.textContent = `${validPct}%`;
+        els.latestBossMetric.textContent =
+          Number(last.boss_enabled || 0) === 1
+            ? (Number(last.boss_passed || 0) === 1 ? 'Cleared' : 'Ready')
+            : 'Off';
+        els.latestBestMetric.textContent = String(last.best_post || '-');
       }
-    }
 
-    init();
-  })();
+      function recommendFromSummary() {
+        return getPlanFromTeacherSnapshot(readTeacherExportLast());
+      }
+
+      function applyRec(rec) {
+        setRadio('diff', rec.diff);
+        setRadio('time', rec.time);
+        setRadio('view', rec.view);
+        setRadio('run', rec.run === 'research' ? 'research' : 'play');
+        setRadio('gate', rec.gate);
+        setRadio('cooldown', rec.cooldown);
+        setRadio('boss', rec.boss === '1' ? '1' : '');
+
+        els.recommendTitle.textContent = rec.title;
+        els.recommendSub.textContent = rec.sub;
+        els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${escHtml(x)}</span>`).join('');
+
+        els.latestPlanTitle.textContent = rec.title;
+        els.latestPlanSub.textContent = rec.sub;
+        els.latestPlanChips.innerHTML = rec.chips.map((x) => `<span>${escHtml(x)}</span>`).join('');
+
+        if (rec.bossReady) {
+          els.bossReadyBox.classList.remove('hidden');
+          els.bossReadySub.textContent = rec.sub;
+          els.bossReadyChips.innerHTML = rec.chips.map((x) => `<span class="boss-chip">${escHtml(x)}</span>`).join('');
+        } else {
+          els.bossReadyBox.classList.add('hidden');
+        }
+
+        setPreview();
+      }
+
+      function showMenu() {
+        els.viewMenu.classList.remove('hidden');
+        els.viewPlay.classList.add('hidden');
+      }
+
+      function showPlay() {
+        els.viewMenu.classList.add('hidden');
+        els.viewPlay.classList.remove('hidden');
+      }
+
+      function launchRecommendedPlan(rec) {
+        const runUrl = baseRunUrl({
+          diff: rec.diff,
+          time: rec.time,
+          view: rec.view,
+          run: rec.run,
+          gate: rec.gate,
+          cooldown: rec.cooldown,
+          boss: rec.boss
+        });
+
+        location.href = String(rec.gate) === '1'
+          ? buildWarmupUrl(runUrl, {
+              diff: rec.diff,
+              time: rec.time,
+              view: rec.view,
+              run: rec.run,
+              cooldown: rec.cooldown,
+              boss: rec.boss
+            }).href
+          : runUrl.href;
+      }
+
+      function launchBossReady() {
+        const rec = getPlanFromTeacherSnapshot(readTeacherExportLast());
+        const bossRec = rec.bossReady
+          ? rec
+          : {
+              key: 'boss',
+              title: 'Boss Ready',
+              sub: 'เปิด Final Boss แบบตรงไปเลย',
+              diff: 'hard',
+              time: '120',
+              view: 'mobile',
+              run: 'play',
+              gate: '1',
+              cooldown: '1',
+              boss: '1',
+              chips: ['Hard','120s','Boss On','Finale'],
+              bossReady: true
+            };
+
+        applyRec(bossRec);
+        launchRecommendedPlan(bossRec);
+      }
+
+      function launchWithCurrentSettings() {
+        const runUrl = baseRunUrl();
+        const gate = readRadio('gate', q('gate', '1'));
+        location.href = gate === '1'
+          ? buildWarmupUrl(runUrl, {
+              boss: readRadio('boss', q('boss', ''))
+            }).href
+          : runUrl.href;
+      }
+
+      function launchQuick() {
+        const runUrl = baseRunUrl({
+          diff: 'easy',
+          time: '60',
+          run: 'play',
+          gate: '0',
+          cooldown: '1',
+          view: 'mobile',
+          boss: '0'
+        });
+        location.href = runUrl.href;
+      }
+
+      function useLastPattern() {
+        const last = readTeacherExportLast();
+        if (!last) return;
+
+        const boss = Number(last.boss_enabled || 0) === 1 ? '1' : '';
+        setRadio('diff', String(last.diff || 'normal'));
+        setRadio('time', String(q('time', '90')));
+        setRadio('view', q('view', 'mobile'));
+        setRadio('run', 'play');
+        setRadio('gate', '1');
+        setRadio('cooldown', '1');
+        setRadio('boss', boss);
+        setPreview();
+      }
+
+      function initLauncherMode() {
+        els.pid.value = q('pid', 'anon');
+        els.name.value = q('name', q('nickName', 'Player'));
+        els.studyId.value = q('studyId', '');
+        els.seed.value = q('seed', String(Date.now()));
+
+        setRadio('diff', q('diff', 'normal'));
+        setRadio('time', q('time', '90'));
+        setRadio('view', q('view', 'mobile'));
+        setRadio('run', q('run', 'play'));
+        setRadio('gate', q('gate', '1'));
+        setRadio('cooldown', q('cooldown', '1'));
+        setRadio('boss', q('boss', ''));
+
+        const fitnessUrl = buildFitnessBackUrl();
+        els.btnBackFitnessTop.href = fitnessUrl;
+        els.bhBackFitnessPlay.href = fitnessUrl;
+
+        const hubUrl = q('hub', ABS_HUB);
+        els.btnBackHubTop.href = hubUrl;
+        const playHubBtn = $('bh-back-hub-play');
+        if (playHubBtn) playHubBtn.href = hubUrl;
+
+        const rec = recommendFromSummary();
+        applyRec(rec);
+        renderRecent();
+
+        els.btnApplyRecommended.addEventListener('click', () => {
+          const latestRec = recommendFromSummary();
+          applyRec(latestRec);
+        });
+
+        els.btnApplyBossReady?.addEventListener('click', () => {
+          const latestRec = getPlanFromTeacherSnapshot(readTeacherExportLast());
+          const bossRec = latestRec.bossReady
+            ? latestRec
+            : {
+                key: 'boss',
+                title: 'Boss Ready',
+                sub: 'เปิด Final Boss แบบตรงไปเลย',
+                diff: 'hard',
+                time: '120',
+                view: 'mobile',
+                run: 'play',
+                gate: '1',
+                cooldown: '1',
+                boss: '1',
+                chips: ['Hard','120s','Boss On','Finale'],
+                bossReady: true
+              };
+          applyRec(bossRec);
+        });
+
+        els.btnLaunchBossReady?.addEventListener('click', launchBossReady);
+        els.btnStartStandard.addEventListener('click', launchWithCurrentSettings);
+        els.btnQuickPlay.addEventListener('click', launchQuick);
+        els.btnUseLastPattern.addEventListener('click', useLastPattern);
+
+        [
+          ...document.querySelectorAll('input[type="radio"]'),
+          els.pid, els.name, els.studyId, els.seed
+        ].forEach((el) => {
+          if (!el) return;
+          el.addEventListener('input', setPreview);
+          el.addEventListener('change', setPreview);
+        });
+      }
+
+      if (Bridge) {
+        Bridge.installBasicHooks('balancehold', {
+          fitnessLinkSelectors: [
+            '#btnBackFitnessTop',
+            '#bh-back-fitness-play',
+            'a[href*="fitness-zone.html"]'
+          ]
+        });
+      }
+
+      initLauncherMode();
+
+      if (q('game', '') || q('gameId', '')) {
+        showPlay();
+      } else {
+        showMenu();
+      }
+    })();
   </script>
+
+  <script src="./js/balance-hold.js"></script>
 </body>
 </html>
