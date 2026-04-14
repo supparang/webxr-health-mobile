@@ -1,13 +1,17 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260413a-GATE-CORE-STABLE-IDS-FINAL
+// FULL PATCH v20260414b-JUMPDUCK-FITNESS-ZONE-FINAL
 
-import * as GateGames from './gate-games.js?v=20260408b-GJ-SOLOBOSS-FLOW-FINAL';
+import * as GateGames from './gate-games.js?v=20260414a-JUMPDUCK-FITNESS-ZONE-FINAL';
 
-const PATCH = 'v20260413a-GATE-CORE-STABLE-IDS-FINAL';
+const PATCH = 'v20260414b-JUMPDUCK-FITNESS-ZONE-FINAL';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
 const MAX_HISTORY = 40;
+
+const FITNESS_ZONE_HUB = 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
+const CLASSIC_HUB = new URL('../hub.html', import.meta.url).href;
+const HUB_V2 = new URL('../hub-v2.html', import.meta.url).href;
 
 const normalizeGameId =
   typeof GateGames.normalizeGameId === 'function'
@@ -46,6 +50,7 @@ function getRunCandidatesSafe(gameId = '') {
     if (one) return [one];
   }
 
+  if (meta?.runFile) return [meta.runFile];
   if (meta?.run) return [meta.run];
 
   return [];
@@ -86,6 +91,55 @@ function todayStampBangkok() {
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   }
+}
+
+function resolveAbsoluteUrl(maybeUrl) {
+  if (!maybeUrl) return '';
+  try {
+    return new URL(maybeUrl, location.href).href;
+  } catch {
+    return '';
+  }
+}
+
+function isJumpDuck(ctxOrGame = '') {
+  const game =
+    typeof ctxOrGame === 'string'
+      ? ctxOrGame
+      : (ctxOrGame?.game || ctxOrGame?.gameRaw || '');
+  return normalizeGameId(game) === 'jump-duck';
+}
+
+function looksLikeHeroHealthHub(href = '') {
+  const s = String(href || '').toLowerCase();
+  return (
+    s.includes('/herohealth/hub.html') ||
+    s.includes('/herohealth/hub-v2.html') ||
+    s.includes('/herohealth/fitness-zone.html')
+  );
+}
+
+function looksLikeFitnessRoot(href = '') {
+  const s = String(href || '').toLowerCase();
+  return (
+    s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
+    s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
+    s.endsWith('/webxr-health-mobile/fitness') ||
+    s.endsWith('/webxr-health-mobile/fitness/')
+  );
+}
+
+function normalizeHubCandidate(ctx, raw = '') {
+  const abs = resolveAbsoluteUrl(raw);
+
+  if (isJumpDuck(ctx)) {
+    if (!abs) return FITNESS_ZONE_HUB;
+    if (looksLikeFitnessRoot(abs)) return FITNESS_ZONE_HUB;
+    return abs;
+  }
+
+  if (!abs) return '';
+  return abs;
 }
 
 function dailyKeyFromCtx(ctx, phase = '') {
@@ -226,6 +280,10 @@ function readCtx() {
 
   const phase = phaseRaw === 'cooldown' ? 'cooldown' : 'warmup';
 
+  const rawHub = params.get('hub') || '';
+  const rawHubRoot = params.get('hubRoot') || '';
+  const normalizedHub = normalizeHubCandidate({ game }, rawHub || rawHubRoot);
+
   return {
     patch: PATCH,
     params,
@@ -245,8 +303,8 @@ function readCtx() {
     seed: params.get('seed') || String(Date.now()),
     view: params.get('view') || 'mobile',
 
-    hub: params.get('hub') || new URL('../hub-v2.html', import.meta.url).href,
-    hubRoot: params.get('hubRoot') || new URL('../hub.html', import.meta.url).href,
+    hub: normalizedHub || (isJumpDuck(game) ? FITNESS_ZONE_HUB : CLASSIC_HUB),
+    hubRoot: normalizedHub || (isJumpDuck(game) ? FITNESS_ZONE_HUB : CLASSIC_HUB),
     launcher: params.get('launcher') || '',
     cat: params.get('cat') || meta?.cat || '',
     zone: params.get('zone') || params.get('cat') || meta?.cat || '',
@@ -255,7 +313,8 @@ function readCtx() {
     autostart: params.get('autostart') || '',
     next: params.get('next') || '',
     nextKey: params.get('nextKey') || '',
-    cdnext: params.get('cdnext') || ''
+    cdnext: params.get('cdnext') || '',
+    debug: params.get('debug') || ''
   };
 }
 
@@ -272,42 +331,43 @@ function ensureCoreStyle() {
       place-items:center;
       background:
         radial-gradient(circle at top, rgba(59,130,246,.18), transparent 32%),
-        linear-gradient(180deg, #020617 0%, #0f172a 55%, #111827 100%);
-      color:#e5e7eb;
+        linear-gradient(180deg, #f4fbff 0%, #edf8ff 52%, #fff8ef 100%);
+      color:#514a43;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
     .gate-card{
       width:min(1020px,100%);
       border-radius:26px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.76);
-      box-shadow:0 20px 60px rgba(0,0,0,.34);
+      border:3px solid #d7edf7;
+      background:linear-gradient(180deg,#fff,#f9fdff);
+      box-shadow:0 18px 40px rgba(88,153,190,.14);
       overflow:hidden;
-      backdrop-filter: blur(10px);
     }
     .gate-hero{
       padding:22px 22px 14px;
-      border-bottom:1px solid rgba(148,163,184,.10);
+      border-bottom:1px solid rgba(148,163,184,.12);
     }
     .gate-kicker{
       font-size:12px;
       font-weight:800;
       letter-spacing:.08em;
       text-transform:uppercase;
-      color:#93c5fd;
+      color:#72a5c7;
       margin-bottom:8px;
     }
     .gate-title{
       margin:0 0 8px;
       font-size:clamp(24px,4vw,40px);
       line-height:1.05;
-      font-weight:900;
+      font-weight:1000;
+      color:#7a4b2e;
     }
     .gate-sub{
       margin:0;
-      color:#cbd5e1;
+      color:#756d66;
       font-size:14px;
       line-height:1.55;
+      font-weight:900;
     }
     .gate-meta{
       display:flex;
@@ -318,11 +378,11 @@ function ensureCoreStyle() {
     .gate-chip{
       padding:8px 12px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.72);
-      color:#e2e8f0;
+      border:2px solid #d7edf7;
+      background:#fff;
+      color:#6f8290;
       font-size:12px;
-      font-weight:800;
+      font-weight:1000;
     }
     .gate-topstats{
       display:grid;
@@ -331,20 +391,26 @@ function ensureCoreStyle() {
       margin-top:14px;
     }
     .gate-topstat{
-      border:1px solid rgba(148,163,184,.14);
-      border-radius:16px;
+      border:2px solid #d7edf7;
+      border-radius:18px;
       padding:12px;
-      background:linear-gradient(180deg, rgba(15,23,42,.72), rgba(15,23,42,.52));
+      background:#fff;
+      box-shadow:0 10px 24px rgba(88,153,190,.10);
     }
     .gate-topstat-label{
       font-size:12px;
-      font-weight:800;
-      color:#cbd5e1;
+      font-weight:1000;
+      color:#7b92a0;
+      text-transform:uppercase;
+      letter-spacing:.06em;
     }
     .gate-topstat-value{
       margin-top:6px;
-      font-size:20px;
+      font-size:22px;
       font-weight:1000;
+      color:#4f4841;
+      line-height:1.1;
+      word-break:break-word;
     }
     .gate-stage{
       min-height:360px;
@@ -354,8 +420,8 @@ function ensureCoreStyle() {
     .gate-stage-inner{
       min-height:324px;
       border-radius:22px;
-      border:1px solid rgba(148,163,184,.12);
-      background:linear-gradient(180deg, rgba(15,23,42,.74), rgba(15,23,42,.56));
+      border:2px solid #d7edf7;
+      background:linear-gradient(180deg, #fff, #f9fdff);
       padding:18px;
       position:relative;
       overflow:hidden;
@@ -368,12 +434,15 @@ function ensureCoreStyle() {
       margin:0 0 10px;
       font-size:clamp(22px,4vw,30px);
       line-height:1.1;
+      color:#7a4b2e;
+      font-weight:1000;
     }
     .gate-info p{
       margin:0 auto;
-      color:#cbd5e1;
+      color:#756d66;
       max-width:720px;
       line-height:1.65;
+      font-weight:900;
     }
     .gate-lines{
       margin:16px auto 0;
@@ -383,11 +452,12 @@ function ensureCoreStyle() {
       gap:8px;
     }
     .gate-line{
-      border:1px solid rgba(148,163,184,.14);
+      border:2px solid #d7edf7;
       border-radius:14px;
-      background:rgba(15,23,42,.62);
+      background:#fff;
       padding:10px 12px;
-      color:#e5e7eb;
+      color:#5f7484;
+      font-weight:900;
     }
     .gate-actions{
       display:flex;
@@ -402,22 +472,22 @@ function ensureCoreStyle() {
       border-radius:18px;
       padding:14px 18px;
       font-size:15px;
-      font-weight:900;
+      font-weight:1000;
       cursor:pointer;
       min-width:170px;
       transition:transform .15s ease, opacity .15s ease;
+      box-shadow:0 10px 24px rgba(88,153,190,.10);
     }
     .gate-btn:hover{ transform:translateY(-1px); }
     .gate-btn:active{ transform:translateY(0); }
     .gate-btn-primary{
-      background:linear-gradient(135deg, #38bdf8, #2563eb);
-      color:#fff;
-      box-shadow:0 12px 26px rgba(37,99,235,.32);
+      background:linear-gradient(180deg, #85de77, #56c455);
+      color:#173d12;
     }
     .gate-btn-ghost{
-      background:rgba(15,23,42,.85);
-      color:#e5e7eb;
-      border:1px solid rgba(148,163,184,.16);
+      background:#fff;
+      color:#69727a;
+      border:2px solid #d7edf7;
     }
     .gate-footer{
       padding:0 18px 18px;
@@ -429,30 +499,33 @@ function ensureCoreStyle() {
       transform:translateX(-50%);
       z-index:9999;
       max-width:min(90vw,720px);
-      background:rgba(15,23,42,.94);
-      color:#fff;
-      border:1px solid rgba(148,163,184,.16);
+      background:rgba(255,255,255,.98);
+      color:#514a43;
+      border:2px solid #d7edf7;
       border-radius:16px;
       padding:12px 14px;
-      box-shadow:0 16px 40px rgba(0,0,0,.35);
+      box-shadow:0 16px 40px rgba(88,153,190,.18);
       font-size:14px;
       line-height:1.45;
+      font-weight:900;
     }
     .gate-error{
-      color:#fecaca;
-      background:rgba(127,29,29,.35);
-      border:1px solid rgba(239,68,68,.25);
+      color:#7f1d1d;
+      background:#fff1f1;
+      border:2px solid #f3c9c9;
       border-radius:16px;
       padding:14px;
       margin-top:14px;
       white-space:pre-wrap;
       overflow:auto;
+      line-height:1.6;
+      font-weight:900;
     }
     .gate-mini-note{
       margin-top:10px;
-      color:#93c5fd;
+      color:#72a5c7;
       font-size:13px;
-      font-weight:700;
+      font-weight:1000;
     }
     @media (max-width: 720px){
       .gate-shell{ padding:12px; }
@@ -481,45 +554,16 @@ function phaseTitle(ctx) {
   return ctx.meta?.warmupTitle || `${ctx.meta?.label || 'Game'} Warmup`;
 }
 
-function emitGateUiEvent(root, ctx, refs, reason = 'render') {
-  try {
-    if (!root) return;
-
-    root.dataset.gateReady = '1';
-    root.dataset.gateGame = String(ctx?.game || '');
-    root.dataset.gatePhase = String(ctx?.phase || '');
-
-    root.dispatchEvent(new CustomEvent('gate:ui', {
-      detail: {
-        reason,
-        ctx,
-        refs: {
-          shell: refs?.shell || null,
-          stage: refs?.stage || null,
-          footer: refs?.footer || null,
-          heroTitle: refs?.heroTitle || null,
-          heroSub: refs?.heroSub || null
-        }
-      }
-    }));
-  } catch {}
-}
-
 function renderShell(root, ctx) {
   root.innerHTML = `
-    <div
-      class="gate-shell"
-      data-gate-shell="1"
-      data-gate-phase="${esc(ctx.phase)}"
-      data-gate-game="${esc(ctx.game)}"
-    >
-      <div class="gate-card" data-role="gate-card">
-        <div class="gate-hero" data-role="gate-hero">
+    <div class="gate-shell">
+      <div class="gate-card">
+        <div class="gate-hero">
           <div class="gate-kicker">HeroHealth Gate • ${esc(ctx.phase)}</div>
-          <h1 class="gate-title" id="gateTitle">${esc(phaseTitle(ctx))}</h1>
-          <p class="gate-sub" id="gateDesc">หน้าเดียวสำหรับ warmup และ cooldown โดยแยกด้วย <code>?phase=warmup</code> หรือ <code>?gatePhase=warmup</code></p>
+          <h1 class="gate-title" id="gateHeroTitle">${esc(phaseTitle(ctx))}</h1>
+          <p class="gate-sub" id="gateHeroSub">หน้าเดียวสำหรับ warmup และ cooldown โดยแยกด้วย <code>?phase=warmup</code> หรือ <code>?gatePhase=warmup</code></p>
 
-          <div class="gate-meta" data-role="gate-meta">
+          <div class="gate-meta">
             <div class="gate-chip">game: ${esc(ctx.game || '-')}</div>
             <div class="gate-chip">cat: ${esc(ctx.cat || '-')}</div>
             <div class="gate-chip">pid: ${esc(ctx.pid || '-')}</div>
@@ -527,7 +571,7 @@ function renderShell(root, ctx) {
             <div class="gate-chip">${esc(PATCH)}</div>
           </div>
 
-          <div class="gate-topstats" data-role="gate-topstats">
+          <div class="gate-topstats">
             <div class="gate-topstat">
               <div class="gate-topstat-label">เวลา</div>
               <div class="gate-topstat-value" id="gateStatTime">-</div>
@@ -547,39 +591,29 @@ function renderShell(root, ctx) {
           </div>
         </div>
 
-        <div class="gate-stage" data-role="gate-stage-wrap">
-          <div class="gate-stage-inner" id="gateShellInner" data-role="gate-stage-inner">
-            <div id="gateStage" data-role="gate-stage"></div>
+        <div class="gate-stage">
+          <div class="gate-stage-inner">
+            <div id="gateStage"></div>
           </div>
         </div>
 
-        <div class="gate-footer" data-role="gate-footer-wrap">
-          <div id="gateFooter" data-role="gate-footer"></div>
+        <div class="gate-footer">
+          <div id="gateFooter"></div>
         </div>
       </div>
     </div>
   `;
 
-  const refs = {
-    shell: root.querySelector('[data-gate-shell="1"]'),
+  return {
     stage: root.querySelector('#gateStage'),
     footer: root.querySelector('#gateFooter'),
     statTime: root.querySelector('#gateStatTime'),
     statScore: root.querySelector('#gateStatScore'),
     statMiss: root.querySelector('#gateStatMiss'),
     statAcc: root.querySelector('#gateStatAcc'),
-    heroTitle: root.querySelector('#gateTitle'),
-    heroSub: root.querySelector('#gateDesc')
+    heroTitle: root.querySelector('#gateHeroTitle'),
+    heroSub: root.querySelector('#gateHeroSub')
   };
-
-  if (refs.footer) {
-    refs.footer.__gateRoot = root;
-    refs.footer.__gateCtx = ctx;
-    refs.footer.__gateRefs = refs;
-  }
-
-  emitGateUiEvent(root, ctx, refs, 'render-shell');
-  return refs;
 }
 
 function applyStats(refs, stats = {}) {
@@ -593,18 +627,10 @@ function applyStats(refs, stats = {}) {
 
 function setHeroTitle(refs, text = '') {
   if (refs?.heroTitle) refs.heroTitle.textContent = String(text || '');
-
-  const root = refs?.footer?.__gateRoot || null;
-  const ctx = refs?.footer?.__gateCtx || null;
-  emitGateUiEvent(root, ctx, refs, 'set-title');
 }
 
 function setHeroSub(refs, text = '') {
   if (refs?.heroSub) refs.heroSub.textContent = String(text || '');
-
-  const root = refs?.footer?.__gateRoot || null;
-  const ctx = refs?.footer?.__gateCtx || null;
-  emitGateUiEvent(root, ctx, refs, 'set-sub');
 }
 
 function linesHtml(lines = []) {
@@ -642,41 +668,17 @@ function setActions(container, items = []) {
 
   const wrap = document.createElement('div');
   wrap.className = 'gate-actions';
-  wrap.id = 'gateActions';
-  wrap.dataset.role = 'actions';
 
-  items.forEach((item, index) => {
+  items.forEach(item => {
     const btn = document.createElement('button');
+    btn.className = `gate-btn ${item.primary ? 'gate-btn-primary' : 'gate-btn-ghost'}`;
     btn.type = 'button';
-
-    const isPrimary = !!item.primary;
-    btn.className = `gate-btn ${isPrimary ? 'gate-btn-primary btn-primary' : 'gate-btn-ghost btn-secondary'}`;
-
-    if (index === 0) btn.id = 'gatePrimaryBtn';
-    else if (index === 1) btn.id = 'gateSecondaryBtn';
-    else btn.id = `gateActionBtn${index + 1}`;
-
-    let role = item.role || '';
-    if (!role) {
-      if (isPrimary) role = 'continue';
-      else if (index === 1 || (index === 0 && items.length === 1)) role = 'back';
-      else role = 'action';
-    }
-
-    btn.dataset.role = role;
-    btn.dataset.actionKey = item.actionKey || role;
     btn.textContent = item.label || 'ตกลง';
     btn.addEventListener('click', item.onClick);
-
     wrap.appendChild(btn);
   });
 
   container.appendChild(wrap);
-
-  const gateRoot = container.__gateRoot || null;
-  const gateCtx = container.__gateCtx || null;
-  const gateRefs = container.__gateRefs || null;
-  emitGateUiEvent(gateRoot, gateCtx, gateRefs, 'set-actions');
 }
 
 function toast(message = '') {
@@ -722,6 +724,7 @@ function buildRunParams(ctx) {
   if (ctx.roomId) p.set('roomId', ctx.roomId);
   if (ctx.studyId) p.set('studyId', ctx.studyId);
   if (ctx.name) p.set('name', ctx.name);
+  if (ctx.debug) p.set('debug', ctx.debug);
 
   p.set('wgskip', '1');
   return p;
@@ -739,20 +742,15 @@ async function quickExists(url) {
   }
 }
 
-function resolveAbsoluteUrl(maybeUrl) {
-  if (!maybeUrl) return '';
-  try {
-    return new URL(maybeUrl, location.href).href;
-  } catch {
-    return '';
-  }
-}
-
 function resolveLauncherHref(ctx) {
   const rawLauncher = String(ctx?.launcher || '').trim();
   if (rawLauncher) {
     const abs = resolveAbsoluteUrl(rawLauncher);
     if (abs) return abs;
+  }
+
+  if (isJumpDuck(ctx)) {
+    return JD_LAUNCHER_FALLBACK(ctx);
   }
 
   const rawCdNext = String(ctx?.cdnext || ctx?.params?.get?.('cdnext') || '').trim();
@@ -782,6 +780,33 @@ function resolveLauncherHref(ctx) {
   }
 
   return '';
+}
+
+function JD_LAUNCHER_FALLBACK(ctx) {
+  try {
+    const url = new URL('../fitness/jumpduck.html', import.meta.url);
+
+    url.searchParams.set('pid', ctx?.pid || 'anon');
+    if (ctx?.name) url.searchParams.set('name', ctx.name);
+    if (ctx?.studyId) url.searchParams.set('studyId', ctx.studyId);
+    url.searchParams.set('run', ctx?.run || 'play');
+    url.searchParams.set('diff', ctx?.diff || 'normal');
+    url.searchParams.set('time', ctx?.time || '60');
+    url.searchParams.set('view', ctx?.view || 'mobile');
+    url.searchParams.set('seed', ctx?.seed || String(Date.now()));
+    url.searchParams.set('mode', ctx?.params?.get('mode') || 'training');
+    url.searchParams.set('game', 'jump-duck');
+    url.searchParams.set('gameId', 'jump-duck');
+    url.searchParams.set('theme', 'jump-duck');
+    url.searchParams.set('zone', 'fitness');
+    url.searchParams.set('cat', 'fitness');
+    url.searchParams.set('hub', resolveHubHref(ctx));
+    if (ctx?.debug) url.searchParams.set('debug', ctx.debug);
+
+    return url.href;
+  } catch {
+    return 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
+  }
 }
 
 async function resolveRunHref(ctx) {
@@ -828,28 +853,22 @@ async function resolveRunHref(ctx) {
   return fallback.href;
 }
 
-function looksLikeHeroHealthHub(href = '') {
-  const s = String(href || '').toLowerCase();
-  return (
-    s.includes('/herohealth/hub.html') ||
-    s.includes('/herohealth/hub-v2.html')
-  );
-}
-
 function resolveHubHref(ctx) {
-  const fallbackV2 = new URL('../hub-v2.html', import.meta.url).href;
-  const fallbackClassic = new URL('../hub.html', import.meta.url).href;
-  const raw = String(ctx?.hubRoot || '').trim();
+  if (isJumpDuck(ctx)) {
+    return FITNESS_ZONE_HUB;
+  }
+
+  const raw = String(ctx?.hubRoot || ctx?.hub || '').trim();
 
   try {
-    if (!raw) return fallbackClassic;
+    if (!raw) return CLASSIC_HUB;
 
     const resolved = new URL(raw, location.href).href;
     if (looksLikeHeroHealthHub(resolved)) return resolved;
 
-    return raw.toLowerCase().includes('hub-v2') ? fallbackV2 : fallbackClassic;
+    return raw.toLowerCase().includes('hub-v2') ? HUB_V2 : CLASSIC_HUB;
   } catch {
-    return fallbackClassic;
+    return CLASSIC_HUB;
   }
 }
 
@@ -857,6 +876,7 @@ function classifyCompletionHref(href = '') {
   const s = String(href || '').toLowerCase();
 
   if (!href) return { kind: '', label: '' };
+  if (s.includes('/herohealth/fitness-zone.html')) return { kind: 'fitness-zone', label: 'กลับ Fitness Zone' };
   if (looksLikeHeroHealthHub(s)) return { kind: 'hub', label: 'กลับหน้าหลัก' };
   if (s.includes('launcher')) return { kind: 'launcher', label: 'กลับหน้าเลือกเกม' };
   if (s.includes('summary')) return { kind: 'summary', label: 'ไปหน้าสรุป' };
@@ -864,6 +884,14 @@ function classifyCompletionHref(href = '') {
 }
 
 function resolveCompletionTarget(ctx, payload = {}) {
+  if (isJumpDuck(ctx)) {
+    return {
+      href: FITNESS_ZONE_HUB,
+      kind: 'fitness-zone',
+      label: 'กลับ Fitness Zone'
+    };
+  }
+
   const fromPayload = resolveAbsoluteUrl(String(payload?.summaryHref || '').trim());
   if (fromPayload) {
     console.log('[GATE] resolveCompletionTarget via payload', fromPayload);
@@ -1149,12 +1177,10 @@ async function bootPhase(stage, ctx, api) {
     console.error('[gate-core] phase runner failed:', err);
     renderError(stage, 'Phase runner failed', err);
     setActions(api.footer, [
-      { label: 'กลับ HUB', role: 'back', actionKey: 'hub', onClick: () => goHub(ctx) },
+      { label: 'กลับ HUB', onClick: () => goHub(ctx) },
       {
         label: ctx.phase === 'cooldown' ? 'ไปต่อ' : 'เข้าเกมหลัก',
         primary: true,
-        role: 'continue',
-        actionKey: 'error-skip',
         onClick: () => api.complete({ source: 'error-skip' })
       }
     ]);
@@ -1163,6 +1189,23 @@ async function bootPhase(stage, ctx, api) {
 
 function showAlreadyDone(stage, footer, ctx) {
   if (ctx.phase === 'cooldown') {
+    if (isJumpDuck(ctx)) {
+      renderInfo(
+        stage,
+        'ทำ cooldown วันนี้แล้ว',
+        'วันนี้ทำ cooldown ของ JumpDuck ไปแล้ว ระบบจะกลับ Fitness Zone ทันที'
+      );
+
+      setActions(footer, [
+        { label: 'กลับ Fitness Zone', primary: true, onClick: () => { location.href = FITNESS_ZONE_HUB; } }
+      ]);
+
+      setTimeout(() => {
+        location.href = FITNESS_ZONE_HUB;
+      }, 180);
+      return;
+    }
+
     const launcherHref = resolveLauncherHref(ctx);
 
     if (launcherHref) {
@@ -1173,19 +1216,8 @@ function showAlreadyDone(stage, footer, ctx) {
       );
 
       setActions(footer, [
-        {
-          label: 'กลับ Launcher',
-          primary: true,
-          role: 'continue',
-          actionKey: 'launcher',
-          onClick: () => { location.href = launcherHref; }
-        },
-        {
-          label: 'กลับหน้าหลัก',
-          role: 'back',
-          actionKey: 'hub',
-          onClick: () => goHub(ctx)
-        }
+        { label: 'กลับ Launcher', primary: true, onClick: () => { location.href = launcherHref; } },
+        { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
       ]);
 
       setTimeout(() => {
@@ -1201,13 +1233,7 @@ function showAlreadyDone(stage, footer, ctx) {
     );
 
     setActions(footer, [
-      {
-        label: 'กลับหน้าหลัก',
-        primary: true,
-        role: 'continue',
-        actionKey: 'hub',
-        onClick: () => goHub(ctx)
-      }
+      { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
     ]);
 
     setTimeout(() => {
@@ -1227,25 +1253,36 @@ function showAlreadyDone(stage, footer, ctx) {
       {
         label: 'เข้าเกมหลัก',
         primary: true,
-        role: 'continue',
-        actionKey: 'run',
         onClick: () => {
           if (trySpecialGateRedirect(ctx, 'warmup', { source: 'already-done' })) return;
           goRun(ctx);
         }
       },
-      {
-        label: 'กลับ HUB',
-        role: 'back',
-        actionKey: 'hub',
-        onClick: () => goHub(ctx)
-      }
+      { label: 'กลับ HUB', onClick: () => goHub(ctx) }
     ]);
 
     setTimeout(() => {
       if (trySpecialGateRedirect(ctx, 'warmup', { source: 'already-done' })) return;
       goRun(ctx);
     }, 350);
+    return;
+  }
+
+  if (isJumpDuck(ctx)) {
+    renderInfo(
+      stage,
+      'ทำ warmup วันนี้แล้ว',
+      'warmup ของ JumpDuck วันนี้ทำไปแล้ว ระบบจะพาเข้าเกมหลักต่อทันที'
+    );
+
+    setActions(footer, [
+      { label: 'เข้า JumpDuck', primary: true, onClick: () => goRun(ctx) },
+      { label: 'กลับ Fitness Zone', onClick: () => { location.href = FITNESS_ZONE_HUB; } }
+    ]);
+
+    setTimeout(() => {
+      goRun(ctx);
+    }, 300);
     return;
   }
 
@@ -1256,19 +1293,8 @@ function showAlreadyDone(stage, footer, ctx) {
   );
 
   setActions(footer, [
-    {
-      label: 'เข้าเกมหลัก',
-      primary: true,
-      role: 'continue',
-      actionKey: 'run',
-      onClick: () => goRun(ctx)
-    },
-    {
-      label: 'กลับ HUB',
-      role: 'back',
-      actionKey: 'hub',
-      onClick: () => goHub(ctx)
-    }
+    { label: 'เข้าเกมหลัก', primary: true, onClick: () => goRun(ctx) },
+    { label: 'กลับ HUB', onClick: () => goHub(ctx) }
   ]);
 
   setTimeout(() => {
@@ -1284,13 +1310,7 @@ function showInvalidGame(stage, footer, ctx) {
   );
 
   setActions(footer, [
-    {
-      label: 'กลับ HUB',
-      primary: true,
-      role: 'continue',
-      actionKey: 'hub',
-      onClick: () => goHub(ctx)
-    }
+    { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) }
   ]);
 }
 
@@ -1307,10 +1327,6 @@ export async function bootGate(root = document.getElementById('gate-app')) {
   const refs = renderShell(root, ctx);
   const { stage, footer } = refs;
 
-  root.__gateCtx = ctx;
-  root.__gateRefs = refs;
-  root.__gateApi = null;
-
   applyStats(refs, {
     time: ctx.phase === 'cooldown' ? 0 : (ctx.time || '-'),
     score: 0,
@@ -1320,12 +1336,20 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
   if (ctx.phase === 'cooldown') {
     applyCooldownSnapshot(refs, ctx);
-    setHeroSub(
-      refs,
-      resolveLauncherHref(ctx)
-        ? 'สรุปผลล่าสุดพร้อมแล้ว เมื่อจบ cooldown ระบบจะพากลับ launcher ของเกมนี้'
-        : 'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดไปหน้าถัดไปหรือกลับหน้าหลัก'
-    );
+
+    if (isJumpDuck(ctx)) {
+      setHeroSub(
+        refs,
+        'สรุปผลล่าสุดของ JumpDuck พร้อมแล้ว เมื่อจบ cooldown ระบบจะกลับ Fitness Zone'
+      );
+    } else {
+      setHeroSub(
+        refs,
+        resolveLauncherHref(ctx)
+          ? 'สรุปผลล่าสุดพร้อมแล้ว เมื่อจบ cooldown ระบบจะพากลับ launcher ของเกมนี้'
+          : 'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดไปหน้าถัดไปหรือกลับหน้าหลัก'
+      );
+    }
   }
 
   if (!ctx.game || !ctx.meta) {
@@ -1374,7 +1398,9 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
       const subtitle = payload.subtitle ||
         (ctx.phase === 'cooldown'
-          ? 'บันทึกผลล่าสุดเรียบร้อย ตรวจดูสรุปได้จากหน้านี้ แล้วค่อยไปหน้าถัดไป'
+          ? (isJumpDuck(ctx)
+              ? 'บันทึกผลล่าสุดเรียบร้อย กำลังพากลับ Fitness Zone'
+              : 'บันทึกผลล่าสุดเรียบร้อย ตรวจดูสรุปได้จากหน้านี้ แล้วค่อยไปหน้าถัดไป')
           : 'warmup เสร็จแล้ว ระบบกำลังพาเข้าเกมหลัก');
 
       const extra = linesHtml(payload.lines || []);
@@ -1384,19 +1410,15 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
         setActions(footer, [
           {
-            label: 'เข้าเกมหลัก',
+            label: isJumpDuck(ctx) ? 'เข้า JumpDuck' : 'เข้าเกมหลัก',
             primary: true,
-            role: 'continue',
-            actionKey: 'run',
             onClick: () => {
               if (trySpecialGateRedirect(ctx, 'warmup', payload)) return;
               goRun(ctx);
             }
           },
           {
-            label: 'กลับ HUB',
-            role: 'back',
-            actionKey: 'hub',
+            label: isJumpDuck(ctx) ? 'กลับ Fitness Zone' : 'กลับ HUB',
             onClick: () => goHub(ctx)
           }
         ]);
@@ -1445,34 +1467,17 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       renderInfo(stage, title, subtitle, extra);
       applyCooldownSnapshot(refs, ctx);
 
-      if (completionTarget.href && completionTarget.kind === 'hub') {
+      if (completionTarget.href && (completionTarget.kind === 'hub' || completionTarget.kind === 'fitness-zone')) {
         setActions(footer, [
-          {
-            label: 'กลับหน้าหลัก',
-            primary: true,
-            role: 'continue',
-            actionKey: 'hub',
-            onClick: () => goHub(ctx)
-          }
+          { label: completionTarget.label || 'กลับหน้าหลัก', primary: true, onClick: () => goCompletion(ctx, payload) }
         ]);
         return;
       }
 
       if (completionTarget.href) {
         setActions(footer, [
-          {
-            label: completionTarget.label || 'ไปต่อ',
-            primary: true,
-            role: 'continue',
-            actionKey: completionTarget.kind || 'next',
-            onClick: () => goCompletion(ctx, payload)
-          },
-          {
-            label: 'กลับหน้าหลัก',
-            role: 'back',
-            actionKey: 'hub',
-            onClick: () => goHub(ctx)
-          }
+          { label: completionTarget.label || 'ไปต่อ', primary: true, onClick: () => goCompletion(ctx, payload) },
+          { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
         ]);
         return;
       }
@@ -1480,31 +1485,14 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       const launcherHref = resolveLauncherHref(ctx);
       if (launcherHref) {
         setActions(footer, [
-          {
-            label: 'กลับ Launcher',
-            primary: true,
-            role: 'continue',
-            actionKey: 'launcher',
-            onClick: () => { location.href = launcherHref; }
-          },
-          {
-            label: 'กลับหน้าหลัก',
-            role: 'back',
-            actionKey: 'hub',
-            onClick: () => goHub(ctx)
-          }
+          { label: 'กลับ Launcher', primary: true, onClick: () => { location.href = launcherHref; } },
+          { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
         ]);
         return;
       }
 
       setActions(footer, [
-        {
-          label: 'กลับหน้าหลัก',
-          primary: true,
-          role: 'continue',
-          actionKey: 'hub',
-          onClick: () => goHub(ctx)
-        }
+        { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
       ]);
 
       return;
@@ -1520,17 +1508,12 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       console.error('[gate-core] fail:', err);
       renderError(stage, 'Gate fail', err);
       setActions(footer, [
+        { label: isJumpDuck(ctx) ? 'กลับ Fitness Zone' : 'กลับ HUB', onClick: () => goHub(ctx) },
         {
-          label: 'กลับ HUB',
-          role: 'back',
-          actionKey: 'hub',
-          onClick: () => goHub(ctx)
-        },
-        {
-          label: ctx.phase === 'cooldown' ? 'ไปต่อ' : 'เข้าเกมหลัก',
+          label: ctx.phase === 'cooldown'
+            ? (isJumpDuck(ctx) ? 'กลับ Fitness Zone' : 'ไปต่อ')
+            : (isJumpDuck(ctx) ? 'เข้า JumpDuck' : 'เข้าเกมหลัก'),
           primary: true,
-          role: 'continue',
-          actionKey: 'fail-skip',
           onClick: () => api.complete({ source: 'fail-skip' })
         }
       ]);
@@ -1548,9 +1531,6 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       return goCompletion(ctx, payload);
     }
   };
-
-  root.__gateApi = api;
-  emitGateUiEvent(root, ctx, refs, 'api-ready');
 
   const alreadyDone = !shouldForceGate(ctx) && getDailyDone(ctx, ctx.phase);
   if (alreadyDone) {
