@@ -1,7 +1,7 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260414-JUMPDUCK-FITNESS-ZONE-FINAL
+// FULL PATCH v20260414h-JUMPDuck-DOGHERO-FITNESSZONE-LOCK
 
-const PATCH = 'v20260414-JUMPDUCK-FITNESS-ZONE-FINAL';
+const PATCH = 'v20260414h-JUMPDuck-DOGHERO-FITNESSZONE-LOCK';
 
 const DEFAULTS = {
   title: '',
@@ -134,7 +134,13 @@ function inferLooseMeta(id = '') {
       '🎮',
     zone,
     cat: zone,
-    theme: key
+    theme: key,
+    runFile: '',
+    runCandidates: [],
+    warmupFile: '',
+    cooldownFile: '',
+    styleFile: '',
+    summaryPath: ''
   });
 }
 
@@ -299,16 +305,19 @@ export const GAME_REGISTRY = {
   }),
 
   'jump-duck': makeMeta('jump-duck', {
-    title: 'JumpDuck',
-    label: 'JumpDuck',
-    emoji: '🏃',
+    title: 'Jump Duck',
+    label: 'Jump Duck',
+    emoji: '🐶',
     zone: 'fitness',
     cat: 'fitness',
     theme: 'jump-duck',
     runFile: '../fitness/jumpduck.html',
     runCandidates: [
       '../fitness/jumpduck.html',
-      '../jump-duck-vr.html'
+      '../jumpduck.html',
+      '../jump-duck.html',
+      '../jump-duck-vr.html',
+      '../fitness/jump-duck.html'
     ],
     summaryPath: '../fitness-zone.html'
   }),
@@ -414,8 +423,8 @@ const GAME_ALIAS = {
 
   'jump-duck': 'jump-duck',
   jumpduck: 'jump-duck',
-  jumpduckvr: 'jump-duck',
   'jump-duck-vr': 'jump-duck',
+  jumpduckvr: 'jump-duck',
 
   'balance-hold': 'balance-hold',
   balancehold: 'balance-hold',
