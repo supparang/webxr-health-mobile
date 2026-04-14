@@ -1,0 +1,1382 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>HeroHealth • Shadow Breaker v1</title>
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="../herohealth/favicon.ico" />
+
+  <style>
+    :root{
+      --sb-theme1: rgba(56,189,248,.22);
+      --sb-theme2: rgba(59,130,246,.14);
+      --sb-themeBorder: rgba(56,189,248,.26);
+
+      --sb-bg1:#020617;
+      --sb-bg2:#0b1226;
+      --sb-text:#e5e7eb;
+      --sb-muted:#94a3b8;
+      --sb-panel:rgba(2,6,23,.72);
+      --sb-panel2:rgba(15,23,42,.56);
+      --sb-stroke:rgba(148,163,184,.18);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(59,130,246,.18), transparent 45%),
+        radial-gradient(circle at 85% 90%, rgba(167,139,250,.16), transparent 45%),
+        linear-gradient(180deg, var(--sb-bg1), var(--sb-bg2));
+      color:var(--sb-text);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
+    }
+
+    button,input,select{ font:inherit; }
+
+    .sb-wrap{
+      max-width:1200px;
+      margin:0 auto;
+      min-height:100vh;
+      padding:12px;
+    }
+
+    .sb-header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      border-radius:20px;
+      border:1px solid var(--sb-stroke);
+      background:var(--sb-panel);
+      box-shadow:0 18px 55px rgba(0,0,0,.28);
+      padding:14px;
+    }
+
+    .sb-kicker{
+      color:var(--sb-muted);
+      font-size:.82rem;
+      font-weight:900;
+    }
+
+    .sb-title{
+      margin:6px 0 4px;
+      font-size:1.6rem;
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .sb-sub{
+      color:#cbd5e1;
+      font-size:.92rem;
+      line-height:1.45;
+    }
+
+    .sb-link{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(148,163,184,.10);
+      color:var(--sb-text);
+      text-decoration:none;
+      font-weight:1000;
+    }
+
+    .sb-main{ margin-top:12px; }
+
+    .sb-view{ display:none; }
+    .sb-view.is-active{ display:block; }
+
+    .sb-panel,
+    .sb-play{
+      border-radius:22px;
+      border:1px solid var(--sb-stroke);
+      background:var(--sb-panel2);
+      box-shadow:0 18px 55px rgba(0,0,0,.28);
+      padding:14px;
+    }
+
+    .sb-mode-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .sb-mode-btn{
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.20);
+      background:rgba(2,6,23,.24);
+      color:var(--sb-text);
+      font-weight:900;
+      cursor:pointer;
+    }
+
+    .sb-mode-btn.is-active{
+      border-color:rgba(59,130,246,.28);
+      background:rgba(59,130,246,.16);
+    }
+
+    .sb-mode-desc{
+      margin-top:10px;
+      color:var(--sb-muted);
+      font-size:.9rem;
+      font-weight:800;
+    }
+
+    .sb-form{ margin-top:12px; }
+
+    .sb-field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      margin-top:10px;
+    }
+
+    .sb-label{
+      color:#e2e8f0;
+      font-size:.84rem;
+      font-weight:900;
+    }
+
+    .sb-input{
+      width:100%;
+      min-height:44px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.45);
+      color:var(--sb-text);
+      outline:none;
+    }
+
+    .sb-mini-note{
+      margin-top:12px;
+      color:var(--sb-muted);
+      font-size:.88rem;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    .sb-actions,
+    .sb-result-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .sb-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:44px;
+      padding:10px 14px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(148,163,184,.10);
+      color:var(--sb-text);
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .sb-btn-primary{
+      border-color:rgba(59,130,246,.28);
+      background:rgba(59,130,246,.16);
+    }
+
+    .sb-btn-ghost{
+      background:transparent;
+      color:var(--sb-muted);
+    }
+
+    .sb-howto{
+      display:none;
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.20);
+      color:#dbeafe;
+      font-size:.9rem;
+      line-height:1.55;
+    }
+
+    .sb-hud{
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      gap:10px;
+      align-items:center;
+    }
+
+    .sb-hud-left,
+    .sb-hud-right{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .sb-hud-right{ justify-content:flex-end; }
+    .sb-hud-center{ text-align:center; }
+
+    .sb-stat{
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.28);
+    }
+
+    .sb-stat .k{
+      color:var(--sb-muted);
+      font-size:.78rem;
+      font-weight:1000;
+    }
+
+    .sb-stat .v{
+      color:var(--sb-text);
+      font-size:.95rem;
+      font-weight:1000;
+    }
+
+    .sb-toggle{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      color:var(--sb-muted);
+      font-size:.82rem;
+      font-weight:900;
+    }
+
+    .sb-boss-name{
+      font-size:1rem;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .sb-bars-top,
+    .sb-bars-bottom{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .sb-bar-label{
+      font-size:.78rem;
+      font-weight:1000;
+      color:var(--sb-muted);
+      margin-bottom:6px;
+    }
+
+    .sb-bar-track{
+      height:14px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(2,6,23,.40);
+      border:1px solid rgba(148,163,184,.12);
+    }
+
+    .sb-bar-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, #22c55e, #4ade80);
+      transition:width .15s linear;
+    }
+
+    .sb-bar-fill.boss{
+      background:linear-gradient(90deg, #f59e0b, #ef4444);
+    }
+
+    .sb-stage{
+      position:relative;
+      margin-top:10px;
+      border-radius:22px;
+      border:1px solid var(--sb-themeBorder);
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(59,130,246,.10), transparent 34%),
+        linear-gradient(180deg, rgba(15,23,42,.52), rgba(2,6,23,.80));
+      min-height:540px;
+    }
+
+    .sb-stage-backdrop{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:.84;
+      background:
+        radial-gradient(circle at 50% 20%, var(--sb-theme1), transparent 36%),
+        linear-gradient(180deg, transparent, rgba(255,255,255,.04));
+    }
+
+    .sb-stage-boss-face{
+      position:absolute;
+      left:50%;
+      top:12%;
+      transform:translateX(-50%);
+      font-size:clamp(110px, 18vw, 200px);
+      opacity:.06;
+      pointer-events:none;
+      filter:saturate(.82) blur(.2px);
+    }
+
+    .sb-stage-boss-name{
+      position:absolute;
+      left:50%;
+      top:4%;
+      transform:translateX(-50%);
+      color:rgba(255,255,255,.10);
+      font-size:clamp(28px, 4vw, 48px);
+      font-weight:1000;
+      pointer-events:none;
+    }
+
+    .sb-target-layer{
+      position:absolute;
+      inset:0;
+      z-index:3;
+    }
+
+    .sb-target{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      border-radius:999px;
+      border:3px solid rgba(255,255,255,.16);
+      background:rgba(15,23,42,.74);
+      color:#fff;
+      font-size:clamp(22px, 2vw, 34px);
+      box-shadow:
+        0 14px 26px rgba(0,0,0,.24),
+        0 0 0 6px rgba(255,255,255,.03);
+      cursor:pointer;
+      user-select:none;
+      transition:transform .08s ease, opacity .12s ease, box-shadow .12s ease;
+      z-index:4;
+    }
+
+    .sb-target:active{ transform:scale(.96); }
+
+    .sb-target.is-expiring{
+      opacity:0;
+      transform:scale(.8);
+    }
+
+    .sb-target--normal{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.18), rgba(59,130,246,.34));
+    }
+
+    .sb-target--bossface{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.18), rgba(245,158,11,.34));
+    }
+
+    .sb-target--bomb{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.14), rgba(239,68,68,.34));
+    }
+
+    .sb-target--decoy{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.12), rgba(148,163,184,.26));
+    }
+
+    .sb-target--heal{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.14), rgba(34,197,94,.30));
+    }
+
+    .sb-target--shield{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.14), rgba(167,139,250,.30));
+    }
+
+    .sb-center-msg{
+      position:absolute;
+      left:50%;
+      top:14%;
+      transform:translateX(-50%);
+      pointer-events:none;
+      z-index:9;
+    }
+
+    .sb-msg-main{
+      min-width:120px;
+      max-width:min(72vw, 360px);
+      padding:7px 11px;
+      border-radius:999px;
+      background:rgba(2,6,23,.66);
+      border:1px solid rgba(148,163,184,.14);
+      color:#fff;
+      font-size:.90rem;
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 12px 24px rgba(0,0,0,.22);
+    }
+
+    .sb-boss-banner{
+      position:absolute;
+      left:50%;
+      top:18%;
+      transform:translateX(-50%) scale(.96);
+      opacity:0;
+      pointer-events:none;
+      z-index:10;
+      min-width:min(82vw, 360px);
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.84);
+      box-shadow:0 18px 40px rgba(0,0,0,.30);
+      transition:all .18s ease;
+    }
+
+    .sb-boss-banner.is-show{
+      opacity:1;
+      transform:translateX(-50%) scale(1);
+    }
+
+    .sb-boss-banner-title{
+      font-size:.96rem;
+      font-weight:1000;
+      color:#fff;
+      text-align:center;
+    }
+
+    .sb-boss-banner-sub{
+      margin-top:4px;
+      font-size:.78rem;
+      font-weight:800;
+      color:#cbd5e1;
+      text-align:center;
+    }
+
+    .sb-boss-speech{
+      position:absolute;
+      left:8px;
+      top:8px;
+      z-index:8;
+      opacity:0;
+      pointer-events:none;
+      transform:translateY(-4px);
+      transition:all .18s ease;
+    }
+
+    .sb-boss-speech.is-show{
+      opacity:1;
+      transform:translateY(0);
+    }
+
+    .sb-boss-speech-bubble{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-width:min(86vw, 290px);
+      max-width:min(90vw, 340px);
+      padding:8px 10px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.82);
+      box-shadow:0 16px 30px rgba(0,0,0,.26);
+    }
+
+    .sb-boss-speech-emoji{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      background:rgba(15,23,42,.60);
+      flex:none;
+    }
+
+    .sb-boss-speech-name{
+      font-size:.82rem;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .sb-boss-speech-text{
+      font-size:.84rem;
+      line-height:1.35;
+      color:#dbeafe;
+      font-weight:800;
+    }
+
+    .sb-meta{
+      position:absolute;
+      right:8px;
+      bottom:8px;
+      width:min(180px, 46vw);
+      padding:6px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.76);
+      box-shadow:0 18px 30px rgba(0,0,0,.26);
+      z-index:7;
+    }
+
+    .sb-meta-rowtop{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+
+    .sb-meta-emoji{
+      width:38px;
+      height:38px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      font-size:21px;
+      background:rgba(15,23,42,.56);
+    }
+
+    .sb-meta-name{
+      margin-top:6px;
+      font-size:.88rem;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .sb-meta-desc{
+      display:none;
+    }
+
+    .sb-meta-row{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      margin-top:6px;
+      font-size:.72rem;
+      color:#cbd5e1;
+      font-weight:900;
+    }
+
+    .sb-fever{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.26);
+      padding:12px;
+    }
+
+    .sb-fever-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .sb-fever-head .k{
+      color:var(--sb-muted);
+      font-size:.78rem;
+      font-weight:1000;
+    }
+
+    .sb-fever-head .v{
+      color:#fff;
+      font-size:.95rem;
+      font-weight:1000;
+    }
+
+    .sb-fever-btn{
+      min-height:40px;
+      padding:8px 12px;
+      border-radius:12px;
+      border:1px solid rgba(250,204,21,.24);
+      background:rgba(250,204,21,.12);
+      color:#fff;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .sb-fever-track{
+      margin-top:10px;
+      height:14px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(2,6,23,.40);
+      border:1px solid rgba(148,163,184,.12);
+    }
+
+    .sb-fever-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, #facc15, #f59e0b);
+      transition:width .15s linear;
+    }
+
+    .sb-fever-hint{
+      margin-top:8px;
+      color:#fde68a;
+      font-size:.82rem;
+      font-weight:900;
+    }
+
+    .sb-bars-compact{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.26);
+      padding:12px;
+    }
+
+    .sb-row{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:6px;
+    }
+
+    .sb-row .k{
+      color:var(--sb-muted);
+      font-size:.78rem;
+      font-weight:1000;
+    }
+
+    .sb-row .v{
+      color:#fff;
+      font-size:.82rem;
+      font-weight:1000;
+    }
+
+    .sb-result-title{
+      margin:0 0 12px;
+      font-size:1.3rem;
+      font-weight:1000;
+    }
+
+    .sb-result-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .sb-result-card{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.24);
+      padding:12px;
+    }
+
+    .sb-result-card .k{
+      color:var(--sb-muted);
+      font-size:.78rem;
+      font-weight:1000;
+    }
+
+    .sb-result-card .v{
+      margin-top:6px;
+      color:#fff;
+      font-size:1.1rem;
+      font-weight:1000;
+    }
+
+    .sb-res-message{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      border:1px solid rgba(59,130,246,.18);
+      background:rgba(59,130,246,.10);
+      color:#dbeafe;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    .sb-res-badge{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:64px 1fr;
+      gap:12px;
+      align-items:center;
+      padding:12px;
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.24);
+    }
+
+    .sb-res-badge-icon{
+      width:64px;
+      height:64px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:32px;
+      background:rgba(15,23,42,.56);
+    }
+
+    .sb-res-badge-title{
+      font-size:1rem;
+      font-weight:1000;
+    }
+
+    .sb-res-badge-desc{
+      margin-top:4px;
+      color:#cbd5e1;
+      font-size:.88rem;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    .sb-stage-child{
+      min-height:clamp(560px, 76vh, 920px);
+    }
+
+    .sb-hud-child{
+      align-items:start;
+      gap:8px;
+    }
+
+    .sb-hud-child .sb-stat{
+      min-height:34px;
+      padding:6px 8px;
+      border-radius:12px;
+    }
+
+    .sb-hud-child .sb-stat .k{ font-size:.74rem; }
+    .sb-hud-child .sb-stat .v{ font-size:.88rem; }
+
+    .sb-bars-top-child,
+    .sb-bars-bottom-child{
+      margin-top:6px;
+    }
+
+    .sb-meta-child .sb-btn{
+      min-height:34px;
+      padding:6px 10px;
+      font-size:.76rem;
+    }
+
+    .sb-cvr-crosshair{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%, -50%);
+      width:84px;
+      height:84px;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+      z-index:8;
+    }
+
+    .sb-cvr-ring{
+      position:absolute;
+      width:84px;
+      height:84px;
+      border-radius:50%;
+      border:4px solid rgba(255,255,255,.88);
+      box-shadow:
+        0 0 0 6px rgba(255,255,255,.06),
+        0 0 18px rgba(59,130,246,.18);
+    }
+
+    .sb-cvr-dot{
+      position:absolute;
+      width:12px;
+      height:12px;
+      border-radius:50%;
+      background:#fff;
+      box-shadow:0 0 12px rgba(255,255,255,.35);
+    }
+
+    .sb-target.is-cvr-focus{
+      box-shadow:
+        0 0 0 8px rgba(255,255,255,.06),
+        0 0 0 4px rgba(250,204,21,.28),
+        0 20px 36px rgba(0,0,0,.30);
+      transform:scale(1.05);
+    }
+
+    @media (max-width:900px){
+      .sb-result-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width:720px){
+      .sb-wrap{ padding:8px; }
+      .sb-header{ padding:12px; }
+      .sb-panel,.sb-play{ padding:12px; }
+      .sb-bars-top,.sb-bars-bottom{ grid-template-columns:1fr; }
+
+      .sb-play-child{ padding:8px; }
+      .sb-header-compact{
+        padding:10px 12px;
+        border-radius:18px;
+      }
+      .sb-title{ font-size:1.18rem; }
+      .sb-sub{
+        font-size:.84rem;
+        line-height:1.35;
+      }
+
+      .sb-hud-child{ grid-template-columns:1fr; }
+      .sb-hud-left,
+      .sb-hud-right{ justify-content:flex-start; }
+      .sb-hud-center{
+        order:-1;
+        text-align:left;
+      }
+      .sb-boss-name{
+        text-align:left;
+        font-size:.98rem;
+      }
+
+      .sb-bars-top-child,
+      .sb-bars-bottom-child{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+
+      .sb-center-msg{ top:14%; }
+      .sb-msg-main{ font-size:.82rem; }
+      .sb-boss-banner{ top:20%; }
+      .sb-boss-speech{ display:none !important; }
+      .sb-stage-boss-face{ opacity:.05 !important; }
+      .sb-stage-boss-name{ opacity:.10 !important; }
+      .sb-stage-backdrop{ opacity:.82; }
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-meta-child{
+      display:none !important;
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-stage-child{
+      min-height:clamp(560px, 76vh, 920px);
+      padding-top:0;
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-boss-speech{
+      display:none !important;
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-center-msg{
+      top:14%;
+      z-index:9;
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-msg-main{
+      max-width:72vw;
+      min-width:0;
+      padding:6px 10px;
+      font-size:.82rem;
+      border-radius:14px;
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-stage-boss-face{
+      top:18%;
+      font-size:clamp(82px, 24vw, 120px);
+      opacity:.05 !important;
+      filter:saturate(.8) blur(.2px);
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-stage-boss-name{
+      opacity:.10 !important;
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-stage-backdrop{
+      opacity:.82;
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-target-layer{
+      inset:0;
+      z-index:3;
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-target{
+      z-index:4;
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-boss-banner{
+      top:20%;
+      min-width:min(82vw, 320px);
+      padding:10px 12px;
+      border-radius:18px;
+      z-index:10;
+    }
+
+    .sb-wrap[data-view-mode="mobile"] .sb-boss-banner-title{ font-size:.92rem; }
+    .sb-wrap[data-view-mode="mobile"] .sb-boss-banner-sub{ font-size:.76rem; }
+    .sb-wrap[data-view-mode="mobile"] .sb-fever{ padding:10px; }
+    .sb-wrap[data-view-mode="mobile"] .sb-bars-compact{ padding:10px; }
+
+    .sb-wrap[data-view-mode="cvr"] .sb-header,
+    .sb-wrap[data-view-mode="cvr"] .sb-hud-child,
+    .sb-wrap[data-view-mode="cvr"] .sb-bars-top-child,
+    .sb-wrap[data-view-mode="cvr"] .sb-bars-bottom-child,
+    .sb-wrap[data-view-mode="cvr"] .sb-meta-child{
+      display:none !important;
+    }
+
+    .sb-wrap[data-view-mode="cvr"] .sb-play-child{
+      padding:0;
+      border:none;
+      background:transparent;
+      box-shadow:none;
+    }
+
+    .sb-wrap[data-view-mode="cvr"] .sb-stage-child{
+      margin-top:0;
+      min-height:100vh;
+      border:none;
+      border-radius:0;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(59,130,246,.10), transparent 35%),
+        linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
+    }
+
+    .sb-wrap[data-view-mode="cvr"] .sb-stage-boss-face{
+      top:12%;
+      font-size:clamp(120px, 20vw, 220px);
+      opacity:.08;
+    }
+
+    .sb-wrap[data-view-mode="cvr"] .sb-stage-boss-name{
+      top:3%;
+      font-size:clamp(26px, 4vw, 48px);
+      opacity:.16;
+    }
+
+    .sb-wrap[data-view-mode="cvr"] .sb-center-msg{ top:12%; }
+    .sb-wrap[data-view-mode="cvr"] .sb-msg-main{
+      min-width:120px;
+      font-size:.92rem;
+    }
+
+    .sb-wrap[data-view-mode="cvr"] .sb-cvr-crosshair{ display:flex; }
+    .sb-wrap[data-view-mode="cvr"] .sb-target{ touch-action:none; }
+
+    .sb-theme-kidsoft{
+      --sb-theme1: rgba(125,211,252,.22);
+      --sb-theme2: rgba(254,249,195,.18);
+      --sb-themeBorder: rgba(147,197,253,.28);
+
+      --sb-bg1:#dff4ff;
+      --sb-bg2:#fff7da;
+      --sb-text:#4d4a42;
+      --sb-muted:#7b7a72;
+      --sb-panel:rgba(255,253,246,.88);
+      --sb-panel2:rgba(248,255,243,.86);
+      --sb-stroke:rgba(191,227,242,.92);
+    }
+
+    .sb-theme-kidsoft{
+      background:
+        radial-gradient(circle at 18% 12%, rgba(127,207,255,.28), transparent 36%),
+        radial-gradient(circle at 84% 10%, rgba(255,220,120,.22), transparent 32%),
+        linear-gradient(180deg, #dff4ff 0%, #eefcff 42%, #fff7da 100%);
+    }
+
+    .sb-theme-kidsoft .sb-header,
+    .sb-theme-kidsoft .sb-panel,
+    .sb-theme-kidsoft .sb-play,
+    .sb-theme-kidsoft .sb-result-card,
+    .sb-theme-kidsoft .sb-fever,
+    .sb-theme-kidsoft .sb-bars-compact,
+    .sb-theme-kidsoft .sb-meta,
+    .sb-theme-kidsoft .sb-res-badge{
+      background:var(--sb-panel);
+      border-color:var(--sb-stroke);
+      color:var(--sb-text);
+      box-shadow:0 14px 30px rgba(111,157,183,.14);
+    }
+
+    .sb-theme-kidsoft .sb-stage{
+      background:
+        radial-gradient(circle at 50% 18%, rgba(125,211,252,.18), transparent 34%),
+        linear-gradient(180deg, rgba(255,255,255,.45), rgba(233,248,255,.85) 58%, rgba(255,248,220,.88));
+      border-color:rgba(147,197,253,.34);
+    }
+
+    .sb-theme-kidsoft .sb-stage-backdrop{
+      background:
+        radial-gradient(circle at 50% 20%, rgba(125,211,252,.14), transparent 36%),
+        linear-gradient(180deg, transparent, rgba(255,255,255,.12));
+    }
+
+    .sb-theme-kidsoft .sb-kicker,
+    .sb-theme-kidsoft .sb-mode-desc,
+    .sb-theme-kidsoft .sb-label,
+    .sb-theme-kidsoft .sb-mini-note,
+    .sb-theme-kidsoft .sb-fever-head .k,
+    .sb-theme-kidsoft .sb-row .k,
+    .sb-theme-kidsoft .sb-bar-label,
+    .sb-theme-kidsoft .sb-stat .k{
+      color:var(--sb-muted);
+    }
+
+    .sb-theme-kidsoft .sb-title,
+    .sb-theme-kidsoft .sb-result-title,
+    .sb-theme-kidsoft .sb-boss-name,
+    .sb-theme-kidsoft .sb-meta-name,
+    .sb-theme-kidsoft .sb-res-badge-title,
+    .sb-theme-kidsoft .sb-result-card .v{
+      color:#5a4a3f;
+    }
+
+    .sb-theme-kidsoft .sb-sub,
+    .sb-theme-kidsoft .sb-meta-desc,
+    .sb-theme-kidsoft .sb-res-badge-desc{
+      color:#786c61;
+    }
+
+    .sb-theme-kidsoft .sb-input{
+      background:rgba(255,255,255,.86);
+      border-color:rgba(191,227,242,.92);
+      color:#4d4a42;
+    }
+
+    .sb-theme-kidsoft .sb-input:focus{
+      border-color:#7fcfff;
+      box-shadow:0 0 0 3px rgba(127,207,255,.20);
+    }
+
+    .sb-theme-kidsoft .sb-btn,
+    .sb-theme-kidsoft .sb-link,
+    .sb-theme-kidsoft .sb-mode-btn,
+    .sb-theme-kidsoft .sb-fever-btn{
+      border-radius:18px;
+      border-color:rgba(191,227,242,.96);
+      background:linear-gradient(180deg, #ffffff, #f7fff3);
+      color:#5b513f;
+      box-shadow:0 8px 16px rgba(111,157,183,.12);
+    }
+
+    .sb-theme-kidsoft .sb-btn-primary,
+    .sb-theme-kidsoft .sb-mode-btn.is-active{
+      background:linear-gradient(180deg, #8fe388, #58c33f);
+      border-color:#75cf63;
+      color:#fffdf6;
+    }
+
+    .sb-theme-kidsoft .sb-btn-ghost{
+      background:linear-gradient(180deg, #eef9ff, #e3f5ff);
+      color:#5d6a70;
+    }
+
+    .sb-theme-kidsoft .sb-fever-btn{
+      background:linear-gradient(180deg, #ffd96a, #ffbe3b);
+      border-color:#f4bb39;
+      color:#6a4a00;
+    }
+
+    .sb-theme-kidsoft .sb-bar-track,
+    .sb-theme-kidsoft .sb-fever-track{
+      background:rgba(210,236,246,.82);
+      border-color:rgba(191,227,242,.92);
+    }
+
+    .sb-theme-kidsoft .sb-bar-fill{
+      background:linear-gradient(90deg, #7ed957, #58c33f);
+    }
+
+    .sb-theme-kidsoft .sb-bar-fill.boss{
+      background:linear-gradient(90deg, #ffcf66, #ff9651);
+    }
+
+    .sb-theme-kidsoft .sb-fever-fill{
+      background:linear-gradient(90deg, #ffd45c, #ffb83f);
+    }
+
+    .sb-theme-kidsoft .sb-stat,
+    .sb-theme-kidsoft .sb-msg-main,
+    .sb-theme-kidsoft .sb-boss-banner{
+      background:rgba(255,252,244,.90);
+      border-color:rgba(191,227,242,.92);
+      color:#5a4a3f;
+    }
+
+    .sb-theme-kidsoft .sb-target{
+      border-width:4px;
+      border-color:rgba(255,255,255,.92);
+      box-shadow:
+        0 10px 22px rgba(111,157,183,.16),
+        0 0 0 8px rgba(255,255,255,.38);
+    }
+
+    .sb-theme-kidsoft .sb-target--normal{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.88), rgba(126,217,87,.72));
+    }
+
+    .sb-theme-kidsoft .sb-target--bossface{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.88), rgba(255,196,94,.78));
+    }
+
+    .sb-theme-kidsoft .sb-target--bomb{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.72), rgba(255,118,118,.78));
+    }
+
+    .sb-theme-kidsoft .sb-target--decoy{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.72), rgba(180,191,205,.72));
+    }
+
+    .sb-theme-kidsoft .sb-target--heal{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.80), rgba(125,232,170,.72));
+    }
+
+    .sb-theme-kidsoft .sb-target--shield{
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.80), rgba(144,191,255,.72));
+    }
+
+    .sb-theme-kidsoft .sb-boss-banner-title{ color:#4f8f2c; }
+    .sb-theme-kidsoft .sb-boss-banner-sub,
+    .sb-theme-kidsoft .sb-fever-hint{ color:#7a6a3c; }
+    .sb-theme-kidsoft .sb-result-card{ background:rgba(255,255,255,.70); }
+
+    .sb-theme-kidsoft .sb-res-message{
+      background:linear-gradient(180deg, #dff4ff, #eefcff);
+      border-color:#bfe3f2;
+      color:#5b6670;
+    }
+
+    .sb-theme-kidsoft .sb-res-badge{
+      background:linear-gradient(180deg, #fffdf6, #f8fff3);
+    }
+
+    .sb-theme-kidsoft .sb-cvr-ring{
+      border-color:rgba(255,255,255,.95);
+      box-shadow:
+        0 0 0 6px rgba(255,255,255,.16),
+        0 0 18px rgba(127,207,255,.24);
+    }
+  </style>
+</head>
+<body>
+  <div id="sb-wrap" class="sb-wrap sb-theme-kidsoft" data-view-mode="mobile">
+    <header class="sb-header sb-header-compact">
+      <div>
+        <div class="sb-kicker">HeroHealth • Exercise Zone</div>
+        <div class="sb-title">Shadow Breaker v1</div>
+        <div class="sb-sub">แตะเป้าดี เก็บคอมโบ สะสมพลังพิเศษ แล้วฝ่าบอสให้ไกลที่สุด</div>
+      </div>
+      <a id="sb-link-hub" class="sb-link" href="../herohealth/hub.html">← กลับ HUB</a>
+    </header>
+
+    <main class="sb-main">
+      <section id="sb-view-menu" class="sb-view is-active">
+        <div class="sb-panel">
+          <div class="sb-mode-row">
+            <button id="sb-tab-normal" class="sb-mode-btn is-active" type="button">โหมดเด็ก</button>
+            <button id="sb-tab-research" class="sb-mode-btn" type="button">โหมดวิจัย</button>
+          </div>
+
+          <div id="sb-mode-desc" class="sb-mode-desc">เล่นสนุกได้เลย ไม่ต้องกรอกข้อมูลเพิ่ม</div>
+
+          <div class="sb-form">
+            <div class="sb-field">
+              <label class="sb-label" for="sb-input-pid">PID</label>
+              <input id="sb-input-pid" class="sb-input" placeholder="เช่น anon" />
+            </div>
+
+            <div class="sb-field">
+              <label class="sb-label" for="sb-input-diff">ระดับความท้าทาย</label>
+              <select id="sb-input-diff" class="sb-input">
+                <option value="easy">ง่าย</option>
+                <option value="normal" selected>ปกติ</option>
+                <option value="hard">ยาก</option>
+              </select>
+            </div>
+
+            <div class="sb-field">
+              <label class="sb-label" for="sb-input-time">เวลาเล่น</label>
+              <select id="sb-input-time" class="sb-input">
+                <option value="60">60 วินาที</option>
+                <option value="70" selected>70 วินาที</option>
+                <option value="80">80 วินาที</option>
+                <option value="90">90 วินาที</option>
+              </select>
+            </div>
+
+            <div id="sb-research-fields" style="display:none;">
+              <div class="sb-field">
+                <label class="sb-label" for="sb-input-group">Group</label>
+                <input id="sb-input-group" class="sb-input" placeholder="เช่น control / exp" />
+              </div>
+
+              <div class="sb-field">
+                <label class="sb-label" for="sb-input-note">Note</label>
+                <input id="sb-input-note" class="sb-input" placeholder="หมายเหตุเพิ่มเติม" />
+              </div>
+            </div>
+
+            <div class="sb-mini-note">
+              แตะเป้าดีให้ทัน ระวังบอมบ์และเป้าหลอก แล้วใช้พลังพิเศษให้ถูกจังหวะ
+            </div>
+
+            <div class="sb-actions">
+              <button id="sb-btn-play" class="sb-btn sb-btn-primary" type="button">▶ เริ่มเล่น</button>
+              <button id="sb-btn-research" class="sb-btn" type="button">📋 เข้าโหมดวิจัย</button>
+              <button id="sb-btn-howto" class="sb-btn sb-btn-ghost" type="button">วิธีเล่น</button>
+            </div>
+
+            <div id="sb-howto" class="sb-howto">
+              1) แตะเป้าดีเพื่อเก็บคะแนน<br>
+              2) อย่าแตะเป้าหลอกหรือบอมบ์<br>
+              3) สะสมพลังพิเศษแล้วกดใช้ในจังหวะสำคัญ<br>
+              4) ทำลายพลังบอสให้หมดเพื่อผ่านไปเฟสต่อไป
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="sb-view-play" class="sb-view">
+        <div class="sb-play sb-play-child">
+          <div class="sb-hud sb-hud-child">
+            <div class="sb-hud-left">
+              <div class="sb-stat"><span class="k">เวลา</span><span id="sb-text-time" class="v">70.0 s</span></div>
+              <div class="sb-stat"><span class="k">คะแนน</span><span id="sb-text-score" class="v">0</span></div>
+              <div class="sb-stat"><span class="k">คอมโบ</span><span id="sb-text-combo" class="v">0</span></div>
+            </div>
+
+            <div class="sb-hud-center">
+              <div id="sb-current-boss-name" class="sb-boss-name">Bubble Glove</div>
+            </div>
+
+            <div class="sb-hud-right">
+              <div class="sb-stat"><span class="k">ด่าน</span><span id="sb-text-phase" class="v">1</span></div>
+              <div class="sb-stat"><span class="k">พลาด</span><span id="sb-text-miss" class="v">0</span></div>
+              <label class="sb-toggle">
+                <input id="sb-btn-pause" type="checkbox">
+                <span>พักเกม</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="sb-bars-top sb-bars-top-child">
+            <div class="sb-bars-compact">
+              <div class="sb-bar-label">พลังเรา</div>
+              <div class="sb-bar-track"><div id="sb-hp-you-top" class="sb-bar-fill"></div></div>
+            </div>
+
+            <div class="sb-bars-compact">
+              <div class="sb-row">
+                <span class="k">พลังบอส</span>
+                <span id="sb-boss-phase-label" class="v">1</span>
+              </div>
+              <div class="sb-bar-track"><div id="sb-hp-boss-top" class="sb-bar-fill boss"></div></div>
+            </div>
+          </div>
+
+          <div class="sb-stage sb-stage-child">
+            <div class="sb-stage-backdrop"></div>
+            <div id="sb-stage-boss-face" class="sb-stage-boss-face">🫧</div>
+            <div id="sb-stage-boss-name" class="sb-stage-boss-name">Bubble Glove</div>
+
+            <div class="sb-center-msg">
+              <div id="sb-msg-main" class="sb-msg-main">พร้อมแล้ว!</div>
+            </div>
+
+            <div id="sb-boss-banner" class="sb-boss-banner">
+              <div id="sb-boss-banner-title" class="sb-boss-banner-title">ผ่านบอสแล้ว!</div>
+              <div id="sb-boss-banner-sub" class="sb-boss-banner-sub">เก่งมาก เตรียมลุยด่านต่อไป</div>
+            </div>
+
+            <div id="sb-boss-speech" class="sb-boss-speech">
+              <div class="sb-boss-speech-bubble">
+                <div id="sb-boss-speech-emoji" class="sb-boss-speech-emoji">🫧</div>
+                <div>
+                  <div id="sb-boss-speech-name" class="sb-boss-speech-name">Bubble Glove</div>
+                  <div id="sb-boss-speech-text" class="sb-boss-speech-text">แตะฟองให้ทันนะ!</div>
+                </div>
+              </div>
+            </div>
+
+            <div id="sb-target-layer" class="sb-target-layer"></div>
+
+            <div id="sb-cvr-crosshair" class="sb-cvr-crosshair">
+              <div class="sb-cvr-ring"></div>
+              <div class="sb-cvr-dot"></div>
+            </div>
+
+            <div class="sb-meta sb-meta-child">
+              <div class="sb-meta-rowtop">
+                <div id="sb-meta-emoji" class="sb-meta-emoji">🫧</div>
+                <button id="sb-btn-fever" class="sb-btn sb-btn-primary" type="button">⚡ FEVER</button>
+              </div>
+              <div id="sb-meta-name" class="sb-meta-name">Bubble Glove</div>
+              <div id="sb-meta-desc" class="sb-meta-desc">เป้ากลมใหญ่ ตีง่าย เหมาะเริ่มต้น</div>
+              <div class="sb-meta-row">
+                <span>โล่</span>
+                <span id="sb-boss-shield-label">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sb-fever">
+            <div class="sb-fever-head">
+              <span class="k">พลังพิเศษ</span>
+              <span id="sb-label-fever" class="v">0%</span>
+              <button id="sb-btn-fever-bottom" class="sb-fever-btn" type="button">⚡ ใช้พลัง</button>
+            </div>
+            <div class="sb-fever-track"><div id="sb-fever-bar" class="sb-fever-fill"></div></div>
+            <div id="sb-fever-hint" class="sb-fever-hint">ตีแม่น ๆ เพื่อเปิดพลังพิเศษ</div>
+          </div>
+
+          <div class="sb-bars-bottom sb-bars-bottom-child">
+            <div class="sb-bars-compact">
+              <div class="sb-bar-label">พลังเรา</div>
+              <div class="sb-bar-track"><div id="sb-hp-you-bottom" class="sb-bar-fill"></div></div>
+            </div>
+
+            <div class="sb-bars-compact">
+              <div class="sb-row">
+                <span class="k">พลังบอส</span>
+                <span class="v">boss</span>
+              </div>
+              <div class="sb-bar-track"><div id="sb-hp-boss-bottom" class="sb-bar-fill boss"></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="sb-view-result" class="sb-view">
+        <div class="sb-panel">
+          <h2 class="sb-result-title">สรุปผล</h2>
+
+          <div class="sb-result-grid">
+            <div class="sb-result-card"><div class="k">เวลา</div><div id="sb-res-time" class="v">0 วินาที</div></div>
+            <div class="sb-result-card"><div class="k">คะแนน</div><div id="sb-res-score" class="v">0</div></div>
+            <div class="sb-result-card"><div class="k">คอมโบสูงสุด</div><div id="sb-res-max-combo" class="v">0</div></div>
+            <div class="sb-result-card"><div class="k">พลาด</div><div id="sb-res-miss" class="v">0</div></div>
+            <div class="sb-result-card"><div class="k">ด่าน</div><div id="sb-res-phase" class="v">1</div></div>
+            <div class="sb-result-card"><div class="k">บอสที่ผ่าน</div><div id="sb-res-boss-cleared" class="v">0</div></div>
+            <div class="sb-result-card"><div class="k">ความแม่นยำ</div><div id="sb-res-acc" class="v">0%</div></div>
+            <div class="sb-result-card"><div class="k">เกรด</div><div id="sb-res-grade" class="v">C</div></div>
+          </div>
+
+          <div id="sb-res-message" class="sb-res-message">เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ</div>
+
+          <div class="sb-res-badge">
+            <div id="sb-res-badge-icon" class="sb-res-badge-icon">🏅</div>
+            <div>
+              <div id="sb-res-badge-title" class="sb-res-badge-title">Shadow Starter</div>
+              <div id="sb-res-badge-desc" class="sb-res-badge-desc">เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
+            </div>
+          </div>
+
+          <div class="sb-result-actions">
+            <button id="sb-btn-result-retry" class="sb-btn sb-btn-primary" type="button">เล่นอีกครั้ง</button>
+            <button id="sb-btn-result-menu" class="sb-btn" type="button">กลับ HUB</button>
+            <button id="sb-btn-download-events" class="sb-btn sb-btn-ghost" type="button">ดาวน์โหลด events</button>
+            <button id="sb-btn-download-session" class="sb-btn sb-btn-ghost" type="button">ดาวน์โหลด session</button>
+            <button id="sb-btn-back-menu" class="sb-btn sb-btn-ghost" type="button">กลับเมนูเกม</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./shadow-breaker-v1.js?v=20260414-shadow-breaker-v1-full"></script>
+</body>
+</html>
