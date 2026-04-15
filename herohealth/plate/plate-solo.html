@@ -47,7 +47,10 @@
         linear-gradient(180deg,#f7fcff,#fffef9);
     }
 
-    body.overlay-open{ overflow:hidden; }
+    body.overlay-open{
+      overflow:hidden;
+      height:100dvh;
+    }
 
     .hud{
       position:sticky;
@@ -527,20 +530,27 @@
       inset:0;
       background:rgba(17,24,39,.38);
       display:none;
-      align-items:center;
+      align-items:flex-start;
       justify-content:center;
-      padding:18px;
+      padding:16px;
       z-index:50;
+      overflow-y:auto;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
     }
 
     .overlay.show{ display:flex; }
 
     .summary{
       width:min(92vw,560px);
+      max-height:min(88dvh,900px);
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
       background:#fff;
       border-radius:28px;
       border:1px solid var(--line);
       padding:20px;
+      margin:auto 0;
       animation:summaryPop .24s ease;
     }
 
@@ -609,6 +619,11 @@
       display:grid;
       gap:10px;
       margin-top:12px;
+      position:sticky;
+      bottom:-20px;
+      background:linear-gradient(180deg,rgba(255,255,255,0),#fff 18%,#fff 100%);
+      padding-top:12px;
+      z-index:2;
     }
 
     .actions button{
@@ -629,20 +644,27 @@
       z-index:80;
       background:rgba(15,23,42,.42);
       display:grid;
-      place-items:center;
-      padding:18px;
+      place-items:start center;
+      padding:16px;
       backdrop-filter:blur(8px);
+      overflow-y:auto;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
     }
 
     .flowOverlay[hidden]{ display:none; }
 
     .flowCard{
       width:min(92vw,920px);
+      max-height:min(88dvh,900px);
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
       background:linear-gradient(180deg,#fffef9,#f9fcff);
       border:1px solid var(--line);
       border-radius:28px;
       padding:18px;
       box-shadow:var(--shadow-lg);
+      margin:auto 0;
     }
 
     .flowHead{
@@ -817,6 +839,11 @@
       gap:10px;
       flex-wrap:wrap;
       margin-top:12px;
+      position:sticky;
+      bottom:-18px;
+      background:linear-gradient(180deg,rgba(255,255,255,0),#fffef9 18%,#fffef9 100%);
+      padding-top:12px;
+      z-index:2;
     }
 
     .flowBtn{
@@ -1063,7 +1090,6 @@
       .selectedBar{ flex-direction:column; align-items:stretch; bottom:8px; }
       .guideActions{ flex-direction:column; align-items:stretch; }
       .guideStartBtn, .selectedClear{ width:100%; }
-      .flowActions{ flex-direction:column; }
       .flowBtn{ width:100%; }
       .createTray{ grid-template-columns:1fr 1fr; }
     }
@@ -1188,7 +1214,7 @@
       <div class="actions">
         <button id="btnReplay" class="primary">เล่นอีกครั้ง</button>
         <button id="btnEvaluate" class="secondary">ลองคิดอีกนิด</button>
-        <button id="btnBackZone" class="secondary">ไปคูลดาวน์และกลับโซน</button>
+        <button id="btnBackZone" class="secondary" hidden>ไปคูลดาวน์และกลับโซน</button>
       </div>
     </div>
   </div>
@@ -1198,8 +1224,8 @@
       <div class="flowHead">
         <div class="flowBadge">🍽️</div>
         <div>
-          <h2 class="flowTitle">พร้อมเล่น Solo ไหม</h2>
-          <p class="flowSub">เกมหลักมีหลายรอบและมีตัวลวงมากกว่ามินิเกม</p>
+          <h2 class="flowTitle">ก่อนเริ่ม Solo</h2>
+          <p class="flowSub">นี่คือหน้าก่อนเริ่มเกมหลักของ Solo กดเริ่มแล้วจะเข้าเล่นทันที</p>
         </div>
       </div>
 
@@ -1240,8 +1266,8 @@
       <div class="flowHead">
         <div class="flowBadge">🌟</div>
         <div>
-          <h2 class="flowTitle">ลองคิดอีกนิด</h2>
-          <p class="flowSub">เลือกจานที่สมดุลที่สุด</p>
+          <h2 class="flowTitle">ด่านคิดต่อหลังจบ Solo</h2>
+          <p class="flowSub">เลือกจานที่สมดุลที่สุดจากตัวเลือกด้านล่าง</p>
           <p class="flowSub" id="evalEntrySub">คิดต่อจากเกมหลักอีกนิด</p>
         </div>
       </div>
@@ -1267,8 +1293,8 @@
       <div class="flowHead">
         <div class="flowBadge">🍽️</div>
         <div>
-          <h2 class="flowTitle">สร้างจานของคุณเอง</h2>
-          <p class="flowSub">เลือกอาหารให้ครบ 5 หมู่</p>
+          <h2 class="flowTitle">ด่านสร้างจานหลังจบ Solo</h2>
+          <p class="flowSub">เลือกอาหารให้ครบ 5 หมู่เพื่อปิดภารกิจของรอบนี้</p>
           <p class="flowSub" id="createEntrySub">ขั้นสุดท้าย ลองสร้างจานของคุณเอง</p>
         </div>
       </div>
@@ -1666,8 +1692,7 @@
       mistakeByGroup:{ g1:0, g2:0, g3:0, g4:0, g5:0 },
       zoneBound:false,
       tickTimer:0,
-      deadlineMs:0,
-      summaryShown:false
+      deadlineMs:0
     };
 
     const evaluateState = {
@@ -1697,8 +1722,15 @@
              $summaryOverlay.classList.contains('show');
     }
 
-    function openSummaryOverlay(){ $summaryOverlay.classList.add('show'); setOverlayOpen(true); }
-    function closeSummaryOverlay(){ $summaryOverlay.classList.remove('show'); if(!isAnyOverlayOpen()) setOverlayOpen(false); }
+    function openSummaryOverlay(){
+      $summaryOverlay.classList.add('show');
+      setOverlayOpen(true);
+    }
+
+    function closeSummaryOverlay(){
+      $summaryOverlay.classList.remove('show');
+      if(!isAnyOverlayOpen()) setOverlayOpen(false);
+    }
 
     function pushToast(message, type='info'){
       const el = document.createElement('div');
@@ -1731,22 +1763,29 @@
       setTimeout(() => el.classList.remove('bump'), 180);
     }
 
-    function setFeedback(msg){ $feedback.textContent = msg || ''; }
+    function setFeedback(msg){
+      $feedback.textContent = msg || '';
+    }
 
-    function dailyKeyBase(){ return `PLATE_DAILY_${SOLO_CTX.pid}_${bangkokYmd()}`; }
+    function dailyKeyBase(){
+      return `PLATE_DAILY_${SOLO_CTX.pid}_${bangkokYmd()}`;
+    }
 
     function readDailyProgress(){
       return safeReadJson(dailyKeyBase(), {
         completedPlates:0,
         perfectPlates:0,
-        questDone:0,
-        firstPlayShown:0
+        questDone:0
       });
     }
 
-    function writeDailyProgress(data){ safeWriteJson(dailyKeyBase(), data); }
+    function writeDailyProgress(data){
+      safeWriteJson(dailyKeyBase(), data);
+    }
 
-    function guideDayKey(){ return `PLATE_GUIDE_SEEN_${SOLO_CTX.pid}_${bangkokYmd()}`; }
+    function guideDayKey(){
+      return `PLATE_GUIDE_SEEN_${SOLO_CTX.pid}_${bangkokYmd()}`;
+    }
 
     function shouldShowGuide(){
       try{ return localStorage.getItem(guideDayKey()) !== '1'; }
@@ -1827,8 +1866,7 @@
         const zoneId = zone.dataset.zone;
         zone.classList.toggle('hasItem', !!state.placedByZone[zoneId]);
         if(!state.placedByZone[zoneId]){
-          const label = FOOD_GROUPS[zoneId]?.short || '';
-          zone.innerHTML = `<span>${label}</span>`;
+          zone.innerHTML = `<span>${FOOD_GROUPS[zoneId]?.short || ''}</span>`;
         }else{
           const food = state.placedByZone[zoneId].food;
           zone.innerHTML = `
@@ -2202,11 +2240,11 @@
       }
 
       if(summary.accuracy >= 90){
-        $sumInsight.textContent = 'ตอนนี้ไปต่อที่ Evaluate และ Create เพื่อปิดภารกิจของ Solo ให้ครบ';
+        $sumInsight.textContent = 'ตอนนี้ไปต่อที่ด่านคิดต่อและด่านสร้างจาน เพื่อปิดภารกิจของ Solo ให้ครบ';
       }else if(summary.accuracy >= 70){
-        $sumInsight.textContent = 'ทำได้ดีมาก ลองคิดต่ออีกนิดใน Evaluate แล้วสร้างจานของตัวเองต่อ';
+        $sumInsight.textContent = 'ทำได้ดีมาก ลองคิดต่ออีกนิด แล้วค่อยสร้างจานของตัวเองต่อ';
       }else{
-        $sumInsight.textContent = 'ไม่เป็นไร ลองคิดต่อใน Evaluate แล้วค่อยสร้างจานของตัวเองอีกครั้ง';
+        $sumInsight.textContent = 'ไม่เป็นไร ลองคิดต่ออีกนิด แล้วค่อยสร้างจานของตัวเองอีกครั้ง';
       }
     }
 
@@ -2575,7 +2613,6 @@
       state.roundFoods = [];
       state.placedByZone = {};
       state.mistakeByGroup = { g1:0, g2:0, g3:0, g4:0, g5:0 };
-      state.summaryShown = false;
 
       rng = makeRng(SOLO_CTX.seed);
 
@@ -2605,6 +2642,7 @@
       bindZones();
       nextRound();
       startClock();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       updateDailyQuestUi();
       renderEntryContext();
 
@@ -2617,7 +2655,8 @@
 
     function maybeShowGuideThenStart(){
       const stage = getEntryStage();
-      if(stage === 'after_quick_plate' || stage === 'replay'){
+
+      if(stage === 'after_quick_plate' || stage === 'replay' || stage === 'from_launcher'){
         reallyStartGame();
         return;
       }
@@ -2658,9 +2697,6 @@
 
     $btnCreateSummaryReplay.addEventListener('click', goReplaySolo);
     $btnCreateSummaryFinish.addEventListener('click', goCooldownThenZone);
-
-    $btnCreateSummaryReplay?.addEventListener('pointerup', goReplaySolo, { passive:false });
-    $btnCreateSummaryFinish?.addEventListener('pointerup', goCooldownThenZone, { passive:false });
 
     bindCreateZones();
     renderEntryContext();
