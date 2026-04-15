@@ -3,1208 +3,476 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>English Quest — Tech Career Arena</title>
+  <title>English Quest A2 — Listen Speak Read Write</title>
   <style>
-    :root {
-      --bg-1: #07111f;
-      --bg-2: #101d33;
-      --panel: rgba(10, 17, 31, 0.78);
-      --panel-2: rgba(14, 25, 46, 0.92);
-      --line: rgba(148, 163, 184, 0.18);
-      --text: #ecf6ff;
-      --muted: #9fb2ca;
-      --accent: #59d0ff;
-      --accent-2: #7c5cff;
-      --good: #41e08d;
-      --warn: #ffc857;
-      --danger: #ff6b81;
-      --shadow: 0 20px 60px rgba(0,0,0,.35);
-      --radius-xl: 28px;
-      --radius-lg: 22px;
-      --radius-md: 18px;
-      --hud-top-h: 92px;
-      --hud-bottom-h: 100px;
-      --maxw: 1280px;
-      font-synthesis-weight: none;
+    :root{
+      --bg1:#081120;
+      --bg2:#13223d;
+      --panel:rgba(10,18,34,.76);
+      --panel2:rgba(16,27,49,.92);
+      --line:rgba(160,180,210,.16);
+      --text:#eef7ff;
+      --muted:#a7bbd3;
+      --accent:#59d0ff;
+      --accent2:#7c5cff;
+      --good:#42e090;
+      --warn:#ffd166;
+      --bad:#ff7187;
+      --shadow:0 18px 50px rgba(0,0,0,.35);
+      --r-xl:28px;
+      --r-lg:22px;
+      --r-md:18px;
+      --maxw:1320px;
     }
-
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--text);
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(circle at 20% 20%, rgba(89, 208, 255, 0.22), transparent 0 24%),
-        radial-gradient(circle at 80% 10%, rgba(124, 92, 255, 0.24), transparent 0 22%),
-        radial-gradient(circle at 50% 90%, rgba(65, 224, 141, 0.12), transparent 0 18%),
-        linear-gradient(160deg, var(--bg-1), var(--bg-2));
-      overflow: hidden;
+        radial-gradient(circle at 20% 15%, rgba(89,208,255,.22), transparent 0 24%),
+        radial-gradient(circle at 82% 10%, rgba(124,92,255,.22), transparent 0 24%),
+        radial-gradient(circle at 50% 90%, rgba(66,224,144,.10), transparent 0 22%),
+        linear-gradient(160deg,var(--bg1),var(--bg2));
+      overflow:hidden;
     }
-
-    .grid-bg,
-    .particles,
-    .vignette {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-    }
-
-    .grid-bg {
+    .fx,.fx2,.vignette{position:fixed;inset:0;pointer-events:none}
+    .fx{
       background-image:
-        linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
-      background-size: 42px 42px;
-      mask-image: linear-gradient(to bottom, rgba(0,0,0,.95), rgba(0,0,0,.2));
-      opacity: .4;
+        linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+      background-size:40px 40px;
+      opacity:.35;
+      mask-image:linear-gradient(to bottom, rgba(0,0,0,.95), rgba(0,0,0,.22));
     }
-
-    .vignette {
-      background: radial-gradient(circle at center, transparent 42%, rgba(0,0,0,.45) 100%);
-    }
-
-    .particles::before,
-    .particles::after {
-      content: "";
-      position: absolute;
-      inset: -10%;
+    .fx2::before,.fx2::after{
+      content:"";
+      position:absolute;
+      inset:-10%;
       background:
-        radial-gradient(circle, rgba(255,255,255,.22) 0 2px, transparent 2px) 0 0 / 160px 160px,
-        radial-gradient(circle, rgba(89,208,255,.16) 0 2px, transparent 2px) 40px 30px / 190px 190px,
-        radial-gradient(circle, rgba(124,92,255,.12) 0 1.7px, transparent 1.7px) 90px 70px / 220px 220px;
-      animation: drift 18s linear infinite;
-      opacity: .55;
-    }
-
-    .particles::after {
-      animation-duration: 28s;
-      transform: scale(1.15);
-      opacity: .28;
-    }
-
-    @keyframes drift {
-      from { transform: translateY(0px) translateX(0px); }
-      50% { transform: translateY(-24px) translateX(16px); }
-      to { transform: translateY(-48px) translateX(-8px); }
-    }
-
-    .app {
-      position: relative;
-      z-index: 1;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 18px;
-    }
-
-    .shell {
-      width: 100%;
-      max-width: var(--maxw);
-      height: 100%;
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      gap: 14px;
-    }
-
-    .topbar,
-    .footerbar,
-    .panel,
-    .modal-card,
-    .mission-card,
-    .leaderboard-card,
-    .hero-card,
-    .play-card,
-    .quiz-card,
-    .choice,
-    .cta-btn,
-    .ghost-btn,
-    .mini-stat,
-    .boss-card,
-    .toast {
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-    }
-
-    .topbar,
-    .footerbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 18px;
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      background: rgba(9, 15, 29, 0.72);
-      box-shadow: var(--shadow);
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      min-width: 0;
-    }
-
-    .brand-badge {
-      width: 54px;
-      height: 54px;
-      border-radius: 18px;
-      display: grid;
-      place-items: center;
-      font-size: 24px;
-      background: linear-gradient(135deg, rgba(89,208,255,.28), rgba(124,92,255,.34));
-      border: 1px solid rgba(255,255,255,.12);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 24px rgba(89,208,255,.18);
-      flex: 0 0 auto;
-    }
-
-    .brand h1 {
-      margin: 0;
-      font-size: clamp(20px, 3vw, 30px);
-      line-height: 1.05;
-      letter-spacing: .02em;
-    }
-
-    .brand p {
-      margin: 4px 0 0;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .identity {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .identity input {
-      width: min(180px, 42vw);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 14px;
-      padding: 11px 13px;
-      outline: none;
-      font-size: 14px;
-    }
-
-    .identity input:focus {
-      border-color: rgba(89,208,255,.6);
-      box-shadow: 0 0 0 3px rgba(89,208,255,.15);
-    }
-
-    .pill-row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .mini-stat {
-      padding: 10px 12px;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,.1);
-      background: rgba(255,255,255,.05);
-      min-width: 92px;
-    }
-
-    .mini-stat .label {
-      display: block;
-      color: var(--muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-    }
-
-    .mini-stat .value {
-      display: block;
-      margin-top: 4px;
-      font-size: 18px;
-      font-weight: 800;
-    }
-
-    .main {
-      min-height: 0;
-      display: grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap: 14px;
-    }
-
-    .panel {
-      position: relative;
-      border-radius: var(--radius-xl);
-      border: 1px solid var(--line);
-      background: var(--panel);
-      box-shadow: var(--shadow);
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    .panel-inner {
-      height: 100%;
-      overflow: auto;
-      padding: 22px;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,.18) transparent;
-    }
-
-    .panel-inner::-webkit-scrollbar { width: 10px; }
-    .panel-inner::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,.12);
-      border-radius: 999px;
-    }
-
-    .hero-card {
-      display: grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap: 14px;
-      padding: 18px;
-      background: linear-gradient(135deg, rgba(89,208,255,.12), rgba(124,92,255,.16));
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 24px;
-      margin-bottom: 16px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .hero-card::after {
-      content: "";
-      position: absolute;
-      width: 240px;
-      height: 240px;
-      right: -40px;
-      top: -80px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(255,255,255,.12), transparent 70%);
-      pointer-events: none;
-    }
-
-    .hero-copy h2 {
-      margin: 0 0 8px;
-      font-size: clamp(28px, 4vw, 42px);
-      line-height: 1;
-    }
-
-    .hero-copy p {
-      margin: 0;
-      color: #d2def0;
-      font-size: 15px;
-      line-height: 1.6;
-      max-width: 62ch;
-    }
-
-    .hero-tags {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 14px;
-    }
-
-    .tag {
-      padding: 8px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.07);
-      color: #edf8ff;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: .03em;
-    }
-
-    .hero-scoreboard {
-      display: grid;
-      gap: 12px;
-      align-content: center;
-    }
-
-    .score-box {
-      background: rgba(0,0,0,.18);
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 20px;
-      padding: 16px;
-    }
-
-    .score-box .title {
-      color: var(--muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-    }
-
-    .score-box .big {
-      font-size: clamp(28px, 4vw, 40px);
-      font-weight: 900;
-      margin-top: 6px;
-    }
-
-    .progress {
-      width: 100%;
-      height: 14px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.08);
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .progress > span {
-      display: block;
-      height: 100%;
-      width: 10%;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      border-radius: inherit;
-      transition: width .35s ease;
-      box-shadow: 0 0 20px rgba(89,208,255,.45);
-    }
-
-    .section-head {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .section-head h3 {
-      margin: 0;
-      font-size: 22px;
-    }
-
-    .section-head p {
-      margin: 6px 0 0;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .mission-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .mission-card {
-      position: relative;
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 22px;
-      padding: 16px;
-      display: grid;
-      gap: 12px;
-      min-height: 220px;
-      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
-      overflow: hidden;
-    }
-
-    .mission-card:hover {
-      transform: translateY(-2px);
-      border-color: rgba(89,208,255,.34);
-      box-shadow: 0 12px 26px rgba(8, 17, 34, .3);
-    }
-
-    .mission-card.locked {
-      opacity: .65;
-    }
-
-    .mission-card.locked::after {
-      content: "LOCKED";
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      font-size: 10px;
-      letter-spacing: .12em;
-      font-weight: 800;
-      background: rgba(255,107,129,.16);
-      border: 1px solid rgba(255,107,129,.35);
-      color: #ffd6dd;
-    }
-
-    .mission-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .mission-id {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
-      display: grid;
-      place-items: center;
-      font-size: 22px;
-      background: linear-gradient(135deg, rgba(89,208,255,.16), rgba(124,92,255,.2));
-      border: 1px solid rgba(255,255,255,.1);
-      flex: 0 0 auto;
-    }
-
-    .mission-top h4 {
-      margin: 0;
-      font-size: 18px;
-      line-height: 1.2;
-    }
-
-    .mission-top p {
-      margin: 6px 0 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .difficulty {
-      padding: 7px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: .08em;
-      border: 1px solid rgba(255,255,255,.1);
-      white-space: nowrap;
-      background: rgba(255,255,255,.05);
-    }
-
-    .mission-meta {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .chip {
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.08);
-      font-size: 12px;
-      color: #dbe8f8;
-    }
-
-    .mission-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: auto;
-    }
-
-    .cta-btn,
-    .ghost-btn,
-    .choice {
-      appearance: none;
-      border: 0;
-      cursor: pointer;
-      color: var(--text);
-      font: inherit;
-      transition: transform .12s ease, filter .12s ease, opacity .12s ease, box-shadow .18s ease;
-    }
-
-    .cta-btn:active,
-    .ghost-btn:active,
-    .choice:active { transform: scale(.98); }
-
-    .cta-btn {
-      flex: 1;
-      padding: 12px 14px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      box-shadow: 0 12px 30px rgba(89,208,255,.25);
-      font-weight: 900;
-      letter-spacing: .03em;
-    }
-
-    .ghost-btn {
-      padding: 12px 14px;
-      border-radius: 16px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.1);
-      font-weight: 700;
-    }
-
-    .side-grid {
-      display: grid;
-      gap: 14px;
-    }
-
-    .leaderboard-card,
-    .play-card {
-      border-radius: 24px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .card-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 18px 18px 0;
-    }
-
-    .card-head h3 { margin: 0; font-size: 20px; }
-    .card-head p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
-
-    .play-inner,
-    .leaderboard-inner {
-      padding: 18px;
-    }
-
-    .play-list {
-      display: grid;
-      gap: 10px;
-    }
-
-    .play-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 12px 14px;
-      border-radius: 18px;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .play-row strong { display: block; font-size: 14px; }
-    .play-row span { color: var(--muted); font-size: 12px; }
-
-    .leaderboard-item {
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 0;
-      border-bottom: 1px solid rgba(255,255,255,.07);
-    }
-
-    .leaderboard-item:last-child { border-bottom: 0; }
-
-    .rank-dot {
-      width: 38px;
-      height: 38px;
-      border-radius: 14px;
-      display: grid;
-      place-items: center;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.08);
-      font-weight: 900;
-    }
-
-    .leaderboard-item .name { font-weight: 800; }
-    .leaderboard-item .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
-    .leaderboard-item .score { font-weight: 900; font-size: 18px; }
-
-    .footerbar {
-      padding: 12px 16px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .footer-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 30;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-      background: rgba(2, 6, 18, 0.76);
-      backdrop-filter: blur(12px);
-    }
-
-    .overlay.show { display: flex; }
-
-    .modal-card {
-      width: min(980px, 100%);
-      max-height: min(92vh, 900px);
-      overflow: auto;
-      border-radius: 28px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: linear-gradient(180deg, rgba(7,12,24,.96), rgba(10,19,34,.96));
-      box-shadow: 0 28px 80px rgba(0,0,0,.5);
-    }
-
-    .game-shell {
-      padding: 18px;
-      display: grid;
-      gap: 16px;
-    }
-
-    .game-hud {
-      display: grid;
-      grid-template-columns: 1.4fr .8fr .8fr .8fr .6fr;
-      gap: 10px;
-    }
-
-    .hud-box {
-      padding: 12px 14px;
-      border-radius: 18px;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.08);
-      min-width: 0;
-    }
-
-    .hud-box .k {
-      display: block;
-      color: var(--muted);
-      font-size: 11px;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-
-    .hud-box .v {
-      display: block;
-      margin-top: 6px;
-      font-size: 19px;
-      font-weight: 900;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .game-stage {
-      display: grid;
-      grid-template-columns: 1fr .42fr;
-      gap: 16px;
-      min-height: 520px;
-    }
-
-    .quiz-card,
-    .boss-card {
-      border-radius: 24px;
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      border: 1px solid rgba(255,255,255,.09);
-      overflow: hidden;
-    }
-
-    .quiz-top {
-      padding: 20px 20px 12px;
-      border-bottom: 1px solid rgba(255,255,255,.06);
-    }
-
-    .quiz-top h2,
-    .boss-card h2 { margin: 0; font-size: clamp(24px, 4vw, 34px); }
-    .quiz-top p,
-    .boss-card p { margin: 8px 0 0; color: #d3def0; line-height: 1.55; }
-
-    .energy-wrap {
-      margin-top: 14px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .energy-label {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .quiz-body {
-      padding: 20px;
-      display: grid;
-      gap: 14px;
-    }
-
-    .prompt-box {
-      padding: 18px;
-      border-radius: 22px;
-      background: rgba(0,0,0,.18);
-      border: 1px solid rgba(255,255,255,.08);
-      display: grid;
-      gap: 10px;
-    }
-
-    .prompt-kicker {
-      color: var(--warn);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-
-    .prompt-title {
-      font-size: clamp(24px, 4vw, 38px);
-      font-weight: 900;
-      line-height: 1.08;
-    }
-
-    .prompt-desc {
-      color: #d4e0f2;
-      line-height: 1.6;
-      font-size: 15px;
-    }
-
-    .choices {
-      display: grid;
-      gap: 12px;
-    }
-
-    .choice {
-      text-align: left;
-      width: 100%;
-      padding: 16px 16px;
-      border-radius: 18px;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.08);
-      color: var(--text);
-      display: flex;
-      gap: 12px;
-      align-items: flex-start;
-      box-shadow: 0 8px 22px rgba(0,0,0,.08);
-    }
-
-    .choice:hover { transform: translateY(-1px); border-color: rgba(89,208,255,.34); }
-    .choice.correct {
-      background: rgba(65,224,141,.12);
-      border-color: rgba(65,224,141,.45);
-      box-shadow: 0 0 0 3px rgba(65,224,141,.12);
-    }
-    .choice.wrong {
-      background: rgba(255,107,129,.12);
-      border-color: rgba(255,107,129,.4);
-      box-shadow: 0 0 0 3px rgba(255,107,129,.1);
-    }
-
-    .choice-letter {
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
-      display: grid;
-      place-items: center;
-      font-weight: 900;
-      background: rgba(255,255,255,.08);
-      flex: 0 0 auto;
-    }
-
-    .choice-copy {
-      display: grid;
-      gap: 4px;
-      min-width: 0;
-    }
-
-    .choice-copy strong {
-      font-size: 16px;
-      line-height: 1.4;
-    }
-
-    .choice-copy span {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    .coach-panel {
-      display: grid;
-      gap: 14px;
-      align-content: start;
-    }
-
-    .coach-box,
-    .battle-log,
-    .boss-card {
-      padding: 18px;
-    }
-
-    .coach-box {
-      border-radius: 24px;
-      background: linear-gradient(180deg, rgba(89,208,255,.12), rgba(124,92,255,.11));
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .coach-box h3,
-    .battle-log h3,
-    .boss-card h3 { margin: 0; font-size: 18px; }
-    .coach-box p,
-    .battle-log p,
-    .boss-card p { margin: 10px 0 0; color: #d7e4f4; line-height: 1.58; }
-
-    .battle-log {
-      border-radius: 24px;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .log-list {
-      display: grid;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .log-item {
-      padding: 10px 12px;
-      border-radius: 16px;
-      background: rgba(0,0,0,.16);
-      border: 1px solid rgba(255,255,255,.06);
-      color: #d5e0f2;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .boss-card {
-      display: none;
-      gap: 16px;
-      align-content: start;
-      background: linear-gradient(180deg, rgba(255,107,129,.08), rgba(124,92,255,.08));
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 24px;
-    }
-
-    .boss-card.show { display: grid; }
-
-    .boss-options {
-      display: grid;
-      gap: 12px;
-      margin-top: 2px;
-    }
-
-    .result-screen {
-      padding: 22px;
-      display: none;
-      gap: 18px;
-    }
-
-    .result-screen.show { display: grid; }
-
-    .result-hero {
-      display: grid;
-      grid-template-columns: 1fr .8fr;
-      gap: 16px;
-      padding: 18px;
-      border-radius: 26px;
-      background: linear-gradient(135deg, rgba(65,224,141,.14), rgba(89,208,255,.12));
-      border: 1px solid rgba(255,255,255,.1);
-    }
-
-    .result-hero h2 {
-      margin: 0;
-      font-size: clamp(30px, 4vw, 44px);
-      line-height: 1;
-    }
-
-    .result-hero p {
-      margin: 10px 0 0;
-      color: #d7e3f4;
-      line-height: 1.65;
-      font-size: 15px;
-    }
-
-    .stars {
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
-      font-size: 30px;
-    }
-
-    .result-stats {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .stat-card {
-      padding: 14px;
-      border-radius: 18px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .stat-card .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
-    .stat-card .v { margin-top: 8px; font-size: 22px; font-weight: 900; }
-
-    .reward-row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .reward-chip {
-      padding: 10px 14px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.08);
-      font-weight: 800;
-      color: #edf6ff;
-    }
-
-    .toast-stack {
-      position: fixed;
-      top: 18px;
-      right: 18px;
-      z-index: 40;
-      display: grid;
-      gap: 10px;
-      width: min(360px, calc(100vw - 36px));
-      pointer-events: none;
-    }
-
-    .toast {
-      padding: 14px 16px;
-      border-radius: 18px;
-      background: rgba(10,17,31,.88);
-      border: 1px solid rgba(255,255,255,.1);
-      box-shadow: 0 20px 40px rgba(0,0,0,.28);
-      animation: toastIn .25s ease;
-    }
-
-    .toast strong { display: block; margin-bottom: 6px; }
-    .toast span { color: #d8e4f7; font-size: 14px; line-height: 1.5; }
-
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(-10px) scale(.98); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    .hidden { display: none !important; }
-
-    @media (max-width: 1080px) {
-      .main,
-      .hero-card,
-      .game-stage,
-      .result-hero {
-        grid-template-columns: 1fr;
-      }
-      .game-hud {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (max-width: 760px) {
-      body { overflow: auto; }
-      .app { padding: 12px; min-height: 100%; }
-      .shell { height: auto; min-height: 100%; }
-      .topbar,
-      .footerbar { border-radius: 22px; }
-      .brand { align-items: flex-start; }
-      .identity { justify-content: flex-start; }
-      .main { grid-template-columns: 1fr; }
-      .mission-grid { grid-template-columns: 1fr; }
-      .hero-card { padding: 16px; }
-      .panel-inner { padding: 16px; }
-      .game-shell { padding: 12px; }
-      .game-hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .choice { padding: 14px; }
-      .footerbar { flex-direction: column; align-items: flex-start; }
-      .result-stats { grid-template-columns: 1fr 1fr; }
+        radial-gradient(circle, rgba(255,255,255,.18) 0 2px, transparent 2px) 0 0/150px 150px,
+        radial-gradient(circle, rgba(89,208,255,.12) 0 2px, transparent 2px) 60px 40px/190px 190px,
+        radial-gradient(circle, rgba(124,92,255,.12) 0 1.7px, transparent 1.7px) 90px 60px/220px 220px;
+      animation:floaty 20s linear infinite;
+      opacity:.45;
+    }
+    .fx2::after{animation-duration:30s;transform:scale(1.1);opacity:.22}
+    .vignette{background:radial-gradient(circle at center, transparent 42%, rgba(0,0,0,.44) 100%)}
+    @keyframes floaty{from{transform:translateY(0) translateX(0)}50%{transform:translateY(-24px) translateX(12px)}to{transform:translateY(-48px) translateX(-8px)}}
+
+    .app{position:relative;z-index:1;height:100%;padding:16px;display:flex;justify-content:center}
+    .shell{width:100%;max-width:var(--maxw);height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:14px}
+
+    .topbar,.footerbar,.panel,.modal,.card,.skill-card,.unit-card,.toast{
+      backdrop-filter:blur(14px);
+      -webkit-backdrop-filter:blur(14px);
+    }
+    .topbar,.footerbar{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:14px 18px;border:1px solid var(--line);border-radius:24px;
+      background:rgba(8,15,29,.72);box-shadow:var(--shadow)
+    }
+    .brand{display:flex;align-items:center;gap:14px;min-width:0}
+    .badge{
+      width:56px;height:56px;border-radius:18px;display:grid;place-items:center;
+      background:linear-gradient(135deg, rgba(89,208,255,.30), rgba(124,92,255,.34));
+      border:1px solid rgba(255,255,255,.12);font-size:26px;flex:0 0 auto
+    }
+    .brand h1{margin:0;font-size:clamp(22px,3vw,32px);line-height:1.03}
+    .brand p{margin:5px 0 0;color:var(--muted);font-size:13px}
+    .top-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+    .top-actions input{
+      width:min(180px,42vw);padding:11px 13px;border-radius:14px;
+      border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);
+      color:var(--text);outline:none;font:inherit
+    }
+    .top-actions input:focus{border-color:rgba(89,208,255,.65);box-shadow:0 0 0 3px rgba(89,208,255,.16)}
+
+    .btn,.btn-ghost,.choice,.chip-btn{
+      appearance:none;border:0;cursor:pointer;color:var(--text);font:inherit;
+      transition:transform .12s ease,filter .14s ease,box-shadow .16s ease,opacity .16s ease
+    }
+    .btn:active,.btn-ghost:active,.choice:active,.chip-btn:active{transform:scale(.98)}
+    .btn{
+      padding:12px 16px;border-radius:16px;font-weight:900;letter-spacing:.03em;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      box-shadow:0 12px 28px rgba(89,208,255,.24)
+    }
+    .btn-ghost,.chip-btn{
+      padding:12px 15px;border-radius:16px;background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.1);font-weight:700
+    }
+    .main{min-height:0;display:grid;grid-template-columns:1.2fr .8fr;gap:14px}
+    .panel{border-radius:var(--r-xl);border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);overflow:hidden;min-height:0}
+    .inner{height:100%;overflow:auto;padding:22px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
+    .inner::-webkit-scrollbar{width:10px}
+    .inner::-webkit-scrollbar-thumb{background:rgba(255,255,255,.13);border-radius:999px}
+
+    .hero{
+      display:grid;grid-template-columns:1.08fr .92fr;gap:14px;
+      padding:18px;border-radius:26px;border:1px solid rgba(255,255,255,.11);
+      background:linear-gradient(135deg, rgba(89,208,255,.13), rgba(124,92,255,.15));
+      position:relative;overflow:hidden;margin-bottom:16px
+    }
+    .hero::after{
+      content:"";position:absolute;right:-60px;top:-90px;width:260px;height:260px;border-radius:50%;
+      background:radial-gradient(circle, rgba(255,255,255,.10), transparent 70%)
+    }
+    .hero h2{margin:0 0 8px;font-size:clamp(28px,4vw,44px);line-height:1}
+    .hero p{margin:0;color:#d4e2f4;line-height:1.65;font-size:15px;max-width:64ch}
+    .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+    .tag{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.11);font-size:12px;font-weight:800}
+    .hero-stats{display:grid;gap:12px;align-content:center}
+    .statbox{padding:16px;border-radius:20px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.1)}
+    .statbox .k{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+    .statbox .v{display:block;margin-top:6px;font-size:clamp(28px,4vw,40px);font-weight:900}
+    .progress{width:100%;height:14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);overflow:hidden}
+    .progress>span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:inherit;transition:width .35s ease;box-shadow:0 0 20px rgba(89,208,255,.44)}
+    .label-row{display:flex;justify-content:space-between;gap:10px;margin:10px 0 8px;font-size:13px;color:var(--muted)}
+
+    .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}
+    .section-head h3{margin:0;font-size:22px}
+    .section-head p{margin:6px 0 0;color:var(--muted);font-size:14px}
+    .mini-row{display:flex;gap:10px;flex-wrap:wrap}
+    .mini{padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);min-width:96px}
+    .mini .k{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+    .mini .v{display:block;margin-top:4px;font-size:18px;font-weight:900}
+
+    .skill-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+    .skill-card{padding:14px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);display:grid;gap:10px}
+    .skill-card strong{font-size:16px}
+    .skill-card span{color:var(--muted);font-size:13px;line-height:1.55}
+
+    .unit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .unit-card{padding:16px;border-radius:22px;background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.1);display:grid;gap:12px;min-height:240px;position:relative;overflow:hidden}
+    .unit-card:hover{transform:translateY(-2px);border-color:rgba(89,208,255,.34);box-shadow:0 12px 26px rgba(8,17,34,.3)}
+    .unit-card.locked{opacity:.62}
+    .unit-card.locked::after{content:"LOCKED";position:absolute;top:12px;right:12px;padding:6px 10px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.12em;background:rgba(255,113,135,.16);border:1px solid rgba(255,113,135,.32);color:#ffd7df}
+    .unit-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .unit-left{display:flex;gap:12px;min-width:0}
+    .unit-icon{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;font-size:24px;background:linear-gradient(135deg, rgba(89,208,255,.16), rgba(124,92,255,.22));border:1px solid rgba(255,255,255,.1);flex:0 0 auto}
+    .unit-top h4{margin:0;font-size:18px;line-height:1.2}
+    .unit-top p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.55}
+    .level{padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);font-size:11px;font-weight:900;letter-spacing:.08em;white-space:nowrap}
+    .chip-row{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);font-size:12px;color:#dce9f9}
+    .unit-actions{display:flex;gap:10px;margin-top:auto}
+
+    .side{display:grid;gap:14px}
+    .card{border-radius:24px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);overflow:hidden}
+    .card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:18px 18px 0}
+    .card-head h3{margin:0;font-size:20px}
+    .card-head p{margin:6px 0 0;color:var(--muted);font-size:13px}
+    .card-body{padding:18px}
+    .mode-list,.board-list{display:grid;gap:10px}
+    .row{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+    .row strong{display:block;font-size:14px}
+    .row span{color:var(--muted);font-size:12px}
+    .board-item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+    .board-item:last-child{border-bottom:0}
+    .num{width:38px;height:38px;border-radius:14px;display:grid;place-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);font-weight:900}
+    .board-item .name{font-weight:900}.board-item .sub{margin-top:4px;color:var(--muted);font-size:12px}.board-item .score{font-size:18px;font-weight:900}
+
+    .footerbar{padding:12px 16px;font-size:13px;color:var(--muted)}
+    .footer-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+    .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;z-index:30;background:rgba(2,7,18,.78);backdrop-filter:blur(12px)}
+    .overlay.show{display:flex}
+    .modal{width:min(1020px,100%);max-height:min(94vh,920px);overflow:auto;border-radius:28px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg, rgba(7,12,24,.96), rgba(10,19,34,.96));box-shadow:0 28px 80px rgba(0,0,0,.5)}
+    .modal-inner{padding:18px;display:grid;gap:16px}
+    .hud{display:grid;grid-template-columns:1.2fr .8fr .8fr .8fr .6fr;gap:10px}
+    .hudbox{padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+    .hudbox .k{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+    .hudbox .v{display:block;margin-top:6px;font-size:19px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    .game-grid{display:grid;grid-template-columns:1fr .42fr;gap:16px;min-height:540px}
+    .game-card,.coach-card,.result-card{border-radius:24px;background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.09);overflow:hidden}
+    .game-top{padding:20px 20px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
+    .game-top h2{margin:0;font-size:clamp(24px,4vw,34px)}
+    .game-top p{margin:8px 0 0;color:#d2dff1;line-height:1.55}
+    .game-body{padding:20px;display:grid;gap:14px}
+    .prompt{padding:18px;border-radius:22px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08);display:grid;gap:10px}
+    .prompt .k{color:var(--warn);font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+    .prompt .title{font-size:clamp(24px,4vw,38px);font-weight:900;line-height:1.08}
+    .prompt .desc{color:#d5e1f3;line-height:1.62;font-size:15px}
+    .choices{display:grid;gap:12px}
+    .choice{text-align:left;width:100%;padding:16px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);display:flex;gap:12px;align-items:flex-start;box-shadow:0 8px 22px rgba(0,0,0,.08)}
+    .choice:hover{transform:translateY(-1px);border-color:rgba(89,208,255,.34)}
+    .choice.correct{background:rgba(66,224,144,.12);border-color:rgba(66,224,144,.45);box-shadow:0 0 0 3px rgba(66,224,144,.12)}
+    .choice.wrong{background:rgba(255,113,135,.12);border-color:rgba(255,113,135,.42);box-shadow:0 0 0 3px rgba(255,113,135,.1)}
+    .letter{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.08);font-weight:900;flex:0 0 auto}
+    .copy{display:grid;gap:4px;min-width:0}.copy strong{font-size:16px;line-height:1.42}.copy span{color:var(--muted);font-size:13px;line-height:1.45}
+    .coach-side{display:grid;gap:14px;align-content:start}
+    .coach-card{padding:18px}.coach-card h3{margin:0;font-size:18px}.coach-card p{margin:10px 0 0;color:#d7e4f4;line-height:1.58}
+    .log-list{display:grid;gap:10px;margin-top:14px}
+    .log{padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.16);border:1px solid rgba(255,255,255,.06);color:#d5e1f2;font-size:13px;line-height:1.5}
+    .sound-row,.speak-row,.write-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .write-area{width:100%;min-height:118px;padding:14px 16px;border-radius:18px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:var(--text);font:inherit;resize:vertical;outline:none}
+    .write-area:focus{border-color:rgba(89,208,255,.62);box-shadow:0 0 0 3px rgba(89,208,255,.15)}
+    .speak-box,.listen-box{padding:14px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+    .ghost-note{color:var(--muted);font-size:13px;line-height:1.55}
+
+    .result-card{display:none;padding:22px;gap:18px}
+    .result-card.show{display:grid}
+    .result-hero{display:grid;grid-template-columns:1fr .84fr;gap:16px;padding:18px;border-radius:26px;background:linear-gradient(135deg, rgba(66,224,144,.14), rgba(89,208,255,.12));border:1px solid rgba(255,255,255,.1)}
+    .result-hero h2{margin:0;font-size:clamp(30px,4vw,44px);line-height:1}.result-hero p{margin:10px 0 0;color:#d7e3f4;line-height:1.65;font-size:15px}
+    .stars{display:flex;gap:10px;margin-top:16px;font-size:30px}
+    .result-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .stat{padding:14px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
+    .stat .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}.stat .v{margin-top:8px;font-size:22px;font-weight:900}
+    .reward-row{display:flex;gap:10px;flex-wrap:wrap}.reward{padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);font-weight:800}
+
+    .toast-stack{position:fixed;top:18px;right:18px;z-index:40;display:grid;gap:10px;width:min(360px,calc(100vw - 36px));pointer-events:none}
+    .toast{padding:14px 16px;border-radius:18px;background:rgba(10,17,31,.88);border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 40px rgba(0,0,0,.28);animation:toastIn .25s ease}
+    .toast strong{display:block;margin-bottom:6px}.toast span{color:#d8e4f7;font-size:14px;line-height:1.5}
+    @keyframes toastIn{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+    .hidden{display:none !important}
+
+    @media (max-width:1080px){
+      .main,.hero,.game-grid,.result-hero{grid-template-columns:1fr}
+      .hud{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .skill-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media (max-width:760px){
+      body{overflow:auto}.app{padding:12px;min-height:100%}.shell{height:auto;min-height:100%}
+      .main{grid-template-columns:1fr}.unit-grid{grid-template-columns:1fr}.skill-grid{grid-template-columns:1fr}
+      .inner{padding:16px}.modal-inner{padding:12px}.hud{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .footerbar{flex-direction:column;align-items:flex-start}
     }
   </style>
 </head>
 <body>
-  <div class="grid-bg"></div>
-  <div class="particles"></div>
+  <div class="fx"></div>
+  <div class="fx2"></div>
   <div class="vignette"></div>
 
   <div class="app">
     <div class="shell">
       <header class="topbar">
         <div class="brand">
-          <div class="brand-badge">🚀</div>
+          <div class="badge">🎧</div>
           <div>
-            <h1>English Quest: Tech Career Arena</h1>
-            <p>ฝึกอังกฤษแบบเกมภารกิจ เร็ว ลุ้น ใช้ได้จริงสำหรับนักศึกษาปริญญาตรีสายดิจิทัล</p>
+            <h1>English Quest A2</h1>
+            <p>ฟัง · พูด · อ่าน · เขียน ระดับ A2 สำหรับนักศึกษาปริญญาตรี เล่นเร็ว สนุก และใช้ได้จริง</p>
           </div>
         </div>
-        <div class="identity">
+        <div class="top-actions">
           <input id="playerName" maxlength="18" placeholder="ใส่ชื่อผู้เล่น" />
-          <button class="ghost-btn" id="saveNameBtn">Save Name</button>
+          <button class="btn-ghost" id="saveNameBtn">Save Name</button>
         </div>
       </header>
 
       <main class="main">
         <section class="panel">
-          <div class="panel-inner">
-            <section class="hero-card">
-              <div class="hero-copy">
-                <h2>Play. Speak. Survive the interview.</h2>
+          <div class="inner">
+            <section class="hero">
+              <div>
+                <h2>Train all 4 skills in one mission.</h2>
                 <p>
-                  แต่ละด่านคือสถานการณ์ที่เด็กมหาลัยเจอจริง เช่น แนะนำตัว, อธิบายโปรเจกต์,
-                  รายงาน bug, คุยเรื่อง AI, ทำ demo, pitch งานให้ลูกค้า และตอบคำถามตอนสัมภาษณ์งาน.
-                  ตอบไว ตอบแม่น ได้ combo, XP และปลดล็อกด่านถัดไป.
+                  ทุกด่านจะมี 4 ช่วงสั้น ๆ คือ <strong>Listening</strong>, <strong>Speaking</strong>, <strong>Reading</strong> และ <strong>Writing</strong>
+                  ใช้ภาษาอังกฤษง่ายระดับ A2 แต่ยังมีแรงกดดันเรื่องเวลา คะแนน และ combo เพื่อให้ไม่น่าเบื่อเกินไปสำหรับนักศึกษาป.ตรี
                 </p>
-                <div class="hero-tags">
-                  <span class="tag">🎯 3–5 นาทีต่อด่าน</span>
-                  <span class="tag">⚡ Combo + Time Pressure</span>
-                  <span class="tag">🧠 Vocab + Speaking Frames</span>
-                  <span class="tag">🏆 Rank + Leaderboard</span>
+                <div class="tags">
+                  <span class="tag">🎧 Listening with sound</span>
+                  <span class="tag">🗣 Speaking prompts</span>
+                  <span class="tag">📖 Reading race</span>
+                  <span class="tag">✍ Writing builder</span>
                 </div>
               </div>
-              <div class="hero-scoreboard">
-                <div class="score-box">
-                  <div class="title">Current Rank</div>
-                  <div class="big" id="heroRank">Rookie Coder</div>
+              <div class="hero-stats">
+                <div class="statbox">
+                  <span class="k">Current Rank</span>
+                  <span class="v" id="heroRank">A2 Rookie</span>
                 </div>
-                <div class="score-box">
-                  <div class="title">Career XP</div>
-                  <div class="big" id="heroXP">0 XP</div>
-                  <div class="energy-wrap">
-                    <div class="energy-label">
-                      <span>Progress to next rank</span>
-                      <strong id="xpProgressLabel">0%</strong>
-                    </div>
-                    <div class="progress"><span id="xpBar"></span></div>
+                <div class="statbox">
+                  <span class="k">Language XP</span>
+                  <span class="v" id="heroXP">0 XP</span>
+                  <div class="label-row">
+                    <span>Progress to next rank</span>
+                    <strong id="xpLabel">0%</strong>
                   </div>
+                  <div class="progress"><span id="xpBar"></span></div>
                 </div>
               </div>
             </section>
 
             <div class="section-head">
               <div>
-                <h3>Mission Hub</h3>
-                <p>เริ่มจากพื้นฐานและไต่ไปถึงสถานการณ์งานจริงในสายเทคโนโลยี</p>
+                <h3>4-Skill Training Map</h3>
+                <p>ภาษาง่าย ใช้ได้จริงในมหาวิทยาลัย ชีวิตประจำวัน และงานกลุ่ม</p>
               </div>
-              <div class="pill-row">
-                <div class="mini-stat"><span class="label">Unlocked</span><span class="value" id="unlockedCount">1</span></div>
-                <div class="mini-stat"><span class="label">Best Combo</span><span class="value" id="bestCombo">0x</span></div>
-                <div class="mini-stat"><span class="label">Stars</span><span class="value" id="totalStars">0⭐</span></div>
+              <div class="mini-row">
+                <div class="mini"><span class="k">Unlocked</span><span class="v" id="unlockedCount">1</span></div>
+                <div class="mini"><span class="k">Best Combo</span><span class="v" id="bestCombo">0x</span></div>
+                <div class="mini"><span class="k">Stars</span><span class="v" id="totalStars">0⭐</span></div>
               </div>
             </div>
 
-            <div class="mission-grid" id="missionGrid"></div>
+            <div class="skill-grid">
+              <div class="skill-card"><strong>🎧 Listening</strong><span>ฟังประโยคสั้น ๆ ด้วยเสียง แล้วเลือกความหมายหรือข้อมูลที่ถูกต้อง</span></div>
+              <div class="skill-card"><strong>🗣 Speaking</strong><span>ฝึกพูดตาม prompt ง่าย ๆ แล้วให้ระบบเช็ก keyword หรือใช้ self-check</span></div>
+              <div class="skill-card"><strong>📖 Reading</strong><span>อ่านข้อความสั้นระดับ A2 แล้วตอบคำถามให้ทันเวลา</span></div>
+              <div class="skill-card"><strong>✍ Writing</strong><span>เขียนประโยคสั้น 1–2 ประโยคจากโจทย์ที่ใช้จริง เช่น แนะนำตัวหรืออธิบายปัญหา</span></div>
+            </div>
+
+            <div class="unit-grid" id="unitGrid"></div>
           </div>
         </section>
 
-        <aside class="side-grid">
-          <section class="play-card">
+        <aside class="side">
+          <section class="card">
             <div class="card-head">
               <div>
                 <h3>Game Modes</h3>
-                <p>เริ่มเล่นได้เลย ไม่ต้องอ่านยาว</p>
+                <p>เลือกเล่นตามเวลาหรือทักษะที่อยากฝึก</p>
               </div>
             </div>
-            <div class="play-inner">
-              <div class="play-list">
-                <div class="play-row">
+            <div class="card-body">
+              <div class="mode-list">
+                <div class="row">
                   <div>
                     <strong>Campaign</strong>
-                    <span>ไล่ด่านตามลำดับ ปลดล็อก rank และบทเรียนใหม่</span>
+                    <span>ไล่ด่านครบ 4 ทักษะและปลดล็อกยูนิตถัดไป</span>
                   </div>
-                  <button class="cta-btn" id="playFirstBtn">Start</button>
+                  <button class="btn" id="playFirstBtn">Start</button>
                 </div>
-                <div class="play-row">
+                <div class="row">
                   <div>
-                    <strong>Daily Challenge</strong>
-                    <span>สุ่มภารกิจ 1 ด่าน ความกดดันสูง คะแนนโบนัสเพิ่ม</span>
+                    <strong>Daily Mix</strong>
+                    <span>สุ่มยูนิตที่ปลดล็อกแล้ว 1 ด่านแบบกดดันขึ้น</span>
                   </div>
-                  <button class="ghost-btn" id="dailyBtn">Random</button>
+                  <button class="btn-ghost" id="dailyBtn">Random</button>
                 </div>
-                <div class="play-row">
+                <div class="row">
                   <div>
-                    <strong>Speed Drill</strong>
-                    <span>ตอบเร็ว 90 วินาที วัด reflex และคำศัพท์สาย tech</span>
+                    <strong>Skill Drill</strong>
+                    <span>เลือกฝึกเฉพาะ Listening / Speaking / Reading / Writing</span>
                   </div>
-                  <button class="ghost-btn" id="drillBtn">Drill</button>
+                  <div class="sound-row">
+                    <button class="chip-btn" data-skill="listening">L</button>
+                    <button class="chip-btn" data-skill="speaking">S</button>
+                    <button class="chip-btn" data-skill="reading">R</button>
+                    <button class="chip-btn" data-skill="writing">W</button>
+                  </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <section class="leaderboard-card">
+          <section class="card">
             <div class="card-head">
               <div>
                 <h3>Leaderboard</h3>
-                <p>บันทึกคะแนนสูงสุดในเครื่องนี้ เหมาะเอาไว้แข่งในห้องเรียน</p>
+                <p>คะแนนสูงสุดในเครื่องนี้ เอาไว้แข่งกันในห้องได้</p>
               </div>
-              <button class="ghost-btn" id="resetBoardBtn">Reset</button>
+              <button class="btn-ghost" id="resetBoardBtn">Reset</button>
             </div>
-            <div class="leaderboard-inner" id="leaderboard"></div>
+            <div class="card-body" id="leaderboard"></div>
           </section>
         </aside>
       </main>
 
       <footer class="footerbar">
         <div>
-          English Quest โฟกัส “ใช้ได้จริง” มากกว่าแค่จำศัพท์ลอย ๆ — ตอบให้ได้แบบนักศึกษาที่กำลังจะฝึกงานหรือพรีเซนต์งาน
+          โครงภาษาในเกมนี้ตั้งใจคุมให้อยู่แถวระดับ A2: ประโยคสั้น ชัด ใช้ได้จริง แต่ gameplay ยังเร็วและมี pressure เพื่อให้ไม่น่าเบื่อ
         </div>
         <div class="footer-actions">
-          <button class="ghost-btn" id="resetProgressBtn">Reset Progress</button>
-          <button class="ghost-btn" id="howBtn">How to Play</button>
+          <button class="btn-ghost" id="resetProgressBtn">Reset Progress</button>
+          <button class="btn-ghost" id="howBtn">How to Play</button>
         </div>
       </footer>
     </div>
   </div>
 
   <div class="overlay" id="gameOverlay">
-    <div class="modal-card">
-      <div class="game-shell">
-        <div class="game-hud">
-          <div class="hud-box"><span class="k">Mission</span><span class="v" id="hudMission">—</span></div>
-          <div class="hud-box"><span class="k">Stage</span><span class="v" id="hudStage">Warm-Up</span></div>
-          <div class="hud-box"><span class="k">Score</span><span class="v" id="hudScore">0</span></div>
-          <div class="hud-box"><span class="k">Combo</span><span class="v" id="hudCombo">0x</span></div>
-          <div class="hud-box"><span class="k">Time</span><span class="v" id="hudTime">45s</span></div>
+    <div class="modal">
+      <div class="modal-inner">
+        <div class="hud">
+          <div class="hudbox"><span class="k">Unit</span><span class="v" id="hudUnit">—</span></div>
+          <div class="hudbox"><span class="k">Skill</span><span class="v" id="hudSkill">Listening</span></div>
+          <div class="hudbox"><span class="k">Score</span><span class="v" id="hudScore">0</span></div>
+          <div class="hudbox"><span class="k">Combo</span><span class="v" id="hudCombo">0x</span></div>
+          <div class="hudbox"><span class="k">Time</span><span class="v" id="hudTime">60s</span></div>
         </div>
 
-        <section class="game-stage" id="gameStageWrap">
-          <div class="quiz-card" id="quizCard">
-            <div class="quiz-top">
-              <h2 id="stageTitle">Warm-Up Dash</h2>
-              <p id="stageSubtitle">เลือกคำหรือประโยคที่ใช่ให้เร็วที่สุด ยิ่งตอบติดกัน combo ยิ่งแรง</p>
-              <div class="energy-wrap">
-                <div class="energy-label">
-                  <span>Mission Energy</span>
-                  <strong id="energyText">100%</strong>
-                </div>
-                <div class="progress"><span id="energyBar"></span></div>
-              </div>
+        <section class="game-grid" id="gameWrap">
+          <div class="game-card" id="gameCard">
+            <div class="game-top">
+              <h2 id="stageTitle">Listening</h2>
+              <p id="stageSubtitle">ฟังเสียงแล้วเลือกข้อมูลที่ถูกต้องให้เร็วที่สุด</p>
+              <div class="label-row"><span>Mission Energy</span><strong id="energyText">100%</strong></div>
+              <div class="progress"><span id="energyBar"></span></div>
             </div>
-            <div class="quiz-body">
-              <div class="prompt-box">
-                <div class="prompt-kicker" id="promptKicker">Definition</div>
-                <div class="prompt-title" id="promptTitle">Loading...</div>
-                <div class="prompt-desc" id="promptDesc">Prepare for launch.</div>
+            <div class="game-body">
+              <div class="prompt">
+                <div class="k" id="promptKicker">Task</div>
+                <div class="title" id="promptTitle">Loading...</div>
+                <div class="desc" id="promptDesc">Prepare for the challenge.</div>
               </div>
-              <div class="choices" id="choices"></div>
+
+              <div class="listen-box hidden" id="listenBox">
+                <div class="sound-row">
+                  <button class="btn" id="playAudioBtn">▶ Play Audio</button>
+                  <button class="btn-ghost" id="playSlowBtn">🐢 Slow</button>
+                </div>
+                <div class="ghost-note" style="margin-top:10px">ฟังประโยค 1–2 รอบ แล้วเลือกคำตอบที่ถูกต้อง</div>
+              </div>
+
+              <div class="speak-box hidden" id="speakBox">
+                <div class="speak-row">
+                  <button class="btn" id="micBtn">🎙 Start Speaking</button>
+                  <button class="btn-ghost" id="selfCheckBtn">Self Check</button>
+                </div>
+                <div class="ghost-note" style="margin-top:10px" id="speakHint">พูดประโยคสั้นตามโจทย์ หรือถ้าเบราว์เซอร์ไม่รองรับ ให้กด Self Check</div>
+                <div class="ghost-note" style="margin-top:8px" id="speechResult">No speech result yet.</div>
+              </div>
+
+              <div id="choices" class="choices"></div>
+
+              <div class="write-row hidden" id="writeBox">
+                <textarea id="writeInput" class="write-area" placeholder="Write 1–2 short sentences here..."></textarea>
+                <div class="sound-row">
+                  <button class="btn" id="submitWriteBtn">Submit Writing</button>
+                  <button class="btn-ghost" id="showModelBtn">Show Model</button>
+                </div>
+                <div class="ghost-note" id="writeHint">เขียนประโยคสั้น ๆ ใช้คำง่ายระดับ A2 ให้ตรงกับโจทย์</div>
+              </div>
             </div>
           </div>
 
-          <div class="coach-panel">
-            <div class="coach-box">
-              <h3>AI Coach</h3>
-              <p id="coachText">Keep it simple, confident, and natural. Use short clear answers first, then add detail.</p>
+          <div class="coach-side">
+            <div class="coach-card">
+              <h3>Coach</h3>
+              <p id="coachText">Use short, clear English. A2 does not need long sentences. Accuracy first.</p>
             </div>
-
-            <div class="battle-log">
+            <div class="coach-card">
               <h3>Battle Feed</h3>
-              <p>สิ่งที่เกิดขึ้นระหว่างเล่น จะช่วยให้ผู้เล่นรู้ว่าตอนนี้กำลังไปได้สวยแค่ไหน</p>
+              <p>ดูความคืบหน้าแบบเรียลไทม์ระหว่างเล่น</p>
               <div class="log-list" id="battleLog"></div>
-            </div>
-
-            <div class="boss-card" id="bossCard">
-              <div>
-                <h2>Boss Challenge</h2>
-                <p id="bossPrompt">Use the best sentence to survive the final interview question.</p>
-              </div>
-              <div class="boss-options" id="bossOptions"></div>
             </div>
           </div>
         </section>
 
-        <section class="result-screen" id="resultScreen">
+        <section class="result-card" id="resultCard">
           <div class="result-hero">
             <div>
-              <h2 id="resultTitle">Mission Clear!</h2>
-              <p id="resultSummary">You played smart, spoke clearly, and handled the challenge like a future tech professional.</p>
+              <h2 id="resultTitle">Unit Clear!</h2>
+              <p id="resultSummary">You completed all 4 skills with clear A2 English and strong game focus.</p>
               <div class="stars" id="starRow">⭐ ⭐ ⭐</div>
               <div class="reward-row" id="rewardRow"></div>
             </div>
             <div class="result-stats">
-              <div class="stat-card"><div class="k">Final Score</div><div class="v" id="resultScore">0</div></div>
-              <div class="stat-card"><div class="k">Best Combo</div><div class="v" id="resultCombo">0x</div></div>
-              <div class="stat-card"><div class="k">Accuracy</div><div class="v" id="resultAccuracy">0%</div></div>
-              <div class="stat-card"><div class="k">XP Earned</div><div class="v" id="resultXP">+0</div></div>
+              <div class="stat"><div class="k">Final Score</div><div class="v" id="resultScore">0</div></div>
+              <div class="stat"><div class="k">Best Combo</div><div class="v" id="resultCombo">0x</div></div>
+              <div class="stat"><div class="k">Accuracy</div><div class="v" id="resultAccuracy">0%</div></div>
+              <div class="stat"><div class="k">XP Earned</div><div class="v" id="resultXP">+0</div></div>
             </div>
           </div>
           <div class="reward-row">
-            <button class="cta-btn" id="nextMissionBtn">Next Mission</button>
-            <button class="ghost-btn" id="replayBtn">Replay</button>
-            <button class="ghost-btn" id="backHubBtn">Back to Hub</button>
+            <button class="btn" id="nextUnitBtn">Next Unit</button>
+            <button class="btn-ghost" id="replayBtn">Replay</button>
+            <button class="btn-ghost" id="backHubBtn">Back to Hub</button>
           </div>
         </section>
       </div>
@@ -1212,33 +480,32 @@
   </div>
 
   <div class="overlay" id="helpOverlay">
-    <div class="modal-card">
-      <div class="game-shell">
-        <section class="quiz-card">
-          <div class="quiz-top">
+    <div class="modal">
+      <div class="modal-inner">
+        <section class="game-card">
+          <div class="game-top">
             <h2>How to Play</h2>
-            <p>เล่นเหมือน game mission ไม่ใช่แบบอ่านบทเรียนยาว ๆ</p>
+            <p>หนึ่งยูนิตมีครบ 4 ทักษะ และใช้ภาษาอังกฤษระดับ A2</p>
           </div>
-          <div class="quiz-body">
-            <div class="prompt-box">
-              <div class="prompt-kicker">Flow</div>
-              <div class="prompt-title">Warm-Up → Dialogue → Boss</div>
-              <div class="prompt-desc">
-                Warm-Up: เลือกคำศัพท์/ความหมายให้เร็ว<br>
-                Dialogue: เลือกประโยคที่ใช้จริงในสถานการณ์<br>
-                Boss: ตอบคำถามใหญ่ตอนท้ายด่านให้รอด
+          <div class="game-body">
+            <div class="prompt">
+              <div class="k">Flow</div>
+              <div class="title">Listening → Speaking → Reading → Writing</div>
+              <div class="desc">
+                Listening: ฟังเสียงแล้วตอบคำถาม<br>
+                Speaking: พูดตามโจทย์สั้น ๆ หรือใช้ self-check<br>
+                Reading: อ่านข้อความสั้นแล้วตอบ<br>
+                Writing: เขียน 1–2 ประโยคสั้นให้ตรงโจทย์
               </div>
             </div>
-            <div class="prompt-box">
-              <div class="prompt-kicker">Scoring</div>
-              <div class="prompt-desc">
-                ตอบถูกได้คะแนนพื้นฐาน + โบนัส combo + โบนัสเวลาเหลือ<br>
-                ตอบผิดพลังลด ถ้าพลังหมดหรือเวลาหมด เกมจบด่านนั้นทันที
+            <div class="prompt">
+              <div class="k">Scoring</div>
+              <div class="desc">
+                ตอบถูกได้คะแนนพื้นฐาน + โบนัสเวลา + โบนัส combo<br>
+                ตอบผิดพลังลด ถ้าพลังหมดหรือเวลาหมด ด่านจบทันที
               </div>
             </div>
-            <div class="reward-row">
-              <button class="cta-btn" id="closeHelpBtn">Got it</button>
-            </div>
+            <div class="reward-row"><button class="btn" id="closeHelpBtn">Got it</button></div>
           </div>
         </section>
       </div>
@@ -1249,1403 +516,1001 @@
 
   <script>
     (() => {
-      const STORAGE_KEY = 'ENGLISH_QUEST_STATE_V1';
-      const BOARD_KEY = 'ENGLISH_QUEST_BOARD_V1';
+      const STORAGE_KEY = 'ENGLISH_QUEST_A2_STATE_V2';
+      const BOARD_KEY = 'ENGLISH_QUEST_A2_BOARD_V2';
       const letters = ['A','B','C','D'];
 
-      const missions = [
+      const units = [
         {
-          id: 1,
-          icon: '👋',
-          title: 'Tech Self-Intro',
-          difficulty: 'Starter',
-          focus: 'introduce yourself',
-          time: 46,
-          stageTitle: 'Warm-Up Dash',
-          description: 'แนะนำตัวเองแบบนักศึกษาสายเทคที่ดูมั่นใจ กระชับ และมืออาชีพ',
-          tags: ['Intro', 'Confidence', 'Basic'],
-          coach: 'Start with who you are, what you study, and one real interest in tech. Keep it natural.',
-          warmup: [
-            {
-              kicker: 'Definition',
-              title: 'A strong point or skill you are good at',
-              desc: 'Choose the best word for the definition.',
-              correctIndex: 1,
-              options: [
-                { text: 'deadline', sub: 'a due date' },
-                { text: 'strength', sub: 'something you do well' },
-                { text: 'dataset', sub: 'a collection of data' },
-                { text: 'feature', sub: 'a function in a product' }
+          id:1,
+          icon:'👋',
+          title:'Introduce Yourself',
+          level:'A2 Start',
+          description:'แนะนำตัว ชื่อ สาขา ชั้นปี และสิ่งที่ชอบเรียน',
+          tags:['name','major','year','like'],
+          time:70,
+          coach:'Use short sentences: I am..., I study..., I like....',
+          stages:{
+            listening:{
+              type:'mcq',
+              kicker:'Listening',
+              title:'Listen and choose the correct information.',
+              desc:'You will hear a student introduction.',
+              audioText:'Hello. My name is Tina. I am a second-year student. I study digital technology, and I like web design.',
+              audioSlow:'Hello. My name is Tina. I am a second-year student. I study digital technology. I like web design.',
+              correctIndex:1,
+              options:[
+                {text:'Tina is a first-year student.', sub:'wrong year'},
+                {text:'Tina studies digital technology.', sub:'correct'},
+                {text:'Tina likes mathematics only.', sub:'wrong interest'},
+                {text:'Tina is a teacher.', sub:'wrong role'}
               ],
-              coach: 'This word often appears when you talk about your abilities.'
+              coach:'Listen for the key facts: name, year, major, and interest.'
             },
-            {
-              kicker: 'Best phrase',
-              title: 'Choose a natural opening sentence for an intro',
-              desc: 'Imagine you just met your lecturer or recruiter.',
-              correctIndex: 2,
-              options: [
-                { text: 'Myself Supa. I study many thing computer.', sub: 'grammar problems' },
-                { text: 'I am study in computer and like make app.', sub: 'awkward structure' },
-                { text: 'Hi, I’m Mina. I’m a third-year IT student and I enjoy building web apps.', sub: 'clear and natural' },
-                { text: 'Hello, my important skill is everything.', sub: 'too vague' }
-              ],
-              coach: 'A good intro is short, specific, and believable.'
+            speaking:{
+              type:'speak',
+              kicker:'Speaking',
+              title:'Say a short self-introduction.',
+              desc:'Say: Hello, my name is ____. I am a university student. I study ____.',
+              expectedKeywords:['hello','name','student','study'],
+              model:'Hello, my name is Nami. I am a university student. I study digital technology.',
+              coach:'Do not worry about long sentences. Three short sentences are enough.'
             },
-            {
-              kicker: 'Pick the word',
-              title: 'A person who creates software or systems',
-              desc: 'Choose the best answer.',
-              correctIndex: 0,
-              options: [
-                { text: 'developer', sub: 'builds software or systems' },
-                { text: 'customer', sub: 'uses or buys a product' },
-                { text: 'meeting', sub: 'an event for discussion' },
-                { text: 'network', sub: 'connected systems' }
+            reading:{
+              type:'mcq',
+              kicker:'Reading',
+              title:'Read and answer.',
+              desc:'Ben is a third-year student. He studies computer science. He likes mobile app design and group projects.',
+              correctIndex:2,
+              options:[
+                {text:'Ben is a first-year student.', sub:'wrong'},
+                {text:'Ben dislikes group projects.', sub:'wrong'},
+                {text:'Ben likes mobile app design.', sub:'correct'},
+                {text:'Ben studies business.', sub:'wrong'}
               ],
-              coach: 'This is one of the most common identity words in tech.'
+              coach:'Read the short text once, then look for the exact detail.'
+            },
+            writing:{
+              type:'write',
+              kicker:'Writing',
+              title:'Write 1–2 sentences to introduce yourself.',
+              desc:'Write your name, your major, and one thing you like.',
+              expectedKeywords:['i','study'],
+              model:'My name is Nami. I study digital technology, and I like web design.',
+              coach:'Keep it short and clear. One or two sentences are enough.'
             }
-          ],
-          dialogue: [
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A lecturer asks: “Tell me a little about yourself.”',
-              desc: 'Pick the most natural answer.',
-              correctIndex: 1,
-              options: [
-                { text: 'I am a student in digital technology, and I like UI design and app development.', sub: 'good mix of identity + interests' },
-                { text: 'I’m a digital technology student, and I really enjoy UI design and app development.', sub: 'natural and confident' },
-                { text: 'I student and I like application many.', sub: 'incorrect grammar' },
-                { text: 'Myself is technology very much.', sub: 'not natural' }
-              ],
-              coach: 'The winning answer sounds fluent without being too complex.'
-            },
-            {
-              kicker: 'Dialogue Battle',
-              title: 'Someone asks: “What are your strengths?”',
-              desc: 'Choose the best response for a university-level context.',
-              correctIndex: 3,
-              options: [
-                { text: 'My strengths is all subject.', sub: 'too broad and incorrect' },
-                { text: 'I am perfect in every task.', sub: 'sounds unrealistic' },
-                { text: 'I don’t really know.', sub: 'too weak' },
-                { text: 'I learn quickly, and I’m good at turning ideas into simple prototypes.', sub: 'specific and strong' }
-              ],
-              coach: 'Specific strengths always sound more mature than generic claims.'
-            }
-          ],
-          boss: {
-            title: 'Final Interview Check',
-            prompt: 'Choose the best self-introduction for a tech internship interview.',
-            correctIndex: 2,
-            options: [
-              { text: 'Hello, I am student and I do everything in computer.', sub: 'too vague' },
-              { text: 'My name is Nani. I like computer because it is amazing only.', sub: 'weak detail' },
-              { text: 'Hi, I’m Nani, a third-year digital technology student. I enjoy web development and I’m currently improving my problem-solving and presentation skills.', sub: 'balanced and professional' },
-              { text: 'I am the best candidate because I can do all jobs.', sub: 'overclaiming' }
-            ],
-            coach: 'Good interviews reward clarity, honesty, and one or two concrete strengths.'
           }
         },
         {
-          id: 2,
-          icon: '🧠',
-          title: 'Explain Your Skills',
-          difficulty: 'Starter+',
-          focus: 'talk about abilities',
-          time: 48,
-          description: 'อธิบายทักษะด้าน coding, design, teamwork และการเรียนรู้ของตัวเองให้ดูมีน้ำหนัก',
-          tags: ['Skills', 'Portfolio', 'Growth'],
-          coach: 'Use can, have experience with, and currently learning to describe skill level naturally.',
-          warmup: [
-            {
-              kicker: 'Definition',
-              title: 'The ability to solve problems by logic and steps',
-              desc: 'Pick the best term.',
-              correctIndex: 3,
-              options: [
-                { text: 'debugging', sub: 'finding and fixing errors' },
-                { text: 'design thinking', sub: 'creative problem framing' },
-                { text: 'presentation', sub: 'explaining to an audience' },
-                { text: 'problem-solving', sub: 'handling issues effectively' }
+          id:2,
+          icon:'🏫',
+          title:'Campus Life',
+          level:'A2',
+          description:'พูดเรื่องตารางเรียน ห้องเรียน วิชา และกิจกรรมในมหาวิทยาลัย',
+          tags:['class','room','schedule','campus'],
+          time:72,
+          coach:'Use present simple: I have class..., My class starts at....',
+          stages:{
+            listening:{
+              type:'mcq',
+              kicker:'Listening',
+              title:'Listen and choose the correct answer.',
+              desc:'You will hear a short campus routine.',
+              audioText:'I have English class at nine o’clock on Monday. After that, I go to the library with my friend.',
+              audioSlow:'I have English class at nine o’clock on Monday. After that, I go to the library.',
+              correctIndex:0,
+              options:[
+                {text:'The speaker has English class at 9:00.', sub:'correct'},
+                {text:'The speaker goes home after class.', sub:'wrong'},
+                {text:'The class is on Friday.', sub:'wrong'},
+                {text:'The speaker studies alone in the lab.', sub:'wrong'}
               ],
-              coach: 'Recruiters love hearing this skill with a real example.'
+              coach:'Listen for time and place words.'
             },
-            {
-              kicker: 'Best phrase',
-              title: 'Choose the best way to describe an improving skill',
-              desc: 'Natural English sounds honest, not exaggerated.',
-              correctIndex: 0,
-              options: [
-                { text: 'I’m still improving my Python skills, but I can already build small data analysis projects.', sub: 'honest and credible' },
-                { text: 'My Python is totally perfect and legendary.', sub: 'too exaggerated' },
-                { text: 'Python skill is me good enough maximum.', sub: 'not natural' },
-                { text: 'I maybe use Python sometimes and maybe not.', sub: 'uncertain' }
-              ],
-              coach: 'Good English for interviews often sounds calm and precise.'
+            speaking:{
+              type:'speak',
+              kicker:'Speaking',
+              title:'Talk about your class schedule.',
+              desc:'Say 2 short sentences about your class and one place on campus.',
+              expectedKeywords:['class','at','library'],
+              model:'I have class in the morning. After class, I go to the library.',
+              coach:'A2 speaking can be simple. Keep it natural.'
             },
-            {
-              kicker: 'Pick the word',
-              title: 'Working well with other people on the same task',
-              desc: 'Choose the best word.',
-              correctIndex: 1,
-              options: [
-                { text: 'competition', sub: 'trying to win' },
-                { text: 'teamwork', sub: 'working together effectively' },
-                { text: 'deadline', sub: 'time limit' },
-                { text: 'prototype', sub: 'early version of a product' }
+            reading:{
+              type:'mcq',
+              kicker:'Reading',
+              title:'Read and answer.',
+              desc:'Mina has two classes on Tuesday. Her first class is programming. Her second class is English. She usually eats lunch at the canteen.',
+              correctIndex:3,
+              options:[
+                {text:'Mina has one class on Tuesday.', sub:'wrong'},
+                {text:'Her first class is English.', sub:'wrong'},
+                {text:'She eats lunch at home.', sub:'wrong'},
+                {text:'She has programming first.', sub:'correct'}
               ],
-              coach: 'This is essential for both classroom and workplace projects.'
+              coach:'Look for order words: first, second, after.'
+            },
+            writing:{
+              type:'write',
+              kicker:'Writing',
+              title:'Write about your campus day.',
+              desc:'Write 1–2 short sentences about one class and one place you go.',
+              expectedKeywords:['class','go'],
+              model:'I have an English class in the afternoon. After class, I go to the canteen.',
+              coach:'Use simple time expressions and one place word.'
             }
-          ],
-          dialogue: [
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A recruiter asks: “What technical skills do you have?”',
-              desc: 'Choose the strongest answer.',
-              correctIndex: 1,
-              options: [
-                { text: 'I have skill all software in world.', sub: 'not credible' },
-                { text: 'I can build basic web apps with HTML, CSS, and JavaScript, and I’m currently learning data visualization.', sub: 'specific and believable' },
-                { text: 'I use computer every day, so I have many technical.', sub: 'too vague' },
-                { text: 'I don’t know, but I try maybe.', sub: 'too weak' }
-              ],
-              coach: 'Name the tools, then mention your current learning direction.'
-            },
-            {
-              kicker: 'Dialogue Battle',
-              title: 'Your classmate asks: “Are you good at group projects?”',
-              desc: 'Pick the natural response.',
-              correctIndex: 2,
-              options: [
-                { text: 'Yes, I am group project.', sub: 'incorrect' },
-                { text: 'Sometimes yes, sometimes chaos.', sub: 'too casual' },
-                { text: 'Yes. I usually help organize tasks and keep the team on schedule.', sub: 'clear and useful' },
-                { text: 'I prefer others do everything.', sub: 'not helpful' }
-              ],
-              coach: 'A strong answer shows what you contribute in a team.'
-            }
-          ],
-          boss: {
-            title: 'Portfolio Defense',
-            prompt: 'Choose the best answer for “What can you contribute to our project team?”',
-            correctIndex: 0,
-            options: [
-              { text: 'I can support both frontend tasks and presentations, and I’m comfortable learning new tools quickly.', sub: 'versatile and realistic' },
-              { text: 'I can do everything faster than all people.', sub: 'too exaggerated' },
-              { text: 'Maybe I can watch first and do later.', sub: 'weak' },
-              { text: 'My contribution is vibes only.', sub: 'funny, not professional' }
-            ],
-            coach: 'The best answers show value, adaptability, and confidence without overselling.'
           }
         },
         {
-          id: 3,
-          icon: '🛠️',
-          title: 'Describe a Project',
-          difficulty: 'Core',
-          focus: 'talk about project work',
-          time: 50,
-          description: 'เล่าโปรเจกต์ที่เคยทำให้ชัดว่าเป้าหมายคืออะไร คุณรับผิดชอบส่วนไหน และผลลัพธ์เป็นอย่างไร',
-          tags: ['Project', 'Responsibility', 'Results'],
-          coach: 'Use this frame: project goal → your role → tools → result.',
-          warmup: [
-            {
-              kicker: 'Definition',
-              title: 'An early version built to test an idea',
-              desc: 'Choose the best answer.',
-              correctIndex: 2,
-              options: [
-                { text: 'release', sub: 'public version' },
-                { text: 'database', sub: 'organized data storage' },
-                { text: 'prototype', sub: 'early test version' },
-                { text: 'deadline', sub: 'due date' }
+          id:3,
+          icon:'💻',
+          title:'Study Tools',
+          level:'A2+',
+          description:'คำศัพท์และประโยคง่ายเกี่ยวกับ laptop, app, browser, file และ internet',
+          tags:['laptop','file','app','internet'],
+          time:74,
+          coach:'Use simple action verbs: open, save, send, upload.',
+          stages:{
+            listening:{
+              type:'mcq',
+              kicker:'Listening',
+              title:'Listen and choose the correct action.',
+              desc:'You will hear a sentence about using a computer.',
+              audioText:'Please open the file, check the picture, and send it to me before noon.',
+              audioSlow:'Please open the file and send it to me before noon.',
+              correctIndex:2,
+              options:[
+                {text:'Delete the file.', sub:'wrong'},
+                {text:'Print the file now.', sub:'wrong'},
+                {text:'Open the file and send it.', sub:'correct'},
+                {text:'Close the browser.', sub:'wrong'}
               ],
-              coach: 'This word is very useful when talking about student projects.'
+              coach:'Listen for the action verbs.'
             },
-            {
-              kicker: 'Best phrase',
-              title: 'Choose the clearest project description',
-              desc: 'Think like a student presenting in class.',
-              correctIndex: 1,
-              options: [
-                { text: 'My project is app and many function and useful, yes.', sub: 'not clear' },
-                { text: 'Our project was a campus navigation app designed to help new students find classrooms more easily.', sub: 'clear goal and user benefit' },
-                { text: 'We made software for everything in the university.', sub: 'too broad' },
-                { text: 'The project was interesting because modern.', sub: 'no real information' }
-              ],
-              coach: 'A strong project sentence explains user + purpose.'
+            speaking:{
+              type:'speak',
+              kicker:'Speaking',
+              title:'Explain one simple computer task.',
+              desc:'Say 2 short steps. Example: Open the file. Save it.',
+              expectedKeywords:['open','save'],
+              model:'Open the file and check the text. Then save it.',
+              coach:'Short commands are okay at A2.'
             },
-            {
-              kicker: 'Pick the word',
-              title: 'The main purpose of a project or task',
-              desc: 'Choose the right word.',
-              correctIndex: 3,
-              options: [
-                { text: 'challenge', sub: 'difficulty or problem' },
-                { text: 'feedback', sub: 'responses or comments' },
-                { text: 'feature', sub: 'specific function' },
-                { text: 'goal', sub: 'main target or purpose' }
+            reading:{
+              type:'mcq',
+              kicker:'Reading',
+              title:'Read and answer.',
+              desc:'Sara uses her laptop for online classes. She opens the browser, joins the meeting, and takes notes on her tablet.',
+              correctIndex:1,
+              options:[
+                {text:'Sara uses her phone only.', sub:'wrong'},
+                {text:'Sara joins a meeting in the browser.', sub:'correct'},
+                {text:'Sara does not take notes.', sub:'wrong'},
+                {text:'Sara uses a printer in class.', sub:'wrong'}
               ],
-              coach: 'Always mention the goal before you talk about features.'
+              coach:'Focus on who does what.'
+            },
+            writing:{
+              type:'write',
+              kicker:'Writing',
+              title:'Write a short instruction.',
+              desc:'Write 1–2 sentences to tell your friend how to send a file.',
+              expectedKeywords:['send','file'],
+              model:'Open the app and choose the file. Then send it to your friend.',
+              coach:'Use simple action words and short steps.'
             }
-          ],
-          dialogue: [
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A teacher asks: “What was your role in the project?”',
-              desc: 'Choose the best answer.',
-              correctIndex: 0,
-              options: [
-                { text: 'I designed the user interface and helped connect the front end with the database.', sub: 'specific and useful' },
-                { text: 'I did some things in many places.', sub: 'too vague' },
-                { text: 'My role was powerful.', sub: 'unclear' },
-                { text: 'I was there with team.', sub: 'not enough detail' }
-              ],
-              coach: 'Naming two responsibilities is often enough.'
-            },
-            {
-              kicker: 'Dialogue Battle',
-              title: 'Someone asks: “What did you learn from that project?”',
-              desc: 'Pick the most mature answer.',
-              correctIndex: 3,
-              options: [
-                { text: 'I learned project is hard.', sub: 'too general' },
-                { text: 'I learned nothing but finished it.', sub: 'bad impression' },
-                { text: 'I learned many many things of technology forever.', sub: 'too vague' },
-                { text: 'I learned how important testing and team communication are during development.', sub: 'specific insight' }
-              ],
-              coach: 'Reflection makes your answer sound more advanced.'
-            }
-          ],
-          boss: {
-            title: 'Demo Day',
-            prompt: 'Choose the best mini-pitch for a student project presentation.',
-            correctIndex: 1,
-            options: [
-              { text: 'This project is application and many feature, please enjoy.', sub: 'too weak' },
-              { text: 'This project is a student attendance web app. My role focused on UI flow and testing, and the final version reduced check-in time for users.', sub: 'clear goal, role, and result' },
-              { text: 'Our project is famous in our mind.', sub: 'unclear' },
-              { text: 'It is a modern project with cool database vibes.', sub: 'not serious enough' }
-            ],
-            coach: 'Best pitches explain what it is, what you did, and why it matters.'
           }
         },
         {
-          id: 4,
-          icon: '🐞',
-          title: 'Report a Bug',
-          difficulty: 'Core',
-          focus: 'explain software problems',
-          time: 50,
-          description: 'อธิบายปัญหา software ให้ชัดเจนแบบคนทำงานจริง: เกิดอะไร ที่ไหน และกระทบใคร',
-          tags: ['Bug', 'Testing', 'Troubleshooting'],
-          coach: 'Good bug reports are clear: expected result, actual result, and where it happened.',
-          warmup: [
-            {
-              kicker: 'Definition',
-              title: 'An error or problem in software',
-              desc: 'Choose the best word.',
-              correctIndex: 0,
-              options: [
-                { text: 'bug', sub: 'software problem' },
-                { text: 'feature', sub: 'function or capability' },
-                { text: 'update', sub: 'new version or improvement' },
-                { text: 'server', sub: 'system that provides services' }
+          id:4,
+          icon:'👥',
+          title:'Team Project',
+          level:'A2+',
+          description:'พูดเรื่องงานกลุ่ม หน้าที่ของตนเอง และการช่วยเพื่อน',
+          tags:['team','project','help','role'],
+          time:76,
+          coach:'Use simple role phrases: I make..., I help..., We work together.',
+          stages:{
+            listening:{
+              type:'mcq',
+              kicker:'Listening',
+              title:'Listen and choose the correct role.',
+              desc:'You will hear a student talk about a group project.',
+              audioText:'In our project, I make the slides and my friend writes the report. We practice together before the presentation.',
+              audioSlow:'I make the slides. My friend writes the report. We practice together.',
+              correctIndex:3,
+              options:[
+                {text:'The speaker writes the report.', sub:'wrong'},
+                {text:'The speaker works alone.', sub:'wrong'},
+                {text:'The friend makes the slides.', sub:'wrong'},
+                {text:'The speaker makes the slides.', sub:'correct'}
               ],
-              coach: 'Simple, powerful, and used everywhere in software teams.'
+              coach:'Listen for who does each task.'
             },
-            {
-              kicker: 'Best phrase',
-              title: 'Choose the clearest bug description',
-              desc: 'Think like you are writing in a team chat.',
-              correctIndex: 2,
-              options: [
-                { text: 'The app is weird.', sub: 'too vague' },
-                { text: 'Something is broken somewhere.', sub: 'still vague' },
-                { text: 'The login button does not respond after the user enters an incorrect password once.', sub: 'specific and useful' },
-                { text: 'The system is bad for emotional reasons.', sub: 'not helpful' }
-              ],
-              coach: 'Specific location + action + result = useful report.'
+            speaking:{
+              type:'speak',
+              kicker:'Speaking',
+              title:'Talk about your role in a group project.',
+              desc:'Say 2 short sentences about what you do and how you help.',
+              expectedKeywords:['i','project','help'],
+              model:'In my project, I make the slides. I also help my team check the work.',
+              coach:'One task + one help sentence is enough.'
             },
-            {
-              kicker: 'Pick the word',
-              title: 'The result you thought should happen',
-              desc: 'Choose the best term.',
-              correctIndex: 1,
-              options: [
-                { text: 'actual result', sub: 'what really happened' },
-                { text: 'expected result', sub: 'what should happen' },
-                { text: 'issue log', sub: 'record of problems' },
-                { text: 'crash point', sub: 'not a standard phrase here' }
+            reading:{
+              type:'mcq',
+              kicker:'Reading',
+              title:'Read and answer.',
+              desc:'Tom and his team are making a class app. Tom designs the screens. Mia checks the text. Ken presents the app to the class.',
+              correctIndex:0,
+              options:[
+                {text:'Tom designs the screens.', sub:'correct'},
+                {text:'Mia presents the app.', sub:'wrong'},
+                {text:'Ken checks the text.', sub:'wrong'},
+                {text:'They are making a poster.', sub:'wrong'}
               ],
-              coach: 'This phrase helps make your report sound professional.'
+              coach:'Read for task words: designs, checks, presents.'
+            },
+            writing:{
+              type:'write',
+              kicker:'Writing',
+              title:'Write about your team role.',
+              desc:'Write 1–2 short sentences about what you do in a project.',
+              expectedKeywords:['i','project'],
+              model:'In my project, I write the content and check the pictures. I help my team finish the work on time.',
+              coach:'Use I + verb + task.'
             }
-          ],
-          dialogue: [
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A teammate asks: “What exactly is the bug?”',
-              desc: 'Pick the best response.',
-              correctIndex: 3,
-              options: [
-                { text: 'It doesn’t work. Please check.', sub: 'too vague' },
-                { text: 'The system is sad today.', sub: 'not professional' },
-                { text: 'There is some unknown badness.', sub: 'unclear' },
-                { text: 'When users submit the form without internet, the page freezes instead of showing an error message.', sub: 'specific and useful' }
-              ],
-              coach: 'Describe the trigger and what the user sees.'
-            },
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A lecturer asks: “How did you find the issue?”',
-              desc: 'Choose the strongest answer.',
-              correctIndex: 1,
-              options: [
-                { text: 'I randomly touched things.', sub: 'too casual' },
-                { text: 'I found it during testing while checking how the app handled empty input fields.', sub: 'great testing explanation' },
-                { text: 'I just knew.', sub: 'weak' },
-                { text: 'The app told me spiritually.', sub: 'not serious' }
-              ],
-              coach: 'Mentioning test conditions makes you sound like a real developer.'
-            }
-          ],
-          boss: {
-            title: 'Critical Incident',
-            prompt: 'Choose the best bug report sentence for a sprint meeting.',
-            correctIndex: 2,
-            options: [
-              { text: 'There is a bug in system and it is annoying.', sub: 'too vague' },
-              { text: 'The page maybe has some problem with some user.', sub: 'unclear' },
-              { text: 'The payment page crashes when users upload an unsupported file type, so they cannot complete checkout.', sub: 'impact + trigger are clear' },
-              { text: 'The issue is dangerous to our emotions.', sub: 'not useful' }
-            ],
-            coach: 'The best report explains what fails and why it matters.'
           }
         },
         {
-          id: 5,
-          icon: '🤖',
-          title: 'Explain an AI Model',
-          difficulty: 'Core+',
-          focus: 'talk about AI simply',
-          time: 52,
-          description: 'อธิบาย model, data, training และผลลัพธ์ให้คนทั่วไปหรืออาจารย์ฟังเข้าใจง่าย',
-          tags: ['AI', 'Data', 'Model'],
-          coach: 'Avoid overcomplicated wording. Good explanations use plain English and real purpose.',
-          warmup: [
-            {
-              kicker: 'Definition',
-              title: 'A system trained to recognize patterns and make predictions',
-              desc: 'Choose the best term.',
-              correctIndex: 2,
-              options: [
-                { text: 'database', sub: 'stores data' },
-                { text: 'dashboard', sub: 'shows information' },
-                { text: 'model', sub: 'learns patterns from data' },
-                { text: 'bug', sub: 'error in software' }
+          id:5,
+          icon:'📱',
+          title:'Apps and Features',
+          level:'A2+',
+          description:'อธิบาย app ง่าย ๆ ว่าทำอะไร มีฟีเจอร์อะไร และเหมาะกับใคร',
+          tags:['app','feature','use','easy'],
+          time:78,
+          coach:'Use simple function language: It helps..., It has..., Users can....',
+          stages:{
+            listening:{
+              type:'mcq',
+              kicker:'Listening',
+              title:'Listen and choose what the app can do.',
+              desc:'You will hear a short app description.',
+              audioText:'This app helps students plan their homework. Users can add tasks, set times, and check finished work.',
+              audioSlow:'This app helps students plan homework. Users can add tasks and check finished work.',
+              correctIndex:1,
+              options:[
+                {text:'The app is for online shopping.', sub:'wrong'},
+                {text:'The app helps students plan homework.', sub:'correct'},
+                {text:'The app is only for teachers.', sub:'wrong'},
+                {text:'The app makes videos.', sub:'wrong'}
               ],
-              coach: 'This is the core word for AI discussions.'
+              coach:'Listen for the main purpose first.'
             },
-            {
-              kicker: 'Best phrase',
-              title: 'Choose the clearest explanation of training data',
-              desc: 'Keep it simple and understandable.',
-              correctIndex: 1,
-              options: [
-                { text: 'Training data is data that data uses data.', sub: 'unclear' },
-                { text: 'Training data is the information we use to teach the model how to recognize patterns.', sub: 'simple and accurate' },
-                { text: 'Training data is magic for computers.', sub: 'not precise' },
-                { text: 'Training data means the model already knows everything.', sub: 'incorrect' }
-              ],
-              coach: 'When in doubt, explain as if teaching a smart beginner.'
+            speaking:{
+              type:'speak',
+              kicker:'Speaking',
+              title:'Describe one app feature.',
+              desc:'Say what the app does and who can use it.',
+              expectedKeywords:['app','can','students'],
+              model:'This app helps students manage tasks. Users can add homework and set reminders.',
+              coach:'Use This app helps... Users can...'
             },
-            {
-              kicker: 'Pick the word',
-              title: 'The output or guess produced by a model',
-              desc: 'Choose the best answer.',
-              correctIndex: 3,
-              options: [
-                { text: 'input', sub: 'data put into a system' },
-                { text: 'label', sub: 'target category in data' },
-                { text: 'feature', sub: 'an input characteristic' },
-                { text: 'prediction', sub: 'the model’s output or guess' }
+            reading:{
+              type:'mcq',
+              kicker:'Reading',
+              title:'Read and answer.',
+              desc:'Our class app is simple and useful. Students can read course news, upload homework, and send short messages to the teacher.',
+              correctIndex:2,
+              options:[
+                {text:'Students cannot upload homework.', sub:'wrong'},
+                {text:'The app is difficult to use.', sub:'wrong'},
+                {text:'Students can send short messages.', sub:'correct'},
+                {text:'The app is only for games.', sub:'wrong'}
               ],
-              coach: 'This word appears everywhere in AI presentations.'
+              coach:'Read for ability words such as can.'
+            },
+            writing:{
+              type:'write',
+              kicker:'Writing',
+              title:'Write a short app description.',
+              desc:'Write 1–2 short sentences about an app and one feature.',
+              expectedKeywords:['app','can'],
+              model:'This app is for students. It can help users plan homework and check their tasks.',
+              coach:'Use one purpose sentence and one feature sentence.'
             }
-          ],
-          dialogue: [
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A friend asks: “What does your AI model do?”',
-              desc: 'Choose the best answer.',
-              correctIndex: 0,
-              options: [
-                { text: 'It predicts whether a review is positive or negative by learning from example text data.', sub: 'clear function + method' },
-                { text: 'It is very advanced and intelligent.', sub: 'too vague' },
-                { text: 'It does AI things with many algorithms inside.', sub: 'not clear' },
-                { text: 'The model is secret.', sub: 'not useful' }
-              ],
-              coach: 'The best answer includes task + data type.'
-            },
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A teacher asks: “Why is your dataset important?”',
-              desc: 'Pick the strongest explanation.',
-              correctIndex: 2,
-              options: [
-                { text: 'Because dataset is dataset.', sub: 'too empty' },
-                { text: 'Because AI needs a lot of random stuff.', sub: 'imprecise' },
-                { text: 'Because the quality and diversity of the dataset directly affect how well the model learns.', sub: 'strong academic answer' },
-                { text: 'Because more is always perfect.', sub: 'too absolute' }
-              ],
-              coach: 'Quality and diversity are key ideas in AI communication.'
-            }
-          ],
-          boss: {
-            title: 'AI Demo Pitch',
-            prompt: 'Choose the best explanation for a classroom AI demo.',
-            correctIndex: 3,
-            options: [
-              { text: 'This model is cool and futuristic.', sub: 'too weak' },
-              { text: 'It uses technology and things from data.', sub: 'vague' },
-              { text: 'It predicts some output from hidden power.', sub: 'not academic' },
-              { text: 'This model analyzes text reviews and predicts sentiment. We trained it on labeled examples so it could learn patterns in the language.', sub: 'clear and accurate' }
-            ],
-            coach: 'The best academic explanation is simple, accurate, and evidence-based.'
           }
         },
         {
-          id: 6,
-          icon: '🧪',
-          title: 'Testing & QA',
-          difficulty: 'Advanced',
-          focus: 'testing mindset',
-          time: 52,
-          description: 'พูดถึงการทดสอบ software, edge cases, user flow และ quality assurance แบบมีเหตุผล',
-          tags: ['QA', 'Edge Cases', 'Reliability'],
-          coach: 'Talk about preventing problems, not just fixing them after release.',
-          warmup: [
-            {
-              kicker: 'Definition',
-              title: 'Checking whether software works correctly before release',
-              desc: 'Choose the best term.',
-              correctIndex: 1,
-              options: [
-                { text: 'deployment', sub: 'releasing software' },
-                { text: 'testing', sub: 'checking behavior and quality' },
-                { text: 'design', sub: 'planning visuals and UX' },
-                { text: 'marketing', sub: 'promoting a product' }
+          id:6,
+          icon:'🐞',
+          title:'Problems and Help',
+          level:'A2+',
+          description:'พูดถึงปัญหาง่าย ๆ เช่น app ช้า เน็ตหลุด ส่งไฟล์ไม่ได้ และขอความช่วยเหลือ',
+          tags:['problem','help','cannot','error'],
+          time:80,
+          coach:'Use simple problem language: It does not work. I cannot open.... Can you help me?',
+          stages:{
+            listening:{
+              type:'mcq',
+              kicker:'Listening',
+              title:'Listen and choose the problem.',
+              desc:'You will hear a student ask for help.',
+              audioText:'Excuse me, I cannot upload my homework because the app shows an error message.',
+              audioSlow:'I cannot upload my homework. The app shows an error message.',
+              correctIndex:0,
+              options:[
+                {text:'The student cannot upload homework.', sub:'correct'},
+                {text:'The student cannot find the classroom.', sub:'wrong'},
+                {text:'The student lost a phone.', sub:'wrong'},
+                {text:'The student needs a new laptop.', sub:'wrong'}
               ],
-              coach: 'This is one of the most important process words in software work.'
+              coach:'Listen for cannot + action.'
             },
-            {
-              kicker: 'Best phrase',
-              title: 'Choose the clearest explanation of edge case testing',
-              desc: 'Think like a careful developer.',
-              correctIndex: 2,
-              options: [
-                { text: 'It means checking the app when everything is normal.', sub: 'too limited' },
-                { text: 'It means trusting the user will be perfect.', sub: 'not realistic' },
-                { text: 'It means testing unusual situations, such as empty input, weak internet, or wrong file types.', sub: 'clear and useful' },
-                { text: 'It means testing only the final page.', sub: 'not enough' }
-              ],
-              coach: 'Good testers imagine what might go wrong in real life.'
+            speaking:{
+              type:'speak',
+              kicker:'Speaking',
+              title:'Ask for help clearly.',
+              desc:'Say the problem and ask for help in 1–2 short sentences.',
+              expectedKeywords:['cannot','help'],
+              model:'I cannot open the file. Can you help me, please?',
+              coach:'Say the problem first. Then ask for help.'
             },
-            {
-              kicker: 'Pick the word',
-              title: 'How easy and smooth a product feels for users',
-              desc: 'Choose the best term.',
-              correctIndex: 0,
-              options: [
-                { text: 'usability', sub: 'ease and effectiveness of use' },
-                { text: 'backend', sub: 'server-side system' },
-                { text: 'syntax', sub: 'code writing rules' },
-                { text: 'storage', sub: 'keeping data' }
+            reading:{
+              type:'mcq',
+              kicker:'Reading',
+              title:'Read and answer.',
+              desc:'Anna has a problem with the class app. She can log in, but she cannot see her homework page. She sends a message to the teacher for help.',
+              correctIndex:3,
+              options:[
+                {text:'Anna cannot log in.', sub:'wrong'},
+                {text:'Anna cannot use the keyboard.', sub:'wrong'},
+                {text:'Anna calls her friend.', sub:'wrong'},
+                {text:'Anna sends a message for help.', sub:'correct'}
               ],
-              coach: 'QA is not only about bugs. It is also about user experience.'
+              coach:'Read for contrast words like but.'
+            },
+            writing:{
+              type:'write',
+              kicker:'Writing',
+              title:'Write a short help message.',
+              desc:'Write 1–2 short sentences about a problem and ask for help politely.',
+              expectedKeywords:['cannot','help'],
+              model:'Hello, I cannot upload my file. Can you help me, please?',
+              coach:'Use polite, simple English.'
             }
-          ],
-          dialogue: [
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A teammate asks: “Why do we need more testing?”',
-              desc: 'Choose the strongest answer.',
-              correctIndex: 1,
-              options: [
-                { text: 'Because testing is fun sometimes.', sub: 'too weak' },
-                { text: 'Because testing helps us catch errors early and improves reliability before users find the problems.', sub: 'great practical answer' },
-                { text: 'Because we have extra time.', sub: 'not convincing' },
-                { text: 'Because the teacher said so.', sub: 'not mature enough' }
-              ],
-              coach: 'Great answers connect testing to user trust and product quality.'
-            },
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A lecturer asks: “What would you test first?”',
-              desc: 'Pick the best response.',
-              correctIndex: 3,
-              options: [
-                { text: 'I would test random pages first.', sub: 'not strategic' },
-                { text: 'I would test only the design.', sub: 'too narrow' },
-                { text: 'I would wait for users.', sub: 'too late' },
-                { text: 'I would test the most important user flow first, such as sign-up, login, and form submission.', sub: 'prioritizes critical flows' }
-              ],
-              coach: 'Always start with high-impact actions.'
-            }
-          ],
-          boss: {
-            title: 'Release Gate',
-            prompt: 'Choose the best answer for “How does testing improve software quality?”',
-            correctIndex: 0,
-            options: [
-              { text: 'It helps identify bugs, usability issues, and risky edge cases before the product reaches users.', sub: 'broad and practical' },
-              { text: 'It makes the app look expensive.', sub: 'wrong focus' },
-              { text: 'It guarantees perfection forever.', sub: 'too absolute' },
-              { text: 'It removes the need for teamwork.', sub: 'incorrect' }
-            ],
-            coach: 'Good QA answers combine bugs, usability, and risk prevention.'
           }
         },
         {
-          id: 7,
-          icon: '☁️',
-          title: 'Deployment Day',
-          difficulty: 'Advanced',
-          focus: 'release and production',
-          time: 54,
-          description: 'คุยเรื่อง deploy, server, production และการเตรียมระบบก่อนใช้งานจริง',
-          tags: ['Deployment', 'Server', 'Production'],
-          coach: 'When you talk about deployment, show that you understand risk and readiness.',
-          warmup: [
-            {
-              kicker: 'Definition',
-              title: 'The process of making software available to users',
-              desc: 'Choose the correct term.',
-              correctIndex: 3,
-              options: [
-                { text: 'analysis', sub: 'studying data or problems' },
-                { text: 'testing', sub: 'checking quality' },
-                { text: 'debugging', sub: 'fixing errors' },
-                { text: 'deployment', sub: 'releasing to users' }
+          id:7,
+          icon:'📢',
+          title:'Short Presentation',
+          level:'A2 Review',
+          description:'พูดและอ่านประโยคง่าย ๆ เพื่อแนะนำหัวข้อหรือโปรเจกต์สั้น ๆ',
+          tags:['present','topic','simple','clear'],
+          time:82,
+          coach:'Use 3 parts: topic, one detail, ending line.',
+          stages:{
+            listening:{
+              type:'mcq',
+              kicker:'Listening',
+              title:'Listen and choose the main topic.',
+              desc:'You will hear a short class presentation opening.',
+              audioText:'Good morning, everyone. Today I want to talk about our reading app. It is simple, useful, and easy for students to use every day.',
+              audioSlow:'Today I want to talk about our reading app. It is useful for students.',
+              correctIndex:1,
+              options:[
+                {text:'The speaker talks about a sports club.', sub:'wrong'},
+                {text:'The speaker talks about a reading app.', sub:'correct'},
+                {text:'The speaker talks about a bus timetable.', sub:'wrong'},
+                {text:'The speaker talks about food only.', sub:'wrong'}
               ],
-              coach: 'This is a core word in software engineering presentations.'
+              coach:'Listen to the first main noun.'
             },
-            {
-              kicker: 'Best phrase',
-              title: 'Choose the best sentence about production',
-              desc: 'Natural and professional wins.',
-              correctIndex: 1,
-              options: [
-                { text: 'Production is when the app becomes serious vibes.', sub: 'too casual' },
-                { text: 'The production environment is the live version of the system that real users interact with.', sub: 'clear and accurate' },
-                { text: 'Production means coding very fast.', sub: 'wrong meaning' },
-                { text: 'Production is only for designers.', sub: 'incorrect' }
-              ],
-              coach: 'This explanation works well in both class and interview settings.'
+            speaking:{
+              type:'speak',
+              kicker:'Speaking',
+              title:'Give a short opening for a presentation.',
+              desc:'Say 2–3 short sentences to open your topic.',
+              expectedKeywords:['today','talk','about'],
+              model:'Hello, everyone. Today I want to talk about our study app. It is useful for students.',
+              coach:'A simple opening is better than a long difficult one.'
             },
-            {
-              kicker: 'Pick the word',
-              title: 'A computer or system that provides services or data to other devices',
-              desc: 'Choose the best answer.',
-              correctIndex: 2,
-              options: [
-                { text: 'framework', sub: 'development structure' },
-                { text: 'browser', sub: 'used to access websites' },
-                { text: 'server', sub: 'provides services or resources' },
-                { text: 'button', sub: 'UI element' }
+            reading:{
+              type:'mcq',
+              kicker:'Reading',
+              title:'Read and answer.',
+              desc:'This is our project poster. It shows a study app for university students. The app helps users read short texts, save new words, and practice every day.',
+              correctIndex:2,
+              options:[
+                {text:'The project is a game only.', sub:'wrong'},
+                {text:'The app is for teachers only.', sub:'wrong'},
+                {text:'The app helps users save new words.', sub:'correct'},
+                {text:'The app does not help reading.', sub:'wrong'}
               ],
-              coach: 'This word often appears when students explain hosting or backend work.'
+              coach:'Read for useful functions.'
+            },
+            writing:{
+              type:'write',
+              kicker:'Writing',
+              title:'Write a short presentation opening.',
+              desc:'Write 1–2 short sentences to introduce your topic.',
+              expectedKeywords:['today','about'],
+              model:'Hello, everyone. Today I want to talk about our study app for students.',
+              coach:'Use an opening line and the topic name.'
             }
-          ],
-          dialogue: [
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A teacher asks: “What should you check before deployment?”',
-              desc: 'Choose the best answer.',
-              correctIndex: 2,
-              options: [
-                { text: 'Only the logo color.', sub: 'too narrow' },
-                { text: 'Nothing. We can fix it live.', sub: 'risky' },
-                { text: 'We should check functionality, security basics, performance, and whether key user flows work correctly.', sub: 'well-rounded answer' },
-                { text: 'We should just be confident.', sub: 'not enough' }
-              ],
-              coach: 'Good deployment answers sound systematic.'
-            },
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A teammate asks: “Why is deployment stressful?”',
-              desc: 'Pick the strongest answer.',
-              correctIndex: 0,
-              options: [
-                { text: 'Because even a small issue in production can affect many real users immediately.', sub: 'practical and mature' },
-                { text: 'Because programmers like panic.', sub: 'too jokey' },
-                { text: 'Because servers are emotional.', sub: 'not professional' },
-                { text: 'Because deployment always fails.', sub: 'too absolute' }
-              ],
-              coach: 'Impact on real users is the key idea.'
-            }
-          ],
-          boss: {
-            title: 'Launch Control',
-            prompt: 'Choose the best explanation of why deployment planning matters.',
-            correctIndex: 1,
-            options: [
-              { text: 'It makes the meeting longer.', sub: 'wrong benefit' },
-              { text: 'It helps teams reduce risk, prepare backups, and make sure the product is ready for real users.', sub: 'great production mindset' },
-              { text: 'It allows us to skip testing.', sub: 'incorrect' },
-              { text: 'It is only useful in very large companies.', sub: 'not true' }
-            ],
-            coach: 'Launch planning = readiness + risk reduction + user protection.'
           }
         },
         {
-          id: 8,
-          icon: '📊',
-          title: 'Data Storytelling',
-          difficulty: 'Advanced+',
-          focus: 'present data clearly',
-          time: 55,
-          description: 'อธิบายข้อมูล กราฟ และ insight แบบสั้น ชัด และมีเหตุผล ไม่ใช่แค่อ่านค่าจากกราฟ',
-          tags: ['Data', 'Insight', 'Presentation'],
-          coach: 'Do not just say numbers. Explain what the numbers mean.',
-          warmup: [
-            {
-              kicker: 'Definition',
-              title: 'A meaningful takeaway or understanding from data',
-              desc: 'Choose the right word.',
-              correctIndex: 2,
-              options: [
-                { text: 'feature', sub: 'input variable or product function' },
-                { text: 'average', sub: 'mean value' },
-                { text: 'insight', sub: 'useful understanding from data' },
-                { text: 'device', sub: 'hardware' }
+          id:8,
+          icon:'🏁',
+          title:'A2 Challenge Mix',
+          level:'A2 Final',
+          description:'ด่านรวมครบทุกทักษะ ใช้สิ่งที่ฝึกมาทั้งหมดในรอบสุดท้าย',
+          tags:['review','final','mix','a2'],
+          time:86,
+          coach:'Stay calm. Short, clear English is enough to win.',
+          stages:{
+            listening:{
+              type:'mcq',
+              kicker:'Listening',
+              title:'Listen and choose the correct summary.',
+              desc:'You will hear a final mixed message.',
+              audioText:'Hi, I am Paul, a university student. Our team is making a class app. Today I need to upload the slides, but I cannot open one file, so I ask my friend for help.',
+              audioSlow:'I am Paul. Our team is making a class app. I cannot open one file, so I ask for help.',
+              correctIndex:3,
+              options:[
+                {text:'Paul is shopping with friends.', sub:'wrong'},
+                {text:'Paul is a teacher with a new class.', sub:'wrong'},
+                {text:'Paul can open every file.', sub:'wrong'},
+                {text:'Paul is a student with a file problem in a class project.', sub:'correct'}
               ],
-              coach: 'This word helps your presentation sound analytical.'
+              coach:'Listen for person, project, and problem.'
             },
-            {
-              kicker: 'Best phrase',
-              title: 'Choose the clearest way to discuss a chart',
-              desc: 'Think like a presenter, not a reader.',
-              correctIndex: 1,
-              options: [
-                { text: 'The blue line is blue and goes there.', sub: 'too shallow' },
-                { text: 'The chart shows a steady increase in user activity after the new feature was released.', sub: 'interprets the pattern' },
-                { text: 'This graph has many numbers in it.', sub: 'too obvious' },
-                { text: 'The chart is beautiful, therefore successful.', sub: 'not analytical' }
-              ],
-              coach: 'Explain trend + reason + implication when possible.'
+            speaking:{
+              type:'speak',
+              kicker:'Speaking',
+              title:'Give a short mixed response.',
+              desc:'Say who you are, what you study, and one simple problem or task.',
+              expectedKeywords:['i','study','can'],
+              model:'I am a university student. I study digital technology. Today I can finish my slides for class.',
+              coach:'Three short sentences are perfect here.'
             },
-            {
-              kicker: 'Pick the word',
-              title: 'A pattern showing values going up over time',
-              desc: 'Choose the best answer.',
-              correctIndex: 0,
-              options: [
-                { text: 'increase', sub: 'values move upward' },
-                { text: 'decline', sub: 'values move downward' },
-                { text: 'error', sub: 'something wrong' },
-                { text: 'server', sub: 'system provider' }
+            reading:{
+              type:'mcq',
+              kicker:'Reading',
+              title:'Read and answer.',
+              desc:'Lina studies information technology. She has an English class in the morning and works on a team app project in the afternoon. She likes simple apps because they are easy to use.',
+              correctIndex:0,
+              options:[
+                {text:'Lina likes simple apps.', sub:'correct'},
+                {text:'Lina studies history.', sub:'wrong'},
+                {text:'Lina has no classes.', sub:'wrong'},
+                {text:'Lina works alone on her project.', sub:'wrong'}
               ],
-              coach: 'This basic word becomes powerful in data presentations.'
+              coach:'Find the exact detail that matches the sentence.'
+            },
+            writing:{
+              type:'write',
+              kicker:'Writing',
+              title:'Write a final A2 mini-paragraph.',
+              desc:'Write 2 short sentences about yourself, your study, or a simple class task.',
+              expectedKeywords:['i','study'],
+              model:'I am a university student, and I study digital technology. Today I work on my class project with my team.',
+              coach:'Simple grammar + clear meaning = strong A2 writing.'
             }
-          ],
-          dialogue: [
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A lecturer asks: “What is the main insight from your data?”',
-              desc: 'Choose the best response.',
-              correctIndex: 3,
-              options: [
-                { text: 'There are many data points.', sub: 'too weak' },
-                { text: 'The graph looks active.', sub: 'not analytical' },
-                { text: 'The data is data.', sub: 'empty answer' },
-                { text: 'The main insight is that user engagement increased after we simplified the interface, suggesting that the design change improved usability.', sub: 'strong interpretation' }
-              ],
-              coach: 'Insight means meaning, not just numbers.'
-            },
-            {
-              kicker: 'Dialogue Battle',
-              title: 'A friend asks: “How should I explain this chart?”',
-              desc: 'Pick the best advice.',
-              correctIndex: 0,
-              options: [
-                { text: 'Start with the biggest pattern, then explain why it matters.', sub: 'excellent presentation strategy' },
-                { text: 'Read every number one by one.', sub: 'too slow and boring' },
-                { text: 'Apologize and skip it.', sub: 'not helpful' },
-                { text: 'Only mention the title.', sub: 'far too little' }
-              ],
-              coach: 'A good data presenter guides the audience to the key point.'
-            }
-          ],
-          boss: {
-            title: 'Analytics Pitch',
-            prompt: 'Choose the best sentence for presenting data insight.',
-            correctIndex: 2,
-            options: [
-              { text: 'This chart has bars and colors.', sub: 'describes appearance only' },
-              { text: 'The graph exists to show data.', sub: 'too obvious' },
-              { text: 'The most important finding is that completion rates improved after we reduced the number of steps, which suggests the process became easier for users.', sub: 'strong insight statement' },
-              { text: 'Numbers were visible and nice.', sub: 'not analytical' }
-            ],
-            coach: 'The strongest data answers connect change to meaning.'
           }
         }
       ];
 
-      const rankLadder = [
-        { name: 'Rookie Coder', xp: 0 },
-        { name: 'Campus Builder', xp: 300 },
-        { name: 'Prototype Hero', xp: 700 },
-        { name: 'Project Specialist', xp: 1200 },
-        { name: 'Tech Presenter', xp: 1800 },
-        { name: 'Intern Slayer', xp: 2600 },
-        { name: 'Future Engineer', xp: 3600 }
+      const ranks = [
+        {name:'A2 Rookie', xp:0},
+        {name:'Campus Speaker', xp:320},
+        {name:'Skill Builder', xp:760},
+        {name:'Classroom Communicator', xp:1320},
+        {name:'A2 Master', xp:2100}
       ];
 
-      const $ = (sel) => document.querySelector(sel);
-      const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-
+      const $ = s => document.querySelector(s);
       const els = {
-        playerName: $('#playerName'),
-        saveNameBtn: $('#saveNameBtn'),
-        missionGrid: $('#missionGrid'),
-        heroRank: $('#heroRank'),
-        heroXP: $('#heroXP'),
-        xpBar: $('#xpBar'),
-        xpProgressLabel: $('#xpProgressLabel'),
-        unlockedCount: $('#unlockedCount'),
-        bestCombo: $('#bestCombo'),
-        totalStars: $('#totalStars'),
-        leaderboard: $('#leaderboard'),
-        resetBoardBtn: $('#resetBoardBtn'),
-        playFirstBtn: $('#playFirstBtn'),
-        dailyBtn: $('#dailyBtn'),
-        drillBtn: $('#drillBtn'),
-        resetProgressBtn: $('#resetProgressBtn'),
-        howBtn: $('#howBtn'),
-        helpOverlay: $('#helpOverlay'),
-        closeHelpBtn: $('#closeHelpBtn'),
-        gameOverlay: $('#gameOverlay'),
-        hudMission: $('#hudMission'),
-        hudStage: $('#hudStage'),
-        hudScore: $('#hudScore'),
-        hudCombo: $('#hudCombo'),
-        hudTime: $('#hudTime'),
-        stageTitle: $('#stageTitle'),
-        stageSubtitle: $('#stageSubtitle'),
-        energyText: $('#energyText'),
-        energyBar: $('#energyBar'),
-        promptKicker: $('#promptKicker'),
-        promptTitle: $('#promptTitle'),
-        promptDesc: $('#promptDesc'),
-        choices: $('#choices'),
-        coachText: $('#coachText'),
-        battleLog: $('#battleLog'),
-        bossCard: $('#bossCard'),
-        bossPrompt: $('#bossPrompt'),
-        bossOptions: $('#bossOptions'),
-        quizCard: $('#quizCard'),
-        resultScreen: $('#resultScreen'),
-        resultTitle: $('#resultTitle'),
-        resultSummary: $('#resultSummary'),
-        starRow: $('#starRow'),
-        rewardRow: $('#rewardRow'),
-        resultScore: $('#resultScore'),
-        resultCombo: $('#resultCombo'),
-        resultAccuracy: $('#resultAccuracy'),
-        resultXP: $('#resultXP'),
-        nextMissionBtn: $('#nextMissionBtn'),
-        replayBtn: $('#replayBtn'),
-        backHubBtn: $('#backHubBtn'),
-        toastStack: $('#toastStack')
+        playerName: $('#playerName'), saveNameBtn: $('#saveNameBtn'),
+        heroRank: $('#heroRank'), heroXP: $('#heroXP'), xpBar: $('#xpBar'), xpLabel: $('#xpLabel'),
+        unlockedCount: $('#unlockedCount'), bestCombo: $('#bestCombo'), totalStars: $('#totalStars'),
+        unitGrid: $('#unitGrid'), leaderboard: $('#leaderboard'), resetBoardBtn: $('#resetBoardBtn'),
+        playFirstBtn: $('#playFirstBtn'), dailyBtn: $('#dailyBtn'), resetProgressBtn: $('#resetProgressBtn'),
+        howBtn: $('#howBtn'), helpOverlay: $('#helpOverlay'), closeHelpBtn: $('#closeHelpBtn'),
+        gameOverlay: $('#gameOverlay'), hudUnit: $('#hudUnit'), hudSkill: $('#hudSkill'), hudScore: $('#hudScore'), hudCombo: $('#hudCombo'), hudTime: $('#hudTime'),
+        stageTitle: $('#stageTitle'), stageSubtitle: $('#stageSubtitle'), energyText: $('#energyText'), energyBar: $('#energyBar'),
+        promptKicker: $('#promptKicker'), promptTitle: $('#promptTitle'), promptDesc: $('#promptDesc'), choices: $('#choices'),
+        coachText: $('#coachText'), battleLog: $('#battleLog'),
+        listenBox: $('#listenBox'), playAudioBtn: $('#playAudioBtn'), playSlowBtn: $('#playSlowBtn'),
+        speakBox: $('#speakBox'), micBtn: $('#micBtn'), selfCheckBtn: $('#selfCheckBtn'), speakHint: $('#speakHint'), speechResult: $('#speechResult'),
+        writeBox: $('#writeBox'), writeInput: $('#writeInput'), submitWriteBtn: $('#submitWriteBtn'), showModelBtn: $('#showModelBtn'), writeHint: $('#writeHint'),
+        resultCard: $('#resultCard'), resultTitle: $('#resultTitle'), resultSummary: $('#resultSummary'), starRow: $('#starRow'), rewardRow: $('#rewardRow'),
+        resultScore: $('#resultScore'), resultCombo: $('#resultCombo'), resultAccuracy: $('#resultAccuracy'), resultXP: $('#resultXP'),
+        nextUnitBtn: $('#nextUnitBtn'), replayBtn: $('#replayBtn'), backHubBtn: $('#backHubBtn'), toastStack: $('#toastStack')
       };
 
-      const defaultState = () => ({
-        name: 'Player',
-        xp: 0,
-        unlocked: 1,
-        bestCombo: 0,
-        stars: {},
-        bestScores: {},
-        missionHistory: []
-      });
-
+      const defaultState = () => ({name:'Player', xp:0, unlocked:1, bestCombo:0, stars:{}, bestScores:{}, history:[]});
       let state = loadState();
       let board = loadBoard();
       let run = null;
-      let tickTimer = null;
+      let timer = null;
+      let recognition = null;
+      const speechSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 
-      function loadState() {
-        try {
-          const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-          return { ...defaultState(), ...(raw || {}) };
-        } catch {
-          return defaultState();
+      function loadState(){
+        try{return {...defaultState(), ...(JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')||{})};}
+        catch{return defaultState();}
+      }
+      function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      function loadBoard(){ try{return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]');}catch{return [];} }
+      function saveBoard(){ localStorage.setItem(BOARD_KEY, JSON.stringify(board)); }
+      function esc(s=''){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+      function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+      function starsTotal(){ return Object.values(state.stars).reduce((a,b)=>a+(b||0),0); }
+      function getRank(xp){
+        let current = ranks[0], next=null;
+        for(let i=0;i<ranks.length;i++){
+          if(xp >= ranks[i].xp) current = ranks[i];
+          if(xp < ranks[i].xp){ next = ranks[i]; break; }
         }
+        return {current,next};
       }
-
-      function saveState() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      }
-
-      function loadBoard() {
-        try {
-          return JSON.parse(localStorage.getItem(BOARD_KEY) || '[]');
-        } catch {
-          return [];
-        }
-      }
-
-      function saveBoard() {
-        localStorage.setItem(BOARD_KEY, JSON.stringify(board));
-      }
-
-      function getRank(xp) {
-        let current = rankLadder[0];
-        let next = null;
-        for (let i = 0; i < rankLadder.length; i++) {
-          if (xp >= rankLadder[i].xp) current = rankLadder[i];
-          if (xp < rankLadder[i].xp) { next = rankLadder[i]; break; }
-        }
-        return { current, next };
-      }
-
-      function shuffle(arr) {
-        const a = [...arr];
-        for (let i = a.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [a[i], a[j]] = [a[j], a[i]];
-        }
-        return a;
-      }
-
-      function clamp(v, min, max) {
-        return Math.max(min, Math.min(max, v));
-      }
-
-      function beep(type = 'ok') {
-        try {
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
-          const o = ctx.createOscillator();
-          const g = ctx.createGain();
-          o.connect(g); g.connect(ctx.destination);
-          const now = ctx.currentTime;
-          const map = {
-            ok: [680, 0.06, 'triangle'],
-            bad: [180, 0.08, 'sawtooth'],
-            boss: [520, 0.12, 'square'],
-            start: [420, 0.08, 'triangle'],
-            level: [760, 0.14, 'sine']
-          };
-          const [freq, dur, wave] = map[type] || map.ok;
-          o.type = wave;
-          o.frequency.setValueAtTime(freq, now);
-          if (type === 'boss') o.frequency.linearRampToValueAtTime(freq + 180, now + dur);
-          g.gain.setValueAtTime(0.0001, now);
-          g.gain.exponentialRampToValueAtTime(0.16, now + 0.01);
-          g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-          o.start(now);
-          o.stop(now + dur + 0.02);
-          o.onended = () => ctx.close();
-        } catch {}
-      }
-
-      function toast(title, text) {
+      function toast(title,text){
         const el = document.createElement('div');
-        el.className = 'toast';
-        el.innerHTML = `<strong>${title}</strong><span>${text}</span>`;
+        el.className='toast';
+        el.innerHTML = `<strong>${esc(title)}</strong><span>${esc(text)}</span>`;
         els.toastStack.appendChild(el);
-        setTimeout(() => {
-          el.style.opacity = '0';
-          el.style.transform = 'translateY(-8px)';
-          setTimeout(() => el.remove(), 220);
-        }, 2600);
+        setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(-8px)'; setTimeout(()=>el.remove(),220); },2600);
+      }
+      function log(text){
+        const el = document.createElement('div');
+        el.className='log'; el.textContent=text; els.battleLog.prepend(el);
+        while(els.battleLog.children.length > 5) els.battleLog.lastElementChild.remove();
+      }
+      function beep(type='ok'){
+        try{
+          const ctx = new (window.AudioContext||window.webkitAudioContext)();
+          const o = ctx.createOscillator(); const g = ctx.createGain(); o.connect(g); g.connect(ctx.destination);
+          const t = ctx.currentTime;
+          const map = {ok:[700,.06,'triangle'], bad:[180,.08,'sawtooth'], start:[420,.08,'triangle'], up:[780,.14,'sine']};
+          const [f,d,w] = map[type] || map.ok;
+          o.type=w; o.frequency.setValueAtTime(f,t); g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.16,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+d); o.start(t); o.stop(t+d+.02); o.onended=()=>ctx.close();
+        }catch{}
       }
 
-      function addLog(text) {
-        const item = document.createElement('div');
-        item.className = 'log-item';
-        item.textContent = text;
-        els.battleLog.prepend(item);
-        while (els.battleLog.children.length > 5) {
-          els.battleLog.lastElementChild.remove();
-        }
+      function speakText(text, rate=1){
+        try{
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = 'en-US';
+          u.rate = rate;
+          u.pitch = 1;
+          window.speechSynthesis.speak(u);
+        }catch{}
       }
 
-      function starCount() {
-        return Object.values(state.stars).reduce((a, b) => a + (b || 0), 0);
+      function setupRecognition(){
+        if(!speechSupported) return null;
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const rec = new SR();
+        rec.lang = 'en-US';
+        rec.interimResults = false;
+        rec.maxAlternatives = 1;
+        return rec;
       }
 
-      function renderHeader() {
+      function renderHeader(){
         els.playerName.value = state.name || 'Player';
-        const { current, next } = getRank(state.xp);
+        const {current,next} = getRank(state.xp);
         els.heroRank.textContent = current.name;
         els.heroXP.textContent = `${state.xp} XP`;
         const pct = next ? clamp(((state.xp - current.xp) / (next.xp - current.xp)) * 100, 0, 100) : 100;
         els.xpBar.style.width = `${pct}%`;
-        els.xpProgressLabel.textContent = `${Math.round(pct)}%`;
-        els.unlockedCount.textContent = `${state.unlocked}/${missions.length}`;
+        els.xpLabel.textContent = `${Math.round(pct)}%`;
+        els.unlockedCount.textContent = `${state.unlocked}/${units.length}`;
         els.bestCombo.textContent = `${state.bestCombo || 0}x`;
-        els.totalStars.textContent = `${starCount()}⭐`;
+        els.totalStars.textContent = `${starsTotal()}⭐`;
       }
 
-      function renderMissions() {
-        els.missionGrid.innerHTML = '';
-        missions.forEach((m) => {
-          const unlocked = m.id <= state.unlocked;
-          const stars = state.stars[m.id] || 0;
-          const best = state.bestScores[m.id] || 0;
+      function renderUnits(){
+        els.unitGrid.innerHTML = '';
+        units.forEach(u => {
+          const unlocked = u.id <= state.unlocked;
+          const stars = state.stars[u.id] || 0;
+          const best = state.bestScores[u.id] || 0;
           const card = document.createElement('article');
-          card.className = `mission-card ${unlocked ? '' : 'locked'}`;
-          const starsText = '⭐'.repeat(stars) + '✦'.repeat(Math.max(0, 3 - stars));
+          card.className = `unit-card ${unlocked ? '' : 'locked'}`;
           card.innerHTML = `
-            <div class="mission-top">
-              <div style="display:flex; gap:12px; min-width:0;">
-                <div class="mission-id">${m.icon}</div>
-                <div style="min-width:0;">
-                  <h4>Mission ${String(m.id).padStart(2, '0')} · ${m.title}</h4>
-                  <p>${m.description}</p>
+            <div class="unit-top">
+              <div class="unit-left">
+                <div class="unit-icon">${u.icon}</div>
+                <div>
+                  <h4>Unit ${String(u.id).padStart(2,'0')} · ${esc(u.title)}</h4>
+                  <p>${esc(u.description)}</p>
                 </div>
               </div>
-              <span class="difficulty">${m.difficulty}</span>
+              <span class="level">${esc(u.level)}</span>
             </div>
-            <div class="mission-meta">
-              ${m.tags.map(t => `<span class="chip">${t}</span>`).join('')}
-              <span class="chip">⏱ ${m.time}s</span>
+            <div class="chip-row">
+              ${u.tags.map(t => `<span class="chip">${esc(t)}</span>`).join('')}
+              <span class="chip">🎧🗣📖✍</span>
+              <span class="chip">⏱ ${u.time}s</span>
             </div>
-            <div class="play-row" style="padding:10px 12px; border-radius:18px;">
-              <div>
-                <strong>Best Score</strong>
-                <span>${best}</span>
-              </div>
-              <div style="text-align:right;">
-                <strong>Stars</strong>
-                <span>${starsText}</span>
-              </div>
+            <div class="row" style="padding:10px 12px;border-radius:18px">
+              <div><strong>Best Score</strong><span>${best}</span></div>
+              <div style="text-align:right"><strong>Stars</strong><span>${'⭐'.repeat(stars) + '✦'.repeat(Math.max(0,3-stars))}</span></div>
             </div>
-            <div class="mission-actions">
-              <button class="cta-btn" ${unlocked ? '' : 'disabled'}>${unlocked ? 'Start Mission' : 'Locked'}</button>
-              <button class="ghost-btn">Preview</button>
+            <div class="unit-actions">
+              <button class="btn" ${unlocked ? '' : 'disabled'}>${unlocked ? 'Start Unit' : 'Locked'}</button>
+              <button class="btn-ghost">Preview</button>
             </div>
           `;
           const [startBtn, previewBtn] = card.querySelectorAll('button');
-          startBtn.addEventListener('click', () => {
-            if (!unlocked) return toast('Mission Locked', 'เคลียร์ด่านก่อนหน้าให้ผ่านก่อน แล้วด่านนี้จะปลดล็อก');
-            startMission(m.id);
+          startBtn.addEventListener('click', ()=>{
+            if(!unlocked) return toast('Unit Locked','ผ่านยูนิตก่อนหน้าแล้วด่านนี้จะเปิด');
+            startUnit(u.id,'campaign');
           });
-          previewBtn.addEventListener('click', () => previewMission(m));
-          els.missionGrid.appendChild(card);
+          previewBtn.addEventListener('click', ()=>toast(`Unit ${u.id}: ${u.title}`, `ครบ 4 ทักษะในระดับ ${u.level}`));
+          els.unitGrid.appendChild(card);
         });
       }
 
-      function renderLeaderboard() {
-        if (!board.length) {
-          els.leaderboard.innerHTML = `<div class="log-item">ยังไม่มีสถิติในเครื่องนี้ เริ่มเล่นแล้วเก็บคะแนนขึ้นบอร์ดได้เลย</div>`;
+      function renderBoard(){
+        if(!board.length){
+          els.leaderboard.innerHTML = `<div class="log">ยังไม่มีสถิติในเครื่องนี้ เริ่มเล่นแล้วเก็บคะแนนขึ้นบอร์ดได้เลย</div>`;
           return;
         }
-        els.leaderboard.innerHTML = board
-          .slice(0, 8)
-          .map((item, idx) => `
-            <div class="leaderboard-item">
-              <div class="rank-dot">${idx + 1}</div>
-              <div>
-                <div class="name">${escapeHTML(item.name)}</div>
-                <div class="sub">${escapeHTML(item.mission)} · ${item.date}</div>
-              </div>
-              <div class="score">${item.score}</div>
-            </div>
-          `).join('');
+        els.leaderboard.innerHTML = board.slice(0,8).map((item,idx)=>`
+          <div class="board-item">
+            <div class="num">${idx+1}</div>
+            <div><div class="name">${esc(item.name)}</div><div class="sub">${esc(item.unit)} · ${esc(item.date)}</div></div>
+            <div class="score">${item.score}</div>
+          </div>
+        `).join('');
       }
 
-      function escapeHTML(str = '') {
-        return String(str)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-      }
-
-      function previewMission(m) {
-        toast(`Mission ${m.id}: ${m.title}`, `โฟกัส: ${m.focus} · เวลาประมาณ ${m.time} วินาที · Boss: ${m.boss.title}`);
-      }
-
-      function updateHUD() {
-        if (!run) return;
-        els.hudMission.textContent = `M${String(run.mission.id).padStart(2,'0')} · ${run.mission.title}`;
-        els.hudStage.textContent = run.phase === 'warmup' ? 'Warm-Up' : run.phase === 'dialogue' ? 'Dialogue' : 'Boss';
+      function updateHUD(){
+        if(!run) return;
+        els.hudUnit.textContent = `U${String(run.unit.id).padStart(2,'0')} · ${run.unit.title}`;
+        els.hudSkill.textContent = run.skillLabel;
         els.hudScore.textContent = String(run.score);
         els.hudCombo.textContent = `${run.combo}x`;
         els.hudTime.textContent = `${Math.max(0, Math.ceil(run.timeLeft))}s`;
-        const energy = clamp(Math.round((run.energy / 100) * 100), 0, 100);
+        const energy = clamp(Math.round(run.energy),0,100);
         els.energyText.textContent = `${energy}%`;
         els.energyBar.style.width = `${energy}%`;
       }
 
-      function setPrompt({ kicker, title, desc, options, correctIndex, coach }) {
-        els.promptKicker.textContent = kicker;
-        els.promptTitle.textContent = title;
-        els.promptDesc.textContent = desc;
-        els.coachText.textContent = coach || run.mission.coach;
-        els.choices.innerHTML = '';
-
-        options.forEach((opt, idx) => {
-          const btn = document.createElement('button');
-          btn.className = 'choice';
-          btn.innerHTML = `
-            <span class="choice-letter">${letters[idx] || idx + 1}</span>
-            <span class="choice-copy">
-              <strong>${opt.text}</strong>
-              <span>${opt.sub || ''}</span>
-            </span>
-          `;
-          btn.addEventListener('click', () => {
-            if (run.locked) return;
-            run.locked = true;
-            const correct = idx === correctIndex;
-            btn.classList.add(correct ? 'correct' : 'wrong');
-            if (!correct) {
-              const correctBtn = els.choices.children[correctIndex];
-              if (correctBtn) correctBtn.classList.add('correct');
-            }
-            handleAnswer(correct, options[correctIndex].text);
-          });
-          els.choices.appendChild(btn);
-        });
+      function getStageData(){
+        if(!run) return null;
+        return run.unit.stages[run.skillKey];
       }
 
-      function handleAnswer(correct, correctText) {
+      function resetTaskUI(){
+        els.listenBox.classList.add('hidden');
+        els.speakBox.classList.add('hidden');
+        els.writeBox.classList.add('hidden');
+        els.choices.classList.add('hidden');
+        els.choices.innerHTML = '';
+        els.writeInput.value = '';
+        els.speechResult.textContent = 'No speech result yet.';
+        els.resultCard.classList.remove('show');
+      }
+
+      function setTaskBase(data){
+        els.promptKicker.textContent = data.kicker;
+        els.promptTitle.textContent = data.title;
+        els.promptDesc.textContent = data.desc;
+        els.coachText.textContent = data.coach || run.unit.coach;
+        updateHUD();
+      }
+
+      function renderTask(){
+        const data = getStageData();
+        if(!data) return;
+        resetTaskUI();
+        setTaskBase(data);
+        els.stageTitle.textContent = run.skillLabel;
+        els.stageSubtitle.textContent = skillSubtitle(run.skillKey);
+
+        if(data.type === 'mcq'){
+          if(run.skillKey === 'listening') els.listenBox.classList.remove('hidden');
+          els.choices.classList.remove('hidden');
+          data.options.forEach((opt,idx)=>{
+            const btn = document.createElement('button');
+            btn.className='choice';
+            btn.innerHTML = `<span class="letter">${letters[idx]}</span><span class="copy"><strong>${esc(opt.text)}</strong><span>${esc(opt.sub || '')}</span></span>`;
+            btn.addEventListener('click', ()=>{
+              if(run.locked) return;
+              run.locked = true;
+              const correct = idx === data.correctIndex;
+              btn.classList.add(correct ? 'correct' : 'wrong');
+              if(!correct && els.choices.children[data.correctIndex]) els.choices.children[data.correctIndex].classList.add('correct');
+              handleAnswer(correct, data.options[data.correctIndex].text);
+            });
+            els.choices.appendChild(btn);
+          });
+        }
+
+        if(data.type === 'speak'){
+          els.speakBox.classList.remove('hidden');
+        }
+
+        if(data.type === 'write'){
+          els.writeBox.classList.remove('hidden');
+        }
+      }
+
+      function skillSubtitle(skill){
+        return ({
+          listening:'ฟังเสียงสั้น ๆ แล้วจับข้อมูลสำคัญให้ได้',
+          speaking:'พูดตามโจทย์สั้น ๆ แบบ A2 ให้ชัดและตรงประเด็น',
+          reading:'อ่านข้อความสั้นแล้วตอบคำถามให้ไวและแม่น',
+          writing:'เขียน 1–2 ประโยคสั้น ๆ ด้วยคำง่ายที่ถูกต้อง'
+        })[skill] || '';
+      }
+
+      function handleAnswer(correct, correctText=''){
         run.answered += 1;
-        if (correct) {
+        if(correct){
           const timeBonus = Math.max(0, Math.floor(run.timeLeft * 2));
           const comboBonus = run.combo * 10;
+          const gain = 110 + comboBonus + timeBonus;
           run.correct += 1;
           run.combo += 1;
           run.bestCombo = Math.max(run.bestCombo, run.combo);
-          const gain = 100 + comboBonus + timeBonus;
           run.score += gain;
-          run.energy = clamp(run.energy + 6, 0, 100);
-          addLog(`✅ Correct! +${gain} points · Combo ${run.combo}x`);
-          beep(run.phase === 'boss' ? 'boss' : 'ok');
-          if (run.combo > 0 && run.combo % 3 === 0) {
-            toast('Combo Boost!', `ตอบติดกัน ${run.combo} ข้อแล้ว คะแนนเริ่มพุ่งแรง`);
-          }
-        } else {
+          run.energy = clamp(run.energy + 5, 0, 100);
+          log(`✅ Correct! +${gain} points · Combo ${run.combo}x`);
+          beep('ok');
+          if(run.combo > 0 && run.combo % 3 === 0) toast('Combo Boost!', `ตอบติดกัน ${run.combo} ข้อแล้ว`);
+        }else{
           run.combo = 0;
-          run.energy = clamp(run.energy - 24, 0, 100);
+          run.energy = clamp(run.energy - 23, 0, 100);
           run.score = Math.max(0, run.score - 30);
-          addLog(`❌ Miss! Correct answer: ${correctText}`);
+          log(`❌ Miss! Correct answer: ${correctText}`);
           beep('bad');
         }
         state.bestCombo = Math.max(state.bestCombo || 0, run.bestCombo);
         updateHUD();
-
-        if (run.energy <= 0) {
-          setTimeout(() => finishMission(false, 'Energy depleted. You need clearer, faster decisions.'), 620);
-          return;
-        }
-
-        setTimeout(() => advanceFlow(), 700);
+        if(run.energy <= 0) return setTimeout(()=>finishUnit(false,'Energy depleted. Try again with shorter and clearer answers.'), 680);
+        setTimeout(nextStage, 720);
       }
 
-      function advanceFlow() {
-        if (!run) return;
+      function nextStage(){
+        if(!run) return;
         run.locked = false;
-
-        if (run.phase === 'warmup') {
-          run.stepIndex += 1;
-          if (run.stepIndex < run.mission.warmup.length) {
-            renderCurrentStep();
-          } else {
-            run.phase = 'dialogue';
-            run.stepIndex = 0;
-            addLog('⚔️ Dialogue Battle started');
-            toast('Stage Up!', 'เข้าสู่ช่วง Dialogue Battle แล้ว');
-            renderCurrentStep();
-          }
-          return;
-        }
-
-        if (run.phase === 'dialogue') {
-          run.stepIndex += 1;
-          if (run.stepIndex < run.mission.dialogue.length) {
-            renderCurrentStep();
-          } else {
-            run.phase = 'boss';
-            addLog(`👑 ${run.mission.boss.title} unlocked`);
-            toast('Boss Incoming!', 'ด่านสุดท้ายมาแล้ว ตอบให้รอด');
-            renderBoss();
-          }
-          return;
-        }
-
-        if (run.phase === 'boss') {
-          finishMission(true);
-        }
+        const order = run.order;
+        run.stageIndex += 1;
+        if(run.stageIndex >= order.length) return finishUnit(true);
+        run.skillKey = order[run.stageIndex];
+        run.skillLabel = capitalize(run.skillKey);
+        log(`➡ ${run.skillLabel} stage started`);
+        renderTask();
       }
 
-      function renderCurrentStep() {
-        if (!run) return;
-        els.quizCard.classList.remove('hidden');
-        els.bossCard.classList.remove('show');
-        els.resultScreen.classList.remove('show');
+      function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
-        const block = run.phase === 'warmup' ? run.mission.warmup[run.stepIndex] : run.mission.dialogue[run.stepIndex];
-        els.stageTitle.textContent = run.phase === 'warmup' ? 'Warm-Up Dash' : 'Dialogue Battle';
-        els.stageSubtitle.textContent = run.phase === 'warmup'
-          ? 'ตอบให้ไวเพื่อ build combo ก่อนเข้าด่านสนทนา'
-          : 'เลือกประโยคที่ใช้ได้จริงในบริบทมหาวิทยาลัยและสายงาน tech';
-        setPrompt(block);
-        updateHUD();
-      }
-
-      function renderBoss() {
-        if (!run) return;
-        els.quizCard.classList.add('hidden');
-        els.bossCard.classList.add('show');
-        els.resultScreen.classList.remove('show');
-        els.stageTitle.textContent = run.mission.boss.title;
-        els.stageSubtitle.textContent = 'Final check — ใช้ judgement แบบคนพร้อมฝึกงาน';
-        els.bossPrompt.textContent = run.mission.boss.prompt;
-        els.coachText.textContent = run.mission.boss.coach || run.mission.coach;
-        els.bossOptions.innerHTML = '';
-        run.locked = false;
-
-        run.mission.boss.options.forEach((opt, idx) => {
-          const btn = document.createElement('button');
-          btn.className = 'choice';
-          btn.innerHTML = `
-            <span class="choice-letter">${letters[idx] || idx + 1}</span>
-            <span class="choice-copy">
-              <strong>${opt.text}</strong>
-              <span>${opt.sub || ''}</span>
-            </span>
-          `;
-          btn.addEventListener('click', () => {
-            if (run.locked) return;
-            run.locked = true;
-            const correct = idx === run.mission.boss.correctIndex;
-            btn.classList.add(correct ? 'correct' : 'wrong');
-            if (!correct && els.bossOptions.children[run.mission.boss.correctIndex]) {
-              els.bossOptions.children[run.mission.boss.correctIndex].classList.add('correct');
-            }
-            handleAnswer(correct, run.mission.boss.options[run.mission.boss.correctIndex].text);
-          });
-          els.bossOptions.appendChild(btn);
-        });
-        updateHUD();
-      }
-
-      function startMission(id, mode = 'campaign') {
-        const mission = missions.find(m => m.id === id) || missions[0];
-        state.name = (els.playerName.value || state.name || 'Player').trim().slice(0, 18) || 'Player';
+      function startUnit(id, mode='campaign', singleSkill=''){
+        const unit = units.find(u => u.id === id) || units[0];
+        state.name = (els.playerName.value || state.name || 'Player').trim().slice(0,18) || 'Player';
         saveState();
-
         run = {
-          mode,
-          mission,
-          phase: 'warmup',
-          stepIndex: 0,
-          score: 0,
-          combo: 0,
-          bestCombo: 0,
-          correct: 0,
-          answered: 0,
-          timeLeft: mode === 'drill' ? 90 : mission.time,
+          unit, mode,
+          order: singleSkill ? [singleSkill] : ['listening','speaking','reading','writing'],
+          stageIndex: 0,
+          skillKey: singleSkill || 'listening',
+          skillLabel: capitalize(singleSkill || 'listening'),
+          score: 0, combo: 0, bestCombo: 0, correct: 0, answered: 0,
+          timeLeft: singleSkill ? 36 : unit.time,
           energy: 100,
-          locked: false,
-          startAt: Date.now()
+          locked: false
         };
 
-        clearInterval(tickTimer);
-        tickTimer = setInterval(() => {
-          if (!run) return clearInterval(tickTimer);
+        clearInterval(timer);
+        timer = setInterval(()=>{
+          if(!run) return clearInterval(timer);
           run.timeLeft -= 1;
-          if (run.timeLeft <= 0) {
-            run.timeLeft = 0;
-            updateHUD();
-            finishMission(false, 'Time is up. Great effort — now try again with faster reading and sharper choices.');
+          if(run.timeLeft <= 0){
+            run.timeLeft = 0; updateHUD();
+            finishUnit(false,'Time is up. Read faster and keep your A2 English short and clear.');
             return;
           }
           updateHUD();
-        }, 1000);
+        },1000);
 
         els.gameOverlay.classList.add('show');
-        els.quizCard.classList.remove('hidden');
-        els.bossCard.classList.remove('show');
-        els.resultScreen.classList.remove('show');
+        els.resultCard.classList.remove('show');
         els.battleLog.innerHTML = '';
-        addLog(`🚀 Mission started: ${mission.title}`);
-        addLog(`🎯 Focus: ${mission.focus}`);
+        log(`🚀 Unit started: ${unit.title}`);
+        log(`🎯 Focus: ${singleSkill ? capitalize(singleSkill) : 'All 4 skills'}`);
         beep('start');
-        renderCurrentStep();
+        renderTask();
       }
 
-      function finishMission(success, customSummary = '') {
-        clearInterval(tickTimer);
-        if (!run) return;
+      function finishUnit(success, customSummary=''){
+        clearInterval(timer);
+        if(!run) return;
+        window.speechSynthesis && window.speechSynthesis.cancel();
+        if(recognition){ try{ recognition.stop(); }catch{} }
 
         const accuracy = run.answered ? Math.round((run.correct / run.answered) * 100) : 0;
         const timeBonus = Math.floor(run.timeLeft * 4);
-        const survivalBonus = Math.floor(run.energy * 3);
-        const finalScore = success ? run.score + timeBonus + survivalBonus : run.score;
+        const energyBonus = Math.floor(run.energy * 3);
+        const finalScore = success ? run.score + timeBonus + energyBonus : run.score;
         const xpEarned = Math.max(80, Math.floor(finalScore * (success ? 0.18 : 0.08)));
-        const stars = success
-          ? finalScore >= 1100 ? 3 : finalScore >= 700 ? 2 : 1
-          : 0;
+        const stars = success ? (finalScore >= 1200 ? 3 : finalScore >= 780 ? 2 : 1) : 0;
 
         state.xp += xpEarned;
         state.bestCombo = Math.max(state.bestCombo || 0, run.bestCombo || 0);
-        state.bestScores[run.mission.id] = Math.max(state.bestScores[run.mission.id] || 0, finalScore);
-        state.stars[run.mission.id] = Math.max(state.stars[run.mission.id] || 0, stars);
-        if (success && state.unlocked < missions.length && run.mission.id >= state.unlocked) {
-          state.unlocked = Math.min(missions.length, run.mission.id + 1);
+        if(!run.mode.startsWith('drill')){
+          state.bestScores[run.unit.id] = Math.max(state.bestScores[run.unit.id] || 0, finalScore);
+          state.stars[run.unit.id] = Math.max(state.stars[run.unit.id] || 0, stars);
+          if(success && state.unlocked < units.length && run.unit.id >= state.unlocked){
+            state.unlocked = Math.min(units.length, run.unit.id + 1);
+          }
         }
-        state.missionHistory.unshift({
-          missionId: run.mission.id,
-          mission: run.mission.title,
-          score: finalScore,
-          stars,
-          accuracy,
-          date: new Date().toLocaleString('th-TH')
-        });
-        state.missionHistory = state.missionHistory.slice(0, 20);
+        state.history.unshift({unitId:run.unit.id, unit:run.unit.title, score:finalScore, stars, accuracy, date:new Date().toLocaleString('th-TH')});
+        state.history = state.history.slice(0,20);
         saveState();
 
-        board.push({
-          name: state.name || 'Player',
-          mission: run.mission.title,
-          score: finalScore,
-          date: new Date().toLocaleDateString('th-TH')
-        });
-        board = board.sort((a, b) => b.score - a.score).slice(0, 16);
+        board.push({name:state.name || 'Player', unit: run.mode.startsWith('drill') ? `${run.skillLabel} Drill` : run.unit.title, score:finalScore, date:new Date().toLocaleDateString('th-TH')});
+        board = board.sort((a,b)=>b.score-a.score).slice(0,16);
         saveBoard();
 
-        renderHeader();
-        renderMissions();
-        renderLeaderboard();
+        renderHeader(); renderUnits(); renderBoard();
 
-        const { current: beforeRank } = getRank(Math.max(0, state.xp - xpEarned));
-        const { current: afterRank } = getRank(state.xp);
-        if (beforeRank.name !== afterRank.name) {
-          toast('Rank Up!', `คุณเลื่อนเป็น ${afterRank.name}`);
-          beep('level');
-        }
-
-        els.quizCard.classList.add('hidden');
-        els.bossCard.classList.remove('show');
-        els.resultScreen.classList.add('show');
-        els.resultTitle.textContent = success ? 'Mission Clear!' : 'Mission Failed — Try Again!';
-        els.resultSummary.textContent = customSummary || (success
-          ? 'คุณผ่านด่านนี้ได้แบบมี flow ใช้ศัพท์ถูกและเลือกประโยคได้เหมาะกับบริบทจริง'
-          : 'ยังไม่ผ่าน แต่ตอนนี้รู้จุดอ่อนแล้ว ลองอีกครั้งโดยอ่านโจทย์ให้เร็วขึ้นและใช้ logic ให้แม่นกว่าเดิม');
+        els.resultCard.classList.add('show');
+        els.resultTitle.textContent = success ? 'Unit Clear!' : 'Try Again!';
+        els.resultSummary.textContent = customSummary || (success ? 'You finished the unit with clear A2 English across the skill challenge.' : 'You are close. Try again with shorter, clearer English and faster reading.');
         els.starRow.textContent = success ? `${'⭐ '.repeat(stars).trim()}${stars ? '' : '✦'}` : '✦ ✦ ✦';
         els.resultScore.textContent = String(finalScore);
         els.resultCombo.textContent = `${run.bestCombo}x`;
         els.resultAccuracy.textContent = `${accuracy}%`;
         els.resultXP.textContent = `+${xpEarned}`;
-
         const rewards = [];
-        if (success) rewards.push(`🏅 ${stars} Star${stars > 1 ? 's' : ''}`);
-        if (accuracy >= 80) rewards.push('🎯 Sharp Accuracy');
-        if (run.bestCombo >= 4) rewards.push('⚡ Combo Master');
-        if (run.timeLeft >= 15) rewards.push('⏱ Fast Finish');
-        if (!rewards.length) rewards.push('💪 Keep Practicing');
-        els.rewardRow.innerHTML = rewards.map(r => `<span class="reward-chip">${r}</span>`).join('');
+        if(success) rewards.push(`🏅 ${stars} Star${stars>1?'s':''}`);
+        if(accuracy >= 80) rewards.push('🎯 Good Accuracy');
+        if(run.bestCombo >= 4) rewards.push('⚡ Strong Combo');
+        if(run.timeLeft >= 15) rewards.push('⏱ Fast Finish');
+        if(!rewards.length) rewards.push('💪 Keep Training');
+        els.rewardRow.innerHTML = rewards.map(r => `<span class="reward">${esc(r)}</span>`).join('');
 
-        els.nextMissionBtn.onclick = () => {
-          const nextId = Math.min(missions.length, run.mission.id + 1);
-          const canGo = nextId !== run.mission.id && nextId <= state.unlocked;
-          if (canGo) startMission(nextId);
-          else closeGameOverlay();
-        };
-        els.replayBtn.onclick = () => startMission(run.mission.id, run.mode);
-        els.backHubBtn.onclick = () => closeGameOverlay();
+        const prevRank = getRank(Math.max(0, state.xp - xpEarned)).current.name;
+        const newRank = getRank(state.xp).current.name;
+        if(prevRank !== newRank){ toast('Rank Up!', `คุณเลื่อนเป็น ${newRank}`); beep('up'); }
 
+        const currentRun = {...run};
         run = null;
+        els.nextUnitBtn.onclick = ()=>{
+          const nextId = Math.min(units.length, currentRun.unit.id + 1);
+          const canGo = nextId !== currentRun.unit.id && nextId <= state.unlocked;
+          if(canGo) startUnit(nextId,'campaign'); else closeGame();
+        };
+        els.replayBtn.onclick = ()=>startUnit(currentRun.unit.id, currentRun.mode, currentRun.mode.startsWith('drill-') ? currentRun.mode.replace('drill-','') : '');
+        els.backHubBtn.onclick = closeGame;
       }
 
-      function closeGameOverlay() {
-        clearInterval(tickTimer);
+      function closeGame(){
+        clearInterval(timer);
+        if(recognition){ try{ recognition.stop(); }catch{} }
+        window.speechSynthesis && window.speechSynthesis.cancel();
         run = null;
         els.gameOverlay.classList.remove('show');
-        els.quizCard.classList.remove('hidden');
-        els.bossCard.classList.remove('show');
-        els.resultScreen.classList.remove('show');
+        els.resultCard.classList.remove('show');
       }
 
-      function startDaily() {
-        const maxUnlocked = Math.max(1, state.unlocked);
-        const available = missions.filter(m => m.id <= maxUnlocked);
-        const mission = available[Math.floor(Math.random() * available.length)] || missions[0];
-        toast('Daily Challenge', `สุ่มได้ Mission ${mission.id}: ${mission.title}`);
-        startMission(mission.id, 'daily');
+      function checkKeywords(text, arr){
+        const t = String(text || '').toLowerCase();
+        let hits = 0;
+        arr.forEach(k => { if(t.includes(String(k).toLowerCase())) hits += 1; });
+        return hits;
       }
 
-      function startDrill() {
-        const base = missions[Math.min(state.unlocked - 1, missions.length - 1)] || missions[0];
-        toast('Speed Drill', 'โหมดนี้เวลา 90 วินาที เน้น reflex และ reading speed');
-        startMission(base.id, 'drill');
+      function wireTaskButtons(){
+        els.playAudioBtn.addEventListener('click', ()=>{ const d = getStageData(); if(d && d.audioText) speakText(d.audioText,1); });
+        els.playSlowBtn.addEventListener('click', ()=>{ const d = getStageData(); if(d && (d.audioSlow || d.audioText)) speakText(d.audioSlow || d.audioText,.78); });
+
+        els.selfCheckBtn.addEventListener('click', ()=>{
+          const d = getStageData();
+          if(!run || !d || d.type !== 'speak' || run.locked) return;
+          run.locked = true;
+          const ok = confirm(`พูดประโยคตามโจทย์แล้วใช่ไหม?
+
+Model:
+${d.model}`);
+          els.speechResult.textContent = ok ? 'Self-check complete: accepted.' : 'Self-check complete: try again.';
+          handleAnswer(ok, d.model);
+        });
+
+        els.micBtn.addEventListener('click', ()=>{
+          const d = getStageData();
+          if(!run || !d || d.type !== 'speak' || run.locked) return;
+          if(!speechSupported){
+            toast('Speech not supported', 'เบราว์เซอร์นี้ไม่รองรับ speech recognition ให้ใช้ Self Check แทน');
+            return;
+          }
+          recognition = setupRecognition();
+          if(!recognition) return;
+          els.speechResult.textContent = 'Listening... Speak now.';
+          recognition.onresult = (ev)=>{
+            const txt = ev.results[0][0].transcript || '';
+            els.speechResult.textContent = `You said: ${txt}`;
+            if(run.locked) return;
+            run.locked = true;
+            const hits = checkKeywords(txt, d.expectedKeywords || []);
+            handleAnswer(hits >= Math.max(2, Math.min(3, (d.expectedKeywords || []).length)), d.model);
+          };
+          recognition.onerror = ()=>{ els.speechResult.textContent = 'Speech recognition error. Use Self Check.'; };
+          recognition.start();
+        });
+
+        els.submitWriteBtn.addEventListener('click', ()=>{
+          const d = getStageData();
+          if(!run || !d || d.type !== 'write' || run.locked) return;
+          const text = els.writeInput.value.trim();
+          if(!text) return toast('Write first', 'พิมพ์คำตอบก่อนแล้วค่อยส่ง');
+          run.locked = true;
+          const hits = checkKeywords(text, d.expectedKeywords || []);
+          const ok = text.length >= 12 && hits >= Math.max(1, Math.min(2, (d.expectedKeywords || []).length));
+          handleAnswer(ok, d.model);
+        });
+
+        els.showModelBtn.addEventListener('click', ()=>{
+          const d = getStageData();
+          if(d && d.model) toast('Model answer', d.model);
+        });
       }
 
-      function wireEvents() {
-        els.saveNameBtn.addEventListener('click', () => {
-          const v = (els.playerName.value || '').trim().slice(0, 18);
-          state.name = v || 'Player';
-          saveState();
-          toast('Name Saved', `พร้อมลุยแล้ว ${state.name}`);
-          renderHeader();
+      function wireGeneralEvents(){
+        els.saveNameBtn.addEventListener('click', ()=>{
+          state.name = (els.playerName.value || '').trim().slice(0,18) || 'Player';
+          saveState(); renderHeader(); toast('Name Saved', `พร้อมลุยแล้ว ${state.name}`);
         });
-
-        els.playFirstBtn.addEventListener('click', () => startMission(1));
-        els.dailyBtn.addEventListener('click', startDaily);
-        els.drillBtn.addEventListener('click', startDrill);
-
-        els.resetProgressBtn.addEventListener('click', () => {
-          if (!confirm('Reset ความคืบหน้าทั้งหมด?')) return;
-          state = defaultState();
-          saveState();
-          renderHeader();
-          renderMissions();
-          toast('Progress Reset', 'เริ่มต้นใหม่เรียบร้อยแล้ว');
+        els.playFirstBtn.addEventListener('click', ()=>startUnit(1));
+        els.dailyBtn.addEventListener('click', ()=>{
+          const maxUnlocked = Math.max(1, state.unlocked);
+          const available = units.filter(u => u.id <= maxUnlocked);
+          const pick = available[Math.floor(Math.random() * available.length)] || units[0];
+          toast('Daily Mix', `สุ่มได้ Unit ${pick.id}: ${pick.title}`);
+          startUnit(pick.id,'daily');
         });
-
-        els.resetBoardBtn.addEventListener('click', () => {
-          if (!confirm('ล้าง leaderboard ในเครื่องนี้?')) return;
-          board = [];
-          saveBoard();
-          renderLeaderboard();
-          toast('Leaderboard Reset', 'ล้างคะแนนเรียบร้อย');
+        document.querySelectorAll('[data-skill]').forEach(btn => {
+          btn.addEventListener('click', ()=>{
+            const skill = btn.getAttribute('data-skill');
+            const base = units[Math.min(state.unlocked - 1, units.length - 1)] || units[0];
+            toast('Skill Drill', `ฝึกเฉพาะ ${capitalize(skill)}`);
+            startUnit(base.id, `drill-${skill}`, skill);
+          });
         });
-
-        els.howBtn.addEventListener('click', () => els.helpOverlay.classList.add('show'));
-        els.closeHelpBtn.addEventListener('click', () => els.helpOverlay.classList.remove('show'));
-        els.helpOverlay.addEventListener('click', (e) => {
-          if (e.target === els.helpOverlay) els.helpOverlay.classList.remove('show');
+        els.resetProgressBtn.addEventListener('click', ()=>{
+          if(!confirm('Reset ความคืบหน้าทั้งหมด?')) return;
+          state = defaultState(); saveState(); renderHeader(); renderUnits(); toast('Progress Reset','เริ่มใหม่เรียบร้อย');
         });
-
-        els.gameOverlay.addEventListener('click', (e) => {
-          if (e.target === els.gameOverlay && !run) closeGameOverlay();
+        els.resetBoardBtn.addEventListener('click', ()=>{
+          if(!confirm('ล้าง leaderboard ในเครื่องนี้?')) return;
+          board = []; saveBoard(); renderBoard(); toast('Leaderboard Reset','ล้างคะแนนเรียบร้อย');
         });
-
-        window.addEventListener('keydown', (e) => {
-          if (!els.gameOverlay.classList.contains('show')) return;
+        els.howBtn.addEventListener('click', ()=>els.helpOverlay.classList.add('show'));
+        els.closeHelpBtn.addEventListener('click', ()=>els.helpOverlay.classList.remove('show'));
+        els.helpOverlay.addEventListener('click', e => { if(e.target === els.helpOverlay) els.helpOverlay.classList.remove('show'); });
+        els.gameOverlay.addEventListener('click', e => { if(e.target === els.gameOverlay && !run) closeGame(); });
+        window.addEventListener('keydown', e => {
+          if(!els.gameOverlay.classList.contains('show') || !run) return;
           const key = e.key.toLowerCase();
-          const map = { a: 0, b: 1, c: 2, d: 3, '1': 0, '2': 1, '3': 2, '4': 3 };
-          if (!(key in map)) return;
+          const map = {a:0,b:1,c:2,d:3,'1':0,'2':1,'3':2,'4':3};
+          if(!(key in map)) return;
           const idx = map[key];
-          const btns = run && run.phase === 'boss' ? els.bossOptions.children : els.choices.children;
-          if (btns && btns[idx]) btns[idx].click();
+          const btn = els.choices.children[idx];
+          if(btn) btn.click();
         });
       }
 
-      function boot() {
-        renderHeader();
-        renderMissions();
-        renderLeaderboard();
-        wireEvents();
-        toast('Ready to play', 'เริ่มจาก Mission 1 แล้วไต่ rank ไปทีละด่านได้เลย');
+      function boot(){
+        renderHeader(); renderUnits(); renderBoard(); wireGeneralEvents(); wireTaskButtons();
+        toast('Ready to play', 'เริ่มที่ Unit 1 แล้วฝึกครบ 4 ทักษะได้เลย');
       }
 
       boot();
