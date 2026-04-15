@@ -1,6 +1,6 @@
 // === /fitness/js/jumpduck.js ===
-// FULL FINAL MATCHED WITH CUTE HTML
-// PATCH v20260415a-JUMPDuck-DOGHERO-CUTE-FITNESSZONE-FINAL
+// FULL FINAL MATCHED WITH CUTE HTML + GRADE5 RESULT
+// PATCH v20260415b-JUMPDuck-DOGHERO-CUTE-G5RESULT-FITNESSZONE-FINAL
 
 'use strict';
 
@@ -882,6 +882,37 @@
     if (bossStatusRight) bossStatusRight.textContent = '—';
   }
 
+  function jdResultHeadline(rank, bossDown, noMiss) {
+    if (rank === 'S') {
+      return {
+        title: 'สุดยอดมาก!',
+        sub: 'รอบนี้เล่นได้เก่งมากและแม่นมาก'
+      };
+    }
+    if (rank === 'A') {
+      return {
+        title: 'เยี่ยมมาก!',
+        sub: 'อีกนิดเดียวก็ถึงระดับสูงสุดแล้ว'
+      };
+    }
+    if (rank === 'B') {
+      return {
+        title: 'ดีมาก!',
+        sub: 'เริ่มจับจังหวะได้ดีแล้ว'
+      };
+    }
+    if (rank === 'C') {
+      return {
+        title: 'ผ่านแล้ว! แต่ยังไปได้อีก',
+        sub: 'เริ่มจับจังหวะได้แล้ว ลองลด miss และดัน combo ให้สูงขึ้น'
+      };
+    }
+    return {
+      title: 'ลองอีกครั้งนะ',
+      sub: 'รอบหน้าดูสิ่งกีดขวางให้เร็วขึ้นอีกนิด'
+    };
+  }
+
   function resetResultHUD() {
     if (rankBadge) {
       rankBadge.textContent = 'C';
@@ -889,18 +920,29 @@
       rankBadge.classList.add('rank-c');
     }
 
-    if (resultTitle) resultTitle.textContent = 'ผ่านด่านฝึกแล้ว!';
-    if (resultSub) resultSub.textContent = 'สรุปรอบล่าสุดของ JumpDuck';
+    if (resultTitle) resultTitle.textContent = 'ผ่านแล้ว! แต่ยังไปได้อีก';
+    if (resultSub) resultSub.textContent = 'รอบหน้าลองลด miss และดัน combo ให้สูงขึ้น';
+
+    if (resultReward) resultReward.textContent = 'Clear Run';
+    if (resultRewardIcon) resultRewardIcon.textContent = '⭐';
+    if (resultRewardSub) {
+      resultRewardSub.textContent = 'ลองอ่านสิ่งกีดขวางให้เร็วขึ้น และอย่ากดรีบเกินไป';
+    }
+
+    if (coachTip1) {
+      coachTip1.textContent = 'รอบหน้าลองดูสิ่งกีดขวางให้เร็วขึ้นอีกนิด';
+    }
+
+    if (resScoreBig) resScoreBig.textContent = '0';
+    if (resMiss) resMiss.textContent = '0';
+    if (resComboBig) resComboBig.textContent = '0';
+
     if (resultBoss) resultBoss.textContent = '—';
     if (resultPattern) resultPattern.textContent = '—';
     if (resultRush) resultRush.textContent = '—';
-    if (resultReward) resultReward.textContent = 'Keep Training';
-    if (resultRewardIcon) resultRewardIcon.textContent = '⭐';
-    if (resultRewardSub) resultRewardSub.textContent = 'ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม';
 
     if (coachTitle) coachTitle.textContent = 'AI Coach';
     if (coachSummary) coachSummary.textContent = 'สรุปคำแนะนำหลังจบเกม';
-    if (coachTip1) coachTip1.textContent = '—';
     if (coachTip2) coachTip2.textContent = '—';
 
     if (resMode) resMode.textContent = '-';
@@ -908,7 +950,6 @@
     if (resDuration) resDuration.textContent = '-';
     if (resTotalObs) resTotalObs.textContent = '0';
     if (resHits) resHits.textContent = '0';
-    if (resMiss) resMiss.textContent = '0';
     if (resJumpHit) resJumpHit.textContent = '0';
     if (resDuckHit) resDuckHit.textContent = '0';
     if (resJumpMiss) resJumpMiss.textContent = '0';
@@ -918,9 +959,7 @@
     if (resStabilityMin) resStabilityMin.textContent = '0%';
     if (resScore) resScore.textContent = '0';
     if (resRank) resRank.textContent = 'C';
-    if (resScoreBig) resScoreBig.textContent = '0';
     if (resAccBig) resAccBig.textContent = '0%';
-    if (resComboBig) resComboBig.textContent = '0';
     if (resBossEndBig) resBossEndBig.textContent = '—';
     if (resPhaseEnd) resPhaseEnd.textContent = '-';
     if (resPattern) resPattern.textContent = '-';
@@ -2241,43 +2280,6 @@
     };
   }
 
-  function jdResultHeadline(rank, bossDown, noMiss) {
-    if (rank === 'S' && bossDown && noMiss) {
-      return {
-        title: 'สุดยอด! Legend Run',
-        sub: 'รอบนี้ทั้งแม่น ทั้งนิ่ง และเก็บบอสลงได้แบบไร้ที่ติ'
-      };
-    }
-    if (rank === 'S') {
-      return {
-        title: 'ยอดเยี่ยมมาก! S Rank',
-        sub: 'จังหวะดี อ่านเกมขาด และคุมสนามได้เยี่ยม'
-      };
-    }
-    if (rank === 'A') {
-      return {
-        title: 'เยี่ยมมาก! A Rank',
-        sub: 'เล่นมั่นใจมาก เหลือเก็บรายละเอียดอีกนิด'
-      };
-    }
-    if (rank === 'B') {
-      return {
-        title: 'ดีมาก! ผ่านแบบมีทรง',
-        sub: 'เริ่มอ่าน pattern ได้ดีขึ้น ลองกดให้คมขึ้นอีกนิด'
-      };
-    }
-    if (rank === 'C') {
-      return {
-        title: 'ผ่านแล้ว! แต่ยังไปได้อีก',
-        sub: 'เริ่มจับจังหวะได้แล้ว ลองลด miss และดัน combo ให้สูงขึ้น'
-      };
-    }
-    return {
-      title: 'ยังต้องซ้อมอีกนิด',
-      sub: 'โฟกัส low = jump / high = duck แล้วรอบหน้าจะดีขึ้นมาก'
-    };
-  }
-
   function jdRewardFlavor(reward, bossBadge, rank) {
     if (bossBadge) return `${bossBadge.icon} ปลดตรา ${bossBadge.label} สำเร็จ`;
     if (rank === 'S') return 'จังหวะคมมาก รอบนี้เล่นเหมือนโปรแล้ว';
@@ -2547,28 +2549,62 @@
 
     if (resultTitle) resultTitle.textContent = headline.title;
     if (resultSub) resultSub.textContent = headline.sub;
-    if (resultBoss) resultBoss.textContent = s.bossProfile?.label || (s.bossActive ? 'Boss' : '—');
-    if (resultPattern) resultPattern.textContent = s.lastPattern || '—';
-    if (resultRush) resultRush.textContent = s.finalRush ? 'FINAL RUSH' : '—';
 
-    if (resultReward) resultReward.textContent = result.bossTitle || result.reward?.label || 'Keep Training';
-    if (resultRewardIcon) resultRewardIcon.textContent = result.bossBadge?.icon || result.reward?.medal || '⭐';
-    if (resultRewardSub) resultRewardSub.textContent = jdRewardFlavor(result.reward, result.bossBadge, result.rank);
+    if (resultReward) {
+      resultReward.textContent = result.bossTitle || result.reward?.label || 'Clear Run';
+    }
+
+    if (resultRewardIcon) {
+      resultRewardIcon.textContent = result.bossBadge?.icon || result.reward?.medal || '⭐';
+    }
+
+    if (resultRewardSub) {
+      resultRewardSub.textContent =
+        result.coach?.primaryTip ||
+        'รอบหน้าลองดูสิ่งกีดขวางให้เร็วขึ้น และอย่ากดรีบเกินไป';
+    }
 
     if (resScoreBig) resScoreBig.textContent = String(s.score || 0);
-    if (resAccBig) resAccBig.textContent = `${Number(result.accPct || 0).toFixed(1)}%`;
+    if (resMiss) resMiss.textContent = String(s.miss || 0);
     if (resComboBig) resComboBig.textContent = String(s.maxCombo || 0);
-    if (resBossEndBig) resBossEndBig.textContent = s.bossActive ? `${Math.round(s.bossHp || 0)}%` : '—';
 
-    if (resPhaseEnd) resPhaseEnd.textContent = `${s.phase || '-'} • ${s.phaseLabel || '-'}`;
-    if (resPattern) resPattern.textContent = s.lastPattern || '—';
-    if (resBossLabel) resBossLabel.textContent = s.bossProfile?.label || '—';
-    if (resRush) resRush.textContent = s.finalRush ? 'FINAL RUSH' : 'NO';
+    if (resultBoss) {
+      resultBoss.textContent = s.bossProfile?.label || '—';
+    }
 
-    if (coachTitle) coachTitle.textContent = result.coach?.headline || 'AI Coach';
-    if (coachSummary) coachSummary.textContent = result.coach?.summary || 'สรุปคำแนะนำหลังจบเกม';
-    if (coachTip1) coachTip1.textContent = result.coach?.primaryTip || '—';
-    if (coachTip2) coachTip2.textContent = result.coach?.secondaryTip || '—';
+    if (resultPattern) {
+      resultPattern.textContent = s.lastPattern || '—';
+    }
+
+    if (resultRush) {
+      resultRush.textContent = s.finalRush ? 'FINAL RUSH' : '—';
+    }
+
+    if (coachTitle) {
+      coachTitle.textContent = result.coach?.headline || 'AI Coach';
+    }
+
+    if (coachSummary) {
+      coachSummary.textContent = result.coach?.summary || 'สรุปคำแนะนำหลังจบเกม';
+    }
+
+    if (coachTip1) {
+      coachTip1.textContent =
+        result.coach?.primaryTip ||
+        'รอบหน้าลองโฟกัส low = jump และ high = duck ให้เร็วขึ้น';
+    }
+
+    if (coachTip2) {
+      coachTip2.textContent =
+        result.coach?.secondaryTip || '—';
+    }
+
+    if (resScore) resScore.textContent = String(s.score || 0);
+    if (resRank) resRank.textContent = String(result.rank || 'C');
+    if (resAcc) {
+      const acc = Number(result.accPct || 0);
+      resAcc.textContent = `${acc.toFixed(1)}%`;
+    }
   }
 
   function createState(opts) {
