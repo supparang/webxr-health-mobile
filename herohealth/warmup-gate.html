@@ -24,7 +24,7 @@
   <div id="gate-app"></div>
 
   <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260414-JUMPDuck-GATE-ZONE-NORMALIZE-FINAL';
+    import bootGate from './gate/gate-core.js?v=20260415a-ZONE-FIRST-HUBROOT-FIX';
 
     const root = document.getElementById('gate-app');
 
@@ -98,6 +98,15 @@
       return false;
     }
 
+    function looksLikeHubPage(href=''){
+      const s = String(href || '').toLowerCase();
+      return s.includes('/hub.html') || s.includes('/hub-v2.html');
+    }
+
+    function defaultHubRootHref(){
+      return 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+    }
+
     function normalizeGameId(raw=''){
       const s = String(raw || '').trim().toLowerCase();
       if (!s) return '';
@@ -158,7 +167,7 @@
       if (z === 'hygiene') {
         return 'https://supparang.github.io/webxr-health-mobile/herohealth/hygiene-zone.html';
       }
-      return 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+      return defaultHubRootHref();
     }
 
     function launcherHrefByGame(gameId=''){
@@ -264,6 +273,7 @@
       u.searchParams.set('wgskip', '1');
       u.searchParams.set('autostart', '1');
       u.searchParams.set('entry', 'warmup-gate');
+
       if (zoneHref) {
         u.searchParams.set('hub', zoneHref);
         u.searchParams.set('zoneReturn', zoneHref);
@@ -271,7 +281,28 @@
       if (hubRootHref) {
         u.searchParams.set('hubRoot', hubRootHref);
       }
+
       return u.toString();
+    }
+
+    function normalizeZoneReturn(rawZoneReturn, rawHub, zoneHref, zone){
+      if (rawZoneReturn && !looksLikeRoot(rawZoneReturn, zone)) {
+        return rawZoneReturn;
+      }
+      if (rawHub && looksLikeZonePage(rawHub, zone)) {
+        return rawHub;
+      }
+      return zoneHref;
+    }
+
+    function normalizeHubRoot(rawHubRoot, rawHub, zone){
+      if (rawHubRoot && !looksLikeRoot(rawHubRoot, zone) && !looksLikeZonePage(rawHubRoot, zone)) {
+        return rawHubRoot;
+      }
+      if (rawHub && looksLikeHubPage(rawHub)) {
+        return rawHub;
+      }
+      return defaultHubRootHref();
     }
 
     function normalizeGateQueryParams(){
@@ -302,24 +333,16 @@
       const rawCdNext = abs(p.get('cdnext') || '', '');
       const rawLauncher = abs(p.get('launcher') || '', '');
 
-      const normalizedHub =
-        looksLikeRoot(rawHub, zone) || !rawHub
-          ? zoneHref
-          : rawHub;
+      const normalizedZoneReturn = normalizeZoneReturn(rawZoneReturn, rawHub, zoneHref, zone);
+      const normalizedHubRoot = normalizeHubRoot(rawHubRoot, rawHub, zone);
 
-      const normalizedHubRoot =
-        looksLikeRoot(rawHubRoot, zone) || !rawHubRoot
-          ? zoneHref
-          : rawHubRoot;
+      // zone-first standard:
+      p.set('zoneReturn', normalizedZoneReturn);
+      p.set('hubRoot', normalizedHubRoot);
 
-      const normalizedZoneReturn =
-        looksLikeRoot(rawZoneReturn, zone) || !rawZoneReturn
-          ? zoneHref
-          : rawZoneReturn;
-
-      if (normalizedHub) p.set('hub', normalizedHub);
-      if (normalizedHubRoot) p.set('hubRoot', normalizedHubRoot);
-      if (normalizedZoneReturn) p.set('zoneReturn', normalizedZoneReturn);
+      // backward compatibility:
+      // old pages still read "hub" as the place to return to
+      p.set('hub', normalizedZoneReturn);
 
       const defaultLauncher = buildLauncherWithCtx(gameId, p, normalizedZoneReturn, normalizedHubRoot);
       if (!rawLauncher && defaultLauncher) {
@@ -393,7 +416,7 @@
       if (!root) return;
 
       const zoneHref = ctx?.zoneHref || zonePageHref('hygiene');
-      const hubRootHref = ctx?.hubRootHref || zoneHref;
+      const hubRootHref = ctx?.hubRootHref || defaultHubRootHref();
       const gameId = ctx?.gameId || normalizeGameId(qs('game', qs('gameId', '')));
       const phase = ctx?.phase || 'warmup';
       const params = new URL(location.href).searchParams;
