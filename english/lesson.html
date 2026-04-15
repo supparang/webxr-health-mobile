@@ -33,9 +33,19 @@
             font-size: 1rem; text-align: center; outline: 2px solid #00e5ff;
         }
 
-        #feedback { font-style: italic; color: #2ed573; font-weight: bold; min-height: 24px; }
+        #feedback { font-style: italic; color: #2ed573; font-weight: bold; min-height: 24px; white-space: pre-wrap; }
         #timer { font-size: 1.8rem; color: #ff4757; font-weight: bold; display: none; letter-spacing: 2px; }
         
+        /* เพิ่มสไตล์ Avatar HUD ของผู้เล่น */
+        #player-avatar-hud {
+            position: absolute; top: -25px; left: -20px;
+            background: #1a1a2e; border: 2px solid #2ed573;
+            border-radius: 50%; width: 60px; height: 60px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 2rem; box-shadow: 0 0 15px rgba(46, 213, 115, 0.5);
+            z-index: 1001;
+        }
+
         /* Gamification Styles */
         @keyframes flashRed {
             0% { box-shadow: inset 0 0 0px rgba(255, 0, 0, 0); }
@@ -65,6 +75,9 @@
     <div id="loading">Connecting to TechPath Servers...</div>
 
     <div id="ui-container">
+        <!-- Avatar ผู้เล่น -->
+        <div id="player-avatar-hud">🧑‍💻</div>
+
         <div class="title" id="ui-title">TECHPATH VR: MAIN HUB</div>
         <p class="instruction" id="ui-desc">ใช้เมาส์ลากหันมอง และใช้นิ้วจิ้ม หรือ เมาส์คลิกที่ป้ายภารกิจได้เลย!</p>
         
@@ -80,7 +93,7 @@
         <input type="text" class="input-field" id="write-input" placeholder="พิมพ์คำตอบภาษาอังกฤษที่นี่... (Press Enter)" style="display: none;">
         <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()">ส่งคำตอบ (Submit)</button>
         
-        <!-- กลุ่มปุ่มตอบคำถาม (เพิ่มใหม่เพื่อความง่าย) -->
+        <!-- กลุ่มปุ่มตอบคำถาม -->
         <div id="choice-buttons" style="display: none; justify-content: center; gap: 15px; margin-top: 10px;">
             <button class="btn-action" style="display: block; background: #e67e22;" onclick="checkChoiceAnswer('A')">👉 ตอบข้อ A</button>
             <button class="btn-action" style="display: block; background: #2ecc71;" onclick="checkChoiceAnswer('B')">👉 ตอบข้อ B</button>
@@ -102,20 +115,45 @@
     <a-scene loading-screen="enabled: false">
         
         <!-- ============================================== -->
-        <!-- SCENE 1: MAIN HUB (กำแพง 15 ภารกิจ + LEADERBOARD) -->
+        <!-- SCENE 1: MAIN HUB -->
         <!-- ============================================== -->
         <a-entity id="hub-scene">
             <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
-            <a-text value="TECHPATH VR\n15-SESSION CURRICULUM" position="0 4 -5" align="center" color="#00e5ff" scale="1.5 1.5 1.5"></a-text>
-            <a-text value="Category 1-2 (Social & Agile) | Cat 3 (AI) | Cat 4-5 (Client & Career)" position="0 3.2 -5" align="center" color="#aaa" scale="0.6 0.6 0.6"></a-text>
+            <a-text value="TECHPATH VR\n15-SESSION CURRICULUM" position="0 4.5 -5" align="center" color="#00e5ff" scale="1.5 1.5 1.5"></a-text>
+            <a-text value="Category 1-2 (Social & Agile) | Cat 3 (AI) | Cat 4-5 (Client & Career)" position="0 3.7 -5" align="center" color="#aaa" scale="0.6 0.6 0.6"></a-text>
 
-            <!-- กำแพงภารกิจ จะถูกสร้างโดย JavaScript อัตโนมัติ -->
-            <a-entity id="mission-wall" position="0 1.5 -4"></a-entity>
+            <!-- กล่องสมบัติ Daily Reward -->
+            <a-entity id="reward-chest" position="-3.5 0.5 -3" rotation="0 45 0" class="clickable" onclick="claimReward()">
+                <a-box color="#f1c40f" width="0.8" height="0.6" depth="0.6" material="metalness: 0.8; roughness: 0.2" animation="property: position; to: -3.5 0.7 -3; dir: alternate; dur: 1000; loop: true"></a-box>
+                <a-text value="DAILY REWARD" position="0 0.5 0" align="center" color="#f1c40f" scale="0.5 0.5 0.5"></a-text>
+                <a-text id="streak-text" value="Click to Claim!" position="0 0.3 0" align="center" color="#fff" scale="0.4 0.4 0.4"></a-text>
+            </a-entity>
+
+            <!-- เพิ่มแผงเลือกความยาก (Difficulty Selector) -->
+            <a-entity position="0 2.8 -4.5">
+                <a-text id="diff-title-text" value="DIFFICULTY (AI AUTO-ADAPTIVE)" position="0 0.5 0" align="center" color="#00e5ff" scale="0.6 0.6 0.6"></a-text>
+                
+                <a-entity position="-1.5 0 0" class="clickable" onclick="setDifficulty('easy')">
+                    <a-box id="diff-easy-box" width="1.2" height="0.4" depth="0.1" color="#2ecc71" material="opacity: 0.5"></a-box>
+                    <a-text value="EASY\n(+Time, Forgiving)" align="center" position="0 0 0.06" scale="0.4 0.4 0.4"></a-text>
+                </a-entity>
+                
+                <a-entity position="0 0 0" class="clickable" onclick="setDifficulty('normal')">
+                    <a-box id="diff-normal-box" width="1.2" height="0.4" depth="0.1" color="#f1c40f" material="opacity: 1"></a-box>
+                    <a-text value="NORMAL\n(Balanced)" align="center" position="0 0 0.06" scale="0.4 0.4 0.4" color="#000"></a-text>
+                </a-entity>
+
+                <a-entity position="1.5 0 0" class="clickable" onclick="setDifficulty('hard')">
+                    <a-box id="diff-hard-box" width="1.2" height="0.4" depth="0.1" color="#e74c3c" material="opacity: 0.5"></a-box>
+                    <a-text value="HARD\n(Exact Match, x2 Pts)" align="center" position="0 0 0.06" scale="0.4 0.4 0.4"></a-text>
+                </a-entity>
+            </a-entity>
+
+            <a-entity id="mission-wall" position="0 1.2 -4"></a-entity>
 
             <!-- กระดาน LEADERBOARD -->
             <a-entity position="4 2 -3" rotation="0 -35 0">
                 <a-plane width="2.5" height="3" color="#1a1a2e" material="opacity: 0.95"></a-plane>
-                <!-- กรอบเรืองแสง -->
                 <a-box width="2.6" height="3.1" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true"></a-box>
                 <a-text value="TOP 5 DEVELOPERS\n=================" position="0 1.2 0.05" align="center" color="#f1c40f" scale="0.6 0.6 0.6"></a-text>
                 <a-text id="vr-leaderboard-list" value="Loading online data...\nConnecting to server..." position="0 0 0.05" align="center" color="#fff" scale="0.55 0.55 0.55" line-height="65"></a-text>
@@ -123,10 +161,9 @@
         </a-entity>
 
         <!-- ============================================== -->
-        <!-- GENERIC SCENES (จะเปลี่ยนเนื้อหาตาม 15 Sessions) -->
+        <!-- GENERIC SCENES -->
         <!-- ============================================== -->
         
-        <!-- SPEAKING SCENE -->
         <a-entity id="mission-speaking-scene" visible="false">
             <a-entity environment="preset: volcano; skyColor: #ff0000" id="speaking-env"></a-entity>
             <a-entity position="0 1.6 -3.5">
@@ -136,7 +173,6 @@
             <a-text id="speaking-prompt" value="PROMPT TEXT" position="0 3 -3" align="center" color="#ff4757"></a-text>
         </a-entity>
 
-        <!-- READING SCENE -->
         <a-entity id="mission-reading-scene" visible="false">
             <a-entity environment="preset: arches; skyColor: #550000" id="reading-env"></a-entity>
             <a-entity position="0 1.6 -3.5">
@@ -161,7 +197,6 @@
             </a-entity>
         </a-entity>
 
-        <!-- LISTENING SCENE -->
         <a-entity id="mission-listening-scene" visible="false">
             <a-entity environment="preset: forest; skyColor: #ff2222" id="listening-env"></a-entity>
             <a-entity position="0 1.6 -3.5">
@@ -184,7 +219,6 @@
             </a-entity>
         </a-entity>
 
-        <!-- WRITING SCENE -->
         <a-entity id="mission-writing-scene" visible="false">
             <a-entity environment="preset: starry; skyColor: #aa0000" id="writing-env"></a-entity>
             <a-entity id="hackerBoss" position="0 3 -15">
@@ -196,14 +230,20 @@
             </a-plane>
         </a-entity>
 
-        <!-- ระบบ Mouse / Touch (ใช้นิ้วจิ้ม หรือ เมาส์คลิกตรงๆ ที่วัตถุได้เลย) -->
+        <!-- Animation แจ้งเตือนเวลาตอบ ถูก/ผิด ใน VR -->
+        <a-entity id="vr-feedback-fx" position="0 2.5 -2.5" visible="false">
+            <a-text id="vr-feedback-text" value="SUCCESS!" align="center" scale="1.5 1.5 1.5" color="#2ed573"></a-text>
+        </a-entity>
+
         <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
 
-        <!-- Camera & VR Cursor -->
         <a-entity camera look-controls position="0 1.6 0">
-            <!-- เป้าตรงกลาง (สำหรับคนใช้แว่น VR เท่านั้น) -->
             <a-cursor id="vr-cursor" color="#00e5ff" raycaster="objects: .clickable" animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150" visible="false"></a-cursor>
         </a-entity>
+
+        <!-- มือ Avatar ภายใน VR (ทำงานเมื่อต่อแว่น) -->
+        <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+        <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
 
     </a-scene>
 
@@ -214,29 +254,121 @@
         import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
-        // DATABASE: 15 SESSIONS (A2 LEVEL FOR CS/AI)
+        // DATABASE: ระบบสุ่มคำถาม! แต่ละด่านมี 5 Variations ไม่ซ้ำกัน
         // ==========================================
         const missionDB = [
-            { id: 1, type: 'speaking', title: 'S1: Introduction', desc: 'แนะนำตัวว่าคุณคือใคร (พูด: I am a student)', keywords: ['i', 'am', 'student'], failMsg: "ลองพูดว่า 'I am a student'" },
-            { id: 2, type: 'reading', title: 'S2: Networking', desc: 'เลือกคำทักทายในงานสัมมนา', question: 'NPC: Hello! Nice to meet you.', choices: ['A: I am sleepy.', 'B: Nice to meet you too.', 'C: Goodbye.'], answer: 'B' },
-            { id: 3, type: 'writing', title: 'S3: Tech Stack', desc: 'พิมพ์ตอบภาษาที่ใช้เขียนโปรแกรม (พิมพ์: python)', prompt: 'SYSTEM: What is your main programming language?\nYOU: [Type your answer]', keywords: ['python'], failMsg: "ลองพิมพ์ว่า 'python'" },
-            { id: 4, type: 'speaking', title: 'S4: Stand-up', desc: 'รายงานการทำงาน (พูด: Yesterday I fixed a bug)', keywords: ['yesterday', 'fixed', 'bug'], failMsg: "ลองพูดว่า 'Yesterday I fixed a bug'" },
-            { id: 5, type: 'listening', title: 'S5: Pair Code', desc: 'ฟังปัญหาจากเพื่อน', audioText: 'The code is not working. We have an error on line 10.', choices: ['A: Let us check line 10.', 'B: Turn off the computer.', 'C: I want to eat.'], answer: 'A' },
-            { id: 6, type: 'reading', title: 'S6: Bug Ticket', desc: 'อ่านตั๋วแจ้งซ่อม', question: 'TICKET: The login button is missing on the homepage.', choices: ['A: I will add the button.', 'B: The homepage is blue.', 'C: User is missing.'], answer: 'A' },
-            { id: 7, type: 'writing', title: 'S7: Explain AI', desc: 'อธิบาย AI สั้นๆ (พิมพ์: ai is smart)', prompt: 'CLIENT: What is AI?\nYOU: [Type your answer]', keywords: ['ai', 'smart'], failMsg: "ลองพิมพ์ว่า 'ai is smart'" },
-            { id: 8, type: 'listening', title: 'S8: Data Ethics', desc: 'ฟังเรื่องความปลอดภัยข้อมูล', audioText: 'Are the passwords safe in our database?', choices: ['A: Yes, they are secure.', 'B: No, everyone can see them.', 'C: Passwords are 1234.'], answer: 'A' },
-            { id: 9, type: 'speaking', title: 'S9: Data Trends', desc: 'อธิบายกราฟข้อมูล (พูด: The data is going up)', keywords: ['data', 'going', 'up'], failMsg: "ลองพูดว่า 'The data is going up'" },
-            { id: 10, type: 'reading', title: 'S10: App Req', desc: 'อ่านความต้องการลูกค้า', question: 'CLIENT: I want to sell products online.', choices: ['A: We will build an E-commerce app.', 'B: We will build a racing game.', 'C: Products are bad.'], answer: 'A' },
-            { id: 11, type: 'listening', title: 'S11: Angry User', desc: 'ฟังผู้ใช้ที่กำลังหงุดหงิด', audioText: 'The server is down! I cannot work!', choices: ['A: I am sorry. I will fix it now.', 'B: That is your problem.', 'C: The server is a computer.'], answer: 'A' },
-            { id: 12, type: 'writing', title: 'S12: Pitching', desc: 'พิมพ์ขายงานสั้นๆ (พิมพ์: buy our app)', prompt: 'INVESTOR: Why should I give you money?\nYOU: [Type your answer]', keywords: ['buy', 'our', 'app'], failMsg: "ลองพิมพ์ว่า 'buy our app'" },
-            { id: 13, type: 'reading', title: 'S13: Interview 1', desc: 'อ่านคำถามสัมภาษณ์งาน', question: 'HR: What is your greatest strength?', choices: ['A: I am good at solving problems.', 'B: I sleep 12 hours a day.', 'C: I hate writing code.'], answer: 'A' },
-            { id: 14, type: 'speaking', title: 'S14: Interview 2', desc: 'สัมภาษณ์เทคนิค (พูด: An array is a list)', keywords: ['array', 'is', 'list'], failMsg: "ลองพูดว่า 'An array is a list'" },
-            { id: 15, type: 'listening', title: 'S15: Global Team', desc: 'ฟังเพื่อนร่วมทีมต่างชาติ', audioText: 'Hello team. Please review my code on GitHub.', choices: ['A: I will review it today.', 'B: GitHub is a website.', 'C: Who are you?'], answer: 'A' }
+            { id: 1, type: 'speaking', title: 'S1: Introduction', variations: [
+                { desc: 'พูดตาม: "I am a computer science student at the university"', exactPhrase: 'i am a computer science student at the university', failMsg: "พยายามพูดให้ชัดเจน (อนุโลมให้เพี้ยนได้)" },
+                { desc: 'พูดตาม: "I am studying artificial intelligence at the university now"', exactPhrase: 'i am studying artificial intelligence at the university now', failMsg: "พยายามพูดให้ชัดเจน (อนุโลมให้เพี้ยนได้)" },
+                { desc: 'พูดตาม: "I want to be a software engineer in the future"', exactPhrase: 'i want to be a software engineer in the future', failMsg: "พยายามพูดให้ชัดเจน (อนุโลมให้เพี้ยนได้)" },
+                { desc: 'พูดตาม: "I am learning how to code web applications today"', exactPhrase: 'i am learning how to code web applications today', failMsg: "พยายามพูดให้ชัดเจน (อนุโลมให้เพี้ยนได้)" },
+                { desc: 'พูดตาม: "My dream is to work at a big tech company"', exactPhrase: 'my dream is to work at a big tech company', failMsg: "พยายามพูดให้ชัดเจน (อนุโลมให้เพี้ยนได้)" }
+            ]},
+            { id: 2, type: 'reading', title: 'S2: Networking', variations: [
+                { desc: 'เลือกคำทักทายที่เหมาะสม', question: 'NPC: Hello! Nice to meet you.', choices: ['A: I am sleepy.', 'B: Nice to meet you too.', 'C: Goodbye.'], answer: 'B' },
+                { desc: 'ตอบคำถามสารทุกข์สุกดิบ', question: 'NPC: How are you doing today?', choices: ['A: I am doing great, thanks.', 'B: The weather is hot.', 'C: I like pizza.'], answer: 'A' },
+                { desc: 'ตอบรับการแนะนำตัว', question: 'NPC: Hi, my name is Sarah from Google.', choices: ['A: Google is a website.', 'B: Where is the bathroom?', 'C: Hello Sarah, I am John.'], answer: 'C' },
+                { desc: 'ทักทายในงานสัมมนา', question: 'NPC: Good morning, welcome to the tech conference.', choices: ['A: Thank you very much.', 'B: I am sleeping.', 'C: The conference is blue.'], answer: 'A' },
+                { desc: 'ตอบรับคำยินดี', question: 'NPC: It is a pleasure to meet you.', choices: ['A: I want pizza.', 'B: The pleasure is mine.', 'C: Goodbye.'], answer: 'B' }
+            ]},
+            { id: 3, type: 'writing', title: 'S3: Tech Stack', variations: [
+                { desc: 'พิมพ์ภาษาที่เขียนโปรแกรม', prompt: 'SYSTEM: What is your main programming language?\nYOU: [Type your answer]', keywords: ['python', 'java', 'c++', 'javascript', 'c#', 'php', 'ruby', 'html', 'css'], minMatch: 1, failMsg: "ลองพิมพ์ชื่อภาษาเช่น 'python'" },
+                { desc: 'พิมพ์ชื่อระบบฐานข้อมูล', prompt: 'SYSTEM: Which database system do you use?\nYOU: [Type your answer]', keywords: ['sql', 'mysql', 'mongo', 'firebase', 'oracle', 'database'], minMatch: 1, failMsg: "ลองพิมพ์ชื่อฐานข้อมูลเช่น 'mysql'" },
+                { desc: 'พิมพ์ชื่อระบบจัดการโค้ด', prompt: 'SYSTEM: What tool do you use for version control?\nYOU: [Type your answer]', keywords: ['git', 'github', 'gitlab', 'bitbucket'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'git' หรือ 'github'" },
+                { desc: 'พิมพ์ชื่อ Frontend Framework', prompt: 'SYSTEM: What framework do you use for frontend?\nYOU: [Type your answer]', keywords: ['react', 'angular', 'vue', 'html', 'tailwind', 'bootstrap'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'react' หรือ 'vue'" },
+                { desc: 'พิมพ์ชื่อระบบปฏิบัติการ', prompt: 'SYSTEM: What operating system do you prefer for coding?\nYOU: [Type your answer]', keywords: ['linux', 'windows', 'mac', 'ubuntu', 'macos'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'windows' หรือ 'linux'" }
+            ]},
+            { id: 4, type: 'speaking', title: 'S4: Stand-up', variations: [
+                { desc: 'พูดตาม: "I will fix the login bug in our system"', exactPhrase: 'i will fix the login bug in our system', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "I finished my coding tasks for the project yesterday"', exactPhrase: 'i finished my coding tasks for the project yesterday', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "I am going to test the new software today"', exactPhrase: 'i am going to test the new software today', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "I am writing the documentation for the new API"', exactPhrase: 'i am writing the documentation for the new API', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "I need some help with the database server deployment"', exactPhrase: 'i need some help with the database server deployment', failMsg: "พยายามพูดให้ชัดเจน" }
+            ]},
+            { id: 5, type: 'listening', title: 'S5: Pair Code', variations: [
+                { desc: 'ฟังปัญหาจากเพื่อน', audioText: 'The code is not working. We have an error on line 10.', choices: ['A: Let us check line 10.', 'B: Turn off the computer.', 'C: I want to eat.'], answer: 'A' },
+                { desc: 'ฟังปัญหาการเชื่อมต่อ', audioText: 'I cannot connect to the main database server.', choices: ['A: What time is it?', 'B: Check your internet connection.', 'C: I like the database.'], answer: 'B' },
+                { desc: 'ฟังปัญหาหน้าจอ', audioText: 'My computer screen is completely black right now.', choices: ['A: Black is a dark color.', 'B: Did you buy it yesterday?', 'C: Did you turn the power on?'], answer: 'C' },
+                { desc: 'ฟังปัญหาแอปช้า', audioText: 'The application is running very slowly today.', choices: ['A: Let me check the memory usage.', 'B: I am running fast.', 'C: The app is blue.'], answer: 'A' },
+                { desc: 'ฟังปัญหาลืมรหัส', audioText: 'I forgot my password to login to the system.', choices: ['A: I can reset it for you.', 'B: Buy a new computer.', 'C: Password is password.'], answer: 'A' }
+            ]},
+            { id: 6, type: 'reading', title: 'S6: Bug Ticket', variations: [
+                { desc: 'อ่านตั๋วปุ่มหาย', question: 'TICKET: The login button is missing on the homepage.', choices: ['A: I will add the button.', 'B: The homepage is blue.', 'C: User is missing.'], answer: 'A' },
+                { desc: 'อ่านตั๋วเว็บช้า', question: 'TICKET: The website is loading very slowly today.', choices: ['A: I run very fast.', 'B: I will check the server.', 'C: Today is Monday.'], answer: 'B' },
+                { desc: 'อ่านตั๋วอัปโหลดพัง', question: 'TICKET: Users cannot upload their profile pictures.', choices: ['A: I like taking pictures.', 'B: Pictures are beautiful.', 'C: I will fix the upload system.'], answer: 'C' },
+                { desc: 'อ่านตั๋วแอปเด้ง', question: 'TICKET: The app crashes when I click the save button.', choices: ['A: I will debug the save function.', 'B: I like saving money.', 'C: The app is okay.'], answer: 'A' },
+                { desc: 'อ่านตั๋วอ่านยาก', question: 'TICKET: The text color is too hard to read.', choices: ['A: Reading is fun.', 'B: I will change the text color.', 'C: I like hard things.'], answer: 'B' }
+            ]},
+            { id: 7, type: 'writing', title: 'S7: Explain Tech', variations: [
+                { desc: 'อธิบาย AI สั้นๆ', prompt: 'CLIENT: What is AI?\nYOU: [Type your answer]', keywords: ['smart', 'brain', 'learn', 'think', 'ai', 'intelligent', 'machine', 'data'], minMatch: 1, failMsg: "ลองพิมพ์คำว่า 'smart' หรือ 'learn'" },
+                { desc: 'อธิบาย Bug สั้นๆ', prompt: 'CLIENT: What is a computer bug?\nYOU: [Type your answer]', keywords: ['error', 'problem', 'mistake', 'broken', 'wrong', 'issue'], minMatch: 1, failMsg: "ลองพิมพ์คำว่า 'error' หรือ 'problem'" },
+                { desc: 'อธิบาย Server สั้นๆ', prompt: 'CLIENT: What does a server do?\nYOU: [Type your answer]', keywords: ['store', 'data', 'save', 'host', 'network', 'computer', 'file'], minMatch: 1, failMsg: "ลองพิมพ์คำว่า 'store data'" },
+                { desc: 'อธิบาย Virus สั้นๆ', prompt: 'CLIENT: What is a computer virus?\nYOU: [Type your answer]', keywords: ['malware', 'bad', 'hack', 'steal', 'destroy', 'danger', 'attack'], minMatch: 1, failMsg: "ลองพิมพ์คำว่า 'hack' หรือ 'destroy'" },
+                { desc: 'อธิบาย UI สั้นๆ', prompt: 'CLIENT: What does UI mean?\nYOU: [Type your answer]', keywords: ['interface', 'design', 'screen', 'look', 'user', 'graphic'], minMatch: 1, failMsg: "ลองพิมพ์คำว่า 'design' หรือ 'interface'" }
+            ]},
+            { id: 8, type: 'listening', title: 'S8: Data Ethics', variations: [
+                { desc: 'ฟังเรื่องความปลอดภัยรหัส', audioText: 'Are the passwords safe in our database?', choices: ['A: Yes, they are secure.', 'B: No, everyone can see them.', 'C: Passwords are 1234.'], answer: 'A' },
+                { desc: 'ฟังเรื่องความเป็นส่วนตัว', audioText: 'Can anyone read the user private messages?', choices: ['A: Yes, I read them every day.', 'B: No, they are strictly private.', 'C: Messages are short.'], answer: 'B' },
+                { desc: 'ฟังเรื่องการขายข้อมูล', audioText: 'Do we sell user data to other companies?', choices: ['A: Selling is good.', 'B: Companies are rich.', 'C: No, we never sell user data.'], answer: 'C' },
+                { desc: 'ฟังเรื่องการแชร์รหัส', audioText: 'Is it okay to share my password with a friend?', choices: ['A: No, keep your password secret.', 'B: Yes, sharing is caring.', 'C: I have many friends.'], answer: 'A' },
+                { desc: 'ฟังเรื่องการป้องกันข้อมูล', audioText: 'How do we protect user information?', choices: ['A: We write it on paper.', 'B: We use data encryption.', 'C: We do not protect it.'], answer: 'B' }
+            ]},
+            { id: 9, type: 'speaking', title: 'S9: Data Trends', variations: [
+                { desc: 'พูดตาม: "The user data is going up very fast today"', exactPhrase: 'the user data is going up very fast today', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "The number of errors is going down right now"', exactPhrase: 'the number of errors is going down right now', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "We have a lot of new users this month"', exactPhrase: 'we have a lot of new users this month', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "Our mobile app downloads are increasing every single day"', exactPhrase: 'our mobile app downloads are increasing every single day', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "The server response time is getting faster than before"', exactPhrase: 'the server response time is getting faster than before', failMsg: "พยายามพูดให้ชัดเจน" }
+            ]},
+            { id: 10, type: 'reading', title: 'S10: App Req', variations: [
+                { desc: 'อ่านความต้องการแอปขายของ', question: 'CLIENT: I want to sell products online.', choices: ['A: We will build an E-commerce app.', 'B: We will build a racing game.', 'C: Products are bad.'], answer: 'A' },
+                { desc: 'อ่านความต้องการแอปจอง', question: 'CLIENT: I want an app for booking hotel rooms.', choices: ['A: Hotels are expensive.', 'B: We can make a booking app.', 'C: I want to sleep.'], answer: 'B' },
+                { desc: 'อ่านความต้องการทำเว็บ', question: 'CLIENT: I want to show my portfolio to people.', choices: ['A: People are nice.', 'B: Portfolio is a book.', 'C: Let us build a website for you.'], answer: 'C' },
+                { desc: 'อ่านความต้องการระบบพนักงาน', question: 'CLIENT: I need a system to manage my employees.', choices: ['A: We can build an HR system.', 'B: Employees are people.', 'C: Manage your time.'], answer: 'A' },
+                { desc: 'อ่านความต้องการแอปสุขภาพ', question: 'CLIENT: I want to track my daily exercise.', choices: ['A: Exercise is good.', 'B: We will make a fitness app.', 'C: Track your shoes.'], answer: 'B' }
+            ]},
+            { id: 11, type: 'listening', title: 'S11: Angry User', variations: [
+                { desc: 'ฟังเซิร์ฟเวอร์ล่ม', audioText: 'The server is down! I cannot work!', choices: ['A: I am sorry. I will fix it now.', 'B: That is your problem.', 'C: The server is a computer.'], answer: 'A' },
+                { desc: 'ฟังแอปใช้ยาก', audioText: 'This software is too difficult to use!', choices: ['A: Software is code.', 'B: I can teach you how to use it.', 'C: You are not smart.'], answer: 'B' },
+                { desc: 'ฟังไฟล์หาย', audioText: 'I lost all my saved files yesterday!', choices: ['A: Files are in folders.', 'B: Yesterday was Sunday.', 'C: Let me help you find the backup.'], answer: 'C' },
+                { desc: 'ฟังอัปเดตทำพัง', audioText: 'The new update broke my computer!', choices: ['A: Let us uninstall the update.', 'B: I like breaking things.', 'C: Buy a new computer.'], answer: 'A' },
+                { desc: 'ฟังเน็ตช้า', audioText: 'Why is the internet so slow today?', choices: ['A: The internet is fast.', 'B: We are checking the router.', 'C: I like slow internet.'], answer: 'B' }
+            ]},
+            { id: 12, type: 'writing', title: 'S12: Pitching', variations: [
+                { desc: 'พิมพ์ดึงดูดนักลงทุน', prompt: 'INVESTOR: Why should I give you money?\nYOU: [Type your answer]', keywords: ['buy', 'app', 'product', 'good', 'invest', 'money', 'help', 'great', 'system'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'buy our app'" },
+                { desc: 'พิมพ์กลุ่มเป้าหมาย', prompt: 'INVESTOR: Who is your target customer?\nYOU: [Type your answer]', keywords: ['user', 'student', 'business', 'people', 'company', 'everyone', 'client'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'business' หรือ 'student'" },
+                { desc: 'พิมพ์จุดเด่นแอป', prompt: 'INVESTOR: What is the main feature of this app?\nYOU: [Type your answer]', keywords: ['fast', 'easy', 'secure', 'smart', 'safe', 'quick', 'simple'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'fast' หรือ 'easy'" },
+                { desc: 'พิมพ์วิธีหาเงิน', prompt: 'INVESTOR: How will you make money from this?\nYOU: [Type your answer]', keywords: ['ads', 'premium', 'sell', 'subscription', 'pay', 'market'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'sell' หรือ 'ads'" },
+                { desc: 'พิมพ์คู่แข่ง', prompt: 'INVESTOR: Who are your competitors?\nYOU: [Type your answer]', keywords: ['google', 'apple', 'facebook', 'no one', 'company', 'others', 'none'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'no one' หรือชื่อบริษัท" }
+            ]},
+            { id: 13, type: 'reading', title: 'S13: Interview 1', variations: [
+                { desc: 'อ่านคำถามจุดแข็ง', question: 'HR: What is your greatest strength?', choices: ['A: I am good at solving problems.', 'B: I sleep 12 hours a day.', 'C: I hate writing code.'], answer: 'A' },
+                { desc: 'อ่านคำถามแรงจูงใจ', question: 'HR: Why do you want to work here?', choices: ['A: I need money to buy games.', 'B: Because I love this company.', 'C: My mom told me to work.'], answer: 'B' },
+                { desc: 'อ่านคำถามเป้าหมาย', question: 'HR: Where do you see yourself in five years?', choices: ['A: I will be older.', 'B: I don\'t know.', 'C: I want to be a tech manager.'], answer: 'C' },
+                { desc: 'อ่านคำถามลดความเครียด', question: 'HR: How do you handle stress at work?', choices: ['A: I take a short break to relax.', 'B: I shout at people.', 'C: I sleep under the desk.'], answer: 'A' },
+                { desc: 'อ่านคำถามจุดอ่อน', question: 'HR: What is your biggest weakness?', choices: ['A: I am perfect.', 'B: I am improving my English skills.', 'C: I hate working.'], answer: 'B' }
+            ]},
+            { id: 14, type: 'speaking', title: 'S14: Interview 2', variations: [
+                { desc: 'พูดตาม: "Writing computer code is very fun and interesting"', exactPhrase: 'writing computer code is very fun and interesting', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "I have experience with Python and Java programming languages"', exactPhrase: 'i have experience with python and java programming languages', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "I am ready to work hard with your team"', exactPhrase: 'i am ready to work hard with your team', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "I love to learn new technologies and software frameworks"', exactPhrase: 'i love to learn new technologies and software frameworks', failMsg: "พยายามพูดให้ชัดเจน" },
+                { desc: 'พูดตาม: "My biggest strength is solving complex computer logic problems"', exactPhrase: 'my biggest strength is solving complex computer logic problems', failMsg: "พยายามพูดให้ชัดเจน" }
+            ]},
+            { id: 15, type: 'listening', title: 'S15: Global Team', variations: [
+                { desc: 'ฟังเรื่อง Code Review', audioText: 'Hello team. Please review my code on GitHub.', choices: ['A: I will review it today.', 'B: GitHub is a website.', 'C: Who are you?'], answer: 'A' },
+                { desc: 'ฟังเวลานัดประชุม', audioText: 'What time is our meeting tomorrow morning?', choices: ['A: Tomorrow is Tuesday.', 'B: It is at ten o\'clock.', 'C: I meet my friends.'], answer: 'B' },
+                { desc: 'ฟังขอส่ง Report', audioText: 'Can you send me the report by email?', choices: ['A: Email is fast.', 'B: Send me a letter.', 'C: Yes, I will send it soon.'], answer: 'C' },
+                { desc: 'ฟังเดดไลน์งาน', audioText: 'We need to finish this project by next Friday.', choices: ['A: We will work hard to finish it.', 'B: Friday is a good day.', 'C: What is a project?'], answer: 'A' },
+                { desc: 'ฟังคำชมเชยทีม', audioText: 'Great job on the presentation today, everyone!', choices: ['A: I am hungry.', 'B: Thank you very much.', 'C: The presentation was bad.'], answer: 'B' }
+            ]}
         ];
 
         let currentMission = null;
         let missionTimer; let timeLeft = 60; let gameScore = 0; let systemHP = 100;
         let isGameOver = false; let comboCount = 0;
+        let gameDifficulty = 'normal'; 
+        let consecutiveWins = 0; let consecutiveLosses = 0; // ตัวแปรเก็บประวัติสำหรับ AI Adaptive Difficulty
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -281,7 +413,7 @@
             onSnapshot(lbCol, (snapshot) => {
                 let scores = [];
                 snapshot.forEach(doc => scores.push(doc.data()));
-                scores.sort((a, b) => b.score - a.score); // เรียงคะแนนจากมากไปน้อย
+                scores.sort((a, b) => b.score - a.score);
                 const top5 = scores.slice(0, 5);
                 
                 let lbText = "";
@@ -301,16 +433,73 @@
 
         window.onload = function() {
             generateMissionWall();
+            setDifficulty('normal'); // ตั้งค่าเริ่มต้นตอนเปิดเกม
+            checkDailyStreak(); // เช็คกล่องสมบัติ
             setTimeout(() => {
                 document.getElementById('loading').style.opacity = '0';
                 setTimeout(() => document.getElementById('loading').style.display = 'none', 1000);
             }, 1000);
 
-            // กด Enter ส่งคำตอบ Writing
             document.getElementById('write-input').addEventListener('keypress', function (e) {
                 if (e.key === 'Enter') checkWritingAnswer();
             });
         };
+
+        // ==========================================
+        // ระบบ Daily Streak / Reward Chest
+        // ==========================================
+        function checkDailyStreak() {
+            let lastLogin = localStorage.getItem('techpath_lastlogin');
+            let streak = parseInt(localStorage.getItem('techpath_streak') || '0');
+            let today = new Date().toDateString();
+            
+            const chest = document.getElementById('reward-chest');
+            const streakText = document.getElementById('streak-text');
+
+            if (lastLogin === today) {
+                // รับไปแล้ววันนี้
+                chest.removeAttribute('animation');
+                chest.querySelector('a-box').setAttribute('color', '#555');
+                streakText.setAttribute('value', `Streak: ${streak} Days\n(Come back tomorrow!)`);
+                chest.classList.remove('clickable');
+            } else {
+                streakText.setAttribute('value', `Streak: ${streak} Days\n(Click to Claim!)`);
+            }
+        }
+
+        window.claimReward = function() {
+            let lastLogin = localStorage.getItem('techpath_lastlogin');
+            let streak = parseInt(localStorage.getItem('techpath_streak') || '0');
+            let today = new Date().toDateString();
+
+            if (lastLogin === today) return; // กันกดซ้ำ
+
+            // เช็คว่าเมื่อวานได้ล็อกอินไหม (ถ้าไม่ ให้รีเซ็ต)
+            let yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            if (lastLogin === yesterday.toDateString()) {
+                streak++;
+            } else {
+                streak = 1; // เริ่มนับใหม่
+            }
+
+            localStorage.setItem('techpath_lastlogin', today);
+            localStorage.setItem('techpath_streak', streak.toString());
+
+            let bonus = 500 + (streak * 200);
+            playSFX('win');
+            updateHUD(bonus);
+            showVRFeedback(true, `+${bonus} REWARD!`);
+
+            const chest = document.getElementById('reward-chest');
+            chest.removeAttribute('animation');
+            chest.querySelector('a-box').setAttribute('color', '#555');
+            document.getElementById('streak-text').setAttribute('value', `Streak: ${streak} Days\n(Claimed)`);
+            chest.classList.remove('clickable');
+            
+            document.getElementById('feedback').innerText = `🎁 รับรางวัลสำเร็จ! Streak ${streak} วัน (+${bonus} Pts)`;
+        }
 
         function generateMissionWall() {
             const wall = document.getElementById('mission-wall');
@@ -319,7 +508,7 @@
                 let yPos = 1.2 - (row * 0.8);
                 for(let col=0; col<5; col++) {
                     if(index >= missionDB.length) break;
-                    let m = missionDB[index];
+                    let mGroup = missionDB[index]; // ดึงข้อมูล Group หลักมาสร้างป้าย
                     
                     let angle = (col - 2) * 15;
                     let rad = angle * Math.PI / 180;
@@ -327,9 +516,14 @@
                     let xPos = Math.sin(rad) * radius;
                     let zPos = -Math.cos(rad) * radius + 4;
 
-                    let color = m.type === 'speaking' ? '#27ae60' : 
-                                m.type === 'reading' ? '#3498db' : 
-                                m.type === 'listening' ? '#e67e22' : '#9b59b6';
+                    // ระบบบอส (ทุกๆ 3 ด่าน)
+                    let isBoss = (mGroup.id % 3 === 0);
+                    let color = isBoss ? '#e74c3c' : (mGroup.type === 'speaking' ? '#27ae60' : 
+                                mGroup.type === 'reading' ? '#3498db' : 
+                                mGroup.type === 'listening' ? '#e67e22' : '#9b59b6');
+
+                    let boxWidth = isBoss ? '1.5' : '1.2';
+                    let boxHeight = isBoss ? '0.8' : '0.6';
 
                     let entity = document.createElement('a-entity');
                     entity.setAttribute('position', `${xPos} ${yPos} ${zPos}`);
@@ -337,19 +531,20 @@
 
                     let box = document.createElement('a-box');
                     box.setAttribute('class', 'clickable');
-                    box.setAttribute('width', '1.2'); box.setAttribute('height', '0.6'); box.setAttribute('depth', '0.1');
+                    box.setAttribute('width', boxWidth); box.setAttribute('height', boxHeight); box.setAttribute('depth', '0.1');
                     box.setAttribute('color', color);
                     box.setAttribute('material', 'opacity: 0.8');
                     
                     box.addEventListener('mouseenter', () => { box.setAttribute('material', 'color', '#00e5ff'); box.setAttribute('scale', '1.1 1.1 1.1'); });
                     box.addEventListener('mouseleave', () => { box.setAttribute('material', 'color', color); box.setAttribute('scale', '1 1 1'); });
-                    box.addEventListener('click', () => loadMission(m.id));
+                    box.addEventListener('click', () => loadMission(mGroup.id)); 
 
+                    let titlePrefix = isBoss ? '🔥 BOSS: ' : '';
                     let text = document.createElement('a-text');
-                    text.setAttribute('value', `${m.title}\n(${m.type})`);
+                    text.setAttribute('value', `${titlePrefix}${mGroup.title}\n(${mGroup.type})`);
                     text.setAttribute('align', 'center');
                     text.setAttribute('position', '0 0 0.06');
-                    text.setAttribute('scale', '0.4 0.4 0.4');
+                    text.setAttribute('scale', isBoss ? '0.5 0.5 0.5' : '0.4 0.4 0.4');
 
                     entity.appendChild(box);
                     entity.appendChild(text);
@@ -359,22 +554,68 @@
             }
         }
 
-        function loadMission(id) {
-            currentMission = missionDB.find(m => m.id === id);
+        // ==========================================
+        // ระบบจัดการความยาก (Difficulty System)
+        // ==========================================
+        window.setDifficulty = function(level) {
+            gameDifficulty = level;
             
+            // รีเซ็ตความสว่างกล่อง
+            document.getElementById('diff-easy-box').setAttribute('material', 'opacity', '0.4');
+            document.getElementById('diff-normal-box').setAttribute('material', 'opacity', '0.4');
+            document.getElementById('diff-hard-box').setAttribute('material', 'opacity', '0.4');
+            
+            // ทำให้กล่องที่เลือกสว่างขึ้น
+            document.getElementById('diff-' + level + '-box').setAttribute('material', 'opacity', '1');
+            
+            let descText = level === 'easy' ? 'โหมดง่าย (เพิ่มเวลา 15วิ, อนุโลมคำพูดได้ 3 คำ, ดาเมจน้อย)' :
+                           level === 'normal' ? 'โหมดปานกลาง (สมดุล, อนุโลมคำพูด 1 คำ)' :
+                           'โหมดยาก (ลดเวลา 15วิ, ต้องพูดเป๊ะทุกคำ, คะแนนคูณ 2!)';
+                           
+            document.getElementById('ui-desc').innerText = `ความยาก: ${level.toUpperCase()} - ${descText}`;
+        }
+
+        // ==========================================
+        // โหลดและสุ่มคำถาม (Randomizer Engine)
+        // ==========================================
+        function loadMission(id) {
+            const missionGroup = missionDB.find(m => m.id === id);
+            
+            const randomIndex = Math.floor(Math.random() * missionGroup.variations.length);
+            currentMission = missionGroup.variations[randomIndex];
+            
+            currentMission.id = missionGroup.id;
+            currentMission.type = missionGroup.type;
+            currentMission.title = missionGroup.title;
+
+            let isBoss = (currentMission.id % 3 === 0);
+
             document.getElementById('hub-scene').setAttribute('visible', 'false');
             hideAllScenesAndControls();
 
-            document.getElementById('ui-title').innerText = `🚨 SESSION ${id}: ${currentMission.title.toUpperCase()}`;
-            document.getElementById('ui-title').style.color = "#ff4757";
+            let titlePrefix = isBoss ? '🔥 BOSS STAGE | ' : '';
+            document.getElementById('ui-title').innerText = `🚨 ${titlePrefix}SESSION ${id}: ${currentMission.title.toUpperCase()} [${gameDifficulty.toUpperCase()}]`;
+            document.getElementById('ui-title').style.color = isBoss ? "#e74c3c" : "#ff4757";
             document.getElementById('ui-desc').innerText = currentMission.desc;
             document.getElementById('feedback').innerText = "พร้อมแล้วเริ่มทำภารกิจเลย!";
             
+            let timeMod = gameDifficulty === 'easy' ? 15 : (gameDifficulty === 'hard' ? -15 : 0);
+            
+            // ดึงบอสแฮ็กเกอร์ออกมาในทุกด่านที่เป็น Boss Stage
+            const hackerBoss = document.getElementById('hackerBoss');
+            if (isBoss && hackerBoss) {
+                hackerBoss.setAttribute('visible', 'true');
+                hackerBoss.removeAttribute('animation');
+                setTimeout(() => hackerBoss.setAttribute('animation', 'property: position; to: 0 2 -3; dur: 40000; easing: linear'), 50);
+            } else if (hackerBoss) {
+                hackerBoss.setAttribute('visible', 'false');
+            }
+
             if(currentMission.type === 'speaking') {
                 document.getElementById('mission-speaking-scene').setAttribute('visible', 'true');
-                document.getElementById('speaking-prompt').setAttribute('value', `MISSION: ${currentMission.title}\nSpeak into your mic!`);
+                document.getElementById('speaking-prompt').setAttribute('value', `MISSION: ${currentMission.title}\nSay: "${currentMission.exactPhrase.toUpperCase()}"`);
                 document.getElementById('btn-speak').style.display = 'inline-block';
-                startTimer(40);
+                startTimer(40 + timeMod);
             } 
             else if(currentMission.type === 'reading') {
                 document.getElementById('mission-reading-scene').setAttribute('visible', 'true');
@@ -383,10 +624,9 @@
                 document.getElementById('reading-choice-b').setAttribute('value', currentMission.choices[1]);
                 document.getElementById('reading-choice-c').setAttribute('value', currentMission.choices[2]);
                 
-                // แสดงปุ่มตอบและแนะนำวิธีใช้คีย์บอร์ด
                 document.getElementById('choice-buttons').style.display = 'flex';
                 document.getElementById('ui-desc').innerText += " (ใช้นิ้วจิ้มที่กล่อง หรือกดปุ่ม A, B, C บนคีย์บอร์ดก็ได้)";
-                startTimer(30);
+                startTimer(30 + timeMod);
             }
             else if(currentMission.type === 'listening') {
                 document.getElementById('mission-listening-scene').setAttribute('visible', 'true');
@@ -395,10 +635,9 @@
                 document.getElementById('listening-choice-c').setAttribute('value', currentMission.choices[2]);
                 document.getElementById('btn-play-audio').style.display = 'inline-block';
                 
-                // แสดงปุ่มตอบและแนะนำวิธีใช้คีย์บอร์ด
                 document.getElementById('choice-buttons').style.display = 'flex';
                 document.getElementById('ui-desc').innerText += " (ใช้นิ้วจิ้มที่กล่อง หรือกดปุ่ม A, B, C บนคีย์บอร์ดก็ได้)";
-                startTimer(35);
+                startTimer(35 + timeMod);
             }
             else if(currentMission.type === 'writing') {
                 document.getElementById('mission-writing-scene').setAttribute('visible', 'true');
@@ -410,11 +649,10 @@
                 const hackerBoss = document.getElementById('hackerBoss');
                 hackerBoss.removeAttribute('animation');
                 setTimeout(() => hackerBoss.setAttribute('animation', 'property: position; to: 0 1 -2; dur: 45000; easing: linear'), 50);
-                startTimer(45);
+                startTimer(45 + timeMod);
             }
         }
 
-        // เชื่อมฟังก์ชันให้ฝั่ง HTML มองเห็น
         window.checkChoiceAnswer = function(selectedLetter) {
             if (isGameOver || !currentMission) return;
             const correctChoiceStr = currentMission.choices.find(c => c.startsWith(currentMission.answer));
@@ -426,8 +664,11 @@
         window.checkWritingAnswer = function() {
             if (isGameOver || !currentMission) return;
             const answer = document.getElementById('write-input').value.toLowerCase();
-            let allKeywordsMatch = currentMission.keywords.every(kw => answer.includes(kw));
-            if (allKeywordsMatch) winMission();
+            
+            // ใช้ RegExp เพื่อหาคำที่ผู้เล่นพิมพ์มาเทียบกับคลังคำศัพท์ (ให้ความยืดหยุ่นสูง)
+            let matchedKeywords = currentMission.keywords.filter(kw => answer.includes(kw));
+            
+            if (matchedKeywords.length >= currentMission.minMatch) winMission();
             else {
                 document.getElementById('feedback').innerText = currentMission.failMsg;
                 takeDamage();
@@ -444,6 +685,9 @@
             }
         };
 
+        // ==========================================
+        // ระบบรับเสียงแบบใหม่ (AI Speech Validation ยืดหยุ่นขึ้น)
+        // ==========================================
         window.startRecognition = function() {
             if (isGameOver || !currentMission) return;
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -453,7 +697,7 @@
             }
             const recognition = new SpeechRecognition();
             recognition.lang = 'en-US';
-            recognition.interimResults = true; // เปิดโหมดแสดงข้อความขณะกำลังพูด
+            recognition.interimResults = true; 
             
             document.getElementById('btn-speak').disabled = true;
             document.getElementById('feedback').innerText = "🎙️ พูดเลย! (กำลังฟัง...)";
@@ -463,30 +707,40 @@
                 let currentTranscript = '';
                 let isFinal = false;
 
-                // รวมคำที่กำลังพูดและคำที่พูดจบแล้วเข้าด้วยกัน
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     currentTranscript += event.results[i][0].transcript;
                     if (event.results[i].isFinal) isFinal = true;
                 }
 
-                // แปลงคำให้เป็นตัวเล็กและจัดการตัวย่อ
                 let text = currentTranscript.toLowerCase()
                             .replace(/i'm/g, "i am")
                             .replace(/it's/g, "it is")
                             .replace(/we're/g, "we are")
                             .replace(/[.,!?]/g, "");
 
-                document.getElementById('feedback').innerText = `กำลังฟัง: "${text}"...`;
+                // ระบบตรวจคำตอบแบบ "อนุโลม" (Forgiving Match)
+                let targetWords = currentMission.exactPhrase.split(' ');
+                let matchCount = 0;
+                
+                targetWords.forEach(word => {
+                    if (new RegExp(`\\b${word}\\b`, 'i').test(text)) {
+                        matchCount++;
+                    }
+                });
+
+                // ปรับความเข้มงวดของ AI ตามระดับความยาก
+                let allowance = gameDifficulty === 'easy' ? 3 : (gameDifficulty === 'normal' ? 1 : 0);
+                let passThreshold = Math.max(1, targetWords.length - allowance);
+                let isMatch = matchCount >= passThreshold;
+
+                let strictnessText = gameDifficulty === 'hard' ? '(ต้องเป๊ะทุกคำ)' : `(อนุโลมขาดได้ ${allowance} คำ)`;
+                document.getElementById('feedback').innerText = `กำลังฟัง: "${text}"\nความแม่นยำ: ${matchCount}/${targetWords.length} คำ ${strictnessText}`;
                 document.getElementById('feedback').style.color = "#f1c40f";
 
-                // ตรวจสอบคีย์เวิร์ด "ทันที" แม้จะยังพูดไม่จบ (ทำให้เกมไวขึ้นมาก!)
-                let allKeywordsMatch = currentMission.keywords.every(kw => text.includes(kw));
-
-                if (allKeywordsMatch) {
-                    recognition.stop(); // สั่งหยุดไมค์ทันทีเมื่อตอบถูก
+                if (isMatch) {
+                    recognition.stop(); 
                     winMission();
                 } else if (isFinal) {
-                    // ถ้าพูดจบแล้วแต่ยังตอบไม่ถูก ถึงจะหักเลือด
                     document.getElementById('feedback').innerText = `คุณพูดว่า: "${text}"\n❌ ${currentMission.failMsg}`;
                     document.getElementById('feedback').style.color = "#ff4757";
                     takeDamage();
@@ -494,12 +748,9 @@
                 }
             };
 
-            // เมื่อระบบไมค์หยุดทำงาน (ไม่ว่าจะพูดจบหรือไมค์ตัดเอง)
             recognition.onend = () => {
-                // ปลดล็อกปุ่มพูดเสมอ ป้องกันปุ่มค้าง
                 if (!isGameOver && document.getElementById('mission-speaking-scene').getAttribute('visible') === 'true') {
                     document.getElementById('btn-speak').disabled = false;
-                    // ถ้าไม่ได้รับคำตอบที่ถูกหรือผิดชัดเจน ให้แจ้งเตือน
                     if (document.getElementById('feedback').innerText.includes("กำลังฟัง")) {
                         document.getElementById('feedback').innerText = "⚠️ ไมค์ตัดไป (กรุณากดพูดใหม่อีกครั้ง)";
                         document.getElementById('feedback').style.color = "#ff4757";
@@ -523,30 +774,20 @@
             recognition.start();
         }
 
-        // ==========================================
-        // ระบบคีย์ลัด (Keyboard Shortcuts)
-        // ==========================================
         window.addEventListener('keydown', function(e) {
             if (isGameOver || !currentMission) return;
-            
-            // ป้องกันไม่ให้ปุ่มทำงานตอนที่กำลังพิมพ์ช่อง Text Input
             if (document.activeElement === document.getElementById('write-input') || 
                 document.activeElement === document.getElementById('player-name-input')) {
                 return; 
             }
-            
             if (currentMission.type === 'reading' || currentMission.type === 'listening') {
                 const key = e.key.toUpperCase();
                 if (key === 'A' || key === 'B' || key === 'C') {
-                    // สร้างเอฟเฟกต์กดปุ่มด้วย
                     checkChoiceAnswer(key);
                 }
             }
         });
 
-        // ==========================================
-        // ส่งคะแนนขึ้น Leaderboard
-        // ==========================================
         window.submitScore = async function() {
             const nameInput = document.getElementById('player-name-input');
             const name = nameInput.value.trim() || "Unknown Dev";
@@ -578,32 +819,79 @@
         };
 
         // ==========================================
-        // Game Mechanics
+        // ระบบแจ้งเตือน 3D Animation (VR Feedback)
+        // ==========================================
+        function showVRFeedback(isSuccess, customText = null) {
+            const fx = document.getElementById('vr-feedback-fx');
+            const textEl = document.getElementById('vr-feedback-text');
+            fx.setAttribute('visible', 'true');
+            fx.removeAttribute('animation');
+            
+            if(isSuccess) {
+                textEl.setAttribute('value', customText || '✔ CORRECT!');
+                textEl.setAttribute('color', '#2ed573');
+                fx.setAttribute('animation', 'property: scale; from: 0.1 0.1 0.1; to: 1.5 1.5 1.5; dur: 500; easing: easeOutElastic');
+            } else {
+                textEl.setAttribute('value', customText || '❌ WRONG!');
+                textEl.setAttribute('color', '#ff4757');
+                fx.setAttribute('scale', '1.5 1.5 1.5');
+                fx.setAttribute('animation', 'property: position; from: 0 2.5 -2.5; to: 0.2 2.5 -2.5; dur: 50; dir: alternate; loop: 6');
+            }
+            
+            setTimeout(() => { fx.setAttribute('visible', 'false'); }, 1500);
+        }
+
+        // ==========================================
+        // Game Mechanics & SFX (อัปเกรดเสียงชัดขึ้น)
         // ==========================================
         function playSFX(type) {
             if(audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
+            const masterGain = audioCtx.createGain();
+            masterGain.connect(audioCtx.destination);
+            masterGain.gain.value = 0.5;
             
             if (type === 'win') {
-                osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.3);
-                gain.gain.setValueAtTime(0.2, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                // สร้างเสียงประสาน 3 ตัว (Chord) ให้ดูแพงและชัดขึ้น
+                [523.25, 659.25, 783.99].forEach((freq) => {
+                    const osc = audioCtx.createOscillator();
+                    osc.type = 'triangle'; 
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + 0.5);
+                    osc.connect(masterGain);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+                });
+                masterGain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
             } else if (type === 'damage') {
-                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.4);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                // เสียงระเบิดหรือเสียงตีที่ดุดันขึ้น (Sawtooth)
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sawtooth'; 
+                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.4);
+                osc.connect(masterGain);
+                masterGain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
                 osc.start(); osc.stop(audioCtx.currentTime + 0.4);
             } else if (type === 'alarm') {
-                osc.type = 'square'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                const osc = audioCtx.createOscillator();
+                osc.type = 'square'; 
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.connect(masterGain);
+                masterGain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
                 osc.start(); osc.stop(audioCtx.currentTime + 0.1);
             }
         }
 
         function takeDamage() {
-            systemHP -= 25; comboCount = 0;
+            showVRFeedback(false); // เรียกใช้ Animation ผิด
+            
+            let damageAmount = gameDifficulty === 'easy' ? 15 : (gameDifficulty === 'normal' ? 25 : 40);
+            if (currentMission && currentMission.id % 3 === 0) damageAmount += 10; // บอสโจมตีแรงขึ้น 10
+            
+            systemHP -= damageAmount; 
+            
+            comboCount = 0;
             document.getElementById('combo-display').style.display = 'none';
             playSFX('damage');
             const ui = document.getElementById('ui-container');
@@ -612,10 +900,17 @@
             
             if (systemHP <= 0) {
                 isGameOver = true; systemHP = 0;
-                document.getElementById('feedback').innerText = "💥 MISSION FAILED: SYSTEM OFFLINE! 💥";
+                
+                // AI Adaptive Logic: ถ้าตาย AI จะช่วยลดความยากให้ 1 ระดับ
+                consecutiveLosses++;
+                consecutiveWins = 0;
+                let levelDownMsg = "";
+                if (gameDifficulty === 'hard') { setDifficulty('normal'); levelDownMsg = "\n⬇️ AI: ปรับลดความยากลงเป็น NORMAL เพื่อช่วยคุณ!"; }
+                else if (gameDifficulty === 'normal') { setDifficulty('easy'); levelDownMsg = "\n⬇️ AI: ปรับลดความยากลงเป็น EASY เพื่อช่วยคุณ!"; }
+
+                document.getElementById('feedback').innerText = `💥 MISSION FAILED: SYSTEM OFFLINE! 💥${levelDownMsg}`;
                 hideAllScenesAndControls();
                 
-                // แสดงหน้าบันทึกคะแนนเมื่อตาย
                 if(gameScore > 0) {
                     document.getElementById('game-over-ui').style.display = 'block';
                     document.getElementById('btn-submit-score').disabled = false;
@@ -628,10 +923,34 @@
 
         function winMission() {
             clearInterval(missionTimer); playSFX('win');
+            showVRFeedback(true); // เรียกใช้ Animation ถูกต้อง
+            
             document.getElementById('ui-container').classList.remove('danger-mode');
             let timeBonus = timeLeft * 10;
-            updateHUD(1000 + timeBonus);
-            document.getElementById('feedback').innerText = `✅ MISSION ACCOMPLISHED! (+1000 Pts, +${timeBonus} Time Bonus)`;
+            
+            // ระบบฮีล (ฟื้นฟู HP) เมื่อตอบถูก
+            let actualHeal = 0;
+            if (systemHP < 100) {
+                let healAmount = gameDifficulty === 'easy' ? 20 : (gameDifficulty === 'normal' ? 10 : 5);
+                actualHeal = Math.min(100 - systemHP, healAmount);
+                systemHP += actualHeal;
+            }
+            let healText = actualHeal > 0 ? `\n💚 SYSTEM RECOVERED: +${actualHeal}% HP` : '';
+            
+            // โบนัสคะแนนคูณ 2 ถ้าเป็นด่านบอส
+            let bossMultiplier = (currentMission && currentMission.id % 3 === 0) ? 2 : 1;
+            updateHUD((1000 + timeBonus) * bossMultiplier);
+            
+            consecutiveWins++;
+            consecutiveLosses = 0;
+            let levelUpMsg = "";
+            if (consecutiveWins >= 2) {
+                if (gameDifficulty === 'easy') { setDifficulty('normal'); levelUpMsg = "\n⬆️ AI: คุณเก่งมาก! เลื่อนระดับความยากเป็น NORMAL"; }
+                else if (gameDifficulty === 'normal') { setDifficulty('hard'); levelUpMsg = "\n🔥 AI: ไร้เทียมทาน! เลื่อนระดับความยากเป็น HARD"; }
+                consecutiveWins = 0; // รีเซ็ตการนับหลังจากเลื่อนขั้น
+            }
+
+            document.getElementById('feedback').innerText = `✅ MISSION ACCOMPLISHED! (+1000 Pts, +${timeBonus} Time Bonus)${healText}${levelUpMsg}`;
             document.getElementById('feedback').style.color = "#2ed573";
             hideAllScenesAndControls();
             document.getElementById('btn-return').style.display = 'inline-block';
@@ -639,8 +958,14 @@
 
         function updateHUD(points = 0) {
             if (points > 0) {
-                comboCount++; let multiplier = comboCount > 1 ? comboCount : 1;
-                gameScore += (points * multiplier);
+                comboCount++; 
+                let multiplier = comboCount > 1 ? comboCount : 1;
+                
+                // ปรับคะแนนตามความยาก
+                let diffMultiplier = gameDifficulty === 'easy' ? 0.8 : (gameDifficulty === 'hard' ? 2.0 : 1.0);
+                
+                gameScore += Math.floor((points * multiplier) * diffMultiplier);
+                
                 const sd = document.getElementById('score-display');
                 sd.innerText = gameScore; sd.classList.add('score-anim');
                 if (comboCount > 1) {
@@ -685,14 +1010,13 @@
             document.getElementById('btn-play-audio').style.display = 'none';
             document.getElementById('write-input').style.display = 'none';
             document.getElementById('btn-submit-write').style.display = 'none';
-            document.getElementById('choice-buttons').style.display = 'none'; // ซ่อนปุ่มช้อยส์
+            document.getElementById('choice-buttons').style.display = 'none';
             document.getElementById('timer').style.display = 'none';
             document.getElementById('btn-speak').disabled = false;
             clearInterval(missionTimer);
         }
 
         window.returnToHub = function() {
-            // ถ้าระบบเคยล่มไปแล้ว ให้รีเซ็ตพลังชีวิตและคะแนนใหม่เมื่อกลับหน้าหลัก
             if (isGameOver) {
                 gameScore = 0;
                 systemHP = 100;
