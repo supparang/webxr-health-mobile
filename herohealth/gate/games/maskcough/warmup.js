@@ -3,21 +3,62 @@ import { mulberry32 } from '../../helpers/rng.js';
 import { mountSequenceWarmup } from '../../helpers/sequence-warmup.js';
 
 export function loadStyle(){
-  loadCssOnce('./gate/games/maskcough/style.css?v=20260308a');
+  loadCssOnce('./gate/games/maskcough/style.css?v=20260415a');
 }
 
 export async function mount(container, ctx, api){
   const rng = mulberry32(ctx.seed || Date.now());
 
   const STEP_POOL = [
-    { id:'mask', label:'สวมหน้ากากให้ปิดจมูกและปาก', desc:'ใส่หน้ากากให้พอดีและปิดครบทั้งจมูกกับปาก', emoji:'😷' },
-    { id:'elbow', label:'ไอหรือจามใส่ข้อพับแขน', desc:'ใช้ข้อพับแขนปิดปากและจมูกเวลาไอหรือจาม', emoji:'🤧' },
-    { id:'wash', label:'ล้างมือหลังไอหรือจาม', desc:'ชะล้างสิ่งสกปรกและลดการแพร่เชื้อ', emoji:'🧼' },
-    { id:'share', label:'แบ่งหน้ากากกับเพื่อน', desc:'ใช้หน้ากากร่วมกันไม่เหมาะสม', emoji:'🫱' },
-    { id:'open', label:'ดึงหน้ากากลงคางตลอดเวลา', desc:'ใส่ไม่ปิดจมูกและปากจึงไม่ช่วยป้องกัน', emoji:'🫥' },
-    { id:'coverhand', label:'ใช้มือเปล่าปิดปากแล้วไม่ล้างมือ', desc:'ยังเสี่ยงแพร่เชื้อได้', emoji:'✋' },
-    { id:'laugh', label:'ไอใส่คนอื่นแล้วหัวเราะ', desc:'เป็นพฤติกรรมไม่เหมาะสม', emoji:'😅' }
+    {
+      id:'mask',
+      label:'สวมหน้ากากให้ปิดจมูกและปาก',
+      desc:'ใส่หน้ากากให้พอดีและปิดครบทั้งจมูกกับปาก',
+      emoji:'😷'
+    },
+    {
+      id:'elbow',
+      label:'ไอหรือจามใส่ข้อพับแขน',
+      desc:'ใช้ข้อพับแขนปิดปากและจมูกเวลาไอหรือจาม',
+      emoji:'🤧'
+    },
+    {
+      id:'wash',
+      label:'ล้างมือหลังไอหรือจาม',
+      desc:'ชะล้างสิ่งสกปรกและลดการแพร่เชื้อ',
+      emoji:'🧼'
+    },
+    {
+      id:'share',
+      label:'แบ่งหน้ากากกับเพื่อน',
+      desc:'ใช้หน้ากากร่วมกันไม่เหมาะสม',
+      emoji:'🫱'
+    },
+    {
+      id:'open',
+      label:'ดึงหน้ากากลงคางตลอดเวลา',
+      desc:'ใส่ไม่ปิดจมูกและปากจึงไม่ช่วยป้องกัน',
+      emoji:'🫥'
+    },
+    {
+      id:'coverhand',
+      label:'ใช้มือเปล่าปิดปากแล้วไม่ล้างมือ',
+      desc:'ยังเสี่ยงแพร่เชื้อได้',
+      emoji:'✋'
+    },
+    {
+      id:'laugh',
+      label:'ไอใส่คนอื่นแล้วหัวเราะ',
+      desc:'เป็นพฤติกรรมไม่เหมาะสม',
+      emoji:'😅'
+    }
   ];
+
+  const clampNum = (value, min = 0, max = 9999) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return min;
+    return Math.max(min, Math.min(max, n));
+  };
 
   return mountSequenceWarmup({
     container,
@@ -32,6 +73,7 @@ export async function mount(container, ctx, api){
       timeLimit: 20,
       stepPool: STEP_POOL,
       targetIds: ['mask','elbow','wash'],
+
       renderShell: ({ title, subtitle, startLabel }) => `
         <div class="mask-layer">
           <div class="mask-brief" data-role="brief">
@@ -65,28 +107,48 @@ export async function mount(container, ctx, api){
           </div>
         </div>
       `,
-      getChoiceClass: ()=> 'mask-choice',
-      getDoneRowClass: (done)=> `mask-step ${done ? 'done' : ''}`,
-      onCorrectToast: (n)=> `ถูกต้อง! ขั้นที่ ${n}`,
-      onWrongToast: ()=> 'ยังไม่ใช่พฤติกรรมถัดไป',
+
+      getChoiceClass: () => 'mask-choice',
+      getDoneRowClass: (done) => `mask-step ${done ? 'done' : ''}`,
+
+      onCorrectToast: (n) => `ถูกต้อง! ขั้นที่ ${n}`,
+      onWrongToast: () => 'ยังไม่ใช่พฤติกรรมถัดไป',
+
       finishTitleSuccess: 'พร้อมป้องกันแล้ว!',
       finishTitleTimeout: 'หมดเวลา',
       finishSubtitle: 'สรุปผล Warmup — Mask & Cough Quick Prep',
-      finishLines: ({ state, acc, timeBonus })=>[
-        `เรียงถูก ${state.currentIndex}/3 ขั้น`,
-        `คะแนน ${state.score}`,
-        `พลาด ${state.miss}`,
-        `ความแม่นยำ ${acc}%`,
-        `โบนัสเวลา +${timeBonus} วินาที`
-      ],
-      buildBuffs: ({ state, acc, timeBonus, scoreBonus, rank })=>({
-        wType: 'maskcough_quick_prep',
-        wPct: acc,
-        wSteps: state.currentIndex,
-        wTimeBonus: timeBonus,
-        wScoreBonus: scoreBonus,
-        wRank: rank
-      })
+
+      finishLines: ({ state, acc, timeBonus }) => {
+        const safeSteps = clampNum(state?.currentIndex, 0, 3);
+        const safeScore = clampNum(state?.score, 0, 9999);
+        const safeMiss = clampNum(state?.miss, 0, 9999);
+        const safeAcc = clampNum(acc, 0, 100);
+        const safeTimeBonus = clampNum(timeBonus, 0, 999);
+
+        return [
+          `เรียงถูก ${safeSteps}/3 ขั้น`,
+          `คะแนน ${safeScore}`,
+          `พลาด ${safeMiss}`,
+          `ความแม่นยำ ${safeAcc}%`,
+          `โบนัสเวลา +${safeTimeBonus} วินาที`
+        ];
+      },
+
+      buildBuffs: ({ state, acc, timeBonus, scoreBonus, rank }) => {
+        const safeSteps = clampNum(state?.currentIndex, 0, 3);
+        const safeAcc = clampNum(acc, 0, 100);
+        const safeTimeBonus = clampNum(timeBonus, 0, 999);
+        const safeScoreBonus = clampNum(scoreBonus, 0, 9999);
+
+        return {
+          wType: 'maskcough_quick_prep',
+          wPct: safeAcc,
+          wSteps: safeSteps,
+          wTimeBonus: safeTimeBonus,
+          wScoreBonus: safeScoreBonus,
+          wRank: rank || 'starter'
+        };
+      }
     }
   });
 }
