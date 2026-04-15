@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Brush Launcher</title>
+  <title>HeroHealth â€¢ Brush Launcher</title>
   <meta name="theme-color" content="#8fdcff" />
   <style>
     :root{
@@ -166,13 +166,13 @@
 </head>
 <body>
   <div class="card">
-    <div class="eyebrow">🦷 HeroHealth • Hygiene Zone</div>
+    <div class="eyebrow">ðŸ¦· HeroHealth â€¢ Hygiene Zone</div>
     <h1>Brush Launcher</h1>
-    <p>เลือกโหมด มุมมอง และเวลา จากนั้นผ่าน warmup ก่อนเข้าเล่นจริง</p>
+    <p>à¹€à¸¥à¸·à¸­à¸à¹‚à¸«à¸¡à¸” à¸¡à¸¸à¸¡à¸¡à¸­à¸‡ à¹à¸¥à¸°à¹€à¸§à¸¥à¸² à¸ˆà¸²à¸à¸™à¸±à¹‰à¸™à¸œà¹ˆà¸²à¸™ warmup à¸à¹ˆà¸­à¸™à¹€à¸‚à¹‰à¸²à¹€à¸¥à¹ˆà¸™à¸ˆà¸£à¸´à¸‡</p>
 
     <div class="grid">
       <section class="panel">
-        <div class="label">โหมด</div>
+        <div class="label">à¹‚à¸«à¸¡à¸”</div>
         <div class="row">
           <button class="choice active" data-mode="learn" type="button">Learn</button>
           <button class="choice" data-mode="challenge" type="button">Challenge</button>
@@ -180,7 +180,7 @@
       </section>
 
       <section class="panel">
-        <div class="label">มุมมอง</div>
+        <div class="label">à¸¡à¸¸à¸¡à¸¡à¸­à¸‡</div>
         <div class="row">
           <button class="choice active" data-view="mobile" type="button">Mobile</button>
           <button class="choice" data-view="pc" type="button">PC</button>
@@ -189,7 +189,7 @@
       </section>
 
       <section class="panel">
-        <div class="label">เวลา</div>
+        <div class="label">à¹€à¸§à¸¥à¸²</div>
         <div class="row">
           <button class="choice active" data-time="120" type="button">120s</button>
           <button class="choice" data-time="180" type="button">180s</button>
@@ -198,7 +198,7 @@
       </section>
 
       <section class="panel">
-        <div class="label">ระดับ</div>
+        <div class="label">à¸£à¸°à¸”à¸±à¸š</div>
         <div class="row">
           <button class="choice active" data-diff="normal" type="button">Normal</button>
           <button class="choice" data-diff="easy" type="button">Easy</button>
@@ -208,8 +208,8 @@
     </div>
 
     <div class="actions">
-      <button id="btnWarmupStart" class="btn btn-start" type="button">เริ่มผ่าน Warmup แล้วเข้าเล่น</button>
-      <button id="btnDirectRun" class="btn btn-alt" type="button">เข้าเล่นตรงเลย</button>
+      <button id="btnWarmupStart" class="btn btn-start" type="button">à¹€à¸£à¸´à¹ˆà¸¡à¸œà¹ˆà¸²à¸™ Warmup à¹à¸¥à¹‰à¸§à¹€à¸‚à¹‰à¸²à¹€à¸¥à¹ˆà¸™</button>
+      <button id="btnDirectRun" class="btn btn-alt" type="button">à¹€à¸‚à¹‰à¸²à¹€à¸¥à¹ˆà¸™à¸•à¸£à¸‡à¹€à¸¥à¸¢</button>
     </div>
   </div>
 
@@ -272,7 +272,7 @@
       if (!runUrl.searchParams.get('hub')) {
         runUrl.searchParams.set(
           'hub',
-          `${location.origin}/webxr-health-mobile/herohealth/hub-v2.html`
+          new URL('../hub-v2.html', location.href).href
         );
       }
 
@@ -290,7 +290,7 @@
     });
 
     document.getElementById('btnWarmupStart').addEventListener('click', () => {
-      const warmup = new URL('../gate/warmup-gate.html', location.href);
+      const warmup = new URL('../warmup-gate.html', location.href);
       const runUrl = buildRunUrl();
 
       warmup.searchParams.set('game', 'brush');
@@ -318,3 +318,5 @@
   </script>
 </body>
 </html>
+
+

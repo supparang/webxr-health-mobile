@@ -1,250 +1,269 @@
-function setText(node, value) {
-  if (!node) return;
-  node.textContent = String(value ?? '');
-}
-
-function clamp(v, a, b) {
-  return Math.max(a, Math.min(b, v));
-}
-
-function ensureArray(value) {
-  return Array.isArray(value) ? value : [];
-}
-
-function findZoneButton(zoneId) {
-  return document.querySelector(`[data-zone="${zoneId}"]`);
-}
-
-function zoneStateFromVm(zone) {
-  if (!zone) return 'idle';
-  if (zone.done) return 'done';
-  if (zone.active) return 'active';
-  if ((zone.cleanPercent || 0) > 0) return 'active';
-  return 'idle';
-}
-
-function zoneLabelText(zone) {
-  const clean = Math.round(zone?.cleanPercent || 0);
-  return `${zone?.label || '-'} ${clean}%`;
-}
-
-function applyVisualStateToZoneButton(node, zone) {
-  if (!node) return;
-
-  const state = zoneStateFromVm(zone);
-  node.dataset.state = state;
-  node.setAttribute('aria-pressed', zone?.active ? 'true' : 'false');
-
-  if ((zone?.threatPercent || 0) >= 70 && !zone?.done) {
-    node.style.boxShadow = '0 0 0 3px rgba(255,120,145,.18), 0 8px 20px rgba(71,156,197,.10)';
-  } else {
-    node.style.boxShadow = '';
-  }
-}
-
-function sceneLabel(sceneId) {
-  return sceneId || '-';
-}
-
-function renderSummaryMetric(node, value, suffix = '') {
-  if (!node) return;
-  node.textContent = `${value ?? 0}${suffix}`;
-}
-
 export function createBrushUI(el) {
-  function renderTopHud(vm = {}) {
-    setText(el.timeText, vm.timeText || '0s');
-    setText(el.scoreText, vm.scoreText ?? 0);
-    setText(el.comboText, vm.comboText ?? 0);
-    setText(el.threatText, vm.threatText || '0%');
-    setText(el.sceneText, sceneLabel(vm.sceneText));
+  ensureBrushUiStyle();
 
-    if (el.threatText) {
-      const n = Number.parseInt(String(vm.threatText || '0%'), 10);
-      if (Number.isFinite(n)) {
-        if (n >= 75) el.threatText.style.color = '#c93d5d';
-        else if (n >= 45) el.threatText.style.color = '#9b7200';
-        else el.threatText.style.color = '';
-      }
+  let centerHint = null;
+
+  if (el.brushPad) {
+    centerHint = document.createElement('div');
+    centerHint.className = 'brush-center-hint';
+    el.brushPad.appendChild(centerHint);
+  }
+
+  const faceMap = {
+    neutral: '🦷',
+    happy: '😁',
+    sad: '😅',
+    fever: '⚡'
+  };
+
+  function setCoach(face, line) {
+    if (el.coachFace) {
+      el.coachFace.textContent = faceMap[face] || '🦷';
+      el.coachFace.dataset.mood = face || 'neutral';
     }
-
-    if (el.comboText) {
-      const combo = Number(vm.comboText || 0);
-      if (combo >= 12) {
-        el.comboText.style.color = '#ff7e48';
-        el.comboText.style.textShadow = '0 0 10px rgba(255,126,72,.35)';
-      } else if (combo >= 6) {
-        el.comboText.style.color = '#4aaef0';
-        el.comboText.style.textShadow = '0 0 8px rgba(74,174,240,.28)';
-      } else {
-        el.comboText.style.color = '';
-        el.comboText.style.textShadow = '';
-      }
-    }
-
-    if (el.scoreText) {
-      if (vm.feverActive) {
-        el.scoreText.style.color = '#e5672d';
-        el.scoreText.style.textShadow = '0 0 12px rgba(255,160,88,.35)';
-      } else {
-        el.scoreText.style.color = '';
-        el.scoreText.style.textShadow = '';
-      }
+    if (el.coachLine) {
+      el.coachLine.textContent = line || '';
     }
   }
 
-  function renderMiniMap(zones = []) {
-    const list = ensureArray(zones);
+  function renderHud(data) {
+    if (el.timeText) el.timeText.textContent = data.timeText || '00:00';
+    if (el.coverageText) el.coverageText.textContent = `${data.coveragePercent ?? 0}%`;
+    if (el.comboText) el.comboText.textContent = String(data.comboMax ?? 0);
+    if (el.phaseText) el.phaseText.textContent = data.phaseText || 'เล่นอยู่';
 
-    list.forEach((zone) => {
-      const node = findZoneButton(zone.id);
-      if (!node) return;
-      node.textContent = zoneLabelText(zone);
-      applyVisualStateToZoneButton(node, zone);
-      node.title = `${zone.label} • clean ${Math.round(zone.cleanPercent || 0)}% • threat ${Math.round(zone.threatPercent || 0)}%`;
+    if (el.goalFill) el.goalFill.style.width = `${data.coveragePercent ?? 0}%`;
+    if (el.goalMiniText) el.goalMiniText.textContent = data.goalText || '';
+    if (el.miniMissionText) el.miniMissionText.textContent = data.miniMissionText || '';
 
-      const ring = document.querySelector(`[data-ring-zone="${zone.id}"]`);
-      if (!ring) return;
+    if (el.zonesDoneText) el.zonesDoneText.textContent = `${data.zonesDone ?? 0} / ${data.zonesTotal ?? 0}`;
+    if (el.activeZoneText) el.activeZoneText.textContent = data.activeZoneLabel || 'ยังไม่ได้เลือก';
+    if (el.speedText) el.speedText.textContent = data.speedLabel || 'ปกติ';
+    if (el.warnText) el.warnText.textContent = String(data.warnings ?? 0);
 
-      ring.classList.toggle('is-zone-active', !!zone.active);
-      ring.classList.toggle('is-zone-done', !!zone.done);
+    el.btnLearn?.classList.toggle('is-active', data.modeId === 'learn');
+    el.btnChallenge?.classList.toggle('is-active', data.modeId === 'challenge');
+  }
+
+  function renderPattern(data) {
+    if (el.patternBadge) el.patternBadge.textContent = data.label || 'เลือกโซนก่อน';
+    if (el.patternHint) el.patternHint.textContent = data.hint || '';
+    if (el.patternProgressFill) {
+      el.patternProgressFill.style.width = `${Math.max(0, Math.min(100, data.progressPercent ?? 0))}%`;
+    }
+    if (el.patternProgressText) {
+      el.patternProgressText.textContent = data.progressText || '0 / 0 รอบ';
+    }
+  }
+
+  function renderZones(zones, activeZoneId, options = {}) {
+    const recommendedZoneId = options.recommendedZoneId || null;
+
+    document.querySelectorAll('.tooth-zone').forEach(btn => {
+      const zoneId = btn.dataset.zone || '';
+      const zone = zones.find(z => z.id === zoneId);
+
+      btn.classList.toggle('is-active', zoneId === activeZoneId);
+      btn.classList.toggle('is-recommended', zoneId === recommendedZoneId);
+      btn.classList.toggle('is-done', !!zone?.done);
+
+      const percent = Math.round(zone?.clean || 0);
+      const percentNode = btn.querySelector('.zone-percent');
+      const fillNode = btn.querySelector('.zone-fill');
+
+      if (percentNode) percentNode.textContent = `${percent}%`;
+      if (fillNode) fillNode.style.width = `${percent}%`;
+
+      btn.setAttribute(
+        'aria-label',
+        zone ? `${zone.label} ${percent}%` : zoneId
+      );
     });
   }
 
-  function renderCoach(face, line) {
-    setText(el.coachFace, face || '🪥');
-    setText(el.coachLine, line || '');
+  function moveBrushCursor(e, pad, cursor) {
+    if (!pad || !cursor) return;
+    const rect = pad.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+
+    cursor.style.left = `${x}px`;
+    cursor.style.top = `${y}px`;
+    cursor.style.opacity = '1';
   }
 
-  function renderScanHud(vm = {}) {
-    const active = !!(vm.timerText || vm.foundText);
-    el.scanCard?.classList.toggle('is-collapsed', !active);
-
-    setText(el.scanTimerText, vm.timerText || '');
-    setText(el.scanFoundText, vm.foundText || '');
-
-    if (el.scanTimerText) el.scanTimerText.style.opacity = vm.timerText ? '1' : '.35';
-    if (el.scanFoundText) el.scanFoundText.style.opacity = vm.foundText ? '1' : '.35';
+  function openHelp(open) {
+    if (!el.helpModal) return;
+    el.helpModal.hidden = !open;
+    el.helpModal.classList.toggle('is-open', !!open);
   }
 
-  function renderBossBreakHud(vm = {}) {
-    const active = !!(vm.timerText || vm.countText || vm.shieldText);
-    el.bossCard?.classList.toggle('is-collapsed', !active);
-
-    setText(el.bossShieldText, vm.shieldText || '');
-    setText(el.bossBreakTimerText, vm.timerText || '');
-    setText(el.bossBreakCountText, vm.countText || '');
-
-    if (el.bossBreakTimerText) {
-      const timerNum = Number.parseInt(String(vm.timerText || '').replace(/[^\d-]/g, ''), 10);
-      if (Number.isFinite(timerNum) && timerNum <= 3 && timerNum >= 0) {
-        el.bossBreakTimerText.style.color = '#c93d5d';
-        el.bossBreakTimerText.style.textShadow = '0 0 10px rgba(255,102,126,.32)';
-      } else {
-        el.bossBreakTimerText.style.color = '';
-        el.bossBreakTimerText.style.textShadow = '';
-      }
+  function openSummary(result) {
+    if (el.summaryTitle) {
+      el.summaryTitle.textContent =
+        result.summaryTitle ||
+        `สรุปผล • ${result.finalRank || 'เล่นจบแล้ว'}`;
     }
-  }
 
-  function renderSummary(result = {}) {
-    if (el.summaryModal) el.summaryModal.hidden = false;
+    if (el.summaryRank) el.summaryRank.textContent = result.finalRank || '-';
+    if (el.summaryTime) {
+      el.summaryTime.textContent =
+        result.timeText ||
+        result.durationText ||
+        result.elapsedText ||
+        '00:00';
+    }
 
-    renderSummaryMetric(el.summaryRank, result.finalRank || '-');
-    renderSummaryMetric(el.summaryScore, result.finalScore || 0);
-    renderSummaryMetric(el.summaryCoverage, result.coveragePercent || 0, '%');
-    renderSummaryMetric(el.summaryAccuracy, result.accuracyPercent || 0, '%');
-    setText(el.summaryAdvice, result.summaryAdvice || 'ลองเล่นอีกรอบเพื่อดูความต่างของผลลัพธ์');
+    if (el.summaryCoverage) {
+      el.summaryCoverage.textContent = `${result.coveragePercent ?? 0}%`;
+    }
+
+    if (el.summaryZones) {
+      const zonesDone = result.zonesDone ?? 0;
+      const totalZones = result.totalZones ?? 6;
+      el.summaryZones.textContent = `${zonesDone} / ${totalZones}`;
+    }
+
+    if (el.summaryWarn) {
+      el.summaryWarn.textContent = String(result.warnings ?? 0);
+    }
+
+    if (el.summaryAdvice) {
+      el.summaryAdvice.textContent =
+        result.summaryAdvice ||
+        result.advice ||
+        result.adviceLine ||
+        'ทำได้ดีมาก ลองเล่นอีกครั้งเพื่อเก็บให้ครบทุกโซน';
+    }
+
+    if (el.summaryModal) {
+      el.summaryModal.hidden = false;
+      el.summaryModal.classList.add('is-open');
+    }
   }
 
   function closeSummary() {
-    if (el.summaryModal) el.summaryModal.hidden = true;
+    if (!el.summaryModal) return;
+    el.summaryModal.hidden = true;
+    el.summaryModal.classList.remove('is-open');
   }
 
-  function renderObjective(text, sceneId = '') {
-    if (!el.objectiveText) return;
-    setText(el.objectiveText, text || '');
+  function flashZone(zoneId) {
+    const node = document.querySelector(`.tooth-zone[data-zone="${zoneId}"]`);
+    if (!node) return;
+    node.classList.remove('flash-zone');
+    void node.offsetWidth;
+    node.classList.add('flash-zone');
+    setTimeout(() => node.classList.remove('flash-zone'), 650);
+  }
 
-    el.objectiveCard?.classList.remove(
-      'is-scan-mode',
-      'is-guided-mode',
-      'is-pressure-mode',
-      'is-boss-mode',
-      'is-finish-mode'
-    );
+  function setViewMode(viewMode) {
+    document.documentElement.dataset.brushView = viewMode || 'pc';
 
-    if (sceneId === 'scan') {
-      el.objectiveCard?.classList.add('is-scan-mode');
-    } else if (sceneId === 'guided' || sceneId === 'intro' || sceneId === 'launcher') {
-      el.objectiveCard?.classList.add('is-guided-mode');
-    } else if (sceneId === 'pressure' || sceneId === 'fever') {
-      el.objectiveCard?.classList.add('is-pressure-mode');
-    } else if (sceneId === 'bossBreak' || sceneId === 'boss') {
-      el.objectiveCard?.classList.add('is-boss-mode');
-    } else if (sceneId === 'finish' || sceneId === 'summary') {
-      el.objectiveCard?.classList.add('is-finish-mode');
+    if (el.brushCursor) {
+      el.brushCursor.style.display = viewMode === 'cvr' ? 'none' : '';
     }
   }
 
-  function renderLauncherHint(modeLabel = 'Adventure') {
-    renderCoach('🪥', 'พร้อมช่วยฟันแล้ว กดเริ่มได้เลย');
-    renderObjective(`เริ่มภารกิจ ${modeLabel}`, 'launcher');
-    renderSceneMood('launcher');
-  }
-
-  function renderSceneMood(sceneId) {
-    if (!el.sceneStage) return;
-
-    const root = el.sceneStage;
-    root.dataset.scene = sceneId || '';
-
-    el.scanCard?.classList.remove('is-emphasis');
-    el.bossCard?.classList.remove('is-emphasis');
-    el.helperCard?.classList.remove('is-warning', 'is-success');
-
-    document.querySelectorAll('[data-ring-zone]').forEach((ring) => {
-      ring.classList.remove('is-scene-focus');
-    });
-
-    if (sceneId === 'scan') {
-      root.style.filter = 'saturate(1.03) brightness(1.02)';
-      el.scanCard?.classList.add('is-emphasis');
-      document.querySelectorAll('[data-ring-zone]').forEach((ring) => ring.classList.add('is-scene-focus'));
-    } else if (sceneId === 'guided') {
-      root.style.filter = 'brightness(1.01)';
-      document.querySelectorAll('[data-ring-zone]').forEach((ring, index) => {
-        if (index < 2) ring.classList.add('is-scene-focus');
-      });
-    } else if (sceneId === 'pressure' || sceneId === 'fever') {
-      root.style.filter = 'saturate(1.06) contrast(1.01)';
-      el.helperCard?.classList.add('is-warning');
-      document.querySelectorAll('[data-ring-zone]').forEach((ring, index) => {
-        if (index % 2 === 0) ring.classList.add('is-scene-focus');
-      });
-    } else if (sceneId === 'bossBreak' || sceneId === 'boss') {
-      root.style.filter = 'saturate(1.10) contrast(1.03)';
-      el.bossCard?.classList.add('is-emphasis');
-      el.helperCard?.classList.add('is-warning');
-      document.querySelectorAll('[data-ring-zone]').forEach((ring) => ring.classList.add('is-scene-focus'));
-    } else if (sceneId === 'finish' || sceneId === 'summary') {
-      root.style.filter = 'brightness(1.05) saturate(1.02)';
-      el.helperCard?.classList.add('is-success');
-      document.querySelectorAll('[data-ring-zone]').forEach((ring) => ring.classList.add('is-scene-focus'));
-    } else {
-      root.style.filter = '';
-    }
+  function showCenterHint(show) {
+    if (!centerHint) return;
+    centerHint.classList.toggle('show', !!show);
   }
 
   return {
-    renderTopHud,
-    renderMiniMap,
-    renderCoach,
-    renderScanHud,
-    renderBossBreakHud,
-    renderSummary,
+    setCoach,
+    renderHud,
+    renderPattern,
+    renderZones,
+    moveBrushCursor,
+    openHelp,
+    openSummary,
     closeSummary,
-    renderObjective,
-    renderLauncherHint,
-    renderSceneMood
+    flashZone,
+    setViewMode,
+    showCenterHint
   };
+}
+
+function ensureBrushUiStyle() {
+  if (document.getElementById('brush-ui-extra-style')) return;
+
+  const style = document.createElement('style');
+  style.id = 'brush-ui-extra-style';
+  style.textContent = `
+    .tooth-zone.is-recommended{
+      outline:3px solid #7fdcff;
+      box-shadow:0 0 0 7px rgba(127,220,255,.22);
+      transform:scale(1.03);
+    }
+
+    .tooth-zone.is-active{
+      outline:3px solid #59c9fb;
+      box-shadow:0 0 0 9px rgba(89,201,251,.22);
+    }
+
+    .tooth-zone.is-done{
+      background:linear-gradient(180deg,#f7fff9,#eefcf4);
+    }
+
+    .tooth-zone.flash-zone{
+      animation:brush-zone-flash .55s ease;
+    }
+
+    @keyframes brush-zone-flash{
+      0%   { transform:scale(1); }
+      40%  { transform:scale(1.08); }
+      100% { transform:scale(1); }
+    }
+
+    .brush-center-hint{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:96px;
+      height:96px;
+      border-radius:999px;
+      border:4px dashed rgba(89,201,251,.82);
+      box-shadow:0 0 0 10px rgba(89,201,251,.14);
+      pointer-events:none;
+      display:none;
+      z-index:5;
+    }
+
+    .brush-center-hint::before,
+    .brush-center-hint::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      background:rgba(89,201,251,.92);
+      border-radius:999px;
+    }
+
+    .brush-center-hint::before{
+      width:36px;
+      height:5px;
+    }
+
+    .brush-center-hint::after{
+      width:5px;
+      height:36px;
+    }
+
+    .brush-center-hint.show{
+      display:block;
+    }
+
+    html[data-brush-view="cvr"] .brush-pad-guide-title::after{
+      content:" • cVR-lite";
+      color:#35b6f3;
+    }
+
+    html[data-brush-view="cvr"] .brush-pad-guide-text{
+      content:"";
+    }
+  `;
+  document.head.appendChild(style);
 }
