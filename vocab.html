@@ -67,6 +67,11 @@ th{color:#93c5fd}
 .inputBox input{width:100%;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;font-size:14px}
 .leaderboardList{list-style:none;padding:0;display:grid;gap:10px;margin-top:14px}
 .leaderboardList li{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:10px 12px}
+.podium{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.podiumCard{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:14px;text-align:center}
+.podiumCard .place{font-size:28px;font-weight:1000}
+.podiumCard .name{font-size:16px;font-weight:800;margin-top:6px}
+.podiumCard .meta{font-size:12px;color:#c7d4ff;margin-top:4px}
 .lbTabs{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 .lbTab{appearance:none;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:10px 14px;color:#fff;cursor:pointer}
 .lbTab.active{outline:3px solid #67e8f9;background:rgba(103,232,249,.10)}
@@ -127,16 +132,55 @@ th{color:#93c5fd}
     <input id="studentIdInput" type="text" maxlength="24" placeholder="เช่น 6512345678" />
   </div>
 </div>
+<div class="profileRow">
+  <div class="inputBox">
+    <label for="sectionInput">Class / Section</label>
+    <input id="sectionInput" type="text" maxlength="24" placeholder="เช่น CS-AI-1 / ENG-CS" />
+  </div>
+  <div class="inputBox">
+    <label for="sessionCodeInput">Session Code</label>
+    <input id="sessionCodeInput" type="text" maxlength="24" placeholder="เช่น WEEK1 / NIGHT-A / FREEPLAY" />
+  </div>
+</div>
 
 <div class="actions">
       <button class="btn" id="startBtn">START LONG RUN</button>
       <button class="btn alt" id="howBtn">HOW TO PLAY</button>
       <button class="btn ghost" id="dashboardBtn">TEACHER DASHBOARD</button>
       <button class="btn ghost" id="openLeaderboardBtn">LEADERBOARD</button>
+      <button class="btn ghost" id="exportClassroomBtn">EXPORT CLASSROOM</button>
     </div>
-    <div class="legend" id="helpText">ยิงคำตอบที่ถูก, รักษา HP, สร้าง combo, คำที่ผิดจะวนกลับมาอีกในช่วงท้ายของ run</div>
+    
+
+<div class="legend" style="margin-top:12px;color:#fde68a">
+  หมายเหตุ: โปรเจกต์นี้ผูก Firebase config ให้แล้ว แต่ยังต้องใส่ <span class="mono">databaseURL</span> ของ Realtime Database เองก่อนใช้งานจริง
+</div>
+<div class="grid2" style="margin-top:16px">
+  <div class="inputBox">
+    <label for="firebaseRoomInput">Realtime Room / Class Key</label>
+    <input id="firebaseRoomInput" type="text" maxlength="40" placeholder="เช่น ENG-CS-W1 / NIGHT-A / AI-SECTION-1" />
+  </div>
+  <div class="inputBox">
+    <label for="firebaseToggleInput">Realtime Sync</label>
+    <input id="firebaseToggleInput" type="text" value="ON" readonly />
+  </div>
+</div>
+
+<div class="legend" id="helpText">ยิงคำตอบที่ถูก, รักษา HP, สร้าง combo, คำที่ผิดจะวนกลับมาอีกในช่วงท้ายของ run</div>
   </div>
 <button id="replayFloating" class="replayFloating">PLAY AGAIN</button>
+</div>
+
+<div class="overlay hidden" id="endWrap">
+  <div class="panel" style="width:min(760px,94vw)">
+    <h2 style="margin:0">Run Complete</h2>
+    <div class="desc" id="endSummaryText">สรุปผลพร้อมแข่งขันต่อ</div>
+    <div class="actions" style="grid-template-columns:1fr 1fr 1fr;margin-top:16px">
+      <button class="btn" id="endPlayAgainBtn">PLAY AGAIN</button>
+      <button class="btn ghost" id="endLeaderboardBtn">LEADERBOARD</button>
+      <button class="btn alt" id="endMenuBtn">BACK TO MENU</button>
+    </div>
+  </div>
 </div>
 
 <div class="overlay hidden" id="teacherWrap">
@@ -182,6 +226,9 @@ th{color:#93c5fd}
 </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database-compat.js"></script>
+
 <script>
 (() => {
   const BANKS = {"A": [{"term": "algorithm", "definition": "a step-by-step method used to solve a problem"}, {"term": "software", "definition": "computer programs and applications"}, {"term": "hardware", "definition": "the physical parts of a computer"}, {"term": "variable", "definition": "a named storage location for data"}, {"term": "function", "definition": "a reusable block of code"}, {"term": "syntax", "definition": "the rules of writing code correctly"}, {"term": "compile", "definition": "to translate code into executable form"}, {"term": "debug", "definition": "to find and fix errors in code"}, {"term": "framework", "definition": "a reusable structure for software development"}, {"term": "interface", "definition": "the part of a system users interact with"}, {"term": "loop", "definition": "a structure that repeats instructions"}, {"term": "condition", "definition": "a rule that decides what happens next"}, {"term": "array", "definition": "an ordered collection of values"}, {"term": "object", "definition": "a data structure with properties and methods"}, {"term": "class", "definition": "a blueprint for creating objects"}, {"term": "method", "definition": "a function that belongs to an object"}, {"term": "string", "definition": "a sequence of characters"}, {"term": "integer", "definition": "a whole number"}, {"term": "boolean", "definition": "a value that is true or false"}, {"term": "operator", "definition": "a symbol used to perform an action"}, {"term": "parameter", "definition": "an input passed into a function"}, {"term": "argument", "definition": "the actual value given to a parameter"}, {"term": "return", "definition": "to send a value back from a function"}, {"term": "exception", "definition": "an error condition during program execution"}, {"term": "module", "definition": "a file or unit of reusable code"}, {"term": "library", "definition": "a collection of reusable code"}, {"term": "repository", "definition": "a storage location for project files"}, {"term": "version control", "definition": "a system for tracking file changes"}, {"term": "commit", "definition": "a saved change in version control"}, {"term": "branch", "definition": "a parallel line of development"}, {"term": "merge", "definition": "to combine changes from different branches"}, {"term": "execute", "definition": "to run a program or command"}, {"term": "runtime", "definition": "the period when a program is running"}, {"term": "compiler", "definition": "a program that translates source code"}, {"term": "interpreter", "definition": "a program that runs code line by line"}, {"term": "binary", "definition": "a base-2 representation using 0 and 1"}, {"term": "source code", "definition": "the human-readable instructions of a program"}, {"term": "terminal", "definition": "a text interface for running commands"}, {"term": "command", "definition": "an instruction given to the computer"}, {"term": "script", "definition": "a small program or automation file"}, {"term": "package", "definition": "a bundled set of code for reuse"}, {"term": "dependency", "definition": "software required by another program"}, {"term": "install", "definition": "to add software to a system"}, {"term": "update", "definition": "to bring software to a newer version"}, {"term": "patch", "definition": "a small fix or improvement"}, {"term": "refactor", "definition": "to improve code structure without changing behavior"}, {"term": "optimize", "definition": "to make code faster or more efficient"}, {"term": "documentation", "definition": "written information explaining a system"}, {"term": "workflow", "definition": "the order of steps in a process"}, {"term": "deployment", "definition": "releasing a system to real users"}], "B": [{"term": "database", "definition": "an organized system for storing data"}, {"term": "table", "definition": "data arranged in rows and columns"}, {"term": "record", "definition": "one complete row of data"}, {"term": "query", "definition": "a request to retrieve or filter data"}, {"term": "server", "definition": "a computer that provides services or data"}, {"term": "client", "definition": "a device or app that requests services"}, {"term": "protocol", "definition": "a set of rules for communication"}, {"term": "bandwidth", "definition": "how much data can be transferred"}, {"term": "latency", "definition": "the delay before data begins moving"}, {"term": "cloud computing", "definition": "using remote servers over the internet"}, {"term": "network", "definition": "connected computers sharing information"}, {"term": "ip address", "definition": "the address of a device on a network"}, {"term": "router", "definition": "a device that directs network traffic"}, {"term": "switch", "definition": "a device that connects devices in a local network"}, {"term": "firewall", "definition": "a security system that filters traffic"}, {"term": "encryption", "definition": "turning data into a protected form"}, {"term": "authentication", "definition": "checking a user's identity"}, {"term": "authorization", "definition": "deciding what a user is allowed to do"}, {"term": "packet", "definition": "a small unit of data sent over a network"}, {"term": "domain", "definition": "a human-readable internet address"}, {"term": "dns", "definition": "the system that maps domain names to ip addresses"}, {"term": "http", "definition": "a protocol for transferring web content"}, {"term": "https", "definition": "the secure version of http"}, {"term": "tcp", "definition": "a protocol for reliable data transport"}, {"term": "udp", "definition": "a protocol for faster but less reliable transport"}, {"term": "port", "definition": "a communication endpoint on a device"}, {"term": "cache", "definition": "temporary storage for faster access"}, {"term": "backup", "definition": "a copy of data for recovery"}, {"term": "recovery", "definition": "restoring data after failure"}, {"term": "schema", "definition": "the structure of a database"}, {"term": "sql", "definition": "a language for working with relational databases"}, {"term": "nosql", "definition": "database systems that do not use classic tables"}, {"term": "structured data", "definition": "data stored in a fixed format"}, {"term": "unstructured data", "definition": "data without a fixed format"}, {"term": "data cleaning", "definition": "fixing or removing poor-quality data"}, {"term": "visualization", "definition": "showing data through charts or visuals"}, {"term": "spreadsheet", "definition": "a grid-based tool for organizing data"}, {"term": "dataset", "definition": "a collection of data for analysis"}, {"term": "data pipeline", "definition": "the flow of data through steps or systems"}, {"term": "api", "definition": "a way for systems to communicate programmatically"}, {"term": "endpoint", "definition": "a specific address in an api"}, {"term": "json", "definition": "a common format for structured data exchange"}, {"term": "csv", "definition": "a simple text format for tables of data"}, {"term": "storage", "definition": "a place where data is kept"}, {"term": "upload", "definition": "to send data to a server"}, {"term": "download", "definition": "to receive data from a server"}, {"term": "sync", "definition": "to keep data consistent across locations"}, {"term": "virtual machine", "definition": "a software-based computer environment"}, {"term": "container", "definition": "a lightweight package for running software"}, {"term": "uptime", "definition": "the amount of time a system stays available"}], "C": [{"term": "model", "definition": "a trained system used to predict or classify"}, {"term": "feature", "definition": "an input variable used by a model"}, {"term": "training", "definition": "teaching a model using data"}, {"term": "testing", "definition": "checking model performance after training"}, {"term": "prediction", "definition": "the output guessed by a model"}, {"term": "accuracy", "definition": "how often the model is correct"}, {"term": "overfitting", "definition": "learning training data too closely"}, {"term": "label", "definition": "the correct target answer in supervised learning"}, {"term": "chatbot", "definition": "a system that communicates with users by text"}, {"term": "bias", "definition": "systematic unfairness in data or models"}, {"term": "artificial intelligence", "definition": "systems that perform tasks requiring intelligence"}, {"term": "machine learning", "definition": "learning patterns from data"}, {"term": "deep learning", "definition": "machine learning using many neural layers"}, {"term": "neural network", "definition": "a layered model inspired by connected neurons"}, {"term": "dataset split", "definition": "dividing data into training validation and test sets"}, {"term": "validation", "definition": "checking a model during development"}, {"term": "classification", "definition": "predicting a category"}, {"term": "regression", "definition": "predicting a continuous value"}, {"term": "clustering", "definition": "grouping similar data points"}, {"term": "inference", "definition": "using a trained model to make predictions"}, {"term": "token", "definition": "a basic unit used by language models"}, {"term": "embedding", "definition": "a numeric representation of meaning"}, {"term": "prompt", "definition": "the instruction given to an ai system"}, {"term": "fine-tuning", "definition": "adapting a pre-trained model to a task"}, {"term": "generative ai", "definition": "ai that creates text images or other content"}, {"term": "computer vision", "definition": "ai for understanding images and video"}, {"term": "natural language processing", "definition": "ai for working with human language"}, {"term": "speech recognition", "definition": "turning spoken audio into text"}, {"term": "recommendation system", "definition": "a system that suggests relevant items"}, {"term": "anomaly detection", "definition": "finding unusual patterns in data"}, {"term": "precision", "definition": "how many predicted positives are correct"}, {"term": "recall", "definition": "how many real positives were found"}, {"term": "f1 score", "definition": "a balance between precision and recall"}, {"term": "confusion matrix", "definition": "a table showing prediction outcomes"}, {"term": "hyperparameter", "definition": "a setting chosen before training"}, {"term": "epoch", "definition": "one full pass through the training data"}, {"term": "loss", "definition": "a measure of model error"}, {"term": "gradient", "definition": "information used to update a model"}, {"term": "optimizer", "definition": "a method for improving model parameters"}, {"term": "transformer", "definition": "a neural architecture used in modern ai"}, {"term": "llm", "definition": "a large language model"}, {"term": "hallucination", "definition": "when an ai gives false but confident output"}, {"term": "ethics", "definition": "principles guiding responsible ai use"}, {"term": "fairness", "definition": "reducing unjust outcomes in ai"}, {"term": "privacy", "definition": "protecting personal or sensitive data"}, {"term": "transparency", "definition": "making ai decisions easier to understand"}, {"term": "explainability", "definition": "the ability to explain how a model works"}, {"term": "automation", "definition": "using systems to perform tasks automatically"}, {"term": "decision support", "definition": "helping people make better choices with ai"}, {"term": "digital twin", "definition": "a virtual representation of a real system"}]};
@@ -217,10 +264,21 @@ th{color:#93c5fd}
     replayFloating: document.getElementById('replayFloating'),
     displayNameInput: document.getElementById('displayNameInput'),
     studentIdInput: document.getElementById('studentIdInput'),
+    sectionInput: document.getElementById('sectionInput'),
+    sessionCodeInput: document.getElementById('sessionCodeInput'),
+    firebaseRoomInput: document.getElementById('firebaseRoomInput'),
+    firebaseToggleInput: document.getElementById('firebaseToggleInput'),
     openLeaderboardBtn: document.getElementById('openLeaderboardBtn'),
+    exportClassroomBtn: document.getElementById('exportClassroomBtn'),
     leaderboardWrap: document.getElementById('leaderboardWrap'),
     leaderboardList: document.getElementById('leaderboardList'),
+    leaderboardPodium: document.getElementById('leaderboardPodium'),
     closeLeaderboardBtn: document.getElementById('closeLeaderboardBtn'),
+    endWrap: document.getElementById('endWrap'),
+    endSummaryText: document.getElementById('endSummaryText'),
+    endPlayAgainBtn: document.getElementById('endPlayAgainBtn'),
+    endLeaderboardBtn: document.getElementById('endLeaderboardBtn'),
+    endMenuBtn: document.getElementById('endMenuBtn'),
     openLeaderboardFromEndBtn: document.getElementById('openLeaderboardFromEndBtn'),
 
   };
@@ -241,6 +299,8 @@ th{color:#93c5fd}
   let score=0, combo=0, hp=4, roundStart=0, roundDuration=7000, timeLeft=1;
   let targets=[], effects=[], hovered=null, mouseX=0, mouseY=0;
   let currentPrompt='LOCK TARGETS';
+  let countdownUntil=0;
+  let countdownValue=0;
   let currentCorrectTerm=null;
   let currentDefinition=null;
   let currentStageType='hunt';
@@ -378,7 +438,9 @@ th{color:#93c5fd}
     currentDefinition = picked.definition;
     trackSeen(currentCorrectTerm);
     bossShield = currentStageType==='final_boss' ? 2 : currentStageType==='mini_boss' ? 1 : 0;
-    phase = 'intro';
+    phase = 'countdown';
+    countdownValue = 3;
+    countdownUntil = now() + 700;
     phaseUntil = now() + (mode==='classroom'? 1700: 1300);
     currentPrompt =
       currentStageType==='workflow' ? `เรียงลำดับ workflow ให้เริ่มจากคำที่เหมาะสมที่สุด: ${picked.definition}` :
@@ -459,7 +521,8 @@ th{color:#93c5fd}
       ]
     };
     localStorage.setItem(STORAGE.teacher, JSON.stringify(teacher));
-    pushLeaderboardEntry(session);
+    Promise.resolve(pushLeaderboardEntry(session)).catch(console.warn);
+    openEndOverlay();
     summary = {
       win, score, bank, mode,
       grade: score>=340?'S':score>=270?'A':score>=200?'B':score>=140?'C':'D',
@@ -695,28 +758,36 @@ function renderBackground(t){
 
 
   const LB_KEY = 'VR_VOCAB_V7_LEADERBOARD';
-  let profile = { displayName:'Player', studentId:'' };
+  let profile = { displayName:'Player', studentId:'', section:'GENERAL', sessionCode:'FREEPLAY' };
   let lastAccuracy = 0;
+  let currentScope = 'session';
+  let pendingStart = false;
 
   function loadProfile(){
     try{
       const raw = JSON.parse(localStorage.getItem('VR_VOCAB_V7_PROFILE') || '{}');
       profile.displayName = raw.displayName || 'Player';
       profile.studentId = raw.studentId || '';
+      profile.section = raw.section || 'GENERAL';
+      profile.sessionCode = raw.sessionCode || 'FREEPLAY';
       if (els.displayNameInput) els.displayNameInput.value = profile.displayName === 'Player' ? '' : profile.displayName;
       if (els.studentIdInput) els.studentIdInput.value = profile.studentId;
+      if (els.sectionInput) els.sectionInput.value = profile.section === 'GENERAL' ? '' : profile.section;
+      if (els.sessionCodeInput) els.sessionCodeInput.value = profile.sessionCode === 'FREEPLAY' ? '' : profile.sessionCode;
     }catch(e){}
   }
   function saveProfile(){
     profile.displayName = (els.displayNameInput?.value || '').trim() || 'Player';
     profile.studentId = (els.studentIdInput?.value || '').trim();
+    profile.section = (els.sectionInput?.value || '').trim() || 'GENERAL';
+    profile.sessionCode = (els.sessionCodeInput?.value || '').trim() || 'FREEPLAY';
     localStorage.setItem('VR_VOCAB_V7_PROFILE', JSON.stringify(profile));
   }
   function loadLeaderboard(){
     try{ return JSON.parse(localStorage.getItem(LB_KEY) || '[]'); }catch(e){ return []; }
   }
   function saveLeaderboard(rows){
-    localStorage.setItem(LB_KEY, JSON.stringify(rows.slice(0,100)));
+    localStorage.setItem(LB_KEY, JSON.stringify(rows.slice(0,300)));
   }
   function currentAccuracyFromSession(sess){
     const stats = Object.values((sess && sess.termStats) || {});
@@ -724,20 +795,20 @@ function renderBackground(t){
     const correct = stats.reduce((s,t)=>s+(t.correct||0),0);
     return seen ? Math.round(correct / seen * 100) : 0;
   }
-  function previousBestForPlayer(rows, name){
-    return rows
-      .filter(r => r.displayName === name)
-      .sort((a,b)=> (b.score||0)-(a.score||0))[0]?.score || 0;
+  function previousBestForPlayer(rows, name, section){
+    return rows.filter(r => r.displayName === name && r.section === section).sort((a,b)=> (b.score||0)-(a.score||0))[0]?.score || 0;
   }
   function pushLeaderboardEntry(sess){
     const rows = loadLeaderboard();
     const acc = currentAccuracyFromSession(sess);
     lastAccuracy = acc;
-    const prevBest = previousBestForPlayer(rows, profile.displayName);
+    const prevBest = previousBestForPlayer(rows, profile.displayName, profile.section);
     const improvement = Math.max(0, (sess.score || 0) - prevBest);
     rows.push({
       displayName: profile.displayName,
       studentId: profile.studentId,
+      section: profile.section,
+      sessionCode: profile.sessionCode,
       score: sess.score || 0,
       accuracy: acc,
       improvement,
@@ -747,15 +818,34 @@ function renderBackground(t){
     });
     saveLeaderboard(rows);
   }
+  function scopedRows(rows){
+    if(currentScope === 'session') return rows.filter(r => (r.sessionCode || 'FREEPLAY') === profile.sessionCode);
+    if(currentScope === 'section') return rows.filter(r => (r.section || 'GENERAL') === profile.section);
+    return rows;
+  }
   function renderLeaderboard(tab='score'){
-    const rows = loadLeaderboard();
+    const rows = scopedRows(loadLeaderboard());
     const list = els.leaderboardList;
+    const podium = els.leaderboardPodium;
     if(!list) return;
     list.innerHTML = '';
+    if (podium) podium.innerHTML = '';
     let sorted = rows.slice();
     if(tab === 'score') sorted.sort((a,b)=> (b.score||0)-(a.score||0));
     else if(tab === 'accuracy') sorted.sort((a,b)=> (b.accuracy||0)-(a.accuracy||0) || (b.score||0)-(a.score||0));
     else sorted.sort((a,b)=> (b.improvement||0)-(a.improvement||0) || (b.score||0)-(a.score||0));
+
+    const top3 = sorted.slice(0,3);
+    if (podium && top3.length){
+      top3.forEach((r,i)=>{
+        const card = document.createElement('div');
+        card.className = 'podiumCard';
+        const place = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+        const metric = tab === 'score' ? `Score ${r.score}` : tab === 'accuracy' ? `Accuracy ${r.accuracy}%` : `Improvement +${r.improvement}`;
+        card.innerHTML = `<div class="place">${place}</div><div class="name">${r.displayName}</div><div class="meta">${metric}</div><div class="meta">${r.section} • ${r.sessionCode}</div>`;
+        podium.appendChild(card);
+      });
+    }
 
     const top = sorted.slice(0,10);
     if(!top.length){
@@ -765,11 +855,12 @@ function renderBackground(t){
     } else {
       top.forEach((r,i)=>{
         const li = document.createElement('li');
-        li.innerHTML = `<strong>#${i+1} ${r.displayName}</strong> • ${r.bank} • ${String(r.mode).toUpperCase()}<div class="small mono">Score ${r.score} • Accuracy ${r.accuracy}% • Improvement +${r.improvement}</div>`;
+        li.innerHTML = `<strong>#${i+1} ${r.displayName}</strong> • ${r.bank} • ${String(r.mode).toUpperCase()}<div class="small mono">Section ${r.section} • Session ${r.sessionCode} • Score ${r.score} • Accuracy ${r.accuracy}% • Improvement +${r.improvement}</div>`;
         list.appendChild(li);
       });
     }
-    document.querySelectorAll('.lbTab').forEach(btn=> btn.classList.toggle('active', btn.dataset.tab === tab));
+    document.querySelectorAll('.lbTab[data-tab]').forEach(btn=> btn.classList.toggle('active', btn.dataset.tab === tab));
+    document.querySelectorAll('.lbTab[data-scope]').forEach(btn=> btn.classList.toggle('active', btn.dataset.scope === currentScope));
   }
   function openLeaderboard(){
     renderLeaderboard('score');
@@ -777,6 +868,43 @@ function renderBackground(t){
   }
   function closeLeaderboard(){
     if (els.leaderboardWrap) els.leaderboardWrap.classList.add('hidden');
+  }
+  function openEndOverlay(){
+    if (!els.endWrap) return;
+    const metric = `Score ${score} • Accuracy ${lastAccuracy}% • Bank ${bank} • Mode ${String(mode).toUpperCase()}`;
+    els.endSummaryText.textContent = `${profile.displayName} • ${profile.section} • ${profile.sessionCode} • ${metric}`;
+    els.endWrap.classList.remove('hidden');
+  }
+  function closeEndOverlay(){
+    if (els.endWrap) els.endWrap.classList.add('hidden');
+  }
+  function classroomExportRows(){
+    return loadLeaderboard().map(r => ({
+      displayName: r.displayName,
+      studentId: r.studentId,
+      section: r.section,
+      sessionCode: r.sessionCode,
+      bank: r.bank,
+      mode: r.mode,
+      score: r.score,
+      accuracy: r.accuracy,
+      improvement: r.improvement,
+      when: r.when
+    }));
+  }
+  function classroomExportCsv(){
+    const rows = classroomExportRows();
+    const header = ['displayName','studentId','section','sessionCode','bank','mode','score','accuracy','improvement','when'];
+    const body = rows.map(r => header.map(k => String(r[k] ?? '')).join(','));
+    return [header.join(','), ...body].join('
+');
+  }
+  function downloadFile(filename, text, type='text/plain'){
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   document.querySelectorAll('.bankBtn').forEach(btn=>btn.addEventListener('click',()=>{
@@ -820,7 +948,11 @@ function renderBackground(t){
     renderBackground(t);
 
     if(gameStarted && !gameOver){
-      if(phase==='intro'){
+      if(phase==='countdown'){
+        timeLeft=1;
+        currentPrompt = `GET READY • ${countdownValue}`;
+        if(now() >= countdownUntil){ countdownValue -= 1; countdownUntil = now() + 700; if(countdownValue <= 0){ phase='intro'; } }
+      } else if(phase==='intro'){
         timeLeft=1;
         if(now() >= phaseUntil){
           phase='battle';
@@ -858,7 +990,7 @@ function renderBackground(t){
       ctx.fillText(`${summary.win?'MISSION CLEAR':'MISSION FAILED'} • RANK ${summary.grade}`, width/2, y+38);
       ctx.fillStyle='#67e8f9'; ctx.font='800 22px Arial'; ctx.fillText(`Score ${summary.score} • Weakest ${String(summary.weakest).toUpperCase()}`, width/2, y+84);
       ctx.fillStyle='#dbe7ff';
-      drawWrapped(`${profile.displayName} • Bank: ${summary.bank} • Mode: ${summary.mode.toUpperCase()} • Accuracy ${lastAccuracy}%`, width/2, y+128, w-40, 2, 18);
+      drawWrapped(`${profile.displayName} • ${profile.section} • ${profile.sessionCode} • Accuracy ${lastAccuracy}%`, width/2, y+128, w-40, 2, 18);
       drawWrapped(`Correct ${summary.correct} • Mistakes ${summary.mistakes}`, width/2, y+156, w-40, 1, 18);
       drawWrapped(`Tap the green PLAY AGAIN button at the bottom to run again`, width/2, y+188, w-40, 1, 18);
     }
@@ -870,6 +1002,7 @@ function renderBackground(t){
 
   // boot
   resize();
+  initFirebase();
   loadProfile();
   updateBestChip();
 
