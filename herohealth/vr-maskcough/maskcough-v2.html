@@ -3,17 +3,410 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — MaskCough Arcade v2</title>
+  <title>HeroHealth — MaskCough VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./maskcough-v2.css?v=20260415a-zone-first-final" />
+  <link rel="stylesheet" href="./maskcough-v2.css?v=20260415b-mobile-ux" />
+
+  <style>
+    :root{
+      --panel-strong:rgba(8,17,34,.92);
+      --panel-soft:rgba(8,17,34,.76);
+      --line:rgba(255,255,255,.12);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --cyan:#67e8f9;
+      --good:#86efac;
+      --warn:#fde68a;
+      --bad:#fca5a5;
+    }
+
+    .mini-howto{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      display:grid;
+      place-items:center;
+      padding:16px;
+      background:rgba(2,6,23,.56);
+      backdrop-filter:blur(8px);
+    }
+    .mini-howto.hidden{ display:none; }
+
+    .mini-howto-card{
+      width:min(760px,100%);
+      border-radius:24px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        radial-gradient(600px 220px at 0% 0%, rgba(34,211,238,.16), transparent 60%),
+        linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.94));
+      box-shadow:0 22px 60px rgba(0,0,0,.38);
+      padding:18px;
+      color:var(--text);
+    }
+
+    .mini-howto-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(34,211,238,.14);
+      border:1px solid rgba(34,211,238,.24);
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    .mini-howto h1{
+      margin:0 0 10px;
+      font-size:clamp(24px,4vw,34px);
+      line-height:1.08;
+    }
+
+    .mini-howto p{
+      margin:0 0 14px;
+      color:var(--muted);
+      line-height:1.6;
+      font-weight:800;
+    }
+
+    .howto-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin:14px 0 0;
+    }
+
+    .howto-box{
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      padding:12px;
+      line-height:1.45;
+      font-weight:900;
+    }
+
+    .howto-box b{
+      display:block;
+      margin-bottom:6px;
+      font-size:15px;
+    }
+
+    .howto-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    .howto-btn{
+      appearance:none;
+      border:0;
+      border-radius:16px;
+      padding:14px 16px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      min-width:180px;
+      box-shadow:0 12px 26px rgba(0,0,0,.22);
+    }
+
+    .howto-btn.primary{
+      background:linear-gradient(180deg, rgba(34,197,94,.28), rgba(34,197,94,.18));
+      color:#fff;
+      border:1px solid rgba(34,197,94,.28);
+    }
+
+    .howto-btn.ghost{
+      background:rgba(255,255,255,.08);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .tap-legend{
+      position:absolute;
+      left:12px;
+      right:12px;
+      bottom:12px;
+      z-index:8;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      pointer-events:none;
+    }
+
+    .tap-legend .legend-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(2,6,23,.76);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.12);
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+    }
+
+    .guide-card{
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(15,23,42,.48);
+      padding:12px;
+      color:#e2e8f0;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+    }
+
+    .guide-card b{
+      display:block;
+      margin-bottom:8px;
+      color:#fff;
+      font-size:14px;
+    }
+
+    .guide-list{
+      display:grid;
+      gap:6px;
+    }
+
+    .hud-tools{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .hud-tools .btn{
+      min-height:42px;
+      border-radius:14px;
+      font-weight:1000;
+    }
+
+    .arena-focus-tip{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:68px;
+      z-index:9;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(2,6,23,.78);
+      border:1px solid rgba(255,255,255,.12);
+      color:#fff;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+      pointer-events:none;
+    }
+
+    .entity.droplet::after{
+      content:'แตะ';
+      position:absolute;
+      right:-6px;
+      top:-6px;
+      min-width:30px;
+      height:22px;
+      padding:0 6px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:rgba(34,197,94,.92);
+      color:#052e16;
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(0,0,0,.18);
+    }
+
+    .entity.mask::after{
+      content:'เก็บ';
+      position:absolute;
+      right:-6px;
+      top:-6px;
+      min-width:30px;
+      height:22px;
+      padding:0 6px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:rgba(103,232,249,.96);
+      color:#083344;
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(0,0,0,.18);
+    }
+
+    .entity.cough.charge,
+    .entity.cough.strike{
+      outline:3px solid rgba(250,204,21,.38);
+      outline-offset:3px;
+    }
+
+    .entity.cough.strike{
+      outline-color:rgba(239,68,68,.56);
+    }
+
+    @media (max-width:980px){
+      .game-shell{
+        display:block !important;
+        padding:8px !important;
+      }
+
+      .arena{
+        min-height:66dvh;
+        border-radius:22px;
+        margin-top:152px;
+      }
+
+      body.hud-open .arena{
+        margin-top:332px;
+      }
+
+      .hud{
+        position:fixed;
+        left:8px;
+        right:8px;
+        top:8px;
+        z-index:30;
+        padding:10px !important;
+        gap:8px !important;
+        border-radius:20px !important;
+        max-height:min(46dvh,360px);
+        overflow:auto;
+        background:var(--panel-strong) !important;
+        backdrop-filter:blur(10px);
+      }
+
+      .hud.compact .bars,
+      .hud.compact .mini,
+      .hud.compact .help,
+      .hud.compact .guide-card{
+        display:none !important;
+      }
+
+      .hud-top{
+        gap:6px !important;
+      }
+
+      .pill{
+        min-height:34px !important;
+        padding:6px 10px !important;
+        font-size:11px !important;
+      }
+
+      .pill b{
+        font-size:12px !important;
+      }
+
+      .controls{
+        margin-top:0 !important;
+      }
+
+      .controls .btn{
+        flex:1 1 calc(50% - 4px);
+        min-height:42px !important;
+        padding:10px 12px !important;
+        border-radius:14px !important;
+      }
+
+      .tap-legend{
+        left:8px;
+        right:8px;
+        bottom:8px;
+      }
+
+      .tap-legend .legend-chip{
+        min-height:32px;
+        padding:6px 10px;
+        font-size:11px;
+      }
+
+      .arena-focus-tip{
+        bottom:54px;
+        font-size:11px;
+      }
+
+      .mini-howto-card{
+        border-radius:20px;
+        padding:16px;
+      }
+
+      .howto-grid{
+        grid-template-columns:1fr;
+      }
+
+      .howto-actions{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+
+      .howto-btn{
+        width:100%;
+        min-width:0;
+      }
+    }
+
+    @media (max-width:640px){
+      .combo-pill{
+        display:none !important;
+      }
+
+      .arena{
+        min-height:67dvh;
+      }
+
+      .tap-legend{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
   <div id="mcfxFlash" class="mcfx-flash" aria-hidden="true"></div>
   <div id="mcfxPrompt" class="mcfx-prompt" aria-live="polite"></div>
 
+  <section id="miniHowto" class="mini-howto">
+    <div class="mini-howto-card">
+      <div class="mini-howto-kicker">😷 MaskCough VR • How to Play</div>
+      <h1>เกมนี้ไม่ใช่ยิงมั่ว แต่ให้ “แตะเป้าที่ถูก”</h1>
+      <p>
+        หน้าที่ของผู้เล่นคือช่วยลดการแพร่เชื้อจากการไอจาม
+        โดยแตะเก็บละอองให้ทัน เก็บหน้ากากเพิ่มโล่
+        และแตะจังหวะการไอให้ถูกตอนที่พร้อมกันได้
+      </p>
+
+      <div class="howto-grid">
+        <div class="howto-box">
+          <b>💦 แตะเก็บ</b>
+          เห็นละอองน้ำลาย / ละอองไอ ให้แตะทันทีเพื่อเก็บคะแนนและลดอันตราย
+        </div>
+        <div class="howto-box">
+          <b>😷 เก็บหน้ากาก</b>
+          แตะหน้ากากเพื่อเพิ่มโล่ ป้องกันความเสี่ยง
+        </div>
+        <div class="howto-box">
+          <b>🤧 กันไอให้ถูกจังหวะ</b>
+          ตอนเป้าไอเริ่มเข้าโหมดพร้อมกันได้ ให้แตะเพื่อบล็อกการไอ
+        </div>
+        <div class="howto-box">
+          <b>💥 ใช้สกิลเมื่อเกจเต็ม</b>
+          ปุ่มล้างละอองใช้เคลียร์ภัยหลายจุดพร้อมกันตอนสถานการณ์หนัก
+        </div>
+      </div>
+
+      <div class="howto-actions">
+        <button id="howtoPlayBtn" class="howto-btn primary" type="button">▶ เริ่มเล่นทันที</button>
+        <button id="howtoCloseBtn" class="howto-btn ghost" type="button">ดูหน้าจอเกมก่อน</button>
+      </div>
+    </div>
+  </section>
+
   <div class="game-shell">
-    <main id="arena" class="arena" aria-label="MaskCough Arcade v2">
+    <main id="arena" class="arena" aria-label="MaskCough VR">
       <div id="world" class="world"></div>
       <div id="hazardLayer" class="hazard-layer" aria-hidden="true"></div>
 
@@ -22,33 +415,53 @@
 
       <div id="teachBar" class="teach-bar" hidden>
         <span id="teachIcon">💦</span>
-        <span id="teachText">เก็บละอองให้ไว!</span>
+        <span id="teachText">แตะ 💦 เพื่อเก็บละออง</span>
+      </div>
+
+      <div id="arenaFocusTip" class="arena-focus-tip">แตะ 💦 เก็บ • เก็บ 😷 เพิ่มโล่ • แตะ 🤧 ตอนพร้อม</div>
+
+      <div id="tapLegend" class="tap-legend" aria-hidden="true">
+        <div class="legend-chip">💦 แตะเก็บละออง</div>
+        <div class="legend-chip">😷 เก็บหน้ากาก</div>
+        <div class="legend-chip">🤧 แตะตอนพร้อมกัน</div>
+        <div class="legend-chip">💥 ใช้เมื่อเกจเต็ม</div>
       </div>
 
       <div id="popLayer" class="pop-layer" aria-hidden="true"></div>
     </main>
 
-    <aside class="hud">
+    <aside id="hud" class="hud compact">
       <div class="hud-top">
-        <span class="pill mission-pill">ภารกิจ <b id="tMission">เก็บละออง 0/10</b></span>
         <span class="pill phase-pill">ด่าน <b id="tPhase">เริ่ม</b></span>
+        <span class="pill mission-pill">ภารกิจ <b id="tMission">เก็บละออง 0/10</b></span>
         <span class="pill score-pill">คะแนน <b id="tScore">0</b></span>
         <span class="pill combo-pill">คอมโบ <b id="tCombo">0</b></span>
       </div>
 
+      <div class="guide-card">
+        <b>เล่นยังไง</b>
+        <div class="guide-list">
+          <div>💦 แตะละอองเพื่อเก็บคะแนน</div>
+          <div>😷 แตะหน้ากากเพื่อเพิ่มโล่</div>
+          <div>🤧 ตอนเป้าไอขึ้นจังหวะพร้อม ให้แตะเพื่อกัน</div>
+          <div>🦠 อย่าปล่อยเชื้อค้างนาน</div>
+          <div>💥 เกจเต็มแล้วกดล้างละออง</div>
+        </div>
+      </div>
+
       <div class="bars">
         <div class="barbox">
-          <div class="barlabel"><span>พลังป้องกัน</span><b id="tShield">48%</b></div>
+          <div class="barlabel"><span>พลังโล่</span><b id="tShield">48%</b></div>
           <div class="track"><div id="bShield" class="fill shield" style="width:48%"></div></div>
         </div>
 
         <div class="barbox">
-          <div class="barlabel"><span>ความเสี่ยง</span><b id="tThreat">0%</b></div>
+          <div class="barlabel"><span>ความเสี่ยงการรับเชื้อ</span><b id="tThreat">0%</b></div>
           <div class="track"><div id="bThreat" class="fill threat" style="width:0%"></div></div>
         </div>
 
         <div class="barbox">
-          <div class="barlabel"><span>พลังพิเศษ</span><b id="tParry">0%</b></div>
+          <div class="barlabel"><span>พลังล้างละออง</span><b id="tParry">0%</b></div>
           <div class="track"><div id="bParry" class="fill parry" style="width:0%"></div></div>
         </div>
       </div>
@@ -61,37 +474,31 @@
       </div>
 
       <div class="controls">
-        <button id="btnStart" class="btn primary" type="button">▶ เริ่มช่วยหยุดเชื้อ</button>
-        <button id="btnRetry" class="btn accent" type="button">↻ เล่นใหม่</button>
-        <button id="btnBurst" class="btn accent" type="button">💥 พลังพิเศษ</button>
+        <button id="btnStart" class="btn primary" type="button">▶ เริ่มเกม</button>
+        <button id="btnRetry" class="btn accent" type="button">↻ เริ่มใหม่</button>
+        <button id="btnBurst" class="btn accent" type="button">💥 ล้างละออง</button>
         <button id="btnPause" class="btn" type="button">⏸ พัก</button>
-        <button id="btnBackZoneTop" class="btn ghost" type="button">🧼 กลับ Hygiene Zone</button>
-        <button id="btnBack" class="btn ghost" type="button">🏠 กลับหลัก</button>
+        <button id="btnHudToggle" class="btn ghost" type="button">👁 แสดง/ย่อ HUD</button>
+        <button id="btnBack" class="btn ghost" type="button">🧼 กลับ Hygiene Zone</button>
       </div>
 
       <div class="help">
-        <div><b>วิธีเล่นแบบเร็ว</b></div>
-        <div>💦 เก็บให้ไว</div>
-        <div>😷 เก็บเพื่อป้องกัน</div>
-        <div>🤧 รอจังหวะแล้วค่อยกัน</div>
-        <div>🦠 อย่าปล่อยค้าง</div>
-
-        <div style="margin-top:8px"><b>เป้าหมาย</b></div>
-        <div>ช่วยลดการแพร่เชื้อจากการไอจาม</div>
+        <div><b>จำง่าย ๆ</b></div>
+        <div>แตะของดี • กันของอันตราย • ใช้สกิลตอนจอเริ่มรก</div>
       </div>
     </aside>
   </div>
 
   <section id="endScreen" class="end-screen" hidden>
     <div class="end-card">
-      <div class="end-title">สรุปผล — MaskCough Arcade v2</div>
+      <div class="end-title">สรุปผล — MaskCough VR</div>
 
       <div class="end-grid">
         <div class="end-item"><span>คะแนน</span><b id="sScore">0</b></div>
         <div class="end-item"><span>คอมโบสูงสุด</span><b id="sComboMax">0</b></div>
         <div class="end-item"><span>กันทัน</span><b id="sPerfect">0</b></div>
         <div class="end-item"><span>พลาด</span><b id="sMiss">0</b></div>
-        <div class="end-item"><span>พลังป้องกัน</span><b id="sShield">0%</b></div>
+        <div class="end-item"><span>พลังโล่</span><b id="sShield">0%</b></div>
         <div class="end-item"><span>ความเสี่ยง</span><b id="sThreat">0%</b></div>
       </div>
 
@@ -99,12 +506,10 @@
 
       <div style="margin-top:12px;font-weight:1000">สรุปการเรียนรู้</div>
       <div id="learningSummary" class="end-note"></div>
-
       <div id="endNote" class="end-note"></div>
 
       <div class="end-actions">
         <button id="btnEndRetry" class="btn accent" type="button">↻ เล่นอีกครั้ง</button>
-        <button id="btnEndZone" class="btn" type="button">🧼 กลับ Hygiene Zone</button>
         <button id="btnEndBack" class="btn primary" type="button">➡ ไป Cooldown</button>
       </div>
     </div>
@@ -113,148 +518,76 @@
   <div id="toast" class="toast"></div>
 
   <script src="../vr/vr-ui.js?v=20260306a"></script>
-  <script src="./maskcough-v2.js?v=20260415a-zone-first-final"></script>
+  <script src="./maskcough-v2.js?v=20260415b"></script>
 
   <script>
     (() => {
       'use strict';
 
-      const qs = new URLSearchParams(location.search);
+      const hud = document.getElementById('hud');
+      const btnHudToggle = document.getElementById('btnHudToggle');
+      const miniHowto = document.getElementById('miniHowto');
+      const howtoPlayBtn = document.getElementById('howtoPlayBtn');
+      const howtoCloseBtn = document.getElementById('howtoCloseBtn');
+      const btnStart = document.getElementById('btnStart');
+      const btnRetry = document.getElementById('btnRetry');
+      const btnEndRetry = document.getElementById('btnEndRetry');
+      const arenaFocusTip = document.getElementById('arenaFocusTip');
 
-      const q = (k, d = '') => {
-        const v = qs.get(k);
-        return (v == null || v === '') ? d : v;
-      };
-
-      const safeAbsUrl = (raw, fallback = '') => {
-        const value = String(raw || '').trim();
-        try {
-          if (value) return new URL(value, location.href).toString();
-        } catch (_) {}
-        try {
-          return new URL(fallback || '../hygiene-zone.html', location.href).toString();
-        } catch (_) {
-          return fallback || '../hygiene-zone.html';
-        }
-      };
-
-      const firstNonEmpty = (...vals) => {
-        for (const v of vals) {
-          const s = String(v || '').trim();
-          if (s) return s;
-        }
-        return '';
-      };
-
-      const looksLikeZoneUrl = (urlText = '') =>
-        String(urlText || '').toLowerCase().includes('hygiene-zone.html');
-
-      const looksLikeHubUrl = (urlText = '') => {
-        const txt = String(urlText || '').toLowerCase();
-        return txt.includes('/hub.html') || txt.includes('/hub-v2.html');
-      };
-
-      const buildHubRoot = () => {
-        const explicitHubRoot = firstNonEmpty(q('hubRoot', ''));
-        if (explicitHubRoot) return safeAbsUrl(explicitHubRoot, '../hub-v2.html');
-
-        const legacyHub = firstNonEmpty(q('hub', ''));
-        if (legacyHub && looksLikeHubUrl(legacyHub)) {
-          return safeAbsUrl(legacyHub, '../hub-v2.html');
-        }
-
-        return safeAbsUrl('../hub-v2.html', '../hub-v2.html');
-      };
-
-      const buildFallbackZoneReturn = () => {
-        const hubRoot = buildHubRoot();
-        const url = new URL('../hygiene-zone.html', location.href);
-
-        [
-          'pid','name','nick','nickName','studyId',
-          'diff','view','time','run',
-          'debug','api','log',
-          'studentKey','schoolCode','classRoom','studentNo',
-          'conditionGroup','sessionNo','weekNo','teacher','grade'
-        ].forEach((key) => {
-          const v = q(key, '');
-          if (v) url.searchParams.set(key, v);
-        });
-
-        if (!url.searchParams.get('pid')) url.searchParams.set('pid', 'anon');
-        if (!url.searchParams.get('name')) {
-          url.searchParams.set(
-            'name',
-            firstNonEmpty(q('name', ''), q('nickName', ''), q('nick', ''), 'Hero')
-          );
-        }
-        if (!url.searchParams.get('diff')) url.searchParams.set('diff', 'normal');
-        if (!url.searchParams.get('view')) url.searchParams.set('view', 'mobile');
-        if (!url.searchParams.get('time')) url.searchParams.set('time', '90');
-        if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
-
-        url.searchParams.set('zone', 'hygiene');
-        url.searchParams.set('cat', 'hygiene');
-        url.searchParams.set('hubRoot', hubRoot);
-        url.searchParams.set('hub', hubRoot);
-
-        return url.toString();
-      };
-
-      const buildZoneReturn = () => {
-        const explicitZoneReturn = firstNonEmpty(q('zoneReturn', ''));
-        if (explicitZoneReturn) return safeAbsUrl(explicitZoneReturn, '../hygiene-zone.html');
-
-        const legacyHub = firstNonEmpty(q('hub', ''));
-        if (legacyHub && looksLikeZoneUrl(legacyHub)) {
-          return safeAbsUrl(legacyHub, '../hygiene-zone.html');
-        }
-
-        return buildFallbackZoneReturn();
-      };
-
-      const resolveNextUrl = () => {
-        const explicitNext = firstNonEmpty(q('next', ''));
-        if (explicitNext) {
-          const nextAbs = safeAbsUrl(explicitNext, buildZoneReturn());
-          if (nextAbs !== new URL(location.href).toString()) return nextAbs;
-        }
-        return buildZoneReturn();
-      };
-
-      const HUB_ROOT_URL = buildHubRoot();
-      const ZONE_RETURN_URL = buildZoneReturn();
-      const NEXT_URL = resolveNextUrl();
-
-      function rememberMaskCoughZoneTouch() {
-        try {
-          localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
-          localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
-            key: 'maskcough',
-            title: 'MaskCough',
-            at: Date.now()
-          }));
-        } catch (_) {}
+      function setHudMode(compact){
+        if (!hud) return;
+        hud.classList.toggle('compact', !!compact);
+        document.body.classList.toggle('hud-open', !compact);
       }
 
-      function bindDirectNav(id, target) {
-        const el = document.getElementById(id);
-        if (!el || !target) return;
-
-        el.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          ev.stopImmediatePropagation();
-          rememberMaskCoughZoneTouch();
-          location.href = target;
-        }, true);
+      function closeHowto(){
+        miniHowto?.classList.add('hidden');
       }
 
-      bindDirectNav('btnBackZoneTop', ZONE_RETURN_URL);
-      bindDirectNav('btnEndZone', ZONE_RETURN_URL);
+      function startFromHowto(){
+        closeHowto();
+        btnStart?.click();
+      }
 
-      window.__MASKCOUGH_ZONE_RETURN__ = ZONE_RETURN_URL;
-      window.__MASKCOUGH_HUB_ROOT__ = HUB_ROOT_URL;
-      window.__MASKCOUGH_NEXT__ = NEXT_URL;
+      howtoPlayBtn?.addEventListener('click', startFromHowto);
+      howtoCloseBtn?.addEventListener('click', closeHowto);
+
+      btnStart?.addEventListener('click', closeHowto, true);
+      btnRetry?.addEventListener('click', closeHowto, true);
+      btnEndRetry?.addEventListener('click', closeHowto, true);
+
+      btnHudToggle?.addEventListener('click', () => {
+        const compact = !hud.classList.contains('compact');
+        setHudMode(compact);
+      });
+
+      if (window.matchMedia('(max-width:980px)').matches) {
+        setHudMode(true);
+      } else {
+        setHudMode(false);
+      }
+
+      window.addEventListener('resize', () => {
+        if (window.matchMedia('(max-width:980px)').matches) {
+          if (!hud.classList.contains('compact') && document.body.classList.contains('hud-open')) return;
+          setHudMode(true);
+        } else {
+          setHudMode(false);
+        }
+      });
+
+      setTimeout(() => {
+        if (arenaFocusTip) {
+          arenaFocusTip.style.opacity = '1';
+        }
+      }, 300);
+
+      setTimeout(() => {
+        if (arenaFocusTip) {
+          arenaFocusTip.style.transition = 'opacity .4s ease';
+          arenaFocusTip.style.opacity = '.88';
+        }
+      }, 3200);
     })();
   </script>
 </body>
