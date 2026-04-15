@@ -1,9 +1,9 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260415a-GATE-ZONE-FIRST-NEXT-CDNEXT-ZONERETURN-FINAL
+// FULL PATCH v20260415b-GATE-ZONE-FIRST-SELFLOOP-GUARD-FINAL
 
 import * as GateGames from './gate-games.js?v=20260414h-JUMPDuck-DOGHERO-FITNESSZONE-LOCK';
 
-const PATCH = 'v20260415a-GATE-ZONE-FIRST-NEXT-CDNEXT-ZONERETURN-FINAL';
+const PATCH = 'v20260415b-GATE-ZONE-FIRST-SELFLOOP-GUARD-FINAL';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -231,6 +231,13 @@ function resolveAbsoluteUrl(maybeUrl) {
   } catch {
     return '';
   }
+}
+
+function isSamePageHref(href = '') {
+  const a = resolveAbsoluteUrl(href);
+  const b = resolveAbsoluteUrl(location.href);
+  if (!a || !b) return false;
+  return a === b;
 }
 
 function normalizeZoneId(raw = '') {
@@ -884,13 +891,13 @@ async function resolveRunHref(ctx) {
   if (isJumpDuckGate(ctx)) {
     if (ctx.next) {
       const nextHref = resolveAbsoluteUrl(ctx.next);
-      if (nextHref) return nextHref;
+      if (nextHref && !isSamePageHref(nextHref)) return nextHref;
     }
   }
 
   if (ctx.next) {
     const nextHref = resolveAbsoluteUrl(ctx.next);
-    if (nextHref) {
+    if (nextHref && !isSamePageHref(nextHref)) {
       console.log('[GATE] resolveRunHref via next', nextHref);
       return nextHref;
     }
@@ -900,7 +907,7 @@ async function resolveRunHref(ctx) {
     try {
       const stored = sessionStorage.getItem(ctx.nextKey);
       const storedHref = resolveAbsoluteUrl(stored);
-      if (storedHref) {
+      if (storedHref && !isSamePageHref(storedHref)) {
         console.log('[GATE] resolveRunHref via nextKey', ctx.nextKey, storedHref);
         return storedHref;
       }
@@ -917,6 +924,8 @@ async function resolveRunHref(ctx) {
       const url = new URL(rel, location.href);
       url.search = params.toString();
 
+      if (isSamePageHref(url.href)) continue;
+
       const ok = await quickExists(url.href);
       if (ok) {
         console.log('[GATE] resolveRunHref via fallback', url.href);
@@ -927,6 +936,12 @@ async function resolveRunHref(ctx) {
 
   const fallback = new URL(candidates[0], location.href);
   fallback.search = params.toString();
+
+  if (isSamePageHref(fallback.href)) {
+    console.warn('[GATE] resolveRunHref blocked same-page fallback', fallback.href);
+    return '';
+  }
+
   console.log('[GATE] resolveRunHref final fallback', fallback.href);
   return fallback.href;
 }
@@ -949,6 +964,7 @@ function resolveCompletionTarget(ctx, payload = {}) {
   function pushCandidate(raw, source = '') {
     const href = resolveAbsoluteUrl(String(raw || '').trim());
     if (!href) return;
+    if (isSamePageHref(href)) return;
     if (seen.has(href)) return;
     seen.add(href);
 
@@ -1277,9 +1293,11 @@ function showAlreadyDone(stage, footer, ctx) {
 
       setActions(footer, actions);
 
-      setTimeout(() => {
-        location.href = completionTarget.href;
-      }, 180);
+      if (!isSamePageHref(completionTarget.href)) {
+        setTimeout(() => {
+          location.href = completionTarget.href;
+        }, 180);
+      }
       return;
     }
 
@@ -1287,9 +1305,11 @@ function showAlreadyDone(stage, footer, ctx) {
       { label: isZonePageHref(backHref) ? 'กลับ Zone' : 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
     ]);
 
-    setTimeout(() => {
-      goHub(ctx);
-    }, 180);
+    if (!isSamePageHref(backHref)) {
+      setTimeout(() => {
+        goHub(ctx);
+      }, 180);
+    }
     return;
   }
 
@@ -1312,10 +1332,12 @@ function showAlreadyDone(stage, footer, ctx) {
       { label: isZonePageHref(resolveHubHref(ctx)) ? 'กลับ Zone' : 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
     ]);
 
-    setTimeout(() => {
-      if (trySpecialGateRedirect(ctx, 'warmup', { source: 'already-done' })) return;
-      goRun(ctx);
-    }, 350);
+    resolveRunHref(ctx).then((href) => {
+      if (!href || isSamePageHref(href)) return;
+      setTimeout(() => {
+        location.href = href;
+      }, 350);
+    });
     return;
   }
 
@@ -1331,9 +1353,12 @@ function showAlreadyDone(stage, footer, ctx) {
       { label: 'กลับ Fitness Zone', onClick: () => goHub(ctx) }
     ]);
 
-    setTimeout(() => {
-      goRun(ctx);
-    }, 350);
+    resolveRunHref(ctx).then((href) => {
+      if (!href || isSamePageHref(href)) return;
+      setTimeout(() => {
+        location.href = href;
+      }, 350);
+    });
     return;
   }
 
@@ -1348,9 +1373,12 @@ function showAlreadyDone(stage, footer, ctx) {
     { label: isZonePageHref(resolveHubHref(ctx)) ? 'กลับ Zone' : 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
   ]);
 
-  setTimeout(() => {
-    goRun(ctx);
-  }, 350);
+  resolveRunHref(ctx).then((href) => {
+    if (!href || isSamePageHref(href)) return;
+    setTimeout(() => {
+      location.href = href;
+    }, 350);
+  });
 }
 
 function showInvalidGame(stage, footer, ctx) {
