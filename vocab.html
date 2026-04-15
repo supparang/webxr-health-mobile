@@ -47,12 +47,12 @@ canvas{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
 .pill{appearance:none;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:12px 14px;color:var(--text);cursor:pointer}
 .replayFloating{
   position:fixed; left:50%; bottom:26px; transform:translateX(-50%);
-  z-index:80; min-width:280px; max-width:80vw;
+  z-index:9999; min-width:280px; max-width:80vw;
   border:0; border-radius:22px; padding:16px 28px;
   background:linear-gradient(135deg,#22c55e,#16a34a);
   color:#fff; font-size:20px; font-weight:1000; cursor:pointer;
   box-shadow:0 16px 36px rgba(0,0,0,.30), 0 0 0 4px rgba(255,255,255,.14) inset;
-  display:none;
+  display:none; pointer-events:auto;
 }
 .replayFloating.show{display:block}
 .small{font-size:12px;color:#cbd5e1}
@@ -60,6 +60,18 @@ canvas{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
 table{width:100%;border-collapse:collapse;margin-top:12px}
 th,td{border-bottom:1px solid rgba(255,255,255,.08);padding:8px;text-align:left;font-size:13px}
 th{color:#93c5fd}
+
+.profileRow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.inputBox{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:12px}
+.inputBox label{display:block;font-size:12px;color:#c7d4ff;margin-bottom:6px}
+.inputBox input{width:100%;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;font-size:14px}
+.leaderboardList{list-style:none;padding:0;display:grid;gap:10px;margin-top:14px}
+.leaderboardList li{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:10px 12px}
+.lbTabs{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.lbTab{appearance:none;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:10px 14px;color:#fff;cursor:pointer}
+.lbTab.active{outline:3px solid #67e8f9;background:rgba(103,232,249,.10)}
+@media (max-width:980px){.profileRow{grid-template-columns:1fr}}
+
 @media (max-width:980px){.hud,.grid3,.grid2,.actions,.teacherStats{grid-template-columns:1fr} .bottom{flex-direction:column} .title{font-size:29px}}
 </style>
 </head>
@@ -104,10 +116,23 @@ th{color:#93c5fd}
       <div class="mission"><h3>Teacher Analytics</h3><p>เก็บ term seen/correct/wrong, weakest terms, session history, export JSON/CSV</p></div>
     </div>
 
-    <div class="actions">
+    
+<div class="profileRow">
+  <div class="inputBox">
+    <label for="displayNameInput">Display Name</label>
+    <input id="displayNameInput" type="text" maxlength="24" placeholder="เช่น Mint / Arm / AomAI" />
+  </div>
+  <div class="inputBox">
+    <label for="studentIdInput">Student ID (optional)</label>
+    <input id="studentIdInput" type="text" maxlength="24" placeholder="เช่น 6512345678" />
+  </div>
+</div>
+
+<div class="actions">
       <button class="btn" id="startBtn">START LONG RUN</button>
       <button class="btn alt" id="howBtn">HOW TO PLAY</button>
       <button class="btn ghost" id="dashboardBtn">TEACHER DASHBOARD</button>
+      <button class="btn ghost" id="openLeaderboardBtn">LEADERBOARD</button>
     </div>
     <div class="legend" id="helpText">ยิงคำตอบที่ถูก, รักษา HP, สร้าง combo, คำที่ผิดจะวนกลับมาอีกในช่วงท้ายของ run</div>
   </div>
@@ -189,6 +214,15 @@ th{color:#93c5fd}
     tsMode: document.getElementById('tsMode'),
     tsMistakes: document.getElementById('tsMistakes'),
     tsWeakest: document.getElementById('tsWeakest'),
+    replayFloating: document.getElementById('replayFloating'),
+    displayNameInput: document.getElementById('displayNameInput'),
+    studentIdInput: document.getElementById('studentIdInput'),
+    openLeaderboardBtn: document.getElementById('openLeaderboardBtn'),
+    leaderboardWrap: document.getElementById('leaderboardWrap'),
+    leaderboardList: document.getElementById('leaderboardList'),
+    closeLeaderboardBtn: document.getElementById('closeLeaderboardBtn'),
+    openLeaderboardFromEndBtn: document.getElementById('openLeaderboardFromEndBtn'),
+
   };
 
   const STAGES = [
@@ -366,7 +400,8 @@ th{color:#93c5fd}
   }
 
   function startGame(){
-    els.replayFloating.classList.remove('show');
+    if (els.replayFloating) els.replayFloating.classList.remove('show');
+    if (els.replayFloating) els.replayFloating.classList.remove('show');
     session = {bank, mode, startedAt:new Date().toISOString(), endedAt:null, score:0, win:false, termStats:{}, events:[]};
     score=0; combo=0; hp=4; stageIndex=0; gameStarted=true; gameOver=false; summary=null; phase='idle';
     setupStage();
@@ -424,6 +459,7 @@ th{color:#93c5fd}
       ]
     };
     localStorage.setItem(STORAGE.teacher, JSON.stringify(teacher));
+    pushLeaderboardEntry(session);
     summary = {
       win, score, bank, mode,
       grade: score>=340?'S':score>=270?'A':score>=200?'B':score>=140?'C':'D',
@@ -433,8 +469,10 @@ th{color:#93c5fd}
     currentPrompt = `${win?'MISSION CLEAR':'MISSION FAILED'} • RANK ${summary.grade}`;
     updateBestChip();
     updateHud();
-    els.replayFloating.textContent = `PLAY AGAIN ${score}`;
-    els.replayFloating.classList.add('show');
+    if (els.replayFloating) {
+      els.replayFloating.textContent = `PLAY AGAIN ${score}`;
+      els.replayFloating.classList.add('show');
+    }
     targets = [];
     beep(520,.08,'triangle',.04); setTimeout(()=>beep(780,.07,'triangle',.04),60); setTimeout(()=>beep(1040,.08,'triangle',.04),120);
   }
@@ -605,7 +643,6 @@ function renderBackground(t){
 
   function handleHit(target){
     if(gameOver) return;
-    if(target.id==='replay'){ startGame(); return; }
     if(phase!=='battle') return;
 
     const remain = timeLeft;
@@ -656,6 +693,92 @@ function renderBackground(t){
     return el;
   }
 
+
+  const LB_KEY = 'VR_VOCAB_V7_LEADERBOARD';
+  let profile = { displayName:'Player', studentId:'' };
+  let lastAccuracy = 0;
+
+  function loadProfile(){
+    try{
+      const raw = JSON.parse(localStorage.getItem('VR_VOCAB_V7_PROFILE') || '{}');
+      profile.displayName = raw.displayName || 'Player';
+      profile.studentId = raw.studentId || '';
+      if (els.displayNameInput) els.displayNameInput.value = profile.displayName === 'Player' ? '' : profile.displayName;
+      if (els.studentIdInput) els.studentIdInput.value = profile.studentId;
+    }catch(e){}
+  }
+  function saveProfile(){
+    profile.displayName = (els.displayNameInput?.value || '').trim() || 'Player';
+    profile.studentId = (els.studentIdInput?.value || '').trim();
+    localStorage.setItem('VR_VOCAB_V7_PROFILE', JSON.stringify(profile));
+  }
+  function loadLeaderboard(){
+    try{ return JSON.parse(localStorage.getItem(LB_KEY) || '[]'); }catch(e){ return []; }
+  }
+  function saveLeaderboard(rows){
+    localStorage.setItem(LB_KEY, JSON.stringify(rows.slice(0,100)));
+  }
+  function currentAccuracyFromSession(sess){
+    const stats = Object.values((sess && sess.termStats) || {});
+    const seen = stats.reduce((s,t)=>s+(t.seen||0),0);
+    const correct = stats.reduce((s,t)=>s+(t.correct||0),0);
+    return seen ? Math.round(correct / seen * 100) : 0;
+  }
+  function previousBestForPlayer(rows, name){
+    return rows
+      .filter(r => r.displayName === name)
+      .sort((a,b)=> (b.score||0)-(a.score||0))[0]?.score || 0;
+  }
+  function pushLeaderboardEntry(sess){
+    const rows = loadLeaderboard();
+    const acc = currentAccuracyFromSession(sess);
+    lastAccuracy = acc;
+    const prevBest = previousBestForPlayer(rows, profile.displayName);
+    const improvement = Math.max(0, (sess.score || 0) - prevBest);
+    rows.push({
+      displayName: profile.displayName,
+      studentId: profile.studentId,
+      score: sess.score || 0,
+      accuracy: acc,
+      improvement,
+      bank,
+      mode,
+      when: new Date().toISOString()
+    });
+    saveLeaderboard(rows);
+  }
+  function renderLeaderboard(tab='score'){
+    const rows = loadLeaderboard();
+    const list = els.leaderboardList;
+    if(!list) return;
+    list.innerHTML = '';
+    let sorted = rows.slice();
+    if(tab === 'score') sorted.sort((a,b)=> (b.score||0)-(a.score||0));
+    else if(tab === 'accuracy') sorted.sort((a,b)=> (b.accuracy||0)-(a.accuracy||0) || (b.score||0)-(a.score||0));
+    else sorted.sort((a,b)=> (b.improvement||0)-(a.improvement||0) || (b.score||0)-(a.score||0));
+
+    const top = sorted.slice(0,10);
+    if(!top.length){
+      const li = document.createElement('li');
+      li.textContent = 'ยังไม่มีคะแนนใน leaderboard';
+      list.appendChild(li);
+    } else {
+      top.forEach((r,i)=>{
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>#${i+1} ${r.displayName}</strong> • ${r.bank} • ${String(r.mode).toUpperCase()}<div class="small mono">Score ${r.score} • Accuracy ${r.accuracy}% • Improvement +${r.improvement}</div>`;
+        list.appendChild(li);
+      });
+    }
+    document.querySelectorAll('.lbTab').forEach(btn=> btn.classList.toggle('active', btn.dataset.tab === tab));
+  }
+  function openLeaderboard(){
+    renderLeaderboard('score');
+    if (els.leaderboardWrap) els.leaderboardWrap.classList.remove('hidden');
+  }
+  function closeLeaderboard(){
+    if (els.leaderboardWrap) els.leaderboardWrap.classList.add('hidden');
+  }
+
   document.querySelectorAll('.bankBtn').forEach(btn=>btn.addEventListener('click',()=>{
     bank = btn.dataset.bank;
     document.querySelectorAll('.bankBtn').forEach(b=>b.classList.toggle('active', b===btn));
@@ -681,7 +804,7 @@ function renderBackground(t){
     localStorage.removeItem(bestKey());
     renderDashboard(); renderHistory(); updateBestChip();
   });
-  els.replayFloating.addEventListener('click', startGame);
+  if (els.replayFloating) els.replayFloating.addEventListener('click', startGame);
   on('downloadJsonBtn','click',()=>{ download('teacher_summary_v7.json', exportJson(), 'application/json'); els.exportStatus.textContent='Downloaded JSON'; });
   on('downloadCsvBtn','click',()=>{ download('teacher_summary_v7.csv', exportCsv(), 'text/csv'); els.exportStatus.textContent='Downloaded CSV'; });
   on('copyJsonBtn','click', async()=>{ const ok=await copyText(exportJson()); els.exportStatus.textContent = ok?'Copied JSON':'Copy JSON failed'; });
@@ -729,14 +852,15 @@ function renderBackground(t){
     }
 
     if(gameOver && summary){
-      const w=Math.min(860,width*.88), h=236, x=(width-w)/2, y=height*.46;
+      const w=Math.min(860,width*.88), h=220, x=(width-w)/2, y=height*.42;
       drawRoundRect(x,y,w,h,26,'rgba(9,18,37,.92)', summary.win ? '#4ade80' : '#fb7185');
       ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='900 30px Arial';
       ctx.fillText(`${summary.win?'MISSION CLEAR':'MISSION FAILED'} • RANK ${summary.grade}`, width/2, y+38);
       ctx.fillStyle='#67e8f9'; ctx.font='800 22px Arial'; ctx.fillText(`Score ${summary.score} • Weakest ${String(summary.weakest).toUpperCase()}`, width/2, y+84);
       ctx.fillStyle='#dbe7ff';
-      drawWrapped(`Bank: ${summary.bank} • Mode: ${summary.mode.toUpperCase()} • Correct ${summary.correct} • Mistakes ${summary.mistakes}`, width/2, y+128, w-40, 2, 18);
-      drawWrapped(`Tap the green PLAY AGAIN button below to run again`, width/2, y+170, w-40, 1, 18);
+      drawWrapped(`${profile.displayName} • Bank: ${summary.bank} • Mode: ${summary.mode.toUpperCase()} • Accuracy ${lastAccuracy}%`, width/2, y+128, w-40, 2, 18);
+      drawWrapped(`Correct ${summary.correct} • Mistakes ${summary.mistakes}`, width/2, y+156, w-40, 1, 18);
+      drawWrapped(`Tap the green PLAY AGAIN button at the bottom to run again`, width/2, y+188, w-40, 1, 18);
     }
 
     renderEffects(16.67);
@@ -746,6 +870,7 @@ function renderBackground(t){
 
   // boot
   resize();
+  loadProfile();
   updateBestChip();
 
   // self-tests
