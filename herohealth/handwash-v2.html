@@ -953,9 +953,9 @@
     <a-entity light="type: ambient; intensity: 1.15; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.95; color: #fff7dd" position="1 3 2"></a-entity>
 
-    <a-entity id="board-root" position="0 1.08 -1.28">
+    <a-entity id="board-root" position="0 1.06 -1.18">
       <a-box position="0 0.84 0" width="1.70" height="0.10" depth="0.94" color="#bfc9d6"></a-box>
-      <a-box position="0 0.42 0" width="1.58" height="0.84" depth="0.82" color="#e5edf5"></a-box>
+      <a-box position="0 0.34 -0.04" width="1.58" height="0.64" depth="0.82" color="#e5edf5" material="opacity:0.92"></a-box>
 
       <a-cylinder position="0 1.08 -0.24" radius="0.03" height="0.34" color="#94a3b8"></a-cylinder>
       <a-box position="0 1.22 -0.05" width="0.34" height="0.06" depth="0.12" color="#94a3b8"></a-box>
@@ -988,17 +988,20 @@
         <a-text id="towel-callout" class="focusable" value="เช็ดมือ" align="center" color="#ffffff" width="1.1" position="0 0.18 0.04"></a-text>
       </a-entity>
 
-      <a-entity id="hands-board" position="0 -0.02 0.03">
+      <a-entity id="hands-board" position="0 0.18 0.22" scale="1.08 1.08 1.08">
+        <a-plane width="1.18" height="0.82" color="#1e293b" opacity="0.22" material="transparent:true"></a-plane>
         <a-plane width="1.24" height="0.94" color="#fff7d6" material="opacity:0.96"></a-plane>
 
         <a-entity position="-0.34 0 0.03">
-          <a-box width="0.28" height="0.38" depth="0.05" color="#f2c29b" radius="0.02"></a-box>
-          <a-box width="0.05" height="0.18" depth="0.05" color="#f2c29b" position="-0.17 -0.20 0"></a-box>
+          <a-box width="0.28" height="0.38" depth="0.05" color="#d89b6b" radius="0.02"></a-box>
+          <a-box width="0.05" height="0.18" depth="0.05" color="#d89b6b" position="-0.17 -0.20 0"></a-box>
+          <a-ring position="0 0 0.04" radius-inner="0.15" radius-outer="0.17" color="#fff3e6" material="transparent:true; opacity:0.52"></a-ring>
         </a-entity>
 
         <a-entity position="0.34 0 0.03">
-          <a-box width="0.28" height="0.38" depth="0.05" color="#f2c29b" radius="0.02"></a-box>
-          <a-box width="0.05" height="0.18" depth="0.05" color="#f2c29b" position="0.17 -0.20 0"></a-box>
+          <a-box width="0.28" height="0.38" depth="0.05" color="#d89b6b" radius="0.02"></a-box>
+          <a-box width="0.05" height="0.18" depth="0.05" color="#d89b6b" position="0.17 -0.20 0"></a-box>
+          <a-ring position="0 0 0.04" radius-inner="0.15" radius-outer="0.17" color="#fff3e6" material="transparent:true; opacity:0.52"></a-ring>
         </a-entity>
 
         <a-entity id="zone-layer"></a-entity>
@@ -1162,8 +1165,8 @@
       { id:'left-backfingers', x:-0.34, y:0.25, z:0.08, w:0.22, h:0.10 },
       { id:'right-backfingers', x:0.34, y:0.25, z:0.08, w:0.22, h:0.10 },
 
-      { id:'left-thumbs', x:-0.52, y:-0.03, z:0.08, w:0.12, h:0.12 },
-      { id:'right-thumbs', x:0.52, y:-0.03, z:0.08, w:0.12, h:0.12 },
+      { id:'left-thumbs', x:-0.50, y:-0.03, z:0.08, w:0.18, h:0.16 },
+      { id:'right-thumbs', x:0.50, y:-0.03, z:0.08, w:0.18, h:0.16 },
 
       { id:'left-fingertips', x:-0.34, y:0.34, z:0.08, w:0.20, h:0.10 },
       { id:'right-fingertips', x:0.34, y:0.34, z:0.08, w:0.20, h:0.10 },
@@ -1201,7 +1204,9 @@
       phase:1,
       rushActive:false,
       rushLabel:'',
-      lastShownPhase:0
+      lastShownPhase:0,
+
+      holdAwardTimer:0
     };
 
     const ui = {
@@ -1277,7 +1282,6 @@
     const waterZone = $('water-zone');
 
     const zoneMap = new Map();
-    const zoneHitMap = new Map();
     const _proj = new THREE.Vector3();
 
     function buildZones(){
@@ -1309,7 +1313,6 @@
 
         ui.zoneLayer.appendChild(g);
         zoneMap.set(def.id, g);
-        zoneHitMap.set(def.id, hit);
       });
     }
     buildZones();
@@ -1656,7 +1659,7 @@
         const plane = zone.querySelector('a-plane');
         if (plane){
           plane.setAttribute('color', step.color);
-          plane.setAttribute('material', `transparent:true; opacity:0.88; emissive:${step.color}; emissiveIntensity:0.85`);
+          plane.setAttribute('material', `transparent:true; opacity:0.96; emissive:${step.color}; emissiveIntensity:1.15`);
         }
       });
     }
@@ -1749,6 +1752,7 @@
       state.stepValue = 0;
       state.currentNeeded = 1;
       state.lastSide = '';
+      state.holdAwardTimer = 0;
 
       if (state.stepIndex >= FLOW.length){
         renderSummary(true);
@@ -1908,6 +1912,7 @@
       state.stepValue = 0;
       state.idleTimer = 0;
       state.sideHits = { left:0, right:0 };
+      state.holdAwardTimer = 0;
 
       clearObjectHighlights();
       clearZones();
@@ -1940,12 +1945,13 @@
 
       if (step.type === 'zones'){
         showZonesForStep(step);
+        setCoach('ตอนนี้มืออยู่กลางอ่างด้านหน้า แตะโซนที่เรืองแสงบนมือ');
       }
 
       if (state.rushActive){
         setCoach(coachLine('rush'));
         setCoachMood('hot');
-      } else {
+      } else if (step.type !== 'zones'){
         setCoach(coachLine('intro'));
       }
 
@@ -2134,6 +2140,7 @@
       state.rushActive = false;
       state.rushLabel = '';
       state.lastShownPhase = 0;
+      state.holdAwardTimer = 0;
 
       ui.startOverlay.classList.add('hidden');
       ui.summaryOverlay.classList.add('hidden');
@@ -2153,19 +2160,19 @@
       const shortH = window.innerHeight < 760;
 
       if (mobile && shortH){
-        board.setAttribute('position', '0 1.02 -1.18');
-        handsBoard.setAttribute('position', '0 -0.06 0.03');
-        handsBoard.setAttribute('scale', '0.92 0.92 0.92');
+        board.setAttribute('position', '0 1.00 -1.10');
+        handsBoard.setAttribute('position', '0 0.16 0.22');
+        handsBoard.setAttribute('scale', '1.02 1.02 1.02');
         waterGroup.setAttribute('position', '0 0 0');
       } else if (mobile){
-        board.setAttribute('position', '0 1.05 -1.22');
-        handsBoard.setAttribute('position', '0 -0.04 0.03');
-        handsBoard.setAttribute('scale', '0.96 0.96 0.96');
+        board.setAttribute('position', '0 1.03 -1.14');
+        handsBoard.setAttribute('position', '0 0.18 0.22');
+        handsBoard.setAttribute('scale', '1.06 1.06 1.06');
         waterGroup.setAttribute('position', '0 0 0');
       } else {
-        board.setAttribute('position', '0 1.08 -1.28');
-        handsBoard.setAttribute('position', '0 -0.02 0.03');
-        handsBoard.setAttribute('scale', '1 1 1');
+        board.setAttribute('position', '0 1.06 -1.18');
+        handsBoard.setAttribute('position', '0 0.18 0.22');
+        handsBoard.setAttribute('scale', '1.08 1.08 1.08');
         waterGroup.setAttribute('position', '0 0 0');
       }
     }
@@ -2255,13 +2262,24 @@
       if (step.type === 'hold-water'){
         if (isHoldingWater()){
           state.stepValue = Math.min(state.currentNeeded, state.stepValue + dt);
-          reward(step.baseScore || 22);
+          state.idleTimer = 0;
+          state.holdAwardTimer += dt;
+          addFever(3);
 
-          if (step.id === 'rinse' && state.rushActive){
-            state.score += 18;
+          if (state.holdAwardTimer >= 0.4){
+            state.holdAwardTimer = 0;
+            state.score += state.rushActive ? 8 : 6;
+          }
+
+          if (!state.feverActive && state.fever >= 100){
+            startFever();
           }
 
           if (state.stepValue >= state.currentNeeded){
+            reward(step.baseScore || 18);
+            if (step.id === 'rinse' && state.rushActive){
+              state.score += 12;
+            }
             completeStep();
             return;
           }
