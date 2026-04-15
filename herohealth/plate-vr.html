@@ -14,37 +14,29 @@
       --line:#dbeaf4;
       --text:#284255;
       --muted:#6d7d8b;
-
       --sky:#7fcfff;
       --sky-soft:#eef8ff;
       --gold:#ffd45f;
-      --gold-soft:#fff8eb;
-
       --ok:#6fd18b;
       --ok-soft:#f1fff4;
-
       --bad:#ffb3b3;
       --bad-soft:#fff4f4;
-
       --g1:#ffe7ef;
       --g2:#fff4cc;
       --g3:#e6f8df;
       --g4:#e7f1ff;
       --g5:#fff0d9;
-
       --shadow:0 12px 28px rgba(0,0,0,.06);
       --shadow-lg:0 24px 60px rgba(0,0,0,.16);
-
       --radius-xl:30px;
       --radius-lg:24px;
       --radius-md:18px;
-      --radius-sm:14px;
-
       --maxw:1040px;
     }
 
     *{ box-sizing:border-box; }
     html{ -webkit-tap-highlight-color:transparent; }
+
     body{
       margin:0;
       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -74,7 +66,6 @@
       border:1px solid var(--line);
       box-shadow:var(--shadow);
       margin-bottom:14px;
-      animation:softFadeUp .28s ease;
     }
 
     .heroLeft{
@@ -153,18 +144,13 @@
     .heroMiniFood.f2{ right:10%; top:10%; background:var(--g1); }
     .heroMiniFood.f3{ left:10%; bottom:10%; background:var(--g3); }
     .heroMiniFood.f4{ right:10%; bottom:10%; background:var(--g4); }
-    .heroMiniFood.f5{
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      background:var(--g5);
-    }
+    .heroMiniFood.f5{ left:50%; top:50%; transform:translate(-50%,-50%); background:var(--g5); }
 
     .hud{
       display:grid;
       grid-template-columns:repeat(4,1fr);
       gap:10px;
       margin-bottom:14px;
-      animation:softFadeUp .3s ease;
     }
 
     .hudCard{
@@ -202,11 +188,9 @@
       display:grid;
       grid-template-columns:1.06fr .94fr;
       gap:14px;
-      animation:softFadeUp .32s ease;
     }
 
-    .boardCard,
-    .trayCard{
+    .boardCard,.trayCard{
       background:var(--card);
       border:1px solid var(--line);
       border-radius:var(--radius-lg);
@@ -268,13 +252,21 @@
       font-weight:900;
       color:#2e4f63;
       box-shadow:inset 0 0 0 2px rgba(255,255,255,.78);
-      transition:transform .14s ease, box-shadow .14s ease, filter .14s ease;
+      transition:transform .14s ease, box-shadow .14s ease;
       touch-action:manipulation;
       overflow:hidden;
     }
 
-    .zone:hover{ filter:brightness(1.03); }
     .zone:active{ transform:scale(.985); }
+
+    .zoneInner{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      padding:8px;
+      text-align:center;
+    }
 
     .zone span{
       display:inline-flex;
@@ -285,15 +277,6 @@
       background:rgba(255,255,255,.82);
       font-size:13px;
       font-weight:1000;
-    }
-
-    .zoneInner{
-      position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
-      padding:8px;
-      text-align:center;
     }
 
     .zoneItemEmoji{
@@ -316,18 +299,7 @@
     .zone-g1{ right:8%; top:8%; width:42%; height:42%; border-radius:0 999px 0 0; background:var(--g1); }
     .zone-g3{ left:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 0 999px; background:var(--g3); }
     .zone-g4{ right:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 999px 0; background:var(--g4); }
-    .zone-g5{
-      left:50%; top:50%;
-      width:26%; height:26%;
-      transform:translate(-50%,-50%);
-      border-radius:999px;
-      background:var(--g5);
-    }
-
-    .zone.active{
-      outline:4px solid var(--sky);
-      transform:scale(1.02);
-    }
+    .zone-g5{ left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); border-radius:999px; background:var(--g5); }
 
     .zone.correctFlash{ animation:zoneOk .34s ease; }
     .zone.wrongFlash{ animation:zoneBad .34s ease; }
@@ -354,10 +326,6 @@
     .feedback.pop{
       opacity:1;
       transform:translateY(-1px);
-    }
-
-    .trayCard .cardHead{
-      margin-bottom:10px;
     }
 
     .tray{
@@ -440,10 +408,7 @@
       max-width:100%;
     }
 
-    .foodTag.x{
-      background:#fff1f1;
-      color:#9b4a4a;
-    }
+    .foodTag.x{ background:#fff1f1; color:#9b4a4a; }
 
     .selectedBar{
       position:sticky;
@@ -520,6 +485,11 @@
       font-weight:1000;
       color:#476072;
       cursor:pointer;
+      position:relative;
+      z-index:2;
+      pointer-events:auto;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
 
     .toastLayer{
@@ -570,6 +540,7 @@
       place-items:center;
       padding:18px;
       backdrop-filter:blur(8px);
+      pointer-events:auto;
     }
 
     .overlay[hidden]{ display:none; }
@@ -583,6 +554,9 @@
       box-shadow:var(--shadow-lg);
       text-align:center;
       animation:overlayIn .22s ease;
+      position:relative;
+      z-index:1;
+      pointer-events:auto;
     }
 
     @keyframes overlayIn{
@@ -657,6 +631,11 @@
       font-weight:1000;
       color:#2f4f63;
       cursor:pointer;
+      position:relative;
+      z-index:2;
+      pointer-events:auto;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
 
     .overlayBtn.primary{
@@ -726,94 +705,27 @@
       100%{ transform:translateY(115vh) rotate(360deg); opacity:0; }
     }
 
-    @keyframes softFadeUp{
-      from{ opacity:0; transform:translateY(10px); }
-      to{ opacity:1; transform:translateY(0); }
-    }
-
     @media (max-width: 920px){
-      .hero,
-      .gameShell{
-        grid-template-columns:1fr;
-      }
-
-      .heroRight{
-        justify-content:flex-start;
-      }
+      .hero, .gameShell{ grid-template-columns:1fr; }
+      .heroRight{ justify-content:flex-start; }
     }
 
     @media (max-width: 700px){
-      .hud{
-        grid-template-columns:repeat(2,1fr);
-      }
-
-      .tray{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .endStats{
-        grid-template-columns:1fr;
-      }
+      .hud{ grid-template-columns:repeat(2,1fr); }
+      .endStats{ grid-template-columns:1fr; }
     }
 
     @media (max-width: 560px){
-      .page{
-        padding:12px 10px 18px;
-      }
-
-      .hero,
-      .boardCard,
-      .trayCard,
-      .overlayCard{
-        padding:16px;
-        border-radius:24px;
-      }
-
-      .hero{
-        gap:12px;
-      }
-
-      .heroLeft{
-        flex-direction:column;
-      }
-
-      .heroBadge{
-        width:56px;
-        height:56px;
-        border-radius:18px;
-        font-size:28px;
-      }
-
-      .heroTitle{
-        font-size:30px;
-      }
-
-      .plate{
-        width:min(100%, 350px);
-      }
-
-      .selectedBar{
-        flex-direction:column;
-        align-items:stretch;
-      }
-
-      .selectedClear,
-      .overlayBtn{
-        width:100%;
-      }
-
-      .overlayActions,
-      .bottomRow{
-        flex-direction:column;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      *, *::before, *::after{
-        animation:none !important;
-        transition:none !important;
-        scroll-behavior:auto !important;
-      }
+      .page{ padding:12px 10px 18px; }
+      .hero, .boardCard, .trayCard, .overlayCard{ padding:16px; border-radius:24px; }
+      .hero{ gap:12px; }
+      .heroLeft{ flex-direction:column; }
+      .heroBadge{ width:56px; height:56px; border-radius:18px; font-size:28px; }
+      .heroTitle{ font-size:30px; }
+      .plate{ width:min(100%, 350px); }
+      .selectedBar{ flex-direction:column; align-items:stretch; }
+      .selectedClear, .overlayBtn{ width:100%; }
+      .overlayActions, .bottomRow{ flex-direction:column; }
     }
   </style>
 </head>
@@ -825,12 +737,9 @@
         <div>
           <p class="eyebrow">HeroHealth • Quick Plate</p>
           <h1 class="heroTitle">Quick Plate</h1>
-          <p class="heroSub">
-            อุ่นเครื่องก่อนเล่นจริง จัดอาหารให้ถูก 4 ชิ้นใน 20 วินาที แล้วไปเกมหลักต่อทันที
-          </p>
+          <p class="heroSub">อุ่นเครื่องก่อนเล่นจริง จัดให้ถูก 4 ชิ้นใน 20 วินาที แล้วไปเกมหลักต่อทันที</p>
         </div>
       </div>
-
       <div class="heroRight" aria-hidden="true">
         <div class="heroMiniPlate">
           <div class="heroMiniFood f1">🍚</div>
@@ -847,17 +756,14 @@
         <span class="hudLabel">เวลา</span>
         <strong class="hudValue" id="hudTime">20</strong>
       </article>
-
       <article class="hudCard" id="hudProgressCard">
         <span class="hudLabel">ถูกแล้ว</span>
         <strong class="hudValue" id="hudProgress">0/4</strong>
       </article>
-
       <article class="hudCard" id="hudMistakeCard">
         <span class="hudLabel">พลาด</span>
         <strong class="hudValue" id="hudMistakes">0</strong>
       </article>
-
       <article class="hudCard">
         <span class="hudLabel">โหมด</span>
         <strong class="hudValue">Warmup</strong>
@@ -871,25 +777,15 @@
             <h2 class="cardTitle">จัดจานเร็ว</h2>
             <p class="cardSub">แตะอาหารจากถาด แล้วแตะส่วนของจานให้ถูก</p>
           </div>
-          <div class="goalPill" id="goalPill">เป้าหมาย 4 ชิ้น</div>
+          <div class="goalPill">เป้าหมาย 4 ชิ้น</div>
         </div>
 
         <div class="plate" id="plateBoard">
-          <button class="zone zone-g2" data-zone="g2" aria-label="หมู่คาร์โบไฮเดรต">
-            <div class="zoneInner"><span>คาร์บ</span></div>
-          </button>
-          <button class="zone zone-g1" data-zone="g1" aria-label="หมู่โปรตีน">
-            <div class="zoneInner"><span>โปรตีน</span></div>
-          </button>
-          <button class="zone zone-g3" data-zone="g3" aria-label="หมู่ผัก">
-            <div class="zoneInner"><span>ผัก</span></div>
-          </button>
-          <button class="zone zone-g4" data-zone="g4" aria-label="หมู่ผลไม้">
-            <div class="zoneInner"><span>ผลไม้</span></div>
-          </button>
-          <button class="zone zone-g5" data-zone="g5" aria-label="หมู่ไขมัน">
-            <div class="zoneInner"><span>ไขมัน</span></div>
-          </button>
+          <button class="zone zone-g2" data-zone="g2"><div class="zoneInner"><span>คาร์บ</span></div></button>
+          <button class="zone zone-g1" data-zone="g1"><div class="zoneInner"><span>โปรตีน</span></div></button>
+          <button class="zone zone-g3" data-zone="g3"><div class="zoneInner"><span>ผัก</span></div></button>
+          <button class="zone zone-g4" data-zone="g4"><div class="zoneInner"><span>ผลไม้</span></div></button>
+          <button class="zone zone-g5" data-zone="g5"><div class="zoneInner"><span>ไขมัน</span></div></button>
         </div>
 
         <div class="feedback" id="feedback">แตะอาหารจากถาด แล้วแตะส่วนของจาน</div>
@@ -902,12 +798,11 @@
             <p class="cardSub">มีของถูก 4 ชิ้น และตัวลวง 2 ชิ้น</p>
           </div>
         </div>
-
         <div class="tray" id="foodTray"></div>
       </section>
     </section>
 
-    <section class="selectedBar" id="selectedBar">
+    <section class="selectedBar">
       <div class="selectedLeft">
         <div class="selectedEmoji" id="selectedEmoji">🍽️</div>
         <div>
@@ -920,7 +815,14 @@
 
     <div class="bottomRow">
       <button type="button" class="ghostBtn" id="btnBackLauncher">กลับ Launcher</button>
-      <button type="button" class="ghostBtn" id="btnGoMainNow">ข้ามไปเกมหลัก</button>
+      <button
+        type="button"
+        class="ghostBtn"
+        id="btnGoMainNow"
+        onclick="window.__plateGoMainFromQuick && window.__plateGoMainFromQuick(event)"
+      >
+        ข้ามไปเกมหลัก
+      </button>
     </div>
   </main>
 
@@ -928,16 +830,12 @@
     <div class="overlayCard">
       <div class="overlayBadge">⚡</div>
       <h2 class="overlayTitle">Quick Plate</h2>
-      <p class="overlaySub">
-        อุ่นเครื่องก่อนเล่นจริง จัดให้ถูก 4 ชิ้นใน 20 วินาที
-      </p>
-
+      <p class="overlaySub">อุ่นเครื่องก่อนเล่นจริง จัดให้ถูก 4 ชิ้นใน 20 วินาที</p>
       <div class="introGoal">
         <span class="introChip">20 วินาที</span>
         <span class="introChip">4 ชิ้นถูก</span>
         <span class="introChip">ไปเกมหลักต่อ</span>
       </div>
-
       <div class="overlayActions">
         <button type="button" class="overlayBtn primary" id="btnStartQuick">เริ่มเลย</button>
         <button type="button" class="overlayBtn" id="btnIntroBack">กลับ Launcher</button>
@@ -949,7 +847,7 @@
     <div class="overlayCard">
       <div class="overlayBadge" id="endBadge">🌟</div>
       <h2 class="overlayTitle" id="endTitle">พร้อมแล้ว ไปจัดจานจริงกัน!</h2>
-      <p class="overlaySub" id="endSub">Quick Plate เสร็จแล้ว</p>
+      <p class="overlaySub" id="endSub">Quick Plate สำเร็จแล้ว</p>
 
       <div class="endStats">
         <article class="endStat">
@@ -966,12 +864,17 @@
         </article>
       </div>
 
-      <div class="endMessage" id="endMessage">
-        ไปต่อที่เกมหลักได้เลย
-      </div>
+      <div class="endMessage" id="endMessage">ไปต่อที่เกมหลักได้เลย</div>
 
       <div class="overlayActions">
-        <button type="button" class="overlayBtn primary" id="btnGoMain">ไปเกมหลัก</button>
+        <button
+          type="button"
+          class="overlayBtn primary"
+          id="btnGoMain"
+          onclick="window.__plateGoMainFromQuick && window.__plateGoMainFromQuick(event)"
+        >
+          ไปเกมหลัก
+        </button>
         <button type="button" class="overlayBtn" id="btnReplayQuick">เล่นอีกครั้ง</button>
         <button type="button" class="overlayBtn" id="btnEndBack">กลับ Launcher</button>
       </div>
@@ -985,15 +888,9 @@
   (function () {
     'use strict';
 
-    /* =========================
-     * helpers
-     * ========================= */
     function qs(name, fallback = '') {
-      try {
-        return new URL(location.href).searchParams.get(name) ?? fallback;
-      } catch (_) {
-        return fallback;
-      }
+      try { return new URL(location.href).searchParams.get(name) ?? fallback; }
+      catch (_) { return fallback; }
     }
 
     function clean(v, d = '') {
@@ -1015,9 +912,7 @@
           day: '2-digit'
         }).formatToParts(new Date());
         const m = {};
-        for (const p of parts) {
-          if (p.type !== 'literal') m[p.type] = p.value;
-        }
+        for (const p of parts) if (p.type !== 'literal') m[p.type] = p.value;
         return `${m.year}${m.month}${m.day}`;
       } catch (_) {
         const d = new Date();
@@ -1026,9 +921,7 @@
     }
 
     function safeWriteJson(key, value) {
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-      } catch (_) {}
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
     }
 
     function buildUrl(path, params = {}) {
@@ -1037,10 +930,6 @@
         if (v !== '' && v != null) url.searchParams.set(k, String(v));
       });
       return url.toString();
-    }
-
-    function setText(el, value) {
-      if (el) el.textContent = String(value);
     }
 
     function makeRng(seedStr) {
@@ -1070,18 +959,16 @@
       return (window.performance && performance.now) ? performance.now() : Date.now();
     }
 
-    /* =========================
-     * context / paths
-     * ========================= */
     const QUICK_TIME = 20;
     const TARGET_CORRECT = 4;
+
     const ctx = {
       pid: clean(qs('pid'), 'anon'),
       name: clean(qs('name'), 'Hero'),
       nick: clean(qs('nick'), ''),
       studyId: clean(qs('studyId'), ''),
       diff: clean(qs('diff'), 'normal'),
-      time: num(qs('time'), 90), // main game time, quick plate ignores this
+      time: num(qs('time'), 90),
       seed: clean(qs('seed'), String(Date.now())),
       view: clean(qs('view'), 'mobile'),
       run: clean(qs('run'), 'play'),
@@ -1093,8 +980,7 @@
       mode: clean(qs('mode'), 'solo'),
       hub: clean(qs('hub'), 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'),
       hubRoot: clean(qs('hubRoot'), ''),
-      launcher: clean(qs('launcher'), ''),
-      mainNext: clean(qs('mainNext'), '/webxr-health-mobile/herohealth/plate/plate-vr.html')
+      launcher: clean(qs('launcher'), '')
     };
 
     function quickPlateDoneKey() {
@@ -1102,10 +988,7 @@
     }
 
     function markQuickPlateDone(result) {
-      try {
-        localStorage.setItem(quickPlateDoneKey(), '1');
-      } catch (_) {}
-
+      try { localStorage.setItem(quickPlateDoneKey(), '1'); } catch (_) {}
       safeWriteJson('HHA_LAST_SUMMARY_QUICK_PLATE', {
         game: 'quick-plate',
         pid: ctx.pid,
@@ -1115,15 +998,14 @@
       });
     }
 
-    function sharedParams(extra = {}) {
-      return {
+    function defaultLauncherUrl() {
+      return buildUrl('/webxr-health-mobile/herohealth/plate-v1.html', {
         pid: ctx.pid,
         name: ctx.name,
         nick: ctx.nick,
         studyId: ctx.studyId,
         diff: ctx.diff,
         time: ctx.time,
-        seed: Date.now(),
         view: ctx.view,
         run: ctx.run,
         zone: ctx.zone,
@@ -1133,37 +1015,49 @@
         theme: 'plate',
         mode: 'solo',
         hub: ctx.hub,
-        hubRoot: ctx.hubRoot,
-        launcher: ctx.launcher || defaultLauncherUrl(),
-        ...extra
-      };
-    }
-
-    function defaultLauncherUrl() {
-      return buildUrl('/webxr-health-mobile/herohealth/plate-v1.html', sharedParams());
+        hubRoot: ctx.hubRoot
+      });
     }
 
     function buildMainGameUrl() {
-      const url = new URL(ctx.mainNext || '/webxr-health-mobile/herohealth/plate/plate-vr.html', location.origin);
-      const params = sharedParams({
-        fromQuickPlate: 1,
-        quickPlateDone: 1
+      const sp = new URLSearchParams(location.search);
+      const u = new URL('/webxr-health-mobile/herohealth/plate/plate-vr.html', location.origin);
+
+      const payload = {
+        pid: clean(sp.get('pid'), 'anon'),
+        name: clean(sp.get('name'), 'Hero'),
+        nick: clean(sp.get('nick'), ''),
+        studyId: clean(sp.get('studyId'), ''),
+        diff: clean(sp.get('diff'), 'normal'),
+        time: clean(sp.get('time'), '90'),
+        seed: String(Date.now()),
+        view: clean(sp.get('view'), 'mobile'),
+        run: clean(sp.get('run'), 'play'),
+        zone: clean(sp.get('zone'), 'nutrition'),
+        cat: clean(sp.get('cat'), 'nutrition'),
+        game: 'plate',
+        gameId: 'plate',
+        theme: 'plate',
+        mode: 'solo',
+        hub: clean(sp.get('hub'), 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'),
+        hubRoot: clean(sp.get('hubRoot'), ''),
+        launcher: clean(sp.get('launcher'), ctx.launcher || defaultLauncherUrl()),
+        fromQuickPlate: '1',
+        quickPlateDone: '1',
+        entry: 'after_quick_plate'
+      };
+
+      Object.entries(payload).forEach(([k, v]) => {
+        if (v !== '' && v != null) u.searchParams.set(k, String(v));
       });
 
-      Object.entries(params).forEach(([k, v]) => {
-        if (v !== '' && v != null) url.searchParams.set(k, String(v));
-      });
-      return url.toString();
+      return u.toString();
     }
 
     function buildBackLauncherUrl() {
-      if (ctx.launcher) return ctx.launcher;
-      return defaultLauncherUrl();
+      return ctx.launcher || defaultLauncherUrl();
     }
 
-    /* =========================
-     * data
-     * ========================= */
     const FOOD_GROUPS = {
       g1: { short: 'โปรตีน' },
       g2: { short: 'คาร์บ' },
@@ -1177,26 +1071,21 @@
       { id:'bread', label:'ขนมปัง', group:'g2' },
       { id:'corn', label:'ข้าวโพด', group:'g2' },
       { id:'potato', label:'มันฝรั่ง', group:'g2' },
-
       { id:'fish', label:'ปลา', group:'g1' },
       { id:'egg', label:'ไข่', group:'g1' },
       { id:'chicken', label:'ไก่', group:'g1' },
       { id:'milk', label:'นม', group:'g1' },
-
       { id:'kale', label:'คะน้า', group:'g3' },
       { id:'carrot', label:'แครอท', group:'g3' },
       { id:'cucumber', label:'แตงกวา', group:'g3' },
       { id:'pumpkin', label:'ฟักทอง', group:'g3' },
-
       { id:'banana', label:'กล้วย', group:'g4' },
       { id:'orange', label:'ส้ม', group:'g4' },
       { id:'watermelon', label:'แตงโม', group:'g4' },
       { id:'apple', label:'แอปเปิล', group:'g4' },
-
       { id:'butter', label:'เนย', group:'g5' },
       { id:'oil', label:'น้ำมันพืช', group:'g5' },
       { id:'coconutMilk', label:'กะทิ', group:'g5' },
-
       { id:'soda', label:'น้ำอัดลม', group:'x' },
       { id:'cake', label:'เค้ก', group:'x' },
       { id:'chips', label:'มันฝรั่งทอด', group:'x' },
@@ -1212,9 +1101,6 @@
       soda:'🥤', cake:'🍰', chips:'🍟', bubbleTea:'🧋'
     };
 
-    /* =========================
-     * DOM
-     * ========================= */
     const $introOverlay = document.getElementById('introOverlay');
     const $endOverlay = document.getElementById('endOverlay');
     const $foodTray = document.getElementById('foodTray');
@@ -1231,8 +1117,8 @@
     const $selectedEmoji = document.getElementById('selectedEmoji');
     const $selectedTitle = document.getElementById('selectedTitle');
     const $selectedHint = document.getElementById('selectedHint');
-    const $btnClearPick = document.getElementById('btnClearPick');
 
+    const $btnClearPick = document.getElementById('btnClearPick');
     const $btnStartQuick = document.getElementById('btnStartQuick');
     const $btnIntroBack = document.getElementById('btnIntroBack');
     const $btnBackLauncher = document.getElementById('btnBackLauncher');
@@ -1253,9 +1139,6 @@
     const $toastLayer = document.getElementById('toastLayer');
     const $celebrateLayer = document.getElementById('celebrateLayer');
 
-    /* =========================
-     * state
-     * ========================= */
     const state = {
       started: false,
       finished: false,
@@ -1272,9 +1155,6 @@
       rng: makeRng(ctx.seed)
     };
 
-    /* =========================
-     * UI helpers
-     * ========================= */
     function pushToast(message, type = 'info') {
       if (!$toastLayer) return;
       const el = document.createElement('div');
@@ -1302,12 +1182,8 @@
     }
 
     function celebrate(kind = 'good') {
-      const icons = kind === 'perfect'
-        ? ['⭐️','🌟','🏆','✨','💛']
-        : ['✨','⭐️','🍽️','🎉'];
-
+      const icons = kind === 'perfect' ? ['⭐️','🌟','🏆','✨','💛'] : ['✨','⭐️','🍽️','🎉'];
       const count = kind === 'perfect' ? 16 : 10;
-
       for (let i = 0; i < count; i++) {
         const el = document.createElement('div');
         el.className = 'confetti';
@@ -1321,25 +1197,24 @@
     }
 
     function syncHud() {
-      setText($hudTime, state.timeLeft);
-      setText($hudProgress, `${state.correctCount}/${TARGET_CORRECT}`);
-      setText($hudMistakes, state.wrongCount);
+      $hudTime.textContent = String(state.timeLeft);
+      $hudProgress.textContent = `${state.correctCount}/${TARGET_CORRECT}`;
+      $hudMistakes.textContent = String(state.wrongCount);
     }
 
     function syncSelectedBar() {
       const food = state.trayFoods.find(x => x.id === state.selectedFoodId);
       if (!food) {
-        setText($selectedEmoji, '🍽️');
-        setText($selectedTitle, 'ยังไม่ได้เลือกอาหาร');
-        setText($selectedHint, 'เลือกอาหารจากถาดก่อน แล้วค่อยแตะส่วนของจาน');
+        $selectedEmoji.textContent = '🍽️';
+        $selectedTitle.textContent = 'ยังไม่ได้เลือกอาหาร';
+        $selectedHint.textContent = 'เลือกอาหารจากถาดก่อน แล้วค่อยแตะส่วนของจาน';
         return;
       }
-
-      setText($selectedEmoji, FOOD_EMOJI[food.id] || '🍎');
-      setText($selectedTitle, `เลือก: ${food.label}`);
-      setText($selectedHint, food.group === 'x'
+      $selectedEmoji.textContent = FOOD_EMOJI[food.id] || '🍎';
+      $selectedTitle.textContent = `เลือก: ${food.label}`;
+      $selectedHint.textContent = food.group === 'x'
         ? 'อันนี้เป็นตัวลวง ลองคิดก่อนวางนะ'
-        : `แตะส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`);
+        : `แตะส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`;
     }
 
     function markZoneState(zoneEl, type) {
@@ -1352,10 +1227,8 @@
     function fillZone(zoneId, food) {
       const zoneEl = document.querySelector(`.zone[data-zone="${zoneId}"]`);
       if (!zoneEl) return;
-
       const inner = zoneEl.querySelector('.zoneInner');
       if (!inner) return;
-
       inner.innerHTML = `
         <div>
           <div class="zoneItemEmoji">${FOOD_EMOJI[food.id] || '🍎'}</div>
@@ -1366,12 +1239,10 @@
 
     function resetZones() {
       document.querySelectorAll('.zone').forEach(zone => {
-        zone.classList.remove('active', 'correctFlash', 'wrongFlash');
+        zone.classList.remove('correctFlash', 'wrongFlash');
         const zoneId = zone.getAttribute('data-zone');
         const inner = zone.querySelector('.zoneInner');
-        if (inner) {
-          inner.innerHTML = `<span>${FOOD_GROUPS[zoneId].short}</span>`;
-        }
+        if (inner) inner.innerHTML = `<span>${FOOD_GROUPS[zoneId].short}</span>`;
       });
     }
 
@@ -1383,9 +1254,6 @@
       });
     }
 
-    /* =========================
-     * setup round
-     * ========================= */
     function buildRound() {
       const allGroups = ['g2', 'g1', 'g3', 'g4', 'g5'];
       const targetGroups = shuffle(allGroups, state.rng).slice(0, TARGET_CORRECT);
@@ -1395,24 +1263,18 @@
         return shuffle(candidates, state.rng)[0];
       });
 
-      const distractors = shuffle(
-        FOOD_DB.filter(x => x.group === 'x'),
-        state.rng
-      ).slice(0, 2);
-
+      const distractors = shuffle(FOOD_DB.filter(x => x.group === 'x'), state.rng).slice(0, 2);
       state.targetFoods = targetFoods.slice();
       state.trayFoods = shuffle([...targetFoods, ...distractors], state.rng);
     }
 
     function renderTray() {
       $foodTray.innerHTML = '';
-
       state.trayFoods.forEach(food => {
         const btn = document.createElement('button');
         btn.className = 'food';
         btn.type = 'button';
         btn.dataset.id = food.id;
-
         btn.innerHTML = `
           <div class="foodEmoji">${FOOD_EMOJI[food.id] || '🍎'}</div>
           <div class="foodMeta">
@@ -1422,21 +1284,15 @@
             </div>
           </div>
         `;
-
         btn.addEventListener('click', () => selectFood(food.id));
         $foodTray.appendChild(btn);
       });
-
       syncFoodUi();
     }
 
-    /* =========================
-     * game logic
-     * ========================= */
     function selectFood(foodId) {
       if (!state.started || state.finished) return;
       if (state.usedFoodIds.includes(foodId)) return;
-
       const food = state.trayFoods.find(x => x.id === foodId);
       if (!food) return;
 
@@ -1489,10 +1345,8 @@
 
         fillZone(zoneId, food);
         markZoneState(zoneEl, 'ok');
-
         setFeedback(`เยี่ยมมาก! ${food.label} ถูกหมู่แล้ว`);
         pushToast('ถูกต้อง!', 'ok');
-
         bumpCard($hudProgressCard);
 
         if (state.correctCount >= TARGET_CORRECT) {
@@ -1505,7 +1359,6 @@
           ? `${food.label} ยังไม่เหมาะกับจานสุขภาพรอบนี้`
           : `${food.label} ยังไม่อยู่ส่วนนี้ ลองใหม่อีกนิด`);
         pushToast('ลองอีกครั้งนิดเดียว', 'bad');
-
         bumpCard($hudMistakeCard);
       }
 
@@ -1526,9 +1379,7 @@
           bumpCard($hudTimeCard);
         }
 
-        if (remainMs <= 0) {
-          finishGame(false);
-        }
+        if (remainMs <= 0) finishGame(false);
       }, 150);
     }
 
@@ -1553,23 +1404,23 @@
 
       markQuickPlateDone(result);
 
-      setText($endCorrect, `${state.correctCount}/${TARGET_CORRECT}`);
-      setText($endWrong, state.wrongCount);
-      setText($endRemain, `${Math.max(0, state.timeLeft)}s`);
+      $endCorrect.textContent = `${state.correctCount}/${TARGET_CORRECT}`;
+      $endWrong.textContent = String(state.wrongCount);
+      $endRemain.textContent = `${Math.max(0, state.timeLeft)}s`;
 
       if (success) {
-        setText($endBadge, perfectWarmup ? '🏆' : '🌟');
-        setText($endTitle, perfectWarmup ? 'Perfect Warmup!' : 'พร้อมแล้ว ไปจัดจานจริงกัน!');
-        setText($endSub, perfectWarmup ? 'อุ่นเครื่องได้ยอดเยี่ยมมาก' : 'Quick Plate สำเร็จแล้ว');
-        setText($endMessage, perfectWarmup
+        $endBadge.textContent = perfectWarmup ? '🏆' : '🌟';
+        $endTitle.textContent = perfectWarmup ? 'Perfect Warmup!' : 'พร้อมแล้ว ไปจัดจานจริงกัน!';
+        $endSub.textContent = perfectWarmup ? 'อุ่นเครื่องได้ยอดเยี่ยมมาก' : 'Quick Plate สำเร็จแล้ว';
+        $endMessage.textContent = perfectWarmup
           ? 'วางถูกครบ 4 ชิ้นแบบไม่พลาดเลย ไปต่อที่เกมหลักได้เลย'
-          : 'ทำได้ดีมาก ตอนนี้พร้อมเข้าเกมหลักแล้ว');
+          : 'ทำได้ดีมาก ตอนนี้พร้อมเข้าเกมหลักแล้ว';
         celebrate(perfectWarmup ? 'perfect' : 'good');
       } else {
-        setText($endBadge, '💛');
-        setText($endTitle, 'ไม่เป็นไร ไปลองในเกมหลักกันต่อ');
-        setText($endSub, 'Quick Plate จบแล้ว');
-        setText($endMessage, 'แม้ยังไม่ครบ 4 ชิ้น ก็ไปต่อที่เกมหลักได้เลย');
+        $endBadge.textContent = '💛';
+        $endTitle.textContent = 'ไม่เป็นไร ไปลองในเกมหลักกันต่อ';
+        $endSub.textContent = 'Quick Plate จบแล้ว';
+        $endMessage.textContent = 'แม้ยังไม่ครบ 4 ชิ้น ก็ไปต่อที่เกมหลักได้เลย';
       }
 
       $endOverlay.hidden = false;
@@ -1606,17 +1457,28 @@
       startClock();
     }
 
-    function goMainGame() {
-      navigate(buildMainGameUrl());
+    let __plateGoMainLock = false;
+
+    function goMainGame(ev) {
+      if (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+
+      if (__plateGoMainLock) return;
+      __plateGoMainLock = true;
+
+      const href = buildMainGameUrl();
+      console.log('[QuickPlate] go main ->', href);
+      window.location.assign(href);
     }
+
+    window.__plateGoMainFromQuick = goMainGame;
 
     function goLauncher() {
-      navigate(buildBackLauncherUrl());
+      location.href = buildBackLauncherUrl();
     }
 
-    /* =========================
-     * bind
-     * ========================= */
     document.querySelectorAll('.zone').forEach(zone => {
       zone.addEventListener('click', () => {
         handleZoneClick(zone.getAttribute('data-zone'), zone);
@@ -1627,16 +1489,15 @@
     $btnStartQuick?.addEventListener('click', startGame);
     $btnReplayQuick?.addEventListener('click', startGame);
 
-    $btnGoMain?.addEventListener('click', goMainGame);
-    $btnGoMainNow?.addEventListener('click', goMainGame);
+    ['click', 'pointerup', 'touchend'].forEach(type => {
+      $btnGoMain?.addEventListener(type, goMainGame, { passive:false });
+      $btnGoMainNow?.addEventListener(type, goMainGame, { passive:false });
+    });
 
     $btnIntroBack?.addEventListener('click', goLauncher);
     $btnBackLauncher?.addEventListener('click', goLauncher);
     $btnEndBack?.addEventListener('click', goLauncher);
 
-    /* =========================
-     * boot
-     * ========================= */
     resetGame();
   })();
   </script>
