@@ -227,7 +227,9 @@
   const btnBurst = byId('btnBurst');
   const btnPause = byId('btnPause');
   const btnBack = byId('btnBack');
+  const btnHubTop = byId('btnHubTop');
   const btnEndRetry = byId('btnEndRetry');
+  const btnEndZone = byId('btnEndZone');
   const btnEndBack = byId('btnEndBack');
 
   const endScreen = byId('endScreen');
@@ -1542,7 +1544,15 @@
     }
 
     if(btnBack){
-      btnBack.textContent = looksLikeZoneUrl(zoneReturn) ? '🧼 กลับ Hygiene Zone' : '🏰 กลับ HUB';
+      btnBack.textContent = '🧼 กลับ Hygiene Zone';
+    }
+
+    if(btnHubTop){
+      btnHubTop.textContent = '🏠 กลับ Hub';
+    }
+
+    if(btnEndZone){
+      btnEndZone.textContent = '🧼 กลับ Hygiene Zone';
     }
 
     if(btnEndBack){
@@ -1930,9 +1940,18 @@ log=${logEndpoint || '-'}`;
   function backDestination(){
     try{
       rememberZoneState({ countPlay:false });
-      location.href = zoneReturn || hubRoot || '../hub-v2.html';
+      location.href = zoneReturn || hubRoot || '../hygiene-zone.html';
     }catch(_){
-      location.href = zoneReturn || hubRoot || '../hub-v2.html';
+      location.href = zoneReturn || hubRoot || '../hygiene-zone.html';
+    }
+  }
+
+  function hubDestination(){
+    try{
+      rememberZoneState({ countPlay:false });
+      location.href = hubRoot || '../hub-v2.html';
+    }catch(_){
+      location.href = hubRoot || '../hub-v2.html';
     }
   }
 
@@ -1994,6 +2013,9 @@ log=${logEndpoint || '-'}`;
   });
 
   btnBack?.addEventListener('click', backDestination);
+  btnHubTop?.addEventListener('click', hubDestination);
+  btnEndZone?.addEventListener('click', backDestination);
+
   btnEndBack?.addEventListener('click', (ev)=>{
     ev.preventDefault();
     goCooldownOnce(lastSummary);
@@ -2003,7 +2025,13 @@ log=${logEndpoint || '-'}`;
     btnEndBack.textContent = '➡ ไป Cooldown';
   }
   if(btnBack){
-    btnBack.textContent = looksLikeZoneUrl(zoneReturn) ? '🧼 กลับ Hygiene Zone' : '🏰 กลับ HUB';
+    btnBack.textContent = '🧼 กลับ Hygiene Zone';
+  }
+  if(btnHubTop){
+    btnHubTop.textContent = '🏠 กลับ Hub';
+  }
+  if(btnEndZone){
+    btnEndZone.textContent = '🧼 กลับ Hygiene Zone';
   }
 
   rememberZoneState({ countPlay:false });
