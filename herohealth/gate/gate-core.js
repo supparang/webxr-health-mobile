@@ -1,7 +1,7 @@
 // === /herohealth/gate/gate-core.js ===
 // FULL PATCH v20260415b-GATE-ZONE-FIRST-SELFLOOP-GUARD-FINAL
 
-import * as GateGames from './gate-games.js?v=20260414h-JUMPDuck-DOGHERO-FITNESSZONE-LOCK';
+import * as GateGames from './gate-games.js?v=20260415b-GATE-GAMES-ZONE-FIRST-HYGIENE-REGISTRY-MASKCOUGH-EXPLICIT';
 
 const PATCH = 'v20260415b-GATE-ZONE-FIRST-SELFLOOP-GUARD-FINAL';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
