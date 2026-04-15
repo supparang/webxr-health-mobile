@@ -366,7 +366,7 @@ th{color:#93c5fd}
   }
 
   function startGame(){
-    els.replayFloating.classList.remove('show');
+    if (els.replayFloating) els.replayFloating.classList.remove('show');
     session = {bank, mode, startedAt:new Date().toISOString(), endedAt:null, score:0, win:false, termStats:{}, events:[]};
     score=0; combo=0; hp=4; stageIndex=0; gameStarted=true; gameOver=false; summary=null; phase='idle';
     setupStage();
@@ -433,8 +433,10 @@ th{color:#93c5fd}
     currentPrompt = `${win?'MISSION CLEAR':'MISSION FAILED'} • RANK ${summary.grade}`;
     updateBestChip();
     updateHud();
-    els.replayFloating.textContent = `PLAY AGAIN ${score}`;
-    els.replayFloating.classList.add('show');
+    if (els.replayFloating) {
+      els.replayFloating.textContent = `PLAY AGAIN ${score}`;
+      els.replayFloating.classList.add('show');
+    }
     targets = [];
     beep(520,.08,'triangle',.04); setTimeout(()=>beep(780,.07,'triangle',.04),60); setTimeout(()=>beep(1040,.08,'triangle',.04),120);
   }
@@ -681,7 +683,7 @@ function renderBackground(t){
     localStorage.removeItem(bestKey());
     renderDashboard(); renderHistory(); updateBestChip();
   });
-  els.replayFloating.addEventListener('click', startGame);
+  on('replayFloating','click', startGame);
   on('downloadJsonBtn','click',()=>{ download('teacher_summary_v7.json', exportJson(), 'application/json'); els.exportStatus.textContent='Downloaded JSON'; });
   on('downloadCsvBtn','click',()=>{ download('teacher_summary_v7.csv', exportCsv(), 'text/csv'); els.exportStatus.textContent='Downloaded CSV'; });
   on('copyJsonBtn','click', async()=>{ const ok=await copyText(exportJson()); els.exportStatus.textContent = ok?'Copied JSON':'Copy JSON failed'; });
