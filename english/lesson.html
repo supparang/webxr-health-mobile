@@ -68,11 +68,36 @@
             background: #000; color: #00e5ff; z-index: 9999;
             display: flex; justify-content: center; align-items: center; font-size: 2rem; transition: opacity 1s;
         }
-    </style>
+    
+        #firebase-debug {
+            position: fixed; top: 10px; right: 10px; z-index: 10000;
+            background: rgba(0,0,0,0.82); color: #fff; padding: 10px 12px;
+            border: 1px solid #00e5ff; border-radius: 10px; font: 12px/1.4 monospace;
+            max-width: 320px; white-space: pre-wrap;
+        }
+
+</style>
+
+<script>
+  window.TECHPATH_APP_ID = window.TECHPATH_APP_ID || 'english-d4bfa';
+  window.TECHPATH_FIREBASE_CONFIG = window.TECHPATH_FIREBASE_CONFIG || {
+    apiKey: "AIzaSyAfp3pVutrHRVOigVQl1iybMKbsKGPhnr8",
+    authDomain: "english-d4bfa.firebaseapp.com",
+    databaseURL: "https://english-d4bfa-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "english-d4bfa",
+    storageBucket: "english-d4bfa.firebasestorage.app",
+    messagingSenderId: "247186694556",
+    appId: "1:247186694556:web:67a01e417f37eb71f42859",
+    measurementId: "G-SWT85BHVJX"
+  };
+</script>
+
 </head>
 <body>
 
     <div id="loading">Connecting to TechPath Servers...</div>
+    <div id="firebase-debug">Firebase Debug\nBooting...</div>
+
 
     <div id="ui-container">
         <!-- Avatar ผู้เล่น -->
@@ -376,37 +401,66 @@
         // ระบบจัดเก็บออนไลน์ (Online Leaderboard Initialization)
         // ==========================================
         let db, auth, currentUser, appId;
+        function setDebugStatus(msg) {
+            const el = document.getElementById('firebase-debug');
+            if (el) el.textContent = 'Firebase Debug\n' + msg;
+            console.log('[FirebaseDebug]', msg);
+        }
         try {
-            const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-            if (configStr) {
-                const firebaseConfig = JSON.parse(configStr);
+            // รองรับทั้ง environment แบบ injected (__firebase_config)
+            // และ GitHub Pages / static hosting ปกติผ่าน window.TECHPATH_FIREBASE_CONFIG
+            const injectedConfig =
+                (typeof __firebase_config !== 'undefined' && __firebase_config)
+                    ? JSON.parse(__firebase_config)
+                    : null;
+
+            const staticConfig =
+                window.TECHPATH_FIREBASE_CONFIG ||
+                window.FIREBASE_CONFIG ||
+                null;
+
+            const firebaseConfig = injectedConfig || staticConfig;
+            setDebugStatus(`Config injected: ${!!injectedConfig}\nConfig static: ${!!staticConfig}\nHas databaseURL: ${!!(firebaseConfig && firebaseConfig.databaseURL)}`);
+            appId =
+                (typeof __app_id !== 'undefined' && __app_id) ||
+                window.TECHPATH_APP_ID ||
+                'techpath-vr';
+
+            if (firebaseConfig && firebaseConfig.databaseURL) {
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getDatabase(app);
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'techpath-vr';
+                setDebugStatus(`Config OK\nappId=${appId}\nprojectId=${firebaseConfig.projectId}\ndatabaseURL=${firebaseConfig.databaseURL}`);
 
                 const initAuth = async () => {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
                         await signInAnonymously(auth);
+                        setDebugStatus('Anonymous sign-in requested...');
                     }
                 };
                 initAuth();
 
                 onAuthStateChanged(auth, (user) => {
                     currentUser = user;
+                    setDebugStatus(user ? `Auth OK\nuid=${user.uid}\nListening leaderboard...` : 'Auth state: signed out');
                     if (user) {
                         setupLeaderboardListener();
-                        checkDailyStreak(); // โหลดข้อมูลกล่องสมบัติจากไอดีผู้เล่นเมื่อล็อกอินเสร็จ
+                        checkDailyStreak();
                     }
                 });
             } else {
-                document.getElementById('vr-leaderboard-list').setAttribute('value', 'Leaderboard Offline\n(No Server Connection)');
+                console.warn('Missing Firebase RTDB config. Set window.TECHPATH_FIREBASE_CONFIG with databaseURL.');
+                document.getElementById('vr-leaderboard-list').setAttribute('value', 'Leaderboard Offline\n(Missing Firebase Config)');
+                setDebugStatus('Missing Firebase Config / databaseURL');
+                const streakText = document.getElementById('streak-text');
+                if (streakText) streakText.setAttribute('value', 'Offline\n(Set Firebase Config)');
             }
         } catch (e) {
             console.error("Leaderboard Error:", e);
             document.getElementById('vr-leaderboard-list').setAttribute('value', 'Error connecting to database');
+            setDebugStatus(`Init ERROR\n${e && e.message ? e.message : e}`);
         }
 
         function setupLeaderboardListener() {
@@ -435,10 +489,12 @@
 
                 const lbList = document.getElementById('vr-leaderboard-list');
                 if (lbList) lbList.setAttribute('value', lbText);
+                setDebugStatus(`Listener OK\nentries=${scores.length}\npath=artifacts/${appId}/public/data/vr_leaderboards`);
             }, (error) => {
                 console.error("RTDB listener error:", error);
                 const lbList = document.getElementById('vr-leaderboard-list');
                 if (lbList) lbList.setAttribute('value', `Leaderboard Offline\n(Check RTDB Rules)`);
+                setDebugStatus(`Listener ERROR\n${error && error.code ? error.code : error}`);
             });
         }
 
