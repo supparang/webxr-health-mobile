@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechPath VR: The Silicon Ascent (Leaderboard Edition)</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow: hidden; background: #000; }
+        
+        #ui-container {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; background: rgba(10, 15, 30, 0.95); color: white;
+            padding: 20px; border-radius: 12px; width: 90%; max-width: 700px;
+            text-align: center; border: 2px solid #00e5ff;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.4); display: flex; flex-direction: column; gap: 10px;
+        }
+
+        .title { color: #00e5ff; font-weight: bold; font-size: 1.2rem; margin: 0; text-transform: uppercase; }
+        .instruction { font-size: 0.95rem; color: #ccc; margin: 0; }
+        
+        .btn-action {
+            background: #00e5ff; color: #000; border: none; padding: 12px 20px; border-radius: 6px; 
+            cursor: pointer; font-weight: bold; font-size: 1rem; transition: background 0.3s; display: none;
+        }
+        .btn-action:hover { background: #00b3cc; }
+        .btn-danger { background: #ff4757; color: white; border: none; margin-top: 10px; display: none; }
+        
+        .input-field {
+            width: 80%; padding: 12px; border-radius: 6px; border: none; margin-top: 10px;
+            font-size: 1rem; text-align: center; outline: 2px solid #00e5ff;
+        }
+
+        #feedback { font-style: italic; color: #2ed573; font-weight: bold; min-height: 24px; }
+        #timer { font-size: 1.8rem; color: #ff4757; font-weight: bold; display: none; letter-spacing: 2px; }
+        
+        /* Gamification Styles */
+        @keyframes flashRed {
+            0% { box-shadow: inset 0 0 0px rgba(255, 0, 0, 0); }
+            50% { box-shadow: inset 0 0 80px rgba(255, 0, 0, 0.6); background: rgba(40, 5, 10, 0.95); border-color: #ff4757; }
+            100% { box-shadow: inset 0 0 0px rgba(255, 0, 0, 0); }
+        }
+        .danger-mode { animation: flashRed 0.8s infinite !important; }
+        .score-anim { animation: popScore 0.5s ease-out; color: #f1c40f !important; transform: scale(1.5); }
+        @keyframes popScore { 0% { transform: scale(1); } 50% { transform: scale(1.5); } 100% { transform: scale(1); } }
+        @keyframes shakeUI {
+            0%, 100% { transform: translateX(-50%) translate(0, 0) rotate(0deg); }
+            25% { transform: translateX(-50%) translate(-3px, 2px) rotate(-1deg); }
+            50% { transform: translateX(-50%) translate(3px, -2px) rotate(1deg); }
+            75% { transform: translateX(-50%) translate(-3px, -2px) rotate(0deg); }
+        }
+        .shake { animation: shakeUI 0.3s !important; border-color: #ff0000 !important; }
+
+        #loading {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; color: #00e5ff; z-index: 9999;
+            display: flex; justify-content: center; align-items: center; font-size: 2rem; transition: opacity 1s;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading">Connecting to TechPath Servers...</div>
+
+    <div id="ui-container">
+        <div class="title" id="ui-title">TECHPATH VR: MAIN HUB</div>
+        <p class="instruction" id="ui-desc">ใช้เมาส์ลากหันมอง และใช้นิ้วจิ้ม หรือ เมาส์คลิกที่ป้ายภารกิจได้เลย!</p>
+        
+        <div id="hud-stats" style="display: flex; justify-content: space-between; font-weight: bold; margin: 10px 0; border-top: 1px solid #00e5ff; border-bottom: 1px solid #00e5ff; padding: 5px 0;">
+            <div style="color: #f1c40f;">SCORE: <span id="score-display">0</span> <span id="combo-display" style="color:#ff9f43; font-size:0.8em; display:none;">(x2 COMBO!)</span></div>
+            <div style="color: #2ed573;">SYSTEM HP: <span id="hp-display">100%</span></div>
+        </div>
+
+        <div id="timer">01:00</div>
+        
+        <button class="btn-action" id="btn-speak" onclick="startRecognition()">🎙️ กดแล้วพูด (Speak Now)</button>
+        <button class="btn-action" id="btn-play-audio" onclick="playAudio()">🔊 ฟังเสียง (Play Audio)</button>
+        <input type="text" class="input-field" id="write-input" placeholder="พิมพ์คำตอบภาษาอังกฤษที่นี่... (Press Enter)" style="display: none;">
+        <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()">ส่งคำตอบ (Submit)</button>
+        
+        <!-- กลุ่มปุ่มตอบคำถาม (เพิ่มใหม่เพื่อความง่าย) -->
+        <div id="choice-buttons" style="display: none; justify-content: center; gap: 15px; margin-top: 10px;">
+            <button class="btn-action" style="display: block; background: #e67e22;" onclick="checkChoiceAnswer('A')">👉 ตอบข้อ A</button>
+            <button class="btn-action" style="display: block; background: #2ecc71;" onclick="checkChoiceAnswer('B')">👉 ตอบข้อ B</button>
+            <button class="btn-action" style="display: block; background: #9b59b6;" onclick="checkChoiceAnswer('C')">👉 ตอบข้อ C</button>
+        </div>
+
+        <!-- Game Over / Leaderboard Save UI -->
+        <div id="game-over-ui" style="display:none; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px;">
+            <p style="color: #f1c40f; margin: 0 0 10px 0;">บันทึกคะแนนของคุณลงบอร์ด!</p>
+            <input type="text" id="player-name-input" class="input-field" placeholder="ใส่ชื่อของคุณ..." style="display:inline-block; width:60%; margin-top:0;">
+            <button class="btn-action" id="btn-submit-score" onclick="submitScore()" style="display:inline-block; background:#f1c40f; margin-left:10px;">Save Score</button>
+        </div>
+
+        <div id="feedback"></div>
+        <button class="btn-action btn-danger" id="btn-return" onclick="returnToHub()">กลับสู่ Main Hub</button>
+    </div>
+
+    <!-- VR Scene -->
+    <a-scene loading-screen="enabled: false">
+        
+        <!-- ============================================== -->
+        <!-- SCENE 1: MAIN HUB (กำแพง 15 ภารกิจ + LEADERBOARD) -->
+        <!-- ============================================== -->
+        <a-entity id="hub-scene">
+            <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
+            <a-text value="TECHPATH VR\n15-SESSION CURRICULUM" position="0 4 -5" align="center" color="#00e5ff" scale="1.5 1.5 1.5"></a-text>
+            <a-text value="Category 1-2 (Social & Agile) | Cat 3 (AI) | Cat 4-5 (Client & Career)" position="0 3.2 -5" align="center" color="#aaa" scale="0.6 0.6 0.6"></a-text>
+
+            <!-- กำแพงภารกิจ จะถูกสร้างโดย JavaScript อัตโนมัติ -->
+            <a-entity id="mission-wall" position="0 1.5 -4"></a-entity>
+
+            <!-- กระดาน LEADERBOARD -->
+            <a-entity position="4 2 -3" rotation="0 -35 0">
+                <a-plane width="2.5" height="3" color="#1a1a2e" material="opacity: 0.95"></a-plane>
+                <!-- กรอบเรืองแสง -->
+                <a-box width="2.6" height="3.1" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true"></a-box>
+                <a-text value="TOP 5 DEVELOPERS\n=================" position="0 1.2 0.05" align="center" color="#f1c40f" scale="0.6 0.6 0.6"></a-text>
+                <a-text id="vr-leaderboard-list" value="Loading online data...\nConnecting to server..." position="0 0 0.05" align="center" color="#fff" scale="0.55 0.55 0.55" line-height="65"></a-text>
+            </a-entity>
+        </a-entity>
+
+        <!-- ============================================== -->
+        <!-- GENERIC SCENES (จะเปลี่ยนเนื้อหาตาม 15 Sessions) -->
+        <!-- ============================================== -->
+        
+        <!-- SPEAKING SCENE -->
+        <a-entity id="mission-speaking-scene" visible="false">
+            <a-entity environment="preset: volcano; skyColor: #ff0000" id="speaking-env"></a-entity>
+            <a-entity position="0 1.6 -3.5">
+                <a-sphere radius="0.3" color="#f1c40f" animation="property: position; to: 0 0.1 0; dir: alternate; dur: 800; loop: true"></a-sphere>
+                <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#2980b9"></a-cylinder>
+            </a-entity>
+            <a-text id="speaking-prompt" value="PROMPT TEXT" position="0 3 -3" align="center" color="#ff4757"></a-text>
+        </a-entity>
+
+        <!-- READING SCENE -->
+        <a-entity id="mission-reading-scene" visible="false">
+            <a-entity environment="preset: arches; skyColor: #550000" id="reading-env"></a-entity>
+            <a-entity position="0 1.6 -3.5">
+                <a-sphere radius="0.25" color="#e74c3c"></a-sphere>
+                <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#34495e"></a-cylinder>
+                <a-plane position="0 1.2 0" width="4" height="1" color="#fff" material="opacity: 0.9">
+                    <a-text id="reading-question" value="QUESTION TEXT" color="#000" align="center" position="0 0 0.01" scale="0.7 0.7 0.7" width="5"></a-text>
+                </a-plane>
+            </a-entity>
+
+            <a-entity position="-2.5 0.5 -3" rotation="0 15 0" animation="property: position; to: -2.5 0.8 -3; dir: alternate; dur: 1500; loop: true">
+                <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+                <a-text id="reading-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+            </a-entity>
+            <a-entity position="0 0.5 -3" animation="property: position; to: 0 0.7 -3; dir: alternate; dur: 1200; loop: true">
+                <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+                <a-text id="reading-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+            </a-entity>
+            <a-entity position="2.5 0.5 -3" rotation="0 -15 0" animation="property: position; to: 2.5 0.9 -3; dir: alternate; dur: 1700; loop: true">
+                <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+                <a-text id="reading-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+            </a-entity>
+        </a-entity>
+
+        <!-- LISTENING SCENE -->
+        <a-entity id="mission-listening-scene" visible="false">
+            <a-entity environment="preset: forest; skyColor: #ff2222" id="listening-env"></a-entity>
+            <a-entity position="0 1.6 -3.5">
+                <a-sphere radius="0.3" color="#3498db" animation="property: position; to: 0 0.2 0; dir: alternate; dur: 500; loop: true"></a-sphere>
+                <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#ecf0f1" animation="property: rotation; to: 0 360 0; dur: 2000; easing: linear; loop: true"></a-cylinder>
+            </a-entity>
+            <a-text id="listening-prompt" value="PRESS PLAY AUDIO" position="0 3 -3" align="center" color="#f1c40f"></a-text>
+
+            <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
+                <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+                <a-text id="listening-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+            </a-entity>
+            <a-entity position="0 0.5 -3">
+                <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+                <a-text id="listening-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+            </a-entity>
+            <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
+                <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+                <a-text id="listening-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+            </a-entity>
+        </a-entity>
+
+        <!-- WRITING SCENE -->
+        <a-entity id="mission-writing-scene" visible="false">
+            <a-entity environment="preset: starry; skyColor: #aa0000" id="writing-env"></a-entity>
+            <a-entity id="hackerBoss" position="0 3 -15">
+                <a-box color="#ff0000" width="1.5" height="1.5" depth="1.5" animation="property: rotation; to: 360 360 360; dur: 3000; loop: true; easing: linear"></a-box>
+                <a-text value="VIRUS / HACKER" color="#ff4757" position="0 1.2 0" align="center" scale="2 2 2"></a-text>
+            </a-entity>
+            <a-plane position="0 1.5 -3" width="4" height="2" color="#ecf0f1">
+                <a-text id="writing-prompt" value="TERMINAL:\n..." color="#000" align="left" position="-1.8 0.5 0.01" width="3.5"></a-text>
+            </a-plane>
+        </a-entity>
+
+        <!-- ระบบ Mouse / Touch (ใช้นิ้วจิ้ม หรือ เมาส์คลิกตรงๆ ที่วัตถุได้เลย) -->
+        <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+
+        <!-- Camera & VR Cursor -->
+        <a-entity camera look-controls position="0 1.6 0">
+            <!-- เป้าตรงกลาง (สำหรับคนใช้แว่น VR เท่านั้น) -->
+            <a-cursor id="vr-cursor" color="#00e5ff" raycaster="objects: .clickable" animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150" visible="false"></a-cursor>
+        </a-entity>
+
+    </a-scene>
+
+    <!-- ระบบ Leaderboard ออนไลน์ (Firebase Module) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // DATABASE: 15 SESSIONS (A2 LEVEL FOR CS/AI)
+        // ==========================================
+        const missionDB = [
+            { id: 1, type: 'speaking', title: 'S1: Introduction', desc: 'แนะนำตัวว่าคุณคือใคร (พูด: I am a student)', keywords: ['i', 'am', 'student'], failMsg: "ลองพูดว่า 'I am a student'" },
+            { id: 2, type: 'reading', title: 'S2: Networking', desc: 'เลือกคำทักทายในงานสัมมนา', question: 'NPC: Hello! Nice to meet you.', choices: ['A: I am sleepy.', 'B: Nice to meet you too.', 'C: Goodbye.'], answer: 'B' },
+            { id: 3, type: 'writing', title: 'S3: Tech Stack', desc: 'พิมพ์ตอบภาษาที่ใช้เขียนโปรแกรม (พิมพ์: python)', prompt: 'SYSTEM: What is your main programming language?\nYOU: [Type your answer]', keywords: ['python'], failMsg: "ลองพิมพ์ว่า 'python'" },
+            { id: 4, type: 'speaking', title: 'S4: Stand-up', desc: 'รายงานการทำงาน (พูด: Yesterday I fixed a bug)', keywords: ['yesterday', 'fixed', 'bug'], failMsg: "ลองพูดว่า 'Yesterday I fixed a bug'" },
+            { id: 5, type: 'listening', title: 'S5: Pair Code', desc: 'ฟังปัญหาจากเพื่อน', audioText: 'The code is not working. We have an error on line 10.', choices: ['A: Let us check line 10.', 'B: Turn off the computer.', 'C: I want to eat.'], answer: 'A' },
+            { id: 6, type: 'reading', title: 'S6: Bug Ticket', desc: 'อ่านตั๋วแจ้งซ่อม', question: 'TICKET: The login button is missing on the homepage.', choices: ['A: I will add the button.', 'B: The homepage is blue.', 'C: User is missing.'], answer: 'A' },
+            { id: 7, type: 'writing', title: 'S7: Explain AI', desc: 'อธิบาย AI สั้นๆ (พิมพ์: ai is smart)', prompt: 'CLIENT: What is AI?\nYOU: [Type your answer]', keywords: ['ai', 'smart'], failMsg: "ลองพิมพ์ว่า 'ai is smart'" },
+            { id: 8, type: 'listening', title: 'S8: Data Ethics', desc: 'ฟังเรื่องความปลอดภัยข้อมูล', audioText: 'Are the passwords safe in our database?', choices: ['A: Yes, they are secure.', 'B: No, everyone can see them.', 'C: Passwords are 1234.'], answer: 'A' },
+            { id: 9, type: 'speaking', title: 'S9: Data Trends', desc: 'อธิบายกราฟข้อมูล (พูด: The data is going up)', keywords: ['data', 'going', 'up'], failMsg: "ลองพูดว่า 'The data is going up'" },
+            { id: 10, type: 'reading', title: 'S10: App Req', desc: 'อ่านความต้องการลูกค้า', question: 'CLIENT: I want to sell products online.', choices: ['A: We will build an E-commerce app.', 'B: We will build a racing game.', 'C: Products are bad.'], answer: 'A' },
+            { id: 11, type: 'listening', title: 'S11: Angry User', desc: 'ฟังผู้ใช้ที่กำลังหงุดหงิด', audioText: 'The server is down! I cannot work!', choices: ['A: I am sorry. I will fix it now.', 'B: That is your problem.', 'C: The server is a computer.'], answer: 'A' },
+            { id: 12, type: 'writing', title: 'S12: Pitching', desc: 'พิมพ์ขายงานสั้นๆ (พิมพ์: buy our app)', prompt: 'INVESTOR: Why should I give you money?\nYOU: [Type your answer]', keywords: ['buy', 'our', 'app'], failMsg: "ลองพิมพ์ว่า 'buy our app'" },
+            { id: 13, type: 'reading', title: 'S13: Interview 1', desc: 'อ่านคำถามสัมภาษณ์งาน', question: 'HR: What is your greatest strength?', choices: ['A: I am good at solving problems.', 'B: I sleep 12 hours a day.', 'C: I hate writing code.'], answer: 'A' },
+            { id: 14, type: 'speaking', title: 'S14: Interview 2', desc: 'สัมภาษณ์เทคนิค (พูด: An array is a list)', keywords: ['array', 'is', 'list'], failMsg: "ลองพูดว่า 'An array is a list'" },
+            { id: 15, type: 'listening', title: 'S15: Global Team', desc: 'ฟังเพื่อนร่วมทีมต่างชาติ', audioText: 'Hello team. Please review my code on GitHub.', choices: ['A: I will review it today.', 'B: GitHub is a website.', 'C: Who are you?'], answer: 'A' }
+        ];
+
+        let currentMission = null;
+        let missionTimer; let timeLeft = 60; let gameScore = 0; let systemHP = 100;
+        let isGameOver = false; let comboCount = 0;
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // ==========================================
+        // ระบบจัดเก็บออนไลน์ (Online Leaderboard Initialization)
+        // ==========================================
+        let db, auth, currentUser, appId;
+        try {
+            const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+            if (configStr) {
+                const firebaseConfig = JSON.parse(configStr);
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'techpath-vr';
+
+                const initAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                };
+                initAuth();
+
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                    if (user) setupLeaderboardListener();
+                });
+            } else {
+                document.getElementById('vr-leaderboard-list').setAttribute('value', 'Leaderboard Offline\n(No Server Connection)');
+            }
+        } catch (e) {
+            console.error("Leaderboard Error:", e);
+            document.getElementById('vr-leaderboard-list').setAttribute('value', 'Error connecting to database');
+        }
+
+        function setupLeaderboardListener() {
+            if (!currentUser || !db) return;
+            const lbCol = collection(db, 'artifacts', appId, 'public', 'data', 'vr_leaderboards');
+            
+            onSnapshot(lbCol, (snapshot) => {
+                let scores = [];
+                snapshot.forEach(doc => scores.push(doc.data()));
+                scores.sort((a, b) => b.score - a.score); // เรียงคะแนนจากมากไปน้อย
+                const top5 = scores.slice(0, 5);
+                
+                let lbText = "";
+                top5.forEach((entry, i) => {
+                    let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "  ";
+                    lbText += `${medal} ${entry.name.substring(0,10)} : ${entry.score}\n`;
+                });
+                
+                if (scores.length === 0) lbText = "Be the first to clear a mission!";
+                
+                const lbList = document.getElementById('vr-leaderboard-list');
+                if(lbList) lbList.setAttribute('value', lbText);
+            }, (error) => {
+                console.error("Snapshot error:", error);
+            });
+        }
+
+        window.onload = function() {
+            generateMissionWall();
+            setTimeout(() => {
+                document.getElementById('loading').style.opacity = '0';
+                setTimeout(() => document.getElementById('loading').style.display = 'none', 1000);
+            }, 1000);
+
+            // กด Enter ส่งคำตอบ Writing
+            document.getElementById('write-input').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') checkWritingAnswer();
+            });
+        };
+
+        function generateMissionWall() {
+            const wall = document.getElementById('mission-wall');
+            let index = 0;
+            for(let row=0; row<3; row++) {
+                let yPos = 1.2 - (row * 0.8);
+                for(let col=0; col<5; col++) {
+                    if(index >= missionDB.length) break;
+                    let m = missionDB[index];
+                    
+                    let angle = (col - 2) * 15;
+                    let rad = angle * Math.PI / 180;
+                    let radius = 4;
+                    let xPos = Math.sin(rad) * radius;
+                    let zPos = -Math.cos(rad) * radius + 4;
+
+                    let color = m.type === 'speaking' ? '#27ae60' : 
+                                m.type === 'reading' ? '#3498db' : 
+                                m.type === 'listening' ? '#e67e22' : '#9b59b6';
+
+                    let entity = document.createElement('a-entity');
+                    entity.setAttribute('position', `${xPos} ${yPos} ${zPos}`);
+                    entity.setAttribute('rotation', `0 ${-angle} 0`);
+
+                    let box = document.createElement('a-box');
+                    box.setAttribute('class', 'clickable');
+                    box.setAttribute('width', '1.2'); box.setAttribute('height', '0.6'); box.setAttribute('depth', '0.1');
+                    box.setAttribute('color', color);
+                    box.setAttribute('material', 'opacity: 0.8');
+                    
+                    box.addEventListener('mouseenter', () => { box.setAttribute('material', 'color', '#00e5ff'); box.setAttribute('scale', '1.1 1.1 1.1'); });
+                    box.addEventListener('mouseleave', () => { box.setAttribute('material', 'color', color); box.setAttribute('scale', '1 1 1'); });
+                    box.addEventListener('click', () => loadMission(m.id));
+
+                    let text = document.createElement('a-text');
+                    text.setAttribute('value', `${m.title}\n(${m.type})`);
+                    text.setAttribute('align', 'center');
+                    text.setAttribute('position', '0 0 0.06');
+                    text.setAttribute('scale', '0.4 0.4 0.4');
+
+                    entity.appendChild(box);
+                    entity.appendChild(text);
+                    wall.appendChild(entity);
+                    index++;
+                }
+            }
+        }
+
+        function loadMission(id) {
+            currentMission = missionDB.find(m => m.id === id);
+            
+            document.getElementById('hub-scene').setAttribute('visible', 'false');
+            hideAllScenesAndControls();
+
+            document.getElementById('ui-title').innerText = `🚨 SESSION ${id}: ${currentMission.title.toUpperCase()}`;
+            document.getElementById('ui-title').style.color = "#ff4757";
+            document.getElementById('ui-desc').innerText = currentMission.desc;
+            document.getElementById('feedback').innerText = "พร้อมแล้วเริ่มทำภารกิจเลย!";
+            
+            if(currentMission.type === 'speaking') {
+                document.getElementById('mission-speaking-scene').setAttribute('visible', 'true');
+                document.getElementById('speaking-prompt').setAttribute('value', `MISSION: ${currentMission.title}\nSpeak into your mic!`);
+                document.getElementById('btn-speak').style.display = 'inline-block';
+                startTimer(40);
+            } 
+            else if(currentMission.type === 'reading') {
+                document.getElementById('mission-reading-scene').setAttribute('visible', 'true');
+                document.getElementById('reading-question').setAttribute('value', `SYSTEM ALERT:\n\n${currentMission.question}`);
+                document.getElementById('reading-choice-a').setAttribute('value', currentMission.choices[0]);
+                document.getElementById('reading-choice-b').setAttribute('value', currentMission.choices[1]);
+                document.getElementById('reading-choice-c').setAttribute('value', currentMission.choices[2]);
+                
+                // แสดงปุ่มตอบและแนะนำวิธีใช้คีย์บอร์ด
+                document.getElementById('choice-buttons').style.display = 'flex';
+                document.getElementById('ui-desc').innerText += " (ใช้นิ้วจิ้มที่กล่อง หรือกดปุ่ม A, B, C บนคีย์บอร์ดก็ได้)";
+                startTimer(30);
+            }
+            else if(currentMission.type === 'listening') {
+                document.getElementById('mission-listening-scene').setAttribute('visible', 'true');
+                document.getElementById('listening-choice-a').setAttribute('value', currentMission.choices[0]);
+                document.getElementById('listening-choice-b').setAttribute('value', currentMission.choices[1]);
+                document.getElementById('listening-choice-c').setAttribute('value', currentMission.choices[2]);
+                document.getElementById('btn-play-audio').style.display = 'inline-block';
+                
+                // แสดงปุ่มตอบและแนะนำวิธีใช้คีย์บอร์ด
+                document.getElementById('choice-buttons').style.display = 'flex';
+                document.getElementById('ui-desc').innerText += " (ใช้นิ้วจิ้มที่กล่อง หรือกดปุ่ม A, B, C บนคีย์บอร์ดก็ได้)";
+                startTimer(35);
+            }
+            else if(currentMission.type === 'writing') {
+                document.getElementById('mission-writing-scene').setAttribute('visible', 'true');
+                document.getElementById('writing-prompt').setAttribute('value', currentMission.prompt);
+                document.getElementById('write-input').style.display = 'inline-block';
+                document.getElementById('write-input').value = '';
+                document.getElementById('btn-submit-write').style.display = 'inline-block';
+                
+                const hackerBoss = document.getElementById('hackerBoss');
+                hackerBoss.removeAttribute('animation');
+                setTimeout(() => hackerBoss.setAttribute('animation', 'property: position; to: 0 1 -2; dur: 45000; easing: linear'), 50);
+                startTimer(45);
+            }
+        }
+
+        // เชื่อมฟังก์ชันให้ฝั่ง HTML มองเห็น
+        window.checkChoiceAnswer = function(selectedLetter) {
+            if (isGameOver || !currentMission) return;
+            const correctChoiceStr = currentMission.choices.find(c => c.startsWith(currentMission.answer));
+            if (correctChoiceStr && correctChoiceStr.startsWith(selectedLetter)) {
+                winMission();
+            } else takeDamage();
+        };
+
+        window.checkWritingAnswer = function() {
+            if (isGameOver || !currentMission) return;
+            const answer = document.getElementById('write-input').value.toLowerCase();
+            let allKeywordsMatch = currentMission.keywords.every(kw => answer.includes(kw));
+            if (allKeywordsMatch) winMission();
+            else {
+                document.getElementById('feedback').innerText = currentMission.failMsg;
+                takeDamage();
+            }
+        };
+
+        window.playAudio = function() {
+            if (isGameOver || !currentMission) return;
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(currentMission.audioText);
+                utterance.lang = 'en-US'; utterance.rate = 0.9;
+                speechSynthesis.speak(utterance);
+                document.getElementById('feedback').innerText = "🔊 กำลังฟัง... (ตั้งใจฟังให้ดี!)";
+            }
+        };
+
+        window.startRecognition = function() {
+            if (isGameOver || !currentMission) return;
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                document.getElementById('feedback').innerText = "⚠️ เบราว์เซอร์ไม่รองรับเสียง (แนะนำให้ใช้ Google Chrome)";
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = true; // เปิดโหมดแสดงข้อความขณะกำลังพูด
+            
+            document.getElementById('btn-speak').disabled = true;
+            document.getElementById('feedback').innerText = "🎙️ พูดเลย! (กำลังฟัง...)";
+            document.getElementById('feedback').style.color = "#00e5ff";
+
+            recognition.onresult = (event) => {
+                let currentTranscript = '';
+                let isFinal = false;
+
+                // รวมคำที่กำลังพูดและคำที่พูดจบแล้วเข้าด้วยกัน
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    currentTranscript += event.results[i][0].transcript;
+                    if (event.results[i].isFinal) isFinal = true;
+                }
+
+                // แปลงคำให้เป็นตัวเล็กและจัดการตัวย่อ
+                let text = currentTranscript.toLowerCase()
+                            .replace(/i'm/g, "i am")
+                            .replace(/it's/g, "it is")
+                            .replace(/we're/g, "we are")
+                            .replace(/[.,!?]/g, "");
+
+                document.getElementById('feedback').innerText = `กำลังฟัง: "${text}"...`;
+                document.getElementById('feedback').style.color = "#f1c40f";
+
+                // ตรวจสอบคีย์เวิร์ด "ทันที" แม้จะยังพูดไม่จบ (ทำให้เกมไวขึ้นมาก!)
+                let allKeywordsMatch = currentMission.keywords.every(kw => text.includes(kw));
+
+                if (allKeywordsMatch) {
+                    recognition.stop(); // สั่งหยุดไมค์ทันทีเมื่อตอบถูก
+                    winMission();
+                } else if (isFinal) {
+                    // ถ้าพูดจบแล้วแต่ยังตอบไม่ถูก ถึงจะหักเลือด
+                    document.getElementById('feedback').innerText = `คุณพูดว่า: "${text}"\n❌ ${currentMission.failMsg}`;
+                    document.getElementById('feedback').style.color = "#ff4757";
+                    takeDamage();
+                    document.getElementById('btn-speak').disabled = false;
+                }
+            };
+
+            // เมื่อระบบไมค์หยุดทำงาน (ไม่ว่าจะพูดจบหรือไมค์ตัดเอง)
+            recognition.onend = () => {
+                // ปลดล็อกปุ่มพูดเสมอ ป้องกันปุ่มค้าง
+                if (!isGameOver && document.getElementById('mission-speaking-scene').getAttribute('visible') === 'true') {
+                    document.getElementById('btn-speak').disabled = false;
+                    // ถ้าไม่ได้รับคำตอบที่ถูกหรือผิดชัดเจน ให้แจ้งเตือน
+                    if (document.getElementById('feedback').innerText.includes("กำลังฟัง")) {
+                        document.getElementById('feedback').innerText = "⚠️ ไมค์ตัดไป (กรุณากดพูดใหม่อีกครั้ง)";
+                        document.getElementById('feedback').style.color = "#ff4757";
+                    }
+                }
+            };
+
+            recognition.onerror = (event) => { 
+                console.log("Speech Error:", event.error);
+                if (event.error === 'no-speech') {
+                    document.getElementById('feedback').innerText = "⚠️ ไม่ได้ยินเสียงเลยครับ ลองกดพูดใหม่อีกครั้ง";
+                } else if (event.error === 'not-allowed') {
+                    document.getElementById('feedback').innerText = "⚠️ คุณยังไม่ได้อนุญาตการใช้ไมโครโฟนในเบราว์เซอร์";
+                } else {
+                    document.getElementById('feedback').innerText = `⚠️ เกิดข้อผิดพลาดของไมค์ (${event.error})`;
+                }
+                document.getElementById('feedback').style.color = "#ff4757";
+                document.getElementById('btn-speak').disabled = false; 
+            };
+            
+            recognition.start();
+        }
+
+        // ==========================================
+        // ระบบคีย์ลัด (Keyboard Shortcuts)
+        // ==========================================
+        window.addEventListener('keydown', function(e) {
+            if (isGameOver || !currentMission) return;
+            
+            // ป้องกันไม่ให้ปุ่มทำงานตอนที่กำลังพิมพ์ช่อง Text Input
+            if (document.activeElement === document.getElementById('write-input') || 
+                document.activeElement === document.getElementById('player-name-input')) {
+                return; 
+            }
+            
+            if (currentMission.type === 'reading' || currentMission.type === 'listening') {
+                const key = e.key.toUpperCase();
+                if (key === 'A' || key === 'B' || key === 'C') {
+                    // สร้างเอฟเฟกต์กดปุ่มด้วย
+                    checkChoiceAnswer(key);
+                }
+            }
+        });
+
+        // ==========================================
+        // ส่งคะแนนขึ้น Leaderboard
+        // ==========================================
+        window.submitScore = async function() {
+            const nameInput = document.getElementById('player-name-input');
+            const name = nameInput.value.trim() || "Unknown Dev";
+            
+            if (!currentUser || !db) {
+                document.getElementById('feedback').innerText = "❌ เกิดข้อผิดพลาด ไม่สามารถเชื่อมต่อฐานข้อมูลได้";
+                return;
+            }
+            
+            document.getElementById('btn-submit-score').disabled = true;
+            document.getElementById('btn-submit-score').innerText = "Saving...";
+            
+            try {
+                const lbCol = collection(db, 'artifacts', appId, 'public', 'data', 'vr_leaderboards');
+                await addDoc(lbCol, {
+                    name: name,
+                    score: gameScore,
+                    timestamp: Date.now(),
+                    userId: currentUser.uid
+                });
+                document.getElementById('feedback').innerText = "✅ บันทึกคะแนนของคุณสำเร็จแล้ว!";
+                document.getElementById('game-over-ui').style.display = 'none';
+            } catch (e) {
+                console.error("Error saving score:", e);
+                document.getElementById('feedback').innerText = "❌ เกิดข้อผิดพลาดในการบันทึก";
+                document.getElementById('btn-submit-score').disabled = false;
+                document.getElementById('btn-submit-score').innerText = "Save Score";
+            }
+        };
+
+        // ==========================================
+        // Game Mechanics
+        // ==========================================
+        function playSFX(type) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            
+            if (type === 'win') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'damage') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+            } else if (type === 'alarm') {
+                osc.type = 'square'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            }
+        }
+
+        function takeDamage() {
+            systemHP -= 25; comboCount = 0;
+            document.getElementById('combo-display').style.display = 'none';
+            playSFX('damage');
+            const ui = document.getElementById('ui-container');
+            ui.classList.add('danger-mode', 'shake');
+            setTimeout(() => { ui.classList.remove('shake'); if(!isGameOver && timeLeft>10) ui.classList.remove('danger-mode'); }, 400);
+            
+            if (systemHP <= 0) {
+                isGameOver = true; systemHP = 0;
+                document.getElementById('feedback').innerText = "💥 MISSION FAILED: SYSTEM OFFLINE! 💥";
+                hideAllScenesAndControls();
+                
+                // แสดงหน้าบันทึกคะแนนเมื่อตาย
+                if(gameScore > 0) {
+                    document.getElementById('game-over-ui').style.display = 'block';
+                    document.getElementById('btn-submit-score').disabled = false;
+                    document.getElementById('btn-submit-score').innerText = "Save Score";
+                }
+                document.getElementById('btn-return').style.display = 'inline-block';
+            }
+            updateHUD();
+        }
+
+        function winMission() {
+            clearInterval(missionTimer); playSFX('win');
+            document.getElementById('ui-container').classList.remove('danger-mode');
+            let timeBonus = timeLeft * 10;
+            updateHUD(1000 + timeBonus);
+            document.getElementById('feedback').innerText = `✅ MISSION ACCOMPLISHED! (+1000 Pts, +${timeBonus} Time Bonus)`;
+            document.getElementById('feedback').style.color = "#2ed573";
+            hideAllScenesAndControls();
+            document.getElementById('btn-return').style.display = 'inline-block';
+        }
+
+        function updateHUD(points = 0) {
+            if (points > 0) {
+                comboCount++; let multiplier = comboCount > 1 ? comboCount : 1;
+                gameScore += (points * multiplier);
+                const sd = document.getElementById('score-display');
+                sd.innerText = gameScore; sd.classList.add('score-anim');
+                if (comboCount > 1) {
+                    const cd = document.getElementById('combo-display');
+                    cd.innerText = `(x${comboCount} COMBO!)`; cd.style.display = 'inline';
+                }
+                setTimeout(() => sd.classList.remove('score-anim'), 500);
+            }
+            const hd = document.getElementById('hp-display');
+            hd.innerText = systemHP + '%';
+            hd.style.color = systemHP <= 30 ? '#ff4757' : '#2ed573';
+        }
+
+        function startTimer(seconds) {
+            timeLeft = seconds; isGameOver = false;
+            const ui = document.getElementById('ui-container');
+            ui.classList.remove('danger-mode');
+            const timerEl = document.getElementById('timer');
+            timerEl.style.display = 'block';
+            
+            missionTimer = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(missionTimer); timerEl.innerText = "00:00 - TIME UP!";
+                    systemHP = 0; takeDamage();
+                } else {
+                    timeLeft--; timerEl.innerText = `00:${timeLeft.toString().padStart(2, '0')}`;
+                    if (timeLeft <= 10) {
+                        playSFX('alarm'); timerEl.style.color = "#ff0000";
+                        if(timeLeft % 2 === 0) ui.classList.add('danger-mode'); else ui.classList.remove('danger-mode');
+                    } else { timerEl.style.color = "#ff4757"; }
+                }
+            }, 1000);
+        }
+
+        function hideAllScenesAndControls() {
+            document.getElementById('mission-speaking-scene').setAttribute('visible', 'false');
+            document.getElementById('mission-reading-scene').setAttribute('visible', 'false');
+            document.getElementById('mission-listening-scene').setAttribute('visible', 'false');
+            document.getElementById('mission-writing-scene').setAttribute('visible', 'false');
+            
+            document.getElementById('btn-speak').style.display = 'none';
+            document.getElementById('btn-play-audio').style.display = 'none';
+            document.getElementById('write-input').style.display = 'none';
+            document.getElementById('btn-submit-write').style.display = 'none';
+            document.getElementById('choice-buttons').style.display = 'none'; // ซ่อนปุ่มช้อยส์
+            document.getElementById('timer').style.display = 'none';
+            document.getElementById('btn-speak').disabled = false;
+            clearInterval(missionTimer);
+        }
+
+        window.returnToHub = function() {
+            // ถ้าระบบเคยล่มไปแล้ว ให้รีเซ็ตพลังชีวิตและคะแนนใหม่เมื่อกลับหน้าหลัก
+            if (isGameOver) {
+                gameScore = 0;
+                systemHP = 100;
+                comboCount = 0;
+                isGameOver = false;
+                document.getElementById('combo-display').style.display = 'none';
+                updateHUD();
+            }
+
+            hideAllScenesAndControls();
+            document.getElementById('game-over-ui').style.display = 'none';
+            document.getElementById('ui-container').classList.remove('danger-mode');
+            document.getElementById('hub-scene').setAttribute('visible', 'true');
+            
+            document.getElementById('ui-title').innerText = "TECHPATH VR: MAIN HUB";
+            document.getElementById('ui-title').style.color = "#00e5ff";
+            document.getElementById('ui-desc').innerText = "เลือกภารกิจต่อไป (ใช้นิ้วจิ้ม/คลิกที่ป้ายได้เลย)!";
+            
+            document.getElementById('btn-return').style.display = 'none';
+            document.getElementById('feedback').innerText = "";
+            currentMission = null;
+        }
+    </script>
+</body>
+</html>
