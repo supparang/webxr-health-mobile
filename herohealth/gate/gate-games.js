@@ -1,7 +1,7 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260415a-GATE-GAMES-ZONE-FIRST-HYGIENE-REGISTRY-FINAL
+// FULL PATCH v20260415b-GATE-GAMES-ZONE-FIRST-HYGIENE-REGISTRY-MASKCOUGH-EXPLICIT
 
-const PATCH = 'v20260415a-GATE-GAMES-ZONE-FIRST-HYGIENE-REGISTRY-FINAL';
+const PATCH = 'v20260415b-GATE-GAMES-ZONE-FIRST-HYGIENE-REGISTRY-MASKCOUGH-EXPLICIT';
 
 const DEFAULTS = {
   title: '',
@@ -295,6 +295,9 @@ export const GAME_REGISTRY = {
       '../vr-maskcough/maskcough-v2.html',
       '../maskcough-v2.html'
     ],
+    warmupFile: './games/maskcough/warmup.js',
+    cooldownFile: './games/maskcough/cooldown.js',
+    styleFile: './games/maskcough/style.css',
     summaryPath: '../hygiene-zone.html'
   }),
 
@@ -453,6 +456,8 @@ const GAME_ALIAS = {
   'mask-cough': 'maskcough',
   'maskcough-v2': 'maskcough',
   'maskcough-vr': 'maskcough',
+  maskandcough: 'maskcough',
+  'mask-and-cough': 'maskcough',
 
   cleanobjects: 'cleanobjects',
   'clean-objects': 'cleanobjects',
