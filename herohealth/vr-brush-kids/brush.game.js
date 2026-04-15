@@ -1,4 +1,4 @@
-﻿import { createBrushUI } from './brush.ui.js';
+import { createBrushUI } from './brush.ui.js';
 import {
   buildBrushResult,
   saveBrushSummary,
@@ -17,86 +17,86 @@ const ZONE_TARGET = 100;
 
 const HUB_URL =
   qs.get('hub') ||
-  new URL('../hub-v2.html', location.href).href;
+  `${location.origin}/webxr-health-mobile/herohealth/hub.html`;
 
 const MODE_CONFIG = {
   learn: {
     id: 'learn',
-    label: 'à¹‚à¸«à¸¡à¸”à¹€à¸£à¸µà¸¢à¸™à¸£à¸¹à¹‰ 2 à¸™à¸²à¸—à¸µ',
+    label: 'โหมดเรียนรู้ 2 นาที',
     durationSec: 120,
-    goalText: 'à¹à¸›à¸£à¸‡à¹ƒà¸«à¹‰à¸„à¸£à¸šà¸—à¸¸à¸à¹‚à¸‹à¸™à¹ƒà¸™ 2 à¸™à¸²à¸—à¸µ',
-    miniMissionGuided: 'à¹€à¸¥à¸·à¸­à¸à¹‚à¸‹à¸™ à¹à¸¥à¹‰à¸§à¸–à¸¹à¸•à¸²à¸¡à¸¥à¸²à¸¢à¸à¸²à¸£à¹à¸›à¸£à¸‡',
-    miniMissionRun: 'à¸£à¸±à¸à¸©à¸²à¸¥à¸²à¸¢à¸à¸²à¸£à¹à¸›à¸£à¸‡à¹ƒà¸«à¹‰à¸•à¹ˆà¸­à¹€à¸™à¸·à¹ˆà¸­à¸‡'
+    goalText: 'แปรงให้ครบทุกโซนใน 2 นาที',
+    miniMissionGuided: 'เลือกโซน แล้วถูตามลายการแปรง',
+    miniMissionRun: 'รักษาลายการแปรงให้ต่อเนื่อง'
   },
   challenge: {
     id: 'challenge',
-    label: 'à¹‚à¸«à¸¡à¸”à¸—à¹‰à¸²à¸—à¸²à¸¢ 3 à¸™à¸²à¸—à¸µ',
+    label: 'โหมดท้าทาย 3 นาที',
     durationSec: 180,
-    goalText: 'à¹à¸›à¸£à¸‡à¹ƒà¸«à¹‰à¸„à¸£à¸šà¸—à¸¸à¸à¹‚à¸‹à¸™à¹ƒà¸™ 3 à¸™à¸²à¸—à¸µ à¹à¸¥à¸°à¹€à¸à¹‡à¸šà¸‡à¸²à¸™à¹ƒà¸«à¹‰à¹€à¸£à¸µà¸¢à¸šà¸£à¹‰à¸­à¸¢',
-    miniMissionGuided: 'à¹€à¸£à¸´à¹ˆà¸¡à¸Šà¹‰à¸² à¹† à¹à¸¥à¹‰à¸§à¸—à¸³à¸•à¸²à¸¡à¸¥à¸²à¸¢à¸à¸²à¸£à¹à¸›à¸£à¸‡',
-    miniMissionRun: 'à¸—à¸³à¸¥à¸²à¸¢à¸à¸²à¸£à¹à¸›à¸£à¸‡à¹ƒà¸«à¹‰à¹à¸¡à¹ˆà¸™à¹à¸¥à¸°à¸ªà¸¡à¹ˆà¸³à¹€à¸ªà¸¡à¸­'
+    goalText: 'แปรงให้ครบทุกโซนใน 3 นาที และเก็บงานให้เรียบร้อย',
+    miniMissionGuided: 'เริ่มช้า ๆ แล้วทำตามลายการแปรง',
+    miniMissionRun: 'ทำลายการแปรงให้แม่นและสม่ำเสมอ'
   }
 };
 
 const PHASE_TEXT = {
-  intro: 'à¹€à¸•à¸£à¸µà¸¢à¸¡à¸žà¸£à¹‰à¸­à¸¡',
-  guided: 'à¸à¸¶à¸à¸•à¸²à¸¡à¹‚à¸„à¹‰à¸Š',
-  cleanRun: 'à¹à¸›à¸£à¸‡à¹ƒà¸«à¹‰à¸—à¸±à¹ˆà¸§',
-  boss: 'à¹€à¸„à¸¥à¸µà¸¢à¸£à¹Œà¸„à¸£à¸²à¸šà¸•à¸±à¸§à¸›à¹ˆà¸§à¸™',
-  summary: 'à¸ªà¸£à¸¸à¸›à¸œà¸¥'
+  intro: 'เตรียมพร้อม',
+  guided: 'ฝึกตามโค้ช',
+  cleanRun: 'แปรงให้ทั่ว',
+  boss: 'เคลียร์คราบตัวป่วน',
+  summary: 'สรุปผล'
 };
 
 const PATTERN_META = {
   horizontal: {
-    label: 'à¸‹à¹‰à¸²à¸¢ â†” à¸‚à¸§à¸²',
-    hint: 'à¸–à¸¹à¸‹à¹‰à¸²à¸¢-à¸‚à¸§à¸²à¹ƒà¸«à¹‰à¸•à¹ˆà¸­à¹€à¸™à¸·à¹ˆà¸­à¸‡'
+    label: 'ซ้าย ↔ ขวา',
+    hint: 'ถูซ้าย-ขวาให้ต่อเนื่อง'
   },
   vertical: {
-    label: 'à¸‚à¸¶à¹‰à¸™ â†• à¸¥à¸‡',
-    hint: 'à¸–à¸¹à¸‚à¸¶à¹‰à¸™-à¸¥à¸‡à¹ƒà¸«à¹‰à¸•à¹ˆà¸­à¹€à¸™à¸·à¹ˆà¸­à¸‡'
+    label: 'ขึ้น ↕ ลง',
+    hint: 'ถูขึ้น-ลงให้ต่อเนื่อง'
   },
   circle: {
-    label: 'à¸§à¸™ âŸ³ à¹€à¸›à¹‡à¸™à¸§à¸‡',
-    hint: 'à¸¥à¸²à¸à¸§à¸™à¹€à¸›à¹‡à¸™à¸§à¸‡à¸à¸¥à¸¡à¹€à¸šà¸² à¹†'
+    label: 'วน ⟳ เป็นวง',
+    hint: 'ลากวนเป็นวงกลมเบา ๆ'
   }
 };
 
 const COACH_LINES = {
   start: [
-    'à¹€à¸£à¸´à¹ˆà¸¡à¹à¸›à¸£à¸‡à¹ƒà¸«à¹‰à¸—à¸±à¹ˆà¸§à¸—à¸¸à¸à¹‚à¸‹à¸™à¸à¸±à¸™à¹€à¸¥à¸¢!',
-    'à¸„à¹ˆà¸­à¸¢ à¹† à¹à¸›à¸£à¸‡à¸™à¸° à¸ˆà¸°à¸ªà¸°à¸­à¸²à¸”à¸à¸§à¹ˆà¸²'
+    'เริ่มแปรงให้ทั่วทุกโซนกันเลย!',
+    'ค่อย ๆ แปรงนะ จะสะอาดกว่า'
   ],
   noZone: [
-    'à¹€à¸¥à¸·à¸­à¸à¹‚à¸‹à¸™à¸Ÿà¸±à¸™à¸à¹ˆà¸­à¸™à¸™à¸°',
-    'à¹à¸•à¸°à¹à¸œà¸™à¸—à¸µà¹ˆà¸Ÿà¸±à¸™à¸—à¸²à¸‡à¸‹à¹‰à¸²à¸¢à¸à¹ˆà¸­à¸™'
+    'เลือกโซนฟันก่อนนะ',
+    'แตะแผนที่ฟันทางซ้ายก่อน'
   ],
   tooFast: [
-    'à¸Šà¹‰à¸²à¸¥à¸‡à¸™à¸´à¸”à¸«à¸™à¸¶à¹ˆà¸‡à¸™à¸°',
-    'à¸„à¹ˆà¸­à¸¢ à¹† à¸–à¸¹ à¸ˆà¸°à¸ªà¸°à¸­à¸²à¸”à¸à¸§à¹ˆà¸²'
+    'ช้าลงนิดหนึ่งนะ',
+    'ค่อย ๆ ถู จะสะอาดกว่า'
   ],
   zoneDone: [
-    'à¹€à¸¢à¸µà¹ˆà¸¢à¸¡! à¹‚à¸‹à¸™à¸™à¸µà¹‰à¸ªà¸°à¸­à¸²à¸”à¹à¸¥à¹‰à¸§',
-    'à¹€à¸à¹ˆà¸‡à¸¡à¸²à¸ à¹„à¸›à¸•à¹ˆà¸­à¸­à¸µà¸à¹‚à¸‹à¸™à¹„à¸”à¹‰à¹€à¸¥à¸¢'
+    'เยี่ยม! โซนนี้สะอาดแล้ว',
+    'เก่งมาก ไปต่ออีกโซนได้เลย'
   ],
   patternLoop: [
-    'à¸¥à¸²à¸¢à¸à¸²à¸£à¹à¸›à¸£à¸‡à¸–à¸¹à¸à¸•à¹‰à¸­à¸‡ à¹€à¸à¹ˆà¸‡à¸¡à¸²à¸!',
-    'à¹€à¸¢à¸µà¹ˆà¸¢à¸¡à¹€à¸¥à¸¢ à¸—à¸³à¸•à¸²à¸¡à¸¥à¸²à¸¢à¹„à¸”à¹‰à¸”à¸µà¸¡à¸²à¸'
+    'ลายการแปรงถูกต้อง เก่งมาก!',
+    'เยี่ยมเลย ทำตามลายได้ดีมาก'
   ],
   boss: [
-    'à¸„à¸£à¸²à¸šà¸•à¸±à¸§à¸›à¹ˆà¸§à¸™à¸à¸¥à¸±à¸šà¸¡à¸²à¹à¸¥à¹‰à¸§!',
-    'à¸£à¸µà¸šà¹€à¸à¹‡à¸šà¸‡à¸²à¸™à¹ƒà¸«à¹‰à¸„à¸£à¸šà¹€à¸¥à¸¢'
+    'คราบตัวป่วนกลับมาแล้ว!',
+    'รีบเก็บงานให้ครบเลย'
   ],
   finishGood: [
-    'à¸ªà¸¸à¸”à¸¢à¸­à¸”! à¸Ÿà¸±à¸™à¸ªà¸°à¸­à¸²à¸”à¸ªà¸”à¹ƒà¸ª',
-    'à¸§à¸±à¸™à¸™à¸µà¹‰à¸—à¸³à¹„à¸”à¹‰à¸”à¸µà¸¡à¸²à¸à¹€à¸¥à¸¢'
+    'สุดยอด! ฟันสะอาดสดใส',
+    'วันนี้ทำได้ดีมากเลย'
   ],
   finishMid: [
-    'à¸”à¸µà¸¡à¸²à¸à¹à¸¥à¹‰à¸§ à¸¥à¸­à¸‡à¹€à¸à¹‡à¸šà¹ƒà¸«à¹‰à¸„à¸£à¸šà¸­à¸µà¸à¸™à¸´à¸”',
-    'à¸„à¸£à¸±à¹‰à¸‡à¸«à¸™à¹‰à¸²à¸¥à¸­à¸‡à¹ƒà¸«à¹‰à¸—à¸±à¹ˆà¸§à¸à¸§à¹ˆà¸²à¸™à¸µà¹‰à¸­à¸µà¸à¸«à¸™à¹ˆà¸­à¸¢'
+    'ดีมากแล้ว ลองเก็บให้ครบอีกนิด',
+    'ครั้งหน้าลองให้ทั่วกว่านี้อีกหน่อย'
   ],
   finishLow: [
-    'à¹„à¸¡à¹ˆà¹€à¸›à¹‡à¸™à¹„à¸£ à¸¥à¸­à¸‡à¹ƒà¸«à¸¡à¹ˆà¸­à¸µà¸à¸£à¸­à¸šà¹„à¸”à¹‰',
-    'à¸„à¸£à¸±à¹‰à¸‡à¸«à¸™à¹‰à¸²à¸„à¹ˆà¸­à¸¢ à¹† à¹à¸›à¸£à¸‡à¹ƒà¸«à¹‰à¸—à¸±à¹ˆà¸§à¸™à¸°'
+    'ไม่เป็นไร ลองใหม่อีกรอบได้',
+    'ครั้งหน้าค่อย ๆ แปรงให้ทั่วนะ'
   ]
 };
 
@@ -114,7 +114,7 @@ const state = {
   comboMax: 0,
   warnings: 0,
   sparkleCount: 0,
-  speedLabel: 'à¸›à¸à¸•à¸´',
+  speedLabel: 'ปกติ',
   bossTriggered: false,
   zones: buildZones(),
   pattern: buildPatternState('horizontal', 'intro', (MODE_CONFIG[qs.get('mode')] || MODE_CONFIG.learn).id)
@@ -269,12 +269,12 @@ function bindBrushInput(node) {
 
 function buildZones() {
   return [
-    mkZone('upper-left', 'à¸šà¸™à¸‹à¹‰à¸²à¸¢'),
-    mkZone('upper-front', 'à¸šà¸™à¸«à¸™à¹‰à¸²'),
-    mkZone('upper-right', 'à¸šà¸™à¸‚à¸§à¸²'),
-    mkZone('lower-left', 'à¸¥à¹ˆà¸²à¸‡à¸‹à¹‰à¸²à¸¢'),
-    mkZone('lower-front', 'à¸¥à¹ˆà¸²à¸‡à¸«à¸™à¹‰à¸²'),
-    mkZone('lower-right', 'à¸¥à¹ˆà¸²à¸‡à¸‚à¸§à¸²')
+    mkZone('upper-left', 'บนซ้าย'),
+    mkZone('upper-front', 'บนหน้า'),
+    mkZone('upper-right', 'บนขวา'),
+    mkZone('lower-left', 'ล่างซ้าย'),
+    mkZone('lower-front', 'ล่างหน้า'),
+    mkZone('lower-right', 'ล่างขวา')
   ];
 }
 
@@ -397,12 +397,12 @@ function resetRunState() {
   state.comboMax = 0;
   state.warnings = 0;
   state.sparkleCount = 0;
-  state.speedLabel = 'à¸›à¸à¸•à¸´';
+  state.speedLabel = 'ปกติ';
   state.bossTriggered = false;
   state.zones = buildZones();
   state.pattern = buildPatternState('horizontal', 'intro', state.mode.id);
 
-  if (el.btnPause) el.btnPause.textContent = 'à¸žà¸±à¸à¹€à¸à¸¡';
+  if (el.btnPause) el.btnPause.textContent = 'พักเกม';
   renderAll();
 }
 
@@ -415,7 +415,7 @@ function togglePause() {
   if (!state.running) return;
 
   state.paused = !state.paused;
-  if (el.btnPause) el.btnPause.textContent = state.paused ? 'à¹€à¸¥à¹ˆà¸™à¸•à¹ˆà¸­' : 'à¸žà¸±à¸à¹€à¸à¸¡';
+  if (el.btnPause) el.btnPause.textContent = state.paused ? 'เล่นต่อ' : 'พักเกม';
 
   logger.event(state.paused ? 'pause' : 'resume', {
     timeFromStartMs: Math.round(state.elapsedMs),
@@ -493,7 +493,7 @@ function selectZone(zoneId) {
 
   const zone = getActiveZone();
   if (zone) {
-    ui.setCoach('neutral', `à¸•à¸­à¸™à¸™à¸µà¹‰à¹à¸›à¸£à¸‡à¹‚à¸‹à¸™${zone.label}à¸™à¸°`);
+    ui.setCoach('neutral', `ตอนนี้แปรงโซน${zone.label}นะ`);
     logger.event('zone_select', {
       timeFromStartMs: Math.round(state.elapsedMs),
       gameId: GAME_ID,
@@ -680,12 +680,12 @@ function updatePatternProgress(nextPos) {
 
 function classifySpeed(deltaMs) {
   if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
-    return { key: 'ok', label: 'à¸›à¸à¸•à¸´', gain: 1.0 };
+    return { key: 'ok', label: 'ปกติ', gain: 1.0 };
   }
-  if (deltaMs < 16) return { key: 'fast', label: 'à¹€à¸£à¹‡à¸§à¹„à¸›', gain: 0.25 };
-  if (deltaMs < 34) return { key: 'good', label: 'à¸”à¸µà¸¡à¸²à¸', gain: 1.35 };
-  if (deltaMs < 80) return { key: 'ok', label: 'à¸›à¸à¸•à¸´', gain: 1.0 };
-  return { key: 'slow', label: 'à¸Šà¹‰à¸²', gain: 0.72 };
+  if (deltaMs < 16) return { key: 'fast', label: 'เร็วไป', gain: 0.25 };
+  if (deltaMs < 34) return { key: 'good', label: 'ดีมาก', gain: 1.35 };
+  if (deltaMs < 80) return { key: 'ok', label: 'ปกติ', gain: 1.0 };
+  return { key: 'slow', label: 'ช้า', gain: 0.72 };
 }
 
 function issueWarning(type, coachLine) {
@@ -795,13 +795,10 @@ function finishGame() {
 function goCooldownThenHub() {
   logger.flush();
 
-  const cooldown = new URL('../warmup-gate.html', import.meta.url);
+  const cooldown = new URL('../gate/cooldown-gate.html', import.meta.url);
   cooldown.searchParams.set('game', GAME_ID);
   cooldown.searchParams.set('variant', GAME_VARIANT);
   cooldown.searchParams.set('zone', ZONE);
-  cooldown.searchParams.set('phase', 'cooldown');
-  cooldown.searchParams.set('gatePhase', 'cooldown');
-  cooldown.searchParams.set('returnPhase', 'cooldown');
   cooldown.searchParams.set('hub', HUB_URL);
   cooldown.searchParams.set('next', HUB_URL);
 
@@ -854,10 +851,10 @@ function renderAll() {
     ),
     coveragePercent: getCoveragePercent(),
     comboMax: state.comboMax,
-    phaseText: PHASE_TEXT[state.phaseId] || 'à¹€à¸¥à¹ˆà¸™à¸­à¸¢à¸¹à¹ˆ',
+    phaseText: PHASE_TEXT[state.phaseId] || 'เล่นอยู่',
     zonesDone: getZonesDoneCount(),
     zonesTotal: TOTAL_ZONES,
-    activeZoneLabel: getActiveZone()?.label || 'à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¹„à¸”à¹‰à¹€à¸¥à¸·à¸­à¸',
+    activeZoneLabel: getActiveZone()?.label || 'ยังไม่ได้เลือก',
     speedLabel: state.speedLabel,
     warnings: state.warnings,
     goalText: state.mode.goalText,
@@ -865,19 +862,19 @@ function renderAll() {
   });
 
   ui.renderPattern({
-    label: state.activeZoneId ? state.pattern.label : 'à¹€à¸¥à¸·à¸­à¸à¹‚à¸‹à¸™à¸à¹ˆà¸­à¸™',
-    hint: state.activeZoneId ? state.pattern.hint : 'à¹€à¸¥à¸·à¸­à¸à¹‚à¸‹à¸™à¸à¹ˆà¸­à¸™ à¹à¸¥à¹‰à¸§à¸–à¸¹à¸•à¸²à¸¡à¸¥à¸²à¸¢à¸—à¸µà¹ˆà¸šà¸­à¸',
+    label: state.activeZoneId ? state.pattern.label : 'เลือกโซนก่อน',
+    hint: state.activeZoneId ? state.pattern.hint : 'เลือกโซนก่อน แล้วถูตามลายที่บอก',
     progressPercent: state.pattern.progress,
-    progressText: `${state.pattern.cyclesDone} / ${state.pattern.cyclesTarget} à¸£à¸­à¸š`
+    progressText: `${state.pattern.cyclesDone} / ${state.pattern.cyclesTarget} รอบ`
   });
 }
 
 function getMiniMissionText() {
   if (state.phaseId === 'guided') return state.mode.miniMissionGuided;
   if (state.phaseId === 'cleanRun') return state.mode.miniMissionRun;
-  if (state.phaseId === 'boss') return 'à¹‚à¸«à¸¡à¸” boss à¹ƒà¸Šà¹‰à¸à¸²à¸£à¸§à¸™à¹€à¸›à¹‡à¸™à¸§à¸‡à¸à¸¥à¸¡à¹€à¸žà¸·à¹ˆà¸­à¹€à¸à¹‡à¸šà¸‡à¸²à¸™';
-  if (state.phaseId === 'summary') return 'à¸”à¸¹à¸œà¸¥à¸¥à¸±à¸žà¸˜à¹Œà¸‚à¸­à¸‡à¸§à¸±à¸™à¸™à¸µà¹‰à¹„à¸”à¹‰à¹€à¸¥à¸¢';
-  return 'à¹€à¸£à¸´à¹ˆà¸¡à¹„à¸”à¹‰à¹€à¸¥à¸¢';
+  if (state.phaseId === 'boss') return 'โหมด boss ใช้การวนเป็นวงกลมเพื่อเก็บงาน';
+  if (state.phaseId === 'summary') return 'ดูผลลัพธ์ของวันนี้ได้เลย';
+  return 'เริ่มได้เลย';
 }
 
 function formatTime(totalSec) {
@@ -900,4 +897,3 @@ function randomPick(arr) {
 function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
 }
-
