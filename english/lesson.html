@@ -757,10 +757,35 @@
 
         window.checkChoiceAnswer = function(selectedLetter) {
             if (isGameOver || !currentMission) return;
-            const correctChoiceStr = currentMission.choices.find(c => c.startsWith(currentMission.answer));
-            if (correctChoiceStr && correctChoiceStr.startsWith(selectedLetter)) {
+
+            // Guard: only reading/listening missions should use choice answers
+            const isChoiceMission =
+                currentMission.type === 'reading' || currentMission.type === 'listening';
+
+            if (!isChoiceMission || !Array.isArray(currentMission.choices) || !currentMission.answer) {
+                console.warn('checkChoiceAnswer ignored because mission is not choice-based or choices are missing', currentMission);
+                const feedback = document.getElementById('feedback');
+                if (feedback && !isChoiceMission) {
+                    feedback.innerText = 'ด่านนี้ไม่ได้ใช้ปุ่ม A/B/C';
+                    feedback.style.color = '#ff9f43';
+                }
+                return;
+            }
+
+            const correctChoiceStr = currentMission.choices.find(function(c) {
+                return typeof c === 'string' && c.startsWith(currentMission.answer);
+            });
+
+            if (!correctChoiceStr) {
+                console.warn('No correct choice found for current mission', currentMission);
+                return;
+            }
+
+            if (correctChoiceStr.startsWith(selectedLetter)) {
                 winMission();
-            } else takeDamage();
+            } else {
+                takeDamage();
+            }
         };
 
         window.checkWritingAnswer = function() {
