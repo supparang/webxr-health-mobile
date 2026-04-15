@@ -999,6 +999,17 @@ function renderBackground(t){
     updateHud();
   }
 
+
+  function initFirebase(){
+    try{
+      const roomInput = document.getElementById('firebaseRoomInput');
+      const toggleInput = document.getElementById('firebaseToggleInput');
+      if (toggleInput) toggleInput.value = 'LOCAL FALLBACK';
+      if (roomInput && !roomInput.value) roomInput.value = 'FREEPLAY';
+    }catch(e){}
+    return false;
+  }
+
   // boot
   resize();
   initFirebase();
