@@ -1,4 +1,4 @@
-<!doctype html>
+ฃ<!doctype html>
 <html lang="th">
 <head>
 <meta charset="utf-8" />
@@ -892,8 +892,7 @@ function renderBackground(t){
     const rows = classroomExportRows();
     const header = ['displayName','studentId','section','sessionCode','bank','mode','score','accuracy','improvement','when'];
     const body = rows.map(r => header.map(k => String(r[k] ?? '')).join(','));
-    return [header.join(','), ...body].join('
-');
+    return [header.join(','), ...body].join('\\n');
   }
   function downloadFile(filename, text, type='text/plain'){
     const blob = new Blob([text], { type });
