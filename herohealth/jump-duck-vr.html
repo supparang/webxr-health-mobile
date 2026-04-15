@@ -3,380 +3,198 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • JumpDuck Redirect</title>
-  <meta name="theme-color" content="#9fe3ff" />
-  <meta name="color-scheme" content="light" />
-  <link rel="icon" href="./favicon.ico" />
-
+  <title>HeroHealth • Jump Duck Redirect</title>
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#8bdcff" />
   <style>
     :root{
-      --bg1:#eef9ff;
-      --bg2:#fff7ec;
+      --bg1:#eaf8ff;
+      --bg2:#fff8ec;
       --card:#ffffff;
       --line:#d7edf7;
       --text:#23435a;
-      --muted:#6c7e8a;
-      --blue:#7fcfff;
-      --blue2:#4aaef0;
-      --green:#7ed957;
-      --green2:#58c33f;
-      --shadow:0 18px 36px rgba(63,122,156,.14);
-      --radius:28px;
+      --muted:#6b7f8f;
+      --shadow:0 18px 40px rgba(63,122,156,.14);
     }
-
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       min-height:100%;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:
-        radial-gradient(circle at top, rgba(127,207,255,.28), transparent 34%),
+        radial-gradient(circle at top, rgba(127,207,255,.24), transparent 34%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
       color:var(--text);
     }
-
     body{
       display:grid;
       place-items:center;
       padding:18px;
     }
-
     .card{
       width:min(760px,100%);
+      border-radius:28px;
       background:var(--card);
       border:2px solid var(--line);
-      border-radius:var(--radius);
       box-shadow:var(--shadow);
       padding:22px;
-      display:grid;
-      gap:16px;
+      text-align:center;
     }
-
-    .hero{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:16px;
-      align-items:center;
-    }
-
-    .copy h1{
-      margin:0 0 8px;
-      font-size:clamp(28px,5vw,46px);
-      line-height:1.04;
-      color:#1e5678;
-    }
-
-    .copy p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    .pills{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:36px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#567186;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .visual{
-      min-height:210px;
+    .icon{
+      width:88px;
+      height:88px;
+      margin:0 auto 14px;
       border-radius:24px;
-      border:2px solid var(--line);
-      background:
-        radial-gradient(circle at 50% 18%, rgba(255,255,255,.85), transparent 25%),
-        linear-gradient(180deg,#dff6ff 0%, #f7fdff 58%, #dff7d2 58%, #b9ef9f 100%);
-      position:relative;
-      overflow:hidden;
-    }
-
-    .track{
-      position:absolute;
-      left:10%;
-      right:10%;
-      bottom:26px;
-      height:16px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#8ec5df,#5aa9d6);
-      box-shadow:inset 0 2px 0 rgba(255,255,255,.6);
-    }
-
-    .runner{
-      position:absolute;
-      left:22%;
-      bottom:40px;
-      width:86px;
-      height:96px;
-      border-radius:28px;
-      background:linear-gradient(180deg,#fff,#ffe9c9);
-      border:2px solid rgba(255,255,255,.7);
-      box-shadow:0 10px 20px rgba(63,122,156,.14);
-    }
-
-    .runner::before{
-      content:"🐶";
-      position:absolute;
-      left:50%;
-      top:-18px;
-      transform:translateX(-50%);
-      width:42px;
-      height:42px;
       display:grid;
       place-items:center;
-      border-radius:50%;
-      background:#fff8ea;
-      border:2px solid rgba(255,255,255,.9);
-      font-size:22px;
-    }
-
-    .runner::after{
-      content:"🐾";
-      position:absolute;
-      right:-8px;
-      top:-10px;
-      width:34px;
-      height:34px;
-      display:grid;
-      place-items:center;
-      border-radius:50%;
-      background:#fff9d6;
+      font-size:42px;
+      background:linear-gradient(180deg,#fff7d8,#ffe9a8);
       border:2px solid #ffe08a;
-      font-size:16px;
     }
-
-    .bar{
-      position:absolute;
-      right:12%;
-      top:58px;
-      width:140px;
-      height:20px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#ffb35c,#ef4444);
-      box-shadow:0 10px 18px rgba(239,68,68,.18);
+    h1{
+      margin:0 0 8px;
+      font-size:clamp(28px,5vw,42px);
+      line-height:1.06;
+      color:#1f5678;
     }
-
-    .status{
-      border-radius:20px;
-      border:2px solid var(--line);
-      background:#fff;
-      padding:14px 16px;
-      display:grid;
-      gap:8px;
-    }
-
-    .status strong{
-      font-size:18px;
-      color:#24435a;
-    }
-
-    .status p{
+    p{
       margin:0;
       color:var(--muted);
-      font-size:14px;
-      line-height:1.7;
+      line-height:1.75;
       font-weight:900;
-      word-break:break-word;
     }
-
+    .note{
+      margin-top:14px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:#fffef7;
+      border:2px dashed #eadb9e;
+      color:#6d6340;
+      font-size:14px;
+      font-weight:1000;
+      line-height:1.7;
+    }
     .actions{
+      margin-top:16px;
       display:flex;
       flex-wrap:wrap;
       gap:10px;
+      justify-content:center;
     }
-
-    .btn{
+    a,button{
       appearance:none;
       border:0;
       cursor:pointer;
-      min-height:46px;
-      border-radius:18px;
-      padding:12px 16px;
+      min-height:44px;
+      padding:11px 15px;
+      border-radius:16px;
       font:inherit;
       font-weight:1000;
+      text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
       gap:8px;
-      text-decoration:none;
     }
-
-    .btn.primary{
-      background:linear-gradient(180deg,var(--green),var(--green2));
+    .primary{
+      background:linear-gradient(180deg,#7ed957,#58c33f);
       color:#173b0b;
     }
-
-    .btn.secondary{
+    .secondary{
       background:#fff;
       color:var(--text);
       border:2px solid var(--line);
     }
-
-    .mini{
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    @media (max-width: 760px){
-      .hero{
-        grid-template-columns:1fr;
-      }
+    code{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:.95em;
     }
   </style>
 </head>
 <body>
-  <main class="card">
-    <section class="hero">
-      <div class="copy">
-        <h1>JumpDuck</h1>
-        <p>หน้านี้เป็น path เก่า ระบบกำลังพาไปหน้าเล่นใหม่ของ JumpDuck อัตโนมัติ</p>
-        <div class="pills">
-          <div class="pill">🐶 Dog Hero</div>
-          <div class="pill">🏃 Fitness Zone</div>
-          <div class="pill">➡️ Auto Redirect</div>
-        </div>
-      </div>
+  <div class="card">
+    <div class="icon">🐶</div>
+    <h1>กำลังพาไป JumpDuck หน้าใหม่</h1>
+    <p>
+      path นี้เป็นทางเข้าแบบเก่า<br>
+      ระบบจะพาไปหน้าเล่นล่าสุดที่ผูกกับ <b>Fitness Zone</b> ให้อัตโนมัติ
+    </p>
 
-      <div class="visual" aria-hidden="true">
-        <div class="bar"></div>
-        <div class="runner"></div>
-        <div class="track"></div>
-      </div>
-    </section>
-
-    <section class="status">
-      <strong id="redirectStatus">กำลังเตรียม redirect...</strong>
-      <p id="redirectTarget">-</p>
-    </section>
+    <div class="note">
+      ปลายทางใหม่: <code>/fitness/jumpduck.html</code>
+    </div>
 
     <div class="actions">
-      <a id="btnGoNow" class="btn primary" href="#">▶️ ไปหน้า JumpDuck ตอนนี้</a>
-      <a id="btnGoZone" class="btn secondary" href="https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html">🏃 กลับ Fitness Zone</a>
+      <a id="goNow" class="primary" href="../fitness/jumpduck.html">▶️ ไปทันที</a>
+      <a id="goZone" class="secondary" href="./fitness-zone.html">🏃 ไป Fitness Zone</a>
     </div>
-
-    <div class="mini">
-      wrapper นี้มีไว้กัน path เก่า 404 / โหลด JS ผิดตำแหน่ง โดยจะส่งต่อ query สำคัญไปยังหน้าใหม่ให้อัตโนมัติ
-    </div>
-  </main>
+  </div>
 
   <script>
     (function () {
-      const FITNESS_ZONE = 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
-      const TARGET_PAGE  = 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
+      'use strict';
 
-      const statusEl = document.getElementById('redirectStatus');
-      const targetEl = document.getElementById('redirectTarget');
-      const btnGoNow = document.getElementById('btnGoNow');
-      const btnGoZone = document.getElementById('btnGoZone');
-
-      function looksLikeFitnessRoot(href) {
-        const s = String(href || '').toLowerCase();
-        return (
-          s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
-          s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
-          s.endsWith('/webxr-health-mobile/fitness') ||
-          s.endsWith('/webxr-health-mobile/fitness/')
-        );
-      }
-
-      function safeAbsUrl(raw, fallback = '') {
-        const value = String(raw || '').trim();
-        try {
-          if (value) return new URL(value, location.href).href;
-        } catch (_) {}
-        try {
-          if (fallback) return new URL(fallback, location.href).href;
-        } catch (_) {}
+      function abs(raw, fallback){
+        try{
+          return new URL(raw, location.href).href;
+        }catch(_){
+          try{ return new URL(fallback, location.href).href; }catch(__){}
+        }
         return fallback || '';
       }
 
-      function buildTarget() {
-        const inUrl = new URL(location.href);
-        const q = new URLSearchParams(inUrl.search);
+      const FITNESS_ZONE = abs('./fitness-zone.html', 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html');
+      const TARGET = abs('../fitness/jumpduck.html', 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html');
 
-        const rawHub = safeAbsUrl(q.get('hub') || '', '');
-        const rawHubRoot = safeAbsUrl(q.get('hubRoot') || '', '');
-        const rawLauncher = safeAbsUrl(q.get('launcher') || '', '');
+      const q = new URLSearchParams(location.search);
 
-        q.delete('phase');
-        q.delete('gatePhase');
-        q.delete('next');
-        q.delete('nextKey');
-        q.delete('cdnext');
-        q.delete('forcegate');
-        q.delete('resetGate');
+      const out = new URL(TARGET);
 
-        q.set('game', 'jump-duck');
-        q.set('gameId', 'jump-duck');
-        q.set('theme', 'jump-duck');
-        q.set('zone', 'fitness');
-        q.set('cat', 'fitness');
+      // preserve almost everything useful
+      q.forEach((value, key) => {
+        out.searchParams.set(key, value);
+      });
 
-        if (!q.get('pid')) q.set('pid', 'anon');
-        if (!q.get('run')) q.set('run', 'play');
-        if (!q.get('diff')) q.set('diff', 'normal');
-        if (!q.get('time')) q.set('time', '60');
-        if (!q.get('view')) q.set('view', 'mobile');
-        if (!q.get('mode')) q.set('mode', 'training');
-        if (!q.get('seed')) q.set('seed', String(Date.now()));
+      // force canonical JumpDuck identity
+      out.searchParams.set('game', 'jump-duck');
+      out.searchParams.set('gameId', 'jump-duck');
+      out.searchParams.set('theme', 'jump-duck');
+      out.searchParams.set('zone', 'fitness');
+      out.searchParams.set('cat', 'fitness');
 
-        if (!rawHub || looksLikeFitnessRoot(rawHub)) {
-          q.set('hub', FITNESS_ZONE);
-        } else {
-          q.set('hub', rawHub);
-        }
+      // canonical navigation targets
+      out.searchParams.set('hub', FITNESS_ZONE);
+      out.searchParams.set('hubRoot', FITNESS_ZONE);
+      out.searchParams.set('launcher', TARGET);
 
-        if (!rawHubRoot || looksLikeFitnessRoot(rawHubRoot)) {
-          q.set('hubRoot', FITNESS_ZONE);
-        } else {
-          q.set('hubRoot', rawHubRoot);
-        }
+      // wrapper should land on main game, not gate
+      out.searchParams.delete('phase');
+      out.searchParams.delete('gatePhase');
+      out.searchParams.delete('next');
+      out.searchParams.delete('nextKey');
+      out.searchParams.delete('cdnext');
+      out.searchParams.delete('forcegate');
+      out.searchParams.delete('resetGate');
 
-        if (!rawLauncher || looksLikeFitnessRoot(rawLauncher)) {
-          q.set('launcher', TARGET_PAGE);
-        } else {
-          q.set('launcher', rawLauncher);
-        }
+      // sensible defaults
+      if (!out.searchParams.get('pid')) out.searchParams.set('pid', 'anon');
+      if (!out.searchParams.get('name')) out.searchParams.set('name', 'Hero');
+      if (!out.searchParams.get('run')) out.searchParams.set('run', 'play');
+      if (!out.searchParams.get('mode')) out.searchParams.set('mode', 'training');
+      if (!out.searchParams.get('diff')) out.searchParams.set('diff', 'normal');
+      if (!out.searchParams.get('time')) out.searchParams.set('time', '60');
+      if (!out.searchParams.get('view')) out.searchParams.set('view', 'mobile');
+      if (!out.searchParams.get('seed')) out.searchParams.set('seed', String(Date.now()));
 
-        q.set('from', 'herohealth-jumpduck-wrapper');
+      const goNow = document.getElementById('goNow');
+      const goZone = document.getElementById('goZone');
 
-        const out = new URL(TARGET_PAGE);
-        out.search = q.toString();
-        return out.href;
-      }
+      if (goNow) goNow.href = out.href;
+      if (goZone) goZone.href = FITNESS_ZONE;
 
-      const finalHref = buildTarget();
-
-      targetEl.textContent = finalHref;
-      btnGoNow.href = finalHref;
-      btnGoZone.href = FITNESS_ZONE;
-
-      statusEl.textContent = 'กำลังพาไปหน้าใหม่ของ JumpDuck...';
-
+      // auto redirect
       setTimeout(() => {
-        try {
-          location.replace(finalHref);
-        } catch (err) {
-          console.error('[jump-duck wrapper] redirect failed:', err);
-          statusEl.textContent = 'redirect อัตโนมัติไม่สำเร็จ กดปุ่มด้านล่างแทน';
-        }
+        location.replace(out.href);
       }, 180);
     })();
   </script>
