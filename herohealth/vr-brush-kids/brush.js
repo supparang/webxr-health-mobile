@@ -1,5 +1,5 @@
 // /herohealth/vr-brush-kids/brush.js
-// Brush V5 — single-file build, mobile-friendly
+// Brush V5 — single-file build with scene cleanup fix
 
 (() => {
   'use strict';
@@ -67,7 +67,7 @@
     fever: ['สุดยอด! เข้า FEVER แล้ว!', 'รีบเก็บให้ได้มากที่สุด!'],
     bossBreak: ['ทำลายโล่ให้แตก!', 'แตะจุดอ่อนให้ครบ!'],
     boss: ['ตอนนี้แหละ รีบแปรงโจมตี!', 'บอสกำลังอ่อนแรง!'],
-    finish: ['ช่วยทั้งปากสำเร็จแล้ว!', 'ฟันสะอาดสดใสสุด ๆ']
+    finish: ['ฟันสะอาดสดใส ๆ', 'เยี่ยมมาก ภารกิจเสร็จแล้ว']
   };
 
   const THREAT_RULES = {
@@ -93,6 +93,9 @@
 
   const el = {
     sceneStage: document.getElementById('sceneStage'),
+    sceneMoodOverlay: document.getElementById('sceneMoodOverlay'),
+    sceneSparkleOverlay: document.getElementById('sceneSparkleOverlay'),
+
     timeText: document.getElementById('timeText'),
     scoreText: document.getElementById('scoreText'),
     comboText: document.getElementById('comboText'),
@@ -101,6 +104,15 @@
 
     coachFace: document.getElementById('coachFace'),
     coachLine: document.getElementById('coachLine'),
+
+    targetBanner: document.getElementById('targetBanner'),
+    targetBannerText: document.getElementById('targetBannerText'),
+    targetBannerSub: document.getElementById('targetBannerSub'),
+
+    sceneInstructionCard: document.getElementById('sceneInstructionCard'),
+    sceneInstructionText: document.getElementById('sceneInstructionText'),
+
+    helperCard: document.getElementById('helperCard'),
 
     scanTimerText: document.getElementById('scanTimerText'),
     scanFoundText: document.getElementById('scanFoundText'),
@@ -125,40 +137,162 @@
     objectiveCard: document.getElementById('objectiveCard'),
     scanCard: document.getElementById('scanCard'),
     bossCard: document.getElementById('bossCard'),
-    helperCard: document.getElementById('helperCard'),
 
     brushInputLayer: document.getElementById('brushInputLayer'),
     brushCursor: document.getElementById('brushCursor'),
 
     plaqueLayer: document.getElementById('plaqueLayer'),
     scanTargetLayer: document.getElementById('scanTargetLayer'),
+    bossVisualLayer: document.getElementById('bossVisualLayer'),
+    bossCore: document.getElementById('bossCore'),
+    bossShieldVisual: document.getElementById('bossShieldVisual'),
+    bossMouth: document.getElementById('bossMouth'),
     bossWeakPointLayer: document.getElementById('bossWeakPointLayer'),
     fxLayer: document.getElementById('fxLayer'),
     scorePopupLayer: document.getElementById('scorePopupLayer')
   };
 
+  const mode = MODE_CONFIG[qs.get('mode') || 'adventure'] || MODE_CONFIG.adventure;
+
+  const ctx = {
+    pid: qs.get('pid') || 'anon',
+    name: qs.get('name') || 'Hero',
+    modeId: mode.id,
+    modeLabel: mode.label,
+    diff: qs.get('diff') || 'normal',
+    view: qs.get('view') || 'mobile',
+    runMode: qs.get('run') || 'play',
+    hub: qs.get('hub') || '../hub.html',
+    seed: qs.get('seed') || '',
+    gameId: GAME_ID,
+    gameVariant: GAME_VARIANT,
+    gameTitle: GAME_TITLE
+  };
+
+  const state = {
+    ctx,
+    running: false,
+    paused: false,
+    sceneId: SCENE_IDS.launcher,
+    sceneEnteredAtMs: 0,
+
+    time: {
+      startedAtIso: '',
+      lastTs: 0,
+      elapsedMs: 0,
+      durationPlannedSec: mode.durationSec,
+      remainingSec: mode.durationSec
+    },
+
+    score: {
+      total: 0,
+      combo: 0,
+      comboMax: 0,
+      feverActive: false,
+      feverEndAtMs: 0
+    },
+
+    threat: { percent: 0 },
+
+    zones: ZONE_DEFS.map((z) => ({
+      ...z,
+      cleanPercent: 0,
+      threatPercent: 25,
+      visited: false,
+      done: false,
+      hits: 0,
+      misses: 0,
+      dwellMs: 0
+    })),
+
+    activeZoneId: 'upper-front',
+
+    brushInput: {
+      active: false,
+      pointerId: null,
+      lastX: 0,
+      lastY: 0,
+      lastHitAtMs: 0
+    },
+
+    metrics: {
+      hits: 0,
+      misses: 0,
+      warnings: 0
+    },
+
+    scan: {
+      played: false,
+      active: false,
+      roundId: '',
+      startedAtMs: 0,
+      durationSec: 0,
+      targetGoal: 0,
+      hits: 0,
+      misses: 0,
+      specialHits: 0,
+      targets: [],
+      picked: new Set(),
+      accuracyPercent: 0,
+      completedGoal: false
+    },
+
+    bossBreak: {
+      played: false,
+      active: false,
+      roundId: '',
+      startedAtMs: 0,
+      durationSec: 0,
+      targetGoal: 4,
+      hits: 0,
+      misses: 0,
+      accuracyPercent: 0,
+      success: false,
+      damageWindowMs: 0
+    },
+
+    boss: {
+      active: false,
+      hpPercent: 100,
+      cleared: false,
+      damageWindowEndAtMs: 0
+    }
+  };
+
+  const logger = createLogger();
+
   injectRuntimeStyles();
-
-  const ctx = readRunContext();
-  const state = createInitialState(ctx);
-  const logger = createLogger(ctx);
-
   bindEvents();
   bindBrushInputLayer();
+  bindBossWeakpoints();
   closeSummary();
   renderLauncher();
   renderFrame();
 
   function injectRuntimeStyles() {
     const css = `
-      #plaqueLayer,#scanTargetLayer,#bossWeakPointLayer,#fxLayer,#scorePopupLayer{
-        position:absolute; inset:0; pointer-events:none; z-index:14;
+      .center-ui-hidden{ display:none !important; }
+      .zone-ring.is-hidden-scene{
+        opacity:0 !important;
+        pointer-events:none !important;
       }
-      .plaque-node,.scan-target,.boss-weakpoint,.fx-burst,.score-popup{
-        position:absolute; transform:translate(-50%, -50%);
+      #bossVisualLayer,#bossWeakPointLayer{
+        display:none;
+      }
+      #plaqueLayer,#scanTargetLayer,#fxLayer,#scorePopupLayer{
+        position:absolute;
+        inset:0;
+        pointer-events:none;
+        z-index:14;
+      }
+      .plaque-node,.scan-target,.fx-burst,.score-popup{
+        position:absolute;
+        transform:translate(-50%, -50%);
       }
       .plaque-node{
-        width:26px; height:26px; border-radius:999px;
+        width:26px;
+        height:26px;
+        border-radius:999px;
         background:radial-gradient(circle at 35% 35%, #fff1ae 0 25%, #ffd46d 25% 65%, #e4a43c 65% 100%);
         border:2px solid rgba(255,255,255,.92);
         box-shadow:0 4px 10px rgba(186,112,38,.18);
@@ -168,31 +302,33 @@
       .plaque-node.is-gap{ width:18px; height:18px; border-radius:8px; }
       .plaque-node.is-dim{ opacity:.35; transform:translate(-50%, -50%) scale(.86); }
 
-      .scan-target,.boss-weakpoint{
-        pointer-events:auto; border:none; cursor:pointer;
-        display:grid; place-items:center; color:#23404d; font-weight:900;
-      }
       .scan-target{
-        width:48px; height:48px; border-radius:999px;
-        background:radial-gradient(circle, rgba(255,255,255,.92), rgba(114,215,255,.75));
+        position:absolute;
+        transform:translate(-50%, -50%);
+        width:52px;
+        height:52px;
+        border-radius:999px;
         border:3px solid #fff;
-        box-shadow:0 0 0 6px rgba(114,215,255,.16), 0 0 18px rgba(114,215,255,.24);
+        background:radial-gradient(circle, rgba(255,255,255,.94), rgba(114,215,255,.78));
+        box-shadow:0 0 0 6px rgba(114,215,255,.18), 0 0 18px rgba(114,215,255,.24);
+        font-weight:1000;
+        color:#23404d;
+        pointer-events:auto;
+        cursor:pointer;
       }
       .scan-target.is-special{
-        background:radial-gradient(circle, rgba(255,255,255,.96), rgba(255,224,127,.82));
+        background:radial-gradient(circle, rgba(255,255,255,.96), rgba(255,224,127,.84));
       }
-      .scan-target.is-picked{ opacity:.35; transform:translate(-50%, -50%) scale(.84); }
-
-      .boss-weakpoint{
-        width:54px; height:54px; border-radius:999px;
-        background:radial-gradient(circle, rgba(255,255,255,.94), rgba(255,102,126,.84));
-        border:3px solid #fff;
-        box-shadow:0 0 0 6px rgba(255,102,126,.18), 0 0 18px rgba(255,102,126,.22);
+      .scan-target.is-picked{
+        opacity:.35;
+        transform:translate(-50%, -50%) scale(.82);
+        pointer-events:none;
       }
-      .boss-weakpoint.is-hit{ opacity:.30; transform:translate(-50%, -50%) scale(.78); }
 
       .fx-burst{
-        width:16px; height:16px; border-radius:999px;
+        width:16px;
+        height:16px;
+        border-radius:999px;
         background:radial-gradient(circle, rgba(255,255,255,.98), rgba(114,215,255,.55) 62%, transparent 72%);
         animation:brushFxPop .36s ease-out forwards;
       }
@@ -200,7 +336,8 @@
         background:radial-gradient(circle, rgba(255,255,255,.95), rgba(255,102,126,.55) 62%, transparent 72%);
       }
       .fx-burst.is-complete{
-        width:24px; height:24px;
+        width:24px;
+        height:24px;
         background:radial-gradient(circle, rgba(255,255,255,.98), rgba(143,236,192,.62) 62%, transparent 72%);
       }
       @keyframes brushFxPop{
@@ -209,11 +346,16 @@
       }
 
       .score-popup{
-        min-width:54px; padding:6px 10px; border-radius:999px;
+        min-width:54px;
+        padding:6px 10px;
+        border-radius:999px;
         background:rgba(255,255,255,.96);
         border:2px solid rgba(255,255,255,.96);
         box-shadow:0 8px 16px rgba(71,156,197,.14);
-        font-size:13px; font-weight:1000; white-space:nowrap; pointer-events:none;
+        font-size:13px;
+        font-weight:1000;
+        white-space:nowrap;
+        pointer-events:none;
         animation:brushScorePop .68s ease-out forwards;
       }
       .score-popup.is-good{ color:#1f8f66; }
@@ -222,7 +364,6 @@
       .score-popup.is-clear{ color:#1f8f66; }
       .score-popup.is-boss{ color:#c93d5d; }
       .score-popup.is-combo{ color:#7a52d4; }
-
       @keyframes brushScorePop{
         0%{ transform:translate(-50%, -50%) scale(.72); opacity:0; }
         12%{ transform:translate(-50%, -50%) scale(1.05); opacity:1; }
@@ -234,113 +375,7 @@
     document.head.appendChild(style);
   }
 
-  function readRunContext() {
-    const modeId = qs.get('mode') || 'adventure';
-    const mode = MODE_CONFIG[modeId] || MODE_CONFIG.adventure;
-
-    return {
-      sessionId: '',
-      pid: qs.get('pid') || 'anon',
-      name: qs.get('name') || 'Hero',
-      modeId: mode.id,
-      modeLabel: mode.label,
-      diff: qs.get('diff') || 'normal',
-      view: qs.get('view') || 'mobile',
-      runMode: qs.get('run') || 'play',
-      hub: qs.get('hub') || '../hub.html',
-      seed: qs.get('seed') || ''
-    };
-  }
-
-  function createInitialState(runCtx) {
-    const mode = MODE_CONFIG[runCtx.modeId] || MODE_CONFIG.adventure;
-    return {
-      ctx: runCtx,
-      running: false,
-      paused: false,
-      sceneId: SCENE_IDS.launcher,
-      sceneEnteredAtMs: 0,
-
-      time: {
-        startedAtIso: '',
-        lastTs: 0,
-        elapsedMs: 0,
-        durationPlannedSec: mode.durationSec,
-        remainingSec: mode.durationSec
-      },
-
-      score: {
-        total: 0,
-        combo: 0,
-        comboMax: 0,
-        feverActive: false,
-        feverEndAtMs: 0
-      },
-
-      threat: { percent: 0 },
-
-      zones: ZONE_DEFS.map((z) => ({
-        ...z,
-        cleanPercent: 0,
-        threatPercent: 25,
-        visited: false,
-        done: false,
-        hits: 0,
-        misses: 0,
-        dwellMs: 0
-      })),
-
-      activeZoneId: 'upper-front',
-
-      brushInput: {
-        active: false,
-        pointerId: null,
-        lastX: 0,
-        lastY: 0,
-        lastHitAtMs: 0
-      },
-
-      scan: {
-        played: false,
-        active: false,
-        roundId: '',
-        startedAtMs: 0,
-        durationSec: 0,
-        targetGoal: 0,
-        hits: 0,
-        misses: 0,
-        specialHits: 0,
-        targets: [],
-        picked: new Set(),
-        accuracyPercent: 0,
-        completedGoal: false
-      },
-
-      bossBreak: {
-        played: false,
-        active: false,
-        roundId: '',
-        startedAtMs: 0,
-        durationSec: 0,
-        targetGoal: 0,
-        hits: 0,
-        misses: 0,
-        accuracyPercent: 0,
-        success: false,
-        damageWindowMs: 0,
-        weakPoints: []
-      },
-
-      boss: {
-        active: false,
-        hpPercent: 100,
-        cleared: false,
-        damageWindowEndAtMs: 0
-      }
-    };
-  }
-
-  function createLogger(runCtx) {
+  function createLogger() {
     const sessionId = `brush-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     let currentSceneId = SCENE_IDS.launcher;
     let startAt = performance.now();
@@ -358,7 +393,7 @@
           timeFromStartMs: Math.round(performance.now() - startAt),
           sceneId: currentSceneId,
           sessionId,
-          pid: runCtx.pid,
+          pid: ctx.pid,
           ...payload
         });
       },
@@ -390,7 +425,14 @@
     document.querySelectorAll('[data-zone]').forEach((node) => {
       node.addEventListener('click', () => {
         const zoneId = node.getAttribute('data-zone') || '';
-        if (zoneId) onZoneSelect(zoneId);
+        if (zoneId) onZoneSelect(zoneId, 'button');
+      });
+    });
+
+    document.querySelectorAll('[data-ring-zone]').forEach((ring) => {
+      ring.addEventListener('click', () => {
+        const zoneId = ring.getAttribute('data-ring-zone') || '';
+        if (zoneId) onZoneSelect(zoneId, 'ring');
       });
     });
 
@@ -402,15 +444,25 @@
         simulateBrushHit({ dragDirection: 'horizontal' });
       }
 
-      if (e.code === 'KeyQ') onZoneSelect('upper-left');
-      if (e.code === 'KeyW') onZoneSelect('upper-front');
-      if (e.code === 'KeyE') onZoneSelect('upper-right');
-      if (e.code === 'KeyA') onZoneSelect('lower-left');
-      if (e.code === 'KeyS') onZoneSelect('lower-front');
-      if (e.code === 'KeyD') onZoneSelect('lower-right');
+      if (e.code === 'KeyQ') onZoneSelect('upper-left', 'keyboard');
+      if (e.code === 'KeyW') onZoneSelect('upper-front', 'keyboard');
+      if (e.code === 'KeyE') onZoneSelect('upper-right', 'keyboard');
+      if (e.code === 'KeyA') onZoneSelect('lower-left', 'keyboard');
+      if (e.code === 'KeyS') onZoneSelect('lower-front', 'keyboard');
+      if (e.code === 'KeyD') onZoneSelect('lower-right', 'keyboard');
     });
 
     window.addEventListener('beforeunload', () => logger.flush());
+  }
+
+  function bindBossWeakpoints() {
+    document.querySelectorAll('[data-boss-weakpoint]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!state.bossBreak.active) return;
+        const id = btn.getAttribute('data-boss-weakpoint') || '';
+        onBossBreakHit(id);
+      });
+    });
   }
 
   function bindBrushInputLayer() {
@@ -481,8 +533,7 @@
   }
 
   function startGame() {
-    const fresh = createInitialState(ctx);
-    Object.assign(state, fresh);
+    resetRunState();
 
     closeSummary();
     state.running = true;
@@ -658,26 +709,24 @@
   }
 
   function startScanMiniGame() {
-    const mode = MODE_CONFIG[state.ctx.modeId] || MODE_CONFIG.adventure;
-    const goal = mode.targetScanCount;
     state.scan = {
       played: true,
       active: true,
       roundId: `scan-${Date.now()}`,
       startedAtMs: performance.now(),
       durationSec: mode.scanSec,
-      targetGoal: goal,
+      targetGoal: mode.targetScanCount,
       hits: 0,
       misses: 0,
       specialHits: 0,
-      accuracyPercent: 0,
-      completedGoal: false,
+      targets: buildScanTargets(mode.targetScanCount),
       picked: new Set(),
-      targets: buildScanTargets(goal)
+      accuracyPercent: 0,
+      completedGoal: false
     };
 
     renderCoach('🔎', randomPick(COACH_LINES.scan));
-    setObjective(`หาจุดสกปรกอันตราย ${goal} จุด`, SCENE_IDS.scan);
+    setObjective(`หาจุดสกปรกอันตราย ${state.scan.targetGoal} จุด`, SCENE_IDS.scan);
     renderScanTargets();
   }
 
@@ -710,13 +759,29 @@
 
       state.scan.active = false;
       clearNode(el.scanTargetLayer);
-      setObjective('เริ่มแปรงตามทิศที่โค้ชแนะนำ', SCENE_IDS.guided);
       enterScene(SCENE_IDS.guided);
     }
   }
 
+  function onScanPick(id) {
+    if (!state.scan.active) return;
+    if (state.scan.picked.has(id)) return;
+
+    state.scan.picked.add(id);
+    const target = state.scan.targets.find((t) => t.id === id);
+    if (!target) return;
+
+    state.scan.hits += 1;
+    if (target.special) state.scan.specialHits += 1;
+
+    showPopup(target.x, target.y - 4, target.special ? 'SCAN +100' : 'SCAN +50', target.special ? 'perfect' : 'good');
+    playFx(target.x, target.y, 'hit');
+
+    renderScanTargets();
+    renderFrame();
+  }
+
   function startBossBreakMiniGame() {
-    const mode = MODE_CONFIG[state.ctx.modeId] || MODE_CONFIG.adventure;
     state.bossBreak = {
       played: true,
       active: true,
@@ -728,18 +793,19 @@
       misses: 0,
       accuracyPercent: 0,
       success: false,
-      damageWindowMs: 0,
-      weakPoints: [
-        { id: 'wp1', x: 38, y: 42, hit: false },
-        { id: 'wp2', x: 62, y: 42, hit: false },
-        { id: 'wp3', x: 50, y: 56, hit: false },
-        { id: 'wp4', x: 50, y: 70, hit: false }
-      ]
+      damageWindowMs: 0
     };
 
+    resetBossWeakpoints();
     renderCoach('💥', randomPick(COACH_LINES.bossBreak));
     setObjective('ทำลายจุดอ่อนให้ครบ 4 จุด', SCENE_IDS.bossBreak);
-    renderBossWeakPoints();
+  }
+
+  function resetBossWeakpoints() {
+    document.querySelectorAll('[data-boss-weakpoint]').forEach((btn) => {
+      btn.classList.remove('is-hit');
+      btn.disabled = false;
+    });
   }
 
   function updateBossBreak() {
@@ -749,16 +815,35 @@
       state.bossBreak.accuracyPercent = attempts ? Math.round((state.bossBreak.hits / attempts) * 100) : 0;
       state.bossBreak.success = state.bossBreak.hits >= state.bossBreak.targetGoal;
       state.bossBreak.damageWindowMs = state.bossBreak.success ? 6000 : 2500;
-      state.bossBreak.active = false;
 
       state.score.total += state.bossBreak.hits * SCORE_RULES.bossBreakHit;
       if (state.bossBreak.success) {
         state.score.total += SCORE_RULES.bossBreakPerfect;
+        showPopup(50, 28, 'SHIELD BREAK', 'boss');
       }
 
-      clearNode(el.bossWeakPointLayer);
+      state.bossBreak.active = false;
       enterScene(SCENE_IDS.boss);
     }
+  }
+
+  function onBossBreakHit(id) {
+    if (!state.bossBreak.active) return;
+
+    const btn = document.querySelector(`[data-boss-weakpoint="${id}"]`);
+    if (!btn || btn.classList.contains('is-hit')) return;
+
+    btn.classList.add('is-hit');
+    btn.disabled = true;
+    state.bossBreak.hits += 1;
+
+    const x = parsePercent(btn.style.left || '50%');
+    const y = parsePercent(btn.style.top || '50%');
+
+    showPopup(x, y - 4, `WEAK +${SCORE_RULES.bossBreakHit}`, 'boss');
+    playFx(x, y, 'hit');
+
+    renderFrame();
   }
 
   function startBossPhase() {
@@ -771,12 +856,20 @@
     setObjective('โล่แตกแล้ว รีบแปรงโจมตีบอส!', SCENE_IDS.boss);
   }
 
-  function onZoneSelect(zoneId) {
+  function onZoneSelect(zoneId, source = 'ring') {
     if (!state.running) return;
     const zone = state.zones.find((z) => z.id === zoneId);
     if (!zone) return;
+
     state.activeZoneId = zoneId;
     zone.visited = true;
+
+    logger.event('brush_zone_select', {
+      zoneId,
+      source
+    });
+
+    updateCenterTexts(state.sceneId);
     renderCoach('🦷', `ตอนนี้ช่วยโซน ${zone.label}`);
     renderFrame();
   }
@@ -951,6 +1044,7 @@
       showPopup(50, 34, `BOSS HIT -${Math.round(bossDamage)}`, 'boss');
     }
 
+    updateCenterTexts(state.sceneId);
     renderFrame();
   }
 
@@ -970,6 +1064,7 @@
     setObjective(getSceneObjectiveText(sceneId), sceneId);
 
     const active = isBrushInputScene(sceneId);
+
     if (el.brushInputLayer) {
       el.brushInputLayer.style.pointerEvents = active ? 'auto' : 'none';
     }
@@ -979,15 +1074,137 @@
       hideBrushCursor();
     }
 
+    setCenterUiState(sceneId);
+    setBossUiState(sceneId);
+    setRingSceneState(sceneId);
+    updateCenterTexts(sceneId);
+
     if (el.helperCard) {
-      if (isBrushInputScene(sceneId)) {
-        el.helperCard.innerHTML = 'ลากเพื่อแปรง • <strong>Space</strong> = hit • <strong>Q/W/E/A/S/D</strong> = เลือกโซน';
-      } else if (sceneId === SCENE_IDS.scan) {
-        el.helperCard.innerHTML = 'แตะเป้าหมายสแกนบนฉากเพื่อหาจุดสกปรก';
+      if (sceneId === SCENE_IDS.scan) {
+        el.helperCard.innerHTML = 'Click scan targets on the scene.';
       } else if (sceneId === SCENE_IDS.bossBreak) {
-        el.helperCard.innerHTML = 'แตะ weak point สีแดงบนฉากเพื่อทำลายโล่';
+        el.helperCard.innerHTML = 'Hit all glowing weak points.';
+      } else if (active) {
+        el.helperCard.innerHTML = 'Drag to brush. Choose a zone first.';
+      } else if (sceneId === SCENE_IDS.finish || sceneId === SCENE_IDS.summary) {
+        el.helperCard.innerHTML = '';
       } else {
-        el.helperCard.innerHTML = 'ปุ่มลัดทดสอบ: <strong>Space</strong> = hit, <strong>Q/W/E/A/S/D</strong> = เลือกโซน';
+        el.helperCard.innerHTML = 'Click the white circles on the scene. No keyboard needed.';
+      }
+    }
+  }
+
+  function setCenterUiState(sceneId) {
+    const showTargetBanner =
+      sceneId === SCENE_IDS.guided ||
+      sceneId === SCENE_IDS.pressure ||
+      sceneId === SCENE_IDS.boss;
+
+    const showInstruction =
+      sceneId === SCENE_IDS.launcher ||
+      sceneId === SCENE_IDS.intro ||
+      sceneId === SCENE_IDS.scan ||
+      sceneId === SCENE_IDS.bossBreak;
+
+    const showHelper =
+      sceneId === SCENE_IDS.launcher ||
+      sceneId === SCENE_IDS.intro ||
+      sceneId === SCENE_IDS.scan;
+
+    if (el.targetBanner) {
+      el.targetBanner.classList.toggle('center-ui-hidden', !showTargetBanner);
+    }
+
+    if (el.sceneInstructionCard) {
+      el.sceneInstructionCard.classList.toggle('center-ui-hidden', !showInstruction);
+    }
+
+    if (el.helperCard) {
+      el.helperCard.classList.toggle('center-ui-hidden', !showHelper);
+    }
+  }
+
+  function setBossUiState(sceneId) {
+    const showBoss = sceneId === SCENE_IDS.bossBreak || sceneId === SCENE_IDS.boss;
+
+    if (el.bossVisualLayer) {
+      el.bossVisualLayer.style.display = showBoss ? 'block' : 'none';
+    }
+
+    if (el.bossWeakPointLayer) {
+      el.bossWeakPointLayer.style.display = sceneId === SCENE_IDS.bossBreak ? 'block' : 'none';
+    }
+
+    if (el.bossShieldVisual) {
+      el.bossShieldVisual.style.opacity = sceneId === SCENE_IDS.bossBreak ? '1' : '0';
+      el.bossShieldVisual.style.transform = sceneId === SCENE_IDS.boss ? 'translate(-50%,-50%) scale(.92)' : '';
+    }
+
+    if (el.bossCore) {
+      if (sceneId === SCENE_IDS.bossBreak || sceneId === SCENE_IDS.boss) {
+        el.bossCore.style.opacity = '1';
+        const hpScale = sceneId === SCENE_IDS.boss
+          ? 0.88 + (Math.max(0, state.boss.hpPercent) / 100) * 0.12
+          : 1;
+        el.bossCore.style.transform = `translate(-50%,-50%) scale(${hpScale})`;
+      } else {
+        el.bossCore.style.opacity = '0';
+      }
+    }
+
+    if (el.bossMouth) {
+      el.bossMouth.style.opacity = showBoss ? '1' : '0';
+    }
+
+    document.querySelectorAll('.boss-eye').forEach((eye) => {
+      eye.style.opacity = showBoss ? '1' : '0';
+    });
+  }
+
+  function setRingSceneState(sceneId) {
+    const showRings =
+      sceneId === SCENE_IDS.launcher ||
+      sceneId === SCENE_IDS.intro ||
+      sceneId === SCENE_IDS.scan ||
+      sceneId === SCENE_IDS.guided ||
+      sceneId === SCENE_IDS.pressure;
+
+    document.querySelectorAll('[data-ring-zone]').forEach((ring) => {
+      ring.classList.toggle('is-hidden-scene', !showRings);
+      ring.style.pointerEvents = showRings ? 'auto' : 'none';
+    });
+  }
+
+  function updateCenterTexts(sceneId) {
+    if (el.targetBannerText && el.targetBannerSub) {
+      const zone = state.zones.find((z) => z.id === state.activeZoneId);
+
+      if (sceneId === SCENE_IDS.guided || sceneId === SCENE_IDS.pressure) {
+        el.targetBannerText.textContent = zone
+          ? `Target: ${zone.label}`
+          : 'Choose a ring';
+
+        el.targetBannerSub.textContent = zone
+          ? `Brush this zone with ${zone.patternType}`
+          : 'Click a white ring to choose a brushing zone.';
+      } else if (sceneId === SCENE_IDS.boss) {
+        el.targetBannerText.textContent = 'Boss Attack';
+        el.targetBannerSub.textContent = 'Keep brushing to reduce boss HP.';
+      } else {
+        el.targetBannerText.textContent = 'Choose a ring';
+        el.targetBannerSub.textContent = 'Click a white ring to choose a brushing zone.';
+      }
+    }
+
+    if (el.sceneInstructionText) {
+      if (sceneId === SCENE_IDS.scan) {
+        el.sceneInstructionText.textContent = 'Click scan targets to find dangerous plaque.';
+      } else if (sceneId === SCENE_IDS.bossBreak) {
+        el.sceneInstructionText.textContent = 'Hit all glowing weak points to break the shield.';
+      } else if (sceneId === SCENE_IDS.intro || sceneId === SCENE_IDS.launcher) {
+        el.sceneInstructionText.textContent = 'Click a white ring to choose a brushing zone.';
+      } else {
+        el.sceneInstructionText.textContent = '';
       }
     }
   }
@@ -1001,10 +1218,20 @@
       case SCENE_IDS.pressure: return 'เลือกโซนให้ดีก่อนคราบลุกลาม';
       case SCENE_IDS.bossBreak: return 'ทำลายโล่บอสด้วยการโจมตีจุดอ่อน';
       case SCENE_IDS.boss: return 'รีบแปรงโจมตีบอสในช่วงเปิดช่อง';
-      case SCENE_IDS.finish: return 'ภารกิจสำเร็จ กำลังฟื้นฟูทั้งปาก';
+      case SCENE_IDS.finish: return 'สรุปผลการช่วยฟันของรอบนี้';
       case SCENE_IDS.summary: return 'สรุปผลการช่วยฟันของรอบนี้';
       default: return 'เตรียมภารกิจกู้ฟัน';
     }
+  }
+
+  function renderLauncher() {
+    setCenterUiState(SCENE_IDS.launcher);
+    setBossUiState(SCENE_IDS.launcher);
+    setRingSceneState(SCENE_IDS.launcher);
+    updateCenterTexts(SCENE_IDS.launcher);
+    renderCoach('🪥', 'พร้อมช่วยฟันแล้ว กดเริ่มได้เลย');
+    setObjective(`เริ่มภารกิจ ${state.ctx.modeLabel || 'Adventure'}`, SCENE_IDS.launcher);
+    renderSceneMood(SCENE_IDS.launcher);
   }
 
   function renderFrame() {
@@ -1015,8 +1242,10 @@
     if (state.sceneId === SCENE_IDS.scan && state.scan.active) {
       const remain = Math.max(0, Math.ceil(state.scan.durationSec - ((performance.now() - state.scan.startedAtMs) / 1000)));
       renderScanHud(`${remain}s`, `${state.scan.hits} / ${state.scan.targetGoal}`);
+      renderScanTargets();
     } else {
       renderScanHud('', '');
+      clearNode(el.scanTargetLayer);
     }
 
     if (state.sceneId === SCENE_IDS.bossBreak && state.bossBreak.active) {
@@ -1029,12 +1258,8 @@
     } else {
       renderBossBreakHud('', '', '');
     }
-  }
 
-  function renderLauncher() {
-    renderCoach('🪥', 'พร้อมช่วยฟันแล้ว กดเริ่มได้เลย');
-    setObjective(`เริ่มภารกิจ ${state.ctx.modeLabel || 'Adventure'}`, SCENE_IDS.launcher);
-    renderSceneMood(SCENE_IDS.launcher);
+    setBossUiState(state.sceneId);
   }
 
   function renderTopHud() {
@@ -1070,8 +1295,67 @@
       if (ring) {
         ring.classList.toggle('is-zone-active', zone.id === state.activeZoneId);
         ring.classList.toggle('is-zone-done', zone.done);
-        ring.classList.toggle('is-scene-focus', state.sceneId === SCENE_IDS.scan || state.sceneId === SCENE_IDS.bossBreak || state.sceneId === SCENE_IDS.boss);
+        ring.classList.toggle('is-scene-focus',
+          state.sceneId === SCENE_IDS.scan ||
+          state.sceneId === SCENE_IDS.guided ||
+          state.sceneId === SCENE_IDS.pressure
+        );
       }
+    });
+  }
+
+  function renderPlaques() {
+    clearNode(el.plaqueLayer);
+
+    state.zones.forEach((zone) => {
+      if (zone.done || zone.cleanPercent >= 100) return;
+      if (state.sceneId === SCENE_IDS.finish || state.sceneId === SCENE_IDS.summary) return;
+
+      const anchor = getZoneAnchor(zone.id);
+      const dirty = Math.max(0, 100 - zone.cleanPercent);
+      const count = dirty >= 70 ? 4 : dirty >= 40 ? 3 : dirty > 0 ? 2 : 0;
+
+      for (let i = 0; i < count; i++) {
+        const node = document.createElement('div');
+        node.className = 'plaque-node';
+        if (i === 0 && dirty >= 70) node.classList.add('is-heavy');
+        if (i === count - 1 && dirty < 45) node.classList.add('is-gap');
+        if (dirty < 30) node.classList.add('is-dim');
+
+        const offset = plaqueOffset(zone.patternType, i);
+        node.style.left = `${anchor.x + offset.dx}%`;
+        node.style.top = `${anchor.y + offset.dy}%`;
+        el.plaqueLayer.appendChild(node);
+      }
+    });
+  }
+
+  function plaqueOffset(patternType, i) {
+    const maps = {
+      horizontal: [{ dx: -10, dy: 0 }, { dx: 0, dy: -8 }, { dx: 11, dy: 2 }, { dx: 2, dy: 11 }],
+      vertical: [{ dx: 0, dy: -10 }, { dx: 0, dy: 6 }, { dx: -8, dy: 16 }, { dx: 10, dy: -18 }],
+      circle: [{ dx: -8, dy: -6 }, { dx: 10, dy: -6 }, { dx: 0, dy: 12 }, { dx: -10, dy: 14 }]
+    };
+    return (maps[patternType] || maps.horizontal)[i] || { dx: 0, dy: 0 };
+  }
+
+  function renderScanTargets() {
+    clearNode(el.scanTargetLayer);
+
+    if (!state.scan.active) return;
+
+    state.scan.targets.forEach((target) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'scan-target';
+      if (target.special) btn.classList.add('is-special');
+      if (state.scan.picked.has(target.id)) btn.classList.add('is-picked');
+      btn.disabled = state.scan.picked.has(target.id);
+      btn.style.left = `${target.x}%`;
+      btn.style.top = `${target.y}%`;
+      btn.textContent = '?';
+      btn.addEventListener('click', () => onScanPick(target.id));
+      el.scanTargetLayer.appendChild(btn);
     });
   }
 
@@ -1106,15 +1390,22 @@
       'is-finish-mode'
     );
 
-    if (sceneId === SCENE_IDS.scan) el.objectiveCard?.classList.add('is-scan-mode');
-    else if (sceneId === SCENE_IDS.guided || sceneId === SCENE_IDS.intro || sceneId === SCENE_IDS.launcher) el.objectiveCard?.classList.add('is-guided-mode');
-    else if (sceneId === SCENE_IDS.pressure || sceneId === SCENE_IDS.fever) el.objectiveCard?.classList.add('is-pressure-mode');
-    else if (sceneId === SCENE_IDS.bossBreak || sceneId === SCENE_IDS.boss) el.objectiveCard?.classList.add('is-boss-mode');
-    else if (sceneId === SCENE_IDS.finish || sceneId === SCENE_IDS.summary) el.objectiveCard?.classList.add('is-finish-mode');
+    if (sceneId === SCENE_IDS.scan) {
+      el.objectiveCard?.classList.add('is-scan-mode');
+    } else if (sceneId === SCENE_IDS.guided || sceneId === SCENE_IDS.intro || sceneId === SCENE_IDS.launcher) {
+      el.objectiveCard?.classList.add('is-guided-mode');
+    } else if (sceneId === SCENE_IDS.pressure || sceneId === SCENE_IDS.fever) {
+      el.objectiveCard?.classList.add('is-pressure-mode');
+    } else if (sceneId === SCENE_IDS.bossBreak || sceneId === SCENE_IDS.boss) {
+      el.objectiveCard?.classList.add('is-boss-mode');
+    } else if (sceneId === SCENE_IDS.finish || sceneId === SCENE_IDS.summary) {
+      el.objectiveCard?.classList.add('is-finish-mode');
+    }
   }
 
   function renderSceneMood(sceneId) {
     if (!el.sceneStage) return;
+
     el.sceneStage.dataset.scene = sceneId || '';
 
     el.scanCard?.classList.remove('is-emphasis');
@@ -1131,106 +1422,6 @@
     } else if (sceneId === SCENE_IDS.finish || sceneId === SCENE_IDS.summary) {
       el.helperCard?.classList.add('is-success');
     }
-  }
-
-  function renderPlaques() {
-    clearNode(el.plaqueLayer);
-    state.zones.forEach((zone) => {
-      if (zone.done || zone.cleanPercent >= 100) return;
-
-      const anchor = getZoneAnchor(zone.id);
-      const dirty = Math.max(0, 100 - zone.cleanPercent);
-      const count = dirty >= 70 ? 4 : dirty >= 40 ? 3 : dirty > 0 ? 2 : 0;
-
-      for (let i = 0; i < count; i++) {
-        const node = document.createElement('div');
-        node.className = 'plaque-node';
-        if (i === 0 && dirty >= 70) node.classList.add('is-heavy');
-        if (i === count - 1 && dirty < 45) node.classList.add('is-gap');
-        if (dirty < 30) node.classList.add('is-dim');
-
-        const offset = plaqueOffset(zone.patternType, i);
-        node.style.left = `${anchor.x + offset.dx}%`;
-        node.style.top = `${anchor.y + offset.dy}%`;
-        el.plaqueLayer.appendChild(node);
-      }
-    });
-  }
-
-  function plaqueOffset(patternType, i) {
-    const maps = {
-      horizontal: [{ dx: -10, dy: 0 }, { dx: 0, dy: -8 }, { dx: 11, dy: 2 }, { dx: 2, dy: 11 }],
-      vertical: [{ dx: 0, dy: -10 }, { dx: 0, dy: 6 }, { dx: -8, dy: 16 }, { dx: 10, dy: -18 }],
-      circle: [{ dx: -8, dy: -6 }, { dx: 10, dy: -6 }, { dx: 0, dy: 12 }, { dx: -10, dy: 14 }]
-    };
-    return (maps[patternType] || maps.horizontal)[i] || { dx: 0, dy: 0 };
-  }
-
-  function renderScanTargets() {
-    clearNode(el.scanTargetLayer);
-    if (!state.scan.active) return;
-
-    state.scan.targets.forEach((t) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'scan-target';
-      if (t.special) btn.classList.add('is-special');
-      if (state.scan.picked.has(t.id)) btn.classList.add('is-picked');
-      btn.disabled = state.scan.picked.has(t.id);
-      btn.style.left = `${t.x}%`;
-      btn.style.top = `${t.y}%`;
-      btn.textContent = '?';
-      btn.addEventListener('click', () => onScanPick(t.id));
-      el.scanTargetLayer.appendChild(btn);
-    });
-  }
-
-  function onScanPick(id) {
-    if (!state.scan.active) return;
-    if (state.scan.picked.has(id)) return;
-
-    state.scan.picked.add(id);
-    const t = state.scan.targets.find((x) => x.id === id);
-    if (!t) return;
-
-    state.scan.hits += 1;
-    if (t.special) state.scan.specialHits += 1;
-
-    showPopup(t.x, t.y - 4, t.special ? 'SCAN +100' : 'SCAN +50', t.special ? 'perfect' : 'good');
-    playFx(t.x, t.y, 'hit');
-    renderScanTargets();
-    renderFrame();
-  }
-
-  function renderBossWeakPoints() {
-    clearNode(el.bossWeakPointLayer);
-    if (!state.bossBreak.active) return;
-
-    state.bossBreak.weakPoints.forEach((wp) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'boss-weakpoint';
-      if (wp.hit) btn.classList.add('is-hit');
-      btn.disabled = wp.hit;
-      btn.style.left = `${wp.x}%`;
-      btn.style.top = `${wp.y}%`;
-      btn.textContent = '!';
-      btn.addEventListener('click', () => onBossBreakHit(wp.id));
-      el.bossWeakPointLayer.appendChild(btn);
-    });
-  }
-
-  function onBossBreakHit(id) {
-    if (!state.bossBreak.active) return;
-    const wp = state.bossBreak.weakPoints.find((x) => x.id === id);
-    if (!wp || wp.hit) return;
-
-    wp.hit = true;
-    state.bossBreak.hits += 1;
-    showPopup(wp.x, wp.y - 4, `WEAK +${SCORE_RULES.bossBreakHit}`, 'boss');
-    playFx(wp.x, wp.y, 'hit');
-    renderBossWeakPoints();
-    renderFrame();
   }
 
   function getZoneAnchor(zoneId) {
@@ -1278,8 +1469,11 @@
     logger.finish(result);
     logger.flush();
 
-    setObjective('ดูผลลัพธ์และคำแนะนำของรอบนี้', SCENE_IDS.summary);
+    setObjective('สรุปผลการช่วยฟันของรอบนี้', SCENE_IDS.summary);
     renderSceneMood(SCENE_IDS.summary);
+    setCenterUiState(SCENE_IDS.summary);
+    setBossUiState(SCENE_IDS.summary);
+    setRingSceneState(SCENE_IDS.summary);
 
     setText(el.summaryRank, result.finalRank);
     setText(el.summaryScore, result.finalScore);
@@ -1317,18 +1511,7 @@
       finalScore: Math.round(state.score.total),
       coveragePercent,
       accuracyPercent,
-      summaryAdvice,
-      csvRow: {
-        sessionId: logger.sessionId,
-        pid: state.ctx.pid,
-        modeId: state.ctx.modeId,
-        diff: state.ctx.diff,
-        view: state.ctx.view,
-        finalScore: Math.round(state.score.total),
-        coveragePercent,
-        accuracyPercent,
-        finalRank
-      }
+      summaryAdvice
     };
   }
 
@@ -1336,9 +1519,86 @@
     try {
       localStorage.setItem('HHA_BRUSH_LAST_RESULT', JSON.stringify(result));
       const rows = JSON.parse(localStorage.getItem('HHA_BRUSH_CSV_ROWS') || '[]');
-      rows.push(result.csvRow);
+      rows.push(result);
       localStorage.setItem('HHA_BRUSH_CSV_ROWS', JSON.stringify(rows));
     } catch {}
+  }
+
+  function resetRunState() {
+    state.running = false;
+    state.paused = false;
+    state.sceneId = SCENE_IDS.launcher;
+    state.sceneEnteredAtMs = 0;
+
+    state.time.startedAtIso = '';
+    state.time.lastTs = 0;
+    state.time.elapsedMs = 0;
+    state.time.durationPlannedSec = mode.durationSec;
+    state.time.remainingSec = mode.durationSec;
+
+    state.score.total = 0;
+    state.score.combo = 0;
+    state.score.comboMax = 0;
+    state.score.feverActive = false;
+    state.score.feverEndAtMs = 0;
+
+    state.threat.percent = 0;
+
+    state.zones.forEach((z) => {
+      z.cleanPercent = 0;
+      z.threatPercent = 25;
+      z.visited = false;
+      z.done = false;
+      z.hits = 0;
+      z.misses = 0;
+      z.dwellMs = 0;
+    });
+
+    state.activeZoneId = 'upper-front';
+
+    state.brushInput.active = false;
+    state.brushInput.pointerId = null;
+    state.brushInput.lastX = 0;
+    state.brushInput.lastY = 0;
+    state.brushInput.lastHitAtMs = 0;
+
+    state.metrics.hits = 0;
+    state.metrics.misses = 0;
+    state.metrics.warnings = 0;
+
+    state.scan.played = false;
+    state.scan.active = false;
+    state.scan.roundId = '';
+    state.scan.startedAtMs = 0;
+    state.scan.durationSec = 0;
+    state.scan.targetGoal = 0;
+    state.scan.hits = 0;
+    state.scan.misses = 0;
+    state.scan.specialHits = 0;
+    state.scan.targets = [];
+    state.scan.picked = new Set();
+    state.scan.accuracyPercent = 0;
+    state.scan.completedGoal = false;
+
+    state.bossBreak.played = false;
+    state.bossBreak.active = false;
+    state.bossBreak.roundId = '';
+    state.bossBreak.startedAtMs = 0;
+    state.bossBreak.durationSec = 0;
+    state.bossBreak.targetGoal = 4;
+    state.bossBreak.hits = 0;
+    state.bossBreak.misses = 0;
+    state.bossBreak.accuracyPercent = 0;
+    state.bossBreak.success = false;
+    state.bossBreak.damageWindowMs = 0;
+
+    state.boss.active = false;
+    state.boss.hpPercent = 100;
+    state.boss.cleared = false;
+    state.boss.damageWindowEndAtMs = 0;
+
+    clearNode(el.scanTargetLayer);
+    resetBossWeakpoints();
   }
 
   function closeSummary() {
@@ -1359,5 +1619,9 @@
 
   function clamp(v, a, b) {
     return Math.max(a, Math.min(b, v));
+  }
+
+  function parsePercent(value) {
+    return Number(String(value).replace('%', '').trim()) || 0;
   }
 })();
