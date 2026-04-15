@@ -1,22 +1,58 @@
 (function () {
   'use strict';
 
-  const ROOT_KEY = 'HHA_HANDWASH';
+  const ROOT_KEY = 'HH_HANDWASH';
   const KEYS = {
     last: `${ROOT_KEY}_LAST`,
     history: `${ROOT_KEY}_HISTORY`,
-    flow: `${ROOT_KEY}_FLOW`
+    flow: `${ROOT_KEY}_FLOW`,
+    daily: `${ROOT_KEY}_DAILY`,
+    streak: `${ROOT_KEY}_STREAK`
   };
 
-  function safeParse(text, fallback) {
-    try { return JSON.parse(text); } catch { return fallback; }
+  function str(v, d = '') {
+    return typeof v === 'string' ? v : (v == null ? d : String(v));
+  }
+
+  function num(v, d = 0) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : d;
+  }
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function nowTs() {
+    return Date.now();
+  }
+
+  function bangkokDayKey(ts = nowTs()) {
+    try {
+      const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      return fmt.format(new Date(ts));
+    } catch {
+      return new Date(ts).toISOString().slice(0, 10);
+    }
+  }
+
+  function yesterdayDayKey(ts = nowTs()) {
+    const d = new Date(ts);
+    d.setUTCDate(d.getUTCDate() - 1);
+    return bangkokDayKey(d.getTime());
   }
 
   function read(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
-      if (raw == null) return fallback;
-      return safeParse(raw, fallback);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      return parsed == null ? fallback : parsed;
     } catch {
       return fallback;
     }
@@ -31,177 +67,46 @@
     }
   }
 
-  function remove(key) {
+  function qs() {
     try {
-      localStorage.removeItem(key);
-      return true;
+      return new URL(location.href).searchParams;
     } catch {
-      return false;
+      return new URLSearchParams('');
     }
-  }
-
-  function str(value, fallback = '') {
-    const s = String(value ?? '').trim();
-    return s || fallback;
-  }
-
-  function num(value, fallback = 0) {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : fallback;
-  }
-
-  function clamp(value, min, max) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return min;
-    return Math.max(min, Math.min(max, n));
-  }
-
-  function qs(name, fallback = '') {
-    try {
-      return new URL(location.href).searchParams.get(name) ?? fallback;
-    } catch {
-      return fallback;
-    }
-  }
-
-  function nowTs() {
-    return Date.now();
-  }
-
-  function safeAbsUrl(raw, fallbackPath) {
-    const value = String(raw || '').trim();
-    try {
-      if (value) return new URL(value, location.href).toString();
-    } catch {}
-    return new URL(fallbackPath, location.href).toString();
-  }
-
-  function firstNonEmpty(...vals) {
-    for (const v of vals) {
-      const s = String(v ?? '').trim();
-      if (s) return s;
-    }
-    return '';
-  }
-
-  function looksLikeHubUrl(urlText) {
-    const txt = String(urlText || '').toLowerCase();
-    return txt.includes('/hub.html') || txt.includes('/hub-v2.html');
-  }
-
-  function looksLikeZoneUrl(urlText) {
-    return String(urlText || '').toLowerCase().includes('hygiene-zone.html');
   }
 
   function normalizeStage(stage) {
-    const s = str(stage).toLowerCase();
+    const s = str(stage).toLowerCase().trim();
+    if (s === 'mini' || s === 'miniorder' || s === 'mini_order') return 'mini-order';
     if (s === 'howto' || s === 'practice' || s === 'main' || s === 'mini-order') return s;
-    return 'unknown';
+    return s || 'unknown';
   }
 
-  function stageLabel(stage) {
-    switch (normalizeStage(stage)) {
-      case 'howto': return 'Howto';
-      case 'practice': return 'Practice Lab';
-      case 'main': return 'Main Game';
-      case 'mini-order': return 'Mini Order';
-      default: return 'Unknown';
-    }
-  }
-
-  function buildHubRoot() {
-    const explicitHubRoot = firstNonEmpty(qs('hubRoot', ''));
-    if (explicitHubRoot) return safeAbsUrl(explicitHubRoot, '../hub-v2.html');
-
-    const legacyHub = firstNonEmpty(qs('hub', ''));
-    if (legacyHub && looksLikeHubUrl(legacyHub)) {
-      return safeAbsUrl(legacyHub, '../hub-v2.html');
-    }
-
-    return safeAbsUrl('../hub-v2.html', '../hub-v2.html');
-  }
-
-  function buildFallbackZoneReturn(viewOverride = '') {
-    const view = str(viewOverride, str(qs('view', 'mobile'), 'mobile'));
-    const hubRoot = buildHubRoot();
-    const url = new URL('../hygiene-zone.html', location.href);
-
-    const passKeys = [
-      'pid', 'name', 'nick', 'nickName', 'studyId',
-      'diff', 'time', 'run',
-      'debug', 'api', 'log',
-      'studentKey', 'schoolCode', 'classRoom', 'studentNo',
-      'conditionGroup', 'sessionNo', 'weekNo', 'teacher', 'grade'
-    ];
-
-    passKeys.forEach((key) => {
-      const v = qs(key, '');
-      if (v !== '') url.searchParams.set(key, v);
-    });
-
-    if (!url.searchParams.get('pid')) url.searchParams.set('pid', 'anon');
-    if (!url.searchParams.get('name')) {
-      url.searchParams.set(
-        'name',
-        firstNonEmpty(qs('name', ''), qs('nickName', ''), qs('nick', ''), 'Hero')
-      );
-    }
-    if (!url.searchParams.get('diff')) url.searchParams.set('diff', 'normal');
-    if (!url.searchParams.get('time')) url.searchParams.set('time', '90');
-    if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
-
-    url.searchParams.set('view', view);
-    url.searchParams.set('zone', 'hygiene');
-    url.searchParams.set('cat', 'hygiene');
-    url.searchParams.set('hubRoot', hubRoot);
-    url.searchParams.set('hub', hubRoot);
-
-    return url.toString();
-  }
-
-  function buildZoneReturn(viewOverride = '') {
-    const explicitZoneReturn = firstNonEmpty(qs('zoneReturn', ''));
-    if (explicitZoneReturn) return safeAbsUrl(explicitZoneReturn, '../hygiene-zone.html');
-
-    const legacyHub = firstNonEmpty(qs('hub', ''));
-    if (legacyHub && looksLikeZoneUrl(legacyHub)) {
-      return safeAbsUrl(legacyHub, '../hygiene-zone.html');
-    }
-
-    return buildFallbackZoneReturn(viewOverride);
-  }
-
-  function buildBaseContext(extra = {}) {
-    const view = str(extra.view, str(qs('view', 'mobile'), 'mobile'));
-    const hubRoot = buildHubRoot();
-    const zoneReturn = buildZoneReturn(view);
-
+  function buildBaseContext() {
+    const q = qs();
     return {
-      pid: str(qs('pid', 'anon'), 'anon'),
-      name: str(firstNonEmpty(qs('name', ''), qs('nickName', ''), qs('nick', ''), 'Hero'), 'Hero'),
-      diff: str(qs('diff', 'normal'), 'normal'),
-      time: num(qs('time', 0), 0),
-      view,
-      run: str(qs('run', 'play'), 'play'),
-      zone: str(qs('zone', 'hygiene'), 'hygiene'),
-      cat: str(qs('cat', 'hygiene'), 'hygiene'),
-      game: str(qs('game', 'handwash'), 'handwash'),
-      gameId: str(qs('gameId', 'handwash'), 'handwash'),
-      theme: str(qs('theme', 'handwash'), 'handwash'),
-      studyId: str(qs('studyId', ''), ''),
-      hubRoot,
-      hub: str(qs('hub', zoneReturn), zoneReturn),
-      zoneReturn,
-      next: str(qs('next', zoneReturn), zoneReturn),
-      main: str(qs('main', ''), ''),
-      ...extra
+      pid: str(q.get('pid'), 'anon'),
+      name: str(q.get('name'), 'Hero'),
+      diff: str(q.get('diff'), 'normal'),
+      view: str(q.get('view'), 'mobile'),
+      run: str(q.get('run'), 'play'),
+      zone: str(q.get('zone'), 'hygiene'),
+      cat: str(q.get('cat'), 'hygiene'),
+      game: str(q.get('game'), 'handwash'),
+      gameId: str(q.get('gameId'), 'handwash'),
+      theme: str(q.get('theme'), 'handwash'),
+      hub: str(q.get('hub'), ''),
+      seed: str(q.get('seed'), '')
     };
   }
 
   function normalizeEntry(payload = {}) {
-    const base = buildBaseContext();
-    return {
-      ...base,
+    const badges = Array.isArray(payload.badges)
+      ? payload.badges.map(v => str(v)).filter(Boolean)
+      : [];
+
+    const entry = {
+      ...buildBaseContext(),
       stage: normalizeStage(payload.stage),
       success: !!payload.success,
       score: Math.max(0, Math.round(num(payload.score, 0))),
@@ -213,197 +118,352 @@
       bestStreak: Math.max(0, Math.round(num(payload.bestStreak, 0))),
       whoDone: clamp(Math.round(num(payload.whoDone, 0)), 0, 7),
       notes: str(payload.notes, ''),
+      badges,
+      rank: str(payload.rank, ''),
       timestamp: num(payload.timestamp, nowTs())
     };
+
+    return entry;
   }
 
   function getLast() {
     return read(KEYS.last, null);
   }
 
+  function setLast(entry) {
+    return write(KEYS.last, entry);
+  }
+
   function getHistory() {
-    const items = read(KEYS.history, []);
-    return Array.isArray(items) ? items : [];
+    const value = read(KEYS.history, []);
+    return Array.isArray(value) ? value : [];
+  }
+
+  function setHistory(entries) {
+    return write(KEYS.history, Array.isArray(entries) ? entries : []);
   }
 
   function getFlow() {
-    return read(KEYS.flow, null);
+    return read(KEYS.flow, {
+      pid: 'anon',
+      name: 'Hero',
+      stage: '',
+      success: false,
+      timestamp: 0
+    });
   }
 
-  function rememberZoneState(entry) {
-    try {
-      localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
-    } catch {}
+  function setFlow(flow) {
+    return write(KEYS.flow, {
+      pid: str(flow && flow.pid, 'anon'),
+      name: str(flow && flow.name, 'Hero'),
+      stage: normalizeStage(flow && flow.stage),
+      success: !!(flow && flow.success),
+      timestamp: num(flow && flow.timestamp, nowTs())
+    });
+  }
 
-    try {
-      localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
-        key: 'handwash',
-        title: 'Handwash',
-        at: entry.timestamp || nowTs()
-      }));
-    } catch {}
+  function getLatestByStage(stage) {
+    const s = normalizeStage(stage);
+    const history = getHistory();
+    return history.find(entry => normalizeStage(entry.stage) === s) || null;
+  }
 
-    try {
-      const playedKey = 'HHA_ZONE_PLAYED_HYGIENE';
-      const played = safeParse(localStorage.getItem(playedKey) || '[]', []);
-      if (Array.isArray(played) && !played.includes('handwash')) {
-        played.push('handwash');
-        localStorage.setItem(playedKey, JSON.stringify(played));
+  function getLatestSuccessByStage(stage) {
+    const s = normalizeStage(stage);
+    const history = getHistory();
+    return history.find(entry => normalizeStage(entry.stage) === s && !!entry.success) || null;
+  }
+
+  function collectBadges(entries) {
+    const set = new Set();
+    (entries || []).forEach(entry => {
+      const badges = Array.isArray(entry.badges) ? entry.badges : [];
+      badges.forEach(badge => {
+        const clean = str(badge);
+        if (clean) set.add(clean);
+      });
+    });
+    return [...set];
+  }
+
+  function totalStars(entries) {
+    return (entries || []).reduce((sum, entry) => sum + Math.max(0, num(entry.stars, 0)), 0);
+  }
+
+  function totalScore(entries) {
+    return (entries || []).reduce((sum, entry) => sum + Math.max(0, num(entry.score, 0)), 0);
+  }
+
+  function computeOverallRank(entries) {
+    const badges = collectBadges(entries);
+    const stars = totalStars(entries);
+    const score = totalScore(entries);
+
+    const howto = !!getLatestSuccessByStage('howto');
+    const practice = !!(entries || []).find(e => normalizeStage(e.stage) === 'practice' && e.success);
+    const main = !!getLatestSuccessByStage('main');
+    const mini = !!getLatestSuccessByStage('mini-order');
+
+    if (howto && practice && main && mini && badges.length >= 8 && stars >= 8 && score >= 1200) {
+      return 'Gold WHO Master';
+    }
+
+    if (howto && practice && main && mini && badges.length >= 5 && stars >= 5 && score >= 800) {
+      return 'Silver Soap Hero';
+    }
+
+    if (howto || practice || main || mini) {
+      return 'Bronze Clean Kid';
+    }
+
+    return 'Starter';
+  }
+
+  function summarizeCollection(entries) {
+    const badges = collectBadges(entries);
+    return {
+      badges,
+      badgeCount: badges.length,
+      stars: totalStars(entries),
+      score: totalScore(entries),
+      rank: computeOverallRank(entries)
+    };
+  }
+
+  function getResumeStage() {
+    const howto = !!getLatestSuccessByStage('howto');
+    const practice = !!getLatestSuccessByStage('practice');
+    const main = !!getLatestSuccessByStage('main');
+    const mini = !!getLatestSuccessByStage('mini-order');
+
+    if (!howto) return 'howto';
+    if (!practice) return 'practice';
+    if (!main) return 'main';
+    if (!mini) return 'mini-order';
+    return 'done';
+  }
+
+  function stageLabel(stage) {
+    const s = normalizeStage(stage);
+    if (s === 'howto') return 'Howto';
+    if (s === 'practice') return 'Practice Lab';
+    if (s === 'main') return 'Main Game';
+    if (s === 'mini-order') return 'Mini Order';
+    return s || 'Unknown';
+  }
+
+  function buildUrls(viewOverride) {
+    const q = qs();
+    const pid = str(q.get('pid'), 'anon');
+    const name = str(q.get('name'), 'Hero');
+    const diff = str(q.get('diff'), 'normal');
+    const view = str(viewOverride, str(q.get('view'), 'mobile'));
+    const run = str(q.get('run'), 'play');
+    const zone = 'hygiene';
+    const cat = 'hygiene';
+    const game = 'handwash';
+    const gameId = 'handwash';
+    const theme = 'handwash';
+    const hub = str(q.get('hub'), new URL('../hygiene-zone.html', location.href).toString());
+    const seed = String(nowTs());
+    const time = str(q.get('time'), '90');
+    const miniTime = str(q.get('miniTime'), '60');
+
+    const common = new URLSearchParams();
+    common.set('pid', pid);
+    common.set('name', name);
+    common.set('diff', diff);
+    common.set('view', view);
+    common.set('run', run);
+    common.set('zone', zone);
+    common.set('cat', cat);
+    common.set('game', game);
+    common.set('gameId', gameId);
+    common.set('theme', theme);
+    common.set('hub', hub);
+    common.set('seed', seed);
+
+    const miniParams = new URLSearchParams(common.toString());
+    miniParams.set('time', miniTime);
+    const mini = new URL('./handwash-mini-order.html', location.href);
+    mini.search = miniParams.toString();
+
+    const mainParams = new URLSearchParams(common.toString());
+    mainParams.set('time', time);
+    mainParams.set('next', mini.toString());
+    const main = new URL('../handwash-v2.html', location.href);
+    main.search = mainParams.toString();
+
+    const practiceParams = new URLSearchParams(common.toString());
+    practiceParams.set('time', time);
+    practiceParams.set('next', main.toString());
+    const practice = new URL('./handwash-vr.html', location.href);
+    practice.search = practiceParams.toString();
+
+    const howtoParams = new URLSearchParams(common.toString());
+    howtoParams.set('time', time);
+    howtoParams.set('next', practice.toString());
+    const howto = new URL('./handwash-howto.html', location.href);
+    howto.search = howtoParams.toString();
+
+    return {
+      howto: howto.toString(),
+      practice: practice.toString(),
+      main: main.toString(),
+      mini: mini.toString(),
+      hub
+    };
+  }
+
+  function getDailyState() {
+    return read(KEYS.daily, {
+      dayKey: bangkokDayKey(),
+      completed: {
+        howto: false,
+        practice: false,
+        main: false,
+        'mini-order': false
+      },
+      missions: {
+        perfect_clear: false,
+        score_500: false
       }
-    } catch {}
+    });
+  }
 
-    try {
-      const dailyKey = 'HHA_ZONE_DAILY_HYGIENE';
-      const d = new Date();
-      const day =
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  function setDailyState(value) {
+    return write(KEYS.daily, value);
+  }
 
-      const daily = safeParse(localStorage.getItem(dailyKey) || '{}', {});
-      const row = daily[day] || { count: 0, lastKey: '' };
-      row.count += 1;
-      row.lastKey = 'handwash';
-      daily[day] = row;
-      localStorage.setItem(dailyKey, JSON.stringify(daily));
-    } catch {}
+  function getStreakState() {
+    return read(KEYS.streak, {
+      lastFullDay: '',
+      current: 0,
+      best: 0
+    });
+  }
+
+  function setStreakState(value) {
+    return write(KEYS.streak, value);
+  }
+
+  function ensureDailyFresh(ts = nowTs()) {
+    const today = bangkokDayKey(ts);
+    const daily = getDailyState();
+
+    if (daily.dayKey !== today) {
+      const fresh = {
+        dayKey: today,
+        completed: {
+          howto: false,
+          practice: false,
+          main: false,
+          'mini-order': false
+        },
+        missions: {
+          perfect_clear: false,
+          score_500: false
+        }
+      };
+      setDailyState(fresh);
+      return fresh;
+    }
+
+    return daily;
+  }
+
+  function updateDailyAndStreak(entry) {
+    const daily = ensureDailyFresh(entry.timestamp);
+
+    if (entry.success && Object.prototype.hasOwnProperty.call(daily.completed, entry.stage)) {
+      daily.completed[entry.stage] = true;
+    }
+
+    if (entry.success && num(entry.miss, 0) === 0) {
+      daily.missions.perfect_clear = true;
+    }
+
+    if (entry.success && num(entry.score, 0) >= 500) {
+      daily.missions.score_500 = true;
+    }
+
+    setDailyState(daily);
+
+    const fullFlowDone =
+      daily.completed.practice &&
+      daily.completed.main &&
+      daily.completed['mini-order'];
+
+    const streak = getStreakState();
+
+    if (fullFlowDone) {
+      const today = daily.dayKey;
+
+      if (streak.lastFullDay !== today) {
+        if (streak.lastFullDay === yesterdayDayKey(entry.timestamp)) {
+          streak.current += 1;
+        } else {
+          streak.current = 1;
+        }
+
+        streak.lastFullDay = today;
+        streak.best = Math.max(streak.best || 0, streak.current || 0);
+        setStreakState(streak);
+      }
+    }
+
+    return {
+      daily,
+      streak: getStreakState()
+    };
   }
 
   function saveSummary(payload = {}) {
     const entry = normalizeEntry(payload);
-    write(KEYS.last, entry);
+
+    setLast(entry);
 
     const history = getHistory();
     history.unshift(entry);
-    write(KEYS.history, history.slice(0, 40));
+    const trimmed = history.slice(0, 30);
+    setHistory(trimmed);
 
-    write(KEYS.flow, {
+    setFlow({
       pid: entry.pid,
       name: entry.name,
       stage: entry.stage,
       success: entry.success,
-      timestamp: entry.timestamp,
-      hubRoot: entry.hubRoot,
-      zoneReturn: entry.zoneReturn
+      timestamp: entry.timestamp
     });
 
-    rememberZoneState(entry);
+    updateDailyAndStreak(entry);
+
     return entry;
   }
 
   function clearAll() {
-    remove(KEYS.last);
-    remove(KEYS.history);
-    remove(KEYS.flow);
-  }
-
-  function getLatestByStage(stage) {
-    const target = normalizeStage(stage);
-    return getHistory().find(item => normalizeStage(item.stage) === target) || null;
-  }
-
-  function getLatestSuccessByStage(stage) {
-    const target = normalizeStage(stage);
-    return getHistory().find(item => normalizeStage(item.stage) === target && item.success) || null;
-  }
-
-  function getLatestSuccessByStages(stages = []) {
-    const targetSet = new Set(stages.map(normalizeStage));
-    return getHistory().find(item => targetSet.has(normalizeStage(item.stage)) && item.success) || null;
-  }
-
-  function getResumeStage() {
-    const firstStageDone = !!getLatestSuccessByStages(['howto', 'practice']);
-    const mainDone = !!getLatestSuccessByStage('main');
-    const miniDone = !!getLatestSuccessByStage('mini-order');
-
-    if (!firstStageDone) return 'practice';
-    if (!mainDone) return 'main';
-    if (!miniDone) return 'mini-order';
-    return 'done';
-  }
-
-  function applyCommonParams(params, ctx, timeOverride = 0) {
-    const timeValue = timeOverride > 0 ? timeOverride : (ctx.time || 0);
-
-    params.set('pid', str(ctx.pid, 'anon'));
-    params.set('name', str(ctx.name, 'Hero'));
-    params.set('diff', str(ctx.diff, 'normal'));
-    params.set('view', str(ctx.view, 'mobile'));
-    params.set('run', str(ctx.run, 'play'));
-    params.set('zone', 'hygiene');
-    params.set('cat', 'hygiene');
-    params.set('game', 'handwash');
-    params.set('gameId', 'handwash');
-    params.set('theme', 'handwash');
-    params.set('seed', String(nowTs()));
-    params.set('hubRoot', ctx.hubRoot);
-    params.set('hub', ctx.zoneReturn);
-    params.set('zoneReturn', ctx.zoneReturn);
-    params.set('next', ctx.zoneReturn);
-
-    if (timeValue > 0) params.set('time', String(timeValue));
-    if (ctx.studyId) params.set('studyId', ctx.studyId);
-
-    [
-      'debug', 'api', 'log',
-      'studentKey', 'schoolCode', 'classRoom', 'studentNo',
-      'conditionGroup', 'sessionNo', 'weekNo', 'teacher', 'grade'
-    ].forEach((key) => {
-      const v = qs(key, '');
-      if (v) params.set(key, v);
-    });
-  }
-
-  function buildUrls(viewOverride = '') {
-    const view = str(viewOverride, str(qs('view', 'mobile'), 'mobile'));
-    const ctx = buildBaseContext({ view });
-
-    const howtoUrl = new URL('./handwash-howto.html', location.href);
-    const mainUrl = new URL('./handwash-vr.html', location.href);
-    const miniUrl = new URL('./handwash-mini-order.html', location.href);
-
-    const miniParams = new URLSearchParams();
-    const mainParams = new URLSearchParams();
-    const howtoParams = new URLSearchParams();
-
-    applyCommonParams(miniParams, ctx, num(qs('miniTime', 60), 60));
-    miniParams.set('stage', 'mini-order');
-    miniParams.set('next', ctx.zoneReturn);
-
-    const miniAbs = `${miniUrl.pathname}?${miniParams.toString()}`;
-
-    applyCommonParams(mainParams, ctx, num(qs('time', ctx.time || 90), ctx.time || 90));
-    mainParams.set('stage', 'main');
-    mainParams.set('next', miniAbs);
-
-    const mainAbs = `${mainUrl.pathname}?${mainParams.toString()}`;
-
-    applyCommonParams(howtoParams, ctx, num(qs('time', ctx.time || 90), ctx.time || 90));
-    howtoParams.set('stage', 'practice');
-    howtoParams.set('main', mainAbs);
-    howtoParams.set('next', mainAbs);
-
-    const howtoAbs = `${howtoUrl.pathname}?${howtoParams.toString()}`;
-
-    return {
-      howto: howtoAbs,
-      practice: howtoAbs,
-      main: mainAbs,
-      'mini-order': miniAbs,
-      done: ctx.zoneReturn
-    };
+    try {
+      localStorage.removeItem(KEYS.last);
+      localStorage.removeItem(KEYS.history);
+      localStorage.removeItem(KEYS.flow);
+      localStorage.removeItem(KEYS.daily);
+      localStorage.removeItem(KEYS.streak);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   window.HandwashShared = {
     ROOT_KEY,
     KEYS,
+    qs,
     str,
     num,
     clamp,
-    qs,
     nowTs,
-    stageLabel,
-    buildHubRoot,
-    buildZoneReturn,
+    bangkokDayKey,
     buildBaseContext,
     normalizeEntry,
     saveSummary,
@@ -411,12 +471,18 @@
     getHistory,
     getFlow,
     clearAll,
+    stageLabel,
     getLatestByStage,
     getLatestSuccessByStage,
-    getLatestSuccessByStages,
     getResumeStage,
     buildUrls,
-    listSummaries: getHistory,
-    getSummaries: getHistory
+    collectBadges,
+    totalStars,
+    totalScore,
+    computeOverallRank,
+    summarizeCollection,
+    getDailyState,
+    getStreakState,
+    updateDailyAndStreak
   };
 })();
