@@ -994,7 +994,24 @@ function renderBackground(t){
     renderCrosshair();
     updateHud();
   }
+  function initFirebase(){
+  try{
+    const toggleInput = document.getElementById('firebaseToggleInput');
+    const roomInput = document.getElementById('firebaseRoomInput');
 
+    if (toggleInput) {
+      toggleInput.value = 'LOCAL FALLBACK';
+    }
+    if (roomInput && !roomInput.value) {
+      roomInput.value = 'FREEPLAY';
+    }
+
+    return false;
+  }catch(e){
+    console.warn('initFirebase fallback error', e);
+    return false;
+  }
+}
   // boot
   resize();
   initFirebase();
