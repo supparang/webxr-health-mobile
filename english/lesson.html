@@ -122,11 +122,11 @@
             <a-text value="TECHPATH VR\n15-SESSION CURRICULUM" position="0 4.5 -5" align="center" color="#00e5ff" scale="1.5 1.5 1.5"></a-text>
             <a-text value="Category 1-2 (Social & Agile) | Cat 3 (AI) | Cat 4-5 (Client & Career)" position="0 3.7 -5" align="center" color="#aaa" scale="0.6 0.6 0.6"></a-text>
 
-            <!-- กล่องสมบัติ Daily Reward -->
-            <a-entity id="reward-chest" position="-3.5 0.5 -3" rotation="0 45 0" class="clickable" onclick="claimReward()">
-                <a-box color="#f1c40f" width="0.8" height="0.6" depth="0.6" material="metalness: 0.8; roughness: 0.2" animation="property: position; to: -3.5 0.7 -3; dir: alternate; dur: 1000; loop: true"></a-box>
+            <!-- กล่องสมบัติ Daily Reward (ถูกปิด Animation และคลาส Clickable ไว้ก่อน จนกว่าจะเชื่อมต่อไอดีได้) -->
+            <a-entity id="reward-chest" position="-3.5 0.5 -3" rotation="0 45 0" onclick="claimReward()">
+                <a-box color="#555" width="0.8" height="0.6" depth="0.6" material="metalness: 0.8; roughness: 0.2"></a-box>
                 <a-text value="DAILY REWARD" position="0 0.5 0" align="center" color="#f1c40f" scale="0.5 0.5 0.5"></a-text>
-                <a-text id="streak-text" value="Click to Claim!" position="0 0.3 0" align="center" color="#fff" scale="0.4 0.4 0.4"></a-text>
+                <a-text id="streak-text" value="Loading User Data..." position="0 0.3 0" align="center" color="#fff" scale="0.4 0.4 0.4"></a-text>
             </a-entity>
 
             <!-- เพิ่มแผงเลือกความยาก (Difficulty Selector) -->
@@ -247,11 +247,11 @@
 
     </a-scene>
 
-    <!-- ระบบ Leaderboard ออนไลน์ (Firebase Module) -->
+    <!-- ระบบ Leaderboard และ Cloud Storage (Firebase Module) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
         // DATABASE: ระบบสุ่มคำถาม! แต่ละด่านมี 5 Variations ไม่ซ้ำกัน
@@ -396,7 +396,10 @@
 
                 onAuthStateChanged(auth, (user) => {
                     currentUser = user;
-                    if (user) setupLeaderboardListener();
+                    if (user) {
+                        setupLeaderboardListener();
+                        checkDailyStreak(); // โหลดข้อมูลกล่องสมบัติจากไอดีผู้เล่นเมื่อล็อกอินเสร็จ
+                    }
                 });
             } else {
                 document.getElementById('vr-leaderboard-list').setAttribute('value', 'Leaderboard Offline\n(No Server Connection)');
@@ -434,7 +437,6 @@
         window.onload = function() {
             generateMissionWall();
             setDifficulty('normal'); // ตั้งค่าเริ่มต้นตอนเปิดเกม
-            checkDailyStreak(); // เช็คกล่องสมบัติ
             setTimeout(() => {
                 document.getElementById('loading').style.opacity = '0';
                 setTimeout(() => document.getElementById('loading').style.display = 'none', 1000);
@@ -446,59 +448,100 @@
         };
 
         // ==========================================
-        // ระบบ Daily Streak / Reward Chest
+        // ระบบ Daily Streak (บันทึกข้อมูลผูกกับ User ID ผ่าน Firestore)
         // ==========================================
-        function checkDailyStreak() {
-            let lastLogin = localStorage.getItem('techpath_lastlogin');
-            let streak = parseInt(localStorage.getItem('techpath_streak') || '0');
-            let today = new Date().toDateString();
+        window.checkDailyStreak = async function() {
+            if (!currentUser || !db) return;
             
-            const chest = document.getElementById('reward-chest');
-            const streakText = document.getElementById('streak-text');
+            const rewardRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'player_stats', 'reward');
+            try {
+                const docSnap = await getDoc(rewardRef);
+                let streak = 0;
+                let lastLogin = "";
+                
+                if (docSnap.exists()) {
+                    streak = docSnap.data().streak || 0;
+                    lastLogin = docSnap.data().lastLogin || "";
+                }
+                
+                let today = new Date().toDateString();
+                const chest = document.getElementById('reward-chest');
+                const streakText = document.getElementById('streak-text');
 
-            if (lastLogin === today) {
-                // รับไปแล้ววันนี้
-                chest.removeAttribute('animation');
-                chest.querySelector('a-box').setAttribute('color', '#555');
-                streakText.setAttribute('value', `Streak: ${streak} Days\n(Come back tomorrow!)`);
-                chest.classList.remove('clickable');
-            } else {
-                streakText.setAttribute('value', `Streak: ${streak} Days\n(Click to Claim!)`);
+                if (lastLogin === today) {
+                    // รับไปแล้ววันนี้
+                    chest.removeAttribute('animation');
+                    chest.querySelector('a-box').setAttribute('color', '#555');
+                    streakText.setAttribute('value', `Streak: ${streak} Days\n(Come back tomorrow!)`);
+                    chest.classList.remove('clickable');
+                } else {
+                    // ยังไม่ได้รับ
+                    chest.setAttribute('animation', 'property: position; to: -3.5 0.7 -3; dir: alternate; dur: 1000; loop: true');
+                    chest.querySelector('a-box').setAttribute('color', '#f1c40f');
+                    streakText.setAttribute('value', `Streak: ${streak} Days\n(Click to Claim!)`);
+                    chest.classList.add('clickable');
+                }
+            } catch (e) {
+                console.error("Error checking streak:", e);
             }
         }
 
-        window.claimReward = function() {
-            let lastLogin = localStorage.getItem('techpath_lastlogin');
-            let streak = parseInt(localStorage.getItem('techpath_streak') || '0');
-            let today = new Date().toDateString();
-
-            if (lastLogin === today) return; // กันกดซ้ำ
-
-            // เช็คว่าเมื่อวานได้ล็อกอินไหม (ถ้าไม่ ให้รีเซ็ต)
-            let yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            
-            if (lastLogin === yesterday.toDateString()) {
-                streak++;
-            } else {
-                streak = 1; // เริ่มนับใหม่
+        window.claimReward = async function() {
+            if (!currentUser || !db) {
+                document.getElementById('feedback').innerText = "⚠️ รอเชื่อมต่อเซิร์ฟเวอร์สักครู่...";
+                return;
             }
 
-            localStorage.setItem('techpath_lastlogin', today);
-            localStorage.setItem('techpath_streak', streak.toString());
-
-            let bonus = 500 + (streak * 200);
-            playSFX('win');
-            updateHUD(bonus);
-            showVRFeedback(true, `+${bonus} REWARD!`);
-
-            const chest = document.getElementById('reward-chest');
-            chest.removeAttribute('animation');
-            chest.querySelector('a-box').setAttribute('color', '#555');
-            document.getElementById('streak-text').setAttribute('value', `Streak: ${streak} Days\n(Claimed)`);
-            chest.classList.remove('clickable');
+            const rewardRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'player_stats', 'reward');
             
-            document.getElementById('feedback').innerText = `🎁 รับรางวัลสำเร็จ! Streak ${streak} วัน (+${bonus} Pts)`;
+            try {
+                const chest = document.getElementById('reward-chest');
+                chest.classList.remove('clickable'); // กันกดซ้ำระหว่างโหลด
+
+                const docSnap = await getDoc(rewardRef);
+                let streak = 0;
+                let lastLogin = "";
+                
+                if (docSnap.exists()) {
+                    streak = docSnap.data().streak || 0;
+                    lastLogin = docSnap.data().lastLogin || "";
+                }
+
+                let today = new Date().toDateString();
+                if (lastLogin === today) return; // กันกดซ้ำ (กรณีที่เผลอกดรัวๆ)
+
+                let yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                
+                if (lastLogin === yesterday.toDateString()) {
+                    streak++;
+                } else {
+                    streak = 1; // เริ่มนับใหม่
+                }
+
+                // บันทึกข้อมูลลง Firebase
+                await setDoc(rewardRef, {
+                    lastLogin: today,
+                    streak: streak
+                }, { merge: true });
+
+                let bonus = 500 + (streak * 200);
+                playSFX('win');
+                updateHUD(bonus);
+                showVRFeedback(true, `+${bonus} REWARD!`);
+
+                chest.removeAttribute('animation');
+                chest.querySelector('a-box').setAttribute('color', '#555');
+                document.getElementById('streak-text').setAttribute('value', `Streak: ${streak} Days\n(Claimed)`);
+                
+                document.getElementById('feedback').innerText = `🎁 รับรางวัลสำเร็จ! Streak ${streak} วัน (+${bonus} Pts)`;
+                document.getElementById('feedback').style.color = "#f1c40f";
+
+            } catch (e) {
+                console.error("Error claiming reward:", e);
+                document.getElementById('reward-chest').classList.add('clickable'); // ให้สิทธิ์กดใหม่ถ้ามีปัญหา
+                document.getElementById('feedback').innerText = "❌ เกิดข้อผิดพลาดในการรับรางวัล";
+            }
         }
 
         function generateMissionWall() {
