@@ -13,7 +13,6 @@
       --line:#dbeaf4;
       --text:#334155;
       --muted:#6d7d8b;
-
       --sky:#7fcfff;
       --sky-2:#eef8ff;
       --gold:#ffd45f;
@@ -22,13 +21,11 @@
       --ok-bg:#f1fff4;
       --bad:#ffb3b3;
       --bad-bg:#fff4f4;
-
       --g1:#ffe7ef;
       --g2:#fff4cc;
       --g3:#e6f8df;
       --g4:#e7f1ff;
       --g5:#fff0d9;
-
       --shadow:0 12px 28px rgba(0,0,0,.06);
       --shadow-lg:0 24px 60px rgba(0,0,0,.18);
       --radius:26px;
@@ -38,15 +35,17 @@
 
     *{ box-sizing:border-box; }
     html{ -webkit-tap-highlight-color:transparent; }
+
     body{
       margin:0;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
       color:var(--text);
       background:
         radial-gradient(circle at 8% 8%, rgba(255,233,168,.38), transparent 20%),
         radial-gradient(circle at 92% 10%, rgba(127,207,255,.28), transparent 20%),
         linear-gradient(180deg,#f7fcff,#fffef9);
     }
+
     body.guide-open,
     body.reward-open{
       overflow:hidden;
@@ -64,6 +63,7 @@
       backdrop-filter:blur(8px);
       border-bottom:1px solid var(--line);
     }
+
     .pill{
       background:#fff;
       border:1px solid var(--line);
@@ -74,6 +74,7 @@
       transition:transform .16s ease, box-shadow .16s ease;
       box-shadow:0 4px 10px rgba(0,0,0,.03);
     }
+
     .pill.bump{
       transform:translateY(-2px) scale(1.03);
       box-shadow:0 10px 18px rgba(0,0,0,.08);
@@ -81,13 +82,13 @@
 
     .heroBar{
       display:grid;
-      grid-template-columns:1.25fr .8fr .8fr .9fr;
+      grid-template-columns:1.25fr .8fr .8fr .9fr .9fr;
       gap:10px;
       max-width:980px;
       margin:12px auto 14px;
       padding:0 16px;
-      animation:softFadeUp .35s ease;
     }
+
     .heroChip{
       display:flex;
       align-items:center;
@@ -98,9 +99,11 @@
       padding:12px 14px;
       box-shadow:0 8px 20px rgba(0,0,0,.05);
     }
+
     .heroChip-main{
       align-items:flex-start;
     }
+
     .heroIcon{
       width:46px;
       height:46px;
@@ -111,38 +114,34 @@
       font-size:24px;
       flex:0 0 auto;
     }
+
     .heroTitle{
       font-size:18px;
       font-weight:900;
       color:#284255;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
+
     .heroSub{
       font-size:13px;
       color:var(--muted);
       margin-top:2px;
-      word-break:break-word;
+      line-height:1.4;
     }
+
     .chipLabel{
       font-size:12px;
       color:var(--muted);
       display:block;
     }
-    .a11yRow{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
+
+    #entryChip{
+      background:linear-gradient(180deg,#fffdf5,#fff8eb);
+      border-color:#f1dfb3;
     }
-    .audioBtn{
-      min-height:38px;
-      border-radius:12px;
-      border:1px solid var(--line);
-      background:#fff;
-      font-weight:900;
-      color:#2f4b5f;
-      padding:0 12px;
-      cursor:pointer;
+
+    #entryChipText{
+      color:#8a6120;
+      font-weight:1000;
     }
 
     .dailyQuest{
@@ -153,8 +152,8 @@
       align-items:center;
       justify-content:space-between;
       gap:12px;
-      animation:softFadeUp .35s ease;
     }
+
     .dailyQuest-left{
       flex:1 1 auto;
       display:flex;
@@ -166,6 +165,7 @@
       padding:12px 14px;
       box-shadow:0 8px 18px rgba(0,0,0,.04);
     }
+
     .dailyQuestBadge{
       width:42px;
       height:42px;
@@ -176,15 +176,18 @@
       font-size:22px;
       flex:0 0 auto;
     }
+
     .dailyQuestTitle{
       font-size:14px;
       font-weight:900;
       color:#8d6118;
     }
+
     .dailyQuestDesc{
       font-size:13px;
       color:#7a6a49;
     }
+
     .dailyQuestRight{
       min-width:78px;
       text-align:center;
@@ -203,6 +206,7 @@
       margin:0 auto;
       padding:16px;
     }
+
     .board{
       display:grid;
       gap:16px;
@@ -210,17 +214,14 @@
     }
 
     .plateArea,.trayArea,.selectedBar,.stickerShelf{
-      animation:softFadeUp .35s ease;
-    }
-
-    .plateArea,.trayArea{
       background:var(--card);
       border:1px solid var(--line);
       border-radius:24px;
       padding:16px;
-      min-height:360px;
       box-shadow:var(--shadow);
     }
+
+    .plateArea,.trayArea{ min-height:360px; }
 
     h2{
       margin:0 0 8px;
@@ -235,6 +236,7 @@
       border:1px solid #f1dfb3;
       border-radius:18px;
     }
+
     .missionTop{
       display:flex;
       justify-content:space-between;
@@ -243,12 +245,14 @@
       color:#8a6120;
       margin-bottom:8px;
     }
+
     .missionBar{
       height:12px;
       background:#f5ead0;
       border-radius:999px;
       overflow:hidden;
     }
+
     .missionFill{
       height:100%;
       width:0%;
@@ -267,6 +271,7 @@
       position:relative;
       overflow:hidden;
     }
+
     .zone{
       position:absolute;
       border:none;
@@ -278,13 +283,14 @@
       touch-action:manipulation;
       overflow:hidden;
     }
+
     .zone span{
       background:rgba(255,255,255,.76);
       padding:4px 8px;
       border-radius:999px;
       font-size:14px;
     }
-    .zone:hover{ filter:brightness(1.03); }
+
     .zone:active{ transform:scale(.98); }
 
     .zone-g2{ left:8%; top:8%; width:42%; height:42%; border-radius:999px 0 0 0; background:var(--g2); }
@@ -300,29 +306,6 @@
       display:grid; place-items:center;
     }
 
-    .zone::before{
-      content:"";
-      position:absolute;
-      inset:auto;
-      width:0;
-      height:0;
-      border-radius:999px;
-      background:rgba(255,255,255,.26);
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-      pointer-events:none;
-    }
-    .zone.tapFlash::before{ animation:zoneTapFlash .28s ease; }
-    @keyframes zoneTapFlash{
-      0%{ width:8px; height:8px; opacity:.9; }
-      100%{ width:160px; height:160px; opacity:0; }
-    }
-
-    .zone.active{
-      outline:4px solid var(--sky);
-      transform:scale(1.02);
-    }
     .zone.hasItem::after{
       content:"✓";
       position:absolute;
@@ -336,12 +319,15 @@
       font-weight:900;
       box-shadow:0 4px 10px rgba(0,0,0,.08);
     }
+
     .zone.correctFlash{ animation:zoneOk .35s ease; }
     .zone.wrongFlash{ animation:zoneBad .35s ease; }
+
     @keyframes zoneOk{
       0%{ box-shadow:0 0 0 0 rgba(111,209,139,.55); }
       100%{ box-shadow:0 0 0 18px rgba(111,209,139,0); }
     }
+
     @keyframes zoneBad{
       0%{ box-shadow:0 0 0 0 rgba(255,179,179,.6); }
       100%{ box-shadow:0 0 0 18px rgba(255,179,179,0); }
@@ -352,30 +338,13 @@
       min-height:28px;
       font-weight:800;
       color:#345468;
-      transition:opacity .18s ease, transform .18s ease;
-    }
-    .feedback.pop{
-      opacity:1;
-      transform:translateY(-1px);
+      text-align:center;
     }
 
-    .trayArea{ align-self:start; }
     .tray{
       display:grid;
       grid-template-columns:repeat(2,1fr);
       gap:10px;
-      align-content:start;
-    }
-    .trayToggle{
-      display:none;
-      width:100%;
-      min-height:42px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:#f7fbff;
-      color:#315065;
-      font-weight:900;
-      margin-bottom:10px;
     }
 
     .food{
@@ -392,29 +361,27 @@
       box-shadow:0 6px 14px rgba(0,0,0,.04);
       transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
       touch-action:manipulation;
-      transform-origin:center;
     }
+
     .food:hover{
       transform:translateY(-1px);
       box-shadow:0 10px 18px rgba(0,0,0,.06);
     }
+
     .food:active{ transform:scale(.985); }
+
     .food.selected{
-      outline:none;
       border-color:var(--sky);
       box-shadow:0 0 0 3px rgba(127,207,255,.25);
       background:#eef8ff;
-      animation:foodPick .16s ease;
     }
-    @keyframes foodPick{
-      0%{ transform:scale(.98); }
-      100%{ transform:scale(1); }
-    }
+
     .food.used{
       opacity:.45;
       pointer-events:none;
       filter:saturate(.65);
     }
+
     .foodEmoji{
       width:42px;
       height:42px;
@@ -425,60 +392,38 @@
       font-size:24px;
       flex:0 0 auto;
     }
+
     .foodMeta{
       min-width:0;
       display:flex;
       flex-direction:column;
       gap:4px;
     }
+
     .foodName{
       font-weight:900;
       color:#284255;
       line-height:1.15;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
+
     .foodTag{
       display:inline-flex;
       align-items:center;
-      gap:6px;
-      width:max-content;
-      max-width:100%;
-      padding:4px 8px;
+      min-height:24px;
+      padding:0 8px;
       border-radius:999px;
       font-size:12px;
       font-weight:800;
       color:#4f6170;
       background:#f5f9fc;
       border:1px solid var(--line);
+      width:max-content;
+      max-width:100%;
     }
-    .foodTag.g1{ background:#fff0f5; }
-    .foodTag.g2{ background:#fff8dd; }
-    .foodTag.g3{ background:#edfbe7; }
-    .foodTag.g4{ background:#eef5ff; }
-    .foodTag.g5{ background:#fff3e6; }
-    .foodTag.x{ background:#fff1f1; color:#9b4a4a; }
 
-    .emptyTrayState{
-      grid-column:1 / -1;
-      padding:18px;
-      text-align:center;
-      border:1px dashed var(--line);
-      border-radius:18px;
-      background:#fbfeff;
-    }
-    .emptyTrayIcon{
-      font-size:28px;
-      margin-bottom:6px;
-    }
-    .emptyTrayTitle{
-      font-weight:900;
-      color:#2d4859;
-      margin-bottom:4px;
-    }
-    .emptyTrayText{
-      font-size:13px;
-      color:#738291;
+    .foodTag.x{
+      background:#fff1f1;
+      color:#9b4a4a;
     }
 
     .selectedBar{
@@ -490,19 +435,17 @@
       justify-content:space-between;
       gap:12px;
       margin-top:16px;
-      padding:12px 14px;
-      border-radius:20px;
       background:rgba(255,255,255,.96);
-      border:1px solid var(--line);
-      box-shadow:0 14px 30px rgba(0,0,0,.08);
       backdrop-filter:blur(8px);
     }
+
     .selectedBar-left{
       display:flex;
       align-items:center;
       gap:12px;
       min-width:0;
     }
+
     .selectedEmoji{
       width:44px;
       height:44px;
@@ -513,17 +456,18 @@
       font-size:24px;
       flex:0 0 auto;
     }
+
     .selectedTitle{
       font-weight:900;
       color:#284255;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
+
     .selectedHint{
       font-size:13px;
       color:var(--muted);
-      word-break:break-word;
+      line-height:1.4;
     }
+
     .selectedClear{
       min-width:92px;
       min-height:42px;
@@ -531,28 +475,26 @@
       border:1px solid var(--line);
       background:#fff7f7;
       font-weight:800;
-      touch-action:manipulation;
+      color:#476072;
       cursor:pointer;
     }
 
     .stickerShelf{
       margin-top:14px;
-      padding:14px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#ffffff,#fbfeff);
-      border:1px solid var(--line);
-      box-shadow:0 8px 20px rgba(0,0,0,.04);
     }
+
     .stickerShelfTitle{
       font-weight:900;
       color:#284255;
       margin-bottom:10px;
     }
+
     .stickerList{
       display:flex;
       flex-wrap:wrap;
       gap:10px;
     }
+
     .sticker{
       min-width:90px;
       padding:10px 12px;
@@ -563,6 +505,7 @@
       align-items:center;
       gap:8px;
     }
+
     .stickerIcon{
       width:34px;
       height:34px;
@@ -573,6 +516,7 @@
       font-size:18px;
       box-shadow:0 4px 10px rgba(0,0,0,.05);
     }
+
     .stickerText{
       font-size:12px;
       font-weight:800;
@@ -591,6 +535,7 @@
       gap:8px;
       pointer-events:none;
     }
+
     .toast{
       min-width:220px;
       max-width:min(90vw,440px);
@@ -602,15 +547,18 @@
       font-weight:900;
       color:#284255;
       animation:toastIn .22s ease, toastOut .22s ease 1.8s forwards;
-      transform-origin:center bottom;
+      text-align:center;
     }
+
     .toast.ok{ background:var(--ok-bg); border-color:#bdecc7; }
     .toast.bad{ background:var(--bad-bg); border-color:#ffd0d0; }
     .toast.info{ background:#f4fbff; border-color:#cfe8f8; }
+
     @keyframes toastIn{
       from{ opacity:0; transform:translateY(12px) scale(.96); }
       to{ opacity:1; transform:translateY(0) scale(1); }
     }
+
     @keyframes toastOut{
       to{ opacity:0; transform:translateY(-6px) scale(.98); }
     }
@@ -625,6 +573,7 @@
       padding:18px;
       z-index:50;
     }
+
     .overlay.show{ display:flex; }
 
     .summary{
@@ -635,10 +584,12 @@
       padding:20px;
       animation:summaryPop .24s ease;
     }
+
     @keyframes summaryPop{
       from{ opacity:0; transform:translateY(10px) scale(.97); }
       to{ opacity:1; transform:translateY(0) scale(1); }
     }
+
     .summaryHero{
       display:flex;
       align-items:center;
@@ -649,35 +600,33 @@
       background:linear-gradient(180deg,#fffaf0,#fffdf8);
       border:1px solid #f3dfb2;
     }
+
     .summaryBadge{
       width:58px; height:58px;
       border-radius:999px;
       display:grid; place-items:center;
       background:linear-gradient(180deg,#ffe49c,#ffd05e);
       font-size:30px;
-      animation:badgeFloat 2.3s ease-in-out infinite;
     }
-    @keyframes badgeFloat{
-      0%,100%{ transform:translateY(0); }
-      50%{ transform:translateY(-4px); }
-    }
+
     .summaryRank{
       font-size:18px;
       font-weight:900;
       color:#8d6118;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
+
     .summaryStars{
       font-size:18px;
       letter-spacing:2px;
     }
+
     .summaryGrid{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
       margin:14px 0;
     }
+
     .sbox{
       border:1px solid var(--line);
       border-radius:16px;
@@ -685,6 +634,7 @@
       text-align:center;
       background:#fbfeff;
     }
+
     .summaryRewardBox{
       margin-top:10px;
       padding:12px 14px;
@@ -694,18 +644,20 @@
       color:#8d6118;
       font-weight:800;
     }
+
     .summaryLatestReward{
       margin-top:8px;
       font-size:13px;
       font-weight:800;
       color:#7a6a4c;
-      word-break:break-word;
     }
+
     .actions{
       display:grid;
       gap:10px;
       margin-top:10px;
     }
+
     .actions button{
       min-height:48px;
       border-radius:16px;
@@ -714,14 +666,17 @@
       font-weight:800;
       cursor:pointer;
     }
-    .primary{ background:var(--sky); }
-    .secondary{ background:#fff; }
+
+    .primary{ background:var(--sky); color:#17384f; }
+    .secondary{ background:#fff; color:#2f4f63; }
+
     .summaryNextRow{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
       margin-top:12px;
     }
+
     .nextCard{
       display:flex;
       gap:10px;
@@ -731,6 +686,7 @@
       background:#f9fcff;
       border:1px solid var(--line);
     }
+
     .nextIcon{
       width:38px;
       height:38px;
@@ -741,15 +697,17 @@
       font-size:20px;
       flex:0 0 auto;
     }
+
     .nextTitle{
       font-weight:900;
       color:#2d4859;
       margin-bottom:4px;
     }
+
     .nextText{
       font-size:13px;
       color:#6d7d8b;
-      word-break:break-word;
+      line-height:1.4;
     }
 
     .pauseOverlay{
@@ -762,6 +720,9 @@
       padding:18px;
       backdrop-filter:blur(8px);
     }
+
+    .pauseOverlay[hidden]{ display:none; }
+
     .pauseCard{
       width:min(92vw,420px);
       border-radius:28px;
@@ -771,6 +732,7 @@
       padding:20px 18px;
       text-align:center;
     }
+
     .pauseBadge{
       width:70px;
       height:70px;
@@ -781,13 +743,13 @@
       background:linear-gradient(180deg,#ffe7a1,#ffd45f);
       font-size:34px;
     }
-    .pauseCard h2{ margin:0 0 6px; color:#284255; }
-    .pauseCard p{ margin:0 0 14px; color:#6c7c89; }
+
     .pauseActions{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
     }
+
     .pauseBtn{
       min-height:48px;
       border:none;
@@ -799,12 +761,15 @@
       color:#2f4f63;
       cursor:pointer;
     }
+
     .pauseBtn.primary{
       background:var(--sky);
       color:#17384f;
     }
 
-    .guideOverlay{
+    .guideOverlay,
+    .rewardPopupOverlay,
+    .flowOverlay{
       position:fixed;
       inset:0;
       z-index:80;
@@ -814,141 +779,53 @@
       padding:18px;
       backdrop-filter:blur(8px);
     }
-    .guideCard{
-      width:min(92vw,680px);
+
+    .guideOverlay[hidden],
+    .flowOverlay[hidden]{
+      display:none;
+    }
+
+    .guideCard,
+    .flowCard{
+      width:min(92vw,920px);
       background:linear-gradient(180deg,#fffef9,#f9fcff);
       border:1px solid var(--line);
       border-radius:28px;
       padding:18px;
       box-shadow:var(--shadow-lg);
-      animation:guidePop .24s ease;
     }
-    @keyframes guidePop{
-      from{ opacity:0; transform:translateY(12px) scale(.97); }
-      to{ opacity:1; transform:translateY(0) scale(1); }
-    }
-    .guideHead{
+
+    .flowHead{
       display:flex;
-      gap:12px;
       align-items:flex-start;
+      gap:12px;
       margin-bottom:14px;
     }
-    .guideBadge{
+
+    .flowBadge{
       width:56px;
       height:56px;
       border-radius:18px;
       display:grid;
       place-items:center;
       background:linear-gradient(180deg,#ffe8a2,#ffd561);
-      font-size:30px;
+      font-size:28px;
       flex:0 0 auto;
     }
-    .guideTitle{
-      margin:0 0 4px;
+
+    .flowTitle{
       font-size:24px;
+      font-weight:900;
       color:#284255;
+      margin:0 0 4px;
     }
-    .guideSub{
+
+    .flowSub{
+      color:var(--muted);
       margin:0;
-      color:var(--muted);
-      word-break:break-word;
+      line-height:1.45;
     }
-    .guideDemo{
-      margin:12px 0 14px;
-      padding:14px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#fffdf6,#f7fbff);
-      border:1px solid var(--line);
-    }
-    .guideDemoPlate{
-      width:min(100%,240px);
-      aspect-ratio:1/1;
-      margin:0 auto 12px;
-      border-radius:999px;
-      position:relative;
-      border:8px solid #eaf4fa;
-      background:#fff;
-      overflow:hidden;
-    }
-    .guideDemoZone{
-      position:absolute;
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      transition:transform .2s ease, filter .2s ease, opacity .2s ease;
-    }
-    .guideDemoZone.z-g2{ left:8%; top:8%; width:42%; height:42%; background:var(--g2); border-radius:999px 0 0 0; }
-    .guideDemoZone.z-g1{ right:8%; top:8%; width:42%; height:42%; background:var(--g1); border-radius:0 999px 0 0; }
-    .guideDemoZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; background:var(--g3); border-radius:0 0 0 999px; }
-    .guideDemoZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; background:var(--g4); border-radius:0 0 999px 0; }
-    .guideDemoZone.z-g5{
-      left:50%; top:50%;
-      width:26%; height:26%;
-      transform:translate(-50%,-50%);
-      background:var(--g5);
-      border-radius:999px;
-    }
-    .guideDemoText{ text-align:center; }
-    .guideDemoStep{
-      font-size:12px;
-      font-weight:900;
-      color:#8a6120;
-      margin-bottom:4px;
-    }
-    .guideDemoTitle{
-      font-size:18px;
-      font-weight:900;
-      color:#284255;
-      margin-bottom:4px;
-    }
-    .guideDemoDesc{
-      font-size:13px;
-      color:var(--muted);
-    }
-    .guideDemoDots{
-      display:flex;
-      justify-content:center;
-      gap:8px;
-      margin-top:12px;
-    }
-    .guideDot{
-      width:12px;
-      height:12px;
-      border:none;
-      border-radius:999px;
-      background:#d6e7f1;
-      cursor:pointer;
-    }
-    .guideDot.active{
-      background:var(--sky);
-      box-shadow:0 0 0 3px rgba(127,207,255,.18);
-    }
-    .guideDemo.step-0 .guideDemoZone{
-      opacity:.55;
-      transform:scale(.92);
-    }
-    .guideDemo.step-0 .guideDemoZone.z-g2{
-      opacity:1;
-      transform:scale(1.05);
-      filter:drop-shadow(0 6px 10px rgba(0,0,0,.08));
-    }
-    .guideDemo.step-1 .guideDemoZone{
-      opacity:1;
-    }
-    .guideDemo.step-1 .guideDemoZone.z-g3,
-    .guideDemo.step-1 .guideDemoZone.z-g4{
-      transform:scale(1.05);
-      filter:drop-shadow(0 6px 10px rgba(0,0,0,.08));
-    }
-    .guideDemo.step-2 .guideDemoZone{
-      opacity:1;
-      transform:scale(1.02);
-    }
-    .guideSteps{
-      display:grid;
-      gap:10px;
-      margin:12px 0 14px;
-    }
+
     .guideStep{
       display:flex;
       gap:12px;
@@ -957,7 +834,9 @@
       border-radius:18px;
       background:#fff;
       border:1px solid var(--line);
+      margin-bottom:10px;
     }
+
     .guideStepIcon{
       width:42px;
       height:42px;
@@ -968,37 +847,27 @@
       font-size:22px;
       flex:0 0 auto;
     }
+
     .guideStepTitle{
       font-weight:900;
       color:#2d4859;
       margin-bottom:4px;
     }
+
     .guideStepText{
       font-size:13px;
       color:var(--muted);
       line-height:1.4;
     }
-    .guideTips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-bottom:14px;
-    }
-    .guideTip{
-      padding:8px 10px;
-      border-radius:999px;
-      background:#f8fcff;
-      border:1px solid var(--line);
-      font-size:13px;
-      font-weight:800;
-      color:#476072;
-    }
+
     .guideActions{
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:12px;
+      margin-top:12px;
     }
+
     .guideCheck{
       display:flex;
       align-items:center;
@@ -1007,6 +876,7 @@
       font-size:13px;
       font-weight:700;
     }
+
     .guideStartBtn{
       min-width:160px;
       min-height:48px;
@@ -1022,27 +892,32 @@
     .rewardPopupOverlay{
       position:fixed;
       inset:0;
-      z-index:90;
-      background:rgba(15,23,42,.34);
+      z-index:120;
+      background:rgba(15,23,42,.42);
       display:grid;
       place-items:center;
       padding:18px;
       backdrop-filter:blur(8px);
+      pointer-events:auto;
     }
+
+    .rewardPopupOverlay[hidden]{
+      display:none;
+    }
+
     .rewardPopupCard{
       width:min(92vw,420px);
-      border-radius:28px;
-      background:linear-gradient(180deg,#fffef7,#fff9ec);
-      border:1px solid #f0ddb0;
-      box-shadow:var(--shadow-lg);
-      padding:22px 18px 18px;
       text-align:center;
-      animation:rewardPopupIn .22s ease;
+      padding:22px 18px 18px;
+      background:linear-gradient(180deg,#fffef9,#f9fcff);
+      border:1px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow-lg);
+      position:relative;
+      z-index:1;
+      pointer-events:auto;
     }
-    @keyframes rewardPopupIn{
-      from{ opacity:0; transform:translateY(10px) scale(.97); }
-      to{ opacity:1; transform:translateY(0) scale(1); }
-    }
+
     .rewardPopupBadge{
       width:82px;
       height:82px;
@@ -1052,20 +927,24 @@
       place-items:center;
       background:linear-gradient(180deg,#ffe7a1,#ffd35e);
       font-size:42px;
-      box-shadow:0 10px 24px rgba(255,206,84,.25);
+      box-shadow:0 10px 20px rgba(255,208,94,.22);
     }
+
     .rewardPopupTitle{
       font-size:24px;
       font-weight:900;
       color:#875d18;
       margin-bottom:6px;
+      line-height:1.15;
     }
+
     .rewardPopupDesc{
       font-size:15px;
       line-height:1.45;
       color:#6f6245;
       margin-bottom:10px;
     }
+
     .rewardPopupMeta{
       display:inline-flex;
       align-items:center;
@@ -1078,10 +957,12 @@
       color:#8d6118;
       font-weight:900;
       margin-bottom:14px;
+      max-width:100%;
     }
+
     .rewardPopupBtn{
       width:100%;
-      min-height:48px;
+      min-height:52px;
       border:none;
       border-radius:16px;
       background:var(--sky);
@@ -1089,80 +970,29 @@
       font-size:16px;
       font-weight:900;
       cursor:pointer;
+      position:relative;
+      z-index:2;
+      pointer-events:auto;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
 
-    .celebrateLayer{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      overflow:hidden;
-      z-index:60;
-    }
-    .confetti{
-      position:absolute;
-      top:-10vh;
-      font-size:24px;
-      animation:confettiDrop linear forwards;
-      will-change:transform, opacity;
-    }
-    @keyframes confettiDrop{
-      0%{ transform:translateY(0) rotate(0deg); opacity:1; }
-      100%{ transform:translateY(115vh) rotate(360deg); opacity:0; }
+    .rewardPopupBtn:active{
+      transform:scale(.985);
     }
 
-    .flowOverlay{
-      position:fixed;
-      inset:0;
-      z-index:70;
-      background:rgba(15,23,42,.42);
-      display:grid;
-      place-items:center;
-      padding:18px;
-      backdrop-filter:blur(8px);
-    }
-    .flowCard{
-      width:min(92vw,920px);
-      background:linear-gradient(180deg,#fffef9,#f9fcff);
-      border:1px solid var(--line);
-      border-radius:28px;
-      padding:18px;
-      box-shadow:var(--shadow-lg);
-      animation:guidePop .22s ease;
-    }
-    .flowHead{
-      display:flex;
-      align-items:flex-start;
-      gap:12px;
-      margin-bottom:14px;
-    }
-    .flowBadge{
-      width:56px;
-      height:56px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#ffe8a2,#ffd561);
-      font-size:28px;
-      flex:0 0 auto;
-    }
-    .flowTitle{
-      font-size:24px;
-      font-weight:900;
-      color:#284255;
-      margin:0 0 4px;
-    }
-    .flowSub{
-      color:var(--muted);
-      margin:0;
+    .rewardPopupBtn:disabled{
+      opacity:.65;
+      cursor:not-allowed;
     }
 
-    /* Evaluate */
     .evalChoices{
       display:grid;
       grid-template-columns:repeat(3,1fr);
       gap:14px;
       margin:14px 0;
     }
+
     .evalChoice{
       background:#fff;
       border:1px solid var(--line);
@@ -1173,23 +1003,23 @@
       box-shadow:0 8px 18px rgba(0,0,0,.04);
       text-align:center;
     }
-    .evalChoice:hover{
-      transform:translateY(-2px);
-      box-shadow:0 12px 20px rgba(0,0,0,.06);
-    }
+
     .evalChoice.selected{
       border-color:var(--sky);
       box-shadow:0 0 0 4px rgba(127,207,255,.18);
       transform:translateY(-2px);
     }
+
     .evalChoice.correct{
       border-color:#a9dfb6;
       background:var(--ok-bg);
     }
+
     .evalChoice.wrong{
       border-color:#ffcfcf;
       background:var(--bad-bg);
     }
+
     .evalPlate{
       width:min(100%,160px);
       aspect-ratio:1/1;
@@ -1200,29 +1030,26 @@
       background:#fff;
       overflow:hidden;
     }
+
     .evalZone{
       position:absolute;
       display:grid;
       place-items:center;
       font-size:20px;
     }
+
     .evalZone.z-g2{ left:8%; top:8%; width:42%; height:42%; background:var(--g2); border-radius:999px 0 0 0; }
     .evalZone.z-g1{ right:8%; top:8%; width:42%; height:42%; background:var(--g1); border-radius:0 999px 0 0; }
     .evalZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; background:var(--g3); border-radius:0 0 0 999px; }
     .evalZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; background:var(--g4); border-radius:0 0 999px 0; }
-    .evalZone.z-g5{
-      left:50%; top:50%;
-      width:26%; height:26%;
-      transform:translate(-50%,-50%);
-      background:var(--g5);
-      border-radius:999px;
-      font-size:18px;
-    }
+    .evalZone.z-g5{ left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); background:var(--g5); border-radius:999px; font-size:18px; }
+
     .evalLabel{
       font-weight:900;
       color:#2d4859;
       font-size:16px;
     }
+
     .flowHint{
       color:#5c7383;
       font-size:14px;
@@ -1230,6 +1057,7 @@
       text-align:center;
       margin-bottom:12px;
     }
+
     .flowActions{
       display:flex;
       justify-content:center;
@@ -1237,6 +1065,7 @@
       flex-wrap:wrap;
       margin-top:12px;
     }
+
     .flowBtn{
       min-height:48px;
       min-width:150px;
@@ -1250,14 +1079,17 @@
       background:#fff;
       color:#2f4f63;
     }
+
     .flowBtn.primary{
       background:var(--sky);
       color:#17384f;
     }
+
     .flowBtn:disabled{
       opacity:.6;
       cursor:not-allowed;
     }
+
     .flowFeedback{
       margin-top:12px;
       padding:12px 14px;
@@ -1271,19 +1103,21 @@
       align-items:center;
       justify-content:center;
       text-align:center;
+      line-height:1.45;
     }
+
     .flowFeedback.ok{
       background:var(--ok-bg);
       border-color:#bdecc7;
       color:#2b6c43;
     }
+
     .flowFeedback.bad{
       background:var(--bad-bg);
       border-color:#ffd0d0;
       color:#a35555;
     }
 
-    /* Create */
     .createTop{
       display:flex;
       align-items:center;
@@ -1291,10 +1125,12 @@
       gap:12px;
       margin-bottom:12px;
     }
+
     .createProgressWrap{
       flex:1 1 auto;
       max-width:320px;
     }
+
     .createProgressText{
       font-size:13px;
       font-weight:900;
@@ -1302,24 +1138,28 @@
       margin-bottom:6px;
       text-align:right;
     }
+
     .createProgressBar{
       height:12px;
       background:#f5ead0;
       border-radius:999px;
       overflow:hidden;
     }
+
     .createProgressFill{
       width:0%;
       height:100%;
       background:linear-gradient(90deg,#ffd76a,#ffb347);
       transition:width .18s ease;
     }
+
     .createLayout{
       display:grid;
       grid-template-columns:1fr .95fr;
       gap:16px;
       margin-top:12px;
     }
+
     .createBoard,.createTrayWrap{
       border:1px solid var(--line);
       border-radius:22px;
@@ -1327,6 +1167,7 @@
       background:#fff;
       box-shadow:0 8px 18px rgba(0,0,0,.04);
     }
+
     .createPlate{
       width:min(100%,360px);
       aspect-ratio:1/1;
@@ -1337,6 +1178,7 @@
       position:relative;
       overflow:hidden;
     }
+
     .createZone{
       position:absolute;
       border:none;
@@ -1347,6 +1189,7 @@
       transition:transform .15s ease, box-shadow .15s ease;
       overflow:hidden;
     }
+
     .createZone .zoneInner{
       position:absolute;
       inset:0;
@@ -1358,35 +1201,38 @@
       font-weight:900;
       color:#2f4f63;
     }
+
     .createZone.hasItem .zoneInner{
       gap:4px;
       align-content:center;
     }
+
+    .zonePlaceholder{
+      background:rgba(255,255,255,.8);
+      padding:4px 8px;
+      border-radius:999px;
+    }
+
     .zoneItemEmoji{ font-size:22px; }
-    .zoneItemText{ font-size:12px; background:rgba(255,255,255,.8); padding:3px 6px; border-radius:999px; }
-    .zonePlaceholder{ background:rgba(255,255,255,.8); padding:4px 8px; border-radius:999px; }
+    .zoneItemText{
+      font-size:12px;
+      background:rgba(255,255,255,.8);
+      padding:3px 6px;
+      border-radius:999px;
+    }
 
     .createZone.z-g2{ left:8%; top:8%; width:42%; height:42%; border-radius:999px 0 0 0; background:var(--g2); }
     .createZone.z-g1{ right:8%; top:8%; width:42%; height:42%; border-radius:0 999px 0 0; background:var(--g1); }
     .createZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 0 999px; background:var(--g3); }
     .createZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 999px 0; background:var(--g4); }
-    .createZone.z-g5{
-      left:50%; top:50%;
-      width:26%; height:26%;
-      transform:translate(-50%,-50%);
-      border-radius:999px;
-      background:var(--g5);
-    }
-    .createZone.active{
-      outline:4px solid var(--sky);
-      transform:scale(1.02);
-    }
+    .createZone.z-g5{ left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); border-radius:999px; background:var(--g5); }
 
     .createTray{
       display:grid;
       grid-template-columns:repeat(2,1fr);
       gap:10px;
     }
+
     .createResult{
       margin-top:14px;
       padding:14px;
@@ -1396,217 +1242,83 @@
       color:#476072;
       font-weight:800;
       display:none;
+      line-height:1.5;
     }
+
     .createResult.show{ display:block; }
     .createResult.great{
       background:linear-gradient(180deg,#fffef5,#f5fff4);
       border-color:#d9efc8;
       color:#527c26;
     }
+
     .createResult.good{
       background:#f4fbff;
       border-color:#cfe8f8;
       color:#3e6f8a;
     }
+
     .createResult.retry{
       background:#fff8f2;
       border-color:#ffd8b5;
       color:#9a5b2b;
     }
 
-    /* Responsive */
-    .playShell{
-      animation:softFadeUp .35s ease;
+    .celebrateLayer{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:60;
     }
-    @keyframes softFadeUp{
-      from{ opacity:0; transform:translateY(10px); }
-      to{ opacity:1; transform:translateY(0); }
+
+    .confetti{
+      position:absolute;
+      top:-10vh;
+      font-size:24px;
+      animation:confettiDrop linear forwards;
+      will-change:transform, opacity;
+    }
+
+    @keyframes confettiDrop{
+      0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+      100%{ transform:translateY(115vh) rotate(360deg); opacity:0; }
     }
 
     @media (max-width: 960px){
-      .heroBar{
-        grid-template-columns:1fr 1fr;
-      }
-      .createLayout{
-        grid-template-columns:1fr;
-      }
+      .heroBar{ grid-template-columns:1fr 1fr; }
+      .createLayout{ grid-template-columns:1fr; }
     }
+
     @media (max-width: 860px){
       .hud{ grid-template-columns:repeat(2,1fr); }
       .heroBar{ grid-template-columns:1fr; }
       .wrap{ padding:12px; }
       .board{ grid-template-columns:1fr; }
-      .plateArea,.trayArea{
-        min-height:auto;
-        border-radius:20px;
-        padding:14px;
-      }
+      .plateArea,.trayArea{ min-height:auto; border-radius:20px; padding:14px; }
       .plate{ width:min(100%,360px); }
-      .evalChoices{
-        grid-template-columns:1fr;
-      }
+      .evalChoices{ grid-template-columns:1fr; }
     }
+
     @media (max-width: 640px){
-      body.mobile-compact .hud{
-        position:sticky;
-        top:0;
-        gap:6px;
-        padding:8px;
-      }
-      body.mobile-compact .pill{
-        border-radius:14px;
-        padding:8px;
-        font-size:14px;
-      }
-      body.mobile-compact .heroBar{
-        padding:0 12px;
-        margin:10px auto 12px;
-      }
-      body.mobile-compact .dailyQuest{
-        padding:0 12px;
-        margin:0 auto 12px;
-        flex-direction:column;
-        align-items:stretch;
-      }
-      body.mobile-compact .dailyQuestRight{ width:100%; }
-      body.mobile-compact .board{ gap:12px; }
-      body.mobile-compact .plateArea{ order:1; }
-      body.mobile-compact .trayArea{
-        order:2;
-        position:sticky;
-        bottom:82px;
-        z-index:12;
-        background:rgba(255,255,255,.98);
-        backdrop-filter:blur(10px);
-        box-shadow:0 14px 28px rgba(0,0,0,.08);
-      }
-      body.mobile-compact .trayToggle{ display:block; }
-      body.mobile-compact .trayArea.collapsed .tray{ display:none; }
-      body.mobile-compact .trayArea.collapsed{ padding-bottom:10px; }
-      body.mobile-compact .tray{
-        grid-template-columns:1fr 1fr;
-        gap:8px;
-        max-height:42vh;
-        overflow:auto;
-        padding-right:2px;
-      }
-      body.mobile-compact .food{
-        min-height:74px;
-        padding:8px;
-        gap:8px;
-      }
-      body.mobile-compact .foodEmoji{
-        width:38px; height:38px; font-size:21px;
-      }
-      body.mobile-compact .selectedBar{
-        bottom:8px;
-        padding:10px 12px;
-        gap:10px;
-        border-radius:18px;
-        flex-direction:column;
-        align-items:stretch;
-      }
-      body.mobile-compact .toastLayer{ bottom:132px; }
-      body.mobile-compact .summaryGrid{ grid-template-columns:1fr 1fr; }
-      body.mobile-compact .summary{
-        padding:16px;
-        border-radius:24px;
-      }
-      body.mobile-compact .guideCard{
-        padding:16px;
-        border-radius:24px;
-      }
-      body.mobile-compact .guideTitle{ font-size:21px; }
-      body.mobile-compact .guideActions{
-        flex-direction:column;
-        align-items:stretch;
-      }
-      body.mobile-compact .guideStartBtn{ width:100%; }
-      body.mobile-compact .summaryNextRow,
-      body.mobile-compact .pauseActions{
-        grid-template-columns:1fr;
-      }
-      body.mobile-compact .flowCard{
-        padding:16px;
-        border-radius:24px;
-      }
-      body.mobile-compact .flowActions{
-        flex-direction:column;
-      }
-      body.mobile-compact .flowBtn{
-        width:100%;
-      }
-      body.mobile-compact .createTray{
-        grid-template-columns:1fr 1fr;
-      }
-    }
-
-    body.hh-large-text{
-      font-size:18px;
-    }
-    body.hh-large-text .heroTitle,
-    body.hh-large-text .summaryRank,
-    body.hh-large-text .guideTitle,
-    body.hh-large-text .flowTitle{
-      font-size:1.1em;
-    }
-    body.hh-large-text .foodName,
-    body.hh-large-text .selectedTitle,
-    body.hh-large-text .nextTitle{
-      font-size:1.03em;
-    }
-    body.hh-large-text .guideStepText,
-    body.hh-large-text .selectedHint,
-    body.hh-large-text .heroSub,
-    body.hh-large-text .guideSub,
-    body.hh-large-text .flowSub{
-      font-size:1em;
-    }
-
-    body.hh-high-contrast{
-      --bg:#ffffff;
-      --card:#ffffff;
-      --line:#92a9b8;
-      --text:#10202d;
-    }
-    body.hh-high-contrast .plateArea,
-    body.hh-high-contrast .trayArea,
-    body.hh-high-contrast .heroChip,
-    body.hh-high-contrast .selectedBar,
-    body.hh-high-contrast .summary,
-    body.hh-high-contrast .guideCard,
-    body.hh-high-contrast .dailyQuest-left,
-    body.hh-high-contrast .stickerShelf,
-    body.hh-high-contrast .flowCard{
-      border-width:2px;
-      box-shadow:none;
-    }
-    body.hh-high-contrast .food.selected,
-    body.hh-high-contrast .zone.active,
-    body.hh-high-contrast .choiceChip.active{
-      box-shadow:0 0 0 4px rgba(28,106,168,.22);
-    }
-
-    button:disabled{
-      opacity:.6;
-      cursor:not-allowed;
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      *,*::before,*::after{
-        animation:none !important;
-        transition:none !important;
-        scroll-behavior:auto !important;
-      }
+      .dailyQuest{ padding:0 12px; margin:0 auto 12px; flex-direction:column; align-items:stretch; }
+      .dailyQuestRight{ width:100%; }
+      .selectedBar{ flex-direction:column; align-items:stretch; bottom:8px; }
+      .summaryNextRow,.pauseActions{ grid-template-columns:1fr; }
+      .flowActions{ flex-direction:column; }
+      .flowBtn{ width:100%; }
+      .guideActions{ flex-direction:column; align-items:stretch; }
+      .guideStartBtn, .selectedClear{ width:100%; }
+      .createTray{ grid-template-columns:1fr 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="hud">
-    <div class="pill">คะแนน<br><span id="hudScore">0</span></div>
-    <div class="pill">เวลา<br><span id="hudTime">90</span></div>
-    <div class="pill">คอมโบ<br><span id="hudStreak">0</span></div>
-    <div class="pill">จานสำเร็จ<br><span id="hudPlates">0</span></div>
+    <div class="pill" id="scorePill">คะแนน<br><span id="hudScore">0</span></div>
+    <div class="pill" id="timePill">เวลา<br><span id="hudTime">90</span></div>
+    <div class="pill" id="streakPill">คอมโบ<br><span id="hudStreak">0</span></div>
+    <div class="pill" id="platesPill">จานสำเร็จ<br><span id="hudPlates">0</span></div>
   </div>
 
   <div class="heroBar">
@@ -1616,6 +1328,11 @@
         <div class="heroTitle">Balanced Plate</div>
         <div class="heroSub" id="heroSub">จัดอาหารให้ครบ 5 หมู่</div>
       </div>
+    </div>
+
+    <div class="heroChip" id="entryChip" hidden>
+      <span class="chipLabel">สถานะ</span>
+      <strong id="entryChipText">ผ่าน Quick Plate แล้ว</strong>
     </div>
 
     <div class="heroChip">
@@ -1629,8 +1346,8 @@
     </div>
 
     <div class="heroChip">
-      <span class="chipLabel">เสียง</span>
-      <button id="btnAudioToggle" class="audioBtn" type="button">🔊 เปิด</button>
+      <span class="chipLabel">ระดับ</span>
+      <strong id="hudDiff">normal</strong>
     </div>
   </div>
 
@@ -1642,12 +1359,10 @@
         <div class="dailyQuestDesc" id="dailyQuestDesc">จัดจานสมดุลให้สำเร็จ 3 จาน</div>
       </div>
     </div>
-    <div class="dailyQuestRight">
-      <strong id="dailyQuestCount">0/3</strong>
-    </div>
+    <div class="dailyQuestRight"><strong id="dailyQuestCount">0/3</strong></div>
   </div>
 
-  <div class="wrap playShell">
+  <div class="wrap">
     <div class="board">
       <section class="plateArea">
         <h2>จานสุขภาพ</h2>
@@ -1663,11 +1378,11 @@
         </div>
 
         <div class="plate" id="plateBoard">
-          <button class="zone zone-g2" data-zone="g2" aria-label="หมู่ 2 คาร์โบไฮเดรต"><span>คาร์บ</span></button>
-          <button class="zone zone-g1" data-zone="g1" aria-label="หมู่ 1 โปรตีน"><span>โปรตีน</span></button>
-          <button class="zone zone-g3" data-zone="g3" aria-label="หมู่ 3 ผัก"><span>ผัก</span></button>
-          <button class="zone zone-g4" data-zone="g4" aria-label="หมู่ 4 ผลไม้"><span>ผลไม้</span></button>
-          <button class="zone zone-g5" data-zone="g5" aria-label="หมู่ 5 ไขมัน"><span>ไขมัน</span></button>
+          <button class="zone zone-g2" data-zone="g2"><span>คาร์บ</span></button>
+          <button class="zone zone-g1" data-zone="g1"><span>โปรตีน</span></button>
+          <button class="zone zone-g3" data-zone="g3"><span>ผัก</span></button>
+          <button class="zone zone-g4" data-zone="g4"><span>ผลไม้</span></button>
+          <button class="zone zone-g5" data-zone="g5"><span>ไขมัน</span></button>
         </div>
 
         <div class="feedback" id="feedback">มาจัดจานสุขภาพกัน</div>
@@ -1675,16 +1390,15 @@
 
       <section class="trayArea">
         <h2>เลือกอาหาร</h2>
-        <button class="trayToggle" id="trayToggle" type="button" aria-expanded="true">ซ่อนถาดอาหาร</button>
         <div class="tray" id="foodTray"></div>
       </section>
     </div>
 
-    <div class="selectedBar" id="selectedBar">
+    <div class="selectedBar">
       <div class="selectedBar-left">
         <div class="selectedEmoji" id="selectedEmoji">🍽️</div>
         <div>
-          <div class="selectedTitle">ยังไม่ได้เลือกอาหาร</div>
+          <div class="selectedTitle" id="selectedTitle">ยังไม่ได้เลือกอาหาร</div>
           <div class="selectedHint" id="selectedHint">แตะอาหารจากถาด แล้วค่อยแตะส่วนของจาน</div>
         </div>
       </div>
@@ -1697,7 +1411,6 @@
     </div>
   </div>
 
-  <!-- Summary -->
   <div class="overlay" id="summaryOverlay">
     <div class="summary">
       <h2 id="summaryHeading">วันนี้ทำได้ดีมาก</h2>
@@ -1748,7 +1461,6 @@
     </div>
   </div>
 
-  <!-- Evaluate Overlay -->
   <div class="flowOverlay" id="evaluateOverlay" hidden>
     <div class="flowCard">
       <div class="flowHead">
@@ -1756,6 +1468,7 @@
         <div>
           <h2 class="flowTitle">ลองคิดอีกนิด</h2>
           <p class="flowSub">เลือกจานที่สมดุลที่สุด</p>
+          <p class="flowSub" id="evalEntrySub">คิดต่อจากเกมหลักอีกนิด</p>
         </div>
       </div>
 
@@ -1775,7 +1488,6 @@
     </div>
   </div>
 
-  <!-- Create Overlay -->
   <div class="flowOverlay" id="createOverlay" hidden>
     <div class="flowCard">
       <div class="flowHead">
@@ -1783,6 +1495,7 @@
         <div>
           <h2 class="flowTitle">สร้างจานของคุณเอง</h2>
           <p class="flowSub">เลือกอาหารให้ครบ 5 หมู่</p>
+          <p class="flowSub" id="createEntrySub">สร้างจานของคุณเองเป็นขั้นสุดท้าย</p>
         </div>
       </div>
 
@@ -1797,21 +1510,11 @@
       <div class="createLayout">
         <div class="createBoard">
           <div class="createPlate" id="createPlateBoard">
-            <button class="createZone z-g2" data-zone="g2" aria-label="หมู่ 2">
-              <div class="zoneInner"><span class="zonePlaceholder">คาร์บ</span></div>
-            </button>
-            <button class="createZone z-g1" data-zone="g1" aria-label="หมู่ 1">
-              <div class="zoneInner"><span class="zonePlaceholder">โปรตีน</span></div>
-            </button>
-            <button class="createZone z-g3" data-zone="g3" aria-label="หมู่ 3">
-              <div class="zoneInner"><span class="zonePlaceholder">ผัก</span></div>
-            </button>
-            <button class="createZone z-g4" data-zone="g4" aria-label="หมู่ 4">
-              <div class="zoneInner"><span class="zonePlaceholder">ผลไม้</span></div>
-            </button>
-            <button class="createZone z-g5" data-zone="g5" aria-label="หมู่ 5">
-              <div class="zoneInner"><span class="zonePlaceholder">ไขมัน</span></div>
-            </button>
+            <button class="createZone z-g2" data-zone="g2"><div class="zoneInner"><span class="zonePlaceholder">คาร์บ</span></div></button>
+            <button class="createZone z-g1" data-zone="g1"><div class="zoneInner"><span class="zonePlaceholder">โปรตีน</span></div></button>
+            <button class="createZone z-g3" data-zone="g3"><div class="zoneInner"><span class="zonePlaceholder">ผัก</span></div></button>
+            <button class="createZone z-g4" data-zone="g4"><div class="zoneInner"><span class="zonePlaceholder">ผลไม้</span></div></button>
+            <button class="createZone z-g5" data-zone="g5"><div class="zoneInner"><span class="zonePlaceholder">ไขมัน</span></div></button>
           </div>
         </div>
 
@@ -1834,7 +1537,6 @@
     </div>
   </div>
 
-  <!-- Pause -->
   <div class="pauseOverlay" id="pauseOverlay" hidden>
     <div class="pauseCard">
       <div class="pauseBadge">⏸️</div>
@@ -1847,65 +1549,36 @@
     </div>
   </div>
 
-  <!-- Guide -->
   <div class="guideOverlay" id="guideOverlay" hidden>
     <div class="guideCard">
-      <div class="guideHead">
-        <div class="guideBadge">🍽️</div>
+      <div class="flowHead">
+        <div class="flowBadge">🍽️</div>
         <div>
-          <h2 class="guideTitle">พร้อมจัดจานสุขภาพไหม</h2>
-          <p class="guideSub">เล่นง่ายมาก แค่ 3 ขั้น</p>
+          <h2 class="flowTitle">พร้อมจัดจานสุขภาพไหม</h2>
+          <p class="flowSub">เล่นง่ายมาก แค่ 3 ขั้น</p>
         </div>
       </div>
 
-      <div class="guideDemo" id="guideDemo">
-        <div class="guideDemoPlate">
-          <div class="guideDemoZone z-g2">🍚</div>
-          <div class="guideDemoZone z-g1">🐟</div>
-          <div class="guideDemoZone z-g3">🥬</div>
-          <div class="guideDemoZone z-g4">🍌</div>
-          <div class="guideDemoZone z-g5">🫗</div>
-        </div>
-        <div class="guideDemoText">
-          <div class="guideDemoStep" id="guideDemoStep">ขั้นที่ 1</div>
-          <div class="guideDemoTitle" id="guideDemoTitle">เลือกอาหารจากถาด</div>
-          <div class="guideDemoDesc" id="guideDemoDesc">แตะการ์ดอาหารที่อยากวางลงจาน</div>
-        </div>
-        <div class="guideDemoDots" id="guideDemoDots">
-          <button type="button" class="guideDot active" data-guide-step="0" aria-label="ดูขั้นที่ 1"></button>
-          <button type="button" class="guideDot" data-guide-step="1" aria-label="ดูขั้นที่ 2"></button>
-          <button type="button" class="guideDot" data-guide-step="2" aria-label="ดูขั้นที่ 3"></button>
+      <div class="guideStep">
+        <div class="guideStepIcon">1️⃣</div>
+        <div>
+          <div class="guideStepTitle">เลือกอาหาร</div>
+          <div class="guideStepText">แตะอาหารจากถาดด้านขวาหรือด้านล่าง</div>
         </div>
       </div>
-
-      <div class="guideSteps">
-        <div class="guideStep">
-          <div class="guideStepIcon">1️⃣</div>
-          <div>
-            <div class="guideStepTitle">เลือกอาหาร</div>
-            <div class="guideStepText">แตะอาหารจากถาดด้านขวาหรือด้านล่าง</div>
-          </div>
-        </div>
-        <div class="guideStep">
-          <div class="guideStepIcon">2️⃣</div>
-          <div>
-            <div class="guideStepTitle">ดูหมู่ให้ถูก</div>
-            <div class="guideStepText">สังเกตว่าอาหารควรอยู่ส่วนไหนของจาน</div>
-          </div>
-        </div>
-        <div class="guideStep">
-          <div class="guideStepIcon">3️⃣</div>
-          <div>
-            <div class="guideStepTitle">วางให้ครบ 5 หมู่</div>
-            <div class="guideStepText">ครบจานแล้วจะได้โบนัส และถ้าถูกหมดจะได้ Perfect Plate</div>
-          </div>
+      <div class="guideStep">
+        <div class="guideStepIcon">2️⃣</div>
+        <div>
+          <div class="guideStepTitle">ดูหมู่ให้ถูก</div>
+          <div class="guideStepText">สังเกตว่าอาหารควรอยู่ส่วนไหนของจาน</div>
         </div>
       </div>
-
-      <div class="guideTips">
-        <div class="guideTip">✨ วางถูก = ได้คะแนน</div>
-        <div class="guideTip">🌟 ครบจาน = ได้โบนัส</div>
-        <div class="guideTip">🎁 เล่นต่อ = ได้สติกเกอร์</div>
+      <div class="guideStep">
+        <div class="guideStepIcon">3️⃣</div>
+        <div>
+          <div class="guideStepTitle">วางให้ครบ 5 หมู่</div>
+          <div class="guideStepText">ครบจานแล้วจะได้โบนัส และถ้าถูกหมดจะได้ Perfect Plate</div>
+        </div>
       </div>
 
       <div class="guideActions">
@@ -1918,14 +1591,21 @@
     </div>
   </div>
 
-  <!-- Reward Popup -->
-  <div class="rewardPopupOverlay" id="rewardPopupOverlay" hidden>
-    <div class="rewardPopupCard">
+  <div class="rewardPopupOverlay" id="rewardPopupOverlay" hidden aria-hidden="true">
+    <div class="rewardPopupCard" role="dialog" aria-modal="true" aria-labelledby="rewardPopupTitle">
       <div class="rewardPopupBadge" id="rewardPopupBadge">🎁</div>
       <div class="rewardPopupTitle" id="rewardPopupTitle">ได้รางวัลใหม่</div>
       <div class="rewardPopupDesc" id="rewardPopupDesc">คุณปลดล็อกสติกเกอร์แล้ว</div>
       <div class="rewardPopupMeta" id="rewardPopupMeta">สะสมต่อได้อีก</div>
-      <button type="button" class="rewardPopupBtn" id="rewardPopupBtn">เยี่ยมเลย</button>
+
+      <button
+        type="button"
+        class="rewardPopupBtn"
+        id="rewardPopupBtn"
+        onclick="window.__plateCloseRewardPopup && window.__plateCloseRewardPopup(event)"
+      >
+        เยี่ยมเลย
+      </button>
     </div>
   </div>
 
@@ -1936,21 +1616,21 @@
   (function(){
     'use strict';
 
-    /* ---------------------------------
-      Helpers
-    --------------------------------- */
     function qs(name, fallback=''){
       try{ return new URL(location.href).searchParams.get(name) ?? fallback; }
       catch(_){ return fallback; }
     }
+
     function clean(v, d=''){
       v = String(v ?? '').trim();
       return v || d;
     }
+
     function num(v, d=0){
       v = Number(v);
       return Number.isFinite(v) ? v : d;
     }
+
     function bangkokYmd(){
       try{
         const parts = new Intl.DateTimeFormat('en-CA',{
@@ -1967,6 +1647,7 @@
         return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
       }
     }
+
     function safeReadJson(key, fallback=null){
       try{
         const raw = localStorage.getItem(key);
@@ -1975,9 +1656,11 @@
         return fallback;
       }
     }
+
     function safeWriteJson(key, val){
       try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){}
     }
+
     function withPassthrough(path, ctx, extra={}){
       const u = new URL(path, location.origin);
       const payload = {
@@ -1993,6 +1676,7 @@
         zone: ctx.zone,
         game: ctx.game,
         mode: ctx.mode,
+        entry: ctx.entry,
         ...extra
       };
       for(const [k,v] of Object.entries(payload)){
@@ -2000,13 +1684,7 @@
       }
       return u.toString();
     }
-    function gateKey(phase, ctx){
-      return `HHA_GATE_${phase.toUpperCase()}_${ctx.pid}_${ctx.game}_${ctx.mode}_${bangkokYmd()}`;
-    }
-    function isGateDone(phase, ctx){
-      try{ return localStorage.getItem(gateKey(phase, ctx)) === '1'; }
-      catch(_){ return false; }
-    }
+
     function nowMs(){
       return (window.performance && performance.now) ? performance.now() : Date.now();
     }
@@ -2024,6 +1702,7 @@
         return (h >>> 0) / 4294967296;
       };
     }
+
     function shuffle(arr, rng){
       const a = arr.slice();
       for(let i=a.length-1;i>0;i--){
@@ -2033,29 +1712,35 @@
       return a;
     }
 
-    function getCtx(){
-      return {
-        pid: clean(qs('pid'),'anon'),
-        name: clean(qs('name'),''),
-        studyId: clean(qs('studyId'),''),
-        diff: clean(qs('diff'),'normal'),
-        time: num(qs('time'),90),
-        seed: clean(qs('seed'), String(Date.now())),
-        hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub.html'),
-        view: clean(qs('view'),'mobile'),
-        run: clean(qs('run'),'play'),
-        zone: clean(qs('zone'),'nutrition'),
-        game: clean(qs('game'),'plate'),
-        mode: clean(qs('mode'),'solo')
-      };
+    const ctx = {
+      pid: clean(qs('pid'),'anon'),
+      name: clean(qs('name'),'Hero'),
+      studyId: clean(qs('studyId'),''),
+      diff: clean(qs('diff'),'normal'),
+      time: num(qs('time'),90),
+      seed: clean(qs('seed'), String(Date.now())),
+      hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub-v2.html'),
+      view: clean(qs('view'),'mobile'),
+      run: clean(qs('run'),'play'),
+      zone: clean(qs('zone'),'nutrition'),
+      game: clean(qs('game'),'plate'),
+      mode: clean(qs('mode'),'solo'),
+      entry: clean(qs('entry'),'direct')
+    };
+
+    const entrySource = clean(qs('entry'), 'direct');
+    const cameFromQuickPlate = String(qs('fromQuickPlate', '0')) === '1';
+    const quickPlateDone = String(qs('quickPlateDone', '0')) === '1';
+    const cameFromLauncher = entrySource === 'launcher' || entrySource === 'launcher_direct' || entrySource === 'continue_latest';
+
+    function getEntryStage(){
+      if (cameFromQuickPlate && quickPlateDone) return 'after_quick_plate';
+      if (cameFromLauncher) return 'from_launcher';
+      return 'direct';
     }
 
-    const ctx = getCtx();
     let rng = makeRng(ctx.seed);
 
-    /* ---------------------------------
-      Data
-    --------------------------------- */
     const FOOD_GROUPS = {
       g1: { id:'g1', name:'หมู่ 1 โปรตีน', short:'โปรตีน', color:'#ffe7ef' },
       g2: { id:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', short:'คาร์บ', color:'#fff4cc' },
@@ -2124,58 +1809,23 @@
 
     const DAILY_GOAL = 3;
 
-    const GUIDE_DEMO_STEPS = [
-      { step:'ขั้นที่ 1', title:'เลือกอาหารจากถาด', desc:'แตะการ์ดอาหารที่อยากวางลงจาน' },
-      { step:'ขั้นที่ 2', title:'ดูให้ตรงหมู่', desc:'สังเกตว่าส่วนไหนของจานเหมาะกับอาหารนั้น' },
-      { step:'ขั้นที่ 3', title:'วางให้ครบ 5 หมู่', desc:'ครบจานแล้วจะได้โบนัส และถ้าถูกหมดจะได้ Perfect Plate' }
-    ];
-
-    /* ---------------------------------
-      DOM
-    --------------------------------- */
     const $score = document.getElementById('hudScore');
     const $time = document.getElementById('hudTime');
     const $streak = document.getElementById('hudStreak');
     const $plates = document.getElementById('hudPlates');
-    const $tray = document.getElementById('foodTray');
+    const $hudRound = document.getElementById('hudRound');
+    const $hudGoal = document.getElementById('hudGoal');
+    const $hudDiff = document.getElementById('hudDiff');
+
+    const $foodTray = document.getElementById('foodTray');
     const $feedback = document.getElementById('feedback');
-    const $overlay = document.getElementById('summaryOverlay');
-
-    const $sumScore = document.getElementById('sumScore');
-    const $sumAcc = document.getElementById('sumAcc');
-    const $sumBest = document.getElementById('sumBestStreak');
-    const $sumComp = document.getElementById('sumCompleted');
-    const $sumInsight = document.getElementById('sumInsight');
-    const $sumMistake = document.getElementById('sumMistake');
-
-    const $btnReplay = document.getElementById('btnReplay');
-    const $btnEvaluate = document.getElementById('btnEvaluate');
-    const $btnBackHub = document.getElementById('btnBackHub');
-
-    const $selectedBar = document.getElementById('selectedBar');
-    const $selectedEmoji = document.getElementById('selectedEmoji');
-    const $selectedHint = document.getElementById('selectedHint');
-    const $btnClearPick = document.getElementById('btnClearPick');
-
-    const $toastLayer = document.getElementById('toastLayer');
-    const $celebrateLayer = document.getElementById('celebrateLayer');
 
     const $missionCount = document.getElementById('missionCount');
     const $missionFill = document.getElementById('missionFill');
-    const $hudRound = document.getElementById('hudRound');
-    const $hudGoal = document.getElementById('hudGoal');
 
-    const $summaryRank = document.getElementById('summaryRank');
-    const $summaryStars = document.getElementById('summaryStars');
-    const $summaryBadge = document.getElementById('summaryBadge');
-    const $summaryRewardBox = document.getElementById('summaryRewardBox');
-    const $summaryLatestReward = document.getElementById('summaryLatestReward');
-    const $summaryHeading = document.getElementById('summaryHeading');
-    const $nextGoalText = document.getElementById('nextGoalText');
-    const $nextStickerText = document.getElementById('nextStickerText');
-
-    const $trayArea = document.querySelector('.trayArea');
-    const $trayToggle = document.getElementById('trayToggle');
+    const $selectedEmoji = document.getElementById('selectedEmoji');
+    const $selectedTitle = document.getElementById('selectedTitle');
+    const $selectedHint = document.getElementById('selectedHint');
 
     const $dailyQuestTitle = document.getElementById('dailyQuestTitle');
     const $dailyQuestDesc = document.getElementById('dailyQuestDesc');
@@ -2183,13 +1833,34 @@
 
     const $stickerList = document.getElementById('stickerList');
 
+    const $summaryOverlay = document.getElementById('summaryOverlay');
+    const $sumScore = document.getElementById('sumScore');
+    const $sumAcc = document.getElementById('sumAcc');
+    const $sumBest = document.getElementById('sumBestStreak');
+    const $sumComp = document.getElementById('sumCompleted');
+    const $sumMistake = document.getElementById('sumMistake');
+    const $sumInsight = document.getElementById('sumInsight');
+    const $summaryHeading = document.getElementById('summaryHeading');
+    const $summaryBadge = document.getElementById('summaryBadge');
+    const $summaryRank = document.getElementById('summaryRank');
+    const $summaryStars = document.getElementById('summaryStars');
+    const $summaryRewardBox = document.getElementById('summaryRewardBox');
+    const $summaryLatestReward = document.getElementById('summaryLatestReward');
+    const $nextGoalText = document.getElementById('nextGoalText');
+    const $nextStickerText = document.getElementById('nextStickerText');
+
+    const $btnReplay = document.getElementById('btnReplay');
+    const $btnEvaluate = document.getElementById('btnEvaluate');
+    const $btnBackHub = document.getElementById('btnBackHub');
+    const $btnClearPick = document.getElementById('btnClearPick');
+
+    const $pauseOverlay = document.getElementById('pauseOverlay');
+    const $btnResumeGame = document.getElementById('btnResumeGame');
+    const $btnRestartGame = document.getElementById('btnRestartGame');
+
     const $guideOverlay = document.getElementById('guideOverlay');
-    const $guideStartBtn = document.getElementById('guideStartBtn');
     const $guideDontShowToday = document.getElementById('guideDontShowToday');
-    const $guideDemo = document.getElementById('guideDemo');
-    const $guideDemoStep = document.getElementById('guideDemoStep');
-    const $guideDemoTitle = document.getElementById('guideDemoTitle');
-    const $guideDemoDesc = document.getElementById('guideDemoDesc');
+    const $guideStartBtn = document.getElementById('guideStartBtn');
 
     const $rewardPopupOverlay = document.getElementById('rewardPopupOverlay');
     const $rewardPopupBadge = document.getElementById('rewardPopupBadge');
@@ -2198,10 +1869,9 @@
     const $rewardPopupMeta = document.getElementById('rewardPopupMeta');
     const $rewardPopupBtn = document.getElementById('rewardPopupBtn');
 
-    const $btnAudioToggle = document.getElementById('btnAudioToggle');
-
-    const $btnResumeGame = document.getElementById('btnResumeGame');
-    const $btnRestartGame = document.getElementById('btnRestartGame');
+    const $entryChip = document.getElementById('entryChip');
+    const $entryChipText = document.getElementById('entryChipText');
+    const $heroSub = document.getElementById('heroSub');
 
     const $evaluateOverlay = document.getElementById('evaluateOverlay');
     const $evalChoices = document.getElementById('evalChoices');
@@ -2210,6 +1880,7 @@
     const $evalFeedback = document.getElementById('evalFeedback');
     const $btnEvalNext = document.getElementById('btnEvalNext');
     const $evalNextActions = document.getElementById('evalNextActions');
+    const $evalEntrySub = document.getElementById('evalEntrySub');
 
     const $createOverlay = document.getElementById('createOverlay');
     const $createProgressText = document.getElementById('createProgressText');
@@ -2221,17 +1892,19 @@
     const $btnCreateReplay = document.getElementById('btnCreateReplay');
     const $btnCreateBackHub = document.getElementById('btnCreateBackHub');
     const $createEndActions = document.getElementById('createEndActions');
+    const $createEntrySub = document.getElementById('createEntrySub');
 
-    /* ---------------------------------
-      State
-    --------------------------------- */
+    const $toastLayer = document.getElementById('toastLayer');
+    const $celebrateLayer = document.getElementById('celebrateLayer');
+
+    let leavingPage = false;
+
     const state = {
       started:false,
       finished:false,
       paused:false,
       hiddenPaused:false,
       destroyed:false,
-
       score:0,
       timeLeft:ctx.time,
       streak:0,
@@ -2240,47 +1913,26 @@
       wrong:0,
       completedPlates:0,
       currentRound:0,
-
       selectedFoodId:null,
       roundTargetGroups:[],
       roundFoods:[],
       placedByZone:{},
       mistakeByGroup:{ g1:0, g2:0, g3:0, g4:0, g5:0 },
-
-      roundsStarted:0,
-      roundsCompleted:0,
       perfectPlates:0,
-
       timeStartedMs:0,
-      timeToFirstCorrectMs:null,
-      timeToFirstPlateMs:null,
-
-      perGroupCorrect:{ g1:0, g2:0, g3:0, g4:0, g5:0 },
-      perGroupWrong:{ g1:0, g2:0, g3:0, g4:0, g5:0 },
-
-      replayClicked:0,
-      backHubClicked:0,
-      summaryShown:0,
-
       zoneBound:false,
       rafId:0,
       gameDeadlineMs:0,
       lastSecondShown:ctx.time,
       roundAdvanceTimer:0,
-      inputLockUntil:0,
-      runToken:0,
-
-      recentFoodIds:[],
-      recentRoundSig:[]
+      summaryShown:0
     };
 
     const evaluateState = {
       questionId:'',
       selectedChoice:'',
       correctChoice:'',
-      answered:false,
-      isCorrect:false,
-      choices:[]
+      answered:false
     };
 
     const createState = {
@@ -2288,161 +1940,18 @@
       placedByZone:{},
       hasSubmitted:false,
       resultLevel:'',
-      missingGroups:[],
-      distractorCount:0,
       trayFoods:[]
     };
 
-    let leavingPage = false;
-
-    /* ---------------------------------
-      Audio
-    --------------------------------- */
-    let audioUnlocked = false;
-    let audioCtx = null;
-    let audioMuted = false;
-
-    function ensureAudio(){
-      if(audioMuted) return null;
-      try{
-        if(!audioCtx){
-          const AC = window.AudioContext || window.webkitAudioContext;
-          if(!AC) return null;
-          audioCtx = new AC();
-        }
-        if(audioCtx.state === 'suspended') audioCtx.resume();
-        return audioCtx;
-      }catch(_){
-        return null;
-      }
-    }
-    function unlockAudio(){
-      const ac = ensureAudio();
-      if(ac) audioUnlocked = true;
-    }
-    function playTone(freq=440, dur=0.08, type='sine', gainValue=0.025){
-      if(audioMuted) return;
-      const ac = ensureAudio();
-      if(!ac || !audioUnlocked) return;
-      const osc = ac.createOscillator();
-      const gain = ac.createGain();
-      osc.type = type;
-      osc.frequency.value = freq;
-      gain.gain.value = 0.0001;
-      osc.connect(gain);
-      gain.connect(ac.destination);
-      const now = ac.currentTime;
-      gain.gain.linearRampToValueAtTime(gainValue, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-      osc.start(now);
-      osc.stop(now + dur + 0.02);
-    }
-    function playSfx(kind){
-      if(audioMuted) return;
-      if(kind === 'pick'){
-        playTone(520, 0.05, 'triangle', 0.018); return;
-      }
-      if(kind === 'ok'){
-        playTone(660, 0.06, 'sine', 0.02);
-        setTimeout(() => playTone(820, 0.07, 'sine', 0.018), 45);
-        return;
-      }
-      if(kind === 'bad'){
-        playTone(240, 0.08, 'sawtooth', 0.015); return;
-      }
-      if(kind === 'plate'){
-        playTone(520, 0.06, 'triangle', 0.02);
-        setTimeout(() => playTone(700, 0.06, 'triangle', 0.018), 55);
-        setTimeout(() => playTone(880, 0.09, 'triangle', 0.018), 110);
-        return;
-      }
-      if(kind === 'perfect'){
-        playTone(660, 0.06, 'triangle', 0.02);
-        setTimeout(() => playTone(880, 0.06, 'triangle', 0.018), 55);
-        setTimeout(() => playTone(1040, 0.12, 'triangle', 0.018), 120);
-        return;
-      }
-      if(kind === 'summary'){
-        playTone(500, 0.05, 'sine', 0.014);
-        setTimeout(() => playTone(650, 0.06, 'sine', 0.014), 45);
-      }
-    }
-    function syncAudioBtn(){
-      if($btnAudioToggle) $btnAudioToggle.textContent = audioMuted ? '🔈 ปิด' : '🔊 เปิด';
-    }
-    $btnAudioToggle?.addEventListener('click', () => {
-      audioMuted = !audioMuted;
-      syncAudioBtn();
-      if(!audioMuted){
-        unlockAudio();
-        playSfx('pick');
-      }
-    });
-    ['pointerdown','touchstart','keydown'].forEach(evt => {
-      window.addEventListener(evt, unlockAudio, { once:true, passive:true });
-    });
-    syncAudioBtn();
-
-    /* ---------------------------------
-      Accessibility
-    --------------------------------- */
-    function a11yKey(name){
-      return `PLATE_A11Y_${name}_${ctx.pid}`;
-    }
-    function syncA11yButtons(){
-      const largeText = document.body.classList.contains('hh-large-text');
-      const highContrast = document.body.classList.contains('hh-high-contrast');
-      if(document.getElementById('btnTextSize')) document.getElementById('btnTextSize').textContent = largeText ? 'A+ ใหญ่' : 'A+ ปกติ';
-      if(document.getElementById('btnContrast')) document.getElementById('btnContrast').textContent = highContrast ? '🎨 ชัด' : '🎨 ปกติ';
-    }
-    function loadA11yPrefs(){
-      try{
-        const largeText = localStorage.getItem(a11yKey('large_text')) === '1';
-        const highContrast = localStorage.getItem(a11yKey('high_contrast')) === '1';
-        document.body.classList.toggle('hh-large-text', largeText);
-        document.body.classList.toggle('hh-high-contrast', highContrast);
-      }catch(_){}
-      syncA11yButtons();
-    }
-    loadA11yPrefs();
-
-    /* ---------------------------------
-      UI Helpers
-    --------------------------------- */
-    function isMobileCompact(){
-      return window.matchMedia('(max-width: 640px)').matches;
-    }
-    function syncCompactMode(){
-      document.body.classList.toggle('mobile-compact', isMobileCompact());
-    }
-    function bumpHud(el){
-      if(!el) return;
-      el.classList.remove('bump');
-      void el.offsetWidth;
-      el.classList.add('bump');
-      setTimeout(() => el.classList.remove('bump'), 180);
-    }
-    function popFeedback(){
-      if(!$feedback) return;
-      $feedback.classList.remove('pop');
-      void $feedback.offsetWidth;
-      $feedback.classList.add('pop');
-      setTimeout(() => $feedback.classList.remove('pop'), 180);
-    }
-    function setFeedback(msg){
-      $feedback.textContent = msg || '';
-      popFeedback();
-    }
     function pushToast(message, type='info'){
-      if(!$toastLayer) return;
       const el = document.createElement('div');
       el.className = `toast ${type}`;
       el.textContent = message;
       $toastLayer.appendChild(el);
       setTimeout(() => el.remove(), 2100);
     }
+
     function celebrate(kind='good'){
-      if(!$celebrateLayer) return;
       const icons = kind === 'perfect' ? ['⭐️','🌟','🏆','✨','💛'] : ['✨','⭐️','🍽️','🎉'];
       const count = kind === 'perfect' ? 18 : 10;
       for(let i=0;i<count;i++){
@@ -2456,125 +1965,23 @@
         setTimeout(() => el.remove(), 3600);
       }
     }
-    function zoneTap(zoneEl){
-      if(!zoneEl) return;
-      zoneEl.classList.remove('tapFlash');
-      void zoneEl.offsetWidth;
-      zoneEl.classList.add('tapFlash');
-    }
-    function renderSelectedBar(){
-      const food = state.roundFoods.find(x => x.id === state.selectedFoodId);
-      const titleEl = $selectedBar?.querySelector('.selectedTitle');
-      if(!food){
-        if($selectedEmoji) $selectedEmoji.textContent = '🍽️';
-        if(titleEl) titleEl.textContent = 'ยังไม่ได้เลือกอาหาร';
-        if($selectedHint) $selectedHint.textContent = 'แตะอาหารจากถาด แล้วค่อยแตะส่วนของจาน';
-        return;
-      }
-      if($selectedEmoji) $selectedEmoji.textContent = FOOD_EMOJI[food.id] || '🍎';
-      if(titleEl) titleEl.textContent = `เลือก: ${food.label}`;
-      if($selectedHint){
-        $selectedHint.textContent = food.group === 'x'
-          ? 'ลองคิดดูว่าอาหารนี้เหมาะกับจานสุขภาพไหม'
-          : `แตะส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`;
-      }
-    }
-    function updateMissionUi(){
-      const placed = Object.keys(state.placedByZone).length;
-      const need = state.roundTargetGroups.length || 5;
-      const pct = Math.max(0, Math.min(100, (placed / need) * 100));
-      if($missionCount) $missionCount.textContent = `${placed}/${need}`;
-      if($missionFill) $missionFill.style.width = `${pct}%`;
-      if($hudRound) $hudRound.textContent = String(state.currentRound || 1);
-      if($hudGoal) $hudGoal.textContent = `${need} หมู่`;
-    }
-    function refreshZoneUi(){
-      document.querySelectorAll('.zone').forEach(zone => {
-        const zoneId = zone.dataset.zone;
-        zone.classList.toggle('hasItem', !!state.placedByZone[zoneId]);
-      });
-    }
-    function clearZoneMarks(){
-      [...document.querySelectorAll('.zone')].forEach(z => {
-        z.classList.remove('active','correctFlash','wrongFlash');
-      });
-    }
-    function flashZone(zoneEl, ok){
-      zoneEl.classList.remove('correctFlash','wrongFlash');
-      void zoneEl.offsetWidth;
-      zoneEl.classList.add(ok ? 'correctFlash' : 'wrongFlash');
-    }
-    function autoOpenTrayOnPick(){
-      if(isMobileCompact() && $trayArea?.classList.contains('collapsed')){
-        $trayArea.classList.remove('collapsed');
-        syncTrayToggleLabel();
-      }
-    }
-    function autoCloseTrayAfterPlace(){
-      if(isMobileCompact() && $trayArea && !state.finished){
-        $trayArea.classList.add('collapsed');
-        syncTrayToggleLabel();
-      }
-    }
-    function syncTrayToggleLabel(){
-      if(!$trayToggle || !$trayArea) return;
-      const collapsed = $trayArea.classList.contains('collapsed');
-      $trayToggle.textContent = collapsed ? 'แสดงถาดอาหาร' : 'ซ่อนถาดอาหาร';
-      $trayToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-    }
-    function toggleTray(){
-      if(!$trayArea) return;
-      $trayArea.classList.toggle('collapsed');
-      syncTrayToggleLabel();
-    }
-    $trayToggle?.addEventListener('click', toggleTray);
 
-    function resetUiForFreshRun(){
-      $overlay.classList.remove('show');
-      setFeedback('มาจัดจานสุขภาพกัน');
-      $sumScore.textContent = '0';
-      $sumAcc.textContent = '0%';
-      $sumBest.textContent = '0';
-      $sumComp.textContent = '0';
-      if($sumMistake) $sumMistake.textContent = '-';
-      leavingPage = false;
-      if($btnReplay) $btnReplay.disabled = false;
-      if($btnBackHub) $btnBackHub.disabled = false;
-      if($btnEvaluate) $btnEvaluate.disabled = false;
-      if($btnResumeGame) $btnResumeGame.disabled = false;
-      if($btnRestartGame) $btnRestartGame.disabled = false;
-      renderSelectedBar();
-      updateMissionUi();
-      renderStickerShelf();
+    function bump(el){
+      if(!el) return;
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 180);
     }
 
-    function getSummaryTier(summary){
-      if(summary.accuracy >= 95 && (summary.perfectPlates || 0) >= 1){
-        return { rank:'Healthy Plate Master', stars:3, badge:'🏆' };
-      }
-      if(summary.accuracy >= 85){
-        return { rank:'Healthy Plate Hero', stars:3, badge:'🌟' };
-      }
-      if(summary.accuracy >= 70){
-        return { rank:'Balanced Meal Star', stars:2, badge:'💛' };
-      }
-      return { rank:'Plate Explorer', stars:1, badge:'🍽️' };
-    }
-    function renderSummaryTier(summary){
-      const tier = getSummaryTier(summary);
-      if($summaryRank) $summaryRank.textContent = tier.rank;
-      if($summaryBadge) $summaryBadge.textContent = tier.badge;
-      if($summaryStars){
-        $summaryStars.textContent = `${tier.stars >= 1 ? '⭐️' : '☆'}${tier.stars >= 2 ? '⭐️' : '☆'}${tier.stars >= 3 ? '⭐️' : '☆'}`;
-      }
+    function setFeedback(msg){
+      $feedback.textContent = msg || '';
     }
 
-    /* ---------------------------------
-      Daily / Stickers
-    --------------------------------- */
     function dayKeyBase(){
       return `PLATE_DAILY_${ctx.pid}_${bangkokYmd()}`;
     }
+
     function readDailyProgress(){
       return safeReadJson(dayKeyBase(), {
         completedPlates:0,
@@ -2584,20 +1991,77 @@
         firstPlayShown:0
       });
     }
+
     function writeDailyProgress(data){
       safeWriteJson(dayKeyBase(), data);
     }
+
+    function guideDayKey(){
+      return `PLATE_GUIDE_SEEN_${ctx.pid}_${bangkokYmd()}`;
+    }
+
+    function shouldShowGuide(){
+      try{ return localStorage.getItem(guideDayKey()) !== '1'; }
+      catch(_){ return true; }
+    }
+
+    function markGuideSeen(){
+      try{ localStorage.setItem(guideDayKey(), '1'); }catch(_){}
+    }
+
+    function gateKey(phase){
+      return `HHA_GATE_${phase.toUpperCase()}_${ctx.pid}_${ctx.game}_${ctx.mode}_${bangkokYmd()}`;
+    }
+
+    function isGateDone(phase){
+      try{ return localStorage.getItem(gateKey(phase)) === '1'; }
+      catch(_){ return false; }
+    }
+
+    function renderEntryContext(){
+      const stage = getEntryStage();
+
+      if (stage === 'after_quick_plate') {
+        $entryChip.hidden = false;
+        $entryChipText.textContent = 'ผ่าน Quick Plate แล้ว';
+        $heroSub.textContent = 'อุ่นเครื่องเสร็จแล้ว ตอนนี้มาจัดจานจริงให้ครบ 5 หมู่กัน';
+        $dailyQuestTitle.textContent = 'ไปต่อที่เกมหลัก';
+        $dailyQuestDesc.textContent = 'จัดจานสมดุลให้สำเร็จและเก็บรางวัลของวันนี้';
+        return;
+      }
+
+      if (stage === 'from_launcher') {
+        $entryChip.hidden = false;
+        $entryChipText.textContent = 'เริ่มจาก Launcher';
+        $heroSub.textContent = 'มาจัดอาหารให้ครบ 5 หมู่กัน';
+        return;
+      }
+
+      $entryChip.hidden = true;
+      $heroSub.textContent = 'จัดอาหารให้ครบ 5 หมู่';
+    }
+
+    function renderPostGameFlowText(){
+      const stage = getEntryStage();
+      if (stage === 'after_quick_plate') {
+        if ($evalEntrySub) $evalEntrySub.textContent = 'จาก Quick Plate มาต่อด้วยการคิดและตัดสินใจ';
+        if ($createEntrySub) $createEntrySub.textContent = 'ขั้นสุดท้าย ลองสร้างจานของคุณเอง';
+        return;
+      }
+      if ($evalEntrySub) $evalEntrySub.textContent = 'คิดต่อจากเกมหลักอีกนิด';
+      if ($createEntrySub) $createEntrySub.textContent = 'สร้างจานของคุณเองเป็นขั้นสุดท้าย';
+    }
+
     function updateDailyQuestUi(){
       const daily = readDailyProgress();
-      if($dailyQuestTitle) $dailyQuestTitle.textContent = daily.questDone ? 'ภารกิจวันนี้สำเร็จแล้ว' : 'ภารกิจวันนี้';
-      if($dailyQuestDesc) $dailyQuestDesc.textContent = daily.questDone
+      $dailyQuestTitle.textContent = daily.questDone ? 'ภารกิจวันนี้สำเร็จแล้ว' : 'ภารกิจวันนี้';
+      $dailyQuestDesc.textContent = daily.questDone
         ? 'ยอดเยี่ยมมาก กลับมาเล่นเพิ่มได้อีกนะ'
         : `จัดจานสมดุลให้สำเร็จ ${DAILY_GOAL} จาน`;
-      if($dailyQuestCount) $dailyQuestCount.textContent = `${Math.min(daily.completedPlates || 0, DAILY_GOAL)}/${DAILY_GOAL}`;
+      $dailyQuestCount.textContent = daily.questDone ? 'สำเร็จแล้ว' : `${Math.min(daily.completedPlates || 0, DAILY_GOAL)}/${DAILY_GOAL}`;
     }
 
     function renderStickerShelf(){
-      if(!$stickerList) return;
       const daily = readDailyProgress();
       const list = Array.isArray(daily.stickers) ? daily.stickers : [];
       $stickerList.innerHTML = '';
@@ -2620,48 +2084,84 @@
       });
     }
 
-    /* ---------------------------------
-      Reward Popup Queue
-    --------------------------------- */
     const rewardQueue = [];
     let rewardShowing = false;
+    let rewardCloseLock = false;
+    let deferRewardPopupOnEntry = getEntryStage() === 'after_quick_plate';
 
     function openRewardPopup(item){
-      if(!$rewardPopupOverlay) return;
+      if (!$rewardPopupOverlay || !$rewardPopupBtn) return;
+
       rewardShowing = true;
+      rewardCloseLock = false;
+
       $rewardPopupBadge.textContent = item.icon || '🎁';
       $rewardPopupTitle.textContent = item.title || 'ได้รางวัลใหม่';
       $rewardPopupDesc.textContent = item.desc || 'เยี่ยมมาก';
       $rewardPopupMeta.textContent = item.meta || 'เล่นต่อได้อีก';
       $rewardPopupBtn.textContent = item.cta || 'เยี่ยมเลย';
+
       $rewardPopupOverlay.hidden = false;
+      $rewardPopupOverlay.setAttribute('aria-hidden', 'false');
       document.body.classList.add('reward-open');
-      celebrate(item.kind === 'quest' ? 'perfect' : 'good');
-      playSfx('summary');
-      setTimeout(() => {
-        if($rewardPopupBtn && typeof $rewardPopupBtn.focus === 'function') $rewardPopupBtn.focus();
-      }, 30);
     }
-    function closeRewardPopup(){
-      if(!$rewardPopupOverlay) return;
+
+    function closeRewardPopup(ev){
+      if (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      if (!$rewardPopupOverlay) return;
+      if (rewardCloseLock) return;
+
+      rewardCloseLock = true;
+
       $rewardPopupOverlay.hidden = true;
+      $rewardPopupOverlay.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('reward-open');
       rewardShowing = false;
-      setTimeout(drainRewardQueue, 80);
+
+      setTimeout(() => {
+        rewardCloseLock = false;
+        drainRewardQueue();
+      }, 80);
     }
+
+    window.__plateCloseRewardPopup = closeRewardPopup;
+
     function enqueueRewardPopup(item){
       rewardQueue.push(item);
+      if (deferRewardPopupOnEntry) return;
       drainRewardQueue();
     }
+
     function drainRewardQueue(){
-      if(rewardShowing) return;
+      if (rewardShowing) return;
       const next = rewardQueue.shift();
-      if(!next) return;
+      if (!next) return;
       openRewardPopup(next);
     }
-    $rewardPopupBtn?.addEventListener('click', closeRewardPopup);
-    $rewardPopupOverlay?.addEventListener('click', (e) => {
-      if(e.target === $rewardPopupOverlay) closeRewardPopup();
+
+    function unlockDeferredRewardPopups(){
+      if (!deferRewardPopupOnEntry) return;
+      deferRewardPopupOnEntry = false;
+      drainRewardQueue();
+    }
+
+    ['click', 'pointerup', 'touchend'].forEach(type => {
+      $rewardPopupBtn?.addEventListener(type, closeRewardPopup, { passive:false });
+    });
+
+    $rewardPopupOverlay?.addEventListener('click', (ev) => {
+      if (ev.target === $rewardPopupOverlay) {
+        closeRewardPopup(ev);
+      }
+    });
+
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && rewardShowing) {
+        closeRewardPopup(ev);
+      }
     });
 
     function grantSticker(key){
@@ -2673,14 +2173,13 @@
       renderStickerShelf();
       const s = STICKERS[key];
       if(s){
-        pushToast(`ได้สติกเกอร์: ${s.text}`, 'ok');
         enqueueRewardPopup({
           kind:'sticker',
-          icon:s.icon || '🎁',
+          icon:s.icon,
           title:'ได้สติกเกอร์ใหม่',
           desc:s.text,
           meta:`วันนี้สะสมแล้ว ${daily.stickers.length} ชิ้น`,
-          cta:'รับเลย'
+          cta:'เยี่ยมเลย'
         });
       }
       return true;
@@ -2689,144 +2188,91 @@
     function renderSummaryRewards(){
       const daily = readDailyProgress();
       const count = Array.isArray(daily.stickers) ? daily.stickers.length : 0;
-      if($summaryRewardBox){
-        $summaryRewardBox.textContent = count > 0
-          ? `วันนี้สะสมสติกเกอร์แล้ว ${count} ชิ้น`
-          : 'เล่นต่ออีกนิดเพื่อสะสมสติกเกอร์ของวันนี้';
-      }
+      $summaryRewardBox.textContent = count > 0
+        ? `วันนี้สะสมสติกเกอร์แล้ว ${count} ชิ้น`
+        : 'เล่นต่ออีกนิดเพื่อสะสมสติกเกอร์ของวันนี้';
     }
+
     function renderLatestReward(){
       const daily = readDailyProgress();
       const list = Array.isArray(daily.stickers) ? daily.stickers : [];
       const lastKey = list[list.length - 1];
-      if(!$summaryLatestReward) return;
-      if(!lastKey || !STICKERS[lastKey]){
-        $summaryLatestReward.textContent = 'รางวัลล่าสุด: ยังไม่มี';
+      $summaryLatestReward.textContent = (!lastKey || !STICKERS[lastKey])
+        ? 'รางวัลล่าสุด: ยังไม่มี'
+        : `รางวัลล่าสุด: ${STICKERS[lastKey].text}`;
+    }
+
+    function renderNextGoal(summary){
+      if(summary.accuracy < 75){
+        $nextGoalText.textContent = 'ลองเพิ่มความแม่นยำให้เกิน 75%';
         return;
       }
-      $summaryLatestReward.textContent = `รางวัลล่าสุด: ${STICKERS[lastKey].text}`;
+      if((summary.perfectPlates || 0) < 1){
+        $nextGoalText.textContent = 'ลองทำ Perfect Plate ให้ได้อย่างน้อย 1 ครั้ง';
+        return;
+      }
+      $nextGoalText.textContent = 'ยอดเยี่ยมมาก ลองท้าทายโหมดยากขึ้น';
     }
+
     function renderNextStickerHint(){
-      if(!$nextStickerText) return;
       const daily = readDailyProgress();
       const count = Array.isArray(daily.stickers) ? daily.stickers.length : 0;
-      if(count === 0){
-        $nextStickerText.textContent = 'เล่นต่ออีกนิดเพื่อปลดล็อกชิ้นแรก'; return;
-      }
-      if(count < 4){
-        $nextStickerText.textContent = `วันนี้สะสมแล้ว ${count} ชิ้น ยังเก็บได้อีก`; return;
-      }
+      if(count === 0){ $nextStickerText.textContent = 'เล่นต่ออีกนิดเพื่อปลดล็อกชิ้นแรก'; return; }
+      if(count < 4){ $nextStickerText.textContent = `วันนี้สะสมแล้ว ${count} ชิ้น ยังเก็บได้อีก`; return; }
       $nextStickerText.textContent = 'เก่งมาก วันนี้เก็บได้หลายชิ้นแล้ว';
     }
 
-    /* ---------------------------------
-      Guide
-    --------------------------------- */
-    let guideDemoIndex = 0;
-    let guideDemoTimer = null;
-    function guideDayKey(){
-      return `PLATE_GUIDE_SEEN_${ctx.pid}_${bangkokYmd()}`;
+    function updateHud(){
+      $score.textContent = String(state.score);
+      $time.textContent = String(state.timeLeft);
+      $streak.textContent = String(state.streak);
+      $plates.textContent = String(state.completedPlates);
+      $hudRound.textContent = String(state.currentRound || 1);
+      $hudGoal.textContent = `${state.roundTargetGroups.length || 5} หมู่`;
+      $hudDiff.textContent = ctx.diff;
     }
-    function shouldShowGuide(){
-      try{ return localStorage.getItem(guideDayKey()) !== '1'; }
-      catch(_){ return true; }
-    }
-    function markGuideSeen(){
-      try{ localStorage.setItem(guideDayKey(), '1'); }catch(_){}
-    }
-    function renderGuideDemo(index){
-      guideDemoIndex = index % GUIDE_DEMO_STEPS.length;
-      const item = GUIDE_DEMO_STEPS[guideDemoIndex];
-      if($guideDemoStep) $guideDemoStep.textContent = item.step;
-      if($guideDemoTitle) $guideDemoTitle.textContent = item.title;
-      if($guideDemoDesc) $guideDemoDesc.textContent = item.desc;
-      if($guideDemo){
-        $guideDemo.classList.remove('step-0','step-1','step-2');
-        $guideDemo.classList.add(`step-${guideDemoIndex}`);
-      }
-      document.querySelectorAll('.guideDot').forEach((dot, i) => {
-        dot.classList.toggle('active', i === guideDemoIndex);
-      });
-    }
-    function startGuideDemoLoop(){
-      stopGuideDemoLoop();
-      renderGuideDemo(0);
-      guideDemoTimer = setInterval(() => {
-        renderGuideDemo((guideDemoIndex + 1) % GUIDE_DEMO_STEPS.length);
-      }, 2200);
-    }
-    function stopGuideDemoLoop(){
-      if(guideDemoTimer){
-        clearInterval(guideDemoTimer);
-        guideDemoTimer = null;
-      }
-    }
-    document.querySelectorAll('.guideDot').forEach(dot => {
-      dot.addEventListener('click', () => {
-        const idx = Number(dot.dataset.guideStep || 0);
-        renderGuideDemo(idx);
-        startGuideDemoLoop();
-      });
-    });
-    function showGuide(){
-      if(!$guideOverlay) return;
-      $guideOverlay.hidden = false;
-      document.body.classList.add('guide-open');
-      startGuideDemoLoop();
-      setTimeout(() => {
-        if($guideStartBtn && typeof $guideStartBtn.focus === 'function') $guideStartBtn.focus();
-      }, 30);
-    }
-    function hideGuide(){
-      if(!$guideOverlay) return;
-      $guideOverlay.hidden = true;
-      document.body.classList.remove('guide-open');
-      stopGuideDemoLoop();
-    }
-    function completeGuide(){
-      if($guideDontShowToday?.checked) markGuideSeen();
-      hideGuide();
-      reallyStartGame();
-    }
-    function maybeShowGuideThenStart(){
-      if(shouldShowGuide()){
-        showGuide();
+
+    function renderSelectedBar(){
+      const food = state.roundFoods.find(x => x.id === state.selectedFoodId);
+      if(!food){
+        $selectedEmoji.textContent = '🍽️';
+        $selectedTitle.textContent = 'ยังไม่ได้เลือกอาหาร';
+        $selectedHint.textContent = 'แตะอาหารจากถาด แล้วค่อยแตะส่วนของจาน';
         return;
       }
-      reallyStartGame();
-    }
-    $guideStartBtn?.addEventListener('click', completeGuide);
-
-    /* ---------------------------------
-      Production Guards
-    --------------------------------- */
-    function isOverlayBlocking(){
-      const guideOpen = $guideOverlay && !$guideOverlay.hidden;
-      const rewardOpen = $rewardPopupOverlay && !$rewardPopupOverlay.hidden;
-      const pauseOpen = document.getElementById('pauseOverlay') && !document.getElementById('pauseOverlay').hidden;
-      const summaryOpen = $overlay && $overlay.classList.contains('show');
-      const evalOpen = $evaluateOverlay && !$evaluateOverlay.hidden;
-      const createOpen = $createOverlay && !$createOverlay.hidden;
-      return !!(guideOpen || rewardOpen || pauseOpen || summaryOpen || evalOpen || createOpen);
-    }
-    function inputLocked(){
-      return nowMs() < state.inputLockUntil;
-    }
-    function lockInput(ms=140){
-      state.inputLockUntil = nowMs() + ms;
-    }
-    function lockLeaveButtons(){
-      leavingPage = true;
-      if($btnReplay) $btnReplay.disabled = true;
-      if($btnBackHub) $btnBackHub.disabled = true;
-      if($btnEvaluate) $btnEvaluate.disabled = true;
-      if($btnResumeGame) $btnResumeGame.disabled = true;
-      if($btnRestartGame) $btnRestartGame.disabled = true;
+      $selectedEmoji.textContent = FOOD_EMOJI[food.id] || '🍎';
+      $selectedTitle.textContent = `เลือก: ${food.label}`;
+      $selectedHint.textContent = food.group === 'x'
+        ? 'ลองคิดดูว่าอาหารนี้เหมาะกับจานสุขภาพไหม'
+        : `แตะส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`;
     }
 
-    /* ---------------------------------
-      Game Logic
-    --------------------------------- */
+    function updateMissionUi(){
+      const placed = Object.keys(state.placedByZone).length;
+      const need = state.roundTargetGroups.length || 5;
+      $missionCount.textContent = `${placed}/${need}`;
+      $missionFill.style.width = `${Math.max(0, Math.min(100, (placed / need) * 100))}%`;
+    }
+
+    function refreshZoneUi(){
+      document.querySelectorAll('.zone').forEach(zone => {
+        const zoneId = zone.dataset.zone;
+        zone.classList.toggle('hasItem', !!state.placedByZone[zoneId]);
+      });
+    }
+
+    function clearZoneMarks(){
+      document.querySelectorAll('.zone').forEach(z => {
+        z.classList.remove('correctFlash','wrongFlash');
+      });
+    }
+
+    function flashZone(zoneEl, ok){
+      zoneEl.classList.remove('correctFlash','wrongFlash');
+      void zoneEl.offsetWidth;
+      zoneEl.classList.add(ok ? 'correctFlash' : 'wrongFlash');
+    }
+
     function getDifficultyConfig(diff, roundNo=1){
       const r = Math.max(1, roundNo);
       if(diff === 'easy'){
@@ -2862,122 +2308,49 @@
       };
     }
 
-    function pickFoodsByGroupAvoidRecent(group, count, rng){
-      const pool = FOOD_DB.filter(x => x.group === group);
-      const fresh = pool.filter(x => !state.recentFoodIds.includes(x.id));
-      const source = fresh.length >= count ? fresh : pool;
-      return shuffle(source, rng).slice(0, count);
-    }
-    function pushRecentFoods(items){
-      const ids = items.map(x => x.id);
-      state.recentFoodIds = [...state.recentFoodIds, ...ids].slice(-12);
-    }
-    function roundSignature(groups, foods){
-      return `${groups.join('-')}|${foods.map(x => x.id).sort().join(',')}`;
-    }
-    function seenRecentRound(sig){
-      return state.recentRoundSig.includes(sig);
-    }
-    function pushRecentRound(sig){
-      state.recentRoundSig = [...state.recentRoundSig, sig].slice(-6);
-    }
-
-    function updateHud(){
-      $score.textContent = state.score;
-      $time.textContent = state.timeLeft;
-      $streak.textContent = state.streak;
-      $plates.textContent = state.completedPlates;
-    }
-
-    function isFoodUsed(foodId){
-      return Object.values(state.placedByZone).some(v => v && v.foodId === foodId);
-    }
-
-    function getFoodTagText(item){
-      if(item.group === 'x') return 'ลองคิดดู';
-      if(ctx.diff === 'easy') return 'อาหารสุขภาพ';
-      if(ctx.diff === 'normal') return 'เลือกให้ถูกส่วน';
-      return 'ท้าทาย';
-    }
-    function getFoodTagClass(item){
-      if(item.group === 'x') return 'x';
-      if(ctx.diff === 'easy') return 'g' + String(item.group).replace('g','');
-      return '';
+    function syncFoodUi(){
+      [...$foodTray.querySelectorAll('.food')].forEach(btn => {
+        const id = btn.dataset.id;
+        btn.classList.toggle('selected', id === state.selectedFoodId);
+        btn.classList.toggle('used', Object.values(state.placedByZone).some(v => v && v.foodId === id));
+      });
     }
 
     function buildTray(){
-      $tray.innerHTML = '';
-
+      $foodTray.innerHTML = '';
       state.roundFoods.forEach(item => {
         const btn = document.createElement('button');
         btn.className = 'food';
         btn.type = 'button';
         btn.dataset.id = item.id;
-
-        const emoji = FOOD_EMOJI[item.id] || '🍎';
-        const tagText = getFoodTagText(item);
-        const tagCls = getFoodTagClass(item);
-
         btn.innerHTML = `
-          <div class="foodEmoji">${emoji}</div>
+          <div class="foodEmoji">${FOOD_EMOJI[item.id] || '🍎'}</div>
           <div class="foodMeta">
             <div class="foodName">${item.label}</div>
-            <div class="foodTag ${tagCls}">${tagText}</div>
+            <div class="foodTag ${item.group === 'x' ? 'x' : ''}">${item.group === 'x' ? 'ลองคิดดู' : 'เลือกให้ถูกส่วน'}</div>
           </div>
         `;
-
-        if(ctx.diff === 'easy' && item.group !== 'x' && FOOD_GROUPS[item.group]){
-          btn.style.background = `linear-gradient(180deg,#ffffff,${FOOD_GROUPS[item.group].color})`;
-        }else{
-          btn.style.background = 'linear-gradient(180deg,#ffffff,#f8fcff)';
-        }
-
         btn.addEventListener('click', () => selectFood(item.id));
-        $tray.appendChild(btn);
+        $foodTray.appendChild(btn);
       });
-
-      if(!$tray.children.length){
-        $tray.innerHTML = `
-          <div class="emptyTrayState">
-            <div class="emptyTrayIcon">🍽️</div>
-            <div class="emptyTrayTitle">กำลังเตรียมอาหารรอบใหม่</div>
-            <div class="emptyTrayText">แตะเริ่มรอบอีกครั้งได้เลย</div>
-          </div>
-        `;
-      }
-
       syncFoodUi();
       renderSelectedBar();
     }
 
-    function syncFoodUi(){
-      [...$tray.querySelectorAll('.food')].forEach(btn => {
-        const id = btn.dataset.id;
-        btn.classList.toggle('selected', id === state.selectedFoodId);
-        btn.classList.toggle('used', isFoodUsed(id));
-      });
-    }
-
     function selectFood(foodId){
-      if(state.finished || state.paused || inputLocked()) return;
-      if(isOverlayBlocking()) return;
-      lockInput(90);
-
+      if(state.finished || state.paused || isOverlayBlocking()) return;
       const food = state.roundFoods.find(x => x.id === foodId);
-      if(!food || isFoodUsed(foodId)) return;
+      if(!food) return;
+      if(Object.values(state.placedByZone).some(v => v && v.foodId === foodId)) return;
 
       state.selectedFoodId = foodId;
       syncFoodUi();
       renderSelectedBar();
-      autoOpenTrayOnPick();
-      playSfx('pick');
 
       if(food.group === 'x'){
         setFeedback(`เลือก "${food.label}" แล้ว ลองหาว่าเหมาะกับจานไหม`);
-        pushToast(`เลือก ${food.label} แล้ว`, 'info');
       }else{
         setFeedback(`เลือก "${food.label}" แล้ว — ตอนนี้กดส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`);
-        pushToast(`เลือก ${food.label} แล้ว`, 'info');
       }
     }
 
@@ -2990,6 +2363,7 @@
       ];
       return pool[Math.floor(Math.random() * pool.length)];
     }
+
     function wrongMsg(food){
       if(food.group === 'x'){
         const pool = [
@@ -3016,7 +2390,7 @@
     function bindZones(){
       if(state.zoneBound) return;
       state.zoneBound = true;
-      [...document.querySelectorAll('.zone')].forEach(zone => {
+      document.querySelectorAll('.zone').forEach(zone => {
         zone.addEventListener('click', () => {
           const zoneId = zone.dataset.zone;
           placeSelectedFood(zoneId, zone);
@@ -3025,17 +2399,14 @@
     }
 
     function placeSelectedFood(zoneId, zoneEl){
-      if(state.finished || state.paused || inputLocked()) return;
-      if(isOverlayBlocking()) return;
-      lockInput(120);
-
-      zoneTap(zoneEl);
+      if(state.finished || state.paused || isOverlayBlocking()) return;
 
       if(!state.selectedFoodId){
         setFeedback('เลือกอาหารจากถาดก่อนนะ');
         pushToast('เลือกอาหารจากถาดก่อนนะ', 'info');
         return;
       }
+
       if(state.placedByZone[zoneId]){
         setFeedback('ส่วนนี้มีอาหารแล้ว ลองเลือกส่วนอื่น');
         pushToast('ส่วนนี้มีอาหารแล้ว', 'info');
@@ -3047,7 +2418,6 @@
 
       const isCorrect = judgePlacement(food, zoneId);
       state.placedByZone[zoneId] = { foodId: food.id, group: food.group, ok:isCorrect };
-
       const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
 
       if(isCorrect){
@@ -3057,32 +2427,21 @@
         state.streak += 1;
         state.bestStreak = Math.max(state.bestStreak, state.streak);
 
-        if(state.timeToFirstCorrectMs == null){
-          state.timeToFirstCorrectMs = Date.now() - state.timeStartedMs;
-        }
-        if(state.perGroupCorrect[zoneId] != null){
-          state.perGroupCorrect[zoneId] += 1;
-        }
-
         flashZone(zoneEl, true);
         setFeedback(goodMsg(food, zoneId, bonus));
         pushToast('เยี่ยมมาก! ถูกหมู่แล้ว', 'ok');
-        playSfx('ok');
-        bumpHud(document.getElementById('hudScore')?.closest('.pill'));
-        bumpHud(document.getElementById('hudStreak')?.closest('.pill'));
+        bump(document.getElementById('scorePill'));
+        bump(document.getElementById('streakPill'));
       }else{
         state.score = Math.max(0, state.score - cfg.scoreWrong);
         state.wrong += 1;
         state.streak = 0;
 
         if(FOOD_GROUPS[zoneId]) state.mistakeByGroup[zoneId] += 1;
-        if(state.perGroupWrong[zoneId] != null) state.perGroupWrong[zoneId] += 1;
-
         flashZone(zoneEl, false);
         setFeedback(wrongMsg(food));
         pushToast('ลองอีกครั้งนิดเดียว', 'bad');
-        playSfx('bad');
-        bumpHud(document.getElementById('hudScore')?.closest('.pill'));
+        bump(document.getElementById('scorePill'));
       }
 
       state.selectedFoodId = null;
@@ -3091,7 +2450,6 @@
       refreshZoneUi();
       updateMissionUi();
       updateHud();
-      autoCloseTrayAfterPlace();
       checkRoundComplete();
     }
 
@@ -3100,60 +2458,27 @@
       state.roundAdvanceTimer = 0;
 
       state.currentRound += 1;
-      state.roundsStarted += 1;
       state.selectedFoodId = null;
       state.placedByZone = {};
 
       const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
-      let builtFoods = [];
-      let sig = '';
-      let tries = 0;
-
-      while(tries < 8){
-        tries += 1;
-        const foods = [];
-        cfg.useGroups.forEach(g => {
-          const item = pickFoodsByGroupAvoidRecent(g, 1, rng)[0];
-          if(item) foods.push(item);
-        });
-
-        const distractorSource = FOOD_DB.filter(x => x.group === 'x');
-        const freshDistractors = distractorSource.filter(x => !state.recentFoodIds.includes(x.id));
-        const distractors = shuffle((freshDistractors.length ? freshDistractors : distractorSource), rng).slice(0, cfg.distractorCount);
-
-        const roundFoods = shuffle([...foods, ...distractors], rng);
-        const nextSig = roundSignature(cfg.useGroups, roundFoods);
-
-        if(!seenRecentRound(nextSig) || tries >= 8){
-          builtFoods = roundFoods;
-          sig = nextSig;
-          break;
-        }
-      }
-
       state.roundTargetGroups = cfg.useGroups.slice();
-      state.roundFoods = builtFoods;
 
-      if(!builtFoods.length || !state.roundTargetGroups.length){
-        builtFoods = shuffle(FOOD_DB.filter(x => x.group !== 'x'), rng).slice(0, 4);
-        state.roundTargetGroups = ['g2','g1','g3','g4'];
-        state.roundFoods = builtFoods;
-      }
+      const foods = [];
+      cfg.useGroups.forEach(g => {
+        const item = shuffle(FOOD_DB.filter(x => x.group === g), rng)[0];
+        if(item) foods.push(item);
+      });
 
-      pushRecentFoods(builtFoods);
-      pushRecentRound(sig);
+      const distractors = shuffle(FOOD_DB.filter(x => x.group === 'x'), rng).slice(0, cfg.distractorCount);
+      state.roundFoods = shuffle([...foods, ...distractors], rng);
 
       buildTray();
       clearZoneMarks();
       refreshZoneUi();
       updateMissionUi();
       renderSelectedBar();
-      setFeedback(`รอบที่ ${state.currentRound}: จัดให้ครบ ${state.roundTargetGroups.length} หมู่`);
-
-      if(isMobileCompact() && $trayArea){
-        $trayArea.classList.remove('collapsed');
-        syncTrayToggleLabel();
-      }
+      setFeedback(`รอบที่ ${state.currentRound}: จัดให้ครบ ${cfg.useGroups.length} หมู่`);
     }
 
     function checkRoundComplete(){
@@ -3166,25 +2491,18 @@
       const correctPlaced = entries.filter(x => x.ok).length;
       const allPerfect = correctPlaced === needCount;
 
-      state.roundsCompleted += 1;
       state.completedPlates += 1;
       state.score += cfg.plateBonus;
-
-      if(state.timeToFirstPlateMs == null){
-        state.timeToFirstPlateMs = Date.now() - state.timeStartedMs;
-      }
 
       if(allPerfect){
         state.perfectPlates += 1;
         state.score += cfg.perfectBonus;
         setFeedback(`Perfect Plate! +${cfg.plateBonus + cfg.perfectBonus}`);
         pushToast('Perfect Plate! สุดยอดมาก', 'ok');
-        playSfx('perfect');
         celebrate('perfect');
       }else{
         setFeedback(`สำเร็จ! ได้จานสมดุล +${cfg.plateBonus}`);
         pushToast('สำเร็จ! ได้จานสมดุล 1 จาน', 'ok');
-        playSfx('plate');
         celebrate('good');
       }
 
@@ -3194,14 +2512,13 @@
 
       if(!daily.questDone && daily.completedPlates >= DAILY_GOAL){
         daily.questDone = 1;
-        pushToast('ทำภารกิจวันนี้สำเร็จแล้ว! 🎉', 'ok');
         enqueueRewardPopup({
           kind:'quest',
           icon:'🏆',
           title:'ภารกิจวันนี้สำเร็จ',
           desc:'คุณจัดจานสมดุลครบเป้าหมายของวันนี้แล้ว',
           meta:`ครบ ${DAILY_GOAL} จานแล้ว`,
-          cta:'สุดยอด'
+          cta:'เยี่ยมเลย'
         });
       }
 
@@ -3214,8 +2531,9 @@
       if(dailyNow.completedPlates >= 3) grantSticker('three_plates');
       if(state.bestStreak >= 5) grantSticker('focus_kid');
 
+      unlockDeferredRewardPopups();
       updateHud();
-      bumpHud(document.getElementById('hudPlates')?.closest('.pill'));
+      bump(document.getElementById('platesPill'));
 
       state.roundAdvanceTimer = setTimeout(() => {
         if(!state.finished && !state.destroyed){
@@ -3224,21 +2542,19 @@
       }, 900);
     }
 
-    /* ---------------------------------
-      Timer / Pause
-    --------------------------------- */
     function cancelRafLoop(){
       if(state.rafId){
         cancelAnimationFrame(state.rafId);
         state.rafId = 0;
       }
     }
+
     function startRafLoop(){
       cancelRafLoop();
-      const token = ++state.runToken;
+      const token = `${Date.now()}_${Math.random()}`;
 
       function frame(){
-        if(state.destroyed || state.finished || state.paused || token !== state.runToken) return;
+        if(state.destroyed || state.finished || state.paused || state._token !== token) return;
         const remainMs = Math.max(0, state.gameDeadlineMs - nowMs());
         const nextSec = Math.ceil(remainMs / 1000);
 
@@ -3246,6 +2562,7 @@
           state.lastSecondShown = nextSec;
           state.timeLeft = nextSec;
           updateHud();
+          bump(document.getElementById('timePill'));
 
           if(nextSec <= 0){
             finishGame();
@@ -3255,8 +2572,11 @@
 
         state.rafId = requestAnimationFrame(frame);
       }
+
+      state._token = token;
       state.rafId = requestAnimationFrame(frame);
     }
+
     function startGameClock(){
       state.gameDeadlineMs = nowMs() + (ctx.time * 1000);
       state.lastSecondShown = ctx.time;
@@ -3264,85 +2584,50 @@
       updateHud();
       startRafLoop();
     }
+
     function pauseGame(reason='pause'){
       if(state.finished || state.paused) return;
       state.paused = true;
       cancelRafLoop();
-
       const remainMs = Math.max(0, state.gameDeadlineMs - nowMs());
       state.timeLeft = Math.max(0, Math.ceil(remainMs / 1000));
-
-      const $pauseTitle = document.getElementById('pauseTitle');
-      const $pauseText = document.getElementById('pauseText');
-      if($pauseTitle){
-        $pauseTitle.textContent = reason === 'hidden' ? 'เกมหยุดอัตโนมัติ' : 'หยุดเกมชั่วคราว';
-      }
-      if($pauseText){
-        $pauseText.textContent = reason === 'hidden'
-          ? 'ระบบหยุดเวลาไว้ให้แล้ว กลับมาเมื่อพร้อม'
-          : 'พักก่อน แล้วค่อยเล่นต่อได้';
-      }
-
-      const $pauseOverlay = document.getElementById('pauseOverlay');
-      if($pauseOverlay) $pauseOverlay.hidden = false;
-
-      setTimeout(() => {
-        if($btnResumeGame && typeof $btnResumeGame.focus === 'function') $btnResumeGame.focus();
-      }, 30);
+      document.getElementById('pauseTitle').textContent = reason === 'hidden' ? 'เกมหยุดอัตโนมัติ' : 'หยุดเกมชั่วคราว';
+      document.getElementById('pauseText').textContent = reason === 'hidden'
+        ? 'ระบบหยุดเวลาไว้ให้แล้ว กลับมาเมื่อพร้อม'
+        : 'พักก่อน แล้วค่อยเล่นต่อได้';
+      $pauseOverlay.hidden = false;
     }
+
     function resumeGame(){
       if(state.finished || !state.paused) return;
       const remainMs = Math.max(0, state.timeLeft * 1000);
       state.gameDeadlineMs = nowMs() + remainMs;
       state.paused = false;
-      const $pauseOverlay = document.getElementById('pauseOverlay');
-      if($pauseOverlay) $pauseOverlay.hidden = true;
+      $pauseOverlay.hidden = true;
       startRafLoop();
-    }
-
-    /* ---------------------------------
-      Summary
-    --------------------------------- */
-    function findMostMistakeGroup(map){
-      let bestKey = null, bestVal = -1;
-      Object.entries(map).forEach(([k,v]) => {
-        if(v > bestVal){ bestKey = k; bestVal = v; }
-      });
-      return bestVal > 0 ? bestKey : null;
     }
 
     function buildSummaryPayload(){
       const total = state.correct + state.wrong;
       const accuracy = total > 0 ? Math.round((state.correct / total) * 100) : 0;
-      const mostMistakeGroup = findMostMistakeGroup(state.mistakeByGroup);
-      const timeSpentSec = Math.max(0, Math.round((Date.now() - state.timeStartedMs) / 1000));
+      let mostMistakeGroup = null;
+      let bestVal = -1;
+      Object.entries(state.mistakeByGroup).forEach(([k,v]) => {
+        if(v > bestVal){ bestVal = v; mostMistakeGroup = k; }
+      });
+      if(bestVal <= 0) mostMistakeGroup = null;
+
       return {
         game: ctx.game,
         mode: ctx.mode,
         pid: ctx.pid,
         diff: ctx.diff,
-        time: ctx.time,
-        seed: ctx.seed,
         score: state.score,
-        correct: state.correct,
-        wrong: state.wrong,
         bestStreak: state.bestStreak,
         completedPlates: state.completedPlates,
         perfectPlates: state.perfectPlates,
         accuracy,
         mostMistakeGroup,
-        roundsStarted: state.roundsStarted,
-        roundsCompleted: state.roundsCompleted,
-        timeSpentSec,
-        timeLeft: state.timeLeft,
-        timeToFirstCorrectMs: state.timeToFirstCorrectMs,
-        timeToFirstPlateMs: state.timeToFirstPlateMs,
-        perGroupCorrect: { ...state.perGroupCorrect },
-        perGroupWrong: { ...state.perGroupWrong },
-        mistakeByGroup: { ...state.mistakeByGroup },
-        summaryShown: state.summaryShown ? 1 : 0,
-        replayClicked: state.replayClicked ? 1 : 0,
-        backHubClicked: state.backHubClicked ? 1 : 0,
         ts: Date.now(),
         iso: new Date().toISOString()
       };
@@ -3366,41 +2651,51 @@
       safeWriteJson('HHA_LAST_SUMMARY_PLATE', payload);
     }
 
-    function insightText(summary){
-      const g = summary.mostMistakeGroup ? FOOD_GROUPS[summary.mostMistakeGroup] : null;
+    function getSummaryTier(summary){
       if(summary.accuracy >= 95 && (summary.perfectPlates || 0) >= 1){
-        return 'ยอดเยี่ยมมาก คุณจัดจานได้แม่นและสมดุลมากจริง ๆ';
+        return { rank:'Healthy Plate Master', stars:3, badge:'🏆' };
       }
       if(summary.accuracy >= 85){
+        return { rank:'Healthy Plate Hero', stars:3, badge:'🌟' };
+      }
+      if(summary.accuracy >= 70){
+        return { rank:'Balanced Meal Star', stars:2, badge:'💛' };
+      }
+      return { rank:'Plate Explorer', stars:1, badge:'🍽️' };
+    }
+
+    function renderSummaryTier(summary){
+      const tier = getSummaryTier(summary);
+      $summaryRank.textContent = tier.rank;
+      $summaryBadge.textContent = tier.badge;
+      $summaryStars.textContent = `${tier.stars >= 1 ? '⭐️' : '☆'}${tier.stars >= 2 ? '⭐️' : '☆'}${tier.stars >= 3 ? '⭐️' : '☆'}`;
+    }
+
+    function insightText(summary){
+      const g = summary.mostMistakeGroup ? FOOD_GROUPS[summary.mostMistakeGroup] : null;
+      const stage = getEntryStage();
+
+      if (summary.accuracy >= 95 && (summary.perfectPlates || 0) >= 1) {
+        return stage === 'after_quick_plate'
+          ? 'อุ่นเครื่องมาดีมาก และคุณจัดจานหลักได้ยอดเยี่ยมจริง ๆ'
+          : 'ยอดเยี่ยมมาก คุณจัดจานได้แม่นและสมดุลมากจริง ๆ';
+      }
+
+      if (summary.accuracy >= 85) {
         return g
           ? `ทำได้ดีมาก ลองทบทวนหมู่ "${g.short}" อีกนิดเพื่อให้แม่นขึ้นกว่าเดิม`
           : 'ทำได้ดีมาก ลองเล่นอีกครั้งเพื่อเก็บ Perfect Plate เพิ่มขึ้น';
       }
-      if(summary.accuracy >= 70){
+
+      if (summary.accuracy >= 70) {
         return g
           ? `เริ่มคล่องแล้ว แต่ยังสับสนหมู่ "${g.short}" เล็กน้อย`
           : 'เริ่มทำได้ดีแล้ว ลองสังเกตแต่ละหมู่ให้มากขึ้นอีกนิด';
       }
+
       return g
         ? `ไม่เป็นไร ลองจำว่าอาหารหมู่ "${g.short}" ควรอยู่ตรงไหน แล้วค่อยเล่นอีกครั้ง`
         : 'ไม่เป็นไร ลองสังเกตชื่ออาหารและส่วนของจานให้มากขึ้น แล้วค่อยลองอีกครั้งนะ';
-    }
-
-    function renderNextGoal(summary){
-      if(!$nextGoalText) return;
-      if(summary.accuracy < 75){
-        $nextGoalText.textContent = 'ลองเพิ่มความแม่นยำให้เกิน 75%';
-        return;
-      }
-      if((summary.perfectPlates || 0) < 1){
-        $nextGoalText.textContent = 'ลองทำ Perfect Plate ให้ได้อย่างน้อย 1 ครั้ง';
-        return;
-      }
-      if((summary.completedPlates || 0) < 3){
-        $nextGoalText.textContent = 'ลองจัดจานให้ครบ 3 จานในรอบเดียว';
-        return;
-      }
-      $nextGoalText.textContent = 'ยอดเยี่ยมมาก ลองท้าทายโหมดยากขึ้น';
     }
 
     function showSummary(summary){
@@ -3411,9 +2706,7 @@
       $sumAcc.textContent = `${summary.accuracy}%`;
       $sumBest.textContent = String(summary.bestStreak);
       $sumComp.textContent = String(summary.completedPlates);
-      if($sumMistake){
-        $sumMistake.textContent = summary.mostMistakeGroup ? FOOD_GROUPS[summary.mostMistakeGroup].short : '-';
-      }
+      $sumMistake.textContent = summary.mostMistakeGroup ? FOOD_GROUPS[summary.mostMistakeGroup].short : '-';
 
       renderSummaryTier(summary);
       renderSummaryRewards();
@@ -3421,39 +2714,20 @@
       renderNextGoal(summary);
       renderNextStickerHint();
 
-      if($summaryHeading){
-        if(summary.accuracy >= 95){
-          $summaryHeading.textContent = 'สุดยอดมากวันนี้';
-        }else if(summary.accuracy >= 80){
-          $summaryHeading.textContent = 'วันนี้ทำได้ดีมาก';
-        }else{
-          $summaryHeading.textContent = 'เก่งมากที่พยายาม';
-        }
-      }
-
-      if($btnReplay){
-        if(summary.accuracy >= 90){
-          $btnReplay.textContent = 'เล่นอีกครั้ง ทำลายสถิติ';
-        }else if(summary.accuracy >= 70){
-          $btnReplay.textContent = 'ลองอีกครั้ง';
-        }else{
-          $btnReplay.textContent = 'ลองใหม่อีกนิด';
-        }
+      const stage = getEntryStage();
+      if (stage === 'after_quick_plate' && summary.accuracy >= 80) {
+        $summaryHeading.textContent = 'ต่อจาก Quick Plate ได้ดีมาก';
+      } else if (summary.accuracy >= 95) {
+        $summaryHeading.textContent = 'สุดยอดมากวันนี้';
+      } else if (summary.accuracy >= 80) {
+        $summaryHeading.textContent = 'วันนี้ทำได้ดีมาก';
+      } else {
+        $summaryHeading.textContent = 'เก่งมากที่พยายาม';
       }
 
       $sumInsight.textContent = insightText(summary);
-      $overlay.classList.add('show');
-
-      if($trayArea){
-        $trayArea.classList.add('collapsed');
-        syncTrayToggleLabel();
-      }
-
+      $summaryOverlay.classList.add('show');
       celebrate(summary.accuracy >= 90 ? 'perfect' : 'good');
-      playSfx('summary');
-      setTimeout(() => {
-        if($btnReplay && typeof $btnReplay.focus === 'function') $btnReplay.focus();
-      }, 30);
     }
 
     function finishGame(){
@@ -3461,7 +2735,6 @@
       state.finished = true;
       cancelRafLoop();
       clearTimeout(state.roundAdvanceTimer);
-      state.roundAdvanceTimer = 0;
 
       const summary = buildSummaryPayload();
       saveLastSummary(summary);
@@ -3476,9 +2749,6 @@
       openSummarySafely();
     }
 
-    /* ---------------------------------
-      Evaluate Overlay
-    --------------------------------- */
     const EVAL_TEMPLATES = [
       {
         id:'eval_1',
@@ -3516,8 +2786,7 @@
     ];
 
     function pickEvaluateTemplate(){
-      const idx = Math.floor(rng() * EVAL_TEMPLATES.length);
-      return EVAL_TEMPLATES[idx];
+      return EVAL_TEMPLATES[Math.floor(rng() * EVAL_TEMPLATES.length)];
     }
 
     function renderEvalPlate(choiceKey, foods){
@@ -3536,21 +2805,22 @@
     }
 
     function openEvaluate(){
+      renderPostGameFlowText();
       const tpl = pickEvaluateTemplate();
       evaluateState.questionId = tpl.id;
       evaluateState.selectedChoice = '';
       evaluateState.correctChoice = tpl.correct;
       evaluateState.answered = false;
-      evaluateState.isCorrect = false;
-      evaluateState.choices = tpl.choices;
 
       $evalChoices.innerHTML = ['A','B','C'].map(k => renderEvalPlate(k, tpl.choices[k])).join('');
       $evalFeedback.textContent = 'เลือกจานที่คิดว่าสมดุลที่สุด';
       $evalFeedback.className = 'flowFeedback';
       $btnEvalSubmit.disabled = true;
+      $btnEvalSubmit.hidden = false;
+      $btnEvalSkip.hidden = false;
       $evalNextActions.hidden = true;
       $evaluateOverlay.hidden = false;
-      $overlay.classList.remove('show');
+      $summaryOverlay.classList.remove('show');
 
       $evalChoices.querySelectorAll('.evalChoice').forEach(card => {
         card.addEventListener('click', () => {
@@ -3561,33 +2831,26 @@
           $btnEvalSubmit.disabled = false;
         });
       });
-
-      setTimeout(() => {
-        if($btnEvalSubmit && typeof $btnEvalSubmit.focus === 'function') $btnEvalSubmit.focus();
-      }, 30);
     }
 
     function submitEvaluate(){
       if(!evaluateState.selectedChoice || evaluateState.answered) return;
       evaluateState.answered = true;
-      evaluateState.isCorrect = evaluateState.selectedChoice === evaluateState.correctChoice;
-
+      const isCorrect = evaluateState.selectedChoice === evaluateState.correctChoice;
       const tpl = EVAL_TEMPLATES.find(x => x.id === evaluateState.questionId);
+
       $evalChoices.querySelectorAll('.evalChoice').forEach(card => {
         const k = card.dataset.choice;
         if(k === evaluateState.correctChoice) card.classList.add('correct');
         if(k === evaluateState.selectedChoice && k !== evaluateState.correctChoice) card.classList.add('wrong');
       });
 
-      if(evaluateState.isCorrect){
+      if(isCorrect){
         $evalFeedback.textContent = tpl.explainCorrect;
         $evalFeedback.className = 'flowFeedback ok';
-        pushToast('ถูกต้อง! คิดได้ดีมาก', 'ok');
-        playSfx('ok');
       }else{
         $evalFeedback.textContent = tpl.explainWrong;
         $evalFeedback.className = 'flowFeedback bad';
-        pushToast('ลองคิดอีกนิด แล้วไปต่อกัน', 'bad');
       }
 
       $btnEvalSubmit.hidden = true;
@@ -3599,20 +2862,6 @@
       $evaluateOverlay.hidden = true;
     }
 
-    $btnEvaluate?.addEventListener('click', openEvaluate);
-    $btnEvalSubmit?.addEventListener('click', submitEvaluate);
-    $btnEvalSkip?.addEventListener('click', () => {
-      closeEvaluate();
-      openCreate();
-    });
-    $btnEvalNext?.addEventListener('click', () => {
-      closeEvaluate();
-      openCreate();
-    });
-
-    /* ---------------------------------
-      Create Overlay
-    --------------------------------- */
     function getCreateFoods(){
       const base = [];
       ['g2','g1','g3','g4','g5'].forEach(g => {
@@ -3630,10 +2879,8 @@
         btn.className = 'food';
         btn.type = 'button';
         btn.dataset.id = item.id;
-
-        const emoji = FOOD_EMOJI[item.id] || '🍎';
         btn.innerHTML = `
-          <div class="foodEmoji">${emoji}</div>
+          <div class="foodEmoji">${FOOD_EMOJI[item.id] || '🍎'}</div>
           <div class="foodMeta">
             <div class="foodName">${item.label}</div>
             <div class="foodTag ${item.group === 'x' ? 'x' : ''}">${item.group === 'x' ? 'ลองคิดดู' : 'เลือกให้เหมาะ'}</div>
@@ -3644,8 +2891,6 @@
           createState.selectedFoodId = item.id;
           [...$createTray.querySelectorAll('.food')].forEach(x => x.classList.remove('selected'));
           btn.classList.add('selected');
-          pushToast(`เลือก ${item.label} แล้ว`, 'info');
-          playSfx('pick');
         });
         $createTray.appendChild(btn);
       });
@@ -3667,10 +2912,10 @@
           inner.innerHTML = `<span class="zonePlaceholder">${FOOD_GROUPS[z].short}</span>`;
         }
       });
+
       const filled = Object.keys(createState.placedByZone).length;
-      const pct = (filled / 5) * 100;
       $createProgressText.textContent = `${filled}/5 หมู่`;
-      $createProgressFill.style.width = `${pct}%`;
+      $createProgressFill.style.width = `${(filled / 5) * 100}%`;
     }
 
     function bindCreateZones(){
@@ -3688,8 +2933,6 @@
           createState.selectedFoodId = null;
           [...$createTray.querySelectorAll('.food')].forEach(x => x.classList.remove('selected'));
           renderCreateZones();
-          pushToast(`วาง ${food.label} แล้ว`, 'ok');
-          playSfx(food.group === z ? 'ok' : 'pick');
         });
       });
     }
@@ -3707,15 +2950,13 @@
         if(placed.food.group !== z) wrongPlaced += 1;
       });
 
-      createState.missingGroups = missingGroups.slice();
-      createState.distractorCount = distractorCount;
-
       let resultLevel = 'retry';
       if(!missingGroups.length && distractorCount === 0 && wrongPlaced === 0){
         resultLevel = 'great';
       }else if(missingGroups.length <= 1 && distractorCount <= 1){
         resultLevel = 'good';
       }
+
       createState.resultLevel = resultLevel;
       createState.hasSubmitted = true;
 
@@ -3735,9 +2976,7 @@
           คุณสร้างจานสุขภาพได้ครบและสมดุล<br><br>
           ทำได้ดี: ${goodBits.join(' • ')}
         `;
-        pushToast('สร้างจานได้ยอดเยี่ยมมาก', 'ok');
         celebrate('perfect');
-        playSfx('perfect');
       }else if(resultLevel === 'good'){
         $createResult.className = 'createResult show good';
         $createResult.innerHTML = `
@@ -3745,9 +2984,6 @@
           เหลืออีกนิด จานนี้เกือบสมดุลแล้ว<br><br>
           ควรปรับ: ${fixBits.join(' • ')}
         `;
-        pushToast('เกือบสมบูรณ์แล้ว', 'ok');
-        celebrate('good');
-        playSfx('plate');
       }else{
         $createResult.className = 'createResult show retry';
         $createResult.innerHTML = `
@@ -3755,19 +2991,17 @@
           จานนี้ยังต้องปรับอีกเล็กน้อย<br><br>
           ควรปรับ: ${fixBits.join(' • ')}
         `;
-        pushToast('ลองเติมหมู่ที่ขาดอีกนิด', 'bad');
       }
 
       $createEndActions.hidden = false;
     }
 
     function openCreate(){
+      renderPostGameFlowText();
       createState.selectedFoodId = null;
       createState.placedByZone = {};
       createState.hasSubmitted = false;
       createState.resultLevel = '';
-      createState.missingGroups = [];
-      createState.distractorCount = 0;
       createState.trayFoods = getCreateFoods();
 
       $createResult.className = 'createResult';
@@ -3776,62 +3010,197 @@
 
       renderCreateTray();
       renderCreateZones();
-
       $createOverlay.hidden = false;
-      setTimeout(() => {
-        if($btnCreateSubmit && typeof $btnCreateSubmit.focus === 'function') $btnCreateSubmit.focus();
-      }, 30);
     }
 
     function closeCreate(){
       $createOverlay.hidden = true;
     }
 
-    $btnCreateSubmit?.addEventListener('click', evaluateCreatePlate);
-    $btnCreateReset?.addEventListener('click', openCreate);
-    $btnCreateReplay?.addEventListener('click', async () => {
-      closeCreate();
-      await replayRun();
-    });
-    $btnCreateBackHub?.addEventListener('click', async () => {
-      closeCreate();
-      await backHub();
-    });
-    bindCreateZones();
+    function isOverlayBlocking(){
+      const guideOpen = !$guideOverlay.hidden;
+      const rewardOpen = !$rewardPopupOverlay.hidden;
+      const pauseOpen = !$pauseOverlay.hidden;
+      const summaryOpen = $summaryOverlay.classList.contains('show');
+      const evalOpen = !$evaluateOverlay.hidden;
+      const createOpen = !$createOverlay.hidden;
+      return !!(guideOpen || rewardOpen || pauseOpen || summaryOpen || evalOpen || createOpen);
+    }
 
-    /* ---------------------------------
-      Flow actions
-    --------------------------------- */
-    function cancelRerouteTimers(){
+    function resetRunState(){
+      cancelRafLoop();
+      clearTimeout(state.roundAdvanceTimer);
+      state.roundAdvanceTimer = 0;
+
+      state.started = false;
+      state.finished = false;
+      state.paused = false;
+      state.hiddenPaused = false;
+      state.destroyed = false;
+      state.score = 0;
+      state.timeLeft = ctx.time;
+      state.streak = 0;
+      state.bestStreak = 0;
+      state.correct = 0;
+      state.wrong = 0;
+      state.completedPlates = 0;
+      state.currentRound = 0;
+      state.selectedFoodId = null;
+      state.roundTargetGroups = [];
+      state.roundFoods = [];
+      state.placedByZone = {};
+      state.mistakeByGroup = { g1:0, g2:0, g3:0, g4:0, g5:0 };
+      state.perfectPlates = 0;
+      state.timeStartedMs = 0;
+      state.summaryShown = 0;
+      state.gameDeadlineMs = 0;
+      state.lastSecondShown = ctx.time;
+
+      rng = makeRng(ctx.seed);
+
+      updateHud();
+      updateMissionUi();
+      renderSelectedBar();
+      renderEntryContext();
+      renderPostGameFlowText();
+      $summaryOverlay.classList.remove('show');
+      $pauseOverlay.hidden = true;
+      $evaluateOverlay.hidden = true;
+      $createOverlay.hidden = true;
+      leavingPage = false;
+    }
+
+    function cancelTimers(){
+      cancelRafLoop();
       clearTimeout(state.roundAdvanceTimer);
       state.roundAdvanceTimer = 0;
     }
 
     function cleanupBeforeLeave(){
-      cancelRafLoop();
-      cancelRerouteTimers();
+      cancelTimers();
       state.destroyed = true;
-      try{ document.body.classList.remove('show-summary'); }catch(_){}
-      try{ if(document.getElementById('pauseOverlay')) document.getElementById('pauseOverlay').hidden = true; }catch(_){}
+      $pauseOverlay.hidden = true;
     }
+
+    function maybeShowGuideThenStart(){
+      const stage = getEntryStage();
+
+      if (stage === 'after_quick_plate') {
+        reallyStartGame();
+        return;
+      }
+
+      if (shouldShowGuide()) {
+        $guideOverlay.hidden = false;
+        document.body.classList.add('guide-open');
+        return;
+      }
+
+      reallyStartGame();
+    }
+
+    function reallyStartGame(){
+      if(state.started) return;
+
+      resetRunState();
+      state.started = true;
+      state.finished = false;
+      state.timeStartedMs = Date.now();
+
+      updateDailyQuestUi();
+      renderStickerShelf();
+      renderEntryContext();
+      renderPostGameFlowText();
+
+      if (getEntryStage() === 'after_quick_plate') {
+        deferRewardPopupOnEntry = true;
+      }
+
+      const dailyBoot = readDailyProgress();
+      const stage = getEntryStage();
+
+      if (stage !== 'after_quick_plate' && !dailyBoot.firstPlayShown) {
+        dailyBoot.firstPlayShown = 1;
+        writeDailyProgress(dailyBoot);
+        enqueueRewardPopup({
+          kind:'hello',
+          icon:'🌞',
+          title:'ยินดีต้อนรับวันนี้',
+          desc:'มาเริ่มสะสมสติกเกอร์และทำภารกิจประจำวันกัน',
+          meta:'เป้าหมายวันนี้: 3 จาน',
+          cta:'เยี่ยมเลย'
+        });
+      }
+
+      if (stage === 'after_quick_plate') {
+        pushToast('อุ่นเครื่องเสร็จแล้ว ไปจัดจานจริงกัน!', 'ok');
+        setFeedback('พร้อมแล้ว เริ่มเกมหลักได้เลย');
+      } else if (stage === 'from_launcher') {
+        pushToast('เริ่มเกมหลักแล้ว!', 'info');
+        setFeedback('มาจัดจานสุขภาพให้ครบ 5 หมู่กัน');
+      } else {
+        setFeedback('มาจัดจานสุขภาพกัน');
+      }
+
+      bindZones();
+      nextRound();
+      startGameClock();
+    }
+
+    function closeGuide(){
+      $guideOverlay.hidden = true;
+      document.body.classList.remove('guide-open');
+    }
+
+    $guideStartBtn.addEventListener('click', () => {
+      if($guideDontShowToday.checked) markGuideSeen();
+      closeGuide();
+      reallyStartGame();
+    });
+
+    $btnClearPick.addEventListener('click', () => {
+      state.selectedFoodId = null;
+      syncFoodUi();
+      renderSelectedBar();
+      setFeedback('ยกเลิกการเลือกแล้ว');
+    });
+
+    $btnResumeGame.addEventListener('click', resumeGame);
+
+    $btnRestartGame.addEventListener('click', () => {
+      if(leavingPage) return;
+      leavingPage = true;
+      cleanupBeforeLeave();
+      const nextSeed = String(Date.now());
+      location.href = withPassthrough(
+        '/webxr-health-mobile/herohealth/plate/plate-vr.html',
+        ctx,
+        { seed: nextSeed, entry: 'replay' }
+      );
+    });
 
     async function replayRun(){
       if(leavingPage) return;
-      lockLeaveButtons();
-      state.replayClicked = 1;
+      leavingPage = true;
       cleanupBeforeLeave();
 
       const nextSeed = String(Date.now());
-      location.href = withPassthrough('/webxr-health-mobile/herohealth/plate/plate-vr.html', ctx, { seed: nextSeed });
+      location.href = withPassthrough(
+        '/webxr-health-mobile/herohealth/plate/plate-vr.html',
+        ctx,
+        {
+          seed: nextSeed,
+          entry: 'replay'
+        }
+      );
     }
 
     async function backHub(){
       if(leavingPage) return;
-      lockLeaveButtons();
-      state.backHubClicked = 1;
+      leavingPage = true;
       cleanupBeforeLeave();
 
-      const cooldownDone = isGateDone('cooldown', ctx);
+      const cooldownDone = isGateDone('cooldown');
       if(!cooldownDone){
         location.href = withPassthrough('/webxr-health-mobile/herohealth/warmup-gate.html', ctx, {
           phase:'cooldown',
@@ -3839,24 +3208,36 @@
         });
         return;
       }
-      location.href = ctx.hub || '/webxr-health-mobile/herohealth/hub.html';
+
+      location.href = ctx.hub;
     }
 
-    $btnReplay?.addEventListener('click', replayRun);
-    $btnBackHub?.addEventListener('click', backHub);
+    $btnReplay.addEventListener('click', replayRun);
+    $btnBackHub.addEventListener('click', backHub);
+    $btnEvaluate.addEventListener('click', openEvaluate);
 
-    $btnResumeGame?.addEventListener('click', () => {
-      unlockAudio();
-      resumeGame();
+    $btnEvalSubmit.addEventListener('click', submitEvaluate);
+    $btnEvalSkip.addEventListener('click', () => {
+      closeEvaluate();
+      openCreate();
+    });
+    $btnEvalNext.addEventListener('click', () => {
+      closeEvaluate();
+      openCreate();
     });
 
-    $btnRestartGame?.addEventListener('click', async () => {
-      if(leavingPage) return;
-      lockLeaveButtons();
-      cleanupBeforeLeave();
-      const nextSeed = String(Date.now());
-      location.href = withPassthrough('/webxr-health-mobile/herohealth/plate/plate-vr.html', ctx, { seed: nextSeed });
+    $btnCreateSubmit.addEventListener('click', evaluateCreatePlate);
+    $btnCreateReset.addEventListener('click', openCreate);
+    $btnCreateReplay.addEventListener('click', () => {
+      closeCreate();
+      replayRun();
     });
+    $btnCreateBackHub.addEventListener('click', () => {
+      closeCreate();
+      backHub();
+    });
+
+    bindCreateZones();
 
     document.addEventListener('visibilitychange', () => {
       if(state.finished || !state.started) return;
@@ -3870,143 +3251,11 @@
       }
     });
 
-    /* ---------------------------------
-      Start / Reset
-    --------------------------------- */
-    function resetRunState(){
-      cancelRafLoop();
-      clearTimeout(state.roundAdvanceTimer);
-      state.roundAdvanceTimer = 0;
-
-      state.started = false;
-      state.finished = false;
-      state.paused = false;
-      state.hiddenPaused = false;
-      state.destroyed = false;
-
-      state.score = 0;
-      state.timeLeft = ctx.time;
-      state.streak = 0;
-      state.bestStreak = 0;
-      state.correct = 0;
-      state.wrong = 0;
-      state.completedPlates = 0;
-      state.currentRound = 0;
-
-      state.selectedFoodId = null;
-      state.roundTargetGroups = [];
-      state.roundFoods = [];
-      state.placedByZone = {};
-      state.mistakeByGroup = { g1:0, g2:0, g3:0, g4:0, g5:0 };
-
-      state.roundsStarted = 0;
-      state.roundsCompleted = 0;
-      state.perfectPlates = 0;
-
-      state.timeStartedMs = 0;
-      state.timeToFirstCorrectMs = null;
-      state.timeToFirstPlateMs = null;
-
-      state.perGroupCorrect = { g1:0, g2:0, g3:0, g4:0, g5:0 };
-      state.perGroupWrong = { g1:0, g2:0, g3:0, g4:0, g5:0 };
-
-      state.replayClicked = 0;
-      state.backHubClicked = 0;
-      state.summaryShown = 0;
-
-      state.gameDeadlineMs = 0;
-      state.lastSecondShown = ctx.time;
-      state.inputLockUntil = 0;
-      state.runToken += 1;
-
-      state.recentFoodIds = [];
-      state.recentRoundSig = [];
-
-      rng = makeRng(ctx.seed);
-
-      $tray.innerHTML = '';
-      updateHud();
-      resetUiForFreshRun();
-      refreshZoneUi();
-      updateMissionUi();
-      renderSelectedBar();
-
-      if(document.getElementById('pauseOverlay')) document.getElementById('pauseOverlay').hidden = true;
-      $evaluateOverlay.hidden = true;
-      $createOverlay.hidden = true;
-    }
-
-    function reallyStartGame(){
-      if(state.started) return;
-
-      resetRunState();
-      state.started = true;
-      state.finished = false;
-
-      updateDailyQuestUi();
-      renderStickerShelf();
-
-      const dailyBoot = readDailyProgress();
-      if(!dailyBoot.firstPlayShown){
-        dailyBoot.firstPlayShown = 1;
-        writeDailyProgress(dailyBoot);
-        enqueueRewardPopup({
-          kind:'hello',
-          icon:'🌞',
-          title:'ยินดีต้อนรับวันนี้',
-          desc:'มาเริ่มสะสมสติกเกอร์และทำภารกิจประจำวันกัน',
-          meta:'เป้าหมายวันนี้: 3 จาน',
-          cta:'เริ่มเลย'
-        });
-      }
-
-      state.timeStartedMs = Date.now();
-      bindZones();
-      nextRound();
-      startGameClock();
-
-      if(isMobileCompact() && $trayArea){
-        $trayArea.classList.remove('collapsed');
-        syncTrayToggleLabel();
-      }
-    }
-
-    function startGame(){
-      maybeShowGuideThenStart();
-    }
-
-    /* ---------------------------------
-      Summary -> Evaluate/Create buttons
-    --------------------------------- */
-    $btnEvaluate?.addEventListener('click', openEvaluate);
-
-    /* ---------------------------------
-      Misc UI bindings
-    --------------------------------- */
-    $btnClearPick?.addEventListener('click', () => {
-      state.selectedFoodId = null;
-      syncFoodUi();
-      renderSelectedBar();
-      setFeedback('ยกเลิกการเลือกแล้ว');
-      pushToast('ยกเลิกการเลือกแล้ว', 'info');
-    });
-
-    window.addEventListener('resize', () => {
-      syncCompactMode();
-      syncTrayToggleLabel();
-    });
-
-    /* ---------------------------------
-      Boot
-    --------------------------------- */
-    syncCompactMode();
-    syncTrayToggleLabel();
-    renderSelectedBar();
-    updateMissionUi();
+    renderEntryContext();
+    renderPostGameFlowText();
     updateDailyQuestUi();
     renderStickerShelf();
-    startGame();
-
+    maybeShowGuideThenStart();
   })();
   </script>
 </body>
