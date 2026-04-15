@@ -1010,7 +1010,11 @@
     </a-entity>
 
     <a-entity id="player-rig">
-      <a-camera id="cam" position="0 1.6 0" look-controls>
+      <a-camera
+        id="cam"
+        position="0 1.6 0"
+        look-controls="magicWindowTrackingEnabled: false; touchEnabled: true"
+      >
         <a-entity id="cursor"
                   cursor="fuse: false"
                   position="0 0 -1"
@@ -1624,6 +1628,19 @@
       setCoachMood('warn');
     }
 
+    function snapFrontView(){
+      const lc = cam && cam.components && cam.components['look-controls'];
+      if (!lc) return;
+
+      try{
+        if (lc.yawObject) lc.yawObject.rotation.y = 0;
+        if (lc.pitchObject) lc.pitchObject.rotation.x = -0.10;
+        if (lc.pitchObject) lc.pitchObject.rotation.z = 0;
+      }catch(e){
+        console.warn(e);
+      }
+    }
+
     function setObjectHighlight(group, on, color='#63e6ff'){
       if (!group) return;
       const targets = group.querySelectorAll('.focusable, a-box, a-plane, a-text');
@@ -1948,7 +1965,9 @@
         setCoach('ตอนนี้มืออยู่กลางอ่างด้านหน้า แตะโซนที่เรืองแสงบนมือ');
       }
 
-      if (state.rushActive){
+      if (step.id === 'faucet'){
+        setCoach('ถ้าภาพเอียง กด RECENTER ก่อน แล้วมองอ่างตรงกลาง');
+      } else if (state.rushActive){
         setCoach(coachLine('rush'));
         setCoachMood('hot');
       } else if (step.type !== 'zones'){
@@ -2148,6 +2167,10 @@
       setCoachMood('normal');
       setHudCompact(isMobileLike());
       prepareStep();
+
+      setTimeout(() => {
+        snapFrontView();
+      }, 60);
     }
 
     function applyResponsiveBoardLayout(){
@@ -2160,14 +2183,14 @@
       const shortH = window.innerHeight < 760;
 
       if (mobile && shortH){
-        board.setAttribute('position', '0 1.00 -1.10');
-        handsBoard.setAttribute('position', '0 0.16 0.22');
-        handsBoard.setAttribute('scale', '1.02 1.02 1.02');
+        board.setAttribute('position', '0 0.98 -0.98');
+        handsBoard.setAttribute('position', '0 0.18 0.26');
+        handsBoard.setAttribute('scale', '1.10 1.10 1.10');
         waterGroup.setAttribute('position', '0 0 0');
       } else if (mobile){
-        board.setAttribute('position', '0 1.03 -1.14');
-        handsBoard.setAttribute('position', '0 0.18 0.22');
-        handsBoard.setAttribute('scale', '1.06 1.06 1.06');
+        board.setAttribute('position', '0 1.02 -1.04');
+        handsBoard.setAttribute('position', '0 0.20 0.26');
+        handsBoard.setAttribute('scale', '1.14 1.14 1.14');
         waterGroup.setAttribute('position', '0 0 0');
       } else {
         board.setAttribute('position', '0 1.06 -1.18');
@@ -2217,7 +2240,8 @@
     });
 
     ui.recenterBtn.addEventListener('click', ()=>{
-      setCoach('จัดมุมมองใหม่แล้ว');
+      snapFrontView();
+      setCoach('จัดมุมมองใหม่แล้ว มองอ่างตรงกลางได้แล้ว');
       setCoachMood('good');
     });
 
@@ -2240,6 +2264,9 @@
     window.addEventListener('resize', ()=>{
       if (state.started && !state.ended) setHudCompact(isMobileLike());
       applyResponsiveBoardLayout();
+      setTimeout(() => {
+        snapFrontView();
+      }, 50);
     });
 
     function loop(ts){
@@ -2321,6 +2348,11 @@
     setHudCompact(isMobileLike());
     applyResponsiveBoardLayout();
     updateUI();
+
+    setTimeout(() => {
+      snapFrontView();
+    }, 80);
+
     requestAnimationFrame(loop);
   </script>
 </body>
