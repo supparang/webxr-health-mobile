@@ -3,20 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Handwash Hero VR • How to Play</title>
+  <title>Handwash Hero • Howto</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
 
   <style>
     :root{
-      --bg:rgba(10,28,48,.80);
+      --bg:rgba(10,28,48,.82);
+      --panel:rgba(255,255,255,.12);
       --line:#63e6ff;
+      --ink:#ffffff;
       --yellow:#ffd84d;
+      --pink:#ff72b6;
+      --green:#86efac;
       --shadow:0 12px 30px rgba(0,0,0,.26);
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       width:100%;
@@ -45,7 +50,7 @@
       top:8px;
       left:50%;
       transform:translateX(-50%);
-      width:min(94%,520px);
+      width:min(94%,560px);
       background:var(--bg);
       color:#fff;
       padding:12px 12px 10px;
@@ -62,8 +67,7 @@
       width:min(94%,420px);
     }
 
-    #ui-layer.compact #guide-panel,
-    #ui-layer.compact .progress-wrap{
+    #ui-layer.compact #guide-panel{
       display:none;
     }
 
@@ -158,22 +162,56 @@
       transition:width .12s linear;
     }
 
-    #coach{
+    #coach-wrap{
       position:absolute;
       left:10px;
       right:10px;
-      bottom:2px;
+      bottom:4px;
       margin:auto;
       width:auto;
       max-width:560px;
+      display:grid;
+      grid-template-columns:56px 1fr;
+      gap:10px;
+      align-items:center;
+      pointer-events:none;
+    }
+
+    #coach-face{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.6rem;
+      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
+      box-shadow:0 8px 18px rgba(0,0,0,.16), inset 0 0 0 4px rgba(255,255,255,.32);
+      transition:transform .18s ease, background .18s ease;
+    }
+
+    #coach-face.good{
+      background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%);
+      transform:scale(1.04);
+    }
+
+    #coach-face.warn{
+      background:linear-gradient(180deg,#fff5b1 0%, #ffe66d 100%);
+    }
+
+    #coach{
+      position:static;
+      margin:0;
+      width:auto;
+      max-width:none;
       background:rgba(255,255,255,.90);
       color:#0f172a;
-      border-radius:14px;
-      padding:7px 10px;
-      box-shadow:0 8px 18px rgba(0,0,0,.14);
+      border-radius:16px;
+      padding:8px 10px;
+      box-shadow:0 10px 24px rgba(0,0,0,.16);
       font-weight:800;
-      font-size:.82rem;
-      line-height:1.25;
+      font-size:.86rem;
+      line-height:1.3;
       pointer-events:none;
     }
 
@@ -257,7 +295,7 @@
 
     .tips{
       display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
       gap:10px;
       margin:14px 0 16px;
     }
@@ -304,10 +342,98 @@
 
     .hidden{ display:none !important; }
 
+    .scene-transition{
+      position:fixed;
+      inset:0;
+      z-index:80;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:radial-gradient(circle at center, rgba(17,24,39,.72) 0%, rgba(6,12,22,.92) 100%);
+      backdrop-filter:blur(10px);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .28s ease;
+    }
+
+    .scene-transition.show{
+      opacity:1;
+      pointer-events:auto;
+    }
+
+    .scene-transition-card{
+      width:min(520px,100%);
+      background:rgba(255,255,255,.96);
+      color:#0f172a;
+      border-radius:28px;
+      padding:22px;
+      box-shadow:0 24px 60px rgba(0,0,0,.24);
+      border:2px solid rgba(255,255,255,.98);
+      text-align:center;
+    }
+
+    .scene-transition-icon{
+      width:78px;
+      height:78px;
+      margin:0 auto 12px;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2rem;
+      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
+      box-shadow:inset 0 0 0 5px rgba(255,255,255,.35);
+      animation:transitionPulse .8s infinite;
+    }
+
+    .scene-transition-title{
+      margin:0;
+      font-size:1.35rem;
+      line-height:1.15;
+      font-weight:1000;
+      color:#12324b;
+    }
+
+    .scene-transition-desc{
+      margin:8px 0 0;
+      color:#48657f;
+      font-weight:800;
+      line-height:1.5;
+    }
+
+    .scene-transition-bar{
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      background:#e6f4fb;
+      overflow:hidden;
+      margin-top:14px;
+      border:1px solid #d3ebf8;
+    }
+
+    .scene-transition-fill{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#60ff9d 0%, #00e5ff 100%);
+      animation:transitionFill 900ms linear forwards;
+    }
+
     @keyframes pulse{
       0%{ transform:scale(1); }
       50%{ transform:scale(1.04); }
       100%{ transform:scale(1); }
+    }
+
+    @keyframes transitionPulse{
+      0%{ transform:scale(1); }
+      50%{ transform:scale(1.05); }
+      100%{ transform:scale(1); }
+    }
+
+    @keyframes transitionFill{
+      from{ width:0%; }
+      to{ width:100%; }
     }
 
     @media (max-width:680px){
@@ -359,12 +485,24 @@
         font-size:.82rem;
       }
 
-      #coach{
+      #coach-wrap{
         left:8px;
         right:8px;
         bottom:2px;
-        padding:7px 9px;
-        font-size:.76rem;
+        grid-template-columns:48px 1fr;
+        gap:8px;
+      }
+
+      #coach-face{
+        width:48px;
+        height:48px;
+        border-radius:16px;
+        font-size:1.35rem;
+      }
+
+      #coach{
+        padding:8px 10px;
+        font-size:.80rem;
       }
 
       .card{
@@ -382,20 +520,20 @@
 
   <div id="hud">
     <div id="ui-layer">
-      <div id="step-count">เตรียมพร้อม</div>
-      <div id="step-name">กดสบู่ก่อนเริ่มฝึก</div>
+      <div id="step-count">Howto • ขั้นที่ 1/5</div>
+      <div id="step-name">มองเป้ากลางจอให้ตรง</div>
 
       <div id="guide-panel">
-        <div id="guide-icon" class="guide-image">🧼</div>
+        <div id="guide-icon" class="guide-image">🎯</div>
         <div id="guide-copy">
-          <div id="step-desc">เริ่มจากแตะบริเวณสบู่จริงก่อน แล้วระบบจะพาไปฝึก 7 ขั้นตอนการถูมือทีละขั้น</div>
-          <div id="action-prompt">เล็งป้าย “ใส่สบู่” แล้วแตะจอ</div>
+          <div id="step-desc">ใช้วงกลมฟ้ากลางจอเล็งวัตถุที่เรืองแสง แล้วแตะหน้าจอ 1 ครั้ง</div>
+          <div id="action-prompt">เล็งเป้าสีฟ้ากลางจอให้ตรง</div>
         </div>
       </div>
 
       <div class="progress-wrap">
         <div class="progress-top">
-          <span>คืบหน้า</span>
+          <span>ความคืบหน้า</span>
           <span id="progress-text">0%</span>
         </div>
         <div class="progress-bar">
@@ -404,7 +542,10 @@
       </div>
     </div>
 
-    <div id="coach">เล็งวงกลมฟ้าตรงกลางไปที่ป้าย “ใส่สบู่” แล้วแตะจอ 1 ครั้ง</div>
+    <div id="coach-wrap">
+      <div id="coach-face">🙂</div>
+      <div id="coach">เริ่มจากมองเป้ากลางจอให้ตรงก่อน</div>
+    </div>
   </div>
 
   <div id="controls">
@@ -415,33 +556,34 @@
 
   <div class="overlay" id="start-overlay">
     <div class="card">
-      <div class="badge">🫧 Handwash Hero VR</div>
-      <h1>เกมสอน 7 ขั้นตอนการถูมือ</h1>
-      <p>เวอร์ชันนี้เป็น <strong>How to Play / Warmup Mini-game</strong> เพื่อให้เด็กเข้าใจว่าแต่ละขั้นควรถูส่วนไหนของมือบ้างก่อนเข้าเกมหลัก</p>
+      <div class="badge">🫧 Handwash Howto</div>
+      <h1>สอนวิธีเล่นแบบเร็ว</h1>
+      <p>หน้านี้สั้นมาก มีไว้ให้รู้แค่วิธีเล็ง แตะ และค้าง ก่อนจะไป <strong>Practice Lab</strong></p>
 
       <div class="tips">
-        <div class="tip">🎯 เล็งวงกลมฟ้ากลางจอไปที่วัตถุหรือเป้า</div>
-        <div class="tip">👆 แตะจอ / คลิก / กด Space หรือ Enter เพื่อเลือก</div>
-        <div class="tip">🧼 เริ่มจากป้าย “ใส่สบู่”</div>
-        <div class="tip">🖐️ ขั้นแรกแตะฝ่ามือซ้ายและขวาได้เลย</div>
+        <div class="tip">🎯 เล็งวงกลมฟ้ากลางจอให้ตรงเป้า</div>
+        <div class="tip">👆 แตะ = เลือก</div>
+        <div class="tip">💧 ค้าง = ทำให้แถบเต็ม</div>
+        <div class="tip">🧪 พร้อมแล้วจะไป Practice ต่อ</div>
       </div>
 
       <div class="actions">
-        <button class="btn primary" id="start-btn" type="button">เริ่มฝึก</button>
+        <button class="btn primary" id="start-btn" type="button">เริ่ม Howto</button>
+        <button class="btn blue" id="skip-btn" type="button">ข้ามไป Practice</button>
       </div>
     </div>
   </div>
 
   <div class="overlay hidden" id="summary-overlay">
     <div class="card">
-      <div class="badge">✨ ฝึกสำเร็จ</div>
-      <h1 id="sum-title">ล้างมือครบ 7 ขั้นแล้ว!</h1>
-      <p id="sum-desc">ยอดเยี่ยมมาก ตอนนี้เด็กจะเข้าใจลำดับการถูมือชัดขึ้นกว่าเดิม</p>
+      <div class="badge">✨ Howto ผ่านแล้ว</div>
+      <h1 id="sum-title">พร้อมไป Practice Lab</h1>
+      <p id="sum-desc">ตอนนี้รู้วิธีเล็ง แตะ และค้างแล้ว ไปฝึกในด่านถัดไปได้เลย</p>
 
       <div class="summary-grid">
         <div class="summary-box">
-          <small>ทำสำเร็จ</small>
-          <span id="sum-steps">7 / 7</span>
+          <small>สำเร็จ</small>
+          <span id="sum-steps">5 / 5</span>
         </div>
         <div class="summary-box">
           <small>คะแนน</small>
@@ -454,164 +596,77 @@
       </div>
 
       <div class="actions">
-        <button class="btn primary" id="restart-btn" type="button">ฝึกอีกครั้ง</button>
-        <button class="btn blue hidden" id="next-btn" type="button">ไปเกมหลัก</button>
+        <button class="btn blue" id="restart-btn" type="button">ดูอีกครั้ง</button>
+        <button class="btn primary" id="next-btn" type="button">ไป Practice Lab</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="sceneTransition" class="scene-transition">
+    <div class="scene-transition-card">
+      <div id="sceneTransitionIcon" class="scene-transition-icon">✨</div>
+      <h2 id="sceneTransitionTitle" class="scene-transition-title">กำลังไปด่านถัดไป</h2>
+      <p id="sceneTransitionDesc" class="scene-transition-desc">เตรียมพร้อมอีกนิด</p>
+      <div class="scene-transition-bar">
+        <div class="scene-transition-fill"></div>
       </div>
     </div>
   </div>
 
   <a-scene id="scene" vr-mode-ui="enabled: false" renderer="colorManagement: true; antialias: true">
-    <a-entity environment="preset: forest; dressingAmount: 18; groundColor: #b9f3d0; groundColor2: #86efac; skyColor: #bfe9ff"></a-entity>
+    <a-entity environment="preset: forest; dressingAmount: 10; groundColor: #b9f3d0; groundColor2: #86efac; skyColor: #bfe9ff"></a-entity>
+
     <a-entity light="type: ambient; intensity: 1.15; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.9; color: #fff7dd" position="1 3 2"></a-entity>
 
-    <!-- sink -->
-    <a-entity position="0 0.18 -1.18">
-      <a-box position="0 0.84 0" width="1.55" height="0.1" depth="0.82" color="#bfc9d6"></a-box>
-      <a-box position="0 0.40 0" width="1.45" height="0.8" depth="0.72" color="#e5edf5"></a-box>
-      <a-cylinder position="0 1.08 -0.24" radius="0.03" height="0.34" color="#94a3b8"></a-cylinder>
-      <a-box position="0 1.22 -0.05" width="0.34" height="0.06" depth="0.12" color="#94a3b8"></a-box>
-      <a-cylinder position="0 1.10 0.12" radius="0.03" height="0.13" rotation="90 0 0" color="#94a3b8"></a-cylinder>
+    <a-entity id="board-root" position="0 1.08 -1.08">
+      <a-plane width="2.2" height="1.55" color="#0f2741" material="opacity:0.97"></a-plane>
+      <a-plane width="2.0" height="1.35" color="#133453" position="0 0 0.01" material="opacity:0.98"></a-plane>
 
-      <a-entity id="soap-group"
-                position="0.18 1.02 0.02"
-                animation__pulse="property: scale; dir: alternate; loop: true; dur: 650; to: 1.04 1.04 1.04">
-        <a-box id="soap-target"
-               class="focusable"
-               width="0.34" height="0.14" depth="0.20"
-               color="#ff4fa3"
-               material="emissive: #ff9ecb; emissiveIntensity: 0.65"></a-box>
+      <a-text value="Handwash Howto" color="#ffffff" width="2.6" align="center" position="0 0.62 0.03"></a-text>
+      <a-text value="Learn • Tap • Hold" color="#baf4ff" width="1.5" align="center" position="0 0.50 0.03"></a-text>
 
-        <a-plane id="soap-hitbox"
-                 class="focusable"
-                 position="0 0.03 0.12"
-                 width="0.62" height="0.54"
-                 color="#ffffff"
-                 opacity="0.001"
-                 material="transparent: true"></a-plane>
+      <!-- faucet -->
+      <a-entity id="faucet-group" position="-0.75 0.05 0.04">
+        <a-box id="faucet-btn" class="focusable" width="0.28" height="0.10" depth="0.03" color="#7dd3fc" material="emissive:#7dd3fc; emissiveIntensity:0.55"></a-box>
+        <a-cylinder position="0 -0.16 0" radius="0.03" height="0.26" color="#9ec8e3"></a-cylinder>
+        <a-cylinder position="0 -0.28 0.02" radius="0.055" height="0.12" rotation="90 0 0" color="#9ec8e3"></a-cylinder>
+        <a-plane id="faucet-hitbox" class="focusable" width="0.50" height="0.42" color="#fff" opacity="0.001" material="transparent:true" position="0 -0.06 0.06"></a-plane>
+        <a-plane id="faucet-callout-bg" class="focusable" width="0.46" height="0.12" color="#12314d" opacity="0.96" material="transparent:true" position="0 0.18 0.04"></a-plane>
+        <a-text id="faucet-callout" class="focusable" value="เปิดน้ำ" align="center" color="#ffffff" width="1.0" position="0 0.18 0.05"></a-text>
+      </a-entity>
 
-        <a-ring id="soap-halo"
-                class="focusable"
-                position="0 0.02 0.11"
-                radius-inner="0.20"
-                radius-outer="0.30"
-                color="#ffd84d"
-                material="shader: flat; transparent: true; opacity: 0.55"
-                animation="property: rotation; to: 0 0 360; loop: true; dur: 4000; easing: linear"></a-ring>
+      <!-- soap -->
+      <a-entity id="soap-group" position="0.75 0.05 0.04">
+        <a-box id="soap-target" class="focusable" width="0.28" height="0.11" depth="0.16" color="#ff4fa3" material="emissive:#ff9ecb; emissiveIntensity:0.65"></a-box>
+        <a-plane id="soap-hitbox" class="focusable" width="0.52" height="0.34" color="#fff" opacity="0.001" material="transparent:true" position="0 0.02 0.08"></a-plane>
+        <a-plane id="soap-callout-bg" class="focusable" position="0 0.18 0.04" width="0.50" height="0.12" color="#12314d" opacity="0.96" material="transparent:true"></a-plane>
+        <a-text id="soap-callout" class="focusable" value="ใส่สบู่" align="center" color="#ffffff" width="1.1" position="0 0.18 0.05"></a-text>
+      </a-entity>
 
-        <a-cone id="soap-arrow"
-                class="focusable"
-                position="0 0.46 0"
-                rotation="180 0 0"
-                radius-bottom="0.10"
-                height="0.22"
-                color="#ffd84d"
-                animation="property: position; to: 0 0.32 0; dir: alternate; loop: true; dur: 500"></a-cone>
+      <!-- water zone -->
+      <a-entity id="water-group">
+        <a-plane id="water-zone" class="focusable" width="0.26" height="0.92" color="#66e6ff" opacity="0.24" material="transparent:true" position="-1.01 -0.12 0.05"></a-plane>
+        <a-plane width="0.18" height="0.86" color="#56dbff" opacity="0.72" material="transparent:true" position="-1.01 -0.12 0.06"></a-plane>
+        <a-text value="โซนน้ำ" align="center" color="#dffbff" width="0.9" position="-1.01 0.35 0.07"></a-text>
+      </a-entity>
 
-        <a-plane id="soap-callout-bg"
-                 class="focusable"
-                 position="0 0.25 0.04"
-                 width="0.62"
-                 height="0.16"
-                 color="#12314d"
-                 opacity="0.95"
-                 material="transparent:true"></a-plane>
+      <!-- hands -->
+      <a-entity id="hands-board" position="0 -0.12 0.03">
+        <a-plane width="1.18" height="0.82" color="#fff7d6" material="opacity:0.95"></a-plane>
 
-        <a-text id="soap-callout"
-                class="focusable"
-                value="ใส่สบู่"
-                align="center"
-                color="#ffffff"
-                width="1.3"
-                position="0 0.25 0.05"></a-text>
+        <a-entity id="left-palm-zone" position="-0.28 0 0.06">
+          <a-box width="0.24" height="0.30" depth="0.05" color="#f2c29b"></a-box>
+          <a-plane class="focusable" data-zone="left-palm" width="0.34" height="0.40" color="#fff" opacity="0.001" material="transparent:true"></a-plane>
+        </a-entity>
+
+        <a-entity id="right-palm-zone" position="0.28 0 0.06">
+          <a-box width="0.24" height="0.30" depth="0.05" color="#f2c29b"></a-box>
+          <a-plane class="focusable" data-zone="right-palm" width="0.34" height="0.40" color="#fff" opacity="0.001" material="transparent:true"></a-plane>
+        </a-entity>
       </a-entity>
     </a-entity>
 
-    <!-- fixed hands board in world-space -->
-    <a-entity id="hands-board" position="0 1.08 -1.00" rotation="-8 0 0">
-      <a-plane width="1.28" height="0.92" color="#fff7d6" material="opacity:0.95"></a-plane>
-
-      <a-entity id="hands" position="0 -0.02 0.03">
-        <!-- left hand -->
-        <a-entity id="left-hand" position="-0.22 0 0" rotation="-2 0 8">
-          <a-box width="0.22" height="0.28" depth="0.06" color="#ffdbac"></a-box>
-          <a-box width="0.04" height="0.16" depth="0.05" color="#ffdbac" position="-0.08 0.22 0"></a-box>
-          <a-box width="0.04" height="0.22" depth="0.05" color="#ffdbac" position="-0.025 0.25 0"></a-box>
-          <a-box width="0.04" height="0.20" depth="0.05" color="#ffdbac" position="0.03 0.24 0"></a-box>
-          <a-box width="0.04" height="0.15" depth="0.05" color="#ffdbac" position="0.085 0.20 0"></a-box>
-          <a-cylinder radius="0.045" height="0.13" rotation="0 0 48" color="#ffdbac" position="-0.14 -0.04 0"></a-cylinder>
-
-          <a-plane id="left-palm-hit"
-                   class="focusable palm-hit"
-                   data-kind="palms"
-                   data-side="left"
-                   width="0.30" height="0.34"
-                   position="0 0 0.05"
-                   color="#ffe66d"
-                   opacity="0.18"
-                   material="transparent:true"
-                   visible="false"></a-plane>
-
-          <a-text id="left-palm-label"
-                  value="ฝ่ามือซ้าย"
-                  align="center"
-                  width="0.85"
-                  color="#12324b"
-                  position="0 -0.23 0.06"
-                  visible="false"></a-text>
-
-          <a-sphere id="germs-l"
-                    radius="0.12"
-                    material="color: #8b5cf6; opacity: 0.34; transparent: true; shader: flat"
-                    position="0 0 0.04"></a-sphere>
-        </a-entity>
-
-        <!-- right hand -->
-        <a-entity id="right-hand" position="0.22 0 0" rotation="-2 0 -8">
-          <a-box width="0.22" height="0.28" depth="0.06" color="#ffdbac"></a-box>
-          <a-box width="0.04" height="0.16" depth="0.05" color="#ffdbac" position="0.08 0.22 0"></a-box>
-          <a-box width="0.04" height="0.22" depth="0.05" color="#ffdbac" position="0.025 0.25 0"></a-box>
-          <a-box width="0.04" height="0.20" depth="0.05" color="#ffdbac" position="-0.03 0.24 0"></a-box>
-          <a-box width="0.04" height="0.15" depth="0.05" color="#ffdbac" position="-0.085 0.20 0"></a-box>
-          <a-cylinder radius="0.045" height="0.13" rotation="0 0 -48" color="#ffdbac" position="0.14 -0.04 0"></a-cylinder>
-
-          <a-plane id="right-palm-hit"
-                   class="focusable palm-hit"
-                   data-kind="palms"
-                   data-side="right"
-                   width="0.30" height="0.34"
-                   position="0 0 0.05"
-                   color="#ffe66d"
-                   opacity="0.18"
-                   material="transparent:true"
-                   visible="false"></a-plane>
-
-          <a-text id="right-palm-label"
-                  value="ฝ่ามือขวา"
-                  align="center"
-                  width="0.85"
-                  color="#12324b"
-                  position="0 -0.23 0.06"
-                  visible="false"></a-text>
-
-          <a-sphere id="germs-r"
-                    radius="0.12"
-                    material="color: #8b5cf6; opacity: 0.34; transparent: true; shader: flat"
-                    position="0 0 0.04"></a-sphere>
-
-          <a-entity id="bubbles-fx" visible="false">
-            <a-sphere radius="0.04" color="#ffffff" position="-0.03 0.06 0.08"></a-sphere>
-            <a-sphere radius="0.03" color="#ffffff" position="0.05 -0.03 0.08"></a-sphere>
-            <a-sphere radius="0.025" color="#dff8ff" position="0.02 0.01 0.09"></a-sphere>
-          </a-entity>
-        </a-entity>
-
-        <a-entity id="target-layer"></a-entity>
-        <a-entity id="fx-layer"></a-entity>
-      </a-entity>
-    </a-entity>
-
-    <!-- player -->
     <a-entity id="player-rig">
       <a-camera id="cam" position="0 1.6 0" look-controls>
         <a-entity id="cursor"
@@ -619,7 +674,8 @@
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.011; radiusOuter: 0.02"
                   material="color: #00f2ff; shader: flat"
-                  raycaster="objects: .focusable"></a-entity>
+                  raycaster="objects: .focusable">
+        </a-entity>
       </a-camera>
 
       <a-entity laser-controls="hand: left" raycaster="objects: .focusable"></a-entity>
@@ -629,100 +685,216 @@
 
   <script src="./handwash-shared.js"></script>
   <script>
-    const qsParam = (k, d='') => {
+    const $ = (id) => document.getElementById(id);
+    const scene = $('scene');
+    const cam = $('cam');
+    const cursor = $('cursor');
+
+    const qStr = (k, d='') => {
       try { return new URL(location.href).searchParams.get(k) ?? d; }
       catch { return d; }
     };
 
-    const NEXT_URL = qsParam('next', '');
+    const qNum = (k, d=0) => {
+      const n = Number(qStr(k, d));
+      return Number.isFinite(n) ? n : d;
+    };
 
-    const STEPS = [
-      { id:'palms', name:'ฝ่ามือถูฝ่ามือ', icon:'👐', desc:'แตะที่ฝ่ามือซ้ายและขวาได้เลย', needed:2, prompt:'แตะฝ่ามือซ้ายและขวาให้ครบ' },
-      { id:'backs', name:'ฝ่ามือถูหลังมือ', icon:'🖐️', desc:'แตะเป้าบนหลังมือทั้งสองข้างให้ครบ', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
-      { id:'between', name:'ถูซอกนิ้ว', icon:'🤝', desc:'แตะเป้าตรงซอกนิ้วทั้งสองข้างให้ครบ', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
-      { id:'backfingers', name:'หลังนิ้วถูฝ่ามือ', icon:'👊', desc:'แตะเป้าตรงแนวหลังนิ้วให้ครบ', needed:5, prompt:'แตะเป้าบนมือให้ครบ' },
-      { id:'thumbs', name:'ถูนิ้วหัวแม่มือ', icon:'👍', desc:'แตะเป้าตรงหัวแม่มือซ้ายและขวาให้ครบ', needed:4, prompt:'แตะเป้าบนมือให้ครบ' },
-      { id:'fingertips', name:'ถูปลายนิ้วบนฝ่ามือ', icon:'💅', desc:'แตะเป้าตรงปลายนิ้วและปลายเล็บให้ครบ', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
-      { id:'wrists', name:'ถูรอบข้อมือ', icon:'⌚', desc:'ปิดท้ายด้วยแตะเป้ารอบข้อมือซ้ายและขวา', needed:4, prompt:'แตะเป้าบนมือให้ครบ' }
+    function safePracticeUrl(){
+      const raw = qStr('next', '').trim();
+      if (raw) return raw;
+      return new URL('./handwash-vr.html', location.href).toString();
+    }
+
+    const HOWTO_NEXT_URL = safePracticeUrl();
+    const HUB_URL = qStr('hub', new URL('../hygiene-zone.html', location.href).toString());
+
+    const HOWTO_STEPS = [
+      {
+        id:'look',
+        title:'มองเป้ากลางจอให้ตรง',
+        icon:'🎯',
+        desc:'ใช้วงกลมฟ้ากลางจอเล็งวัตถุที่เรืองแสง',
+        prompt:'ขยับมือถือหรือเมาส์ให้วงกลมกลางจอไปตรงเป้า',
+        coach:'เริ่มจากมองเป้ากลางจอให้ตรงก่อน'
+      },
+      {
+        id:'tap-faucet',
+        title:'แตะป้าย “เปิดน้ำ”',
+        icon:'🚰',
+        desc:'เล็งไปที่ป้ายเปิดน้ำ แล้วแตะหน้าจอ 1 ครั้ง',
+        prompt:'เล็ง “เปิดน้ำ” แล้วแตะ',
+        coach:'ตอนนี้ลองแตะป้ายเปิดน้ำ 1 ครั้ง'
+      },
+      {
+        id:'tap-soap',
+        title:'แตะป้าย “ใส่สบู่”',
+        icon:'🧼',
+        desc:'วัตถุที่เรืองแสงแตะได้ เมื่อเล็งตรงแล้วแตะ',
+        prompt:'เล็ง “ใส่สบู่” แล้วแตะ',
+        coach:'ดีมาก ต่อไปแตะป้ายใส่สบู่'
+      },
+      {
+        id:'hold-water',
+        title:'ค้างในโซนน้ำ',
+        icon:'💧',
+        desc:'บางขั้นต้องเล็งค้างไว้จนแถบคืบหน้าเต็ม',
+        prompt:'เล็งค้างในโซนน้ำด้านซ้าย',
+        coach:'ตอนนี้ลองค้างมองที่โซนน้ำจนแถบเต็ม'
+      },
+      {
+        id:'tap-hand',
+        title:'แตะฝ่ามือ',
+        icon:'🖐️',
+        desc:'ใน Practice และ Main จะต้องแตะโซนมือที่เกมบอก',
+        prompt:'แตะฝ่ามือซ้าย แล้วแตะฝ่ามือขวา',
+        coach:'สุดท้าย แตะฝ่ามือซ้ายและขวาอย่างละ 1 ครั้ง'
+      }
     ];
 
     const state = {
       started:false,
       ended:false,
-      hasSoap:false,
-      currentIdx:-1,
+      stepIndex:0,
       progress:0,
       score:0,
       miss:0,
-      currentNeeded:1,
       lastActionAt:0,
-      hudCompact:false,
-      hitSides:{ left:false, right:false }
+      holdProgress:0,
+      handHits:{ left:false, right:false },
+      hudCompact:false
     };
 
     const ui = {
-      layer:document.getElementById('ui-layer'),
-      stepCount:document.getElementById('step-count'),
-      stepName:document.getElementById('step-name'),
-      stepDesc:document.getElementById('step-desc'),
-      guideIcon:document.getElementById('guide-icon'),
-      prompt:document.getElementById('action-prompt'),
-      fill:document.getElementById('fill'),
-      progressText:document.getElementById('progress-text'),
-      coach:document.getElementById('coach'),
-      bubbles:document.getElementById('bubbles-fx'),
-      germsL:document.getElementById('germs-l'),
-      germsR:document.getElementById('germs-r'),
-      leftPalmHit:document.getElementById('left-palm-hit'),
-      rightPalmHit:document.getElementById('right-palm-hit'),
-      leftPalmLabel:document.getElementById('left-palm-label'),
-      rightPalmLabel:document.getElementById('right-palm-label'),
-      startOverlay:document.getElementById('start-overlay'),
-      summaryOverlay:document.getElementById('summary-overlay'),
-      startBtn:document.getElementById('start-btn'),
-      restartBtn:document.getElementById('restart-btn'),
-      nextBtn:document.getElementById('next-btn'),
-      vrBtn:document.getElementById('vr-btn'),
-      recenterBtn:document.getElementById('recenter-btn'),
-      hudToggleBtn:document.getElementById('hud-toggle-btn')
+      layer:$('ui-layer'),
+      stepCount:$('step-count'),
+      stepName:$('step-name'),
+      stepDesc:$('step-desc'),
+      guideIcon:$('guide-icon'),
+      prompt:$('action-prompt'),
+      fill:$('fill'),
+      progressText:$('progress-text'),
+      coach:$('coach'),
+      coachFace:$('coach-face'),
+
+      startOverlay:$('start-overlay'),
+      summaryOverlay:$('summary-overlay'),
+
+      startBtn:$('start-btn'),
+      skipBtn:$('skip-btn'),
+      restartBtn:$('restart-btn'),
+      nextBtn:$('next-btn'),
+
+      vrBtn:$('vr-btn'),
+      recenterBtn:$('recenter-btn'),
+      hudToggleBtn:$('hud-toggle-btn'),
+
+      sumSteps:$('sum-steps'),
+      sumScore:$('sum-score'),
+      sumMiss:$('sum-miss')
     };
 
-    const scene = document.getElementById('scene');
-    const rig = document.getElementById('player-rig');
-    const cam = document.getElementById('cam');
-    const cursor = document.getElementById('cursor');
+    const faucetGroup = $('faucet-group');
+    const soapGroup = $('soap-group');
+    const waterZone = $('water-zone');
+    const leftPalmZone = $('left-palm-zone');
+    const rightPalmZone = $('right-palm-zone');
 
-    const soapGroup = document.getElementById('soap-group');
-    const soapTarget = document.getElementById('soap-target');
-    const soapArrow = document.getElementById('soap-arrow');
-    const soapHitbox = document.getElementById('soap-hitbox');
-    const soapHalo = document.getElementById('soap-halo');
-    const soapCalloutBg = document.getElementById('soap-callout-bg');
-    const soapCallout = document.getElementById('soap-callout');
+    const transitionUI = {
+      root: document.getElementById('sceneTransition'),
+      icon: document.getElementById('sceneTransitionIcon'),
+      title: document.getElementById('sceneTransitionTitle'),
+      desc: document.getElementById('sceneTransitionDesc')
+    };
 
-    const targetLayer = document.getElementById('target-layer');
-    const fxLayer = document.getElementById('fx-layer');
+    let __hhPageAudio = null;
 
-    const _camPos = new THREE.Vector3();
-    const _camDir = new THREE.Vector3();
-    const _soapPos = new THREE.Vector3();
-    const _toSoap = new THREE.Vector3();
-    const _proj = new THREE.Vector3();
-
-    function setBtnText(){
-      ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
+    function hhAudioCtx(){
+      try{
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return null;
+        if (!__hhPageAudio) __hhPageAudio = new Ctx();
+        return __hhPageAudio;
+      }catch(e){
+        return null;
+      }
     }
 
-    function clamp(v,min,max){
-      return Math.max(min,Math.min(max,v));
+    function hhTone(freq=700, dur=0.06, type='triangle', gain=0.028, when=0){
+      const ctx = hhAudioCtx();
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+
+      osc.type = type;
+      osc.frequency.value = freq;
+      g.gain.value = gain;
+
+      osc.connect(g);
+      g.connect(ctx.destination);
+
+      const now = ctx.currentTime + when;
+      g.gain.setValueAtTime(gain, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+      osc.start(now);
+      osc.stop(now + dur);
+    }
+
+    function playPageSignature(page='generic'){
+      if (page === 'howto'){
+        hhTone(620, 0.05, 'sine', 0.022, 0.00);
+        hhTone(760, 0.06, 'triangle', 0.024, 0.08);
+        return;
+      }
+      hhTone(720, 0.05, 'triangle', 0.024, 0.00);
+    }
+
+    function showSceneTransition({ icon='✨', title='กำลังไปด่านถัดไป', desc='เตรียมพร้อมอีกนิด', url='' } = {}){
+      if (!transitionUI.root || !url){
+        if (url) location.href = url;
+        return;
+      }
+
+      transitionUI.icon.textContent = icon;
+      transitionUI.title.textContent = title;
+      transitionUI.desc.textContent = desc;
+      transitionUI.root.classList.add('show');
+
+      setTimeout(() => {
+        location.href = url;
+      }, 920);
     }
 
     function isMobileLike(){
       return window.matchMedia('(max-width: 680px)').matches;
     }
 
+    function setBtnText(){
+      ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
+    }
+
     function setCoach(text){
       ui.coach.textContent = text;
+    }
+
+    function setCoachMood(mood='normal'){
+      ui.coachFace.classList.remove('good', 'warn');
+
+      if (mood === 'good'){
+        ui.coachFace.textContent = '😄';
+        ui.coachFace.classList.add('good');
+        return;
+      }
+
+      if (mood === 'warn'){
+        ui.coachFace.textContent = '😮';
+        ui.coachFace.classList.add('warn');
+        return;
+      }
+
+      ui.coachFace.textContent = '🙂';
     }
 
     function setHudCompact(on){
@@ -732,285 +904,7 @@
     }
 
     function currentStep(){
-      if (state.currentIdx < 0 || state.currentIdx >= STEPS.length) return null;
-      return STEPS[state.currentIdx];
-    }
-
-    function resetHands(){
-      ui.germsL.setAttribute('visible', true);
-      ui.germsR.setAttribute('visible', true);
-      ui.germsL.setAttribute('material','opacity',0.34);
-      ui.germsR.setAttribute('material','opacity',0.34);
-      ui.bubbles.setAttribute('visible', state.hasSoap);
-    }
-
-    function setPalmFocus(show){
-      ui.leftPalmHit.setAttribute('visible', !!show);
-      ui.rightPalmHit.setAttribute('visible', !!show);
-      ui.leftPalmLabel.setAttribute('visible', !!show);
-      ui.rightPalmLabel.setAttribute('visible', !!show);
-      ui.leftPalmHit.dataset.hit = '0';
-      ui.rightPalmHit.dataset.hit = '0';
-      state.hitSides.left = false;
-      state.hitSides.right = false;
-      if(show){
-        ui.leftPalmHit.setAttribute('material', 'opacity', 0.18);
-        ui.rightPalmHit.setAttribute('material', 'opacity', 0.18);
-      }
-    }
-
-    function setSoapVisible(show){
-      soapGroup.setAttribute('visible', !!show);
-    }
-
-    function setSoapHighlight(on){
-      soapTarget.setAttribute('material', 'emissive', on ? '#ffd84d' : '#ff9ecb');
-      soapTarget.setAttribute('material', 'emissiveIntensity', on ? 1.25 : 0.65);
-      soapArrow.setAttribute('material', 'emissive', on ? '#fff7b8' : '#000000');
-      soapArrow.setAttribute('material', 'emissiveIntensity', on ? 0.85 : 0);
-      soapHalo.setAttribute('material', 'opacity', on ? 0.72 : 0.22);
-      soapCalloutBg.setAttribute('material', 'opacity', on ? 1.0 : 0.82);
-      soapCallout.setAttribute('color', on ? '#ffe66d' : '#ffffff');
-    }
-
-    function isNearSoapAim(){
-      if (!cam || !soapGroup) return false;
-
-      cam.object3D.updateMatrixWorld();
-      soapGroup.object3D.updateMatrixWorld();
-
-      cam.object3D.getWorldPosition(_camPos);
-      cam.object3D.getWorldDirection(_camDir);
-      soapGroup.object3D.getWorldPosition(_soapPos);
-
-      _toSoap.copy(_soapPos).sub(_camPos).normalize();
-      return _camDir.dot(_toSoap) > 0.974;
-    }
-
-    function clearTargets(){
-      targetLayer.innerHTML = '';
-    }
-
-    function burstAt(pos, color='#7dd3fc'){
-      for(let i=0;i<8;i++){
-        const fx = document.createElement('a-sphere');
-        fx.setAttribute('radius', 0.025 + Math.random()*0.01);
-        fx.setAttribute('color', color);
-        fx.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-        fx.setAttribute('material', 'shader: flat; opacity: 0.96; transparent: true');
-
-        const dx = (Math.random()-0.5)*0.18;
-        const dy = 0.04 + Math.random()*0.12;
-        const dz = (Math.random()-0.5)*0.12;
-
-        fx.setAttribute('animation__move', `property: position; to: ${pos.x+dx} ${pos.y+dy} ${pos.z+dz}; dur: 360; easing: easeOutQuad`);
-        fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 360; easing: linear');
-
-        fxLayer.appendChild(fx);
-        setTimeout(()=>{
-          if(fx.parentNode) fx.parentNode.removeChild(fx);
-        }, 390);
-      }
-    }
-
-    function updateProgress(){
-      const pct = clamp(Math.round((state.progress / state.currentNeeded) * 100), 0, 100);
-      ui.fill.style.width = pct + '%';
-      ui.progressText.textContent = pct + '%';
-
-      const germOpacity = 0.34 * (1 - pct / 100);
-      ui.germsL.setAttribute('material', 'opacity', clamp(germOpacity,0,0.34));
-      ui.germsR.setAttribute('material', 'opacity', clamp(germOpacity,0,0.34));
-    }
-
-    function updateUI(){
-      const step = currentStep();
-
-      if(!state.hasSoap){
-        ui.stepCount.textContent = 'เตรียมพร้อม';
-        ui.stepName.textContent = 'กดสบู่ก่อนเริ่มฝึก';
-        ui.stepDesc.textContent = 'เริ่มจากแตะบริเวณสบู่จริงก่อน แล้วระบบจะพาไปฝึก 7 ขั้นตอนการถูมือทีละขั้น';
-        ui.guideIcon.textContent = '🧼';
-        ui.prompt.textContent = 'เล็งป้าย “ใส่สบู่” แล้วแตะจอ';
-        setCoach('เล็งวงกลมฟ้ากลางจอไปที่ป้าย “ใส่สบู่” แล้วแตะ 1 ครั้ง');
-        ui.fill.style.width = '0%';
-        ui.progressText.textContent = '0%';
-        return;
-      }
-
-      if(step){
-        ui.stepCount.textContent = `ขั้นตอนที่ ${state.currentIdx + 1}/7`;
-        ui.stepName.textContent = step.name;
-        ui.stepDesc.textContent = step.desc;
-        ui.guideIcon.textContent = step.icon;
-        ui.prompt.textContent = step.prompt;
-
-        if (step.id === 'palms'){
-          setCoach('แตะฝ่ามือซ้าย 1 ครั้ง แล้วแตะฝ่ามือขวา 1 ครั้ง');
-        } else {
-          setCoach('เล็งวงกลมฟ้าไปใกล้เป้าแล้วแตะจอ ระบบจะช่วยจับเป้าให้');
-        }
-
-        updateProgress();
-      }
-    }
-
-    function spawnTargetsForStep(stepId, count){
-      clearTargets();
-
-      const sets = {
-        backs: [
-          {x:-0.30,y:0.02,z:0.05}, {x:-0.23,y:0.06,z:0.05}, {x:-0.16,y:0.02,z:0.05},
-          {x: 0.16,y:0.02,z:0.05}, {x: 0.23,y:0.06,z:0.05}, {x: 0.30,y:0.02,z:0.05}
-        ],
-        between: [
-          {x:-0.26,y:0.12,z:0.05}, {x:-0.22,y:0.18,z:0.05}, {x:-0.17,y:0.12,z:0.05},
-          {x: 0.17,y:0.12,z:0.05}, {x: 0.22,y:0.18,z:0.05}, {x: 0.26,y:0.12,z:0.05}
-        ],
-        backfingers: [
-          {x:-0.26,y:0.22,z:0.05}, {x:-0.21,y:0.25,z:0.05}, {x:-0.16,y:0.21,z:0.05},
-          {x: 0.16,y:0.21,z:0.05}, {x: 0.21,y:0.25,z:0.05}
-        ],
-        thumbs: [
-          {x:-0.37,y:-0.02,z:0.05}, {x:-0.34,y:-0.09,z:0.05},
-          {x: 0.37,y:-0.02,z:0.05}, {x: 0.34,y:-0.09,z:0.05}
-        ],
-        fingertips: [
-          {x:-0.27,y:0.30,z:0.06}, {x:-0.22,y:0.35,z:0.06}, {x:-0.17,y:0.30,z:0.06},
-          {x: 0.17,y:0.30,z:0.06}, {x: 0.22,y:0.35,z:0.06}, {x: 0.27,y:0.30,z:0.06}
-        ],
-        wrists: [
-          {x:-0.20,y:-0.22,z:0.04}, {x:-0.26,y:-0.19,z:0.04},
-          {x: 0.20,y:-0.22,z:0.04}, {x: 0.26,y:-0.19,z:0.04}
-        ]
-      };
-
-      const pts = (sets[stepId] || []).slice(0, count);
-
-      pts.forEach((p, idx)=>{
-        const t = document.createElement('a-sphere');
-        t.classList.add('focusable');
-        t.dataset.kind = stepId;
-        t.dataset.hit = '0';
-
-        const r = (stepId === 'thumbs' || stepId === 'wrists') ? 0.10 : 0.09;
-        t.setAttribute('radius', r);
-        t.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
-        t.setAttribute('color', stepId === 'backs' ? '#86efac' : '#7dd3fc');
-        t.setAttribute('material', `transparent: true; opacity: 0.96; emissive: ${stepId === 'backs' ? '#22c55e' : '#22d3ee'}; emissiveIntensity: 0.85`);
-        t.setAttribute('animation__float', `property: position; dir: alternate; loop: true; dur: ${800 + idx*40}; to: ${p.x} ${p.y + 0.025} ${p.z}`);
-        targetLayer.appendChild(t);
-      });
-    }
-
-    function prepareStep(){
-      const step = currentStep();
-      if(!step) return;
-
-      state.currentNeeded = step.needed;
-      state.progress = 0;
-      clearTargets();
-      setPalmFocus(false);
-
-      if(step.id === 'palms'){
-        setPalmFocus(true);
-      } else {
-        spawnTargetsForStep(step.id, step.needed);
-      }
-
-      resetHands();
-      updateUI();
-      if (isMobileLike()) setHudCompact(true);
-    }
-
-    function wrongAction(msg='ยังไม่ใช่ขั้นตอนนี้'){
-      state.miss += 1;
-      setCoach(msg);
-    }
-
-    function finishStep(){
-      clearTargets();
-      setPalmFocus(false);
-      state.currentIdx += 1;
-      if(state.currentIdx >= STEPS.length){
-        win();
-        return;
-      }
-      prepareStep();
-    }
-
-    function activateSoap(){
-      if(!state.started || state.ended) return;
-      if(state.hasSoap) return;
-
-      state.hasSoap = true;
-      state.score += 50;
-      ui.bubbles.setAttribute('visible', 'true');
-      setSoapHighlight(false);
-      setSoapVisible(false);
-      state.currentIdx = 0;
-      prepareStep();
-    }
-
-    function activatePalm(side){
-      const step = currentStep();
-      if(!step || step.id !== 'palms') return;
-
-      if(state.hitSides[side]) return;
-      state.hitSides[side] = true;
-
-      const el = side === 'left' ? ui.leftPalmHit : ui.rightPalmHit;
-      el.dataset.hit = '1';
-      el.setAttribute('material', 'opacity', 0.34);
-
-      const pos = side === 'left'
-        ? {x:-0.22, y:0.00, z:0.06}
-        : {x:0.22, y:0.00, z:0.06};
-
-      burstAt(pos, '#ffe66d');
-
-      state.progress += 1;
-      state.score += 40;
-      updateUI();
-
-      if(state.progress >= state.currentNeeded){
-        finishStep();
-      }
-    }
-
-    function activateTarget(el){
-      if(!state.started || state.ended || !state.hasSoap) return;
-      const step = currentStep();
-      if(!step || !el) return;
-
-      if(step.id === 'palms'){
-        const side = el.dataset.side;
-        if(side){
-          activatePalm(side);
-        } else {
-          wrongAction('แตะที่ฝ่ามือซ้ายและขวา');
-        }
-        return;
-      }
-
-      if(el.dataset.hit === '1') return;
-      if(el.dataset.kind !== step.id){
-        wrongAction('ให้แตะเป้าของขั้นตอนนี้ก่อน');
-        return;
-      }
-
-      el.dataset.hit = '1';
-      const p = el.object3D.position;
-      burstAt({x:p.x, y:p.y, z:p.z}, step.id === 'backs' ? '#86efac' : '#7dd3fc');
-      if(el.parentNode) el.parentNode.removeChild(el);
-
-      state.progress += 1;
-      state.score += 30;
-      updateUI();
-
-      if(state.progress >= state.currentNeeded){
-        finishStep();
-      }
+      return HOWTO_STEPS[state.stepIndex] || null;
     }
 
     function getFocusedEl(){
@@ -1019,241 +913,243 @@
       return rc.intersectedEls[0];
     }
 
-    function getNearestCenterTarget(maxPx = 240){
-      const camera3D = cam ? cam.getObject3D('camera') : null;
-      if (!camera3D) return null;
-
-      const targets = [...targetLayer.querySelectorAll('.focusable')]
-        .filter(el => el.dataset.hit !== '1');
-
-      let best = null;
-      let bestD = Infinity;
-      const cx = window.innerWidth / 2;
-      const cy = window.innerHeight / 2;
-
-      for (const el of targets){
-        el.object3D.updateMatrixWorld();
-        _proj.setFromMatrixPosition(el.object3D.matrixWorld);
-        _proj.project(camera3D);
-
-        const sx = (_proj.x * 0.5 + 0.5) * window.innerWidth;
-        const sy = (-_proj.y * 0.5 + 0.5) * window.innerHeight;
-        const d = Math.hypot(sx - cx, sy - cy);
-
-        if (d < bestD){
-          bestD = d;
-          best = el;
+    function setObjectHighlight(el, on, color='#63e6ff'){
+      if (!el) return;
+      const targets = el.querySelectorAll('.focusable, a-box, a-plane, a-cylinder, a-text');
+      targets.forEach(node => {
+        if (node.getAttribute('material') != null){
+          node.setAttribute('material', 'emissive', on ? color : '#000000');
+          node.setAttribute('material', 'emissiveIntensity', on ? 0.95 : 0);
         }
-      }
-
-      return bestD <= maxPx ? best : null;
-    }
-
-    function getNearestCenterElement(ids = [], maxPx = 320){
-      const camera3D = cam ? cam.getObject3D('camera') : null;
-      if (!camera3D) return null;
-
-      let best = null;
-      let bestD = Infinity;
-      const cx = window.innerWidth / 2;
-      const cy = window.innerHeight / 2;
-
-      for (const id of ids){
-        const el = document.getElementById(id);
-        if (!el || el.getAttribute('visible') === false) continue;
-
-        el.object3D.updateMatrixWorld();
-        _proj.setFromMatrixPosition(el.object3D.matrixWorld);
-        _proj.project(camera3D);
-
-        const sx = (_proj.x * 0.5 + 0.5) * window.innerWidth;
-        const sy = (-_proj.y * 0.5 + 0.5) * window.innerHeight;
-        const d = Math.hypot(sx - cx, sy - cy);
-
-        if (d < bestD){
-          bestD = d;
-          best = el;
-        }
-      }
-
-      return bestD <= maxPx ? best : null;
-    }
-
-    function triggerFocused(){
-      const now = performance.now();
-      if(now - state.lastActionAt < 120) return false;
-      state.lastActionAt = now;
-
-      const el = getFocusedEl();
-
-      if(!state.hasSoap){
-        if(
-          el &&
-          (
-            el.id === 'soap-target' ||
-            el.id === 'soap-arrow' ||
-            el.id === 'soap-hitbox' ||
-            el.id === 'soap-halo' ||
-            el.id === 'soap-callout-bg' ||
-            el.id === 'soap-callout'
-          )
-        ){
-          activateSoap();
-          return true;
-        }
-
-        if(isNearSoapAim()){
-          activateSoap();
-          return true;
-        }
-
-        return false;
-      }
-
-      const step = currentStep();
-      if(!step) return false;
-
-      if(step.id === 'palms'){
-        if(el && el.classList.contains('palm-hit')){
-          activateTarget(el);
-          return true;
-        }
-
-        const nearPalm = getNearestCenterElement(['left-palm-hit', 'right-palm-hit'], 320);
-        if(nearPalm){
-          activateTarget(nearPalm);
-          return true;
-        }
-        return false;
-      }
-
-      if(el && el.classList.contains('focusable') && el.parentNode === targetLayer){
-        activateTarget(el);
-        return true;
-      }
-
-      const nearTarget = getNearestCenterTarget(240);
-      if (nearTarget){
-        activateTarget(nearTarget);
-        return true;
-      }
-
-      return false;
-    }
-
-    function saveHowtoSummary(success){
-      if (!window.HandwashShared) return;
-
-      const doneSteps = success
-        ? 7
-        : Math.max(0, state.currentIdx + (state.hasSoap ? 1 : 0));
-
-      const progress = success ? 100 : Math.max(0, Math.round((doneSteps / 7) * 100));
-
-      HandwashShared.recordSummary({
-        stage: 'howto',
-        nextStage: 'main',
-        success,
-        score: state.score || 0,
-        stars: success ? 3 : 0,
-        miss: state.miss || 0,
-        timeLeft: 0,
-        accuracy: success ? 100 : Math.max(0, 100 - (state.miss * 10)),
-        progress,
-        bestStreak: 0,
-        whoDone: doneSteps,
-        notes: success ? 'Howto completed' : 'Howto incomplete'
       });
     }
 
-    function startGame(){
-      state.started = true;
-      state.ended = false;
-      state.hasSoap = false;
-      state.currentIdx = -1;
-      state.progress = 0;
-      state.score = 0;
-      state.miss = 0;
-      state.currentNeeded = 1;
-      state.lastActionAt = 0;
-      state.hitSides.left = false;
-      state.hitSides.right = false;
+    function clearHighlights(){
+      setObjectHighlight(faucetGroup, false);
+      setObjectHighlight(soapGroup, false);
+      leftPalmZone.setAttribute('scale', '1 1 1');
+      rightPalmZone.setAttribute('scale', '1 1 1');
+      waterZone.setAttribute('material', 'opacity', 0.24);
+    }
 
-      clearTargets();
-      setPalmFocus(false);
-      resetHands();
-      ui.bubbles.setAttribute('visible', 'false');
-      setSoapVisible(true);
-      setSoapHighlight(true);
+    function updateProgress(){
+      const pct = Math.round((state.progress / HOWTO_STEPS.length) * 100);
+      ui.fill.style.width = pct + '%';
+      ui.progressText.textContent = pct + '%';
+    }
 
-      ui.startOverlay.classList.add('hidden');
-      ui.summaryOverlay.classList.add('hidden');
-      ui.nextBtn.classList.add('hidden');
+    function updateUI(){
+      const step = currentStep();
+      if (!step) return;
 
-      setHudCompact(isMobileLike());
+      ui.stepCount.textContent = `Howto • ขั้นที่ ${state.stepIndex + 1}/${HOWTO_STEPS.length}`;
+      ui.stepName.textContent = step.title;
+      ui.stepDesc.textContent = step.desc;
+      ui.guideIcon.textContent = step.icon;
+      ui.prompt.textContent = step.prompt;
+      setCoach(step.coach);
+      updateProgress();
+    }
+
+    function prepareStep(){
+      clearHighlights();
+      setCoachMood('normal');
+
+      const step = currentStep();
+      if (!step) return;
+
+      if (step.id === 'look'){
+        setCoachMood('good');
+      }
+
+      if (step.id === 'tap-faucet'){
+        setObjectHighlight(faucetGroup, true, '#7dd3fc');
+      }
+
+      if (step.id === 'tap-soap'){
+        setObjectHighlight(soapGroup, true, '#ff9ecb');
+      }
+
+      if (step.id === 'hold-water'){
+        waterZone.setAttribute('material', 'opacity', 0.42);
+      }
+
+      if (step.id === 'tap-hand'){
+        leftPalmZone.setAttribute('scale', '1.06 1.06 1.06');
+        rightPalmZone.setAttribute('scale', '1.06 1.06 1.06');
+      }
+
       updateUI();
     }
 
-    function win(){
-      state.ended = true;
-      clearTargets();
-      setPalmFocus(false);
-      ui.germsL.setAttribute('visible', false);
-      ui.germsR.setAttribute('visible', false);
-      ui.bubbles.setAttribute('visible', false);
+    function completeCurrentStep(scoreGain=20){
+      state.score += scoreGain;
+      state.progress = state.stepIndex + 1;
+      state.stepIndex += 1;
+      state.holdProgress = 0;
 
-      document.getElementById('sum-score').textContent = String(state.score);
-      document.getElementById('sum-miss').textContent = String(state.miss);
-      document.getElementById('sum-steps').textContent = '7 / 7';
+      if (state.stepIndex >= HOWTO_STEPS.length){
+        finishHowto();
+        return;
+      }
 
-      saveHowtoSummary(true);
-
-      ui.summaryOverlay.classList.remove('hidden');
-      ui.stepCount.textContent = 'สำเร็จ';
-      ui.stepName.textContent = 'ล้างมือครบ 7 ขั้นแล้ว!';
-      ui.stepDesc.textContent = 'ยอดเยี่ยมมาก ตอนนี้พร้อมไปเล่น handwash game ตัวหลักต่อได้เลย';
-      ui.guideIcon.textContent = '✨';
-      ui.prompt.textContent = 'ฝึกสำเร็จ';
-      ui.fill.style.width = '100%';
-      ui.progressText.textContent = '100%';
-      setCoach('ทำครบทุกขั้นแล้ว เก่งมาก');
-      setHudCompact(false);
-
-      if (NEXT_URL) ui.nextBtn.classList.remove('hidden');
+      prepareStep();
     }
 
-    soapTarget.addEventListener('click', activateSoap);
-    soapArrow.addEventListener('click', activateSoap);
-    soapHitbox.addEventListener('click', activateSoap);
-    soapHalo.addEventListener('click', activateSoap);
-    soapCalloutBg.addEventListener('click', activateSoap);
-    soapCallout.addEventListener('click', activateSoap);
+    function finishHowto(){
+      state.ended = true;
+      playPageSignature('howto');
 
-    ui.leftPalmHit.addEventListener('click', ()=>activatePalm('left'));
-    ui.rightPalmHit.addEventListener('click', ()=>activatePalm('right'));
+      ui.sumSteps.textContent = `${HOWTO_STEPS.length} / ${HOWTO_STEPS.length}`;
+      ui.sumScore.textContent = String(state.score);
+      ui.sumMiss.textContent = String(state.miss);
 
-    targetLayer.addEventListener('click', (e)=>{
-      const t = e.target;
-      if(t && t.classList.contains('focusable')) activateTarget(t);
-    });
-
-    window.addEventListener('keydown', (e)=>{
-      if(e.code === 'Space' || e.code === 'Enter'){
-        e.preventDefault();
-        triggerFocused();
+      if (window.HandwashShared && typeof HandwashShared.saveSummary === 'function'){
+        HandwashShared.saveSummary({
+          stage:'howto',
+          success:true,
+          score:state.score,
+          stars:1,
+          miss:state.miss,
+          timeLeft:0,
+          progress:100,
+          accuracy:Math.max(0, 100 - (state.miss * 10)),
+          bestStreak:0,
+          whoDone:0,
+          badges:['Howto Clear'],
+          rank:'Howto Clear',
+          notes:'Handwash howto completed'
+        });
       }
-    }, { passive:false });
 
-    window.addEventListener('pointerup', (e)=>{
-      const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
-      if(tag === 'button') return;
-      triggerFocused();
+      ui.summaryOverlay.classList.remove('hidden');
+    }
+
+    function triggerFocused(){
+      if (!state.started || state.ended) return false;
+
+      const now = performance.now();
+      if(now - state.lastActionAt < 140) return false;
+      state.lastActionAt = now;
+
+      const step = currentStep();
+      const el = getFocusedEl();
+
+      if (!step) return false;
+
+      if (step.id === 'look'){
+        setCoachMood('good');
+        completeCurrentStep(10);
+        return true;
+      }
+
+      if (step.id === 'tap-faucet'){
+        if (el && ['faucet-btn','faucet-hitbox','faucet-callout','faucet-callout-bg'].includes(el.id)){
+          setCoachMood('good');
+          completeCurrentStep(20);
+          return true;
+        }
+      }
+
+      if (step.id === 'tap-soap'){
+        if (el && ['soap-target','soap-hitbox','soap-callout','soap-callout-bg'].includes(el.id)){
+          setCoachMood('good');
+          completeCurrentStep(20);
+          return true;
+        }
+      }
+
+      if (step.id === 'tap-hand'){
+        if (el && el.dataset && el.dataset.zone === 'left-palm'){
+          state.handHits.left = true;
+          leftPalmZone.setAttribute('scale', '1.14 1.14 1.14');
+          setCoachMood('good');
+          setCoach('ดีมาก ต่อไปแตะฝ่ามือขวา');
+          if (state.handHits.right){
+            completeCurrentStep(25);
+          }
+          return true;
+        }
+
+        if (el && el.dataset && el.dataset.zone === 'right-palm'){
+          state.handHits.right = true;
+          rightPalmZone.setAttribute('scale', '1.14 1.14 1.14');
+          setCoachMood('good');
+          setCoach('เยี่ยมมาก ฝึกครบแล้ว');
+          if (state.handHits.left){
+            completeCurrentStep(25);
+          }
+          return true;
+        }
+      }
+
+      state.miss += 1;
+      setCoachMood('warn');
+      return false;
+    }
+
+    function startGame(){
+      playPageSignature('howto');
+
+      state.started = true;
+      state.ended = false;
+      state.stepIndex = 0;
+      state.progress = 0;
+      state.score = 0;
+      state.miss = 0;
+      state.lastActionAt = 0;
+      state.holdProgress = 0;
+      state.handHits = { left:false, right:false };
+
+      ui.startOverlay.classList.add('hidden');
+      ui.summaryOverlay.classList.add('hidden');
+
+      setHudCompact(isMobileLike());
+      prepareStep();
+    }
+
+    function applyResponsiveHowtoLayout(){
+      const board = document.getElementById('board-root');
+      if (!board) return;
+
+      const mobile = window.matchMedia('(max-width: 680px)').matches;
+      const shortH = window.innerHeight < 760;
+
+      if (mobile && shortH){
+        board.setAttribute('position', '0 1.02 -1.00');
+        board.setAttribute('scale', '0.92 0.92 0.92');
+      } else if (mobile){
+        board.setAttribute('position', '0 1.05 -1.04');
+        board.setAttribute('scale', '0.96 0.96 0.96');
+      } else {
+        board.setAttribute('position', '0 1.08 -1.08');
+        board.setAttribute('scale', '1 1 1');
+      }
+    }
+
+    ui.startBtn.addEventListener('click', () => {
+      playPageSignature('howto');
+      startGame();
     });
 
-    ui.startBtn.addEventListener('click', startGame);
+    ui.skipBtn.addEventListener('click', () => {
+      showSceneTransition({
+        icon:'🧪',
+        title:'ไป Practice Lab',
+        desc:'ข้าม howto แล้วไปฝึกต่อได้เลย',
+        url: HOWTO_NEXT_URL
+      });
+    });
+
     ui.restartBtn.addEventListener('click', startGame);
-    ui.nextBtn.addEventListener('click', ()=>{
-      if (NEXT_URL) location.href = NEXT_URL;
+
+    ui.nextBtn.addEventListener('click', () => {
+      showSceneTransition({
+        icon:'🧪',
+        title:'ไป Practice Lab',
+        desc:'ต่อไปจะเป็นด่านฝึกแบบมีตัวช่วย',
+        url: HOWTO_NEXT_URL
+      });
     });
 
     ui.hudToggleBtn.addEventListener('click', ()=>{
@@ -1271,28 +1167,61 @@
     });
 
     ui.recenterBtn.addEventListener('click', ()=>{
-      rig.object3D.position.set(0,0,0);
-      rig.object3D.rotation.set(0,0,0);
       setCoach('จัดมุมมองใหม่แล้ว');
+      setCoachMood('good');
     });
 
     scene.addEventListener('enter-vr', setBtnText);
     scene.addEventListener('exit-vr', setBtnText);
 
-    window.addEventListener('resize', ()=>{
-      if (state.started && !state.ended) {
-        setHudCompact(isMobileLike());
+    window.addEventListener('keydown', (e)=>{
+      if(e.code === 'Space' || e.code === 'Enter'){
+        e.preventDefault();
+        triggerFocused();
       }
+    }, { passive:false });
+
+    window.addEventListener('pointerup', (e)=>{
+      const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
+      if(tag === 'button') return;
+      triggerFocused();
     });
 
-    window.addEventListener('beforeunload', ()=>{
-      if (!state.started || state.ended) return;
-      saveHowtoSummary(false);
+    window.addEventListener('resize', ()=>{
+      if (state.started && !state.ended) setHudCompact(isMobileLike());
+      applyResponsiveHowtoLayout();
     });
+
+    function loop(){
+      requestAnimationFrame(loop);
+
+      if (!state.started || state.ended) return;
+
+      const step = currentStep();
+      if (!step) return;
+
+      if (step.id === 'hold-water'){
+        const el = getFocusedEl();
+        const isWater = !!(el && el.id === 'water-zone');
+
+        if (isWater){
+          state.holdProgress = Math.min(1, state.holdProgress + 0.018);
+          ui.progressText.textContent = Math.round(((state.progress + state.holdProgress) / HOWTO_STEPS.length) * 100) + '%';
+          ui.fill.style.width = Math.round(((state.progress + state.holdProgress) / HOWTO_STEPS.length) * 100) + '%';
+          setCoachMood('good');
+
+          if (state.holdProgress >= 1){
+            completeCurrentStep(25);
+          }
+        }
+      }
+    }
 
     setBtnText();
     setHudCompact(isMobileLike());
-    updateUI();
+    applyResponsiveHowtoLayout();
+    updateProgress();
+    requestAnimationFrame(loop);
   </script>
 </body>
 </html>
