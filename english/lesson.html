@@ -247,11 +247,11 @@
 
     </a-scene>
 
-    <!-- ระบบ Leaderboard และ Cloud Storage (Firebase Module) -->
+    <!-- ระบบ Leaderboard และ Cloud Storage (Firebase Realtime Database Module) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
         // ==========================================
         // DATABASE: ระบบสุ่มคำถาม! แต่ละด่านมี 5 Variations ไม่ซ้ำกัน
@@ -382,7 +382,7 @@
                 const firebaseConfig = JSON.parse(configStr);
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
-                db = getFirestore(app);
+                db = getDatabase(app);
                 appId = typeof __app_id !== 'undefined' ? __app_id : 'techpath-vr';
 
                 const initAuth = async () => {
@@ -411,26 +411,34 @@
 
         function setupLeaderboardListener() {
             if (!currentUser || !db) return;
-            const lbCol = collection(db, 'artifacts', appId, 'public', 'data', 'vr_leaderboards');
-            
-            onSnapshot(lbCol, (snapshot) => {
-                let scores = [];
-                snapshot.forEach(doc => scores.push(doc.data()));
-                scores.sort((a, b) => b.score - a.score);
+            const lbRef = ref(db, ['artifacts', appId, 'public', 'data', 'vr_leaderboards'].join('/'));
+
+            onValue(lbRef, (snapshot) => {
+                const raw = snapshot.val() || {};
+                let scores = Object.values(raw).filter(entry => entry && typeof entry.score === 'number');
+                scores.sort((a, b) => {
+                    const scoreDiff = (b.score || 0) - (a.score || 0);
+                    if (scoreDiff !== 0) return scoreDiff;
+                    return (a.timestamp || 0) - (b.timestamp || 0);
+                });
                 const top5 = scores.slice(0, 5);
-                
+
                 let lbText = "";
                 top5.forEach((entry, i) => {
                     let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "  ";
-                    lbText += `${medal} ${entry.name.substring(0,10)} : ${entry.score}\n`;
+                    const safeName = String(entry.name || 'Unknown').substring(0, 10);
+                    lbText += `${medal} ${safeName} : ${entry.score || 0}
+`;
                 });
-                
+
                 if (scores.length === 0) lbText = "Be the first to clear a mission!";
-                
+
                 const lbList = document.getElementById('vr-leaderboard-list');
-                if(lbList) lbList.setAttribute('value', lbText);
+                if (lbList) lbList.setAttribute('value', lbText);
             }, (error) => {
-                console.error("Snapshot error:", error);
+                console.error("RTDB listener error:", error);
+                const lbList = document.getElementById('vr-leaderboard-list');
+                if (lbList) lbList.setAttribute('value', `Leaderboard Offline\n(Check RTDB Rules)`);
             });
         }
 
@@ -448,41 +456,37 @@
         };
 
         // ==========================================
-        // ระบบ Daily Streak (บันทึกข้อมูลผูกกับ User ID ผ่าน Firestore)
+        // ระบบ Daily Streak (บันทึกข้อมูลผูกกับ User ID ผ่าน Realtime Database)
         // ==========================================
         window.checkDailyStreak = async function() {
             if (!currentUser || !db) return;
-            
-            const rewardRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'player_stats', 'reward');
+
+            const rewardRef = ref(db, ['artifacts', appId, 'users', currentUser.uid, 'player_stats', 'reward'].join('/'));
             try {
-                const docSnap = await getDoc(rewardRef);
-                let streak = 0;
-                let lastLogin = "";
-                
-                if (docSnap.exists()) {
-                    streak = docSnap.data().streak || 0;
-                    lastLogin = docSnap.data().lastLogin || "";
-                }
-                
+                const snap = await get(rewardRef);
+                const rewardData = snap.exists() ? (snap.val() || {}) : {};
+                let streak = rewardData.streak || 0;
+                let lastLogin = rewardData.lastLogin || "";
+
                 let today = new Date().toDateString();
                 const chest = document.getElementById('reward-chest');
                 const streakText = document.getElementById('streak-text');
 
                 if (lastLogin === today) {
-                    // รับไปแล้ววันนี้
                     chest.removeAttribute('animation');
                     chest.querySelector('a-box').setAttribute('color', '#555');
-                    streakText.setAttribute('value', `Streak: ${streak} Days\n(Come back tomorrow!)`);
+                    streakText.setAttribute('value', `Streak: ${streak} Days
+(Come back tomorrow!)`);
                     chest.classList.remove('clickable');
                 } else {
-                    // ยังไม่ได้รับ
                     chest.setAttribute('animation', 'property: position; to: -3.5 0.7 -3; dir: alternate; dur: 1000; loop: true');
                     chest.querySelector('a-box').setAttribute('color', '#f1c40f');
-                    streakText.setAttribute('value', `Streak: ${streak} Days\n(Click to Claim!)`);
+                    streakText.setAttribute('value', `Streak: ${streak} Days
+(Click to Claim!)`);
                     chest.classList.add('clickable');
                 }
             } catch (e) {
-                console.error("Error checking streak:", e);
+                console.error("Error checking streak (RTDB):", e);
             }
         }
 
@@ -492,38 +496,36 @@
                 return;
             }
 
-            const rewardRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'player_stats', 'reward');
-            
+            const rewardRef = ref(db, ['artifacts', appId, 'users', currentUser.uid, 'player_stats', 'reward'].join('/'));
+
             try {
                 const chest = document.getElementById('reward-chest');
-                chest.classList.remove('clickable'); // กันกดซ้ำระหว่างโหลด
+                chest.classList.remove('clickable');
 
-                const docSnap = await getDoc(rewardRef);
-                let streak = 0;
-                let lastLogin = "";
-                
-                if (docSnap.exists()) {
-                    streak = docSnap.data().streak || 0;
-                    lastLogin = docSnap.data().lastLogin || "";
-                }
+                const snap = await get(rewardRef);
+                const rewardData = snap.exists() ? (snap.val() || {}) : {};
+                let streak = rewardData.streak || 0;
+                let lastLogin = rewardData.lastLogin || "";
 
                 let today = new Date().toDateString();
-                if (lastLogin === today) return; // กันกดซ้ำ (กรณีที่เผลอกดรัวๆ)
+                if (lastLogin === today) {
+                    document.getElementById('feedback').innerText = "🎁 วันนี้รับรางวัลไปแล้ว";
+                    return;
+                }
 
                 let yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
-                
+
                 if (lastLogin === yesterday.toDateString()) {
                     streak++;
                 } else {
-                    streak = 1; // เริ่มนับใหม่
+                    streak = 1;
                 }
 
-                // บันทึกข้อมูลลง Firebase
-                await setDoc(rewardRef, {
+                await set(rewardRef, {
                     lastLogin: today,
                     streak: streak
-                }, { merge: true });
+                });
 
                 let bonus = 500 + (streak * 200);
                 playSFX('win');
@@ -532,14 +534,15 @@
 
                 chest.removeAttribute('animation');
                 chest.querySelector('a-box').setAttribute('color', '#555');
-                document.getElementById('streak-text').setAttribute('value', `Streak: ${streak} Days\n(Claimed)`);
-                
+                document.getElementById('streak-text').setAttribute('value', `Streak: ${streak} Days
+(Claimed)`);
+
                 document.getElementById('feedback').innerText = `🎁 รับรางวัลสำเร็จ! Streak ${streak} วัน (+${bonus} Pts)`;
                 document.getElementById('feedback').style.color = "#f1c40f";
 
             } catch (e) {
-                console.error("Error claiming reward:", e);
-                document.getElementById('reward-chest').classList.add('clickable'); // ให้สิทธิ์กดใหม่ถ้ามีปัญหา
+                console.error("Error claiming reward (RTDB):", e);
+                document.getElementById('reward-chest').classList.add('clickable');
                 document.getElementById('feedback').innerText = "❌ เกิดข้อผิดพลาดในการรับรางวัล";
             }
         }
@@ -845,25 +848,22 @@
             btn.innerText = "Saving...";
 
             try {
-                const scoreRef = doc(
+                const scoreRef = ref(
                     db,
-                    'artifacts', appId,
-                    'public', 'data',
-                    'vr_leaderboards',
-                    currentUser.uid
+                    ['artifacts', appId, 'public', 'data', 'vr_leaderboards', currentUser.uid].join('/')
                 );
 
-                const snap = await getDoc(scoreRef);
-                const oldData = snap.exists() ? snap.data() : null;
+                const snap = await get(scoreRef);
+                const oldData = snap.exists() ? (snap.val() || {}) : null;
                 const oldBest = oldData && typeof oldData.score === 'number' ? oldData.score : 0;
                 const bestScore = Math.max(oldBest, gameScore);
 
-                await setDoc(scoreRef, {
+                await set(scoreRef, {
                     name: name,
                     score: bestScore,
                     timestamp: Date.now(),
                     userId: currentUser.uid
-                }, { merge: true });
+                });
 
                 if (gameScore > oldBest) {
                     document.getElementById('feedback').innerText = `✅ New High Score! บันทึก ${bestScore} คะแนนเรียบร้อยแล้ว`;
@@ -873,7 +873,7 @@
 
                 document.getElementById('game-over-ui').style.display = 'none';
             } catch (e) {
-                console.error("Error saving score:", e);
+                console.error("Error saving score (RTDB):", e);
                 document.getElementById('feedback').innerText = "❌ เกิดข้อผิดพลาดในการบันทึก";
                 btn.disabled = false;
                 btn.innerText = "Save Score";
