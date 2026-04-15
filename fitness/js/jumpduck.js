@@ -1,13 +1,13 @@
 // === /fitness/js/jumpduck.js ===
-// FULL MERGED FINAL
-// PATCH v20260414g-JUMPDuck-DOGHERO-FITNESSZONE-FLOW-FINAL
+// FULL FINAL MATCHED WITH CUTE HTML
+// PATCH v20260415a-JUMPDuck-DOGHERO-CUTE-FITNESSZONE-FINAL
 
 'use strict';
 
 (function () {
   const D = document;
   const W = window;
-  const $ = (s) => document.querySelector(s);
+  const $ = (s) => D.querySelector(s);
 
   const viewMenu = $('#view-menu');
   const viewPlay = $('#view-play');
@@ -201,7 +201,6 @@
   let state = null;
   let rafId = 0;
 
-  /* ===== HeroHealth Fitness Recent Bridge ===== */
   function hhFitnessBaseSnapshot() {
     const s = state;
     const durationSec = s && s.duration
@@ -233,7 +232,7 @@
 
   function hhFitnessMark(eventName, extra = {}) {
     try {
-      window.HH_FITNESS_LASTGAME?.writeSnapshot({
+      W.HH_FITNESS_LASTGAME?.writeSnapshot({
         ...hhFitnessBaseSnapshot(),
         event: eventName,
         ...extra
@@ -241,21 +240,10 @@
     } catch (_) {}
   }
 
-  function hhFitnessSessionStart(extra = {}) {
-    hhFitnessMark('session_start', extra);
-  }
-
-  function hhFitnessSummaryEnd(extra = {}) {
-    hhFitnessMark('summary_end', extra);
-  }
-
-  function hhFitnessRematch(extra = {}) {
-    hhFitnessMark('rematch', extra);
-  }
-
-  function hhFitnessGoHub(extra = {}) {
-    hhFitnessMark('go_hub', extra);
-  }
+  function hhFitnessSessionStart(extra = {}) { hhFitnessMark('session_start', extra); }
+  function hhFitnessSummaryEnd(extra = {}) { hhFitnessMark('summary_end', extra); }
+  function hhFitnessRematch(extra = {}) { hhFitnessMark('rematch', extra); }
+  function hhFitnessGoHub(extra = {}) { hhFitnessMark('go_hub', extra); }
 
   const JD_VISUALS = {
     low: [
@@ -400,17 +388,9 @@
     if (name === 'result') viewResult?.classList.remove('hidden');
   }
 
-  function jdClamp(v, a, b) {
-    return Math.max(a, Math.min(b, v));
-  }
-
-  function jdPick(arr, rng = Math.random) {
-    return arr[Math.floor(rng() * arr.length)];
-  }
-
-  function nowIso() {
-    return new Date().toISOString();
-  }
+  function jdClamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function jdPick(arr, rng = Math.random) { return arr[Math.floor(rng() * arr.length)]; }
+  function nowIso() { return new Date().toISOString(); }
 
   function mulberry32(seed) {
     let t = seed >>> 0;
@@ -478,10 +458,10 @@
     if (!text) return;
     const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = D.createElement('a');
     a.href = url;
     a.download = filename;
-    document.body.appendChild(a);
+    D.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
@@ -494,29 +474,19 @@
   }
 
   function jdAvatarEl() {
-    return avatar || document.getElementById('jd-avatar');
+    return avatar || D.getElementById('jd-avatar');
   }
 
   function jdSetAvatarMood(mood = 'happy') {
     const el = jdAvatarEl();
     if (!el) return;
-
-    el.classList.remove(
-      'mood-happy',
-      'mood-focus',
-      'mood-wow',
-      'mood-sad',
-      'mood-fever',
-      'mood-bossdown'
-    );
-
+    el.classList.remove('mood-happy', 'mood-focus', 'mood-wow', 'mood-sad', 'mood-fever', 'mood-bossdown');
     el.classList.add(`mood-${mood}`);
   }
 
   function jdSetAvatarRank(rank = 'c') {
     const el = jdAvatarEl();
     if (!el) return;
-
     el.classList.remove('rank-s', 'rank-a', 'rank-b', 'rank-c', 'rank-d');
     el.classList.add(`rank-${String(rank || 'c').toLowerCase()}`);
   }
@@ -530,7 +500,6 @@
   function jdAvatarCheerBossDown() {
     const el = jdAvatarEl();
     if (!el) return;
-
     el.classList.add('mood-bossdown');
     setTimeout(() => {
       el.classList.remove('mood-bossdown');
@@ -574,16 +543,10 @@
 
   function setHubLinks() {
     const hub = HHA_CTX.hub || FIT_ZONE_FALLBACK;
-    const ids = [
-      'jd-go-zone-menu',
-      'jd-back-hub-menu',
-      'jd-control-hub',
-      'jd-back-hub-play',
-      'jd-back-hub-result'
-    ];
+    const ids = ['jd-go-zone-menu', 'jd-back-hub-menu', 'jd-control-hub', 'jd-back-hub-play', 'jd-back-hub-result'];
 
     ids.forEach(id => {
-      const el = document.getElementById(id);
+      const el = D.getElementById(id);
       if (el) {
         el.href = hub;
         if (!el.__hhFitnessHubBound) {
@@ -675,7 +638,7 @@
 
   function jdScorePop(root, x, y, text, className = '') {
     if (!root) return;
-    const el = document.createElement('div');
+    const el = D.createElement('div');
     el.className = `jd-score-pop ${className}`.trim();
     el.textContent = text;
     el.style.position = 'absolute';
@@ -715,8 +678,8 @@
   }
 
   function injectPatchCSS() {
-    if (document.getElementById('jd-patch-css-inline')) return;
-    const css = document.createElement('style');
+    if (D.getElementById('jd-patch-css-inline')) return;
+    const css = D.createElement('style');
     css.id = 'jd-patch-css-inline';
     css.textContent = `
       .jd-score-pop{ position:absolute; z-index:30; transform:translate(-50%,0) scale(.9); opacity:0; pointer-events:none; font-weight:1100; font-size:18px; color:#fff; text-shadow:0 2px 10px rgba(0,0,0,.35); transition:transform .18s ease, opacity .18s ease; }
@@ -855,7 +818,7 @@
 
       .high-mini{ top:20px; width:34px; height:10px; border-radius:999px; background:linear-gradient(90deg,#fda4af,#ef4444,#fda4af); }
     `;
-    document.head.appendChild(css);
+    D.head.appendChild(css);
   }
 
   function clearRunTimers(s) {
@@ -974,7 +937,7 @@
 
   function clearArena() {
     if (obsLayer) obsLayer.innerHTML = '';
-    document.querySelectorAll('.jd-score-pop').forEach(el => el.remove());
+    D.querySelectorAll('.jd-score-pop').forEach(el => el.remove());
 
     if (avatar) {
       avatar.classList.remove('avatar-jump', 'avatar-duck');
@@ -1010,7 +973,7 @@
   }
 
   function jdGetArenaMetrics() {
-    const w = Math.max(320, playRoot?.clientWidth || arena?.clientWidth || window.innerWidth || 360);
+    const w = Math.max(320, playRoot?.clientWidth || arena?.clientWidth || W.innerWidth || 360);
 
     let profile = 'desktop';
     if (w <= 430) profile = 'tiny';
@@ -1070,7 +1033,7 @@
     s.arenaWidth = m.width;
     s.hitLineX = m.hitLineX;
 
-    const hitline = document.getElementById('jd-hitline');
+    const hitline = D.getElementById('jd-hitline');
     if (hitline) hitline.style.left = `${m.hitLineX}px`;
 
     if (avatar) avatar.style.left = `${Math.round(m.avatarLeftPct * 1000) / 10}%`;
@@ -1212,13 +1175,13 @@
 
     const behavior = jdObstacleBehaviorByVisualKey(visual.key);
 
-    const el = document.createElement('div');
+    const el = D.createElement('div');
     el.className = `jd-obstacle ${type} variant-${behavior.variant} ${isBoss ? 'boss' : ''} ${feint ? 'feint' : ''}`.trim();
 
-    const shape = document.createElement('div');
+    const shape = D.createElement('div');
     shape.className = `jd-shape ${visual.cls}`;
 
-    const tag = document.createElement('div');
+    const tag = D.createElement('div');
     tag.className = 'tag';
     tag.textContent = visual.label;
 
@@ -1377,10 +1340,6 @@
     const bottom = parseFloat(obs.el.style.bottom || (obs.type === 'low' ? '100' : '220'));
     const h = obs.el.offsetHeight || (obs.variant === 'mini' ? 58 : (obs.variant === 'heavy' ? 82 : 74));
     return Math.max(72, fieldH - bottom - h - 12);
-  }
-
-  function jdPatternTagFromPool(pattern) {
-    return jdPatternTag(pattern);
   }
 
   function jdDirectorPushEvent(s, kind) {
@@ -1636,7 +1595,7 @@
         obstacleVisual: obs.visualKey || '',
         obstacleFeint: !!obs.feint,
         pattern,
-        patternTag: jdPatternTagFromPool(pattern),
+        patternTag: jdPatternTag(pattern),
         spawnX: Number(obs.x || 0),
         obstacleSpeed: Number(obs.speed || 0)
       });
@@ -2249,8 +2208,8 @@
 
         const mouth2 = s.avatar?.querySelector('.jd-dog-mouth');
         if (mouth2) {
-          mouth2.style.width = '16px';
-          mouth2.style.height = '8px';
+          mouth2.style.width = '14px';
+          mouth2.style.height = '7px';
         }
       }, 180);
     }
@@ -2745,7 +2704,7 @@
       result: 'start'
     });
 
-    rafId = requestAnimationFrame(jdTick);
+    rafId = W.requestAnimationFrame(jdTick);
   }
 
   function jdFinishRun(s, endReason) {
@@ -2885,7 +2844,7 @@
     saveLastSummary(summary);
 
     try {
-      window.HH_FITNESS_LASTGAME?.writeSnapshot({
+      W.HH_FITNESS_LASTGAME?.writeSnapshot({
         event: 'summary_ready',
         zone: 'fitness',
         gameId: 'jump-duck',
@@ -3045,11 +3004,11 @@
       return;
     }
 
-    rafId = requestAnimationFrame(jdTick);
+    rafId = W.requestAnimationFrame(jdTick);
   }
 
   function bindEvents() {
-    document.querySelector('[data-action="start"]')?.addEventListener('click', () => {
+    D.querySelector('[data-action="start"]')?.addEventListener('click', () => {
       if (state && state.running) return;
       startGame({
         mode: (elMode?.value || HHA_CTX.mode || 'training').toLowerCase(),
@@ -3058,7 +3017,7 @@
       });
     });
 
-    document.querySelector('[data-action="tutorial"]')?.addEventListener('click', () => {
+    D.querySelector('[data-action="tutorial"]')?.addEventListener('click', () => {
       if (state && state.running) return;
       startGame({
         mode: 'training',
@@ -3068,7 +3027,7 @@
       jdTelegraph('Tutorial: low = jump • high = duck', 1200);
     });
 
-    document.querySelector('[data-action="play-again"]')?.addEventListener('click', () => {
+    D.querySelector('[data-action="play-again"]')?.addEventListener('click', () => {
       hhFitnessRematch({
         score: Number(state?.score || 0),
         miss: Number(state?.miss || 0),
@@ -3083,7 +3042,7 @@
       showView('menu');
     });
 
-    document.querySelector('[data-action="back-menu"]')?.addEventListener('click', () => {
+    D.querySelector('[data-action="back-menu"]')?.addEventListener('click', () => {
       hhFitnessGoHub({
         score: Number(state?.score || 0),
         miss: Number(state?.miss || 0),
@@ -3125,19 +3084,19 @@
       }, { passive: true });
     }
 
-    window.addEventListener('keydown', (ev) => {
+    W.addEventListener('keydown', (ev) => {
       if (!state || !state.running) return;
       const k = String(ev.key || '').toLowerCase();
       if (k === 'arrowup' || k === 'w') jdHandleInput(state, 'jump');
       if (k === 'arrowdown' || k === 's') jdHandleInput(state, 'duck');
     });
 
-    window.addEventListener('resize', () => {
+    W.addEventListener('resize', () => {
       if (!state) return;
       jdApplyResponsiveLayout(state);
     });
 
-    window.addEventListener('pagehide', () => {
+    W.addEventListener('pagehide', () => {
       if (!state || state.finished || state.finishing) return;
 
       hhFitnessGoHub({
