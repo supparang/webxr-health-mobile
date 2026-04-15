@@ -47,6 +47,14 @@
       return fallback || '';
     }
 
+    function firstNonEmpty(...vals){
+      for (const v of vals){
+        const s = String(v || '').trim();
+        if (s) return s;
+      }
+      return '';
+    }
+
     function looksLikeRoot(href='', zone=''){
       const s = String(href || '').toLowerCase();
       if (!s) return false;
@@ -81,14 +89,37 @@
       return false;
     }
 
+    function looksLikeZonePage(href='', zone=''){
+      const s = String(href || '').toLowerCase();
+      if (!s) return false;
+      if (zone === 'fitness') return s.includes('fitness-zone.html');
+      if (zone === 'nutrition') return s.includes('nutrition-zone.html');
+      if (zone === 'hygiene') return s.includes('hygiene-zone.html');
+      return false;
+    }
+
     function normalizeGameId(raw=''){
       const s = String(raw || '').trim().toLowerCase();
       if (!s) return '';
+
       if (['jumpduck','jump-duck','jump-duck-vr'].includes(s)) return 'jump-duck';
       if (['shadowbreaker','shadow-breaker'].includes(s)) return 'shadow-breaker';
       if (['rhythmboxer','rhythm-boxer'].includes(s)) return 'rhythm-boxer';
       if (['balancehold','balance-hold'].includes(s)) return 'balance-hold';
       if (['fitnessplanner','fitness-planner'].includes(s)) return 'fitness-planner';
+
+      if (['goodjunk','good-junk'].includes(s)) return 'goodjunk';
+      if (['plate','plate-vr','plate-v1'].includes(s)) return 'plate';
+      if (['groups','group','groups-v1','group-v1'].includes(s)) return 'groups';
+      if (['hydration','hydration-vr'].includes(s)) return 'hydration';
+
+      if (['handwash','handwash-vr','handwash-v2','handwash-howto','handwash-mini-order'].includes(s)) return 'handwash';
+      if (['brush','brush-vr','vr-brush','vr-brush-kids'].includes(s)) return 'brush';
+      if (['germ','germ-detective','germ-rush-run','germ-rush'].includes(s)) return 'germ';
+      if (['maskcough','mask-cough','maskcough-v2','maskcough-vr'].includes(s)) return 'maskcough';
+      if (['bath','bath-vr','vr-bath'].includes(s)) return 'bath';
+      if (['cleanobjects','clean-objects','clean-objects-v2','clean-objects-v3'].includes(s)) return 'cleanobjects';
+
       return s.replace(/\s+/g,'-');
     }
 
@@ -103,7 +134,14 @@
       if (g.includes('goodjunk') || g.includes('plate') || g.includes('group') || g.includes('hydration')) {
         return 'nutrition';
       }
-      if (g.includes('brush') || g.includes('handwash') || g.includes('germ') || g.includes('bath') || g.includes('mask')) {
+      if (
+        g.includes('brush') ||
+        g.includes('handwash') ||
+        g.includes('germ') ||
+        g.includes('bath') ||
+        g.includes('mask') ||
+        g.includes('clean')
+      ) {
         return 'hygiene';
       }
       return '';
@@ -120,7 +158,7 @@
       if (z === 'hygiene') {
         return 'https://supparang.github.io/webxr-health-mobile/herohealth/hygiene-zone.html';
       }
-      return 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+      return 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
     }
 
     function launcherHrefByGame(gameId=''){
@@ -143,7 +181,7 @@
       }
 
       if (g === 'groups') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/groups-v1.html';
+        return 'https://supparang.github.io/webxr-health-mobile/herohealth/group-v1.html';
       }
       if (g === 'plate') {
         return 'https://supparang.github.io/webxr-health-mobile/herohealth/plate-v1.html';
@@ -151,11 +189,33 @@
       if (g === 'goodjunk') {
         return 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
       }
+      if (g === 'hydration') {
+        return 'https://supparang.github.io/webxr-health-mobile/herohealth/hydration-vr/hydration-vr.html';
+      }
+
+      if (g === 'handwash') {
+        return 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-handwash/handwash-launcher.html';
+      }
+      if (g === 'brush') {
+        return 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-brush-kids/brush.html';
+      }
+      if (g === 'germ') {
+        return 'https://supparang.github.io/webxr-health-mobile/herohealth/germ-detective/germ-rush-run.html';
+      }
+      if (g === 'maskcough') {
+        return 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html';
+      }
+      if (g === 'bath') {
+        return 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-bath/bath.html';
+      }
+      if (g === 'cleanobjects') {
+        return 'https://supparang.github.io/webxr-health-mobile/herohealth/clean-objects-v3/clean-objects-v2.html';
+      }
 
       return '';
     }
 
-    function buildLauncherWithCtx(gameId, params, zoneHref){
+    function buildLauncherWithCtx(gameId, params, zoneHref, hubRootHref){
       const base = launcherHrefByGame(gameId);
       if (!base) return '';
 
@@ -164,7 +224,9 @@
       const keep = [
         'pid','name','nick','nickName','run','diff','time','view','seed',
         'mode','studyId','debug','log','api','ai','pro',
-        'game','gameId','theme','zone','cat'
+        'game','gameId','theme','zone','cat',
+        'studentKey','schoolCode','classRoom','studentNo',
+        'conditionGroup','sessionNo','weekNo','teacher','grade'
       ];
 
       keep.forEach((key) => {
@@ -178,30 +240,37 @@
       if (!u.searchParams.get('theme')) {
         u.searchParams.set('theme', normalizeGameId(gameId));
       }
-      if (!u.searchParams.get('zone') && zoneHref) {
-        const zoneName = inferZoneFromCtx(gameId, params.get('zone'), params.get('cat'));
-        if (zoneName) u.searchParams.set('zone', zoneName);
-      }
-      if (!u.searchParams.get('cat') && zoneHref) {
-        const zoneName = inferZoneFromCtx(gameId, params.get('zone'), params.get('cat'));
-        if (zoneName) u.searchParams.set('cat', zoneName);
-      }
+
+      const zoneName = inferZoneFromCtx(gameId, params.get('zone'), params.get('cat'));
+      if (!u.searchParams.get('zone') && zoneName) u.searchParams.set('zone', zoneName);
+      if (!u.searchParams.get('cat') && zoneName) u.searchParams.set('cat', zoneName);
 
       if (zoneHref) {
         u.searchParams.set('hub', zoneHref);
+        u.searchParams.set('zoneReturn', zoneHref);
+      }
+      if (hubRootHref) {
+        u.searchParams.set('hubRoot', hubRootHref);
       }
 
       return u.toString();
     }
 
-    function buildWarmupNextHref(gameId, params, zoneHref){
-      const launcher = buildLauncherWithCtx(gameId, params, zoneHref);
+    function buildWarmupNextHref(gameId, params, zoneHref, hubRootHref){
+      const launcher = buildLauncherWithCtx(gameId, params, zoneHref, hubRootHref);
       if (!launcher) return zoneHref;
 
       const u = new URL(launcher);
       u.searchParams.set('wgskip', '1');
       u.searchParams.set('autostart', '1');
       u.searchParams.set('entry', 'warmup-gate');
+      if (zoneHref) {
+        u.searchParams.set('hub', zoneHref);
+        u.searchParams.set('zoneReturn', zoneHref);
+      }
+      if (hubRootHref) {
+        u.searchParams.set('hubRoot', hubRootHref);
+      }
       return u.toString();
     }
 
@@ -228,6 +297,9 @@
 
       const rawHub = abs(p.get('hub') || '', '');
       const rawHubRoot = abs(p.get('hubRoot') || '', '');
+      const rawZoneReturn = abs(p.get('zoneReturn') || '', '');
+      const rawNext = abs(p.get('next') || '', '');
+      const rawCdNext = abs(p.get('cdnext') || '', '');
       const rawLauncher = abs(p.get('launcher') || '', '');
 
       const normalizedHub =
@@ -240,10 +312,16 @@
           ? zoneHref
           : rawHubRoot;
 
+      const normalizedZoneReturn =
+        looksLikeRoot(rawZoneReturn, zone) || !rawZoneReturn
+          ? zoneHref
+          : rawZoneReturn;
+
       if (normalizedHub) p.set('hub', normalizedHub);
       if (normalizedHubRoot) p.set('hubRoot', normalizedHubRoot);
+      if (normalizedZoneReturn) p.set('zoneReturn', normalizedZoneReturn);
 
-      const defaultLauncher = buildLauncherWithCtx(gameId, p, zoneHref);
+      const defaultLauncher = buildLauncherWithCtx(gameId, p, normalizedZoneReturn, normalizedHubRoot);
       if (!rawLauncher && defaultLauncher) {
         p.set('launcher', defaultLauncher);
       } else if (looksLikeRoot(rawLauncher, zone) && defaultLauncher) {
@@ -257,19 +335,33 @@
       if (!p.get('cat') && zone) p.set('cat', zone);
 
       if (phase === 'warmup') {
-        if (!p.get('next')) {
-          const nextHref = buildWarmupNextHref(gameId, p, zoneHref);
+        if (!rawNext || looksLikeRoot(rawNext, zone)) {
+          const nextHref = buildWarmupNextHref(gameId, p, normalizedZoneReturn, normalizedHubRoot);
           if (nextHref) p.set('next', nextHref);
+        } else {
+          p.set('next', rawNext);
         }
 
-        if (!p.get('cdnext')) {
-          p.set('cdnext', zoneHref);
+        if (!rawCdNext || looksLikeRoot(rawCdNext, zone)) {
+          p.set('cdnext', normalizedZoneReturn);
+        } else {
+          p.set('cdnext', rawCdNext);
         }
       }
 
       if (phase === 'cooldown') {
-        if (!p.get('next')) p.set('next', zoneHref);
-        if (!p.get('cdnext')) p.set('cdnext', zoneHref);
+        const cooldownTarget =
+          rawNext && !looksLikeRoot(rawNext, zone)
+            ? rawNext
+            : normalizedZoneReturn;
+
+        p.set('next', cooldownTarget);
+
+        if (!rawCdNext || looksLikeRoot(rawCdNext, zone)) {
+          p.set('cdnext', normalizedZoneReturn);
+        } else {
+          p.set('cdnext', rawCdNext);
+        }
       }
 
       if (String(p.get('view') || '').trim() === '') {
@@ -292,20 +384,23 @@
         gameId,
         phase,
         zone,
-        zoneHref
+        zoneHref: normalizedZoneReturn,
+        hubRootHref: normalizedHubRoot
       };
     }
 
     function renderBootError(err, ctx){
       if (!root) return;
 
-      const zoneHref = ctx?.zoneHref || zonePageHref('fitness');
+      const zoneHref = ctx?.zoneHref || zonePageHref('hygiene');
+      const hubRootHref = ctx?.hubRootHref || zoneHref;
       const gameId = ctx?.gameId || normalizeGameId(qs('game', qs('gameId', '')));
       const phase = ctx?.phase || 'warmup';
-      const launcherHref = buildLauncherWithCtx(gameId, new URL(location.href).searchParams, zoneHref) || zoneHref;
-      const nextHref = buildWarmupNextHref(gameId, new URL(location.href).searchParams, zoneHref) || launcherHref;
+      const params = new URL(location.href).searchParams;
+      const launcherHref = buildLauncherWithCtx(gameId, params, zoneHref, hubRootHref) || zoneHref;
+      const nextHref = buildWarmupNextHref(gameId, params, zoneHref, hubRootHref) || launcherHref;
 
-      const primaryLabel = phase === 'cooldown' ? 'กลับ Fitness Zone' : 'เข้าเกมหลัก';
+      const primaryLabel = phase === 'cooldown' ? 'กลับ Zone' : 'เข้าเกมหลัก';
       const primaryHref = phase === 'cooldown' ? zoneHref : nextHref;
 
       root.innerHTML = `
