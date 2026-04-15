@@ -251,7 +251,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
         // DATABASE: ระบบสุ่มคำถาม! แต่ละด่านมี 5 Variations ไม่ซ้ำกัน
@@ -834,30 +834,49 @@
         window.submitScore = async function() {
             const nameInput = document.getElementById('player-name-input');
             const name = nameInput.value.trim() || "Unknown Dev";
-            
+
             if (!currentUser || !db) {
                 document.getElementById('feedback').innerText = "❌ เกิดข้อผิดพลาด ไม่สามารถเชื่อมต่อฐานข้อมูลได้";
                 return;
             }
-            
-            document.getElementById('btn-submit-score').disabled = true;
-            document.getElementById('btn-submit-score').innerText = "Saving...";
-            
+
+            const btn = document.getElementById('btn-submit-score');
+            btn.disabled = true;
+            btn.innerText = "Saving...";
+
             try {
-                const lbCol = collection(db, 'artifacts', appId, 'public', 'data', 'vr_leaderboards');
-                await addDoc(lbCol, {
+                const scoreRef = doc(
+                    db,
+                    'artifacts', appId,
+                    'public', 'data',
+                    'vr_leaderboards',
+                    currentUser.uid
+                );
+
+                const snap = await getDoc(scoreRef);
+                const oldData = snap.exists() ? snap.data() : null;
+                const oldBest = oldData && typeof oldData.score === 'number' ? oldData.score : 0;
+                const bestScore = Math.max(oldBest, gameScore);
+
+                await setDoc(scoreRef, {
                     name: name,
-                    score: gameScore,
+                    score: bestScore,
                     timestamp: Date.now(),
                     userId: currentUser.uid
-                });
-                document.getElementById('feedback').innerText = "✅ บันทึกคะแนนของคุณสำเร็จแล้ว!";
+                }, { merge: true });
+
+                if (gameScore > oldBest) {
+                    document.getElementById('feedback').innerText = `✅ New High Score! บันทึก ${bestScore} คะแนนเรียบร้อยแล้ว`;
+                } else {
+                    document.getElementById('feedback').innerText = `✅ บันทึกชื่อเรียบร้อยแล้ว (คะแนนสูงสุดเดิมยังเป็น ${oldBest})`;
+                }
+
                 document.getElementById('game-over-ui').style.display = 'none';
             } catch (e) {
                 console.error("Error saving score:", e);
                 document.getElementById('feedback').innerText = "❌ เกิดข้อผิดพลาดในการบันทึก";
-                document.getElementById('btn-submit-score').disabled = false;
-                document.getElementById('btn-submit-score').innerText = "Save Score";
+                btn.disabled = false;
+                btn.innerText = "Save Score";
             }
         };
 
