@@ -3,7 +3,7 @@ import { mulberry32 } from '../../helpers/rng.js';
 import { runBubblePhase } from '../../helpers/bubbles.js';
 
 export function loadStyle(){
-  loadCssOnce('./gate/games/maskcough/style.css?v=20260415b');
+  loadCssOnce('./gate/games/maskcough/style.css?v=20260415a');
 }
 
 export async function mount(container, ctx, api){
@@ -21,37 +21,18 @@ export async function mount(container, ctx, api){
     }catch(_){}
   }
 
-  function readCtxValue(key){
-    try{
-      const direct = ctx?.[key];
-      if (direct != null && String(direct).trim() !== '') return String(direct).trim();
-    }catch(_){}
-    try{
-      const param = ctx?.params?.get?.(key);
-      if (param != null && String(param).trim() !== '') return String(param).trim();
-    }catch(_){}
-    return '';
+  function resolveReturnLabel(){
+    const next = String(ctx?.next || ctx?.params?.get?.('next') || '').toLowerCase();
+    const cdnext = String(ctx?.cdnext || ctx?.params?.get?.('cdnext') || '').toLowerCase();
+    const zoneReturn = String(ctx?.zoneReturn || ctx?.params?.get?.('zoneReturn') || '').toLowerCase();
+
+    const combined = `${next} ${cdnext} ${zoneReturn}`;
+    if (combined.includes('hygiene-zone.html')) return 'กลับ Hygiene Zone';
+    if (combined.includes('nutrition-zone.html')) return 'กลับ Nutrition Zone';
+    if (combined.includes('fitness-zone.html')) return 'กลับ Fitness Zone';
+    if (combined.includes('hub-v2.html') || combined.includes('hub.html')) return 'กลับหน้าหลัก';
+    return 'ไปหน้าถัดไป';
   }
-
-  function resolveReturnTarget(){
-    const next = readCtxValue('next');
-    const cdnext = readCtxValue('cdnext');
-    const zoneReturn = readCtxValue('zoneReturn');
-    const hubRoot = readCtxValue('hubRoot');
-    const hub = readCtxValue('hub');
-
-    const combined = `${next} ${cdnext} ${zoneReturn} ${hubRoot} ${hub}`.toLowerCase();
-
-    let label = 'ไปหน้าถัดไป';
-    if (combined.includes('hygiene-zone.html')) label = 'กลับ Hygiene Zone';
-    else if (combined.includes('nutrition-zone.html')) label = 'กลับ Nutrition Zone';
-    else if (combined.includes('fitness-zone.html')) label = 'กลับ Fitness Zone';
-    else if (combined.includes('hub-v2.html') || combined.includes('hub.html')) label = 'กลับหน้าหลัก';
-
-    return { next, cdnext, zoneReturn, hubRoot, hub, label };
-  }
-
-  const returnTarget = resolveReturnTarget();
 
   container.innerHTML = `
     <div class="mask-layer">
@@ -59,7 +40,7 @@ export async function mount(container, ctx, api){
         <div class="mask-brief-card" style="margin:18px auto;">
           <h2 class="mask-brief-title">Cooldown — Calm Air Check</h2>
           <p class="mask-brief-sub">
-            แตะฟองอากาศสะอาดให้ครบ 5 จุด แล้วตอบคำถามสั้น ๆ ก่อน${returnTarget.label}
+            แตะฟองอากาศสะอาดให้ครบ 5 จุด แล้วตอบคำถามสั้น ๆ ก่อน${resolveReturnLabel()}
           </p>
           <button class="btn btn-primary" id="maskCoolStartBtn">เริ่มคูลดาวน์</button>
         </div>
@@ -115,7 +96,7 @@ export async function mount(container, ctx, api){
 
     if(api && typeof api.setStats === 'function'){
       api.setStats({
-        time: Math.max(0, state.time),
+        time: state.time,
         score: state.score,
         miss: state.miss,
         acc: prog
@@ -185,6 +166,8 @@ export async function mount(container, ctx, api){
       try{ bubbleRun.end(); }catch(_){}
     }
 
+    const returnLabel = resolveReturnLabel();
+
     try{
       api?.logger?.push?.('maskcough_cooldown_end', {
         ok: !!ok,
@@ -193,49 +176,37 @@ export async function mount(container, ctx, api){
         score: state.score,
         miss: state.miss,
         answerCorrect: state.answerCorrect,
-        next: returnTarget.next,
-        cdnext: returnTarget.cdnext,
-        zoneReturn: returnTarget.zoneReturn,
-        hub: returnTarget.hub,
-        hubRoot: returnTarget.hubRoot
+        next: ctx?.next || '',
+        cdnext: ctx?.cdnext || ctx?.params?.get?.('cdnext') || '',
+        zoneReturn: ctx?.zoneReturn || ctx?.params?.get?.('zoneReturn') || ''
       });
     }catch(_){}
 
     if(api && typeof api.finish === 'function'){
       api.finish({
         ok: !!ok,
-        title: 'คูลดาวน์เสร็จแล้ว',
+        title: ok ? 'คูลดาวน์เสร็จแล้ว' : 'คูลดาวน์เสร็จแล้ว',
         subtitle: ok
-          ? `พร้อม${returnTarget.label}`
-          : `หมดเวลาแล้ว แต่ยัง${returnTarget.label}ได้`,
+          ? `พร้อม${returnLabel}`
+          : `หมดเวลาแล้ว แต่ยัง${returnLabel}ได้`,
         lines:[
           `แตะฟองอากาศสะอาด ${state.taps}/${state.goal} จุด`,
           `ตอบคำถามสรุป ${state.answerCorrect ? 'ถูกต้อง' : 'ยังไม่ถูก'}`,
           `คะแนน ${state.score}`,
           `พลาด ${state.miss} ครั้ง`
         ],
-
-        next: returnTarget.next,
-        cdnext: returnTarget.cdnext,
-        zoneReturn: returnTarget.zoneReturn,
-        hub: returnTarget.hub,
-        hubRoot: returnTarget.hubRoot,
-
         buffs:{
           cType:'maskcough_calm_check',
-          cDone: 1,
-          cOk: ok ? 1 : 0,
+          cDone: ok ? 1 : 0,
           cScore: state.score
         },
-
         cooldownResult:{
           ok: !!ok,
           taps: state.taps,
           goal: state.goal,
           answerCorrect: state.answerCorrect,
           miss: state.miss,
-          score: state.score,
-          returnLabel: returnTarget.label
+          score: state.score
         }
       });
     }
@@ -272,16 +243,13 @@ export async function mount(container, ctx, api){
       api?.logger?.push?.('maskcough_cooldown_start', {
         seed: ctx.seed,
         goal: state.goal,
-        time: state.time,
-        next: returnTarget.next,
-        cdnext: returnTarget.cdnext,
-        zoneReturn: returnTarget.zoneReturn
+        time: state.time
       });
     }catch(_){}
 
     state.timer = setInterval(()=>{
       if(state.ended) return;
-      state.time = Math.max(0, state.time - 1);
+      state.time--;
       setHud();
       if(state.time <= 0){
         finish(false);
