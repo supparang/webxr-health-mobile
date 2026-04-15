@@ -65,8 +65,8 @@
         <button id="btnRetry" class="btn accent" type="button">↻ เล่นใหม่</button>
         <button id="btnBurst" class="btn accent" type="button">💥 พลังพิเศษ</button>
         <button id="btnPause" class="btn" type="button">⏸ พัก</button>
-        <button id="btnBack" class="btn ghost" type="button">🧼 กลับ Hygiene Zone</button>
-        <button id="btnHubTop" class="btn ghost" type="button">🏠 กลับ Hub</button>
+        <button id="btnBackZoneTop" class="btn ghost" type="button">🧼 กลับ Hygiene Zone</button>
+        <button id="btnBack" class="btn ghost" type="button">🏠 กลับหลัก</button>
       </div>
 
       <div class="help">
@@ -121,86 +121,140 @@
 
       const qs = new URLSearchParams(location.search);
 
-      const q = (k, d='') => {
+      const q = (k, d = '') => {
         const v = qs.get(k);
         return (v == null || v === '') ? d : v;
       };
 
-      const safeAbsUrl = (raw, fallback='') => {
+      const safeAbsUrl = (raw, fallback = '') => {
         const value = String(raw || '').trim();
-        try{
+        try {
           if (value) return new URL(value, location.href).toString();
-        }catch(_){}
-        try{
-          if (fallback) return new URL(fallback, location.href).toString();
-        }catch(_){}
-        return fallback || '';
+        } catch (_) {}
+        try {
+          return new URL(fallback || '../hygiene-zone.html', location.href).toString();
+        } catch (_) {
+          return fallback || '../hygiene-zone.html';
+        }
       };
 
-      const HUB_ROOT_URL = safeAbsUrl(
-        q('hubRoot', q('hub', '../hub-v2.html')),
-        '../hub-v2.html'
-      );
+      const firstNonEmpty = (...vals) => {
+        for (const v of vals) {
+          const s = String(v || '').trim();
+          if (s) return s;
+        }
+        return '';
+      };
 
-      const ZONE_RETURN_URL = safeAbsUrl(
-        q('zoneReturn', '../hygiene-zone.html'),
-        '../hygiene-zone.html'
-      );
+      const looksLikeZoneUrl = (urlText = '') =>
+        String(urlText || '').toLowerCase().includes('hygiene-zone.html');
 
-      const PID = q('pid', 'anon');
-      const PLAYER_NAME = q('name', q('nick', 'Hero'));
+      const looksLikeHubUrl = (urlText = '') => {
+        const txt = String(urlText || '').toLowerCase();
+        return txt.includes('/hub.html') || txt.includes('/hub-v2.html');
+      };
 
-      function rememberMaskCoughHint() {
-        try{
+      const buildHubRoot = () => {
+        const explicitHubRoot = firstNonEmpty(q('hubRoot', ''));
+        if (explicitHubRoot) return safeAbsUrl(explicitHubRoot, '../hub-v2.html');
+
+        const legacyHub = firstNonEmpty(q('hub', ''));
+        if (legacyHub && looksLikeHubUrl(legacyHub)) {
+          return safeAbsUrl(legacyHub, '../hub-v2.html');
+        }
+
+        return safeAbsUrl('../hub-v2.html', '../hub-v2.html');
+      };
+
+      const buildFallbackZoneReturn = () => {
+        const hubRoot = buildHubRoot();
+        const url = new URL('../hygiene-zone.html', location.href);
+
+        [
+          'pid','name','nick','nickName','studyId',
+          'diff','view','time','run',
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo',
+          'conditionGroup','sessionNo','weekNo','teacher','grade'
+        ].forEach((key) => {
+          const v = q(key, '');
+          if (v) url.searchParams.set(key, v);
+        });
+
+        if (!url.searchParams.get('pid')) url.searchParams.set('pid', 'anon');
+        if (!url.searchParams.get('name')) {
+          url.searchParams.set(
+            'name',
+            firstNonEmpty(q('name', ''), q('nickName', ''), q('nick', ''), 'Hero')
+          );
+        }
+        if (!url.searchParams.get('diff')) url.searchParams.set('diff', 'normal');
+        if (!url.searchParams.get('view')) url.searchParams.set('view', 'mobile');
+        if (!url.searchParams.get('time')) url.searchParams.set('time', '90');
+        if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
+
+        url.searchParams.set('zone', 'hygiene');
+        url.searchParams.set('cat', 'hygiene');
+        url.searchParams.set('hubRoot', hubRoot);
+        url.searchParams.set('hub', hubRoot);
+
+        return url.toString();
+      };
+
+      const buildZoneReturn = () => {
+        const explicitZoneReturn = firstNonEmpty(q('zoneReturn', ''));
+        if (explicitZoneReturn) return safeAbsUrl(explicitZoneReturn, '../hygiene-zone.html');
+
+        const legacyHub = firstNonEmpty(q('hub', ''));
+        if (legacyHub && looksLikeZoneUrl(legacyHub)) {
+          return safeAbsUrl(legacyHub, '../hygiene-zone.html');
+        }
+
+        return buildFallbackZoneReturn();
+      };
+
+      const resolveNextUrl = () => {
+        const explicitNext = firstNonEmpty(q('next', ''));
+        if (explicitNext) {
+          const nextAbs = safeAbsUrl(explicitNext, buildZoneReturn());
+          if (nextAbs !== new URL(location.href).toString()) return nextAbs;
+        }
+        return buildZoneReturn();
+      };
+
+      const HUB_ROOT_URL = buildHubRoot();
+      const ZONE_RETURN_URL = buildZoneReturn();
+      const NEXT_URL = resolveNextUrl();
+
+      function rememberMaskCoughZoneTouch() {
+        try {
           localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
-
           localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
             key: 'maskcough',
             title: 'MaskCough',
             at: Date.now()
           }));
-
-          localStorage.setItem('HHA_MASKCOUGH_LAST_PLAYER', JSON.stringify({
-            pid: PID,
-            name: PLAYER_NAME,
-            updatedAt: Date.now()
-          }));
-        }catch(_){}
+        } catch (_) {}
       }
 
-      function bindRemember(id){
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('click', rememberMaskCoughHint);
-      }
-
-      function forceNavigate(id, target){
+      function bindDirectNav(id, target) {
         const el = document.getElementById(id);
         if (!el || !target) return;
 
         el.addEventListener('click', (ev) => {
           ev.preventDefault();
           ev.stopImmediatePropagation();
-          rememberMaskCoughHint();
+          rememberMaskCoughZoneTouch();
           location.href = target;
         }, true);
       }
 
-      bindRemember('btnStart');
-      bindRemember('btnRetry');
-      bindRemember('btnEndRetry');
-
-      forceNavigate('btnBack', ZONE_RETURN_URL);
-      forceNavigate('btnEndZone', ZONE_RETURN_URL);
-      forceNavigate('btnHubTop', HUB_ROOT_URL);
-
-      const btnBack = document.getElementById('btnBack');
-      if (btnBack) {
-        btnBack.textContent = '🧼 กลับ Hygiene Zone';
-      }
+      bindDirectNav('btnBackZoneTop', ZONE_RETURN_URL);
+      bindDirectNav('btnEndZone', ZONE_RETURN_URL);
 
       window.__MASKCOUGH_ZONE_RETURN__ = ZONE_RETURN_URL;
       window.__MASKCOUGH_HUB_ROOT__ = HUB_ROOT_URL;
+      window.__MASKCOUGH_NEXT__ = NEXT_URL;
     })();
   </script>
 </body>
