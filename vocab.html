@@ -151,10 +151,6 @@ th{color:#93c5fd}
       <button class="btn ghost" id="exportClassroomBtn">EXPORT CLASSROOM</button>
     </div>
     
-
-<div class="legend" style="margin-top:12px;color:#fde68a">
-  หมายเหตุ: โปรเจกต์นี้ผูก Firebase config ให้แล้ว แต่ยังต้องใส่ <span class="mono">databaseURL</span> ของ Realtime Database เองก่อนใช้งานจริง
-</div>
 <div class="grid2" style="margin-top:16px">
   <div class="inputBox">
     <label for="firebaseRoomInput">Realtime Room / Class Key</label>
@@ -896,7 +892,8 @@ function renderBackground(t){
     const rows = classroomExportRows();
     const header = ['displayName','studentId','section','sessionCode','bank','mode','score','accuracy','improvement','when'];
     const body = rows.map(r => header.map(k => String(r[k] ?? '')).join(','));
-    return [header.join(','), ...body].join('\\n');
+    return [header.join(','), ...body].join('
+');
   }
   function downloadFile(filename, text, type='text/plain'){
     const blob = new Blob([text], { type });
@@ -997,17 +994,6 @@ function renderBackground(t){
     renderEffects(16.67);
     renderCrosshair();
     updateHud();
-  }
-
-
-  function initFirebase(){
-    try{
-      const roomInput = document.getElementById('firebaseRoomInput');
-      const toggleInput = document.getElementById('firebaseToggleInput');
-      if (toggleInput) toggleInput.value = 'LOCAL FALLBACK';
-      if (roomInput && !roomInput.value) roomInput.value = 'FREEPLAY';
-    }catch(e){}
-    return false;
   }
 
   // boot
