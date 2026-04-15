@@ -3,68 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Handwash Mini Order</title>
-
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <title>Handwash Hero • Mini Order</title>
 
   <style>
     :root{
-      --bg:rgba(7,18,34,.86);
-      --panel:rgba(255,255,255,.10);
-      --line:#63e6ff;
+      --bg1:#dff6ff;
+      --bg2:#f7fdff;
+      --ink:#12324b;
+      --mut:#537089;
+      --line:#cfeaf7;
+      --card:#ffffff;
+      --soft:#eef8fd;
       --yellow:#ffe66d;
-      --shadow:0 12px 30px rgba(0,0,0,.28);
+      --green:#b9f5c9;
+      --pink:#ffc7df;
+      --blue:#c8f2ff;
+      --shadow:0 14px 30px rgba(19,50,75,.12);
+      --radius:24px;
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
-      width:100%;
-      height:100%;
-      overflow:hidden;
+      min-height:100%;
+      background:
+        radial-gradient(circle at top right, #ffffff 0%, #f6fdff 24%, #e9faff 45%, #dff6ff 100%);
       font-family:"Segoe UI",system-ui,sans-serif;
-      background:#03111f;
-      color:#fff;
+      color:var(--ink);
+      overflow:hidden;
       touch-action:manipulation;
     }
 
-    a-scene{
-      position:fixed !important;
-      inset:0 !important;
-      background:linear-gradient(180deg,#07111f 0%, #06213a 58%, #041221 100%);
+    body{
+      padding:14px;
     }
 
-    #hud{
-      position:fixed;
-      inset:0;
-      z-index:20;
-      pointer-events:none;
+    .shell{
+      max-width:1180px;
+      height:calc(100dvh - 28px);
+      margin:0 auto;
+      display:grid;
+      gap:14px;
+      grid-template-rows:auto 1fr;
     }
 
-    #ui-layer{
-      position:absolute;
-      top:10px;
-      left:50%;
-      transform:translateX(-50%);
-      width:min(94%,680px);
-      background:var(--bg);
-      color:#fff;
-      padding:14px 14px 12px;
-      border-radius:22px;
-      border:2px solid rgba(99,230,255,.35);
+    .hud{
+      background:rgba(255,255,255,.94);
+      border:2px solid var(--line);
+      border-radius:28px;
       box-shadow:var(--shadow);
-      backdrop-filter:blur(8px);
-      transition:opacity .18s ease, transform .18s ease;
-    }
-
-    #ui-layer.compact{
-      width:min(94%,460px);
-      padding:10px 12px;
-    }
-
-    #ui-layer.compact #guide-panel,
-    #ui-layer.compact .progress-wrap{
-      display:none;
+      padding:14px;
+      display:grid;
+      gap:12px;
     }
 
     .top-row{
@@ -72,183 +63,370 @@
       justify-content:space-between;
       gap:12px;
       align-items:flex-start;
+      flex-wrap:wrap;
     }
 
     .title-wrap{
       min-width:0;
+      flex:1 1 320px;
     }
 
     .title-main{
-      font-size:1rem;
+      font-size:.98rem;
       font-weight:900;
-      color:#baf4ff;
+      color:#0f766e;
       letter-spacing:.01em;
     }
 
     .title-sub{
       margin-top:4px;
-      font-size:1.2rem;
+      font-size:1.22rem;
       line-height:1.15;
-      font-weight:900;
-      color:#fff;
+      font-weight:1000;
+      color:var(--ink);
+    }
+
+    .guide{
+      background:var(--soft);
+      border:1px solid #d7ecf8;
+      border-radius:18px;
+      padding:12px;
+      display:grid;
+      grid-template-columns:72px 1fr;
+      gap:10px;
+      align-items:center;
+    }
+
+    .guide-icon{
+      width:72px;
+      height:72px;
+      border-radius:50%;
+      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2rem;
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);
+    }
+
+    .guide-copy{
+      min-width:0;
+    }
+
+    .guide-copy strong{
+      display:block;
+      color:var(--ink);
+      font-size:1rem;
+      line-height:1.2;
+      margin-bottom:4px;
+    }
+
+    .guide-copy span{
+      color:var(--mut);
+      font-weight:800;
+      line-height:1.45;
+      font-size:.92rem;
+    }
+
+    .prompt{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      background:linear-gradient(180deg,#fff2a8 0%, #ffd84d 100%);
+      color:#111827;
+      padding:8px 12px;
+      border-radius:999px;
+      font-weight:1000;
+      margin-top:8px;
+      box-shadow:0 8px 18px rgba(0,0,0,.08);
     }
 
     .chips{
       display:flex;
       flex-wrap:wrap;
-      justify-content:flex-end;
       gap:8px;
+      justify-content:flex-end;
     }
 
     .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
       padding:8px 12px;
       border-radius:999px;
-      background:rgba(103,232,249,.14);
-      border:1px solid rgba(103,232,249,.18);
-      color:#e6fbff;
+      background:#ecfeff;
+      border:1px solid #bdf4ff;
+      color:#0f766e;
       font-weight:900;
-      font-size:.9rem;
-      white-space:nowrap;
+      font-size:.88rem;
     }
 
-    #guide-panel{
-      margin-top:10px;
-      padding:12px;
-      background:var(--panel);
-      border-radius:16px;
-      display:grid;
-      grid-template-columns:78px 1fr;
-      gap:12px;
-      align-items:center;
+    .chip.warn{
+      background:#fff7d6;
+      border-color:#ffe7a8;
+      color:#92400e;
     }
 
-    .guide-image{
-      width:78px;
-      height:78px;
-      border-radius:50%;
-      background:linear-gradient(180deg,#8aeaff 0%,#22d3ee 100%);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:2rem;
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.18);
-    }
-
-    #guide-copy{
-      min-width:0;
-    }
-
-    #step-count{
-      font-size:.95rem;
-      font-weight:900;
-      color:#63e6ff;
-    }
-
-    #step-desc{
-      margin-top:4px;
-      font-size:1rem;
-      line-height:1.4;
-      font-weight:700;
-      color:#eefcff;
-    }
-
-    #action-prompt{
-      display:inline-block;
-      margin-top:8px;
-      background:var(--yellow);
-      color:#111827;
-      padding:8px 12px;
-      border-radius:999px;
-      font-weight:900;
-      font-size:.92rem;
-      animation:pulse 1s infinite;
+    .chip.good{
+      background:#effcf3;
+      border-color:#c8efd1;
+      color:#166534;
     }
 
     .progress-wrap{
-      margin-top:10px;
       display:grid;
-      gap:4px;
+      gap:5px;
     }
 
     .progress-top{
       display:flex;
       justify-content:space-between;
       gap:10px;
-      font-weight:800;
-      color:#d9fbff;
-      font-size:.88rem;
+      font-weight:900;
+      color:#31536c;
+      font-size:.86rem;
     }
 
     .progress-bar{
       width:100%;
       height:14px;
-      background:#0b1220;
+      background:#e8f3f9;
       border-radius:999px;
       overflow:hidden;
-      border:2px solid #63e6ff;
+      border:1px solid #cfe3ef;
     }
 
     #fill{
       width:0%;
       height:100%;
-      background:linear-gradient(90deg,#60ff9d 0%,#00e5ff 100%);
-      transition:width .12s linear;
+      background:linear-gradient(90deg,#60ff9d 0%, #00e5ff 100%);
+      transition:width .16s linear;
     }
 
-    #coach{
-      position:absolute;
-      left:10px;
-      right:10px;
-      bottom:4px;
-      margin:auto;
-      width:auto;
-      max-width:760px;
-      background:rgba(255,255,255,.90);
-      color:#0f172a;
+    .play-area{
+      min-height:0;
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:14px;
+    }
+
+    .panel{
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:16px;
+      min-height:0;
+      display:grid;
+      gap:12px;
+    }
+
+    .panel h2{
+      margin:0;
+      font-size:1.08rem;
+    }
+
+    .slots{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      align-content:start;
+      overflow:auto;
+      padding-right:2px;
+    }
+
+    .slot{
+      background:#f8fcff;
+      border:2px dashed #d7ecf8;
+      border-radius:20px;
+      min-height:78px;
+      padding:10px;
+      display:grid;
+      grid-template-columns:42px 1fr;
+      gap:10px;
+      align-items:center;
+      transition:transform .12s ease, border-color .12s ease, background .12s ease;
+    }
+
+    .slot.active{
+      border-color:#7dd3fc;
+      background:#ecfeff;
+      transform:translateY(-1px);
+    }
+
+    .slot.done{
+      border-style:solid;
+      border-color:#c8efd1;
+      background:#effcf3;
+    }
+
+    .slot-num{
+      width:42px;
+      height:42px;
       border-radius:14px;
-      padding:7px 10px;
-      box-shadow:0 8px 18px rgba(0,0,0,.14);
-      font-weight:800;
-      font-size:.82rem;
-      line-height:1.25;
-      pointer-events:none;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#e8f3f9;
+      color:#31536c;
+      font-weight:1000;
+      font-size:1rem;
     }
 
-    #controls{
-      position:fixed;
-      right:10px;
-      bottom:74px;
-      z-index:30;
+    .slot.done .slot-num{
+      background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%);
+      color:#166534;
+    }
+
+    .slot-copy{
+      min-width:0;
+    }
+
+    .slot-title{
+      color:var(--ink);
+      font-weight:1000;
+      line-height:1.18;
+      font-size:.94rem;
+    }
+
+    .slot-sub{
+      margin-top:4px;
+      color:#60798f;
+      font-weight:800;
+      font-size:.78rem;
+      line-height:1.35;
+    }
+
+    .bank{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+      align-content:start;
+      overflow:auto;
+      padding-right:2px;
+    }
+
+    .bank-item{
+      appearance:none;
+      width:100%;
+      border:none;
+      border-radius:20px;
+      padding:12px;
+      background:linear-gradient(180deg,#ffffff 0%, #f8fcff 100%);
+      border:2px solid #d8edf8;
+      box-shadow:var(--shadow);
+      cursor:pointer;
+      display:grid;
+      grid-template-columns:52px 1fr;
+      gap:10px;
+      text-align:left;
+      transition:transform .12s ease, filter .12s ease, border-color .12s ease;
+      color:var(--ink);
+    }
+
+    .bank-item:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.01);
+    }
+
+    .bank-item.disabled{
+      opacity:.45;
+      pointer-events:none;
+      filter:grayscale(.18);
+    }
+
+    .bank-icon{
+      width:52px;
+      height:52px;
+      border-radius:16px;
       display:flex;
-      gap:8px;
+      align-items:center;
+      justify-content:center;
+      font-size:1.4rem;
+      background:linear-gradient(180deg,#dff8ff 0%, #baeefe 100%);
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);
+    }
+
+    .bank-title{
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .bank-note{
+      margin-top:4px;
+      color:#60798f;
+      font-weight:800;
+      font-size:.8rem;
+      line-height:1.35;
+    }
+
+    .controls{
+      display:flex;
+      gap:10px;
       flex-wrap:wrap;
-      justify-content:flex-end;
-      pointer-events:auto;
-      max-width:70vw;
     }
 
     .btn{
       appearance:none;
       border:none;
       border-radius:999px;
-      padding:8px 12px;
-      font-weight:900;
-      font-size:.88rem;
+      padding:10px 14px;
+      font:inherit;
+      font-weight:1000;
+      color:#12324b;
       cursor:pointer;
-      box-shadow:0 8px 20px rgba(0,0,0,.18);
-      border:2px solid rgba(255,255,255,.95);
-      color:#0f172a;
-      background:rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
+      transition:transform .12s ease, filter .12s ease;
     }
 
-    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
-    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
-    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%); }
+    .btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.01);
+    }
+
+    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%, #ffd84d 100%); }
+    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%, #b7efff 100%); }
+    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%); }
+    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%, #ffc2dd 100%); }
+
+    .coach{
+      background:rgba(255,255,255,.92);
+      border:1px solid #d8edf8;
+      border-radius:18px;
+      padding:10px 12px;
+      color:#0f172a;
+      font-weight:900;
+      line-height:1.45;
+      display:grid;
+      grid-template-columns:44px 1fr;
+      gap:10px;
+      align-items:center;
+    }
+
+    .coach-face{
+      width:44px;
+      height:44px;
+      border-radius:14px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.2rem;
+      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.32);
+    }
+
+    .coach-face.good{
+      background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%);
+    }
+
+    .coach-face.warn{
+      background:linear-gradient(180deg,#fff5b1 0%, #ffe66d 100%);
+    }
 
     .overlay{
       position:fixed;
       inset:0;
-      z-index:40;
+      z-index:60;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -258,7 +436,7 @@
     }
 
     .card{
-      width:min(760px,100%);
+      width:min(860px,100%);
       background:rgba(255,255,255,.97);
       color:#0f172a;
       border-radius:28px;
@@ -309,13 +487,6 @@
       line-height:1.45;
     }
 
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:8px;
-    }
-
     .summary-grid{
       display:grid;
       grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
@@ -339,393 +510,366 @@
       font-weight:800;
     }
 
-    .stars{
-      font-size:1.8rem;
-      letter-spacing:.12rem;
+    .pill-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#eef8fd;
+      color:#37566e;
+      font-weight:900;
+      font-size:.84rem;
+    }
+
+    .unlock-toast{
+      position:fixed;
+      left:50%;
+      bottom:28px;
+      transform:translateX(-50%) translateY(18px) scale(.96);
+      z-index:70;
+      min-width:min(92vw,420px);
+      max-width:92vw;
+      padding:14px 16px;
+      border-radius:20px;
+      background:linear-gradient(180deg,#fff9cf 0%, #ffe66d 100%);
+      color:#7c2d12;
+      box-shadow:0 18px 40px rgba(0,0,0,.20);
+      border:2px solid rgba(255,255,255,.95);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .28s ease, transform .28s ease;
+      text-align:center;
+      font-weight:1000;
+    }
+
+    .unlock-toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0) scale(1);
+    }
+
+    .unlock-toast small{
+      display:block;
+      margin-top:4px;
+      color:#8a4b12;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .scene-transition{
+      position:fixed;
+      inset:0;
+      z-index:80;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:radial-gradient(circle at center, rgba(17,24,39,.72) 0%, rgba(6,12,22,.92) 100%);
+      backdrop-filter:blur(10px);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .28s ease;
+    }
+
+    .scene-transition.show{
+      opacity:1;
+      pointer-events:auto;
+    }
+
+    .scene-transition-card{
+      width:min(520px,100%);
+      background:rgba(255,255,255,.96);
+      color:#0f172a;
+      border-radius:28px;
+      padding:22px;
+      box-shadow:0 24px 60px rgba(0,0,0,.24);
+      border:2px solid rgba(255,255,255,.98);
+      text-align:center;
+    }
+
+    .scene-transition-icon{
+      width:78px;
+      height:78px;
+      margin:0 auto 12px;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2rem;
+      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
+      box-shadow:inset 0 0 0 5px rgba(255,255,255,.35);
+      animation:transitionPulse .8s infinite;
+    }
+
+    .scene-transition-title{
+      margin:0;
+      font-size:1.35rem;
+      line-height:1.15;
+      font-weight:1000;
+      color:#12324b;
+    }
+
+    .scene-transition-desc{
+      margin:8px 0 0;
+      color:#48657f;
+      font-weight:800;
+      line-height:1.5;
+    }
+
+    .scene-transition-bar{
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      background:#e6f4fb;
+      overflow:hidden;
+      margin-top:14px;
+      border:1px solid #d3ebf8;
+    }
+
+    .scene-transition-fill{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#60ff9d 0%, #00e5ff 100%);
+      animation:transitionFill 900ms linear forwards;
     }
 
     .hidden{ display:none !important; }
 
-    @keyframes pulse{
+    @keyframes transitionPulse{
       0%{ transform:scale(1); }
-      50%{ transform:scale(1.04); }
+      50%{ transform:scale(1.05); }
       100%{ transform:scale(1); }
     }
 
+    @keyframes transitionFill{
+      from{ width:0%; }
+      to{ width:100%; }
+    }
+
+    @media (max-width:980px){
+      .play-area{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:760px){
+      .slots{
+        grid-template-columns:1fr;
+      }
+    }
+
     @media (max-width:680px){
-      #ui-layer{
-        top:6px;
-        width:calc(100% - 12px);
-        padding:10px 10px 8px;
-        border-radius:18px;
+      body{
+        padding:10px;
       }
 
-      #ui-layer.compact{
-        width:calc(100% - 14px);
-        padding:8px 10px;
+      .shell{
+        height:calc(100dvh - 20px);
+      }
+
+      .hud, .panel, .card{
+        border-radius:22px;
+        padding:12px;
+      }
+
+      .guide{
+        grid-template-columns:60px 1fr;
+        gap:8px;
+      }
+
+      .guide-icon{
+        width:60px;
+        height:60px;
+        font-size:1.7rem;
       }
 
       .top-row{
         flex-direction:column;
-        gap:8px;
       }
 
       .chips{
         justify-content:flex-start;
       }
 
-      #guide-panel{
-        grid-template-columns:64px 1fr;
-        gap:8px;
-        padding:8px;
+      .controls{
+        display:grid;
+        grid-template-columns:1fr 1fr;
       }
 
-      .guide-image{
-        width:64px;
-        height:64px;
-        font-size:1.6rem;
+      .bank-item{
+        grid-template-columns:46px 1fr;
       }
 
-      .title-sub{
-        font-size:1rem;
-      }
-
-      #step-desc{
-        font-size:.88rem;
-      }
-
-      #action-prompt{
-        font-size:.82rem;
-        padding:6px 10px;
-      }
-
-      #controls{
-        right:8px;
-        bottom:66px;
-        max-width:70vw;
-      }
-
-      .btn{
-        padding:8px 10px;
-        font-size:.82rem;
-      }
-
-      #coach{
-        left:8px;
-        right:8px;
-        bottom:2px;
-        padding:7px 9px;
-        font-size:.76rem;
-      }
-
-      .card{
-        padding:18px;
-        border-radius:22px;
-      }
-
-      .card h1{
-        font-size:1.35rem;
+      .bank-icon{
+        width:46px;
+        height:46px;
+        font-size:1.2rem;
       }
     }
   </style>
 </head>
 <body>
-
-  <div id="hud">
-    <div id="ui-layer">
+  <main class="shell">
+    <section class="hud">
       <div class="top-row">
         <div class="title-wrap">
-          <div class="title-main">Mini Order</div>
-          <div class="title-sub" id="step-name">เรียงลำดับ 7 ขั้นให้ถูกต้อง</div>
+          <div class="title-main" id="titleMain">Mini Order • ด่านสุดท้าย</div>
+          <div class="title-sub" id="titleSub">เรียงลำดับ WHO 7 ขั้นให้ถูกต้อง</div>
         </div>
 
         <div class="chips">
-          <div class="chip" id="order-chip">ลำดับ 1/7</div>
-          <div class="chip" id="score-chip">คะแนน 0</div>
-          <div class="chip" id="combo-chip">Combo 0</div>
-          <div class="chip" id="time-chip">60s</div>
+          <div class="chip" id="scoreChip">Score 0</div>
+          <div class="chip" id="comboChip">Combo 0</div>
+          <div class="chip warn" id="timeChip">Time 60s</div>
         </div>
       </div>
 
-      <div id="guide-panel">
-        <div id="guide-icon" class="guide-image">🧩</div>
-        <div id="guide-copy">
-          <div id="step-count">Review Game</div>
-          <div id="step-desc">เลือกการ์ดของขั้นตอนถัดไปให้ถูกต้อง เรียงจาก 1 ถึง 7</div>
-          <div id="action-prompt">เริ่มที่ “ฝ่ามือถูฝ่ามือ” ก่อน</div>
+      <div class="guide">
+        <div class="guide-icon" id="guideIcon">🧩</div>
+        <div class="guide-copy">
+          <strong id="guideTitle">แตะจากคลังด้านขวา ตามลำดับข้อ 1 → 7</strong>
+          <span id="guideDesc">ถ้ากดถูกจะลงช่องถัดไปทันที ถ้ากดผิดจะเสียคะแนนและคอมโบ</span>
+          <div class="prompt" id="promptText">เริ่มจาก “ฝ่ามือถูฝ่ามือ”</div>
         </div>
       </div>
 
       <div class="progress-wrap">
         <div class="progress-top">
           <span>ความคืบหน้า</span>
-          <span id="progress-text">0%</span>
+          <span id="progressText">0%</span>
         </div>
         <div class="progress-bar">
           <div id="fill"></div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div id="coach">เล็งการ์ดขั้นตอนถัดไป แล้วแตะจอเพื่อเลือก</div>
-  </div>
+    <section class="play-area">
+      <section class="panel">
+        <h2>ลำดับเป้าหมาย</h2>
+        <div id="slots" class="slots"></div>
 
-  <div id="controls">
-    <button class="btn pink" id="hud-toggle-btn" type="button">HIDE HUD</button>
-    <button class="btn primary" id="vr-btn" type="button">ENTER VR</button>
-    <button class="btn blue" id="recenter-btn" type="button">RECENTER</button>
-  </div>
+        <div class="coach">
+          <div class="coach-face" id="coachFace">🙂</div>
+          <div id="coachText">เริ่มจากข้อที่ 1 ก่อนนะ</div>
+        </div>
 
-  <div class="overlay" id="start-overlay">
+        <div class="controls">
+          <button class="btn blue" id="btnRestart" type="button">เริ่มใหม่</button>
+          <button class="btn pink" id="btnUndo" type="button">ย้อน 1 ขั้น</button>
+          <button class="btn green" id="btnFinishHub" type="button">กลับ Hygiene Zone</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>คลังตัวเลือก</h2>
+        <div id="bank" class="bank"></div>
+      </section>
+    </section>
+  </main>
+
+  <div class="overlay" id="startOverlay">
     <div class="card">
-      <div class="badge">🧠 Handwash Mini Order</div>
-      <h1>เรียงลำดับ 7 ขั้น WHO</h1>
-      <p>มินิเกมนี้ใช้สำหรับทบทวนว่า 7 ขั้นการถูมือควรเรียงอย่างไร เลือกการ์ดจากขั้นแรกไปขั้นสุดท้ายให้ครบ</p>
+      <div class="badge">🧩 Mini Order</div>
+      <h1>ทบทวนลำดับ WHO 7 ขั้น</h1>
+      <p>ด่านสุดท้ายนี้ให้แตะตัวเลือกจากคลังด้านขวา ตามลำดับที่ถูกต้องตั้งแต่ขั้นที่ 1 ถึง 7</p>
 
       <div class="tips">
-        <div class="tip">🎯 เล็งการ์ดด้วยวงกลมฟ้ากลางจอ</div>
-        <div class="tip">👆 แตะจอ / คลิก / กด Space หรือ Enter เพื่อเลือก</div>
-        <div class="tip">✅ เลือกถูกจะได้ combo และคะแนนเพิ่ม</div>
-        <div class="tip">⚠️ เลือกผิดจะเสียเวลาและ combo รีเซ็ต</div>
+        <div class="tip">🎯 แตะข้อที่ถูกจะลงช่องถัดไปทันที</div>
+        <div class="tip">⚠️ ถ้ากดผิดจะเสียคะแนนและคอมโบ</div>
+        <div class="tip">🧠 ถ้าจำแม่นจะได้ Perfect Recall</div>
+        <div class="tip">🏁 ผ่านแล้วจะกลับ Hygiene Zone แบบครบ flow</div>
       </div>
 
-      <div class="actions">
-        <button class="btn primary" id="start-btn" type="button">เริ่มเล่น</button>
+      <div class="controls">
+        <button class="btn primary" id="btnStart" type="button">เริ่ม Mini Order</button>
       </div>
     </div>
   </div>
 
-  <div class="overlay hidden" id="summary-overlay">
+  <div class="overlay hidden" id="summaryOverlay">
     <div class="card">
-      <div class="badge">🏁 สรุปผล</div>
-      <h1 id="sum-title">เรียงลำดับสำเร็จ!</h1>
-      <p id="sum-desc">ยอดเยี่ยมมาก จำลำดับ 7 ขั้นได้ครบแล้ว</p>
+      <div class="badge">✨ Mini Order เสร็จแล้ว</div>
+      <h1 id="sumTitle">จบ Handwash Set</h1>
+      <p id="sumDesc">ทบทวนลำดับครบแล้ว กำลังพร้อมกลับ Hygiene Zone</p>
 
       <div class="summary-grid">
         <div class="summary-box">
+          <small>ผ่าน</small>
+          <span id="sumSteps">7 / 7</span>
+        </div>
+        <div class="summary-box">
           <small>คะแนน</small>
-          <span id="sum-score">0</span>
+          <span id="sumScore">0</span>
         </div>
         <div class="summary-box">
-          <small>เวลาที่เหลือ</small>
-          <span id="sum-time">0s</span>
-        </div>
-        <div class="summary-box">
-          <small>ผิดพลาด</small>
-          <span id="sum-miss">0</span>
+          <small>พลาด</small>
+          <span id="sumMiss">0</span>
         </div>
         <div class="summary-box">
           <small>ดาว</small>
-          <div class="stars" id="sum-stars">⭐</div>
-        </div>
-        <div class="summary-box">
-          <small>Best Combo</small>
-          <span id="sum-combo">0</span>
-        </div>
-        <div class="summary-box">
-          <small>Badge</small>
-          <span id="sum-badges">—</span>
+          <span id="sumStars">⭐</span>
         </div>
       </div>
 
-      <div class="actions">
-        <button class="btn primary" id="restart-btn" type="button">เล่นอีกครั้ง</button>
-        <button class="btn blue hidden" id="hub-btn" type="button">กลับ Hygiene Zone</button>
+      <div class="pill-row" id="sumBadges"></div>
+
+      <div class="controls" style="margin-top:14px">
+        <button class="btn blue" id="btnSummaryRestart" type="button">เล่นใหม่</button>
+        <button class="btn primary" id="btnSummaryHub" type="button">กลับ Hygiene Zone</button>
       </div>
     </div>
   </div>
 
-  <a-scene id="scene" vr-mode-ui="enabled: false" renderer="colorManagement: true; antialias: true">
-    <a-entity light="type: ambient; intensity: 1.12; color: #ffffff"></a-entity>
-    <a-entity light="type: directional; intensity: 0.9; color: #fff8e0" position="1 3 2"></a-entity>
+  <div id="unlockToast" class="unlock-toast">
+    <div id="unlockToastTitle">🏅 ปลดรางวัลใหม่</div>
+    <small id="unlockToastDesc">เก็บต่อได้อีก</small>
+  </div>
 
-    <a-entity id="board-root" position="0 1.08 -1.66" rotation="-8 0 0">
-      <a-plane width="2.42" height="1.86" color="#0b1c30" material="opacity:0.98"></a-plane>
-      <a-plane width="2.24" height="1.70" color="#0f2741" position="0 0 0.001" material="opacity:0.98"></a-plane>
-
-      <a-text value="Mini Order" color="#ffffff" width="2.8" align="center" position="0 0.84 0.02"></a-text>
-      <a-text value="เรียงให้ถูกจากขั้นที่ 1 ถึง 7" color="#baf4ff" width="2.0" align="center" position="0 0.70 0.02"></a-text>
-
-      <a-entity id="slot-row" position="0 0.52 0.03"></a-entity>
-      <a-entity id="card-layer"></a-entity>
-      <a-entity id="fx-layer"></a-entity>
-    </a-entity>
-
-    <a-entity id="player-rig">
-      <a-camera id="cam" position="0 1.6 0" look-controls>
-        <a-entity id="cursor"
-                  cursor="fuse: false"
-                  position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.011; radiusOuter: 0.02"
-                  material="color: #00f2ff; shader: flat"
-                  raycaster="objects: .focusable"></a-entity>
-      </a-camera>
-      <a-entity laser-controls="hand: left" raycaster="objects: .focusable"></a-entity>
-      <a-entity laser-controls="hand: right" raycaster="objects: .focusable"></a-entity>
-    </a-entity>
-  </a-scene>
+  <div id="sceneTransition" class="scene-transition">
+    <div class="scene-transition-card">
+      <div id="sceneTransitionIcon" class="scene-transition-icon">✨</div>
+      <h2 id="sceneTransitionTitle" class="scene-transition-title">กำลังไปด่านถัดไป</h2>
+      <p id="sceneTransitionDesc" class="scene-transition-desc">เตรียมพร้อมอีกนิด</p>
+      <div class="scene-transition-bar">
+        <div class="scene-transition-fill"></div>
+      </div>
+    </div>
+  </div>
 
   <script src="./handwash-shared.js"></script>
   <script>
-    const qsParam = (k, d='') => {
+    const $ = (id) => document.getElementById(id);
+
+    const qStr = (k, d='') => {
       try { return new URL(location.href).searchParams.get(k) ?? d; }
       catch { return d; }
     };
 
-    function firstNonEmpty(...vals){
-      for (const v of vals){
-        if (String(v || '').trim()) return String(v).trim();
-      }
-      return '';
-    }
+    const qNum = (k, d=0) => {
+      const n = Number(qStr(k, d));
+      return Number.isFinite(n) ? n : d;
+    };
 
-    function safeAbsUrl(raw, fallbackPath){
-      const value = String(raw || '').trim();
-      try{
-        if (value) return new URL(value, location.href).toString();
-      }catch(_){}
-      return new URL(fallbackPath, location.href).toString();
-    }
+    const START_TIME = qNum('time', 60);
+    const HUB_URL = qStr('hub', new URL('../hygiene-zone.html', location.href).toString());
 
-    function looksLikeHubUrl(urlText){
-      const txt = String(urlText || '').toLowerCase();
-      return txt.includes('/hub.html') || txt.includes('/hub-v2.html');
-    }
-
-    function looksLikeZoneUrl(urlText){
-      return String(urlText || '').toLowerCase().includes('hygiene-zone.html');
-    }
-
-    function buildHubRoot(){
-      const explicitHubRoot = firstNonEmpty(qsParam('hubRoot', ''));
-      if (explicitHubRoot) return safeAbsUrl(explicitHubRoot, '../hub-v2.html');
-
-      const legacyHub = firstNonEmpty(qsParam('hub', ''));
-      if (legacyHub && looksLikeHubUrl(legacyHub)) {
-        return safeAbsUrl(legacyHub, '../hub-v2.html');
-      }
-
-      return safeAbsUrl('../hub-v2.html', '../hub-v2.html');
-    }
-
-    function buildFallbackZoneReturn(){
-      const hubRoot = buildHubRoot();
-      const url = new URL('../hygiene-zone.html', location.href);
-
-      [
-        'pid','name','nick','nickName','studyId',
-        'diff','view','time','run',
-        'debug','api','log',
-        'studentKey','schoolCode','classRoom','studentNo',
-        'conditionGroup','sessionNo','weekNo','teacher','grade'
-      ].forEach((key) => {
-        const v = qsParam(key, '');
-        if (v) url.searchParams.set(key, v);
-      });
-
-      if (!url.searchParams.get('pid')) url.searchParams.set('pid', 'anon');
-      if (!url.searchParams.get('name')) {
-        url.searchParams.set(
-          'name',
-          firstNonEmpty(qsParam('name', ''), qsParam('nickName', ''), qsParam('nick', ''), 'Hero')
-        );
-      }
-      if (!url.searchParams.get('diff')) url.searchParams.set('diff', 'normal');
-      if (!url.searchParams.get('view')) url.searchParams.set('view', 'mobile');
-      if (!url.searchParams.get('time')) url.searchParams.set('time', '90');
-      if (!url.searchParams.get('run')) url.searchParams.set('run', 'play');
-
-      url.searchParams.set('zone', 'hygiene');
-      url.searchParams.set('cat', 'hygiene');
-      url.searchParams.set('hubRoot', hubRoot);
-      url.searchParams.set('hub', hubRoot);
-
-      return url.toString();
-    }
-
-    function buildZoneReturn(){
-      const explicitZoneReturn = firstNonEmpty(qsParam('zoneReturn', ''));
-      if (explicitZoneReturn) return safeAbsUrl(explicitZoneReturn, '../hygiene-zone.html');
-
-      const legacyHub = firstNonEmpty(qsParam('hub', ''));
-      if (legacyHub && looksLikeZoneUrl(legacyHub)) {
-        return safeAbsUrl(legacyHub, '../hygiene-zone.html');
-      }
-
-      return buildFallbackZoneReturn();
-    }
-
-    function resolveNextUrl(){
-      const explicitNext = firstNonEmpty(qsParam('next', ''));
-      if (explicitNext) {
-        const nextAbs = safeAbsUrl(explicitNext, buildZoneReturn());
-        if (nextAbs !== new URL(location.href).toString()) return nextAbs;
-      }
-      return buildZoneReturn();
-    }
-
-    function rememberZoneState(){
-      try{
-        localStorage.setItem('HHA_LAST_ZONE', 'hygiene');
-      }catch(_){}
-
-      try{
-        localStorage.setItem('HHA_LAST_GAME_BY_ZONE_HYGIENE', JSON.stringify({
-          key:'handwash',
-          title:'Handwash',
-          at:Date.now()
-        }));
-      }catch(_){}
-
-      try{
-        const playedKey = 'HHA_ZONE_PLAYED_HYGIENE';
-        const played = JSON.parse(localStorage.getItem(playedKey) || '[]');
-        if (Array.isArray(played) && !played.includes('handwash')) {
-          played.push('handwash');
-          localStorage.setItem(playedKey, JSON.stringify(played));
-        }
-      }catch(_){}
-
-      try{
-        const dailyKey = 'HHA_ZONE_DAILY_HYGIENE';
-        const d = new Date();
-        const day =
-          `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        const daily = JSON.parse(localStorage.getItem(dailyKey) || '{}');
-        const row = daily[day] || { count:0, lastKey:'' };
-        row.count += 1;
-        row.lastKey = 'handwash';
-        daily[day] = row;
-        localStorage.setItem(dailyKey, JSON.stringify(daily));
-      }catch(_){}
-    }
-
-    const START_TIME = Math.max(45, parseInt(qsParam('time', '60'), 10) || 60);
-    const HUB_ROOT_URL = buildHubRoot();
-    const ZONE_RETURN_URL = buildZoneReturn();
-    const NEXT_URL = resolveNextUrl();
-
-    const STEPS = [
-      { id:'palms', order:1, icon:'👐', label:'ฝ่ามือถูฝ่ามือ', short:'ฝ่ามือ' },
-      { id:'backs', order:2, icon:'🖐️', label:'ฝ่ามือถูหลังมือ', short:'หลังมือ' },
-      { id:'between', order:3, icon:'🤝', label:'ถูซอกนิ้ว', short:'ซอกนิ้ว' },
-      { id:'backfingers', order:4, icon:'👊', label:'หลังนิ้วถูฝ่ามือ', short:'หลังนิ้ว' },
-      { id:'thumbs', order:5, icon:'👍', label:'ถูนิ้วหัวแม่มือ', short:'หัวแม่มือ' },
-      { id:'fingertips', order:6, icon:'💅', label:'ถูปลายนิ้วบนฝ่ามือ', short:'ปลายนิ้ว' },
-      { id:'wrists', order:7, icon:'⌚', label:'ถูรอบข้อมือ', short:'ข้อมือ' }
+    const ORDER_ITEMS = [
+      { id:'palms', title:'ฝ่ามือถูฝ่ามือ', note:'ถูฝ่ามือเข้าหากัน', icon:'👐' },
+      { id:'backs', title:'ฝ่ามือถูหลังมือ', note:'ถูหลังมือสลับกัน', icon:'🖐️' },
+      { id:'between', title:'ถูซอกนิ้ว', note:'ถูซอกนิ้วทั้งสองข้าง', icon:'🤝' },
+      { id:'backfingers', title:'หลังนิ้วถูฝ่ามือ', note:'พับนิ้วแล้วถูบนฝ่ามือ', icon:'👊' },
+      { id:'thumbs', title:'ถูนิ้วหัวแม่มือ', note:'ถูหัวแม่มือซ้ายและขวา', icon:'👍' },
+      { id:'fingertips', title:'ถูปลายนิ้วบนฝ่ามือ', note:'ถูปลายนิ้วและเล็บ', icon:'💅' },
+      { id:'wrists', title:'ถูรอบข้อมือ', note:'ปิดท้ายด้วยข้อมือทั้งสองข้าง', icon:'⌚' }
     ];
-
-    const CARD_POSITIONS = [
-      {x:-0.72, y:0.08, z:0.03},
-      {x:-0.24, y:0.08, z:0.03},
-      {x: 0.24, y:0.08, z:0.03},
-      {x: 0.72, y:0.08, z:0.03},
-      {x:-0.48, y:-0.52, z:0.03},
-      {x: 0.00, y:-0.52, z:0.03},
-      {x: 0.48, y:-0.52, z:0.03}
-    ];
-
-    const SLOT_POSITIONS = [-0.72, -0.48, -0.24, 0.00, 0.24, 0.48, 0.72];
 
     const state = {
       started:false,
@@ -733,128 +877,255 @@
       timeLeft:START_TIME,
       score:0,
       miss:0,
-      nextIndex:0,
-      shuffled:[],
-      streak:0,
-      bestStreak:0,
-      lastActionAt:0,
-      lastTs:0,
-      hudCompact:false,
       combo:0,
       bestCombo:0,
-      idleTimer:0,
-      badges:[]
+      placed:[],
+      bank:[],
+      attempts:0
     };
 
     const ui = {
-      layer:document.getElementById('ui-layer'),
-      stepCount:document.getElementById('step-count'),
-      stepName:document.getElementById('step-name'),
-      stepDesc:document.getElementById('step-desc'),
-      guideIcon:document.getElementById('guide-icon'),
-      prompt:document.getElementById('action-prompt'),
-      fill:document.getElementById('fill'),
-      progressText:document.getElementById('progress-text'),
-      coach:document.getElementById('coach'),
+      titleMain:$('titleMain'),
+      titleSub:$('titleSub'),
+      guideIcon:$('guideIcon'),
+      guideTitle:$('guideTitle'),
+      guideDesc:$('guideDesc'),
+      promptText:$('promptText'),
 
-      orderChip:document.getElementById('order-chip'),
-      scoreChip:document.getElementById('score-chip'),
-      comboChip:document.getElementById('combo-chip'),
-      timeChip:document.getElementById('time-chip'),
+      scoreChip:$('scoreChip'),
+      comboChip:$('comboChip'),
+      timeChip:$('timeChip'),
 
-      startOverlay:document.getElementById('start-overlay'),
-      summaryOverlay:document.getElementById('summary-overlay'),
+      progressText:$('progressText'),
+      fill:$('fill'),
 
-      sumTitle:document.getElementById('sum-title'),
-      sumDesc:document.getElementById('sum-desc'),
-      sumScore:document.getElementById('sum-score'),
-      sumTime:document.getElementById('sum-time'),
-      sumMiss:document.getElementById('sum-miss'),
-      sumStars:document.getElementById('sum-stars'),
-      sumCombo:document.getElementById('sum-combo'),
-      sumBadges:document.getElementById('sum-badges'),
+      slots:$('slots'),
+      bank:$('bank'),
 
-      startBtn:document.getElementById('start-btn'),
-      restartBtn:document.getElementById('restart-btn'),
-      hubBtn:document.getElementById('hub-btn'),
-      vrBtn:document.getElementById('vr-btn'),
-      recenterBtn:document.getElementById('recenter-btn'),
-      hudToggleBtn:document.getElementById('hud-toggle-btn')
+      coachFace:$('coachFace'),
+      coachText:$('coachText'),
+
+      btnRestart:$('btnRestart'),
+      btnUndo:$('btnUndo'),
+      btnFinishHub:$('btnFinishHub'),
+
+      startOverlay:$('startOverlay'),
+      btnStart:$('btnStart'),
+
+      summaryOverlay:$('summaryOverlay'),
+      sumTitle:$('sumTitle'),
+      sumDesc:$('sumDesc'),
+      sumSteps:$('sumSteps'),
+      sumScore:$('sumScore'),
+      sumMiss:$('sumMiss'),
+      sumStars:$('sumStars'),
+      sumBadges:$('sumBadges'),
+      btnSummaryRestart:$('btnSummaryRestart'),
+      btnSummaryHub:$('btnSummaryHub'),
+
+      unlockToast:$('unlockToast'),
+      unlockToastTitle:$('unlockToastTitle'),
+      unlockToastDesc:$('unlockToastDesc'),
+
+      sceneTransition:$('sceneTransition'),
+      sceneTransitionIcon:$('sceneTransitionIcon'),
+      sceneTransitionTitle:$('sceneTransitionTitle'),
+      sceneTransitionDesc:$('sceneTransitionDesc')
     };
 
-    const scene = document.getElementById('scene');
-    const rig = document.getElementById('player-rig');
-    const cam = document.getElementById('cam');
-    const cursor = document.getElementById('cursor');
-    const cardLayer = document.getElementById('card-layer');
-    const slotRow = document.getElementById('slot-row');
-    const fxLayer = document.getElementById('fx-layer');
-
-    const _proj = new THREE.Vector3();
-
-    function clamp(v,min,max){
-      return Math.max(min, Math.min(max, v));
-    }
-
-    function isMobileLike(){
-      return window.matchMedia('(max-width: 680px)').matches;
-    }
-
-    function setBtnText(){
-      ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
-
-      const target = NEXT_URL || ZONE_RETURN_URL || HUB_ROOT_URL;
-      if (target) {
-        ui.hubBtn.classList.remove('hidden');
-        ui.hubBtn.textContent = looksLikeZoneUrl(target) ? 'กลับ Hygiene Zone' : 'กลับ HUB';
+    let __hhPageAudio = null;
+    function hhAudioCtx(){
+      try{
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return null;
+        if (!__hhPageAudio) __hhPageAudio = new Ctx();
+        return __hhPageAudio;
+      }catch(e){
+        return null;
       }
     }
 
-    function setCoach(text){
-      ui.coach.textContent = text;
+    function hhTone(freq=700, dur=0.06, type='triangle', gain=0.028, when=0){
+      const ctx = hhAudioCtx();
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+
+      osc.type = type;
+      osc.frequency.value = freq;
+      g.gain.value = gain;
+
+      osc.connect(g);
+      g.connect(ctx.destination);
+
+      const now = ctx.currentTime + when;
+      g.gain.setValueAtTime(gain, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+      osc.start(now);
+      osc.stop(now + dur);
     }
 
-    function setHudCompact(on){
-      state.hudCompact = !!on;
-      ui.layer.classList.toggle('compact', state.hudCompact);
-      ui.hudToggleBtn.textContent = state.hudCompact ? 'SHOW HUD' : 'HIDE HUD';
+    function playPageSignature(page='generic'){
+      if (page === 'mini'){
+        hhTone(760, 0.04, 'square', 0.022, 0.00);
+        hhTone(960, 0.05, 'triangle', 0.024, 0.07);
+        return;
+      }
+      hhTone(720, 0.05, 'triangle', 0.024, 0.00);
     }
 
-    function progressPercent(){
-      return Math.round((state.nextIndex / STEPS.length) * 100);
+    function showUnlockToast(title, desc, kind='badge'){
+      ui.unlockToastTitle.textContent = title;
+      ui.unlockToastDesc.textContent = desc;
+      ui.unlockToast.classList.add('show');
+
+      try{
+        if (navigator.vibrate) navigator.vibrate(kind === 'rank' ? [30, 40, 60] : [24, 30, 24]);
+      }catch(e){}
+
+      if (kind === 'rank'){
+        hhTone(740, 0.07, 'triangle', 0.03, 0.00);
+        hhTone(920, 0.11, 'triangle', 0.04, 0.09);
+      } else {
+        hhTone(960, 0.06, 'triangle', 0.03, 0.00);
+      }
+
+      clearTimeout(showUnlockToast._timer);
+      showUnlockToast._timer = setTimeout(() => {
+        ui.unlockToast.classList.remove('show');
+      }, 2200);
+    }
+
+    function showSceneTransition({ icon='✨', title='กำลังไปด่านถัดไป', desc='เตรียมพร้อมอีกนิด', url='' } = {}){
+      if (!url){
+        if (url) location.href = url;
+        return;
+      }
+
+      ui.sceneTransitionIcon.textContent = icon;
+      ui.sceneTransitionTitle.textContent = title;
+      ui.sceneTransitionDesc.textContent = desc;
+      ui.sceneTransition.classList.add('show');
+
+      setTimeout(() => {
+        location.href = url;
+      }, 920);
+    }
+
+    function shuffle(arr){
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
     }
 
     function accuracyPercent(){
-      const totalAttempts = STEPS.length + state.miss;
-      if (totalAttempts <= 0) return 100;
-      return Math.round((STEPS.length / totalAttempts) * 100);
+      const attempts = state.attempts || 0;
+      if (!attempts) return 0;
+      return Math.round((state.placed.length / attempts) * 100);
     }
 
-    function rewardPick(baseScore = 10){
-      state.combo += 1;
-      state.bestCombo = Math.max(state.bestCombo, state.combo);
-      state.streak += 1;
-      state.bestStreak = Math.max(state.bestStreak, state.streak);
+    function progressPercent(){
+      return Math.round((state.placed.length / ORDER_ITEMS.length) * 100);
+    }
 
-      const comboBonus = Math.min(20, state.combo * 2);
-      state.score += baseScore + comboBonus;
-      state.idleTimer = 0;
+    function nextExpected(){
+      return ORDER_ITEMS[state.placed.length] || null;
+    }
 
-      if (state.combo >= 3 && state.combo < 6){
-        setCoach('GOOD! จำลำดับได้ดี');
-      } else if (state.combo >= 6 && state.combo < 10){
-        setCoach('GREAT! เรียงได้ต่อเนื่องมาก');
-      } else if (state.combo >= 10){
-        setCoach('ORDER MASTER! เก่งมาก');
+    function coachText(kind='neutral'){
+      const bank = {
+        intro:['เริ่มจากข้อที่ 1 ก่อนนะ', 'แตะลำดับแรกให้ถูกก่อน', 'ค่อย ๆ จำตามลำดับไปทีละข้อ'],
+        good:['ดีมาก ลำดับถูกต้อง', 'ใช่เลย ทำต่อได้', 'เก่งมาก เรียงถูกแล้ว'],
+        hot:['สุดยอด! จำแม่นมาก', 'ว้าว! คอมโบกำลังมา', 'ดีมาก ตอนนี้เร็วและแม่นมาก'],
+        warn:['ยังไม่ใช่ข้อนี้นะ', 'ลองดูลำดับอีกครั้ง', 'ใจเย็นอีกนิด ค่อย ๆ จำ'],
+        finish:['ครบทั้ง 7 ขั้นแล้ว', 'เยี่ยมมาก จบ Handwash Set แล้ว', 'จำลำดับได้ดีมาก']
+      };
+      const arr = bank[kind] || bank.intro;
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function setCoach(kind='intro'){
+      ui.coachText.textContent = coachText(kind);
+      ui.coachFace.classList.remove('good', 'warn');
+
+      if (kind === 'good' || kind === 'hot'){
+        ui.coachFace.textContent = kind === 'hot' ? '🤩' : '😄';
+        ui.coachFace.classList.add('good');
+      } else if (kind === 'warn'){
+        ui.coachFace.textContent = '😮';
+        ui.coachFace.classList.add('warn');
+      } else {
+        ui.coachFace.textContent = '🙂';
       }
     }
 
-    function punishPick(){
-      state.miss += 1;
-      state.streak = 0;
-      state.combo = 0;
-      state.score = Math.max(0, state.score - 2);
-      state.timeLeft = Math.max(0, state.timeLeft - 1.2);
+    function updateHUD(){
+      ui.scoreChip.textContent = `Score ${state.score}`;
+      ui.comboChip.textContent = `Combo ${state.combo}`;
+      ui.timeChip.textContent = `Time ${Math.max(0, Math.ceil(state.timeLeft))}s`;
+      ui.timeChip.className = `chip ${state.timeLeft <= 12 ? 'warn' : 'good'}`;
+
+      const pct = progressPercent();
+      ui.fill.style.width = pct + '%';
+      ui.progressText.textContent = pct + '%';
+
+      const expected = nextExpected();
+      if (expected){
+        ui.promptText.textContent = `ต่อไป: ${expected.title}`;
+      } else {
+        ui.promptText.textContent = 'ครบทั้ง 7 ขั้นแล้ว';
+      }
+    }
+
+    function renderSlots(){
+      const nextIndex = state.placed.length;
+
+      ui.slots.innerHTML = ORDER_ITEMS.map((item, idx) => {
+        const placed = state.placed[idx];
+        const done = !!placed;
+        const active = idx === nextIndex && !state.ended;
+
+        return `
+          <div class="slot ${done ? 'done' : ''} ${active ? 'active' : ''}">
+            <div class="slot-num">${idx + 1}</div>
+            <div class="slot-copy">
+              <div class="slot-title">${done ? `${item.icon} ${item.title}` : 'รอคำตอบ'}</div>
+              <div class="slot-sub">${done ? item.note : 'แตะจากคลังด้านขวา'}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderBank(){
+      ui.bank.innerHTML = state.bank.map(item => `
+        <button class="bank-item ${item.used ? 'disabled' : ''}" data-id="${item.id}" type="button">
+          <div class="bank-icon">${item.icon}</div>
+          <div>
+            <div class="bank-title">${item.title}</div>
+            <div class="bank-note">${item.note}</div>
+          </div>
+        </button>
+      `).join('');
+
+      ui.bank.querySelectorAll('.bank-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          if (!id || state.ended || !state.started) return;
+          pickItem(id);
+        });
+      });
+    }
+
+    function renderAll(){
+      renderSlots();
+      renderBank();
+      updateHUD();
     }
 
     function computeMiniBadges(success){
@@ -866,308 +1137,15 @@
       if (state.bestCombo >= 7) badges.push('Order Master');
       if (state.timeLeft >= START_TIME * 0.35) badges.push('Fast Recall');
       if (accuracyPercent() >= 85) badges.push('Sharp Memory');
+      if (state.miss === 0 && accuracyPercent() === 100) badges.push('Perfect Recall');
       return badges;
     }
 
-    function shuffleArray(list){
-      const arr = [...list];
-      for(let i = arr.length - 1; i > 0; i--){
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
-    }
-
-    function burstAt(pos, color='#7dd3fc'){
-      for(let i=0;i<8;i++){
-        const fx = document.createElement('a-sphere');
-        fx.setAttribute('radius', 0.022 + Math.random()*0.01);
-        fx.setAttribute('color', color);
-        fx.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-        fx.setAttribute('material', 'shader: flat; opacity: 0.96; transparent: true');
-
-        const dx = (Math.random()-0.5)*0.16;
-        const dy = 0.03 + Math.random()*0.10;
-        const dz = (Math.random()-0.5)*0.10;
-
-        fx.setAttribute('animation__move', `property: position; to: ${pos.x+dx} ${pos.y+dy} ${pos.z+dz}; dur: 360; easing: easeOutQuad`);
-        fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 360; easing: linear');
-
-        fxLayer.appendChild(fx);
-        setTimeout(()=>{ if(fx.parentNode) fx.parentNode.removeChild(fx); }, 390);
-      }
-    }
-
-    function updateProgress(){
-      const pct = progressPercent();
-      ui.fill.style.width = pct + '%';
-      ui.progressText.textContent = pct + '%';
-    }
-
-    function updateUI(){
-      const nextStep = STEPS[state.nextIndex];
-
-      ui.orderChip.textContent = `ลำดับ ${Math.min(state.nextIndex + 1, STEPS.length)}/${STEPS.length}`;
-      ui.scoreChip.textContent = `คะแนน ${state.score}`;
-      ui.comboChip.textContent = `Combo ${state.combo}`;
-      ui.timeChip.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
-
-      if (nextStep){
-        ui.stepCount.textContent = `เลือกขั้นที่ ${nextStep.order}`;
-        ui.stepName.textContent = nextStep.label;
-        ui.stepDesc.textContent = `เลือกการ์ดขั้นตอนถัดไปให้ถูกต้อง ตอนนี้ต้องเลือก “${nextStep.label}”`;
-        ui.guideIcon.textContent = nextStep.icon;
-        ui.prompt.textContent = `ตอนนี้ต้องเลือก “${nextStep.short}”`;
-      } else {
-        ui.stepCount.textContent = 'สำเร็จ';
-        ui.stepName.textContent = 'เรียงครบแล้ว!';
-        ui.stepDesc.textContent = 'ยอดเยี่ยมมาก จำลำดับ 7 ขั้นได้ครบแล้ว';
-        ui.guideIcon.textContent = '✨';
-        ui.prompt.textContent = 'ทบทวนสำเร็จ';
-      }
-
-      updateProgress();
-    }
-
-    function buildSlots(){
-      slotRow.innerHTML = '';
-      SLOT_POSITIONS.forEach((x, idx)=>{
-        const wrap = document.createElement('a-entity');
-        wrap.id = `slot-${idx}`;
-        wrap.setAttribute('position', `${x} 0 0`);
-
-        const ring = document.createElement('a-ring');
-        ring.setAttribute('radius-inner', '0.07');
-        ring.setAttribute('radius-outer', '0.11');
-        ring.setAttribute('color', '#3b4d62');
-        ring.setAttribute('material', 'shader: flat; opacity: 0.95');
-
-        const text = document.createElement('a-text');
-        text.setAttribute('value', String(idx + 1));
-        text.setAttribute('align', 'center');
-        text.setAttribute('width', '0.6');
-        text.setAttribute('color', '#d9fbff');
-        text.setAttribute('position', '0 -0.03 0.01');
-
-        wrap.appendChild(ring);
-        wrap.appendChild(text);
-        slotRow.appendChild(wrap);
-      });
-    }
-
-    function markSlotDone(stepIndex){
-      const slot = document.getElementById(`slot-${stepIndex}`);
-      if (!slot) return;
-      const ring = slot.querySelector('a-ring');
-      const text = slot.querySelector('a-text');
-      if (ring) ring.setAttribute('color', '#86efac');
-      if (text) text.setAttribute('color', '#0f5c43');
-    }
-
-    function resetSlots(){
-      buildSlots();
-    }
-
-    function makeCard(step, pos){
-      const wrap = document.createElement('a-entity');
-      wrap.classList.add('focusable');
-      wrap.dataset.stepId = step.id;
-      wrap.dataset.order = String(step.order);
-      wrap.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-
-      const shadow = document.createElement('a-plane');
-      shadow.setAttribute('width', '0.46');
-      shadow.setAttribute('height', '0.58');
-      shadow.setAttribute('color', '#16314c');
-      shadow.setAttribute('material', 'shader: flat; opacity: 0.34');
-      shadow.setAttribute('position', '0 -0.01 -0.01');
-
-      const plate = document.createElement('a-plane');
-      plate.classList.add('card-face');
-      plate.setAttribute('width', '0.42');
-      plate.setAttribute('height', '0.54');
-      plate.setAttribute('color', '#f8fcff');
-      plate.setAttribute('material', 'shader: flat; opacity: 0.98');
-
-      const icon = document.createElement('a-text');
-      icon.setAttribute('value', step.icon);
-      icon.setAttribute('align', 'center');
-      icon.setAttribute('width', '0.80');
-      icon.setAttribute('position', '0 0.14 0.01');
-
-      const label = document.createElement('a-text');
-      label.setAttribute('value', step.label);
-      label.setAttribute('align', 'center');
-      label.setAttribute('width', '1.18');
-      label.setAttribute('wrap-count', '12');
-      label.setAttribute('color', '#12324b');
-      label.setAttribute('position', '0 -0.08 0.01');
-
-      const orderTag = document.createElement('a-plane');
-      orderTag.setAttribute('width', '0.16');
-      orderTag.setAttribute('height', '0.10');
-      orderTag.setAttribute('color', '#dff8ff');
-      orderTag.setAttribute('position', '0 0.23 0.01');
-
-      const orderText = document.createElement('a-text');
-      orderText.setAttribute('value', `#${step.order}`);
-      orderText.setAttribute('align', 'center');
-      orderText.setAttribute('width', '0.42');
-      orderText.setAttribute('color', '#0f766e');
-      orderText.setAttribute('position', '0 0.20 0.02');
-
-      const hitbox = document.createElement('a-plane');
-      hitbox.classList.add('focusable');
-      hitbox.setAttribute('width', '0.48');
-      hitbox.setAttribute('height', '0.60');
-      hitbox.setAttribute('color', '#fff');
-      hitbox.setAttribute('opacity', '0.001');
-      hitbox.setAttribute('material', 'transparent:true');
-      hitbox.setAttribute('position', '0 0 0.03');
-
-      wrap.appendChild(shadow);
-      wrap.appendChild(plate);
-      wrap.appendChild(icon);
-      wrap.appendChild(label);
-      wrap.appendChild(orderTag);
-      wrap.appendChild(orderText);
-      wrap.appendChild(hitbox);
-
-      return wrap;
-    }
-
-    function buildCards(){
-      cardLayer.innerHTML = '';
-      const order = shuffleArray(STEPS);
-      state.shuffled = order;
-
-      order.forEach((step, idx)=>{
-        const pos = CARD_POSITIONS[idx];
-        const card = makeCard(step, pos);
-        cardLayer.appendChild(card);
-      });
-    }
-
-    function flashWrongCard(wrap){
-      if (!wrap) return;
-      const face = wrap.querySelector('.card-face');
-      if (!face) return;
-      face.setAttribute('color', '#fecaca');
-      setTimeout(()=>{
-        if (face.parentNode) face.setAttribute('color', '#f8fcff');
-      }, 220);
-    }
-
-    function handleCorrectCard(wrap, stepIndex){
-      const face = wrap.querySelector('.card-face');
-      if(face) face.setAttribute('color', '#dcfce7');
-
-      rewardPick(10);
-      markSlotDone(stepIndex);
-
-      const p = wrap.object3D.position;
-      burstAt({x:p.x, y:p.y, z:p.z}, '#86efac');
-
-      setTimeout(()=>{
-        if(wrap.parentNode) wrap.parentNode.removeChild(wrap);
-      }, 160);
-
-      state.nextIndex += 1;
-      updateUI();
-
-      if(state.nextIndex >= STEPS.length){
-        endGame(true);
-      }
-    }
-
-    function handleWrongCard(wrap){
-      punishPick();
-      flashWrongCard(wrap);
-      setCoach('ยังไม่ใช่ขั้นตอนถัดไป ลองใหม่');
-      updateUI();
-    }
-
-    function getFocusedEl(){
-      const rc = cursor.components.raycaster;
-      if(!rc || !rc.intersectedEls || !rc.intersectedEls.length) return null;
-      return rc.intersectedEls[0];
-    }
-
-    function getCardWrapFromEl(el){
-      if (!el) return null;
-      if (el.dataset && el.dataset.stepId) return el;
-      return el.closest ? el.closest('[data-step-id]') : null;
-    }
-
-    function getNearestCenterCard(maxPx = 220){
-      const camera3D = cam ? cam.getObject3D('camera') : null;
-      if (!camera3D) return null;
-
-      const cards = [...cardLayer.querySelectorAll('[data-step-id]')];
-      let best = null;
-      let bestD = Infinity;
-
-      const cx = window.innerWidth / 2;
-      const cy = window.innerHeight / 2;
-
-      for (const el of cards){
-        el.object3D.updateMatrixWorld();
-        _proj.setFromMatrixPosition(el.object3D.matrixWorld);
-        _proj.project(camera3D);
-
-        const sx = (_proj.x * 0.5 + 0.5) * window.innerWidth;
-        const sy = (-_proj.y * 0.5 + 0.5) * window.innerHeight;
-        const d = Math.hypot(sx - cx, sy - cy);
-
-        if (d < bestD){
-          bestD = d;
-          best = el;
-        }
-      }
-
-      return bestD <= maxPx ? best : null;
-    }
-
-    function trySelectCard(wrap){
-      if (!wrap || state.ended || !state.started) return false;
-
-      const expected = STEPS[state.nextIndex];
-      if (!expected) return false;
-
-      const selectedOrder = parseInt(wrap.dataset.order, 10);
-      if (selectedOrder === expected.order){
-        handleCorrectCard(wrap, state.nextIndex);
-      } else {
-        handleWrongCard(wrap);
-      }
-      return true;
-    }
-
-    function triggerFocused(){
-      const now = performance.now();
-      if(now - state.lastActionAt < 120) return false;
-      state.lastActionAt = now;
-
-      const el = getFocusedEl();
-      const wrap = getCardWrapFromEl(el);
-
-      if (wrap){
-        return trySelectCard(wrap);
-      }
-
-      const nearCard = getNearestCenterCard(220);
-      if (nearCard){
-        return trySelectCard(nearCard);
-      }
-
-      return false;
-    }
-
-    function computeStars(success){
-      if(!success) return 0;
-      if(state.miss === 0 && state.timeLeft >= START_TIME * 0.35) return 3;
-      if(state.miss <= 3) return 2;
-      return 1;
+    function resolveMiniRank(success, stars){
+      if (!success) return 'Try Again';
+      if (state.miss === 0 && accuracyPercent() === 100) return 'Recall Master';
+      if (stars >= 3) return 'Memory Pro';
+      return 'Mini Clear';
     }
 
     function saveLastSummary(success, stars){
@@ -1186,155 +1164,188 @@
         progress: progressPercent(),
         bestStreak: state.bestCombo,
         whoDone: 7,
+        badges,
+        rank: resolveMiniRank(success, stars),
         notes: badges.join(', ') || (success ? 'Handwash mini-order completed' : 'Handwash mini-order incomplete')
       });
     }
 
-    function endGame(success){
+    function finishGame(success=true){
       state.ended = true;
-      const stars = computeStars(success);
-      state.badges = computeMiniBadges(success);
-      saveLastSummary(success, stars);
-      rememberZoneState();
 
-      ui.sumTitle.textContent = success ? 'เรียงลำดับสำเร็จ!' : 'หมดเวลาก่อน';
+      let stars = 1;
+      if (success && state.miss <= 2 && accuracyPercent() >= 80) stars = 2;
+      if (success && state.miss === 0 && accuracyPercent() === 100 && state.timeLeft > START_TIME * 0.2) stars = 3;
+
+      saveLastSummary(success, stars);
+
+      ui.sumTitle.textContent = success ? 'จบ Handwash Set' : 'ยังไม่ผ่าน Mini Order';
       ui.sumDesc.textContent = success
-        ? 'ยอดเยี่ยมมาก จำลำดับ 7 ขั้นได้ครบแล้ว'
-        : 'ลองใหม่อีกครั้ง แล้วเลือกขั้นตอนถัดไปให้ถูกต้อง';
+        ? 'ทบทวนลำดับครบแล้ว กำลังพร้อมกลับ Hygiene Zone'
+        : 'ยังเรียงไม่ครบ ลองใหม่อีกครั้งได้เลย';
+
+      ui.sumSteps.textContent = `${state.placed.length} / ${ORDER_ITEMS.length}`;
       ui.sumScore.textContent = String(state.score);
-      ui.sumTime.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
       ui.sumMiss.textContent = String(state.miss);
-      ui.sumStars.textContent = stars > 0 ? '⭐'.repeat(stars) : '—';
-      ui.sumCombo.textContent = String(state.bestCombo);
-      ui.sumBadges.textContent = state.badges.length ? state.badges.join(', ') : '—';
+      ui.sumStars.textContent = success ? '⭐'.repeat(stars) : '⭐';
+
+      const badges = computeMiniBadges(success);
+      ui.sumBadges.innerHTML = '';
+      if (badges.length){
+        badges.forEach(badge => {
+          const el = document.createElement('div');
+          el.className = 'pill';
+          el.textContent = badge;
+          ui.sumBadges.appendChild(el);
+        });
+      } else {
+        const el = document.createElement('div');
+        el.className = 'pill';
+        el.textContent = success ? 'Mini Clear' : 'Try Again';
+        ui.sumBadges.appendChild(el);
+      }
 
       ui.summaryOverlay.classList.remove('hidden');
-      setHudCompact(false);
-      updateUI();
+
+      if (success){
+        hhTone(840, 0.05, 'square', 0.025, 0.00);
+        hhTone(1020, 0.07, 'triangle', 0.028, 0.08);
+
+        const miniBadges = computeMiniBadges(success);
+        const miniRank = resolveMiniRank(success, stars);
+
+        if (miniBadges.length){
+          setTimeout(() => {
+            showUnlockToast('🧠 ปลด Badge ใหม่', miniBadges.slice(0,2).join(' • '), 'badge');
+          }, 220);
+        }
+
+        setTimeout(() => {
+          showUnlockToast('🏁 Rank ใหม่', miniRank, 'rank');
+        }, miniBadges.length ? 1180 : 260);
+
+        setCoach('finish');
+      } else {
+        setCoach('warn');
+      }
     }
 
-    function startGame(){
+    function pickItem(id){
+      const expected = nextExpected();
+      if (!expected) return;
+
+      const picked = state.bank.find(item => item.id === id);
+      if (!picked || picked.used) return;
+
+      state.attempts += 1;
+
+      if (id === expected.id){
+        picked.used = true;
+        state.placed.push(picked);
+        state.combo += 1;
+        state.bestCombo = Math.max(state.bestCombo, state.combo);
+
+        const comboBonus = Math.min(30, state.combo * 2);
+        state.score += 24 + comboBonus;
+
+        if (state.combo >= 6){
+          setCoach('hot');
+        } else {
+          setCoach('good');
+        }
+
+        hhTone(860, 0.05, 'square', 0.024, 0.00);
+
+        if (state.placed.length >= ORDER_ITEMS.length){
+          renderAll();
+          finishGame(true);
+          return;
+        }
+      } else {
+        state.miss += 1;
+        state.combo = 0;
+        state.score = Math.max(0, state.score - 8);
+        setCoach('warn');
+        hhTone(220, 0.08, 'square', 0.032, 0.00);
+      }
+
+      renderAll();
+    }
+
+    function undoLast(){
+      if (!state.started || state.ended) return;
+      if (!state.placed.length) return;
+
+      const last = state.placed.pop();
+      const bankItem = state.bank.find(item => item.id === last.id);
+      if (bankItem) bankItem.used = false;
+
+      state.combo = 0;
+      state.score = Math.max(0, state.score - 6);
+      setCoach('warn');
+      renderAll();
+    }
+
+    function resetGame(){
       state.started = true;
       state.ended = false;
       state.timeLeft = START_TIME;
       state.score = 0;
       state.miss = 0;
-      state.nextIndex = 0;
-      state.streak = 0;
-      state.bestStreak = 0;
-      state.lastActionAt = 0;
-      state.lastTs = 0;
       state.combo = 0;
       state.bestCombo = 0;
-      state.idleTimer = 0;
-      state.badges = [];
-
-      rememberZoneState();
-      resetSlots();
-      buildCards();
+      state.placed = [];
+      state.bank = shuffle(ORDER_ITEMS).map(item => ({ ...item, used:false }));
+      state.attempts = 0;
 
       ui.startOverlay.classList.add('hidden');
       ui.summaryOverlay.classList.add('hidden');
 
-      setHudCompact(isMobileLike());
-      updateUI();
-      setCoach('เริ่มที่ “ฝ่ามือถูฝ่ามือ” ก่อน');
+      setCoach('intro');
+      renderAll();
     }
 
-    ui.startBtn.addEventListener('click', startGame);
-    ui.restartBtn.addEventListener('click', startGame);
+    function tick(){
+      if (state.started && !state.ended){
+        state.timeLeft = Math.max(0, state.timeLeft - 0.1);
+        updateHUD();
 
-    ui.hubBtn.addEventListener('click', ()=>{
-      const target = NEXT_URL || ZONE_RETURN_URL || HUB_ROOT_URL;
-      if (target) {
-        rememberZoneState();
-        location.href = target;
+        if (state.timeLeft <= 0){
+          finishGame(false);
+        }
       }
-    });
-
-    ui.hudToggleBtn.addEventListener('click', ()=>{
-      setHudCompact(!state.hudCompact);
-    });
-
-    ui.vrBtn.addEventListener('click', async ()=>{
-      try{
-        if(scene.is('vr-mode')) scene.exitVR();
-        else await scene.enterVR();
-      }catch(err){
-        console.warn(err);
-      }
-      setTimeout(setBtnText, 120);
-    });
-
-    ui.recenterBtn.addEventListener('click', ()=>{
-      rig.object3D.position.set(0,0,0);
-      rig.object3D.rotation.set(0,0,0);
-      setCoach('จัดมุมมองใหม่แล้ว');
-    });
-
-    scene.addEventListener('enter-vr', setBtnText);
-    scene.addEventListener('exit-vr', setBtnText);
-
-    window.addEventListener('keydown', (e)=>{
-      if(e.code === 'Space' || e.code === 'Enter'){
-        e.preventDefault();
-        triggerFocused();
-      }
-    }, { passive:false });
-
-    window.addEventListener('pointerup', (e)=>{
-      const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
-      if(tag === 'button') return;
-      triggerFocused();
-    });
-
-    window.addEventListener('resize', ()=>{
-      if (state.started && !state.ended) {
-        setHudCompact(isMobileLike());
-      }
-    });
-
-    window.addEventListener('beforeunload', ()=>{
-      if (!state.started || state.ended) return;
-      saveLastSummary(false, 0);
-    });
-
-    function loop(ts){
-      requestAnimationFrame(loop);
-
-      if(!state.started || state.ended){
-        state.lastTs = ts;
-        return;
-      }
-
-      if(!state.lastTs) state.lastTs = ts;
-      const dt = Math.min(0.05, (ts - state.lastTs) / 1000);
-      state.lastTs = ts;
-
-      state.timeLeft = Math.max(0, state.timeLeft - dt);
-      if(state.timeLeft <= 0){
-        updateUI();
-        endGame(false);
-        return;
-      }
-
-      state.idleTimer += dt;
-      if (state.idleTimer >= 5){
-        state.idleTimer = 0;
-        state.score = Math.max(0, state.score - 3);
-        state.combo = 0;
-        setCoach('รีบหน่อย ลำดับเริ่มสับสนแล้ว!');
-      }
-
-      updateUI();
     }
 
-    setBtnText();
-    rememberZoneState();
-    resetSlots();
-    setHudCompact(isMobileLike());
-    updateUI();
-    requestAnimationFrame(loop);
+    ui.btnStart.addEventListener('click', () => {
+      playPageSignature('mini');
+      resetGame();
+    });
+
+    ui.btnRestart.addEventListener('click', resetGame);
+    ui.btnSummaryRestart.addEventListener('click', resetGame);
+    ui.btnUndo.addEventListener('click', undoLast);
+
+    ui.btnFinishHub.addEventListener('click', () => {
+      showSceneTransition({
+        icon:'🏆',
+        title:'จบ Handwash Set',
+        desc:'เยี่ยมมาก กำลังกลับ Hygiene Zone',
+        url: HUB_URL
+      });
+    });
+
+    ui.btnSummaryHub.addEventListener('click', () => {
+      showSceneTransition({
+        icon:'🏆',
+        title:'จบ Handwash Set',
+        desc:'เยี่ยมมาก กำลังกลับ Hygiene Zone',
+        url: HUB_URL
+      });
+    });
+
+    renderAll();
+    setCoach('intro');
+    setInterval(tick, 100);
   </script>
 </body>
 </html>
