@@ -376,8 +376,263 @@
       line-height:1.45;
     }
 
+    .gallery-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:16px;
+    }
+
+    .badge-gallery{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .badge-tile{
+      background:#f8fcff;
+      border:1px solid #d8edf8;
+      border-radius:18px;
+      padding:12px;
+      color:#28465d;
+      font-weight:900;
+      min-height:94px;
+      display:grid;
+      align-content:start;
+      gap:6px;
+    }
+
+    .badge-tile.locked{
+      opacity:.55;
+      filter:grayscale(.22);
+      background:#f5f8fb;
+    }
+
+    .badge-icon{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.25rem;
+      background:linear-gradient(180deg,#fff7b2 0%, #fde047 100%);
+      box-shadow:inset 0 0 0 3px rgba(255,255,255,.45);
+    }
+
+    .badge-tile.locked .badge-icon{
+      background:linear-gradient(180deg,#eef4f8 0%, #dde8ef 100%);
+    }
+
+    .badge-name{
+      font-size:.92rem;
+      line-height:1.25;
+      color:#12324b;
+    }
+
+    .badge-note{
+      font-size:.78rem;
+      line-height:1.35;
+      color:#60798f;
+      font-weight:800;
+    }
+
+    .record-grid{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .record-card{
+      background:#f8fcff;
+      border:1px solid #d8edf8;
+      border-radius:18px;
+      padding:12px;
+      color:#28465d;
+      display:grid;
+      gap:8px;
+    }
+
+    .record-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .record-title{
+      font-weight:1000;
+      color:#12324b;
+    }
+
+    .record-stamp{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      background:#eef8fd;
+      color:#48657f;
+      font-weight:900;
+      font-size:.8rem;
+    }
+
+    .record-stamp.perfect{
+      background:linear-gradient(180deg,#fff7b2 0%, #fde047 100%);
+      color:#7c2d12;
+      box-shadow:0 8px 18px rgba(253,224,71,.20);
+    }
+
+    .record-meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .record-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      background:#eef8fd;
+      color:#37566e;
+      font-weight:900;
+      font-size:.8rem;
+    }
+
+    .record-empty{
+      background:#f9fcfe;
+      border:1px dashed #cfe3ef;
+      border-radius:16px;
+      padding:12px;
+      color:#5c7890;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .shelf-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      margin-top:10px;
+    }
+
+    .shelf-card{
+      background:linear-gradient(180deg,#ffffff 0%, #f8fcff 100%);
+      border:1px solid #d8edf8;
+      border-radius:20px;
+      padding:14px;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);
+      min-height:120px;
+      display:grid;
+      gap:8px;
+      align-content:start;
+    }
+
+    .shelf-card.locked{
+      opacity:.58;
+      filter:grayscale(.22);
+      background:#f7fafc;
+    }
+
+    .shelf-medal{
+      width:48px;
+      height:48px;
+      border-radius:16px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.35rem;
+      background:linear-gradient(180deg,#fff7b2 0%, #fde047 100%);
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.40);
+    }
+
+    .shelf-card.locked .shelf-medal{
+      background:linear-gradient(180deg,#eef4f8 0%, #dde8ef 100%);
+    }
+
+    .shelf-title{
+      font-weight:1000;
+      color:#12324b;
+      line-height:1.2;
+    }
+
+    .shelf-sub{
+      color:#60798f;
+      font-size:.82rem;
+      font-weight:800;
+      line-height:1.4;
+    }
+
+    .reward-overlay{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(8,20,40,.30);
+      backdrop-filter:blur(8px);
+    }
+
+    .reward-card{
+      width:min(620px,100%);
+      background:#ffffff;
+      border:2px solid #cfeaf7;
+      border-radius:28px;
+      padding:20px;
+      box-shadow:0 24px 60px rgba(19,50,75,.18);
+    }
+
+    .reward-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#effcf3;
+      color:#166534;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    .reward-list{
+      display:grid;
+      gap:10px;
+      margin:14px 0 0;
+    }
+
+    .reward-item{
+      background:#f8fcff;
+      border:1px solid #d8edf8;
+      border-radius:18px;
+      padding:12px;
+      color:#28465d;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .reward-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .hidden{
+      display:none !important;
+    }
+
     @media (max-width:940px){
-      .grid{
+      .grid,
+      .gallery-grid{
+        grid-template-columns:1fr;
+      }
+
+      .shelf-grid{
         grid-template-columns:1fr;
       }
     }
@@ -398,10 +653,7 @@
         border-radius:22px;
       }
 
-      .field-grid{
-        grid-template-columns:1fr;
-      }
-
+      .field-grid,
       .summary-grid{
         grid-template-columns:1fr;
       }
@@ -532,6 +784,25 @@
           </div>
         </div>
 
+        <div class="summary-grid" style="margin-top:10px">
+          <div class="summary-box">
+            <small>Overall Rank</small>
+            <span id="overallRank">Starter</span>
+          </div>
+          <div class="summary-box">
+            <small>Badge Collection</small>
+            <span id="badgeCollection">0 badges</span>
+          </div>
+          <div class="summary-box">
+            <small>Daily Mission</small>
+            <span id="dailyMission">0 / 5</span>
+          </div>
+          <div class="summary-box">
+            <small>Streak</small>
+            <span id="streakCount">0 days</span>
+          </div>
+        </div>
+
         <div class="tiny" id="latestMeta">
           ถ้ายังว่างอยู่ แปลว่ายังไม่มี summary ของ Handwash ถูกบันทึกในเบราว์เซอร์นี้
         </div>
@@ -544,7 +815,52 @@
         <div class="muted-box">ยังไม่พบประวัติของ Handwash</div>
       </div>
     </section>
+
+    <section class="card">
+      <h2>Daily Mission</h2>
+      <div id="dailyMissionList" class="history-list">
+        <div class="muted-box">ยังไม่มีข้อมูลภารกิจวันนี้</div>
+      </div>
+    </section>
+
+    <section class="gallery-grid">
+      <section class="card">
+        <h2>Badge Gallery</h2>
+        <div id="badgeGallery" class="badge-gallery">
+          <div class="muted-box">ยังไม่มี badge ถูกปลดล็อก</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Best Records</h2>
+        <div id="bestRecordGrid" class="record-grid">
+          <div class="record-empty">ยังไม่มีสถิติของ Handwash</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="card">
+      <h2>Reward Shelf</h2>
+      <div id="rewardShelf" class="shelf-grid">
+        <div class="muted-box">ยังไม่มีถ้วยรางวัลของ Handwash</div>
+      </div>
+    </section>
   </main>
+
+  <div id="dailyRewardOverlay" class="reward-overlay hidden">
+    <div class="reward-card">
+      <div class="reward-badge">🎉 Daily Mission Updated</div>
+      <h2 style="margin:0 0 8px;">วันนี้ปลดภารกิจเพิ่มแล้ว!</h2>
+      <div id="dailyRewardMeta" class="tiny" style="margin-top:0;">เยี่ยมมาก เก็บภารกิจต่อได้อีก</div>
+
+      <div id="dailyRewardList" class="reward-list"></div>
+
+      <div class="reward-actions">
+        <button id="btnCloseDailyReward" class="action-btn full" type="button">รับทราบ</button>
+        <button id="btnPlayResumeDailyReward" class="action-btn resume" type="button">เล่นต่อ</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const qs = new URLSearchParams(location.search);
@@ -556,6 +872,21 @@
       'main': 'Main Game',
       'mini-order': 'Mini Order'
     };
+
+    const BADGE_CATALOG = [
+      { key:'No Miss Hero', label:'No Miss Hero', icon:'✨', note:'ผ่านด่านโดยไม่พลาด' },
+      { key:'Practice Master', label:'Practice Master', icon:'🧪', note:'ทำ Practice ได้ลื่นและคอมโบดี' },
+      { key:'Rhythm Clean', label:'Rhythm Clean', icon:'🎵', note:'ทำ Motion Coach ได้แม่น' },
+      { key:'Beat Master', label:'Beat Master', icon:'🥁', note:'แทบไม่พลาดจังหวะใน Motion Coach' },
+      { key:'WHO Master', label:'WHO Master', icon:'🧼', note:'ผ่าน WHO 7 ขั้นครบใน Main Game' },
+      { key:'Super Clean', label:'Super Clean', icon:'💦', note:'คอมโบสูงและทำสะอาดได้แรง' },
+      { key:'Clean Rush', label:'Clean Rush', icon:'⚡', note:'ช่วงท้ายล้างฟองและเช็ดมือได้ดี' },
+      { key:'Perfect Main', label:'Perfect Main', icon:'🏅', note:'Main Game แบบสมบูรณ์ไร้พลาด' },
+      { key:'Order Master', label:'Order Master', icon:'🧩', note:'เรียง Mini Order ได้ดีมาก' },
+      { key:'Sharp Memory', label:'Sharp Memory', icon:'🧠', note:'จำลำดับได้แม่นยำ' },
+      { key:'Perfect Recall', label:'Perfect Recall', icon:'👑', note:'Mini Order แบบไร้พลาด' },
+      { key:'Fast Learner', label:'Fast Learner', icon:'🚀', note:'ผ่านด่านได้เร็ว' }
+    ];
 
     const els = {
       pid: document.getElementById('pid'),
@@ -587,7 +918,23 @@
       flowMiniSub: document.getElementById('flowMiniSub'),
       flowHubSub: document.getElementById('flowHubSub'),
       stageBoxes: [...document.querySelectorAll('[data-stage-box]')],
-      modeButtons: [...document.querySelectorAll('[data-view]')]
+      modeButtons: [...document.querySelectorAll('[data-view]')],
+
+      overallRank: document.getElementById('overallRank'),
+      badgeCollection: document.getElementById('badgeCollection'),
+      dailyMission: document.getElementById('dailyMission'),
+      streakCount: document.getElementById('streakCount'),
+      dailyMissionList: document.getElementById('dailyMissionList'),
+
+      badgeGallery: document.getElementById('badgeGallery'),
+      bestRecordGrid: document.getElementById('bestRecordGrid'),
+      rewardShelf: document.getElementById('rewardShelf'),
+
+      dailyRewardOverlay: document.getElementById('dailyRewardOverlay'),
+      dailyRewardMeta: document.getElementById('dailyRewardMeta'),
+      dailyRewardList: document.getElementById('dailyRewardList'),
+      btnCloseDailyReward: document.getElementById('btnCloseDailyReward'),
+      btnPlayResumeDailyReward: document.getElementById('btnPlayResumeDailyReward')
     };
 
     const defaultHub = qs.get('hub') || new URL('../hub-v2.html', location.href).href;
@@ -704,6 +1051,10 @@
         miss: Number(obj.miss || 0),
         timeLeft: Number(obj.timeLeft || 0),
         progress: Number(obj.progress || 0),
+        accuracy: Number(obj.accuracy || 0),
+        whoDone: Number(obj.whoDone || 0),
+        badges: Array.isArray(obj.badges) ? obj.badges : [],
+        rank: String(obj.rank || ''),
         notes: String(obj.notes || ''),
         timestamp,
         key
@@ -746,7 +1097,10 @@
         if (
           !keyLower.includes('handwash') &&
           key !== 'HHA_LAST_SUMMARY' &&
-          key !== 'HHA_LAST_SUMMARY_GLOBAL'
+          key !== 'HHA_LAST_SUMMARY_GLOBAL' &&
+          key !== 'HH_HANDWASH_LAST' &&
+          key !== 'HH_HANDWASH_HISTORY' &&
+          key !== 'HH_HANDWASH_FLOW'
         ){
           continue;
         }
@@ -812,6 +1166,164 @@
       }
     }
 
+    function collectBadgeSet(entries){
+      const set = new Set();
+      entries.forEach(entry => {
+        const badges = Array.isArray(entry.badges) ? entry.badges : [];
+        badges.forEach(b => {
+          const clean = String(b || '').trim();
+          if (clean) set.add(clean);
+        });
+      });
+      return [...set];
+    }
+
+    function computeOverallRank(entries){
+      const badges = collectBadgeSet(entries);
+      const stars = entries.reduce((sum, e) => sum + Number(e.stars || 0), 0);
+      const score = entries.reduce((sum, e) => sum + Number(e.score || 0), 0);
+
+      const howtoDone = !!latestSuccessfulByStage(entries, 'howto');
+      const practiceDone = !!latestSuccessfulByStage(entries, 'practice');
+      const mainDone = !!latestSuccessfulByStage(entries, 'main');
+      const miniDone = !!latestSuccessfulByStage(entries, 'mini-order');
+
+      if (howtoDone && practiceDone && mainDone && miniDone && badges.length >= 8 && stars >= 8 && score >= 1200){
+        return 'Gold WHO Master';
+      }
+      if (howtoDone && practiceDone && mainDone && miniDone && badges.length >= 5 && stars >= 5 && score >= 800){
+        return 'Silver Soap Hero';
+      }
+      if (howtoDone || practiceDone || mainDone || miniDone){
+        return 'Bronze Clean Kid';
+      }
+      return 'Starter';
+    }
+
+    function bestEntryByStage(entries, stage){
+      const filtered = entries.filter(e => e.stage === stage && e.success);
+      if (!filtered.length) return null;
+
+      return filtered.sort((a, b) => {
+        const starsDiff = Number(b.stars || 0) - Number(a.stars || 0);
+        if (starsDiff !== 0) return starsDiff;
+
+        const scoreDiff = Number(b.score || 0) - Number(a.score || 0);
+        if (scoreDiff !== 0) return scoreDiff;
+
+        const missDiff = Number(a.miss || 0) - Number(b.miss || 0);
+        if (missDiff !== 0) return missDiff;
+
+        return Number(b.timestamp || 0) - Number(a.timestamp || 0);
+      })[0];
+    }
+
+    function isPerfectStageEntry(entry){
+      if (!entry || !entry.success) return false;
+      const stage = entry.stage;
+
+      if (stage === 'practice'){
+        return Number(entry.miss || 0) === 0 && Number(entry.progress || 0) === 100;
+      }
+
+      if (stage === 'main'){
+        return Number(entry.miss || 0) === 0 &&
+          Number(entry.progress || 0) === 100 &&
+          Number(entry.whoDone || 0) === 7;
+      }
+
+      if (stage === 'mini-order'){
+        return Number(entry.miss || 0) === 0 &&
+          Number(entry.progress || 0) === 100 &&
+          Number(entry.accuracy || 0) === 100;
+      }
+
+      if (stage === 'howto'){
+        return Number(entry.progress || 0) === 100;
+      }
+
+      return false;
+    }
+
+    function stagePrettyName(stage){
+      return STAGE_LABEL[stage] || stage;
+    }
+
+    function bangkokDay(ts){
+      try{
+        const fmt = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Bangkok',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        return fmt.format(new Date(ts));
+      }catch{
+        return new Date(ts).toISOString().slice(0,10);
+      }
+    }
+
+    function buildDailyFromEntries(entries){
+      const today = bangkokDay(Date.now());
+
+      const todayEntries = entries.filter(entry => {
+        const ts = Number(entry.timestamp || 0);
+        if (!ts) return false;
+        return bangkokDay(ts) === today;
+      });
+
+      const completed = {
+        practice: todayEntries.some(e => e.stage === 'practice' && e.success),
+        main: todayEntries.some(e => e.stage === 'main' && e.success),
+        'mini-order': todayEntries.some(e => e.stage === 'mini-order' && e.success),
+        perfect_clear: todayEntries.some(e => e.success && Number(e.miss || 0) === 0),
+        score_500: todayEntries.some(e => e.success && Number(e.score || 0) >= 500)
+      };
+
+      const doneCount = Object.values(completed).filter(Boolean).length;
+
+      return {
+        today,
+        completed,
+        doneCount,
+        total: 5
+      };
+    }
+
+    function computeStreak(entries){
+      const daySet = new Set();
+
+      entries.forEach(entry => {
+        if (!entry.success) return;
+        const ts = Number(entry.timestamp || 0);
+        if (!ts) return;
+
+        if (entry.stage === 'mini-order' || entry.stage === 'main' || entry.stage === 'practice'){
+          daySet.add(bangkokDay(ts));
+        }
+      });
+
+      const days = [...daySet].sort().reverse();
+      if (!days.length) return 0;
+
+      let streak = 1;
+      let cursor = new Date(days[0] + 'T00:00:00Z');
+
+      for (let i = 1; i < days.length; i++){
+        const prev = new Date(days[i] + 'T00:00:00Z');
+        const diff = Math.round((cursor - prev) / 86400000);
+
+        if (diff === 1){
+          streak += 1;
+          cursor = prev;
+        } else {
+          break;
+        }
+      }
+
+      return streak;
+    }
+
     function computeResumeStage(entries){
       const howtoDone = !!latestSuccessfulByStage(entries, 'howto');
       const practiceDone = !!latestSuccessfulByStage(entries, 'practice');
@@ -846,6 +1358,11 @@
         els.latestMeta.textContent = 'ถ้ายังว่างอยู่ แปลว่ายังไม่มี summary ของ Handwash ถูกบันทึกในเบราว์เซอร์นี้';
         els.resumeStatus.textContent = 'ยังไม่พบ progress ของ Handwash';
         els.resumeStatus.className = 'status-pill muted';
+
+        els.overallRank.textContent = 'Starter';
+        els.badgeCollection.textContent = '0 badges';
+        els.dailyMission.textContent = '0 / 5';
+        els.streakCount.textContent = '0 days';
         return;
       }
 
@@ -866,6 +1383,15 @@
         els.resumeStatus.textContent = 'ยังไม่พบ progress ของ Handwash';
         els.resumeStatus.className = 'status-pill muted';
       }
+
+      const badgeSet = collectBadgeSet(entries);
+      const daily = buildDailyFromEntries(entries);
+      const streak = computeStreak(entries);
+
+      els.overallRank.textContent = computeOverallRank(entries);
+      els.badgeCollection.textContent = `${badgeSet.length} badges`;
+      els.dailyMission.textContent = `${daily.doneCount} / ${daily.total}`;
+      els.streakCount.textContent = `${streak} ${streak === 1 ? 'day' : 'days'}`;
     }
 
     function renderFlow(entries){
@@ -912,6 +1438,9 @@
         const tagText = entry.success ? 'ผ่าน' : 'ยังไม่ผ่าน';
         const stage = STAGE_LABEL[entry.stage] || entry.stage;
         const stars = entry.stars > 0 ? '⭐'.repeat(entry.stars) : '—';
+        const badgeText = Array.isArray(entry.badges) && entry.badges.length
+          ? ` • badge ${entry.badges.slice(0,2).join(', ')}`
+          : '';
 
         return `
           <div class="history-item">
@@ -919,7 +1448,7 @@
               <div><strong>${stage}</strong></div>
               <div class="${tagClass}">${tagText}</div>
             </div>
-            <div>คะแนน ${entry.score} • ดาว ${stars} • miss ${entry.miss} • progress ${entry.progress}%</div>
+            <div>คะแนน ${entry.score} • ดาว ${stars} • miss ${entry.miss} • progress ${entry.progress}%${badgeText}</div>
             <div class="tiny">บันทึกเมื่อ ${formatTime(entry.timestamp)}</div>
           </div>
         `;
@@ -928,11 +1457,245 @@
       els.historyList.innerHTML = rows;
     }
 
+    function renderDaily(entries){
+      const badgeSet = collectBadgeSet(entries);
+      const starCount = entries.reduce((sum, e) => sum + Number(e.stars || 0), 0);
+      const daily = buildDailyFromEntries(entries);
+      const streak = computeStreak(entries);
+
+      els.overallRank.textContent = computeOverallRank(entries);
+      els.badgeCollection.textContent = `${badgeSet.length} badges`;
+      els.dailyMission.textContent = `${daily.doneCount} / ${daily.total}`;
+      els.streakCount.textContent = `${streak} ${streak === 1 ? 'day' : 'days'}`;
+
+      const items = [
+        { label:'ผ่าน Practice Lab วันนี้', done:daily.completed.practice },
+        { label:'ผ่าน Main Game วันนี้', done:daily.completed.main },
+        { label:'ผ่าน Mini Order วันนี้', done:daily.completed['mini-order'] },
+        { label:'ทำ Perfect Clear อย่างน้อย 1 ครั้ง', done:daily.completed.perfect_clear },
+        { label:'ทำคะแนน 500+ อย่างน้อย 1 ครั้ง', done:daily.completed.score_500 }
+      ];
+
+      els.dailyMissionList.innerHTML = items.map(item => `
+        <div class="history-item">
+          <div class="history-head">
+            <div><strong>${item.label}</strong></div>
+            <div class="tag ${item.done ? '' : 'fail'}">${item.done ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}</div>
+          </div>
+          <div>สถานะวันนี้: ${item.done ? 'ทำได้แล้ว' : 'ยังรอเก็บ'}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderBadgeGallery(entries){
+      const unlocked = new Set(collectBadgeSet(entries));
+
+      const catalog = [...BADGE_CATALOG].sort((a, b) => {
+        const aOn = unlocked.has(a.key) ? 1 : 0;
+        const bOn = unlocked.has(b.key) ? 1 : 0;
+        return bOn - aOn;
+      });
+
+      const html = catalog.map(item => {
+        const isUnlocked = unlocked.has(item.key);
+        return `
+          <div class="badge-tile ${isUnlocked ? '' : 'locked'}">
+            <div class="badge-icon">${item.icon}</div>
+            <div class="badge-name">${item.label}</div>
+            <div class="badge-note">${isUnlocked ? item.note : 'ยังไม่ปลดล็อก'}</div>
+          </div>
+        `;
+      }).join('');
+
+      els.badgeGallery.innerHTML = html || `<div class="muted-box">ยังไม่มี badge ถูกปลดล็อก</div>`;
+    }
+
+    function renderBestRecords(entries){
+      const stages = ['howto', 'practice', 'main', 'mini-order'];
+
+      const html = stages.map(stage => {
+        const best = bestEntryByStage(entries, stage);
+
+        if (!best){
+          return `
+            <div class="record-card">
+              <div class="record-head">
+                <div class="record-title">${stagePrettyName(stage)}</div>
+                <div class="record-stamp">ยังไม่มีสถิติ</div>
+              </div>
+              <div class="record-empty">ยังไม่ผ่านด่านนี้</div>
+            </div>
+          `;
+        }
+
+        const perfect = isPerfectStageEntry(best);
+        const stars = Number(best.stars || 0) > 0 ? '⭐'.repeat(Number(best.stars || 0)) : '—';
+
+        return `
+          <div class="record-card">
+            <div class="record-head">
+              <div class="record-title">${stagePrettyName(stage)}</div>
+              <div class="record-stamp ${perfect ? 'perfect' : ''}">
+                ${perfect ? '✨ Perfect Clear' : 'ผ่านแล้ว'}
+              </div>
+            </div>
+
+            <div class="record-meta">
+              <div class="record-pill">คะแนน ${best.score || 0}</div>
+              <div class="record-pill">ดาว ${stars}</div>
+              <div class="record-pill">miss ${best.miss || 0}</div>
+              <div class="record-pill">progress ${best.progress || 0}%</div>
+            </div>
+
+            <div class="tiny">
+              ดีที่สุดเมื่อ ${formatTime(best.timestamp)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      els.bestRecordGrid.innerHTML = html || `<div class="record-empty">ยังไม่มีสถิติของ Handwash</div>`;
+    }
+
+    function renderRewardShelf(entries){
+      const badgeSet = new Set(collectBadgeSet(entries));
+      const overallRank = computeOverallRank(entries);
+      const bestMain = bestEntryByStage(entries, 'main');
+      const bestMini = bestEntryByStage(entries, 'mini-order');
+
+      const shelf = [
+        {
+          title:'Overall Rank',
+          icon:'👑',
+          unlocked: overallRank !== 'Starter',
+          sub: overallRank
+        },
+        {
+          title:'Perfect Main',
+          icon:'🏅',
+          unlocked: badgeSet.has('Perfect Main'),
+          sub: badgeSet.has('Perfect Main') ? 'ผ่าน Main แบบสมบูรณ์' : 'ยังไม่ปลดล็อก'
+        },
+        {
+          title:'Perfect Recall',
+          icon:'🧠',
+          unlocked: badgeSet.has('Perfect Recall'),
+          sub: badgeSet.has('Perfect Recall') ? 'ผ่าน Mini Order แบบไร้พลาด' : 'ยังไม่ปลดล็อก'
+        },
+        {
+          title:'WHO Master',
+          icon:'🧼',
+          unlocked: badgeSet.has('WHO Master'),
+          sub: badgeSet.has('WHO Master') ? 'ครบ WHO 7 ขั้น' : 'ยังไม่ปลดล็อก'
+        },
+        {
+          title:'Best Main Score',
+          icon:'🎯',
+          unlocked: !!bestMain,
+          sub: bestMain ? `คะแนนสูงสุด ${bestMain.score}` : 'ยังไม่มีสถิติ'
+        },
+        {
+          title:'Best Mini Score',
+          icon:'🧩',
+          unlocked: !!bestMini,
+          sub: bestMini ? `คะแนนสูงสุด ${bestMini.score}` : 'ยังไม่มีสถิติ'
+        }
+      ];
+
+      els.rewardShelf.innerHTML = shelf.map(item => `
+        <div class="shelf-card ${item.unlocked ? '' : 'locked'}">
+          <div class="shelf-medal">${item.icon}</div>
+          <div class="shelf-title">${item.title}</div>
+          <div class="shelf-sub">${item.sub}</div>
+        </div>
+      `).join('');
+    }
+
+    let __launcherRewardAudio = null;
+    function launcherRewardSound(){
+      try{
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        if (!__launcherRewardAudio) __launcherRewardAudio = new Ctx();
+
+        const ctx = __launcherRewardAudio;
+        const play = (freq, at, dur=0.08, gain=0.03) => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          g.gain.value = gain;
+          osc.connect(g);
+          g.connect(ctx.destination);
+          g.gain.setValueAtTime(gain, at);
+          g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+          osc.start(at);
+          osc.stop(at + dur);
+        };
+
+        const now = ctx.currentTime;
+        play(760, now, 0.06, 0.028);
+        play(920, now + 0.09, 0.08, 0.032);
+      }catch(e){}
+    }
+
+    const DAILY_REWARD_SEEN_KEY = 'HH_HANDWASH_DAILY_REWARD_SEEN';
+
+    function missionLabelMap(){
+      return {
+        practice: 'ผ่าน Practice Lab วันนี้',
+        main: 'ผ่าน Main Game วันนี้',
+        'mini-order': 'ผ่าน Mini Order วันนี้',
+        perfect_clear: 'ทำ Perfect Clear อย่างน้อย 1 ครั้ง',
+        score_500: 'ทำคะแนน 500+ อย่างน้อย 1 ครั้ง'
+      };
+    }
+
+    function maybeShowDailyReward(entries){
+      const daily = buildDailyFromEntries(entries);
+      const today = daily.today;
+      const seen = parseJsonSafe(localStorage.getItem(DAILY_REWARD_SEEN_KEY)) || { day:'', completed:{} };
+
+      const labels = missionLabelMap();
+      const newlyDone = [];
+
+      Object.entries(daily.completed).forEach(([key, done]) => {
+        const prevDone = seen.day === today ? !!(seen.completed && seen.completed[key]) : false;
+        if (done && !prevDone){
+          newlyDone.push(labels[key] || key);
+        }
+      });
+
+      localStorage.setItem(DAILY_REWARD_SEEN_KEY, JSON.stringify({
+        day: today,
+        completed: daily.completed
+      }));
+
+      if (!newlyDone.length) return;
+
+      els.dailyRewardMeta.textContent = `วันนี้ทำสำเร็จเพิ่ม ${newlyDone.length} ภารกิจ • ตอนนี้ ${daily.doneCount}/${daily.total}`;
+      els.dailyRewardList.innerHTML = newlyDone.map(text => `
+        <div class="reward-item">✅ ${text}</div>
+      `).join('');
+
+      try{
+        if (navigator.vibrate) navigator.vibrate([28, 38, 28]);
+      }catch(e){}
+
+      launcherRewardSound();
+      els.dailyRewardOverlay.classList.remove('hidden');
+    }
+
     function refreshView(){
       const entries = getAllEntries();
       renderLatest(entries);
       renderFlow(entries);
       renderHistory(entries);
+      renderDaily(entries);
+      renderBadgeGallery(entries);
+      renderBestRecords(entries);
+      renderRewardShelf(entries);
+      maybeShowDailyReward(entries);
     }
 
     function removeDetectedHandwashKeys(){
@@ -959,6 +1722,7 @@
       }
 
       [...new Set(keysToRemove)].forEach(key => localStorage.removeItem(key));
+      localStorage.removeItem(DAILY_REWARD_SEEN_KEY);
     }
 
     els.btnResume.addEventListener('click', () => {
@@ -989,6 +1753,15 @@
       removeDetectedHandwashKeys();
       refreshView();
       alert('ล้าง progress ของ Handwash ในเบราว์เซอร์นี้แล้ว');
+    });
+
+    els.btnCloseDailyReward.addEventListener('click', () => {
+      els.dailyRewardOverlay.classList.add('hidden');
+    });
+
+    els.btnPlayResumeDailyReward.addEventListener('click', () => {
+      els.dailyRewardOverlay.classList.add('hidden');
+      openUrl(buildResumeUrl(selectedView));
     });
 
     refreshView();
