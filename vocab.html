@@ -87,6 +87,25 @@
     .top3Card .meta{font-size:12px;color:#c7d4ff;margin-top:4px}
 
     .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
+    .rotateOverlay{
+      position:fixed; inset:0; z-index:10000;
+      display:none; align-items:center; justify-content:center;
+      background:radial-gradient(circle at top,#18254a 0%,#0b1020 48%,#05070f 100%);
+      padding:24px;
+    }
+    .rotateCard{
+      width:min(92vw,560px);
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:24px;
+      padding:22px;
+      text-align:center;
+      box-shadow:0 20px 80px rgba(0,0,0,.35);
+    }
+    .rotateEmoji{font-size:54px;line-height:1}
+    .rotateTitle{font-size:28px;font-weight:1000;margin-top:10px}
+    .rotateDesc{margin-top:10px;color:#dbe7ff;line-height:1.6}
+
     @media (max-width:980px){
       .hud,.grid3,.grid2,.grid4,.profileRow,.actions,.top3Board{grid-template-columns:1fr}
       .title{font-size:28px}
@@ -98,6 +117,15 @@
 </head>
 <body>
 <div id="app">
+  <div class="rotateOverlay" id="rotateOverlay">
+    <div class="rotateCard">
+      <div class="rotateEmoji">📱↻</div>
+      <div class="rotateTitle">กรุณาหมุนหน้าจอเป็นแนวนอน</div>
+      <div class="rotateDesc">
+        เกมนี้ออกแบบแบบ <span class="mono">landscape-first</span> เพื่อให้เห็นคำถาม, ตัวเลือก, HUD และ boss ได้ครบและเล่นได้สบายขึ้น
+      </div>
+    </div>
+  </div>
   <canvas id="gameCanvas"></canvas>
 
   <div class="hud">
@@ -255,7 +283,8 @@
     leaderboardList: document.getElementById('leaderboardList'),
     teacherTable: document.getElementById('teacherTable'),
     weakList: document.getElementById('weakList'),
-    endSummaryText: document.getElementById('endSummaryText')
+    endSummaryText: document.getElementById('endSummaryText'),
+    rotateOverlay: document.getElementById('rotateOverlay')
   };
 
   const LEADERBOARD_KEY = 'VOCAB_V9_LEADERBOARD';
@@ -415,6 +444,8 @@
     width = innerWidth; height = innerHeight;
     canvas.width = Math.floor(width * dpr); canvas.height = Math.floor(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    updateQuestionLayout();
+    updateRotateOverlay();
   }
   function now(){ return performance.now(); }
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
@@ -614,28 +645,30 @@
   }
 
   function spawnTargetsFromChoices(choices){
-    const c = center();
+    const c = gameplayCenter();
     const mobile = width < 860;
     if (mobile){
-      const ys = [height * 0.40, height * 0.54, height * 0.68, height * 0.82];
+      const ys = [height * 0.36, height * 0.50, height * 0.64, height * 0.78];
       targets = choices.map((choice, i) => ({
         id: 'target_' + i + '_' + Date.now(),
         text: String(choice).toUpperCase(),
         rawText: String(choice).toLowerCase(),
-        x: c.x, y: ys[i] || (height * 0.4 + i * 90), angle:0, radiusBase:0, radiusPulse:0,
-        speed:0, w: Math.min(320, width * 0.76), h: 74, scale:1, z:1,
+        x: c.x, y: ys[i] || (height * 0.36 + i * 90), angle:0, radiusBase:0, radiusPulse:0,
+        speed:0, w: Math.min(360, width * 0.78), h: 76, scale:1, z:1,
         color:['#67e8f9','#fde047','#f472b6','#a78bfa'][i%4], hitFlash:0, mobile:true
       }));
       return;
     }
+    const orbitY = Math.max(42, Math.min(72, height * 0.10));
+    const orbitX = Math.max(170, Math.min(260, width * 0.16));
     targets = choices.map((choice, i) => {
       const angle = (Math.PI * 2 / choices.length) * i;
       return {
         id:'target_' + i + '_' + Date.now(),
         text:String(choice).toUpperCase(),
         rawText:String(choice).toLowerCase(),
-        x:c.x + Math.cos(angle) * 180,
-        y:c.y + Math.sin(angle) * 50,
+        x:c.x + Math.cos(angle) * orbitX,
+        y:c.y + Math.sin(angle) * orbitY,
         angle, radiusBase:180, radiusPulse:20,
         speed:0.012 + i * 0.002, w:250, h:84, scale:1, z:0.8,
         color:['#67e8f9','#fde047','#f472b6','#a78bfa'][i%4], hitFlash:0, mobile:false
@@ -644,7 +677,7 @@
   }
 
   function updateTargets(time){
-    const c = center();
+    const c = gameplayCenter();
     hoveredId = null;
     targets.forEach((t, i) => {
       if (!t.mobile){
@@ -1003,7 +1036,7 @@
     ctx.fillStyle = g; ctx.fillRect(0,0,width,height);
     ctx.fillStyle = '#dbeafe'; ctx.fillRect(0,height*0.58,width,height*0.42);
 
-    const c = center();
+    const c = gameplayCenter();
     // arena rings
     ctx.save();
     ctx.translate(c.x,c.y+72);
@@ -1021,7 +1054,8 @@
 
     // boss core
     ctx.save();
-    ctx.translate(c.x, c.y - 20);
+    const bossX = width > height ? c.x - Math.min(180, width * 0.12) : c.x;
+    ctx.translate(bossX, c.y - 20);
     const pulse = 1 + Math.sin(t * 0.003) * (V9.bossPhase === 3 ? 0.10 : 0.06);
     ctx.scale(pulse, pulse);
     ctx.beginPath(); ctx.arc(0,0,52,0,Math.PI*2); ctx.fillStyle = V9.bossPhase === 3 ? 'rgba(251,113,133,.30)' : V9.bossPhase === 2 ? 'rgba(251,146,60,.26)' : 'rgba(244,114,182,.20)'; ctx.fill();
@@ -1157,10 +1191,12 @@
 
   canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
   canvas.addEventListener('mousedown', e => {
+    if (isPortraitPhoneLike()) return;
     const hit = getTargetAtPoint(e.clientX, e.clientY);
     if (hit){ hit.hitFlash = 1; handleAnswerV9(hit.rawText); }
   });
   canvas.addEventListener('touchstart', e => {
+    if (isPortraitPhoneLike()) return;
     const t = e.changedTouches[0];
     if (!t) return;
     mouseX = t.clientX; mouseY = t.clientY;
@@ -1169,7 +1205,13 @@
   }, { passive:true });
 
 
-  document.getElementById('startBtn').addEventListener('click', startProductionRun);
+  document.getElementById('startBtn').addEventListener('click', () => {
+    if (isPortraitPhoneLike()){
+      showFeedback('ROTATE TO LANDSCAPE', 'warn');
+      return;
+    }
+    startProductionRun();
+  });
   document.getElementById('leaderboardBtn').addEventListener('click', () => {
     leaderboardOpenedFromEnd = false;
     openLeaderboard();
