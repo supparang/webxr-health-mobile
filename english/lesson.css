@@ -738,3 +738,54 @@ a-scene{
     border-radius:18px;
   }
 }
+/* ===== minimal UI cleanup ===== */
+
+/* Hub-only panels: ซ่อนตอนเล่นและตอนสรุป */
+#ui-container.mission-mode #profile-panel,
+#ui-container.mission-mode #hub-stats-board,
+#ui-container.mission-mode #ai-director-board,
+#ui-container.summary-mode #profile-panel,
+#ui-container.summary-mode #hub-stats-board,
+#ui-container.summary-mode #ai-director-board{
+  display:none !important;
+}
+
+/* summary ให้เด่นแต่ไม่ยาว */
+#ui-container.summary-mode #feedback{
+  min-height:auto;
+  padding:10px 12px;
+  font-size:.95rem;
+}
+
+#ui-container.summary-mode #summary-panel{
+  margin-top:10px;
+}
+
+#summary-body{
+  font-size:.96rem;
+  line-height:1.5;
+}
+
+/* ตอนเล่น mission ให้เหลือเฉพาะข้อมูลสำคัญ */
+#ui-container.mission-mode #summary-panel,
+#ui-container.mission-mode #game-over-ui{
+  display:none !important;
+}
+
+/* โปรไฟล์ด้านบนเล็กลงอีก */
+#player-avatar-hud{
+  width:36px;
+  height:36px;
+  font-size:1.2rem;
+}
+
+/* feedback สั้น กระชับ */
+#feedback{
+  font-size:.95rem;
+}
+
+/* ปุ่มตอน summary ให้ชัดและไม่รก */
+#btn-next,
+#btn-return{
+  margin-top:10px;
+}
