@@ -845,6 +845,82 @@ window.setDifficulty = function (level) {
   renderQuestionDiffBadge(level);
 };
 
+function normalizeWritingText(text = "") {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/i'm/g, "i am")
+    .replace(/it's/g, "it is")
+    .replace(/we're/g, "we are")
+    .replace(/[.,!?;:()"]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function analyzeWritingAnswer(mission, answer) {
+  const clean = normalizeWritingText(answer);
+  const keywords = Array.isArray(mission?.keywords) ? mission.keywords : [];
+
+  const matched = keywords.filter(kw => clean.includes(String(kw).toLowerCase()));
+  const missing = keywords.filter(kw => !clean.includes(String(kw).toLowerCase()));
+
+  let needed = Number(mission?.minMatch || 1);
+  if (aiDirector.support >= 2 || state.systemHP <= 35 || state.consecutiveLosses >= 2) {
+    needed = Math.max(1, needed - 1);
+  }
+
+  const coverage = keywords.length ? Math.round((matched.length / keywords.length) * 100) : 0;
+
+  let hint = "";
+  if (missing.length > 0) {
+    hint = `AI Hint: ลองใส่คำสำคัญ เช่น ${missing.slice(0, 2).join(", ")}`;
+  } else {
+    hint = "AI Hint: มี keyword ครบแล้ว ลองเขียนให้เป็นประโยคสมบูรณ์ขึ้น";
+  }
+
+  return {
+    matched,
+    missing,
+    needed,
+    coverage,
+    pass: matched.length >= needed,
+    hint
+  };
+}
+
+function getWritingStarter(mission) {
+  if (mission?.starter) return mission.starter;
+
+  const title = String(mission?.title || "").toLowerCase();
+
+  if (title.includes("introduce")) return "Starter: My name is ... I study ...";
+  if (title.includes("email")) return "Starter: Dear ..., I am writing to ...";
+  if (title.includes("opinion")) return "Starter: I think ... because ...";
+  if (title.includes("plan")) return "Starter: First, I will ... Then, I will ...";
+  if (title.includes("bug")) return "Starter: The bug happens when ...";
+  if (title.includes("report")) return "Starter: The problem is ...";
+  if (title.includes("goal")) return "Starter: In the future, I want to ...";
+
+  return "Starter: I think ... because ...";
+}
+
+function buildWritingCoachPrompt(mission, result) {
+  const base = mission?.prompt || "Write your answer";
+  const parts = [base];
+
+  if (result?.hint) parts.push(result.hint);
+  parts.push(getWritingStarter(mission));
+
+  if (Array.isArray(result?.matched) && result.matched.length) {
+    parts.push(`Matched: ${result.matched.join(", ")}`);
+  }
+
+  if (Array.isArray(result?.missing) && result.missing.length) {
+    parts.push(`Missing: ${result.missing.slice(0, 3).join(", ")}`);
+  }
+
+  return parts.join("\n\n");
+}
+
 function loadMission(id) {
   const missionGroup = missionDB.find(m => m.id === id);
   if (!missionGroup) return;
@@ -897,7 +973,7 @@ function loadMission(id) {
   setMissionTimerAlert(false);
 
   setFeedback(isFinal ? "👑 FINAL BOSS" : "START!", isFinal ? "#f1c40f" : "#00e5ff");
-  scheduleFeedbackClear(isFinal ? 1300 : 850);
+  scheduleFeedbackClear(document.body.dataset.missionType === "speaking" ? 750 : (isFinal ? 1300 : 850));
   scheduleMissionHeaderCollapse(state.currentMission.type === "speaking" ? 900 : 1200);
   scheduleMissionStatsCollapse(state.currentMission.type === "speaking" ? 950 : 1300);
   scheduleMissionTopChipsCollapse(state.currentMission.type === "speaking" ? 750 : 1050);
@@ -909,8 +985,8 @@ function loadMission(id) {
   recordMissionStart(state.currentMission, aiDirector.mood);
 
   const timeMod = getDifficultyTimeMod() + getAdaptiveTimeBonus() + (state.currentMission._bossTimeAdjust || 0);
-
   const hackerBoss = $("hackerBoss");
+
   if ((isBoss || isFinal) && hackerBoss) {
     hackerBoss.setAttribute("visible", "true");
     hackerBoss.removeAttribute("animation");
@@ -944,7 +1020,10 @@ function loadMission(id) {
     startTimer(clamp(getBaseTimeForMissionType("listening") + timeMod, 18, 80));
   } else if (state.currentMission.type === "writing") {
     setWritingPrompt(state.currentMission.prompt);
-    setMissionPrompt(state.currentMission.prompt || "พิมพ์คำตอบ", "WRITE");
+    setMissionPrompt(
+      `${state.currentMission.prompt || "พิมพ์คำตอบ"}\n\n${getWritingStarter(state.currentMission)}`,
+      "WRITE"
+    );
     show("write-input", "inline-block");
     resetWritingInput();
 
@@ -979,13 +1058,24 @@ window.checkChoiceAnswer = function (selectedLetter) {
 
 window.checkWritingAnswer = function () {
   if (state.isGameOver || !state.currentMission) return;
-  const answer = $("write-input")?.value.toLowerCase() || "";
-  const matchedKeywords = state.currentMission.keywords.filter(kw => answer.includes(kw));
-  if (matchedKeywords.length >= state.currentMission.minMatch) winMission();
-  else {
-    setFeedback(state.currentMission.failMsg, "#ff4757");
-    takeDamage();
+
+  const answer = $("write-input")?.value || "";
+  const result = analyzeWritingAnswer(state.currentMission, answer);
+
+  if (result.pass) {
+    setFeedback(
+      `✍️ ${result.coverage}% • ${result.matched.length}/${state.currentMission.keywords.length}`,
+      "#2ed573"
+    );
+    scheduleFeedbackClear(900);
+    winMission();
+    return;
   }
+
+  setMissionPrompt(buildWritingCoachPrompt(state.currentMission, result), "WRITE");
+  setFeedback(`❌ ${result.matched.length}/${result.needed} keyword`, "#ff4757");
+  scheduleFeedbackClear(900);
+  takeDamage();
 };
 
 window.playAudio = function () {
@@ -1104,7 +1194,7 @@ window.submitScore = async function () {
 
   const btn = $("btn-submit-score");
   btn.disabled = true;
-  btn.innerText = "Saving...";
+  btn.innerText = "Saving.";
 
   try {
     playerProfile.name = name.slice(0, 24);
