@@ -85,16 +85,7 @@
     .top3Card .rank{font-size:28px;font-weight:1000}
     .top3Card .name{font-size:16px;font-weight:900;margin-top:6px}
     .top3Card .meta{font-size:12px;color:#c7d4ff;margin-top:4px}
-    .mic-permission-card{width:100%;margin:10px 0 14px;padding:14px;border-radius:18px;background:rgba(9,16,35,.88);border:1px solid rgba(255,255,255,.14);box-shadow:0 10px 24px rgba(0,0,0,.22)}
-    .mic-status-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-    .mic-badge{display:inline-flex;align-items:center;justify-content:center;min-width:132px;padding:8px 12px;border-radius:999px;font-weight:900;font-size:14px;letter-spacing:.02em}
-    .mic-unknown{background:#334155;color:#fff}
-    .mic-ready{background:#166534;color:#dcfce7}
-    .mic-blocked{background:#92400e;color:#fef3c7}
-    .mic-denied{background:#991b1b;color:#fee2e2}
-    .mic-status-text{color:#dbeafe;font-size:14px}
-    .mic-actions{margin-top:12px}
-    .mic-btn{width:100%;border:0;border-radius:16px;padding:14px 18px;font-size:18px;font-weight:900;cursor:pointer;background:linear-gradient(135deg,#22d3ee,#38bdf8);color:#082f49;box-shadow:0 10px 24px rgba(34,211,238,.28)}
+
     .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
     @media (max-width:980px){
       .hud,.grid3,.grid2,.grid4,.profileRow,.actions,.top3Board{grid-template-columns:1fr}
@@ -127,7 +118,7 @@
       <h1 class="title">Vocab v9 — English for Specific Career Purposes (CS/AI)</h1>
       <div class="desc">
         เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ: มีหลายรูปแบบคำถามต่อคำศัพท์, ปรับความยากตามการเล่น,
-        มี Code Battle / Debug Mission / AI Training / Speed Run และ review queue เพื่อย้อนคำที่ยังอ่อน
+        มี Code Battle / Debug Mission / AI Training / Speed Run และ review queue เพื่อย้อนคำที่ยังอ่อน — เวอร์ชันนี้ใช้การแตะเลือกคำตอบเป็นหลัก
       </div>
 
       <div class="grid3" style="margin-top:16px">
@@ -142,12 +133,6 @@
         <button class="option modeBtn" data-mode="ai_training"><h3>🤖 AI Training Sim</h3><p>บริบท AI/ML แบบใช้งานจริง</p></button>
         <button class="option modeBtn" data-mode="speed_run"><h3>⚡ Speed Run</h3><p>เร็ว กดดัน กันจำแพทเทิร์น</p></button>
       </div>
-
-      <div class="mic-permission-card" id="micPermissionCard">
-        <div class="mic-status-line">
-          <span id="micStatusBadge" class="mic-badge mic-unknown">🎤 UNKNOWN</span>
-          <span id="micStatusText" class="mic-status-text">ยังไม่ได้ตรวจสอบไมโครโฟน</span>
-        </div>
         <div class="mic-actions">
           <button id="requestMicBtn" class="mic-btn" type="button">🎤 ขออนุญาตไมค์อัตโนมัติ</button>
         </div>
@@ -270,10 +255,7 @@
     leaderboardList: document.getElementById('leaderboardList'),
     teacherTable: document.getElementById('teacherTable'),
     weakList: document.getElementById('weakList'),
-    endSummaryText: document.getElementById('endSummaryText'),
-    micStatusBadge: document.getElementById('micStatusBadge'),
-    micStatusText: document.getElementById('micStatusText'),
-    requestMicBtn: document.getElementById('requestMicBtn')
+    endSummaryText: document.getElementById('endSummaryText')
   };
 
   const LEADERBOARD_KEY = 'VOCAB_V9_LEADERBOARD';
@@ -427,8 +409,6 @@
   let profile = { displayName: 'Player', studentId: '' };
   let lastSummary = null;
   let leaderboardOpenedFromEnd = false;
-  let micPermissionState = 'unknown';
-  let micStream = null;
 
   function resize(){
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -957,23 +937,6 @@
 
     phase = 'feedback';
     phaseUntil = now() + 800;
-  }  
-  {
-      V9.hp -= 1;
-      V9.combo = 0;
-      enqueueReview(item.termId);
-      showFeedback('WRONG', 'bad');
-    }
-
-    V9.stageIndex += 1;
-
-    if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages || V9.bossHp <= 0){
-      endRun();
-      return;
-    }
-
-    phase = 'feedback';
-    phaseUntil = now() + 700;
   }
 
   function nextQuestionV9(){
@@ -1024,17 +987,10 @@
     renderHud();
   }
 
-  function canUseVoiceMode(){ return micPermissionState === 'ready'; }
-
   async function startProductionRun(){
     document.querySelector('.hud')?.classList.remove('hidden');
     els.questionBox.classList.remove('hidden');
     saveProfile();
-
-    if (micPermissionState !== 'ready'){
-      await checkMicPermission();
-    }
-
     els.menu.classList.add('hidden');
     els.endWrap.classList.add('hidden');
     resetRun(V9.bank, V9.mode);
@@ -1186,64 +1142,6 @@
     }
   }
 
-  function setMicStatus(state, text) {
-    micPermissionState = state;
-    if (!els.micStatusBadge || !els.micStatusText) return;
-    els.micStatusBadge.className = 'mic-badge';
-    if (state === 'ready') {
-      els.micStatusBadge.classList.add('mic-ready');
-      els.micStatusBadge.textContent = '🎤 READY';
-    } else if (state === 'blocked') {
-      els.micStatusBadge.classList.add('mic-blocked');
-      els.micStatusBadge.textContent = '🎤 BLOCKED';
-    } else if (state === 'denied') {
-      els.micStatusBadge.classList.add('mic-denied');
-      els.micStatusBadge.textContent = '🎤 DENIED';
-    } else {
-      els.micStatusBadge.classList.add('mic-unknown');
-      els.micStatusBadge.textContent = '🎤 UNKNOWN';
-    }
-    els.micStatusText.textContent = text || '';
-  }
-  async function checkMicPermission() {
-    if (!navigator.permissions || !navigator.permissions.query) {
-      setMicStatus('unknown', 'เบราว์เซอร์นี้ไม่รองรับการอ่านสถานะ permission โดยตรง');
-      return;
-    }
-    try {
-      const result = await navigator.permissions.query({ name: 'microphone' });
-      if (result.state === 'granted') setMicStatus('ready', 'อนุญาตไมโครโฟนแล้ว พร้อมใช้งาน');
-      else if (result.state === 'denied') setMicStatus('denied', 'ไมโครโฟนถูกปฏิเสธ ต้องไปเปิดสิทธิ์ในเบราว์เซอร์');
-      else setMicStatus('blocked', 'ยังไม่ได้อนุญาต กดปุ่มด้านล่างเพื่อขอสิทธิ์');
-
-      result.onchange = () => {
-        if (result.state === 'granted') setMicStatus('ready', 'อนุญาตไมโครโฟนแล้ว พร้อมใช้งาน');
-        else if (result.state === 'denied') setMicStatus('denied', 'ไมโครโฟนถูกปฏิเสธ ต้องไปเปิดสิทธิ์ในเบราว์เซอร์');
-        else setMicStatus('blocked', 'ยังไม่ได้อนุญาต กดปุ่มด้านล่างเพื่อขอสิทธิ์');
-      };
-    } catch (err) {
-      setMicStatus('unknown', 'ตรวจสอบ permission ไม่สำเร็จ');
-    }
-  }
-  async function requestMicrophonePermission() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setMicStatus('denied', 'อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับไมโครโฟน');
-      return false;
-    }
-    try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setMicStatus('ready', 'อนุญาตไมโครโฟนแล้ว พร้อมเริ่มเกม');
-      return true;
-    } catch (err) {
-      if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
-        setMicStatus('denied', 'คุณปฏิเสธไมโครโฟน ต้องไปเปิดสิทธิ์ที่เบราว์เซอร์');
-      } else {
-        setMicStatus('blocked', 'ยังเข้าถึงไมโครโฟนไม่ได้ ลองใหม่อีกครั้ง');
-      }
-      return false;
-    }
-  }
-
   document.querySelectorAll('.bankBtn').forEach(btn => {
     btn.addEventListener('click', () => {
       V9.bank = btn.dataset.bank || 'A';
@@ -1270,7 +1168,6 @@
     if (hit){ hit.hitFlash = 1; handleAnswerV9(hit.rawText); }
   }, { passive:true });
 
-  els.requestMicBtn.addEventListener('click', async () => { await requestMicrophonePermission(); });
 
   document.getElementById('startBtn').addEventListener('click', startProductionRun);
   document.getElementById('leaderboardBtn').addEventListener('click', () => {
@@ -1337,7 +1234,6 @@
   renderLeaderboard();
   renderMenuTop3();
   renderHud();
-  checkMicPermission();
   bootTeacherMode();
   requestAnimationFrame(loop);
   addEventListener('resize', resize);
