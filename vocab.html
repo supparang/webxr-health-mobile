@@ -1191,12 +1191,18 @@
 
   canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
   canvas.addEventListener('mousedown', e => {
-    if (isPortraitPhoneLike()) return;
+    const portraitLike = (typeof isPortraitPhoneLike === 'function')
+      ? isPortraitPhoneLike()
+      : (window.innerHeight > window.innerWidth && Math.min(window.innerWidth, window.innerHeight) < 1100);
+    if (portraitLike) return;
     const hit = getTargetAtPoint(e.clientX, e.clientY);
     if (hit){ hit.hitFlash = 1; handleAnswerV9(hit.rawText); }
   });
   canvas.addEventListener('touchstart', e => {
-    if (isPortraitPhoneLike()) return;
+    const portraitLike = (typeof isPortraitPhoneLike === 'function')
+      ? isPortraitPhoneLike()
+      : (window.innerHeight > window.innerWidth && Math.min(window.innerWidth, window.innerHeight) < 1100);
+    if (portraitLike) return;
     const t = e.changedTouches[0];
     if (!t) return;
     mouseX = t.clientX; mouseY = t.clientY;
