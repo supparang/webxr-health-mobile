@@ -1,0 +1,13 @@
+{
+  "correct": true,
+  "displayFeedback": "Excellent pronunciation and correct meaning.",
+  "scoreDelta": 120,
+  "combo": 3,
+  "difficulty": "normal",
+  "boss": {
+    "hp": 76
+  },
+  "player": {
+    "lives": 3
+  }
+}
