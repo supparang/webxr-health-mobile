@@ -1684,7 +1684,6 @@ window.onload = function () {
     togglePromptFocusExpanded();
   });
 };
-      maybeShowFinalBossIntro(state.currentMission.id, () => playSFX("bossIntro"));
   }
 
   onMissionLoadedForAI(state.currentMission, isUnitFinal);
