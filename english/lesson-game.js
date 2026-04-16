@@ -188,8 +188,6 @@ import { $, setValueAttr } from "./lesson-ui.js";
             syncProfileUI();
         }
 
-
-
         const SESSION_STATS_KEY = 'TECHPATH_VR_SESSION_STATS_V1';
         let sessionStats = loadSessionStats();
         let missionRun = null;
@@ -478,7 +476,6 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             }
         };
 
-
         let finalBossState = {
             active: false,
             unitId: null,
@@ -486,7 +483,6 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             maxHp: 0,
             introShown: false
         };
-
 
         function getFinalBossPattern(id) {
             if (id === 5) {
@@ -633,9 +629,16 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 finalBossState = { active: false, unitId: null, hp: 0, maxHp: 0, introShown: false };
                 return;
             }
+
             if (!finalBossState.active || finalBossState.unitId !== id || finalBossState.hp <= 0) {
                 const maxHp = getFinalBossMaxHp(id);
-                finalBossState = { active: true, unitId: id, hp: maxHp, maxHp: maxHp, introShown: false };
+                finalBossState = {
+                    active: true,
+                    unitId: id,
+                    hp: maxHp,
+                    maxHp: maxHp,
+                    introShown: false
+                };
             }
         }
 
@@ -712,6 +715,7 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             const fill = document.getElementById('boss-bar-fill');
             const hpText = document.getElementById('boss-hp-text');
             const sub = document.getElementById('boss-phase-sub');
+
             if (!wrap || !fill || !hpText || !sub) return;
 
             if (finalBossState.active && finalBossState.hp > 0) {
@@ -726,99 +730,8 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             }
         }
 
-        // ==========================================
-        // ระบบจัดเก็บออนไลน์ (Online Leaderboard Initialization)
-        // ==========================================
         let db, auth, currentUser, appId;
-        (async function bootFirebase() {
-            try {
-                const runtime = await initFirebaseRuntime();
-                db = runtime.db;
-                auth = runtime.auth;
-                appId = runtime.appId;
 
-                if (runtime.missingConfig) {
-                    console.warn('Missing Firebase RTDB config. Set window.TECHPATH_FIREBASE_CONFIG with databaseURL.');
-                    setValueAttr('vr-leaderboard-list', 'Leaderboard Offline
-(Check Firebase Config)');
-                    const streakText = $('streak-text');
-                    if (streakText) streakText.setAttribute('value', 'Offline
-(Set Firebase Config)');
-                    return;
-                }
-
-                onAuthStateChanged(auth, (user) => {
-                    currentUser = user;
-                    if (user) {
-                        setupLeaderboardListener();
-                        loadPlayerProfile();
-                        checkDailyStreak();
-                    } else {
-                        syncProfileUI();
-                    }
-                });
-            } catch (e) {
-                console.error("Leaderboard Error:", e);
-                setValueAttr('vr-leaderboard-list', 'Error connecting to database');
-            }
-        })();
-
-        function setupLeaderboardListener() {
-            if (!currentUser || !db) return;
-            const lbRef = ref(db, ['artifacts', appId, 'public', 'data', 'vr_leaderboards'].join('/'));
-
-            onValue(lbRef, (snapshot) => {
-                const raw = snapshot.val() || {};
-                let scores = Object.values(raw).filter(entry => entry && typeof entry.score === 'number');
-                scores.sort((a, b) => {
-                    const scoreDiff = (b.score || 0) - (a.score || 0);
-                    if (scoreDiff !== 0) return scoreDiff;
-                    return (a.timestamp || 0) - (b.timestamp || 0);
-                });
-                const top5 = scores.slice(0, 5);
-
-                let lbText = "";
-                top5.forEach((entry, i) => {
-                    let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "  ";
-                    const safeName = String(entry.name || 'Unknown').substring(0, 10);
-                    lbText += `${medal} ${safeName} : ${entry.score || 0}
-`;
-                });
-
-                if (scores.length === 0) lbText = "Be the first to clear a mission!";
-
-                const lbList = document.getElementById('vr-leaderboard-list');
-                if (lbList) lbList.setAttribute('value', lbText);
-            }, (error) => {
-                console.error("RTDB listener error:", error);
-                const lbList = document.getElementById('vr-leaderboard-list');
-                if (lbList) lbList.setAttribute('value', `Leaderboard Offline\n(Check RTDB Rules)`);
-            });
-        }
-
-        window.onload = function() {
-            generateMissionWall();
-            setDifficulty('normal'); // ตั้งค่าเริ่มต้นตอนเปิดเกม
-            syncProfileUI();
-            renderFinalBossUI();
-            renderHubStatsBoard();
-            setTimeout(() => {
-                document.getElementById('loading').style.opacity = '0';
-                setTimeout(() => document.getElementById('loading').style.display = 'none', 1000);
-            }, 1000);
-
-            $('write-input').addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') checkWritingAnswer();
-            });
-
-            $('profile-name-input').addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') savePlayerProfile();
-            });
-        };
-
-        // ==========================================
-        // ระบบ Daily Streak (บันทึกข้อมูลผูกกับ User ID ผ่าน Realtime Database)
-        // ==========================================
         function getChestRarity(streak) {
             if (streak >= 14) return { name: 'MYTHIC', bonus: 2200, color: '#fd79a8' };
             if (streak >= 7) return { name: 'EPIC', bonus: 1400, color: '#a29bfe' };
@@ -838,6 +751,80 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 badge.style.display = 'none';
             }, 2400);
         }
+
+        try {
+            const runtime = initFirebaseRuntime();
+            db = runtime.db;
+            auth = runtime.auth;
+            appId = runtime.appId || 'english-d4bfa';
+
+            onAuthStateChanged(auth, async (user) => {
+                currentUser = user;
+                if (user) {
+                    setupLeaderboardListener();
+                    await loadPlayerProfile();
+                    await checkDailyStreak();
+                } else {
+                    syncProfileUI();
+                }
+            });
+        } catch (e) {
+            console.error("RTDB Init Error:", e);
+        }
+
+        function setupLeaderboardListener() {
+            if (!db) return;
+            const lbRef = ref(db, ['artifacts', appId, 'public', 'data', 'vr_leaderboards'].join('/'));
+
+            onValue(lbRef, (snapshot) => {
+                let scores = [];
+                if (snapshot.exists()) {
+                    const val = snapshot.val() || {};
+                    scores = Object.values(val);
+                }
+                scores.sort((a, b) => (b.score || 0) - (a.score || 0));
+                const top5 = scores.slice(0, 5);
+
+                let lbText = "";
+                top5.forEach((entry, i) => {
+                    let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "  ";
+                    let avatar = typeof entry.avatar === 'string' ? entry.avatar : '🧑‍💻';
+                    let safeName = (entry.name || 'Hero').substring(0,10);
+                    lbText += `${medal} ${avatar} ${safeName} : ${entry.score}\n`;
+                });
+
+                if (scores.length === 0) lbText = "Be the first to clear a mission!";
+
+                const lbList = document.getElementById('vr-leaderboard-list');
+                if (lbList) lbList.setAttribute('value', lbText);
+            }, (error) => {
+                console.error("RTDB leaderboard listener error:", error);
+                const lbList = document.getElementById('vr-leaderboard-list');
+                if (lbList) lbList.setAttribute('value', `Leaderboard Offline\n(Check RTDB Rules)`);
+            });
+        }
+
+        window.onload = function() {
+            setHudMode('hub');
+            generateMissionWall();
+            setDifficulty('normal');
+            syncProfileUI();
+            renderAIDirector();
+            renderFinalBossUI();
+            renderHubStatsBoard();
+            setTimeout(() => {
+                document.getElementById('loading').style.opacity = '0';
+                setTimeout(() => document.getElementById('loading').style.display = 'none', 1000);
+            }, 1000);
+
+            document.getElementById('write-input').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') checkWritingAnswer();
+            });
+
+            document.getElementById('profile-name-input').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') savePlayerProfile();
+            });
+        };
 
         window.checkDailyStreak = async function() {
             if (!currentUser || !db) return;
@@ -923,7 +910,6 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 chest.querySelector('a-box').setAttribute('color', '#555');
                 document.getElementById('streak-text').setAttribute('value', `Streak: ${streak} Days\n(Claimed)`);
 
-                const newlyUnlocked = getUnlockedAvatars();
                 syncProfileUI();
 
                 let unlockMsg = '';
@@ -943,63 +929,6 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             }
         }
 
-        window.claimReward = async function() {
-            if (!currentUser || !db) {
-                document.getElementById('feedback').innerText = "⚠️ รอเชื่อมต่อเซิร์ฟเวอร์สักครู่...";
-                return;
-            }
-
-            const rewardRef = ref(db, ['artifacts', appId, 'users', currentUser.uid, 'player_stats', 'reward'].join('/'));
-
-            try {
-                const chest = document.getElementById('reward-chest');
-                chest.classList.remove('clickable');
-
-                const snap = await get(rewardRef);
-                const rewardData = snap.exists() ? (snap.val() || {}) : {};
-                let streak = rewardData.streak || 0;
-                let lastLogin = rewardData.lastLogin || "";
-
-                let today = new Date().toDateString();
-                if (lastLogin === today) {
-                    document.getElementById('feedback').innerText = "🎁 วันนี้รับรางวัลไปแล้ว";
-                    return;
-                }
-
-                let yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
-
-                if (lastLogin === yesterday.toDateString()) {
-                    streak++;
-                } else {
-                    streak = 1;
-                }
-
-                await set(rewardRef, {
-                    lastLogin: today,
-                    streak: streak
-                });
-
-                let bonus = 500 + (streak * 200);
-                playSFX('win');
-                updateHUD(bonus);
-                showVRFeedback(true, `+${bonus} REWARD!`);
-
-                chest.removeAttribute('animation');
-                chest.querySelector('a-box').setAttribute('color', '#555');
-                document.getElementById('streak-text').setAttribute('value', `Streak: ${streak} Days
-(Claimed)`);
-
-                document.getElementById('feedback').innerText = `🎁 รับรางวัลสำเร็จ! Streak ${streak} วัน (+${bonus} Pts)`;
-                document.getElementById('feedback').style.color = "#f1c40f";
-
-            } catch (e) {
-                console.error("Error claiming reward (RTDB):", e);
-                document.getElementById('reward-chest').classList.add('clickable');
-                document.getElementById('feedback').innerText = "❌ เกิดข้อผิดพลาดในการรับรางวัล";
-            }
-        }
-
         function generateMissionWall() {
             const wall = document.getElementById('mission-wall');
             let index = 0;
@@ -1007,17 +936,17 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 let yPos = 1.2 - (row * 0.8);
                 for(let col=0; col<5; col++) {
                     if(index >= missionDB.length) break;
-                    let mGroup = missionDB[index]; // ดึงข้อมูล Group หลักมาสร้างป้าย
-                    
+                    let mGroup = missionDB[index];
+
                     let angle = (col - 2) * 15;
                     let rad = angle * Math.PI / 180;
                     let radius = 4;
                     let xPos = Math.sin(rad) * radius;
                     let zPos = -Math.cos(rad) * radius + 4;
 
-                    // ระบบบอส (ทุกๆ 3 ด่าน) + FINAL UNIT ทุก 5 ด่าน
                     let isBoss = (mGroup.id % 3 === 0);
                     let isFinalUnit = isUnitFinal(mGroup.id);
+
                     let color = isFinalUnit ? '#f1c40f' : (isBoss ? '#e74c3c' : (mGroup.type === 'speaking' ? '#27ae60' : 
                                 mGroup.type === 'reading' ? '#3498db' : 
                                 mGroup.type === 'listening' ? '#e67e22' : '#9b59b6'));
@@ -1035,10 +964,10 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                     box.setAttribute('width', boxWidth); box.setAttribute('height', boxHeight); box.setAttribute('depth', '0.1');
                     box.setAttribute('color', color);
                     box.setAttribute('material', 'opacity: 0.8');
-                    
+
                     box.addEventListener('mouseenter', () => { box.setAttribute('material', 'color', '#00e5ff'); box.setAttribute('scale', '1.1 1.1 1.1'); });
                     box.addEventListener('mouseleave', () => { box.setAttribute('material', 'color', color); box.setAttribute('scale', '1 1 1'); });
-                    box.addEventListener('click', () => loadMission(mGroup.id)); 
+                    box.addEventListener('click', () => loadMission(mGroup.id));
 
                     let titlePrefix = isFinalUnit ? '👑 FINAL: ' : (isBoss ? '🔥 BOSS: ' : '');
                     let text = document.createElement('a-text');
@@ -1057,31 +986,32 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             refreshMissionWallProgress();
         }
 
-        // ==========================================
-        // ระบบจัดการความยาก (Difficulty System)
-        // ==========================================
         window.setDifficulty = function(level) {
             gameDifficulty = level;
-            
-            // รีเซ็ตความสว่างกล่อง
+
             document.getElementById('diff-easy-box').setAttribute('material', 'opacity', '0.4');
             document.getElementById('diff-normal-box').setAttribute('material', 'opacity', '0.4');
             document.getElementById('diff-hard-box').setAttribute('material', 'opacity', '0.4');
-            
-            // ทำให้กล่องที่เลือกสว่างขึ้น
+
             document.getElementById('diff-' + level + '-box').setAttribute('material', 'opacity', '1');
-            
+
             let descText = level === 'easy' ? 'โหมดง่าย (เพิ่มเวลา 15วิ, อนุโลมคำพูดได้ 3 คำ, ดาเมจน้อย)' :
                            level === 'normal' ? 'โหมดปานกลาง (สมดุล, อนุโลมคำพูด 1 คำ)' :
                            'โหมดยาก (ลดเวลา 15วิ, ต้องพูดเป๊ะทุกคำ, คะแนนคูณ 2!)';
-                           
+
             document.getElementById('ui-desc').innerText = `ความยาก: ${level.toUpperCase()} - ${descText}`;
             renderAIDirector();
         }
 
-        // ==========================================
-        // โหลดและสุ่มคำถาม (Randomizer Engine)
-        // ==========================================
+        function setHudMode(mode) {
+            const ui = document.getElementById('ui-container');
+            if (!ui) return;
+            ui.classList.remove('hub-mode', 'mission-mode', 'summary-mode');
+            if (mode === 'mission') ui.classList.add('mission-mode');
+            else if (mode === 'summary') ui.classList.add('summary-mode');
+            else ui.classList.add('hub-mode');
+        }
+
         function loadMission(id) {
             const missionGroup = missionDB.find(m => m.id === id);
             if (!missionGroup) return;
@@ -1092,29 +1022,37 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             const isBoss = (currentMission.id % 3 === 0);
             const isFinal = isUnitFinal(currentMission.id);
 
-            if (isFinal) ensureFinalBossState(currentMission.id);
-            else resetFinalBossState();
+            if (isFinal) {
+                ensureFinalBossState(currentMission.id);
+            } else {
+                resetFinalBossState();
+            }
 
             document.getElementById('hub-scene').setAttribute('visible', 'false');
             hideAllScenesAndControls();
+            setHudMode('mission');
             resetSummaryPanel();
             document.getElementById('btn-next').style.display = 'none';
             renderFinalBossUI();
+            applyUnitTheme(currentMission.id);
             if (isFinal) maybeShowFinalBossIntro(currentMission.id);
+
+            onMissionLoadedForAI(currentMission);
 
             let titlePrefix = isFinal ? '👑 FINAL BOSS | ' : (isBoss ? '🔥 BOSS STAGE | ' : '');
             document.getElementById('ui-title').innerText = `🚨 ${titlePrefix}SESSION ${id}: ${currentMission.title.toUpperCase()} [${gameDifficulty.toUpperCase()}]`;
-            document.getElementById('ui-title').style.color = isFinal ? "#f1c40f" : (isBoss ? "#e74c3c" : "#ff4757");
+            document.getElementById('ui-title').style.color = isFinal ? (currentMission._bossPatternColor || "#f1c40f") : (isBoss ? "#e74c3c" : "#ff4757");
             document.getElementById('ui-desc').innerText = isFinal
-                ? `${currentMission.desc} | FINAL BOSS HP ${finalBossState.hp}/${finalBossState.maxHp}`
-                : currentMission.desc;
+                ? `${currentMission.desc} | ${currentMission._bossPattern} | FINAL BOSS HP ${finalBossState.hp}/${finalBossState.maxHp} | AI ${aiDirector.mood}`
+                : `${currentMission.desc} | AI ${aiDirector.mood}`;
             document.getElementById('feedback').innerText = isFinal
-                ? "👑 UNIT FINAL START! ตอบถูกเพื่อลด HP บอส"
+                ? `👑 UNIT FINAL START! ${currentMission._bossPattern} — ${currentMission._bossPatternDesc}`
                 : "พร้อมแล้วเริ่มทำภารกิจเลย!";
+            flashMissionTypeTag(currentMission.type, true);
+            recordMissionStart(currentMission);
 
-            let timeMod = gameDifficulty === 'easy' ? 15 : (gameDifficulty === 'hard' ? -15 : 0);
-            
-            // ดึงบอสแฮ็กเกอร์ออกมาในทุกด่านที่เป็น Boss Stage
+            let timeMod = getDifficultyTimeMod() + getAdaptiveTimeBonus() + (currentMission._bossTimeAdjust || 0);
+
             const hackerBoss = document.getElementById('hackerBoss');
             if ((isBoss || isFinal) && hackerBoss) {
                 hackerBoss.setAttribute('visible', 'true');
@@ -1138,7 +1076,7 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 document.getElementById('reading-choice-a').setAttribute('value', currentMission.choices[0]);
                 document.getElementById('reading-choice-b').setAttribute('value', currentMission.choices[1]);
                 document.getElementById('reading-choice-c').setAttribute('value', currentMission.choices[2]);
-                
+
                 document.getElementById('choice-buttons').style.display = 'flex';
                 document.getElementById('ui-desc').innerText += " (ใช้นิ้วจิ้มที่กล่อง หรือกดปุ่ม A, B, C บนคีย์บอร์ดก็ได้)";
                 startTimer(clamp(getBaseTimeForMissionType('reading') + timeMod, 18, 80));
@@ -1149,7 +1087,7 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 document.getElementById('listening-choice-b').setAttribute('value', currentMission.choices[1]);
                 document.getElementById('listening-choice-c').setAttribute('value', currentMission.choices[2]);
                 document.getElementById('btn-play-audio').style.display = 'inline-block';
-                
+
                 document.getElementById('choice-buttons').style.display = 'flex';
                 document.getElementById('ui-desc').innerText += " (ใช้นิ้วจิ้มที่กล่อง หรือกดปุ่ม A, B, C บนคีย์บอร์ดก็ได้)";
                 startTimer(clamp(getBaseTimeForMissionType('listening') + timeMod, 18, 80));
@@ -1160,10 +1098,12 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 document.getElementById('write-input').style.display = 'inline-block';
                 document.getElementById('write-input').value = '';
                 document.getElementById('btn-submit-write').style.display = 'inline-block';
-                
+
                 const hackerBoss = document.getElementById('hackerBoss');
-                hackerBoss.removeAttribute('animation');
-                setTimeout(() => hackerBoss.setAttribute('animation', 'property: position; to: 0 1 -2; dur: 45000; easing: linear'), 50);
+                if (hackerBoss) {
+                    hackerBoss.removeAttribute('animation');
+                    setTimeout(() => hackerBoss.setAttribute('animation', 'property: position; to: 0 1 -2; dur: 45000; easing: linear'), 50);
+                }
                 startTimer(clamp(getBaseTimeForMissionType('writing') + timeMod, 18, 80));
             }
         }
@@ -1203,10 +1143,8 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
         window.checkWritingAnswer = function() {
             if (isGameOver || !currentMission) return;
             const answer = document.getElementById('write-input').value.toLowerCase();
-            
-            // ใช้ RegExp เพื่อหาคำที่ผู้เล่นพิมพ์มาเทียบกับคลังคำศัพท์ (ให้ความยืดหยุ่นสูง)
             let matchedKeywords = currentMission.keywords.filter(kw => answer.includes(kw));
-            
+
             if (matchedKeywords.length >= currentMission.minMatch) winMission();
             else {
                 document.getElementById('feedback').innerText = currentMission.failMsg;
@@ -1224,9 +1162,6 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             }
         };
 
-        // ==========================================
-        // ระบบรับเสียงแบบใหม่ (AI Speech Validation ยืดหยุ่นขึ้น)
-        // ==========================================
         window.startRecognition = function() {
             if (isGameOver || !currentMission) return;
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1236,8 +1171,8 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             }
             const recognition = new SpeechRecognition();
             recognition.lang = 'en-US';
-            recognition.interimResults = true; 
-            
+            recognition.interimResults = true;
+
             document.getElementById('btn-speak').disabled = true;
             document.getElementById('feedback').innerText = "🎙️ พูดเลย! (กำลังฟัง...)";
             document.getElementById('feedback').style.color = "#00e5ff";
@@ -1257,17 +1192,15 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                             .replace(/we're/g, "we are")
                             .replace(/[.,!?]/g, "");
 
-                // ระบบตรวจคำตอบแบบ "อนุโลม" (Forgiving Match)
                 let targetWords = currentMission.exactPhrase.split(' ');
                 let matchCount = 0;
-                
+
                 targetWords.forEach(word => {
                     if (new RegExp(`\\b${word}\\b`, 'i').test(text)) {
                         matchCount++;
                     }
                 });
 
-                // ปรับความเข้มงวดของ AI ตามระดับความยาก
                 let allowance = getAdaptiveSpeakAllowance();
                 let passThreshold = Math.max(1, targetWords.length - allowance);
                 let isMatch = matchCount >= passThreshold;
@@ -1275,11 +1208,12 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 let strictnessText = gameDifficulty === 'hard' && allowance === 0
                     ? '(ต้องเป๊ะทุกคำ)'
                     : `(AI อนุโลมขาดได้ ${allowance} คำ)`;
+
                 document.getElementById('feedback').innerText = `กำลังฟัง: "${text}"\nความแม่นยำ: ${matchCount}/${targetWords.length} คำ ${strictnessText}`;
                 document.getElementById('feedback').style.color = "#f1c40f";
 
                 if (isMatch) {
-                    recognition.stop(); 
+                    recognition.stop();
                     winMission();
                 } else if (isFinal) {
                     document.getElementById('feedback').innerText = `คุณพูดว่า: "${text}"\n❌ ${currentMission.failMsg}`;
@@ -1299,7 +1233,7 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 }
             };
 
-            recognition.onerror = (event) => { 
+            recognition.onerror = (event) => {
                 console.log("Speech Error:", event.error);
                 if (event.error === 'no-speech') {
                     document.getElementById('feedback').innerText = "⚠️ ไม่ได้ยินเสียงเลยครับ ลองกดพูดใหม่อีกครั้ง";
@@ -1309,17 +1243,18 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                     document.getElementById('feedback').innerText = `⚠️ เกิดข้อผิดพลาดของไมค์ (${event.error})`;
                 }
                 document.getElementById('feedback').style.color = "#ff4757";
-                document.getElementById('btn-speak').disabled = false; 
+                document.getElementById('btn-speak').disabled = false;
             };
-            
+
             recognition.start();
         }
 
         window.addEventListener('keydown', function(e) {
             if (isGameOver || !currentMission) return;
-            if (document.activeElement === $('write-input') || 
-                document.activeElement === $('player-name-input')) {
-                return; 
+            if (document.activeElement === document.getElementById('write-input') || 
+                document.activeElement === document.getElementById('player-name-input') ||
+                document.activeElement === document.getElementById('profile-name-input')) {
+                return;
             }
             if (currentMission.type === 'reading' || currentMission.type === 'listening') {
                 const key = e.key.toUpperCase();
@@ -1345,13 +1280,20 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             btn.innerText = "Saving...";
 
             try {
-                const scoreRef = ref(
-                    db,
-                    ['artifacts', appId, 'public', 'data', 'vr_leaderboards', currentUser.uid].join('/')
-                );
+                playerProfile.name = name.slice(0, 24);
+                saveLocalProfile();
+                syncProfileUI();
 
+                const profileRef = ref(db, ['artifacts', appId, 'users', currentUser.uid, 'profile', 'main'].join('/'));
+                await set(profileRef, {
+                    name: playerProfile.name,
+                    avatar: playerProfile.avatar || '🧑‍💻',
+                    updatedAt: Date.now()
+                });
+
+                const scoreRef = ref(db, ['artifacts', appId, 'public', 'data', 'vr_leaderboards', currentUser.uid].join('/'));
                 const snap = await get(scoreRef);
-                const oldData = snap.exists() ? (snap.val() || {}) : null;
+                const oldData = snap.exists() ? snap.val() : null;
                 const oldBest = oldData && typeof oldData.score === 'number' ? oldData.score : 0;
                 const bestScore = Math.max(oldBest, gameScore);
 
@@ -1364,9 +1306,11 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 });
 
                 if (gameScore > oldBest) {
-                    document.getElementById('feedback').innerText = `✅ New High Score! บันทึก ${bestScore} คะแนนเรียบร้อยแล้ว`;
+                    document.getElementById('feedback').innerText =
+                        `✅ New High Score! บันทึก ${bestScore} คะแนนเรียบร้อยแล้ว`;
                 } else {
-                    document.getElementById('feedback').innerText = `✅ บันทึกชื่อเรียบร้อยแล้ว (คะแนนสูงสุดเดิมยังเป็น ${oldBest})`;
+                    document.getElementById('feedback').innerText =
+                        `✅ บันทึกชื่อเรียบร้อยแล้ว (คะแนนสูงสุดเดิมยังเป็น ${oldBest})`;
                 }
 
                 document.getElementById('game-over-ui').style.display = 'none';
@@ -1377,10 +1321,6 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 btn.innerText = "Save Score";
             }
         };
-
-        // ==========================================
-        // ระบบแจ้งเตือน 3D Animation (VR Feedback)
-        // ==========================================
 
         function getMissionTypeFXLabel(type, success = true) {
             const map = {
@@ -1462,109 +1402,181 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             const textEl = document.getElementById('vr-feedback-text');
             fx.setAttribute('visible', 'true');
             fx.removeAttribute('animation');
-            
+
             if(isSuccess) {
-                textEl.setAttribute('value', customText || '✔ CORRECT!');
+                textEl.setAttribute('value', customText || getMissionTypeFXLabel(currentMission && currentMission.type, true));
                 textEl.setAttribute('color', '#2ed573');
-                fx.setAttribute('animation', 'property: scale; from: 0.1 0.1 0.1; to: 1.5 1.5 1.5; dur: 500; easing: easeOutElastic');
             } else {
-                textEl.setAttribute('value', customText || '❌ WRONG!');
+                textEl.setAttribute('value', customText || getMissionTypeFXLabel(currentMission && currentMission.type, false));
                 textEl.setAttribute('color', '#ff4757');
-                fx.setAttribute('scale', '1.5 1.5 1.5');
-                fx.setAttribute('animation', 'property: position; from: 0 2.5 -2.5; to: 0.2 2.5 -2.5; dur: 50; dir: alternate; loop: 6');
             }
-            
-            setTimeout(() => { fx.setAttribute('visible', 'false'); }, 1500);
+
+            fx.setAttribute('animation', 'property: position; from: 0 2.5 -2.5; to: 0 3.2 -2.5; dur: 800; easing: easeOutQuad');
+            setTimeout(() => fx.setAttribute('visible', 'false'), 800);
         }
 
-        // ==========================================
-        // Game Mechanics & SFX (อัปเกรดเสียงชัดขึ้น)
-        // ==========================================
         function playSFX(type) {
-            if(audioCtx.state === 'suspended') audioCtx.resume();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
             const masterGain = audioCtx.createGain();
             masterGain.connect(audioCtx.destination);
-            masterGain.gain.value = 0.5;
-            
+
             if (type === 'win') {
-                // สร้างเสียงประสาน 3 ตัว (Chord) ให้ดูแพงและชัดขึ้น
-                [523.25, 659.25, 783.99].forEach((freq) => {
+                [523.25, 659.25, 783.99].forEach((freq, i) => {
                     const osc = audioCtx.createOscillator();
-                    osc.type = 'triangle'; 
-                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + 0.5);
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.06));
                     osc.connect(masterGain);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+                    osc.start(audioCtx.currentTime + (i * 0.06));
+                    osc.stop(audioCtx.currentTime + 0.22 + (i * 0.06));
                 });
-                masterGain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-            } else if (type === 'damage') {
-                // เสียงระเบิดหรือเสียงตีที่ดุดันขึ้น (Sawtooth)
+                masterGain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+            } else if (type === 'fail') {
                 const osc = audioCtx.createOscillator();
-                osc.type = 'sawtooth'; 
-                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.4);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.25);
                 osc.connect(masterGain);
-                masterGain.gain.setValueAtTime(0.6, audioCtx.currentTime);
-                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+                masterGain.gain.setValueAtTime(0.20, audioCtx.currentTime);
+                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.28);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.28);
             } else if (type === 'alarm') {
                 const osc = audioCtx.createOscillator();
-                osc.type = 'square'; 
+                osc.type = 'square';
                 osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.2);
                 osc.connect(masterGain);
-                masterGain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                masterGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+            } else if (type === 'bossIntro') {
+                [164.81, 220.0, 329.63].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (idx * 0.05));
+                    osc.frequency.exponentialRampToValueAtTime(freq * 1.9, audioCtx.currentTime + 0.55 + (idx * 0.05));
+                    osc.connect(masterGain);
+                    osc.start(audioCtx.currentTime + (idx * 0.05));
+                    osc.stop(audioCtx.currentTime + 0.75 + (idx * 0.05));
+                });
+                masterGain.gain.setValueAtTime(0.22, audioCtx.currentTime);
+                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+            } else if (type === 'bossHit') {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(520, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(140, audioCtx.currentTime + 0.18);
+                osc.connect(masterGain);
+                masterGain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.22);
+            } else if (type === 'bossClear') {
+                [392.0, 523.25, 783.99].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (idx * 0.03));
+                    osc.frequency.exponentialRampToValueAtTime(freq * 1.3, audioCtx.currentTime + 0.62 + (idx * 0.03));
+                    osc.connect(masterGain);
+                    osc.start(audioCtx.currentTime + (idx * 0.03));
+                    osc.stop(audioCtx.currentTime + 0.72 + (idx * 0.03));
+                });
+                masterGain.gain.setValueAtTime(0.34, audioCtx.currentTime);
+                masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.75);
             }
         }
 
         function takeDamage() {
-            showVRFeedback(false); // เรียกใช้ Animation ผิด
+            showVRFeedback(false);
             playAnswerFX(false);
-            
-            let damageAmount = gameDifficulty === 'easy' ? 15 : (gameDifficulty === 'normal' ? 25 : 40);
-            if (currentMission && currentMission.id % 3 === 0) damageAmount += 10; // บอสโจมตีแรงขึ้น 10
-            
-            systemHP -= damageAmount; 
-            
-            comboCount = 0;
-            document.getElementById('combo-display').style.display = 'none';
-            playSFX('damage');
-            const ui = document.getElementById('ui-container');
-            ui.classList.add('danger-mode', 'shake');
-            setTimeout(() => { ui.classList.remove('shake'); if(!isGameOver && timeLeft>10) ui.classList.remove('danger-mode'); }, 400);
-            
-            if (systemHP <= 0) {
-                isGameOver = true; systemHP = 0;
-                
-                // AI Adaptive Logic: ถ้าตาย AI จะช่วยลดความยากให้ 1 ระดับ
-                consecutiveLosses++;
-                consecutiveWins = 0;
-                let levelDownMsg = "";
-                if (gameDifficulty === 'hard') { setDifficulty('normal'); levelDownMsg = "\n⬇️ AI: ปรับลดความยากลงเป็น NORMAL เพื่อช่วยคุณ!"; }
-                else if (gameDifficulty === 'normal') { setDifficulty('easy'); levelDownMsg = "\n⬇️ AI: ปรับลดความยากลงเป็น EASY เพื่อช่วยคุณ!"; }
 
+            let damageAmount = gameDifficulty === 'easy' ? 15 : (gameDifficulty === 'normal' ? 25 : 40);
+            damageAmount += getAdaptiveDamageAdjustment();
+            if (currentMission && currentMission.id % 3 === 0) damageAmount += 10;
+
+            damageAmount = clamp(Math.round(damageAmount), 8, 50);
+            systemHP -= damageAmount;
+            comboCount = 0;
+            consecutiveLosses++;
+            consecutiveWins = 0;
+
+            playSFX('fail');
+            updateHUD(0);
+
+            const ui = document.getElementById('ui-container');
+            ui.classList.add('shake');
+            setTimeout(() => ui.classList.remove('shake'), 300);
+
+            if (systemHP <= 35) ui.classList.add('danger-mode');
+
+            let levelDownMsg = "";
+            if (consecutiveLosses >= 2) {
+                if (gameDifficulty === 'hard') { setDifficulty('normal'); levelDownMsg = "\n⬇️ AI: ระบบช่วยเหลือเปิดใช้งาน ลดระดับความยากเป็น NORMAL"; }
+                else if (gameDifficulty === 'normal') { setDifficulty('easy'); levelDownMsg = "\n🛡️ AI: ลดระดับความยากเป็น EASY เพื่อให้คุณกลับมาได้"; }
+                consecutiveLosses = 0;
+            }
+
+            if (systemHP <= 0) {
+                isGameOver = true;
                 document.getElementById('feedback').innerText = `💥 MISSION FAILED: SYSTEM OFFLINE! 💥${levelDownMsg}`;
                 onMissionFailForAI('damage');
+                recordMissionFail();
                 resetFinalBossState();
                 hideAllScenesAndControls();
-                
+                setHudMode('summary');
+                showEndSummary(false, [
+                    `Outcome: SYSTEM OFFLINE`,
+                    `Loss Streak: ${consecutiveLosses}`,
+                    `Mission Gain: ${missionRun ? gameScore - missionRun.startedScore : 0}`
+                ]);
+
                 if(gameScore > 0) {
                     document.getElementById('game-over-ui').style.display = 'block';
-                    document.getElementById('btn-submit-score').disabled = false;
-                    document.getElementById('btn-submit-score').innerText = "Save Score";
+                    document.getElementById('player-name-input').value = playerProfile.name || "";
                 }
                 document.getElementById('btn-return').style.display = 'inline-block';
+            } else {
+                document.getElementById('feedback').innerText = `❌ โดนโจมตี! SYSTEM HP -${damageAmount}%${levelDownMsg}`;
+                document.getElementById('feedback').style.color = "#ff4757";
             }
-            updateHUD();
+        }
+
+        function startTimer(seconds) {
+            clearInterval(missionTimer);
+            timeLeft = seconds;
+            const timerEl = document.getElementById('timer');
+            timerEl.style.display = 'block';
+
+            missionTimer = setInterval(() => {
+                const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+                const secs = String(timeLeft % 60).padStart(2, '0');
+                timerEl.innerText = `${mins}:${secs}`;
+
+                if (timeLeft <= 10) timerEl.style.color = '#ff0000';
+                else timerEl.style.color = '#ff4757';
+
+                if (timeLeft <= 0) {
+                    clearInterval(missionTimer);
+                    timerEl.innerText = "00:00 - TIME UP!";
+                    onMissionFailForAI('timeout');
+                    systemHP = 0;
+                    takeDamage();
+                }
+                timeLeft--;
+            }, 1000);
         }
 
         function winMission() {
-            clearInterval(missionTimer); playSFX('win');
+            clearInterval(missionTimer);
+            playSFX('win');
             showVRFeedback(true);
+            playAnswerFX(true);
 
             document.getElementById('ui-container').classList.remove('danger-mode');
+
             const isFinal = currentMission && isUnitFinal(currentMission.id);
 
             if (isFinal && finalBossState.active && finalBossState.hp > 1) {
@@ -1574,7 +1586,13 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
                 const chipRewardBase = 450 + (timeLeft * 6) + (currentMission.id === 5 ? 180 : 0);
                 updateHUD(chipRewardBase);
 
-                document.getElementById('feedback').innerText = `⚔️ BOSS HIT! HP ที่เหลือ ${finalBossState.hp}/${finalBossState.maxHp}\nตอบถูกอีกเพื่อปิดยูนิตนี้`;
+                playSFX('bossHit');
+                triggerImpactFlash('hit');
+                animateBossActor('hit');
+                showVRFeedback(true, '⚔ BOSS HIT!');
+                showBossCinematic('BOSS HIT!', `HP เหลือ ${finalBossState.hp}/${finalBossState.maxHp} — ตอบถูกอีกเพื่อปิดยูนิตนี้`, 900);
+
+                document.getElementById('feedback').innerText = `⚔️ ${currentMission._bossPattern} HIT! HP ที่เหลือ ${finalBossState.hp}/${finalBossState.maxHp}\n${currentMission._bossPatternDesc}`;
                 document.getElementById('feedback').style.color = "#f1c40f";
                 hideAllScenesAndControls();
 
@@ -1586,7 +1604,6 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
 
             let timeBonus = timeLeft * 10;
 
-            // ระบบฮีล (ฟื้นฟู HP) เมื่อตอบถูก
             let actualHeal = 0;
             if (systemHP < 100) {
                 let healAmount = gameDifficulty === 'easy' ? 20 : (gameDifficulty === 'normal' ? 10 : 5);
@@ -1595,7 +1612,6 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             }
             let healText = actualHeal > 0 ? `\n💚 SYSTEM RECOVERED: +${actualHeal}% HP` : '';
 
-            // โบนัสคะแนนคูณ 2 ถ้าเป็นด่านบอส / โบนัสใหญ่ถ้าเป็น FINAL UNIT
             let bossMultiplier = (currentMission && currentMission.id % 3 === 0) ? 2 : 1;
             let finalUnitBonus = (currentMission && isUnitFinal(currentMission.id)) ? (currentMission.id === 5 ? 3000 : currentMission.id === 10 ? 2700 : 3200) : 0;
             updateHUD(((1000 + timeBonus) * bossMultiplier) + finalUnitBonus);
@@ -1608,15 +1624,20 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
 
             consecutiveWins++;
             consecutiveLosses = 0;
+            onMissionSuccessForAI();
             let levelUpMsg = "";
             if (consecutiveWins >= 2) {
                 if (gameDifficulty === 'easy') { setDifficulty('normal'); levelUpMsg = "\n⬆️ AI: คุณเก่งมาก! เลื่อนระดับความยากเป็น NORMAL"; }
-                else if (gameDifficulty === 'normal') { setDifficulty('hard'); levelUpMsg = "\n🔥 AI: ไร้เทียมทาน! เลื่อนระดับความยากเป็น HARD"; }
-                consecutiveWins = 0; // รีเซ็ตการนับหลังจากเลื่อนขั้น
+                else if (gameDifficulty === 'normal' && aiDirector.pressure >= 2) { setDifficulty('hard'); levelUpMsg = "\n🔥 AI: ไร้เทียมทาน! เลื่อนระดับความยากเป็น HARD"; }
+                consecutiveWins = 0;
             }
 
-            const finalUnitText = (currentMission && isUnitFinal(currentMission.id)) ? `\n👑 UNIT FINAL CLEAR! +2500 BONUS` : '';
-            document.getElementById('feedback').innerText = `✅ MISSION ACCOMPLISHED! (+1000 Pts, +${timeBonus} Time Bonus)${healText}${finalUnitText}${levelUpMsg}`;
+            const finalUnitText = (currentMission && isUnitFinal(currentMission.id))
+                ? `\n👑 UNIT FINAL CLEAR! +2500 BONUS`
+                : '';
+
+            document.getElementById('feedback').innerText =
+                `✅ MISSION ACCOMPLISHED! (+1000 Pts, +${timeBonus} Time Bonus)${healText}${finalUnitText}${levelUpMsg}\n🤖 AI: ${aiDirector.note}`;
             document.getElementById('feedback').style.color = "#2ed573";
 
             if (currentMission && isUnitFinal(currentMission.id)) {
@@ -1629,6 +1650,7 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             }
 
             hideAllScenesAndControls();
+            setHudMode('summary');
             showEndSummary(true, [
                 `Time Bonus: +${timeBonus}`,
                 `Mission Gain: +${missionRun ? gameScore - missionRun.startedScore : 0}`,
@@ -1638,49 +1660,32 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             document.getElementById('btn-return').style.display = 'inline-block';
         }
 
-        function updateHUD(points = 0) {
-            if (points > 0) {
-                comboCount++; 
-                let multiplier = comboCount > 1 ? comboCount : 1;
-                
-                // ปรับคะแนนตามความยาก
-                let diffMultiplier = gameDifficulty === 'easy' ? 0.8 : (gameDifficulty === 'hard' ? 2.0 : 1.0);
-                
-                gameScore += Math.floor((points * multiplier) * diffMultiplier);
-                
-                const sd = document.getElementById('score-display');
-                sd.innerText = gameScore; sd.classList.add('score-anim');
-                if (comboCount > 1) {
-                    const cd = document.getElementById('combo-display');
-                    cd.innerText = `(x${comboCount} COMBO!)`; cd.style.display = 'inline';
-                }
-                setTimeout(() => sd.classList.remove('score-anim'), 500);
-            }
-            const hd = document.getElementById('hp-display');
-            hd.innerText = systemHP + '%';
-            hd.style.color = systemHP <= 30 ? '#ff4757' : '#2ed573';
-        }
+        function updateHUD(pointsToAdd = 0) {
+            gameScore += pointsToAdd;
+            if (pointsToAdd > 0) comboCount++;
+            else if (pointsToAdd === 0) comboCount = 0;
 
-        function startTimer(seconds) {
-            timeLeft = seconds; isGameOver = false;
-            const ui = document.getElementById('ui-container');
-            ui.classList.remove('danger-mode');
-            const timerEl = document.getElementById('timer');
-            timerEl.style.display = 'block';
-            
-            missionTimer = setInterval(() => {
-                if (timeLeft <= 0) {
-                    clearInterval(missionTimer); timerEl.innerText = "00:00 - TIME UP!";
-                    onMissionFailForAI('timeout');
-                    systemHP = 0; takeDamage();
-                } else {
-                    timeLeft--; timerEl.innerText = `00:${timeLeft.toString().padStart(2, '0')}`;
-                    if (timeLeft <= 10) {
-                        playSFX('alarm'); timerEl.style.color = "#ff0000";
-                        if(timeLeft % 2 === 0) ui.classList.add('danger-mode'); else ui.classList.remove('danger-mode');
-                    } else { timerEl.style.color = "#ff4757"; }
-                }
-            }, 1000);
+            const scoreDisplay = document.getElementById('score-display');
+            const comboDisplay = document.getElementById('combo-display');
+
+            scoreDisplay.innerText = gameScore;
+            if (pointsToAdd > 0) {
+                scoreDisplay.classList.add('score-anim');
+                setTimeout(() => scoreDisplay.classList.remove('score-anim'), 500);
+            }
+
+            if (comboCount >= 2) {
+                comboDisplay.style.display = 'inline';
+                comboDisplay.innerText = comboCount >= 5 ? `(🔥 x${comboCount} PERFECT!)` : `(x${comboCount} COMBO!)`;
+            } else comboDisplay.style.display = 'none';
+
+            if (comboCount > sessionStats.bestCombo) {
+                sessionStats.bestCombo = comboCount;
+                saveSessionStats();
+                renderHubStatsBoard();
+            }
+
+            document.getElementById('hp-display').innerText = systemHP + '%';
         }
 
         function hideAllScenesAndControls() {
@@ -1688,7 +1693,7 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
             document.getElementById('mission-reading-scene').setAttribute('visible', 'false');
             document.getElementById('mission-listening-scene').setAttribute('visible', 'false');
             document.getElementById('mission-writing-scene').setAttribute('visible', 'false');
-            
+
             document.getElementById('btn-speak').style.display = 'none';
             document.getElementById('btn-play-audio').style.display = 'none';
             document.getElementById('write-input').style.display = 'none';
@@ -1706,30 +1711,23 @@ AI Mood ล่าสุด: ${sessionStats.lastAIMood}`;
         };
 
         window.returnToHub = function() {
-            if (isGameOver) {
-                gameScore = 0;
-                systemHP = 100;
-                comboCount = 0;
-                isGameOver = false;
-                document.getElementById('combo-display').style.display = 'none';
-                updateHUD();
-            }
-
-            resetFinalBossState();
+            isGameOver = false;
+            systemHP = 100;
             const cinematic = document.getElementById('boss-cinematic');
             if (cinematic) cinematic.classList.remove('show');
             const flash = document.getElementById('impact-flash');
             if (flash) flash.classList.remove('impact-hit', 'impact-clear');
             hideAllScenesAndControls();
+            setHudMode('hub');
             document.getElementById('game-over-ui').style.display = 'none';
             document.getElementById('ui-container').classList.remove('danger-mode');
             document.getElementById('hub-scene').setAttribute('visible', 'true');
-            
+
             document.getElementById('ui-title').innerText = "TECHPATH VR: MAIN HUB";
             document.getElementById('ui-title').style.color = "#00e5ff";
             applyUnitTheme(0);
             document.getElementById('ui-desc').innerText = "เลือกภารกิจต่อไป (ใช้นิ้วจิ้ม/คลิกที่ป้ายได้เลย)!";
-            
+
             document.getElementById('btn-next').style.display = 'none';
             document.getElementById('btn-return').style.display = 'none';
             document.getElementById('feedback').innerText = "";
