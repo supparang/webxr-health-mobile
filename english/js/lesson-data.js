@@ -353,62 +353,62 @@ export const missionDB = [
   },
 
   {
-    id: 13,
-    type: "reading",
-    title: "S13: Career Path",
-    bank: {
-      easy: [
-        { desc: "ตอบ HR", question: "HR: What job do you want?", choices: ["A: I want to be a developer.", "B: I want to be a spoon.", "C: I want to be inside the wall."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Do you have skills?", choices: ["A: Yes, I can code and design.", "B: My skill is pizza.", "C: Skills are sleeping."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Can you work in a team?", choices: ["A: Yes, I can work in a team.", "B: Teamwork is my notebook.", "C: I work in a team of chairs."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Do you learn quickly?", choices: ["A: Yes, I learn quickly.", "B: Learning is a window.", "C: Quickly is my bag."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Did you do a project?", choices: ["A: Yes, I did a university project.", "B: Project is a juice.", "C: I project the floor."], answer: "A" }
-      ],
-      normal: [
-        { desc: "ตอบ HR", question: "HR: What role are you applying for?", choices: ["A: I am applying for a software developer role.", "B: I am applying for a banana role.", "C: I am a role of the desk."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: What technical skills do you have?", choices: ["A: I can use Python and JavaScript.", "B: I can use Monday and blue.", "C: I have technical apples."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Did you complete an internship?", choices: ["A: Yes, I had an internship last summer.", "B: Summer completed me.", "C: Internship is a chair."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: How do you improve yourself?", choices: ["A: I practice coding and study online.", "B: I improve by sleeping on books.", "C: Improvement is a fish."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Why do you want this job?", choices: ["A: I want to learn and grow in this role.", "B: The job is a sandwich.", "C: I want this job because it is purple."], answer: "A" }
-      ],
-      hard: [
-        { desc: "ตอบ HR", question: "HR: What kind of company do you want to join?", choices: ["A: I want to join a company with a good team and learning culture.", "B: I want to join a company inside my pencil.", "C: Companies are made of oranges."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: How do your projects help your career?", choices: ["A: My projects help me practice real skills and teamwork.", "B: My career is under my laptop.", "C: Projects are sleeping in my bag."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Can you describe one strength you have?", choices: ["A: I am good at communication and solving problems.", "B: My strength is a bus stop.", "C: I solve with sandwiches."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: What are you doing to improve your English?", choices: ["A: I practice speaking and listening every day.", "B: English is a yellow box.", "C: I improve English by hiding it."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: What do you want to do after graduation?", choices: ["A: I want to work and keep learning in tech.", "B: Graduation is my breakfast.", "C: I want to become a chair of success."], answer: "A" }
-      ]
-    }
-  },
+  id: 13,
+  type: "reading",
+  title: "S13: Career Path",
+  bank: {
+    easy: [
+      { desc: "ตอบ HR", question: "HR: What job do you want?", choices: ["A: I want to be a developer.", "B: I want to be a spoon.", "C: I want to be inside the wall."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: Do you have skills?", choices: ["A: Yes, I can code and design.", "B: My skill is pizza.", "C: Skills are sleeping."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: Can you work in a team?", choices: ["A: Yes, I can work in a team.", "B: Teamwork is my notebook.", "C: I work in a team of chairs."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: Do you learn quickly?", choices: ["A: Yes, I learn quickly.", "B: Learning is a window.", "C: Quickly is my bag."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: Did you do a project?", choices: ["A: Yes, I did a university project.", "B: Project is a juice.", "C: I project the floor."], answer: "A" }
+    ],
+    normal: [
+      { desc: "ตอบ HR", question: "HR: What role are you applying for?", choices: ["A: I am applying for a software developer role.", "B: I am applying for a banana role.", "C: I am a role of the desk."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: What technical skills do you have?", choices: ["A: I can use Python and JavaScript.", "B: I can use Monday and blue.", "C: I have technical apples."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: Did you complete an internship?", choices: ["A: Yes, I had an internship last summer.", "B: Summer completed me.", "C: Internship is a chair."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: How do you improve yourself?", choices: ["A: I practice coding and study online.", "B: I improve by sleeping on books.", "C: Improvement is a fish."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: Why do you want this job?", choices: ["A: I want to learn and grow in this role.", "B: The job is a sandwich.", "C: I want this job because it is purple."], answer: "A" }
+    ],
+    hard: [
+      { desc: "ตอบ HR", question: "HR: What kind of company do you want to join?", choices: ["A: I want to join a company with a good team and learning culture.", "B: I want to join a company inside my pencil.", "C: Companies are made of oranges."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: How do your projects help your career?", choices: ["A: My projects help me practice real skills and teamwork.", "B: My career is under my laptop.", "C: Projects are sleeping in my bag."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: Can you describe one strength you have?", choices: ["A: I am good at communication and solving problems.", "B: My strength is a bus stop.", "C: I solve with sandwiches."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: What are you doing to improve your English?", choices: ["A: I practice speaking and listening every day.", "B: English is a yellow box.", "C: I improve English by hiding it."], answer: "A" },
+      { desc: "ตอบ HR", question: "HR: What do you want to do after graduation?", choices: ["A: I want to work and keep learning in tech.", "B: Graduation is my breakfast.", "C: I want to become a chair of success."], answer: "A" }
+    ]
+  }
+},
 
   {
-    id: 14,
-    type: "listening",
-    title: "S14: Remote Work",
-    bank: {
-      easy: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Turn on your camera.", choices: ["A: Turn on your camera.", "B: Turn off your homework.", "C: Eat the camera."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Share your screen now.", choices: ["A: Share your screen now.", "B: Break your screen now.", "C: Hide the screen in a bag."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the call early.", choices: ["A: Join the call early.", "B: Leave the call early.", "C: Draw the call."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Check your microphone.", choices: ["A: Check your microphone.", "B: Eat your microphone.", "C: Throw the microphone away."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short note.", choices: ["A: Write a short note.", "B: Sleep on the note.", "C: Paint the note green."], answer: "A" }
-      ],
-      normal: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please turn on your camera during the demo.", choices: ["A: Turn on your camera during the demo.", "B: Turn off the demo forever.", "C: Put the camera in the box."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the online meeting five minutes early.", choices: ["A: Join five minutes early.", "B: Join fifty minutes late.", "C: Eat before the meeting only."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please update the task board before the meeting.", choices: ["A: Update the task board before the meeting.", "B: Delete the task board.", "C: Break the meeting."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short summary after the call.", choices: ["A: Write a short summary after the call.", "B: Close the summary.", "C: Sleep during the call."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Test your internet connection before class.", choices: ["A: Test your internet connection before class.", "B: Turn off the internet before class.", "C: Put class in the internet."], answer: "A" }
-      ],
-      hard: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please share your screen and explain the main feature to the team.", choices: ["A: Share your screen and explain the main feature.", "B: Hide the feature and close the team.", "C: Put the team on your screen."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "We should think about different time zones before planning the meeting.", choices: ["A: Think about different time zones before planning.", "B: Ignore all time zones today.", "C: Buy a new time zone."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send the meeting notes to everyone after the call.", choices: ["A: Send the meeting notes after the call.", "B: Delete the notes after the call.", "C: Sleep on the notes."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Check the microphone and camera before the online presentation.", choices: ["A: Check the microphone and camera before the presentation.", "B: Throw away the camera before the presentation.", "C: Present to the microphone only."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please keep your message short and clear in the group chat.", choices: ["A: Keep the message short and clear.", "B: Write a very long message only.", "C: Send your shoes to the chat."], answer: "A" }
-      ]
-    }
-  },
+  id: 14,
+  type: "listening",
+  title: "S14: Remote Work",
+  bank: {
+    easy: [
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Turn on your camera.", choices: ["A: Turn on your camera.", "B: Turn off your homework.", "C: Eat the camera."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Share your screen now.", choices: ["A: Share your screen now.", "B: Break your screen now.", "C: Hide the screen in a bag."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Join the call early.", choices: ["A: Join the call early.", "B: Leave the call early.", "C: Draw the call."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Check your microphone.", choices: ["A: Check your microphone.", "B: Eat your microphone.", "C: Throw the microphone away."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short note.", choices: ["A: Write a short note.", "B: Sleep on the note.", "C: Paint the note green."], answer: "A" }
+    ],
+    normal: [
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Please turn on your camera during the demo.", choices: ["A: Turn on your camera during the demo.", "B: Turn off the demo forever.", "C: Put the camera in the box."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Join the online meeting five minutes early.", choices: ["A: Join five minutes early.", "B: Join fifty minutes late.", "C: Eat before the meeting only."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Please update the task board before the meeting.", choices: ["A: Update the task board before the meeting.", "B: Delete the task board.", "C: Break the meeting."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short summary after the call.", choices: ["A: Write a short summary after the call.", "B: Close the summary.", "C: Sleep during the call."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Test your internet connection before class.", choices: ["A: Test your internet connection before class.", "B: Turn off the internet before class.", "C: Throw the class away."], answer: "A" }
+    ],
+    hard: [
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Please send a clear update to the team after the client meeting.", choices: ["A: Send a clear update after the client meeting.", "B: Sleep after the client meeting forever.", "C: Delete the client from the meeting."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Make sure your microphone and camera are ready before the presentation starts.", choices: ["A: Prepare your microphone and camera before the presentation.", "B: Hide the presentation under the camera.", "C: Break your microphone before the meeting."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Please write a short action list and share it with the team after the call.", choices: ["A: Write a short action list and share it after the call.", "B: Throw the action list into the call.", "C: Sleep instead of sharing the list."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Check the shared document carefully and leave your comments before tomorrow morning.", choices: ["A: Check the shared document and leave comments before tomorrow morning.", "B: Delete the comments tomorrow morning.", "C: Draw the shared document on the wall."], answer: "A" },
+      { desc: "ฟังและเลือกคำตอบ", audioText: "Join the remote meeting on time and be ready to explain your progress clearly.", choices: ["A: Join on time and explain your progress clearly.", "B: Join late and hide your progress.", "C: Explain the meeting to your chair."], answer: "A" }
+    ]
+  }
+},
 
   {
   id: 15,
