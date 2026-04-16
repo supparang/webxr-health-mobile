@@ -1778,7 +1778,6 @@ window.onload = function () {
   if (isBoss || isFinal) {
     scheduleBossChromeCollapse(state.currentMission.type === "speaking" ? 900 : 1300);
   }
-}
 
 window.checkChoiceAnswer = function (selectedLetter) {
   if (state.isGameOver || !state.currentMission) return;
