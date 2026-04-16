@@ -79,7 +79,28 @@ import {
   resetWritingInput,
   setScoreHUD,
   setMissionPrompt,
-  clearMissionPrompt
+  clearMissionPrompt,
+  scheduleFeedbackClear,
+  cancelFeedbackClear,
+  scheduleMissionHeaderCollapse,
+  expandMissionHeader,
+  scheduleMissionStatsCollapse,
+  expandMissionStats,
+  scheduleMissionPromptChromeCollapse,
+  expandMissionPromptChrome,
+  scheduleBossChromeCollapse,
+  expandBossChrome,
+  scheduleMissionTopChipsCollapse,
+  expandMissionTopChips,
+  scheduleMissionTitleUltraMini,
+  expandMissionTitleUltraMini,
+  scheduleMissionTimerCompact,
+  expandMissionTimer,
+  setMissionTimerAlert,
+  scheduleMissionHudTextCompact,
+  expandMissionHudTextCompact,
+  togglePromptFocusExpanded,
+  resetPromptFocusExpanded
 } from "./lesson-ui.js";
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -103,13 +124,8 @@ function shortMissionType(type) {
 
 function minimalDesc(currentMission, isFinal) {
   const diff = (currentMission?._selectedDifficulty || state.gameDifficulty).toUpperCase();
-  if (isFinal) return `FINAL BOSS • ${diff} • HP ${finalBossState.hp}/${finalBossState.maxHp}`;
+  if (isFinal) return `FINAL • ${diff} • ${finalBossState.hp}/${finalBossState.maxHp}`;
   return `${shortMissionType(currentMission?.type)} • ${diff}`;
-}
-
-function minimalStartFeedback(currentMission, isFinal) {
-  if (isFinal) return `👑 FINAL BOSS START • ${currentMission._bossPattern}`;
-  return `เริ่มภารกิจได้เลย`;
 }
 
 function minimalWinFeedback(timeBonus, finalUnitText = "", levelUpMsg = "") {
@@ -120,30 +136,391 @@ function minimalFailFeedback(damageAmount, levelDownMsg = "") {
   return `❌ SYSTEM HP -${damageAmount}%${levelDownMsg}`;
 }
 
+function clipMissionTitle(text = "", max = 18) {
+  const s = String(text || "").trim();
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+function getMissionTypeMeta(type = "") {
+  if (type === "speaking") return { icon: "🎤", color: "#2ed573", short: "SPEAK" };
+  if (type === "reading") return { icon: "📘", color: "#4dabf7", short: "READ" };
+  if (type === "listening") return { icon: "🎧", color: "#ffa94d", short: "LISTEN" };
+  if (type === "writing") return { icon: "⌨️", color: "#b197fc", short: "WRITE" };
+  return { icon: "✨", color: "#7bedff", short: "MISSION" };
+}
+
+function getMissionWallMeta(mGroup, cleared = false) {
+  const typeMeta = getMissionTypeMeta(mGroup?.type);
+  const isBoss = (mGroup?.id % 3 === 0);
+  const isFinal = isUnitFinal(mGroup?.id);
+
+  const baseColor = isFinal
+    ? "#f1c40f"
+    : isBoss
+      ? "#ff6b81"
+      : typeMeta.color;
+
+  const plateColor = isFinal
+    ? "#2b2408"
+    : isBoss
+      ? "#2a0f18"
+      : "#0f172a";
+
+  const subtitle = isFinal ? "FINAL" : (isBoss ? "BOSS" : typeMeta.short);
+  const icon = isFinal ? "👑" : (isBoss ? "⚡" : typeMeta.icon);
+
+  const width = isFinal ? 1.56 : (isBoss ? 1.44 : 1.18);
+  const height = isFinal ? 0.92 : (isBoss ? 0.82 : 0.68);
+  const haloOpacity = cleared ? 0.28 : (isFinal ? 0.16 : (isBoss ? 0.13 : 0.11));
+  const boxOpacity = cleared ? 1 : 0.92;
+
+  const title = clipMissionTitle(mGroup?.title || `Session ${mGroup?.id}`, isFinal ? 16 : 18);
+  const labelTop = `${cleared ? "✅ " : ""}${icon} S${mGroup?.id}`;
+  const labelBottom = title;
+  const labelTag = subtitle;
+
+  return {
+    isBoss,
+    isFinal,
+    baseColor,
+    plateColor,
+    subtitle,
+    icon,
+    width,
+    height,
+    haloOpacity,
+    boxOpacity,
+    labelTop,
+    labelBottom,
+    labelTag
+  };
+}
+
+function applyMissionWallAmbientFX(root, halo, box, meta) {
+  if (!root || !halo || !box || !meta) return;
+
+  root.removeAttribute("animation__float");
+  halo.removeAttribute("animation__halo");
+  box.removeAttribute("animation__idle");
+
+  const floatToY = meta.isFinal ? 0.028 : (meta.isBoss ? 0.022 : 0.016);
+  const floatDur = meta.isFinal ? 2100 : (meta.isBoss ? 2300 : 2500);
+
+  root.setAttribute(
+    "animation__float",
+    `property: position; dir: alternate; dur: ${floatDur}; loop: true; to: 0 ${floatToY} 0; easing: easeInOutSine`
+  );
+
+  halo.setAttribute(
+    "animation__halo",
+    `property: material.opacity; dir: alternate; dur: ${meta.isFinal ? 900 : 1200}; loop: true; to: ${meta.isFinal ? 0.26 : 0.18}; easing: easeInOutSine`
+  );
+
+  if (meta.isBoss || meta.isFinal) {
+    box.setAttribute(
+      "animation__idle",
+      `property: rotation; dir: alternate; dur: ${meta.isFinal ? 2600 : 3200}; loop: true; to: 0 0 ${meta.isFinal ? 2.2 : 1.4}; easing: easeInOutSine`
+    );
+  }
+}
+
+function applyMissionWallHoverFX(root, halo, box, meta, hovered = false) {
+  if (!root || !halo || !box || !meta) return;
+
+  root.removeAttribute("animation__hoverScale");
+  halo.removeAttribute("animation__hoverGlow");
+  box.removeAttribute("animation__hoverDepth");
+
+  if (!hovered) {
+    root.setAttribute("scale", "1 1 1");
+    box.setAttribute("position", "0 0 0");
+    return;
+  }
+
+  root.setAttribute(
+    "animation__hoverScale",
+    "property: scale; dur: 140; to: 1.08 1.08 1.08; easing: easeOutQuad"
+  );
+
+  halo.setAttribute(
+    "animation__hoverGlow",
+    `property: material.opacity; dur: 140; to: ${meta.isFinal ? 0.34 : 0.28}; easing: easeOutQuad`
+  );
+
+  box.setAttribute(
+    "animation__hoverDepth",
+    "property: position; dur: 140; to: 0 0 0.018; easing: easeOutQuad"
+  );
+}
+
+function applyMissionWallClearedFX(root, halo, box, meta, cleared = false) {
+  if (!root || !halo || !box || !meta) return;
+
+  halo.removeAttribute("animation__clearedPulse");
+  box.removeAttribute("animation__clearedPulse");
+
+  if (!cleared) return;
+
+  halo.setAttribute(
+    "animation__clearedPulse",
+    `property: scale; dir: alternate; dur: ${meta.isFinal ? 700 : 900}; loop: true; to: 1.05 1.05 1.05; easing: easeInOutSine`
+  );
+
+  box.setAttribute(
+    "animation__clearedPulse",
+    `property: material.emissiveIntensity; dir: alternate; dur: ${meta.isFinal ? 700 : 900}; loop: true; to: ${meta.isFinal ? 0.95 : 0.58}; easing: easeInOutSine`
+  );
+}
+
+function setMissionWallVisualState(mGroup, opts = {}) {
+  const { cleared = false, hovered = false } = opts;
+  const meta = getMissionWallMeta(mGroup, cleared);
+
+  const plate = document.getElementById(`mission-plate-${mGroup.id}`);
+  const halo = document.getElementById(`mission-halo-${mGroup.id}`);
+  const box = document.getElementById(`mission-box-${mGroup.id}`);
+  const textTop = document.getElementById(`mission-text-top-${mGroup.id}`);
+  const textBottom = document.getElementById(`mission-text-bottom-${mGroup.id}`);
+  const tag = document.getElementById(`mission-tag-${mGroup.id}`);
+  const root = document.getElementById(`mission-root-${mGroup.id}`);
+
+  if (!plate || !halo || !box || !textTop || !textBottom || !tag || !root) return;
+
+  const activeColor = hovered ? "#7bedff" : meta.baseColor;
+  const activeScale = hovered ? "1.08 1.08 1.08" : (cleared ? "1.02 1.02 1.02" : "1 1 1");
+
+  plate.setAttribute("color", meta.plateColor);
+  plate.setAttribute("material", `opacity: ${hovered ? 0.98 : 0.88}; shader: flat`);
+  plate.setAttribute("width", meta.width + 0.26);
+  plate.setAttribute("height", meta.height + 0.26);
+
+  halo.setAttribute("color", activeColor);
+  halo.setAttribute(
+    "material",
+    `opacity: ${hovered ? Math.min(meta.haloOpacity + 0.10, 0.36) : meta.haloOpacity}; shader: flat`
+  );
+  halo.setAttribute("width", meta.width + (hovered ? 0.42 : 0.34));
+  halo.setAttribute("height", meta.height + (hovered ? 0.42 : 0.34));
+
+  box.setAttribute("color", activeColor);
+  box.setAttribute("width", meta.width);
+  box.setAttribute("height", meta.height);
+  box.setAttribute(
+    "material",
+    `opacity: ${meta.boxOpacity}; metalness: 0.18; roughness: 0.56; emissive: ${activeColor}; emissiveIntensity: ${hovered ? 0.48 : (cleared ? 0.36 : 0.18)}`
+  );
+
+  root.setAttribute("scale", activeScale);
+
+  textTop.setAttribute("value", meta.labelTop);
+  textTop.setAttribute("color", hovered ? "#ffffff" : activeColor);
+
+  textBottom.setAttribute("value", meta.labelBottom);
+  textBottom.setAttribute("color", "#ffffff");
+
+  tag.setAttribute("value", meta.labelTag);
+  tag.setAttribute("color", hovered ? "#ffffff" : activeColor);
+
+  applyMissionWallAmbientFX(root, halo, box, meta);
+  applyMissionWallHoverFX(root, halo, box, meta, hovered);
+  applyMissionWallClearedFX(root, halo, box, meta, cleared);
+}
+
 function refreshMissionWallProgress() {
   missionDB.forEach((mGroup) => {
-    const box = document.getElementById(`mission-box-${mGroup.id}`);
-    const label = document.getElementById(`mission-text-${mGroup.id}`);
-    if (!box || !label) return;
-
-    const basePrefix = isUnitFinal(mGroup.id) ? "👑 FINAL: " : ((mGroup.id % 3 === 0) ? "🔥 BOSS: " : "");
     const cleared = clearedMissions.includes(mGroup.id);
-
-    label.setAttribute("value", `${cleared ? "✅ " : ""}${basePrefix}${mGroup.title}\n(${mGroup.type})`);
-    box.setAttribute("material", "opacity", cleared ? 1 : 0.8);
-
-    if (cleared) {
-      box.setAttribute("animation__pulse", "property: scale; to: 1.05 1.05 1.05; dir: alternate; dur: 1200; loop: true");
-    } else {
-      box.removeAttribute("animation__pulse");
-      box.setAttribute("scale", "1 1 1");
-    }
+    setMissionWallVisualState(mGroup, { cleared, hovered: false });
   });
   syncProfileUI();
 }
 
+function getRewardChestNodes() {
+  return {
+    root: $("reward-chest"),
+    panel: $("reward-card-panel"),
+    frame: $("reward-card-frame"),
+    aura: $("reward-aura"),
+    body: $("reward-chest-body"),
+    lid: $("reward-chest-lid"),
+    text: $("streak-text")
+  };
+}
+
+function clearRewardChestFX() {
+  const n = getRewardChestNodes();
+  if (!n.root) return;
+  n.root.removeAttribute("animation__float");
+  n.root.removeAttribute("animation__claim");
+  n.aura?.removeAttribute("animation__pulse");
+  n.aura?.removeAttribute("animation__claim");
+  n.lid?.removeAttribute("animation__gleam");
+  n.frame?.removeAttribute("animation__frame");
+}
+
+function setRewardChestState(mode = "idle", opts = {}) {
+  const { streak = 0, rarityColor = "#ffeaa7", note = "" } = opts;
+  const n = getRewardChestNodes();
+  if (!n.root || !n.text) return;
+
+  clearRewardChestFX();
+  const safeNote = note ? `\n${note}` : "";
+  n.root.classList.remove("clickable");
+
+  if (mode === "loading") {
+    n.panel?.setAttribute("color", "#0f172a");
+    n.frame?.setAttribute("color", "#7bedff");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.26");
+    n.aura?.setAttribute("color", "#7bedff");
+    n.aura?.setAttribute("material", "opacity: 0.10; shader: flat");
+    n.body?.setAttribute("color", "#8c6239");
+    n.lid?.setAttribute("color", "#8fa7b3");
+    n.text.setAttribute("value", "Loading...");
+    n.text.setAttribute("color", "#ffffff");
+    n.root.setAttribute("animation__float", "property: position; dir: alternate; dur: 1800; loop: true; to: -3.72 0.77 -3.08; easing: easeInOutSine");
+    return;
+  }
+
+  if (mode === "claimable") {
+    n.root.classList.add("clickable");
+    n.panel?.setAttribute("color", "#101826");
+    n.frame?.setAttribute("color", "#ffeaa7");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.44");
+    n.aura?.setAttribute("color", "#ffeaa7");
+    n.aura?.setAttribute("material", "opacity: 0.20; shader: flat");
+    n.body?.setAttribute("color", "#8c6239");
+    n.lid?.setAttribute("color", "#f1c40f");
+    n.text.setAttribute("value", `Streak: ${streak} Days${safeNote || "\nTap to Claim"}`);
+    n.text.setAttribute("color", "#ffffff");
+    n.root.setAttribute("animation__float", "property: position; dir: alternate; dur: 1050; loop: true; to: -3.72 0.82 -3.08; easing: easeInOutSine");
+    n.aura?.setAttribute("animation__pulse", "property: material.opacity; dir: alternate; dur: 800; loop: true; from: 0.14; to: 0.30; easing: easeInOutSine");
+    n.lid?.setAttribute("animation__gleam", "property: rotation; dir: alternate; dur: 1200; loop: true; to: 0 0 3; easing: easeInOutSine");
+    n.frame?.setAttribute("animation__frame", "property: material.opacity; dir: alternate; dur: 900; loop: true; from: 0.26; to: 0.52; easing: easeInOutSine");
+    return;
+  }
+
+  if (mode === "claimed") {
+    n.panel?.setAttribute("color", "#101826");
+    n.frame?.setAttribute("color", rarityColor);
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.34");
+    n.aura?.setAttribute("color", rarityColor);
+    n.aura?.setAttribute("material", "opacity: 0.18; shader: flat");
+    n.body?.setAttribute("color", "#8c6239");
+    n.lid?.setAttribute("color", rarityColor);
+    n.text.setAttribute("value", `Streak: ${streak} Days${safeNote || "\nClaimed"}`);
+    n.text.setAttribute("color", "#ffffff");
+    n.aura?.setAttribute("animation__pulse", "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.10; to: 0.20; easing: easeInOutSine");
+    return;
+  }
+
+  if (mode === "error") {
+    n.panel?.setAttribute("color", "#1b1220");
+    n.frame?.setAttribute("color", "#ff6b81");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.36");
+    n.aura?.setAttribute("color", "#ff6b81");
+    n.aura?.setAttribute("material", "opacity: 0.12; shader: flat");
+    n.body?.setAttribute("color", "#8c6239");
+    n.lid?.setAttribute("color", "#c97a7a");
+    n.text.setAttribute("value", note || "Reward Offline");
+    n.text.setAttribute("color", "#ffd6db");
+    return;
+  }
+
+  n.panel?.setAttribute("color", "#0f172a");
+  n.frame?.setAttribute("color", "#7bedff");
+  n.frame?.setAttribute("material", "wireframe: true; opacity: 0.26");
+  n.aura?.setAttribute("color", "#7bedff");
+  n.aura?.setAttribute("material", "opacity: 0.10; shader: flat");
+  n.body?.setAttribute("color", "#8c6239");
+  n.lid?.setAttribute("color", "#8fa7b3");
+  n.text.setAttribute("value", `Streak: ${streak} Days${safeNote}`);
+  n.text.setAttribute("color", "#ffffff");
+}
+
+function playRewardChestClaimFX(rarityColor = "#ffeaa7") {
+  const n = getRewardChestNodes();
+  if (!n.root) return;
+
+  clearRewardChestFX();
+  n.frame?.setAttribute("color", rarityColor);
+  n.aura?.setAttribute("color", rarityColor);
+  n.lid?.setAttribute("color", rarityColor);
+  n.root.setAttribute("animation__claim", "property: scale; dur: 260; dir: alternate; loop: 2; to: 1.08 1.08 1.08; easing: easeOutBack");
+  n.aura?.setAttribute("animation__claim", "property: scale; dur: 360; dir: alternate; loop: 2; to: 1.18 1.18 1.18; easing: easeOutQuad");
+}
+
+function getLeaderboardNodes() {
+  return {
+    panel: $("leaderboard-panel"),
+    frame: $("leaderboard-frame"),
+    header: $("leaderboard-header-panel"),
+    title: $("leaderboard-title"),
+    subtitle: $("leaderboard-subtitle"),
+    list: $("vr-leaderboard-list")
+  };
+}
+
+function clearLeaderboardFX() {
+  const n = getLeaderboardNodes();
+  n.frame?.removeAttribute("animation__frame");
+  n.panel?.removeAttribute("animation__panel");
+}
+
+function setLeaderboardBoardState(mode = "idle") {
+  const n = getLeaderboardNodes();
+  if (!n.list) return;
+  clearLeaderboardFX();
+
+  if (mode === "active") {
+    n.panel?.setAttribute("color", "#101826");
+    n.frame?.setAttribute("color", "#7bedff");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.34");
+    n.header?.setAttribute("color", "#152238");
+    n.title?.setAttribute("color", "#ffeaa7");
+    n.subtitle?.setAttribute("color", "#cbd5e1");
+    n.list.setAttribute("color", "#ffffff");
+    n.frame?.setAttribute("animation__frame", "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.22; to: 0.36; easing: easeInOutSine");
+    return;
+  }
+
+  if (mode === "empty") {
+    n.panel?.setAttribute("color", "#101826");
+    n.frame?.setAttribute("color", "#94a3b8");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.22");
+    n.header?.setAttribute("color", "#152238");
+    n.title?.setAttribute("color", "#dbeafe");
+    n.subtitle?.setAttribute("color", "#94a3b8");
+    n.list.setAttribute("color", "#dbeafe");
+    return;
+  }
+
+  if (mode === "error") {
+    n.panel?.setAttribute("color", "#1b1220");
+    n.frame?.setAttribute("color", "#ff6b81");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.34");
+    n.header?.setAttribute("color", "#26151d");
+    n.title?.setAttribute("color", "#ffd6db");
+    n.subtitle?.setAttribute("color", "#ffb3c1");
+    n.list.setAttribute("color", "#ffd6db");
+    return;
+  }
+
+  n.panel?.setAttribute("color", "#101826");
+  n.frame?.setAttribute("color", "#7bedff");
+  n.frame?.setAttribute("material", "wireframe: true; opacity: 0.28");
+  n.header?.setAttribute("color", "#152238");
+  n.title?.setAttribute("color", "#ffeaa7");
+  n.subtitle?.setAttribute("color", "#cbd5e1");
+  n.list.setAttribute("color", "#ffffff");
+}
+
 function setupLeaderboardListener() {
-  if (!state.db) return;
+  if (!state.db) {
+    setLeaderboardBoardState("error");
+    const list = $("vr-leaderboard-list");
+    if (list) list.setAttribute("value", "Leaderboard Offline");
+    return;
+  }
+
   const lbRef = ref(state.db, ["artifacts", state.appId, "public", "data", "vr_leaderboards"].join("/"));
 
   onValue(lbRef, (snapshot) => {
@@ -156,22 +533,30 @@ function setupLeaderboardListener() {
     scores.sort((a, b) => (b.score || 0) - (a.score || 0));
     const top5 = scores.slice(0, 5);
 
+    const lbList = $("vr-leaderboard-list");
+    if (!lbList) return;
+
+    if (!top5.length) {
+      setLeaderboardBoardState("empty");
+      lbList.setAttribute("value", "No clears yet\nBe the first legend!");
+      return;
+    }
+
     let lbText = "";
     top5.forEach((entry, i) => {
       const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "•";
       const avatar = typeof entry.avatar === "string" ? entry.avatar : "🧑‍💻";
-      const safeName = (entry.name || "Hero").substring(0, 10);
-      lbText += `${medal} ${avatar} ${safeName} : ${entry.score}\n`;
+      const safeName = String(entry.name || "Hero").substring(0, 10);
+      lbText += `${medal} ${avatar} ${safeName}  ${entry.score}\n`;
     });
 
-    if (!scores.length) lbText = "Be the first to clear a mission!";
-
-    const lbList = $("vr-leaderboard-list");
-    if (lbList) lbList.setAttribute("value", lbText);
+    lbList.setAttribute("value", lbText.trim());
+    setLeaderboardBoardState("active");
   }, (error) => {
     console.error("RTDB leaderboard listener error:", error);
     const lbList = $("vr-leaderboard-list");
     if (lbList) lbList.setAttribute("value", "Leaderboard Offline");
+    setLeaderboardBoardState("error");
   });
 }
 
@@ -182,6 +567,8 @@ async function bootFirebase() {
     if (!runtime || !runtime.auth || !runtime.db) {
       console.warn("Firebase runtime not ready:", runtime);
       syncProfileUI();
+      setRewardChestState("error", { note: "Reward Offline" });
+      setLeaderboardBoardState("error");
       return;
     }
 
@@ -201,67 +588,79 @@ async function bootFirebase() {
   } catch (e) {
     console.error("RTDB Init Error:", e);
     syncProfileUI();
+    setRewardChestState("error", { note: "Reward Offline" });
+    setLeaderboardBoardState("error");
   }
 }
 
 window.checkDailyStreak = async function () {
-  if (!state.currentUser || !state.db) return;
-
-  const rewardRef = ref(state.db, ["artifacts", state.appId, "users", state.currentUser.uid, "player_stats", "reward"].join("/"));
-  try {
-    const snap = await get(rewardRef);
-    const rewardData = snap.exists() ? (snap.val() || {}) : {};
-    let streak = rewardData.streak || 0;
-    let lastLogin = rewardData.lastLogin || "";
-
-    state.currentRewardStreak = streak;
-    syncProfileUI();
-
-    const today = new Date().toDateString();
-    const chest = $("reward-chest");
-    const streakText = $("streak-text");
-    if (!chest || !streakText) return;
-
-    if (lastLogin === today) {
-      chest.removeAttribute("animation");
-      chest.querySelector("a-box")?.setAttribute("color", "#555");
-      streakText.setAttribute("value", `Streak: ${streak} Days\n(Come back tomorrow!)`);
-      chest.classList.remove("clickable");
-    } else {
-      chest.setAttribute("animation", "property: position; to: -3.5 0.7 -3; dir: alternate; dur: 1000; loop: true");
-      chest.querySelector("a-box")?.setAttribute("color", "#f1c40f");
-      streakText.setAttribute("value", `Streak: ${streak} Days\n(Click to Claim!)`);
-      chest.classList.add("clickable");
-    }
-  } catch (e) {
-    console.error("Error checking streak (RTDB):", e);
-  }
-};
-
-window.claimReward = async function () {
   if (!state.currentUser || !state.db) {
-    setFeedback("⚠️ รอเชื่อมต่อเซิร์ฟเวอร์สักครู่...", "#ff9f43");
+    setRewardChestState("error", { note: "Reward Offline" });
     return;
   }
 
   const rewardRef = ref(state.db, ["artifacts", state.appId, "users", state.currentUser.uid, "player_stats", "reward"].join("/"));
 
   try {
-    const chest = $("reward-chest");
-    chest?.classList.remove("clickable");
+    setRewardChestState("loading");
+
+    const snap = await get(rewardRef);
+    const rewardData = snap.exists() ? (snap.val() || {}) : {};
+    const streak = rewardData.streak || 0;
+    const lastLogin = rewardData.lastLogin || "";
+
+    state.currentRewardStreak = streak;
+    syncProfileUI();
+
+    const today = new Date().toDateString();
+
+    if (lastLogin === today) {
+      setRewardChestState("claimed", {
+        streak,
+        rarityColor: "#7bedff",
+        note: "Claimed Today"
+      });
+    } else {
+      setRewardChestState("claimable", {
+        streak,
+        note: "Tap to Claim"
+      });
+    }
+  } catch (e) {
+    console.error("Error checking streak (RTDB):", e);
+    setRewardChestState("error", { note: "Reward Offline" });
+  }
+};
+
+window.claimReward = async function () {
+  if (!state.currentUser || !state.db) {
+    setFeedback("⚠️ รอเชื่อมต่อเซิร์ฟเวอร์สักครู่...", "#ff9f43");
+    setRewardChestState("error", { note: "Reward Offline" });
+    return;
+  }
+
+  const rewardRef = ref(state.db, ["artifacts", state.appId, "users", state.currentUser.uid, "player_stats", "reward"].join("/"));
+
+  try {
+    setRewardChestState("loading");
 
     const snap = await get(rewardRef);
     const rewardData = snap.exists() ? (snap.val() || {}) : {};
     let streak = rewardData.streak || 0;
-    let lastLogin = rewardData.lastLogin || "";
+    const lastLogin = rewardData.lastLogin || "";
 
     const today = new Date().toDateString();
     if (lastLogin === today) {
       setFeedback("🎁 วันนี้รับรางวัลไปแล้ว", "#ffeaa7");
+      setRewardChestState("claimed", {
+        streak,
+        rarityColor: "#7bedff",
+        note: "Claimed Today"
+      });
       return;
     }
 
-    let yesterday = new Date();
+    const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     streak = (lastLogin === yesterday.toDateString()) ? streak + 1 : 1;
 
@@ -269,23 +668,28 @@ window.claimReward = async function () {
 
     state.currentRewardStreak = streak;
     const rarity = getChestRarity(streak);
+    const rarityColor = rarity?.color || "#ffeaa7";
     const streakBonus = streak * 200;
-    const bonus = rarity.bonus + streakBonus;
+    const bonus = (rarity?.bonus || 0) + streakBonus;
 
     playSFX("win");
     updateHUD(bonus);
     showVRFeedback(true, `+${bonus} REWARD!`);
-    showRewardBadge(rarity.name, rarity.color);
+    showRewardBadge(rarity.name, rarityColor);
+    playRewardChestClaimFX(rarityColor);
 
-    chest?.removeAttribute("animation");
-    chest?.querySelector("a-box")?.setAttribute("color", "#555");
-    $("streak-text")?.setAttribute("value", `Streak: ${streak} Days\n(Claimed)`);
+    setRewardChestState("claimed", {
+      streak,
+      rarityColor,
+      note: rarity?.name || "Claimed"
+    });
 
     syncProfileUI();
-    setFeedback(`🎁 ${rarity.name} CHEST +${bonus}`, rarity.color);
+    setFeedback(`🎁 ${rarity.name} CHEST +${bonus}`, rarityColor);
+    scheduleFeedbackClear(1600);
   } catch (e) {
     console.error("Error claiming reward (RTDB):", e);
-    $("reward-chest")?.classList.add("clickable");
+    setRewardChestState("error", { note: "Claim Failed" });
     setFeedback("❌ เกิดข้อผิดพลาดในการรับรางวัล", "#ff4757");
   }
 };
@@ -294,70 +698,134 @@ function generateMissionWall() {
   const wall = $("mission-wall");
   if (!wall) return;
 
+  wall.innerHTML = "";
   let index = 0;
 
   for (let row = 0; row < 3; row++) {
-    let yPos = 1.2 - (row * 0.8);
+    const rowY = 1.22 - (row * 0.84);
+    const rowRadius = 4.1 + (row * 0.16);
+
     for (let col = 0; col < 5; col++) {
       if (index >= missionDB.length) break;
-      let mGroup = missionDB[index];
 
-      let angle = (col - 2) * 15;
-      let rad = angle * Math.PI / 180;
-      let radius = 4;
-      let xPos = Math.sin(rad) * radius;
-      let zPos = -Math.cos(rad) * radius + 4;
+      const mGroup = missionDB[index];
+      const meta = getMissionWallMeta(mGroup, false);
+      const angle = (col - 2) * 14;
+      const rad = angle * Math.PI / 180;
+      const xPos = Math.sin(rad) * rowRadius;
+      const zPos = -Math.cos(rad) * rowRadius + 4.1;
 
-      let isBoss = (mGroup.id % 3 === 0);
-      let isFinalUnit = isUnitFinal(mGroup.id);
+      const root = document.createElement("a-entity");
+      root.setAttribute("id", `mission-root-${mGroup.id}`);
+      root.setAttribute("position", `${xPos} ${rowY} ${zPos}`);
+      root.setAttribute("rotation", `0 ${-angle} 0`);
 
-      let color = isFinalUnit ? "#f1c40f" : (
-        isBoss ? "#e74c3c" : (
-          mGroup.type === "speaking" ? "#27ae60" :
-          mGroup.type === "reading" ? "#3498db" :
-          mGroup.type === "listening" ? "#e67e22" : "#9b59b6"
-        )
-      );
+      const halo = document.createElement("a-plane");
+      halo.setAttribute("id", `mission-halo-${mGroup.id}`);
+      halo.setAttribute("position", "0 0 -0.04");
+      halo.setAttribute("width", meta.width + 0.34);
+      halo.setAttribute("height", meta.height + 0.34);
+      halo.setAttribute("color", meta.baseColor);
+      halo.setAttribute("material", `opacity: ${meta.haloOpacity}; shader: flat`);
 
-      let boxWidth = (isBoss || isFinalUnit) ? "1.5" : "1.2";
-      let boxHeight = (isBoss || isFinalUnit) ? "0.8" : "0.6";
+      const plate = document.createElement("a-plane");
+      plate.setAttribute("id", `mission-plate-${mGroup.id}`);
+      plate.setAttribute("position", "0 0 -0.02");
+      plate.setAttribute("width", meta.width + 0.26);
+      plate.setAttribute("height", meta.height + 0.26);
+      plate.setAttribute("color", meta.plateColor);
+      plate.setAttribute("material", "opacity: 0.88; shader: flat");
 
-      let entity = document.createElement("a-entity");
-      entity.setAttribute("position", `${xPos} ${yPos} ${zPos}`);
-      entity.setAttribute("rotation", `0 ${-angle} 0`);
+      const border = document.createElement("a-plane");
+      border.setAttribute("position", "0 0 0.032");
+      border.setAttribute("width", meta.width + 0.08);
+      border.setAttribute("height", meta.height + 0.08);
+      border.setAttribute("color", meta.baseColor);
+      border.setAttribute("material", "opacity: 0.20; shader: flat");
 
-      let box = document.createElement("a-box");
+      const box = document.createElement("a-box");
       box.setAttribute("id", `mission-box-${mGroup.id}`);
       box.setAttribute("class", "clickable");
-      box.setAttribute("width", boxWidth);
-      box.setAttribute("height", boxHeight);
-      box.setAttribute("depth", "0.1");
-      box.setAttribute("color", color);
-      box.setAttribute("material", "opacity: 0.8");
+      box.setAttribute("width", meta.width);
+      box.setAttribute("height", meta.height);
+      box.setAttribute("depth", "0.08");
+      box.setAttribute("color", meta.baseColor);
+      box.setAttribute(
+        "material",
+        `opacity: ${meta.boxOpacity}; metalness: 0.18; roughness: 0.56; emissive: ${meta.baseColor}; emissiveIntensity: 0.18`
+      );
+
+      const textTop = document.createElement("a-text");
+      textTop.setAttribute("id", `mission-text-top-${mGroup.id}`);
+      textTop.setAttribute("value", meta.labelTop);
+      textTop.setAttribute("align", "center");
+      textTop.setAttribute("position", `0 ${meta.height * 0.18} 0.05`);
+      textTop.setAttribute("scale", "0.42 0.42 0.42");
+      textTop.setAttribute("color", meta.baseColor);
+      textTop.setAttribute("width", "4");
+
+      const textBottom = document.createElement("a-text");
+      textBottom.setAttribute("id", `mission-text-bottom-${mGroup.id}`);
+      textBottom.setAttribute("value", meta.labelBottom);
+      textBottom.setAttribute("align", "center");
+      textBottom.setAttribute("position", `0 ${-meta.height * 0.08} 0.05`);
+      textBottom.setAttribute("scale", "0.34 0.34 0.34");
+      textBottom.setAttribute("color", "#ffffff");
+      textBottom.setAttribute("width", "4.6");
+
+      const tag = document.createElement("a-text");
+      tag.setAttribute("id", `mission-tag-${mGroup.id}`);
+      tag.setAttribute("value", meta.labelTag);
+      tag.setAttribute("align", "center");
+      tag.setAttribute("position", `0 ${-meta.height * 0.34} 0.05`);
+      tag.setAttribute("scale", "0.26 0.26 0.26");
+      tag.setAttribute("color", meta.baseColor);
+      tag.setAttribute("width", "4");
 
       box.addEventListener("mouseenter", () => {
-        box.setAttribute("material", "color", "#00e5ff");
-        box.setAttribute("scale", "1.1 1.1 1.1");
+        setMissionWallVisualState(mGroup, {
+          cleared: clearedMissions.includes(mGroup.id),
+          hovered: true
+        });
       });
 
       box.addEventListener("mouseleave", () => {
-        box.setAttribute("material", "color", color);
-        box.setAttribute("scale", "1 1 1");
+        setMissionWallVisualState(mGroup, {
+          cleared: clearedMissions.includes(mGroup.id),
+          hovered: false
+        });
       });
 
       box.addEventListener("click", () => loadMission(mGroup.id));
 
-      let titlePrefix = isFinalUnit ? "👑 FINAL: " : (isBoss ? "🔥 BOSS: " : "");
-      let text = document.createElement("a-text");
-      text.setAttribute("id", `mission-text-${mGroup.id}`);
-      text.setAttribute("value", `${titlePrefix}${mGroup.title}\n(${mGroup.type})`);
-      text.setAttribute("align", "center");
-      text.setAttribute("position", "0 0 0.06");
-      text.setAttribute("scale", isBoss ? "0.5 0.5 0.5" : "0.4 0.4 0.4");
+      root.appendChild(halo);
+      root.appendChild(plate);
+      root.appendChild(border);
+      root.appendChild(box);
+      root.appendChild(textTop);
+      root.appendChild(textBottom);
+      root.appendChild(tag);
 
-      entity.appendChild(box);
-      entity.appendChild(text);
-      wall.appendChild(entity);
+      if (meta.isFinal) {
+        const crown = document.createElement("a-text");
+        crown.setAttribute("value", "👑");
+        crown.setAttribute("align", "center");
+        crown.setAttribute("position", `0 ${meta.height * 0.62} 0.05`);
+        crown.setAttribute("scale", "0.52 0.52 0.52");
+        crown.setAttribute("color", "#ffeaa7");
+        root.appendChild(crown);
+      } else if (meta.isBoss) {
+        const spark = document.createElement("a-text");
+        spark.setAttribute("value", "⚡");
+        spark.setAttribute("align", "center");
+        spark.setAttribute("position", `0 ${meta.height * 0.60} 0.05`);
+        spark.setAttribute("scale", "0.44 0.44 0.44");
+        spark.setAttribute("color", "#ff9aa2");
+        root.appendChild(spark);
+      }
+
+      applyMissionWallAmbientFX(root, halo, box, meta);
+      wall.appendChild(root);
       index++;
     }
   }
@@ -368,9 +836,9 @@ function generateMissionWall() {
 window.setDifficulty = function (level) {
   updateDifficulty(level);
 
-  $("diff-easy-box")?.setAttribute("material", "opacity", "0.4");
-  $("diff-normal-box")?.setAttribute("material", "opacity", "0.4");
-  $("diff-hard-box")?.setAttribute("material", "opacity", "0.4");
+  $("diff-easy-box")?.setAttribute("material", "opacity", "0.52");
+  $("diff-normal-box")?.setAttribute("material", "opacity", "0.52");
+  $("diff-hard-box")?.setAttribute("material", "opacity", "0.52");
   $(`diff-${level}-box`)?.setAttribute("material", "opacity", "1");
 
   renderAIDirector();
@@ -401,6 +869,7 @@ function loadMission(id) {
   hide("btn-next");
   renderFinalBossUI();
   applyUnitTheme(state.currentMission.id);
+  expandBossChrome();
 
   if (isFinal) {
     maybeShowFinalBossIntro(state.currentMission.id, () => playSFX("bossIntro"));
@@ -419,7 +888,22 @@ function loadMission(id) {
     titleColor
   );
 
-  setFeedback(minimalStartFeedback(state.currentMission, isFinal), isFinal ? "#f1c40f" : "#00e5ff");
+  expandMissionHeader();
+  expandMissionStats();
+  expandMissionTopChips();
+  expandMissionTitleUltraMini();
+  expandMissionTimer();
+  expandMissionHudTextCompact();
+  setMissionTimerAlert(false);
+
+  setFeedback(isFinal ? "👑 FINAL BOSS" : "START!", isFinal ? "#f1c40f" : "#00e5ff");
+  scheduleFeedbackClear(isFinal ? 1300 : 850);
+  scheduleMissionHeaderCollapse(state.currentMission.type === "speaking" ? 900 : 1200);
+  scheduleMissionStatsCollapse(state.currentMission.type === "speaking" ? 950 : 1300);
+  scheduleMissionTopChipsCollapse(state.currentMission.type === "speaking" ? 750 : 1050);
+  scheduleMissionTitleUltraMini(state.currentMission.type === "speaking" ? 700 : 1150);
+  scheduleMissionTimerCompact(state.currentMission.type === "speaking" ? 700 : 1100);
+  scheduleMissionHudTextCompact(state.currentMission.type === "speaking" ? 650 : 1000);
 
   flashMissionTypeTag(state.currentMission.type, true);
   recordMissionStart(state.currentMission, aiDirector.mood);
@@ -441,10 +925,11 @@ function loadMission(id) {
 
   setMissionScene(state.currentMission.type);
   showMissionControlByType(state.currentMission.type);
+  document.body.dataset.missionType = state.currentMission.type || "";
 
   if (state.currentMission.type === "speaking") {
     setSpeakingPrompt(state.currentMission.title, state.currentMission.exactPhrase);
-    setMissionPrompt(`พูดตามประโยคนี้:\n"${state.currentMission.exactPhrase}"`, "SPEAK");
+    setMissionPrompt(`"${state.currentMission.exactPhrase}"`, "SPEAK");
     startTimer(clamp(getBaseTimeForMissionType("speaking") + timeMod, 18, 80));
   } else if (state.currentMission.type === "reading") {
     setReadingQuestion(state.currentMission.question);
@@ -454,12 +939,12 @@ function loadMission(id) {
     startTimer(clamp(getBaseTimeForMissionType("reading") + timeMod, 18, 80));
   } else if (state.currentMission.type === "listening") {
     setChoiceLabelsFor("listening", state.currentMission.choices);
-    setMissionPrompt("กด Play Audio แล้วเลือกคำตอบที่ถูกต้อง", "LISTEN");
+    setMissionPrompt("กด Play Audio แล้วเลือกคำตอบ", "LISTEN");
     showChoiceButtons(true);
     startTimer(clamp(getBaseTimeForMissionType("listening") + timeMod, 18, 80));
   } else if (state.currentMission.type === "writing") {
     setWritingPrompt(state.currentMission.prompt);
-    setMissionPrompt(state.currentMission.prompt || "พิมพ์คำตอบให้ถูกต้อง", "WRITE");
+    setMissionPrompt(state.currentMission.prompt || "พิมพ์คำตอบ", "WRITE");
     show("write-input", "inline-block");
     resetWritingInput();
 
@@ -471,6 +956,14 @@ function loadMission(id) {
     }
 
     startTimer(clamp(getBaseTimeForMissionType("writing") + timeMod, 18, 80));
+  }
+
+  expandMissionPromptChrome();
+  resetPromptFocusExpanded();
+  scheduleMissionPromptChromeCollapse(state.currentMission.type === "speaking" ? 800 : 1100);
+
+  if (isBoss || isFinal) {
+    scheduleBossChromeCollapse(state.currentMission.type === "speaking" ? 900 : 1300);
   }
 }
 
@@ -502,7 +995,8 @@ window.playAudio = function () {
     utterance.lang = "en-US";
     utterance.rate = state.gameDifficulty === "hard" ? 1.0 : 0.9;
     speechSynthesis.speak(utterance);
-    setFeedback("🔊 กำลังฟัง...", "#00e5ff");
+    setFeedback("🔊 PLAYING...", "#00e5ff");
+    scheduleFeedbackClear(800);
   }
 };
 
@@ -530,24 +1024,25 @@ window.startRecognition = function () {
       if (event.results[i].isFinal) isFinal = true;
     }
 
-    let text = currentTranscript.toLowerCase()
+    const text = currentTranscript.toLowerCase()
       .replace(/i'm/g, "i am")
       .replace(/it's/g, "it is")
       .replace(/we're/g, "we are")
       .replace(/[.,!?]/g, "");
 
-    let targetWords = state.currentMission.exactPhrase.split(" ");
+    const targetWords = state.currentMission.exactPhrase.split(" ");
     let matchCount = 0;
 
     targetWords.forEach(word => {
       if (new RegExp(`\\b${word}\\b`, "i").test(text)) matchCount++;
     });
 
-    let allowance = getAdaptiveSpeakAllowance();
-    let passThreshold = Math.max(1, targetWords.length - allowance);
-    let isMatch = matchCount >= passThreshold;
+    const allowance = getAdaptiveSpeakAllowance();
+    const passThreshold = Math.max(1, targetWords.length - allowance);
+    const isMatch = matchCount >= passThreshold;
 
-    setFeedback(`กำลังฟัง: ${matchCount}/${targetWords.length}`, "#f1c40f");
+    setFeedback(`🎙 ${matchCount}/${targetWords.length}`, "#f1c40f");
+    scheduleFeedbackClear(700);
 
     if (isMatch) {
       recognition.stop();
@@ -719,7 +1214,6 @@ function playAnswerFX(success = true) {
   spawnAnswerBurst(success, burstCount);
   flashScreenResult(success);
   flashMissionTypeTag(state.currentMission?.type || "generic", success);
-  if (success) showComboPopup();
 }
 
 function showVRFeedback(isSuccess, customText = null) {
@@ -821,6 +1315,9 @@ function takeDamage() {
 
   playSFX("fail");
   updateHUD(0);
+  expandMissionStats(1300);
+  expandMissionHudTextCompact(1300);
+  expandMissionTimer(1200);
 
   const ui = $("ui-container");
   ui?.classList.add("shake");
@@ -867,17 +1364,28 @@ function startTimer(seconds) {
   clearInterval(state.missionTimer);
   state.timeLeft = seconds;
   showTimer(true);
+  setMissionTimerAlert(false);
 
   state.missionTimer = setInterval(() => {
     setTimerText(state.timeLeft);
 
+    if (state.timeLeft <= 10) {
+      expandMissionTimer();
+      setMissionTimerAlert(true);
+    } else {
+      setMissionTimerAlert(false);
+    }
+
     if (state.timeLeft <= 0) {
       clearInterval(state.missionTimer);
+      setMissionTimerAlert(false);
       setText("timer", "00:00 - TIME UP!");
       onMissionFailForAI("timeout");
       state.systemHP = 0;
       takeDamage();
+      return;
     }
+
     state.timeLeft--;
   }, 1000);
 }
@@ -904,7 +1412,9 @@ function winMission() {
     showVRFeedback(true, "⚔ BOSS HIT!");
     showBossCinematic("BOSS HIT!", `HP ${finalBossState.hp}/${finalBossState.maxHp}`, 900);
 
-    setFeedback(`⚔️ BOSS HIT! HP ${finalBossState.hp}/${finalBossState.maxHp}`, "#f1c40f");
+    setFeedback(`⚔ HP ${finalBossState.hp}/${finalBossState.maxHp}`, "#f1c40f");
+    scheduleFeedbackClear(900);
+    expandMissionTimer(1000);
     hideAllScenesAndControls();
 
     setTimeout(() => {
@@ -913,16 +1423,14 @@ function winMission() {
     return;
   }
 
-  let timeBonus = state.timeLeft * 10;
-  let actualHeal = 0;
+  const timeBonus = state.timeLeft * 10;
   if (state.systemHP < 100) {
-    let healAmount = state.gameDifficulty === "easy" ? 20 : (state.gameDifficulty === "normal" ? 10 : 5);
-    actualHeal = Math.min(100 - state.systemHP, healAmount);
-    state.systemHP += actualHeal;
+    const healAmount = state.gameDifficulty === "easy" ? 20 : (state.gameDifficulty === "normal" ? 10 : 5);
+    state.systemHP += Math.min(100 - state.systemHP, healAmount);
   }
 
-  let bossMultiplier = (state.currentMission && state.currentMission.id % 3 === 0) ? 2 : 1;
-  let finalUnitBonus = (state.currentMission && isUnitFinal(state.currentMission.id))
+  const bossMultiplier = (state.currentMission && state.currentMission.id % 3 === 0) ? 2 : 1;
+  const finalUnitBonus = (state.currentMission && isUnitFinal(state.currentMission.id))
     ? (state.currentMission.id === 5 ? 3000 : state.currentMission.id === 10 ? 2700 : 3200)
     : 0;
 
@@ -950,10 +1458,7 @@ function winMission() {
     state.consecutiveWins = 0;
   }
 
-  const finalUnitText = (state.currentMission && isUnitFinal(state.currentMission.id))
-    ? " • UNIT CLEAR"
-    : "";
-
+  const finalUnitText = (state.currentMission && isUnitFinal(state.currentMission.id)) ? " • UNIT CLEAR" : "";
   setFeedback(minimalWinFeedback(timeBonus, finalUnitText, levelUpMsg), "#2ed573");
 
   if (state.currentMission && isUnitFinal(state.currentMission.id)) {
@@ -987,7 +1492,17 @@ function updateHUD(pointsToAdd = 0) {
     setTimeout(() => scoreDisplay.classList.remove("score-anim"), 500);
   }
 
-  setScoreHUD(state.gameScore, state.systemHP, state.comboCount);
+  setScoreHUD(state.gameScore, state.systemHP);
+
+  if (document.body.dataset.missionType) {
+    if (state.timeLeft > 0) setTimerText(state.timeLeft);
+    expandMissionStats(pointsToAdd > 0 ? 1200 : 900);
+    expandMissionHudTextCompact(pointsToAdd > 0 ? 1200 : 900);
+  }
+
+  if (pointsToAdd > 0 && state.comboCount >= 2) {
+    showComboPopup();
+  }
 
   if (state.comboCount > sessionStats.bestCombo) {
     sessionStats.bestCombo = state.comboCount;
@@ -999,6 +1514,18 @@ function updateHUD(pointsToAdd = 0) {
 function hideAllScenesAndControls() {
   hideAllMissionControlsUI();
   clearMissionPrompt();
+  cancelFeedbackClear();
+  expandMissionHeader();
+  expandMissionStats();
+  expandMissionPromptChrome();
+  expandBossChrome();
+  expandMissionTopChips();
+  expandMissionTitleUltraMini();
+  expandMissionTimer();
+  expandMissionHudTextCompact();
+  resetPromptFocusExpanded();
+  setMissionTimerAlert(false);
+  document.body.dataset.missionType = "";
   clearInterval(state.missionTimer);
 }
 
@@ -1015,7 +1542,6 @@ window.returnToHub = function () {
   $("impact-flash")?.classList.remove("impact-hit", "impact-clear");
 
   hideAllScenesAndControls();
-  clearMissionPrompt();
   setHudMode("hub");
   hide("game-over-ui");
   $("ui-container")?.classList.remove("danger-mode");
@@ -1030,7 +1556,7 @@ window.returnToHub = function () {
   renderHubStatsBoard();
   state.currentMission = null;
   renderQuestionDiffBadge(state.gameDifficulty);
-};
+}
 
 window.onload = function () {
   setHudMode("hub");
@@ -1041,6 +1567,8 @@ window.onload = function () {
   renderFinalBossUI();
   renderHubStatsBoard();
   renderQuestionDiffBadge("normal");
+  setRewardChestState("loading");
+  setLeaderboardBoardState("idle");
   bootFirebase();
 
   setTimeout(() => {
@@ -1056,5 +1584,13 @@ window.onload = function () {
 
   $("profile-name-input")?.addEventListener("keypress", function (e) {
     if (e.key === "Enter") window.savePlayerProfile();
+  });
+
+  $("mission-prompt-box")?.addEventListener("click", function () {
+    const ui = $("ui-container");
+    if (!ui) return;
+    if (!ui.classList.contains("mission-mode")) return;
+    if (!ui.classList.contains("mission-hp-critical")) return;
+    togglePromptFocusExpanded();
   });
 };

@@ -146,11 +146,28 @@ export function setGameOverVisible(showIt = true) {
 
 export function setTimerText(totalSec) {
   const timerEl = $("timer");
+  const ui = $("ui-container");
+  const hpText = $("hp-display")?.textContent || "";
   if (!timerEl) return;
+
   const safe = Math.max(0, Number(totalSec || 0));
   const mins = String(Math.floor(safe / 60)).padStart(2, "0");
   const secs = String(safe % 60).padStart(2, "0");
-  timerEl.innerText = `${mins}:${secs}`;
+  const timeText = `${mins}:${secs}`;
+
+  if (ui?.classList.contains("mission-mode") && ui.classList.contains("mission-hp-critical") && hpText) {
+    timerEl.innerText = `⏱ ${timeText} • 💔 ${hpText}`;
+    timerEl.style.color = "#ffd6db";
+    return;
+  }
+
+  if (ui?.classList.contains("mission-mode") && ui.classList.contains("mission-hp-warning") && hpText) {
+    timerEl.innerText = `⏱ ${timeText} • ❤️ ${hpText}`;
+    timerEl.style.color = "#ffe08a";
+    return;
+  }
+
+  timerEl.innerText = timeText;
   timerEl.style.color = safe <= 10 ? "#ff0000" : "#ff4757";
 }
 
@@ -191,7 +208,7 @@ export function hideAllMissionControlsUI() {
 }
 
 export function setSpeakingPrompt(title, exactPhrase) {
-  setValueAttr("speaking-prompt", `MISSION: ${title}\nSay: "${String(exactPhrase || "").toUpperCase()}"`);
+  setValueAttr("speaking-prompt", `MISSION: ${title}\nSay: \"${String(exactPhrase || "").toUpperCase()}\"`);
 }
 
 export function setWritingPrompt(prompt) {
@@ -225,21 +242,31 @@ export function resetWritingInput() {
   setInputValue("write-input", "");
 }
 
-export function setScoreHUD(score, hp, comboCount = 0) {
+export function setScoreHUD(score, hp) {
   setText("score-display", String(score ?? 0));
   setText("hp-display", `${hp ?? 0}%`);
 
-  const comboEl = $("combo-display");
-  if (!comboEl) return;
+  const hpWrap = $("hud-hp-wrap");
+  const hpIcon = hpWrap ? hpWrap.querySelector(".hud-stat-icon") : null;
+  const ui = $("ui-container");
 
-  if (comboCount >= 2) {
-    comboEl.style.display = "inline";
-    comboEl.innerText = comboCount >= 5
-      ? `(🔥 x${comboCount} PERFECT!)`
-      : `(x${comboCount} COMBO!)`;
+  if (!hpWrap || !hpIcon || !ui) return;
+
+  hpWrap.classList.remove("hud-stat-warning", "hud-stat-critical");
+  ui.classList.remove("mission-hp-warning", "mission-hp-critical");
+
+  const safeHp = Number(hp ?? 0);
+
+  if (safeHp <= 15) {
+    hpWrap.classList.add("hud-stat-critical");
+    ui.classList.add("mission-hp-critical");
+    hpIcon.textContent = "💔";
+  } else if (safeHp <= 35) {
+    hpWrap.classList.add("hud-stat-warning");
+    ui.classList.add("mission-hp-warning");
+    hpIcon.textContent = "❤️";
   } else {
-    comboEl.style.display = "none";
-    comboEl.innerText = "";
+    hpIcon.textContent = "❤️";
   }
 }
 
@@ -287,4 +314,186 @@ export function clearMissionPrompt() {
   const textEl = $("mission-prompt-text");
   if (textEl) textEl.textContent = "";
   if (box) box.style.display = "none";
+}
+
+let feedbackClearTimer = null;
+export function scheduleFeedbackClear(ms = 1200) {
+  clearTimeout(feedbackClearTimer);
+  feedbackClearTimer = setTimeout(() => {
+    const ui = $("ui-container");
+    const feedback = $("feedback");
+    if (!ui || !feedback) return;
+    if (ui.classList.contains("mission-mode")) feedback.textContent = "";
+  }, ms);
+}
+
+export function cancelFeedbackClear() {
+  clearTimeout(feedbackClearTimer);
+}
+
+let missionHeaderTimer = null;
+export function scheduleMissionHeaderCollapse(ms = 1100) {
+  clearTimeout(missionHeaderTimer);
+  missionHeaderTimer = setTimeout(() => {
+    const ui = $("ui-container");
+    if (!ui) return;
+    if (ui.classList.contains("mission-mode")) ui.classList.add("mission-header-collapsed");
+  }, ms);
+}
+
+export function expandMissionHeader() {
+  clearTimeout(missionHeaderTimer);
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.remove("mission-header-collapsed");
+}
+
+let missionStatsTimer = null;
+export function scheduleMissionStatsCollapse(ms = 1200) {
+  clearTimeout(missionStatsTimer);
+  missionStatsTimer = setTimeout(() => {
+    const ui = $("ui-container");
+    if (!ui) return;
+    if (ui.classList.contains("mission-mode")) ui.classList.add("mission-stats-collapsed");
+  }, ms);
+}
+
+export function expandMissionStats(autoCollapseMs = 0) {
+  clearTimeout(missionStatsTimer);
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.remove("mission-stats-collapsed");
+  if (ui.classList.contains("mission-mode") && autoCollapseMs > 0) {
+    scheduleMissionStatsCollapse(autoCollapseMs);
+  }
+}
+
+let missionPromptTimer = null;
+export function scheduleMissionPromptChromeCollapse(ms = 1200) {
+  clearTimeout(missionPromptTimer);
+  missionPromptTimer = setTimeout(() => {
+    const ui = $("ui-container");
+    if (!ui) return;
+    if (ui.classList.contains("mission-mode")) ui.classList.add("mission-prompt-collapsed");
+  }, ms);
+}
+
+export function expandMissionPromptChrome() {
+  clearTimeout(missionPromptTimer);
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.remove("mission-prompt-collapsed");
+}
+
+let bossChromeTimer = null;
+export function scheduleBossChromeCollapse(ms = 1300) {
+  clearTimeout(bossChromeTimer);
+  bossChromeTimer = setTimeout(() => {
+    const ui = $("ui-container");
+    if (!ui) return;
+    if (ui.classList.contains("mission-mode")) ui.classList.add("boss-chrome-collapsed");
+  }, ms);
+}
+
+export function expandBossChrome() {
+  clearTimeout(bossChromeTimer);
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.remove("boss-chrome-collapsed");
+}
+
+let topChipsTimer = null;
+export function scheduleMissionTopChipsCollapse(ms = 1000) {
+  clearTimeout(topChipsTimer);
+  topChipsTimer = setTimeout(() => {
+    const ui = $("ui-container");
+    if (!ui) return;
+    if (ui.classList.contains("mission-mode")) ui.classList.add("mission-topchips-collapsed");
+  }, ms);
+}
+
+export function expandMissionTopChips() {
+  clearTimeout(topChipsTimer);
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.remove("mission-topchips-collapsed");
+}
+
+let missionTitleMiniTimer = null;
+export function scheduleMissionTitleUltraMini(ms = 1350) {
+  clearTimeout(missionTitleMiniTimer);
+  missionTitleMiniTimer = setTimeout(() => {
+    const ui = $("ui-container");
+    if (!ui) return;
+    if (ui.classList.contains("mission-mode")) ui.classList.add("mission-title-ultramini");
+  }, ms);
+}
+
+export function expandMissionTitleUltraMini() {
+  clearTimeout(missionTitleMiniTimer);
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.remove("mission-title-ultramini");
+}
+
+let missionTimerChromeTimer = null;
+export function scheduleMissionTimerCompact(ms = 1200) {
+  clearTimeout(missionTimerChromeTimer);
+  missionTimerChromeTimer = setTimeout(() => {
+    const ui = $("ui-container");
+    if (!ui) return;
+    if (ui.classList.contains("mission-mode")) ui.classList.add("mission-timer-compact");
+  }, ms);
+}
+
+export function expandMissionTimer(autoCompactMs = 0) {
+  clearTimeout(missionTimerChromeTimer);
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.remove("mission-timer-compact");
+  if (ui.classList.contains("mission-mode") && autoCompactMs > 0) {
+    scheduleMissionTimerCompact(autoCompactMs);
+  }
+}
+
+export function setMissionTimerAlert(on = false) {
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.toggle("mission-timer-alert", !!on);
+}
+
+let missionHudTextTimer = null;
+export function scheduleMissionHudTextCompact(ms = 1250) {
+  clearTimeout(missionHudTextTimer);
+  missionHudTextTimer = setTimeout(() => {
+    const ui = $("ui-container");
+    if (!ui) return;
+    if (ui.classList.contains("mission-mode")) ui.classList.add("mission-hudtext-compact");
+  }, ms);
+}
+
+export function expandMissionHudTextCompact(autoCompactMs = 0) {
+  clearTimeout(missionHudTextTimer);
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.remove("mission-hudtext-compact");
+  if (ui.classList.contains("mission-mode") && autoCompactMs > 0) {
+    scheduleMissionHudTextCompact(autoCompactMs);
+  }
+}
+
+let promptFocusExpanded = false;
+export function setPromptFocusExpanded(expanded = false) {
+  promptFocusExpanded = !!expanded;
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.toggle("mission-prompt-focus-expanded", promptFocusExpanded);
+}
+
+export function togglePromptFocusExpanded() {
+  setPromptFocusExpanded(!promptFocusExpanded);
+}
+
+export function resetPromptFocusExpanded() {
+  setPromptFocusExpanded(false);
 }
