@@ -1,122 +1,476 @@
+// lesson-data.js
+// A2 question bank version
+// 15 sessions x 15 items each
+// difficulty bank per session: easy(5) / normal(5) / hard(5)
+
 export const missionDB = [
+  {
+    id: 1,
+    type: "speaking",
+    title: "S1: Introduction",
+    bank: {
+      easy: [
+        { desc: 'พูดตาม: "My name is Anna"', exactPhrase: "my name is anna", failMsg: "พูดชื่อให้ชัดอีกครั้ง" },
+        { desc: 'พูดตาม: "I am a student"', exactPhrase: "i am a student", failMsg: "พูดประโยคสั้น ๆ ให้ชัด" },
+        { desc: 'พูดตาม: "I am from Thailand"', exactPhrase: "i am from thailand", failMsg: "ลองพูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "I study computer science"', exactPhrase: "i study computer science", failMsg: "ลองพูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "I like coding"', exactPhrase: "i like coding", failMsg: "พูดให้ชัดอีกครั้ง" }
+      ],
+      normal: [
+        { desc: 'พูดตาม: "My name is Anna and I am a student"', exactPhrase: "my name is anna and i am a student", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "I am from Thailand and I study English"', exactPhrase: "i am from thailand and i study english", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "I study computer science at university"', exactPhrase: "i study computer science at university", failMsg: "พยายามพูดให้ครบ" },
+        { desc: 'พูดตาม: "I want to be a developer"', exactPhrase: "i want to be a developer", failMsg: "พูดให้ชัดอีกครั้ง" },
+        { desc: 'พูดตาม: "I enjoy learning new skills"', exactPhrase: "i enjoy learning new skills", failMsg: "พูดให้ครบประโยค" }
+      ],
+      hard: [
+        { desc: 'พูดตาม: "Hello, my name is Anna and I study computer science"', exactPhrase: "hello my name is anna and i study computer science", failMsg: "พูดให้ชัดและครบ" },
+        { desc: 'พูดตาม: "I am a university student and I enjoy coding"', exactPhrase: "i am a university student and i enjoy coding", failMsg: "พูดให้ชัดและครบ" },
+        { desc: 'พูดตาม: "I come from Thailand and I want to work in tech"', exactPhrase: "i come from thailand and i want to work in tech", failMsg: "พูดให้ครบอีกครั้ง" },
+        { desc: 'พูดตาม: "I am interested in web development and design"', exactPhrase: "i am interested in web development and design", failMsg: "ลองพูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "In the future, I want to build useful apps"', exactPhrase: "in the future i want to build useful apps", failMsg: "พูดให้ครบประโยค" }
+      ]
+    }
+  },
 
-            { id: 1, type: 'speaking', title: 'S1: Introduction', variations: [
-                { desc: 'พูดตาม: "I am a computer science student at the university"', exactPhrase: 'i am a computer science student at the university', failMsg: "พยายามพูดให้ชัดเจน (อนุโลมให้เพี้ยนได้)" },
-                { desc: 'พูดตาม: "I am studying artificial intelligence at the university now"', exactPhrase: 'i am studying artificial intelligence at the university now', failMsg: "พยายามพูดให้ชัดเจน (อนุโลมให้เพี้ยนได้)" },
-                { desc: 'พูดตาม: "I want to be a software engineer in the future"', exactPhrase: 'i want to be a software engineer in the future', failMsg: "พยายามพูดให้ชัดเจน (อนุโลมให้เพี้ยนได้)" },
-                { desc: 'พูดตาม: "I am learning how to code web applications today"', exactPhrase: 'i am learning how to code web applications today', failMsg: "พยายามพูดให้ชัดเจน (อนุโลมให้เพี้ยนได้)" },
-                { desc: 'พูดตาม: "My dream is to work at a big tech company"', exactPhrase: 'my dream is to work at a big tech company', failMsg: "พยายามพูดให้ชัดเจน (อนุโลมให้เพี้ยนได้)" }
-            ]},
+  {
+    id: 2,
+    type: "reading",
+    title: "S2: Greetings",
+    bank: {
+      easy: [
+        { desc: "เลือกคำตอบที่เหมาะสม", question: "Tom: Hello!", choices: ["A: Hello!", "B: Good night.", "C: Thank you."], answer: "A" },
+        { desc: "เลือกคำตอบที่เหมาะสม", question: "Jane: How are you?", choices: ["A: I am fine.", "B: It is blue.", "C: I am a desk."], answer: "A" },
+        { desc: "เลือกคำตอบที่เหมาะสม", question: "Teacher: Good morning.", choices: ["A: Good morning.", "B: See you yesterday.", "C: Open the door."], answer: "A" },
+        { desc: "เลือกคำตอบที่เหมาะสม", question: "Friend: Nice to meet you.", choices: ["A: Nice to meet you too.", "B: I like rice.", "C: My bag is black."], answer: "A" },
+        { desc: "เลือกคำตอบที่เหมาะสม", question: "Guest: Thank you.", choices: ["A: You are welcome.", "B: I am hungry.", "C: It is Monday."], answer: "A" }
+      ],
+      normal: [
+        { desc: "ตอบบทสนทนา", question: "Manager: Welcome to our office.", choices: ["A: Thank you. It is nice to be here.", "B: My office is a cat.", "C: I go to sleep."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Student: Sorry I am late.", choices: ["A: That is okay. Please sit down.", "B: I am a window.", "C: Late is green."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Colleague: Can I ask your name?", choices: ["A: Sure. My name is Mina.", "B: My name is Tuesday.", "C: I can ask the wall."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Host: Please come in.", choices: ["A: Thank you very much.", "B: Come in is yellow.", "C: I am a laptop."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Guide: Do you need help?", choices: ["A: Yes, please. I need some help.", "B: Help is a shoe.", "C: I eat notebooks."], answer: "A" }
+      ],
+      hard: [
+        { desc: "ตอบบทสนทนา", question: "Interviewer: Please introduce yourself briefly.", choices: ["A: Sure. My name is Nida, and I am a computer science student.", "B: Briefly is my dog.", "C: I am on the table."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Visitor: Excuse me, is this seat free?", choices: ["A: Yes, you can sit here.", "B: The seat is orange juice.", "C: I sit in tomorrow."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Staff: Thank you for waiting.", choices: ["A: No problem. Thank you.", "B: Waiting is purple.", "C: I wait with a sandwich."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Coach: Are you ready to begin?", choices: ["A: Yes, I am ready.", "B: Begin is a pencil.", "C: I ready the window."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Team lead: Nice work today.", choices: ["A: Thank you. I learned a lot today.", "B: Work is my banana.", "C: Today is inside the car."], answer: "A" }
+      ]
+    }
+  },
 
-            { id: 2, type: 'reading', title: 'S2: Networking', variations: [
-                { desc: 'เลือกคำทักทายที่เหมาะสม', question: 'NPC: Hello! Nice to meet you.', choices: ['A: I am sleepy.', 'B: Nice to meet you too.', 'C: Goodbye.'], answer: 'B' },
-                { desc: 'ตอบคำถามสารทุกข์สุกดิบ', question: 'NPC: How are you doing today?', choices: ['A: I am doing great, thanks.', 'B: The weather is hot.', 'C: I like pizza.'], answer: 'A' },
-                { desc: 'ตอบรับการแนะนำตัว', question: 'NPC: Hi, my name is Sarah from Google.', choices: ['A: Google is a website.', 'B: Where is the bathroom?', 'C: Hello Sarah, I am John.'], answer: 'C' },
-                { desc: 'ทักทายในงานสัมมนา', question: 'NPC: Good morning, welcome to the tech conference.', choices: ['A: Thank you very much.', 'B: I am sleeping.', 'C: The conference is blue.'], answer: 'A' },
-                { desc: 'ตอบรับคำยินดี', question: 'NPC: It is a pleasure to meet you.', choices: ['A: I want pizza.', 'B: The pleasure is mine.', 'C: Goodbye.'], answer: 'B' }
-            ]},
+  {
+    id: 3,
+    type: "writing",
+    title: "S3: Tech Words",
+    bank: {
+      easy: [
+        { desc: "พิมพ์คำเทคโนโลยี 1 คำ", prompt: "SYSTEM: Type one tech word.\nYOU:", keywords: ["code", "app", "web", "data", "bug"], minMatch: 1, failMsg: "ลองพิมพ์คำสั้น ๆ เช่น code หรือ app" },
+        { desc: "พิมพ์ชื่ออุปกรณ์", prompt: "SYSTEM: Type one device for study.\nYOU:", keywords: ["laptop", "computer", "tablet", "phone"], minMatch: 1, failMsg: "ลองพิมพ์ laptop หรือ computer" },
+        { desc: "พิมพ์ชื่อภาษา", prompt: "SYSTEM: Type one programming language.\nYOU:", keywords: ["python", "java", "javascript", "c++"], minMatch: 1, failMsg: "ลองพิมพ์ python หรือ java" },
+        { desc: "พิมพ์คำเกี่ยวกับอินเทอร์เน็ต", prompt: "SYSTEM: Type one internet word.\nYOU:", keywords: ["browser", "website", "internet", "online"], minMatch: 1, failMsg: "ลองพิมพ์ browser หรือ website" },
+        { desc: "พิมพ์คำเกี่ยวกับงานทีม", prompt: "SYSTEM: Type one teamwork word.\nYOU:", keywords: ["team", "meeting", "task", "project"], minMatch: 1, failMsg: "ลองพิมพ์ team หรือ project" }
+      ],
+      normal: [
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ coding", prompt: "SYSTEM: Type two words about coding.\nYOU:", keywords: ["code", "bug", "test", "function", "script"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น code test" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ web", prompt: "SYSTEM: Type two words about web.\nYOU:", keywords: ["web", "page", "html", "css", "site"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น html css" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ data", prompt: "SYSTEM: Type two words about data.\nYOU:", keywords: ["data", "table", "chart", "database", "file"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น data file" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ project", prompt: "SYSTEM: Type two words about project work.\nYOU:", keywords: ["team", "project", "plan", "deadline", "meeting"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น team meeting" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ AI", prompt: "SYSTEM: Type two simple AI words.\nYOU:", keywords: ["ai", "model", "data", "prompt", "chatbot"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น ai model" }
+      ],
+      hard: [
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ coding", prompt: "SYSTEM: Write a short sentence about coding.\nYOU:", keywords: ["i", "like", "coding", "code", "learn"], minMatch: 3, failMsg: "ลองพิมพ์ประโยคสั้น เช่น I like coding" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ web", prompt: "SYSTEM: Write a short sentence about web design.\nYOU:", keywords: ["web", "design", "page", "html", "css"], minMatch: 3, failMsg: "ลองพิมพ์ เช่น I design web pages" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ data", prompt: "SYSTEM: Write a short sentence about data.\nYOU:", keywords: ["data", "is", "important", "useful", "analysis"], minMatch: 3, failMsg: "ลองพิมพ์ เช่น data is useful" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ team", prompt: "SYSTEM: Write a short sentence about teamwork.\nYOU:", keywords: ["team", "work", "together", "help", "project"], minMatch: 3, failMsg: "ลองพิมพ์ เช่น our team works together" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ AI", prompt: "SYSTEM: Write a short sentence about AI.\nYOU:", keywords: ["ai", "helps", "people", "learn", "work"], minMatch: 3, failMsg: "ลองพิมพ์ เช่น ai helps people learn" }
+      ]
+    }
+  },
 
-            { id: 3, type: 'writing', title: 'S3: Tech Stack', variations: [
-                { desc: 'พิมพ์ภาษาที่เขียนโปรแกรม', prompt: 'SYSTEM: What is your main programming language?\nYOU: [Type your answer]', keywords: ['python', 'java', 'c++', 'javascript', 'c#', 'php', 'ruby', 'html', 'css'], minMatch: 1, failMsg: "ลองพิมพ์ชื่อภาษาเช่น 'python'" },
-                { desc: 'พิมพ์ชื่อระบบฐานข้อมูล', prompt: 'SYSTEM: Which database system do you use?\nYOU: [Type your answer]', keywords: ['sql', 'mysql', 'mongo', 'firebase', 'oracle', 'database'], minMatch: 1, failMsg: "ลองพิมพ์ชื่อฐานข้อมูลเช่น 'mysql'" },
-                { desc: 'พิมพ์ชื่อระบบจัดการโค้ด', prompt: 'SYSTEM: What tool do you use for version control?\nYOU: [Type your answer]', keywords: ['git', 'github', 'gitlab', 'bitbucket'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'git' หรือ 'github'" },
-                { desc: 'พิมพ์ชื่อ Frontend Framework', prompt: 'SYSTEM: What framework do you use for frontend?\nYOU: [Type your answer]', keywords: ['react', 'angular', 'vue', 'html', 'tailwind', 'bootstrap'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'react' หรือ 'vue'" },
-                { desc: 'พิมพ์ชื่อระบบปฏิบัติการ', prompt: 'SYSTEM: What operating system do you prefer for coding?\nYOU: [Type your answer]', keywords: ['linux', 'windows', 'mac', 'ubuntu', 'macos'], minMatch: 1, failMsg: "ลองพิมพ์ว่า 'windows' หรือ 'linux'" }
-            ]},
+  {
+    id: 4,
+    type: "speaking",
+    title: "S4: Daily Work",
+    bank: {
+      easy: [
+        { desc: 'พูดตาม: "I check my email"', exactPhrase: "i check my email", failMsg: "ลองพูดอีกครั้ง" },
+        { desc: 'พูดตาม: "I join the meeting"', exactPhrase: "i join the meeting", failMsg: "ลองพูดอีกครั้ง" },
+        { desc: 'พูดตาม: "I write the report"', exactPhrase: "i write the report", failMsg: "พูดให้ชัดอีกครั้ง" },
+        { desc: 'พูดตาม: "I finish my task"', exactPhrase: "i finish my task", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "I help my team"', exactPhrase: "i help my team", failMsg: "พูดให้ชัดอีกครั้ง" }
+      ],
+      normal: [
+        { desc: 'พูดตาม: "I check my email every morning"', exactPhrase: "i check my email every morning", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "I join the team meeting at nine"', exactPhrase: "i join the team meeting at nine", failMsg: "พูดให้ชัดอีกครั้ง" },
+        { desc: 'พูดตาม: "I write a short report after class"', exactPhrase: "i write a short report after class", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "I finish my task before lunch"', exactPhrase: "i finish my task before lunch", failMsg: "พยายามพูดให้ครบ" },
+        { desc: 'พูดตาม: "I help my team with testing"', exactPhrase: "i help my team with testing", failMsg: "พูดให้ชัดอีกครั้ง" }
+      ],
+      hard: [
+        { desc: 'พูดตาม: "Every morning I check my email and plan my work"', exactPhrase: "every morning i check my email and plan my work", failMsg: "พูดให้ครบอีกครั้ง" },
+        { desc: 'พูดตาม: "I join the team meeting and share my progress"', exactPhrase: "i join the team meeting and share my progress", failMsg: "พยายามพูดให้ครบ" },
+        { desc: 'พูดตาม: "After class I write a report about my project"', exactPhrase: "after class i write a report about my project", failMsg: "พูดให้ชัดและครบ" },
+        { desc: 'พูดตาม: "I try to finish my task before the deadline"', exactPhrase: "i try to finish my task before the deadline", failMsg: "ลองพูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "I often help my team when there is a bug"', exactPhrase: "i often help my team when there is a bug", failMsg: "พยายามพูดให้ครบ" }
+      ]
+    }
+  },
 
-            { id: 4, type: 'speaking', title: 'S4: Stand-up', variations: [
-                { desc: 'พูดตาม: "I will fix the login bug in our system"', exactPhrase: 'i will fix the login bug in our system', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "I finished my coding tasks for the project yesterday"', exactPhrase: 'i finished my coding tasks for the project yesterday', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "Today I will work on the backend api integration"', exactPhrase: 'today i will work on the backend api integration', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "Yesterday I tested the mobile app with my team"', exactPhrase: 'yesterday i tested the mobile app with my team', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "I need help with the database deployment issue"', exactPhrase: 'i need help with the database deployment issue', failMsg: "พยายามพูดให้ชัดเจน" }
-            ]},
+  {
+    id: 5,
+    type: "listening",
+    title: "S5: Final Interview",
+    bank: {
+      easy: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "What is your name?", choices: ["A: My name is Ben.", "B: I am a bag.", "C: Monday is big."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Where are you from?", choices: ["A: I am from Thailand.", "B: I am from lunch.", "C: I am from blue."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "What do you study?", choices: ["A: I study computer science.", "B: I study a chair.", "C: I study the rain."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Do you like coding?", choices: ["A: Yes, I do.", "B: Yes, I banana.", "C: Coding is a desk."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Can you work in a team?", choices: ["A: Yes, I can.", "B: Team is a flower.", "C: I work in Tuesday."], answer: "A" }
+      ],
+      normal: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please tell me about yourself.", choices: ["A: I am a student and I like coding.", "B: I am inside a laptop.", "C: Myself is a window."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Why do you want this job?", choices: ["A: I want to learn and grow.", "B: The job is green.", "C: Because the chair is happy."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "What is your strength?", choices: ["A: I am good at teamwork.", "B: My strength is orange.", "C: I am stronger than a table."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Do you have project experience?", choices: ["A: Yes, I worked on a university project.", "B: Experience is coffee.", "C: My project is sleeping."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Can you learn new skills quickly?", choices: ["A: Yes, I can learn quickly.", "B: Skills are blue.", "C: Quickly is a box."], answer: "A" }
+      ],
+      hard: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please describe a project you worked on at university.", choices: ["A: I built a web project with my team.", "B: My university is under the table.", "C: A project is my breakfast."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "What do you want to do after graduation?", choices: ["A: I want to work as a software developer.", "B: Graduation is a sandwich.", "C: I want to become a pencil."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "How do you improve your English skills?", choices: ["A: I practice speaking and listening every day.", "B: English is on the wall.", "C: I improve by sleeping on books."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "What kind of company do you want to join?", choices: ["A: I want to join a company with a good team.", "B: The company is in my pocket.", "C: I join a company of shoes."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Can you explain your role in your last project?", choices: ["A: I worked on design and testing.", "B: My role was a chicken.", "C: Project roles are windows."], answer: "A" }
+      ]
+    }
+  },
 
-            { id: 5, type: 'listening', title: 'S5: Interview Final', variations: [
-                { desc: 'ฟังและเลือกคำตอบที่เหมาะสม', audioText: 'Tell me about yourself and your experience.', choices: ['A: I like watching movies.', 'B: I am a computer science student with project experience.', 'C: My house is near the station.'], answer: 'B' },
-                { desc: 'ฟังและเลือกคำตอบสัมภาษณ์', audioText: 'Why do you want to join our company?', choices: ['A: Because your company has strong innovation culture.', 'B: I have a red notebook.', 'C: The office is big.'], answer: 'A' },
-                { desc: 'ฟังและเลือกคำตอบเรื่องจุดแข็ง', audioText: 'What is your greatest strength?', choices: ['A: I sleep a lot.', 'B: I am good at teamwork and problem solving.', 'C: I eat quickly.'], answer: 'B' },
-                { desc: 'ฟังและเลือกคำตอบเรื่องเป้าหมาย', audioText: 'Where do you see yourself in five years?', choices: ['A: I want to grow as a software engineer and team leader.', 'B: Five years is a number.', 'C: I like trains.'], answer: 'A' },
-                { desc: 'ฟังและเลือกคำตอบเรื่องโปรเจกต์', audioText: 'Can you describe a project you worked on?', choices: ['A: I built a web application with my university team.', 'B: My favorite color is blue.', 'C: I usually wake up early.'], answer: 'A' }
-            ]},
+  {
+    id: 6,
+    type: "reading",
+    title: "S6: Agile Team",
+    bank: {
+      easy: [
+        { desc: "ตอบบทสนทนา", question: "Lead: What did you do today?", choices: ["A: I finished my task.", "B: I am a book.", "C: Today is green."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Lead: Do you need help?", choices: ["A: Yes, please.", "B: Help is a bag.", "C: I help the wall."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Lead: Are you ready?", choices: ["A: Yes, I am ready.", "B: Ready is a fish.", "C: I am readying the desk."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Lead: Can you test this page?", choices: ["A: Yes, I can test it.", "B: The page is rice.", "C: I test in tomorrow."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Lead: Did you join the meeting?", choices: ["A: Yes, I joined it.", "B: Meeting is a wall.", "C: I join the yellow."], answer: "A" }
+      ],
+      normal: [
+        { desc: "ตอบบทสนทนา", question: "Scrum Master: What will you do next?", choices: ["A: I will fix the login bug.", "B: Next is a spoon.", "C: I will become a chair."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Teammate: Can you review my code?", choices: ["A: Sure, I can review it after lunch.", "B: Code is a flower.", "C: I review my shoe."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Manager: Is the feature ready?", choices: ["A: It is almost ready for testing.", "B: Ready is a table.", "C: The feature is sleeping."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Developer: There is a blocker.", choices: ["A: What blocker do you have?", "B: Blocker is my cat.", "C: I eat blockers."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Product Owner: Can we demo it tomorrow?", choices: ["A: Yes, we can prepare a demo.", "B: Tomorrow is a banana.", "C: Demo is under the sea."], answer: "A" }
+      ],
+      hard: [
+        { desc: "ตอบบทสนทนา", question: "Scrum Master: What progress can you share with the team?", choices: ["A: I finished the first page and tested the form.", "B: Progress is in my shoe.", "C: The team is my breakfast."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Teammate: Are there any problems with the API?", choices: ["A: Yes, I still need access to the API documentation.", "B: API is an apple pie idea.", "C: Problems are sleeping outside."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Lead: What is your plan after this meeting?", choices: ["A: I will update the page and run more tests.", "B: Meetings are made of milk.", "C: I will plan the window."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Tester: Can you explain this bug?", choices: ["A: The button does not work on mobile.", "B: The bug is very delicious.", "C: I explain with a banana."], answer: "A" },
+        { desc: "ตอบบทสนทนา", question: "Manager: Are we ready for the client demo?", choices: ["A: Yes, the main flow is working well now.", "B: The client is a pencil.", "C: Demo is under the chair."], answer: "A" }
+      ]
+    }
+  },
 
-            { id: 6, type: 'reading', title: 'S6: Agile Team', variations: [
-                { desc: 'เลือกคำตอบสถานการณ์ทีม', question: 'Scrum Master: What did you finish yesterday?', choices: ['A: I finished the bug fixes.', 'B: Yesterday is blue.', 'C: I like football.'], answer: 'A' },
-                { desc: 'เลือกคำตอบเรื่องอุปสรรค', question: 'Team Lead: Do you have any blockers?', choices: ['A: Yes, I need access to the API docs.', 'B: I am a blocker.', 'C: The blocker is coffee.'], answer: 'A' },
-                { desc: 'เลือกคำตอบเรื่องแผนวันนี้', question: 'Manager: What will you do today?', choices: ['A: I will update the user interface.', 'B: Today is Monday.', 'C: The office is white.'], answer: 'A' },
-                { desc: 'เลือกคำตอบเรื่องช่วยทีม', question: 'Colleague: Can you help review my code?', choices: ['A: Sure, I can review it after lunch.', 'B: The code is sleeping.', 'C: I am a sandwich.'], answer: 'A' },
-                { desc: 'เลือกคำตอบเรื่อง sprint', question: 'Product Owner: Are we ready for the sprint review?', choices: ['A: Yes, the main feature is ready for demo.', 'B: Sprint is a sport only.', 'C: Review means food.'], answer: 'A' }
-            ]},
+  {
+    id: 7,
+    type: "writing",
+    title: "S7: Bug Report",
+    bank: {
+      easy: [
+        { desc: "พิมพ์ชื่อปัญหา", prompt: "SYSTEM: Type one simple bug word.\nYOU:", keywords: ["bug", "error", "problem", "issue"], minMatch: 1, failMsg: "ลองพิมพ์ bug หรือ error" },
+        { desc: "พิมพ์ชื่ออาการ", prompt: "SYSTEM: Type one result word.\nYOU:", keywords: ["crash", "slow", "broken", "fail"], minMatch: 1, failMsg: "ลองพิมพ์ crash หรือ slow" },
+        { desc: "พิมพ์คำเกี่ยวกับปุ่ม", prompt: "SYSTEM: Type one UI word.\nYOU:", keywords: ["button", "screen", "page", "form"], minMatch: 1, failMsg: "ลองพิมพ์ button หรือ screen" },
+        { desc: "พิมพ์คำเกี่ยวกับระบบ", prompt: "SYSTEM: Type one system word.\nYOU:", keywords: ["login", "server", "api", "app"], minMatch: 1, failMsg: "ลองพิมพ์ login หรือ app" },
+        { desc: "พิมพ์คำเกี่ยวกับ testing", prompt: "SYSTEM: Type one test word.\nYOU:", keywords: ["test", "check", "click", "open"], minMatch: 1, failMsg: "ลองพิมพ์ test หรือ check" }
+      ],
+      normal: [
+        { desc: "พิมพ์ 2 คำอธิบายบั๊ก", prompt: "SYSTEM: Type two words for a bug.\nYOU:", keywords: ["login", "bug", "button", "error", "screen"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น login error" },
+        { desc: "พิมพ์ 2 คำอธิบายผลลัพธ์", prompt: "SYSTEM: Type two words for the result.\nYOU:", keywords: ["page", "crash", "not", "open", "slow"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น page crash" },
+        { desc: "พิมพ์ 2 คำอธิบายการทดสอบ", prompt: "SYSTEM: Type two words for testing.\nYOU:", keywords: ["click", "test", "mobile", "browser", "login"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น mobile test" },
+        { desc: "พิมพ์ 2 คำอธิบายหน้า UI", prompt: "SYSTEM: Type two words about the page.\nYOU:", keywords: ["form", "page", "button", "input", "screen"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น form input" },
+        { desc: "พิมพ์ 2 คำอธิบาย severity", prompt: "SYSTEM: Type two words about severity.\nYOU:", keywords: ["high", "low", "serious", "minor", "critical"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น high serious" }
+      ],
+      hard: [
+        { desc: "พิมพ์ประโยคบั๊กสั้น ๆ", prompt: "SYSTEM: Write a short bug sentence.\nYOU:", keywords: ["login", "button", "does", "not", "work"], minMatch: 3, failMsg: "ลองพิมพ์เช่น login button does not work" },
+        { desc: "พิมพ์ประโยคผลลัพธ์สั้น ๆ", prompt: "SYSTEM: Write a short result sentence.\nYOU:", keywords: ["page", "crash", "after", "click", "submit"], minMatch: 3, failMsg: "ลองพิมพ์เช่น page crashes after click" },
+        { desc: "พิมพ์ประโยคการทดสอบสั้น ๆ", prompt: "SYSTEM: Write a short testing sentence.\nYOU:", keywords: ["i", "tested", "on", "mobile", "browser"], minMatch: 3, failMsg: "ลองพิมพ์เช่น i tested on mobile" },
+        { desc: "พิมพ์ประโยค expected result", prompt: "SYSTEM: Write the expected result.\nYOU:", keywords: ["page", "should", "open", "work", "correctly"], minMatch: 3, failMsg: "ลองพิมพ์เช่น page should open correctly" },
+        { desc: "พิมพ์ประโยค severity", prompt: "SYSTEM: Write a short severity sentence.\nYOU:", keywords: ["this", "is", "a", "high", "issue"], minMatch: 3, failMsg: "ลองพิมพ์เช่น this is a high issue" }
+      ]
+    }
+  },
 
-            { id: 7, type: 'writing', title: 'S7: Bug Report', variations: [
-                { desc: 'พิมพ์คำเกี่ยวกับ bug', prompt: 'SYSTEM: Describe the bug briefly.\nYOU: [Type your answer]', keywords: ['bug', 'error', 'crash', 'issue', 'problem', 'login', 'button', 'screen'], minMatch: 1, failMsg: "ลองพิมพ์คำอย่าง bug, error, crash" },
-                { desc: 'พิมพ์คำเกี่ยวกับ testing', prompt: 'SYSTEM: What did you do to test it?\nYOU: [Type your answer]', keywords: ['test', 'tested', 'testing', 'click', 'login', 'mobile', 'browser'], minMatch: 1, failMsg: "ลองพิมพ์คำเกี่ยวกับการทดสอบ" },
-                { desc: 'พิมพ์คำเกี่ยวกับ expected result', prompt: 'SYSTEM: What result did you expect?\nYOU: [Type your answer]', keywords: ['expected', 'should', 'work', 'open', 'show', 'display'], minMatch: 1, failMsg: "ลองพิมพ์ว่า should work / expected" },
-                { desc: 'พิมพ์คำเกี่ยวกับ actual result', prompt: 'SYSTEM: What actually happened?\nYOU: [Type your answer]', keywords: ['actual', 'happened', 'crash', 'error', 'not work', 'fail'], minMatch: 1, failMsg: "ลองพิมพ์ว่า crash / error / not work" },
-                { desc: 'พิมพ์คำเกี่ยวกับ severity', prompt: 'SYSTEM: How serious is the bug?\nYOU: [Type your answer]', keywords: ['high', 'medium', 'low', 'critical', 'serious'], minMatch: 1, failMsg: "ลองพิมพ์ระดับ high / medium / low" }
-            ]},
+  {
+    id: 8,
+    type: "speaking",
+    title: "S8: Presentation",
+    bank: {
+      easy: [
+        { desc: 'พูดตาม: "This is our app"', exactPhrase: "this is our app", failMsg: "พูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "It helps students"', exactPhrase: "it helps students", failMsg: "พูดให้ชัดอีกครั้ง" },
+        { desc: 'พูดตาม: "We built this project"', exactPhrase: "we built this project", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "The design is simple"', exactPhrase: "the design is simple", failMsg: "พูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "The system is useful"', exactPhrase: "the system is useful", failMsg: "พูดให้ชัดอีกครั้ง" }
+      ],
+      normal: [
+        { desc: 'พูดตาม: "This is our app for university students"', exactPhrase: "this is our app for university students", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "It helps students manage their tasks"', exactPhrase: "it helps students manage their tasks", failMsg: "พยายามพูดให้ครบ" },
+        { desc: 'พูดตาม: "We built this project with our team"', exactPhrase: "we built this project with our team", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "The design is simple and easy to use"', exactPhrase: "the design is simple and easy to use", failMsg: "พูดให้ชัดอีกครั้ง" },
+        { desc: 'พูดตาม: "The system is useful for daily study"', exactPhrase: "the system is useful for daily study", failMsg: "พูดให้ครบ" }
+      ],
+      hard: [
+        { desc: 'พูดตาม: "This is our app, and it helps students plan their work"', exactPhrase: "this is our app and it helps students plan their work", failMsg: "พูดให้ครบอีกครั้ง" },
+        { desc: 'พูดตาม: "We built this project to solve a real problem"', exactPhrase: "we built this project to solve a real problem", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "The design is simple, clean, and easy to understand"', exactPhrase: "the design is simple clean and easy to understand", failMsg: "พูดให้ชัดและครบ" },
+        { desc: 'พูดตาม: "Our team tested the system before the final presentation"', exactPhrase: "our team tested the system before the final presentation", failMsg: "พยายามพูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "We hope this app can help many students in the future"', exactPhrase: "we hope this app can help many students in the future", failMsg: "พูดให้ครบประโยค" }
+      ]
+    }
+  },
 
-            { id: 8, type: 'speaking', title: 'S8: Presentation', variations: [
-                { desc: 'พูดตาม: "Our application helps users manage their daily tasks"', exactPhrase: 'our application helps users manage their daily tasks', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "This feature improves the user experience significantly"', exactPhrase: 'this feature improves the user experience significantly', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "We designed this system for mobile and web platforms"', exactPhrase: 'we designed this system for mobile and web platforms', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "Our team focused on performance security and scalability"', exactPhrase: 'our team focused on performance security and scalability', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "The final prototype was tested by university students"', exactPhrase: 'the final prototype was tested by university students', failMsg: "พยายามพูดให้ชัดเจน" }
-            ]},
+  {
+    id: 9,
+    type: "reading",
+    title: "S9: Client Meeting",
+    bank: {
+      easy: [
+        { desc: "ตอบลูกค้า", question: "Client: Can you help us?", choices: ["A: Yes, we can help you.", "B: Help is a cloud.", "C: I drink the client."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: Is the app ready?", choices: ["A: It is almost ready.", "B: Ready is yellow.", "C: The app is my shoe."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: Can we meet tomorrow?", choices: ["A: Yes, tomorrow is fine.", "B: Tomorrow is a sandwich.", "C: We meet in a banana."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: Do you need more time?", choices: ["A: Yes, we need one more day.", "B: Time is a cat.", "C: One day is inside my bag."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: Can you send the file?", choices: ["A: Yes, I will send it today.", "B: The file is eating.", "C: I send on the moon."], answer: "A" }
+      ],
+      normal: [
+        { desc: "ตอบลูกค้า", question: "Client: When can you show the first version?", choices: ["A: We can show it next week.", "B: The first version is red.", "C: Next week is a keyboard."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: Can you change the color of the page?", choices: ["A: Yes, we can change it.", "B: The page changes me.", "C: Color is a table."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: Is this feature easy to use?", choices: ["A: Yes, it is simple and clear.", "B: Easy is a fish.", "C: The feature is asleep."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: Do you understand our problem?", choices: ["A: Yes, we understand your main problem.", "B: The problem is green tea.", "C: I understand the wall."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: Can we talk again on Friday?", choices: ["A: Yes, Friday afternoon is okay.", "B: Friday is a notebook.", "C: I talk to Friday every day."], answer: "A" }
+      ],
+      hard: [
+        { desc: "ตอบลูกค้า", question: "Client: Can you explain the benefit of this feature?", choices: ["A: Yes, it saves time and makes the work easier.", "B: Benefit is a banana on the floor.", "C: The feature benefits the window."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: How long do you need to finish the update?", choices: ["A: We need about two more days.", "B: Update is my breakfast.", "C: Two days are inside the door."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: Can your team test this on mobile too?", choices: ["A: Yes, we can test both web and mobile.", "B: Mobile is a flower.", "C: Testing is under the chair."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: What part of the system is ready now?", choices: ["A: The main page and login page are ready.", "B: Ready parts are invisible.", "C: The system is in my pocket."], answer: "A" },
+        { desc: "ตอบลูกค้า", question: "Client: Can you send a short summary after this meeting?", choices: ["A: Yes, I will send a short summary today.", "B: The summary is eating lunch.", "C: Meetings live in my bag."], answer: "A" }
+      ]
+    }
+  },
 
-            { id: 9, type: 'reading', title: 'S9: Client Meeting', variations: [
-                { desc: 'ตอบลูกค้าเรื่องเวลา', question: 'Client: When can you deliver the first version?', choices: ['A: We can deliver it next Friday.', 'B: Friday is a fish.', 'C: Delivery is blue.'], answer: 'A' },
-                { desc: 'ตอบลูกค้าเรื่องฟีเจอร์', question: 'Client: Can you add login with Google?', choices: ['A: Yes, we can add that feature in phase two.', 'B: Google is a fruit.', 'C: Login is sleeping.'], answer: 'A' },
-                { desc: 'ตอบลูกค้าเรื่องงบประมาณ', question: 'Client: Is this within our budget?', choices: ['A: We need to review the scope and cost first.', 'B: Budget is rain.', 'C: The answer is keyboard.'], answer: 'A' },
-                { desc: 'ตอบลูกค้าเรื่องแก้ไขงาน', question: 'Client: Can we revise the dashboard design?', choices: ['A: Yes, we can revise it after your feedback.', 'B: Dashboard is a mountain.', 'C: Revise means orange.'], answer: 'A' },
-                { desc: 'ตอบลูกค้าเรื่องประชุมต่อ', question: 'Client: Shall we schedule the next meeting?', choices: ['A: Yes, next Tuesday afternoon works for us.', 'B: Meeting is coffee.', 'C: Tuesday is a laptop.'], answer: 'A' }
-            ]},
+  {
+    id: 10,
+    type: "listening",
+    title: "S10: Global Team",
+    bank: {
+      easy: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send the file today.", choices: ["A: Send the file today.", "B: Buy a file.", "C: Sleep today."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the meeting at ten.", choices: ["A: Join the meeting at ten.", "B: Sleep at ten.", "C: Eat the meeting."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Open the web page now.", choices: ["A: Open the web page now.", "B: Close the web page now.", "C: Draw the web page."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Check the email again.", choices: ["A: Check the email again.", "B: Delete the email.", "C: Cook the email."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Update the task board.", choices: ["A: Update the task board.", "B: Throw the task board.", "C: Paint the task board red."], answer: "A" }
+      ],
+      normal: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please share your screen during the meeting.", choices: ["A: Share your screen during the meeting.", "B: Break the screen.", "C: Hide the meeting."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the call five minutes early.", choices: ["A: Join five minutes early.", "B: Be five minutes late.", "C: End the call now."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short summary after the class.", choices: ["A: Write a short summary after class.", "B: Delete the class.", "C: Sleep after class only."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please test the mobile version tonight.", choices: ["A: Test the mobile version tonight.", "B: Buy a mobile tonight.", "C: Throw away the version."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "We need to think about time zones.", choices: ["A: Think about time zones.", "B: Break the time zone.", "C: Time zones are shoes."], answer: "A" }
+      ],
+      hard: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please deploy the latest version to the test server before lunch.", choices: ["A: Deploy the latest version before lunch.", "B: Eat the server at lunch.", "C: Delete the latest version."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Move the meeting to three p m because the client is busy.", choices: ["A: Move the meeting to three p m.", "B: Cancel the client forever.", "C: The meeting is in the bag."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send the documentation to the Singapore team.", choices: ["A: Send the documentation to the Singapore team.", "B: Travel to Singapore now.", "C: Hide the documentation."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "We need more testing on the mobile app before release.", choices: ["A: We need more testing before release.", "B: Release it now without testing.", "C: The app is testing us."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "The backend team will update the api after the maintenance window.", choices: ["A: The backend team will update the api later.", "B: The window will update the team.", "C: There is no api."], answer: "A" }
+      ]
+    }
+  },
 
-            { id: 10, type: 'listening', title: 'S10: Global Team Final', variations: [
-                { desc: 'ฟังคำสั่งทีมข้ามชาติ', audioText: 'Please deploy the latest version to the staging server before noon.', choices: ['A: Update the design color.', 'B: Deploy the latest version to staging before noon.', 'C: Buy a new laptop.'], answer: 'B' },
-                { desc: 'ฟังคำสั่งเรื่องประชุม', audioText: 'Let us move the meeting to three p m because the client is busy.', choices: ['A: The meeting is cancelled forever.', 'B: Move the meeting to three p m.', 'C: The client likes pizza.'], answer: 'B' },
-                { desc: 'ฟังคำสั่งเรื่องเอกสาร', audioText: 'Please share the project documentation with the Singapore team.', choices: ['A: Share the project documentation with the Singapore team.', 'B: Delete the project.', 'C: Travel to Singapore now.'], answer: 'A' },
-                { desc: 'ฟังคำสั่งเรื่องทดสอบ', audioText: 'We need more testing on the mobile version before release.', choices: ['A: Release it now without testing.', 'B: We need more testing on the mobile version.', 'C: Mobile phones are expensive.'], answer: 'B' },
-                { desc: 'ฟังคำสั่งเรื่อง API', audioText: 'The backend team will update the api tonight after the maintenance window.', choices: ['A: The backend team will update the api tonight.', 'B: The api is a window.', 'C: There is no backend team.'], answer: 'A' }
-            ]},
+  {
+    id: 11,
+    type: "writing",
+    title: "S11: Data and AI",
+    bank: {
+      easy: [
+        { desc: "พิมพ์คำ AI 1 คำ", prompt: "SYSTEM: Type one AI word.\nYOU:", keywords: ["ai", "model", "data", "chatbot", "prompt"], minMatch: 1, failMsg: "ลองพิมพ์ ai หรือ model" },
+        { desc: "พิมพ์คำ data 1 คำ", prompt: "SYSTEM: Type one data word.\nYOU:", keywords: ["data", "table", "file", "chart", "label"], minMatch: 1, failMsg: "ลองพิมพ์ data หรือ table" },
+        { desc: "พิมพ์คำ machine learning 1 คำ", prompt: "SYSTEM: Type one machine learning word.\nYOU:", keywords: ["training", "testing", "prediction", "accuracy"], minMatch: 1, failMsg: "ลองพิมพ์ training หรือ testing" },
+        { desc: "พิมพ์คำ ethics 1 คำ", prompt: "SYSTEM: Type one ethics word.\nYOU:", keywords: ["privacy", "fairness", "bias", "safety"], minMatch: 1, failMsg: "ลองพิมพ์ privacy หรือ fairness" },
+        { desc: "พิมพ์คำ deployment 1 คำ", prompt: "SYSTEM: Type one deployment word.\nYOU:", keywords: ["deploy", "monitor", "server", "update"], minMatch: 1, failMsg: "ลองพิมพ์ deploy หรือ server" }
+      ],
+      normal: [
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ AI", prompt: "SYSTEM: Type two AI words.\nYOU:", keywords: ["ai", "model", "prompt", "chatbot", "data"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น ai model" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ data", prompt: "SYSTEM: Type two data words.\nYOU:", keywords: ["data", "table", "chart", "label", "file"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น data chart" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ learning", prompt: "SYSTEM: Type two learning words.\nYOU:", keywords: ["training", "testing", "prediction", "accuracy"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น training testing" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ ethics", prompt: "SYSTEM: Type two ethics words.\nYOU:", keywords: ["privacy", "fairness", "bias", "safety"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น privacy fairness" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ deploy", prompt: "SYSTEM: Type two deploy words.\nYOU:", keywords: ["deploy", "server", "monitor", "update"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น deploy server" }
+      ],
+      hard: [
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ AI", prompt: "SYSTEM: Write a short sentence about AI.\nYOU:", keywords: ["ai", "can", "help", "people", "work"], minMatch: 3, failMsg: "ลองพิมพ์เช่น ai can help people" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ data", prompt: "SYSTEM: Write a short sentence about data.\nYOU:", keywords: ["data", "is", "useful", "for", "analysis"], minMatch: 3, failMsg: "ลองพิมพ์เช่น data is useful" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ training", prompt: "SYSTEM: Write a short sentence about model training.\nYOU:", keywords: ["the", "model", "needs", "training", "data"], minMatch: 3, failMsg: "ลองพิมพ์เช่น the model needs data" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ ethics", prompt: "SYSTEM: Write a short sentence about AI ethics.\nYOU:", keywords: ["ai", "needs", "fairness", "and", "privacy"], minMatch: 3, failMsg: "ลองพิมพ์เช่น ai needs fairness and privacy" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ deployment", prompt: "SYSTEM: Write a short sentence about deployment.\nYOU:", keywords: ["we", "test", "before", "deploy", "the", "model"], minMatch: 3, failMsg: "ลองพิมพ์เช่น we test before deploy" }
+      ]
+    }
+  },
 
-            { id: 11, type: 'writing', title: 'S11: Data & AI', variations: [
-                { desc: 'พิมพ์คำเกี่ยวกับ data science', prompt: 'SYSTEM: Name one important concept in data science.\nYOU: [Type your answer]', keywords: ['data', 'model', 'dataset', 'training', 'testing', 'feature', 'label'], minMatch: 1, failMsg: "ลองพิมพ์คำอย่าง model / dataset / feature" },
-                { desc: 'พิมพ์คำเกี่ยวกับ machine learning', prompt: 'SYSTEM: Name one machine learning term.\nYOU: [Type your answer]', keywords: ['algorithm', 'accuracy', 'loss', 'classification', 'regression', 'prediction'], minMatch: 1, failMsg: "ลองพิมพ์คำอย่าง algorithm / accuracy" },
-                { desc: 'พิมพ์คำเกี่ยวกับ ai ethics', prompt: 'SYSTEM: Name one AI ethics concern.\nYOU: [Type your answer]', keywords: ['bias', 'privacy', 'fairness', 'security', 'ethics'], minMatch: 1, failMsg: "ลองพิมพ์คำอย่าง bias / privacy / fairness" },
-                { desc: 'พิมพ์คำเกี่ยวกับ deployment', prompt: 'SYSTEM: What is needed before AI deployment?\nYOU: [Type your answer]', keywords: ['testing', 'validation', 'monitoring', 'deployment', 'model'], minMatch: 1, failMsg: "ลองพิมพ์คำอย่าง testing / validation" },
-                { desc: 'พิมพ์คำเกี่ยวกับ prompt engineering', prompt: 'SYSTEM: Name one skill used in prompt engineering.\nYOU: [Type your answer]', keywords: ['prompt', 'context', 'instruction', 'clarity', 'examples'], minMatch: 1, failMsg: "ลองพิมพ์คำอย่าง context / instruction / examples" }
-            ]},
+  {
+    id: 12,
+    type: "speaking",
+    title: "S12: Problem Solving",
+    bank: {
+      easy: [
+        { desc: 'พูดตาม: "We find the problem"', exactPhrase: "we find the problem", failMsg: "พูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "We test the system"', exactPhrase: "we test the system", failMsg: "พูดให้ชัดอีกครั้ง" },
+        { desc: 'พูดตาม: "We fix the bug"', exactPhrase: "we fix the bug", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "We check the result"', exactPhrase: "we check the result", failMsg: "ลองพูดใหม่" },
+        { desc: 'พูดตาม: "We help the user"', exactPhrase: "we help the user", failMsg: "พูดให้ชัดอีกครั้ง" }
+      ],
+      normal: [
+        { desc: 'พูดตาม: "First we find the main problem"', exactPhrase: "first we find the main problem", failMsg: "พูดให้ครบ" },
+        { desc: 'พูดตาม: "Then we test the system again"', exactPhrase: "then we test the system again", failMsg: "พูดให้ชัดอีกครั้ง" },
+        { desc: 'พูดตาม: "Next we fix the bug together"', exactPhrase: "next we fix the bug together", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "After that we check the result"', exactPhrase: "after that we check the result", failMsg: "พูดให้ครบ" },
+        { desc: 'พูดตาม: "Finally we help the user solve it"', exactPhrase: "finally we help the user solve it", failMsg: "พูดให้ชัดอีกครั้ง" }
+      ],
+      hard: [
+        { desc: 'พูดตาม: "First we find the main problem in the system"', exactPhrase: "first we find the main problem in the system", failMsg: "พูดให้ครบอีกครั้ง" },
+        { desc: 'พูดตาม: "Then we test the system and collect the result"', exactPhrase: "then we test the system and collect the result", failMsg: "พูดให้ชัดและครบ" },
+        { desc: 'พูดตาม: "Next we fix the bug with the help of our team"', exactPhrase: "next we fix the bug with the help of our team", failMsg: "พยายามพูดให้ครบ" },
+        { desc: 'พูดตาม: "After that we check the result and improve the page"', exactPhrase: "after that we check the result and improve the page", failMsg: "ลองพูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "Finally we help the user with a better solution"', exactPhrase: "finally we help the user with a better solution", failMsg: "พูดให้ครบประโยค" }
+      ]
+    }
+  },
 
-            { id: 12, type: 'speaking', title: 'S12: Problem Solving', variations: [
-                { desc: 'พูดตาม: "First we identify the root cause of the problem"', exactPhrase: 'first we identify the root cause of the problem', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "Then we propose a practical solution for the client"', exactPhrase: 'then we propose a practical solution for the client', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "We also compare several options before making a decision"', exactPhrase: 'we also compare several options before making a decision', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "Finally we evaluate the results and improve the system"', exactPhrase: 'finally we evaluate the results and improve the system', failMsg: "พยายามพูดให้ชัดเจน" },
-                { desc: 'พูดตาม: "Good engineers solve problems with logic and teamwork"', exactPhrase: 'good engineers solve problems with logic and teamwork', failMsg: "พยายามพูดให้ชัดเจน" }
-            ]},
+  {
+    id: 13,
+    type: "reading",
+    title: "S13: Career Path",
+    bank: {
+      easy: [
+        { desc: "ตอบ HR", question: "HR: What job do you want?", choices: ["A: I want to be a developer.", "B: I want to be a spoon.", "C: I want to be inside the wall."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Do you have skills?", choices: ["A: Yes, I can code and design.", "B: My skill is pizza.", "C: Skills are sleeping."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Can you work in a team?", choices: ["A: Yes, I can work in a team.", "B: Teamwork is my notebook.", "C: I work in a team of chairs."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Do you learn quickly?", choices: ["A: Yes, I learn quickly.", "B: Learning is a window.", "C: Quickly is my bag."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Did you do a project?", choices: ["A: Yes, I did a university project.", "B: Project is a juice.", "C: I project the floor."], answer: "A" }
+      ],
+      normal: [
+        { desc: "ตอบ HR", question: "HR: What role are you applying for?", choices: ["A: I am applying for a software developer role.", "B: I am applying for a banana role.", "C: I am a role of the desk."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: What technical skills do you have?", choices: ["A: I can use Python and JavaScript.", "B: I can use Monday and blue.", "C: I have technical apples."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Did you complete an internship?", choices: ["A: Yes, I had an internship last summer.", "B: Summer completed me.", "C: Internship is a chair."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: How do you improve yourself?", choices: ["A: I practice coding and study online.", "B: I improve by sleeping on books.", "C: Improvement is a fish."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Why do you want this job?", choices: ["A: I want to learn and grow in this role.", "B: The job is a sandwich.", "C: I want this job because it is purple."], answer: "A" }
+      ],
+      hard: [
+        { desc: "ตอบ HR", question: "HR: What kind of company do you want to join?", choices: ["A: I want to join a company with a good team and learning culture.", "B: I want to join a company inside my pencil.", "C: Companies are made of oranges."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: How do your projects help your career?", choices: ["A: My projects help me practice real skills and teamwork.", "B: My career is under my laptop.", "C: Projects are sleeping in my bag."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Can you describe one strength you have?", choices: ["A: I am good at communication and solving problems.", "B: My strength is a bus stop.", "C: I solve with sandwiches."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: What are you doing to improve your English?", choices: ["A: I practice speaking and listening every day.", "B: English is a yellow box.", "C: I improve English by hiding it."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: What do you want to do after graduation?", choices: ["A: I want to work and keep learning in tech.", "B: Graduation is my breakfast.", "C: I want to become a chair of success."], answer: "A" }
+      ]
+    }
+  },
 
-            { id: 13, type: 'reading', title: 'S13: Career Path', variations: [
-                { desc: 'เลือกคำตอบเรื่องตำแหน่งงาน', question: 'HR: What role are you applying for?', choices: ['A: I am applying for a software developer position.', 'B: I am applying for lunch.', 'C: I am a chair.'], answer: 'A' },
-                { desc: 'เลือกคำตอบเรื่องทักษะ', question: 'HR: What technical skills do you have?', choices: ['A: I have experience with javascript and python.', 'B: I have experience with sleeping.', 'C: I am a keyboard.'], answer: 'A' },
-                { desc: 'เลือกคำตอบเรื่องฝึกงาน', question: 'HR: Did you complete any internships?', choices: ['A: Yes, I interned at a startup last summer.', 'B: Summer is cold.', 'C: Internship is a sandwich.'], answer: 'A' },
-                { desc: 'เลือกคำตอบเรื่อง teamwork', question: 'HR: Can you work in a team?', choices: ['A: Yes, I enjoy collaboration and communication.', 'B: Team is a color.', 'C: I only talk to clouds.'], answer: 'A' },
-                { desc: 'เลือกคำตอบเรื่องการเรียนรู้', question: 'HR: How do you improve your skills?', choices: ['A: I practice coding and learn from projects.', 'B: I improve by sleeping.', 'C: I improve by silence only.'], answer: 'A' }
-            ]},
+  {
+    id: 14,
+    type: "listening",
+    title: "S14: Remote Work",
+    bank: {
+      easy: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Turn on your camera.", choices: ["A: Turn on your camera.", "B: Turn off your homework.", "C: Eat the camera."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Share your screen now.", choices: ["A: Share your screen now.", "B: Break your screen now.", "C: Hide the screen in a bag."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the call early.", choices: ["A: Join the call early.", "B: Leave the call early.", "C: Draw the call."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Check your microphone.", choices: ["A: Check your microphone.", "B: Eat your microphone.", "C: Throw the microphone away."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short note.", choices: ["A: Write a short note.", "B: Sleep on the note.", "C: Paint the note green."], answer: "A" }
+      ],
+      normal: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please turn on your camera during the demo.", choices: ["A: Turn on your camera during the demo.", "B: Turn off the demo forever.", "C: Put the camera in the box."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the online meeting five minutes early.", choices: ["A: Join five minutes early.", "B: Join fifty minutes late.", "C: Eat before the meeting only."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please update the task board before the meeting.", choices: ["A: Update the task board before the meeting.", "B: Delete the task board.", "C: Break the meeting."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short summary after the call.", choices: ["A: Write a short summary after the call.", "B: Close the summary.", "C: Sleep during the call."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Test your internet connection before class.", choices: ["A: Test your internet connection before class.", "B: Turn off the internet before class.", "C: Put class in the internet."], answer: "A" }
+      ],
+      hard: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please share your screen and explain the main feature to the team.", choices: ["A: Share your screen and explain the main feature.", "B: Hide the feature and close the team.", "C: Put the team on your screen."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "We should think about different time zones before planning the meeting.", choices: ["A: Think about different time zones before planning.", "B: Ignore all time zones today.", "C: Buy a new time zone."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send the meeting notes to everyone after the call.", choices: ["A: Send the meeting notes after the call.", "B: Delete the notes after the call.", "C: Sleep on the notes."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Check the microphone and camera before the online presentation.", choices: ["A: Check the microphone and camera before the presentation.", "B: Throw away the camera before the presentation.", "C: Present to the microphone only."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please keep your message short and clear in the group chat.", choices: ["A: Keep the message short and clear.", "B: Write a very long message only.", "C: Send your shoes to the chat."], answer: "A" }
+      ]
+    }
+  },
 
-            { id: 14, type: 'listening', title: 'S14: Remote Work', variations: [
-                { desc: 'ฟังคำสั่ง remote team', audioText: 'Please turn on your camera and share your screen during the demo.', choices: ['A: Turn on the camera and share the screen during the demo.', 'B: Buy a new camera today.', 'C: Cancel the demo.'], answer: 'A' },
-                { desc: 'ฟังคำสั่งเรื่อง online meeting', audioText: 'Join the online meeting five minutes early to test your microphone.', choices: ['A: Join five minutes early to test the microphone.', 'B: Sleep five minutes more.', 'C: Turn off the internet.'], answer: 'A' },
-                { desc: 'ฟังคำสั่งเรื่อง task update', audioText: 'Please update the task board before the daily stand up meeting.', choices: ['A: Update the task board before the stand up meeting.', 'B: Delete the task board.', 'C: Never attend the meeting.'], answer: 'A' },
-                { desc: 'ฟังคำสั่งเรื่อง documentation', audioText: 'Write a short summary after the meeting and send it to the team.', choices: ['A: Write a short summary and send it to the team.', 'B: Throw away the summary.', 'C: Close the laptop forever.'], answer: 'A' },
-                { desc: 'ฟังคำสั่งเรื่อง timezone', audioText: 'We need to consider different time zones when planning our schedule.', choices: ['A: Consider different time zones when planning.', 'B: Ignore everyone.', 'C: Time zone is a shoe.'], answer: 'A' }
-            ]},
+  {
+    id: 15,
+    type: "writing",
+    title: "S15: Graduation Final",
+    bank: {
+      easy: [
+        { desc: "พิมพ์เป้าหมาย 1 คำ", prompt: "SYSTEM: Type one future goal word.\nYOU:", keywords: ["work", "job", "study", "master", "developer"], minMatch: 1, failMsg: "ลองพิมพ์ work หรือ developer" },
+        { desc: "พิมพ์ skill 1 คำ", prompt: "SYSTEM: Type one skill word.\nYOU:", keywords: ["coding", "teamwork", "english", "design", "testing"], minMatch: 1, failMsg: "ลองพิมพ์ coding หรือ teamwork" },
+        { desc: "พิมพ์ project 1 คำ", prompt: "SYSTEM: Type one project word.\nYOU:", keywords: ["app", "web", "system", "ai", "mobile"], minMatch: 1, failMsg: "ลองพิมพ์ app หรือ system" },
+        { desc: "พิมพ์ thank you 1 คำ", prompt: "SYSTEM: Type one thank word.\nYOU:", keywords: ["thank", "thanks", "grateful"], minMatch: 1, failMsg: "ลองพิมพ์ thank หรือ thanks" },
+        { desc: "พิมพ์ dream 1 คำ", prompt: "SYSTEM: Type one dream word.\nYOU:", keywords: ["future", "dream", "goal", "success"], minMatch: 1, failMsg: "ลองพิมพ์ dream หรือ goal" }
+      ],
+      normal: [
+        { desc: "พิมพ์เป้าหมายสั้น ๆ", prompt: "SYSTEM: Write a short future goal.\nYOU:", keywords: ["i", "want", "to", "work", "developer"], minMatch: 3, failMsg: "ลองพิมพ์เช่น i want to work" },
+        { desc: "พิมพ์ skill ที่ชอบ", prompt: "SYSTEM: Write a short skill sentence.\nYOU:", keywords: ["i", "like", "coding", "teamwork", "design"], minMatch: 3, failMsg: "ลองพิมพ์เช่น i like coding" },
+        { desc: "พิมพ์ project ที่อยากทำ", prompt: "SYSTEM: Write a short dream project sentence.\nYOU:", keywords: ["i", "want", "build", "app", "system"], minMatch: 3, failMsg: "ลองพิมพ์เช่น i want build app" },
+        { desc: "พิมพ์แผนเรียนต่อ", prompt: "SYSTEM: Write a short study plan.\nYOU:", keywords: ["i", "want", "study", "more", "english", "ai"], minMatch: 3, failMsg: "ลองพิมพ์เช่น i want study more" },
+        { desc: "พิมพ์ thank you message สั้น ๆ", prompt: "SYSTEM: Write a short thank you message.\nYOU:", keywords: ["thank", "you", "for", "your", "help"], minMatch: 3, failMsg: "ลองพิมพ์เช่น thank you for your help" }
+      ],
+      hard: [
+        { desc: "พิมพ์ประโยคเป้าหมายหลังเรียนจบ", prompt: "SYSTEM: Write your goal after graduation.\nYOU:", keywords: ["after", "graduation", "i", "want", "to", "work"], minMatch: 4, failMsg: "ลองพิมพ์เช่น after graduation i want to work" },
+        { desc: "พิมพ์ประโยคสิ่งที่ภูมิใจ", prompt: "SYSTEM: Write one sentence about a skill you are proud of.\nYOU:", keywords: ["i", "am", "proud", "of", "my", "coding", "skill"], minMatch: 4, failMsg: "ลองพิมพ์เช่น i am proud of my coding skill" },
+        { desc: "พิมพ์ประโยคสิ่งที่อยากพัฒนา", prompt: "SYSTEM: Write one sentence about what you want to improve.\nYOU:", keywords: ["i", "want", "to", "improve", "my", "english", "skills"], minMatch: 4, failMsg: "ลองพิมพ์เช่น i want to improve my english" },
+        { desc: "พิมพ์ประโยค dream project", prompt: "SYSTEM: Write one sentence about your dream project.\nYOU:", keywords: ["my", "dream", "project", "is", "an", "app", "for"], minMatch: 4, failMsg: "ลองพิมพ์เช่น my dream project is an app" },
+        { desc: "พิมพ์ข้อความขอบคุณแบบเต็ม", prompt: "SYSTEM: Write a full thank you sentence.\nYOU:", keywords: ["thank", "you", "for", "your", "support", "and", "help"], minMatch: 4, failMsg: "ลองพิมพ์เช่น thank you for your support and help" }
+      ]
+    }
+  }
+];
 
-            { id: 15, type: 'writing', title: 'S15: Graduation Final', variations: [
-                { desc: 'พิมพ์เป้าหมายหลังเรียนจบ', prompt: 'SYSTEM: What do you want to do after graduation?\nYOU: [Type your answer]', keywords: ['work', 'engineer', 'developer', 'ai', 'software', 'company', 'startup', 'master'], minMatch: 1, failMsg: "ลองพิมพ์เป้าหมาย เช่น work as a developer" },
-                { desc: 'พิมพ์ทักษะที่ภาคภูมิใจ', prompt: 'SYSTEM: What skill are you most proud of?\nYOU: [Type your answer]', keywords: ['coding', 'communication', 'teamwork', 'problem solving', 'design', 'analysis'], minMatch: 1, failMsg: "ลองพิมพ์ skill ที่คุณภูมิใจ" },
-                { desc: 'พิมพ์สิ่งที่อยากพัฒนาเพิ่ม', prompt: 'SYSTEM: What do you still want to improve?\nYOU: [Type your answer]', keywords: ['english', 'coding', 'leadership', 'ai', 'presentation', 'backend', 'frontend'], minMatch: 1, failMsg: "ลองพิมพ์สิ่งที่อยากพัฒนา เช่น english or backend" },
-                { desc: 'พิมพ์ dream project', prompt: 'SYSTEM: Describe your dream project.\nYOU: [Type your answer]', keywords: ['application', 'platform', 'ai', 'web', 'mobile', 'system', 'health', 'education'], minMatch: 1, failMsg: "ลองพิมพ์ project ที่คุณอยากสร้าง" },
-                { desc: 'พิมพ์คำขอบคุณ', prompt: 'SYSTEM: Write one short thank you message.\nYOU: [Type your answer]', keywords: ['thank', 'thanks', 'grateful', 'appreciate'], minMatch: 1, failMsg: "ลองพิมพ์ thank you message สั้น ๆ" }
-            ]}
-        ];
+export function getMissionBank(sessionId, difficulty = "normal") {
+  const mission = missionDB.find(m => m.id === sessionId);
+  if (!mission) return [];
+  return mission.bank?.[difficulty] || mission.bank?.normal || [];
+}
+
+export function pickMissionItem(sessionId, difficulty = "normal") {
+  const bank = getMissionBank(sessionId, difficulty);
+  if (!bank.length) return null;
+  const randomIndex = Math.floor(Math.random() * bank.length);
+  return { ...bank[randomIndex] };
+}
+
+export function pickAdaptiveMissionItem(sessionId, mode = "normal", aiState = { pressure: 0, support: 0 }) {
+  const mission = missionDB.find(m => m.id === sessionId);
+  if (!mission) return null;
+
+  let targetDiff = mode;
+
+  if (aiState.support >= 2) {
+    targetDiff = "easy";
+  } else if (aiState.pressure >= 2) {
+    targetDiff = "hard";
+  }
+
+  const bank = mission.bank?.[targetDiff] || mission.bank?.normal || [];
+  if (!bank.length) return null;
+
+  const randomIndex = Math.floor(Math.random() * bank.length);
+  return {
+    ...bank[randomIndex],
+    _selectedDifficulty: targetDiff
+  };
+}
