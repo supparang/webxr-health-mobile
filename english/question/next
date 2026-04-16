@@ -1,0 +1,9 @@
+{
+  "questionId": "Q_001",
+  "type": "speaking",
+  "promptText": "Say the sentence clearly",
+  "questionText": "I need to test the app before deployment.",
+  "choices": [],
+  "audioUrl": "https://example.com/audio/q001.mp3",
+  "timeLimitSec": 12
+}
