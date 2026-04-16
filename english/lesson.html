@@ -22,7 +22,7 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260416-slim-ui-final';
+    window.TECHPATH_BUILD = 'v20260416-slim-ui-prompt-final';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -89,6 +89,11 @@
 
     <div id="timer" style="display:none;">01:00</div>
 
+    <div id="mission-prompt-box" style="display:none;">
+      <div id="mission-prompt-label">PROMPT</div>
+      <div id="mission-prompt-text">...</div>
+    </div>
+
     <div id="boss-phase-ui" style="display:none;">
       <div id="boss-phase-title">👑 FINAL BOSS</div>
       <div id="boss-phase-sub">ตอบถูกหลายครั้งเพื่อล้มบอส</div>
@@ -134,7 +139,6 @@
 
   <a-scene loading-screen="enabled: false">
 
-    <!-- HUB -->
     <a-entity id="hub-scene">
       <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
 
@@ -184,13 +188,11 @@
       </a-entity>
     </a-entity>
 
-    <!-- GLOBAL BOSS -->
     <a-entity id="hackerBoss" visible="false" position="0 3 -15">
       <a-box color="#ff0000" width="1.5" height="1.5" depth="1.5" animation="property: rotation; to: 360 360 360; dur: 3000; loop: true; easing: linear"></a-box>
       <a-text value="VIRUS / HACKER" color="#ff4757" position="0 1.2 0" align="center" scale="2 2 2"></a-text>
     </a-entity>
 
-    <!-- SPEAKING -->
     <a-entity id="mission-speaking-scene" visible="false">
       <a-entity environment="preset: volcano; skyColor: #ff0000"></a-entity>
       <a-entity position="0 1.6 -3.5">
@@ -200,7 +202,6 @@
       <a-text id="speaking-prompt" value="PROMPT TEXT" position="0 3 -3" align="center" color="#ff4757"></a-text>
     </a-entity>
 
-    <!-- READING -->
     <a-entity id="mission-reading-scene" visible="false">
       <a-entity environment="preset: arches; skyColor: #550000"></a-entity>
       <a-entity position="0 1.6 -3.5">
@@ -227,7 +228,6 @@
       </a-entity>
     </a-entity>
 
-    <!-- LISTENING -->
     <a-entity id="mission-listening-scene" visible="false">
       <a-entity environment="preset: forest; skyColor: #ff2222"></a-entity>
       <a-entity position="0 1.6 -3.5">
@@ -253,7 +253,6 @@
       </a-entity>
     </a-entity>
 
-    <!-- WRITING -->
     <a-entity id="mission-writing-scene" visible="false">
       <a-entity environment="preset: starry; skyColor: #aa0000"></a-entity>
       <a-plane position="0 1.5 -3" width="4" height="2" color="#ecf0f1">
@@ -261,7 +260,6 @@
       </a-plane>
     </a-entity>
 
-    <!-- VR FEEDBACK -->
     <a-entity id="vr-feedback-fx" position="0 2.5 -2.5" visible="false">
       <a-text id="vr-feedback-text" value="SUCCESS!" align="center" scale="1.5 1.5 1.5" color="#2ed573"></a-text>
     </a-entity>
