@@ -290,6 +290,7 @@
   let phase = 'idle', phaseUntil = 0, roundStart = 0, roundDuration = 6000, timeLeft = 1, raf = 0;
   let profile = { displayName: 'Player', studentId: '' };
   let lastSummary = null;
+  let leaderboardOpenedFromEnd = false;
 
   function resize(){
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -643,6 +644,7 @@
 
     phase = 'ended';
     targets = [];
+    V8.currentItem = null;
     hoveredId = null;
     timeLeft = 0;
 
@@ -844,7 +846,10 @@
   }, { passive:true });
 
   document.getElementById('startBtn').addEventListener('click', startLearningRun);
-  document.getElementById('leaderboardBtn').addEventListener('click', openLeaderboard);
+  document.getElementById('leaderboardBtn').addEventListener('click', () => {
+    leaderboardOpenedFromEnd = false;
+    openLeaderboard();
+  });
   document.getElementById('teacherLinkBtn').addEventListener('click', () => {
     els.teacherLinkOutput.value = '';
     els.teacherLinkWrap.classList.remove('hidden');
@@ -865,6 +870,7 @@
     startLearningRun();
   });
   document.getElementById('endLeaderboardBtn').addEventListener('click', () => {
+    leaderboardOpenedFromEnd = true;
     els.endWrap.classList.add('hidden');
     openLeaderboard();
   });
@@ -873,7 +879,18 @@
     els.questionBox.classList.remove('hidden');
     els.menu.classList.remove('hidden');
   });
-  document.getElementById('closeLeaderboardBtn').addEventListener('click', () => els.leaderboardWrap.classList.add('hidden'));
+  document.getElementById('closeLeaderboardBtn').addEventListener('click', () => {
+    els.leaderboardWrap.classList.add('hidden');
+
+    if (leaderboardOpenedFromEnd || phase === 'ended') {
+      els.endWrap.classList.remove('hidden');
+      return;
+    }
+
+    if (els.menu) {
+      els.menu.classList.remove('hidden');
+    }
+  });
   document.getElementById('clearLeaderboardBtn').addEventListener('click', () => { localStorage.removeItem(LEADERBOARD_KEY); renderLeaderboard(); });
   document.getElementById('closeTeacherBtn').addEventListener('click', () => {
     els.teacherWrap.classList.add('hidden');
