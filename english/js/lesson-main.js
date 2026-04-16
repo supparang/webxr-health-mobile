@@ -1,3 +1,339 @@
+n.frame?.setAttribute("color", "#ffeaa7");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.44");
+    n.aura?.setAttribute("color", "#ffeaa7");
+    n.aura?.setAttribute("material", "opacity: 0.20; shader: flat");
+    n.body?.setAttribute("color", "#8c6239");
+    n.lid?.setAttribute("color", "#f1c40f");
+    n.text.setAttribute("value", `Streak: ${streak} Days${safeNote || "\nTap to Claim"}`);
+    n.text.setAttribute("color", "#ffffff");
+    n.root.setAttribute("animation__float", "property: position; dir: alternate; dur: 1050; loop: true; to: -3.72 0.82 -3.08; easing: easeInOutSine");
+    n.aura?.setAttribute("animation__pulse", "property: material.opacity; dir: alternate; dur: 800; loop: true; from: 0.14; to: 0.30; easing: easeInOutSine");
+    n.lid?.setAttribute("animation__gleam", "property: rotation; dir: alternate; dur: 1200; loop: true; to: 0 0 3; easing: easeInOutSine");
+    n.frame?.setAttribute("animation__frame", "property: material.opacity; dir: alternate; dur: 900; loop: true; from: 0.26; to: 0.52; easing: easeInOutSine");
+    return;
+  }
+
+  if (mode === "claimed") {
+    n.panel?.setAttribute("color", "#101826");
+    n.frame?.setAttribute("color", rarityColor);
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.34");
+    n.aura?.setAttribute("color", rarityColor);
+    n.aura?.setAttribute("material", "opacity: 0.18; shader: flat");
+    n.body?.setAttribute("color", "#8c6239");
+    n.lid?.setAttribute("color", rarityColor);
+    n.text.setAttribute("value", `Streak: ${streak} Days${safeNote || "\nClaimed"}`);
+    n.text.setAttribute("color", "#ffffff");
+    n.aura?.setAttribute("animation__pulse", "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.10; to: 0.20; easing: easeInOutSine");
+    return;
+  }
+
+  if (mode === "error") {
+    n.panel?.setAttribute("color", "#1b1220");
+    n.frame?.setAttribute("color", "#ff6b81");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.36");
+    n.aura?.setAttribute("color", "#ff6b81");
+    n.aura?.setAttribute("material", "opacity: 0.12; shader: flat");
+    n.body?.setAttribute("color", "#8c6239");
+    n.lid?.setAttribute("color", "#c97a7a");
+    n.text.setAttribute("value", note || "Reward Offline");
+    n.text.setAttribute("color", "#ffd6db");
+    return;
+  }
+
+  n.panel?.setAttribute("color", "#0f172a");
+  n.frame?.setAttribute("color", "#7bedff");
+  n.frame?.setAttribute("material", "wireframe: true; opacity: 0.26");
+  n.aura?.setAttribute("color", "#7bedff");
+  n.aura?.setAttribute("material", "opacity: 0.10; shader: flat");
+  n.body?.setAttribute("color", "#8c6239");
+  n.lid?.setAttribute("color", "#8fa7b3");
+  n.text.setAttribute("value", `Streak: ${streak} Days${safeNote}`);
+  n.text.setAttribute("color", "#ffffff");
+}
+
+function playRewardChestClaimFX(rarityColor = "#ffeaa7") {
+  const n = getRewardChestNodes();
+  if (!n.root) return;
+
+  clearRewardChestFX();
+  n.frame?.setAttribute("color", rarityColor);
+  n.aura?.setAttribute("color", rarityColor);
+  n.lid?.setAttribute("color", rarityColor);
+  n.root.setAttribute("animation__claim", "property: scale; dur: 260; dir: alternate; loop: 2; to: 1.08 1.08 1.08; easing: easeOutBack");
+  n.aura?.setAttribute("animation__claim", "property: scale; dur: 360; dir: alternate; loop: 2; to: 1.18 1.18 1.18; easing: easeOutQuad");
+}
+
+function getLeaderboardNodes() {
+  return {
+    panel: $("leaderboard-panel"),
+    frame: $("leaderboard-frame"),
+    header: $("leaderboard-header-panel"),
+    title: $("leaderboard-title"),
+    subtitle: $("leaderboard-subtitle"),
+    list: $("vr-leaderboard-list")
+  };
+}
+
+function clearLeaderboardFX() {
+  const n = getLeaderboardNodes();
+  n.frame?.removeAttribute("animation__frame");
+  n.panel?.removeAttribute("animation__panel");
+}
+
+function setLeaderboardBoardState(mode = "idle") {
+  const n = getLeaderboardNodes();
+  if (!n.list) return;
+  clearLeaderboardFX();
+
+  if (mode === "active") {
+    n.panel?.setAttribute("color", "#101826");
+    n.frame?.setAttribute("color", "#7bedff");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.34");
+    n.header?.setAttribute("color", "#152238");
+    n.title?.setAttribute("color", "#ffeaa7");
+    n.subtitle?.setAttribute("color", "#cbd5e1");
+    n.list.setAttribute("color", "#ffffff");
+    n.frame?.setAttribute("animation__frame", "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.22; to: 0.36; easing: easeInOutSine");
+    return;
+  }
+
+  if (mode === "empty") {
+    n.panel?.setAttribute("color", "#101826");
+    n.frame?.setAttribute("color", "#94a3b8");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.22");
+    n.header?.setAttribute("color", "#152238");
+    n.title?.setAttribute("color", "#dbeafe");
+    n.subtitle?.setAttribute("color", "#94a3b8");
+    n.list.setAttribute("color", "#dbeafe");
+    return;
+  }
+
+  if (mode === "error") {
+    n.panel?.setAttribute("color", "#1b1220");
+    n.frame?.setAttribute("color", "#ff6b81");
+    n.frame?.setAttribute("material", "wireframe: true; opacity: 0.34");
+    n.header?.setAttribute("color", "#26151d");
+    n.title?.setAttribute("color", "#ffd6db");
+    n.subtitle?.setAttribute("color", "#ffb3c1");
+    n.list.setAttribute("color", "#ffd6db");
+    return;
+  }
+
+  n.panel?.setAttribute("color", "#101826");
+  n.frame?.setAttribute("color", "#7bedff");
+  n.frame?.setAttribute("material", "wireframe: true; opacity: 0.28");
+  n.header?.setAttribute("color", "#152238");
+  n.title?.setAttribute("color", "#ffeaa7");
+  n.subtitle?.setAttribute("color", "#cbd5e1");
+  n.list.setAttribute("color", "#ffffff");
+}
+
+function setupLeaderboardListener() {
+  if (!state.db) {
+    setLeaderboardBoardState("error");
+    const list = $("vr-leaderboard-list");
+    if (list) list.setAttribute("value", "Leaderboard Offline");
+    return;
+  }
+
+  const lbRef = ref(state.db, ["artifacts", state.appId, "public", "data", "vr_leaderboards"].join("/"));
+
+  onValue(lbRef, (snapshot) => {
+    let scores = [];
+    if (snapshot.exists()) {
+      const val = snapshot.val() || {};
+      scores = Object.values(val);
+    }
+
+    scores.sort((a, b) => (b.score || 0) - (a.score || 0));
+    const top5 = scores.slice(0, 5);
+
+    const lbList = $("vr-leaderboard-list");
+    if (!lbList) return;
+
+    if (!top5.length) {
+      setLeaderboardBoardState("empty");
+      lbList.setAttribute("value", "No clears yet\nBe the first legend!");
+      return;
+    }
+
+    let lbText = "";
+    top5.forEach((entry, i) => {
+      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "•";
+      const avatar = typeof entry.avatar === "string" ? entry.avatar : "🧑‍💻";
+      const safeName = String(entry.name || "Hero").substring(0, 10);
+      lbText += `${medal} ${avatar} ${safeName}  ${entry.score}\n`;
+    });
+
+    lbList.setAttribute("value", lbText.trim());
+    setLeaderboardBoardState("active");
+  }, (error) => {
+    console.error("RTDB leaderboard listener error:", error);
+    const lbList = $("vr-leaderboard-list");
+    if (lbList) lbList.setAttribute("value", "Leaderboard Offline");
+    setLeaderboardBoardState("error");
+  });
+}
+
+async function bootFirebase() {
+  try {
+    const runtime = await initFirebaseRuntime();
+
+    if (!runtime || !runtime.auth || !runtime.db) {
+      console.warn("Firebase runtime not ready:", runtime);
+      syncProfileUI();
+      setRewardChestState("error", { note: "Reward Offline" });
+      setLeaderboardBoardState("error");
+      return;
+    }
+
+    setDbRuntime(runtime.db, runtime.auth, runtime.auth.currentUser || null, runtime.appId || "english-d4bfa");
+
+    onAuthStateChanged(runtime.auth, async (user) => {
+      setCurrentUser(user);
+
+      if (user) {
+        setupLeaderboardListener();
+        await loadPlayerProfile(state.db, state.currentUser, state.appId);
+        await window.checkDailyStreak();
+      } else {
+        syncProfileUI();
+      }
+    });
+  } catch (e) {
+    console.error("RTDB Init Error:", e);
+    syncProfileUI();
+    setRewardChestState("error", { note: "Reward Offline" });
+    setLeaderboardBoardState("error");
+  }
+}
+
+window.checkDailyStreak = async function () {
+  if (!state.currentUser || !state.db) {
+    setRewardChestState("error", { note: "Reward Offline" });
+    return;
+  }
+
+  const rewardRef = ref(state.db, ["artifacts", state.appId, "users", state.currentUser.uid, "player_stats", "reward"].join("/"));
+
+  try {
+    setRewardChestState("loading");
+
+    const snap = await get(rewardRef);
+    const rewardData = snap.exists() ? (snap.val() || {}) : {};
+    const streak = rewardData.streak || 0;
+    const lastLogin = rewardData.lastLogin || "";
+
+    state.currentRewardStreak = streak;
+    syncProfileUI();
+
+    const today = new Date().toDateString();
+
+    if (lastLogin === today) {
+      setRewardChestState("claimed", {
+        streak,
+        rarityColor: "#7bedff",
+        note: "Claimed Today"
+      });
+    } else {
+      setRewardChestState("claimable", {
+        streak,
+        note: "Tap to Claim"
+      });
+    }
+  } catch (e) {
+    console.error("Error checking streak (RTDB):", e);
+    setRewardChestState("error", { note: "Reward Offline" });
+  }
+};
+
+window.claimReward = async function () {
+  if (!state.currentUser || !state.db) {
+    setFeedback("⚠️ รอเชื่อมต่อเซิร์ฟเวอร์สักครู่...", "#ff9f43");
+    setRewardChestState("error", { note: "Reward Offline" });
+    return;
+  }
+
+  const rewardRef = ref(state.db, ["artifacts", state.appId, "users", state.currentUser.uid, "player_stats", "reward"].join("/"));
+
+  try {
+    setRewardChestState("loading");
+
+    const snap = await get(rewardRef);
+    const rewardData = snap.exists() ? (snap.val() || {}) : {};
+    let streak = rewardData.streak || 0;
+    const lastLogin = rewardData.lastLogin || "";
+
+    const today = new Date().toDateString();
+    if (lastLogin === today) {
+      setFeedback("🎁 วันนี้รับรางวัลไปแล้ว", "#ffeaa7");
+      setRewardChestState("claimed", {
+        streak,
+        rarityColor: "#7bedff",
+        note: "Claimed Today"
+      });
+      return;
+    }
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    streak = (lastLogin === yesterday.toDateString()) ? streak + 1 : 1;
+
+    await set(rewardRef, { lastLogin: today, streak });
+
+    state.currentRewardStreak = streak;
+    const rarity = getChestRarity(streak);
+    const rarityColor = rarity?.color || "#ffeaa7";
+    const streakBonus = streak * 200;
+    const bonus = (rarity?.bonus || 0) + streakBonus;
+
+    playSFX("win");
+    updateHUD(bonus);
+    showVRFeedback(true, `+${bonus} REWARD!`);
+    showRewardBadge(rarity.name, rarityColor);
+    playRewardChestClaimFX(rarityColor);
+
+    setRewardChestState("claimed", {
+      streak,
+      rarityColor,
+      note: rarity?.name || "Claimed"
+    });
+
+    syncProfileUI();
+    setFeedback(`🎁 ${rarity.name} CHEST +${bonus}`, rarityColor);
+    scheduleFeedbackClear(1600);
+  } catch (e) {
+    console.error("Error claiming reward (RTDB):", e);
+    setRewardChestState("error", { note: "Claim Failed" });
+    setFeedback("❌ เกิดข้อผิดพลาดในการรับรางวัล", "#ff4757");
+  }
+};
+
+function generateMissionWall() {
+  const wall = $("mission-wall");
+  if (!wall) return;
+
+  wall.innerHTML = "";
+  let index = 0;
+
+  for (let row = 0; row < 3; row++) {
+    const rowY = 1.22 - (row * 0.84);
+    const rowRadius = 4.1 + (row * 0.16);
+
+    for (let col = 0; col < 5; col++) {
+      if (index >= missionDB.length) break;
+
+      const mGroup = missionDB[index];
+      const meta = getMissionWallMeta(mGroup, false);
+      const angle = (col - 2) * 14;
+      const rad = angle * Math.PI / 180;
+      const xPos = Math.sin(rad) * rowRadius;
+      const zPos = -Math.cos(rad) * rowRadius + 4.1;
+
+      const root = document.createElement("a-entity");
+      root.setAttribute("id", `mission-root-${mGroup.id}`);
+      root.setAttribute("position", `${xPos} ${rowY} ${zPos}`);
+      root.setAttribute("rotation", `0 ${-angle} 0`);
 const halo = document.createElement("a-plane");
       halo.setAttribute("id", `mission-halo-${mGroup.id}`);
       halo.setAttribute("position", "0 0 -0.04");
