@@ -1,45 +1,74 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getDatabase,
+  ref,
+  get,
+  set,
+  onValue
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-export { ref, get, set, onValue, onAuthStateChanged };
+let _app = null;
+let _auth = null;
+let _db = null;
+let _runtime = null;
 
-export function resolveFirebaseRuntime() {
-  const injectedConfig =
-    (typeof __firebase_config !== 'undefined' && __firebase_config)
-      ? JSON.parse(__firebase_config)
-      : null;
+function resolveConfig() {
+  const injected = window.__firebase_config
+    ? JSON.parse(window.__firebase_config)
+    : null;
 
-  const staticConfig =
-    window.TECHPATH_FIREBASE_CONFIG ||
-    window.FIREBASE_CONFIG ||
-    null;
+  const staticConfig = window.TECHPATH_FIREBASE_CONFIG || null;
 
-  const firebaseConfig = injectedConfig || staticConfig;
+  const firebaseConfig = injected || staticConfig;
+
+  if (!firebaseConfig) {
+    throw new Error("Missing Firebase config");
+  }
+
+  if (!firebaseConfig.databaseURL) {
+    throw new Error("Missing Realtime Database URL");
+  }
+
+  return firebaseConfig;
+}
+
+export function initFirebaseRuntime() {
+  if (_runtime) return _runtime;
+
+  const firebaseConfig = resolveConfig();
   const appId =
-    (typeof __app_id !== 'undefined' && __app_id) ||
     window.TECHPATH_APP_ID ||
-    'techpath-vr';
+    window.__app_id ||
+    firebaseConfig.projectId ||
+    "english-d4bfa";
 
-  return { firebaseConfig, appId };
+  _app = initializeApp(firebaseConfig);
+  _auth = getAuth(_app);
+  _db = getDatabase(_app);
+
+  _runtime = {
+    app: _app,
+    auth: _auth,
+    db: _db,
+    appId
+  };
+
+  signInAnonymously(_auth).catch((err) => {
+    console.error("Anonymous sign-in failed:", err);
+  });
+
+  return _runtime;
 }
 
-export async function initFirebaseRuntime() {
-  const { firebaseConfig, appId } = resolveFirebaseRuntime();
-
-  if (!firebaseConfig || !firebaseConfig.databaseURL) {
-    return { db: null, auth: null, appId, missingConfig: true };
-  }
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getDatabase(app);
-
-  if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-    await signInWithCustomToken(auth, __initial_auth_token);
-  } else {
-    await signInAnonymously(auth);
-  }
-
-  return { db, auth, appId, missingConfig: false };
-}
+export {
+  onAuthStateChanged,
+  ref,
+  get,
+  set,
+  onValue
+};
