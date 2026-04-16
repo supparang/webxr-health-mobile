@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Vocab v8 – Learning Mode จริง</title>
+  <title>Vocab – Learning Mode</title>
   <style>
     :root{
       --bg1:#0f172a; --bg2:#1d4ed8; --panel:rgba(10,16,35,.84); --line:rgba(255,255,255,.12);
@@ -59,13 +59,20 @@
     #feedbackBox.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
     #feedbackBox.ok{background:rgba(22,163,74,.94)}
     #feedbackBox.bad{background:rgba(225,29,72,.94)}
+#endWrap{z-index:9999}
     .leaderboardList{list-style:none;padding:0;display:grid;gap:10px;margin-top:14px}
+.top3Board{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.top3Card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:14px;text-align:center}
+.top3Card .rank{font-size:28px;font-weight:1000}
+.top3Card .name{font-size:16px;font-weight:900;margin-top:6px}
+.top3Card .meta{font-size:12px;color:#c7d4ff;margin-top:4px}
     .leaderboardList li,.sessionList li{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:10px 12px}
     .sessionList{list-style:none;padding:0;display:grid;gap:10px;margin-top:14px}
     table{width:100%;border-collapse:collapse;margin-top:12px}
     th,td{border-bottom:1px solid rgba(255,255,255,.08);padding:8px;text-align:left;font-size:13px}
     th{color:#93c5fd}
     .small{font-size:12px;color:#cbd5e1}
+.secretNote{margin-top:10px;font-size:12px;color:#fde68a}
     .mono{font-family:ui-monospace,Consolas,monospace}
     @media (max-width:980px){
       .hud,.grid3,.grid2,.profileRow,.actions{grid-template-columns:1fr}
@@ -79,7 +86,7 @@
   <canvas id="gameCanvas"></canvas>
 
   <div class="hud">
-    <div class="card"><div class="big">VOCAB v8 • Learning Mode จริง</div><div class="sub" id="hudPrompt">Adaptive learning • anti-repeat • review queue</div><div class="bar"><div class="fill" id="timeFill"></div></div></div>
+    <div class="card"><div class="big">VOCAB • Learning Mode </div><div class="bar"><div class="fill" id="timeFill"></div></div></div>
     <div class="card"><div class="big" id="hudScore">Score 0</div><div class="sub" id="hudRound">Stage 0 / 14</div></div>
     <div class="card"><div class="big" id="hudCombo">Combo x0</div><div class="sub" id="hudMode">Difficulty EASY</div></div>
     <div class="card"><div class="big" id="hudHp">HP 4</div><div class="sub" id="hudState">READY</div></div>
@@ -93,22 +100,15 @@
 
   <div class="overlay" id="menu">
     <div class="panel">
-      <h1 class="title">Vocab v8 – Learning Mode จริง</h1>
+      <h1 class="title">Vocab – Learning Mode</h1>
       <div class="desc">
-        เวอร์ชันนี้แก้ปัญหา “จำคำตอบ” โดยใช้คำศัพท์คำเดิมในรูปแบบคำถามหลายแบบ, แยก easy / normal / hard,
-        ปรับระดับตามการเล่น, และใช้ review queue เพื่อให้ผิดแล้วกลับมาถามใหม่แบบคนละชนิดคำถาม
+        ใช้คำศัพท์คำเดิมในรูปแบบคำถามหลายแบบ, แยก easy / normal / hard
       </div>
 
       <div class="grid3" style="margin-top:16px">
         <button class="option bankBtn active" data-bank="A"><h3>A • Software / Programming</h3><p>คำพื้นฐานสายคอมและการเขียนโปรแกรม</p></button>
         <button class="option bankBtn" data-bank="B"><h3>B • Data / Database / Network</h3><p>ข้อมูล ฐานข้อมูล เครือข่าย คลาวด์</p></button>
         <button class="option bankBtn" data-bank="C"><h3>C • AI / ML / Analytics</h3><p>AI โมเดล การประเมิน และ ethics</p></button>
-      </div>
-
-      <div class="grid3" style="margin-top:16px">
-        <div class="box"><h3>Adaptive Difficulty</h3><p>ทำได้ดี → เพิ่มระดับ • ทำไม่ได้ → ลดระดับ</p></div>
-        <div class="box"><h3>Anti-repeat</h3><p>ไม่ใช้คำถามเดิมซ้ำติด ๆ และเปลี่ยนชนิดคำถามเสมอ</p></div>
-        <div class="box"><h3>Review Queue</h3><p>ตอบผิดแล้วจะกลับมาถามใหม่ด้วยรูปแบบอื่น</p></div>
       </div>
 
       <div class="profileRow">
@@ -122,10 +122,16 @@
         </div>
       </div>
 
+      <div class="box" style="margin-top:16px">
+        <h3>Leaderboard ตอนนี้</h3>
+        <p>แสดง 3 ลำดับพอบนหน้าเมนู เพื่อให้เห็นว่าตอนนี้ใครนำอยู่</p>
+        <div class="top3Board" id="menuTop3Board"></div>
+      </div>
+
       <div class="actions">
         <button class="btn" id="startBtn">START LEARNING RUN</button>
         <button class="btn alt" id="leaderboardBtn">LEADERBOARD</button>
-        <button class="btn ghost" id="teacherBtn">TEACHER DASHBOARD</button>
+        <button class="btn ghost" id="teacherLinkBtn">TEACHER LINK</button>
       </div>
     </div>
   </div>
@@ -138,6 +144,29 @@
         <button class="btn" id="endPlayAgainBtn">PLAY AGAIN</button>
         <button class="btn ghost" id="endLeaderboardBtn">LEADERBOARD</button>
         <button class="btn alt" id="endMenuBtn">BACK TO MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="teacherLinkWrap">
+    <div class="panel" style="width:min(760px,94vw)">
+      <h2 style="margin:0">Teacher Dashboard Link</h2>
+      <div class="desc">สร้างลิงก์แยกสำหรับครู โดยมี passcode ติดไปกับลิงก์เพื่อไม่ให้นักศึกษาเปิด dashboard ได้ง่าย</div>
+      <div class="profileRow" style="margin-top:16px">
+        <div class="inputBox">
+          <label for="teacherPassInput">Teacher Passcode</label>
+          <input id="teacherPassInput" type="text" maxlength="32" placeholder="เช่น teacher123 / CSAI2026" />
+        </div>
+        <div class="inputBox">
+          <label for="teacherLinkOutput">Teacher Link</label>
+          <input id="teacherLinkOutput" type="text" readonly />
+        </div>
+      </div>
+      <div class="secretNote">หน้า teacher mode จะเปิดได้เมื่อ query มีทั้ง <span class="mono">?teacher=1</span> และ passcode ตรงกับค่าที่ฝั่งครูตั้งไว้</div>
+      <div class="actions" style="grid-template-columns:1fr 1fr 1fr;margin-top:14px">
+        <button class="btn" id="generateTeacherLinkBtn">GENERATE LINK</button>
+        <button class="btn ghost" id="copyTeacherLinkBtn">COPY LINK</button>
+        <button class="btn ghost" id="closeTeacherLinkBtn">CLOSE</button>
       </div>
     </div>
   </div>
@@ -157,7 +186,7 @@
   <div class="overlay hidden" id="teacherWrap">
     <div class="panel">
       <h2 style="margin:0">Teacher Dashboard</h2>
-      <div class="desc">ดูคำที่อ่อนที่สุดและสถิติการเรียนรู้รายคำ</div>
+      <div class="desc">Dashboard-only mode สำหรับครู ดูคำที่อ่อนที่สุดและสถิติการเรียนรู้รายคำ</div>
       <table>
         <thead><tr><th>Term</th><th>Seen</th><th>Correct</th><th>Wrong</th><th>Level</th><th>Highest</th></tr></thead>
         <tbody id="teacherTable"></tbody>
@@ -193,6 +222,10 @@
     timeFill: document.getElementById('timeFill'),
     displayNameInput: document.getElementById('displayNameInput'),
     studentIdInput: document.getElementById('studentIdInput'),
+    menuTop3Board: document.getElementById('menuTop3Board'),
+    teacherLinkWrap: document.getElementById('teacherLinkWrap'),
+    teacherPassInput: document.getElementById('teacherPassInput'),
+    teacherLinkOutput: document.getElementById('teacherLinkOutput'),
     leaderboardList: document.getElementById('leaderboardList'),
     teacherTable: document.getElementById('teacherTable'),
     weakList: document.getElementById('weakList'),
@@ -385,8 +418,9 @@
   }
 
   function renderHud(){
+    const shownStage = Math.min(V8.stageIndex + 1, V8.maxStages);
     els.hudScore.textContent = 'Score ' + V8.score;
-    els.hudRound.textContent = 'Stage ' + (V8.stageIndex + 1) + ' / ' + V8.maxStages;
+    els.hudRound.textContent = 'Stage ' + shownStage + ' / ' + V8.maxStages;
     els.hudCombo.textContent = 'Combo x' + V8.combo;
     els.hudMode.textContent = 'Difficulty ' + V8.runDifficulty.toUpperCase();
     els.hudHp.textContent = 'HP ' + V8.hp;
@@ -484,9 +518,56 @@
     const rows = loadLeaderboard();
     rows.push(entry); rows.sort((a,b) => (b.score||0) - (a.score||0));
     saveLeaderboard(rows);
+    renderMenuTop3();
   }
+  function teacherPassHash(pass){
+    try{
+      return btoa(unescape(encodeURIComponent(pass || '')));
+    }catch(e){
+      return '';
+    }
+  }
+
+  function buildTeacherLink(){
+    const url = new URL(window.location.href);
+    const pass = (els.teacherPassInput && els.teacherPassInput.value || '').trim();
+    if (pass) {
+      localStorage.setItem('VOCAB_V8_TEACHER_PASS_HASH', teacherPassHash(pass));
+      url.searchParams.set('teacherKey', teacherPassHash(pass));
+    }
+    url.searchParams.set('teacher', '1');
+    return url.toString();
+  }
+
+  async function copyText(text){
+    try{
+      await navigator.clipboard.writeText(text);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  function renderMenuTop3(){
+    const rows = loadLeaderboard().slice(0,3);
+    if (!els.menuTop3Board) return;
+    els.menuTop3Board.innerHTML = '';
+    if (!rows.length){
+      els.menuTop3Board.innerHTML = '<div class="top3Card"><div class="rank">—</div><div class="name">ยังไม่มีคะแนน</div><div class="meta">เริ่มเล่นเพื่อขึ้นอันดับ</div></div>';
+      return;
+    }
+    rows.forEach((r,i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+      const div = document.createElement('div');
+      div.className = 'top3Card';
+      div.innerHTML = '<div class="rank">' + medal + '</div><div class="name">' + r.displayName + '</div><div class="meta">Score ' + r.score + '</div><div class="meta">Accuracy ' + r.accuracy + '%</div>';
+      els.menuTop3Board.appendChild(div);
+    });
+  }
+
   function renderLeaderboard(){
     const rows = loadLeaderboard();
+    renderMenuTop3();
     els.leaderboardList.innerHTML = '';
     if (!rows.length){
       const li = document.createElement('li');
@@ -544,40 +625,92 @@
   }
 
   async function endRun(){
+    if (phase === 'ended') return;
+
     phase = 'ended';
+    targets = [];
+    hoveredId = null;
+    timeLeft = 0;
+
     const weakest = getWeakestTerms(5);
-    const summary = { score: V8.score, hp: V8.hp, stagesPlayed: V8.stageIndex, weakestTerms: weakest, mastery: V8.mastery };
+    const summary = {
+      score: V8.score,
+      hp: V8.hp,
+      stagesPlayed: Math.min(V8.stageIndex, V8.maxStages),
+      weakestTerms: weakest,
+      mastery: V8.mastery
+    };
+
     lastSummary = summary;
     renderTeacherDashboard(summary);
+
     const entry = buildRealtimeEntryFromSummary(summary);
     pushLeaderboardEntry(entry);
-    await saveScoreRealtime(entry);
+
+    try{
+      await saveScoreRealtime(entry);
+    }catch(err){
+      console.error('saveScoreRealtime failed', err);
+    }
+
     const weakestText = weakest.length ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ') : '-';
-    els.endSummaryText.innerHTML = '<strong>' + profile.displayName + '</strong><br>Score: ' + summary.score + '<br>Stages: ' + summary.stagesPlayed + '<br>HP Left: ' + summary.hp + '<br>Weakest Terms: ' + weakestText;
+    els.endSummaryText.innerHTML = '<strong>' + profile.displayName + '</strong><br>Score: ' + summary.score + '<br>Stages: ' + summary.stagesPlayed + ' / ' + V8.maxStages + '<br>HP Left: ' + summary.hp + '<br>Weakest Terms: ' + weakestText;
+
     els.endWrap.classList.remove('hidden');
+    els.menu.classList.add('hidden');
+    els.questionBox.classList.add('hidden');
+
     renderLeaderboard();
+    renderHud();
   }
 
   function handleAnswerV8(selectedText){
     const item = V8.currentItem;
     if (!item || phase !== 'battle') return;
+
     const isCorrect = selectedText === String(item.answer).toLowerCase();
     updateMasteryAfterAnswer(item.termId, isCorrect, item.type, item.fromReview);
-    if (isCorrect){ V8.score += 10; V8.combo += 1; showFeedback('PERFECT', 'ok'); }
-    else { V8.hp -= 1; V8.combo = 0; enqueueReview(item.termId); showFeedback('WRONG', 'bad'); }
+
+    if (isCorrect){
+      V8.score += 10;
+      V8.combo += 1;
+      showFeedback('PERFECT', 'ok');
+    } else {
+      V8.hp -= 1;
+      V8.combo = 0;
+      enqueueReview(item.termId);
+      showFeedback('WRONG', 'bad');
+    }
+
     V8.stageIndex += 1;
+
+    if (V8.hp <= 0 || V8.stageIndex >= V8.maxStages){
+      endRun();
+      return;
+    }
+
     phase = 'feedback';
     phaseUntil = now() + 700;
   }
 
   function nextQuestionV8(){
     updateRunDifficulty();
-    if (V8.hp <= 0 || V8.stageIndex >= V8.maxStages){ endRun(); return; }
+
+    if (V8.hp <= 0 || V8.stageIndex >= V8.maxStages){
+      endRun();
+      return;
+    }
+
     const item = buildQuestionItem();
-    if (!item){ endRun(); return; }
+    if (!item){
+      endRun();
+      return;
+    }
+
     V8.currentItem = item;
     renderQuestionBox(item);
     spawnTargetsFromChoices(item.choices);
+
     phase = 'countdown';
     V8.countdown = 3;
     phaseUntil = now() + 700;
@@ -590,6 +723,8 @@
   }
 
   function startLearningRun(){
+    document.querySelector('.hud')?.classList.remove('hidden');
+    els.questionBox.classList.remove('hidden');
     saveProfile();
     els.menu.classList.add('hidden');
     els.endWrap.classList.add('hidden');
@@ -645,7 +780,26 @@
   }
 
   function openLeaderboard(){ renderLeaderboard(); els.leaderboardWrap.classList.remove('hidden'); }
+  function bootTeacherMode(){
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('teacher') === '1'){
+      const expected = localStorage.getItem('VOCAB_V8_TEACHER_PASS_HASH') || '';
+      const got = q.get('teacherKey') || '';
+      if (expected && got !== expected){
+        els.menu.classList.remove('hidden');
+        els.questionBox.classList.remove('hidden');
+        alert('Teacher passcode ไม่ถูกต้อง');
+        return;
+      }
+      els.menu.classList.add('hidden');
+      els.questionBox.classList.add('hidden');
+      document.querySelector('.hud')?.classList.add('hidden');
+      openTeacher();
+    }
+  }
   function openTeacher(){
+    document.querySelector('.hud')?.classList.add('hidden');
+    els.questionBox.classList.add('hidden');
     if (!lastSummary){
       try{
         const raw = JSON.parse(localStorage.getItem(TEACHER_KEY) || 'null');
@@ -677,19 +831,55 @@
 
   document.getElementById('startBtn').addEventListener('click', startLearningRun);
   document.getElementById('leaderboardBtn').addEventListener('click', openLeaderboard);
-  document.getElementById('teacherBtn').addEventListener('click', openTeacher);
-  document.getElementById('endPlayAgainBtn').addEventListener('click', startLearningRun);
-  document.getElementById('endLeaderboardBtn').addEventListener('click', () => { els.endWrap.classList.add('hidden'); openLeaderboard(); });
-  document.getElementById('endMenuBtn').addEventListener('click', () => { els.endWrap.classList.add('hidden'); els.menu.classList.remove('hidden'); });
+  document.getElementById('teacherLinkBtn').addEventListener('click', () => {
+    els.teacherLinkOutput.value = '';
+    els.teacherLinkWrap.classList.remove('hidden');
+  });
+  document.getElementById('generateTeacherLinkBtn').addEventListener('click', () => {
+    els.teacherLinkOutput.value = buildTeacherLink();
+  });
+  document.getElementById('copyTeacherLinkBtn').addEventListener('click', async() => {
+    if (!els.teacherLinkOutput.value) els.teacherLinkOutput.value = buildTeacherLink();
+    const ok = await copyText(els.teacherLinkOutput.value);
+    document.getElementById('copyTeacherLinkBtn').textContent = ok ? 'COPIED' : 'COPY FAILED';
+    setTimeout(() => document.getElementById('copyTeacherLinkBtn').textContent = 'COPY LINK', 1200);
+  });
+  document.getElementById('closeTeacherLinkBtn').addEventListener('click', () => els.teacherLinkWrap.classList.add('hidden'));
+  document.getElementById('endPlayAgainBtn').addEventListener('click', () => {
+    els.endWrap.classList.add('hidden');
+    els.questionBox.classList.remove('hidden');
+    startLearningRun();
+  });
+  document.getElementById('endLeaderboardBtn').addEventListener('click', () => {
+    els.endWrap.classList.add('hidden');
+    openLeaderboard();
+  });
+  document.getElementById('endMenuBtn').addEventListener('click', () => {
+    els.endWrap.classList.add('hidden');
+    els.questionBox.classList.remove('hidden');
+    els.menu.classList.remove('hidden');
+  });
   document.getElementById('closeLeaderboardBtn').addEventListener('click', () => els.leaderboardWrap.classList.add('hidden'));
   document.getElementById('clearLeaderboardBtn').addEventListener('click', () => { localStorage.removeItem(LEADERBOARD_KEY); renderLeaderboard(); });
-  document.getElementById('closeTeacherBtn').addEventListener('click', () => els.teacherWrap.classList.add('hidden'));
+  document.getElementById('closeTeacherBtn').addEventListener('click', () => {
+    els.teacherWrap.classList.add('hidden');
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('teacher') === '1') {
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete('teacher');
+      clean.searchParams.delete('teacherKey');
+      window.location.href = clean.toString();
+      return;
+    }
+  });
   document.getElementById('clearTeacherBtn').addEventListener('click', () => { localStorage.removeItem(TEACHER_KEY); els.teacherTable.innerHTML = ''; els.weakList.innerHTML = ''; });
 
   resize();
   loadProfile();
   renderLeaderboard();
+  renderMenuTop3();
   renderHud();
+  bootTeacherMode();
   requestAnimationFrame(loop);
   addEventListener('resize', resize);
 
