@@ -3,32 +3,43 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Vocab – Learning Mode </title>
-    <link rel="icon" href="./favicon.ico" />
+  <title>Vocab v9 ESP Battle — CS/AI</title>
   <style>
     :root{
-      --bg1:#0f172a; --bg2:#1d4ed8; --panel:rgba(10,16,35,.84); --line:rgba(255,255,255,.12);
-      --text:#f8fbff; --muted:#c7d4ff; --cyan:#67e8f9; --pink:#f472b6; --yellow:#fde047;
-      --green:#4ade80; --red:#fb7185; --violet:#a78bfa;
+      --bg1:#071122;
+      --bg2:#123a7a;
+      --panel:rgba(10,16,35,.86);
+      --line:rgba(255,255,255,.14);
+      --text:#f8fbff;
+      --muted:#c7d4ff;
+      --cyan:#67e8f9;
+      --pink:#f472b6;
+      --yellow:#fde047;
+      --green:#4ade80;
+      --red:#fb7185;
+      --violet:#a78bfa;
+      --orange:#fb923c;
     }
     *{box-sizing:border-box}
     html,body{margin:0;height:100%;overflow:hidden;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text)}
+    body{touch-action:manipulation}
     #app,canvas{position:fixed;inset:0}
-    canvas{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
-    .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at top,#18254a 0%,#0b1020 48%,#05070f 100%);z-index:50}
-    .hidden{display:none}
-    .panel{width:min(1120px,96vw);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);border-radius:28px;padding:24px;box-shadow:0 20px 80px rgba(0,0,0,.35)}
-    .title{font-size:34px;font-weight:1000;margin:0}
+    canvas{width:100%;height:100%;display:block;background:linear-gradient(180deg,#75d8ff,#dbeafe 62%,#e5efff 62%,#dbeafe 100%)}
+    .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at top,#18254a 0%,#0b1020 48%,#05070f 100%);z-index:70}
+    .hidden{display:none!important}
+    .panel{width:min(1180px,96vw);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);border-radius:28px;padding:24px;box-shadow:0 20px 80px rgba(0,0,0,.35)}
+    .title{font-size:36px;font-weight:1000;margin:0}
     .desc{margin-top:10px;color:#dbe7ff;line-height:1.6;font-size:15px}
-    .grid2,.grid3{display:grid;gap:12px}
+    .grid2,.grid3,.grid4{display:grid;gap:12px}
     .grid2{grid-template-columns:1fr 1fr}
     .grid3{grid-template-columns:repeat(3,1fr)}
-    .option,.box{
+    .grid4{grid-template-columns:repeat(4,1fr)}
+    .option,.box,.pill{
       appearance:none;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:22px;
       padding:14px;text-align:left;color:var(--text);cursor:pointer
     }
-    .option:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.55)}
-    .option.active{outline:3px solid var(--cyan);background:rgba(103,232,249,.10)}
+    .option:hover,.pill:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.55)}
+    .option.active,.pill.active{outline:3px solid var(--cyan);background:rgba(103,232,249,.10)}
     .option h3,.box h3{margin:0 0 6px;font-size:16px}
     .option p,.box p{margin:0;color:#cad7ff;font-size:13px;line-height:1.45}
     .profileRow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
@@ -46,39 +57,51 @@
     .bar{height:9px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:8px}
     .fill{height:100%;width:100%;background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));transform-origin:left center}
     #questionBox{
-      position:fixed;top:110px;left:50%;transform:translateX(-50%);width:min(920px,90vw);
-      padding:18px 22px;border-radius:20px;background:rgba(37,99,235,.96);color:#fff;text-align:center;
-      z-index:30;box-shadow:0 14px 30px rgba(0,0,0,.22)
+      position:fixed;top:84px;left:50%;transform:translateX(-50%);width:min(980px,92vw);
+      padding:16px 18px;border-radius:22px;background:rgba(17,24,39,.82);color:#fff;text-align:center;
+      z-index:40;box-shadow:0 14px 30px rgba(0,0,0,.22);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.10)
     }
-    #questionBox .q-meta{font-size:12px;opacity:.9;margin-bottom:6px;letter-spacing:.05em}
-    #questionBox .q-prompt{font-size:28px;font-weight:900;line-height:1.3}
+    #questionBox .q-meta{font-size:12px;opacity:.95;margin-bottom:6px;letter-spacing:.05em;color:#fde047}
+    #questionBox .q-prompt{font-size:clamp(20px,3.8vw,38px);font-weight:900;line-height:1.25}
     #feedbackBox{
-      position:fixed;top:210px;left:50%;transform:translateX(-50%);min-width:220px;text-align:center;padding:12px 18px;
-      border-radius:999px;background:rgba(15,23,42,.92);color:#fff;font-size:20px;font-weight:900;z-index:36;opacity:0;
+      position:fixed;top:198px;left:50%;transform:translateX(-50%);min-width:220px;text-align:center;padding:12px 18px;
+      border-radius:999px;background:rgba(15,23,42,.92);color:#fff;font-size:20px;font-weight:900;z-index:50;opacity:0;
       pointer-events:none;transition:opacity .18s ease, transform .18s ease
     }
     #feedbackBox.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
     #feedbackBox.ok{background:rgba(22,163,74,.94)}
     #feedbackBox.bad{background:rgba(225,29,72,.94)}
-#endWrap{z-index:9999}
-    .leaderboardList{list-style:none;padding:0;display:grid;gap:10px;margin-top:14px}
-.top3Board{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
-.top3Card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:14px;text-align:center}
-.top3Card .rank{font-size:28px;font-weight:1000}
-.top3Card .name{font-size:16px;font-weight:900;margin-top:6px}
-.top3Card .meta{font-size:12px;color:#c7d4ff;margin-top:4px}
+    #feedbackBox.warn{background:rgba(180,83,9,.94)}
+    #endWrap{z-index:9999}
+    .leaderboardList,.sessionList{list-style:none;padding:0;display:grid;gap:10px;margin-top:14px}
     .leaderboardList li,.sessionList li{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:10px 12px}
-    .sessionList{list-style:none;padding:0;display:grid;gap:10px;margin-top:14px}
     table{width:100%;border-collapse:collapse;margin-top:12px}
     th,td{border-bottom:1px solid rgba(255,255,255,.08);padding:8px;text-align:left;font-size:13px}
     th{color:#93c5fd}
     .small{font-size:12px;color:#cbd5e1}
-.secretNote{margin-top:10px;font-size:12px;color:#fde68a}
     .mono{font-family:ui-monospace,Consolas,monospace}
+    .top3Board{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+    .top3Card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:14px;text-align:center}
+    .top3Card .rank{font-size:28px;font-weight:1000}
+    .top3Card .name{font-size:16px;font-weight:900;margin-top:6px}
+    .top3Card .meta{font-size:12px;color:#c7d4ff;margin-top:4px}
+    .mic-permission-card{width:100%;margin:10px 0 14px;padding:14px;border-radius:18px;background:rgba(9,16,35,.88);border:1px solid rgba(255,255,255,.14);box-shadow:0 10px 24px rgba(0,0,0,.22)}
+    .mic-status-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .mic-badge{display:inline-flex;align-items:center;justify-content:center;min-width:132px;padding:8px 12px;border-radius:999px;font-weight:900;font-size:14px;letter-spacing:.02em}
+    .mic-unknown{background:#334155;color:#fff}
+    .mic-ready{background:#166534;color:#dcfce7}
+    .mic-blocked{background:#92400e;color:#fef3c7}
+    .mic-denied{background:#991b1b;color:#fee2e2}
+    .mic-status-text{color:#dbeafe;font-size:14px}
+    .mic-actions{margin-top:12px}
+    .mic-btn{width:100%;border:0;border-radius:16px;padding:14px 18px;font-size:18px;font-weight:900;cursor:pointer;background:linear-gradient(135deg,#22d3ee,#38bdf8);color:#082f49;box-shadow:0 10px 24px rgba(34,211,238,.28)}
+    .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
     @media (max-width:980px){
-      .hud,.grid3,.grid2,.profileRow,.actions{grid-template-columns:1fr}
+      .hud,.grid3,.grid2,.grid4,.profileRow,.actions,.top3Board{grid-template-columns:1fr}
       .title{font-size:28px}
-      #questionBox .q-prompt{font-size:22px}
+      #questionBox{top:66px;width:94vw}
+      #questionBox .q-prompt{font-size:clamp(18px,5vw,28px)}
+      #feedbackBox{top:176px}
     }
   </style>
 </head>
@@ -87,33 +110,47 @@
   <canvas id="gameCanvas"></canvas>
 
   <div class="hud">
-    <div class="card"><div class="big">VOCAB • Learning Mode </div>><div class="bar"><div class="fill" id="timeFill"></div></div></div>
-    <div class="card"><div class="big" id="hudScore">Score 0</div><div class="sub" id="hudRound">Stage 0 / 14</div></div>
+    <div class="card"><div class="big">VOCAB v9 • ESP BATTLE</div><div class="sub" id="hudPrompt">Contextual learning • adaptive difficulty • review queue</div><div class="bar"><div class="fill" id="timeFill"></div></div></div>
+    <div class="card"><div class="big" id="hudScore">Score 0</div><div class="sub" id="hudRound">Stage 0 / 18</div></div>
     <div class="card"><div class="big" id="hudCombo">Combo x0</div><div class="sub" id="hudMode">Difficulty EASY</div></div>
-    <div class="card"><div class="big" id="hudHp">HP 4</div><div class="sub" id="hudState">READY</div></div>
+    <div class="card"><div class="big" id="hudHp">HP 5</div><div class="sub" id="hudState">READY</div></div>
   </div>
 
   <div id="questionBox">
-    <div class="q-meta">LEARNING MODE</div>
+    <div class="q-meta">ESP BATTLE</div>
     <div class="q-prompt">เตรียมเริ่มเกม</div>
   </div>
   <div id="feedbackBox"></div>
 
   <div class="overlay" id="menu">
     <div class="panel">
-      <h1 class="title">Vocab v8 – Learning Mode จริง</h1>
+      <h1 class="title">Vocab v9 — English for Specific Career Purposes (CS/AI)</h1>
       <div class="desc">
-        ใช้คำศัพท์คำเดิมในรูปแบบคำถามหลายแบบ แยก easy / normal / hard
+        เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ: มีหลายรูปแบบคำถามต่อคำศัพท์, ปรับความยากตามการเล่น,
+        มี Code Battle / Debug Mission / AI Training / Speed Run และ review queue เพื่อย้อนคำที่ยังอ่อน
       </div>
 
       <div class="grid3" style="margin-top:16px">
-        <button class="option bankBtn active" data-bank="A"><h3>A • Software / Programming</h3><p>คำพื้นฐานสายคอมและการเขียนโปรแกรม</p></button>
-        <button class="option bankBtn" data-bank="B"><h3>B • Data / Database / Network</h3><p>ข้อมูล ฐานข้อมูล เครือข่าย คลาวด์</p></button>
-        <button class="option bankBtn" data-bank="C"><h3>C • AI / ML / Analytics</h3><p>AI โมเดล การประเมิน และ ethics</p></button>
+        <button class="option bankBtn active" data-bank="A"><h3>A • Software Engineering</h3><p>software, debug, deploy, API, repository, modularization</p></button>
+        <button class="option bankBtn" data-bank="B"><h3>B • Data / Cloud / System</h3><p>database, query, server, authentication, pipeline, ETL</p></button>
+        <button class="option bankBtn" data-bank="C"><h3>C • AI / Machine Learning</h3><p>model, feature, accuracy, embedding, tokenization, fine-tuning</p></button>
       </div>
 
-      <div class="grid3" style="margin-top:16px">
-    
+      <div class="grid4" style="margin-top:16px">
+        <button class="option modeBtn active" data-mode="code_battle"><h3>⚔️ Code Battle</h3><p>โจมตีบอสด้วยการตอบคำถามถูก</p></button>
+        <button class="option modeBtn" data-mode="debug_mission"><h3>🧪 Debug Mission</h3><p>ตีความ bug / error / correct usage</p></button>
+        <button class="option modeBtn" data-mode="ai_training"><h3>🤖 AI Training Sim</h3><p>บริบท AI/ML แบบใช้งานจริง</p></button>
+        <button class="option modeBtn" data-mode="speed_run"><h3>⚡ Speed Run</h3><p>เร็ว กดดัน กันจำแพทเทิร์น</p></button>
+      </div>
+
+      <div class="mic-permission-card" id="micPermissionCard">
+        <div class="mic-status-line">
+          <span id="micStatusBadge" class="mic-badge mic-unknown">🎤 UNKNOWN</span>
+          <span id="micStatusText" class="mic-status-text">ยังไม่ได้ตรวจสอบไมโครโฟน</span>
+        </div>
+        <div class="mic-actions">
+          <button id="requestMicBtn" class="mic-btn" type="button">🎤 ขออนุญาตไมค์อัตโนมัติ</button>
+        </div>
       </div>
 
       <div class="profileRow">
@@ -134,21 +171,9 @@
       </div>
 
       <div class="actions">
-        <button class="btn" id="startBtn">START LEARNING RUN</button>
+        <button class="btn" id="startBtn">START PRODUCTION RUN</button>
         <button class="btn alt" id="leaderboardBtn">LEADERBOARD</button>
         <button class="btn ghost" id="teacherLinkBtn">TEACHER LINK</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="overlay hidden" id="endWrap">
-    <div class="panel" style="width:min(760px,94vw)">
-      <h2 style="margin:0">Run Complete</h2>
-      <div class="desc" id="endSummaryText">สรุปผล</div>
-      <div class="actions" style="grid-template-columns:1fr 1fr 1fr;margin-top:16px">
-        <button class="btn" id="endPlayAgainBtn">PLAY AGAIN</button>
-        <button class="btn ghost" id="endLeaderboardBtn">LEADERBOARD</button>
-        <button class="btn alt" id="endMenuBtn">BACK TO MENU</button>
       </div>
     </div>
   </div>
@@ -176,10 +201,22 @@
     </div>
   </div>
 
+  <div class="overlay hidden" id="endWrap">
+    <div class="panel" style="width:min(760px,94vw)">
+      <h2 style="margin:0">Run Complete</h2>
+      <div class="desc" id="endSummaryText">สรุปผล</div>
+      <div class="actions" style="grid-template-columns:1fr 1fr 1fr;margin-top:16px">
+        <button class="btn" id="endPlayAgainBtn">PLAY AGAIN</button>
+        <button class="btn ghost" id="endLeaderboardBtn">LEADERBOARD</button>
+        <button class="btn alt" id="endMenuBtn">BACK TO MENU</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay hidden" id="leaderboardWrap">
     <div class="panel">
       <h2 style="margin:0">Leaderboard</h2>
-      <div class="desc">เก็บใน localStorage ก่อน และมี hook สำหรับต่อ Realtime Database ภายหลัง</div>
+      <div class="desc">แสดงผล 10 อันดับสูงสุดของโหมด production run</div>
       <ul class="leaderboardList" id="leaderboardList"></ul>
       <div class="actions" style="grid-template-columns:1fr 1fr;margin-top:14px">
         <button class="btn ghost" id="closeLeaderboardBtn">CLOSE</button>
@@ -215,6 +252,9 @@
     endWrap: document.getElementById('endWrap'),
     leaderboardWrap: document.getElementById('leaderboardWrap'),
     teacherWrap: document.getElementById('teacherWrap'),
+    teacherLinkWrap: document.getElementById('teacherLinkWrap'),
+    teacherPassInput: document.getElementById('teacherPassInput'),
+    teacherLinkOutput: document.getElementById('teacherLinkOutput'),
     questionBox: document.getElementById('questionBox'),
     feedbackBox: document.getElementById('feedbackBox'),
     hudPrompt: document.getElementById('hudPrompt'),
@@ -228,34 +268,36 @@
     displayNameInput: document.getElementById('displayNameInput'),
     studentIdInput: document.getElementById('studentIdInput'),
     menuTop3Board: document.getElementById('menuTop3Board'),
-    teacherLinkWrap: document.getElementById('teacherLinkWrap'),
-    teacherPassInput: document.getElementById('teacherPassInput'),
-    teacherLinkOutput: document.getElementById('teacherLinkOutput'),
     leaderboardList: document.getElementById('leaderboardList'),
     teacherTable: document.getElementById('teacherTable'),
     weakList: document.getElementById('weakList'),
-    endSummaryText: document.getElementById('endSummaryText')
+    endSummaryText: document.getElementById('endSummaryText'),
+    micStatusBadge: document.getElementById('micStatusBadge'),
+    micStatusText: document.getElementById('micStatusText'),
+    requestMicBtn: document.getElementById('requestMicBtn')
   };
 
-  const LEADERBOARD_KEY = 'VOCAB_V8_LEADERBOARD';
-  const TEACHER_KEY = 'VOCAB_V8_TEACHER_LAST';
+  const LEADERBOARD_KEY = 'VOCAB_V9_LEADERBOARD';
+  const TEACHER_KEY = 'VOCAB_V9_TEACHER_LAST';
+  const PROFILE_KEY = 'VOCAB_V9_PROFILE';
 
-  function termItem(id, term, th, definition, distractorPool, sentence, context, scenario){
+  function makeTerm(id, term, th, definition, distractorPool, sentence, correctUsage, scenario, professional){
     return {
       id, term, th, definition, distractorPool,
       variants: {
         easy: [
           { id: id + '_th_to_en', type: 'th_to_en', prompt: `“${th}” คือคำว่าอะไร?`, answer: term },
-          { id: id + '_en_to_th', type: 'en_to_th', prompt: `${term} แปลว่าอะไร?`, answer: th },
-          { id: id + '_definition_mcq', type: 'definition_mcq', prompt: definition, answer: term }
+          { id: id + '_definition_mcq', type: 'definition_mcq', prompt: definition, answer: term },
+          { id: id + '_en_to_th', type: 'en_to_th', prompt: `${term} แปลว่าอะไร?`, answer: th }
         ],
         normal: [
-          { id: id + '_sentence_1', type: 'sentence_cloze', prompt: sentence, answer: term },
-          { id: id + '_context_1', type: 'context_mcq', prompt: context, answer: term }
+          { id: id + '_sentence_cloze', type: 'sentence_cloze', prompt: sentence, answer: term },
+          { id: id + '_correct_usage', type: 'correct_usage', prompt: correctUsage, answer: term },
+          { id: id + '_context_mcq', type: 'context_mcq', prompt: scenario, answer: term }
         ],
         hard: [
-          { id: id + '_confusion_1', type: 'confusion_pair', prompt: `ข้อใดใช้คำว่า ${term} ได้ถูกต้องที่สุด?`, answer: term },
-          { id: id + '_scenario_1', type: 'scenario', prompt: scenario, answer: term }
+          { id: id + '_scenario', type: 'scenario', prompt: professional, answer: term },
+          { id: id + '_confusion_pair', type: 'confusion_pair', prompt: `ข้อใดใช้คำว่า ${term} ในบริบทสายงานได้ถูกต้องที่สุด?`, answer: term }
         ]
       }
     };
@@ -263,32 +305,128 @@
 
   const VOCAB_BANKS = {
     A: [
-      termItem('software','software','ซอฟต์แวร์','Programs that run on a computer.',['hardware','source code','compile','algorithm','interface','debug'],'We install ______ on a computer.','ข้อใดเกี่ยวข้องกับการติดตั้งโปรแกรมมากที่สุด?','ถ้าต้องอัปเดตโปรแกรมในเครื่อง คำใดเกี่ยวข้องที่สุด?'),
-      termItem('algorithm','algorithm','ขั้นตอนวิธี','A step-by-step procedure used to solve a problem.',['bug','dataset','interface','software','compile','syntax'],'Sorting numbers uses an ______.','ข้อใดเกี่ยวข้องกับการแก้ปัญหาเป็นลำดับขั้นตอนมากที่สุด?','ถ้าต้องออกแบบวิธีแก้ปัญหาแบบทีละขั้น คำใดตรงที่สุด?'),
-      termItem('debug','debug','แก้จุดผิดพลาดของโปรแกรม','To find and fix errors in code.',['deploy','compile','install','interface','dataset','variable'],'Developers ______ code when the app crashes.','ข้อใดเกี่ยวข้องกับการหาและแก้ error มากที่สุด?','ถ้าโปรแกรมพังและต้องไล่หาสาเหตุ คำใดตรงที่สุด?')
+      makeTerm('software','software','ซอฟต์แวร์','Programs that run on a computer.',['hardware','dataset','server','algorithm','query','feature'],
+        'We install ______ on a computer.',
+        'Choose the word that fits: "Our team updates the ______ every sprint."',
+        'ข้อใดเกี่ยวข้องกับการติดตั้งโปรแกรมมากที่สุด?',
+        'A developer updates the product used by end users. Which term fits best?'),
+      makeTerm('debug','debug','แก้ข้อผิดพลาดของโปรแกรม','To find and fix errors in code.',['deploy','compile','commit','server','training','query'],
+        'Developers ______ code when the app crashes.',
+        'Choose the word that fits: "I need to ______ this bug before deployment."',
+        'ข้อใดเกี่ยวข้องกับการหาและแก้ error มากที่สุด?',
+        'Before release, the engineer traces the source of a crash. Which term fits best?'),
+      makeTerm('api','API','เอพีไอ','A way for software systems to communicate programmatically.',['button','dataset','model','loop','cache','table'],
+        'The mobile app calls an ______ to get data.',
+        'Choose the word that fits: "Our frontend sends a request to the ______."',
+        'ข้อใดเกี่ยวข้องกับการสื่อสารระหว่างระบบมากที่สุด?',
+        'A backend service exposes endpoints for another app. Which term fits best?'),
+      makeTerm('repository','repository','ที่เก็บโค้ดหรือไฟล์โครงการ','A storage location for project files and version history.',['server','feature','variable','accuracy','router','prompt'],
+        'Push your code to the ______.',
+        'Choose the word that fits: "The team stores source code in a shared ______."',
+        'ข้อใดเกี่ยวข้องกับที่เก็บโค้ดกลางมากที่สุด?',
+        'A team wants one place to track commits and branches. Which term fits best?'),
+      makeTerm('deployment','deployment','การนำระบบขึ้นใช้งานจริง','Releasing a system to real users.',['debug','training','embedding','table','branch','input'],
+        'After testing, the team starts ______.',
+        'Choose the word that fits: "Friday evening is not a good time for ______."',
+        'ข้อใดเกี่ยวข้องกับการปล่อยระบบจริงมากที่สุด?',
+        'An engineer publishes the latest stable version for customers. Which term fits best?'),
+      makeTerm('modularization','modularization','การแยกระบบเป็นโมดูล','Breaking a system into smaller independent modules.',['bandwidth','dataset','token','query','accuracy','login'],
+        'Good ______ makes maintenance easier.',
+        'Choose the word that fits: "We refactor the codebase through better ______."',
+        'ข้อใดเกี่ยวข้องกับการทำระบบให้แยกส่วนมากที่สุด?',
+        'A large app is split into reusable parts to improve maintainability. Which term fits best?')
     ],
     B: [
-      termItem('database','database','ฐานข้อมูล','An organized system for storing data.',['query','network','record','cloud','server','table'],'A school stores student records in a ______.','ข้อใดเหมาะที่สุดสำหรับเก็บข้อมูลอย่างเป็นระบบ?','ถ้าต้องเก็บข้อมูลผู้ใช้จำนวนมาก คำใดตรงที่สุด?'),
-      termItem('query','query','คำสั่งดึงหรือค้นข้อมูล','A request to retrieve or filter data.',['record','dataset','table','server','api','cache'],'We use an SQL ______ to search data.','ข้อใดเกี่ยวข้องกับการค้นข้อมูลในตารางมากที่สุด?','ถ้าต้องการดึงรายชื่อนักศึกษาจากระบบ คำใดตรงที่สุด?'),
-      termItem('server','server','เครื่องที่ให้บริการแก่เครื่องอื่น','A computer that provides services or data.',['client','protocol','router','switch','cloud','bandwidth'],'A web ______ sends webpages to users.','ข้อใดทำหน้าที่ให้บริการข้อมูลบนเครือข่ายมากที่สุด?','ถ้าต้องส่งเว็บเพจให้ผู้ใช้หลายคนพร้อมกัน คำใดตรงที่สุด?')
+      makeTerm('database','database','ฐานข้อมูล','An organized system for storing data.',['query','server','record','cloud','api','feature'],
+        'A hospital stores patient records in a ______.',
+        'Choose the word that fits: "The app reads user profiles from the ______."',
+        'ข้อใดเหมาะที่สุดสำหรับเก็บข้อมูลอย่างเป็นระบบ?',
+        'A company needs structured storage for millions of rows. Which term fits best?'),
+      makeTerm('query','query','คำสั่งค้นหรือดึงข้อมูล','A request to retrieve or filter data.',['record','server','cache','table','bug','branch'],
+        'We write an SQL ______ to search data.',
+        'Choose the word that fits: "This ______ returns only active users."',
+        'ข้อใดเกี่ยวข้องกับการค้นข้อมูลในตารางมากที่สุด?',
+        'An analyst filters records by date and status. Which term fits best?'),
+      makeTerm('server','server','เครื่องที่ให้บริการแก่เครื่องอื่น','A computer that provides services or data.',['client','protocol','router','dataset','gradient','token'],
+        'A web ______ sends pages to users.',
+        'Choose the word that fits: "The backend runs on a cloud ______."',
+        'ข้อใดทำหน้าที่ให้บริการข้อมูลบนเครือข่ายมากที่สุด?',
+        'A machine hosts an application and responds to requests. Which term fits best?'),
+      makeTerm('authentication','authentication','การยืนยันตัวตน','Checking a user’s identity.',['authorization','dataset','inference','commit','screen','loop'],
+        'Login starts with user ______.',
+        'Choose the word that fits: "Two-factor ______ improves account security."',
+        'ข้อใดเกี่ยวข้องกับการตรวจสอบว่าเป็นใครมากที่สุด?',
+        'A system asks for a password and one-time code. Which term fits best?'),
+      makeTerm('pipeline','pipeline','ลำดับขั้นตอนการประมวลผล','A sequence of processing steps.',['branch','folder','button','training set','device','tokenization'],
+        'The team builds a data ______.',
+        'Choose the word that fits: "Our CI/CD ______ runs tests automatically."',
+        'ข้อใดเกี่ยวข้องกับลำดับงานต่อเนื่องมากที่สุด?',
+        'Data moves from collection to cleaning to reporting through several steps. Which term fits best?'),
+      makeTerm('etl','ETL','การดึง แปลง และโหลดข้อมูล','Extract, transform, and load data into a target system.',['api','cache','accuracy','compile','deploy','prompt'],
+        'Nightly ______ jobs move data into the warehouse.',
+        'Choose the word that fits: "The analyst scheduled an ______ process for reporting."',
+        'ข้อใดเกี่ยวข้องกับการดึง แปลง และโหลดข้อมูลมากที่สุด?',
+        'A company combines data from many sources into one reporting system. Which term fits best?')
     ],
     C: [
-      termItem('model','model','แบบจำลองที่ใช้ทำนายหรือจำแนก','A trained system used to predict or classify.',['feature','training','accuracy','dataset','label','bias'],'The AI ______ predicts house prices.','ข้อใดเกี่ยวข้องกับระบบที่ผ่านการฝึกแล้วมากที่สุด?','ถ้าระบบ AI ใช้ข้อมูลเพื่อทำนายผลลัพธ์ คำใดตรงที่สุด?'),
-      termItem('feature','feature','ตัวแปรนำเข้าของโมเดล','An input variable used by a model.',['label','accuracy','training','model','bias','recall'],'Age can be a ______ in machine learning.','ข้อใดเกี่ยวข้องกับข้อมูลนำเข้าของโมเดลมากที่สุด?','ถ้าต้องส่งข้อมูลอายุเข้าโมเดล คำใดตรงที่สุด?'),
-      termItem('accuracy','accuracy','ความแม่นยำของโมเดล','How often a model is correct.',['bias','feature','training','precision','recall','loss'],'90% ______ means most predictions are correct.','ข้อใดใช้วัดว่าโมเดลตอบถูกบ่อยแค่ไหน?','ถ้าระบบทำนายถูก 95 จาก 100 ครั้ง คำใดตรงที่สุด?')
+      makeTerm('model','model','แบบจำลองที่ใช้ทำนายหรือจำแนก','A trained system used to predict or classify.',['feature','dataset','server','query','interface','storage'],
+        'The AI ______ predicts customer churn.',
+        'Choose the word that fits: "We deploy the best-performing ______ to production."',
+        'ข้อใดเกี่ยวข้องกับระบบที่ผ่านการฝึกแล้วมากที่สุด?',
+        'A data scientist uses a trained system to make predictions. Which term fits best?'),
+      makeTerm('feature','feature','ตัวแปรนำเข้าของโมเดล','An input variable used by a model.',['label','accuracy','gradient','server','api','folder'],
+        'Age can be a ______ in machine learning.',
+        'Choose the word that fits: "Income is one important ______ in this dataset."',
+        'ข้อใดเกี่ยวข้องกับข้อมูลนำเข้าของโมเดลมากที่สุด?',
+        'A model uses age, income, and clicks as inputs. Which term fits best?'),
+      makeTerm('accuracy','accuracy','ความแม่นยำ','How often a model is correct.',['bias','precision','recall','token','compile','branch'],
+        '90% ______ means most predictions are correct.',
+        'Choose the word that fits: "We improved the ______ from 82% to 89%."',
+        'ข้อใดใช้วัดว่าโมเดลตอบถูกบ่อยแค่ไหน?',
+        'A model makes correct predictions in 95 out of 100 cases. Which term fits best?'),
+      makeTerm('embedding','embedding','เวกเตอร์แทนความหมาย','A numeric representation of meaning.',['token','epoch','cache','server','merge','router'],
+        'The search system compares text using an ______.',
+        'Choose the word that fits: "Similar words often have similar ______ vectors."',
+        'ข้อใดเกี่ยวข้องกับการแทนความหมายเชิงตัวเลขมากที่สุด?',
+        'A retrieval system converts sentences into vectors for semantic search. Which term fits best?'),
+      makeTerm('tokenization','tokenization','การตัดข้อความเป็นหน่วยย่อย','Splitting text into smaller units for processing.',['embedding','feature','database','storage','compile','authorization'],
+        'Before training, the text goes through ______.',
+        'Choose the word that fits: "The NLP pipeline begins with ______."',
+        'ข้อใดเกี่ยวข้องกับการแบ่งข้อความเป็นหน่วยมากที่สุด?',
+        'A language model first breaks text into smaller pieces before processing. Which term fits best?'),
+      makeTerm('fine_tuning','fine-tuning','การปรับโมเดลที่ฝึกไว้แล้วให้เหมาะงานย่อย','Adapting a pretrained model to a specific task.',['deployment','query','latency','button','dataset','router'],
+        'The team uses ______ to adapt the model for Thai support.',
+        'Choose the word that fits: "We improve task performance through ______."',
+        'ข้อใดเกี่ยวข้องกับการปรับโมเดลเดิมให้เหมาะงานใหม่มากที่สุด?',
+        'An organization adapts a pretrained model for customer support in its own domain. Which term fits best?')
     ]
   };
 
-  const V8 = {
-    bank: 'A', score: 0, combo: 0, hp: 4, runDifficulty: 'easy', currentItem: null,
-    usedVariantIds: new Set(), usedTermIds: [], reviewQueue: [], mastery: {}, stageIndex: 0, maxStages: 14, countdown: 3
+  const V9 = {
+    bank: 'A',
+    mode: 'code_battle',
+    score: 0,
+    combo: 0,
+    hp: 5,
+    bossHp: 100,
+    runDifficulty: 'easy',
+    currentItem: null,
+    usedVariantIds: new Set(),
+    usedTermIds: [],
+    reviewQueue: [],
+    mastery: {},
+    stageIndex: 0,
+    maxStages: 18,
+    countdown: 3
   };
 
   let width = 0, height = 0, dpr = 1, mouseX = 0, mouseY = 0, hoveredId = null, targets = [];
-  let phase = 'idle', phaseUntil = 0, roundStart = 0, roundDuration = 6000, timeLeft = 1, raf = 0;
+  let phase = 'idle', phaseUntil = 0, roundStart = 0, roundDuration = 6000, timeLeft = 1;
   let profile = { displayName: 'Player', studentId: '' };
   let lastSummary = null;
   let leaderboardOpenedFromEnd = false;
+  let micPermissionState = 'unknown';
+  let micStream = null;
 
   function resize(){
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -298,55 +436,71 @@
   }
   function now(){ return performance.now(); }
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-  function v8Shuffle(arr){
+  function setText(el, value){ if (el) el.textContent = value; }
+  function shuffle(arr){
     const a = arr.slice();
     for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random() * (i+1)); [a[i],a[j]] = [a[j],a[i]]; }
     return a;
   }
-  function center(){ return { x: width * 0.5, y: height * 0.6 }; }
+  function center(){ return { x: width * 0.5, y: height * 0.62 }; }
 
   function loadProfile(){
     try{
-      const raw = JSON.parse(localStorage.getItem('VOCAB_V8_PROFILE') || '{}');
+      const raw = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}');
       profile.displayName = raw.displayName || 'Player';
       profile.studentId = raw.studentId || '';
-      els.displayNameInput.value = profile.displayName === 'Player' ? '' : profile.displayName;
-      els.studentIdInput.value = profile.studentId;
+      if (els.displayNameInput) els.displayNameInput.value = profile.displayName === 'Player' ? '' : profile.displayName;
+      if (els.studentIdInput) els.studentIdInput.value = profile.studentId;
     }catch(e){}
   }
   function saveProfile(){
     profile.displayName = (els.displayNameInput.value || '').trim() || 'Player';
     profile.studentId = (els.studentIdInput.value || '').trim();
-    localStorage.setItem('VOCAB_V8_PROFILE', JSON.stringify(profile));
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
   }
 
   function ensureMastery(termId){
-    if(!V8.mastery[termId]){
-      V8.mastery[termId] = { level: 'easy', streak: 0, seen: 0, correct: 0, wrong: 0, highestLevel: 'easy', lastTypes: [], reviewCount: 0, reviewRecovered: 0 };
+    if(!V9.mastery[termId]){
+      V9.mastery[termId] = { level: 'easy', streak: 0, seen: 0, correct: 0, wrong: 0, highestLevel: 'easy', lastTypes: [], reviewCount: 0, reviewRecovered: 0 };
     }
-    return V8.mastery[termId];
+    return V9.mastery[termId];
   }
   function levelRank(level){ return level === 'easy' ? 1 : level === 'normal' ? 2 : 3; }
   function promoteLevel(level){ return level === 'easy' ? 'normal' : level === 'normal' ? 'hard' : 'hard'; }
   function demoteLevel(level){ return level === 'hard' ? 'normal' : level === 'normal' ? 'easy' : 'easy'; }
 
+  function modeMeta(){
+    return {
+      code_battle: { damage: 20, baseTime: 6200, title:'CODE BATTLE' },
+      debug_mission: { damage: 16, baseTime: 7000, title:'DEBUG MISSION' },
+      ai_training: { damage: 18, baseTime: 6800, title:'AI TRAINING SIM' },
+      speed_run: { damage: 14, baseTime: 4200, title:'SPEED RUN' }
+    }[V9.mode];
+  }
+
   function updateRunDifficulty(){
-    if (V8.combo >= 8) V8.runDifficulty = 'hard';
-    else if (V8.combo >= 4) V8.runDifficulty = 'normal';
-    else V8.runDifficulty = 'easy';
-    if (V8.hp <= 2 && V8.runDifficulty === 'hard') V8.runDifficulty = 'normal';
-    if (V8.hp <= 1) V8.runDifficulty = 'easy';
+    if (V9.combo >= 8) V9.runDifficulty = 'hard';
+    else if (V9.combo >= 4) V9.runDifficulty = 'normal';
+    else V9.runDifficulty = 'easy';
+    if (V9.hp <= 2 && V9.runDifficulty === 'hard') V9.runDifficulty = 'normal';
+    if (V9.hp <= 1) V9.runDifficulty = 'easy';
   }
 
   function updateMasteryAfterAnswer(termId, isCorrect, variantType, fromReview){
     const m = ensureMastery(termId);
     m.seen += 1;
     if (isCorrect){
-      m.correct += 1; m.streak += 1;
+      m.correct += 1;
+      m.streak += 1;
       if (fromReview) m.reviewRecovered += 1;
-      if (m.streak >= 2){ m.level = promoteLevel(m.level); m.streak = 0; }
+      if (m.streak >= 2){
+        m.level = promoteLevel(m.level);
+        m.streak = 0;
+      }
     } else {
-      m.wrong += 1; m.streak = 0; m.level = demoteLevel(m.level);
+      m.wrong += 1;
+      m.streak = 0;
+      m.level = demoteLevel(m.level);
       if (fromReview) m.reviewCount += 1;
     }
     if (levelRank(m.level) > levelRank(m.highestLevel)) m.highestLevel = m.level;
@@ -354,14 +508,14 @@
     if (m.lastTypes.length > 5) m.lastTypes.shift();
   }
 
-  function enqueueReview(termId){ if (!V8.reviewQueue.includes(termId)) V8.reviewQueue.push(termId); }
-  function takeReviewTermId(){ return V8.reviewQueue.length ? V8.reviewQueue.shift() : null; }
-  function getCurrentBankTerms(){ return VOCAB_BANKS[V8.bank] || []; }
+  function enqueueReview(termId){ if (!V9.reviewQueue.includes(termId)) V9.reviewQueue.push(termId); }
+  function takeReviewTermId(){ return V9.reviewQueue.length ? V9.reviewQueue.shift() : null; }
+  function getCurrentBankTerms(){ return VOCAB_BANKS[V9.bank] || []; }
 
   function pickNextTermObject(){
     const terms = getCurrentBankTerms();
     if (!terms.length) return null;
-    const shouldUseReview = V8.stageIndex > 0 && V8.stageIndex % 4 === 0;
+    const shouldUseReview = V9.stageIndex > 0 && V9.stageIndex % 4 === 0;
     if (shouldUseReview){
       const reviewId = takeReviewTermId();
       if (reviewId){
@@ -369,7 +523,7 @@
         if (found) return { termObj: found, fromReview: true };
       }
     }
-    const recent = V8.usedTermIds.slice(-3);
+    const recent = V9.usedTermIds.slice(-3);
     let candidates = terms.filter(t => !recent.includes(t.id));
     if (!candidates.length) candidates = terms.slice();
     const chosen = candidates[Math.floor(Math.random() * candidates.length)];
@@ -380,24 +534,25 @@
     const mastery = ensureMastery(termObj.id);
     const level = mastery.level;
     const pool = termObj.variants[level] || [];
-    let candidates = pool.filter(v => !V8.usedVariantIds.has(v.id));
+    let candidates = pool.filter(v => !V9.usedVariantIds.has(v.id));
     candidates = candidates.filter(v => !mastery.lastTypes.includes(v.type));
-    if (!candidates.length) candidates = pool.filter(v => !V8.usedVariantIds.has(v.id));
+    if (!candidates.length) candidates = pool.filter(v => !V9.usedVariantIds.has(v.id));
     if (!candidates.length) candidates = pool.slice();
     const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-    return Object.assign({}, chosen, {
-      level, termId: termObj.id, term: termObj.term, th: termObj.th, definition: termObj.definition, distractorPool: termObj.distractorPool
-    });
+    return Object.assign({}, chosen, { level, termId: termObj.id, term: termObj.term, th: termObj.th, definition: termObj.definition, distractorPool: termObj.distractorPool });
   }
 
   function buildChoices(item){
     const bankTerms = getCurrentBankTerms();
     if (item.type === 'en_to_th'){
       const thaiPool = bankTerms.filter(t => t.id !== item.termId).map(t => t.th);
-      return v8Shuffle([item.answer].concat(thaiPool.slice(0,3)));
+      return shuffle([item.answer].concat(thaiPool.slice(0,3)));
     }
-    const distractors = (item.distractorPool || []).filter(d => d !== item.answer).slice(0,3);
-    return v8Shuffle([item.answer].concat(distractors));
+    let distractors = (item.distractorPool || []).filter(d => d !== item.answer);
+    if (V9.runDifficulty === 'easy') distractors = distractors.slice(0,3);
+    if (V9.runDifficulty === 'normal') distractors = distractors.slice(0,3);
+    if (V9.runDifficulty === 'hard') distractors = distractors.reverse().slice(0,3);
+    return shuffle([item.answer].concat(distractors));
   }
 
   function buildQuestionItem(){
@@ -406,13 +561,14 @@
     const termObj = picked.termObj;
     const fromReview = picked.fromReview;
     const variant = pickVariantForTerm(termObj);
-    V8.usedVariantIds.add(variant.id);
-    V8.usedTermIds.push(termObj.id);
+    V9.usedVariantIds.add(variant.id);
+    V9.usedTermIds.push(termObj.id);
     return Object.assign({}, variant, { fromReview, choices: buildChoices(variant) });
   }
 
   function renderQuestionBox(item){
-    els.questionBox.innerHTML = '<div class="q-meta">' + item.type.toUpperCase() + ' • ' + item.level.toUpperCase() + (item.fromReview ? ' • REVIEW' : '') + '</div><div class="q-prompt">' + item.prompt + '</div>';
+    const meta = modeMeta().title + ' • ' + item.type.toUpperCase() + ' • ' + item.level.toUpperCase() + (item.fromReview ? ' • REVIEW' : '');
+    els.questionBox.innerHTML = '<div class="q-meta">' + meta + '</div><div class="q-prompt">' + item.prompt + '</div>';
   }
 
   function showFeedback(text, kind){
@@ -421,40 +577,47 @@
     els.feedbackBox.className = '';
     els.feedbackBox.id = 'feedbackBox';
     els.feedbackBox.classList.add('show', kind);
-    setTimeout(() => {
-      if (els.feedbackBox) els.feedbackBox.classList.remove('show');
-    }, 650);
-  }
-
-  function setText(el, value){
-    if (el) el.textContent = value;
+    setTimeout(() => { if (els.feedbackBox) els.feedbackBox.classList.remove('show'); }, 650);
   }
 
   function renderHud(){
-    const shownStage = Math.min(V8.stageIndex + 1, V8.maxStages);
-    setText(els.hudScore, 'Score ' + V8.score);
-    setText(els.hudRound, 'Stage ' + shownStage + ' / ' + V8.maxStages);
-    setText(els.hudCombo, 'Combo x' + V8.combo);
-    setText(els.hudMode, 'Difficulty ' + V8.runDifficulty.toUpperCase());
-    setText(els.hudHp, 'HP ' + V8.hp);
-    setText(els.hudState, phase.toUpperCase() + ' • ' + V8.bank);
-    setText(els.hudPrompt, V8.currentItem ? (V8.currentItem.term.toUpperCase() + ' • learning mode') : 'Adaptive learning • anti-repeat • review queue');
+    const shownStage = Math.min(V9.stageIndex + 1, V9.maxStages);
+    setText(els.hudScore, 'Score ' + V9.score);
+    setText(els.hudRound, 'Stage ' + shownStage + ' / ' + V9.maxStages);
+    setText(els.hudCombo, 'Combo x' + V9.combo);
+    setText(els.hudMode, 'Difficulty ' + V9.runDifficulty.toUpperCase());
+    setText(els.hudHp, 'HP ' + V9.hp + ' • Boss ' + Math.max(0, V9.bossHp));
+    setText(els.hudState, phase.toUpperCase() + ' • ' + V9.bank + ' • ' + modeMeta().title);
+    setText(els.hudPrompt, V9.currentItem ? (V9.currentItem.term.toUpperCase() + ' • ESP battle') : 'Contextual learning • adaptive difficulty • review queue');
     if (els.timeFill) els.timeFill.style.transform = 'scaleX(' + timeLeft + ')';
   }
 
   function spawnTargetsFromChoices(choices){
     const c = center();
-    targets = choices.map((choice, i) => {
-      const angle = (Math.PI * 2 / choices.length) * i;
-      return {
+    const mobile = width < 860;
+    if (mobile){
+      const ys = [height * 0.40, height * 0.54, height * 0.68, height * 0.82];
+      targets = choices.map((choice, i) => ({
         id: 'target_' + i + '_' + Date.now(),
         text: String(choice).toUpperCase(),
         rawText: String(choice).toLowerCase(),
-        x: c.x + Math.cos(angle) * 170,
-        y: c.y + Math.sin(angle) * 40,
-        angle: angle, radiusBase: 170, radiusPulse: 16,
-        speed: 0.012 + i * 0.002, w: 240, h: 82, scale: 1, z: 0.8,
-        color: ['#67e8f9', '#fde047', '#f472b6', '#a78bfa'][i % 4], hitFlash: 0
+        x: c.x, y: ys[i] || (height * 0.4 + i * 90), angle:0, radiusBase:0, radiusPulse:0,
+        speed:0, w: Math.min(320, width * 0.76), h: 74, scale:1, z:1,
+        color:['#67e8f9','#fde047','#f472b6','#a78bfa'][i%4], hitFlash:0, mobile:true
+      }));
+      return;
+    }
+    targets = choices.map((choice, i) => {
+      const angle = (Math.PI * 2 / choices.length) * i;
+      return {
+        id:'target_' + i + '_' + Date.now(),
+        text:String(choice).toUpperCase(),
+        rawText:String(choice).toLowerCase(),
+        x:c.x + Math.cos(angle) * 180,
+        y:c.y + Math.sin(angle) * 50,
+        angle, radiusBase:180, radiusPulse:20,
+        speed:0.012 + i * 0.002, w:250, h:84, scale:1, z:0.8,
+        color:['#67e8f9','#fde047','#f472b6','#a78bfa'][i%4], hitFlash:0, mobile:false
       };
     });
   }
@@ -463,12 +626,14 @@
     const c = center();
     hoveredId = null;
     targets.forEach((t, i) => {
-      t.angle += t.speed;
-      const radius = t.radiusBase + Math.sin(time * 0.002 + i) * t.radiusPulse;
-      t.x = c.x + Math.cos(t.angle) * radius;
-      t.y = c.y + Math.sin(t.angle * 1.8 + time * 0.0013) * 50;
-      t.z = 0.75 + (Math.sin(t.angle * 1.3 + time * 0.001) + 1) * 0.15;
-      t.scale = 1 + (t.z - 0.75) * 0.7;
+      if (!t.mobile){
+        t.angle += t.speed;
+        const radius = t.radiusBase + Math.sin(time * 0.002 + i) * t.radiusPulse;
+        t.x = c.x + Math.cos(t.angle) * radius;
+        t.y = c.y + Math.sin(t.angle * 1.8 + time * 0.0013) * 44;
+        t.z = 0.75 + (Math.sin(t.angle * 1.3 + time * 0.001) + 1) * 0.15;
+        t.scale = 1 + (t.z - 0.75) * 0.7;
+      }
       t.hitFlash = Math.max(0, t.hitFlash - 0.05);
       if (pointInTarget(mouseX, mouseY, t)) hoveredId = t.id;
     });
@@ -492,11 +657,31 @@
       ctx.globalAlpha = 1;
       ctx.lineWidth = hoveredId === t.id ? 8 : 6;
       ctx.strokeStyle = t.color;
-      drawRoundRect(ctx, -120, -42, 240, 84, 20); ctx.stroke();
-      drawRoundRect(ctx, -108, -32, 216, 64, 16); ctx.fillStyle = hoveredId === t.id ? '#fff7ed' : '#fff'; ctx.fill();
-      ctx.fillStyle = '#111827'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '800 ' + (hoveredId === t.id ? 28 : 26) + 'px Arial';
-      ctx.fillText(t.text, 0, 1); ctx.restore();
+      const w = t.mobile ? t.w : 250;
+      const h = t.mobile ? t.h : 84;
+      drawRoundRect(ctx, -w/2, -h/2, w, h, 20); ctx.stroke();
+      drawRoundRect(ctx, -w/2 + 10, -h/2 + 8, w - 20, h - 16, 16); ctx.fillStyle = hoveredId === t.id ? '#fff7ed' : '#fff'; ctx.fill();
+      ctx.fillStyle = '#111827'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '800 ' + (t.mobile ? 20 : (hoveredId === t.id ? 28 : 26)) + 'px Arial';
+      wrapText(ctx, t.text, 0, 0, w - 40, t.mobile ? 2 : 2, t.mobile ? 20 : 26);
+      ctx.restore();
     });
+  }
+
+  function wrapText(ctx, text, cx, cy, maxW, maxLines, fs){
+    ctx.font = '800 ' + fs + 'px Arial';
+    const words = String(text).split(' ');
+    const lines = []; let line = '';
+    for (const word of words){
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width <= maxW || !line) line = test;
+      else { lines.push(line); line = word; }
+    }
+    if (line) lines.push(line);
+    const use = lines.slice(0, maxLines);
+    const lh = fs * 1.16;
+    const sy = cy - ((use.length - 1) * lh) / 2;
+    use.forEach((ln, i) => ctx.fillText(ln, cx, sy + i * lh));
   }
 
   function pointInTarget(x, y, t){
@@ -509,7 +694,7 @@
   }
 
   function getWeakestTerms(limit){
-    return Object.entries(V8.mastery).sort((a,b) => {
+    return Object.entries(V9.mastery).sort((a,b) => {
       const wrongDiff = b[1].wrong - a[1].wrong;
       if (wrongDiff !== 0) return wrongDiff;
       return a[1].correct - b[1].correct;
@@ -517,6 +702,7 @@
   }
 
   async function saveScoreRealtime(entry){
+    // Realtime Database hook point
     return Promise.resolve(entry);
   }
 
@@ -529,38 +715,11 @@
   }
   function pushLeaderboardEntry(entry){
     const rows = loadLeaderboard();
-    rows.push(entry); rows.sort((a,b) => (b.score||0) - (a.score||0));
+    rows.push(entry);
+    rows.sort((a,b) => (b.score||0) - (a.score||0));
     saveLeaderboard(rows);
     renderMenuTop3();
   }
-  function teacherPassHash(pass){
-    try{
-      return btoa(unescape(encodeURIComponent(pass || '')));
-    }catch(e){
-      return '';
-    }
-  }
-
-  function buildTeacherLink(){
-    const url = new URL(window.location.href);
-    const pass = (els.teacherPassInput && els.teacherPassInput.value || '').trim();
-    if (pass) {
-      localStorage.setItem('VOCAB_V8_TEACHER_PASS_HASH', teacherPassHash(pass));
-      url.searchParams.set('teacherKey', teacherPassHash(pass));
-    }
-    url.searchParams.set('teacher', '1');
-    return url.toString();
-  }
-
-  async function copyText(text){
-    try{
-      await navigator.clipboard.writeText(text);
-      return true;
-    }catch(e){
-      return false;
-    }
-  }
-
   function renderMenuTop3(){
     const rows = loadLeaderboard().slice(0,3);
     if (!els.menuTop3Board) return;
@@ -577,7 +736,6 @@
       els.menuTop3Board.appendChild(div);
     });
   }
-
   function renderLeaderboard(){
     const rows = loadLeaderboard();
     renderMenuTop3();
@@ -590,7 +748,7 @@
     }
     rows.slice(0,10).forEach((r,i) => {
       const li = document.createElement('li');
-      li.innerHTML = '<strong>#' + (i+1) + ' ' + r.displayName + '</strong><div class="small mono">Score ' + r.score + ' • Accuracy ' + r.accuracy + '% • Bank ' + r.bank + ' • ' + r.when + '</div>';
+      li.innerHTML = '<strong>#' + (i+1) + ' ' + r.displayName + '</strong><div class="small mono">Score ' + r.score + ' • Accuracy ' + r.accuracy + '% • Bank ' + r.bank + ' • Mode ' + r.mode + ' • ' + r.when + '</div>';
       els.leaderboardList.appendChild(li);
     });
   }
@@ -604,8 +762,8 @@
       uid: 'anon-' + Math.random().toString(36).slice(2,10),
       displayName: profile.displayName || 'Player',
       studentId: profile.studentId || '',
-      bank: V8.bank,
-      mode: 'learning-v8',
+      bank: V9.bank,
+      mode: V9.mode,
       score: summary.score,
       accuracy: accuracy,
       improvement: 0,
@@ -639,20 +797,20 @@
 
   async function endRun(){
     if (phase === 'ended') return;
-
     phase = 'ended';
     targets = [];
-    V8.currentItem = null;
+    V9.currentItem = null;
     hoveredId = null;
     timeLeft = 0;
 
     const weakest = getWeakestTerms(5);
     const summary = {
-      score: V8.score,
-      hp: V8.hp,
-      stagesPlayed: Math.min(V8.stageIndex, V8.maxStages),
+      score: V9.score,
+      hp: V9.hp,
+      bossHp: V9.bossHp,
+      stagesPlayed: Math.min(V9.stageIndex, V9.maxStages),
       weakestTerms: weakest,
-      mastery: V8.mastery
+      mastery: V9.mastery
     };
 
     lastSummary = summary;
@@ -661,14 +819,17 @@
     const entry = buildRealtimeEntryFromSummary(summary);
     pushLeaderboardEntry(entry);
 
-    try{
-      await saveScoreRealtime(entry);
-    }catch(err){
-      console.error('saveScoreRealtime failed', err);
-    }
+    try{ await saveScoreRealtime(entry); }
+    catch(err){ console.error('saveScoreRealtime failed', err); }
 
     const weakestText = weakest.length ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ') : '-';
-    els.endSummaryText.innerHTML = '<strong>' + profile.displayName + '</strong><br>Score: ' + summary.score + '<br>Stages: ' + summary.stagesPlayed + ' / ' + V8.maxStages + '<br>HP Left: ' + summary.hp + '<br>Weakest Terms: ' + weakestText;
+    els.endSummaryText.innerHTML =
+      '<strong>' + profile.displayName + '</strong><br>' +
+      'Score: ' + summary.score + '<br>' +
+      'Stages: ' + summary.stagesPlayed + ' / ' + V9.maxStages + '<br>' +
+      'HP Left: ' + summary.hp + '<br>' +
+      'Boss HP Left: ' + summary.bossHp + '<br>' +
+      'Weakest Terms: ' + weakestText;
 
     els.endWrap.classList.remove('hidden');
     els.menu.classList.add('hidden');
@@ -678,27 +839,29 @@
     renderHud();
   }
 
-  function handleAnswerV8(selectedText){
-    const item = V8.currentItem;
+  function handleAnswerV9(selectedText){
+    const item = V9.currentItem;
     if (!item || phase !== 'battle') return;
 
     const isCorrect = selectedText === String(item.answer).toLowerCase();
     updateMasteryAfterAnswer(item.termId, isCorrect, item.type, item.fromReview);
 
     if (isCorrect){
-      V8.score += 10;
-      V8.combo += 1;
-      showFeedback('PERFECT', 'ok');
+      const damage = modeMeta().damage + Math.min(V9.combo * 2, 18);
+      V9.score += 12 + Math.min(V9.combo * 3, 24);
+      V9.combo += 1;
+      V9.bossHp = Math.max(0, V9.bossHp - damage);
+      showFeedback('HIT +' + damage, 'ok');
     } else {
-      V8.hp -= 1;
-      V8.combo = 0;
+      V9.hp -= 1;
+      V9.combo = 0;
       enqueueReview(item.termId);
       showFeedback('WRONG', 'bad');
     }
 
-    V8.stageIndex += 1;
+    V9.stageIndex += 1;
 
-    if (V8.hp <= 0 || V8.stageIndex >= V8.maxStages){
+    if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages || V9.bossHp <= 0){
       endRun();
       return;
     }
@@ -707,10 +870,10 @@
     phaseUntil = now() + 700;
   }
 
-  function nextQuestionV8(){
+  function nextQuestionV9(){
     updateRunDifficulty();
 
-    if (V8.hp <= 0 || V8.stageIndex >= V8.maxStages){
+    if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages || V9.bossHp <= 0){
       endRun();
       return;
     }
@@ -721,96 +884,156 @@
       return;
     }
 
-    V8.currentItem = item;
+    V9.currentItem = item;
     renderQuestionBox(item);
     spawnTargetsFromChoices(item.choices);
 
     phase = 'countdown';
-    V8.countdown = 3;
-    phaseUntil = now() + 700;
+    V9.countdown = 3;
+    phaseUntil = now() + 650;
   }
 
-  function resetV8Run(bank){
-    V8.bank = bank; V8.score = 0; V8.combo = 0; V8.hp = 4; V8.runDifficulty = 'easy'; V8.currentItem = null;
-    V8.usedVariantIds = new Set(); V8.usedTermIds = []; V8.reviewQueue = []; V8.mastery = {}; V8.stageIndex = 0; V8.countdown = 3;
-    targets = []; phase = 'idle'; timeLeft = 1; renderHud();
+  function resetRun(bank, mode){
+    V9.bank = bank;
+    V9.mode = mode;
+    V9.score = 0;
+    V9.combo = 0;
+    V9.hp = 5;
+    V9.bossHp = 100;
+    V9.runDifficulty = 'easy';
+    V9.currentItem = null;
+    V9.usedVariantIds = new Set();
+    V9.usedTermIds = [];
+    V9.reviewQueue = [];
+    V9.mastery = {};
+    V9.stageIndex = 0;
+    V9.countdown = 3;
+    targets = [];
+    phase = 'idle';
+    timeLeft = 1;
+    renderHud();
   }
 
-  function startLearningRun(){
+  function canUseVoiceMode(){ return micPermissionState === 'ready'; }
+
+  async function startProductionRun(){
     document.querySelector('.hud')?.classList.remove('hidden');
     els.questionBox.classList.remove('hidden');
     saveProfile();
+
+    if (micPermissionState !== 'ready'){
+      await checkMicPermission();
+    }
+
     els.menu.classList.add('hidden');
     els.endWrap.classList.add('hidden');
-    resetV8Run(V8.bank);
-    nextQuestionV8();
+    resetRun(V9.bank, V9.mode);
+    nextQuestionV9();
   }
 
   function renderBackground(t){
     const g = ctx.createLinearGradient(0,0,0,height);
     g.addColorStop(0,'#67d8ff'); g.addColorStop(1,'#dbeafe');
     ctx.fillStyle = g; ctx.fillRect(0,0,width,height);
-    ctx.fillStyle = '#dbeafe'; ctx.fillRect(0,height*0.56,width,height*0.44);
+    ctx.fillStyle = '#dbeafe'; ctx.fillRect(0,height*0.58,width,height*0.42);
+
     const c = center();
-    ctx.save(); ctx.translate(c.x,c.y+60); ctx.rotate(-0.06);
+    // arena rings
+    ctx.save();
+    ctx.translate(c.x,c.y+72);
+    ctx.rotate(-0.06);
     for(let i=0;i<2;i++){
-      ctx.beginPath(); ctx.ellipse(0,0,260+i*80,70+i*22,0,0,Math.PI*2);
-      ctx.globalAlpha = i===0 ? .95 : .75; ctx.lineWidth = 14;
-      ctx.strokeStyle = i===0 ? '#38bdf8' : '#f472b6'; ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(0,0,280+i*72,72+i*20,0,0,Math.PI*2);
+      ctx.globalAlpha = i===0 ? .95 : .75;
+      ctx.lineWidth = 14;
+      ctx.strokeStyle = i===0 ? '#38bdf8' : '#f472b6';
+      ctx.stroke();
     }
-    ctx.restore(); ctx.globalAlpha = 1;
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    // boss core
+    ctx.save();
+    ctx.translate(c.x, c.y - 20);
+    const pulse = 1 + Math.sin(t * 0.003) * 0.06;
+    ctx.scale(pulse, pulse);
+    ctx.beginPath(); ctx.arc(0,0,44,0,Math.PI*2); ctx.fillStyle = 'rgba(244,114,182,.20)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(0,0,26,0,Math.PI*2); ctx.fillStyle = '#f472b6'; ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('BOSS', 0, 1);
+    ctx.restore();
   }
 
   function loop(t){
-    raf = requestAnimationFrame(loop);
+    requestAnimationFrame(loop);
     renderBackground(t);
 
     if (phase === 'countdown'){
       timeLeft = 1;
-      els.questionBox.innerHTML = '<div class="q-meta">' + (V8.currentItem ? V8.currentItem.type.toUpperCase() : 'GET READY') + '</div><div class="q-prompt">GET READY • ' + V8.countdown + '</div>';
+      els.questionBox.innerHTML = '<div class="q-meta">' + modeMeta().title + '</div><div class="q-prompt">GET READY • ' + V9.countdown + '</div>';
       if (now() >= phaseUntil){
-        V8.countdown -= 1; phaseUntil = now() + 700;
-        if (V8.countdown <= 0){
-          phase = 'battle'; roundStart = now();
-          roundDuration = V8.runDifficulty === 'hard' ? 4200 : V8.runDifficulty === 'normal' ? 5400 : 6600;
-          renderQuestionBox(V8.currentItem);
+        V9.countdown -= 1;
+        phaseUntil = now() + 650;
+        if (V9.countdown <= 0){
+          phase = 'battle';
+          roundStart = now();
+          const base = modeMeta().baseTime;
+          roundDuration = V9.runDifficulty === 'hard' ? Math.max(2800, base - 1600) : V9.runDifficulty === 'normal' ? Math.max(3600, base - 800) : base;
+          renderQuestionBox(V9.currentItem);
         }
       }
     } else if (phase === 'battle'){
       const elapsed = now() - roundStart;
       timeLeft = clamp(1 - elapsed / roundDuration, 0, 1);
       if (timeLeft <= 0){
-        V8.hp -= 1; V8.combo = 0; enqueueReview(V8.currentItem.termId); showFeedback('TIME OUT', 'bad');
-        V8.stageIndex += 1; phase = 'feedback'; phaseUntil = now() + 700;
+        V9.hp -= 1;
+        V9.combo = 0;
+        enqueueReview(V9.currentItem.termId);
+        showFeedback('TIME OUT', 'warn');
+        V9.stageIndex += 1;
+        if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages){
+          endRun();
+        } else {
+          phase = 'feedback';
+          phaseUntil = now() + 700;
+        }
       }
     } else if (phase === 'feedback'){
       timeLeft = 0;
-      if (now() >= phaseUntil) nextQuestionV8();
-    } else timeLeft = 1;
+      if (now() >= phaseUntil) nextQuestionV9();
+    } else {
+      timeLeft = 1;
+    }
 
     updateTargets(t);
     renderTargets();
     renderHud();
   }
 
-  function openLeaderboard(){ renderLeaderboard(); els.leaderboardWrap.classList.remove('hidden'); }
-  function bootTeacherMode(){
-    const q = new URLSearchParams(window.location.search);
-    if (q.get('teacher') === '1'){
-      const expected = localStorage.getItem('VOCAB_V8_TEACHER_PASS_HASH') || '';
-      const got = q.get('teacherKey') || '';
-      if (expected && got !== expected){
-        els.menu.classList.remove('hidden');
-        els.questionBox.classList.remove('hidden');
-        alert('Teacher passcode ไม่ถูกต้อง');
-        return;
-      }
-      els.menu.classList.add('hidden');
-      els.questionBox.classList.add('hidden');
-      document.querySelector('.hud')?.classList.add('hidden');
-      openTeacher();
-    }
+  function teacherPassHash(pass){
+    try{ return btoa(unescape(encodeURIComponent(pass || ''))); }
+    catch(e){ return ''; }
   }
+  function buildTeacherLink(){
+    const url = new URL(window.location.href);
+    const pass = (els.teacherPassInput && els.teacherPassInput.value || '').trim();
+    if (pass){
+      localStorage.setItem('VOCAB_V9_TEACHER_PASS_HASH', teacherPassHash(pass));
+      url.searchParams.set('teacherKey', teacherPassHash(pass));
+    }
+    url.searchParams.set('teacher', '1');
+    return url.toString();
+  }
+  async function copyText(text){
+    try{ await navigator.clipboard.writeText(text); return true; }
+    catch(e){ return false; }
+  }
+
+  function openLeaderboard(){ renderLeaderboard(); els.leaderboardWrap.classList.remove('hidden'); }
   function openTeacher(){
     document.querySelector('.hud')?.classList.add('hidden');
     els.questionBox.classList.add('hidden');
@@ -822,28 +1045,107 @@
     }
     els.teacherWrap.classList.remove('hidden');
   }
+  function bootTeacherMode(){
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('teacher') === '1'){
+      const expected = localStorage.getItem('VOCAB_V9_TEACHER_PASS_HASH') || '';
+      const got = q.get('teacherKey') || '';
+      if (expected && got !== expected){
+        alert('Teacher passcode ไม่ถูกต้อง');
+        return;
+      }
+      els.menu.classList.add('hidden');
+      openTeacher();
+    }
+  }
+
+  function setMicStatus(state, text) {
+    micPermissionState = state;
+    if (!els.micStatusBadge || !els.micStatusText) return;
+    els.micStatusBadge.className = 'mic-badge';
+    if (state === 'ready') {
+      els.micStatusBadge.classList.add('mic-ready');
+      els.micStatusBadge.textContent = '🎤 READY';
+    } else if (state === 'blocked') {
+      els.micStatusBadge.classList.add('mic-blocked');
+      els.micStatusBadge.textContent = '🎤 BLOCKED';
+    } else if (state === 'denied') {
+      els.micStatusBadge.classList.add('mic-denied');
+      els.micStatusBadge.textContent = '🎤 DENIED';
+    } else {
+      els.micStatusBadge.classList.add('mic-unknown');
+      els.micStatusBadge.textContent = '🎤 UNKNOWN';
+    }
+    els.micStatusText.textContent = text || '';
+  }
+  async function checkMicPermission() {
+    if (!navigator.permissions || !navigator.permissions.query) {
+      setMicStatus('unknown', 'เบราว์เซอร์นี้ไม่รองรับการอ่านสถานะ permission โดยตรง');
+      return;
+    }
+    try {
+      const result = await navigator.permissions.query({ name: 'microphone' });
+      if (result.state === 'granted') setMicStatus('ready', 'อนุญาตไมโครโฟนแล้ว พร้อมใช้งาน');
+      else if (result.state === 'denied') setMicStatus('denied', 'ไมโครโฟนถูกปฏิเสธ ต้องไปเปิดสิทธิ์ในเบราว์เซอร์');
+      else setMicStatus('blocked', 'ยังไม่ได้อนุญาต กดปุ่มด้านล่างเพื่อขอสิทธิ์');
+
+      result.onchange = () => {
+        if (result.state === 'granted') setMicStatus('ready', 'อนุญาตไมโครโฟนแล้ว พร้อมใช้งาน');
+        else if (result.state === 'denied') setMicStatus('denied', 'ไมโครโฟนถูกปฏิเสธ ต้องไปเปิดสิทธิ์ในเบราว์เซอร์');
+        else setMicStatus('blocked', 'ยังไม่ได้อนุญาต กดปุ่มด้านล่างเพื่อขอสิทธิ์');
+      };
+    } catch (err) {
+      setMicStatus('unknown', 'ตรวจสอบ permission ไม่สำเร็จ');
+    }
+  }
+  async function requestMicrophonePermission() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setMicStatus('denied', 'อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับไมโครโฟน');
+      return false;
+    }
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMicStatus('ready', 'อนุญาตไมโครโฟนแล้ว พร้อมเริ่มเกม');
+      return true;
+    } catch (err) {
+      if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
+        setMicStatus('denied', 'คุณปฏิเสธไมโครโฟน ต้องไปเปิดสิทธิ์ที่เบราว์เซอร์');
+      } else {
+        setMicStatus('blocked', 'ยังเข้าถึงไมโครโฟนไม่ได้ ลองใหม่อีกครั้ง');
+      }
+      return false;
+    }
+  }
 
   document.querySelectorAll('.bankBtn').forEach(btn => {
     btn.addEventListener('click', () => {
-      V8.bank = btn.dataset.bank || 'A';
+      V9.bank = btn.dataset.bank || 'A';
       document.querySelectorAll('.bankBtn').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+  document.querySelectorAll('.modeBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      V9.mode = btn.dataset.mode || 'code_battle';
+      document.querySelectorAll('.modeBtn').forEach(b => b.classList.toggle('active', b === btn));
     });
   });
 
   canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
   canvas.addEventListener('mousedown', e => {
     const hit = getTargetAtPoint(e.clientX, e.clientY);
-    if (hit){ hit.hitFlash = 1; handleAnswerV8(hit.rawText); }
+    if (hit){ hit.hitFlash = 1; handleAnswerV9(hit.rawText); }
   });
   canvas.addEventListener('touchstart', e => {
     const t = e.changedTouches[0];
     if (!t) return;
     mouseX = t.clientX; mouseY = t.clientY;
     const hit = getTargetAtPoint(t.clientX, t.clientY);
-    if (hit){ hit.hitFlash = 1; handleAnswerV8(hit.rawText); }
+    if (hit){ hit.hitFlash = 1; handleAnswerV9(hit.rawText); }
   }, { passive:true });
 
-  document.getElementById('startBtn').addEventListener('click', startLearningRun);
+  els.requestMicBtn.addEventListener('click', async () => { await requestMicrophonePermission(); });
+
+  document.getElementById('startBtn').addEventListener('click', startProductionRun);
   document.getElementById('leaderboardBtn').addEventListener('click', () => {
     leaderboardOpenedFromEnd = false;
     openLeaderboard();
@@ -855,17 +1157,18 @@
   document.getElementById('generateTeacherLinkBtn').addEventListener('click', () => {
     els.teacherLinkOutput.value = buildTeacherLink();
   });
-  document.getElementById('copyTeacherLinkBtn').addEventListener('click', async() => {
+  document.getElementById('copyTeacherLinkBtn').addEventListener('click', async () => {
     if (!els.teacherLinkOutput.value) els.teacherLinkOutput.value = buildTeacherLink();
     const ok = await copyText(els.teacherLinkOutput.value);
     document.getElementById('copyTeacherLinkBtn').textContent = ok ? 'COPIED' : 'COPY FAILED';
     setTimeout(() => document.getElementById('copyTeacherLinkBtn').textContent = 'COPY LINK', 1200);
   });
   document.getElementById('closeTeacherLinkBtn').addEventListener('click', () => els.teacherLinkWrap.classList.add('hidden'));
+
   document.getElementById('endPlayAgainBtn').addEventListener('click', () => {
     els.endWrap.classList.add('hidden');
     els.questionBox.classList.remove('hidden');
-    startLearningRun();
+    startProductionRun();
   });
   document.getElementById('endLeaderboardBtn').addEventListener('click', () => {
     leaderboardOpenedFromEnd = true;
@@ -879,21 +1182,20 @@
   });
   document.getElementById('closeLeaderboardBtn').addEventListener('click', () => {
     els.leaderboardWrap.classList.add('hidden');
-
     if (leaderboardOpenedFromEnd || phase === 'ended') {
       els.endWrap.classList.remove('hidden');
       return;
     }
-
-    if (els.menu) {
-      els.menu.classList.remove('hidden');
-    }
+    if (els.menu) els.menu.classList.remove('hidden');
   });
-  document.getElementById('clearLeaderboardBtn').addEventListener('click', () => { localStorage.removeItem(LEADERBOARD_KEY); renderLeaderboard(); });
+  document.getElementById('clearLeaderboardBtn').addEventListener('click', () => {
+    localStorage.removeItem(LEADERBOARD_KEY);
+    renderLeaderboard();
+  });
   document.getElementById('closeTeacherBtn').addEventListener('click', () => {
     els.teacherWrap.classList.add('hidden');
     const q = new URLSearchParams(window.location.search);
-    if (q.get('teacher') === '1') {
+    if (q.get('teacher') === '1'){
       const clean = new URL(window.location.href);
       clean.searchParams.delete('teacher');
       clean.searchParams.delete('teacherKey');
@@ -901,18 +1203,21 @@
       return;
     }
   });
-  document.getElementById('clearTeacherBtn').addEventListener('click', () => { localStorage.removeItem(TEACHER_KEY); els.teacherTable.innerHTML = ''; els.weakList.innerHTML = ''; });
+  document.getElementById('clearTeacherBtn').addEventListener('click', () => {
+    localStorage.removeItem(TEACHER_KEY);
+    els.teacherTable.innerHTML = '';
+    els.weakList.innerHTML = '';
+  });
 
   resize();
   loadProfile();
   renderLeaderboard();
   renderMenuTop3();
   renderHud();
+  checkMicPermission();
   bootTeacherMode();
   requestAnimationFrame(loop);
   addEventListener('resize', resize);
-
-  console.assert(Object.keys(VOCAB_BANKS).length === 3, 'Need 3 banks');
 })();
 </script>
 </body>
