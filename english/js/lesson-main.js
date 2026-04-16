@@ -1976,67 +1976,6 @@ window.submitScore = async function () {
   }
 };
 
-function takeDamage() {
-  showVRFeedback(false);
-  playAnswerFX(false);
-
-  let damageAmount = state.gameDifficulty === "easy" ? 15 : (state.gameDifficulty === "normal" ? 25 : 40);
-  damageAmount += getAdaptiveDamageAdjustment();
-  if (state.currentMission && state.currentMission.id % 3 === 0) damageAmount += 10;
-  damageAmount = clamp(Math.round(damageAmount), 8, 50);
-
-  state.systemHP -= damageAmount;
-  state.comboCount = 0;
-  state.consecutiveLosses++;
-  state.consecutiveWins = 0;
-
-  playSFX("fail");
-  updateHUD(0);
-  expandMissionStats(1300);
-  expandMissionHudTextCompact(1300);
-  expandMissionTimer(1200);
-
-  const ui = $("ui-container");
-  ui?.classList.add("shake");
-  setTimeout(() => ui?.classList.remove("shake"), 300);
-
-  if (state.systemHP <= 35) ui?.classList.add("danger-mode");
-
-  let levelDownMsg = "";
-  if (state.consecutiveLosses >= 2) {
-    if (state.gameDifficulty === "hard") {
-      window.setDifficulty("normal");
-      levelDownMsg = " • NORMAL";
-    } else if (state.gameDifficulty === "normal") {
-      window.setDifficulty("easy");
-      levelDownMsg = " • EASY";
-    }
-    state.consecutiveLosses = 0;
-  }
-
-  if (state.systemHP <= 0) {
-    state.isGameOver = true;
-    setFeedback(`💥 SYSTEM OFFLINE${levelDownMsg}`, "#ff4757");
-    onMissionFailForAI("damage");
-    recordMissionFail(aiDirector.mood);
-    resetFinalBossState();
-    hideAllScenesAndControls();
-    setHudMode("summary");
-
-    showEndSummary(false, state.currentMission, aiDirector.mood, [
-      `Outcome: FAIL`
-    ]);
-
-    if (state.gameScore > 0) {
-      show("game-over-ui");
-      $("player-name-input").value = playerProfile.name || "";
-    }
-    show("btn-return", "inline-block");
-  } else {
-    setFeedback(minimalFailFeedback(damageAmount, levelDownMsg), "#ff4757");
-  }
-}
-
 function startTimer(seconds) {
   clearInterval(state.missionTimer);
   state.timeLeft = seconds;
