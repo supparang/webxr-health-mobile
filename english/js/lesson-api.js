@@ -1,7 +1,7 @@
 // /english/js/lesson-api.js
 'use strict';
 
-const API_BASE = 'https://YOUR_API_BASE_URL';
+const API_BASE = 'http://127.0.0.1:5001/YOUR_PROJECT_ID/us-central1';
 
 async function postJson(path, payload) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -25,21 +25,17 @@ async function postJson(path, payload) {
 }
 
 export async function startSession(payload) {
-  return postJson('/english/session/start', payload);
+  return postJson('/englishSessionStart', payload);
 }
 
 export async function getNextQuestion(payload) {
-  return postJson('/english/question/next', payload);
+  return postJson('/englishQuestionNext', payload);
 }
 
 export async function submitAnswer(payload) {
-  return postJson('/english/answer/submit', payload);
+  return postJson('/englishAnswerSubmit', payload);
 }
 
 export async function finishSession(payload) {
-  return postJson('/english/session/finish', payload);
-}
-
-export async function saveLeaderboard(payload) {
-  return postJson('/english/leaderboard/save', payload);
+  return postJson('/englishSessionFinish', payload);
 }
