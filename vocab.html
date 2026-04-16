@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Vocab ESP Battle — CS/AI</title>
+  <title>Vocab v9 ESP Battle — CS/AI</title>
   <style>
     :root{
       --bg1:#071122;
@@ -110,7 +110,7 @@
   <canvas id="gameCanvas"></canvas>
 
   <div class="hud">
-    <div class="card"><div class="big">VOCAB • ESP BATTLE</div><div class="bar"><div class="fill" id="timeFill"></div></div></div>
+    <div class="card"><div class="big">VOCAB v9 • ESP BATTLE</div><div class="sub" id="hudPrompt">Contextual learning • adaptive difficulty • review queue</div><div class="bar"><div class="fill" id="timeFill"></div></div></div>
     <div class="card"><div class="big" id="hudScore">Score 0</div><div class="sub" id="hudRound">Stage 0 / 18</div></div>
     <div class="card"><div class="big" id="hudCombo">Combo x0</div><div class="sub" id="hudMode">Difficulty EASY</div></div>
     <div class="card"><div class="big" id="hudHp">HP 5</div><div class="sub" id="hudState">READY</div></div>
@@ -124,7 +124,11 @@
 
   <div class="overlay" id="menu">
     <div class="panel">
-      <h1 class="title">Vocab — English for Specific Career Purposes (CS/AI)</h1>
+      <h1 class="title">Vocab v9 — English for Specific Career Purposes (CS/AI)</h1>
+      <div class="desc">
+        เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ: มีหลายรูปแบบคำถามต่อคำศัพท์, ปรับความยากตามการเล่น,
+        มี Code Battle / Debug Mission / AI Training / Speed Run และ review queue เพื่อย้อนคำที่ยังอ่อน
+      </div>
 
       <div class="grid3" style="margin-top:16px">
         <button class="option bankBtn active" data-bank="A"><h3>A • Software Engineering</h3><p>software, debug, deploy, API, repository, modularization</p></button>
