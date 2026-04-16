@@ -22,13 +22,12 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260416-slim-ui-prompt-final';
+    window.TECHPATH_BUILD = 'v20260416-full-merged-test';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
 </head>
 <body>
-
   <div id="loading">Loading TechPath VR...</div>
   <div id="impact-flash" aria-hidden="true"></div>
 
@@ -50,8 +49,17 @@
     <p class="instruction" id="ui-desc">เลือกด่านแล้วเริ่มเล่นได้เลย</p>
 
     <div id="hud-stats" style="display:flex; justify-content:space-between; gap:10px; font-weight:bold; margin:10px 0; border-top:1px solid #00e5ff; border-bottom:1px solid #00e5ff; padding:5px 0;">
-      <div style="color:#f1c40f;">SCORE: <span id="score-display">0</span> <span id="combo-display" style="color:#ff9f43; font-size:.8em; display:none;">(x2 COMBO!)</span></div>
-      <div style="color:#2ed573;">HP: <span id="hp-display">100%</span></div>
+      <div id="hud-score-wrap" class="hud-stat-item" style="color:#f1c40f;">
+        <span class="hud-stat-icon">🏆</span>
+        <span class="hud-stat-label">SCORE</span>
+        <span id="score-display">0</span>
+      </div>
+
+      <div id="hud-hp-wrap" class="hud-stat-item" style="color:#2ed573;">
+        <span class="hud-stat-icon">❤️</span>
+        <span class="hud-stat-label">HP</span>
+        <span id="hp-display">100%</span>
+      </div>
     </div>
 
     <div id="hud-top-row" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:10px;">
@@ -104,14 +112,7 @@
     <button class="btn-action" id="btn-speak" onclick="startRecognition()" style="display:none;">🎙️ Speak</button>
     <button class="btn-action" id="btn-play-audio" onclick="playAudio()" style="display:none;">🔊 Play Audio</button>
 
-    <input
-      type="text"
-      class="input-field"
-      id="write-input"
-      placeholder="พิมพ์คำตอบภาษาอังกฤษ..."
-      style="display:none;"
-    />
-
+    <input type="text" class="input-field" id="write-input" placeholder="พิมพ์คำตอบภาษาอังกฤษ..." style="display:none;" />
     <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()" style="display:none;">Submit</button>
 
     <div id="choice-buttons" style="display:none; justify-content:center; gap:12px; margin-top:10px;">
@@ -138,53 +139,64 @@
   </div>
 
   <a-scene loading-screen="enabled: false">
-
     <a-entity id="hub-scene">
       <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
 
-      <a-text value="TECHPATH VR" position="0 4.5 -5" align="center" color="#00e5ff" scale="1.6 1.6 1.6"></a-text>
-      <a-text value="15 SESSIONS" position="0 3.85 -5" align="center" color="#aaa" scale="0.6 0.6 0.6"></a-text>
-
-      <a-entity id="reward-chest" position="-3.5 0.5 -3" rotation="0 45 0" onclick="claimReward()">
-        <a-box color="#555" width="0.8" height="0.6" depth="0.6" material="metalness: 0.8; roughness: 0.2"></a-box>
-        <a-text value="DAILY REWARD" position="0 0.5 0" align="center" color="#f1c40f" scale="0.5 0.5 0.5"></a-text>
-        <a-text id="streak-text" value="Loading..." position="0 0.3 0" align="center" color="#fff" scale="0.4 0.4 0.4"></a-text>
+      <a-entity position="0 4.35 -5.15">
+        <a-text value="TECHPATH VR" position="0 0.28 0" align="center" color="#7bedff" scale="1.75 1.75 1.75"></a-text>
+        <a-text value="Choose a session and build your skill path" position="0 -0.12 0" align="center" color="#dbeafe" scale="0.56 0.56 0.56"></a-text>
+        <a-plane position="0 -0.34 0" width="3.1" height="0.03" color="#00e5ff" material="opacity: 0.45; shader: flat"></a-plane>
       </a-entity>
 
-      <a-entity position="-4.1 2.0 -2.8" rotation="0 25 0">
-        <a-plane width="2.1" height="1.35" color="#0f172a" material="opacity: 0.92"></a-plane>
-        <a-box width="2.2" height="1.45" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true"></a-box>
-        <a-text value="PROFILE" position="0 0.42 0.05" align="center" color="#7bedff" scale="0.48 0.48 0.48"></a-text>
-        <a-text id="vr-profile-name" value="Name: Hero" position="0 0.08 0.05" align="center" color="#ffffff" scale="0.42 0.42 0.42"></a-text>
-        <a-text id="vr-profile-avatar" value="🧑‍💻" position="0 -0.28 0.05" align="center" color="#2ed573" scale="1.1 1.1 1.1"></a-text>
+      <a-plane position="0 1.18 -4.18" width="9.1" height="3.35" color="#09111f" material="opacity: 0.24; shader: flat"></a-plane>
+
+      <a-entity id="reward-chest" class="clickable" position="-3.72 0.72 -3.08" rotation="0 42 0" onclick="claimReward()">
+        <a-plane id="reward-card-panel" position="0 0.34 -0.18" width="2.25" height="1.55" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
+        <a-box id="reward-card-frame" position="0 0.34 -0.21" width="2.35" height="1.65" depth="0.04" color="#7bedff" material="wireframe: true; opacity: 0.35"></a-box>
+        <a-ring id="reward-aura" position="0 0.18 0.08" radius-inner="0.46" radius-outer="0.60" color="#ffeaa7" material="opacity: 0.18; shader: flat" rotation="-90 0 0"></a-ring>
+        <a-box id="reward-chest-body" position="0 0.02 0" width="0.82" height="0.50" depth="0.62" color="#8c6239" material="metalness: 0.22; roughness: 0.55"></a-box>
+        <a-box id="reward-chest-lid" position="0 0.34 0.02" width="0.84" height="0.16" depth="0.64" color="#f1c40f" material="metalness: 0.52; roughness: 0.34"></a-box>
+        <a-text value="DAILY REWARD" position="0 0.72 0.03" align="center" color="#ffeaa7" scale="0.46 0.46 0.46"></a-text>
+        <a-text id="streak-text" value="Loading..." position="0 -0.55 0.03" align="center" color="#ffffff" scale="0.38 0.38 0.38" width="5"></a-text>
       </a-entity>
 
-      <a-entity position="0 2.8 -4.5">
-        <a-text value="DIFFICULTY" position="0 0.5 0" align="center" color="#00e5ff" scale="0.6 0.6 0.6"></a-text>
+      <a-entity position="-4.08 2.03 -2.82" rotation="0 25 0">
+        <a-plane width="2.18" height="1.56" color="#0f172a" material="opacity: 0.92; shader: flat"></a-plane>
+        <a-box width="2.28" height="1.66" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.34"></a-box>
+        <a-text value="PROFILE" position="0 0.54 0.05" align="center" color="#7bedff" scale="0.48 0.48 0.48"></a-text>
+        <a-circle position="0 -0.10 0.03" radius="0.22" color="#0b1327" material="opacity: 0.95; shader: flat"></a-circle>
+        <a-ring position="0 -0.10 0.04" radius-inner="0.22" radius-outer="0.26" color="#2ed573" material="opacity: 0.34; shader: flat"></a-ring>
+        <a-text id="vr-profile-avatar" value="🧑‍💻" position="0 -0.12 0.05" align="center" color="#ffffff" scale="1.02 1.02 1.02"></a-text>
+        <a-text id="vr-profile-name" value="Name: Hero" position="0 -0.50 0.05" align="center" color="#ffffff" scale="0.42 0.42 0.42" width="5"></a-text>
+      </a-entity>
 
-        <a-entity position="-1.5 0 0" class="clickable" onclick="setDifficulty('easy')">
-          <a-box id="diff-easy-box" width="1.2" height="0.4" depth="0.1" color="#2ecc71" material="opacity: 0.5"></a-box>
-          <a-text value="EASY" align="center" position="0 0 0.06" scale="0.4 0.4 0.4"></a-text>
+      <a-entity position="0 2.80 -4.56">
+        <a-plane width="4.55" height="1.12" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
+        <a-box width="4.66" height="1.22" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.24"></a-box>
+        <a-text value="DIFFICULTY" position="0 0.34 0.04" align="center" color="#7bedff" scale="0.54 0.54 0.54"></a-text>
+        <a-entity position="-1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('easy')">
+          <a-box id="diff-easy-box" width="1.18" height="0.42" depth="0.10" color="#2ecc71" material="opacity: 0.52"></a-box>
+          <a-text value="EASY" align="center" position="0 0 0.06" color="#0b1f14" scale="0.40 0.40 0.40"></a-text>
         </a-entity>
-
-        <a-entity position="0 0 0" class="clickable" onclick="setDifficulty('normal')">
-          <a-box id="diff-normal-box" width="1.2" height="0.4" depth="0.1" color="#f1c40f" material="opacity: 1"></a-box>
-          <a-text value="NORMAL" align="center" position="0 0 0.06" scale="0.4 0.4 0.4" color="#000"></a-text>
+        <a-entity position="0 -0.08 0.02" class="clickable" onclick="setDifficulty('normal')">
+          <a-box id="diff-normal-box" width="1.18" height="0.42" depth="0.10" color="#f1c40f" material="opacity: 1"></a-box>
+          <a-text value="NORMAL" align="center" position="0 0 0.06" color="#261d00" scale="0.40 0.40 0.40"></a-text>
         </a-entity>
-
-        <a-entity position="1.5 0 0" class="clickable" onclick="setDifficulty('hard')">
-          <a-box id="diff-hard-box" width="1.2" height="0.4" depth="0.1" color="#e74c3c" material="opacity: 0.5"></a-box>
-          <a-text value="HARD" align="center" position="0 0 0.06" scale="0.4 0.4 0.4"></a-text>
+        <a-entity position="1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('hard')">
+          <a-box id="diff-hard-box" width="1.18" height="0.42" depth="0.10" color="#e74c3c" material="opacity: 0.52"></a-box>
+          <a-text value="HARD" align="center" position="0 0 0.06" color="#fff5f5" scale="0.40 0.40 0.40"></a-text>
         </a-entity>
       </a-entity>
 
-      <a-entity id="mission-wall" position="0 1.2 -4"></a-entity>
+      <a-entity id="mission-wall" position="0 1.18 -4.0"></a-entity>
 
-      <a-entity position="4 2 -3" rotation="0 -35 0">
-        <a-plane width="2.4" height="2.8" color="#1a1a2e" material="opacity: 0.95"></a-plane>
-        <a-box width="2.5" height="2.9" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true"></a-box>
-        <a-text value="TOP 5" position="0 1.12 0.05" align="center" color="#f1c40f" scale="0.62 0.62 0.62"></a-text>
-        <a-text id="vr-leaderboard-list" value="Loading..." position="0 -0.05 0.05" align="center" color="#fff" scale="0.55 0.55 0.55" line-height="65"></a-text>
+      <a-entity position="4.02 2.02 -3.02" rotation="0 -34 0">
+        <a-plane id="leaderboard-panel" width="2.48" height="2.92" color="#101826" material="opacity: 0.94; shader: flat"></a-plane>
+        <a-box id="leaderboard-frame" width="2.58" height="3.02" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true; opacity: 0.30"></a-box>
+        <a-plane id="leaderboard-header-panel" position="0 1.08 0.02" width="2.18" height="0.34" color="#152238" material="opacity: 0.96; shader: flat"></a-plane>
+        <a-text id="leaderboard-title" value="TOP 5 LEGENDS" position="0 1.08 0.05" align="center" color="#ffeaa7" scale="0.56 0.56 0.56"></a-text>
+        <a-text id="leaderboard-subtitle" value="Best mission runs" position="0 0.78 0.05" align="center" color="#cbd5e1" scale="0.34 0.34 0.34"></a-text>
+        <a-text id="vr-leaderboard-list" value="Loading..." position="0 -0.14 0.05" align="center" color="#ffffff" scale="0.54 0.54 0.54" line-height="64" width="3.5"></a-text>
       </a-entity>
     </a-entity>
 
@@ -211,17 +223,14 @@
           <a-text id="reading-question" value="QUESTION TEXT" color="#000" align="center" position="0 0 0.01" scale="0.7 0.7 0.7" width="5"></a-text>
         </a-plane>
       </a-entity>
-
       <a-entity position="-2.5 0.5 -3" rotation="0 15 0" animation="property: position; to: -2.5 0.8 -3; dir: alternate; dur: 1500; loop: true">
         <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
         <a-text id="reading-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
-
       <a-entity position="0 0.5 -3" animation="property: position; to: 0 0.7 -3; dir: alternate; dur: 1200; loop: true">
         <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
         <a-text id="reading-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
-
       <a-entity position="2.5 0.5 -3" rotation="0 -15 0" animation="property: position; to: 2.5 0.9 -3; dir: alternate; dur: 1700; loop: true">
         <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
         <a-text id="reading-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
@@ -234,19 +243,15 @@
         <a-sphere radius="0.3" color="#3498db" animation="property: position; to: 0 0.2 0; dir: alternate; dur: 500; loop: true"></a-sphere>
         <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#ecf0f1" animation="property: rotation; to: 0 360 0; dur: 2000; easing: linear; loop: true"></a-cylinder>
       </a-entity>
-
       <a-text id="listening-prompt" value="PRESS PLAY AUDIO" position="0 3 -3" align="center" color="#f1c40f"></a-text>
-
       <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
         <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
         <a-text id="listening-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
-
       <a-entity position="0 0.5 -3">
         <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
         <a-text id="listening-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
-
       <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
         <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
         <a-text id="listening-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
