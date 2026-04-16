@@ -411,33 +411,33 @@ export const missionDB = [
   },
 
   {
-    id: 15,
-    type: "writing",
-    title: "S15: Graduation Final",
-    bank: {
-      easy: [
-        { desc: "พิมพ์เป้าหมาย 1 คำ", prompt: "SYSTEM: Type one future goal word.\nYOU:", keywords: ["work", "job", "study", "master", "developer"], minMatch: 1, failMsg: "ลองพิมพ์ work หรือ developer" },
-        { desc: "พิมพ์ skill 1 คำ", prompt: "SYSTEM: Type one skill word.\nYOU:", keywords: ["coding", "teamwork", "english", "design", "testing"], minMatch: 1, failMsg: "ลองพิมพ์ coding หรือ teamwork" },
-        { desc: "พิมพ์ project 1 คำ", prompt: "SYSTEM: Type one project word.\nYOU:", keywords: ["app", "web", "system", "ai", "mobile"], minMatch: 1, failMsg: "ลองพิมพ์ app หรือ system" },
-        { desc: "พิมพ์ thank you 1 คำ", prompt: "SYSTEM: Type one thank word.\nYOU:", keywords: ["thank", "thanks", "grateful"], minMatch: 1, failMsg: "ลองพิมพ์ thank หรือ thanks" },
-        { desc: "พิมพ์ dream 1 คำ", prompt: "SYSTEM: Type one dream word.\nYOU:", keywords: ["future", "dream", "goal", "success"], minMatch: 1, failMsg: "ลองพิมพ์ dream หรือ goal" }
-      ],
-      normal: [
-        { desc: "พิมพ์เป้าหมายสั้น ๆ", prompt: "SYSTEM: Write a short future goal.\nYOU:", keywords: ["i", "want", "to", "work", "developer"], minMatch: 3, failMsg: "ลองพิมพ์เช่น i want to work" },
-        { desc: "พิมพ์ skill ที่ชอบ", prompt: "SYSTEM: Write a short skill sentence.\nYOU:", keywords: ["i", "like", "coding", "teamwork", "design"], minMatch: 3, failMsg: "ลองพิมพ์เช่น i like coding" },
-        { desc: "พิมพ์ project ที่อยากทำ", prompt: "SYSTEM: Write a short dream project sentence.\nYOU:", keywords: ["i", "want", "build", "app", "system"], minMatch: 3, failMsg: "ลองพิมพ์เช่น i want build app" },
-        { desc: "พิมพ์แผนเรียนต่อ", prompt: "SYSTEM: Write a short study plan.\nYOU:", keywords: ["i", "want", "study", "more", "english", "ai"], minMatch: 3, failMsg: "ลองพิมพ์เช่น i want study more" },
-        { desc: "พิมพ์ thank you message สั้น ๆ", prompt: "SYSTEM: Write a short thank you message.\nYOU:", keywords: ["thank", "you", "for", "your", "help"], minMatch: 3, failMsg: "ลองพิมพ์เช่น thank you for your help" }
-      ],
-      hard: [
-        { desc: "พิมพ์ประโยคเป้าหมายหลังเรียนจบ", prompt: "SYSTEM: Write your goal after graduation.\nYOU:", keywords: ["after", "graduation", "i", "want", "to", "work"], minMatch: 4, failMsg: "ลองพิมพ์เช่น after graduation i want to work" },
-        { desc: "พิมพ์ประโยคสิ่งที่ภูมิใจ", prompt: "SYSTEM: Write one sentence about a skill you are proud of.\nYOU:", keywords: ["i", "am", "proud", "of", "my", "coding", "skill"], minMatch: 4, failMsg: "ลองพิมพ์เช่น i am proud of my coding skill" },
-        { desc: "พิมพ์ประโยคสิ่งที่อยากพัฒนา", prompt: "SYSTEM: Write one sentence about what you want to improve.\nYOU:", keywords: ["i", "want", "to", "improve", "my", "english", "skills"], minMatch: 4, failMsg: "ลองพิมพ์เช่น i want to improve my english" },
-        { desc: "พิมพ์ประโยค dream project", prompt: "SYSTEM: Write one sentence about your dream project.\nYOU:", keywords: ["my", "dream", "project", "is", "an", "app", "for"], minMatch: 4, failMsg: "ลองพิมพ์เช่น my dream project is an app" },
-        { desc: "พิมพ์ข้อความขอบคุณแบบเต็ม", prompt: "SYSTEM: Write a full thank you sentence.\nYOU:", keywords: ["thank", "you", "for", "your", "support", "and", "help"], minMatch: 4, failMsg: "ลองพิมพ์เช่น thank you for your support and help" }
-      ]
-    }
+  id: 15,
+  type: "writing",
+  title: "S15: Graduation Final",
+  bank: {
+    easy: [
+      { desc: "พิมพ์เป้าหมาย 1 คำ", prompt: "SYSTEM: Type one future goal word.\nYOU:", keywords: ["work", "job", "study", "master", "developer"], minMatch: 1, starter: "Starter: work", failMsg: "ลองพิมพ์ work หรือ developer" },
+      { desc: "พิมพ์ skill 1 คำ", prompt: "SYSTEM: Type one skill word.\nYOU:", keywords: ["coding", "teamwork", "english", "design", "testing"], minMatch: 1, starter: "Starter: coding", failMsg: "ลองพิมพ์ coding หรือ teamwork" },
+      { desc: "พิมพ์ project 1 คำ", prompt: "SYSTEM: Type one project word.\nYOU:", keywords: ["app", "web", "system", "ai", "mobile"], minMatch: 1, starter: "Starter: app", failMsg: "ลองพิมพ์ app หรือ system" },
+      { desc: "พิมพ์ thank you 1 คำ", prompt: "SYSTEM: Type one thank word.\nYOU:", keywords: ["thank", "thanks", "grateful"], minMatch: 1, starter: "Starter: thank", failMsg: "ลองพิมพ์ thank หรือ thanks" },
+      { desc: "พิมพ์ dream 1 คำ", prompt: "SYSTEM: Type one dream word.\nYOU:", keywords: ["future", "dream", "goal", "success"], minMatch: 1, starter: "Starter: goal", failMsg: "ลองพิมพ์ dream หรือ goal" }
+    ],
+    normal: [
+      { desc: "พิมพ์เป้าหมายสั้น ๆ", prompt: "SYSTEM: Write a short future goal.\nYOU:", keywords: ["i", "want", "to", "work", "developer"], minMatch: 3, starter: "Starter: I want to work as a developer.", failMsg: "ลองพิมพ์เช่น i want to work" },
+      { desc: "พิมพ์ skill ที่ชอบ", prompt: "SYSTEM: Write a short skill sentence.\nYOU:", keywords: ["i", "like", "coding", "teamwork", "design"], minMatch: 3, starter: "Starter: I like coding and teamwork.", failMsg: "ลองพิมพ์เช่น i like coding" },
+      { desc: "พิมพ์ project ที่อยากทำ", prompt: "SYSTEM: Write a short dream project sentence.\nYOU:", keywords: ["i", "want", "build", "app", "system"], minMatch: 3, starter: "Starter: I want to build an app.", failMsg: "ลองพิมพ์เช่น i want build app" },
+      { desc: "พิมพ์แผนเรียนต่อ", prompt: "SYSTEM: Write a short study plan.\nYOU:", keywords: ["i", "want", "study", "more", "english", "ai"], minMatch: 3, starter: "Starter: I want to study more English and AI.", failMsg: "ลองพิมพ์เช่น i want study more" },
+      { desc: "พิมพ์ thank you message สั้น ๆ", prompt: "SYSTEM: Write a short thank you message.\nYOU:", keywords: ["thank", "you", "teacher", "friends", "support"], minMatch: 3, starter: "Starter: Thank you, teacher and friends, for your support.", failMsg: "ลองพิมพ์ thank you message สั้น ๆ" }
+    ],
+    hard: [
+      { desc: "พิมพ์ประโยคเป้าหมายหลังจบการศึกษา", prompt: "SYSTEM: Write a short sentence about your goal after graduation.\nYOU:", keywords: ["after", "graduation", "i", "want", "work", "developer"], minMatch: 3, starter: "Starter: After graduation, I want to work as a developer.", failMsg: "ลองพิมพ์เช่น after graduation i want work as a developer" },
+      { desc: "พิมพ์ประโยคเกี่ยวกับ skill สำคัญ", prompt: "SYSTEM: Write a short sentence about an important skill.\nYOU:", keywords: ["coding", "english", "teamwork", "important", "career"], minMatch: 3, starter: "Starter: Coding and teamwork are important for my career.", failMsg: "ลองพิมพ์เช่น coding is important for my career" },
+      { desc: "พิมพ์ประโยคเกี่ยวกับ project ในฝัน", prompt: "SYSTEM: Write a short sentence about your dream project.\nYOU:", keywords: ["i", "want", "build", "useful", "app", "students"], minMatch: 3, starter: "Starter: I want to build a useful app for students.", failMsg: "ลองพิมพ์เช่น i want to build a useful app" },
+      { desc: "พิมพ์ประโยคแผนการเรียนรู้ต่อ", prompt: "SYSTEM: Write a short sentence about your learning plan.\nYOU:", keywords: ["i", "will", "learn", "more", "ai", "english"], minMatch: 3, starter: "Starter: I will learn more AI and English.", failMsg: "ลองพิมพ์เช่น i will learn more ai and english" },
+      { desc: "พิมพ์ประโยคขอบคุณปิดท้าย", prompt: "SYSTEM: Write a short final thank you sentence.\nYOU:", keywords: ["thank", "you", "for", "support", "future"], minMatch: 3, starter: "Starter: Thank you for your support in my journey.", failMsg: "ลองพิมพ์เช่น thank you for your support" }
+    ]
   }
+}
 ];
 
 export function getMissionBank(sessionId, difficulty = "normal") {
