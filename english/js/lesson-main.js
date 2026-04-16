@@ -1,3 +1,313 @@
+const halo = document.createElement("a-plane");
+      halo.setAttribute("id", `mission-halo-${mGroup.id}`);
+      halo.setAttribute("position", "0 0 -0.04");
+      halo.setAttribute("width", meta.width + 0.34);
+      halo.setAttribute("height", meta.height + 0.34);
+      halo.setAttribute("color", meta.baseColor);
+      halo.setAttribute("material", `opacity: ${meta.haloOpacity}; shader: flat`);
+
+      const plate = document.createElement("a-plane");
+      plate.setAttribute("id", `mission-plate-${mGroup.id}`);
+      plate.setAttribute("position", "0 0 -0.02");
+      plate.setAttribute("width", meta.width + 0.26);
+      plate.setAttribute("height", meta.height + 0.26);
+      plate.setAttribute("color", meta.plateColor);
+      plate.setAttribute("material", "opacity: 0.88; shader: flat");
+
+      const border = document.createElement("a-plane");
+      border.setAttribute("position", "0 0 0.032");
+      border.setAttribute("width", meta.width + 0.08);
+      border.setAttribute("height", meta.height + 0.08);
+      border.setAttribute("color", meta.baseColor);
+      border.setAttribute("material", "opacity: 0.20; shader: flat");
+
+      const box = document.createElement("a-box");
+      box.setAttribute("id", `mission-box-${mGroup.id}`);
+      box.setAttribute("class", "clickable");
+      box.setAttribute("width", meta.width);
+      box.setAttribute("height", meta.height);
+      box.setAttribute("depth", "0.08");
+      box.setAttribute("color", meta.baseColor);
+      box.setAttribute(
+        "material",
+        `opacity: ${meta.boxOpacity}; metalness: 0.18; roughness: 0.56; emissive: ${meta.baseColor}; emissiveIntensity: 0.18`
+      );
+
+      const textTop = document.createElement("a-text");
+      textTop.setAttribute("id", `mission-text-top-${mGroup.id}`);
+      textTop.setAttribute("value", meta.labelTop);
+      textTop.setAttribute("align", "center");
+      textTop.setAttribute("position", `0 ${meta.height * 0.18} 0.05`);
+      textTop.setAttribute("scale", "0.42 0.42 0.42");
+      textTop.setAttribute("color", meta.baseColor);
+      textTop.setAttribute("width", "4");
+
+      const textBottom = document.createElement("a-text");
+      textBottom.setAttribute("id", `mission-text-bottom-${mGroup.id}`);
+      textBottom.setAttribute("value", meta.labelBottom);
+      textBottom.setAttribute("align", "center");
+      textBottom.setAttribute("position", `0 ${-meta.height * 0.08} 0.05`);
+      textBottom.setAttribute("scale", "0.34 0.34 0.34");
+      textBottom.setAttribute("color", "#ffffff");
+      textBottom.setAttribute("width", "4.6");
+
+      const tag = document.createElement("a-text");
+      tag.setAttribute("id", `mission-tag-${mGroup.id}`);
+      tag.setAttribute("value", meta.labelTag);
+      tag.setAttribute("align", "center");
+      tag.setAttribute("position", `0 ${-meta.height * 0.34} 0.05`);
+      tag.setAttribute("scale", "0.26 0.26 0.26");
+      tag.setAttribute("color", meta.baseColor);
+      tag.setAttribute("width", "4");
+
+      box.addEventListener("mouseenter", () => {
+        setMissionWallVisualState(mGroup, {
+          cleared: clearedMissions.includes(mGroup.id),
+          hovered: true
+        });
+      });
+
+      box.addEventListener("mouseleave", () => {
+        setMissionWallVisualState(mGroup, {
+          cleared: clearedMissions.includes(mGroup.id),
+          hovered: false
+        });
+      });
+
+      box.addEventListener("click", () => loadMission(mGroup.id));
+
+      root.appendChild(halo);
+      root.appendChild(plate);
+      root.appendChild(border);
+      root.appendChild(box);
+      root.appendChild(textTop);
+      root.appendChild(textBottom);
+      root.appendChild(tag);
+
+      if (meta.isFinal) {
+        const crown = document.createElement("a-text");
+        crown.setAttribute("value", "👑");
+        crown.setAttribute("align", "center");
+        crown.setAttribute("position", `0 ${meta.height * 0.62} 0.05`);
+        crown.setAttribute("scale", "0.52 0.52 0.52");
+        crown.setAttribute("color", "#ffeaa7");
+        root.appendChild(crown);
+      } else if (meta.isBoss) {
+        const spark = document.createElement("a-text");
+        spark.setAttribute("value", "⚡");
+        spark.setAttribute("align", "center");
+        spark.setAttribute("position", `0 ${meta.height * 0.60} 0.05`);
+        spark.setAttribute("scale", "0.44 0.44 0.44");
+        spark.setAttribute("color", "#ff9aa2");
+        root.appendChild(spark);
+      }
+
+      applyMissionWallAmbientFX(root, halo, box, meta);
+      wall.appendChild(root);
+      index++;
+    }
+  }
+
+  refreshMissionWallProgress();
+}
+
+window.setDifficulty = function (level) {
+  updateDifficulty(level);
+
+  $("diff-easy-box")?.setAttribute("material", "opacity", "0.52");
+  $("diff-normal-box")?.setAttribute("material", "opacity", "0.52");
+  $("diff-hard-box")?.setAttribute("material", "opacity", "0.52");
+  $(`diff-${level}-box`)?.setAttribute("material", "opacity", "1");
+
+  renderAIDirector();
+  renderQuestionDiffBadge(level);
+};
+
+function normalizeWritingText(text = "") {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/i'm/g, "i am")
+    .replace(/it's/g, "it is")
+    .replace(/we're/g, "we are")
+    .replace(/[.,!?;:()"]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function analyzeWritingAnswer(mission, answer) {
+  const clean = normalizeWritingText(answer);
+  const keywords = Array.isArray(mission?.keywords) ? mission.keywords : [];
+
+  const matched = keywords.filter(kw => clean.includes(String(kw).toLowerCase()));
+  const missing = keywords.filter(kw => !clean.includes(String(kw).toLowerCase()));
+
+  let needed = Number(mission?.minMatch || 1);
+  if (aiDirector.support >= 2 || state.systemHP <= 35 || state.consecutiveLosses >= 2) {
+    needed = Math.max(1, needed - 1);
+  }
+
+  const coverage = keywords.length ? Math.round((matched.length / keywords.length) * 100) : 0;
+
+  let hint = "";
+  if (missing.length > 0) {
+    hint = `AI Hint: ลองใส่คำสำคัญ เช่น ${missing.slice(0, 2).join(", ")}`;
+  } else {
+    hint = "AI Hint: มี keyword ครบแล้ว ลองเขียนให้เป็นประโยคสมบูรณ์ขึ้น";
+  }
+
+  return {
+    matched,
+    missing,
+    needed,
+    coverage,
+    pass: matched.length >= needed,
+    hint
+  };
+}
+
+function getWritingStarter(mission) {
+  if (mission?.starter) return mission.starter;
+
+  const title = String(mission?.title || "").toLowerCase();
+
+  if (title.includes("introduce")) return "Starter: My name is ... I study ...";
+  if (title.includes("email")) return "Starter: Dear ..., I am writing to ...";
+  if (title.includes("opinion")) return "Starter: I think ... because ...";
+  if (title.includes("plan")) return "Starter: First, I will ... Then, I will ...";
+  if (title.includes("bug")) return "Starter: The bug happens when ...";
+  if (title.includes("report")) return "Starter: The problem is ...";
+  if (title.includes("goal")) return "Starter: In the future, I want to ...";
+
+  return "Starter: I think ... because ...";
+}
+
+function buildWritingCoachPrompt(mission, result) {
+  const base = mission?.prompt || "Write your answer";
+  const parts = [base];
+
+  if (result?.hint) parts.push(result.hint);
+  parts.push(getWritingStarter(mission));
+
+  if (Array.isArray(result?.matched) && result.matched.length) {
+    parts.push(`Matched: ${result.matched.join(", ")}`);
+  }
+
+  if (Array.isArray(result?.missing) && result.missing.length) {
+    parts.push(`Missing: ${result.missing.slice(0, 3).join(", ")}`);
+  }
+
+  return parts.join("\n\n");
+}
+
+function loadMission(id) {
+  const missionGroup = missionDB.find(m => m.id === id);
+  if (!missionGroup) return;
+
+  state.currentMission = prepareMissionForBossPattern(missionGroup, aiDirector);
+  if (!state.currentMission) {
+    setFeedback("⚠️ ยังไม่มีโจทย์สำหรับด่านนี้", "#ff9f43");
+    return;
+  }
+
+  state.lastMissionId = missionGroup.id;
+  const isBoss = (state.currentMission.id % 3 === 0);
+  const isFinal = isUnitFinal(state.currentMission.id);
+
+  if (isFinal) ensureFinalBossState(state.currentMission.id);
+  else resetFinalBossState();
+
+  setHubVisible(false);
+  hideAllScenesAndControls();
+  setHudMode("mission");
+  resetSummaryPanel();
+  hide("btn-next");
+  renderFinalBossUI();
+  applyUnitTheme(state.currentMission.id);
+  expandBossChrome();
+
+  if (isFinal) {
+    maybeShowFinalBossIntro(state.currentMission.id, () => playSFX("bossIntro"));
+  }
+
+  onMissionLoadedForAI(state.currentMission, isUnitFinal);
+
+  const titlePrefix = isFinal ? "👑 " : (isBoss ? "🔥 " : "📍 ");
+  const titleColor = isFinal
+    ? (state.currentMission._bossPatternColor || "#f1c40f")
+    : (isBoss ? "#e74c3c" : "#ff4757");
+
+  setTitleBlock(
+    `${titlePrefix}SESSION ${id}: ${state.currentMission.title.toUpperCase()} [${state.gameDifficulty.toUpperCase()}]`,
+    minimalDesc(state.currentMission, isFinal),
+    titleColor
+  );
+
+  expandMissionHeader();
+  expandMissionStats();
+  expandMissionTopChips();
+  expandMissionTitleUltraMini();
+  expandMissionTimer();
+  expandMissionHudTextCompact();
+  setMissionTimerAlert(false);
+
+  setFeedback(isFinal ? "👑 FINAL BOSS" : "START!", isFinal ? "#f1c40f" : "#00e5ff");
+  scheduleFeedbackClear(document.body.dataset.missionType === "speaking" ? 750 : (isFinal ? 1300 : 850));
+  scheduleMissionHeaderCollapse(state.currentMission.type === "speaking" ? 900 : 1200);
+  scheduleMissionStatsCollapse(state.currentMission.type === "speaking" ? 950 : 1300);
+  scheduleMissionTopChipsCollapse(state.currentMission.type === "speaking" ? 750 : 1050);
+  scheduleMissionTitleUltraMini(state.currentMission.type === "speaking" ? 700 : 1150);
+  scheduleMissionTimerCompact(state.currentMission.type === "speaking" ? 700 : 1100);
+  scheduleMissionHudTextCompact(state.currentMission.type === "speaking" ? 650 : 1000);
+
+  flashMissionTypeTag(state.currentMission.type, true);
+  recordMissionStart(state.currentMission, aiDirector.mood);
+
+  const timeMod = getDifficultyTimeMod() + getAdaptiveTimeBonus() + (state.currentMission._bossTimeAdjust || 0);
+  const hackerBoss = $("hackerBoss");
+
+  if ((isBoss || isFinal) && hackerBoss) {
+    hackerBoss.setAttribute("visible", "true");
+    hackerBoss.removeAttribute("animation");
+    const bossTargetY = isFinal ? 1.4 : 2;
+    const bossDur = isFinal ? 18000 : 40000;
+    setTimeout(() => {
+      hackerBoss.setAttribute("animation", `property: position; to: 0 ${bossTargetY} -3; dur: ${bossDur}; easing: linear`);
+    }, 50);
+  } else if (hackerBoss) {
+    hackerBoss.setAttribute("visible", "false");
+  }
+
+  setMissionScene(state.currentMission.type);
+  showMissionControlByType(state.currentMission.type);
+  document.body.dataset.missionType = state.currentMission.type || "";
+
+  if (state.currentMission.type === "speaking") {
+    setSpeakingPrompt(state.currentMission.title, state.currentMission.exactPhrase);
+    setMissionPrompt(`"${state.currentMission.exactPhrase}"`, "SPEAK");
+    startTimer(clamp(getBaseTimeForMissionType("speaking") + timeMod, 18, 80));
+  } else if (state.currentMission.type === "reading") {
+    setReadingQuestion(state.currentMission.question);
+    setChoiceLabelsFor("reading", state.currentMission.choices);
+    setMissionPrompt(state.currentMission.question || "อ่านข้อความแล้วเลือกคำตอบที่ถูกต้อง", "READ");
+    showChoiceButtons(true);
+    startTimer(clamp(getBaseTimeForMissionType("reading") + timeMod, 18, 80));
+  } else if (state.currentMission.type === "listening") {
+    setChoiceLabelsFor("listening", state.currentMission.choices);
+    setMissionPrompt("กด Play Audio แล้วเลือกคำตอบ", "LISTEN");
+    showChoiceButtons(true);
+    startTimer(clamp(getBaseTimeForMissionType("listening") + timeMod, 18, 80));
+  } else if (state.currentMission.type === "writing") {
+    setWritingPrompt(state.currentMission.prompt);
+    setMissionPrompt(
+      `${state.currentMission.prompt || "พิมพ์คำตอบ"}\n\n${getWritingStarter(state.currentMission)}`,
+      "WRITE"
+    );
+    show("write-input", "inline-block");
+    resetWritingInput();
+
+    if (hackerBoss) {
+      hackerBoss.removeAttribute("animation");
+      setTimeout(() => {
 const osc = audioCtx.createOscillator();
     osc.type = "square";
     osc.frequency.setValueAtTime(520, audioCtx.currentTime);
