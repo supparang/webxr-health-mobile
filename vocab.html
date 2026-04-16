@@ -444,8 +444,8 @@
     width = innerWidth; height = innerHeight;
     canvas.width = Math.floor(width * dpr); canvas.height = Math.floor(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    updateQuestionLayout();
-    updateRotateOverlay();
+    if (typeof updateQuestionLayout === 'function') updateQuestionLayout();
+    if (typeof updateRotateOverlay === 'function') updateRotateOverlay();
   }
   function now(){ return performance.now(); }
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
