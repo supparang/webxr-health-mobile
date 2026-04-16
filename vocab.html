@@ -170,10 +170,9 @@
         <div class="top3Board" id="menuTop3Board"></div>
       </div>
 
-      <div class="actions">
+      <div class="actions" style="grid-template-columns:1fr 1fr;">
         <button class="btn" id="startBtn">START PRODUCTION RUN</button>
         <button class="btn alt" id="leaderboardBtn">LEADERBOARD</button>
-        <button class="btn ghost" id="teacherLinkBtn">TEACHER LINK</button>
       </div>
     </div>
   </div>
@@ -181,7 +180,7 @@
   <div class="overlay hidden" id="teacherLinkWrap">
     <div class="panel" style="width:min(760px,94vw)">
       <h2 style="margin:0">Teacher Dashboard Link</h2>
-      <div class="desc">สร้างลิงก์แยกสำหรับครู โดยมี passcode ติดไปกับลิงก์เพื่อไม่ให้นักศึกษาเปิด dashboard ได้ง่าย</div>
+      <div class="desc">ลิงก์นี้สำหรับครูเท่านั้น ใช้เปิด dashboard แยกโดยตรง ไม่แสดงในหน้าเมนูนักศึกษา</div>
       <div class="profileRow" style="margin-top:16px">
         <div class="inputBox">
           <label for="teacherPassInput">Teacher Passcode</label>
@@ -408,7 +407,10 @@
     score: 0,
     combo: 0,
     hp: 5,
-    bossHp: 100,
+    bossHp: 320,
+    bossMaxHp: 320,
+    bossPhase: 1,
+    bossAttackAt: 0,
     runDifficulty: 'easy',
     currentItem: null,
     usedVariantIds: new Set(),
@@ -477,6 +479,45 @@
       speed_run: { damage: 14, baseTime: 4200, title:'SPEED RUN' }
     }[V9.mode];
   }
+
+  function bossBaseHp(){
+    const byMode = {
+      code_battle: 360,
+      debug_mission: 320,
+      ai_training: 340,
+      speed_run: 260
+    };
+    return byMode[V9.mode] || 320;
+  }
+
+  function updateBossPhase(){
+    const ratio = V9.bossMaxHp > 0 ? V9.bossHp / V9.bossMaxHp : 0;
+    let nextPhase = 1;
+    if (ratio <= 0.40) nextPhase = 3;
+    else if (ratio <= 0.70) nextPhase = 2;
+
+    if (nextPhase !== V9.bossPhase) {
+      V9.bossPhase = nextPhase;
+      if (nextPhase === 2) showFeedback('BOSS PHASE 2', 'warn');
+      if (nextPhase === 3) showFeedback('RAGE MODE', 'bad');
+    }
+  }
+
+  function bossAttackInterval(){
+    return V9.bossPhase === 1 ? 5200 : V9.bossPhase === 2 ? 4200 : 3200;
+  }
+
+  function bossPenaltyOnWrong(){
+    return V9.bossPhase === 1 ? 1 : 2;
+  }
+
+  function bossDamageFromCorrect(){
+    const base = modeMeta().damage;
+    const comboBonus = Math.min(V9.combo * 2, 14);
+    const phaseMod = V9.bossPhase === 3 ? -4 : V9.bossPhase === 2 ? -2 : 0;
+    return Math.max(8, base - 6 + comboBonus + phaseMod);
+  }
+
 
   function updateRunDifficulty(){
     if (V9.combo >= 8) V9.runDifficulty = 'hard';
@@ -586,8 +627,8 @@
     setText(els.hudRound, 'Stage ' + shownStage + ' / ' + V9.maxStages);
     setText(els.hudCombo, 'Combo x' + V9.combo);
     setText(els.hudMode, 'Difficulty ' + V9.runDifficulty.toUpperCase());
-    setText(els.hudHp, 'HP ' + V9.hp + ' • Boss ' + Math.max(0, V9.bossHp));
-    setText(els.hudState, phase.toUpperCase() + ' • ' + V9.bank + ' • ' + modeMeta().title);
+    setText(els.hudHp, 'HP ' + V9.hp + ' • Boss ' + Math.max(0, V9.bossHp) + '/' + V9.bossMaxHp);
+    setText(els.hudState, phase.toUpperCase() + ' • ' + V9.bank + ' • ' + modeMeta().title + ' • P' + V9.bossPhase);
     setText(els.hudPrompt, V9.currentItem ? (V9.currentItem.term.toUpperCase() + ' • ESP battle') : 'Contextual learning • adaptive difficulty • review queue');
     if (els.timeFill) els.timeFill.style.transform = 'scaleX(' + timeLeft + ')';
   }
@@ -850,6 +891,9 @@
       score: V9.score,
       hp: V9.hp,
       bossHp: V9.bossHp,
+      bossMaxHp: V9.bossMaxHp,
+      bossPhase: V9.bossPhase,
+      win: V9.bossHp <= 0,
       stagesPlayed: Math.min(V9.stageIndex, V9.maxStages),
       weakestTerms: weakest,
       mastery: V9.mastery
@@ -870,7 +914,8 @@
       'Score: ' + summary.score + '<br>' +
       'Stages: ' + summary.stagesPlayed + ' / ' + V9.maxStages + '<br>' +
       'HP Left: ' + summary.hp + '<br>' +
-      'Boss HP Left: ' + summary.bossHp + '<br>' +
+      (summary.win ? 'Result: BOSS DEFEATED<br>' : 'Result: BOSS SURVIVED<br>') +
+      'Boss HP Left: ' + summary.bossHp + ' / ' + summary.bossMaxHp + '<br>' +
       'Weakest Terms: ' + weakestText;
 
     els.endWrap.classList.remove('hidden');
@@ -889,12 +934,30 @@
     updateMasteryAfterAnswer(item.termId, isCorrect, item.type, item.fromReview);
 
     if (isCorrect){
-      const damage = modeMeta().damage + Math.min(V9.combo * 2, 18);
+      const damage = bossDamageFromCorrect();
       V9.score += 12 + Math.min(V9.combo * 3, 24);
       V9.combo += 1;
       V9.bossHp = Math.max(0, V9.bossHp - damage);
+      updateBossPhase();
       showFeedback('HIT +' + damage, 'ok');
     } else {
+      const penalty = bossPenaltyOnWrong();
+      V9.hp -= penalty;
+      V9.combo = 0;
+      enqueueReview(item.termId);
+      showFeedback('WRONG -' + penalty + ' HP', 'bad');
+    }
+
+    V9.stageIndex += 1;
+
+    if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages || V9.bossHp <= 0){
+      endRun();
+      return;
+    }
+
+    phase = 'feedback';
+    phaseUntil = now() + 800;
+  } else {
       V9.hp -= 1;
       V9.combo = 0;
       enqueueReview(item.termId);
@@ -932,6 +995,7 @@
 
     phase = 'countdown';
     V9.countdown = 3;
+    V9.bossAttackAt = now() + bossAttackInterval();
     phaseUntil = now() + 650;
   }
 
@@ -941,7 +1005,10 @@
     V9.score = 0;
     V9.combo = 0;
     V9.hp = 5;
-    V9.bossHp = 100;
+    V9.bossMaxHp = bossBaseHp();
+    V9.bossHp = V9.bossMaxHp;
+    V9.bossPhase = 1;
+    V9.bossAttackAt = 0;
     V9.runDifficulty = 'easy';
     V9.currentItem = null;
     V9.usedVariantIds = new Set();
@@ -998,15 +1065,15 @@
     // boss core
     ctx.save();
     ctx.translate(c.x, c.y - 20);
-    const pulse = 1 + Math.sin(t * 0.003) * 0.06;
+    const pulse = 1 + Math.sin(t * 0.003) * (V9.bossPhase === 3 ? 0.10 : 0.06);
     ctx.scale(pulse, pulse);
-    ctx.beginPath(); ctx.arc(0,0,44,0,Math.PI*2); ctx.fillStyle = 'rgba(244,114,182,.20)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(0,0,26,0,Math.PI*2); ctx.fillStyle = '#f472b6'; ctx.fill();
+    ctx.beginPath(); ctx.arc(0,0,52,0,Math.PI*2); ctx.fillStyle = V9.bossPhase === 3 ? 'rgba(251,113,133,.30)' : V9.bossPhase === 2 ? 'rgba(251,146,60,.26)' : 'rgba(244,114,182,.20)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(0,0,30,0,Math.PI*2); ctx.fillStyle = V9.bossPhase === 3 ? '#fb7185' : V9.bossPhase === 2 ? '#fb923c' : '#f472b6'; ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.font = '900 14px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('BOSS', 0, 1);
+    ctx.fillText('BOSS P' + V9.bossPhase, 0, 1);
     ctx.restore();
   }
 
@@ -1024,18 +1091,35 @@
           phase = 'battle';
           roundStart = now();
           const base = modeMeta().baseTime;
-          roundDuration = V9.runDifficulty === 'hard' ? Math.max(2800, base - 1600) : V9.runDifficulty === 'normal' ? Math.max(3600, base - 800) : base;
+          const diffDuration = V9.runDifficulty === 'hard' ? Math.max(2800, base - 1600) : V9.runDifficulty === 'normal' ? Math.max(3600, base - 800) : base;
+          const phasePenalty = V9.bossPhase === 3 ? 900 : V9.bossPhase === 2 ? 450 : 0;
+          roundDuration = Math.max(2400, diffDuration - phasePenalty);
           renderQuestionBox(V9.currentItem);
         }
       }
     } else if (phase === 'battle'){
       const elapsed = now() - roundStart;
       timeLeft = clamp(1 - elapsed / roundDuration, 0, 1);
+
+      if (now() >= V9.bossAttackAt){
+        const dmg = V9.bossPhase === 3 ? 2 : 1;
+        V9.hp -= dmg;
+        V9.combo = 0;
+        V9.bossAttackAt = now() + bossAttackInterval();
+        showFeedback('BOSS HIT -' + dmg + ' HP', 'warn');
+        if (V9.hp <= 0){
+          endRun();
+          renderHud();
+          return;
+        }
+      }
+
       if (timeLeft <= 0){
-        V9.hp -= 1;
+        const timeoutDmg = V9.bossPhase === 3 ? 2 : 1;
+        V9.hp -= timeoutDmg;
         V9.combo = 0;
         enqueueReview(V9.currentItem.termId);
-        showFeedback('TIME OUT', 'warn');
+        showFeedback('TIME OUT -' + timeoutDmg + ' HP', 'warn');
         V9.stageIndex += 1;
         if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages){
           endRun();
@@ -1191,10 +1275,6 @@
   document.getElementById('leaderboardBtn').addEventListener('click', () => {
     leaderboardOpenedFromEnd = false;
     openLeaderboard();
-  });
-  document.getElementById('teacherLinkBtn').addEventListener('click', () => {
-    els.teacherLinkOutput.value = '';
-    els.teacherLinkWrap.classList.remove('hidden');
   });
   document.getElementById('generateTeacherLinkBtn').addEventListener('click', () => {
     els.teacherLinkOutput.value = buildTeacherLink();
