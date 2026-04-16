@@ -1,3 +1,4 @@
+// /english/js/lesson-ui.js
 export function $(id) {
   return document.getElementById(id);
 }
@@ -268,4 +269,22 @@ export function setMissionTypeTag(text, success = true) {
     ? "rgba(46,213,115,0.35)"
     : "rgba(255,107,129,0.35)";
   pulseClass(tag, "show", 940);
+}
+
+export function setMissionPrompt(text = "", label = "PROMPT") {
+  const box = $("mission-prompt-box");
+  const labelEl = $("mission-prompt-label");
+  const textEl = $("mission-prompt-text");
+  if (!box || !labelEl || !textEl) return;
+
+  labelEl.textContent = label;
+  textEl.textContent = text || "";
+  box.style.display = text ? "block" : "none";
+}
+
+export function clearMissionPrompt() {
+  const box = $("mission-prompt-box");
+  const textEl = $("mission-prompt-text");
+  if (textEl) textEl.textContent = "";
+  if (box) box.style.display = "none";
 }
