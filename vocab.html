@@ -1206,7 +1206,11 @@
 
 
   document.getElementById('startBtn').addEventListener('click', () => {
-    if (isPortraitPhoneLike()){
+    const portraitLike = (typeof isPortraitPhoneLike === 'function')
+      ? isPortraitPhoneLike()
+      : (window.innerHeight > window.innerWidth && Math.min(window.innerWidth, window.innerHeight) < 1100);
+
+    if (portraitLike){
       showFeedback('ROTATE TO LANDSCAPE', 'warn');
       return;
     }
