@@ -23,9 +23,77 @@
       measurementId: "G-SWT85BHVJX"
     };
     window.TECHPATH_BUILD = 'v20260416-full-merged-test';
+    window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxPecwRwytQWG_T2J8KQTZDXZ870QmncaLtNMo28buK6p2dEypJZJ8e-ROWBzMRLIj2/exec';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260416-lesson-attendance-inline-s15';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
+
+  <style>
+    #attendance-panel{
+      margin:10px 0 12px;
+      padding:10px 12px;
+      border:1px solid rgba(123,237,255,.28);
+      border-radius:14px;
+      background:rgba(8,14,28,.78);
+      box-shadow:0 8px 22px rgba(0,0,0,.18);
+      backdrop-filter:blur(6px);
+      text-align:left;
+    }
+    #attendance-title{
+      font-weight:900;
+      color:#7bedff;
+      letter-spacing:.02em;
+      margin-bottom:6px;
+      font-size:.96rem;
+    }
+    #attendance-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px 10px;
+      font-size:.9rem;
+      color:#eaf6ff;
+    }
+    .attendance-item{
+      min-width:0;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:10px;
+      padding:8px 10px;
+    }
+    .attendance-item b{
+      display:block;
+      font-size:.78rem;
+      color:#9adfff;
+      margin-bottom:3px;
+      font-weight:800;
+    }
+    #attendance-status{
+      margin-top:8px;
+      border-radius:10px;
+      padding:8px 10px;
+      background:rgba(46,213,115,.08);
+      border:1px solid rgba(46,213,115,.22);
+      color:#d9ffe8;
+      font-size:.88rem;
+      font-weight:700;
+    }
+    #attendance-status.warn{
+      background:rgba(255,159,67,.10);
+      border-color:rgba(255,159,67,.22);
+      color:#ffe7c9;
+    }
+    #attendance-status.fail{
+      background:rgba(255,71,87,.10);
+      border-color:rgba(255,71,87,.22);
+      color:#ffd7dc;
+    }
+    @media (max-width: 700px){
+      #attendance-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
 </head>
 <body>
   <div id="loading">Loading TechPath VR...</div>
@@ -47,6 +115,39 @@
 
     <div class="title" id="ui-title">TECHPATH VR</div>
     <p class="instruction" id="ui-desc">เลือกด่านแล้วเริ่มเล่นได้เลย</p>
+
+    <!-- ATTENDANCE PATCH START -->
+    <div id="attendance-panel">
+      <div id="attendance-title">ATTENDANCE TRACKER</div>
+      <div id="attendance-grid">
+        <div class="attendance-item">
+          <b>Student ID</b>
+          <span id="attendance-student-id">-</span>
+        </div>
+        <div class="attendance-item">
+          <b>Name</b>
+          <span id="attendance-student-name">-</span>
+        </div>
+        <div class="attendance-item">
+          <b>Class Section</b>
+          <span id="attendance-class-section">-</span>
+        </div>
+        <div class="attendance-item">
+          <b>Current S</b>
+          <span id="attendance-session-no">Lobby</span>
+        </div>
+        <div class="attendance-item">
+          <b>Time in S</b>
+          <span id="attendance-duration">00:00</span>
+        </div>
+        <div class="attendance-item">
+          <b>Active Time</b>
+          <span id="attendance-active-time">00:00</span>
+        </div>
+      </div>
+      <div id="attendance-status" class="warn">กำลังเตรียมข้อมูลเช็กชื่อ...</div>
+    </div>
+    <!-- ATTENDANCE PATCH END -->
 
     <div id="hud-stats" style="display:flex; justify-content:space-between; gap:10px; font-weight:bold; margin:10px 0; border-top:1px solid #00e5ff; border-bottom:1px solid #00e5ff; padding:5px 0;">
       <div id="hud-score-wrap" class="hud-stat-item" style="color:#f1c40f;">
@@ -280,5 +381,657 @@
   </a-scene>
 
   <script type="module" src="./js/lesson-main.js"></script>
+
+  <!-- ATTENDANCE PATCH START -->
+  <script>
+  (function () {
+    'use strict';
+
+    const ENDPOINT = window.TECHPATH_ATTENDANCE_ENDPOINT || '';
+    const PATCH = window.TECHPATH_ATTENDANCE_PATCH || 'attendance-inline';
+    const BUILD = window.TECHPATH_BUILD || '';
+    const q = new URLSearchParams(location.search);
+
+    function safeGetLS(key) {
+      try { return localStorage.getItem(key) || ''; } catch (_) { return ''; }
+    }
+    function safeSetLS(key, val) {
+      try { localStorage.setItem(key, val || ''); } catch (_) {}
+    }
+    function askOnce(key, label) {
+      const oldVal = safeGetLS(key);
+      if (oldVal) return oldVal;
+      const v = (prompt(label) || '').trim();
+      if (v) safeSetLS(key, v);
+      return v;
+    }
+
+    const context = {
+      studentId:
+        q.get('studentId') ||
+        q.get('sid') ||
+        q.get('pid') ||
+        safeGetLS('ENG_STUDENT_ID') ||
+        askOnce('ENG_STUDENT_ID', 'กรอกรหัสนักศึกษา'),
+      studentName:
+        q.get('name') ||
+        safeGetLS('ENG_STUDENT_NAME') ||
+        askOnce('ENG_STUDENT_NAME', 'กรอกชื่อผู้เรียน'),
+      classSection:
+        q.get('classSection') ||
+        q.get('section') ||
+        safeGetLS('ENG_CLASS_SECTION') ||
+        askOnce('ENG_CLASS_SECTION', 'กรอก section/ห้อง'),
+      lessonId:
+        q.get('lessonId') ||
+        q.get('unit') ||
+        q.get('course') ||
+        'techpath-vr',
+      courseMeeting:
+        q.get('meetingNo') ||
+        q.get('week') ||
+        q.get('meeting') ||
+        '',
+      pageUrl: location.href,
+      userAgent: navigator.userAgent
+    };
+
+    safeSetLS('ENG_STUDENT_ID', context.studentId);
+    safeSetLS('ENG_STUDENT_NAME', context.studentName);
+    safeSetLS('ENG_CLASS_SECTION', context.classSection);
+
+    function makeId(prefix) {
+      return [
+        prefix,
+        Date.now(),
+        Math.random().toString(36).slice(2, 8)
+      ].join('-');
+    }
+
+    function nowIso() {
+      return new Date().toISOString();
+    }
+
+    function parseSessionNo(n) {
+      const num = Number(n || 0);
+      if (!Number.isFinite(num) || num <= 0) return '';
+      return 'S' + String(num).padStart(2, '0');
+    }
+
+    function fmtSec(sec) {
+      const n = Math.max(0, Math.round(Number(sec) || 0));
+      const mm = String(Math.floor(n / 60)).padStart(2, '0');
+      const ss = String(n % 60).padStart(2, '0');
+      return mm + ':' + ss;
+    }
+
+    function getEl(id) {
+      return document.getElementById(id);
+    }
+
+    function getText(id) {
+      const el = getEl(id);
+      return el ? String(el.textContent || el.innerText || '').trim() : '';
+    }
+
+    function setText(id, value) {
+      const el = getEl(id);
+      if (el) el.textContent = value;
+    }
+
+    function isShown(el) {
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
+    }
+
+    function parseMissionIdFromTitle() {
+      const title = getText('ui-title');
+      const m = title.match(/SESSION\s+(\d+)/i);
+      return m ? Number(m[1]) : null;
+    }
+
+    function readScore() {
+      const raw = getText('score-display').replace(/[^\d.-]/g, '');
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function readHP() {
+      return getText('hp-display');
+    }
+
+    function summarySnapshot() {
+      return {
+        summaryTitle: getText('summary-title'),
+        summaryBody: getText('summary-body'),
+        feedback: getText('feedback'),
+        uiTitle: getText('ui-title'),
+        btnNextVisible: isShown(getEl('btn-next')),
+        btnReturnVisible: isShown(getEl('btn-return')),
+        gameOverVisible: isShown(getEl('game-over-ui'))
+      };
+    }
+
+    const runtime = {
+      pageVisitId: makeId('PAGE'),
+      pageEnterMs: Date.now(),
+      pageEnteredAt: nowIso(),
+      pageStartedAt: '',
+      pageLastActiveAt: '',
+      pageLastActionMs: 0,
+      pageActiveTimeMs: 0,
+      pageActionsCount: 0,
+      currentAttempt: null,
+      readyForNewAttempt: true,
+      lastDetectedMissionId: null,
+      updateTimer: null
+    };
+
+    function syncIdentityFromInputs() {
+      const profileName = (getEl('profile-name-input')?.value || '').trim();
+      const scoreName = (getEl('player-name-input')?.value || '').trim();
+      const nextName = profileName || scoreName || context.studentName || '';
+      if (nextName && nextName !== context.studentName) {
+        context.studentName = nextName;
+        safeSetLS('ENG_STUDENT_NAME', nextName);
+      }
+      if (context.studentId) safeSetLS('ENG_STUDENT_ID', context.studentId);
+      if (context.classSection) safeSetLS('ENG_CLASS_SECTION', context.classSection);
+    }
+
+    function seedIdentityInputs() {
+      const p1 = getEl('profile-name-input');
+      const p2 = getEl('player-name-input');
+      if (p1 && !p1.value && context.studentName) p1.value = context.studentName;
+      if (p2 && !p2.value && context.studentName) p2.value = context.studentName;
+    }
+
+    function calcDurationSec(target) {
+      const endMs = target.finishedMs || Date.now();
+      return Math.max(0, Math.round((endMs - target.enterMs) / 1000));
+    }
+
+    function calcActiveSec(target) {
+      return Math.max(0, Math.round((target.activeTimeMs || 0) / 1000));
+    }
+
+    function updatePageActivity() {
+      const now = Date.now();
+      if (!runtime.pageStartedAt) runtime.pageStartedAt = new Date(now).toISOString();
+      if (runtime.pageLastActionMs) {
+        const gap = now - runtime.pageLastActionMs;
+        runtime.pageActiveTimeMs += Math.min(gap, 15000);
+      }
+      runtime.pageLastActionMs = now;
+      runtime.pageLastActiveAt = new Date(now).toISOString();
+      runtime.pageActionsCount += 1;
+    }
+
+    function updateAttemptActivity() {
+      const a = runtime.currentAttempt;
+      if (!a || a.isFinished) return;
+      const now = Date.now();
+      if (!a.startedAt) a.startedAt = new Date(now).toISOString();
+      if (a.lastActionMs) {
+        const gap = now - a.lastActionMs;
+        a.activeTimeMs += Math.min(gap, 15000);
+      }
+      a.lastActionMs = now;
+      a.lastActiveAt = new Date(now).toISOString();
+      a.actionsCount += 1;
+    }
+
+    function registerActivity(source) {
+      syncIdentityFromInputs();
+      updatePageActivity();
+      if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+        updateAttemptActivity();
+      }
+      renderAttendancePanel(source || '');
+    }
+
+    function buildPayload(eventType, extra, forcePageTarget) {
+      syncIdentityFromInputs();
+
+      const usingPageTarget = !!forcePageTarget || !runtime.currentAttempt;
+      const a = usingPageTarget ? null : runtime.currentAttempt;
+
+      return {
+        eventType: eventType,
+        visitId: a ? a.attemptId : runtime.pageVisitId,
+        studentId: context.studentId || '',
+        studentName: context.studentName || '',
+        classSection: context.classSection || '',
+        sessionNo: a ? a.sessionNo : '',
+        lessonId: context.lessonId || '',
+        clientTs: nowIso(),
+        enteredAt: a ? a.enteredAt : runtime.pageEnteredAt,
+        startedAt: a ? (a.startedAt || '') : (runtime.pageStartedAt || ''),
+        finishedAt: a ? (a.finishedAt || '') : '',
+        lastActiveAt: a ? (a.lastActiveAt || '') : (runtime.pageLastActiveAt || ''),
+        durationSec: a ? calcDurationSec(a) : Math.max(0, Math.round((Date.now() - runtime.pageEnterMs) / 1000)),
+        activeTimeSec: a ? calcActiveSec(a) : Math.max(0, Math.round(runtime.pageActiveTimeMs / 1000)),
+        actionsCount: a ? a.actionsCount : runtime.pageActionsCount,
+        score: readScore(),
+        completed: a ? !!a.completed : false,
+        pageUrl: context.pageUrl,
+        userAgent: context.userAgent,
+        extra: Object.assign({
+          patch: PATCH,
+          build: BUILD,
+          pageVisitId: runtime.pageVisitId,
+          missionId: a ? a.missionId : '',
+          hp: readHP(),
+          courseMeeting: context.courseMeeting || '',
+          title: getText('ui-title')
+        }, extra || {})
+      };
+    }
+
+    function send(payload) {
+      if (!ENDPOINT) return;
+      const body = JSON.stringify(payload);
+
+      try {
+        if (navigator.sendBeacon) {
+          const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
+          navigator.sendBeacon(ENDPOINT, blob);
+          return;
+        }
+      } catch (_) {}
+
+      try {
+        fetch(ENDPOINT, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body
+        }).catch(function () {});
+      } catch (_) {}
+    }
+
+    function log(eventType, extra, forcePageTarget) {
+      const payload = buildPayload(eventType, extra, forcePageTarget);
+      send(payload);
+      renderAttendancePanel(eventType);
+    }
+
+    function deriveAttemptResult(reason) {
+      const snap = summarySnapshot();
+      const text = [
+        snap.summaryTitle,
+        snap.summaryBody,
+        snap.feedback
+      ].join(' ').toLowerCase();
+
+      const failish =
+        text.includes('outcome: fail') ||
+        text.includes('system offline') ||
+        text.includes('time up') ||
+        text.includes('fail');
+
+      const successish =
+        snap.btnNextVisible ||
+        text.includes('clear') ||
+        text.includes('unit clear') ||
+        text.includes('success');
+
+      let result = 'ended';
+      let completed = false;
+
+      if (successish && !failish) {
+        result = 'completed';
+        completed = true;
+      } else if (failish) {
+        result = 'failed';
+        completed = false;
+      } else if (reason === 'leave' || reason === 'unload') {
+        result = 'left';
+      }
+
+      return {
+        result,
+        completed,
+        summaryBody: snap.summaryBody,
+        feedback: snap.feedback,
+        btnNextVisible: snap.btnNextVisible
+      };
+    }
+
+    function beginAttempt(missionId, reason) {
+      if (!missionId) return;
+
+      if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+        finishAttempt('switch_mission', { nextMissionId: missionId });
+      }
+
+      runtime.currentAttempt = {
+        attemptId: makeId('RUN'),
+        missionId: Number(missionId),
+        sessionNo: parseSessionNo(missionId),
+        enteredAt: nowIso(),
+        enterMs: Date.now(),
+        startedAt: nowIso(),
+        lastActiveAt: nowIso(),
+        lastActionMs: Date.now(),
+        activeTimeMs: 0,
+        actionsCount: 1,
+        finishedAt: '',
+        finishedMs: 0,
+        isFinished: false,
+        completed: false
+      };
+
+      runtime.readyForNewAttempt = false;
+      runtime.lastDetectedMissionId = Number(missionId);
+
+      log('mission_enter', {
+        reason: reason || 'ui_detected',
+        missionId: Number(missionId),
+        missionTitle: getText('ui-title')
+      }, false);
+    }
+
+    function finishAttempt(reason, extra) {
+      const a = runtime.currentAttempt;
+      if (!a || a.isFinished) return;
+
+      const now = Date.now();
+      a.finishedAt = new Date(now).toISOString();
+      a.finishedMs = now;
+      a.isFinished = true;
+
+      const resultInfo = deriveAttemptResult(reason);
+      a.completed = !!resultInfo.completed;
+
+      log('mission_finish', Object.assign({
+        reason: reason || 'summary',
+        missionId: a.missionId,
+        result: resultInfo.result,
+        completed: resultInfo.completed,
+        summaryBody: resultInfo.summaryBody,
+        feedback: resultInfo.feedback,
+        btnNextVisible: resultInfo.btnNextVisible
+      }, extra || {}), false);
+    }
+
+    function syncAttemptFromUI(trigger) {
+      seedIdentityInputs();
+
+      const missionId = parseMissionIdFromTitle();
+      const uiTitle = getText('ui-title');
+      const summaryVisible = isShown(getEl('summary-panel'));
+
+      if (!missionId && /^TECHPATH VR$/i.test(uiTitle)) {
+        runtime.readyForNewAttempt = true;
+      }
+
+      if (missionId) {
+        const shouldBegin =
+          !runtime.currentAttempt ||
+          runtime.readyForNewAttempt ||
+          runtime.currentAttempt.missionId !== Number(missionId) ||
+          (runtime.currentAttempt.isFinished && runtime.currentAttempt.missionId === Number(missionId) && runtime.readyForNewAttempt);
+
+        if (shouldBegin) {
+          beginAttempt(missionId, trigger || 'sync');
+        }
+      }
+
+      if (summaryVisible && runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+        finishAttempt('summary_visible', {});
+      }
+
+      renderAttendancePanel(trigger || '');
+    }
+
+    function renderAttendancePanel(hint) {
+      setText('attendance-student-id', context.studentId || '-');
+      setText('attendance-student-name', context.studentName || '-');
+      setText('attendance-class-section', context.classSection || '-');
+
+      const status = getEl('attendance-status');
+      if (!status) return;
+
+      if (runtime.currentAttempt) {
+        setText('attendance-session-no', runtime.currentAttempt.sessionNo || 'Lobby');
+        setText('attendance-duration', fmtSec(calcDurationSec(runtime.currentAttempt)));
+        setText('attendance-active-time', fmtSec(calcActiveSec(runtime.currentAttempt)));
+
+        if (runtime.currentAttempt.isFinished) {
+          if (runtime.currentAttempt.completed) {
+            status.className = '';
+            status.textContent = 'บันทึกการเข้าเรียนของ ' + (runtime.currentAttempt.sessionNo || 'S') + ' แล้ว • สถานะ: completed';
+          } else {
+            status.className = 'fail';
+            status.textContent = 'บันทึกการเข้าเรียนของ ' + (runtime.currentAttempt.sessionNo || 'S') + ' แล้ว • สถานะ: not completed';
+          }
+        } else {
+          status.className = '';
+          status.textContent = 'กำลังติดตาม ' + (runtime.currentAttempt.sessionNo || 'S') + ' แบบเรียลไทม์' + (hint ? ' • ' + hint : '');
+        }
+      } else {
+        setText('attendance-session-no', 'Lobby');
+        setText('attendance-duration', fmtSec(Math.round((Date.now() - runtime.pageEnterMs) / 1000)));
+        setText('attendance-active-time', fmtSec(Math.round(runtime.pageActiveTimeMs / 1000)));
+        status.className = 'warn';
+        status.textContent = 'ยังไม่ได้เข้า S ใด • เมื่อกดเข้า mission ระบบจะเริ่มจับ attendance ของ S นั้นทันที';
+      }
+    }
+
+    function wrapGlobal(name, beforeCall) {
+      let done = false;
+
+      function attach() {
+        if (done) return true;
+        const fn = window[name];
+        if (typeof fn !== 'function') return false;
+        if (fn.__attendanceWrapped) {
+          done = true;
+          return true;
+        }
+
+        const original = fn;
+        const wrapped = function () {
+          try {
+            beforeCall && beforeCall(Array.from(arguments));
+          } catch (_) {}
+          return original.apply(this, arguments);
+        };
+        wrapped.__attendanceWrapped = true;
+        wrapped.__attendanceOriginal = original;
+        window[name] = wrapped;
+        done = true;
+        return true;
+      }
+
+      if (attach()) return;
+      const timer = setInterval(function () {
+        if (attach()) clearInterval(timer);
+      }, 400);
+      setTimeout(function () { clearInterval(timer); }, 30000);
+    }
+
+    function installObservers() {
+      const titleEl = getEl('ui-title');
+      const summaryEl = getEl('summary-panel');
+      const summaryBodyEl = getEl('summary-body');
+      const uiContainer = getEl('ui-container');
+
+      const obs = new MutationObserver(function () {
+        syncAttemptFromUI('observer');
+      });
+
+      if (titleEl) obs.observe(titleEl, { childList: true, subtree: true, characterData: true });
+      if (summaryEl) obs.observe(summaryEl, { attributes: true, attributeFilter: ['style', 'class'] });
+      if (summaryBodyEl) obs.observe(summaryBodyEl, { childList: true, subtree: true, characterData: true });
+      if (uiContainer) obs.observe(uiContainer, { attributes: true, attributeFilter: ['class'] });
+
+      setInterval(function () {
+        syncAttemptFromUI('interval');
+      }, 800);
+    }
+
+    function installInteractionListeners() {
+      document.addEventListener('pointerdown', function () {
+        registerActivity('pointer');
+      }, { passive: true });
+
+      document.addEventListener('keydown', function () {
+        registerActivity('keydown');
+      }, { passive: true });
+
+      getEl('write-input')?.addEventListener('input', function () {
+        registerActivity('typing');
+      });
+
+      getEl('profile-name-input')?.addEventListener('change', function () {
+        syncIdentityFromInputs();
+        renderAttendancePanel('profile_name_change');
+      });
+
+      getEl('player-name-input')?.addEventListener('change', function () {
+        syncIdentityFromInputs();
+        renderAttendancePanel('score_name_change');
+      });
+    }
+
+    function installWrappers() {
+      wrapGlobal('savePlayerProfile', function () {
+        syncIdentityFromInputs();
+        registerActivity('save_profile');
+        log('save_profile', {
+          profileName: context.studentName || ''
+        }, !runtime.currentAttempt);
+      });
+
+      wrapGlobal('startRecognition', function () {
+        syncAttemptFromUI('start_recognition');
+        registerActivity('speak');
+        log('start_recognition', {
+          missionId: runtime.currentAttempt ? runtime.currentAttempt.missionId : '',
+          sessionNo: runtime.currentAttempt ? runtime.currentAttempt.sessionNo : ''
+        }, false);
+      });
+
+      wrapGlobal('playAudio', function () {
+        syncAttemptFromUI('play_audio');
+        registerActivity('play_audio');
+        log('play_audio', {
+          missionId: runtime.currentAttempt ? runtime.currentAttempt.missionId : '',
+          sessionNo: runtime.currentAttempt ? runtime.currentAttempt.sessionNo : ''
+        }, false);
+      });
+
+      wrapGlobal('checkWritingAnswer', function () {
+        syncAttemptFromUI('write_submit');
+        registerActivity('submit_write');
+        log('submit_write', {
+          valueLength: (getEl('write-input')?.value || '').trim().length
+        }, false);
+      });
+
+      wrapGlobal('checkChoiceAnswer', function (args) {
+        syncAttemptFromUI('choice_answer');
+        registerActivity('choice_answer');
+        log('choice_answer', {
+          choice: args && args.length ? String(args[0] || '') : ''
+        }, false);
+      });
+
+      wrapGlobal('submitScore', function () {
+        syncIdentityFromInputs();
+        registerActivity('save_score');
+        log('save_score', {
+          scoreName: (getEl('player-name-input')?.value || context.studentName || '').trim(),
+          score: readScore()
+        }, false);
+      });
+
+      wrapGlobal('playNextMission', function () {
+        registerActivity('next_mission');
+        if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+          finishAttempt('next_button', { viaButton: true });
+        } else {
+          log('next_button', {}, false);
+        }
+      });
+
+      wrapGlobal('returnToHub', function () {
+        registerActivity('return_hub');
+        if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+          finishAttempt('return_to_hub', { viaButton: true });
+        } else {
+          log('return_to_hub', {}, !runtime.currentAttempt);
+        }
+        runtime.readyForNewAttempt = true;
+      });
+
+      wrapGlobal('setDifficulty', function (args) {
+        registerActivity('set_difficulty');
+        log('set_difficulty', {
+          difficulty: args && args.length ? String(args[0] || '') : ''
+        }, !runtime.currentAttempt);
+      });
+    }
+
+    function boot() {
+      seedIdentityInputs();
+      renderAttendancePanel('boot');
+
+      log('page_enter', {
+        patch: PATCH,
+        build: BUILD
+      }, true);
+
+      installInteractionListeners();
+      installWrappers();
+      installObservers();
+
+      setInterval(function () {
+        if (document.visibilityState === 'visible') {
+          log('heartbeat', {}, !runtime.currentAttempt);
+        }
+      }, 30000);
+
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') {
+          if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+            finishAttempt('hidden', { hidden: true });
+          }
+          log('page_hidden', {}, true);
+        } else {
+          log('page_visible', {}, true);
+          renderAttendancePanel('resume');
+        }
+      });
+
+      window.addEventListener('beforeunload', function () {
+        if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+          finishAttempt('unload', { unload: true });
+        }
+        log('page_leave', {}, true);
+      });
+
+      window.ENG_ATTENDANCE = {
+        context,
+        runtime,
+        syncAttemptFromUI,
+        registerActivity,
+        log,
+        finishAttempt: finishAttempt,
+        renderAttendancePanel
+      };
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot, { once: true });
+    } else {
+      boot();
+    }
+  })();
+  </script>
+  <!-- ATTENDANCE PATCH END -->
 </body>
 </html>
