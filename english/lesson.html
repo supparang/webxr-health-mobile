@@ -1,253 +1,250 @@
-<!-- TECHPATH VR PRODUCTION FINAL | RTDB + Boss + AI + Rewards + Summary -->
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechPath VR: The Silicon Ascent</title>
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
-    <link rel="stylesheet" href="./lesson.css" />
-
-<script>
-  window.TECHPATH_APP_ID = window.TECHPATH_APP_ID || 'english-d4bfa';
-  window.TECHPATH_FIREBASE_CONFIG = window.TECHPATH_FIREBASE_CONFIG || {
-    apiKey: "AIzaSyAfp3pVutrHRVOigVQl1iybMKbsKGPhnr8",
-    authDomain: "english-d4bfa.firebaseapp.com",
-    databaseURL: "https://english-d4bfa-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "english-d4bfa",
-    storageBucket: "english-d4bfa.firebasestorage.app",
-    messagingSenderId: "247186694556",
-    appId: "1:247186694556:web:67a01e417f37eb71f42859",
-    measurementId: "G-SWT85BHVJX"
-  };
-</script>
-
-    <meta name="theme-color" content="#0a0f1e">
-    <script>
-      window.TECHPATH_BUILD = 'v20260415-prod-final-merge';
-    </script>
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TechPath VR: The Silicon Ascent</title>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+  <link rel="stylesheet" href="./lesson.css" />
+  <script>
+    window.TECHPATH_APP_ID = window.TECHPATH_APP_ID || 'english-d4bfa';
+    window.TECHPATH_FIREBASE_CONFIG = window.TECHPATH_FIREBASE_CONFIG || {
+      apiKey: "AIzaSyAfp3pVutrHRVOigVQl1iybMKbsKGPhnr8",
+      authDomain: "english-d4bfa.firebaseapp.com",
+      databaseURL: "https://english-d4bfa-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "english-d4bfa",
+      storageBucket: "english-d4bfa.firebasestorage.app",
+      messagingSenderId: "247186694556",
+      appId: "1:247186694556:web:67a01e417f37eb71f42859",
+      measurementId: "G-SWT85BHVJX"
+    };
+  </script>
+  <meta name="theme-color" content="#0a0f1e" />
 </head>
 <body>
+  <div id="loading">Loading TechPath VR...</div>
+  <div id="impact-flash" aria-hidden="true"></div>
 
-    <div id="loading">Loading TechPath VR...</div>
-    <div id="impact-flash" aria-hidden="true"></div>
-    <div id="boss-cinematic" aria-hidden="true">
-        <div id="boss-cinematic-card">
-            <div id="boss-cinematic-title">FINAL BOSS</div>
-            <div id="boss-cinematic-sub">Prepare for the last phase.</div>
-        </div>
+  <div id="boss-cinematic" aria-hidden="true">
+    <div id="boss-cinematic-card">
+      <div id="boss-cinematic-title">FINAL BOSS</div>
+      <div id="boss-cinematic-sub">Prepare for the last phase.</div>
     </div>
-    <div id="answer-fx-layer" aria-hidden="true"></div>
-    <div id="combo-popup" class="combo-popup">COMBO x2</div>
-    <div id="mission-type-tag" class="mission-type-tag">READING BOOST</div>
+  </div>
 
-    <div id="ui-container">
-        <div id="player-avatar-hud">🧑‍💻</div>
+  <div id="answer-fx-layer" aria-hidden="true"></div>
+  <div id="combo-popup" class="combo-popup">COMBO x2</div>
+  <div id="mission-type-tag" class="mission-type-tag">READING BOOST</div>
 
-        <div class="title" id="ui-title">TECHPATH VR: MAIN HUB</div>
-        <p class="instruction" id="ui-desc">ใช้เมาส์ลากหันมอง และใช้นิ้วจิ้ม หรือ เมาส์คลิกที่ป้ายภารกิจได้เลย!</p>
-        
-        <div id="hud-stats" style="display: flex; justify-content: space-between; font-weight: bold; margin: 10px 0; border-top: 1px solid #00e5ff; border-bottom: 1px solid #00e5ff; padding: 5px 0;">
-            <div style="color: #f1c40f;">SCORE: <span id="score-display">0</span> <span id="combo-display" style="color:#ff9f43; font-size:0.8em; display:none;">(x2 COMBO!)</span></div>
-            <div style="color: #2ed573;">SYSTEM HP: <span id="hp-display">100%</span></div>
-        </div>
+  <div id="ui-container">
+    <div id="player-avatar-hud">🧑‍💻</div>
 
-        <div id="profile-panel">
-            <div id="profile-panel-title">PLAYER PROFILE</div>
-            <div class="avatar-row">
-                <button class="avatar-chip active" id="avatar-chip-1" onclick="selectAvatar('🧑‍💻')">🧑‍💻<small>ฟรี</small></button>
-                <button class="avatar-chip" id="avatar-chip-2" onclick="selectAvatar('🤖')">🤖<small>Streak 3</small></button>
-                <button class="avatar-chip" id="avatar-chip-3" onclick="selectAvatar('👩‍🚀')">👩‍🚀<small>Streak 7</small></button>
-                <button class="avatar-chip" id="avatar-chip-4" onclick="selectAvatar('🦾')">🦾<small>Clear 5</small></button>
-                <button class="avatar-chip" id="avatar-chip-5" onclick="selectAvatar('🧠')">🧠<small>Streak14+Clear12</small></button>
-            </div>
-            <div id="unlock-hint">สะสม streak และเคลียร์ด่านเพื่อปลดล็อก avatar ใหม่</div>
-            <input type="text" id="profile-name-input" placeholder="ตั้งชื่อบนบอร์ดของคุณ..." maxlength="24">
-            <button class="btn-action" id="btn-save-profile" onclick="savePlayerProfile()">บันทึกโปรไฟล์</button>
-            <div id="hub-stats-board">
-                <div id="hub-stats-title">PLAYER STATS</div>
-                <div id="hub-stats-body">Loading stats...</div>
-            </div>
-        </div>
+    <div class="title" id="ui-title">TECHPATH VR: MAIN HUB</div>
+    <p class="instruction" id="ui-desc">ใช้เมาส์ลากหันมอง และใช้นิ้วจิ้ม หรือ เมาส์คลิกที่ป้ายภารกิจได้เลย!</p>
 
-        <div id="timer">01:00</div>
-
-        <div id="boss-phase-ui">
-            <div id="boss-phase-title">👑 FINAL BOSS PHASE</div>
-            <div id="boss-phase-sub">ตอบถูกหลายครั้งเพื่อล้มบอสประจำยูนิต</div>
-            <div id="boss-bar-shell"><div id="boss-bar-fill"></div></div>
-            <div id="boss-hp-text">BOSS HP: 3 / 3</div>
-        </div>
-
-        <div id="reward-roll-badge">COMMON CHEST</div>
-        <div id="ai-director-panel">
-            <div id="ai-director-title">AI DIRECTOR</div>
-            <div id="ai-director-state">STEADY</div>
-            <div id="ai-director-sub">AI กำลังดูจังหวะการเล่นของคุณ</div>
-        </div>
-        <div id="unit-theme-chip">UNIT THEME</div>
-        
-        <button class="btn-action" id="btn-speak" onclick="startRecognition()">🎙️ กดแล้วพูด (Speak Now)</button>
-        <button class="btn-action" id="btn-play-audio" onclick="playAudio()">🔊 ฟังเสียง (Play Audio)</button>
-        <input type="text" class="input-field" id="write-input" placeholder="พิมพ์คำตอบภาษาอังกฤษที่นี่... (Press Enter)" style="display: none;">
-        <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()">ส่งคำตอบ (Submit)</button>
-        
-        <div id="choice-buttons" style="display: none; justify-content: center; gap: 15px; margin-top: 10px;">
-            <button class="btn-action" style="display: block; background: #e67e22;" onclick="checkChoiceAnswer('A')">👉 ตอบข้อ A</button>
-            <button class="btn-action" style="display: block; background: #2ecc71;" onclick="checkChoiceAnswer('B')">👉 ตอบข้อ B</button>
-            <button class="btn-action" style="display: block; background: #9b59b6;" onclick="checkChoiceAnswer('C')">👉 ตอบข้อ C</button>
-        </div>
-
-        <div id="game-over-ui" style="display:none; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px;">
-            <p style="color: #f1c40f; margin: 0 0 10px 0;">บันทึกคะแนนของคุณลงบอร์ด!</p>
-            <input type="text" id="player-name-input" class="input-field" placeholder="ใส่ชื่อของคุณ..." style="display:inline-block; width:60%; margin-top:0;">
-            <button class="btn-action" id="btn-submit-score" onclick="submitScore()" style="display:inline-block; background:#f1c40f; margin-left:10px;">Save Score</button>
-        </div>
-
-        <div id="feedback"></div>
-
-        <div id="summary-panel">
-            <div id="summary-title">MISSION SUMMARY</div>
-            <div id="summary-body">Summary data</div>
-        </div>
-
-        <button class="btn-action" id="btn-next" onclick="playNextMission()" style="background:#2ed573; display:none;">เล่นด่านถัดไป ▶</button>
-        <button class="btn-action btn-danger" id="btn-return" onclick="returnToHub()">กลับสู่ Main Hub</button>
+    <div id="hud-stats" style="display:flex;justify-content:space-between;font-weight:bold;margin:10px 0;border-top:1px solid #00e5ff;border-bottom:1px solid #00e5ff;padding:5px 0;">
+      <div style="color:#f1c40f;">SCORE: <span id="score-display">0</span> <span id="combo-display" style="color:#ff9f43;font-size:0.8em;display:none;">(x2 COMBO!)</span></div>
+      <div style="color:#2ed573;">SYSTEM HP: <span id="hp-display">100%</span></div>
     </div>
 
-    <a-scene loading-screen="enabled: false">
-        
-        <a-entity id="hub-scene">
-            <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
-            <a-text value="TECHPATH VR&#10;15-SESSION CURRICULUM" position="0 4.5 -5" align="center" color="#00e5ff" scale="1.5 1.5 1.5"></a-text>
-            <a-text value="Category 1-2 (Social & Agile) | Cat 3 (AI) | Cat 4-5 (Client & Career)" position="0 3.7 -5" align="center" color="#aaa" scale="0.6 0.6 0.6"></a-text>
+    <div id="question-diff-badge" style="display:block;margin:6px auto 0;width:fit-content;padding:6px 12px;border-radius:999px;font-weight:900;letter-spacing:0.08em;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);color:#f1c40f;">
+      Q: NORMAL
+    </div>
 
-            <a-entity id="reward-chest" position="-3.5 0.5 -3" rotation="0 45 0" onclick="claimReward()">
-                <a-box color="#555" width="0.8" height="0.6" depth="0.6" material="metalness: 0.8; roughness: 0.2"></a-box>
-                <a-text value="DAILY REWARD" position="0 0.5 0" align="center" color="#f1c40f" scale="0.5 0.5 0.5"></a-text>
-                <a-text id="streak-text" value="Loading User Data..." position="0 0.3 0" align="center" color="#fff" scale="0.4 0.4 0.4"></a-text>
-            </a-entity>
+    <div id="profile-panel">
+      <div id="profile-panel-title">PLAYER PROFILE</div>
+      <div class="avatar-row">
+        <button class="avatar-chip active" id="avatar-chip-1" onclick="selectAvatar('🧑‍💻')">🧑‍💻<small>ฟรี</small></button>
+        <button class="avatar-chip" id="avatar-chip-2" onclick="selectAvatar('🤖')">🤖<small>Streak 3</small></button>
+        <button class="avatar-chip" id="avatar-chip-3" onclick="selectAvatar('👩‍🚀')">👩‍🚀<small>Streak 7</small></button>
+        <button class="avatar-chip" id="avatar-chip-4" onclick="selectAvatar('🦾')">🦾<small>Clear 5</small></button>
+        <button class="avatar-chip" id="avatar-chip-5" onclick="selectAvatar('🧠')">🧠<small>Streak14+Clear12</small></button>
+      </div>
+      <div id="unlock-hint">สะสม streak และเคลียร์ด่านเพื่อปลดล็อก avatar ใหม่</div>
+      <input type="text" id="profile-name-input" placeholder="ตั้งชื่อบนบอร์ดของคุณ..." maxlength="24">
+      <button class="btn-action" id="btn-save-profile" onclick="savePlayerProfile()">บันทึกโปรไฟล์</button>
 
-            <a-entity position="-4.1 2.0 -2.8" rotation="0 25 0">
-                <a-plane width="2.2" height="1.5" color="#0f172a" material="opacity: 0.92"></a-plane>
-                <a-box width="2.3" height="1.6" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true"></a-box>
-                <a-text value="PLAYER PROFILE" position="0 0.48 0.05" align="center" color="#7bedff" scale="0.48 0.48 0.48"></a-text>
-                <a-text id="vr-profile-name" value="Name: Hero" position="0 0.12 0.05" align="center" color="#ffffff" scale="0.44 0.44 0.44"></a-text>
-                <a-text id="vr-profile-avatar" value="🧑‍💻" position="0 -0.34 0.05" align="center" color="#2ed573" scale="1.2 1.2 1.2"></a-text>
-            </a-entity>
+      <div id="hub-stats-board">
+        <div id="hub-stats-title">PLAYER STATS</div>
+        <div id="hub-stats-body">Loading stats...</div>
+      </div>
+    </div>
 
-            <a-entity position="0 2.8 -4.5">
-                <a-text id="diff-title-text" value="DIFFICULTY (AI AUTO-ADAPTIVE)" position="0 0.5 0" align="center" color="#00e5ff" scale="0.6 0.6 0.6"></a-text>
-                
-                <a-entity position="-1.5 0 0" class="clickable" onclick="setDifficulty('easy')">
-                    <a-box id="diff-easy-box" width="1.2" height="0.4" depth="0.1" color="#2ecc71" material="opacity: 0.5"></a-box>
-                    <a-text value="EASY&#10;(+Time, Forgiving)" align="center" position="0 0 0.06" scale="0.4 0.4 0.4"></a-text>
-                </a-entity>
-                
-                <a-entity position="0 0 0" class="clickable" onclick="setDifficulty('normal')">
-                    <a-box id="diff-normal-box" width="1.2" height="0.4" depth="0.1" color="#f1c40f" material="opacity: 1"></a-box>
-                    <a-text value="NORMAL&#10;(Balanced)" align="center" position="0 0 0.06" scale="0.4 0.4 0.4" color="#000"></a-text>
-                </a-entity>
+    <div id="timer">01:00</div>
 
-                <a-entity position="1.5 0 0" class="clickable" onclick="setDifficulty('hard')">
-                    <a-box id="diff-hard-box" width="1.2" height="0.4" depth="0.1" color="#e74c3c" material="opacity: 0.5"></a-box>
-                    <a-text value="HARD&#10;(Exact Match, x2 Pts)" align="center" position="0 0 0.06" scale="0.4 0.4 0.4"></a-text>
-                </a-entity>
-            </a-entity>
+    <div id="boss-phase-ui">
+      <div id="boss-phase-title">👑 FINAL BOSS PHASE</div>
+      <div id="boss-phase-sub">ตอบถูกหลายครั้งเพื่อล้มบอสประจำยูนิต</div>
+      <div id="boss-bar-shell"><div id="boss-bar-fill"></div></div>
+      <div id="boss-hp-text">BOSS HP: 3 / 3</div>
+    </div>
 
-            <a-entity id="mission-wall" position="0 1.2 -4"></a-entity>
+    <div id="reward-roll-badge">COMMON CHEST</div>
 
-            <a-entity position="4 2 -3" rotation="0 -35 0">
-                <a-plane width="2.5" height="3" color="#1a1a2e" material="opacity: 0.95"></a-plane>
-                <a-box width="2.6" height="3.1" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true"></a-box>
-                <a-text value="TOP 5 DEVELOPERS&#10;=================" position="0 1.2 0.05" align="center" color="#f1c40f" scale="0.6 0.6 0.6"></a-text>
-                <a-text id="vr-leaderboard-list" value="Loading online data...&#10;Connecting to server..." position="0 0 0.05" align="center" color="#fff" scale="0.55 0.55 0.55" line-height="65"></a-text>
-            </a-entity>
+    <div id="ai-director-panel">
+      <div id="ai-director-title">AI DIRECTOR</div>
+      <div id="ai-director-state">STEADY</div>
+      <div id="ai-director-sub">AI กำลังดูจังหวะการเล่นของคุณ</div>
+    </div>
+
+    <div id="unit-theme-chip">UNIT THEME</div>
+
+    <button class="btn-action" id="btn-speak" onclick="startRecognition()">🎙️ กดแล้วพูด (Speak Now)</button>
+    <button class="btn-action" id="btn-play-audio" onclick="playAudio()">🔊 ฟังเสียง (Play Audio)</button>
+    <input type="text" class="input-field" id="write-input" placeholder="พิมพ์คำตอบภาษาอังกฤษที่นี่... (Press Enter)" style="display:none;">
+    <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()">ส่งคำตอบ (Submit)</button>
+
+    <div id="choice-buttons" style="display:none;justify-content:center;gap:15px;margin-top:10px;">
+      <button class="btn-action" style="display:block;background:#e67e22;" onclick="checkChoiceAnswer('A')">👉 ตอบข้อ A</button>
+      <button class="btn-action" style="display:block;background:#2ecc71;" onclick="checkChoiceAnswer('B')">👉 ตอบข้อ B</button>
+      <button class="btn-action" style="display:block;background:#9b59b6;" onclick="checkChoiceAnswer('C')">👉 ตอบข้อ C</button>
+    </div>
+
+    <div id="game-over-ui" style="display:none;margin-top:10px;background:rgba(0,0,0,0.5);padding:15px;border-radius:8px;">
+      <p style="color:#f1c40f;margin:0 0 10px 0;">บันทึกคะแนนของคุณลงบอร์ด!</p>
+      <input type="text" id="player-name-input" class="input-field" placeholder="ใส่ชื่อของคุณ..." style="display:inline-block;width:60%;margin-top:0;">
+      <button class="btn-action" id="btn-submit-score" onclick="submitScore()" style="display:inline-block;background:#f1c40f;margin-left:10px;">Save Score</button>
+    </div>
+
+    <div id="feedback"></div>
+
+    <div id="summary-panel">
+      <div id="summary-title">MISSION SUMMARY</div>
+      <div id="summary-body">Summary data</div>
+    </div>
+
+    <button class="btn-action" id="btn-next" onclick="playNextMission()" style="background:#2ed573;display:none;">เล่นด่านถัดไป ▶</button>
+    <button class="btn-action btn-danger" id="btn-return" onclick="returnToHub()">กลับสู่ Main Hub</button>
+  </div>
+
+  <a-scene loading-screen="enabled: false">
+    <a-entity id="hub-scene">
+      <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
+      <a-text value="TECHPATH VR&#10;15-SESSION CURRICULUM" position="0 4.5 -5" align="center" color="#00e5ff" scale="1.5 1.5 1.5"></a-text>
+      <a-text value="A2 English • Adaptive Difficulty • Final Boss Phases" position="0 3.7 -5" align="center" color="#aaa" scale="0.6 0.6 0.6"></a-text>
+
+      <a-entity id="reward-chest" position="-3.5 0.5 -3" rotation="0 45 0" onclick="claimReward()">
+        <a-box color="#555" width="0.8" height="0.6" depth="0.6" material="metalness: 0.8; roughness: 0.2"></a-box>
+        <a-text value="DAILY REWARD" position="0 0.5 0" align="center" color="#f1c40f" scale="0.5 0.5 0.5"></a-text>
+        <a-text id="streak-text" value="Loading User Data..." position="0 0.3 0" align="center" color="#fff" scale="0.4 0.4 0.4"></a-text>
+      </a-entity>
+
+      <a-entity position="-4.1 2.0 -2.8" rotation="0 25 0">
+        <a-plane width="2.2" height="1.5" color="#0f172a" material="opacity: 0.92"></a-plane>
+        <a-box width="2.3" height="1.6" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true"></a-box>
+        <a-text value="PLAYER PROFILE" position="0 0.48 0.05" align="center" color="#7bedff" scale="0.48 0.48 0.48"></a-text>
+        <a-text id="vr-profile-name" value="Name: Hero" position="0 0.12 0.05" align="center" color="#ffffff" scale="0.44 0.44 0.44"></a-text>
+        <a-text id="vr-profile-avatar" value="🧑‍💻" position="0 -0.34 0.05" align="center" color="#2ed573" scale="1.2 1.2 1.2"></a-text>
+      </a-entity>
+
+      <a-entity position="0 2.8 -4.5">
+        <a-text value="DIFFICULTY (AI AUTO-ADAPTIVE)" position="0 0.5 0" align="center" color="#00e5ff" scale="0.6 0.6 0.6"></a-text>
+
+        <a-entity position="-1.5 0 0" class="clickable" onclick="setDifficulty('easy')">
+          <a-box id="diff-easy-box" width="1.2" height="0.4" depth="0.1" color="#2ecc71" material="opacity: 0.5"></a-box>
+          <a-text value="EASY&#10;(+Time, Forgiving)" align="center" position="0 0 0.06" scale="0.4 0.4 0.4"></a-text>
         </a-entity>
 
-        <a-entity id="mission-speaking-scene" visible="false">
-            <a-entity environment="preset: volcano; skyColor: #ff0000" id="speaking-env"></a-entity>
-            <a-entity position="0 1.6 -3.5">
-                <a-sphere radius="0.3" color="#f1c40f" animation="property: position; to: 0 0.1 0; dir: alternate; dur: 800; loop: true"></a-sphere>
-                <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#2980b9"></a-cylinder>
-            </a-entity>
-            <a-text id="speaking-prompt" value="PROMPT TEXT" position="0 3 -3" align="center" color="#ff4757"></a-text>
+        <a-entity position="0 0 0" class="clickable" onclick="setDifficulty('normal')">
+          <a-box id="diff-normal-box" width="1.2" height="0.4" depth="0.1" color="#f1c40f" material="opacity: 1"></a-box>
+          <a-text value="NORMAL&#10;(Balanced)" align="center" position="0 0 0.06" scale="0.4 0.4 0.4" color="#000"></a-text>
         </a-entity>
 
-        <a-entity id="mission-reading-scene" visible="false">
-            <a-entity environment="preset: arches; skyColor: #550000" id="reading-env"></a-entity>
-            <a-entity position="0 1.6 -3.5">
-                <a-sphere radius="0.25" color="#e74c3c"></a-sphere>
-                <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#34495e"></a-cylinder>
-                <a-plane position="0 1.2 0" width="4" height="1" color="#fff" material="opacity: 0.9">
-                    <a-text id="reading-question" value="QUESTION TEXT" color="#000" align="center" position="0 0 0.01" scale="0.7 0.7 0.7" width="5"></a-text>
-                </a-plane>
-            </a-entity>
-
-            <a-entity position="-2.5 0.5 -3" rotation="0 15 0" animation="property: position; to: -2.5 0.8 -3; dir: alternate; dur: 1500; loop: true">
-                <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
-                <a-text id="reading-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-            </a-entity>
-            <a-entity position="0 0.5 -3" animation="property: position; to: 0 0.7 -3; dir: alternate; dur: 1200; loop: true">
-                <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
-                <a-text id="reading-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-            </a-entity>
-            <a-entity position="2.5 0.5 -3" rotation="0 -15 0" animation="property: position; to: 2.5 0.9 -3; dir: alternate; dur: 1700; loop: true">
-                <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
-                <a-text id="reading-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-            </a-entity>
+        <a-entity position="1.5 0 0" class="clickable" onclick="setDifficulty('hard')">
+          <a-box id="diff-hard-box" width="1.2" height="0.4" depth="0.1" color="#e74c3c" material="opacity: 0.5"></a-box>
+          <a-text value="HARD&#10;(Strict, Fast)" align="center" position="0 0 0.06" scale="0.4 0.4 0.4"></a-text>
         </a-entity>
+      </a-entity>
 
-        <a-entity id="mission-listening-scene" visible="false">
-            <a-entity environment="preset: forest; skyColor: #ff2222" id="listening-env"></a-entity>
-            <a-entity position="0 1.6 -3.5">
-                <a-sphere radius="0.3" color="#3498db" animation="property: position; to: 0 0.2 0; dir: alternate; dur: 500; loop: true"></a-sphere>
-                <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#ecf0f1" animation="property: rotation; to: 0 360 0; dur: 2000; easing: linear; loop: true"></a-cylinder>
-            </a-entity>
-            <a-text id="listening-prompt" value="PRESS PLAY AUDIO" position="0 3 -3" align="center" color="#f1c40f"></a-text>
+      <a-entity id="mission-wall" position="0 1.2 -4"></a-entity>
 
-            <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
-                <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
-                <a-text id="listening-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-            </a-entity>
-            <a-entity position="0 0.5 -3">
-                <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
-                <a-text id="listening-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-            </a-entity>
-            <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
-                <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
-                <a-text id="listening-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-            </a-entity>
-        </a-entity>
+      <a-entity position="4 2 -3" rotation="0 -35 0">
+        <a-plane width="2.5" height="3" color="#1a1a2e" material="opacity: 0.95"></a-plane>
+        <a-box width="2.6" height="3.1" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true"></a-box>
+        <a-text value="TOP 5 DEVELOPERS&#10;=================" position="0 1.2 0.05" align="center" color="#f1c40f" scale="0.6 0.6 0.6"></a-text>
+        <a-text id="vr-leaderboard-list" value="Loading online data...&#10;Connecting to server..." position="0 0 0.05" align="center" color="#fff" scale="0.55 0.55 0.55" line-height="65"></a-text>
+      </a-entity>
+    </a-entity>
 
-        <a-entity id="mission-writing-scene" visible="false">
-            <a-entity environment="preset: starry; skyColor: #aa0000" id="writing-env"></a-entity>
-            <a-entity id="hackerBoss" position="0 3 -15">
-                <a-box color="#ff0000" width="1.5" height="1.5" depth="1.5" animation="property: rotation; to: 360 360 360; dur: 3000; loop: true; easing: linear"></a-box>
-                <a-text value="VIRUS / HACKER" color="#ff4757" position="0 1.2 0" align="center" scale="2 2 2"></a-text>
-            </a-entity>
-            <a-plane position="0 1.5 -3" width="4" height="2" color="#ecf0f1">
-                <a-text id="writing-prompt" value="TERMINAL:&#10;..." color="#000" align="left" position="-1.8 0.5 0.01" width="3.5"></a-text>
-            </a-plane>
-        </a-entity>
+    <a-entity id="mission-speaking-scene" visible="false">
+      <a-entity environment="preset: volcano; skyColor: #ff0000"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.3" color="#f1c40f" animation="property: position; to: 0 0.1 0; dir: alternate; dur: 800; loop: true"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#2980b9"></a-cylinder>
+      </a-entity>
+      <a-text id="speaking-prompt" value="PROMPT TEXT" position="0 3 -3" align="center" color="#ff4757"></a-text>
+    </a-entity>
 
-        <a-entity id="vr-feedback-fx" position="0 2.5 -2.5" visible="false">
-            <a-text id="vr-feedback-text" value="SUCCESS!" align="center" scale="1.5 1.5 1.5" color="#2ed573"></a-text>
-        </a-entity>
+    <a-entity id="mission-reading-scene" visible="false">
+      <a-entity environment="preset: arches; skyColor: #550000"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.25" color="#e74c3c"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#34495e"></a-cylinder>
+        <a-plane position="0 1.2 0" width="4" height="1" color="#fff" material="opacity: 0.9">
+          <a-text id="reading-question" value="QUESTION TEXT" color="#000" align="center" position="0 0 0.01" scale="0.7 0.7 0.7" width="5"></a-text>
+        </a-plane>
+      </a-entity>
 
-        <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+      <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+        <a-text id="reading-choice-a" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+      <a-entity position="0 0.5 -3">
+        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+        <a-text id="reading-choice-b" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+      <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+        <a-text id="reading-choice-c" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+    </a-entity>
 
-        <a-entity camera look-controls position="0 1.6 0">
-            <a-cursor id="vr-cursor" color="#00e5ff" raycaster="objects: .clickable" animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150" visible="false"></a-cursor>
-        </a-entity>
+    <a-entity id="mission-listening-scene" visible="false">
+      <a-entity environment="preset: forest; skyColor: #ff2222"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.3" color="#3498db" animation="property: position; to: 0 0.2 0; dir: alternate; dur: 500; loop: true"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#ecf0f1" animation="property: rotation; to: 0 360 0; dur: 2000; easing: linear; loop: true"></a-cylinder>
+      </a-entity>
+      <a-text id="listening-prompt" value="PRESS PLAY AUDIO" position="0 3 -3" align="center" color="#f1c40f"></a-text>
 
-        <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
-        <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+      <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+        <a-text id="listening-choice-a" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+      <a-entity position="0 0.5 -3">
+        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+        <a-text id="listening-choice-b" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+      <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+        <a-text id="listening-choice-c" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+    </a-entity>
 
-    </a-scene>
+    <a-entity id="mission-writing-scene" visible="false">
+      <a-entity environment="preset: starry; skyColor: #aa0000"></a-entity>
+      <a-entity id="hackerBoss" position="0 3 -15">
+        <a-box color="#ff0000" width="1.5" height="1.5" depth="1.5" animation="property: rotation; to: 360 360 360; dur: 3000; loop: true; easing: linear"></a-box>
+        <a-text value="VIRUS / HACKER" color="#ff4757" position="0 1.2 0" align="center" scale="2 2 2"></a-text>
+      </a-entity>
+      <a-plane position="0 1.5 -3" width="4" height="2" color="#ecf0f1">
+        <a-text id="writing-prompt" value="TERMINAL:&#10;..." color="#000" align="left" position="-1.8 0.5 0.01" width="3.5"></a-text>
+      </a-plane>
+    </a-entity>
 
-    <script type="module" src="./lesson.js"></script>
+    <a-entity id="vr-feedback-fx" position="0 2.5 -2.5" visible="false">
+      <a-text id="vr-feedback-text" value="SUCCESS!" align="center" scale="1.5 1.5 1.5" color="#2ed573"></a-text>
+    </a-entity>
+
+    <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+    <a-entity camera look-controls position="0 1.6 0">
+      <a-cursor id="vr-cursor" color="#00e5ff" raycaster="objects: .clickable" animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150" visible="false"></a-cursor>
+    </a-entity>
+    <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+    <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+  </a-scene>
+
+  <script type="module" src="./lesson.js"></script>
 </body>
 </html>
