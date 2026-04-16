@@ -1684,7 +1684,6 @@ window.onload = function () {
     togglePromptFocusExpanded();
   });
 };
-  }
 
   onMissionLoadedForAI(state.currentMission, isUnitFinal);
 
