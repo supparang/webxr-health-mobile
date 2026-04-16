@@ -77,7 +77,9 @@ import {
   showMissionControlByType,
   showChoiceButtons,
   resetWritingInput,
-  setScoreHUD
+  setScoreHUD,
+  setMissionPrompt,
+  clearMissionPrompt
 } from "./lesson-ui.js";
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -116,18 +118,6 @@ function minimalWinFeedback(timeBonus, finalUnitText = "", levelUpMsg = "") {
 
 function minimalFailFeedback(damageAmount, levelDownMsg = "") {
   return `❌ SYSTEM HP -${damageAmount}%${levelDownMsg}`;
-}
-
-function shortSummaryLines(success, currentMission, extras = []) {
-  const lines = [
-    `Mission: ${currentMission?.title || "-"}`,
-    `Type: ${(currentMission?.type || "-").toUpperCase()}`,
-    `Score: ${state.gameScore}`,
-    `HP: ${state.systemHP}%`,
-    `Combo Peak: x${Math.max(state.comboCount, sessionStats.bestCombo)}`,
-    `Diff: ${(currentMission?._selectedDifficulty || state.gameDifficulty).toUpperCase()}`
-  ];
-  return success ? lines.concat(extras || []) : lines.concat(extras || []);
 }
 
 function refreshMissionWallProgress() {
@@ -454,18 +444,22 @@ function loadMission(id) {
 
   if (state.currentMission.type === "speaking") {
     setSpeakingPrompt(state.currentMission.title, state.currentMission.exactPhrase);
+    setMissionPrompt(`พูดตามประโยคนี้:\n"${state.currentMission.exactPhrase}"`, "SPEAK");
     startTimer(clamp(getBaseTimeForMissionType("speaking") + timeMod, 18, 80));
   } else if (state.currentMission.type === "reading") {
     setReadingQuestion(state.currentMission.question);
     setChoiceLabelsFor("reading", state.currentMission.choices);
+    setMissionPrompt(state.currentMission.question || "อ่านข้อความแล้วเลือกคำตอบที่ถูกต้อง", "READ");
     showChoiceButtons(true);
     startTimer(clamp(getBaseTimeForMissionType("reading") + timeMod, 18, 80));
   } else if (state.currentMission.type === "listening") {
     setChoiceLabelsFor("listening", state.currentMission.choices);
+    setMissionPrompt("กด Play Audio แล้วเลือกคำตอบที่ถูกต้อง", "LISTEN");
     showChoiceButtons(true);
     startTimer(clamp(getBaseTimeForMissionType("listening") + timeMod, 18, 80));
   } else if (state.currentMission.type === "writing") {
     setWritingPrompt(state.currentMission.prompt);
+    setMissionPrompt(state.currentMission.prompt || "พิมพ์คำตอบให้ถูกต้อง", "WRITE");
     show("write-input", "inline-block");
     resetWritingInput();
 
@@ -856,8 +850,7 @@ function takeDamage() {
     setHudMode("summary");
 
     showEndSummary(false, state.currentMission, aiDirector.mood, [
-      `Outcome: FAIL`,
-      `Mission Gain: ${getMissionRunGain()}`
+      `Outcome: FAIL`
     ]);
 
     if (state.gameScore > 0) {
@@ -976,8 +969,7 @@ function winMission() {
   setHudMode("summary");
 
   showEndSummary(true, state.currentMission, aiDirector.mood, [
-    `Time Bonus: +${timeBonus}`,
-    `Mission Gain: +${getMissionRunGain()}`
+    `Bonus: +${timeBonus}`
   ]);
 
   show("btn-next", "inline-block");
@@ -1006,6 +998,7 @@ function updateHUD(pointsToAdd = 0) {
 
 function hideAllScenesAndControls() {
   hideAllMissionControlsUI();
+  clearMissionPrompt();
   clearInterval(state.missionTimer);
 }
 
@@ -1022,12 +1015,13 @@ window.returnToHub = function () {
   $("impact-flash")?.classList.remove("impact-hit", "impact-clear");
 
   hideAllScenesAndControls();
+  clearMissionPrompt();
   setHudMode("hub");
   hide("game-over-ui");
   $("ui-container")?.classList.remove("danger-mode");
   setHubVisible(true);
 
-  setTitleBlock("TECHPATH VR: MAIN HUB", "เลือกภารกิจต่อไปได้เลย", "#00e5ff");
+  setTitleBlock("TECHPATH VR", "เลือกด่านแล้วเริ่มเล่นได้เลย", "#00e5ff");
   applyUnitTheme(0);
   hide("btn-next");
   hide("btn-return");
