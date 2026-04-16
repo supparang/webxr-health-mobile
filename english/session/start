@@ -1,0 +1,9 @@
+{
+  "sessionId": "ES_001",
+  "difficulty": "normal",
+  "lives": 3,
+  "boss": {
+    "hp": 100,
+    "maxHp": 100
+  }
+}
