@@ -1,116 +1,271 @@
-// /english/js/lesson-ui.js
-'use strict';
-
-function byId(id) {
+export function $(id) {
   return document.getElementById(id);
 }
 
-const screens = {
-  loading: byId('screenLoading'),
-  question: byId('screenQuestion'),
-  feedback: byId('screenFeedback'),
-  summary: byId('screenSummary')
-};
-
-export function showScreen(name) {
-  Object.values(screens).forEach(el => el.classList.remove('active'));
-  if (screens[name]) screens[name].classList.add('active');
+export function setValueAttr(idOrEl, value) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.setAttribute("value", value);
 }
 
-export function setHud({ unitId, difficulty, score, combo, lives, bossHp, bossMaxHp }) {
-  byId('hudUnit').textContent = unitId || '-';
-  byId('hudDiff').textContent = difficulty || '-';
-  byId('hudScore').textContent = String(score ?? 0);
-  byId('hudCombo').textContent = String(combo ?? 0);
-  byId('hudLives').textContent = String(lives ?? 0);
-
-  const fill = byId('bossBarFill');
-  const hpText = byId('bossHpText');
-  const safeMax = Math.max(1, bossMaxHp || 100);
-  const safeHp = Math.max(0, bossHp ?? safeMax);
-  const percent = Math.max(0, Math.min(100, (safeHp / safeMax) * 100));
-
-  fill.style.width = `${percent}%`;
-  hpText.textContent = `${safeHp} / ${safeMax}`;
+export function setText(idOrEl, value) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.textContent = value;
 }
 
-export function renderQuestion(question) {
-  byId('questionTypeBadge').textContent = String(question?.type || 'QUESTION').toUpperCase();
-  byId('promptText').textContent = question?.promptText || 'Prompt';
-  byId('questionText').textContent = question?.questionText || '';
-  byId('questionTimer').textContent = String(question?.timeLimitSec ?? 0);
+export function setHtml(idOrEl, html) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.innerHTML = html;
+}
 
-  const choiceList = byId('choiceList');
-  choiceList.innerHTML = '';
+export function setColor(idOrEl, color) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.style.color = color;
+}
 
-  const choices = Array.isArray(question?.choices) ? question.choices : [];
-  if (choices.length) {
-    choices.forEach((choice, index) => {
-      const btn = document.createElement('button');
-      btn.className = 'choice-btn';
-      btn.type = 'button';
-      btn.dataset.value = choice.value ?? choice.id ?? String(index);
-      btn.textContent = choice.label ?? choice.text ?? String(choice);
-      choiceList.appendChild(btn);
-    });
+export function show(idOrEl, display = "block") {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.style.display = display;
+}
+
+export function hide(idOrEl) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.style.display = "none";
+}
+
+export function showMany(list = [], display = "block") {
+  list.forEach(item => show(item, display));
+}
+
+export function hideMany(list = []) {
+  list.forEach(item => hide(item));
+}
+
+export function setVisible(idOrEl, visible) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.setAttribute("visible", visible ? "true" : "false");
+}
+
+export function setVisibleMany(list = [], visible = false) {
+  list.forEach(item => setVisible(item, visible));
+}
+
+export function addClass(idOrEl, className) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.classList.add(className);
+}
+
+export function removeClass(idOrEl, className) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.classList.remove(className);
+}
+
+export function toggleClass(idOrEl, className, force) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  if (typeof force === "boolean") el.classList.toggle(className, force);
+  else el.classList.toggle(className);
+}
+
+export function pulseClass(idOrEl, className, ms = 450) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.classList.remove(className);
+  void el.offsetWidth;
+  el.classList.add(className);
+  clearTimeout(el._pulseTimer);
+  el._pulseTimer = setTimeout(() => el.classList.remove(className), ms);
+}
+
+export function setButtonDisabled(idOrEl, disabled = true) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.disabled = disabled;
+}
+
+export function setInputValue(idOrEl, value = "") {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  if (!el) return;
+  el.value = value;
+}
+
+export function getInputValue(idOrEl) {
+  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+  return el ? el.value : "";
+}
+
+export function setHudMode(mode = "hub") {
+  const ui = $("ui-container");
+  if (!ui) return;
+  ui.classList.remove("hub-mode", "mission-mode", "summary-mode");
+  if (mode === "mission") ui.classList.add("mission-mode");
+  else if (mode === "summary") ui.classList.add("summary-mode");
+  else ui.classList.add("hub-mode");
+}
+
+export function setFeedback(text, color = "#ffffff") {
+  setText("feedback", text || "");
+  setColor("feedback", color);
+}
+
+export function setTitleBlock(title, desc = "", color = null) {
+  setText("ui-title", title || "");
+  setText("ui-desc", desc || "");
+  if (color) setColor("ui-title", color);
+}
+
+export function setHubVisible(visible = true) {
+  setVisible("hub-scene", visible);
+}
+
+export function setSummaryVisible(showIt = true) {
+  if (showIt) show("summary-panel");
+  else hide("summary-panel");
+}
+
+export function setSummaryContent(title, titleColor, lines = []) {
+  setText("summary-title", title || "");
+  setColor("summary-title", titleColor || "#ffffff");
+  setText("summary-body", Array.isArray(lines) ? lines.join("\n") : String(lines || ""));
+  setSummaryVisible(true);
+}
+
+export function setGameOverVisible(showIt = true) {
+  if (showIt) show("game-over-ui");
+  else hide("game-over-ui");
+}
+
+export function setTimerText(totalSec) {
+  const timerEl = $("timer");
+  if (!timerEl) return;
+  const safe = Math.max(0, Number(totalSec || 0));
+  const mins = String(Math.floor(safe / 60)).padStart(2, "0");
+  const secs = String(safe % 60).padStart(2, "0");
+  timerEl.innerText = `${mins}:${secs}`;
+  timerEl.style.color = safe <= 10 ? "#ff0000" : "#ff4757";
+}
+
+export function showTimer(showIt = true) {
+  if (showIt) show("timer");
+  else hide("timer");
+}
+
+export function setMissionScene(type) {
+  setVisible("mission-speaking-scene", type === "speaking");
+  setVisible("mission-reading-scene", type === "reading");
+  setVisible("mission-listening-scene", type === "listening");
+  setVisible("mission-writing-scene", type === "writing");
+}
+
+export function hideAllMissionScenes() {
+  setVisibleMany([
+    "mission-speaking-scene",
+    "mission-reading-scene",
+    "mission-listening-scene",
+    "mission-writing-scene"
+  ], false);
+}
+
+export function hideAllMissionControlsUI() {
+  hideAllMissionScenes();
+  hideMany([
+    "btn-speak",
+    "btn-play-audio",
+    "write-input",
+    "btn-submit-write",
+    "choice-buttons",
+    "btn-next",
+    "btn-return"
+  ]);
+  showTimer(false);
+  setButtonDisabled("btn-speak", false);
+}
+
+export function setSpeakingPrompt(title, exactPhrase) {
+  setValueAttr("speaking-prompt", `MISSION: ${title}\nSay: "${String(exactPhrase || "").toUpperCase()}"`);
+}
+
+export function setWritingPrompt(prompt) {
+  setValueAttr("writing-prompt", prompt || "");
+}
+
+export function setReadingQuestion(question) {
+  setValueAttr("reading-question", `SYSTEM ALERT:\n\n${question || ""}`);
+}
+
+export function setChoiceLabelsFor(type, choices = []) {
+  const prefix = type === "listening" ? "listening" : "reading";
+  setValueAttr(`${prefix}-choice-a`, choices[0] || "");
+  setValueAttr(`${prefix}-choice-b`, choices[1] || "");
+  setValueAttr(`${prefix}-choice-c`, choices[2] || "");
+}
+
+export function showMissionControlByType(type) {
+  hideMany(["btn-speak", "btn-play-audio", "btn-submit-write"]);
+  if (type === "speaking") show("btn-speak", "inline-block");
+  else if (type === "listening") show("btn-play-audio", "inline-block");
+  else if (type === "writing") show("btn-submit-write", "inline-block");
+}
+
+export function showChoiceButtons(showIt = true) {
+  if (showIt) show("choice-buttons", "flex");
+  else hide("choice-buttons");
+}
+
+export function resetWritingInput() {
+  setInputValue("write-input", "");
+}
+
+export function setScoreHUD(score, hp, comboCount = 0) {
+  setText("score-display", String(score ?? 0));
+  setText("hp-display", `${hp ?? 0}%`);
+
+  const comboEl = $("combo-display");
+  if (!comboEl) return;
+
+  if (comboCount >= 2) {
+    comboEl.style.display = "inline";
+    comboEl.innerText = comboCount >= 5
+      ? `(🔥 x${comboCount} PERFECT!)`
+      : `(x${comboCount} COMBO!)`;
+  } else {
+    comboEl.style.display = "none";
+    comboEl.innerText = "";
   }
-
-  byId('speechStatus').textContent = 'Mic idle';
-  byId('speechTranscript').textContent = '-';
 }
 
-export function setSpeechStatus(text) {
-  byId('speechStatus').textContent = text;
+export function setBossHUD({ show = false, hp = 0, maxHp = 0, sub = "" } = {}) {
+  const wrap = $("boss-phase-ui");
+  const fill = $("boss-bar-fill");
+  const hpText = $("boss-hp-text");
+  const subEl = $("boss-phase-sub");
+
+  if (!wrap || !fill || !hpText || !subEl) return;
+
+  wrap.style.display = show ? "block" : "none";
+  if (!show) return;
+
+  const ratio = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0;
+  fill.style.width = `${Math.round(ratio * 100)}%`;
+  hpText.innerText = `BOSS HP: ${hp} / ${maxHp}`;
+  subEl.innerText = sub || "";
 }
 
-export function setSpeechTranscript(text) {
-  byId('speechTranscript').textContent = text || '-';
-}
-
-export function getSelectedChoiceValue() {
-  const selected = document.querySelector('.choice-btn.selected');
-  return selected ? selected.dataset.value : null;
-}
-
-export function bindChoiceSelection() {
-  const choiceList = byId('choiceList');
-  choiceList.addEventListener('click', (ev) => {
-    const btn = ev.target.closest('.choice-btn');
-    if (!btn) return;
-
-    document.querySelectorAll('.choice-btn').forEach(el => el.classList.remove('selected'));
-    btn.classList.add('selected');
-  });
-}
-
-export function showFeedback({ title, text }) {
-  byId('feedbackTitle').textContent = title || 'Result';
-  byId('feedbackText').textContent = text || '';
-  showScreen('feedback');
-}
-
-export function showSummary(summary) {
-  byId('sumScore').textContent = String(summary?.finalScore ?? 0);
-  byId('sumAccuracy').textContent = `${Math.round((summary?.accuracy ?? 0) * 100)}%`;
-  byId('sumBestCombo').textContent = String(summary?.bestCombo ?? 0);
-  byId('sumBoss').textContent = summary?.bossCleared ? 'Cleared' : 'Not Cleared';
-  showScreen('summary');
-}
-
-export function toast(message) {
-  const el = byId('toast');
-  el.textContent = message || '';
-  el.classList.add('show');
-  clearTimeout(el._hideTimer);
-  el._hideTimer = setTimeout(() => el.classList.remove('show'), 1800);
-}
-
-export function bindButtons(handlers) {
-  byId('btnSubmit').addEventListener('click', handlers.onSubmit);
-  byId('btnSkip').addEventListener('click', handlers.onSkip);
-  byId('btnContinue').addEventListener('click', handlers.onContinue);
-  byId('btnPlayAgain').addEventListener('click', handlers.onPlayAgain);
-  byId('btnBackMenu').addEventListener('click', handlers.onBackMenu);
-  byId('btnPlayAudio').addEventListener('click', handlers.onPlayAudio);
-  byId('btnSpeakNow').addEventListener('click', handlers.onSpeakNow);
+export function setMissionTypeTag(text, success = true) {
+  const tag = $("mission-type-tag");
+  if (!tag) return;
+  tag.textContent = text || "";
+  tag.style.color = success ? "#2ed573" : "#ff6b81";
+  tag.style.borderColor = success
+    ? "rgba(46,213,115,0.35)"
+    : "rgba(255,107,129,0.35)";
+  pulseClass(tag, "show", 940);
 }
