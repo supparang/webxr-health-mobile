@@ -23,8 +23,8 @@
       measurementId: "G-SWT85BHVJX"
     };
     window.TECHPATH_BUILD = 'v20260416-full-merged-test';
-    window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxPecwRwytQWG_T2J8KQTZDXZ870QmncaLtNMo28buK6p2dEypJZJ8e-ROWBzMRLIj2/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260416-lesson-attendance-inline-s15';
+    window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzKzDrMtM5tc7MP5VlNBKXpV5Pp1r75R9Cvny8xqf_DkClYajnkGbUBFDwMJSchTC0S/exec';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260416-lesson-attendance-inline-s15-r2';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -116,7 +116,6 @@
     <div class="title" id="ui-title">TECHPATH VR</div>
     <p class="instruction" id="ui-desc">เลือกด่านแล้วเริ่มเล่นได้เลย</p>
 
-    <!-- ATTENDANCE PATCH START -->
     <div id="attendance-panel">
       <div id="attendance-title">ATTENDANCE TRACKER</div>
       <div id="attendance-grid">
@@ -147,7 +146,6 @@
       </div>
       <div id="attendance-status" class="warn">กำลังเตรียมข้อมูลเช็กชื่อ...</div>
     </div>
-    <!-- ATTENDANCE PATCH END -->
 
     <div id="hud-stats" style="display:flex; justify-content:space-between; gap:10px; font-weight:bold; margin:10px 0; border-top:1px solid #00e5ff; border-bottom:1px solid #00e5ff; padding:5px 0;">
       <div id="hud-score-wrap" class="hud-stat-item" style="color:#f1c40f;">
@@ -382,7 +380,6 @@
 
   <script type="module" src="./js/lesson-main.js"></script>
 
-  <!-- ATTENDANCE PATCH START -->
   <script>
   (function () {
     'use strict';
@@ -524,8 +521,7 @@
       pageActionsCount: 0,
       currentAttempt: null,
       readyForNewAttempt: true,
-      lastDetectedMissionId: null,
-      updateTimer: null
+      lastDetectedMissionId: null
     };
 
     function syncIdentityFromInputs() {
@@ -629,15 +625,44 @@
       };
     }
 
+    function flattenPayload(data) {
+      return {
+        eventType: data.eventType || '',
+        visitId: data.visitId || '',
+        studentId: data.studentId || '',
+        studentName: data.studentName || '',
+        classSection: data.classSection || '',
+        sessionNo: data.sessionNo || '',
+        lessonId: data.lessonId || '',
+        clientTs: data.clientTs || '',
+        enteredAt: data.enteredAt || '',
+        startedAt: data.startedAt || '',
+        finishedAt: data.finishedAt || '',
+        lastActiveAt: data.lastActiveAt || '',
+        durationSec: data.durationSec || 0,
+        activeTimeSec: data.activeTimeSec || 0,
+        actionsCount: data.actionsCount || 0,
+        score: data.score || 0,
+        completed: String(!!data.completed),
+        pageUrl: data.pageUrl || location.href,
+        userAgent: data.userAgent || navigator.userAgent,
+        extraJson: JSON.stringify(data.extra || {})
+      };
+    }
+
     function send(payload) {
       if (!ENDPOINT) return;
-      const body = JSON.stringify(payload);
+
+      const flat = flattenPayload(payload);
 
       try {
-        if (navigator.sendBeacon) {
-          const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
-          navigator.sendBeacon(ENDPOINT, blob);
-          return;
+        const qs = new URLSearchParams();
+        Object.keys(flat).forEach((k) => qs.set(k, String(flat[k])));
+        const url = ENDPOINT + '?' + qs.toString();
+        if (url.length < 1900) {
+          const img = new Image();
+          img.referrerPolicy = 'no-referrer';
+          img.src = url;
         }
       } catch (_) {}
 
@@ -646,7 +671,7 @@
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body
+          body: JSON.stringify(payload)
         }).catch(function () {});
       } catch (_) {}
     }
@@ -1020,7 +1045,7 @@
         syncAttemptFromUI,
         registerActivity,
         log,
-        finishAttempt: finishAttempt,
+        finishAttempt,
         renderAttendancePanel
       };
     }
@@ -1032,6 +1057,5 @@
     }
   })();
   </script>
-  <!-- ATTENDANCE PATCH END -->
 </body>
 </html>
