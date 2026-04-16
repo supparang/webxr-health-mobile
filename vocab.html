@@ -645,7 +645,7 @@
   }
 
   function spawnTargetsFromChoices(choices){
-    const c = gameplayCenter();
+    const c = (typeof gameplayCenter === 'function') ? gameplayCenter() : { x: width * 0.5, y: height * 0.62 };
     const mobile = width < 860;
     if (mobile){
       const ys = [height * 0.36, height * 0.50, height * 0.64, height * 0.78];
@@ -677,7 +677,7 @@
   }
 
   function updateTargets(time){
-    const c = gameplayCenter();
+    const c = (typeof gameplayCenter === 'function') ? gameplayCenter() : { x: width * 0.5, y: height * 0.62 };
     hoveredId = null;
     targets.forEach((t, i) => {
       if (!t.mobile){
@@ -1036,7 +1036,7 @@
     ctx.fillStyle = g; ctx.fillRect(0,0,width,height);
     ctx.fillStyle = '#dbeafe'; ctx.fillRect(0,height*0.58,width,height*0.42);
 
-    const c = gameplayCenter();
+    const c = (typeof gameplayCenter === 'function') ? gameplayCenter() : { x: width * 0.5, y: height * 0.62 };
     // arena rings
     ctx.save();
     ctx.translate(c.x,c.y+72);
