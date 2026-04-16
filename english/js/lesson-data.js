@@ -63,33 +63,33 @@ export const missionDB = [
   },
 
   {
-    id: 3,
-    type: "writing",
-    title: "S3: Tech Words",
-    bank: {
-      easy: [
-        { desc: "พิมพ์คำเทคโนโลยี 1 คำ", prompt: "SYSTEM: Type one tech word.\nYOU:", keywords: ["code", "app", "web", "data", "bug"], minMatch: 1, failMsg: "ลองพิมพ์คำสั้น ๆ เช่น code หรือ app" },
-        { desc: "พิมพ์ชื่ออุปกรณ์", prompt: "SYSTEM: Type one device for study.\nYOU:", keywords: ["laptop", "computer", "tablet", "phone"], minMatch: 1, failMsg: "ลองพิมพ์ laptop หรือ computer" },
-        { desc: "พิมพ์ชื่อภาษา", prompt: "SYSTEM: Type one programming language.\nYOU:", keywords: ["python", "java", "javascript", "c++"], minMatch: 1, failMsg: "ลองพิมพ์ python หรือ java" },
-        { desc: "พิมพ์คำเกี่ยวกับอินเทอร์เน็ต", prompt: "SYSTEM: Type one internet word.\nYOU:", keywords: ["browser", "website", "internet", "online"], minMatch: 1, failMsg: "ลองพิมพ์ browser หรือ website" },
-        { desc: "พิมพ์คำเกี่ยวกับงานทีม", prompt: "SYSTEM: Type one teamwork word.\nYOU:", keywords: ["team", "meeting", "task", "project"], minMatch: 1, failMsg: "ลองพิมพ์ team หรือ project" }
-      ],
-      normal: [
-        { desc: "พิมพ์ 2 คำเกี่ยวกับ coding", prompt: "SYSTEM: Type two words about coding.\nYOU:", keywords: ["code", "bug", "test", "function", "script"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น code test" },
-        { desc: "พิมพ์ 2 คำเกี่ยวกับ web", prompt: "SYSTEM: Type two words about web.\nYOU:", keywords: ["web", "page", "html", "css", "site"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น html css" },
-        { desc: "พิมพ์ 2 คำเกี่ยวกับ data", prompt: "SYSTEM: Type two words about data.\nYOU:", keywords: ["data", "table", "chart", "database", "file"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น data file" },
-        { desc: "พิมพ์ 2 คำเกี่ยวกับ project", prompt: "SYSTEM: Type two words about project work.\nYOU:", keywords: ["team", "project", "plan", "deadline", "meeting"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น team meeting" },
-        { desc: "พิมพ์ 2 คำเกี่ยวกับ AI", prompt: "SYSTEM: Type two simple AI words.\nYOU:", keywords: ["ai", "model", "data", "prompt", "chatbot"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น ai model" }
-      ],
-      hard: [
-        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ coding", prompt: "SYSTEM: Write a short sentence about coding.\nYOU:", keywords: ["i", "like", "coding", "code", "learn"], minMatch: 3, failMsg: "ลองพิมพ์ประโยคสั้น เช่น I like coding" },
-        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ web", prompt: "SYSTEM: Write a short sentence about web design.\nYOU:", keywords: ["web", "design", "page", "html", "css"], minMatch: 3, failMsg: "ลองพิมพ์ เช่น I design web pages" },
-        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ data", prompt: "SYSTEM: Write a short sentence about data.\nYOU:", keywords: ["data", "is", "important", "useful", "analysis"], minMatch: 3, failMsg: "ลองพิมพ์ เช่น data is useful" },
-        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ team", prompt: "SYSTEM: Write a short sentence about teamwork.\nYOU:", keywords: ["team", "work", "together", "help", "project"], minMatch: 3, failMsg: "ลองพิมพ์ เช่น our team works together" },
-        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ AI", prompt: "SYSTEM: Write a short sentence about AI.\nYOU:", keywords: ["ai", "helps", "people", "learn", "work"], minMatch: 3, failMsg: "ลองพิมพ์ เช่น ai helps people learn" }
-      ]
-    }
-  },
+  id: 3,
+  type: "writing",
+  title: "S3: Tech Words",
+  bank: {
+    easy: [
+      { desc: "พิมพ์คำเทคโนโลยี 1 คำ", prompt: "SYSTEM: Type one tech word.\nYOU:", keywords: ["code", "app", "web", "data", "bug"], minMatch: 1, starter: "Starter: code", failMsg: "ลองพิมพ์คำสั้น ๆ เช่น code หรือ app" },
+      { desc: "พิมพ์ชื่ออุปกรณ์", prompt: "SYSTEM: Type one device for study.\nYOU:", keywords: ["laptop", "computer", "tablet", "phone"], minMatch: 1, starter: "Starter: laptop", failMsg: "ลองพิมพ์ laptop หรือ computer" },
+      { desc: "พิมพ์ชื่อภาษา", prompt: "SYSTEM: Type one programming language.\nYOU:", keywords: ["python", "java", "javascript", "c++"], minMatch: 1, starter: "Starter: python", failMsg: "ลองพิมพ์ python หรือ java" },
+      { desc: "พิมพ์คำเกี่ยวกับอินเทอร์เน็ต", prompt: "SYSTEM: Type one internet word.\nYOU:", keywords: ["browser", "website", "internet", "online"], minMatch: 1, starter: "Starter: browser", failMsg: "ลองพิมพ์ browser หรือ website" },
+      { desc: "พิมพ์คำเกี่ยวกับงานทีม", prompt: "SYSTEM: Type one teamwork word.\nYOU:", keywords: ["team", "meeting", "task", "project"], minMatch: 1, starter: "Starter: team", failMsg: "ลองพิมพ์ team หรือ project" }
+    ],
+    normal: [
+      { desc: "พิมพ์ 2 คำเกี่ยวกับ coding", prompt: "SYSTEM: Type two words about coding.\nYOU:", keywords: ["code", "bug", "test", "function", "script"], minMatch: 2, starter: "Starter: code test", failMsg: "ลองพิมพ์ 2 คำ เช่น code test" },
+      { desc: "พิมพ์ 2 คำเกี่ยวกับ web", prompt: "SYSTEM: Type two words about web.\nYOU:", keywords: ["web", "page", "html", "css", "site"], minMatch: 2, starter: "Starter: html css", failMsg: "ลองพิมพ์ 2 คำ เช่น html css" },
+      { desc: "พิมพ์ 2 คำเกี่ยวกับ data", prompt: "SYSTEM: Type two words about data.\nYOU:", keywords: ["data", "table", "chart", "database", "file"], minMatch: 2, starter: "Starter: data file", failMsg: "ลองพิมพ์ 2 คำ เช่น data file" },
+      { desc: "พิมพ์ 2 คำเกี่ยวกับ project", prompt: "SYSTEM: Type two words about project work.\nYOU:", keywords: ["team", "project", "plan", "deadline", "meeting"], minMatch: 2, starter: "Starter: team meeting", failMsg: "ลองพิมพ์ 2 คำ เช่น team meeting" },
+      { desc: "พิมพ์ 2 คำเกี่ยวกับ AI", prompt: "SYSTEM: Type two simple AI words.\nYOU:", keywords: ["ai", "model", "data", "prompt", "chatbot"], minMatch: 2, starter: "Starter: ai model", failMsg: "ลองพิมพ์ 2 คำ เช่น ai model" }
+    ],
+    hard: [
+      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ coding", prompt: "SYSTEM: Write a short sentence about coding.\nYOU:", keywords: ["i", "like", "coding", "code", "learn"], minMatch: 3, starter: "Starter: I like coding.", failMsg: "ลองพิมพ์ประโยคสั้น เช่น I like coding" },
+      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ web", prompt: "SYSTEM: Write a short sentence about web design.\nYOU:", keywords: ["web", "design", "page", "html", "css"], minMatch: 3, starter: "Starter: I design web pages.", failMsg: "ลองพิมพ์ เช่น I design web pages" },
+      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ data", prompt: "SYSTEM: Write a short sentence about data.\nYOU:", keywords: ["data", "is", "important", "useful", "analysis"], minMatch: 3, starter: "Starter: Data is useful.", failMsg: "ลองพิมพ์ เช่น data is useful" },
+      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ team", prompt: "SYSTEM: Write a short sentence about teamwork.\nYOU:", keywords: ["team", "work", "together", "help", "project"], minMatch: 3, starter: "Starter: Our team works together.", failMsg: "ลองพิมพ์ เช่น our team works together" },
+      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ AI", prompt: "SYSTEM: Write a short sentence about AI.\nYOU:", keywords: ["ai", "helps", "people", "learn", "work"], minMatch: 3, starter: "Starter: AI helps people learn.", failMsg: "ลองพิมพ์ เช่น ai helps people learn" }
+    ]
+  }
+},
 
   {
     id: 4,
@@ -179,33 +179,33 @@ export const missionDB = [
   },
 
   {
-    id: 7,
-    type: "writing",
-    title: "S7: Bug Report",
-    bank: {
-      easy: [
-        { desc: "พิมพ์ชื่อปัญหา", prompt: "SYSTEM: Type one simple bug word.\nYOU:", keywords: ["bug", "error", "problem", "issue"], minMatch: 1, failMsg: "ลองพิมพ์ bug หรือ error" },
-        { desc: "พิมพ์ชื่ออาการ", prompt: "SYSTEM: Type one result word.\nYOU:", keywords: ["crash", "slow", "broken", "fail"], minMatch: 1, failMsg: "ลองพิมพ์ crash หรือ slow" },
-        { desc: "พิมพ์คำเกี่ยวกับปุ่ม", prompt: "SYSTEM: Type one UI word.\nYOU:", keywords: ["button", "screen", "page", "form"], minMatch: 1, failMsg: "ลองพิมพ์ button หรือ screen" },
-        { desc: "พิมพ์คำเกี่ยวกับระบบ", prompt: "SYSTEM: Type one system word.\nYOU:", keywords: ["login", "server", "api", "app"], minMatch: 1, failMsg: "ลองพิมพ์ login หรือ app" },
-        { desc: "พิมพ์คำเกี่ยวกับ testing", prompt: "SYSTEM: Type one test word.\nYOU:", keywords: ["test", "check", "click", "open"], minMatch: 1, failMsg: "ลองพิมพ์ test หรือ check" }
-      ],
-      normal: [
-        { desc: "พิมพ์ 2 คำอธิบายบั๊ก", prompt: "SYSTEM: Type two words for a bug.\nYOU:", keywords: ["login", "bug", "button", "error", "screen"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น login error" },
-        { desc: "พิมพ์ 2 คำอธิบายผลลัพธ์", prompt: "SYSTEM: Type two words for the result.\nYOU:", keywords: ["page", "crash", "not", "open", "slow"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น page crash" },
-        { desc: "พิมพ์ 2 คำอธิบายการทดสอบ", prompt: "SYSTEM: Type two words for testing.\nYOU:", keywords: ["click", "test", "mobile", "browser", "login"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น mobile test" },
-        { desc: "พิมพ์ 2 คำอธิบายหน้า UI", prompt: "SYSTEM: Type two words about the page.\nYOU:", keywords: ["form", "page", "button", "input", "screen"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น form input" },
-        { desc: "พิมพ์ 2 คำอธิบาย severity", prompt: "SYSTEM: Type two words about severity.\nYOU:", keywords: ["high", "low", "serious", "minor", "critical"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น high serious" }
-      ],
-      hard: [
-        { desc: "พิมพ์ประโยคบั๊กสั้น ๆ", prompt: "SYSTEM: Write a short bug sentence.\nYOU:", keywords: ["login", "button", "does", "not", "work"], minMatch: 3, failMsg: "ลองพิมพ์เช่น login button does not work" },
-        { desc: "พิมพ์ประโยคผลลัพธ์สั้น ๆ", prompt: "SYSTEM: Write a short result sentence.\nYOU:", keywords: ["page", "crash", "after", "click", "submit"], minMatch: 3, failMsg: "ลองพิมพ์เช่น page crashes after click" },
-        { desc: "พิมพ์ประโยคการทดสอบสั้น ๆ", prompt: "SYSTEM: Write a short testing sentence.\nYOU:", keywords: ["i", "tested", "on", "mobile", "browser"], minMatch: 3, failMsg: "ลองพิมพ์เช่น i tested on mobile" },
-        { desc: "พิมพ์ประโยค expected result", prompt: "SYSTEM: Write the expected result.\nYOU:", keywords: ["page", "should", "open", "work", "correctly"], minMatch: 3, failMsg: "ลองพิมพ์เช่น page should open correctly" },
-        { desc: "พิมพ์ประโยค severity", prompt: "SYSTEM: Write a short severity sentence.\nYOU:", keywords: ["this", "is", "a", "high", "issue"], minMatch: 3, failMsg: "ลองพิมพ์เช่น this is a high issue" }
-      ]
-    }
-  },
+  id: 7,
+  type: "writing",
+  title: "S7: Bug Report",
+  bank: {
+    easy: [
+      { desc: "พิมพ์ชื่อปัญหา", prompt: "SYSTEM: Type one simple bug word.\nYOU:", keywords: ["bug", "error", "problem", "issue"], minMatch: 1, starter: "Starter: bug", failMsg: "ลองพิมพ์ bug หรือ error" },
+      { desc: "พิมพ์ชื่ออาการ", prompt: "SYSTEM: Type one result word.\nYOU:", keywords: ["crash", "slow", "broken", "fail"], minMatch: 1, starter: "Starter: crash", failMsg: "ลองพิมพ์ crash หรือ slow" },
+      { desc: "พิมพ์คำเกี่ยวกับปุ่ม", prompt: "SYSTEM: Type one UI word.\nYOU:", keywords: ["button", "screen", "page", "form"], minMatch: 1, starter: "Starter: button", failMsg: "ลองพิมพ์ button หรือ screen" },
+      { desc: "พิมพ์คำเกี่ยวกับระบบ", prompt: "SYSTEM: Type one system word.\nYOU:", keywords: ["login", "server", "api", "app"], minMatch: 1, starter: "Starter: login", failMsg: "ลองพิมพ์ login หรือ app" },
+      { desc: "พิมพ์คำเกี่ยวกับ testing", prompt: "SYSTEM: Type one test word.\nYOU:", keywords: ["test", "check", "click", "open"], minMatch: 1, starter: "Starter: test", failMsg: "ลองพิมพ์ test หรือ check" }
+    ],
+    normal: [
+      { desc: "พิมพ์ 2 คำอธิบายบั๊ก", prompt: "SYSTEM: Type two words for a bug.\nYOU:", keywords: ["login", "bug", "button", "error", "screen"], minMatch: 2, starter: "Starter: login error", failMsg: "ลองพิมพ์ 2 คำ เช่น login error" },
+      { desc: "พิมพ์ 2 คำอธิบายผลลัพธ์", prompt: "SYSTEM: Type two words for the result.\nYOU:", keywords: ["page", "crash", "not", "open", "slow"], minMatch: 2, starter: "Starter: page crash", failMsg: "ลองพิมพ์ 2 คำ เช่น page crash" },
+      { desc: "พิมพ์ 2 คำอธิบายการทดสอบ", prompt: "SYSTEM: Type two words for testing.\nYOU:", keywords: ["click", "test", "mobile", "browser", "login"], minMatch: 2, starter: "Starter: mobile test", failMsg: "ลองพิมพ์ 2 คำ เช่น mobile test" },
+      { desc: "พิมพ์ 2 คำอธิบายหน้า UI", prompt: "SYSTEM: Type two words about the page.\nYOU:", keywords: ["form", "page", "button", "input", "screen"], minMatch: 2, starter: "Starter: form input", failMsg: "ลองพิมพ์ 2 คำ เช่น form input" },
+      { desc: "พิมพ์ 2 คำอธิบาย severity", prompt: "SYSTEM: Type two words about severity.\nYOU:", keywords: ["high", "low", "serious", "minor", "critical"], minMatch: 2, starter: "Starter: high critical", failMsg: "ลองพิมพ์ 2 คำ เช่น high serious" }
+    ],
+    hard: [
+      { desc: "พิมพ์ประโยคบั๊กสั้น ๆ", prompt: "SYSTEM: Write a short bug sentence.\nYOU:", keywords: ["login", "button", "does", "not", "work"], minMatch: 3, starter: "Starter: The login button does not work.", failMsg: "ลองพิมพ์เช่น login button does not work" },
+      { desc: "พิมพ์ประโยคผลลัพธ์สั้น ๆ", prompt: "SYSTEM: Write a short result sentence.\nYOU:", keywords: ["page", "crash", "after", "click", "submit"], minMatch: 3, starter: "Starter: The page crashes after submit.", failMsg: "ลองพิมพ์เช่น page crashes after click" },
+      { desc: "พิมพ์ประโยคการทดสอบสั้น ๆ", prompt: "SYSTEM: Write a short testing sentence.\nYOU:", keywords: ["i", "tested", "on", "mobile", "browser"], minMatch: 3, starter: "Starter: I tested it on mobile.", failMsg: "ลองพิมพ์เช่น i tested on mobile" },
+      { desc: "พิมพ์ประโยค expected result", prompt: "SYSTEM: Write the expected result.\nYOU:", keywords: ["page", "should", "open", "work", "correctly"], minMatch: 3, starter: "Starter: The page should open correctly.", failMsg: "ลองพิมพ์เช่น page should open correctly" },
+      { desc: "พิมพ์ประโยค severity", prompt: "SYSTEM: Write a short severity sentence.\nYOU:", keywords: ["this", "is", "a", "high", "issue"], minMatch: 3, starter: "Starter: This is a high issue.", failMsg: "ลองพิมพ์เช่น this is a high issue" }
+    ]
+  }
+},
 
   {
     id: 8,
