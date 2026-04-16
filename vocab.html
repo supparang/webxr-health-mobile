@@ -711,17 +711,49 @@
     catch(e){ return []; }
   }
   function saveLeaderboard(rows){
-    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(rows.slice(0,100)));
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(rows.slice(0,200)));
+  }
+  function leaderboardKeyOf(entry){
+    const sid = String(entry.studentId || '').trim();
+    const name = String(entry.displayName || '').trim();
+    return sid || name || 'anonymous';
+  }
+  function bestUniqueLeaderboard(rows){
+    const bestMap = new Map();
+    rows.forEach(entry => {
+      const key = leaderboardKeyOf(entry);
+      const prev = bestMap.get(key);
+      if (!prev) {
+        bestMap.set(key, entry);
+        return;
+      }
+      const prevScore = Number(prev.score || 0);
+      const nextScore = Number(entry.score || 0);
+      const prevAcc = Number(prev.accuracy || 0);
+      const nextAcc = Number(entry.accuracy || 0);
+      if (
+        nextScore > prevScore ||
+        (nextScore === prevScore && nextAcc > prevAcc)
+      ) {
+        bestMap.set(key, entry);
+      }
+    });
+    return Array.from(bestMap.values()).sort((a,b) => {
+      const scoreDiff = Number(b.score || 0) - Number(a.score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      const accDiff = Number(b.accuracy || 0) - Number(a.accuracy || 0);
+      if (accDiff !== 0) return accDiff;
+      return String(a.displayName || '').localeCompare(String(b.displayName || ''));
+    });
   }
   function pushLeaderboardEntry(entry){
     const rows = loadLeaderboard();
     rows.push(entry);
-    rows.sort((a,b) => (b.score||0) - (a.score||0));
     saveLeaderboard(rows);
     renderMenuTop3();
   }
   function renderMenuTop3(){
-    const rows = loadLeaderboard().slice(0,3);
+    const rows = bestUniqueLeaderboard(loadLeaderboard()).slice(0,3);
     if (!els.menuTop3Board) return;
     els.menuTop3Board.innerHTML = '';
     if (!rows.length){
@@ -732,12 +764,16 @@
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
       const div = document.createElement('div');
       div.className = 'top3Card';
-      div.innerHTML = '<div class="rank">' + medal + '</div><div class="name">' + r.displayName + '</div><div class="meta">Score ' + r.score + '</div><div class="meta">Accuracy ' + r.accuracy + '%</div>';
+      div.innerHTML =
+        '<div class="rank">' + medal + '</div>' +
+        '<div class="name">' + (r.displayName || 'Player') + '</div>' +
+        '<div class="meta">Best Score ' + (r.score || 0) + '</div>' +
+        '<div class="meta">Accuracy ' + (r.accuracy || 0) + '%</div>';
       els.menuTop3Board.appendChild(div);
     });
   }
   function renderLeaderboard(){
-    const rows = loadLeaderboard();
+    const rows = bestUniqueLeaderboard(loadLeaderboard());
     renderMenuTop3();
     els.leaderboardList.innerHTML = '';
     if (!rows.length){
@@ -748,7 +784,13 @@
     }
     rows.slice(0,10).forEach((r,i) => {
       const li = document.createElement('li');
-      li.innerHTML = '<strong>#' + (i+1) + ' ' + r.displayName + '</strong><div class="small mono">Score ' + r.score + ' • Accuracy ' + r.accuracy + '% • Bank ' + r.bank + ' • Mode ' + r.mode + ' • ' + r.when + '</div>';
+      li.innerHTML =
+        '<strong>#' + (i+1) + ' ' + (r.displayName || 'Player') + '</strong>' +
+        '<div class="small mono">Best Score ' + (r.score || 0) +
+        ' • Accuracy ' + (r.accuracy || 0) +
+        '% • Bank ' + (r.bank || '-') +
+        ' • Mode ' + (r.mode || '-') +
+        ' • ' + (r.when || '-') + '</div>';
       els.leaderboardList.appendChild(li);
     });
   }
