@@ -295,33 +295,33 @@ export const missionDB = [
   },
 
   {
-    id: 11,
-    type: "writing",
-    title: "S11: Data and AI",
-    bank: {
-      easy: [
-        { desc: "พิมพ์คำ AI 1 คำ", prompt: "SYSTEM: Type one AI word.\nYOU:", keywords: ["ai", "model", "data", "chatbot", "prompt"], minMatch: 1, failMsg: "ลองพิมพ์ ai หรือ model" },
-        { desc: "พิมพ์คำ data 1 คำ", prompt: "SYSTEM: Type one data word.\nYOU:", keywords: ["data", "table", "file", "chart", "label"], minMatch: 1, failMsg: "ลองพิมพ์ data หรือ table" },
-        { desc: "พิมพ์คำ machine learning 1 คำ", prompt: "SYSTEM: Type one machine learning word.\nYOU:", keywords: ["training", "testing", "prediction", "accuracy"], minMatch: 1, failMsg: "ลองพิมพ์ training หรือ testing" },
-        { desc: "พิมพ์คำ ethics 1 คำ", prompt: "SYSTEM: Type one ethics word.\nYOU:", keywords: ["privacy", "fairness", "bias", "safety"], minMatch: 1, failMsg: "ลองพิมพ์ privacy หรือ fairness" },
-        { desc: "พิมพ์คำ deployment 1 คำ", prompt: "SYSTEM: Type one deployment word.\nYOU:", keywords: ["deploy", "monitor", "server", "update"], minMatch: 1, failMsg: "ลองพิมพ์ deploy หรือ server" }
-      ],
-      normal: [
-        { desc: "พิมพ์ 2 คำเกี่ยวกับ AI", prompt: "SYSTEM: Type two AI words.\nYOU:", keywords: ["ai", "model", "prompt", "chatbot", "data"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น ai model" },
-        { desc: "พิมพ์ 2 คำเกี่ยวกับ data", prompt: "SYSTEM: Type two data words.\nYOU:", keywords: ["data", "table", "chart", "label", "file"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น data chart" },
-        { desc: "พิมพ์ 2 คำเกี่ยวกับ learning", prompt: "SYSTEM: Type two learning words.\nYOU:", keywords: ["training", "testing", "prediction", "accuracy"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น training testing" },
-        { desc: "พิมพ์ 2 คำเกี่ยวกับ ethics", prompt: "SYSTEM: Type two ethics words.\nYOU:", keywords: ["privacy", "fairness", "bias", "safety"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น privacy fairness" },
-        { desc: "พิมพ์ 2 คำเกี่ยวกับ deploy", prompt: "SYSTEM: Type two deploy words.\nYOU:", keywords: ["deploy", "server", "monitor", "update"], minMatch: 2, failMsg: "ลองพิมพ์ 2 คำ เช่น deploy server" }
-      ],
-      hard: [
-        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ AI", prompt: "SYSTEM: Write a short sentence about AI.\nYOU:", keywords: ["ai", "can", "help", "people", "work"], minMatch: 3, failMsg: "ลองพิมพ์เช่น ai can help people" },
-        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ data", prompt: "SYSTEM: Write a short sentence about data.\nYOU:", keywords: ["data", "is", "useful", "for", "analysis"], minMatch: 3, failMsg: "ลองพิมพ์เช่น data is useful" },
-        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ training", prompt: "SYSTEM: Write a short sentence about model training.\nYOU:", keywords: ["the", "model", "needs", "training", "data"], minMatch: 3, failMsg: "ลองพิมพ์เช่น the model needs data" },
-        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ ethics", prompt: "SYSTEM: Write a short sentence about AI ethics.\nYOU:", keywords: ["ai", "needs", "fairness", "and", "privacy"], minMatch: 3, failMsg: "ลองพิมพ์เช่น ai needs fairness and privacy" },
-        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ deployment", prompt: "SYSTEM: Write a short sentence about deployment.\nYOU:", keywords: ["we", "test", "before", "deploy", "the", "model"], minMatch: 3, failMsg: "ลองพิมพ์เช่น we test before deploy" }
-      ]
-    }
-  },
+  id: 11,
+  type: "writing",
+  title: "S11: Data and AI",
+  bank: {
+    easy: [
+      { desc: "พิมพ์คำ AI 1 คำ", prompt: "SYSTEM: Type one AI word.\nYOU:", keywords: ["ai", "model", "data", "chatbot", "prompt"], minMatch: 1, starter: "Starter: ai", failMsg: "ลองพิมพ์ ai หรือ model" },
+      { desc: "พิมพ์คำ data 1 คำ", prompt: "SYSTEM: Type one data word.\nYOU:", keywords: ["data", "table", "file", "chart", "label"], minMatch: 1, starter: "Starter: data", failMsg: "ลองพิมพ์ data หรือ table" },
+      { desc: "พิมพ์คำ machine learning 1 คำ", prompt: "SYSTEM: Type one machine learning word.\nYOU:", keywords: ["training", "testing", "prediction", "accuracy"], minMatch: 1, starter: "Starter: training", failMsg: "ลองพิมพ์ training หรือ testing" },
+      { desc: "พิมพ์คำ ethics 1 คำ", prompt: "SYSTEM: Type one ethics word.\nYOU:", keywords: ["privacy", "fairness", "bias", "safety"], minMatch: 1, starter: "Starter: privacy", failMsg: "ลองพิมพ์ privacy หรือ fairness" },
+      { desc: "พิมพ์คำ deployment 1 คำ", prompt: "SYSTEM: Type one deployment word.\nYOU:", keywords: ["deploy", "monitor", "server", "update"], minMatch: 1, starter: "Starter: deploy", failMsg: "ลองพิมพ์ deploy หรือ server" }
+    ],
+    normal: [
+      { desc: "พิมพ์ 2 คำเกี่ยวกับ AI", prompt: "SYSTEM: Type two AI words.\nYOU:", keywords: ["ai", "model", "prompt", "chatbot", "data"], minMatch: 2, starter: "Starter: ai model", failMsg: "ลองพิมพ์ 2 คำ เช่น ai model" },
+      { desc: "พิมพ์ 2 คำเกี่ยวกับ data", prompt: "SYSTEM: Type two data words.\nYOU:", keywords: ["data", "table", "chart", "label", "file"], minMatch: 2, starter: "Starter: data chart", failMsg: "ลองพิมพ์ 2 คำ เช่น data chart" },
+      { desc: "พิมพ์ 2 คำเกี่ยวกับ learning", prompt: "SYSTEM: Type two learning words.\nYOU:", keywords: ["training", "testing", "prediction", "accuracy"], minMatch: 2, starter: "Starter: training testing", failMsg: "ลองพิมพ์ 2 คำ เช่น training testing" },
+      { desc: "พิมพ์ 2 คำเกี่ยวกับ ethics", prompt: "SYSTEM: Type two ethics words.\nYOU:", keywords: ["privacy", "fairness", "bias", "safety"], minMatch: 2, starter: "Starter: privacy fairness", failMsg: "ลองพิมพ์ 2 คำ เช่น privacy fairness" },
+      { desc: "พิมพ์ 2 คำเกี่ยวกับ deployment", prompt: "SYSTEM: Type two deployment words.\nYOU:", keywords: ["deploy", "monitor", "server", "update"], minMatch: 2, starter: "Starter: deploy server", failMsg: "ลองพิมพ์ 2 คำ เช่น deploy server" }
+    ],
+    hard: [
+      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ AI", prompt: "SYSTEM: Write a short sentence about AI.\nYOU:", keywords: ["ai", "helps", "people", "work", "learn"], minMatch: 3, starter: "Starter: AI helps people work faster.", failMsg: "ลองพิมพ์เช่น AI helps people work" },
+      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ data", prompt: "SYSTEM: Write a short sentence about data.\nYOU:", keywords: ["data", "is", "important", "for", "analysis"], minMatch: 3, starter: "Starter: Data is important for analysis.", failMsg: "ลองพิมพ์เช่น data is important" },
+      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ training", prompt: "SYSTEM: Write a short sentence about model training.\nYOU:", keywords: ["training", "needs", "data", "for", "accuracy"], minMatch: 3, starter: "Starter: Training needs data for accuracy.", failMsg: "ลองพิมพ์เช่น training needs data" },
+      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ ethics", prompt: "SYSTEM: Write a short sentence about AI ethics.\nYOU:", keywords: ["privacy", "fairness", "is", "important", "ai"], minMatch: 3, starter: "Starter: Privacy and fairness are important in AI.", failMsg: "ลองพิมพ์เช่น privacy is important in ai" },
+      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ deployment", prompt: "SYSTEM: Write a short sentence about deployment.\nYOU:", keywords: ["we", "deploy", "and", "monitor", "system"], minMatch: 3, starter: "Starter: We deploy and monitor the system.", failMsg: "ลองพิมพ์เช่น we deploy and monitor the system" }
+    ]
+  }
+},
 
   {
     id: 12,
