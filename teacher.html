@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Teacher Dashboard — Vocab v9</title>
+  <style>
+    :root{
+      --bg1:#071122; --bg2:#123a7a; --panel:rgba(10,16,35,.86); --line:rgba(255,255,255,.14);
+      --text:#f8fbff; --muted:#c7d4ff; --cyan:#67e8f9; --green:#4ade80; --red:#fb7185; --yellow:#fde047;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text)}
+    .wrap{max-width:1180px;margin:0 auto;padding:24px}
+    .panel{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);border-radius:28px;padding:24px;box-shadow:0 20px 80px rgba(0,0,0,.35)}
+    h1,h2,h3{margin:0}
+    .desc{margin-top:10px;color:#dbe7ff;line-height:1.6;font-size:15px}
+    .grid2,.grid3,.grid4{display:grid;gap:12px}
+    .grid2{grid-template-columns:1fr 1fr}
+    .grid3{grid-template-columns:repeat(3,1fr)}
+    .grid4{grid-template-columns:repeat(4,1fr)}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px}
+    .big{font-size:24px;font-weight:1000}
+    .sub{font-size:12px;color:var(--muted);margin-top:4px}
+    .inputBox{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:12px}
+    .inputBox label{display:block;font-size:12px;color:#c7d4ff;margin-bottom:6px}
+    .inputBox input{width:100%;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;font-size:14px}
+    .actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px}
+    .btn{appearance:none;border:0;border-radius:18px;padding:14px 16px;font-size:15px;font-weight:1000;cursor:pointer;color:#06101b;background:linear-gradient(135deg,#67e8f9,#a78bfa)}
+    .btn.alt{background:linear-gradient(135deg,#fde047,#fb7185);color:#311314}
+    .btn.ghost{background:linear-gradient(135deg,#dbeafe,#93c5fd);color:#172554}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{border-bottom:1px solid rgba(255,255,255,.08);padding:8px;text-align:left;font-size:13px}
+    th{color:#93c5fd}
+    .leaderboardList,.weakList{list-style:none;padding:0;display:grid;gap:10px;margin-top:14px}
+    .leaderboardList li,.weakList li{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:10px 12px}
+    .notice{margin-top:12px;padding:12px 14px;border-radius:14px;background:rgba(251,146,60,.14);border:1px solid rgba(251,146,60,.28);color:#ffedd5}
+    .hidden{display:none!important}
+    .ok{color:#bbf7d0}
+    .bad{color:#fecaca}
+    .mono{font-family:ui-monospace,Consolas,monospace}
+    @media (max-width:900px){
+      .grid2,.grid3,.grid4,.actions{grid-template-columns:1fr}
+      .wrap{padding:16px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="gatePanel" class="panel">
+      <h1>Teacher Dashboard — Vocab v9</h1>
+      <div class="desc">หน้านี้สำหรับครูผู้สอน ใช้ดูผลล่าสุด คำที่อ่อนที่สุด และอันดับผู้เล่นแบบ best score ต่อคน</div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="inputBox">
+          <label for="passInput">Teacher Passcode</label>
+          <input id="passInput" type="password" placeholder="ใส่รหัสครู" />
+        </div>
+        <div class="inputBox">
+          <label for="linkInput">Teacher URL</label>
+          <input id="linkInput" type="text" readonly />
+        </div>
+      </div>
+      <div class="actions">
+        <button id="unlockBtn" class="btn">UNLOCK DASHBOARD</button>
+        <button id="generateLinkBtn" class="btn ghost">GENERATE LINK</button>
+        <button id="copyLinkBtn" class="btn alt">COPY LINK</button>
+      </div>
+      <div class="notice">
+        ใช้ localStorage เดียวกับหน้าเกมบนโดเมนเดียวกัน ดังนั้นไฟล์นี้ต้องอยู่ใน origin เดียวกับหน้าเกม เช่น GitHub Pages โปรเจกต์เดียวกัน
+      </div>
+    </div>
+
+    <div id="dashPanel" class="hidden">
+      <div class="panel">
+        <h1>Teacher Dashboard — Vocab v9</h1>
+        <div class="desc">Dashboard-only mode สำหรับครู ดูคำที่อ่อนที่สุด ผลล่าสุด และ leaderboard แบบ best score ต่อคน</div>
+
+        <div class="grid4" style="margin-top:16px">
+          <div class="card"><div class="big" id="statScore">0</div><div class="sub">Last Score</div></div>
+          <div class="card"><div class="big" id="statStages">0</div><div class="sub">Stages Played</div></div>
+          <div class="card"><div class="big" id="statHp">0</div><div class="sub">HP Left</div></div>
+          <div class="card"><div class="big" id="statTerms">0</div><div class="sub">Tracked Terms</div></div>
+        </div>
+
+        <div class="grid2" style="margin-top:16px">
+          <div class="card">
+            <h3>Weakest Terms</h3>
+            <ul id="weakList" class="weakList"></ul>
+          </div>
+          <div class="card">
+            <h3>Top 10 Best Players</h3>
+            <ul id="leaderboardList" class="leaderboardList"></ul>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <h3>Per-term Mastery</h3>
+          <table>
+            <thead>
+              <tr><th>Term</th><th>Seen</th><th>Correct</th><th>Wrong</th><th>Level</th><th>Highest</th></tr>
+            </thead>
+            <tbody id="teacherTable"></tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button id="refreshBtn" class="btn">REFRESH</button>
+          <button id="clearTeacherBtn" class="btn ghost">CLEAR TEACHER STATS</button>
+          <button id="clearLeaderboardBtn" class="btn alt">CLEAR LEADERBOARD</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const TEACHER_KEY = 'VOCAB_V9_TEACHER_LAST';
+  const LEADERBOARD_KEY = 'VOCAB_V9_LEADERBOARD';
+  const PASS_HASH_KEY = 'VOCAB_V9_TEACHER_PASS_HASH';
+
+  const gatePanel = document.getElementById('gatePanel');
+  const dashPanel = document.getElementById('dashPanel');
+  const passInput = document.getElementById('passInput');
+  const linkInput = document.getElementById('linkInput');
+
+  function hashPass(pass){
+    try { return btoa(unescape(encodeURIComponent(pass || ''))); }
+    catch(e){ return ''; }
+  }
+
+  function setStats(summary){
+    document.getElementById('statScore').textContent = summary?.score ?? 0;
+    document.getElementById('statStages').textContent = summary?.stagesPlayed ?? 0;
+    document.getElementById('statHp').textContent = summary?.hp ?? 0;
+    document.getElementById('statTerms').textContent = Object.keys(summary?.mastery || {}).length;
+  }
+
+  function loadTeacherSummary(){
+    try { return JSON.parse(localStorage.getItem(TEACHER_KEY) || 'null'); }
+    catch(e){ return null; }
+  }
+
+  function loadLeaderboard(){
+    try { return JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || '[]'); }
+    catch(e){ return []; }
+  }
+
+  function leaderboardKeyOf(entry){
+    const sid = String(entry.studentId || '').trim();
+    const name = String(entry.displayName || '').trim();
+    return sid || name || 'anonymous';
+  }
+
+  function bestUniqueLeaderboard(rows){
+    const bestMap = new Map();
+    rows.forEach(entry => {
+      const key = leaderboardKeyOf(entry);
+      const prev = bestMap.get(key);
+      if (!prev) {
+        bestMap.set(key, entry);
+        return;
+      }
+      const prevScore = Number(prev.score || 0);
+      const nextScore = Number(entry.score || 0);
+      const prevAcc = Number(prev.accuracy || 0);
+      const nextAcc = Number(entry.accuracy || 0);
+      if (nextScore > prevScore || (nextScore === prevScore && nextAcc > prevAcc)) {
+        bestMap.set(key, entry);
+      }
+    });
+    return Array.from(bestMap.values()).sort((a,b) => {
+      const scoreDiff = Number(b.score || 0) - Number(a.score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      const accDiff = Number(b.accuracy || 0) - Number(a.accuracy || 0);
+      if (accDiff !== 0) return accDiff;
+      return String(a.displayName || '').localeCompare(String(b.displayName || ''));
+    });
+  }
+
+  function renderLeaderboard(){
+    const rows = bestUniqueLeaderboard(loadLeaderboard());
+    const list = document.getElementById('leaderboardList');
+    list.innerHTML = '';
+    if (!rows.length){
+      const li = document.createElement('li');
+      li.textContent = 'ยังไม่มี leaderboard';
+      list.appendChild(li);
+      return;
+    }
+    rows.slice(0,10).forEach((r,i) => {
+      const li = document.createElement('li');
+      li.innerHTML =
+        '<strong>#' + (i+1) + ' ' + (r.displayName || 'Player') + '</strong>' +
+        '<div class="mono">Best Score ' + (r.score || 0) +
+        ' • Accuracy ' + (r.accuracy || 0) + '%' +
+        ' • Bank ' + (r.bank || '-') +
+        ' • Mode ' + (r.mode || '-') + '</div>';
+      list.appendChild(li);
+    });
+  }
+
+  function renderSummary(summary){
+    setStats(summary || {});
+    const weakList = document.getElementById('weakList');
+    const table = document.getElementById('teacherTable');
+    weakList.innerHTML = '';
+    table.innerHTML = '';
+
+    const weakest = summary?.weakestTerms || [];
+    if (!weakest.length){
+      const li = document.createElement('li');
+      li.textContent = 'ยังไม่มีข้อมูลคำที่อ่อน';
+      weakList.appendChild(li);
+    } else {
+      weakest.forEach(([term, m]) => {
+        const li = document.createElement('li');
+        li.innerHTML = '<strong>' + String(term).toUpperCase() + '</strong> • wrong ' + m.wrong + ' • correct ' + m.correct + ' • highest ' + m.highestLevel;
+        weakList.appendChild(li);
+      });
+    }
+
+    const masteryRows = Object.entries(summary?.mastery || {}).sort((a,b) => (b[1].wrong - a[1].wrong) || a[0].localeCompare(b[0]));
+    if (!masteryRows.length){
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="6">No data yet</td>';
+      table.appendChild(tr);
+    } else {
+      masteryRows.forEach(([term, m]) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + String(term).toUpperCase() + '</td>' +
+          '<td>' + (m.seen ?? 0) + '</td>' +
+          '<td>' + (m.correct ?? 0) + '</td>' +
+          '<td>' + (m.wrong ?? 0) + '</td>' +
+          '<td>' + (m.level ?? '-') + '</td>' +
+          '<td>' + (m.highestLevel ?? '-') + '</td>';
+        table.appendChild(tr);
+      });
+    }
+  }
+
+  function refreshAll(){
+    renderSummary(loadTeacherSummary());
+    renderLeaderboard();
+  }
+
+  function unlockIfAllowed(){
+    const q = new URLSearchParams(window.location.search);
+    const stored = localStorage.getItem(PASS_HASH_KEY) || '';
+    const got = q.get('teacherKey') || '';
+    if (stored && got && stored === got){
+      gatePanel.classList.add('hidden');
+      dashPanel.classList.remove('hidden');
+      refreshAll();
+      return true;
+    }
+    return false;
+  }
+
+  function buildTeacherLink(pass){
+    const url = new URL(window.location.href);
+    const hashed = hashPass(pass || '');
+    if (hashed){
+      localStorage.setItem(PASS_HASH_KEY, hashed);
+      url.searchParams.set('teacherKey', hashed);
+    }
+    return url.toString();
+  }
+
+  document.getElementById('unlockBtn').addEventListener('click', () => {
+    const pass = (passInput.value || '').trim();
+    const hashed = hashPass(pass);
+    const stored = localStorage.getItem(PASS_HASH_KEY) || '';
+    if (!stored){
+      alert('ยังไม่มี passcode ที่ถูกตั้งจากหน้าเกมหรือจากปุ่ม GENERATE LINK');
+      return;
+    }
+    if (hashed !== stored){
+      alert('Teacher passcode ไม่ถูกต้อง');
+      return;
+    }
+    gatePanel.classList.add('hidden');
+    dashPanel.classList.remove('hidden');
+    refreshAll();
+  });
+
+  document.getElementById('generateLinkBtn').addEventListener('click', () => {
+    const pass = (passInput.value || '').trim();
+    if (!pass){
+      alert('ใส่ passcode ก่อน');
+      return;
+    }
+    linkInput.value = buildTeacherLink(pass);
+  });
+
+  document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+    if (!linkInput.value){
+      const pass = (passInput.value || '').trim();
+      if (!pass){
+        alert('ใส่ passcode ก่อน');
+        return;
+      }
+      linkInput.value = buildTeacherLink(pass);
+    }
+    try{
+      await navigator.clipboard.writeText(linkInput.value);
+      document.getElementById('copyLinkBtn').textContent = 'COPIED';
+      setTimeout(() => document.getElementById('copyLinkBtn').textContent = 'COPY LINK', 1200);
+    }catch(e){
+      alert('คัดลอกไม่สำเร็จ');
+    }
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+  document.getElementById('clearTeacherBtn').addEventListener('click', () => {
+    localStorage.removeItem(TEACHER_KEY);
+    refreshAll();
+  });
+  document.getElementById('clearLeaderboardBtn').addEventListener('click', () => {
+    localStorage.removeItem(LEADERBOARD_KEY);
+    refreshAll();
+  });
+
+  unlockIfAllowed();
+})();
+</script>
+</body>
+</html>
