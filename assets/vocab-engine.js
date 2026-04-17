@@ -163,6 +163,9 @@ import { installVocabGuards } from './vocab-guard.js';
     return JSON.stringify(weakestTermsForSheet(limit));
   }
 
+
+  
+
   const V9 = {
     bank: 'A',
     mode: 'code_battle',
@@ -1363,7 +1366,7 @@ import { installVocabGuards } from './vocab-guard.js';
       }
     }
 
-    await sendTermAnswerRow({
+    sendTermAnswerRow({
       item,
       isCorrect,
       levelBefore,
@@ -1636,7 +1639,7 @@ import { installVocabGuards } from './vocab-guard.js';
     }
   }
 
-  async function renderLoopBattle(t){
+  function renderLoopBattle(t){
     if (phase === 'countdown'){
       timeLeft = 1;
       els.questionBox.innerHTML =
@@ -1682,7 +1685,6 @@ import { installVocabGuards } from './vocab-guard.js';
 
       if (timeLeft <= 0){
         const cfg = modeConfig();
-
         let timeoutBefore = '';
         let timeoutAfter = '';
 
@@ -1719,7 +1721,7 @@ import { installVocabGuards } from './vocab-guard.js';
           showFeedback(modeFeedbackText('timeout'), 'warn');
         }
 
-        await sendTermAnswerRow({
+        sendTermAnswerRow({
           item: V9.currentItem,
           isCorrect: false,
           levelBefore: timeoutBefore,
