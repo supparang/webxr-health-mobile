@@ -1,1836 +1,1972 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Vocab v11 ESP Battle — CS/AI (Mobile First Clean UI)</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>TechPath VR</title>
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+
+  <link rel="stylesheet" href="./lesson.css" />
+
+  <script>
+    window.TECHPATH_APP_ID = window.TECHPATH_APP_ID || 'english-d4bfa';
+    window.TECHPATH_FIREBASE_CONFIG = window.TECHPATH_FIREBASE_CONFIG || {
+      apiKey: "AIzaSyAfp3pVutrHRVOigVQl1iybMKbsKGPhnr8",
+      authDomain: "english-d4bfa.firebaseapp.com",
+      databaseURL: "https://english-d4bfa-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "english-d4bfa",
+      storageBucket: "english-d4bfa.firebasestorage.app",
+      messagingSenderId: "247186694556",
+      appId: "1:247186694556:web:67a01e417f37eb71f42859",
+      measurementId: "G-SWT85BHVJX"
+    };
+    window.TECHPATH_BUILD = 'v20260416-mobile-first-final';
+    window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzKzDrMtM5tc7MP5VlNBKXpV5Pp1r75R9Cvny8xqf_DkClYajnkGbUBFDwMJSchTC0S/exec';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260416-lesson-attendance-inline-s15-mobile-final';
+  </script>
+
+  <meta name="theme-color" content="#0a0f1e" />
+
   <style>
     :root{
-      --bg1:#071122;
-      --bg2:#123a7a;
-      --panel:rgba(10,16,35,.86);
-      --line:rgba(255,255,255,.14);
-      --text:#f8fbff;
-      --muted:#c7d4ff;
-      --cyan:#67e8f9;
-      --pink:#f472b6;
-      --yellow:#fde047;
-      --green:#4ade80;
-      --red:#fb7185;
-      --violet:#a78bfa;
-      --orange:#fb923c;
+      --app-vh: 100dvh;
+      --mobile-bottom-gap: calc(12px + env(safe-area-inset-bottom, 0px));
     }
 
-    *{box-sizing:border-box}
-
-    html,body{
-      margin:0;
-      min-height:100%;
+    html, body{
+      max-width:100%;
       overflow-x:hidden;
-      overflow-y:auto;
-      font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;
-      background:linear-gradient(180deg,var(--bg1),var(--bg2));
-      color:var(--text);
     }
 
     body{
+      min-height:var(--app-vh);
+      -webkit-text-size-adjust:100%;
+    }
+
+    #ui-container{
+      width:min(100%, 980px);
+      min-height:var(--app-vh);
+      margin:0 auto;
+      box-sizing:border-box;
+    }
+
+    .btn-action,
+    #attendance-toggle{
+      min-height:44px;
       touch-action:manipulation;
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
     }
 
-    #app{
-      position:relative;
-      min-height:100dvh;
-      overflow-x:hidden;
+    .input-field{
+      min-height:44px;
+      box-sizing:border-box;
     }
 
-    canvas{
-      position:fixed;
-      inset:0;
-      width:100%;
-      height:100%;
-      display:block;
-      background:linear-gradient(180deg,#75d8ff,#dbeafe 62%,#e5efff 62%,#dbeafe 100%);
-    }
-
-    .overlay{
-      position:fixed;
-      inset:0;
-      display:flex;
-      align-items:flex-start;
-      justify-content:center;
-      padding:20px 16px 32px;
-      overflow-y:auto;
-      overflow-x:hidden;
-      -webkit-overflow-scrolling:touch;
-      background:radial-gradient(circle at top,#18254a 0%,#0b1020 48%,#05070f 100%);
-      z-index:70;
-    }
-
-    .hidden{display:none!important}
-
-    .panel{
-      width:min(96vw,760px);
-      max-width:96vw;
-      overflow-x:hidden;
-      padding:18px;
-      border-radius:24px;
-      margin:12px 0 24px;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow:0 20px 80px rgba(0,0,0,.35);
-      touch-action:pan-y;
-    }
-
-    .title{
-      font-size:clamp(26px,7vw,40px);
-      line-height:1.12;
-      letter-spacing:-0.02em;
-      font-weight:1000;
-      margin:0;
-    }
-
-    .desc{
-      margin-top:10px;
-      color:#dbe7ff;
-      font-size:14px;
-      line-height:1.55;
-    }
-
-    .sectionTitle{
-      margin-top:16px;
-      margin-bottom:10px;
-      font-size:15px;
-      font-weight:900;
-      color:#dbeafe;
-    }
-
-    .menuStack{
-      display:grid;
-      gap:12px;
-    }
-
-    .bankGrid{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-    }
-
-    .modeGrid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-
-    .profileGrid{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-    }
-
-    .actionGrid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-
-    .top3Board{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-      margin-top:0;
-    }
-
-    .option,.box,.inputBox,.top3Card,.btn{
-      min-width:0;
-      width:100%;
-      border-radius:20px;
-    }
-
-    .option{
-      appearance:none;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.12);
-      padding:14px;
-      text-align:left;
-      color:var(--text);
-      cursor:pointer;
-    }
-
-    .option:hover{
-      transform:translateY(-2px);
-      border-color:rgba(103,232,249,.55);
-    }
-
-    .option.active{
-      outline:3px solid var(--cyan);
-      background:rgba(103,232,249,.10);
-    }
-
-    .option h3{
-      font-size:18px;
-      line-height:1.2;
-      margin:0 0 6px;
-    }
-
-    .option p{
-      margin:0;
-      color:#cad7ff;
-      font-size:13px;
-      line-height:1.4;
-    }
-
-    .inputBox{
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.14);
-      padding:12px;
-    }
-
-    .inputBox label{
-      display:block;
-      font-size:12px;
-      color:#c7d4ff;
-      margin-bottom:6px;
-    }
-
-    .inputBox input{
-      width:100%;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#fff;
-      font-size:16px;
-      min-height:48px;
-    }
-
-    .top3Card{
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.14);
-      padding:14px;
-      text-align:left;
-    }
-
-    .top3Card .rank{
-      font-size:22px;
-      font-weight:1000;
-    }
-
-    .top3Card .name{
-      font-size:16px;
-      font-weight:900;
-      margin-top:6px;
-    }
-
-    .top3Card .meta{
-      font-size:12px;
-      color:#c7d4ff;
-      margin-top:4px;
-    }
-
-    .btn{
-      appearance:none;
-      border:0;
-      min-height:58px;
-      font-size:17px;
-      font-weight:1000;
-      cursor:pointer;
-      white-space:normal;
-      word-break:break-word;
-      line-height:1.15;
-      padding:12px 14px;
-      color:#06101b;
-      background:linear-gradient(135deg,#67e8f9,#a78bfa);
-    }
-
-    .btn.alt{
-      background:linear-gradient(135deg,#fde047,#fb7185);
-      color:#311314;
-    }
-
-    .btn.ghost{
-      background:linear-gradient(135deg,#dbeafe,#93c5fd);
-      color:#172554;
-    }
-
-    .hud{
-      position:fixed;
-      left:8px;
-      right:8px;
-      top:8px;
-      z-index:20;
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:8px;
-      pointer-events:none;
-    }
-
-    .card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:9px 10px;
-      backdrop-filter:blur(8px);
-      box-shadow:0 10px 32px rgba(0,0,0,.26);
-    }
-
-    .big{
-      font-size:14px;
-      font-weight:900;
-    }
-
-    .sub{
-      font-size:11px;
-      color:var(--muted);
-      margin-top:4px;
-      line-height:1.35;
-    }
-
-    .bar{
-      height:9px;
-      border-radius:999px;
-      background:rgba(255,255,255,.1);
-      overflow:hidden;
-      margin-top:8px;
-    }
-
-    .fill{
-      height:100%;
-      width:100%;
-      background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));
-      transform-origin:left center;
-    }
-
-    #questionBox{
-      position:fixed;
-      top:116px;
-      left:50%;
-      transform:translateX(-50%);
-      width:94vw;
-      padding:14px 14px;
-      border-radius:18px;
-      background:rgba(17,24,39,.82);
-      color:#fff;
-      text-align:center;
-      z-index:40;
-      box-shadow:0 14px 30px rgba(0,0,0,.22);
-      backdrop-filter:blur(6px);
-      border:1px solid rgba(255,255,255,.10);
-    }
-
-    #questionBox .q-meta{
-      font-size:12px;
-      opacity:.95;
-      margin-bottom:6px;
-      letter-spacing:.05em;
-      color:#fde047;
-    }
-
-    #questionBox .q-prompt{
-      font-size:clamp(18px,5vw,28px);
-      font-weight:900;
-      line-height:1.22;
-    }
-
-    #feedbackBox{
-      position:fixed;
-      top:192px;
-      left:50%;
-      transform:translateX(-50%);
-      min-width:220px;
-      max-width:88vw;
-      text-align:center;
-      padding:12px 18px;
-      border-radius:999px;
-      background:rgba(15,23,42,.92);
-      color:#fff;
-      font-size:18px;
-      font-weight:900;
-      z-index:50;
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .18s ease, transform .18s ease;
-    }
-
-    #feedbackBox.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(-4px);
-    }
-
-    #feedbackBox.ok{background:rgba(22,163,74,.94)}
-    #feedbackBox.bad{background:rgba(225,29,72,.94)}
-    #feedbackBox.warn{background:rgba(180,83,9,.94)}
-
-    .leaderboardList,.sessionList{
-      list-style:none;
-      padding:0;
-      display:grid;
-      gap:10px;
-      margin-top:14px;
-    }
-
-    .leaderboardList li,.sessionList li{
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.1);
-      border-radius:16px;
+    #attendance-panel{
+      margin:8px 0 10px;
       padding:10px 12px;
-    }
-
-    table{
-      width:100%;
-      border-collapse:collapse;
-      margin-top:12px;
-    }
-
-    th,td{
-      border-bottom:1px solid rgba(255,255,255,.08);
-      padding:8px;
+      border:1px solid rgba(123,237,255,.24);
+      border-radius:14px;
+      background:rgba(8,14,28,.76);
+      box-shadow:0 8px 22px rgba(0,0,0,.18);
+      backdrop-filter:blur(6px);
       text-align:left;
-      font-size:13px;
     }
 
-    th{color:#93c5fd}
-
-    .small{font-size:12px;color:#cbd5e1}
-    .mono{font-family:ui-monospace,Consolas,monospace}
-    .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
-    #endWrap{z-index:9999}
-
-    @media (min-width:700px){
-      .bankGrid{grid-template-columns:1fr 1fr 1fr}
-      .profileGrid{grid-template-columns:1fr 1fr}
-      .top3Board{grid-template-columns:1fr 1fr 1fr}
+    #attendance-header-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
     }
 
-    @media (max-width:420px){
-      .option h3{font-size:16px}
-      .option p{font-size:12px}
-      .btn{font-size:16px}
-      #questionBox{top:164px}
+    #attendance-title{
+      font-weight:900;
+      color:#7bedff;
+      letter-spacing:.02em;
+      font-size:.92rem;
+    }
+
+    #attendance-toggle{
+      appearance:none;
+      border:1px solid rgba(123,237,255,.28);
+      background:rgba(255,255,255,.05);
+      color:#cfefff;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:.78rem;
+      font-weight:800;
+    }
+
+    #attendance-summary-line{
+      margin-top:8px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+      font-size:.84rem;
+      color:#eaf6ff;
+    }
+
+    #attendance-summary-name{
+      font-weight:800;
+      color:#ffffff;
+      overflow-wrap:anywhere;
+    }
+
+    #attendance-summary-s{
+      font-weight:800;
+      color:#7bedff;
+    }
+
+    #attendance-summary-status{
+      font-weight:800;
+      color:#ffd6db;
+    }
+
+    #attendance-grid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px 10px;
+      font-size:.84rem;
+      color:#eaf6ff;
+    }
+
+    .attendance-item{
+      min-width:0;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:10px;
+      padding:8px 10px;
+    }
+
+    .attendance-item b{
+      display:block;
+      font-size:.72rem;
+      color:#9adfff;
+      margin-bottom:3px;
+      font-weight:800;
+    }
+
+    #attendance-status{
+      margin-top:10px;
+      border-radius:10px;
+      padding:8px 10px;
+      background:rgba(46,213,115,.08);
+      border:1px solid rgba(46,213,115,.22);
+      color:#d9ffe8;
+      font-size:.82rem;
+      font-weight:700;
+    }
+
+    #attendance-status.warn{
+      background:rgba(255,159,67,.10);
+      border-color:rgba(255,159,67,.22);
+      color:#ffe7c9;
+    }
+
+    #attendance-status.fail{
+      background:rgba(255,71,87,.10);
+      border-color:rgba(255,71,87,.22);
+      color:#ffd7dc;
+    }
+
+    #attendance-panel.compact #attendance-grid,
+    #attendance-panel.compact #attendance-status{
+      display:none;
+    }
+
+    #prompt-mini-toggle{
+      display:none;
+    }
+
+    @media (max-width:700px){
+      #ui-container{
+        padding:10px 10px calc(112px + env(safe-area-inset-bottom, 0px));
+      }
+
+      .title{
+        font-size:1.08rem !important;
+        line-height:1.25 !important;
+        display:-webkit-box;
+        -webkit-line-clamp:2;
+        -webkit-box-orient:vertical;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        max-height:2.6em;
+        word-break:break-word;
+      }
+
+      .instruction{
+        font-size:.88rem !important;
+        line-height:1.35;
+        margin-bottom:8px;
+      }
+
+      #attendance-panel{
+        padding:10px;
+        margin:6px 0 8px;
+      }
+
+      #attendance-title{
+        font-size:.86rem;
+      }
+
+      #attendance-summary-line{
+        font-size:.80rem;
+      }
+
+      #attendance-grid{
+        grid-template-columns:1fr 1fr;
+        gap:6px;
+        font-size:.80rem;
+      }
+
+      .attendance-item{
+        padding:7px 8px;
+      }
+
+      .attendance-item b{
+        font-size:.68rem;
+      }
+
+      #attendance-status{
+        font-size:.78rem;
+        padding:7px 8px;
+      }
+
+      #hud-stats,
+      #hud-top-row{
+        position:sticky;
+        top:calc(env(safe-area-inset-top, 0px) + 4px);
+        z-index:45;
+        background:rgba(6,12,24,.88);
+        backdrop-filter:blur(8px);
+      }
+
+      #hud-stats{
+        flex-direction:column !important;
+        gap:4px !important;
+        margin:8px 0 !important;
+        padding:6px 8px !important;
+        border-radius:12px;
+      }
+
+      #hud-top-row{
+        overflow-x:auto;
+        flex-wrap:nowrap !important;
+        justify-content:flex-start !important;
+        gap:6px !important;
+        margin-top:6px;
+        margin-bottom:8px !important;
+        padding:4px 6px;
+        border-radius:12px;
+        scrollbar-width:none;
+      }
+
+      #hud-top-row::-webkit-scrollbar{
+        display:none;
+      }
+
+      #question-diff-badge,
+      #unit-theme-chip,
+      #reward-roll-badge{
+        white-space:nowrap;
+        flex:0 0 auto;
+        font-size:.82rem !important;
+        padding:4px 10px !important;
+      }
+
+      #hud-score-wrap,
+      #hud-hp-wrap{
+        justify-content:center;
+        text-align:center;
+        font-size:.95rem;
+      }
+
+      .hud-stat-item{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        flex-wrap:wrap;
+      }
+
+      .hud-stat-icon{
+        font-size:1rem !important;
+      }
+
+      .hud-stat-label{
+        font-size:.78rem !important;
+        opacity:.92;
+      }
+
+      #score-display,
+      #hp-display{
+        font-size:1.05rem !important;
+        font-weight:900;
+      }
+
+      #ai-director-board{
+        margin:8px 0 !important;
+        padding:8px 10px !important;
+      }
+
+      #ai-director-state{
+        font-size:.88rem !important;
+      }
+
+      #ai-director-sub{
+        font-size:.78rem !important;
+      }
+
+      #profile-panel,
+      #hub-stats-board,
+      #summary-panel,
+      #game-over-ui,
+      #boss-phase-ui,
+      #mission-prompt-box{
+        margin-top:8px !important;
+        border-radius:14px !important;
+        padding:10px !important;
+      }
+
+      #profile-panel-title,
+      #hub-stats-title,
+      #summary-title{
+        font-size:.95rem !important;
+      }
+
+      #hub-stats-body,
+      #summary-body{
+        font-size:.84rem !important;
+        line-height:1.45 !important;
+        word-break:break-word;
+      }
+
+      .avatar-row{
+        display:grid !important;
+        grid-template-columns:repeat(2, minmax(0,1fr));
+        gap:8px !important;
+      }
+
+      .avatar-chip{
+        width:100%;
+        min-width:0;
+      }
+
+      .avatar-chip small{
+        display:block;
+        font-size:.64rem !important;
+      }
+
+      #profile-name-input,
+      #player-name-input,
+      #write-input{
+        width:100% !important;
+        max-width:100%;
+        font-size:16px !important;
+      }
+
+      #btn-submit-score{
+        margin-left:0 !important;
+        margin-top:8px !important;
+        width:100%;
+        display:block !important;
+      }
+
+      #choice-buttons{
+        display:flex !important;
+        flex-direction:column !important;
+        gap:8px !important;
+        min-height:160px;
+        align-items:stretch !important;
+        position:sticky !important;
+        bottom:var(--mobile-bottom-gap) !important;
+        z-index:60;
+        background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
+        padding-top:10px;
+        padding-bottom:4px;
+      }
+
+      #choice-buttons .btn-action{
+        width:100% !important;
+        min-height:46px !important;
+        font-size:1rem !important;
+        font-weight:900 !important;
+        letter-spacing:.02em;
+      }
+
+      #btn-speak,
+      #btn-play-audio,
+      #btn-submit-write,
+      #btn-next,
+      #btn-return,
+      #btn-save-profile,
+      #btn-submit-score{
+        width:100% !important;
+        min-height:46px !important;
+        font-size:.94rem !important;
+        border-radius:14px !important;
+        font-weight:800 !important;
+        letter-spacing:.01em;
+        position:sticky !important;
+        bottom:var(--mobile-bottom-gap) !important;
+        z-index:60;
+        box-shadow:0 10px 24px rgba(0,0,0,.28);
+      }
+
+      #write-input{
+        position:sticky !important;
+        bottom:calc(72px + env(safe-area-inset-bottom, 0px));
+        z-index:55;
+        background:#fff;
+        color:#111;
+        border-radius:14px !important;
+        padding:12px 14px !important;
+        border:2px solid rgba(123,237,255,.35) !important;
+        box-shadow:0 10px 24px rgba(0,0,0,.20);
+      }
+
+      #mission-prompt-box{
+        border:1px solid rgba(123,237,255,.22);
+        background:rgba(10,18,34,.88);
+        box-shadow:0 8px 20px rgba(0,0,0,.20);
+        max-height:42vh;
+        overflow:auto;
+        scrollbar-width:none;
+      }
+
+      #mission-prompt-box::-webkit-scrollbar{
+        display:none;
+      }
+
+      #mission-prompt-label{
+        font-size:.72rem !important;
+      }
+
+      #mission-prompt-text{
+        font-size:.96rem !important;
+        line-height:1.5 !important;
+        letter-spacing:.01em;
+        font-weight:700;
+        overflow-wrap:anywhere;
+        word-break:break-word;
+      }
+
+      #prompt-mini-toggle{
+        width:100%;
+        margin-top:6px;
+        min-height:40px !important;
+        font-size:.86rem !important;
+      }
+
+      #feedback{
+        position:relative;
+        z-index:20;
+        min-height:22px;
+        text-align:center;
+        font-size:.92rem !important;
+        line-height:1.35 !important;
+        margin-top:8px !important;
+        margin-bottom:4px !important;
+        word-break:break-word;
+        border-radius:12px;
+        padding:8px 10px;
+        background:rgba(255,255,255,.04);
+      }
+
+      #timer{
+        font-size:1.1rem !important;
+        margin:6px 0 !important;
+      }
+
+      #boss-phase-title{
+        font-size:.92rem !important;
+      }
+
+      #boss-phase-sub,
+      #boss-hp-text{
+        font-size:.80rem !important;
+      }
+
+      #btn-next,
+      #btn-return,
+      #btn-submit-score,
+      #btn-save-profile{
+        margin-top:8px !important;
+      }
+
+      #game-over-ui{
+        display:flex;
+        flex-direction:column;
+        gap:8px;
+      }
+
+      body.mission-mobile #profile-panel,
+      body.mission-mobile #hub-stats-board,
+      body.mission-mobile #ai-director-board,
+      body.mission-mobile #unlock-hint,
+      body.mission-mobile #ui-desc{
+        display:none !important;
+      }
+
+      body.mission-mobile #attendance-panel{
+        opacity:.92;
+        border-color:rgba(123,237,255,.16);
+        background:rgba(8,14,28,.60);
+        margin-bottom:6px !important;
+      }
+
+      body.mission-mobile #attendance-title{
+        font-size:.80rem;
+      }
+
+      body.mission-mobile #attendance-summary-line{
+        margin-top:6px;
+        font-size:.78rem;
+        opacity:.96;
+      }
+
+      body.mission-mobile.scrolled-down #attendance-panel,
+      body.mission-mobile.scrolled-down #hud-top-row{
+        opacity:.35;
+        transform:translateY(-4px);
+        transition:opacity .18s ease, transform .18s ease;
+      }
+
+      body.mission-mobile.scrolled-up #attendance-panel,
+      body.mission-mobile.scrolled-up #hud-top-row{
+        opacity:1;
+        transform:none;
+        transition:opacity .18s ease, transform .18s ease;
+      }
+
+      body.summary-mobile #summary-panel{
+        display:block !important;
+        margin-top:10px !important;
+        padding:12px !important;
+        border-radius:14px !important;
+      }
+
+      body.summary-mobile #summary-title{
+        font-size:.98rem !important;
+        line-height:1.3 !important;
+      }
+
+      body.summary-mobile #summary-body{
+        font-size:.88rem !important;
+        line-height:1.5 !important;
+        word-break:break-word;
+      }
+
+      body.summary-mobile #btn-next,
+      body.summary-mobile #btn-return{
+        display:block !important;
+        width:100% !important;
+      }
+
+      body.summary-mobile #btn-next + #btn-return{
+        margin-top:8px !important;
+      }
+
+      body.keyboard-open #choice-buttons,
+      body.keyboard-open #btn-submit-write,
+      body.keyboard-open #btn-speak,
+      body.keyboard-open #btn-play-audio{
+        position:static !important;
+        bottom:auto !important;
+        box-shadow:none !important;
+      }
+
+      body.keyboard-open #write-input{
+        position:relative !important;
+        bottom:auto !important;
+      }
+
+      body.keyboard-open #ui-container{
+        padding-bottom:calc(28px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+
+      body.prompt-mini #mission-prompt-box{
+        max-height:88px !important;
+        overflow:hidden !important;
+      }
+    }
+
+    @media (max-width:900px) and (orientation:landscape){
+      #ui-container{
+        padding-top:8px !important;
+        padding-bottom:24px !important;
+      }
+
+      #attendance-panel,
+      #profile-panel,
+      #hub-stats-board,
+      #ai-director-board{
+        margin-top:6px !important;
+        margin-bottom:6px !important;
+      }
+
+      .title{
+        font-size:1rem !important;
+      }
+
+      .instruction{
+        font-size:.82rem !important;
+        margin-bottom:6px !important;
+      }
+
+      #mission-prompt-box,
+      #summary-panel,
+      #boss-phase-ui{
+        padding:8px !important;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce), (max-width:700px){
+      .answer-burst,
+      .combo-popup,
+      .screen-glow-success,
+      .screen-glow-fail,
+      .shake{
+        animation-duration:.01ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:.01ms !important;
+      }
     }
   </style>
 </head>
 <body>
-<div id="app">
-  <canvas id="gameCanvas"></canvas>
+  <div id="loading">Loading TechPath VR...</div>
+  <div id="impact-flash" aria-hidden="true"></div>
 
-  <div class="hud">
-    <div class="card">
-      <div class="big">VOCAB v9 • ESP BATTLE</div>
-      <div class="sub" id="hudPrompt">Contextual learning • adaptive difficulty • review queue</div>
-      <div class="bar"><div class="fill" id="timeFill"></div></div>
-    </div>
-    <div class="card">
-      <div class="big" id="hudScore">Score 0</div>
-      <div class="sub" id="hudRound">Stage 0 / 18</div>
-    </div>
-    <div class="card">
-      <div class="big" id="hudCombo">Combo x0</div>
-      <div class="sub" id="hudMode">Difficulty EASY</div>
-    </div>
-    <div class="card">
-      <div class="big" id="hudHp">HP 5</div>
-      <div class="sub" id="hudState">READY</div>
+  <div id="boss-cinematic" aria-hidden="true">
+    <div id="boss-cinematic-card">
+      <div id="boss-cinematic-title">FINAL BOSS</div>
+      <div id="boss-cinematic-sub">Prepare for the last phase.</div>
     </div>
   </div>
 
-  <div id="questionBox">
-    <div class="q-meta">ESP BATTLE</div>
-    <div class="q-prompt">เตรียมเริ่มเกม</div>
-  </div>
+  <div id="answer-fx-layer" aria-hidden="true"></div>
+  <div id="combo-popup" class="combo-popup">COMBO x2</div>
+  <div id="mission-type-tag" class="mission-type-tag">MISSION</div>
 
-  <div id="feedbackBox"></div>
+  <div id="ui-container" class="hub-mode">
+    <div id="player-avatar-hud">🧑‍💻</div>
 
-  <div class="overlay" id="menu">
-    <div class="panel">
-      <h1 class="title">Vocab v9 — English for Specific Career Purposes (CS/AI)</h1>
-      <div class="desc">
-        เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ มีหลายรูปแบบคำถามต่อคำศัพท์ ปรับความยากตามการเล่น
-        และใช้การแตะเลือกคำตอบเป็นหลัก
+    <div class="title" id="ui-title">TECHPATH VR</div>
+    <p class="instruction" id="ui-desc">เลือกด่านแล้วเริ่มเล่นได้เลย</p>
+
+    <div id="attendance-panel" class="compact">
+      <div id="attendance-header-row">
+        <div id="attendance-title">ATTENDANCE TRACKER</div>
+        <button id="attendance-toggle" type="button" aria-expanded="false">ดูรายละเอียด</button>
       </div>
 
-      <div class="menuStack">
-        <div>
-          <div class="sectionTitle">เลือกกลุ่มคำศัพท์</div>
-          <div class="bankGrid">
-            <button class="option bankBtn active" data-bank="A">
-              <h3>A • Software Engineering</h3>
-              <p>software, debug, deploy, API, repository, modularization</p>
-            </button>
-            <button class="option bankBtn" data-bank="B">
-              <h3>B • Data / Cloud / System</h3>
-              <p>database, query, server, authentication, pipeline, ETL</p>
-            </button>
-            <button class="option bankBtn" data-bank="C">
-              <h3>C • AI / Machine Learning</h3>
-              <p>model, feature, accuracy, embedding, tokenization, fine-tuning</p>
-            </button>
-          </div>
-        </div>
+      <div id="attendance-summary-line">
+        <span id="attendance-summary-name">-</span>
+        <span>•</span>
+        <span id="attendance-summary-s">S00</span>
+        <span>•</span>
+        <span id="attendance-summary-status">กำลังติดตาม</span>
+      </div>
 
-        <div>
-          <div class="sectionTitle">เลือกโหมดเล่น</div>
-          <div class="modeGrid">
-            <button class="option modeBtn active" data-mode="code_battle">
-              <h3>⚔️ Code Battle</h3>
-              <p>โจมตีบอสด้วยการตอบคำถามถูก</p>
-            </button>
-            <button class="option modeBtn" data-mode="debug_mission">
-              <h3>🧪 Debug Mission</h3>
-              <p>ตีความ bug / error / correct usage</p>
-            </button>
-            <button class="option modeBtn" data-mode="ai_training">
-              <h3>🤖 AI Training Sim</h3>
-              <p>บริบท AI/ML แบบใช้งานจริง</p>
-            </button>
-            <button class="option modeBtn" data-mode="speed_run">
-              <h3>⚡ Speed Run</h3>
-              <p>เร็ว กดดัน กันจำแพทเทิร์น</p>
-            </button>
-          </div>
+      <div id="attendance-grid">
+        <div class="attendance-item">
+          <b>Student ID</b>
+          <span id="attendance-student-id">-</span>
         </div>
+        <div class="attendance-item">
+          <b>Name</b>
+          <span id="attendance-student-name">-</span>
+        </div>
+        <div class="attendance-item">
+          <b>Class Section</b>
+          <span id="attendance-class-section">-</span>
+        </div>
+        <div class="attendance-item">
+          <b>Current S</b>
+          <span id="attendance-session-no">Lobby</span>
+        </div>
+        <div class="attendance-item">
+          <b>Time in S</b>
+          <span id="attendance-duration">00:00</span>
+        </div>
+        <div class="attendance-item">
+          <b>Active Time</b>
+          <span id="attendance-active-time">00:00</span>
+        </div>
+      </div>
 
-        <div>
-          <div class="sectionTitle">ข้อมูลผู้เล่น</div>
-          <div class="profileGrid">
-            <div class="inputBox">
-              <label for="displayNameInput">Display Name</label>
-              <input id="displayNameInput" type="text" maxlength="24" placeholder="เช่น Mint / Arm / AomAI" />
-            </div>
-            <div class="inputBox">
-              <label for="studentIdInput">Student ID (optional)</label>
-              <input id="studentIdInput" type="text" maxlength="24" placeholder="เช่น 6512345678" />
-            </div>
-          </div>
-        </div>
+      <div id="attendance-status" class="warn">กำลังเตรียมข้อมูลเช็กชื่อ...</div>
+    </div>
 
-        <div>
-          <div class="sectionTitle">Leaderboard ตอนนี้</div>
-          <div class="top3Board" id="menuTop3Board"></div>
-        </div>
+    <div id="hud-stats" style="display:flex; justify-content:space-between; gap:10px; font-weight:bold; margin:10px 0; border-top:1px solid #00e5ff; border-bottom:1px solid #00e5ff; padding:5px 0;">
+      <div id="hud-score-wrap" class="hud-stat-item" style="color:#f1c40f;">
+        <span class="hud-stat-icon">🏆</span>
+        <span class="hud-stat-label">SCORE</span>
+        <span id="score-display">0</span>
+      </div>
 
-        <div>
-          <div class="sectionTitle">เริ่มใช้งาน</div>
-          <div class="actionGrid">
-            <button class="btn" id="startBtn">START PRODUCTION RUN</button>
-            <button class="btn alt" id="leaderboardBtn">LEADERBOARD</button>
-          </div>
-        </div>
+      <div id="hud-hp-wrap" class="hud-stat-item" style="color:#2ed573;">
+        <span class="hud-stat-icon">❤️</span>
+        <span class="hud-stat-label">HP</span>
+        <span id="hp-display">100%</span>
       </div>
     </div>
-  </div>
 
-  <div class="overlay hidden" id="teacherLinkWrap">
-    <div class="panel" style="width:min(760px,94vw)">
-      <h2 style="margin:0">Teacher Dashboard Link</h2>
-      <div class="desc">ลิงก์นี้สำหรับครูเท่านั้น ใช้เปิด dashboard แยกโดยตรง ไม่แสดงในหน้าเมนูนักศึกษา</div>
-      <div class="profileGrid" style="margin-top:16px">
-        <div class="inputBox">
-          <label for="teacherPassInput">Teacher Passcode</label>
-          <input id="teacherPassInput" type="text" maxlength="32" placeholder="เช่น teacher123 / CSAI2026" />
-        </div>
-        <div class="inputBox">
-          <label for="teacherLinkOutput">Teacher Link</label>
-          <input id="teacherLinkOutput" type="text" readonly />
-        </div>
-      </div>
-      <div class="secretNote">หน้า teacher mode จะเปิดได้เมื่อ query มีทั้ง <span class="mono">?teacher=1</span> และ passcode ตรงกับค่าที่ฝั่งครูตั้งไว้</div>
-      <div class="actionGrid" style="margin-top:14px; grid-template-columns:1fr 1fr 1fr;">
-        <button class="btn" id="generateTeacherLinkBtn">GENERATE LINK</button>
-        <button class="btn ghost" id="copyTeacherLinkBtn">COPY LINK</button>
-        <button class="btn ghost" id="closeTeacherLinkBtn">CLOSE</button>
-      </div>
+    <div id="hud-top-row" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:10px;">
+      <div id="question-diff-badge" style="border:1px solid #f1c40f; color:#f1c40f; border-radius:999px; padding:4px 10px; font-weight:700;">Q: NORMAL</div>
+      <div id="unit-theme-chip" style="display:none; border:1px solid #7bedff; color:#7bedff; border-radius:999px; padding:4px 10px; font-weight:700;">STANDARD FINAL</div>
+      <div id="reward-roll-badge" style="display:none;">COMMON CHEST</div>
     </div>
-  </div>
 
-  <div class="overlay hidden" id="endWrap">
-    <div class="panel" style="width:min(760px,94vw)">
-      <h2 style="margin:0">Run Complete</h2>
-      <div class="desc" id="endSummaryText">สรุปผล</div>
-      <div class="actionGrid" style="margin-top:16px; grid-template-columns:1fr 1fr 1fr;">
-        <button class="btn" id="endPlayAgainBtn">PLAY AGAIN</button>
-        <button class="btn ghost" id="endLeaderboardBtn">LEADERBOARD</button>
-        <button class="btn alt" id="endMenuBtn">BACK TO MENU</button>
-      </div>
+    <div id="ai-director-board" style="margin:10px 0; padding:10px 12px; border:1px solid rgba(0,229,255,.25); border-radius:12px; background:rgba(255,255,255,.04);">
+      <div id="ai-director-state" style="font-weight:800; color:#fff;">STEADY P:0 S:0</div>
+      <div id="ai-director-sub" style="font-size:.95rem; opacity:.9;">AI กำลังดูจังหวะการเล่นของคุณ</div>
     </div>
-  </div>
 
-  <div class="overlay hidden" id="leaderboardWrap">
-    <div class="panel">
-      <h2 style="margin:0">Leaderboard</h2>
-      <div class="desc">แสดงผล 10 อันดับสูงสุดของโหมด production run</div>
-      <ul class="leaderboardList" id="leaderboardList"></ul>
-      <div class="actionGrid" style="margin-top:14px;">
-        <button class="btn ghost" id="closeLeaderboardBtn">CLOSE</button>
-        <button class="btn alt" id="clearLeaderboardBtn">CLEAR LEADERBOARD</button>
+    <div id="profile-panel">
+      <div id="profile-panel-title">PROFILE</div>
+
+      <div class="avatar-row">
+        <button class="avatar-chip active" id="avatar-chip-1" onclick="selectAvatar('🧑‍💻')">🧑‍💻<small>ฟรี</small></button>
+        <button class="avatar-chip" id="avatar-chip-2" onclick="selectAvatar('🤖')">🤖<small>Streak 3</small></button>
+        <button class="avatar-chip" id="avatar-chip-3" onclick="selectAvatar('👩‍🚀')">👩‍🚀<small>Streak 7</small></button>
+        <button class="avatar-chip" id="avatar-chip-4" onclick="selectAvatar('🦾')">🦾<small>Clear 5</small></button>
+        <button class="avatar-chip" id="avatar-chip-5" onclick="selectAvatar('🧠')">🧠<small>14/12</small></button>
       </div>
+
+      <div id="unlock-hint">สะสม streak และ clear เพื่อปลดล็อก</div>
+
+      <input type="text" id="profile-name-input" class="input-field" placeholder="ชื่อผู้เล่น" maxlength="24" />
+      <button class="btn-action" id="btn-save-profile" onclick="savePlayerProfile()">บันทึกโปรไฟล์</button>
     </div>
+
+    <div id="hub-stats-board">
+      <div id="hub-stats-title">STATS</div>
+      <div id="hub-stats-body">Loading stats...</div>
+    </div>
+
+    <div id="timer" style="display:none;">01:00</div>
+
+    <div id="mission-prompt-box" style="display:none;">
+      <div id="mission-prompt-label">PROMPT</div>
+      <div id="mission-prompt-text">...</div>
+    </div>
+
+    <button id="prompt-mini-toggle" type="button" class="btn-action" style="display:none;">ย่อโจทย์</button>
+
+    <div id="boss-phase-ui" style="display:none;">
+      <div id="boss-phase-title">👑 FINAL BOSS</div>
+      <div id="boss-phase-sub">ตอบถูกหลายครั้งเพื่อล้มบอส</div>
+      <div id="boss-bar-shell"><div id="boss-bar-fill"></div></div>
+      <div id="boss-hp-text">BOSS HP: 3 / 3</div>
+    </div>
+
+    <button class="btn-action" id="btn-speak" onclick="startRecognition()" style="display:none;">🎙️ Speak</button>
+    <button class="btn-action" id="btn-play-audio" onclick="playAudio()" style="display:none;">🔊 Play Audio</button>
+
+    <input type="text" class="input-field" id="write-input" placeholder="พิมพ์คำตอบภาษาอังกฤษ..." style="display:none;" />
+    <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()" style="display:none;">Submit</button>
+
+    <div id="choice-buttons" style="display:none; justify-content:center; gap:12px; margin-top:10px;">
+      <button class="btn-action" style="display:block; background:#e67e22;" onclick="checkChoiceAnswer('A')">A</button>
+      <button class="btn-action" style="display:block; background:#2ecc71;" onclick="checkChoiceAnswer('B')">B</button>
+      <button class="btn-action" style="display:block; background:#9b59b6;" onclick="checkChoiceAnswer('C')">C</button>
+    </div>
+
+    <div id="game-over-ui" style="display:none; margin-top:10px; background:rgba(0,0,0,0.5); padding:15px; border-radius:8px;">
+      <p style="color:#f1c40f; margin:0 0 10px 0;">บันทึกคะแนน</p>
+      <input type="text" id="player-name-input" class="input-field" placeholder="ใส่ชื่อ..." style="display:inline-block; width:60%; margin-top:0;">
+      <button class="btn-action" id="btn-submit-score" onclick="submitScore()" style="display:inline-block; background:#f1c40f; margin-left:10px;">Save Score</button>
+    </div>
+
+    <div id="feedback"></div>
+
+    <div id="summary-panel" style="display:none;">
+      <div id="summary-title">MISSION SUMMARY</div>
+      <div id="summary-body">Summary data</div>
+    </div>
+
+    <button class="btn-action" id="btn-next" onclick="playNextMission()" style="background:#2ed573; display:none;">เล่นด่านถัดไป ▶</button>
+    <button class="btn-action btn-danger" id="btn-return" onclick="returnToHub()" style="display:none;">กลับ Main Hub</button>
   </div>
 
-  <div class="overlay hidden" id="teacherWrap">
-    <div class="panel">
-      <h2 style="margin:0">Teacher Dashboard</h2>
-      <div class="desc">Dashboard-only mode สำหรับครู ดูคำที่อ่อนที่สุดและสถิติการเรียนรู้รายคำ</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Term</th>
-            <th>Seen</th>
-            <th>Correct</th>
-            <th>Wrong</th>
-            <th>Level</th>
-            <th>Highest</th>
-          </tr>
-        </thead>
-        <tbody id="teacherTable"></tbody>
-      </table>
-      <ul class="sessionList" id="weakList"></ul>
-      <div class="actionGrid" style="margin-top:14px;">
-        <button class="btn ghost" id="closeTeacherBtn">CLOSE</button>
-        <button class="btn alt" id="clearTeacherBtn">CLEAR STATS</button>
-      </div>
-    </div>
-  </div>
-</div>
+  <a-scene loading-screen="enabled: false">
+    <a-entity id="hub-scene">
+      <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
 
-<script>
-(() => {
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
+      <a-entity position="0 4.35 -5.15">
+        <a-text value="TECHPATH VR" position="0 0.28 0" align="center" color="#7bedff" scale="1.75 1.75 1.75"></a-text>
+        <a-text value="Choose a session and build your skill path" position="0 -0.12 0" align="center" color="#dbeafe" scale="0.56 0.56 0.56"></a-text>
+        <a-plane position="0 -0.34 0" width="3.1" height="0.03" color="#00e5ff" material="opacity: 0.45; shader: flat"></a-plane>
+      </a-entity>
 
-  const els = {
-    menu: document.getElementById('menu'),
-    endWrap: document.getElementById('endWrap'),
-    leaderboardWrap: document.getElementById('leaderboardWrap'),
-    teacherWrap: document.getElementById('teacherWrap'),
-    teacherLinkWrap: document.getElementById('teacherLinkWrap'),
-    teacherPassInput: document.getElementById('teacherPassInput'),
-    teacherLinkOutput: document.getElementById('teacherLinkOutput'),
-    questionBox: document.getElementById('questionBox'),
-    feedbackBox: document.getElementById('feedbackBox'),
-    hudPrompt: document.getElementById('hudPrompt'),
-    hudScore: document.getElementById('hudScore'),
-    hudRound: document.getElementById('hudRound'),
-    hudCombo: document.getElementById('hudCombo'),
-    hudMode: document.getElementById('hudMode'),
-    hudHp: document.getElementById('hudHp'),
-    hudState: document.getElementById('hudState'),
-    timeFill: document.getElementById('timeFill'),
-    displayNameInput: document.getElementById('displayNameInput'),
-    studentIdInput: document.getElementById('studentIdInput'),
-    menuTop3Board: document.getElementById('menuTop3Board'),
-    leaderboardList: document.getElementById('leaderboardList'),
-    teacherTable: document.getElementById('teacherTable'),
-    weakList: document.getElementById('weakList'),
-    endSummaryText: document.getElementById('endSummaryText')
-  };
+      <a-plane position="0 1.18 -4.18" width="9.1" height="3.35" color="#09111f" material="opacity: 0.24; shader: flat"></a-plane>
 
-  const LEADERBOARD_KEY = 'VOCAB_V9_LEADERBOARD';
-  const TEACHER_KEY = 'VOCAB_V9_TEACHER_LAST';
-  const PROFILE_KEY = 'VOCAB_V9_PROFILE';
+      <a-entity id="reward-chest" class="clickable" position="-3.72 0.72 -3.08" rotation="0 42 0" onclick="claimReward()">
+        <a-plane id="reward-card-panel" position="0 0.34 -0.18" width="2.25" height="1.55" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
+        <a-box id="reward-card-frame" position="0 0.34 -0.21" width="2.35" height="1.65" depth="0.04" color="#7bedff" material="wireframe: true; opacity: 0.35"></a-box>
+        <a-ring id="reward-aura" position="0 0.18 0.08" radius-inner="0.46" radius-outer="0.60" color="#ffeaa7" material="opacity: 0.18; shader: flat" rotation="-90 0 0"></a-ring>
+        <a-box id="reward-chest-body" position="0 0.02 0" width="0.82" height="0.50" depth="0.62" color="#8c6239" material="metalness: 0.22; roughness: 0.55"></a-box>
+        <a-box id="reward-chest-lid" position="0 0.34 0.02" width="0.84" height="0.16" depth="0.64" color="#f1c40f" material="metalness: 0.52; roughness: 0.34"></a-box>
+        <a-text value="DAILY REWARD" position="0 0.72 0.03" align="center" color="#ffeaa7" scale="0.46 0.46 0.46"></a-text>
+        <a-text id="streak-text" value="Loading..." position="0 -0.55 0.03" align="center" color="#ffffff" scale="0.38 0.38 0.38" width="5"></a-text>
+      </a-entity>
 
-  function makeTerm(id, term, th, definition, distractorPool, sentence, correctUsage, scenario, professional){
-    return {
-      id, term, th, definition, distractorPool,
-      variants: {
-        easy: [
-          { id: id + '_th_to_en', type: 'th_to_en', prompt: `“${th}” คือคำว่าอะไร?`, answer: term },
-          { id: id + '_definition_mcq', type: 'definition_mcq', prompt: definition, answer: term },
-          { id: id + '_en_to_th', type: 'en_to_th', prompt: `${term} แปลว่าอะไร?`, answer: th }
-        ],
-        normal: [
-          { id: id + '_sentence_cloze', type: 'sentence_cloze', prompt: sentence, answer: term },
-          { id: id + '_correct_usage', type: 'correct_usage', prompt: correctUsage, answer: term },
-          { id: id + '_context_mcq', type: 'context_mcq', prompt: scenario, answer: term }
-        ],
-        hard: [
-          { id: id + '_scenario', type: 'scenario', prompt: professional, answer: term },
-          { id: id + '_confusion_pair', type: 'confusion_pair', prompt: `ข้อใดใช้คำว่า ${term} ในบริบทสายงานได้ถูกต้องที่สุด?`, answer: term }
-        ]
-      }
+      <a-entity position="-4.08 2.03 -2.82" rotation="0 25 0">
+        <a-plane width="2.18" height="1.56" color="#0f172a" material="opacity: 0.92; shader: flat"></a-plane>
+        <a-box width="2.28" height="1.66" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.34"></a-box>
+        <a-text value="PROFILE" position="0 0.54 0.05" align="center" color="#7bedff" scale="0.48 0.48 0.48"></a-text>
+        <a-circle position="0 -0.10 0.03" radius="0.22" color="#0b1327" material="opacity: 0.95; shader: flat"></a-circle>
+        <a-ring position="0 -0.10 0.04" radius-inner="0.22" radius-outer="0.26" color="#2ed573" material="opacity: 0.34; shader: flat"></a-ring>
+        <a-text id="vr-profile-avatar" value="🧑‍💻" position="0 -0.12 0.05" align="center" color="#ffffff" scale="1.02 1.02 1.02"></a-text>
+        <a-text id="vr-profile-name" value="Name: Hero" position="0 -0.50 0.05" align="center" color="#ffffff" scale="0.42 0.42 0.42" width="5"></a-text>
+      </a-entity>
+
+      <a-entity position="0 2.80 -4.56">
+        <a-plane width="4.55" height="1.12" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
+        <a-box width="4.66" height="1.22" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.24"></a-box>
+        <a-text value="DIFFICULTY" position="0 0.34 0.04" align="center" color="#7bedff" scale="0.54 0.54 0.54"></a-text>
+
+        <a-entity position="-1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('easy')">
+          <a-box id="diff-easy-box" width="1.18" height="0.42" depth="0.10" color="#2ecc71" material="opacity: 0.52"></a-box>
+          <a-text value="EASY" align="center" position="0 0 0.06" color="#0b1f14" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+
+        <a-entity position="0 -0.08 0.02" class="clickable" onclick="setDifficulty('normal')">
+          <a-box id="diff-normal-box" width="1.18" height="0.42" depth="0.10" color="#f1c40f" material="opacity: 1"></a-box>
+          <a-text value="NORMAL" align="center" position="0 0 0.06" color="#261d00" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+
+        <a-entity position="1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('hard')">
+          <a-box id="diff-hard-box" width="1.18" height="0.42" depth="0.10" color="#e74c3c" material="opacity: 0.52"></a-box>
+          <a-text value="HARD" align="center" position="0 0 0.06" color="#fff5f5" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+      </a-entity>
+
+      <a-entity id="mission-wall" position="0 1.18 -4.0"></a-entity>
+
+      <a-entity position="4.02 2.02 -3.02" rotation="0 -34 0">
+        <a-plane id="leaderboard-panel" width="2.48" height="2.92" color="#101826" material="opacity: 0.94; shader: flat"></a-plane>
+        <a-box id="leaderboard-frame" width="2.58" height="3.02" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true; opacity: 0.30"></a-box>
+        <a-plane id="leaderboard-header-panel" position="0 1.08 0.02" width="2.18" height="0.34" color="#152238" material="opacity: 0.96; shader: flat"></a-plane>
+        <a-text id="leaderboard-title" value="TOP 5 LEGENDS" position="0 1.08 0.05" align="center" color="#ffeaa7" scale="0.56 0.56 0.56"></a-text>
+        <a-text id="leaderboard-subtitle" value="Best mission runs" position="0 0.78 0.05" align="center" color="#cbd5e1" scale="0.34 0.34 0.34"></a-text>
+        <a-text id="vr-leaderboard-list" value="Loading..." position="0 -0.14 0.05" align="center" color="#ffffff" scale="0.54 0.54 0.54" line-height="64" width="3.5"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="hackerBoss" visible="false" position="0 3 -15">
+      <a-box color="#ff0000" width="1.5" height="1.5" depth="1.5" animation="property: rotation; to: 360 360 360; dur: 3000; loop: true; easing: linear"></a-box>
+      <a-text value="VIRUS / HACKER" color="#ff4757" position="0 1.2 0" align="center" scale="2 2 2"></a-text>
+    </a-entity>
+
+    <a-entity id="mission-speaking-scene" visible="false">
+      <a-entity environment="preset: volcano; skyColor: #ff0000"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.3" color="#f1c40f" animation="property: position; to: 0 0.1 0; dir: alternate; dur: 800; loop: true"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#2980b9"></a-cylinder>
+      </a-entity>
+      <a-text id="speaking-prompt" value="PROMPT TEXT" position="0 3 -3" align="center" color="#ff4757"></a-text>
+    </a-entity>
+
+    <a-entity id="mission-reading-scene" visible="false">
+      <a-entity environment="preset: arches; skyColor: #550000"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.25" color="#e74c3c"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#34495e"></a-cylinder>
+        <a-plane position="0 1.2 0" width="4" height="1" color="#fff" material="opacity: 0.9">
+          <a-text id="reading-question" value="QUESTION TEXT" color="#000" align="center" position="0 0 0.01" scale="0.7 0.7 0.7" width="5"></a-text>
+        </a-plane>
+      </a-entity>
+
+      <a-entity position="-2.5 0.5 -3" rotation="0 15 0" animation="property: position; to: -2.5 0.8 -3; dir: alternate; dur: 1500; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+        <a-text id="reading-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="0 0.5 -3" animation="property: position; to: 0 0.7 -3; dir: alternate; dur: 1200; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+        <a-text id="reading-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="2.5 0.5 -3" rotation="0 -15 0" animation="property: position; to: 2.5 0.9 -3; dir: alternate; dur: 1700; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+        <a-text id="reading-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="mission-listening-scene" visible="false">
+      <a-entity environment="preset: forest; skyColor: #ff2222"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.3" color="#3498db" animation="property: position; to: 0 0.2 0; dir: alternate; dur: 500; loop: true"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#ecf0f1" animation="property: rotation; to: 0 360 0; dur: 2000; easing: linear; loop: true"></a-cylinder>
+      </a-entity>
+      <a-text id="listening-prompt" value="PRESS PLAY AUDIO" position="0 3 -3" align="center" color="#f1c40f"></a-text>
+
+      <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+        <a-text id="listening-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="0 0.5 -3">
+        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+        <a-text id="listening-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+        <a-text id="listening-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="mission-writing-scene" visible="false">
+      <a-entity environment="preset: starry; skyColor: #aa0000"></a-entity>
+      <a-plane position="0 1.5 -3" width="4" height="2" color="#ecf0f1">
+        <a-text id="writing-prompt" value="TERMINAL:\n..." color="#000" align="left" position="-1.8 0.5 0.01" width="3.5"></a-text>
+      </a-plane>
+    </a-entity>
+
+    <a-entity id="vr-feedback-fx" position="0 2.5 -2.5" visible="false">
+      <a-text id="vr-feedback-text" value="SUCCESS!" align="center" scale="1.5 1.5 1.5" color="#2ed573"></a-text>
+    </a-entity>
+
+    <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+
+    <a-entity camera look-controls position="0 1.6 0">
+      <a-cursor id="vr-cursor" color="#00e5ff" raycaster="objects: .clickable" animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150" visible="false"></a-cursor>
+    </a-entity>
+
+    <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+    <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+  </a-scene>
+
+  <script type="module" src="./js/lesson-main.js"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const ENDPOINT = window.TECHPATH_ATTENDANCE_ENDPOINT || '';
+    const PATCH = window.TECHPATH_ATTENDANCE_PATCH || 'attendance-inline';
+    const BUILD = window.TECHPATH_BUILD || '';
+    const q = new URLSearchParams(location.search);
+
+    function safeGetLS(key) {
+      try { return localStorage.getItem(key) || ''; } catch (_) { return ''; }
+    }
+    function safeSetLS(key, val) {
+      try { localStorage.setItem(key, val || ''); } catch (_) {}
+    }
+    function askOnce(key, label) {
+      const oldVal = safeGetLS(key);
+      if (oldVal) return oldVal;
+      const v = (prompt(label) || '').trim();
+      if (v) safeSetLS(key, v);
+      return v;
+    }
+
+    const context = {
+      studentId:
+        q.get('studentId') ||
+        q.get('sid') ||
+        q.get('pid') ||
+        safeGetLS('ENG_STUDENT_ID') ||
+        askOnce('ENG_STUDENT_ID', 'กรอกรหัสนักศึกษา'),
+      studentName:
+        q.get('name') ||
+        safeGetLS('ENG_STUDENT_NAME') ||
+        askOnce('ENG_STUDENT_NAME', 'กรอกชื่อผู้เรียน'),
+      classSection:
+        q.get('classSection') ||
+        q.get('section') ||
+        safeGetLS('ENG_CLASS_SECTION') ||
+        askOnce('ENG_CLASS_SECTION', 'กรอก section/ห้อง'),
+      lessonId:
+        q.get('lessonId') ||
+        q.get('unit') ||
+        q.get('course') ||
+        'techpath-vr',
+      courseMeeting:
+        q.get('meetingNo') ||
+        q.get('week') ||
+        q.get('meeting') ||
+        '',
+      pageUrl: location.href,
+      userAgent: navigator.userAgent
     };
-  }
 
-  const VOCAB_BANKS = {
-    A: [
-      makeTerm('software','software','ซอฟต์แวร์','Programs that run on a computer.',['hardware','dataset','server','algorithm','query','feature'],
-        'We install ______ on a computer.',
-        'Choose the word that fits: "Our team updates the ______ every sprint."',
-        'ข้อใดเกี่ยวข้องกับการติดตั้งโปรแกรมมากที่สุด?',
-        'A developer updates the product used by end users. Which term fits best?'),
-      makeTerm('debug','debug','แก้ข้อผิดพลาดของโปรแกรม','To find and fix errors in code.',['deploy','compile','commit','server','training','query'],
-        'Developers ______ code when the app crashes.',
-        'Choose the word that fits: "I need to ______ this bug before deployment."',
-        'ข้อใดเกี่ยวข้องกับการหาและแก้ error มากที่สุด?',
-        'Before release, the engineer traces the source of a crash. Which term fits best?'),
-      makeTerm('api','API','เอพีไอ','A way for software systems to communicate programmatically.',['button','dataset','model','loop','cache','table'],
-        'The mobile app calls an ______ to get data.',
-        'Choose the word that fits: "Our frontend sends a request to the ______."',
-        'ข้อใดเกี่ยวข้องกับการสื่อสารระหว่างระบบมากที่สุด?',
-        'A backend service exposes endpoints for another app. Which term fits best?'),
-      makeTerm('repository','repository','ที่เก็บโค้ดหรือไฟล์โครงการ','A storage location for project files and version history.',['server','feature','variable','accuracy','router','prompt'],
-        'Push your code to the ______.',
-        'Choose the word that fits: "The team stores source code in a shared ______."',
-        'ข้อใดเกี่ยวข้องกับที่เก็บโค้ดกลางมากที่สุด?',
-        'A team wants one place to track commits and branches. Which term fits best?'),
-      makeTerm('deployment','deployment','การนำระบบขึ้นใช้งานจริง','Releasing a system to real users.',['debug','training','embedding','table','branch','input'],
-        'After testing, the team starts ______.',
-        'Choose the word that fits: "Friday evening is not a good time for ______."',
-        'ข้อใดเกี่ยวข้องกับการปล่อยระบบจริงมากที่สุด?',
-        'An engineer publishes the latest stable version for customers. Which term fits best?'),
-      makeTerm('modularization','modularization','การแยกระบบเป็นโมดูล','Breaking a system into smaller independent modules.',['bandwidth','dataset','token','query','accuracy','login'],
-        'Good ______ makes maintenance easier.',
-        'Choose the word that fits: "We refactor the codebase through better ______."',
-        'ข้อใดเกี่ยวข้องกับการทำระบบให้แยกส่วนมากที่สุด?',
-        'A large app is split into reusable parts to improve maintainability. Which term fits best?')
-    ],
-    B: [
-      makeTerm('database','database','ฐานข้อมูล','An organized system for storing data.',['query','server','record','cloud','api','feature'],
-        'A hospital stores patient records in a ______.',
-        'Choose the word that fits: "The app reads user profiles from the ______."',
-        'ข้อใดเหมาะที่สุดสำหรับเก็บข้อมูลอย่างเป็นระบบ?',
-        'A company needs structured storage for millions of rows. Which term fits best?'),
-      makeTerm('query','query','คำสั่งค้นหรือดึงข้อมูล','A request to retrieve or filter data.',['record','server','cache','table','bug','branch'],
-        'We write an SQL ______ to search data.',
-        'Choose the word that fits: "This ______ returns only active users."',
-        'ข้อใดเกี่ยวข้องกับการค้นข้อมูลในตารางมากที่สุด?',
-        'An analyst filters records by date and status. Which term fits best?'),
-      makeTerm('server','server','เครื่องที่ให้บริการแก่เครื่องอื่น','A computer that provides services or data.',['client','protocol','router','dataset','gradient','token'],
-        'A web ______ sends pages to users.',
-        'Choose the word that fits: "The backend runs on a cloud ______."',
-        'ข้อใดทำหน้าที่ให้บริการข้อมูลบนเครือข่ายมากที่สุด?',
-        'A machine hosts an application and responds to requests. Which term fits best?'),
-      makeTerm('authentication','authentication','การยืนยันตัวตน','Checking a user’s identity.',['authorization','dataset','inference','commit','screen','loop'],
-        'Login starts with user ______.',
-        'Choose the word that fits: "Two-factor ______ improves account security."',
-        'ข้อใดเกี่ยวข้องกับการตรวจสอบว่าเป็นใครมากที่สุด?',
-        'A system asks for a password and one-time code. Which term fits best?'),
-      makeTerm('pipeline','pipeline','ลำดับขั้นตอนการประมวลผล','A sequence of processing steps.',['branch','folder','button','training set','device','tokenization'],
-        'The team builds a data ______.',
-        'Choose the word that fits: "Our CI/CD ______ runs tests automatically."',
-        'ข้อใดเกี่ยวข้องกับลำดับงานต่อเนื่องมากที่สุด?',
-        'Data moves from collection to cleaning to reporting through several steps. Which term fits best?'),
-      makeTerm('etl','ETL','การดึง แปลง และโหลดข้อมูล','Extract, transform, and load data into a target system.',['api','cache','accuracy','compile','deploy','prompt'],
-        'Nightly ______ jobs move data into the warehouse.',
-        'Choose the word that fits: "The analyst scheduled an ______ process for reporting."',
-        'ข้อใดเกี่ยวข้องกับการดึง แปลง และโหลดข้อมูลมากที่สุด?',
-        'A company combines data from many sources into one reporting system. Which term fits best?')
-    ],
-    C: [
-      makeTerm('model','model','แบบจำลองที่ใช้ทำนายหรือจำแนก','A trained system used to predict or classify.',['feature','dataset','server','query','interface','storage'],
-        'The AI ______ predicts customer churn.',
-        'Choose the word that fits: "We deploy the best-performing ______ to production."',
-        'ข้อใดเกี่ยวข้องกับระบบที่ผ่านการฝึกแล้วมากที่สุด?',
-        'A data scientist uses a trained system to make predictions. Which term fits best?'),
-      makeTerm('feature','feature','ตัวแปรนำเข้าของโมเดล','An input variable used by a model.',['label','accuracy','gradient','server','api','folder'],
-        'Age can be a ______ in machine learning.',
-        'Choose the word that fits: "Income is one important ______ in this dataset."',
-        'ข้อใดเกี่ยวข้องกับข้อมูลนำเข้าของโมเดลมากที่สุด?',
-        'A model uses age, income, and clicks as inputs. Which term fits best?'),
-      makeTerm('accuracy','accuracy','ความแม่นยำ','How often a model is correct.',['bias','precision','recall','token','compile','branch'],
-        '90% ______ means most predictions are correct.',
-        'Choose the word that fits: "We improved the ______ from 82% to 89%."',
-        'ข้อใดใช้วัดว่าโมเดลตอบถูกบ่อยแค่ไหน?',
-        'A model makes correct predictions in 95 out of 100 cases. Which term fits best?'),
-      makeTerm('embedding','embedding','เวกเตอร์แทนความหมาย','A numeric representation of meaning.',['token','epoch','cache','server','merge','router'],
-        'The search system compares text using an ______.',
-        'Choose the word that fits: "Similar words often have similar ______ vectors."',
-        'ข้อใดเกี่ยวข้องกับการแทนความหมายเชิงตัวเลขมากที่สุด?',
-        'A retrieval system converts sentences into vectors for semantic search. Which term fits best?'),
-      makeTerm('tokenization','tokenization','การตัดข้อความเป็นหน่วยย่อย','Splitting text into smaller units for processing.',['embedding','feature','database','storage','compile','authorization'],
-        'Before training, the text goes through ______.',
-        'Choose the word that fits: "The NLP pipeline begins with ______."',
-        'ข้อใดเกี่ยวข้องกับการแบ่งข้อความเป็นหน่วยมากที่สุด?',
-        'A language model first breaks text into smaller pieces before processing. Which term fits best?'),
-      makeTerm('fine_tuning','fine-tuning','การปรับโมเดลที่ฝึกไว้แล้วให้เหมาะงานย่อย','Adapting a pretrained model to a specific task.',['deployment','query','latency','button','dataset','router'],
-        'The team uses ______ to adapt the model for Thai support.',
-        'Choose the word that fits: "We improve task performance through ______."',
-        'ข้อใดเกี่ยวข้องกับการปรับโมเดลเดิมให้เหมาะงานใหม่มากที่สุด?',
-        'An organization adapts a pretrained model for customer support in its own domain. Which term fits best?')
-    ]
-  };
+    safeSetLS('ENG_STUDENT_ID', context.studentId);
+    safeSetLS('ENG_STUDENT_NAME', context.studentName);
+    safeSetLS('ENG_CLASS_SECTION', context.classSection);
 
-  const V9 = {
-    bank: 'A',
-    mode: 'code_battle',
-    score: 0,
-    combo: 0,
-    hp: 5,
-    bossHp: 320,
-    bossMaxHp: 320,
-    bossPhase: 1,
-    bossAttackAt: 0,
-    runDifficulty: 'easy',
-    currentItem: null,
-    usedVariantIds: new Set(),
-    usedTermIds: [],
-    reviewQueue: [],
-    mastery: {},
-    stageIndex: 0,
-    maxStages: 18,
-    countdown: 3
-  };
-
-  let width = 0;
-  let height = 0;
-  let dpr = 1;
-  let mouseX = 0;
-  let mouseY = 0;
-  let hoveredId = null;
-  let targets = [];
-  let phase = 'idle';
-  let phaseUntil = 0;
-  let roundStart = 0;
-  let roundDuration = 6000;
-  let timeLeft = 1;
-  let profile = { displayName: 'Player', studentId: '' };
-  let lastSummary = null;
-  let leaderboardOpenedFromEnd = false;
-
-  function resize(){
-    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    width = innerWidth;
-    height = innerHeight;
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  function now(){ return performance.now(); }
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-  function setText(el, value){ if (el) el.textContent = value; }
-
-  function shuffle(arr){
-    const a = arr.slice();
-    for(let i=a.length-1;i>0;i--){
-      const j = Math.floor(Math.random() * (i+1));
-      [a[i],a[j]] = [a[j],a[i]];
-    }
-    return a;
-  }
-
-  function center(){
-    return { x: width * 0.5, y: height * 0.60 };
-  }
-
-  function loadProfile(){
-    try{
-      const raw = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}');
-      profile.displayName = raw.displayName || 'Player';
-      profile.studentId = raw.studentId || '';
-      if (els.displayNameInput) els.displayNameInput.value = profile.displayName === 'Player' ? '' : profile.displayName;
-      if (els.studentIdInput) els.studentIdInput.value = profile.studentId;
-    }catch(e){}
-  }
-
-  function saveProfile(){
-    profile.displayName = (els.displayNameInput.value || '').trim() || 'Player';
-    profile.studentId = (els.studentIdInput.value || '').trim();
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-  }
-
-  function ensureMastery(termId){
-    if(!V9.mastery[termId]){
-      V9.mastery[termId] = {
-        level: 'easy',
-        streak: 0,
-        seen: 0,
-        correct: 0,
-        wrong: 0,
-        highestLevel: 'easy',
-        lastTypes: [],
-        reviewCount: 0,
-        reviewRecovered: 0
-      };
-    }
-    return V9.mastery[termId];
-  }
-
-  function levelRank(level){
-    return level === 'easy' ? 1 : level === 'normal' ? 2 : 3;
-  }
-
-  function promoteLevel(level){
-    return level === 'easy' ? 'normal' : level === 'normal' ? 'hard' : 'hard';
-  }
-
-  function demoteLevel(level){
-    return level === 'hard' ? 'normal' : level === 'normal' ? 'easy' : 'easy';
-  }
-
-  function modeMeta(){
-    return {
-      code_battle: { damage: 20, baseTime: 6200, title:'CODE BATTLE' },
-      debug_mission: { damage: 16, baseTime: 7000, title:'DEBUG MISSION' },
-      ai_training: { damage: 18, baseTime: 6800, title:'AI TRAINING SIM' },
-      speed_run: { damage: 14, baseTime: 4200, title:'SPEED RUN' }
-    }[V9.mode];
-  }
-
-  function bossBaseHp(){
-    const byMode = {
-      code_battle: 360,
-      debug_mission: 320,
-      ai_training: 340,
-      speed_run: 260
-    };
-    return byMode[V9.mode] || 320;
-  }
-
-  function updateBossPhase(){
-    const ratio = V9.bossMaxHp > 0 ? V9.bossHp / V9.bossMaxHp : 0;
-    let nextPhase = 1;
-    if (ratio <= 0.40) nextPhase = 3;
-    else if (ratio <= 0.70) nextPhase = 2;
-
-    if (nextPhase !== V9.bossPhase){
-      V9.bossPhase = nextPhase;
-      if (nextPhase === 2) showFeedback('BOSS PHASE 2', 'warn');
-      if (nextPhase === 3) showFeedback('RAGE MODE', 'bad');
-    }
-  }
-
-  function bossAttackInterval(){
-    return V9.bossPhase === 1 ? 5200 : V9.bossPhase === 2 ? 4200 : 3200;
-  }
-
-  function bossPenaltyOnWrong(){
-    return V9.bossPhase === 1 ? 1 : 2;
-  }
-
-  function bossDamageFromCorrect(){
-    const base = modeMeta().damage;
-    const comboBonus = Math.min(V9.combo * 2, 14);
-    const phaseMod = V9.bossPhase === 3 ? -4 : V9.bossPhase === 2 ? -2 : 0;
-    return Math.max(8, base - 6 + comboBonus + phaseMod);
-  }
-
-  function updateRunDifficulty(){
-    if (V9.combo >= 8) V9.runDifficulty = 'hard';
-    else if (V9.combo >= 4) V9.runDifficulty = 'normal';
-    else V9.runDifficulty = 'easy';
-
-    if (V9.hp <= 2 && V9.runDifficulty === 'hard') V9.runDifficulty = 'normal';
-    if (V9.hp <= 1) V9.runDifficulty = 'easy';
-  }
-
-  function updateMasteryAfterAnswer(termId, isCorrect, variantType, fromReview){
-    const m = ensureMastery(termId);
-    m.seen += 1;
-
-    if (isCorrect){
-      m.correct += 1;
-      m.streak += 1;
-      if (fromReview) m.reviewRecovered += 1;
-      if (m.streak >= 2){
-        m.level = promoteLevel(m.level);
-        m.streak = 0;
-      }
-    } else {
-      m.wrong += 1;
-      m.streak = 0;
-      m.level = demoteLevel(m.level);
-      if (fromReview) m.reviewCount += 1;
+    function makeId(prefix) {
+      return [prefix, Date.now(), Math.random().toString(36).slice(2, 8)].join('-');
     }
 
-    if (levelRank(m.level) > levelRank(m.highestLevel)) m.highestLevel = m.level;
-    m.lastTypes.push(variantType);
-    if (m.lastTypes.length > 5) m.lastTypes.shift();
-  }
-
-  function enqueueReview(termId){
-    if (!V9.reviewQueue.includes(termId)) V9.reviewQueue.push(termId);
-  }
-
-  function takeReviewTermId(){
-    return V9.reviewQueue.length ? V9.reviewQueue.shift() : null;
-  }
-
-  function getCurrentBankTerms(){
-    return VOCAB_BANKS[V9.bank] || [];
-  }
-
-  function pickNextTermObject(){
-    const terms = getCurrentBankTerms();
-    if (!terms.length) return null;
-
-    const shouldUseReview = V9.stageIndex > 0 && V9.stageIndex % 4 === 0;
-    if (shouldUseReview){
-      const reviewId = takeReviewTermId();
-      if (reviewId){
-        const found = terms.find(t => t.id === reviewId);
-        if (found) return { termObj: found, fromReview: true };
-      }
+    function nowIso() {
+      return new Date().toISOString();
     }
 
-    const recent = V9.usedTermIds.slice(-3);
-    let candidates = terms.filter(t => !recent.includes(t.id));
-    if (!candidates.length) candidates = terms.slice();
-    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-    return { termObj: chosen, fromReview: false };
-  }
-
-  function pickVariantForTerm(termObj){
-    const mastery = ensureMastery(termObj.id);
-    const level = mastery.level;
-    const pool = termObj.variants[level] || [];
-
-    let candidates = pool.filter(v => !V9.usedVariantIds.has(v.id));
-    candidates = candidates.filter(v => !mastery.lastTypes.includes(v.type));
-    if (!candidates.length) candidates = pool.filter(v => !V9.usedVariantIds.has(v.id));
-    if (!candidates.length) candidates = pool.slice();
-
-    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-    return Object.assign({}, chosen, {
-      level,
-      termId: termObj.id,
-      term: termObj.term,
-      th: termObj.th,
-      definition: termObj.definition,
-      distractorPool: termObj.distractorPool
-    });
-  }
-
-  function buildChoices(item){
-    const bankTerms = getCurrentBankTerms();
-
-    if (item.type === 'en_to_th'){
-      const thaiPool = bankTerms.filter(t => t.id !== item.termId).map(t => t.th);
-      return shuffle([item.answer].concat(thaiPool.slice(0,3)));
+    function parseSessionNo(n) {
+      const num = Number(n || 0);
+      if (!Number.isFinite(num) || num <= 0) return '';
+      return 'S' + String(num).padStart(2, '0');
     }
 
-    let distractors = (item.distractorPool || []).filter(d => d !== item.answer);
-    if (V9.runDifficulty === 'easy') distractors = distractors.slice(0,3);
-    if (V9.runDifficulty === 'normal') distractors = distractors.slice(0,3);
-    if (V9.runDifficulty === 'hard') distractors = distractors.reverse().slice(0,3);
-
-    return shuffle([item.answer].concat(distractors));
-  }
-
-  function buildQuestionItem(){
-    const picked = pickNextTermObject();
-    if (!picked) return null;
-
-    const termObj = picked.termObj;
-    const fromReview = picked.fromReview;
-    const variant = pickVariantForTerm(termObj);
-
-    V9.usedVariantIds.add(variant.id);
-    V9.usedTermIds.push(termObj.id);
-
-    return Object.assign({}, variant, {
-      fromReview,
-      choices: buildChoices(variant)
-    });
-  }
-
-  function renderQuestionBox(item){
-    const meta = modeMeta().title + ' • ' + item.type.toUpperCase() + ' • ' + item.level.toUpperCase() + (item.fromReview ? ' • REVIEW' : '');
-    els.questionBox.innerHTML =
-      '<div class="q-meta">' + meta + '</div>' +
-      '<div class="q-prompt">' + item.prompt + '</div>';
-  }
-
-  function showFeedback(text, kind){
-    if (!els.feedbackBox) return;
-    els.feedbackBox.textContent = text;
-    els.feedbackBox.className = '';
-    els.feedbackBox.id = 'feedbackBox';
-    els.feedbackBox.classList.add('show', kind);
-    setTimeout(() => {
-      if (els.feedbackBox) els.feedbackBox.classList.remove('show');
-    }, 650);
-  }
-
-  function renderHud(){
-    const shownStage = Math.min(V9.stageIndex + 1, V9.maxStages);
-    setText(els.hudScore, 'Score ' + V9.score);
-    setText(els.hudRound, 'Stage ' + shownStage + ' / ' + V9.maxStages);
-    setText(els.hudCombo, 'Combo x' + V9.combo);
-    setText(els.hudMode, 'Difficulty ' + V9.runDifficulty.toUpperCase());
-    setText(els.hudHp, 'HP ' + V9.hp + ' • Boss ' + Math.max(0, V9.bossHp) + '/' + V9.bossMaxHp);
-    setText(els.hudState, phase.toUpperCase() + ' • ' + V9.bank + ' • ' + modeMeta().title + ' • P' + V9.bossPhase);
-    setText(els.hudPrompt, V9.currentItem ? (V9.currentItem.term.toUpperCase() + ' • ESP battle') : 'Contextual learning • adaptive difficulty • review queue');
-    if (els.timeFill) els.timeFill.style.transform = 'scaleX(' + timeLeft + ')';
-  }
-
-  function spawnTargetsFromChoices(choices){
-    const c = center();
-    const mobile = width < 860;
-
-    if (mobile){
-      const ys = [height * 0.40, height * 0.54, height * 0.68, height * 0.82];
-      targets = choices.map((choice, i) => ({
-        id: 'target_' + i + '_' + Date.now(),
-        text: String(choice).toUpperCase(),
-        rawText: String(choice).toLowerCase(),
-        x: c.x,
-        y: ys[i] || (height * 0.4 + i * 90),
-        angle:0,
-        radiusBase:0,
-        radiusPulse:0,
-        speed:0,
-        w: Math.min(320, width * 0.76),
-        h: 74,
-        scale:1,
-        z:1,
-        color:['#67e8f9','#fde047','#f472b6','#a78bfa'][i%4],
-        hitFlash:0,
-        mobile:true
-      }));
-      return;
+    function fmtSec(sec) {
+      const n = Math.max(0, Math.round(Number(sec) || 0));
+      const mm = String(Math.floor(n / 60)).padStart(2, '0');
+      const ss = String(n % 60).padStart(2, '0');
+      return mm + ':' + ss;
     }
 
-    targets = choices.map((choice, i) => {
-      const angle = (Math.PI * 2 / choices.length) * i;
+    function getEl(id) {
+      return document.getElementById(id);
+    }
+
+    function getText(id) {
+      const el = getEl(id);
+      return el ? String(el.textContent || el.innerText || '').trim() : '';
+    }
+
+    function setText(id, value) {
+      const el = getEl(id);
+      if (el) el.textContent = value;
+    }
+
+    function isShown(el) {
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
+    }
+
+    function parseMissionIdFromTitle() {
+      const title = getText('ui-title');
+      const m = title.match(/SESSION\s+(\d+)/i);
+      return m ? Number(m[1]) : null;
+    }
+
+    function readScore() {
+      const raw = getText('score-display').replace(/[^\d.-]/g, '');
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function readHP() {
+      return getText('hp-display');
+    }
+
+    function summarySnapshot() {
       return {
-        id:'target_' + i + '_' + Date.now(),
-        text:String(choice).toUpperCase(),
-        rawText:String(choice).toLowerCase(),
-        x:c.x + Math.cos(angle) * 180,
-        y:c.y + Math.sin(angle) * 50,
-        angle,
-        radiusBase:180,
-        radiusPulse:20,
-        speed:0.012 + i * 0.002,
-        w:250,
-        h:84,
-        scale:1,
-        z:0.8,
-        color:['#67e8f9','#fde047','#f472b6','#a78bfa'][i%4],
-        hitFlash:0,
-        mobile:false
+        summaryTitle: getText('summary-title'),
+        summaryBody: getText('summary-body'),
+        feedback: getText('feedback'),
+        uiTitle: getText('ui-title'),
+        btnNextVisible: isShown(getEl('btn-next')),
+        btnReturnVisible: isShown(getEl('btn-return')),
+        gameOverVisible: isShown(getEl('game-over-ui'))
       };
-    });
-  }
-
-  function updateTargets(time){
-    const c = center();
-    hoveredId = null;
-
-    targets.forEach((t, i) => {
-      if (!t.mobile){
-        t.angle += t.speed;
-        const radius = t.radiusBase + Math.sin(time * 0.002 + i) * t.radiusPulse;
-        t.x = c.x + Math.cos(t.angle) * radius;
-        t.y = c.y + Math.sin(t.angle * 1.8 + time * 0.0013) * 44;
-        t.z = 0.75 + (Math.sin(t.angle * 1.3 + time * 0.001) + 1) * 0.15;
-        t.scale = 1 + (t.z - 0.75) * 0.7;
-      }
-
-      t.hitFlash = Math.max(0, t.hitFlash - 0.05);
-      if (pointInTarget(mouseX, mouseY, t)) hoveredId = t.id;
-    });
-  }
-
-  function drawRoundRect(ctx, x, y, w, h, r){
-    ctx.beginPath();
-    ctx.moveTo(x+r,y);
-    ctx.lineTo(x+w-r,y);
-    ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-    ctx.lineTo(x+w,y+h-r);
-    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-    ctx.lineTo(x+r,y+h);
-    ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-    ctx.lineTo(x,y+r);
-    ctx.quadraticCurveTo(x,y,x+r,y);
-    ctx.closePath();
-  }
-
-  function renderTargets(){
-    const sorted = targets.slice().sort((a,b) => a.z - b.z);
-
-    sorted.forEach(t => {
-      ctx.save();
-      ctx.translate(t.x, t.y);
-      ctx.scale(t.scale, t.scale);
-
-      ctx.globalAlpha = 0.28 + t.hitFlash * 0.4;
-      ctx.beginPath();
-      ctx.arc(0,0,68,0,Math.PI*2);
-      ctx.fillStyle = t.color;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      ctx.lineWidth = hoveredId === t.id ? 8 : 6;
-      ctx.strokeStyle = t.color;
-
-      const w = t.mobile ? t.w : 250;
-      const h = t.mobile ? t.h : 84;
-
-      drawRoundRect(ctx, -w/2, -h/2, w, h, 20);
-      ctx.stroke();
-
-      drawRoundRect(ctx, -w/2 + 10, -h/2 + 8, w - 20, h - 16, 16);
-      ctx.fillStyle = hoveredId === t.id ? '#fff7ed' : '#fff';
-      ctx.fill();
-
-      ctx.fillStyle = '#111827';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = '800 ' + (t.mobile ? 20 : (hoveredId === t.id ? 28 : 26)) + 'px Arial';
-      wrapText(ctx, t.text, 0, 0, w - 40, 2, t.mobile ? 20 : 26);
-
-      ctx.restore();
-    });
-  }
-
-  function wrapText(ctx, text, cx, cy, maxW, maxLines, fs){
-    ctx.font = '800 ' + fs + 'px Arial';
-    const words = String(text).split(' ');
-    const lines = [];
-    let line = '';
-
-    for (const word of words){
-      const test = line ? line + ' ' + word : word;
-      if (ctx.measureText(test).width <= maxW || !line) line = test;
-      else {
-        lines.push(line);
-        line = word;
-      }
     }
 
-    if (line) lines.push(line);
-
-    const use = lines.slice(0, maxLines);
-    const lh = fs * 1.16;
-    const sy = cy - ((use.length - 1) * lh) / 2;
-    use.forEach((ln, i) => ctx.fillText(ln, cx, sy + i * lh));
-  }
-
-  function pointInTarget(x, y, t){
-    const w = t.w * t.scale;
-    const h = t.h * t.scale;
-    return x >= t.x - w/2 && x <= t.x + w/2 && y >= t.y - h/2 && y <= t.y + h/2;
-  }
-
-  function getTargetAtPoint(x, y){
-    const sorted = targets.slice().sort((a,b) => b.z - a.z);
-    return sorted.find(t => pointInTarget(x, y, t)) || null;
-  }
-
-  function getWeakestTerms(limit){
-    return Object.entries(V9.mastery)
-      .sort((a,b) => {
-        const wrongDiff = b[1].wrong - a[1].wrong;
-        if (wrongDiff !== 0) return wrongDiff;
-        return a[1].correct - b[1].correct;
-      })
-      .slice(0, limit);
-  }
-
-  async function saveScoreRealtime(entry){
-    return Promise.resolve(entry);
-  }
-
-  function loadLeaderboard(){
-    try{
-      return JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || '[]');
-    }catch(e){
-      return [];
-    }
-  }
-
-  function saveLeaderboard(rows){
-    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(rows.slice(0,200)));
-  }
-
-  function leaderboardKeyOf(entry){
-    const sid = String(entry.studentId || '').trim();
-    const name = String(entry.displayName || '').trim();
-    return sid || name || 'anonymous';
-  }
-
-  function bestUniqueLeaderboard(rows){
-    const bestMap = new Map();
-
-    rows.forEach(entry => {
-      const key = leaderboardKeyOf(entry);
-      const prev = bestMap.get(key);
-      if (!prev){
-        bestMap.set(key, entry);
-        return;
-      }
-
-      const prevScore = Number(prev.score || 0);
-      const nextScore = Number(entry.score || 0);
-      const prevAcc = Number(prev.accuracy || 0);
-      const nextAcc = Number(entry.accuracy || 0);
-
-      if (nextScore > prevScore || (nextScore === prevScore && nextAcc > prevAcc)){
-        bestMap.set(key, entry);
-      }
-    });
-
-    return Array.from(bestMap.values()).sort((a,b) => {
-      const scoreDiff = Number(b.score || 0) - Number(a.score || 0);
-      if (scoreDiff !== 0) return scoreDiff;
-
-      const accDiff = Number(b.accuracy || 0) - Number(a.accuracy || 0);
-      if (accDiff !== 0) return accDiff;
-
-      return String(a.displayName || '').localeCompare(String(b.displayName || ''));
-    });
-  }
-
-  function pushLeaderboardEntry(entry){
-    const rows = loadLeaderboard();
-    rows.push(entry);
-    saveLeaderboard(rows);
-    renderMenuTop3();
-  }
-
-  function renderMenuTop3(){
-    const rows = bestUniqueLeaderboard(loadLeaderboard()).slice(0,3);
-    if (!els.menuTop3Board) return;
-
-    els.menuTop3Board.innerHTML = '';
-
-    if (!rows.length){
-      els.menuTop3Board.innerHTML = '<div class="top3Card"><div class="rank">—</div><div class="name">ยังไม่มีคะแนน</div><div class="meta">เริ่มเล่นเพื่อขึ้นอันดับ</div></div>';
-      return;
-    }
-
-    rows.forEach((r,i) => {
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-      const div = document.createElement('div');
-      div.className = 'top3Card';
-      div.innerHTML =
-        '<div class="rank">' + medal + '</div>' +
-        '<div class="name">' + (r.displayName || 'Player') + '</div>' +
-        '<div class="meta">Best Score ' + (r.score || 0) + '</div>' +
-        '<div class="meta">Accuracy ' + (r.accuracy || 0) + '%</div>';
-      els.menuTop3Board.appendChild(div);
-    });
-  }
-
-  function renderLeaderboard(){
-    const rows = bestUniqueLeaderboard(loadLeaderboard());
-    renderMenuTop3();
-    els.leaderboardList.innerHTML = '';
-
-    if (!rows.length){
-      const li = document.createElement('li');
-      li.textContent = 'ยังไม่มี leaderboard';
-      els.leaderboardList.appendChild(li);
-      return;
-    }
-
-    rows.slice(0,10).forEach((r,i) => {
-      const li = document.createElement('li');
-      li.innerHTML =
-        '<strong>#' + (i+1) + ' ' + (r.displayName || 'Player') + '</strong>' +
-        '<div class="small mono">Best Score ' + (r.score || 0) +
-        ' • Accuracy ' + (r.accuracy || 0) +
-        '% • Bank ' + (r.bank || '-') +
-        ' • Mode ' + (r.mode || '-') +
-        ' • ' + (r.when || '-') + '</div>';
-      els.leaderboardList.appendChild(li);
-    });
-  }
-
-  function buildRealtimeEntryFromSummary(summary){
-    const totalSeen = Object.values(summary.mastery).reduce((s,m) => s + m.seen, 0);
-    const totalCorrect = Object.values(summary.mastery).reduce((s,m) => s + m.correct, 0);
-    const accuracy = totalSeen ? Math.round((totalCorrect / totalSeen) * 100) : 0;
-    const weakest = summary.weakestTerms.map(([term]) => term).join('|');
-
-    return {
-      uid: 'anon-' + Math.random().toString(36).slice(2,10),
-      displayName: profile.displayName || 'Player',
-      studentId: profile.studentId || '',
-      bank: V9.bank,
-      mode: V9.mode,
-      score: summary.score,
-      accuracy,
-      improvement: 0,
-      weakestTerm: weakest,
-      when: new Date().toISOString()
+    const runtime = {
+      pageVisitId: makeId('PAGE'),
+      pageEnterMs: Date.now(),
+      pageEnteredAt: nowIso(),
+      pageStartedAt: '',
+      pageLastActiveAt: '',
+      pageLastActionMs: 0,
+      pageActiveTimeMs: 0,
+      pageActionsCount: 0,
+      currentAttempt: null,
+      readyForNewAttempt: true,
+      lastDetectedMissionId: null
     };
-  }
 
-  function renderTeacherDashboard(summary){
-    localStorage.setItem(TEACHER_KEY, JSON.stringify(summary));
-    els.teacherTable.innerHTML = '';
+    function syncIdentityFromInputs() {
+      const profileName = (getEl('profile-name-input')?.value || '').trim();
+      const scoreName = (getEl('player-name-input')?.value || '').trim();
+      const nextName = profileName || scoreName || context.studentName || '';
+      if (nextName && nextName !== context.studentName) {
+        context.studentName = nextName;
+        safeSetLS('ENG_STUDENT_NAME', nextName);
+      }
+      if (context.studentId) safeSetLS('ENG_STUDENT_ID', context.studentId);
+      if (context.classSection) safeSetLS('ENG_CLASS_SECTION', context.classSection);
+    }
 
-    const rows = Object.entries(summary.mastery).sort((a,b) => {
-      const wrongDiff = b[1].wrong - a[1].wrong;
-      if (wrongDiff !== 0) return wrongDiff;
-      return a[0].localeCompare(b[0]);
-    });
+    function seedIdentityInputs() {
+      const p1 = getEl('profile-name-input');
+      const p2 = getEl('player-name-input');
+      if (p1 && !p1.value && context.studentName) p1.value = context.studentName;
+      if (p2 && !p2.value && context.studentName) p2.value = context.studentName;
+    }
 
-    if (!rows.length){
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="6">No data yet</td>';
-      els.teacherTable.appendChild(tr);
-    } else {
-      rows.forEach(([term, m]) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML =
-          '<td>' + term.toUpperCase() + '</td>' +
-          '<td>' + m.seen + '</td>' +
-          '<td>' + m.correct + '</td>' +
-          '<td>' + m.wrong + '</td>' +
-          '<td>' + m.level + '</td>' +
-          '<td>' + m.highestLevel + '</td>';
-        els.teacherTable.appendChild(tr);
+    function calcDurationSec(target) {
+      const endMs = target.finishedMs || Date.now();
+      return Math.max(0, Math.round((endMs - target.enterMs) / 1000));
+    }
+
+    function calcActiveSec(target) {
+      return Math.max(0, Math.round((target.activeTimeMs || 0) / 1000));
+    }
+
+    function updatePageActivity() {
+      const now = Date.now();
+      if (!runtime.pageStartedAt) runtime.pageStartedAt = new Date(now).toISOString();
+      if (runtime.pageLastActionMs) {
+        const gap = now - runtime.pageLastActionMs;
+        runtime.pageActiveTimeMs += Math.min(gap, 15000);
+      }
+      runtime.pageLastActionMs = now;
+      runtime.pageLastActiveAt = new Date(now).toISOString();
+      runtime.pageActionsCount += 1;
+    }
+
+    function updateAttemptActivity() {
+      const a = runtime.currentAttempt;
+      if (!a || a.isFinished) return;
+      const now = Date.now();
+      if (!a.startedAt) a.startedAt = new Date(now).toISOString();
+      if (a.lastActionMs) {
+        const gap = now - a.lastActionMs;
+        a.activeTimeMs += Math.min(gap, 15000);
+      }
+      a.lastActionMs = now;
+      a.lastActiveAt = new Date(now).toISOString();
+      a.actionsCount += 1;
+    }
+
+    function registerActivity(source) {
+      syncIdentityFromInputs();
+      updatePageActivity();
+      if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+        updateAttemptActivity();
+      }
+      renderAttendancePanel(source || '');
+    }
+
+    function buildPayload(eventType, extra, forcePageTarget) {
+      syncIdentityFromInputs();
+
+      const usingPageTarget = !!forcePageTarget || !runtime.currentAttempt;
+      const a = usingPageTarget ? null : runtime.currentAttempt;
+
+      return {
+        eventType: eventType,
+        visitId: a ? a.attemptId : runtime.pageVisitId,
+        studentId: context.studentId || '',
+        studentName: context.studentName || '',
+        classSection: context.classSection || '',
+        sessionNo: a ? a.sessionNo : '',
+        lessonId: context.lessonId || '',
+        clientTs: nowIso(),
+        enteredAt: a ? a.enteredAt : runtime.pageEnteredAt,
+        startedAt: a ? (a.startedAt || '') : (runtime.pageStartedAt || ''),
+        finishedAt: a ? (a.finishedAt || '') : '',
+        lastActiveAt: a ? (a.lastActiveAt || '') : (runtime.pageLastActiveAt || ''),
+        durationSec: a ? calcDurationSec(a) : Math.max(0, Math.round((Date.now() - runtime.pageEnterMs) / 1000)),
+        activeTimeSec: a ? calcActiveSec(a) : Math.max(0, Math.round(runtime.pageActiveTimeMs / 1000)),
+        actionsCount: a ? a.actionsCount : runtime.pageActionsCount,
+        score: readScore(),
+        completed: a ? !!a.completed : false,
+        pageUrl: context.pageUrl,
+        userAgent: context.userAgent,
+        extra: Object.assign({
+          patch: PATCH,
+          build: BUILD,
+          pageVisitId: runtime.pageVisitId,
+          missionId: a ? a.missionId : '',
+          hp: readHP(),
+          courseMeeting: context.courseMeeting || '',
+          title: getText('ui-title')
+        }, extra || {})
+      };
+    }
+
+    function flattenPayload(data) {
+      return {
+        eventType: data.eventType || '',
+        visitId: data.visitId || '',
+        studentId: data.studentId || '',
+        studentName: data.studentName || '',
+        classSection: data.classSection || '',
+        sessionNo: data.sessionNo || '',
+        lessonId: data.lessonId || '',
+        clientTs: data.clientTs || '',
+        enteredAt: data.enteredAt || '',
+        startedAt: data.startedAt || '',
+        finishedAt: data.finishedAt || '',
+        lastActiveAt: data.lastActiveAt || '',
+        durationSec: data.durationSec || 0,
+        activeTimeSec: data.activeTimeSec || 0,
+        actionsCount: data.actionsCount || 0,
+        score: data.score || 0,
+        completed: String(!!data.completed),
+        pageUrl: data.pageUrl || location.href,
+        userAgent: data.userAgent || navigator.userAgent,
+        extraJson: JSON.stringify(data.extra || {})
+      };
+    }
+
+    function send(payload) {
+      if (!ENDPOINT) return;
+      const flat = flattenPayload(payload);
+
+      try {
+        const qs = new URLSearchParams();
+        Object.keys(flat).forEach((k) => qs.set(k, String(flat[k])));
+        const url = ENDPOINT + '?' + qs.toString();
+        if (url.length < 1900) {
+          const img = new Image();
+          img.referrerPolicy = 'no-referrer';
+          img.src = url;
+        }
+      } catch (_) {}
+
+      try {
+        fetch(ENDPOINT, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        }).catch(function () {});
+      } catch (_) {}
+    }
+
+    function log(eventType, extra, forcePageTarget) {
+      const payload = buildPayload(eventType, extra, forcePageTarget);
+      send(payload);
+      renderAttendancePanel(eventType);
+    }
+
+    function deriveAttemptResult(reason) {
+      const snap = summarySnapshot();
+      const text = [snap.summaryTitle, snap.summaryBody, snap.feedback].join(' ').toLowerCase();
+
+      const failish =
+        text.includes('outcome: fail') ||
+        text.includes('system offline') ||
+        text.includes('time up') ||
+        text.includes('fail');
+
+      const successish =
+        snap.btnNextVisible ||
+        text.includes('clear') ||
+        text.includes('unit clear') ||
+        text.includes('success');
+
+      let result = 'ended';
+      let completed = false;
+
+      if (successish && !failish) {
+        result = 'completed';
+        completed = true;
+      } else if (failish) {
+        result = 'failed';
+        completed = false;
+      } else if (reason === 'leave' || reason === 'unload') {
+        result = 'left';
+      }
+
+      return {
+        result,
+        completed,
+        summaryBody: snap.summaryBody,
+        feedback: snap.feedback,
+        btnNextVisible: snap.btnNextVisible
+      };
+    }
+
+    function updateAppViewportHeight() {
+      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty('--app-vh', `${h}px`);
+    }
+
+    function bindAttendanceToggle() {
+      const panel = getEl('attendance-panel');
+      const btn = getEl('attendance-toggle');
+      if (!panel || !btn) return;
+
+      btn.addEventListener('click', function () {
+        const compact = panel.classList.toggle('compact');
+        btn.setAttribute('aria-expanded', String(!compact));
+        btn.textContent = compact ? 'ดูรายละเอียด' : 'ย่อ';
       });
     }
 
-    els.weakList.innerHTML = '';
-    summary.weakestTerms.forEach(([term, m]) => {
-      const li = document.createElement('li');
-      li.innerHTML =
-        '<strong>' + term.toUpperCase() + '</strong> • wrong ' + m.wrong +
-        ' • correct ' + m.correct +
-        ' • highest ' + m.highestLevel;
-      els.weakList.appendChild(li);
-    });
-  }
+    function bindMobileInputFocusHelpers() {
+      const input = getEl('write-input');
+      if (!input) return;
 
-  async function endRun(){
-    if (phase === 'ended') return;
+      input.addEventListener('focus', function () {
+        if (window.innerWidth > 700) return;
+        setTimeout(() => {
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 250);
+      });
 
-    phase = 'ended';
-    targets = [];
-    V9.currentItem = null;
-    hoveredId = null;
-    timeLeft = 0;
-
-    const weakest = getWeakestTerms(5);
-    const summary = {
-      score: V9.score,
-      hp: V9.hp,
-      bossHp: V9.bossHp,
-      bossMaxHp: V9.bossMaxHp,
-      bossPhase: V9.bossPhase,
-      win: V9.bossHp <= 0,
-      stagesPlayed: Math.min(V9.stageIndex, V9.maxStages),
-      weakestTerms: weakest,
-      mastery: V9.mastery
-    };
-
-    lastSummary = summary;
-    renderTeacherDashboard(summary);
-
-    const entry = buildRealtimeEntryFromSummary(summary);
-    pushLeaderboardEntry(entry);
-
-    try{
-      await saveScoreRealtime(entry);
-    }catch(err){
-      console.error('saveScoreRealtime failed', err);
+      input.addEventListener('blur', function () {
+        if (window.innerWidth > 700) return;
+        setTimeout(() => window.scrollBy({ top: -40, behavior: 'smooth' }), 80);
+      });
     }
 
-    const weakestText = weakest.length
-      ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ')
-      : '-';
+    function bindKeyboardStateHelpers() {
+      const input = getEl('write-input');
+      if (!input) return;
 
-    els.endSummaryText.innerHTML =
-      '<strong>' + profile.displayName + '</strong><br>' +
-      'Score: ' + summary.score + '<br>' +
-      'Stages: ' + summary.stagesPlayed + ' / ' + V9.maxStages + '<br>' +
-      'HP Left: ' + summary.hp + '<br>' +
-      (summary.win ? 'Result: BOSS DEFEATED<br>' : 'Result: BOSS SURVIVED<br>') +
-      'Boss HP Left: ' + summary.bossHp + ' / ' + summary.bossMaxHp + '<br>' +
-      'Weakest Terms: ' + weakestText;
+      input.addEventListener('focus', function () {
+        document.body.classList.add('keyboard-open');
+      });
 
-    els.endWrap.classList.remove('hidden');
-    els.menu.classList.add('hidden');
-    els.questionBox.classList.add('hidden');
-
-    renderLeaderboard();
-    renderHud();
-  }
-
-  function handleAnswerV9(selectedText){
-    const item = V9.currentItem;
-    if (!item || phase !== 'battle') return;
-
-    const isCorrect = selectedText === String(item.answer).toLowerCase();
-    updateMasteryAfterAnswer(item.termId, isCorrect, item.type, item.fromReview);
-
-    if (isCorrect){
-      const damage = bossDamageFromCorrect();
-      V9.score += 12 + Math.min(V9.combo * 3, 24);
-      V9.combo += 1;
-      V9.bossHp = Math.max(0, V9.bossHp - damage);
-      updateBossPhase();
-      showFeedback('HIT +' + damage, 'ok');
-    } else {
-      const penalty = bossPenaltyOnWrong();
-      V9.hp -= penalty;
-      V9.combo = 0;
-      enqueueReview(item.termId);
-      showFeedback('WRONG -' + penalty + ' HP', 'bad');
+      input.addEventListener('blur', function () {
+        setTimeout(() => {
+          document.body.classList.remove('keyboard-open');
+        }, 120);
+      });
     }
 
-    V9.stageIndex += 1;
+    function bindSingleTapGuard() {
+      const ids = [
+        'btn-speak',
+        'btn-play-audio',
+        'btn-submit-write',
+        'btn-next',
+        'btn-return',
+        'btn-submit-score',
+        'btn-save-profile'
+      ];
 
-    if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages || V9.bossHp <= 0){
-      endRun();
-      return;
+      ids.forEach((id) => {
+        const el = getEl(id);
+        if (!el) return;
+
+        el.addEventListener('click', function () {
+          if (el.dataset.tapLocked === '1') return;
+          el.dataset.tapLocked = '1';
+          setTimeout(() => { el.dataset.tapLocked = '0'; }, 500);
+        });
+      });
     }
 
-    phase = 'feedback';
-    phaseUntil = now() + 800;
-  }
+    let resizeRaf = 0;
+    function bindMobileResizeStabilizer() {
+      const onResize = () => {
+        cancelAnimationFrame(resizeRaf);
+        resizeRaf = requestAnimationFrame(() => {
+          updateAppViewportHeight();
+          applyMobileScreenMode();
+          compactMissionTitleForMobile();
+          syncPromptMiniVisibility();
+        });
+      };
 
-  function nextQuestionV9(){
-    updateRunDifficulty();
-
-    if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages || V9.bossHp <= 0){
-      endRun();
-      return;
+      window.addEventListener('resize', onResize, { passive: true });
+      window.visualViewport?.addEventListener('resize', onResize, { passive: true });
     }
 
-    const item = buildQuestionItem();
-    if (!item){
-      endRun();
-      return;
+    let lastScrollY = 0;
+    function bindMobileScrollMode() {
+      const onScroll = () => {
+        if (window.innerWidth > 700) return;
+
+        const y = window.scrollY || window.pageYOffset || 0;
+        const delta = y - lastScrollY;
+
+        if (Math.abs(delta) < 8) return;
+
+        document.body.classList.toggle('scrolled-down', delta > 0 && y > 40);
+        document.body.classList.toggle('scrolled-up', delta < 0 || y <= 40);
+
+        lastScrollY = y;
+      };
+
+      window.addEventListener('scroll', onScroll, { passive: true });
     }
 
-    V9.currentItem = item;
-    renderQuestionBox(item);
-    spawnTargetsFromChoices(item.choices);
+    function bindPromptMiniToggle() {
+      const btn = getEl('prompt-mini-toggle');
+      if (!btn) return;
 
-    phase = 'countdown';
-    V9.countdown = 3;
-    V9.bossAttackAt = now() + bossAttackInterval();
-    phaseUntil = now() + 650;
-  }
-
-  function resetRun(bank, mode){
-    V9.bank = bank;
-    V9.mode = mode;
-    V9.score = 0;
-    V9.combo = 0;
-    V9.hp = 5;
-    V9.bossMaxHp = bossBaseHp();
-    V9.bossHp = V9.bossMaxHp;
-    V9.bossPhase = 1;
-    V9.bossAttackAt = 0;
-    V9.runDifficulty = 'easy';
-    V9.currentItem = null;
-    V9.usedVariantIds = new Set();
-    V9.usedTermIds = [];
-    V9.reviewQueue = [];
-    V9.mastery = {};
-    V9.stageIndex = 0;
-    V9.countdown = 3;
-    targets = [];
-    phase = 'idle';
-    timeLeft = 1;
-    renderHud();
-  }
-
-  async function startProductionRun(){
-    document.querySelector('.hud')?.classList.remove('hidden');
-    els.questionBox.classList.remove('hidden');
-    saveProfile();
-    els.menu.classList.add('hidden');
-    els.endWrap.classList.add('hidden');
-    resetRun(V9.bank, V9.mode);
-    nextQuestionV9();
-  }
-
-  function renderBackground(t){
-    const g = ctx.createLinearGradient(0,0,0,height);
-    g.addColorStop(0,'#67d8ff');
-    g.addColorStop(1,'#dbeafe');
-    ctx.fillStyle = g;
-    ctx.fillRect(0,0,width,height);
-
-    ctx.fillStyle = '#dbeafe';
-    ctx.fillRect(0,height*0.58,width,height*0.42);
-
-    const c = center();
-
-    ctx.save();
-    ctx.translate(c.x,c.y+72);
-    ctx.rotate(-0.06);
-    for(let i=0;i<2;i++){
-      ctx.beginPath();
-      ctx.ellipse(0,0,280+i*72,72+i*20,0,0,Math.PI*2);
-      ctx.globalAlpha = i===0 ? .95 : .75;
-      ctx.lineWidth = 14;
-      ctx.strokeStyle = i===0 ? '#38bdf8' : '#f472b6';
-      ctx.stroke();
-    }
-    ctx.restore();
-    ctx.globalAlpha = 1;
-
-    ctx.save();
-    ctx.translate(c.x, c.y - 20);
-    const pulse = 1 + Math.sin(t * 0.003) * (V9.bossPhase === 3 ? 0.10 : 0.06);
-    ctx.scale(pulse, pulse);
-    ctx.beginPath();
-    ctx.arc(0,0,52,0,Math.PI*2);
-    ctx.fillStyle = V9.bossPhase === 3 ? 'rgba(251,113,133,.30)' : V9.bossPhase === 2 ? 'rgba(251,146,60,.26)' : 'rgba(244,114,182,.20)';
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(0,0,30,0,Math.PI*2);
-    ctx.fillStyle = V9.bossPhase === 3 ? '#fb7185' : V9.bossPhase === 2 ? '#fb923c' : '#f472b6';
-    ctx.fill();
-
-    ctx.fillStyle = '#fff';
-    ctx.font = '900 14px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('BOSS P' + V9.bossPhase, 0, 1);
-    ctx.restore();
-  }
-
-  function loop(t){
-    requestAnimationFrame(loop);
-    renderBackground(t);
-
-    if (phase === 'countdown'){
-      timeLeft = 1;
-      els.questionBox.innerHTML =
-        '<div class="q-meta">' + modeMeta().title + '</div>' +
-        '<div class="q-prompt">GET READY • ' + V9.countdown + '</div>';
-
-      if (now() >= phaseUntil){
-        V9.countdown -= 1;
-        phaseUntil = now() + 650;
-        if (V9.countdown <= 0){
-          phase = 'battle';
-          roundStart = now();
-          const base = modeMeta().baseTime;
-          const diffDuration =
-            V9.runDifficulty === 'hard' ? Math.max(2800, base - 1600) :
-            V9.runDifficulty === 'normal' ? Math.max(3600, base - 800) :
-            base;
-          const phasePenalty = V9.bossPhase === 3 ? 900 : V9.bossPhase === 2 ? 450 : 0;
-          roundDuration = Math.max(2400, diffDuration - phasePenalty);
-          renderQuestionBox(V9.currentItem);
-        }
-      }
-    } else if (phase === 'battle'){
-      const elapsed = now() - roundStart;
-      timeLeft = clamp(1 - elapsed / roundDuration, 0, 1);
-
-      if (now() >= V9.bossAttackAt){
-        const dmg = V9.bossPhase === 3 ? 2 : 1;
-        V9.hp -= dmg;
-        V9.combo = 0;
-        V9.bossAttackAt = now() + bossAttackInterval();
-        showFeedback('BOSS HIT -' + dmg + ' HP', 'warn');
-        if (V9.hp <= 0){
-          endRun();
-          renderHud();
-          return;
-        }
-      }
-
-      if (timeLeft <= 0){
-        const timeoutDmg = V9.bossPhase === 3 ? 2 : 1;
-        V9.hp -= timeoutDmg;
-        V9.combo = 0;
-        enqueueReview(V9.currentItem.termId);
-        showFeedback('TIME OUT -' + timeoutDmg + ' HP', 'warn');
-        V9.stageIndex += 1;
-
-        if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages){
-          endRun();
-        } else {
-          phase = 'feedback';
-          phaseUntil = now() + 700;
-        }
-      }
-    } else if (phase === 'feedback'){
-      timeLeft = 0;
-      if (now() >= phaseUntil) nextQuestionV9();
-    } else {
-      timeLeft = 1;
+      btn.addEventListener('click', function () {
+        const mini = document.body.classList.toggle('prompt-mini');
+        btn.textContent = mini ? 'ขยายโจทย์' : 'ย่อโจทย์';
+      });
     }
 
-    updateTargets(t);
-    renderTargets();
-    renderHud();
-  }
-
-  function teacherPassHash(pass){
-    try{
-      return btoa(unescape(encodeURIComponent(pass || '')));
-    }catch(e){
-      return '';
-    }
-  }
-
-  function buildTeacherLink(){
-    const url = new URL(window.location.href);
-    const pass = (els.teacherPassInput && els.teacherPassInput.value || '').trim();
-    if (pass){
-      localStorage.setItem('VOCAB_V9_TEACHER_PASS_HASH', teacherPassHash(pass));
-      url.searchParams.set('teacherKey', teacherPassHash(pass));
-    }
-    url.searchParams.set('teacher', '1');
-    return url.toString();
-  }
-
-  async function copyText(text){
-    try{
-      await navigator.clipboard.writeText(text);
-      return true;
-    }catch(e){
-      return false;
-    }
-  }
-
-  function openLeaderboard(){
-    renderLeaderboard();
-    els.leaderboardWrap.classList.remove('hidden');
-  }
-
-  function openTeacher(){
-    document.querySelector('.hud')?.classList.add('hidden');
-    els.questionBox.classList.add('hidden');
-
-    if (!lastSummary){
-      try{
-        const raw = JSON.parse(localStorage.getItem(TEACHER_KEY) || 'null');
-        if (raw) renderTeacherDashboard(raw);
-      }catch(e){}
+    function syncPromptMiniVisibility() {
+      const btn = getEl('prompt-mini-toggle');
+      const prompt = getEl('mission-prompt-box');
+      if (!btn || !prompt) return;
+      const shown = getComputedStyle(prompt).display !== 'none';
+      btn.style.display = (window.innerWidth <= 700 && shown) ? 'block' : 'none';
     }
 
-    els.teacherWrap.classList.remove('hidden');
-  }
+    function applyMobileScreenMode() {
+      const isMobile = window.innerWidth <= 700;
+      const hasAttempt = !!runtime.currentAttempt;
+      const inMission = hasAttempt && !runtime.currentAttempt.isFinished;
+      const inSummary = hasAttempt && runtime.currentAttempt.isFinished;
+      const inHub = !hasAttempt;
 
-  function bootTeacherMode(){
-    const q = new URLSearchParams(window.location.search);
-    if (q.get('teacher') === '1'){
-      const expected = localStorage.getItem('VOCAB_V9_TEACHER_PASS_HASH') || '';
-      const got = q.get('teacherKey') || '';
-      if (expected && got !== expected){
-        alert('Teacher passcode ไม่ถูกต้อง');
+      document.body.classList.toggle('mission-mobile', isMobile && inMission);
+      document.body.classList.toggle('summary-mobile', isMobile && inSummary);
+      document.body.classList.toggle('hub-mobile', isMobile && inHub);
+    }
+
+    function compactMissionTitleForMobile() {
+      const el = getEl('ui-title');
+      if (!el) return;
+
+      const raw = el.dataset.fullTitle || String(el.textContent || '').trim();
+      if (!el.dataset.fullTitle) el.dataset.fullTitle = raw;
+
+      if (window.innerWidth > 700) {
+        el.textContent = raw;
         return;
       }
-      els.menu.classList.add('hidden');
-      openTeacher();
+
+      const compact = raw.length > 34 ? raw.slice(0, 34) + '…' : raw;
+      el.textContent = compact;
     }
-  }
 
-  document.querySelectorAll('.bankBtn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      V9.bank = btn.dataset.bank || 'A';
-      document.querySelectorAll('.bankBtn').forEach(b => b.classList.toggle('active', b === btn));
-    });
-  });
+    function getPrimaryMobileFocusTarget() {
+      const candidates = [
+        getEl('mission-prompt-box'),
+        getEl('boss-phase-ui'),
+        getEl('write-input'),
+        getEl('choice-buttons'),
+        getEl('btn-speak'),
+        getEl('btn-play-audio'),
+        getEl('btn-submit-write'),
+        getEl('summary-panel'),
+        getEl('game-over-ui')
+      ].filter(Boolean);
 
-  document.querySelectorAll('.modeBtn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      V9.mode = btn.dataset.mode || 'code_battle';
-      document.querySelectorAll('.modeBtn').forEach(b => b.classList.toggle('active', b === btn));
-    });
-  });
-
-  canvas.addEventListener('mousemove', e => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-  });
-
-  canvas.addEventListener('mousedown', e => {
-    const hit = getTargetAtPoint(e.clientX, e.clientY);
-    if (hit){
-      hit.hitFlash = 1;
-      handleAnswerV9(hit.rawText);
+      return candidates.find((el) => {
+        const cs = getComputedStyle(el);
+        return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
+      }) || null;
     }
-  });
 
-  canvas.addEventListener('touchstart', e => {
-    const t = e.changedTouches[0];
-    if (!t) return;
-    mouseX = t.clientX;
-    mouseY = t.clientY;
-    const hit = getTargetAtPoint(t.clientX, t.clientY);
-    if (hit){
-      hit.hitFlash = 1;
-      handleAnswerV9(hit.rawText);
+    let mobileScrollLockUntil = 0;
+    function scrollImportantMobileBlockIntoView() {
+      if (window.innerWidth > 700) return;
+      if (document.body.classList.contains('keyboard-open')) return;
+
+      const now = Date.now();
+      if (now < mobileScrollLockUntil) return;
+      mobileScrollLockUntil = now + 900;
+
+      const target = getPrimaryMobileFocusTarget();
+      if (!target) return;
+
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
     }
-  }, { passive:true });
 
-  document.getElementById('startBtn').addEventListener('click', startProductionRun);
+    function scrollMissionTopIntoView() {
+      if (window.innerWidth > 700) return;
+      const target = getEl('hud-stats') || getEl('ui-title') || getEl('mission-prompt-box');
+      if (!target) return;
 
-  document.getElementById('leaderboardBtn').addEventListener('click', () => {
-    leaderboardOpenedFromEnd = false;
-    openLeaderboard();
-  });
-
-  document.getElementById('generateTeacherLinkBtn').addEventListener('click', () => {
-    els.teacherLinkOutput.value = buildTeacherLink();
-  });
-
-  document.getElementById('copyTeacherLinkBtn').addEventListener('click', async () => {
-    if (!els.teacherLinkOutput.value) els.teacherLinkOutput.value = buildTeacherLink();
-    const ok = await copyText(els.teacherLinkOutput.value);
-    document.getElementById('copyTeacherLinkBtn').textContent = ok ? 'COPIED' : 'COPY FAILED';
-    setTimeout(() => document.getElementById('copyTeacherLinkBtn').textContent = 'COPY LINK', 1200);
-  });
-
-  document.getElementById('closeTeacherLinkBtn').addEventListener('click', () => {
-    els.teacherLinkWrap.classList.add('hidden');
-  });
-
-  document.getElementById('endPlayAgainBtn').addEventListener('click', () => {
-    els.endWrap.classList.add('hidden');
-    els.questionBox.classList.remove('hidden');
-    startProductionRun();
-  });
-
-  document.getElementById('endLeaderboardBtn').addEventListener('click', () => {
-    leaderboardOpenedFromEnd = true;
-    els.endWrap.classList.add('hidden');
-    openLeaderboard();
-  });
-
-  document.getElementById('endMenuBtn').addEventListener('click', () => {
-    els.endWrap.classList.add('hidden');
-    els.questionBox.classList.remove('hidden');
-    els.menu.classList.remove('hidden');
-  });
-
-  document.getElementById('closeLeaderboardBtn').addEventListener('click', () => {
-    els.leaderboardWrap.classList.add('hidden');
-    if (leaderboardOpenedFromEnd || phase === 'ended'){
-      els.endWrap.classList.remove('hidden');
-      return;
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
     }
-    if (els.menu) els.menu.classList.remove('hidden');
-  });
 
-  document.getElementById('clearLeaderboardBtn').addEventListener('click', () => {
-    localStorage.removeItem(LEADERBOARD_KEY);
-    renderLeaderboard();
-  });
+    function scrollSummaryIntoView() {
+      if (window.innerWidth > 700) return;
+      const panel = getEl('summary-panel') || getEl('game-over-ui');
+      if (!panel) return;
 
-  document.getElementById('closeTeacherBtn').addEventListener('click', () => {
-    els.teacherWrap.classList.add('hidden');
-    const q = new URLSearchParams(window.location.search);
-    if (q.get('teacher') === '1'){
-      const clean = new URL(window.location.href);
-      clean.searchParams.delete('teacher');
-      clean.searchParams.delete('teacherKey');
-      window.location.href = clean.toString();
+      setTimeout(() => {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 120);
     }
-  });
 
-  document.getElementById('clearTeacherBtn').addEventListener('click', () => {
-    localStorage.removeItem(TEACHER_KEY);
-    els.teacherTable.innerHTML = '';
-    els.weakList.innerHTML = '';
-  });
+    function vibrateTap(pattern = 12) {
+      if (window.innerWidth > 700) return;
+      if (!navigator.vibrate) return;
+      navigator.vibrate(pattern);
+    }
 
-  resize();
-  loadProfile();
-  renderLeaderboard();
-  renderMenuTop3();
-  renderHud();
-  bootTeacherMode();
-  requestAnimationFrame(loop);
-  addEventListener('resize', resize);
-})();
-</script>
+    function getShortAttendanceStatus() {
+      if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) return 'กำลังเล่น';
+      if (runtime.currentAttempt && runtime.currentAttempt.isFinished && runtime.currentAttempt.completed) return 'completed';
+      if (runtime.currentAttempt && runtime.currentAttempt.isFinished && !runtime.currentAttempt.completed) return 'not completed';
+      return 'ยังไม่เข้า S';
+    }
+
+    function resetMobileMissionChrome() {
+      document.body.classList.remove('prompt-mini');
+      document.body.classList.remove('keyboard-open');
+      document.body.classList.remove('scrolled-down');
+      document.body.classList.add('scrolled-up');
+
+      const btn = getEl('prompt-mini-toggle');
+      if (btn) btn.textContent = 'ย่อโจทย์';
+    }
+
+    function refreshMobileRuntimeUI(reason = '') {
+      updateAppViewportHeight();
+      applyMobileScreenMode();
+      compactMissionTitleForMobile();
+      renderAttendancePanel(reason || 'mobile_refresh');
+      syncPromptMiniVisibility();
+    }
+
+    let mobileUiRaf = 0;
+    function requestMobileUiRefresh(reason = '') {
+      cancelAnimationFrame(mobileUiRaf);
+      mobileUiRaf = requestAnimationFrame(() => {
+        refreshMobileRuntimeUI(reason);
+      });
+    }
+
+    function beginAttempt(missionId, reason) {
+      if (!missionId) return;
+
+      if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+        finishAttempt('switch_mission', { nextMissionId: missionId });
+      }
+
+      runtime.currentAttempt = {
+        attemptId: makeId('RUN'),
+        missionId: Number(missionId),
+        sessionNo: parseSessionNo(missionId),
+        enteredAt: nowIso(),
+        enterMs: Date.now(),
+        startedAt: nowIso(),
+        lastActiveAt: nowIso(),
+        lastActionMs: Date.now(),
+        activeTimeMs: 0,
+        actionsCount: 1,
+        finishedAt: '',
+        finishedMs: 0,
+        isFinished: false,
+        completed: false
+      };
+
+      runtime.readyForNewAttempt = false;
+      runtime.lastDetectedMissionId = Number(missionId);
+
+      log('mission_enter', {
+        reason: reason || 'ui_detected',
+        missionId: Number(missionId),
+        missionTitle: getText('ui-title')
+      }, false);
+    }
+
+    function finishAttempt(reason, extra) {
+      const a = runtime.currentAttempt;
+      if (!a || a.isFinished) return;
+
+      const now = Date.now();
+      a.finishedAt = new Date(now).toISOString();
+      a.finishedMs = now;
+      a.isFinished = true;
+
+      const resultInfo = deriveAttemptResult(reason);
+      a.completed = !!resultInfo.completed;
+
+      log('mission_finish', Object.assign({
+        reason: reason || 'summary',
+        missionId: a.missionId,
+        result: resultInfo.result,
+        completed: resultInfo.completed,
+        summaryBody: resultInfo.summaryBody,
+        feedback: resultInfo.feedback,
+        btnNextVisible: resultInfo.btnNextVisible
+      }, extra || {}), false);
+
+      requestMobileUiRefresh('finish');
+      scrollSummaryIntoView();
+    }
+
+    function syncAttemptFromUI(trigger) {
+      seedIdentityInputs();
+
+      const missionId = parseMissionIdFromTitle();
+      const uiTitle = getText('ui-title');
+      const summaryVisible = isShown(getEl('summary-panel'));
+
+      if (!missionId && /^TECHPATH VR$/i.test(uiTitle)) {
+        runtime.readyForNewAttempt = true;
+      }
+
+      if (missionId) {
+        const shouldBegin =
+          !runtime.currentAttempt ||
+          runtime.readyForNewAttempt ||
+          runtime.currentAttempt.missionId !== Number(missionId) ||
+          (
+            runtime.currentAttempt.isFinished &&
+            runtime.currentAttempt.missionId === Number(missionId) &&
+            runtime.readyForNewAttempt
+          );
+
+        if (shouldBegin) {
+          beginAttempt(missionId, trigger || 'sync');
+          resetMobileMissionChrome();
+          requestMobileUiRefresh('mission_start');
+          scrollMissionTopIntoView();
+        }
+      }
+
+      if (summaryVisible && runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+        finishAttempt('summary_visible', {});
+      }
+
+      requestMobileUiRefresh(trigger || 'sync');
+    }
+
+    function renderAttendancePanel(hint) {
+      setText('attendance-student-id', context.studentId || '-');
+      setText('attendance-student-name', context.studentName || '-');
+      setText('attendance-class-section', context.classSection || '-');
+
+      setText('attendance-summary-name', context.studentName || context.studentId || '-');
+      setText('attendance-summary-s', runtime.currentAttempt ? (runtime.currentAttempt.sessionNo || 'S00') : 'Lobby');
+      setText('attendance-summary-status', getShortAttendanceStatus());
+
+      const status = getEl('attendance-status');
+      if (!status) {
+        applyMobileScreenMode();
+        compactMissionTitleForMobile();
+        updateAppViewportHeight();
+        syncPromptMiniVisibility();
+        return;
+      }
+
+      if (runtime.currentAttempt) {
+        setText('attendance-session-no', runtime.currentAttempt.sessionNo || 'Lobby');
+        setText('attendance-duration', fmtSec(calcDurationSec(runtime.currentAttempt)));
+        setText('attendance-active-time', fmtSec(calcActiveSec(runtime.currentAttempt)));
+
+        if (runtime.currentAttempt.isFinished) {
+          if (runtime.currentAttempt.completed) {
+            status.className = '';
+            status.textContent = 'บันทึกการเข้าเรียนของ ' + (runtime.currentAttempt.sessionNo || 'S') + ' แล้ว • สถานะ: completed';
+          } else {
+            status.className = 'fail';
+            status.textContent = 'บันทึกการเข้าเรียนของ ' + (runtime.currentAttempt.sessionNo || 'S') + ' แล้ว • สถานะ: not completed';
+          }
+        } else {
+          status.className = '';
+          status.textContent = 'กำลังติดตาม ' + (runtime.currentAttempt.sessionNo || 'S') + ' แบบเรียลไทม์' + (hint ? ' • ' + hint : '');
+        }
+      } else {
+        setText('attendance-session-no', 'Lobby');
+        setText('attendance-duration', fmtSec(Math.round((Date.now() - runtime.pageEnterMs) / 1000)));
+        setText('attendance-active-time', fmtSec(Math.round(runtime.pageActiveTimeMs / 1000)));
+        status.className = 'warn';
+        status.textContent = 'ยังไม่ได้เข้า S ใด • เมื่อกดเข้า mission ระบบจะเริ่มจับ attendance ของ S นั้นทันที';
+      }
+
+      const panel = getEl('attendance-panel');
+      const btn = getEl('attendance-toggle');
+      const isMobile = window.innerWidth <= 700;
+      const inMission = !!runtime.currentAttempt && !runtime.currentAttempt.isFinished;
+      const inSummary = !!runtime.currentAttempt && runtime.currentAttempt.isFinished;
+
+      if (panel && isMobile && inMission) {
+        panel.classList.add('compact');
+        if (btn) {
+          btn.setAttribute('aria-expanded', 'false');
+          btn.textContent = 'ดูรายละเอียด';
+        }
+      }
+
+      if (panel && isMobile && inSummary) {
+        panel.classList.add('compact');
+        if (btn) {
+          btn.setAttribute('aria-expanded', 'false');
+          btn.textContent = 'ดูรายละเอียด';
+        }
+      }
+
+      applyMobileScreenMode();
+      compactMissionTitleForMobile();
+      updateAppViewportHeight();
+      syncPromptMiniVisibility();
+    }
+
+    function wrapGlobal(name, beforeCall) {
+      let done = false;
+
+      function attach() {
+        if (done) return true;
+        const fn = window[name];
+        if (typeof fn !== 'function') return false;
+        if (fn.__attendanceWrapped) {
+          done = true;
+          return true;
+        }
+
+        const original = fn;
+        const wrapped = function () {
+          try { beforeCall && beforeCall(Array.from(arguments)); } catch (_) {}
+          return original.apply(this, arguments);
+        };
+        wrapped.__attendanceWrapped = true;
+        wrapped.__attendanceOriginal = original;
+        window[name] = wrapped;
+        done = true;
+        return true;
+      }
+
+      if (attach()) return;
+      const timer = setInterval(function () {
+        if (attach()) clearInterval(timer);
+      }, 400);
+      setTimeout(function () { clearInterval(timer); }, 30000);
+    }
+
+    function installInteractionListeners() {
+      document.addEventListener('pointerdown', function (ev) {
+        registerActivity('pointer');
+
+        const t = ev.target;
+        if (!t) return;
+
+        const isAction =
+          t.closest?.('#btn-speak') ||
+          t.closest?.('#btn-play-audio') ||
+          t.closest?.('#btn-submit-write') ||
+          t.closest?.('#btn-next') ||
+          t.closest?.('#btn-return') ||
+          t.closest?.('#btn-submit-score') ||
+          t.closest?.('#attendance-toggle') ||
+          t.closest?.('#prompt-mini-toggle') ||
+          t.closest?.('#choice-buttons .btn-action');
+
+        if (isAction) vibrateTap(10);
+      }, { passive: true });
+
+      document.addEventListener('keydown', function () {
+        registerActivity('keydown');
+      }, { passive: true });
+
+      getEl('write-input')?.addEventListener('input', function () {
+        registerActivity('typing');
+        requestMobileUiRefresh('typing');
+      });
+
+      getEl('profile-name-input')?.addEventListener('change', function () {
+        syncIdentityFromInputs();
+        requestMobileUiRefresh('profile_name_change');
+      });
+
+      getEl('player-name-input')?.addEventListener('change', function () {
+        syncIdentityFromInputs();
+        requestMobileUiRefresh('score_name_change');
+      });
+    }
+
+    function installWrappers() {
+      wrapGlobal('savePlayerProfile', function () {
+        syncIdentityFromInputs();
+        registerActivity('save_profile');
+        vibrateTap(10);
+        log('save_profile', { profileName: context.studentName || '' }, !runtime.currentAttempt);
+      });
+
+      wrapGlobal('startRecognition', function () {
+        syncAttemptFromUI('start_recognition');
+        registerActivity('speak');
+        vibrateTap(10);
+        log('start_recognition', {
+          missionId: runtime.currentAttempt ? runtime.currentAttempt.missionId : '',
+          sessionNo: runtime.currentAttempt ? runtime.currentAttempt.sessionNo : ''
+        }, false);
+      });
+
+      wrapGlobal('playAudio', function () {
+        syncAttemptFromUI('play_audio');
+        registerActivity('play_audio');
+        vibrateTap(10);
+        log('play_audio', {
+          missionId: runtime.currentAttempt ? runtime.currentAttempt.missionId : '',
+          sessionNo: runtime.currentAttempt ? runtime.currentAttempt.sessionNo : ''
+        }, false);
+      });
+
+      wrapGlobal('checkWritingAnswer', function () {
+        syncAttemptFromUI('write_submit');
+        registerActivity('submit_write');
+        vibrateTap(10);
+        log('submit_write', {
+          valueLength: (getEl('write-input')?.value || '').trim().length
+        }, false);
+      });
+
+      wrapGlobal('checkChoiceAnswer', function (args) {
+        syncAttemptFromUI('choice_answer');
+        registerActivity('choice_answer');
+        vibrateTap(10);
+        log('choice_answer', {
+          choice: args && args.length ? String(args[0] || '') : ''
+        }, false);
+      });
+
+      wrapGlobal('submitScore', function () {
+        syncIdentityFromInputs();
+        registerActivity('save_score');
+        vibrateTap(10);
+        log('save_score', {
+          scoreName: (getEl('player-name-input')?.value || context.studentName || '').trim(),
+          score: readScore()
+        }, false);
+      });
+
+      wrapGlobal('playNextMission', function () {
+        registerActivity('next_mission');
+        vibrateTap(10);
+
+        if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+          finishAttempt('next_button', { viaButton: true });
+        } else {
+          log('next_button', {}, false);
+        }
+
+        resetMobileMissionChrome();
+        setTimeout(() => {
+          requestMobileUiRefresh('next');
+          scrollMissionTopIntoView();
+        }, 80);
+      });
+
+      wrapGlobal('returnToHub', function () {
+        registerActivity('return_hub');
+        vibrateTap(10);
+
+        if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+          finishAttempt('return_to_hub', { viaButton: true });
+        } else {
+          log('return_to_hub', {}, !runtime.currentAttempt);
+        }
+
+        runtime.readyForNewAttempt = true;
+        runtime.currentAttempt = null;
+
+        resetMobileMissionChrome();
+        setTimeout(() => {
+          requestMobileUiRefresh('back_hub');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 80);
+      });
+
+      wrapGlobal('setDifficulty', function (args) {
+        registerActivity('set_difficulty');
+        vibrateTap(10);
+        log('set_difficulty', {
+          difficulty: args && args.length ? String(args[0] || '') : ''
+        }, !runtime.currentAttempt);
+      });
+    }
+
+    function installObservers() {
+      const titleEl = getEl('ui-title');
+      const summaryEl = getEl('summary-panel');
+      const summaryBodyEl = getEl('summary-body');
+      const uiContainer = getEl('ui-container');
+      const promptEl = getEl('mission-prompt-box');
+
+      const obs = new MutationObserver(function () {
+        syncAttemptFromUI('observer');
+        requestMobileUiRefresh('observer');
+      });
+
+      if (titleEl) obs.observe(titleEl, { childList: true, subtree: true, characterData: true });
+      if (summaryEl) obs.observe(summaryEl, { attributes: true, attributeFilter: ['style', 'class'] });
+      if (summaryBodyEl) obs.observe(summaryBodyEl, { childList: true, subtree: true, characterData: true });
+      if (uiContainer) obs.observe(uiContainer, { attributes: true, attributeFilter: ['class'] });
+      if (promptEl) obs.observe(promptEl, { attributes: true, attributeFilter: ['style', 'class'] });
+
+      setInterval(function () {
+        syncAttemptFromUI('interval');
+      }, 800);
+    }
+
+    function boot() {
+      seedIdentityInputs();
+      renderAttendancePanel('boot');
+
+      log('page_enter', {
+        patch: PATCH,
+        build: BUILD
+      }, true);
+
+      bindAttendanceToggle();
+      bindMobileInputFocusHelpers();
+      bindKeyboardStateHelpers();
+      bindSingleTapGuard();
+      bindMobileResizeStabilizer();
+      bindMobileScrollMode();
+      bindPromptMiniToggle();
+
+      updateAppViewportHeight();
+      applyMobileScreenMode();
+      compactMissionTitleForMobile();
+      syncPromptMiniVisibility();
+
+      installInteractionListeners();
+      installWrappers();
+      installObservers();
+
+      setInterval(function () {
+        if (document.visibilityState === 'visible') {
+          log('heartbeat', {}, !runtime.currentAttempt);
+        }
+      }, 30000);
+
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') {
+          if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+            finishAttempt('hidden', { hidden: true });
+          }
+          log('page_hidden', {}, true);
+        } else {
+          log('page_visible', {}, true);
+          requestMobileUiRefresh('resume');
+        }
+      });
+
+      window.addEventListener('beforeunload', function () {
+        if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+          finishAttempt('unload', { unload: true });
+        }
+        log('page_leave', {}, true);
+      });
+
+      window.ENG_ATTENDANCE = {
+        context,
+        runtime,
+        syncAttemptFromUI,
+        registerActivity,
+        log,
+        finishAttempt,
+        renderAttendancePanel
+      };
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot, { once: true });
+    } else {
+      boot();
+    }
+  })();
+  </script>
 </body>
 </html>
