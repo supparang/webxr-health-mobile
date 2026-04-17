@@ -38,7 +38,8 @@ import { installVocabGuards } from './vocab-guard.js';
   const PROFILE_KEY = 'VOCAB_V9_PROFILE';
   const SESSION_KEY = 'VOCAB_V9_SESSIONS';
   const TEACHER_PASS_KEY = 'VOCAB_V9_TEACHER_PASS_HASH';
-  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbznbf_5Jy20HvDfhOCvhEDuzn1X40bF0Z7XeNOWVYEv3i137aKgbA-Ey7PwRLGAhEyG/exec';
+
+  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxSeCT2HSS5nEtG1n0NCVsOMQwtA6LAuVlhSKLMNkLYYr5IT0qWOGmQa_Wc-fCPYDqF/exec';
   const VOCAB_SHEET_SOURCE = 'vocab.html';
   const VOCAB_SHEET_SCHEMA = 'vocab-v2';
 
@@ -162,9 +163,6 @@ import { installVocabGuards } from './vocab-guard.js';
   function getWeakTermsJson(limit = 5){
     return JSON.stringify(weakestTermsForSheet(limit));
   }
-
-
-  
 
   const V9 = {
     bank: 'A',
@@ -1366,7 +1364,7 @@ import { installVocabGuards } from './vocab-guard.js';
       }
     }
 
-    sendTermAnswerRow({
+    await sendTermAnswerRow({
       item,
       isCorrect,
       levelBefore,
@@ -1374,7 +1372,7 @@ import { installVocabGuards } from './vocab-guard.js';
       responseMs: rt
     });
 
-    logEvent(isCorrect ? 'answer_correct' : 'answer_wrong', {
+    await logEvent(isCorrect ? 'answer_correct' : 'answer_wrong', {
       questionId: item.id || '',
       termId: item.termId,
       word: item.term,
