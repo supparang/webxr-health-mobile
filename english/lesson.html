@@ -43,57 +43,6 @@
     body{
       min-height:var(--app-vh);
       -webkit-text-size-adjust:100%;
-      margin: 0;
-      background: #06111f;
-      color: #fff;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    #loading{
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      background: rgba(0,0,0,.7);
-      color: #fff;
-      font-weight: 700;
-    }
-
-    #impact-flash{
-      pointer-events: none;
-      position: fixed;
-      inset: 0;
-      z-index: 998;
-    }
-
-    #boss-cinematic{
-      display: none;
-    }
-
-    #answer-fx-layer{
-      pointer-events:none;
-      position:fixed;
-      inset:0;
-      z-index:997;
-    }
-
-    .combo-popup,
-    .mission-type-tag{
-      position: fixed;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 996;
-      display: none;
-    }
-
-    .combo-popup{
-      top: 80px;
-    }
-
-    .mission-type-tag{
-      top: 120px;
     }
 
     #ui-container{
@@ -101,9 +50,6 @@
       min-height:var(--app-vh);
       margin:0 auto;
       box-sizing:border-box;
-      padding: 12px;
-      position: relative;
-      z-index: 10;
     }
 
     .btn-action,
@@ -113,36 +59,11 @@
       -webkit-user-select:none;
       user-select:none;
       -webkit-tap-highlight-color:transparent;
-      border: none;
-      cursor: pointer;
-    }
-
-    .btn-action{
-      width:100%;
-      border-radius: 14px;
-      background: linear-gradient(180deg, #23d9ff, #17b9dd);
-      color: #06111f;
-      font-size: 1rem;
-      font-weight: 900;
-      padding: 12px 16px;
-      box-shadow: 0 8px 22px rgba(0,0,0,.18);
-    }
-
-    .btn-danger{
-      background: linear-gradient(180deg, #ff6b81, #e55063);
-      color: #fff;
     }
 
     .input-field{
       min-height:44px;
       box-sizing:border-box;
-      width: 100%;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      color: #fff;
-      padding: 12px 14px;
-      outline: none;
     }
 
     #attendance-panel{
@@ -264,108 +185,6 @@
       display:none;
     }
 
-    #player-avatar-hud{
-      position:absolute;
-      top:8px;
-      right:8px;
-      z-index:71;
-      font-size:28px;
-      line-height:1;
-    }
-
-    #profile-panel,
-    #hub-stats-board,
-    #summary-panel,
-    #game-over-ui,
-    #boss-phase-ui,
-    #mission-prompt-box,
-    #ai-director-board{
-      background: rgba(8,14,28,.76);
-      border:1px solid rgba(123,237,255,.16);
-      box-shadow:0 8px 22px rgba(0,0,0,.18);
-      border-radius:14px;
-      padding:10px 12px;
-    }
-
-    #profile-panel-title,
-    #hub-stats-title,
-    #summary-title{
-      color:#7bedff;
-      font-weight:900;
-      font-size:1rem;
-      margin-bottom:8px;
-    }
-
-    .avatar-row{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:8px;
-      margin-bottom:10px;
-    }
-
-    .avatar-chip{
-      border:1px solid rgba(123,237,255,.18);
-      background:rgba(255,255,255,.04);
-      color:#fff;
-      border-radius:12px;
-      padding:10px 8px;
-      font-weight:700;
-      cursor:pointer;
-    }
-
-    .avatar-chip.active{
-      box-shadow: inset 0 0 0 2px rgba(35,217,255,.55);
-    }
-
-    #unlock-hint{
-      font-size:.84rem;
-      line-height:1.4;
-      margin-bottom:10px;
-      color:#dbeafe;
-    }
-
-    #mission-prompt-box{
-      display:none;
-    }
-
-    #mission-prompt-label{
-      font-size:.72rem;
-      margin-bottom:6px;
-      color:#7bedff;
-      font-weight:800;
-    }
-
-    #mission-prompt-text{
-      white-space:pre-wrap;
-      line-height:1.45;
-      font-size:1rem;
-    }
-
-    #boss-bar-shell{
-      width:100%;
-      height:12px;
-      background:rgba(255,255,255,.08);
-      border-radius:999px;
-      overflow:hidden;
-      margin:8px 0;
-    }
-
-    #boss-bar-fill{
-      width:100%;
-      height:100%;
-      background:linear-gradient(90deg,#ff6b81,#f1c40f);
-    }
-
-    #choice-buttons .btn-action{
-      color:#06111f;
-    }
-
-    a-scene{
-      position: fixed !important;
-      inset: 0 !important;
-      z-index: 0 !important;
-    }
-
     @media (max-width:700px){
       #ui-container{
         padding:8px 10px calc(190px + env(safe-area-inset-bottom, 0px));
@@ -381,17 +200,12 @@
         text-overflow:ellipsis;
         max-height:2.6em;
         word-break:break-word;
-        margin: 6px 0 6px;
-        text-align: center;
-        color:#7bedff;
-        font-weight: 900;
       }
 
       .instruction{
         font-size:.88rem !important;
         line-height:1.35;
         margin-bottom:8px;
-        text-align:center;
       }
 
       #attendance-panel{
@@ -2004,4 +1818,177 @@
         vibrateTap(10);
         log('play_audio', {
           missionId: runtime.currentAttempt ? runtime.currentAttempt.missionId : '',
-          sessionNo: runtime.currentAttempt ? runtime
+          sessionNo: runtime.currentAttempt ? runtime.currentAttempt.sessionNo : ''
+        }, false);
+      });
+
+      wrapGlobal('checkWritingAnswer', function () {
+        syncAttemptFromUI('write_submit');
+        registerActivity('submit_write');
+        vibrateTap(10);
+        log('submit_write', {
+          valueLength: (getEl('write-input')?.value || '').trim().length
+        }, false);
+      });
+
+      wrapGlobal('checkChoiceAnswer', function (args) {
+        syncAttemptFromUI('choice_answer');
+        registerActivity('choice_answer');
+        vibrateTap(10);
+        log('choice_answer', {
+          choice: args && args.length ? String(args[0] || '') : ''
+        }, false);
+      });
+
+      wrapGlobal('submitScore', function () {
+        syncIdentityFromInputs();
+        registerActivity('save_score');
+        vibrateTap(10);
+        log('save_score', {
+          scoreName: (getEl('player-name-input')?.value || context.studentName || '').trim(),
+          score: readScore()
+        }, false);
+      });
+
+      wrapGlobal('playNextMission', function () {
+        registerActivity('next_mission');
+        vibrateTap(10);
+
+        if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+          finishAttempt('next_button', { viaButton: true });
+        } else {
+          log('next_button', {}, false);
+        }
+
+        resetMobileMissionChrome();
+        setTimeout(() => {
+          requestMobileUiRefresh('next');
+          scrollMissionTopIntoView();
+        }, 80);
+      });
+
+      wrapGlobal('returnToHub', function () {
+        registerActivity('return_hub');
+        vibrateTap(10);
+
+        if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+          finishAttempt('return_to_hub', { viaButton: true });
+        } else {
+          log('return_to_hub', {}, !runtime.currentAttempt);
+        }
+
+        runtime.readyForNewAttempt = true;
+        runtime.currentAttempt = null;
+
+        resetMobileMissionChrome();
+        setTimeout(() => {
+          requestMobileUiRefresh('back_hub');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 80);
+      });
+
+      wrapGlobal('setDifficulty', function (args) {
+        registerActivity('set_difficulty');
+        vibrateTap(10);
+        log('set_difficulty', {
+          difficulty: args && args.length ? String(args[0] || '') : ''
+        }, !runtime.currentAttempt);
+      });
+    }
+
+    function installObservers() {
+      const titleEl = getEl('ui-title');
+      const summaryEl = getEl('summary-panel');
+      const summaryBodyEl = getEl('summary-body');
+      const uiContainer = getEl('ui-container');
+      const promptEl = getEl('mission-prompt-box');
+
+      const obs = new MutationObserver(function () {
+        syncAttemptFromUI('observer');
+        requestMobileUiRefresh('observer');
+      });
+
+      if (titleEl) obs.observe(titleEl, { childList: true, subtree: true, characterData: true });
+      if (summaryEl) obs.observe(summaryEl, { attributes: true, attributeFilter: ['style', 'class'] });
+      if (summaryBodyEl) obs.observe(summaryBodyEl, { childList: true, subtree: true, characterData: true });
+      if (uiContainer) obs.observe(uiContainer, { attributes: true, attributeFilter: ['class'] });
+      if (promptEl) obs.observe(promptEl, { attributes: true, attributeFilter: ['style', 'class'] });
+
+      setInterval(function () {
+        syncAttemptFromUI('interval');
+      }, 800);
+    }
+
+    function boot() {
+      seedIdentityInputs();
+      renderAttendancePanel('boot');
+
+      log('page_enter', {
+        patch: PATCH,
+        build: BUILD
+      }, true);
+
+      bindAttendanceToggle();
+      bindMobileInputFocusHelpers();
+      bindKeyboardStateHelpers();
+      bindSingleTapGuard();
+      bindMobileResizeStabilizer();
+      bindMobileScrollMode();
+      bindPromptMiniToggle();
+
+      updateAppViewportHeight();
+      applyMobileScreenMode();
+      compactMissionTitleForMobile();
+      syncPromptMiniVisibility();
+      ensureMobileMissionPromptVisible();
+      syncHubSceneVisibility();
+
+      installInteractionListeners();
+      installWrappers();
+      installObservers();
+
+      setInterval(function () {
+        if (document.visibilityState === 'visible') {
+          log('heartbeat', {}, !runtime.currentAttempt);
+        }
+      }, 30000);
+
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') {
+          if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+            finishAttempt('hidden', { hidden: true });
+          }
+          log('page_hidden', {}, true);
+        } else {
+          log('page_visible', {}, true);
+          requestMobileUiRefresh('resume');
+        }
+      });
+
+      window.addEventListener('beforeunload', function () {
+        if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
+          finishAttempt('unload', { unload: true });
+        }
+        log('page_leave', {}, true);
+      });
+
+      window.ENG_ATTENDANCE = {
+        context,
+        runtime,
+        syncAttemptFromUI,
+        registerActivity,
+        log,
+        finishAttempt,
+        renderAttendancePanel
+      };
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot, { once: true });
+    } else {
+      boot();
+    }
+  })();
+  </script>
+</body>
+</html>
