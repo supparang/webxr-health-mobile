@@ -4,543 +4,526 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Gate</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#9fe3ff" />
+  <meta name="color-scheme" content="light" />
   <style>
-    html,body{
-      margin:0;
-      min-height:100%;
-      background:#020617;
+    :root{
+      --bg1:#f7fcff;
+      --bg2:#fffef9;
+      --card:#ffffff;
+      --line:#dbeaf4;
+      --text:#284255;
+      --muted:#6d7d8b;
+      --sky:#7fcfff;
+      --sky-soft:#eef8ff;
+      --gold:#ffd45f;
+      --gold-soft:#fff7df;
+      --shadow:0 12px 28px rgba(0,0,0,.06);
+      --shadow-lg:0 24px 60px rgba(0,0,0,.16);
+      --radius-xl:30px;
+      --radius-lg:24px;
+      --radius-md:18px;
+      --safe-top:env(safe-area-inset-top, 0px);
+      --safe-bottom:env(safe-area-inset-bottom, 0px);
+      --maxw:980px;
     }
+
+    *{ box-sizing:border-box; }
+    html{ -webkit-tap-highlight-color:transparent; }
+
     body{
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      margin:0;
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 10% 8%, rgba(255,232,162,.34), transparent 20%),
+        radial-gradient(circle at 92% 10%, rgba(127,207,255,.26), transparent 22%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
-    #gate-app{
+
+    body[data-phase="warmup"]{
+      background:
+        radial-gradient(circle at 10% 8%, rgba(127,207,255,.20), transparent 24%),
+        radial-gradient(circle at 90% 10%, rgba(255,212,95,.18), transparent 22%),
+        linear-gradient(180deg,#f6fcff,#fffef9);
+    }
+
+    body[data-phase="cooldown"]{
+      background:
+        radial-gradient(circle at 10% 8%, rgba(255,212,95,.20), transparent 24%),
+        radial-gradient(circle at 90% 10%, rgba(173,223,255,.18), transparent 22%),
+        linear-gradient(180deg,#fffdf7,#f9fcff);
+    }
+
+    .page{
+      width:min(100%, var(--maxw));
+      margin:0 auto;
+      padding:calc(16px + var(--safe-top)) 14px calc(24px + var(--safe-bottom));
       min-height:100dvh;
+      display:grid;
+      align-items:center;
+    }
+
+    .shell{
+      display:grid;
+      gap:14px;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:14px;
+      align-items:center;
+      padding:18px;
+      border-radius:var(--radius-xl);
+      background:linear-gradient(180deg,#fffef8,#f8fcff);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+    }
+
+    .heroLeft{
+      display:flex;
+      align-items:flex-start;
+      gap:14px;
+    }
+
+    .gateBadge{
+      width:68px;
+      height:68px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      flex:0 0 auto;
+      box-shadow:0 10px 18px rgba(127,220,255,.24);
+      background:linear-gradient(180deg,#bff4ff,#7fdcff);
+    }
+
+    body[data-phase="cooldown"] .gateBadge{
+      background:linear-gradient(180deg,#ffe8a2,#ffd561);
+      box-shadow:0 10px 18px rgba(255,213,97,.22);
+    }
+
+    .eyebrow{
+      margin:0 0 6px;
+      font-size:12px;
+      font-weight:1000;
+      color:#7a8c99;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+
+    .title{
+      margin:0 0 6px;
+      font-size:34px;
+      line-height:1.05;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .sub{
+      margin:0;
+      font-size:15px;
+      line-height:1.6;
+      color:var(--muted);
+      max-width:620px;
+    }
+
+    .heroRight{
+      display:grid;
+      gap:10px;
+      align-content:center;
+    }
+
+    .countdownCard{
+      padding:16px;
+      border-radius:24px;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
+      text-align:center;
+    }
+
+    .countdownLabel{
+      display:block;
+      font-size:12px;
+      font-weight:1000;
+      color:#7b8a97;
+      margin-bottom:8px;
+    }
+
+    #gateCountdown{
+      font-size:54px;
+      line-height:1;
+      font-weight:1000;
+      color:#294457;
+    }
+
+    .nextCard{
+      padding:12px 14px;
+      border-radius:20px;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
+    }
+
+    .nextLabel{
+      display:block;
+      font-size:12px;
+      font-weight:1000;
+      color:#7b8a97;
+      margin-bottom:6px;
+    }
+
+    .nextValue{
+      font-size:14px;
+      font-weight:1000;
+      color:#406175;
+      line-height:1.45;
+      word-break:break-word;
+    }
+
+    .tips{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:14px;
+    }
+
+    .tip{
+      padding:16px;
+      border-radius:24px;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+    }
+
+    .tipIcon{
+      width:46px;
+      height:46px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      margin-bottom:10px;
+      font-size:24px;
+      background:#eef8ff;
+      border:1px solid #cfe8f8;
+    }
+
+    body[data-phase="cooldown"] .tipIcon{
+      background:var(--gold-soft);
+      border-color:#f1dfb3;
+    }
+
+    .tipTitle{
+      margin:0 0 6px;
+      font-size:18px;
+      line-height:1.2;
+      font-weight:1000;
+      color:#294457;
+    }
+
+    .tipText{
+      margin:0;
+      font-size:14px;
+      line-height:1.55;
+      color:var(--muted);
+    }
+
+    .actionCard{
+      padding:16px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffef9,#f9fcff);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      text-align:center;
+    }
+
+    .actionTop{
+      margin-bottom:14px;
+    }
+
+    .actionTitle{
+      margin:0 0 6px;
+      font-size:24px;
+      line-height:1.15;
+      font-weight:1000;
+      color:#294457;
+    }
+
+    .actionSub{
+      margin:0;
+      font-size:14px;
+      color:var(--muted);
+      line-height:1.5;
+    }
+
+    .actions{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      min-height:50px;
+      min-width:170px;
+      padding:0 16px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-size:16px;
+      font-weight:1000;
+      color:#315165;
+      cursor:pointer;
+      box-shadow:0 8px 16px rgba(0,0,0,.04);
+    }
+
+    .btn.primary{
+      background:var(--sky);
+      border-color:#9edcff;
+      color:#17384f;
+    }
+
+    body[data-phase="cooldown"] .btn.primary{
+      background:var(--gold);
+      border-color:#f0cf73;
+      color:#5c4311;
+    }
+
+    @media (max-width: 860px){
+      .hero{ grid-template-columns:1fr; }
+      .tips{ grid-template-columns:1fr; }
+      .heroRight{ grid-template-columns:1fr 1fr; }
+    }
+
+    @media (max-width: 560px){
+      .page{ padding-left:10px; padding-right:10px; }
+      .hero,.tip,.actionCard,.countdownCard,.nextCard{ border-radius:24px; }
+      .heroLeft{ flex-direction:column; }
+      .gateBadge{ width:58px; height:58px; border-radius:18px; font-size:28px; }
+      .title{ font-size:30px; }
+      .heroRight{ grid-template-columns:1fr; }
+      .actions{ flex-direction:column; }
+      .btn{ width:100%; }
     }
   </style>
 </head>
-<body>
-  <div id="gate-app"></div>
-
-  <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260415a-ZONE-FIRST-HUBROOT-FIX';
-
-    const root = document.getElementById('gate-app');
-
-    function qs(name, fallback=''){
-      try{
-        return new URL(location.href).searchParams.get(name) ?? fallback;
-      }catch(_){
-        return fallback;
-      }
-    }
-
-    function abs(raw, fallback=''){
-      const value = String(raw || '').trim();
-      try{
-        if (value) return new URL(value, location.href).href;
-      }catch(_){}
-      try{
-        if (fallback) return new URL(fallback, location.href).href;
-      }catch(_){}
-      return fallback || '';
-    }
-
-    function firstNonEmpty(...vals){
-      for (const v of vals){
-        const s = String(v || '').trim();
-        if (s) return s;
-      }
-      return '';
-    }
-
-    function looksLikeRoot(href='', zone=''){
-      const s = String(href || '').toLowerCase();
-      if (!s) return false;
-
-      if (zone === 'fitness') {
-        return (
-          s === 'https://supparang.github.io/webxr-health-mobile/fitness' ||
-          s === 'https://supparang.github.io/webxr-health-mobile/fitness/' ||
-          s.endsWith('/webxr-health-mobile/fitness') ||
-          s.endsWith('/webxr-health-mobile/fitness/')
-        );
-      }
-
-      if (zone === 'nutrition') {
-        return (
-          s === 'https://supparang.github.io/webxr-health-mobile/nutrition' ||
-          s === 'https://supparang.github.io/webxr-health-mobile/nutrition/' ||
-          s.endsWith('/webxr-health-mobile/nutrition') ||
-          s.endsWith('/webxr-health-mobile/nutrition/')
-        );
-      }
-
-      if (zone === 'hygiene') {
-        return (
-          s === 'https://supparang.github.io/webxr-health-mobile/hygiene' ||
-          s === 'https://supparang.github.io/webxr-health-mobile/hygiene/' ||
-          s.endsWith('/webxr-health-mobile/hygiene') ||
-          s.endsWith('/webxr-health-mobile/hygiene/')
-        );
-      }
-
-      return false;
-    }
-
-    function looksLikeZonePage(href='', zone=''){
-      const s = String(href || '').toLowerCase();
-      if (!s) return false;
-      if (zone === 'fitness') return s.includes('fitness-zone.html');
-      if (zone === 'nutrition') return s.includes('nutrition-zone.html');
-      if (zone === 'hygiene') return s.includes('hygiene-zone.html');
-      return false;
-    }
-
-    function looksLikeHubPage(href=''){
-      const s = String(href || '').toLowerCase();
-      return s.includes('/hub.html') || s.includes('/hub-v2.html');
-    }
-
-    function defaultHubRootHref(){
-      return 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
-    }
-
-    function normalizeGameId(raw=''){
-      const s = String(raw || '').trim().toLowerCase();
-      if (!s) return '';
-
-      if (['jumpduck','jump-duck','jump-duck-vr'].includes(s)) return 'jump-duck';
-      if (['shadowbreaker','shadow-breaker'].includes(s)) return 'shadow-breaker';
-      if (['rhythmboxer','rhythm-boxer'].includes(s)) return 'rhythm-boxer';
-      if (['balancehold','balance-hold'].includes(s)) return 'balance-hold';
-      if (['fitnessplanner','fitness-planner'].includes(s)) return 'fitness-planner';
-
-      if (['goodjunk','good-junk'].includes(s)) return 'goodjunk';
-      if (['plate','plate-vr','plate-v1'].includes(s)) return 'plate';
-      if (['groups','group','groups-v1','group-v1'].includes(s)) return 'groups';
-      if (['hydration','hydration-vr'].includes(s)) return 'hydration';
-
-      if (['handwash','handwash-vr','handwash-v2','handwash-howto','handwash-mini-order'].includes(s)) return 'handwash';
-      if (['brush','brush-vr','vr-brush','vr-brush-kids'].includes(s)) return 'brush';
-      if (['germ','germ-detective','germ-rush-run','germ-rush'].includes(s)) return 'germ';
-      if (['maskcough','mask-cough','maskcough-v2','maskcough-vr'].includes(s)) return 'maskcough';
-      if (['bath','bath-vr','vr-bath'].includes(s)) return 'bath';
-      if (['cleanobjects','clean-objects','clean-objects-v2','clean-objects-v3'].includes(s)) return 'cleanobjects';
-
-      return s.replace(/\s+/g,'-');
-    }
-
-    function inferZoneFromCtx(gameId='', zone='', cat=''){
-      const z = String(zone || cat || '').trim().toLowerCase();
-      if (z) return z;
-
-      const g = normalizeGameId(gameId);
-      if (g.includes('jump') || g.includes('shadow') || g.includes('rhythm') || g.includes('balance') || g.includes('fitness')) {
-        return 'fitness';
-      }
-      if (g.includes('goodjunk') || g.includes('plate') || g.includes('group') || g.includes('hydration')) {
-        return 'nutrition';
-      }
-      if (
-        g.includes('brush') ||
-        g.includes('handwash') ||
-        g.includes('germ') ||
-        g.includes('bath') ||
-        g.includes('mask') ||
-        g.includes('clean')
-      ) {
-        return 'hygiene';
-      }
-      return '';
-    }
-
-    function zonePageHref(zone=''){
-      const z = String(zone || '').trim().toLowerCase();
-      if (z === 'fitness') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/fitness-zone.html';
-      }
-      if (z === 'nutrition') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html';
-      }
-      if (z === 'hygiene') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/hygiene-zone.html';
-      }
-      return defaultHubRootHref();
-    }
-
-    function launcherHrefByGame(gameId=''){
-      const g = normalizeGameId(gameId);
-
-      if (g === 'jump-duck') {
-        return 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html';
-      }
-      if (g === 'shadow-breaker') {
-        return 'https://supparang.github.io/webxr-health-mobile/fitness/shadow-breaker.html';
-      }
-      if (g === 'rhythm-boxer') {
-        return 'https://supparang.github.io/webxr-health-mobile/fitness/rhythm-boxer.html';
-      }
-      if (g === 'balance-hold') {
-        return 'https://supparang.github.io/webxr-health-mobile/fitness/balance-hold.html';
-      }
-      if (g === 'fitness-planner') {
-        return 'https://supparang.github.io/webxr-health-mobile/fitness-planner/index.html';
-      }
-
-      if (g === 'groups') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/group-v1.html';
-      }
-      if (g === 'plate') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/plate-v1.html';
-      }
-      if (g === 'goodjunk') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
-      }
-      if (g === 'hydration') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/hydration-vr/hydration-vr.html';
-      }
-
-      if (g === 'handwash') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-handwash/handwash-launcher.html';
-      }
-      if (g === 'brush') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-brush-kids/brush.html';
-      }
-      if (g === 'germ') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/germ-detective/germ-rush-run.html';
-      }
-      if (g === 'maskcough') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html';
-      }
-      if (g === 'bath') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-bath/bath.html';
-      }
-      if (g === 'cleanobjects') {
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/clean-objects-v3/clean-objects-v2.html';
-      }
-
-      return '';
-    }
-
-    function buildLauncherWithCtx(gameId, params, zoneHref, hubRootHref){
-      const base = launcherHrefByGame(gameId);
-      if (!base) return '';
-
-      const u = new URL(base, location.href);
-
-      const keep = [
-        'pid','name','nick','nickName','run','diff','time','view','seed',
-        'mode','studyId','debug','log','api','ai','pro',
-        'game','gameId','theme','zone','cat',
-        'studentKey','schoolCode','classRoom','studentNo',
-        'conditionGroup','sessionNo','weekNo','teacher','grade'
-      ];
-
-      keep.forEach((key) => {
-        const v = params.get(key);
-        if (v != null && v !== '') u.searchParams.set(key, v);
-      });
-
-      u.searchParams.set('game', normalizeGameId(gameId));
-      u.searchParams.set('gameId', normalizeGameId(gameId));
-
-      if (!u.searchParams.get('theme')) {
-        u.searchParams.set('theme', normalizeGameId(gameId));
-      }
-
-      const zoneName = inferZoneFromCtx(gameId, params.get('zone'), params.get('cat'));
-      if (!u.searchParams.get('zone') && zoneName) u.searchParams.set('zone', zoneName);
-      if (!u.searchParams.get('cat') && zoneName) u.searchParams.set('cat', zoneName);
-
-      if (zoneHref) {
-        u.searchParams.set('hub', zoneHref);
-        u.searchParams.set('zoneReturn', zoneHref);
-      }
-      if (hubRootHref) {
-        u.searchParams.set('hubRoot', hubRootHref);
-      }
-
-      return u.toString();
-    }
-
-    function buildWarmupNextHref(gameId, params, zoneHref, hubRootHref){
-      const launcher = buildLauncherWithCtx(gameId, params, zoneHref, hubRootHref);
-      if (!launcher) return zoneHref;
-
-      const u = new URL(launcher);
-      u.searchParams.set('wgskip', '1');
-      u.searchParams.set('autostart', '1');
-      u.searchParams.set('entry', 'warmup-gate');
-
-      if (zoneHref) {
-        u.searchParams.set('hub', zoneHref);
-        u.searchParams.set('zoneReturn', zoneHref);
-      }
-      if (hubRootHref) {
-        u.searchParams.set('hubRoot', hubRootHref);
-      }
-
-      return u.toString();
-    }
-
-    function normalizeZoneReturn(rawZoneReturn, rawHub, zoneHref, zone){
-      if (rawZoneReturn && !looksLikeRoot(rawZoneReturn, zone)) {
-        return rawZoneReturn;
-      }
-      if (rawHub && looksLikeZonePage(rawHub, zone)) {
-        return rawHub;
-      }
-      return zoneHref;
-    }
-
-    function normalizeHubRoot(rawHubRoot, rawHub, zone){
-      if (rawHubRoot && !looksLikeRoot(rawHubRoot, zone) && !looksLikeZonePage(rawHubRoot, zone)) {
-        return rawHubRoot;
-      }
-      if (rawHub && looksLikeHubPage(rawHub)) {
-        return rawHub;
-      }
-      return defaultHubRootHref();
-    }
-
-    function normalizeGateQueryParams(){
-      const url = new URL(location.href);
-      const p = url.searchParams;
-
-      const gameId = normalizeGameId(
-        p.get('game') ||
-        p.get('gameId') ||
-        p.get('theme') ||
-        ''
-      );
-
-      const phaseRaw = String(
-        p.get('phase') ||
-        p.get('gatePhase') ||
-        'warmup'
-      ).trim().toLowerCase();
-
-      const phase = phaseRaw === 'cooldown' ? 'cooldown' : 'warmup';
-      const zone = inferZoneFromCtx(gameId, p.get('zone'), p.get('cat'));
-      const zoneHref = zonePageHref(zone);
-
-      const rawHub = abs(p.get('hub') || '', '');
-      const rawHubRoot = abs(p.get('hubRoot') || '', '');
-      const rawZoneReturn = abs(p.get('zoneReturn') || '', '');
-      const rawNext = abs(p.get('next') || '', '');
-      const rawCdNext = abs(p.get('cdnext') || '', '');
-      const rawLauncher = abs(p.get('launcher') || '', '');
-
-      const normalizedZoneReturn = normalizeZoneReturn(rawZoneReturn, rawHub, zoneHref, zone);
-      const normalizedHubRoot = normalizeHubRoot(rawHubRoot, rawHub, zone);
-
-      // zone-first standard:
-      p.set('zoneReturn', normalizedZoneReturn);
-      p.set('hubRoot', normalizedHubRoot);
-
-      // backward compatibility:
-      // old pages still read "hub" as the place to return to
-      p.set('hub', normalizedZoneReturn);
-
-      const defaultLauncher = buildLauncherWithCtx(gameId, p, normalizedZoneReturn, normalizedHubRoot);
-      if (!rawLauncher && defaultLauncher) {
-        p.set('launcher', defaultLauncher);
-      } else if (looksLikeRoot(rawLauncher, zone) && defaultLauncher) {
-        p.set('launcher', defaultLauncher);
-      }
-
-      if (!p.get('game') && gameId) p.set('game', gameId);
-      if (!p.get('gameId') && gameId) p.set('gameId', gameId);
-      if (!p.get('theme') && gameId) p.set('theme', gameId);
-      if (!p.get('zone') && zone) p.set('zone', zone);
-      if (!p.get('cat') && zone) p.set('cat', zone);
-
-      if (phase === 'warmup') {
-        if (!rawNext || looksLikeRoot(rawNext, zone)) {
-          const nextHref = buildWarmupNextHref(gameId, p, normalizedZoneReturn, normalizedHubRoot);
-          if (nextHref) p.set('next', nextHref);
-        } else {
-          p.set('next', rawNext);
-        }
-
-        if (!rawCdNext || looksLikeRoot(rawCdNext, zone)) {
-          p.set('cdnext', normalizedZoneReturn);
-        } else {
-          p.set('cdnext', rawCdNext);
-        }
-      }
-
-      if (phase === 'cooldown') {
-        const cooldownTarget =
-          rawNext && !looksLikeRoot(rawNext, zone)
-            ? rawNext
-            : normalizedZoneReturn;
-
-        p.set('next', cooldownTarget);
-
-        if (!rawCdNext || looksLikeRoot(rawCdNext, zone)) {
-          p.set('cdnext', normalizedZoneReturn);
-        } else {
-          p.set('cdnext', rawCdNext);
-        }
-      }
-
-      if (String(p.get('view') || '').trim() === '') {
-        p.set('view', 'mobile');
-      }
-
-      if (String(p.get('run') || '').trim() === '') {
-        p.set('run', 'play');
-      }
-
-      if (String(p.get('pid') || '').trim() === '') {
-        p.set('pid', 'anon');
-      }
-
-      history.replaceState({}, '', url.toString());
-
-      return {
-        url,
-        params: p,
-        gameId,
-        phase,
-        zone,
-        zoneHref: normalizedZoneReturn,
-        hubRootHref: normalizedHubRoot
-      };
-    }
-
-    function renderBootError(err, ctx){
-      if (!root) return;
-
-      const zoneHref = ctx?.zoneHref || zonePageHref('hygiene');
-      const hubRootHref = ctx?.hubRootHref || defaultHubRootHref();
-      const gameId = ctx?.gameId || normalizeGameId(qs('game', qs('gameId', '')));
-      const phase = ctx?.phase || 'warmup';
-      const params = new URL(location.href).searchParams;
-      const launcherHref = buildLauncherWithCtx(gameId, params, zoneHref, hubRootHref) || zoneHref;
-      const nextHref = buildWarmupNextHref(gameId, params, zoneHref, hubRootHref) || launcherHref;
-
-      const primaryLabel = phase === 'cooldown' ? 'กลับ Zone' : 'เข้าเกมหลัก';
-      const primaryHref = phase === 'cooldown' ? zoneHref : nextHref;
-
-      root.innerHTML = `
-        <div style="
-          min-height:100dvh;
-          display:grid;
-          place-items:center;
-          padding:18px;
-          background:
-            radial-gradient(circle at top, rgba(59,130,246,.18), transparent 32%),
-            linear-gradient(180deg,#020617 0%,#0f172a 55%,#111827 100%);
-          color:#e5e7eb;
-          font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-        ">
-          <div style="
-            width:min(760px,100%);
-            border-radius:24px;
-            background:rgba(15,23,42,.86);
-            border:1px solid rgba(148,163,184,.16);
-            box-shadow:0 20px 60px rgba(0,0,0,.34);
-            padding:22px;
-          ">
-            <div style="
-              font-size:12px;
-              font-weight:800;
-              letter-spacing:.08em;
-              text-transform:uppercase;
-              color:#93c5fd;
-              margin-bottom:8px;
-            ">HeroHealth Gate • ${phase}</div>
-
-            <h1 style="margin:0 0 10px;font-size:30px;line-height:1.05;">
-              Gate load failed
-            </h1>
-
-            <p style="margin:0 0 14px;color:#cbd5e1;line-height:1.6;">
-              ระบบโหลด ${phase === 'cooldown' ? 'cooldown' : 'warmup'} ไม่สำเร็จ
-            </p>
-
-            <pre style="
-              margin:0 0 16px;
-              white-space:pre-wrap;
-              word-break:break-word;
-              overflow:auto;
-              padding:14px;
-              border-radius:16px;
-              background:rgba(127,29,29,.28);
-              border:1px solid rgba(239,68,68,.22);
-              color:#fecaca;
-              font:600 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
-            ">${String(err?.stack || err || 'Unknown error')}</pre>
-
-            <div style="display:flex;gap:10px;flex-wrap:wrap">
-              <button id="gateReloadBtn" type="button" style="
-                appearance:none;
-                border:0;
-                border-radius:18px;
-                padding:14px 18px;
-                font-size:15px;
-                font-weight:900;
-                cursor:pointer;
-                min-width:170px;
-                background:linear-gradient(135deg,#38bdf8,#2563eb);
-                color:#fff;
-                box-shadow:0 12px 26px rgba(37,99,235,.32);
-              ">ลองใหม่</button>
-
-              <button id="gatePrimaryBtn" type="button" style="
-                appearance:none;
-                border:0;
-                border-radius:18px;
-                padding:14px 18px;
-                font-size:15px;
-                font-weight:900;
-                cursor:pointer;
-                min-width:170px;
-                background:linear-gradient(135deg,#22c55e,#16a34a);
-                color:#fff;
-                box-shadow:0 12px 26px rgba(34,197,94,.28);
-              ">${primaryLabel}</button>
-
-              <button id="gateBackBtn" type="button" style="
-                appearance:none;
-                border:1px solid rgba(148,163,184,.16);
-                border-radius:18px;
-                padding:14px 18px;
-                font-size:15px;
-                font-weight:900;
-                cursor:pointer;
-                min-width:170px;
-                background:rgba(15,23,42,.85);
-                color:#e5e7eb;
-              ">กลับ Zone</button>
-            </div>
+<body data-phase="warmup">
+  <main class="page">
+    <div class="shell">
+      <section class="hero">
+        <div class="heroLeft">
+          <div class="gateBadge" aria-hidden="true">🚀</div>
+          <div>
+            <p class="eyebrow" id="gateEyebrow">Warmup Gate</p>
+            <h1 class="title" id="gateTitle">เตรียมตัวก่อนเล่นด่านหลัก</h1>
+            <p class="sub" id="gateSub">อ่านเป้าหมายเร็ว ๆ ตั้งสมาธิ แล้วค่อยเข้า Plate Solo</p>
           </div>
         </div>
-      `;
 
-      document.getElementById('gateReloadBtn')?.addEventListener('click', () => {
-        location.reload();
-      });
+        <div class="heroRight">
+          <div class="countdownCard">
+            <span class="countdownLabel">นับถอยหลังอัตโนมัติ</span>
+            <strong id="gateCountdown">3</strong>
+          </div>
 
-      document.getElementById('gatePrimaryBtn')?.addEventListener('click', () => {
-        location.href = primaryHref;
-      });
+          <div class="nextCard">
+            <span class="nextLabel">ปลายทางถัดไป</span>
+            <div class="nextValue" id="nextPreview">กำลังเตรียมเส้นทาง...</div>
+          </div>
+        </div>
+      </section>
 
-      document.getElementById('gateBackBtn')?.addEventListener('click', () => {
-        location.href = zoneHref;
-      });
+      <section class="tips">
+        <article class="tip">
+          <div class="tipIcon">🎯</div>
+          <h3 class="tipTitle" id="tip1Title">ตั้งเป้าหมาย</h3>
+          <p class="tipText" id="tip1Text">ด่านหลักจะเริ่มหลัง warmup นี้ทันที</p>
+        </article>
+
+        <article class="tip">
+          <div class="tipIcon">🧠</div>
+          <h3 class="tipTitle" id="tip2Title">โฟกัสให้แม่น</h3>
+          <p class="tipText" id="tip2Text">เลือกให้ตรงหมู่ อย่าเผลอยิงตัวลวง</p>
+        </article>
+
+        <article class="tip">
+          <div class="tipIcon">🍽️</div>
+          <h3 class="tipTitle" id="tip3Title">พร้อมเข้า Main</h3>
+          <p class="tipText" id="tip3Text">กดปุ่มด้านล่างเพื่อเข้า Plate Solo</p>
+        </article>
+      </section>
+
+      <section class="actionCard">
+        <div class="actionTop">
+          <h2 class="actionTitle" id="actionTitle">พร้อมแล้วไปต่อได้เลย</h2>
+          <p class="actionSub" id="actionSub">จะรอให้นับถอยหลังครบ หรือกดไปต่อทันทีได้</p>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn primary" id="btnGateStart">เริ่มด่านหลัก</button>
+          <button type="button" class="btn" id="btnGateSkip">ข้าม gate</button>
+          <button type="button" class="btn" id="btnGateHub">กลับ Hub</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    'use strict';
+
+    function q(name, fallback = '') {
+      try { return new URL(location.href).searchParams.get(name) ?? fallback; }
+      catch (_) { return fallback; }
     }
 
-    const gateCtx = normalizeGateQueryParams();
+    function clean(v, d = '') {
+      v = String(v ?? '').trim();
+      return v || d;
+    }
 
-    bootGate(root).catch((err) => {
-      console.error('[warmup-gate] boot failed:', err);
-      renderBootError(err, gateCtx);
-    });
+    const ctx = {
+      phase: clean(q('phase'), clean(q('gatePhase'), 'warmup')).toLowerCase(),
+      pid: clean(q('pid'), 'anon'),
+      name: clean(q('name'), 'Hero'),
+      diff: clean(q('diff'), 'normal'),
+      time: clean(q('time'), '90'),
+      view: clean(q('view'), 'mobile'),
+      run: clean(q('run'), 'play'),
+      zone: clean(q('zone'), 'nutrition'),
+      cat: clean(q('cat'), 'nutrition'),
+      game: clean(q('game'), 'plate'),
+      gameId: clean(q('gameId'), 'plate'),
+      theme: clean(q('theme'), 'plate'),
+      mode: clean(q('mode'), 'solo'),
+      hub: clean(q('hub'), 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'),
+      hubRoot: clean(q('hubRoot'), ''),
+      entry: clean(q('entry'), ''),
+      next: clean(q('next'), '')
+    };
+
+    function defaultNext() {
+      if (ctx.phase === 'cooldown') return ctx.hub;
+      return 'https://supparang.github.io/webxr-health-mobile/herohealth/plate/plate-solo.html';
+    }
+
+    function resolvedNext() {
+      return ctx.next || defaultNext();
+    }
+
+    function setText(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(text ?? '');
+    }
+
+    function applyPhaseUi() {
+      const isCooldown = ctx.phase === 'cooldown';
+
+      document.body.dataset.phase = isCooldown ? 'cooldown' : 'warmup';
+
+      setText('gateEyebrow', isCooldown ? 'Cooldown Gate' : 'Warmup Gate');
+      setText('gateTitle', isCooldown ? 'คูลดาวน์ก่อนกลับโซน' : 'เตรียมตัวก่อนเล่นด่านหลัก');
+      setText(
+        'gateSub',
+        isCooldown
+          ? 'หายใจลึก ๆ ผ่อนจังหวะ แล้วค่อยกลับ Nutrition Zone'
+          : 'อ่านเป้าหมายเร็ว ๆ ตั้งสมาธิ แล้วค่อยเข้า Plate Solo'
+      );
+
+      setText('tip1Title', isCooldown ? 'ผ่อนแรง' : 'ตั้งเป้าหมาย');
+      setText(
+        'tip1Text',
+        isCooldown
+          ? 'จบทั้ง main และ mini แล้ว ขั้นนี้คือปิด session ให้เรียบร้อย'
+          : 'ด่านหลักจะเริ่มหลัง warmup นี้ทันที'
+      );
+
+      setText('tip2Title', isCooldown ? 'สรุปในใจ' : 'โฟกัสให้แม่น');
+      setText(
+        'tip2Text',
+        isCooldown
+          ? 'ทบทวนว่ารอบนี้หมู่ไหนทำได้ดี และหมู่ไหนยังต้องฝึกเพิ่ม'
+          : 'เลือกให้ตรงหมู่ อย่าเผลอยิงตัวลวง'
+      );
+
+      setText('tip3Title', isCooldown ? 'พร้อมกลับโซน' : 'พร้อมเข้า Main');
+      setText(
+        'tip3Text',
+        isCooldown
+          ? 'กดปุ่มด้านล่างเพื่อกลับ Hub / Nutrition Zone'
+          : 'กดปุ่มด้านล่างเพื่อเข้า Plate Solo'
+      );
+
+      setText('actionTitle', isCooldown ? 'พักเสร็จแล้ว กลับโซนได้เลย' : 'พร้อมแล้วไปต่อได้เลย');
+      setText(
+        'actionSub',
+        isCooldown
+          ? 'กดกลับโซนได้ทันที หรือกลับ Hub ถ้าต้องการ'
+          : 'จะรอให้นับถอยหลังครบ หรือกดไปต่อทันทีได้'
+      );
+
+      setText('btnGateStart', isCooldown ? 'กลับโซน' : 'เริ่มด่านหลัก');
+      setText('btnGateSkip', isCooldown ? 'กลับ Hub ทันที' : 'ข้าม gate');
+    }
+
+    function updateNextPreview() {
+      const next = resolvedNext();
+      try {
+        const u = new URL(next);
+        const path = `${u.pathname}${u.search ? u.search : ''}`;
+        setText('nextPreview', path);
+      } catch (_) {
+        setText('nextPreview', next || '-');
+      }
+    }
+
+    function goNext(ev) {
+      if (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      location.assign(resolvedNext());
+    }
+
+    function goHub(ev) {
+      if (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      location.assign(ctx.hub);
+    }
+
+    function autoAdvanceAfterCountdown() {
+      const countdownEl = document.getElementById('gateCountdown');
+      if (!countdownEl) return;
+
+      let remain = 3;
+      countdownEl.textContent = String(remain);
+
+      const timer = setInterval(() => {
+        remain -= 1;
+        countdownEl.textContent = String(Math.max(0, remain));
+        if (remain <= 0) {
+          clearInterval(timer);
+          goNext();
+        }
+      }, 1000);
+    }
+
+    document.getElementById('btnGateStart')?.addEventListener('click', goNext);
+    document.getElementById('btnGateSkip')?.addEventListener('click', goNext);
+    document.getElementById('btnGateHub')?.addEventListener('click', goHub);
+
+    applyPhaseUi();
+    updateNextPreview();
+
+    if (ctx.phase === 'warmup') {
+      autoAdvanceAfterCountdown();
+    } else {
+      setText('gateCountdown', '✓');
+    }
+  })();
   </script>
 </body>
 </html>
