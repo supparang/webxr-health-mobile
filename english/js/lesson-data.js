@@ -439,3 +439,58 @@ export const missionDB = [
     }
   }
 ];
+function hashSeed(input) {
+  const str = String(input ?? "");
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return () => {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  };
+}
+
+function mulberry32(seed) {
+  let t = seed >>> 0;
+  return function () {
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededRng(seed) {
+  const make = hashSeed(seed);
+  return mulberry32(make());
+}
+
+export function pickAdaptiveMissionItem(
+  sessionId,
+  mode = "normal",
+  aiState = { pressure: 0, support: 0 },
+  seed = `${sessionId}-${Date.now()}`
+) {
+  const mission = missionDB.find(m => m.id === sessionId);
+  if (!mission) return null;
+
+  let targetDiff = mode;
+  if (aiState?.support >= 2) targetDiff = "easy";
+  else if (aiState?.pressure >= 2) targetDiff = "hard";
+
+  const bank = mission.bank?.[targetDiff] || mission.bank?.normal || [];
+  if (!bank.length) return null;
+
+  const rng = seededRng(seed);
+  const randomIndex = Math.floor(rng() * bank.length);
+
+  return {
+    ...bank[randomIndex],
+    _sessionId: sessionId,
+    _sessionType: mission.type,
+    _selectedDifficulty: targetDiff
+  };
+}
