@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Vocab v9 ESP Battle — CS/AI (Portrait UI)</title>
+  <title>Vocab v11 ESP Battle — CS/AI (Mobile First Clean UI)</title>
   <style>
     :root{
       --bg1:#071122;
@@ -85,14 +85,94 @@
     .top3Card .rank{font-size:28px;font-weight:1000}
     .top3Card .name{font-size:16px;font-weight:900;margin-top:6px}
     .top3Card .meta{font-size:12px;color:#c7d4ff;margin-top:4px}
-
     .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
-    @media (max-width:980px){
-      .hud,.grid3,.grid2,.grid4,.profileRow,.actions,.top3Board{grid-template-columns:1fr}
-      .title{font-size:28px}
-      #questionBox{top:66px;width:94vw}
-      #questionBox .q-prompt{font-size:clamp(18px,5vw,28px)}
-      #feedbackBox{top:176px}
+
+    /* === Mobile-first clean menu UI === */
+    html,body,#app{overflow-x:hidden}
+    .panel{
+      width:min(96vw,760px);
+      max-width:96vw;
+      overflow-x:hidden;
+      padding:18px;
+      border-radius:24px;
+    }
+    .title{
+      font-size:clamp(26px,7vw,40px);
+      line-height:1.12;
+      letter-spacing:-0.02em;
+    }
+    .desc{
+      font-size:14px;
+      line-height:1.55;
+    }
+    .sectionTitle{
+      margin-top:16px;
+      margin-bottom:10px;
+      font-size:15px;
+      font-weight:900;
+      color:#dbeafe;
+    }
+    .menuStack{display:grid;gap:12px}
+    .bankGrid{display:grid;grid-template-columns:1fr;gap:10px}
+    .modeGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .profileGrid{display:grid;grid-template-columns:1fr;gap:10px}
+    .actionGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .top3Board{display:grid;grid-template-columns:1fr;gap:10px;margin-top:0}
+    .option,.box,.inputBox,.top3Card,.btn{
+      min-width:0;
+      width:100%;
+      border-radius:20px;
+    }
+    .option{padding:14px}
+    .option h3{font-size:18px;line-height:1.2;margin:0 0 6px}
+    .option p{font-size:13px;line-height:1.4}
+    .top3Card{padding:14px;text-align:left}
+    .top3Card .rank{font-size:22px}
+    .top3Card .name{font-size:16px}
+    .inputBox input{font-size:16px;min-height:48px}
+    .btn{
+      min-height:58px;
+      font-size:17px;
+      white-space:normal;
+      word-break:break-word;
+      line-height:1.15;
+      padding:12px 14px;
+    }
+    .hud{
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      left:8px;
+      right:8px;
+      top:8px;
+    }
+    .card{padding:9px 10px;border-radius:16px}
+    .big{font-size:14px}
+    .sub{font-size:11px}
+    #questionBox{
+      top:116px;
+      width:94vw;
+      padding:14px 14px;
+      border-radius:18px;
+    }
+    #questionBox .q-prompt{
+      font-size:clamp(18px,5vw,28px);
+      line-height:1.22;
+    }
+    #feedbackBox{
+      top:192px;
+      max-width:88vw;
+      font-size:18px;
+    }
+    @media (min-width:700px){
+      .bankGrid{grid-template-columns:1fr 1fr 1fr}
+      .profileGrid{grid-template-columns:1fr 1fr}
+      .top3Board{grid-template-columns:1fr 1fr 1fr}
+    }
+    @media (max-width:420px){
+      .option h3{font-size:16px}
+      .option p{font-size:12px}
+      .btn{font-size:16px}
+      #questionBox{top:164px}
     }
   </style>
 </head>
@@ -117,51 +197,56 @@
     <div class="panel">
       <h1 class="title">Vocab v9 — English for Specific Career Purposes (CS/AI)</h1>
       <div class="desc">
-        เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ: มีหลายรูปแบบคำถามต่อคำศัพท์, ปรับความยากตามการเล่น,
-        มี Code Battle / Debug Mission / AI Training / Speed Run และ review queue เพื่อย้อนคำที่ยังอ่อน — เวอร์ชันนี้ใช้การแตะเลือกคำตอบเป็นหลัก
+        เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ มีหลายรูปแบบคำถามต่อคำศัพท์ ปรับความยากตามการเล่น
+        และใช้การแตะเลือกคำตอบเป็นหลัก
       </div>
 
-      <div class="desc" style="margin-top:16px"><strong>เลือกกลุ่มคำศัพท์</strong></div>
-      <div class="grid3" style="margin-top:10px">
-        <button class="option bankBtn active" data-bank="A"><h3>A • Software Engineering</h3><p>software, debug, deploy, API, repository, modularization</p></button>
-        <button class="option bankBtn" data-bank="B"><h3>B • Data / Cloud / System</h3><p>database, query, server, authentication, pipeline, ETL</p></button>
-        <button class="option bankBtn" data-bank="C"><h3>C • AI / Machine Learning</h3><p>model, feature, accuracy, embedding, tokenization, fine-tuning</p></button>
-      </div>
-
-      <div class="desc" style="margin-top:16px"><strong>เลือกโหมดเล่น</strong></div>
-      <div class="grid4" style="margin-top:10px">
-        <button class="option modeBtn active" data-mode="code_battle"><h3>⚔️ Code Battle</h3><p>โจมตีบอสด้วยการตอบคำถามถูก</p></button>
-        <button class="option modeBtn" data-mode="debug_mission"><h3>🧪 Debug Mission</h3><p>ตีความ bug / error / correct usage</p></button>
-        <button class="option modeBtn" data-mode="ai_training"><h3>🤖 AI Training Sim</h3><p>บริบท AI/ML แบบใช้งานจริง</p></button>
-        <button class="option modeBtn" data-mode="speed_run"><h3>⚡ Speed Run</h3><p>เร็ว กดดัน กันจำแพทเทิร์น</p></button>
-      </div>
-        <div class="mic-actions">
-          <button id="requestMicBtn" class="mic-btn" type="button">🎤 ขออนุญาตไมค์อัตโนมัติ</button>
+      <div class="menuStack">
+        <div>
+          <div class="sectionTitle">เลือกกลุ่มคำศัพท์</div>
+          <div class="bankGrid">
+            <button class="option bankBtn active" data-bank="A"><h3>A • Software Engineering</h3><p>software, debug, deploy, API, repository, modularization</p></button>
+            <button class="option bankBtn" data-bank="B"><h3>B • Data / Cloud / System</h3><p>database, query, server, authentication, pipeline, ETL</p></button>
+            <button class="option bankBtn" data-bank="C"><h3>C • AI / Machine Learning</h3><p>model, feature, accuracy, embedding, tokenization, fine-tuning</p></button>
+          </div>
         </div>
-      </div>
 
-      <div class="desc" style="margin-top:16px"><strong>ข้อมูลผู้เล่น</strong></div>
-      <div class="profileRow" style="margin-top:10px">
-        <div class="inputBox">
-          <label for="displayNameInput">Display Name</label>
-          <input id="displayNameInput" type="text" maxlength="24" placeholder="เช่น Mint / Arm / AomAI" />
+        <div>
+          <div class="sectionTitle">เลือกโหมดเล่น</div>
+          <div class="modeGrid">
+            <button class="option modeBtn active" data-mode="code_battle"><h3>⚔️ Code Battle</h3><p>โจมตีบอสด้วยการตอบคำถามถูก</p></button>
+            <button class="option modeBtn" data-mode="debug_mission"><h3>🧪 Debug Mission</h3><p>ตีความ bug / error / correct usage</p></button>
+            <button class="option modeBtn" data-mode="ai_training"><h3>🤖 AI Training Sim</h3><p>บริบท AI/ML แบบใช้งานจริง</p></button>
+            <button class="option modeBtn" data-mode="speed_run"><h3>⚡ Speed Run</h3><p>เร็ว กดดัน กันจำแพทเทิร์น</p></button>
+          </div>
         </div>
-        <div class="inputBox">
-          <label for="studentIdInput">Student ID (optional)</label>
-          <input id="studentIdInput" type="text" maxlength="24" placeholder="เช่น 6512345678" />
+
+        <div>
+          <div class="sectionTitle">ข้อมูลผู้เล่น</div>
+          <div class="profileGrid">
+            <div class="inputBox">
+              <label for="displayNameInput">Display Name</label>
+              <input id="displayNameInput" type="text" maxlength="24" placeholder="เช่น Mint / Arm / AomAI" />
+            </div>
+            <div class="inputBox">
+              <label for="studentIdInput">Student ID (optional)</label>
+              <input id="studentIdInput" type="text" maxlength="24" placeholder="เช่น 6512345678" />
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="box" style="margin-top:16px">
-        <h3>Leaderboard ตอนนี้</h3>
-        <p>แสดง 3 ลำดับพอบนหน้าเมนู เพื่อให้เห็นว่าตอนนี้ใครนำอยู่</p>
-        <div class="top3Board" id="menuTop3Board"></div>
-      </div>
+        <div>
+          <div class="sectionTitle">Leaderboard ตอนนี้</div>
+          <div class="top3Board" id="menuTop3Board"></div>
+        </div>
 
-      <div class="desc" style="margin-top:16px"><strong>เริ่มใช้งาน</strong></div>
-      <div class="actions actionRow" style="margin-top:10px;">
-        <button class="btn" id="startBtn">START PRODUCTION RUN</button>
-        <button class="btn alt" id="leaderboardBtn">LEADERBOARD</button>
+        <div>
+          <div class="sectionTitle">เริ่มใช้งาน</div>
+          <div class="actionGrid">
+            <button class="btn" id="startBtn">START PRODUCTION RUN</button>
+            <button class="btn alt" id="leaderboardBtn">LEADERBOARD</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -428,7 +513,7 @@
     for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random() * (i+1)); [a[i],a[j]] = [a[j],a[i]]; }
     return a;
   }
-  function center(){ return { x: width * 0.5, y: height * 0.62 }; }
+  function center(){ return { x: width * 0.5, y: height * 0.60 }; }
 
   function loadProfile(){
     try{
@@ -501,7 +586,6 @@
     const phaseMod = V9.bossPhase === 3 ? -4 : V9.bossPhase === 2 ? -2 : 0;
     return Math.max(8, base - 6 + comboBonus + phaseMod);
   }
-
 
   function updateRunDifficulty(){
     if (V9.combo >= 8) V9.runDifficulty = 'hard';
@@ -727,7 +811,6 @@
   }
 
   async function saveScoreRealtime(entry){
-    // Realtime Database hook point
     return Promise.resolve(entry);
   }
 
@@ -845,403 +928,400 @@
     const rows = Object.entries(summary.mastery).sort((a,b) => (b[1].wrong - a[1].wrong) || (a[0].localeCompare(b[0])));
     if (!rows.length){
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="6">No data yet</td>';
-      els.teacherTable.appendChild(tr);
-    } else {
-      rows.forEach(([term, m]) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + term.toUpperCase() + '</td><td>' + m.seen + '</td><td>' + m.correct + '</td><td>' + m.wrong + '</td><td>' + m.level + '</td><td>' + m.highestLevel + '</td>';
+        tr.innerHTML = '<td colspan="6">No data yet</td>';
         els.teacherTable.appendChild(tr);
+      } else {
+        rows.forEach(([term, m]) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = '<td>' + term.toUpperCase() + '</td><td>' + m.seen + '</td><td>' + m.correct + '</td><td>' + m.wrong + '</td><td>' + m.level + '</td><td>' + m.highestLevel + '</td>';
+          els.teacherTable.appendChild(tr);
+        });
+      }
+      els.weakList.innerHTML = '';
+      summary.weakestTerms.forEach(([term, m]) => {
+        const li = document.createElement('li');
+        li.innerHTML = '<strong>' + term.toUpperCase() + '</strong> • wrong ' + m.wrong + ' • correct ' + m.correct + ' • highest ' + m.highestLevel;
+        els.weakList.appendChild(li);
       });
     }
-    els.weakList.innerHTML = '';
-    summary.weakestTerms.forEach(([term, m]) => {
-      const li = document.createElement('li');
-      li.innerHTML = '<strong>' + term.toUpperCase() + '</strong> • wrong ' + m.wrong + ' • correct ' + m.correct + ' • highest ' + m.highestLevel;
-      els.weakList.appendChild(li);
-    });
-  }
 
-  async function endRun(){
-    if (phase === 'ended') return;
-    phase = 'ended';
-    targets = [];
-    V9.currentItem = null;
-    hoveredId = null;
-    timeLeft = 0;
-
-    const weakest = getWeakestTerms(5);
-    const summary = {
-      score: V9.score,
-      hp: V9.hp,
-      bossHp: V9.bossHp,
-      bossMaxHp: V9.bossMaxHp,
-      bossPhase: V9.bossPhase,
-      win: V9.bossHp <= 0,
-      stagesPlayed: Math.min(V9.stageIndex, V9.maxStages),
-      weakestTerms: weakest,
-      mastery: V9.mastery
-    };
-
-    lastSummary = summary;
-    renderTeacherDashboard(summary);
-
-    const entry = buildRealtimeEntryFromSummary(summary);
-    pushLeaderboardEntry(entry);
-
-    try{ await saveScoreRealtime(entry); }
-    catch(err){ console.error('saveScoreRealtime failed', err); }
-
-    const weakestText = weakest.length ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ') : '-';
-    els.endSummaryText.innerHTML =
-      '<strong>' + profile.displayName + '</strong><br>' +
-      'Score: ' + summary.score + '<br>' +
-      'Stages: ' + summary.stagesPlayed + ' / ' + V9.maxStages + '<br>' +
-      'HP Left: ' + summary.hp + '<br>' +
-      (summary.win ? 'Result: BOSS DEFEATED<br>' : 'Result: BOSS SURVIVED<br>') +
-      'Boss HP Left: ' + summary.bossHp + ' / ' + summary.bossMaxHp + '<br>' +
-      'Weakest Terms: ' + weakestText;
-
-    els.endWrap.classList.remove('hidden');
-    els.menu.classList.add('hidden');
-    els.questionBox.classList.add('hidden');
-
-    renderLeaderboard();
-    renderHud();
-  }
-
-  function handleAnswerV9(selectedText){
-    const item = V9.currentItem;
-    if (!item || phase !== 'battle') return;
-
-    const isCorrect = selectedText === String(item.answer).toLowerCase();
-    updateMasteryAfterAnswer(item.termId, isCorrect, item.type, item.fromReview);
-
-    if (isCorrect){
-      const damage = bossDamageFromCorrect();
-      V9.score += 12 + Math.min(V9.combo * 3, 24);
-      V9.combo += 1;
-      V9.bossHp = Math.max(0, V9.bossHp - damage);
-      updateBossPhase();
-      showFeedback('HIT +' + damage, 'ok');
-    } else {
-      const penalty = bossPenaltyOnWrong();
-      V9.hp -= penalty;
-      V9.combo = 0;
-      enqueueReview(item.termId);
-      showFeedback('WRONG -' + penalty + ' HP', 'bad');
-    }
-
-    V9.stageIndex += 1;
-
-    if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages || V9.bossHp <= 0){
-      endRun();
-      return;
-    }
-
-    phase = 'feedback';
-    phaseUntil = now() + 800;
-  }
-
-  function nextQuestionV9(){
-    updateRunDifficulty();
-
-    if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages || V9.bossHp <= 0){
-      endRun();
-      return;
-    }
-
-    const item = buildQuestionItem();
-    if (!item){
-      endRun();
-      return;
-    }
-
-    V9.currentItem = item;
-    renderQuestionBox(item);
-    spawnTargetsFromChoices(item.choices);
-
-    phase = 'countdown';
-    V9.countdown = 3;
-    V9.bossAttackAt = now() + bossAttackInterval();
-    phaseUntil = now() + 650;
-  }
-
-  function resetRun(bank, mode){
-    V9.bank = bank;
-    V9.mode = mode;
-    V9.score = 0;
-    V9.combo = 0;
-    V9.hp = 5;
-    V9.bossMaxHp = bossBaseHp();
-    V9.bossHp = V9.bossMaxHp;
-    V9.bossPhase = 1;
-    V9.bossAttackAt = 0;
-    V9.runDifficulty = 'easy';
-    V9.currentItem = null;
-    V9.usedVariantIds = new Set();
-    V9.usedTermIds = [];
-    V9.reviewQueue = [];
-    V9.mastery = {};
-    V9.stageIndex = 0;
-    V9.countdown = 3;
-    targets = [];
-    phase = 'idle';
-    timeLeft = 1;
-    renderHud();
-  }
-
-  async function startProductionRun(){
-    document.querySelector('.hud')?.classList.remove('hidden');
-    els.questionBox.classList.remove('hidden');
-    saveProfile();
-    els.menu.classList.add('hidden');
-    els.endWrap.classList.add('hidden');
-    resetRun(V9.bank, V9.mode);
-    nextQuestionV9();
-  }
-
-  function renderBackground(t){
-    const g = ctx.createLinearGradient(0,0,0,height);
-    g.addColorStop(0,'#67d8ff'); g.addColorStop(1,'#dbeafe');
-    ctx.fillStyle = g; ctx.fillRect(0,0,width,height);
-    ctx.fillStyle = '#dbeafe'; ctx.fillRect(0,height*0.58,width,height*0.42);
-
-    const c = center();
-    // arena rings
-    ctx.save();
-    ctx.translate(c.x,c.y+72);
-    ctx.rotate(-0.06);
-    for(let i=0;i<2;i++){
-      ctx.beginPath();
-      ctx.ellipse(0,0,280+i*72,72+i*20,0,0,Math.PI*2);
-      ctx.globalAlpha = i===0 ? .95 : .75;
-      ctx.lineWidth = 14;
-      ctx.strokeStyle = i===0 ? '#38bdf8' : '#f472b6';
-      ctx.stroke();
-    }
-    ctx.restore();
-    ctx.globalAlpha = 1;
-
-    // boss core
-    ctx.save();
-    ctx.translate(c.x, c.y - 20);
-    const pulse = 1 + Math.sin(t * 0.003) * (V9.bossPhase === 3 ? 0.10 : 0.06);
-    ctx.scale(pulse, pulse);
-    ctx.beginPath(); ctx.arc(0,0,52,0,Math.PI*2); ctx.fillStyle = V9.bossPhase === 3 ? 'rgba(251,113,133,.30)' : V9.bossPhase === 2 ? 'rgba(251,146,60,.26)' : 'rgba(244,114,182,.20)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(0,0,30,0,Math.PI*2); ctx.fillStyle = V9.bossPhase === 3 ? '#fb7185' : V9.bossPhase === 2 ? '#fb923c' : '#f472b6'; ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = '900 14px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('BOSS P' + V9.bossPhase, 0, 1);
-    ctx.restore();
-  }
-
-  function loop(t){
-    requestAnimationFrame(loop);
-    renderBackground(t);
-
-    if (phase === 'countdown'){
-      timeLeft = 1;
-      els.questionBox.innerHTML = '<div class="q-meta">' + modeMeta().title + '</div><div class="q-prompt">GET READY • ' + V9.countdown + '</div>';
-      if (now() >= phaseUntil){
-        V9.countdown -= 1;
-        phaseUntil = now() + 650;
-        if (V9.countdown <= 0){
-          phase = 'battle';
-          roundStart = now();
-          const base = modeMeta().baseTime;
-          const diffDuration = V9.runDifficulty === 'hard' ? Math.max(2800, base - 1600) : V9.runDifficulty === 'normal' ? Math.max(3600, base - 800) : base;
-          const phasePenalty = V9.bossPhase === 3 ? 900 : V9.bossPhase === 2 ? 450 : 0;
-          roundDuration = Math.max(2400, diffDuration - phasePenalty);
-          renderQuestionBox(V9.currentItem);
-        }
-      }
-    } else if (phase === 'battle'){
-      const elapsed = now() - roundStart;
-      timeLeft = clamp(1 - elapsed / roundDuration, 0, 1);
-
-      if (now() >= V9.bossAttackAt){
-        const dmg = V9.bossPhase === 3 ? 2 : 1;
-        V9.hp -= dmg;
-        V9.combo = 0;
-        V9.bossAttackAt = now() + bossAttackInterval();
-        showFeedback('BOSS HIT -' + dmg + ' HP', 'warn');
-        if (V9.hp <= 0){
-          endRun();
-          renderHud();
-          return;
-        }
-      }
-
-      if (timeLeft <= 0){
-        const timeoutDmg = V9.bossPhase === 3 ? 2 : 1;
-        V9.hp -= timeoutDmg;
-        V9.combo = 0;
-        enqueueReview(V9.currentItem.termId);
-        showFeedback('TIME OUT -' + timeoutDmg + ' HP', 'warn');
-        V9.stageIndex += 1;
-        if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages){
-          endRun();
-        } else {
-          phase = 'feedback';
-          phaseUntil = now() + 700;
-        }
-      }
-    } else if (phase === 'feedback'){
+    async function endRun(){
+      if (phase === 'ended') return;
+      phase = 'ended';
+      targets = [];
+      V9.currentItem = null;
+      hoveredId = null;
       timeLeft = 0;
-      if (now() >= phaseUntil) nextQuestionV9();
-    } else {
-      timeLeft = 1;
+
+      const weakest = getWeakestTerms(5);
+      const summary = {
+        score: V9.score,
+        hp: V9.hp,
+        bossHp: V9.bossHp,
+        bossMaxHp: V9.bossMaxHp,
+        bossPhase: V9.bossPhase,
+        win: V9.bossHp <= 0,
+        stagesPlayed: Math.min(V9.stageIndex, V9.maxStages),
+        weakestTerms: weakest,
+        mastery: V9.mastery
+      };
+
+      lastSummary = summary;
+      renderTeacherDashboard(summary);
+
+      const entry = buildRealtimeEntryFromSummary(summary);
+      pushLeaderboardEntry(entry);
+
+      try{ await saveScoreRealtime(entry); }
+      catch(err){ console.error('saveScoreRealtime failed', err); }
+
+      const weakestText = weakest.length ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ') : '-';
+      els.endSummaryText.innerHTML =
+        '<strong>' + profile.displayName + '</strong><br>' +
+        'Score: ' + summary.score + '<br>' +
+        'Stages: ' + summary.stagesPlayed + ' / ' + V9.maxStages + '<br>' +
+        'HP Left: ' + summary.hp + '<br>' +
+        (summary.win ? 'Result: BOSS DEFEATED<br>' : 'Result: BOSS SURVIVED<br>') +
+        'Boss HP Left: ' + summary.bossHp + ' / ' + summary.bossMaxHp + '<br>' +
+        'Weakest Terms: ' + weakestText;
+
+      els.endWrap.classList.remove('hidden');
+      els.menu.classList.add('hidden');
+      els.questionBox.classList.add('hidden');
+
+      renderLeaderboard();
+      renderHud();
     }
 
-    updateTargets(t);
-    renderTargets();
-    renderHud();
-  }
+    function handleAnswerV9(selectedText){
+      const item = V9.currentItem;
+      if (!item || phase !== 'battle') return;
 
-  function teacherPassHash(pass){
-    try{ return btoa(unescape(encodeURIComponent(pass || ''))); }
-    catch(e){ return ''; }
-  }
-  function buildTeacherLink(){
-    const url = new URL(window.location.href);
-    const pass = (els.teacherPassInput && els.teacherPassInput.value || '').trim();
-    if (pass){
-      localStorage.setItem('VOCAB_V9_TEACHER_PASS_HASH', teacherPassHash(pass));
-      url.searchParams.set('teacherKey', teacherPassHash(pass));
-    }
-    url.searchParams.set('teacher', '1');
-    return url.toString();
-  }
-  async function copyText(text){
-    try{ await navigator.clipboard.writeText(text); return true; }
-    catch(e){ return false; }
-  }
+      const isCorrect = selectedText === String(item.answer).toLowerCase();
+      updateMasteryAfterAnswer(item.termId, isCorrect, item.type, item.fromReview);
 
-  function openLeaderboard(){ renderLeaderboard(); els.leaderboardWrap.classList.remove('hidden'); }
-  function openTeacher(){
-    document.querySelector('.hud')?.classList.add('hidden');
-    els.questionBox.classList.add('hidden');
-    if (!lastSummary){
-      try{
-        const raw = JSON.parse(localStorage.getItem(TEACHER_KEY) || 'null');
-        if (raw) renderTeacherDashboard(raw);
-      }catch(e){}
-    }
-    els.teacherWrap.classList.remove('hidden');
-  }
-  function bootTeacherMode(){
-    const q = new URLSearchParams(window.location.search);
-    if (q.get('teacher') === '1'){
-      const expected = localStorage.getItem('VOCAB_V9_TEACHER_PASS_HASH') || '';
-      const got = q.get('teacherKey') || '';
-      if (expected && got !== expected){
-        alert('Teacher passcode ไม่ถูกต้อง');
+      if (isCorrect){
+        const damage = bossDamageFromCorrect();
+        V9.score += 12 + Math.min(V9.combo * 3, 24);
+        V9.combo += 1;
+        V9.bossHp = Math.max(0, V9.bossHp - damage);
+        updateBossPhase();
+        showFeedback('HIT +' + damage, 'ok');
+      } else {
+        const penalty = bossPenaltyOnWrong();
+        V9.hp -= penalty;
+        V9.combo = 0;
+        enqueueReview(item.termId);
+        showFeedback('WRONG -' + penalty + ' HP', 'bad');
+      }
+
+      V9.stageIndex += 1;
+
+      if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages || V9.bossHp <= 0){
+        endRun();
         return;
       }
+
+      phase = 'feedback';
+      phaseUntil = now() + 800;
+    }
+
+    function nextQuestionV9(){
+      updateRunDifficulty();
+
+      if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages || V9.bossHp <= 0){
+        endRun();
+        return;
+      }
+
+      const item = buildQuestionItem();
+      if (!item){
+        endRun();
+        return;
+      }
+
+      V9.currentItem = item;
+      renderQuestionBox(item);
+      spawnTargetsFromChoices(item.choices);
+
+      phase = 'countdown';
+      V9.countdown = 3;
+      V9.bossAttackAt = now() + bossAttackInterval();
+      phaseUntil = now() + 650;
+    }
+
+    function resetRun(bank, mode){
+      V9.bank = bank;
+      V9.mode = mode;
+      V9.score = 0;
+      V9.combo = 0;
+      V9.hp = 5;
+      V9.bossMaxHp = bossBaseHp();
+      V9.bossHp = V9.bossMaxHp;
+      V9.bossPhase = 1;
+      V9.bossAttackAt = 0;
+      V9.runDifficulty = 'easy';
+      V9.currentItem = null;
+      V9.usedVariantIds = new Set();
+      V9.usedTermIds = [];
+      V9.reviewQueue = [];
+      V9.mastery = {};
+      V9.stageIndex = 0;
+      V9.countdown = 3;
+      targets = [];
+      phase = 'idle';
+      timeLeft = 1;
+      renderHud();
+    }
+
+    async function startProductionRun(){
+      document.querySelector('.hud')?.classList.remove('hidden');
+      els.questionBox.classList.remove('hidden');
+      saveProfile();
       els.menu.classList.add('hidden');
-      openTeacher();
+      els.endWrap.classList.add('hidden');
+      resetRun(V9.bank, V9.mode);
+      nextQuestionV9();
     }
-  }
 
-  document.querySelectorAll('.bankBtn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      V9.bank = btn.dataset.bank || 'A';
-      document.querySelectorAll('.bankBtn').forEach(b => b.classList.toggle('active', b === btn));
-    });
-  });
-  document.querySelectorAll('.modeBtn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      V9.mode = btn.dataset.mode || 'code_battle';
-      document.querySelectorAll('.modeBtn').forEach(b => b.classList.toggle('active', b === btn));
-    });
-  });
+    function renderBackground(t){
+      const g = ctx.createLinearGradient(0,0,0,height);
+      g.addColorStop(0,'#67d8ff'); g.addColorStop(1,'#dbeafe');
+      ctx.fillStyle = g; ctx.fillRect(0,0,width,height);
+      ctx.fillStyle = '#dbeafe'; ctx.fillRect(0,height*0.58,width,height*0.42);
 
-  canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
-  canvas.addEventListener('mousedown', e => {
-    const hit = getTargetAtPoint(e.clientX, e.clientY);
-    if (hit){ hit.hitFlash = 1; handleAnswerV9(hit.rawText); }
-  });
-  canvas.addEventListener('touchstart', e => {
-    const t = e.changedTouches[0];
-    if (!t) return;
-    mouseX = t.clientX; mouseY = t.clientY;
-    const hit = getTargetAtPoint(t.clientX, t.clientY);
-    if (hit){ hit.hitFlash = 1; handleAnswerV9(hit.rawText); }
-  }, { passive:true });
+      const c = center();
+      ctx.save();
+      ctx.translate(c.x,c.y+72);
+      ctx.rotate(-0.06);
+      for(let i=0;i<2;i++){
+        ctx.beginPath();
+        ctx.ellipse(0,0,280+i*72,72+i*20,0,0,Math.PI*2);
+        ctx.globalAlpha = i===0 ? .95 : .75;
+        ctx.lineWidth = 14;
+        ctx.strokeStyle = i===0 ? '#38bdf8' : '#f472b6';
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
 
-
-  document.getElementById('startBtn').addEventListener('click', startProductionRun);
-  document.getElementById('leaderboardBtn').addEventListener('click', () => {
-    leaderboardOpenedFromEnd = false;
-    openLeaderboard();
-  });
-  document.getElementById('generateTeacherLinkBtn').addEventListener('click', () => {
-    els.teacherLinkOutput.value = buildTeacherLink();
-  });
-  document.getElementById('copyTeacherLinkBtn').addEventListener('click', async () => {
-    if (!els.teacherLinkOutput.value) els.teacherLinkOutput.value = buildTeacherLink();
-    const ok = await copyText(els.teacherLinkOutput.value);
-    document.getElementById('copyTeacherLinkBtn').textContent = ok ? 'COPIED' : 'COPY FAILED';
-    setTimeout(() => document.getElementById('copyTeacherLinkBtn').textContent = 'COPY LINK', 1200);
-  });
-  document.getElementById('closeTeacherLinkBtn').addEventListener('click', () => els.teacherLinkWrap.classList.add('hidden'));
-
-  document.getElementById('endPlayAgainBtn').addEventListener('click', () => {
-    els.endWrap.classList.add('hidden');
-    els.questionBox.classList.remove('hidden');
-    startProductionRun();
-  });
-  document.getElementById('endLeaderboardBtn').addEventListener('click', () => {
-    leaderboardOpenedFromEnd = true;
-    els.endWrap.classList.add('hidden');
-    openLeaderboard();
-  });
-  document.getElementById('endMenuBtn').addEventListener('click', () => {
-    els.endWrap.classList.add('hidden');
-    els.questionBox.classList.remove('hidden');
-    els.menu.classList.remove('hidden');
-  });
-  document.getElementById('closeLeaderboardBtn').addEventListener('click', () => {
-    els.leaderboardWrap.classList.add('hidden');
-    if (leaderboardOpenedFromEnd || phase === 'ended') {
-      els.endWrap.classList.remove('hidden');
-      return;
+      ctx.save();
+      ctx.translate(c.x, c.y - 20);
+      const pulse = 1 + Math.sin(t * 0.003) * (V9.bossPhase === 3 ? 0.10 : 0.06);
+      ctx.scale(pulse, pulse);
+      ctx.beginPath(); ctx.arc(0,0,52,0,Math.PI*2); ctx.fillStyle = V9.bossPhase === 3 ? 'rgba(251,113,133,.30)' : V9.bossPhase === 2 ? 'rgba(251,146,60,.26)' : 'rgba(244,114,182,.20)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(0,0,30,0,Math.PI*2); ctx.fillStyle = V9.bossPhase === 3 ? '#fb7185' : V9.bossPhase === 2 ? '#fb923c' : '#f472b6'; ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = '900 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('BOSS P' + V9.bossPhase, 0, 1);
+      ctx.restore();
     }
-    if (els.menu) els.menu.classList.remove('hidden');
-  });
-  document.getElementById('clearLeaderboardBtn').addEventListener('click', () => {
-    localStorage.removeItem(LEADERBOARD_KEY);
+
+    function loop(t){
+      requestAnimationFrame(loop);
+      renderBackground(t);
+
+      if (phase === 'countdown'){
+        timeLeft = 1;
+        els.questionBox.innerHTML = '<div class="q-meta">' + modeMeta().title + '</div><div class="q-prompt">GET READY • ' + V9.countdown + '</div>';
+        if (now() >= phaseUntil){
+          V9.countdown -= 1;
+          phaseUntil = now() + 650;
+          if (V9.countdown <= 0){
+            phase = 'battle';
+            roundStart = now();
+            const base = modeMeta().baseTime;
+            const diffDuration = V9.runDifficulty === 'hard' ? Math.max(2800, base - 1600) : V9.runDifficulty === 'normal' ? Math.max(3600, base - 800) : base;
+            const phasePenalty = V9.bossPhase === 3 ? 900 : V9.bossPhase === 2 ? 450 : 0;
+            roundDuration = Math.max(2400, diffDuration - phasePenalty);
+            renderQuestionBox(V9.currentItem);
+          }
+        }
+      } else if (phase === 'battle'){
+        const elapsed = now() - roundStart;
+        timeLeft = clamp(1 - elapsed / roundDuration, 0, 1);
+
+        if (now() >= V9.bossAttackAt){
+          const dmg = V9.bossPhase === 3 ? 2 : 1;
+          V9.hp -= dmg;
+          V9.combo = 0;
+          V9.bossAttackAt = now() + bossAttackInterval();
+          showFeedback('BOSS HIT -' + dmg + ' HP', 'warn');
+          if (V9.hp <= 0){
+            endRun();
+            renderHud();
+            return;
+          }
+        }
+
+        if (timeLeft <= 0){
+          const timeoutDmg = V9.bossPhase === 3 ? 2 : 1;
+          V9.hp -= timeoutDmg;
+          V9.combo = 0;
+          enqueueReview(V9.currentItem.termId);
+          showFeedback('TIME OUT -' + timeoutDmg + ' HP', 'warn');
+          V9.stageIndex += 1;
+          if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages){
+            endRun();
+          } else {
+            phase = 'feedback';
+            phaseUntil = now() + 700;
+          }
+        }
+      } else if (phase === 'feedback'){
+        timeLeft = 0;
+        if (now() >= phaseUntil) nextQuestionV9();
+      } else {
+        timeLeft = 1;
+      }
+
+      updateTargets(t);
+      renderTargets();
+      renderHud();
+    }
+
+    function teacherPassHash(pass){
+      try{ return btoa(unescape(encodeURIComponent(pass || ''))); }
+      catch(e){ return ''; }
+    }
+    function buildTeacherLink(){
+      const url = new URL(window.location.href);
+      const pass = (els.teacherPassInput && els.teacherPassInput.value || '').trim();
+      if (pass){
+        localStorage.setItem('VOCAB_V9_TEACHER_PASS_HASH', teacherPassHash(pass));
+        url.searchParams.set('teacherKey', teacherPassHash(pass));
+      }
+      url.searchParams.set('teacher', '1');
+      return url.toString();
+    }
+    async function copyText(text){
+      try{ await navigator.clipboard.writeText(text); return true; }
+      catch(e){ return false; }
+    }
+
+    function openLeaderboard(){ renderLeaderboard(); els.leaderboardWrap.classList.remove('hidden'); }
+    function openTeacher(){
+      document.querySelector('.hud')?.classList.add('hidden');
+      els.questionBox.classList.add('hidden');
+      if (!lastSummary){
+        try{
+          const raw = JSON.parse(localStorage.getItem(TEACHER_KEY) || 'null');
+          if (raw) renderTeacherDashboard(raw);
+        }catch(e){}
+      }
+      els.teacherWrap.classList.remove('hidden');
+    }
+    function bootTeacherMode(){
+      const q = new URLSearchParams(window.location.search);
+      if (q.get('teacher') === '1'){
+        const expected = localStorage.getItem('VOCAB_V9_TEACHER_PASS_HASH') || '';
+        const got = q.get('teacherKey') || '';
+        if (expected && got !== expected){
+          alert('Teacher passcode ไม่ถูกต้อง');
+          return;
+        }
+        els.menu.classList.add('hidden');
+        openTeacher();
+      }
+    }
+
+    document.querySelectorAll('.bankBtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        V9.bank = btn.dataset.bank || 'A';
+        document.querySelectorAll('.bankBtn').forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+    document.querySelectorAll('.modeBtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        V9.mode = btn.dataset.mode || 'code_battle';
+        document.querySelectorAll('.modeBtn').forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+
+    canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+    canvas.addEventListener('mousedown', e => {
+      const hit = getTargetAtPoint(e.clientX, e.clientY);
+      if (hit){ hit.hitFlash = 1; handleAnswerV9(hit.rawText); }
+    });
+    canvas.addEventListener('touchstart', e => {
+      const t = e.changedTouches[0];
+      if (!t) return;
+      mouseX = t.clientX; mouseY = t.clientY;
+      const hit = getTargetAtPoint(t.clientX, t.clientY);
+      if (hit){ hit.hitFlash = 1; handleAnswerV9(hit.rawText); }
+    }, { passive:true });
+
+    document.getElementById('startBtn').addEventListener('click', startProductionRun);
+    document.getElementById('leaderboardBtn').addEventListener('click', () => {
+      leaderboardOpenedFromEnd = false;
+      openLeaderboard();
+    });
+    document.getElementById('generateTeacherLinkBtn').addEventListener('click', () => {
+      els.teacherLinkOutput.value = buildTeacherLink();
+    });
+    document.getElementById('copyTeacherLinkBtn').addEventListener('click', async () => {
+      if (!els.teacherLinkOutput.value) els.teacherLinkOutput.value = buildTeacherLink();
+      const ok = await copyText(els.teacherLinkOutput.value);
+      document.getElementById('copyTeacherLinkBtn').textContent = ok ? 'COPIED' : 'COPY FAILED';
+      setTimeout(() => document.getElementById('copyTeacherLinkBtn').textContent = 'COPY LINK', 1200);
+    });
+    document.getElementById('closeTeacherLinkBtn').addEventListener('click', () => els.teacherLinkWrap.classList.add('hidden'));
+
+    document.getElementById('endPlayAgainBtn').addEventListener('click', () => {
+      els.endWrap.classList.add('hidden');
+      els.questionBox.classList.remove('hidden');
+      startProductionRun();
+    });
+    document.getElementById('endLeaderboardBtn').addEventListener('click', () => {
+      leaderboardOpenedFromEnd = true;
+      els.endWrap.classList.add('hidden');
+      openLeaderboard();
+    });
+    document.getElementById('endMenuBtn').addEventListener('click', () => {
+      els.endWrap.classList.add('hidden');
+      els.questionBox.classList.remove('hidden');
+      els.menu.classList.remove('hidden');
+    });
+    document.getElementById('closeLeaderboardBtn').addEventListener('click', () => {
+      els.leaderboardWrap.classList.add('hidden');
+      if (leaderboardOpenedFromEnd || phase === 'ended') {
+        els.endWrap.classList.remove('hidden');
+        return;
+      }
+      if (els.menu) els.menu.classList.remove('hidden');
+    });
+    document.getElementById('clearLeaderboardBtn').addEventListener('click', () => {
+      localStorage.removeItem(LEADERBOARD_KEY);
+      renderLeaderboard();
+    });
+    document.getElementById('closeTeacherBtn').addEventListener('click', () => {
+      els.teacherWrap.classList.add('hidden');
+      const q = new URLSearchParams(window.location.search);
+      if (q.get('teacher') === '1'){
+        const clean = new URL(window.location.href);
+        clean.searchParams.delete('teacher');
+        clean.searchParams.delete('teacherKey');
+        window.location.href = clean.toString();
+        return;
+      }
+    });
+    document.getElementById('clearTeacherBtn').addEventListener('click', () => {
+      localStorage.removeItem(TEACHER_KEY);
+      els.teacherTable.innerHTML = '';
+      els.weakList.innerHTML = '';
+    });
+
+    resize();
+    loadProfile();
     renderLeaderboard();
-  });
-  document.getElementById('closeTeacherBtn').addEventListener('click', () => {
-    els.teacherWrap.classList.add('hidden');
-    const q = new URLSearchParams(window.location.search);
-    if (q.get('teacher') === '1'){
-      const clean = new URL(window.location.href);
-      clean.searchParams.delete('teacher');
-      clean.searchParams.delete('teacherKey');
-      window.location.href = clean.toString();
-      return;
-    }
-  });
-  document.getElementById('clearTeacherBtn').addEventListener('click', () => {
-    localStorage.removeItem(TEACHER_KEY);
-    els.teacherTable.innerHTML = '';
-    els.weakList.innerHTML = '';
-  });
-
-  resize();
-  loadProfile();
-  renderLeaderboard();
-  renderMenuTop3();
-  renderHud();
-  bootTeacherMode();
-  requestAnimationFrame(loop);
-  addEventListener('resize', resize);
-})();
+    renderMenuTop3();
+    renderHud();
+    bootTeacherMode();
+    requestAnimationFrame(loop);
+    addEventListener('resize', resize);
+  })();
 </script>
 </body>
 </html>
