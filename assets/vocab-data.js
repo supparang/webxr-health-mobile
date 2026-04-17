@@ -1,0 +1,120 @@
+export function makeTerm(id, term, th, definition, distractorPool, sentence, correctUsage, scenario, professional){
+    return {
+      id, term, th, definition, distractorPool,
+      variants: {
+        easy: [
+          { id: id + '_th_to_en', type: 'th_to_en', prompt: `“${th}” คือคำว่าอะไร?`, answer: term },
+          { id: id + '_definition_mcq', type: 'definition_mcq', prompt: definition, answer: term },
+          { id: id + '_en_to_th', type: 'en_to_th', prompt: `${term} แปลว่าอะไร?`, answer: th }
+        ],
+        normal: [
+          { id: id + '_sentence_cloze', type: 'sentence_cloze', prompt: sentence, answer: term },
+          { id: id + '_correct_usage', type: 'correct_usage', prompt: correctUsage, answer: term },
+          { id: id + '_context_mcq', type: 'context_mcq', prompt: scenario, answer: term }
+        ],
+        hard: [
+          { id: id + '_scenario', type: 'scenario', prompt: professional, answer: term },
+          { id: id + '_confusion_pair', type: 'confusion_pair', prompt: `ข้อใดใช้คำว่า ${term} ในบริบทสายงานได้ถูกต้องที่สุด?`, answer: term }
+        ]
+      }
+    };
+  }
+
+export const VOCAB_BANKS = {
+    A: [
+      makeTerm('software','software','ซอฟต์แวร์','Programs that run on a computer.',['hardware','dataset','server','algorithm','query','feature'],
+        'We install ______ on a computer.',
+        'Choose the word that fits: "Our team updates the ______ every sprint."',
+        'ข้อใดเกี่ยวข้องกับการติดตั้งโปรแกรมมากที่สุด?',
+        'A developer updates the product used by end users. Which term fits best?'),
+      makeTerm('debug','debug','แก้ข้อผิดพลาดของโปรแกรม','To find and fix errors in code.',['deploy','compile','commit','server','training','query'],
+        'Developers ______ code when the app crashes.',
+        'Choose the word that fits: "I need to ______ this bug before deployment."',
+        'ข้อใดเกี่ยวข้องกับการหาและแก้ error มากที่สุด?',
+        'Before release, the engineer traces the source of a crash. Which term fits best?'),
+      makeTerm('api','API','เอพีไอ','A way for software systems to communicate programmatically.',['button','dataset','model','loop','cache','table'],
+        'The mobile app calls an ______ to get data.',
+        'Choose the word that fits: "Our frontend sends a request to the ______."',
+        'ข้อใดเกี่ยวข้องกับการสื่อสารระหว่างระบบมากที่สุด?',
+        'A backend service exposes endpoints for another app. Which term fits best?'),
+      makeTerm('repository','repository','ที่เก็บโค้ดหรือไฟล์โครงการ','A storage location for project files and version history.',['server','feature','variable','accuracy','router','prompt'],
+        'Push your code to the ______.',
+        'Choose the word that fits: "The team stores source code in a shared ______."',
+        'ข้อใดเกี่ยวข้องกับที่เก็บโค้ดกลางมากที่สุด?',
+        'A team wants one place to track commits and branches. Which term fits best?'),
+      makeTerm('deployment','deployment','การนำระบบขึ้นใช้งานจริง','Releasing a system to real users.',['debug','training','embedding','table','branch','input'],
+        'After testing, the team starts ______.',
+        'Choose the word that fits: "Friday evening is not a good time for ______."',
+        'ข้อใดเกี่ยวข้องกับการปล่อยระบบจริงมากที่สุด?',
+        'An engineer publishes the latest stable version for customers. Which term fits best?'),
+      makeTerm('modularization','modularization','การแยกระบบเป็นโมดูล','Breaking a system into smaller independent modules.',['bandwidth','dataset','token','query','accuracy','login'],
+        'Good ______ makes maintenance easier.',
+        'Choose the word that fits: "We refactor the codebase through better ______."',
+        'ข้อใดเกี่ยวข้องกับการทำระบบให้แยกส่วนมากที่สุด?',
+        'A large app is split into reusable parts to improve maintainability. Which term fits best?')
+    ],
+    B: [
+      makeTerm('database','database','ฐานข้อมูล','An organized system for storing data.',['query','server','record','cloud','api','feature'],
+        'A hospital stores patient records in a ______.',
+        'Choose the word that fits: "The app reads user profiles from the ______."',
+        'ข้อใดเหมาะที่สุดสำหรับเก็บข้อมูลอย่างเป็นระบบ?',
+        'A company needs structured storage for millions of rows. Which term fits best?'),
+      makeTerm('query','query','คำสั่งค้นหรือดึงข้อมูล','A request to retrieve or filter data.',['record','server','cache','table','bug','branch'],
+        'We write an SQL ______ to search data.',
+        'Choose the word that fits: "This ______ returns only active users."',
+        'ข้อใดเกี่ยวข้องกับการค้นข้อมูลในตารางมากที่สุด?',
+        'An analyst filters records by date and status. Which term fits best?'),
+      makeTerm('server','server','เครื่องที่ให้บริการแก่เครื่องอื่น','A computer that provides services or data.',['client','protocol','router','dataset','gradient','token'],
+        'A web ______ sends pages to users.',
+        'Choose the word that fits: "The backend runs on a cloud ______."',
+        'ข้อใดทำหน้าที่ให้บริการข้อมูลบนเครือข่ายมากที่สุด?',
+        'A machine hosts an application and responds to requests. Which term fits best?'),
+      makeTerm('authentication','authentication','การยืนยันตัวตน','Checking a user’s identity.',['authorization','dataset','inference','commit','screen','loop'],
+        'Login starts with user ______.',
+        'Choose the word that fits: "Two-factor ______ improves account security."',
+        'ข้อใดเกี่ยวข้องกับการตรวจสอบว่าเป็นใครมากที่สุด?',
+        'A system asks for a password and one-time code. Which term fits best?'),
+      makeTerm('pipeline','pipeline','ลำดับขั้นตอนการประมวลผล','A sequence of processing steps.',['branch','folder','button','training set','device','tokenization'],
+        'The team builds a data ______.',
+        'Choose the word that fits: "Our CI/CD ______ runs tests automatically."',
+        'ข้อใดเกี่ยวข้องกับลำดับงานต่อเนื่องมากที่สุด?',
+        'Data moves from collection to cleaning to reporting through several steps. Which term fits best?'),
+      makeTerm('etl','ETL','การดึง แปลง และโหลดข้อมูล','Extract, transform, and load data into a target system.',['api','cache','accuracy','compile','deploy','prompt'],
+        'Nightly ______ jobs move data into the warehouse.',
+        'Choose the word that fits: "The analyst scheduled an ______ process for reporting."',
+        'ข้อใดเกี่ยวข้องกับการดึง แปลง และโหลดข้อมูลมากที่สุด?',
+        'A company combines data from many sources into one reporting system. Which term fits best?')
+    ],
+    C: [
+      makeTerm('model','model','แบบจำลองที่ใช้ทำนายหรือจำแนก','A trained system used to predict or classify.',['feature','dataset','server','query','interface','storage'],
+        'The AI ______ predicts customer churn.',
+        'Choose the word that fits: "We deploy the best-performing ______ to production."',
+        'ข้อใดเกี่ยวข้องกับระบบที่ผ่านการฝึกแล้วมากที่สุด?',
+        'A data scientist uses a trained system to make predictions. Which term fits best?'),
+      makeTerm('feature','feature','ตัวแปรนำเข้าของโมเดล','An input variable used by a model.',['label','accuracy','gradient','server','api','folder'],
+        'Age can be a ______ in machine learning.',
+        'Choose the word that fits: "Income is one important ______ in this dataset."',
+        'ข้อใดเกี่ยวข้องกับข้อมูลนำเข้าของโมเดลมากที่สุด?',
+        'A model uses age, income, and clicks as inputs. Which term fits best?'),
+      makeTerm('accuracy','accuracy','ความแม่นยำ','How often a model is correct.',['bias','precision','recall','token','compile','branch'],
+        '90% ______ means most predictions are correct.',
+        'Choose the word that fits: "We improved the ______ from 82% to 89%."',
+        'ข้อใดใช้วัดว่าโมเดลตอบถูกบ่อยแค่ไหน?',
+        'A model makes correct predictions in 95 out of 100 cases. Which term fits best?'),
+      makeTerm('embedding','embedding','เวกเตอร์แทนความหมาย','A numeric representation of meaning.',['token','epoch','cache','server','merge','router'],
+        'The search system compares text using an ______.',
+        'Choose the word that fits: "Similar words often have similar ______ vectors."',
+        'ข้อใดเกี่ยวข้องกับการแทนความหมายเชิงตัวเลขมากที่สุด?',
+        'A retrieval system converts sentences into vectors for semantic search. Which term fits best?'),
+      makeTerm('tokenization','tokenization','การตัดข้อความเป็นหน่วยย่อย','Splitting text into smaller units for processing.',['embedding','feature','database','storage','compile','authorization'],
+        'Before training, the text goes through ______.',
+        'Choose the word that fits: "The NLP pipeline begins with ______."',
+        'ข้อใดเกี่ยวข้องกับการแบ่งข้อความเป็นหน่วยมากที่สุด?',
+        'A language model first breaks text into smaller pieces before processing. Which term fits best?'),
+      makeTerm('fine_tuning','fine-tuning','การปรับโมเดลที่ฝึกไว้แล้วให้เหมาะงานย่อย','Adapting a pretrained model to a specific task.',['deployment','query','latency','button','dataset','router'],
+        'The team uses ______ to adapt the model for Thai support.',
+        'Choose the word that fits: "We improve task performance through ______."',
+        'ข้อใดเกี่ยวข้องกับการปรับโมเดลเดิมให้เหมาะงานใหม่มากที่สุด?',
+        'An organization adapts a pretrained model for customer support in its own domain. Which term fits best?')
+    ]
+  };
