@@ -40,7 +40,7 @@ import { installVocabGuards } from './vocab-guard.js';
   const TEACHER_PASS_KEY = 'VOCAB_V9_TEACHER_PASS_HASH';
   const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbznbf_5Jy20HvDfhOCvhEDuzn1X40bF0Z7XeNOWVYEv3i137aKgbA-Ey7PwRLGAhEyG/exec';
   const VOCAB_SHEET_SOURCE = 'vocab.html';
-  const VOCAB_SHEET_SCHEMA = 'vocab-v1';
+  const VOCAB_SHEET_SCHEMA = 'vocab-v2';
 
   function bangkokIsoNow(){
     try{
@@ -126,8 +126,42 @@ import { installVocabGuards } from './vocab-guard.js';
     };
   }
 
+  function getContextMeta(){
+    const q = new URLSearchParams(location.search);
+    return {
+      timestamp: bangkokIsoNow(),
+      session_id: currentSessionId || '',
+      display_name: profile.displayName || 'Player',
+      student_id: profile.studentId || '',
+      section: q.get('section') || localStorage.getItem('VOCAB_SECTION') || '',
+      session_code: q.get('session_code') || q.get('sessionCode') || localStorage.getItem('VOCAB_SESSION_CODE') || '',
+      bank: V9.bank || '',
+      mode: V9.mode || ''
+    };
+  }
 
-  
+  function getAccuracyAndMistakes(){
+    const rows = Object.values(V9.mastery || {});
+    const totalSeen = rows.reduce((s,m) => s + Number(m.seen || 0), 0);
+    const totalCorrect = rows.reduce((s,m) => s + Number(m.correct || 0), 0);
+    const totalWrong = rows.reduce((s,m) => s + Number(m.wrong || 0), 0);
+    return {
+      total_seen: totalSeen,
+      total_correct: totalCorrect,
+      mistakes: totalWrong,
+      accuracy: totalSeen ? Number(((totalCorrect / totalSeen) * 100).toFixed(2)) : 0
+    };
+  }
+
+  function getWeakestTerm(){
+    const first = Object.entries(V9.mastery || {})
+      .sort((a,b) => (b[1].wrong - a[1].wrong) || (a[1].correct - b[1].correct))[0];
+    return first ? first[0] : '';
+  }
+
+  function getWeakTermsJson(limit = 5){
+    return JSON.stringify(weakestTermsForSheet(limit));
+  }
 
   const V9 = {
     bank: 'A',
@@ -837,13 +871,13 @@ import { installVocabGuards } from './vocab-guard.js';
     localStorage.setItem(SESSION_KEY, JSON.stringify(rows.slice(-1000)));
   }
 
-  async function saveSessionRealtime(payload){
-    saveSessionLocal(payload);
+  async function saveSessionRealtime(action, payload){
+    saveSessionLocal({ action, ...payload });
 
     const envelope = {
       source: VOCAB_SHEET_SOURCE,
       schema: VOCAB_SHEET_SCHEMA,
-      action: payload.type || 'event',
+      action,
       timestamp: bangkokIsoNow(),
       payload
     };
@@ -883,9 +917,47 @@ import { installVocabGuards } from './vocab-guard.js';
       ...data
     };
     try{
-      await saveSessionRealtime(payload);
+      await saveSessionRealtime(type, payload);
     }catch(err){
       console.error('logEvent failed', err);
+    }
+  }
+
+  async function sendTermAnswerRow({
+    item,
+    isCorrect,
+    levelBefore,
+    levelAfter,
+    responseMs
+  }){
+    if (!item) return;
+
+    const meta = getContextMeta();
+
+    try{
+      await saveSessionRealtime('term_answer', {
+        timestamp: bangkokIsoNow(),
+        session_id: meta.session_id,
+        display_name: meta.display_name,
+        student_id: meta.student_id,
+        section: meta.section,
+        session_code: meta.session_code,
+        bank: meta.bank,
+        mode: meta.mode,
+        term_id: item.termId || '',
+        term: item.term || '',
+        variant_type: item.type || '',
+        is_correct: !!isCorrect,
+        level_before: levelBefore || '',
+        level_after: levelAfter || '',
+        from_review: !!item.fromReview,
+        response_ms: Number(responseMs || 0),
+        score: Number(V9.score || 0),
+        combo: Number(V9.combo || 0),
+        stage_index: Number((V9.stageIndex || 0) + 1)
+      });
+    }catch(err){
+      console.error('sendTermAnswerRow failed', err);
     }
   }
 
@@ -893,23 +965,31 @@ import { installVocabGuards } from './vocab-guard.js';
     currentSessionId = createSessionId();
     sessionStartedAt = bangkokIsoNow();
 
-    const payload = {
-      type: 'session_start',
-      sessionId: currentSessionId,
-      displayName: profile.displayName || 'Player',
-      studentId: profile.studentId || '',
-      bank: V9.bank,
-      mode: V9.mode,
-      startedAt: sessionStartedAt,
-      timezone: 'Asia/Bangkok',
-      pageUrl: location.href,
-      userAgent: navigator.userAgent,
-      screenWidth: window.innerWidth,
-      screenHeight: window.innerHeight
-    };
+    const meta = getContextMeta();
 
     try{
-      await saveSessionRealtime(payload);
+      await saveSessionRealtime('session_start', {
+        timestamp: bangkokIsoNow(),
+        session_id: currentSessionId,
+        display_name: meta.display_name,
+        student_id: meta.student_id,
+        section: meta.section,
+        session_code: meta.session_code,
+        bank: meta.bank,
+        mode: meta.mode,
+        started_at: sessionStartedAt,
+        ended_at: '',
+        duration_sec: '',
+        score: '',
+        accuracy: '',
+        mistakes: '',
+        weakest_term: '',
+        ai_recommended_mode: '',
+        ai_recommended_difficulty: '',
+        ai_reason: '',
+        page_url: location.href,
+        user_agent: navigator.userAgent
+      });
     }catch(err){
       console.error('saveSessionRealtime start failed', err);
     }
@@ -921,46 +1001,52 @@ import { installVocabGuards } from './vocab-guard.js';
       ? Math.max(0, Math.round((new Date(endedAt) - new Date(sessionStartedAt)) / 1000))
       : 0;
 
-    const totalSeen = Object.values(summary.mastery || {}).reduce((s,m) => s + Number(m.seen || 0), 0);
-    const totalCorrect = Object.values(summary.mastery || {}).reduce((s,m) => s + Number(m.correct || 0), 0);
-    const accuracy = totalSeen ? Number(((totalCorrect / totalSeen) * 100).toFixed(2)) : 0;
-    const weakTerms = weakestTermsForSheet(5);
-    const ai = buildAiRecommendation(accuracy);
-
-    const payload = {
-      type: 'session_end',
-      sessionId: currentSessionId,
-      displayName: profile.displayName || 'Player',
-      studentId: profile.studentId || '',
-      bank: V9.bank,
-      mode: V9.mode,
-      startedAt: sessionStartedAt,
-      endedAt,
-      durationSec,
-      score: summary.score,
-      hp: summary.hp,
-      bossHp: summary.bossHp,
-      bossMaxHp: summary.bossMaxHp,
-      bossPhase: summary.bossPhase,
-      stagesPlayed: summary.stagesPlayed,
-      win: summary.win,
-      accuracy,
-      bugFixed: V9.bugFixed,
-      bugEscaped: V9.bugEscaped,
-      modelScore: V9.modelScore,
-      modelStability: V9.modelStability,
-      speedRunTimeLeft: V9.speedRunTimeLeft,
-      multiplier: V9.multiplier,
-      weakTermsJson: JSON.stringify(weakTerms),
-      masteryJson: JSON.stringify(compactMastery()),
-      wordSkillJson: JSON.stringify(compactWordSkill()),
-      aiRecommendedMode: ai.recommendedMode,
-      aiRecommendedDifficulty: ai.recommendedDifficulty,
-      aiReason: ai.aiReason
-    };
+    const meta = getContextMeta();
+    const stats = getAccuracyAndMistakes();
+    const weakestTerm = getWeakestTerm();
+    const weakTermsJson = getWeakTermsJson(5);
+    const masteryJson = JSON.stringify(compactMastery());
+    const ai = buildAiRecommendation(stats.accuracy);
 
     try{
-      await saveSessionRealtime(payload);
+      await saveSessionRealtime('session_end', {
+        timestamp: bangkokIsoNow(),
+        session_id: currentSessionId,
+        display_name: meta.display_name,
+        student_id: meta.student_id,
+        section: meta.section,
+        session_code: meta.session_code,
+        bank: meta.bank,
+        mode: meta.mode,
+        started_at: sessionStartedAt,
+        ended_at: endedAt,
+        duration_sec: durationSec,
+        score: Number(summary.score || 0),
+        accuracy: Number(stats.accuracy || 0),
+        mistakes: Number(stats.mistakes || 0),
+        weakest_term: weakestTerm,
+        ai_recommended_mode: ai.recommendedMode,
+        ai_recommended_difficulty: ai.recommendedDifficulty,
+        ai_reason: ai.aiReason,
+        page_url: location.href,
+        user_agent: navigator.userAgent
+      });
+
+      await saveSessionRealtime('student_profile_upsert', {
+        timestamp: bangkokIsoNow(),
+        student_id: meta.student_id,
+        display_name: meta.display_name,
+        section: meta.section,
+        last_session_id: currentSessionId,
+        last_bank: meta.bank,
+        last_mode: meta.mode,
+        last_score: Number(summary.score || 0),
+        last_accuracy: Number(stats.accuracy || 0),
+        recommended_mode: ai.recommendedMode,
+        recommended_difficulty: ai.recommendedDifficulty,
+        weak_terms_json: weakTermsJson,
+        mastery_json: masteryJson
+      });
     }catch(err){
       console.error('saveSessionRealtime end failed', err);
     }
@@ -1207,16 +1293,18 @@ import { installVocabGuards } from './vocab-guard.js';
     renderHud();
   }
 
-  function handleAnswerV9(selectedText){
+  async function handleAnswerV9(selectedText){
     const item = V9.currentItem;
     if (!item || phase !== 'battle') return;
 
     const isCorrect = selectedText === String(item.answer).toLowerCase();
     const rt = V9._qStartTime ? (Date.now() - V9._qStartTime) : 0;
     const cfg = modeConfig();
+    const levelBefore = ensureMastery(item.termId).level;
 
     updateMasteryAfterAnswer(item.termId, isCorrect, item.type);
     updateWordSkill(item.termId, isCorrect, rt);
+    const levelAfter = ensureMastery(item.termId).level;
 
     if (cfg.useBoss){
       if (isCorrect){
@@ -1274,6 +1362,14 @@ import { installVocabGuards } from './vocab-guard.js';
         showFeedback(modeFeedbackText('wrong'), 'bad');
       }
     }
+
+    await sendTermAnswerRow({
+      item,
+      isCorrect,
+      levelBefore,
+      levelAfter,
+      responseMs: rt
+    });
 
     logEvent(isCorrect ? 'answer_correct' : 'answer_wrong', {
       questionId: item.id || '',
@@ -1540,7 +1636,7 @@ import { installVocabGuards } from './vocab-guard.js';
     }
   }
 
-  function renderLoopBattle(t){
+  async function renderLoopBattle(t){
     if (phase === 'countdown'){
       timeLeft = 1;
       els.questionBox.innerHTML =
@@ -1587,9 +1683,14 @@ import { installVocabGuards } from './vocab-guard.js';
       if (timeLeft <= 0){
         const cfg = modeConfig();
 
+        let timeoutBefore = '';
+        let timeoutAfter = '';
+
         if (V9.currentItem){
+          timeoutBefore = ensureMastery(V9.currentItem.termId).level;
           updateMasteryAfterAnswer(V9.currentItem.termId, false, V9.currentItem.type);
           updateWordSkill(V9.currentItem.termId, false, roundDuration);
+          timeoutAfter = ensureMastery(V9.currentItem.termId).level;
         }
 
         if (cfg.useBoss){
@@ -1617,6 +1718,14 @@ import { installVocabGuards } from './vocab-guard.js';
           enqueueReview(V9.currentItem.termId);
           showFeedback(modeFeedbackText('timeout'), 'warn');
         }
+
+        await sendTermAnswerRow({
+          item: V9.currentItem,
+          isCorrect: false,
+          levelBefore: timeoutBefore,
+          levelAfter: timeoutAfter,
+          responseMs: roundDuration
+        });
 
         logEvent('timeout', {
           questionId: V9.currentItem?.id || '',
