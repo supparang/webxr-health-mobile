@@ -22,9 +22,9 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260416-mobile-first-final';
+    window.TECHPATH_BUILD = 'v20260417-mobile-playable-final';
     window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzKzDrMtM5tc7MP5VlNBKXpV5Pp1r75R9Cvny8xqf_DkClYajnkGbUBFDwMJSchTC0S/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260416-lesson-attendance-inline-s15-mobile-final';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260417-lesson-mobile-playable-final';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -32,7 +32,7 @@
   <style>
     :root{
       --app-vh: 100dvh;
-      --mobile-bottom-gap: calc(12px + env(safe-area-inset-bottom, 0px));
+      --mobile-bottom-gap: calc(10px + env(safe-area-inset-bottom, 0px));
     }
 
     html, body{
@@ -187,7 +187,7 @@
 
     @media (max-width:700px){
       #ui-container{
-        padding:10px 10px calc(112px + env(safe-area-inset-bottom, 0px));
+        padding:8px 10px calc(190px + env(safe-area-inset-bottom, 0px));
       }
 
       .title{
@@ -242,87 +242,8 @@
 
       #hud-stats,
       #hud-top-row{
-        position:sticky;
-        top:calc(env(safe-area-inset-top, 0px) + 4px);
-        z-index:45;
         background:rgba(6,12,24,.88);
         backdrop-filter:blur(8px);
-      }
-
-      #hud-stats{
-        flex-direction:column !important;
-        gap:4px !important;
-        margin:8px 0 !important;
-        padding:6px 8px !important;
-        border-radius:12px;
-      }
-
-      #hud-top-row{
-        overflow-x:auto;
-        flex-wrap:nowrap !important;
-        justify-content:flex-start !important;
-        gap:6px !important;
-        margin-top:6px;
-        margin-bottom:8px !important;
-        padding:4px 6px;
-        border-radius:12px;
-        scrollbar-width:none;
-      }
-
-      #hud-top-row::-webkit-scrollbar{
-        display:none;
-      }
-
-      #question-diff-badge,
-      #unit-theme-chip,
-      #reward-roll-badge{
-        white-space:nowrap;
-        flex:0 0 auto;
-        font-size:.82rem !important;
-        padding:4px 10px !important;
-      }
-
-      #hud-score-wrap,
-      #hud-hp-wrap{
-        justify-content:center;
-        text-align:center;
-        font-size:.95rem;
-      }
-
-      .hud-stat-item{
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        gap:6px;
-        flex-wrap:wrap;
-      }
-
-      .hud-stat-icon{
-        font-size:1rem !important;
-      }
-
-      .hud-stat-label{
-        font-size:.78rem !important;
-        opacity:.92;
-      }
-
-      #score-display,
-      #hp-display{
-        font-size:1.05rem !important;
-        font-weight:900;
-      }
-
-      #ai-director-board{
-        margin:8px 0 !important;
-        padding:8px 10px !important;
-      }
-
-      #ai-director-state{
-        font-size:.88rem !important;
-      }
-
-      #ai-director-sub{
-        font-size:.78rem !important;
       }
 
       #profile-panel,
@@ -380,92 +301,6 @@
         display:block !important;
       }
 
-      #choice-buttons{
-        display:flex !important;
-        flex-direction:column !important;
-        gap:8px !important;
-        min-height:160px;
-        align-items:stretch !important;
-        position:sticky !important;
-        bottom:var(--mobile-bottom-gap) !important;
-        z-index:60;
-        background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
-        padding-top:10px;
-        padding-bottom:4px;
-      }
-
-      #choice-buttons .btn-action{
-        width:100% !important;
-        min-height:46px !important;
-        font-size:1rem !important;
-        font-weight:900 !important;
-        letter-spacing:.02em;
-      }
-
-      #btn-speak,
-      #btn-play-audio,
-      #btn-submit-write,
-      #btn-next,
-      #btn-return,
-      #btn-save-profile,
-      #btn-submit-score{
-        width:100% !important;
-        min-height:46px !important;
-        font-size:.94rem !important;
-        border-radius:14px !important;
-        font-weight:800 !important;
-        letter-spacing:.01em;
-        position:sticky !important;
-        bottom:var(--mobile-bottom-gap) !important;
-        z-index:60;
-        box-shadow:0 10px 24px rgba(0,0,0,.28);
-      }
-
-      #write-input{
-        position:sticky !important;
-        bottom:calc(72px + env(safe-area-inset-bottom, 0px));
-        z-index:55;
-        background:#fff;
-        color:#111;
-        border-radius:14px !important;
-        padding:12px 14px !important;
-        border:2px solid rgba(123,237,255,.35) !important;
-        box-shadow:0 10px 24px rgba(0,0,0,.20);
-      }
-
-      #mission-prompt-box{
-        border:1px solid rgba(123,237,255,.22);
-        background:rgba(10,18,34,.88);
-        box-shadow:0 8px 20px rgba(0,0,0,.20);
-        max-height:42vh;
-        overflow:auto;
-        scrollbar-width:none;
-      }
-
-      #mission-prompt-box::-webkit-scrollbar{
-        display:none;
-      }
-
-      #mission-prompt-label{
-        font-size:.72rem !important;
-      }
-
-      #mission-prompt-text{
-        font-size:.96rem !important;
-        line-height:1.5 !important;
-        letter-spacing:.01em;
-        font-weight:700;
-        overflow-wrap:anywhere;
-        word-break:break-word;
-      }
-
-      #prompt-mini-toggle{
-        width:100%;
-        margin-top:6px;
-        min-height:40px !important;
-        font-size:.86rem !important;
-      }
-
       #feedback{
         position:relative;
         z-index:20;
@@ -508,6 +343,9 @@
         gap:8px;
       }
 
+      /* MOBILE PLAYABLE FINAL */
+      body.mission-mobile #ui-title,
+      body.mission-mobile #attendance-panel,
       body.mission-mobile #profile-panel,
       body.mission-mobile #hub-stats-board,
       body.mission-mobile #ai-director-board,
@@ -516,35 +354,133 @@
         display:none !important;
       }
 
-      body.mission-mobile #attendance-panel{
+      body.mission-mobile #hud-stats{
+        position:sticky;
+        top:calc(env(safe-area-inset-top, 0px) + 6px);
+        z-index:70;
+        display:flex !important;
+        flex-direction:row !important;
+        justify-content:space-between !important;
+        align-items:center !important;
+        gap:8px !important;
+        margin:0 0 8px 0 !important;
+        padding:8px 12px !important;
+        border-radius:14px !important;
+        background:rgba(6,12,24,.92) !important;
+        backdrop-filter:blur(8px);
+      }
+
+      body.mission-mobile #hud-top-row{
+        position:static !important;
+        margin:0 0 8px 0 !important;
+        padding:0 !important;
+        background:transparent !important;
+        overflow:visible !important;
+      }
+
+      body.mission-mobile #question-diff-badge{
+        display:inline-flex !important;
+        align-items:center;
+        justify-content:center;
+        min-height:36px;
+        padding:0 14px !important;
+        font-size:.92rem !important;
+        border-radius:999px !important;
+      }
+
+      body.mission-mobile #unit-theme-chip,
+      body.mission-mobile #reward-roll-badge{
+        display:none !important;
+      }
+
+      body.mission-mobile #hud-score-wrap,
+      body.mission-mobile #hud-hp-wrap{
+        justify-content:center;
+        text-align:center;
+        font-size:.95rem;
+      }
+
+      body.mission-mobile .hud-stat-item{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        flex-wrap:wrap;
+      }
+
+      body.mission-mobile .hud-stat-icon{
+        font-size:1rem !important;
+      }
+
+      body.mission-mobile .hud-stat-label{
+        font-size:.78rem !important;
         opacity:.92;
-        border-color:rgba(123,237,255,.16);
-        background:rgba(8,14,28,.60);
-        margin-bottom:6px !important;
       }
 
-      body.mission-mobile #attendance-title{
-        font-size:.80rem;
+      body.mission-mobile #score-display,
+      body.mission-mobile #hp-display{
+        font-size:1.05rem !important;
+        font-weight:900;
       }
 
-      body.mission-mobile #attendance-summary-line{
-        margin-top:6px;
-        font-size:.78rem;
-        opacity:.96;
+      body.mission-mobile #mission-prompt-box{
+        margin:0 0 10px 0 !important;
+        padding:12px !important;
+        border-radius:16px !important;
+        background:rgba(10,18,34,.94) !important;
+        border:1px solid rgba(123,237,255,.18) !important;
+        box-shadow:0 8px 20px rgba(0,0,0,.20);
+        min-height:0 !important;
+        max-height:none !important;
       }
 
-      body.mission-mobile.scrolled-down #attendance-panel,
-      body.mission-mobile.scrolled-down #hud-top-row{
-        opacity:.35;
-        transform:translateY(-4px);
-        transition:opacity .18s ease, transform .18s ease;
+      body.mission-mobile #mission-prompt-label{
+        font-size:.74rem !important;
+        margin-bottom:6px;
+        color:#7bedff;
+        font-weight:800;
       }
 
-      body.mission-mobile.scrolled-up #attendance-panel,
-      body.mission-mobile.scrolled-up #hud-top-row{
-        opacity:1;
-        transform:none;
-        transition:opacity .18s ease, transform .18s ease;
+      body.mission-mobile #mission-prompt-text{
+        font-size:.98rem !important;
+        line-height:1.45 !important;
+        min-height:0 !important;
+        color:#fff;
+      }
+
+      body.mission-mobile #prompt-mini-toggle{
+        display:none !important;
+      }
+
+      body.mission-mobile #choice-buttons{
+        position:fixed !important;
+        left:10px;
+        right:10px;
+        bottom:calc(10px + env(safe-area-inset-bottom, 0px));
+        z-index:90;
+        display:grid !important;
+        grid-template-columns:1fr !important;
+        gap:8px !important;
+        margin:0 !important;
+        padding:10px 0 0 0 !important;
+        background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
+      }
+
+      body.mission-mobile #choice-buttons .btn-action{
+        min-height:52px !important;
+        border-radius:16px !important;
+        font-size:1rem !important;
+        font-weight:900 !important;
+        letter-spacing:.01em;
+        box-shadow:0 8px 20px rgba(0,0,0,.22);
+      }
+
+      body.mission-mobile #ui-container{
+        padding:8px 10px calc(190px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+
+      body.summary-mobile #attendance-panel{
+        display:block !important;
       }
 
       body.summary-mobile #summary-panel{
@@ -596,82 +532,6 @@
       body.prompt-mini #mission-prompt-box{
         max-height:88px !important;
         overflow:hidden !important;
-      }
-    }
-
-
-    @media (max-width:700px){
-      body.mission-mobile #profile-panel,
-      body.mission-mobile #hub-stats-board,
-      body.mission-mobile #ai-director-board,
-      body.mission-mobile #unlock-hint,
-      body.mission-mobile #ui-desc{
-        display:none !important;
-      }
-
-      body.mission-mobile #attendance-panel{
-        margin-bottom:6px !important;
-        opacity:.92;
-        border-color:rgba(123,237,255,.16);
-        background:rgba(8,14,28,.60);
-      }
-
-      body.mission-mobile #hud-stats{
-        margin-top:6px !important;
-        margin-bottom:6px !important;
-      }
-
-      body.mission-mobile #mission-prompt-box{
-        display:block !important;
-        position:relative;
-        z-index:55;
-        margin-top:8px !important;
-        margin-bottom:10px !important;
-        padding:12px !important;
-        border-radius:16px !important;
-        border:1px solid rgba(123,237,255,.24);
-        background:rgba(10,18,34,.92);
-        box-shadow:0 10px 22px rgba(0,0,0,.22);
-      }
-
-      body.mission-mobile #mission-prompt-label{
-        font-size:.72rem !important;
-        margin-bottom:6px;
-        color:#7bedff;
-        font-weight:800;
-      }
-
-      body.mission-mobile #mission-prompt-text{
-        font-size:1rem !important;
-        line-height:1.45 !important;
-        min-height:52px;
-        color:#fff;
-      }
-
-      body.mission-mobile #choice-buttons{
-        display:grid !important;
-        grid-template-columns:1fr !important;
-        gap:10px !important;
-        position:fixed !important;
-        left:12px;
-        right:12px;
-        bottom:calc(12px + env(safe-area-inset-bottom, 0px));
-        z-index:80;
-        margin:0 !important;
-        padding:10px 0 0 0 !important;
-        background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
-      }
-
-      body.mission-mobile #choice-buttons .btn-action{
-        min-height:54px !important;
-        border-radius:18px !important;
-        font-size:1.05rem !important;
-        font-weight:900 !important;
-        box-shadow:0 10px 22px rgba(0,0,0,.24);
-      }
-
-      body.mission-mobile #ui-container{
-        padding-bottom:calc(240px + env(safe-area-inset-bottom, 0px)) !important;
       }
     }
 
@@ -1367,6 +1227,49 @@
       document.documentElement.style.setProperty('--app-vh', `${h}px`);
     }
 
+    function detectMissionUiNow() {
+      const hasChoices = isShown(getEl('choice-buttons'));
+      const hasSpeak = isShown(getEl('btn-speak'));
+      const hasAudio = isShown(getEl('btn-play-audio'));
+      const hasWrite = isShown(getEl('write-input')) || isShown(getEl('btn-submit-write'));
+      const hasSummary = isShown(getEl('summary-panel')) || isShown(getEl('game-over-ui'));
+      const title = getText('ui-title');
+
+      const missionByTitle = /SESSION\s+\d+/i.test(title);
+      const missionByControls = hasChoices || hasSpeak || hasAudio || hasWrite;
+
+      return {
+        inMission: missionByTitle || missionByControls,
+        inSummary: hasSummary,
+        inHub: !missionByTitle && !missionByControls && !hasSummary
+      };
+    }
+
+    function applyMobileScreenMode() {
+      const isMobile = window.innerWidth <= 700;
+      const ui = detectMissionUiNow();
+
+      document.body.classList.toggle('mission-mobile', isMobile && ui.inMission && !ui.inSummary);
+      document.body.classList.toggle('summary-mobile', isMobile && ui.inSummary);
+      document.body.classList.toggle('hub-mobile', isMobile && ui.inHub);
+    }
+
+    function compactMissionTitleForMobile() {
+      const el = getEl('ui-title');
+      if (!el) return;
+
+      const raw = el.dataset.fullTitle || String(el.textContent || '').trim();
+      if (!el.dataset.fullTitle) el.dataset.fullTitle = raw;
+
+      if (window.innerWidth > 700) {
+        el.textContent = raw;
+        return;
+      }
+
+      const compact = raw.length > 34 ? raw.slice(0, 34) + '…' : raw;
+      el.textContent = compact;
+    }
+
     function bindAttendanceToggle() {
       const panel = getEl('attendance-panel');
       const btn = getEl('attendance-toggle');
@@ -1443,8 +1346,6 @@
           applyMobileScreenMode();
           compactMissionTitleForMobile();
           syncPromptMiniVisibility();
-          ensureMobileMissionPromptVisible();
-          syncHubSceneVisibility();
         });
       };
 
@@ -1489,47 +1390,71 @@
       btn.style.display = (window.innerWidth <= 700 && shown) ? 'block' : 'none';
     }
 
-    function detectMissionUiNow() {
-      const hasChoices = isShown(getEl('choice-buttons'));
-      const hasSpeak = isShown(getEl('btn-speak'));
-      const hasAudio = isShown(getEl('btn-play-audio'));
-      const hasWrite = isShown(getEl('write-input')) || isShown(getEl('btn-submit-write'));
-      const hasSummary = isShown(getEl('summary-panel')) || isShown(getEl('game-over-ui'));
-      const title = getText('ui-title');
+    function getFallbackPromptText() {
+      const readingQ =
+        getEl('reading-question')?.getAttribute('value') ||
+        getEl('reading-question')?.textContent ||
+        '';
 
-      const missionByTitle = /SESSION\s+\d+/i.test(title);
-      const missionByControls = hasChoices || hasSpeak || hasAudio || hasWrite;
+      const listeningP =
+        getEl('listening-prompt')?.getAttribute('value') ||
+        getEl('listening-prompt')?.textContent ||
+        '';
 
-      return {
-        inMission: missionByTitle || missionByControls,
-        inSummary: hasSummary,
-        inHub: !missionByTitle && !missionByControls && !hasSummary
-      };
+      const writingP =
+        getEl('writing-prompt')?.getAttribute('value') ||
+        getEl('writing-prompt')?.textContent ||
+        '';
+
+      const speakingP =
+        getEl('speaking-prompt')?.getAttribute('value') ||
+        getEl('speaking-prompt')?.textContent ||
+        '';
+
+      if (readingQ && readingQ !== 'QUESTION TEXT') return readingQ;
+      if (listeningP && listeningP !== 'PRESS PLAY AUDIO') return listeningP;
+      if (writingP && !writingP.includes('TERMINAL')) return writingP;
+      if (speakingP && speakingP !== 'PROMPT TEXT') return speakingP;
+
+      return '';
     }
 
-    function applyMobileScreenMode() {
-      const isMobile = window.innerWidth <= 700;
+    function ensureMobileMissionPromptVisible() {
+      if (window.innerWidth > 700) return;
+
+      const promptBox = getEl('mission-prompt-box');
+      const promptText = getEl('mission-prompt-text');
+      const promptLabel = getEl('mission-prompt-label');
+      if (!promptBox || !promptText) return;
+
       const ui = detectMissionUiNow();
-
-      document.body.classList.toggle('mission-mobile', isMobile && ui.inMission && !ui.inSummary);
-      document.body.classList.toggle('summary-mobile', isMobile && ui.inSummary);
-      document.body.classList.toggle('hub-mobile', isMobile && ui.inHub);
-    }
-
-    function compactMissionTitleForMobile() {
-      const el = getEl('ui-title');
-      if (!el) return;
-
-      const raw = el.dataset.fullTitle || String(el.textContent || '').trim();
-      if (!el.dataset.fullTitle) el.dataset.fullTitle = raw;
-
-      if (window.innerWidth > 700) {
-        el.textContent = raw;
+      if (!ui.inMission) {
+        promptBox.style.display = 'none';
         return;
       }
 
-      const compact = raw.length > 34 ? raw.slice(0, 34) + '…' : raw;
-      el.textContent = compact;
+      const current = String(promptText.textContent || '').trim();
+      const fallback = getFallbackPromptText();
+      const finalText =
+        current && current !== '...' ? current :
+        fallback && fallback !== '...' ? fallback :
+        '';
+
+      if (finalText) {
+        promptBox.style.display = 'block';
+        promptText.textContent = finalText;
+        if (promptLabel) promptLabel.textContent = 'PROMPT';
+      } else {
+        promptBox.style.display = 'none';
+      }
+    }
+
+    function syncHubSceneVisibility() {
+      const hubScene = getEl('hub-scene');
+      if (!hubScene) return;
+
+      const ui = detectMissionUiNow();
+      hubScene.setAttribute('visible', ui.inHub ? 'true' : 'false');
     }
 
     function getPrimaryMobileFocusTarget() {
@@ -1570,7 +1495,7 @@
 
     function scrollMissionTopIntoView() {
       if (window.innerWidth > 700) return;
-      const target = getEl('hud-stats') || getEl('ui-title') || getEl('mission-prompt-box');
+      const target = getEl('hud-stats') || getEl('question-diff-badge') || getEl('mission-prompt-box');
       if (!target) return;
 
       setTimeout(() => {
@@ -1609,65 +1534,6 @@
 
       const btn = getEl('prompt-mini-toggle');
       if (btn) btn.textContent = 'ย่อโจทย์';
-    }
-
-    function getFallbackPromptText() {
-      const readingQ =
-        getEl('reading-question')?.getAttribute('value') ||
-        getEl('reading-question')?.textContent ||
-        '';
-
-      const listeningP =
-        getEl('listening-prompt')?.getAttribute('value') ||
-        getEl('listening-prompt')?.textContent ||
-        '';
-
-      const writingP =
-        getEl('writing-prompt')?.getAttribute('value') ||
-        getEl('writing-prompt')?.textContent ||
-        '';
-
-      const speakingP =
-        getEl('speaking-prompt')?.getAttribute('value') ||
-        getEl('speaking-prompt')?.textContent ||
-        '';
-
-      if (readingQ && readingQ !== 'QUESTION TEXT') return readingQ;
-      if (listeningP && listeningP !== 'PRESS PLAY AUDIO') return listeningP;
-      if (writingP && !writingP.includes('TERMINAL')) return writingP;
-      if (speakingP && speakingP !== 'PROMPT TEXT') return speakingP;
-
-      return '';
-    }
-
-    function ensureMobileMissionPromptVisible() {
-      if (window.innerWidth > 700) return;
-
-      const promptBox = getEl('mission-prompt-box');
-      const promptText = getEl('mission-prompt-text');
-      const promptLabel = getEl('mission-prompt-label');
-      if (!promptBox || !promptText) return;
-
-      const ui = detectMissionUiNow();
-      if (!ui.inMission) return;
-
-      const current = String(promptText.textContent || '').trim();
-      const fallback = getFallbackPromptText();
-      const finalText = current && current !== '...' ? current : fallback;
-
-      if (finalText) {
-        promptBox.style.display = 'block';
-        promptText.textContent = finalText;
-        if (promptLabel) promptLabel.textContent = 'PROMPT';
-      }
-    }
-
-    function syncHubSceneVisibility() {
-      const hubScene = getEl('hub-scene');
-      if (!hubScene) return;
-
-      const ui = detectMissionUiNow();
-      hubScene.setAttribute('visible', ui.inHub ? 'true' : 'false');
     }
 
     function refreshMobileRuntimeUI(reason = '') {
@@ -1800,8 +1666,6 @@
         compactMissionTitleForMobile();
         updateAppViewportHeight();
         syncPromptMiniVisibility();
-        ensureMobileMissionPromptVisible();
-        syncHubSceneVisibility();
         return;
       }
 
@@ -1833,9 +1697,18 @@
       const panel = getEl('attendance-panel');
       const btn = getEl('attendance-toggle');
       const isMobile = window.innerWidth <= 700;
-      const ui = detectMissionUiNow();
+      const inMission = detectMissionUiNow().inMission;
+      const inSummary = detectMissionUiNow().inSummary;
 
-      if (panel && isMobile && (ui.inMission || ui.inSummary)) {
+      if (panel && isMobile && inMission) {
+        panel.classList.add('compact');
+        if (btn) {
+          btn.setAttribute('aria-expanded', 'false');
+          btn.textContent = 'ดูรายละเอียด';
+        }
+      }
+
+      if (panel && isMobile && inSummary) {
         panel.classList.add('compact');
         if (btn) {
           btn.setAttribute('aria-expanded', 'false');
@@ -1847,8 +1720,6 @@
       compactMissionTitleForMobile();
       updateAppViewportHeight();
       syncPromptMiniVisibility();
-      ensureMobileMissionPromptVisible();
-      syncHubSceneVisibility();
     }
 
     function wrapGlobal(name, beforeCall) {
