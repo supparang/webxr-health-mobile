@@ -22,9 +22,9 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260417-mobile-playable-final-force-layout';
+    window.TECHPATH_BUILD = 'v20260417-mobile-playable-final-force-layout-shield';
     window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzKzDrMtM5tc7MP5VlNBKXpV5Pp1r75R9Cvny8xqf_DkClYajnkGbUBFDwMJSchTC0S/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260417-lesson-mobile-playable-final-force-layout';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260417-lesson-mobile-playable-final-force-layout-shield';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -187,6 +187,73 @@
 
     #prompt-mini-toggle{
       display:none;
+    }
+
+    /* === VOCAB-STYLE SOURCE SHIELD === */
+    html.protected,
+    html.protected body{
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-touch-callout:none;
+    }
+
+    html.protected input,
+    html.protected textarea,
+    html.protected [contenteditable="true"]{
+      -webkit-user-select:text !important;
+      user-select:text !important;
+      -webkit-touch-callout:default !important;
+    }
+
+    img, a, canvas{
+      -webkit-user-drag:none;
+      user-drag:none;
+    }
+
+    #source-shield{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      background:rgba(2,6,23,.90);
+      backdrop-filter:blur(10px);
+      z-index:999999;
+      text-align:center;
+    }
+
+    #source-shield-card{
+      max-width:520px;
+      width:min(92vw,520px);
+      border:1px solid rgba(123,237,255,.22);
+      border-radius:18px;
+      padding:22px 18px;
+      background:rgba(15,23,42,.92);
+      box-shadow:0 20px 60px rgba(0,0,0,.35);
+    }
+
+    #source-shield-title{
+      color:#7bedff;
+      font-size:1.25rem;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+
+    #source-shield-sub{
+      color:#e5f6ff;
+      font-size:.96rem;
+      line-height:1.5;
+    }
+
+    body.devtools-guard #source-shield{
+      display:flex;
+    }
+
+    body.devtools-guard #ui-container,
+    body.devtools-guard a-scene{
+      filter:blur(10px);
+      pointer-events:none !important;
     }
 
     @media (max-width:700px){
@@ -537,9 +604,16 @@
         max-height:88px !important;
         overflow:hidden !important;
       }
+
+      #source-shield-title{
+        font-size:1.08rem;
+      }
+
+      #source-shield-sub{
+        font-size:.9rem;
+      }
     }
 
-    /* force layout for narrow desktop/tablet too */
     @media (max-width:1100px){
       body.force-mission-ui #ui-title,
       body.force-mission-ui #attendance-panel,
@@ -662,6 +736,16 @@
   </style>
 </head>
 <body>
+  <div id="source-shield" aria-hidden="true">
+    <div id="source-shield-card">
+      <div id="source-shield-title">Protected Lesson Mode</div>
+      <div id="source-shield-sub">
+        หน้านี้ถูกป้องกันการดูโค้ดระดับพื้นฐานไว้แล้ว
+        กรุณาปิด Developer Tools เพื่อกลับเข้าใช้งาน
+      </div>
+    </div>
+  </div>
+
   <div id="loading">Loading TechPath VR...</div>
   <div id="impact-flash" aria-hidden="true"></div>
 
@@ -967,6 +1051,87 @@
     <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
     <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
   </a-scene>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const html = document.documentElement;
+    html.classList.add('protected');
+
+    function isEditable(el) {
+      if (!el) return false;
+      return !!el.closest('input, textarea, [contenteditable="true"]');
+    }
+
+    function blockEvent(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      return false;
+    }
+
+    document.addEventListener('contextmenu', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('dragstart', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('selectstart', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('copy', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('cut', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('keydown', function (e) {
+      const key = String(e.key || '').toLowerCase();
+
+      const blocked =
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(key)) ||
+        (e.metaKey && e.altKey && ['i', 'j', 'c'].includes(key)) ||
+        (e.ctrlKey && ['u', 's'].includes(key)) ||
+        (e.metaKey && ['u', 's'].includes(key));
+
+      if (blocked) return blockEvent(e);
+
+      const copyLike = (e.ctrlKey || e.metaKey) && ['c', 'x'].includes(key);
+      if (copyLike && !isEditable(e.target)) return blockEvent(e);
+    }, true);
+
+    function setDevtoolsGuard(on) {
+      document.body.classList.toggle('devtools-guard', !!on);
+      const shield = document.getElementById('source-shield');
+      if (shield) shield.setAttribute('aria-hidden', on ? 'false' : 'true');
+    }
+
+    let devtoolsOpen = false;
+    const THRESHOLD = 160;
+
+    function detectDevtools() {
+      const widthGap = Math.abs(window.outerWidth - window.innerWidth);
+      const heightGap = Math.abs(window.outerHeight - window.innerHeight);
+      const open = widthGap > THRESHOLD || heightGap > THRESHOLD;
+
+      if (open !== devtoolsOpen) {
+        devtoolsOpen = open;
+        setDevtoolsGuard(open);
+      }
+
+      window.requestAnimationFrame(detectDevtools);
+    }
+
+    window.requestAnimationFrame(detectDevtools);
+  })();
+  </script>
 
   <script type="module" src="./js/lesson-main.js"></script>
 
