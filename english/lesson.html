@@ -22,38 +22,121 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260416-full-merged-test';
+    window.TECHPATH_BUILD = 'v20260416-mobile-first-final';
     window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzKzDrMtM5tc7MP5VlNBKXpV5Pp1r75R9Cvny8xqf_DkClYajnkGbUBFDwMJSchTC0S/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260416-lesson-attendance-inline-s15-r2';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260416-lesson-attendance-inline-s15-mobile-final';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
 
   <style>
+    :root{
+      --app-vh: 100dvh;
+      --mobile-bottom-gap: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    html, body{
+      max-width:100%;
+      overflow-x:hidden;
+    }
+
+    body{
+      min-height:var(--app-vh);
+      -webkit-text-size-adjust:100%;
+    }
+
+    #ui-container{
+      width:min(100%, 980px);
+      min-height:var(--app-vh);
+      margin:0 auto;
+      box-sizing:border-box;
+    }
+
+    .btn-action,
+    #attendance-toggle{
+      min-height:44px;
+      touch-action:manipulation;
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .input-field{
+      min-height:44px;
+      box-sizing:border-box;
+    }
+
     #attendance-panel{
-      margin:10px 0 12px;
+      margin:8px 0 10px;
       padding:10px 12px;
-      border:1px solid rgba(123,237,255,.28);
+      border:1px solid rgba(123,237,255,.24);
       border-radius:14px;
-      background:rgba(8,14,28,.78);
+      background:rgba(8,14,28,.76);
       box-shadow:0 8px 22px rgba(0,0,0,.18);
       backdrop-filter:blur(6px);
       text-align:left;
     }
+
+    #attendance-header-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
     #attendance-title{
       font-weight:900;
       color:#7bedff;
       letter-spacing:.02em;
-      margin-bottom:6px;
-      font-size:.96rem;
+      font-size:.92rem;
     }
+
+    #attendance-toggle{
+      appearance:none;
+      border:1px solid rgba(123,237,255,.28);
+      background:rgba(255,255,255,.05);
+      color:#cfefff;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:.78rem;
+      font-weight:800;
+    }
+
+    #attendance-summary-line{
+      margin-top:8px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+      font-size:.84rem;
+      color:#eaf6ff;
+    }
+
+    #attendance-summary-name{
+      font-weight:800;
+      color:#ffffff;
+      overflow-wrap:anywhere;
+    }
+
+    #attendance-summary-s{
+      font-weight:800;
+      color:#7bedff;
+    }
+
+    #attendance-summary-status{
+      font-weight:800;
+      color:#ffd6db;
+    }
+
     #attendance-grid{
+      margin-top:10px;
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:8px 10px;
-      font-size:.9rem;
+      font-size:.84rem;
       color:#eaf6ff;
     }
+
     .attendance-item{
       min-width:0;
       background:rgba(255,255,255,.04);
@@ -61,36 +144,500 @@
       border-radius:10px;
       padding:8px 10px;
     }
+
     .attendance-item b{
       display:block;
-      font-size:.78rem;
+      font-size:.72rem;
       color:#9adfff;
       margin-bottom:3px;
       font-weight:800;
     }
+
     #attendance-status{
-      margin-top:8px;
+      margin-top:10px;
       border-radius:10px;
       padding:8px 10px;
       background:rgba(46,213,115,.08);
       border:1px solid rgba(46,213,115,.22);
       color:#d9ffe8;
-      font-size:.88rem;
+      font-size:.82rem;
       font-weight:700;
     }
+
     #attendance-status.warn{
       background:rgba(255,159,67,.10);
       border-color:rgba(255,159,67,.22);
       color:#ffe7c9;
     }
+
     #attendance-status.fail{
       background:rgba(255,71,87,.10);
       border-color:rgba(255,71,87,.22);
       color:#ffd7dc;
     }
-    @media (max-width: 700px){
+
+    #attendance-panel.compact #attendance-grid,
+    #attendance-panel.compact #attendance-status{
+      display:none;
+    }
+
+    #prompt-mini-toggle{
+      display:none;
+    }
+
+    @media (max-width:700px){
+      #ui-container{
+        padding:10px 10px calc(112px + env(safe-area-inset-bottom, 0px));
+      }
+
+      .title{
+        font-size:1.08rem !important;
+        line-height:1.25 !important;
+        display:-webkit-box;
+        -webkit-line-clamp:2;
+        -webkit-box-orient:vertical;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        max-height:2.6em;
+        word-break:break-word;
+      }
+
+      .instruction{
+        font-size:.88rem !important;
+        line-height:1.35;
+        margin-bottom:8px;
+      }
+
+      #attendance-panel{
+        padding:10px;
+        margin:6px 0 8px;
+      }
+
+      #attendance-title{
+        font-size:.86rem;
+      }
+
+      #attendance-summary-line{
+        font-size:.80rem;
+      }
+
       #attendance-grid{
-        grid-template-columns:1fr;
+        grid-template-columns:1fr 1fr;
+        gap:6px;
+        font-size:.80rem;
+      }
+
+      .attendance-item{
+        padding:7px 8px;
+      }
+
+      .attendance-item b{
+        font-size:.68rem;
+      }
+
+      #attendance-status{
+        font-size:.78rem;
+        padding:7px 8px;
+      }
+
+      #hud-stats,
+      #hud-top-row{
+        position:sticky;
+        top:calc(env(safe-area-inset-top, 0px) + 4px);
+        z-index:45;
+        background:rgba(6,12,24,.88);
+        backdrop-filter:blur(8px);
+      }
+
+      #hud-stats{
+        flex-direction:column !important;
+        gap:4px !important;
+        margin:8px 0 !important;
+        padding:6px 8px !important;
+        border-radius:12px;
+      }
+
+      #hud-top-row{
+        overflow-x:auto;
+        flex-wrap:nowrap !important;
+        justify-content:flex-start !important;
+        gap:6px !important;
+        margin-top:6px;
+        margin-bottom:8px !important;
+        padding:4px 6px;
+        border-radius:12px;
+        scrollbar-width:none;
+      }
+
+      #hud-top-row::-webkit-scrollbar{
+        display:none;
+      }
+
+      #question-diff-badge,
+      #unit-theme-chip,
+      #reward-roll-badge{
+        white-space:nowrap;
+        flex:0 0 auto;
+        font-size:.82rem !important;
+        padding:4px 10px !important;
+      }
+
+      #hud-score-wrap,
+      #hud-hp-wrap{
+        justify-content:center;
+        text-align:center;
+        font-size:.95rem;
+      }
+
+      .hud-stat-item{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        flex-wrap:wrap;
+      }
+
+      .hud-stat-icon{
+        font-size:1rem !important;
+      }
+
+      .hud-stat-label{
+        font-size:.78rem !important;
+        opacity:.92;
+      }
+
+      #score-display,
+      #hp-display{
+        font-size:1.05rem !important;
+        font-weight:900;
+      }
+
+      #ai-director-board{
+        margin:8px 0 !important;
+        padding:8px 10px !important;
+      }
+
+      #ai-director-state{
+        font-size:.88rem !important;
+      }
+
+      #ai-director-sub{
+        font-size:.78rem !important;
+      }
+
+      #profile-panel,
+      #hub-stats-board,
+      #summary-panel,
+      #game-over-ui,
+      #boss-phase-ui,
+      #mission-prompt-box{
+        margin-top:8px !important;
+        border-radius:14px !important;
+        padding:10px !important;
+      }
+
+      #profile-panel-title,
+      #hub-stats-title,
+      #summary-title{
+        font-size:.95rem !important;
+      }
+
+      #hub-stats-body,
+      #summary-body{
+        font-size:.84rem !important;
+        line-height:1.45 !important;
+        word-break:break-word;
+      }
+
+      .avatar-row{
+        display:grid !important;
+        grid-template-columns:repeat(2, minmax(0,1fr));
+        gap:8px !important;
+      }
+
+      .avatar-chip{
+        width:100%;
+        min-width:0;
+      }
+
+      .avatar-chip small{
+        display:block;
+        font-size:.64rem !important;
+      }
+
+      #profile-name-input,
+      #player-name-input,
+      #write-input{
+        width:100% !important;
+        max-width:100%;
+        font-size:16px !important;
+      }
+
+      #btn-submit-score{
+        margin-left:0 !important;
+        margin-top:8px !important;
+        width:100%;
+        display:block !important;
+      }
+
+      #choice-buttons{
+        display:flex !important;
+        flex-direction:column !important;
+        gap:8px !important;
+        min-height:160px;
+        align-items:stretch !important;
+        position:sticky !important;
+        bottom:var(--mobile-bottom-gap) !important;
+        z-index:60;
+        background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
+        padding-top:10px;
+        padding-bottom:4px;
+      }
+
+      #choice-buttons .btn-action{
+        width:100% !important;
+        min-height:46px !important;
+        font-size:1rem !important;
+        font-weight:900 !important;
+        letter-spacing:.02em;
+      }
+
+      #btn-speak,
+      #btn-play-audio,
+      #btn-submit-write,
+      #btn-next,
+      #btn-return,
+      #btn-save-profile,
+      #btn-submit-score{
+        width:100% !important;
+        min-height:46px !important;
+        font-size:.94rem !important;
+        border-radius:14px !important;
+        font-weight:800 !important;
+        letter-spacing:.01em;
+        position:sticky !important;
+        bottom:var(--mobile-bottom-gap) !important;
+        z-index:60;
+        box-shadow:0 10px 24px rgba(0,0,0,.28);
+      }
+
+      #write-input{
+        position:sticky !important;
+        bottom:calc(72px + env(safe-area-inset-bottom, 0px));
+        z-index:55;
+        background:#fff;
+        color:#111;
+        border-radius:14px !important;
+        padding:12px 14px !important;
+        border:2px solid rgba(123,237,255,.35) !important;
+        box-shadow:0 10px 24px rgba(0,0,0,.20);
+      }
+
+      #mission-prompt-box{
+        border:1px solid rgba(123,237,255,.22);
+        background:rgba(10,18,34,.88);
+        box-shadow:0 8px 20px rgba(0,0,0,.20);
+        max-height:42vh;
+        overflow:auto;
+        scrollbar-width:none;
+      }
+
+      #mission-prompt-box::-webkit-scrollbar{
+        display:none;
+      }
+
+      #mission-prompt-label{
+        font-size:.72rem !important;
+      }
+
+      #mission-prompt-text{
+        font-size:.96rem !important;
+        line-height:1.5 !important;
+        letter-spacing:.01em;
+        font-weight:700;
+        overflow-wrap:anywhere;
+        word-break:break-word;
+      }
+
+      #prompt-mini-toggle{
+        width:100%;
+        margin-top:6px;
+        min-height:40px !important;
+        font-size:.86rem !important;
+      }
+
+      #feedback{
+        position:relative;
+        z-index:20;
+        min-height:22px;
+        text-align:center;
+        font-size:.92rem !important;
+        line-height:1.35 !important;
+        margin-top:8px !important;
+        margin-bottom:4px !important;
+        word-break:break-word;
+        border-radius:12px;
+        padding:8px 10px;
+        background:rgba(255,255,255,.04);
+      }
+
+      #timer{
+        font-size:1.1rem !important;
+        margin:6px 0 !important;
+      }
+
+      #boss-phase-title{
+        font-size:.92rem !important;
+      }
+
+      #boss-phase-sub,
+      #boss-hp-text{
+        font-size:.80rem !important;
+      }
+
+      #btn-next,
+      #btn-return,
+      #btn-submit-score,
+      #btn-save-profile{
+        margin-top:8px !important;
+      }
+
+      #game-over-ui{
+        display:flex;
+        flex-direction:column;
+        gap:8px;
+      }
+
+      body.mission-mobile #profile-panel,
+      body.mission-mobile #hub-stats-board,
+      body.mission-mobile #ai-director-board,
+      body.mission-mobile #unlock-hint,
+      body.mission-mobile #ui-desc{
+        display:none !important;
+      }
+
+      body.mission-mobile #attendance-panel{
+        opacity:.92;
+        border-color:rgba(123,237,255,.16);
+        background:rgba(8,14,28,.60);
+        margin-bottom:6px !important;
+      }
+
+      body.mission-mobile #attendance-title{
+        font-size:.80rem;
+      }
+
+      body.mission-mobile #attendance-summary-line{
+        margin-top:6px;
+        font-size:.78rem;
+        opacity:.96;
+      }
+
+      body.mission-mobile.scrolled-down #attendance-panel,
+      body.mission-mobile.scrolled-down #hud-top-row{
+        opacity:.35;
+        transform:translateY(-4px);
+        transition:opacity .18s ease, transform .18s ease;
+      }
+
+      body.mission-mobile.scrolled-up #attendance-panel,
+      body.mission-mobile.scrolled-up #hud-top-row{
+        opacity:1;
+        transform:none;
+        transition:opacity .18s ease, transform .18s ease;
+      }
+
+      body.summary-mobile #summary-panel{
+        display:block !important;
+        margin-top:10px !important;
+        padding:12px !important;
+        border-radius:14px !important;
+      }
+
+      body.summary-mobile #summary-title{
+        font-size:.98rem !important;
+        line-height:1.3 !important;
+      }
+
+      body.summary-mobile #summary-body{
+        font-size:.88rem !important;
+        line-height:1.5 !important;
+        word-break:break-word;
+      }
+
+      body.summary-mobile #btn-next,
+      body.summary-mobile #btn-return{
+        display:block !important;
+        width:100% !important;
+      }
+
+      body.summary-mobile #btn-next + #btn-return{
+        margin-top:8px !important;
+      }
+
+      body.keyboard-open #choice-buttons,
+      body.keyboard-open #btn-submit-write,
+      body.keyboard-open #btn-speak,
+      body.keyboard-open #btn-play-audio{
+        position:static !important;
+        bottom:auto !important;
+        box-shadow:none !important;
+      }
+
+      body.keyboard-open #write-input{
+        position:relative !important;
+        bottom:auto !important;
+      }
+
+      body.keyboard-open #ui-container{
+        padding-bottom:calc(28px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+
+      body.prompt-mini #mission-prompt-box{
+        max-height:88px !important;
+        overflow:hidden !important;
+      }
+    }
+
+    @media (max-width:900px) and (orientation:landscape){
+      #ui-container{
+        padding-top:8px !important;
+        padding-bottom:24px !important;
+      }
+
+      #attendance-panel,
+      #profile-panel,
+      #hub-stats-board,
+      #ai-director-board{
+        margin-top:6px !important;
+        margin-bottom:6px !important;
+      }
+
+      .title{
+        font-size:1rem !important;
+      }
+
+      .instruction{
+        font-size:.82rem !important;
+        margin-bottom:6px !important;
+      }
+
+      #mission-prompt-box,
+      #summary-panel,
+      #boss-phase-ui{
+        padding:8px !important;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce), (max-width:700px){
+      .answer-burst,
+      .combo-popup,
+      .screen-glow-success,
+      .screen-glow-fail,
+      .shake{
+        animation-duration:.01ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:.01ms !important;
       }
     }
   </style>
@@ -116,8 +663,20 @@
     <div class="title" id="ui-title">TECHPATH VR</div>
     <p class="instruction" id="ui-desc">เลือกด่านแล้วเริ่มเล่นได้เลย</p>
 
-    <div id="attendance-panel">
-      <div id="attendance-title">ATTENDANCE TRACKER</div>
+    <div id="attendance-panel" class="compact">
+      <div id="attendance-header-row">
+        <div id="attendance-title">ATTENDANCE TRACKER</div>
+        <button id="attendance-toggle" type="button" aria-expanded="false">ดูรายละเอียด</button>
+      </div>
+
+      <div id="attendance-summary-line">
+        <span id="attendance-summary-name">-</span>
+        <span>•</span>
+        <span id="attendance-summary-s">S00</span>
+        <span>•</span>
+        <span id="attendance-summary-status">กำลังติดตาม</span>
+      </div>
+
       <div id="attendance-grid">
         <div class="attendance-item">
           <b>Student ID</b>
@@ -144,6 +703,7 @@
           <span id="attendance-active-time">00:00</span>
         </div>
       </div>
+
       <div id="attendance-status" class="warn">กำลังเตรียมข้อมูลเช็กชื่อ...</div>
     </div>
 
@@ -200,6 +760,8 @@
       <div id="mission-prompt-label">PROMPT</div>
       <div id="mission-prompt-text">...</div>
     </div>
+
+    <button id="prompt-mini-toggle" type="button" class="btn-action" style="display:none;">ย่อโจทย์</button>
 
     <div id="boss-phase-ui" style="display:none;">
       <div id="boss-phase-title">👑 FINAL BOSS</div>
@@ -273,14 +835,17 @@
         <a-plane width="4.55" height="1.12" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
         <a-box width="4.66" height="1.22" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.24"></a-box>
         <a-text value="DIFFICULTY" position="0 0.34 0.04" align="center" color="#7bedff" scale="0.54 0.54 0.54"></a-text>
+
         <a-entity position="-1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('easy')">
           <a-box id="diff-easy-box" width="1.18" height="0.42" depth="0.10" color="#2ecc71" material="opacity: 0.52"></a-box>
           <a-text value="EASY" align="center" position="0 0 0.06" color="#0b1f14" scale="0.40 0.40 0.40"></a-text>
         </a-entity>
+
         <a-entity position="0 -0.08 0.02" class="clickable" onclick="setDifficulty('normal')">
           <a-box id="diff-normal-box" width="1.18" height="0.42" depth="0.10" color="#f1c40f" material="opacity: 1"></a-box>
           <a-text value="NORMAL" align="center" position="0 0 0.06" color="#261d00" scale="0.40 0.40 0.40"></a-text>
         </a-entity>
+
         <a-entity position="1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('hard')">
           <a-box id="diff-hard-box" width="1.18" height="0.42" depth="0.10" color="#e74c3c" material="opacity: 0.52"></a-box>
           <a-text value="HARD" align="center" position="0 0 0.06" color="#fff5f5" scale="0.40 0.40 0.40"></a-text>
@@ -322,14 +887,17 @@
           <a-text id="reading-question" value="QUESTION TEXT" color="#000" align="center" position="0 0 0.01" scale="0.7 0.7 0.7" width="5"></a-text>
         </a-plane>
       </a-entity>
+
       <a-entity position="-2.5 0.5 -3" rotation="0 15 0" animation="property: position; to: -2.5 0.8 -3; dir: alternate; dur: 1500; loop: true">
         <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
         <a-text id="reading-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
+
       <a-entity position="0 0.5 -3" animation="property: position; to: 0 0.7 -3; dir: alternate; dur: 1200; loop: true">
         <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
         <a-text id="reading-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
+
       <a-entity position="2.5 0.5 -3" rotation="0 -15 0" animation="property: position; to: 2.5 0.9 -3; dir: alternate; dur: 1700; loop: true">
         <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
         <a-text id="reading-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
@@ -343,14 +911,17 @@
         <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#ecf0f1" animation="property: rotation; to: 0 360 0; dur: 2000; easing: linear; loop: true"></a-cylinder>
       </a-entity>
       <a-text id="listening-prompt" value="PRESS PLAY AUDIO" position="0 3 -3" align="center" color="#f1c40f"></a-text>
+
       <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
         <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
         <a-text id="listening-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
+
       <a-entity position="0 0.5 -3">
         <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
         <a-text id="listening-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
+
       <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
         <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
         <a-text id="listening-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
@@ -438,11 +1009,7 @@
     safeSetLS('ENG_CLASS_SECTION', context.classSection);
 
     function makeId(prefix) {
-      return [
-        prefix,
-        Date.now(),
-        Math.random().toString(36).slice(2, 8)
-      ].join('-');
+      return [prefix, Date.now(), Math.random().toString(36).slice(2, 8)].join('-');
     }
 
     function nowIso() {
@@ -652,7 +1219,6 @@
 
     function send(payload) {
       if (!ENDPOINT) return;
-
       const flat = flattenPayload(payload);
 
       try {
@@ -684,11 +1250,7 @@
 
     function deriveAttemptResult(reason) {
       const snap = summarySnapshot();
-      const text = [
-        snap.summaryTitle,
-        snap.summaryBody,
-        snap.feedback
-      ].join(' ').toLowerCase();
+      const text = [snap.summaryTitle, snap.summaryBody, snap.feedback].join(' ').toLowerCase();
 
       const failish =
         text.includes('outcome: fail') ||
@@ -722,6 +1284,254 @@
         feedback: snap.feedback,
         btnNextVisible: snap.btnNextVisible
       };
+    }
+
+    function updateAppViewportHeight() {
+      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty('--app-vh', `${h}px`);
+    }
+
+    function bindAttendanceToggle() {
+      const panel = getEl('attendance-panel');
+      const btn = getEl('attendance-toggle');
+      if (!panel || !btn) return;
+
+      btn.addEventListener('click', function () {
+        const compact = panel.classList.toggle('compact');
+        btn.setAttribute('aria-expanded', String(!compact));
+        btn.textContent = compact ? 'ดูรายละเอียด' : 'ย่อ';
+      });
+    }
+
+    function bindMobileInputFocusHelpers() {
+      const input = getEl('write-input');
+      if (!input) return;
+
+      input.addEventListener('focus', function () {
+        if (window.innerWidth > 700) return;
+        setTimeout(() => {
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 250);
+      });
+
+      input.addEventListener('blur', function () {
+        if (window.innerWidth > 700) return;
+        setTimeout(() => window.scrollBy({ top: -40, behavior: 'smooth' }), 80);
+      });
+    }
+
+    function bindKeyboardStateHelpers() {
+      const input = getEl('write-input');
+      if (!input) return;
+
+      input.addEventListener('focus', function () {
+        document.body.classList.add('keyboard-open');
+      });
+
+      input.addEventListener('blur', function () {
+        setTimeout(() => {
+          document.body.classList.remove('keyboard-open');
+        }, 120);
+      });
+    }
+
+    function bindSingleTapGuard() {
+      const ids = [
+        'btn-speak',
+        'btn-play-audio',
+        'btn-submit-write',
+        'btn-next',
+        'btn-return',
+        'btn-submit-score',
+        'btn-save-profile'
+      ];
+
+      ids.forEach((id) => {
+        const el = getEl(id);
+        if (!el) return;
+
+        el.addEventListener('click', function () {
+          if (el.dataset.tapLocked === '1') return;
+          el.dataset.tapLocked = '1';
+          setTimeout(() => { el.dataset.tapLocked = '0'; }, 500);
+        });
+      });
+    }
+
+    let resizeRaf = 0;
+    function bindMobileResizeStabilizer() {
+      const onResize = () => {
+        cancelAnimationFrame(resizeRaf);
+        resizeRaf = requestAnimationFrame(() => {
+          updateAppViewportHeight();
+          applyMobileScreenMode();
+          compactMissionTitleForMobile();
+          syncPromptMiniVisibility();
+        });
+      };
+
+      window.addEventListener('resize', onResize, { passive: true });
+      window.visualViewport?.addEventListener('resize', onResize, { passive: true });
+    }
+
+    let lastScrollY = 0;
+    function bindMobileScrollMode() {
+      const onScroll = () => {
+        if (window.innerWidth > 700) return;
+
+        const y = window.scrollY || window.pageYOffset || 0;
+        const delta = y - lastScrollY;
+
+        if (Math.abs(delta) < 8) return;
+
+        document.body.classList.toggle('scrolled-down', delta > 0 && y > 40);
+        document.body.classList.toggle('scrolled-up', delta < 0 || y <= 40);
+
+        lastScrollY = y;
+      };
+
+      window.addEventListener('scroll', onScroll, { passive: true });
+    }
+
+    function bindPromptMiniToggle() {
+      const btn = getEl('prompt-mini-toggle');
+      if (!btn) return;
+
+      btn.addEventListener('click', function () {
+        const mini = document.body.classList.toggle('prompt-mini');
+        btn.textContent = mini ? 'ขยายโจทย์' : 'ย่อโจทย์';
+      });
+    }
+
+    function syncPromptMiniVisibility() {
+      const btn = getEl('prompt-mini-toggle');
+      const prompt = getEl('mission-prompt-box');
+      if (!btn || !prompt) return;
+      const shown = getComputedStyle(prompt).display !== 'none';
+      btn.style.display = (window.innerWidth <= 700 && shown) ? 'block' : 'none';
+    }
+
+    function applyMobileScreenMode() {
+      const isMobile = window.innerWidth <= 700;
+      const hasAttempt = !!runtime.currentAttempt;
+      const inMission = hasAttempt && !runtime.currentAttempt.isFinished;
+      const inSummary = hasAttempt && runtime.currentAttempt.isFinished;
+      const inHub = !hasAttempt;
+
+      document.body.classList.toggle('mission-mobile', isMobile && inMission);
+      document.body.classList.toggle('summary-mobile', isMobile && inSummary);
+      document.body.classList.toggle('hub-mobile', isMobile && inHub);
+    }
+
+    function compactMissionTitleForMobile() {
+      const el = getEl('ui-title');
+      if (!el) return;
+
+      const raw = el.dataset.fullTitle || String(el.textContent || '').trim();
+      if (!el.dataset.fullTitle) el.dataset.fullTitle = raw;
+
+      if (window.innerWidth > 700) {
+        el.textContent = raw;
+        return;
+      }
+
+      const compact = raw.length > 34 ? raw.slice(0, 34) + '…' : raw;
+      el.textContent = compact;
+    }
+
+    function getPrimaryMobileFocusTarget() {
+      const candidates = [
+        getEl('mission-prompt-box'),
+        getEl('boss-phase-ui'),
+        getEl('write-input'),
+        getEl('choice-buttons'),
+        getEl('btn-speak'),
+        getEl('btn-play-audio'),
+        getEl('btn-submit-write'),
+        getEl('summary-panel'),
+        getEl('game-over-ui')
+      ].filter(Boolean);
+
+      return candidates.find((el) => {
+        const cs = getComputedStyle(el);
+        return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
+      }) || null;
+    }
+
+    let mobileScrollLockUntil = 0;
+    function scrollImportantMobileBlockIntoView() {
+      if (window.innerWidth > 700) return;
+      if (document.body.classList.contains('keyboard-open')) return;
+
+      const now = Date.now();
+      if (now < mobileScrollLockUntil) return;
+      mobileScrollLockUntil = now + 900;
+
+      const target = getPrimaryMobileFocusTarget();
+      if (!target) return;
+
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+
+    function scrollMissionTopIntoView() {
+      if (window.innerWidth > 700) return;
+      const target = getEl('hud-stats') || getEl('ui-title') || getEl('mission-prompt-box');
+      if (!target) return;
+
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+    }
+
+    function scrollSummaryIntoView() {
+      if (window.innerWidth > 700) return;
+      const panel = getEl('summary-panel') || getEl('game-over-ui');
+      if (!panel) return;
+
+      setTimeout(() => {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 120);
+    }
+
+    function vibrateTap(pattern = 12) {
+      if (window.innerWidth > 700) return;
+      if (!navigator.vibrate) return;
+      navigator.vibrate(pattern);
+    }
+
+    function getShortAttendanceStatus() {
+      if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) return 'กำลังเล่น';
+      if (runtime.currentAttempt && runtime.currentAttempt.isFinished && runtime.currentAttempt.completed) return 'completed';
+      if (runtime.currentAttempt && runtime.currentAttempt.isFinished && !runtime.currentAttempt.completed) return 'not completed';
+      return 'ยังไม่เข้า S';
+    }
+
+    function resetMobileMissionChrome() {
+      document.body.classList.remove('prompt-mini');
+      document.body.classList.remove('keyboard-open');
+      document.body.classList.remove('scrolled-down');
+      document.body.classList.add('scrolled-up');
+
+      const btn = getEl('prompt-mini-toggle');
+      if (btn) btn.textContent = 'ย่อโจทย์';
+    }
+
+    function refreshMobileRuntimeUI(reason = '') {
+      updateAppViewportHeight();
+      applyMobileScreenMode();
+      compactMissionTitleForMobile();
+      renderAttendancePanel(reason || 'mobile_refresh');
+      syncPromptMiniVisibility();
+    }
+
+    let mobileUiRaf = 0;
+    function requestMobileUiRefresh(reason = '') {
+      cancelAnimationFrame(mobileUiRaf);
+      mobileUiRaf = requestAnimationFrame(() => {
+        refreshMobileRuntimeUI(reason);
+      });
     }
 
     function beginAttempt(missionId, reason) {
@@ -779,6 +1589,9 @@
         feedback: resultInfo.feedback,
         btnNextVisible: resultInfo.btnNextVisible
       }, extra || {}), false);
+
+      requestMobileUiRefresh('finish');
+      scrollSummaryIntoView();
     }
 
     function syncAttemptFromUI(trigger) {
@@ -797,10 +1610,17 @@
           !runtime.currentAttempt ||
           runtime.readyForNewAttempt ||
           runtime.currentAttempt.missionId !== Number(missionId) ||
-          (runtime.currentAttempt.isFinished && runtime.currentAttempt.missionId === Number(missionId) && runtime.readyForNewAttempt);
+          (
+            runtime.currentAttempt.isFinished &&
+            runtime.currentAttempt.missionId === Number(missionId) &&
+            runtime.readyForNewAttempt
+          );
 
         if (shouldBegin) {
           beginAttempt(missionId, trigger || 'sync');
+          resetMobileMissionChrome();
+          requestMobileUiRefresh('mission_start');
+          scrollMissionTopIntoView();
         }
       }
 
@@ -808,7 +1628,7 @@
         finishAttempt('summary_visible', {});
       }
 
-      renderAttendancePanel(trigger || '');
+      requestMobileUiRefresh(trigger || 'sync');
     }
 
     function renderAttendancePanel(hint) {
@@ -816,8 +1636,18 @@
       setText('attendance-student-name', context.studentName || '-');
       setText('attendance-class-section', context.classSection || '-');
 
+      setText('attendance-summary-name', context.studentName || context.studentId || '-');
+      setText('attendance-summary-s', runtime.currentAttempt ? (runtime.currentAttempt.sessionNo || 'S00') : 'Lobby');
+      setText('attendance-summary-status', getShortAttendanceStatus());
+
       const status = getEl('attendance-status');
-      if (!status) return;
+      if (!status) {
+        applyMobileScreenMode();
+        compactMissionTitleForMobile();
+        updateAppViewportHeight();
+        syncPromptMiniVisibility();
+        return;
+      }
 
       if (runtime.currentAttempt) {
         setText('attendance-session-no', runtime.currentAttempt.sessionNo || 'Lobby');
@@ -843,6 +1673,33 @@
         status.className = 'warn';
         status.textContent = 'ยังไม่ได้เข้า S ใด • เมื่อกดเข้า mission ระบบจะเริ่มจับ attendance ของ S นั้นทันที';
       }
+
+      const panel = getEl('attendance-panel');
+      const btn = getEl('attendance-toggle');
+      const isMobile = window.innerWidth <= 700;
+      const inMission = !!runtime.currentAttempt && !runtime.currentAttempt.isFinished;
+      const inSummary = !!runtime.currentAttempt && runtime.currentAttempt.isFinished;
+
+      if (panel && isMobile && inMission) {
+        panel.classList.add('compact');
+        if (btn) {
+          btn.setAttribute('aria-expanded', 'false');
+          btn.textContent = 'ดูรายละเอียด';
+        }
+      }
+
+      if (panel && isMobile && inSummary) {
+        panel.classList.add('compact');
+        if (btn) {
+          btn.setAttribute('aria-expanded', 'false');
+          btn.textContent = 'ดูรายละเอียด';
+        }
+      }
+
+      applyMobileScreenMode();
+      compactMissionTitleForMobile();
+      updateAppViewportHeight();
+      syncPromptMiniVisibility();
     }
 
     function wrapGlobal(name, beforeCall) {
@@ -859,9 +1716,7 @@
 
         const original = fn;
         const wrapped = function () {
-          try {
-            beforeCall && beforeCall(Array.from(arguments));
-          } catch (_) {}
+          try { beforeCall && beforeCall(Array.from(arguments)); } catch (_) {}
           return original.apply(this, arguments);
         };
         wrapped.__attendanceWrapped = true;
@@ -878,29 +1733,25 @@
       setTimeout(function () { clearInterval(timer); }, 30000);
     }
 
-    function installObservers() {
-      const titleEl = getEl('ui-title');
-      const summaryEl = getEl('summary-panel');
-      const summaryBodyEl = getEl('summary-body');
-      const uiContainer = getEl('ui-container');
-
-      const obs = new MutationObserver(function () {
-        syncAttemptFromUI('observer');
-      });
-
-      if (titleEl) obs.observe(titleEl, { childList: true, subtree: true, characterData: true });
-      if (summaryEl) obs.observe(summaryEl, { attributes: true, attributeFilter: ['style', 'class'] });
-      if (summaryBodyEl) obs.observe(summaryBodyEl, { childList: true, subtree: true, characterData: true });
-      if (uiContainer) obs.observe(uiContainer, { attributes: true, attributeFilter: ['class'] });
-
-      setInterval(function () {
-        syncAttemptFromUI('interval');
-      }, 800);
-    }
-
     function installInteractionListeners() {
-      document.addEventListener('pointerdown', function () {
+      document.addEventListener('pointerdown', function (ev) {
         registerActivity('pointer');
+
+        const t = ev.target;
+        if (!t) return;
+
+        const isAction =
+          t.closest?.('#btn-speak') ||
+          t.closest?.('#btn-play-audio') ||
+          t.closest?.('#btn-submit-write') ||
+          t.closest?.('#btn-next') ||
+          t.closest?.('#btn-return') ||
+          t.closest?.('#btn-submit-score') ||
+          t.closest?.('#attendance-toggle') ||
+          t.closest?.('#prompt-mini-toggle') ||
+          t.closest?.('#choice-buttons .btn-action');
+
+        if (isAction) vibrateTap(10);
       }, { passive: true });
 
       document.addEventListener('keydown', function () {
@@ -909,16 +1760,17 @@
 
       getEl('write-input')?.addEventListener('input', function () {
         registerActivity('typing');
+        requestMobileUiRefresh('typing');
       });
 
       getEl('profile-name-input')?.addEventListener('change', function () {
         syncIdentityFromInputs();
-        renderAttendancePanel('profile_name_change');
+        requestMobileUiRefresh('profile_name_change');
       });
 
       getEl('player-name-input')?.addEventListener('change', function () {
         syncIdentityFromInputs();
-        renderAttendancePanel('score_name_change');
+        requestMobileUiRefresh('score_name_change');
       });
     }
 
@@ -926,14 +1778,14 @@
       wrapGlobal('savePlayerProfile', function () {
         syncIdentityFromInputs();
         registerActivity('save_profile');
-        log('save_profile', {
-          profileName: context.studentName || ''
-        }, !runtime.currentAttempt);
+        vibrateTap(10);
+        log('save_profile', { profileName: context.studentName || '' }, !runtime.currentAttempt);
       });
 
       wrapGlobal('startRecognition', function () {
         syncAttemptFromUI('start_recognition');
         registerActivity('speak');
+        vibrateTap(10);
         log('start_recognition', {
           missionId: runtime.currentAttempt ? runtime.currentAttempt.missionId : '',
           sessionNo: runtime.currentAttempt ? runtime.currentAttempt.sessionNo : ''
@@ -943,6 +1795,7 @@
       wrapGlobal('playAudio', function () {
         syncAttemptFromUI('play_audio');
         registerActivity('play_audio');
+        vibrateTap(10);
         log('play_audio', {
           missionId: runtime.currentAttempt ? runtime.currentAttempt.missionId : '',
           sessionNo: runtime.currentAttempt ? runtime.currentAttempt.sessionNo : ''
@@ -952,6 +1805,7 @@
       wrapGlobal('checkWritingAnswer', function () {
         syncAttemptFromUI('write_submit');
         registerActivity('submit_write');
+        vibrateTap(10);
         log('submit_write', {
           valueLength: (getEl('write-input')?.value || '').trim().length
         }, false);
@@ -960,6 +1814,7 @@
       wrapGlobal('checkChoiceAnswer', function (args) {
         syncAttemptFromUI('choice_answer');
         registerActivity('choice_answer');
+        vibrateTap(10);
         log('choice_answer', {
           choice: args && args.length ? String(args[0] || '') : ''
         }, false);
@@ -968,6 +1823,7 @@
       wrapGlobal('submitScore', function () {
         syncIdentityFromInputs();
         registerActivity('save_score');
+        vibrateTap(10);
         log('save_score', {
           scoreName: (getEl('player-name-input')?.value || context.studentName || '').trim(),
           score: readScore()
@@ -976,29 +1832,71 @@
 
       wrapGlobal('playNextMission', function () {
         registerActivity('next_mission');
+        vibrateTap(10);
+
         if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
           finishAttempt('next_button', { viaButton: true });
         } else {
           log('next_button', {}, false);
         }
+
+        resetMobileMissionChrome();
+        setTimeout(() => {
+          requestMobileUiRefresh('next');
+          scrollMissionTopIntoView();
+        }, 80);
       });
 
       wrapGlobal('returnToHub', function () {
         registerActivity('return_hub');
+        vibrateTap(10);
+
         if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
           finishAttempt('return_to_hub', { viaButton: true });
         } else {
           log('return_to_hub', {}, !runtime.currentAttempt);
         }
+
         runtime.readyForNewAttempt = true;
+        runtime.currentAttempt = null;
+
+        resetMobileMissionChrome();
+        setTimeout(() => {
+          requestMobileUiRefresh('back_hub');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 80);
       });
 
       wrapGlobal('setDifficulty', function (args) {
         registerActivity('set_difficulty');
+        vibrateTap(10);
         log('set_difficulty', {
           difficulty: args && args.length ? String(args[0] || '') : ''
         }, !runtime.currentAttempt);
       });
+    }
+
+    function installObservers() {
+      const titleEl = getEl('ui-title');
+      const summaryEl = getEl('summary-panel');
+      const summaryBodyEl = getEl('summary-body');
+      const uiContainer = getEl('ui-container');
+      const promptEl = getEl('mission-prompt-box');
+
+      const obs = new MutationObserver(function () {
+        syncAttemptFromUI('observer');
+        requestMobileUiRefresh('observer');
+      });
+
+      if (titleEl) obs.observe(titleEl, { childList: true, subtree: true, characterData: true });
+      if (summaryEl) obs.observe(summaryEl, { attributes: true, attributeFilter: ['style', 'class'] });
+      if (summaryBodyEl) obs.observe(summaryBodyEl, { childList: true, subtree: true, characterData: true });
+      if (uiContainer) obs.observe(uiContainer, { attributes: true, attributeFilter: ['class'] });
+      if (promptEl) obs.observe(promptEl, { attributes: true, attributeFilter: ['style', 'class'] });
+
+      setInterval(function () {
+        syncAttemptFromUI('interval');
+      }, 800);
     }
 
     function boot() {
@@ -1009,6 +1907,19 @@
         patch: PATCH,
         build: BUILD
       }, true);
+
+      bindAttendanceToggle();
+      bindMobileInputFocusHelpers();
+      bindKeyboardStateHelpers();
+      bindSingleTapGuard();
+      bindMobileResizeStabilizer();
+      bindMobileScrollMode();
+      bindPromptMiniToggle();
+
+      updateAppViewportHeight();
+      applyMobileScreenMode();
+      compactMissionTitleForMobile();
+      syncPromptMiniVisibility();
 
       installInteractionListeners();
       installWrappers();
@@ -1028,7 +1939,7 @@
           log('page_hidden', {}, true);
         } else {
           log('page_visible', {}, true);
-          renderAttendancePanel('resume');
+          requestMobileUiRefresh('resume');
         }
       });
 
