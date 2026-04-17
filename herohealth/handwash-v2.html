@@ -10,13 +10,13 @@
 
   <style>
     :root{
-      --bg:rgba(7,18,34,.88);
-      --panel:rgba(255,255,255,.10);
-      --line:#63e6ff;
-      --yellow:#ffe66d;
-      --shadow:0 12px 30px rgba(0,0,0,.28);
-      --text:#e8fbff;
-      --mut:#a8d8e8;
+      --bg: rgba(7,18,34,.88);
+      --panel: rgba(255,255,255,.10);
+      --line: #63e6ff;
+      --yellow: #ffe66d;
+      --shadow: 0 12px 30px rgba(0,0,0,.28);
+      --text: #e8fbff;
+      --mut: #a8d8e8;
     }
 
     *{ box-sizing:border-box; }
@@ -78,9 +78,7 @@
       align-items:flex-start;
     }
 
-    .title-wrap{
-      min-width:0;
-    }
+    .title-wrap{ min-width:0; }
 
     .title-main{
       font-size:1rem;
@@ -137,7 +135,7 @@
       width:78px;
       height:78px;
       border-radius:50%;
-      background:linear-gradient(180deg,#8aeaff 0%,#22d3ee 100%);
+      background:linear-gradient(180deg,#8aeaff 0%, #22d3ee 100%);
       display:flex;
       align-items:center;
       justify-content:center;
@@ -145,9 +143,7 @@
       box-shadow:inset 0 0 0 4px rgba(255,255,255,.18);
     }
 
-    #guide-copy{
-      min-width:0;
-    }
+    #guide-copy{ min-width:0; }
 
     #step-count{
       font-size:.95rem;
@@ -202,7 +198,7 @@
     #fill{
       width:0%;
       height:100%;
-      background:linear-gradient(90deg,#60ff9d 0%,#00e5ff 100%);
+      background:linear-gradient(90deg,#60ff9d 0%, #00e5ff 100%);
       transition:width .12s linear;
     }
 
@@ -330,10 +326,10 @@
       background:rgba(255,255,255,.95);
     }
 
-    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
-    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
-    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%); }
-    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%); }
+    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%, #ffd84d 100%); }
+    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%, #b7efff 100%); }
+    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%, #ffc2dd 100%); }
+    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%); }
 
     .overlay{
       position:fixed;
@@ -712,9 +708,7 @@
     }
 
     @media (max-width:860px){
-      .summary-grid{
-        grid-template-columns:1fr;
-      }
+      .summary-grid{ grid-template-columns:1fr; }
     }
 
     @media (max-width:680px){
@@ -751,13 +745,9 @@
         font-size:1.6rem;
       }
 
-      .title-sub{
-        font-size:1rem;
-      }
+      .title-sub{ font-size:1rem; }
 
-      #step-desc{
-        font-size:.88rem;
-      }
+      #step-desc{ font-size:.88rem; }
 
       #action-prompt{
         font-size:.82rem;
@@ -795,17 +785,9 @@
         font-size:.76rem;
       }
 
-      .summary-head{
-        padding:16px;
-      }
-
-      .summary-big{
-        font-size:2.5rem;
-      }
-
-      .bottom-actions{
-        padding:0 16px 16px;
-      }
+      .summary-head{ padding:16px; }
+      .summary-big{ font-size:2.5rem; }
+      .bottom-actions{ padding:0 16px 16px; }
     }
   </style>
 </head>
@@ -829,14 +811,14 @@
       <div id="guide-panel">
         <div id="guide-icon" class="guide-image">🚰</div>
         <div id="guide-copy">
-          <div id="step-desc">เริ่มจากแตะป้ายเปิดน้ำก่อน</div>
-          <div id="action-prompt">เล็ง “เปิดน้ำ” แล้วแตะ</div>
+          <div id="step-desc">เริ่มจากแตะปุ่มเปิดน้ำตรงกลางจอ</div>
+          <div id="action-prompt">แตะ “เปิดน้ำ”</div>
         </div>
       </div>
 
       <div class="progress-wrap">
         <div class="progress-top">
-          <span id="progress-label">ความคืบหน้า</span>
+          <span>ความคืบหน้า</span>
           <span id="progress-text">0%</span>
         </div>
         <div class="progress-bar">
@@ -847,7 +829,7 @@
 
     <div id="coach-wrap">
       <div id="coach-face">🙂</div>
-      <div id="coach">เริ่มจากเปิดน้ำก่อนนะ</div>
+      <div id="coach">เริ่มจากเป้าตรงกลางก่อนนะ</div>
     </div>
 
     <div id="phaseSplash" class="phase-splash">
@@ -866,12 +848,12 @@
     <div class="card">
       <div class="badge">🧼 Handwash Main Game</div>
       <h1>ลงสนามจริง</h1>
-      <p>เวอร์ชันนี้จะโชว์เป้าทีละอย่างให้ชัดที่สุดบนมือถือ</p>
+      <p>รอบนี้จะแสดงเป้าปัจจุบันใหญ่อยู่กลางจอ เพื่อให้เล่นบนมือถือได้ง่ายขึ้น</p>
 
       <div class="tips">
-        <div class="tip">🎯 โชว์เฉพาะเป้าปัจจุบัน</div>
-        <div class="tip">💧 ขั้นน้ำจะเห็นเฉพาะโซนน้ำ</div>
-        <div class="tip">🖐️ ขั้น WHO จะเห็นเฉพาะมือ</div>
+        <div class="tip">🎯 เปิดน้ำ / สบู่ / เช็ดมือ = เป้าใหญ่กลางจอ</div>
+        <div class="tip">💧 ขั้นน้ำ = เห็นเฉพาะโซนน้ำ</div>
+        <div class="tip">🖐️ ขั้น WHO = เห็นเฉพาะมือ</div>
         <div class="tip">✨ อ่านง่ายกว่าเดิมมาก</div>
       </div>
 
@@ -953,41 +935,120 @@
     <a-entity light="type: ambient; intensity: 1.18; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.95; color: #ffffff" position="1 3 2"></a-entity>
 
-    <a-entity id="board-root" position="0 0.96 -1.40">
-      <a-plane id="mobile-board-bg" position="0 0.78 -0.18" width="1.90" height="1.48" color="#0f2942" material="opacity:0.18; transparent:true"></a-plane>
+    <a-entity id="board-root" position="0 1.00 -1.24">
+      <a-plane id="mobile-board-bg" position="0 0.78 -0.18" width="1.90" height="1.48" color="#0f2942" material="opacity:0.12; transparent:true"></a-plane>
 
-      <a-box position="0 0.78 0" width="1.48" height="0.08" depth="0.82" color="#cbd5e1"></a-box>
-      <a-box position="0 0.12 -0.08" width="1.30" height="0.24" depth="0.62" color="#f8fafc" material="opacity:0.96"></a-box>
+      <a-box id="sink-rim" position="0 0.78 0" width="1.48" height="0.08" depth="0.82" color="#cbd5e1"></a-box>
+      <a-box id="sink-body" position="0 0.12 -0.08" width="1.30" height="0.24" depth="0.62" color="#f8fafc" material="opacity:0.96"></a-box>
 
-      <a-entity id="faucet-group" position="0 1.02 0.18">
-        <a-box id="faucet-btn" class="focusable" width="0.42" height="0.14" depth="0.05" color="#38bdf8" material="emissive:#38bdf8; emissiveIntensity:0.9"></a-box>
-        <a-plane id="faucet-hitbox" class="focusable" width="0.64" height="0.34" color="#fff" opacity="0.001" material="transparent:true" position="0 0 0.05"></a-plane>
-        <a-plane id="faucet-callout-bg" class="focusable" width="0.58" height="0.14" color="#082f49" opacity="0.98" material="transparent:true" position="0 0.18 0.03"></a-plane>
-        <a-text id="faucet-callout" class="focusable" value="เปิดน้ำ" align="center" color="#ffffff" width="1.5" position="0 0.18 0.04"></a-text>
+      <a-entity id="faucet-group" position="0 0.70 0.20">
+        <a-box id="faucet-btn" class="focusable"
+               width="0.62" height="0.20" depth="0.06"
+               color="#38bdf8"
+               material="emissive:#38bdf8; emissiveIntensity:1.05"
+               animation__pulse="property: scale; dir: alternate; loop: true; dur: 620; to: 1.05 1.05 1.05"></a-box>
+
+        <a-plane id="faucet-hitbox" class="focusable"
+                 width="0.82" height="0.38"
+                 color="#fff" opacity="0.001"
+                 material="transparent:true"
+                 position="0 0 0.05"></a-plane>
+
+        <a-plane id="faucet-callout-bg" class="focusable"
+                 width="0.74" height="0.16"
+                 color="#082f49" opacity="0.98"
+                 material="transparent:true"
+                 position="0 0.22 0.03"></a-plane>
+
+        <a-text id="faucet-callout" class="focusable"
+                value="เปิดน้ำ"
+                align="center"
+                color="#ffffff"
+                width="1.8"
+                position="0 0.22 0.04"></a-text>
       </a-entity>
 
-      <a-entity id="soap-group" position="-0.42 0.38 0.18">
-        <a-box id="soap-target" class="focusable" width="0.34" height="0.20" depth="0.10" color="#f472b6" material="emissive:#f472b6; emissiveIntensity:0.9"></a-box>
-        <a-plane id="soap-hitbox" class="focusable" position="0 0.02 0.08" width="0.52" height="0.34" color="#ffffff" opacity="0.001" material="transparent:true"></a-plane>
-        <a-plane id="soap-callout-bg" class="focusable" position="0 0.20 0.04" width="0.52" height="0.14" color="#4a044e" opacity="0.98" material="transparent:true"></a-plane>
-        <a-text id="soap-callout" class="focusable" value="ใส่สบู่" align="center" color="#ffffff" width="1.3" position="0 0.20 0.05"></a-text>
+      <a-entity id="soap-group" position="0 0.70 0.20">
+        <a-box id="soap-target" class="focusable"
+               width="0.56" height="0.24" depth="0.08"
+               color="#f472b6"
+               material="emissive:#f472b6; emissiveIntensity:1.05"
+               animation__pulse="property: scale; dir: alternate; loop: true; dur: 620; to: 1.05 1.05 1.05"></a-box>
+
+        <a-plane id="soap-hitbox" class="focusable"
+                 position="0 0.02 0.06"
+                 width="0.78" height="0.40"
+                 color="#ffffff" opacity="0.001"
+                 material="transparent:true"></a-plane>
+
+        <a-plane id="soap-callout-bg" class="focusable"
+                 position="0 0.24 0.04"
+                 width="0.72" height="0.16"
+                 color="#4a044e" opacity="0.98"
+                 material="transparent:true"></a-plane>
+
+        <a-text id="soap-callout" class="focusable"
+                value="ใส่สบู่"
+                align="center"
+                color="#ffffff"
+                width="1.7"
+                position="0 0.24 0.05"></a-text>
       </a-entity>
 
-      <a-entity id="towel-group" position="0.42 0.38 0.18">
-        <a-box id="towel-target" class="focusable" width="0.34" height="0.20" depth="0.10" color="#facc15" material="emissive:#facc15; emissiveIntensity:0.9"></a-box>
-        <a-plane id="towel-hitbox" class="focusable" width="0.52" height="0.34" color="#fff" opacity="0.001" material="transparent:true" position="0 0 0.06"></a-plane>
-        <a-plane id="towel-callout-bg" class="focusable" width="0.52" height="0.14" color="#713f12" opacity="0.98" material="transparent:true" position="0 0.20 0.03"></a-plane>
-        <a-text id="towel-callout" class="focusable" value="เช็ดมือ" align="center" color="#ffffff" width="1.3" position="0 0.20 0.04"></a-text>
+      <a-entity id="towel-group" position="0 0.70 0.20">
+        <a-box id="towel-target" class="focusable"
+               width="0.56" height="0.24" depth="0.08"
+               color="#facc15"
+               material="emissive:#facc15; emissiveIntensity:1.05"
+               animation__pulse="property: scale; dir: alternate; loop: true; dur: 620; to: 1.05 1.05 1.05"></a-box>
+
+        <a-plane id="towel-hitbox" class="focusable"
+                 width="0.78" height="0.40"
+                 color="#fff" opacity="0.001"
+                 material="transparent:true"
+                 position="0 0 0.06"></a-plane>
+
+        <a-plane id="towel-callout-bg" class="focusable"
+                 width="0.72" height="0.16"
+                 color="#713f12" opacity="0.98"
+                 material="transparent:true"
+                 position="0 0.24 0.03"></a-plane>
+
+        <a-text id="towel-callout" class="focusable"
+                value="เช็ดมือ"
+                align="center"
+                color="#ffffff"
+                width="1.7"
+                position="0 0.24 0.04"></a-text>
       </a-entity>
 
-      <a-entity id="water-group" position="0 0.02 0">
-        <a-plane id="water-zone" class="focusable" position="0 0.72 0.18" width="0.34" height="0.72" color="#22d3ee" opacity="0.30" material="transparent:true; emissive:#22d3ee; emissiveIntensity:0.65"></a-plane>
-        <a-plane position="0 0.72 0.19" width="0.20" height="0.68" color="#67e8f9" opacity="0.72" material="transparent:true"></a-plane>
-        <a-plane width="0.42" height="0.12" color="#083344" opacity="0.98" material="transparent:true" position="0 1.14 0.03"></a-plane>
-        <a-text value="โซนน้ำ" align="center" color="#ffffff" width="1.05" position="0 1.14 0.04"></a-text>
+      <a-entity id="water-group" position="0 0.06 0">
+        <a-plane id="water-zone" class="focusable"
+                 position="0 0.70 0.18"
+                 width="0.46" height="0.86"
+                 color="#22d3ee"
+                 opacity="0.34"
+                 material="transparent:true; emissive:#22d3ee; emissiveIntensity:0.95"></a-plane>
+
+        <a-plane position="0 0.70 0.19"
+                 width="0.26" height="0.80"
+                 color="#67e8f9"
+                 opacity="0.82"
+                 material="transparent:true"></a-plane>
+
+        <a-plane width="0.50" height="0.14"
+                 color="#083344" opacity="0.98"
+                 material="transparent:true"
+                 position="0 1.18 0.03"></a-plane>
+
+        <a-text value="โซนน้ำ"
+                align="center"
+                color="#ffffff"
+                width="1.2"
+                position="0 1.18 0.04"></a-text>
       </a-entity>
 
-      <a-entity id="hands-board" position="0 0.56 0.14" scale="1.10 1.10 1.10">
+      <a-entity id="hands-board" position="0 0.56 0.14" scale="1.18 1.18 1.18">
         <a-plane width="1.18" height="0.82" color="#0f2942" opacity="0.30" material="transparent:true"></a-plane>
         <a-plane width="1.24" height="0.94" color="#fff7d6" material="opacity:0.98"></a-plane>
 
@@ -1019,8 +1080,7 @@
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.011; radiusOuter: 0.02"
                   material="color: #00f2ff; shader: flat"
-                  raycaster="objects: .focusable">
-        </a-entity>
+                  raycaster="objects: .focusable"></a-entity>
       </a-camera>
 
       <a-entity laser-controls="hand: left" raycaster="objects: .focusable"></a-entity>
@@ -1101,7 +1161,7 @@
 
     const FLOW = [
       { id:'faucet', type:'tap-object', object:'faucet', title:'เปิดน้ำ', icon:'🚰', desc:'แตะปุ่มเปิดน้ำตรงกลางจอ', prompt:'แตะ “เปิดน้ำ”', baseScore:18 },
-      { id:'wet', type:'hold-water', title:'เปียกมือ', icon:'💧', desc:'เล็งค้างในโซนน้ำให้แถบเต็ม', prompt:'ค้างที่โซนน้ำ', need:PRESET.wet, baseScore:24 },
+      { id:'wet', type:'hold-water', title:'เปียกมือ', icon:'💧', desc:'ค้างที่โซนน้ำให้แถบเต็ม', prompt:'ค้างที่โซนน้ำ', need:PRESET.wet, baseScore:24 },
       { id:'soap', type:'tap-object', object:'soap', title:'ใส่สบู่', icon:'🧼', desc:'แตะสบู่สีชมพู', prompt:'แตะ “ใส่สบู่”', baseScore:22 },
 
       { id:'palms', type:'zones', title:'ฝ่ามือถูฝ่ามือ', icon:'👐', desc:'แตะโซนฝ่ามือซ้ายและขวาให้ครบ', prompt:'แตะโซนบนมือ', zones:['left-palms','right-palms'], need:PRESET.palms, color:'#38bdf8', baseScore:16 },
@@ -1156,8 +1216,6 @@
 
       waterOn:false,
       hasSoap:false,
-      sideHits:{ left:0, right:0 },
-      lastSide:'',
       idleTimer:0,
 
       whoCompleted:new Set(),
@@ -1572,6 +1630,13 @@
       el.setAttribute('visible', on ? 'true' : 'false');
     }
 
+    function setSinkVisible(on){
+      const rim = $('sink-rim');
+      const body = $('sink-body');
+      if (rim) rim.setAttribute('visible', on ? 'true' : 'false');
+      if (body) body.setAttribute('visible', on ? 'true' : 'false');
+    }
+
     function setStepVisualMode(step){
       if (!step) return;
 
@@ -1587,9 +1652,22 @@
       setEntityVisible(waterGroup, isWater);
       setEntityVisible(handsBoard, isZoneStep);
 
-      if (isZoneStep){
+      if (isFaucet){
+        faucetGroup.setAttribute('position', '0 0.70 0.20');
+        setSinkVisible(false);
+      } else if (isSoap){
+        soapGroup.setAttribute('position', '0 0.70 0.20');
+        setSinkVisible(false);
+      } else if (isDry){
+        towelGroup.setAttribute('position', '0 0.70 0.20');
+        setSinkVisible(false);
+      } else if (isWater){
+        waterGroup.setAttribute('position', '0 0.06 0');
+        setSinkVisible(true);
+      } else if (isZoneStep){
         handsBoard.setAttribute('position', '0 0.56 0.14');
-        handsBoard.setAttribute('scale', '1.10 1.10 1.10');
+        handsBoard.setAttribute('scale', '1.18 1.18 1.18');
+        setSinkVisible(false);
       }
     }
 
@@ -1608,7 +1686,7 @@
       setObjectHighlight(faucetGroup, false);
       setObjectHighlight(soapGroup, false);
       setObjectHighlight(towelGroup, false);
-      waterZone.setAttribute('material', 'opacity', 0.30);
+      waterZone.setAttribute('material', 'opacity', 0.34);
     }
 
     function clearZones(){
@@ -1635,7 +1713,7 @@
 
     function getFocusedEl(){
       const rc = cursor.components.raycaster;
-      if(!rc || !rc.intersectedEls || !rc.intersectedEls.length) return null;
+      if (!rc || !rc.intersectedEls || !rc.intersectedEls.length) return null;
       return rc.intersectedEls[0];
     }
 
@@ -1696,7 +1774,7 @@
         fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 360; easing: linear');
 
         ui.fxLayer.appendChild(fx);
-        setTimeout(()=>{ if(fx.parentNode) fx.parentNode.removeChild(fx); }, 390);
+        setTimeout(() => { if (fx.parentNode) fx.parentNode.removeChild(fx); }, 390);
       }
 
       const ring = document.createElement('a-ring');
@@ -1708,7 +1786,7 @@
       ring.setAttribute('animation__grow', 'property: scale; to: 1.5 1.5 1.5; dur: 320; easing: easeOutQuad');
       ring.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 320; easing: linear');
       ui.fxLayer.appendChild(ring);
-      setTimeout(()=>{ if(ring.parentNode) ring.parentNode.removeChild(ring); }, 340);
+      setTimeout(() => { if (ring.parentNode) ring.parentNode.removeChild(ring); }, 340);
     }
 
     function completeStep(){
@@ -1720,7 +1798,6 @@
       state.stepIndex += 1;
       state.stepValue = 0;
       state.currentNeeded = 1;
-      state.lastSide = '';
       state.holdAwardTimer = 0;
 
       if (state.stepIndex >= FLOW.length){
@@ -1736,7 +1813,7 @@
       if (!step || step.type !== 'zones') return false;
 
       if (!step.zones.includes(zoneId)){
-        punish();
+        punish('แตะโซนเรืองแสงบนมือ');
         return true;
       }
 
@@ -1762,7 +1839,7 @@
       if (!step) return false;
 
       if (step.object !== kind){
-        punish();
+        punish('แตะเป้ากลางจอที่กำลังโชว์อยู่');
         return true;
       }
 
@@ -1870,7 +1947,6 @@
       state.currentNeeded = step.need || 1;
       state.stepValue = 0;
       state.idleTimer = 0;
-      state.sideHits = { left:0, right:0 };
       state.holdAwardTimer = 0;
 
       updatePhase();
@@ -1889,7 +1965,7 @@
         } else if (state.phase === 2){
           showPhaseSplash('Phase 2', 'WHO Action • โชว์เฉพาะมือ');
         } else if (state.phase === 3){
-          showPhaseSplash('Phase 3', 'Clean Rush • น้ำและผ้าเช็ดมือ');
+          showPhaseSplash('Phase 3', 'Clean Rush • น้ำและผ้า');
         }
       }
 
@@ -1900,13 +1976,13 @@
       }
 
       if (step.type === 'hold-water'){
-        waterZone.setAttribute('material', 'opacity', 0.40);
+        waterZone.setAttribute('material', 'opacity', 0.44);
       }
 
       if (step.type === 'zones'){
         showZonesForStep(step);
         handsBoard.setAttribute('position', '0 0.56 0.14');
-        handsBoard.setAttribute('scale', '1.10 1.10 1.10');
+        handsBoard.setAttribute('scale', '1.18 1.18 1.18');
         setCoach('ตอนนี้โชว์เฉพาะมือแล้ว แตะโซนที่เรืองแสงบนมือ');
       } else if (step.id === 'faucet'){
         setCoach('ถ้าภาพเอียง กด RECENTER แล้วแตะปุ่มเปิดน้ำ');
@@ -2097,8 +2173,6 @@
       state.lastTs = 0;
       state.waterOn = false;
       state.hasSoap = false;
-      state.sideHits = { left:0, right:0 };
-      state.lastSide = '';
       state.idleTimer = 0;
       state.whoCompleted = new Set();
       state.fever = 0;
@@ -2124,27 +2198,26 @@
 
     function applyResponsiveBoardLayout(){
       const board = $('board-root');
-
       if (!board || !handsBoard) return;
 
       const mobile = window.matchMedia('(max-width: 680px)').matches;
       const shortH = window.innerHeight < 760;
 
       if (mobile && shortH){
-        board.setAttribute('position', '0 0.92 -1.34');
+        board.setAttribute('position', '0 0.96 -1.18');
         handsBoard.setAttribute('position', '0 0.56 0.14');
-        handsBoard.setAttribute('scale', '1.06 1.06 1.06');
+        handsBoard.setAttribute('scale', '1.12 1.12 1.12');
       } else if (mobile){
-        board.setAttribute('position', '0 0.96 -1.40');
+        board.setAttribute('position', '0 1.00 -1.24');
         handsBoard.setAttribute('position', '0 0.56 0.14');
-        handsBoard.setAttribute('scale', '1.10 1.10 1.10');
+        handsBoard.setAttribute('scale', '1.18 1.18 1.18');
       } else {
         board.setAttribute('position', '0 1.02 -1.30');
         handsBoard.setAttribute('position', '0 0.42 0.16');
         handsBoard.setAttribute('scale', '1.04 1.04 1.04');
       }
 
-      waterGroup.setAttribute('position', '0 0 0');
+      waterGroup.setAttribute('position', '0 0.06 0');
     }
 
     ui.startBtn.addEventListener('click', () => {
@@ -2172,13 +2245,13 @@
       });
     });
 
-    ui.hudToggleBtn.addEventListener('click', ()=>{
+    ui.hudToggleBtn.addEventListener('click', () => {
       setHudCompact(!state.hudCompact);
     });
 
-    ui.vrBtn.addEventListener('click', async ()=>{
+    ui.vrBtn.addEventListener('click', async () => {
       try{
-        if(scene.is('vr-mode')) scene.exitVR();
+        if (scene.is('vr-mode')) scene.exitVR();
         else await scene.enterVR();
       }catch(err){
         console.warn(err);
@@ -2186,7 +2259,7 @@
       setTimeout(setBtnText, 120);
     });
 
-    ui.recenterBtn.addEventListener('click', ()=>{
+    ui.recenterBtn.addEventListener('click', () => {
       snapFrontView();
       setCoach('จัดมุมมองใหม่แล้ว มองเป้ากลางจอได้ง่ายขึ้น');
       setCoachMood('good');
@@ -2195,20 +2268,20 @@
     scene.addEventListener('enter-vr', setBtnText);
     scene.addEventListener('exit-vr', setBtnText);
 
-    window.addEventListener('keydown', (e)=>{
-      if(e.code === 'Space' || e.code === 'Enter'){
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'Enter'){
         e.preventDefault();
         triggerFocused();
       }
     }, { passive:false });
 
-    window.addEventListener('pointerup', (e)=>{
+    window.addEventListener('pointerup', (e) => {
       const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
-      if(tag === 'button') return;
+      if (tag === 'button') return;
       triggerFocused();
     });
 
-    window.addEventListener('resize', ()=>{
+    window.addEventListener('resize', () => {
       if (state.started && !state.ended) setHudCompact(isMobileLike());
       applyResponsiveBoardLayout();
       setTimeout(() => {
@@ -2294,6 +2367,7 @@
     setBtnText();
     setHudCompact(isMobileLike());
     applyResponsiveBoardLayout();
+    setStepVisualMode(FLOW[0]);
     updateUI();
 
     setTimeout(() => {
