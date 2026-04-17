@@ -63,33 +63,33 @@ export const missionDB = [
   },
 
   {
-  id: 3,
-  type: "writing",
-  title: "S3: Tech Words",
-  bank: {
-    easy: [
-      { desc: "พิมพ์คำเทคโนโลยี 1 คำ", prompt: "SYSTEM: Type one tech word.\nYOU:", keywords: ["code", "app", "web", "data", "bug"], minMatch: 1, starter: "Starter: code", failMsg: "ลองพิมพ์คำสั้น ๆ เช่น code หรือ app" },
-      { desc: "พิมพ์ชื่ออุปกรณ์", prompt: "SYSTEM: Type one device for study.\nYOU:", keywords: ["laptop", "computer", "tablet", "phone"], minMatch: 1, starter: "Starter: laptop", failMsg: "ลองพิมพ์ laptop หรือ computer" },
-      { desc: "พิมพ์ชื่อภาษา", prompt: "SYSTEM: Type one programming language.\nYOU:", keywords: ["python", "java", "javascript", "c++"], minMatch: 1, starter: "Starter: python", failMsg: "ลองพิมพ์ python หรือ java" },
-      { desc: "พิมพ์คำเกี่ยวกับอินเทอร์เน็ต", prompt: "SYSTEM: Type one internet word.\nYOU:", keywords: ["browser", "website", "internet", "online"], minMatch: 1, starter: "Starter: browser", failMsg: "ลองพิมพ์ browser หรือ website" },
-      { desc: "พิมพ์คำเกี่ยวกับงานทีม", prompt: "SYSTEM: Type one teamwork word.\nYOU:", keywords: ["team", "meeting", "task", "project"], minMatch: 1, starter: "Starter: team", failMsg: "ลองพิมพ์ team หรือ project" }
-    ],
-    normal: [
-      { desc: "พิมพ์ 2 คำเกี่ยวกับ coding", prompt: "SYSTEM: Type two words about coding.\nYOU:", keywords: ["code", "bug", "test", "function", "script"], minMatch: 2, starter: "Starter: code test", failMsg: "ลองพิมพ์ 2 คำ เช่น code test" },
-      { desc: "พิมพ์ 2 คำเกี่ยวกับ web", prompt: "SYSTEM: Type two words about web.\nYOU:", keywords: ["web", "page", "html", "css", "site"], minMatch: 2, starter: "Starter: html css", failMsg: "ลองพิมพ์ 2 คำ เช่น html css" },
-      { desc: "พิมพ์ 2 คำเกี่ยวกับ data", prompt: "SYSTEM: Type two words about data.\nYOU:", keywords: ["data", "table", "chart", "database", "file"], minMatch: 2, starter: "Starter: data file", failMsg: "ลองพิมพ์ 2 คำ เช่น data file" },
-      { desc: "พิมพ์ 2 คำเกี่ยวกับ project", prompt: "SYSTEM: Type two words about project work.\nYOU:", keywords: ["team", "project", "plan", "deadline", "meeting"], minMatch: 2, starter: "Starter: team meeting", failMsg: "ลองพิมพ์ 2 คำ เช่น team meeting" },
-      { desc: "พิมพ์ 2 คำเกี่ยวกับ AI", prompt: "SYSTEM: Type two simple AI words.\nYOU:", keywords: ["ai", "model", "data", "prompt", "chatbot"], minMatch: 2, starter: "Starter: ai model", failMsg: "ลองพิมพ์ 2 คำ เช่น ai model" }
-    ],
-    hard: [
-      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ coding", prompt: "SYSTEM: Write a short sentence about coding.\nYOU:", keywords: ["i", "like", "coding", "code", "learn"], minMatch: 3, starter: "Starter: I like coding.", failMsg: "ลองพิมพ์ประโยคสั้น เช่น I like coding" },
-      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ web", prompt: "SYSTEM: Write a short sentence about web design.\nYOU:", keywords: ["web", "design", "page", "html", "css"], minMatch: 3, starter: "Starter: I design web pages.", failMsg: "ลองพิมพ์ เช่น I design web pages" },
-      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ data", prompt: "SYSTEM: Write a short sentence about data.\nYOU:", keywords: ["data", "is", "important", "useful", "analysis"], minMatch: 3, starter: "Starter: Data is useful.", failMsg: "ลองพิมพ์ เช่น data is useful" },
-      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ team", prompt: "SYSTEM: Write a short sentence about teamwork.\nYOU:", keywords: ["team", "work", "together", "help", "project"], minMatch: 3, starter: "Starter: Our team works together.", failMsg: "ลองพิมพ์ เช่น our team works together" },
-      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ AI", prompt: "SYSTEM: Write a short sentence about AI.\nYOU:", keywords: ["ai", "helps", "people", "learn", "work"], minMatch: 3, starter: "Starter: AI helps people learn.", failMsg: "ลองพิมพ์ เช่น ai helps people learn" }
-    ]
-  }
-},
+    id: 3,
+    type: "writing",
+    title: "S3: Tech Words",
+    bank: {
+      easy: [
+        { desc: "พิมพ์คำเทคโนโลยี 1 คำ", prompt: "SYSTEM: Type one tech word.\nYOU:", keywords: ["code", "app", "web", "data", "bug"], minMatch: 1, starter: "Starter: code", failMsg: "ลองพิมพ์คำสั้น ๆ เช่น code หรือ app" },
+        { desc: "พิมพ์ชื่ออุปกรณ์", prompt: "SYSTEM: Type one device for study.\nYOU:", keywords: ["laptop", "computer", "tablet", "phone"], minMatch: 1, starter: "Starter: laptop", failMsg: "ลองพิมพ์ laptop หรือ computer" },
+        { desc: "พิมพ์ชื่อภาษา", prompt: "SYSTEM: Type one programming language.\nYOU:", keywords: ["python", "java", "javascript", "c++"], minMatch: 1, starter: "Starter: python", failMsg: "ลองพิมพ์ python หรือ java" },
+        { desc: "พิมพ์คำเกี่ยวกับอินเทอร์เน็ต", prompt: "SYSTEM: Type one internet word.\nYOU:", keywords: ["browser", "website", "internet", "online"], minMatch: 1, starter: "Starter: browser", failMsg: "ลองพิมพ์ browser หรือ website" },
+        { desc: "พิมพ์คำเกี่ยวกับงานทีม", prompt: "SYSTEM: Type one teamwork word.\nYOU:", keywords: ["team", "meeting", "task", "project"], minMatch: 1, starter: "Starter: team", failMsg: "ลองพิมพ์ team หรือ project" }
+      ],
+      normal: [
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ coding", prompt: "SYSTEM: Type two words about coding.\nYOU:", keywords: ["code", "bug", "test", "function", "script"], minMatch: 2, starter: "Starter: code test", failMsg: "ลองพิมพ์ 2 คำ เช่น code test" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ web", prompt: "SYSTEM: Type two words about web.\nYOU:", keywords: ["web", "page", "html", "css", "site"], minMatch: 2, starter: "Starter: html css", failMsg: "ลองพิมพ์ 2 คำ เช่น html css" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ data", prompt: "SYSTEM: Type two words about data.\nYOU:", keywords: ["data", "table", "chart", "database", "file"], minMatch: 2, starter: "Starter: data file", failMsg: "ลองพิมพ์ 2 คำ เช่น data file" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ project", prompt: "SYSTEM: Type two words about project work.\nYOU:", keywords: ["team", "project", "plan", "deadline", "meeting"], minMatch: 2, starter: "Starter: team meeting", failMsg: "ลองพิมพ์ 2 คำ เช่น team meeting" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ AI", prompt: "SYSTEM: Type two simple AI words.\nYOU:", keywords: ["ai", "model", "data", "prompt", "chatbot"], minMatch: 2, starter: "Starter: ai model", failMsg: "ลองพิมพ์ 2 คำ เช่น ai model" }
+      ],
+      hard: [
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ coding", prompt: "SYSTEM: Write a short sentence about coding.\nYOU:", keywords: ["i", "like", "coding", "code", "learn"], minMatch: 3, starter: "Starter: I like coding.", failMsg: "ลองพิมพ์ประโยคสั้น เช่น I like coding" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ web", prompt: "SYSTEM: Write a short sentence about web design.\nYOU:", keywords: ["web", "design", "page", "html", "css"], minMatch: 3, starter: "Starter: I design web pages.", failMsg: "ลองพิมพ์ เช่น I design web pages" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ data", prompt: "SYSTEM: Write a short sentence about data.\nYOU:", keywords: ["data", "is", "important", "useful", "analysis"], minMatch: 3, starter: "Starter: Data is useful.", failMsg: "ลองพิมพ์ เช่น data is useful" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ team", prompt: "SYSTEM: Write a short sentence about teamwork.\nYOU:", keywords: ["team", "work", "together", "help", "project"], minMatch: 3, starter: "Starter: Our team works together.", failMsg: "ลองพิมพ์ เช่น our team works together" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ AI", prompt: "SYSTEM: Write a short sentence about AI.\nYOU:", keywords: ["ai", "helps", "people", "learn", "work"], minMatch: 3, starter: "Starter: AI helps people learn.", failMsg: "ลองพิมพ์ เช่น ai helps people learn" }
+      ]
+    }
+  },
 
   {
     id: 4,
@@ -179,33 +179,33 @@ export const missionDB = [
   },
 
   {
-  id: 7,
-  type: "writing",
-  title: "S7: Bug Report",
-  bank: {
-    easy: [
-      { desc: "พิมพ์ชื่อปัญหา", prompt: "SYSTEM: Type one simple bug word.\nYOU:", keywords: ["bug", "error", "problem", "issue"], minMatch: 1, starter: "Starter: bug", failMsg: "ลองพิมพ์ bug หรือ error" },
-      { desc: "พิมพ์ชื่ออาการ", prompt: "SYSTEM: Type one result word.\nYOU:", keywords: ["crash", "slow", "broken", "fail"], minMatch: 1, starter: "Starter: crash", failMsg: "ลองพิมพ์ crash หรือ slow" },
-      { desc: "พิมพ์คำเกี่ยวกับปุ่ม", prompt: "SYSTEM: Type one UI word.\nYOU:", keywords: ["button", "screen", "page", "form"], minMatch: 1, starter: "Starter: button", failMsg: "ลองพิมพ์ button หรือ screen" },
-      { desc: "พิมพ์คำเกี่ยวกับระบบ", prompt: "SYSTEM: Type one system word.\nYOU:", keywords: ["login", "server", "api", "app"], minMatch: 1, starter: "Starter: login", failMsg: "ลองพิมพ์ login หรือ app" },
-      { desc: "พิมพ์คำเกี่ยวกับ testing", prompt: "SYSTEM: Type one test word.\nYOU:", keywords: ["test", "check", "click", "open"], minMatch: 1, starter: "Starter: test", failMsg: "ลองพิมพ์ test หรือ check" }
-    ],
-    normal: [
-      { desc: "พิมพ์ 2 คำอธิบายบั๊ก", prompt: "SYSTEM: Type two words for a bug.\nYOU:", keywords: ["login", "bug", "button", "error", "screen"], minMatch: 2, starter: "Starter: login error", failMsg: "ลองพิมพ์ 2 คำ เช่น login error" },
-      { desc: "พิมพ์ 2 คำอธิบายผลลัพธ์", prompt: "SYSTEM: Type two words for the result.\nYOU:", keywords: ["page", "crash", "not", "open", "slow"], minMatch: 2, starter: "Starter: page crash", failMsg: "ลองพิมพ์ 2 คำ เช่น page crash" },
-      { desc: "พิมพ์ 2 คำอธิบายการทดสอบ", prompt: "SYSTEM: Type two words for testing.\nYOU:", keywords: ["click", "test", "mobile", "browser", "login"], minMatch: 2, starter: "Starter: mobile test", failMsg: "ลองพิมพ์ 2 คำ เช่น mobile test" },
-      { desc: "พิมพ์ 2 คำอธิบายหน้า UI", prompt: "SYSTEM: Type two words about the page.\nYOU:", keywords: ["form", "page", "button", "input", "screen"], minMatch: 2, starter: "Starter: form input", failMsg: "ลองพิมพ์ 2 คำ เช่น form input" },
-      { desc: "พิมพ์ 2 คำอธิบาย severity", prompt: "SYSTEM: Type two words about severity.\nYOU:", keywords: ["high", "low", "serious", "minor", "critical"], minMatch: 2, starter: "Starter: high critical", failMsg: "ลองพิมพ์ 2 คำ เช่น high serious" }
-    ],
-    hard: [
-      { desc: "พิมพ์ประโยคบั๊กสั้น ๆ", prompt: "SYSTEM: Write a short bug sentence.\nYOU:", keywords: ["login", "button", "does", "not", "work"], minMatch: 3, starter: "Starter: The login button does not work.", failMsg: "ลองพิมพ์เช่น login button does not work" },
-      { desc: "พิมพ์ประโยคผลลัพธ์สั้น ๆ", prompt: "SYSTEM: Write a short result sentence.\nYOU:", keywords: ["page", "crash", "after", "click", "submit"], minMatch: 3, starter: "Starter: The page crashes after submit.", failMsg: "ลองพิมพ์เช่น page crashes after click" },
-      { desc: "พิมพ์ประโยคการทดสอบสั้น ๆ", prompt: "SYSTEM: Write a short testing sentence.\nYOU:", keywords: ["i", "tested", "on", "mobile", "browser"], minMatch: 3, starter: "Starter: I tested it on mobile.", failMsg: "ลองพิมพ์เช่น i tested on mobile" },
-      { desc: "พิมพ์ประโยค expected result", prompt: "SYSTEM: Write the expected result.\nYOU:", keywords: ["page", "should", "open", "work", "correctly"], minMatch: 3, starter: "Starter: The page should open correctly.", failMsg: "ลองพิมพ์เช่น page should open correctly" },
-      { desc: "พิมพ์ประโยค severity", prompt: "SYSTEM: Write a short severity sentence.\nYOU:", keywords: ["this", "is", "a", "high", "issue"], minMatch: 3, starter: "Starter: This is a high issue.", failMsg: "ลองพิมพ์เช่น this is a high issue" }
-    ]
-  }
-},
+    id: 7,
+    type: "writing",
+    title: "S7: Bug Report",
+    bank: {
+      easy: [
+        { desc: "พิมพ์ชื่อปัญหา", prompt: "SYSTEM: Type one simple bug word.\nYOU:", keywords: ["bug", "error", "problem", "issue"], minMatch: 1, starter: "Starter: bug", failMsg: "ลองพิมพ์ bug หรือ error" },
+        { desc: "พิมพ์ชื่ออาการ", prompt: "SYSTEM: Type one result word.\nYOU:", keywords: ["crash", "slow", "broken", "fail"], minMatch: 1, starter: "Starter: crash", failMsg: "ลองพิมพ์ crash หรือ slow" },
+        { desc: "พิมพ์คำเกี่ยวกับปุ่ม", prompt: "SYSTEM: Type one UI word.\nYOU:", keywords: ["button", "screen", "page", "form"], minMatch: 1, starter: "Starter: button", failMsg: "ลองพิมพ์ button หรือ screen" },
+        { desc: "พิมพ์คำเกี่ยวกับระบบ", prompt: "SYSTEM: Type one system word.\nYOU:", keywords: ["login", "server", "api", "app"], minMatch: 1, starter: "Starter: login", failMsg: "ลองพิมพ์ login หรือ app" },
+        { desc: "พิมพ์คำเกี่ยวกับ testing", prompt: "SYSTEM: Type one test word.\nYOU:", keywords: ["test", "check", "click", "open"], minMatch: 1, starter: "Starter: test", failMsg: "ลองพิมพ์ test หรือ check" }
+      ],
+      normal: [
+        { desc: "พิมพ์ 2 คำอธิบายบั๊ก", prompt: "SYSTEM: Type two words for a bug.\nYOU:", keywords: ["login", "bug", "button", "error", "screen"], minMatch: 2, starter: "Starter: login error", failMsg: "ลองพิมพ์ 2 คำ เช่น login error" },
+        { desc: "พิมพ์ 2 คำอธิบายผลลัพธ์", prompt: "SYSTEM: Type two words for the result.\nYOU:", keywords: ["page", "crash", "not", "open", "slow"], minMatch: 2, starter: "Starter: page crash", failMsg: "ลองพิมพ์ 2 คำ เช่น page crash" },
+        { desc: "พิมพ์ 2 คำอธิบายการทดสอบ", prompt: "SYSTEM: Type two words for testing.\nYOU:", keywords: ["click", "test", "mobile", "browser", "login"], minMatch: 2, starter: "Starter: mobile test", failMsg: "ลองพิมพ์ 2 คำ เช่น mobile test" },
+        { desc: "พิมพ์ 2 คำอธิบายหน้า UI", prompt: "SYSTEM: Type two words about the page.\nYOU:", keywords: ["form", "page", "button", "input", "screen"], minMatch: 2, starter: "Starter: form input", failMsg: "ลองพิมพ์ 2 คำ เช่น form input" },
+        { desc: "พิมพ์ 2 คำอธิบาย severity", prompt: "SYSTEM: Type two words about severity.\nYOU:", keywords: ["high", "low", "serious", "minor", "critical"], minMatch: 2, starter: "Starter: high critical", failMsg: "ลองพิมพ์ 2 คำ เช่น high serious" }
+      ],
+      hard: [
+        { desc: "พิมพ์ประโยคบั๊กสั้น ๆ", prompt: "SYSTEM: Write a short bug sentence.\nYOU:", keywords: ["login", "button", "does", "not", "work"], minMatch: 3, starter: "Starter: The login button does not work.", failMsg: "ลองพิมพ์เช่น login button does not work" },
+        { desc: "พิมพ์ประโยคผลลัพธ์สั้น ๆ", prompt: "SYSTEM: Write a short result sentence.\nYOU:", keywords: ["page", "crash", "after", "click", "submit"], minMatch: 3, starter: "Starter: The page crashes after submit.", failMsg: "ลองพิมพ์เช่น page crashes after click" },
+        { desc: "พิมพ์ประโยคการทดสอบสั้น ๆ", prompt: "SYSTEM: Write a short testing sentence.\nYOU:", keywords: ["i", "tested", "on", "mobile", "browser"], minMatch: 3, starter: "Starter: I tested it on mobile.", failMsg: "ลองพิมพ์เช่น i tested on mobile" },
+        { desc: "พิมพ์ประโยค expected result", prompt: "SYSTEM: Write the expected result.\nYOU:", keywords: ["page", "should", "open", "work", "correctly"], minMatch: 3, starter: "Starter: The page should open correctly.", failMsg: "ลองพิมพ์เช่น page should open correctly" },
+        { desc: "พิมพ์ประโยค severity", prompt: "SYSTEM: Write a short severity sentence.\nYOU:", keywords: ["this", "is", "a", "high", "issue"], minMatch: 3, starter: "Starter: This is a high issue.", failMsg: "ลองพิมพ์เช่น this is a high issue" }
+      ]
+    }
+  },
 
   {
     id: 8,
@@ -260,7 +260,7 @@ export const missionDB = [
         { desc: "ตอบลูกค้า", question: "Client: How long do you need to finish the update?", choices: ["A: We need about two more days.", "B: Update is my breakfast.", "C: Two days are inside the door."], answer: "A" },
         { desc: "ตอบลูกค้า", question: "Client: Can your team test this on mobile too?", choices: ["A: Yes, we can test both web and mobile.", "B: Mobile is a flower.", "C: Testing is under the chair."], answer: "A" },
         { desc: "ตอบลูกค้า", question: "Client: What part of the system is ready now?", choices: ["A: The main page and login page are ready.", "B: Ready parts are invisible.", "C: The system is in my pocket."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Can you send a short summary after this meeting?", choices: ["A: Yes, I will send a short summary today.", "B: The summary is eating lunch.", "C: Meetings live in my bag."], answer: "A" }
+        { desc: "ตอบลูกค้า", question: "Client: Can you send a short summary after this meeting?", choices: ["A: Yes, I will send a short summary today.", "B: Summary is a chair.", "C: I send the meeting to the summary."], answer: "A" }
       ]
     }
   },
@@ -289,188 +289,153 @@ export const missionDB = [
         { desc: "ฟังและเลือกคำตอบ", audioText: "Move the meeting to three p m because the client is busy.", choices: ["A: Move the meeting to three p m.", "B: Cancel the client forever.", "C: The meeting is in the bag."], answer: "A" },
         { desc: "ฟังและเลือกคำตอบ", audioText: "Please send the documentation to the Singapore team.", choices: ["A: Send the documentation to the Singapore team.", "B: Travel to Singapore now.", "C: Hide the documentation."], answer: "A" },
         { desc: "ฟังและเลือกคำตอบ", audioText: "We need more testing on the mobile app before release.", choices: ["A: We need more testing before release.", "B: Release it now without testing.", "C: The app is testing us."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "The backend team will update the api after the maintenance window.", choices: ["A: The backend team will update the api later.", "B: The window will update the team.", "C: There is no api."], answer: "A" }
+        { desc: "ฟังและเลือกคำตอบ", audioText: "The backend team will update the api after the maintenance window.", choices: ["A: The backend team will update the api later.", "B: The api will delete the backend team.", "C: The maintenance window is a pizza."], answer: "A" }
       ]
     }
   },
 
   {
-  id: 11,
-  type: "writing",
-  title: "S11: Data and AI",
-  bank: {
-    easy: [
-      { desc: "พิมพ์คำ AI 1 คำ", prompt: "SYSTEM: Type one AI word.\nYOU:", keywords: ["ai", "model", "data", "chatbot", "prompt"], minMatch: 1, starter: "Starter: ai", failMsg: "ลองพิมพ์ ai หรือ model" },
-      { desc: "พิมพ์คำ data 1 คำ", prompt: "SYSTEM: Type one data word.\nYOU:", keywords: ["data", "table", "file", "chart", "label"], minMatch: 1, starter: "Starter: data", failMsg: "ลองพิมพ์ data หรือ table" },
-      { desc: "พิมพ์คำ machine learning 1 คำ", prompt: "SYSTEM: Type one machine learning word.\nYOU:", keywords: ["training", "testing", "prediction", "accuracy"], minMatch: 1, starter: "Starter: training", failMsg: "ลองพิมพ์ training หรือ testing" },
-      { desc: "พิมพ์คำ ethics 1 คำ", prompt: "SYSTEM: Type one ethics word.\nYOU:", keywords: ["privacy", "fairness", "bias", "safety"], minMatch: 1, starter: "Starter: privacy", failMsg: "ลองพิมพ์ privacy หรือ fairness" },
-      { desc: "พิมพ์คำ deployment 1 คำ", prompt: "SYSTEM: Type one deployment word.\nYOU:", keywords: ["deploy", "monitor", "server", "update"], minMatch: 1, starter: "Starter: deploy", failMsg: "ลองพิมพ์ deploy หรือ server" }
-    ],
-    normal: [
-      { desc: "พิมพ์ 2 คำเกี่ยวกับ AI", prompt: "SYSTEM: Type two AI words.\nYOU:", keywords: ["ai", "model", "prompt", "chatbot", "data"], minMatch: 2, starter: "Starter: ai model", failMsg: "ลองพิมพ์ 2 คำ เช่น ai model" },
-      { desc: "พิมพ์ 2 คำเกี่ยวกับ data", prompt: "SYSTEM: Type two data words.\nYOU:", keywords: ["data", "table", "chart", "label", "file"], minMatch: 2, starter: "Starter: data chart", failMsg: "ลองพิมพ์ 2 คำ เช่น data chart" },
-      { desc: "พิมพ์ 2 คำเกี่ยวกับ learning", prompt: "SYSTEM: Type two learning words.\nYOU:", keywords: ["training", "testing", "prediction", "accuracy"], minMatch: 2, starter: "Starter: training testing", failMsg: "ลองพิมพ์ 2 คำ เช่น training testing" },
-      { desc: "พิมพ์ 2 คำเกี่ยวกับ ethics", prompt: "SYSTEM: Type two ethics words.\nYOU:", keywords: ["privacy", "fairness", "bias", "safety"], minMatch: 2, starter: "Starter: privacy fairness", failMsg: "ลองพิมพ์ 2 คำ เช่น privacy fairness" },
-      { desc: "พิมพ์ 2 คำเกี่ยวกับ deployment", prompt: "SYSTEM: Type two deployment words.\nYOU:", keywords: ["deploy", "monitor", "server", "update"], minMatch: 2, starter: "Starter: deploy server", failMsg: "ลองพิมพ์ 2 คำ เช่น deploy server" }
-    ],
-    hard: [
-      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ AI", prompt: "SYSTEM: Write a short sentence about AI.\nYOU:", keywords: ["ai", "helps", "people", "work", "learn"], minMatch: 3, starter: "Starter: AI helps people work faster.", failMsg: "ลองพิมพ์เช่น AI helps people work" },
-      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ data", prompt: "SYSTEM: Write a short sentence about data.\nYOU:", keywords: ["data", "is", "important", "for", "analysis"], minMatch: 3, starter: "Starter: Data is important for analysis.", failMsg: "ลองพิมพ์เช่น data is important" },
-      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ training", prompt: "SYSTEM: Write a short sentence about model training.\nYOU:", keywords: ["training", "needs", "data", "for", "accuracy"], minMatch: 3, starter: "Starter: Training needs data for accuracy.", failMsg: "ลองพิมพ์เช่น training needs data" },
-      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ ethics", prompt: "SYSTEM: Write a short sentence about AI ethics.\nYOU:", keywords: ["privacy", "fairness", "is", "important", "ai"], minMatch: 3, starter: "Starter: Privacy and fairness are important in AI.", failMsg: "ลองพิมพ์เช่น privacy is important in ai" },
-      { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ deployment", prompt: "SYSTEM: Write a short sentence about deployment.\nYOU:", keywords: ["we", "deploy", "and", "monitor", "system"], minMatch: 3, starter: "Starter: We deploy and monitor the system.", failMsg: "ลองพิมพ์เช่น we deploy and monitor the system" }
-    ]
-  }
-},
+    id: 11,
+    type: "writing",
+    title: "S11: Data and AI",
+    bank: {
+      easy: [
+        { desc: "พิมพ์คำ AI 1 คำ", prompt: "SYSTEM: Type one AI word.\nYOU:", keywords: ["ai", "model", "data", "chatbot", "prompt"], minMatch: 1, starter: "Starter: ai", failMsg: "ลองพิมพ์ ai หรือ model" },
+        { desc: "พิมพ์คำ data 1 คำ", prompt: "SYSTEM: Type one data word.\nYOU:", keywords: ["data", "table", "file", "chart", "label"], minMatch: 1, starter: "Starter: data", failMsg: "ลองพิมพ์ data หรือ table" },
+        { desc: "พิมพ์คำ machine learning 1 คำ", prompt: "SYSTEM: Type one machine learning word.\nYOU:", keywords: ["training", "testing", "prediction", "accuracy"], minMatch: 1, starter: "Starter: training", failMsg: "ลองพิมพ์ training หรือ testing" },
+        { desc: "พิมพ์คำ ethics 1 คำ", prompt: "SYSTEM: Type one ethics word.\nYOU:", keywords: ["privacy", "fairness", "bias", "safety"], minMatch: 1, starter: "Starter: privacy", failMsg: "ลองพิมพ์ privacy หรือ fairness" },
+        { desc: "พิมพ์คำ deployment 1 คำ", prompt: "SYSTEM: Type one deployment word.\nYOU:", keywords: ["deploy", "monitor", "server", "update"], minMatch: 1, starter: "Starter: deploy", failMsg: "ลองพิมพ์ deploy หรือ server" }
+      ],
+      normal: [
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ AI", prompt: "SYSTEM: Type two AI words.\nYOU:", keywords: ["ai", "model", "prompt", "chatbot", "data"], minMatch: 2, starter: "Starter: ai model", failMsg: "ลองพิมพ์ 2 คำ เช่น ai model" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ data", prompt: "SYSTEM: Type two data words.\nYOU:", keywords: ["data", "table", "chart", "label", "file"], minMatch: 2, starter: "Starter: data chart", failMsg: "ลองพิมพ์ 2 คำ เช่น data chart" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ learning", prompt: "SYSTEM: Type two learning words.\nYOU:", keywords: ["training", "testing", "prediction", "accuracy"], minMatch: 2, starter: "Starter: training testing", failMsg: "ลองพิมพ์ 2 คำ เช่น training testing" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ ethics", prompt: "SYSTEM: Type two ethics words.\nYOU:", keywords: ["privacy", "fairness", "bias", "safety"], minMatch: 2, starter: "Starter: privacy fairness", failMsg: "ลองพิมพ์ 2 คำ เช่น privacy fairness" },
+        { desc: "พิมพ์ 2 คำเกี่ยวกับ deployment", prompt: "SYSTEM: Type two deployment words.\nYOU:", keywords: ["deploy", "monitor", "server", "update"], minMatch: 2, starter: "Starter: deploy server", failMsg: "ลองพิมพ์ 2 คำ เช่น deploy server" }
+      ],
+      hard: [
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ AI", prompt: "SYSTEM: Write a short sentence about AI.\nYOU:", keywords: ["ai", "helps", "people", "work", "learn"], minMatch: 3, starter: "Starter: AI helps people work faster.", failMsg: "ลองพิมพ์เช่น AI helps people work" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ data", prompt: "SYSTEM: Write a short sentence about data.\nYOU:", keywords: ["data", "is", "important", "for", "analysis"], minMatch: 3, starter: "Starter: Data is important for analysis.", failMsg: "ลองพิมพ์เช่น data is important" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ training", prompt: "SYSTEM: Write a short sentence about model training.\nYOU:", keywords: ["training", "needs", "data", "for", "accuracy"], minMatch: 3, starter: "Starter: Training needs data for accuracy.", failMsg: "ลองพิมพ์เช่น training needs data" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ ethics", prompt: "SYSTEM: Write a short sentence about AI ethics.\nYOU:", keywords: ["privacy", "fairness", "is", "important", "ai"], minMatch: 3, starter: "Starter: Privacy and fairness are important in AI.", failMsg: "ลองพิมพ์เช่น privacy is important in ai" },
+        { desc: "พิมพ์ประโยคสั้นเกี่ยวกับ deployment", prompt: "SYSTEM: Write a short sentence about deployment.\nYOU:", keywords: ["we", "deploy", "and", "monitor", "system"], minMatch: 3, starter: "Starter: We deploy and monitor the system.", failMsg: "ลองพิมพ์เช่น we deploy and monitor the system" }
+      ]
+    }
+  },
 
   {
     id: 12,
     type: "speaking",
-    title: "S12: Problem Solving",
+    title: "S12: Product Demo",
     bank: {
       easy: [
-        { desc: 'พูดตาม: "We find the problem"', exactPhrase: "we find the problem", failMsg: "พูดใหม่อีกครั้ง" },
-        { desc: 'พูดตาม: "We test the system"', exactPhrase: "we test the system", failMsg: "พูดให้ชัดอีกครั้ง" },
-        { desc: 'พูดตาม: "We fix the bug"', exactPhrase: "we fix the bug", failMsg: "พูดให้ครบประโยค" },
-        { desc: 'พูดตาม: "We check the result"', exactPhrase: "we check the result", failMsg: "ลองพูดใหม่" },
-        { desc: 'พูดตาม: "We help the user"', exactPhrase: "we help the user", failMsg: "พูดให้ชัดอีกครั้ง" }
+        { desc: 'พูดตาม: "This is our product"', exactPhrase: "this is our product", failMsg: "พูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "It is easy to use"', exactPhrase: "it is easy to use", failMsg: "พูดให้ชัดอีกครั้ง" },
+        { desc: 'พูดตาม: "Our app helps students"', exactPhrase: "our app helps students", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "The design is simple"', exactPhrase: "the design is simple", failMsg: "พูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "We tested the app"', exactPhrase: "we tested the app", failMsg: "พูดให้ชัดอีกครั้ง" }
       ],
       normal: [
-        { desc: 'พูดตาม: "First we find the main problem"', exactPhrase: "first we find the main problem", failMsg: "พูดให้ครบ" },
-        { desc: 'พูดตาม: "Then we test the system again"', exactPhrase: "then we test the system again", failMsg: "พูดให้ชัดอีกครั้ง" },
-        { desc: 'พูดตาม: "Next we fix the bug together"', exactPhrase: "next we fix the bug together", failMsg: "พูดให้ครบประโยค" },
-        { desc: 'พูดตาม: "After that we check the result"', exactPhrase: "after that we check the result", failMsg: "พูดให้ครบ" },
-        { desc: 'พูดตาม: "Finally we help the user solve it"', exactPhrase: "finally we help the user solve it", failMsg: "พูดให้ชัดอีกครั้ง" }
+        { desc: 'พูดตาม: "This is our product for university students"', exactPhrase: "this is our product for university students", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "It is easy to use and easy to learn"', exactPhrase: "it is easy to use and easy to learn", failMsg: "พยายามพูดให้ครบ" },
+        { desc: 'พูดตาม: "Our app helps students manage their tasks"', exactPhrase: "our app helps students manage their tasks", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "The design is simple and clear for users"', exactPhrase: "the design is simple and clear for users", failMsg: "พูดให้ชัดอีกครั้ง" },
+        { desc: 'พูดตาม: "We tested the app before the demo"', exactPhrase: "we tested the app before the demo", failMsg: "พูดให้ครบ" }
       ],
       hard: [
-        { desc: 'พูดตาม: "First we find the main problem in the system"', exactPhrase: "first we find the main problem in the system", failMsg: "พูดให้ครบอีกครั้ง" },
-        { desc: 'พูดตาม: "Then we test the system and collect the result"', exactPhrase: "then we test the system and collect the result", failMsg: "พูดให้ชัดและครบ" },
-        { desc: 'พูดตาม: "Next we fix the bug with the help of our team"', exactPhrase: "next we fix the bug with the help of our team", failMsg: "พยายามพูดให้ครบ" },
-        { desc: 'พูดตาม: "After that we check the result and improve the page"', exactPhrase: "after that we check the result and improve the page", failMsg: "ลองพูดใหม่อีกครั้ง" },
-        { desc: 'พูดตาม: "Finally we help the user with a better solution"', exactPhrase: "finally we help the user with a better solution", failMsg: "พูดให้ครบประโยค" }
+        { desc: 'พูดตาม: "This is our product, and it helps students plan their work"', exactPhrase: "this is our product and it helps students plan their work", failMsg: "พูดให้ครบอีกครั้ง" },
+        { desc: 'พูดตาม: "It is easy to use because the design is simple and clean"', exactPhrase: "it is easy to use because the design is simple and clean", failMsg: "พูดให้ครบประโยค" },
+        { desc: 'พูดตาม: "Our app helps students organize tasks and deadlines"', exactPhrase: "our app helps students organize tasks and deadlines", failMsg: "พูดให้ชัดและครบ" },
+        { desc: 'พูดตาม: "We tested the main features before the final presentation"', exactPhrase: "we tested the main features before the final presentation", failMsg: "พยายามพูดใหม่อีกครั้ง" },
+        { desc: 'พูดตาม: "We hope this product can support students in the future"', exactPhrase: "we hope this product can support students in the future", failMsg: "พูดให้ครบประโยค" }
       ]
     }
   },
 
   {
-  id: 13,
-  type: "reading",
-  title: "S13: Career Path",
-  bank: {
-    easy: [
-      { desc: "ตอบ HR", question: "HR: What job do you want?", choices: ["A: I want to be a developer.", "B: I want to be a spoon.", "C: I want to be inside the wall."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: Do you have skills?", choices: ["A: Yes, I can code and design.", "B: My skill is pizza.", "C: Skills are sleeping."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: Can you work in a team?", choices: ["A: Yes, I can work in a team.", "B: Teamwork is my notebook.", "C: I work in a team of chairs."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: Do you learn quickly?", choices: ["A: Yes, I learn quickly.", "B: Learning is a window.", "C: Quickly is my bag."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: Did you do a project?", choices: ["A: Yes, I did a university project.", "B: Project is a juice.", "C: I project the floor."], answer: "A" }
-    ],
-    normal: [
-      { desc: "ตอบ HR", question: "HR: What role are you applying for?", choices: ["A: I am applying for a software developer role.", "B: I am applying for a banana role.", "C: I am a role of the desk."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: What technical skills do you have?", choices: ["A: I can use Python and JavaScript.", "B: I can use Monday and blue.", "C: I have technical apples."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: Did you complete an internship?", choices: ["A: Yes, I had an internship last summer.", "B: Summer completed me.", "C: Internship is a chair."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: How do you improve yourself?", choices: ["A: I practice coding and study online.", "B: I improve by sleeping on books.", "C: Improvement is a fish."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: Why do you want this job?", choices: ["A: I want to learn and grow in this role.", "B: The job is a sandwich.", "C: I want this job because it is purple."], answer: "A" }
-    ],
-    hard: [
-      { desc: "ตอบ HR", question: "HR: What kind of company do you want to join?", choices: ["A: I want to join a company with a good team and learning culture.", "B: I want to join a company inside my pencil.", "C: Companies are made of oranges."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: How do your projects help your career?", choices: ["A: My projects help me practice real skills and teamwork.", "B: My career is under my laptop.", "C: Projects are sleeping in my bag."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: Can you describe one strength you have?", choices: ["A: I am good at communication and solving problems.", "B: My strength is a bus stop.", "C: I solve with sandwiches."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: What are you doing to improve your English?", choices: ["A: I practice speaking and listening every day.", "B: English is a yellow box.", "C: I improve English by hiding it."], answer: "A" },
-      { desc: "ตอบ HR", question: "HR: What do you want to do after graduation?", choices: ["A: I want to work and keep learning in tech.", "B: Graduation is my breakfast.", "C: I want to become a chair of success."], answer: "A" }
-    ]
-  }
-},
+    id: 13,
+    type: "reading",
+    title: "S13: Career Path",
+    bank: {
+      easy: [
+        { desc: "ตอบ HR", question: "HR: What job do you want?", choices: ["A: I want to be a developer.", "B: I want to be a spoon.", "C: I want to be inside the wall."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Do you have skills?", choices: ["A: Yes, I can code and design.", "B: My skill is pizza.", "C: Skills are sleeping."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Can you work in a team?", choices: ["A: Yes, I can work in a team.", "B: Teamwork is my notebook.", "C: I work in a team of chairs."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Do you learn quickly?", choices: ["A: Yes, I learn quickly.", "B: Learning is a window.", "C: Quickly is my bag."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Did you do a project?", choices: ["A: Yes, I did a university project.", "B: Project is a juice.", "C: I project the floor."], answer: "A" }
+      ],
+      normal: [
+        { desc: "ตอบ HR", question: "HR: What role are you applying for?", choices: ["A: I am applying for a software developer role.", "B: I am applying for a banana role.", "C: I am a role of the desk."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: What technical skills do you have?", choices: ["A: I can use Python and JavaScript.", "B: I can use Monday and blue.", "C: I have technical apples."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Did you complete an internship?", choices: ["A: Yes, I had an internship last summer.", "B: Summer completed me.", "C: Internship is a chair."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: How do you improve yourself?", choices: ["A: I practice coding and study online.", "B: I improve by sleeping on books.", "C: Improvement is a fish."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Why do you want this job?", choices: ["A: I want to learn and grow in this role.", "B: The job is a sandwich.", "C: I want this job because it is purple."], answer: "A" }
+      ],
+      hard: [
+        { desc: "ตอบ HR", question: "HR: What kind of company do you want to join?", choices: ["A: I want to join a company with a good team and learning culture.", "B: I want to join a company inside my pencil.", "C: Companies are made of oranges."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: How do your projects help your career?", choices: ["A: My projects help me practice real skills and teamwork.", "B: My career is under my laptop.", "C: Projects are sleeping in my bag."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: Can you describe one strength you have?", choices: ["A: I am good at communication and solving problems.", "B: My strength is a bus stop.", "C: I solve with sandwiches."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: What are you doing to improve your English?", choices: ["A: I practice speaking and listening every day.", "B: English is a yellow box.", "C: I improve English by hiding it."], answer: "A" },
+        { desc: "ตอบ HR", question: "HR: What do you want to do after graduation?", choices: ["A: I want to work and keep learning in tech.", "B: Graduation is my breakfast.", "C: I want to become a chair of success."], answer: "A" }
+      ]
+    }
+  },
 
   {
-  id: 14,
-  type: "listening",
-  title: "S14: Remote Work",
-  bank: {
-    easy: [
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Turn on your camera.", choices: ["A: Turn on your camera.", "B: Turn off your homework.", "C: Eat the camera."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Share your screen now.", choices: ["A: Share your screen now.", "B: Break your screen now.", "C: Hide the screen in a bag."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Join the call early.", choices: ["A: Join the call early.", "B: Leave the call early.", "C: Draw the call."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Check your microphone.", choices: ["A: Check your microphone.", "B: Eat your microphone.", "C: Throw the microphone away."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short note.", choices: ["A: Write a short note.", "B: Sleep on the note.", "C: Paint the note green."], answer: "A" }
-    ],
-    normal: [
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Please turn on your camera during the demo.", choices: ["A: Turn on your camera during the demo.", "B: Turn off the demo forever.", "C: Put the camera in the box."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Join the online meeting five minutes early.", choices: ["A: Join five minutes early.", "B: Join fifty minutes late.", "C: Eat before the meeting only."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Please update the task board before the meeting.", choices: ["A: Update the task board before the meeting.", "B: Delete the task board.", "C: Break the meeting."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short summary after the call.", choices: ["A: Write a short summary after the call.", "B: Close the summary.", "C: Sleep during the call."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Test your internet connection before class.", choices: ["A: Test your internet connection before class.", "B: Turn off the internet before class.", "C: Throw the class away."], answer: "A" }
-    ],
-    hard: [
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Please send a clear update to the team after the client meeting.", choices: ["A: Send a clear update after the client meeting.", "B: Sleep after the client meeting forever.", "C: Delete the client from the meeting."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Make sure your microphone and camera are ready before the presentation starts.", choices: ["A: Prepare your microphone and camera before the presentation.", "B: Hide the presentation under the camera.", "C: Break your microphone before the meeting."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Please write a short action list and share it with the team after the call.", choices: ["A: Write a short action list and share it after the call.", "B: Throw the action list into the call.", "C: Sleep instead of sharing the list."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Check the shared document carefully and leave your comments before tomorrow morning.", choices: ["A: Check the shared document and leave comments before tomorrow morning.", "B: Delete the comments tomorrow morning.", "C: Draw the shared document on the wall."], answer: "A" },
-      { desc: "ฟังและเลือกคำตอบ", audioText: "Join the remote meeting on time and be ready to explain your progress clearly.", choices: ["A: Join on time and explain your progress clearly.", "B: Join late and hide your progress.", "C: Explain the meeting to your chair."], answer: "A" }
-    ]
-  }
-},
+    id: 14,
+    type: "listening",
+    title: "S14: Remote Work",
+    bank: {
+      easy: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Turn on your camera.", choices: ["A: Turn on your camera.", "B: Turn off your homework.", "C: Eat the camera."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Share your screen now.", choices: ["A: Share your screen now.", "B: Break your screen now.", "C: Hide the screen in a bag."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the call early.", choices: ["A: Join the call early.", "B: Leave the call early.", "C: Draw the call."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Check your microphone.", choices: ["A: Check your microphone.", "B: Eat your microphone.", "C: Throw the microphone away."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short note.", choices: ["A: Write a short note.", "B: Sleep on the note.", "C: Paint the note green."], answer: "A" }
+      ],
+      normal: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please turn on your camera during the demo.", choices: ["A: Turn on your camera during the demo.", "B: Turn off the demo forever.", "C: Put the camera in the box."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the online meeting five minutes early.", choices: ["A: Join five minutes early.", "B: Join fifty minutes late.", "C: Eat before the meeting only."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please update the task board before the meeting.", choices: ["A: Update the task board before the meeting.", "B: Delete the task board.", "C: Break the meeting."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short summary after the call.", choices: ["A: Write a short summary after the call.", "B: Close the summary.", "C: Sleep during the call."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Test your internet connection before class.", choices: ["A: Test your internet connection before class.", "B: Turn off the internet before class.", "C: Throw the class away."], answer: "A" }
+      ],
+      hard: [
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send a clear update to the team after the client meeting.", choices: ["A: Send a clear update after the client meeting.", "B: Sleep after the client meeting forever.", "C: Delete the client from the meeting."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Make sure your microphone and camera are ready before the presentation starts.", choices: ["A: Prepare your microphone and camera before the presentation.", "B: Hide the presentation under the camera.", "C: Break your microphone before the meeting."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please write a short action list and share it with the team after the call.", choices: ["A: Write a short action list and share it after the call.", "B: Throw the action list into the call.", "C: Sleep instead of sharing the list."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Check the shared document carefully and leave your comments before tomorrow morning.", choices: ["A: Check the shared document and leave comments before tomorrow morning.", "B: Delete the comments tomorrow morning.", "C: Draw the shared document on the wall."], answer: "A" },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the remote meeting on time and be ready to explain your progress clearly.", choices: ["A: Join on time and explain your progress clearly.", "B: Join late and hide your progress.", "C: Explain the meeting to your chair."], answer: "A" }
+      ]
+    }
+  },
 
   {
-  id: 15,
-  type: "writing",
-  title: "S15: Graduation Final",
-  bank: {
-    easy: [
-      { desc: "พิมพ์เป้าหมาย 1 คำ", prompt: "SYSTEM: Type one future goal word.\nYOU:", keywords: ["work", "job", "study", "master", "developer"], minMatch: 1, starter: "Starter: work", failMsg: "ลองพิมพ์ work หรือ developer" },
-      { desc: "พิมพ์ skill 1 คำ", prompt: "SYSTEM: Type one skill word.\nYOU:", keywords: ["coding", "teamwork", "english", "design", "testing"], minMatch: 1, starter: "Starter: coding", failMsg: "ลองพิมพ์ coding หรือ teamwork" },
-      { desc: "พิมพ์ project 1 คำ", prompt: "SYSTEM: Type one project word.\nYOU:", keywords: ["app", "web", "system", "ai", "mobile"], minMatch: 1, starter: "Starter: app", failMsg: "ลองพิมพ์ app หรือ system" },
-      { desc: "พิมพ์ thank you 1 คำ", prompt: "SYSTEM: Type one thank word.\nYOU:", keywords: ["thank", "thanks", "grateful"], minMatch: 1, starter: "Starter: thank", failMsg: "ลองพิมพ์ thank หรือ thanks" },
-      { desc: "พิมพ์ dream 1 คำ", prompt: "SYSTEM: Type one dream word.\nYOU:", keywords: ["future", "dream", "goal", "success"], minMatch: 1, starter: "Starter: goal", failMsg: "ลองพิมพ์ dream หรือ goal" }
-    ],
-    normal: [
-      { desc: "พิมพ์เป้าหมายสั้น ๆ", prompt: "SYSTEM: Write a short future goal.\nYOU:", keywords: ["i", "want", "to", "work", "developer"], minMatch: 3, starter: "Starter: I want to work as a developer.", failMsg: "ลองพิมพ์เช่น i want to work" },
-      { desc: "พิมพ์ skill ที่ชอบ", prompt: "SYSTEM: Write a short skill sentence.\nYOU:", keywords: ["i", "like", "coding", "teamwork", "design"], minMatch: 3, starter: "Starter: I like coding and teamwork.", failMsg: "ลองพิมพ์เช่น i like coding" },
-      { desc: "พิมพ์ project ที่อยากทำ", prompt: "SYSTEM: Write a short dream project sentence.\nYOU:", keywords: ["i", "want", "build", "app", "system"], minMatch: 3, starter: "Starter: I want to build an app.", failMsg: "ลองพิมพ์เช่น i want build app" },
-      { desc: "พิมพ์แผนเรียนต่อ", prompt: "SYSTEM: Write a short study plan.\nYOU:", keywords: ["i", "want", "study", "more", "english", "ai"], minMatch: 3, starter: "Starter: I want to study more English and AI.", failMsg: "ลองพิมพ์เช่น i want study more" },
-      { desc: "พิมพ์ thank you message สั้น ๆ", prompt: "SYSTEM: Write a short thank you message.\nYOU:", keywords: ["thank", "you", "teacher", "friends", "support"], minMatch: 3, starter: "Starter: Thank you, teacher and friends, for your support.", failMsg: "ลองพิมพ์ thank you message สั้น ๆ" }
-    ],
-    hard: [
-      { desc: "พิมพ์ประโยคเป้าหมายหลังจบการศึกษา", prompt: "SYSTEM: Write a short sentence about your goal after graduation.\nYOU:", keywords: ["after", "graduation", "i", "want", "work", "developer"], minMatch: 3, starter: "Starter: After graduation, I want to work as a developer.", failMsg: "ลองพิมพ์เช่น after graduation i want work as a developer" },
-      { desc: "พิมพ์ประโยคเกี่ยวกับ skill สำคัญ", prompt: "SYSTEM: Write a short sentence about an important skill.\nYOU:", keywords: ["coding", "english", "teamwork", "important", "career"], minMatch: 3, starter: "Starter: Coding and teamwork are important for my career.", failMsg: "ลองพิมพ์เช่น coding is important for my career" },
-      { desc: "พิมพ์ประโยคเกี่ยวกับ project ในฝัน", prompt: "SYSTEM: Write a short sentence about your dream project.\nYOU:", keywords: ["i", "want", "build", "useful", "app", "students"], minMatch: 3, starter: "Starter: I want to build a useful app for students.", failMsg: "ลองพิมพ์เช่น i want to build a useful app" },
-      { desc: "พิมพ์ประโยคแผนการเรียนรู้ต่อ", prompt: "SYSTEM: Write a short sentence about your learning plan.\nYOU:", keywords: ["i", "will", "learn", "more", "ai", "english"], minMatch: 3, starter: "Starter: I will learn more AI and English.", failMsg: "ลองพิมพ์เช่น i will learn more ai and english" },
-      { desc: "พิมพ์ประโยคขอบคุณปิดท้าย", prompt: "SYSTEM: Write a short final thank you sentence.\nYOU:", keywords: ["thank", "you", "for", "support", "future"], minMatch: 3, starter: "Starter: Thank you for your support in my journey.", failMsg: "ลองพิมพ์เช่น thank you for your support" }
-    ]
+    id: 15,
+    type: "writing",
+    title: "S15: Graduation Final",
+    bank: {
+      easy: [
+        { desc: "พิมพ์เป้าหมาย 1 คำ", prompt: "SYSTEM: Type one future goal word.\nYOU:", keywords: ["work", "job", "study", "master", "developer"], minMatch: 1, starter: "Starter: work", failMsg: "ลองพิมพ์ work หรือ developer" },
+        { desc: "พิมพ์ skill 1 คำ", prompt: "SYSTEM: Type one skill word.\nYOU:", keywords: ["coding", "teamwork", "english", "design", "testing"], minMatch: 1, starter: "Starter: coding", failMsg: "ลองพิมพ์ coding หรือ teamwork" },
+        { desc: "พิมพ์ project 1 คำ", prompt: "SYSTEM: Type one project word.\nYOU:", keywords: ["app", "web", "system", "ai", "mobile"], minMatch: 1, starter: "Starter: app", failMsg: "ลองพิมพ์ app หรือ system" },
+        { desc: "พิมพ์ thank you 1 คำ", prompt: "SYSTEM: Type one thank word.\nYOU:", keywords: ["thank", "thanks", "grateful"], minMatch: 1, starter: "Starter: thank", failMsg: "ลองพิมพ์ thank หรือ thanks" },
+        { desc: "พิมพ์ dream 1 คำ", prompt: "SYSTEM: Type one dream word.\nYOU:", keywords: ["future", "dream", "goal", "success"], minMatch: 1, starter: "Starter: goal", failMsg: "ลองพิมพ์ dream หรือ goal" }
+      ],
+      normal: [
+        { desc: "พิมพ์เป้าหมายสั้น ๆ", prompt: "SYSTEM: Write a short future goal.\nYOU:", keywords: ["i", "want", "to", "work", "developer"], minMatch: 3, starter: "Starter: I want to work as a developer.", failMsg: "ลองพิมพ์เช่น i want to work" },
+        { desc: "พิมพ์ skill ที่ชอบ", prompt: "SYSTEM: Write a short skill sentence.\nYOU:", keywords: ["i", "like", "coding", "teamwork", "design"], minMatch: 3, starter: "Starter: I like coding and teamwork.", failMsg: "ลองพิมพ์เช่น i like coding" },
+        { desc: "พิมพ์ project ที่อยากทำ", prompt: "SYSTEM: Write a short dream project sentence.\nYOU:", keywords: ["i", "want", "build", "app", "system"], minMatch: 3, starter: "Starter: I want to build an app.", failMsg: "ลองพิมพ์เช่น i want build app" },
+        { desc: "พิมพ์แผนเรียนต่อ", prompt: "SYSTEM: Write a short study plan.\nYOU:", keywords: ["i", "want", "study", "more", "english", "ai"], minMatch: 3, starter: "Starter: I want to study more English and AI.", failMsg: "ลองพิมพ์เช่น i want study more" },
+        { desc: "พิมพ์ thank you message สั้น ๆ", prompt: "SYSTEM: Write a short thank you message.\nYOU:", keywords: ["thank", "you", "teacher", "friends", "support"], minMatch: 3, starter: "Starter: Thank you, teacher and friends, for your support.", failMsg: "ลองพิมพ์ thank you message สั้น ๆ" }
+      ],
+      hard: [
+        { desc: "พิมพ์ประโยคเป้าหมายหลังจบการศึกษา", prompt: "SYSTEM: Write a short sentence about your goal after graduation.\nYOU:", keywords: ["after", "graduation", "i", "want", "work", "developer"], minMatch: 3, starter: "Starter: After graduation, I want to work as a developer.", failMsg: "ลองพิมพ์เช่น after graduation i want work as a developer" },
+        { desc: "พิมพ์ประโยคเกี่ยวกับ skill สำคัญ", prompt: "SYSTEM: Write a short sentence about an important skill.\nYOU:", keywords: ["coding", "english", "teamwork", "important", "career"], minMatch: 3, starter: "Starter: Coding and teamwork are important for my career.", failMsg: "ลองพิมพ์เช่น coding is important for my career" },
+        { desc: "พิมพ์ประโยคเกี่ยวกับ project ในฝัน", prompt: "SYSTEM: Write a short sentence about your dream project.\nYOU:", keywords: ["i", "want", "build", "useful", "app", "students"], minMatch: 3, starter: "Starter: I want to build a useful app for students.", failMsg: "ลองพิมพ์เช่น i want to build a useful app" },
+        { desc: "พิมพ์ประโยคแผนการเรียนรู้ต่อ", prompt: "SYSTEM: Write a short sentence about your learning plan.\nYOU:", keywords: ["i", "will", "learn", "more", "ai", "english"], minMatch: 3, starter: "Starter: I will learn more AI and English.", failMsg: "ลองพิมพ์เช่น i will learn more ai and english" },
+        { desc: "พิมพ์ประโยคขอบคุณปิดท้าย", prompt: "SYSTEM: Write a short final thank you sentence.\nYOU:", keywords: ["thank", "you", "for", "support", "future"], minMatch: 3, starter: "Starter: Thank you for your support in my journey.", failMsg: "ลองพิมพ์เช่น thank you for your support" }
+      ]
+    }
   }
-}
 ];
-
-export function getMissionBank(sessionId, difficulty = "normal") {
-  const mission = missionDB.find(m => m.id === sessionId);
-  if (!mission) return [];
-  return mission.bank?.[difficulty] || mission.bank?.normal || [];
-}
-
-export function pickMissionItem(sessionId, difficulty = "normal") {
-  const bank = getMissionBank(sessionId, difficulty);
-  if (!bank.length) return null;
-  const randomIndex = Math.floor(Math.random() * bank.length);
-  return { ...bank[randomIndex] };
-}
-
-export function pickAdaptiveMissionItem(sessionId, mode = "normal", aiState = { pressure: 0, support: 0 }) {
-  const mission = missionDB.find(m => m.id === sessionId);
-  if (!mission) return null;
-
-  let targetDiff = mode;
-
-  if (aiState.support >= 2) {
-    targetDiff = "easy";
-  } else if (aiState.pressure >= 2) {
-    targetDiff = "hard";
-  }
-
-  const bank = mission.bank?.[targetDiff] || mission.bank?.normal || [];
-  if (!bank.length) return null;
-
-  const randomIndex = Math.floor(Math.random() * bank.length);
-  return {
-    ...bank[randomIndex],
-    _selectedDifficulty: targetDiff
-  };
-}
