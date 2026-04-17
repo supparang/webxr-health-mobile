@@ -22,9 +22,9 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260417-mobile-playable-final';
+    window.TECHPATH_BUILD = 'v20260417-mobile-playable-final-force-layout';
     window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzKzDrMtM5tc7MP5VlNBKXpV5Pp1r75R9Cvny8xqf_DkClYajnkGbUBFDwMJSchTC0S/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260417-lesson-mobile-playable-final';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260417-lesson-mobile-playable-final-force-layout';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -50,6 +50,8 @@
       min-height:var(--app-vh);
       margin:0 auto;
       box-sizing:border-box;
+      position:relative;
+      z-index:2;
     }
 
     .btn-action,
@@ -64,6 +66,8 @@
     .input-field{
       min-height:44px;
       box-sizing:border-box;
+      width:100%;
+      max-width:100%;
     }
 
     #attendance-panel{
@@ -343,7 +347,7 @@
         gap:8px;
       }
 
-      /* MOBILE PLAYABLE FINAL */
+      /* mobile mission mode */
       body.mission-mobile #ui-title,
       body.mission-mobile #attendance-panel,
       body.mission-mobile #profile-panel,
@@ -532,6 +536,85 @@
       body.prompt-mini #mission-prompt-box{
         max-height:88px !important;
         overflow:hidden !important;
+      }
+    }
+
+    /* force layout for narrow desktop/tablet too */
+    @media (max-width:1100px){
+      body.force-mission-ui #ui-title,
+      body.force-mission-ui #attendance-panel,
+      body.force-mission-ui #profile-panel,
+      body.force-mission-ui #hub-stats-board,
+      body.force-mission-ui #ai-director-board,
+      body.force-mission-ui #unlock-hint,
+      body.force-mission-ui #ui-desc{
+        display:none !important;
+      }
+
+      body.force-mission-ui #hud-stats{
+        position:sticky;
+        top:8px;
+        z-index:70;
+        display:flex !important;
+        flex-direction:row !important;
+        justify-content:space-between !important;
+        align-items:center !important;
+        gap:8px !important;
+        margin:0 0 8px 0 !important;
+        padding:8px 12px !important;
+        border-radius:14px !important;
+        background:rgba(6,12,24,.92) !important;
+        backdrop-filter:blur(8px);
+      }
+
+      body.force-mission-ui #hud-top-row{
+        margin:0 0 8px 0 !important;
+        padding:0 !important;
+        background:transparent !important;
+        overflow:visible !important;
+      }
+
+      body.force-mission-ui #unit-theme-chip,
+      body.force-mission-ui #reward-roll-badge{
+        display:none !important;
+      }
+
+      body.force-mission-ui #mission-prompt-box{
+        margin:0 0 10px 0 !important;
+        padding:12px !important;
+        border-radius:16px !important;
+        background:rgba(10,18,34,.94) !important;
+        border:1px solid rgba(123,237,255,.18) !important;
+        box-shadow:0 8px 20px rgba(0,0,0,.20);
+      }
+
+      body.force-mission-ui #choice-buttons{
+        position:fixed !important;
+        left:12px;
+        right:12px;
+        bottom:12px;
+        z-index:90;
+        display:grid !important;
+        grid-template-columns:1fr !important;
+        gap:8px !important;
+        margin:0 !important;
+        padding-top:10px !important;
+        background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
+      }
+
+      body.force-mission-ui #choice-buttons .btn-action{
+        min-height:52px !important;
+        border-radius:16px !important;
+        font-size:1rem !important;
+        font-weight:900 !important;
+      }
+
+      body.force-mission-ui #ui-container{
+        padding:8px 12px 200px 12px !important;
+      }
+
+      body.force-summary-ui #attendance-panel{
+        display:block !important;
       }
     }
 
@@ -1227,7 +1310,7 @@
       document.documentElement.style.setProperty('--app-vh', `${h}px`);
     }
 
-    function detectMissionUiNow() {
+    function detectGameplayState() {
       const hasChoices = isShown(getEl('choice-buttons'));
       const hasSpeak = isShown(getEl('btn-speak'));
       const hasAudio = isShown(getEl('btn-play-audio'));
@@ -1239,10 +1322,26 @@
       const missionByControls = hasChoices || hasSpeak || hasAudio || hasWrite;
 
       return {
-        inMission: missionByTitle || missionByControls,
-        inSummary: hasSummary,
-        inHub: !missionByTitle && !missionByControls && !hasSummary
+        mission: missionByTitle || missionByControls,
+        summary: hasSummary,
+        hub: !missionByTitle && !missionByControls && !hasSummary
       };
+    }
+
+    function detectMissionUiNow() {
+      const s = detectGameplayState();
+      return {
+        inMission: s.mission,
+        inSummary: s.summary,
+        inHub: s.hub
+      };
+    }
+
+    function syncForcedLayoutState() {
+      const state = detectGameplayState();
+      document.body.classList.toggle('force-mission-ui', state.mission && !state.summary);
+      document.body.classList.toggle('force-summary-ui', state.summary);
+      document.body.classList.toggle('force-hub-ui', state.hub);
     }
 
     function applyMobileScreenMode() {
@@ -1344,6 +1443,7 @@
         resizeRaf = requestAnimationFrame(() => {
           updateAppViewportHeight();
           applyMobileScreenMode();
+          syncForcedLayoutState();
           compactMissionTitleForMobile();
           syncPromptMiniVisibility();
         });
@@ -1420,15 +1520,13 @@
     }
 
     function ensureMobileMissionPromptVisible() {
-      if (window.innerWidth > 700) return;
-
       const promptBox = getEl('mission-prompt-box');
       const promptText = getEl('mission-prompt-text');
       const promptLabel = getEl('mission-prompt-label');
       if (!promptBox || !promptText) return;
 
-      const ui = detectMissionUiNow();
-      if (!ui.inMission) {
+      const state = detectGameplayState();
+      if (!state.mission) {
         promptBox.style.display = 'none';
         return;
       }
@@ -1453,8 +1551,8 @@
       const hubScene = getEl('hub-scene');
       if (!hubScene) return;
 
-      const ui = detectMissionUiNow();
-      hubScene.setAttribute('visible', ui.inHub ? 'true' : 'false');
+      const state = detectGameplayState();
+      hubScene.setAttribute('visible', state.hub ? 'true' : 'false');
     }
 
     function getPrimaryMobileFocusTarget() {
@@ -1539,6 +1637,7 @@
     function refreshMobileRuntimeUI(reason = '') {
       updateAppViewportHeight();
       applyMobileScreenMode();
+      syncForcedLayoutState();
       compactMissionTitleForMobile();
       renderAttendancePanel(reason || 'mobile_refresh');
       syncPromptMiniVisibility();
@@ -1663,6 +1762,7 @@
       const status = getEl('attendance-status');
       if (!status) {
         applyMobileScreenMode();
+        syncForcedLayoutState();
         compactMissionTitleForMobile();
         updateAppViewportHeight();
         syncPromptMiniVisibility();
@@ -1697,8 +1797,9 @@
       const panel = getEl('attendance-panel');
       const btn = getEl('attendance-toggle');
       const isMobile = window.innerWidth <= 700;
-      const inMission = detectMissionUiNow().inMission;
-      const inSummary = detectMissionUiNow().inSummary;
+      const state = detectGameplayState();
+      const inMission = state.mission;
+      const inSummary = state.summary;
 
       if (panel && isMobile && inMission) {
         panel.classList.add('compact');
@@ -1717,6 +1818,7 @@
       }
 
       applyMobileScreenMode();
+      syncForcedLayoutState();
       compactMissionTitleForMobile();
       updateAppViewportHeight();
       syncPromptMiniVisibility();
@@ -1938,6 +2040,7 @@
 
       updateAppViewportHeight();
       applyMobileScreenMode();
+      syncForcedLayoutState();
       compactMissionTitleForMobile();
       syncPromptMiniVisibility();
       ensureMobileMissionPromptVisible();
