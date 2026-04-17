@@ -599,6 +599,82 @@
       }
     }
 
+
+    @media (max-width:700px){
+      body.mission-mobile #profile-panel,
+      body.mission-mobile #hub-stats-board,
+      body.mission-mobile #ai-director-board,
+      body.mission-mobile #unlock-hint,
+      body.mission-mobile #ui-desc{
+        display:none !important;
+      }
+
+      body.mission-mobile #attendance-panel{
+        margin-bottom:6px !important;
+        opacity:.92;
+        border-color:rgba(123,237,255,.16);
+        background:rgba(8,14,28,.60);
+      }
+
+      body.mission-mobile #hud-stats{
+        margin-top:6px !important;
+        margin-bottom:6px !important;
+      }
+
+      body.mission-mobile #mission-prompt-box{
+        display:block !important;
+        position:relative;
+        z-index:55;
+        margin-top:8px !important;
+        margin-bottom:10px !important;
+        padding:12px !important;
+        border-radius:16px !important;
+        border:1px solid rgba(123,237,255,.24);
+        background:rgba(10,18,34,.92);
+        box-shadow:0 10px 22px rgba(0,0,0,.22);
+      }
+
+      body.mission-mobile #mission-prompt-label{
+        font-size:.72rem !important;
+        margin-bottom:6px;
+        color:#7bedff;
+        font-weight:800;
+      }
+
+      body.mission-mobile #mission-prompt-text{
+        font-size:1rem !important;
+        line-height:1.45 !important;
+        min-height:52px;
+        color:#fff;
+      }
+
+      body.mission-mobile #choice-buttons{
+        display:grid !important;
+        grid-template-columns:1fr !important;
+        gap:10px !important;
+        position:fixed !important;
+        left:12px;
+        right:12px;
+        bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+        z-index:80;
+        margin:0 !important;
+        padding:10px 0 0 0 !important;
+        background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
+      }
+
+      body.mission-mobile #choice-buttons .btn-action{
+        min-height:54px !important;
+        border-radius:18px !important;
+        font-size:1.05rem !important;
+        font-weight:900 !important;
+        box-shadow:0 10px 22px rgba(0,0,0,.24);
+      }
+
+      body.mission-mobile #ui-container{
+        padding-bottom:calc(240px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+    }
+
     @media (max-width:900px) and (orientation:landscape){
       #ui-container{
         padding-top:8px !important;
@@ -1367,7 +1443,14 @@
           applyMobileScreenMode();
           compactMissionTitleForMobile();
           syncPromptMiniVisibility();
+          ensureMobileMissionPromptVisible();
+          syncHubSceneVisibility();
         });
+      };
+
+      window.addEventListener('resize', onResize, { passive: true });
+      window.visualViewport?.addEventListener('resize', onResize, { passive: true });
+    });
       };
 
       window.addEventListener('resize', onResize, { passive: true });
@@ -1411,16 +1494,31 @@
       btn.style.display = (window.innerWidth <= 700 && shown) ? 'block' : 'none';
     }
 
+    function detectMissionUiNow() {
+      const hasChoices = isShown(getEl('choice-buttons'));
+      const hasSpeak = isShown(getEl('btn-speak'));
+      const hasAudio = isShown(getEl('btn-play-audio'));
+      const hasWrite = isShown(getEl('write-input')) || isShown(getEl('btn-submit-write'));
+      const hasSummary = isShown(getEl('summary-panel')) || isShown(getEl('game-over-ui'));
+      const title = getText('ui-title');
+
+      const missionByTitle = /SESSION\s+\d+/i.test(title);
+      const missionByControls = hasChoices || hasSpeak || hasAudio || hasWrite;
+
+      return {
+        inMission: missionByTitle || missionByControls,
+        inSummary: hasSummary,
+        inHub: !missionByTitle && !missionByControls && !hasSummary
+      };
+    }
+
     function applyMobileScreenMode() {
       const isMobile = window.innerWidth <= 700;
-      const hasAttempt = !!runtime.currentAttempt;
-      const inMission = hasAttempt && !runtime.currentAttempt.isFinished;
-      const inSummary = hasAttempt && runtime.currentAttempt.isFinished;
-      const inHub = !hasAttempt;
+      const ui = detectMissionUiNow();
 
-      document.body.classList.toggle('mission-mobile', isMobile && inMission);
-      document.body.classList.toggle('summary-mobile', isMobile && inSummary);
-      document.body.classList.toggle('hub-mobile', isMobile && inHub);
+      document.body.classList.toggle('mission-mobile', isMobile && ui.inMission && !ui.inSummary);
+      document.body.classList.toggle('summary-mobile', isMobile && ui.inSummary);
+      document.body.classList.toggle('hub-mobile', isMobile && ui.inHub);
     }
 
     function compactMissionTitleForMobile() {
@@ -1518,12 +1616,73 @@
       if (btn) btn.textContent = 'ย่อโจทย์';
     }
 
+    function getFallbackPromptText() {
+      const readingQ =
+        getEl('reading-question')?.getAttribute('value') ||
+        getEl('reading-question')?.textContent ||
+        '';
+
+      const listeningP =
+        getEl('listening-prompt')?.getAttribute('value') ||
+        getEl('listening-prompt')?.textContent ||
+        '';
+
+      const writingP =
+        getEl('writing-prompt')?.getAttribute('value') ||
+        getEl('writing-prompt')?.textContent ||
+        '';
+
+      const speakingP =
+        getEl('speaking-prompt')?.getAttribute('value') ||
+        getEl('speaking-prompt')?.textContent ||
+        '';
+
+      if (readingQ && readingQ !== 'QUESTION TEXT') return readingQ;
+      if (listeningP && listeningP !== 'PRESS PLAY AUDIO') return listeningP;
+      if (writingP && !writingP.includes('TERMINAL')) return writingP;
+      if (speakingP && speakingP !== 'PROMPT TEXT') return speakingP;
+
+      return '';
+    }
+
+    function ensureMobileMissionPromptVisible() {
+      if (window.innerWidth > 700) return;
+
+      const promptBox = getEl('mission-prompt-box');
+      const promptText = getEl('mission-prompt-text');
+      const promptLabel = getEl('mission-prompt-label');
+      if (!promptBox || !promptText) return;
+
+      const ui = detectMissionUiNow();
+      if (!ui.inMission) return;
+
+      const current = String(promptText.textContent || '').trim();
+      const fallback = getFallbackPromptText();
+      const finalText = current && current !== '...' ? current : fallback;
+
+      if (finalText) {
+        promptBox.style.display = 'block';
+        promptText.textContent = finalText;
+        if (promptLabel) promptLabel.textContent = 'PROMPT';
+      }
+    }
+
+    function syncHubSceneVisibility() {
+      const hubScene = getEl('hub-scene');
+      if (!hubScene) return;
+
+      const ui = detectMissionUiNow();
+      hubScene.setAttribute('visible', ui.inHub ? 'true' : 'false');
+    }
+
     function refreshMobileRuntimeUI(reason = '') {
       updateAppViewportHeight();
       applyMobileScreenMode();
       compactMissionTitleForMobile();
       renderAttendancePanel(reason || 'mobile_refresh');
       syncPromptMiniVisibility();
+      ensureMobileMissionPromptVisible();
+      syncHubSceneVisibility();
     }
 
     let mobileUiRaf = 0;
@@ -1646,6 +1805,8 @@
         compactMissionTitleForMobile();
         updateAppViewportHeight();
         syncPromptMiniVisibility();
+        ensureMobileMissionPromptVisible();
+        syncHubSceneVisibility();
         return;
       }
 
@@ -1677,18 +1838,9 @@
       const panel = getEl('attendance-panel');
       const btn = getEl('attendance-toggle');
       const isMobile = window.innerWidth <= 700;
-      const inMission = !!runtime.currentAttempt && !runtime.currentAttempt.isFinished;
-      const inSummary = !!runtime.currentAttempt && runtime.currentAttempt.isFinished;
+      const ui = detectMissionUiNow();
 
-      if (panel && isMobile && inMission) {
-        panel.classList.add('compact');
-        if (btn) {
-          btn.setAttribute('aria-expanded', 'false');
-          btn.textContent = 'ดูรายละเอียด';
-        }
-      }
-
-      if (panel && isMobile && inSummary) {
+      if (panel && isMobile && (ui.inMission || ui.inSummary)) {
         panel.classList.add('compact');
         if (btn) {
           btn.setAttribute('aria-expanded', 'false');
@@ -1700,6 +1852,8 @@
       compactMissionTitleForMobile();
       updateAppViewportHeight();
       syncPromptMiniVisibility();
+      ensureMobileMissionPromptVisible();
+      syncHubSceneVisibility();
     }
 
     function wrapGlobal(name, beforeCall) {
@@ -1920,6 +2074,8 @@
       applyMobileScreenMode();
       compactMissionTitleForMobile();
       syncPromptMiniVisibility();
+      ensureMobileMissionPromptVisible();
+      syncHubSceneVisibility();
 
       installInteractionListeners();
       installWrappers();
