@@ -1,0 +1,616 @@
+/* lesson-main.css */
+/* FULL UI PATCH for lesson-main.js */
+
+:root{
+  --bg:#07111f;
+  --bg2:#0b1728;
+  --panel:#0f1d31;
+  --panel-2:#12233a;
+  --line:rgba(255,255,255,.08);
+  --line-strong:rgba(255,255,255,.16);
+
+  --text:#eef4ff;
+  --muted:#a9bbd4;
+  --soft:#7f93af;
+
+  --gold:#f4b942;
+  --cyan:#5fd7ff;
+  --green:#3dd9b8;
+  --red:#ff6f7d;
+  --violet:#9f8cff;
+
+  --shadow:0 18px 44px rgba(0,0,0,.32);
+  --shadow-soft:0 10px 24px rgba(0,0,0,.22);
+
+  --radius-xl:24px;
+  --radius-lg:18px;
+  --radius-md:14px;
+  --radius-sm:10px;
+
+  --safe-top:env(safe-area-inset-top, 0px);
+  --safe-right:env(safe-area-inset-right, 0px);
+  --safe-bottom:env(safe-area-inset-bottom, 0px);
+  --safe-left:env(safe-area-inset-left, 0px);
+}
+
+/* ---------------------------------------------------------
+   GLOBAL
+--------------------------------------------------------- */
+
+html, body{
+  color:var(--text);
+}
+
+body{
+  -webkit-tap-highlight-color:transparent;
+}
+
+.hidden{
+  display:none !important;
+}
+
+pre{
+  margin:0;
+  white-space:pre-wrap;
+  word-break:break-word;
+  font:inherit;
+}
+
+button, textarea, input{
+  font:inherit;
+}
+
+textarea{
+  resize:vertical;
+}
+
+/* ---------------------------------------------------------
+   HUD / TOP INFO
+--------------------------------------------------------- */
+
+#messageBox{
+  border:1px solid var(--line);
+  background:linear-gradient(180deg, rgba(14,27,45,.96), rgba(10,20,34,.96));
+  color:var(--text);
+  border-radius:18px;
+  padding:12px 14px;
+  box-shadow:var(--shadow-soft);
+  line-height:1.5;
+}
+
+#lessonTag{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:.88rem;
+  font-weight:700;
+  letter-spacing:.02em;
+  color:var(--cyan);
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid rgba(95,215,255,.22);
+  background:rgba(95,215,255,.08);
+}
+
+#lessonTitle{
+  font-size:clamp(1.2rem, 2vw, 1.85rem);
+  line-height:1.2;
+  font-weight:800;
+  color:var(--text);
+  margin:8px 0 6px;
+}
+
+#lessonStatus{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:38px;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid rgba(244,185,66,.22);
+  background:rgba(244,185,66,.08);
+  color:#ffe19a;
+  font-weight:700;
+  font-size:.92rem;
+}
+
+#lessonScene,
+#lessonBrief,
+#missionText,
+#challengePrompt{
+  color:var(--muted);
+  line-height:1.55;
+}
+
+#challengePrompt{
+  color:var(--text);
+  font-weight:700;
+  margin-top:10px;
+  font-size:1rem;
+}
+
+/* ---------------------------------------------------------
+   LISTS / CHIPS
+--------------------------------------------------------- */
+
+#objectiveList,
+#expressionList,
+#summarySkills,
+#summaryNextSteps{
+  margin:0;
+  padding-left:18px;
+  color:var(--muted);
+}
+
+#objectiveList li,
+#expressionList li,
+#summarySkills li,
+#summaryNextSteps li{
+  margin:6px 0;
+  line-height:1.5;
+}
+
+#vocabList{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.chip{
+  display:inline-flex;
+  align-items:center;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.06);
+  color:var(--text);
+  font-size:.9rem;
+  line-height:1;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+/* ---------------------------------------------------------
+   BASE BUTTON
+--------------------------------------------------------- */
+
+.answer-button{
+  appearance:none;
+  border:none;
+  outline:none;
+  cursor:pointer;
+  width:100%;
+  min-height:52px;
+  padding:14px 16px;
+  border-radius:18px;
+  background:
+    linear-gradient(180deg, rgba(95,215,255,.18), rgba(95,215,255,.08)),
+    linear-gradient(180deg, #14263e, #0f1d31);
+  color:var(--text);
+  border:1px solid rgba(95,215,255,.16);
+  box-shadow:var(--shadow-soft);
+  font-weight:700;
+  text-align:left;
+  transition:
+    transform .14s ease,
+    box-shadow .14s ease,
+    border-color .14s ease,
+    background .14s ease,
+    opacity .14s ease;
+}
+
+.answer-button:hover{
+  transform:translateY(-1px);
+  border-color:rgba(95,215,255,.35);
+  box-shadow:0 14px 28px rgba(0,0,0,.24);
+}
+
+.answer-button:active{
+  transform:translateY(0);
+}
+
+.answer-button:focus-visible{
+  box-shadow:
+    0 0 0 3px rgba(95,215,255,.16),
+    0 12px 28px rgba(0,0,0,.24);
+  border-color:rgba(95,215,255,.5);
+}
+
+.answer-button.disabled,
+.answer-button:disabled{
+  cursor:not-allowed;
+  opacity:.55;
+  transform:none;
+}
+
+.answer-button.correct{
+  border-color:rgba(61,217,184,.45);
+  background:
+    linear-gradient(180deg, rgba(61,217,184,.18), rgba(61,217,184,.08)),
+    linear-gradient(180deg, #14263e, #0f1d31);
+}
+
+.answer-button.wrong{
+  border-color:rgba(255,111,125,.45);
+  background:
+    linear-gradient(180deg, rgba(255,111,125,.18), rgba(255,111,125,.08)),
+    linear-gradient(180deg, #14263e, #0f1d31);
+}
+
+.answer-button.completed{
+  border-color:rgba(61,217,184,.35);
+  background:
+    linear-gradient(180deg, rgba(61,217,184,.12), rgba(61,217,184,.06)),
+    linear-gradient(180deg, #14263e, #0f1d31);
+}
+
+/* ---------------------------------------------------------
+   SESSION OVERVIEW
+--------------------------------------------------------- */
+
+.session-overview-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.session-overview-note{
+  margin-top:12px;
+  padding:14px 16px;
+  border-radius:18px;
+  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.03));
+  border:1px solid var(--line);
+  color:var(--muted);
+  line-height:1.5;
+}
+
+/* ---------------------------------------------------------
+   COMMON CARD
+--------------------------------------------------------- */
+
+.question-card,
+.writing-prompt-card,
+.speaking-model-card,
+.feedback-card,
+.session-result-card{
+  border-radius:24px;
+  border:1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)),
+    linear-gradient(180deg, #0f1d31, #0c1829);
+  box-shadow:var(--shadow);
+  padding:16px;
+}
+
+.question-desc,
+.speaking-desc{
+  margin:0 0 8px;
+  color:var(--cyan);
+  font-size:.94rem;
+  font-weight:700;
+}
+
+.question-main,
+.speaking-model{
+  margin:0;
+  color:var(--text);
+  line-height:1.55;
+  font-size:1rem;
+}
+
+/* ---------------------------------------------------------
+   CHOICE TASK
+--------------------------------------------------------- */
+
+.choice-task-wrap,
+.listening-task-wrap,
+.writing-task-wrap,
+.speaking-task-wrap{
+  display:grid;
+  gap:14px;
+}
+
+.choice-list{
+  display:grid;
+  gap:12px;
+}
+
+.choice-btn{
+  text-align:left;
+  white-space:normal;
+  line-height:1.45;
+}
+
+/* ---------------------------------------------------------
+   LISTENING
+--------------------------------------------------------- */
+
+.listening-controls,
+.writing-actions,
+.speaking-actions,
+.feedback-actions,
+.session-result-actions{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:12px;
+}
+
+#playAudioBtn,
+#replayAudioBtn,
+#playModelBtn,
+#startMicBtn,
+#stopMicBtn,
+#submitSpeakingBtn,
+#submitWritingBtn,
+#nextStepBtn,
+#retrySessionBtn,
+#nextSessionBtn,
+#backHubBtn,
+#openSummaryFromResultBtn{
+  text-align:center;
+}
+
+/* ---------------------------------------------------------
+   WRITING / SPEAKING INPUT
+--------------------------------------------------------- */
+
+.writing-prompt{
+  color:var(--text);
+  line-height:1.6;
+}
+
+.writing-input{
+  width:100%;
+  min-height:110px;
+  border:none;
+  outline:none;
+  border-radius:20px;
+  padding:14px 16px;
+  background:linear-gradient(180deg, #0b1626, #0a1322);
+  color:var(--text);
+  border:1px solid rgba(255,255,255,.1);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.22);
+  line-height:1.55;
+}
+
+.writing-input::placeholder{
+  color:#7f93af;
+}
+
+.writing-input:focus{
+  border-color:rgba(95,215,255,.42);
+  box-shadow:
+    0 0 0 3px rgba(95,215,255,.12),
+    inset 0 1px 2px rgba(0,0,0,.22);
+}
+
+.speaking-transcript-wrap{
+  display:grid;
+  gap:8px;
+}
+
+.speaking-transcript-wrap label{
+  font-size:.92rem;
+  color:var(--muted);
+  font-weight:700;
+}
+
+.speaking-note{
+  padding:12px 14px;
+  border-radius:16px;
+  background:rgba(159,140,255,.08);
+  border:1px solid rgba(159,140,255,.16);
+  color:#d9d1ff;
+  line-height:1.45;
+}
+
+/* ---------------------------------------------------------
+   FEEDBACK
+--------------------------------------------------------- */
+
+.feedback-card h3,
+.session-result-card h3{
+  margin:0 0 10px;
+  font-size:1.08rem;
+  font-weight:800;
+  color:var(--text);
+}
+
+.feedback-card p,
+.session-result-card p{
+  margin:6px 0;
+  line-height:1.55;
+  color:var(--muted);
+}
+
+.feedback-card.correct{
+  border-color:rgba(61,217,184,.22);
+  background:
+    linear-gradient(180deg, rgba(61,217,184,.08), rgba(61,217,184,.03)),
+    linear-gradient(180deg, #0f1d31, #0c1829);
+}
+
+.feedback-card.wrong{
+  border-color:rgba(255,111,125,.22);
+  background:
+    linear-gradient(180deg, rgba(255,111,125,.08), rgba(255,111,125,.03)),
+    linear-gradient(180deg, #0f1d31, #0c1829);
+}
+
+/* ---------------------------------------------------------
+   RESULT
+--------------------------------------------------------- */
+
+.session-result-card{
+  position:relative;
+  overflow:hidden;
+}
+
+.session-result-card::before{
+  content:"";
+  position:absolute;
+  inset:0 auto auto 0;
+  width:100%;
+  height:4px;
+  background:linear-gradient(90deg, var(--gold), var(--cyan), var(--green));
+  opacity:.95;
+}
+
+/* ---------------------------------------------------------
+   SUMMARY PANEL
+--------------------------------------------------------- */
+
+#summarySheet{
+  border:1px solid var(--line-strong);
+  background:
+    linear-gradient(180deg, rgba(13,24,40,.98), rgba(8,15,25,.98));
+  color:var(--text);
+  box-shadow:0 28px 80px rgba(0,0,0,.42);
+  border-radius:28px 28px 0 0;
+  padding:
+    18px
+    calc(18px + var(--safe-right))
+    calc(20px + var(--safe-bottom))
+    calc(18px + var(--safe-left));
+}
+
+#summaryIntro,
+#summaryScore,
+#summaryCompleted,
+#summaryRank{
+  color:var(--text);
+}
+
+#summaryScore,
+#summaryCompleted,
+#summaryRank{
+  font-weight:800;
+}
+
+/* ---------------------------------------------------------
+   OVERLAY / START
+--------------------------------------------------------- */
+
+#overlay{
+  backdrop-filter:blur(10px);
+  background:rgba(4,10,18,.72);
+}
+
+#startButton,
+#homeButton,
+#nextButton,
+#summaryButton,
+#closeSummaryButton{
+  text-align:center;
+}
+
+/* ---------------------------------------------------------
+   PORTAL BADGE TEXT READABILITY
+--------------------------------------------------------- */
+
+.portal-badge{
+  font-weight:800;
+}
+
+/* ---------------------------------------------------------
+   SMALL UTILITIES
+--------------------------------------------------------- */
+
+.text-muted{
+  color:var(--muted);
+}
+
+.text-soft{
+  color:var(--soft);
+}
+
+/* ---------------------------------------------------------
+   RESPONSIVE
+--------------------------------------------------------- */
+
+@media (max-width: 900px){
+  .session-overview-actions,
+  .listening-controls,
+  .writing-actions,
+  .speaking-actions,
+  .feedback-actions,
+  .session-result-actions{
+    grid-template-columns:1fr;
+  }
+
+  .answer-button{
+    min-height:50px;
+    padding:13px 14px;
+    border-radius:16px;
+  }
+
+  .question-card,
+  .writing-prompt-card,
+  .speaking-model-card,
+  .feedback-card,
+  .session-result-card{
+    border-radius:20px;
+    padding:14px;
+  }
+
+  .writing-input{
+    min-height:100px;
+    border-radius:16px;
+  }
+
+  #summarySheet{
+    border-radius:24px 24px 0 0;
+  }
+}
+
+@media (max-width: 640px){
+  #lessonTitle{
+    font-size:1.08rem;
+  }
+
+  #lessonStatus,
+  #lessonTag{
+    font-size:.84rem;
+  }
+
+  .chip{
+    font-size:.84rem;
+    padding:7px 10px;
+  }
+
+  .question-main,
+  .writing-prompt,
+  .speaking-model{
+    font-size:.96rem;
+  }
+
+  #messageBox{
+    padding:11px 12px;
+    border-radius:16px;
+  }
+}
+
+/* ---------------------------------------------------------
+   OPTIONAL ANIMATIONS
+--------------------------------------------------------- */
+
+@media (prefers-reduced-motion: no-preference){
+  .answer-button,
+  .question-card,
+  .writing-prompt-card,
+  .speaking-model-card,
+  .feedback-card,
+  .session-result-card{
+    animation:fadeInUp .22s ease;
+  }
+
+  @keyframes fadeInUp{
+    from{
+      opacity:0;
+      transform:translateY(6px);
+    }
+    to{
+      opacity:1;
+      transform:translateY(0);
+    }
+  }
+}
