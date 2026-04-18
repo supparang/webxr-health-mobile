@@ -1,9 +1,9 @@
 // /english/js/techpath-guard.js
 // Production-safe guard for TechPath
 // - no debugger
-// - no blocking loop
-// - no Page Unresponsive
-// - safe for mobile / VR / normal desktop use
+// - no requestAnimationFrame loop
+// - no main-thread blocking
+// - safe for mobile / VR / desktop
 
 (function () {
   'use strict';
@@ -12,8 +12,8 @@
   const win = window;
 
   const CONFIG = {
-    devtoolsThreshold: 170,
-    checkIntervalMs: 1200,
+    devtoolsThreshold: 160,
+    checkIntervalMs: 1000,
     blockContextMenu: true,
     blockSelection: true,
     blockCopyOutsideInputs: true,
@@ -82,7 +82,6 @@
 
   function setDevtoolsGuard(on) {
     state.devtoolsOpen = !!on;
-
     doc.body.classList.toggle('devtools-guard', !!on);
 
     const shield = doc.getElementById('source-shield');
