@@ -22,9 +22,9 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260418-lesson-clean-stable';
+    window.TECHPATH_BUILD = 'v20260418-lesson-clean-stable-pc-safe';
     window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzKzDrMtM5tc7MP5VlNBKXpV5Pp1r75R9Cvny8xqf_DkClYajnkGbUBFDwMJSchTC0S/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260418-lesson-clean-stable';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260418-lesson-clean-stable-pc-safe';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -1032,17 +1032,30 @@
     }, true);
 
     let devtoolsOpen = false;
-    const THRESHOLD = 160;
+    const THRESHOLD_W = 260;
+    const THRESHOLD_H = 220;
+
+    function shouldCheckSizeGuard() {
+      return window.innerWidth >= 900;
+    }
 
     setInterval(function () {
+      const shield = document.getElementById('source-shield');
+
+      if (!shouldCheckSizeGuard()) {
+        devtoolsOpen = false;
+        document.body.classList.remove('devtools-guard');
+        if (shield) shield.setAttribute('aria-hidden', 'true');
+        return;
+      }
+
       const widthGap = Math.abs(window.outerWidth - window.innerWidth);
       const heightGap = Math.abs(window.outerHeight - window.innerHeight);
-      const open = widthGap > THRESHOLD || heightGap > THRESHOLD;
+      const open = widthGap > THRESHOLD_W || heightGap > THRESHOLD_H;
 
       if (open !== devtoolsOpen) {
         devtoolsOpen = open;
         document.body.classList.toggle('devtools-guard', open);
-        const shield = document.getElementById('source-shield');
         if (shield) shield.setAttribute('aria-hidden', open ? 'false' : 'true');
       }
     }, 1500);
