@@ -1,7 +1,7 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260415b-GATE-GAMES-ZONE-FIRST-HYGIENE-REGISTRY-MASKCOUGH-EXPLICIT
+// FULL PATCH v20260415c-GATE-GAMES-JUMPDuck-CANONICAL-FINAL
 
-const PATCH = 'v20260415b-GATE-GAMES-ZONE-FIRST-HYGIENE-REGISTRY-MASKCOUGH-EXPLICIT';
+const PATCH = 'v20260415c-GATE-GAMES-JUMPDuck-CANONICAL-FINAL';
 
 const DEFAULTS = {
   title: '',
@@ -53,8 +53,7 @@ function inferZoneFromId(id = '') {
     k.includes('hygiene') ||
     k.includes('handwash') ||
     k.includes('mask') ||
-    k.includes('cough') ||
-    k.includes('clean')
+    k.includes('cough')
   ) return 'hygiene';
 
   return '';
@@ -141,11 +140,7 @@ function inferLooseMeta(id = '') {
     warmupFile: '',
     cooldownFile: '',
     styleFile: '',
-    summaryPath:
-      zone === 'nutrition' ? '../nutrition-zone.html' :
-      zone === 'fitness' ? '../fitness-zone.html' :
-      zone === 'hygiene' ? '../hygiene-zone.html' :
-      ''
+    summaryPath: ''
   });
 }
 
@@ -163,7 +158,7 @@ export const GAME_REGISTRY = {
       '../hydration-v2.html',
       '../vr-hydration-v2/index.html'
     ],
-    summaryPath: '../nutrition-zone.html'
+    summaryPath: '../hydration-v2.html'
   }),
 
   goodjunk: makeMeta('goodjunk', {
@@ -182,7 +177,7 @@ export const GAME_REGISTRY = {
     warmupFile: './games/goodjunk/warmup.js',
     cooldownFile: './games/goodjunk/cooldown.js',
     styleFile: './games/goodjunk/style.css',
-    summaryPath: '../nutrition-zone.html'
+    summaryPath: 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html?pid=anon&hub=https%3A%2F%2Fsupparang.github.io%2Fwebxr-health-mobile%2Fherohealth%2Fhub.html'
   }),
 
   plate: makeMeta('plate', {
@@ -198,7 +193,7 @@ export const GAME_REGISTRY = {
       '../plate-v1.html',
       '../plate-vr.html'
     ],
-    summaryPath: '../nutrition-zone.html'
+    summaryPath: '../plate-v1.html'
   }),
 
   groups: makeMeta('groups', {
@@ -211,11 +206,10 @@ export const GAME_REGISTRY = {
     runFile: '../vr-groups/groups.html',
     runCandidates: [
       '../vr-groups/groups.html',
-      '../group-v1.html',
       '../groups-v1.html',
       '../groups-vr.html'
     ],
-    summaryPath: '../nutrition-zone.html'
+    summaryPath: '../groups-v1.html'
   }),
 
   brush: makeMeta('brush', {
@@ -225,9 +219,8 @@ export const GAME_REGISTRY = {
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'brush',
-    runFile: '../vr-brush-kids/brush.html',
+    runFile: '../brush-vr.html',
     runCandidates: [
-      '../vr-brush-kids/brush.html',
       '../brush-vr.html',
       '../brush-vr-kids.html'
     ],
@@ -241,11 +234,10 @@ export const GAME_REGISTRY = {
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'handwash',
-    runFile: '../vr-handwash/handwash-vr.html',
+    runFile: '../handwash-vr.html',
     runCandidates: [
-      '../vr-handwash/handwash-vr.html',
-      '../vr-handwash/handwash-launcher.html',
-      '../handwash-vr.html'
+      '../handwash-vr.html',
+      '../vr-handwash/handwash-vr.html'
     ],
     summaryPath: '../hygiene-zone.html'
   }),
@@ -257,12 +249,11 @@ export const GAME_REGISTRY = {
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'germ-detective',
-    runFile: '../germ-detective/germ-rush-run.html',
+    runFile: '../germ-detective.html',
     runCandidates: [
-      '../germ-detective/germ-rush-run.html',
-      '../germ-detective/germ-detective-vr.html',
       '../germ-detective.html',
-      '../germ-detective-v2.html'
+      '../germ-detective-v2.html',
+      '../germ-detective/germ-detective-vr.html'
     ],
     summaryPath: '../hygiene-zone.html'
   }),
@@ -274,11 +265,11 @@ export const GAME_REGISTRY = {
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'bath',
-    runFile: '../vr-bath/bath.html',
+    runFile: '../bath.html',
     runCandidates: [
-      '../vr-bath/bath.html',
       '../bath.html',
-      '../bath-vr.html'
+      '../bath-vr.html',
+      '../vr-bath/bath.html'
     ],
     summaryPath: '../hygiene-zone.html'
   }),
@@ -290,29 +281,10 @@ export const GAME_REGISTRY = {
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'maskcough',
-    runFile: '../vr-maskcough/maskcough-v2.html',
+    runFile: '../maskcough-v2.html',
     runCandidates: [
-      '../vr-maskcough/maskcough-v2.html',
-      '../maskcough-v2.html'
-    ],
-    warmupFile: './games/maskcough/warmup.js',
-    cooldownFile: './games/maskcough/cooldown.js',
-    styleFile: './games/maskcough/style.css',
-    summaryPath: '../hygiene-zone.html'
-  }),
-
-  cleanobjects: makeMeta('cleanobjects', {
-    title: 'Clean Objects',
-    label: 'Clean Objects',
-    emoji: '🧽',
-    zone: 'hygiene',
-    cat: 'hygiene',
-    theme: 'cleanobjects',
-    runFile: '../clean-objects-v3/clean-objects-v2.html',
-    runCandidates: [
-      '../clean-objects-v3/clean-objects-v2.html',
-      '../clean-objects-v2.html',
-      '../clean-objects.html'
+      '../maskcough-v2.html',
+      '../vr-maskcough/maskcough-v2.html'
     ],
     summaryPath: '../hygiene-zone.html'
   }),
@@ -333,8 +305,8 @@ export const GAME_REGISTRY = {
   }),
 
   'jump-duck': makeMeta('jump-duck', {
-    title: 'Jump Duck',
-    label: 'Jump Duck',
+    title: 'JumpDuck',
+    label: 'JumpDuck',
     emoji: '🐶',
     zone: 'fitness',
     cat: 'fitness',
@@ -342,12 +314,9 @@ export const GAME_REGISTRY = {
     runFile: '../fitness/jumpduck.html',
     runCandidates: [
       '../fitness/jumpduck.html',
-      '../jumpduck.html',
-      '../jump-duck.html',
-      '../jump-duck-vr.html',
-      '../fitness/jump-duck.html'
+      '../jump-duck-vr.html'
     ],
-    summaryPath: '../fitness-zone.html'
+    summaryPath: './fitness-zone.html'
   }),
 
   'balance-hold': makeMeta('balance-hold', {
@@ -420,9 +389,6 @@ const GAME_ALIAS = {
   platevr: 'plate',
 
   groups: 'groups',
-  group: 'groups',
-  'group-v1': 'groups',
-  groupsv1: 'groups',
   groupsvr: 'groups',
   'groups-vr': 'groups',
   foodgroups: 'groups',
@@ -432,38 +398,21 @@ const GAME_ALIAS = {
   brushvr: 'brush',
   'brush-vr': 'brush',
   'brush-vr-kids': 'brush',
-  'vr-brush-kids': 'brush',
 
   handwash: 'handwash',
   handwashvr: 'handwash',
   'handwash-vr': 'handwash',
-  'handwash-howto': 'handwash',
-  'handwash-mini-order': 'handwash',
-  'handwash-launcher': 'handwash',
 
   'germ-detective': 'germ-detective',
   germdetective: 'germ-detective',
   germ: 'germ-detective',
-  'germ-rush-run': 'germ-detective',
-  germrush: 'germ-detective',
 
   bath: 'bath',
   bathhero: 'bath',
   bathvr: 'bath',
-  'vr-bath': 'bath',
 
   maskcough: 'maskcough',
   'mask-cough': 'maskcough',
-  'maskcough-v2': 'maskcough',
-  'maskcough-vr': 'maskcough',
-  maskandcough: 'maskcough',
-  'mask-and-cough': 'maskcough',
-
-  cleanobjects: 'cleanobjects',
-  'clean-objects': 'cleanobjects',
-  'clean-objects-v2': 'cleanobjects',
-  'clean-objects-v3': 'cleanobjects',
-  cleanobjectsv2: 'cleanobjects',
 
   'shadow-breaker': 'shadow-breaker',
   shadowbreaker: 'shadow-breaker',
@@ -471,8 +420,8 @@ const GAME_ALIAS = {
 
   'jump-duck': 'jump-duck',
   jumpduck: 'jump-duck',
+  'jumpduck-vr': 'jump-duck',
   'jump-duck-vr': 'jump-duck',
-  jumpduckvr: 'jump-duck',
 
   'balance-hold': 'balance-hold',
   balancehold: 'balance-hold',
