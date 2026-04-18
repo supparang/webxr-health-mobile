@@ -22,9 +22,9 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260418-lesson-full-patch-bridge-final';
+    window.TECHPATH_BUILD = 'v20260418-lesson-full-final-bootguard-mobile';
     window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzKzDrMtM5tc7MP5VlNBKXpV5Pp1r75R9Cvny8xqf_DkClYajnkGbUBFDwMJSchTC0S/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260418-lesson-full-patch-bridge-final';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260418-lesson-full-final-bootguard-mobile';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -196,6 +196,26 @@
       display:none;
     }
 
+    html.protected,
+    html.protected body{
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-touch-callout:none;
+    }
+
+    html.protected input,
+    html.protected textarea,
+    html.protected [contenteditable="true"]{
+      -webkit-user-select:text !important;
+      user-select:text !important;
+      -webkit-touch-callout:default !important;
+    }
+
+    img, a, canvas{
+      -webkit-user-drag:none;
+      user-drag:none;
+    }
+
     #source-shield{
       position:fixed;
       inset:0;
@@ -312,21 +332,6 @@
     }
 
     @media (max-width:700px){
-      html.protected,
-      html.protected body{
-        -webkit-user-select:none;
-        user-select:none;
-        -webkit-touch-callout:none;
-      }
-
-      html.protected input,
-      html.protected textarea,
-      html.protected [contenteditable="true"]{
-        -webkit-user-select:text !important;
-        user-select:text !important;
-        -webkit-touch-callout:default !important;
-      }
-
       #ui-container{
         padding:8px 10px calc(190px + env(safe-area-inset-bottom, 0px));
       }
@@ -549,7 +554,10 @@
     </div>
   </div>
 
-  <div id="loading">Loading TechPath VR...</div>
+  <div id="loading" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:#07111f;color:#eaf6ff;z-index:99999;transition:opacity .26s ease;">
+    <div style="font-size:1.1rem;font-weight:800;color:#7bedff;margin-bottom:10px;">Loading TechPath VR...</div>
+  </div>
+
   <div id="impact-flash" aria-hidden="true"></div>
 
   <div id="boss-cinematic" aria-hidden="true">
@@ -870,7 +878,7 @@
     function blockEvent(e) {
       e.preventDefault();
       e.stopPropagation();
-      e.stopImmediatePropagation?.();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
       return false;
     }
 
@@ -929,10 +937,128 @@
         setDevtoolsGuard(open);
       }
 
-      requestAnimationFrame(detectDevtools);
+      window.requestAnimationFrame(detectDevtools);
     }
 
-    requestAnimationFrame(detectDevtools);
+    window.requestAnimationFrame(detectDevtools);
+  })();
+  </script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    function $(id) {
+      return document.getElementById(id);
+    }
+
+    let finished = false;
+    let firstBootError = '';
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+    }
+
+    function formatErrorMessage(raw) {
+      const text = String(raw || '').trim();
+      if (!text) return 'Unknown boot error';
+      return text.length > 320 ? text.slice(0, 320) + '…' : text;
+    }
+
+    function releaseLoading(message = '', isError = false) {
+      if (finished && !isError) return;
+      finished = true;
+
+      const loading = $('loading');
+      if (!loading) return;
+
+      if (message) {
+        loading.innerHTML = `
+          <div style="font-size:1.05rem;font-weight:800;color:#7bedff;margin-bottom:10px;">
+            TechPath VR
+          </div>
+          <div style="font-size:.94rem;line-height:1.5;color:${isError ? '#ffd6db' : '#eaf6ff'};max-width:340px;margin:0 auto 14px;white-space:pre-wrap;">
+            ${escapeHtml(message)}
+          </div>
+          ${isError ? `
+            <button id="boot-reload-btn"
+              style="min-height:44px;padding:10px 16px;border-radius:14px;border:1px solid rgba(123,237,255,.25);background:rgba(123,237,255,.12);color:#fff;font-weight:800;">
+              รีเฟรชอีกครั้ง
+            </button>
+          ` : ''}
+        `;
+
+        const reloadBtn = $('boot-reload-btn');
+        if (reloadBtn) {
+          reloadBtn.addEventListener('click', function () {
+            location.reload();
+          });
+        }
+      }
+
+      loading.style.opacity = '1';
+      loading.style.display = 'flex';
+
+      if (!isError) {
+        setTimeout(() => {
+          loading.style.opacity = '0';
+          setTimeout(() => {
+            loading.style.display = 'none';
+          }, 260);
+        }, 120);
+      }
+    }
+
+    function showBootError(raw) {
+      if (firstBootError) return;
+      firstBootError = formatErrorMessage(raw);
+
+      console.error('TechPath boot error:', raw);
+
+      releaseLoading(
+        'เริ่มระบบไม่สำเร็จ\n\n' + firstBootError,
+        true
+      );
+    }
+
+    window.__TECHPATH_RELEASE_LOADING__ = function () {
+      releaseLoading('', false);
+    };
+
+    window.__TECHPATH_SHOW_BOOT_ERROR__ = showBootError;
+
+    window.addEventListener('load', function () {
+      setTimeout(() => {
+        if (!firstBootError) releaseLoading('', false);
+      }, 300);
+    });
+
+    window.addEventListener('error', function (e) {
+      const msg =
+        e?.error?.stack ||
+        e?.error?.message ||
+        e?.message ||
+        'Global boot error';
+      showBootError(msg);
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+      const msg =
+        e?.reason?.stack ||
+        e?.reason?.message ||
+        e?.reason ||
+        'Unhandled promise rejection';
+      showBootError(msg);
+    });
+
+    setTimeout(() => {
+      if (!finished && !firstBootError) {
+        showBootError('โหลดนานผิดปกติ: module หรือ import บางตัวอาจพัง');
+      }
+    }, 3500);
   })();
   </script>
 
