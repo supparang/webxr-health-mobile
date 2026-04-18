@@ -1,1667 +1,600 @@
-import { VOCAB_BANKS } from './vocab-data.js';
-import { installVocabGuards } from './vocab-guard.js';
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>VOCAB • ESP BATTLE</title>
+  <link rel="icon" href="./favicon.ico" />
+  <meta name="theme-color" content="#0b1020" />
+  <style>
+    :root{
+      --bg1:#071122;
+      --bg2:#123a7a;
+      --panel:rgba(10,16,35,.86);
+      --line:rgba(255,255,255,.14);
+      --text:#f8fbff;
+      --muted:#c7d4ff;
+      --cyan:#67e8f9;
+      --pink:#f472b6;
+      --yellow:#fde047;
+      --green:#4ade80;
+      --red:#fb7185;
+      --violet:#a78bfa;
+      --orange:#fb923c;
+    }
 
+    *{box-sizing:border-box}
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      overflow-x:hidden;
+      overflow-y:auto;
+      font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;
+      background:linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
+    }
+
+    body{touch-action:manipulation}
+
+    #app{
+      position:relative;
+      min-height:100dvh;
+      overflow-x:hidden;
+    }
+
+    canvas{
+      position:fixed;
+      inset:0;
+      width:100%;
+      height:100%;
+      display:block;
+      background:linear-gradient(180deg,#75d8ff,#dbeafe 62%,#e5efff 62%,#dbeafe 100%);
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:20px 16px 32px;
+      overflow-y:auto;
+      overflow-x:hidden;
+      -webkit-overflow-scrolling:touch;
+      background:radial-gradient(circle at top,#18254a 0%,#0b1020 48%,#05070f 100%);
+      z-index:70;
+    }
+
+    .hidden{display:none!important}
+
+    .panel{
+      width:min(96vw,820px);
+      max-width:96vw;
+      overflow-x:hidden;
+      padding:18px;
+      border-radius:24px;
+      margin:12px 0 24px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow:0 20px 80px rgba(0,0,0,.35);
+      touch-action:pan-y;
+    }
+
+    .title{
+      font-size:clamp(26px,7vw,40px);
+      line-height:1.12;
+      letter-spacing:-0.02em;
+      font-weight:1000;
+      margin:0;
+    }
+
+    .desc{
+      margin-top:10px;
+      color:#dbe7ff;
+      font-size:14px;
+      line-height:1.55;
+    }
+
+    .sectionTitle{
+      margin-top:16px;
+      margin-bottom:10px;
+      font-size:15px;
+      font-weight:900;
+      color:#dbeafe;
+    }
+
+    .menuStack{display:grid;gap:12px}
+    .bankGrid{display:grid;grid-template-columns:1fr;gap:10px}
+    .modeGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .profileGrid{display:grid;grid-template-columns:1fr;gap:10px}
+    .actionGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .top3Board{display:grid;grid-template-columns:1fr;gap:10px;margin-top:0}
+
+    .option,.inputBox,.top3Card,.btn{
+      min-width:0;
+      width:100%;
+      border-radius:20px;
+    }
+
+    .option{
+      appearance:none;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.12);
+      padding:14px;
+      text-align:left;
+      color:var(--text);
+      cursor:pointer;
+      transition:transform .14s ease,border-color .14s ease,background .14s ease;
+    }
+
+    .option:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.55)}
+    .option.active{outline:3px solid var(--cyan);background:rgba(103,232,249,.10)}
+    .option h3{font-size:18px;line-height:1.2;margin:0 0 6px}
+    .option p{margin:0;color:#cad7ff;font-size:13px;line-height:1.4}
+
+    .inputBox{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);
+      padding:12px;
+    }
+
+    .inputBox label{
+      display:block;
+      font-size:12px;
+      color:#c7d4ff;
+      margin-bottom:6px;
+    }
+
+    .inputBox input{
+      width:100%;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#fff;
+      font-size:16px;
+      min-height:48px;
+      outline:none;
+    }
+
+    .inputBox input:focus{
+      border-color:var(--cyan);
+      box-shadow:0 0 0 3px rgba(103,232,249,.18);
+    }
+
+    .top3Card{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);
+      padding:14px;
+      text-align:left;
+    }
+
+    .top3Card .rank{font-size:22px;font-weight:1000}
+    .top3Card .name{font-size:16px;font-weight:900;margin-top:6px}
+    .top3Card .meta{font-size:12px;color:#c7d4ff;margin-top:4px}
+
+    .btn{
+      appearance:none;
+      border:0;
+      min-height:58px;
+      font-size:17px;
+      font-weight:1000;
+      cursor:pointer;
+      white-space:normal;
+      word-break:break-word;
+      line-height:1.15;
+      padding:12px 14px;
+      color:#06101b;
+      background:linear-gradient(135deg,#67e8f9,#a78bfa);
+      transition:transform .14s ease,filter .14s ease;
+    }
+
+    .btn:hover{transform:translateY(-1px);filter:brightness(1.03)}
+    .btn.alt{
+      background:linear-gradient(135deg,#fde047,#fb7185);
+      color:#311314;
+    }
+
+    .btn.ghost{
+      background:linear-gradient(135deg,#dbeafe,#93c5fd);
+      color:#172554;
+    }
+
+    .hud{
+      position:fixed;
+      left:8px;
+      right:8px;
+      top:8px;
+      z-index:20;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      pointer-events:none;
+    }
+
+    .card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:9px 10px;
+      backdrop-filter:blur(8px);
+      box-shadow:0 10px 32px rgba(0,0,0,.26);
+    }
+
+    .big{font-size:14px;font-weight:900}
+    .sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}
+
+    .bar{
+      height:9px;
+      border-radius:999px;
+      background:rgba(255,255,255,.1);
+      overflow:hidden;
+      margin-top:8px;
+    }
+
+    .fill{
+      height:100%;
+      width:100%;
+      background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));
+      transform-origin:left center;
+    }
+
+    #questionBox{
+      position:fixed;
+      top:116px;
+      left:50%;
+      transform:translateX(-50%);
+      width:94vw;
+      padding:14px 14px;
+      border-radius:18px;
+      background:rgba(17,24,39,.82);
+      color:#fff;
+      text-align:center;
+      z-index:40;
+      box-shadow:0 14px 30px rgba(0,0,0,.22);
+      backdrop-filter:blur(6px);
+      border:1px solid rgba(255,255,255,.10);
+    }
+
+    #questionBox .q-meta{
+      font-size:12px;
+      opacity:.95;
+      margin-bottom:6px;
+      letter-spacing:.05em;
+      color:#fde047;
+    }
+
+    #questionBox .q-prompt{
+      font-size:clamp(18px,5vw,28px);
+      font-weight:900;
+      line-height:1.22;
+    }
+
+    #feedbackBox{
+      position:fixed;
+      top:192px;
+      left:50%;
+      transform:translateX(-50%);
+      min-width:220px;
+      max-width:88vw;
+      text-align:center;
+      padding:12px 18px;
+      border-radius:999px;
+      background:rgba(15,23,42,.92);
+      color:#fff;
+      font-size:18px;
+      font-weight:900;
+      z-index:50;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    #feedbackBox.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+    #feedbackBox.ok{background:rgba(22,163,74,.94)}
+    #feedbackBox.bad{background:rgba(225,29,72,.94)}
+    #feedbackBox.warn{background:rgba(180,83,9,.94)}
+
+    .leaderboardList,.sessionList{
+      list-style:none;
+      padding:0;
+      display:grid;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .leaderboardList li,.sessionList li{
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:16px;
+      padding:10px 12px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:12px;
+    }
+
+    th,td{
+      border-bottom:1px solid rgba(255,255,255,.08);
+      padding:8px;
+      text-align:left;
+      font-size:13px;
+    }
+
+    th{color:#93c5fd}
+    .small{font-size:12px;color:#cbd5e1}
+    .mono{font-family:ui-monospace,Consolas,monospace}
+    .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
+    #endWrap{z-index:9999}
+
+    @media (min-width:700px){
+      .bankGrid{grid-template-columns:1fr 1fr 1fr}
+      .profileGrid{grid-template-columns:1fr 1fr}
+      .top3Board{grid-template-columns:1fr 1fr 1fr}
+    }
+
+    @media (max-width:420px){
+      .option h3{font-size:16px}
+      .option p{font-size:12px}
+      .btn{font-size:16px}
+      #questionBox{top:164px}
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gameCanvas"></canvas>
+
+  <div class="hud">
+    <div class="card">
+      <div class="big">VOCAB • ESP BATTLE</div>
+      <div class="sub" id="hudPrompt">Contextual learning • adaptive difficulty • review queue</div>
+      <div class="bar"><div class="fill" id="timeFill"></div></div>
+    </div>
+    <div class="card">
+      <div class="big" id="hudScore">Score 0</div>
+      <div class="sub" id="hudRound">Stage 0 / 18</div>
+    </div>
+    <div class="card">
+      <div class="big" id="hudCombo">Combo x0</div>
+      <div class="sub" id="hudMode">Difficulty EASY</div>
+    </div>
+    <div class="card">
+      <div class="big" id="hudHp">HP 5</div>
+      <div class="sub" id="hudState">READY</div>
+    </div>
+  </div>
+
+  <div id="questionBox">
+    <div class="q-meta">ESP BATTLE</div>
+    <div class="q-prompt">เตรียมเริ่มเกม</div>
+  </div>
+
+  <div id="feedbackBox"></div>
+
+  <div class="overlay" id="menu">
+    <div class="panel">
+      <h1 class="title">Vocab — English for Specific Career Purposes (CS/AI)</h1>
+      <div class="desc">
+        เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ มีหลายรูปแบบคำถามต่อคำศัพท์ ปรับความยากตามการเล่น
+        มี 4 โหมดที่ต่างกันจริง และเก็บข้อมูลการเล่นตั้งแต่เริ่มจนจบลง Google Sheet
+      </div>
+
+      <div class="menuStack">
+        <div>
+          <div class="sectionTitle">เลือกกลุ่มคำศัพท์</div>
+          <div class="bankGrid">
+            <button class="option bankBtn active" data-bank="A">
+              <h3>A • Software Engineering</h3>
+              <p>software, debug, deploy, API, repository, modularization</p>
+            </button>
+            <button class="option bankBtn" data-bank="B">
+              <h3>B • Data / Cloud / System</h3>
+              <p>database, query, server, authentication, pipeline, ETL</p>
+            </button>
+            <button class="option bankBtn" data-bank="C">
+              <h3>C • AI / Machine Learning</h3>
+              <p>model, feature, accuracy, embedding, tokenization, fine-tuning</p>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="sectionTitle">เลือกโหมดเล่น</div>
+          <div class="modeGrid">
+            <button class="option modeBtn active" data-mode="code_battle">
+              <h3>⚔️ Code Battle</h3>
+              <p>สู้บอสด้วยคำศัพท์และบริบทงาน</p>
+            </button>
+            <button class="option modeBtn" data-mode="debug_mission">
+              <h3>🧪 Debug Mission</h3>
+              <p>จับคำผิด แก้ usage และซ่อม bug</p>
+            </button>
+            <button class="option modeBtn" data-mode="ai_training">
+              <h3>🤖 AI Training Sim</h3>
+              <p>ดัน model score และคุม stability</p>
+            </button>
+            <button class="option modeBtn" data-mode="speed_run">
+              <h3>⚡ Speed Run</h3>
+              <p>ตอบไว เก็บ multiplier แข่งเวลา</p>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="sectionTitle">ข้อมูลผู้เรียน</div>
+          <div class="profileGrid">
+            <div class="inputBox">
+              <label for="displayNameInput">Display Name</label>
+              <input id="displayNameInput" type="text" maxlength="24" placeholder="เช่น Mint / Arm / AomAI" />
+            </div>
+            <div class="inputBox">
+              <label for="studentIdInput">Student ID</label>
+              <input id="studentIdInput" type="text" maxlength="24" placeholder="เช่น 6512345678" />
+            </div>
+            <div class="inputBox">
+              <label for="sectionInput">Section / ห้องเรียน</label>
+              <input id="sectionInput" type="text" maxlength="24" placeholder="เช่น CS4 / AI3 / SEC01" />
+            </div>
+            <div class="inputBox">
+              <label for="sessionCodeInput">Session Code</label>
+              <input id="sessionCodeInput" type="text" maxlength="24" placeholder="เช่น S01 / WEEK3 / MIDTERM-A" />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sectionTitle">Leaderboard ตอนนี้</div>
+          <div class="top3Board" id="menuTop3Board"></div>
+        </div>
+
+        <div>
+          <div class="sectionTitle">เริ่มใช้งาน</div>
+          <div class="actionGrid">
+            <button class="btn" id="startBtn">START PRODUCTION RUN</button>
+            <button class="btn alt" id="leaderboardBtn">LEADERBOARD</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="teacherLinkWrap">
+    <div class="panel" style="width:min(760px,94vw)">
+      <h2 style="margin:0">Teacher Dashboard Link</h2>
+      <div class="desc">ลิงก์นี้สำหรับครูเท่านั้น ใช้เปิด dashboard แยกโดยตรง ไม่แสดงในหน้าเมนูนักศึกษา</div>
+      <div class="profileGrid" style="margin-top:16px">
+        <div class="inputBox">
+          <label for="teacherPassInput">Teacher Passcode</label>
+          <input id="teacherPassInput" type="text" maxlength="32" placeholder="เช่น teacher123 / CSAI2026" />
+        </div>
+        <div class="inputBox">
+          <label for="teacherLinkOutput">Teacher Link</label>
+          <input id="teacherLinkOutput" type="text" readonly />
+        </div>
+      </div>
+      <div class="secretNote">หน้า teacher mode จะเปิดได้เมื่อ query มีทั้ง <span class="mono">?teacher=1</span> และ passcode ตรงกับค่าที่ฝั่งครูตั้งไว้</div>
+      <div class="actionGrid" style="margin-top:14px; grid-template-columns:1fr 1fr 1fr;">
+        <button class="btn" id="generateTeacherLinkBtn">GENERATE LINK</button>
+        <button class="btn ghost" id="copyTeacherLinkBtn">COPY LINK</button>
+        <button class="btn ghost" id="closeTeacherLinkBtn">CLOSE</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="endWrap">
+    <div class="panel" style="width:min(760px,94vw)">
+      <h2 style="margin:0">Run Complete</h2>
+      <div class="desc" id="endSummaryText">สรุปผล</div>
+      <div class="actionGrid" style="margin-top:16px; grid-template-columns:1fr 1fr 1fr;">
+        <button class="btn" id="endPlayAgainBtn">PLAY AGAIN</button>
+        <button class="btn ghost" id="endLeaderboardBtn">LEADERBOARD</button>
+        <button class="btn alt" id="endMenuBtn">BACK TO MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="leaderboardWrap">
+    <div class="panel">
+      <h2 style="margin:0">Leaderboard</h2>
+      <div class="desc">แสดงผล 10 อันดับสูงสุดของโหมด production run</div>
+      <ul class="leaderboardList" id="leaderboardList"></ul>
+      <div class="actionGrid" style="margin-top:14px;">
+        <button class="btn ghost" id="closeLeaderboardBtn">CLOSE</button>
+        <button class="btn alt" id="clearLeaderboardBtn">CLEAR LEADERBOARD</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="teacherWrap">
+    <div class="panel">
+      <h2 style="margin:0">Teacher Dashboard</h2>
+      <div class="desc">Dashboard-only mode สำหรับครู ดูคำที่อ่อนที่สุด สถิติรายคำ และ session log ล่าสุด</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Term</th>
+            <th>Seen</th>
+            <th>Correct</th>
+            <th>Wrong</th>
+            <th>Level</th>
+            <th>Highest</th>
+          </tr>
+        </thead>
+        <tbody id="teacherTable"></tbody>
+      </table>
+      <ul class="sessionList" id="weakList"></ul>
+      <div class="actionGrid" style="margin-top:14px;">
+        <button class="btn ghost" id="closeTeacherBtn">CLOSE</button>
+        <button class="btn alt" id="clearTeacherBtn">CLEAR STATS</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
 (() => {
-  installVocabGuards({ engineName: 'vocab-engine.js' });
-
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-
-  const els = {
-    menu: document.getElementById('menu'),
-    endWrap: document.getElementById('endWrap'),
-    leaderboardWrap: document.getElementById('leaderboardWrap'),
-    teacherWrap: document.getElementById('teacherWrap'),
-    teacherLinkWrap: document.getElementById('teacherLinkWrap'),
-    teacherPassInput: document.getElementById('teacherPassInput'),
-    teacherLinkOutput: document.getElementById('teacherLinkOutput'),
-    questionBox: document.getElementById('questionBox'),
-    feedbackBox: document.getElementById('feedbackBox'),
-    hudPrompt: document.getElementById('hudPrompt'),
-    hudScore: document.getElementById('hudScore'),
-    hudRound: document.getElementById('hudRound'),
-    hudCombo: document.getElementById('hudCombo'),
-    hudMode: document.getElementById('hudMode'),
-    hudHp: document.getElementById('hudHp'),
-    hudState: document.getElementById('hudState'),
-    timeFill: document.getElementById('timeFill'),
-    displayNameInput: document.getElementById('displayNameInput'),
-    studentIdInput: document.getElementById('studentIdInput'),
-    sectionInput: document.getElementById('sectionInput'),
-    sessionCodeInput: document.getElementById('sessionCodeInput'),
-    menuTop3Board: document.getElementById('menuTop3Board'),
-    leaderboardList: document.getElementById('leaderboardList'),
-    teacherTable: document.getElementById('teacherTable'),
-    weakList: document.getElementById('weakList'),
-    endSummaryText: document.getElementById('endSummaryText')
+  const KEYS = {
+    section: 'VOCAB_SECTION',
+    sessionCode: 'VOCAB_SESSION_CODE'
   };
 
-  const TEACHER_KEY = 'VOCAB_V9_TEACHER_LAST';
-  const PROFILE_KEY = 'VOCAB_V9_PROFILE';
-  const SESSION_KEY = 'VOCAB_V9_SESSIONS';
-  const TEACHER_PASS_KEY = 'VOCAB_V9_TEACHER_PASS_HASH';
-  const GLOBAL_LB_CACHE_KEY = 'VOCAB_V9_GLOBAL_LB_CACHE';
-
-  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwe1R6e_771rxLsBct6nypvOvHn6vZhdBeCf0p3Kr2v_9phhMFbwBqLnV5Ug2ZAnBG2/exec';
-  const VOCAB_SHEET_SOURCE = 'vocab.html';
-  const VOCAB_SHEET_SCHEMA = 'vocab-v3';
-
-  function bangkokIsoNow(){
-    try{
-      const parts = new Intl.DateTimeFormat('sv-SE', {
-        timeZone: 'Asia/Bangkok',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      }).formatToParts(new Date());
-      const map = {};
-      for (const p of parts) if (p.type !== 'literal') map[p.type] = p.value;
-      return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}:${map.second}+07:00`;
-    }catch(_){
-      return new Date().toISOString();
-    }
-  }
-
-  function fireAndForget(promise, label='async'){
-    Promise.resolve(promise).catch(err => {
-      console.warn(label + ' failed:', err);
-    });
-  }
-
-  function setText(el, value){
-    if (el) el.textContent = value;
-  }
-
-  function now(){
-    return performance.now();
-  }
-
-  function clamp(v, min, max){
-    return Math.max(min, Math.min(max, v));
-  }
-
-  function shuffle(arr){
-    const a = arr.slice();
-    for(let i = a.length - 1; i > 0; i--){
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  function weightedPick(items, weightGetter){
-    const expanded = [];
-    items.forEach(item => {
-      const w = Math.max(0, Number(weightGetter(item) || 0));
-      for(let i=0;i<w;i++) expanded.push(item);
-    });
-    if (!expanded.length) return items[Math.floor(Math.random() * items.length)] || null;
-    return expanded[Math.floor(Math.random() * expanded.length)] || null;
-  }
-
-  function center(){
-    return { x: width * 0.5, y: height * 0.60 };
-  }
-
-  function postSheetAction(action, payload, timeoutMs = 2500){
-    const envelope = {
-      source: VOCAB_SHEET_SOURCE,
-      schema: VOCAB_SHEET_SCHEMA,
-      action,
-      timestamp: bangkokIsoNow(),
-      payload
-    };
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    return fetch(VOCAB_SHEET_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(envelope),
-      keepalive: true,
-      signal: controller.signal
-    })
-      .then(async res => {
-        clearTimeout(timer);
-        let data = null;
-        try{
-          data = await res.json();
-        }catch(_){}
-        return { ok: res.ok, status: res.status, data };
-      })
-      .catch(err => {
-        clearTimeout(timer);
-        throw err;
-      });
-  }
-
-  function compactMastery(){
-    return Object.fromEntries(
-      Object.entries(V9.mastery || {}).map(([k, v]) => [k, {
-        level: v.level || 'easy',
-        highestLevel: v.highestLevel || 'easy',
-        seen: Number(v.seen || 0),
-        correct: Number(v.correct || 0),
-        wrong: Number(v.wrong || 0)
-      }])
-    );
-  }
-
-  function weakestTermsForSheet(limit = 5){
-    return Object.entries(V9.mastery || {})
-      .map(([termId, m]) => ({
-        termId,
-        seen: Number(m.seen || 0),
-        correct: Number(m.correct || 0),
-        wrong: Number(m.wrong || 0),
-        level: m.level || 'easy',
-        highestLevel: m.highestLevel || 'easy',
-        accuracy: m.seen ? Number((((m.correct || 0) * 100) / m.seen).toFixed(2)) : 0
-      }))
-      .filter(x => x.seen > 0)
-      .sort((a,b) => (b.wrong - a.wrong) || (a.accuracy - b.accuracy))
-      .slice(0, limit);
-  }
-
-  function buildAiRecommendation(accuracy){
-    const weak = weakestTermsForSheet(5);
-    const wrongSum = weak.reduce((s, x) => s + Number(x.wrong || 0), 0);
-
-    if (accuracy < 60 || wrongSum >= 6){
-      return {
-        recommendedMode: 'debug_mission',
-        recommendedDifficulty: 'easy',
-        aiReason: 'ยังมีคำอ่อนหลายคำ ควรทบทวนแบบช้าชัดและซ่อม usage ก่อน'
-      };
-    }
-    if (accuracy < 80){
-      return {
-        recommendedMode: 'ai_training',
-        recommendedDifficulty: 'normal',
-        aiReason: 'เริ่มดีขึ้นแล้ว ควรฝึกบริบทการใช้งานจริงเพิ่ม'
-      };
-    }
-    return {
-      recommendedMode: 'code_battle',
-      recommendedDifficulty: 'hard',
-      aiReason: 'ทำได้ดีแล้ว เพิ่มความท้าทายได้'
-    };
-  }
-
-  function readTrimmed(el){
-    return (el?.value || '').trim();
-  }
-
-  function getContextMeta(){
-    const q = new URLSearchParams(location.search);
-    const sectionDom = readTrimmed(els.sectionInput);
-    const sessionCodeDom = readTrimmed(els.sessionCodeInput);
-
-    return {
-      timestamp: bangkokIsoNow(),
-      session_id: currentSessionId || '',
-      display_name: profile.displayName || 'Player',
-      student_id: profile.studentId || '',
-      section: sectionDom || q.get('section') || localStorage.getItem('VOCAB_SECTION') || '',
-      session_code: sessionCodeDom || q.get('session_code') || q.get('sessionCode') || localStorage.getItem('VOCAB_SESSION_CODE') || '',
-      bank: V9.bank || '',
-      mode: V9.mode || ''
-    };
-  }
-
-  function getAccuracyAndMistakes(){
-    const rows = Object.values(V9.mastery || {});
-    const totalSeen = rows.reduce((s,m) => s + Number(m.seen || 0), 0);
-    const totalCorrect = rows.reduce((s,m) => s + Number(m.correct || 0), 0);
-    const totalWrong = rows.reduce((s,m) => s + Number(m.wrong || 0), 0);
-    return {
-      total_seen: totalSeen,
-      total_correct: totalCorrect,
-      mistakes: totalWrong,
-      accuracy: totalSeen ? Number(((totalCorrect / totalSeen) * 100).toFixed(2)) : 0
-    };
-  }
-
-  function getWeakestTerm(){
-    const first = Object.entries(V9.mastery || {})
-      .sort((a,b) => (b[1].wrong - a[1].wrong) || (a[1].correct - b[1].correct))[0];
-    return first ? first[0] : '';
-  }
-
-  function getWeakTermsJson(limit = 5){
-    return JSON.stringify(weakestTermsForSheet(limit));
-  }
-
-  function loadProfile(){
-    try{
-      const raw = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}');
-      profile.displayName = raw.displayName || 'Player';
-      profile.studentId = raw.studentId || '';
-      if (els.displayNameInput) els.displayNameInput.value = profile.displayName === 'Player' ? '' : profile.displayName;
-      if (els.studentIdInput) els.studentIdInput.value = profile.studentId;
-    }catch(_){}
-  }
-
-  function saveProfile(){
-    profile.displayName = readTrimmed(els.displayNameInput) || 'Player';
-    profile.studentId = readTrimmed(els.studentIdInput);
-
-    try{
-      localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-      if (els.sectionInput) localStorage.setItem('VOCAB_SECTION', readTrimmed(els.sectionInput));
-      if (els.sessionCodeInput) localStorage.setItem('VOCAB_SESSION_CODE', readTrimmed(els.sessionCodeInput));
-    }catch(err){
-      console.warn('saveProfile failed:', err);
-    }
-  }
-
-  function saveSessionLocal(payload){
-    try{
-      const rows = JSON.parse(localStorage.getItem(SESSION_KEY) || '[]');
-      rows.push(payload);
-
-      const slim = rows.slice(-120).map(r => ({
-        action: r.action || r.type || '',
-        timestamp: r.timestamp || r.ts || '',
-        session_id: r.session_id || r.sessionId || '',
-        display_name: r.display_name || r.displayName || '',
-        student_id: r.student_id || r.studentId || '',
-        bank: r.bank || '',
-        mode: r.mode || '',
-        term_id: r.term_id || r.termId || '',
-        is_correct: r.is_correct,
-        score: r.score || 0,
-        combo: r.combo || 0,
-        stage_index: r.stage_index || r.stage || 0
-      }));
-
-      localStorage.setItem(SESSION_KEY, JSON.stringify(slim));
-    }catch(err){
-      console.warn('saveSessionLocal skipped:', err);
-      try{ localStorage.removeItem(SESSION_KEY); }catch(_){}
-    }
-  }
-
-  async function saveSessionRealtime(action, payload){
-    saveSessionLocal({ action, ...payload });
-
-    try{
-      return await postSheetAction(action, payload, 2500);
-    }catch(err){
-      console.warn('Sheet upload failed; kept local only', err);
-      return { ok: false, error: String(err), payload };
-    }
-  }
-
-  async function logEvent(type, data = {}){
-    const payload = {
-      type,
-      sessionId: currentSessionId,
-      displayName: profile.displayName || 'Player',
-      studentId: profile.studentId || '',
-      bank: V9.bank,
-      mode: V9.mode,
-      ts: bangkokIsoNow(),
-      ...data
-    };
-    return saveSessionRealtime(type, payload);
-  }
-
-  async function sendTermAnswerRow({ item, isCorrect, levelBefore, levelAfter, responseMs }){
-    if (!item) return;
-
-    const meta = getContextMeta();
-
-    return saveSessionRealtime('term_answer', {
-      timestamp: bangkokIsoNow(),
-      session_id: meta.session_id,
-      display_name: meta.display_name,
-      student_id: meta.student_id,
-      section: meta.section,
-      session_code: meta.session_code,
-      bank: meta.bank,
-      mode: meta.mode,
-      term_id: item.termId || '',
-      term: item.term || '',
-      variant_type: item.type || '',
-      is_correct: !!isCorrect,
-      level_before: levelBefore || '',
-      level_after: levelAfter || '',
-      from_review: !!item.fromReview,
-      response_ms: Number(responseMs || 0),
-      score: Number(V9.score || 0),
-      combo: Number(V9.combo || 0),
-      stage_index: Number((V9.stageIndex || 0) + 1)
-    });
-  }
-
-  async function logGameEntry(){
-    currentSessionId = createSessionId();
-    sessionStartedAt = bangkokIsoNow();
-
-    const meta = getContextMeta();
-
-    return saveSessionRealtime('session_start', {
-      timestamp: bangkokIsoNow(),
-      session_id: currentSessionId,
-      display_name: meta.display_name,
-      student_id: meta.student_id,
-      section: meta.section,
-      session_code: meta.session_code,
-      bank: meta.bank,
-      mode: meta.mode,
-      started_at: sessionStartedAt,
-      ended_at: '',
-      duration_sec: '',
-      score: '',
-      accuracy: '',
-      mistakes: '',
-      weakest_term: '',
-      ai_recommended_mode: '',
-      ai_recommended_difficulty: '',
-      ai_reason: '',
-      page_url: location.href,
-      user_agent: navigator.userAgent
-    });
-  }
-
-  async function logGameEnd(summary){
-    const endedAt = bangkokIsoNow();
-    const durationSec = sessionStartedAt
-      ? Math.max(0, Math.round((new Date(endedAt) - new Date(sessionStartedAt)) / 1000))
-      : 0;
-
-    const meta = getContextMeta();
-    const stats = getAccuracyAndMistakes();
-    const weakestTerm = getWeakestTerm();
-    const weakTermsJson = getWeakTermsJson(5);
-    const masteryJson = JSON.stringify(compactMastery());
-    const ai = buildAiRecommendation(stats.accuracy);
-
-    await saveSessionRealtime('session_end', {
-      timestamp: bangkokIsoNow(),
-      session_id: currentSessionId,
-      display_name: meta.display_name,
-      student_id: meta.student_id,
-      section: meta.section,
-      session_code: meta.session_code,
-      bank: meta.bank,
-      mode: meta.mode,
-      started_at: sessionStartedAt,
-      ended_at: endedAt,
-      duration_sec: durationSec,
-      score: Number(summary.score || 0),
-      accuracy: Number(stats.accuracy || 0),
-      mistakes: Number(stats.mistakes || 0),
-      weakest_term: weakestTerm,
-      ai_recommended_mode: ai.recommendedMode,
-      ai_recommended_difficulty: ai.recommendedDifficulty,
-      ai_reason: ai.aiReason,
-      page_url: location.href,
-      user_agent: navigator.userAgent
-    });
-
-    await saveSessionRealtime('student_profile_upsert', {
-      timestamp: bangkokIsoNow(),
-      student_id: meta.student_id,
-      display_name: meta.display_name,
-      section: meta.section,
-      last_session_id: currentSessionId,
-      last_bank: meta.bank,
-      last_mode: meta.mode,
-      last_score: Number(summary.score || 0),
-      last_accuracy: Number(stats.accuracy || 0),
-      recommended_mode: ai.recommendedMode,
-      recommended_difficulty: ai.recommendedDifficulty,
-      weak_terms_json: weakTermsJson,
-      mastery_json: masteryJson
-    });
-  }
-
-  function saveLeaderboardCache(rows){
-    try{
-      const slim = (rows || []).slice(0, 50).map(r => ({
-        timestamp: r.timestamp || '',
-        player_key: r.player_key || '',
-        display_name: r.display_name || '',
-        student_id: r.student_id || '',
-        section: r.section || '',
-        session_code: r.session_code || '',
-        bank: r.bank || '',
-        mode: r.mode || '',
-        best_score: Number(r.best_score || 0),
-        best_accuracy: Number(r.best_accuracy || 0),
-        last_when: r.last_when || '',
-        best_session_id: r.best_session_id || ''
-      }));
-      localStorage.setItem(GLOBAL_LB_CACHE_KEY, JSON.stringify(slim));
-    }catch(err){
-      console.warn('saveLeaderboardCache failed:', err);
-    }
-  }
-
-  function loadLeaderboardCache(){
-    try{
-      const rows = JSON.parse(localStorage.getItem(GLOBAL_LB_CACHE_KEY) || '[]');
-      return Array.isArray(rows) ? rows : [];
-    }catch(_){
-      return [];
-    }
-  }
-
-  async function fetchGlobalLeaderboard(){
-    try{
-      const result = await postSheetAction('leaderboard_get', {}, 3500);
-      const rows = Array.isArray(result?.data?.rows) ? result.data.rows : [];
-      globalLeaderboardRows = rows;
-      saveLeaderboardCache(rows);
-      return rows;
-    }catch(err){
-      console.warn('fetchGlobalLeaderboard failed:', err);
-      return globalLeaderboardRows || [];
-    }
-  }
-
-  async function upsertGlobalLeaderboard(entry){
-    try{
-      return await postSheetAction('leaderboard_upsert', entry, 3500);
-    }catch(err){
-      console.warn('upsertGlobalLeaderboard failed:', err);
-      return { ok: false, error: String(err) };
-    }
-  }
-
-  function buildGlobalLeaderboardEntry(summary){
-    const totalSeen = Object.values(summary.mastery || {}).reduce((s,m) => s + Number(m.seen || 0), 0);
-    const totalCorrect = Object.values(summary.mastery || {}).reduce((s,m) => s + Number(m.correct || 0), 0);
-    const accuracy = totalSeen ? Math.round((totalCorrect / totalSeen) * 100) : 0;
-    const meta = getContextMeta();
-    const playerKey = String(meta.student_id || meta.display_name || 'anonymous').trim();
-
-    return {
-      timestamp: bangkokIsoNow(),
-      player_key: playerKey,
-      display_name: meta.display_name,
-      student_id: meta.student_id,
-      section: meta.section,
-      session_code: meta.session_code,
-      bank: meta.bank,
-      mode: meta.mode,
-      best_score: Number(summary.score || 0),
-      best_accuracy: Number(accuracy || 0),
-      last_when: bangkokIsoNow(),
-      best_session_id: currentSessionId || ''
-    };
-  }
-
-  function renderMenuTop3(){
-    const rows = (globalLeaderboardRows || []).slice(0, 3);
-    els.menuTop3Board.innerHTML = '';
-
-    if (!rows.length){
-      els.menuTop3Board.innerHTML = '<div class="top3Card"><div class="rank">—</div><div class="name">ยังไม่มีคะแนน</div><div class="meta">เริ่มเล่นเพื่อขึ้นอันดับ</div></div>';
-      return;
-    }
-
-    rows.forEach((r,i) => {
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-      const div = document.createElement('div');
-      div.className = 'top3Card';
-      div.innerHTML =
-        '<div class="rank">' + medal + '</div>' +
-        '<div class="name">' + (r.display_name || 'Player') + '</div>' +
-        '<div class="meta">Best Score ' + (r.best_score || 0) + '</div>' +
-        '<div class="meta">Accuracy ' + (r.best_accuracy || 0) + '%</div>';
-      els.menuTop3Board.appendChild(div);
-    });
-  }
-
-  function renderLeaderboard(){
-    const rows = globalLeaderboardRows || [];
-    els.leaderboardList.innerHTML = '';
-
-    if (!rows.length){
-      const li = document.createElement('li');
-      li.textContent = 'ยังไม่มี leaderboard';
-      els.leaderboardList.appendChild(li);
-      return;
-    }
-
-    rows.slice(0,10).forEach((r,i) => {
-      const li = document.createElement('li');
-      li.innerHTML =
-        '<strong>#' + (i + 1) + ' ' + (r.display_name || 'Player') + '</strong>' +
-        '<div class="small mono">Best Score ' + (r.best_score || 0) +
-        ' • Accuracy ' + (r.best_accuracy || 0) +
-        '% • Bank ' + (r.bank || '-') +
-        ' • Mode ' + (r.mode || '-') +
-        ' • ' + (r.last_when || '-') + '</div>';
-      els.leaderboardList.appendChild(li);
-    });
-  }
-
-  function renderTeacherDashboard(summary){
-    try{
-      localStorage.setItem(TEACHER_KEY, JSON.stringify(summary));
-    }catch(_){}
-
-    els.teacherTable.innerHTML = '';
-
-    const rows = Object.entries(summary.mastery).sort((a,b) => {
-      const wrongDiff = b[1].wrong - a[1].wrong;
-      if (wrongDiff !== 0) return wrongDiff;
-      return a[0].localeCompare(b[0]);
-    });
-
-    if (!rows.length){
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="6">No data yet</td>';
-      els.teacherTable.appendChild(tr);
-    } else {
-      rows.forEach(([term, m]) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML =
-          '<td>' + term.toUpperCase() + '</td>' +
-          '<td>' + m.seen + '</td>' +
-          '<td>' + m.correct + '</td>' +
-          '<td>' + m.wrong + '</td>' +
-          '<td>' + m.level + '</td>' +
-          '<td>' + m.highestLevel + '</td>';
-        els.teacherTable.appendChild(tr);
-      });
-    }
-
-    els.weakList.innerHTML = '';
-    summary.weakestTerms.forEach(([term, m]) => {
-      const li = document.createElement('li');
-      li.innerHTML =
-        '<strong>' + term.toUpperCase() + '</strong> • wrong ' + m.wrong +
-        ' • correct ' + m.correct +
-        ' • highest ' + m.highestLevel;
-      els.weakList.appendChild(li);
-    });
-  }
-
-  function levelRank(level){ return level === 'easy' ? 1 : level === 'normal' ? 2 : 3; }
-  function promoteLevel(level){ return level === 'easy' ? 'normal' : level === 'normal' ? 'hard' : 'hard'; }
-  function demoteLevel(level){ return level === 'hard' ? 'normal' : level === 'normal' ? 'easy' : 'easy'; }
-
-  function ensureMastery(termId){
-    if (!V9.mastery[termId]){
-      V9.mastery[termId] = {
-        level:'easy',
-        streak:0,
-        seen:0,
-        correct:0,
-        wrong:0,
-        highestLevel:'easy',
-        lastTypes:[]
-      };
-    }
-    return V9.mastery[termId];
-  }
-
-  function ensureWordSkill(termId){
-    if (!V9.wordSkill[termId]){
-      V9.wordSkill[termId] = { score:0.5, seen:0, correct:0, wrong:0, avgRtMs:0 };
-    }
-    return V9.wordSkill[termId];
-  }
-
-  function modeMeta(){
-    return {
-      code_battle: { damage:20, baseTime:6200, title:'CODE BATTLE' },
-      debug_mission: { damage:16, baseTime:7000, title:'DEBUG MISSION' },
-      ai_training: { damage:18, baseTime:6800, title:'AI TRAINING SIM' },
-      speed_run: { damage:14, baseTime:4200, title:'SPEED RUN' }
-    }[V9.mode];
-  }
-
-  function modeConfig(){
-    return {
-      code_battle: {
-        useBoss:true, useBugMeter:false, useModelMeter:false, useSpeedTimer:false,
-        questionWeights:{
-          definition_mcq:3,sentence_cloze:3,context_mcq:2,scenario:2,correct_usage:2,th_to_en:1,en_to_th:1,confusion_pair:1
-        }
-      },
-      debug_mission: {
-        useBoss:false, useBugMeter:true, useModelMeter:false, useSpeedTimer:false,
-        questionWeights:{
-          correct_usage:5,confusion_pair:4,sentence_cloze:3,context_mcq:2,definition_mcq:1,th_to_en:1,en_to_th:0,scenario:1
-        }
-      },
-      ai_training: {
-        useBoss:false, useBugMeter:false, useModelMeter:true, useSpeedTimer:false,
-        questionWeights:{
-          scenario:5,context_mcq:4,definition_mcq:3,sentence_cloze:2,correct_usage:2,confusion_pair:1,th_to_en:1,en_to_th:1
-        }
-      },
-      speed_run: {
-        useBoss:false, useBugMeter:false, useModelMeter:false, useSpeedTimer:true,
-        questionWeights:{
-          th_to_en:4,en_to_th:4,definition_mcq:3,context_mcq:2,sentence_cloze:1,correct_usage:1,confusion_pair:0,scenario:0
-        }
-      }
-    }[V9.mode];
-  }
-
-  function modeTheme(){
-    return {
-      code_battle: { accent:'#f472b6', accent2:'#67e8f9', badge:'⚔️ CODE BATTLE', bgTop:'#67d8ff', bgBottom:'#dbeafe', floor:'#dbeafe' },
-      debug_mission: { accent:'#fb923c', accent2:'#fde047', badge:'🧪 DEBUG MISSION', bgTop:'#93c5fd', bgBottom:'#e0f2fe', floor:'#e2e8f0' },
-      ai_training: { accent:'#a78bfa', accent2:'#67e8f9', badge:'🤖 AI TRAINING', bgTop:'#8b5cf6', bgBottom:'#dbeafe', floor:'#e9d5ff' },
-      speed_run: { accent:'#22d3ee', accent2:'#f43f5e', badge:'⚡ SPEED RUN', bgTop:'#38bdf8', bgBottom:'#e0f2fe', floor:'#cffafe' }
-    }[V9.mode];
-  }
-
-  function modeSummaryHint(){
-    if (V9.mode === 'code_battle') return 'ฝึกใช้คำศัพท์แบบผสมในสถานการณ์ต่อสู้กับบอส';
-    if (V9.mode === 'debug_mission') return 'ฝึกจับคำผิด การใช้คำให้ถูก และการแก้ bug เชิงภาษา';
-    if (V9.mode === 'ai_training') return 'ฝึกศัพท์และบริบทด้าน AI/ML แบบใช้งานจริง';
-    if (V9.mode === 'speed_run') return 'ฝึกตอบไว ทบทวนเร็ว และดึงคำศัพท์ออกมาใช้ทันที';
-    return '';
-  }
-
-  function applyModeHudTheme(){
-    const theme = modeTheme();
-    document.querySelectorAll('.hud .card').forEach(card => {
-      card.style.borderColor = theme.accent + '66';
-      card.style.boxShadow = '0 10px 32px rgba(0,0,0,.26), 0 0 0 1px ' + theme.accent + '22';
-    });
-  }
-
-  function modeFeedbackText(kind, value=''){
-    if (V9.mode === 'code_battle'){
-      if (kind === 'correct') return 'HIT +' + value;
-      if (kind === 'wrong') return 'WRONG -' + value + ' HP';
-      if (kind === 'timeout') return 'TIME OUT';
-    }
-    if (V9.mode === 'debug_mission'){
-      if (kind === 'correct') return 'BUG FIXED';
-      if (kind === 'wrong') return 'BUG ESCAPED';
-      if (kind === 'timeout') return 'SYSTEM WARNING';
-    }
-    if (V9.mode === 'ai_training'){
-      if (kind === 'correct') return 'MODEL IMPROVED +' + value;
-      if (kind === 'wrong') return 'MODEL DRIFT';
-      if (kind === 'timeout') return 'MODEL UNSTABLE';
-    }
-    if (V9.mode === 'speed_run'){
-      if (kind === 'correct') return 'PERFECT x' + value;
-      if (kind === 'wrong') return 'MISS';
-      if (kind === 'timeout') return 'TOO SLOW';
-    }
-    return '';
-  }
-
-  function bossBaseHp(){
-    const byMode = { code_battle:360, debug_mission:320, ai_training:340, speed_run:260 };
-    return byMode[V9.mode] || 320;
-  }
-
-  function bossAttackInterval(){
-    return V9.bossPhase === 1 ? 5200 : V9.bossPhase === 2 ? 4200 : 3200;
-  }
-
-  function bossPenaltyOnWrong(){
-    return V9.bossPhase === 1 ? 1 : 2;
-  }
-
-  function bossDamageFromCorrect(){
-    const base = modeMeta().damage;
-    const comboBonus = Math.min(V9.combo * 2, 14);
-    const phaseMod = V9.bossPhase === 3 ? -4 : V9.bossPhase === 2 ? -2 : 0;
-    return Math.max(8, base - 6 + comboBonus + phaseMod);
-  }
-
-  function updateBossPhase(){
-    if (!modeConfig().useBoss) return;
-    const ratio = V9.bossMaxHp > 0 ? V9.bossHp / V9.bossMaxHp : 0;
-    let nextPhase = 1;
-    if (ratio <= 0.40) nextPhase = 3;
-    else if (ratio <= 0.70) nextPhase = 2;
-
-    if (nextPhase !== V9.bossPhase){
-      V9.bossPhase = nextPhase;
-      fireAndForget(logEvent('phase_change', {
-        phase: V9.bossPhase,
-        bossHp: V9.bossHp,
-        bossMaxHp: V9.bossMaxHp,
-        stage: V9.stageIndex + 1
-      }), 'phase_change');
-
-      if (nextPhase === 2) showFeedback('BOSS PHASE 2', 'warn');
-      if (nextPhase === 3) showFeedback('RAGE MODE', 'bad');
-    }
-  }
-
-  function updateRunDifficulty(){
-    if (V9.combo >= 8) V9.runDifficulty = 'hard';
-    else if (V9.combo >= 4) V9.runDifficulty = 'normal';
-    else V9.runDifficulty = 'easy';
-    if (V9.hp <= 2 && V9.runDifficulty === 'hard') V9.runDifficulty = 'normal';
-    if (V9.hp <= 1) V9.runDifficulty = 'easy';
-  }
-
-  function getAdaptiveDifficultyForWord(termId){
-    const s = ensureWordSkill(termId);
-    if (s.score < 0.35) return 'easy';
-    if (s.score < 0.7) return 'normal';
-    return 'hard';
-  }
-
-  function updateWordSkill(termId, isCorrect, rtMs){
-    const s = ensureWordSkill(termId);
-    s.seen += 1;
-    if (isCorrect){
-      s.correct += 1;
-      s.score = Math.min(1, s.score + 0.08);
-    } else {
-      s.wrong += 1;
-      s.score = Math.max(0, s.score - 0.12);
-    }
-    if (rtMs > 0){
-      s.avgRtMs = s.avgRtMs === 0 ? rtMs : Math.round((s.avgRtMs * 0.7) + (rtMs * 0.3));
-    }
-  }
-
-  function updateMasteryAfterAnswer(termId, isCorrect, variantType){
-    const m = ensureMastery(termId);
-    m.seen += 1;
-    if (isCorrect){
-      m.correct += 1;
-      m.streak += 1;
-      if (m.streak >= 2){
-        m.level = promoteLevel(m.level);
-        m.streak = 0;
-      }
-    } else {
-      m.wrong += 1;
-      m.streak = 0;
-      m.level = demoteLevel(m.level);
-    }
-    if (levelRank(m.level) > levelRank(m.highestLevel)) m.highestLevel = m.level;
-    m.lastTypes.push(variantType);
-    if (m.lastTypes.length > 5) m.lastTypes.shift();
-  }
-
-  function enqueueReview(termId){
-    if (!V9.reviewQueue.includes(termId)) V9.reviewQueue.push(termId);
-  }
-
-  function takeReviewTermId(){
-    return V9.reviewQueue.length ? V9.reviewQueue.shift() : null;
+  function qs(name){
+    return new URLSearchParams(location.search).get(name) || '';
   }
 
-  function pushRecentWord(termId){
-    V9.recentWords.push(termId);
-    if (V9.recentWords.length > 5) V9.recentWords.shift();
-  }
-
-  function pushRecentQuestionType(type){
-    V9.recentQuestionTypes.push(type);
-    if (V9.recentQuestionTypes.length > 6) V9.recentQuestionTypes.shift();
-  }
-
-  function getWeakWordIds(limit = 5){
-    return Object.keys(V9.wordSkill)
-      .sort((a,b) => ensureWordSkill(a).score - ensureWordSkill(b).score)
-      .slice(0, limit);
-  }
-
-  function getCurrentBankTerms(){
-    return VOCAB_BANKS[V9.bank] || [];
-  }
-
-  function pickNextTermObject(){
-    const terms = getCurrentBankTerms();
-    if (!terms.length) return null;
-
-    const shouldUseReview = V9.stageIndex > 0 && V9.stageIndex % 4 === 0;
-    if (shouldUseReview){
-      const reviewId = takeReviewTermId();
-      if (reviewId){
-        const found = terms.find(t => t.id === reviewId);
-        if (found) return { termObj: found, fromReview: true };
-      }
-    }
-
-    if (V9.stageIndex > 0 && V9.stageIndex % 5 === 0){
-      const weakIds = getWeakWordIds(5).filter(id => !V9.recentWords.includes(id));
-      if (weakIds.length){
-        const pickedWeak = terms.find(t => t.id === weakIds[0]);
-        if (pickedWeak) return { termObj: pickedWeak, fromReview: false };
-      }
-    }
-
-    let candidates = terms.filter(t => !V9.recentWords.includes(t.id));
-    if (!candidates.length) candidates = terms.slice();
-
-    candidates.sort((a,b) => ensureWordSkill(a.id).score - ensureWordSkill(b.id).score);
-    const topPool = candidates.slice(0, Math.max(3, Math.ceil(candidates.length * 0.6)));
-    const chosen = topPool[Math.floor(Math.random() * topPool.length)];
-    return { termObj: chosen, fromReview: false };
-  }
-
-  function getModeWeightedVariants(pool){
-    const weights = modeConfig().questionWeights || {};
-    const filtered = pool.filter(v => (weights[v.type] || 0) > 0);
-    return filtered.length ? filtered : pool;
-  }
-
-  function shouldSkipByMode(item){
-    if (V9.mode === 'debug_mission') return item.type === 'en_to_th';
-    if (V9.mode === 'speed_run') return item.type === 'scenario' || item.type === 'confusion_pair';
-    return false;
-  }
-
-  function pickVariantForTerm(termObj){
-    const adaptiveLevel = getAdaptiveDifficultyForWord(termObj.id);
-    const pool = termObj.variants[adaptiveLevel] || [];
-    const weights = modeConfig().questionWeights || {};
-
-    let candidates = pool.filter(v => !V9.usedVariantIds.has(v.id));
-    candidates = candidates.filter(v => !V9.recentQuestionTypes.includes(v.type));
-    candidates = candidates.filter(v => !shouldSkipByMode(v));
-
-    if (!candidates.length) candidates = pool.filter(v => !V9.usedVariantIds.has(v.id));
-    if (!candidates.length) candidates = pool.slice();
-
-    candidates = getModeWeightedVariants(candidates);
-
-    const chosen = weightedPick(candidates, v => weights[v.type] || 0) || candidates[0];
-
-    return Object.assign({}, chosen, {
-      level: adaptiveLevel,
-      termId: termObj.id,
-      term: termObj.term,
-      th: termObj.th,
-      definition: termObj.definition,
-      distractorPool: termObj.distractorPool
-    });
-  }
-
-  function buildChoices(item){
-    const bankTerms = getCurrentBankTerms();
-
-    if (item.type === 'en_to_th'){
-      const thaiPool = bankTerms.filter(t => t.id !== item.termId).map(t => t.th);
-      return shuffle([item.answer].concat(thaiPool.slice(0,3)));
-    }
-
-    let distractors = (item.distractorPool || []).filter(d => d !== item.answer);
-    distractors = distractors.slice(0,3);
-    return shuffle([item.answer].concat(distractors));
-  }
-
-  function normalizeItemForMode(item){
-    if (V9.mode !== 'speed_run') return item;
-    const shortPromptMap = {
-      th_to_en: `“${item.th}” คือคำว่าอะไร?`,
-      en_to_th: `${item.term} แปลว่าอะไร?`,
-      definition_mcq: item.definition,
-      context_mcq: item.prompt,
-      sentence_cloze: item.prompt
-    };
-    if (shortPromptMap[item.type]) item.prompt = shortPromptMap[item.type];
-    return item;
-  }
-
-  function buildQuestionItem(){
-    const picked = pickNextTermObject();
-    if (!picked) return null;
-
-    const termObj = picked.termObj;
-    const fromReview = picked.fromReview;
-    const variant = pickVariantForTerm(termObj);
-
-    V9.usedVariantIds.add(variant.id);
-    V9.usedTermIds.push(termObj.id);
-    pushRecentWord(termObj.id);
-    pushRecentQuestionType(variant.type);
-
-    const item = Object.assign({}, variant, {
-      fromReview,
-      choices: buildChoices(variant)
-    });
-
-    return normalizeItemForMode(item);
-  }
-
-  function renderQuestionBox(item){
-    const theme = modeTheme();
-    const meta = theme.badge + ' • ' + item.type.toUpperCase() + ' • ' + item.level.toUpperCase() + (item.fromReview ? ' • REVIEW' : '');
-    els.questionBox.innerHTML =
-      '<div class="q-meta">' + meta + '</div>' +
-      '<div class="q-prompt">' + item.prompt + '</div>';
-    els.questionBox.style.borderColor = theme.accent;
-    els.questionBox.style.boxShadow = '0 14px 30px rgba(0,0,0,.22), 0 0 0 2px ' + theme.accent + '22';
-  }
-
-  function showFeedback(text, kind){
-    els.feedbackBox.textContent = text;
-    els.feedbackBox.className = '';
-    els.feedbackBox.id = 'feedbackBox';
-    els.feedbackBox.classList.add('show', kind);
-    setTimeout(() => { els.feedbackBox.classList.remove('show'); }, 650);
-  }
-
-  function renderHud(){
-    const shownStage = Math.min(V9.stageIndex + 1, V9.maxStages);
-    const cfg = modeConfig();
-
-    setText(els.hudScore, 'Score ' + V9.score);
-    setText(els.hudRound, 'Stage ' + shownStage + ' / ' + V9.maxStages);
-
-    if (cfg.useBoss){
-      setText(els.hudCombo, 'Combo x' + V9.combo);
-      setText(els.hudMode, 'Difficulty ' + V9.runDifficulty.toUpperCase());
-      setText(els.hudHp, 'HP ' + V9.hp + ' • Boss ' + Math.max(0, V9.bossHp) + '/' + V9.bossMaxHp);
-      setText(els.hudState, 'BOSS • P' + V9.bossPhase);
-    } else if (cfg.useBugMeter){
-      setText(els.hudCombo, 'Fixed ' + V9.bugFixed);
-      setText(els.hudMode, 'Escaped ' + V9.bugEscaped + '/' + V9.maxBugEscaped);
-      setText(els.hudHp, 'HP ' + V9.hp);
-      setText(els.hudState, 'DEBUG MISSION');
-    } else if (cfg.useModelMeter){
-      setText(els.hudCombo, 'Model ' + V9.modelScore + '/' + V9.modelTarget);
-      setText(els.hudMode, 'Stability ' + V9.modelStability + '%');
-      setText(els.hudHp, 'HP ' + V9.hp);
-      setText(els.hudState, 'AI TRAINING');
-    } else if (cfg.useSpeedTimer){
-      setText(els.hudCombo, 'x' + V9.multiplier + ' MULTI');
-      setText(els.hudMode, 'Time ' + V9.speedRunTimeLeft + 's');
-      setText(els.hudHp, 'HP ' + V9.hp);
-      setText(els.hudState, 'SPEED RUN');
-    }
-
-    setText(
-      els.hudPrompt,
-      V9.currentItem ? (V9.currentItem.term.toUpperCase() + ' • ' + modeMeta().title) : 'Contextual learning • adaptive difficulty • review queue'
-    );
-
-    els.timeFill.style.transform = 'scaleX(' + timeLeft + ')';
-    applyModeHudTheme();
-  }
-
-  function drawRoundRect(x, y, w, h, r){
-    ctx.beginPath();
-    ctx.moveTo(x+r,y);
-    ctx.lineTo(x+w-r,y);
-    ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-    ctx.lineTo(x+w,y+h-r);
-    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-    ctx.lineTo(x+r,y+h);
-    ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-    ctx.lineTo(x,y+r);
-    ctx.quadraticCurveTo(x,y,x+r,y);
-    ctx.closePath();
-  }
-
-  function wrapText(text, cx, cy, maxW, maxLines, fs){
-    ctx.font = '800 ' + fs + 'px Arial';
-    const words = String(text).split(' ');
-    const lines = [];
-    let line = '';
-
-    for (const word of words){
-      const test = line ? line + ' ' + word : word;
-      if (ctx.measureText(test).width <= maxW || !line) line = test;
-      else {
-        lines.push(line);
-        line = word;
-      }
-    }
-    if (line) lines.push(line);
-
-    const use = lines.slice(0, maxLines);
-    const lh = fs * 1.16;
-    const sy = cy - ((use.length - 1) * lh) / 2;
-    use.forEach((ln, i) => ctx.fillText(ln, cx, sy + i * lh));
-  }
-
-  function spawnTargetsFromChoices(choices){
-    const c = center();
-    const mobile = width < 860;
-    const theme = modeTheme();
-
-    if (mobile){
-      const ys = [height * 0.40, height * 0.54, height * 0.68, height * 0.82];
-      targets = choices.map((choice, i) => ({
-        id: 'target_' + i + '_' + Date.now(),
-        text: String(choice).toUpperCase(),
-        rawText: String(choice).toLowerCase(),
-        x: c.x,
-        y: ys[i] || (height * 0.4 + i * 90),
-        angle: 0,
-        radiusBase: 0,
-        radiusPulse: 0,
-        speed: 0,
-        w: Math.min(320, width * 0.76),
-        h: 74,
-        scale: 1,
-        z: 1,
-        color: [theme.accent2, theme.accent, '#fde047', '#ffffff'][i % 4],
-        hitFlash: 0,
-        mobile: true
-      }));
-      return;
-    }
-
-    targets = choices.map((choice, i) => {
-      const angle = (Math.PI * 2 / choices.length) * i;
-      return {
-        id: 'target_' + i + '_' + Date.now(),
-        text: String(choice).toUpperCase(),
-        rawText: String(choice).toLowerCase(),
-        x: c.x + Math.cos(angle) * 180,
-        y: c.y + Math.sin(angle) * 50,
-        angle,
-        radiusBase: 180,
-        radiusPulse: 20,
-        speed: 0.012 + i * 0.002,
-        w: 250,
-        h: 84,
-        scale: 1,
-        z: 0.8,
-        color: [theme.accent2, theme.accent, '#fde047', '#ffffff'][i % 4],
-        hitFlash: 0,
-        mobile: false
-      };
-    });
-  }
-
-  function updateTargets(time){
-    const c = center();
-    hoveredId = null;
-
-    targets.forEach((t, i) => {
-      if (!t.mobile){
-        t.angle += t.speed;
-        const radius = t.radiusBase + Math.sin(time * 0.002 + i) * t.radiusPulse;
-        t.x = c.x + Math.cos(t.angle) * radius;
-        t.y = c.y + Math.sin(t.angle * 1.8 + time * 0.0013) * 44;
-        t.z = 0.75 + (Math.sin(t.angle * 1.3 + time * 0.001) + 1) * 0.15;
-        t.scale = 1 + (t.z - 0.75) * 0.7;
-      }
-      t.hitFlash = Math.max(0, t.hitFlash - 0.05);
-      if (pointInTarget(mouseX, mouseY, t)) hoveredId = t.id;
-    });
-  }
-
-  function renderTargets(){
-    const sorted = targets.slice().sort((a,b) => a.z - b.z);
-
-    sorted.forEach(t => {
-      ctx.save();
-      ctx.translate(t.x, t.y);
-      ctx.scale(t.scale, t.scale);
-
-      ctx.globalAlpha = 0.28 + t.hitFlash * 0.4;
-      ctx.beginPath();
-      ctx.arc(0,0,68,0,Math.PI*2);
-      ctx.fillStyle = t.color;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      ctx.lineWidth = hoveredId === t.id ? 8 : 6;
-      ctx.strokeStyle = t.color;
-
-      const w = t.mobile ? t.w : 250;
-      const h = t.mobile ? t.h : 84;
-
-      drawRoundRect(-w/2, -h/2, w, h, 20);
-      ctx.stroke();
-
-      drawRoundRect(-w/2 + 10, -h/2 + 8, w - 20, h - 16, 16);
-      ctx.fillStyle = hoveredId === t.id ? '#fff7ed' : '#fff';
-      ctx.fill();
+  function loadLearnerContext(){
+    const sectionInput = document.getElementById('sectionInput');
+    const sessionCodeInput = document.getElementById('sessionCodeInput');
+    if (!sectionInput || !sessionCodeInput) return;
 
-      ctx.fillStyle = '#111827';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = '800 ' + (t.mobile ? 20 : (hoveredId === t.id ? 28 : 26)) + 'px Arial';
-      wrapText(t.text, 0, 0, w - 40, 2, t.mobile ? 20 : 26);
-      ctx.restore();
-    });
-  }
-
-  function pointInTarget(x, y, t){
-    const w = t.w * t.scale;
-    const h = t.h * t.scale;
-    return x >= t.x - w/2 && x <= t.x + w/2 && y >= t.y - h/2 && y <= t.y + h/2;
-  }
-
-  function getTargetAtPoint(x, y){
-    const sorted = targets.slice().sort((a,b) => b.z - a.z);
-    return sorted.find(t => pointInTarget(x, y, t)) || null;
-  }
-
-  function getWeakestTerms(limit){
-    return Object.entries(V9.mastery)
-      .sort((a,b) => {
-        const wrongDiff = b[1].wrong - a[1].wrong;
-        if (wrongDiff !== 0) return wrongDiff;
-        return a[1].correct - b[1].correct;
-      })
-      .slice(0, limit);
-  }
-
-  function checkModeWinLose(){
-    const cfg = modeConfig();
-
-    if (cfg.useBoss){
-      if (V9.bossHp <= 0) return 'win';
-      if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages) return 'lose';
-      return 'continue';
-    }
-
-    if (cfg.useBugMeter){
-      if (V9.bugFixed >= 10) return 'win';
-      if (V9.bugEscaped >= V9.maxBugEscaped || V9.hp <= 0 || V9.stageIndex >= V9.maxStages) return 'lose';
-      return 'continue';
-    }
-
-    if (cfg.useModelMeter){
-      if (V9.modelScore >= V9.modelTarget) return 'win';
-      if (V9.modelStability <= 0 || V9.hp <= 0 || V9.stageIndex >= V9.maxStages) return 'lose';
-      return 'continue';
-    }
-
-    if (cfg.useSpeedTimer){
-      if (V9.speedRunTimeLeft <= 0) return 'win';
-      if (V9.hp <= 0) return 'lose';
-      return 'continue';
-    }
-
-    return 'continue';
-  }
-
-  function createSessionId(){
-    return 'SES-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
-  }
-
-  function forceMenuBootState(){
-    const q = new URLSearchParams(window.location.search);
-    if (q.get('teacher') === '1') return;
-    if (phase !== 'idle') return;
-
-    els.menu?.classList.remove('hidden');
-    els.leaderboardWrap?.classList.add('hidden');
-    els.endWrap?.classList.add('hidden');
-    els.teacherWrap?.classList.add('hidden');
-    els.teacherLinkWrap?.classList.add('hidden');
-
-    document.querySelector('.hud')?.classList.remove('hidden');
-    els.questionBox?.classList.remove('hidden');
-
-    if (!V9.currentItem){
-      els.questionBox.innerHTML =
-        '<div class="q-meta">ESP BATTLE</div>' +
-        '<div class="q-prompt">เตรียมเริ่มเกม</div>';
-    }
-  }
-
-  function endRun(){
-    if (phase === 'ended') return;
-
-    phase = 'ended';
-    targets = [];
-    V9.currentItem = null;
-    hoveredId = null;
-    timeLeft = 0;
-
-    const weakest = getWeakestTerms(5);
-    const cfg = modeConfig();
-
-    const totalSeen = Object.values(V9.mastery || {}).reduce((s,m) => s + Number(m.seen || 0), 0);
-    const totalCorrect = Object.values(V9.mastery || {}).reduce((s,m) => s + Number(m.correct || 0), 0);
-
-    const summary = {
-      score: V9.score,
-      hp: V9.hp,
-      bossHp: V9.bossHp,
-      bossMaxHp: V9.bossMaxHp,
-      bossPhase: V9.bossPhase,
-      win: checkModeWinLose() === 'win',
-      stagesPlayed: Math.min(V9.stageIndex, V9.maxStages),
-      weakestTerms: weakest,
-      mastery: V9.mastery,
-      accuracy: totalSeen ? Number(((totalCorrect / totalSeen) * 100).toFixed(2)) : 0
-    };
-
-    lastSummary = summary;
-    renderTeacherDashboard(summary);
-
-    const weakestText = weakest.length
-      ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ')
-      : '-';
-
-    if (cfg.useBoss){
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: ⚔️ Code Battle<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Stages: ' + summary.stagesPlayed + ' / ' + V9.maxStages + '<br>' +
-        'HP Left: ' + summary.hp + '<br>' +
-        (summary.win ? 'Result: BOSS DEFEATED<br>' : 'Result: BOSS SURVIVED<br>') +
-        'Boss HP Left: ' + summary.bossHp + ' / ' + summary.bossMaxHp + '<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    } else if (cfg.useBugMeter){
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: 🧪 Debug Mission<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Fixed Bugs: ' + V9.bugFixed + '<br>' +
-        'Escaped Bugs: ' + V9.bugEscaped + '/' + V9.maxBugEscaped + '<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    } else if (cfg.useModelMeter){
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: 🤖 AI Training Sim<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Model Score: ' + V9.modelScore + '/' + V9.modelTarget + '<br>' +
-        'Stability: ' + V9.modelStability + '%<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    } else if (cfg.useSpeedTimer){
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: ⚡ Speed Run<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Multiplier Final: x' + V9.multiplier + '<br>' +
-        'HP Left: ' + summary.hp + '<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    }
-
-    els.endWrap.classList.remove('hidden');
-    els.menu.classList.add('hidden');
-    els.questionBox.classList.add('hidden');
-
-    renderLeaderboard();
-    renderHud();
-
-    const lbEntry = buildGlobalLeaderboardEntry(summary);
-    fireAndForget(
-      upsertGlobalLeaderboard(lbEntry)
-        .then(() => fetchGlobalLeaderboard())
-        .then(() => {
-          renderLeaderboard();
-          renderMenuTop3();
-        }),
-      'leaderboard_upsert'
-    );
-
-    fireAndForget(logGameEnd(summary), 'session_end');
-  }
-
-  function handleAnswerV9(selectedText){
-    const item = V9.currentItem;
-    if (!item || phase !== 'battle') return;
-
-    const isCorrect = selectedText === String(item.answer).toLowerCase();
-    const rt = V9._qStartTime ? (Date.now() - V9._qStartTime) : 0;
-    const cfg = modeConfig();
-    const levelBefore = ensureMastery(item.termId).level;
-
-    updateMasteryAfterAnswer(item.termId, isCorrect, item.type);
-    updateWordSkill(item.termId, isCorrect, rt);
-    const levelAfter = ensureMastery(item.termId).level;
-
-    if (cfg.useBoss){
-      if (isCorrect){
-        const damage = bossDamageFromCorrect();
-        V9.score += 12 + Math.min(V9.combo * 3, 24);
-        V9.combo += 1;
-        V9.bossHp = Math.max(0, V9.bossHp - damage);
-        updateBossPhase();
-        showFeedback(modeFeedbackText('correct', damage), 'ok');
-      } else {
-        const penalty = bossPenaltyOnWrong();
-        V9.hp -= penalty;
-        V9.combo = 0;
-        enqueueReview(item.termId);
-        showFeedback(modeFeedbackText('wrong', penalty), 'bad');
-      }
-    } else if (cfg.useBugMeter){
-      if (isCorrect){
-        V9.bugFixed += 1;
-        V9.score += 15;
-        V9.combo += 1;
-        showFeedback(modeFeedbackText('correct'), 'ok');
-      } else {
-        V9.bugEscaped += 1;
-        V9.hp -= 1;
-        V9.combo = 0;
-        enqueueReview(item.termId);
-        showFeedback(modeFeedbackText('wrong'), 'bad');
-      }
-    } else if (cfg.useModelMeter){
-      if (isCorrect){
-        const gain = item.level === 'hard' ? 20 : item.level === 'normal' ? 14 : 10;
-        V9.modelScore = Math.min(V9.modelTarget, V9.modelScore + gain);
-        V9.score += gain;
-        V9.combo += 1;
-        showFeedback(modeFeedbackText('correct', gain), 'ok');
-      } else {
-        V9.modelStability = Math.max(0, V9.modelStability - 18);
-        V9.hp -= 1;
-        V9.combo = 0;
-        enqueueReview(item.termId);
-        showFeedback(modeFeedbackText('wrong'), 'bad');
-      }
-    } else if (cfg.useSpeedTimer){
-      if (isCorrect){
-        V9.combo += 1;
-        if (V9.combo >= 3) V9.multiplier = Math.min(5, V9.multiplier + 1);
-        V9.score += 8 * V9.multiplier;
-        showFeedback(modeFeedbackText('correct', V9.multiplier), 'ok');
-      } else {
-        V9.multiplier = 1;
-        V9.combo = 0;
-        V9.hp -= 1;
-        enqueueReview(item.termId);
-        showFeedback(modeFeedbackText('wrong'), 'bad');
-      }
-    }
-
-    fireAndForget(sendTermAnswerRow({
-      item,
-      isCorrect,
-      levelBefore,
-      levelAfter,
-      responseMs: rt
-    }), 'term_answer');
-
-    fireAndForget(logEvent(isCorrect ? 'answer_correct' : 'answer_wrong', {
-      questionId: item.id || '',
-      termId: item.termId,
-      word: item.term,
-      questionType: item.type,
-      selected: selectedText,
-      correct: item.answer,
-      responseTimeMs: rt,
-      hp: V9.hp,
-      stage: V9.stageIndex + 1,
-      level: item.level,
-      fromReview: item.fromReview,
-      mode: V9.mode
-    }), 'answer_event');
-
-    V9.stageIndex += 1;
-
-    const state = checkModeWinLose();
-    if (state === 'win' || state === 'lose'){
-      endRun();
-      return;
-    }
-
-    phase = 'feedback';
-    phaseUntil = now() + 800;
-  }
-
-  function nextQuestionV9(){
-    updateRunDifficulty();
-
-    const state = checkModeWinLose();
-    if (state === 'win' || state === 'lose'){
-      endRun();
-      return;
-    }
-
-    const item = buildQuestionItem();
-    if (!item){
-      endRun();
-      return;
-    }
-
-    V9.currentItem = item;
-    V9._qStartTime = Date.now();
-    renderQuestionBox(item);
-    spawnTargetsFromChoices(item.choices);
-
-    fireAndForget(logEvent('question_shown', {
-      questionId: item.id || '',
-      termId: item.termId,
-      word: item.term,
-      questionType: item.type,
-      choices: item.choices,
-      level: item.level,
-      fromReview: item.fromReview,
-      stage: V9.stageIndex + 1,
-      modeWeight: (modeConfig().questionWeights || {})[item.type] || 0
-    }), 'question_shown');
+    const section =
+      qs('section') ||
+      localStorage.getItem(KEYS.section) ||
+      '';
 
-    phase = 'countdown';
-    V9.countdown = 3;
-    V9.bossAttackAt = now() + bossAttackInterval();
-    phaseUntil = now() + 650;
-  }
-
-  function resetRun(bank, mode){
-    V9.bank = bank;
-    V9.mode = mode;
-    V9.score = 0;
-    V9.combo = 0;
-    V9.hp = 5;
-    V9.bossMaxHp = bossBaseHp();
-    V9.bossHp = V9.bossMaxHp;
-    V9.bossPhase = 1;
-    V9.bossAttackAt = 0;
-    V9.runDifficulty = 'easy';
-    V9.currentItem = null;
-    V9.usedVariantIds = new Set();
-    V9.usedTermIds = [];
-    V9.reviewQueue = [];
-    V9.mastery = {};
-    V9.wordSkill = {};
-    V9.recentWords = [];
-    V9.recentQuestionTypes = [];
-    V9.bugEscaped = 0;
-    V9.bugFixed = 0;
-    V9.maxBugEscaped = 5;
-    V9.modelScore = 0;
-    V9.modelTarget = 100;
-    V9.modelStability = 100;
-    V9.speedRunTimeLeft = 60;
-    V9.multiplier = 1;
-    V9.stageIndex = 0;
-    V9.countdown = 3;
-    V9._qStartTime = 0;
-    targets = [];
-    phase = 'idle';
-    timeLeft = 1;
-    renderHud();
-  }
-
-  function startProductionRun(){
-    document.querySelector('.hud')?.classList.remove('hidden');
-    els.questionBox.classList.remove('hidden');
-    saveProfile();
-    els.menu.classList.add('hidden');
-    els.endWrap.classList.add('hidden');
+    const sessionCode =
+      qs('session_code') ||
+      qs('sessionCode') ||
+      localStorage.getItem(KEYS.sessionCode) ||
+      '';
 
-    fireAndForget(logGameEntry(), 'session_start');
-
-    resetRun(V9.bank, V9.mode);
-    nextQuestionV9();
+    sectionInput.value = section;
+    sessionCodeInput.value = sessionCode;
   }
 
-  function openLeaderboard(){
-    els.leaderboardWrap.classList.remove('hidden');
-    fireAndForget(
-      fetchGlobalLeaderboard().then(() => {
-        renderLeaderboard();
-        renderMenuTop3();
-      }),
-      'leaderboard_get'
-    );
-  }
+  function persistLearnerContext(){
+    const sectionInput = document.getElementById('sectionInput');
+    const sessionCodeInput = document.getElementById('sessionCodeInput');
+    if (!sectionInput || !sessionCodeInput) return;
 
-  function openTeacher(){
-    document.querySelector('.hud')?.classList.add('hidden');
-    els.questionBox.classList.add('hidden');
-    if (!lastSummary){
-      try{
-        const raw = JSON.parse(localStorage.getItem(TEACHER_KEY) || 'null');
-        if (raw) renderTeacherDashboard(raw);
-      }catch(_){}
-    }
-    els.teacherWrap.classList.remove('hidden');
-  }
+    const section = (sectionInput.value || '').trim();
+    const sessionCode = (sessionCodeInput.value || '').trim();
 
-  function bootTeacherMode(){
-    const q = new URLSearchParams(window.location.search);
-    if (q.get('teacher') === '1'){
-      const expected = localStorage.getItem(TEACHER_PASS_KEY) || '';
-      const got = q.get('teacherKey') || '';
-      if (expected && got !== expected){
-        alert('Teacher passcode ไม่ถูกต้อง');
-        return;
-      }
-      els.menu.classList.add('hidden');
-      openTeacher();
-    }
+    localStorage.setItem(KEYS.section, section);
+    localStorage.setItem(KEYS.sessionCode, sessionCode);
   }
-
-  function renderLoopBattle(){
-    if (phase === 'countdown'){
-      timeLeft = 1;
-      els.questionBox.innerHTML =
-        '<div class="q-meta">' + modeTheme().badge + '</div>' +
-        '<div class="q-prompt">GET READY • ' + V9.countdown + '</div>';
 
-      if (now() >= phaseUntil){
-        V9.countdown -= 1;
-        phaseUntil = now() + 650;
-        if (V9.countdown <= 0){
-          phase = 'battle';
-          roundStart = now();
-          const base = modeMeta().baseTime;
-          const diffDuration =
-            V9.runDifficulty === 'hard' ? Math.max(2800, base - 1600) :
-            V9.runDifficulty === 'normal' ? Math.max(3600, base - 800) :
-            base;
-          const phasePenalty = V9.bossPhase === 3 ? 900 : V9.bossPhase === 2 ? 450 : 0;
-          roundDuration = Math.max(2400, diffDuration - phasePenalty);
-          renderQuestionBox(V9.currentItem);
-        }
-      }
-    } else if (phase === 'battle'){
-      const elapsed = now() - roundStart;
-      timeLeft = clamp(1 - elapsed / roundDuration, 0, 1);
+  document.addEventListener('DOMContentLoaded', () => {
+    loadLearnerContext();
 
-      if (modeConfig().useSpeedTimer){
-        const elapsedSec = (now() - roundStart) / 1000;
-        V9.speedRunTimeLeft = Math.max(0, 60 - Math.floor(elapsedSec + (V9.stageIndex * 0.2)));
-      }
-
-      if (modeConfig().useBoss && now() >= V9.bossAttackAt){
-        const dmg = V9.bossPhase === 3 ? 2 : 1;
-        V9.hp -= dmg;
-        V9.combo = 0;
-        V9.bossAttackAt = now() + bossAttackInterval();
-        showFeedback('BOSS HIT -' + dmg + ' HP', 'warn');
-        if (V9.hp <= 0){
-          endRun();
-          return;
-        }
-      }
-
-      if (timeLeft <= 0){
-        const cfg = modeConfig();
-        let timeoutBefore = '';
-        let timeoutAfter = '';
-
-        if (V9.currentItem){
-          timeoutBefore = ensureMastery(V9.currentItem.termId).level;
-          updateMasteryAfterAnswer(V9.currentItem.termId, false, V9.currentItem.type);
-          updateWordSkill(V9.currentItem.termId, false, roundDuration);
-          timeoutAfter = ensureMastery(V9.currentItem.termId).level;
-        }
-
-        if (cfg.useBoss){
-          const timeoutDmg = V9.bossPhase === 3 ? 2 : 1;
-          V9.hp -= timeoutDmg;
-          V9.combo = 0;
-          enqueueReview(V9.currentItem.termId);
-          showFeedback(modeFeedbackText('timeout'), 'warn');
-        } else if (cfg.useBugMeter){
-          V9.bugEscaped += 1;
-          V9.hp -= 1;
-          V9.combo = 0;
-          enqueueReview(V9.currentItem.termId);
-          showFeedback(modeFeedbackText('timeout'), 'warn');
-        } else if (cfg.useModelMeter){
-          V9.modelStability = Math.max(0, V9.modelStability - 15);
-          V9.hp -= 1;
-          V9.combo = 0;
-          enqueueReview(V9.currentItem.termId);
-          showFeedback(modeFeedbackText('timeout'), 'warn');
-        } else if (cfg.useSpeedTimer){
-          V9.multiplier = 1;
-          V9.combo = 0;
-          V9.hp -= 1;
-          enqueueReview(V9.currentItem.termId);
-          showFeedback(modeFeedbackText('timeout'), 'warn');
-        }
-
-        fireAndForget(sendTermAnswerRow({
-          item: V9.currentItem,
-          isCorrect: false,
-          levelBefore: timeoutBefore,
-          levelAfter: timeoutAfter,
-          responseMs: roundDuration
-        }), 'timeout_term_answer');
-
-        fireAndForget(logEvent('timeout', {
-          questionId: V9.currentItem?.id || '',
-          termId: V9.currentItem?.termId || '',
-          word: V9.currentItem?.term || '',
-          questionType: V9.currentItem?.type || '',
-          hp: V9.hp,
-          stage: V9.stageIndex + 1,
-          level: V9.currentItem?.level || '',
-          mode: V9.mode,
-          responseTimeMs: roundDuration,
-          fromReview: !!V9.currentItem?.fromReview
-        }), 'timeout_event');
-
-        V9.stageIndex += 1;
-
-        const state = checkModeWinLose();
-        if (state === 'win' || state === 'lose'){
-          endRun();
-        } else {
-          phase = 'feedback';
-          phaseUntil = now() + 700;
-        }
-      }
-    } else if (phase === 'feedback'){
-      timeLeft = 0;
-      if (now() >= phaseUntil) nextQuestionV9();
-    } else {
-      timeLeft = 1;
-    }
-  }
+    const sectionInput = document.getElementById('sectionInput');
+    const sessionCodeInput = document.getElementById('sessionCodeInput');
+    const startBtn = document.getElementById('startBtn');
 
-  function renderBackground(t){
-    const theme = modeTheme();
-    const cfg = modeConfig();
+    sectionInput?.addEventListener('input', persistLearnerContext);
+    sessionCodeInput?.addEventListener('input', persistLearnerContext);
 
-    const g = ctx.createLinearGradient(0,0,0,height);
-    g.addColorStop(0, theme.bgTop);
-    g.addColorStop(1, theme.bgBottom);
-    ctx.fillStyle = g;
-    ctx.fillRect(0,0,width,height);
+    startBtn?.addEventListener('click', () => {
+      persistLearnerContext();
+    }, true);
+  });
+})();
+</script>
 
-    ctx.fillStyle = theme.floor;
-    ctx.fillRect(0,height*0.58,width,height*0.42
+<script type="module" src="./assets/vocab-engine.js?v=20260418e"></script>
+</body>
+</html>
