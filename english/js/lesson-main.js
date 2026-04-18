@@ -1678,6 +1678,9 @@ window.onload = function () {
     renderQuestionDiffBadge("normal");
     setRewardChestState("loading");
     setLeaderboardBoardState("idle");
+
+    console.log("TechPath core UI booted");
+    console.log("mission roots:", document.querySelectorAll('[id^="mission-root-"]').length);
   } catch (e) {
     showBootError(e?.stack || e?.message || e);
   } finally {
