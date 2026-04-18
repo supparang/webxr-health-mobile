@@ -22,9 +22,9 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260417-mobile-playable-final-force-layout-shield';
+    window.TECHPATH_BUILD = 'v20260418-lesson-full-patch-bridge-final';
     window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzKzDrMtM5tc7MP5VlNBKXpV5Pp1r75R9Cvny8xqf_DkClYajnkGbUBFDwMJSchTC0S/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260417-lesson-mobile-playable-final-force-layout-shield';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260418-lesson-full-patch-bridge-final';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -52,6 +52,7 @@
       box-sizing:border-box;
       position:relative;
       z-index:2;
+      padding:10px 12px 32px;
     }
 
     .btn-action,
@@ -68,6 +69,12 @@
       box-sizing:border-box;
       width:100%;
       max-width:100%;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      padding:12px 14px;
+      outline:none;
     }
 
     #attendance-panel{
@@ -189,27 +196,6 @@
       display:none;
     }
 
-    /* === VOCAB-STYLE SOURCE SHIELD === */
-    html.protected,
-    html.protected body{
-      -webkit-user-select:none;
-      user-select:none;
-      -webkit-touch-callout:none;
-    }
-
-    html.protected input,
-    html.protected textarea,
-    html.protected [contenteditable="true"]{
-      -webkit-user-select:text !important;
-      user-select:text !important;
-      -webkit-touch-callout:default !important;
-    }
-
-    img, a, canvas{
-      -webkit-user-drag:none;
-      user-drag:none;
-    }
-
     #source-shield{
       position:fixed;
       inset:0;
@@ -256,165 +242,95 @@
       pointer-events:none !important;
     }
 
+    #hud-stats{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-weight:bold;
+      margin:10px 0;
+      border-top:1px solid #00e5ff;
+      border-bottom:1px solid #00e5ff;
+      padding:8px 0;
+    }
+
+    .hud-stat-item{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    #hud-top-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      justify-content:center;
+      margin-bottom:10px;
+    }
+
+    #mission-prompt-box{
+      display:none;
+      border:1px solid rgba(123,237,255,.18);
+      background:rgba(10,18,34,.94);
+      box-shadow:0 8px 20px rgba(0,0,0,.20);
+    }
+
+    #choice-buttons{
+      display:none;
+      justify-content:center;
+      gap:12px;
+      margin-top:10px;
+    }
+
+    #boss-phase-ui,
+    #summary-panel,
+    #profile-panel,
+    #hub-stats-board{
+      background:rgba(10,18,34,.82);
+      border:1px solid rgba(123,237,255,.18);
+      border-radius:18px;
+      padding:14px;
+      margin-top:10px;
+      box-shadow:0 10px 24px rgba(0,0,0,.22);
+    }
+
+    .avatar-row{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:8px;
+      margin-bottom:10px;
+    }
+
+    .avatar-chip{
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.08);
+      padding:10px;
+      background:rgba(255,255,255,.04);
+      color:#fff;
+      font-weight:700;
+    }
+
     @media (max-width:700px){
+      html.protected,
+      html.protected body{
+        -webkit-user-select:none;
+        user-select:none;
+        -webkit-touch-callout:none;
+      }
+
+      html.protected input,
+      html.protected textarea,
+      html.protected [contenteditable="true"]{
+        -webkit-user-select:text !important;
+        user-select:text !important;
+        -webkit-touch-callout:default !important;
+      }
+
       #ui-container{
         padding:8px 10px calc(190px + env(safe-area-inset-bottom, 0px));
       }
 
-      .title{
-        font-size:1.08rem !important;
-        line-height:1.25 !important;
-        display:-webkit-box;
-        -webkit-line-clamp:2;
-        -webkit-box-orient:vertical;
-        overflow:hidden;
-        text-overflow:ellipsis;
-        max-height:2.6em;
-        word-break:break-word;
-      }
-
-      .instruction{
-        font-size:.88rem !important;
-        line-height:1.35;
-        margin-bottom:8px;
-      }
-
-      #attendance-panel{
-        padding:10px;
-        margin:6px 0 8px;
-      }
-
-      #attendance-title{
-        font-size:.86rem;
-      }
-
-      #attendance-summary-line{
-        font-size:.80rem;
-      }
-
-      #attendance-grid{
-        grid-template-columns:1fr 1fr;
-        gap:6px;
-        font-size:.80rem;
-      }
-
-      .attendance-item{
-        padding:7px 8px;
-      }
-
-      .attendance-item b{
-        font-size:.68rem;
-      }
-
-      #attendance-status{
-        font-size:.78rem;
-        padding:7px 8px;
-      }
-
-      #hud-stats,
-      #hud-top-row{
-        background:rgba(6,12,24,.88);
-        backdrop-filter:blur(8px);
-      }
-
-      #profile-panel,
-      #hub-stats-board,
-      #summary-panel,
-      #game-over-ui,
-      #boss-phase-ui,
-      #mission-prompt-box{
-        margin-top:8px !important;
-        border-radius:14px !important;
-        padding:10px !important;
-      }
-
-      #profile-panel-title,
-      #hub-stats-title,
-      #summary-title{
-        font-size:.95rem !important;
-      }
-
-      #hub-stats-body,
-      #summary-body{
-        font-size:.84rem !important;
-        line-height:1.45 !important;
-        word-break:break-word;
-      }
-
-      .avatar-row{
-        display:grid !important;
-        grid-template-columns:repeat(2, minmax(0,1fr));
-        gap:8px !important;
-      }
-
-      .avatar-chip{
-        width:100%;
-        min-width:0;
-      }
-
-      .avatar-chip small{
-        display:block;
-        font-size:.64rem !important;
-      }
-
-      #profile-name-input,
-      #player-name-input,
-      #write-input{
-        width:100% !important;
-        max-width:100%;
-        font-size:16px !important;
-      }
-
-      #btn-submit-score{
-        margin-left:0 !important;
-        margin-top:8px !important;
-        width:100%;
-        display:block !important;
-      }
-
-      #feedback{
-        position:relative;
-        z-index:20;
-        min-height:22px;
-        text-align:center;
-        font-size:.92rem !important;
-        line-height:1.35 !important;
-        margin-top:8px !important;
-        margin-bottom:4px !important;
-        word-break:break-word;
-        border-radius:12px;
-        padding:8px 10px;
-        background:rgba(255,255,255,.04);
-      }
-
-      #timer{
-        font-size:1.1rem !important;
-        margin:6px 0 !important;
-      }
-
-      #boss-phase-title{
-        font-size:.92rem !important;
-      }
-
-      #boss-phase-sub,
-      #boss-hp-text{
-        font-size:.80rem !important;
-      }
-
-      #btn-next,
-      #btn-return,
-      #btn-submit-score,
-      #btn-save-profile{
-        margin-top:8px !important;
-      }
-
-      #game-over-ui{
-        display:flex;
-        flex-direction:column;
-        gap:8px;
-      }
-
-      /* mobile mission mode */
       body.mission-mobile #ui-title,
       body.mission-mobile #attendance-panel,
       body.mission-mobile #profile-panel,
@@ -464,45 +380,14 @@
         display:none !important;
       }
 
-      body.mission-mobile #hud-score-wrap,
-      body.mission-mobile #hud-hp-wrap{
-        justify-content:center;
-        text-align:center;
-        font-size:.95rem;
-      }
-
-      body.mission-mobile .hud-stat-item{
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        gap:6px;
-        flex-wrap:wrap;
-      }
-
-      body.mission-mobile .hud-stat-icon{
-        font-size:1rem !important;
-      }
-
-      body.mission-mobile .hud-stat-label{
-        font-size:.78rem !important;
-        opacity:.92;
-      }
-
-      body.mission-mobile #score-display,
-      body.mission-mobile #hp-display{
-        font-size:1.05rem !important;
-        font-weight:900;
-      }
-
       body.mission-mobile #mission-prompt-box{
+        display:block;
         margin:0 0 10px 0 !important;
         padding:12px !important;
         border-radius:16px !important;
         background:rgba(10,18,34,.94) !important;
         border:1px solid rgba(123,237,255,.18) !important;
         box-shadow:0 8px 20px rgba(0,0,0,.20);
-        min-height:0 !important;
-        max-height:none !important;
       }
 
       body.mission-mobile #mission-prompt-label{
@@ -515,7 +400,6 @@
       body.mission-mobile #mission-prompt-text{
         font-size:.98rem !important;
         line-height:1.45 !important;
-        min-height:0 !important;
         color:#fff;
       }
 
@@ -552,57 +436,6 @@
 
       body.summary-mobile #attendance-panel{
         display:block !important;
-      }
-
-      body.summary-mobile #summary-panel{
-        display:block !important;
-        margin-top:10px !important;
-        padding:12px !important;
-        border-radius:14px !important;
-      }
-
-      body.summary-mobile #summary-title{
-        font-size:.98rem !important;
-        line-height:1.3 !important;
-      }
-
-      body.summary-mobile #summary-body{
-        font-size:.88rem !important;
-        line-height:1.5 !important;
-        word-break:break-word;
-      }
-
-      body.summary-mobile #btn-next,
-      body.summary-mobile #btn-return{
-        display:block !important;
-        width:100% !important;
-      }
-
-      body.summary-mobile #btn-next + #btn-return{
-        margin-top:8px !important;
-      }
-
-      body.keyboard-open #choice-buttons,
-      body.keyboard-open #btn-submit-write,
-      body.keyboard-open #btn-speak,
-      body.keyboard-open #btn-play-audio{
-        position:static !important;
-        bottom:auto !important;
-        box-shadow:none !important;
-      }
-
-      body.keyboard-open #write-input{
-        position:relative !important;
-        bottom:auto !important;
-      }
-
-      body.keyboard-open #ui-container{
-        padding-bottom:calc(28px + env(safe-area-inset-bottom, 0px)) !important;
-      }
-
-      body.prompt-mini #mission-prompt-box{
-        max-height:88px !important;
-        overflow:hidden !important;
       }
 
       #source-shield-title{
@@ -692,37 +525,7 @@
       }
     }
 
-    @media (max-width:900px) and (orientation:landscape){
-      #ui-container{
-        padding-top:8px !important;
-        padding-bottom:24px !important;
-      }
-
-      #attendance-panel,
-      #profile-panel,
-      #hub-stats-board,
-      #ai-director-board{
-        margin-top:6px !important;
-        margin-bottom:6px !important;
-      }
-
-      .title{
-        font-size:1rem !important;
-      }
-
-      .instruction{
-        font-size:.82rem !important;
-        margin-bottom:6px !important;
-      }
-
-      #mission-prompt-box,
-      #summary-panel,
-      #boss-phase-ui{
-        padding:8px !important;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce), (max-width:700px){
+    @media (prefers-reduced-motion: reduce){
       .answer-burst,
       .combo-popup,
       .screen-glow-success,
@@ -810,7 +613,7 @@
       <div id="attendance-status" class="warn">กำลังเตรียมข้อมูลเช็กชื่อ...</div>
     </div>
 
-    <div id="hud-stats" style="display:flex; justify-content:space-between; gap:10px; font-weight:bold; margin:10px 0; border-top:1px solid #00e5ff; border-bottom:1px solid #00e5ff; padding:5px 0;">
+    <div id="hud-stats">
       <div id="hud-score-wrap" class="hud-stat-item" style="color:#f1c40f;">
         <span class="hud-stat-icon">🏆</span>
         <span class="hud-stat-label">SCORE</span>
@@ -824,7 +627,7 @@
       </div>
     </div>
 
-    <div id="hud-top-row" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:10px;">
+    <div id="hud-top-row">
       <div id="question-diff-badge" style="border:1px solid #f1c40f; color:#f1c40f; border-radius:999px; padding:4px 10px; font-weight:700;">Q: NORMAL</div>
       <div id="unit-theme-chip" style="display:none; border:1px solid #7bedff; color:#7bedff; border-radius:999px; padding:4px 10px; font-weight:700;">STANDARD FINAL</div>
       <div id="reward-roll-badge" style="display:none;">COMMON CHEST</div>
@@ -879,7 +682,7 @@
     <input type="text" class="input-field" id="write-input" placeholder="พิมพ์คำตอบภาษาอังกฤษ..." style="display:none;" />
     <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()" style="display:none;">Submit</button>
 
-    <div id="choice-buttons" style="display:none; justify-content:center; gap:12px; margin-top:10px;">
+    <div id="choice-buttons">
       <button class="btn-action" style="display:block; background:#e67e22;" onclick="checkChoiceAnswer('A')">A</button>
       <button class="btn-action" style="display:block; background:#2ecc71;" onclick="checkChoiceAnswer('B')">B</button>
       <button class="btn-action" style="display:block; background:#9b59b6;" onclick="checkChoiceAnswer('C')">C</button>
@@ -1067,7 +870,7 @@
     function blockEvent(e) {
       e.preventDefault();
       e.stopPropagation();
-      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      e.stopImmediatePropagation?.();
       return false;
     }
 
@@ -1126,14 +929,290 @@
         setDevtoolsGuard(open);
       }
 
-      window.requestAnimationFrame(detectDevtools);
+      requestAnimationFrame(detectDevtools);
     }
 
-    window.requestAnimationFrame(detectDevtools);
+    requestAnimationFrame(detectDevtools);
   })();
   </script>
 
   <script type="module" src="./js/lesson-main.js"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    function $(id) {
+      return document.getElementById(id);
+    }
+
+    function isShown(el) {
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
+    }
+
+    function show(id, on, displayValue = 'block') {
+      const el = $(id);
+      if (!el) return;
+      el.style.display = on ? displayValue : 'none';
+    }
+
+    function setText(id, value) {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = value == null ? '' : String(value);
+    }
+
+    function setHubSceneVisible(visible) {
+      const hub = $('hub-scene');
+      if (!hub) return;
+      hub.setAttribute('visible', visible ? 'true' : 'false');
+    }
+
+    function clearModeClasses() {
+      document.body.classList.remove(
+        'mission-mobile',
+        'summary-mobile',
+        'hub-mobile',
+        'force-mission-ui',
+        'force-summary-ui',
+        'force-hub-ui'
+      );
+    }
+
+    function setMode(mode) {
+      clearModeClasses();
+      if (mode === 'mission') {
+        document.body.classList.add('mission-mobile', 'force-mission-ui');
+      } else if (mode === 'summary') {
+        document.body.classList.add('summary-mobile', 'force-summary-ui');
+      } else {
+        document.body.classList.add('hub-mobile', 'force-hub-ui');
+      }
+    }
+
+    function getPromptFallback() {
+      const promptText = $('mission-prompt-text')?.textContent?.trim() || '';
+      const reading = $('reading-question')?.getAttribute('value') || $('reading-question')?.textContent || '';
+      const listening = $('listening-prompt')?.getAttribute('value') || $('listening-prompt')?.textContent || '';
+      const writing = $('writing-prompt')?.getAttribute('value') || $('writing-prompt')?.textContent || '';
+      const speaking = $('speaking-prompt')?.getAttribute('value') || $('speaking-prompt')?.textContent || '';
+
+      if (promptText && promptText !== '...') return promptText.trim();
+      if (reading && reading !== 'QUESTION TEXT') return reading.trim();
+      if (listening && listening !== 'PRESS PLAY AUDIO') return listening.trim();
+      if (writing && !writing.includes('TERMINAL')) return writing.trim();
+      if (speaking && speaking !== 'PROMPT TEXT') return speaking.trim();
+      return '';
+    }
+
+    function inferMissionType() {
+      const hasChoices = isShown($('choice-buttons'));
+      const hasSpeak = isShown($('btn-speak'));
+      const hasAudio = isShown($('btn-play-audio'));
+      const hasWrite = isShown($('write-input')) || isShown($('btn-submit-write'));
+
+      if (hasWrite) return 'writing';
+      if (hasSpeak) return 'speaking';
+      if (hasAudio && hasChoices) return 'listening';
+      if (hasChoices) return 'reading';
+      return '';
+    }
+
+    function enterMissionLayout() {
+      const type = inferMissionType();
+      const prompt = getPromptFallback();
+
+      setMode('mission');
+      setHubSceneVisible(false);
+
+      show('ui-title', false);
+      show('ui-desc', false);
+      show('attendance-panel', false);
+      show('profile-panel', false);
+      show('hub-stats-board', false);
+      show('ai-director-board', false);
+      show('prompt-mini-toggle', false);
+
+      show('hud-stats', true, 'flex');
+      show('hud-top-row', true, 'flex');
+
+      if (prompt) {
+        show('mission-prompt-box', true, 'block');
+        setText('mission-prompt-label', 'PROMPT');
+        setText('mission-prompt-text', prompt);
+      } else {
+        show('mission-prompt-box', false);
+      }
+
+      if (type === 'reading') {
+        show('choice-buttons', true, 'grid');
+        show('btn-play-audio', false);
+        show('btn-speak', false);
+        show('write-input', false);
+        show('btn-submit-write', false);
+      } else if (type === 'listening') {
+        show('choice-buttons', true, 'grid');
+        show('btn-play-audio', true, 'block');
+        show('btn-speak', false);
+        show('write-input', false);
+        show('btn-submit-write', false);
+      } else if (type === 'speaking') {
+        show('choice-buttons', false);
+        show('btn-play-audio', false);
+        show('btn-speak', true, 'block');
+        show('write-input', false);
+        show('btn-submit-write', false);
+      } else if (type === 'writing') {
+        show('choice-buttons', false);
+        show('btn-play-audio', false);
+        show('btn-speak', false);
+        show('write-input', true, 'block');
+        show('btn-submit-write', true, 'block');
+      }
+    }
+
+    function enterSummaryLayout() {
+      setMode('summary');
+      setHubSceneVisible(false);
+
+      show('attendance-panel', true, 'block');
+      show('summary-panel', true, 'block');
+      show('btn-next', true, 'block');
+      show('btn-return', true, 'block');
+
+      show('profile-panel', false);
+      show('hub-stats-board', false);
+      show('ai-director-board', false);
+      show('choice-buttons', false);
+      show('btn-play-audio', false);
+      show('btn-speak', false);
+      show('write-input', false);
+      show('btn-submit-write', false);
+    }
+
+    function enterHubLayout() {
+      setMode('hub');
+      setHubSceneVisible(true);
+
+      show('ui-title', true, 'block');
+      show('ui-desc', true, 'block');
+      show('attendance-panel', true, 'block');
+      show('profile-panel', true, 'block');
+      show('hub-stats-board', true, 'block');
+      show('ai-director-board', true, 'block');
+
+      show('summary-panel', false);
+      show('btn-next', false);
+      show('btn-return', false);
+      show('choice-buttons', false);
+      show('btn-play-audio', false);
+      show('btn-speak', false);
+      show('write-input', false);
+      show('btn-submit-write', false);
+      show('mission-prompt-box', false);
+      show('prompt-mini-toggle', false);
+
+      setText('ui-title', 'TECHPATH VR');
+    }
+
+    function syncLessonScreen() {
+      const title = $('ui-title')?.textContent?.trim() || '';
+      const hasChoices = isShown($('choice-buttons'));
+      const hasSpeak = isShown($('btn-speak'));
+      const hasAudio = isShown($('btn-play-audio'));
+      const hasWrite = isShown($('write-input')) || isShown($('btn-submit-write'));
+      const hasSummary =
+        isShown($('summary-panel')) ||
+        isShown($('game-over-ui')) ||
+        isShown($('btn-next')) ||
+        isShown($('btn-return'));
+
+      const inMission = /SESSION\s+\d+/i.test(title) || hasChoices || hasSpeak || hasAudio || hasWrite;
+
+      if (hasSummary) {
+        enterSummaryLayout();
+      } else if (inMission) {
+        enterMissionLayout();
+      } else {
+        enterHubLayout();
+      }
+    }
+
+    function patchAfter(name) {
+      let done = false;
+
+      function attach() {
+        if (done) return true;
+        const fn = window[name];
+        if (typeof fn !== 'function') return false;
+        if (fn.__screenPatched) {
+          done = true;
+          return true;
+        }
+
+        const original = fn;
+        const wrapped = function () {
+          const result = original.apply(this, arguments);
+          setTimeout(syncLessonScreen, 0);
+          setTimeout(syncLessonScreen, 120);
+          return result;
+        };
+        wrapped.__screenPatched = true;
+        window[name] = wrapped;
+        done = true;
+        return true;
+      }
+
+      if (attach()) return;
+      const t = setInterval(function () {
+        if (attach()) clearInterval(t);
+      }, 300);
+      setTimeout(function () { clearInterval(t); }, 30000);
+    }
+
+    [
+      'loadMission',
+      'startMission',
+      'playMission',
+      'openMission',
+      'showSummary',
+      'finishMission',
+      'endMission',
+      'playNextMission',
+      'returnToHub'
+    ].forEach(patchAfter);
+
+    const obs = new MutationObserver(function () {
+      syncLessonScreen();
+    });
+
+    function watch(id, config) {
+      const el = $(id);
+      if (!el) return;
+      obs.observe(el, config || { attributes: true, childList: true, subtree: true });
+    }
+
+    watch('ui-container');
+    watch('ui-title', { childList: true, subtree: true, characterData: true });
+    watch('summary-panel', { attributes: true, childList: true, subtree: true });
+    watch('choice-buttons', { attributes: true, childList: true, subtree: true });
+    watch('btn-speak', { attributes: true });
+    watch('btn-play-audio', { attributes: true });
+    watch('write-input', { attributes: true });
+    watch('btn-submit-write', { attributes: true });
+    watch('mission-prompt-text', { childList: true, subtree: true, characterData: true });
+
+    setInterval(syncLessonScreen, 800);
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', syncLessonScreen, { once: true });
+    } else {
+      syncLessonScreen();
+    }
+  })();
+  </script>
 
   <script>
   (function () {
@@ -1480,7 +1559,7 @@
       const hasSpeak = isShown(getEl('btn-speak'));
       const hasAudio = isShown(getEl('btn-play-audio'));
       const hasWrite = isShown(getEl('write-input')) || isShown(getEl('btn-submit-write'));
-      const hasSummary = isShown(getEl('summary-panel')) || isShown(getEl('game-over-ui'));
+      const hasSummary = isShown(getEl('summary-panel')) || isShown(getEl('game-over-ui')) || isShown(getEl('btn-next')) || isShown(getEl('btn-return'));
       const title = getText('ui-title');
 
       const missionByTitle = /SESSION\s+\d+/i.test(title);
@@ -1720,75 +1799,6 @@
       hubScene.setAttribute('visible', state.hub ? 'true' : 'false');
     }
 
-    function getPrimaryMobileFocusTarget() {
-      const candidates = [
-        getEl('mission-prompt-box'),
-        getEl('boss-phase-ui'),
-        getEl('write-input'),
-        getEl('choice-buttons'),
-        getEl('btn-speak'),
-        getEl('btn-play-audio'),
-        getEl('btn-submit-write'),
-        getEl('summary-panel'),
-        getEl('game-over-ui')
-      ].filter(Boolean);
-
-      return candidates.find((el) => {
-        const cs = getComputedStyle(el);
-        return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
-      }) || null;
-    }
-
-    let mobileScrollLockUntil = 0;
-    function scrollImportantMobileBlockIntoView() {
-      if (window.innerWidth > 700) return;
-      if (document.body.classList.contains('keyboard-open')) return;
-
-      const now = Date.now();
-      if (now < mobileScrollLockUntil) return;
-      mobileScrollLockUntil = now + 900;
-
-      const target = getPrimaryMobileFocusTarget();
-      if (!target) return;
-
-      setTimeout(() => {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
-    }
-
-    function scrollMissionTopIntoView() {
-      if (window.innerWidth > 700) return;
-      const target = getEl('hud-stats') || getEl('question-diff-badge') || getEl('mission-prompt-box');
-      if (!target) return;
-
-      setTimeout(() => {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 80);
-    }
-
-    function scrollSummaryIntoView() {
-      if (window.innerWidth > 700) return;
-      const panel = getEl('summary-panel') || getEl('game-over-ui');
-      if (!panel) return;
-
-      setTimeout(() => {
-        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 120);
-    }
-
-    function vibrateTap(pattern = 12) {
-      if (window.innerWidth > 700) return;
-      if (!navigator.vibrate) return;
-      navigator.vibrate(pattern);
-    }
-
-    function getShortAttendanceStatus() {
-      if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) return 'กำลังเล่น';
-      if (runtime.currentAttempt && runtime.currentAttempt.isFinished && runtime.currentAttempt.completed) return 'completed';
-      if (runtime.currentAttempt && runtime.currentAttempt.isFinished && !runtime.currentAttempt.completed) return 'not completed';
-      return 'ยังไม่เข้า S';
-    }
-
     function resetMobileMissionChrome() {
       document.body.classList.remove('prompt-mini');
       document.body.classList.remove('keyboard-open');
@@ -1875,7 +1885,6 @@
       }, extra || {}), false);
 
       requestMobileUiRefresh('finish');
-      scrollSummaryIntoView();
     }
 
     function syncAttemptFromUI(trigger) {
@@ -1904,7 +1913,6 @@
           beginAttempt(missionId, trigger || 'sync');
           resetMobileMissionChrome();
           requestMobileUiRefresh('mission_start');
-          scrollMissionTopIntoView();
         }
       }
 
@@ -1922,17 +1930,10 @@
 
       setText('attendance-summary-name', context.studentName || context.studentId || '-');
       setText('attendance-summary-s', runtime.currentAttempt ? (runtime.currentAttempt.sessionNo || 'S00') : 'Lobby');
-      setText('attendance-summary-status', getShortAttendanceStatus());
+      setText('attendance-summary-status', runtime.currentAttempt && !runtime.currentAttempt.isFinished ? 'กำลังเล่น' : (runtime.currentAttempt?.completed ? 'completed' : (runtime.currentAttempt?.isFinished ? 'not completed' : 'ยังไม่เข้า S')));
 
       const status = getEl('attendance-status');
-      if (!status) {
-        applyMobileScreenMode();
-        syncForcedLayoutState();
-        compactMissionTitleForMobile();
-        updateAppViewportHeight();
-        syncPromptMiniVisibility();
-        return;
-      }
+      if (!status) return;
 
       if (runtime.currentAttempt) {
         setText('attendance-session-no', runtime.currentAttempt.sessionNo || 'Lobby');
@@ -1958,35 +1959,6 @@
         status.className = 'warn';
         status.textContent = 'ยังไม่ได้เข้า S ใด • เมื่อกดเข้า mission ระบบจะเริ่มจับ attendance ของ S นั้นทันที';
       }
-
-      const panel = getEl('attendance-panel');
-      const btn = getEl('attendance-toggle');
-      const isMobile = window.innerWidth <= 700;
-      const state = detectGameplayState();
-      const inMission = state.mission;
-      const inSummary = state.summary;
-
-      if (panel && isMobile && inMission) {
-        panel.classList.add('compact');
-        if (btn) {
-          btn.setAttribute('aria-expanded', 'false');
-          btn.textContent = 'ดูรายละเอียด';
-        }
-      }
-
-      if (panel && isMobile && inSummary) {
-        panel.classList.add('compact');
-        if (btn) {
-          btn.setAttribute('aria-expanded', 'false');
-          btn.textContent = 'ดูรายละเอียด';
-        }
-      }
-
-      applyMobileScreenMode();
-      syncForcedLayoutState();
-      compactMissionTitleForMobile();
-      updateAppViewportHeight();
-      syncPromptMiniVisibility();
     }
 
     function wrapGlobal(name, beforeCall) {
@@ -2021,24 +1993,8 @@
     }
 
     function installInteractionListeners() {
-      document.addEventListener('pointerdown', function (ev) {
+      document.addEventListener('pointerdown', function () {
         registerActivity('pointer');
-
-        const t = ev.target;
-        if (!t) return;
-
-        const isAction =
-          t.closest?.('#btn-speak') ||
-          t.closest?.('#btn-play-audio') ||
-          t.closest?.('#btn-submit-write') ||
-          t.closest?.('#btn-next') ||
-          t.closest?.('#btn-return') ||
-          t.closest?.('#btn-submit-score') ||
-          t.closest?.('#attendance-toggle') ||
-          t.closest?.('#prompt-mini-toggle') ||
-          t.closest?.('#choice-buttons .btn-action');
-
-        if (isAction) vibrateTap(10);
       }, { passive: true });
 
       document.addEventListener('keydown', function () {
@@ -2065,14 +2021,12 @@
       wrapGlobal('savePlayerProfile', function () {
         syncIdentityFromInputs();
         registerActivity('save_profile');
-        vibrateTap(10);
         log('save_profile', { profileName: context.studentName || '' }, !runtime.currentAttempt);
       });
 
       wrapGlobal('startRecognition', function () {
         syncAttemptFromUI('start_recognition');
         registerActivity('speak');
-        vibrateTap(10);
         log('start_recognition', {
           missionId: runtime.currentAttempt ? runtime.currentAttempt.missionId : '',
           sessionNo: runtime.currentAttempt ? runtime.currentAttempt.sessionNo : ''
@@ -2082,7 +2036,6 @@
       wrapGlobal('playAudio', function () {
         syncAttemptFromUI('play_audio');
         registerActivity('play_audio');
-        vibrateTap(10);
         log('play_audio', {
           missionId: runtime.currentAttempt ? runtime.currentAttempt.missionId : '',
           sessionNo: runtime.currentAttempt ? runtime.currentAttempt.sessionNo : ''
@@ -2092,7 +2045,6 @@
       wrapGlobal('checkWritingAnswer', function () {
         syncAttemptFromUI('write_submit');
         registerActivity('submit_write');
-        vibrateTap(10);
         log('submit_write', {
           valueLength: (getEl('write-input')?.value || '').trim().length
         }, false);
@@ -2101,7 +2053,6 @@
       wrapGlobal('checkChoiceAnswer', function (args) {
         syncAttemptFromUI('choice_answer');
         registerActivity('choice_answer');
-        vibrateTap(10);
         log('choice_answer', {
           choice: args && args.length ? String(args[0] || '') : ''
         }, false);
@@ -2110,7 +2061,6 @@
       wrapGlobal('submitScore', function () {
         syncIdentityFromInputs();
         registerActivity('save_score');
-        vibrateTap(10);
         log('save_score', {
           scoreName: (getEl('player-name-input')?.value || context.studentName || '').trim(),
           score: readScore()
@@ -2119,7 +2069,6 @@
 
       wrapGlobal('playNextMission', function () {
         registerActivity('next_mission');
-        vibrateTap(10);
 
         if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
           finishAttempt('next_button', { viaButton: true });
@@ -2130,13 +2079,11 @@
         resetMobileMissionChrome();
         setTimeout(() => {
           requestMobileUiRefresh('next');
-          scrollMissionTopIntoView();
         }, 80);
       });
 
       wrapGlobal('returnToHub', function () {
         registerActivity('return_hub');
-        vibrateTap(10);
 
         if (runtime.currentAttempt && !runtime.currentAttempt.isFinished) {
           finishAttempt('return_to_hub', { viaButton: true });
@@ -2156,7 +2103,6 @@
 
       wrapGlobal('setDifficulty', function (args) {
         registerActivity('set_difficulty');
-        vibrateTap(10);
         log('set_difficulty', {
           difficulty: args && args.length ? String(args[0] || '') : ''
         }, !runtime.currentAttempt);
