@@ -13,7 +13,7 @@
 
   const CONFIG = {
     devtoolsThreshold: 160,
-    checkIntervalMs: 1000,
+    checkIntervalMs: 1500,
     blockContextMenu: true,
     blockSelection: true,
     blockCopyOutsideInputs: true,
