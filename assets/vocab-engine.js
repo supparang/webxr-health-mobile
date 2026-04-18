@@ -17,6 +17,7 @@ import { installVocabGuards } from './vocab-guard.js';
     teacherLinkOutput: document.getElementById('teacherLinkOutput'),
     questionBox: document.getElementById('questionBox'),
     feedbackBox: document.getElementById('feedbackBox'),
+    choicePad: document.getElementById('choicePad'),
     hudPrompt: document.getElementById('hudPrompt'),
     hudScore: document.getElementById('hudScore'),
     hudRound: document.getElementById('hudRound'),
@@ -148,7 +149,7 @@ import { installVocabGuards } from './vocab-guard.js';
     const expanded = [];
     items.forEach(item => {
       const w = Math.max(0, Number(weightGetter(item) || 0));
-      for(let i=0;i<w;i++) expanded.push(item);
+      for(let i = 0; i < w; i++) expanded.push(item);
     });
     if (!expanded.length) return items[Math.floor(Math.random() * items.length)] || null;
     return expanded[Math.floor(Math.random() * expanded.length)] || null;
@@ -156,6 +157,40 @@ import { installVocabGuards } from './vocab-guard.js';
 
   function center(){
     return { x: width * 0.5, y: height * 0.60 };
+  }
+
+  function isMobileChoiceMode(){
+    return width < 860;
+  }
+
+  function clearChoicePad(){
+    if (!els.choicePad) return;
+    els.choicePad.innerHTML = '';
+    els.choicePad.classList.add('hidden');
+  }
+
+  function renderChoicePad(item){
+    if (!els.choicePad) return;
+
+    if (!isMobileChoiceMode() || !item || !Array.isArray(item.choices) || !item.choices.length){
+      clearChoicePad();
+      return;
+    }
+
+    els.choicePad.innerHTML = '';
+
+    item.choices.forEach(choice => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'choiceBtn';
+      btn.textContent = String(choice).toUpperCase();
+      btn.addEventListener('click', () => {
+        handleAnswerV9(String(choice).toLowerCase());
+      });
+      els.choicePad.appendChild(btn);
+    });
+
+    els.choicePad.classList.remove('hidden');
   }
 
   function postSheetAction(action, payload, timeoutMs = 2500){
@@ -1004,44 +1039,6 @@ import { installVocabGuards } from './vocab-guard.js';
     setTimeout(() => { els.feedbackBox.classList.remove('show'); }, 650);
   }
 
-  function renderHud(){
-    const shownStage = Math.min(V9.stageIndex + 1, V9.maxStages);
-    const cfg = modeConfig();
-
-    setText(els.hudScore, 'Score ' + V9.score);
-    setText(els.hudRound, 'Stage ' + shownStage + ' / ' + V9.maxStages);
-
-    if (cfg.useBoss){
-      setText(els.hudCombo, 'Combo x' + V9.combo);
-      setText(els.hudMode, 'Difficulty ' + V9.runDifficulty.toUpperCase());
-      setText(els.hudHp, 'HP ' + V9.hp + ' • Boss ' + Math.max(0, V9.bossHp) + '/' + V9.bossMaxHp);
-      setText(els.hudState, 'BOSS • P' + V9.bossPhase);
-    } else if (cfg.useBugMeter){
-      setText(els.hudCombo, 'Fixed ' + V9.bugFixed);
-      setText(els.hudMode, 'Escaped ' + V9.bugEscaped + '/' + V9.maxBugEscaped);
-      setText(els.hudHp, 'HP ' + V9.hp);
-      setText(els.hudState, 'DEBUG MISSION');
-    } else if (cfg.useModelMeter){
-      setText(els.hudCombo, 'Model ' + V9.modelScore + '/' + V9.modelTarget);
-      setText(els.hudMode, 'Stability ' + V9.modelStability + '%');
-      setText(els.hudHp, 'HP ' + V9.hp);
-      setText(els.hudState, 'AI TRAINING');
-    } else if (cfg.useSpeedTimer){
-      setText(els.hudCombo, 'x' + V9.multiplier + ' MULTI');
-      setText(els.hudMode, 'Time ' + V9.speedRunTimeLeft + 's');
-      setText(els.hudHp, 'HP ' + V9.hp);
-      setText(els.hudState, 'SPEED RUN');
-    }
-
-    setText(
-      els.hudPrompt,
-      V9.currentItem ? (V9.currentItem.term.toUpperCase() + ' • ' + modeMeta().title) : 'Contextual learning • adaptive difficulty • review queue'
-    );
-
-    els.timeFill.style.transform = 'scaleX(' + timeLeft + ')';
-    applyModeHudTheme();
-  }
-
   function drawRoundRect(x, y, w, h, r){
     ctx.beginPath();
     ctx.moveTo(x+r,y);
@@ -1080,29 +1077,10 @@ import { installVocabGuards } from './vocab-guard.js';
 
   function spawnTargetsFromChoices(choices){
     const c = center();
-    const mobile = width < 860;
     const theme = modeTheme();
 
-    if (mobile){
-      const ys = [height * 0.40, height * 0.54, height * 0.68, height * 0.82];
-      targets = choices.map((choice, i) => ({
-        id: 'target_' + i + '_' + Date.now(),
-        text: String(choice).toUpperCase(),
-        rawText: String(choice).toLowerCase(),
-        x: c.x,
-        y: ys[i] || (height * 0.4 + i * 90),
-        angle: 0,
-        radiusBase: 0,
-        radiusPulse: 0,
-        speed: 0,
-        w: Math.min(320, width * 0.76),
-        h: 74,
-        scale: 1,
-        z: 1,
-        color: [theme.accent2, theme.accent, '#fde047', '#ffffff'][i % 4],
-        hitFlash: 0,
-        mobile: true
-      }));
+    if (isMobileChoiceMode()){
+      targets = [];
       return;
     }
 
@@ -1130,24 +1108,29 @@ import { installVocabGuards } from './vocab-guard.js';
   }
 
   function updateTargets(time){
+    if (isMobileChoiceMode()){
+      hoveredId = null;
+      return;
+    }
+
     const c = center();
     hoveredId = null;
 
     targets.forEach((t, i) => {
-      if (!t.mobile){
-        t.angle += t.speed;
-        const radius = t.radiusBase + Math.sin(time * 0.002 + i) * t.radiusPulse;
-        t.x = c.x + Math.cos(t.angle) * radius;
-        t.y = c.y + Math.sin(t.angle * 1.8 + time * 0.0013) * 44;
-        t.z = 0.75 + (Math.sin(t.angle * 1.3 + time * 0.001) + 1) * 0.15;
-        t.scale = 1 + (t.z - 0.75) * 0.7;
-      }
+      t.angle += t.speed;
+      const radius = t.radiusBase + Math.sin(time * 0.002 + i) * t.radiusPulse;
+      t.x = c.x + Math.cos(t.angle) * radius;
+      t.y = c.y + Math.sin(t.angle * 1.8 + time * 0.0013) * 44;
+      t.z = 0.75 + (Math.sin(t.angle * 1.3 + time * 0.001) + 1) * 0.15;
+      t.scale = 1 + (t.z - 0.75) * 0.7;
       t.hitFlash = Math.max(0, t.hitFlash - 0.05);
       if (pointInTarget(mouseX, mouseY, t)) hoveredId = t.id;
     });
   }
 
   function renderTargets(){
+    if (isMobileChoiceMode()) return;
+
     const sorted = targets.slice().sort((a,b) => a.z - b.z);
 
     sorted.forEach(t => {
@@ -1165,8 +1148,8 @@ import { installVocabGuards } from './vocab-guard.js';
       ctx.lineWidth = hoveredId === t.id ? 8 : 6;
       ctx.strokeStyle = t.color;
 
-      const w = t.mobile ? t.w : 250;
-      const h = t.mobile ? t.h : 84;
+      const w = 250;
+      const h = 84;
 
       drawRoundRect(-w/2, -h/2, w, h, 20);
       ctx.stroke();
@@ -1178,8 +1161,8 @@ import { installVocabGuards } from './vocab-guard.js';
       ctx.fillStyle = '#111827';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = '800 ' + (t.mobile ? 20 : (hoveredId === t.id ? 28 : 26)) + 'px Arial';
-      wrapText(t.text, 0, 0, w - 40, 2, t.mobile ? 20 : 26);
+      ctx.font = '800 ' + (hoveredId === t.id ? 28 : 26) + 'px Arial';
+      wrapText(t.text, 0, 0, w - 40, 2, 26);
       ctx.restore();
     });
   }
@@ -1193,275 +1176,6 @@ import { installVocabGuards } from './vocab-guard.js';
   function getTargetAtPoint(x, y){
     const sorted = targets.slice().sort((a,b) => b.z - a.z);
     return sorted.find(t => pointInTarget(x, y, t)) || null;
-  }
-
-  function getWeakestTerms(limit){
-    return Object.entries(V9.mastery)
-      .sort((a,b) => {
-        const wrongDiff = b[1].wrong - a[1].wrong;
-        if (wrongDiff !== 0) return wrongDiff;
-        return a[1].correct - b[1].correct;
-      })
-      .slice(0, limit);
-  }
-
-  function checkModeWinLose(){
-    const cfg = modeConfig();
-
-    if (cfg.useBoss){
-      if (V9.bossHp <= 0) return 'win';
-      if (V9.hp <= 0 || V9.stageIndex >= V9.maxStages) return 'lose';
-      return 'continue';
-    }
-
-    if (cfg.useBugMeter){
-      if (V9.bugFixed >= 10) return 'win';
-      if (V9.bugEscaped >= V9.maxBugEscaped || V9.hp <= 0 || V9.stageIndex >= V9.maxStages) return 'lose';
-      return 'continue';
-    }
-
-    if (cfg.useModelMeter){
-      if (V9.modelScore >= V9.modelTarget) return 'win';
-      if (V9.modelStability <= 0 || V9.hp <= 0 || V9.stageIndex >= V9.maxStages) return 'lose';
-      return 'continue';
-    }
-
-    if (cfg.useSpeedTimer){
-      if (V9.speedRunTimeLeft <= 0) return 'win';
-      if (V9.hp <= 0) return 'lose';
-      return 'continue';
-    }
-
-    return 'continue';
-  }
-
-  function createSessionId(){
-    return 'SES-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
-  }
-
-  function forceMenuBootState(){
-    const q = new URLSearchParams(location.search);
-    if (q.get('teacher') === '1') return;
-    if (phase !== 'idle') return;
-
-    els.menu?.classList.remove('hidden');
-    els.leaderboardWrap?.classList.add('hidden');
-    els.endWrap?.classList.add('hidden');
-    els.teacherWrap?.classList.add('hidden');
-    els.teacherLinkWrap?.classList.add('hidden');
-
-    document.querySelector('.hud')?.classList.remove('hidden');
-    els.questionBox?.classList.remove('hidden');
-
-    if (!V9.currentItem){
-      els.questionBox.innerHTML =
-        '<div class="q-meta">ESP BATTLE</div>' +
-        '<div class="q-prompt">เตรียมเริ่มเกม</div>';
-    }
-  }
-
-  function endRun(){
-    if (phase === 'ended') return;
-
-    phase = 'ended';
-    targets = [];
-    V9.currentItem = null;
-    hoveredId = null;
-    timeLeft = 0;
-
-    const weakest = getWeakestTerms(5);
-    const cfg = modeConfig();
-
-    const totalSeen = Object.values(V9.mastery || {}).reduce((s,m) => s + Number(m.seen || 0), 0);
-    const totalCorrect = Object.values(V9.mastery || {}).reduce((s,m) => s + Number(m.correct || 0), 0);
-
-    const summary = {
-      score: V9.score,
-      hp: V9.hp,
-      bossHp: V9.bossHp,
-      bossMaxHp: V9.bossMaxHp,
-      bossPhase: V9.bossPhase,
-      win: checkModeWinLose() === 'win',
-      stagesPlayed: Math.min(V9.stageIndex, V9.maxStages),
-      weakestTerms: weakest,
-      mastery: V9.mastery,
-      accuracy: totalSeen ? Number(((totalCorrect / totalSeen) * 100).toFixed(2)) : 0
-    };
-
-    lastSummary = summary;
-    renderTeacherDashboard(summary);
-
-    const weakestText = weakest.length
-      ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ')
-      : '-';
-
-    if (cfg.useBoss){
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: ⚔️ Code Battle<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Stages: ' + summary.stagesPlayed + ' / ' + V9.maxStages + '<br>' +
-        'HP Left: ' + summary.hp + '<br>' +
-        (summary.win ? 'Result: BOSS DEFEATED<br>' : 'Result: BOSS SURVIVED<br>') +
-        'Boss HP Left: ' + summary.bossHp + ' / ' + summary.bossMaxHp + '<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    } else if (cfg.useBugMeter){
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: 🧪 Debug Mission<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Fixed Bugs: ' + V9.bugFixed + '<br>' +
-        'Escaped Bugs: ' + V9.bugEscaped + '/' + V9.maxBugEscaped + '<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    } else if (cfg.useModelMeter){
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: 🤖 AI Training Sim<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Model Score: ' + V9.modelScore + '/' + V9.modelTarget + '<br>' +
-        'Stability: ' + V9.modelStability + '%<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    } else if (cfg.useSpeedTimer){
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: ⚡ Speed Run<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Multiplier Final: x' + V9.multiplier + '<br>' +
-        'HP Left: ' + summary.hp + '<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    }
-
-    els.endWrap.classList.remove('hidden');
-    els.menu.classList.add('hidden');
-    els.questionBox.classList.add('hidden');
-
-    const lbEntry = buildGlobalLeaderboardEntry(summary);
-
-    mergeLeaderboardRowLocal(lbEntry);
-    renderLeaderboard();
-    renderMenuTop3();
-    renderHud();
-
-    fireAndForget(
-      upsertGlobalLeaderboard(lbEntry)
-        .then(() => fetchGlobalLeaderboard())
-        .then(() => {
-          renderLeaderboard();
-          renderMenuTop3();
-        }),
-      'leaderboard_upsert'
-    );
-
-    fireAndForget(logGameEnd(summary), 'session_end');
-  }
-
-  function handleAnswerV9(selectedText){
-    const item = V9.currentItem;
-    if (!item || phase !== 'battle') return;
-
-    const isCorrect = selectedText === String(item.answer).toLowerCase();
-    const rt = V9._qStartTime ? (Date.now() - V9._qStartTime) : 0;
-    const cfg = modeConfig();
-    const levelBefore = ensureMastery(item.termId).level;
-
-    updateMasteryAfterAnswer(item.termId, isCorrect, item.type);
-    updateWordSkill(item.termId, isCorrect, rt);
-    const levelAfter = ensureMastery(item.termId).level;
-
-    if (cfg.useBoss){
-      if (isCorrect){
-        const damage = bossDamageFromCorrect();
-        V9.score += 12 + Math.min(V9.combo * 3, 24);
-        V9.combo += 1;
-        V9.bossHp = Math.max(0, V9.bossHp - damage);
-        updateBossPhase();
-        showFeedback(modeFeedbackText('correct', damage), 'ok');
-      } else {
-        const penalty = bossPenaltyOnWrong();
-        V9.hp -= penalty;
-        V9.combo = 0;
-        enqueueReview(item.termId);
-        showFeedback(modeFeedbackText('wrong', penalty), 'bad');
-      }
-    } else if (cfg.useBugMeter){
-      if (isCorrect){
-        V9.bugFixed += 1;
-        V9.score += 15;
-        V9.combo += 1;
-        showFeedback(modeFeedbackText('correct'), 'ok');
-      } else {
-        V9.bugEscaped += 1;
-        V9.hp -= 1;
-        V9.combo = 0;
-        enqueueReview(item.termId);
-        showFeedback(modeFeedbackText('wrong'), 'bad');
-      }
-    } else if (cfg.useModelMeter){
-      if (isCorrect){
-        const gain = item.level === 'hard' ? 20 : item.level === 'normal' ? 14 : 10;
-        V9.modelScore = Math.min(V9.modelTarget, V9.modelScore + gain);
-        V9.score += gain;
-        V9.combo += 1;
-        showFeedback(modeFeedbackText('correct', gain), 'ok');
-      } else {
-        V9.modelStability = Math.max(0, V9.modelStability - 18);
-        V9.hp -= 1;
-        V9.combo = 0;
-        enqueueReview(item.termId);
-        showFeedback(modeFeedbackText('wrong'), 'bad');
-      }
-    } else if (cfg.useSpeedTimer){
-      if (isCorrect){
-        V9.combo += 1;
-        if (V9.combo >= 3) V9.multiplier = Math.min(5, V9.multiplier + 1);
-        V9.score += 8 * V9.multiplier;
-        showFeedback(modeFeedbackText('correct', V9.multiplier), 'ok');
-      } else {
-        V9.multiplier = 1;
-        V9.combo = 0;
-        V9.hp -= 1;
-        enqueueReview(item.termId);
-        showFeedback(modeFeedbackText('wrong'), 'bad');
-      }
-    }
-
-    fireAndForget(sendTermAnswerRow({
-      item,
-      isCorrect,
-      levelBefore,
-      levelAfter,
-      responseMs: rt
-    }), 'term_answer');
-
-    fireAndForget(logEvent(isCorrect ? 'answer_correct' : 'answer_wrong', {
-      questionId: item.id || '',
-      termId: item.termId,
-      word: item.term,
-      questionType: item.type,
-      selected: selectedText,
-      correct: item.answer,
-      responseTimeMs: rt,
-      hp: V9.hp,
-      stage: V9.stageIndex + 1,
-      level: item.level,
-      fromReview: item.fromReview,
-      mode: V9.mode
-    }), 'answer_event');
-
-    V9.stageIndex += 1;
-
-    const state = checkModeWinLose();
-    if (state === 'win' || state === 'lose'){
-      endRun();
-      return;
-    }
-
-    phase = 'feedback';
-    phaseUntil = now() + 800;
   }
 
   function nextQuestionV9(){
@@ -1483,6 +1197,7 @@ import { installVocabGuards } from './vocab-guard.js';
     V9._qStartTime = Date.now();
     renderQuestionBox(item);
     spawnTargetsFromChoices(item.choices);
+    clearChoicePad();
 
     fireAndForget(logEvent('question_shown', {
       questionId: item.id || '',
@@ -1533,6 +1248,7 @@ import { installVocabGuards } from './vocab-guard.js';
     V9.countdown = 3;
     V9._qStartTime = 0;
     targets = [];
+    clearChoicePad();
     phase = 'idle';
     timeLeft = 1;
     renderHud();
@@ -1695,6 +1411,8 @@ import { installVocabGuards } from './vocab-guard.js';
   function openTeacher(){
     document.querySelector('.hud')?.classList.add('hidden');
     els.questionBox.classList.add('hidden');
+    clearChoicePad();
+
     if (!lastSummary){
       try{
         const raw = JSON.parse(localStorage.getItem(TEACHER_KEY) || 'null');
@@ -1718,7 +1436,7 @@ import { installVocabGuards } from './vocab-guard.js';
     }
   }
 
-  function renderLoopBattle(t){
+  function renderLoopBattle(){
     if (phase === 'countdown'){
       timeLeft = 1;
       els.questionBox.innerHTML =
@@ -1739,6 +1457,7 @@ import { installVocabGuards } from './vocab-guard.js';
           const phasePenalty = V9.bossPhase === 3 ? 900 : V9.bossPhase === 2 ? 450 : 0;
           roundDuration = Math.max(2400, diffDuration - phasePenalty);
           renderQuestionBox(V9.currentItem);
+          renderChoicePad(V9.currentItem);
         }
       }
     } else if (phase === 'battle'){
@@ -1773,6 +1492,8 @@ import { installVocabGuards } from './vocab-guard.js';
           updateWordSkill(V9.currentItem.termId, false, roundDuration);
           timeoutAfter = ensureMastery(V9.currentItem.termId).level;
         }
+
+        clearChoicePad();
 
         if (cfg.useBoss){
           const timeoutDmg = V9.bossPhase === 3 ? 2 : 1;
@@ -1846,6 +1567,12 @@ import { installVocabGuards } from './vocab-guard.js';
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (!isMobileChoiceMode()){
+      clearChoicePad();
+    } else if (phase === 'battle' && V9.currentItem){
+      renderChoicePad(V9.currentItem);
+    }
   }
 
   function loop(t){
@@ -1878,6 +1605,7 @@ import { installVocabGuards } from './vocab-guard.js';
   });
 
   canvas.addEventListener('mousedown', e => {
+    if (isMobileChoiceMode()) return;
     const hit = getTargetAtPoint(e.clientX, e.clientY);
     if (hit){
       hit.hitFlash = 1;
@@ -1886,6 +1614,7 @@ import { installVocabGuards } from './vocab-guard.js';
   });
 
   canvas.addEventListener('touchstart', e => {
+    if (isMobileChoiceMode()) return;
     const t = e.changedTouches[0];
     if (!t) return;
     mouseX = t.clientX;
