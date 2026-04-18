@@ -549,6 +549,43 @@ import { installVocabGuards } from './vocab-guard.js';
     };
   }
 
+  function mergeLeaderboardRowLocal(entry){
+    const rows = Array.isArray(globalLeaderboardRows) ? [...globalLeaderboardRows] : [];
+    const idx = rows.findIndex(r => String(r.player_key || '') === String(entry.player_key || ''));
+
+    if (idx < 0){
+      rows.push(entry);
+    } else {
+      const old = rows[idx];
+      const oldScore = Number(old.best_score || 0);
+      const newScore = Number(entry.best_score || 0);
+      const oldAcc = Number(old.best_accuracy || 0);
+      const newAcc = Number(entry.best_accuracy || 0);
+
+      const shouldReplace = (newScore > oldScore) || (newScore === oldScore && newAcc > oldAcc);
+
+      rows[idx] = {
+        ...old,
+        ...entry,
+        best_score: shouldReplace ? newScore : oldScore,
+        best_accuracy: shouldReplace ? newAcc : oldAcc,
+        bank: shouldReplace ? entry.bank : (old.bank || entry.bank || ''),
+        mode: shouldReplace ? entry.mode : (old.mode || entry.mode || ''),
+        best_session_id: shouldReplace ? (entry.best_session_id || '') : (old.best_session_id || ''),
+        last_when: entry.last_when || old.last_when || ''
+      };
+    }
+
+    rows.sort((a, b) =>
+      Number(b.best_score || 0) - Number(a.best_score || 0) ||
+      Number(b.best_accuracy || 0) - Number(a.best_accuracy || 0)
+    );
+
+    globalLeaderboardRows = rows.slice(0, 50);
+    saveLeaderboardCache(globalLeaderboardRows);
+    return globalLeaderboardRows;
+  }
+
   function renderMenuTop3(){
     const rows = (globalLeaderboardRows || []).slice(0, 3);
     els.menuTop3Board.innerHTML = '';
@@ -1168,41 +1205,6 @@ import { installVocabGuards } from './vocab-guard.js';
       .slice(0, limit);
   }
 
-  function updateWordSkill(termId, isCorrect, rtMs){
-    const s = ensureWordSkill(termId);
-    s.seen += 1;
-    if (isCorrect){
-      s.correct += 1;
-      s.score = Math.min(1, s.score + 0.08);
-    } else {
-      s.wrong += 1;
-      s.score = Math.max(0, s.score - 0.12);
-    }
-    if (rtMs > 0){
-      s.avgRtMs = s.avgRtMs === 0 ? rtMs : Math.round((s.avgRtMs * 0.7) + (rtMs * 0.3));
-    }
-  }
-
-  function updateMasteryAfterAnswer(termId, isCorrect, variantType){
-    const m = ensureMastery(termId);
-    m.seen += 1;
-    if (isCorrect){
-      m.correct += 1;
-      m.streak += 1;
-      if (m.streak >= 2){
-        m.level = promoteLevel(m.level);
-        m.streak = 0;
-      }
-    } else {
-      m.wrong += 1;
-      m.streak = 0;
-      m.level = demoteLevel(m.level);
-    }
-    if (levelRank(m.level) > levelRank(m.highestLevel)) m.highestLevel = m.level;
-    m.lastTypes.push(variantType);
-    if (m.lastTypes.length > 5) m.lastTypes.shift();
-  }
-
   function checkModeWinLose(){
     const cfg = modeConfig();
 
@@ -1337,10 +1339,13 @@ import { installVocabGuards } from './vocab-guard.js';
     els.menu.classList.add('hidden');
     els.questionBox.classList.add('hidden');
 
+    const lbEntry = buildGlobalLeaderboardEntry(summary);
+
+    mergeLeaderboardRowLocal(lbEntry);
     renderLeaderboard();
+    renderMenuTop3();
     renderHud();
 
-    const lbEntry = buildGlobalLeaderboardEntry(summary);
     fireAndForget(
       upsertGlobalLeaderboard(lbEntry)
         .then(() => fetchGlobalLeaderboard())
@@ -1670,6 +1675,14 @@ import { installVocabGuards } from './vocab-guard.js';
 
   function openLeaderboard(){
     els.leaderboardWrap.classList.remove('hidden');
+
+    if ((!globalLeaderboardRows || !globalLeaderboardRows.length) && phase === 'ended' && lastSummary){
+      const optimisticEntry = buildGlobalLeaderboardEntry(lastSummary);
+      mergeLeaderboardRowLocal(optimisticEntry);
+      renderLeaderboard();
+      renderMenuTop3();
+    }
+
     fireAndForget(
       fetchGlobalLeaderboard().then(() => {
         renderLeaderboard();
