@@ -5,13 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>TechPath VR • English Quest</title>
 
-  <!-- Theme -->
   <meta name="theme-color" content="#0a1222" />
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
-  <!-- Styles -->
   <style>
     body {
       margin: 0;
@@ -31,7 +29,6 @@
       z-index: 9999;
     }
 
-    /* Protected overlay */
     #source-shield {
       position: fixed;
       inset: 0;
@@ -54,12 +51,12 @@
 <div id="loading">Loading TechPath...</div>
 
 <!-- Guard overlay -->
-<div id="source-shield" aria-hidden="true">
+<div id="source-shield">
   <div style="text-align:center">
     <div style="font-weight:900;color:#7bedff;font-size:1.2rem">
       Protected Lesson Mode
     </div>
-    <div style="margin-top:8px;color:#eaf6ff">
+    <div style="margin-top:8px">
       กรุณาปิด Developer Tools
     </div>
   </div>
@@ -75,7 +72,7 @@
 <div id="ui-container"></div>
 
 <!-- ========================= -->
-<!-- ✅ BOOT SAFE LOADING -->
+<!-- BOOT SAFE -->
 <!-- ========================= -->
 <script>
 (function () {
@@ -129,14 +126,28 @@
 </script>
 
 <!-- ========================= -->
-<!-- 🚀 MAIN GAME -->
+<!-- MAIN GAME -->
 <!-- ========================= -->
 <script type="module" src="./js/lesson-main.js"></script>
 
 <!-- ========================= -->
-<!-- ✅ PRODUCTION SAFE GUARD -->
+<!-- PRODUCTION SAFE GUARD -->
 <!-- ========================= -->
-<script src="./js/techpath-guard.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const THRESHOLD = 160;
+
+  setInterval(() => {
+    const open =
+      window.outerWidth - window.innerWidth > THRESHOLD ||
+      window.outerHeight - window.innerHeight > THRESHOLD;
+
+    document.body.classList.toggle('devtools-guard', open);
+  }, 1000);
+})();
+</script>
 
 </body>
 </html>
