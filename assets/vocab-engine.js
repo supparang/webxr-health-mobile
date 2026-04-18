@@ -3,6 +3,7 @@ import { installVocabGuards } from './vocab-guard.js';
 
 (() => {
   installVocabGuards({ engineName: 'vocab-engine.js' });
+
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
 
@@ -60,6 +61,12 @@ import { installVocabGuards } from './vocab-guard.js';
     }catch(_){
       return new Date().toISOString();
     }
+  }
+
+  function fireAndForget(promise, label='async'){
+    Promise.resolve(promise).catch(err => {
+      console.warn(label + ' failed:', err);
+    });
   }
 
   function compactMastery(){
@@ -409,12 +416,13 @@ import { installVocabGuards } from './vocab-guard.js';
 
     if (nextPhase !== V9.bossPhase){
       V9.bossPhase = nextPhase;
-      logEvent('phase_change', {
+      fireAndForget(logEvent('phase_change', {
         phase: V9.bossPhase,
         bossHp: V9.bossHp,
         bossMaxHp: V9.bossMaxHp,
         stage: V9.stageIndex + 1
-      });
+      }), 'phase_change');
+
       if (nextPhase === 2) showFeedback('BOSS PHASE 2', 'warn');
       if (nextPhase === 3) showFeedback('RAGE MODE', 'bad');
     }
@@ -867,9 +875,30 @@ import { installVocabGuards } from './vocab-guard.js';
   }
 
   function saveSessionLocal(payload){
-    const rows = JSON.parse(localStorage.getItem(SESSION_KEY) || '[]');
-    rows.push(payload);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(rows.slice(-1000)));
+    try{
+      const rows = JSON.parse(localStorage.getItem(SESSION_KEY) || '[]');
+      rows.push(payload);
+
+      const slim = rows.slice(-120).map(r => ({
+        action: r.action || r.type || '',
+        timestamp: r.timestamp || r.ts || '',
+        session_id: r.session_id || r.sessionId || '',
+        display_name: r.display_name || r.displayName || '',
+        student_id: r.student_id || r.studentId || '',
+        bank: r.bank || '',
+        mode: r.mode || '',
+        term_id: r.term_id || r.termId || '',
+        is_correct: r.is_correct,
+        score: r.score || 0,
+        combo: r.combo || 0,
+        stage_index: r.stage_index || r.stage || 0
+      }));
+
+      localStorage.setItem(SESSION_KEY, JSON.stringify(slim));
+    }catch(err){
+      console.warn('saveSessionLocal skipped:', err);
+      try{ localStorage.removeItem(SESSION_KEY); }catch(_){}
+    }
   }
 
   async function saveSessionRealtime(action, payload){
@@ -883,13 +912,19 @@ import { installVocabGuards } from './vocab-guard.js';
       payload
     };
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+
     try{
       const res = await fetch(VOCAB_SHEET_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(envelope),
-        keepalive: true
+        keepalive: true,
+        signal: controller.signal
       });
+
+      clearTimeout(timer);
 
       return {
         ok: res.ok,
@@ -897,6 +932,7 @@ import { installVocabGuards } from './vocab-guard.js';
         payload
       };
     }catch(err){
+      clearTimeout(timer);
       console.warn('Sheet upload failed; kept local only', err);
       return {
         ok: false,
@@ -917,11 +953,7 @@ import { installVocabGuards } from './vocab-guard.js';
       ts: bangkokIsoNow(),
       ...data
     };
-    try{
-      await saveSessionRealtime(type, payload);
-    }catch(err){
-      console.error('logEvent failed', err);
-    }
+    return saveSessionRealtime(type, payload);
   }
 
   async function sendTermAnswerRow({
@@ -935,31 +967,27 @@ import { installVocabGuards } from './vocab-guard.js';
 
     const meta = getContextMeta();
 
-    try{
-      await saveSessionRealtime('term_answer', {
-        timestamp: bangkokIsoNow(),
-        session_id: meta.session_id,
-        display_name: meta.display_name,
-        student_id: meta.student_id,
-        section: meta.section,
-        session_code: meta.session_code,
-        bank: meta.bank,
-        mode: meta.mode,
-        term_id: item.termId || '',
-        term: item.term || '',
-        variant_type: item.type || '',
-        is_correct: !!isCorrect,
-        level_before: levelBefore || '',
-        level_after: levelAfter || '',
-        from_review: !!item.fromReview,
-        response_ms: Number(responseMs || 0),
-        score: Number(V9.score || 0),
-        combo: Number(V9.combo || 0),
-        stage_index: Number((V9.stageIndex || 0) + 1)
-      });
-    }catch(err){
-      console.error('sendTermAnswerRow failed', err);
-    }
+    return saveSessionRealtime('term_answer', {
+      timestamp: bangkokIsoNow(),
+      session_id: meta.session_id,
+      display_name: meta.display_name,
+      student_id: meta.student_id,
+      section: meta.section,
+      session_code: meta.session_code,
+      bank: meta.bank,
+      mode: meta.mode,
+      term_id: item.termId || '',
+      term: item.term || '',
+      variant_type: item.type || '',
+      is_correct: !!isCorrect,
+      level_before: levelBefore || '',
+      level_after: levelAfter || '',
+      from_review: !!item.fromReview,
+      response_ms: Number(responseMs || 0),
+      score: Number(V9.score || 0),
+      combo: Number(V9.combo || 0),
+      stage_index: Number((V9.stageIndex || 0) + 1)
+    });
   }
 
   async function logGameEntry(){
@@ -968,32 +996,28 @@ import { installVocabGuards } from './vocab-guard.js';
 
     const meta = getContextMeta();
 
-    try{
-      await saveSessionRealtime('session_start', {
-        timestamp: bangkokIsoNow(),
-        session_id: currentSessionId,
-        display_name: meta.display_name,
-        student_id: meta.student_id,
-        section: meta.section,
-        session_code: meta.session_code,
-        bank: meta.bank,
-        mode: meta.mode,
-        started_at: sessionStartedAt,
-        ended_at: '',
-        duration_sec: '',
-        score: '',
-        accuracy: '',
-        mistakes: '',
-        weakest_term: '',
-        ai_recommended_mode: '',
-        ai_recommended_difficulty: '',
-        ai_reason: '',
-        page_url: location.href,
-        user_agent: navigator.userAgent
-      });
-    }catch(err){
-      console.error('saveSessionRealtime start failed', err);
-    }
+    return saveSessionRealtime('session_start', {
+      timestamp: bangkokIsoNow(),
+      session_id: currentSessionId,
+      display_name: meta.display_name,
+      student_id: meta.student_id,
+      section: meta.section,
+      session_code: meta.session_code,
+      bank: meta.bank,
+      mode: meta.mode,
+      started_at: sessionStartedAt,
+      ended_at: '',
+      duration_sec: '',
+      score: '',
+      accuracy: '',
+      mistakes: '',
+      weakest_term: '',
+      ai_recommended_mode: '',
+      ai_recommended_difficulty: '',
+      ai_reason: '',
+      page_url: location.href,
+      user_agent: navigator.userAgent
+    });
   }
 
   async function logGameEnd(summary){
@@ -1009,57 +1033,94 @@ import { installVocabGuards } from './vocab-guard.js';
     const masteryJson = JSON.stringify(compactMastery());
     const ai = buildAiRecommendation(stats.accuracy);
 
-    try{
-      await saveSessionRealtime('session_end', {
-        timestamp: bangkokIsoNow(),
-        session_id: currentSessionId,
-        display_name: meta.display_name,
-        student_id: meta.student_id,
-        section: meta.section,
-        session_code: meta.session_code,
-        bank: meta.bank,
-        mode: meta.mode,
-        started_at: sessionStartedAt,
-        ended_at: endedAt,
-        duration_sec: durationSec,
-        score: Number(summary.score || 0),
-        accuracy: Number(stats.accuracy || 0),
-        mistakes: Number(stats.mistakes || 0),
-        weakest_term: weakestTerm,
-        ai_recommended_mode: ai.recommendedMode,
-        ai_recommended_difficulty: ai.recommendedDifficulty,
-        ai_reason: ai.aiReason,
-        page_url: location.href,
-        user_agent: navigator.userAgent
-      });
+    await saveSessionRealtime('session_end', {
+      timestamp: bangkokIsoNow(),
+      session_id: currentSessionId,
+      display_name: meta.display_name,
+      student_id: meta.student_id,
+      section: meta.section,
+      session_code: meta.session_code,
+      bank: meta.bank,
+      mode: meta.mode,
+      started_at: sessionStartedAt,
+      ended_at: endedAt,
+      duration_sec: durationSec,
+      score: Number(summary.score || 0),
+      accuracy: Number(stats.accuracy || 0),
+      mistakes: Number(stats.mistakes || 0),
+      weakest_term: weakestTerm,
+      ai_recommended_mode: ai.recommendedMode,
+      ai_recommended_difficulty: ai.recommendedDifficulty,
+      ai_reason: ai.aiReason,
+      page_url: location.href,
+      user_agent: navigator.userAgent
+    });
 
-      await saveSessionRealtime('student_profile_upsert', {
-        timestamp: bangkokIsoNow(),
-        student_id: meta.student_id,
-        display_name: meta.display_name,
-        section: meta.section,
-        last_session_id: currentSessionId,
-        last_bank: meta.bank,
-        last_mode: meta.mode,
-        last_score: Number(summary.score || 0),
-        last_accuracy: Number(stats.accuracy || 0),
-        recommended_mode: ai.recommendedMode,
-        recommended_difficulty: ai.recommendedDifficulty,
-        weak_terms_json: weakTermsJson,
-        mastery_json: masteryJson
-      });
-    }catch(err){
-      console.error('saveSessionRealtime end failed', err);
-    }
+    await saveSessionRealtime('student_profile_upsert', {
+      timestamp: bangkokIsoNow(),
+      student_id: meta.student_id,
+      display_name: meta.display_name,
+      section: meta.section,
+      last_session_id: currentSessionId,
+      last_bank: meta.bank,
+      last_mode: meta.mode,
+      last_score: Number(summary.score || 0),
+      last_accuracy: Number(stats.accuracy || 0),
+      recommended_mode: ai.recommendedMode,
+      recommended_difficulty: ai.recommendedDifficulty,
+      weak_terms_json: weakTermsJson,
+      mastery_json: masteryJson
+    });
   }
 
   function loadLeaderboard(){
-    try{ return JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || '[]'); }
-    catch(e){ return []; }
+    try{
+      return JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || '[]');
+    }catch(e){
+      return [];
+    }
   }
 
   function saveLeaderboard(rows){
-    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(rows.slice(0,200)));
+    try{
+      const cleaned = rows
+        .filter(Boolean)
+        .map(r => ({
+          uid: r.uid || '',
+          displayName: r.displayName || 'Player',
+          studentId: r.studentId || '',
+          bank: r.bank || '',
+          mode: r.mode || '',
+          score: Number(r.score || 0),
+          accuracy: Number(r.accuracy || 0),
+          weakestTerm: String(r.weakestTerm || '').slice(0, 120),
+          when: r.when || new Date().toISOString()
+        }))
+        .slice(-60);
+
+      localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(cleaned));
+    }catch(err){
+      console.warn('saveLeaderboard quota hit, pruning...', err);
+
+      try{
+        const fallback = rows
+          .filter(Boolean)
+          .map(r => ({
+            displayName: r.displayName || 'Player',
+            studentId: r.studentId || '',
+            score: Number(r.score || 0),
+            accuracy: Number(r.accuracy || 0),
+            when: r.when || new Date().toISOString()
+          }))
+          .slice(-20);
+
+        localStorage.removeItem(LEADERBOARD_KEY);
+        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(fallback));
+      }catch(err2){
+        console.warn('saveLeaderboard final fallback failed:', err2);
+        try{ localStorage.removeItem(LEADERBOARD_KEY); }catch(_){}
+      }
+    }
   }
 
   function leaderboardKeyOf(entry){
@@ -1207,7 +1268,7 @@ import { installVocabGuards } from './vocab-guard.js';
     });
   }
 
-  async function endRun(){
+  function endRun(){
     if (phase === 'ended') return;
 
     phase = 'ended';
@@ -1237,10 +1298,13 @@ import { installVocabGuards } from './vocab-guard.js';
 
     lastSummary = summary;
     renderTeacherDashboard(summary);
-    await logGameEnd(summary);
 
     const entry = buildRealtimeEntryFromSummary(summary);
-    pushLeaderboardEntry(entry);
+    try{
+      pushLeaderboardEntry(entry);
+    }catch(err){
+      console.warn('pushLeaderboardEntry skipped:', err);
+    }
 
     const weakestText = weakest.length
       ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ')
@@ -1292,9 +1356,11 @@ import { installVocabGuards } from './vocab-guard.js';
 
     renderLeaderboard();
     renderHud();
+
+    fireAndForget(logGameEnd(summary), 'session_end');
   }
 
-  async function handleAnswerV9(selectedText){
+  function handleAnswerV9(selectedText){
     const item = V9.currentItem;
     if (!item || phase !== 'battle') return;
 
@@ -1364,15 +1430,15 @@ import { installVocabGuards } from './vocab-guard.js';
       }
     }
 
-    await sendTermAnswerRow({
+    fireAndForget(sendTermAnswerRow({
       item,
       isCorrect,
       levelBefore,
       levelAfter,
       responseMs: rt
-    });
+    }), 'term_answer');
 
-    await logEvent(isCorrect ? 'answer_correct' : 'answer_wrong', {
+    fireAndForget(logEvent(isCorrect ? 'answer_correct' : 'answer_wrong', {
       questionId: item.id || '',
       termId: item.termId,
       word: item.term,
@@ -1385,7 +1451,7 @@ import { installVocabGuards } from './vocab-guard.js';
       level: item.level,
       fromReview: item.fromReview,
       mode: V9.mode
-    });
+    }), 'answer_event');
 
     V9.stageIndex += 1;
 
@@ -1419,7 +1485,7 @@ import { installVocabGuards } from './vocab-guard.js';
     renderQuestionBox(item);
     spawnTargetsFromChoices(item.choices);
 
-    logEvent('question_shown', {
+    fireAndForget(logEvent('question_shown', {
       questionId: item.id || '',
       termId: item.termId,
       word: item.term,
@@ -1429,7 +1495,7 @@ import { installVocabGuards } from './vocab-guard.js';
       fromReview: item.fromReview,
       stage: V9.stageIndex + 1,
       modeWeight: (modeConfig().questionWeights || {})[item.type] || 0
-    });
+    }), 'question_shown');
 
     phase = 'countdown';
     V9.countdown = 3;
@@ -1473,13 +1539,15 @@ import { installVocabGuards } from './vocab-guard.js';
     renderHud();
   }
 
-  async function startProductionRun(){
+  function startProductionRun(){
     document.querySelector('.hud')?.classList.remove('hidden');
     els.questionBox.classList.remove('hidden');
     saveProfile();
     els.menu.classList.add('hidden');
     els.endWrap.classList.add('hidden');
-    await logGameEntry();
+
+    fireAndForget(logGameEntry(), 'session_start');
+
     resetRun(V9.bank, V9.mode);
     nextQuestionV9();
   }
@@ -1637,7 +1705,7 @@ import { installVocabGuards } from './vocab-guard.js';
     }
   }
 
-  function renderLoopBattle(t){
+  function renderLoopBattle(){
     if (phase === 'countdown'){
       timeLeft = 1;
       els.questionBox.innerHTML =
@@ -1719,15 +1787,15 @@ import { installVocabGuards } from './vocab-guard.js';
           showFeedback(modeFeedbackText('timeout'), 'warn');
         }
 
-        sendTermAnswerRow({
+        fireAndForget(sendTermAnswerRow({
           item: V9.currentItem,
           isCorrect: false,
           levelBefore: timeoutBefore,
           levelAfter: timeoutAfter,
           responseMs: roundDuration
-        });
+        }), 'timeout_term_answer');
 
-        logEvent('timeout', {
+        fireAndForget(logEvent('timeout', {
           questionId: V9.currentItem?.id || '',
           termId: V9.currentItem?.termId || '',
           word: V9.currentItem?.term || '',
@@ -1738,7 +1806,7 @@ import { installVocabGuards } from './vocab-guard.js';
           mode: V9.mode,
           responseTimeMs: roundDuration,
           fromReview: !!V9.currentItem?.fromReview
-        });
+        }), 'timeout_event');
 
         V9.stageIndex += 1;
 
@@ -1856,7 +1924,7 @@ import { installVocabGuards } from './vocab-guard.js';
   });
 
   document.getElementById('clearLeaderboardBtn').addEventListener('click', () => {
-    localStorage.removeItem(LEADERBOARD_KEY);
+    try{ localStorage.removeItem(LEADERBOARD_KEY); }catch(_){}
     renderLeaderboard();
     renderMenuTop3();
   });
@@ -1873,7 +1941,7 @@ import { installVocabGuards } from './vocab-guard.js';
   });
 
   document.getElementById('clearTeacherBtn').addEventListener('click', () => {
-    localStorage.removeItem(TEACHER_KEY);
+    try{ localStorage.removeItem(TEACHER_KEY); }catch(_){}
     els.teacherTable.innerHTML = '';
     els.weakList.innerHTML = '';
   });
