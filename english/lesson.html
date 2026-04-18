@@ -22,9 +22,9 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260418-lesson-clean-stable-pc-safe';
-    window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzKzDrMtM5tc7MP5VlNBKXpV5Pp1r75R9Cvny8xqf_DkClYajnkGbUBFDwMJSchTC0S/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260418-lesson-clean-stable-pc-safe';
+    window.TECHPATH_BUILD = 'v20260418-lesson-clean-stable-mobile-playable';
+    window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwCD25XBmVpouiPpR8zwh75XzX_1OQgZPdyFaAXnxMsCXOEtdUpFQRmFdFpPNgDQEjv/exec';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260418-lesson-clean-stable-mobile-playable';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -331,9 +331,140 @@
       font-weight:700;
     }
 
-    @media (max-width:700px){
-      #ui-container{
-        padding:8px 10px calc(190px + env(safe-area-inset-bottom, 0px));
+    /* ===== MOBILE HUB PLAYABLE PATCH ===== */
+    @media (max-width: 700px) {
+      a-scene {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 0 !important;
+      }
+
+      #ui-container {
+        position: relative;
+        z-index: 2;
+        width: 100% !important;
+        min-height: 100dvh !important;
+        padding: 8px 10px 110px !important;
+        pointer-events: none;
+      }
+
+      #ui-container .btn-action,
+      #ui-container button,
+      #ui-container input,
+      #ui-container textarea,
+      #attendance-panel,
+      #profile-panel,
+      #hub-stats-board,
+      #summary-panel,
+      #game-over-ui,
+      #mobile-hub-drawer,
+      #mobile-hub-sheet {
+        pointer-events: auto;
+      }
+
+      #ui-title {
+        font-size: 1.9rem !important;
+        line-height: 1.05 !important;
+        margin: 4px 0 2px !important;
+        text-align: center;
+      }
+
+      #ui-desc {
+        font-size: 0.95rem !important;
+        margin: 0 0 8px !important;
+        text-align: center;
+      }
+
+      #attendance-panel {
+        margin: 6px 0 8px !important;
+        padding: 10px 12px !important;
+        border-radius: 16px !important;
+      }
+
+      #attendance-title {
+        font-size: 0.88rem !important;
+      }
+
+      #attendance-summary-line {
+        margin-top: 8px !important;
+        font-size: 0.8rem !important;
+      }
+
+      #hud-stats {
+        margin: 8px 0 !important;
+        padding: 8px 0 !important;
+      }
+
+      .hud-stat-item {
+        font-size: 0.95rem !important;
+        gap: 6px !important;
+      }
+
+      #hud-top-row {
+        margin: 6px 0 8px !important;
+      }
+
+      #ai-director-board {
+        margin: 8px 0 !important;
+        padding: 10px 12px !important;
+        border-radius: 16px !important;
+      }
+
+      #ai-director-state {
+        font-size: 0.95rem !important;
+      }
+
+      #ai-director-sub {
+        font-size: 0.82rem !important;
+      }
+
+      body.hub-mode #profile-panel,
+      body.hub-mode #hub-stats-board {
+        display: none !important;
+      }
+
+      #mobile-hub-drawer {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        z-index: 50;
+        display: flex;
+        gap: 8px;
+      }
+
+      #mobile-hub-drawer .btn-action {
+        flex: 1 1 0;
+        min-height: 48px;
+        border-radius: 16px;
+        font-weight: 900;
+      }
+
+      #mobile-hub-sheet {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+        z-index: 60;
+        display: none;
+        max-height: 44dvh;
+        overflow: auto;
+        border-radius: 18px;
+        background: rgba(10,18,34,.96);
+        border: 1px solid rgba(123,237,255,.18);
+        box-shadow: 0 14px 34px rgba(0,0,0,.28);
+        padding: 12px;
+      }
+
+      #mobile-hub-sheet.show {
+        display: block;
+      }
+
+      body.mission-mode #mobile-hub-drawer,
+      body.summary-mode #mobile-hub-drawer,
+      body.mission-mode #mobile-hub-sheet,
+      body.summary-mode #mobile-hub-sheet {
+        display: none !important;
       }
 
       body.mission-mobile #ui-title,
@@ -592,30 +723,12 @@
       </div>
 
       <div id="attendance-grid">
-        <div class="attendance-item">
-          <b>Student ID</b>
-          <span id="attendance-student-id">-</span>
-        </div>
-        <div class="attendance-item">
-          <b>Name</b>
-          <span id="attendance-student-name">-</span>
-        </div>
-        <div class="attendance-item">
-          <b>Class Section</b>
-          <span id="attendance-class-section">-</span>
-        </div>
-        <div class="attendance-item">
-          <b>Current S</b>
-          <span id="attendance-session-no">Lobby</span>
-        </div>
-        <div class="attendance-item">
-          <b>Time in S</b>
-          <span id="attendance-duration">00:00</span>
-        </div>
-        <div class="attendance-item">
-          <b>Active Time</b>
-          <span id="attendance-active-time">00:00</span>
-        </div>
+        <div class="attendance-item"><b>Student ID</b><span id="attendance-student-id">-</span></div>
+        <div class="attendance-item"><b>Name</b><span id="attendance-student-name">-</span></div>
+        <div class="attendance-item"><b>Class Section</b><span id="attendance-class-section">-</span></div>
+        <div class="attendance-item"><b>Current S</b><span id="attendance-session-no">Lobby</span></div>
+        <div class="attendance-item"><b>Time in S</b><span id="attendance-duration">00:00</span></div>
+        <div class="attendance-item"><b>Active Time</b><span id="attendance-active-time">00:00</span></div>
       </div>
 
       <div id="attendance-status" class="warn">กำลังเตรียมข้อมูลเช็กชื่อ...</div>
@@ -711,6 +824,12 @@
 
     <button class="btn-action" id="btn-next" onclick="playNextMission()" style="background:#2ed573; display:none;">เล่นด่านถัดไป ▶</button>
     <button class="btn-action btn-danger" id="btn-return" onclick="returnToHub()" style="display:none;">กลับ Main Hub</button>
+  </div>
+
+  <div id="mobile-hub-sheet"></div>
+  <div id="mobile-hub-drawer">
+    <button class="btn-action" id="btn-mobile-profile" type="button">โปรไฟล์</button>
+    <button class="btn-action" id="btn-mobile-stats" type="button">สถิติ</button>
   </div>
 
   <a-scene loading-screen="enabled: false">
@@ -1061,5 +1180,618 @@
     }, 1500);
   })();
   </script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const sheet = document.getElementById('mobile-hub-sheet');
+    const profile = document.getElementById('profile-panel');
+    const stats = document.getElementById('hub-stats-board');
+    const btnProfile = document.getElementById('btn-mobile-profile');
+    const btnStats = document.getElementById('btn-mobile-stats');
+    const ui = document.getElementById('ui-container');
+
+    if (!sheet || !profile || !stats || !btnProfile || !btnStats || !ui) return;
+
+    function renderIntoSheet(fromEl) {
+      sheet.innerHTML = '';
+      const clone = fromEl.cloneNode(true);
+      clone.style.display = 'block';
+      clone.id = clone.id + '-sheet-copy';
+      sheet.appendChild(clone);
+      sheet.classList.add('show');
+    }
+
+    function closeSheet() {
+      sheet.classList.remove('show');
+      sheet.innerHTML = '';
+    }
+
+    btnProfile.addEventListener('click', function () {
+      if (sheet.classList.contains('show')) {
+        closeSheet();
+        return;
+      }
+      renderIntoSheet(profile);
+    });
+
+    btnStats.addEventListener('click', function () {
+      if (sheet.classList.contains('show')) {
+        closeSheet();
+        return;
+      }
+      renderIntoSheet(stats);
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!sheet.classList.contains('show')) return;
+      const inSheet = e.target.closest('#mobile-hub-sheet');
+      const inDrawer = e.target.closest('#mobile-hub-drawer');
+      if (!inSheet && !inDrawer) closeSheet();
+    }, true);
+
+    function syncBodyMode() {
+      const summaryVisible =
+        getComputedStyle(document.getElementById('summary-panel')).display !== 'none' ||
+        getComputedStyle(document.getElementById('btn-next')).display !== 'none' ||
+        getComputedStyle(document.getElementById('btn-return')).display !== 'none';
+
+      const missionVisible =
+        /SESSION\s+\d+/i.test((document.getElementById('ui-title')?.textContent || '').trim()) ||
+        getComputedStyle(document.getElementById('btn-speak')).display !== 'none' ||
+        getComputedStyle(document.getElementById('btn-play-audio')).display !== 'none' ||
+        getComputedStyle(document.getElementById('write-input')).display !== 'none' ||
+        getComputedStyle(document.getElementById('choice-buttons')).display !== 'none';
+
+      document.body.classList.remove('hub-mode', 'mission-mode', 'summary-mode');
+      if (summaryVisible) document.body.classList.add('summary-mode');
+      else if (missionVisible) document.body.classList.add('mission-mode');
+      else document.body.classList.add('hub-mode');
+
+      if (!document.body.classList.contains('hub-mode')) {
+        closeSheet();
+      }
+    }
+
+    setInterval(syncBodyMode, 600);
+    syncBodyMode();
+  })();
+  </script>
+
+  <script>
+(function () {
+  'use strict';
+
+  const ENDPOINT =
+    window.TECHPATH_ATTENDANCE_ENDPOINT ||
+    'https://script.google.com/macros/s/AKfycbwCD25XBmVpouiPpR8zwh75XzX_1OQgZPdyFaAXnxMsCXOEtdUpFQRmFdFpPNgDQEjv/exec';
+
+  const PATCH = 'v20260418-techpath-attendance-runtime-final';
+  const HEARTBEAT_MS = 15000;
+  const ACTIVE_TICK_MS = 1000;
+  const ATTEMPT_MIN_GAP_MS = 1200;
+
+  const q = new URLSearchParams(location.search);
+
+  function safeGetLS(key, fallback = '') {
+    try {
+      const v = localStorage.getItem(key);
+      return v == null ? fallback : v;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function safeSetLS(key, value) {
+    try {
+      localStorage.setItem(key, String(value ?? ''));
+    } catch (_) {}
+  }
+
+  function askOnce(storageKey, promptText) {
+    const oldVal = safeGetLS(storageKey, '');
+    if (oldVal) return oldVal;
+    const v = window.prompt(promptText || storageKey, '') || '';
+    if (v) safeSetLS(storageKey, v);
+    return v;
+  }
+
+  const context = {
+    studentId:
+      q.get('sid') ||
+      q.get('studentId') ||
+      q.get('id') ||
+      safeGetLS('ENG_STUDENT_ID') ||
+      askOnce('ENG_STUDENT_ID', 'กรอก Student ID'),
+    studentName:
+      q.get('name') ||
+      q.get('studentName') ||
+      safeGetLS('ENG_STUDENT_NAME') ||
+      askOnce('ENG_STUDENT_NAME', 'กรอกชื่อผู้เรียน'),
+    classSection:
+      q.get('section') ||
+      safeGetLS('ENG_CLASS_SECTION') ||
+      askOnce('ENG_CLASS_SECTION', 'กรอก section/ห้อง'),
+    lessonId:
+      q.get('lessonId') ||
+      q.get('unit') ||
+      q.get('course') ||
+      'techpath-vr',
+    courseMeeting:
+      q.get('meetingNo') ||
+      q.get('week') ||
+      q.get('meeting') ||
+      '',
+    pageUrl: location.href,
+    userAgent: navigator.userAgent
+  };
+
+  safeSetLS('ENG_STUDENT_ID', context.studentId);
+  safeSetLS('ENG_STUDENT_NAME', context.studentName);
+  safeSetLS('ENG_CLASS_SECTION', context.classSection);
+
+  function makeId(prefix) {
+    return [prefix, Date.now(), Math.random().toString(36).slice(2, 8)].join('-');
+  }
+
+  function nowIso() {
+    return new Date().toISOString();
+  }
+
+  function fmtSec(sec) {
+    const n = Math.max(0, Math.round(Number(sec) || 0));
+    const mm = String(Math.floor(n / 60)).padStart(2, '0');
+    const ss = String(n % 60).padStart(2, '0');
+    return mm + ':' + ss;
+  }
+
+  function getEl(id) {
+    return document.getElementById(id);
+  }
+
+  function getText(id) {
+    const el = getEl(id);
+    return el ? String(el.textContent || el.innerText || '').trim() : '';
+  }
+
+  function setText(id, value) {
+    const el = getEl(id);
+    if (el) el.textContent = value;
+  }
+
+  function isShown(el) {
+    if (!el) return false;
+    const cs = getComputedStyle(el);
+    return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
+  }
+
+  function parseMissionIdFromTitle() {
+    const title = getText('ui-title');
+    const m = title.match(/SESSION\s+(\d+)/i);
+    return m ? Number(m[1]) : null;
+  }
+
+  function parseSessionNo(n) {
+    const num = Number(n || 0);
+    if (!Number.isFinite(num) || num <= 0) return 'S00';
+    return 'S' + String(num).padStart(2, '0');
+  }
+
+  function readScore() {
+    const raw = getText('score-display').replace(/[^\d.-]/g, '');
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function readHP() {
+    return getText('hp-display') || '100%';
+  }
+
+  function summarySnapshot() {
+    return {
+      summaryTitle: getText('summary-title'),
+      summaryBody: getText('summary-body'),
+      feedback: getText('feedback'),
+      uiTitle: getText('ui-title'),
+      btnNextVisible: isShown(getEl('btn-next')),
+      btnReturnVisible: isShown(getEl('btn-return')),
+      gameOverVisible: isShown(getEl('game-over-ui'))
+    };
+  }
+
+  function detectScreenMode() {
+    const title = getText('ui-title');
+    const summaryVisible =
+      isShown(getEl('summary-panel')) ||
+      isShown(getEl('btn-next')) ||
+      isShown(getEl('btn-return')) ||
+      isShown(getEl('game-over-ui'));
+
+    const missionVisible =
+      /SESSION\s+\d+/i.test(title) ||
+      isShown(getEl('btn-speak')) ||
+      isShown(getEl('btn-play-audio')) ||
+      isShown(getEl('write-input')) ||
+      isShown(getEl('btn-submit-write')) ||
+      isShown(getEl('choice-buttons'));
+
+    if (summaryVisible) return 'summary';
+    if (missionVisible) return 'mission';
+    return 'hub';
+  }
+
+  function inferMissionType() {
+    if (isShown(getEl('write-input')) || isShown(getEl('btn-submit-write'))) return 'writing';
+    if (isShown(getEl('btn-speak'))) return 'speaking';
+    if (isShown(getEl('btn-play-audio')) && isShown(getEl('choice-buttons'))) return 'listening';
+    if (isShown(getEl('choice-buttons'))) return 'reading';
+    return '';
+  }
+
+  function currentSnapshot() {
+    const missionId = parseMissionIdFromTitle();
+    const sessionNo = parseSessionNo(missionId);
+    return {
+      missionId,
+      sessionNo,
+      mode: detectScreenMode(),
+      missionType: inferMissionType(),
+      score: readScore(),
+      hp: readHP(),
+      uiTitle: getText('ui-title'),
+      feedback: getText('feedback'),
+      summary: summarySnapshot()
+    };
+  }
+
+  const runtime = {
+    pageVisitId: makeId('PAGE'),
+    pageEnterMs: Date.now(),
+    pageEnteredAt: nowIso(),
+    pageLastActiveAt: Date.now(),
+    pageLastActionMs: 0,
+    pageActiveTimeMs: 0,
+    pageActionsCount: 0,
+    currentAttempt: null,
+    readyForNewAttempt: true,
+    lastDetectedMissionId: null,
+    lastMode: '',
+    lastHeartbeatAt: 0,
+    sentSummaryForAttemptId: '',
+    lastMissionStartAt: 0
+  };
+
+  function newAttemptBase(snapshot) {
+    return {
+      attemptId: makeId('ATT'),
+      missionId: snapshot.missionId || '',
+      sessionNo: snapshot.sessionNo || 'S00',
+      missionType: snapshot.missionType || '',
+      startedAt: nowIso(),
+      startMs: Date.now(),
+      endedAt: '',
+      endMs: 0,
+      durationSec: 0,
+      scoreStart: snapshot.score,
+      scoreEnd: snapshot.score,
+      hpStart: snapshot.hp,
+      hpEnd: snapshot.hp,
+      result: '',
+      summaryTitle: '',
+      summaryBody: '',
+      feedback: '',
+      completed: false
+    };
+  }
+
+  function updateAttendanceMiniUI(snapshot, statusText) {
+    setText('attendance-summary-name', context.studentName || '-');
+    setText('attendance-summary-s', snapshot.sessionNo || 'S00');
+    setText('attendance-summary-status', statusText || 'กำลังติดตาม');
+    setText('attendance-student-id', context.studentId || '-');
+    setText('attendance-student-name', context.studentName || '-');
+    setText('attendance-class-section', context.classSection || '-');
+    setText('attendance-session-no', snapshot.sessionNo || 'S00');
+    setText('attendance-duration', runtime.currentAttempt ? fmtSec((Date.now() - runtime.currentAttempt.startMs) / 1000) : '00:00');
+    setText('attendance-active-time', fmtSec(runtime.pageActiveTimeMs / 1000));
+
+    const box = getEl('attendance-status');
+    if (box) {
+      box.classList.remove('warn', 'fail');
+      box.textContent = statusText || 'กำลังติดตาม';
+      if (/error|fail|offline|ไม่สำเร็จ|ผิดพลาด/i.test(box.textContent)) box.classList.add('fail');
+      else if (/เตรียม|tracking|ติดตาม|started|running/i.test(box.textContent)) box.classList.add('warn');
+    }
+  }
+
+  function buildPayload(eventType, extra = {}) {
+    const snapshot = currentSnapshot();
+    const attempt = runtime.currentAttempt;
+
+    return {
+      source: 'techpath-vr',
+      patch: PATCH,
+      eventType,
+      pageVisitId: runtime.pageVisitId,
+      pageEnteredAt: runtime.pageEnteredAt,
+      eventAt: nowIso(),
+
+      studentId: context.studentId || '',
+      studentName: context.studentName || '',
+      classSection: context.classSection || '',
+      lessonId: context.lessonId || 'techpath-vr',
+      courseMeeting: context.courseMeeting || '',
+
+      pageUrl: context.pageUrl,
+      userAgent: context.userAgent,
+
+      mode: snapshot.mode,
+      missionId: snapshot.missionId || '',
+      sessionNo: snapshot.sessionNo || 'S00',
+      missionType: snapshot.missionType || '',
+
+      score: snapshot.score,
+      hp: snapshot.hp,
+      uiTitle: snapshot.uiTitle,
+      feedback: snapshot.feedback,
+
+      summaryTitle: snapshot.summary.summaryTitle,
+      summaryBody: snapshot.summary.summaryBody,
+      btnNextVisible: snapshot.summary.btnNextVisible,
+      btnReturnVisible: snapshot.summary.btnReturnVisible,
+      gameOverVisible: snapshot.summary.gameOverVisible,
+
+      pageActiveTimeSec: Math.round(runtime.pageActiveTimeMs / 1000),
+      pageActionsCount: runtime.pageActionsCount,
+
+      attemptId: attempt?.attemptId || '',
+      attemptStartedAt: attempt?.startedAt || '',
+      attemptEndedAt: attempt?.endedAt || '',
+      attemptDurationSec: attempt?.durationSec || 0,
+      attemptScoreStart: attempt?.scoreStart ?? '',
+      attemptScoreEnd: attempt?.scoreEnd ?? '',
+      attemptHpStart: attempt?.hpStart ?? '',
+      attemptHpEnd: attempt?.hpEnd ?? '',
+      attemptResult: attempt?.result || '',
+
+      ...extra
+    };
+  }
+
+  async function postPayload(payload, useBeacon = false) {
+    if (!ENDPOINT) return false;
+
+    const body = JSON.stringify(payload);
+
+    try {
+      if (useBeacon && navigator.sendBeacon) {
+        const blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
+        return navigator.sendBeacon(ENDPOINT, blob);
+      }
+
+      await fetch(ENDPOINT, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body
+      });
+      return true;
+    } catch (err) {
+      console.error('Attendance POST failed:', err);
+      return false;
+    }
+  }
+
+  function bumpAction() {
+    runtime.pageActionsCount += 1;
+    runtime.pageLastActionMs = Date.now();
+  }
+
+  function startAttemptIfNeeded() {
+    const snapshot = currentSnapshot();
+    if (snapshot.mode !== 'mission' || !snapshot.missionId) return;
+
+    if (
+      runtime.currentAttempt &&
+      Number(runtime.currentAttempt.missionId) === Number(snapshot.missionId) &&
+      !runtime.currentAttempt.completed
+    ) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - runtime.lastMissionStartAt < ATTEMPT_MIN_GAP_MS) return;
+
+    runtime.lastMissionStartAt = now;
+    runtime.currentAttempt = newAttemptBase(snapshot);
+    runtime.sentSummaryForAttemptId = '';
+    runtime.lastDetectedMissionId = snapshot.missionId;
+    bumpAction();
+    updateAttendanceMiniUI(snapshot, 'Mission started');
+    postPayload(buildPayload('mission_start'));
+  }
+
+  function closeAttempt(result) {
+    if (!runtime.currentAttempt || runtime.currentAttempt.completed) return;
+
+    const snapshot = currentSnapshot();
+    runtime.currentAttempt.endedAt = nowIso();
+    runtime.currentAttempt.endMs = Date.now();
+    runtime.currentAttempt.durationSec = Math.max(0, Math.round((runtime.currentAttempt.endMs - runtime.currentAttempt.startMs) / 1000));
+    runtime.currentAttempt.scoreEnd = snapshot.score;
+    runtime.currentAttempt.hpEnd = snapshot.hp;
+    runtime.currentAttempt.summaryTitle = snapshot.summary.summaryTitle || '';
+    runtime.currentAttempt.summaryBody = snapshot.summary.summaryBody || '';
+    runtime.currentAttempt.feedback = snapshot.feedback || '';
+    runtime.currentAttempt.result = result || runtime.currentAttempt.result || '';
+    runtime.currentAttempt.completed = true;
+
+    bumpAction();
+    updateAttendanceMiniUI(snapshot, result === 'success' ? 'Mission cleared' : (result === 'fail' ? 'Mission failed' : 'Mission ended'));
+    postPayload(buildPayload('mission_end', { result: runtime.currentAttempt.result }));
+  }
+
+  function maybeDetectSummary() {
+    const snapshot = currentSnapshot();
+    if (snapshot.mode !== 'summary') return;
+    if (!runtime.currentAttempt) return;
+    if (!runtime.currentAttempt.completed) {
+      const result =
+        /clear|success|win|ผ่าน/i.test(snapshot.summary.summaryTitle + ' ' + snapshot.summary.summaryBody + ' ' + snapshot.feedback)
+          ? 'success'
+          : (snapshot.summary.gameOverVisible ? 'fail' : 'summary');
+      closeAttempt(result);
+    }
+    if (runtime.sentSummaryForAttemptId === runtime.currentAttempt.attemptId) return;
+    runtime.sentSummaryForAttemptId = runtime.currentAttempt.attemptId;
+    postPayload(buildPayload('summary_view'));
+  }
+
+  function maybeDetectReturnToHub() {
+    const snapshot = currentSnapshot();
+    if (snapshot.mode === 'hub' && runtime.lastMode && runtime.lastMode !== 'hub') {
+      bumpAction();
+      updateAttendanceMiniUI(snapshot, 'Back to hub');
+      postPayload(buildPayload('hub_view'));
+    }
+  }
+
+  function heartbeat() {
+    const now = Date.now();
+    if (now - runtime.lastHeartbeatAt < HEARTBEAT_MS) return;
+    runtime.lastHeartbeatAt = now;
+    const snapshot = currentSnapshot();
+    updateAttendanceMiniUI(snapshot, snapshot.mode === 'mission' ? 'Mission running' : (snapshot.mode === 'summary' ? 'Summary view' : 'Hub view'));
+    postPayload(buildPayload('heartbeat'));
+  }
+
+  function onVisibility() {
+    if (document.hidden) {
+      postPayload(buildPayload('page_hidden'), true);
+    } else {
+      runtime.pageLastActiveAt = Date.now();
+      postPayload(buildPayload('page_visible'));
+    }
+  }
+
+  function onPageLeave() {
+    const snapshot = currentSnapshot();
+    if (snapshot.mode === 'mission' && runtime.currentAttempt && !runtime.currentAttempt.completed) {
+      closeAttempt('leave');
+    }
+    postPayload(buildPayload('page_leave'), true);
+  }
+
+  function syncMode() {
+    const snapshot = currentSnapshot();
+    if (snapshot.mode === 'mission') startAttemptIfNeeded();
+    if (snapshot.mode === 'summary') maybeDetectSummary();
+    maybeDetectReturnToHub();
+    runtime.lastMode = snapshot.mode;
+  }
+
+  function attachObservers() {
+    const ids = [
+      'ui-title',
+      'summary-panel',
+      'summary-title',
+      'summary-body',
+      'feedback',
+      'btn-next',
+      'btn-return',
+      'game-over-ui',
+      'choice-buttons',
+      'btn-speak',
+      'btn-play-audio',
+      'write-input',
+      'btn-submit-write'
+    ];
+
+    const obs = new MutationObserver(function () {
+      syncMode();
+    });
+
+    ids.forEach((id) => {
+      const el = getEl(id);
+      if (el) obs.observe(el, { attributes: true, childList: true, subtree: true, characterData: true });
+    });
+  }
+
+  function attachUIHooks() {
+    getEl('attendance-toggle')?.addEventListener('click', function () {
+      const panel = getEl('attendance-panel');
+      if (!panel) return;
+      panel.classList.toggle('compact');
+      const expanded = !panel.classList.contains('compact');
+      this.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      this.textContent = expanded ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด';
+      bumpAction();
+      postPayload(buildPayload('attendance_toggle', { expanded }));
+    });
+
+    ['btn-next', 'btn-return', 'btn-save-profile', 'btn-submit-score', 'btn-submit-write', 'btn-speak', 'btn-play-audio']
+      .forEach((id) => {
+        getEl(id)?.addEventListener('click', function () {
+          bumpAction();
+          postPayload(buildPayload('ui_click', { controlId: id }));
+        });
+      });
+
+    getEl('choice-buttons')?.addEventListener('click', function (e) {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      bumpAction();
+      postPayload(buildPayload('choice_click', { choiceText: String(btn.textContent || '').trim() }));
+    });
+
+    getEl('profile-name-input')?.addEventListener('change', function () {
+      bumpAction();
+      postPayload(buildPayload('profile_name_change', { profileName: this.value || '' }));
+    });
+
+    getEl('player-name-input')?.addEventListener('change', function () {
+      bumpAction();
+      postPayload(buildPayload('score_name_change', { scoreName: this.value || '' }));
+    });
+  }
+
+  function activeTick() {
+    if (!document.hidden) {
+      runtime.pageActiveTimeMs += ACTIVE_TICK_MS;
+      if (runtime.currentAttempt && !runtime.currentAttempt.completed) {
+        setText('attendance-duration', fmtSec((Date.now() - runtime.currentAttempt.startMs) / 1000));
+      }
+      setText('attendance-active-time', fmtSec(runtime.pageActiveTimeMs / 1000));
+    }
+  }
+
+  function init() {
+    const snapshot = currentSnapshot();
+    updateAttendanceMiniUI(snapshot, 'กำลังติดตาม');
+    attachObservers();
+    attachUIHooks();
+
+    document.addEventListener('visibilitychange', onVisibility, true);
+    window.addEventListener('beforeunload', onPageLeave, true);
+    window.addEventListener('pagehide', onPageLeave, true);
+    window.addEventListener('click', bumpAction, true);
+    window.addEventListener('keydown', bumpAction, true);
+
+    setInterval(activeTick, ACTIVE_TICK_MS);
+    setInterval(syncMode, 700);
+    setInterval(heartbeat, HEARTBEAT_MS);
+
+    postPayload(buildPayload('page_enter'));
+    postPayload(buildPayload('hub_view'));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
+})();
+</script>
 </body>
 </html>
