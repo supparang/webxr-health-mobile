@@ -27,6 +27,8 @@ import { installVocabGuards } from './vocab-guard.js';
     timeFill: document.getElementById('timeFill'),
     displayNameInput: document.getElementById('displayNameInput'),
     studentIdInput: document.getElementById('studentIdInput'),
+    sectionInput: document.getElementById('sectionInput'),
+    sessionCodeInput: document.getElementById('sessionCodeInput'),
     menuTop3Board: document.getElementById('menuTop3Board'),
     leaderboardList: document.getElementById('leaderboardList'),
     teacherTable: document.getElementById('teacherTable'),
@@ -34,15 +36,15 @@ import { installVocabGuards } from './vocab-guard.js';
     endSummaryText: document.getElementById('endSummaryText')
   };
 
-  const LEADERBOARD_KEY = 'VOCAB_V9_LEADERBOARD';
   const TEACHER_KEY = 'VOCAB_V9_TEACHER_LAST';
   const PROFILE_KEY = 'VOCAB_V9_PROFILE';
   const SESSION_KEY = 'VOCAB_V9_SESSIONS';
   const TEACHER_PASS_KEY = 'VOCAB_V9_TEACHER_PASS_HASH';
+  const GLOBAL_LB_CACHE_KEY = 'VOCAB_V9_GLOBAL_LB_CACHE';
 
-  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxSeCT2HSS5nEtG1n0NCVsOMQwtA6LAuVlhSKLMNkLYYr5IT0qWOGmQa_Wc-fCPYDqF/exec';
+  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyf-q0xobBB6dTLeWfjbhmlFhSIsRAgt710Ve8Q6KMAOKxHzZe5AM2ULg36ijI4XDnR/exec';
   const VOCAB_SHEET_SOURCE = 'vocab.html';
-  const VOCAB_SHEET_SCHEMA = 'vocab-v2';
+  const VOCAB_SHEET_SCHEMA = 'vocab-v3';
 
   function bangkokIsoNow(){
     try{
@@ -67,6 +69,74 @@ import { installVocabGuards } from './vocab-guard.js';
     Promise.resolve(promise).catch(err => {
       console.warn(label + ' failed:', err);
     });
+  }
+
+  function setText(el, value){
+    if (el) el.textContent = value;
+  }
+
+  function now(){
+    return performance.now();
+  }
+
+  function clamp(v, min, max){
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function weightedPick(items, weightGetter){
+    const expanded = [];
+    items.forEach(item => {
+      const w = Math.max(0, Number(weightGetter(item) || 0));
+      for(let i=0;i<w;i++) expanded.push(item);
+    });
+    if (!expanded.length) return items[Math.floor(Math.random() * items.length)] || null;
+    return expanded[Math.floor(Math.random() * expanded.length)] || null;
+  }
+
+  function center(){
+    return { x: width * 0.5, y: height * 0.60 };
+  }
+
+  function postSheetAction(action, payload, timeoutMs = 2500){
+    const envelope = {
+      source: VOCAB_SHEET_SOURCE,
+      schema: VOCAB_SHEET_SCHEMA,
+      action,
+      timestamp: bangkokIsoNow(),
+      payload
+    };
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    return fetch(VOCAB_SHEET_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(envelope),
+      keepalive: true,
+      signal: controller.signal
+    })
+      .then(async res => {
+        clearTimeout(timer);
+        let data = null;
+        try{
+          data = await res.json();
+        }catch(_){}
+        return { ok: res.ok, status: res.status, data };
+      })
+      .catch(err => {
+        clearTimeout(timer);
+        throw err;
+      });
   }
 
   function compactMastery(){
@@ -134,15 +204,22 @@ import { installVocabGuards } from './vocab-guard.js';
     };
   }
 
+  function readTrimmed(el){
+    return (el?.value || '').trim();
+  }
+
   function getContextMeta(){
     const q = new URLSearchParams(location.search);
+    const sectionDom = readTrimmed(els.sectionInput);
+    const sessionCodeDom = readTrimmed(els.sessionCodeInput);
+
     return {
       timestamp: bangkokIsoNow(),
       session_id: currentSessionId || '',
       display_name: profile.displayName || 'Player',
       student_id: profile.studentId || '',
-      section: q.get('section') || localStorage.getItem('VOCAB_SECTION') || '',
-      session_code: q.get('session_code') || q.get('sessionCode') || localStorage.getItem('VOCAB_SESSION_CODE') || '',
+      section: sectionDom || q.get('section') || localStorage.getItem('VOCAB_SECTION') || '',
+      session_code: sessionCodeDom || q.get('session_code') || q.get('sessionCode') || localStorage.getItem('VOCAB_SESSION_CODE') || '',
       bank: V9.bank || '',
       mode: V9.mode || ''
     };
@@ -171,108 +248,365 @@ import { installVocabGuards } from './vocab-guard.js';
     return JSON.stringify(weakestTermsForSheet(limit));
   }
 
-  const V9 = {
-    bank: 'A',
-    mode: 'code_battle',
-    score: 0,
-    combo: 0,
-    hp: 5,
-    bossHp: 320,
-    bossMaxHp: 320,
-    bossPhase: 1,
-    bossAttackAt: 0,
-    runDifficulty: 'easy',
-    currentItem: null,
-    usedVariantIds: new Set(),
-    usedTermIds: [],
-    reviewQueue: [],
-    mastery: {},
-    wordSkill: {},
-    recentWords: [],
-    recentQuestionTypes: [],
-    bugEscaped: 0,
-    bugFixed: 0,
-    maxBugEscaped: 5,
-    modelScore: 0,
-    modelTarget: 100,
-    modelStability: 100,
-    speedRunTimeLeft: 60,
-    multiplier: 1,
-    stageIndex: 0,
-    maxStages: 18,
-    countdown: 3,
-    _qStartTime: 0
-  };
-
-  let width = 0;
-  let height = 0;
-  let dpr = 1;
-  let mouseX = 0;
-  let mouseY = 0;
-  let hoveredId = null;
-  let targets = [];
-  let phase = 'idle';
-  let phaseUntil = 0;
-  let roundStart = 0;
-  let roundDuration = 6000;
-  let timeLeft = 1;
-  let profile = { displayName: 'Player', studentId: '' };
-  let lastSummary = null;
-  let leaderboardOpenedFromEnd = false;
-  let currentSessionId = null;
-  let sessionStartedAt = null;
-
-  function resize(){
-    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    width = innerWidth;
-    height = innerHeight;
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  function now(){ return performance.now(); }
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-  function setText(el, value){ if (el) el.textContent = value; }
-
-  function shuffle(arr){
-    const a = arr.slice();
-    for(let i=a.length-1;i>0;i--){
-      const j = Math.floor(Math.random() * (i+1));
-      [a[i],a[j]] = [a[j],a[i]];
-    }
-    return a;
-  }
-
-  function weightedPick(items, weightGetter){
-    const expanded = [];
-    items.forEach(item => {
-      const w = Math.max(0, Number(weightGetter(item) || 0));
-      for(let i=0;i<w;i++) expanded.push(item);
-    });
-    if (!expanded.length) return items[Math.floor(Math.random() * items.length)] || null;
-    return expanded[Math.floor(Math.random() * expanded.length)] || null;
-  }
-
-  function center(){
-    return { x: width * 0.5, y: height * 0.60 };
-  }
-
   function loadProfile(){
     try{
       const raw = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}');
       profile.displayName = raw.displayName || 'Player';
       profile.studentId = raw.studentId || '';
-      els.displayNameInput.value = profile.displayName === 'Player' ? '' : profile.displayName;
-      els.studentIdInput.value = profile.studentId;
-    }catch(e){}
+      if (els.displayNameInput) els.displayNameInput.value = profile.displayName === 'Player' ? '' : profile.displayName;
+      if (els.studentIdInput) els.studentIdInput.value = profile.studentId;
+    }catch(_){}
   }
 
   function saveProfile(){
-    profile.displayName = (els.displayNameInput.value || '').trim() || 'Player';
-    profile.studentId = (els.studentIdInput.value || '').trim();
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    profile.displayName = readTrimmed(els.displayNameInput) || 'Player';
+    profile.studentId = readTrimmed(els.studentIdInput);
+
+    try{
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+      if (els.sectionInput) localStorage.setItem('VOCAB_SECTION', readTrimmed(els.sectionInput));
+      if (els.sessionCodeInput) localStorage.setItem('VOCAB_SESSION_CODE', readTrimmed(els.sessionCodeInput));
+    }catch(err){
+      console.warn('saveProfile failed:', err);
+    }
   }
+
+  function saveSessionLocal(payload){
+    try{
+      const rows = JSON.parse(localStorage.getItem(SESSION_KEY) || '[]');
+      rows.push(payload);
+
+      const slim = rows.slice(-120).map(r => ({
+        action: r.action || r.type || '',
+        timestamp: r.timestamp || r.ts || '',
+        session_id: r.session_id || r.sessionId || '',
+        display_name: r.display_name || r.displayName || '',
+        student_id: r.student_id || r.studentId || '',
+        bank: r.bank || '',
+        mode: r.mode || '',
+        term_id: r.term_id || r.termId || '',
+        is_correct: r.is_correct,
+        score: r.score || 0,
+        combo: r.combo || 0,
+        stage_index: r.stage_index || r.stage || 0
+      }));
+
+      localStorage.setItem(SESSION_KEY, JSON.stringify(slim));
+    }catch(err){
+      console.warn('saveSessionLocal skipped:', err);
+      try{ localStorage.removeItem(SESSION_KEY); }catch(_){}
+    }
+  }
+
+  async function saveSessionRealtime(action, payload){
+    saveSessionLocal({ action, ...payload });
+
+    try{
+      return await postSheetAction(action, payload, 2500);
+    }catch(err){
+      console.warn('Sheet upload failed; kept local only', err);
+      return { ok: false, error: String(err), payload };
+    }
+  }
+
+  async function logEvent(type, data = {}){
+    const payload = {
+      type,
+      sessionId: currentSessionId,
+      displayName: profile.displayName || 'Player',
+      studentId: profile.studentId || '',
+      bank: V9.bank,
+      mode: V9.mode,
+      ts: bangkokIsoNow(),
+      ...data
+    };
+    return saveSessionRealtime(type, payload);
+  }
+
+  async function sendTermAnswerRow({
+    item,
+    isCorrect,
+    levelBefore,
+    levelAfter,
+    responseMs
+  }){
+    if (!item) return;
+
+    const meta = getContextMeta();
+
+    return saveSessionRealtime('term_answer', {
+      timestamp: bangkokIsoNow(),
+      session_id: meta.session_id,
+      display_name: meta.display_name,
+      student_id: meta.student_id,
+      section: meta.section,
+      session_code: meta.session_code,
+      bank: meta.bank,
+      mode: meta.mode,
+      term_id: item.termId || '',
+      term: item.term || '',
+      variant_type: item.type || '',
+      is_correct: !!isCorrect,
+      level_before: levelBefore || '',
+      level_after: levelAfter || '',
+      from_review: !!item.fromReview,
+      response_ms: Number(responseMs || 0),
+      score: Number(V9.score || 0),
+      combo: Number(V9.combo || 0),
+      stage_index: Number((V9.stageIndex || 0) + 1)
+    });
+  }
+
+  async function logGameEntry(){
+    currentSessionId = createSessionId();
+    sessionStartedAt = bangkokIsoNow();
+
+    const meta = getContextMeta();
+
+    return saveSessionRealtime('session_start', {
+      timestamp: bangkokIsoNow(),
+      session_id: currentSessionId,
+      display_name: meta.display_name,
+      student_id: meta.student_id,
+      section: meta.section,
+      session_code: meta.session_code,
+      bank: meta.bank,
+      mode: meta.mode,
+      started_at: sessionStartedAt,
+      ended_at: '',
+      duration_sec: '',
+      score: '',
+      accuracy: '',
+      mistakes: '',
+      weakest_term: '',
+      ai_recommended_mode: '',
+      ai_recommended_difficulty: '',
+      ai_reason: '',
+      page_url: location.href,
+      user_agent: navigator.userAgent
+    });
+  }
+
+  async function logGameEnd(summary){
+    const endedAt = bangkokIsoNow();
+    const durationSec = sessionStartedAt
+      ? Math.max(0, Math.round((new Date(endedAt) - new Date(sessionStartedAt)) / 1000))
+      : 0;
+
+    const meta = getContextMeta();
+    const stats = getAccuracyAndMistakes();
+    const weakestTerm = getWeakestTerm();
+    const weakTermsJson = getWeakTermsJson(5);
+    const masteryJson = JSON.stringify(compactMastery());
+    const ai = buildAiRecommendation(stats.accuracy);
+
+    await saveSessionRealtime('session_end', {
+      timestamp: bangkokIsoNow(),
+      session_id: currentSessionId,
+      display_name: meta.display_name,
+      student_id: meta.student_id,
+      section: meta.section,
+      session_code: meta.session_code,
+      bank: meta.bank,
+      mode: meta.mode,
+      started_at: sessionStartedAt,
+      ended_at: endedAt,
+      duration_sec: durationSec,
+      score: Number(summary.score || 0),
+      accuracy: Number(stats.accuracy || 0),
+      mistakes: Number(stats.mistakes || 0),
+      weakest_term: weakestTerm,
+      ai_recommended_mode: ai.recommendedMode,
+      ai_recommended_difficulty: ai.recommendedDifficulty,
+      ai_reason: ai.aiReason,
+      page_url: location.href,
+      user_agent: navigator.userAgent
+    });
+
+    await saveSessionRealtime('student_profile_upsert', {
+      timestamp: bangkokIsoNow(),
+      student_id: meta.student_id,
+      display_name: meta.display_name,
+      section: meta.section,
+      last_session_id: currentSessionId,
+      last_bank: meta.bank,
+      last_mode: meta.mode,
+      last_score: Number(summary.score || 0),
+      last_accuracy: Number(stats.accuracy || 0),
+      recommended_mode: ai.recommendedMode,
+      recommended_difficulty: ai.recommendedDifficulty,
+      weak_terms_json: weakTermsJson,
+      mastery_json: masteryJson
+    });
+  }
+
+  function saveLeaderboardCache(rows){
+    try{
+      const slim = (rows || []).slice(0, 50).map(r => ({
+        timestamp: r.timestamp || '',
+        player_key: r.player_key || '',
+        display_name: r.display_name || '',
+        student_id: r.student_id || '',
+        section: r.section || '',
+        session_code: r.session_code || '',
+        bank: r.bank || '',
+        mode: r.mode || '',
+        best_score: Number(r.best_score || 0),
+        best_accuracy: Number(r.best_accuracy || 0),
+        last_when: r.last_when || '',
+        best_session_id: r.best_session_id || ''
+      }));
+      localStorage.setItem(GLOBAL_LB_CACHE_KEY, JSON.stringify(slim));
+    }catch(err){
+      console.warn('saveLeaderboardCache failed:', err);
+    }
+  }
+
+  function loadLeaderboardCache(){
+    try{
+      const rows = JSON.parse(localStorage.getItem(GLOBAL_LB_CACHE_KEY) || '[]');
+      return Array.isArray(rows) ? rows : [];
+    }catch(_){
+      return [];
+    }
+  }
+
+  async function fetchGlobalLeaderboard(){
+    try{
+      const result = await postSheetAction('leaderboard_get', {}, 3500);
+      const rows = Array.isArray(result?.data?.rows) ? result.data.rows : [];
+      globalLeaderboardRows = rows;
+      saveLeaderboardCache(rows);
+      return rows;
+    }catch(err){
+      console.warn('fetchGlobalLeaderboard failed:', err);
+      return globalLeaderboardRows || [];
+    }
+  }
+
+  async function upsertGlobalLeaderboard(entry){
+    try{
+      return await postSheetAction('leaderboard_upsert', entry, 3500);
+    }catch(err){
+      console.warn('upsertGlobalLeaderboard failed:', err);
+      return { ok: false, error: String(err) };
+    }
+  }
+
+  function buildGlobalLeaderboardEntry(summary){
+    const totalSeen = Object.values(summary.mastery || {}).reduce((s,m) => s + Number(m.seen || 0), 0);
+    const totalCorrect = Object.values(summary.mastery || {}).reduce((s,m) => s + Number(m.correct || 0), 0);
+    const accuracy = totalSeen ? Math.round((totalCorrect / totalSeen) * 100) : 0;
+    const meta = getContextMeta();
+    const playerKey = String(meta.student_id || meta.display_name || 'anonymous').trim();
+
+    return {
+      timestamp: bangkokIsoNow(),
+      player_key: playerKey,
+      display_name: meta.display_name,
+      student_id: meta.student_id,
+      section: meta.section,
+      session_code: meta.session_code,
+      bank: meta.bank,
+      mode: meta.mode,
+      best_score: Number(summary.score || 0),
+      best_accuracy: Number(accuracy || 0),
+      last_when: bangkokIsoNow(),
+      best_session_id: currentSessionId || ''
+    };
+  }
+
+  function renderMenuTop3(){
+    const rows = (globalLeaderboardRows || []).slice(0, 3);
+    els.menuTop3Board.innerHTML = '';
+
+    if (!rows.length){
+      els.menuTop3Board.innerHTML = '<div class="top3Card"><div class="rank">—</div><div class="name">ยังไม่มีคะแนน</div><div class="meta">เริ่มเล่นเพื่อขึ้นอันดับ</div></div>';
+      return;
+    }
+
+    rows.forEach((r,i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+      const div = document.createElement('div');
+      div.className = 'top3Card';
+      div.innerHTML =
+        '<div class="rank">' + medal + '</div>' +
+        '<div class="name">' + (r.display_name || 'Player') + '</div>' +
+        '<div class="meta">Best Score ' + (r.best_score || 0) + '</div>' +
+        '<div class="meta">Accuracy ' + (r.best_accuracy || 0) + '%</div>';
+      els.menuTop3Board.appendChild(div);
+    });
+  }
+
+  function renderLeaderboard(){
+    const rows = globalLeaderboardRows || [];
+    els.leaderboardList.innerHTML = '';
+
+    if (!rows.length){
+      const li = document.createElement('li');
+      li.textContent = 'ยังไม่มี leaderboard';
+      els.leaderboardList.appendChild(li);
+      return;
+    }
+
+    rows.slice(0,10).forEach((r,i) => {
+      const li = document.createElement('li');
+      li.innerHTML =
+        '<strong>#' + (i + 1) + ' ' + (r.display_name || 'Player') + '</strong>' +
+        '<div class="small mono">Best Score ' + (r.best_score || 0) +
+        ' • Accuracy ' + (r.best_accuracy || 0) +
+        '% • Bank ' + (r.bank || '-') +
+        ' • Mode ' + (r.mode || '-') +
+        ' • ' + (r.last_when || '-') + '</div>';
+      els.leaderboardList.appendChild(li);
+    });
+  }
+
+  function renderTeacherDashboard(summary){
+    try{
+      localStorage.setItem(TEACHER_KEY, JSON.stringify(summary));
+    }catch(_){}
+
+    els.teacherTable.innerHTML = '';
+
+    const rows = Object.entries(summary.mastery).sort((a,b) => {
+      const wrongDiff = b[1].wrong - a[1].wrong;
+      if (wrongDiff !== 0) return wrongDiff;
+      return a[0].localeCompare(b[0]);
+    });
+
+    if (!rows.length){
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="6">No data yet</td>';
+      els.teacherTable.appendChild(tr);
+    } else {
+      rows.forEach(([term, m]) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + term.toUpperCase() + '</td>' +
+          '<td>' + m.seen + '</td>' +
+          '<td>' + m.correct + '</td>' +
+          '<td>' + m.wrong + '</td>' +
+          '<td>' + m.level + '</td>' +
+          '<td>' + m.highestLevel + '</td>';
+        els.teacherTable.appendChild(tr);
+      });
+    }
+
+    els.weakList.innerHTML = '';
+    summary.weakestTerms.forEach(([term, m]) => {
+      const li = document.createElement('li');
+      li.innerHTML =
+        '<strong>' + term.toUpperCase() + '</strong> • wrong ' + m.wrong +
+        ' • correct ' + m.correct +
+        ' • highest ' + m.highestLevel;
+      els.weakList.appendChild(li);
+    });
+  }
+
+  function levelRank(level){ return level === 'easy' ? 1 : level === 'normal' ? 2 : 3; }
+  function promoteLevel(level){ return level === 'easy' ? 'normal' : level === 'normal' ? 'hard' : 'hard'; }
+  function demoteLevel(level){ return level === 'hard' ? 'normal' : level === 'normal' ? 'easy' : 'easy'; }
 
   function ensureMastery(termId){
     if (!V9.mastery[termId]){
@@ -295,25 +629,6 @@ import { installVocabGuards } from './vocab-guard.js';
     }
     return V9.wordSkill[termId];
   }
-
-  function updateWordSkill(termId, isCorrect, rtMs){
-    const s = ensureWordSkill(termId);
-    s.seen += 1;
-    if (isCorrect){
-      s.correct += 1;
-      s.score = Math.min(1, s.score + 0.08);
-    } else {
-      s.wrong += 1;
-      s.score = Math.max(0, s.score - 0.12);
-    }
-    if (rtMs > 0){
-      s.avgRtMs = s.avgRtMs === 0 ? rtMs : Math.round((s.avgRtMs * 0.7) + (rtMs * 0.3));
-    }
-  }
-
-  function levelRank(level){ return level === 'easy' ? 1 : level === 'normal' ? 2 : 3; }
-  function promoteLevel(level){ return level === 'easy' ? 'normal' : level === 'normal' ? 'hard' : 'hard'; }
-  function demoteLevel(level){ return level === 'hard' ? 'normal' : level === 'normal' ? 'easy' : 'easy'; }
 
   function modeMeta(){
     return {
@@ -407,6 +722,21 @@ import { installVocabGuards } from './vocab-guard.js';
     return byMode[V9.mode] || 320;
   }
 
+  function bossAttackInterval(){
+    return V9.bossPhase === 1 ? 5200 : V9.bossPhase === 2 ? 4200 : 3200;
+  }
+
+  function bossPenaltyOnWrong(){
+    return V9.bossPhase === 1 ? 1 : 2;
+  }
+
+  function bossDamageFromCorrect(){
+    const base = modeMeta().damage;
+    const comboBonus = Math.min(V9.combo * 2, 14);
+    const phaseMod = V9.bossPhase === 3 ? -4 : V9.bossPhase === 2 ? -2 : 0;
+    return Math.max(8, base - 6 + comboBonus + phaseMod);
+  }
+
   function updateBossPhase(){
     if (!modeConfig().useBoss) return;
     const ratio = V9.bossMaxHp > 0 ? V9.bossHp / V9.bossMaxHp : 0;
@@ -428,21 +758,6 @@ import { installVocabGuards } from './vocab-guard.js';
     }
   }
 
-  function bossAttackInterval(){
-    return V9.bossPhase === 1 ? 5200 : V9.bossPhase === 2 ? 4200 : 3200;
-  }
-
-  function bossPenaltyOnWrong(){
-    return V9.bossPhase === 1 ? 1 : 2;
-  }
-
-  function bossDamageFromCorrect(){
-    const base = modeMeta().damage;
-    const comboBonus = Math.min(V9.combo * 2, 14);
-    const phaseMod = V9.bossPhase === 3 ? -4 : V9.bossPhase === 2 ? -2 : 0;
-    return Math.max(8, base - 6 + comboBonus + phaseMod);
-  }
-
   function updateRunDifficulty(){
     if (V9.combo >= 8) V9.runDifficulty = 'hard';
     else if (V9.combo >= 4) V9.runDifficulty = 'normal';
@@ -456,26 +771,6 @@ import { installVocabGuards } from './vocab-guard.js';
     if (s.score < 0.35) return 'easy';
     if (s.score < 0.7) return 'normal';
     return 'hard';
-  }
-
-  function updateMasteryAfterAnswer(termId, isCorrect, variantType){
-    const m = ensureMastery(termId);
-    m.seen += 1;
-    if (isCorrect){
-      m.correct += 1;
-      m.streak += 1;
-      if (m.streak >= 2){
-        m.level = promoteLevel(m.level);
-        m.streak = 0;
-      }
-    } else {
-      m.wrong += 1;
-      m.streak = 0;
-      m.level = demoteLevel(m.level);
-    }
-    if (levelRank(m.level) > levelRank(m.highestLevel)) m.highestLevel = m.level;
-    m.lastTypes.push(variantType);
-    if (m.lastTypes.length > 5) m.lastTypes.shift();
   }
 
   function enqueueReview(termId){
@@ -496,10 +791,10 @@ import { installVocabGuards } from './vocab-guard.js';
     if (V9.recentQuestionTypes.length > 6) V9.recentQuestionTypes.shift();
   }
 
-  function getWeakWordIds(limit=5){
+  function getWeakWordIds(limit = 5){
     return Object.keys(V9.wordSkill)
       .sort((a,b) => ensureWordSkill(a).score - ensureWordSkill(b).score)
-      .slice(0,limit);
+      .slice(0, limit);
   }
 
   function getCurrentBankTerms(){
@@ -677,6 +972,42 @@ import { installVocabGuards } from './vocab-guard.js';
     applyModeHudTheme();
   }
 
+  function drawRoundRect(x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.lineTo(x+w-r,y);
+    ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);
+    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);
+    ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+  }
+
+  function wrapText(text, cx, cy, maxW, maxLines, fs){
+    ctx.font = '800 ' + fs + 'px Arial';
+    const words = String(text).split(' ');
+    const lines = [];
+    let line = '';
+
+    for (const word of words){
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width <= maxW || !line) line = test;
+      else {
+        lines.push(line);
+        line = word;
+      }
+    }
+    if (line) lines.push(line);
+
+    const use = lines.slice(0, maxLines);
+    const lh = fs * 1.16;
+    const sy = cy - ((use.length - 1) * lh) / 2;
+    use.forEach((ln, i) => ctx.fillText(ln, cx, sy + i * lh));
+  }
+
   function spawnTargetsFromChoices(choices){
     const c = center();
     const mobile = width < 860;
@@ -744,42 +1075,6 @@ import { installVocabGuards } from './vocab-guard.js';
       t.hitFlash = Math.max(0, t.hitFlash - 0.05);
       if (pointInTarget(mouseX, mouseY, t)) hoveredId = t.id;
     });
-  }
-
-  function drawRoundRect(x, y, w, h, r){
-    ctx.beginPath();
-    ctx.moveTo(x+r,y);
-    ctx.lineTo(x+w-r,y);
-    ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-    ctx.lineTo(x+w,y+h-r);
-    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-    ctx.lineTo(x+r,y+h);
-    ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-    ctx.lineTo(x,y+r);
-    ctx.quadraticCurveTo(x,y,x+r,y);
-    ctx.closePath();
-  }
-
-  function wrapText(text, cx, cy, maxW, maxLines, fs){
-    ctx.font = '800 ' + fs + 'px Arial';
-    const words = String(text).split(' ');
-    const lines = [];
-    let line = '';
-
-    for (const word of words){
-      const test = line ? line + ' ' + word : word;
-      if (ctx.measureText(test).width <= maxW || !line) line = test;
-      else {
-        lines.push(line);
-        line = word;
-      }
-    }
-    if (line) lines.push(line);
-
-    const use = lines.slice(0, maxLines);
-    const lh = fs * 1.16;
-    const sy = cy - ((use.length - 1) * lh) / 2;
-    use.forEach((ln, i) => ctx.fillText(ln, cx, sy + i * lh));
   }
 
   function renderTargets(){
@@ -874,400 +1169,6 @@ import { installVocabGuards } from './vocab-guard.js';
     return 'SES-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
   }
 
-  function saveSessionLocal(payload){
-    try{
-      const rows = JSON.parse(localStorage.getItem(SESSION_KEY) || '[]');
-      rows.push(payload);
-
-      const slim = rows.slice(-120).map(r => ({
-        action: r.action || r.type || '',
-        timestamp: r.timestamp || r.ts || '',
-        session_id: r.session_id || r.sessionId || '',
-        display_name: r.display_name || r.displayName || '',
-        student_id: r.student_id || r.studentId || '',
-        bank: r.bank || '',
-        mode: r.mode || '',
-        term_id: r.term_id || r.termId || '',
-        is_correct: r.is_correct,
-        score: r.score || 0,
-        combo: r.combo || 0,
-        stage_index: r.stage_index || r.stage || 0
-      }));
-
-      localStorage.setItem(SESSION_KEY, JSON.stringify(slim));
-    }catch(err){
-      console.warn('saveSessionLocal skipped:', err);
-      try{ localStorage.removeItem(SESSION_KEY); }catch(_){}
-    }
-  }
-
-  async function saveSessionRealtime(action, payload){
-    saveSessionLocal({ action, ...payload });
-
-    const envelope = {
-      source: VOCAB_SHEET_SOURCE,
-      schema: VOCAB_SHEET_SCHEMA,
-      action,
-      timestamp: bangkokIsoNow(),
-      payload
-    };
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
-
-    try{
-      const res = await fetch(VOCAB_SHEET_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(envelope),
-        keepalive: true,
-        signal: controller.signal
-      });
-
-      clearTimeout(timer);
-
-      return {
-        ok: res.ok,
-        status: res.status,
-        payload
-      };
-    }catch(err){
-      clearTimeout(timer);
-      console.warn('Sheet upload failed; kept local only', err);
-      return {
-        ok: false,
-        error: String(err),
-        payload
-      };
-    }
-  }
-
-  async function logEvent(type, data = {}){
-    const payload = {
-      type,
-      sessionId: currentSessionId,
-      displayName: profile.displayName || 'Player',
-      studentId: profile.studentId || '',
-      bank: V9.bank,
-      mode: V9.mode,
-      ts: bangkokIsoNow(),
-      ...data
-    };
-    return saveSessionRealtime(type, payload);
-  }
-
-  async function sendTermAnswerRow({
-    item,
-    isCorrect,
-    levelBefore,
-    levelAfter,
-    responseMs
-  }){
-    if (!item) return;
-
-    const meta = getContextMeta();
-
-    return saveSessionRealtime('term_answer', {
-      timestamp: bangkokIsoNow(),
-      session_id: meta.session_id,
-      display_name: meta.display_name,
-      student_id: meta.student_id,
-      section: meta.section,
-      session_code: meta.session_code,
-      bank: meta.bank,
-      mode: meta.mode,
-      term_id: item.termId || '',
-      term: item.term || '',
-      variant_type: item.type || '',
-      is_correct: !!isCorrect,
-      level_before: levelBefore || '',
-      level_after: levelAfter || '',
-      from_review: !!item.fromReview,
-      response_ms: Number(responseMs || 0),
-      score: Number(V9.score || 0),
-      combo: Number(V9.combo || 0),
-      stage_index: Number((V9.stageIndex || 0) + 1)
-    });
-  }
-
-  async function logGameEntry(){
-    currentSessionId = createSessionId();
-    sessionStartedAt = bangkokIsoNow();
-
-    const meta = getContextMeta();
-
-    return saveSessionRealtime('session_start', {
-      timestamp: bangkokIsoNow(),
-      session_id: currentSessionId,
-      display_name: meta.display_name,
-      student_id: meta.student_id,
-      section: meta.section,
-      session_code: meta.session_code,
-      bank: meta.bank,
-      mode: meta.mode,
-      started_at: sessionStartedAt,
-      ended_at: '',
-      duration_sec: '',
-      score: '',
-      accuracy: '',
-      mistakes: '',
-      weakest_term: '',
-      ai_recommended_mode: '',
-      ai_recommended_difficulty: '',
-      ai_reason: '',
-      page_url: location.href,
-      user_agent: navigator.userAgent
-    });
-  }
-
-  async function logGameEnd(summary){
-    const endedAt = bangkokIsoNow();
-    const durationSec = sessionStartedAt
-      ? Math.max(0, Math.round((new Date(endedAt) - new Date(sessionStartedAt)) / 1000))
-      : 0;
-
-    const meta = getContextMeta();
-    const stats = getAccuracyAndMistakes();
-    const weakestTerm = getWeakestTerm();
-    const weakTermsJson = getWeakTermsJson(5);
-    const masteryJson = JSON.stringify(compactMastery());
-    const ai = buildAiRecommendation(stats.accuracy);
-
-    await saveSessionRealtime('session_end', {
-      timestamp: bangkokIsoNow(),
-      session_id: currentSessionId,
-      display_name: meta.display_name,
-      student_id: meta.student_id,
-      section: meta.section,
-      session_code: meta.session_code,
-      bank: meta.bank,
-      mode: meta.mode,
-      started_at: sessionStartedAt,
-      ended_at: endedAt,
-      duration_sec: durationSec,
-      score: Number(summary.score || 0),
-      accuracy: Number(stats.accuracy || 0),
-      mistakes: Number(stats.mistakes || 0),
-      weakest_term: weakestTerm,
-      ai_recommended_mode: ai.recommendedMode,
-      ai_recommended_difficulty: ai.recommendedDifficulty,
-      ai_reason: ai.aiReason,
-      page_url: location.href,
-      user_agent: navigator.userAgent
-    });
-
-    await saveSessionRealtime('student_profile_upsert', {
-      timestamp: bangkokIsoNow(),
-      student_id: meta.student_id,
-      display_name: meta.display_name,
-      section: meta.section,
-      last_session_id: currentSessionId,
-      last_bank: meta.bank,
-      last_mode: meta.mode,
-      last_score: Number(summary.score || 0),
-      last_accuracy: Number(stats.accuracy || 0),
-      recommended_mode: ai.recommendedMode,
-      recommended_difficulty: ai.recommendedDifficulty,
-      weak_terms_json: weakTermsJson,
-      mastery_json: masteryJson
-    });
-  }
-
-  function loadLeaderboard(){
-    try{
-      return JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || '[]');
-    }catch(e){
-      return [];
-    }
-  }
-
-  function saveLeaderboard(rows){
-    try{
-      const cleaned = rows
-        .filter(Boolean)
-        .map(r => ({
-          uid: r.uid || '',
-          displayName: r.displayName || 'Player',
-          studentId: r.studentId || '',
-          bank: r.bank || '',
-          mode: r.mode || '',
-          score: Number(r.score || 0),
-          accuracy: Number(r.accuracy || 0),
-          weakestTerm: String(r.weakestTerm || '').slice(0, 120),
-          when: r.when || new Date().toISOString()
-        }))
-        .slice(-60);
-
-      localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(cleaned));
-    }catch(err){
-      console.warn('saveLeaderboard quota hit, pruning...', err);
-
-      try{
-        const fallback = rows
-          .filter(Boolean)
-          .map(r => ({
-            displayName: r.displayName || 'Player',
-            studentId: r.studentId || '',
-            score: Number(r.score || 0),
-            accuracy: Number(r.accuracy || 0),
-            when: r.when || new Date().toISOString()
-          }))
-          .slice(-20);
-
-        localStorage.removeItem(LEADERBOARD_KEY);
-        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(fallback));
-      }catch(err2){
-        console.warn('saveLeaderboard final fallback failed:', err2);
-        try{ localStorage.removeItem(LEADERBOARD_KEY); }catch(_){}
-      }
-    }
-  }
-
-  function leaderboardKeyOf(entry){
-    const sid = String(entry.studentId || '').trim();
-    const name = String(entry.displayName || '').trim();
-    return sid || name || 'anonymous';
-  }
-
-  function bestUniqueLeaderboard(rows){
-    const bestMap = new Map();
-
-    rows.forEach(entry => {
-      const key = leaderboardKeyOf(entry);
-      const prev = bestMap.get(key);
-      if (!prev){
-        bestMap.set(key, entry);
-        return;
-      }
-      const prevScore = Number(prev.score || 0);
-      const nextScore = Number(entry.score || 0);
-      const prevAcc = Number(prev.accuracy || 0);
-      const nextAcc = Number(entry.accuracy || 0);
-      if (nextScore > prevScore || (nextScore === prevScore && nextAcc > prevAcc)){
-        bestMap.set(key, entry);
-      }
-    });
-
-    return Array.from(bestMap.values()).sort((a,b) => {
-      const scoreDiff = Number(b.score || 0) - Number(a.score || 0);
-      if (scoreDiff !== 0) return scoreDiff;
-      const accDiff = Number(b.accuracy || 0) - Number(a.accuracy || 0);
-      if (accDiff !== 0) return accDiff;
-      return String(a.displayName || '').localeCompare(String(b.displayName || ''));
-    });
-  }
-
-  function buildRealtimeEntryFromSummary(summary){
-    const totalSeen = Object.values(summary.mastery).reduce((s,m) => s + m.seen, 0);
-    const totalCorrect = Object.values(summary.mastery).reduce((s,m) => s + m.correct, 0);
-    const accuracy = totalSeen ? Math.round((totalCorrect / totalSeen) * 100) : 0;
-    const weakest = summary.weakestTerms.map(([term]) => term).join('|');
-
-    return {
-      uid: 'anon-' + Math.random().toString(36).slice(2,10),
-      displayName: profile.displayName || 'Player',
-      studentId: profile.studentId || '',
-      bank: V9.bank,
-      mode: V9.mode,
-      score: summary.score,
-      accuracy,
-      weakestTerm: weakest,
-      when: new Date().toISOString()
-    };
-  }
-
-  function pushLeaderboardEntry(entry){
-    const rows = loadLeaderboard();
-    rows.push(entry);
-    saveLeaderboard(rows);
-    renderMenuTop3();
-  }
-
-  function renderMenuTop3(){
-    const rows = bestUniqueLeaderboard(loadLeaderboard()).slice(0,3);
-    els.menuTop3Board.innerHTML = '';
-
-    if (!rows.length){
-      els.menuTop3Board.innerHTML = '<div class="top3Card"><div class="rank">—</div><div class="name">ยังไม่มีคะแนน</div><div class="meta">เริ่มเล่นเพื่อขึ้นอันดับ</div></div>';
-      return;
-    }
-
-    rows.forEach((r,i) => {
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-      const div = document.createElement('div');
-      div.className = 'top3Card';
-      div.innerHTML =
-        '<div class="rank">' + medal + '</div>' +
-        '<div class="name">' + (r.displayName || 'Player') + '</div>' +
-        '<div class="meta">Best Score ' + (r.score || 0) + '</div>' +
-        '<div class="meta">Accuracy ' + (r.accuracy || 0) + '%</div>';
-      els.menuTop3Board.appendChild(div);
-    });
-  }
-
-  function renderLeaderboard(){
-    const rows = bestUniqueLeaderboard(loadLeaderboard());
-    els.leaderboardList.innerHTML = '';
-
-    if (!rows.length){
-      const li = document.createElement('li');
-      li.textContent = 'ยังไม่มี leaderboard';
-      els.leaderboardList.appendChild(li);
-      return;
-    }
-
-    rows.slice(0,10).forEach((r,i) => {
-      const li = document.createElement('li');
-      li.innerHTML =
-        '<strong>#' + (i+1) + ' ' + (r.displayName || 'Player') + '</strong>' +
-        '<div class="small mono">Best Score ' + (r.score || 0) +
-        ' • Accuracy ' + (r.accuracy || 0) +
-        '% • Bank ' + (r.bank || '-') +
-        ' • Mode ' + (r.mode || '-') +
-        ' • ' + (r.when || '-') + '</div>';
-      els.leaderboardList.appendChild(li);
-    });
-  }
-
-  function renderTeacherDashboard(summary){
-    localStorage.setItem(TEACHER_KEY, JSON.stringify(summary));
-    els.teacherTable.innerHTML = '';
-
-    const rows = Object.entries(summary.mastery).sort((a,b) => {
-      const wrongDiff = b[1].wrong - a[1].wrong;
-      if (wrongDiff !== 0) return wrongDiff;
-      return a[0].localeCompare(b[0]);
-    });
-
-    if (!rows.length){
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="6">No data yet</td>';
-      els.teacherTable.appendChild(tr);
-    } else {
-      rows.forEach(([term, m]) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML =
-          '<td>' + term.toUpperCase() + '</td>' +
-          '<td>' + m.seen + '</td>' +
-          '<td>' + m.correct + '</td>' +
-          '<td>' + m.wrong + '</td>' +
-          '<td>' + m.level + '</td>' +
-          '<td>' + m.highestLevel + '</td>';
-        els.teacherTable.appendChild(tr);
-      });
-    }
-
-    els.weakList.innerHTML = '';
-    summary.weakestTerms.forEach(([term, m]) => {
-      const li = document.createElement('li');
-      li.innerHTML =
-        '<strong>' + term.toUpperCase() + '</strong> • wrong ' + m.wrong +
-        ' • correct ' + m.correct +
-        ' • highest ' + m.highestLevel;
-      els.weakList.appendChild(li);
-    });
-  }
-
   function endRun(){
     if (phase === 'ended') return;
 
@@ -1298,13 +1199,6 @@ import { installVocabGuards } from './vocab-guard.js';
 
     lastSummary = summary;
     renderTeacherDashboard(summary);
-
-    const entry = buildRealtimeEntryFromSummary(summary);
-    try{
-      pushLeaderboardEntry(entry);
-    }catch(err){
-      console.warn('pushLeaderboardEntry skipped:', err);
-    }
 
     const weakestText = weakest.length
       ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ')
@@ -1356,6 +1250,17 @@ import { installVocabGuards } from './vocab-guard.js';
 
     renderLeaderboard();
     renderHud();
+
+    const lbEntry = buildGlobalLeaderboardEntry(summary);
+    fireAndForget(
+      upsertGlobalLeaderboard(lbEntry)
+        .then(() => fetchGlobalLeaderboard())
+        .then(() => {
+          renderLeaderboard();
+          renderMenuTop3();
+        }),
+      'leaderboard_upsert'
+    );
 
     fireAndForget(logGameEnd(summary), 'session_end');
   }
@@ -1651,12 +1556,12 @@ import { installVocabGuards } from './vocab-guard.js';
 
   function teacherPassHash(pass){
     try{ return btoa(unescape(encodeURIComponent(pass || ''))); }
-    catch(e){ return ''; }
+    catch(_){ return ''; }
   }
 
   function buildTeacherLink(){
     const url = new URL(window.location.href);
-    const pass = (els.teacherPassInput.value || '').trim();
+    const pass = readTrimmed(els.teacherPassInput);
     if (pass){
       localStorage.setItem(TEACHER_PASS_KEY, teacherPassHash(pass));
       url.searchParams.set('teacherKey', teacherPassHash(pass));
@@ -1669,14 +1574,20 @@ import { installVocabGuards } from './vocab-guard.js';
     try{
       await navigator.clipboard.writeText(text);
       return true;
-    }catch(e){
+    }catch(_){
       return false;
     }
   }
 
   function openLeaderboard(){
-    renderLeaderboard();
     els.leaderboardWrap.classList.remove('hidden');
+    fireAndForget(
+      fetchGlobalLeaderboard().then(() => {
+        renderLeaderboard();
+        renderMenuTop3();
+      }),
+      'leaderboard_get'
+    );
   }
 
   function openTeacher(){
@@ -1686,7 +1597,7 @@ import { installVocabGuards } from './vocab-guard.js';
       try{
         const raw = JSON.parse(localStorage.getItem(TEACHER_KEY) || 'null');
         if (raw) renderTeacherDashboard(raw);
-      }catch(e){}
+      }catch(_){}
     }
     els.teacherWrap.classList.remove('hidden');
   }
@@ -1705,7 +1616,7 @@ import { installVocabGuards } from './vocab-guard.js';
     }
   }
 
-  function renderLoopBattle(){
+  function renderLoopBattle(t){
     if (phase === 'countdown'){
       timeLeft = 1;
       els.questionBox.innerHTML =
@@ -1826,6 +1737,67 @@ import { installVocabGuards } from './vocab-guard.js';
     }
   }
 
+  const V9 = {
+    bank: 'A',
+    mode: 'code_battle',
+    score: 0,
+    combo: 0,
+    hp: 5,
+    bossHp: 320,
+    bossMaxHp: 320,
+    bossPhase: 1,
+    bossAttackAt: 0,
+    runDifficulty: 'easy',
+    currentItem: null,
+    usedVariantIds: new Set(),
+    usedTermIds: [],
+    reviewQueue: [],
+    mastery: {},
+    wordSkill: {},
+    recentWords: [],
+    recentQuestionTypes: [],
+    bugEscaped: 0,
+    bugFixed: 0,
+    maxBugEscaped: 5,
+    modelScore: 0,
+    modelTarget: 100,
+    modelStability: 100,
+    speedRunTimeLeft: 60,
+    multiplier: 1,
+    stageIndex: 0,
+    maxStages: 18,
+    countdown: 3,
+    _qStartTime: 0
+  };
+
+  let width = 0;
+  let height = 0;
+  let dpr = 1;
+  let mouseX = 0;
+  let mouseY = 0;
+  let hoveredId = null;
+  let targets = [];
+  let phase = 'idle';
+  let phaseUntil = 0;
+  let roundStart = 0;
+  let roundDuration = 6000;
+  let timeLeft = 1;
+  let profile = { displayName: 'Player', studentId: '' };
+  let lastSummary = null;
+  let leaderboardOpenedFromEnd = false;
+  let currentSessionId = null;
+  let sessionStartedAt = null;
+  let globalLeaderboardRows = loadLeaderboardCache();
+
+  function resize(){
+    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    width = innerWidth;
+    height = innerHeight;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
   function loop(t){
     requestAnimationFrame(loop);
     renderBackground(t);
@@ -1924,9 +1896,11 @@ import { installVocabGuards } from './vocab-guard.js';
   });
 
   document.getElementById('clearLeaderboardBtn').addEventListener('click', () => {
-    try{ localStorage.removeItem(LEADERBOARD_KEY); }catch(_){}
+    globalLeaderboardRows = [];
+    try{ localStorage.removeItem(GLOBAL_LB_CACHE_KEY); }catch(_){}
     renderLeaderboard();
     renderMenuTop3();
+    alert('Global leaderboard ใช้ข้อมูลจาก Google Sheet ถ้าต้องการลบจริง ให้ลบที่ชีตหรือเพิ่ม action ลบใน Apps Script');
   });
 
   document.getElementById('closeTeacherBtn').addEventListener('click', () => {
@@ -1952,6 +1926,15 @@ import { installVocabGuards } from './vocab-guard.js';
   renderMenuTop3();
   renderHud();
   bootTeacherMode();
+
+  fireAndForget(
+    fetchGlobalLeaderboard().then(() => {
+      renderLeaderboard();
+      renderMenuTop3();
+    }),
+    'leaderboard_bootstrap'
+  );
+
   requestAnimationFrame(loop);
   addEventListener('resize', resize);
 })();
