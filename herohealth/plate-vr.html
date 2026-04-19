@@ -1803,3 +1803,1462 @@
       butter:'🧈', oil:'🫗', coconutMilk:'🥥', sesame:'⚪',
       soda:'🥤', candy:'🍬', cake:'🍰', chips:'🍟', donut:'🍩', bubbleTea:'🧋'
     };
+const STICKERS = {
+      first_plate: { icon:'🍽️', text:'จานแรกของวัน' },
+      perfect_plate: { icon:'🌟', text:'Perfect Plate' },
+      three_plates: { icon:'🏅', text:'ครบ 3 จาน' },
+      focus_kid: { icon:'💡', text:'ตั้งใจมาก' }
+    };
+
+    const DAILY_GOAL = 3;
+
+    const $score = document.getElementById('hudScore');
+    const $time = document.getElementById('hudTime');
+    const $streak = document.getElementById('hudStreak');
+    const $plates = document.getElementById('hudPlates');
+    const $hudRound = document.getElementById('hudRound');
+    const $hudGoal = document.getElementById('hudGoal');
+    const $hudDiff = document.getElementById('hudDiff');
+
+    const $foodTray = document.getElementById('foodTray');
+    const $feedback = document.getElementById('feedback');
+
+    const $missionCount = document.getElementById('missionCount');
+    const $missionFill = document.getElementById('missionFill');
+
+    const $selectedEmoji = document.getElementById('selectedEmoji');
+    const $selectedTitle = document.getElementById('selectedTitle');
+    const $selectedHint = document.getElementById('selectedHint');
+
+    const $dailyQuestTitle = document.getElementById('dailyQuestTitle');
+    const $dailyQuestDesc = document.getElementById('dailyQuestDesc');
+    const $dailyQuestCount = document.getElementById('dailyQuestCount');
+
+    const $stickerList = document.getElementById('stickerList');
+
+    const $summaryOverlay = document.getElementById('summaryOverlay');
+    const $sumScore = document.getElementById('sumScore');
+    const $sumAcc = document.getElementById('sumAcc');
+    const $sumBest = document.getElementById('sumBestStreak');
+    const $sumComp = document.getElementById('sumCompleted');
+    const $sumMistake = document.getElementById('sumMistake');
+    const $sumInsight = document.getElementById('sumInsight');
+    const $summaryHeading = document.getElementById('summaryHeading');
+    const $summaryBadge = document.getElementById('summaryBadge');
+    const $summaryRank = document.getElementById('summaryRank');
+    const $summaryStars = document.getElementById('summaryStars');
+    const $summaryRewardBox = document.getElementById('summaryRewardBox');
+    const $summaryLatestReward = document.getElementById('summaryLatestReward');
+    const $nextGoalText = document.getElementById('nextGoalText');
+    const $nextStickerText = document.getElementById('nextStickerText');
+
+    const $btnReplay = document.getElementById('btnReplay');
+    const $btnEvaluate = document.getElementById('btnEvaluate');
+    const $btnBackHub = document.getElementById('btnBackHub');
+    const $btnClearPick = document.getElementById('btnClearPick');
+
+    const $pauseOverlay = document.getElementById('pauseOverlay');
+    const $btnResumeGame = document.getElementById('btnResumeGame');
+    const $btnRestartGame = document.getElementById('btnRestartGame');
+
+    const $guideOverlay = document.getElementById('guideOverlay');
+    const $guideDontShowToday = document.getElementById('guideDontShowToday');
+    const $guideStartBtn = document.getElementById('guideStartBtn');
+
+    const $rewardPopupOverlay = document.getElementById('rewardPopupOverlay');
+    const $rewardPopupBadge = document.getElementById('rewardPopupBadge');
+    const $rewardPopupTitle = document.getElementById('rewardPopupTitle');
+    const $rewardPopupDesc = document.getElementById('rewardPopupDesc');
+    const $rewardPopupMeta = document.getElementById('rewardPopupMeta');
+    const $rewardPopupBtn = document.getElementById('rewardPopupBtn');
+
+    const $entryChip = document.getElementById('entryChip');
+    const $entryChipText = document.getElementById('entryChipText');
+    const $heroSub = document.getElementById('heroSub');
+
+    const $evaluateOverlay = document.getElementById('evaluateOverlay');
+    const $evalChoices = document.getElementById('evalChoices');
+    const $btnEvalSubmit = document.getElementById('btnEvalSubmit');
+    const $btnEvalSkip = document.getElementById('btnEvalSkip');
+    const $evalFeedback = document.getElementById('evalFeedback');
+    const $btnEvalNext = document.getElementById('btnEvalNext');
+    const $evalNextActions = document.getElementById('evalNextActions');
+    const $evalEntrySub = document.getElementById('evalEntrySub');
+
+    const $createOverlay = document.getElementById('createOverlay');
+    const $createProgressText = document.getElementById('createProgressText');
+    const $createProgressFill = document.getElementById('createProgressFill');
+    const $createTray = document.getElementById('createTray');
+    const $createResult = document.getElementById('createResult');
+    const $btnCreateSubmit = document.getElementById('btnCreateSubmit');
+    const $btnCreateReset = document.getElementById('btnCreateReset');
+    const $btnCreateReplay = document.getElementById('btnCreateReplay');
+    const $btnCreateBackHub = document.getElementById('btnCreateBackHub');
+    const $createEndActions = document.getElementById('createEndActions');
+    const $createEntrySub = document.getElementById('createEntrySub');
+
+    const $toastLayer = document.getElementById('toastLayer');
+    const $celebrateLayer = document.getElementById('celebrateLayer');
+
+    let leavingPage = false;
+
+    const state = {
+      started:false,
+      finished:false,
+      paused:false,
+      hiddenPaused:false,
+      destroyed:false,
+      score:0,
+      timeLeft:ctx.time,
+      streak:0,
+      bestStreak:0,
+      correct:0,
+      wrong:0,
+      completedPlates:0,
+      currentRound:0,
+      selectedFoodId:null,
+      roundTargetGroups:[],
+      roundFoods:[],
+      placedByZone:{},
+      mistakeByGroup:{ g1:0, g2:0, g3:0, g4:0, g5:0 },
+      perfectPlates:0,
+      timeStartedMs:0,
+      zoneBound:false,
+      rafId:0,
+      gameDeadlineMs:0,
+      lastSecondShown:ctx.time,
+      roundAdvanceTimer:0,
+      summaryShown:0
+    };
+
+    const evaluateState = {
+      questionId:'',
+      selectedChoice:'',
+      correctChoice:'',
+      answered:false
+    };
+
+    const createState = {
+      selectedFoodId:null,
+      placedByZone:{},
+      hasSubmitted:false,
+      resultLevel:'',
+      trayFoods:[]
+    };
+
+    function pushToast(message, type='info'){
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      el.textContent = message;
+      $toastLayer.appendChild(el);
+      setTimeout(() => el.remove(), 2100);
+    }
+
+    function celebrate(kind='good'){
+      const icons = kind === 'perfect' ? ['⭐️','🌟','🏆','✨','💛'] : ['✨','⭐️','🍽️','🎉'];
+      const count = kind === 'perfect' ? 18 : 10;
+      for(let i=0;i<count;i++){
+        const el = document.createElement('div');
+        el.className = 'confetti';
+        el.textContent = icons[Math.floor(Math.random() * icons.length)];
+        el.style.left = `${Math.random() * 100}%`;
+        el.style.animationDuration = `${2 + Math.random() * 1.4}s`;
+        el.style.animationDelay = `${Math.random() * 0.18}s`;
+        $celebrateLayer.appendChild(el);
+        setTimeout(() => el.remove(), 3600);
+      }
+    }
+
+    function bump(el){
+      if(!el) return;
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 180);
+    }
+
+    function setFeedback(msg){
+      $feedback.textContent = msg || '';
+    }
+
+    function dayKeyBase(){
+      return `PLATE_DAILY_${ctx.pid}_${bangkokYmd()}`;
+    }
+
+    function readDailyProgress(){
+      return safeReadJson(dayKeyBase(), {
+        completedPlates:0,
+        perfectPlates:0,
+        stickers:[],
+        questDone:0,
+        firstPlayShown:0
+      });
+    }
+
+    function writeDailyProgress(data){
+      safeWriteJson(dayKeyBase(), data);
+    }
+
+    function guideDayKey(){
+      return `PLATE_GUIDE_SEEN_${ctx.pid}_${bangkokYmd()}`;
+    }
+
+    function shouldShowGuide(){
+      try{ return localStorage.getItem(guideDayKey()) !== '1'; }
+      catch(_){ return true; }
+    }
+
+    function markGuideSeen(){
+      try{ localStorage.setItem(guideDayKey(), '1'); }catch(_){}
+    }
+
+    function gateKey(phase){
+      return `HHA_GATE_${phase.toUpperCase()}_${ctx.pid}_${ctx.game}_${ctx.mode}_${bangkokYmd()}`;
+    }
+
+    function isGateDone(phase){
+      try{ return localStorage.getItem(gateKey(phase)) === '1'; }
+      catch(_){ return false; }
+    }
+
+    function renderEntryContext(){
+      const stage = getEntryStage();
+
+      if (stage === 'after_quick_plate') {
+        $entryChip.hidden = false;
+        $entryChipText.textContent = 'ผ่าน Quick Plate แล้ว';
+        $heroSub.textContent = 'อุ่นเครื่องเสร็จแล้ว ตอนนี้มาจัดจานจริงให้ครบ 5 หมู่กัน';
+        $dailyQuestTitle.textContent = 'ไปต่อที่เกมหลัก';
+        $dailyQuestDesc.textContent = 'จัดจานสมดุลให้สำเร็จและเก็บรางวัลของวันนี้';
+        return;
+      }
+
+      if (stage === 'from_launcher') {
+        $entryChip.hidden = false;
+        $entryChipText.textContent = 'เริ่มจาก Launcher';
+        $heroSub.textContent = 'มาจัดอาหารให้ครบ 5 หมู่กัน';
+        return;
+      }
+
+      $entryChip.hidden = true;
+      $heroSub.textContent = 'จัดอาหารให้ครบ 5 หมู่';
+    }
+
+    function renderPostGameFlowText(){
+      const stage = getEntryStage();
+      if (stage === 'after_quick_plate') {
+        if ($evalEntrySub) $evalEntrySub.textContent = 'จาก Quick Plate มาต่อด้วยการคิดและตัดสินใจ';
+        if ($createEntrySub) $createEntrySub.textContent = 'ขั้นสุดท้าย ลองสร้างจานของคุณเอง';
+        return;
+      }
+      if ($evalEntrySub) $evalEntrySub.textContent = 'คิดต่อจากเกมหลักอีกนิด';
+      if ($createEntrySub) $createEntrySub.textContent = 'สร้างจานของคุณเองเป็นขั้นสุดท้าย';
+    }
+
+    function updateDailyQuestUi(){
+      const daily = readDailyProgress();
+      $dailyQuestTitle.textContent = daily.questDone ? 'ภารกิจวันนี้สำเร็จแล้ว' : 'ภารกิจวันนี้';
+      $dailyQuestDesc.textContent = daily.questDone
+        ? 'ยอดเยี่ยมมาก กลับมาเล่นเพิ่มได้อีกนะ'
+        : `จัดจานสมดุลให้สำเร็จ ${DAILY_GOAL} จาน`;
+      $dailyQuestCount.textContent = daily.questDone ? 'สำเร็จแล้ว' : `${Math.min(daily.completedPlates || 0, DAILY_GOAL)}/${DAILY_GOAL}`;
+    }
+
+    function renderStickerShelf(){
+      const daily = readDailyProgress();
+      const list = Array.isArray(daily.stickers) ? daily.stickers : [];
+      $stickerList.innerHTML = '';
+      if(!list.length){
+        $stickerList.innerHTML = `
+          <div class="sticker">
+            <div class="stickerIcon">✨</div>
+            <div class="stickerText">เล่นให้สำเร็จเพื่อสะสมสติกเกอร์</div>
+          </div>
+        `;
+        return;
+      }
+      list.forEach(key => {
+        const s = STICKERS[key];
+        if(!s) return;
+        const el = document.createElement('div');
+        el.className = 'sticker';
+        el.innerHTML = `<div class="stickerIcon">${s.icon}</div><div class="stickerText">${s.text}</div>`;
+        $stickerList.appendChild(el);
+      });
+    }
+
+    const rewardQueue = [];
+    let rewardShowing = false;
+    let rewardCloseLock = false;
+    let deferRewardPopupOnEntry = getEntryStage() === 'after_quick_plate';
+
+    function openRewardPopup(item){
+      if (!$rewardPopupOverlay || !$rewardPopupBtn) return;
+
+      rewardShowing = true;
+      rewardCloseLock = false;
+
+      $rewardPopupBadge.textContent = item.icon || '🎁';
+      $rewardPopupTitle.textContent = item.title || 'ได้รางวัลใหม่';
+      $rewardPopupDesc.textContent = item.desc || 'เยี่ยมมาก';
+      $rewardPopupMeta.textContent = item.meta || 'เล่นต่อได้อีก';
+      $rewardPopupBtn.textContent = item.cta || 'เยี่ยมเลย';
+
+      $rewardPopupOverlay.hidden = false;
+      $rewardPopupOverlay.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('reward-open');
+    }
+
+    function closeRewardPopup(ev){
+      if (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      if (!$rewardPopupOverlay) return;
+      if (rewardCloseLock) return;
+
+      rewardCloseLock = true;
+
+      $rewardPopupOverlay.hidden = true;
+      $rewardPopupOverlay.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('reward-open');
+      rewardShowing = false;
+
+      setTimeout(() => {
+        rewardCloseLock = false;
+        drainRewardQueue();
+      }, 80);
+    }
+
+    window.__plateCloseRewardPopup = closeRewardPopup;
+
+    function enqueueRewardPopup(item){
+      rewardQueue.push(item);
+      if (deferRewardPopupOnEntry) return;
+      drainRewardQueue();
+    }
+
+    function drainRewardQueue(){
+      if (rewardShowing) return;
+      const next = rewardQueue.shift();
+      if (!next) return;
+      openRewardPopup(next);
+    }
+function unlockDeferredRewardPopups(){
+      if (!deferRewardPopupOnEntry) return;
+      deferRewardPopupOnEntry = false;
+      drainRewardQueue();
+    }
+
+    ['click', 'pointerup', 'touchend'].forEach(type => {
+      $rewardPopupBtn?.addEventListener(type, closeRewardPopup, { passive:false });
+    });
+
+    $rewardPopupOverlay?.addEventListener('click', (ev) => {
+      if (ev.target === $rewardPopupOverlay) {
+        closeRewardPopup(ev);
+      }
+    });
+
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && rewardShowing) {
+        closeRewardPopup(ev);
+      }
+    });
+
+    function grantSticker(key){
+      const daily = readDailyProgress();
+      daily.stickers = Array.isArray(daily.stickers) ? daily.stickers : [];
+      if(daily.stickers.includes(key)) return false;
+      daily.stickers.push(key);
+      writeDailyProgress(daily);
+      renderStickerShelf();
+      const s = STICKERS[key];
+      if(s){
+        enqueueRewardPopup({
+          kind:'sticker',
+          icon:s.icon,
+          title:'ได้สติกเกอร์ใหม่',
+          desc:s.text,
+          meta:`วันนี้สะสมแล้ว ${daily.stickers.length} ชิ้น`,
+          cta:'เยี่ยมเลย'
+        });
+      }
+      return true;
+    }
+
+    function renderSummaryRewards(){
+      const daily = readDailyProgress();
+      const count = Array.isArray(daily.stickers) ? daily.stickers.length : 0;
+      $summaryRewardBox.textContent = count > 0
+        ? `วันนี้สะสมสติกเกอร์แล้ว ${count} ชิ้น`
+        : 'เล่นต่ออีกนิดเพื่อสะสมสติกเกอร์ของวันนี้';
+    }
+
+    function renderLatestReward(){
+      const daily = readDailyProgress();
+      const list = Array.isArray(daily.stickers) ? daily.stickers : [];
+      const lastKey = list[list.length - 1];
+      $summaryLatestReward.textContent = (!lastKey || !STICKERS[lastKey])
+        ? 'รางวัลล่าสุด: ยังไม่มี'
+        : `รางวัลล่าสุด: ${STICKERS[lastKey].text}`;
+    }
+
+    function renderNextGoal(summary){
+      if(summary.accuracy < 75){
+        $nextGoalText.textContent = 'ลองเพิ่มความแม่นยำให้เกิน 75%';
+        return;
+      }
+      if((summary.perfectPlates || 0) < 1){
+        $nextGoalText.textContent = 'ลองทำ Perfect Plate ให้ได้อย่างน้อย 1 ครั้ง';
+        return;
+      }
+      $nextGoalText.textContent = 'ยอดเยี่ยมมาก ลองท้าทายโหมดยากขึ้น';
+    }
+
+    function renderNextStickerHint(){
+      const daily = readDailyProgress();
+      const count = Array.isArray(daily.stickers) ? daily.stickers.length : 0;
+      if(count === 0){ $nextStickerText.textContent = 'เล่นต่ออีกนิดเพื่อปลดล็อกชิ้นแรก'; return; }
+      if(count < 4){ $nextStickerText.textContent = `วันนี้สะสมแล้ว ${count} ชิ้น ยังเก็บได้อีก`; return; }
+      $nextStickerText.textContent = 'เก่งมาก วันนี้เก็บได้หลายชิ้นแล้ว';
+    }
+
+    function updateHud(){
+      $score.textContent = String(state.score);
+      $time.textContent = String(state.timeLeft);
+      $streak.textContent = String(state.streak);
+      $plates.textContent = String(state.completedPlates);
+      $hudRound.textContent = String(state.currentRound || 1);
+      $hudGoal.textContent = `${state.roundTargetGroups.length || 5} หมู่`;
+      $hudDiff.textContent = ctx.diff;
+    }
+
+    function renderSelectedBar(){
+      const food = state.roundFoods.find(x => x.id === state.selectedFoodId);
+      if(!food){
+        $selectedEmoji.textContent = '🍽️';
+        $selectedTitle.textContent = 'ยังไม่ได้เลือกอาหาร';
+        $selectedHint.textContent = 'แตะอาหารจากถาด แล้วค่อยแตะส่วนของจาน';
+        return;
+      }
+      $selectedEmoji.textContent = FOOD_EMOJI[food.id] || '🍎';
+      $selectedTitle.textContent = `เลือก: ${food.label}`;
+      $selectedHint.textContent = food.group === 'x'
+        ? 'ลองคิดดูว่าอาหารนี้เหมาะกับจานสุขภาพไหม'
+        : `แตะส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`;
+    }
+
+    function updateMissionUi(){
+      const placed = Object.keys(state.placedByZone).length;
+      const need = state.roundTargetGroups.length || 5;
+      $missionCount.textContent = `${placed}/${need}`;
+      $missionFill.style.width = `${Math.max(0, Math.min(100, (placed / need) * 100))}%`;
+    }
+
+    function refreshZoneUi(){
+      document.querySelectorAll('.zone').forEach(zone => {
+        const zoneId = zone.dataset.zone;
+        zone.classList.toggle('hasItem', !!state.placedByZone[zoneId]);
+      });
+    }
+
+    function clearZoneMarks(){
+      document.querySelectorAll('.zone').forEach(z => {
+        z.classList.remove('correctFlash','wrongFlash');
+      });
+    }
+
+    function flashZone(zoneEl, ok){
+      zoneEl.classList.remove('correctFlash','wrongFlash');
+      void zoneEl.offsetWidth;
+      zoneEl.classList.add(ok ? 'correctFlash' : 'wrongFlash');
+    }
+
+    function getDifficultyConfig(diff, roundNo=1){
+      const r = Math.max(1, roundNo);
+      if(diff === 'easy'){
+        return {
+          useGroups: r <= 2 ? ['g2','g1','g3','g4'] : ['g2','g1','g3','g4','g5'],
+          distractorCount: r <= 2 ? 0 : 1,
+          scoreCorrect: 12,
+          scoreWrong: 2,
+          plateBonus: 24,
+          perfectBonus: 20,
+          comboCap: 4
+        };
+      }
+      if(diff === 'hard'){
+        return {
+          useGroups: ['g2','g1','g3','g4','g5'],
+          distractorCount: r <= 2 ? 2 : 3,
+          scoreCorrect: 10,
+          scoreWrong: 5,
+          plateBonus: 20,
+          perfectBonus: 28,
+          comboCap: 6
+        };
+      }
+      return {
+        useGroups: ['g2','g1','g3','g4','g5'],
+        distractorCount: r <= 2 ? 1 : 2,
+        scoreCorrect: 11,
+        scoreWrong: 4,
+        plateBonus: 22,
+        perfectBonus: 24,
+        comboCap: 5
+      };
+    }
+
+    function syncFoodUi(){
+      [...$foodTray.querySelectorAll('.food')].forEach(btn => {
+        const id = btn.dataset.id;
+        btn.classList.toggle('selected', id === state.selectedFoodId);
+        btn.classList.toggle('used', Object.values(state.placedByZone).some(v => v && v.foodId === id));
+      });
+    }
+
+    function buildTray(){
+      $foodTray.innerHTML = '';
+      state.roundFoods.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'food';
+        btn.type = 'button';
+        btn.dataset.id = item.id;
+        btn.innerHTML = `
+          <div class="foodEmoji">${FOOD_EMOJI[item.id] || '🍎'}</div>
+          <div class="foodMeta">
+            <div class="foodName">${item.label}</div>
+            <div class="foodTag ${item.group === 'x' ? 'x' : ''}">${item.group === 'x' ? 'ลองคิดดู' : 'เลือกให้ถูกส่วน'}</div>
+          </div>
+        `;
+        btn.addEventListener('click', () => selectFood(item.id));
+        $foodTray.appendChild(btn);
+      });
+      syncFoodUi();
+      renderSelectedBar();
+    }
+
+    function selectFood(foodId){
+      if(state.finished || state.paused || isOverlayBlocking()) return;
+      const food = state.roundFoods.find(x => x.id === foodId);
+      if(!food) return;
+      if(Object.values(state.placedByZone).some(v => v && v.foodId === foodId)) return;
+
+      state.selectedFoodId = foodId;
+      syncFoodUi();
+      renderSelectedBar();
+
+      if(food.group === 'x'){
+        setFeedback(`เลือก "${food.label}" แล้ว ลองหาว่าเหมาะกับจานไหม`);
+      }else{
+        setFeedback(`เลือก "${food.label}" แล้ว — ตอนนี้กดส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`);
+      }
+    }
+
+    function goodMsg(food, zoneId, bonus){
+      const zoneName = FOOD_GROUPS[zoneId]?.short || 'หมู่นี้';
+      const pool = [
+        `เยี่ยมมาก! ${food.label} อยู่หมู่ ${zoneName} +${bonus}`,
+        `ถูกต้อง! ${food.label} วางได้ดีมาก +${bonus}`,
+        `เก่งมาก! เลือก ${food.label} ได้ตรงหมู่ +${bonus}`
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function wrongMsg(food){
+      if(food.group === 'x'){
+        const pool = [
+          `${food.label} ยังไม่เหมาะกับจานสุขภาพรอบนี้`,
+          `ลองใหม่อีกนิด ${food.label} ไม่ใช่คำตอบของรอบนี้`,
+          `${food.label} ยังไม่ใช่อาหารหลัก 5 หมู่สำหรับโจทย์นี้`
+        ];
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+      const correctZone = FOOD_GROUPS[food.group]?.short || 'หมู่อื่น';
+      const pool = [
+        `ยังไม่ถูก ${food.label} ควรอยู่หมู่ ${correctZone}`,
+        `ลองใหม่อีกนิด ${food.label} ยังไม่อยู่ส่วนนี้`,
+        `${food.label} ควรไปที่หมู่ ${correctZone}`
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function judgePlacement(food, zoneId){
+      if(food.group === 'x') return false;
+      return food.group === zoneId;
+    }
+
+    function bindZones(){
+      if(state.zoneBound) return;
+      state.zoneBound = true;
+      document.querySelectorAll('.zone').forEach(zone => {
+        zone.addEventListener('click', () => {
+          const zoneId = zone.dataset.zone;
+          placeSelectedFood(zoneId, zone);
+        });
+      });
+    }
+
+    function placeSelectedFood(zoneId, zoneEl){
+      if(state.finished || state.paused || isOverlayBlocking()) return;
+
+      if(!state.selectedFoodId){
+        setFeedback('เลือกอาหารจากถาดก่อนนะ');
+        pushToast('เลือกอาหารจากถาดก่อนนะ', 'info');
+        return;
+      }
+
+      if(state.placedByZone[zoneId]){
+        setFeedback('ส่วนนี้มีอาหารแล้ว ลองเลือกส่วนอื่น');
+        pushToast('ส่วนนี้มีอาหารแล้ว', 'info');
+        return;
+      }
+
+      const food = state.roundFoods.find(x => x.id === state.selectedFoodId);
+      if(!food) return;
+
+      const isCorrect = judgePlacement(food, zoneId);
+      state.placedByZone[zoneId] = { foodId: food.id, group: food.group, ok:isCorrect };
+      const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
+
+      if(isCorrect){
+        const bonus = cfg.scoreCorrect + Math.min(state.streak, cfg.comboCap);
+        state.score += bonus;
+        state.correct += 1;
+        state.streak += 1;
+        state.bestStreak = Math.max(state.bestStreak, state.streak);
+
+        flashZone(zoneEl, true);
+        setFeedback(goodMsg(food, zoneId, bonus));
+        pushToast('เยี่ยมมาก! ถูกหมู่แล้ว', 'ok');
+        bump(document.getElementById('scorePill'));
+        bump(document.getElementById('streakPill'));
+      }else{
+        state.score = Math.max(0, state.score - cfg.scoreWrong);
+        state.wrong += 1;
+        state.streak = 0;
+
+        if(FOOD_GROUPS[zoneId]) state.mistakeByGroup[zoneId] += 1;
+        flashZone(zoneEl, false);
+        setFeedback(wrongMsg(food));
+        pushToast('ลองอีกครั้งนิดเดียว', 'bad');
+        bump(document.getElementById('scorePill'));
+      }
+
+      state.selectedFoodId = null;
+      syncFoodUi();
+      renderSelectedBar();
+      refreshZoneUi();
+      updateMissionUi();
+      updateHud();
+      checkRoundComplete();
+    }
+
+    function nextRound(){
+      clearTimeout(state.roundAdvanceTimer);
+      state.roundAdvanceTimer = 0;
+
+      state.currentRound += 1;
+      state.selectedFoodId = null;
+      state.placedByZone = {};
+
+      const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
+      state.roundTargetGroups = cfg.useGroups.slice();
+
+      const foods = [];
+      cfg.useGroups.forEach(g => {
+        const item = shuffle(FOOD_DB.filter(x => x.group === g), rng)[0];
+        if(item) foods.push(item);
+      });
+
+      const distractors = shuffle(FOOD_DB.filter(x => x.group === 'x'), rng).slice(0, cfg.distractorCount);
+      state.roundFoods = shuffle([...foods, ...distractors], rng);
+
+      buildTray();
+      clearZoneMarks();
+      refreshZoneUi();
+      updateMissionUi();
+      renderSelectedBar();
+      setFeedback(`รอบที่ ${state.currentRound}: จัดให้ครบ ${cfg.useGroups.length} หมู่`);
+    }
+
+    function checkRoundComplete(){
+      const placedCount = Object.keys(state.placedByZone).length;
+      const needCount = state.roundTargetGroups.length;
+      if(placedCount < needCount) return;
+
+      const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
+      const entries = Object.values(state.placedByZone);
+      const correctPlaced = entries.filter(x => x.ok).length;
+      const allPerfect = correctPlaced === needCount;
+
+      state.completedPlates += 1;
+      state.score += cfg.plateBonus;
+
+      if(allPerfect){
+        state.perfectPlates += 1;
+        state.score += cfg.perfectBonus;
+        setFeedback(`Perfect Plate! +${cfg.plateBonus + cfg.perfectBonus}`);
+        pushToast('Perfect Plate! สุดยอดมาก', 'ok');
+        celebrate('perfect');
+      }else{
+        setFeedback(`สำเร็จ! ได้จานสมดุล +${cfg.plateBonus}`);
+        pushToast('สำเร็จ! ได้จานสมดุล 1 จาน', 'ok');
+        celebrate('good');
+      }
+
+      const daily = readDailyProgress();
+      daily.completedPlates += 1;
+      if(allPerfect) daily.perfectPlates += 1;
+
+      if(!daily.questDone && daily.completedPlates >= DAILY_GOAL){
+        daily.questDone = 1;
+        enqueueRewardPopup({
+          kind:'quest',
+          icon:'🏆',
+          title:'ภารกิจวันนี้สำเร็จ',
+          desc:'คุณจัดจานสมดุลครบเป้าหมายของวันนี้แล้ว',
+          meta:`ครบ ${DAILY_GOAL} จานแล้ว`,
+          cta:'เยี่ยมเลย'
+        });
+      }
+
+      writeDailyProgress(daily);
+      updateDailyQuestUi();
+
+      const dailyNow = readDailyProgress();
+      if(dailyNow.completedPlates >= 1) grantSticker('first_plate');
+      if(allPerfect) grantSticker('perfect_plate');
+      if(dailyNow.completedPlates >= 3) grantSticker('three_plates');
+      if(state.bestStreak >= 5) grantSticker('focus_kid');
+
+      unlockDeferredRewardPopups();
+      updateHud();
+      bump(document.getElementById('platesPill'));
+
+      state.roundAdvanceTimer = setTimeout(() => {
+        if(!state.finished && !state.destroyed){
+          nextRound();
+        }
+      }, 900);
+    }
+
+    function cancelRafLoop(){
+      if(state.rafId){
+        cancelAnimationFrame(state.rafId);
+        state.rafId = 0;
+      }
+    }
+
+    function startRafLoop(){
+      cancelRafLoop();
+      const token = `${Date.now()}_${Math.random()}`;
+
+      function frame(){
+        if(state.destroyed || state.finished || state.paused || state._token !== token) return;
+        const remainMs = Math.max(0, state.gameDeadlineMs - nowMs());
+        const nextSec = Math.ceil(remainMs / 1000);
+
+        if(nextSec !== state.lastSecondShown){
+          state.lastSecondShown = nextSec;
+          state.timeLeft = nextSec;
+          updateHud();
+          bump(document.getElementById('timePill'));
+
+          if(nextSec <= 0){
+            finishGame();
+            return;
+          }
+        }
+
+        state.rafId = requestAnimationFrame(frame);
+      }
+
+      state._token = token;
+      state.rafId = requestAnimationFrame(frame);
+    }
+
+    function startGameClock(){
+      state.gameDeadlineMs = nowMs() + (ctx.time * 1000);
+      state.lastSecondShown = ctx.time;
+      state.timeLeft = ctx.time;
+      updateHud();
+      startRafLoop();
+    }
+
+    function pauseGame(reason='pause'){
+      if(state.finished || state.paused) return;
+      state.paused = true;
+      cancelRafLoop();
+      const remainMs = Math.max(0, state.gameDeadlineMs - nowMs());
+      state.timeLeft = Math.max(0, Math.ceil(remainMs / 1000));
+      document.getElementById('pauseTitle').textContent = reason === 'hidden' ? 'เกมหยุดอัตโนมัติ' : 'หยุดเกมชั่วคราว';
+      document.getElementById('pauseText').textContent = reason === 'hidden'
+        ? 'ระบบหยุดเวลาไว้ให้แล้ว กลับมาเมื่อพร้อม'
+        : 'พักก่อน แล้วค่อยเล่นต่อได้';
+      $pauseOverlay.hidden = false;
+    }
+
+    function resumeGame(){
+      if(state.finished || !state.paused) return;
+      const remainMs = Math.max(0, state.timeLeft * 1000);
+      state.gameDeadlineMs = nowMs() + remainMs;
+      state.paused = false;
+      $pauseOverlay.hidden = true;
+      startRafLoop();
+    }
+
+    function buildSummaryPayload(){
+      const total = state.correct + state.wrong;
+      const accuracy = total > 0 ? Math.round((state.correct / total) * 100) : 0;
+      let mostMistakeGroup = null;
+      let bestVal = -1;
+      Object.entries(state.mistakeByGroup).forEach(([k,v]) => {
+        if(v > bestVal){ bestVal = v; mostMistakeGroup = k; }
+      });
+      if(bestVal <= 0) mostMistakeGroup = null;
+
+      return {
+        game: ctx.game,
+        mode: ctx.mode,
+        pid: ctx.pid,
+        diff: ctx.diff,
+        score: state.score,
+        bestStreak: state.bestStreak,
+        completedPlates: state.completedPlates,
+        perfectPlates: state.perfectPlates,
+        accuracy,
+        mostMistakeGroup,
+        ts: Date.now(),
+        iso: new Date().toISOString()
+      };
+    }
+
+    function saveLastSummary(summary){
+      const payload = {
+        game: ctx.game,
+        zone: ctx.zone,
+        mode: ctx.mode,
+        pid: ctx.pid,
+        difficulty: ctx.diff,
+        view_mode: ctx.view,
+        run: ctx.run,
+        seed: ctx.seed,
+        summary,
+        saved_at_ms: Date.now(),
+        saved_at_iso: new Date().toISOString()
+      };
+      safeWriteJson('HHA_LAST_SUMMARY', payload);
+      safeWriteJson('HHA_LAST_SUMMARY_PLATE', payload);
+    }
+
+    function getSummaryTier(summary){
+      if(summary.accuracy >= 95 && (summary.perfectPlates || 0) >= 1){
+        return { rank:'Healthy Plate Master', stars:3, badge:'🏆' };
+      }
+      if(summary.accuracy >= 85){
+        return { rank:'Healthy Plate Hero', stars:3, badge:'🌟' };
+      }
+      if(summary.accuracy >= 70){
+        return { rank:'Balanced Meal Star', stars:2, badge:'💛' };
+      }
+      return { rank:'Plate Explorer', stars:1, badge:'🍽️' };
+    }
+
+    function renderSummaryTier(summary){
+      const tier = getSummaryTier(summary);
+      $summaryRank.textContent = tier.rank;
+      $summaryBadge.textContent = tier.badge;
+      $summaryStars.textContent = `${tier.stars >= 1 ? '⭐️' : '☆'}${tier.stars >= 2 ? '⭐️' : '☆'}${tier.stars >= 3 ? '⭐️' : '☆'}`;
+    }
+
+    function insightText(summary){
+      const g = summary.mostMistakeGroup ? FOOD_GROUPS[summary.mostMistakeGroup] : null;
+      const stage = getEntryStage();
+
+      if (summary.accuracy >= 95 && (summary.perfectPlates || 0) >= 1) {
+        return stage === 'after_quick_plate'
+          ? 'อุ่นเครื่องมาดีมาก และคุณจัดจานหลักได้ยอดเยี่ยมจริง ๆ'
+          : 'ยอดเยี่ยมมาก คุณจัดจานได้แม่นและสมดุลมากจริง ๆ';
+      }
+
+      if (summary.accuracy >= 85) {
+        return g
+          ? `ทำได้ดีมาก ลองทบทวนหมู่ "${g.short}" อีกนิดเพื่อให้แม่นขึ้นกว่าเดิม`
+          : 'ทำได้ดีมาก ลองเล่นอีกครั้งเพื่อเก็บ Perfect Plate เพิ่มขึ้น';
+      }
+
+      if (summary.accuracy >= 70) {
+        return g
+          ? `เริ่มคล่องแล้ว แต่ยังสับสนหมู่ "${g.short}" เล็กน้อย`
+          : 'เริ่มทำได้ดีแล้ว ลองสังเกตแต่ละหมู่ให้มากขึ้นอีกนิด';
+      }
+
+      return g
+        ? `ไม่เป็นไร ลองจำว่าอาหารหมู่ "${g.short}" ควรอยู่ตรงไหน แล้วค่อยเล่นอีกครั้ง`
+        : 'ไม่เป็นไร ลองสังเกตชื่ออาหารและส่วนของจานให้มากขึ้น แล้วค่อยลองอีกครั้งนะ';
+    }
+
+    function showSummary(summary){
+      if(state.summaryShown) return;
+      state.summaryShown = 1;
+
+      $sumScore.textContent = String(summary.score);
+      $sumAcc.textContent = `${summary.accuracy}%`;
+      $sumBest.textContent = String(summary.bestStreak);
+      $sumComp.textContent = String(summary.completedPlates);
+      $sumMistake.textContent = summary.mostMistakeGroup ? FOOD_GROUPS[summary.mostMistakeGroup].short : '-';
+
+      renderSummaryTier(summary);
+      renderSummaryRewards();
+      renderLatestReward();
+      renderNextGoal(summary);
+      renderNextStickerHint();
+
+      const stage = getEntryStage();
+      if (stage === 'after_quick_plate' && summary.accuracy >= 80) {
+        $summaryHeading.textContent = 'ต่อจาก Quick Plate ได้ดีมาก';
+      } else if (summary.accuracy >= 95) {
+        $summaryHeading.textContent = 'สุดยอดมากวันนี้';
+      } else if (summary.accuracy >= 80) {
+        $summaryHeading.textContent = 'วันนี้ทำได้ดีมาก';
+      } else {
+        $summaryHeading.textContent = 'เก่งมากที่พยายาม';
+      }
+
+      $sumInsight.textContent = insightText(summary);
+      $summaryOverlay.classList.add('show');
+      celebrate(summary.accuracy >= 90 ? 'perfect' : 'good');
+    }
+
+    function finishGame(){
+      if(state.finished) return;
+      state.finished = true;
+      cancelRafLoop();
+      clearTimeout(state.roundAdvanceTimer);
+
+      const summary = buildSummaryPayload();
+      saveLastSummary(summary);
+
+      function openSummarySafely(){
+        if(rewardShowing || rewardQueue.length){
+          setTimeout(openSummarySafely, 120);
+          return;
+        }
+        showSummary(summary);
+      }
+      openSummarySafely();
+    }
+
+    const EVAL_TEMPLATES = [
+      {
+        id:'eval_1',
+        correct:'A',
+        explainCorrect:'ถูกต้อง! จาน A สมดุลที่สุด เพราะครบ 5 หมู่',
+        explainWrong:'จาน A ดีกว่า เพราะอีกจานยังขาดผักหรือมีของหวานแทนอาหารหลัก',
+        choices:{
+          A:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'🍌', g5:'🧈' },
+          B:{ g2:'🍚', g1:'🐟', g3:'',    g4:'🍌', g5:'🧈' },
+          C:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'🍰', g5:'🧈' }
+        }
+      },
+      {
+        id:'eval_2',
+        correct:'B',
+        explainCorrect:'เยี่ยมมาก! จาน B เหมาะที่สุด เพราะมีอาหารหลักครบและไม่มีตัวลวง',
+        explainWrong:'ลองดูอีกนิด จาน B ดีกว่า เพราะอีกจานมีน้ำอัดลมหรือขาดผลไม้',
+        choices:{
+          A:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'🥤', g5:'🧈' },
+          B:{ g2:'🍚', g1:'🥚', g3:'🥕', g4:'🍎', g5:'🫗' },
+          C:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'',    g5:'🧈' }
+        }
+      },
+      {
+        id:'eval_3',
+        correct:'C',
+        explainCorrect:'ถูกต้อง! จาน C สมดุลที่สุด เพราะอาหารอยู่หมู่เหมาะสมกว่า',
+        explainWrong:'จาน C ดีกว่า เพราะอีกจานมีอาหารวางไม่เหมาะหรือสมดุลน้อยกว่า',
+        choices:{
+          A:{ g2:'🍚', g1:'🍌', g3:'🥬', g4:'🐟', g5:'🧈' },
+          B:{ g2:'🍗', g1:'🐟', g3:'',    g4:'🍎', g5:'🫗' },
+          C:{ g2:'🍞', g1:'🥛', g3:'🥬', g4:'🍊', g5:'🫗' }
+        }
+      }
+    ];
+
+    function pickEvaluateTemplate(){
+      return EVAL_TEMPLATES[Math.floor(rng() * EVAL_TEMPLATES.length)];
+    }
+
+    function renderEvalPlate(choiceKey, foods){
+      return `
+        <div class="evalChoice" data-choice="${choiceKey}">
+          <div class="evalPlate">
+            <div class="evalZone z-g2">${foods.g2 || ''}</div>
+            <div class="evalZone z-g1">${foods.g1 || ''}</div>
+            <div class="evalZone z-g3">${foods.g3 || ''}</div>
+            <div class="evalZone z-g4">${foods.g4 || ''}</div>
+            <div class="evalZone z-g5">${foods.g5 || ''}</div>
+          </div>
+          <div class="evalLabel">จาน ${choiceKey}</div>
+        </div>
+      `;
+    }
+
+    function openEvaluate(){
+      renderPostGameFlowText();
+      const tpl = pickEvaluateTemplate();
+      evaluateState.questionId = tpl.id;
+      evaluateState.selectedChoice = '';
+      evaluateState.correctChoice = tpl.correct;
+      evaluateState.answered = false;
+
+      $evalChoices.innerHTML = ['A','B','C'].map(k => renderEvalPlate(k, tpl.choices[k])).join('');
+      $evalFeedback.textContent = 'เลือกจานที่คิดว่าสมดุลที่สุด';
+      $evalFeedback.className = 'flowFeedback';
+      $btnEvalSubmit.disabled = true;
+      $btnEvalSubmit.hidden = false;
+      $btnEvalSkip.hidden = false;
+      $evalNextActions.hidden = true;
+      $evaluateOverlay.hidden = false;
+      $summaryOverlay.classList.remove('show');
+
+      $evalChoices.querySelectorAll('.evalChoice').forEach(card => {
+        card.addEventListener('click', () => {
+          if(evaluateState.answered) return;
+          evaluateState.selectedChoice = card.dataset.choice;
+          $evalChoices.querySelectorAll('.evalChoice').forEach(x => x.classList.remove('selected'));
+          card.classList.add('selected');
+          $btnEvalSubmit.disabled = false;
+        });
+      });
+    }
+
+    function submitEvaluate(){
+      if(!evaluateState.selectedChoice || evaluateState.answered) return;
+      evaluateState.answered = true;
+      const isCorrect = evaluateState.selectedChoice === evaluateState.correctChoice;
+      const tpl = EVAL_TEMPLATES.find(x => x.id === evaluateState.questionId);
+
+      $evalChoices.querySelectorAll('.evalChoice').forEach(card => {
+        const k = card.dataset.choice;
+        if(k === evaluateState.correctChoice) card.classList.add('correct');
+        if(k === evaluateState.selectedChoice && k !== evaluateState.correctChoice) card.classList.add('wrong');
+      });
+
+      if(isCorrect){
+        $evalFeedback.textContent = tpl.explainCorrect;
+        $evalFeedback.className = 'flowFeedback ok';
+      }else{
+        $evalFeedback.textContent = tpl.explainWrong;
+        $evalFeedback.className = 'flowFeedback bad';
+      }
+
+      $btnEvalSubmit.hidden = true;
+      $btnEvalSkip.hidden = true;
+      $evalNextActions.hidden = false;
+    }
+
+    function closeEvaluate(){
+      $evaluateOverlay.hidden = true;
+    }
+
+    function getCreateFoods(){
+      const base = [];
+      ['g2','g1','g3','g4','g5'].forEach(g => {
+        const item = shuffle(FOOD_DB.filter(x => x.group === g), rng)[0];
+        if(item) base.push(item);
+      });
+      const distractors = shuffle(FOOD_DB.filter(x => x.group === 'x'), rng).slice(0, 2);
+      return shuffle([...base, ...distractors, ...shuffle(FOOD_DB.filter(x => x.group !== 'x'), rng).slice(0, 3)], rng).slice(0, 10);
+    }
+
+    function renderCreateTray(){
+      $createTray.innerHTML = '';
+      createState.trayFoods.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'food';
+        btn.type = 'button';
+        btn.dataset.id = item.id;
+        btn.innerHTML = `
+          <div class="foodEmoji">${FOOD_EMOJI[item.id] || '🍎'}</div>
+          <div class="foodMeta">
+            <div class="foodName">${item.label}</div>
+            <div class="foodTag ${item.group === 'x' ? 'x' : ''}">${item.group === 'x' ? 'ลองคิดดู' : 'เลือกให้เหมาะ'}</div>
+          </div>
+        `;
+        btn.addEventListener('click', () => {
+          if(createState.hasSubmitted) return;
+          createState.selectedFoodId = item.id;
+          [...$createTray.querySelectorAll('.food')].forEach(x => x.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+        $createTray.appendChild(btn);
+      });
+    }
+
+    function renderCreateZones(){
+      document.querySelectorAll('.createZone').forEach(zone => {
+        const z = zone.dataset.zone;
+        const placed = createState.placedByZone[z];
+        zone.classList.toggle('hasItem', !!placed);
+        const inner = zone.querySelector('.zoneInner');
+
+        if(placed){
+          inner.innerHTML = `
+            <div class="zoneItemEmoji">${FOOD_EMOJI[placed.food.id] || '🍎'}</div>
+            <div class="zoneItemText">${placed.food.label}</div>
+          `;
+        }else{
+          inner.innerHTML = `<span class="zonePlaceholder">${FOOD_GROUPS[z].short}</span>`;
+        }
+      });
+
+      const filled = Object.keys(createState.placedByZone).length;
+      $createProgressText.textContent = `${filled}/5 หมู่`;
+      $createProgressFill.style.width = `${(filled / 5) * 100}%`;
+    }
+
+    function bindCreateZones(){
+      document.querySelectorAll('.createZone').forEach(zone => {
+        zone.addEventListener('click', () => {
+          if(createState.hasSubmitted) return;
+          const z = zone.dataset.zone;
+          if(!createState.selectedFoodId){
+            pushToast('เลือกอาหารจากถาดก่อนนะ', 'info');
+            return;
+          }
+          const food = createState.trayFoods.find(x => x.id === createState.selectedFoodId);
+          if(!food) return;
+          createState.placedByZone[z] = { food };
+          createState.selectedFoodId = null;
+          [...$createTray.querySelectorAll('.food')].forEach(x => x.classList.remove('selected'));
+          renderCreateZones();
+        });
+      });
+    }
+
+    function evaluateCreatePlate(){
+      const zoneKeys = ['g2','g1','g3','g4','g5'];
+      const missingGroups = zoneKeys.filter(z => !createState.placedByZone[z]);
+      let distractorCount = 0;
+      let wrongPlaced = 0;
+
+      zoneKeys.forEach(z => {
+        const placed = createState.placedByZone[z];
+        if(!placed) return;
+        if(placed.food.group === 'x') distractorCount += 1;
+        if(placed.food.group !== z) wrongPlaced += 1;
+      });
+
+      let resultLevel = 'retry';
+      if(!missingGroups.length && distractorCount === 0 && wrongPlaced === 0){
+        resultLevel = 'great';
+      }else if(missingGroups.length <= 1 && distractorCount <= 1){
+        resultLevel = 'good';
+      }
+
+      createState.resultLevel = resultLevel;
+      createState.hasSubmitted = true;
+
+      const goodBits = [];
+      const fixBits = [];
+
+      if(!missingGroups.length) goodBits.push('ครบ 5 หมู่แล้ว');
+      else fixBits.push(`ยังขาด ${missingGroups.map(g => FOOD_GROUPS[g].short).join(', ')}`);
+
+      if(distractorCount === 0) goodBits.push('ไม่มีอาหารตัวลวง');
+      else fixBits.push('ยังมีอาหารที่ไม่เหมาะกับจานสุขภาพ');
+
+      if(resultLevel === 'great'){
+        $createResult.className = 'createResult show great';
+        $createResult.innerHTML = `
+          <strong>ยอดเยี่ยมมาก</strong><br>
+          คุณสร้างจานสุขภาพได้ครบและสมดุล<br><br>
+          ทำได้ดี: ${goodBits.join(' • ')}
+        `;
+        celebrate('perfect');
+      }else if(resultLevel === 'good'){
+        $createResult.className = 'createResult show good';
+        $createResult.innerHTML = `
+          <strong>ทำได้ดีมาก</strong><br>
+          เหลืออีกนิด จานนี้เกือบสมดุลแล้ว<br><br>
+          ควรปรับ: ${fixBits.join(' • ')}
+        `;
+      }else{
+        $createResult.className = 'createResult show retry';
+        $createResult.innerHTML = `
+          <strong>ลองใหม่อีกนิดนะ</strong><br>
+          จานนี้ยังต้องปรับอีกเล็กน้อย<br><br>
+          ควรปรับ: ${fixBits.join(' • ')}
+        `;
+      }
+
+      $createEndActions.hidden = false;
+    }
+
+    function openCreate(){
+      renderPostGameFlowText();
+      createState.selectedFoodId = null;
+      createState.placedByZone = {};
+      createState.hasSubmitted = false;
+      createState.resultLevel = '';
+      createState.trayFoods = getCreateFoods();
+
+      $createResult.className = 'createResult';
+      $createResult.innerHTML = '';
+      $createEndActions.hidden = true;
+
+      renderCreateTray();
+      renderCreateZones();
+      $createOverlay.hidden = false;
+    }
+
+    function closeCreate(){
+      $createOverlay.hidden = true;
+    }
+
+    function isOverlayBlocking(){
+      const guideOpen = !$guideOverlay.hidden;
+      const rewardOpen = !$rewardPopupOverlay.hidden;
+      const pauseOpen = !$pauseOverlay.hidden;
+      const summaryOpen = $summaryOverlay.classList.contains('show');
+      const evalOpen = !$evaluateOverlay.hidden;
+      const createOpen = !$createOverlay.hidden;
+      return !!(guideOpen || rewardOpen || pauseOpen || summaryOpen || evalOpen || createOpen);
+    }
+
+    function resetRunState(){
+      cancelRafLoop();
+      clearTimeout(state.roundAdvanceTimer);
+      state.roundAdvanceTimer = 0;
+
+      state.started = false;
+      state.finished = false;
+      state.paused = false;
+      state.hiddenPaused = false;
+      state.destroyed = false;
+      state.score = 0;
+      state.timeLeft = ctx.time;
+      state.streak = 0;
+      state.bestStreak = 0;
+      state.correct = 0;
+      state.wrong = 0;
+      state.completedPlates = 0;
+      state.currentRound = 0;
+      state.selectedFoodId = null;
+      state.roundTargetGroups = [];
+      state.roundFoods = [];
+      state.placedByZone = {};
+      state.mistakeByGroup = { g1:0, g2:0, g3:0, g4:0, g5:0 };
+      state.perfectPlates = 0;
+      state.timeStartedMs = 0;
+      state.summaryShown = 0;
+      state.gameDeadlineMs = 0;
+      state.lastSecondShown = ctx.time;
+
+      rng = makeRng(ctx.seed);
+
+      updateHud();
+      updateMissionUi();
+      renderSelectedBar();
+      renderEntryContext();
+      renderPostGameFlowText();
+      $summaryOverlay.classList.remove('show');
+      $pauseOverlay.hidden = true;
+      $evaluateOverlay.hidden = true;
+      $createOverlay.hidden = true;
+      leavingPage = false;
+    }
+
+    function cancelTimers(){
+      cancelRafLoop();
+      clearTimeout(state.roundAdvanceTimer);
+      state.roundAdvanceTimer = 0;
+    }
+
+    function cleanupBeforeLeave(){
+      cancelTimers();
+      state.destroyed = true;
+      $pauseOverlay.hidden = true;
+    }
+
+    function maybeShowGuideThenStart(){
+      const stage = getEntryStage();
+
+      if (stage === 'after_quick_plate') {
+        reallyStartGame();
+        return;
+      }
+
+      if (shouldShowGuide()) {
+        $guideOverlay.hidden = false;
+        document.body.classList.add('guide-open');
+        return;
+      }
+
+      reallyStartGame();
+    }
+
+    function reallyStartGame(){
+      if(state.started) return;
+
+      resetRunState();
+      state.started = true;
+      state.finished = false;
+      state.timeStartedMs = Date.now();
+
+      updateDailyQuestUi();
+      renderStickerShelf();
+      renderEntryContext();
+      renderPostGameFlowText();
+
+      if (getEntryStage() === 'after_quick_plate') {
+        deferRewardPopupOnEntry = true;
+      }
+
+      const dailyBoot = readDailyProgress();
+      const stage = getEntryStage();
+
+      if (stage !== 'after_quick_plate' && !dailyBoot.firstPlayShown) {
+        dailyBoot.firstPlayShown = 1;
+        writeDailyProgress(dailyBoot);
+        enqueueRewardPopup({
+          kind:'hello',
+          icon:'🌞',
+          title:'ยินดีต้อนรับวันนี้',
+          desc:'มาเริ่มสะสมสติกเกอร์และทำภารกิจประจำวันกัน',
+          meta:'เป้าหมายวันนี้: 3 จาน',
+          cta:'เยี่ยมเลย'
+        });
+      }
+
+      if (stage === 'after_quick_plate') {
+        pushToast('อุ่นเครื่องเสร็จแล้ว ไปจัดจานจริงกัน!', 'ok');
+        setFeedback('พร้อมแล้ว เริ่มเกมหลักได้เลย');
+      } else if (stage === 'from_launcher') {
+        pushToast('เริ่มเกมหลักแล้ว!', 'info');
+        setFeedback('มาจัดจานสุขภาพให้ครบ 5 หมู่กัน');
+      } else {
+        setFeedback('มาจัดจานสุขภาพกัน');
+      }
+
+      bindZones();
+      nextRound();
+      startGameClock();
+    }
+
+    function closeGuide(){
+      $guideOverlay.hidden = true;
+      document.body.classList.remove('guide-open');
+    }
+
+    $guideStartBtn.addEventListener('click', () => {
+      if($guideDontShowToday.checked) markGuideSeen();
+      closeGuide();
+      reallyStartGame();
+    });
+
+    $btnClearPick.addEventListener('click', () => {
+      state.selectedFoodId = null;
+      syncFoodUi();
+      renderSelectedBar();
+      setFeedback('ยกเลิกการเลือกแล้ว');
+    });
+
+    $btnResumeGame.addEventListener('click', resumeGame);
+
+    $btnRestartGame.addEventListener('click', () => {
+      if(leavingPage) return;
+      leavingPage = true;
+      cleanupBeforeLeave();
+      const nextSeed = String(Date.now());
+      location.href = withPassthrough(
+        '/webxr-health-mobile/herohealth/plate/plate-vr.html',
+        ctx,
+        { seed: nextSeed, entry: 'replay' }
+      );
+    });
+
+    async function replayRun(){
+      if(leavingPage) return;
+      leavingPage = true;
+      cleanupBeforeLeave();
+
+      const nextSeed = String(Date.now());
+      location.href = withPassthrough(
+        '/webxr-health-mobile/herohealth/plate/plate-vr.html',
+        ctx,
+        {
+          seed: nextSeed,
+          entry: 'replay'
+        }
+      );
+    }
+
+    async function backHub(){
+      if(leavingPage) return;
+      leavingPage = true;
+      cleanupBeforeLeave();
+
+      const cooldownDone = isGateDone('cooldown');
+      if(!cooldownDone){
+        location.href = withPassthrough('/webxr-health-mobile/herohealth/warmup-gate.html', ctx, {
+          phase:'cooldown',
+          next:ctx.hub
+        });
+        return;
+      }
+
+      location.href = ctx.hub;
+    }
+
+    $btnReplay.addEventListener('click', replayRun);
+    $btnBackHub.addEventListener('click', backHub);
+    $btnEvaluate.addEventListener('click', openEvaluate);
+
+    $btnEvalSubmit.addEventListener('click', submitEvaluate);
+    $btnEvalSkip.addEventListener('click', () => {
+      closeEvaluate();
+      openCreate();
+    });
+    $btnEvalNext.addEventListener('click', () => {
+      closeEvaluate();
+      openCreate();
+    });
+
+    $btnCreateSubmit.addEventListener('click', evaluateCreatePlate);
+    $btnCreateReset.addEventListener('click', openCreate);
+    $btnCreateReplay.addEventListener('click', () => {
+      closeCreate();
+      replayRun();
+    });
+    $btnCreateBackHub.addEventListener('click', () => {
+      closeCreate();
+      backHub();
+    });
+
+    bindCreateZones();
+
+    document.addEventListener('visibilitychange', () => {
+      if(state.finished || !state.started) return;
+      if(document.hidden){
+        state.hiddenPaused = true;
+        pauseGame('hidden');
+        return;
+      }
+      if(state.hiddenPaused){
+        state.hiddenPaused = false;
+      }
+    });
+
+    renderEntryContext();
+    renderPostGameFlowText();
+    updateDailyQuestUi();
+    renderStickerShelf();
+    maybeShowGuideThenStart();
+  })();
+  </script>
+</body>
+</html>
