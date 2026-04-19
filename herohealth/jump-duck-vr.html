@@ -147,27 +147,21 @@
       const TARGET = abs('../fitness/jumpduck.html', 'https://supparang.github.io/webxr-health-mobile/fitness/jumpduck.html');
 
       const q = new URLSearchParams(location.search);
-
       const out = new URL(TARGET);
 
-      // preserve almost everything useful
       q.forEach((value, key) => {
         out.searchParams.set(key, value);
       });
 
-      // force canonical JumpDuck identity
       out.searchParams.set('game', 'jump-duck');
       out.searchParams.set('gameId', 'jump-duck');
       out.searchParams.set('theme', 'jump-duck');
       out.searchParams.set('zone', 'fitness');
       out.searchParams.set('cat', 'fitness');
-
-      // canonical navigation targets
       out.searchParams.set('hub', FITNESS_ZONE);
       out.searchParams.set('hubRoot', FITNESS_ZONE);
       out.searchParams.set('launcher', TARGET);
 
-      // wrapper should land on main game, not gate
       out.searchParams.delete('phase');
       out.searchParams.delete('gatePhase');
       out.searchParams.delete('next');
@@ -176,7 +170,6 @@
       out.searchParams.delete('forcegate');
       out.searchParams.delete('resetGate');
 
-      // sensible defaults
       if (!out.searchParams.get('pid')) out.searchParams.set('pid', 'anon');
       if (!out.searchParams.get('name')) out.searchParams.set('name', 'Hero');
       if (!out.searchParams.get('run')) out.searchParams.set('run', 'play');
@@ -192,7 +185,6 @@
       if (goNow) goNow.href = out.href;
       if (goZone) goZone.href = FITNESS_ZONE;
 
-      // auto redirect
       setTimeout(() => {
         location.replace(out.href);
       }, 180);
