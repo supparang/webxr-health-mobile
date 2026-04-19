@@ -1,6 +1,6 @@
 // /english/js/lesson-main.js
-import { missionDB } from "./lesson-data.js";
-import { initFirebaseRuntime, onAuthStateChanged, ref, get, set, onValue } from "./lesson-firebase.js";
+import { missionDB } from "./lesson-data.js?v=20260420a";
+import { initFirebaseRuntime, onAuthStateChanged, ref, get, set, onValue } from "./lesson-firebase.js?v=20260420a";
 import {
   state,
   clamp,
@@ -10,7 +10,7 @@ import {
   setDbRuntime,
   getNextMissionId,
   updateDifficulty
-} from "./lesson-state.js";
+} from "./lesson-state.js?v=20260420a";
 import {
   aiDirector,
   renderAIDirector,
@@ -23,7 +23,7 @@ import {
   onMissionLoadedForAI,
   onMissionSuccessForAI,
   onMissionFailForAI
-} from "./lesson-ai.js";
+} from "./lesson-ai.js?v=20260420a";
 import {
   finalBossState,
   isUnitFinal,
@@ -36,7 +36,7 @@ import {
   triggerImpactFlash,
   animateBossActor,
   showBossCinematic
-} from "./lesson-boss.js";
+} from "./lesson-boss.js?v=20260420a";
 import {
   playerProfile,
   syncProfileUI,
@@ -45,7 +45,7 @@ import {
   selectAvatar,
   getChestRarity,
   showRewardBadge
-} from "./lesson-rewards.js";
+} from "./lesson-rewards.js?v=20260420a";
 import {
   sessionStats,
   saveSessionStats,
@@ -55,7 +55,7 @@ import {
   recordMissionStart,
   recordMissionSuccess,
   recordMissionFail
-} from "./lesson-summary.js";
+} from "./lesson-summary.js?v=20260420a";
 import {
   $,
   setText,
@@ -100,7 +100,7 @@ import {
   expandMissionHudTextCompact,
   togglePromptFocusExpanded,
   resetPromptFocusExpanded
-} from "./lesson-ui.js";
+} from "./lesson-ui.js?v=20260420a";
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
