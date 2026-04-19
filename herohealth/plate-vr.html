@@ -3,35 +3,34 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Quick Plate</title>
+  <title>HeroHealth • Balanced Plate</title>
   <meta name="theme-color" content="#9fe3ff" />
   <meta name="color-scheme" content="light" />
   <style>
     :root{
-      --bg1:#f7fcff;
-      --bg2:#fffef9;
+      --bg:#f7fcff;
       --card:#ffffff;
       --line:#dbeaf4;
-      --text:#284255;
+      --text:#334155;
       --muted:#6d7d8b;
       --sky:#7fcfff;
-      --sky-soft:#eef8ff;
+      --sky-2:#eef8ff;
       --gold:#ffd45f;
+      --gold-2:#fff8eb;
       --ok:#6fd18b;
-      --ok-soft:#f1fff4;
+      --ok-bg:#f1fff4;
       --bad:#ffb3b3;
-      --bad-soft:#fff4f4;
+      --bad-bg:#fff4f4;
       --g1:#ffe7ef;
       --g2:#fff4cc;
       --g3:#e6f8df;
       --g4:#e7f1ff;
       --g5:#fff0d9;
       --shadow:0 12px 28px rgba(0,0,0,.06);
-      --shadow-lg:0 24px 60px rgba(0,0,0,.16);
-      --radius-xl:30px;
-      --radius-lg:24px;
-      --radius-md:18px;
-      --maxw:1040px;
+      --shadow-lg:0 24px 60px rgba(0,0,0,.18);
+      --radius:26px;
+      --radius-md:20px;
+      --radius-sm:16px;
     }
 
     *{ box-sizing:border-box; }
@@ -42,205 +41,233 @@
       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 10% 8%, rgba(255,232,162,.34), transparent 20%),
-        radial-gradient(circle at 92% 10%, rgba(127,207,255,.26), transparent 22%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
+        radial-gradient(circle at 8% 8%, rgba(255,233,168,.38), transparent 20%),
+        radial-gradient(circle at 92% 10%, rgba(127,207,255,.28), transparent 20%),
+        linear-gradient(180deg,#f7fcff,#fffef9);
     }
 
-    button{ font:inherit; }
-
-    .page{
-      width:min(100%, var(--maxw));
-      margin:0 auto;
-      padding:16px 14px 22px;
+    body.guide-open,
+    body.reward-open{
+      overflow:hidden;
     }
 
-    .hero{
+    .hud{
+      position:sticky;
+      top:0;
+      z-index:15;
       display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:14px;
-      align-items:center;
-      padding:18px;
-      border-radius:var(--radius-xl);
-      background:linear-gradient(180deg,#fffef8,#f8fcff);
+      grid-template-columns:repeat(4,1fr);
+      gap:8px;
+      padding:10px;
+      background:rgba(247,252,255,.95);
+      backdrop-filter:blur(8px);
+      border-bottom:1px solid var(--line);
+    }
+
+    .pill{
+      background:#fff;
       border:1px solid var(--line);
-      box-shadow:var(--shadow);
-      margin-bottom:14px;
+      border-radius:16px;
+      padding:10px;
+      text-align:center;
+      font-weight:800;
+      transition:transform .16s ease, box-shadow .16s ease;
+      box-shadow:0 4px 10px rgba(0,0,0,.03);
     }
 
-    .heroLeft{
+    .pill.bump{
+      transform:translateY(-2px) scale(1.03);
+      box-shadow:0 10px 18px rgba(0,0,0,.08);
+    }
+
+    .heroBar{
+      display:grid;
+      grid-template-columns:1.25fr .8fr .8fr .9fr .9fr;
+      gap:10px;
+      max-width:980px;
+      margin:12px auto 14px;
+      padding:0 16px;
+    }
+
+    .heroChip{
       display:flex;
-      align-items:flex-start;
-      gap:14px;
-      min-width:0;
+      align-items:center;
+      gap:10px;
+      background:linear-gradient(180deg,#ffffff,#f6fbff);
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:12px 14px;
+      box-shadow:0 8px 20px rgba(0,0,0,.05);
     }
 
-    .heroBadge{
-      width:64px;
-      height:64px;
-      border-radius:20px;
+    .heroChip-main{
+      align-items:flex-start;
+    }
+
+    .heroIcon{
+      width:46px;
+      height:46px;
+      border-radius:999px;
       display:grid;
       place-items:center;
-      background:linear-gradient(180deg,#bff4ff,#7fdcff);
-      font-size:32px;
+      background:linear-gradient(180deg,#ffe9a8,#ffd86b);
+      font-size:24px;
       flex:0 0 auto;
-      box-shadow:0 10px 18px rgba(127,220,255,.24);
-    }
-
-    .eyebrow{
-      margin:0 0 6px;
-      font-size:12px;
-      font-weight:900;
-      color:#7a8c99;
-      letter-spacing:.04em;
-      text-transform:uppercase;
     }
 
     .heroTitle{
-      margin:0 0 6px;
-      font-size:36px;
-      line-height:1.02;
-      font-weight:1000;
-      color:var(--text);
+      font-size:18px;
+      font-weight:900;
+      color:#284255;
     }
 
     .heroSub{
-      margin:0;
-      font-size:15px;
-      line-height:1.5;
+      font-size:13px;
       color:var(--muted);
-      max-width:620px;
+      margin-top:2px;
+      line-height:1.4;
     }
 
-    .heroRight{
+    .chipLabel{
+      font-size:12px;
+      color:var(--muted);
+      display:block;
+    }
+
+    #entryChip{
+      background:linear-gradient(180deg,#fffdf5,#fff8eb);
+      border-color:#f1dfb3;
+    }
+
+    #entryChipText{
+      color:#8a6120;
+      font-weight:1000;
+    }
+
+    .dailyQuest{
+      max-width:980px;
+      margin:0 auto 14px;
+      padding:0 16px;
       display:flex;
-      justify-content:center;
       align-items:center;
+      justify-content:space-between;
+      gap:12px;
     }
 
-    .heroMiniPlate{
-      width:min(100%, 250px);
-      aspect-ratio:1/1;
-      border-radius:999px;
-      border:10px solid #eaf4fa;
-      background:#fff;
-      position:relative;
-      box-shadow:0 14px 24px rgba(0,0,0,.05);
+    .dailyQuest-left{
+      flex:1 1 auto;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      background:linear-gradient(180deg,#fffaf0,#fffdf7);
+      border:1px solid #f1dfb3;
+      border-radius:20px;
+      padding:12px 14px;
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
     }
 
-    .heroMiniFood{
-      position:absolute;
-      width:28%;
-      height:28%;
+    .dailyQuestBadge{
+      width:42px;
+      height:42px;
       border-radius:999px;
       display:grid;
       place-items:center;
-      background:#fff;
-      font-size:30px;
-      box-shadow:0 8px 18px rgba(0,0,0,.05);
+      background:linear-gradient(180deg,#ffe49c,#ffd15f);
+      font-size:22px;
+      flex:0 0 auto;
     }
 
-    .heroMiniFood.f1{ left:10%; top:10%; background:var(--g2); }
-    .heroMiniFood.f2{ right:10%; top:10%; background:var(--g1); }
-    .heroMiniFood.f3{ left:10%; bottom:10%; background:var(--g3); }
-    .heroMiniFood.f4{ right:10%; bottom:10%; background:var(--g4); }
-    .heroMiniFood.f5{ left:50%; top:50%; transform:translate(-50%,-50%); background:var(--g5); }
-
-    .hud{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:10px;
-      margin-bottom:14px;
-    }
-
-    .hudCard{
-      padding:12px;
-      border-radius:20px;
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 8px 18px rgba(0,0,0,.04);
-      text-align:center;
-      transition:transform .16s ease, box-shadow .16s ease;
-    }
-
-    .hudCard.bump{
-      transform:translateY(-2px) scale(1.02);
-      box-shadow:0 12px 20px rgba(0,0,0,.08);
-    }
-
-    .hudLabel{
-      display:block;
-      margin-bottom:6px;
-      font-size:12px;
+    .dailyQuestTitle{
+      font-size:14px;
       font-weight:900;
-      color:#738291;
+      color:#8d6118;
     }
 
-    .hudValue{
-      display:block;
-      font-size:24px;
-      line-height:1;
-      font-weight:1000;
-      color:#274458;
+    .dailyQuestDesc{
+      font-size:13px;
+      color:#7a6a49;
     }
 
-    .gameShell{
+    .dailyQuestRight{
+      min-width:78px;
+      text-align:center;
+      background:#fff;
+      border:1px solid #f1dfb3;
+      border-radius:16px;
+      padding:10px 12px;
+      font-size:18px;
+      color:#8d6118;
+      box-shadow:0 6px 14px rgba(0,0,0,.04);
+      font-weight:900;
+    }
+
+    .wrap{
+      max-width:980px;
+      margin:0 auto;
+      padding:16px;
+    }
+
+    .board{
       display:grid;
-      grid-template-columns:1.06fr .94fr;
-      gap:14px;
+      gap:16px;
+      grid-template-columns:1.15fr .85fr;
     }
 
-    .boardCard,.trayCard{
+    .plateArea,.trayArea,.selectedBar,.stickerShelf{
       background:var(--card);
       border:1px solid var(--line);
-      border-radius:var(--radius-lg);
+      border-radius:24px;
       padding:16px;
       box-shadow:var(--shadow);
     }
 
-    .cardHead{
+    .plateArea,.trayArea{ min-height:360px; }
+
+    h2{
+      margin:0 0 8px;
+      font-size:22px;
+      color:#284255;
+    }
+
+    .missionCard{
+      margin:10px 0 14px;
+      padding:12px 14px;
+      background:linear-gradient(180deg,#fffdf6,#fffaf0);
+      border:1px solid #f1dfb3;
+      border-radius:18px;
+    }
+
+    .missionTop{
       display:flex;
-      align-items:flex-start;
       justify-content:space-between;
       gap:10px;
-      margin-bottom:12px;
-    }
-
-    .cardTitle{
-      margin:0 0 4px;
-      font-size:24px;
-      line-height:1.1;
-      font-weight:1000;
-    }
-
-    .cardSub{
-      margin:0;
-      font-size:14px;
-      color:var(--muted);
-      line-height:1.45;
-    }
-
-    .goalPill{
-      min-height:34px;
-      padding:0 12px;
-      border-radius:999px;
-      display:inline-flex;
-      align-items:center;
-      background:linear-gradient(180deg,#fffdf5,#fff8eb);
-      border:1px solid #f1dfb3;
+      font-weight:900;
       color:#8a6120;
-      font-size:12px;
-      font-weight:1000;
-      white-space:nowrap;
+      margin-bottom:8px;
+    }
+
+    .missionBar{
+      height:12px;
+      background:#f5ead0;
+      border-radius:999px;
+      overflow:hidden;
+    }
+
+    .missionFill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#ffd76a,#ffb347);
+      transition:width .18s ease;
     }
 
     .plate{
-      width:min(100%, 410px);
+      width:min(100%,420px);
       aspect-ratio:1/1;
-      margin:8px auto 12px;
+      margin:8px auto;
       border-radius:999px;
       border:10px solid #eaf4fa;
-      background:#fff;
+      background:#ffffff;
       position:relative;
       overflow:hidden;
     }
@@ -250,82 +277,68 @@
       border:none;
       cursor:pointer;
       font-weight:900;
-      color:#2e4f63;
-      box-shadow:inset 0 0 0 2px rgba(255,255,255,.78);
-      transition:transform .14s ease, box-shadow .14s ease;
+      color:#334155;
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.75);
+      transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
       touch-action:manipulation;
       overflow:hidden;
     }
 
-    .zone:active{ transform:scale(.985); }
-
-    .zoneInner{
-      position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
-      padding:8px;
-      text-align:center;
-    }
-
     .zone span{
-      display:inline-flex;
-      align-items:center;
-      min-height:28px;
-      padding:0 8px;
+      background:rgba(255,255,255,.76);
+      padding:4px 8px;
       border-radius:999px;
-      background:rgba(255,255,255,.82);
-      font-size:13px;
-      font-weight:1000;
+      font-size:14px;
     }
 
-    .zoneItemEmoji{
-      font-size:26px;
-      margin-bottom:4px;
-    }
-
-    .zoneItemText{
-      display:inline-flex;
-      align-items:center;
-      min-height:24px;
-      padding:0 8px;
-      border-radius:999px;
-      background:rgba(255,255,255,.82);
-      font-size:12px;
-      font-weight:1000;
-    }
+    .zone:active{ transform:scale(.98); }
 
     .zone-g2{ left:8%; top:8%; width:42%; height:42%; border-radius:999px 0 0 0; background:var(--g2); }
     .zone-g1{ right:8%; top:8%; width:42%; height:42%; border-radius:0 999px 0 0; background:var(--g1); }
     .zone-g3{ left:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 0 999px; background:var(--g3); }
     .zone-g4{ right:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 999px 0; background:var(--g4); }
-    .zone-g5{ left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); border-radius:999px; background:var(--g5); }
+    .zone-g5{
+      left:50%; top:50%;
+      width:26%; height:26%;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      background:var(--g5);
+      display:grid; place-items:center;
+    }
 
-    .zone.correctFlash{ animation:zoneOk .34s ease; }
-    .zone.wrongFlash{ animation:zoneBad .34s ease; }
+    .zone.hasItem::after{
+      content:"✓";
+      position:absolute;
+      right:10px;
+      bottom:10px;
+      width:28px; height:28px;
+      border-radius:999px;
+      display:grid; place-items:center;
+      background:#ffffffd9;
+      color:#2b7a47;
+      font-weight:900;
+      box-shadow:0 4px 10px rgba(0,0,0,.08);
+    }
+
+    .zone.correctFlash{ animation:zoneOk .35s ease; }
+    .zone.wrongFlash{ animation:zoneBad .35s ease; }
 
     @keyframes zoneOk{
-      0%{ box-shadow:0 0 0 0 rgba(111,209,139,.56); }
+      0%{ box-shadow:0 0 0 0 rgba(111,209,139,.55); }
       100%{ box-shadow:0 0 0 18px rgba(111,209,139,0); }
     }
 
     @keyframes zoneBad{
-      0%{ box-shadow:0 0 0 0 rgba(255,179,179,.58); }
+      0%{ box-shadow:0 0 0 0 rgba(255,179,179,.6); }
       100%{ box-shadow:0 0 0 18px rgba(255,179,179,0); }
     }
 
     .feedback{
+      margin-top:12px;
       min-height:28px;
+      font-weight:800;
+      color:#345468;
       text-align:center;
-      font-size:15px;
-      font-weight:900;
-      color:#3d6074;
-      transition:opacity .18s ease, transform .18s ease;
-    }
-
-    .feedback.pop{
-      opacity:1;
-      transform:translateY(-1px);
     }
 
     .tray{
@@ -335,7 +348,7 @@
     }
 
     .food{
-      min-height:86px;
+      min-height:84px;
       border-radius:18px;
       border:1px solid var(--line);
       background:linear-gradient(180deg,#ffffff,#f8fcff);
@@ -359,14 +372,14 @@
 
     .food.selected{
       border-color:var(--sky);
-      box-shadow:0 0 0 3px rgba(127,207,255,.22);
+      box-shadow:0 0 0 3px rgba(127,207,255,.25);
       background:#eef8ff;
     }
 
     .food.used{
-      opacity:.44;
+      opacity:.45;
       pointer-events:none;
-      filter:saturate(.7);
+      filter:saturate(.65);
     }
 
     .foodEmoji{
@@ -388,7 +401,7 @@
     }
 
     .foodName{
-      font-weight:1000;
+      font-weight:900;
       color:#284255;
       line-height:1.15;
     }
@@ -400,7 +413,7 @@
       padding:0 8px;
       border-radius:999px;
       font-size:12px;
-      font-weight:1000;
+      font-weight:800;
       color:#4f6170;
       background:#f5f9fc;
       border:1px solid var(--line);
@@ -408,26 +421,25 @@
       max-width:100%;
     }
 
-    .foodTag.x{ background:#fff1f1; color:#9b4a4a; }
+    .foodTag.x{
+      background:#fff1f1;
+      color:#9b4a4a;
+    }
 
     .selectedBar{
       position:sticky;
-      bottom:8px;
-      z-index:10;
+      bottom:10px;
+      z-index:14;
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:12px;
-      margin-top:14px;
-      padding:12px 14px;
-      border-radius:20px;
+      margin-top:16px;
       background:rgba(255,255,255,.96);
-      border:1px solid var(--line);
-      box-shadow:0 14px 30px rgba(0,0,0,.08);
       backdrop-filter:blur(8px);
     }
 
-    .selectedLeft{
+    .selectedBar-left{
       display:flex;
       align-items:center;
       gap:12px;
@@ -446,9 +458,8 @@
     }
 
     .selectedTitle{
-      font-weight:1000;
+      font-weight:900;
       color:#284255;
-      margin-bottom:2px;
     }
 
     .selectedHint{
@@ -458,38 +469,59 @@
     }
 
     .selectedClear{
-      min-width:96px;
+      min-width:92px;
       min-height:42px;
       border-radius:14px;
       border:1px solid var(--line);
-      background:#fff;
-      font-weight:1000;
+      background:#fff7f7;
+      font-weight:800;
       color:#476072;
       cursor:pointer;
     }
 
-    .bottomRow{
-      display:flex;
-      justify-content:center;
-      gap:10px;
+    .stickerShelf{
       margin-top:14px;
-      flex-wrap:wrap;
     }
 
-    .ghostBtn{
-      min-height:44px;
-      padding:0 14px;
-      border-radius:16px;
+    .stickerShelfTitle{
+      font-weight:900;
+      color:#284255;
+      margin-bottom:10px;
+    }
+
+    .stickerList{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .sticker{
+      min-width:90px;
+      padding:10px 12px;
+      border-radius:18px;
       border:1px solid var(--line);
+      background:#f8fcff;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .stickerIcon{
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
       background:#fff;
-      font-weight:1000;
-      color:#476072;
-      cursor:pointer;
-      position:relative;
-      z-index:2;
-      pointer-events:auto;
-      touch-action:manipulation;
-      -webkit-tap-highlight-color:transparent;
+      font-size:18px;
+      box-shadow:0 4px 10px rgba(0,0,0,.05);
+    }
+
+    .stickerText{
+      font-size:12px;
+      font-weight:800;
+      color:#4a6070;
+      line-height:1.15;
     }
 
     .toastLayer{
@@ -497,7 +529,7 @@
       left:50%;
       bottom:94px;
       transform:translateX(-50%);
-      z-index:40;
+      z-index:30;
       display:flex;
       flex-direction:column;
       gap:8px;
@@ -506,20 +538,20 @@
 
     .toast{
       min-width:220px;
-      max-width:min(90vw,420px);
+      max-width:min(90vw,440px);
       padding:12px 16px;
       border-radius:16px;
       background:#ffffff;
       border:1px solid var(--line);
       box-shadow:0 12px 24px rgba(0,0,0,.10);
-      font-weight:1000;
+      font-weight:900;
       color:#284255;
       animation:toastIn .22s ease, toastOut .22s ease 1.8s forwards;
       text-align:center;
     }
 
-    .toast.ok{ background:var(--ok-soft); border-color:#bdecc7; }
-    .toast.bad{ background:var(--bad-soft); border-color:#ffd0d0; }
+    .toast.ok{ background:var(--ok-bg); border-color:#bdecc7; }
+    .toast.bad{ background:var(--bad-bg); border-color:#ffd0d0; }
     .toast.info{ background:#f4fbff; border-color:#cfe8f8; }
 
     @keyframes toastIn{
@@ -534,7 +566,336 @@
     .overlay{
       position:fixed;
       inset:0;
-      z-index:60;
+      background:rgba(17,24,39,.38);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:50;
+    }
+
+    .overlay.show{ display:flex; }
+
+    .summary{
+      width:min(92vw,560px);
+      background:#fff;
+      border-radius:28px;
+      border:1px solid var(--line);
+      padding:20px;
+      animation:summaryPop .24s ease;
+    }
+
+    @keyframes summaryPop{
+      from{ opacity:0; transform:translateY(10px) scale(.97); }
+      to{ opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    .summaryHero{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      margin:8px 0 14px;
+      padding:12px 14px;
+      border-radius:20px;
+      background:linear-gradient(180deg,#fffaf0,#fffdf8);
+      border:1px solid #f3dfb2;
+    }
+
+    .summaryBadge{
+      width:58px; height:58px;
+      border-radius:999px;
+      display:grid; place-items:center;
+      background:linear-gradient(180deg,#ffe49c,#ffd05e);
+      font-size:30px;
+    }
+
+    .summaryRank{
+      font-size:18px;
+      font-weight:900;
+      color:#8d6118;
+    }
+
+    .summaryStars{
+      font-size:18px;
+      letter-spacing:2px;
+    }
+
+    .summaryGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:14px 0;
+    }
+
+    .sbox{
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:12px;
+      text-align:center;
+      background:#fbfeff;
+    }
+
+    .summaryRewardBox{
+      margin-top:10px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fffdf6,#fff9ef);
+      border:1px solid #f2dfb3;
+      color:#8d6118;
+      font-weight:800;
+    }
+
+    .summaryLatestReward{
+      margin-top:8px;
+      font-size:13px;
+      font-weight:800;
+      color:#7a6a4c;
+    }
+
+    .actions{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .actions button{
+      min-height:48px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      font-size:16px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .primary{ background:var(--sky); color:#17384f; }
+    .secondary{ background:#fff; color:#2f4f63; }
+
+    .summaryNextRow{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .nextCard{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding:12px;
+      border-radius:18px;
+      background:#f9fcff;
+      border:1px solid var(--line);
+    }
+
+    .nextIcon{
+      width:38px;
+      height:38px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      background:#eef8ff;
+      font-size:20px;
+      flex:0 0 auto;
+    }
+
+    .nextTitle{
+      font-weight:900;
+      color:#2d4859;
+      margin-bottom:4px;
+    }
+
+    .nextText{
+      font-size:13px;
+      color:#6d7d8b;
+      line-height:1.4;
+    }
+
+    .pauseOverlay{
+      position:fixed;
+      inset:0;
+      z-index:85;
+      background:rgba(15,23,42,.36);
+      display:grid;
+      place-items:center;
+      padding:18px;
+      backdrop-filter:blur(8px);
+    }
+
+    .pauseOverlay[hidden]{ display:none; }
+
+    .pauseCard{
+      width:min(92vw,420px);
+      border-radius:28px;
+      background:linear-gradient(180deg,#fffef8,#f9fcff);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow-lg);
+      padding:20px 18px;
+      text-align:center;
+    }
+
+    .pauseBadge{
+      width:70px;
+      height:70px;
+      margin:0 auto 10px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#ffe7a1,#ffd45f);
+      font-size:34px;
+    }
+
+    .pauseActions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .pauseBtn{
+      min-height:48px;
+      border:none;
+      border-radius:16px;
+      background:#fff;
+      border:1px solid var(--line);
+      font-size:16px;
+      font-weight:900;
+      color:#2f4f63;
+      cursor:pointer;
+    }
+
+    .pauseBtn.primary{
+      background:var(--sky);
+      color:#17384f;
+    }
+
+    .guideOverlay,
+    .rewardPopupOverlay,
+    .flowOverlay{
+      position:fixed;
+      inset:0;
+      z-index:80;
+      background:rgba(15,23,42,.42);
+      display:grid;
+      place-items:center;
+      padding:18px;
+      backdrop-filter:blur(8px);
+    }
+
+    .guideOverlay[hidden],
+    .flowOverlay[hidden]{
+      display:none;
+    }
+
+    .guideCard,
+    .flowCard{
+      width:min(92vw,920px);
+      background:linear-gradient(180deg,#fffef9,#f9fcff);
+      border:1px solid var(--line);
+      border-radius:28px;
+      padding:18px;
+      box-shadow:var(--shadow-lg);
+    }
+
+    .flowHead{
+      display:flex;
+      align-items:flex-start;
+.flowHead{
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .flowBadge{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#ffe8a2,#ffd561);
+      font-size:28px;
+      flex:0 0 auto;
+    }
+
+    .flowTitle{
+      font-size:24px;
+      font-weight:900;
+      color:#284255;
+      margin:0 0 4px;
+    }
+
+    .flowSub{
+      color:var(--muted);
+      margin:0;
+      line-height:1.45;
+    }
+
+    .guideStep{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      padding:12px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid var(--line);
+      margin-bottom:10px;
+    }
+
+    .guideStepIcon{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:#f4fbff;
+      font-size:22px;
+      flex:0 0 auto;
+    }
+
+    .guideStepTitle{
+      font-weight:900;
+      color:#2d4859;
+      margin-bottom:4px;
+    }
+
+    .guideStepText{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.4;
+    }
+
+    .guideActions{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .guideCheck{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:#61727f;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    .guideStartBtn{
+      min-width:160px;
+      min-height:48px;
+      border:none;
+      border-radius:16px;
+      background:var(--sky);
+      color:#17384f;
+      font-size:16px;
+      font-weight:900;
+      cursor:pointer;
+    }
+
+    .rewardPopupOverlay{
+      position:fixed;
+      inset:0;
+      z-index:120;
       background:rgba(15,23,42,.42);
       display:grid;
       place-items:center;
@@ -543,93 +904,74 @@
       pointer-events:auto;
     }
 
-    .overlay[hidden]{ display:none; }
+    .rewardPopupOverlay[hidden]{
+      display:none;
+    }
 
-    .overlayCard{
-      width:min(92vw,560px);
+    .rewardPopupCard{
+      width:min(92vw,420px);
+      text-align:center;
+      padding:22px 18px 18px;
       background:linear-gradient(180deg,#fffef9,#f9fcff);
       border:1px solid var(--line);
       border-radius:28px;
-      padding:18px;
       box-shadow:var(--shadow-lg);
-      text-align:center;
-      animation:overlayIn .22s ease;
       position:relative;
       z-index:1;
       pointer-events:auto;
     }
 
-    @keyframes overlayIn{
-      from{ opacity:0; transform:translateY(10px) scale(.97); }
-      to{ opacity:1; transform:translateY(0) scale(1); }
-    }
-
-    .overlayBadge{
-      width:76px;
-      height:76px;
+    .rewardPopupBadge{
+      width:82px;
+      height:82px;
       margin:0 auto 12px;
       border-radius:999px;
       display:grid;
       place-items:center;
       background:linear-gradient(180deg,#ffe7a1,#ffd35e);
-      font-size:38px;
+      font-size:42px;
       box-shadow:0 10px 20px rgba(255,208,94,.22);
     }
 
-    .overlayTitle{
-      margin:0 0 6px;
-      font-size:28px;
-      line-height:1.08;
-      font-weight:1000;
-      color:var(--text);
+    .rewardPopupTitle{
+      font-size:24px;
+      font-weight:900;
+      color:#875d18;
+      margin-bottom:6px;
+      line-height:1.15;
     }
 
-    .overlaySub{
-      margin:0 0 14px;
+    .rewardPopupDesc{
       font-size:15px;
-      line-height:1.5;
-      color:var(--muted);
+      line-height:1.45;
+      color:#6f6245;
+      margin-bottom:10px;
     }
 
-    .introGoal{
-      display:flex;
-      justify-content:center;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-bottom:14px;
-    }
-
-    .introChip{
-      min-height:34px;
-      padding:0 10px;
-      border-radius:999px;
+    .rewardPopupMeta{
       display:inline-flex;
       align-items:center;
-      background:#eef8ff;
-      border:1px solid #cfe8f8;
-      color:#436175;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .overlayActions{
-      display:flex;
       justify-content:center;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:12px;
+      min-height:36px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid #f0ddb0;
+      color:#8d6118;
+      font-weight:900;
+      margin-bottom:14px;
+      max-width:100%;
     }
 
-    .overlayBtn{
-      min-height:48px;
-      min-width:150px;
-      padding:0 16px;
+    .rewardPopupBtn{
+      width:100%;
+      min-height:52px;
+      border:none;
       border-radius:16px;
-      border:1px solid var(--line);
-      background:#fff;
+      background:var(--sky);
+      color:#17384f;
       font-size:16px;
-      font-weight:1000;
-      color:#2f4f63;
+      font-weight:900;
       cursor:pointer;
       position:relative;
       z-index:2;
@@ -638,51 +980,291 @@
       -webkit-tap-highlight-color:transparent;
     }
 
-    .overlayBtn.primary{
-      background:var(--sky);
-      color:#17384f;
-      border-color:#9edcff;
+    .rewardPopupBtn:active{
+      transform:scale(.985);
     }
 
-    .endStats{
+    .rewardPopupBtn:disabled{
+      opacity:.65;
+      cursor:not-allowed;
+    }
+
+    .evalChoices{
       display:grid;
       grid-template-columns:repeat(3,1fr);
-      gap:10px;
+      gap:14px;
       margin:14px 0;
     }
 
-    .endStat{
+    .evalChoice{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:22px;
       padding:12px;
-      border-radius:18px;
+      cursor:pointer;
+      transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
+      text-align:center;
+    }
+
+    .evalChoice.selected{
+      border-color:var(--sky);
+      box-shadow:0 0 0 4px rgba(127,207,255,.18);
+      transform:translateY(-2px);
+    }
+
+    .evalChoice.correct{
+      border-color:#a9dfb6;
+      background:var(--ok-bg);
+    }
+
+    .evalChoice.wrong{
+      border-color:#ffcfcf;
+      background:var(--bad-bg);
+    }
+
+    .evalPlate{
+      width:min(100%,160px);
+      aspect-ratio:1/1;
+      margin:0 auto 10px;
+      border-radius:999px;
+      position:relative;
+      border:7px solid #eaf4fa;
+      background:#fff;
+      overflow:hidden;
+    }
+
+    .evalZone{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      font-size:20px;
+    }
+
+    .evalZone.z-g2{ left:8%; top:8%; width:42%; height:42%; background:var(--g2); border-radius:999px 0 0 0; }
+    .evalZone.z-g1{ right:8%; top:8%; width:42%; height:42%; background:var(--g1); border-radius:0 999px 0 0; }
+    .evalZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; background:var(--g3); border-radius:0 0 0 999px; }
+    .evalZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; background:var(--g4); border-radius:0 0 999px 0; }
+    .evalZone.z-g5{ left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); background:var(--g5); border-radius:999px; font-size:18px; }
+
+    .evalLabel{
+      font-weight:900;
+      color:#2d4859;
+      font-size:16px;
+    }
+
+    .flowHint{
+      color:#5c7383;
+      font-size:14px;
+      font-weight:800;
+      text-align:center;
+      margin-bottom:12px;
+    }
+
+    .flowActions{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .flowBtn{
+      min-height:48px;
+      min-width:150px;
+      padding:0 14px;
+      border:none;
+      border-radius:16px;
+      font-size:16px;
+      font-weight:900;
+      cursor:pointer;
       border:1px solid var(--line);
       background:#fff;
+      color:#2f4f63;
     }
 
-    .endStatLabel{
-      display:block;
-      margin-bottom:6px;
-      font-size:12px;
-      font-weight:900;
-      color:#7b8a97;
+    .flowBtn.primary{
+      background:var(--sky);
+      color:#17384f;
     }
 
-    .endStatValue{
-      display:block;
-      font-size:22px;
-      line-height:1;
-      font-weight:1000;
-      color:#294457;
+    .flowBtn:disabled{
+      opacity:.6;
+      cursor:not-allowed;
     }
 
-    .endMessage{
+    .flowFeedback{
+      margin-top:12px;
       padding:12px 14px;
       border-radius:18px;
       background:#f8fcff;
       border:1px solid var(--line);
-      font-size:14px;
-      line-height:1.5;
-      font-weight:1000;
       color:#476072;
+      font-weight:800;
+      min-height:52px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      line-height:1.45;
+    }
+
+    .flowFeedback.ok{
+      background:var(--ok-bg);
+      border-color:#bdecc7;
+      color:#2b6c43;
+    }
+
+    .flowFeedback.bad{
+      background:var(--bad-bg);
+      border-color:#ffd0d0;
+      color:#a35555;
+    }
+
+    .createTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+
+    .createProgressWrap{
+      flex:1 1 auto;
+      max-width:320px;
+    }
+
+    .createProgressText{
+      font-size:13px;
+      font-weight:900;
+      color:#8a6120;
+      margin-bottom:6px;
+      text-align:right;
+    }
+
+    .createProgressBar{
+      height:12px;
+      background:#f5ead0;
+      border-radius:999px;
+      overflow:hidden;
+    }
+
+    .createProgressFill{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#ffd76a,#ffb347);
+      transition:width .18s ease;
+    }
+
+    .createLayout{
+      display:grid;
+      grid-template-columns:1fr .95fr;
+      gap:16px;
+      margin-top:12px;
+    }
+
+    .createBoard,.createTrayWrap{
+      border:1px solid var(--line);
+      border-radius:22px;
+      padding:14px;
+      background:#fff;
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
+    }
+
+    .createPlate{
+      width:min(100%,360px);
+      aspect-ratio:1/1;
+      margin:8px auto;
+      border-radius:999px;
+      border:9px solid #eaf4fa;
+      background:#fff;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .createZone{
+      position:absolute;
+      border:none;
+      cursor:pointer;
+      font-weight:900;
+      color:#334155;
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.75);
+      transition:transform .15s ease, box-shadow .15s ease;
+      overflow:hidden;
+    }
+
+    .createZone .zoneInner{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      padding:8px;
+      text-align:center;
+      font-size:13px;
+      font-weight:900;
+      color:#2f4f63;
+    }
+
+    .createZone.hasItem .zoneInner{
+      gap:4px;
+      align-content:center;
+    }
+
+    .zonePlaceholder{
+      background:rgba(255,255,255,.8);
+      padding:4px 8px;
+      border-radius:999px;
+    }
+
+    .zoneItemEmoji{ font-size:22px; }
+    .zoneItemText{
+      font-size:12px;
+      background:rgba(255,255,255,.8);
+      padding:3px 6px;
+      border-radius:999px;
+    }
+
+    .createZone.z-g2{ left:8%; top:8%; width:42%; height:42%; border-radius:999px 0 0 0; background:var(--g2); }
+    .createZone.z-g1{ right:8%; top:8%; width:42%; height:42%; border-radius:0 999px 0 0; background:var(--g1); }
+    .createZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 0 999px; background:var(--g3); }
+    .createZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 999px 0; background:var(--g4); }
+    .createZone.z-g5{ left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); border-radius:999px; background:var(--g5); }
+
+    .createTray{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+    }
+
+    .createResult{
+      margin-top:14px;
+      padding:14px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#f8fcff;
+      color:#476072;
+      font-weight:800;
+      display:none;
+      line-height:1.5;
+    }
+
+    .createResult.show{ display:block; }
+    .createResult.great{
+      background:linear-gradient(180deg,#fffef5,#f5fff4);
+      border-color:#d9efc8;
+      color:#527c26;
+    }
+
+    .createResult.good{
+      background:#f4fbff;
+      border-color:#cfe8f8;
+      color:#3e6f8a;
+    }
+
+    .createResult.retry{
+      background:#fff8f2;
+      border-color:#ffd8b5;
+      color:#9a5b2b;
     }
 
     .celebrateLayer{
@@ -690,7 +1272,7 @@
       inset:0;
       pointer-events:none;
       overflow:hidden;
-      z-index:50;
+      z-index:60;
     }
 
     .confetti{
@@ -698,6 +1280,7 @@
       top:-10vh;
       font-size:24px;
       animation:confettiDrop linear forwards;
+      will-change:transform, opacity;
     }
 
     @keyframes confettiDrop{
@@ -705,179 +1288,328 @@
       100%{ transform:translateY(115vh) rotate(360deg); opacity:0; }
     }
 
-    @media (max-width: 920px){
-      .hero, .gameShell{ grid-template-columns:1fr; }
-      .heroRight{ justify-content:flex-start; }
+    @media (max-width: 960px){
+      .heroBar{ grid-template-columns:1fr 1fr; }
+      .createLayout{ grid-template-columns:1fr; }
     }
 
-    @media (max-width: 700px){
+    @media (max-width: 860px){
       .hud{ grid-template-columns:repeat(2,1fr); }
-      .endStats{ grid-template-columns:1fr; }
+      .heroBar{ grid-template-columns:1fr; }
+      .wrap{ padding:12px; }
+      .board{ grid-template-columns:1fr; }
+      .plateArea,.trayArea{ min-height:auto; border-radius:20px; padding:14px; }
+      .plate{ width:min(100%,360px); }
+      .evalChoices{ grid-template-columns:1fr; }
     }
 
-    @media (max-width: 560px){
-      .page{ padding:12px 10px 18px; }
-      .hero, .boardCard, .trayCard, .overlayCard{ padding:16px; border-radius:24px; }
-      .hero{ gap:12px; }
-      .heroLeft{ flex-direction:column; }
-      .heroBadge{ width:56px; height:56px; border-radius:18px; font-size:28px; }
-      .heroTitle{ font-size:30px; }
-      .plate{ width:min(100%, 350px); }
-      .selectedBar{ flex-direction:column; align-items:stretch; }
-      .selectedClear, .overlayBtn{ width:100%; }
-      .overlayActions, .bottomRow{ flex-direction:column; }
+    @media (max-width: 640px){
+      .dailyQuest{ padding:0 12px; margin:0 auto 12px; flex-direction:column; align-items:stretch; }
+      .dailyQuestRight{ width:100%; }
+      .selectedBar{ flex-direction:column; align-items:stretch; bottom:8px; }
+      .summaryNextRow,.pauseActions{ grid-template-columns:1fr; }
+      .flowActions{ flex-direction:column; }
+      .flowBtn{ width:100%; }
+      .guideActions{ flex-direction:column; align-items:stretch; }
+      .guideStartBtn, .selectedClear{ width:100%; }
+      .createTray{ grid-template-columns:1fr 1fr; }
     }
   </style>
 </head>
 <body>
-  <main class="page">
-    <section class="hero">
-      <div class="heroLeft">
-        <div class="heroBadge">⚡</div>
-        <div>
-          <p class="eyebrow">HeroHealth • Quick Plate</p>
-          <h1 class="heroTitle">Quick Plate</h1>
-          <p class="heroSub">อุ่นเครื่องก่อนเล่นจริง จัดให้ถูก 4 ชิ้นใน 20 วินาที แล้วไปเกมหลักต่อทันที</p>
-        </div>
-      </div>
-      <div class="heroRight" aria-hidden="true">
-        <div class="heroMiniPlate">
-          <div class="heroMiniFood f1">🍚</div>
-          <div class="heroMiniFood f2">🐟</div>
-          <div class="heroMiniFood f3">🥬</div>
-          <div class="heroMiniFood f4">🍌</div>
-          <div class="heroMiniFood f5">🫗</div>
-        </div>
-      </div>
-    </section>
+  <div class="hud">
+    <div class="pill" id="scorePill">คะแนน<br><span id="hudScore">0</span></div>
+    <div class="pill" id="timePill">เวลา<br><span id="hudTime">90</span></div>
+    <div class="pill" id="streakPill">คอมโบ<br><span id="hudStreak">0</span></div>
+    <div class="pill" id="platesPill">จานสำเร็จ<br><span id="hudPlates">0</span></div>
+  </div>
 
-    <section class="hud" aria-label="สถานะเกม">
-      <article class="hudCard" id="hudTimeCard">
-        <span class="hudLabel">เวลา</span>
-        <strong class="hudValue" id="hudTime">20</strong>
-      </article>
-      <article class="hudCard" id="hudProgressCard">
-        <span class="hudLabel">ถูกแล้ว</span>
-        <strong class="hudValue" id="hudProgress">0/4</strong>
-      </article>
-      <article class="hudCard" id="hudMistakeCard">
-        <span class="hudLabel">พลาด</span>
-        <strong class="hudValue" id="hudMistakes">0</strong>
-      </article>
-      <article class="hudCard">
-        <span class="hudLabel">โหมด</span>
-        <strong class="hudValue">Warmup</strong>
-      </article>
-    </section>
+  <div class="heroBar">
+    <div class="heroChip heroChip-main">
+      <div class="heroIcon">🍽️</div>
+      <div>
+        <div class="heroTitle">Balanced Plate</div>
+        <div class="heroSub" id="heroSub">จัดอาหารให้ครบ 5 หมู่</div>
+      </div>
+    </div>
 
-    <section class="gameShell">
-      <section class="boardCard">
-        <div class="cardHead">
-          <div>
-            <h2 class="cardTitle">จัดจานเร็ว</h2>
-            <p class="cardSub">แตะอาหารจากถาด แล้วแตะส่วนของจานให้ถูก</p>
+    <div class="heroChip" id="entryChip" hidden>
+      <span class="chipLabel">สถานะ</span>
+      <strong id="entryChipText">ผ่าน Quick Plate แล้ว</strong>
+    </div>
+
+    <div class="heroChip">
+      <span class="chipLabel">รอบ</span>
+      <strong id="hudRound">1</strong>
+    </div>
+
+    <div class="heroChip">
+      <span class="chipLabel">เป้าหมาย</span>
+      <strong id="hudGoal">5 หมู่</strong>
+    </div>
+
+    <div class="heroChip">
+      <span class="chipLabel">ระดับ</span>
+      <strong id="hudDiff">normal</strong>
+    </div>
+  </div>
+
+  <div class="dailyQuest" id="dailyQuest">
+    <div class="dailyQuest-left">
+      <div class="dailyQuestBadge">🎯</div>
+      <div>
+        <div class="dailyQuestTitle" id="dailyQuestTitle">ภารกิจวันนี้</div>
+        <div class="dailyQuestDesc" id="dailyQuestDesc">จัดจานสมดุลให้สำเร็จ 3 จาน</div>
+      </div>
+    </div>
+    <div class="dailyQuestRight"><strong id="dailyQuestCount">0/3</strong></div>
+  </div>
+
+  <div class="wrap">
+    <div class="board">
+      <section class="plateArea">
+        <h2>จานสุขภาพ</h2>
+
+        <div class="missionCard">
+          <div class="missionTop">
+            <strong id="missionTitle">ภารกิจรอบนี้</strong>
+            <span id="missionCount">0/5</span>
           </div>
-          <div class="goalPill">เป้าหมาย 4 ชิ้น</div>
+          <div class="missionBar">
+            <div class="missionFill" id="missionFill"></div>
+          </div>
         </div>
 
         <div class="plate" id="plateBoard">
-          <button class="zone zone-g2" data-zone="g2"><div class="zoneInner"><span>คาร์บ</span></div></button>
-          <button class="zone zone-g1" data-zone="g1"><div class="zoneInner"><span>โปรตีน</span></div></button>
-          <button class="zone zone-g3" data-zone="g3"><div class="zoneInner"><span>ผัก</span></div></button>
-          <button class="zone zone-g4" data-zone="g4"><div class="zoneInner"><span>ผลไม้</span></div></button>
-          <button class="zone zone-g5" data-zone="g5"><div class="zoneInner"><span>ไขมัน</span></div></button>
+          <button class="zone zone-g2" data-zone="g2"><span>คาร์บ</span></button>
+          <button class="zone zone-g1" data-zone="g1"><span>โปรตีน</span></button>
+          <button class="zone zone-g3" data-zone="g3"><span>ผัก</span></button>
+          <button class="zone zone-g4" data-zone="g4"><span>ผลไม้</span></button>
+          <button class="zone zone-g5" data-zone="g5"><span>ไขมัน</span></button>
         </div>
 
-        <div class="feedback" id="feedback">แตะอาหารจากถาด แล้วแตะส่วนของจาน</div>
+        <div class="feedback" id="feedback">มาจัดจานสุขภาพกัน</div>
       </section>
 
-      <section class="trayCard">
-        <div class="cardHead">
-          <div>
-            <h2 class="cardTitle">เลือกอาหาร</h2>
-            <p class="cardSub">มีของถูก 4 ชิ้น และตัวลวง 2 ชิ้น</p>
-          </div>
-        </div>
+      <section class="trayArea">
+        <h2>เลือกอาหาร</h2>
         <div class="tray" id="foodTray"></div>
       </section>
-    </section>
+    </div>
 
-    <section class="selectedBar">
-      <div class="selectedLeft">
+    <div class="selectedBar">
+      <div class="selectedBar-left">
         <div class="selectedEmoji" id="selectedEmoji">🍽️</div>
         <div>
           <div class="selectedTitle" id="selectedTitle">ยังไม่ได้เลือกอาหาร</div>
-          <div class="selectedHint" id="selectedHint">เลือกอาหารจากถาดก่อน แล้วค่อยแตะส่วนของจาน</div>
+          <div class="selectedHint" id="selectedHint">แตะอาหารจากถาด แล้วค่อยแตะส่วนของจาน</div>
         </div>
       </div>
-      <button type="button" class="selectedClear" id="btnClearPick">ยกเลิก</button>
-    </section>
-
-    <div class="bottomRow">
-      <button type="button" class="ghostBtn" id="btnBackLauncher">กลับ Launcher</button>
-      <button
-        type="button"
-        class="ghostBtn"
-        id="btnGoMainNow"
-        onclick="window.__plateGoMainFromQuick && window.__plateGoMainFromQuick(event)"
-      >
-        ข้ามไปเกมหลัก
-      </button>
+      <button class="selectedClear" id="btnClearPick" type="button">ยกเลิก</button>
     </div>
-  </main>
 
-  <div class="overlay" id="introOverlay">
-    <div class="overlayCard">
-      <div class="overlayBadge">⚡</div>
-      <h2 class="overlayTitle">Quick Plate</h2>
-      <p class="overlaySub">อุ่นเครื่องก่อนเล่นจริง จัดให้ถูก 4 ชิ้นใน 20 วินาที</p>
-      <div class="introGoal">
-        <span class="introChip">20 วินาที</span>
-        <span class="introChip">4 ชิ้นถูก</span>
-        <span class="introChip">ไปเกมหลักต่อ</span>
+    <div class="stickerShelf">
+      <div class="stickerShelfTitle">สติกเกอร์วันนี้</div>
+      <div class="stickerList" id="stickerList"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="summaryOverlay">
+    <div class="summary">
+      <h2 id="summaryHeading">วันนี้ทำได้ดีมาก</h2>
+
+      <div class="summaryHero">
+        <div class="summaryBadge" id="summaryBadge">🌟</div>
+        <div>
+          <div class="summaryRank" id="summaryRank">Healthy Plate Hero</div>
+          <div class="summaryStars" id="summaryStars">⭐️⭐️⭐️</div>
+        </div>
       </div>
-      <div class="overlayActions">
-        <button type="button" class="overlayBtn primary" id="btnStartQuick">เริ่มเลย</button>
-        <button type="button" class="overlayBtn" id="btnIntroBack">กลับ Launcher</button>
+
+      <div class="summaryGrid">
+        <div class="sbox">คะแนน<br><strong id="sumScore">0</strong></div>
+        <div class="sbox">ความแม่นยำ<br><strong id="sumAcc">0%</strong></div>
+        <div class="sbox">คอมโบสูงสุด<br><strong id="sumBestStreak">0</strong></div>
+        <div class="sbox">จานสำเร็จ<br><strong id="sumCompleted">0</strong></div>
+        <div class="sbox">พลาดบ่อย<br><strong id="sumMistake">-</strong></div>
+      </div>
+
+      <p id="sumInsight">เยี่ยมมาก ลองเล่นอีกครั้งเพื่อทำคะแนนให้สูงขึ้น</p>
+
+      <div class="summaryRewardBox" id="summaryRewardBox"></div>
+      <div class="summaryLatestReward" id="summaryLatestReward">รางวัลล่าสุด: ยังไม่มี</div>
+
+      <div class="summaryNextRow">
+        <div class="nextCard">
+          <div class="nextIcon">🎯</div>
+          <div>
+            <div class="nextTitle">ลองเป้าหมายต่อไป</div>
+            <div class="nextText" id="nextGoalText">ทำ Perfect Plate ให้ได้</div>
+          </div>
+        </div>
+        <div class="nextCard">
+          <div class="nextIcon">🎁</div>
+          <div>
+            <div class="nextTitle">สติกเกอร์วันนี้</div>
+            <div class="nextText" id="nextStickerText">สะสมได้อีก 1 ชิ้น</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btnReplay" class="primary">เล่นอีกครั้ง</button>
+        <button id="btnEvaluate" class="secondary">ลองคิดอีกนิด</button>
+        <button id="btnBackHub" class="secondary">กลับ HUB</button>
       </div>
     </div>
   </div>
 
-  <div class="overlay" id="endOverlay" hidden>
-    <div class="overlayCard">
-      <div class="overlayBadge" id="endBadge">🌟</div>
-      <h2 class="overlayTitle" id="endTitle">พร้อมแล้ว ไปจัดจานจริงกัน!</h2>
-      <p class="overlaySub" id="endSub">Quick Plate สำเร็จแล้ว</p>
-
-      <div class="endStats">
-        <article class="endStat">
-          <span class="endStatLabel">ทำถูก</span>
-          <strong class="endStatValue" id="endCorrect">0/4</strong>
-        </article>
-        <article class="endStat">
-          <span class="endStatLabel">พลาด</span>
-          <strong class="endStatValue" id="endWrong">0</strong>
-        </article>
-        <article class="endStat">
-          <span class="endStatLabel">เวลาเหลือ</span>
-          <strong class="endStatValue" id="endRemain">0</strong>
-        </article>
+  <div class="flowOverlay" id="evaluateOverlay" hidden>
+    <div class="flowCard">
+      <div class="flowHead">
+        <div class="flowBadge">🌟</div>
+        <div>
+          <h2 class="flowTitle">ลองคิดอีกนิด</h2>
+          <p class="flowSub">เลือกจานที่สมดุลที่สุด</p>
+          <p class="flowSub" id="evalEntrySub">คิดต่อจากเกมหลักอีกนิด</p>
+        </div>
       </div>
 
-      <div class="endMessage" id="endMessage">ไปต่อที่เกมหลักได้เลย</div>
+      <div class="evalChoices" id="evalChoices"></div>
+      <div class="flowHint">เลือก 1 คำตอบ</div>
 
-      <div class="overlayActions">
-        <button
-          type="button"
-          class="overlayBtn primary"
-          id="btnGoMain"
-          onclick="window.__plateGoMainFromQuick && window.__plateGoMainFromQuick(event)"
-        >
-          ไปเกมหลัก
-        </button>
-        <button type="button" class="overlayBtn" id="btnReplayQuick">เล่นอีกครั้ง</button>
-        <button type="button" class="overlayBtn" id="btnEndBack">กลับ Launcher</button>
+      <div class="flowActions">
+        <button type="button" class="flowBtn primary" id="btnEvalSubmit" disabled>ยืนยันคำตอบ</button>
+        <button type="button" class="flowBtn" id="btnEvalSkip">ข้ามไปก่อน</button>
       </div>
+
+      <div class="flowFeedback" id="evalFeedback">เลือกจานที่คิดว่าสมดุลที่สุด</div>
+
+      <div class="flowActions" id="evalNextActions" hidden>
+        <button type="button" class="flowBtn primary" id="btnEvalNext">สร้างจานของฉัน</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="flowOverlay" id="createOverlay" hidden>
+    <div class="flowCard">
+      <div class="flowHead">
+        <div class="flowBadge">🍽️</div>
+        <div>
+          <h2 class="flowTitle">สร้างจานของคุณเอง</h2>
+          <p class="flowSub">เลือกอาหารให้ครบ 5 หมู่</p>
+          <p class="flowSub" id="createEntrySub">สร้างจานของคุณเองเป็นขั้นสุดท้าย</p>
+        </div>
+      </div>
+
+      <div class="createTop">
+        <div class="flowHint" style="margin:0;text-align:left;">เลือกอาหารแล้วแตะส่วนของจาน</div>
+        <div class="createProgressWrap">
+          <div class="createProgressText" id="createProgressText">0/5 หมู่</div>
+          <div class="createProgressBar"><div class="createProgressFill" id="createProgressFill"></div></div>
+        </div>
+      </div>
+
+      <div class="createLayout">
+        <div class="createBoard">
+          <div class="createPlate" id="createPlateBoard">
+            <button class="createZone z-g2" data-zone="g2"><div class="zoneInner"><span class="zonePlaceholder">คาร์บ</span></div></button>
+            <button class="createZone z-g1" data-zone="g1"><div class="zoneInner"><span class="zonePlaceholder">โปรตีน</span></div></button>
+            <button class="createZone z-g3" data-zone="g3"><div class="zoneInner"><span class="zonePlaceholder">ผัก</span></div></button>
+            <button class="createZone z-g4" data-zone="g4"><div class="zoneInner"><span class="zonePlaceholder">ผลไม้</span></div></button>
+            <button class="createZone z-g5" data-zone="g5"><div class="zoneInner"><span class="zonePlaceholder">ไขมัน</span></div></button>
+          </div>
+        </div>
+
+        <div class="createTrayWrap">
+          <div class="createTray" id="createTray"></div>
+        </div>
+      </div>
+
+      <div class="flowActions">
+        <button type="button" class="flowBtn primary" id="btnCreateSubmit">ตรวจจานของฉัน</button>
+        <button type="button" class="flowBtn" id="btnCreateReset">เริ่มใหม่</button>
+      </div>
+
+      <div class="createResult" id="createResult"></div>
+
+      <div class="flowActions" id="createEndActions" hidden>
+        <button type="button" class="flowBtn primary" id="btnCreateReplay">เล่นอีกครั้ง</button>
+        <button type="button" class="flowBtn" id="btnCreateBackHub">กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pauseOverlay" id="pauseOverlay" hidden>
+    <div class="pauseCard">
+      <div class="pauseBadge">⏸️</div>
+      <h2 id="pauseTitle">หยุดเกมชั่วคราว</h2>
+      <p id="pauseText">พักก่อน แล้วค่อยเล่นต่อได้</p>
+      <div class="pauseActions">
+<div class="pauseActions">
+        <button type="button" class="pauseBtn primary" id="btnResumeGame">เล่นต่อ</button>
+        <button type="button" class="pauseBtn" id="btnRestartGame">เริ่มใหม่</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="guideOverlay" id="guideOverlay" hidden>
+    <div class="guideCard">
+      <div class="flowHead">
+        <div class="flowBadge">🍽️</div>
+        <div>
+          <h2 class="flowTitle">พร้อมจัดจานสุขภาพไหม</h2>
+          <p class="flowSub">เล่นง่ายมาก แค่ 3 ขั้น</p>
+        </div>
+      </div>
+
+      <div class="guideStep">
+        <div class="guideStepIcon">1️⃣</div>
+        <div>
+          <div class="guideStepTitle">เลือกอาหาร</div>
+          <div class="guideStepText">แตะอาหารจากถาดด้านขวาหรือด้านล่าง</div>
+        </div>
+      </div>
+      <div class="guideStep">
+        <div class="guideStepIcon">2️⃣</div>
+        <div>
+          <div class="guideStepTitle">ดูหมู่ให้ถูก</div>
+          <div class="guideStepText">สังเกตว่าอาหารควรอยู่ส่วนไหนของจาน</div>
+        </div>
+      </div>
+      <div class="guideStep">
+        <div class="guideStepIcon">3️⃣</div>
+        <div>
+          <div class="guideStepTitle">วางให้ครบ 5 หมู่</div>
+          <div class="guideStepText">ครบจานแล้วจะได้โบนัส และถ้าถูกหมดจะได้ Perfect Plate</div>
+        </div>
+      </div>
+
+      <div class="guideActions">
+        <label class="guideCheck">
+          <input type="checkbox" id="guideDontShowToday" />
+          <span>วันนี้ไม่ต้องแสดงอีก</span>
+        </label>
+        <button type="button" class="guideStartBtn" id="guideStartBtn">เริ่มจัดจาน</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rewardPopupOverlay" id="rewardPopupOverlay" hidden aria-hidden="true">
+    <div class="rewardPopupCard" role="dialog" aria-modal="true" aria-labelledby="rewardPopupTitle">
+      <div class="rewardPopupBadge" id="rewardPopupBadge">🎁</div>
+      <div class="rewardPopupTitle" id="rewardPopupTitle">ได้รางวัลใหม่</div>
+      <div class="rewardPopupDesc" id="rewardPopupDesc">คุณปลดล็อกสติกเกอร์แล้ว</div>
+      <div class="rewardPopupMeta" id="rewardPopupMeta">สะสมต่อได้อีก</div>
+
+      <button
+        type="button"
+        class="rewardPopupBtn"
+        id="rewardPopupBtn"
+        onclick="window.__plateCloseRewardPopup && window.__plateCloseRewardPopup(event)"
+      >
+        เยี่ยมเลย
+      </button>
     </div>
   </div>
 
@@ -885,60 +1617,89 @@
   <div class="celebrateLayer" id="celebrateLayer" aria-hidden="true"></div>
 
   <script>
-  (function () {
+  (function(){
     'use strict';
 
-    function qs(name, fallback = '') {
-      try { return new URL(location.href).searchParams.get(name) ?? fallback; }
-      catch (_) { return fallback; }
+    function qs(name, fallback=''){
+      try{ return new URL(location.href).searchParams.get(name) ?? fallback; }
+      catch(_){ return fallback; }
     }
 
-    function clean(v, d = '') {
+    function clean(v, d=''){
       v = String(v ?? '').trim();
       return v || d;
     }
 
-    function num(v, d = 0) {
+    function num(v, d=0){
       v = Number(v);
       return Number.isFinite(v) ? v : d;
     }
 
-    function bangkokYmd() {
-      try {
-        const parts = new Intl.DateTimeFormat('en-CA', {
-          timeZone: 'Asia/Bangkok',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
+    function bangkokYmd(){
+      try{
+        const parts = new Intl.DateTimeFormat('en-CA',{
+          timeZone:'Asia/Bangkok',
+          year:'numeric',
+          month:'2-digit',
+          day:'2-digit'
         }).formatToParts(new Date());
         const m = {};
-        for (const p of parts) if (p.type !== 'literal') m[p.type] = p.value;
+        for(const p of parts) if(p.type !== 'literal') m[p.type] = p.value;
         return `${m.year}${m.month}${m.day}`;
-      } catch (_) {
+      }catch(_){
         const d = new Date();
-        return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
       }
     }
 
-    function safeWriteJson(key, value) {
-      try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+    function safeReadJson(key, fallback=null){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      }catch(_){
+        return fallback;
+      }
     }
 
-    function buildUrl(path, params = {}) {
-      const url = new URL(path, location.origin);
-      Object.entries(params).forEach(([k, v]) => {
-        if (v !== '' && v != null) url.searchParams.set(k, String(v));
-      });
-      return url.toString();
+    function safeWriteJson(key, val){
+      try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){}
     }
 
-    function makeRng(seedStr) {
+    function withPassthrough(path, ctx, extra={}){
+      const u = new URL(path, location.origin);
+      const payload = {
+        pid: ctx.pid,
+        name: ctx.name,
+        studyId: ctx.studyId,
+        diff: ctx.diff,
+        time: String(ctx.time),
+        seed: ctx.seed,
+        hub: ctx.hub,
+        view: ctx.view,
+        run: ctx.run,
+        zone: ctx.zone,
+        game: ctx.game,
+        mode: ctx.mode,
+        entry: ctx.entry,
+        ...extra
+      };
+      for(const [k,v] of Object.entries(payload)){
+        if(v !== '' && v != null) u.searchParams.set(k, String(v));
+      }
+      return u.toString();
+    }
+
+    function nowMs(){
+      return (window.performance && performance.now) ? performance.now() : Date.now();
+    }
+
+    function makeRng(seedStr){
       let h = 1779033703 ^ String(seedStr).length;
-      for (let i = 0; i < String(seedStr).length; i++) {
+      for(let i=0;i<String(seedStr).length;i++){
         h = Math.imul(h ^ String(seedStr).charCodeAt(i), 3432918353);
         h = (h << 13) | (h >>> 19);
       }
-      return function () {
+      return function(){
         h = Math.imul(h ^ (h >>> 16), 2246822507);
         h = Math.imul(h ^ (h >>> 13), 3266489909);
         h ^= h >>> 16;
@@ -946,560 +1707,99 @@
       };
     }
 
-    function shuffle(arr, rng) {
+    function shuffle(arr, rng){
       const a = arr.slice();
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1));
+      for(let i=a.length-1;i>0;i--){
+        const j = Math.floor(rng() * (i+1));
         [a[i], a[j]] = [a[j], a[i]];
       }
       return a;
     }
 
-    function nowMs() {
-      return (window.performance && performance.now) ? performance.now() : Date.now();
-    }
-
-    const QUICK_TIME = 20;
-    const TARGET_CORRECT = 4;
-
     const ctx = {
-      pid: clean(qs('pid'), 'anon'),
-      name: clean(qs('name'), 'Hero'),
-      nick: clean(qs('nick'), ''),
-      studyId: clean(qs('studyId'), ''),
-      diff: clean(qs('diff'), 'normal'),
-      time: num(qs('time'), 90),
+      pid: clean(qs('pid'),'anon'),
+      name: clean(qs('name'),'Hero'),
+      studyId: clean(qs('studyId'),''),
+      diff: clean(qs('diff'),'normal'),
+      time: num(qs('time'),90),
       seed: clean(qs('seed'), String(Date.now())),
-      view: clean(qs('view'), 'mobile'),
-      run: clean(qs('run'), 'play'),
-      zone: clean(qs('zone'), 'nutrition'),
-      cat: clean(qs('cat'), 'nutrition'),
-      game: clean(qs('game'), 'plate'),
-      gameId: clean(qs('gameId'), 'plate'),
-      theme: clean(qs('theme'), 'plate'),
-      mode: clean(qs('mode'), 'solo'),
-      hub: clean(qs('hub'), 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'),
-      hubRoot: clean(qs('hubRoot'), ''),
-      launcher: clean(qs('launcher'), '')
+      hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub-v2.html'),
+      view: clean(qs('view'),'mobile'),
+      run: clean(qs('run'),'play'),
+      zone: clean(qs('zone'),'nutrition'),
+      game: clean(qs('game'),'plate'),
+      mode: clean(qs('mode'),'solo'),
+      entry: clean(qs('entry'),'direct')
     };
 
-    function quickPlateDoneKey() {
-      return `HHA_QUICK_PLATE_DONE_${ctx.pid}_${bangkokYmd()}`;
+    const entrySource = clean(qs('entry'), 'direct');
+    const cameFromQuickPlate = String(qs('fromQuickPlate', '0')) === '1';
+    const quickPlateDone = String(qs('quickPlateDone', '0')) === '1';
+    const cameFromLauncher = entrySource === 'launcher' || entrySource === 'launcher_direct' || entrySource === 'continue_latest';
+
+    function getEntryStage(){
+      if (cameFromQuickPlate && quickPlateDone) return 'after_quick_plate';
+      if (cameFromLauncher) return 'from_launcher';
+      return 'direct';
     }
 
-    function markQuickPlateDone(result) {
-      try { localStorage.setItem(quickPlateDoneKey(), '1'); } catch (_) {}
-      safeWriteJson('HHA_LAST_SUMMARY_QUICK_PLATE', {
-        game: 'quick-plate',
-        pid: ctx.pid,
-        result,
-        saved_at_ms: Date.now(),
-        saved_at_iso: new Date().toISOString()
-      });
-    }
-
-    function defaultLauncherUrl() {
-      return buildUrl('/webxr-health-mobile/herohealth/plate-v1.html', {
-        pid: ctx.pid,
-        name: ctx.name,
-        nick: ctx.nick,
-        studyId: ctx.studyId,
-        diff: ctx.diff,
-        time: ctx.time,
-        view: ctx.view,
-        run: ctx.run,
-        zone: ctx.zone,
-        cat: ctx.cat,
-        game: 'plate',
-        gameId: 'plate',
-        theme: 'plate',
-        mode: 'solo',
-        hub: ctx.hub,
-        hubRoot: ctx.hubRoot
-      });
-    }
-
-    function buildMainGameUrl() {
-      const sp = new URLSearchParams(location.search);
-      const u = new URL('/webxr-health-mobile/herohealth/plate/plate-vr.html', location.origin);
-
-      const payload = {
-        pid: clean(sp.get('pid'), 'anon'),
-        name: clean(sp.get('name'), 'Hero'),
-        nick: clean(sp.get('nick'), ''),
-        studyId: clean(sp.get('studyId'), ''),
-        diff: clean(sp.get('diff'), 'normal'),
-        time: clean(sp.get('time'), '90'),
-        seed: String(Date.now()),
-        view: clean(sp.get('view'), 'mobile'),
-        run: clean(sp.get('run'), 'play'),
-        zone: clean(sp.get('zone'), 'nutrition'),
-        cat: clean(sp.get('cat'), 'nutrition'),
-        game: 'plate',
-        gameId: 'plate',
-        theme: 'plate',
-        mode: 'solo',
-        hub: clean(sp.get('hub'), 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'),
-        hubRoot: clean(sp.get('hubRoot'), ''),
-        launcher: clean(sp.get('launcher'), ctx.launcher || defaultLauncherUrl()),
-        fromQuickPlate: '1',
-        quickPlateDone: '1',
-        entry: 'after_quick_plate'
-      };
-
-      Object.entries(payload).forEach(([k, v]) => {
-        if (v !== '' && v != null) u.searchParams.set(k, String(v));
-      });
-
-      return u.toString();
-    }
-
-    function buildBackLauncherUrl() {
-      return ctx.launcher || defaultLauncherUrl();
-    }
+    let rng = makeRng(ctx.seed);
 
     const FOOD_GROUPS = {
-      g1: { short: 'โปรตีน' },
-      g2: { short: 'คาร์บ' },
-      g3: { short: 'ผัก' },
-      g4: { short: 'ผลไม้' },
-      g5: { short: 'ไขมัน' }
+      g1: { id:'g1', name:'หมู่ 1 โปรตีน', short:'โปรตีน', color:'#ffe7ef' },
+      g2: { id:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', short:'คาร์บ', color:'#fff4cc' },
+      g3: { id:'g3', name:'หมู่ 3 ผัก', short:'ผัก', color:'#e6f8df' },
+      g4: { id:'g4', name:'หมู่ 4 ผลไม้', short:'ผลไม้', color:'#e7f1ff' },
+      g5: { id:'g5', name:'หมู่ 5 ไขมัน', short:'ไขมัน', color:'#fff0d9' }
     };
 
     const FOOD_DB = [
       { id:'rice', label:'ข้าว', group:'g2' },
+      { id:'brownRice', label:'ข้าวกล้อง', group:'g2' },
       { id:'bread', label:'ขนมปัง', group:'g2' },
+      { id:'noodle', label:'เส้นก๋วยเตี๋ยว', group:'g2' },
       { id:'corn', label:'ข้าวโพด', group:'g2' },
       { id:'potato', label:'มันฝรั่ง', group:'g2' },
+
       { id:'fish', label:'ปลา', group:'g1' },
       { id:'egg', label:'ไข่', group:'g1' },
       { id:'chicken', label:'ไก่', group:'g1' },
       { id:'milk', label:'นม', group:'g1' },
+      { id:'bean', label:'ถั่ว', group:'g1' },
+      { id:'tofu', label:'เต้าหู้', group:'g1' },
+
       { id:'kale', label:'คะน้า', group:'g3' },
       { id:'carrot', label:'แครอท', group:'g3' },
       { id:'cucumber', label:'แตงกวา', group:'g3' },
+      { id:'cabbage', label:'กะหล่ำปลี', group:'g3' },
       { id:'pumpkin', label:'ฟักทอง', group:'g3' },
+      { id:'morningGlory', label:'ผักบุ้ง', group:'g3' },
+
       { id:'banana', label:'กล้วย', group:'g4' },
       { id:'orange', label:'ส้ม', group:'g4' },
       { id:'watermelon', label:'แตงโม', group:'g4' },
+      { id:'papaya', label:'มะละกอ', group:'g4' },
       { id:'apple', label:'แอปเปิล', group:'g4' },
+      { id:'guava', label:'ฝรั่ง', group:'g4' },
+
       { id:'butter', label:'เนย', group:'g5' },
       { id:'oil', label:'น้ำมันพืช', group:'g5' },
       { id:'coconutMilk', label:'กะทิ', group:'g5' },
+      { id:'sesame', label:'งา', group:'g5' },
+
       { id:'soda', label:'น้ำอัดลม', group:'x' },
+      { id:'candy', label:'ลูกอม', group:'x' },
       { id:'cake', label:'เค้ก', group:'x' },
       { id:'chips', label:'มันฝรั่งทอด', group:'x' },
+      { id:'donut', label:'โดนัท', group:'x' },
       { id:'bubbleTea', label:'ชานมไข่มุก', group:'x' }
     ];
 
     const FOOD_EMOJI = {
-      rice:'🍚', bread:'🍞', corn:'🌽', potato:'🥔',
-      fish:'🐟', egg:'🥚', chicken:'🍗', milk:'🥛',
-      kale:'🥬', carrot:'🥕', cucumber:'🥒', pumpkin:'🎃',
-      banana:'🍌', orange:'🍊', watermelon:'🍉', apple:'🍎',
-      butter:'🧈', oil:'🫗', coconutMilk:'🥥',
-      soda:'🥤', cake:'🍰', chips:'🍟', bubbleTea:'🧋'
+      rice:'🍚', brownRice:'🍚', bread:'🍞', noodle:'🍜', corn:'🌽', potato:'🥔',
+      fish:'🐟', egg:'🥚', chicken:'🍗', milk:'🥛', bean:'🫘', tofu:'⬜',
+      kale:'🥬', carrot:'🥕', cucumber:'🥒', cabbage:'🥗', pumpkin:'🎃', morningGlory:'🥬',
+      banana:'🍌', orange:'🍊', watermelon:'🍉', papaya:'🥭', apple:'🍎', guava:'🍐',
+      butter:'🧈', oil:'🫗', coconutMilk:'🥥', sesame:'⚪',
+      soda:'🥤', candy:'🍬', cake:'🍰', chips:'🍟', donut:'🍩', bubbleTea:'🧋'
     };
-
-    const $introOverlay = document.getElementById('introOverlay');
-    const $endOverlay = document.getElementById('endOverlay');
-    const $foodTray = document.getElementById('foodTray');
-    const $feedback = document.getElementById('feedback');
-
-    const $hudTime = document.getElementById('hudTime');
-    const $hudProgress = document.getElementById('hudProgress');
-    const $hudMistakes = document.getElementById('hudMistakes');
-
-    const $hudTimeCard = document.getElementById('hudTimeCard');
-    const $hudProgressCard = document.getElementById('hudProgressCard');
-    const $hudMistakeCard = document.getElementById('hudMistakeCard');
-
-    const $selectedEmoji = document.getElementById('selectedEmoji');
-    const $selectedTitle = document.getElementById('selectedTitle');
-    const $selectedHint = document.getElementById('selectedHint');
-
-    const $btnClearPick = document.getElementById('btnClearPick');
-    const $btnStartQuick = document.getElementById('btnStartQuick');
-    const $btnIntroBack = document.getElementById('btnIntroBack');
-    const $btnBackLauncher = document.getElementById('btnBackLauncher');
-    const $btnGoMainNow = document.getElementById('btnGoMainNow');
-
-    const $btnGoMain = document.getElementById('btnGoMain');
-    const $btnReplayQuick = document.getElementById('btnReplayQuick');
-    const $btnEndBack = document.getElementById('btnEndBack');
-
-    const $endBadge = document.getElementById('endBadge');
-    const $endTitle = document.getElementById('endTitle');
-    const $endSub = document.getElementById('endSub');
-    const $endCorrect = document.getElementById('endCorrect');
-    const $endWrong = document.getElementById('endWrong');
-    const $endRemain = document.getElementById('endRemain');
-    const $endMessage = document.getElementById('endMessage');
-
-    const $toastLayer = document.getElementById('toastLayer');
-    const $celebrateLayer = document.getElementById('celebrateLayer');
-
-    const state = {
-      started: false,
-      finished: false,
-      selectedFoodId: null,
-      correctCount: 0,
-      wrongCount: 0,
-      timeLeft: QUICK_TIME,
-      targetFoods: [],
-      trayFoods: [],
-      filledZones: {},
-      usedFoodIds: [],
-      deadlineMs: 0,
-      tickTimer: 0,
-      rng: makeRng(ctx.seed)
-    };
-
-    function pushToast(message, type = 'info') {
-      if (!$toastLayer) return;
-      const el = document.createElement('div');
-      el.className = `toast ${type}`;
-      el.textContent = message;
-      $toastLayer.appendChild(el);
-      setTimeout(() => el.remove(), 2100);
-    }
-
-    function bumpCard(el) {
-      if (!el) return;
-      el.classList.remove('bump');
-      void el.offsetWidth;
-      el.classList.add('bump');
-      setTimeout(() => el.classList.remove('bump'), 180);
-    }
-
-    function setFeedback(message) {
-      if (!$feedback) return;
-      $feedback.textContent = message || '';
-      $feedback.classList.remove('pop');
-      void $feedback.offsetWidth;
-      $feedback.classList.add('pop');
-      setTimeout(() => $feedback.classList.remove('pop'), 180);
-    }
-
-    function celebrate(kind = 'good') {
-      const icons = kind === 'perfect' ? ['⭐️','🌟','🏆','✨','💛'] : ['✨','⭐️','🍽️','🎉'];
-      const count = kind === 'perfect' ? 16 : 10;
-      for (let i = 0; i < count; i++) {
-        const el = document.createElement('div');
-        el.className = 'confetti';
-        el.textContent = icons[Math.floor(Math.random() * icons.length)];
-        el.style.left = `${Math.random() * 100}%`;
-        el.style.animationDuration = `${2 + Math.random() * 1.2}s`;
-        el.style.animationDelay = `${Math.random() * .18}s`;
-        $celebrateLayer.appendChild(el);
-        setTimeout(() => el.remove(), 3400);
-      }
-    }
-
-    function syncHud() {
-      $hudTime.textContent = String(state.timeLeft);
-      $hudProgress.textContent = `${state.correctCount}/${TARGET_CORRECT}`;
-      $hudMistakes.textContent = String(state.wrongCount);
-    }
-
-    function syncSelectedBar() {
-      const food = state.trayFoods.find(x => x.id === state.selectedFoodId);
-      if (!food) {
-        $selectedEmoji.textContent = '🍽️';
-        $selectedTitle.textContent = 'ยังไม่ได้เลือกอาหาร';
-        $selectedHint.textContent = 'เลือกอาหารจากถาดก่อน แล้วค่อยแตะส่วนของจาน';
-        return;
-      }
-      $selectedEmoji.textContent = FOOD_EMOJI[food.id] || '🍎';
-      $selectedTitle.textContent = `เลือก: ${food.label}`;
-      $selectedHint.textContent = food.group === 'x'
-        ? 'อันนี้เป็นตัวลวง ลองคิดก่อนวางนะ'
-        : `แตะส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`;
-    }
-
-    function markZoneState(zoneEl, type) {
-      if (!zoneEl) return;
-      zoneEl.classList.remove('correctFlash', 'wrongFlash');
-      void zoneEl.offsetWidth;
-      zoneEl.classList.add(type === 'ok' ? 'correctFlash' : 'wrongFlash');
-    }
-
-    function fillZone(zoneId, food) {
-      const zoneEl = document.querySelector(`.zone[data-zone="${zoneId}"]`);
-      if (!zoneEl) return;
-      const inner = zoneEl.querySelector('.zoneInner');
-      if (!inner) return;
-      inner.innerHTML = `
-        <div>
-          <div class="zoneItemEmoji">${FOOD_EMOJI[food.id] || '🍎'}</div>
-          <div class="zoneItemText">${food.label}</div>
-        </div>
-      `;
-    }
-
-    function resetZones() {
-      document.querySelectorAll('.zone').forEach(zone => {
-        zone.classList.remove('correctFlash', 'wrongFlash');
-        const zoneId = zone.getAttribute('data-zone');
-        const inner = zone.querySelector('.zoneInner');
-        if (inner) inner.innerHTML = `<span>${FOOD_GROUPS[zoneId].short}</span>`;
-      });
-    }
-
-    function syncFoodUi() {
-      [...$foodTray.querySelectorAll('.food')].forEach(btn => {
-        const id = btn.dataset.id;
-        btn.classList.toggle('selected', id === state.selectedFoodId);
-        btn.classList.toggle('used', state.usedFoodIds.includes(id));
-      });
-    }
-
-    function buildRound() {
-      const allGroups = ['g2', 'g1', 'g3', 'g4', 'g5'];
-      const targetGroups = shuffle(allGroups, state.rng).slice(0, TARGET_CORRECT);
-
-      const targetFoods = targetGroups.map(group => {
-        const candidates = FOOD_DB.filter(x => x.group === group);
-        return shuffle(candidates, state.rng)[0];
-      });
-
-      const distractors = shuffle(FOOD_DB.filter(x => x.group === 'x'), state.rng).slice(0, 2);
-      state.targetFoods = targetFoods.slice();
-      state.trayFoods = shuffle([...targetFoods, ...distractors], state.rng);
-    }
-
-    function renderTray() {
-      $foodTray.innerHTML = '';
-      state.trayFoods.forEach(food => {
-        const btn = document.createElement('button');
-        btn.className = 'food';
-        btn.type = 'button';
-        btn.dataset.id = food.id;
-        btn.innerHTML = `
-          <div class="foodEmoji">${FOOD_EMOJI[food.id] || '🍎'}</div>
-          <div class="foodMeta">
-            <div class="foodName">${food.label}</div>
-            <div class="foodTag ${food.group === 'x' ? 'x' : ''}">
-              ${food.group === 'x' ? 'ลองคิดดู' : 'เลือกให้ถูกส่วน'}
-            </div>
-          </div>
-        `;
-        btn.addEventListener('click', () => selectFood(food.id));
-        $foodTray.appendChild(btn);
-      });
-      syncFoodUi();
-    }
-
-    function selectFood(foodId) {
-      if (!state.started || state.finished) return;
-      if (state.usedFoodIds.includes(foodId)) return;
-      const food = state.trayFoods.find(x => x.id === foodId);
-      if (!food) return;
-
-      state.selectedFoodId = foodId;
-      syncFoodUi();
-      syncSelectedBar();
-
-      if (food.group === 'x') {
-        setFeedback(`เลือก "${food.label}" แล้ว ลองคิดก่อนวางนะ`);
-      } else {
-        setFeedback(`เลือก "${food.label}" แล้ว แตะส่วน "${FOOD_GROUPS[food.group].short}"`);
-      }
-    }
-
-    function clearSelection() {
-      state.selectedFoodId = null;
-      syncFoodUi();
-      syncSelectedBar();
-    }
-
-    function judgePlacement(food, zoneId) {
-      if (food.group === 'x') return false;
-      return food.group === zoneId;
-    }
-
-    function handleZoneClick(zoneId, zoneEl) {
-      if (!state.started || state.finished) return;
-
-      if (!state.selectedFoodId) {
-        setFeedback('เลือกอาหารจากถาดก่อนนะ');
-        pushToast('เลือกอาหารจากถาดก่อนนะ', 'info');
-        return;
-      }
-
-      if (state.filledZones[zoneId]) {
-        setFeedback('ส่วนนี้มีอาหารแล้ว ลองส่วนอื่นนะ');
-        pushToast('ส่วนนี้มีอาหารแล้ว', 'info');
-        return;
-      }
-
-      const food = state.trayFoods.find(x => x.id === state.selectedFoodId);
-      if (!food) return;
-
-      const isCorrect = judgePlacement(food, zoneId);
-
-      if (isCorrect) {
-        state.correctCount += 1;
-        state.filledZones[zoneId] = food;
-        state.usedFoodIds.push(food.id);
-
-        fillZone(zoneId, food);
-        markZoneState(zoneEl, 'ok');
-        setFeedback(`เยี่ยมมาก! ${food.label} ถูกหมู่แล้ว`);
-        pushToast('ถูกต้อง!', 'ok');
-        bumpCard($hudProgressCard);
-
-        if (state.correctCount >= TARGET_CORRECT) {
-          finishGame(true);
-        }
-      } else {
-        state.wrongCount += 1;
-        markZoneState(zoneEl, 'bad');
-        setFeedback(food.group === 'x'
-          ? `${food.label} ยังไม่เหมาะกับจานสุขภาพรอบนี้`
-          : `${food.label} ยังไม่อยู่ส่วนนี้ ลองใหม่อีกนิด`);
-        pushToast('ลองอีกครั้งนิดเดียว', 'bad');
-        bumpCard($hudMistakeCard);
-      }
-
-      clearSelection();
-      syncHud();
-    }
-
-    function startClock() {
-      clearInterval(state.tickTimer);
-      state.deadlineMs = nowMs() + (QUICK_TIME * 1000);
-      state.tickTimer = setInterval(() => {
-        const remainMs = Math.max(0, state.deadlineMs - nowMs());
-        const nextSec = Math.ceil(remainMs / 1000);
-
-        if (nextSec !== state.timeLeft) {
-          state.timeLeft = nextSec;
-          syncHud();
-          bumpCard($hudTimeCard);
-        }
-
-        if (remainMs <= 0) finishGame(false);
-      }, 150);
-    }
-
-    function finishGame(success) {
-      if (state.finished) return;
-      state.finished = true;
-      clearInterval(state.tickTimer);
-      state.tickTimer = 0;
-
-      const perfectWarmup = success && state.wrongCount === 0;
-      const result = {
-        success,
-        perfectWarmup,
-        correctCount: state.correctCount,
-        wrongCount: state.wrongCount,
-        remainSec: Math.max(0, state.timeLeft),
-        target: TARGET_CORRECT,
-        pid: ctx.pid,
-        ts: Date.now(),
-        iso: new Date().toISOString()
-      };
-
-      markQuickPlateDone(result);
-
-      $endCorrect.textContent = `${state.correctCount}/${TARGET_CORRECT}`;
-      $endWrong.textContent = String(state.wrongCount);
-      $endRemain.textContent = `${Math.max(0, state.timeLeft)}s`;
-
-      if (success) {
-        $endBadge.textContent = perfectWarmup ? '🏆' : '🌟';
-        $endTitle.textContent = perfectWarmup ? 'Perfect Warmup!' : 'พร้อมแล้ว ไปจัดจานจริงกัน!';
-        $endSub.textContent = perfectWarmup ? 'อุ่นเครื่องได้ยอดเยี่ยมมาก' : 'Quick Plate สำเร็จแล้ว';
-        $endMessage.textContent = perfectWarmup
-          ? 'วางถูกครบ 4 ชิ้นแบบไม่พลาดเลย ไปต่อที่เกมหลักได้เลย'
-          : 'ทำได้ดีมาก ตอนนี้พร้อมเข้าเกมหลักแล้ว';
-        celebrate(perfectWarmup ? 'perfect' : 'good');
-      } else {
-        $endBadge.textContent = '💛';
-        $endTitle.textContent = 'ไม่เป็นไร ไปลองในเกมหลักกันต่อ';
-        $endSub.textContent = 'Quick Plate จบแล้ว';
-        $endMessage.textContent = 'แม้ยังไม่ครบ 4 ชิ้น ก็ไปต่อที่เกมหลักได้เลย';
-      }
-
-      $endOverlay.hidden = false;
-    }
-
-    function resetGame() {
-      state.started = false;
-      state.finished = false;
-      state.selectedFoodId = null;
-      state.correctCount = 0;
-      state.wrongCount = 0;
-      state.timeLeft = QUICK_TIME;
-      state.targetFoods = [];
-      state.trayFoods = [];
-      state.filledZones = {};
-      state.usedFoodIds = [];
-      state.deadlineMs = 0;
-      clearInterval(state.tickTimer);
-      state.tickTimer = 0;
-
-      resetZones();
-      buildRound();
-      renderTray();
-      clearSelection();
-      syncHud();
-      setFeedback('แตะอาหารจากถาด แล้วแตะส่วนของจาน');
-      $endOverlay.hidden = true;
-    }
-
-    function startGame() {
-      resetGame();
-      state.started = true;
-      $introOverlay.hidden = true;
-      startClock();
-    }
-
-    let __plateGoMainLock = false;
-
-    function goMainGame(ev) {
-      if (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
-
-      if (__plateGoMainLock) return;
-      __plateGoMainLock = true;
-
-      const href = buildMainGameUrl();
-      console.log('[QuickPlate] go main ->', href);
-      window.location.assign(href);
-    }
-
-    window.__plateGoMainFromQuick = goMainGame;
-
-    function goLauncher() {
-      location.href = buildBackLauncherUrl();
-    }
-
-    document.querySelectorAll('.zone').forEach(zone => {
-      zone.addEventListener('click', () => {
-        handleZoneClick(zone.getAttribute('data-zone'), zone);
-      });
-    });
-
-    $btnClearPick?.addEventListener('click', clearSelection);
-    $btnStartQuick?.addEventListener('click', startGame);
-    $btnReplayQuick?.addEventListener('click', startGame);
-
-    ['click', 'pointerup', 'touchend'].forEach(type => {
-      $btnGoMain?.addEventListener(type, goMainGame, { passive:false });
-      $btnGoMainNow?.addEventListener(type, goMainGame, { passive:false });
-    });
-
-    $btnIntroBack?.addEventListener('click', goLauncher);
-    $btnBackLauncher?.addEventListener('click', goLauncher);
-    $btnEndBack?.addEventListener('click', goLauncher);
-
-    resetGame();
-  })();
-  </script>
-</body>
-</html>
