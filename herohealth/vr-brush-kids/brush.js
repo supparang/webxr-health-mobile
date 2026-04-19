@@ -143,6 +143,8 @@
 
     coachFace: document.getElementById('coachFace'),
     coachLine: document.getElementById('coachLine'),
+    leftHud: document.getElementById('leftHud'),
+    coachLayer: document.getElementById('coachLayer'),
 
     targetBanner: document.getElementById('targetBanner'),
     targetBannerText: document.getElementById('targetBannerText'),
@@ -199,7 +201,6 @@
   };
 
   const state = createInitialState();
-
   const logger = createLogger();
   const sfx = createSimpleAudio();
 
@@ -843,6 +844,66 @@
       }
 
       @media (max-width: 720px){
+        #topHud{
+          grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+          gap:6px !important;
+        }
+
+        #topHud .hud-chip:nth-child(4),
+        #topHud .hud-chip:nth-child(5){
+          display:none !important;
+        }
+
+        #leftHud.is-mobile-hidden,
+        #coachLayer.is-mobile-hidden,
+        #helperCard.is-mobile-hidden,
+        #sceneLegendCard.is-mobile-hidden,
+        #sceneInstructionCard.is-mobile-hidden{
+          display:none !important;
+        }
+
+        .target-banner{
+          top:calc(70px + var(--safe-top)) !important;
+          min-height:48px !important;
+          padding:8px 10px !important;
+          border-radius:16px !important;
+          box-shadow:0 10px 20px rgba(178,91,118,.14) !important;
+        }
+
+        .target-banner strong{
+          font-size:10px !important;
+          margin-bottom:2px !important;
+        }
+
+        .target-banner b{
+          font-size:17px !important;
+          line-height:1.05 !important;
+        }
+
+        .target-banner span{
+          font-size:11px !important;
+          line-height:1.2 !important;
+        }
+
+        #bottomHud{
+          bottom:62px !important;
+          gap:6px !important;
+        }
+
+        .bottom-card{
+          min-height:48px !important;
+          padding:8px 10px !important;
+          border-radius:16px !important;
+        }
+
+        #objectiveCard .big{
+          font-size:14px !important;
+        }
+
+        #objectiveCard .sub{
+          display:none !important;
+        }
+
         .summary-rank-hero .rank-big{
           font-size:44px;
         }
@@ -2066,6 +2127,7 @@
       sceneId === SCENE_IDS.boss
     );
 
+    applyMobileDeclutter(sceneId);
     announceStatus(`ตอนนี้อยู่ช่วง ${sceneId}`);
 
     if (el.helperCard) {
@@ -2088,6 +2150,8 @@
   }
 
   function setCenterUiState(sceneId) {
+    const mobile = isMobileCompactMode();
+
     const showTargetBanner =
       sceneId === SCENE_IDS.launcher ||
       sceneId === SCENE_IDS.intro ||
@@ -2105,7 +2169,7 @@
     const showHelper =
       sceneId === SCENE_IDS.launcher ||
       sceneId === SCENE_IDS.intro ||
-      sceneId === SCENE_IDS.scan;
+      (!mobile && sceneId === SCENE_IDS.scan);
 
     if (el.targetBanner) {
       el.targetBanner.classList.toggle('center-ui-hidden', !showTargetBanner);
@@ -2124,6 +2188,51 @@
     if (el.sceneLegendCard) {
       el.sceneLegendCard.classList.toggle('is-hidden', !visible);
     }
+  }
+
+  function isMobileCompactMode() {
+    return state.ctx.view === 'mobile' || window.matchMedia('(max-width: 720px)').matches;
+  }
+
+  function applyMobileDeclutter(sceneId) {
+    const mobile = isMobileCompactMode();
+    if (!mobile) {
+      el.leftHud?.classList.remove('is-mobile-hidden');
+      el.coachLayer?.classList.remove('is-mobile-hidden');
+      el.helperCard?.classList.remove('is-mobile-hidden');
+      el.sceneLegendCard?.classList.remove('is-mobile-hidden');
+      el.sceneInstructionCard?.classList.remove('is-mobile-hidden');
+      return;
+    }
+
+    const showLeftHud =
+      sceneId === SCENE_IDS.launcher || sceneId === SCENE_IDS.intro;
+
+    const showCoach =
+      sceneId === SCENE_IDS.launcher ||
+      sceneId === SCENE_IDS.intro ||
+      sceneId === SCENE_IDS.finish ||
+      sceneId === SCENE_IDS.summary;
+
+    const showInstruction =
+      sceneId === SCENE_IDS.launcher ||
+      sceneId === SCENE_IDS.scan ||
+      sceneId === SCENE_IDS.bossBreak;
+
+    const showLegend =
+      sceneId === SCENE_IDS.launcher ||
+      sceneId === SCENE_IDS.scan ||
+      sceneId === SCENE_IDS.bossBreak;
+
+    const showHelper =
+      sceneId === SCENE_IDS.launcher ||
+      sceneId === SCENE_IDS.intro;
+
+    el.leftHud?.classList.toggle('is-mobile-hidden', !showLeftHud);
+    el.coachLayer?.classList.toggle('is-mobile-hidden', !showCoach);
+    el.sceneInstructionCard?.classList.toggle('is-mobile-hidden', !showInstruction);
+    el.sceneLegendCard?.classList.toggle('is-mobile-hidden', !showLegend);
+    el.helperCard?.classList.toggle('is-mobile-hidden', !showHelper);
   }
 
   function updateLegendText(sceneId) {
@@ -2398,6 +2507,7 @@
       el.btnStart.textContent = '▶ เริ่มช่วยฟัน';
     }
 
+    applyMobileDeclutter(SCENE_IDS.launcher);
     announceStatus('พร้อมเริ่มเกม');
   }
 
