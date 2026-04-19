@@ -1004,21 +1004,33 @@ function loadMission(id) {
   document.body.dataset.missionType = state.currentMission.type || "";
 
   if (state.currentMission.type === "speaking") {
+    showChoiceButtons(false);
+    hide("write-input");
+    hide("btn-submit-write");
+    hide("btn-play-audio");
     setSpeakingPrompt(state.currentMission.title, state.currentMission.exactPhrase);
     setMissionPrompt(`"${state.currentMission.exactPhrase}"`, "SPEAK");
     startTimer(clamp(getBaseTimeForMissionType("speaking") + timeMod, 18, 80));
   } else if (state.currentMission.type === "reading") {
+    hide("write-input");
+    hide("btn-submit-write");
+    hide("btn-play-audio");
     setReadingQuestion(state.currentMission.question);
     setChoiceLabelsFor("reading", state.currentMission.choices);
     setMissionPrompt(state.currentMission.question || "อ่านข้อความแล้วเลือกคำตอบที่ถูกต้อง", "READ");
     showChoiceButtons(true);
     startTimer(clamp(getBaseTimeForMissionType("reading") + timeMod, 18, 80));
   } else if (state.currentMission.type === "listening") {
+    hide("write-input");
+    hide("btn-submit-write");
     setChoiceLabelsFor("listening", state.currentMission.choices);
     setMissionPrompt("กด Play Audio แล้วเลือกคำตอบ", "LISTEN");
     showChoiceButtons(true);
     startTimer(clamp(getBaseTimeForMissionType("listening") + timeMod, 18, 80));
   } else if (state.currentMission.type === "writing") {
+    showChoiceButtons(false);
+    hide("btn-play-audio");
+    hide("btn-speak");
     setWritingPrompt(state.currentMission.prompt);
     setMissionPrompt(
       `${state.currentMission.prompt || "พิมพ์คำตอบ"}\n\n${getWritingStarter(state.currentMission)}`,
@@ -1045,6 +1057,8 @@ function loadMission(id) {
     scheduleBossChromeCollapse(state.currentMission.type === "speaking" ? 900 : 1300);
   }
 }
+
+window.loadMission = loadMission;
 
 window.checkChoiceAnswer = function (selectedLetter) {
   if (state.isGameOver || !state.currentMission) return;
@@ -1678,9 +1692,6 @@ window.onload = function () {
     renderQuestionDiffBadge("normal");
     setRewardChestState("loading");
     setLeaderboardBoardState("idle");
-
-    console.log("TechPath core UI booted");
-    console.log("mission roots:", document.querySelectorAll('[id^="mission-root-"]').length);
   } catch (e) {
     showBootError(e?.stack || e?.message || e);
   } finally {
