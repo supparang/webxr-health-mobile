@@ -1,4 +1,30 @@
-// lesson-ui.js
+// /english/js/lesson-ui.js
+
+const _uiTimers = {
+  feedback: null,
+  missionHeader: null,
+  missionStats: null,
+  missionPromptChrome: null,
+  bossChrome: null,
+  missionTopChips: null,
+  missionTitleUltraMini: null,
+  missionTimerCompact: null,
+  missionHudTextCompact: null
+};
+
+function clearUiTimer(key) {
+  if (_uiTimers[key]) {
+    clearTimeout(_uiTimers[key]);
+    _uiTimers[key] = null;
+  }
+}
+
+function applyStyle(el, styles = {}) {
+  if (!el) return;
+  Object.entries(styles).forEach(([k, v]) => {
+    el.style[k] = v;
+  });
+}
 
 export function $(id) {
   return document.getElementById(id);
@@ -106,16 +132,33 @@ export function getInputValue(idOrEl) {
 
 export function setHudMode(mode = "hub") {
   const ui = $("ui-container");
-  if (!ui) return;
-  ui.classList.remove("hub-mode", "mission-mode", "summary-mode");
-  if (mode === "mission") ui.classList.add("mission-mode");
-  else if (mode === "summary") ui.classList.add("summary-mode");
-  else ui.classList.add("hub-mode");
+  if (ui) {
+    ui.classList.remove("hub-mode", "mission-mode", "summary-mode");
+    if (mode === "mission") ui.classList.add("mission-mode");
+    else if (mode === "summary") ui.classList.add("summary-mode");
+    else ui.classList.add("hub-mode");
+  }
+
+  document.body.classList.remove("hub-mode", "mission-mode", "summary-mode");
+  if (mode === "mission") document.body.classList.add("mission-mode");
+  else if (mode === "summary") document.body.classList.add("summary-mode");
+  else document.body.classList.add("hub-mode");
 }
 
 export function setFeedback(text, color = "#ffffff") {
   setText("feedback", text || "");
   setColor("feedback", color);
+}
+
+export function scheduleFeedbackClear(ms = 900) {
+  clearUiTimer("feedback");
+  _uiTimers.feedback = setTimeout(() => {
+    setFeedback("", "#ffffff");
+  }, ms);
+}
+
+export function cancelFeedbackClear() {
+  clearUiTimer("feedback");
 }
 
 export function setTitleBlock(title, desc = "", color = null) {
@@ -205,9 +248,22 @@ export function setReadingQuestion(question) {
 
 export function setChoiceLabelsFor(type, choices = []) {
   const prefix = type === "listening" ? "listening" : "reading";
-  setValueAttr(`${prefix}-choice-a`, choices[0] || "");
-  setValueAttr(`${prefix}-choice-b`, choices[1] || "");
-  setValueAttr(`${prefix}-choice-c`, choices[2] || "");
+
+  const a = choices[0] || "A";
+  const b = choices[1] || "B";
+  const c = choices[2] || "C";
+
+  setValueAttr(`${prefix}-choice-a`, a);
+  setValueAttr(`${prefix}-choice-b`, b);
+  setValueAttr(`${prefix}-choice-c`, c);
+
+  const mobileA = $("choice-btn-a");
+  const mobileB = $("choice-btn-b");
+  const mobileC = $("choice-btn-c");
+
+  if (mobileA) mobileA.textContent = a;
+  if (mobileB) mobileB.textContent = b;
+  if (mobileC) mobileC.textContent = c;
 }
 
 export function showMissionControlByType(type) {
@@ -270,4 +326,234 @@ export function setMissionTypeTag(text, success = true) {
     ? "rgba(46,213,115,0.35)"
     : "rgba(255,107,129,0.35)";
   pulseClass(tag, "show", 940);
+}
+
+export function setMissionPrompt(text = "", label = "PROMPT") {
+  const box = $("mission-prompt-box");
+  const labelEl = $("mission-prompt-label");
+  const textEl = $("mission-prompt-text");
+
+  if (labelEl) labelEl.textContent = label || "PROMPT";
+  if (textEl) textEl.textContent = text || "";
+
+  if (text && box) box.style.display = "block";
+}
+
+export function clearMissionPrompt() {
+  const textEl = $("mission-prompt-text");
+  if (textEl) textEl.textContent = "";
+}
+
+export function expandMissionHeader() {
+  const title = $("ui-title");
+  const desc = $("ui-desc");
+  applyStyle(title, {
+    opacity: "1",
+    transform: "none",
+    fontSize: "",
+    margin: ""
+  });
+  applyStyle(desc, {
+    opacity: "1",
+    transform: "none",
+    fontSize: "",
+    margin: ""
+  });
+}
+
+export function scheduleMissionHeaderCollapse(ms = 1000) {
+  clearUiTimer("missionHeader");
+  _uiTimers.missionHeader = setTimeout(() => {
+    const title = $("ui-title");
+    const desc = $("ui-desc");
+    applyStyle(title, {
+      opacity: "0.94",
+      transform: "translateY(-2px)",
+      fontSize: "1.05rem",
+      margin: "0 0 2px 0"
+    });
+    applyStyle(desc, {
+      opacity: "0.75",
+      transform: "translateY(-2px)",
+      fontSize: "0.78rem",
+      margin: "0"
+    });
+  }, ms);
+}
+
+export function expandMissionStats() {
+  const stats = $("hud-stats");
+  applyStyle(stats, {
+    opacity: "1",
+    transform: "none"
+  });
+}
+
+export function scheduleMissionStatsCollapse(ms = 1100) {
+  clearUiTimer("missionStats");
+  _uiTimers.missionStats = setTimeout(() => {
+    const stats = $("hud-stats");
+    applyStyle(stats, {
+      opacity: "0.96",
+      transform: "translateY(-1px)"
+    });
+  }, ms);
+}
+
+export function expandMissionPromptChrome() {
+  const box = $("mission-prompt-box");
+  applyStyle(box, {
+    opacity: "1",
+    transform: "none",
+    padding: ""
+  });
+}
+
+export function scheduleMissionPromptChromeCollapse(ms = 1100) {
+  clearUiTimer("missionPromptChrome");
+  _uiTimers.missionPromptChrome = setTimeout(() => {
+    const box = $("mission-prompt-box");
+    applyStyle(box, {
+      opacity: "0.96",
+      transform: "translateY(-1px)"
+    });
+  }, ms);
+}
+
+export function expandBossChrome() {
+  const boss = $("boss-phase-ui");
+  applyStyle(boss, {
+    opacity: "1",
+    transform: "none"
+  });
+}
+
+export function scheduleBossChromeCollapse(ms = 1200) {
+  clearUiTimer("bossChrome");
+  _uiTimers.bossChrome = setTimeout(() => {
+    const boss = $("boss-phase-ui");
+    applyStyle(boss, {
+      opacity: "0.96",
+      transform: "translateY(-1px)"
+    });
+  }, ms);
+}
+
+export function expandMissionTopChips() {
+  const row = $("hud-top-row");
+  applyStyle(row, {
+    opacity: "1",
+    transform: "none"
+  });
+}
+
+export function scheduleMissionTopChipsCollapse(ms = 1100) {
+  clearUiTimer("missionTopChips");
+  _uiTimers.missionTopChips = setTimeout(() => {
+    const row = $("hud-top-row");
+    applyStyle(row, {
+      opacity: "0.92",
+      transform: "translateY(-1px)"
+    });
+  }, ms);
+}
+
+export function expandMissionTitleUltraMini() {
+  const title = $("ui-title");
+  applyStyle(title, {
+    letterSpacing: "",
+    fontSize: ""
+  });
+}
+
+export function scheduleMissionTitleUltraMini(ms = 1000) {
+  clearUiTimer("missionTitleUltraMini");
+  _uiTimers.missionTitleUltraMini = setTimeout(() => {
+    const title = $("ui-title");
+    applyStyle(title, {
+      letterSpacing: "0.02em",
+      fontSize: "1rem"
+    });
+  }, ms);
+}
+
+export function expandMissionTimer() {
+  const timer = $("timer");
+  applyStyle(timer, {
+    opacity: "1",
+    transform: "none",
+    fontSize: ""
+  });
+}
+
+export function scheduleMissionTimerCompact(ms = 1000) {
+  clearUiTimer("missionTimerCompact");
+  _uiTimers.missionTimerCompact = setTimeout(() => {
+    const timer = $("timer");
+    applyStyle(timer, {
+      opacity: "0.98",
+      transform: "translateY(-1px)",
+      fontSize: "1rem"
+    });
+  }, ms);
+}
+
+export function setMissionTimerAlert(on = false) {
+  const timer = $("timer");
+  if (!timer) return;
+  timer.style.textShadow = on ? "0 0 12px rgba(255,0,0,.45)" : "";
+  timer.style.filter = on ? "saturate(1.15)" : "";
+}
+
+export function expandMissionHudTextCompact() {
+  const feedback = $("feedback");
+  applyStyle(feedback, {
+    opacity: "1",
+    transform: "none",
+    fontSize: ""
+  });
+}
+
+export function scheduleMissionHudTextCompact(ms = 1000) {
+  clearUiTimer("missionHudTextCompact");
+  _uiTimers.missionHudTextCompact = setTimeout(() => {
+    const feedback = $("feedback");
+    applyStyle(feedback, {
+      opacity: "0.95",
+      transform: "translateY(-1px)",
+      fontSize: "0.95rem"
+    });
+  }, ms);
+}
+
+export function togglePromptFocusExpanded() {
+  const box = $("mission-prompt-box");
+  if (!box) return;
+  const expanded = box.dataset.focusExpanded === "1";
+  if (expanded) {
+    box.dataset.focusExpanded = "0";
+    applyStyle(box, {
+      transform: "none",
+      maxHeight: "",
+      overflow: ""
+    });
+  } else {
+    box.dataset.focusExpanded = "1";
+    applyStyle(box, {
+      transform: "scale(1.01)",
+      maxHeight: "42dvh",
+      overflow: "auto"
+    });
+  }
+}
+
+export function resetPromptFocusExpanded() {
+  const box = $("mission-prompt-box");
+  if (!box) return;
+  box.dataset.focusExpanded = "0";
+  applyStyle(box, {
+    transform: "none",
+    maxHeight: "",
+    overflow: ""
+  });
 }
