@@ -22,9 +22,9 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260419-mobile-fullsafe-final';
+    window.TECHPATH_BUILD = 'v20260419-mobile-choicefix-final2';
     window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260419-mobile-fullsafe-final';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260419-mobile-choicefix-final2';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -353,6 +353,19 @@
       justify-content:center;
       gap:12px;
       margin-top:10px;
+    }
+
+    #choice-buttons .btn-action{
+      display:flex !important;
+      align-items:center !important;
+      justify-content:flex-start !important;
+      text-align:left !important;
+      padding:12px 16px !important;
+      line-height:1.25 !important;
+      white-space:normal !important;
+      word-break:break-word !important;
+      font-size:1rem !important;
+      font-weight:900 !important;
     }
 
     #boss-phase-ui,
@@ -941,6 +954,23 @@
         background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
       }
 
+      body.mission-mode[data-mission-type="reading"] #choice-buttons .btn-action,
+      body.mission-mode[data-mission-type="listening"] #choice-buttons .btn-action{
+        min-height:52px !important;
+        border-radius:16px !important;
+      }
+
+      body.mission-mode[data-mission-type="listening"] #btn-play-audio{
+        display:block !important;
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        bottom:calc(194px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:96 !important;
+        min-height:52px !important;
+        border-radius:16px !important;
+      }
+
       body.mission-mode[data-mission-type="speaking"] #choice-buttons,
       body.mission-mode[data-mission-type="writing"] #choice-buttons,
       body.mission-mode[data-mission-type="speaking"] #btn-play-audio,
@@ -1149,9 +1179,9 @@
     <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()" style="display:none;">Submit</button>
 
     <div id="choice-buttons" style="display:none;">
-      <button class="btn-action" style="display:block;background:#e67e22;" onclick="checkChoiceAnswer('A')">A</button>
-      <button class="btn-action" style="display:block;background:#2ecc71;" onclick="checkChoiceAnswer('B')">B</button>
-      <button class="btn-action" style="display:block;background:#9b59b6;" onclick="checkChoiceAnswer('C')">C</button>
+      <button id="choice-btn-a" class="btn-action" style="display:block;background:#e67e22;" onclick="checkChoiceAnswer('A')">A</button>
+      <button id="choice-btn-b" class="btn-action" style="display:block;background:#2ecc71;" onclick="checkChoiceAnswer('B')">B</button>
+      <button id="choice-btn-c" class="btn-action" style="display:block;background:#9b59b6;" onclick="checkChoiceAnswer('C')">C</button>
     </div>
 
     <div id="game-over-ui" style="display:none;">
@@ -1439,7 +1469,7 @@
   })();
   </script>
 
-  <script type="module" src="./js/lesson-main.js?v=mobile-fullsafe-final"></script>
+  <script type="module" src="./js/lesson-main.js?v=mobile-choicefix-final2"></script>
 
   <script>
   (function () {
@@ -1680,7 +1710,7 @@
       window.TECHPATH_ATTENDANCE_ENDPOINT ||
       'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
 
-    const PATCH = 'v20260419-mobile-fullsafe-final';
+    const PATCH = 'v20260419-mobile-choicefix-final2';
     const HEARTBEAT_MS = 15000;
     const ACTIVE_TICK_MS = 1000;
     const ATTEMPT_MIN_GAP_MS = 1200;
@@ -1799,18 +1829,6 @@
 
     function readHP() {
       return getText('hp-display') || '100%';
-    }
-
-    function summarySnapshot() {
-      return {
-        summaryTitle: getText('summary-title'),
-        summaryBody: getText('summary-body'),
-        feedback: getText('feedback'),
-        uiTitle: getText('ui-title'),
-        btnNextVisible: isShown(getEl('btn-next')),
-        btnReturnVisible: isShown(getEl('btn-return')),
-        gameOverVisible: isShown(getEl('game-over-ui'))
-      };
     }
 
     function detectScreenMode() {
