@@ -9,7 +9,6 @@
   <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
 
   <link rel="stylesheet" href="./lesson.css" />
-  <link rel="icon" href="./favicon.ico" />
 
   <script>
     window.TECHPATH_APP_ID = window.TECHPATH_APP_ID || 'english-d4bfa';
@@ -23,31 +22,30 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260419-lesson-speaking-choice-fix-endpoint2-final';
+    window.TECHPATH_BUILD = 'v20260419-mobile-fullsafe-final';
     window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260419-lesson-speaking-choice-fix-endpoint2-final';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260419-mobile-fullsafe-final';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
 
   <style>
     :root{
-      --app-vh: 100dvh;
-      --mobile-bottom-gap: calc(10px + env(safe-area-inset-bottom, 0px));
+      --app-vh:100dvh;
     }
 
     html, body{
       max-width:100%;
       overflow-x:hidden;
+      margin:0;
+      background:#07111f;
+      color:#fff;
+      font-family:system-ui, sans-serif;
     }
 
     body{
       min-height:var(--app-vh);
       -webkit-text-size-adjust:100%;
-      margin:0;
-      background:#07111f;
-      color:#fff;
-      font-family:system-ui, sans-serif;
     }
 
     #ui-container{
@@ -196,10 +194,6 @@
 
     #attendance-panel.compact #attendance-grid,
     #attendance-panel.compact #attendance-status{
-      display:none;
-    }
-
-    #prompt-mini-toggle{
       display:none;
     }
 
@@ -493,17 +487,14 @@
       font-weight:700;
     }
 
-    #unit-theme-chip{
+    #unit-theme-chip,
+    #reward-roll-badge{
       display:none;
       border:1px solid #7bedff;
       color:#7bedff;
       border-radius:999px;
       padding:4px 10px;
       font-weight:700;
-    }
-
-    #reward-roll-badge{
-      display:none;
     }
 
     #impact-flash{
@@ -585,10 +576,7 @@
     .answer-burst.fail{ background:#ff4757; }
 
     @keyframes burstFly{
-      from{
-        transform:translate(-50%, -50%) scale(1);
-        opacity:1;
-      }
+      from{ transform:translate(-50%, -50%) scale(1); opacity:1; }
       to{
         transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.5);
         opacity:0;
@@ -692,17 +680,14 @@
       100%{ transform:scale(1); }
     }
 
-    #mobile-hub-drawer{
-      display:none;
-    }
-
+    #mobile-hub-drawer,
     #mobile-hub-sheet{
       display:none;
     }
 
     #boss-phase-ui,
     #game-over-ui,
-    #summary-panel {
+    #summary-panel{
       display:none;
     }
 
@@ -716,12 +701,12 @@
     body.hub-mode #btn-submit-write,
     body.hub-mode #choice-buttons,
     body.hub-mode #btn-next,
-    body.hub-mode #btn-return {
+    body.hub-mode #btn-return{
       display:none !important;
     }
 
     body.mission-mode #summary-panel,
-    body.mission-mode #game-over-ui {
+    body.mission-mode #game-over-ui{
       display:none !important;
     }
 
@@ -730,33 +715,29 @@
     body.summary-mode #btn-play-audio,
     body.summary-mode #write-input,
     body.summary-mode #btn-submit-write,
-    body.summary-mode #choice-buttons {
+    body.summary-mode #choice-buttons{
       display:none !important;
     }
 
     body.summary-mode #feedback,
     body.summary-mode #mission-type-tag,
     body.summary-mode #combo-popup,
-    body.summary-mode #player-avatar-hud {
+    body.summary-mode #player-avatar-hud{
       display:none !important;
     }
 
-    body.summary-mode #summary-panel {
-      top:calc(env(safe-area-inset-top, 0px) + 10px) !important;
-    }
-
     @media (max-width: 700px) {
-      html, body {
+      html, body{
         overflow:hidden !important;
       }
 
-      a-scene {
+      a-scene{
         position:fixed !important;
         inset:0 !important;
         z-index:0 !important;
       }
 
-      #ui-container {
+      #ui-container{
         position:fixed !important;
         inset:0 !important;
         z-index:20 !important;
@@ -786,72 +767,35 @@
       #write-input,
       #btn-submit-write,
       #btn-next,
-      #btn-return {
+      #btn-return{
         pointer-events:auto !important;
       }
 
-      body.hub-mode #ui-title {
+      body.hub-mode #ui-title{
         font-size:1.9rem !important;
         line-height:1.05 !important;
         margin:4px 0 2px !important;
         text-align:center;
       }
 
-      body.hub-mode #ui-desc {
+      body.hub-mode #ui-desc{
         font-size:0.95rem !important;
         margin:0 0 8px !important;
         text-align:center;
       }
 
-      body.hub-mode #attendance-panel {
+      body.hub-mode #attendance-panel{
         margin:6px 0 8px !important;
         padding:10px 12px !important;
         border-radius:16px !important;
-      }
-
-      body.hub-mode #attendance-title {
-        font-size:0.88rem !important;
-      }
-
-      body.hub-mode #attendance-summary-line {
-        margin-top:8px !important;
-        font-size:0.8rem !important;
-      }
-
-      body.hub-mode #hud-stats {
-        margin:8px 0 !important;
-        padding:8px 0 !important;
-      }
-
-      body.hub-mode .hud-stat-item {
-        font-size:0.95rem !important;
-        gap:6px !important;
-      }
-
-      body.hub-mode #hud-top-row {
-        margin:6px 0 8px !important;
-      }
-
-      body.hub-mode #ai-director-board {
-        margin:8px 0 !important;
-        padding:10px 12px !important;
-        border-radius:16px !important;
-      }
-
-      body.hub-mode #ai-director-state {
-        font-size:0.95rem !important;
-      }
-
-      body.hub-mode #ai-director-sub {
-        font-size:0.82rem !important;
       }
 
       body.hub-mode #profile-panel,
-      body.hub-mode #hub-stats-board {
+      body.hub-mode #hub-stats-board{
         display:none !important;
       }
 
-      #mobile-hub-drawer {
+      #mobile-hub-drawer{
         position:fixed;
         left:10px;
         right:10px;
@@ -862,7 +806,7 @@
         gap:8px !important;
       }
 
-      #mobile-hub-drawer .btn-action {
+      #mobile-hub-drawer .btn-action{
         min-width:0;
         min-height:48px;
         border-radius:16px;
@@ -871,7 +815,7 @@
         padding:0 8px;
       }
 
-      #mobile-hub-sheet {
+      #mobile-hub-sheet{
         position:fixed;
         left:10px;
         right:10px;
@@ -887,11 +831,11 @@
         padding:12px;
       }
 
-      #mobile-hub-sheet.show {
+      #mobile-hub-sheet.show{
         display:block;
       }
 
-      #mobile-hub-sheet .session-sheet-title {
+      #mobile-hub-sheet .session-sheet-title{
         font-size:1rem;
         font-weight:900;
         color:#7bedff;
@@ -899,13 +843,13 @@
         text-align:center;
       }
 
-      #mobile-hub-sheet .session-grid {
+      #mobile-hub-sheet .session-grid{
         display:grid;
         grid-template-columns:repeat(3, minmax(0, 1fr));
         gap:8px;
       }
 
-      #mobile-hub-sheet .session-chip {
+      #mobile-hub-sheet .session-chip{
         min-height:48px;
         border:1px solid rgba(123,237,255,.18);
         border-radius:14px;
@@ -915,10 +859,6 @@
         font-size:0.95rem;
       }
 
-      #mobile-hub-sheet .session-chip:active {
-        transform:scale(.98);
-      }
-
       body.mission-mode #ui-title,
       body.mission-mode #ui-desc,
       body.mission-mode #attendance-panel,
@@ -926,18 +866,17 @@
       body.mission-mode #profile-panel,
       body.mission-mode #hub-stats-board,
       body.mission-mode #mobile-hub-drawer,
-      body.mission-mode #mobile-hub-sheet {
+      body.mission-mode #mobile-hub-sheet{
         display:none !important;
       }
 
-      body.mission-mode #hud-stats {
+      body.mission-mode #hud-stats{
         position:fixed !important;
         left:10px !important;
         right:10px !important;
         top:calc(env(safe-area-inset-top, 0px) + 6px) !important;
         z-index:90 !important;
         display:flex !important;
-        flex-direction:row !important;
         justify-content:space-between !important;
         align-items:center !important;
         gap:8px !important;
@@ -948,7 +887,7 @@
         backdrop-filter:blur(8px);
       }
 
-      body.mission-mode #hud-top-row {
+      body.mission-mode #hud-top-row{
         position:fixed !important;
         left:10px !important;
         right:10px !important;
@@ -962,7 +901,7 @@
         background:transparent !important;
       }
 
-      body.mission-mode #question-diff-badge {
+      body.mission-mode #question-diff-badge{
         display:inline-flex !important;
         align-items:center !important;
         justify-content:center !important;
@@ -972,12 +911,7 @@
         border-radius:999px !important;
       }
 
-      body.mission-mode #unit-theme-chip,
-      body.mission-mode #reward-roll-badge {
-        display:none !important;
-      }
-
-      body.mission-mode #mission-prompt-box {
+      body.mission-mode #mission-prompt-box{
         display:block !important;
         position:fixed !important;
         left:10px !important;
@@ -992,25 +926,8 @@
         box-shadow:0 8px 20px rgba(0,0,0,.20);
       }
 
-      body.mission-mode #mission-prompt-label {
-        font-size:.74rem !important;
-        margin-bottom:6px !important;
-        color:#7bedff !important;
-        font-weight:800 !important;
-      }
-
-      body.mission-mode #mission-prompt-text {
-        font-size:.98rem !important;
-        line-height:1.45 !important;
-        color:#fff !important;
-      }
-
-      body.mission-mode #prompt-mini-toggle {
-        display:none !important;
-      }
-
       body.mission-mode[data-mission-type="reading"] #choice-buttons,
-      body.mission-mode[data-mission-type="listening"] #choice-buttons {
+      body.mission-mode[data-mission-type="listening"] #choice-buttons{
         position:fixed !important;
         left:10px !important;
         right:10px !important;
@@ -1022,16 +939,6 @@
         margin:0 !important;
         padding:10px 0 0 0 !important;
         background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
-      }
-
-      body.mission-mode[data-mission-type="reading"] #choice-buttons .btn-action,
-      body.mission-mode[data-mission-type="listening"] #choice-buttons .btn-action {
-        min-height:52px !important;
-        border-radius:16px !important;
-        font-size:1rem !important;
-        font-weight:900 !important;
-        letter-spacing:.01em !important;
-        box-shadow:0 8px 20px rgba(0,0,0,.22);
       }
 
       body.mission-mode[data-mission-type="speaking"] #choice-buttons,
@@ -1046,13 +953,13 @@
       body.mission-mode[data-mission-type="reading"] #write-input,
       body.mission-mode[data-mission-type="reading"] #btn-submit-write,
       body.mission-mode[data-mission-type="listening"] #write-input,
-      body.mission-mode[data-mission-type="listening"] #btn-submit-write {
+      body.mission-mode[data-mission-type="listening"] #btn-submit-write{
         display:none !important;
       }
 
       body.mission-mode #btn-speak,
       body.mission-mode #btn-play-audio,
-      body.mission-mode #btn-submit-write {
+      body.mission-mode #btn-submit-write{
         position:fixed !important;
         left:10px !important;
         right:10px !important;
@@ -1062,7 +969,7 @@
         border-radius:16px !important;
       }
 
-      body.mission-mode #write-input {
+      body.mission-mode #write-input{
         position:fixed !important;
         left:10px !important;
         right:10px !important;
@@ -1077,16 +984,13 @@
       body.summary-mode #profile-panel,
       body.summary-mode #hub-stats-board,
       body.summary-mode #mobile-hub-drawer,
-      body.summary-mode #mobile-hub-sheet {
-        display:none !important;
-      }
-
+      body.summary-mode #mobile-hub-sheet,
       body.summary-mode #hud-stats,
-      body.summary-mode #hud-top-row {
+      body.summary-mode #hud-top-row{
         display:none !important;
       }
 
-      body.summary-mode #summary-panel {
+      body.summary-mode #summary-panel{
         display:block !important;
         position:fixed !important;
         left:10px !important;
@@ -1098,7 +1002,7 @@
       }
 
       body.summary-mode #btn-next,
-      body.summary-mode #btn-return {
+      body.summary-mode #btn-return{
         position:fixed !important;
         left:10px !important;
         right:10px !important;
@@ -1107,32 +1011,12 @@
         border-radius:16px !important;
       }
 
-      body.summary-mode #btn-next {
+      body.summary-mode #btn-next{
         bottom:calc(68px + env(safe-area-inset-bottom, 0px)) !important;
       }
 
-      body.summary-mode #btn-return {
+      body.summary-mode #btn-return{
         bottom:calc(10px + env(safe-area-inset-bottom, 0px)) !important;
-      }
-
-      #source-shield-title{
-        font-size:1.08rem;
-      }
-
-      #source-shield-sub{
-        font-size:.9rem;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      .answer-burst,
-      .combo-popup,
-      .screen-glow-success,
-      .screen-glow-fail,
-      .shake{
-        animation-duration:.01ms !important;
-        animation-iteration-count:1 !important;
-        transition-duration:.01ms !important;
       }
     }
   </style>
@@ -1218,8 +1102,8 @@
     </div>
 
     <div id="ai-director-board">
-      <div id="ai-director-state" style="font-weight:800; color:#fff;">STEADY P:0 S:0</div>
-      <div id="ai-director-sub" style="font-size:.95rem; opacity:.9;">AI กำลังดูจังหวะการเล่นของคุณ</div>
+      <div id="ai-director-state" style="font-weight:800;color:#fff;">STEADY P:0 S:0</div>
+      <div id="ai-director-sub" style="font-size:.95rem;opacity:.9;">AI กำลังดูจังหวะการเล่นของคุณ</div>
     </div>
 
     <div id="profile-panel">
@@ -1251,8 +1135,6 @@
       <div id="mission-prompt-text">...</div>
     </div>
 
-    <button id="prompt-mini-toggle" type="button" class="btn-action">ย่อโจทย์</button>
-
     <div id="boss-phase-ui" style="display:none;">
       <div id="boss-phase-title">👑 FINAL BOSS</div>
       <div id="boss-phase-sub">ตอบถูกหลายครั้งเพื่อล้มบอส</div>
@@ -1267,15 +1149,15 @@
     <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()" style="display:none;">Submit</button>
 
     <div id="choice-buttons" style="display:none;">
-      <button class="btn-action" style="display:block; background:#e67e22;" onclick="checkChoiceAnswer('A')">A</button>
-      <button class="btn-action" style="display:block; background:#2ecc71;" onclick="checkChoiceAnswer('B')">B</button>
-      <button class="btn-action" style="display:block; background:#9b59b6;" onclick="checkChoiceAnswer('C')">C</button>
+      <button class="btn-action" style="display:block;background:#e67e22;" onclick="checkChoiceAnswer('A')">A</button>
+      <button class="btn-action" style="display:block;background:#2ecc71;" onclick="checkChoiceAnswer('B')">B</button>
+      <button class="btn-action" style="display:block;background:#9b59b6;" onclick="checkChoiceAnswer('C')">C</button>
     </div>
 
     <div id="game-over-ui" style="display:none;">
-      <p style="color:#f1c40f; margin:0 0 10px 0;">บันทึกคะแนน</p>
-      <input type="text" id="player-name-input" class="input-field" placeholder="ใส่ชื่อ..." style="display:inline-block; width:60%; margin-top:0;">
-      <button class="btn-action" id="btn-submit-score" onclick="submitScore()" style="display:inline-block; margin-left:10px;">Save Score</button>
+      <p style="color:#f1c40f;margin:0 0 10px 0;">บันทึกคะแนน</p>
+      <input type="text" id="player-name-input" class="input-field" placeholder="ใส่ชื่อ..." style="display:inline-block;width:60%;margin-top:0;">
+      <button class="btn-action" id="btn-submit-score" onclick="submitScore()" style="display:inline-block;margin-left:10px;">Save Score</button>
     </div>
 
     <div id="feedback"></div>
@@ -1286,7 +1168,7 @@
     </div>
 
     <button class="btn-action" id="btn-next" onclick="playNextMission()" style="display:none;">เล่นด่านถัดไป ▶</button>
-    <button class="btn-action btn-danger" id="btn-return" onclick="returnToHub()" style="display:none;">กลับ Main Hub</button>
+    <button class="btn-action" id="btn-return" onclick="returnToHub()" style="display:none;">กลับ Main Hub</button>
   </div>
 
   <div id="mobile-hub-sheet"></div>
@@ -1387,17 +1269,17 @@
 
       <a-entity position="-2.5 0.5 -3" rotation="0 15 0" animation="property: position; to: -2.5 0.8 -3; dir: alternate; dur: 1500; loop: true">
         <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
-        <a-text id="reading-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+        <a-text id="reading-choice-a" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
 
       <a-entity position="0 0.5 -3" animation="property: position; to: 0 0.7 -3; dir: alternate; dur: 1200; loop: true">
         <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
-        <a-text id="reading-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+        <a-text id="reading-choice-b" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
 
       <a-entity position="2.5 0.5 -3" rotation="0 -15 0" animation="property: position; to: 2.5 0.9 -3; dir: alternate; dur: 1700; loop: true">
         <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
-        <a-text id="reading-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+        <a-text id="reading-choice-c" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
     </a-entity>
 
@@ -1411,17 +1293,17 @@
 
       <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
         <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
-        <a-text id="listening-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+        <a-text id="listening-choice-a" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
 
       <a-entity position="0 0.5 -3">
         <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
-        <a-text id="listening-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+        <a-text id="listening-choice-b" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
 
       <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
         <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
-        <a-text id="listening-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+        <a-text id="listening-choice-c" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
       </a-entity>
     </a-entity>
 
@@ -1445,5 +1327,846 @@
     <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
     <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
   </a-scene>
+
+  <script>
+  (function () {
+    'use strict';
+
+    function $(id) {
+      return document.getElementById(id);
+    }
+
+    let finished = false;
+    let firstBootError = '';
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+    }
+
+    function formatErrorMessage(raw) {
+      const text = String(raw || '').trim();
+      if (!text) return 'Unknown boot error';
+      return text.length > 320 ? text.slice(0, 320) + '…' : text;
+    }
+
+    function releaseLoading(message = '', isError = false) {
+      if (finished && !isError) return;
+      finished = true;
+
+      const loading = $('loading');
+      if (!loading) return;
+
+      if (message) {
+        loading.innerHTML = `
+          <div style="font-size:1.05rem;font-weight:800;color:#7bedff;margin-bottom:10px;">
+            TechPath VR
+          </div>
+          <div style="font-size:.94rem;line-height:1.5;color:${isError ? '#ffd6db' : '#eaf6ff'};max-width:340px;margin:0 auto 14px;white-space:pre-wrap;">
+            ${escapeHtml(message)}
+          </div>
+          <button id="boot-reload-btn"
+            style="display:${isError ? 'inline-flex' : 'none'};min-height:44px;padding:10px 16px;border-radius:14px;border:1px solid rgba(123,237,255,.25);background:rgba(123,237,255,.12);color:#fff;font-weight:800;">
+            รีเฟรชอีกครั้ง
+          </button>
+        `;
+
+        const reloadBtn = $('boot-reload-btn');
+        if (reloadBtn && isError) {
+          reloadBtn.addEventListener('click', function () {
+            location.reload();
+          });
+        }
+      }
+
+      loading.style.opacity = '1';
+      loading.style.display = 'flex';
+
+      if (!isError) {
+        setTimeout(() => {
+          loading.style.opacity = '0';
+          setTimeout(() => {
+            loading.style.display = 'none';
+          }, 260);
+        }, 120);
+      }
+    }
+
+    function showBootError(raw) {
+      if (firstBootError) return;
+      firstBootError = formatErrorMessage(raw);
+      console.error('TechPath boot error:', raw);
+      releaseLoading('เริ่มระบบไม่สำเร็จ\n\n' + firstBootError, true);
+    }
+
+    window.__TECHPATH_RELEASE_LOADING__ = function () {
+      releaseLoading('', false);
+    };
+
+    window.__TECHPATH_SHOW_BOOT_ERROR__ = showBootError;
+
+    window.addEventListener('load', function () {
+      setTimeout(() => {
+        if (!firstBootError) releaseLoading('', false);
+      }, 300);
+    });
+
+    window.addEventListener('error', function (e) {
+      const msg =
+        e?.error?.stack ||
+        e?.error?.message ||
+        e?.message ||
+        'Global boot error';
+      showBootError(msg);
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+      const msg =
+        e?.reason?.stack ||
+        e?.reason?.message ||
+        e?.reason ||
+        'Unhandled promise rejection';
+      showBootError(msg);
+    });
+
+    setTimeout(() => {
+      if (!finished && !firstBootError) {
+        showBootError('โหลดนานผิดปกติ: module หรือ import บางตัวอาจพัง');
+      }
+    }, 3500);
+  })();
+  </script>
+
+  <script type="module" src="./js/lesson-main.js?v=mobile-fullsafe-final"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const html = document.documentElement;
+    html.classList.add('protected');
+
+    function isEditable(el) {
+      if (!el) return false;
+      return !!el.closest('input, textarea, [contenteditable="true"]');
+    }
+
+    function blockEvent(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      return false;
+    }
+
+    document.addEventListener('contextmenu', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('dragstart', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('selectstart', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('copy', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('cut', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('keydown', function (e) {
+      const key = String(e.key || '').toLowerCase();
+
+      const blocked =
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(key)) ||
+        (e.metaKey && e.altKey && ['i', 'j', 'c'].includes(key)) ||
+        (e.ctrlKey && ['u', 's'].includes(key)) ||
+        (e.metaKey && ['u', 's'].includes(key));
+
+      if (blocked) return blockEvent(e);
+
+      const copyLike = (e.ctrlKey || e.metaKey) && ['c', 'x'].includes(key);
+      if (copyLike && !isEditable(e.target)) return blockEvent(e);
+    }, true);
+
+    let devtoolsOpen = false;
+    const THRESHOLD_W = 260;
+    const THRESHOLD_H = 220;
+
+    function shouldCheckSizeGuard() {
+      return window.innerWidth >= 900;
+    }
+
+    setInterval(function () {
+      const shield = document.getElementById('source-shield');
+
+      if (!shouldCheckSizeGuard()) {
+        devtoolsOpen = false;
+        document.body.classList.remove('devtools-guard');
+        if (shield) shield.setAttribute('aria-hidden', 'true');
+        return;
+      }
+
+      const widthGap = Math.abs(window.outerWidth - window.innerWidth);
+      const heightGap = Math.abs(window.outerHeight - window.innerHeight);
+      const open = widthGap > THRESHOLD_W || heightGap > THRESHOLD_H;
+
+      if (open !== devtoolsOpen) {
+        devtoolsOpen = open;
+        document.body.classList.toggle('devtools-guard', open);
+        if (shield) shield.setAttribute('aria-hidden', open ? 'false' : 'true');
+      }
+    }, 1500);
+  })();
+  </script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const sheet = document.getElementById('mobile-hub-sheet');
+    const profile = document.getElementById('profile-panel');
+    const stats = document.getElementById('hub-stats-board');
+    const btnSessions = document.getElementById('btn-mobile-sessions');
+    const btnProfile = document.getElementById('btn-mobile-profile');
+    const btnStats = document.getElementById('btn-mobile-stats');
+
+    if (!sheet || !profile || !stats || !btnSessions || !btnProfile || !btnStats) return;
+
+    function closeSheet() {
+      sheet.classList.remove('show');
+      sheet.innerHTML = '';
+    }
+
+    function renderNodeIntoSheet(fromEl) {
+      sheet.innerHTML = '';
+      const clone = fromEl.cloneNode(true);
+      clone.style.display = 'block';
+      clone.id = clone.id + '-sheet-copy';
+      sheet.appendChild(clone);
+      sheet.classList.add('show');
+    }
+
+    function renderSessionSheet() {
+      sheet.innerHTML = `
+        <div class="session-sheet-title">เลือกด่าน</div>
+        <div class="session-grid">
+          ${Array.from({ length: 15 }, (_, i) => {
+            const id = i + 1;
+            return `<button type="button" class="session-chip" data-session-id="${id}">S${id}</button>`;
+          }).join('')}
+        </div>
+      `;
+
+      sheet.classList.add('show');
+
+      sheet.querySelectorAll('.session-chip').forEach((btn) => {
+        btn.addEventListener('click', function () {
+          const id = Number(this.getAttribute('data-session-id') || '0');
+
+          if (typeof window.loadMission === 'function') {
+            closeSheet();
+            window.loadMission(id);
+            return;
+          }
+
+          const missionBox = document.getElementById('mission-box-' + id);
+          if (missionBox) {
+            closeSheet();
+            missionBox.click();
+            return;
+          }
+
+          const missionRoot = document.getElementById('mission-root-' + id);
+          if (missionRoot) {
+            closeSheet();
+            missionRoot.click();
+            return;
+          }
+        });
+      });
+    }
+
+    btnSessions.addEventListener('click', function () {
+      const sameOpen = sheet.classList.contains('show') && sheet.querySelector('.session-grid');
+      if (sameOpen) {
+        closeSheet();
+        return;
+      }
+      renderSessionSheet();
+    });
+
+    btnProfile.addEventListener('click', function () {
+      const sameOpen = sheet.classList.contains('show') && sheet.querySelector('#profile-panel-sheet-copy');
+      if (sameOpen) {
+        closeSheet();
+        return;
+      }
+      renderNodeIntoSheet(profile);
+    });
+
+    btnStats.addEventListener('click', function () {
+      const sameOpen = sheet.classList.contains('show') && sheet.querySelector('#hub-stats-board-sheet-copy');
+      if (sameOpen) {
+        closeSheet();
+        return;
+      }
+      renderNodeIntoSheet(stats);
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!sheet.classList.contains('show')) return;
+      const inSheet = e.target.closest('#mobile-hub-sheet');
+      const inDrawer = e.target.closest('#mobile-hub-drawer');
+      if (!inSheet && !inDrawer) closeSheet();
+    }, true);
+
+    function isVisible(id) {
+      const el = document.getElementById(id);
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
+    }
+
+    function syncBodyMode() {
+      const summaryVisible =
+        isVisible('summary-panel') ||
+        isVisible('game-over-ui') ||
+        isVisible('btn-next') ||
+        isVisible('btn-return');
+
+      const missionVisible =
+        !summaryVisible && (
+          /SESSION\s+\d+/i.test((document.getElementById('ui-title')?.textContent || '').trim()) ||
+          isVisible('btn-speak') ||
+          isVisible('btn-play-audio') ||
+          isVisible('write-input') ||
+          isVisible('btn-submit-write') ||
+          isVisible('choice-buttons')
+        );
+
+      document.body.classList.remove('hub-mode', 'mission-mode', 'summary-mode');
+
+      if (summaryVisible) {
+        document.body.classList.add('summary-mode');
+      } else if (missionVisible) {
+        document.body.classList.add('mission-mode');
+      } else {
+        document.body.classList.add('hub-mode');
+      }
+
+      if (!document.body.classList.contains('hub-mode')) {
+        closeSheet();
+      }
+    }
+
+    setInterval(syncBodyMode, 250);
+    syncBodyMode();
+  })();
+  </script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const ENDPOINT =
+      window.TECHPATH_ATTENDANCE_ENDPOINT ||
+      'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
+
+    const PATCH = 'v20260419-mobile-fullsafe-final';
+    const HEARTBEAT_MS = 15000;
+    const ACTIVE_TICK_MS = 1000;
+    const ATTEMPT_MIN_GAP_MS = 1200;
+
+    const q = new URLSearchParams(location.search);
+
+    function safeGetLS(key, fallback = '') {
+      try {
+        const v = localStorage.getItem(key);
+        return v == null ? fallback : v;
+      } catch (_) {
+        return fallback;
+      }
+    }
+
+    function safeSetLS(key, value) {
+      try {
+        localStorage.setItem(key, String(value ?? ''));
+      } catch (_) {}
+    }
+
+    function askOnce(storageKey, promptText) {
+      const oldVal = safeGetLS(storageKey, '');
+      if (oldVal) return oldVal;
+      const v = window.prompt(promptText || storageKey, '') || '';
+      if (v) safeSetLS(storageKey, v);
+      return v;
+    }
+
+    const context = {
+      studentId:
+        q.get('sid') ||
+        q.get('studentId') ||
+        q.get('id') ||
+        safeGetLS('ENG_STUDENT_ID') ||
+        askOnce('ENG_STUDENT_ID', 'กรอก Student ID'),
+      studentName:
+        q.get('name') ||
+        q.get('studentName') ||
+        safeGetLS('ENG_STUDENT_NAME') ||
+        askOnce('ENG_STUDENT_NAME', 'กรอกชื่อผู้เรียน'),
+      classSection:
+        q.get('section') ||
+        safeGetLS('ENG_CLASS_SECTION') ||
+        askOnce('ENG_CLASS_SECTION', 'กรอก section/ห้อง'),
+      lessonId:
+        q.get('lessonId') ||
+        q.get('unit') ||
+        q.get('course') ||
+        'techpath-vr',
+      courseMeeting:
+        q.get('meetingNo') ||
+        q.get('week') ||
+        q.get('meeting') ||
+        '',
+      pageUrl: location.href,
+      userAgent: navigator.userAgent
+    };
+
+    safeSetLS('ENG_STUDENT_ID', context.studentId);
+    safeSetLS('ENG_STUDENT_NAME', context.studentName);
+    safeSetLS('ENG_CLASS_SECTION', context.classSection);
+
+    function makeId(prefix) {
+      return [prefix, Date.now(), Math.random().toString(36).slice(2, 8)].join('-');
+    }
+
+    function nowIso() {
+      return new Date().toISOString();
+    }
+
+    function fmtSec(sec) {
+      const n = Math.max(0, Math.round(Number(sec) || 0));
+      const mm = String(Math.floor(n / 60)).padStart(2, '0');
+      const ss = String(n % 60).padStart(2, '0');
+      return mm + ':' + ss;
+    }
+
+    function getEl(id) {
+      return document.getElementById(id);
+    }
+
+    function getText(id) {
+      const el = getEl(id);
+      return el ? String(el.textContent || el.innerText || '').trim() : '';
+    }
+
+    function setText(id, value) {
+      const el = getEl(id);
+      if (el) el.textContent = value;
+    }
+
+    function isShown(el) {
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
+    }
+
+    function parseMissionIdFromTitle() {
+      const title = getText('ui-title');
+      const m = title.match(/SESSION\s+(\d+)/i);
+      return m ? Number(m[1]) : null;
+    }
+
+    function parseSessionNo(n) {
+      const num = Number(n || 0);
+      if (!Number.isFinite(num) || num <= 0) return 'S00';
+      return 'S' + String(num).padStart(2, '0');
+    }
+
+    function readScore() {
+      const raw = getText('score-display').replace(/[^\d.-]/g, '');
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function readHP() {
+      return getText('hp-display') || '100%';
+    }
+
+    function summarySnapshot() {
+      return {
+        summaryTitle: getText('summary-title'),
+        summaryBody: getText('summary-body'),
+        feedback: getText('feedback'),
+        uiTitle: getText('ui-title'),
+        btnNextVisible: isShown(getEl('btn-next')),
+        btnReturnVisible: isShown(getEl('btn-return')),
+        gameOverVisible: isShown(getEl('game-over-ui'))
+      };
+    }
+
+    function detectScreenMode() {
+      const title = getText('ui-title');
+      const summaryVisible =
+        isShown(getEl('summary-panel')) ||
+        isShown(getEl('btn-next')) ||
+        isShown(getEl('btn-return')) ||
+        isShown(getEl('game-over-ui'));
+
+      const missionVisible =
+        /SESSION\s+\d+/i.test(title) ||
+        isShown(getEl('btn-speak')) ||
+        isShown(getEl('btn-play-audio')) ||
+        isShown(getEl('write-input')) ||
+        isShown(getEl('btn-submit-write')) ||
+        isShown(getEl('choice-buttons'));
+
+      if (summaryVisible) return 'summary';
+      if (missionVisible) return 'mission';
+      return 'hub';
+    }
+
+    function inferMissionType() {
+      if (isShown(getEl('write-input')) || isShown(getEl('btn-submit-write'))) return 'writing';
+      if (isShown(getEl('btn-speak'))) return 'speaking';
+      if (isShown(getEl('btn-play-audio')) && isShown(getEl('choice-buttons'))) return 'listening';
+      if (isShown(getEl('choice-buttons'))) return 'reading';
+      return '';
+    }
+
+    function currentSnapshot() {
+      const missionId = parseMissionIdFromTitle();
+      const sessionNo = parseSessionNo(missionId);
+      return {
+        missionId,
+        sessionNo,
+        mode: detectScreenMode(),
+        missionType: inferMissionType(),
+        score: readScore(),
+        hp: readHP()
+      };
+    }
+
+    const runtime = {
+      pageVisitId: makeId('PAGE'),
+      pageEnteredAt: nowIso(),
+      pageActiveTimeMs: 0,
+      pageActionsCount: 0,
+      currentAttempt: null,
+      lastMode: '',
+      lastHeartbeatAt: 0,
+      sentSummaryForAttemptId: '',
+      lastMissionStartAt: 0
+    };
+
+    function newAttemptBase(snapshot) {
+      return {
+        attemptId: makeId('ATT'),
+        missionId: snapshot.missionId || '',
+        sessionNo: snapshot.sessionNo || 'S00',
+        missionType: snapshot.missionType || '',
+        startedAt: nowIso(),
+        startMs: Date.now(),
+        endedAt: '',
+        endMs: 0,
+        durationSec: 0,
+        scoreStart: snapshot.score,
+        scoreEnd: snapshot.score,
+        hpStart: snapshot.hp,
+        hpEnd: snapshot.hp,
+        result: '',
+        completed: false
+      };
+    }
+
+    function updateAttendanceMiniUI(snapshot, statusText) {
+      setText('attendance-summary-name', context.studentName || '-');
+      setText('attendance-summary-s', snapshot.sessionNo || 'S00');
+      setText('attendance-summary-status', statusText || 'กำลังติดตาม');
+      setText('attendance-student-id', context.studentId || '-');
+      setText('attendance-student-name', context.studentName || '-');
+      setText('attendance-class-section', context.classSection || '-');
+      setText('attendance-session-no', snapshot.sessionNo || 'S00');
+      setText('attendance-duration', runtime.currentAttempt ? fmtSec((Date.now() - runtime.currentAttempt.startMs) / 1000) : '00:00');
+      setText('attendance-active-time', fmtSec(runtime.pageActiveTimeMs / 1000));
+
+      const box = getEl('attendance-status');
+      if (box) {
+        box.classList.remove('warn', 'fail');
+        box.textContent = statusText || 'กำลังติดตาม';
+        if (/error|fail|offline|ไม่สำเร็จ|ผิดพลาด/i.test(box.textContent)) box.classList.add('fail');
+        else if (/เตรียม|tracking|ติดตาม|started|running/i.test(box.textContent)) box.classList.add('warn');
+      }
+    }
+
+    function buildPayload(eventType, extra = {}) {
+      const snapshot = currentSnapshot();
+      const attempt = runtime.currentAttempt;
+
+      return {
+        source: 'techpath-vr',
+        patch: PATCH,
+        eventType,
+        pageVisitId: runtime.pageVisitId,
+        pageEnteredAt: runtime.pageEnteredAt,
+        eventAt: nowIso(),
+        studentId: context.studentId || '',
+        studentName: context.studentName || '',
+        classSection: context.classSection || '',
+        lessonId: context.lessonId || 'techpath-vr',
+        courseMeeting: context.courseMeeting || '',
+        pageUrl: context.pageUrl,
+        userAgent: context.userAgent,
+        mode: snapshot.mode,
+        missionId: snapshot.missionId || '',
+        sessionNo: snapshot.sessionNo || 'S00',
+        missionType: snapshot.missionType || '',
+        score: snapshot.score,
+        hp: snapshot.hp,
+        pageActiveTimeSec: Math.round(runtime.pageActiveTimeMs / 1000),
+        pageActionsCount: runtime.pageActionsCount,
+        attemptId: attempt?.attemptId || '',
+        attemptStartedAt: attempt?.startedAt || '',
+        attemptEndedAt: attempt?.endedAt || '',
+        attemptDurationSec: attempt?.durationSec || 0,
+        attemptScoreStart: attempt?.scoreStart ?? '',
+        attemptScoreEnd: attempt?.scoreEnd ?? '',
+        attemptHpStart: attempt?.hpStart ?? '',
+        attemptHpEnd: attempt?.hpEnd ?? '',
+        attemptResult: attempt?.result || '',
+        ...extra
+      };
+    }
+
+    async function postPayload(payload, useBeacon = false) {
+      if (!ENDPOINT) return false;
+      const body = JSON.stringify(payload);
+
+      try {
+        if (useBeacon && navigator.sendBeacon) {
+          const blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
+          return navigator.sendBeacon(ENDPOINT, blob);
+        }
+
+        await fetch(ENDPOINT, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          body
+        });
+        return true;
+      } catch (err) {
+        console.error('Attendance POST failed:', err);
+        return false;
+      }
+    }
+
+    function bumpAction() {
+      runtime.pageActionsCount += 1;
+    }
+
+    function startAttemptIfNeeded() {
+      const snapshot = currentSnapshot();
+      if (snapshot.mode !== 'mission' || !snapshot.missionId) return;
+
+      if (
+        runtime.currentAttempt &&
+        Number(runtime.currentAttempt.missionId) === Number(snapshot.missionId) &&
+        !runtime.currentAttempt.completed
+      ) return;
+
+      const now = Date.now();
+      if (now - runtime.lastMissionStartAt < ATTEMPT_MIN_GAP_MS) return;
+
+      runtime.lastMissionStartAt = now;
+      runtime.currentAttempt = newAttemptBase(snapshot);
+      runtime.sentSummaryForAttemptId = '';
+      bumpAction();
+      updateAttendanceMiniUI(snapshot, 'Mission started');
+      postPayload(buildPayload('mission_start'));
+    }
+
+    function closeAttempt(result) {
+      if (!runtime.currentAttempt || runtime.currentAttempt.completed) return;
+
+      const snapshot = currentSnapshot();
+      runtime.currentAttempt.endedAt = nowIso();
+      runtime.currentAttempt.endMs = Date.now();
+      runtime.currentAttempt.durationSec = Math.max(0, Math.round((runtime.currentAttempt.endMs - runtime.currentAttempt.startMs) / 1000));
+      runtime.currentAttempt.scoreEnd = snapshot.score;
+      runtime.currentAttempt.hpEnd = snapshot.hp;
+      runtime.currentAttempt.result = result || runtime.currentAttempt.result || '';
+      runtime.currentAttempt.completed = true;
+
+      bumpAction();
+      updateAttendanceMiniUI(snapshot, result === 'success' ? 'Mission cleared' : (result === 'fail' ? 'Mission failed' : 'Mission ended'));
+      postPayload(buildPayload('mission_end', { result: runtime.currentAttempt.result }));
+    }
+
+    function maybeDetectSummary() {
+      const snapshot = currentSnapshot();
+      if (snapshot.mode !== 'summary') return;
+      if (!runtime.currentAttempt) return;
+
+      if (!runtime.currentAttempt.completed) {
+        closeAttempt('summary');
+      }
+      if (runtime.sentSummaryForAttemptId === runtime.currentAttempt.attemptId) return;
+      runtime.sentSummaryForAttemptId = runtime.currentAttempt.attemptId;
+      postPayload(buildPayload('summary_view'));
+    }
+
+    function maybeDetectReturnToHub() {
+      const snapshot = currentSnapshot();
+      if (snapshot.mode === 'hub' && runtime.lastMode && runtime.lastMode !== 'hub') {
+        bumpAction();
+        updateAttendanceMiniUI(snapshot, 'Back to hub');
+        postPayload(buildPayload('hub_view'));
+      }
+    }
+
+    function heartbeat() {
+      const now = Date.now();
+      if (now - runtime.lastHeartbeatAt < HEARTBEAT_MS) return;
+      runtime.lastHeartbeatAt = now;
+      const snapshot = currentSnapshot();
+      updateAttendanceMiniUI(snapshot, snapshot.mode === 'mission' ? 'Mission running' : (snapshot.mode === 'summary' ? 'Summary view' : 'Hub view'));
+      postPayload(buildPayload('heartbeat'));
+    }
+
+    function onVisibility() {
+      if (document.hidden) {
+        postPayload(buildPayload('page_hidden'), true);
+      } else {
+        postPayload(buildPayload('page_visible'));
+      }
+    }
+
+    function onPageLeave() {
+      const snapshot = currentSnapshot();
+      if (snapshot.mode === 'mission' && runtime.currentAttempt && !runtime.currentAttempt.completed) {
+        closeAttempt('leave');
+      }
+      postPayload(buildPayload('page_leave'), true);
+    }
+
+    function syncMode() {
+      const snapshot = currentSnapshot();
+      if (snapshot.mode === 'mission') startAttemptIfNeeded();
+      if (snapshot.mode === 'summary') maybeDetectSummary();
+      maybeDetectReturnToHub();
+      runtime.lastMode = snapshot.mode;
+    }
+
+    function attachObservers() {
+      const ids = [
+        'ui-title',
+        'summary-panel',
+        'summary-title',
+        'summary-body',
+        'feedback',
+        'btn-next',
+        'btn-return',
+        'game-over-ui',
+        'choice-buttons',
+        'btn-speak',
+        'btn-play-audio',
+        'write-input',
+        'btn-submit-write'
+      ];
+
+      const obs = new MutationObserver(function () {
+        syncMode();
+      });
+
+      ids.forEach((id) => {
+        const el = getEl(id);
+        if (el) obs.observe(el, { attributes: true, childList: true, subtree: true, characterData: true });
+      });
+    }
+
+    function attachUIHooks() {
+      getEl('attendance-toggle')?.addEventListener('click', function () {
+        const panel = getEl('attendance-panel');
+        if (!panel) return;
+        panel.classList.toggle('compact');
+        const expanded = !panel.classList.contains('compact');
+        this.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        this.textContent = expanded ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด';
+        bumpAction();
+        postPayload(buildPayload('attendance_toggle', { expanded }));
+      });
+
+      ['btn-next', 'btn-return', 'btn-save-profile', 'btn-submit-score', 'btn-submit-write', 'btn-speak', 'btn-play-audio']
+        .forEach((id) => {
+          getEl(id)?.addEventListener('click', function () {
+            bumpAction();
+            postPayload(buildPayload('ui_click', { controlId: id }));
+          });
+        });
+
+      getEl('choice-buttons')?.addEventListener('click', function (e) {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        bumpAction();
+        postPayload(buildPayload('choice_click', { choiceText: String(btn.textContent || '').trim() }));
+      });
+
+      getEl('profile-name-input')?.addEventListener('change', function () {
+        bumpAction();
+        postPayload(buildPayload('profile_name_change', { profileName: this.value || '' }));
+      });
+
+      getEl('player-name-input')?.addEventListener('change', function () {
+        bumpAction();
+        postPayload(buildPayload('score_name_change', { scoreName: this.value || '' }));
+      });
+    }
+
+    function activeTick() {
+      if (!document.hidden) {
+        runtime.pageActiveTimeMs += ACTIVE_TICK_MS;
+        if (runtime.currentAttempt && !runtime.currentAttempt.completed) {
+          setText('attendance-duration', fmtSec((Date.now() - runtime.currentAttempt.startMs) / 1000));
+        }
+        setText('attendance-active-time', fmtSec(runtime.pageActiveTimeMs / 1000));
+      }
+    }
+
+    function init() {
+      const snapshot = currentSnapshot();
+      updateAttendanceMiniUI(snapshot, 'กำลังติดตาม');
+      attachObservers();
+      attachUIHooks();
+
+      document.addEventListener('visibilitychange', onVisibility, true);
+      window.addEventListener('beforeunload', onPageLeave, true);
+      window.addEventListener('pagehide', onPageLeave, true);
+      window.addEventListener('click', bumpAction, true);
+      window.addEventListener('keydown', bumpAction, true);
+
+      setInterval(activeTick, ACTIVE_TICK_MS);
+      setInterval(syncMode, 700);
+      setInterval(heartbeat, HEARTBEAT_MS);
+
+      postPayload(buildPayload('page_enter'));
+      postPayload(buildPayload('hub_view'));
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+      init();
+    }
+  })();
+  </script>
 </body>
 </html>
