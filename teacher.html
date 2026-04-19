@@ -77,7 +77,7 @@
     }
 
     .grid.cols-main{
-      grid-template-columns: minmax(0, 1.2fr) minmax(360px, .8fr);
+      grid-template-columns:minmax(0, 1.2fr) minmax(360px, .8fr);
       align-items:start;
     }
 
@@ -135,7 +135,7 @@
 
     .filterGrid{
       display:grid;
-      grid-template-columns:repeat(5,1fr);
+      grid-template-columns:repeat(6,1fr);
       gap:12px;
       margin-top:10px;
     }
@@ -237,6 +237,10 @@
       font-size:12px;
       text-transform:uppercase;
       letter-spacing:.04em;
+    }
+
+    th[data-sort]{
+      cursor:pointer;
     }
 
     tbody tr{
@@ -362,10 +366,13 @@
       pointer-events:none;
     }
 
+    @media (max-width:1200px){
+      .filterGrid{ grid-template-columns:repeat(3,1fr); }
+    }
+
     @media (max-width:1100px){
       .grid.cols-4{ grid-template-columns:repeat(2,1fr); }
       .grid.cols-main{ grid-template-columns:1fr; }
-      .filterGrid{ grid-template-columns:repeat(2,1fr); }
     }
 
     @media (max-width:640px){
@@ -446,11 +453,22 @@
           <label for="studentSearch">ค้นหานักศึกษา</label>
           <input id="studentSearch" type="text" placeholder="ชื่อ / รหัสนักศึกษา" />
         </div>
+        <div class="inputBox">
+          <label for="lowAccOnly">Quick Filter</label>
+          <select id="lowAccOnly">
+            <option value="">ทั้งหมด</option>
+            <option value="lt60">accuracy ต่ำกว่า 60%</option>
+            <option value="lt80">accuracy ต่ำกว่า 80%</option>
+            <option value="nosession">ยังไม่มี session จบ</option>
+          </select>
+        </div>
       </div>
 
       <div class="actions">
         <button id="applyFilterBtn">APPLY FILTER</button>
         <button id="refreshBtn" class="ghost">REFRESH</button>
+        <button id="exportStudentsBtn" class="ghost">EXPORT STUDENTS CSV</button>
+        <button id="exportDetailBtn" class="ghost">EXPORT SELECTED DETAIL CSV</button>
         <button id="clearFilterBtn" class="alt">CLEAR FILTER</button>
       </div>
     </section>
@@ -464,13 +482,13 @@
           <table>
             <thead>
               <tr>
-                <th>Student ID</th>
-                <th>Name</th>
-                <th>Section</th>
-                <th>Sessions</th>
-                <th>Last Score</th>
-                <th>Last Accuracy</th>
-                <th>Last Session</th>
+                <th data-sort="student_id">Student ID</th>
+                <th data-sort="display_name">Name</th>
+                <th data-sort="section">Section</th>
+                <th data-sort="sessions_count">Sessions</th>
+                <th data-sort="last_score">Last Score</th>
+                <th data-sort="last_accuracy">Last Accuracy</th>
+                <th data-sort="last_session_code">Last Session</th>
                 <th>Recommendation</th>
               </tr>
             </thead>
@@ -522,6 +540,12 @@
         </div>
 
         <div class="card">
+          <h2 class="sectionTitle">Progress Trend</h2>
+          <div class="subtle">แนวโน้ม score และ accuracy ของนักศึกษาที่เลือกจาก session ล่าสุด</div>
+          <div id="trendChartWrap" class="empty" style="margin-top:12px;">ยังไม่มีข้อมูล</div>
+        </div>
+
+        <div class="card">
           <h2 class="sectionTitle">Top Weak Terms (Overview)</h2>
           <div id="overviewWeakTerms" class="list">
             <div class="empty">ยังไม่มีข้อมูล</div>
@@ -531,6 +555,6 @@
     </section>
   </div>
 
-  <script type="module" src="./assets/teacher.js?v=20260419a"></script>
+  <script type="module" src="./assets/teacher.js?v=20260419b"></script>
 </body>
 </html>
