@@ -24,7 +24,7 @@
       --shadow:0 22px 60px rgba(0,0,0,.28);
     }
 
-    *{box-sizing:border-box}
+    *{ box-sizing:border-box; }
 
     html,body{
       margin:0;
@@ -38,7 +38,7 @@
     }
 
     .page{
-      width:min(1440px, 96vw);
+      width:min(1480px, 96vw);
       margin:0 auto;
       padding:20px 0 28px;
     }
@@ -77,7 +77,7 @@
     }
 
     .grid.cols-main{
-      grid-template-columns:minmax(0, 1.2fr) minmax(360px, .8fr);
+      grid-template-columns:minmax(0, 1.15fr) minmax(360px, .85fr);
       align-items:start;
     }
 
@@ -135,7 +135,7 @@
 
     .filterGrid{
       display:grid;
-      grid-template-columns:repeat(6,1fr);
+      grid-template-columns:repeat(7,1fr);
       gap:12px;
       margin-top:10px;
     }
@@ -177,6 +177,7 @@
       gap:10px;
       flex-wrap:wrap;
       margin-top:12px;
+      align-items:center;
     }
 
     button{
@@ -217,7 +218,7 @@
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:900px;
+      min-width:980px;
     }
 
     th,td{
@@ -239,13 +240,9 @@
       letter-spacing:.04em;
     }
 
-    th[data-sort]{
-      cursor:pointer;
-    }
+    th[data-sort]{ cursor:pointer; }
 
-    tbody tr{
-      cursor:pointer;
-    }
+    tbody tr{ cursor:pointer; }
 
     tbody tr:hover{
       background:rgba(103,232,249,.08);
@@ -366,8 +363,139 @@
       pointer-events:none;
     }
 
-    @media (max-width:1200px){
-      .filterGrid{ grid-template-columns:repeat(3,1fr); }
+    .heatmapWrap{
+      overflow:auto;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      margin-top:12px;
+    }
+
+    .heatmapTable{
+      width:100%;
+      border-collapse:collapse;
+      min-width:920px;
+    }
+
+    .heatmapTable th,
+    .heatmapTable td{
+      padding:10px 8px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      text-align:center;
+      font-size:12px;
+      vertical-align:middle;
+    }
+
+    .heatmapTable th.stickyLeft,
+    .heatmapTable td.stickyLeft{
+      position:sticky;
+      left:0;
+      z-index:2;
+      background:#101b38;
+      text-align:left;
+    }
+
+    .heatmapTable td.stickyLeft{
+      background:rgba(15,24,50,.98);
+    }
+
+    .heatCell{
+      min-width:54px;
+      font-weight:1000;
+      border-radius:10px;
+      padding:8px 0;
+    }
+
+    .heatP{ background:rgba(34,197,94,.18); color:#caffda; }
+    .heatA{ background:rgba(244,63,94,.18); color:#ffd0d8; }
+    .heatN{ background:rgba(255,255,255,.06); color:#c7d4ff; }
+
+    .legend{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .quickRowActions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-top:8px;
+    }
+
+    .quickStatusBtn{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:999px;
+      min-height:26px;
+      padding:0 8px;
+      font-size:11px;
+      font-weight:900;
+      cursor:pointer;
+      color:#071122;
+      background:linear-gradient(135deg,#dbeafe,#93c5fd);
+    }
+
+    .quickStatusBtn[data-status="pending"]{
+      background:linear-gradient(135deg,#fde68a,#fbbf24);
+      color:#5b3c00;
+    }
+
+    .quickStatusBtn[data-status="contacted"]{
+      background:linear-gradient(135deg,#bfdbfe,#60a5fa);
+      color:#0f2c63;
+    }
+
+    .quickStatusBtn[data-status="needs_support"]{
+      background:linear-gradient(135deg,#fecaca,#fb7185);
+      color:#5f1020;
+    }
+
+    .quickStatusBtn[data-status="improved"]{
+      background:linear-gradient(135deg,#bbf7d0,#4ade80);
+      color:#124b22;
+    }
+
+    .quickStatusBtn[data-status="closed"]{
+      background:linear-gradient(135deg,#e5e7eb,#cbd5e1);
+      color:#334155;
+    }
+
+    .timeline{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .timelineItem{
+      position:relative;
+      padding:12px 12px 12px 18px;
+      border-radius:18px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.1);
+    }
+
+    .timelineItem::before{
+      content:'';
+      position:absolute;
+      left:8px;
+      top:14px;
+      bottom:14px;
+      width:3px;
+      border-radius:999px;
+      background:rgba(103,232,249,.7);
+    }
+
+    .timelineMeta{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:6px;
+      line-height:1.45;
+    }
+
+    @media (max-width:1320px){
+      .filterGrid{ grid-template-columns:repeat(4,1fr); }
     }
 
     @media (max-width:1100px){
@@ -375,12 +503,63 @@
       .grid.cols-main{ grid-template-columns:1fr; }
     }
 
-    @media (max-width:640px){
+    @media (max-width:700px){
       .page{ width:min(96vw, 96vw); padding-top:14px; }
       .grid.cols-4{ grid-template-columns:1fr; }
       .filterGrid{ grid-template-columns:1fr; }
       .miniStats{ grid-template-columns:1fr; }
       table{ min-width:760px; }
+    }
+
+    @media print{
+      html,body{
+        background:#fff !important;
+        color:#000 !important;
+      }
+
+      .page{
+        width:100% !important;
+        padding:0 !important;
+      }
+
+      .hero,.card,.statCard{
+        background:#fff !important;
+        color:#000 !important;
+        box-shadow:none !important;
+        border:1px solid #ddd !important;
+      }
+
+      .actions,
+      .filterGrid,
+      button,
+      input,
+      select{
+        display:none !important;
+      }
+
+      th{
+        background:#f2f2f2 !important;
+        color:#000 !important;
+      }
+
+      .subtle,
+      .detailMeta,
+      .statLabel,
+      .statSub{
+        color:#444 !important;
+      }
+
+      .pill{
+        color:#000 !important;
+        border-color:#bbb !important;
+        background:#f5f5f5 !important;
+      }
+
+      .heatmapTable th.stickyLeft,
+      .heatmapTable td.stickyLeft{
+        background:#fff !important;
+        color:#000 !important;
+      }
     }
   </style>
 </head>
@@ -389,7 +568,7 @@
     <section class="hero">
       <h1>Teacher Dashboard • Vocab Analytics</h1>
       <p>
-        ดูภาพรวมทั้งห้อง รายชื่อนักศึกษาทั้งหมด และกดเจาะรายละเอียดรายคนได้
+        ดูภาพรวมทั้งห้อง รายชื่อนักศึกษาทั้งหมด รายละเอียดรายคน การเข้าเรียน การติดตาม และ archive snapshots
         โดยอิงจากข้อมูลใน Google Sheet ชุดเดียวกับเกม vocab
       </p>
     </section>
@@ -418,18 +597,39 @@
     </section>
 
     <section class="card" style="margin-top:16px;">
+      <h2 class="sectionTitle">Today Action Summary</h2>
+      <div class="subtle">สรุปสิ่งที่ควรทำก่อนจากข้อมูลปัจจุบัน</div>
+      <div id="todayActionGrid" class="grid cols-4" style="margin-top:12px;">
+        <div class="statCard"><div class="statLabel">Pending</div><div class="statValue">-</div></div>
+        <div class="statCard"><div class="statLabel">Needs Support</div><div class="statValue">-</div></div>
+        <div class="statCard"><div class="statLabel">No Attendance</div><div class="statValue">-</div></div>
+        <div class="statCard"><div class="statLabel">At Risk</div><div class="statValue">-</div></div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:16px;">
+      <h2 class="sectionTitle">Urgent Landing</h2>
+      <div class="subtle">เมื่อเปิดโหมดนี้ หน้า dashboard จะเน้นเคสเร่งด่วนก่อน</div>
+      <div id="urgentLandingList" class="list" style="margin-top:12px;">
+        <div class="empty">กำลังประเมิน...</div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:16px;">
       <h2 class="sectionTitle">Filters</h2>
-      <div class="subtle">กรองตามห้องเรียน รหัส session กลุ่มคำศัพท์ และโหมด ก่อนดูรายชื่อหรือรายคน</div>
+      <div class="subtle">กรองตามห้องเรียน รหัส session กลุ่มคำศัพท์ โหมด และ follow-up status ก่อนดูรายชื่อหรือรายงาน</div>
 
       <div class="filterGrid">
         <div class="inputBox">
           <label for="sectionFilter">Section</label>
-          <input id="sectionFilter" type="text" placeholder="เช่น CS4" />
+          <input id="sectionFilter" type="text" placeholder="เช่น CS4 หรือ 2" />
         </div>
+
         <div class="inputBox">
           <label for="sessionCodeFilter">Session Code</label>
           <input id="sessionCodeFilter" type="text" placeholder="เช่น S01" />
         </div>
+
         <div class="inputBox">
           <label for="bankFilter">Bank</label>
           <select id="bankFilter">
@@ -439,6 +639,7 @@
             <option value="C">C</option>
           </select>
         </div>
+
         <div class="inputBox">
           <label for="modeFilter">Mode</label>
           <select id="modeFilter">
@@ -449,10 +650,12 @@
             <option value="speed_run">speed_run</option>
           </select>
         </div>
+
         <div class="inputBox">
           <label for="studentSearch">ค้นหานักศึกษา</label>
           <input id="studentSearch" type="text" placeholder="ชื่อ / รหัสนักศึกษา" />
         </div>
+
         <div class="inputBox">
           <label for="lowAccOnly">Quick Filter</label>
           <select id="lowAccOnly">
@@ -462,40 +665,298 @@
             <option value="nosession">ยังไม่มี session จบ</option>
           </select>
         </div>
+
+        <div class="inputBox">
+          <label for="followupFilter">Follow-up Filter</label>
+          <select id="followupFilter">
+            <option value="">ทั้งหมด</option>
+            <option value="pending">pending</option>
+            <option value="contacted">contacted</option>
+            <option value="needs_support">needs_support</option>
+            <option value="improved">improved</option>
+            <option value="closed">closed</option>
+          </select>
+        </div>
       </div>
 
       <div class="actions">
         <button id="applyFilterBtn">APPLY FILTER</button>
         <button id="refreshBtn" class="ghost">REFRESH</button>
+        <button id="importRosterBtn" class="ghost">IMPORT ROSTER CSV</button>
         <button id="exportStudentsBtn" class="ghost">EXPORT STUDENTS CSV</button>
         <button id="exportDetailBtn" class="ghost">EXPORT SELECTED DETAIL CSV</button>
+        <button id="exportAbsenteeBtn" class="ghost">EXPORT ABSENTEES CSV</button>
+        <button id="exportAttendanceSummaryBtn" class="ghost">EXPORT ATTENDANCE SUMMARY CSV</button>
+        <button id="exportInterventionBtn" class="ghost">EXPORT INTERVENTION CSV</button>
+        <button id="exportFollowupBtn" class="ghost">EXPORT FOLLOW-UP CSV</button>
+        <button id="exportArchiveBtn" class="ghost">EXPORT ARCHIVE CSV</button>
+        <button id="printTeacherReportBtn" class="ghost">PRINT TEACHER REPORT</button>
+        <button id="printSelectedStudentBtn" class="ghost">PRINT SELECTED STUDENT REPORT</button>
+        <label class="pill" style="cursor:pointer;">
+          <input id="urgentLandingChk" type="checkbox" style="margin-right:8px;" />
+          Urgent landing mode
+        </label>
         <button id="clearFilterBtn" class="alt">CLEAR FILTER</button>
+        <input id="rosterFileInput" type="file" accept=".csv,text/csv" hidden />
       </div>
     </section>
 
     <section class="grid cols-main">
-      <div class="card">
-        <h2 class="sectionTitle">Student List</h2>
-        <div class="subtle">กดที่แถวของนักศึกษาเพื่อดูรายละเอียดรายคน</div>
+      <div class="stack">
+        <div class="card">
+          <h2 class="sectionTitle">Student List</h2>
+          <div class="subtle">กดที่แถวของนักศึกษาเพื่อดูรายละเอียดรายคน</div>
 
-        <div class="tableWrap" style="margin-top:12px;">
-          <table>
-            <thead>
-              <tr>
-                <th data-sort="student_id">Student ID</th>
-                <th data-sort="display_name">Name</th>
-                <th data-sort="section">Section</th>
-                <th data-sort="sessions_count">Sessions</th>
-                <th data-sort="last_score">Last Score</th>
-                <th data-sort="last_accuracy">Last Accuracy</th>
-                <th data-sort="last_session_code">Last Session</th>
-                <th>Recommendation</th>
-              </tr>
-            </thead>
-            <tbody id="studentsTableBody">
-              <tr><td colspan="8">กำลังโหลด...</td></tr>
-            </tbody>
-          </table>
+          <div class="actions" style="margin-top:12px;">
+            <label class="pill" style="cursor:pointer;">
+              <input id="selectAllFilteredChk" type="checkbox" style="margin-right:8px;" />
+              เลือกทั้งหมดในตาราง
+            </label>
+
+            <select id="bulkFollowupStatus" style="min-height:48px;border-radius:16px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.08);color:#fff;">
+              <option value="pending">pending</option>
+              <option value="contacted">contacted</option>
+              <option value="needs_support">needs_support</option>
+              <option value="improved">improved</option>
+              <option value="closed">closed</option>
+            </select>
+
+            <input id="bulkNoteInput" type="text" placeholder="หมายเหตุ bulk update"
+              style="min-height:48px;border-radius:16px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.08);color:#fff;min-width:240px;" />
+
+            <button id="applyBulkStatusBtn" class="ghost">APPLY BULK STATUS</button>
+            <button id="archiveSnapshotBtn" class="ghost">ARCHIVE SNAPSHOT</button>
+          </div>
+
+          <div class="tableWrap" style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Select</th>
+                  <th data-sort="student_id">Student ID</th>
+                  <th data-sort="display_name">Name</th>
+                  <th data-sort="section">Section</th>
+                  <th data-sort="sessions_count">Sessions</th>
+                  <th data-sort="last_score">Last Score</th>
+                  <th data-sort="last_accuracy">Last Accuracy</th>
+                  <th data-sort="last_session_code">Last Session</th>
+                  <th>Recommendation</th>
+                </tr>
+              </thead>
+              <tbody id="studentsTableBody">
+                <tr><td colspan="9">กำลังโหลด...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Attendance by Session Code</h2>
+          <div class="subtle">สรุปผู้เข้าเรียนแยกตาม section และ session_code</div>
+
+          <div class="tableWrap" style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Section</th>
+                  <th>Session Code</th>
+                  <th>Roster</th>
+                  <th>Attendees</th>
+                  <th>Absent</th>
+                  <th>Completed Sessions</th>
+                  <th>Avg Score</th>
+                  <th>Avg Accuracy</th>
+                </tr>
+              </thead>
+              <tbody id="attendanceTableBody">
+                <tr><td colspan="8">กำลังโหลด...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Attendance Heatmap</h2>
+          <div class="subtle">ดูสถานะเข้าเรียนรายคนเทียบกับ session_code ที่มีใน section เดียวกัน</div>
+
+          <div class="legend">
+            <span class="pill good">P = Present</span>
+            <span class="pill bad">A = Absent</span>
+            <span class="pill">— = Not Applicable</span>
+          </div>
+
+          <div id="heatmapWrap" class="heatmapWrap">
+            <div class="empty" style="margin:12px;">กำลังโหลด heatmap...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Session Comparison</h2>
+          <div class="subtle">เปรียบเทียบ performance ราย session_code จากข้อมูลที่กรองอยู่ตอนนี้</div>
+
+          <div class="tableWrap" style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Session Code</th>
+                  <th>Sections</th>
+                  <th>Roster</th>
+                  <th>Attendees</th>
+                  <th>Absent</th>
+                  <th>Avg Score</th>
+                  <th>Avg Accuracy</th>
+                </tr>
+              </thead>
+              <tbody id="sessionComparisonBody">
+                <tr><td colspan="7">กำลังโหลด...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Section Summary</h2>
+          <div class="subtle">สรุปภาพรวมรายห้องเรียน</div>
+          <div class="tableWrap" style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Section</th>
+                  <th>Unique Students</th>
+                  <th>Completed Sessions</th>
+                  <th>Avg Score</th>
+                  <th>Avg Accuracy</th>
+                </tr>
+              </thead>
+              <tbody id="sectionSummaryBody">
+                <tr><td colspan="5">กำลังโหลด...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Follow-up Summary</h2>
+          <div class="subtle">สรุปสถานะการติดตามล่าสุดของนักศึกษาแต่ละคน</div>
+          <div id="followupSummaryGrid" class="list" style="margin-top:12px;">
+            <div class="empty">กำลังโหลด follow-up summary...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Follow-up by Section</h2>
+          <div class="subtle">สรุปสถานะการติดตามล่าสุดแยกตาม section</div>
+
+          <div class="tableWrap" style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Section</th>
+                  <th>Total</th>
+                  <th>Pending</th>
+                  <th>Contacted</th>
+                  <th>Needs Support</th>
+                  <th>Improved</th>
+                  <th>Closed</th>
+                  <th>No Status</th>
+                </tr>
+              </thead>
+              <tbody id="followupSectionSummaryBody">
+                <tr><td colspan="8">กำลังโหลด...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">At-Risk Students</h2>
+          <div class="subtle">นักศึกษาที่มีความเสี่ยงจากการขาดเรียนหรือ accuracy ต่ำ</div>
+          <div id="riskList" class="list">
+            <div class="empty">กำลังประเมิน...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Intervention Queue</h2>
+          <div class="subtle">ลำดับนักศึกษาที่ควรติดตามก่อน พร้อมคำแนะนำการช่วยเหลือเบื้องต้น</div>
+          <div id="interventionList" class="list">
+            <div class="empty">กำลังประเมิน...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Top Performers</h2>
+          <div class="subtle">นักศึกษาที่ทำได้ดีจาก accuracy, attendance และ score</div>
+          <div id="topPerformersList" class="list">
+            <div class="empty">กำลังประเมิน...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Archive Viewer</h2>
+          <div class="subtle">ดู snapshot ที่เคยเก็บไว้ และเลือก 2 รอบมาเปรียบเทียบกัน</div>
+
+          <div class="actions">
+            <button id="refreshArchiveBtn" class="ghost">REFRESH ARCHIVE</button>
+            <button id="compareArchiveBtn" class="ghost">COMPARE SELECTED SNAPSHOTS</button>
+          </div>
+
+          <div class="tableWrap" style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>A</th>
+                  <th>B</th>
+                  <th>Archived At</th>
+                  <th>Section</th>
+                  <th>Session Code</th>
+                  <th>Avg Score</th>
+                  <th>Avg Accuracy</th>
+                  <th>Students</th>
+                  <th>Sessions</th>
+                  <th>Type</th>
+                  <th>Label</th>
+                </tr>
+              </thead>
+              <tbody id="archiveTableBody">
+                <tr><td colspan="11">กำลังโหลด archive...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Snapshot Comparison</h2>
+          <div class="subtle">ผลต่างระหว่าง snapshot A และ B</div>
+          <div id="archiveCompareBox" class="list">
+            <div class="empty">เลือก snapshot A และ B ก่อน</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Semester Reset Helper</h2>
+          <div class="subtle">สร้าง term boundary / archive รอบใหม่แบบปลอดภัย โดยไม่ลบข้อมูลดิบ</div>
+
+          <div class="filterGrid" style="grid-template-columns:1fr 1fr;">
+            <div class="inputBox">
+              <label for="termBoundaryLabel">Boundary Label</label>
+              <input id="termBoundaryLabel" type="text" placeholder="เช่น TERM-1-END / 2026-S1-END" />
+            </div>
+            <div class="inputBox">
+              <label for="termBoundaryMessage">Message</label>
+              <input id="termBoundaryMessage" type="text" placeholder="เช่น ปิดภาคเรียน 1 และเริ่มรอบใหม่" />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="createBoundaryBtn">CREATE TERM BOUNDARY</button>
+            <button id="softResetViewBtn" class="ghost">SOFT RESET VIEW</button>
+          </div>
+
+          <div class="subtle" style="margin-top:10px;">
+            Soft reset จะล้าง filter / selection / checkbox ในหน้า dashboard เท่านั้น
+            และ raw data ใน Google Sheet จะยังอยู่ครบ
+          </div>
         </div>
       </div>
 
@@ -546,6 +1007,78 @@
         </div>
 
         <div class="card">
+          <h2 class="sectionTitle">Teacher Notes & Follow-up</h2>
+          <div class="subtle">บันทึกหมายเหตุของครูและสถานะการติดตามสำหรับนักศึกษาที่เลือก</div>
+
+          <div class="filterGrid" style="grid-template-columns:1fr 1fr; margin-top:12px;">
+            <div class="inputBox">
+              <label for="followupStatus">Follow-up Status</label>
+              <select id="followupStatus">
+                <option value="pending">pending</option>
+                <option value="contacted">contacted</option>
+                <option value="needs_support">needs_support</option>
+                <option value="improved">improved</option>
+                <option value="closed">closed</option>
+              </select>
+            </div>
+            <div class="inputBox">
+              <label for="teacherNameInput">Teacher Name</label>
+              <input id="teacherNameInput" type="text" placeholder="ชื่อผู้บันทึก" />
+            </div>
+          </div>
+
+          <div class="inputBox" style="margin-top:12px;">
+            <label for="teacherNoteInput">Teacher Note</label>
+            <input id="teacherNoteInput" type="text" placeholder="เช่น ควรทบทวนคำศัพท์ bank B ก่อนเรียน S02" />
+          </div>
+
+          <div class="actions">
+            <button id="saveFollowupBtn">SAVE NOTE</button>
+            <button id="refreshFollowupBtn" class="ghost">REFRESH NOTES</button>
+          </div>
+
+          <div id="followupLatestBox" class="list" style="margin-top:12px;">
+            <div class="empty">ยังไม่มีข้อมูล follow-up</div>
+          </div>
+
+          <div id="followupHistoryList" class="list">
+            <div class="empty">ยังไม่มีประวัติหมายเหตุ</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Follow-up Timeline</h2>
+          <div class="subtle">ลำดับประวัติการติดตามของนักศึกษาที่เลือก</div>
+          <div id="followupTimeline" class="timeline">
+            <div class="empty">ยังไม่มี timeline</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Student Profile Summary</h2>
+          <div class="subtle">สรุปรายคนแบบพร้อมนำไปใช้คุยกับอาจารย์ที่ปรึกษา/ผู้ปกครอง</div>
+          <div id="studentProfileSummaryBox" class="list" style="margin-top:12px;">
+            <div class="empty">ยังไม่ได้เลือกนักศึกษา</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Attendee List</h2>
+          <div class="subtle">กดที่แถว attendance เพื่อดูรายชื่อผู้เข้าเรียนใน session นั้น</div>
+          <div id="attendanceDetailList" class="list">
+            <div class="empty">ยังไม่ได้เลือก session</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sectionTitle">Absentee List</h2>
+          <div class="subtle">รายชื่อผู้ที่อยู่ใน roster แต่ไม่พบว่าเข้า session นี้</div>
+          <div id="absenteeDetailList" class="list">
+            <div class="empty">ยังไม่ได้เลือก session</div>
+          </div>
+        </div>
+
+        <div class="card">
           <h2 class="sectionTitle">Top Weak Terms (Overview)</h2>
           <div id="overviewWeakTerms" class="list">
             <div class="empty">ยังไม่มีข้อมูล</div>
@@ -555,6 +1088,6 @@
     </section>
   </div>
 
-  <script type="module" src="./assets/teacher.js?v=20260419b"></script>
+  <script type="module" src="./assets/teacher.js?v=20260419l"></script>
 </body>
 </html>
