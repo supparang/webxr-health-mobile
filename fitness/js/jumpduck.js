@@ -1,6 +1,6 @@
 // === /fitness/js/jumpduck.js ===
-// FULL FINAL MATCHED WITH CUTE HTML + GRADE5 RESULT
-// PATCH v20260415b-JUMPDuck-DOGHERO-CUTE-G5RESULT-FITNESSZONE-FINAL
+// FULL FINAL MATCHED WITH CUTE HTML + GRADE5 RESULT + MOBILE TUNE
+// PATCH v20260415c-JUMPDuck-DOGHERO-CUTE-G5RESULT-MOBILETUNE-FITNESSZONE-FINAL
 
 'use strict';
 
@@ -93,9 +93,9 @@
   const resBossEndBig = $('#res-boss-end-big');
 
   const resPhaseEnd = $('#res-phase-end');
-  const resPattern = $('#res-pattern');
+  const resPatternBox = $('#res-pattern');
   const resBossLabel = $('#res-boss-label');
-  const resRush = $('#res-rush');
+  const resRushBox = $('#res-rush');
 
   const btnDlEvents = $('#jd-btn-dl-events');
   const btnDlSessions = $('#jd-btn-dl-sessions');
@@ -340,30 +340,31 @@
     }
   };
 
+  // MOBILE TUNE: เพิ่มระยะอ่าน/ลดความกดดันบน tiny+compact
   const JD_TUNING_PRESETS = {
     A: {
-      startXMul: { tiny: 0.80, compact: 0.84, desktop: 0.86 },
-      gapBase: { tiny: 182, compact: 170, desktop: 144 },
-      speedBase: { tiny: 5.8, compact: 6.0, desktop: 6.8 },
-      hitHalfWindow: { tiny: 28, compact: 27, desktop: 28 }
+      startXMul: { tiny: 0.88, compact: 0.90, desktop: 0.86 },
+      gapBase: { tiny: 204, compact: 186, desktop: 144 },
+      speedBase: { tiny: 5.4, compact: 5.7, desktop: 6.8 },
+      hitHalfWindow: { tiny: 32, compact: 31, desktop: 28 }
     },
     B: {
-      startXMul: { tiny: 0.77, compact: 0.81, desktop: 0.84 },
-      gapBase: { tiny: 174, compact: 162, desktop: 138 },
-      speedBase: { tiny: 6.0, compact: 6.2, desktop: 7.0 },
-      hitHalfWindow: { tiny: 27, compact: 26, desktop: 28 }
+      startXMul: { tiny: 0.90, compact: 0.92, desktop: 0.84 },
+      gapBase: { tiny: 194, compact: 176, desktop: 138 },
+      speedBase: { tiny: 5.6, compact: 5.9, desktop: 7.0 },
+      hitHalfWindow: { tiny: 31, compact: 30, desktop: 28 }
     },
     C: {
-      startXMul: { tiny: 0.74, compact: 0.78, desktop: 0.82 },
-      gapBase: { tiny: 166, compact: 154, desktop: 132 },
-      speedBase: { tiny: 6.2, compact: 6.4, desktop: 7.2 },
-      hitHalfWindow: { tiny: 26, compact: 25, desktop: 27 }
+      startXMul: { tiny: 0.92, compact: 0.94, desktop: 0.82 },
+      gapBase: { tiny: 186, compact: 170, desktop: 132 },
+      speedBase: { tiny: 5.9, compact: 6.1, desktop: 7.2 },
+      hitHalfWindow: { tiny: 30, compact: 29, desktop: 27 }
     },
     CPLUS: {
-      startXMul: { tiny: 0.72, compact: 0.76, desktop: 0.80 },
-      gapBase: { tiny: 160, compact: 148, desktop: 126 },
-      speedBase: { tiny: 6.35, compact: 6.6, desktop: 7.4 },
-      hitHalfWindow: { tiny: 25, compact: 24, desktop: 26 }
+      startXMul: { tiny: 0.94, compact: 0.96, desktop: 0.80 },
+      gapBase: { tiny: 178, compact: 164, desktop: 126 },
+      speedBase: { tiny: 6.1, compact: 6.3, desktop: 7.4 },
+      hitHalfWindow: { tiny: 29, compact: 28, desktop: 26 }
     }
   };
 
@@ -599,13 +600,11 @@
     const box = tele.querySelector('.teleBox');
     if (box) box.textContent = msg;
     tele.classList.remove('hidden');
-    tele.classList.add('on');
 
     clearTimeout(state?.teleTimer);
     if (state) {
       state.teleTimer = setTimeout(() => {
-        tele.classList.remove('on');
-        setTimeout(() => tele.classList.add('hidden'), 140);
+        tele.classList.add('hidden');
       }, ms);
     }
   }
@@ -614,13 +613,11 @@
     if (!bossIntro || !bossIntroText) return;
     bossIntroText.textContent = msg;
     bossIntro.classList.remove('hidden');
-    bossIntro.classList.add('on');
 
     clearTimeout(state?.bossIntroTimer);
     if (state) {
       state.bossIntroTimer = setTimeout(() => {
-        bossIntro.classList.remove('on');
-        setTimeout(() => bossIntro.classList.add('hidden'), 140);
+        bossIntro.classList.add('hidden');
       }, 1200);
     }
   }
@@ -838,17 +835,8 @@
 
   function resetTransientUI() {
     judgeEl?.classList.remove('show');
-
-    if (tele) {
-      tele.classList.remove('on');
-      tele.classList.add('hidden');
-    }
-
-    if (bossIntro) {
-      bossIntro.classList.remove('on');
-      bossIntro.classList.add('hidden');
-    }
-
+    tele?.classList.add('hidden');
+    bossIntro?.classList.add('hidden');
     rushBanner?.classList.add('hidden');
 
     if (playRoot) {
@@ -883,34 +871,11 @@
   }
 
   function jdResultHeadline(rank, bossDown, noMiss) {
-    if (rank === 'S') {
-      return {
-        title: 'สุดยอดมาก!',
-        sub: 'รอบนี้เล่นได้เก่งมากและแม่นมาก'
-      };
-    }
-    if (rank === 'A') {
-      return {
-        title: 'เยี่ยมมาก!',
-        sub: 'อีกนิดเดียวก็ถึงระดับสูงสุดแล้ว'
-      };
-    }
-    if (rank === 'B') {
-      return {
-        title: 'ดีมาก!',
-        sub: 'เริ่มจับจังหวะได้ดีแล้ว'
-      };
-    }
-    if (rank === 'C') {
-      return {
-        title: 'ผ่านแล้ว! แต่ยังไปได้อีก',
-        sub: 'เริ่มจับจังหวะได้แล้ว ลองลด miss และดัน combo ให้สูงขึ้น'
-      };
-    }
-    return {
-      title: 'ลองอีกครั้งนะ',
-      sub: 'รอบหน้าดูสิ่งกีดขวางให้เร็วขึ้นอีกนิด'
-    };
+    if (rank === 'S') return { title: 'สุดยอดมาก!', sub: 'รอบนี้เล่นได้เก่งมากและแม่นมาก' };
+    if (rank === 'A') return { title: 'เยี่ยมมาก!', sub: 'อีกนิดเดียวก็ถึงระดับสูงสุดแล้ว' };
+    if (rank === 'B') return { title: 'ดีมาก!', sub: 'เริ่มจับจังหวะได้ดีแล้ว' };
+    if (rank === 'C') return { title: 'ผ่านแล้ว! แต่ยังไปได้อีก', sub: 'เริ่มจับจังหวะได้แล้ว ลองลด miss และดัน combo ให้สูงขึ้น' };
+    return { title: 'ลองอีกครั้งนะ', sub: 'รอบหน้าดูสิ่งกีดขวางให้เร็วขึ้นอีกนิด' };
   }
 
   function resetResultHUD() {
@@ -922,16 +887,10 @@
 
     if (resultTitle) resultTitle.textContent = 'ผ่านแล้ว! แต่ยังไปได้อีก';
     if (resultSub) resultSub.textContent = 'รอบหน้าลองลด miss และดัน combo ให้สูงขึ้น';
-
     if (resultReward) resultReward.textContent = 'Clear Run';
     if (resultRewardIcon) resultRewardIcon.textContent = '⭐';
-    if (resultRewardSub) {
-      resultRewardSub.textContent = 'ลองอ่านสิ่งกีดขวางให้เร็วขึ้น และอย่ากดรีบเกินไป';
-    }
-
-    if (coachTip1) {
-      coachTip1.textContent = 'รอบหน้าลองดูสิ่งกีดขวางให้เร็วขึ้นอีกนิด';
-    }
+    if (resultRewardSub) resultRewardSub.textContent = 'ลองอ่านสิ่งกีดขวางให้เร็วขึ้น และอย่ากดรีบเกินไป';
+    if (coachTip1) coachTip1.textContent = 'รอบหน้าลองดูสิ่งกีดขวางให้เร็วขึ้นอีกนิด';
 
     if (resScoreBig) resScoreBig.textContent = '0';
     if (resMiss) resMiss.textContent = '0';
@@ -962,9 +921,9 @@
     if (resAccBig) resAccBig.textContent = '0%';
     if (resBossEndBig) resBossEndBig.textContent = '—';
     if (resPhaseEnd) resPhaseEnd.textContent = '-';
-    if (resPattern) resPattern.textContent = '-';
+    if (resPatternBox) resPatternBox.textContent = '-';
     if (resBossLabel) resBossLabel.textContent = '-';
-    if (resRush) resRush.textContent = '-';
+    if (resRushBox) resRushBox.textContent = '-';
 
     if (logStatus) {
       logStatus.textContent = '';
@@ -977,7 +936,6 @@
   function clearArena() {
     if (obsLayer) obsLayer.innerHTML = '';
     D.querySelectorAll('.jd-score-pop').forEach(el => el.remove());
-
     if (avatar) {
       avatar.classList.remove('avatar-jump', 'avatar-duck');
       avatar.classList.add('avatar-idle');
@@ -1038,11 +996,9 @@
 
   function jdTuneKeyByPhase(s) {
     const mode = String(HHA_CTX.phaseTune || 'dynamicABC').toLowerCase();
-
     if (mode === 'fixeda') return 'A';
     if (mode === 'fixedb') return 'B';
     if (mode === 'fixedc') return 'C';
-
     if (!s) return 'A';
     if (s.finalRush) return 'CPLUS';
     if (s.phase === 1) return 'A';
@@ -1290,38 +1246,38 @@
     const rng = s.rng || Math.random;
     const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
 
-    let baseGap = Number(s.gapBase || (compact ? 160 : 136));
+    let baseGap = Number(s.gapBase || (compact ? 170 : 136));
     const style = jdPatternSpacingStyle(s.lastPattern || '');
 
     if (style === 'tempo') {
-      const unit = compact ? 118 : 96;
-      return unit + (indexInSeq % 2 === 0 ? 0 : 6);
+      const unit = compact ? 128 : 96;
+      return unit + (indexInSeq % 2 === 0 ? 0 : 8);
     }
 
     if (style === 'mirror') {
-      const mirrorSetsCompact = [126, 144, 144, 126, 138, 138];
+      const mirrorSetsCompact = [140, 158, 158, 140, 150, 150];
       const mirrorSetsDesktop = [98, 124, 124, 98, 118, 118];
       const arr = compact ? mirrorSetsCompact : mirrorSetsDesktop;
       return arr[indexInSeq] ?? arr[arr.length - 1];
     }
 
     if (style === 'shield') {
-      const shieldGap = compact ? 116 : 92;
-      return shieldGap + (seqLength >= 5 ? 2 : 0);
+      const shieldGap = compact ? 128 : 92;
+      return shieldGap + (seqLength >= 5 ? 4 : 0);
     }
 
     if (style === 'chaos') {
-      const compactChaos = [128, 116, 104, 96, 88, 84, 82];
+      const compactChaos = [136, 126, 116, 108, 98, 92, 88];
       const desktopChaos = [104, 96, 88, 80, 74, 70, 68];
       const arr = compact ? compactChaos : desktopChaos;
-      return arr[indexInSeq] ?? (compact ? 82 : 68);
+      return arr[indexInSeq] ?? (compact ? 88 : 68);
     }
 
     if (style === 'feint') {
-      const compactFeint = [134, 118, 96, 88, 84];
+      const compactFeint = [144, 130, 114, 104, 98];
       const desktopFeint = [108, 98, 84, 78, 72];
       const arr = compact ? compactFeint : desktopFeint;
-      return arr[indexInSeq] ?? (compact ? 88 : 72);
+      return arr[indexInSeq] ?? (compact ? 98 : 72);
     }
 
     if (s.finalRush) baseGap -= 4;
@@ -1331,7 +1287,7 @@
     if (seqLength >= 5) baseGap -= 2;
 
     const jitter = compact ? (12 + Math.floor(rng() * 12)) : (8 + Math.floor(rng() * 10));
-    return Math.max(compact ? 108 : 82, baseGap + (indexInSeq * 2) + jitter);
+    return Math.max(compact ? 116 : 82, baseGap + (indexInSeq * 2) + jitter);
   }
 
   function jdFeintChance(s) {
@@ -1344,7 +1300,7 @@
 
     if (s.phase === 1) return 0;
     if (s.phase === 2) return compact ? 0.01 : 0.02;
-    if (s.phase === 3) return s.finalRush ? (compact ? 0.035 : 0.05) : (compact ? 0.028 : 0.04);
+    if (s.phase === 3) return s.finalRush ? (compact ? 0.03 : 0.05) : (compact ? 0.025 : 0.04);
 
     return 0;
   }
@@ -1694,15 +1650,15 @@
   function jdJudgeTiming(inputAgeMs, s) {
     const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
 
-    let perfectWindow = compact ? 114 : 105;
-    let goodWindow = compact ? 210 : 195;
+    let perfectWindow = compact ? 124 : 105;
+    let goodWindow = compact ? 228 : 195;
 
     if (s.diff === 'easy') {
-      perfectWindow = compact ? 126 : 118;
-      goodWindow = compact ? 232 : 220;
+      perfectWindow = compact ? 138 : 118;
+      goodWindow = compact ? 248 : 220;
     } else if (s.diff === 'hard') {
-      perfectWindow = compact ? 100 : 92;
-      goodWindow = compact ? 182 : 172;
+      perfectWindow = compact ? 108 : 92;
+      goodWindow = compact ? 192 : 172;
     }
 
     if (s.finalRush) {
@@ -1993,10 +1949,8 @@
       }
 
       if (s.bossPhase2) dmg += 1;
-
       s.bossHp = Math.max(0, Number(s.bossHp || 100) - dmg);
       if (s.playRoot) jdFlash(s.playRoot, 'bosshit');
-
       jdMaybeTriggerBossPhase2(s);
     }
 
@@ -2020,19 +1974,15 @@
     jdSetAvatarMood(judge === 'perfect' ? 'wow' : 'happy');
 
     let judgeText = judge === 'perfect' ? '✨ PERFECT!' : '✅ GOOD!';
-
     if (obs?.variant === 'heavy' && judge === 'perfect') judgeText = '💥 POWER CLEAR!';
     else if (obs?.variant === 'mini' && judge === 'perfect') judgeText = '⚡ QUICK READ!';
-
     if (s.bossActive && s.bossProfile?.key === 'tempo' && judge === 'perfect') judgeText = '🎵 ON BEAT!';
     if (s.bossActive && s.bossProfile?.key === 'feint' && obs.feint) judgeText = '🧠 READ IT!';
     if (s.bossActive && s.bossProfile?.key === 'shield' && (s.bossChain || 0) >= 3) judgeText = '🛡️ SHIELD BREAK!';
     if (s.bossActive && s.bossProfile?.key === 'mirror' && ['mirrorABBA','mirrorBAAB','mirrorEcho','mirror4'].includes(s.lastPattern || '')) judgeText = '🪞 MIRROR MASTER!';
     if (s.rushStage === 'survive' && judge === 'perfect') judgeText = '🔥 CLUTCH!';
     else if (s.rushStage === 'peak' && judge === 'perfect') judgeText = '⚡ HOLD IT!';
-
     if (s.feverActive) jdSetAvatarMood('fever');
-
     jdShowJudge(judgeText);
   }
 
@@ -2120,8 +2070,8 @@
     spawnMs = adjusted.spawnMs;
     s.hitHalfWindow = adjusted.hitHalfWindow;
 
-    spawnMs = jdClamp(Math.round(spawnMs), compact ? 430 : 360, 1800);
-    speed = jdClamp(speed, compact ? 4.8 : 4.9, compact ? 13.8 : 15.8);
+    spawnMs = jdClamp(Math.round(spawnMs), compact ? 470 : 360, 1800);
+    speed = jdClamp(speed, compact ? 4.6 : 4.9, compact ? 13.4 : 15.8);
 
     s.progress = progress;
     s.currentSpawnMs = spawnMs;
@@ -2204,16 +2154,13 @@
       }
     }
 
-    if (s.lastInput && now - s.lastInput.at > 260) s.lastInput = null;
+    if (s.lastInput && now - s.lastInput.at > 300) s.lastInput = null;
   }
 
   function jdHandleInput(s, type) {
     if (!s || !s.running) return;
 
-    s.lastInput = {
-      type,
-      at: performance.now()
-    };
+    s.lastInput = { type, at: performance.now() };
 
     jdLogEvent(s, 'input', {
       inputType: type,
@@ -2278,15 +2225,6 @@
       icon: s.bossProfile.icon,
       label: s.bossProfile.label
     };
-  }
-
-  function jdRewardFlavor(reward, bossBadge, rank) {
-    if (bossBadge) return `${bossBadge.icon} ปลดตรา ${bossBadge.label} สำเร็จ`;
-    if (rank === 'S') return 'จังหวะคมมาก รอบนี้เล่นเหมือนโปรแล้ว';
-    if (rank === 'A') return 'เหลืออีกนิดเดียวก็แตะระดับสูงสุด';
-    if (rank === 'B') return 'มีพื้นฐานดีแล้ว ดัน accuracy อีกหน่อยจะพุ่งมาก';
-    if (rank === 'C') return 'ลองอ่าน silhouette ให้เร็วขึ้น และอย่ากดรีบเกินไป';
-    return 'โฟกัส low = jump / high = duck แล้วจะดีขึ้นทันที';
   }
 
   function jdBossSpecificTitle(s, rank, bossDown, noMiss) {
@@ -2550,14 +2488,8 @@
     if (resultTitle) resultTitle.textContent = headline.title;
     if (resultSub) resultSub.textContent = headline.sub;
 
-    if (resultReward) {
-      resultReward.textContent = result.bossTitle || result.reward?.label || 'Clear Run';
-    }
-
-    if (resultRewardIcon) {
-      resultRewardIcon.textContent = result.bossBadge?.icon || result.reward?.medal || '⭐';
-    }
-
+    if (resultReward) resultReward.textContent = result.bossTitle || result.reward?.label || 'Clear Run';
+    if (resultRewardIcon) resultRewardIcon.textContent = result.bossBadge?.icon || result.reward?.medal || '⭐';
     if (resultRewardSub) {
       resultRewardSub.textContent =
         result.coach?.primaryTip ||
@@ -2568,36 +2500,18 @@
     if (resMiss) resMiss.textContent = String(s.miss || 0);
     if (resComboBig) resComboBig.textContent = String(s.maxCombo || 0);
 
-    if (resultBoss) {
-      resultBoss.textContent = s.bossProfile?.label || '—';
-    }
+    if (resultBoss) resultBoss.textContent = s.bossProfile?.label || '—';
+    if (resultPattern) resultPattern.textContent = s.lastPattern || '—';
+    if (resultRush) resultRush.textContent = s.finalRush ? 'FINAL RUSH' : '—';
 
-    if (resultPattern) {
-      resultPattern.textContent = s.lastPattern || '—';
-    }
-
-    if (resultRush) {
-      resultRush.textContent = s.finalRush ? 'FINAL RUSH' : '—';
-    }
-
-    if (coachTitle) {
-      coachTitle.textContent = result.coach?.headline || 'AI Coach';
-    }
-
-    if (coachSummary) {
-      coachSummary.textContent = result.coach?.summary || 'สรุปคำแนะนำหลังจบเกม';
-    }
-
+    if (coachTitle) coachTitle.textContent = result.coach?.headline || 'AI Coach';
+    if (coachSummary) coachSummary.textContent = result.coach?.summary || 'สรุปคำแนะนำหลังจบเกม';
     if (coachTip1) {
       coachTip1.textContent =
         result.coach?.primaryTip ||
         'รอบหน้าลองโฟกัส low = jump และ high = duck ให้เร็วขึ้น';
     }
-
-    if (coachTip2) {
-      coachTip2.textContent =
-        result.coach?.secondaryTip || '—';
-    }
+    if (coachTip2) coachTip2.textContent = result.coach?.secondaryTip || '—';
 
     if (resScore) resScore.textContent = String(s.score || 0);
     if (resRank) resRank.textContent = String(result.rank || 'C');
@@ -2664,7 +2578,6 @@
       lastPattern: '',
       liveNoMiss: true,
       streakTier: 0,
-      streakBurstsAwarded: {},
       noMissBonusAwarded: false,
       rushSurviveAwarded: false,
       directorEnabled: JD_DIRECTOR_CONFIG.enabled,
@@ -2959,7 +2872,7 @@
 
     if (!state.bossActive && state.progress >= 0.76) jdStartBoss(state);
 
-    if (!state.nextSpawnAt) state.nextSpawnAt = now + 700;
+    if (!state.nextSpawnAt) state.nextSpawnAt = now + 760;
 
     if (now >= state.nextSpawnAt) {
       jdSpawnWave(state);
@@ -3078,16 +2991,6 @@
       showView('menu');
     });
 
-    D.querySelector('[data-action="back-menu"]')?.addEventListener('click', () => {
-      hhFitnessGoHub({
-        score: Number(state?.score || 0),
-        miss: Number(state?.miss || 0),
-        bestStreak: Number(state?.maxCombo || 0),
-        result: state?.ended ? 'summary_back_zone' : 'menu_back_zone'
-      });
-      location.href = HHA_CTX.hub || FIT_ZONE_FALLBACK;
-    });
-
     btnContinueFlow?.addEventListener('click', () => {
       const summary = loadJson('HHA_LAST_SUMMARY', null);
       const href = summary?.cooldownHref || buildCooldownGateHref({
@@ -3134,7 +3037,6 @@
 
     W.addEventListener('pagehide', () => {
       if (!state || state.finished || state.finishing) return;
-
       hhFitnessGoHub({
         score: Number(state?.score || 0),
         miss: Number(state?.miss || 0),
