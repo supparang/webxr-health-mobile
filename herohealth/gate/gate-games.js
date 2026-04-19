@@ -112,9 +112,7 @@ function makeMeta(id, cfg = {}) {
     cooldownFile: base.cooldownFile || '',
     styleFile: base.styleFile || '',
     summaryPath,
-    defaults: {
-      summaryPath
-    }
+    defaults: { summaryPath }
   };
 }
 
@@ -458,14 +456,8 @@ export function getPhaseFile(id = '', gatePhase = 'warmup') {
     ? 'cooldown'
     : 'warmup';
 
-  if (phase === 'warmup') {
-    return meta.warmupFile || defaultPhaseFile(meta.id, 'warmup');
-  }
-
-  if (phase === 'cooldown') {
-    return meta.cooldownFile || defaultPhaseFile(meta.id, 'cooldown');
-  }
-
+  if (phase === 'warmup') return meta.warmupFile || defaultPhaseFile(meta.id, 'warmup');
+  if (phase === 'cooldown') return meta.cooldownFile || defaultPhaseFile(meta.id, 'cooldown');
   return '';
 }
 
