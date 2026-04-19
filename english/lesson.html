@@ -22,9 +22,9 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260419-lesson-speaking-choice-fix-final';
+    window.TECHPATH_BUILD = 'v20260419-lesson-speaking-choice-fix-endpoint2-final';
     window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260419-lesson-speaking-choice-fix-final';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260419-lesson-speaking-choice-fix-endpoint2-final';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -699,7 +699,6 @@
       display:none;
     }
 
-    /* safety defaults */
     #boss-phase-ui,
     #game-over-ui,
     #summary-panel {
@@ -1009,7 +1008,6 @@
         display:none !important;
       }
 
-      /* แสดง choice เฉพาะ reading/listening */
       body.mission-mode[data-mission-type="reading"] #choice-buttons,
       body.mission-mode[data-mission-type="listening"] #choice-buttons {
         position:fixed !important;
@@ -1297,885 +1295,154 @@
     <button class="btn-action" id="btn-mobile-stats" type="button">สถิติ</button>
   </div>
 
-  <script>
-  (function () {
-    'use strict';
-
-    function $(id) {
-      return document.getElementById(id);
-    }
-
-    let finished = false;
-    let firstBootError = '';
-
-    function escapeHtml(str) {
-      return String(str || '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
-    }
-
-    function formatErrorMessage(raw) {
-      const text = String(raw || '').trim();
-      if (!text) return 'Unknown boot error';
-      return text.length > 320 ? text.slice(0, 320) + '…' : text;
-    }
-
-    function releaseLoading(message = '', isError = false) {
-      if (finished && !isError) return;
-      finished = true;
-
-      const loading = $('loading');
-      if (!loading) return;
-
-      if (message) {
-        loading.innerHTML = `
-          <div style="font-size:1.05rem;font-weight:800;color:#7bedff;margin-bottom:10px;">
-            TechPath VR
-          </div>
-          <div style="font-size:.94rem;line-height:1.5;color:${isError ? '#ffd6db' : '#eaf6ff'};max-width:340px;margin:0 auto 14px;white-space:pre-wrap;">
-            ${escapeHtml(message)}
-          </div>
-          <button id="boot-reload-btn"
-            style="display:${isError ? 'inline-flex' : 'none'};min-height:44px;padding:10px 16px;border-radius:14px;border:1px solid rgba(123,237,255,.25);background:rgba(123,237,255,.12);color:#fff;font-weight:800;">
-            รีเฟรชอีกครั้ง
-          </button>
-        `;
-
-        const reloadBtn = $('boot-reload-btn');
-        if (reloadBtn && isError) {
-          reloadBtn.addEventListener('click', function () {
-            location.reload();
-          });
-        }
-      }
-
-      loading.style.opacity = '1';
-      loading.style.display = 'flex';
-
-      if (!isError) {
-        setTimeout(() => {
-          loading.style.opacity = '0';
-          setTimeout(() => {
-            loading.style.display = 'none';
-          }, 260);
-        }, 120);
-      }
-    }
-
-    function showBootError(raw) {
-      if (firstBootError) return;
-      firstBootError = formatErrorMessage(raw);
-      console.error('TechPath boot error:', raw);
-      releaseLoading('เริ่มระบบไม่สำเร็จ\n\n' + firstBootError, true);
-    }
-
-    window.__TECHPATH_RELEASE_LOADING__ = function () {
-      releaseLoading('', false);
-    };
-
-    window.__TECHPATH_SHOW_BOOT_ERROR__ = showBootError;
-
-    window.addEventListener('load', function () {
-      setTimeout(() => {
-        if (!firstBootError) releaseLoading('', false);
-      }, 300);
-    });
-
-    window.addEventListener('error', function (e) {
-      const msg =
-        e?.error?.stack ||
-        e?.error?.message ||
-        e?.message ||
-        'Global boot error';
-      showBootError(msg);
-    });
-
-    window.addEventListener('unhandledrejection', function (e) {
-      const msg =
-        e?.reason?.stack ||
-        e?.reason?.message ||
-        e?.reason ||
-        'Unhandled promise rejection';
-      showBootError(msg);
-    });
-
-    setTimeout(() => {
-      if (!finished && !firstBootError) {
-        showBootError('โหลดนานผิดปกติ: module หรือ import บางตัวอาจพัง');
-      }
-    }, 3500);
-  })();
-  </script>
-
-  <script type="module" src="./js/lesson-main.js"></script>
-
-  <script>
-  (function () {
-    'use strict';
-
-    const html = document.documentElement;
-    html.classList.add('protected');
-
-    function isEditable(el) {
-      if (!el) return false;
-      return !!el.closest('input, textarea, [contenteditable="true"]');
-    }
-
-    function blockEvent(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-      return false;
-    }
-
-    document.addEventListener('contextmenu', function (e) {
-      if (!isEditable(e.target)) blockEvent(e);
-    }, true);
-
-    document.addEventListener('dragstart', function (e) {
-      if (!isEditable(e.target)) blockEvent(e);
-    }, true);
-
-    document.addEventListener('selectstart', function (e) {
-      if (!isEditable(e.target)) blockEvent(e);
-    }, true);
-
-    document.addEventListener('copy', function (e) {
-      if (!isEditable(e.target)) blockEvent(e);
-    }, true);
-
-    document.addEventListener('cut', function (e) {
-      if (!isEditable(e.target)) blockEvent(e);
-    }, true);
-
-    document.addEventListener('keydown', function (e) {
-      const key = String(e.key || '').toLowerCase();
-
-      const blocked =
-        e.key === 'F12' ||
-        (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(key)) ||
-        (e.metaKey && e.altKey && ['i', 'j', 'c'].includes(key)) ||
-        (e.ctrlKey && ['u', 's'].includes(key)) ||
-        (e.metaKey && ['u', 's'].includes(key));
-
-      if (blocked) return blockEvent(e);
-
-      const copyLike = (e.ctrlKey || e.metaKey) && ['c', 'x'].includes(key);
-      if (copyLike && !isEditable(e.target)) return blockEvent(e);
-    }, true);
-
-    let devtoolsOpen = false;
-    const THRESHOLD_W = 260;
-    const THRESHOLD_H = 220;
-
-    function shouldCheckSizeGuard() {
-      return window.innerWidth >= 900;
-    }
-
-    setInterval(function () {
-      const shield = document.getElementById('source-shield');
-
-      if (!shouldCheckSizeGuard()) {
-        devtoolsOpen = false;
-        document.body.classList.remove('devtools-guard');
-        if (shield) shield.setAttribute('aria-hidden', 'true');
-        return;
-      }
-
-      const widthGap = Math.abs(window.outerWidth - window.innerWidth);
-      const heightGap = Math.abs(window.outerHeight - window.innerHeight);
-      const open = widthGap > THRESHOLD_W || heightGap > THRESHOLD_H;
-
-      if (open !== devtoolsOpen) {
-        devtoolsOpen = open;
-        document.body.classList.toggle('devtools-guard', open);
-        if (shield) shield.setAttribute('aria-hidden', open ? 'false' : 'true');
-      }
-    }, 1500);
-  })();
-  </script>
-
-  <script>
-  (function () {
-    'use strict';
-
-    const sheet = document.getElementById('mobile-hub-sheet');
-    const profile = document.getElementById('profile-panel');
-    const stats = document.getElementById('hub-stats-board');
-    const btnSessions = document.getElementById('btn-mobile-sessions');
-    const btnProfile = document.getElementById('btn-mobile-profile');
-    const btnStats = document.getElementById('btn-mobile-stats');
-
-    if (!sheet || !profile || !stats || !btnSessions || !btnProfile || !btnStats) return;
-
-    function closeSheet() {
-      sheet.classList.remove('show');
-      sheet.innerHTML = '';
-    }
-
-    function renderNodeIntoSheet(fromEl) {
-      sheet.innerHTML = '';
-      const clone = fromEl.cloneNode(true);
-      clone.style.display = 'block';
-      clone.id = clone.id + '-sheet-copy';
-      sheet.appendChild(clone);
-      sheet.classList.add('show');
-    }
-
-    function renderSessionSheet() {
-      sheet.innerHTML = `
-        <div class="session-sheet-title">เลือกด่าน</div>
-        <div class="session-grid">
-          ${Array.from({ length: 15 }, (_, i) => {
-            const id = i + 1;
-            return `<button type="button" class="session-chip" data-session-id="${id}">S${id}</button>`;
-          }).join('')}
-        </div>
-      `;
-
-      sheet.classList.add('show');
-
-      sheet.querySelectorAll('.session-chip').forEach((btn) => {
-        btn.addEventListener('click', function () {
-          const id = Number(this.getAttribute('data-session-id') || '0');
-
-          if (typeof window.loadMission === 'function') {
-            closeSheet();
-            window.loadMission(id);
-            return;
-          }
-
-          const missionBox = document.getElementById('mission-box-' + id);
-          if (missionBox) {
-            closeSheet();
-            missionBox.click();
-            return;
-          }
-
-          const missionRoot = document.getElementById('mission-root-' + id);
-          if (missionRoot) {
-            closeSheet();
-            missionRoot.click();
-            return;
-          }
-
-          console.warn('Mission box not ready for session', id);
-        });
-      });
-    }
-
-    btnSessions.addEventListener('click', function () {
-      const sameOpen = sheet.classList.contains('show') && sheet.querySelector('.session-grid');
-      if (sameOpen) {
-        closeSheet();
-        return;
-      }
-      renderSessionSheet();
-    });
-
-    btnProfile.addEventListener('click', function () {
-      const sameOpen = sheet.classList.contains('show') && sheet.querySelector('#profile-panel-sheet-copy');
-      if (sameOpen) {
-        closeSheet();
-        return;
-      }
-      renderNodeIntoSheet(profile);
-    });
-
-    btnStats.addEventListener('click', function () {
-      const sameOpen = sheet.classList.contains('show') && sheet.querySelector('#hub-stats-board-sheet-copy');
-      if (sameOpen) {
-        closeSheet();
-        return;
-      }
-      renderNodeIntoSheet(stats);
-    });
-
-    document.addEventListener('click', function (e) {
-      if (!sheet.classList.contains('show')) return;
-      const inSheet = e.target.closest('#mobile-hub-sheet');
-      const inDrawer = e.target.closest('#mobile-hub-drawer');
-      if (!inSheet && !inDrawer) closeSheet();
-    }, true);
-
-    function isVisible(id) {
-      const el = document.getElementById(id);
-      if (!el) return false;
-      const cs = getComputedStyle(el);
-      return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
-    }
-
-    function syncBodyMode() {
-      const summaryVisible =
-        isVisible('summary-panel') ||
-        isVisible('game-over-ui') ||
-        isVisible('btn-next') ||
-        isVisible('btn-return');
-
-      const missionVisible =
-        !summaryVisible && (
-          /SESSION\s+\d+/i.test((document.getElementById('ui-title')?.textContent || '').trim()) ||
-          isVisible('btn-speak') ||
-          isVisible('btn-play-audio') ||
-          isVisible('write-input') ||
-          isVisible('btn-submit-write') ||
-          isVisible('choice-buttons')
-        );
-
-      document.body.classList.remove('hub-mode', 'mission-mode', 'summary-mode');
-
-      if (summaryVisible) {
-        document.body.classList.add('summary-mode');
-      } else if (missionVisible) {
-        document.body.classList.add('mission-mode');
-      } else {
-        document.body.classList.add('hub-mode');
-      }
-
-      if (!document.body.classList.contains('hub-mode')) {
-        closeSheet();
-      }
-    }
-
-    setInterval(syncBodyMode, 250);
-    syncBodyMode();
-  })();
-  </script>
-
-  <script>
-(function () {
-  'use strict';
-
-  const ENDPOINT =
-    window.TECHPATH_ATTENDANCE_ENDPOINT ||
-    'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
-
-  const PATCH = 'v20260418-techpath-attendance-runtime-final';
-  const HEARTBEAT_MS = 15000;
-  const ACTIVE_TICK_MS = 1000;
-  const ATTEMPT_MIN_GAP_MS = 1200;
-
-  const q = new URLSearchParams(location.search);
-
-  function safeGetLS(key, fallback = '') {
-    try {
-      const v = localStorage.getItem(key);
-      return v == null ? fallback : v;
-    } catch (_) {
-      return fallback;
-    }
-  }
-
-  function safeSetLS(key, value) {
-    try {
-      localStorage.setItem(key, String(value ?? ''));
-    } catch (_) {}
-  }
-
-  function askOnce(storageKey, promptText) {
-    const oldVal = safeGetLS(storageKey, '');
-    if (oldVal) return oldVal;
-    const v = window.prompt(promptText || storageKey, '') || '';
-    if (v) safeSetLS(storageKey, v);
-    return v;
-  }
-
-  const context = {
-    studentId:
-      q.get('sid') ||
-      q.get('studentId') ||
-      q.get('id') ||
-      safeGetLS('ENG_STUDENT_ID') ||
-      askOnce('ENG_STUDENT_ID', 'กรอก Student ID'),
-    studentName:
-      q.get('name') ||
-      q.get('studentName') ||
-      safeGetLS('ENG_STUDENT_NAME') ||
-      askOnce('ENG_STUDENT_NAME', 'กรอกชื่อผู้เรียน'),
-    classSection:
-      q.get('section') ||
-      safeGetLS('ENG_CLASS_SECTION') ||
-      askOnce('ENG_CLASS_SECTION', 'กรอก section/ห้อง'),
-    lessonId:
-      q.get('lessonId') ||
-      q.get('unit') ||
-      q.get('course') ||
-      'techpath-vr',
-    courseMeeting:
-      q.get('meetingNo') ||
-      q.get('week') ||
-      q.get('meeting') ||
-      '',
-    pageUrl: location.href,
-    userAgent: navigator.userAgent
-  };
-
-  safeSetLS('ENG_STUDENT_ID', context.studentId);
-  safeSetLS('ENG_STUDENT_NAME', context.studentName);
-  safeSetLS('ENG_CLASS_SECTION', context.classSection);
-
-  function makeId(prefix) {
-    return [prefix, Date.now(), Math.random().toString(36).slice(2, 8)].join('-');
-  }
-
-  function nowIso() {
-    return new Date().toISOString();
-  }
-
-  function fmtSec(sec) {
-    const n = Math.max(0, Math.round(Number(sec) || 0));
-    const mm = String(Math.floor(n / 60)).padStart(2, '0');
-    const ss = String(n % 60).padStart(2, '0');
-    return mm + ':' + ss;
-  }
-
-  function getEl(id) {
-    return document.getElementById(id);
-  }
-
-  function getText(id) {
-    const el = getEl(id);
-    return el ? String(el.textContent || el.innerText || '').trim() : '';
-  }
-
-  function setText(id, value) {
-    const el = getEl(id);
-    if (el) el.textContent = value;
-  }
-
-  function isShown(el) {
-    if (!el) return false;
-    const cs = getComputedStyle(el);
-    return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
-  }
-
-  function parseMissionIdFromTitle() {
-    const title = getText('ui-title');
-    const m = title.match(/SESSION\s+(\d+)/i);
-    return m ? Number(m[1]) : null;
-  }
-
-  function parseSessionNo(n) {
-    const num = Number(n || 0);
-    if (!Number.isFinite(num) || num <= 0) return 'S00';
-    return 'S' + String(num).padStart(2, '0');
-  }
-
-  function readScore() {
-    const raw = getText('score-display').replace(/[^\d.-]/g, '');
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : 0;
-  }
-
-  function readHP() {
-    return getText('hp-display') || '100%';
-  }
-
-  function summarySnapshot() {
-    return {
-      summaryTitle: getText('summary-title'),
-      summaryBody: getText('summary-body'),
-      feedback: getText('feedback'),
-      uiTitle: getText('ui-title'),
-      btnNextVisible: isShown(getEl('btn-next')),
-      btnReturnVisible: isShown(getEl('btn-return')),
-      gameOverVisible: isShown(getEl('game-over-ui'))
-    };
-  }
-
-  function detectScreenMode() {
-    const title = getText('ui-title');
-    const summaryVisible =
-      isShown(getEl('summary-panel')) ||
-      isShown(getEl('btn-next')) ||
-      isShown(getEl('btn-return')) ||
-      isShown(getEl('game-over-ui'));
-
-    const missionVisible =
-      /SESSION\s+\d+/i.test(title) ||
-      isShown(getEl('btn-speak')) ||
-      isShown(getEl('btn-play-audio')) ||
-      isShown(getEl('write-input')) ||
-      isShown(getEl('btn-submit-write')) ||
-      isShown(getEl('choice-buttons'));
-
-    if (summaryVisible) return 'summary';
-    if (missionVisible) return 'mission';
-    return 'hub';
-  }
-
-  function inferMissionType() {
-    if (isShown(getEl('write-input')) || isShown(getEl('btn-submit-write'))) return 'writing';
-    if (isShown(getEl('btn-speak'))) return 'speaking';
-    if (isShown(getEl('btn-play-audio')) && isShown(getEl('choice-buttons'))) return 'listening';
-    if (isShown(getEl('choice-buttons'))) return 'reading';
-    return '';
-  }
-
-  function currentSnapshot() {
-    const missionId = parseMissionIdFromTitle();
-    const sessionNo = parseSessionNo(missionId);
-    return {
-      missionId,
-      sessionNo,
-      mode: detectScreenMode(),
-      missionType: inferMissionType(),
-      score: readScore(),
-      hp: readHP(),
-      uiTitle: getText('ui-title'),
-      feedback: getText('feedback'),
-      summary: summarySnapshot()
-    };
-  }
-
-  const runtime = {
-    pageVisitId: makeId('PAGE'),
-    pageEnterMs: Date.now(),
-    pageEnteredAt: nowIso(),
-    pageLastActiveAt: Date.now(),
-    pageLastActionMs: 0,
-    pageActiveTimeMs: 0,
-    pageActionsCount: 0,
-    currentAttempt: null,
-    readyForNewAttempt: true,
-    lastDetectedMissionId: null,
-    lastMode: '',
-    lastHeartbeatAt: 0,
-    sentSummaryForAttemptId: '',
-    lastMissionStartAt: 0
-  };
-
-  function newAttemptBase(snapshot) {
-    return {
-      attemptId: makeId('ATT'),
-      missionId: snapshot.missionId || '',
-      sessionNo: snapshot.sessionNo || 'S00',
-      missionType: snapshot.missionType || '',
-      startedAt: nowIso(),
-      startMs: Date.now(),
-      endedAt: '',
-      endMs: 0,
-      durationSec: 0,
-      scoreStart: snapshot.score,
-      scoreEnd: snapshot.score,
-      hpStart: snapshot.hp,
-      hpEnd: snapshot.hp,
-      result: '',
-      summaryTitle: '',
-      summaryBody: '',
-      feedback: '',
-      completed: false
-    };
-  }
-
-  function updateAttendanceMiniUI(snapshot, statusText) {
-    setText('attendance-summary-name', context.studentName || '-');
-    setText('attendance-summary-s', snapshot.sessionNo || 'S00');
-    setText('attendance-summary-status', statusText || 'กำลังติดตาม');
-    setText('attendance-student-id', context.studentId || '-');
-    setText('attendance-student-name', context.studentName || '-');
-    setText('attendance-class-section', context.classSection || '-');
-    setText('attendance-session-no', snapshot.sessionNo || 'S00');
-    setText('attendance-duration', runtime.currentAttempt ? fmtSec((Date.now() - runtime.currentAttempt.startMs) / 1000) : '00:00');
-    setText('attendance-active-time', fmtSec(runtime.pageActiveTimeMs / 1000));
-
-    const box = getEl('attendance-status');
-    if (box) {
-      box.classList.remove('warn', 'fail');
-      box.textContent = statusText || 'กำลังติดตาม';
-      if (/error|fail|offline|ไม่สำเร็จ|ผิดพลาด/i.test(box.textContent)) box.classList.add('fail');
-      else if (/เตรียม|tracking|ติดตาม|started|running/i.test(box.textContent)) box.classList.add('warn');
-    }
-  }
-
-  function buildPayload(eventType, extra = {}) {
-    const snapshot = currentSnapshot();
-    const attempt = runtime.currentAttempt;
-
-    return {
-      source: 'techpath-vr',
-      patch: PATCH,
-      eventType,
-      pageVisitId: runtime.pageVisitId,
-      pageEnteredAt: runtime.pageEnteredAt,
-      eventAt: nowIso(),
-
-      studentId: context.studentId || '',
-      studentName: context.studentName || '',
-      classSection: context.classSection || '',
-      lessonId: context.lessonId || 'techpath-vr',
-      courseMeeting: context.courseMeeting || '',
-
-      pageUrl: context.pageUrl,
-      userAgent: context.userAgent,
-
-      mode: snapshot.mode,
-      missionId: snapshot.missionId || '',
-      sessionNo: snapshot.sessionNo || 'S00',
-      missionType: snapshot.missionType || '',
-
-      score: snapshot.score,
-      hp: snapshot.hp,
-      uiTitle: snapshot.uiTitle,
-      feedback: snapshot.feedback,
-
-      summaryTitle: snapshot.summary.summaryTitle,
-      summaryBody: snapshot.summary.summaryBody,
-      btnNextVisible: snapshot.summary.btnNextVisible,
-      btnReturnVisible: snapshot.summary.btnReturnVisible,
-      gameOverVisible: snapshot.summary.gameOverVisible,
-
-      pageActiveTimeSec: Math.round(runtime.pageActiveTimeMs / 1000),
-      pageActionsCount: runtime.pageActionsCount,
-
-      attemptId: attempt?.attemptId || '',
-      attemptStartedAt: attempt?.startedAt || '',
-      attemptEndedAt: attempt?.endedAt || '',
-      attemptDurationSec: attempt?.durationSec || 0,
-      attemptScoreStart: attempt?.scoreStart ?? '',
-      attemptScoreEnd: attempt?.scoreEnd ?? '',
-      attemptHpStart: attempt?.hpStart ?? '',
-      attemptHpEnd: attempt?.hpEnd ?? '',
-      attemptResult: attempt?.result || '',
-
-      ...extra
-    };
-  }
-
-  async function postPayload(payload, useBeacon = false) {
-    if (!ENDPOINT) return false;
-
-    const body = JSON.stringify(payload);
-
-    try {
-      if (useBeacon && navigator.sendBeacon) {
-        const blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
-        return navigator.sendBeacon(ENDPOINT, blob);
-      }
-
-      await fetch(ENDPOINT, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        body
-      });
-      return true;
-    } catch (err) {
-      console.error('Attendance POST failed:', err);
-      return false;
-    }
-  }
-
-  function bumpAction() {
-    runtime.pageActionsCount += 1;
-    runtime.pageLastActionMs = Date.now();
-  }
-
-  function startAttemptIfNeeded() {
-    const snapshot = currentSnapshot();
-    if (snapshot.mode !== 'mission' || !snapshot.missionId) return;
-
-    if (
-      runtime.currentAttempt &&
-      Number(runtime.currentAttempt.missionId) === Number(snapshot.missionId) &&
-      !runtime.currentAttempt.completed
-    ) {
-      return;
-    }
-
-    const now = Date.now();
-    if (now - runtime.lastMissionStartAt < ATTEMPT_MIN_GAP_MS) return;
-
-    runtime.lastMissionStartAt = now;
-    runtime.currentAttempt = newAttemptBase(snapshot);
-    runtime.sentSummaryForAttemptId = '';
-    runtime.lastDetectedMissionId = snapshot.missionId;
-    bumpAction();
-    updateAttendanceMiniUI(snapshot, 'Mission started');
-    postPayload(buildPayload('mission_start'));
-  }
-
-  function closeAttempt(result) {
-    if (!runtime.currentAttempt || runtime.currentAttempt.completed) return;
-
-    const snapshot = currentSnapshot();
-    runtime.currentAttempt.endedAt = nowIso();
-    runtime.currentAttempt.endMs = Date.now();
-    runtime.currentAttempt.durationSec = Math.max(0, Math.round((runtime.currentAttempt.endMs - runtime.currentAttempt.startMs) / 1000));
-    runtime.currentAttempt.scoreEnd = snapshot.score;
-    runtime.currentAttempt.hpEnd = snapshot.hp;
-    runtime.currentAttempt.summaryTitle = snapshot.summary.summaryTitle || '';
-    runtime.currentAttempt.summaryBody = snapshot.summary.summaryBody || '';
-    runtime.currentAttempt.feedback = snapshot.feedback || '';
-    runtime.currentAttempt.result = result || runtime.currentAttempt.result || '';
-    runtime.currentAttempt.completed = true;
-
-    bumpAction();
-    updateAttendanceMiniUI(snapshot, result === 'success' ? 'Mission cleared' : (result === 'fail' ? 'Mission failed' : 'Mission ended'));
-    postPayload(buildPayload('mission_end', { result: runtime.currentAttempt.result }));
-  }
-
-  function maybeDetectSummary() {
-    const snapshot = currentSnapshot();
-    if (snapshot.mode !== 'summary') return;
-    if (!runtime.currentAttempt) return;
-    if (!runtime.currentAttempt.completed) {
-      const result =
-        /clear|success|win|ผ่าน/i.test(snapshot.summary.summaryTitle + ' ' + snapshot.summary.summaryBody + ' ' + snapshot.feedback)
-          ? 'success'
-          : (snapshot.summary.gameOverVisible ? 'fail' : 'summary');
-      closeAttempt(result);
-    }
-    if (runtime.sentSummaryForAttemptId === runtime.currentAttempt.attemptId) return;
-    runtime.sentSummaryForAttemptId = runtime.currentAttempt.attemptId;
-    postPayload(buildPayload('summary_view'));
-  }
-
-  function maybeDetectReturnToHub() {
-    const snapshot = currentSnapshot();
-    if (snapshot.mode === 'hub' && runtime.lastMode && runtime.lastMode !== 'hub') {
-      bumpAction();
-      updateAttendanceMiniUI(snapshot, 'Back to hub');
-      postPayload(buildPayload('hub_view'));
-    }
-  }
-
-  function heartbeat() {
-    const now = Date.now();
-    if (now - runtime.lastHeartbeatAt < HEARTBEAT_MS) return;
-    runtime.lastHeartbeatAt = now;
-    const snapshot = currentSnapshot();
-    updateAttendanceMiniUI(snapshot, snapshot.mode === 'mission' ? 'Mission running' : (snapshot.mode === 'summary' ? 'Summary view' : 'Hub view'));
-    postPayload(buildPayload('heartbeat'));
-  }
-
-  function onVisibility() {
-    if (document.hidden) {
-      postPayload(buildPayload('page_hidden'), true);
-    } else {
-      runtime.pageLastActiveAt = Date.now();
-      postPayload(buildPayload('page_visible'));
-    }
-  }
-
-  function onPageLeave() {
-    const snapshot = currentSnapshot();
-    if (snapshot.mode === 'mission' && runtime.currentAttempt && !runtime.currentAttempt.completed) {
-      closeAttempt('leave');
-    }
-    postPayload(buildPayload('page_leave'), true);
-  }
-
-  function syncMode() {
-    const snapshot = currentSnapshot();
-    if (snapshot.mode === 'mission') startAttemptIfNeeded();
-    if (snapshot.mode === 'summary') maybeDetectSummary();
-    maybeDetectReturnToHub();
-    runtime.lastMode = snapshot.mode;
-  }
-
-  function attachObservers() {
-    const ids = [
-      'ui-title',
-      'summary-panel',
-      'summary-title',
-      'summary-body',
-      'feedback',
-      'btn-next',
-      'btn-return',
-      'game-over-ui',
-      'choice-buttons',
-      'btn-speak',
-      'btn-play-audio',
-      'write-input',
-      'btn-submit-write'
-    ];
-
-    const obs = new MutationObserver(function () {
-      syncMode();
-    });
-
-    ids.forEach((id) => {
-      const el = getEl(id);
-      if (el) obs.observe(el, { attributes: true, childList: true, subtree: true, characterData: true });
-    });
-  }
-
-  function attachUIHooks() {
-    getEl('attendance-toggle')?.addEventListener('click', function () {
-      const panel = getEl('attendance-panel');
-      if (!panel) return;
-      panel.classList.toggle('compact');
-      const expanded = !panel.classList.contains('compact');
-      this.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-      this.textContent = expanded ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด';
-      bumpAction();
-      postPayload(buildPayload('attendance_toggle', { expanded }));
-    });
-
-    ['btn-next', 'btn-return', 'btn-save-profile', 'btn-submit-score', 'btn-submit-write', 'btn-speak', 'btn-play-audio']
-      .forEach((id) => {
-        getEl(id)?.addEventListener('click', function () {
-          bumpAction();
-          postPayload(buildPayload('ui_click', { controlId: id }));
-        });
-      });
-
-    getEl('choice-buttons')?.addEventListener('click', function (e) {
-      const btn = e.target.closest('button');
-      if (!btn) return;
-      bumpAction();
-      postPayload(buildPayload('choice_click', { choiceText: String(btn.textContent || '').trim() }));
-    });
-
-    getEl('profile-name-input')?.addEventListener('change', function () {
-      bumpAction();
-      postPayload(buildPayload('profile_name_change', { profileName: this.value || '' }));
-    });
-
-    getEl('player-name-input')?.addEventListener('change', function () {
-      bumpAction();
-      postPayload(buildPayload('score_name_change', { scoreName: this.value || '' }));
-    });
-  }
-
-  function activeTick() {
-    if (!document.hidden) {
-      runtime.pageActiveTimeMs += ACTIVE_TICK_MS;
-      if (runtime.currentAttempt && !runtime.currentAttempt.completed) {
-        setText('attendance-duration', fmtSec((Date.now() - runtime.currentAttempt.startMs) / 1000));
-      }
-      setText('attendance-active-time', fmtSec(runtime.pageActiveTimeMs / 1000));
-    }
-  }
-
-  function init() {
-    const snapshot = currentSnapshot();
-    updateAttendanceMiniUI(snapshot, 'กำลังติดตาม');
-    attachObservers();
-    attachUIHooks();
-
-    document.addEventListener('visibilitychange', onVisibility, true);
-    window.addEventListener('beforeunload', onPageLeave, true);
-    window.addEventListener('pagehide', onPageLeave, true);
-    window.addEventListener('click', bumpAction, true);
-    window.addEventListener('keydown', bumpAction, true);
-
-    setInterval(activeTick, ACTIVE_TICK_MS);
-    setInterval(syncMode, 700);
-    setInterval(heartbeat, HEARTBEAT_MS);
-
-    postPayload(buildPayload('page_enter'));
-    postPayload(buildPayload('hub_view'));
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
-  } else {
-    init();
-  }
-})();
-</script>
+  <a-scene loading-screen="enabled: false">
+    <a-entity id="hub-scene">
+      <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
+
+      <a-entity position="0 4.35 -5.15">
+        <a-text value="TECHPATH VR" position="0 0.28 0" align="center" color="#7bedff" scale="1.75 1.75 1.75"></a-text>
+        <a-text value="Choose a session and build your skill path" position="0 -0.12 0" align="center" color="#dbeafe" scale="0.56 0.56 0.56"></a-text>
+        <a-plane position="0 -0.34 0" width="3.1" height="0.03" color="#00e5ff" material="opacity: 0.45; shader: flat"></a-plane>
+      </a-entity>
+
+      <a-plane position="0 1.18 -4.18" width="9.1" height="3.35" color="#09111f" material="opacity: 0.24; shader: flat"></a-plane>
+
+      <a-entity id="reward-chest" class="clickable" position="-3.72 0.72 -3.08" rotation="0 42 0" onclick="claimReward()">
+        <a-plane id="reward-card-panel" position="0 0.34 -0.18" width="2.25" height="1.55" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
+        <a-box id="reward-card-frame" position="0 0.34 -0.21" width="2.35" height="1.65" depth="0.04" color="#7bedff" material="wireframe: true; opacity: 0.35"></a-box>
+        <a-ring id="reward-aura" position="0 0.18 0.08" radius-inner="0.46" radius-outer="0.60" color="#ffeaa7" material="opacity: 0.18; shader: flat" rotation="-90 0 0"></a-ring>
+        <a-box id="reward-chest-body" position="0 0.02 0" width="0.82" height="0.50" depth="0.62" color="#8c6239" material="metalness: 0.22; roughness: 0.55"></a-box>
+        <a-box id="reward-chest-lid" position="0 0.34 0.02" width="0.84" height="0.16" depth="0.64" color="#f1c40f" material="metalness: 0.52; roughness: 0.34"></a-box>
+        <a-text value="DAILY REWARD" position="0 0.72 0.03" align="center" color="#ffeaa7" scale="0.46 0.46 0.46"></a-text>
+        <a-text id="streak-text" value="Loading..." position="0 -0.55 0.03" align="center" color="#ffffff" scale="0.38 0.38 0.38" width="5"></a-text>
+      </a-entity>
+
+      <a-entity position="-4.08 2.03 -2.82" rotation="0 25 0">
+        <a-plane width="2.18" height="1.56" color="#0f172a" material="opacity: 0.92; shader: flat"></a-plane>
+        <a-box width="2.28" height="1.66" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.34"></a-box>
+        <a-text value="PROFILE" position="0 0.54 0.05" align="center" color="#7bedff" scale="0.48 0.48 0.48"></a-text>
+        <a-circle position="0 -0.10 0.03" radius="0.22" color="#0b1327" material="opacity: 0.95; shader: flat"></a-circle>
+        <a-ring position="0 -0.10 0.04" radius-inner="0.22" radius-outer="0.26" color="#2ed573" material="opacity: 0.34; shader: flat"></a-ring>
+        <a-text id="vr-profile-avatar" value="🧑‍💻" position="0 -0.12 0.05" align="center" color="#ffffff" scale="1.02 1.02 1.02"></a-text>
+        <a-text id="vr-profile-name" value="Name: Hero" position="0 -0.50 0.05" align="center" color="#ffffff" scale="0.42 0.42 0.42" width="5"></a-text>
+      </a-entity>
+
+      <a-entity position="0 2.80 -4.56">
+        <a-plane width="4.55" height="1.12" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
+        <a-box width="4.66" height="1.22" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.24"></a-box>
+        <a-text value="DIFFICULTY" position="0 0.34 0.04" align="center" color="#7bedff" scale="0.54 0.54 0.54"></a-text>
+
+        <a-entity position="-1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('easy')">
+          <a-box id="diff-easy-box" width="1.18" height="0.42" depth="0.10" color="#2ecc71" material="opacity: 0.52"></a-box>
+          <a-text value="EASY" align="center" position="0 0 0.06" color="#0b1f14" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+
+        <a-entity position="0 -0.08 0.02" class="clickable" onclick="setDifficulty('normal')">
+          <a-box id="diff-normal-box" width="1.18" height="0.42" depth="0.10" color="#f1c40f" material="opacity: 1"></a-box>
+          <a-text value="NORMAL" align="center" position="0 0 0.06" color="#261d00" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+
+        <a-entity position="1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('hard')">
+          <a-box id="diff-hard-box" width="1.18" height="0.42" depth="0.10" color="#e74c3c" material="opacity: 0.52"></a-box>
+          <a-text value="HARD" align="center" position="0 0 0.06" color="#fff5f5" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+      </a-entity>
+
+      <a-entity id="mission-wall" position="0 1.18 -4.0"></a-entity>
+
+      <a-entity position="4.02 2.02 -3.02" rotation="0 -34 0">
+        <a-plane id="leaderboard-panel" width="2.48" height="2.92" color="#101826" material="opacity: 0.94; shader: flat"></a-plane>
+        <a-box id="leaderboard-frame" width="2.58" height="3.02" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true; opacity: 0.30"></a-box>
+        <a-plane id="leaderboard-header-panel" position="0 1.08 0.02" width="2.18" height="0.34" color="#152238" material="opacity: 0.96; shader: flat"></a-plane>
+        <a-text id="leaderboard-title" value="TOP 5 LEGENDS" position="0 1.08 0.05" align="center" color="#ffeaa7" scale="0.56 0.56 0.56"></a-text>
+        <a-text id="leaderboard-subtitle" value="Best mission runs" position="0 0.78 0.05" align="center" color="#cbd5e1" scale="0.34 0.34 0.34"></a-text>
+        <a-text id="vr-leaderboard-list" value="Loading..." position="0 -0.14 0.05" align="center" color="#ffffff" scale="0.54 0.54 0.54" line-height="64" width="3.5"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="hackerBoss" visible="false" position="0 3 -15">
+      <a-box color="#ff0000" width="1.5" height="1.5" depth="1.5" animation="property: rotation; to: 360 360 360; dur: 3000; loop: true; easing: linear"></a-box>
+      <a-text value="VIRUS / HACKER" color="#ff4757" position="0 1.2 0" align="center" scale="2 2 2"></a-text>
+    </a-entity>
+
+    <a-entity id="mission-speaking-scene" visible="false">
+      <a-entity environment="preset: volcano; skyColor: #ff0000"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.3" color="#f1c40f" animation="property: position; to: 0 0.1 0; dir: alternate; dur: 800; loop: true"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#2980b9"></a-cylinder>
+      </a-entity>
+      <a-text id="speaking-prompt" value="PROMPT TEXT" position="0 3 -3" align="center" color="#ff4757"></a-text>
+    </a-entity>
+
+    <a-entity id="mission-reading-scene" visible="false">
+      <a-entity environment="preset: arches; skyColor: #550000"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.25" color="#e74c3c"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#34495e"></a-cylinder>
+        <a-plane position="0 1.2 0" width="4" height="1" color="#fff" material="opacity: 0.9">
+          <a-text id="reading-question" value="QUESTION TEXT" color="#000" align="center" position="0 0 0.01" scale="0.7 0.7 0.7" width="5"></a-text>
+        </a-plane>
+      </a-entity>
+
+      <a-entity position="-2.5 0.5 -3" rotation="0 15 0" animation="property: position; to: -2.5 0.8 -3; dir: alternate; dur: 1500; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+        <a-text id="reading-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="0 0.5 -3" animation="property: position; to: 0 0.7 -3; dir: alternate; dur: 1200; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+        <a-text id="reading-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="2.5 0.5 -3" rotation="0 -15 0" animation="property: position; to: 2.5 0.9 -3; dir: alternate; dur: 1700; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+        <a-text id="reading-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="mission-listening-scene" visible="false">
+      <a-entity environment="preset: forest; skyColor: #ff2222"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.3" color="#3498db" animation="property: position; to: 0 0.2 0; dir: alternate; dur: 500; loop: true"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#ecf0f1" animation="property: rotation; to: 0 360 0; dur: 2000; easing: linear; loop: true"></a-cylinder>
+      </a-entity>
+      <a-text id="listening-prompt" value="PRESS PLAY AUDIO" position="0 3 -3" align="center" color="#f1c40f"></a-text>
+
+      <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+        <a-text id="listening-choice-a" class="choice-text" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="0 0.5 -3">
+        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+        <a-text id="listening-choice-b" class="choice-text" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+        <a-text id="listening-choice-c" class="choice-text" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="mission-writing-scene" visible="false">
+      <a-entity environment="preset: starry; skyColor: #aa0000"></a-entity>
+      <a-plane position="0 1.5 -3" width="4" height="2" color="#ecf0f1">
+        <a-text id="writing-prompt" value="TERMINAL:\n..." color="#000" align="left" position="-1.8 0.5 0.01" width="3.5"></a-text>
+      </a-plane>
+    </a-entity>
+
+    <a-entity id="vr-feedback-fx" position="0 2.5 -2.5" visible="false">
+      <a-text id="vr-feedback-text" value="SUCCESS!" align="center" scale="1.5 1.5 1.5" color="#2ed573"></a-text>
+    </a-entity>
+
+    <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+
+    <a-entity camera look-controls position="0 1.6 0">
+      <a-cursor id="vr-cursor" color="#00e5ff" raycaster="objects: .clickable" animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150" visible="false"></a-cursor>
+    </a-entity>
+
+    <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+    <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+  </a-scene>
 </body>
 </html>
