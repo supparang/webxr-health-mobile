@@ -54,8 +54,7 @@ import {
   showEndSummary,
   recordMissionStart,
   recordMissionSuccess,
-  recordMissionFail,
-  getMissionRunGain
+  recordMissionFail
 } from "./lesson-summary.js";
 import {
   $,
@@ -932,6 +931,8 @@ function loadMission(id) {
   }
 
   state.lastMissionId = missionGroup.id;
+  state.isGameOver = false;
+
   const isBoss = (state.currentMission.id % 3 === 0);
   const isFinal = isUnitFinal(state.currentMission.id);
 
@@ -940,9 +941,23 @@ function loadMission(id) {
 
   setHubVisible(false);
   hideAllScenesAndControls();
-  setHudMode("mission");
+
   resetSummaryPanel();
+  hide("summary-panel");
+  hide("game-over-ui");
   hide("btn-next");
+  hide("btn-return");
+  hide("choice-buttons");
+  hide("write-input");
+  hide("btn-submit-write");
+  hide("btn-play-audio");
+  hide("btn-speak");
+
+  setHudMode("mission");
+  document.body.classList.remove("summary-mode", "hub-mode");
+  document.body.classList.add("mission-mode");
+  document.body.dataset.missionType = state.currentMission.type || "";
+
   renderFinalBossUI();
   applyUnitTheme(state.currentMission.id);
   expandBossChrome();
@@ -1001,7 +1016,6 @@ function loadMission(id) {
 
   setMissionScene(state.currentMission.type);
   showMissionControlByType(state.currentMission.type);
-  document.body.dataset.missionType = state.currentMission.type || "";
 
   if (state.currentMission.type === "speaking") {
     showChoiceButtons(false);
@@ -1011,6 +1025,7 @@ function loadMission(id) {
     setSpeakingPrompt(state.currentMission.title, state.currentMission.exactPhrase);
     setMissionPrompt(`"${state.currentMission.exactPhrase}"`, "SPEAK");
     startTimer(clamp(getBaseTimeForMissionType("speaking") + timeMod, 18, 80));
+
   } else if (state.currentMission.type === "reading") {
     hide("write-input");
     hide("btn-submit-write");
@@ -1020,6 +1035,7 @@ function loadMission(id) {
     setMissionPrompt(state.currentMission.question || "อ่านข้อความแล้วเลือกคำตอบที่ถูกต้อง", "READ");
     showChoiceButtons(true);
     startTimer(clamp(getBaseTimeForMissionType("reading") + timeMod, 18, 80));
+
   } else if (state.currentMission.type === "listening") {
     hide("write-input");
     hide("btn-submit-write");
@@ -1027,6 +1043,7 @@ function loadMission(id) {
     setMissionPrompt("กด Play Audio แล้วเลือกคำตอบ", "LISTEN");
     showChoiceButtons(true);
     startTimer(clamp(getBaseTimeForMissionType("listening") + timeMod, 18, 80));
+
   } else if (state.currentMission.type === "writing") {
     showChoiceButtons(false);
     hide("btn-play-audio");
@@ -1634,6 +1651,14 @@ function hideAllScenesAndControls() {
 }
 
 window.playNextMission = function () {
+  hide("summary-panel");
+  hide("game-over-ui");
+  hide("btn-next");
+  hide("btn-return");
+
+  document.body.classList.remove("summary-mode", "hub-mode");
+  document.body.classList.add("mission-mode");
+
   const nextId = getNextMissionId(state.lastMissionId || 1, missionDB.length);
   loadMission(nextId);
 };
@@ -1651,10 +1676,14 @@ window.returnToHub = function () {
   $("ui-container")?.classList.remove("danger-mode");
   setHubVisible(true);
 
+  document.body.classList.remove("mission-mode", "summary-mode");
+  document.body.classList.add("hub-mode");
+
   setTitleBlock("TECHPATH VR", "เลือกด่านแล้วเริ่มเล่นได้เลย", "#00e5ff");
   applyUnitTheme(0);
   hide("btn-next");
   hide("btn-return");
+  hide("summary-panel");
   setFeedback("", "#ffffff");
   resetSummaryPanel();
   renderHubStatsBoard();
