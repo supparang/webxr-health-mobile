@@ -2382,27 +2382,6 @@ function printSelectedStudentReport(){
   setTimeout(() => win.print(), 300);
 }
 
-function renderUrgentLanding(){
-  if (!els.urgentLandingList) return;
-
-  const rows = buildInterventionRows().slice(0, 8);
-  if (!rows.length){
-    els.urgentLandingList.innerHTML = '<div class="empty">ไม่พบเคสเร่งด่วนในเงื่อนไขนี้</div>';
-    return;
-  }
-
-  els.urgentLandingList.innerHTML = rows.map((r, idx) => `
-    <div class="listItem">
-      <strong>#${idx + 1} ${htmlEscape(r.display_name || '-')}</strong>
-      <div>Student ID: <span class="mono">${htmlEscape(r.student_id || '-')}</span> • Section: ${htmlEscape(r.section || '-')}</div>
-      <div>${makePill('P' + r.priority, r.priority >= 4 ? 'bad' : 'warn')}</div>
-      <div>Attendance: ${scoreText(r.attended_sessions)} / ${scoreText(r.expected_sessions)} (${safeNum(r.attendance_rate).toFixed(1)}%)</div>
-      <div>Accuracy: ${accuracyText(r.last_accuracy)} • Score: ${scoreText(r.last_score)}</div>
-      <div><strong>Action:</strong> ${htmlEscape(r.action || '-')}</div>
-    </div>
-  `).join('');
-}
-
 async function loadOverviewAndStudents(){
   setLoading(true);
   try{
