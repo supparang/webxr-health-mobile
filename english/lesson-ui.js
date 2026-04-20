@@ -19,7 +19,7 @@ function clearUiTimer(key) {
   }
 }
 
-function applyStyle(el, styles = {}) {
+function setStyles(el, styles = {}) {
   if (!el) return;
   Object.entries(styles).forEach(([k, v]) => {
     el.style[k] = v;
@@ -30,28 +30,10 @@ export function $(id) {
   return document.getElementById(id);
 }
 
-export function setValueAttr(idOrEl, value) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.setAttribute("value", value);
-}
-
 export function setText(idOrEl, value) {
   const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
   if (!el) return;
-  el.textContent = value;
-}
-
-export function setHtml(idOrEl, html) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.innerHTML = html;
-}
-
-export function setColor(idOrEl, color) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.style.color = color;
+  el.textContent = value ?? "";
 }
 
 export function show(idOrEl, display = "block") {
@@ -66,88 +48,22 @@ export function hide(idOrEl) {
   el.style.display = "none";
 }
 
-export function showMany(list = [], display = "block") {
-  list.forEach(item => show(item, display));
-}
-
-export function hideMany(list = []) {
-  list.forEach(item => hide(item));
-}
-
-export function setVisible(idOrEl, visible) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.setAttribute("visible", visible ? "true" : "false");
-}
-
-export function setVisibleMany(list = [], visible = false) {
-  list.forEach(item => setVisible(item, visible));
-}
-
-export function addClass(idOrEl, className) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.classList.add(className);
-}
-
-export function removeClass(idOrEl, className) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.classList.remove(className);
-}
-
-export function toggleClass(idOrEl, className, force) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  if (typeof force === "boolean") el.classList.toggle(className, force);
-  else el.classList.toggle(className);
-}
-
-export function pulseClass(idOrEl, className, ms = 450) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.classList.remove(className);
-  void el.offsetWidth;
-  el.classList.add(className);
-  clearTimeout(el._pulseTimer);
-  el._pulseTimer = setTimeout(() => el.classList.remove(className), ms);
-}
-
-export function setButtonDisabled(idOrEl, disabled = true) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.disabled = disabled;
-}
-
-export function setInputValue(idOrEl, value = "") {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.value = value;
-}
-
-export function getInputValue(idOrEl) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  return el ? el.value : "";
-}
-
 export function setHudMode(mode = "hub") {
   const ui = $("ui-container");
   if (ui) {
     ui.classList.remove("hub-mode", "mission-mode", "summary-mode");
-    if (mode === "mission") ui.classList.add("mission-mode");
-    else if (mode === "summary") ui.classList.add("summary-mode");
-    else ui.classList.add("hub-mode");
+    ui.classList.add(`${mode}-mode`);
   }
 
   document.body.classList.remove("hub-mode", "mission-mode", "summary-mode");
-  if (mode === "mission") document.body.classList.add("mission-mode");
-  else if (mode === "summary") document.body.classList.add("summary-mode");
-  else document.body.classList.add("hub-mode");
+  document.body.classList.add(`${mode}-mode`);
 }
 
 export function setFeedback(text, color = "#ffffff") {
-  setText("feedback", text || "");
-  setColor("feedback", color);
+  const el = $("feedback");
+  if (!el) return;
+  el.textContent = text || "";
+  el.style.color = color;
 }
 
 export function scheduleFeedbackClear(ms = 900) {
@@ -162,66 +78,65 @@ export function cancelFeedbackClear() {
 }
 
 export function setTitleBlock(title, desc = "", color = null) {
-  setText("ui-title", title || "");
-  setText("ui-desc", desc || "");
-  if (color) setColor("ui-title", color);
+  const titleEl = $("ui-title");
+  const descEl = $("ui-desc");
+  if (titleEl) {
+    titleEl.textContent = title || "";
+    if (color) titleEl.style.color = color;
+  }
+  if (descEl) descEl.textContent = desc || "";
 }
 
 export function setHubVisible(visible = true) {
-  setVisible("hub-scene", visible);
-}
-
-export function setSummaryVisible(showIt = true) {
-  if (showIt) show("summary-panel");
-  else hide("summary-panel");
-}
-
-export function setSummaryContent(title, titleColor, lines = []) {
-  setText("summary-title", title || "");
-  setColor("summary-title", titleColor || "#ffffff");
-  setText("summary-body", Array.isArray(lines) ? lines.join("\n") : String(lines || ""));
-  setSummaryVisible(true);
-}
-
-export function setGameOverVisible(showIt = true) {
-  if (showIt) show("game-over-ui");
-  else hide("game-over-ui");
-}
-
-export function setTimerText(totalSec) {
-  const timerEl = $("timer");
-  if (!timerEl) return;
-  const safe = Math.max(0, Number(totalSec || 0));
-  const mins = String(Math.floor(safe / 60)).padStart(2, "0");
-  const secs = String(safe % 60).padStart(2, "0");
-  timerEl.innerText = `${mins}:${secs}`;
-  timerEl.style.color = safe <= 10 ? "#ff0000" : "#ff4757";
+  const hub = $("hub-scene");
+  if (!hub) return;
+  hub.setAttribute("visible", visible ? "true" : "false");
 }
 
 export function showTimer(showIt = true) {
-  if (showIt) show("timer");
-  else hide("timer");
+  const el = $("timer");
+  if (!el) return;
+  el.style.display = showIt ? "block" : "none";
+}
+
+export function setTimerText(totalSec) {
+  const el = $("timer");
+  if (!el) return;
+  const safe = Math.max(0, Number(totalSec || 0));
+  const mins = String(Math.floor(safe / 60)).padStart(2, "0");
+  const secs = String(safe % 60).padStart(2, "0");
+  el.textContent = `${mins}:${secs}`;
+  el.style.color = safe <= 10 ? "#ff4757" : "#ffeaa7";
 }
 
 export function setMissionScene(type) {
-  setVisible("mission-speaking-scene", type === "speaking");
-  setVisible("mission-reading-scene", type === "reading");
-  setVisible("mission-listening-scene", type === "listening");
-  setVisible("mission-writing-scene", type === "writing");
-}
-
-export function hideAllMissionScenes() {
-  setVisibleMany([
+  const ids = [
     "mission-speaking-scene",
     "mission-reading-scene",
     "mission-listening-scene",
     "mission-writing-scene"
-  ], false);
+  ];
+  ids.forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.setAttribute("visible", "false");
+  });
+
+  const targetId =
+    type === "speaking" ? "mission-speaking-scene" :
+    type === "reading" ? "mission-reading-scene" :
+    type === "listening" ? "mission-listening-scene" :
+    type === "writing" ? "mission-writing-scene" :
+    "";
+
+  if (targetId) {
+    const el = $(targetId);
+    if (el) el.setAttribute("visible", "true");
+  }
 }
 
 export function hideAllMissionControlsUI() {
-  hideAllMissionScenes();
-  hideMany([
+  [
     "btn-speak",
     "btn-play-audio",
     "write-input",
@@ -229,21 +144,37 @@ export function hideAllMissionControlsUI() {
     "choice-buttons",
     "btn-next",
     "btn-return"
-  ]);
+  ].forEach(hide);
+
+  [
+    "mission-speaking-scene",
+    "mission-reading-scene",
+    "mission-listening-scene",
+    "mission-writing-scene"
+  ].forEach((id) => {
+    const el = $(id);
+    if (el) el.setAttribute("visible", "false");
+  });
+
   showTimer(false);
-  setButtonDisabled("btn-speak", false);
 }
 
 export function setSpeakingPrompt(title, exactPhrase) {
-  setValueAttr("speaking-prompt", `MISSION: ${title}\nSay: "${String(exactPhrase || "").toUpperCase()}"`);
+  const el = $("speaking-prompt");
+  if (!el) return;
+  el.setAttribute("value", `MISSION: ${title}\nSay: "${String(exactPhrase || "").toUpperCase()}"`);
 }
 
 export function setWritingPrompt(prompt) {
-  setValueAttr("writing-prompt", prompt || "");
+  const el = $("writing-prompt");
+  if (!el) return;
+  el.setAttribute("value", prompt || "");
 }
 
 export function setReadingQuestion(question) {
-  setValueAttr("reading-question", `SYSTEM ALERT:\n\n${question || ""}`);
+  const el = $("reading-question");
+  if (!el) return;
+  el.setAttribute("value", `SYSTEM ALERT:\n\n${question || ""}`);
 }
 
 export function setChoiceLabelsFor(type, choices = []) {
@@ -253,9 +184,13 @@ export function setChoiceLabelsFor(type, choices = []) {
   const b = choices[1] || "B";
   const c = choices[2] || "C";
 
-  setValueAttr(`${prefix}-choice-a`, a);
-  setValueAttr(`${prefix}-choice-b`, b);
-  setValueAttr(`${prefix}-choice-c`, c);
+  const a3d = $(`${prefix}-choice-a`);
+  const b3d = $(`${prefix}-choice-b`);
+  const c3d = $(`${prefix}-choice-c`);
+
+  if (a3d) a3d.setAttribute("value", a);
+  if (b3d) b3d.setAttribute("value", b);
+  if (c3d) c3d.setAttribute("value", c);
 
   const mobileA = $("choice-btn-a");
   const mobileB = $("choice-btn-b");
@@ -267,65 +202,46 @@ export function setChoiceLabelsFor(type, choices = []) {
 }
 
 export function showMissionControlByType(type) {
-  hideMany(["btn-speak", "btn-play-audio", "btn-submit-write"]);
+  hide("btn-speak");
+  hide("btn-play-audio");
+  hide("btn-submit-write");
+
   if (type === "speaking") show("btn-speak", "inline-block");
   else if (type === "listening") show("btn-play-audio", "inline-block");
   else if (type === "writing") show("btn-submit-write", "inline-block");
 }
 
 export function showChoiceButtons(showIt = true) {
-  if (showIt) show("choice-buttons", "flex");
-  else hide("choice-buttons");
+  const el = $("choice-buttons");
+  if (!el) return;
+  el.style.display = showIt ? "flex" : "none";
 }
 
 export function resetWritingInput() {
-  setInputValue("write-input", "");
+  const el = $("write-input");
+  if (!el) return;
+  el.value = "";
 }
 
 export function setScoreHUD(score, hp, comboCount = 0) {
-  setText("score-display", String(score ?? 0));
-  setText("hp-display", `${hp ?? 0}%`);
-
+  const scoreEl = $("score-display");
+  const hpEl = $("hp-display");
   const comboEl = $("combo-display");
-  if (!comboEl) return;
 
-  if (comboCount >= 2) {
-    comboEl.style.display = "inline";
-    comboEl.innerText = comboCount >= 5
-      ? `(🔥 x${comboCount} PERFECT!)`
-      : `(x${comboCount} COMBO!)`;
-  } else {
-    comboEl.style.display = "none";
-    comboEl.innerText = "";
+  if (scoreEl) scoreEl.textContent = String(score ?? 0);
+  if (hpEl) hpEl.textContent = `${hp ?? 0}%`;
+
+  if (comboEl) {
+    if (comboCount >= 2) {
+      comboEl.style.display = "inline";
+      comboEl.textContent = comboCount >= 5
+        ? `(🔥 x${comboCount} PERFECT!)`
+        : `(x${comboCount} COMBO!)`;
+    } else {
+      comboEl.style.display = "none";
+      comboEl.textContent = "";
+    }
   }
-}
-
-export function setBossHUD({ show = false, hp = 0, maxHp = 0, sub = "" } = {}) {
-  const wrap = $("boss-phase-ui");
-  const fill = $("boss-bar-fill");
-  const hpText = $("boss-hp-text");
-  const subEl = $("boss-phase-sub");
-
-  if (!wrap || !fill || !hpText || !subEl) return;
-
-  wrap.style.display = show ? "block" : "none";
-  if (!show) return;
-
-  const ratio = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0;
-  fill.style.width = `${Math.round(ratio * 100)}%`;
-  hpText.innerText = `BOSS HP: ${hp} / ${maxHp}`;
-  subEl.innerText = sub || "";
-}
-
-export function setMissionTypeTag(text, success = true) {
-  const tag = $("mission-type-tag");
-  if (!tag) return;
-  tag.textContent = text || "";
-  tag.style.color = success ? "#2ed573" : "#ff6b81";
-  tag.style.borderColor = success
-    ? "rgba(46,213,115,0.35)"
-    : "rgba(255,107,129,0.35)";
-  pulseClass(tag, "show", 940);
 }
 
 export function setMissionPrompt(text = "", label = "PROMPT") {
@@ -336,7 +252,7 @@ export function setMissionPrompt(text = "", label = "PROMPT") {
   if (labelEl) labelEl.textContent = label || "PROMPT";
   if (textEl) textEl.textContent = text || "";
 
-  if (text && box) box.style.display = "block";
+  if (box) box.style.display = text ? "block" : "none";
 }
 
 export function clearMissionPrompt() {
@@ -347,13 +263,13 @@ export function clearMissionPrompt() {
 export function expandMissionHeader() {
   const title = $("ui-title");
   const desc = $("ui-desc");
-  applyStyle(title, {
+  setStyles(title, {
     opacity: "1",
     transform: "none",
     fontSize: "",
     margin: ""
   });
-  applyStyle(desc, {
+  setStyles(desc, {
     opacity: "1",
     transform: "none",
     fontSize: "",
@@ -366,13 +282,13 @@ export function scheduleMissionHeaderCollapse(ms = 1000) {
   _uiTimers.missionHeader = setTimeout(() => {
     const title = $("ui-title");
     const desc = $("ui-desc");
-    applyStyle(title, {
+    setStyles(title, {
       opacity: "0.94",
       transform: "translateY(-2px)",
       fontSize: "1.05rem",
       margin: "0 0 2px 0"
     });
-    applyStyle(desc, {
+    setStyles(desc, {
       opacity: "0.75",
       transform: "translateY(-2px)",
       fontSize: "0.78rem",
@@ -383,7 +299,7 @@ export function scheduleMissionHeaderCollapse(ms = 1000) {
 
 export function expandMissionStats() {
   const stats = $("hud-stats");
-  applyStyle(stats, {
+  setStyles(stats, {
     opacity: "1",
     transform: "none"
   });
@@ -393,7 +309,7 @@ export function scheduleMissionStatsCollapse(ms = 1100) {
   clearUiTimer("missionStats");
   _uiTimers.missionStats = setTimeout(() => {
     const stats = $("hud-stats");
-    applyStyle(stats, {
+    setStyles(stats, {
       opacity: "0.96",
       transform: "translateY(-1px)"
     });
@@ -402,7 +318,7 @@ export function scheduleMissionStatsCollapse(ms = 1100) {
 
 export function expandMissionPromptChrome() {
   const box = $("mission-prompt-box");
-  applyStyle(box, {
+  setStyles(box, {
     opacity: "1",
     transform: "none",
     padding: ""
@@ -413,7 +329,7 @@ export function scheduleMissionPromptChromeCollapse(ms = 1100) {
   clearUiTimer("missionPromptChrome");
   _uiTimers.missionPromptChrome = setTimeout(() => {
     const box = $("mission-prompt-box");
-    applyStyle(box, {
+    setStyles(box, {
       opacity: "0.96",
       transform: "translateY(-1px)"
     });
@@ -422,7 +338,7 @@ export function scheduleMissionPromptChromeCollapse(ms = 1100) {
 
 export function expandBossChrome() {
   const boss = $("boss-phase-ui");
-  applyStyle(boss, {
+  setStyles(boss, {
     opacity: "1",
     transform: "none"
   });
@@ -432,7 +348,7 @@ export function scheduleBossChromeCollapse(ms = 1200) {
   clearUiTimer("bossChrome");
   _uiTimers.bossChrome = setTimeout(() => {
     const boss = $("boss-phase-ui");
-    applyStyle(boss, {
+    setStyles(boss, {
       opacity: "0.96",
       transform: "translateY(-1px)"
     });
@@ -441,7 +357,7 @@ export function scheduleBossChromeCollapse(ms = 1200) {
 
 export function expandMissionTopChips() {
   const row = $("hud-top-row");
-  applyStyle(row, {
+  setStyles(row, {
     opacity: "1",
     transform: "none"
   });
@@ -451,7 +367,7 @@ export function scheduleMissionTopChipsCollapse(ms = 1100) {
   clearUiTimer("missionTopChips");
   _uiTimers.missionTopChips = setTimeout(() => {
     const row = $("hud-top-row");
-    applyStyle(row, {
+    setStyles(row, {
       opacity: "0.92",
       transform: "translateY(-1px)"
     });
@@ -460,7 +376,7 @@ export function scheduleMissionTopChipsCollapse(ms = 1100) {
 
 export function expandMissionTitleUltraMini() {
   const title = $("ui-title");
-  applyStyle(title, {
+  setStyles(title, {
     letterSpacing: "",
     fontSize: ""
   });
@@ -470,7 +386,7 @@ export function scheduleMissionTitleUltraMini(ms = 1000) {
   clearUiTimer("missionTitleUltraMini");
   _uiTimers.missionTitleUltraMini = setTimeout(() => {
     const title = $("ui-title");
-    applyStyle(title, {
+    setStyles(title, {
       letterSpacing: "0.02em",
       fontSize: "1rem"
     });
@@ -479,7 +395,7 @@ export function scheduleMissionTitleUltraMini(ms = 1000) {
 
 export function expandMissionTimer() {
   const timer = $("timer");
-  applyStyle(timer, {
+  setStyles(timer, {
     opacity: "1",
     transform: "none",
     fontSize: ""
@@ -490,7 +406,7 @@ export function scheduleMissionTimerCompact(ms = 1000) {
   clearUiTimer("missionTimerCompact");
   _uiTimers.missionTimerCompact = setTimeout(() => {
     const timer = $("timer");
-    applyStyle(timer, {
+    setStyles(timer, {
       opacity: "0.98",
       transform: "translateY(-1px)",
       fontSize: "1rem"
@@ -507,7 +423,7 @@ export function setMissionTimerAlert(on = false) {
 
 export function expandMissionHudTextCompact() {
   const feedback = $("feedback");
-  applyStyle(feedback, {
+  setStyles(feedback, {
     opacity: "1",
     transform: "none",
     fontSize: ""
@@ -518,7 +434,7 @@ export function scheduleMissionHudTextCompact(ms = 1000) {
   clearUiTimer("missionHudTextCompact");
   _uiTimers.missionHudTextCompact = setTimeout(() => {
     const feedback = $("feedback");
-    applyStyle(feedback, {
+    setStyles(feedback, {
       opacity: "0.95",
       transform: "translateY(-1px)",
       fontSize: "0.95rem"
@@ -530,16 +446,17 @@ export function togglePromptFocusExpanded() {
   const box = $("mission-prompt-box");
   if (!box) return;
   const expanded = box.dataset.focusExpanded === "1";
+
   if (expanded) {
     box.dataset.focusExpanded = "0";
-    applyStyle(box, {
+    setStyles(box, {
       transform: "none",
       maxHeight: "",
       overflow: ""
     });
   } else {
     box.dataset.focusExpanded = "1";
-    applyStyle(box, {
+    setStyles(box, {
       transform: "scale(1.01)",
       maxHeight: "42dvh",
       overflow: "auto"
@@ -551,7 +468,7 @@ export function resetPromptFocusExpanded() {
   const box = $("mission-prompt-box");
   if (!box) return;
   box.dataset.focusExpanded = "0";
-  applyStyle(box, {
+  setStyles(box, {
     transform: "none",
     maxHeight: "",
     overflow: ""
