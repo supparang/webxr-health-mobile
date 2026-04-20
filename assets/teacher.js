@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwe1R6e_771rxLsBct6nypvOvHn6vZhdBeCf0p3Kr2v_9phhMFbwBqLnV5Ug2ZAnBG2/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVz1FXvojv8t2DyGE4W7ViCeF9XX42-YDmi3-Xtek6XnrgLRHrKGGE5Mtx4UgQ3vmS/exec';
 
 const els = {
   sectionFilter: document.getElementById('sectionFilter'),
