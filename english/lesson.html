@@ -22,9 +22,9 @@
       appId: "1:247186694556:web:67a01e417f37eb71f42859",
       measurementId: "G-SWT85BHVJX"
     };
-    window.TECHPATH_BUILD = 'v20260420b';
-    window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260420b';
+    window.TECHPATH_BUILD = 'v20260420d';
+    window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzVz1FXvojv8t2DyGE4W7ViCeF9XX42-YDmi3-Xtek6XnrgLRHrKGGE5Mtx4UgQ3vmS/exec';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260420d';
   </script>
 
   <meta name="theme-color" content="#0a0f1e" />
@@ -1469,7 +1469,92 @@
   })();
   </script>
 
-  <script type="module" src="./js/lesson-main.js?v=20260420b"></script>
+  <script type="module" src="./js/lesson-main.js?v=20260420d"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    function compactAttendancePayload(payload = {}) {
+      return {
+        patch: payload.patch || '',
+        source: payload.source || 'techpath-vr',
+        eventType: payload.eventType || '',
+        eventAt: payload.eventAt || new Date().toISOString(),
+
+        studentId: payload.studentId || '',
+        studentName: payload.studentName || '',
+        classSection: payload.classSection || '',
+        lessonId: payload.lessonId || '',
+        courseMeeting: payload.courseMeeting || '',
+
+        mode: payload.mode || '',
+        missionId: payload.missionId || '',
+        sessionNo: payload.sessionNo || '',
+        missionType: payload.missionType || '',
+
+        score: payload.score ?? '',
+        hp: payload.hp || '',
+        attemptId: payload.attemptId || '',
+        attemptResult: payload.attemptResult || '',
+        attemptDurationSec: payload.attemptDurationSec ?? '',
+
+        pageVisitId: payload.pageVisitId || '',
+        pageActiveTimeSec: payload.pageActiveTimeSec ?? '',
+        pageActionsCount: payload.pageActionsCount ?? '',
+
+        pageUrl: location.href,
+        ua: navigator.userAgent
+      };
+    }
+
+    function sendByImage(endpoint, data) {
+      try {
+        const qs = new URLSearchParams(data);
+        qs.set('_t', String(Date.now()));
+        const img = new Image();
+        img.referrerPolicy = 'no-referrer';
+        img.src = endpoint + (endpoint.includes('?') ? '&' : '?') + qs.toString();
+        return true;
+      } catch (err) {
+        console.error('sendByImage failed:', err);
+        return false;
+      }
+    }
+
+    async function sendByPost(endpoint, data, useBeacon = false) {
+      const body = JSON.stringify(data);
+
+      try {
+        if (useBeacon && navigator.sendBeacon) {
+          const blob = new Blob([body], { type: 'text/plain' });
+          return navigator.sendBeacon(endpoint, blob);
+        }
+
+        await fetch(endpoint, {
+          method: 'POST',
+          mode: 'no-cors',
+          keepalive: true,
+          headers: {
+            'Content-Type': 'text/plain'
+          },
+          body
+        });
+        return true;
+      } catch (err) {
+        console.error('sendByPost failed:', err);
+        return false;
+      }
+    }
+
+    window.__TECHPATH_POST_ATTENDANCE__ = async function(endpoint, payload, useBeacon = false) {
+      const compact = compactAttendancePayload(payload);
+      const postOk = await sendByPost(endpoint, compact, useBeacon);
+      sendByImage(endpoint, compact);
+      return postOk;
+    };
+  })();
+  </script>
 
   <script>
   (function () {
@@ -1708,9 +1793,9 @@
 
     const ENDPOINT =
       window.TECHPATH_ATTENDANCE_ENDPOINT ||
-      'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
+      'https://script.google.com/macros/s/AKfycbzVz1FXvojv8t2DyGE4W7ViCeF9XX42-YDmi3-Xtek6XnrgLRHrKGGE5Mtx4UgQ3vmS/exec';
 
-    const PATCH = 'v20260420b';
+    const PATCH = 'v20260420d';
     const HEARTBEAT_MS = 15000;
     const ACTIVE_TICK_MS = 1000;
     const ATTEMPT_MIN_GAP_MS = 1200;
@@ -1880,8 +1965,8 @@
       pageActionsCount: 0,
       currentAttempt: null,
       lastMode: '',
-      lastHeartbeatAt: 0,
       sentSummaryForAttemptId: '',
+      lastHeartbeatAt: 0,
       lastMissionStartAt: 0
     };
 
@@ -1966,23 +2051,14 @@
 
     async function postPayload(payload, useBeacon = false) {
       if (!ENDPOINT) return false;
-      const body = JSON.stringify(payload);
 
       try {
-        if (useBeacon && navigator.sendBeacon) {
-          const blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
-          return navigator.sendBeacon(ENDPOINT, blob);
+        if (typeof window.__TECHPATH_POST_ATTENDANCE__ === 'function') {
+          return await window.__TECHPATH_POST_ATTENDANCE__(ENDPOINT, payload, useBeacon);
         }
-
-        await fetch(ENDPOINT, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-          body
-        });
-        return true;
+        return false;
       } catch (err) {
-        console.error('Attendance POST failed:', err);
+        console.error('Attendance POST wrapper failed:', err);
         return false;
       }
     }
