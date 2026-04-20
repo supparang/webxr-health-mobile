@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtsvZ3DG0FwriK4e_5kWv_CxWOOsNdSeW--gt6xZIZ6CYfG0003FIJ-W0jwUGt1tk5/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVz1FXvojv8t2DyGE4W7ViCeF9XX42-YDmi3-Xtek6XnrgLRHrKGGE5Mtx4UgQ3vmS/exec';
 
 const els = {
   sectionFilter: document.getElementById('sectionFilter'),
@@ -115,8 +115,8 @@ const state = {
   urgentLandingMode: localStorage.getItem('TEACHER_URGENT_LANDING') === '1'
 };
 
-function bangkokIsoNow(){
-  try{
+function bangkokIsoNow() {
+  try {
     const parts = new Intl.DateTimeFormat('sv-SE', {
       timeZone: 'Asia/Bangkok',
       year: 'numeric',
@@ -127,25 +127,25 @@ function bangkokIsoNow(){
       second: '2-digit'
     }).formatToParts(new Date());
     const map = {};
-    for (const p of parts){
+    for (const p of parts) {
       if (p.type !== 'literal') map[p.type] = p.value;
     }
     return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}:${map.second}+07:00`;
-  }catch(_){
+  } catch (_) {
     return new Date().toISOString();
   }
 }
 
-function safeNum(v){
+function safeNum(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
 
-function safeStr(v){
+function safeStr(v) {
   return String(v || '').trim();
 }
 
-function htmlEscape(str){
+function htmlEscape(str) {
   return String(str || '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -154,11 +154,11 @@ function htmlEscape(str){
     .replaceAll("'", '&#039;');
 }
 
-function on(el, eventName, handler){
+function on(el, eventName, handler) {
   if (el) el.addEventListener(eventName, handler);
 }
 
-function getFilters(){
+function getFilters() {
   return {
     section: safeStr(els.sectionFilter?.value),
     session_code: safeStr(els.sessionCodeFilter?.value),
@@ -167,11 +167,11 @@ function getFilters(){
   };
 }
 
-async function postAction(action, payload = {}, timeoutMs = 8000){
+async function postAction(action, payload = {}, timeoutMs = 8000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  try{
+  try {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -184,31 +184,30 @@ async function postAction(action, payload = {}, timeoutMs = 8000){
       }),
       signal: controller.signal
     });
-
     return await res.json();
   } finally {
     clearTimeout(timer);
   }
 }
 
-function setLoading(isLoading){
+function setLoading(isLoading) {
   document.body.classList.toggle('loading', !!isLoading);
 }
 
-function makePill(text, type = ''){
+function makePill(text, type = '') {
   const cls = type ? `pill ${type}` : 'pill';
   return `<span class="${cls}">${htmlEscape(text)}</span>`;
 }
 
-function scoreText(v){
+function scoreText(v) {
   return safeNum(v).toFixed(0);
 }
 
-function accuracyText(v){
+function accuracyText(v) {
   return `${safeNum(v).toFixed(1)}%`;
 }
 
-function renderOverview(summary){
+function renderOverview(summary) {
   const s = summary || {};
   if (els.ovStudents) els.ovStudents.textContent = scoreText(s.total_students);
   if (els.ovSessions) els.ovSessions.textContent = scoreText(s.total_sessions);
@@ -218,7 +217,7 @@ function renderOverview(summary){
   const weak = Array.isArray(s.top_weak_terms) ? s.top_weak_terms : [];
   if (!els.overviewWeakTerms) return;
 
-  if (!weak.length){
+  if (!weak.length) {
     els.overviewWeakTerms.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
     return;
   }
@@ -231,14 +230,14 @@ function renderOverview(summary){
   `).join('');
 }
 
-function sortStudents(rows){
+function sortStudents(rows) {
   const arr = [...rows];
   const dir = state.sortDir === 'asc' ? 1 : -1;
   const key = state.sortKey;
   const numericKeys = ['sessions_count', 'last_score', 'last_accuracy'];
 
-  arr.sort((a,b) => {
-    if (numericKeys.includes(key)){
+  arr.sort((a, b) => {
+    if (numericKeys.includes(key)) {
       return (safeNum(a[key]) - safeNum(b[key])) * dir;
     }
     return safeStr(a[key]).localeCompare(safeStr(b[key])) * dir;
@@ -247,7 +246,7 @@ function sortStudents(rows){
   return arr;
 }
 
-function renderFollowupSummary(counts, rows){
+function renderFollowupSummary(counts, rows) {
   state.followupCounts = counts || {};
   state.followupSummaryRows = Array.isArray(rows) ? rows : [];
   state.latestFollowupByStudent = Object.fromEntries(
@@ -273,14 +272,14 @@ function renderFollowupSummary(counts, rows){
   `).join('');
 }
 
-function renderFollowupSectionSummary(){
+function renderFollowupSectionSummary() {
   if (!els.followupSectionSummaryBody) return;
 
   const grouped = {};
 
   (state.students || []).forEach(s => {
     const section = safeStr(s.section) || '-';
-    if (!grouped[section]){
+    if (!grouped[section]) {
       grouped[section] = {
         section,
         total: 0,
@@ -298,18 +297,18 @@ function renderFollowupSectionSummary(){
     const latest = state.latestFollowupByStudent[safeStr(s.student_id)];
     const status = safeStr(latest?.status);
 
-    if (!status){
+    if (!status) {
       grouped[section].no_status += 1;
-    } else if (Object.prototype.hasOwnProperty.call(grouped[section], status)){
+    } else if (Object.prototype.hasOwnProperty.call(grouped[section], status)) {
       grouped[section][status] += 1;
     } else {
       grouped[section].no_status += 1;
     }
   });
 
-  const rows = Object.values(grouped).sort((a,b) => safeStr(a.section).localeCompare(safeStr(b.section)));
+  const rows = Object.values(grouped).sort((a, b) => safeStr(a.section).localeCompare(safeStr(b.section)));
 
-  if (!rows.length){
+  if (!rows.length) {
     els.followupSectionSummaryBody.innerHTML = '<tr><td colspan="8">ยังไม่มีข้อมูล follow-up by section</td></tr>';
     return;
   }
@@ -328,13 +327,13 @@ function renderFollowupSectionSummary(){
   `).join('');
 }
 
-function applyStudentSearch(){
+function applyStudentSearch() {
   const q = safeStr(els.studentSearch?.value).toLowerCase();
   const lowAccMode = safeStr(els.lowAccOnly?.value);
   const followupMode = safeStr(els.followupFilter?.value);
 
   const rows = state.students.filter(r => {
-    if (q){
+    if (q) {
       const hay = [
         safeStr(r.student_id),
         safeStr(r.display_name),
@@ -347,7 +346,7 @@ function applyStudentSearch(){
     if (lowAccMode === 'lt80' && !(safeNum(r.last_accuracy) < 80)) return false;
     if (lowAccMode === 'nosession' && !(safeNum(r.sessions_count) === 0)) return false;
 
-    if (followupMode){
+    if (followupMode) {
       const latest = state.latestFollowupByStudent[safeStr(r.student_id)];
       const latestStatus = safeStr(latest?.status);
       if (latestStatus !== followupMode) return false;
@@ -360,11 +359,11 @@ function applyStudentSearch(){
   renderStudentsTable();
 }
 
-function renderStudentsTable(){
+function renderStudentsTable() {
   if (!els.studentsTableBody) return;
   const rows = state.filteredStudents;
 
-  if (!rows.length){
+  if (!rows.length) {
     els.studentsTableBody.innerHTML = '<tr><td colspan="9">ไม่พบข้อมูลนักศึกษาตามเงื่อนไขนี้</td></tr>';
     return;
   }
@@ -448,8 +447,8 @@ function renderStudentsTable(){
   });
 }
 
-function renderDetail(profile, summary){
-  if (!profile){
+function renderDetail(profile, summary) {
+  if (!profile) {
     if (els.detailName) els.detailName.textContent = 'ไม่พบข้อมูลนักศึกษา';
     if (els.detailMeta) els.detailMeta.textContent = 'ลองเลือกนักศึกษาคนอื่น หรือเช็กว่ามี student_id ใน sheet หรือไม่';
     if (els.detailBadges) els.detailBadges.innerHTML = '';
@@ -460,13 +459,13 @@ function renderDetail(profile, summary){
   }
 
   if (els.detailName) els.detailName.textContent = safeStr(profile.display_name) || 'Unnamed Student';
-  if (els.detailMeta){
+  if (els.detailMeta) {
     els.detailMeta.innerHTML =
       `Student ID: <span class="mono">${htmlEscape(profile.student_id || '-')}</span><br>` +
       `Section: ${htmlEscape(profile.section || '-')} • Last Session: <span class="mono">${htmlEscape(profile.last_session_id || '-')}</span>`;
   }
 
-  if (els.detailBadges){
+  if (els.detailBadges) {
     const badges = [];
     if (profile.recommended_mode) badges.push(makePill(profile.recommended_mode));
     if (profile.recommended_difficulty) badges.push(makePill(profile.recommended_difficulty, 'warn'));
@@ -478,11 +477,11 @@ function renderDetail(profile, summary){
   if (els.detailAvgAcc) els.detailAvgAcc.textContent = accuracyText(summary?.avg_accuracy);
 }
 
-function renderWeakTerms(rows){
+function renderWeakTerms(rows) {
   const list = Array.isArray(rows) ? rows : [];
   if (!els.weakTermsList) return;
 
-  if (!list.length){
+  if (!list.length) {
     els.weakTermsList.innerHTML = '<div class="empty">ยังไม่มี weak terms สำหรับนักศึกษาคนนี้</div>';
     return;
   }
@@ -496,11 +495,11 @@ function renderWeakTerms(rows){
   `).join('');
 }
 
-function renderSessions(rows){
+function renderSessions(rows) {
   const list = Array.isArray(rows) ? rows : [];
   if (!els.sessionsList) return;
 
-  if (!list.length){
+  if (!list.length) {
     els.sessionsList.innerHTML = '<div class="empty">ยังไม่มี recent sessions</div>';
     return;
   }
@@ -515,11 +514,11 @@ function renderSessions(rows){
   `).join('');
 }
 
-function renderTrendChart(rows){
+function renderTrendChart(rows) {
   if (!els.trendChartWrap) return;
 
   const list = Array.isArray(rows) ? [...rows].reverse() : [];
-  if (!list.length){
+  if (!list.length) {
     els.trendChartWrap.innerHTML = 'ยังไม่มีข้อมูล';
     els.trendChartWrap.className = 'empty';
     return;
@@ -542,9 +541,9 @@ function renderTrendChart(rows){
   const yScore = v => h - pad - ((h - pad * 2) * v / maxScore);
   const yAcc = v => h - pad - ((h - pad * 2) * v / maxAcc);
 
-  const scorePath = scores.map((v,i) => `${i === 0 ? 'M' : 'L'} ${xPos(i)} ${yScore(v)}`).join(' ');
-  const accPath = accs.map((v,i) => `${i === 0 ? 'M' : 'L'} ${xPos(i)} ${yAcc(v)}`).join(' ');
-  const labels = list.map((x,i) => `
+  const scorePath = scores.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xPos(i)} ${yScore(v)}`).join(' ');
+  const accPath = accs.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xPos(i)} ${yAcc(v)}`).join(' ');
+  const labels = list.map((x, i) => `
     <text x="${xPos(i)}" y="${h - 8}" text-anchor="middle" font-size="10" fill="#c7d4ff">${htmlEscape(x.session_code || String(i + 1))}</text>
   `).join('');
 
@@ -554,8 +553,8 @@ function renderTrendChart(rows){
       <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h - pad}" stroke="rgba(255,255,255,.18)" />
       <path d="${scorePath}" fill="none" stroke="#67e8f9" stroke-width="3" />
       <path d="${accPath}" fill="none" stroke="#fde047" stroke-width="3" />
-      ${scores.map((v,i) => `<circle cx="${xPos(i)}" cy="${yScore(v)}" r="4" fill="#67e8f9" />`).join('')}
-      ${accs.map((v,i) => `<circle cx="${xPos(i)}" cy="${yAcc(v)}" r="4" fill="#fde047" />`).join('')}
+      ${scores.map((v, i) => `<circle cx="${xPos(i)}" cy="${yScore(v)}" r="4" fill="#67e8f9" />`).join('')}
+      ${accs.map((v, i) => `<circle cx="${xPos(i)}" cy="${yAcc(v)}" r="4" fill="#fde047" />`).join('')}
       ${labels}
       <text x="${pad}" y="16" font-size="11" fill="#67e8f9">Score</text>
       <text x="${pad + 52}" y="16" font-size="11" fill="#fde047">Accuracy</text>
@@ -563,13 +562,13 @@ function renderTrendChart(rows){
   `;
 }
 
-function renderAttendance(rows){
+function renderAttendance(rows) {
   const list = Array.isArray(rows) ? rows : [];
   state.attendanceRows = list;
 
   if (!els.attendanceTableBody) return;
 
-  if (!list.length){
+  if (!list.length) {
     els.attendanceTableBody.innerHTML = '<tr><td colspan="8">ไม่พบข้อมูล attendance</td></tr>';
     return;
   }
@@ -601,21 +600,23 @@ function renderAttendance(rows){
   });
 }
 
-function renderAttendanceDetailByKey(key){
-  const found = (state.attendanceRows || []).find(r => `${safeStr(r.section)}||${safeStr(r.session_code)}` === key);
+function renderAttendanceDetailByKey(key) {
+  const found = (state.attendanceRows || []).find(
+    r => `${safeStr(r.section)}||${safeStr(r.session_code)}` === key
+  );
 
-  if (!found){
-    if (els.attendanceDetailList){
+  if (!found) {
+    if (els.attendanceDetailList) {
       els.attendanceDetailList.innerHTML = '<div class="empty">ยังไม่ได้เลือก session</div>';
     }
-    if (els.absenteeDetailList){
+    if (els.absenteeDetailList) {
       els.absenteeDetailList.innerHTML = '<div class="empty">ยังไม่ได้เลือก session</div>';
     }
     return;
   }
 
   const attendees = Array.isArray(found.attendees) ? found.attendees : [];
-  if (els.attendanceDetailList){
+  if (els.attendanceDetailList) {
     els.attendanceDetailList.innerHTML = attendees.length
       ? attendees.map(a => `
         <div class="listItem">
@@ -629,7 +630,7 @@ function renderAttendanceDetailByKey(key){
   }
 
   const absentees = Array.isArray(found.absentees) ? found.absentees : [];
-  if (els.absenteeDetailList){
+  if (els.absenteeDetailList) {
     els.absenteeDetailList.innerHTML = absentees.length
       ? absentees.map(a => `
         <div class="listItem">
@@ -642,13 +643,13 @@ function renderAttendanceDetailByKey(key){
   }
 }
 
-function renderSectionSummary(rows){
+function renderSectionSummary(rows) {
   const list = Array.isArray(rows) ? rows : [];
   state.sectionSummaryRows = list;
 
   if (!els.sectionSummaryBody) return;
 
-  if (!list.length){
+  if (!list.length) {
     els.sectionSummaryBody.innerHTML = '<tr><td colspan="5">ไม่พบข้อมูล section summary</td></tr>';
     return;
   }
@@ -664,7 +665,7 @@ function renderSectionSummary(rows){
   `).join('');
 }
 
-function collectRosterAwareStudents(){
+function collectRosterAwareStudents() {
   const map = {};
 
   (state.students || []).forEach(s => {
@@ -686,7 +687,7 @@ function collectRosterAwareStudents(){
     (row.attendees || []).forEach(a => {
       const sid = safeStr(a.student_id);
       if (!sid) return;
-      if (!map[sid]){
+      if (!map[sid]) {
         map[sid] = {
           student_id: sid,
           display_name: safeStr(a.display_name),
@@ -703,7 +704,7 @@ function collectRosterAwareStudents(){
     (row.absentees || []).forEach(a => {
       const sid = safeStr(a.student_id);
       if (!sid) return;
-      if (!map[sid]){
+      if (!map[sid]) {
         map[sid] = {
           student_id: sid,
           display_name: safeStr(a.display_name),
@@ -721,7 +722,7 @@ function collectRosterAwareStudents(){
   return Object.values(map);
 }
 
-function buildRiskRows(){
+function buildRiskRows() {
   const bySectionExpectedSessions = {};
   const attendedSets = {};
   const absentSets = {};
@@ -757,28 +758,27 @@ function buildRiskRows(){
     const attendanceRate = expectedSessions ? Number(((attendedSessions / expectedSessions) * 100).toFixed(1)) : 0;
 
     const acc = safeNum(s.last_accuracy);
-    const score = safeNum(s.last_score);
 
     let riskLevel = 'low';
     const reasons = [];
 
-    if (expectedSessions > 0 && attendedSessions === 0){
+    if (expectedSessions > 0 && attendedSessions === 0) {
       riskLevel = 'high';
       reasons.push('ยังไม่พบเข้าเรียน');
     }
 
-    if (expectedSessions > 0 && attendanceRate < 50){
+    if (expectedSessions > 0 && attendanceRate < 50) {
       riskLevel = 'high';
       reasons.push('เข้าเรียนน้อยกว่า 50%');
-    } else if (expectedSessions > 0 && attendanceRate < 100 && riskLevel === 'low'){
+    } else if (expectedSessions > 0 && attendanceRate < 100 && riskLevel === 'low') {
       riskLevel = 'medium';
       reasons.push('ขาดบาง session');
     }
 
-    if (s.sessions_count > 0 && acc < 60){
+    if (s.sessions_count > 0 && acc < 60) {
       riskLevel = 'high';
       reasons.push('accuracy ต่ำกว่า 60%');
-    } else if (s.sessions_count > 0 && acc < 80 && riskLevel === 'low'){
+    } else if (s.sessions_count > 0 && acc < 80 && riskLevel === 'low') {
       riskLevel = 'medium';
       reasons.push('accuracy ต่ำกว่า 80%');
     }
@@ -795,35 +795,35 @@ function buildRiskRows(){
       risk_reason: reasons.join(' • '),
       priority: 1,
       action: 'ติดตามตามปกติ',
-      note: `Attendance ${attendanceRate}% • Accuracy ${acc}% • Score ${score}`
+      note: `Attendance ${attendanceRate}% • Accuracy ${acc}% • Score ${safeNum(s.last_score)}`
     };
   });
 }
 
-function buildInterventionRows(){
+function buildInterventionRows() {
   return buildRiskRows()
     .map(r => {
       let priority = 1;
       let action = 'ติดตามตามปกติ';
       let note = 'ผลการเรียนอยู่ในเกณฑ์ใช้ได้';
 
-      if (r.expected_sessions > 0 && r.attended_sessions === 0){
+      if (r.expected_sessions > 0 && r.attended_sessions === 0) {
         priority = 5;
         action = 'ติดต่อด่วน + นัดชดเชย';
         note = 'ยังไม่พบการเข้าเรียนเลย';
-      } else if (r.attendance_rate < 50){
+      } else if (r.attendance_rate < 50) {
         priority = 4;
         action = 'ติดตามเรื่อง attendance';
         note = 'เข้าเรียนน้อยกว่าครึ่ง';
-      } else if (r.last_accuracy < 60 && r.sessions_count > 0){
+      } else if (r.last_accuracy < 60 && r.sessions_count > 0) {
         priority = 4;
         action = 'ให้ทบทวน Debug Mission (easy)';
         note = 'accuracy ต่ำกว่า 60%';
-      } else if (r.last_accuracy < 80 && r.sessions_count > 0){
+      } else if (r.last_accuracy < 80 && r.sessions_count > 0) {
         priority = 3;
         action = 'ให้ฝึก AI Training / Code Battle เพิ่ม';
         note = 'accuracy ต่ำกว่า 80%';
-      } else if (r.absent_sessions > 0){
+      } else if (r.absent_sessions > 0) {
         priority = 2;
         action = 'ติดตาม session ที่ขาด';
         note = 'ขาดบาง session';
@@ -832,7 +832,7 @@ function buildInterventionRows(){
       return { ...r, priority, action, note };
     })
     .filter(r => r.priority >= 2)
-    .sort((a,b) => {
+    .sort((a, b) => {
       const p = b.priority - a.priority;
       if (p !== 0) return p;
       const ab = b.absent_sessions - a.absent_sessions;
@@ -842,13 +842,13 @@ function buildInterventionRows(){
     .slice(0, 15);
 }
 
-function renderRiskDashboard(){
+function renderRiskDashboard() {
   const rows = buildRiskRows();
 
-  if (els.riskList){
+  if (els.riskList) {
     const riskRows = rows
       .filter(r => r.risk_level !== 'low')
-      .sort((a,b) => {
+      .sort((a, b) => {
         const levelRank = { high: 3, medium: 2, low: 1 };
         const lv = levelRank[b.risk_level] - levelRank[a.risk_level];
         if (lv !== 0) return lv;
@@ -872,7 +872,7 @@ function renderRiskDashboard(){
       : '<div class="empty">ไม่พบนักศึกษากลุ่มเสี่ยงในเงื่อนไขนี้</div>';
   }
 
-  if (els.topPerformersList){
+  if (els.topPerformersList) {
     const topRows = getTopPerformerRows();
 
     els.topPerformersList.innerHTML = topRows.length
@@ -888,31 +888,10 @@ function renderRiskDashboard(){
   }
 }
 
-function exportAttendanceSummaryCsv(){
-  const rows = [
-    ['section','session_code','roster_count','unique_attendees','absent_count','sessions_count','avg_score','avg_accuracy']
-  ];
-
-  (state.attendanceRows || []).forEach(r => {
-    rows.push([
-      safeStr(r.section),
-      safeStr(r.session_code),
-      safeNum(r.roster_count),
-      safeNum(r.unique_attendees),
-      safeNum(r.absent_count),
-      safeNum(r.sessions_count),
-      safeNum(r.avg_score),
-      safeNum(r.avg_accuracy)
-    ]);
-  });
-
-  downloadCsv(`attendance_summary_${Date.now()}.csv`, rows);
-}
-
-function getTopPerformerRows(){
+function getTopPerformerRows() {
   return buildRiskRows()
     .filter(r => r.sessions_count > 0)
-    .sort((a,b) => {
+    .sort((a, b) => {
       const acc = safeNum(b.last_accuracy) - safeNum(a.last_accuracy);
       if (acc !== 0) return acc;
       const att = safeNum(b.attendance_rate) - safeNum(a.attendance_rate);
@@ -922,9 +901,9 @@ function getTopPerformerRows(){
     .slice(0, 10);
 }
 
-function buildHeatmapData(){
+function buildHeatmapData() {
   const attendanceRows = Array.isArray(state.attendanceRows) ? state.attendanceRows : [];
-  const students = collectRosterAwareStudents().sort((a,b) => {
+  const students = collectRosterAwareStudents().sort((a, b) => {
     const s = safeStr(a.section).localeCompare(safeStr(b.section));
     if (s !== 0) return s;
     return safeStr(a.student_id || a.display_name).localeCompare(safeStr(b.student_id || b.display_name));
@@ -934,7 +913,7 @@ function buildHeatmapData(){
     key: `${safeStr(r.section)}||${safeStr(r.session_code)}`,
     section: safeStr(r.section),
     session_code: safeStr(r.session_code)
-  })).sort((a,b) => {
+  })).sort((a, b) => {
     const s = safeStr(a.section).localeCompare(safeStr(b.section));
     if (s !== 0) return s;
     return safeStr(a.session_code).localeCompare(safeStr(b.session_code));
@@ -948,9 +927,7 @@ function buildHeatmapData(){
   const rows = students.map(student => {
     const section = safeStr(student.section);
     const cells = columns.map(col => {
-      if (safeStr(col.section) !== section){
-        return { status: 'N', label: '—' };
-      }
+      if (safeStr(col.section) !== section) return { status: 'N', label: '—' };
 
       const found = colMap[col.key];
       const sid = safeStr(student.student_id);
@@ -969,12 +946,12 @@ function buildHeatmapData(){
   return { columns, rows };
 }
 
-function renderHeatmap(){
+function renderHeatmap() {
   if (!els.heatmapWrap) return;
 
   const { columns, rows } = buildHeatmapData();
 
-  if (!columns.length || !rows.length){
+  if (!columns.length || !rows.length) {
     els.heatmapWrap.innerHTML = '<div class="empty" style="margin:12px;">ยังไม่มีข้อมูล heatmap</div>';
     return;
   }
@@ -1018,12 +995,12 @@ function renderHeatmap(){
   `;
 }
 
-function buildSessionComparisonRows(){
+function buildSessionComparisonRows() {
   const grouped = {};
 
   (state.attendanceRows || []).forEach(row => {
     const sessionCode = safeStr(row.session_code) || '-';
-    if (!grouped[sessionCode]){
+    if (!grouped[sessionCode]) {
       grouped[sessionCode] = {
         session_code: sessionCode,
         sections: new Set(),
@@ -1054,14 +1031,14 @@ function buildSessionComparisonRows(){
     absent: g.absent,
     avg_score: g.row_count ? Number((g.score_sum / g.row_count).toFixed(2)) : 0,
     avg_accuracy: g.row_count ? Number((g.acc_sum / g.row_count).toFixed(2)) : 0
-  })).sort((a,b) => safeStr(a.session_code).localeCompare(safeStr(b.session_code)));
+  })).sort((a, b) => safeStr(a.session_code).localeCompare(safeStr(b.session_code)));
 }
 
-function renderSessionComparison(){
+function renderSessionComparison() {
   if (!els.sessionComparisonBody) return;
 
   const rows = buildSessionComparisonRows();
-  if (!rows.length){
+  if (!rows.length) {
     els.sessionComparisonBody.innerHTML = '<tr><td colspan="7">ยังไม่มีข้อมูล session comparison</td></tr>';
     return;
   }
@@ -1079,11 +1056,11 @@ function renderSessionComparison(){
   `).join('');
 }
 
-function renderInterventionQueue(){
+function renderInterventionQueue() {
   if (!els.interventionList) return;
 
   const rows = buildInterventionRows();
-  if (!rows.length){
+  if (!rows.length) {
     els.interventionList.innerHTML = '<div class="empty">ยังไม่มีนักศึกษาที่ต้อง intervention เพิ่ม</div>';
     return;
   }
@@ -1101,7 +1078,7 @@ function renderInterventionQueue(){
   `).join('');
 }
 
-function renderTodayActionSummary(){
+function renderTodayActionSummary() {
   if (!els.todayActionGrid) return;
 
   const riskRows = buildRiskRows();
@@ -1133,33 +1110,33 @@ function renderTodayActionSummary(){
   `;
 }
 
-function getSelectedRows(){
+function getSelectedRows() {
   const selected = [];
   (state.filteredStudents || []).forEach(r => {
-    if (state.selectedStudentIds.has(safeStr(r.student_id))){
+    if (state.selectedStudentIds.has(safeStr(r.student_id))) {
       selected.push(r);
     }
   });
   return selected;
 }
 
-function parseCsvLine_(line){
+function parseCsvLine_(line) {
   const out = [];
   let cur = '';
   let inQuotes = false;
 
-  for (let i = 0; i < line.length; i += 1){
+  for (let i = 0; i < line.length; i += 1) {
     const ch = line[i];
     const next = line[i + 1];
 
-    if (ch === '"'){
-      if (inQuotes && next === '"'){
+    if (ch === '"') {
+      if (inQuotes && next === '"') {
         cur += '"';
         i += 1;
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (ch === ',' && !inQuotes){
+    } else if (ch === ',' && !inQuotes) {
       out.push(cur);
       cur = '';
     } else {
@@ -1171,7 +1148,7 @@ function parseCsvLine_(line){
   return out.map(x => x.trim());
 }
 
-function parseCsvText(text){
+function parseCsvText(text) {
   const lines = String(text || '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
@@ -1192,34 +1169,34 @@ function parseCsvText(text){
       student_id: safeStr(obj.student_id),
       display_name: safeStr(obj.display_name),
       section: safeStr(obj.section),
-      active: safeStr(obj.active) === '' ? true : ['true','1','yes'].includes(safeStr(obj.active).toLowerCase())
+      active: safeStr(obj.active) === '' ? true : ['true', '1', 'yes'].includes(safeStr(obj.active).toLowerCase())
     };
   }).filter(r => r.student_id);
 }
 
-async function importRosterFile(file){
+async function importRosterFile(file) {
   if (!file) return;
 
   const text = await file.text();
   const rows = parseCsvText(text);
 
-  if (!rows.length){
+  if (!rows.length) {
     alert('ไม่พบข้อมูลใน CSV หรือหัวตารางไม่ถูกต้อง');
     return;
   }
 
   const bad = rows.filter(r => !r.student_id || !r.display_name || !r.section);
-  if (bad.length){
+  if (bad.length) {
     alert('มีบางแถวที่ขาด student_id / display_name / section');
     return;
   }
 
   setLoading(true);
-  try{
+  try {
     const res = await postAction('teacher_roster_upsert_bulk', { rows });
     alert(`นำเข้า roster สำเร็จ\nInserted: ${res?.result?.inserted || 0}\nUpdated: ${res?.result?.updated || 0}`);
     await loadOverviewAndStudents();
-  } catch (err){
+  } catch (err) {
     console.error(err);
     alert('นำเข้า roster ไม่สำเร็จ');
   } finally {
@@ -1228,7 +1205,7 @@ async function importRosterFile(file){
   }
 }
 
-function toCsv(rows){
+function toCsv(rows) {
   return rows.map(row => row.map(v => {
     const s = String(v ?? '');
     if (/[",\n]/.test(s)) return `"${s.replaceAll('"', '""')}"`;
@@ -1236,7 +1213,7 @@ function toCsv(rows){
   }).join(',')).join('\n');
 }
 
-function downloadCsv(filename, rows){
+function downloadCsv(filename, rows) {
   const csv = toCsv(rows);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -1249,9 +1226,9 @@ function downloadCsv(filename, rows){
   URL.revokeObjectURL(url);
 }
 
-function exportStudentsCsv(){
+function exportStudentsCsv() {
   const rows = [
-    ['student_id','display_name','section','sessions_count','last_score','last_accuracy','last_session_code','recommended_mode','recommended_difficulty']
+    ['student_id', 'display_name', 'section', 'sessions_count', 'last_score', 'last_accuracy', 'last_session_code', 'recommended_mode', 'recommended_difficulty']
   ];
 
   state.filteredStudents.forEach(r => {
@@ -1271,16 +1248,16 @@ function exportStudentsCsv(){
   downloadCsv(`teacher_students_${Date.now()}.csv`, rows);
 }
 
-function exportSelectedDetailCsv(){
+function exportSelectedDetailCsv() {
   const detail = state.selectedDetail;
-  if (!detail || !detail.profile){
+  if (!detail || !detail.profile) {
     alert('ยังไม่ได้เลือกนักศึกษา');
     return;
   }
 
   const rows = [];
   rows.push(['PROFILE']);
-  rows.push(['student_id','display_name','section','recommended_mode','recommended_difficulty']);
+  rows.push(['student_id', 'display_name', 'section', 'recommended_mode', 'recommended_difficulty']);
   rows.push([
     safeStr(detail.profile.student_id),
     safeStr(detail.profile.display_name),
@@ -1291,7 +1268,7 @@ function exportSelectedDetailCsv(){
 
   rows.push([]);
   rows.push(['SUMMARY']);
-  rows.push(['sessions_count','avg_score','avg_accuracy','total_terms_answered','total_correct','total_wrong']);
+  rows.push(['sessions_count', 'avg_score', 'avg_accuracy', 'total_terms_answered', 'total_correct', 'total_wrong']);
   rows.push([
     safeNum(detail.summary?.sessions_count),
     safeNum(detail.summary?.avg_score),
@@ -1303,7 +1280,7 @@ function exportSelectedDetailCsv(){
 
   rows.push([]);
   rows.push(['SESSIONS']);
-  rows.push(['session_code','bank','mode','score','accuracy','mistakes','started_at','ended_at']);
+  rows.push(['session_code', 'bank', 'mode', 'score', 'accuracy', 'mistakes', 'started_at', 'ended_at']);
   (detail.sessions || []).forEach(s => {
     rows.push([
       safeStr(s.session_code),
@@ -1319,7 +1296,7 @@ function exportSelectedDetailCsv(){
 
   rows.push([]);
   rows.push(['WEAK_TERMS']);
-  rows.push(['term','wrong','correct','seen','accuracy','avg_response_ms','last_level_after']);
+  rows.push(['term', 'wrong', 'correct', 'seen', 'accuracy', 'avg_response_ms', 'last_level_after']);
   (detail.weak_terms || []).forEach(w => {
     rows.push([
       safeStr(w.term || w.term_id),
@@ -1335,8 +1312,8 @@ function exportSelectedDetailCsv(){
   downloadCsv(`teacher_detail_${safeStr(detail.profile.student_id || 'student')}_${Date.now()}.csv`, rows);
 }
 
-function exportAbsenteesCsv(){
-  if (!state.selectedAttendanceKey){
+function exportAbsenteesCsv() {
+  if (!state.selectedAttendanceKey) {
     alert('ยังไม่ได้เลือก session ใน Attendance');
     return;
   }
@@ -1345,18 +1322,18 @@ function exportAbsenteesCsv(){
     r => `${safeStr(r.section)}||${safeStr(r.session_code)}` === state.selectedAttendanceKey
   );
 
-  if (!found){
+  if (!found) {
     alert('ไม่พบข้อมูล session ที่เลือก');
     return;
   }
 
   const absentees = Array.isArray(found.absentees) ? found.absentees : [];
-  if (!absentees.length){
+  if (!absentees.length) {
     alert('ไม่มีผู้ขาดใน session นี้');
     return;
   }
 
-  const rows = [['section','session_code','student_id','display_name']];
+  const rows = [['section', 'session_code', 'student_id', 'display_name']];
   absentees.forEach(a => {
     rows.push([
       safeStr(found.section),
@@ -1372,10 +1349,31 @@ function exportAbsenteesCsv(){
   );
 }
 
-function exportInterventionCsv(){
+function exportAttendanceSummaryCsv() {
+  const rows = [
+    ['section', 'session_code', 'roster_count', 'unique_attendees', 'absent_count', 'sessions_count', 'avg_score', 'avg_accuracy']
+  ];
+
+  (state.attendanceRows || []).forEach(r => {
+    rows.push([
+      safeStr(r.section),
+      safeStr(r.session_code),
+      safeNum(r.roster_count),
+      safeNum(r.unique_attendees),
+      safeNum(r.absent_count),
+      safeNum(r.sessions_count),
+      safeNum(r.avg_score),
+      safeNum(r.avg_accuracy)
+    ]);
+  });
+
+  downloadCsv(`attendance_summary_${Date.now()}.csv`, rows);
+}
+
+function exportInterventionCsv() {
   const rowsData = buildInterventionRows();
 
-  if (!rowsData.length){
+  if (!rowsData.length) {
     alert('ยังไม่มี intervention queue ในเงื่อนไขนี้');
     return;
   }
@@ -1415,10 +1413,10 @@ function exportInterventionCsv(){
   downloadCsv(`intervention_queue_${Date.now()}.csv`, rows);
 }
 
-function exportFollowupCsv(){
+function exportFollowupCsv() {
   const rowsData = Array.isArray(state.followupSummaryRows) ? state.followupSummaryRows : [];
 
-  if (!rowsData.length){
+  if (!rowsData.length) {
     alert('ยังไม่มี follow-up data ในเงื่อนไขนี้');
     return;
   }
@@ -1450,9 +1448,9 @@ function exportFollowupCsv(){
   downloadCsv(`followup_summary_${Date.now()}.csv`, rows);
 }
 
-function exportArchiveCsv(){
+function exportArchiveCsv() {
   const rowsData = Array.isArray(state.archiveRows) ? state.archiveRows : [];
-  if (!rowsData.length){
+  if (!rowsData.length) {
     alert('ยังไม่มี archive rows');
     return;
   }
@@ -1498,11 +1496,11 @@ function exportArchiveCsv(){
   downloadCsv(`teacher_archive_${Date.now()}.csv`, rows);
 }
 
-function renderFollowupTimeline(rows){
+function renderFollowupTimeline(rows) {
   if (!els.followupTimeline) return;
 
   const list = Array.isArray(rows) ? rows : [];
-  if (!list.length){
+  if (!list.length) {
     els.followupTimeline.innerHTML = '<div class="empty">ยังไม่มี timeline</div>';
     return;
   }
@@ -1520,7 +1518,7 @@ function renderFollowupTimeline(rows){
   `).join('');
 }
 
-function buildStudentProfileSummary(detail){
+function buildStudentProfileSummary(detail) {
   const profile = detail?.profile || null;
   if (!profile) return null;
 
@@ -1534,7 +1532,7 @@ function buildStudentProfileSummary(detail){
   const recentModes = [...new Set(sessions.slice(0, 5).map(s => safeStr(s.mode)).filter(Boolean))];
 
   let recommendation = 'ติดตามตามปกติ';
-  if (risk){
+  if (risk) {
     if (risk.priority >= 5) recommendation = 'ควรติดต่อด่วนและนัดชดเชย';
     else if (risk.priority >= 4) recommendation = 'ควรติดตามเชิงช่วยเหลือโดยเร็ว';
     else if (risk.priority >= 3) recommendation = 'ควรเสริมแบบฝึกและติดตามผล';
@@ -1556,11 +1554,11 @@ function buildStudentProfileSummary(detail){
   };
 }
 
-function renderStudentProfileSummary(detail){
+function renderStudentProfileSummary(detail) {
   if (!els.studentProfileSummaryBox) return;
 
   const s = buildStudentProfileSummary(detail);
-  if (!s){
+  if (!s) {
     els.studentProfileSummaryBox.innerHTML = '<div class="empty">ยังไม่ได้เลือกนักศึกษา</div>';
     return;
   }
@@ -1592,12 +1590,12 @@ function renderStudentProfileSummary(detail){
   `;
 }
 
-function renderFollowup(latest, rows){
+function renderFollowup(latest, rows) {
   state.followupLatest = latest || null;
   state.followupRows = Array.isArray(rows) ? rows : [];
 
-  if (els.followupLatestBox){
-    if (!latest){
+  if (els.followupLatestBox) {
+    if (!latest) {
       els.followupLatestBox.innerHTML = '<div class="empty">ยังไม่มีข้อมูล follow-up</div>';
     } else {
       els.followupLatestBox.innerHTML = `
@@ -1611,8 +1609,8 @@ function renderFollowup(latest, rows){
     }
   }
 
-  if (els.followupHistoryList){
-    if (!rows || !rows.length){
+  if (els.followupHistoryList) {
+    if (!rows || !rows.length) {
       els.followupHistoryList.innerHTML = '<div class="empty">ยังไม่มีประวัติหมายเหตุ</div>';
     } else {
       els.followupHistoryList.innerHTML = rows.map(r => `
@@ -1627,7 +1625,7 @@ function renderFollowup(latest, rows){
     }
   }
 
-  if (latest && els.followupStatus){
+  if (latest && els.followupStatus) {
     els.followupStatus.value = safeStr(latest.status || 'pending') || 'pending';
   }
 
@@ -1635,13 +1633,13 @@ function renderFollowup(latest, rows){
   renderStudentProfileSummary(state.selectedDetail);
 }
 
-async function loadFollowup(studentId){
+async function loadFollowup(studentId) {
   if (!studentId) return;
 
-  try{
+  try {
     const res = await postAction('teacher_get_followup', { student_id: studentId });
     renderFollowup(res?.latest || null, res?.rows || []);
-  } catch (err){
+  } catch (err) {
     console.error(err);
     if (els.followupLatestBox) els.followupLatestBox.innerHTML = '<div class="empty">โหลด follow-up ไม่สำเร็จ</div>';
     if (els.followupHistoryList) els.followupHistoryList.innerHTML = '<div class="empty">โหลด follow-up ไม่สำเร็จ</div>';
@@ -1649,9 +1647,9 @@ async function loadFollowup(studentId){
   }
 }
 
-async function saveFollowup(){
+async function saveFollowup() {
   const detail = state.selectedDetail;
-  if (!detail || !detail.profile){
+  if (!detail || !detail.profile) {
     alert('ยังไม่ได้เลือกนักศึกษา');
     return;
   }
@@ -1660,13 +1658,13 @@ async function saveFollowup(){
   const teacherName = safeStr(els.teacherNameInput?.value) || 'Teacher';
   const status = safeStr(els.followupStatus?.value) || 'pending';
 
-  if (!note){
+  if (!note) {
     alert('กรอกหมายเหตุก่อนบันทึก');
     return;
   }
 
   setLoading(true);
-  try{
+  try {
     await postAction('teacher_upsert_followup', {
       student_id: safeStr(detail.profile.student_id),
       display_name: safeStr(detail.profile.display_name),
@@ -1680,7 +1678,7 @@ async function saveFollowup(){
     await loadFollowup(detail.profile.student_id);
     await refreshFollowupSummaryOnly();
     alert('บันทึก follow-up เรียบร้อย');
-  } catch (err){
+  } catch (err) {
     console.error(err);
     alert('บันทึก follow-up ไม่สำเร็จ');
   } finally {
@@ -1688,7 +1686,7 @@ async function saveFollowup(){
   }
 }
 
-async function refreshFollowupSummaryOnly(){
+async function refreshFollowupSummaryOnly() {
   const filters = getFilters();
   const res = await postAction('teacher_get_followup_summary', { section: filters.section });
   renderFollowupSummary(res?.counts || {}, res?.rows || []);
@@ -1698,16 +1696,16 @@ async function refreshFollowupSummaryOnly(){
   renderUrgentLanding();
 }
 
-async function quickUpdateStatus(studentId, status){
+async function quickUpdateStatus(studentId, status) {
   const student = (state.students || []).find(s => safeStr(s.student_id) === safeStr(studentId));
-  if (!student){
+  if (!student) {
     alert('ไม่พบข้อมูลนักศึกษา');
     return;
   }
 
   const teacherName = safeStr(els.teacherNameInput?.value) || 'Teacher';
 
-  try{
+  try {
     await postAction('teacher_upsert_followup', {
       student_id: safeStr(student.student_id),
       display_name: safeStr(student.display_name),
@@ -1720,18 +1718,18 @@ async function quickUpdateStatus(studentId, status){
     await refreshFollowupSummaryOnly();
 
     const selectedSid = safeStr(state.selectedDetail?.profile?.student_id);
-    if (selectedSid && selectedSid === safeStr(student.student_id)){
+    if (selectedSid && selectedSid === safeStr(student.student_id)) {
       await loadFollowup(selectedSid);
     }
-  } catch (err){
+  } catch (err) {
     console.error(err);
     alert('อัปเดต quick status ไม่สำเร็จ');
   }
 }
 
-async function applyBulkStatus(){
+async function applyBulkStatus() {
   const rows = getSelectedRows();
-  if (!rows.length){
+  if (!rows.length) {
     alert('ยังไม่ได้เลือกนักศึกษาในตาราง');
     return;
   }
@@ -1741,7 +1739,7 @@ async function applyBulkStatus(){
   const teacherName = safeStr(els.teacherNameInput?.value) || 'Teacher';
 
   setLoading(true);
-  try{
+  try {
     await postAction('teacher_upsert_followup_bulk', {
       rows: rows.map(r => ({
         student_id: safeStr(r.student_id),
@@ -1760,13 +1758,13 @@ async function applyBulkStatus(){
     await refreshFollowupSummaryOnly();
 
     const selectedSid = safeStr(state.selectedDetail?.profile?.student_id);
-    if (selectedSid){
+    if (selectedSid) {
       await loadFollowup(selectedSid);
     }
 
     renderStudentsTable();
     alert(`อัปเดตสถานะเรียบร้อย ${rows.length} คน`);
-  } catch (err){
+  } catch (err) {
     console.error(err);
     alert('bulk update ไม่สำเร็จ');
   } finally {
@@ -1774,13 +1772,13 @@ async function applyBulkStatus(){
   }
 }
 
-async function archiveSnapshot(){
+async function archiveSnapshot() {
   const filters = getFilters();
   const counts = state.followupCounts || {};
   const overview = state.lastOverview || {};
 
   setLoading(true);
-  try{
+  try {
     await postAction('teacher_archive_snapshot', {
       archived_at: bangkokIsoNow(),
       section: filters.section,
@@ -1804,7 +1802,7 @@ async function archiveSnapshot(){
 
     await loadArchiveRows();
     alert('archive snapshot เรียบร้อย');
-  } catch (err){
+  } catch (err) {
     console.error(err);
     alert('archive snapshot ไม่สำเร็จ');
   } finally {
@@ -1812,17 +1810,17 @@ async function archiveSnapshot(){
   }
 }
 
-function parseArchiveNoteJson(noteJson){
-  try{
+function parseArchiveNoteJson(noteJson) {
+  try {
     const obj = typeof noteJson === 'string' ? JSON.parse(noteJson || '{}') : (noteJson || {});
     return obj && typeof obj === 'object' ? obj : {};
-  } catch (_){
+  } catch (_) {
     return {};
   }
 }
 
-async function loadArchiveRows(){
-  try{
+async function loadArchiveRows() {
+  try {
     const filters = getFilters();
     const res = await postAction('teacher_get_archive_rows', {
       section: filters.section,
@@ -1831,19 +1829,19 @@ async function loadArchiveRows(){
 
     state.archiveRows = Array.isArray(res?.rows) ? res.rows : [];
     renderArchiveTable();
-  } catch (err){
+  } catch (err) {
     console.error(err);
-    if (els.archiveTableBody){
+    if (els.archiveTableBody) {
       els.archiveTableBody.innerHTML = '<tr><td colspan="11">โหลด archive ไม่สำเร็จ</td></tr>';
     }
   }
 }
 
-function renderArchiveTable(){
+function renderArchiveTable() {
   if (!els.archiveTableBody) return;
 
   const rows = Array.isArray(state.archiveRows) ? state.archiveRows : [];
-  if (!rows.length){
+  if (!rows.length) {
     els.archiveTableBody.innerHTML = '<tr><td colspan="11">ยังไม่มี archive snapshots</td></tr>';
     return;
   }
@@ -1884,17 +1882,17 @@ function renderArchiveTable(){
   });
 }
 
-function findArchiveRowById(id){
+function findArchiveRowById(id) {
   const rows = Array.isArray(state.archiveRows) ? state.archiveRows : [];
   return rows.find((r, idx) => (safeStr(r.archived_at) + '||' + idx) === id) || null;
 }
 
-function compareSnapshots(){
+function compareSnapshots() {
   const a = findArchiveRowById(state.archiveSelectA);
   const b = findArchiveRowById(state.archiveSelectB);
 
-  if (!a || !b){
-    if (els.archiveCompareBox){
+  if (!a || !b) {
+    if (els.archiveCompareBox) {
       els.archiveCompareBox.innerHTML = '<div class="empty">เลือก snapshot A และ B ก่อน</div>';
     }
     return;
@@ -1916,7 +1914,7 @@ function compareSnapshots(){
     ['Closed', a.closed, b.closed]
   ];
 
-  if (els.archiveCompareBox){
+  if (els.archiveCompareBox) {
     els.archiveCompareBox.innerHTML = `
       <div class="listItem">
         <strong>Snapshot A</strong>
@@ -1942,11 +1940,11 @@ function compareSnapshots(){
   }
 }
 
-async function createTermBoundary(){
+async function createTermBoundary() {
   const label = safeStr(els.termBoundaryLabel?.value);
   const message = safeStr(els.termBoundaryMessage?.value);
 
-  if (!label){
+  if (!label) {
     alert('กรอก Boundary Label ก่อน');
     return;
   }
@@ -1956,7 +1954,7 @@ async function createTermBoundary(){
   const overview = state.lastOverview || {};
 
   setLoading(true);
-  try{
+  try {
     await postAction('teacher_create_term_boundary', {
       archived_at: bangkokIsoNow(),
       label,
@@ -1978,7 +1976,7 @@ async function createTermBoundary(){
 
     await loadArchiveRows();
     alert('สร้าง term boundary เรียบร้อย');
-  } catch (err){
+  } catch (err) {
     console.error(err);
     alert('สร้าง term boundary ไม่สำเร็จ');
   } finally {
@@ -1986,7 +1984,7 @@ async function createTermBoundary(){
   }
 }
 
-function softResetView(){
+function softResetView() {
   clearFilters();
   state.selectedStudentId = '';
   state.selectedDetail = null;
@@ -2006,11 +2004,12 @@ function softResetView(){
   alert('soft reset view เรียบร้อย — ไม่มีการลบข้อมูลดิบ');
 }
 
-function renderUrgentLanding(){
+/* CLEAN: เหลือ renderUrgentLanding แค่ตัวเดียว */
+function renderUrgentLanding() {
   if (!els.urgentLandingList) return;
 
   const rows = buildInterventionRows().slice(0, 8);
-  if (!rows.length){
+  if (!rows.length) {
     els.urgentLandingList.innerHTML = '<div class="empty">ไม่พบเคสเร่งด่วนในเงื่อนไขนี้</div>';
     return;
   }
@@ -2027,7 +2026,7 @@ function renderUrgentLanding(){
   `).join('');
 }
 
-function applyUrgentLandingMode(){
+function applyUrgentLandingMode() {
   if (!state.urgentLandingMode) return;
 
   const urgent = buildInterventionRows();
@@ -2035,14 +2034,14 @@ function applyUrgentLandingMode(){
 
   const first = urgent[0];
   const sid = safeStr(first.student_id);
-  if (sid && sid !== safeStr(state.selectedStudentId)){
+  if (sid && sid !== safeStr(state.selectedStudentId)) {
     state.selectedStudentId = sid;
     renderStudentsTable();
     loadStudentDetail(sid);
   }
 }
 
-function printTeacherReport(){
+function printTeacherReport() {
   const overview = state.lastOverview || {};
   const riskRows = buildRiskRows().filter(r => r.risk_level !== 'low').slice(0, 12);
   const topRows = getTopPerformerRows();
@@ -2210,7 +2209,7 @@ function printTeacherReport(){
   `;
 
   const win = window.open('', '_blank', 'width=1100,height=900');
-  if (!win){
+  if (!win) {
     alert('เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต pop-up');
     return;
   }
@@ -2222,10 +2221,10 @@ function printTeacherReport(){
   setTimeout(() => win.print(), 300);
 }
 
-function printSelectedStudentReport(){
+function printSelectedStudentReport() {
   const detail = state.selectedDetail;
 
-  if (!detail || !detail.profile){
+  if (!detail || !detail.profile) {
     alert('ยังไม่ได้เลือกนักศึกษา');
     return;
   }
@@ -2370,7 +2369,7 @@ function printSelectedStudentReport(){
   `;
 
   const win = window.open('', '_blank', 'width=1000,height=850');
-  if (!win){
+  if (!win) {
     alert('เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต pop-up');
     return;
   }
@@ -2382,9 +2381,9 @@ function printSelectedStudentReport(){
   setTimeout(() => win.print(), 300);
 }
 
-async function loadOverviewAndStudents(){
+async function loadOverviewAndStudents() {
   setLoading(true);
-  try{
+  try {
     const filters = getFilters();
 
     const [overviewRes, studentsRes, attendanceRes, sectionRes, followupRes] = await Promise.all([
@@ -2416,9 +2415,9 @@ async function loadOverviewAndStudents(){
     applyUrgentLandingMode();
 
     const selectedSid = safeStr(state.selectedStudentId);
-    if (selectedSid){
+    if (selectedSid) {
       const stillExists = state.students.some(x => safeStr(x.student_id) === selectedSid);
-      if (stillExists){
+      if (stillExists) {
         await loadStudentDetail(selectedSid);
       } else {
         state.selectedStudentId = '';
@@ -2430,7 +2429,7 @@ async function loadOverviewAndStudents(){
     }
 
     loadArchiveRows();
-  } catch (err){
+  } catch (err) {
     console.error(err);
     alert('โหลดข้อมูลครูไม่สำเร็จ');
   } finally {
@@ -2438,7 +2437,7 @@ async function loadOverviewAndStudents(){
   }
 }
 
-function clearDetail(){
+function clearDetail() {
   if (els.detailName) els.detailName.textContent = 'ยังไม่ได้เลือกนักศึกษา';
   if (els.detailMeta) els.detailMeta.textContent = 'เลือกจากตารางด้านซ้ายเพื่อดูข้อมูลรายคน';
   if (els.detailBadges) els.detailBadges.innerHTML = '';
@@ -2449,42 +2448,42 @@ function clearDetail(){
   if (els.weakTermsList) els.weakTermsList.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
   if (els.sessionsList) els.sessionsList.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
 
-  if (els.trendChartWrap){
+  if (els.trendChartWrap) {
     els.trendChartWrap.innerHTML = 'ยังไม่มีข้อมูล';
     els.trendChartWrap.className = 'empty';
   }
 
-  if (els.followupLatestBox){
+  if (els.followupLatestBox) {
     els.followupLatestBox.innerHTML = '<div class="empty">ยังไม่มีข้อมูล follow-up</div>';
   }
-  if (els.followupHistoryList){
+  if (els.followupHistoryList) {
     els.followupHistoryList.innerHTML = '<div class="empty">ยังไม่มีประวัติหมายเหตุ</div>';
   }
-  if (els.followupTimeline){
+  if (els.followupTimeline) {
     els.followupTimeline.innerHTML = '<div class="empty">ยังไม่มี timeline</div>';
   }
-  if (els.teacherNoteInput){
+  if (els.teacherNoteInput) {
     els.teacherNoteInput.value = '';
   }
-  if (els.followupStatus){
+  if (els.followupStatus) {
     els.followupStatus.value = 'pending';
   }
-  if (els.studentProfileSummaryBox){
+  if (els.studentProfileSummaryBox) {
     els.studentProfileSummaryBox.innerHTML = '<div class="empty">ยังไม่ได้เลือกนักศึกษา</div>';
   }
 
-  if (els.attendanceDetailList){
+  if (els.attendanceDetailList) {
     els.attendanceDetailList.innerHTML = '<div class="empty">ยังไม่ได้เลือก session</div>';
   }
-  if (els.absenteeDetailList){
+  if (els.absenteeDetailList) {
     els.absenteeDetailList.innerHTML = '<div class="empty">ยังไม่ได้เลือก session</div>';
   }
 }
 
-async function loadStudentDetail(studentId){
+async function loadStudentDetail(studentId) {
   if (!studentId) return;
   setLoading(true);
-  try{
+  try {
     const filters = getFilters();
     const res = await postAction('teacher_get_student_detail', {
       ...filters,
@@ -2498,7 +2497,7 @@ async function loadStudentDetail(studentId){
     renderTrendChart(res?.sessions || []);
     await loadFollowup(studentId);
     renderStudentProfileSummary(state.selectedDetail);
-  } catch (err){
+  } catch (err) {
     console.error(err);
     alert('โหลดรายละเอียดนักศึกษาไม่สำเร็จ');
   } finally {
@@ -2506,7 +2505,7 @@ async function loadStudentDetail(studentId){
   }
 }
 
-function clearFilters(){
+function clearFilters() {
   if (els.sectionFilter) els.sectionFilter.value = '';
   if (els.sessionCodeFilter) els.sessionCodeFilter.value = '';
   if (els.bankFilter) els.bankFilter.value = '';
@@ -2516,13 +2515,13 @@ function clearFilters(){
   if (els.followupFilter) els.followupFilter.value = '';
 }
 
-function attachSortHandlers(){
+function attachSortHandlers() {
   document.querySelectorAll('th[data-sort]').forEach(th => {
     th.style.cursor = 'pointer';
     th.addEventListener('click', () => {
       const key = th.getAttribute('data-sort') || '';
       if (!key) return;
-      if (state.sortKey === key){
+      if (state.sortKey === key) {
         state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
       } else {
         state.sortKey = key;
@@ -2571,7 +2570,7 @@ on(els.printSelectedStudentBtn, 'click', printSelectedStudentReport);
 on(els.saveFollowupBtn, 'click', saveFollowup);
 on(els.refreshFollowupBtn, 'click', () => {
   const sid = safeStr(state.selectedDetail?.profile?.student_id);
-  if (!sid){
+  if (!sid) {
     alert('ยังไม่ได้เลือกนักศึกษา');
     return;
   }
@@ -2580,7 +2579,7 @@ on(els.refreshFollowupBtn, 'click', () => {
 
 on(els.selectAllFilteredChk, 'change', () => {
   const checked = !!els.selectAllFilteredChk.checked;
-  if (checked){
+  if (checked) {
     state.filteredStudents.forEach(r => state.selectedStudentIds.add(safeStr(r.student_id)));
   } else {
     state.selectedStudentIds = new Set();
