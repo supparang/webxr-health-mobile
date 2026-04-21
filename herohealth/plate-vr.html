@@ -47,7 +47,8 @@
     }
 
     body.guide-open,
-    body.reward-open{
+    body.reward-open,
+    body.flow-open{
       overflow:hidden;
     }
 
@@ -774,10 +775,12 @@
       inset:0;
       z-index:80;
       background:rgba(15,23,42,.42);
-      display:grid;
-      place-items:center;
       padding:18px;
       backdrop-filter:blur(8px);
+      overflow-y:auto;
+      overflow-x:hidden;
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior:contain;
     }
 
     .guideOverlay[hidden],
@@ -785,9 +788,18 @@
       display:none;
     }
 
+    .guideOverlay:not([hidden]),
+    .flowOverlay:not([hidden]){
+      display:grid;
+      align-items:start;
+      justify-items:center;
+    }
+
     .guideCard,
     .flowCard{
       width:min(92vw,920px);
+      max-width:100%;
+      margin:0 auto;
       background:linear-gradient(180deg,#fffef9,#f9fcff);
       border:1px solid var(--line);
       border-radius:28px;
@@ -796,9 +808,6 @@
     }
 
     .flowHead{
-      display:flex;
-      align-items:flex-start;
-.flowHead{
       display:flex;
       align-items:flex-start;
       gap:12px;
@@ -921,373 +930,6 @@
       pointer-events:auto;
     }
 
-    .rewardPopupBadge{
-      width:82px;
-      height:82px;
-      margin:0 auto 12px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#ffe7a1,#ffd35e);
-      font-size:42px;
-      box-shadow:0 10px 20px rgba(255,208,94,.22);
-    }
-
-    .rewardPopupTitle{
-      font-size:24px;
-      font-weight:900;
-      color:#875d18;
-      margin-bottom:6px;
-      line-height:1.15;
-    }
-
-    .rewardPopupDesc{
-      font-size:15px;
-      line-height:1.45;
-      color:#6f6245;
-      margin-bottom:10px;
-    }
-
-    .rewardPopupMeta{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:36px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:1px solid #f0ddb0;
-      color:#8d6118;
-      font-weight:900;
-      margin-bottom:14px;
-      max-width:100%;
-    }
-
-    .rewardPopupBtn{
-      width:100%;
-      min-height:52px;
-      border:none;
-      border-radius:16px;
-      background:var(--sky);
-      color:#17384f;
-      font-size:16px;
-      font-weight:900;
-      cursor:pointer;
-      position:relative;
-      z-index:2;
-      pointer-events:auto;
-      touch-action:manipulation;
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    .rewardPopupBtn:active{
-      transform:scale(.985);
-    }
-
-    .rewardPopupBtn:disabled{
-      opacity:.65;
-      cursor:not-allowed;
-    }
-
-    .evalChoices{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:14px;
-      margin:14px 0;
-    }
-
-    .evalChoice{
-      background:#fff;
-      border:1px solid var(--line);
-      border-radius:22px;
-      padding:12px;
-      cursor:pointer;
-      transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
-      box-shadow:0 8px 18px rgba(0,0,0,.04);
-      text-align:center;
-    }
-
-    .evalChoice.selected{
-      border-color:var(--sky);
-      box-shadow:0 0 0 4px rgba(127,207,255,.18);
-      transform:translateY(-2px);
-    }
-
-    .evalChoice.correct{
-      border-color:#a9dfb6;
-      background:var(--ok-bg);
-    }
-
-    .evalChoice.wrong{
-      border-color:#ffcfcf;
-      background:var(--bad-bg);
-    }
-
-    .evalPlate{
-      width:min(100%,160px);
-      aspect-ratio:1/1;
-      margin:0 auto 10px;
-      border-radius:999px;
-      position:relative;
-      border:7px solid #eaf4fa;
-      background:#fff;
-      overflow:hidden;
-    }
-
-    .evalZone{
-      position:absolute;
-      display:grid;
-      place-items:center;
-      font-size:20px;
-    }
-
-    .evalZone.z-g2{ left:8%; top:8%; width:42%; height:42%; background:var(--g2); border-radius:999px 0 0 0; }
-    .evalZone.z-g1{ right:8%; top:8%; width:42%; height:42%; background:var(--g1); border-radius:0 999px 0 0; }
-    .evalZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; background:var(--g3); border-radius:0 0 0 999px; }
-    .evalZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; background:var(--g4); border-radius:0 0 999px 0; }
-    .evalZone.z-g5{ left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); background:var(--g5); border-radius:999px; font-size:18px; }
-
-    .evalLabel{
-      font-weight:900;
-      color:#2d4859;
-      font-size:16px;
-    }
-
-    .flowHint{
-      color:#5c7383;
-      font-size:14px;
-      font-weight:800;
-      text-align:center;
-      margin-bottom:12px;
-    }
-
-    .flowActions{
-      display:flex;
-      justify-content:center;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-
-    .flowBtn{
-      min-height:48px;
-      min-width:150px;
-      padding:0 14px;
-      border:none;
-      border-radius:16px;
-      font-size:16px;
-      font-weight:900;
-      cursor:pointer;
-      border:1px solid var(--line);
-      background:#fff;
-      color:#2f4f63;
-    }
-
-    .flowBtn.primary{
-      background:var(--sky);
-      color:#17384f;
-    }
-
-    .flowBtn:disabled{
-      opacity:.6;
-      cursor:not-allowed;
-    }
-
-    .flowFeedback{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:#f8fcff;
-      border:1px solid var(--line);
-      color:#476072;
-      font-weight:800;
-      min-height:52px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      line-height:1.45;
-    }
-
-    .flowFeedback.ok{
-      background:var(--ok-bg);
-      border-color:#bdecc7;
-      color:#2b6c43;
-    }
-
-    .flowFeedback.bad{
-      background:var(--bad-bg);
-      border-color:#ffd0d0;
-      color:#a35555;
-    }
-
-    .createTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:12px;
-    }
-
-    .createProgressWrap{
-      flex:1 1 auto;
-      max-width:320px;
-    }
-
-    .createProgressText{
-      font-size:13px;
-      font-weight:900;
-      color:#8a6120;
-      margin-bottom:6px;
-      text-align:right;
-    }
-
-    .createProgressBar{
-      height:12px;
-      background:#f5ead0;
-      border-radius:999px;
-      overflow:hidden;
-    }
-
-    .createProgressFill{
-      width:0%;
-      height:100%;
-      background:linear-gradient(90deg,#ffd76a,#ffb347);
-      transition:width .18s ease;
-    }
-
-    .createLayout{
-      display:grid;
-      grid-template-columns:1fr .95fr;
-      gap:16px;
-      margin-top:12px;
-    }
-
-    .createBoard,.createTrayWrap{
-      border:1px solid var(--line);
-      border-radius:22px;
-      padding:14px;
-      background:#fff;
-      box-shadow:0 8px 18px rgba(0,0,0,.04);
-    }
-
-    .createPlate{
-      width:min(100%,360px);
-      aspect-ratio:1/1;
-      margin:8px auto;
-      border-radius:999px;
-      border:9px solid #eaf4fa;
-      background:#fff;
-      position:relative;
-      overflow:hidden;
-    }
-
-    .createZone{
-      position:absolute;
-      border:none;
-      cursor:pointer;
-      font-weight:900;
-      color:#334155;
-      box-shadow:inset 0 0 0 2px rgba(255,255,255,.75);
-      transition:transform .15s ease, box-shadow .15s ease;
-      overflow:hidden;
-    }
-
-    .createZone .zoneInner{
-      position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
-      padding:8px;
-      text-align:center;
-      font-size:13px;
-      font-weight:900;
-      color:#2f4f63;
-    }
-
-    .createZone.hasItem .zoneInner{
-      gap:4px;
-      align-content:center;
-    }
-
-    .zonePlaceholder{
-      background:rgba(255,255,255,.8);
-      padding:4px 8px;
-      border-radius:999px;
-    }
-
-    .zoneItemEmoji{ font-size:22px; }
-    .zoneItemText{
-      font-size:12px;
-      background:rgba(255,255,255,.8);
-      padding:3px 6px;
-      border-radius:999px;
-    }
-
-    .createZone.z-g2{ left:8%; top:8%; width:42%; height:42%; border-radius:999px 0 0 0; background:var(--g2); }
-    .createZone.z-g1{ right:8%; top:8%; width:42%; height:42%; border-radius:0 999px 0 0; background:var(--g1); }
-    .createZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 0 999px; background:var(--g3); }
-    .createZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 999px 0; background:var(--g4); }
-    .createZone.z-g5{ left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); border-radius:999px; background:var(--g5); }
-
-    .createTray{
-      display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:10px;
-    }
-
-    .createResult{
-      margin-top:14px;
-      padding:14px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:#f8fcff;
-      color:#476072;
-      font-weight:800;
-      display:none;
-      line-height:1.5;
-    }
-
-    .createResult.show{ display:block; }
-    .createResult.great{
-      background:linear-gradient(180deg,#fffef5,#f5fff4);
-      border-color:#d9efc8;
-      color:#527c26;
-    }
-
-    .createResult.good{
-      background:#f4fbff;
-      border-color:#cfe8f8;
-      color:#3e6f8a;
-    }
-
-    .createResult.retry{
-      background:#fff8f2;
-      border-color:#ffd8b5;
-      color:#9a5b2b;
-    }
-
-    .celebrateLayer{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      overflow:hidden;
-      z-index:60;
-    }
-
-    .confetti{
-      position:absolute;
-      top:-10vh;
-      font-size:24px;
-      animation:confettiDrop linear forwards;
-      will-change:transform, opacity;
-    }
-
-    @keyframes confettiDrop{
-      0%{ transform:translateY(0) rotate(0deg); opacity:1; }
-      100%{ transform:translateY(115vh) rotate(360deg); opacity:0; }
-    }
-
     @media (max-width: 960px){
       .heroBar{ grid-template-columns:1fr 1fr; }
       .createLayout{ grid-template-columns:1fr; }
@@ -1301,6 +943,21 @@
       .plateArea,.trayArea{ min-height:auto; border-radius:20px; padding:14px; }
       .plate{ width:min(100%,360px); }
       .evalChoices{ grid-template-columns:1fr; }
+
+      .flowOverlay,
+      .guideOverlay{
+        padding:
+          max(10px, env(safe-area-inset-top))
+          10px
+          max(16px, env(safe-area-inset-bottom));
+      }
+
+      .flowCard,
+      .guideCard{
+        width:100%;
+        border-radius:22px;
+        padding:16px;
+      }
     }
 
     @media (max-width: 640px){
@@ -1317,7 +974,7 @@
   </style>
 </head>
 <body>
-  <div class="hud">
+<div class="hud">
     <div class="pill" id="scorePill">คะแนน<br><span id="hudScore">0</span></div>
     <div class="pill" id="timePill">เวลา<br><span id="hudTime">90</span></div>
     <div class="pill" id="streakPill">คอมโบ<br><span id="hudStreak">0</span></div>
@@ -1546,7 +1203,6 @@
       <h2 id="pauseTitle">หยุดเกมชั่วคราว</h2>
       <p id="pauseText">พักก่อน แล้วค่อยเล่นต่อได้</p>
       <div class="pauseActions">
-<div class="pauseActions">
         <button type="button" class="pauseBtn primary" id="btnResumeGame">เล่นต่อ</button>
         <button type="button" class="pauseBtn" id="btnRestartGame">เริ่มใหม่</button>
       </div>
@@ -1744,8 +1400,7 @@
     }
 
     let rng = makeRng(ctx.seed);
-
-    const FOOD_GROUPS = {
+const FOOD_GROUPS = {
       g1: { id:'g1', name:'หมู่ 1 โปรตีน', short:'โปรตีน', color:'#ffe7ef' },
       g2: { id:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', short:'คาร์บ', color:'#fff4cc' },
       g3: { id:'g3', name:'หมู่ 3 ผัก', short:'ผัก', color:'#e6f8df' },
@@ -1803,7 +1458,8 @@
       butter:'🧈', oil:'🫗', coconutMilk:'🥥', sesame:'⚪',
       soda:'🥤', candy:'🍬', cake:'🍰', chips:'🍟', donut:'🍩', bubbleTea:'🧋'
     };
-const STICKERS = {
+
+    const STICKERS = {
       first_plate: { icon:'🍽️', text:'จานแรกของวัน' },
       perfect_plate: { icon:'🌟', text:'Perfect Plate' },
       three_plates: { icon:'🏅', text:'ครบ 3 จาน' },
@@ -2454,8 +2110,7 @@ function unlockDeferredRewardPopups(){
       updateHud();
       checkRoundComplete();
     }
-
-    function nextRound(){
+function nextRound(){
       clearTimeout(state.roundAdvanceTimer);
       state.roundAdvanceTimer = 0;
 
@@ -2805,8 +2460,7 @@ function unlockDeferredRewardPopups(){
         </div>
       `;
     }
-
-    function openEvaluate(){
+function openEvaluate(){
       renderPostGameFlowText();
       const tpl = pickEvaluateTemplate();
       evaluateState.questionId = tpl.id;
@@ -2822,6 +2476,7 @@ function unlockDeferredRewardPopups(){
       $btnEvalSkip.hidden = false;
       $evalNextActions.hidden = true;
       $evaluateOverlay.hidden = false;
+      document.body.classList.add('flow-open');
       $summaryOverlay.classList.remove('show');
 
       $evalChoices.querySelectorAll('.evalChoice').forEach(card => {
@@ -2862,6 +2517,7 @@ function unlockDeferredRewardPopups(){
 
     function closeEvaluate(){
       $evaluateOverlay.hidden = true;
+      document.body.classList.remove('flow-open');
     }
 
     function getCreateFoods(){
@@ -2871,7 +2527,14 @@ function unlockDeferredRewardPopups(){
         if(item) base.push(item);
       });
       const distractors = shuffle(FOOD_DB.filter(x => x.group === 'x'), rng).slice(0, 2);
-      return shuffle([...base, ...distractors, ...shuffle(FOOD_DB.filter(x => x.group !== 'x'), rng).slice(0, 3)], rng).slice(0, 10);
+      return shuffle(
+        [
+          ...base,
+          ...distractors,
+          ...shuffle(FOOD_DB.filter(x => x.group !== 'x'), rng).slice(0, 3)
+        ],
+        rng
+      ).slice(0, 10);
     }
 
     function renderCreateTray(){
@@ -3013,10 +2676,12 @@ function unlockDeferredRewardPopups(){
       renderCreateTray();
       renderCreateZones();
       $createOverlay.hidden = false;
+      document.body.classList.add('flow-open');
     }
 
     function closeCreate(){
       $createOverlay.hidden = true;
+      document.body.classList.remove('flow-open');
     }
 
     function isOverlayBlocking(){
@@ -3069,6 +2734,7 @@ function unlockDeferredRewardPopups(){
       $pauseOverlay.hidden = true;
       $evaluateOverlay.hidden = true;
       $createOverlay.hidden = true;
+      document.body.classList.remove('flow-open');
       leavingPage = false;
     }
 
@@ -3082,6 +2748,7 @@ function unlockDeferredRewardPopups(){
       cancelTimers();
       state.destroyed = true;
       $pauseOverlay.hidden = true;
+      document.body.classList.remove('flow-open');
     }
 
     function maybeShowGuideThenStart(){
@@ -3153,8 +2820,7 @@ function unlockDeferredRewardPopups(){
       $guideOverlay.hidden = true;
       document.body.classList.remove('guide-open');
     }
-
-    $guideStartBtn.addEventListener('click', () => {
+$guideStartBtn.addEventListener('click', () => {
       if($guideDontShowToday.checked) markGuideSeen();
       closeGuide();
       reallyStartGame();
