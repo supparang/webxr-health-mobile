@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>TechPath Teacher Dashboard</title>
+
+  <script>
+    window.TECHPATH_ATTENDANCE_ENDPOINT =
+      'https://script.google.com/macros/s/AKfycbzOs6lQUEdTug17xKDDaVKEFMN0n0hkoBY9erwH309hkHMDYzNB_FhtSzhmNnF0uF5f/exec';
+    window.TEACHER_BUILD = 'v20260420a-teacher';
+  </script>
+
+  <style>
+    :root{
+      --bg:#07111f;
+      --panel:#0f1b2d;
+      --panel-2:#13233a;
+      --line:rgba(123,237,255,.18);
+      --text:#eef7ff;
+      --muted:#9db2c7;
+      --accent:#7bedff;
+      --ok:#2ed573;
+      --warn:#f1c40f;
+      --bad:#ff6b81;
+      --shadow:0 14px 30px rgba(0,0,0,.25);
+      --radius:18px;
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      background:linear-gradient(180deg,#06101d,#0a1728 30%,#081320);
+      color:var(--text);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    body{
+      min-height:100vh;
+    }
+    .wrap{
+      width:min(1400px, calc(100% - 24px));
+      margin:0 auto;
+      padding:16px 0 28px;
+    }
+    .topbar{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .brand h1{
+      margin:0;
+      font-size:1.5rem;
+      color:var(--accent);
+      font-weight:900;
+    }
+    .brand .sub{
+      color:var(--muted);
+      font-size:.95rem;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:40px;
+      padding:0 14px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      font-weight:700;
+    }
+    .panel{
+      background:rgba(15,27,45,.92);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .controls{
+      display:grid;
+      grid-template-columns:1.3fr repeat(4, minmax(140px, .7fr)) auto auto;
+      gap:10px;
+      padding:14px;
+      margin-bottom:14px;
+    }
+    .controls input,
+    .controls select,
+    .controls button{
+      min-height:44px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      padding:0 12px;
+      outline:none;
+    }
+    .controls button{
+      cursor:pointer;
+      font-weight:800;
+      background:linear-gradient(180deg,#2ad7ff,#14bde0);
+      color:#03131b;
+      border:none;
+    }
+    .controls .ghost{
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      border:1px solid var(--line);
+    }
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(7, minmax(0, 1fr));
+      gap:10px;
+      margin-bottom:14px;
+    }
+    .card{
+      padding:14px;
+      min-height:100px;
+    }
+    .card .k{
+      color:var(--muted);
+      font-size:.83rem;
+      margin-bottom:8px;
+      font-weight:700;
+    }
+    .card .v{
+      font-size:1.6rem;
+      font-weight:900;
+      line-height:1;
+    }
+    .card.ok .v{ color:var(--ok); }
+    .card.warn .v{ color:var(--warn); }
+    .card.bad .v{ color:var(--bad); }
+
+    .grid{
+      display:grid;
+      grid-template-columns:minmax(0, 1.45fr) minmax(360px, .85fr);
+      gap:14px;
+      align-items:start;
+    }
+
+    .table-panel{
+      overflow:hidden;
+    }
+    .table-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:14px 14px 10px;
+      border-bottom:1px solid var(--line);
+    }
+    .table-head h2,
+    .detail-head h2{
+      margin:0;
+      font-size:1.05rem;
+      color:var(--accent);
+    }
+    .table-meta{
+      color:var(--muted);
+      font-size:.88rem;
+    }
+    .table-wrap{
+      overflow:auto;
+      max-height:70vh;
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:980px;
+    }
+    thead th{
+      position:sticky;
+      top:0;
+      z-index:1;
+      background:#0f1b2d;
+      color:#cfefff;
+      font-size:.85rem;
+      text-align:left;
+      padding:12px 10px;
+      border-bottom:1px solid var(--line);
+    }
+    tbody td{
+      padding:11px 10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:.92rem;
+      vertical-align:top;
+    }
+    tbody tr{
+      cursor:pointer;
+    }
+    tbody tr:hover{
+      background:rgba(123,237,255,.05);
+    }
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      font-size:.78rem;
+      font-weight:900;
+      border:1px solid transparent;
+      white-space:nowrap;
+    }
+    .tag.entered{ background:rgba(241,196,15,.12); color:#ffeaa7; border-color:rgba(241,196,15,.25); }
+    .tag.in_progress{ background:rgba(123,237,255,.12); color:#7bedff; border-color:rgba(123,237,255,.25); }
+    .tag.completed{ background:rgba(46,213,115,.12); color:#b9ffd0; border-color:rgba(46,213,115,.25); }
+    .tag.left{ background:rgba(255,107,129,.12); color:#ffd4db; border-color:rgba(255,107,129,.25); }
+    .yes{ color:var(--ok); font-weight:900; }
+    .no{ color:var(--bad); font-weight:900; }
+
+    .detail{
+      padding:0;
+      overflow:hidden;
+      position:sticky;
+      top:12px;
+      max-height:84vh;
+      display:flex;
+      flex-direction:column;
+    }
+    .detail-head{
+      padding:14px;
+      border-bottom:1px solid var(--line);
+    }
+    .detail-body{
+      padding:14px;
+      overflow:auto;
+    }
+    .detail-empty{
+      color:var(--muted);
+      line-height:1.6;
+    }
+    .kv{
+      display:grid;
+      grid-template-columns:110px 1fr;
+      gap:8px 12px;
+      margin-bottom:14px;
+      font-size:.92rem;
+    }
+    .kv .k{
+      color:var(--muted);
+      font-weight:700;
+    }
+    .section-title{
+      margin:18px 0 10px;
+      color:var(--accent);
+      font-weight:900;
+      font-size:.95rem;
+    }
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+    .mini-card{
+      padding:12px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+    }
+    .mini-card .k{
+      font-size:.8rem;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    .mini-card .v{
+      font-weight:900;
+      font-size:1.15rem;
+    }
+    .event-list,
+    .session-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .event-item,
+    .session-item{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.07);
+      background:rgba(255,255,255,.04);
+    }
+    .event-item .top,
+    .session-item .top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:4px;
+    }
+    .event-item .name,
+    .session-item .name{
+      font-weight:900;
+    }
+    .event-item .meta,
+    .session-item .meta{
+      color:var(--muted);
+      font-size:.84rem;
+    }
+
+    .footer-note{
+      color:var(--muted);
+      font-size:.84rem;
+      margin-top:12px;
+      text-align:right;
+    }
+
+    @media (max-width: 1180px){
+      .cards{
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+      }
+      .controls{
+        grid-template-columns:1fr 1fr 1fr;
+      }
+      .grid{
+        grid-template-columns:1fr;
+      }
+      .detail{
+        position:static;
+        max-height:none;
+      }
+    }
+
+    @media (max-width: 700px){
+      .wrap{
+        width:min(100%, calc(100% - 16px));
+      }
+      .cards{
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+      }
+      .controls{
+        grid-template-columns:1fr;
+      }
+      .mini-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <h1>TechPath Teacher Dashboard</h1>
+        <div class="sub">ติดตามการเข้าเรียนและความคืบหน้าของผู้เรียนแบบ real-time</div>
+      </div>
+      <div class="pill" id="endpoint-pill">Endpoint: loading...</div>
+    </div>
+
+    <div class="panel controls">
+      <input id="filter-search" type="text" placeholder="ค้นหา Student ID / Name / Section" />
+      <select id="filter-section">
+        <option value="">ทุก Section</option>
+      </select>
+      <select id="filter-status">
+        <option value="">ทุกสถานะ</option>
+      </select>
+      <select id="filter-session">
+        <option value="">ทุก S</option>
+      </select>
+      <select id="filter-minTime">
+        <option value="">Min time ทั้งหมด</option>
+        <option value="yes">ผ่าน min time</option>
+        <option value="no">ยังไม่ผ่าน min time</option>
+      </select>
+      <button id="btn-refresh" type="button">รีเฟรช</button>
+      <button id="btn-auto" class="ghost" type="button">Auto refresh: ON</button>
+    </div>
+
+    <div class="cards" id="summary-cards">
+      <div class="panel card"><div class="k">Loading</div><div class="v">...</div></div>
+    </div>
+
+    <div class="grid">
+      <div class="panel table-panel">
+        <div class="table-head">
+          <h2>Students / Sessions</h2>
+          <div class="table-meta" id="table-meta">กำลังโหลดข้อมูล...</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Section</th>
+                <th>S</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Active</th>
+                <th>Score</th>
+                <th>Completed</th>
+                <th>Min Time</th>
+                <th>Last Server</th>
+              </tr>
+            </thead>
+            <tbody id="students-tbody">
+              <tr><td colspan="11">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel detail">
+        <div class="detail-head">
+          <h2>Student Detail</h2>
+        </div>
+        <div class="detail-body" id="detail-body">
+          <div class="detail-empty">เลือกแถวทางซ้ายเพื่อดูรายละเอียดผู้เรียน</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note" id="footer-note">Build: loading...</div>
+  </div>
+
+  <script type="module" src="./js/teacher.js?v=20260420a-teacher"></script>
+</body>
+</html>
