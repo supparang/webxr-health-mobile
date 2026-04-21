@@ -632,62 +632,75 @@ import { installVocabGuards } from './vocab-guard.js';
     saveLeaderboardCache(globalLeaderboardRows);
     return globalLeaderboardRows;
   }
+  function getModeDisplay(mode) {
+  return {
+    code_battle: '⚔️ Code Battle',
+    debug_mission: '🧪 Debug Mission',
+    ai_training: '🤖 AI Training Sim',
+    speed_run: '⚡ Speed Run'
+  }[mode] || mode || '-';
+}
 
+function getBankDisplay(bank) {
+  return {
+    A: 'A • Software Engineering',
+    B: 'B • Data / Cloud / System',
+    C: 'C • AI / Machine Learning'
+  }[bank] || bank || '-';
+}
   function renderMenuTop3() {
-    const mode = V9.mode || 'code_battle';
-    const rows = (globalLeaderboardRows || [])
-      .filter(r => String(r.mode || 'code_battle') === mode)
-      .slice(0, 3);
+  const mode = V9.mode || 'code_battle';
+  const rows = (globalLeaderboardRows || [])
+    .filter(r => String(r.mode || 'code_battle') === mode)
+    .slice(0, 3);
 
-    els.menuTop3Board.innerHTML = '';
+  els.menuTop3Board.innerHTML = '';
 
-    if (!rows.length) {
-      els.menuTop3Board.innerHTML =
-        '<div class="top3Card"><div class="rank">—</div><div class="name">ยังไม่มีคะแนน</div><div class="meta">เริ่มเล่นโหมดนี้เพื่อขึ้นอันดับ</div></div>';
-      return;
-    }
-
-    rows.forEach((r, i) => {
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-      const div = document.createElement('div');
-      div.className = 'top3Card';
-      div.innerHTML =
-        '<div class="rank">' + medal + '</div>' +
-        '<div class="name">' + (r.display_name || 'Player') + '</div>' +
-        '<div class="meta">Mode ' + (r.mode || mode) + '</div>' +
-        '<div class="meta">Best Score ' + (r.best_score || 0) + '</div>' +
-        '<div class="meta">Accuracy ' + (r.best_accuracy || 0) + '%</div>';
-      els.menuTop3Board.appendChild(div);
-    });
+  if (!rows.length) {
+    els.menuTop3Board.innerHTML =
+      '<div class="top3Card"><div class="rank">—</div><div class="name">ยังไม่มีคะแนน</div><div class="meta">เริ่มเล่นโหมดนี้เพื่อขึ้นอันดับ</div></div>';
+    return;
   }
 
+  rows.forEach((r, i) => {
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+    const div = document.createElement('div');
+    div.className = 'top3Card';
+    div.innerHTML =
+      '<div class="rank">' + medal + '</div>' +
+      '<div class="name">' + (r.display_name || 'Player') + '</div>' +
+      '<div class="meta">' + getModeDisplay(r.mode || mode) + '</div>' +
+      '<div class="meta">' + getBankDisplay(r.bank || '-') + '</div>' +
+      '<div class="meta">Best Score ' + (r.best_score || 0) + ' • Accuracy ' + (r.best_accuracy || 0) + '%</div>';
+    els.menuTop3Board.appendChild(div);
+  });
+}
   function renderLeaderboard() {
-    const mode = V9.mode || 'code_battle';
-    const rows = (globalLeaderboardRows || [])
-      .filter(r => String(r.mode || 'code_battle') === mode);
+  const mode = V9.mode || 'code_battle';
+  const rows = (globalLeaderboardRows || [])
+    .filter(r => String(r.mode || 'code_battle') === mode);
 
-    els.leaderboardList.innerHTML = '';
+  els.leaderboardList.innerHTML = '';
 
-    if (!rows.length) {
-      const li = document.createElement('li');
-      li.textContent = 'ยังไม่มี leaderboard สำหรับโหมด ' + mode;
-      els.leaderboardList.appendChild(li);
-      return;
-    }
-
-    rows.slice(0, 10).forEach((r, i) => {
-      const li = document.createElement('li');
-      li.innerHTML =
-        '<strong>#' + (i + 1) + ' ' + (r.display_name || 'Player') + '</strong>' +
-        '<div class="small mono">Best Score ' + (r.best_score || 0) +
-        ' • Accuracy ' + (r.best_accuracy || 0) +
-        '% • Bank ' + (r.bank || '-') +
-        ' • Mode ' + (r.mode || mode) +
-        ' • ' + (r.last_when || '-') + '</div>';
-      els.leaderboardList.appendChild(li);
-    });
+  if (!rows.length) {
+    const li = document.createElement('li');
+    li.textContent = 'ยังไม่มี leaderboard สำหรับโหมด ' + getModeDisplay(mode);
+    els.leaderboardList.appendChild(li);
+    return;
   }
 
+  rows.slice(0, 10).forEach((r, i) => {
+    const li = document.createElement('li');
+    li.innerHTML =
+      '<strong>#' + (i + 1) + ' ' + (r.display_name || 'Player') + '</strong>' +
+      '<div class="small">' + getModeDisplay(r.mode || mode) + '</div>' +
+      '<div class="small">' + getBankDisplay(r.bank || '-') + '</div>' +
+      '<div class="small mono">Best Score ' + (r.best_score || 0) +
+      ' • Accuracy ' + (r.best_accuracy || 0) +
+      '% • ' + (r.last_when || '-') + '</div>';
+    els.leaderboardList.appendChild(li);
+  });
+}
   function renderTeacherDashboard(summary) {
     try {
       localStorage.setItem(TEACHER_KEY, JSON.stringify(summary));
