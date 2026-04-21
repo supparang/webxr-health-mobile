@@ -3,9 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>VOCAB • ESP BATTLE</title>
-  <link rel="icon" href="./favicon.ico" />
-  <meta name="theme-color" content="#0b1020" />
+  <title>vocab.html — ESP Battle CS/AI</title>
   <style>
     :root{
       --bg1:#071122;
@@ -69,7 +67,7 @@
     .hidden{display:none!important}
 
     .panel{
-      width:min(96vw,820px);
+      width:min(96vw,760px);
       max-width:96vw;
       overflow-x:hidden;
       padding:18px;
@@ -125,7 +123,6 @@
       text-align:left;
       color:var(--text);
       cursor:pointer;
-      transition:transform .14s ease,border-color .14s ease,background .14s ease;
     }
 
     .option:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.55)}
@@ -155,12 +152,6 @@
       color:#fff;
       font-size:16px;
       min-height:48px;
-      outline:none;
-    }
-
-    .inputBox input:focus{
-      border-color:var(--cyan);
-      box-shadow:0 0 0 3px rgba(103,232,249,.18);
     }
 
     .top3Card{
@@ -187,10 +178,8 @@
       padding:12px 14px;
       color:#06101b;
       background:linear-gradient(135deg,#67e8f9,#a78bfa);
-      transition:transform .14s ease,filter .14s ease;
     }
 
-    .btn:hover{transform:translateY(-1px);filter:brightness(1.03)}
     .btn.alt{
       background:linear-gradient(135deg,#fde047,#fb7185);
       color:#311314;
@@ -296,39 +285,6 @@
     #feedbackBox.bad{background:rgba(225,29,72,.94)}
     #feedbackBox.warn{background:rgba(180,83,9,.94)}
 
-    .choicePad{
-      position:fixed;
-      left:50%;
-      transform:translateX(-50%);
-      top:330px;
-      width:min(94vw,760px);
-      z-index:45;
-      display:grid;
-      grid-template-columns:1fr;
-      gap:12px;
-      pointer-events:auto;
-    }
-
-    .choicePad.hidden{display:none!important}
-
-    .choiceBtn{
-      appearance:none;
-      border:2px solid rgba(255,255,255,.16);
-      border-radius:20px;
-      background:rgba(255,255,255,.96);
-      color:#111827;
-      min-height:64px;
-      padding:14px 16px;
-      font-size:22px;
-      font-weight:900;
-      line-height:1.15;
-      box-shadow:0 14px 28px rgba(0,0,0,.18);
-      text-align:center;
-      touch-action:manipulation;
-    }
-
-    .choiceBtn:active{transform:scale(.985)}
-
     .leaderboardList,.sessionList{
       list-style:none;
       padding:0;
@@ -374,21 +330,6 @@
       .option p{font-size:12px}
       .btn{font-size:16px}
       #questionBox{top:164px}
-      .choicePad{
-        top:300px;
-        gap:10px;
-      }
-      .choiceBtn{
-        min-height:60px;
-        font-size:20px;
-        border-radius:18px;
-      }
-    }
-
-    @media (min-width:860px){
-      .choicePad{
-        display:none!important;
-      }
     }
   </style>
 </head>
@@ -422,14 +363,13 @@
   </div>
 
   <div id="feedbackBox"></div>
-  <div id="choicePad" class="choicePad hidden"></div>
 
   <div class="overlay" id="menu">
     <div class="panel">
       <h1 class="title">Vocab — English for Specific Career Purposes (CS/AI)</h1>
       <div class="desc">
         เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ มีหลายรูปแบบคำถามต่อคำศัพท์ ปรับความยากตามการเล่น
-        มี 4 โหมดที่ต่างกันจริง และเก็บข้อมูลการเล่นตั้งแต่เริ่มจนจบลง Google Sheet
+        มี 4 โหมดที่ต่างกันจริง และเก็บข้อมูลการเล่นตั้งแต่เริ่มจนจบ
       </div>
 
       <div class="menuStack">
@@ -474,23 +414,23 @@
         </div>
 
         <div>
-          <div class="sectionTitle">ข้อมูลผู้เรียน</div>
+          <div class="sectionTitle">ข้อมูลผู้เล่น</div>
           <div class="profileGrid">
             <div class="inputBox">
               <label for="displayNameInput">Display Name</label>
               <input id="displayNameInput" type="text" maxlength="24" placeholder="เช่น Mint / Arm / AomAI" />
             </div>
             <div class="inputBox">
-              <label for="studentIdInput">Student ID</label>
+              <label for="studentIdInput">Student ID (optional)</label>
               <input id="studentIdInput" type="text" maxlength="24" placeholder="เช่น 6512345678" />
             </div>
             <div class="inputBox">
-              <label for="sectionInput">Section / ห้องเรียน</label>
-              <input id="sectionInput" type="text" maxlength="24" placeholder="เช่น CS4 / AI3 / SEC01" />
+              <label for="sectionInput">Section (optional)</label>
+              <input id="sectionInput" type="text" maxlength="24" placeholder="เช่น CS4 / AI3" />
             </div>
             <div class="inputBox">
-              <label for="sessionCodeInput">Session Code</label>
-              <input id="sessionCodeInput" type="text" maxlength="24" placeholder="เช่น S01 / WEEK3 / MIDTERM-A" />
+              <label for="sessionCodeInput">Session Code (optional)</label>
+              <input id="sessionCodeInput" type="text" maxlength="24" placeholder="เช่น S01" />
             </div>
           </div>
         </div>
@@ -553,7 +493,6 @@
       <ul class="leaderboardList" id="leaderboardList"></ul>
       <div class="actionGrid" style="margin-top:14px;">
         <button class="btn ghost" id="closeLeaderboardBtn">CLOSE</button>
-        <button class="btn alt" id="clearLeaderboardBtn">CLEAR LEADERBOARD</button>
       </div>
     </div>
   </div>
@@ -561,7 +500,7 @@
   <div class="overlay hidden" id="teacherWrap">
     <div class="panel">
       <h2 style="margin:0">Teacher Dashboard</h2>
-      <div class="desc">Dashboard-only mode สำหรับครู ดูคำที่อ่อนที่สุด สถิติรายคำ และ session log ล่าสุด</div>
+      <div class="desc">Dashboard-only mode สำหรับครู ดูภาพรวมคำอ่อน จุดที่ผิดบ่อย และสรุปรอบล่าสุดจากเครื่องนี้</div>
       <table>
         <thead>
           <tr>
@@ -575,75 +514,18 @@
         </thead>
         <tbody id="teacherTable"></tbody>
       </table>
+
+      <div class="sectionTitle">Weakest Terms</div>
       <ul class="sessionList" id="weakList"></ul>
+
       <div class="actionGrid" style="margin-top:14px;">
-        <button class="btn ghost" id="closeTeacherBtn">CLOSE</button>
-        <button class="btn alt" id="clearTeacherBtn">CLEAR STATS</button>
+        <button class="btn ghost" id="clearTeacherBtn">CLEAR LOCAL DATA</button>
+        <button class="btn alt" id="closeTeacherBtn">CLOSE</button>
       </div>
     </div>
   </div>
 </div>
 
-<script>
-(() => {
-  const KEYS = {
-    section: 'VOCAB_SECTION',
-    sessionCode: 'VOCAB_SESSION_CODE'
-  };
-
-  function qs(name){
-    return new URLSearchParams(location.search).get(name) || '';
-  }
-
-  function loadLearnerContext(){
-    const sectionInput = document.getElementById('sectionInput');
-    const sessionCodeInput = document.getElementById('sessionCodeInput');
-    if (!sectionInput || !sessionCodeInput) return;
-
-    const section =
-      qs('section') ||
-      localStorage.getItem(KEYS.section) ||
-      '';
-
-    const sessionCode =
-      qs('session_code') ||
-      qs('sessionCode') ||
-      localStorage.getItem(KEYS.sessionCode) ||
-      '';
-
-    sectionInput.value = section;
-    sessionCodeInput.value = sessionCode;
-  }
-
-  function persistLearnerContext(){
-    const sectionInput = document.getElementById('sectionInput');
-    const sessionCodeInput = document.getElementById('sessionCodeInput');
-    if (!sectionInput || !sessionCodeInput) return;
-
-    const section = (sectionInput.value || '').trim();
-    const sessionCode = (sessionCodeInput.value || '').trim();
-
-    localStorage.setItem(KEYS.section, section);
-    localStorage.setItem(KEYS.sessionCode, sessionCode);
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    loadLearnerContext();
-
-    const sectionInput = document.getElementById('sectionInput');
-    const sessionCodeInput = document.getElementById('sessionCodeInput');
-    const startBtn = document.getElementById('startBtn');
-
-    sectionInput?.addEventListener('input', persistLearnerContext);
-    sessionCodeInput?.addEventListener('input', persistLearnerContext);
-
-    startBtn?.addEventListener('click', () => {
-      persistLearnerContext();
-    }, true);
-  });
-})();
-</script>
-
-<script type="module" src="./assets/vocab-engine.js?v=20260419m"></script>
+<script type="module" src="./assets/vocab-engine.js"></script>
 </body>
 </html>
