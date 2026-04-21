@@ -1,6 +1,6 @@
 const ENDPOINT =
   window.TECHPATH_ATTENDANCE_ENDPOINT ||
-  '';
+  'https://script.google.com/macros/s/AKfycbzOs6lQUEdTug17xKDDaVKEFMN0n0hkoBY9erwH309hkHMDYzNB_FhtSzhmNnF0uF5f/exec';
 
 const BUILD = window.TEACHER_BUILD || 'teacher-dev';
 
