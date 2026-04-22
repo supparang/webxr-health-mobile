@@ -1,6 +1,6 @@
 // === /fitness/js/jumpduck.js ===
-// FULL FINAL MATCHED WITH CUTE HTML + GRADE5 RESULT + MOBILE TUNE
-// PATCH v20260415c-JUMPDuck-DOGHERO-CUTE-G5RESULT-MOBILETUNE-FITNESSZONE-FINAL
+// FULL FINAL MATCHED WITH CUTE HTML + GRADE5 RESULT + MOBILE TUNE + EASY LANGUAGE
+// PATCH v20260415d-JUMPDuck-DOGHERO-CUTE-G5RESULT-MOBILETUNE-KIDTEXT-FITNESSZONE-FINAL
 
 'use strict';
 
@@ -340,7 +340,6 @@
     }
   };
 
-  // MOBILE TUNE: เพิ่มระยะอ่าน/ลดความกดดันบน tiny+compact
   const JD_TUNING_PRESETS = {
     A: {
       startXMul: { tiny: 0.88, compact: 0.90, desktop: 0.86 },
@@ -871,11 +870,34 @@
   }
 
   function jdResultHeadline(rank, bossDown, noMiss) {
-    if (rank === 'S') return { title: 'สุดยอดมาก!', sub: 'รอบนี้เล่นได้เก่งมากและแม่นมาก' };
-    if (rank === 'A') return { title: 'เยี่ยมมาก!', sub: 'อีกนิดเดียวก็ถึงระดับสูงสุดแล้ว' };
-    if (rank === 'B') return { title: 'ดีมาก!', sub: 'เริ่มจับจังหวะได้ดีแล้ว' };
-    if (rank === 'C') return { title: 'ผ่านแล้ว! แต่ยังไปได้อีก', sub: 'เริ่มจับจังหวะได้แล้ว ลองลด miss และดัน combo ให้สูงขึ้น' };
-    return { title: 'ลองอีกครั้งนะ', sub: 'รอบหน้าดูสิ่งกีดขวางให้เร็วขึ้นอีกนิด' };
+    if (rank === 'S') {
+      return {
+        title: 'สุดยอดมาก!',
+        sub: 'รอบนี้เล่นได้เก่งมากและแม่นมาก'
+      };
+    }
+    if (rank === 'A') {
+      return {
+        title: 'เยี่ยมมาก!',
+        sub: 'อีกนิดเดียวก็ถึงระดับสูงสุดแล้ว'
+      };
+    }
+    if (rank === 'B') {
+      return {
+        title: 'ดีมาก!',
+        sub: 'เริ่มจับจังหวะได้ดีแล้ว'
+      };
+    }
+    if (rank === 'C') {
+      return {
+        title: 'ผ่านแล้ว! แต่ยังไปได้อีก',
+        sub: 'เริ่มจับจังหวะได้แล้ว ลองพลาดให้น้อยลง และทำคอมโบให้สูงขึ้น'
+      };
+    }
+    return {
+      title: 'ลองอีกครั้งนะ',
+      sub: 'รอบหน้าลองดูสิ่งกีดขวางให้เร็วขึ้นอีกนิด'
+    };
   }
 
   function resetResultHUD() {
@@ -886,11 +908,17 @@
     }
 
     if (resultTitle) resultTitle.textContent = 'ผ่านแล้ว! แต่ยังไปได้อีก';
-    if (resultSub) resultSub.textContent = 'รอบหน้าลองลด miss และดัน combo ให้สูงขึ้น';
-    if (resultReward) resultReward.textContent = 'Clear Run';
+    if (resultSub) resultSub.textContent = 'รอบหน้าลองพลาดให้น้อยลง และทำคอมโบให้สูงขึ้น';
+
+    if (resultReward) resultReward.textContent = 'ผ่านด่านแล้ว';
     if (resultRewardIcon) resultRewardIcon.textContent = '⭐';
-    if (resultRewardSub) resultRewardSub.textContent = 'ลองอ่านสิ่งกีดขวางให้เร็วขึ้น และอย่ากดรีบเกินไป';
-    if (coachTip1) coachTip1.textContent = 'รอบหน้าลองดูสิ่งกีดขวางให้เร็วขึ้นอีกนิด';
+    if (resultRewardSub) {
+      resultRewardSub.textContent = 'ลองดูสิ่งกีดขวางให้ชัดขึ้น และอย่ากดเร็วเกินไป';
+    }
+
+    if (coachTip1) {
+      coachTip1.textContent = 'รอบหน้าลองดูรูปสิ่งกีดขวางให้ชัดก่อนกด';
+    }
 
     if (resScoreBig) resScoreBig.textContent = '0';
     if (resMiss) resMiss.textContent = '0';
@@ -900,7 +928,7 @@
     if (resultPattern) resultPattern.textContent = '—';
     if (resultRush) resultRush.textContent = '—';
 
-    if (coachTitle) coachTitle.textContent = 'AI Coach';
+    if (coachTitle) coachTitle.textContent = 'โค้ชแนะนำ';
     if (coachSummary) coachSummary.textContent = 'สรุปคำแนะนำหลังจบเกม';
     if (coachTip2) coachTip2.textContent = '—';
 
@@ -2280,7 +2308,7 @@
 
     if (miss >= 6) {
       weakness.push('overall-pressure');
-      tips.push('รอบนี้ miss ค่อนข้างเยอะ ควรลดการกดล่วงหน้าและอ่าน silhouette ให้ชัดขึ้น');
+      tips.push('รอบนี้พลาดค่อนข้างเยอะ ลองอย่ากดเร็วเกินไป และดูรูปสิ่งกีดขวางให้ชัดขึ้น');
     }
 
     if ((s.maxCombo || 0) <= 3 && hit >= 8) {
@@ -2311,7 +2339,7 @@
 
     if (!tips.length) {
       if (accPct >= 88) tips.push('รอบนี้เล่นดีมากแล้ว ลองดันคอมโบต่อเนื่องและ perfect chain ให้มากขึ้น');
-      else tips.push('พื้นฐานเริ่มดีแล้ว ลองอ่าน obstacle เป็นชุดแทนการมองทีละตัว');
+      else tips.push('พื้นฐานเริ่มดีแล้ว ลองอ่านสิ่งกีดขวางเป็นชุดแทนการมองทีละอัน');
     }
 
     return {
@@ -2488,12 +2516,12 @@
     if (resultTitle) resultTitle.textContent = headline.title;
     if (resultSub) resultSub.textContent = headline.sub;
 
-    if (resultReward) resultReward.textContent = result.bossTitle || result.reward?.label || 'Clear Run';
+    if (resultReward) resultReward.textContent = result.bossTitle || result.reward?.label || 'ผ่านด่านแล้ว';
     if (resultRewardIcon) resultRewardIcon.textContent = result.bossBadge?.icon || result.reward?.medal || '⭐';
     if (resultRewardSub) {
       resultRewardSub.textContent =
         result.coach?.primaryTip ||
-        'รอบหน้าลองดูสิ่งกีดขวางให้เร็วขึ้น และอย่ากดรีบเกินไป';
+        'รอบหน้าลองดูสิ่งกีดขวางให้ชัดขึ้น และอย่ากดเร็วเกินไป';
     }
 
     if (resScoreBig) resScoreBig.textContent = String(s.score || 0);
@@ -2504,12 +2532,12 @@
     if (resultPattern) resultPattern.textContent = s.lastPattern || '—';
     if (resultRush) resultRush.textContent = s.finalRush ? 'FINAL RUSH' : '—';
 
-    if (coachTitle) coachTitle.textContent = result.coach?.headline || 'AI Coach';
+    if (coachTitle) coachTitle.textContent = result.coach?.headline || 'โค้ชแนะนำ';
     if (coachSummary) coachSummary.textContent = result.coach?.summary || 'สรุปคำแนะนำหลังจบเกม';
     if (coachTip1) {
       coachTip1.textContent =
         result.coach?.primaryTip ||
-        'รอบหน้าลองโฟกัส low = jump และ high = duck ให้เร็วขึ้น';
+        'รอบหน้าจำให้แม่นว่า ต่ำ = กระโดด และ สูง = หมอบ';
     }
     if (coachTip2) coachTip2.textContent = result.coach?.secondaryTip || '—';
 
