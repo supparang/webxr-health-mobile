@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Vocab — ESP Battle CS/AI</title>
+  <title>vocab.html — ESP Battle CS/AI</title>
   <style>
     :root{
       --bg1:#071122;
@@ -33,7 +33,14 @@
       color:var(--text);
     }
 
-    body{touch-action:manipulation}
+    body{
+      touch-action:manipulation;
+    }
+
+    body.overlay-open{
+      overflow:hidden;
+      touch-action:none;
+    }
 
     #app{
       position:relative;
@@ -77,18 +84,11 @@
       border:1px solid rgba(255,255,255,.14);
       box-shadow:0 20px 80px rgba(0,0,0,.35);
       touch-action:pan-y;
-      animation:panelIn .18s ease;
     }
 
-    @keyframes panelIn{
-      from{
-        opacity:0;
-        transform:translateY(10px) scale(.99);
-      }
-      to{
-        opacity:1;
-        transform:translateY(0) scale(1);
-      }
+    .panel:focus{
+      outline:2px solid rgba(103,232,249,.9);
+      outline-offset:2px;
     }
 
     .title{
@@ -125,6 +125,7 @@
       min-width:0;
       width:100%;
       border-radius:20px;
+      transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease, background .14s ease, opacity .14s ease;
     }
 
     .option{
@@ -135,10 +136,10 @@
       text-align:left;
       color:var(--text);
       cursor:pointer;
-      transition:transform .12s ease, border-color .12s ease, background .12s ease;
     }
 
     .option:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.55)}
+    .option:active{transform:translateY(1px) scale(.995)}
     .option.active{outline:3px solid var(--cyan);background:rgba(103,232,249,.10)}
     .option h3{font-size:18px;line-height:1.2;margin:0 0 6px}
     .option p{margin:0;color:#cad7ff;font-size:13px;line-height:1.4}
@@ -180,14 +181,9 @@
       padding:12px 14px;
       color:#06101b;
       background:linear-gradient(135deg,#67e8f9,#a78bfa);
-      transition:transform .12s ease, filter .12s ease, box-shadow .12s ease;
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
     }
 
-    .btn:active{
-      transform:translateY(1px) scale(.992);
-      filter:saturate(.96);
-    }
+    .btn:active{transform:translateY(1px) scale(.995)}
 
     .btn.alt{
       background:linear-gradient(135deg,#fde047,#fb7185);
@@ -197,11 +193,6 @@
     .btn.ghost{
       background:linear-gradient(135deg,#dbeafe,#93c5fd);
       color:#172554;
-    }
-
-    .actionGrid .btn.primary-mode{
-      background:linear-gradient(135deg, var(--mode-accent, #67e8f9), #dbeafe);
-      color:#08111f;
     }
 
     .hud{
@@ -253,6 +244,15 @@
       transform-origin:left center;
     }
 
+    .bar.low-time .fill{
+      animation:barPulse .45s ease infinite alternate;
+    }
+
+    @keyframes barPulse{
+      from{filter:saturate(1);transform-origin:left center}
+      to{filter:saturate(1.2) brightness(1.05);transform-origin:left center}
+    }
+
     #questionBox{
       position:fixed;
       top:116px;
@@ -270,6 +270,15 @@
       backdrop-filter:blur(6px);
       border:1px solid rgba(255,255,255,.10);
       transition:opacity .18s ease, transform .18s ease, filter .18s ease;
+    }
+
+    #questionBox.q-enter{
+      animation:qEnter .16s ease;
+    }
+
+    @keyframes qEnter{
+      from{opacity:0;transform:translateX(-50%) translateY(6px) scale(.992)}
+      to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
     }
 
     #questionBox .q-meta{
@@ -290,6 +299,25 @@
       opacity:.78;
       transform:translateX(-50%) scale(.99);
       filter:saturate(.9);
+    }
+
+    #questionBox.countdown-mode{
+      border-color:rgba(253,224,71,.85)!important;
+      box-shadow:0 14px 30px rgba(0,0,0,.22), 0 0 0 3px rgba(253,224,71,.22)!important;
+    }
+
+    #questionBox.countdown-mode .q-prompt{
+      animation:countPulse .55s ease infinite alternate;
+    }
+
+    @keyframes countPulse{
+      from{transform:scale(1);opacity:.96}
+      to{transform:scale(1.03);opacity:1}
+    }
+
+    #questionBox.low-time{
+      border-color:rgba(251,113,133,.85)!important;
+      box-shadow:0 14px 30px rgba(0,0,0,.22), 0 0 0 3px rgba(251,113,133,.20)!important;
     }
 
     #feedbackBox{
@@ -349,23 +377,17 @@
       background:linear-gradient(135deg,#dbeafe,#bfdbfe);
       box-shadow:0 10px 28px rgba(0,0,0,.20);
       cursor:pointer;
-      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease, outline-color .12s ease;
       animation:choicePop .18s ease;
-    }
-
-    @keyframes choicePop{
-      from{
-        opacity:0;
-        transform:translateY(8px) scale(.985);
-      }
-      to{
-        opacity:1;
-        transform:translateY(0) scale(1);
-      }
     }
 
     .choiceBtn:active{
       transform:translateY(1px) scale(.995);
+    }
+
+    .choiceBtn:focus-visible{
+      outline:3px solid rgba(103,232,249,.9);
+      outline-offset:2px;
     }
 
     .choiceBtn.hit-correct{
@@ -380,6 +402,11 @@
       opacity:.72;
       pointer-events:none;
       filter:saturate(.85);
+    }
+
+    @keyframes choicePop{
+      from{opacity:0;transform:translateY(8px) scale(.985)}
+      to{opacity:1;transform:translateY(0) scale(1)}
     }
 
     .score-pop{
@@ -400,18 +427,9 @@
     }
 
     @keyframes scorePop{
-      0%{
-        opacity:0;
-        transform:translateX(-50%) translateY(6px) scale(.96);
-      }
-      20%{
-        opacity:1;
-        transform:translateX(-50%) translateY(0) scale(1);
-      }
-      100%{
-        opacity:0;
-        transform:translateX(-50%) translateY(-20px) scale(1.02);
-      }
+      0%{opacity:0;transform:translateX(-50%) translateY(6px) scale(.96)}
+      20%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+      100%{opacity:0;transform:translateX(-50%) translateY(-20px) scale(1.02)}
     }
 
     .chipRow{
@@ -434,6 +452,80 @@
       border:1px solid rgba(255,255,255,.10);
     }
 
+    .top3Card{
+      position:relative;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.16), transparent 34%),
+        rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);
+      padding:14px;
+      text-align:left;
+      box-shadow:0 14px 34px rgba(0,0,0,.16);
+    }
+
+    .top3Card::after{
+      content:'';
+      position:absolute;
+      inset:auto -20% -40% auto;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      filter:blur(8px);
+      pointer-events:none;
+    }
+
+    .top3Card.top1{
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.22), transparent 34%),
+        linear-gradient(135deg, rgba(253,230,138,.20), rgba(255,255,255,.06));
+    }
+
+    .top3Card.top2{
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.18), transparent 34%),
+        linear-gradient(135deg, rgba(226,232,240,.18), rgba(255,255,255,.06));
+    }
+
+    .top3Card.top3{
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.18), transparent 34%),
+        linear-gradient(135deg, rgba(251,146,60,.16), rgba(255,255,255,.06));
+    }
+
+    .top3Card .rank{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      background:rgba(255,255,255,.10);
+      font-size:20px;
+      font-weight:1000;
+    }
+
+    .top3Card .name{
+      font-size:16px;
+      font-weight:1000;
+      margin-top:8px;
+      line-height:1.15;
+    }
+
+    .top3Card .meta{
+      font-size:12px;
+      color:#c7d4ff;
+      margin-top:4px;
+    }
+
+    .top3Card .scoreLine{
+      margin-top:8px;
+      font-size:13px;
+      font-weight:900;
+      color:#fff;
+    }
+
     .leaderboardList,.sessionList{
       list-style:none;
       padding:0;
@@ -442,9 +534,7 @@
       margin-top:14px;
     }
 
-    .leaderboardList li{
-      position:relative;
-      overflow:hidden;
+    .leaderboardList li,.sessionList li{
       background:
         radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 36%),
         rgba(255,255,255,.05);
@@ -452,6 +542,8 @@
       border-radius:18px;
       padding:12px 14px;
       box-shadow:0 10px 24px rgba(0,0,0,.12);
+      position:relative;
+      overflow:hidden;
     }
 
     .leaderboardList li::after{
@@ -494,21 +586,18 @@
     }
 
     .leaderRank.rank-1{
-      background:linear-gradient(135deg,#fde68a,#facc15);
-      color:#3b2f00;
-      box-shadow:0 0 0 1px rgba(250,204,21,.16) inset, 0 8px 18px rgba(0,0,0,.12);
+      background:linear-gradient(135deg,#fde68a,#f59e0b);
+      color:#3b2200;
     }
 
     .leaderRank.rank-2{
-      background:linear-gradient(135deg,#e5e7eb,#cbd5e1);
-      color:#334155;
-      box-shadow:0 8px 18px rgba(0,0,0,.10);
+      background:linear-gradient(135deg,#e5e7eb,#94a3b8);
+      color:#1f2937;
     }
 
     .leaderRank.rank-3{
-      background:linear-gradient(135deg,#fdba74,#fb923c);
-      color:#4a2200;
-      box-shadow:0 8px 18px rgba(0,0,0,.10);
+      background:linear-gradient(135deg,#fdba74,#c2410c);
+      color:#fff7ed;
     }
 
     .leaderStats{
@@ -543,109 +632,6 @@
       color:#cbd5e1;
     }
 
-    .top3Card{
-      position:relative;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.16), transparent 34%),
-        rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow:0 14px 34px rgba(0,0,0,.16);
-      padding:14px;
-      text-align:left;
-    }
-
-    .top3Card::after{
-      content:'';
-      position:absolute;
-      inset:auto -20% -40% auto;
-      width:120px;
-      height:120px;
-      border-radius:999px;
-      background:rgba(255,255,255,.06);
-      filter:blur(8px);
-      pointer-events:none;
-    }
-
-    .top3Card .rank{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      width:42px;
-      height:42px;
-      border-radius:14px;
-      background:rgba(255,255,255,.10);
-      font-size:20px;
-      font-weight:1000;
-    }
-
-    .top3Card .name{
-      font-size:16px;
-      font-weight:1000;
-      margin-top:8px;
-      line-height:1.15;
-    }
-
-    .top3Card .meta{
-      font-size:12px;
-      color:#c7d4ff;
-      margin-top:4px;
-    }
-
-    .top3Card .scoreLine{
-      margin-top:8px;
-      font-size:13px;
-      font-weight:900;
-      color:#fff;
-    }
-
-    .menuTop3Board-ready .top3Card:first-child{
-      border-color:rgba(250,204,21,.38);
-      box-shadow:0 16px 36px rgba(0,0,0,.18), 0 0 0 1px rgba(250,204,21,.16) inset;
-    }
-
-    .emptyState{
-      text-align:center;
-      padding:14px 10px 6px;
-    }
-
-    .emptyState .emoji{
-      font-size:34px;
-      margin-bottom:8px;
-    }
-
-    .emptyState .title{
-      font-size:18px;
-      font-weight:1000;
-      margin:0;
-    }
-
-    .emptyState .desc{
-      margin-top:6px;
-      font-size:13px;
-      color:#dbe7ff;
-      line-height:1.5;
-    }
-
-    table{
-      width:100%;
-      border-collapse:collapse;
-      margin-top:12px;
-    }
-
-    th,td{
-      border-bottom:1px solid rgba(255,255,255,.08);
-      padding:8px;
-      text-align:left;
-      font-size:13px;
-    }
-
-    th{color:#93c5fd}
-    .small{font-size:12px;color:#cbd5e1}
-    .mono{font-family:ui-monospace,Consolas,monospace}
-    .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
-    #endWrap{z-index:9999}
-
     .summaryCard{
       margin-top:14px;
       display:grid;
@@ -653,25 +639,10 @@
     }
 
     .summaryHero{
-      position:relative;
-      overflow:hidden;
       background:linear-gradient(135deg,rgba(103,232,249,.16),rgba(167,139,250,.18));
       border:1px solid rgba(255,255,255,.12);
       border-radius:18px;
       padding:14px;
-    }
-
-    .summaryHero::after{
-      content:'';
-      position:absolute;
-      right:-18px;
-      top:-20px;
-      width:110px;
-      height:110px;
-      border-radius:999px;
-      background:var(--mode-accent-soft, rgba(255,255,255,.10));
-      filter:blur(8px);
-      pointer-events:none;
     }
 
     .summaryHero .player{
@@ -698,38 +669,6 @@
       border:1px solid rgba(255,255,255,.12);
     }
 
-    .resultPill.win{
-      background:linear-gradient(135deg,#bbf7d0,#86efac);
-      color:#052e16;
-      border-color:rgba(134,239,172,.45);
-    }
-
-    .resultPill.lose{
-      background:linear-gradient(135deg,#fecdd3,#fda4af);
-      color:#4c0519;
-      border-color:rgba(244,114,182,.35);
-    }
-
-    .summaryBadgeRow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:10px;
-    }
-
-    .summaryMiniBadge{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:7px 10px;
-      border-radius:999px;
-      font-size:11px;
-      font-weight:900;
-      color:#fff;
-      background:rgba(255,255,255,.09);
-      border:1px solid rgba(255,255,255,.12);
-    }
-
     .summaryStats{
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -741,11 +680,6 @@
       border:1px solid rgba(255,255,255,.10);
       border-radius:16px;
       padding:12px;
-    }
-
-    .summaryStat.featured{
-      background:linear-gradient(135deg,var(--mode-accent-soft, rgba(255,255,255,.08)), rgba(255,255,255,.04));
-      border-color:color-mix(in srgb, var(--mode-accent, #93c5fd) 38%, rgba(255,255,255,.10));
     }
 
     .summaryStat .label{
@@ -779,76 +713,46 @@
       line-height:1.5;
     }
 
-    .menuModeBanner{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:16px;
-      font-size:13px;
-      font-weight:900;
-      color:#fff;
-      background:var(--mode-accent-soft, rgba(255,255,255,.08));
-      border:1px solid color-mix(in srgb, var(--mode-accent, #93c5fd) 55%, rgba(255,255,255,.10));
+    .emptyState{
+      text-align:center;
+      padding:18px 14px;
     }
 
-    .heroModeTitle{
-      margin-top:10px;
-      font-size:16px;
+    .emptyState .emoji{
+      font-size:30px;
+      margin-bottom:8px;
+    }
+
+    .emptyState .title{
+      font-size:18px;
       font-weight:1000;
-      color:#fff;
+      margin:0 0 6px;
     }
 
-    .heroModeDesc{
-      margin-top:6px;
+    .emptyState .text{
       font-size:13px;
+      color:#cbd5e1;
       line-height:1.5;
-      color:#dbe7ff;
     }
 
-    .leaderboardWrapTitleNote{
-      margin-top:8px;
-      font-size:12px;
-      color:#c7d4ff;
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:12px;
     }
 
-    .mode-accent-code_battle{
-      --mode-accent:#f472b6;
-      --mode-accent-soft:rgba(244,114,182,.18);
-    }
-    .mode-accent-debug_mission{
-      --mode-accent:#fb923c;
-      --mode-accent-soft:rgba(251,146,60,.18);
-    }
-    .mode-accent-ai_training{
-      --mode-accent:#a78bfa;
-      --mode-accent-soft:rgba(167,139,250,.18);
-    }
-    .mode-accent-speed_run{
-      --mode-accent:#22d3ee;
-      --mode-accent-soft:rgba(34,211,238,.18);
+    th,td{
+      border-bottom:1px solid rgba(255,255,255,.08);
+      padding:8px;
+      text-align:left;
+      font-size:13px;
     }
 
-    .top3Card,
-    .leaderboardList li{
-      border-color:color-mix(in srgb, var(--mode-accent, #93c5fd) 38%, rgba(255,255,255,.12));
-    }
-
-    .top3Card{
-      background:
-        radial-gradient(circle at top right, color-mix(in srgb, var(--mode-accent, #93c5fd) 28%, transparent), transparent 34%),
-        rgba(255,255,255,.06);
-    }
-
-    .leaderboardList li{
-      background:
-        radial-gradient(circle at top right, color-mix(in srgb, var(--mode-accent, #93c5fd) 20%, transparent), transparent 36%),
-        rgba(255,255,255,.05);
-    }
-
-    .infoChip.mode-chip{
-      background:var(--mode-accent-soft, rgba(255,255,255,.08));
-      border-color:color-mix(in srgb, var(--mode-accent, #93c5fd) 55%, rgba(255,255,255,.12));
-      color:#fff;
-    }
+    th{color:#93c5fd}
+    .small{font-size:12px;color:#cbd5e1}
+    .mono{font-family:ui-monospace,Consolas,monospace}
+    .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
+    #endWrap{z-index:9999}
 
     @media (min-width:700px){
       .bankGrid{grid-template-columns:1fr 1fr 1fr}
@@ -864,78 +768,56 @@
     }
 
     @media (max-width:420px){
-      .hud{
-        gap:6px;
-        left:6px;
-        right:6px;
-        top:6px;
-      }
-
-      .card{
-        padding:7px 8px;
-        border-radius:12px;
-      }
-
+      .hud{gap:6px;left:6px;right:6px;top:6px}
+      .card{padding:7px 8px;border-radius:12px}
       .big{font-size:12px}
       .sub{font-size:9px}
 
-      .summaryStats{
-        grid-template-columns:1fr 1fr;
-        gap:8px;
+      #questionBox{
+        top:164px;
+        min-height:112px;
       }
 
-      .summaryStat .value{
+      #questionBox .q-prompt{
+        font-size:17px;
+      }
+
+      .choiceBtn{
+        min-height:54px;
         font-size:16px;
       }
 
       .option h3{font-size:16px}
       .option p{font-size:12px}
       .btn{font-size:16px}
-      #questionBox{
-        top:164px;
-        min-height:112px;
-      }
-      #questionBox .q-prompt{
-        font-size:17px;
-      }
-      .choiceBtn{
-        min-height:54px;
-        font-size:16px;
-      }
+      .leaderName{font-size:15px}
+      .leaderStat .value{font-size:14px}
+      .leaderRank{min-width:38px;height:38px;font-size:14px}
+      .summaryStat .value{font-size:16px}
     }
 
     @media (max-width:380px){
-      .heroModeTitle{
-        font-size:15px;
-      }
+      .panel{padding:14px;border-radius:20px}
+      .title{font-size:24px}
+      .desc{font-size:13px}
+      .option{padding:12px;border-radius:16px}
+      .option h3{font-size:15px;margin-bottom:4px}
+      .option p{font-size:11px}
+      .inputBox{padding:10px;border-radius:16px}
+      .inputBox input{min-height:44px;font-size:15px;padding:10px 12px}
+      .btn{min-height:52px;font-size:15px;border-radius:16px}
+      .leaderboardList li{padding:10px 11px;border-radius:16px}
+      .top3Card{padding:12px;border-radius:16px}
+      .chipRow{gap:5px}
+      .infoChip{font-size:10px;padding:5px 8px}
+    }
 
-      .heroModeDesc{
-        font-size:12px;
-      }
-
-      .summaryMiniBadge{
-        font-size:10px;
-        padding:6px 9px;
-      }
-
-      #choicePad{
-        left:10px;
-        right:10px;
-        gap:8px;
-      }
-
-      .choiceBtn{
-        min-height:52px;
-        padding:12px 14px;
-        font-size:15px;
-      }
-
-      .leaderName{font-size:15px}
-      .leaderStat .value{font-size:14px}
-      .leaderRank{
-        min-width:38px;
-        height:38px;
-        font-size:14px;
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{
+        animation-duration:.01ms!important;
+        animation-iteration-count:1!important;
+        transition-duration:.01ms!important;
+        scroll-behavior:auto!important;
       }
     }
   </style>
@@ -975,6 +857,10 @@
   <div class="overlay" id="menu">
     <div class="panel">
       <h1 class="title">Vocab — English for Specific Career Purposes (CS/AI)</h1>
+      <div class="desc">
+        เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ มีหลายรูปแบบคำถามต่อคำศัพท์ ปรับความยากตามการเล่น
+        มี 4 โหมดที่ต่างกันจริง และเก็บข้อมูลการเล่นตั้งแต่เริ่มจนจบ
+      </div>
 
       <div class="menuStack">
         <div>
@@ -1015,9 +901,6 @@
               <p>ตอบไว เก็บ multiplier แข่งเวลา</p>
             </button>
           </div>
-          <div id="menuModeBanner" class="menuModeBanner">โหมดปัจจุบัน: ⚔️ Code Battle</div>
-          <div id="heroModeTitle" class="heroModeTitle">⚔️ Code Battle</div>
-          <div id="heroModeDesc" class="heroModeDesc">สู้บอสด้วยคำศัพท์และบริบทงานจริงแบบมัน ๆ</div>
         </div>
 
         <div>
@@ -1050,7 +933,7 @@
         <div>
           <div class="sectionTitle">เริ่มใช้งาน</div>
           <div class="actionGrid">
-            <button class="btn primary-mode" id="startBtn">START PRODUCTION RUN</button>
+            <button class="btn" id="startBtn">START GAME</button>
             <button class="btn alt" id="leaderboardBtn">LEADERBOARD</button>
           </div>
         </div>
@@ -1083,19 +966,19 @@
 
   <div class="overlay hidden" id="endWrap">
     <div class="panel" style="width:min(760px,94vw)">
-      <h2 style="margin:0">Run Complete 🎉</h2>
+      <h2 style="margin:0" id="endTitle">Run Complete</h2>
       <div class="desc" id="endSummaryText">สรุปผล</div>
       <div class="actionGrid" style="margin-top:16px; grid-template-columns:1fr 1fr 1fr;">
         <button class="btn" id="endPlayAgainBtn">PLAY AGAIN</button>
-        <button class="btn ghost" id="endLeaderboardBtn">LEADERBOARD</button>
-        <button class="btn alt" id="endMenuBtn">BACK TO MENU</button>
+        <button class="btn ghost" id="endLeaderboardBtn">VIEW RANK</button>
+        <button class="btn alt" id="endMenuBtn">MENU</button>
       </div>
     </div>
   </div>
 
   <div class="overlay hidden" id="leaderboardWrap">
     <div class="panel">
-      <h2 style="margin:0">Leaderboard by Mode 🏆</h2>
+      <h2 style="margin:0">Mode Leaderboard</h2>
       <div class="desc">แสดง 10 อันดับสูงสุดของโหมดที่คุณเลือกอยู่ตอนนี้</div>
       <ul class="leaderboardList" id="leaderboardList"></ul>
       <div class="actionGrid" style="margin-top:14px;">
