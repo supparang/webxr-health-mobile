@@ -37,7 +37,12 @@ function setDisplay(el, display = "block") {
 }
 
 function isAFrameEl(el) {
-  return !!(el && typeof el.setAttribute === "function" && el.tagName && el.tagName.toLowerCase().startsWith("a-"));
+  return !!(
+    el &&
+    typeof el.setAttribute === "function" &&
+    el.tagName &&
+    el.tagName.toLowerCase().startsWith("a-")
+  );
 }
 
 function applyVisible(el, visible) {
@@ -67,6 +72,8 @@ function firstEl(...ids) {
 function choiceButton(letter) {
   const upper = String(letter || "").toUpperCase();
   return firstEl(
+    `choice-btn-${upper.toLowerCase()}`,
+    `choice-btn-${upper}`,
     `btn-choice-${upper.toLowerCase()}`,
     `btn-choice-${upper}`,
     `choice-${upper.toLowerCase()}`,
@@ -167,7 +174,7 @@ export function setMissionScene(type) {
   const listening = $("mission-listening-scene");
   const writing = $("mission-writing-scene");
 
-  [speaking, reading, listening, writing].forEach(el => {
+  [speaking, reading, listening, writing].forEach((el) => {
     if (el) el.setAttribute("visible", "false");
   });
 
@@ -184,12 +191,12 @@ export function hideAllMissionControlsUI() {
   hide("write-input");
   hide("choice-buttons");
 
-  ["A", "B", "C"].forEach(letter => {
+  ["A", "B", "C"].forEach((letter) => {
     hide(choiceButton(letter));
   });
 
   ["mission-speaking-scene", "mission-reading-scene", "mission-listening-scene", "mission-writing-scene"]
-    .forEach(id => {
+    .forEach((id) => {
       const el = $(id);
       if (el) el.setAttribute("visible", "false");
     });
@@ -217,18 +224,31 @@ export function setChoiceLabelsFor(type, choices = []) {
   const list = Array.isArray(choices) ? choices : [];
 
   ["A", "B", "C"].forEach((letter, index) => {
-    const btn = choiceButton(letter);
-    if (!btn) return;
-
     const label = String(list[index] || `${letter}: ...`);
-    if ("value" in btn && btn.tagName && btn.tagName.toLowerCase() === "input") {
-      btn.value = label;
-    } else {
-      btn.textContent = label;
+
+    const btn = choiceButton(letter);
+    if (btn) {
+      if ("value" in btn && btn.tagName && btn.tagName.toLowerCase() === "input") {
+        btn.value = label;
+      } else {
+        btn.textContent = label;
+      }
+
+      btn.dataset.choiceType = String(type || "");
+      btn.dataset.choiceLetter = letter;
     }
 
-    btn.dataset.choiceType = String(type || "");
-    btn.dataset.choiceLetter = letter;
+    const sceneTextId =
+      type === "reading"
+        ? `reading-choice-${letter.toLowerCase()}`
+        : type === "listening"
+          ? `listening-choice-${letter.toLowerCase()}`
+          : "";
+
+    const sceneTextEl = sceneTextId ? $(sceneTextId) : null;
+    if (sceneTextEl) {
+      textLikeSet(sceneTextEl, label);
+    }
   });
 }
 
@@ -268,7 +288,7 @@ export function showChoiceButtons(visible = true) {
     else hide(wrap);
   }
 
-  ["A", "B", "C"].forEach(letter => {
+  ["A", "B", "C"].forEach((letter) => {
     const btn = choiceButton(letter);
     if (!btn) return;
     if (visible) show(btn, "block");
@@ -351,7 +371,7 @@ export function scheduleMissionHeaderCollapse(delay = 1000) {
   }, delay);
 }
 
-export function expandMissionStats(durationMs) {
+export function expandMissionStats() {
   setCollapsedClass("mission-stats-collapsed", false);
 }
 
@@ -401,7 +421,7 @@ export function scheduleMissionTitleUltraMini(delay = 1000) {
   }, delay);
 }
 
-export function expandMissionTimer(durationMs) {
+export function expandMissionTimer() {
   setCollapsedClass("mission-timer-compact", false);
 }
 
@@ -417,7 +437,7 @@ export function setMissionTimerAlert(on = true) {
   ui.classList.toggle("mission-timer-alert", !!on);
 }
 
-export function expandMissionHudTextCompact(durationMs) {
+export function expandMissionHudTextCompact() {
   setCollapsedClass("mission-hudtext-compact", false);
 }
 
