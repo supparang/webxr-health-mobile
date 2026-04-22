@@ -1,570 +1,1357 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>vocab.html — ESP Battle CS/AI</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>TechPath VR</title>
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+
+  <link rel="stylesheet" href="./lesson.css" />
+
+  <script>
+    window.TECHPATH_APP_ID = window.TECHPATH_APP_ID || 'english-d4bfa';
+    window.TECHPATH_FIREBASE_CONFIG = window.TECHPATH_FIREBASE_CONFIG || {
+      apiKey: "AIzaSyAfp3pVutrHRVOigVQl1iybMKbsKGPhnr8",
+      authDomain: "english-d4bfa.firebaseapp.com",
+      databaseURL: "https://english-d4bfa-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "english-d4bfa",
+      storageBucket: "english-d4bfa.firebasestorage.app",
+      messagingSenderId: "247186694556",
+      appId: "1:247186694556:web:67a01e417f37eb71f42859",
+      measurementId: "G-SWT85BHVJX"
+    };
+    window.TECHPATH_BUILD = 'v20260422-old-ui-r2';
+    window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxk7L--kY__UJJ-9FG_KqzR09W2FNILQWYn5qo-frtc3RHLVkUrkajoL4Tb6HOXhicr/exec';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260422-old-ui-r2';
+  </script>
+
+  <meta name="theme-color" content="#0a0f1e" />
+
   <style>
     :root{
-      --bg1:#071122;
-      --bg2:#123a7a;
-      --panel:rgba(10,16,35,.86);
-      --line:rgba(255,255,255,.14);
-      --text:#f8fbff;
-      --muted:#c7d4ff;
-      --cyan:#67e8f9;
-      --pink:#f472b6;
-      --yellow:#fde047;
-      --green:#4ade80;
-      --red:#fb7185;
-      --violet:#a78bfa;
-      --orange:#fb923c;
+      --app-vh:100dvh;
     }
 
-    *{box-sizing:border-box}
-
-    html,body{
+    html, body{
+      max-width:100%;
+      overflow-x:hidden;
       margin:0;
-      min-height:100%;
-      overflow-x:hidden;
-      overflow-y:auto;
-      font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;
-      background:linear-gradient(180deg,var(--bg1),var(--bg2));
-      color:var(--text);
+      background:#07111f;
+      color:#fff;
+      font-family:system-ui, sans-serif;
     }
 
-    body{touch-action:manipulation}
+    body{
+      min-height:var(--app-vh);
+      -webkit-text-size-adjust:100%;
+    }
 
-    #app{
+    #ui-container{
+      width:min(100%, 980px);
+      min-height:var(--app-vh);
+      margin:0 auto;
+      box-sizing:border-box;
       position:relative;
-      min-height:100dvh;
-      overflow-x:hidden;
+      z-index:2;
+      padding:10px 12px 32px;
     }
 
-    canvas{
-      position:fixed;
-      inset:0;
+    .btn-action,
+    #attendance-toggle{
+      min-height:44px;
+      touch-action:manipulation;
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+      border:none;
+      cursor:pointer;
+    }
+
+    .input-field{
+      min-height:44px;
+      box-sizing:border-box;
       width:100%;
-      height:100%;
-      display:block;
-      background:linear-gradient(180deg,#75d8ff,#dbeafe 62%,#e5efff 62%,#dbeafe 100%);
+      max-width:100%;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      padding:12px 14px;
+      outline:none;
     }
 
-    .overlay{
+    #attendance-panel{
+      margin:8px 0 10px;
+      padding:10px 12px;
+      border:1px solid rgba(123,237,255,.24);
+      border-radius:14px;
+      background:rgba(8,14,28,.76);
+      box-shadow:0 8px 22px rgba(0,0,0,.18);
+      backdrop-filter:blur(6px);
+      text-align:left;
+    }
+
+    #attendance-header-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    #attendance-title{
+      font-weight:900;
+      color:#7bedff;
+      letter-spacing:.02em;
+      font-size:.92rem;
+    }
+
+    #attendance-toggle{
+      appearance:none;
+      border:1px solid rgba(123,237,255,.28);
+      background:rgba(255,255,255,.05);
+      color:#cfefff;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:.78rem;
+      font-weight:800;
+    }
+
+    #attendance-summary-line{
+      margin-top:8px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+      font-size:.84rem;
+      color:#eaf6ff;
+    }
+
+    #attendance-summary-name{
+      font-weight:800;
+      color:#ffffff;
+      overflow-wrap:anywhere;
+    }
+
+    #attendance-summary-s{
+      font-weight:800;
+      color:#7bedff;
+    }
+
+    #attendance-summary-status{
+      font-weight:800;
+      color:#ffd6db;
+    }
+
+    #attendance-grid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px 10px;
+      font-size:.84rem;
+      color:#eaf6ff;
+    }
+
+    .attendance-item{
+      min-width:0;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:10px;
+      padding:8px 10px;
+    }
+
+    .attendance-item b{
+      display:block;
+      font-size:.72rem;
+      color:#9adfff;
+      margin-bottom:3px;
+      font-weight:800;
+    }
+
+    #attendance-status{
+      margin-top:10px;
+      border-radius:10px;
+      padding:8px 10px;
+      background:rgba(46,213,115,.08);
+      border:1px solid rgba(46,213,115,.22);
+      color:#d9ffe8;
+      font-size:.82rem;
+      font-weight:700;
+    }
+
+    #attendance-status.warn{
+      background:rgba(255,159,67,.10);
+      border-color:rgba(255,159,67,.22);
+      color:#ffe7c9;
+    }
+
+    #attendance-status.fail{
+      background:rgba(255,71,87,.10);
+      border-color:rgba(255,71,87,.22);
+      color:#ffd7dc;
+    }
+
+    #attendance-panel.compact #attendance-grid,
+    #attendance-panel.compact #attendance-status{
+      display:none;
+    }
+
+    html.protected,
+    html.protected body{
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-touch-callout:none;
+    }
+
+    html.protected input,
+    html.protected textarea,
+    html.protected [contenteditable="true"]{
+      -webkit-user-select:text !important;
+      user-select:text !important;
+      -webkit-touch-callout:default !important;
+    }
+
+    img, a, canvas{
+      -webkit-user-drag:none;
+      user-drag:none;
+    }
+
+    #source-shield{
       position:fixed;
       inset:0;
-      display:flex;
-      align-items:flex-start;
+      display:none;
+      align-items:center;
       justify-content:center;
-      padding:20px 16px 32px;
-      overflow-y:auto;
-      overflow-x:hidden;
-      -webkit-overflow-scrolling:touch;
-      background:radial-gradient(circle at top,#18254a 0%,#0b1020 48%,#05070f 100%);
-      z-index:70;
+      padding:24px;
+      background:rgba(2,6,23,.90);
+      backdrop-filter:blur(10px);
+      z-index:999999;
+      text-align:center;
     }
 
-    .hidden{display:none!important}
+    #source-shield-card{
+      max-width:520px;
+      width:min(92vw,520px);
+      border:1px solid rgba(123,237,255,.22);
+      border-radius:18px;
+      padding:22px 18px;
+      background:rgba(15,23,42,.92);
+      box-shadow:0 20px 60px rgba(0,0,0,.35);
+    }
 
-    .panel{
-      width:min(96vw,760px);
-      max-width:96vw;
-      overflow-x:hidden;
-      padding:18px;
-      border-radius:24px;
-      margin:12px 0 24px;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow:0 20px 80px rgba(0,0,0,.35);
-      touch-action:pan-y;
+    #source-shield-title{
+      color:#7bedff;
+      font-size:1.25rem;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+
+    #source-shield-sub{
+      color:#e5f6ff;
+      font-size:.96rem;
+      line-height:1.5;
+    }
+
+    body.devtools-guard #source-shield{
+      display:flex;
+    }
+
+    body.devtools-guard #ui-container,
+    body.devtools-guard a-scene{
+      filter:blur(10px);
+      pointer-events:none !important;
     }
 
     .title{
-      font-size:clamp(26px,7vw,40px);
-      line-height:1.12;
-      letter-spacing:-0.02em;
-      font-weight:1000;
-      margin:0;
-    }
-
-    .desc{
-      margin-top:10px;
-      color:#dbe7ff;
-      font-size:14px;
-      line-height:1.55;
-    }
-
-    .sectionTitle{
-      margin-top:16px;
-      margin-bottom:10px;
-      font-size:15px;
+      text-align:center;
+      font-size:3rem;
       font-weight:900;
+      color:#7bedff;
+      margin:8px 0 4px;
+      text-shadow:0 0 18px rgba(123,237,255,.18);
+    }
+
+    .instruction{
+      text-align:center;
       color:#dbeafe;
+      margin:0 0 10px;
+      font-size:1.1rem;
     }
 
-    .menuStack{display:grid;gap:12px}
-    .bankGrid{display:grid;grid-template-columns:1fr;gap:10px}
-    .modeGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .profileGrid{display:grid;grid-template-columns:1fr;gap:10px}
-    .actionGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .top3Board{display:grid;grid-template-columns:1fr;gap:10px;margin-top:0}
-
-    .option,.inputBox,.top3Card,.btn{
-      min-width:0;
-      width:100%;
-      border-radius:20px;
-    }
-
-    .option{
-      appearance:none;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.12);
-      padding:14px;
-      text-align:left;
-      color:var(--text);
-      cursor:pointer;
-    }
-
-    .option:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.55)}
-    .option.active{outline:3px solid var(--cyan);background:rgba(103,232,249,.10)}
-    .option h3{font-size:18px;line-height:1.2;margin:0 0 6px}
-    .option p{margin:0;color:#cad7ff;font-size:13px;line-height:1.4}
-
-    .inputBox{
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.14);
-      padding:12px;
-    }
-
-    .inputBox label{
-      display:block;
-      font-size:12px;
-      color:#c7d4ff;
-      margin-bottom:6px;
-    }
-
-    .inputBox input{
-      width:100%;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.14);
+    #player-avatar-hud{
+      position:absolute;
+      top:10px;
+      right:10px;
+      width:48px;
+      height:48px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
       background:rgba(255,255,255,.08);
-      color:#fff;
-      font-size:16px;
-      min-height:48px;
+      border:1px solid rgba(123,237,255,.20);
+      font-size:1.5rem;
+      z-index:5;
     }
 
-    .top3Card{
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.14);
-      padding:14px;
-      text-align:left;
+    #hud-stats{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-weight:bold;
+      margin:10px 0;
+      border-top:1px solid #00e5ff;
+      border-bottom:1px solid #00e5ff;
+      padding:8px 0;
     }
 
-    .top3Card .rank{font-size:22px;font-weight:1000}
-    .top3Card .name{font-size:16px;font-weight:900;margin-top:6px}
-    .top3Card .meta{font-size:12px;color:#c7d4ff;margin-top:4px}
-
-    .btn{
-      appearance:none;
-      border:0;
-      min-height:58px;
-      font-size:17px;
-      font-weight:1000;
-      cursor:pointer;
-      white-space:normal;
-      word-break:break-word;
-      line-height:1.15;
-      padding:12px 14px;
-      color:#06101b;
-      background:linear-gradient(135deg,#67e8f9,#a78bfa);
-    }
-
-    .btn.alt{
-      background:linear-gradient(135deg,#fde047,#fb7185);
-      color:#311314;
-    }
-
-    .btn.ghost{
-      background:linear-gradient(135deg,#dbeafe,#93c5fd);
-      color:#172554;
-    }
-
-    .hud{
-      position:fixed;
-      left:8px;
-      right:8px;
-      top:8px;
-      z-index:20;
-      display:grid;
-      grid-template-columns:1fr 1fr;
+    .hud-stat-item{
+      display:flex;
+      align-items:center;
+      justify-content:center;
       gap:8px;
-      pointer-events:none;
-    }
-
-    .card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:9px 10px;
-      backdrop-filter:blur(8px);
-      box-shadow:0 10px 32px rgba(0,0,0,.26);
-    }
-
-    .big{font-size:14px;font-weight:900}
-    .sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}
-
-    .bar{
-      height:9px;
-      border-radius:999px;
-      background:rgba(255,255,255,.1);
-      overflow:hidden;
-      margin-top:8px;
-    }
-
-    .fill{
-      height:100%;
+      flex-wrap:wrap;
       width:100%;
-      background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));
-      transform-origin:left center;
+      font-size:1.2rem;
     }
 
-    #questionBox{
-      position:fixed;
-      top:116px;
-      left:50%;
-      transform:translateX(-50%);
-      width:94vw;
-      padding:14px 14px;
-      border-radius:18px;
-      background:rgba(17,24,39,.82);
-      color:#fff;
-      text-align:center;
-      z-index:40;
-      box-shadow:0 14px 30px rgba(0,0,0,.22);
-      backdrop-filter:blur(6px);
-      border:1px solid rgba(255,255,255,.10);
+    #hud-top-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      justify-content:center;
+      margin-bottom:10px;
     }
 
-    #questionBox .q-meta{
-      font-size:12px;
-      opacity:.95;
+    #mission-prompt-box{
+      display:none;
+      border:1px solid rgba(123,237,255,.18);
+      background:rgba(10,18,34,.94);
+      box-shadow:0 8px 20px rgba(0,0,0,.20);
+      border-radius:16px;
+      padding:12px;
+      margin-bottom:10px;
+    }
+
+    #mission-prompt-label{
+      font-size:.78rem;
       margin-bottom:6px;
-      letter-spacing:.05em;
-      color:#fde047;
+      color:#7bedff;
+      font-weight:800;
     }
 
-    #questionBox .q-prompt{
-      font-size:clamp(18px,5vw,28px);
-      font-weight:900;
-      line-height:1.22;
-    }
-
-    #feedbackBox{
-      position:fixed;
-      top:192px;
-      left:50%;
-      transform:translateX(-50%);
-      min-width:220px;
-      max-width:88vw;
-      text-align:center;
-      padding:12px 18px;
-      border-radius:999px;
-      background:rgba(15,23,42,.92);
+    #mission-prompt-text{
+      font-size:1rem;
+      line-height:1.5;
       color:#fff;
-      font-size:18px;
-      font-weight:900;
-      z-index:50;
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .18s ease, transform .18s ease;
+      white-space:pre-wrap;
     }
 
-    #feedbackBox.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
-    #feedbackBox.ok{background:rgba(22,163,74,.94)}
-    #feedbackBox.bad{background:rgba(225,29,72,.94)}
-    #feedbackBox.warn{background:rgba(180,83,9,.94)}
-
-    #choicePad{
-      position:fixed;
-      left:12px;
-      right:12px;
-      bottom:max(14px, env(safe-area-inset-bottom));
-      z-index:65;
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
+    #choice-buttons{
+      display:none;
+      justify-content:center;
+      gap:12px;
+      margin-top:10px;
     }
 
-    .choiceBtn{
-      appearance:none;
-      border:0;
-      width:100%;
-      min-height:58px;
+    #choice-buttons .btn-action{
+      display:flex !important;
+      align-items:center !important;
+      justify-content:flex-start !important;
+      text-align:left !important;
+      padding:12px 16px !important;
+      line-height:1.25 !important;
+      white-space:normal !important;
+      word-break:break-word !important;
+      font-size:1rem !important;
+      font-weight:900 !important;
+    }
+
+    #boss-phase-ui,
+    #summary-panel,
+    #profile-panel,
+    #hub-stats-board{
+      background:rgba(10,18,34,.82);
+      border:1px solid rgba(123,237,255,.18);
       border-radius:18px;
-      padding:14px 16px;
-      font-size:18px;
-      font-weight:900;
-      line-height:1.15;
-      color:#08111f;
-      background:linear-gradient(135deg,#dbeafe,#93c5fd);
-      box-shadow:0 10px 28px rgba(0,0,0,.20);
-      cursor:pointer;
+      padding:14px;
+      margin-top:10px;
+      box-shadow:0 10px 24px rgba(0,0,0,.22);
     }
 
-    .choiceBtn:active{
-      transform:translateY(1px) scale(.995);
-    }
-
-    .leaderboardList,.sessionList{
-      list-style:none;
-      padding:0;
-      display:grid;
-      gap:10px;
-      margin-top:14px;
-    }
-
-    .leaderboardList li,.sessionList li{
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.1);
-      border-radius:16px;
+    #ai-director-board{
+      margin:10px 0;
       padding:10px 12px;
+      border:1px solid rgba(0,229,255,.25);
+      border-radius:12px;
+      background:rgba(255,255,255,.04);
     }
 
-    table{
-      width:100%;
-      border-collapse:collapse;
+    .avatar-row{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:8px;
+      margin-bottom:10px;
+    }
+
+    .avatar-chip{
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.08);
+      padding:10px;
+      background:rgba(255,255,255,.04);
+      color:#fff;
+      font-weight:700;
+    }
+
+    .avatar-chip.active{
+      border-color:#00e5ff;
+      box-shadow:0 0 0 1px rgba(0,229,255,.25) inset, 0 0 18px rgba(0,229,255,.14);
+      background:rgba(0,229,255,.08);
+    }
+
+    #unlock-hint{
+      color:#dbeafe;
+      opacity:.92;
+      margin:8px 0 10px;
+      line-height:1.45;
+    }
+
+    #feedback{
       margin-top:12px;
+      text-align:center;
+      font-weight:800;
+      min-height:24px;
     }
 
-    th,td{
-      border-bottom:1px solid rgba(255,255,255,.08);
-      padding:8px;
-      text-align:left;
-      font-size:13px;
+    #summary-title,
+    #profile-panel-title,
+    #hub-stats-title,
+    #boss-phase-title{
+      font-weight:900;
+      color:#7bedff;
+      margin-bottom:8px;
     }
 
-    th{color:#93c5fd}
-    .small{font-size:12px;color:#cbd5e1}
-    .mono{font-family:ui-monospace,Consolas,monospace}
-    .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
-    #endWrap{z-index:9999}
+    #boss-bar-shell{
+      width:100%;
+      height:14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      overflow:hidden;
+      margin:10px 0;
+    }
 
-    @media (min-width:700px){
-      .bankGrid{grid-template-columns:1fr 1fr 1fr}
-      .profileGrid{grid-template-columns:1fr 1fr}
-      .top3Board{grid-template-columns:1fr 1fr 1fr}
-      #choicePad{
-        left:50%;
-        right:auto;
-        width:min(720px, calc(100vw - 24px));
-        transform:translateX(-50%);
-        grid-template-columns:1fr 1fr;
+    #boss-bar-fill{
+      width:100%;
+      height:100%;
+      background:linear-gradient(90deg, #ff6b81, #f1c40f);
+      border-radius:999px;
+    }
+
+    #timer{
+      display:none;
+      text-align:center;
+      font-size:1.1rem;
+      font-weight:900;
+      color:#ffeaa7;
+      margin:10px 0;
+    }
+
+    #game-over-ui{
+      display:none;
+      margin-top:10px;
+      background:rgba(0,0,0,0.5);
+      padding:15px;
+      border-radius:8px;
+    }
+
+    #btn-next,
+    #btn-return,
+    #btn-speak,
+    #btn-play-audio,
+    #btn-submit-write,
+    #btn-save-profile,
+    #btn-submit-score,
+    #choice-buttons .btn-action,
+    #mobile-hub-drawer .btn-action{
+      background:linear-gradient(180deg, #2ad7ff, #14bde0);
+      color:#04131d;
+      border-radius:16px;
+      font-weight:900;
+      box-shadow:0 8px 20px rgba(0,0,0,.22);
+    }
+
+    #btn-next{
+      background:linear-gradient(180deg, #43e08a, #27c96b);
+      color:#08150d;
+    }
+
+    #btn-return{
+      background:linear-gradient(180deg, #ff8ea1, #ff637e);
+      color:#25030a;
+    }
+
+    #question-diff-badge{
+      border:1px solid #f1c40f;
+      color:#f1c40f;
+      border-radius:999px;
+      padding:4px 10px;
+      font-weight:700;
+    }
+
+    #unit-theme-chip,
+    #reward-roll-badge{
+      display:none;
+      border:1px solid #7bedff;
+      color:#7bedff;
+      border-radius:999px;
+      padding:4px 10px;
+      font-weight:700;
+    }
+
+    #impact-flash{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:120;
+      opacity:0;
+      transition:opacity .2s ease;
+    }
+
+    #impact-flash.impact-hit{
+      opacity:.22;
+      background:rgba(255,71,87,.32);
+    }
+
+    #impact-flash.impact-clear{
+      opacity:.22;
+      background:rgba(46,213,115,.28);
+    }
+
+    #boss-cinematic{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:121;
+      background:rgba(2,6,23,.48);
+      backdrop-filter:blur(6px);
+    }
+
+    #boss-cinematic.show{
+      display:flex;
+    }
+
+    #boss-cinematic-card{
+      width:min(92vw,520px);
+      border-radius:18px;
+      padding:18px 16px;
+      background:rgba(10,18,34,.96);
+      border:1px solid rgba(123,237,255,.18);
+      text-align:center;
+      box-shadow:0 18px 40px rgba(0,0,0,.28);
+    }
+
+    #boss-cinematic-title{
+      font-size:1.2rem;
+      font-weight:900;
+      color:#ffeaa7;
+      margin-bottom:6px;
+    }
+
+    #boss-cinematic-sub{
+      color:#eaf6ff;
+    }
+
+    #answer-fx-layer{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:115;
+      overflow:hidden;
+    }
+
+    .answer-burst{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:12px;
+      height:12px;
+      border-radius:999px;
+      transform:translate(-50%, -50%);
+      opacity:1;
+      animation:burstFly .72s ease-out forwards;
+    }
+
+    .answer-burst.success{ background:#2ed573; }
+    .answer-burst.fail{ background:#ff4757; }
+
+    @keyframes burstFly{
+      from{ transform:translate(-50%, -50%) scale(1); opacity:1; }
+      to{
+        transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.5);
+        opacity:0;
       }
     }
 
-    @media (max-width:420px){
-      .option h3{font-size:16px}
-      .option p{font-size:12px}
-      .btn{font-size:16px}
-      #questionBox{top:164px}
+    .combo-popup{
+      position:fixed;
+      left:50%;
+      top:14%;
+      transform:translate(-50%, -10px);
+      z-index:116;
+      opacity:0;
+      padding:10px 16px;
+      border-radius:999px;
+      background:rgba(10,18,34,.94);
+      border:1px solid rgba(255,234,167,.28);
+      color:#ffeaa7;
+      font-weight:900;
+      box-shadow:0 10px 28px rgba(0,0,0,.22);
+      pointer-events:none;
+    }
+
+    .combo-popup.show{
+      animation:comboShow .92s ease forwards;
+    }
+
+    @keyframes comboShow{
+      0%{ opacity:0; transform:translate(-50%, -10px) scale(.94); }
+      18%{ opacity:1; transform:translate(-50%, 0) scale(1); }
+      85%{ opacity:1; transform:translate(-50%, 0) scale(1); }
+      100%{ opacity:0; transform:translate(-50%, -8px) scale(.98); }
+    }
+
+    .mission-type-tag{
+      position:fixed;
+      right:12px;
+      top:calc(env(safe-area-inset-top, 0px) + 12px);
+      z-index:117;
+      opacity:0;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(10,18,34,.94);
+      border:1px solid rgba(123,237,255,.18);
+      color:#fff;
+      font-size:.82rem;
+      font-weight:900;
+      pointer-events:none;
+    }
+
+    .mission-type-tag.show{
+      animation:tagShow .94s ease forwards;
+    }
+
+    @keyframes tagShow{
+      0%{ opacity:0; transform:translateY(-6px); }
+      18%{ opacity:1; transform:translateY(0); }
+      85%{ opacity:1; transform:translateY(0); }
+      100%{ opacity:0; transform:translateY(-4px); }
+    }
+
+    .screen-glow-success{ animation:screenSuccess .46s ease; }
+    .screen-glow-fail{ animation:screenFail .46s ease; }
+
+    @keyframes screenSuccess{
+      0%{ box-shadow:0 0 0 rgba(46,213,115,0); }
+      50%{ box-shadow:0 0 0 9999px rgba(46,213,115,.06) inset; }
+      100%{ box-shadow:0 0 0 rgba(46,213,115,0); }
+    }
+
+    @keyframes screenFail{
+      0%{ box-shadow:0 0 0 rgba(255,71,87,0); }
+      50%{ box-shadow:0 0 0 9999px rgba(255,71,87,.08) inset; }
+      100%{ box-shadow:0 0 0 rgba(255,71,87,0); }
+    }
+
+    .shake{
+      animation:shakeUI .3s linear;
+    }
+
+    @keyframes shakeUI{
+      0%,100%{ transform:translateX(0); }
+      20%{ transform:translateX(-4px); }
+      40%{ transform:translateX(4px); }
+      60%{ transform:translateX(-3px); }
+      80%{ transform:translateX(3px); }
+    }
+
+    .danger-mode{
+      outline:1px solid rgba(255,71,87,.24);
+      box-shadow:0 0 0 9999px rgba(255,71,87,.03) inset;
+    }
+
+    .score-anim{
+      animation:scoreBump .5s ease;
+    }
+
+    @keyframes scoreBump{
+      0%{ transform:scale(1); }
+      50%{ transform:scale(1.16); }
+      100%{ transform:scale(1); }
+    }
+
+    #mobile-hub-drawer,
+    #mobile-hub-sheet{
+      display:none;
+    }
+
+    #boss-phase-ui,
+    #game-over-ui,
+    #summary-panel{
+      display:none;
+    }
+
+    body.hub-mode #summary-panel,
+    body.hub-mode #game-over-ui,
+    body.hub-mode #boss-phase-ui,
+    body.hub-mode #mission-prompt-box,
+    body.hub-mode #btn-speak,
+    body.hub-mode #btn-play-audio,
+    body.hub-mode #write-input,
+    body.hub-mode #btn-submit-write,
+    body.hub-mode #choice-buttons,
+    body.hub-mode #btn-next,
+    body.hub-mode #btn-return{
+      display:none !important;
+    }
+
+    body.mission-mode #summary-panel,
+    body.mission-mode #game-over-ui{
+      display:none !important;
+    }
+
+    body.summary-mode #mission-prompt-box,
+    body.summary-mode #btn-speak,
+    body.summary-mode #btn-play-audio,
+    body.summary-mode #write-input,
+    body.summary-mode #btn-submit-write,
+    body.summary-mode #choice-buttons{
+      display:none !important;
+    }
+
+    body.summary-mode #feedback,
+    body.summary-mode #mission-type-tag,
+    body.summary-mode #combo-popup,
+    body.summary-mode #player-avatar-hud{
+      display:none !important;
+    }
+
+    @media (max-width: 700px) {
+      html, body{
+        overflow:hidden !important;
+      }
+
+      a-scene{
+        position:fixed !important;
+        inset:0 !important;
+        z-index:0 !important;
+      }
+
+      #ui-container{
+        position:fixed !important;
+        inset:0 !important;
+        z-index:20 !important;
+        width:100% !important;
+        min-height:100dvh !important;
+        padding:8px 10px calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+        background:transparent !important;
+        pointer-events:none !important;
+        overflow:hidden !important;
+      }
+
+      #ui-container .btn-action,
+      #ui-container button,
+      #ui-container input,
+      #ui-container textarea,
+      #attendance-panel,
+      #summary-panel,
+      #game-over-ui,
+      #mobile-hub-drawer,
+      #mobile-hub-sheet,
+      #hud-stats,
+      #hud-top-row,
+      #mission-prompt-box,
+      #choice-buttons,
+      #btn-speak,
+      #btn-play-audio,
+      #write-input,
+      #btn-submit-write,
+      #btn-next,
+      #btn-return{
+        pointer-events:auto !important;
+      }
+
+      body.hub-mode #ui-title{
+        font-size:1.9rem !important;
+        line-height:1.05 !important;
+        margin:4px 0 2px !important;
+        text-align:center;
+      }
+
+      body.hub-mode #ui-desc{
+        font-size:0.95rem !important;
+        margin:0 0 8px !important;
+        text-align:center;
+      }
+
+      body.hub-mode #attendance-panel{
+        margin:6px 0 8px !important;
+        padding:10px 12px !important;
+        border-radius:16px !important;
+      }
+
+      body.hub-mode #profile-panel,
+      body.hub-mode #hub-stats-board{
+        display:none !important;
+      }
+
+      #mobile-hub-drawer{
+        position:fixed;
+        left:10px;
+        right:10px;
+        bottom:calc(10px + env(safe-area-inset-bottom, 0px));
+        z-index:50;
+        display:grid !important;
+        grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
+        gap:8px !important;
+      }
+
+      #mobile-hub-drawer .btn-action{
+        min-width:0;
+        min-height:48px;
+        border-radius:16px;
+        font-weight:900;
+        font-size:0.96rem;
+        padding:0 8px;
+      }
+
+      #mobile-hub-sheet{
+        position:fixed;
+        left:10px;
+        right:10px;
+        bottom:calc(68px + env(safe-area-inset-bottom, 0px));
+        z-index:60;
+        display:none;
+        max-height:44dvh;
+        overflow:auto;
+        border-radius:18px;
+        background:rgba(10,18,34,.96);
+        border:1px solid rgba(123,237,255,.18);
+        box-shadow:0 14px 34px rgba(0,0,0,.28);
+        padding:12px;
+      }
+
+      #mobile-hub-sheet.show{
+        display:block;
+      }
+
+      #mobile-hub-sheet .session-sheet-title{
+        font-size:1rem;
+        font-weight:900;
+        color:#7bedff;
+        margin-bottom:10px;
+        text-align:center;
+      }
+
+      #mobile-hub-sheet .session-grid{
+        display:grid;
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+        gap:8px;
+      }
+
+      #mobile-hub-sheet .session-chip{
+        min-height:48px;
+        border:1px solid rgba(123,237,255,.18);
+        border-radius:14px;
+        background:linear-gradient(180deg, rgba(42,215,255,.18), rgba(20,189,224,.10));
+        color:#eaf6ff;
+        font-weight:900;
+        font-size:0.95rem;
+      }
+
+      body.mission-mode #ui-title,
+      body.mission-mode #ui-desc,
+      body.mission-mode #attendance-panel,
+      body.mission-mode #ai-director-board,
+      body.mission-mode #profile-panel,
+      body.mission-mode #hub-stats-board,
+      body.mission-mode #mobile-hub-drawer,
+      body.mission-mode #mobile-hub-sheet{
+        display:none !important;
+      }
+
+      body.mission-mode #hud-stats{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        top:calc(env(safe-area-inset-top, 0px) + 6px) !important;
+        z-index:90 !important;
+        display:flex !important;
+        justify-content:space-between !important;
+        align-items:center !important;
+        gap:8px !important;
+        margin:0 !important;
+        padding:8px 12px !important;
+        border-radius:14px !important;
+        background:rgba(6,12,24,.92) !important;
+        backdrop-filter:blur(8px);
+      }
+
+      body.mission-mode #hud-top-row{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        top:calc(env(safe-area-inset-top, 0px) + 66px) !important;
+        z-index:89 !important;
+        display:flex !important;
+        justify-content:center !important;
+        gap:8px !important;
+        margin:0 !important;
+        padding:0 !important;
+        background:transparent !important;
+      }
+
+      body.mission-mode #question-diff-badge{
+        display:inline-flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        min-height:36px !important;
+        padding:0 14px !important;
+        font-size:.92rem !important;
+        border-radius:999px !important;
+      }
+
+      body.mission-mode #mission-prompt-box{
+        display:block !important;
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        top:calc(env(safe-area-inset-top, 0px) + 112px) !important;
+        z-index:88 !important;
+        margin:0 !important;
+        padding:12px !important;
+        border-radius:16px !important;
+        background:rgba(10,18,34,.94) !important;
+        border:1px solid rgba(123,237,255,.18) !important;
+        box-shadow:0 8px 20px rgba(0,0,0,.20);
+      }
+
+      body.mission-mode[data-mission-type="reading"] #choice-buttons,
+      body.mission-mode[data-mission-type="listening"] #choice-buttons{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        bottom:calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:95 !important;
+        display:grid !important;
+        grid-template-columns:1fr !important;
+        gap:8px !important;
+        margin:0 !important;
+        padding:10px 0 0 0 !important;
+        background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
+      }
+
+      body.mission-mode[data-mission-type="reading"] #choice-buttons .btn-action,
+      body.mission-mode[data-mission-type="listening"] #choice-buttons .btn-action{
+        min-height:52px !important;
+        border-radius:16px !important;
+      }
+
+      body.mission-mode[data-mission-type="listening"] #btn-play-audio{
+        display:block !important;
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        bottom:calc(194px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:96 !important;
+        min-height:52px !important;
+        border-radius:16px !important;
+      }
+
+      body.mission-mode[data-mission-type="speaking"] #choice-buttons,
+      body.mission-mode[data-mission-type="writing"] #choice-buttons,
+      body.mission-mode[data-mission-type="speaking"] #btn-play-audio,
+      body.mission-mode[data-mission-type="speaking"] #write-input,
+      body.mission-mode[data-mission-type="speaking"] #btn-submit-write,
+      body.mission-mode[data-mission-type="writing"] #btn-speak,
+      body.mission-mode[data-mission-type="writing"] #btn-play-audio,
+      body.mission-mode[data-mission-type="listening"] #btn-speak,
+      body.mission-mode[data-mission-type="reading"] #btn-speak,
+      body.mission-mode[data-mission-type="reading"] #write-input,
+      body.mission-mode[data-mission-type="reading"] #btn-submit-write,
+      body.mission-mode[data-mission-type="listening"] #write-input,
+      body.mission-mode[data-mission-type="listening"] #btn-submit-write{
+        display:none !important;
+      }
+
+      body.mission-mode #btn-speak,
+      body.mission-mode #btn-play-audio,
+      body.mission-mode #btn-submit-write{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        bottom:calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:95 !important;
+        min-height:52px !important;
+        border-radius:16px !important;
+      }
+
+      body.mission-mode #write-input{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        bottom:calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:94 !important;
+      }
+
+      body.summary-mode #ui-title,
+      body.summary-mode #ui-desc,
+      body.summary-mode #attendance-panel,
+      body.summary-mode #ai-director-board,
+      body.summary-mode #profile-panel,
+      body.summary-mode #hub-stats-board,
+      body.summary-mode #mobile-hub-drawer,
+      body.summary-mode #mobile-hub-sheet,
+      body.summary-mode #hud-stats,
+      body.summary-mode #hud-top-row{
+        display:none !important;
+      }
+
+      body.summary-mode #summary-panel{
+        display:block !important;
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        top:calc(env(safe-area-inset-top, 0px) + 10px) !important;
+        bottom:calc(78px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:90 !important;
+        overflow:auto !important;
+      }
+
+      body.summary-mode #btn-next,
+      body.summary-mode #btn-return{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        z-index:95 !important;
+        min-height:52px !important;
+        border-radius:16px !important;
+      }
+
+      body.summary-mode #btn-next{
+        bottom:calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+
+      body.summary-mode #btn-return{
+        bottom:calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+      }
     }
   </style>
 </head>
 <body>
-<div id="app">
-  <canvas id="gameCanvas"></canvas>
-
-  <div class="hud">
-    <div class="card">
-      <div class="big">VOCAB • ESP BATTLE</div>
-      <div class="sub" id="hudPrompt">Contextual learning • adaptive difficulty • review queue</div>
-      <div class="bar"><div class="fill" id="timeFill"></div></div>
-    </div>
-    <div class="card">
-      <div class="big" id="hudScore">Score 0</div>
-      <div class="sub" id="hudRound">Stage 0 / 18</div>
-    </div>
-    <div class="card">
-      <div class="big" id="hudCombo">Combo x0</div>
-      <div class="sub" id="hudMode">Difficulty EASY</div>
-    </div>
-    <div class="card">
-      <div class="big" id="hudHp">HP 5</div>
-      <div class="sub" id="hudState">READY</div>
-    </div>
-  </div>
-
-  <div id="questionBox">
-    <div class="q-meta">ESP BATTLE</div>
-    <div class="q-prompt">เตรียมเริ่มเกม</div>
-  </div>
-
-  <div id="feedbackBox"></div>
-  <div id="choicePad" class="hidden" aria-live="polite"></div>
-
-  <div class="overlay" id="menu">
-    <div class="panel">
-      <h1 class="title">Vocab — English for Specific Career Purposes (CS/AI)</h1>
-      <div class="desc">
-        เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ มีหลายรูปแบบคำถามต่อคำศัพท์ ปรับความยากตามการเล่น
-        มี 4 โหมดที่ต่างกันจริง และเก็บข้อมูลการเล่นตั้งแต่เริ่มจนจบ
-      </div>
-
-      <div class="menuStack">
-        <div>
-          <div class="sectionTitle">เลือกกลุ่มคำศัพท์</div>
-          <div class="bankGrid">
-            <button class="option bankBtn active" data-bank="A">
-              <h3>A • Software Engineering</h3>
-              <p>software, debug, deploy, API, repository, modularization</p>
-            </button>
-            <button class="option bankBtn" data-bank="B">
-              <h3>B • Data / Cloud / System</h3>
-              <p>database, query, server, authentication, pipeline, ETL</p>
-            </button>
-            <button class="option bankBtn" data-bank="C">
-              <h3>C • AI / Machine Learning</h3>
-              <p>model, feature, accuracy, embedding, tokenization, fine-tuning</p>
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div class="sectionTitle">เลือกโหมดเล่น</div>
-          <div class="modeGrid">
-            <button class="option modeBtn active" data-mode="code_battle">
-              <h3>⚔️ Code Battle</h3>
-              <p>สู้บอสด้วยคำศัพท์และบริบทงาน</p>
-            </button>
-            <button class="option modeBtn" data-mode="debug_mission">
-              <h3>🧪 Debug Mission</h3>
-              <p>จับคำผิด แก้ usage และซ่อม bug</p>
-            </button>
-            <button class="option modeBtn" data-mode="ai_training">
-              <h3>🤖 AI Training Sim</h3>
-              <p>ดัน model score และคุม stability</p>
-            </button>
-            <button class="option modeBtn" data-mode="speed_run">
-              <h3>⚡ Speed Run</h3>
-              <p>ตอบไว เก็บ multiplier แข่งเวลา</p>
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div class="sectionTitle">ข้อมูลผู้เล่น</div>
-          <div class="profileGrid">
-            <div class="inputBox">
-              <label for="displayNameInput">Display Name</label>
-              <input id="displayNameInput" type="text" maxlength="24" placeholder="เช่น Mint / Arm / AomAI" />
-            </div>
-            <div class="inputBox">
-              <label for="studentIdInput">Student ID (optional)</label>
-              <input id="studentIdInput" type="text" maxlength="24" placeholder="เช่น 6512345678" />
-            </div>
-            <div class="inputBox">
-              <label for="sectionInput">Section (optional)</label>
-              <input id="sectionInput" type="text" maxlength="24" placeholder="เช่น CS4 / AI3" />
-            </div>
-            <div class="inputBox">
-              <label for="sessionCodeInput">Session Code (optional)</label>
-              <input id="sessionCodeInput" type="text" maxlength="24" placeholder="เช่น S01" />
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="sectionTitle">Leaderboard ตอนนี้</div>
-          <div class="top3Board" id="menuTop3Board"></div>
-        </div>
-
-        <div>
-          <div class="sectionTitle">เริ่มใช้งาน</div>
-          <div class="actionGrid">
-            <button class="btn" id="startBtn">START PRODUCTION RUN</button>
-            <button class="btn alt" id="leaderboardBtn">LEADERBOARD</button>
-          </div>
-        </div>
+  <div id="source-shield" aria-hidden="true">
+    <div id="source-shield-card">
+      <div id="source-shield-title">Protected Lesson Mode</div>
+      <div id="source-shield-sub">
+        หน้านี้ถูกป้องกันการดูโค้ดระดับพื้นฐานไว้แล้ว
+        กรุณาปิด Developer Tools เพื่อกลับเข้าใช้งาน
       </div>
     </div>
   </div>
 
-  <div class="overlay hidden" id="teacherLinkWrap">
-    <div class="panel" style="width:min(760px,94vw)">
-      <h2 style="margin:0">Teacher Dashboard Link</h2>
-      <div class="desc">ลิงก์นี้สำหรับครูเท่านั้น ใช้เปิด dashboard แยกโดยตรง ไม่แสดงในหน้าเมนูนักศึกษา</div>
-      <div class="profileGrid" style="margin-top:16px">
-        <div class="inputBox">
-          <label for="teacherPassInput">Teacher Passcode</label>
-          <input id="teacherPassInput" type="text" maxlength="32" placeholder="เช่น teacher123 / CSAI2026" />
-        </div>
-        <div class="inputBox">
-          <label for="teacherLinkOutput">Teacher Link</label>
-          <input id="teacherLinkOutput" type="text" readonly />
-        </div>
-      </div>
-      <div class="secretNote">หน้า teacher mode จะเปิดได้เมื่อ query มีทั้ง <span class="mono">?teacher=1</span> และ passcode ตรงกับค่าที่ฝั่งครูตั้งไว้</div>
-      <div class="actionGrid" style="margin-top:14px; grid-template-columns:1fr 1fr 1fr;">
-        <button class="btn" id="generateTeacherLinkBtn">GENERATE LINK</button>
-        <button class="btn ghost" id="copyTeacherLinkBtn">COPY LINK</button>
-        <button class="btn ghost" id="closeTeacherLinkBtn">CLOSE</button>
-      </div>
+  <div id="loading" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:#07111f;color:#eaf6ff;z-index:99999;transition:opacity .26s ease;">
+    <div style="font-size:1.1rem;font-weight:800;color:#7bedff;margin-bottom:10px;">Loading TechPath VR...</div>
+  </div>
+
+  <div id="impact-flash" aria-hidden="true"></div>
+
+  <div id="boss-cinematic" aria-hidden="true">
+    <div id="boss-cinematic-card">
+      <div id="boss-cinematic-title">FINAL BOSS</div>
+      <div id="boss-cinematic-sub">Prepare for the last phase.</div>
     </div>
   </div>
 
-  <div class="overlay hidden" id="endWrap">
-    <div class="panel" style="width:min(760px,94vw)">
-      <h2 style="margin:0">Run Complete</h2>
-      <div class="desc" id="endSummaryText">สรุปผล</div>
-      <div class="actionGrid" style="margin-top:16px; grid-template-columns:1fr 1fr 1fr;">
-        <button class="btn" id="endPlayAgainBtn">PLAY AGAIN</button>
-        <button class="btn ghost" id="endLeaderboardBtn">LEADERBOARD</button>
-        <button class="btn alt" id="endMenuBtn">BACK TO MENU</button>
+  <div id="answer-fx-layer" aria-hidden="true"></div>
+  <div id="combo-popup" class="combo-popup">COMBO x2</div>
+  <div id="mission-type-tag" class="mission-type-tag">MISSION</div>
+
+  <div id="ui-container" class="hub-mode">
+    <div id="player-avatar-hud">🧑‍💻</div>
+
+    <div class="title" id="ui-title">TECHPATH VR</div>
+    <p class="instruction" id="ui-desc">เลือกด่านแล้วเริ่มเล่นได้เลย</p>
+
+    <div id="attendance-panel" class="compact">
+      <div id="attendance-header-row">
+        <div id="attendance-title">ATTENDANCE TRACKER</div>
+        <button id="attendance-toggle" type="button" aria-expanded="false">ดูรายละเอียด</button>
+      </div>
+
+      <div id="attendance-summary-line">
+        <span id="attendance-summary-name">-</span>
+        <span>•</span>
+        <span id="attendance-summary-s">S00</span>
+        <span>•</span>
+        <span id="attendance-summary-status">กำลังติดตาม</span>
+      </div>
+
+      <div id="attendance-grid">
+        <div class="attendance-item"><b>Student ID</b><span id="attendance-student-id">-</span></div>
+        <div class="attendance-item"><b>Name</b><span id="attendance-student-name">-</span></div>
+        <div class="attendance-item"><b>Class Section</b><span id="attendance-class-section">-</span></div>
+        <div class="attendance-item"><b>Current S</b><span id="attendance-session-no">Lobby</span></div>
+        <div class="attendance-item"><b>Time in S</b><span id="attendance-duration">00:00</span></div>
+        <div class="attendance-item"><b>Active Time</b><span id="attendance-active-time">00:00</span></div>
+      </div>
+
+      <div id="attendance-status" class="warn">กำลังเตรียมข้อมูลเช็กชื่อ...</div>
+    </div>
+
+    <div id="hud-stats">
+      <div id="hud-score-wrap" class="hud-stat-item" style="color:#f1c40f;">
+        <span class="hud-stat-icon">🏆</span>
+        <span class="hud-stat-label">SCORE</span>
+        <span id="score-display">0</span>
+      </div>
+
+      <div id="hud-hp-wrap" class="hud-stat-item" style="color:#2ed573;">
+        <span class="hud-stat-icon">❤️</span>
+        <span class="hud-stat-label">HP</span>
+        <span id="hp-display">100%</span>
       </div>
     </div>
-  </div>
 
-  <div class="overlay hidden" id="leaderboardWrap">
-    <div class="panel">
-      <h2 style="margin:0">Leaderboard</h2>
-      <div class="desc">แสดงผล 10 อันดับสูงสุดของโหมดที่เลือก</div>
-      <ul class="leaderboardList" id="leaderboardList"></ul>
-      <div class="actionGrid" style="margin-top:14px;">
-        <button class="btn ghost" id="closeLeaderboardBtn">CLOSE</button>
-      </div>
+    <div id="hud-top-row">
+      <div id="question-diff-badge">Q: NORMAL</div>
+      <div id="unit-theme-chip">STANDARD FINAL</div>
+      <div id="reward-roll-badge">COMMON CHEST</div>
     </div>
-  </div>
 
-  <div class="overlay hidden" id="teacherWrap">
-    <div class="panel">
-      <h2 style="margin:0">Teacher Dashboard</h2>
-      <div class="desc">Dashboard-only mode สำหรับครู ดูภาพรวมคำอ่อน จุดที่ผิดบ่อย และสรุปรอบล่าสุดจากเครื่องนี้</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Term</th>
-            <th>Seen</th>
-            <th>Correct</th>
-            <th>Wrong</th>
-            <th>Level</th>
-            <th>Highest</th>
-          </tr>
-        </thead>
-        <tbody id="teacherTable"></tbody>
-      </table>
-
-      <div class="sectionTitle">Weakest Terms</div>
-      <ul class="sessionList" id="weakList"></ul>
-
-      <div class="actionGrid" style="margin-top:14px;">
-        <button class="btn ghost" id="clearTeacherBtn">CLEAR LOCAL DATA</button>
-        <button class="btn alt" id="closeTeacherBtn">CLOSE</button>
-      </div>
+    <div id="ai-director-board">
+      <div id="ai-director-state" style="font-weight:800;color:#fff;">STEADY P:0 S:0</div>
+      <div id="ai-director-sub" style="font-size:.95rem;opacity:.9;">AI กำลังดูจังหวะการเล่นของคุณ</div>
     </div>
-  </div>
-</div>
 
-<script type="module" src="./assets/vocab-engine.js"></script>
+    <div id="profile-panel">
+      <div id="profile-panel-title">PROFILE</div>
+
+      <div class="avatar-row">
+        <button class="avatar-chip active" id="avatar-chip-1" onclick="selectAvatar('🧑‍💻')">🧑‍💻<small>ฟรี</small></button>
+        <button class="avatar-chip" id="avatar-chip-2" onclick="selectAvatar('🤖')">🤖<small>Streak 3</small></button>
+        <button class="avatar-chip" id="avatar-chip-3" onclick="selectAvatar('👩‍🚀')">👩‍🚀<small>Streak 7</small></button>
+        <button class="avatar-chip" id="avatar-chip-4" onclick="selectAvatar('🦾')">🦾<small>Clear 5</small></button>
+        <button class="avatar-chip" id="avatar-chip-5" onclick="selectAvatar('🧠')">🧠<small>14/12</small></button>
+      </div>
+
+      <div id="unlock-hint">สะสม streak และ clear เพื่อปลดล็อก</div>
+
+      <input type="text" id="profile-name-input" class="input-field" placeholder="ชื่อผู้เล่น" maxlength="24" />
+      <button class="btn-action" id="btn-save-profile" onclick="savePlayerProfile()">บันทึกโปรไฟล์</button>
+    </div>
+
+    <div id="hub-stats-board">
+      <div id="hub-stats-title">STATS</div>
+      <div id="hub-stats-body">Loading stats...</div>
+    </div>
+
+    <div id="timer">01:00</div>
+
+    <div id="mission-prompt-box">
+      <div id="mission-prompt-label">PROMPT</div>
+      <div id="mission-prompt-text">...</div>
+    </div>
+
+    <div id="boss-phase-ui" style="display:none;">
+      <div id="boss-phase-title">👑 FINAL BOSS</div>
+      <div id="boss-phase-sub">ตอบถูกหลายครั้งเพื่อล้มบอส</div>
+      <div id="boss-bar-shell"><div id="boss-bar-fill"></div></div>
+      <div id="boss-hp-text">BOSS HP: 3 / 3</div>
+    </div>
+
+    <button class="btn-action" id="btn-speak" onclick="startRecognition()" style="display:none;">🎙️ Speak</button>
+    <button class="btn-action" id="btn-play-audio" onclick="playAudio()" style="display:none;">🔊 Play Audio</button>
+
+    <input type="text" class="input-field" id="write-input" placeholder="พิมพ์คำตอบภาษาอังกฤษ..." style="display:none;" />
+    <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()" style="display:none;">Submit</button>
+
+    <div id="choice-buttons" style="display:none;">
+      <button id="choice-btn-a" class="btn-action" style="display:block;background:#e67e22;" onclick="checkChoiceAnswer('A')">A</button>
+      <button id="choice-btn-b" class="btn-action" style="display:block;background:#2ecc71;" onclick="checkChoiceAnswer('B')">B</button>
+      <button id="choice-btn-c" class="btn-action" style="display:block;background:#9b59b6;" onclick="checkChoiceAnswer('C')">C</button>
+    </div>
+
+    <div id="game-over-ui" style="display:none;">
+      <p style="color:#f1c40f;margin:0 0 10px 0;">บันทึกคะแนน</p>
+      <input type="text" id="player-name-input" class="input-field" placeholder="ใส่ชื่อ..." style="display:inline-block;width:60%;margin-top:0;">
+      <button class="btn-action" id="btn-submit-score" onclick="submitScore()" style="display:inline-block;margin-left:10px;">Save Score</button>
+    </div>
+
+    <div id="feedback"></div>
+
+    <div id="summary-panel" style="display:none;">
+      <div id="summary-title">MISSION SUMMARY</div>
+      <div id="summary-body">Summary data</div>
+    </div>
+
+    <button class="btn-action" id="btn-next" onclick="playNextMission()" style="display:none;">เล่นด่านถัดไป ▶</button>
+    <button class="btn-action" id="btn-return" onclick="returnToHub()" style="display:none;">กลับ Main Hub</button>
+  </div>
+
+  <div id="mobile-hub-sheet"></div>
+  <div id="mobile-hub-drawer">
+    <button class="btn-action" id="btn-mobile-sessions" type="button">เลือกด่าน</button>
+    <button class="btn-action" id="btn-mobile-profile" type="button">โปรไฟล์</button>
+    <button class="btn-action" id="btn-mobile-stats" type="button">สถิติ</button>
+  </div>
+
+  <a-scene loading-screen="enabled: false">
+    <a-entity id="hub-scene">
+      <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
+      <a-entity position="0 4.35 -5.15">
+        <a-text value="TECHPATH VR" position="0 0.28 0" align="center" color="#7bedff" scale="1.75 1.75 1.75"></a-text>
+        <a-text value="Choose a session and build your skill path" position="0 -0.12 0" align="center" color="#dbeafe" scale="0.56 0.56 0.56"></a-text>
+        <a-plane position="0 -0.34 0" width="3.1" height="0.03" color="#00e5ff" material="opacity: 0.45; shader: flat"></a-plane>
+      </a-entity>
+      <a-plane position="0 1.18 -4.18" width="9.1" height="3.35" color="#09111f" material="opacity: 0.24; shader: flat"></a-plane>
+      <a-entity id="reward-chest" class="clickable" position="-3.72 0.72 -3.08" rotation="0 42 0" onclick="claimReward()">
+        <a-plane id="reward-card-panel" position="0 0.34 -0.18" width="2.25" height="1.55" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
+        <a-box id="reward-card-frame" position="0 0.34 -0.21" width="2.35" height="1.65" depth="0.04" color="#7bedff" material="wireframe: true; opacity: 0.35"></a-box>
+        <a-ring id="reward-aura" position="0 0.18 0.08" radius-inner="0.46" radius-outer="0.60" color="#ffeaa7" material="opacity: 0.18; shader: flat" rotation="-90 0 0"></a-ring>
+        <a-box id="reward-chest-body" position="0 0.02 0" width="0.82" height="0.50" depth="0.62" color="#8c6239" material="metalness: 0.22; roughness: 0.55"></a-box>
+        <a-box id="reward-chest-lid" position="0 0.34 0.02" width="0.84" height="0.16" depth="0.64" color="#f1c40f" material="metalness: 0.52; roughness: 0.34"></a-box>
+        <a-text value="DAILY REWARD" position="0 0.72 0.03" align="center" color="#ffeaa7" scale="0.46 0.46 0.46"></a-text>
+        <a-text id="streak-text" value="Loading..." position="0 -0.55 0.03" align="center" color="#ffffff" scale="0.38 0.38 0.38" width="5"></a-text>
+      </a-entity>
+      <a-entity position="-4.08 2.03 -2.82" rotation="0 25 0">
+        <a-plane width="2.18" height="1.56" color="#0f172a" material="opacity: 0.92; shader: flat"></a-plane>
+        <a-box width="2.28" height="1.66" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.34"></a-box>
+        <a-text value="PROFILE" position="0 0.54 0.05" align="center" color="#7bedff" scale="0.48 0.48 0.48"></a-text>
+        <a-circle position="0 -0.10 0.03" radius="0.22" color="#0b1327" material="opacity: 0.95; shader: flat"></a-circle>
+        <a-ring position="0 -0.10 0.04" radius-inner="0.22" radius-outer="0.26" color="#2ed573" material="opacity: 0.34; shader: flat"></a-ring>
+        <a-text id="vr-profile-avatar" value="🧑‍💻" position="0 -0.12 0.05" align="center" color="#ffffff" scale="1.02 1.02 1.02"></a-text>
+        <a-text id="vr-profile-name" value="Name: Hero" position="0 -0.50 0.05" align="center" color="#ffffff" scale="0.42 0.42 0.42" width="5"></a-text>
+      </a-entity>
+      <a-entity position="0 2.80 -4.56">
+        <a-plane width="4.55" height="1.12" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
+        <a-box width="4.66" height="1.22" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.24"></a-box>
+        <a-text value="DIFFICULTY" position="0 0.34 0.04" align="center" color="#7bedff" scale="0.54 0.54 0.54"></a-text>
+        <a-entity position="-1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('easy')">
+          <a-box id="diff-easy-box" width="1.18" height="0.42" depth="0.10" color="#2ecc71" material="opacity: 0.52"></a-box>
+          <a-text value="EASY" align="center" position="0 0 0.06" color="#0b1f14" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+        <a-entity position="0 -0.08 0.02" class="clickable" onclick="setDifficulty('normal')">
+          <a-box id="diff-normal-box" width="1.18" height="0.42" depth="0.10" color="#f1c40f" material="opacity: 1"></a-box>
+          <a-text value="NORMAL" align="center" position="0 0 0.06" color="#261d00" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+        <a-entity position="1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('hard')">
+          <a-box id="diff-hard-box" width="1.18" height="0.42" depth="0.10" color="#e74c3c" material="opacity: 0.52"></a-box>
+          <a-text value="HARD" align="center" position="0 0 0.06" color="#fff5f5" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+      </a-entity>
+      <a-entity id="mission-wall" position="0 1.18 -4.0"></a-entity>
+      <a-entity position="4.02 2.02 -3.02" rotation="0 -34 0">
+        <a-plane id="leaderboard-panel" width="2.48" height="2.92" color="#101826" material="opacity: 0.94; shader: flat"></a-plane>
+        <a-box id="leaderboard-frame" width="2.58" height="3.02" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true; opacity: 0.30"></a-box>
+        <a-plane id="leaderboard-header-panel" position="0 1.08 0.02" width="2.18" height="0.34" color="#152238" material="opacity: 0.96; shader: flat"></a-plane>
+        <a-text id="leaderboard-title" value="TOP 5 LEGENDS" position="0 1.08 0.05" align="center" color="#ffeaa7" scale="0.56 0.56 0.56"></a-text>
+        <a-text id="leaderboard-subtitle" value="Best mission runs" position="0 0.78 0.05" align="center" color="#cbd5e1" scale="0.34 0.34 0.34"></a-text>
+        <a-text id="vr-leaderboard-list" value="Loading..." position="0 -0.14 0.05" align="center" color="#ffffff" scale="0.54 0.54 0.54" line-height="64" width="3.5"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="hackerBoss" visible="false" position="0 3 -15">
+      <a-box color="#ff0000" width="1.5" height="1.5" depth="1.5" animation="property: rotation; to: 360 360 360; dur: 3000; loop: true; easing: linear"></a-box>
+      <a-text value="VIRUS / HACKER" color="#ff4757" position="0 1.2 0" align="center" scale="2 2 2"></a-text>
+    </a-entity>
+
+    <a-entity id="mission-speaking-scene" visible="false">
+      <a-entity environment="preset: volcano; skyColor: #ff0000"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.3" color="#f1c40f" animation="property: position; to: 0 0.1 0; dir: alternate; dur: 800; loop: true"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#2980b9"></a-cylinder>
+      </a-entity>
+      <a-text id="speaking-prompt" value="PROMPT TEXT" position="0 3 -3" align="center" color="#ff4757"></a-text>
+    </a-entity>
+
+    <a-entity id="mission-reading-scene" visible="false">
+      <a-entity environment="preset: arches; skyColor: #550000"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.25" color="#e74c3c"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#34495e"></a-cylinder>
+        <a-plane position="0 1.2 0" width="4" height="1" color="#fff" material="opacity: 0.9">
+          <a-text id="reading-question" value="QUESTION TEXT" color="#000" align="center" position="0 0 0.01" scale="0.7 0.7 0.7" width="5"></a-text>
+        </a-plane>
+      </a-entity>
+
+      <a-entity position="-2.5 0.5 -3" rotation="0 15 0" animation="property: position; to: -2.5 0.8 -3; dir: alternate; dur: 1500; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+        <a-text id="reading-choice-a" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="0 0.5 -3" animation="property: position; to: 0 0.7 -3; dir: alternate; dur: 1200; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+        <a-text id="reading-choice-b" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="2.5 0.5 -3" rotation="0 -15 0" animation="property: position; to: 2.5 0.9 -3; dir: alternate; dur: 1700; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+        <a-text id="reading-choice-c" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="mission-listening-scene" visible="false">
+      <a-entity environment="preset: forest; skyColor: #ff2222"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.3" color="#3498db" animation="property: position; to: 0 0.2 0; dir: alternate; dur: 500; loop: true"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#ecf0f1" animation="property: rotation; to: 0 360 0; dur: 2000; easing: linear; loop: true"></a-cylinder>
+      </a-entity>
+      <a-text id="listening-prompt" value="PRESS PLAY AUDIO" position="0 3 -3" align="center" color="#f1c40f"></a-text>
+
+      <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+        <a-text id="listening-choice-a" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="0 0.5 -3">
+        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+        <a-text id="listening-choice-b" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+        <a-text id="listening-choice-c" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="mission-writing-scene" visible="false">
+      <a-entity environment="preset: starry; skyColor: #aa0000"></a-entity>
+      <a-plane position="0 1.5 -3" width="4" height="2" color="#ecf0f1">
+        <a-text id="writing-prompt" value="TERMINAL:\n..." color="#000" align="left" position="-1.8 0.5 0.01" width="3.5"></a-text>
+      </a-plane>
+    </a-entity>
+
+    <a-entity id="vr-feedback-fx" position="0 2.5 -2.5" visible="false">
+      <a-text id="vr-feedback-text" value="SUCCESS!" align="center" scale="1.5 1.5 1.5" color="#2ed573"></a-text>
+    </a-entity>
+
+    <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+
+    <a-entity camera look-controls position="0 1.6 0">
+      <a-cursor id="vr-cursor" color="#00e5ff" raycaster="objects: .clickable" animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150" visible="false"></a-cursor>
+    </a-entity>
+
+    <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+    <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+  </a-scene>
+
+  <script>
+    // คง bootstrap/loading/protection/mobile drawer เดิมไว้
+  </script>
+
+  <script type="module" src="./js/lesson-main.js?v=20260422-old-ui-r2"></script>
 </body>
 </html>
