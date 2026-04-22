@@ -1174,6 +1174,12 @@ function buildWritingCoachPrompt(mission, result) {
   return parts.join("\n\n");
 }
 
+function enterSummaryMode() {
+  document.body.classList.remove("hub-mode", "mission-mode");
+  document.body.classList.add("summary-mode");
+  document.body.dataset.missionType = "";
+}
+
 function loadMission(id) {
   const missionId = Number(id || 0);
   if (!missionId) return;
@@ -1770,6 +1776,7 @@ function takeDamage() {
     resetFinalBossState();
     hideAllScenesAndControls();
     setHudMode("summary");
+    enterSummaryMode();
 
     showEndSummary(false, state.currentMission, aiDirector.mood, [
       `Outcome: FAIL`
@@ -1919,6 +1926,7 @@ function winMission() {
 
   hideAllScenesAndControls();
   setHudMode("summary");
+  enterSummaryMode();
 
   showEndSummary(true, state.currentMission, aiDirector.mood, [
     `Bonus: +${timeBonus}`
