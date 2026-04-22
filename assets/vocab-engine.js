@@ -81,8 +81,8 @@ import { installVocabGuards } from './vocab-guard.js';
     code_battle: {
       name: '⚔️ Code Battle',
       start: 'START CODE BATTLE',
-      replay: 'BATTLE AGAIN',
-      rank: 'BATTLE RANK',
+      replay: 'PLAY AGAIN',
+      rank: 'RANK',
       endTitle: 'Battle Complete',
       ready: 'GET READY',
       resultWin: 'BOSS DEFEATED',
@@ -91,8 +91,8 @@ import { installVocabGuards } from './vocab-guard.js';
     debug_mission: {
       name: '🧪 Debug Mission',
       start: 'START DEBUG MISSION',
-      replay: 'RUN MISSION AGAIN',
-      rank: 'MISSION RANK',
+      replay: 'PLAY AGAIN',
+      rank: 'RANK',
       endTitle: 'Mission Report',
       ready: 'DEBUG START',
       resultWin: 'MISSION CLEARED',
@@ -101,8 +101,8 @@ import { installVocabGuards } from './vocab-guard.js';
     ai_training: {
       name: '🤖 AI Training Sim',
       start: 'START AI TRAINING',
-      replay: 'TRAIN AGAIN',
-      rank: 'TRAINING RANK',
+      replay: 'PLAY AGAIN',
+      rank: 'RANK',
       endTitle: 'Training Complete',
       ready: 'TRAINING START',
       resultWin: 'MODEL TRAINED',
@@ -111,8 +111,8 @@ import { installVocabGuards } from './vocab-guard.js';
     speed_run: {
       name: '⚡ Speed Run',
       start: 'START SPEED RUN',
-      replay: 'RUN AGAIN',
-      rank: 'SPEED RANK',
+      replay: 'PLAY AGAIN',
+      rank: 'RANK',
       endTitle: 'Speed Run Result',
       ready: 'READY TO RUN',
       resultWin: 'RUN COMPLETE',
@@ -204,10 +204,6 @@ import { installVocabGuards } from './vocab-guard.js';
 
   function removeClass(el, className) {
     if (el) el.classList.remove(className);
-  }
-
-  function toggleClass(el, className, force) {
-    if (el) el.classList.toggle(className, !!force);
   }
 
   function showEl(el) {
@@ -406,7 +402,7 @@ import { installVocabGuards } from './vocab-guard.js';
   function updateEndButtonsLabel() {
     const lbBtn = document.getElementById('endLeaderboardBtn');
     const menuBtn = document.getElementById('endMenuBtn');
-    if (lbBtn) lbBtn.textContent = MODE_UI[V9.mode]?.rank || 'VIEW RANK';
+    if (lbBtn) lbBtn.textContent = MODE_UI[V9.mode]?.rank || 'RANK';
     if (menuBtn) menuBtn.textContent = 'MENU';
   }
 
@@ -1150,14 +1146,22 @@ import { installVocabGuards } from './vocab-guard.js';
       });
     }
 
-    (summary.weakestTerms || []).forEach(([term, m]) => {
+    const weakRows = (summary.weakestTerms || []).filter(([, m]) => Number(m?.wrong || 0) > 0);
+
+    if (!weakRows.length) {
       const li = document.createElement('li');
-      li.innerHTML =
-        '<strong>' + term.toUpperCase() + '</strong> • wrong ' + (m.wrong || 0) +
-        ' • correct ' + (m.correct || 0) +
-        ' • highest ' + (m.highestLevel || '-');
+      li.textContent = 'No wrong terms in this run';
       els.weakList.appendChild(li);
-    });
+    } else {
+      weakRows.forEach(([term, m]) => {
+        const li = document.createElement('li');
+        li.innerHTML =
+          '<strong>' + term.toUpperCase() + '</strong> • wrong ' + (m.wrong || 0) +
+          ' • correct ' + (m.correct || 0) +
+          ' • highest ' + (m.highestLevel || '-');
+        els.weakList.appendChild(li);
+      });
+    }
   }
 
   function renderHud() {
@@ -1946,9 +1950,11 @@ import { installVocabGuards } from './vocab-guard.js';
     lastSummary = summary;
     renderTeacherDashboard(summary);
 
-    const weakestText = weakest.length
-      ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ')
-      : '-';
+    const weakestForSummary = weakest.filter(([, m]) => Number(m?.wrong || 0) > 0);
+
+    const weakestText = weakestForSummary.length
+      ? weakestForSummary.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ')
+      : 'ยอดเยี่ยม ยังไม่มีคำที่ตอบผิดในรอบนี้';
 
     setHtml(els.endSummaryText, renderEndSummaryMarkup(summary, weakestText));
     showOnlyOverlay('end');
