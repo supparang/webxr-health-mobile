@@ -3,822 +3,290 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>TechPath Teacher Dashboard</title>
+  <title>TechPath English Lesson</title>
+
+  <meta name="theme-color" content="#081320" />
+  <meta name="color-scheme" content="dark" />
 
   <script>
     window.TECHPATH_ATTENDANCE_ENDPOINT =
-  'https://script.google.com/macros/s/AKfycbwvwaikfA1O03H0dFBh3ZTZdT4jZRsKyyTxQtZdeh_S7zPEz063w_rMGHUpImFjmYCy/exec';
-    window.TEACHER_BUILD = 'v20260420j-teacher-v10-admin';
+      'https://script.google.com/macros/s/AKfycbwvwaikfA1O03H0dFBh3ZTZdT4jZRsKyyTxQtZdeh_S7zPEz063w_rMGHUpImFjmYCy/exec';
+    window.LESSON_BUILD = 'v20260420j-lesson-full-rebuild';
   </script>
+
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
 
   <style>
     :root{
-      --bg:#07111f;
-      --panel:#0f1b2d;
-      --panel-2:#13233a;
-      --line:rgba(123,237,255,.18);
+      --bg1:#07111f;
+      --bg2:#152744;
+      --panel:rgba(10,18,34,.82);
+      --panel-2:rgba(16,26,44,.92);
+      --line:rgba(160,180,210,.16);
       --text:#eef7ff;
-      --muted:#9db2c7;
-      --accent:#7bedff;
-      --ok:#2ed573;
-      --warn:#f1c40f;
-      --bad:#ff6b81;
-      --shadow:0 14px 30px rgba(0,0,0,.25);
-      --radius:18px;
+      --muted:#a8bdd6;
+      --accent:#59d0ff;
+      --accent2:#7c5cff;
+      --good:#44df93;
+      --warn:#ffd166;
+      --bad:#ff6e87;
+      --gold:#ffcf5a;
+      --shadow:0 18px 54px rgba(0,0,0,.36);
+      --r-xl:28px;
+      --r-lg:22px;
+      --r-md:18px;
+      --maxw:1360px;
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
-      background:linear-gradient(180deg,#06101d,#0a1728 30%,#081320);
+      min-height:100%;
+      background:
+        radial-gradient(circle at top, rgba(89,208,255,.08), transparent 28%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
       color:var(--text);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      overflow:hidden;
     }
 
     body{
-      min-height:100vh;
+      position:relative;
     }
 
-    .wrap{
-      width:min(1440px, calc(100% - 24px));
-      margin:0 auto;
-      padding:16px 0 28px;
+    #scene-wrap{
+      position:fixed;
+      inset:0;
+      z-index:0;
+    }
+
+    a-scene{
+      width:100%;
+      height:100%;
+    }
+
+    #ui-root{
+      position:fixed;
+      inset:0;
+      z-index:10;
+      pointer-events:none;
+      display:flex;
+      justify-content:center;
+    }
+
+    #ui-container{
+      width:min(var(--maxw), calc(100vw - 16px));
+      height:100dvh;
+      padding:12px 0 calc(12px + env(safe-area-inset-bottom));
+      display:grid;
+      grid-template-rows:auto auto 1fr auto auto;
+      gap:10px;
+    }
+
+    .glass{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:var(--r-lg);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
     }
 
     .topbar{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
-      margin-bottom:14px;
-    }
-
-    .brand{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-
-    .brand h1{
-      margin:0;
-      font-size:1.5rem;
-      color:var(--accent);
-      font-weight:900;
-    }
-
-    .brand .sub{
-      color:var(--muted);
-      font-size:.95rem;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:40px;
-      padding:0 14px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      font-weight:700;
-    }
-
-    .panel{
-      background:rgba(15,27,45,.92);
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-    }
-
-    .controls{
       display:grid;
-      grid-template-columns:1.3fr repeat(4, minmax(140px, .7fr)) auto auto auto;
+      grid-template-columns:minmax(0,1fr) auto;
       gap:10px;
-      padding:14px;
-      margin-bottom:12px;
-      transition:max-height .24s ease, opacity .24s ease, padding .24s ease, margin .24s ease;
-    }
-
-    .controls input,
-    .controls select,
-    .controls button{
-      min-height:44px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      padding:0 12px;
-      outline:none;
-      font:inherit;
-    }
-
-    .controls button{
-      cursor:pointer;
-      font-weight:800;
-      background:linear-gradient(180deg,#2ad7ff,#14bde0);
-      color:#03131b;
-      border:none;
-    }
-
-    .controls .ghost{
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      border:1px solid var(--line);
-    }
-
-    .quick-filters{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-bottom:14px;
-    }
-
-    .quick-chip,
-    .section-chip{
-      min-height:38px;
-      padding:0 14px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      font-weight:800;
-      cursor:pointer;
-      font:inherit;
-      flex:0 0 auto;
-    }
-
-    .quick-chip.active,
-    .section-chip.active{
-      background:linear-gradient(180deg,#2ad7ff,#14bde0);
-      color:#03131b;
-      border-color:transparent;
-    }
-
-    .cards{
-      display:grid;
-      grid-template-columns:repeat(7, minmax(0, 1fr));
-      gap:10px;
-      margin-bottom:14px;
-    }
-
-    .card{
-      padding:14px;
-      min-height:100px;
-    }
-
-    .card .k{
-      color:var(--muted);
-      font-size:.83rem;
-      margin-bottom:8px;
-      font-weight:700;
-    }
-
-    .card .v{
-      font-size:1.6rem;
-      font-weight:900;
-      line-height:1;
-    }
-
-    .card.ok .v{ color:var(--ok); }
-    .card.warn .v{ color:var(--warn); }
-    .card.bad .v{ color:var(--bad); }
-
-    .section-panel{
-      margin-bottom:14px;
-      overflow:hidden;
-    }
-
-    .section-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:14px 14px 10px;
-      border-bottom:1px solid var(--line);
-    }
-
-    .section-head h2{
-      margin:0;
-      font-size:1.02rem;
-      color:var(--accent);
-    }
-
-    .section-meta{
-      color:var(--muted);
-      font-size:.88rem;
-    }
-
-    .section-wrap,
-    .table-wrap,
-    .detail-body,
-    .risk-wrap{
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-    }
-
-    .section-table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:760px;
-    }
-
-    .section-table th,
-    .section-table td{
-      padding:11px 10px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      text-align:left;
-      font-size:.92rem;
-    }
-
-    .section-table th{
-      background:#0f1b2d;
-      color:#cfefff;
-      font-size:.84rem;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:minmax(0, 1.45fr) minmax(360px, .85fr);
-      gap:14px;
       align-items:start;
+      pointer-events:auto;
     }
 
-    .table-panel{
-      overflow:hidden;
+    .title-block{
+      padding:14px 16px;
+      min-width:0;
     }
 
-    .table-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:14px 14px 10px;
-      border-bottom:1px solid var(--line);
-    }
-
-    .table-head h2,
-    .detail-head h2{
-      margin:0;
-      font-size:1.05rem;
-      color:var(--accent);
-    }
-
-    .table-meta{
-      color:var(--muted);
-      font-size:.88rem;
-    }
-
-    .table-wrap{
-      max-height:70vh;
-    }
-
-    table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:1080px;
-    }
-
-    thead th{
-      position:sticky;
-      top:0;
-      z-index:1;
-      background:#0f1b2d;
-      color:#cfefff;
-      font-size:.85rem;
-      text-align:left;
-      padding:12px 10px;
-      border-bottom:1px solid var(--line);
-    }
-
-    tbody td{
-      padding:11px 10px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      font-size:.92rem;
-      vertical-align:top;
-    }
-
-    tbody tr{
-      cursor:pointer;
-    }
-
-    tbody tr:hover{
-      background:rgba(123,237,255,.05);
-    }
-
-    .tag{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:28px;
-      padding:0 10px;
-      border-radius:999px;
-      font-size:.78rem;
+    #ui-title{
+      font-size:clamp(1rem, 2.4vw, 1.35rem);
       font-weight:900;
-      border:1px solid transparent;
-      white-space:nowrap;
-    }
-
-    .tag.entered{
-      background:rgba(241,196,15,.12);
-      color:#ffeaa7;
-      border-color:rgba(241,196,15,.25);
-    }
-
-    .tag.in_progress{
-      background:rgba(123,237,255,.12);
-      color:#7bedff;
-      border-color:rgba(123,237,255,.25);
-    }
-
-    .tag.completed{
-      background:rgba(46,213,115,.12);
-      color:#b9ffd0;
-      border-color:rgba(46,213,115,.25);
-    }
-
-    .tag.left{
-      background:rgba(255,107,129,.12);
-      color:#ffd4db;
-      border-color:rgba(255,107,129,.25);
-    }
-
-    .tag.never_entered{
-      background:rgba(255,107,129,.14);
-      color:#ffd4db;
-      border-color:rgba(255,107,129,.24);
-    }
-
-    .tag.unfinished{
-      background:rgba(123,237,255,.12);
-      color:#7bedff;
-      border-color:rgba(123,237,255,.25);
-    }
-
-    .tag.min_fail{
-      background:rgba(241,196,15,.14);
-      color:#ffeaa7;
-      border-color:rgba(241,196,15,.22);
-    }
-
-    .tag.passed{
-      background:rgba(46,213,115,.12);
-      color:#b9ffd0;
-      border-color:rgba(46,213,115,.25);
-    }
-
-    .yes{ color:var(--ok); font-weight:900; }
-    .no{ color:var(--bad); font-weight:900; }
-
-    .detail{
-      padding:0;
-      overflow:hidden;
-      position:sticky;
-      top:12px;
-      max-height:84vh;
-      display:flex;
-      flex-direction:column;
-    }
-
-    .detail-head{
-      padding:14px;
-      border-bottom:1px solid var(--line);
-    }
-
-    .detail-body{
-      padding:14px;
-    }
-
-    .detail-empty{
-      color:var(--muted);
-      line-height:1.6;
-    }
-
-    .kv{
-      display:grid;
-      grid-template-columns:110px 1fr;
-      gap:8px 12px;
-      margin-bottom:14px;
-      font-size:.92rem;
-    }
-
-    .kv .k{
-      color:var(--muted);
-      font-weight:700;
-    }
-
-    .section-title{
-      margin:18px 0 10px;
       color:var(--accent);
-      font-weight:900;
-      font-size:.95rem;
-    }
-
-    .mini-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .mini-card{
-      padding:12px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-    }
-
-    .mini-card .k{
-      font-size:.8rem;
-      color:var(--muted);
+      line-height:1.15;
       margin-bottom:6px;
+      word-break:break-word;
     }
 
-    .mini-card .v{
-      font-weight:900;
-      font-size:1.15rem;
-    }
-
-    .event-list,
-    .session-list{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-
-    .event-item,
-    .session-item{
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.07);
-      background:rgba(255,255,255,.04);
-    }
-
-    .event-item .top,
-    .session-item .top{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:4px;
-    }
-
-    .event-item .name,
-    .session-item .name{
-      font-weight:900;
-    }
-
-    .event-item .meta,
-    .session-item .meta{
-      color:var(--muted);
-      font-size:.84rem;
-    }
-
-    .footer-note{
-      color:var(--muted);
-      font-size:.84rem;
-      margin-top:12px;
-      text-align:right;
-    }
-
-    .mobile-only{
-      display:none;
-    }
-
-    .heatmap-row{
-      display:grid;
-      grid-template-columns:minmax(0,1.15fr) minmax(0,.95fr);
-      gap:14px;
-      margin-bottom:14px;
-    }
-
-    .heatmap-panel,
-    .risk-panel{
-      overflow:hidden;
-    }
-
-    .heatmap-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-      padding:14px;
-    }
-
-    .heatmap-cell{
-      border:1px solid var(--line);
-      border-radius:16px;
-      background:rgba(255,255,255,.04);
-      padding:12px;
-      min-height:110px;
-    }
-
-    .heatmap-cell .s{
-      font-size:1rem;
-      font-weight:900;
-      color:var(--accent);
-      margin-bottom:8px;
-    }
-
-    .heatmap-cell .n{
-      font-size:1.5rem;
-      font-weight:900;
-      margin-bottom:8px;
-    }
-
-    .heatmap-cell .m{
-      font-size:.82rem;
-      color:var(--muted);
-      line-height:1.5;
-    }
-
-    .heatmap-cell.lv0{ background:rgba(255,255,255,.03); }
-    .heatmap-cell.lv1{ background:rgba(123,237,255,.07); }
-    .heatmap-cell.lv2{ background:rgba(123,237,255,.12); }
-    .heatmap-cell.lv3{ background:rgba(46,213,115,.14); }
-    .heatmap-cell.lv4{ background:rgba(241,196,15,.16); }
-    .heatmap-cell.lv5{ background:rgba(255,107,129,.18); }
-
-    .heatmap-empty{
-      padding:14px;
-      color:var(--muted);
-    }
-
-    .risk-table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:620px;
-    }
-
-    .risk-table th,
-    .risk-table td{
-      padding:11px 10px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      text-align:left;
-      font-size:.9rem;
-    }
-
-    .risk-table th{
-      background:#0f1b2d;
-      color:#cfefff;
-      font-size:.84rem;
-    }
-
-    .matrix-table{
-      min-width:1200px;
-    }
-
-    .matrix-table td.center,
-    .matrix-table th.center{
-      text-align:center;
-    }
-
-    .matrix-badge{
-      display:inline-flex;
-      min-width:28px;
-      min-height:28px;
-      align-items:center;
-      justify-content:center;
-      padding:0 8px;
-      border-radius:999px;
-      font-size:.78rem;
-      font-weight:900;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.08);
-    }
-
-    .matrix-badge.zero{
-      color:#8ea3b8;
-      background:rgba(255,255,255,.03);
-    }
-
-    .matrix-badge.low{
-      color:#7bedff;
-      background:rgba(123,237,255,.10);
-      border-color:rgba(123,237,255,.18);
-    }
-
-    .matrix-badge.mid{
-      color:#ffeaa7;
-      background:rgba(241,196,15,.12);
-      border-color:rgba(241,196,15,.20);
-    }
-
-    .matrix-badge.high{
-      color:#ffd4db;
-      background:rgba(255,107,129,.14);
-      border-color:rgba(255,107,129,.24);
-    }
-
-    #teacher-action-row{
-      margin-top:-4px;
-    }
-
-    .group-row{
-      display:grid;
-      grid-template-columns:repeat(4, minmax(0,1fr));
-      gap:14px;
-      margin-bottom:14px;
-    }
-
-    .group-panel{
-      overflow:hidden;
-      padding:12px;
-    }
-
-    .group-head{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:10px;
-    }
-
-    .group-title{
-      font-size:.92rem;
-      font-weight:900;
-      color:var(--accent);
-      margin-bottom:6px;
-    }
-
-    .group-count{
-      font-size:1.5rem;
-      font-weight:900;
-      line-height:1;
-      color:var(--text);
-    }
-
-    .group-count.ok{
-      color:var(--ok);
-    }
-
-    .group-count.bad{
-      color:var(--bad);
-    }
-
-    .group-count.muted{
-      color:var(--muted);
-      font-size:1rem;
-    }
-
-    .group-btn{
-      min-height:34px;
-      padding:0 12px;
-      border:none;
-      border-radius:999px;
-      background:linear-gradient(180deg,#2ad7ff,#14bde0);
-      color:#03131b;
-      font-weight:900;
-      cursor:pointer;
-      font:inherit;
-    }
-
-    .ghost-btn{
-      background:rgba(255,255,255,.04) !important;
-      color:var(--text) !important;
-      border:1px solid var(--line) !important;
-    }
-
-    .group-list{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      min-height:150px;
-      max-height:240px;
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-    }
-
-    .group-item{
-      padding:10px 12px;
-      border-radius:12px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.07);
-    }
-
-    .group-item .name{
-      font-weight:900;
-      margin-bottom:4px;
-    }
-
-    .group-item .meta{
-      font-size:.84rem;
+    #ui-desc{
+      font-size:.93rem;
       color:var(--muted);
       line-height:1.45;
     }
 
-    .group-empty{
-      color:var(--muted);
-      font-size:.9rem;
-      padding:6px 2px;
+    .stats{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      justify-content:flex-end;
+      align-content:flex-start;
     }
 
-    .group-note{
-      color:var(--muted);
-      font-size:.88rem;
-      line-height:1.6;
+    .chip{
+      min-height:42px;
+      padding:0 14px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:var(--panel-2);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:800;
+      color:var(--text);
+      pointer-events:auto;
+      white-space:nowrap;
     }
 
-    .group-panel-disabled{
-      background:rgba(255,255,255,.025);
+    #mission-type-tag{
+      color:var(--good);
+      border-color:rgba(68,223,147,.32);
     }
 
-    .roster-panel{
+    #timer{
+      display:none;
+      color:#ff4757;
+    }
+
+    #combo-display{
+      display:none;
+      color:var(--gold);
+    }
+
+    #feedback{
+      min-height:52px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:10px 14px;
+      font-weight:800;
+      font-size:1rem;
+      pointer-events:none;
+      color:#fff;
+    }
+
+    #prompt-card{
+      align-self:start;
+      min-height:98px;
+      padding:14px 16px;
+      pointer-events:none;
+    }
+
+    #prompt-label{
+      font-size:.82rem;
+      font-weight:900;
+      letter-spacing:.04em;
+      color:var(--accent2);
+      margin-bottom:8px;
+      text-transform:uppercase;
+    }
+
+    #prompt-body{
+      font-size:1rem;
+      line-height:1.5;
+      color:var(--text);
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    #boss-phase-ui{
+      display:none;
+      pointer-events:none;
+      padding:12px 14px;
+    }
+
+    #boss-phase-title{
+      font-size:.84rem;
+      font-weight:900;
+      color:var(--gold);
+      margin-bottom:8px;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+
+    .boss-bar{
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
       overflow:hidden;
-      margin-bottom:14px;
+      border:1px solid var(--line);
+      margin-bottom:8px;
     }
 
-    .roster-body{
-      padding:14px;
+    #boss-bar-fill{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#ff6e87,#ffcf5a);
+      transition:width .25s ease;
     }
 
-    .roster-help{
-      color:var(--muted);
+    #boss-hp-text,
+    #boss-phase-sub{
       font-size:.9rem;
-      line-height:1.6;
+      color:var(--muted);
+    }
+
+    .bottom-zone{
+      display:grid;
+      grid-template-columns:minmax(320px, 450px) minmax(0, 1fr);
+      gap:12px;
+      align-items:end;
+      pointer-events:none;
+    }
+
+    #hub-card,
+    #control-card,
+    #summary-panel,
+    #game-over-ui{
+      pointer-events:auto;
+    }
+
+    #hub-card{
+      padding:16px;
+      align-self:end;
+    }
+
+    .card-title{
+      font-size:1.02rem;
+      font-weight:900;
+      color:var(--accent);
       margin-bottom:10px;
     }
 
-    .roster-help code{
-      color:#cfefff;
-      background:rgba(255,255,255,.05);
-      padding:2px 6px;
-      border-radius:8px;
-    }
-
-    .roster-textarea{
-      width:100%;
-      min-height:150px;
-      resize:vertical;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      padding:12px;
-      font:inherit;
-      outline:none;
-    }
-
-    .roster-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-
-    .roster-summary-grid{
+    .form-grid{
       display:grid;
-      grid-template-columns:repeat(3, minmax(0,1fr));
+      grid-template-columns:1fr 1fr;
       gap:10px;
-      margin-top:12px;
     }
 
-    .roster-stat{
-      padding:12px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width:0;
     }
 
-    .roster-stat-k{
+    .field.full{
+      grid-column:1 / -1;
+    }
+
+    .field label{
       font-size:.8rem;
       color:var(--muted);
-      margin-bottom:6px;
-      font-weight:700;
+      font-weight:800;
     }
 
-    .roster-stat-v{
-      font-size:1.22rem;
-      font-weight:900;
-      line-height:1;
-      color:var(--text);
-    }
-
-    .roster-stat-v.ok{
-      color:var(--ok);
-    }
-
-    .roster-stat-v.bad{
-      color:var(--bad);
-    }
-
-    .admin-meta-panel{
-      overflow:hidden;
-      margin-bottom:14px;
-    }
-
-    .admin-meta-body{
-      padding:14px;
-    }
-
-    .admin-meta-grid{
-      display:grid;
-      grid-template-columns:repeat(3, minmax(0,1fr));
-      gap:10px;
-    }
-
-    .admin-input{
-      min-height:44px;
+    .field input,
+    .field select,
+    #write-input{
+      width:100%;
+      min-height:46px;
       border-radius:14px;
       border:1px solid var(--line);
       background:rgba(255,255,255,.04);
@@ -828,727 +296,568 @@
       font:inherit;
     }
 
-    .register-panel{
-      overflow:hidden;
-      margin-bottom:14px;
-    }
-
-    .register-summary-grid{
-      display:grid;
-      grid-template-columns:repeat(6, minmax(0,1fr));
+    .hub-actions{
+      display:flex;
       gap:10px;
-      padding:14px 14px 0;
+      flex-wrap:wrap;
+      margin-top:12px;
     }
 
-    .register-wrap{
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-      padding:14px;
-    }
-
-    .register-table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:1180px;
-    }
-
-    .register-table th,
-    .register-table td{
-      padding:11px 10px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      text-align:left;
-      font-size:.9rem;
-    }
-
-    .register-table th{
-      background:#0f1b2d;
-      color:#cfefff;
-      font-size:.84rem;
-    }
-
-    .sort-th{
+    .btn{
+      min-height:46px;
+      padding:0 16px;
+      border-radius:14px;
+      border:1px solid transparent;
+      background:linear-gradient(180deg,#2ad7ff,#14bde0);
+      color:#03131b;
+      font-weight:900;
       cursor:pointer;
-      user-select:none;
-      position:relative;
-      padding-right:22px !important;
+      font:inherit;
+      pointer-events:auto;
     }
 
-    .sort-th::after{
-      content:'↕';
-      position:absolute;
-      right:8px;
-      top:50%;
-      transform:translateY(-50%);
-      font-size:.72rem;
-      opacity:.55;
+    .btn.secondary{
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      border-color:var(--line);
     }
 
-    .sort-th.active-asc::after{
-      content:'↑';
-      opacity:1;
-      color:#7bedff;
+    #control-card{
+      padding:14px;
+      align-self:end;
     }
 
-    .sort-th.active-desc::after{
-      content:'↓';
-      opacity:1;
-      color:#7bedff;
+    .control-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
     }
 
-    .register-row-never{
-      background:rgba(255,107,129,.06);
+    #choice-buttons{
+      display:none;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
-    .register-row-unfinished{
-      background:rgba(123,237,255,.05);
+    .choice-btn{
+      min-height:48px;
+      min-width:150px;
+      padding:8px 14px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      font-weight:800;
+      cursor:pointer;
+      text-align:left;
+      pointer-events:auto;
+      white-space:normal;
     }
 
-    .register-row-minfail{
-      background:rgba(241,196,15,.07);
+    #btn-speak,
+    #btn-play-audio,
+    #btn-submit-write,
+    #btn-next,
+    #btn-return{
+      display:none;
     }
 
-    .register-row-passed{
-      background:rgba(46,213,115,.04);
+    #write-input{
+      display:none;
+      min-height:52px;
     }
 
-    @media (max-width: 1280px){
-      .cards{
-        grid-template-columns:repeat(4, minmax(0, 1fr));
-      }
-
-      .controls{
-        grid-template-columns:1fr 1fr 1fr;
-      }
-
-      .grid{
-        grid-template-columns:1fr;
-      }
-
-      .detail{
-        position:static;
-        max-height:none;
-      }
+    #summary-panel,
+    #game-over-ui{
+      display:none;
+      position:fixed;
+      inset:auto 12px calc(12px + env(safe-area-inset-bottom)) 12px;
+      z-index:20;
+      padding:16px;
+      max-width:720px;
+      margin:0 auto;
     }
 
-    @media (max-width: 1180px){
-      .group-row{
-        grid-template-columns:repeat(2, minmax(0,1fr));
-      }
+    #summary-title{
+      font-size:1.15rem;
+      font-weight:900;
+      color:var(--accent);
+      margin-bottom:8px;
+    }
 
-      .register-summary-grid{
-        grid-template-columns:repeat(3, minmax(0,1fr));
-      }
+    #summary-body{
+      white-space:pre-wrap;
+      line-height:1.55;
+      color:var(--text);
+      margin-bottom:12px;
+    }
+
+    .summary-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .hidden-alias{
+      display:none !important;
+    }
+
+    .hub-mode #hub-card{
+      display:block;
+    }
+
+    .mission-mode #hub-card{
+      display:none;
+    }
+
+    .summary-mode #hub-card{
+      display:none;
     }
 
     @media (max-width: 980px){
-      .heatmap-row{
+      #ui-container{
+        width:calc(100vw - 12px);
+      }
+
+      .bottom-zone{
         grid-template-columns:1fr;
       }
 
-      .admin-meta-grid{
-        grid-template-columns:1fr 1fr;
+      #hub-card{
+        order:2;
+      }
+
+      #control-card{
+        order:1;
       }
     }
 
     @media (max-width: 700px){
-      .wrap{
-        width:min(100%, calc(100% - 12px));
-        padding:12px 0 20px;
+      html,body{
+        overflow:hidden;
+      }
+
+      #ui-container{
+        padding:8px 0 calc(10px + env(safe-area-inset-bottom));
+        gap:8px;
       }
 
       .topbar{
-        align-items:flex-start;
-        margin-bottom:10px;
+        grid-template-columns:1fr;
       }
 
-      .brand h1{
-        font-size:1.05rem;
-        line-height:1.15;
+      .title-block{
+        padding:12px 14px;
       }
 
-      .brand .sub{
-        font-size:.88rem;
-        line-height:1.35;
+      #ui-title{
+        font-size:1rem;
       }
 
-      .pill{
-        min-height:36px;
-        padding:0 12px;
+      #ui-desc{
         font-size:.86rem;
       }
 
-      .mobile-only{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
+      .stats{
+        justify-content:flex-start;
       }
 
-      #teacher-controls{
-        display:grid;
-        grid-template-columns:1fr;
-        gap:10px;
-        padding:12px;
-        margin-bottom:10px;
-      }
-
-      body.filters-collapsed #teacher-controls{
-        max-height:0;
-        opacity:0;
-        overflow:hidden;
-        padding-top:0;
-        padding-bottom:0;
-        margin-bottom:8px;
-        border-width:0;
-      }
-
-      .quick-filters{
-        flex-wrap:nowrap;
-        overflow:auto;
-        padding-bottom:4px;
-        margin-bottom:10px;
-      }
-
-      .quick-chip,
-      .section-chip{
-        flex:0 0 auto;
-        min-height:36px;
+      .chip{
+        min-height:38px;
         padding:0 12px;
         font-size:.88rem;
       }
 
-      .cards{
-        grid-template-columns:repeat(2, minmax(0, 1fr));
-        gap:8px;
-        margin-bottom:10px;
+      #prompt-card{
+        min-height:84px;
+        padding:12px 14px;
       }
 
-      .card{
-        min-height:82px;
-        padding:12px;
-      }
-
-      .card .k{
-        font-size:.76rem;
-        margin-bottom:6px;
-      }
-
-      .card .v{
-        font-size:1.18rem;
-      }
-
-      .section-head,
-      .table-head,
-      .detail-head{
-        padding:12px 12px 10px;
-      }
-
-      .section-head h2,
-      .table-head h2,
-      .detail-head h2{
-        font-size:.96rem;
-      }
-
-      .section-meta,
-      .table-meta{
-        font-size:.8rem;
-      }
-
-      .section-table{
-        min-width:640px;
-      }
-
-      table{
-        min-width:920px;
-      }
-
-      .detail{
-        position:static;
-        max-height:none;
-      }
-
-      .detail-body{
-        max-height:none;
-      }
-
-      .kv{
-        grid-template-columns:90px 1fr;
-        gap:8px 10px;
-        font-size:.88rem;
-      }
-
-      .mini-grid{
-        grid-template-columns:1fr;
-      }
-
-      .footer-note{
-        text-align:left;
-        margin-top:10px;
-        font-size:.8rem;
-      }
-
-      .heatmap-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-        padding:12px;
-      }
-
-      .heatmap-cell{
-        min-height:96px;
-        padding:10px;
-      }
-
-      .heatmap-cell .s{
+      #prompt-body{
         font-size:.92rem;
-        margin-bottom:6px;
       }
 
-      .heatmap-cell .n{
-        font-size:1.22rem;
-        margin-bottom:6px;
-      }
-
-      .risk-table{
-        min-width:560px;
-      }
-
-      #section-chip-row,
-      #teacher-action-row,
-      .roster-actions{
-        flex-wrap:nowrap;
-        overflow:auto;
-        padding-bottom:4px;
-      }
-
-      .matrix-table{
-        min-width:980px;
-      }
-
-      .roster-textarea{
-        min-height:130px;
-      }
-
-      .roster-summary-grid{
-        grid-template-columns:1fr;
-        gap:8px;
-      }
-
-      .group-row{
-        grid-template-columns:1fr;
-        gap:10px;
-      }
-
-      .group-panel{
+      #hub-card,
+      #control-card{
         padding:12px;
       }
 
-      .group-count{
-        font-size:1.25rem;
-      }
-
-      .group-list{
-        max-height:220px;
-      }
-
-      .admin-meta-grid{
+      .form-grid{
         grid-template-columns:1fr;
-        gap:8px;
       }
 
-      .register-summary-grid{
-        grid-template-columns:repeat(2, minmax(0,1fr));
-        gap:8px;
-        padding:12px 12px 0;
+      .hub-actions,
+      .control-row,
+      #choice-buttons,
+      .summary-actions{
+        flex-direction:column;
+        align-items:stretch;
       }
 
-      .register-wrap{
-        padding:12px;
+      .btn,
+      .choice-btn{
+        width:100%;
       }
 
-      .register-table{
-        min-width:980px;
+      #summary-panel,
+      #game-over-ui{
+        inset:auto 8px calc(8px + env(safe-area-inset-bottom)) 8px;
+        padding:14px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="topbar">
-      <div class="brand">
-        <h1>TechPath Teacher Dashboard</h1>
-        <div class="sub">ติดตามการเข้าเรียนและความคืบหน้าของผู้เรียนแบบ real-time</div>
-      </div>
+  <div id="scene-wrap">
+    <a-scene
+      embedded
+      renderer="colorManagement: true; physicallyCorrectLights: false; antialias: true"
+      vr-mode-ui="enabled: false"
+      background="color: #081320">
 
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <div class="pill" id="endpoint-pill">Endpoint: loading...</div>
-        <button id="mobile-filter-toggle" class="quick-chip mobile-only" type="button">แสดง Filters</button>
-      </div>
-    </div>
+      <a-assets>
+        <img id="sky-grad" alt="" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop stop-color='%230c1d35'/%3E%3Cstop offset='1' stop-color='%23050c18'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' fill='url(%23g)'/%3E%3C/svg%3E">
+      </a-assets>
 
-    <div class="panel controls" id="teacher-controls">
-      <input id="filter-search" type="text" placeholder="ค้นหา Student ID / Name / Section" />
-      <select id="filter-section">
-        <option value="">ทุก Section</option>
-      </select>
-      <select id="filter-status">
-        <option value="">ทุกสถานะ</option>
-      </select>
-      <select id="filter-session">
-        <option value="">ทุก S</option>
-      </select>
-      <select id="filter-minTime">
-        <option value="">Min time ทั้งหมด</option>
-        <option value="yes">ผ่าน min time</option>
-        <option value="no">ยังไม่ผ่าน min time</option>
-      </select>
-      <button id="btn-refresh" type="button">รีเฟรช</button>
-      <button id="btn-auto" class="ghost" type="button">Auto refresh: ON</button>
-      <button id="btn-export" class="ghost" type="button">Export CSV</button>
-    </div>
+      <a-sky src="#sky-grad"></a-sky>
+      <a-entity light="type: ambient; intensity: 1.0; color: #dff3ff"></a-entity>
+      <a-entity light="type: directional; intensity: 0.85; color: #bde8ff" position="1 3 2"></a-entity>
 
-    <div class="quick-filters" id="quick-filters">
-      <button class="quick-chip active" data-qf="all" type="button">ทั้งหมด</button>
-      <button class="quick-chip" data-qf="completed" type="button">Completed</button>
-      <button class="quick-chip" data-qf="not_completed" type="button">Not Completed</button>
-      <button class="quick-chip" data-qf="in_progress" type="button">In Progress</button>
-      <button class="quick-chip" data-qf="min_fail" type="button">Min Time ไม่ผ่าน</button>
-    </div>
+      <a-plane position="0 -1.2 -4" rotation="-90 0 0" width="18" height="18" color="#0f2138"></a-plane>
 
-    <div class="quick-filters" id="section-chip-row"></div>
+      <a-camera position="0 1.6 0">
+        <a-cursor color="#59d0ff" fuse="false"></a-cursor>
+      </a-camera>
 
-    <div class="quick-filters" id="teacher-action-row">
-      <button class="quick-chip" id="btn-show-unfinished" type="button">ยังไม่จบ</button>
-      <button class="quick-chip" id="btn-show-minfail" type="button">ยังไม่ผ่าน min time</button>
-      <button class="quick-chip" id="btn-clear-fastfilters" type="button">ล้างตัวกรองลัด</button>
-      <button class="quick-chip" id="btn-export-section" type="button">Export Section</button>
-    </div>
+      <a-entity id="hub-scene" visible="true" position="0 1.6 -3.8">
+        <a-plane width="3.9" height="2.25" color="#10223a" opacity="0.94" radius="0.12"></a-plane>
+        <a-text value="TECHPATH ENGLISH LESSON" align="center" width="3.5" color="#59d0ff" position="0 0.74 0.02"></a-text>
+        <a-text value="เลือก S แล้วเริ่มเรียนได้เลย" align="center" width="3.2" color="#d8ebff" position="0 0.38 0.02"></a-text>
+        <a-text value="Listening • Speaking • Reading • Writing" align="center" width="3.1" color="#ffd166" position="0 0.05 0.02"></a-text>
+        <a-text value="ถ้าหน้าจอเล็ก ให้ใช้ปุ่มด้านล่างแทนข้อความในฉาก" align="center" width="2.9" color="#a8bdd6" position="0 -0.38 0.02"></a-text>
+      </a-entity>
 
-    <div class="cards" id="summary-cards">
-      <div class="panel card"><div class="k">Loading</div><div class="v">...</div></div>
-    </div>
+      <a-entity id="mission-speaking-scene" visible="false" position="0 1.6 -3.5">
+        <a-plane width="4.2" height="2.5" color="#10223a" opacity="0.96" radius="0.12"></a-plane>
+        <a-text id="speaking-prompt" value="Speaking prompt" align="center" width="3.55" color="#eef7ff" position="0 0.18 0.03"></a-text>
+      </a-entity>
 
-    <div class="group-row">
-      <div class="panel group-panel">
-        <div class="group-head">
-          <div>
-            <div class="group-title">เข้าแล้วแต่ยังไม่จบ</div>
-            <div class="group-count" id="group-unfinished-count">0</div>
-          </div>
-          <button class="group-btn" id="btn-export-unfinished" type="button">Export</button>
-        </div>
-        <div class="group-list" id="group-unfinished-list">
-          <div class="group-empty">Loading...</div>
-        </div>
-      </div>
+      <a-entity id="mission-reading-scene" visible="false" position="0 1.6 -3.5">
+        <a-plane width="4.35" height="2.7" color="#10223a" opacity="0.96" radius="0.12"></a-plane>
+        <a-text id="reading-question" value="Reading question" align="center" width="3.65" color="#eef7ff" position="0 0.72 0.03"></a-text>
+        <a-text id="reading-choice-a" value="A" align="left" width="2.8" color="#7bedff" position="-1.55 0.02 0.03"></a-text>
+        <a-text id="reading-choice-b" value="B" align="left" width="2.8" color="#7bedff" position="-1.55 -0.40 0.03"></a-text>
+        <a-text id="reading-choice-c" value="C" align="left" width="2.8" color="#7bedff" position="-1.55 -0.82 0.03"></a-text>
+      </a-entity>
 
-      <div class="panel group-panel">
-        <div class="group-head">
-          <div>
-            <div class="group-title">ผ่านครบเกณฑ์แล้ว</div>
-            <div class="group-count ok" id="group-passed-count">0</div>
-          </div>
-          <button class="group-btn" id="btn-export-passed" type="button">Export</button>
-        </div>
-        <div class="group-list" id="group-passed-list">
-          <div class="group-empty">Loading...</div>
-        </div>
-      </div>
+      <a-entity id="mission-listening-scene" visible="false" position="0 1.6 -3.5">
+        <a-plane width="4.35" height="2.7" color="#10223a" opacity="0.96" radius="0.12"></a-plane>
+        <a-text id="listening-prompt" value="Listen carefully, then choose the correct answer." align="center" width="3.55" color="#eef7ff" position="0 0.72 0.03"></a-text>
+        <a-text id="listening-choice-a" value="A" align="left" width="2.8" color="#7bedff" position="-1.55 0.02 0.03"></a-text>
+        <a-text id="listening-choice-b" value="B" align="left" width="2.8" color="#7bedff" position="-1.55 -0.40 0.03"></a-text>
+        <a-text id="listening-choice-c" value="C" align="left" width="2.8" color="#7bedff" position="-1.55 -0.82 0.03"></a-text>
+      </a-entity>
 
-      <div class="panel group-panel">
-        <div class="group-head">
-          <div>
-            <div class="group-title">ยังไม่ผ่าน min time</div>
-            <div class="group-count bad" id="group-minfail-count">0</div>
-          </div>
-          <button class="group-btn" id="btn-export-minfail" type="button">Export</button>
-        </div>
-        <div class="group-list" id="group-minfail-list">
-          <div class="group-empty">Loading...</div>
-        </div>
-      </div>
-
-      <div class="panel group-panel">
-        <div class="group-head">
-          <div>
-            <div class="group-title">ยังไม่เข้าเลย</div>
-            <div class="group-count bad" id="group-never-count">0</div>
-          </div>
-          <button class="group-btn" id="btn-export-never" type="button">Export</button>
-        </div>
-        <div class="group-list" id="group-never-list">
-          <div class="group-empty">ยังไม่มี roster</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel roster-panel">
-      <div class="section-head">
-        <h2>Roster Mode</h2>
-        <div class="section-meta" id="roster-meta">ยังไม่มี roster</div>
-      </div>
-
-      <div class="roster-body">
-        <div class="roster-help">
-          วางรายชื่อรูปแบบ <b>studentId, studentName, classSection</b> ทีละบรรทัด<br>
-          รองรับ comma, tab, | และ ; เช่น<br>
-          <code>65001, Somchai, A1</code>
-        </div>
-
-        <textarea id="roster-input" class="roster-textarea" placeholder="65001, Somchai, A1&#10;65002, Suda, A1&#10;65003, Narin, A2"></textarea>
-
-        <div class="roster-actions">
-          <input id="roster-file-input" type="file" accept=".csv,.txt" hidden />
-          <button id="btn-import-roster-file" class="group-btn" type="button">Import CSV/TXT</button>
-          <button id="btn-load-roster" class="group-btn" type="button">Load Roster</button>
-          <button id="btn-save-roster" class="group-btn ghost-btn" type="button">Save Local</button>
-          <button id="btn-clear-roster" class="group-btn ghost-btn" type="button">Clear Roster</button>
-          <button id="btn-export-never-by-section" class="group-btn ghost-btn" type="button">Export Never by Section</button>
-        </div>
-
-        <div class="roster-summary-grid">
-          <div class="roster-stat">
-            <div class="roster-stat-k">Roster Total</div>
-            <div class="roster-stat-v" id="roster-total-count">0</div>
-          </div>
-          <div class="roster-stat">
-            <div class="roster-stat-k">Entered</div>
-            <div class="roster-stat-v ok" id="roster-entered-count">0</div>
-          </div>
-          <div class="roster-stat">
-            <div class="roster-stat-k">Never Entered</div>
-            <div class="roster-stat-v bad" id="roster-never-count">0</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel admin-meta-panel">
-      <div class="section-head">
-        <h2>Admin Meta / Printable Report Settings</h2>
-        <div class="section-meta" id="admin-meta-status">ยังไม่ได้บันทึก</div>
-      </div>
-
-      <div class="admin-meta-body">
-        <div class="admin-meta-grid">
-          <input id="meta-institution" class="admin-input" type="text" placeholder="Institution / University" />
-          <input id="meta-course" class="admin-input" type="text" placeholder="Course / Subject" />
-          <input id="meta-semester" class="admin-input" type="text" placeholder="Semester" />
-          <input id="meta-academic-year" class="admin-input" type="text" placeholder="Academic Year" />
-          <input id="meta-instructor" class="admin-input" type="text" placeholder="Instructor" />
-          <input id="meta-logo-url" class="admin-input" type="text" placeholder="Logo URL (optional)" />
-        </div>
-
-        <div class="roster-actions">
-          <button id="btn-save-admin-meta" class="group-btn" type="button">Save Meta</button>
-          <button id="btn-clear-admin-meta" class="group-btn ghost-btn" type="button">Clear Meta</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel register-panel">
-      <div class="section-head">
-        <h2>Attendance Register</h2>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <div class="section-meta" id="register-meta">ยังไม่มี roster</div>
-          <button id="btn-print-register" class="group-btn ghost-btn" type="button">Print Register</button>
-          <button id="btn-export-register" class="group-btn ghost-btn" type="button">Export Register CSV</button>
-          <button id="btn-print-section-report" class="group-btn ghost-btn" type="button">Print Current Report</button>
-          <button id="btn-print-all-reports" class="group-btn ghost-btn" type="button">Print All Sections</button>
-        </div>
-      </div>
-
-      <div class="register-summary-grid">
-        <div class="roster-stat">
-          <div class="roster-stat-k">Roster Total</div>
-          <div class="roster-stat-v" id="register-total-count">0</div>
-        </div>
-        <div class="roster-stat">
-          <div class="roster-stat-k">Entered</div>
-          <div class="roster-stat-v ok" id="register-entered-count">0</div>
-        </div>
-        <div class="roster-stat">
-          <div class="roster-stat-k">Never Entered</div>
-          <div class="roster-stat-v bad" id="register-never-count">0</div>
-        </div>
-        <div class="roster-stat">
-          <div class="roster-stat-k">Unfinished</div>
-          <div class="roster-stat-v" id="register-unfinished-count">0</div>
-        </div>
-        <div class="roster-stat">
-          <div class="roster-stat-k">Passed</div>
-          <div class="roster-stat-v ok" id="register-passed-count">0</div>
-        </div>
-        <div class="roster-stat">
-          <div class="roster-stat-k">Min Fail</div>
-          <div class="roster-stat-v bad" id="register-minfail-count">0</div>
-        </div>
-      </div>
-
-      <div class="register-wrap">
-        <table class="register-table">
-          <thead>
-            <tr>
-              <th class="sort-th" data-sort="studentId">Student ID</th>
-              <th class="sort-th" data-sort="studentName">Name</th>
-              <th class="sort-th" data-sort="classSection">Section</th>
-              <th class="sort-th" data-sort="entered">Entered</th>
-              <th class="sort-th" data-sort="registerStatus">Status</th>
-              <th class="sort-th" data-sort="sessionNo">S</th>
-              <th class="sort-th" data-sort="durationSec">Duration</th>
-              <th class="sort-th" data-sort="activeTimeSec">Active</th>
-              <th class="sort-th" data-sort="score">Score</th>
-              <th class="sort-th" data-sort="completed">Completed</th>
-              <th class="sort-th" data-sort="minTimeMet">Min Time</th>
-              <th class="sort-th" data-sort="lastServerTs">Last Server</th>
-            </tr>
-          </thead>
-          <tbody id="register-tbody">
-            <tr><td colspan="12">ยังไม่มี roster</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="heatmap-row">
-      <div class="panel heatmap-panel">
-        <div class="section-head">
-          <h2>S01–S15 Heatmap</h2>
-          <div class="section-meta" id="heatmap-meta">กำลังโหลด...</div>
-        </div>
-        <div class="heatmap-grid" id="session-heatmap-grid">
-          <div class="heatmap-empty">Loading...</div>
-        </div>
-      </div>
-
-      <div class="panel risk-panel">
-        <div class="section-head">
-          <h2>At Risk / ยังไม่ผ่านเกณฑ์</h2>
-          <div class="section-meta" id="risk-meta">กำลังโหลด...</div>
-        </div>
-        <div class="risk-wrap">
-          <table class="risk-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Section</th>
-                <th>S</th>
-                <th>Status</th>
-                <th>Duration</th>
-                <th>Min Time</th>
-              </tr>
-            </thead>
-            <tbody id="risk-tbody">
-              <tr><td colspan="6">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel section-panel">
-      <div class="section-head">
-        <h2>Section Summary</h2>
-        <div class="section-meta" id="section-meta">กำลังโหลด...</div>
-      </div>
-      <div class="section-wrap">
-        <table class="section-table">
-          <thead>
-            <tr>
-              <th>Section</th>
-              <th>Rows</th>
-              <th>Completed</th>
-              <th>Min Time ผ่าน</th>
-              <th>Avg Duration</th>
-              <th>Avg Active</th>
-              <th>Avg Score</th>
-            </tr>
-          </thead>
-          <tbody id="section-summary-tbody">
-            <tr><td colspan="7">Loading...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="panel section-panel">
-      <div class="section-head">
-        <h2>Section × S01–S15 Matrix</h2>
-        <div class="section-meta" id="matrix-meta">กำลังโหลด...</div>
-      </div>
-      <div class="section-wrap">
-        <table class="section-table matrix-table">
-          <thead>
-            <tr id="matrix-head-row">
-              <th>Section</th>
-              <th>Total</th>
-              <th>Done</th>
-              <th>Min OK</th>
-              <th>S01</th>
-              <th>S02</th>
-              <th>S03</th>
-              <th>S04</th>
-              <th>S05</th>
-              <th>S06</th>
-              <th>S07</th>
-              <th>S08</th>
-              <th>S09</th>
-              <th>S10</th>
-              <th>S11</th>
-              <th>S12</th>
-              <th>S13</th>
-              <th>S14</th>
-              <th>S15</th>
-            </tr>
-          </thead>
-          <tbody id="section-session-matrix-tbody">
-            <tr><td colspan="19">Loading...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="grid">
-      <div class="panel table-panel">
-        <div class="table-head">
-          <h2>Students / Sessions</h2>
-          <div class="table-meta" id="table-meta">กำลังโหลดข้อมูล...</div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Student ID</th>
-                <th>Name</th>
-                <th>Section</th>
-                <th>S</th>
-                <th>Status</th>
-                <th>Duration</th>
-                <th>Active</th>
-                <th>Score</th>
-                <th>Completed</th>
-                <th>Min Time</th>
-                <th>Last Server</th>
-              </tr>
-            </thead>
-            <tbody id="students-tbody">
-              <tr><td colspan="11">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="panel detail">
-        <div class="detail-head">
-          <h2>Student Detail</h2>
-        </div>
-        <div class="detail-body" id="detail-body">
-          <div class="detail-empty">เลือกแถวทางซ้ายเพื่อดูรายละเอียดผู้เรียน</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="footer-note" id="footer-note">Build: loading...</div>
+      <a-entity id="mission-writing-scene" visible="false" position="0 1.6 -3.5">
+        <a-plane width="4.2" height="2.5" color="#10223a" opacity="0.96" radius="0.12"></a-plane>
+        <a-text id="writing-prompt" value="Writing prompt" align="center" width="3.55" color="#eef7ff" position="0 0.18 0.03"></a-text>
+      </a-entity>
+    </a-scene>
   </div>
 
-  <script type="module" src="./js/teacher.js?v=20260420j-teacher-v10-admin"></script>
+  <div id="ui-root">
+    <div id="ui-container" class="hub-mode">
+      <div class="topbar">
+        <div class="title-block glass">
+          <div id="ui-title">TechPath English Lesson</div>
+          <div id="ui-desc">เลือก S ที่ต้องการ แล้วเริ่มทำภารกิจภาษาอังกฤษได้ทันที</div>
+        </div>
+
+        <div class="stats">
+          <div class="chip" id="mission-type-tag">READY</div>
+          <div class="chip" id="timer">00:00</div>
+          <div class="chip">Score: <span id="score-display" style="margin-left:6px;">0</span></div>
+          <div class="chip">HP: <span id="hp-display" style="margin-left:6px;">100%</span></div>
+          <div class="chip" id="combo-display">(x2 COMBO!)</div>
+        </div>
+      </div>
+
+      <div id="feedback" class="glass">พร้อมเริ่มบทเรียนแล้ว</div>
+
+      <div id="prompt-card" class="glass">
+        <div id="prompt-label">Prompt</div>
+        <div id="prompt-body">เลือก S จากด้านล่าง หรือใช้ query string เดิมของระบบได้ตามปกติ</div>
+      </div>
+
+      <div id="boss-phase-ui" class="glass">
+        <div id="boss-phase-title">Final Boss</div>
+        <div class="boss-bar">
+          <div id="boss-bar-fill"></div>
+        </div>
+        <div id="boss-hp-text">BOSS HP: 0 / 0</div>
+        <div id="boss-phase-sub"></div>
+      </div>
+
+      <div class="bottom-zone">
+        <div id="hub-card" class="glass">
+          <div class="card-title">Lesson Setup</div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label for="student-id">Student ID</label>
+              <input id="student-id" type="text" placeholder="เช่น 65001" />
+            </div>
+
+            <div class="field">
+              <label for="student-name">Name</label>
+              <input id="student-name" type="text" placeholder="เช่น Somchai" />
+            </div>
+
+            <div class="field">
+              <label for="class-section">Section</label>
+              <input id="class-section" type="text" placeholder="เช่น A1" />
+            </div>
+
+            <div class="field">
+              <label for="session-select">Session</label>
+              <select id="session-select">
+                <option value="S01">S01</option>
+                <option value="S02">S02</option>
+                <option value="S03">S03</option>
+                <option value="S04">S04</option>
+                <option value="S05">S05</option>
+                <option value="S06">S06</option>
+                <option value="S07">S07</option>
+                <option value="S08">S08</option>
+                <option value="S09">S09</option>
+                <option value="S10">S10</option>
+                <option value="S11">S11</option>
+                <option value="S12">S12</option>
+                <option value="S13">S13</option>
+                <option value="S14">S14</option>
+                <option value="S15">S15</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="difficulty-select">Difficulty</label>
+              <select id="difficulty-select">
+                <option value="easy">Easy</option>
+                <option value="normal" selected>Normal</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="mode-select">Mode</label>
+              <select id="mode-select">
+                <option value="play" selected>Play</option>
+                <option value="research">Research</option>
+                <option value="demo">Demo</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="hub-actions">
+            <button id="btn-start" class="btn" type="button">Start Lesson</button>
+            <button id="btn-start-lesson" class="btn hidden-alias" type="button">Start Lesson</button>
+            <button id="btn-play" class="btn hidden-alias" type="button">Start Lesson</button>
+            <button id="btn-open-summary" class="btn secondary" type="button">Open Summary</button>
+          </div>
+        </div>
+
+        <div id="control-card" class="glass">
+          <div class="card-title">Mission Controls</div>
+
+          <div class="control-row" style="margin-bottom:10px;">
+            <button id="btn-speak" class="btn" type="button">Speak</button>
+            <button id="btn-play-audio" class="btn" type="button">Play Audio</button>
+            <button id="btn-submit-write" class="btn" type="button">Submit Writing</button>
+            <button id="btn-next" class="btn secondary" type="button">Next</button>
+            <button id="btn-return" class="btn secondary" type="button">Return</button>
+          </div>
+
+          <input id="write-input" type="text" placeholder="พิมพ์คำตอบของคุณที่นี่" />
+
+          <div id="choice-buttons" class="control-row" style="margin-top:10px;">
+            <button class="choice-btn" id="choice-btn-a" data-choice="A" type="button">A</button>
+            <button class="choice-btn" id="choice-btn-b" data-choice="B" type="button">B</button>
+            <button class="choice-btn" id="choice-btn-c" data-choice="C" type="button">C</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="summary-panel" class="glass">
+    <div id="summary-title">Summary</div>
+    <div id="summary-body">ยังไม่มีผลสรุป</div>
+    <div class="summary-actions">
+      <button id="btn-summary-close" class="btn secondary" type="button">Close</button>
+      <button id="btn-summary-home" class="btn" type="button">Back to Hub</button>
+    </div>
+  </div>
+
+  <div id="game-over-ui" class="glass">
+    <div id="game-over-title" style="font-size:1.1rem;font-weight:900;color:var(--bad);margin-bottom:8px;">Game Over</div>
+    <div id="game-over-body" style="line-height:1.5;color:var(--text);margin-bottom:12px;">ลองใหม่อีกครั้ง</div>
+    <div class="summary-actions">
+      <button id="btn-retry" class="btn" type="button">Retry</button>
+      <button id="btn-back-hub" class="btn secondary" type="button">Back to Hub</button>
+    </div>
+  </div>
+
+  <!-- alias inputs for legacy selectors -->
+  <input id="display-name" class="hidden-alias" />
+  <input id="player-name" class="hidden-alias" />
+  <input id="name-input" class="hidden-alias" />
+  <input id="studentId" class="hidden-alias" />
+  <input id="section-input" class="hidden-alias" />
+  <input id="sessionNo" class="hidden-alias" />
+  <input id="session-no" class="hidden-alias" />
+  <input id="lesson-session" class="hidden-alias" />
+
+  <script>
+    (function () {
+      const qs = new URLSearchParams(location.search);
+
+      const studentId = document.getElementById('student-id');
+      const studentName = document.getElementById('student-name');
+      const classSection = document.getElementById('class-section');
+      const sessionSelect = document.getElementById('session-select');
+      const difficultySelect = document.getElementById('difficulty-select');
+      const modeSelect = document.getElementById('mode-select');
+
+      const aliasMap = [
+        ['display-name', 'student-name'],
+        ['player-name', 'student-name'],
+        ['name-input', 'student-name'],
+        ['studentId', 'student-id'],
+        ['section-input', 'class-section'],
+        ['sessionNo', 'session-select'],
+        ['session-no', 'session-select'],
+        ['lesson-session', 'session-select']
+      ];
+
+      const startVisible = document.getElementById('btn-start');
+      ['btn-start-lesson', 'btn-play'].forEach(id => {
+        const aliasBtn = document.getElementById(id);
+        if (!aliasBtn) return;
+        aliasBtn.addEventListener('click', () => startVisible.click());
+      });
+
+      function syncAliases() {
+        aliasMap.forEach(([aliasId, sourceId]) => {
+          const aliasEl = document.getElementById(aliasId);
+          const sourceEl = document.getElementById(sourceId);
+          if (!aliasEl || !sourceEl) return;
+          aliasEl.value = sourceEl.value;
+        });
+      }
+
+      [studentId, studentName, classSection, sessionSelect, difficultySelect, modeSelect]
+        .filter(Boolean)
+        .forEach(el => el.addEventListener('input', syncAliases));
+
+      function applyQs() {
+        studentId.value = qs.get('studentId') || qs.get('sid') || qs.get('pid') || '';
+        studentName.value = qs.get('studentName') || qs.get('name') || '';
+        classSection.value = qs.get('classSection') || qs.get('section') || '';
+        sessionSelect.value = qs.get('sessionNo') || qs.get('session') || qs.get('s') || 'S01';
+        difficultySelect.value = qs.get('diff') || 'normal';
+        modeSelect.value = qs.get('run') || 'play';
+        syncAliases();
+      }
+
+      applyQs();
+
+      function textValue(id) {
+        const el = document.getElementById(id);
+        if (!el) return '';
+        return (el.getAttribute('value') || el.getAttribute('text') || el.textContent || '').trim();
+      }
+
+      function boolVisible(id) {
+        const el = document.getElementById(id);
+        if (!el) return false;
+        return el.getAttribute('visible') !== 'false';
+      }
+
+      function syncPromptCard() {
+        const label = document.getElementById('prompt-label');
+        const body = document.getElementById('prompt-body');
+        const choiceWrap = document.getElementById('choice-buttons');
+
+        let promptLabel = 'Prompt';
+        let promptBody = 'เลือก S จากด้านล่าง หรือใช้ query string เดิมของระบบได้ตามปกติ';
+
+        if (boolVisible('mission-speaking-scene')) {
+          promptLabel = 'Speaking Mission';
+          promptBody = textValue('speaking-prompt') || 'พูดตามประโยคที่กำหนด';
+        } else if (boolVisible('mission-reading-scene')) {
+          promptLabel = 'Reading Mission';
+          promptBody = textValue('reading-question') || 'อ่านข้อความแล้วเลือกคำตอบ';
+        } else if (boolVisible('mission-listening-scene')) {
+          promptLabel = 'Listening Mission';
+          promptBody = textValue('listening-prompt') || 'ฟังก่อนแล้วเลือกคำตอบที่ถูก';
+        } else if (boolVisible('mission-writing-scene')) {
+          promptLabel = 'Writing Mission';
+          promptBody = textValue('writing-prompt') || 'พิมพ์คำตอบตามโจทย์';
+        } else if (boolVisible('hub-scene')) {
+          promptLabel = 'Lesson Hub';
+          promptBody = 'กรอกข้อมูลผู้เรียน เลือก S และกด Start Lesson';
+        }
+
+        label.textContent = promptLabel;
+        body.textContent = promptBody;
+
+        const inReading = boolVisible('mission-reading-scene');
+        const inListening = boolVisible('mission-listening-scene');
+
+        if (inReading || inListening) {
+          const prefix = inListening ? 'listening' : 'reading';
+          const a = textValue(prefix + '-choice-a') || 'A';
+          const b = textValue(prefix + '-choice-b') || 'B';
+          const c = textValue(prefix + '-choice-c') || 'C';
+          document.getElementById('choice-btn-a').textContent = a;
+          document.getElementById('choice-btn-b').textContent = b;
+          document.getElementById('choice-btn-c').textContent = c;
+        }
+
+        if (!inReading && !inListening && choiceWrap.style.display === 'flex') {
+          choiceWrap.style.display = 'none';
+        }
+      }
+
+      setInterval(syncPromptCard, 250);
+
+      document.getElementById('btn-open-summary')?.addEventListener('click', () => {
+        document.getElementById('summary-panel').style.display = 'block';
+      });
+
+      document.getElementById('btn-summary-close')?.addEventListener('click', () => {
+        document.getElementById('summary-panel').style.display = 'none';
+      });
+
+      document.getElementById('btn-summary-home')?.addEventListener('click', () => {
+        document.getElementById('summary-panel').style.display = 'none';
+        document.getElementById('ui-container').classList.remove('mission-mode', 'summary-mode');
+        document.getElementById('ui-container').classList.add('hub-mode');
+      });
+
+      document.getElementById('btn-retry')?.addEventListener('click', () => {
+        document.getElementById('game-over-ui').style.display = 'none';
+      });
+
+      document.getElementById('btn-back-hub')?.addEventListener('click', () => {
+        document.getElementById('game-over-ui').style.display = 'none';
+        document.getElementById('ui-container').classList.remove('mission-mode', 'summary-mode');
+        document.getElementById('ui-container').classList.add('hub-mode');
+      });
+    })();
+  </script>
+
+  <script type="module" src="./js/lesson-main.js?v=20260420j-lesson-full-rebuild"></script>
 </body>
 </html>
