@@ -3,898 +3,2266 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>TechPath English Lesson</title>
+  <title>TechPath VR</title>
 
-  <meta name="theme-color" content="#081320" />
-  <meta name="color-scheme" content="dark" />
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+
+  <link rel="stylesheet" href="./lesson.css" />
 
   <script>
-    window.TECHPATH_ATTENDANCE_ENDPOINT =
-      'https://script.google.com/macros/s/AKfycbwvwaikfA1O03H0dFBh3ZTZdT4jZRsKyyTxQtZdeh_S7zPEz063w_rMGHUpImFjmYCy/exec';
-    window.LESSON_BUILD = 'v20260422a-lesson-scrollfix';
+    window.TECHPATH_APP_ID = window.TECHPATH_APP_ID || 'english-d4bfa';
+    window.TECHPATH_FIREBASE_CONFIG = window.TECHPATH_FIREBASE_CONFIG || {
+      apiKey: "AIzaSyAfp3pVutrHRVOigVQl1iybMKbsKGPhnr8",
+      authDomain: "english-d4bfa.firebaseapp.com",
+      databaseURL: "https://english-d4bfa-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "english-d4bfa",
+      storageBucket: "english-d4bfa.firebasestorage.app",
+      messagingSenderId: "247186694556",
+      appId: "1:247186694556:web:67a01e417f37eb71f42859",
+      measurementId: "G-SWT85BHVJX"
+    };
+    window.TECHPATH_BUILD = 'v20260422-old-ui';
+    window.TECHPATH_ATTENDANCE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwvwaikfA1O03H0dFBh3ZTZdT4jZRsKyyTxQtZdeh_S7zPEz063w_rMGHUpImFjmYCy/exec';
+    window.TECHPATH_ATTENDANCE_PATCH = 'v20260422-old-ui';
   </script>
 
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <meta name="theme-color" content="#0a0f1e" />
 
   <style>
     :root{
-      --bg1:#07111f;
-      --bg2:#152744;
-      --panel:rgba(10,18,34,.82);
-      --panel-2:rgba(16,26,44,.92);
-      --line:rgba(160,180,210,.16);
-      --text:#eef7ff;
-      --muted:#a8bdd6;
-      --accent:#59d0ff;
-      --accent2:#7c5cff;
-      --good:#44df93;
-      --warn:#ffd166;
-      --bad:#ff6e87;
-      --gold:#ffcf5a;
-      --shadow:0 18px 54px rgba(0,0,0,.36);
-      --r-xl:28px;
-      --r-lg:22px;
-      --r-md:18px;
-      --maxw:1360px;
+      --app-vh:100dvh;
     }
 
-    *{ box-sizing:border-box; }
-
-    html,body{
+    html, body{
+      max-width:100%;
+      overflow-x:hidden;
       margin:0;
-      min-height:100%;
-      background:
-        radial-gradient(circle at top, rgba(89,208,255,.08), transparent 28%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
-      color:var(--text);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:#07111f;
+      color:#fff;
+      font-family:system-ui, sans-serif;
     }
 
     body{
-      position:relative;
-      overflow:hidden;
-    }
-
-    #scene-wrap{
-      position:fixed;
-      inset:0;
-      z-index:0;
-    }
-
-    a-scene{
-      width:100%;
-      height:100%;
-    }
-
-    #ui-root{
-      position:fixed;
-      inset:0;
-      z-index:10;
-      display:flex;
-      justify-content:center;
-      overflow-y:auto;
-      overflow-x:hidden;
-      -webkit-overflow-scrolling:touch;
-      pointer-events:auto;
+      min-height:var(--app-vh);
+      -webkit-text-size-adjust:100%;
     }
 
     #ui-container{
-      width:min(var(--maxw), calc(100vw - 16px));
-      min-height:100dvh;
-      height:auto;
-      padding:12px 0 calc(24px + env(safe-area-inset-bottom));
-      display:grid;
-      grid-template-rows:auto auto auto auto 1fr;
+      width:min(100%, 980px);
+      min-height:var(--app-vh);
+      margin:0 auto;
+      box-sizing:border-box;
+      position:relative;
+      z-index:2;
+      padding:10px 12px 32px;
+    }
+
+    .btn-action,
+    #attendance-toggle{
+      min-height:44px;
+      touch-action:manipulation;
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+      border:none;
+      cursor:pointer;
+    }
+
+    .input-field{
+      min-height:44px;
+      box-sizing:border-box;
+      width:100%;
+      max-width:100%;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      padding:12px 14px;
+      outline:none;
+    }
+
+    #attendance-panel{
+      margin:8px 0 10px;
+      padding:10px 12px;
+      border:1px solid rgba(123,237,255,.24);
+      border-radius:14px;
+      background:rgba(8,14,28,.76);
+      box-shadow:0 8px 22px rgba(0,0,0,.18);
+      backdrop-filter:blur(6px);
+      text-align:left;
+    }
+
+    #attendance-header-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
       gap:10px;
     }
 
-    .glass{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:var(--r-lg);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
-    }
-
-    .topbar{
-      display:grid;
-      grid-template-columns:minmax(0,1fr) auto;
-      gap:10px;
-      align-items:start;
-      pointer-events:auto;
-    }
-
-    .title-block{
-      padding:14px 16px;
-      min-width:0;
-    }
-
-    #ui-title{
-      font-size:clamp(1rem, 2.4vw, 1.35rem);
+    #attendance-title{
       font-weight:900;
-      color:var(--accent);
-      line-height:1.15;
-      margin-bottom:6px;
-      word-break:break-word;
+      color:#7bedff;
+      letter-spacing:.02em;
+      font-size:.92rem;
     }
 
-    #ui-desc{
-      font-size:.93rem;
-      color:var(--muted);
-      line-height:1.45;
+    #attendance-toggle{
+      appearance:none;
+      border:1px solid rgba(123,237,255,.28);
+      background:rgba(255,255,255,.05);
+      color:#cfefff;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:.78rem;
+      font-weight:800;
     }
 
-    .stats{
+    #attendance-summary-line{
+      margin-top:8px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+      font-size:.84rem;
+      color:#eaf6ff;
+    }
+
+    #attendance-summary-name{
+      font-weight:800;
+      color:#ffffff;
+      overflow-wrap:anywhere;
+    }
+
+    #attendance-summary-s{
+      font-weight:800;
+      color:#7bedff;
+    }
+
+    #attendance-summary-status{
+      font-weight:800;
+      color:#ffd6db;
+    }
+
+    #attendance-grid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px 10px;
+      font-size:.84rem;
+      color:#eaf6ff;
+    }
+
+    .attendance-item{
+      min-width:0;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:10px;
+      padding:8px 10px;
+    }
+
+    .attendance-item b{
+      display:block;
+      font-size:.72rem;
+      color:#9adfff;
+      margin-bottom:3px;
+      font-weight:800;
+    }
+
+    #attendance-status{
+      margin-top:10px;
+      border-radius:10px;
+      padding:8px 10px;
+      background:rgba(46,213,115,.08);
+      border:1px solid rgba(46,213,115,.22);
+      color:#d9ffe8;
+      font-size:.82rem;
+      font-weight:700;
+    }
+
+    #attendance-status.warn{
+      background:rgba(255,159,67,.10);
+      border-color:rgba(255,159,67,.22);
+      color:#ffe7c9;
+    }
+
+    #attendance-status.fail{
+      background:rgba(255,71,87,.10);
+      border-color:rgba(255,71,87,.22);
+      color:#ffd7dc;
+    }
+
+    #attendance-panel.compact #attendance-grid,
+    #attendance-panel.compact #attendance-status{
+      display:none;
+    }
+
+    html.protected,
+    html.protected body{
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-touch-callout:none;
+    }
+
+    html.protected input,
+    html.protected textarea,
+    html.protected [contenteditable="true"]{
+      -webkit-user-select:text !important;
+      user-select:text !important;
+      -webkit-touch-callout:default !important;
+    }
+
+    img, a, canvas{
+      -webkit-user-drag:none;
+      user-drag:none;
+    }
+
+    #source-shield{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      background:rgba(2,6,23,.90);
+      backdrop-filter:blur(10px);
+      z-index:999999;
+      text-align:center;
+    }
+
+    #source-shield-card{
+      max-width:520px;
+      width:min(92vw,520px);
+      border:1px solid rgba(123,237,255,.22);
+      border-radius:18px;
+      padding:22px 18px;
+      background:rgba(15,23,42,.92);
+      box-shadow:0 20px 60px rgba(0,0,0,.35);
+    }
+
+    #source-shield-title{
+      color:#7bedff;
+      font-size:1.25rem;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+
+    #source-shield-sub{
+      color:#e5f6ff;
+      font-size:.96rem;
+      line-height:1.5;
+    }
+
+    body.devtools-guard #source-shield{
+      display:flex;
+    }
+
+    body.devtools-guard #ui-container,
+    body.devtools-guard a-scene{
+      filter:blur(10px);
+      pointer-events:none !important;
+    }
+
+    .title{
+      text-align:center;
+      font-size:3rem;
+      font-weight:900;
+      color:#7bedff;
+      margin:8px 0 4px;
+      text-shadow:0 0 18px rgba(123,237,255,.18);
+    }
+
+    .instruction{
+      text-align:center;
+      color:#dbeafe;
+      margin:0 0 10px;
+      font-size:1.1rem;
+    }
+
+    #player-avatar-hud{
+      position:absolute;
+      top:10px;
+      right:10px;
+      width:48px;
+      height:48px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(123,237,255,.20);
+      font-size:1.5rem;
+      z-index:5;
+    }
+
+    #hud-stats{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-weight:bold;
+      margin:10px 0;
+      border-top:1px solid #00e5ff;
+      border-bottom:1px solid #00e5ff;
+      padding:8px 0;
+    }
+
+    .hud-stat-item{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+      width:100%;
+      font-size:1.2rem;
+    }
+
+    #hud-top-row{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
-      justify-content:flex-end;
-      align-content:flex-start;
-    }
-
-    .chip{
-      min-height:42px;
-      padding:0 14px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:var(--panel-2);
-      display:inline-flex;
-      align-items:center;
       justify-content:center;
-      font-weight:800;
-      color:var(--text);
-      pointer-events:auto;
-      white-space:nowrap;
-    }
-
-    #mission-type-tag{
-      color:var(--good);
-      border-color:rgba(68,223,147,.32);
-    }
-
-    #timer{
-      display:none;
-      color:#ff4757;
-    }
-
-    #combo-display{
-      display:none;
-      color:var(--gold);
-    }
-
-    #feedback{
-      min-height:52px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      padding:10px 14px;
-      font-weight:800;
-      font-size:1rem;
-      pointer-events:none;
-      color:#fff;
-    }
-
-    #prompt-card{
-      align-self:start;
-      min-height:98px;
-      padding:14px 16px;
-      pointer-events:none;
-    }
-
-    #prompt-label{
-      font-size:.82rem;
-      font-weight:900;
-      letter-spacing:.04em;
-      color:var(--accent2);
-      margin-bottom:8px;
-      text-transform:uppercase;
-    }
-
-    #prompt-body{
-      font-size:1rem;
-      line-height:1.5;
-      color:var(--text);
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-
-    #boss-phase-ui{
-      display:none;
-      pointer-events:none;
-      padding:12px 14px;
-    }
-
-    #boss-phase-title{
-      font-size:.84rem;
-      font-weight:900;
-      color:var(--gold);
-      margin-bottom:8px;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-    }
-
-    .boss-bar{
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      overflow:hidden;
-      border:1px solid var(--line);
-      margin-bottom:8px;
-    }
-
-    #boss-bar-fill{
-      width:0%;
-      height:100%;
-      background:linear-gradient(90deg,#ff6e87,#ffcf5a);
-      transition:width .25s ease;
-    }
-
-    #boss-hp-text,
-    #boss-phase-sub{
-      font-size:.9rem;
-      color:var(--muted);
-    }
-
-    .bottom-zone{
-      display:grid;
-      grid-template-columns:minmax(320px, 450px) minmax(0, 1fr);
-      gap:12px;
-      align-items:start;
-      pointer-events:none;
-    }
-
-    #hub-card,
-    #control-card,
-    #summary-panel,
-    #game-over-ui{
-      pointer-events:auto;
-    }
-
-    #hub-card{
-      padding:16px;
-      align-self:start;
-    }
-
-    .card-title{
-      font-size:1.02rem;
-      font-weight:900;
-      color:var(--accent);
       margin-bottom:10px;
     }
 
-    .form-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
+    #mission-prompt-box{
+      display:none;
+      border:1px solid rgba(123,237,255,.18);
+      background:rgba(10,18,34,.94);
+      box-shadow:0 8px 20px rgba(0,0,0,.20);
+      border-radius:16px;
+      padding:12px;
+      margin-bottom:10px;
     }
 
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      min-width:0;
-    }
-
-    .field.full{
-      grid-column:1 / -1;
-    }
-
-    .field label{
-      font-size:.8rem;
-      color:var(--muted);
+    #mission-prompt-label{
+      font-size:.78rem;
+      margin-bottom:6px;
+      color:#7bedff;
       font-weight:800;
     }
 
-    .field input,
-    .field select,
-    #write-input{
-      width:100%;
-      min-height:46px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      padding:0 12px;
-      outline:none;
-      font:inherit;
-    }
-
-    .hub-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-
-    .btn{
-      min-height:46px;
-      padding:0 16px;
-      border-radius:14px;
-      border:1px solid transparent;
-      background:linear-gradient(180deg,#2ad7ff,#14bde0);
-      color:#03131b;
-      font-weight:900;
-      cursor:pointer;
-      font:inherit;
-      pointer-events:auto;
-    }
-
-    .btn.secondary{
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      border-color:var(--line);
-    }
-
-    #control-card{
-      padding:14px;
-      align-self:start;
-    }
-
-    .control-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:center;
+    #mission-prompt-text{
+      font-size:1rem;
+      line-height:1.5;
+      color:#fff;
+      white-space:pre-wrap;
     }
 
     #choice-buttons{
       display:none;
-      gap:10px;
-      flex-wrap:wrap;
+      justify-content:center;
+      gap:12px;
+      margin-top:10px;
     }
 
-    .choice-btn{
-      min-height:48px;
-      min-width:150px;
-      padding:8px 14px;
-      border-radius:16px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      font-weight:800;
-      cursor:pointer;
-      text-align:left;
-      pointer-events:auto;
-      white-space:normal;
+    #choice-buttons .btn-action{
+      display:flex !important;
+      align-items:center !important;
+      justify-content:flex-start !important;
+      text-align:left !important;
+      padding:12px 16px !important;
+      line-height:1.25 !important;
+      white-space:normal !important;
+      word-break:break-word !important;
+      font-size:1rem !important;
+      font-weight:900 !important;
     }
 
-    #btn-speak,
-    #btn-play-audio,
-    #btn-submit-write,
-    #btn-next,
-    #btn-return{
-      display:none;
-    }
-
-    #write-input{
-      display:none;
-      min-height:52px;
-    }
-
+    #boss-phase-ui,
     #summary-panel,
-    #game-over-ui{
-      display:none;
-      position:fixed;
-      inset:auto 12px calc(12px + env(safe-area-inset-bottom)) 12px;
-      z-index:20;
-      padding:16px;
-      max-width:720px;
-      margin:0 auto;
+    #profile-panel,
+    #hub-stats-board{
+      background:rgba(10,18,34,.82);
+      border:1px solid rgba(123,237,255,.18);
+      border-radius:18px;
+      padding:14px;
+      margin-top:10px;
+      box-shadow:0 10px 24px rgba(0,0,0,.22);
     }
 
-    #summary-title{
-      font-size:1.15rem;
+    #ai-director-board{
+      margin:10px 0;
+      padding:10px 12px;
+      border:1px solid rgba(0,229,255,.25);
+      border-radius:12px;
+      background:rgba(255,255,255,.04);
+    }
+
+    .avatar-row{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:8px;
+      margin-bottom:10px;
+    }
+
+    .avatar-chip{
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.08);
+      padding:10px;
+      background:rgba(255,255,255,.04);
+      color:#fff;
+      font-weight:700;
+    }
+
+    .avatar-chip.active{
+      border-color:#00e5ff;
+      box-shadow:0 0 0 1px rgba(0,229,255,.25) inset, 0 0 18px rgba(0,229,255,.14);
+      background:rgba(0,229,255,.08);
+    }
+
+    #unlock-hint{
+      color:#dbeafe;
+      opacity:.92;
+      margin:8px 0 10px;
+      line-height:1.45;
+    }
+
+    #feedback{
+      margin-top:12px;
+      text-align:center;
+      font-weight:800;
+      min-height:24px;
+    }
+
+    #summary-title,
+    #profile-panel-title,
+    #hub-stats-title,
+    #boss-phase-title{
       font-weight:900;
-      color:var(--accent);
+      color:#7bedff;
       margin-bottom:8px;
     }
 
-    #summary-body{
-      white-space:pre-wrap;
-      line-height:1.55;
-      color:var(--text);
-      margin-bottom:12px;
+    #boss-bar-shell{
+      width:100%;
+      height:14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      overflow:hidden;
+      margin:10px 0;
     }
 
-    .summary-actions{
+    #boss-bar-fill{
+      width:100%;
+      height:100%;
+      background:linear-gradient(90deg, #ff6b81, #f1c40f);
+      border-radius:999px;
+    }
+
+    #timer{
+      display:none;
+      text-align:center;
+      font-size:1.1rem;
+      font-weight:900;
+      color:#ffeaa7;
+      margin:10px 0;
+    }
+
+    #game-over-ui{
+      display:none;
+      margin-top:10px;
+      background:rgba(0,0,0,0.5);
+      padding:15px;
+      border-radius:8px;
+    }
+
+    #btn-next,
+    #btn-return,
+    #btn-speak,
+    #btn-play-audio,
+    #btn-submit-write,
+    #btn-save-profile,
+    #btn-submit-score,
+    #choice-buttons .btn-action,
+    #mobile-hub-drawer .btn-action{
+      background:linear-gradient(180deg, #2ad7ff, #14bde0);
+      color:#04131d;
+      border-radius:16px;
+      font-weight:900;
+      box-shadow:0 8px 20px rgba(0,0,0,.22);
+    }
+
+    #btn-next{
+      background:linear-gradient(180deg, #43e08a, #27c96b);
+      color:#08150d;
+    }
+
+    #btn-return{
+      background:linear-gradient(180deg, #ff8ea1, #ff637e);
+      color:#25030a;
+    }
+
+    #question-diff-badge{
+      border:1px solid #f1c40f;
+      color:#f1c40f;
+      border-radius:999px;
+      padding:4px 10px;
+      font-weight:700;
+    }
+
+    #unit-theme-chip,
+    #reward-roll-badge{
+      display:none;
+      border:1px solid #7bedff;
+      color:#7bedff;
+      border-radius:999px;
+      padding:4px 10px;
+      font-weight:700;
+    }
+
+    #impact-flash{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:120;
+      opacity:0;
+      transition:opacity .2s ease;
+    }
+
+    #impact-flash.impact-hit{
+      opacity:.22;
+      background:rgba(255,71,87,.32);
+    }
+
+    #impact-flash.impact-clear{
+      opacity:.22;
+      background:rgba(46,213,115,.28);
+    }
+
+    #boss-cinematic{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:121;
+      background:rgba(2,6,23,.48);
+      backdrop-filter:blur(6px);
+    }
+
+    #boss-cinematic.show{
       display:flex;
-      gap:10px;
-      flex-wrap:wrap;
     }
 
-    .hidden-alias{
+    #boss-cinematic-card{
+      width:min(92vw,520px);
+      border-radius:18px;
+      padding:18px 16px;
+      background:rgba(10,18,34,.96);
+      border:1px solid rgba(123,237,255,.18);
+      text-align:center;
+      box-shadow:0 18px 40px rgba(0,0,0,.28);
+    }
+
+    #boss-cinematic-title{
+      font-size:1.2rem;
+      font-weight:900;
+      color:#ffeaa7;
+      margin-bottom:6px;
+    }
+
+    #boss-cinematic-sub{
+      color:#eaf6ff;
+    }
+
+    #answer-fx-layer{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:115;
+      overflow:hidden;
+    }
+
+    .answer-burst{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:12px;
+      height:12px;
+      border-radius:999px;
+      transform:translate(-50%, -50%);
+      opacity:1;
+      animation:burstFly .72s ease-out forwards;
+    }
+
+    .answer-burst.success{ background:#2ed573; }
+    .answer-burst.fail{ background:#ff4757; }
+
+    @keyframes burstFly{
+      from{ transform:translate(-50%, -50%) scale(1); opacity:1; }
+      to{
+        transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.5);
+        opacity:0;
+      }
+    }
+
+    .combo-popup{
+      position:fixed;
+      left:50%;
+      top:14%;
+      transform:translate(-50%, -10px);
+      z-index:116;
+      opacity:0;
+      padding:10px 16px;
+      border-radius:999px;
+      background:rgba(10,18,34,.94);
+      border:1px solid rgba(255,234,167,.28);
+      color:#ffeaa7;
+      font-weight:900;
+      box-shadow:0 10px 28px rgba(0,0,0,.22);
+      pointer-events:none;
+    }
+
+    .combo-popup.show{
+      animation:comboShow .92s ease forwards;
+    }
+
+    @keyframes comboShow{
+      0%{ opacity:0; transform:translate(-50%, -10px) scale(.94); }
+      18%{ opacity:1; transform:translate(-50%, 0) scale(1); }
+      85%{ opacity:1; transform:translate(-50%, 0) scale(1); }
+      100%{ opacity:0; transform:translate(-50%, -8px) scale(.98); }
+    }
+
+    .mission-type-tag{
+      position:fixed;
+      right:12px;
+      top:calc(env(safe-area-inset-top, 0px) + 12px);
+      z-index:117;
+      opacity:0;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(10,18,34,.94);
+      border:1px solid rgba(123,237,255,.18);
+      color:#fff;
+      font-size:.82rem;
+      font-weight:900;
+      pointer-events:none;
+    }
+
+    .mission-type-tag.show{
+      animation:tagShow .94s ease forwards;
+    }
+
+    @keyframes tagShow{
+      0%{ opacity:0; transform:translateY(-6px); }
+      18%{ opacity:1; transform:translateY(0); }
+      85%{ opacity:1; transform:translateY(0); }
+      100%{ opacity:0; transform:translateY(-4px); }
+    }
+
+    .screen-glow-success{ animation:screenSuccess .46s ease; }
+    .screen-glow-fail{ animation:screenFail .46s ease; }
+
+    @keyframes screenSuccess{
+      0%{ box-shadow:0 0 0 rgba(46,213,115,0); }
+      50%{ box-shadow:0 0 0 9999px rgba(46,213,115,.06) inset; }
+      100%{ box-shadow:0 0 0 rgba(46,213,115,0); }
+    }
+
+    @keyframes screenFail{
+      0%{ box-shadow:0 0 0 rgba(255,71,87,0); }
+      50%{ box-shadow:0 0 0 9999px rgba(255,71,87,.08) inset; }
+      100%{ box-shadow:0 0 0 rgba(255,71,87,0); }
+    }
+
+    .shake{
+      animation:shakeUI .3s linear;
+    }
+
+    @keyframes shakeUI{
+      0%,100%{ transform:translateX(0); }
+      20%{ transform:translateX(-4px); }
+      40%{ transform:translateX(4px); }
+      60%{ transform:translateX(-3px); }
+      80%{ transform:translateX(3px); }
+    }
+
+    .danger-mode{
+      outline:1px solid rgba(255,71,87,.24);
+      box-shadow:0 0 0 9999px rgba(255,71,87,.03) inset;
+    }
+
+    .score-anim{
+      animation:scoreBump .5s ease;
+    }
+
+    @keyframes scoreBump{
+      0%{ transform:scale(1); }
+      50%{ transform:scale(1.16); }
+      100%{ transform:scale(1); }
+    }
+
+    #mobile-hub-drawer,
+    #mobile-hub-sheet{
+      display:none;
+    }
+
+    #boss-phase-ui,
+    #game-over-ui,
+    #summary-panel{
+      display:none;
+    }
+
+    body.hub-mode #summary-panel,
+    body.hub-mode #game-over-ui,
+    body.hub-mode #boss-phase-ui,
+    body.hub-mode #mission-prompt-box,
+    body.hub-mode #btn-speak,
+    body.hub-mode #btn-play-audio,
+    body.hub-mode #write-input,
+    body.hub-mode #btn-submit-write,
+    body.hub-mode #choice-buttons,
+    body.hub-mode #btn-next,
+    body.hub-mode #btn-return{
       display:none !important;
     }
 
-    .hub-mode #hub-card{
-      display:block;
+    body.mission-mode #summary-panel,
+    body.mission-mode #game-over-ui{
+      display:none !important;
     }
 
-    .mission-mode #hub-card{
-      display:none;
+    body.summary-mode #mission-prompt-box,
+    body.summary-mode #btn-speak,
+    body.summary-mode #btn-play-audio,
+    body.summary-mode #write-input,
+    body.summary-mode #btn-submit-write,
+    body.summary-mode #choice-buttons{
+      display:none !important;
     }
 
-    .summary-mode #hub-card{
-      display:none;
+    body.summary-mode #feedback,
+    body.summary-mode #mission-type-tag,
+    body.summary-mode #combo-popup,
+    body.summary-mode #player-avatar-hud{
+      display:none !important;
     }
 
-    @media (max-width: 980px){
-      #ui-container{
-        width:calc(100vw - 12px);
+    @media (max-width: 700px) {
+      html, body{
+        overflow:hidden !important;
       }
 
-      .bottom-zone{
-        grid-template-columns:1fr;
-      }
-
-      #hub-card{
-        order:2;
-      }
-
-      #control-card{
-        order:1;
-      }
-    }
-
-    @media (max-width: 700px){
-      html,body{
-        overflow:hidden;
-      }
-
-      #ui-root{
-        overflow-y:auto;
-        overflow-x:hidden;
-        -webkit-overflow-scrolling:touch;
-        align-items:flex-start;
+      a-scene{
+        position:fixed !important;
+        inset:0 !important;
+        z-index:0 !important;
       }
 
       #ui-container{
-        min-height:100dvh;
-        height:auto;
-        padding:8px 0 calc(120px + env(safe-area-inset-bottom));
-        gap:8px;
-        display:flex;
-        flex-direction:column;
+        position:fixed !important;
+        inset:0 !important;
+        z-index:20 !important;
+        width:100% !important;
+        min-height:100dvh !important;
+        padding:8px 10px calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+        background:transparent !important;
+        pointer-events:none !important;
+        overflow:hidden !important;
       }
 
-      .bottom-zone{
-        display:flex;
-        flex-direction:column;
-        gap:8px;
-        align-items:stretch;
+      #ui-container .btn-action,
+      #ui-container button,
+      #ui-container input,
+      #ui-container textarea,
+      #attendance-panel,
+      #summary-panel,
+      #game-over-ui,
+      #mobile-hub-drawer,
+      #mobile-hub-sheet,
+      #hud-stats,
+      #hud-top-row,
+      #mission-prompt-box,
+      #choice-buttons,
+      #btn-speak,
+      #btn-play-audio,
+      #write-input,
+      #btn-submit-write,
+      #btn-next,
+      #btn-return{
+        pointer-events:auto !important;
       }
 
-      #hub-card,
-      #control-card,
-      #prompt-card,
-      #feedback,
-      .topbar,
-      #boss-phase-ui{
-        flex:0 0 auto;
+      body.hub-mode #ui-title{
+        font-size:1.9rem !important;
+        line-height:1.05 !important;
+        margin:4px 0 2px !important;
+        text-align:center;
       }
 
-      .topbar{
-        grid-template-columns:1fr;
+      body.hub-mode #ui-desc{
+        font-size:0.95rem !important;
+        margin:0 0 8px !important;
+        text-align:center;
       }
 
-      .title-block{
-        padding:12px 14px;
+      body.hub-mode #attendance-panel{
+        margin:6px 0 8px !important;
+        padding:10px 12px !important;
+        border-radius:16px !important;
       }
 
-      #ui-title{
-        font-size:1rem;
+      body.hub-mode #profile-panel,
+      body.hub-mode #hub-stats-board{
+        display:none !important;
       }
 
-      #ui-desc{
-        font-size:.86rem;
+      #mobile-hub-drawer{
+        position:fixed;
+        left:10px;
+        right:10px;
+        bottom:calc(10px + env(safe-area-inset-bottom, 0px));
+        z-index:50;
+        display:grid !important;
+        grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
+        gap:8px !important;
       }
 
-      .stats{
-        justify-content:flex-start;
+      #mobile-hub-drawer .btn-action{
+        min-width:0;
+        min-height:48px;
+        border-radius:16px;
+        font-weight:900;
+        font-size:0.96rem;
+        padding:0 8px;
       }
 
-      .chip{
-        min-height:38px;
-        padding:0 12px;
-        font-size:.88rem;
-      }
-
-      #prompt-card{
-        min-height:84px;
-        padding:12px 14px;
-      }
-
-      #prompt-body{
-        font-size:.92rem;
-      }
-
-      #hub-card,
-      #control-card{
+      #mobile-hub-sheet{
+        position:fixed;
+        left:10px;
+        right:10px;
+        bottom:calc(68px + env(safe-area-inset-bottom, 0px));
+        z-index:60;
+        display:none;
+        max-height:44dvh;
+        overflow:auto;
+        border-radius:18px;
+        background:rgba(10,18,34,.96);
+        border:1px solid rgba(123,237,255,.18);
+        box-shadow:0 14px 34px rgba(0,0,0,.28);
         padding:12px;
       }
 
-      .form-grid{
-        grid-template-columns:1fr;
+      #mobile-hub-sheet.show{
+        display:block;
       }
 
-      .hub-actions,
-      .control-row,
-      #choice-buttons,
-      .summary-actions{
-        flex-direction:column;
-        align-items:stretch;
+      #mobile-hub-sheet .session-sheet-title{
+        font-size:1rem;
+        font-weight:900;
+        color:#7bedff;
+        margin-bottom:10px;
+        text-align:center;
       }
 
-      .btn,
-      .choice-btn{
-        width:100%;
+      #mobile-hub-sheet .session-grid{
+        display:grid;
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+        gap:8px;
       }
 
-      #summary-panel,
-      #game-over-ui{
-        position:fixed;
-        left:8px;
-        right:8px;
-        bottom:calc(8px + env(safe-area-inset-bottom));
-        max-height:70dvh;
-        overflow:auto;
-        inset:auto 8px calc(8px + env(safe-area-inset-bottom)) 8px;
-        padding:14px;
+      #mobile-hub-sheet .session-chip{
+        min-height:48px;
+        border:1px solid rgba(123,237,255,.18);
+        border-radius:14px;
+        background:linear-gradient(180deg, rgba(42,215,255,.18), rgba(20,189,224,.10));
+        color:#eaf6ff;
+        font-weight:900;
+        font-size:0.95rem;
+      }
+
+      body.mission-mode #ui-title,
+      body.mission-mode #ui-desc,
+      body.mission-mode #attendance-panel,
+      body.mission-mode #ai-director-board,
+      body.mission-mode #profile-panel,
+      body.mission-mode #hub-stats-board,
+      body.mission-mode #mobile-hub-drawer,
+      body.mission-mode #mobile-hub-sheet{
+        display:none !important;
+      }
+
+      body.mission-mode #hud-stats{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        top:calc(env(safe-area-inset-top, 0px) + 6px) !important;
+        z-index:90 !important;
+        display:flex !important;
+        justify-content:space-between !important;
+        align-items:center !important;
+        gap:8px !important;
+        margin:0 !important;
+        padding:8px 12px !important;
+        border-radius:14px !important;
+        background:rgba(6,12,24,.92) !important;
+        backdrop-filter:blur(8px);
+      }
+
+      body.mission-mode #hud-top-row{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        top:calc(env(safe-area-inset-top, 0px) + 66px) !important;
+        z-index:89 !important;
+        display:flex !important;
+        justify-content:center !important;
+        gap:8px !important;
+        margin:0 !important;
+        padding:0 !important;
+        background:transparent !important;
+      }
+
+      body.mission-mode #question-diff-badge{
+        display:inline-flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        min-height:36px !important;
+        padding:0 14px !important;
+        font-size:.92rem !important;
+        border-radius:999px !important;
+      }
+
+      body.mission-mode #mission-prompt-box{
+        display:block !important;
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        top:calc(env(safe-area-inset-top, 0px) + 112px) !important;
+        z-index:88 !important;
+        margin:0 !important;
+        padding:12px !important;
+        border-radius:16px !important;
+        background:rgba(10,18,34,.94) !important;
+        border:1px solid rgba(123,237,255,.18) !important;
+        box-shadow:0 8px 20px rgba(0,0,0,.20);
+      }
+
+      body.mission-mode[data-mission-type="reading"] #choice-buttons,
+      body.mission-mode[data-mission-type="listening"] #choice-buttons{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        bottom:calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:95 !important;
+        display:grid !important;
+        grid-template-columns:1fr !important;
+        gap:8px !important;
+        margin:0 !important;
+        padding:10px 0 0 0 !important;
+        background:linear-gradient(to top, rgba(4,10,22,.96), rgba(4,10,22,.78), rgba(4,10,22,0));
+      }
+
+      body.mission-mode[data-mission-type="reading"] #choice-buttons .btn-action,
+      body.mission-mode[data-mission-type="listening"] #choice-buttons .btn-action{
+        min-height:52px !important;
+        border-radius:16px !important;
+      }
+
+      body.mission-mode[data-mission-type="listening"] #btn-play-audio{
+        display:block !important;
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        bottom:calc(194px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:96 !important;
+        min-height:52px !important;
+        border-radius:16px !important;
+      }
+
+      body.mission-mode[data-mission-type="speaking"] #choice-buttons,
+      body.mission-mode[data-mission-type="writing"] #choice-buttons,
+      body.mission-mode[data-mission-type="speaking"] #btn-play-audio,
+      body.mission-mode[data-mission-type="speaking"] #write-input,
+      body.mission-mode[data-mission-type="speaking"] #btn-submit-write,
+      body.mission-mode[data-mission-type="writing"] #btn-speak,
+      body.mission-mode[data-mission-type="writing"] #btn-play-audio,
+      body.mission-mode[data-mission-type="listening"] #btn-speak,
+      body.mission-mode[data-mission-type="reading"] #btn-speak,
+      body.mission-mode[data-mission-type="reading"] #write-input,
+      body.mission-mode[data-mission-type="reading"] #btn-submit-write,
+      body.mission-mode[data-mission-type="listening"] #write-input,
+      body.mission-mode[data-mission-type="listening"] #btn-submit-write{
+        display:none !important;
+      }
+
+      body.mission-mode #btn-speak,
+      body.mission-mode #btn-play-audio,
+      body.mission-mode #btn-submit-write{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        bottom:calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:95 !important;
+        min-height:52px !important;
+        border-radius:16px !important;
+      }
+
+      body.mission-mode #write-input{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        bottom:calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:94 !important;
+      }
+
+      body.summary-mode #ui-title,
+      body.summary-mode #ui-desc,
+      body.summary-mode #attendance-panel,
+      body.summary-mode #ai-director-board,
+      body.summary-mode #profile-panel,
+      body.summary-mode #hub-stats-board,
+      body.summary-mode #mobile-hub-drawer,
+      body.summary-mode #mobile-hub-sheet,
+      body.summary-mode #hud-stats,
+      body.summary-mode #hud-top-row{
+        display:none !important;
+      }
+
+      body.summary-mode #summary-panel{
+        display:block !important;
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        top:calc(env(safe-area-inset-top, 0px) + 10px) !important;
+        bottom:calc(78px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index:90 !important;
+        overflow:auto !important;
+      }
+
+      body.summary-mode #btn-next,
+      body.summary-mode #btn-return{
+        position:fixed !important;
+        left:10px !important;
+        right:10px !important;
+        z-index:95 !important;
+        min-height:52px !important;
+        border-radius:16px !important;
+      }
+
+      body.summary-mode #btn-next{
+        bottom:calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+
+      body.summary-mode #btn-return{
+        bottom:calc(10px + env(safe-area-inset-bottom, 0px)) !important;
       }
     }
   </style>
 </head>
 <body>
-  <div id="scene-wrap">
-    <a-scene
-      embedded
-      renderer="colorManagement: true; physicallyCorrectLights: false; antialias: true"
-      vr-mode-ui="enabled: false"
-      background="color: #081320">
-
-      <a-assets>
-        <img id="sky-grad" alt="" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop stop-color='%230c1d35'/%3E%3Cstop offset='1' stop-color='%23050c18'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' fill='url(%23g)'/%3E%3C/svg%3E">
-      </a-assets>
-
-      <a-sky src="#sky-grad"></a-sky>
-      <a-entity light="type: ambient; intensity: 1.0; color: #dff3ff"></a-entity>
-      <a-entity light="type: directional; intensity: 0.85; color: #bde8ff" position="1 3 2"></a-entity>
-
-      <a-plane position="0 -1.2 -4" rotation="-90 0 0" width="18" height="18" color="#0f2138"></a-plane>
-
-      <a-camera position="0 1.6 0">
-        <a-cursor color="#59d0ff" fuse="false"></a-cursor>
-      </a-camera>
-
-      <a-entity id="hub-scene" visible="true" position="0 1.6 -3.8">
-        <a-plane width="3.9" height="2.25" color="#10223a" opacity="0.94" radius="0.12"></a-plane>
-        <a-text value="TECHPATH ENGLISH LESSON" align="center" width="3.5" color="#59d0ff" position="0 0.74 0.02"></a-text>
-        <a-text value="เลือก S แล้วเริ่มเรียนได้เลย" align="center" width="3.2" color="#d8ebff" position="0 0.38 0.02"></a-text>
-        <a-text value="Listening • Speaking • Reading • Writing" align="center" width="3.1" color="#ffd166" position="0 0.05 0.02"></a-text>
-        <a-text value="ถ้าหน้าจอเล็ก ให้ใช้ปุ่มด้านล่างแทนข้อความในฉาก" align="center" width="2.9" color="#a8bdd6" position="0 -0.38 0.02"></a-text>
-      </a-entity>
-
-      <a-entity id="mission-speaking-scene" visible="false" position="0 1.6 -3.5">
-        <a-plane width="4.2" height="2.5" color="#10223a" opacity="0.96" radius="0.12"></a-plane>
-        <a-text id="speaking-prompt" value="Speaking prompt" align="center" width="3.55" color="#eef7ff" position="0 0.18 0.03"></a-text>
-      </a-entity>
-
-      <a-entity id="mission-reading-scene" visible="false" position="0 1.6 -3.5">
-        <a-plane width="4.35" height="2.7" color="#10223a" opacity="0.96" radius="0.12"></a-plane>
-        <a-text id="reading-question" value="Reading question" align="center" width="3.65" color="#eef7ff" position="0 0.72 0.03"></a-text>
-        <a-text id="reading-choice-a" value="A" align="left" width="2.8" color="#7bedff" position="-1.55 0.02 0.03"></a-text>
-        <a-text id="reading-choice-b" value="B" align="left" width="2.8" color="#7bedff" position="-1.55 -0.40 0.03"></a-text>
-        <a-text id="reading-choice-c" value="C" align="left" width="2.8" color="#7bedff" position="-1.55 -0.82 0.03"></a-text>
-      </a-entity>
-
-      <a-entity id="mission-listening-scene" visible="false" position="0 1.6 -3.5">
-        <a-plane width="4.35" height="2.7" color="#10223a" opacity="0.96" radius="0.12"></a-plane>
-        <a-text id="listening-prompt" value="Listen carefully, then choose the correct answer." align="center" width="3.55" color="#eef7ff" position="0 0.72 0.03"></a-text>
-        <a-text id="listening-choice-a" value="A" align="left" width="2.8" color="#7bedff" position="-1.55 0.02 0.03"></a-text>
-        <a-text id="listening-choice-b" value="B" align="left" width="2.8" color="#7bedff" position="-1.55 -0.40 0.03"></a-text>
-        <a-text id="listening-choice-c" value="C" align="left" width="2.8" color="#7bedff" position="-1.55 -0.82 0.03"></a-text>
-      </a-entity>
-
-      <a-entity id="mission-writing-scene" visible="false" position="0 1.6 -3.5">
-        <a-plane width="4.2" height="2.5" color="#10223a" opacity="0.96" radius="0.12"></a-plane>
-        <a-text id="writing-prompt" value="Writing prompt" align="center" width="3.55" color="#eef7ff" position="0 0.18 0.03"></a-text>
-      </a-entity>
-    </a-scene>
-  </div>
-
-  <div id="ui-root">
-    <div id="ui-container" class="hub-mode">
-      <div class="topbar">
-        <div class="title-block glass">
-          <div id="ui-title">TechPath English Lesson</div>
-          <div id="ui-desc">เลือก S ที่ต้องการ แล้วเริ่มทำภารกิจภาษาอังกฤษได้ทันที</div>
-        </div>
-
-        <div class="stats">
-          <div class="chip" id="mission-type-tag">READY</div>
-          <div class="chip" id="timer">00:00</div>
-          <div class="chip">Score: <span id="score-display" style="margin-left:6px;">0</span></div>
-          <div class="chip">HP: <span id="hp-display" style="margin-left:6px;">100%</span></div>
-          <div class="chip" id="combo-display">(x2 COMBO!)</div>
-        </div>
-      </div>
-
-      <div id="feedback" class="glass">พร้อมเริ่มบทเรียนแล้ว</div>
-
-      <div id="prompt-card" class="glass">
-        <div id="prompt-label">Prompt</div>
-        <div id="prompt-body">เลือก S จากด้านล่าง หรือใช้ query string เดิมของระบบได้ตามปกติ</div>
-      </div>
-
-      <div id="boss-phase-ui" class="glass">
-        <div id="boss-phase-title">Final Boss</div>
-        <div class="boss-bar">
-          <div id="boss-bar-fill"></div>
-        </div>
-        <div id="boss-hp-text">BOSS HP: 0 / 0</div>
-        <div id="boss-phase-sub"></div>
-      </div>
-
-      <div class="bottom-zone">
-        <div id="hub-card" class="glass">
-          <div class="card-title">Lesson Setup</div>
-
-          <div class="form-grid">
-            <div class="field">
-              <label for="student-id">Student ID</label>
-              <input id="student-id" type="text" placeholder="เช่น 65001" />
-            </div>
-
-            <div class="field">
-              <label for="student-name">Name</label>
-              <input id="student-name" type="text" placeholder="เช่น Somchai" />
-            </div>
-
-            <div class="field">
-              <label for="class-section">Section</label>
-              <input id="class-section" type="text" placeholder="เช่น A1" />
-            </div>
-
-            <div class="field">
-              <label for="session-select">Session</label>
-              <select id="session-select">
-                <option value="S01">S01</option>
-                <option value="S02">S02</option>
-                <option value="S03">S03</option>
-                <option value="S04">S04</option>
-                <option value="S05">S05</option>
-                <option value="S06">S06</option>
-                <option value="S07">S07</option>
-                <option value="S08">S08</option>
-                <option value="S09">S09</option>
-                <option value="S10">S10</option>
-                <option value="S11">S11</option>
-                <option value="S12">S12</option>
-                <option value="S13">S13</option>
-                <option value="S14">S14</option>
-                <option value="S15">S15</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="difficulty-select">Difficulty</label>
-              <select id="difficulty-select">
-                <option value="easy">Easy</option>
-                <option value="normal" selected>Normal</option>
-                <option value="hard">Hard</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="mode-select">Mode</label>
-              <select id="mode-select">
-                <option value="play" selected>Play</option>
-                <option value="research">Research</option>
-                <option value="demo">Demo</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="hub-actions">
-            <button id="btn-start" class="btn" type="button">Start Lesson</button>
-            <button id="btn-start-lesson" class="btn hidden-alias" type="button">Start Lesson</button>
-            <button id="btn-play" class="btn hidden-alias" type="button">Start Lesson</button>
-            <button id="btn-open-summary" class="btn secondary" type="button">Open Summary</button>
-          </div>
-        </div>
-
-        <div id="control-card" class="glass">
-          <div class="card-title">Mission Controls</div>
-
-          <div class="control-row" style="margin-bottom:10px;">
-            <button id="btn-speak" class="btn" type="button">Speak</button>
-            <button id="btn-play-audio" class="btn" type="button">Play Audio</button>
-            <button id="btn-submit-write" class="btn" type="button">Submit Writing</button>
-            <button id="btn-next" class="btn secondary" type="button">Next</button>
-            <button id="btn-return" class="btn secondary" type="button">Return</button>
-          </div>
-
-          <input id="write-input" type="text" placeholder="พิมพ์คำตอบของคุณที่นี่" />
-
-          <div id="choice-buttons" class="control-row" style="margin-top:10px;">
-            <button class="choice-btn" id="choice-btn-a" data-choice="A" type="button">A</button>
-            <button class="choice-btn" id="choice-btn-b" data-choice="B" type="button">B</button>
-            <button class="choice-btn" id="choice-btn-c" data-choice="C" type="button">C</button>
-          </div>
-        </div>
+  <div id="source-shield" aria-hidden="true">
+    <div id="source-shield-card">
+      <div id="source-shield-title">Protected Lesson Mode</div>
+      <div id="source-shield-sub">
+        หน้านี้ถูกป้องกันการดูโค้ดระดับพื้นฐานไว้แล้ว
+        กรุณาปิด Developer Tools เพื่อกลับเข้าใช้งาน
       </div>
     </div>
   </div>
 
-  <div id="summary-panel" class="glass">
-    <div id="summary-title">Summary</div>
-    <div id="summary-body">ยังไม่มีผลสรุป</div>
-    <div class="summary-actions">
-      <button id="btn-summary-close" class="btn secondary" type="button">Close</button>
-      <button id="btn-summary-home" class="btn" type="button">Back to Hub</button>
+  <div id="loading" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:#07111f;color:#eaf6ff;z-index:99999;transition:opacity .26s ease;">
+    <div style="font-size:1.1rem;font-weight:800;color:#7bedff;margin-bottom:10px;">Loading TechPath VR...</div>
+  </div>
+
+  <div id="impact-flash" aria-hidden="true"></div>
+
+  <div id="boss-cinematic" aria-hidden="true">
+    <div id="boss-cinematic-card">
+      <div id="boss-cinematic-title">FINAL BOSS</div>
+      <div id="boss-cinematic-sub">Prepare for the last phase.</div>
     </div>
   </div>
 
-  <div id="game-over-ui" class="glass">
-    <div id="game-over-title" style="font-size:1.1rem;font-weight:900;color:var(--bad);margin-bottom:8px;">Game Over</div>
-    <div id="game-over-body" style="line-height:1.5;color:var(--text);margin-bottom:12px;">ลองใหม่อีกครั้ง</div>
-    <div class="summary-actions">
-      <button id="btn-retry" class="btn" type="button">Retry</button>
-      <button id="btn-back-hub" class="btn secondary" type="button">Back to Hub</button>
+  <div id="answer-fx-layer" aria-hidden="true"></div>
+  <div id="combo-popup" class="combo-popup">COMBO x2</div>
+  <div id="mission-type-tag" class="mission-type-tag">MISSION</div>
+
+  <div id="ui-container" class="hub-mode">
+    <div id="player-avatar-hud">🧑‍💻</div>
+
+    <div class="title" id="ui-title">TECHPATH VR</div>
+    <p class="instruction" id="ui-desc">เลือกด่านแล้วเริ่มเล่นได้เลย</p>
+
+    <div id="attendance-panel" class="compact">
+      <div id="attendance-header-row">
+        <div id="attendance-title">ATTENDANCE TRACKER</div>
+        <button id="attendance-toggle" type="button" aria-expanded="false">ดูรายละเอียด</button>
+      </div>
+
+      <div id="attendance-summary-line">
+        <span id="attendance-summary-name">-</span>
+        <span>•</span>
+        <span id="attendance-summary-s">S00</span>
+        <span>•</span>
+        <span id="attendance-summary-status">กำลังติดตาม</span>
+      </div>
+
+      <div id="attendance-grid">
+        <div class="attendance-item"><b>Student ID</b><span id="attendance-student-id">-</span></div>
+        <div class="attendance-item"><b>Name</b><span id="attendance-student-name">-</span></div>
+        <div class="attendance-item"><b>Class Section</b><span id="attendance-class-section">-</span></div>
+        <div class="attendance-item"><b>Current S</b><span id="attendance-session-no">Lobby</span></div>
+        <div class="attendance-item"><b>Time in S</b><span id="attendance-duration">00:00</span></div>
+        <div class="attendance-item"><b>Active Time</b><span id="attendance-active-time">00:00</span></div>
+      </div>
+
+      <div id="attendance-status" class="warn">กำลังเตรียมข้อมูลเช็กชื่อ...</div>
     </div>
+
+    <div id="hud-stats">
+      <div id="hud-score-wrap" class="hud-stat-item" style="color:#f1c40f;">
+        <span class="hud-stat-icon">🏆</span>
+        <span class="hud-stat-label">SCORE</span>
+        <span id="score-display">0</span>
+      </div>
+
+      <div id="hud-hp-wrap" class="hud-stat-item" style="color:#2ed573;">
+        <span class="hud-stat-icon">❤️</span>
+        <span class="hud-stat-label">HP</span>
+        <span id="hp-display">100%</span>
+      </div>
+    </div>
+
+    <div id="hud-top-row">
+      <div id="question-diff-badge">Q: NORMAL</div>
+      <div id="unit-theme-chip">STANDARD FINAL</div>
+      <div id="reward-roll-badge">COMMON CHEST</div>
+    </div>
+
+    <div id="ai-director-board">
+      <div id="ai-director-state" style="font-weight:800;color:#fff;">STEADY P:0 S:0</div>
+      <div id="ai-director-sub" style="font-size:.95rem;opacity:.9;">AI กำลังดูจังหวะการเล่นของคุณ</div>
+    </div>
+
+    <div id="profile-panel">
+      <div id="profile-panel-title">PROFILE</div>
+
+      <div class="avatar-row">
+        <button class="avatar-chip active" id="avatar-chip-1" onclick="selectAvatar('🧑‍💻')">🧑‍💻<small>ฟรี</small></button>
+        <button class="avatar-chip" id="avatar-chip-2" onclick="selectAvatar('🤖')">🤖<small>Streak 3</small></button>
+        <button class="avatar-chip" id="avatar-chip-3" onclick="selectAvatar('👩‍🚀')">👩‍🚀<small>Streak 7</small></button>
+        <button class="avatar-chip" id="avatar-chip-4" onclick="selectAvatar('🦾')">🦾<small>Clear 5</small></button>
+        <button class="avatar-chip" id="avatar-chip-5" onclick="selectAvatar('🧠')">🧠<small>14/12</small></button>
+      </div>
+
+      <div id="unlock-hint">สะสม streak และ clear เพื่อปลดล็อก</div>
+
+      <input type="text" id="profile-name-input" class="input-field" placeholder="ชื่อผู้เล่น" maxlength="24" />
+      <button class="btn-action" id="btn-save-profile" onclick="savePlayerProfile()">บันทึกโปรไฟล์</button>
+    </div>
+
+    <div id="hub-stats-board">
+      <div id="hub-stats-title">STATS</div>
+      <div id="hub-stats-body">Loading stats...</div>
+    </div>
+
+    <div id="timer">01:00</div>
+
+    <div id="mission-prompt-box">
+      <div id="mission-prompt-label">PROMPT</div>
+      <div id="mission-prompt-text">...</div>
+    </div>
+
+    <div id="boss-phase-ui" style="display:none;">
+      <div id="boss-phase-title">👑 FINAL BOSS</div>
+      <div id="boss-phase-sub">ตอบถูกหลายครั้งเพื่อล้มบอส</div>
+      <div id="boss-bar-shell"><div id="boss-bar-fill"></div></div>
+      <div id="boss-hp-text">BOSS HP: 3 / 3</div>
+    </div>
+
+    <button class="btn-action" id="btn-speak" onclick="startRecognition()" style="display:none;">🎙️ Speak</button>
+    <button class="btn-action" id="btn-play-audio" onclick="playAudio()" style="display:none;">🔊 Play Audio</button>
+
+    <input type="text" class="input-field" id="write-input" placeholder="พิมพ์คำตอบภาษาอังกฤษ..." style="display:none;" />
+    <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()" style="display:none;">Submit</button>
+
+    <div id="choice-buttons" style="display:none;">
+      <button id="choice-btn-a" class="btn-action" style="display:block;background:#e67e22;" onclick="checkChoiceAnswer('A')">A</button>
+      <button id="choice-btn-b" class="btn-action" style="display:block;background:#2ecc71;" onclick="checkChoiceAnswer('B')">B</button>
+      <button id="choice-btn-c" class="btn-action" style="display:block;background:#9b59b6;" onclick="checkChoiceAnswer('C')">C</button>
+    </div>
+
+    <div id="game-over-ui" style="display:none;">
+      <p style="color:#f1c40f;margin:0 0 10px 0;">บันทึกคะแนน</p>
+      <input type="text" id="player-name-input" class="input-field" placeholder="ใส่ชื่อ..." style="display:inline-block;width:60%;margin-top:0;">
+      <button class="btn-action" id="btn-submit-score" onclick="submitScore()" style="display:inline-block;margin-left:10px;">Save Score</button>
+    </div>
+
+    <div id="feedback"></div>
+
+    <div id="summary-panel" style="display:none;">
+      <div id="summary-title">MISSION SUMMARY</div>
+      <div id="summary-body">Summary data</div>
+    </div>
+
+    <button class="btn-action" id="btn-next" onclick="playNextMission()" style="display:none;">เล่นด่านถัดไป ▶</button>
+    <button class="btn-action" id="btn-return" onclick="returnToHub()" style="display:none;">กลับ Main Hub</button>
   </div>
 
-  <input id="display-name" class="hidden-alias" />
-  <input id="player-name" class="hidden-alias" />
-  <input id="name-input" class="hidden-alias" />
-  <input id="studentId" class="hidden-alias" />
-  <input id="section-input" class="hidden-alias" />
-  <input id="sessionNo" class="hidden-alias" />
-  <input id="session-no" class="hidden-alias" />
-  <input id="lesson-session" class="hidden-alias" />
+  <div id="mobile-hub-sheet"></div>
+  <div id="mobile-hub-drawer">
+    <button class="btn-action" id="btn-mobile-sessions" type="button">เลือกด่าน</button>
+    <button class="btn-action" id="btn-mobile-profile" type="button">โปรไฟล์</button>
+    <button class="btn-action" id="btn-mobile-stats" type="button">สถิติ</button>
+  </div>
+
+  <a-scene loading-screen="enabled: false">
+    <a-entity id="hub-scene">
+      <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
+
+      <a-entity position="0 4.35 -5.15">
+        <a-text value="TECHPATH VR" position="0 0.28 0" align="center" color="#7bedff" scale="1.75 1.75 1.75"></a-text>
+        <a-text value="Choose a session and build your skill path" position="0 -0.12 0" align="center" color="#dbeafe" scale="0.56 0.56 0.56"></a-text>
+        <a-plane position="0 -0.34 0" width="3.1" height="0.03" color="#00e5ff" material="opacity: 0.45; shader: flat"></a-plane>
+      </a-entity>
+
+      <a-plane position="0 1.18 -4.18" width="9.1" height="3.35" color="#09111f" material="opacity: 0.24; shader: flat"></a-plane>
+
+      <a-entity id="reward-chest" class="clickable" position="-3.72 0.72 -3.08" rotation="0 42 0" onclick="claimReward()">
+        <a-plane id="reward-card-panel" position="0 0.34 -0.18" width="2.25" height="1.55" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
+        <a-box id="reward-card-frame" position="0 0.34 -0.21" width="2.35" height="1.65" depth="0.04" color="#7bedff" material="wireframe: true; opacity: 0.35"></a-box>
+        <a-ring id="reward-aura" position="0 0.18 0.08" radius-inner="0.46" radius-outer="0.60" color="#ffeaa7" material="opacity: 0.18; shader: flat" rotation="-90 0 0"></a-ring>
+        <a-box id="reward-chest-body" position="0 0.02 0" width="0.82" height="0.50" depth="0.62" color="#8c6239" material="metalness: 0.22; roughness: 0.55"></a-box>
+        <a-box id="reward-chest-lid" position="0 0.34 0.02" width="0.84" height="0.16" depth="0.64" color="#f1c40f" material="metalness: 0.52; roughness: 0.34"></a-box>
+        <a-text value="DAILY REWARD" position="0 0.72 0.03" align="center" color="#ffeaa7" scale="0.46 0.46 0.46"></a-text>
+        <a-text id="streak-text" value="Loading..." position="0 -0.55 0.03" align="center" color="#ffffff" scale="0.38 0.38 0.38" width="5"></a-text>
+      </a-entity>
+
+      <a-entity position="-4.08 2.03 -2.82" rotation="0 25 0">
+        <a-plane width="2.18" height="1.56" color="#0f172a" material="opacity: 0.92; shader: flat"></a-plane>
+        <a-box width="2.28" height="1.66" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.34"></a-box>
+        <a-text value="PROFILE" position="0 0.54 0.05" align="center" color="#7bedff" scale="0.48 0.48 0.48"></a-text>
+        <a-circle position="0 -0.10 0.03" radius="0.22" color="#0b1327" material="opacity: 0.95; shader: flat"></a-circle>
+        <a-ring position="0 -0.10 0.04" radius-inner="0.22" radius-outer="0.26" color="#2ed573" material="opacity: 0.34; shader: flat"></a-ring>
+        <a-text id="vr-profile-avatar" value="🧑‍💻" position="0 -0.12 0.05" align="center" color="#ffffff" scale="1.02 1.02 1.02"></a-text>
+        <a-text id="vr-profile-name" value="Name: Hero" position="0 -0.50 0.05" align="center" color="#ffffff" scale="0.42 0.42 0.42" width="5"></a-text>
+      </a-entity>
+
+      <a-entity position="0 2.80 -4.56">
+        <a-plane width="4.55" height="1.12" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
+        <a-box width="4.66" height="1.22" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.24"></a-box>
+        <a-text value="DIFFICULTY" position="0 0.34 0.04" align="center" color="#7bedff" scale="0.54 0.54 0.54"></a-text>
+
+        <a-entity position="-1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('easy')">
+          <a-box id="diff-easy-box" width="1.18" height="0.42" depth="0.10" color="#2ecc71" material="opacity: 0.52"></a-box>
+          <a-text value="EASY" align="center" position="0 0 0.06" color="#0b1f14" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+
+        <a-entity position="0 -0.08 0.02" class="clickable" onclick="setDifficulty('normal')">
+          <a-box id="diff-normal-box" width="1.18" height="0.42" depth="0.10" color="#f1c40f" material="opacity: 1"></a-box>
+          <a-text value="NORMAL" align="center" position="0 0 0.06" color="#261d00" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+
+        <a-entity position="1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('hard')">
+          <a-box id="diff-hard-box" width="1.18" height="0.42" depth="0.10" color="#e74c3c" material="opacity: 0.52"></a-box>
+          <a-text value="HARD" align="center" position="0 0 0.06" color="#fff5f5" scale="0.40 0.40 0.40"></a-text>
+        </a-entity>
+      </a-entity>
+
+      <a-entity id="mission-wall" position="0 1.18 -4.0"></a-entity>
+
+      <a-entity position="4.02 2.02 -3.02" rotation="0 -34 0">
+        <a-plane id="leaderboard-panel" width="2.48" height="2.92" color="#101826" material="opacity: 0.94; shader: flat"></a-plane>
+        <a-box id="leaderboard-frame" width="2.58" height="3.02" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true; opacity: 0.30"></a-box>
+        <a-plane id="leaderboard-header-panel" position="0 1.08 0.02" width="2.18" height="0.34" color="#152238" material="opacity: 0.96; shader: flat"></a-plane>
+        <a-text id="leaderboard-title" value="TOP 5 LEGENDS" position="0 1.08 0.05" align="center" color="#ffeaa7" scale="0.56 0.56 0.56"></a-text>
+        <a-text id="leaderboard-subtitle" value="Best mission runs" position="0 0.78 0.05" align="center" color="#cbd5e1" scale="0.34 0.34 0.34"></a-text>
+        <a-text id="vr-leaderboard-list" value="Loading..." position="0 -0.14 0.05" align="center" color="#ffffff" scale="0.54 0.54 0.54" line-height="64" width="3.5"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="hackerBoss" visible="false" position="0 3 -15">
+      <a-box color="#ff0000" width="1.5" height="1.5" depth="1.5" animation="property: rotation; to: 360 360 360; dur: 3000; loop: true; easing: linear"></a-box>
+      <a-text value="VIRUS / HACKER" color="#ff4757" position="0 1.2 0" align="center" scale="2 2 2"></a-text>
+    </a-entity>
+
+    <a-entity id="mission-speaking-scene" visible="false">
+      <a-entity environment="preset: volcano; skyColor: #ff0000"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.3" color="#f1c40f" animation="property: position; to: 0 0.1 0; dir: alternate; dur: 800; loop: true"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#2980b9"></a-cylinder>
+      </a-entity>
+      <a-text id="speaking-prompt" value="PROMPT TEXT" position="0 3 -3" align="center" color="#ff4757"></a-text>
+    </a-entity>
+
+    <a-entity id="mission-reading-scene" visible="false">
+      <a-entity environment="preset: arches; skyColor: #550000"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.25" color="#e74c3c"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#34495e"></a-cylinder>
+        <a-plane position="0 1.2 0" width="4" height="1" color="#fff" material="opacity: 0.9">
+          <a-text id="reading-question" value="QUESTION TEXT" color="#000" align="center" position="0 0 0.01" scale="0.7 0.7 0.7" width="5"></a-text>
+        </a-plane>
+      </a-entity>
+
+      <a-entity position="-2.5 0.5 -3" rotation="0 15 0" animation="property: position; to: -2.5 0.8 -3; dir: alternate; dur: 1500; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+        <a-text id="reading-choice-a" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="0 0.5 -3" animation="property: position; to: 0 0.7 -3; dir: alternate; dur: 1200; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+        <a-text id="reading-choice-b" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="2.5 0.5 -3" rotation="0 -15 0" animation="property: position; to: 2.5 0.9 -3; dir: alternate; dur: 1700; loop: true">
+        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+        <a-text id="reading-choice-c" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="mission-listening-scene" visible="false">
+      <a-entity environment="preset: forest; skyColor: #ff2222"></a-entity>
+      <a-entity position="0 1.6 -3.5">
+        <a-sphere radius="0.3" color="#3498db" animation="property: position; to: 0 0.2 0; dir: alternate; dur: 500; loop: true"></a-sphere>
+        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#ecf0f1" animation="property: rotation; to: 0 360 0; dur: 2000; easing: linear; loop: true"></a-cylinder>
+      </a-entity>
+      <a-text id="listening-prompt" value="PRESS PLAY AUDIO" position="0 3 -3" align="center" color="#f1c40f"></a-text>
+
+      <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
+        <a-text id="listening-choice-a" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="0 0.5 -3">
+        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
+        <a-text id="listening-choice-b" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+
+      <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
+        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
+        <a-text id="listening-choice-c" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="mission-writing-scene" visible="false">
+      <a-entity environment="preset: starry; skyColor: #aa0000"></a-entity>
+      <a-plane position="0 1.5 -3" width="4" height="2" color="#ecf0f1">
+        <a-text id="writing-prompt" value="TERMINAL:\n..." color="#000" align="left" position="-1.8 0.5 0.01" width="3.5"></a-text>
+      </a-plane>
+    </a-entity>
+
+    <a-entity id="vr-feedback-fx" position="0 2.5 -2.5" visible="false">
+      <a-text id="vr-feedback-text" value="SUCCESS!" align="center" scale="1.5 1.5 1.5" color="#2ed573"></a-text>
+    </a-entity>
+
+    <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+
+    <a-entity camera look-controls position="0 1.6 0">
+      <a-cursor id="vr-cursor" color="#00e5ff" raycaster="objects: .clickable" animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150" visible="false"></a-cursor>
+    </a-entity>
+
+    <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+    <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
+  </a-scene>
 
   <script>
-    (function () {
-      const qs = new URLSearchParams(location.search);
+  (function () {
+    'use strict';
 
-      const studentId = document.getElementById('student-id');
-      const studentName = document.getElementById('student-name');
-      const classSection = document.getElementById('class-section');
-      const sessionSelect = document.getElementById('session-select');
-      const difficultySelect = document.getElementById('difficulty-select');
-      const modeSelect = document.getElementById('mode-select');
+    function $(id) {
+      return document.getElementById(id);
+    }
 
-      const aliasMap = [
-        ['display-name', 'student-name'],
-        ['player-name', 'student-name'],
-        ['name-input', 'student-name'],
-        ['studentId', 'student-id'],
-        ['section-input', 'class-section'],
-        ['sessionNo', 'session-select'],
-        ['session-no', 'session-select'],
-        ['lesson-session', 'session-select']
-      ];
+    let finished = false;
+    let firstBootError = '';
 
-      const startVisible = document.getElementById('btn-start');
-      ['btn-start-lesson', 'btn-play'].forEach(id => {
-        const aliasBtn = document.getElementById(id);
-        if (!aliasBtn) return;
-        aliasBtn.addEventListener('click', () => startVisible.click());
-      });
+    function escapeHtml(str) {
+      return String(str || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+    }
 
-      function syncAliases() {
-        aliasMap.forEach(([aliasId, sourceId]) => {
-          const aliasEl = document.getElementById(aliasId);
-          const sourceEl = document.getElementById(sourceId);
-          if (!aliasEl || !sourceEl) return;
-          aliasEl.value = sourceEl.value;
-        });
-      }
+    function formatErrorMessage(raw) {
+      const text = String(raw || '').trim();
+      if (!text) return 'Unknown boot error';
+      return text.length > 320 ? text.slice(0, 320) + '…' : text;
+    }
 
-      [studentId, studentName, classSection, sessionSelect, difficultySelect, modeSelect]
-        .filter(Boolean)
-        .forEach(el => el.addEventListener('input', syncAliases));
+    function releaseLoading(message = '', isError = false) {
+      if (finished && !isError) return;
+      finished = true;
 
-      function applyQs() {
-        studentId.value = qs.get('studentId') || qs.get('sid') || qs.get('pid') || '';
-        studentName.value = qs.get('studentName') || qs.get('name') || '';
-        classSection.value = qs.get('classSection') || qs.get('section') || '';
-        sessionSelect.value = qs.get('sessionNo') || qs.get('session') || qs.get('s') || 'S01';
-        difficultySelect.value = qs.get('diff') || 'normal';
-        modeSelect.value = qs.get('run') || 'play';
-        syncAliases();
-      }
+      const loading = $('loading');
+      if (!loading) return;
 
-      applyQs();
+      if (message) {
+        loading.innerHTML = `
+          <div style="font-size:1.05rem;font-weight:800;color:#7bedff;margin-bottom:10px;">
+            TechPath VR
+          </div>
+          <div style="font-size:.94rem;line-height:1.5;color:${isError ? '#ffd6db' : '#eaf6ff'};max-width:340px;margin:0 auto 14px;white-space:pre-wrap;">
+            ${escapeHtml(message)}
+          </div>
+          <button id="boot-reload-btn"
+            style="display:${isError ? 'inline-flex' : 'none'};min-height:44px;padding:10px 16px;border-radius:14px;border:1px solid rgba(123,237,255,.25);background:rgba(123,237,255,.12);color:#fff;font-weight:800;">
+            รีเฟรชอีกครั้ง
+          </button>
+        `;
 
-      function textValue(id) {
-        const el = document.getElementById(id);
-        if (!el) return '';
-        return (el.getAttribute('value') || el.getAttribute('text') || el.textContent || '').trim();
-      }
-
-      function boolVisible(id) {
-        const el = document.getElementById(id);
-        if (!el) return false;
-        return el.getAttribute('visible') !== 'false';
-      }
-
-      function syncPromptCard() {
-        const label = document.getElementById('prompt-label');
-        const body = document.getElementById('prompt-body');
-        const choiceWrap = document.getElementById('choice-buttons');
-
-        let promptLabel = 'Prompt';
-        let promptBody = 'เลือก S จากด้านล่าง หรือใช้ query string เดิมของระบบได้ตามปกติ';
-
-        if (boolVisible('mission-speaking-scene')) {
-          promptLabel = 'Speaking Mission';
-          promptBody = textValue('speaking-prompt') || 'พูดตามประโยคที่กำหนด';
-        } else if (boolVisible('mission-reading-scene')) {
-          promptLabel = 'Reading Mission';
-          promptBody = textValue('reading-question') || 'อ่านข้อความแล้วเลือกคำตอบ';
-        } else if (boolVisible('mission-listening-scene')) {
-          promptLabel = 'Listening Mission';
-          promptBody = textValue('listening-prompt') || 'ฟังก่อนแล้วเลือกคำตอบที่ถูก';
-        } else if (boolVisible('mission-writing-scene')) {
-          promptLabel = 'Writing Mission';
-          promptBody = textValue('writing-prompt') || 'พิมพ์คำตอบตามโจทย์';
-        } else if (boolVisible('hub-scene')) {
-          promptLabel = 'Lesson Hub';
-          promptBody = 'กรอกข้อมูลผู้เรียน เลือก S และกด Start Lesson';
-        }
-
-        label.textContent = promptLabel;
-        body.textContent = promptBody;
-
-        const inReading = boolVisible('mission-reading-scene');
-        const inListening = boolVisible('mission-listening-scene');
-
-        if (inReading || inListening) {
-          const prefix = inListening ? 'listening' : 'reading';
-          const a = textValue(prefix + '-choice-a') || 'A';
-          const b = textValue(prefix + '-choice-b') || 'B';
-          const c = textValue(prefix + '-choice-c') || 'C';
-          document.getElementById('choice-btn-a').textContent = a;
-          document.getElementById('choice-btn-b').textContent = b;
-          document.getElementById('choice-btn-c').textContent = c;
-        }
-
-        if (!inReading && !inListening && choiceWrap.style.display === 'flex') {
-          choiceWrap.style.display = 'none';
+        const reloadBtn = $('boot-reload-btn');
+        if (reloadBtn && isError) {
+          reloadBtn.addEventListener('click', function () {
+            location.reload();
+          });
         }
       }
 
-      setInterval(syncPromptCard, 250);
+      loading.style.opacity = '1';
+      loading.style.display = 'flex';
 
-      document.getElementById('btn-open-summary')?.addEventListener('click', () => {
-        document.getElementById('summary-panel').style.display = 'block';
-      });
+      if (!isError) {
+        setTimeout(() => {
+          loading.style.opacity = '0';
+          setTimeout(() => {
+            loading.style.display = 'none';
+          }, 260);
+        }, 120);
+      }
+    }
 
-      document.getElementById('btn-summary-close')?.addEventListener('click', () => {
-        document.getElementById('summary-panel').style.display = 'none';
-      });
+    function showBootError(raw) {
+      if (firstBootError) return;
+      firstBootError = formatErrorMessage(raw);
+      console.error('TechPath boot error:', raw);
+      releaseLoading('เริ่มระบบไม่สำเร็จ\n\n' + firstBootError, true);
+    }
 
-      document.getElementById('btn-summary-home')?.addEventListener('click', () => {
-        document.getElementById('summary-panel').style.display = 'none';
-        document.getElementById('ui-container').classList.remove('mission-mode', 'summary-mode');
-        document.getElementById('ui-container').classList.add('hub-mode');
-      });
+    window.__TECHPATH_RELEASE_LOADING__ = function () {
+      releaseLoading('', false);
+    };
 
-      document.getElementById('btn-retry')?.addEventListener('click', () => {
-        document.getElementById('game-over-ui').style.display = 'none';
-      });
+    window.__TECHPATH_SHOW_BOOT_ERROR__ = showBootError;
 
-      document.getElementById('btn-back-hub')?.addEventListener('click', () => {
-        document.getElementById('game-over-ui').style.display = 'none';
-        document.getElementById('ui-container').classList.remove('mission-mode', 'summary-mode');
-        document.getElementById('ui-container').classList.add('hub-mode');
-      });
-    })();
+    window.addEventListener('load', function () {
+      setTimeout(() => {
+        if (!firstBootError) releaseLoading('', false);
+      }, 300);
+    });
+
+    window.addEventListener('error', function (e) {
+      const msg =
+        e?.error?.stack ||
+        e?.error?.message ||
+        e?.message ||
+        'Global boot error';
+      showBootError(msg);
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+      const msg =
+        e?.reason?.stack ||
+        e?.reason?.message ||
+        e?.reason ||
+        'Unhandled promise rejection';
+      showBootError(msg);
+    });
+
+    setTimeout(() => {
+      if (!finished && !firstBootError) {
+        showBootError('โหลดนานผิดปกติ: module หรือ import บางตัวอาจพัง');
+      }
+    }, 3500);
+  })();
   </script>
 
-  <script type="module" src="./js/lesson-main.js?v=20260422a-lesson-scrollfix"></script>
+  <script type="module" src="./js/lesson-main.js?v=20260422-old-ui"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    function compactAttendancePayload(payload = {}) {
+      return {
+        api: 'attendance',
+        patch: payload.patch || '',
+        source: payload.source || 'techpath-vr',
+        eventType: payload.eventType || '',
+        eventAt: payload.eventAt || new Date().toISOString(),
+
+        studentId: payload.studentId || '',
+        studentName: payload.studentName || '',
+        classSection: payload.classSection || '',
+        lessonId: payload.lessonId || '',
+        courseMeeting: payload.courseMeeting || '',
+
+        mode: payload.mode || '',
+        missionId: payload.missionId || '',
+        sessionNo: payload.sessionNo || '',
+        missionType: payload.missionType || '',
+
+        score: payload.score ?? '',
+        hp: payload.hp || '',
+        attemptId: payload.attemptId || '',
+        attemptResult: payload.attemptResult || '',
+        attemptDurationSec: payload.attemptDurationSec ?? '',
+
+        pageVisitId: payload.pageVisitId || '',
+        pageActiveTimeSec: payload.pageActiveTimeSec ?? '',
+        pageActionsCount: payload.pageActionsCount ?? '',
+
+        pageUrl: location.href,
+        ua: navigator.userAgent
+      };
+    }
+
+    function sendByImage(endpoint, data) {
+      try {
+        const qs = new URLSearchParams(data);
+        qs.set('_t', String(Date.now()));
+        const img = new Image();
+        img.referrerPolicy = 'no-referrer';
+        img.src = endpoint + (endpoint.includes('?') ? '&' : '?') + qs.toString();
+        return true;
+      } catch (err) {
+        console.error('sendByImage failed:', err);
+        return false;
+      }
+    }
+
+    async function sendByPost(endpoint, data, useBeacon = false) {
+      const body = JSON.stringify(data);
+
+      try {
+        if (useBeacon && navigator.sendBeacon) {
+          const blob = new Blob([body], { type: 'text/plain' });
+          return navigator.sendBeacon(endpoint, blob);
+        }
+
+        await fetch(endpoint, {
+          method: 'POST',
+          mode: 'no-cors',
+          keepalive: true,
+          headers: {
+            'Content-Type': 'text/plain'
+          },
+          body
+        });
+        return true;
+      } catch (err) {
+        console.error('sendByPost failed:', err);
+        return false;
+      }
+    }
+
+    window.__TECHPATH_POST_ATTENDANCE__ = async function(endpoint, payload, useBeacon = false) {
+      const compact = compactAttendancePayload(payload);
+      const postOk = await sendByPost(endpoint, compact, useBeacon);
+      sendByImage(endpoint, compact);
+      return postOk;
+    };
+  })();
+  </script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const html = document.documentElement;
+    html.classList.add('protected');
+
+    function isEditable(el) {
+      if (!el) return false;
+      return !!el.closest('input, textarea, [contenteditable="true"]');
+    }
+
+    function blockEvent(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      return false;
+    }
+
+    document.addEventListener('contextmenu', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('dragstart', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('selectstart', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('copy', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('cut', function (e) {
+      if (!isEditable(e.target)) blockEvent(e);
+    }, true);
+
+    document.addEventListener('keydown', function (e) {
+      const key = String(e.key || '').toLowerCase();
+
+      const blocked =
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(key)) ||
+        (e.metaKey && e.altKey && ['i', 'j', 'c'].includes(key)) ||
+        (e.ctrlKey && ['u', 's'].includes(key)) ||
+        (e.metaKey && ['u', 's'].includes(key));
+
+      if (blocked) return blockEvent(e);
+
+      const copyLike = (e.ctrlKey || e.metaKey) && ['c', 'x'].includes(key);
+      if (copyLike && !isEditable(e.target)) return blockEvent(e);
+    }, true);
+
+    let devtoolsOpen = false;
+    const THRESHOLD_W = 260;
+    const THRESHOLD_H = 220;
+
+    function shouldCheckSizeGuard() {
+      return window.innerWidth >= 900;
+    }
+
+    setInterval(function () {
+      const shield = document.getElementById('source-shield');
+
+      if (!shouldCheckSizeGuard()) {
+        devtoolsOpen = false;
+        document.body.classList.remove('devtools-guard');
+        if (shield) shield.setAttribute('aria-hidden', 'true');
+        return;
+      }
+
+      const widthGap = Math.abs(window.outerWidth - window.innerWidth);
+      const heightGap = Math.abs(window.outerHeight - window.innerHeight);
+      const open = widthGap > THRESHOLD_W || heightGap > THRESHOLD_H;
+
+      if (open !== devtoolsOpen) {
+        devtoolsOpen = open;
+        document.body.classList.toggle('devtools-guard', open);
+        if (shield) shield.setAttribute('aria-hidden', open ? 'false' : 'true');
+      }
+    }, 1500);
+  })();
+  </script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const sheet = document.getElementById('mobile-hub-sheet');
+    const profile = document.getElementById('profile-panel');
+    const stats = document.getElementById('hub-stats-board');
+    const btnSessions = document.getElementById('btn-mobile-sessions');
+    const btnProfile = document.getElementById('btn-mobile-profile');
+    const btnStats = document.getElementById('btn-mobile-stats');
+
+    if (!sheet || !profile || !stats || !btnSessions || !btnProfile || !btnStats) return;
+
+    function closeSheet() {
+      sheet.classList.remove('show');
+      sheet.innerHTML = '';
+    }
+
+    function renderNodeIntoSheet(fromEl) {
+      sheet.innerHTML = '';
+      const clone = fromEl.cloneNode(true);
+      clone.style.display = 'block';
+      clone.id = clone.id + '-sheet-copy';
+      sheet.appendChild(clone);
+      sheet.classList.add('show');
+    }
+
+    function renderSessionSheet() {
+      sheet.innerHTML = `
+        <div class="session-sheet-title">เลือกด่าน</div>
+        <div class="session-grid">
+          ${Array.from({ length: 15 }, (_, i) => {
+            const id = i + 1;
+            return `<button type="button" class="session-chip" data-session-id="${id}">S${id}</button>`;
+          }).join('')}
+        </div>
+      `;
+
+      sheet.classList.add('show');
+
+      sheet.querySelectorAll('.session-chip').forEach((btn) => {
+        btn.addEventListener('click', function () {
+          const id = Number(this.getAttribute('data-session-id') || '0');
+
+          if (typeof window.loadMission === 'function') {
+            closeSheet();
+            window.loadMission(id);
+            return;
+          }
+
+          const missionBox = document.getElementById('mission-box-' + id);
+          if (missionBox) {
+            closeSheet();
+            missionBox.click();
+            return;
+          }
+
+          const missionRoot = document.getElementById('mission-root-' + id);
+          if (missionRoot) {
+            closeSheet();
+            missionRoot.click();
+            return;
+          }
+        });
+      });
+    }
+
+    btnSessions.addEventListener('click', function () {
+      const sameOpen = sheet.classList.contains('show') && sheet.querySelector('.session-grid');
+      if (sameOpen) {
+        closeSheet();
+        return;
+      }
+      renderSessionSheet();
+    });
+
+    btnProfile.addEventListener('click', function () {
+      const sameOpen = sheet.classList.contains('show') && sheet.querySelector('#profile-panel-sheet-copy');
+      if (sameOpen) {
+        closeSheet();
+        return;
+      }
+      renderNodeIntoSheet(profile);
+    });
+
+    btnStats.addEventListener('click', function () {
+      const sameOpen = sheet.classList.contains('show') && sheet.querySelector('#hub-stats-board-sheet-copy');
+      if (sameOpen) {
+        closeSheet();
+        return;
+      }
+      renderNodeIntoSheet(stats);
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!sheet.classList.contains('show')) return;
+      const inSheet = e.target.closest('#mobile-hub-sheet');
+      const inDrawer = e.target.closest('#mobile-hub-drawer');
+      if (!inSheet && !inDrawer) closeSheet();
+    }, true);
+
+    function isVisible(id) {
+      const el = document.getElementById(id);
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
+    }
+
+    function syncBodyMode() {
+      const summaryVisible =
+        isVisible('summary-panel') ||
+        isVisible('game-over-ui') ||
+        isVisible('btn-next') ||
+        isVisible('btn-return');
+
+      const missionVisible =
+        !summaryVisible && (
+          /SESSION\s+\d+/i.test((document.getElementById('ui-title')?.textContent || '').trim()) ||
+          isVisible('btn-speak') ||
+          isVisible('btn-play-audio') ||
+          isVisible('write-input') ||
+          isVisible('btn-submit-write') ||
+          isVisible('choice-buttons')
+        );
+
+      document.body.classList.remove('hub-mode', 'mission-mode', 'summary-mode');
+
+      if (summaryVisible) {
+        document.body.classList.add('summary-mode');
+      } else if (missionVisible) {
+        document.body.classList.add('mission-mode');
+      } else {
+        document.body.classList.add('hub-mode');
+      }
+
+      if (!document.body.classList.contains('hub-mode')) {
+        closeSheet();
+      }
+    }
+
+    setInterval(syncBodyMode, 250);
+    syncBodyMode();
+  })();
+  </script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const ENDPOINT =
+      window.TECHPATH_ATTENDANCE_ENDPOINT ||
+      'https://script.google.com/macros/s/AKfycbwvwaikfA1O03H0dFBh3ZTZdT4jZRsKyyTxQtZdeh_S7zPEz063w_rMGHUpImFjmYCy/exec';
+
+    const PATCH = 'v20260422-old-ui';
+    const HEARTBEAT_MS = 15000;
+    const ACTIVE_TICK_MS = 1000;
+    const ATTEMPT_MIN_GAP_MS = 1200;
+
+    const q = new URLSearchParams(location.search);
+
+    function safeGetLS(key, fallback = '') {
+      try {
+        const v = localStorage.getItem(key);
+        return v == null ? fallback : v;
+      } catch (_) {
+        return fallback;
+      }
+    }
+
+    function safeSetLS(key, value) {
+      try {
+        localStorage.setItem(key, String(value ?? ''));
+      } catch (_) {}
+    }
+
+    function askOnce(storageKey, promptText) {
+      const oldVal = safeGetLS(storageKey, '');
+      if (oldVal) return oldVal;
+      const v = window.prompt(promptText || storageKey, '') || '';
+      if (v) safeSetLS(storageKey, v);
+      return v;
+    }
+
+    const context = {
+      studentId:
+        q.get('sid') ||
+        q.get('studentId') ||
+        q.get('id') ||
+        safeGetLS('ENG_STUDENT_ID') ||
+        askOnce('ENG_STUDENT_ID', 'กรอก Student ID'),
+      studentName:
+        q.get('name') ||
+        q.get('studentName') ||
+        safeGetLS('ENG_STUDENT_NAME') ||
+        askOnce('ENG_STUDENT_NAME', 'กรอกชื่อผู้เรียน'),
+      classSection:
+        q.get('section') ||
+        safeGetLS('ENG_CLASS_SECTION') ||
+        askOnce('ENG_CLASS_SECTION', 'กรอก section/ห้อง'),
+      lessonId:
+        q.get('lessonId') ||
+        q.get('unit') ||
+        q.get('course') ||
+        'techpath-vr',
+      courseMeeting:
+        q.get('meetingNo') ||
+        q.get('week') ||
+        q.get('meeting') ||
+        '',
+      pageUrl: location.href,
+      userAgent: navigator.userAgent
+    };
+
+    safeSetLS('ENG_STUDENT_ID', context.studentId);
+    safeSetLS('ENG_STUDENT_NAME', context.studentName);
+    safeSetLS('ENG_CLASS_SECTION', context.classSection);
+
+    function makeId(prefix) {
+      return [prefix, Date.now(), Math.random().toString(36).slice(2, 8)].join('-');
+    }
+
+    function nowIso() {
+      return new Date().toISOString();
+    }
+
+    function fmtSec(sec) {
+      const n = Math.max(0, Math.round(Number(sec) || 0));
+      const mm = String(Math.floor(n / 60)).padStart(2, '0');
+      const ss = String(n % 60).padStart(2, '0');
+      return mm + ':' + ss;
+    }
+
+    function getEl(id) {
+      return document.getElementById(id);
+    }
+
+    function getText(id) {
+      const el = getEl(id);
+      return el ? String(el.textContent || el.innerText || '').trim() : '';
+    }
+
+    function setText(id, value) {
+      const el = getEl(id);
+      if (el) el.textContent = value;
+    }
+
+    function isShown(el) {
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && !el.hidden;
+    }
+
+    function parseMissionIdFromTitle() {
+      const title = getText('ui-title');
+      const m = title.match(/SESSION\s+(\d+)/i);
+      return m ? Number(m[1]) : null;
+    }
+
+    function parseSessionNo(n) {
+      const num = Number(n || 0);
+      if (!Number.isFinite(num) || num <= 0) return 'S00';
+      return 'S' + String(num).padStart(2, '0');
+    }
+
+    function readScore() {
+      const raw = getText('score-display').replace(/[^\d.-]/g, '');
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function readHP() {
+      return getText('hp-display') || '100%';
+    }
+
+    function detectScreenMode() {
+      const title = getText('ui-title');
+      const summaryVisible =
+        isShown(getEl('summary-panel')) ||
+        isShown(getEl('btn-next')) ||
+        isShown(getEl('btn-return')) ||
+        isShown(getEl('game-over-ui'));
+
+      const missionVisible =
+        /SESSION\s+\d+/i.test(title) ||
+        isShown(getEl('btn-speak')) ||
+        isShown(getEl('btn-play-audio')) ||
+        isShown(getEl('write-input')) ||
+        isShown(getEl('btn-submit-write')) ||
+        isShown(getEl('choice-buttons'));
+
+      if (summaryVisible) return 'summary';
+      if (missionVisible) return 'mission';
+      return 'hub';
+    }
+
+    function inferMissionType() {
+      if (isShown(getEl('write-input')) || isShown(getEl('btn-submit-write'))) return 'writing';
+      if (isShown(getEl('btn-speak'))) return 'speaking';
+      if (isShown(getEl('btn-play-audio')) && isShown(getEl('choice-buttons'))) return 'listening';
+      if (isShown(getEl('choice-buttons'))) return 'reading';
+      return '';
+    }
+
+    function currentSnapshot() {
+      const missionId = parseMissionIdFromTitle();
+      const sessionNo = parseSessionNo(missionId);
+      return {
+        missionId,
+        sessionNo,
+        mode: detectScreenMode(),
+        missionType: inferMissionType(),
+        score: readScore(),
+        hp: readHP()
+      };
+    }
+
+    const runtime = {
+      pageVisitId: makeId('PAGE'),
+      pageEnteredAt: nowIso(),
+      pageActiveTimeMs: 0,
+      pageActionsCount: 0,
+      currentAttempt: null,
+      lastMode: '',
+      sentSummaryForAttemptId: '',
+      lastHeartbeatAt: 0,
+      lastMissionStartAt: 0
+    };
+
+    function newAttemptBase(snapshot) {
+      return {
+        attemptId: makeId('ATT'),
+        missionId: snapshot.missionId || '',
+        sessionNo: snapshot.sessionNo || 'S00',
+        missionType: snapshot.missionType || '',
+        startedAt: nowIso(),
+        startMs: Date.now(),
+        endedAt: '',
+        endMs: 0,
+        durationSec: 0,
+        scoreStart: snapshot.score,
+        scoreEnd: snapshot.score,
+        hpStart: snapshot.hp,
+        hpEnd: snapshot.hp,
+        result: '',
+        completed: false
+      };
+    }
+
+    function updateAttendanceMiniUI(snapshot, statusText) {
+      setText('attendance-summary-name', context.studentName || '-');
+      setText('attendance-summary-s', snapshot.sessionNo || 'S00');
+      setText('attendance-summary-status', statusText || 'กำลังติดตาม');
+      setText('attendance-student-id', context.studentId || '-');
+      setText('attendance-student-name', context.studentName || '-');
+      setText('attendance-class-section', context.classSection || '-');
+      setText('attendance-session-no', snapshot.sessionNo || 'S00');
+      setText('attendance-duration', runtime.currentAttempt ? fmtSec((Date.now() - runtime.currentAttempt.startMs) / 1000) : '00:00');
+      setText('attendance-active-time', fmtSec(runtime.pageActiveTimeMs / 1000));
+
+      const box = getEl('attendance-status');
+      if (box) {
+        box.classList.remove('warn', 'fail');
+        box.textContent = statusText || 'กำลังติดตาม';
+        if (/error|fail|offline|ไม่สำเร็จ|ผิดพลาด/i.test(box.textContent)) box.classList.add('fail');
+        else if (/เตรียม|tracking|ติดตาม|started|running/i.test(box.textContent)) box.classList.add('warn');
+      }
+    }
+
+    function buildPayload(eventType, extra = {}) {
+      const snapshot = currentSnapshot();
+      const attempt = runtime.currentAttempt;
+
+      return {
+        api: 'attendance',
+        source: 'techpath-vr',
+        patch: PATCH,
+        eventType,
+        pageVisitId: runtime.pageVisitId,
+        pageEnteredAt: runtime.pageEnteredAt,
+        eventAt: nowIso(),
+        studentId: context.studentId || '',
+        studentName: context.studentName || '',
+        classSection: context.classSection || '',
+        lessonId: context.lessonId || 'techpath-vr',
+        courseMeeting: context.courseMeeting || '',
+        pageUrl: context.pageUrl,
+        userAgent: context.userAgent,
+        mode: snapshot.mode,
+        missionId: snapshot.missionId || '',
+        sessionNo: snapshot.sessionNo || 'S00',
+        missionType: snapshot.missionType || '',
+        score: snapshot.score,
+        hp: snapshot.hp,
+        pageActiveTimeSec: Math.round(runtime.pageActiveTimeMs / 1000),
+        pageActionsCount: runtime.pageActionsCount,
+        attemptId: attempt?.attemptId || '',
+        attemptStartedAt: attempt?.startedAt || '',
+        attemptEndedAt: attempt?.endedAt || '',
+        attemptDurationSec: attempt?.durationSec || 0,
+        attemptScoreStart: attempt?.scoreStart ?? '',
+        attemptScoreEnd: attempt?.scoreEnd ?? '',
+        attemptHpStart: attempt?.hpStart ?? '',
+        attemptHpEnd: attempt?.hpEnd ?? '',
+        attemptResult: attempt?.result || '',
+        ...extra
+      };
+    }
+
+    async function postPayload(payload, useBeacon = false) {
+      if (!ENDPOINT) return false;
+
+      try {
+        if (typeof window.__TECHPATH_POST_ATTENDANCE__ === 'function') {
+          return await window.__TECHPATH_POST_ATTENDANCE__(ENDPOINT, payload, useBeacon);
+        }
+        return false;
+      } catch (err) {
+        console.error('Attendance POST wrapper failed:', err);
+        return false;
+      }
+    }
+
+    function bumpAction() {
+      runtime.pageActionsCount += 1;
+    }
+
+    function startAttemptIfNeeded() {
+      const snapshot = currentSnapshot();
+      if (snapshot.mode !== 'mission' || !snapshot.missionId) return;
+
+      if (
+        runtime.currentAttempt &&
+        Number(runtime.currentAttempt.missionId) === Number(snapshot.missionId) &&
+        !runtime.currentAttempt.completed
+      ) return;
+
+      const now = Date.now();
+      if (now - runtime.lastMissionStartAt < ATTEMPT_MIN_GAP_MS) return;
+
+      runtime.lastMissionStartAt = now;
+      runtime.currentAttempt = newAttemptBase(snapshot);
+      runtime.sentSummaryForAttemptId = '';
+      bumpAction();
+      updateAttendanceMiniUI(snapshot, 'Mission started');
+      postPayload(buildPayload('mission_start'));
+    }
+
+    function closeAttempt(result) {
+      if (!runtime.currentAttempt || runtime.currentAttempt.completed) return;
+
+      const snapshot = currentSnapshot();
+      runtime.currentAttempt.endedAt = nowIso();
+      runtime.currentAttempt.endMs = Date.now();
+      runtime.currentAttempt.durationSec = Math.max(0, Math.round((runtime.currentAttempt.endMs - runtime.currentAttempt.startMs) / 1000));
+      runtime.currentAttempt.scoreEnd = snapshot.score;
+      runtime.currentAttempt.hpEnd = snapshot.hp;
+      runtime.currentAttempt.result = result || runtime.currentAttempt.result || '';
+      runtime.currentAttempt.completed = true;
+
+      bumpAction();
+      updateAttendanceMiniUI(snapshot, result === 'success' ? 'Mission cleared' : (result === 'fail' ? 'Mission failed' : 'Mission ended'));
+      postPayload(buildPayload('mission_end', { result: runtime.currentAttempt.result }));
+    }
+
+    function maybeDetectSummary() {
+      const snapshot = currentSnapshot();
+      if (snapshot.mode !== 'summary') return;
+      if (!runtime.currentAttempt) return;
+
+      if (!runtime.currentAttempt.completed) {
+        closeAttempt('summary');
+      }
+      if (runtime.sentSummaryForAttemptId === runtime.currentAttempt.attemptId) return;
+      runtime.sentSummaryForAttemptId = runtime.currentAttempt.attemptId;
+      postPayload(buildPayload('summary_view'));
+    }
+
+    function maybeDetectReturnToHub() {
+      const snapshot = currentSnapshot();
+      if (snapshot.mode === 'hub' && runtime.lastMode && runtime.lastMode !== 'hub') {
+        bumpAction();
+        updateAttendanceMiniUI(snapshot, 'Back to hub');
+        postPayload(buildPayload('hub_view'));
+      }
+    }
+
+    function heartbeat() {
+      const now = Date.now();
+      if (now - runtime.lastHeartbeatAt < HEARTBEAT_MS) return;
+      runtime.lastHeartbeatAt = now;
+      const snapshot = currentSnapshot();
+      updateAttendanceMiniUI(snapshot, snapshot.mode === 'mission' ? 'Mission running' : (snapshot.mode === 'summary' ? 'Summary view' : 'Hub view'));
+      postPayload(buildPayload('heartbeat'));
+    }
+
+    function onVisibility() {
+      if (document.hidden) {
+        postPayload(buildPayload('page_hidden'), true);
+      } else {
+        postPayload(buildPayload('page_visible'));
+      }
+    }
+
+    function onPageLeave() {
+      const snapshot = currentSnapshot();
+      if (snapshot.mode === 'mission' && runtime.currentAttempt && !runtime.currentAttempt.completed) {
+        closeAttempt('leave');
+      }
+      postPayload(buildPayload('page_leave'), true);
+    }
+
+    function syncMode() {
+      const snapshot = currentSnapshot();
+      if (snapshot.mode === 'mission') startAttemptIfNeeded();
+      if (snapshot.mode === 'summary') maybeDetectSummary();
+      maybeDetectReturnToHub();
+      runtime.lastMode = snapshot.mode;
+    }
+
+    function attachObservers() {
+      const ids = [
+        'ui-title',
+        'summary-panel',
+        'summary-title',
+        'summary-body',
+        'feedback',
+        'btn-next',
+        'btn-return',
+        'game-over-ui',
+        'choice-buttons',
+        'btn-speak',
+        'btn-play-audio',
+        'write-input',
+        'btn-submit-write'
+      ];
+
+      const obs = new MutationObserver(function () {
+        syncMode();
+      });
+
+      ids.forEach((id) => {
+        const el = getEl(id);
+        if (el) obs.observe(el, { attributes: true, childList: true, subtree: true, characterData: true });
+      });
+    }
+
+    function attachUIHooks() {
+      getEl('attendance-toggle')?.addEventListener('click', function () {
+        const panel = getEl('attendance-panel');
+        if (!panel) return;
+        panel.classList.toggle('compact');
+        const expanded = !panel.classList.contains('compact');
+        this.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        this.textContent = expanded ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด';
+        bumpAction();
+        postPayload(buildPayload('attendance_toggle', { expanded }));
+      });
+
+      ['btn-next', 'btn-return', 'btn-save-profile', 'btn-submit-score', 'btn-submit-write', 'btn-speak', 'btn-play-audio']
+        .forEach((id) => {
+          getEl(id)?.addEventListener('click', function () {
+            bumpAction();
+            postPayload(buildPayload('ui_click', { controlId: id }));
+          });
+        });
+
+      getEl('choice-buttons')?.addEventListener('click', function (e) {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        bumpAction();
+        postPayload(buildPayload('choice_click', { choiceText: String(btn.textContent || '').trim() }));
+      });
+
+      getEl('profile-name-input')?.addEventListener('change', function () {
+        bumpAction();
+        postPayload(buildPayload('profile_name_change', { profileName: this.value || '' }));
+      });
+
+      getEl('player-name-input')?.addEventListener('change', function () {
+        bumpAction();
+        postPayload(buildPayload('score_name_change', { scoreName: this.value || '' }));
+      });
+    }
+
+    function activeTick() {
+      if (!document.hidden) {
+        runtime.pageActiveTimeMs += ACTIVE_TICK_MS;
+        if (runtime.currentAttempt && !runtime.currentAttempt.completed) {
+          setText('attendance-duration', fmtSec((Date.now() - runtime.currentAttempt.startMs) / 1000));
+        }
+        setText('attendance-active-time', fmtSec(runtime.pageActiveTimeMs / 1000));
+      }
+    }
+
+    function init() {
+      const snapshot = currentSnapshot();
+      updateAttendanceMiniUI(snapshot, 'กำลังติดตาม');
+      attachObservers();
+      attachUIHooks();
+
+      document.addEventListener('visibilitychange', onVisibility, true);
+      window.addEventListener('beforeunload', onPageLeave, true);
+      window.addEventListener('pagehide', onPageLeave, true);
+      window.addEventListener('click', bumpAction, true);
+      window.addEventListener('keydown', bumpAction, true);
+
+      setInterval(activeTick, ACTIVE_TICK_MS);
+      setInterval(syncMode, 700);
+      setInterval(heartbeat, HEARTBEAT_MS);
+
+      postPayload(buildPayload('page_enter'));
+      postPayload(buildPayload('hub_view'));
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+      init();
+    }
+  })();
+  </script>
 </body>
 </html>
