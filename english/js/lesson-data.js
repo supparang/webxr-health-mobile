@@ -1,9 +1,41 @@
-// lesson-data.js
+// /english/js/lesson-data.js
 // A2 question bank version
 // 15 sessions x 15 items each
 // difficulty bank per session: easy(5) / normal(5) / hard(5)
 
-export const missionDB = [
+function toLegacyChoices(correct, distractors = []) {
+  const letters = ["A", "B", "C"];
+  const raw = [correct, ...distractors].slice(0, 3);
+  return raw.map((text, index) => `${letters[index]}. ${String(text || "").trim()}`);
+}
+
+function normalizeMissionItem(item) {
+  if (!item || typeof item !== "object") return item;
+
+  const isChoiceMission =
+    item.type === "reading" || item.type === "listening";
+
+  if (
+    isChoiceMission &&
+    item.correct &&
+    Array.isArray(item.distractors) &&
+    item.distractors.length >= 2
+  ) {
+    return {
+      ...item,
+      choices: toLegacyChoices(item.correct, item.distractors),
+      answer: "A"
+    };
+  }
+
+  return item;
+}
+
+function normalizeMissionBank(list = []) {
+  return list.map(normalizeMissionItem);
+}
+
+export const missionDB = normalizeMissionBank([
   {
     id: 1,
     type: "speaking",
@@ -39,25 +71,25 @@ export const missionDB = [
     title: "S2: Greetings",
     bank: {
       easy: [
-        { desc: "เลือกคำตอบที่เหมาะสม", question: "Tom: Hello!", choices: ["A: Hello!", "B: Good night.", "C: Thank you."], answer: "A" },
-        { desc: "เลือกคำตอบที่เหมาะสม", question: "Jane: How are you?", choices: ["A: I am fine.", "B: It is blue.", "C: I am a desk."], answer: "A" },
-        { desc: "เลือกคำตอบที่เหมาะสม", question: "Teacher: Good morning.", choices: ["A: Good morning.", "B: See you yesterday.", "C: Open the door."], answer: "A" },
-        { desc: "เลือกคำตอบที่เหมาะสม", question: "Friend: Nice to meet you.", choices: ["A: Nice to meet you too.", "B: I like rice.", "C: My bag is black."], answer: "A" },
-        { desc: "เลือกคำตอบที่เหมาะสม", question: "Guest: Thank you.", choices: ["A: You are welcome.", "B: I am hungry.", "C: It is Monday."], answer: "A" }
+        { desc: "เลือกคำตอบที่เหมาะสม", question: "Tom: Hello!", correct: "Hello!", distractors: ["Good night.", "Thank you."] },
+        { desc: "เลือกคำตอบที่เหมาะสม", question: "Jane: How are you?", correct: "I am fine.", distractors: ["It is blue.", "I am a desk."] },
+        { desc: "เลือกคำตอบที่เหมาะสม", question: "Teacher: Good morning.", correct: "Good morning.", distractors: ["See you yesterday.", "Open the door."] },
+        { desc: "เลือกคำตอบที่เหมาะสม", question: "Friend: Nice to meet you.", correct: "Nice to meet you too.", distractors: ["I like rice.", "My bag is black."] },
+        { desc: "เลือกคำตอบที่เหมาะสม", question: "Guest: Thank you.", correct: "You are welcome.", distractors: ["I am hungry.", "It is Monday."] }
       ],
       normal: [
-        { desc: "ตอบบทสนทนา", question: "Manager: Welcome to our office.", choices: ["A: Thank you. It is nice to be here.", "B: My office is a cat.", "C: I go to sleep."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Student: Sorry I am late.", choices: ["A: That is okay. Please sit down.", "B: I am a window.", "C: Late is green."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Colleague: Can I ask your name?", choices: ["A: Sure. My name is Mina.", "B: My name is Tuesday.", "C: I can ask the wall."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Host: Please come in.", choices: ["A: Thank you very much.", "B: Come in is yellow.", "C: I am a laptop."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Guide: Do you need help?", choices: ["A: Yes, please. I need some help.", "B: Help is a shoe.", "C: I eat notebooks."], answer: "A" }
+        { desc: "ตอบบทสนทนา", question: "Manager: Welcome to our office.", correct: "Thank you. It is nice to be here.", distractors: ["My office is a cat.", "I go to sleep."] },
+        { desc: "ตอบบทสนทนา", question: "Student: Sorry I am late.", correct: "That is okay. Please sit down.", distractors: ["I am a window.", "Late is green."] },
+        { desc: "ตอบบทสนทนา", question: "Colleague: Can I ask your name?", correct: "Sure. My name is Mina.", distractors: ["My name is Tuesday.", "I can ask the wall."] },
+        { desc: "ตอบบทสนทนา", question: "Host: Please come in.", correct: "Thank you very much.", distractors: ["Come in is yellow.", "I am a laptop."] },
+        { desc: "ตอบบทสนทนา", question: "Guide: Do you need help?", correct: "Yes, please. I need some help.", distractors: ["Help is a shoe.", "I eat notebooks."] }
       ],
       hard: [
-        { desc: "ตอบบทสนทนา", question: "Interviewer: Please introduce yourself briefly.", choices: ["A: Sure. My name is Nida, and I am a computer science student.", "B: Briefly is my dog.", "C: I am on the table."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Visitor: Excuse me, is this seat free?", choices: ["A: Yes, you can sit here.", "B: The seat is orange juice.", "C: I sit in tomorrow."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Staff: Thank you for waiting.", choices: ["A: No problem. Thank you.", "B: Waiting is purple.", "C: I wait with a sandwich."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Coach: Are you ready to begin?", choices: ["A: Yes, I am ready.", "B: Begin is a pencil.", "C: I ready the window."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Team lead: Nice work today.", choices: ["A: Thank you. I learned a lot today.", "B: Work is my banana.", "C: Today is inside the car."], answer: "A" }
+        { desc: "ตอบบทสนทนา", question: "Interviewer: Please introduce yourself briefly.", correct: "Sure. My name is Nida, and I am a computer science student.", distractors: ["Briefly is my dog.", "I am on the table."] },
+        { desc: "ตอบบทสนทนา", question: "Visitor: Excuse me, is this seat free?", correct: "Yes, you can sit here.", distractors: ["The seat is orange juice.", "I sit in tomorrow."] },
+        { desc: "ตอบบทสนทนา", question: "Staff: Thank you for waiting.", correct: "No problem. Thank you.", distractors: ["Waiting is purple.", "I wait with a sandwich."] },
+        { desc: "ตอบบทสนทนา", question: "Coach: Are you ready to begin?", correct: "Yes, I am ready.", distractors: ["Begin is a pencil.", "I ready the window."] },
+        { desc: "ตอบบทสนทนา", question: "Team lead: Nice work today.", correct: "Thank you. I learned a lot today.", distractors: ["Work is my banana.", "Today is inside the car."] }
       ]
     }
   },
@@ -126,25 +158,25 @@ export const missionDB = [
     title: "S5: Final Interview",
     bank: {
       easy: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "What is your name?", choices: ["A: My name is Ben.", "B: I am a bag.", "C: Monday is big."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Where are you from?", choices: ["A: I am from Thailand.", "B: I am from lunch.", "C: I am from blue."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "What do you study?", choices: ["A: I study computer science.", "B: I study a chair.", "C: I study the rain."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Do you like coding?", choices: ["A: Yes, I do.", "B: Yes, I banana.", "C: Coding is a desk."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Can you work in a team?", choices: ["A: Yes, I can.", "B: Team is a flower.", "C: I work in Tuesday."], answer: "A" }
+        { desc: "ฟังและเลือกคำตอบ", audioText: "What is your name?", correct: "My name is Ben.", distractors: ["I am a bag.", "Monday is big."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Where are you from?", correct: "I am from Thailand.", distractors: ["I am from lunch.", "I am from blue."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "What do you study?", correct: "I study computer science.", distractors: ["I study a chair.", "I study the rain."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Do you like coding?", correct: "Yes, I do.", distractors: ["Yes, I banana.", "Coding is a desk."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Can you work in a team?", correct: "Yes, I can.", distractors: ["Team is a flower.", "I work in Tuesday."] }
       ],
       normal: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please tell me about yourself.", choices: ["A: I am a student and I like coding.", "B: I am inside a laptop.", "C: Myself is a window."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Why do you want this job?", choices: ["A: I want to learn and grow.", "B: The job is green.", "C: Because the chair is happy."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "What is your strength?", choices: ["A: I am good at teamwork.", "B: My strength is orange.", "C: I am stronger than a table."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Do you have project experience?", choices: ["A: Yes, I worked on a university project.", "B: Experience is coffee.", "C: My project is sleeping."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Can you learn new skills quickly?", choices: ["A: Yes, I can learn quickly.", "B: Skills are blue.", "C: Quickly is a box."], answer: "A" }
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please tell me about yourself.", correct: "I am a student and I like coding.", distractors: ["I am inside a laptop.", "Myself is a window."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Why do you want this job?", correct: "I want to learn and grow.", distractors: ["The job is green.", "Because the chair is happy."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "What is your strength?", correct: "I am good at teamwork.", distractors: ["My strength is orange.", "I am stronger than a table."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Do you have project experience?", correct: "Yes, I worked on a university project.", distractors: ["Experience is coffee.", "My project is sleeping."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Can you learn new skills quickly?", correct: "Yes, I can learn quickly.", distractors: ["Skills are blue.", "Quickly is a box."] }
       ],
       hard: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please describe a project you worked on at university.", choices: ["A: I built a web project with my team.", "B: My university is under the table.", "C: A project is my breakfast."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "What do you want to do after graduation?", choices: ["A: I want to work as a software developer.", "B: Graduation is a sandwich.", "C: I want to become a pencil."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "How do you improve your English skills?", choices: ["A: I practice speaking and listening every day.", "B: English is on the wall.", "C: I improve by sleeping on books."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "What kind of company do you want to join?", choices: ["A: I want to join a company with a good team.", "B: The company is in my pocket.", "C: I join a company of shoes."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Can you explain your role in your last project?", choices: ["A: I worked on design and testing.", "B: My role was a chicken.", "C: Project roles are windows."], answer: "A" }
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please describe a project you worked on at university.", correct: "I built a web project with my team.", distractors: ["My university is under the table.", "A project is my breakfast."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "What do you want to do after graduation?", correct: "I want to work as a software developer.", distractors: ["Graduation is a sandwich.", "I want to become a pencil."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "How do you improve your English skills?", correct: "I practice speaking and listening every day.", distractors: ["English is on the wall.", "I improve by sleeping on books."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "What kind of company do you want to join?", correct: "I want to join a company with a good team.", distractors: ["The company is in my pocket.", "I join a company of shoes."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Can you explain your role in your last project?", correct: "I worked on design and testing.", distractors: ["My role was a chicken.", "Project roles are windows."] }
       ]
     }
   },
@@ -155,25 +187,25 @@ export const missionDB = [
     title: "S6: Agile Team",
     bank: {
       easy: [
-        { desc: "ตอบบทสนทนา", question: "Lead: What did you do today?", choices: ["A: I finished my task.", "B: I am a book.", "C: Today is green."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Lead: Do you need help?", choices: ["A: Yes, please.", "B: Help is a bag.", "C: I help the wall."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Lead: Are you ready?", choices: ["A: Yes, I am ready.", "B: Ready is a fish.", "C: I am readying the desk."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Lead: Can you test this page?", choices: ["A: Yes, I can test it.", "B: The page is rice.", "C: I test in tomorrow."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Lead: Did you join the meeting?", choices: ["A: Yes, I joined it.", "B: Meeting is a wall.", "C: I join the yellow."], answer: "A" }
+        { desc: "ตอบบทสนทนา", question: "Lead: What did you do today?", correct: "I finished my task.", distractors: ["I am a book.", "Today is green."] },
+        { desc: "ตอบบทสนทนา", question: "Lead: Do you need help?", correct: "Yes, please.", distractors: ["Help is a bag.", "I help the wall."] },
+        { desc: "ตอบบทสนทนา", question: "Lead: Are you ready?", correct: "Yes, I am ready.", distractors: ["Ready is a fish.", "I am readying the desk."] },
+        { desc: "ตอบบทสนทนา", question: "Lead: Can you test this page?", correct: "Yes, I can test it.", distractors: ["The page is rice.", "I test in tomorrow."] },
+        { desc: "ตอบบทสนทนา", question: "Lead: Did you join the meeting?", correct: "Yes, I joined it.", distractors: ["Meeting is a wall.", "I join the yellow."] }
       ],
       normal: [
-        { desc: "ตอบบทสนทนา", question: "Scrum Master: What will you do next?", choices: ["A: I will fix the login bug.", "B: Next is a spoon.", "C: I will become a chair."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Teammate: Can you review my code?", choices: ["A: Sure, I can review it after lunch.", "B: Code is a flower.", "C: I review my shoe."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Manager: Is the feature ready?", choices: ["A: It is almost ready for testing.", "B: Ready is a table.", "C: The feature is sleeping."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Developer: There is a blocker.", choices: ["A: What blocker do you have?", "B: Blocker is my cat.", "C: I eat blockers."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Product Owner: Can we demo it tomorrow?", choices: ["A: Yes, we can prepare a demo.", "B: Tomorrow is a banana.", "C: Demo is under the sea."], answer: "A" }
+        { desc: "ตอบบทสนทนา", question: "Scrum Master: What will you do next?", correct: "I will fix the login bug.", distractors: ["Next is a spoon.", "I will become a chair."] },
+        { desc: "ตอบบทสนทนา", question: "Teammate: Can you review my code?", correct: "Sure, I can review it after lunch.", distractors: ["Code is a flower.", "I review my shoe."] },
+        { desc: "ตอบบทสนทนา", question: "Manager: Is the feature ready?", correct: "It is almost ready for testing.", distractors: ["Ready is a table.", "The feature is sleeping."] },
+        { desc: "ตอบบทสนทนา", question: "Developer: There is a blocker.", correct: "What blocker do you have?", distractors: ["Blocker is my cat.", "I eat blockers."] },
+        { desc: "ตอบบทสนทนา", question: "Product Owner: Can we demo it tomorrow?", correct: "Yes, we can prepare a demo.", distractors: ["Tomorrow is a banana.", "Demo is under the sea."] }
       ],
       hard: [
-        { desc: "ตอบบทสนทนา", question: "Scrum Master: What progress can you share with the team?", choices: ["A: I finished the first page and tested the form.", "B: Progress is in my shoe.", "C: The team is my breakfast."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Teammate: Are there any problems with the API?", choices: ["A: Yes, I still need access to the API documentation.", "B: API is an apple pie idea.", "C: Problems are sleeping outside."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Lead: What is your plan after this meeting?", choices: ["A: I will update the page and run more tests.", "B: Meetings are made of milk.", "C: I will plan the window."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Tester: Can you explain this bug?", choices: ["A: The button does not work on mobile.", "B: The bug is very delicious.", "C: I explain with a banana."], answer: "A" },
-        { desc: "ตอบบทสนทนา", question: "Manager: Are we ready for the client demo?", choices: ["A: Yes, the main flow is working well now.", "B: The client is a pencil.", "C: Demo is under the chair."], answer: "A" }
+        { desc: "ตอบบทสนทนา", question: "Scrum Master: What progress can you share with the team?", correct: "I finished the first page and tested the form.", distractors: ["Progress is in my shoe.", "The team is my breakfast."] },
+        { desc: "ตอบบทสนทนา", question: "Teammate: Are there any problems with the API?", correct: "Yes, I still need access to the API documentation.", distractors: ["API is an apple pie idea.", "Problems are sleeping outside."] },
+        { desc: "ตอบบทสนทนา", question: "Lead: What is your plan after this meeting?", correct: "I will update the page and run more tests.", distractors: ["Meetings are made of milk.", "I will plan the window."] },
+        { desc: "ตอบบทสนทนา", question: "Tester: Can you explain this bug?", correct: "The button does not work on mobile.", distractors: ["The bug is very delicious.", "I explain with a banana."] },
+        { desc: "ตอบบทสนทนา", question: "Manager: Are we ready for the client demo?", correct: "Yes, the main flow is working well now.", distractors: ["The client is a pencil.", "Demo is under the chair."] }
       ]
     }
   },
@@ -242,25 +274,25 @@ export const missionDB = [
     title: "S9: Client Meeting",
     bank: {
       easy: [
-        { desc: "ตอบลูกค้า", question: "Client: Can you help us?", choices: ["A: Yes, we can help you.", "B: Help is a cloud.", "C: I drink the client."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Is the app ready?", choices: ["A: It is almost ready.", "B: Ready is yellow.", "C: The app is my shoe."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Can we meet tomorrow?", choices: ["A: Yes, tomorrow is fine.", "B: Tomorrow is a sandwich.", "C: We meet in a banana."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Do you need more time?", choices: ["A: Yes, we need one more day.", "B: Time is a cat.", "C: One day is inside my bag."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Can you send the file?", choices: ["A: Yes, I will send it today.", "B: The file is eating.", "C: I send on the moon."], answer: "A" }
+        { desc: "ตอบลูกค้า", question: "Client: Can you help us?", correct: "Yes, we can help you.", distractors: ["Help is a cloud.", "I drink the client."] },
+        { desc: "ตอบลูกค้า", question: "Client: Is the app ready?", correct: "It is almost ready.", distractors: ["Ready is yellow.", "The app is my shoe."] },
+        { desc: "ตอบลูกค้า", question: "Client: Can we meet tomorrow?", correct: "Yes, tomorrow is fine.", distractors: ["Tomorrow is a sandwich.", "We meet in a banana."] },
+        { desc: "ตอบลูกค้า", question: "Client: Do you need more time?", correct: "Yes, we need one more day.", distractors: ["Time is a cat.", "One day is inside my bag."] },
+        { desc: "ตอบลูกค้า", question: "Client: Can you send the file?", correct: "Yes, I will send it today.", distractors: ["The file is eating.", "I send on the moon."] }
       ],
       normal: [
-        { desc: "ตอบลูกค้า", question: "Client: When can you show the first version?", choices: ["A: We can show it next week.", "B: The first version is red.", "C: Next week is a keyboard."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Can you change the color of the page?", choices: ["A: Yes, we can change it.", "B: The page changes me.", "C: Color is a table."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Is this feature easy to use?", choices: ["A: Yes, it is simple and clear.", "B: Easy is a fish.", "C: The feature is asleep."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Do you understand our problem?", choices: ["A: Yes, we understand your main problem.", "B: The problem is green tea.", "C: I understand the wall."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Can we talk again on Friday?", choices: ["A: Yes, Friday afternoon is okay.", "B: Friday is a notebook.", "C: I talk to Friday every day."], answer: "A" }
+        { desc: "ตอบลูกค้า", question: "Client: When can you show the first version?", correct: "We can show it next week.", distractors: ["The first version is red.", "Next week is a keyboard."] },
+        { desc: "ตอบลูกค้า", question: "Client: Can you change the color of the page?", correct: "Yes, we can change it.", distractors: ["The page changes me.", "Color is a table."] },
+        { desc: "ตอบลูกค้า", question: "Client: Is this feature easy to use?", correct: "Yes, it is simple and clear.", distractors: ["Easy is a fish.", "The feature is asleep."] },
+        { desc: "ตอบลูกค้า", question: "Client: Do you understand our problem?", correct: "Yes, we understand your main problem.", distractors: ["The problem is green tea.", "I understand the wall."] },
+        { desc: "ตอบลูกค้า", question: "Client: Can we talk again on Friday?", correct: "Yes, Friday afternoon is okay.", distractors: ["Friday is a notebook.", "I talk to Friday every day."] }
       ],
       hard: [
-        { desc: "ตอบลูกค้า", question: "Client: Can you explain the benefit of this feature?", choices: ["A: Yes, it saves time and makes the work easier.", "B: Benefit is a banana on the floor.", "C: The feature benefits the window."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: How long do you need to finish the update?", choices: ["A: We need about two more days.", "B: Update is my breakfast.", "C: Two days are inside the door."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Can your team test this on mobile too?", choices: ["A: Yes, we can test both web and mobile.", "B: Mobile is a flower.", "C: Testing is under the chair."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: What part of the system is ready now?", choices: ["A: The main page and login page are ready.", "B: Ready parts are invisible.", "C: The system is in my pocket."], answer: "A" },
-        { desc: "ตอบลูกค้า", question: "Client: Can you send a short summary after this meeting?", choices: ["A: Yes, I will send a short summary today.", "B: Summary is a chair.", "C: I send the meeting to the summary."], answer: "A" }
+        { desc: "ตอบลูกค้า", question: "Client: Can you explain the benefit of this feature?", correct: "Yes, it saves time and makes the work easier.", distractors: ["Benefit is a banana on the floor.", "The feature benefits the window."] },
+        { desc: "ตอบลูกค้า", question: "Client: How long do you need to finish the update?", correct: "We need about two more days.", distractors: ["Update is my breakfast.", "Two days are inside the door."] },
+        { desc: "ตอบลูกค้า", question: "Client: Can your team test this on mobile too?", correct: "Yes, we can test both web and mobile.", distractors: ["Mobile is a flower.", "Testing is under the chair."] },
+        { desc: "ตอบลูกค้า", question: "Client: What part of the system is ready now?", correct: "The main page and login page are ready.", distractors: ["Ready parts are invisible.", "The system is in my pocket."] },
+        { desc: "ตอบลูกค้า", question: "Client: Can you send a short summary after this meeting?", correct: "Yes, I will send a short summary today.", distractors: ["Summary is a chair.", "I send the meeting to the summary."] }
       ]
     }
   },
@@ -271,25 +303,25 @@ export const missionDB = [
     title: "S10: Global Team",
     bank: {
       easy: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send the file today.", choices: ["A: Send the file today.", "B: Buy a file.", "C: Sleep today."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the meeting at ten.", choices: ["A: Join the meeting at ten.", "B: Sleep at ten.", "C: Eat the meeting."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Open the web page now.", choices: ["A: Open the web page now.", "B: Close the web page now.", "C: Draw the web page."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Check the email again.", choices: ["A: Check the email again.", "B: Delete the email.", "C: Cook the email."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Update the task board.", choices: ["A: Update the task board.", "B: Throw the task board.", "C: Paint the task board red."], answer: "A" }
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send the file today.", correct: "Send the file today.", distractors: ["Buy a file.", "Sleep today."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the meeting at ten.", correct: "Join the meeting at ten.", distractors: ["Sleep at ten.", "Eat the meeting."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Open the web page now.", correct: "Open the web page now.", distractors: ["Close the web page now.", "Draw the web page."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Check the email again.", correct: "Check the email again.", distractors: ["Delete the email.", "Cook the email."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Update the task board.", correct: "Update the task board.", distractors: ["Throw the task board.", "Paint the task board red."] }
       ],
       normal: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please share your screen during the meeting.", choices: ["A: Share your screen during the meeting.", "B: Break the screen.", "C: Hide the meeting."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the call five minutes early.", choices: ["A: Join five minutes early.", "B: Be five minutes late.", "C: End the call now."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short summary after the class.", choices: ["A: Write a short summary after class.", "B: Delete the class.", "C: Sleep after class only."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please test the mobile version tonight.", choices: ["A: Test the mobile version tonight.", "B: Buy a mobile tonight.", "C: Throw away the version."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "We need to think about time zones.", choices: ["A: Think about time zones.", "B: Break the time zone.", "C: Time zones are shoes."], answer: "A" }
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please share your screen during the meeting.", correct: "Share your screen during the meeting.", distractors: ["Break the screen.", "Hide the meeting."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the call five minutes early.", correct: "Join five minutes early.", distractors: ["Be five minutes late.", "End the call now."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short summary after the class.", correct: "Write a short summary after class.", distractors: ["Delete the class.", "Sleep after class only."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please test the mobile version tonight.", correct: "Test the mobile version tonight.", distractors: ["Buy a mobile tonight.", "Throw away the version."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "We need to think about time zones.", correct: "Think about time zones.", distractors: ["Break the time zone.", "Time zones are shoes."] }
       ],
       hard: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please deploy the latest version to the test server before lunch.", choices: ["A: Deploy the latest version before lunch.", "B: Eat the server at lunch.", "C: Delete the latest version."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Move the meeting to three p m because the client is busy.", choices: ["A: Move the meeting to three p m.", "B: Cancel the client forever.", "C: The meeting is in the bag."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send the documentation to the Singapore team.", choices: ["A: Send the documentation to the Singapore team.", "B: Travel to Singapore now.", "C: Hide the documentation."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "We need more testing on the mobile app before release.", choices: ["A: We need more testing before release.", "B: Release it now without testing.", "C: The app is testing us."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "The backend team will update the api after the maintenance window.", choices: ["A: The backend team will update the api later.", "B: The api will delete the backend team.", "C: The maintenance window is a pizza."], answer: "A" }
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please deploy the latest version to the test server before lunch.", correct: "Deploy the latest version before lunch.", distractors: ["Eat the server at lunch.", "Delete the latest version."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Move the meeting to three p m because the client is busy.", correct: "Move the meeting to three p m.", distractors: ["Cancel the client forever.", "The meeting is in the bag."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send the documentation to the Singapore team.", correct: "Send the documentation to the Singapore team.", distractors: ["Travel to Singapore now.", "Hide the documentation."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "We need more testing on the mobile app before release.", correct: "We need more testing before release.", distractors: ["Release it now without testing.", "The app is testing us."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "The backend team will update the api after the maintenance window.", correct: "The backend team will update the api later.", distractors: ["The api will delete the backend team.", "The maintenance window is a pizza."] }
       ]
     }
   },
@@ -358,25 +390,25 @@ export const missionDB = [
     title: "S13: Career Path",
     bank: {
       easy: [
-        { desc: "ตอบ HR", question: "HR: What job do you want?", choices: ["A: I want to be a developer.", "B: I want to be a spoon.", "C: I want to be inside the wall."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Do you have skills?", choices: ["A: Yes, I can code and design.", "B: My skill is pizza.", "C: Skills are sleeping."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Can you work in a team?", choices: ["A: Yes, I can work in a team.", "B: Teamwork is my notebook.", "C: I work in a team of chairs."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Do you learn quickly?", choices: ["A: Yes, I learn quickly.", "B: Learning is a window.", "C: Quickly is my bag."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Did you do a project?", choices: ["A: Yes, I did a university project.", "B: Project is a juice.", "C: I project the floor."], answer: "A" }
+        { desc: "ตอบ HR", question: "HR: What job do you want?", correct: "I want to be a developer.", distractors: ["I want to be a spoon.", "I want to be inside the wall."] },
+        { desc: "ตอบ HR", question: "HR: Do you have skills?", correct: "Yes, I can code and design.", distractors: ["My skill is pizza.", "Skills are sleeping."] },
+        { desc: "ตอบ HR", question: "HR: Can you work in a team?", correct: "Yes, I can work in a team.", distractors: ["Teamwork is my notebook.", "I work in a team of chairs."] },
+        { desc: "ตอบ HR", question: "HR: Do you learn quickly?", correct: "Yes, I learn quickly.", distractors: ["Learning is a window.", "Quickly is my bag."] },
+        { desc: "ตอบ HR", question: "HR: Did you do a project?", correct: "Yes, I did a university project.", distractors: ["Project is a juice.", "I project the floor."] }
       ],
       normal: [
-        { desc: "ตอบ HR", question: "HR: What role are you applying for?", choices: ["A: I am applying for a software developer role.", "B: I am applying for a banana role.", "C: I am a role of the desk."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: What technical skills do you have?", choices: ["A: I can use Python and JavaScript.", "B: I can use Monday and blue.", "C: I have technical apples."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Did you complete an internship?", choices: ["A: Yes, I had an internship last summer.", "B: Summer completed me.", "C: Internship is a chair."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: How do you improve yourself?", choices: ["A: I practice coding and study online.", "B: I improve by sleeping on books.", "C: Improvement is a fish."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Why do you want this job?", choices: ["A: I want to learn and grow in this role.", "B: The job is a sandwich.", "C: I want this job because it is purple."], answer: "A" }
+        { desc: "ตอบ HR", question: "HR: What role are you applying for?", correct: "I am applying for a software developer role.", distractors: ["I am applying for a banana role.", "I am a role of the desk."] },
+        { desc: "ตอบ HR", question: "HR: What technical skills do you have?", correct: "I can use Python and JavaScript.", distractors: ["I can use Monday and blue.", "I have technical apples."] },
+        { desc: "ตอบ HR", question: "HR: Did you complete an internship?", correct: "Yes, I had an internship last summer.", distractors: ["Summer completed me.", "Internship is a chair."] },
+        { desc: "ตอบ HR", question: "HR: How do you improve yourself?", correct: "I practice coding and study online.", distractors: ["I improve by sleeping on books.", "Improvement is a fish."] },
+        { desc: "ตอบ HR", question: "HR: Why do you want this job?", correct: "I want to learn and grow in this role.", distractors: ["The job is a sandwich.", "I want this job because it is purple."] }
       ],
       hard: [
-        { desc: "ตอบ HR", question: "HR: What kind of company do you want to join?", choices: ["A: I want to join a company with a good team and learning culture.", "B: I want to join a company inside my pencil.", "C: Companies are made of oranges."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: How do your projects help your career?", choices: ["A: My projects help me practice real skills and teamwork.", "B: My career is under my laptop.", "C: Projects are sleeping in my bag."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: Can you describe one strength you have?", choices: ["A: I am good at communication and solving problems.", "B: My strength is a bus stop.", "C: I solve with sandwiches."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: What are you doing to improve your English?", choices: ["A: I practice speaking and listening every day.", "B: English is a yellow box.", "C: I improve English by hiding it."], answer: "A" },
-        { desc: "ตอบ HR", question: "HR: What do you want to do after graduation?", choices: ["A: I want to work and keep learning in tech.", "B: Graduation is my breakfast.", "C: I want to become a chair of success."], answer: "A" }
+        { desc: "ตอบ HR", question: "HR: What kind of company do you want to join?", correct: "I want to join a company with a good team and learning culture.", distractors: ["I want to join a company inside my pencil.", "Companies are made of oranges."] },
+        { desc: "ตอบ HR", question: "HR: How do your projects help your career?", correct: "My projects help me practice real skills and teamwork.", distractors: ["My career is under my laptop.", "Projects are sleeping in my bag."] },
+        { desc: "ตอบ HR", question: "HR: Can you describe one strength you have?", correct: "I am good at communication and solving problems.", distractors: ["My strength is a bus stop.", "I solve with sandwiches."] },
+        { desc: "ตอบ HR", question: "HR: What are you doing to improve your English?", correct: "I practice speaking and listening every day.", distractors: ["English is a yellow box.", "I improve English by hiding it."] },
+        { desc: "ตอบ HR", question: "HR: What do you want to do after graduation?", correct: "I want to work and keep learning in tech.", distractors: ["Graduation is my breakfast.", "I want to become a chair of success."] }
       ]
     }
   },
@@ -387,25 +419,25 @@ export const missionDB = [
     title: "S14: Remote Work",
     bank: {
       easy: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Turn on your camera.", choices: ["A: Turn on your camera.", "B: Turn off your homework.", "C: Eat the camera."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Share your screen now.", choices: ["A: Share your screen now.", "B: Break your screen now.", "C: Hide the screen in a bag."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the call early.", choices: ["A: Join the call early.", "B: Leave the call early.", "C: Draw the call."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Check your microphone.", choices: ["A: Check your microphone.", "B: Eat your microphone.", "C: Throw the microphone away."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short note.", choices: ["A: Write a short note.", "B: Sleep on the note.", "C: Paint the note green."], answer: "A" }
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Turn on your camera.", correct: "Turn on your camera.", distractors: ["Turn off your homework.", "Eat the camera."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Share your screen now.", correct: "Share your screen now.", distractors: ["Break your screen now.", "Hide the screen in a bag."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the call early.", correct: "Join the call early.", distractors: ["Leave the call early.", "Draw the call."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Check your microphone.", correct: "Check your microphone.", distractors: ["Eat your microphone.", "Throw the microphone away."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short note.", correct: "Write a short note.", distractors: ["Sleep on the note.", "Paint the note green."] }
       ],
       normal: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please turn on your camera during the demo.", choices: ["A: Turn on your camera during the demo.", "B: Turn off the demo forever.", "C: Put the camera in the box."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the online meeting five minutes early.", choices: ["A: Join five minutes early.", "B: Join fifty minutes late.", "C: Eat before the meeting only."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please update the task board before the meeting.", choices: ["A: Update the task board before the meeting.", "B: Delete the task board.", "C: Break the meeting."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short summary after the call.", choices: ["A: Write a short summary after the call.", "B: Close the summary.", "C: Sleep during the call."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Test your internet connection before class.", choices: ["A: Test your internet connection before class.", "B: Turn off the internet before class.", "C: Throw the class away."], answer: "A" }
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please turn on your camera during the demo.", correct: "Turn on your camera during the demo.", distractors: ["Turn off the demo forever.", "Put the camera in the box."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the online meeting five minutes early.", correct: "Join five minutes early.", distractors: ["Join fifty minutes late.", "Eat before the meeting only."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please update the task board before the meeting.", correct: "Update the task board before the meeting.", distractors: ["Delete the task board.", "Break the meeting."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Write a short summary after the call.", correct: "Write a short summary after the call.", distractors: ["Close the summary.", "Sleep during the call."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Test your internet connection before class.", correct: "Test your internet connection before class.", distractors: ["Turn off the internet before class.", "Throw the class away."] }
       ],
       hard: [
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send a clear update to the team after the client meeting.", choices: ["A: Send a clear update after the client meeting.", "B: Sleep after the client meeting forever.", "C: Delete the client from the meeting."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Make sure your microphone and camera are ready before the presentation starts.", choices: ["A: Prepare your microphone and camera before the presentation.", "B: Hide the presentation under the camera.", "C: Break your microphone before the meeting."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Please write a short action list and share it with the team after the call.", choices: ["A: Write a short action list and share it after the call.", "B: Throw the action list into the call.", "C: Sleep instead of sharing the list."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Check the shared document carefully and leave your comments before tomorrow morning.", choices: ["A: Check the shared document and leave comments before tomorrow morning.", "B: Delete the comments tomorrow morning.", "C: Draw the shared document on the wall."], answer: "A" },
-        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the remote meeting on time and be ready to explain your progress clearly.", choices: ["A: Join on time and explain your progress clearly.", "B: Join late and hide your progress.", "C: Explain the meeting to your chair."], answer: "A" }
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please send a clear update to the team after the client meeting.", correct: "Send a clear update after the client meeting.", distractors: ["Sleep after the client meeting forever.", "Delete the client from the meeting."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Make sure your microphone and camera are ready before the presentation starts.", correct: "Prepare your microphone and camera before the presentation.", distractors: ["Hide the presentation under the camera.", "Break your microphone before the meeting."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Please write a short action list and share it with the team after the call.", correct: "Write a short action list and share it after the call.", distractors: ["Throw the action list into the call.", "Sleep instead of sharing the list."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Check the shared document carefully and leave your comments before tomorrow morning.", correct: "Check the shared document and leave comments before tomorrow morning.", distractors: ["Delete the comments tomorrow morning.", "Draw the shared document on the wall."] },
+        { desc: "ฟังและเลือกคำตอบ", audioText: "Join the remote meeting on time and be ready to explain your progress clearly.", correct: "Join on time and explain your progress clearly.", distractors: ["Join late and hide your progress.", "Explain the meeting to your chair."] }
       ]
     }
   },
@@ -438,7 +470,7 @@ export const missionDB = [
       ]
     }
   }
-];
+]);
 
 function hashSeed(input) {
   const str = String(input ?? "");
@@ -475,7 +507,7 @@ export function pickAdaptiveMissionItem(
   aiState = { pressure: 0, support: 0 },
   seed = `${sessionId}-${Date.now()}`
 ) {
-  const mission = missionDB.find(m => m.id === sessionId);
+  const mission = missionDB.find((m) => m.id === sessionId);
   if (!mission) return null;
 
   let targetDiff = mode;
