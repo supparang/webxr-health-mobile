@@ -38,7 +38,10 @@ import { installVocabGuards } from './vocab-guard.js';
     leaderboardList: document.getElementById('leaderboardList'),
     teacherTable: document.getElementById('teacherTable'),
     weakList: document.getElementById('weakList'),
-    endSummaryText: document.getElementById('endSummaryText')
+    endSummaryText: document.getElementById('endSummaryText'),
+    menuModeBanner: document.getElementById('menuModeBanner'),
+    heroModeTitle: document.getElementById('heroModeTitle'),
+    heroModeDesc: document.getElementById('heroModeDesc')
   };
 
   const TEACHER_KEY = 'VOCAB_V9_TEACHER_LAST';
@@ -47,7 +50,7 @@ import { installVocabGuards } from './vocab-guard.js';
   const TEACHER_PASS_KEY = 'VOCAB_V9_TEACHER_PASS_HASH';
   const GLOBAL_LB_CACHE_KEY = 'VOCAB_V9_GLOBAL_LB_CACHE';
 
-  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzOs6lQUEdTug17xKDDaVKEFMN0n0hkoBY9erwH309hkHMDYzNB_FhtSzhmNnF0uF5f/exec';
+  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxk7L--kY__UJJ-9FG_KqzR09W2FNILQWYn5qo-frtc3RHLVkUrkajoL4Tb6HOXhicr/exec';
   const VOCAB_SHEET_SOURCE = 'vocab.html';
   const VOCAB_SHEET_SCHEMA = 'vocab-v4-per-mode';
 
@@ -192,13 +195,29 @@ import { installVocabGuards } from './vocab-guard.js';
       btn.type = 'button';
       btn.className = 'choiceBtn';
       btn.textContent = String(choice).toUpperCase();
+
       btn.addEventListener('click', () => {
-        handleAnswerV9(String(choice).toLowerCase());
+        const answer = String(choice).toLowerCase();
+        const correct = String(item.answer).toLowerCase();
+
+        els.choicePad.querySelectorAll('.choiceBtn').forEach(x => x.classList.add('disabled'));
+
+        if (answer === correct) btn.classList.add('hit-correct');
+        else {
+          btn.classList.add('hit-wrong');
+          els.choicePad.querySelectorAll('.choiceBtn').forEach(x => {
+            if (String(x.textContent).toLowerCase() === correct) x.classList.add('hit-correct');
+          });
+        }
+
+        setTimeout(() => handleAnswerV9(answer), 120);
       });
+
       els.choicePad.appendChild(btn);
     });
 
     els.choicePad.classList.remove('hidden');
+    requestAnimationFrame(updateMobileBattleLayout);
   }
 
   function postSheetAction(action, payload, timeoutMs = 2500) {
@@ -326,7 +345,8 @@ import { installVocabGuards } from './vocab-guard.js';
       .sort((a, b) => (b[1].wrong - a[1].wrong) || (a[1].correct - b[1].correct))[0];
     return first ? first[0] : '';
   }
-    function getWeakTermsJson(limit = 5) {
+
+  function getWeakTermsJson(limit = 5) {
     return JSON.stringify(weakestTermsForSheet(limit));
   }
 
@@ -591,6 +611,119 @@ import { installVocabGuards } from './vocab-guard.js';
     };
   }
 
+  function getModeDisplay(mode) {
+    return {
+      code_battle: '⚔️ Code Battle',
+      debug_mission: '🧪 Debug Mission',
+      ai_training: '🤖 AI Training Sim',
+      speed_run: '⚡ Speed Run'
+    }[mode] || mode || '-';
+  }
+
+  function getBankDisplay(bank) {
+    return {
+      A: 'A • Software Engineering',
+      B: 'B • Data / Cloud / System',
+      C: 'C • AI / Machine Learning'
+    }[bank] || bank || '-';
+  }
+
+  function getQuestionTypeDisplay(type) {
+    return {
+      definition_mcq: 'DEFINITION',
+      sentence_cloze: 'FILL BLANK',
+      context_mcq: 'CONTEXT CHOICE',
+      scenario: 'SCENARIO',
+      correct_usage: 'CORRECT USAGE',
+      th_to_en: 'TH → EN',
+      en_to_th: 'EN → TH',
+      confusion_pair: 'CONFUSING PAIR'
+    }[type] || String(type || '').replace(/_/g, ' ').toUpperCase();
+  }
+
+  function shortWhenText(value) {
+    if (!value) return '-';
+    try {
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return String(value);
+      return d.toLocaleString('th-TH', {
+        year: '2-digit',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (_) {
+      return String(value);
+    }
+  }
+
+  function getModeAccentClass(mode) {
+    return 'mode-accent-' + String(mode || 'code_battle');
+  }
+
+  function applyModeAccentClass(el, mode) {
+    if (!el) return;
+    el.classList.remove(
+      'mode-accent-code_battle',
+      'mode-accent-debug_mission',
+      'mode-accent-ai_training',
+      'mode-accent-speed_run'
+    );
+    el.classList.add(getModeAccentClass(mode));
+  }
+
+  function refreshMenuModeBanner() {
+    if (!els.menuModeBanner) return;
+    els.menuModeBanner.textContent = 'โหมดปัจจุบัน: ' + getModeDisplay(V9.mode);
+    applyModeAccentClass(els.menuModeBanner, V9.mode);
+  }
+
+  function getModeHeroDesc(mode) {
+    return {
+      code_battle: 'สู้บอสด้วยคำศัพท์และบริบทงานจริงแบบมัน ๆ',
+      debug_mission: 'จับคำผิด แก้ usage และซ่อม bug ภาษาแบบแม่น ๆ',
+      ai_training: 'ฝึกศัพท์สาย AI/ML พร้อมดัน model score และคุม stability',
+      speed_run: 'ตอบไว เก็บคอมโบ เก็บ multiplier แล้วไล่เวลาทุกข้อ'
+    }[mode] || 'ฝึกคำศัพท์แบบ adaptive ตามโหมดที่เลือก';
+  }
+
+  function refreshHeroModeText() {
+    if (els.heroModeTitle) els.heroModeTitle.textContent = getModeDisplay(V9.mode);
+    if (els.heroModeDesc) els.heroModeDesc.textContent = getModeHeroDesc(V9.mode);
+    applyModeAccentClass(els.heroModeTitle, V9.mode);
+    applyModeAccentClass(els.heroModeDesc, V9.mode);
+  }
+
+  function refreshPrimaryModeButton() {
+    const btn = document.getElementById('startBtn');
+    if (!btn) return;
+    btn.classList.add('primary-mode');
+    applyModeAccentClass(btn, V9.mode);
+  }
+
+  function showScorePop(text) {
+    document.querySelectorAll('.score-pop').forEach(el => el.remove());
+
+    const div = document.createElement('div');
+    div.className = 'score-pop';
+    div.textContent = text;
+    document.body.appendChild(div);
+
+    setTimeout(() => div.remove(), 700);
+  }
+
+  function updateMobileBattleLayout() {
+    if (!els.questionBox || !els.feedbackBox || !els.choicePad) return;
+
+    const qRect = els.questionBox.getBoundingClientRect();
+    const feedbackTop = Math.round(qRect.bottom + 10);
+    const choiceTop = Math.round(qRect.bottom + 88);
+
+    els.feedbackBox.style.top = feedbackTop + 'px';
+    els.choicePad.style.top = choiceTop + 'px';
+  }
+
   function mergeLeaderboardRowLocal(entry) {
     const rows = Array.isArray(globalLeaderboardRows) ? [...globalLeaderboardRows] : [];
     const entryMode = String(entry.mode || 'code_battle');
@@ -632,75 +765,99 @@ import { installVocabGuards } from './vocab-guard.js';
     saveLeaderboardCache(globalLeaderboardRows);
     return globalLeaderboardRows;
   }
-  function getModeDisplay(mode) {
-  return {
-    code_battle: '⚔️ Code Battle',
-    debug_mission: '🧪 Debug Mission',
-    ai_training: '🤖 AI Training Sim',
-    speed_run: '⚡ Speed Run'
-  }[mode] || mode || '-';
-}
 
-function getBankDisplay(bank) {
-  return {
-    A: 'A • Software Engineering',
-    B: 'B • Data / Cloud / System',
-    C: 'C • AI / Machine Learning'
-  }[bank] || bank || '-';
-}
   function renderMenuTop3() {
-  const mode = V9.mode || 'code_battle';
-  const rows = (globalLeaderboardRows || [])
-    .filter(r => String(r.mode || 'code_battle') === mode)
-    .slice(0, 3);
+    const mode = V9.mode || 'code_battle';
+    const rows = (globalLeaderboardRows || [])
+      .filter(r => String(r.mode || 'code_battle') === mode)
+      .slice(0, 3);
 
-  els.menuTop3Board.innerHTML = '';
+    els.menuTop3Board.innerHTML = '';
+    els.menuTop3Board.classList.toggle('menuTop3Board-ready', rows.length > 0);
+    applyModeAccentClass(els.menuTop3Board, mode);
+    refreshMenuModeBanner();
 
-  if (!rows.length) {
-    els.menuTop3Board.innerHTML =
-      '<div class="top3Card"><div class="rank">—</div><div class="name">ยังไม่มีคะแนน</div><div class="meta">เริ่มเล่นโหมดนี้เพื่อขึ้นอันดับ</div></div>';
-    return;
+    if (!rows.length) {
+      els.menuTop3Board.innerHTML =
+        '<div class="top3Card ' + getModeAccentClass(mode) + '">' +
+          '<div class="emptyState">' +
+            '<div class="emoji">🏁</div>' +
+            '<div class="title">ยังไม่มีคะแนนในโหมดนี้</div>' +
+            '<div class="desc">เริ่มเล่น ' + getModeDisplay(mode) + ' เพื่อขึ้นอันดับแรกของโหมดนี้</div>' +
+          '</div>' +
+        '</div>';
+      return;
+    }
+
+    rows.forEach((r, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+      const div = document.createElement('div');
+      div.className = 'top3Card ' + getModeAccentClass(r.mode || mode);
+      div.innerHTML =
+        '<div class="rank">' + medal + '</div>' +
+        '<div class="name">' + (r.display_name || 'Player') + '</div>' +
+        '<div class="chipRow">' +
+          '<span class="infoChip mode-chip">' + getModeDisplay(r.mode || mode) + '</span>' +
+          '<span class="infoChip">' + getBankDisplay(r.bank || '-') + '</span>' +
+        '</div>' +
+        '<div class="scoreLine">Best Score ' + (r.best_score || 0) + '</div>' +
+        '<div class="meta">Accuracy ' + (r.best_accuracy || 0) + '%</div>' +
+        '<div class="meta">' + shortWhenText(r.last_when || '-') + '</div>';
+      els.menuTop3Board.appendChild(div);
+    });
   }
 
-  rows.forEach((r, i) => {
-    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-    const div = document.createElement('div');
-    div.className = 'top3Card';
-    div.innerHTML =
-      '<div class="rank">' + medal + '</div>' +
-      '<div class="name">' + (r.display_name || 'Player') + '</div>' +
-      '<div class="meta">' + getModeDisplay(r.mode || mode) + '</div>' +
-      '<div class="meta">' + getBankDisplay(r.bank || '-') + '</div>' +
-      '<div class="meta">Best Score ' + (r.best_score || 0) + ' • Accuracy ' + (r.best_accuracy || 0) + '%</div>';
-    els.menuTop3Board.appendChild(div);
-  });
-}
   function renderLeaderboard() {
-  const mode = V9.mode || 'code_battle';
-  const rows = (globalLeaderboardRows || [])
-    .filter(r => String(r.mode || 'code_battle') === mode);
+    const mode = V9.mode || 'code_battle';
+    const rows = (globalLeaderboardRows || [])
+      .filter(r => String(r.mode || 'code_battle') === mode);
 
-  els.leaderboardList.innerHTML = '';
+    els.leaderboardList.innerHTML = '';
+    applyModeAccentClass(els.leaderboardList, mode);
 
-  if (!rows.length) {
-    const li = document.createElement('li');
-    li.textContent = 'ยังไม่มี leaderboard สำหรับโหมด ' + getModeDisplay(mode);
-    els.leaderboardList.appendChild(li);
-    return;
+    if (!rows.length) {
+      const li = document.createElement('li');
+      li.className = getModeAccentClass(mode);
+      li.innerHTML =
+        '<div class="emptyState">' +
+          '<div class="emoji">📭</div>' +
+          '<div class="title">ยังไม่มีผู้เล่นในโหมดนี้</div>' +
+          '<div class="desc">ลองเริ่มเล่น ' + getModeDisplay(mode) + ' แล้วกลับมาดูอันดับอีกครั้ง</div>' +
+        '</div>';
+      els.leaderboardList.appendChild(li);
+      return;
+    }
+
+    rows.slice(0, 10).forEach((r, i) => {
+      const rankClass = i === 0 ? ' rank-1' : i === 1 ? ' rank-2' : i === 2 ? ' rank-3' : '';
+      const li = document.createElement('li');
+      li.className = getModeAccentClass(r.mode || mode);
+      li.innerHTML =
+        '<div class="leaderTop">' +
+          '<div>' +
+            '<div class="leaderName">' + (r.display_name || 'Player') + '</div>' +
+            '<div class="chipRow">' +
+              '<span class="infoChip mode-chip">' + getModeDisplay(r.mode || mode) + '</span>' +
+              '<span class="infoChip">' + getBankDisplay(r.bank || '-') + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="leaderRank' + rankClass + '">#' + (i + 1) + '</div>' +
+        '</div>' +
+        '<div class="leaderStats">' +
+          '<div class="leaderStat">' +
+            '<div class="label">Best Score</div>' +
+            '<div class="value">' + (r.best_score || 0) + '</div>' +
+          '</div>' +
+          '<div class="leaderStat">' +
+            '<div class="label">Accuracy</div>' +
+            '<div class="value">' + (r.best_accuracy || 0) + '%</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="leaderFoot">อัปเดตล่าสุด: ' + shortWhenText(r.last_when || '-') + '</div>';
+      els.leaderboardList.appendChild(li);
+    });
   }
 
-  rows.slice(0, 10).forEach((r, i) => {
-    const li = document.createElement('li');
-    li.innerHTML =
-      '<strong>#' + (i + 1) + ' ' + (r.display_name || 'Player') + '</strong>' +
-      '<div class="small">' + getModeDisplay(r.mode || mode) + '</div>' +
-      '<div class="small">' + getBankDisplay(r.bank || '-') + '</div>' +
-      '<div class="small mono">Best Score ' + (r.best_score || 0) +
-      ' • Accuracy ' + (r.best_accuracy || 0) +
-      '% • ' + (r.last_when || '-') + '</div>';
-    els.leaderboardList.appendChild(li);
-  });
-}
   function renderTeacherDashboard(summary) {
     try {
       localStorage.setItem(TEACHER_KEY, JSON.stringify(summary));
@@ -741,16 +898,6 @@ function getBankDisplay(bank) {
         ' • highest ' + m.highestLevel;
       els.weakList.appendChild(li);
     });
-  }
-
-  function getWeakestTerms(limit) {
-    return Object.entries(V9.mastery)
-      .sort((a, b) => {
-        const wrongDiff = b[1].wrong - a[1].wrong;
-        if (wrongDiff !== 0) return wrongDiff;
-        return a[1].correct - b[1].correct;
-      })
-      .slice(0, limit);
   }
 
   function renderHud() {
@@ -796,7 +943,8 @@ function getBankDisplay(bank) {
   function levelRank(level) { return level === 'easy' ? 1 : level === 'normal' ? 2 : 3; }
   function promoteLevel(level) { return level === 'easy' ? 'normal' : level === 'normal' ? 'hard' : 'hard'; }
   function demoteLevel(level) { return level === 'hard' ? 'normal' : level === 'normal' ? 'easy' : 'easy'; }
-    function ensureMastery(termId) {
+
+  function ensureMastery(termId) {
     if (!V9.mastery[termId]) {
       V9.mastery[termId] = {
         level: 'easy',
@@ -1145,20 +1293,37 @@ function getBankDisplay(bank) {
 
   function renderQuestionBox(item) {
     const theme = modeTheme();
-    const meta = theme.badge + ' • ' + item.type.toUpperCase() + ' • ' + item.level.toUpperCase() + (item.fromReview ? ' • REVIEW' : '');
+    const meta =
+      theme.badge + ' • ' +
+      getQuestionTypeDisplay(item.type) + ' • ' +
+      item.level.toUpperCase() +
+      (item.fromReview ? ' • REVIEW' : '');
+
+    els.questionBox.classList.remove('feedback-dim');
     els.questionBox.innerHTML =
       '<div class="q-meta">' + meta + '</div>' +
       '<div class="q-prompt">' + item.prompt + '</div>';
     els.questionBox.style.borderColor = theme.accent;
     els.questionBox.style.boxShadow = '0 14px 30px rgba(0,0,0,.22), 0 0 0 2px ' + theme.accent + '22';
+
+    requestAnimationFrame(updateMobileBattleLayout);
   }
 
   function showFeedback(text, kind) {
     els.feedbackBox.textContent = text;
+    els.feedbackBox.setAttribute('aria-live', 'polite');
     els.feedbackBox.className = '';
     els.feedbackBox.id = 'feedbackBox';
     els.feedbackBox.classList.add('show', kind);
-    setTimeout(() => { els.feedbackBox.classList.remove('show'); }, 650);
+    els.questionBox.classList.add('feedback-dim');
+
+    updateMobileBattleLayout();
+
+    setTimeout(() => {
+      els.feedbackBox.classList.remove('show');
+      els.questionBox.classList.remove('feedback-dim');
+      updateMobileBattleLayout();
+    }, 650);
   }
 
   function drawRoundRect(x, y, w, h, r) {
@@ -1299,7 +1464,8 @@ function getBankDisplay(bank) {
     const sorted = targets.slice().sort((a, b) => b.z - a.z);
     return sorted.find(t => pointInTarget(x, y, t)) || null;
   }
-    function getWeakestTerms(limit) {
+
+  function getWeakestTerms(limit) {
     return Object.entries(V9.mastery)
       .sort((a, b) => {
         const wrongDiff = b[1].wrong - a[1].wrong;
@@ -1366,6 +1532,76 @@ function getBankDisplay(bank) {
     }
   }
 
+  function renderEndSummaryMarkup(summary, weakestText) {
+    const cfg = modeConfig();
+    const resultText = summary.win ? 'MISSION COMPLETE' : 'TRY AGAIN';
+    const resultIcon = summary.win ? '🏆' : '🎯';
+    const resultClass = summary.win ? 'win' : 'lose';
+
+    let extra1Label = 'HP Left';
+    let extra1Value = summary.hp;
+    let extra2Label = 'Stages';
+    let extra2Value = summary.stagesPlayed + ' / ' + V9.maxStages;
+
+    if (cfg.useBoss) {
+      extra1Label = 'Boss HP Left';
+      extra1Value = summary.bossHp + ' / ' + summary.bossMaxHp;
+      extra2Label = 'HP Left';
+      extra2Value = summary.hp;
+    } else if (cfg.useBugMeter) {
+      extra1Label = 'Fixed Bugs';
+      extra1Value = V9.bugFixed;
+      extra2Label = 'Escaped Bugs';
+      extra2Value = V9.bugEscaped + ' / ' + V9.maxBugEscaped;
+    } else if (cfg.useModelMeter) {
+      extra1Label = 'Model Score';
+      extra1Value = V9.modelScore + ' / ' + V9.modelTarget;
+      extra2Label = 'Stability';
+      extra2Value = V9.modelStability + '%';
+    } else if (cfg.useSpeedTimer) {
+      extra1Label = 'Multiplier';
+      extra1Value = 'x' + V9.multiplier;
+      extra2Label = 'HP Left';
+      extra2Value = summary.hp;
+    }
+
+    return '' +
+      '<div class="summaryCard ' + getModeAccentClass(V9.mode) + '">' +
+        '<div class="summaryHero ' + getModeAccentClass(V9.mode) + '">' +
+          '<div class="player">' + (profile.displayName || 'Player') + '</div>' +
+          '<div class="mode">' + getModeDisplay(V9.mode) + '</div>' +
+          '<div class="resultPill ' + resultClass + '">' + resultIcon + ' ' + resultText + '</div>' +
+          '<div class="summaryBadgeRow">' +
+            '<div class="summaryMiniBadge">' + getBankDisplay(V9.bank) + '</div>' +
+            '<div class="summaryMiniBadge">Session ' + (currentSessionId || '-') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="summaryStats">' +
+          '<div class="summaryStat featured">' +
+            '<div class="label">Score</div>' +
+            '<div class="value">' + summary.score + '</div>' +
+          '</div>' +
+          '<div class="summaryStat featured">' +
+            '<div class="label">Accuracy</div>' +
+            '<div class="value">' + summary.accuracy + '%</div>' +
+          '</div>' +
+          '<div class="summaryStat">' +
+            '<div class="label">' + extra1Label + '</div>' +
+            '<div class="value">' + extra1Value + '</div>' +
+          '</div>' +
+          '<div class="summaryStat">' +
+            '<div class="label">' + extra2Label + '</div>' +
+            '<div class="value">' + extra2Value + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="summaryWeak">' +
+          '<div class="title">Weakest Terms</div>' +
+          '<div>' + weakestText + '</div>' +
+        '</div>' +
+        '<div class="summaryHint">' + modeSummaryHint() + '</div>' +
+      '</div>';
+  }
+
   function endRun() {
     if (phase === 'ended') return;
 
@@ -1404,45 +1640,7 @@ function getBankDisplay(bank) {
       ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ')
       : '-';
 
-    if (cfg.useBoss) {
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: ⚔️ Code Battle<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Stages: ' + summary.stagesPlayed + ' / ' + V9.maxStages + '<br>' +
-        'HP Left: ' + summary.hp + '<br>' +
-        (summary.win ? 'Result: BOSS DEFEATED<br>' : 'Result: BOSS SURVIVED<br>') +
-        'Boss HP Left: ' + summary.bossHp + ' / ' + summary.bossMaxHp + '<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    } else if (cfg.useBugMeter) {
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: 🧪 Debug Mission<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Fixed Bugs: ' + V9.bugFixed + '<br>' +
-        'Escaped Bugs: ' + V9.bugEscaped + '/' + V9.maxBugEscaped + '<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    } else if (cfg.useModelMeter) {
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: 🤖 AI Training Sim<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Model Score: ' + V9.modelScore + '/' + V9.modelTarget + '<br>' +
-        'Stability: ' + V9.modelStability + '%<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    } else if (cfg.useSpeedTimer) {
-      els.endSummaryText.innerHTML =
-        '<strong>' + profile.displayName + '</strong><br>' +
-        'Mode: ⚡ Speed Run<br>' +
-        'Score: ' + summary.score + '<br>' +
-        'Accuracy: ' + summary.accuracy + '%<br>' +
-        'Multiplier Final: x' + V9.multiplier + '<br>' +
-        'HP Left: ' + summary.hp + '<br>' +
-        'Weakest Terms: ' + weakestText + '<br><br>' + modeSummaryHint();
-    }
+    els.endSummaryText.innerHTML = renderEndSummaryMarkup(summary, weakestText);
 
     els.endWrap.classList.remove('hidden');
     els.menu.classList.add('hidden');
@@ -1486,7 +1684,9 @@ function getBankDisplay(bank) {
     if (cfg.useBoss) {
       if (isCorrect) {
         const damage = bossDamageFromCorrect();
-        V9.score += 12 + Math.min(V9.combo * 3, 24);
+        const gain = 12 + Math.min(V9.combo * 3, 24);
+        V9.score += gain;
+        showScorePop('+' + gain);
         V9.combo += 1;
         V9.bossHp = Math.max(0, V9.bossHp - damage);
         updateBossPhase();
@@ -1502,6 +1702,7 @@ function getBankDisplay(bank) {
       if (isCorrect) {
         V9.bugFixed += 1;
         V9.score += 15;
+        showScorePop('+15');
         V9.combo += 1;
         showFeedback(modeFeedbackText('correct'), 'ok');
       } else {
@@ -1516,6 +1717,7 @@ function getBankDisplay(bank) {
         const gain = item.level === 'hard' ? 20 : item.level === 'normal' ? 14 : 10;
         V9.modelScore = Math.min(V9.modelTarget, V9.modelScore + gain);
         V9.score += gain;
+        showScorePop('+' + gain);
         V9.combo += 1;
         showFeedback(modeFeedbackText('correct', gain), 'ok');
       } else {
@@ -1529,7 +1731,9 @@ function getBankDisplay(bank) {
       if (isCorrect) {
         V9.combo += 1;
         if (V9.combo >= 3) V9.multiplier = Math.min(5, V9.multiplier + 1);
-        V9.score += 8 * V9.multiplier;
+        const gain = 8 * V9.multiplier;
+        V9.score += gain;
+        showScorePop('+' + gain);
         showFeedback(modeFeedbackText('correct', V9.multiplier), 'ok');
       } else {
         V9.multiplier = 1;
@@ -1574,6 +1778,7 @@ function getBankDisplay(bank) {
     phase = 'feedback';
     phaseUntil = now() + 800;
   }
+
   function nextQuestionV9() {
     updateRunDifficulty();
 
@@ -1701,62 +1906,64 @@ function getBankDisplay(bank) {
 
     if (cfg.useBoss) {
       ctx.beginPath();
-      ctx.arc(0, 0, 52, 0, Math.PI * 2);
-      ctx.fillStyle = theme.accent + '55';
+      ctx.arc(0, 0, 42, 0, Math.PI * 2);
+      ctx.fillStyle = theme.accent + '30';
       ctx.fill();
 
       ctx.beginPath();
-      ctx.arc(0, 0, 30, 0, Math.PI * 2);
-      ctx.fillStyle = theme.accent;
+      ctx.arc(0, 0, 22, 0, Math.PI * 2);
+      ctx.fillStyle = theme.accent + 'bb';
       ctx.fill();
 
       ctx.fillStyle = '#fff';
-      ctx.font = '900 14px Arial';
+      ctx.font = '900 11px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('BOSS P' + V9.bossPhase, 0, 1);
+      ctx.fillText('BOSS', 0, -4);
+      ctx.font = '900 10px Arial';
+      ctx.fillText('P' + V9.bossPhase, 0, 10);
     } else if (cfg.useBugMeter) {
-      drawRoundRect(-70, -34, 140, 68, 18);
-      ctx.fillStyle = theme.accent + '55';
+      drawRoundRect(-58, -28, 116, 56, 16);
+      ctx.fillStyle = theme.accent + '30';
       ctx.fill();
 
       ctx.fillStyle = '#fff';
-      ctx.font = '900 16px Arial';
+      ctx.font = '900 13px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('BUG CORE', 0, -8);
-      ctx.font = '900 13px Arial';
-      ctx.fillText('FIX ' + V9.bugFixed + ' • ESC ' + V9.bugEscaped, 0, 14);
+      ctx.fillText('BUG', 0, -7);
+      ctx.font = '900 11px Arial';
+      ctx.fillText(V9.bugFixed + ' / ' + V9.maxBugEscaped, 0, 11);
     } else if (cfg.useModelMeter) {
       ctx.beginPath();
-      ctx.arc(0, 0, 58, 0, Math.PI * 2);
-      ctx.fillStyle = theme.accent + '44';
+      ctx.arc(0, 0, 46, 0, Math.PI * 2);
+      ctx.fillStyle = theme.accent + '30';
       ctx.fill();
 
       ctx.beginPath();
-      ctx.arc(0, 0, 36, 0, Math.PI * 2);
-      ctx.fillStyle = theme.accent;
+      ctx.arc(0, 0, 26, 0, Math.PI * 2);
+      ctx.fillStyle = theme.accent + 'bb';
       ctx.fill();
 
       ctx.fillStyle = '#fff';
-      ctx.font = '900 13px Arial';
+      ctx.font = '900 11px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('MODEL', 0, -8);
-      ctx.font = '900 12px Arial';
-      ctx.fillText(V9.modelScore + '/' + V9.modelTarget, 0, 12);
+      ctx.fillText('MODEL', 0, -4);
+      ctx.font = '900 10px Arial';
+      ctx.fillText(V9.modelScore + '/' + V9.modelTarget, 0, 10);
     } else if (cfg.useSpeedTimer) {
-      drawRoundRect(-82, -34, 164, 68, 20);
-      ctx.fillStyle = theme.accent + '55';
+      drawRoundRect(-64, -28, 128, 56, 18);
+      ctx.fillStyle = theme.accent + '30';
       ctx.fill();
 
       ctx.fillStyle = '#fff';
-      ctx.font = '900 16px Arial';
+      ctx.font = '900 13px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('SPEED', 0, -8);
-      ctx.font = '900 13px Arial';
-      ctx.fillText(V9.speedRunTimeLeft + 's • x' + V9.multiplier, 0, 14);
+      ctx.fillText('SPEED', 0, -7);
+      ctx.font = '900 11px Arial';
+      ctx.fillText(V9.speedRunTimeLeft + 's', 0, 11);
     }
 
     ctx.restore();
@@ -1974,8 +2181,11 @@ function getBankDisplay(bank) {
     } else if (phase === 'battle' && V9.currentItem) {
       renderChoicePad(V9.currentItem);
     }
+
+    requestAnimationFrame(updateMobileBattleLayout);
   }
-    function loop(t) {
+
+  function loop(t) {
     requestAnimationFrame(loop);
     renderBackground(t);
     renderLoopBattle(t);
@@ -1996,6 +2206,9 @@ function getBankDisplay(bank) {
       V9.mode = btn.dataset.mode || 'code_battle';
       document.querySelectorAll('.modeBtn').forEach(b => b.classList.toggle('active', b === btn));
       renderHud();
+      refreshPrimaryModeButton();
+      refreshMenuModeBanner();
+      refreshHeroModeText();
 
       fireAndForget(
         fetchGlobalLeaderboard(V9.mode).then(() => {
@@ -2113,6 +2326,9 @@ function getBankDisplay(bank) {
   renderLeaderboard();
   renderMenuTop3();
   renderHud();
+  refreshPrimaryModeButton();
+  refreshMenuModeBanner();
+  refreshHeroModeText();
   bootTeacherMode();
 
   forceMenuBootState();
