@@ -1,6 +1,6 @@
 // /english/js/lesson-ui.js
 
-const _uiTimers = {
+const uiTimers = {
   feedback: null,
   missionHeader: null,
   missionStats: null,
@@ -13,547 +13,428 @@ const _uiTimers = {
 };
 
 function clearUiTimer(key) {
-  if (_uiTimers[key]) {
-    clearTimeout(_uiTimers[key]);
-    _uiTimers[key] = null;
+  if (uiTimers[key]) {
+    clearTimeout(uiTimers[key]);
+    uiTimers[key] = null;
   }
 }
 
-function applyStyle(el, styles = {}) {
+function scheduleUiClass(key, fn, delay = 0) {
+  clearUiTimer(key);
+  uiTimers[key] = setTimeout(() => {
+    uiTimers[key] = null;
+    fn();
+  }, Math.max(0, Number(delay) || 0));
+}
+
+function getUi() {
+  return document.getElementById("ui-container");
+}
+
+function setDisplay(el, display = "block") {
   if (!el) return;
-  Object.entries(styles).forEach(([k, v]) => {
-    el.style[k] = v;
-  });
+  if ("style" in el) el.style.display = display;
+}
+
+function isAFrameEl(el) {
+  return !!(el && typeof el.setAttribute === "function" && el.tagName && el.tagName.toLowerCase().startsWith("a-"));
+}
+
+function applyVisible(el, visible) {
+  if (!el) return;
+  if (isAFrameEl(el)) {
+    el.setAttribute("visible", visible ? "true" : "false");
+  }
+}
+
+function textLikeSet(el, value) {
+  if (!el) return;
+  if (typeof el.setAttribute === "function" && isAFrameEl(el)) {
+    el.setAttribute("value", String(value ?? ""));
+  } else {
+    el.textContent = String(value ?? "");
+  }
+}
+
+function firstEl(...ids) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) return el;
+  }
+  return null;
+}
+
+function choiceButton(letter) {
+  const upper = String(letter || "").toUpperCase();
+  return firstEl(
+    `btn-choice-${upper.toLowerCase()}`,
+    `btn-choice-${upper}`,
+    `choice-${upper.toLowerCase()}`,
+    `choice-${upper}`
+  );
+}
+
+function setCollapsedClass(className, collapsed) {
+  const ui = getUi();
+  if (!ui) return;
+  ui.classList.toggle(className, !!collapsed);
 }
 
 export function $(id) {
   return document.getElementById(id);
 }
 
-export function setValueAttr(idOrEl, value) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.setAttribute("value", value);
-}
-
 export function setText(idOrEl, value) {
   const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
   if (!el) return;
-  el.textContent = value;
-}
-
-export function setHtml(idOrEl, html) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.innerHTML = html;
-}
-
-export function setColor(idOrEl, color) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.style.color = color;
+  el.textContent = String(value ?? "");
 }
 
 export function show(idOrEl, display = "block") {
   const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
   if (!el) return;
-  el.style.display = display;
+  setDisplay(el, display);
+  applyVisible(el, true);
 }
 
 export function hide(idOrEl) {
   const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
   if (!el) return;
-  el.style.display = "none";
+  setDisplay(el, "none");
+  applyVisible(el, false);
 }
 
-export function showMany(list = [], display = "block") {
-  list.forEach(item => show(item, display));
+export function setHudMode(mode) {
+  const ui = getUi();
+  if (!ui) return;
+
+  ui.classList.remove("hub-mode", "mission-mode", "summary-mode");
+  if (mode === "mission") ui.classList.add("mission-mode");
+  else if (mode === "summary") ui.classList.add("summary-mode");
+  else ui.classList.add("hub-mode");
 }
 
-export function hideMany(list = []) {
-  list.forEach(item => hide(item));
-}
-
-export function setVisible(idOrEl, visible) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+export function setFeedback(text = "", color = "#ffffff") {
+  const el = $("feedback");
   if (!el) return;
-  el.setAttribute("visible", visible ? "true" : "false");
+  el.textContent = String(text || "");
+  el.style.color = color || "#ffffff";
 }
 
-export function setVisibleMany(list = [], visible = false) {
-  list.forEach(item => setVisible(item, visible));
+export function setTitleBlock(title = "", desc = "", color = "#00e5ff") {
+  const titleEl = $("ui-title");
+  const descEl = $("ui-desc");
+
+  if (titleEl) {
+    titleEl.textContent = String(title || "");
+    titleEl.style.color = color || "#00e5ff";
+  }
+  if (descEl) {
+    descEl.textContent = String(desc || "");
+  }
 }
 
-export function addClass(idOrEl, className) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+export function setHubVisible(visible) {
+  const hub = $("hub-scene");
+  if (!hub) return;
+  hub.setAttribute("visible", visible ? "true" : "false");
+}
+
+export function showTimer(visible = true) {
+  const el = $("timer");
   if (!el) return;
-  el.classList.add(className);
+  if (visible) show(el, "block");
+  else hide(el);
 }
 
-export function removeClass(idOrEl, className) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
+export function setTimerText(value) {
+  const el = $("timer");
   if (!el) return;
-  el.classList.remove(className);
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const safe = Math.max(0, value);
+    const mins = String(Math.floor(safe / 60)).padStart(2, "0");
+    const secs = String(safe % 60).padStart(2, "0");
+    el.textContent = `${mins}:${secs}`;
+  } else {
+    el.textContent = String(value ?? "");
+  }
 }
 
-export function toggleClass(idOrEl, className, force) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  if (typeof force === "boolean") el.classList.toggle(className, force);
-  else el.classList.toggle(className);
+export function setMissionScene(type) {
+  const speaking = $("mission-speaking-scene");
+  const reading = $("mission-reading-scene");
+  const listening = $("mission-listening-scene");
+  const writing = $("mission-writing-scene");
+
+  [speaking, reading, listening, writing].forEach(el => {
+    if (el) el.setAttribute("visible", "false");
+  });
+
+  if (type === "speaking" && speaking) speaking.setAttribute("visible", "true");
+  if (type === "reading" && reading) reading.setAttribute("visible", "true");
+  if (type === "listening" && listening) listening.setAttribute("visible", "true");
+  if (type === "writing" && writing) writing.setAttribute("visible", "true");
 }
 
-export function pulseClass(idOrEl, className, ms = 450) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.classList.remove(className);
-  void el.offsetWidth;
-  el.classList.add(className);
-  clearTimeout(el._pulseTimer);
-  el._pulseTimer = setTimeout(() => el.classList.remove(className), ms);
+export function hideAllMissionControlsUI() {
+  hide("btn-speak");
+  hide("btn-play-audio");
+  hide("btn-submit-write");
+  hide("write-input");
+  hide("choice-buttons");
+
+  ["A", "B", "C"].forEach(letter => {
+    hide(choiceButton(letter));
+  });
+
+  ["mission-speaking-scene", "mission-reading-scene", "mission-listening-scene", "mission-writing-scene"]
+    .forEach(id => {
+      const el = $(id);
+      if (el) el.setAttribute("visible", "false");
+    });
 }
 
-export function setButtonDisabled(idOrEl, disabled = true) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.disabled = disabled;
+export function setSpeakingPrompt(title = "", exactPhrase = "") {
+  const el = firstEl("speaking-prompt", "mission-speaking-prompt");
+  const msg = title
+    ? `MISSION: ${title}\nSay: "${String(exactPhrase || "").toUpperCase()}"`
+    : `Say: "${String(exactPhrase || "").toUpperCase()}"`;
+  textLikeSet(el, msg);
 }
 
-export function setInputValue(idOrEl, value = "") {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  if (!el) return;
-  el.value = value;
+export function setWritingPrompt(prompt = "") {
+  const el = firstEl("writing-prompt", "mission-writing-prompt");
+  textLikeSet(el, prompt);
 }
 
-export function getInputValue(idOrEl) {
-  const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-  return el ? el.value : "";
+export function setReadingQuestion(question = "") {
+  const el = firstEl("reading-question", "question-text", "mission-reading-question");
+  textLikeSet(el, question);
 }
 
-export function setHudMode(mode = "hub") {
-  const ui = $("ui-container");
-  if (ui) {
-    ui.classList.remove("hub-mode", "mission-mode", "summary-mode");
-    if (mode === "mission") ui.classList.add("mission-mode");
-    else if (mode === "summary") ui.classList.add("summary-mode");
-    else ui.classList.add("hub-mode");
+export function setChoiceLabelsFor(type, choices = []) {
+  const list = Array.isArray(choices) ? choices : [];
+
+  ["A", "B", "C"].forEach((letter, index) => {
+    const btn = choiceButton(letter);
+    if (!btn) return;
+
+    const label = String(list[index] || `${letter}: ...`);
+    if ("value" in btn && btn.tagName && btn.tagName.toLowerCase() === "input") {
+      btn.value = label;
+    } else {
+      btn.textContent = label;
+    }
+
+    btn.dataset.choiceType = String(type || "");
+    btn.dataset.choiceLetter = letter;
+  });
+}
+
+export function showMissionControlByType(type) {
+  hideAllMissionControlsUI();
+
+  if (type === "speaking") {
+    setMissionScene("speaking");
+    show("btn-speak", "inline-block");
+    return;
   }
 
-  document.body.classList.remove("hub-mode", "mission-mode", "summary-mode");
-  if (mode === "mission") document.body.classList.add("mission-mode");
-  else if (mode === "summary") document.body.classList.add("summary-mode");
-  else document.body.classList.add("hub-mode");
+  if (type === "reading") {
+    setMissionScene("reading");
+    showChoiceButtons(true);
+    return;
+  }
+
+  if (type === "listening") {
+    setMissionScene("listening");
+    show("btn-play-audio", "inline-block");
+    showChoiceButtons(true);
+    return;
+  }
+
+  if (type === "writing") {
+    setMissionScene("writing");
+    show("write-input", "inline-block");
+    show("btn-submit-write", "inline-block");
+  }
 }
 
-export function setFeedback(text, color = "#ffffff") {
-  setText("feedback", text || "");
-  setColor("feedback", color);
+export function showChoiceButtons(visible = true) {
+  const wrap = $("choice-buttons");
+  if (wrap) {
+    if (visible) show(wrap, "grid");
+    else hide(wrap);
+  }
+
+  ["A", "B", "C"].forEach(letter => {
+    const btn = choiceButton(letter);
+    if (!btn) return;
+    if (visible) show(btn, "block");
+    else hide(btn);
+  });
 }
 
-export function scheduleFeedbackClear(ms = 900) {
-  clearUiTimer("feedback");
-  _uiTimers.feedback = setTimeout(() => {
-    setFeedback("", "#ffffff");
-  }, ms);
+export function resetWritingInput() {
+  const input = $("write-input");
+  if (!input) return;
+  input.value = "";
+}
+
+export function setScoreHUD(score = 0, hp = 100) {
+  const scoreEl = $("score-display");
+  const hpEl = $("hp-display");
+  const hpWrap = $("hud-hp-wrap");
+  const scoreWrap = $("hud-score-wrap");
+  const ui = getUi();
+
+  if (scoreEl) scoreEl.textContent = String(Math.max(0, Number(score) || 0));
+  if (hpEl) hpEl.textContent = `${Math.max(0, Number(hp) || 0)}%`;
+
+  if (scoreWrap) {
+    scoreWrap.classList.remove("hud-stat-warning", "hud-stat-critical");
+  }
+
+  if (hpWrap) {
+    hpWrap.classList.remove("hud-stat-warning", "hud-stat-critical");
+
+    if (hp <= 35) hpWrap.classList.add("hud-stat-critical");
+    else if (hp <= 60) hpWrap.classList.add("hud-stat-warning");
+  }
+
+  if (ui) {
+    ui.classList.remove("mission-hp-warning", "mission-hp-critical");
+    if (hp <= 35) ui.classList.add("mission-hp-critical");
+    else if (hp <= 60) ui.classList.add("mission-hp-warning");
+  }
+}
+
+export function setMissionPrompt(text = "", label = "MISSION") {
+  const box = $("mission-prompt-box");
+  const labelEl = $("mission-prompt-label");
+  const textEl = $("mission-prompt-text");
+
+  if (labelEl) labelEl.textContent = String(label || "MISSION");
+  if (textEl) textEl.textContent = String(text || "");
+
+  if (box) show(box, "block");
+}
+
+export function clearMissionPrompt() {
+  const box = $("mission-prompt-box");
+  const labelEl = $("mission-prompt-label");
+  const textEl = $("mission-prompt-text");
+
+  if (labelEl) labelEl.textContent = "";
+  if (textEl) textEl.textContent = "";
+  if (box) hide(box);
 }
 
 export function cancelFeedbackClear() {
   clearUiTimer("feedback");
 }
 
-export function setTitleBlock(title, desc = "", color = null) {
-  setText("ui-title", title || "");
-  setText("ui-desc", desc || "");
-  if (color) setColor("ui-title", color);
-}
-
-export function setHubVisible(visible = true) {
-  setVisible("hub-scene", visible);
-}
-
-export function setSummaryVisible(showIt = true) {
-  if (showIt) show("summary-panel");
-  else hide("summary-panel");
-}
-
-export function setSummaryContent(title, titleColor, lines = []) {
-  setText("summary-title", title || "");
-  setColor("summary-title", titleColor || "#ffffff");
-  setText("summary-body", Array.isArray(lines) ? lines.join("\n") : String(lines || ""));
-  setSummaryVisible(true);
-}
-
-export function setGameOverVisible(showIt = true) {
-  if (showIt) show("game-over-ui");
-  else hide("game-over-ui");
-}
-
-export function setTimerText(totalSec) {
-  const timerEl = $("timer");
-  if (!timerEl) return;
-  const safe = Math.max(0, Number(totalSec || 0));
-  const mins = String(Math.floor(safe / 60)).padStart(2, "0");
-  const secs = String(safe % 60).padStart(2, "0");
-  timerEl.innerText = `${mins}:${secs}`;
-  timerEl.style.color = safe <= 10 ? "#ff0000" : "#ff4757";
-}
-
-export function showTimer(showIt = true) {
-  if (showIt) show("timer");
-  else hide("timer");
-}
-
-export function setMissionScene(type) {
-  setVisible("mission-speaking-scene", type === "speaking");
-  setVisible("mission-reading-scene", type === "reading");
-  setVisible("mission-listening-scene", type === "listening");
-  setVisible("mission-writing-scene", type === "writing");
-}
-
-export function hideAllMissionScenes() {
-  setVisibleMany([
-    "mission-speaking-scene",
-    "mission-reading-scene",
-    "mission-listening-scene",
-    "mission-writing-scene"
-  ], false);
-}
-
-export function hideAllMissionControlsUI() {
-  hideAllMissionScenes();
-  hideMany([
-    "btn-speak",
-    "btn-play-audio",
-    "write-input",
-    "btn-submit-write",
-    "choice-buttons",
-    "btn-next",
-    "btn-return"
-  ]);
-  showTimer(false);
-  setButtonDisabled("btn-speak", false);
-}
-
-export function setSpeakingPrompt(title, exactPhrase) {
-  setValueAttr("speaking-prompt", `MISSION: ${title}\nSay: "${String(exactPhrase || "").toUpperCase()}"`);
-}
-
-export function setWritingPrompt(prompt) {
-  setValueAttr("writing-prompt", prompt || "");
-}
-
-export function setReadingQuestion(question) {
-  setValueAttr("reading-question", `SYSTEM ALERT:\n\n${question || ""}`);
-}
-
-export function setChoiceLabelsFor(type, choices = []) {
-  const prefix = type === "listening" ? "listening" : "reading";
-
-  const a = choices[0] || "A";
-  const b = choices[1] || "B";
-  const c = choices[2] || "C";
-
-  setValueAttr(`${prefix}-choice-a`, a);
-  setValueAttr(`${prefix}-choice-b`, b);
-  setValueAttr(`${prefix}-choice-c`, c);
-
-  const mobileA = document.getElementById("choice-btn-a");
-  const mobileB = document.getElementById("choice-btn-b");
-  const mobileC = document.getElementById("choice-btn-c");
-
-  if (mobileA) mobileA.textContent = a;
-  if (mobileB) mobileB.textContent = b;
-  if (mobileC) mobileC.textContent = c;
-}
-
-export function showMissionControlByType(type) {
-  hideMany(["btn-speak", "btn-play-audio", "btn-submit-write"]);
-  if (type === "speaking") show("btn-speak", "inline-block");
-  else if (type === "listening") show("btn-play-audio", "inline-block");
-  else if (type === "writing") show("btn-submit-write", "inline-block");
-}
-
-export function showChoiceButtons(showIt = true) {
-  if (showIt) show("choice-buttons", "flex");
-  else hide("choice-buttons");
-}
-
-export function resetWritingInput() {
-  setInputValue("write-input", "");
-}
-
-export function setScoreHUD(score, hp, comboCount = 0) {
-  setText("score-display", String(score ?? 0));
-  setText("hp-display", `${hp ?? 0}%`);
-
-  const comboEl = $("combo-display");
-  if (!comboEl) return;
-
-  if (comboCount >= 2) {
-    comboEl.style.display = "inline";
-    comboEl.innerText = comboCount >= 5
-      ? `(🔥 x${comboCount} PERFECT!)`
-      : `(x${comboCount} COMBO!)`;
-  } else {
-    comboEl.style.display = "none";
-    comboEl.innerText = "";
-  }
-}
-
-export function setBossHUD({ show = false, hp = 0, maxHp = 0, sub = "" } = {}) {
-  const wrap = $("boss-phase-ui");
-  const fill = $("boss-bar-fill");
-  const hpText = $("boss-hp-text");
-  const subEl = $("boss-phase-sub");
-
-  if (!wrap || !fill || !hpText || !subEl) return;
-
-  wrap.style.display = show ? "block" : "none";
-  if (!show) return;
-
-  const ratio = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0;
-  fill.style.width = `${Math.round(ratio * 100)}%`;
-  hpText.innerText = `BOSS HP: ${hp} / ${maxHp}`;
-  subEl.innerText = sub || "";
-}
-
-export function setMissionTypeTag(text, success = true) {
-  const tag = $("mission-type-tag");
-  if (!tag) return;
-  tag.textContent = text || "";
-  tag.style.color = success ? "#2ed573" : "#ff6b81";
-  tag.style.borderColor = success
-    ? "rgba(46,213,115,0.35)"
-    : "rgba(255,107,129,0.35)";
-  pulseClass(tag, "show", 940);
-}
-
-export function setMissionPrompt(text = "", label = "PROMPT") {
-  const box = $("mission-prompt-box");
-  const labelEl = $("mission-prompt-label");
-  const textEl = $("mission-prompt-text");
-
-  if (labelEl) labelEl.textContent = label || "PROMPT";
-  if (textEl) textEl.textContent = text || "";
-
-  if (text && box) box.style.display = "block";
-}
-
-export function clearMissionPrompt() {
-  const textEl = $("mission-prompt-text");
-  if (textEl) textEl.textContent = "";
+export function scheduleFeedbackClear(delay = 1000) {
+  scheduleUiClass("feedback", () => {
+    setFeedback("", "#ffffff");
+  }, delay);
 }
 
 export function expandMissionHeader() {
-  const title = $("ui-title");
-  const desc = $("ui-desc");
-  applyStyle(title, {
-    opacity: "1",
-    transform: "none",
-    fontSize: "",
-    margin: ""
-  });
-  applyStyle(desc, {
-    opacity: "1",
-    transform: "none",
-    fontSize: "",
-    margin: ""
-  });
+  setCollapsedClass("mission-header-collapsed", false);
 }
 
-export function scheduleMissionHeaderCollapse(ms = 1000) {
-  clearUiTimer("missionHeader");
-  _uiTimers.missionHeader = setTimeout(() => {
-    const title = $("ui-title");
-    const desc = $("ui-desc");
-    applyStyle(title, {
-      opacity: "0.94",
-      transform: "translateY(-2px)",
-      fontSize: "1.05rem",
-      margin: "0 0 2px 0"
-    });
-    applyStyle(desc, {
-      opacity: "0.75",
-      transform: "translateY(-2px)",
-      fontSize: "0.78rem",
-      margin: "0"
-    });
-  }, ms);
+export function scheduleMissionHeaderCollapse(delay = 1000) {
+  scheduleUiClass("missionHeader", () => {
+    setCollapsedClass("mission-header-collapsed", true);
+  }, delay);
 }
 
-export function expandMissionStats() {
-  const stats = $("hud-stats");
-  applyStyle(stats, {
-    opacity: "1",
-    transform: "none"
-  });
+export function expandMissionStats(durationMs) {
+  setCollapsedClass("mission-stats-collapsed", false);
 }
 
-export function scheduleMissionStatsCollapse(ms = 1100) {
-  clearUiTimer("missionStats");
-  _uiTimers.missionStats = setTimeout(() => {
-    const stats = $("hud-stats");
-    applyStyle(stats, {
-      opacity: "0.96",
-      transform: "translateY(-1px)"
-    });
-  }, ms);
+export function scheduleMissionStatsCollapse(delay = 1000) {
+  scheduleUiClass("missionStats", () => {
+    setCollapsedClass("mission-stats-collapsed", true);
+  }, delay);
 }
 
 export function expandMissionPromptChrome() {
-  const box = $("mission-prompt-box");
-  applyStyle(box, {
-    opacity: "1",
-    transform: "none",
-    padding: ""
-  });
+  setCollapsedClass("mission-prompt-collapsed", false);
 }
 
-export function scheduleMissionPromptChromeCollapse(ms = 1100) {
-  clearUiTimer("missionPromptChrome");
-  _uiTimers.missionPromptChrome = setTimeout(() => {
-    const box = $("mission-prompt-box");
-    applyStyle(box, {
-      opacity: "0.96",
-      transform: "translateY(-1px)"
-    });
-  }, ms);
+export function scheduleMissionPromptChromeCollapse(delay = 1000) {
+  scheduleUiClass("missionPromptChrome", () => {
+    setCollapsedClass("mission-prompt-collapsed", true);
+  }, delay);
 }
 
 export function expandBossChrome() {
-  const boss = $("boss-phase-ui");
-  applyStyle(boss, {
-    opacity: "1",
-    transform: "none"
-  });
+  setCollapsedClass("boss-chrome-collapsed", false);
 }
 
-export function scheduleBossChromeCollapse(ms = 1200) {
-  clearUiTimer("bossChrome");
-  _uiTimers.bossChrome = setTimeout(() => {
-    const boss = $("boss-phase-ui");
-    applyStyle(boss, {
-      opacity: "0.96",
-      transform: "translateY(-1px)"
-    });
-  }, ms);
+export function scheduleBossChromeCollapse(delay = 1000) {
+  scheduleUiClass("bossChrome", () => {
+    setCollapsedClass("boss-chrome-collapsed", true);
+  }, delay);
 }
 
 export function expandMissionTopChips() {
-  const row = $("hud-top-row");
-  applyStyle(row, {
-    opacity: "1",
-    transform: "none"
-  });
+  setCollapsedClass("mission-topchips-collapsed", false);
 }
 
-export function scheduleMissionTopChipsCollapse(ms = 1100) {
-  clearUiTimer("missionTopChips");
-  _uiTimers.missionTopChips = setTimeout(() => {
-    const row = $("hud-top-row");
-    applyStyle(row, {
-      opacity: "0.92",
-      transform: "translateY(-1px)"
-    });
-  }, ms);
+export function scheduleMissionTopChipsCollapse(delay = 1000) {
+  scheduleUiClass("missionTopChips", () => {
+    setCollapsedClass("mission-topchips-collapsed", true);
+  }, delay);
 }
 
 export function expandMissionTitleUltraMini() {
-  const title = $("ui-title");
-  applyStyle(title, {
-    letterSpacing: "",
-    fontSize: ""
-  });
+  setCollapsedClass("mission-title-ultramini", false);
 }
 
-export function scheduleMissionTitleUltraMini(ms = 1000) {
-  clearUiTimer("missionTitleUltraMini");
-  _uiTimers.missionTitleUltraMini = setTimeout(() => {
-    const title = $("ui-title");
-    applyStyle(title, {
-      letterSpacing: "0.02em",
-      fontSize: "1rem"
-    });
-  }, ms);
+export function scheduleMissionTitleUltraMini(delay = 1000) {
+  scheduleUiClass("missionTitleUltraMini", () => {
+    setCollapsedClass("mission-title-ultramini", true);
+  }, delay);
 }
 
-export function expandMissionTimer() {
-  const timer = $("timer");
-  applyStyle(timer, {
-    opacity: "1",
-    transform: "none",
-    fontSize: ""
-  });
+export function expandMissionTimer(durationMs) {
+  setCollapsedClass("mission-timer-compact", false);
 }
 
-export function scheduleMissionTimerCompact(ms = 1000) {
-  clearUiTimer("missionTimerCompact");
-  _uiTimers.missionTimerCompact = setTimeout(() => {
-    const timer = $("timer");
-    applyStyle(timer, {
-      opacity: "0.98",
-      transform: "translateY(-1px)",
-      fontSize: "1rem"
-    });
-  }, ms);
+export function scheduleMissionTimerCompact(delay = 1000) {
+  scheduleUiClass("missionTimerCompact", () => {
+    setCollapsedClass("mission-timer-compact", true);
+  }, delay);
 }
 
-export function setMissionTimerAlert(on = false) {
-  const timer = $("timer");
-  if (!timer) return;
-  timer.style.textShadow = on ? "0 0 12px rgba(255,0,0,.45)" : "";
-  timer.style.filter = on ? "saturate(1.15)" : "";
+export function setMissionTimerAlert(on = true) {
+  const ui = getUi();
+  if (!ui) return;
+  ui.classList.toggle("mission-timer-alert", !!on);
 }
 
-export function expandMissionHudTextCompact() {
-  const feedback = $("feedback");
-  applyStyle(feedback, {
-    opacity: "1",
-    transform: "none",
-    fontSize: ""
-  });
+export function expandMissionHudTextCompact(durationMs) {
+  setCollapsedClass("mission-hudtext-compact", false);
 }
 
-export function scheduleMissionHudTextCompact(ms = 1000) {
-  clearUiTimer("missionHudTextCompact");
-  _uiTimers.missionHudTextCompact = setTimeout(() => {
-    const feedback = $("feedback");
-    applyStyle(feedback, {
-      opacity: "0.95",
-      transform: "translateY(-1px)",
-      fontSize: "0.95rem"
-    });
-  }, ms);
+export function scheduleMissionHudTextCompact(delay = 1000) {
+  scheduleUiClass("missionHudTextCompact", () => {
+    setCollapsedClass("mission-hudtext-compact", true);
+  }, delay);
 }
 
 export function togglePromptFocusExpanded() {
   const box = $("mission-prompt-box");
   if (!box) return;
-  const expanded = box.dataset.focusExpanded === "1";
-  if (expanded) {
-    box.dataset.focusExpanded = "0";
-    applyStyle(box, {
-      transform: "none",
-      maxHeight: "",
-      overflow: ""
-    });
-  } else {
-    box.dataset.focusExpanded = "1";
-    applyStyle(box, {
-      transform: "scale(1.01)",
-      maxHeight: "42dvh",
-      overflow: "auto"
-    });
-  }
+  box.classList.toggle("prompt-focus-expanded");
 }
 
 export function resetPromptFocusExpanded() {
   const box = $("mission-prompt-box");
   if (!box) return;
-  box.dataset.focusExpanded = "0";
-  applyStyle(box, {
-    transform: "none",
-    maxHeight: "",
-    overflow: ""
-  });
+  box.classList.remove("prompt-focus-expanded");
 }
