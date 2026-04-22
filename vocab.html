@@ -81,8 +81,14 @@
     }
 
     @keyframes panelIn{
-      from{opacity:0;transform:translateY(10px) scale(.99)}
-      to{opacity:1;transform:translateY(0) scale(1)}
+      from{
+        opacity:0;
+        transform:translateY(10px) scale(.99);
+      }
+      to{
+        opacity:1;
+        transform:translateY(0) scale(1);
+      }
     }
 
     .title{
@@ -129,7 +135,7 @@
       text-align:left;
       color:var(--text);
       cursor:pointer;
-      transition:transform .12s ease,border-color .12s ease,background .12s ease;
+      transition:transform .12s ease, border-color .12s ease, background .12s ease;
     }
 
     .option:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.55)}
@@ -191,6 +197,11 @@
     .btn.ghost{
       background:linear-gradient(135deg,#dbeafe,#93c5fd);
       color:#172554;
+    }
+
+    .actionGrid .btn.primary-mode{
+      background:linear-gradient(135deg, var(--mode-accent, #67e8f9), #dbeafe);
+      color:#08111f;
     }
 
     .hud{
@@ -343,8 +354,14 @@
     }
 
     @keyframes choicePop{
-      from{opacity:0;transform:translateY(8px) scale(.985)}
-      to{opacity:1;transform:translateY(0) scale(1)}
+      from{
+        opacity:0;
+        transform:translateY(8px) scale(.985);
+      }
+      to{
+        opacity:1;
+        transform:translateY(0) scale(1);
+      }
     }
 
     .choiceBtn:active{
@@ -383,9 +400,18 @@
     }
 
     @keyframes scorePop{
-      0%{opacity:0;transform:translateX(-50%) translateY(6px) scale(.96)}
-      20%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
-      100%{opacity:0;transform:translateX(-50%) translateY(-20px) scale(1.02)}
+      0%{
+        opacity:0;
+        transform:translateX(-50%) translateY(6px) scale(.96);
+      }
+      20%{
+        opacity:1;
+        transform:translateX(-50%) translateY(0) scale(1);
+      }
+      100%{
+        opacity:0;
+        transform:translateX(-50%) translateY(-20px) scale(1.02);
+      }
     }
 
     .chipRow{
@@ -573,6 +599,11 @@
       color:#fff;
     }
 
+    .menuTop3Board-ready .top3Card:first-child{
+      border-color:rgba(250,204,21,.38);
+      box-shadow:0 16px 36px rgba(0,0,0,.18), 0 0 0 1px rgba(250,204,21,.16) inset;
+    }
+
     .emptyState{
       text-align:center;
       padding:14px 10px 6px;
@@ -596,10 +627,24 @@
       line-height:1.5;
     }
 
-    .menuTop3Board-ready .top3Card:first-child{
-      border-color:rgba(250,204,21,.38);
-      box-shadow:0 16px 36px rgba(0,0,0,.18), 0 0 0 1px rgba(250,204,21,.16) inset;
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:12px;
     }
+
+    th,td{
+      border-bottom:1px solid rgba(255,255,255,.08);
+      padding:8px;
+      text-align:left;
+      font-size:13px;
+    }
+
+    th{color:#93c5fd}
+    .small{font-size:12px;color:#cbd5e1}
+    .mono{font-family:ui-monospace,Consolas,monospace}
+    .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
+    #endWrap{z-index:9999}
 
     .summaryCard{
       margin-top:14px;
@@ -633,15 +678,11 @@
       font-size:20px;
       font-weight:1000;
       margin-bottom:6px;
-      position:relative;
-      z-index:1;
     }
 
     .summaryHero .mode{
       font-size:13px;
       color:#dbeafe;
-      position:relative;
-      z-index:1;
     }
 
     .resultPill{
@@ -655,8 +696,6 @@
       font-weight:900;
       background:rgba(255,255,255,.10);
       border:1px solid rgba(255,255,255,.12);
-      position:relative;
-      z-index:1;
     }
 
     .resultPill.win{
@@ -676,8 +715,6 @@
       flex-wrap:wrap;
       gap:8px;
       margin-top:10px;
-      position:relative;
-      z-index:1;
     }
 
     .summaryMiniBadge{
@@ -773,26 +810,18 @@
       color:#c7d4ff;
     }
 
-    .actionGrid .btn.primary-mode{
-      background:linear-gradient(135deg, var(--mode-accent, #67e8f9), #dbeafe);
-      color:#08111f;
-    }
-
     .mode-accent-code_battle{
       --mode-accent:#f472b6;
       --mode-accent-soft:rgba(244,114,182,.18);
     }
-
     .mode-accent-debug_mission{
       --mode-accent:#fb923c;
       --mode-accent-soft:rgba(251,146,60,.18);
     }
-
     .mode-accent-ai_training{
       --mode-accent:#a78bfa;
       --mode-accent-soft:rgba(167,139,250,.18);
     }
-
     .mode-accent-speed_run{
       --mode-accent:#22d3ee;
       --mode-accent-soft:rgba(34,211,238,.18);
@@ -820,25 +849,6 @@
       border-color:color-mix(in srgb, var(--mode-accent, #93c5fd) 55%, rgba(255,255,255,.12));
       color:#fff;
     }
-
-    table{
-      width:100%;
-      border-collapse:collapse;
-      margin-top:12px;
-    }
-
-    th,td{
-      border-bottom:1px solid rgba(255,255,255,.08);
-      padding:8px;
-      text-align:left;
-      font-size:13px;
-    }
-
-    th{color:#93c5fd}
-    .small{font-size:12px;color:#cbd5e1}
-    .mono{font-family:ui-monospace,Consolas,monospace}
-    .secretNote{margin-top:10px;font-size:12px;color:#fde68a}
-    #endWrap{z-index:9999}
 
     @media (min-width:700px){
       .bankGrid{grid-template-columns:1fr 1fr 1fr}
@@ -869,13 +879,43 @@
       .big{font-size:12px}
       .sub{font-size:9px}
 
+      .summaryStats{
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+      }
+
+      .summaryStat .value{
+        font-size:16px;
+      }
+
+      .option h3{font-size:16px}
+      .option p{font-size:12px}
+      .btn{font-size:16px}
       #questionBox{
         top:164px;
         min-height:112px;
       }
-
       #questionBox .q-prompt{
         font-size:17px;
+      }
+      .choiceBtn{
+        min-height:54px;
+        font-size:16px;
+      }
+    }
+
+    @media (max-width:380px){
+      .heroModeTitle{
+        font-size:15px;
+      }
+
+      .heroModeDesc{
+        font-size:12px;
+      }
+
+      .summaryMiniBadge{
+        font-size:10px;
+        padding:6px 9px;
       }
 
       #choicePad{
@@ -897,31 +937,6 @@
         height:38px;
         font-size:14px;
       }
-
-      .heroModeTitle{font-size:15px}
-      .heroModeDesc{font-size:12px}
-
-      .summaryStats{
-        grid-template-columns:1fr 1fr;
-        gap:8px;
-      }
-
-      .summaryStat .value{
-        font-size:16px;
-      }
-
-      .summaryMiniBadge{
-        font-size:10px;
-        padding:6px 9px;
-      }
-    }
-
-    @media (max-width:380px){
-      .heroModeTitle{font-size:15px}
-      .heroModeDesc{font-size:12px}
-      .summaryMiniBadge{font-size:10px;padding:6px 9px}
-      #choicePad{left:10px;right:10px;gap:8px}
-      .choiceBtn{min-height:52px;padding:12px 14px;font-size:15px}
     }
   </style>
 </head>
@@ -1039,7 +1054,7 @@
         <div>
           <div class="sectionTitle">เริ่มใช้งาน</div>
           <div class="actionGrid">
-            <button class="btn" id="startBtn">START PRODUCTION RUN</button>
+            <button class="btn primary-mode" id="startBtn">START PRODUCTION RUN</button>
             <button class="btn alt" id="leaderboardBtn">LEADERBOARD</button>
           </div>
         </div>
@@ -1086,7 +1101,6 @@
     <div class="panel">
       <h2 style="margin:0">Leaderboard by Mode 🏆</h2>
       <div class="desc">แสดง 10 อันดับสูงสุดของโหมดที่คุณเลือกอยู่ตอนนี้</div>
-      <div class="leaderboardWrapTitleNote">อันดับจะแสดงเฉพาะโหมดที่กำลังเลือกอยู่บนหน้าเมนู</div>
       <ul class="leaderboardList" id="leaderboardList"></ul>
       <div class="actionGrid" style="margin-top:14px;">
         <button class="btn ghost" id="closeLeaderboardBtn">CLOSE</button>
