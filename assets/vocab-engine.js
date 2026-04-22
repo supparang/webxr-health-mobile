@@ -1,6 +1,26 @@
 import { VOCAB_BANKS } from './vocab-data.js';
 import { installVocabGuards } from './vocab-guard.js';
 
+/*
+  VOCAB ENGINE
+  Release baseline:
+  - per-mode leaderboard
+  - mobile choicePad support
+  - player page without clear leaderboard
+  - polished UI for menu / leaderboard / summary
+  - release-lock diagnostics hooks
+
+  Safe to edit later:
+  - copy text / labels / cosmetic CSS
+  - summary wording
+  - leaderboard card styling
+
+  Avoid changing without retest:
+  - leaderboard_get / leaderboard_upsert flow
+  - choicePad render / mobile battle layout
+  - phase / countdown / answer resolve lock
+*/
+
 (() => {
   installVocabGuards({ engineName: 'vocab-engine.js' });
 
@@ -9,7 +29,7 @@ import { installVocabGuards } from './vocab-guard.js';
   }
 
   const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas?.getContext('2d');
 
   const els = {
     menu: document.getElementById('menu'),
@@ -38,10 +58,7 @@ import { installVocabGuards } from './vocab-guard.js';
     leaderboardList: document.getElementById('leaderboardList'),
     teacherTable: document.getElementById('teacherTable'),
     weakList: document.getElementById('weakList'),
-    endSummaryText: document.getElementById('endSummaryText'),
-    menuModeBanner: document.getElementById('menuModeBanner'),
-    heroModeTitle: document.getElementById('heroModeTitle'),
-    heroModeDesc: document.getElementById('heroModeDesc')
+    endSummaryText: document.getElementById('endSummaryText')
   };
 
   const TEACHER_KEY = 'VOCAB_V9_TEACHER_LAST';
@@ -49,10 +66,76 @@ import { installVocabGuards } from './vocab-guard.js';
   const SESSION_KEY = 'VOCAB_V9_SESSIONS';
   const TEACHER_PASS_KEY = 'VOCAB_V9_TEACHER_PASS_HASH';
   const GLOBAL_LB_CACHE_KEY = 'VOCAB_V9_GLOBAL_LB_CACHE';
+  const LAST_MODE_KEY = 'VOCAB_V9_LAST_MODE';
+  const LAST_BANK_KEY = 'VOCAB_V9_LAST_BANK';
 
-  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyPBp9nQjeEFmOk34IImarbt4XrVpACNherA1BGuuxAsU4tPYg26ZbN2ThLY6Tu5Thu/exec';
+  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzOs6lQUEdTug17xKDDaVKEFMN0n0hkoBY9erwH309hkHMDYzNB_FhtSzhmNnF0uF5f/exec';
   const VOCAB_SHEET_SOURCE = 'vocab.html';
   const VOCAB_SHEET_SCHEMA = 'vocab-v4-per-mode';
+
+  const VOCAB_RELEASE = 'v2026.04-final';
+  const VOCAB_BUILD = 'release-lock';
+  const VOCAB_DEBUG = false;
+
+  const MODE_UI = {
+    code_battle: {
+      name: '⚔️ Code Battle',
+      start: 'START CODE BATTLE',
+      replay: 'BATTLE AGAIN',
+      rank: 'BATTLE RANK',
+      endTitle: 'Battle Complete',
+      ready: 'GET READY',
+      resultWin: 'BOSS DEFEATED',
+      resultLose: 'BOSS SURVIVED'
+    },
+    debug_mission: {
+      name: '🧪 Debug Mission',
+      start: 'START DEBUG MISSION',
+      replay: 'RUN MISSION AGAIN',
+      rank: 'MISSION RANK',
+      endTitle: 'Mission Report',
+      ready: 'DEBUG START',
+      resultWin: 'MISSION CLEARED',
+      resultLose: 'MISSION FAILED'
+    },
+    ai_training: {
+      name: '🤖 AI Training Sim',
+      start: 'START AI TRAINING',
+      replay: 'TRAIN AGAIN',
+      rank: 'TRAINING RANK',
+      endTitle: 'Training Complete',
+      ready: 'TRAINING START',
+      resultWin: 'MODEL TRAINED',
+      resultLose: 'TRAINING INCOMPLETE'
+    },
+    speed_run: {
+      name: '⚡ Speed Run',
+      start: 'START SPEED RUN',
+      replay: 'RUN AGAIN',
+      rank: 'SPEED RANK',
+      endTitle: 'Speed Run Result',
+      ready: 'READY TO RUN',
+      resultWin: 'RUN COMPLETE',
+      resultLose: 'RUN STOPPED'
+    }
+  };
+
+  const BANK_UI = {
+    A: 'A • Software Engineering',
+    B: 'B • Data / Cloud / System',
+    C: 'C • AI / Machine Learning'
+  };
+
+  const QUESTION_TYPE_UI = {
+    definition_mcq: 'DEFINITION',
+    sentence_cloze: 'FILL BLANK',
+    context_mcq: 'CONTEXT CHOICE',
+    scenario: 'SCENARIO',
+    correct_usage: 'CORRECT USAGE',
+    th_to_en: 'TH → EN',
+    en_to_th: 'EN → TH',
+    confusion_pair: 'CONFUSING PAIR'
+  };
 
   const V9 = {
     bank: 'A',
@@ -104,7 +187,44 @@ import { installVocabGuards } from './vocab-guard.js';
   let leaderboardOpenedFromEnd = false;
   let currentSessionId = null;
   let sessionStartedAt = null;
-  let globalLeaderboardRows = loadLeaderboardCache();
+  let isResolvingAnswer = false;
+  let globalLeaderboardRows = [];
+
+  function setText(el, value) {
+    if (el) el.textContent = value;
+  }
+
+  function setHtml(el, html) {
+    if (el) el.innerHTML = html;
+  }
+
+  function addClass(el, className) {
+    if (el) el.classList.add(className);
+  }
+
+  function removeClass(el, className) {
+    if (el) el.classList.remove(className);
+  }
+
+  function toggleClass(el, className, force) {
+    if (el) el.classList.toggle(className, !!force);
+  }
+
+  function showEl(el) {
+    removeClass(el, 'hidden');
+  }
+
+  function hideEl(el) {
+    addClass(el, 'hidden');
+  }
+
+  function now() {
+    return performance.now();
+  }
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
 
   function bangkokIsoNow() {
     try {
@@ -133,16 +253,12 @@ import { installVocabGuards } from './vocab-guard.js';
     });
   }
 
-  function setText(el, value) {
-    if (el) el.textContent = value;
+  function center() {
+    return { x: width * 0.5, y: height * 0.60 };
   }
 
-  function now() {
-    return performance.now();
-  }
-
-  function clamp(v, min, max) {
-    return Math.max(min, Math.min(max, v));
+  function isMobileChoiceMode() {
+    return width < 860;
   }
 
   function shuffle(arr) {
@@ -160,64 +276,341 @@ import { installVocabGuards } from './vocab-guard.js';
       const w = Math.max(0, Number(weightGetter(item) || 0));
       for (let i = 0; i < w; i += 1) expanded.push(item);
     });
-    if (!expanded.length) {
-      return items[Math.floor(Math.random() * items.length)] || null;
-    }
+    if (!expanded.length) return items[Math.floor(Math.random() * items.length)] || null;
     return expanded[Math.floor(Math.random() * expanded.length)] || null;
   }
 
-  function center() {
-    return { x: width * 0.5, y: height * 0.60 };
+  function readTrimmed(el) {
+    return (el?.value || '').trim();
   }
 
-  function isMobileChoiceMode() {
-    return width < 860;
+  function safeStorageGet(key, fallback = '') {
+    try {
+      const v = localStorage.getItem(key);
+      return v == null ? fallback : v;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function safeStorageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function safeStorageRemove(key) {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function readJsonStorage(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      return JSON.parse(raw);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function writeJsonStorage(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function saveUiPrefs() {
+    safeStorageSet(LAST_MODE_KEY, V9.mode || 'code_battle');
+    safeStorageSet(LAST_BANK_KEY, V9.bank || 'A');
+  }
+
+  function loadUiPrefs() {
+    const lastMode = safeStorageGet(LAST_MODE_KEY, '');
+    const lastBank = safeStorageGet(LAST_BANK_KEY, '');
+
+    if (lastMode) V9.mode = lastMode;
+    if (lastBank) V9.bank = lastBank;
+  }
+
+  function loadProfile() {
+    const raw = readJsonStorage(PROFILE_KEY, {});
+    profile.displayName = raw.displayName || 'Player';
+    profile.studentId = raw.studentId || '';
+
+    if (els.displayNameInput) els.displayNameInput.value = profile.displayName === 'Player' ? '' : profile.displayName;
+    if (els.studentIdInput) els.studentIdInput.value = profile.studentId;
+    if (els.sectionInput) els.sectionInput.value = safeStorageGet('VOCAB_SECTION', '');
+    if (els.sessionCodeInput) els.sessionCodeInput.value = safeStorageGet('VOCAB_SESSION_CODE', '');
+  }
+
+  function saveProfile() {
+    profile.displayName = readTrimmed(els.displayNameInput) || 'Player';
+    profile.studentId = readTrimmed(els.studentIdInput);
+
+    writeJsonStorage(PROFILE_KEY, {
+      displayName: profile.displayName,
+      studentId: profile.studentId
+    });
+
+    if (els.sectionInput) safeStorageSet('VOCAB_SECTION', readTrimmed(els.sectionInput));
+    if (els.sessionCodeInput) safeStorageSet('VOCAB_SESSION_CODE', readTrimmed(els.sessionCodeInput));
+  }
+
+  function getModeDisplay(mode) {
+    return MODE_UI[mode]?.name || mode || '-';
+  }
+
+  function getBankDisplay(bank) {
+    return BANK_UI[bank] || bank || '-';
+  }
+
+  function getQuestionTypeDisplay(type) {
+    return QUESTION_TYPE_UI[type] || String(type || '').replace(/_/g, ' ').toUpperCase();
+  }
+
+  function getReadyTextByMode() {
+    return MODE_UI[V9.mode]?.ready || 'GET READY';
+  }
+
+  function getResultTextByMode(win) {
+    const cfg = MODE_UI[V9.mode];
+    if (!cfg) return win ? 'COMPLETE' : 'TRY AGAIN';
+    return win ? cfg.resultWin : cfg.resultLose;
+  }
+
+  function getEndTitleByMode(mode) {
+    return MODE_UI[mode]?.endTitle || 'Run Complete';
+  }
+
+  function getReplayLabelByMode(mode) {
+    return MODE_UI[mode]?.replay || 'PLAY AGAIN';
+  }
+
+  function updateStartButtonLabel() {
+    const btn = document.getElementById('startBtn');
+    if (!btn) return;
+    btn.textContent = MODE_UI[V9.mode]?.start || 'START GAME';
+  }
+
+  function updateEndButtonsLabel() {
+    const lbBtn = document.getElementById('endLeaderboardBtn');
+    const menuBtn = document.getElementById('endMenuBtn');
+    if (lbBtn) lbBtn.textContent = MODE_UI[V9.mode]?.rank || 'VIEW RANK';
+    if (menuBtn) menuBtn.textContent = 'MENU';
+  }
+
+  function shortWhenText(value) {
+    if (!value) return '-';
+    try {
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return String(value);
+      return d.toLocaleString('th-TH', {
+        year: '2-digit',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (_) {
+      return String(value);
+    }
+  }
+
+  function chip(text) {
+    return '<span class="infoChip">' + text + '</span>';
+  }
+
+  function statBox(label, value) {
+    return '<div class="leaderStat"><div class="label">' + label + '</div><div class="value">' + value + '</div></div>';
+  }
+
+  function summaryStat(label, value) {
+    return '<div class="summaryStat"><div class="label">' + label + '</div><div class="value">' + value + '</div></div>';
+  }
+
+  function getReleaseInfo() {
+    return {
+      release: VOCAB_RELEASE,
+      build: VOCAB_BUILD,
+      mode: V9.mode,
+      bank: V9.bank,
+      sheet: VOCAB_SHEET_URL,
+      schema: VOCAB_SHEET_SCHEMA
+    };
+  }
+
+  function logReleaseBanner() {
+    try {
+      console.log(
+        '%cVOCAB READY',
+        'background:#0f172a;color:#67e8f9;padding:4px 8px;border-radius:6px;font-weight:700;',
+        getReleaseInfo()
+      );
+    } catch (_) {}
+  }
+
+  function runSelfCheck() {
+    const checks = {
+      canvas: !!canvas,
+      questionBox: !!els.questionBox,
+      feedbackBox: !!els.feedbackBox,
+      choicePad: !!els.choicePad,
+      menu: !!els.menu,
+      leaderboardWrap: !!els.leaderboardWrap,
+      startBtn: !!document.getElementById('startBtn'),
+      leaderboardBtn: !!document.getElementById('leaderboardBtn'),
+      closeLeaderboardBtn: !!document.getElementById('closeLeaderboardBtn'),
+      endWrap: !!els.endWrap,
+      timeFill: !!els.timeFill,
+      sheetUrl: /^https:\/\/script\.google\.com\/macros\/s\//.test(VOCAB_SHEET_URL),
+      schema: !!VOCAB_SHEET_SCHEMA
+    };
+
+    const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
+
+    if (failed.length) console.warn('VOCAB self-check failed:', failed);
+    else if (VOCAB_DEBUG) console.log('VOCAB self-check passed');
+
+    return { ok: failed.length === 0, failed, checks };
+  }
+
+  function installDebugHooks() {
+    window.__VOCAB_DEBUG__ = {
+      getState() {
+        return {
+          release: getReleaseInfo(),
+          phase,
+          score: V9.score,
+          combo: V9.combo,
+          hp: V9.hp,
+          mode: V9.mode,
+          bank: V9.bank,
+          currentItem: V9.currentItem,
+          timeLeft,
+          leaderboardCount: Array.isArray(globalLeaderboardRows) ? globalLeaderboardRows.length : 0
+        };
+      },
+      refreshLeaderboard() {
+        return refreshLeaderboardUi(true);
+      },
+      selfCheck() {
+        return runSelfCheck();
+      },
+      forceMenu() {
+        forceMenuBootState();
+      }
+    };
+  }
+
+  function syncSelectionUi() {
+    document.querySelectorAll('.modeBtn').forEach(btn => {
+      btn.classList.toggle('active', (btn.dataset.mode || 'code_battle') === V9.mode);
+    });
+    document.querySelectorAll('.bankBtn').forEach(btn => {
+      btn.classList.toggle('active', (btn.dataset.bank || 'A') === V9.bank);
+    });
+  }
+
+  function syncModeBankUi() {
+    syncSelectionUi();
+    renderHud();
+    updateStartButtonLabel();
   }
 
   function clearChoicePad() {
     if (!els.choicePad) return;
     els.choicePad.innerHTML = '';
-    els.choicePad.classList.add('hidden');
+    addClass(els.choicePad, 'hidden');
   }
 
-  function renderChoicePad(item) {
-    if (!els.choicePad) return;
+  function updateMobileBattleLayout() {
+    if (!els.questionBox || !els.feedbackBox || !els.choicePad) return;
+    const qRect = els.questionBox.getBoundingClientRect();
+    const feedbackTop = Math.round(qRect.bottom + 10);
+    const choiceTop = Math.round(qRect.bottom + 88);
+    els.feedbackBox.style.top = feedbackTop + 'px';
+    els.choicePad.style.top = choiceTop + 'px';
+  }
 
-    if (!isMobileChoiceMode() || !item || !Array.isArray(item.choices) || !item.choices.length) {
-      clearChoicePad();
-      return;
-    }
+  function animateQuestionBoxIn() {
+    if (!els.questionBox) return;
+    removeClass(els.questionBox, 'q-enter');
+    void els.questionBox.offsetWidth;
+    addClass(els.questionBox, 'q-enter');
+  }
 
-    els.choicePad.innerHTML = '';
+  function focusFirstChoiceButton() {
+    try {
+      const first = els.choicePad?.querySelector('.choiceBtn');
+      if (first) first.focus({ preventScroll: true });
+    } catch (_) {}
+  }
 
-    item.choices.forEach(choice => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'choiceBtn';
-      btn.textContent = String(choice).toUpperCase();
+  function safeVibrate(pattern) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    } catch (_) {}
+  }
 
-      btn.addEventListener('click', () => {
-        const answer = String(choice).toLowerCase();
-        const correct = String(item.answer).toLowerCase();
+  function setQuestionUiState(state) {
+    if (!els.questionBox) return;
+    removeClass(els.questionBox, 'countdown-mode');
+    removeClass(els.questionBox, 'low-time');
+    if (state === 'countdown') addClass(els.questionBox, 'countdown-mode');
+    else if (state === 'low-time') addClass(els.questionBox, 'low-time');
+  }
 
-        els.choicePad.querySelectorAll('.choiceBtn').forEach(x => x.classList.add('disabled'));
+  function setAnswerResolveLock(value) {
+    isResolvingAnswer = !!value;
+  }
 
-        if (answer === correct) btn.classList.add('hit-correct');
-        else {
-          btn.classList.add('hit-wrong');
-          els.choicePad.querySelectorAll('.choiceBtn').forEach(x => {
-            if (String(x.textContent).toLowerCase() === correct) x.classList.add('hit-correct');
-          });
-        }
+  function getOverlayMap() {
+    return {
+      menu: els.menu,
+      leaderboard: els.leaderboardWrap,
+      end: els.endWrap,
+      teacher: els.teacherWrap,
+      teacherLink: els.teacherLinkWrap
+    };
+  }
 
-        setTimeout(() => handleAnswerV9(answer), 120);
-      });
+  function getActiveOverlayName() {
+    const map = getOverlayMap();
+    return Object.entries(map).find(([, el]) => el && !el.classList.contains('hidden'))?.[0] || null;
+  }
 
-      els.choicePad.appendChild(btn);
-    });
+  function updateOverlayLock() {
+    const hasOverlay = !!getActiveOverlayName();
+    document.body.classList.toggle('overlay-open', hasOverlay);
+  }
 
-    els.choicePad.classList.remove('hidden');
-    requestAnimationFrame(updateMobileBattleLayout);
+  function focusOverlayPanel(name) {
+    const map = getOverlayMap();
+    const root = map[name];
+    if (!root) return;
+    const panel = root.querySelector('.panel');
+    if (!panel) return;
+    if (!panel.hasAttribute('tabindex')) panel.setAttribute('tabindex', '-1');
+    try { panel.focus({ preventScroll: true }); } catch (_) {}
+  }
+
+  function showOnlyOverlay(name) {
+    const map = getOverlayMap();
+    Object.values(map).forEach(hideEl);
+    if (name && map[name]) showEl(map[name]);
+    updateOverlayLock();
+    if (name) requestAnimationFrame(() => focusOverlayPanel(name));
   }
 
   function postSheetAction(action, payload, timeoutMs = 2500) {
@@ -242,9 +635,7 @@ import { installVocabGuards } from './vocab-guard.js';
       .then(async res => {
         clearTimeout(timer);
         let data = null;
-        try {
-          data = await res.json();
-        } catch (_) {}
+        try { data = await res.json(); } catch (_) {}
         return { ok: res.ok, status: res.status, data };
       })
       .catch(err => {
@@ -306,10 +697,6 @@ import { installVocabGuards } from './vocab-guard.js';
     };
   }
 
-  function readTrimmed(el) {
-    return (el?.value || '').trim();
-  }
-
   function getContextMeta() {
     const q = new URLSearchParams(location.search);
     const sectionDom = readTrimmed(els.sectionInput);
@@ -320,8 +707,8 @@ import { installVocabGuards } from './vocab-guard.js';
       session_id: currentSessionId || '',
       display_name: profile.displayName || 'Player',
       student_id: profile.studentId || '',
-      section: sectionDom || q.get('section') || localStorage.getItem('VOCAB_SECTION') || '',
-      session_code: sessionCodeDom || q.get('session_code') || q.get('sessionCode') || localStorage.getItem('VOCAB_SESSION_CODE') || '',
+      section: sectionDom || q.get('section') || safeStorageGet('VOCAB_SECTION', ''),
+      session_code: sessionCodeDom || q.get('session_code') || q.get('sessionCode') || safeStorageGet('VOCAB_SESSION_CODE', ''),
       bank: V9.bank || '',
       mode: V9.mode || ''
     };
@@ -350,53 +737,28 @@ import { installVocabGuards } from './vocab-guard.js';
     return JSON.stringify(weakestTermsForSheet(limit));
   }
 
-  function loadProfile() {
-    try {
-      const raw = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}');
-      profile.displayName = raw.displayName || 'Player';
-      profile.studentId = raw.studentId || '';
-      if (els.displayNameInput) els.displayNameInput.value = profile.displayName === 'Player' ? '' : profile.displayName;
-      if (els.studentIdInput) els.studentIdInput.value = profile.studentId;
-    } catch (_) {}
-  }
-
-  function saveProfile() {
-    profile.displayName = readTrimmed(els.displayNameInput) || 'Player';
-    profile.studentId = readTrimmed(els.studentIdInput);
-
-    try {
-      localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-      if (els.sectionInput) localStorage.setItem('VOCAB_SECTION', readTrimmed(els.sectionInput));
-      if (els.sessionCodeInput) localStorage.setItem('VOCAB_SESSION_CODE', readTrimmed(els.sessionCodeInput));
-    } catch (err) {
-      console.warn('saveProfile failed:', err);
-    }
-  }
-
   function saveSessionLocal(payload) {
-    try {
-      const rows = JSON.parse(localStorage.getItem(SESSION_KEY) || '[]');
-      rows.push(payload);
+    const rows = readJsonStorage(SESSION_KEY, []);
+    rows.push(payload);
 
-      const slim = rows.slice(-120).map(r => ({
-        action: r.action || r.type || '',
-        timestamp: r.timestamp || r.ts || '',
-        session_id: r.session_id || r.sessionId || '',
-        display_name: r.display_name || r.displayName || '',
-        student_id: r.student_id || r.studentId || '',
-        bank: r.bank || '',
-        mode: r.mode || '',
-        term_id: r.term_id || r.termId || '',
-        is_correct: r.is_correct,
-        score: r.score || 0,
-        combo: r.combo || 0,
-        stage_index: r.stage_index || r.stage || 0
-      }));
+    const slim = rows.slice(-120).map(r => ({
+      action: r.action || r.type || '',
+      timestamp: r.timestamp || r.ts || '',
+      session_id: r.session_id || r.sessionId || '',
+      display_name: r.display_name || r.displayName || '',
+      student_id: r.student_id || r.studentId || '',
+      bank: r.bank || '',
+      mode: r.mode || '',
+      term_id: r.term_id || r.termId || '',
+      is_correct: r.is_correct,
+      score: r.score || 0,
+      combo: r.combo || 0,
+      stage_index: r.stage_index || r.stage || 0
+    }));
 
-      localStorage.setItem(SESSION_KEY, JSON.stringify(slim));
-    } catch (err) {
-      console.warn('saveSessionLocal skipped:', err);
-      try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
+    if (!writeJsonStorage(SESSION_KEY, slim)) {
+      console.warn('saveSessionLocal skipped');
+      safeStorageRemove(SESSION_KEY);
     }
   }
 
@@ -450,6 +812,10 @@ import { installVocabGuards } from './vocab-guard.js';
       combo: Number(V9.combo || 0),
       stage_index: Number((V9.stageIndex || 0) + 1)
     });
+  }
+
+  function createSessionId() {
+    return 'SES-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
   }
 
   async function logGameEntry() {
@@ -536,35 +902,30 @@ import { installVocabGuards } from './vocab-guard.js';
   }
 
   function saveLeaderboardCache(rows) {
-    try {
-      const slim = (rows || []).slice(0, 50).map(r => ({
-        timestamp: r.timestamp || '',
-        player_key: r.player_key || '',
-        display_name: r.display_name || '',
-        student_id: r.student_id || '',
-        section: r.section || '',
-        session_code: r.session_code || '',
-        bank: r.bank || '',
-        mode: r.mode || '',
-        best_score: Number(r.best_score || 0),
-        best_accuracy: Number(r.best_accuracy || 0),
-        last_when: r.last_when || '',
-        best_session_id: r.best_session_id || ''
-      }));
-      localStorage.setItem(GLOBAL_LB_CACHE_KEY, JSON.stringify(slim));
-    } catch (err) {
-      console.warn('saveLeaderboardCache failed:', err);
-    }
+    const slim = (rows || []).slice(0, 50).map(r => ({
+      timestamp: r.timestamp || '',
+      player_key: r.player_key || '',
+      display_name: r.display_name || '',
+      student_id: r.student_id || '',
+      section: r.section || '',
+      session_code: r.session_code || '',
+      bank: r.bank || '',
+      mode: r.mode || '',
+      best_score: Number(r.best_score || 0),
+      best_accuracy: Number(r.best_accuracy || 0),
+      last_when: r.last_when || '',
+      best_session_id: r.best_session_id || ''
+    }));
+
+    if (!writeJsonStorage(GLOBAL_LB_CACHE_KEY, slim)) console.warn('saveLeaderboardCache failed');
   }
 
   function loadLeaderboardCache() {
-    try {
-      const rows = JSON.parse(localStorage.getItem(GLOBAL_LB_CACHE_KEY) || '[]');
-      return Array.isArray(rows) ? rows : [];
-    } catch (_) {
-      return [];
-    }
+    const rows = readJsonStorage(GLOBAL_LB_CACHE_KEY, []);
+    return Array.isArray(rows) ? rows : [];
   }
+
+  globalLeaderboardRows = loadLeaderboardCache();
 
   async function fetchGlobalLeaderboard(mode = V9.mode) {
     try {
@@ -611,119 +972,6 @@ import { installVocabGuards } from './vocab-guard.js';
     };
   }
 
-  function getModeDisplay(mode) {
-    return {
-      code_battle: '⚔️ Code Battle',
-      debug_mission: '🧪 Debug Mission',
-      ai_training: '🤖 AI Training Sim',
-      speed_run: '⚡ Speed Run'
-    }[mode] || mode || '-';
-  }
-
-  function getBankDisplay(bank) {
-    return {
-      A: 'A • Software Engineering',
-      B: 'B • Data / Cloud / System',
-      C: 'C • AI / Machine Learning'
-    }[bank] || bank || '-';
-  }
-
-  function getQuestionTypeDisplay(type) {
-    return {
-      definition_mcq: 'DEFINITION',
-      sentence_cloze: 'FILL BLANK',
-      context_mcq: 'CONTEXT CHOICE',
-      scenario: 'SCENARIO',
-      correct_usage: 'CORRECT USAGE',
-      th_to_en: 'TH → EN',
-      en_to_th: 'EN → TH',
-      confusion_pair: 'CONFUSING PAIR'
-    }[type] || String(type || '').replace(/_/g, ' ').toUpperCase();
-  }
-
-  function shortWhenText(value) {
-    if (!value) return '-';
-    try {
-      const d = new Date(value);
-      if (Number.isNaN(d.getTime())) return String(value);
-      return d.toLocaleString('th-TH', {
-        year: '2-digit',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (_) {
-      return String(value);
-    }
-  }
-
-  function getModeAccentClass(mode) {
-    return 'mode-accent-' + String(mode || 'code_battle');
-  }
-
-  function applyModeAccentClass(el, mode) {
-    if (!el) return;
-    el.classList.remove(
-      'mode-accent-code_battle',
-      'mode-accent-debug_mission',
-      'mode-accent-ai_training',
-      'mode-accent-speed_run'
-    );
-    el.classList.add(getModeAccentClass(mode));
-  }
-
-  function refreshMenuModeBanner() {
-    if (!els.menuModeBanner) return;
-    els.menuModeBanner.textContent = 'โหมดปัจจุบัน: ' + getModeDisplay(V9.mode);
-    applyModeAccentClass(els.menuModeBanner, V9.mode);
-  }
-
-  function getModeHeroDesc(mode) {
-    return {
-      code_battle: 'สู้บอสด้วยคำศัพท์และบริบทงานจริงแบบมัน ๆ',
-      debug_mission: 'จับคำผิด แก้ usage และซ่อม bug ภาษาแบบแม่น ๆ',
-      ai_training: 'ฝึกศัพท์สาย AI/ML พร้อมดัน model score และคุม stability',
-      speed_run: 'ตอบไว เก็บคอมโบ เก็บ multiplier แล้วไล่เวลาทุกข้อ'
-    }[mode] || 'ฝึกคำศัพท์แบบ adaptive ตามโหมดที่เลือก';
-  }
-
-  function refreshHeroModeText() {
-    if (els.heroModeTitle) els.heroModeTitle.textContent = getModeDisplay(V9.mode);
-    if (els.heroModeDesc) els.heroModeDesc.textContent = getModeHeroDesc(V9.mode);
-    applyModeAccentClass(els.heroModeTitle, V9.mode);
-    applyModeAccentClass(els.heroModeDesc, V9.mode);
-  }
-
-  function refreshPrimaryModeButton() {
-    const btn = document.getElementById('startBtn');
-    if (!btn) return;
-    btn.classList.add('primary-mode');
-    applyModeAccentClass(btn, V9.mode);
-  }
-
-  function showScorePop(text) {
-    document.querySelectorAll('.score-pop').forEach(el => el.remove());
-
-    const div = document.createElement('div');
-    div.className = 'score-pop';
-    div.textContent = text;
-    document.body.appendChild(div);
-
-    setTimeout(() => div.remove(), 700);
-  }
-
-  function updateMobileBattleLayout() {
-    if (!els.questionBox || !els.feedbackBox || !els.choicePad) return;
-
-    const qRect = els.questionBox.getBoundingClientRect();
-    const feedbackTop = Math.round(qRect.bottom + 10);
-    const choiceTop = Math.round(qRect.bottom + 88);
-
-    els.feedbackBox.style.top = feedbackTop + 'px';
-    els.choicePad.style.top = choiceTop + 'px';
-  }
-
   function mergeLeaderboardRowLocal(entry) {
     const rows = Array.isArray(globalLeaderboardRows) ? [...globalLeaderboardRows] : [];
     const entryMode = String(entry.mode || 'code_battle');
@@ -741,7 +989,6 @@ import { installVocabGuards } from './vocab-guard.js';
       const newScore = Number(entry.best_score || 0);
       const oldAcc = Number(old.best_accuracy || 0);
       const newAcc = Number(entry.best_accuracy || 0);
-
       const shouldReplace = (newScore > oldScore) || (newScore === oldScore && newAcc > oldAcc);
 
       rows[idx] = {
@@ -766,43 +1013,62 @@ import { installVocabGuards } from './vocab-guard.js';
     return globalLeaderboardRows;
   }
 
+  function refreshLeaderboardUi(fetchRemote = false) {
+    const apply = () => {
+      renderLeaderboard();
+      renderMenuTop3();
+    };
+
+    if (!fetchRemote) {
+      apply();
+      return Promise.resolve();
+    }
+
+    return fetchGlobalLeaderboard(V9.mode)
+      .then(() => { apply(); })
+      .catch(err => {
+        console.warn('refreshLeaderboardUi failed:', err);
+        apply();
+      });
+  }
+
   function renderMenuTop3() {
     const mode = V9.mode || 'code_battle';
     const rows = (globalLeaderboardRows || [])
       .filter(r => String(r.mode || 'code_battle') === mode)
       .slice(0, 3);
 
+    if (!els.menuTop3Board) return;
     els.menuTop3Board.innerHTML = '';
-    els.menuTop3Board.classList.toggle('menuTop3Board-ready', rows.length > 0);
-    applyModeAccentClass(els.menuTop3Board, mode);
-    refreshMenuModeBanner();
 
     if (!rows.length) {
-      els.menuTop3Board.innerHTML =
-        '<div class="top3Card ' + getModeAccentClass(mode) + '">' +
-          '<div class="emptyState">' +
-            '<div class="emoji">🏁</div>' +
-            '<div class="title">ยังไม่มีคะแนนในโหมดนี้</div>' +
-            '<div class="desc">เริ่มเล่น ' + getModeDisplay(mode) + ' เพื่อขึ้นอันดับแรกของโหมดนี้</div>' +
-          '</div>' +
-        '</div>';
+      setHtml(els.menuTop3Board,
+        '<div class="top3Card emptyState">' +
+          '<div class="emoji">🏁</div>' +
+          '<div class="title">ยังไม่มีคะแนน</div>' +
+          '<div class="text">เริ่มเล่น ' + getModeDisplay(mode) + ' เพื่อเป็นคนแรกบนกระดานนี้</div>' +
+        '</div>'
+      );
       return;
     }
 
     rows.forEach((r, i) => {
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+      const topClass = i === 0 ? 'top1' : i === 1 ? 'top2' : 'top3';
+
       const div = document.createElement('div');
-      div.className = 'top3Card ' + getModeAccentClass(r.mode || mode);
+      div.className = 'top3Card ' + topClass;
       div.innerHTML =
         '<div class="rank">' + medal + '</div>' +
         '<div class="name">' + (r.display_name || 'Player') + '</div>' +
         '<div class="chipRow">' +
-          '<span class="infoChip mode-chip">' + getModeDisplay(r.mode || mode) + '</span>' +
-          '<span class="infoChip">' + getBankDisplay(r.bank || '-') + '</span>' +
+          chip(getModeDisplay(r.mode || mode)) +
+          chip(getBankDisplay(r.bank || '-')) +
         '</div>' +
         '<div class="scoreLine">Best Score ' + (r.best_score || 0) + '</div>' +
         '<div class="meta">Accuracy ' + (r.best_accuracy || 0) + '%</div>' +
         '<div class="meta">' + shortWhenText(r.last_when || '-') + '</div>';
+
       els.menuTop3Board.appendChild(div);
     });
   }
@@ -812,61 +1078,56 @@ import { installVocabGuards } from './vocab-guard.js';
     const rows = (globalLeaderboardRows || [])
       .filter(r => String(r.mode || 'code_battle') === mode);
 
+    if (!els.leaderboardList) return;
     els.leaderboardList.innerHTML = '';
-    applyModeAccentClass(els.leaderboardList, mode);
 
     if (!rows.length) {
       const li = document.createElement('li');
-      li.className = getModeAccentClass(mode);
       li.innerHTML =
         '<div class="emptyState">' +
-          '<div class="emoji">📭</div>' +
-          '<div class="title">ยังไม่มีผู้เล่นในโหมดนี้</div>' +
-          '<div class="desc">ลองเริ่มเล่น ' + getModeDisplay(mode) + ' แล้วกลับมาดูอันดับอีกครั้ง</div>' +
+          '<div class="emoji">✨</div>' +
+          '<div class="title">ยังไม่มีใครขึ้นอันดับ</div>' +
+          '<div class="text">ลองเล่น ' + getModeDisplay(mode) + ' สักรอบ แล้วชื่อของคุณอาจเป็นคนแรกบนกระดานนี้</div>' +
         '</div>';
       els.leaderboardList.appendChild(li);
       return;
     }
 
     rows.slice(0, 10).forEach((r, i) => {
-      const rankClass = i === 0 ? ' rank-1' : i === 1 ? ' rank-2' : i === 2 ? ' rank-3' : '';
+      const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
       const li = document.createElement('li');
-      li.className = getModeAccentClass(r.mode || mode);
+
       li.innerHTML =
         '<div class="leaderTop">' +
           '<div>' +
             '<div class="leaderName">' + (r.display_name || 'Player') + '</div>' +
             '<div class="chipRow">' +
-              '<span class="infoChip mode-chip">' + getModeDisplay(r.mode || mode) + '</span>' +
-              '<span class="infoChip">' + getBankDisplay(r.bank || '-') + '</span>' +
+              chip(getModeDisplay(r.mode || mode)) +
+              chip(getBankDisplay(r.bank || '-')) +
             '</div>' +
           '</div>' +
-          '<div class="leaderRank' + rankClass + '">#' + (i + 1) + '</div>' +
+          '<div class="leaderRank ' + rankClass + '">#' + (i + 1) + '</div>' +
         '</div>' +
         '<div class="leaderStats">' +
-          '<div class="leaderStat">' +
-            '<div class="label">Best Score</div>' +
-            '<div class="value">' + (r.best_score || 0) + '</div>' +
-          '</div>' +
-          '<div class="leaderStat">' +
-            '<div class="label">Accuracy</div>' +
-            '<div class="value">' + (r.best_accuracy || 0) + '%</div>' +
-          '</div>' +
+          statBox('Best Score', r.best_score || 0) +
+          statBox('Accuracy', (r.best_accuracy || 0) + '%') +
         '</div>' +
         '<div class="leaderFoot">อัปเดตล่าสุด: ' + shortWhenText(r.last_when || '-') + '</div>';
+
       els.leaderboardList.appendChild(li);
     });
   }
 
   function renderTeacherDashboard(summary) {
-    try {
-      localStorage.setItem(TEACHER_KEY, JSON.stringify(summary));
-    } catch (_) {}
+    if (!summary) return;
+    writeJsonStorage(TEACHER_KEY, summary);
 
+    if (!els.teacherTable || !els.weakList) return;
     els.teacherTable.innerHTML = '';
+    els.weakList.innerHTML = '';
 
-    const rows = Object.entries(summary.mastery).sort((a, b) => {
-      const wrongDiff = b[1].wrong - a[1].wrong;
+    const rows = Object.entries(summary.mastery || {}).sort((a, b) => {
+      const wrongDiff = (b[1]?.wrong || 0) - (a[1]?.wrong || 0);
       if (wrongDiff !== 0) return wrongDiff;
       return a[0].localeCompare(b[0]);
     });
@@ -880,22 +1141,21 @@ import { installVocabGuards } from './vocab-guard.js';
         const tr = document.createElement('tr');
         tr.innerHTML =
           '<td>' + term.toUpperCase() + '</td>' +
-          '<td>' + m.seen + '</td>' +
-          '<td>' + m.correct + '</td>' +
-          '<td>' + m.wrong + '</td>' +
-          '<td>' + m.level + '</td>' +
-          '<td>' + m.highestLevel + '</td>';
+          '<td>' + (m.seen || 0) + '</td>' +
+          '<td>' + (m.correct || 0) + '</td>' +
+          '<td>' + (m.wrong || 0) + '</td>' +
+          '<td>' + (m.level || '-') + '</td>' +
+          '<td>' + (m.highestLevel || '-') + '</td>';
         els.teacherTable.appendChild(tr);
       });
     }
 
-    els.weakList.innerHTML = '';
-    summary.weakestTerms.forEach(([term, m]) => {
+    (summary.weakestTerms || []).forEach(([term, m]) => {
       const li = document.createElement('li');
       li.innerHTML =
-        '<strong>' + term.toUpperCase() + '</strong> • wrong ' + m.wrong +
-        ' • correct ' + m.correct +
-        ' • highest ' + m.highestLevel;
+        '<strong>' + term.toUpperCase() + '</strong> • wrong ' + (m.wrong || 0) +
+        ' • correct ' + (m.correct || 0) +
+        ' • highest ' + (m.highestLevel || '-');
       els.weakList.appendChild(li);
     });
   }
@@ -937,6 +1197,8 @@ import { installVocabGuards } from './vocab-guard.js';
     );
 
     if (els.timeFill) els.timeFill.style.transform = 'scaleX(' + timeLeft + ')';
+    const barEl = els.timeFill?.parentElement;
+    if (barEl) barEl.classList.toggle('low-time', timeLeft <= 0.22 && phase === 'battle');
     applyModeHudTheme();
   }
 
@@ -969,7 +1231,6 @@ import { installVocabGuards } from './vocab-guard.js';
   function updateWordSkill(termId, isCorrect, rtMs) {
     const s = ensureWordSkill(termId);
     s.seen += 1;
-
     if (isCorrect) {
       s.correct += 1;
       s.score = Math.min(1, s.score + 0.08);
@@ -977,7 +1238,6 @@ import { installVocabGuards } from './vocab-guard.js';
       s.wrong += 1;
       s.score = Math.max(0, s.score - 0.12);
     }
-
     if (rtMs > 0) {
       s.avgRtMs = s.avgRtMs === 0 ? rtMs : Math.round((s.avgRtMs * 0.7) + (rtMs * 0.3));
     }
@@ -1070,19 +1330,19 @@ import { installVocabGuards } from './vocab-guard.js';
 
   function modeFeedbackText(kind, value = '') {
     if (V9.mode === 'code_battle') {
-      if (kind === 'correct') return 'HIT +' + value;
-      if (kind === 'wrong') return 'WRONG -' + value + ' HP';
-      if (kind === 'timeout') return 'TIME OUT';
+      if (kind === 'correct') return 'CRITICAL HIT +' + value;
+      if (kind === 'wrong') return 'BOSS STRIKE -' + value + ' HP';
+      if (kind === 'timeout') return 'TOO LATE';
     }
     if (V9.mode === 'debug_mission') {
       if (kind === 'correct') return 'BUG FIXED';
       if (kind === 'wrong') return 'BUG ESCAPED';
-      if (kind === 'timeout') return 'SYSTEM WARNING';
+      if (kind === 'timeout') return 'DEBUG TIMEOUT';
     }
     if (V9.mode === 'ai_training') {
       if (kind === 'correct') return 'MODEL IMPROVED +' + value;
       if (kind === 'wrong') return 'MODEL DRIFT';
-      if (kind === 'timeout') return 'MODEL UNSTABLE';
+      if (kind === 'timeout') return 'UNSTABLE SIGNAL';
     }
     if (V9.mode === 'speed_run') {
       if (kind === 'correct') return 'PERFECT x' + value;
@@ -1293,37 +1553,63 @@ import { installVocabGuards } from './vocab-guard.js';
 
   function renderQuestionBox(item) {
     const theme = modeTheme();
-    const meta =
-      theme.badge + ' • ' +
-      getQuestionTypeDisplay(item.type) + ' • ' +
-      item.level.toUpperCase() +
-      (item.fromReview ? ' • REVIEW' : '');
+    const parts = [
+      theme.badge,
+      getQuestionTypeDisplay(item.type),
+      item.level.toUpperCase()
+    ];
+    if (item.fromReview) parts.push('REVIEW');
 
-    els.questionBox.classList.remove('feedback-dim');
-    els.questionBox.innerHTML =
-      '<div class="q-meta">' + meta + '</div>' +
-      '<div class="q-prompt">' + item.prompt + '</div>';
-    els.questionBox.style.borderColor = theme.accent;
-    els.questionBox.style.boxShadow = '0 14px 30px rgba(0,0,0,.22), 0 0 0 2px ' + theme.accent + '22';
+    removeClass(els.questionBox, 'feedback-dim');
+    removeClass(els.questionBox, 'countdown-mode');
+    removeClass(els.questionBox, 'low-time');
 
+    setHtml(
+      els.questionBox,
+      '<div class="q-meta">' + parts.join(' · ') + '</div>' +
+      '<div class="q-prompt">' + item.prompt + '</div>'
+    );
+
+    if (els.questionBox) {
+      els.questionBox.style.borderColor = theme.accent;
+      els.questionBox.style.boxShadow =
+        '0 14px 30px rgba(0,0,0,.22), 0 0 0 2px ' + theme.accent + '22';
+    }
+
+    animateQuestionBoxIn();
     requestAnimationFrame(updateMobileBattleLayout);
   }
 
   function showFeedback(text, kind) {
+    if (!els.feedbackBox || !els.questionBox) return;
+
     els.feedbackBox.textContent = text;
-    els.feedbackBox.setAttribute('aria-live', 'polite');
     els.feedbackBox.className = '';
     els.feedbackBox.id = 'feedbackBox';
-    els.feedbackBox.classList.add('show', kind);
-    els.questionBox.classList.add('feedback-dim');
+    els.feedbackBox.setAttribute('aria-live', 'polite');
+    addClass(els.feedbackBox, 'show');
+    addClass(els.feedbackBox, kind);
+    addClass(els.questionBox, 'feedback-dim');
+
+    if (kind === 'ok') safeVibrate(12);
+    else if (kind === 'bad') safeVibrate([12, 28, 12]);
+    else if (kind === 'warn') safeVibrate(20);
 
     updateMobileBattleLayout();
 
     setTimeout(() => {
-      els.feedbackBox.classList.remove('show');
-      els.questionBox.classList.remove('feedback-dim');
+      removeClass(els.feedbackBox, 'show');
+      removeClass(els.questionBox, 'feedback-dim');
       updateMobileBattleLayout();
     }, 650);
+  }
+
+  function showScorePop(text) {
+    const div = document.createElement('div');
+    div.className = 'score-pop';
+    div.textContent = text;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 700);
   }
 
   function drawRoundRect(x, y, w, h, r) {
@@ -1362,6 +1648,55 @@ import { installVocabGuards } from './vocab-guard.js';
     use.forEach((ln, i) => ctx.fillText(ln, cx, sy + i * lh));
   }
 
+  function renderChoicePad(item) {
+    if (!els.choicePad) return;
+
+    if (!isMobileChoiceMode() || !item || !Array.isArray(item.choices) || !item.choices.length) {
+      clearChoicePad();
+      return;
+    }
+
+    els.choicePad.innerHTML = '';
+    els.choicePad.scrollTop = 0;
+
+    item.choices.forEach(choice => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'choiceBtn';
+      btn.textContent = String(choice).toUpperCase();
+
+      btn.addEventListener('click', () => {
+        if (isResolvingAnswer) return;
+
+        const answer = String(choice).toLowerCase();
+        const correct = String(item.answer).toLowerCase();
+
+        els.choicePad.querySelectorAll('.choiceBtn').forEach(x => x.classList.add('disabled'));
+
+        if (answer === correct) {
+          btn.classList.add('hit-correct');
+          safeVibrate(18);
+        } else {
+          btn.classList.add('hit-wrong');
+          safeVibrate([18, 40, 18]);
+          els.choicePad.querySelectorAll('.choiceBtn').forEach(x => {
+            if (String(x.textContent).toLowerCase() === correct) x.classList.add('hit-correct');
+          });
+        }
+
+        setTimeout(() => handleAnswerV9(answer), 120);
+      });
+
+      els.choicePad.appendChild(btn);
+    });
+
+    removeClass(els.choicePad, 'hidden');
+    requestAnimationFrame(() => {
+      updateMobileBattleLayout();
+      focusFirstChoiceButton();
+    });
+  }
+
   function spawnTargetsFromChoices(choices) {
     const c = center();
     const theme = modeTheme();
@@ -1388,8 +1723,7 @@ import { installVocabGuards } from './vocab-guard.js';
         scale: 1,
         z: 0.8,
         color: [theme.accent2, theme.accent, '#fde047', '#ffffff'][i % 4],
-        hitFlash: 0,
-        mobile: false
+        hitFlash: 0
       };
     });
   }
@@ -1416,7 +1750,7 @@ import { installVocabGuards } from './vocab-guard.js';
   }
 
   function renderTargets() {
-    if (isMobileChoiceMode()) return;
+    if (isMobileChoiceMode() || !ctx) return;
 
     const sorted = targets.slice().sort((a, b) => a.z - b.z);
 
@@ -1505,10 +1839,6 @@ import { installVocabGuards } from './vocab-guard.js';
     return 'continue';
   }
 
-  function createSessionId() {
-    return 'SES-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-  }
-
   function forceMenuBootState() {
     const q = new URLSearchParams(location.search);
     if (q.get('teacher') === '1') return;
@@ -1516,27 +1846,25 @@ import { installVocabGuards } from './vocab-guard.js';
 
     clearChoicePad();
 
-    els.menu?.classList.remove('hidden');
-    els.leaderboardWrap?.classList.add('hidden');
-    els.endWrap?.classList.add('hidden');
-    els.teacherWrap?.classList.add('hidden');
-    els.teacherLinkWrap?.classList.add('hidden');
-
+    showOnlyOverlay('menu');
     document.querySelector('.hud')?.classList.remove('hidden');
     els.questionBox?.classList.remove('hidden');
 
     if (!V9.currentItem) {
-      els.questionBox.innerHTML =
+      setHtml(
+        els.questionBox,
         '<div class="q-meta">ESP BATTLE</div>' +
-        '<div class="q-prompt">เตรียมเริ่มเกม</div>';
+        '<div class="q-prompt">เตรียมเริ่มเกม</div>'
+      );
     }
+
+    syncModeBankUi();
   }
 
   function renderEndSummaryMarkup(summary, weakestText) {
     const cfg = modeConfig();
-    const resultText = summary.win ? 'MISSION COMPLETE' : 'TRY AGAIN';
+    const resultText = getResultTextByMode(summary.win);
     const resultIcon = summary.win ? '🏆' : '🎯';
-    const resultClass = summary.win ? 'win' : 'lose';
 
     let extra1Label = 'HP Left';
     let extra1Value = summary.hp;
@@ -1566,33 +1894,17 @@ import { installVocabGuards } from './vocab-guard.js';
     }
 
     return '' +
-      '<div class="summaryCard ' + getModeAccentClass(V9.mode) + '">' +
-        '<div class="summaryHero ' + getModeAccentClass(V9.mode) + '">' +
+      '<div class="summaryCard">' +
+        '<div class="summaryHero">' +
           '<div class="player">' + (profile.displayName || 'Player') + '</div>' +
           '<div class="mode">' + getModeDisplay(V9.mode) + '</div>' +
-          '<div class="resultPill ' + resultClass + '">' + resultIcon + ' ' + resultText + '</div>' +
-          '<div class="summaryBadgeRow">' +
-            '<div class="summaryMiniBadge">' + getBankDisplay(V9.bank) + '</div>' +
-            '<div class="summaryMiniBadge">Session ' + (currentSessionId || '-') + '</div>' +
-          '</div>' +
+          '<div class="resultPill">' + resultIcon + ' ' + resultText + '</div>' +
         '</div>' +
         '<div class="summaryStats">' +
-          '<div class="summaryStat featured">' +
-            '<div class="label">Score</div>' +
-            '<div class="value">' + summary.score + '</div>' +
-          '</div>' +
-          '<div class="summaryStat featured">' +
-            '<div class="label">Accuracy</div>' +
-            '<div class="value">' + summary.accuracy + '%</div>' +
-          '</div>' +
-          '<div class="summaryStat">' +
-            '<div class="label">' + extra1Label + '</div>' +
-            '<div class="value">' + extra1Value + '</div>' +
-          '</div>' +
-          '<div class="summaryStat">' +
-            '<div class="label">' + extra2Label + '</div>' +
-            '<div class="value">' + extra2Value + '</div>' +
-          '</div>' +
+          summaryStat('Score', summary.score) +
+          summaryStat('Accuracy', summary.accuracy + '%') +
+          summaryStat(extra1Label, extra1Value) +
+          summaryStat(extra2Label, extra2Value) +
         '</div>' +
         '<div class="summaryWeak">' +
           '<div class="title">Weakest Terms</div>' +
@@ -1606,8 +1918,8 @@ import { installVocabGuards } from './vocab-guard.js';
     if (phase === 'ended') return;
 
     window.__VOCAB_STARTED__ = false;
-
     phase = 'ended';
+    setAnswerResolveLock(false);
     targets = [];
     clearChoicePad();
     V9.currentItem = null;
@@ -1615,8 +1927,6 @@ import { installVocabGuards } from './vocab-guard.js';
     timeLeft = 0;
 
     const weakest = getWeakestTerms(5);
-    const cfg = modeConfig();
-
     const totalSeen = Object.values(V9.mastery || {}).reduce((s, m) => s + Number(m.seen || 0), 0);
     const totalCorrect = Object.values(V9.mastery || {}).reduce((s, m) => s + Number(m.correct || 0), 0);
 
@@ -1640,26 +1950,26 @@ import { installVocabGuards } from './vocab-guard.js';
       ? weakest.map(([term, m]) => term + ' (' + m.wrong + ' wrong)').join(', ')
       : '-';
 
-    els.endSummaryText.innerHTML = renderEndSummaryMarkup(summary, weakestText);
+    setHtml(els.endSummaryText, renderEndSummaryMarkup(summary, weakestText));
+    showOnlyOverlay('end');
+    hideEl(els.menu);
+    hideEl(els.questionBox);
 
-    els.endWrap.classList.remove('hidden');
-    els.menu.classList.add('hidden');
-    els.questionBox.classList.add('hidden');
+    const endTitleEl = document.getElementById('endTitle');
+    if (endTitleEl) endTitleEl.textContent = getEndTitleByMode(V9.mode);
+
+    const replayBtn = document.getElementById('endPlayAgainBtn');
+    if (replayBtn) replayBtn.textContent = getReplayLabelByMode(V9.mode);
+    updateEndButtonsLabel();
 
     const lbEntry = buildGlobalLeaderboardEntry(summary);
-
     mergeLeaderboardRowLocal(lbEntry);
-    renderLeaderboard();
-    renderMenuTop3();
+    refreshLeaderboardUi(false);
     renderHud();
 
     fireAndForget(
       upsertGlobalLeaderboard(lbEntry)
-        .then(() => fetchGlobalLeaderboard(V9.mode))
-        .then(() => {
-          renderLeaderboard();
-          renderMenuTop3();
-        }),
+        .then(() => refreshLeaderboardUi(true)),
       'leaderboard_upsert'
     );
 
@@ -1668,8 +1978,9 @@ import { installVocabGuards } from './vocab-guard.js';
 
   function handleAnswerV9(selectedText) {
     const item = V9.currentItem;
-    if (!item || phase !== 'battle') return;
+    if (!item || phase !== 'battle' || isResolvingAnswer) return;
 
+    setAnswerResolveLock(true);
     clearChoicePad();
 
     const isCorrect = selectedText === String(item.answer).toLowerCase();
@@ -1788,6 +2099,8 @@ import { installVocabGuards } from './vocab-guard.js';
       return;
     }
 
+    setAnswerResolveLock(false);
+
     const item = buildQuestionItem();
     if (!item) {
       endRun();
@@ -1858,11 +2171,17 @@ import { installVocabGuards } from './vocab-guard.js';
   function startProductionRun() {
     window.__VOCAB_STARTED__ = true;
 
+    const selfCheck = runSelfCheck();
+    if (!selfCheck.ok) console.warn('Starting with warnings:', selfCheck.failed);
+
     document.querySelector('.hud')?.classList.remove('hidden');
-    els.questionBox.classList.remove('hidden');
+    els.questionBox?.classList.remove('hidden');
     saveProfile();
-    els.menu.classList.add('hidden');
-    els.endWrap.classList.add('hidden');
+    saveUiPrefs();
+    setAnswerResolveLock(false);
+
+    showOnlyOverlay(null);
+    updateOverlayLock();
 
     fireAndForget(logGameEntry(), 'session_start');
 
@@ -1871,6 +2190,8 @@ import { installVocabGuards } from './vocab-guard.js';
   }
 
   function renderBackground(t) {
+    if (!ctx) return;
+
     const theme = modeTheme();
     const cfg = modeConfig();
 
@@ -1981,7 +2302,7 @@ import { installVocabGuards } from './vocab-guard.js';
     const url = new URL(window.location.href);
     const pass = readTrimmed(els.teacherPassInput);
     if (pass) {
-      localStorage.setItem(TEACHER_PASS_KEY, teacherPassHash(pass));
+      safeStorageSet(TEACHER_PASS_KEY, teacherPassHash(pass));
       url.searchParams.set('teacherKey', teacherPassHash(pass));
     }
     url.searchParams.set('teacher', '1');
@@ -1998,48 +2319,40 @@ import { installVocabGuards } from './vocab-guard.js';
   }
 
   function openLeaderboard() {
-    els.leaderboardWrap.classList.remove('hidden');
+    showOnlyOverlay('leaderboard');
 
     if ((!globalLeaderboardRows || !globalLeaderboardRows.length) && phase === 'ended' && lastSummary) {
       const optimisticEntry = buildGlobalLeaderboardEntry(lastSummary);
       mergeLeaderboardRowLocal(optimisticEntry);
-      renderLeaderboard();
-      renderMenuTop3();
+      refreshLeaderboardUi(false);
     }
 
-    fireAndForget(
-      fetchGlobalLeaderboard(V9.mode).then(() => {
-        renderLeaderboard();
-        renderMenuTop3();
-      }),
-      'leaderboard_get'
-    );
+    fireAndForget(refreshLeaderboardUi(true), 'leaderboard_get');
   }
 
   function openTeacher() {
     document.querySelector('.hud')?.classList.add('hidden');
-    els.questionBox.classList.add('hidden');
+    els.questionBox?.classList.add('hidden');
     clearChoicePad();
 
     if (!lastSummary) {
-      try {
-        const raw = JSON.parse(localStorage.getItem(TEACHER_KEY) || 'null');
-        if (raw) renderTeacherDashboard(raw);
-      } catch (_) {}
+      const raw = readJsonStorage(TEACHER_KEY, null);
+      if (raw) renderTeacherDashboard(raw);
     }
-    els.teacherWrap.classList.remove('hidden');
+
+    showOnlyOverlay('teacher');
   }
 
   function bootTeacherMode() {
     const q = new URLSearchParams(window.location.search);
     if (q.get('teacher') === '1') {
-      const expected = localStorage.getItem(TEACHER_PASS_KEY) || '';
+      const expected = safeStorageGet(TEACHER_PASS_KEY, '');
       const got = q.get('teacherKey') || '';
       if (expected && got !== expected) {
         alert('Teacher passcode ไม่ถูกต้อง');
         return;
       }
-      els.menu.classList.add('hidden');
+      hideEl(els.menu);
       openTeacher();
     }
   }
@@ -2047,9 +2360,13 @@ import { installVocabGuards } from './vocab-guard.js';
   function renderLoopBattle() {
     if (phase === 'countdown') {
       timeLeft = 1;
-      els.questionBox.innerHTML =
+      setQuestionUiState('countdown');
+
+      setHtml(
+        els.questionBox,
         '<div class="q-meta">' + modeTheme().badge + '</div>' +
-        '<div class="q-prompt">GET READY • ' + V9.countdown + '</div>';
+        '<div class="q-prompt">' + getReadyTextByMode() + ' • ' + V9.countdown + '</div>'
+      );
 
       if (now() >= phaseUntil) {
         V9.countdown -= 1;
@@ -2071,6 +2388,8 @@ import { installVocabGuards } from './vocab-guard.js';
     } else if (phase === 'battle') {
       const elapsed = now() - roundStart;
       timeLeft = clamp(1 - elapsed / roundDuration, 0, 1);
+      if (timeLeft <= 0.22) setQuestionUiState('low-time');
+      else setQuestionUiState('battle');
 
       if (modeConfig().useSpeedTimer) {
         const elapsedSec = (now() - roundStart) / 1000;
@@ -2162,9 +2481,11 @@ import { installVocabGuards } from './vocab-guard.js';
       }
     } else if (phase === 'feedback') {
       timeLeft = 0;
+      setQuestionUiState('battle');
       if (now() >= phaseUntil) nextQuestionV9();
     } else {
       timeLeft = 1;
+      setQuestionUiState('battle');
     }
   }
 
@@ -2172,9 +2493,12 @@ import { installVocabGuards } from './vocab-guard.js';
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     width = innerWidth;
     height = innerHeight;
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (canvas && ctx) {
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
 
     if (!isMobileChoiceMode()) {
       clearChoicePad();
@@ -2194,118 +2518,122 @@ import { installVocabGuards } from './vocab-guard.js';
     renderHud();
   }
 
+  function on(id, event, handler, options) {
+    const el = typeof id === 'string' ? document.getElementById(id) : id;
+    if (!el) return;
+    el.addEventListener(event, handler, options);
+  }
+
   document.querySelectorAll('.bankBtn').forEach(btn => {
     btn.addEventListener('click', () => {
       V9.bank = btn.dataset.bank || 'A';
-      document.querySelectorAll('.bankBtn').forEach(b => b.classList.toggle('active', b === btn));
+      saveUiPrefs();
+      syncModeBankUi();
+      refreshLeaderboardUi(false);
     });
   });
 
   document.querySelectorAll('.modeBtn').forEach(btn => {
     btn.addEventListener('click', () => {
       V9.mode = btn.dataset.mode || 'code_battle';
-      document.querySelectorAll('.modeBtn').forEach(b => b.classList.toggle('active', b === btn));
-      renderHud();
-      refreshPrimaryModeButton();
-      refreshMenuModeBanner();
-      refreshHeroModeText();
+      saveUiPrefs();
+      syncModeBankUi();
 
       fireAndForget(
-        fetchGlobalLeaderboard(V9.mode).then(() => {
-          renderLeaderboard();
-          renderMenuTop3();
-        }),
+        refreshLeaderboardUi(true),
         'leaderboard_mode_change'
       );
     });
   });
 
-  canvas.addEventListener('mousemove', e => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-  });
+  if (canvas) {
+    canvas.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
 
-  canvas.addEventListener('mousedown', e => {
-    if (isMobileChoiceMode()) return;
-    const hit = getTargetAtPoint(e.clientX, e.clientY);
-    if (hit) {
-      hit.hitFlash = 1;
-      handleAnswerV9(hit.rawText);
-    }
-  });
+    canvas.addEventListener('mousedown', e => {
+      if (isMobileChoiceMode()) return;
+      const hit = getTargetAtPoint(e.clientX, e.clientY);
+      if (hit) {
+        hit.hitFlash = 1;
+        handleAnswerV9(hit.rawText);
+      }
+    });
 
-  canvas.addEventListener('touchstart', e => {
-    if (isMobileChoiceMode()) return;
-    const t = e.changedTouches[0];
-    if (!t) return;
-    mouseX = t.clientX;
-    mouseY = t.clientY;
-    const hit = getTargetAtPoint(t.clientX, t.clientY);
-    if (hit) {
-      hit.hitFlash = 1;
-      handleAnswerV9(hit.rawText);
-    }
-  }, { passive: true });
+    canvas.addEventListener('touchstart', e => {
+      if (isMobileChoiceMode()) return;
+      const t = e.changedTouches[0];
+      if (!t) return;
+      mouseX = t.clientX;
+      mouseY = t.clientY;
+      const hit = getTargetAtPoint(t.clientX, t.clientY);
+      if (hit) {
+        hit.hitFlash = 1;
+        handleAnswerV9(hit.rawText);
+      }
+    }, { passive: true });
+  }
 
-  document.getElementById('startBtn').addEventListener('click', startProductionRun);
+  on('startBtn', 'click', startProductionRun);
 
-  document.getElementById('leaderboardBtn').addEventListener('click', () => {
+  on('leaderboardBtn', 'click', () => {
     leaderboardOpenedFromEnd = false;
     openLeaderboard();
   });
 
-  document.getElementById('generateTeacherLinkBtn').addEventListener('click', () => {
-    els.teacherLinkOutput.value = buildTeacherLink();
+  on('generateTeacherLinkBtn', 'click', () => {
+    if (els.teacherLinkOutput) els.teacherLinkOutput.value = buildTeacherLink();
   });
 
-  document.getElementById('copyTeacherLinkBtn').addEventListener('click', async () => {
+  on('copyTeacherLinkBtn', 'click', async () => {
+    if (!els.teacherLinkOutput) return;
     if (!els.teacherLinkOutput.value) els.teacherLinkOutput.value = buildTeacherLink();
     const ok = await copyText(els.teacherLinkOutput.value);
-    document.getElementById('copyTeacherLinkBtn').textContent = ok ? 'COPIED' : 'COPY FAILED';
-    setTimeout(() => {
-      document.getElementById('copyTeacherLinkBtn').textContent = 'COPY LINK';
-    }, 1200);
+    const btn = document.getElementById('copyTeacherLinkBtn');
+    if (btn) {
+      btn.textContent = ok ? 'COPIED' : 'COPY FAILED';
+      setTimeout(() => { btn.textContent = 'COPY LINK'; }, 1200);
+    }
   });
 
-  document.getElementById('closeTeacherLinkBtn').addEventListener('click', () => {
-    els.teacherLinkWrap.classList.add('hidden');
+  on('closeTeacherLinkBtn', 'click', () => {
+    els.teacherLinkWrap?.classList.add('hidden');
+    updateOverlayLock();
   });
 
-  document.getElementById('endPlayAgainBtn').addEventListener('click', () => {
-    els.endWrap.classList.add('hidden');
-    els.questionBox.classList.remove('hidden');
+  on('endPlayAgainBtn', 'click', () => {
+    showOnlyOverlay(null);
+    els.questionBox?.classList.remove('hidden');
     startProductionRun();
   });
 
-  document.getElementById('endLeaderboardBtn').addEventListener('click', () => {
+  on('endLeaderboardBtn', 'click', () => {
     leaderboardOpenedFromEnd = true;
-    els.endWrap.classList.add('hidden');
+    showOnlyOverlay(null);
     openLeaderboard();
   });
 
-  document.getElementById('endMenuBtn').addEventListener('click', () => {
+  on('endMenuBtn', 'click', () => {
     window.__VOCAB_STARTED__ = false;
-    els.endWrap.classList.add('hidden');
-    els.questionBox.classList.remove('hidden');
-    els.menu.classList.remove('hidden');
     forceMenuBootState();
   });
 
-  document.getElementById('closeLeaderboardBtn').addEventListener('click', () => {
-    els.leaderboardWrap.classList.add('hidden');
+  on('closeLeaderboardBtn', 'click', () => {
     if (leaderboardOpenedFromEnd || phase === 'ended') {
-      els.endWrap.classList.remove('hidden');
+      showOnlyOverlay('end');
       return;
     }
-    els.menu.classList.remove('hidden');
     forceMenuBootState();
   });
 
   const clearBtn = document.getElementById('clearLeaderboardBtn');
   if (clearBtn) clearBtn.remove();
 
-  document.getElementById('closeTeacherBtn').addEventListener('click', () => {
-    els.teacherWrap.classList.add('hidden');
+  on('closeTeacherBtn', 'click', () => {
+    hideEl(els.teacherWrap);
+    updateOverlayLock();
+
     const q = new URLSearchParams(window.location.search);
     if (q.get('teacher') === '1') {
       const clean = new URL(window.location.href);
@@ -2315,35 +2643,63 @@ import { installVocabGuards } from './vocab-guard.js';
     }
   });
 
-  document.getElementById('clearTeacherBtn').addEventListener('click', () => {
-    try { localStorage.removeItem(TEACHER_KEY); } catch (_) {}
-    els.teacherTable.innerHTML = '';
-    els.weakList.innerHTML = '';
+  on('clearTeacherBtn', 'click', () => {
+    safeStorageRemove(TEACHER_KEY);
+    if (els.teacherTable) els.teacherTable.innerHTML = '';
+    if (els.weakList) els.weakList.innerHTML = '';
   });
 
-  resize();
-  loadProfile();
-  renderLeaderboard();
-  renderMenuTop3();
-  renderHud();
-  refreshPrimaryModeButton();
-  refreshMenuModeBanner();
-  refreshHeroModeText();
-  bootTeacherMode();
+  document.addEventListener('keydown', e => {
+    const tag = (document.activeElement?.tagName || '').toLowerCase();
+    const isTyping = tag === 'input' || tag === 'textarea';
+    if (isTyping) return;
 
-  forceMenuBootState();
-  setTimeout(forceMenuBootState, 100);
-  setTimeout(forceMenuBootState, 500);
+    const activeOverlay = getActiveOverlayName();
 
-  fireAndForget(
-    fetchGlobalLeaderboard(V9.mode).then(() => {
-      renderLeaderboard();
-      renderMenuTop3();
-      forceMenuBootState();
-    }),
-    'leaderboard_bootstrap'
-  );
+    if (e.key === 'Escape') {
+      if (activeOverlay === 'leaderboard') {
+        document.getElementById('closeLeaderboardBtn')?.click();
+      } else if (activeOverlay === 'teacher') {
+        document.getElementById('closeTeacherBtn')?.click();
+      } else if (activeOverlay === 'teacherLink') {
+        document.getElementById('closeTeacherLinkBtn')?.click();
+      } else if (activeOverlay === 'end') {
+        document.getElementById('endMenuBtn')?.click();
+      }
+    }
 
+    if (e.key === 'Enter' && activeOverlay === 'menu') {
+      document.getElementById('startBtn')?.click();
+    }
+  });
+
+  function bootUi() {
+    resize();
+    loadUiPrefs();
+    loadProfile();
+    syncModeBankUi();
+    refreshLeaderboardUi(false);
+    bootTeacherMode();
+    forceMenuBootState();
+
+    installDebugHooks();
+    logReleaseBanner();
+    runSelfCheck();
+
+    setTimeout(forceMenuBootState, 100);
+    setTimeout(forceMenuBootState, 500);
+
+    fireAndForget(
+      refreshLeaderboardUi(true).then(() => {
+        forceMenuBootState();
+      }),
+      'leaderboard_bootstrap'
+    );
+
+    updateOverlayLock();
+  }
+
+  bootUi();
   requestAnimationFrame(loop);
   addEventListener('resize', resize);
 })();
