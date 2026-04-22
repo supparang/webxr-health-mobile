@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Balanced Plate</title>
+  <title>HeroHealth • Plate Launcher</title>
   <meta name="theme-color" content="#9fe3ff" />
   <meta name="color-scheme" content="light" />
   <style>
@@ -19,1598 +19,491 @@
       --gold-2:#fff8eb;
       --ok:#6fd18b;
       --ok-bg:#f1fff4;
-      --bad:#ffb3b3;
-      --bad-bg:#fff4f4;
-      --g1:#ffe7ef;
-      --g2:#fff4cc;
-      --g3:#e6f8df;
-      --g4:#e7f1ff;
-      --g5:#fff0d9;
-      --shadow:0 12px 28px rgba(0,0,0,.06);
-      --shadow-lg:0 24px 60px rgba(0,0,0,.18);
-      --radius:26px;
-      --radius-md:20px;
-      --radius-sm:16px;
+      --shadow:0 14px 30px rgba(0,0,0,.08);
+      --shadow-lg:0 24px 60px rgba(0,0,0,.14);
     }
 
     *{ box-sizing:border-box; }
-    html{ -webkit-tap-highlight-color:transparent; }
-
-    body{
+    html,body{
       margin:0;
+      min-height:100%;
       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 8% 8%, rgba(255,233,168,.38), transparent 20%),
-        radial-gradient(circle at 92% 10%, rgba(127,207,255,.28), transparent 20%),
+        radial-gradient(circle at 10% 10%, rgba(255,233,168,.35), transparent 22%),
+        radial-gradient(circle at 90% 10%, rgba(127,207,255,.24), transparent 20%),
         linear-gradient(180deg,#f7fcff,#fffef9);
-    }
-
-    body.guide-open,
-    body.reward-open{
-      overflow:hidden;
-    }
-
-    .hud{
-      position:sticky;
-      top:0;
-      z-index:15;
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:8px;
-      padding:10px;
-      background:rgba(247,252,255,.95);
-      backdrop-filter:blur(8px);
-      border-bottom:1px solid var(--line);
-    }
-
-    .pill{
-      background:#fff;
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:10px;
-      text-align:center;
-      font-weight:800;
-      transition:transform .16s ease, box-shadow .16s ease;
-      box-shadow:0 4px 10px rgba(0,0,0,.03);
-    }
-
-    .pill.bump{
-      transform:translateY(-2px) scale(1.03);
-      box-shadow:0 10px 18px rgba(0,0,0,.08);
-    }
-
-    .heroBar{
-      display:grid;
-      grid-template-columns:1.25fr .8fr .8fr .9fr .9fr;
-      gap:10px;
-      max-width:980px;
-      margin:12px auto 14px;
-      padding:0 16px;
-    }
-
-    .heroChip{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      background:linear-gradient(180deg,#ffffff,#f6fbff);
-      border:1px solid var(--line);
-      border-radius:20px;
-      padding:12px 14px;
-      box-shadow:0 8px 20px rgba(0,0,0,.05);
-    }
-
-    .heroChip-main{
-      align-items:flex-start;
-    }
-
-    .heroIcon{
-      width:46px;
-      height:46px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#ffe9a8,#ffd86b);
-      font-size:24px;
-      flex:0 0 auto;
-    }
-
-    .heroTitle{
-      font-size:18px;
-      font-weight:900;
-      color:#284255;
-    }
-
-    .heroSub{
-      font-size:13px;
-      color:var(--muted);
-      margin-top:2px;
-      line-height:1.4;
-    }
-
-    .chipLabel{
-      font-size:12px;
-      color:var(--muted);
-      display:block;
-    }
-
-    #entryChip{
-      background:linear-gradient(180deg,#fffdf5,#fff8eb);
-      border-color:#f1dfb3;
-    }
-
-    #entryChipText{
-      color:#8a6120;
-      font-weight:1000;
-    }
-
-    .dailyQuest{
-      max-width:980px;
-      margin:0 auto 14px;
-      padding:0 16px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-    }
-
-    .dailyQuest-left{
-      flex:1 1 auto;
-      display:flex;
-      align-items:center;
-      gap:12px;
-      background:linear-gradient(180deg,#fffaf0,#fffdf7);
-      border:1px solid #f1dfb3;
-      border-radius:20px;
-      padding:12px 14px;
-      box-shadow:0 8px 18px rgba(0,0,0,.04);
-    }
-
-    .dailyQuestBadge{
-      width:42px;
-      height:42px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#ffe49c,#ffd15f);
-      font-size:22px;
-      flex:0 0 auto;
-    }
-
-    .dailyQuestTitle{
-      font-size:14px;
-      font-weight:900;
-      color:#8d6118;
-    }
-
-    .dailyQuestDesc{
-      font-size:13px;
-      color:#7a6a49;
-    }
-
-    .dailyQuestRight{
-      min-width:78px;
-      text-align:center;
-      background:#fff;
-      border:1px solid #f1dfb3;
-      border-radius:16px;
-      padding:10px 12px;
-      font-size:18px;
-      color:#8d6118;
-      box-shadow:0 6px 14px rgba(0,0,0,.04);
-      font-weight:900;
-    }
-
-    .wrap{
-      max-width:980px;
-      margin:0 auto;
-      padding:16px;
-    }
-
-    .board{
-      display:grid;
-      gap:16px;
-      grid-template-columns:1.15fr .85fr;
-    }
-
-    .plateArea,.trayArea,.selectedBar,.stickerShelf{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:24px;
-      padding:16px;
-      box-shadow:var(--shadow);
-    }
-
-    .plateArea,.trayArea{ min-height:360px; }
-
-    h2{
-      margin:0 0 8px;
-      font-size:22px;
-      color:#284255;
-    }
-
-    .missionCard{
-      margin:10px 0 14px;
-      padding:12px 14px;
-      background:linear-gradient(180deg,#fffdf6,#fffaf0);
-      border:1px solid #f1dfb3;
-      border-radius:18px;
-    }
-
-    .missionTop{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      font-weight:900;
-      color:#8a6120;
-      margin-bottom:8px;
-    }
-
-    .missionBar{
-      height:12px;
-      background:#f5ead0;
-      border-radius:999px;
-      overflow:hidden;
-    }
-
-    .missionFill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#ffd76a,#ffb347);
-      transition:width .18s ease;
-    }
-
-    .plate{
-      width:min(100%,420px);
-      aspect-ratio:1/1;
-      margin:8px auto;
-      border-radius:999px;
-      border:10px solid #eaf4fa;
-      background:#ffffff;
-      position:relative;
-      overflow:hidden;
-    }
-
-    .zone{
-      position:absolute;
-      border:none;
-      cursor:pointer;
-      font-weight:900;
-      color:#334155;
-      box-shadow:inset 0 0 0 2px rgba(255,255,255,.75);
-      transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
-      touch-action:manipulation;
-      overflow:hidden;
-    }
-
-    .zone span{
-      background:rgba(255,255,255,.76);
-      padding:4px 8px;
-      border-radius:999px;
-      font-size:14px;
-    }
-
-    .zone:active{ transform:scale(.98); }
-
-    .zone-g2{ left:8%; top:8%; width:42%; height:42%; border-radius:999px 0 0 0; background:var(--g2); }
-    .zone-g1{ right:8%; top:8%; width:42%; height:42%; border-radius:0 999px 0 0; background:var(--g1); }
-    .zone-g3{ left:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 0 999px; background:var(--g3); }
-    .zone-g4{ right:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 999px 0; background:var(--g4); }
-    .zone-g5{
-      left:50%; top:50%;
-      width:26%; height:26%;
-      transform:translate(-50%,-50%);
-      border-radius:999px;
-      background:var(--g5);
-      display:grid; place-items:center;
-    }
-
-    .zone.hasItem::after{
-      content:"✓";
-      position:absolute;
-      right:10px;
-      bottom:10px;
-      width:28px; height:28px;
-      border-radius:999px;
-      display:grid; place-items:center;
-      background:#ffffffd9;
-      color:#2b7a47;
-      font-weight:900;
-      box-shadow:0 4px 10px rgba(0,0,0,.08);
-    }
-
-    .zone.correctFlash{ animation:zoneOk .35s ease; }
-    .zone.wrongFlash{ animation:zoneBad .35s ease; }
-
-    @keyframes zoneOk{
-      0%{ box-shadow:0 0 0 0 rgba(111,209,139,.55); }
-      100%{ box-shadow:0 0 0 18px rgba(111,209,139,0); }
-    }
-
-    @keyframes zoneBad{
-      0%{ box-shadow:0 0 0 0 rgba(255,179,179,.6); }
-      100%{ box-shadow:0 0 0 18px rgba(255,179,179,0); }
-    }
-
-    .feedback{
-      margin-top:12px;
-      min-height:28px;
-      font-weight:800;
-      color:#345468;
-      text-align:center;
-    }
-
-    .tray{
-      display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:10px;
-    }
-
-    .food{
-      min-height:84px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg,#ffffff,#f8fcff);
-      cursor:pointer;
-      padding:10px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      text-align:left;
-      box-shadow:0 6px 14px rgba(0,0,0,.04);
-      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
-      touch-action:manipulation;
-    }
-
-    .food:hover{
-      transform:translateY(-1px);
-      box-shadow:0 10px 18px rgba(0,0,0,.06);
-    }
-
-    .food:active{ transform:scale(.985); }
-
-    .food.selected{
-      border-color:var(--sky);
-      box-shadow:0 0 0 3px rgba(127,207,255,.25);
-      background:#eef8ff;
-    }
-
-    .food.used{
-      opacity:.45;
-      pointer-events:none;
-      filter:saturate(.65);
-    }
-
-    .foodEmoji{
-      width:42px;
-      height:42px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      background:#f3f9ff;
-      font-size:24px;
-      flex:0 0 auto;
-    }
-
-    .foodMeta{
-      min-width:0;
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-
-    .foodName{
-      font-weight:900;
-      color:#284255;
-      line-height:1.15;
-    }
-
-    .foodTag{
-      display:inline-flex;
-      align-items:center;
-      min-height:24px;
-      padding:0 8px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:800;
-      color:#4f6170;
-      background:#f5f9fc;
-      border:1px solid var(--line);
-      width:max-content;
-      max-width:100%;
-    }
-
-    .foodTag.x{
-      background:#fff1f1;
-      color:#9b4a4a;
-    }
-
-    .selectedBar{
-      position:sticky;
-      bottom:10px;
-      z-index:14;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-top:16px;
-      background:rgba(255,255,255,.96);
-      backdrop-filter:blur(8px);
-    }
-
-    .selectedBar-left{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-width:0;
-    }
-
-    .selectedEmoji{
-      width:44px;
-      height:44px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      background:#eef8ff;
-      font-size:24px;
-      flex:0 0 auto;
-    }
-
-    .selectedTitle{
-      font-weight:900;
-      color:#284255;
-    }
-
-    .selectedHint{
-      font-size:13px;
-      color:var(--muted);
-      line-height:1.4;
-    }
-
-    .selectedClear{
-      min-width:92px;
-      min-height:42px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:#fff7f7;
-      font-weight:800;
-      color:#476072;
-      cursor:pointer;
-    }
-
-    .stickerShelf{
-      margin-top:14px;
-    }
-
-    .stickerShelfTitle{
-      font-weight:900;
-      color:#284255;
-      margin-bottom:10px;
-    }
-
-    .stickerList{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-    }
-
-    .sticker{
-      min-width:90px;
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:#f8fcff;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-
-    .stickerIcon{
-      width:34px;
-      height:34px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      background:#fff;
-      font-size:18px;
-      box-shadow:0 4px 10px rgba(0,0,0,.05);
-    }
-
-    .stickerText{
-      font-size:12px;
-      font-weight:800;
-      color:#4a6070;
-      line-height:1.15;
-    }
-
-    .toastLayer{
-      position:fixed;
-      left:50%;
-      bottom:94px;
-      transform:translateX(-50%);
-      z-index:30;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      pointer-events:none;
-    }
-
-    .toast{
-      min-width:220px;
-      max-width:min(90vw,440px);
-      padding:12px 16px;
-      border-radius:16px;
-      background:#ffffff;
-      border:1px solid var(--line);
-      box-shadow:0 12px 24px rgba(0,0,0,.10);
-      font-weight:900;
-      color:#284255;
-      animation:toastIn .22s ease, toastOut .22s ease 1.8s forwards;
-      text-align:center;
-    }
-
-    .toast.ok{ background:var(--ok-bg); border-color:#bdecc7; }
-    .toast.bad{ background:var(--bad-bg); border-color:#ffd0d0; }
-    .toast.info{ background:#f4fbff; border-color:#cfe8f8; }
-
-    @keyframes toastIn{
-      from{ opacity:0; transform:translateY(12px) scale(.96); }
-      to{ opacity:1; transform:translateY(0) scale(1); }
-    }
-
-    @keyframes toastOut{
-      to{ opacity:0; transform:translateY(-6px) scale(.98); }
-    }
-
-    .overlay{
-      position:fixed;
-      inset:0;
-      background:rgba(17,24,39,.38);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      z-index:50;
-    }
-
-    .overlay.show{ display:flex; }
-
-    .summary{
-      width:min(92vw,560px);
-      background:#fff;
-      border-radius:28px;
-      border:1px solid var(--line);
-      padding:20px;
-      animation:summaryPop .24s ease;
-    }
-
-    @keyframes summaryPop{
-      from{ opacity:0; transform:translateY(10px) scale(.97); }
-      to{ opacity:1; transform:translateY(0) scale(1); }
-    }
-
-    .summaryHero{
-      display:flex;
-      align-items:center;
-      gap:14px;
-      margin:8px 0 14px;
-      padding:12px 14px;
-      border-radius:20px;
-      background:linear-gradient(180deg,#fffaf0,#fffdf8);
-      border:1px solid #f3dfb2;
-    }
-
-    .summaryBadge{
-      width:58px; height:58px;
-      border-radius:999px;
-      display:grid; place-items:center;
-      background:linear-gradient(180deg,#ffe49c,#ffd05e);
-      font-size:30px;
-    }
-
-    .summaryRank{
-      font-size:18px;
-      font-weight:900;
-      color:#8d6118;
-    }
-
-    .summaryStars{
-      font-size:18px;
-      letter-spacing:2px;
-    }
-
-    .summaryGrid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin:14px 0;
-    }
-
-    .sbox{
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:12px;
-      text-align:center;
-      background:#fbfeff;
-    }
-
-    .summaryRewardBox{
-      margin-top:10px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#fffdf6,#fff9ef);
-      border:1px solid #f2dfb3;
-      color:#8d6118;
-      font-weight:800;
-    }
-
-    .summaryLatestReward{
-      margin-top:8px;
-      font-size:13px;
-      font-weight:800;
-      color:#7a6a4c;
-    }
-
-    .actions{
-      display:grid;
-      gap:10px;
-      margin-top:10px;
-    }
-
-    .actions button{
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid var(--line);
-      font-size:16px;
-      font-weight:800;
-      cursor:pointer;
-    }
-
-    .primary{ background:var(--sky); color:#17384f; }
-    .secondary{ background:#fff; color:#2f4f63; }
-
-    .summaryNextRow{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .nextCard{
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      padding:12px;
-      border-radius:18px;
-      background:#f9fcff;
-      border:1px solid var(--line);
-    }
-
-    .nextIcon{
-      width:38px;
-      height:38px;
-      border-radius:12px;
-      display:grid;
-      place-items:center;
-      background:#eef8ff;
-      font-size:20px;
-      flex:0 0 auto;
-    }
-
-    .nextTitle{
-      font-weight:900;
-      color:#2d4859;
-      margin-bottom:4px;
-    }
-
-    .nextText{
-      font-size:13px;
-      color:#6d7d8b;
-      line-height:1.4;
-    }
-
-    .pauseOverlay{
-      position:fixed;
-      inset:0;
-      z-index:85;
-      background:rgba(15,23,42,.36);
-      display:grid;
-      place-items:center;
-      padding:18px;
-      backdrop-filter:blur(8px);
-    }
-
-    .pauseOverlay[hidden]{ display:none; }
-
-    .pauseCard{
-      width:min(92vw,420px);
-      border-radius:28px;
-      background:linear-gradient(180deg,#fffef8,#f9fcff);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow-lg);
-      padding:20px 18px;
-      text-align:center;
-    }
-
-    .pauseBadge{
-      width:70px;
-      height:70px;
-      margin:0 auto 10px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#ffe7a1,#ffd45f);
-      font-size:34px;
-    }
-
-    .pauseActions{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-
-    .pauseBtn{
-      min-height:48px;
-      border:none;
-      border-radius:16px;
-      background:#fff;
-      border:1px solid var(--line);
-      font-size:16px;
-      font-weight:900;
-      color:#2f4f63;
-      cursor:pointer;
-    }
-
-    .pauseBtn.primary{
-      background:var(--sky);
-      color:#17384f;
-    }
-
-    .guideOverlay,
-    .rewardPopupOverlay,
-    .flowOverlay{
-      position:fixed;
-      inset:0;
-      z-index:80;
-      background:rgba(15,23,42,.42);
-      display:grid;
-      place-items:center;
-      padding:18px;
-      backdrop-filter:blur(8px);
-    }
-
-    .guideOverlay[hidden],
-    .flowOverlay[hidden]{
-      display:none;
-    }
-
-    .guideCard,
-    .flowCard{
-      width:min(92vw,920px);
-      background:linear-gradient(180deg,#fffef9,#f9fcff);
-      border:1px solid var(--line);
-      border-radius:28px;
-      padding:18px;
-      box-shadow:var(--shadow-lg);
-    }
-
-    .flowHead{
-      display:flex;
-      align-items:flex-start;
-      gap:12px;
-      margin-bottom:14px;
-    }
-
-    .flowBadge{
-      width:56px;
-      height:56px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#ffe8a2,#ffd561);
-      font-size:28px;
-      flex:0 0 auto;
-    }
-
-    .flowTitle{
-      font-size:24px;
-      font-weight:900;
-      color:#284255;
-      margin:0 0 4px;
-    }
-
-    .flowSub{
-      color:var(--muted);
-      margin:0;
-      line-height:1.45;
-    }
-
-    .guideStep{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      padding:12px;
-      border-radius:18px;
-      background:#fff;
-      border:1px solid var(--line);
-      margin-bottom:10px;
-    }
-
-    .guideStepIcon{
-      width:42px;
-      height:42px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      background:#f4fbff;
-      font-size:22px;
-      flex:0 0 auto;
-    }
-
-    .guideStepTitle{
-      font-weight:900;
-      color:#2d4859;
-      margin-bottom:4px;
-    }
-
-    .guideStepText{
-      font-size:13px;
-      color:var(--muted);
-      line-height:1.4;
-    }
-
-    .guideActions{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-top:12px;
-    }
-
-    .guideCheck{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      color:#61727f;
-      font-size:13px;
-      font-weight:700;
-    }
-
-    .guideStartBtn{
-      min-width:160px;
-      min-height:48px;
-      border:none;
-      border-radius:16px;
-      background:var(--sky);
-      color:#17384f;
-      font-size:16px;
-      font-weight:900;
-      cursor:pointer;
-    }
-
-    .rewardPopupOverlay{
-      position:fixed;
-      inset:0;
-      z-index:120;
-      background:rgba(15,23,42,.42);
-      display:grid;
-      place-items:center;
-      padding:18px;
-      backdrop-filter:blur(8px);
-      pointer-events:auto;
-    }
-
-    .rewardPopupOverlay[hidden]{
-      display:none;
-    }
-
-    .rewardPopupCard{
-      width:min(92vw,420px);
-      text-align:center;
-      padding:22px 18px 18px;
-      background:linear-gradient(180deg,#fffef9,#f9fcff);
-      border:1px solid var(--line);
-      border-radius:28px;
-      box-shadow:var(--shadow-lg);
-      position:relative;
-      z-index:1;
-      pointer-events:auto;
-    }
-
-    .rewardPopupBadge{
-      width:82px;
-      height:82px;
-      margin:0 auto 12px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#ffe7a1,#ffd35e);
-      font-size:42px;
-      box-shadow:0 10px 20px rgba(255,208,94,.22);
-    }
-
-    .rewardPopupTitle{
-      font-size:24px;
-      font-weight:900;
-      color:#875d18;
-      margin-bottom:6px;
-      line-height:1.15;
-    }
-
-    .rewardPopupDesc{
-      font-size:15px;
-      line-height:1.45;
-      color:#6f6245;
-      margin-bottom:10px;
-    }
-
-    .rewardPopupMeta{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:36px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:1px solid #f0ddb0;
-      color:#8d6118;
-      font-weight:900;
-      margin-bottom:14px;
-      max-width:100%;
-    }
-
-    .rewardPopupBtn{
-      width:100%;
-      min-height:52px;
-      border:none;
-      border-radius:16px;
-      background:var(--sky);
-      color:#17384f;
-      font-size:16px;
-      font-weight:900;
-      cursor:pointer;
-      position:relative;
-      z-index:2;
-      pointer-events:auto;
-      touch-action:manipulation;
       -webkit-tap-highlight-color:transparent;
     }
 
-    .rewardPopupBtn:active{
-      transform:scale(.985);
+    .page{
+      max-width:980px;
+      margin:0 auto;
+      padding:18px 16px 28px;
     }
 
-    .rewardPopupBtn:disabled{
-      opacity:.65;
-      cursor:not-allowed;
-    }
-
-    .evalChoices{
+    .hero{
       display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:14px;
-      margin:14px 0;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+      align-items:stretch;
     }
 
-    .evalChoice{
-      background:#fff;
+    .card{
+      background:linear-gradient(180deg,#fffef9,#f9fcff);
       border:1px solid var(--line);
-      border-radius:22px;
-      padding:12px;
-      cursor:pointer;
-      transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
-      box-shadow:0 8px 18px rgba(0,0,0,.04);
-      text-align:center;
+      border-radius:28px;
+      padding:18px;
+      box-shadow:var(--shadow);
     }
 
-    .evalChoice.selected{
-      border-color:var(--sky);
-      box-shadow:0 0 0 4px rgba(127,207,255,.18);
-      transform:translateY(-2px);
+    .heroMain{
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
     }
 
-    .evalChoice.correct{
-      border-color:#a9dfb6;
-      background:var(--ok-bg);
-    }
-
-    .evalChoice.wrong{
-      border-color:#ffcfcf;
-      background:var(--bad-bg);
-    }
-
-    .evalPlate{
-      width:min(100%,160px);
-      aspect-ratio:1/1;
-      margin:0 auto 10px;
-      border-radius:999px;
-      position:relative;
-      border:7px solid #eaf4fa;
-      background:#fff;
-      overflow:hidden;
-    }
-
-    .evalZone{
-      position:absolute;
+    .badge{
+      width:66px;
+      height:66px;
+      border-radius:20px;
       display:grid;
       place-items:center;
-      font-size:20px;
+      background:linear-gradient(180deg,#ffe49d,#ffd15f);
+      font-size:34px;
+      flex:0 0 auto;
+      box-shadow:0 10px 20px rgba(255,208,94,.24);
     }
 
-    .evalZone.z-g2{ left:8%; top:8%; width:42%; height:42%; background:var(--g2); border-radius:999px 0 0 0; }
-    .evalZone.z-g1{ right:8%; top:8%; width:42%; height:42%; background:var(--g1); border-radius:0 999px 0 0; }
-    .evalZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; background:var(--g3); border-radius:0 0 0 999px; }
-    .evalZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; background:var(--g4); border-radius:0 0 999px 0; }
-    .evalZone.z-g5{ left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); background:var(--g5); border-radius:999px; font-size:18px; }
-
-    .evalLabel{
-      font-weight:900;
-      color:#2d4859;
-      font-size:16px;
+    h1{
+      margin:0 0 6px;
+      font-size:30px;
+      line-height:1.1;
+      color:#284255;
     }
 
-    .flowHint{
-      color:#5c7383;
+    .sub{
+      margin:0;
+      color:var(--muted);
+      line-height:1.5;
       font-size:14px;
-      font-weight:800;
-      text-align:center;
-      margin-bottom:12px;
     }
 
-    .flowActions{
+    .pillRow{
       display:flex;
-      justify-content:center;
-      gap:10px;
+      gap:8px;
       flex-wrap:wrap;
       margin-top:12px;
     }
 
-    .flowBtn{
-      min-height:48px;
-      min-width:150px;
-      padding:0 14px;
-      border:none;
-      border-radius:16px;
-      font-size:16px;
-      font-weight:900;
-      cursor:pointer;
-      border:1px solid var(--line);
+    .pill{
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
       background:#fff;
-      color:#2f4f63;
-    }
-
-    .flowBtn.primary{
-      background:var(--sky);
-      color:#17384f;
-    }
-
-    .flowBtn:disabled{
-      opacity:.6;
-      cursor:not-allowed;
-    }
-
-    .flowFeedback{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:#f8fcff;
-      border:1px solid var(--line);
-      color:#476072;
-      font-weight:800;
-      min-height:52px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      line-height:1.45;
-    }
-
-    .flowFeedback.ok{
-      background:var(--ok-bg);
-      border-color:#bdecc7;
-      color:#2b6c43;
-    }
-
-    .flowFeedback.bad{
-      background:var(--bad-bg);
-      border-color:#ffd0d0;
-      color:#a35555;
-    }
-
-    .createTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:12px;
-    }
-
-    .createProgressWrap{
-      flex:1 1 auto;
-      max-width:320px;
-    }
-
-    .createProgressText{
+      border:1px solid #e7dcc0;
       font-size:13px;
+      font-weight:900;
+      color:#7b6121;
+    }
+
+    .goalCard{
+      border:1px solid #f0ddb0;
+      background:linear-gradient(180deg,#fffdf6,#fff9ef);
+    }
+
+    .goalTitle{
+      font-size:12px;
       font-weight:900;
       color:#8a6120;
       margin-bottom:6px;
-      text-align:right;
     }
 
-    .createProgressBar{
-      height:12px;
-      background:#f5ead0;
-      border-radius:999px;
-      overflow:hidden;
+    .goalBig{
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.2;
+      color:#284255;
+      margin-bottom:6px;
     }
 
-    .createProgressFill{
-      width:0%;
-      height:100%;
-      background:linear-gradient(90deg,#ffd76a,#ffb347);
-      transition:width .18s ease;
-    }
-
-    .createLayout{
+    .grid{
       display:grid;
-      grid-template-columns:1fr .95fr;
+      grid-template-columns:1fr 1fr;
       gap:16px;
-      margin-top:12px;
+      margin-top:16px;
     }
 
-    .createBoard,.createTrayWrap{
-      border:1px solid var(--line);
-      border-radius:22px;
-      padding:14px;
-      background:#fff;
-      box-shadow:0 8px 18px rgba(0,0,0,.04);
+    .sectionTitle{
+      font-size:15px;
+      font-weight:1000;
+      color:#2d4859;
+      margin:0 0 10px;
     }
 
-    .createPlate{
-      width:min(100%,360px);
-      aspect-ratio:1/1;
-      margin:8px auto;
-      border-radius:999px;
-      border:9px solid #eaf4fa;
-      background:#fff;
-      position:relative;
-      overflow:hidden;
+    .field{
+      margin-bottom:12px;
     }
 
-    .createZone{
-      position:absolute;
-      border:none;
-      cursor:pointer;
-      font-weight:900;
-      color:#334155;
-      box-shadow:inset 0 0 0 2px rgba(255,255,255,.75);
-      transition:transform .15s ease, box-shadow .15s ease;
-      overflow:hidden;
-    }
-
-    .createZone .zoneInner{
-      position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
-      padding:8px;
-      text-align:center;
-      font-size:13px;
-      font-weight:900;
-      color:#2f4f63;
-    }
-
-    .createZone.hasItem .zoneInner{
-      gap:4px;
-      align-content:center;
-    }
-
-    .zonePlaceholder{
-      background:rgba(255,255,255,.8);
-      padding:4px 8px;
-      border-radius:999px;
-    }
-
-    .zoneItemEmoji{ font-size:22px; }
-    .zoneItemText{
+    .label{
+      display:block;
       font-size:12px;
-      background:rgba(255,255,255,.8);
-      padding:3px 6px;
-      border-radius:999px;
+      color:var(--muted);
+      font-weight:800;
+      margin-bottom:6px;
     }
 
-    .createZone.z-g2{ left:8%; top:8%; width:42%; height:42%; border-radius:999px 0 0 0; background:var(--g2); }
-    .createZone.z-g1{ right:8%; top:8%; width:42%; height:42%; border-radius:0 999px 0 0; background:var(--g1); }
-    .createZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 0 999px; background:var(--g3); }
-    .createZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 999px 0; background:var(--g4); }
-    .createZone.z-g5{ left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); border-radius:999px; background:var(--g5); }
+    .input, .select{
+      width:100%;
+      min-height:48px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:#fff;
+      padding:0 14px;
+      font-size:15px;
+      font-weight:800;
+      color:#284255;
+      outline:none;
+    }
 
-    .createTray{
+    .optionGrid{
       display:grid;
-      grid-template-columns:repeat(2,1fr);
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+    }
+
+    .optionBtn{
+      min-height:48px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:#2f4f63;
+      font-size:14px;
+      font-weight:900;
+      cursor:pointer;
+      touch-action:manipulation;
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    }
+
+    .optionBtn.active{
+      background:#eef8ff;
+      border-color:var(--sky);
+      box-shadow:0 0 0 3px rgba(127,207,255,.20);
+      transform:translateY(-1px);
+    }
+
+    .helper{
+      font-size:12px;
+      color:#6d7d8b;
+      line-height:1.45;
+      margin-top:4px;
+    }
+
+    .steps{
+      display:grid;
       gap:10px;
     }
 
-    .createResult{
+    .step{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      padding:12px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid var(--line);
+    }
+
+    .stepNo{
+      width:40px;
+      height:40px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:#eef8ff;
+      font-size:20px;
+      flex:0 0 auto;
+    }
+
+    .stepTitle{
+      font-size:14px;
+      font-weight:1000;
+      color:#2d4859;
+      margin-bottom:4px;
+    }
+
+    .stepText{
+      font-size:13px;
+      line-height:1.45;
+      color:var(--muted);
+    }
+
+    .lastSummary{
       margin-top:14px;
       padding:14px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:#f8fcff;
-      color:#476072;
-      font-weight:800;
+      border-radius:20px;
+      border:1px solid #d7ecdc;
+      background:linear-gradient(180deg,#fbfffb,#f4fff4);
       display:none;
+    }
+
+    .lastSummary.show{
+      display:block;
+    }
+
+    .lastSummaryTitle{
+      font-size:13px;
+      font-weight:1000;
+      color:#2f6f3c;
+      margin-bottom:8px;
+    }
+
+    .lastSummaryGrid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+    }
+
+    .miniBox{
+      background:#fff;
+      border:1px solid #dfeee1;
+      border-radius:14px;
+      padding:10px;
+      text-align:center;
+    }
+
+    .miniLabel{
+      font-size:11px;
+      color:#6d7d8b;
+      font-weight:800;
+      margin-bottom:3px;
+    }
+
+    .miniValue{
+      font-size:18px;
+      font-weight:1000;
+      color:#2d4859;
+      line-height:1;
+    }
+
+    .actionRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    .btn{
+      min-height:52px;
+      padding:0 18px;
+      border:none;
+      border-radius:18px;
+      font-size:16px;
+      font-weight:1000;
+      cursor:pointer;
+      touch-action:manipulation;
+      transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+    }
+
+    .btn:active{ transform:scale(.985); }
+
+    .btnPrimary{
+      background:var(--sky);
+      color:#17384f;
+      box-shadow:0 10px 18px rgba(127,207,255,.22);
+    }
+
+    .btnSecondary{
+      background:#fff;
+      color:#2f4f63;
+      border:1px solid var(--line);
+    }
+
+    .btnWarn{
+      background:linear-gradient(180deg,#ffe7a3,#ffd468);
+      color:#7a5609;
+      box-shadow:0 10px 18px rgba(255,212,104,.24);
+    }
+
+    .footerNote{
+      margin-top:16px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid var(--line);
+      color:#60727f;
+      font-size:13px;
       line-height:1.5;
-    }
-
-    .createResult.show{ display:block; }
-    .createResult.great{
-      background:linear-gradient(180deg,#fffef5,#f5fff4);
-      border-color:#d9efc8;
-      color:#527c26;
-    }
-
-    .createResult.good{
-      background:#f4fbff;
-      border-color:#cfe8f8;
-      color:#3e6f8a;
-    }
-
-    .createResult.retry{
-      background:#fff8f2;
-      border-color:#ffd8b5;
-      color:#9a5b2b;
-    }
-
-    .celebrateLayer{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      overflow:hidden;
-      z-index:60;
-    }
-
-    .confetti{
-      position:absolute;
-      top:-10vh;
-      font-size:24px;
-      animation:confettiDrop linear forwards;
-      will-change:transform, opacity;
-    }
-
-    @keyframes confettiDrop{
-      0%{ transform:translateY(0) rotate(0deg); opacity:1; }
-      100%{ transform:translateY(115vh) rotate(360deg); opacity:0; }
-    }
-
-    @media (max-width: 960px){
-      .heroBar{ grid-template-columns:1fr 1fr; }
-      .createLayout{ grid-template-columns:1fr; }
+      font-weight:800;
     }
 
     @media (max-width: 860px){
-      .hud{ grid-template-columns:repeat(2,1fr); }
-      .heroBar{ grid-template-columns:1fr; }
-      .wrap{ padding:12px; }
-      .board{ grid-template-columns:1fr; }
-      .plateArea,.trayArea{ min-height:auto; border-radius:20px; padding:14px; }
-      .plate{ width:min(100%,360px); }
-      .evalChoices{ grid-template-columns:1fr; }
+      .hero{ grid-template-columns:1fr; }
+      .grid{ grid-template-columns:1fr; }
+      .optionGrid{ grid-template-columns:repeat(3,1fr); }
+      .lastSummaryGrid{ grid-template-columns:1fr 1fr 1fr; }
     }
 
     @media (max-width: 640px){
-      .dailyQuest{ padding:0 12px; margin:0 auto 12px; flex-direction:column; align-items:stretch; }
-      .dailyQuestRight{ width:100%; }
-      .selectedBar{ flex-direction:column; align-items:stretch; bottom:8px; }
-      .summaryNextRow,.pauseActions{ grid-template-columns:1fr; }
-      .flowActions{ flex-direction:column; }
-      .flowBtn{ width:100%; }
-      .guideActions{ flex-direction:column; align-items:stretch; }
-      .guideStartBtn, .selectedClear{ width:100%; }
-      .createTray{ grid-template-columns:1fr 1fr; }
+      .page{ padding:14px 12px 24px; }
+      h1{ font-size:26px; }
+      .goalBig{ font-size:21px; }
+      .optionGrid{ grid-template-columns:1fr 1fr 1fr; }
+      .actionRow{ flex-direction:column; }
+      .btn{ width:100%; }
+      .lastSummaryGrid{ grid-template-columns:1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="hud">
-    <div class="pill" id="scorePill">คะแนน<br><span id="hudScore">0</span></div>
-    <div class="pill" id="timePill">เวลา<br><span id="hudTime">90</span></div>
-    <div class="pill" id="streakPill">คอมโบ<br><span id="hudStreak">0</span></div>
-    <div class="pill" id="platesPill">จานสำเร็จ<br><span id="hudPlates">0</span></div>
-  </div>
-
-  <div class="heroBar">
-    <div class="heroChip heroChip-main">
-      <div class="heroIcon">🍽️</div>
-      <div>
-        <div class="heroTitle">Balanced Plate</div>
-        <div class="heroSub" id="heroSub">จัดอาหารให้ครบ 5 หมู่</div>
-      </div>
-    </div>
-
-    <div class="heroChip" id="entryChip" hidden>
-      <span class="chipLabel">สถานะ</span>
-      <strong id="entryChipText">ผ่าน Quick Plate แล้ว</strong>
-    </div>
-
-    <div class="heroChip">
-      <span class="chipLabel">รอบ</span>
-      <strong id="hudRound">1</strong>
-    </div>
-
-    <div class="heroChip">
-      <span class="chipLabel">เป้าหมาย</span>
-      <strong id="hudGoal">5 หมู่</strong>
-    </div>
-
-    <div class="heroChip">
-      <span class="chipLabel">ระดับ</span>
-      <strong id="hudDiff">normal</strong>
-    </div>
-  </div>
-
-  <div class="dailyQuest" id="dailyQuest">
-    <div class="dailyQuest-left">
-      <div class="dailyQuestBadge">🎯</div>
-      <div>
-        <div class="dailyQuestTitle" id="dailyQuestTitle">ภารกิจวันนี้</div>
-        <div class="dailyQuestDesc" id="dailyQuestDesc">จัดจานสมดุลให้สำเร็จ 3 จาน</div>
-      </div>
-    </div>
-    <div class="dailyQuestRight"><strong id="dailyQuestCount">0/3</strong></div>
-  </div>
-
-  <div class="wrap">
-    <div class="board">
-      <section class="plateArea">
-        <h2>จานสุขภาพ</h2>
-
-        <div class="missionCard">
-          <div class="missionTop">
-            <strong id="missionTitle">ภารกิจรอบนี้</strong>
-            <span id="missionCount">0/5</span>
-          </div>
-          <div class="missionBar">
-            <div class="missionFill" id="missionFill"></div>
-          </div>
-        </div>
-
-        <div class="plate" id="plateBoard">
-          <button class="zone zone-g2" data-zone="g2"><span>คาร์บ</span></button>
-          <button class="zone zone-g1" data-zone="g1"><span>โปรตีน</span></button>
-          <button class="zone zone-g3" data-zone="g3"><span>ผัก</span></button>
-          <button class="zone zone-g4" data-zone="g4"><span>ผลไม้</span></button>
-          <button class="zone zone-g5" data-zone="g5"><span>ไขมัน</span></button>
-        </div>
-
-        <div class="feedback" id="feedback">มาจัดจานสุขภาพกัน</div>
-      </section>
-
-      <section class="trayArea">
-        <h2>เลือกอาหาร</h2>
-        <div class="tray" id="foodTray"></div>
-      </section>
-    </div>
-
-    <div class="selectedBar">
-      <div class="selectedBar-left">
-        <div class="selectedEmoji" id="selectedEmoji">🍽️</div>
-        <div>
-          <div class="selectedTitle" id="selectedTitle">ยังไม่ได้เลือกอาหาร</div>
-          <div class="selectedHint" id="selectedHint">แตะอาหารจากถาด แล้วค่อยแตะส่วนของจาน</div>
-        </div>
-      </div>
-      <button class="selectedClear" id="btnClearPick" type="button">ยกเลิก</button>
-    </div>
-
-    <div class="stickerShelf">
-      <div class="stickerShelfTitle">สติกเกอร์วันนี้</div>
-      <div class="stickerList" id="stickerList"></div>
-    </div>
-  </div>
-
-  <div class="overlay" id="summaryOverlay">
-    <div class="summary">
-      <h2 id="summaryHeading">วันนี้ทำได้ดีมาก</h2>
-
-      <div class="summaryHero">
-        <div class="summaryBadge" id="summaryBadge">🌟</div>
-        <div>
-          <div class="summaryRank" id="summaryRank">Healthy Plate Hero</div>
-          <div class="summaryStars" id="summaryStars">⭐️⭐️⭐️</div>
-        </div>
-      </div>
-
-      <div class="summaryGrid">
-        <div class="sbox">คะแนน<br><strong id="sumScore">0</strong></div>
-        <div class="sbox">ความแม่นยำ<br><strong id="sumAcc">0%</strong></div>
-        <div class="sbox">คอมโบสูงสุด<br><strong id="sumBestStreak">0</strong></div>
-        <div class="sbox">จานสำเร็จ<br><strong id="sumCompleted">0</strong></div>
-        <div class="sbox">พลาดบ่อย<br><strong id="sumMistake">-</strong></div>
-      </div>
-
-      <p id="sumInsight">เยี่ยมมาก ลองเล่นอีกครั้งเพื่อทำคะแนนให้สูงขึ้น</p>
-
-      <div class="summaryRewardBox" id="summaryRewardBox"></div>
-      <div class="summaryLatestReward" id="summaryLatestReward">รางวัลล่าสุด: ยังไม่มี</div>
-
-      <div class="summaryNextRow">
-        <div class="nextCard">
-          <div class="nextIcon">🎯</div>
+  <div class="page">
+    <section class="hero">
+      <div class="card">
+        <div class="heroMain">
+          <div class="badge">🍽️</div>
           <div>
-            <div class="nextTitle">ลองเป้าหมายต่อไป</div>
-            <div class="nextText" id="nextGoalText">ทำ Perfect Plate ให้ได้</div>
-          </div>
-        </div>
-        <div class="nextCard">
-          <div class="nextIcon">🎁</div>
-          <div>
-            <div class="nextTitle">สติกเกอร์วันนี้</div>
-            <div class="nextText" id="nextStickerText">สะสมได้อีก 1 ชิ้น</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button id="btnReplay" class="primary">เล่นอีกครั้ง</button>
-        <button id="btnEvaluate" class="secondary">ลองคิดอีกนิด</button>
-        <button id="btnBackHub" class="secondary">กลับ HUB</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="flowOverlay" id="evaluateOverlay" hidden>
-    <div class="flowCard">
-      <div class="flowHead">
-        <div class="flowBadge">🌟</div>
-        <div>
-          <h2 class="flowTitle">ลองคิดอีกนิด</h2>
-          <p class="flowSub">เลือกจานที่สมดุลที่สุด</p>
-          <p class="flowSub" id="evalEntrySub">คิดต่อจากเกมหลักอีกนิด</p>
-        </div>
-      </div>
-
-      <div class="evalChoices" id="evalChoices"></div>
-      <div class="flowHint">เลือก 1 คำตอบ</div>
-
-      <div class="flowActions">
-        <button type="button" class="flowBtn primary" id="btnEvalSubmit" disabled>ยืนยันคำตอบ</button>
-        <button type="button" class="flowBtn" id="btnEvalSkip">ข้ามไปก่อน</button>
-      </div>
-
-      <div class="flowFeedback" id="evalFeedback">เลือกจานที่คิดว่าสมดุลที่สุด</div>
-
-      <div class="flowActions" id="evalNextActions" hidden>
-        <button type="button" class="flowBtn primary" id="btnEvalNext">สร้างจานของฉัน</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="flowOverlay" id="createOverlay" hidden>
-    <div class="flowCard">
-      <div class="flowHead">
-        <div class="flowBadge">🍽️</div>
-        <div>
-          <h2 class="flowTitle">สร้างจานของคุณเอง</h2>
-          <p class="flowSub">เลือกอาหารให้ครบ 5 หมู่</p>
-          <p class="flowSub" id="createEntrySub">สร้างจานของคุณเองเป็นขั้นสุดท้าย</p>
-        </div>
-      </div>
-
-      <div class="createTop">
-        <div class="flowHint" style="margin:0;text-align:left;">เลือกอาหารแล้วแตะส่วนของจาน</div>
-        <div class="createProgressWrap">
-          <div class="createProgressText" id="createProgressText">0/5 หมู่</div>
-          <div class="createProgressBar"><div class="createProgressFill" id="createProgressFill"></div></div>
-        </div>
-      </div>
-
-      <div class="createLayout">
-        <div class="createBoard">
-          <div class="createPlate" id="createPlateBoard">
-            <button class="createZone z-g2" data-zone="g2"><div class="zoneInner"><span class="zonePlaceholder">คาร์บ</span></div></button>
-            <button class="createZone z-g1" data-zone="g1"><div class="zoneInner"><span class="zonePlaceholder">โปรตีน</span></div></button>
-            <button class="createZone z-g3" data-zone="g3"><div class="zoneInner"><span class="zonePlaceholder">ผัก</span></div></button>
-            <button class="createZone z-g4" data-zone="g4"><div class="zoneInner"><span class="zonePlaceholder">ผลไม้</span></div></button>
-            <button class="createZone z-g5" data-zone="g5"><div class="zoneInner"><span class="zonePlaceholder">ไขมัน</span></div></button>
+            <h1>Plate Solo Launcher</h1>
+            <p class="sub">
+              หน้านี้คือจุดเริ่มต้นของ flow แบบเต็ม:
+              <strong>launcher → warmup-gate → run → summary → cooldown-gate → hub</strong>
+            </p>
+            <div class="pillRow">
+              <div class="pill">Nutrition Zone</div>
+              <div class="pill">Locked Goal Visible</div>
+              <div class="pill">Mobile First</div>
+            </div>
           </div>
         </div>
 
-        <div class="createTrayWrap">
-          <div class="createTray" id="createTray"></div>
+        <div class="lastSummary" id="lastSummaryBox">
+          <div class="lastSummaryTitle">ผลล่าสุด</div>
+          <div class="lastSummaryGrid">
+            <div class="miniBox">
+              <div class="miniLabel">คะแนน</div>
+              <div class="miniValue" id="lastScore">0</div>
+            </div>
+            <div class="miniBox">
+              <div class="miniLabel">เก็บถูก</div>
+              <div class="miniValue" id="lastHits">0</div>
+            </div>
+            <div class="miniBox">
+              <div class="miniLabel">พลาด</div>
+              <div class="miniValue" id="lastMistakes">0</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="flowActions">
-        <button type="button" class="flowBtn primary" id="btnCreateSubmit">ตรวจจานของฉัน</button>
-        <button type="button" class="flowBtn" id="btnCreateReset">เริ่มใหม่</button>
+      <div class="card goalCard">
+        <div class="goalTitle">สิ่งที่ผู้เล่นจะเห็น</div>
+        <div class="goalBig">goal ถูกล็อกให้เห็นตลอดระหว่างเล่น</div>
+        <p class="sub">
+          ระหว่างเล่นจะไม่มีหน้าเลื่อนยาว ๆ อีกแล้ว ผู้เล่นจะเห็น HUD, goal bar และ play area
+          ตลอดเวลา แล้วค่อยไปอ่านสรุปหลังจบเกม
+        </p>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2 class="sectionTitle">ตั้งค่าก่อนเริ่ม</h2>
+
+        <div class="field">
+          <label class="label" for="playerName">ชื่อผู้เล่น</label>
+          <input class="input" id="playerName" type="text" placeholder="Hero" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="playerPid">PID</label>
+          <input class="input" id="playerPid" type="text" placeholder="anon" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="studyId">Study ID</label>
+          <input class="input" id="studyId" type="text" placeholder="optional" />
+        </div>
+
+        <div class="field">
+          <label class="label">ระดับความยาก</label>
+          <div class="optionGrid" id="diffGrid">
+            <button class="optionBtn" type="button" data-value="easy">easy</button>
+            <button class="optionBtn active" type="button" data-value="normal">normal</button>
+            <button class="optionBtn" type="button" data-value="hard">hard</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label">เวลา</label>
+          <div class="optionGrid" id="timeGrid">
+            <button class="optionBtn" type="button" data-value="60">60s</button>
+            <button class="optionBtn active" type="button" data-value="90">90s</button>
+            <button class="optionBtn" type="button" data-value="120">120s</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label">มุมมอง</label>
+          <div class="optionGrid" id="viewGrid">
+            <button class="optionBtn active" type="button" data-value="mobile">mobile</button>
+            <button class="optionBtn" type="button" data-value="pc">pc</button>
+            <button class="optionBtn" type="button" data-value="cvr">cVR</button>
+          </div>
+          <div class="helper">หน้าเล่นจริงจะยังคงล็อก goal ไว้ให้เห็นตลอดทุกโหมด</div>
+        </div>
       </div>
 
-      <div class="createResult" id="createResult"></div>
+      <div class="card">
+        <h2 class="sectionTitle">flow ของรอบนี้</h2>
 
-      <div class="flowActions" id="createEndActions" hidden>
-        <button type="button" class="flowBtn primary" id="btnCreateReplay">เล่นอีกครั้ง</button>
-        <button type="button" class="flowBtn" id="btnCreateBackHub">กลับ HUB</button>
+        <div class="steps">
+          <div class="step">
+            <div class="stepNo">1️⃣</div>
+            <div>
+              <div class="stepTitle">Launcher</div>
+              <div class="stepText">ตั้งค่า player / diff / time / view ก่อนเริ่ม</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">2️⃣</div>
+            <div>
+              <div class="stepTitle">Warmup Gate</div>
+              <div class="stepText">อุ่นเครื่องสั้น ๆ ก่อนเข้า run จริง</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">3️⃣</div>
+            <div>
+              <div class="stepTitle">Plate Run</div>
+              <div class="stepText">หน้าเล่นจะไม่เลื่อน และ goal จะถูกล็อกให้เห็นตลอด</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">4️⃣</div>
+            <div>
+              <div class="stepTitle">Summary + Cooldown</div>
+              <div class="stepText">จบเกมแล้วค่อยสรุปผล จากนั้นผ่าน cooldown-gate กลับ hub</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="actionRow">
+          <button class="btn btnPrimary" id="btnStartFlow" type="button">เริ่ม flow นี้</button>
+          <button class="btn btnWarn" id="btnContinueWarmup" type="button">ไป warmup-gate เลย</button>
+          <button class="btn btnSecondary" id="btnBackHub" type="button">กลับ HUB</button>
+        </div>
       </div>
+    </section>
+
+    <div class="footerNote">
+      หมายเหตุ: ไฟล์นี้เป็น <strong>launcher</strong> เท่านั้น ส่วน gameplay จริงอยู่ที่
+      <strong>/herohealth/plate/plate-vr.html</strong>
     </div>
   </div>
-
-  <div class="pauseOverlay" id="pauseOverlay" hidden>
-    <div class="pauseCard">
-      <div class="pauseBadge">⏸️</div>
-      <h2 id="pauseTitle">หยุดเกมชั่วคราว</h2>
-      <p id="pauseText">พักก่อน แล้วค่อยเล่นต่อได้</p>
-      <div class="pauseActions">
-        <button type="button" class="pauseBtn primary" id="btnResumeGame">เล่นต่อ</button>
-        <button type="button" class="pauseBtn" id="btnRestartGame">เริ่มใหม่</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="guideOverlay" id="guideOverlay" hidden>
-    <div class="guideCard">
-      <div class="flowHead">
-        <div class="flowBadge">🍽️</div>
-        <div>
-          <h2 class="flowTitle">พร้อมจัดจานสุขภาพไหม</h2>
-          <p class="flowSub">เล่นง่ายมาก แค่ 3 ขั้น</p>
-        </div>
-      </div>
-
-      <div class="guideStep">
-        <div class="guideStepIcon">1️⃣</div>
-        <div>
-          <div class="guideStepTitle">เลือกอาหาร</div>
-          <div class="guideStepText">แตะอาหารจากถาดด้านขวาหรือด้านล่าง</div>
-        </div>
-      </div>
-      <div class="guideStep">
-        <div class="guideStepIcon">2️⃣</div>
-        <div>
-          <div class="guideStepTitle">ดูหมู่ให้ถูก</div>
-          <div class="guideStepText">สังเกตว่าอาหารควรอยู่ส่วนไหนของจาน</div>
-        </div>
-      </div>
-      <div class="guideStep">
-        <div class="guideStepIcon">3️⃣</div>
-        <div>
-          <div class="guideStepTitle">วางให้ครบ 5 หมู่</div>
-          <div class="guideStepText">ครบจานแล้วจะได้โบนัส และถ้าถูกหมดจะได้ Perfect Plate</div>
-        </div>
-      </div>
-
-      <div class="guideActions">
-        <label class="guideCheck">
-          <input type="checkbox" id="guideDontShowToday" />
-          <span>วันนี้ไม่ต้องแสดงอีก</span>
-        </label>
-        <button type="button" class="guideStartBtn" id="guideStartBtn">เริ่มจัดจาน</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="rewardPopupOverlay" id="rewardPopupOverlay" hidden aria-hidden="true">
-    <div class="rewardPopupCard" role="dialog" aria-modal="true" aria-labelledby="rewardPopupTitle">
-      <div class="rewardPopupBadge" id="rewardPopupBadge">🎁</div>
-      <div class="rewardPopupTitle" id="rewardPopupTitle">ได้รางวัลใหม่</div>
-      <div class="rewardPopupDesc" id="rewardPopupDesc">คุณปลดล็อกสติกเกอร์แล้ว</div>
-      <div class="rewardPopupMeta" id="rewardPopupMeta">สะสมต่อได้อีก</div>
-
-      <button
-        type="button"
-        class="rewardPopupBtn"
-        id="rewardPopupBtn"
-        onclick="window.__plateCloseRewardPopup && window.__plateCloseRewardPopup(event)"
-      >
-        เยี่ยมเลย
-      </button>
-    </div>
-  </div>
-
-  <div class="toastLayer" id="toastLayer" aria-live="polite"></div>
-  <div class="celebrateLayer" id="celebrateLayer" aria-hidden="true"></div>
 
   <script>
   (function(){
@@ -1626,1636 +519,145 @@
       return v || d;
     }
 
-    function num(v, d=0){
-      v = Number(v);
-      return Number.isFinite(v) ? v : d;
+    function setActive(groupEl, value){
+      groupEl.querySelectorAll('.optionBtn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value === value);
+      });
+      groupEl.dataset.value = value;
     }
 
-    function bangkokYmd(){
-      try{
-        const parts = new Intl.DateTimeFormat('en-CA',{
-          timeZone:'Asia/Bangkok',
-          year:'numeric',
-          month:'2-digit',
-          day:'2-digit'
-        }).formatToParts(new Date());
-        const m = {};
-        for(const p of parts) if(p.type !== 'literal') m[p.type] = p.value;
-        return `${m.year}${m.month}${m.day}`;
-      }catch(_){
-        const d = new Date();
-        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-      }
+    function getActive(groupEl, fallback){
+      return groupEl.dataset.value || fallback;
     }
 
-    function safeReadJson(key, fallback=null){
-      try{
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : fallback;
-      }catch(_){
-        return fallback;
-      }
-    }
+    const $playerName = document.getElementById('playerName');
+    const $playerPid = document.getElementById('playerPid');
+    const $studyId = document.getElementById('studyId');
 
-    function safeWriteJson(key, val){
-      try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){}
-    }
+    const $diffGrid = document.getElementById('diffGrid');
+    const $timeGrid = document.getElementById('timeGrid');
+    const $viewGrid = document.getElementById('viewGrid');
 
-    function withPassthrough(path, ctx, extra={}){
-      const u = new URL(path, location.origin);
-      const payload = {
-        pid: ctx.pid,
-        name: ctx.name,
-        studyId: ctx.studyId,
-        diff: ctx.diff,
-        time: String(ctx.time),
-        seed: ctx.seed,
-        hub: ctx.hub,
-        view: ctx.view,
-        run: ctx.run,
-        zone: ctx.zone,
-        game: ctx.game,
-        mode: ctx.mode,
-        entry: ctx.entry,
-        ...extra
-      };
-      for(const [k,v] of Object.entries(payload)){
-        if(v !== '' && v != null) u.searchParams.set(k, String(v));
-      }
-      return u.toString();
-    }
+    const $btnStartFlow = document.getElementById('btnStartFlow');
+    const $btnContinueWarmup = document.getElementById('btnContinueWarmup');
+    const $btnBackHub = document.getElementById('btnBackHub');
 
-    function nowMs(){
-      return (window.performance && performance.now) ? performance.now() : Date.now();
-    }
+    const $lastSummaryBox = document.getElementById('lastSummaryBox');
+    const $lastScore = document.getElementById('lastScore');
+    const $lastHits = document.getElementById('lastHits');
+    const $lastMistakes = document.getElementById('lastMistakes');
 
-    function makeRng(seedStr){
-      let h = 1779033703 ^ String(seedStr).length;
-      for(let i=0;i<String(seedStr).length;i++){
-        h = Math.imul(h ^ String(seedStr).charCodeAt(i), 3432918353);
-        h = (h << 13) | (h >>> 19);
-      }
-      return function(){
-        h = Math.imul(h ^ (h >>> 16), 2246822507);
-        h = Math.imul(h ^ (h >>> 13), 3266489909);
-        h ^= h >>> 16;
-        return (h >>> 0) / 4294967296;
-      };
-    }
-
-    function shuffle(arr, rng){
-      const a = arr.slice();
-      for(let i=a.length-1;i>0;i--){
-        const j = Math.floor(rng() * (i+1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
-    }
-
-    const ctx = {
+    const defaults = {
       pid: clean(qs('pid'),'anon'),
       name: clean(qs('name'),'Hero'),
       studyId: clean(qs('studyId'),''),
       diff: clean(qs('diff'),'normal'),
-      time: num(qs('time'),90),
-      seed: clean(qs('seed'), String(Date.now())),
-      hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub-v2.html'),
+      time: clean(qs('time'),'90'),
       view: clean(qs('view'),'mobile'),
       run: clean(qs('run'),'play'),
+      hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub-v2.html'),
       zone: clean(qs('zone'),'nutrition'),
       game: clean(qs('game'),'plate'),
-      mode: clean(qs('mode'),'solo'),
-      entry: clean(qs('entry'),'direct')
+      mode: clean(qs('mode'),'solo')
     };
 
-    const entrySource = clean(qs('entry'), 'direct');
-    const cameFromQuickPlate = String(qs('fromQuickPlate', '0')) === '1';
-    const quickPlateDone = String(qs('quickPlateDone', '0')) === '1';
-    const cameFromLauncher = entrySource === 'launcher' || entrySource === 'launcher_direct' || entrySource === 'continue_latest';
+    $playerName.value = defaults.name;
+    $playerPid.value = defaults.pid;
+    $studyId.value = defaults.studyId;
 
-    function getEntryStage(){
-      if (cameFromQuickPlate && quickPlateDone) return 'after_quick_plate';
-      if (cameFromLauncher) return 'from_launcher';
-      return 'direct';
-    }
+    setActive($diffGrid, defaults.diff);
+    setActive($timeGrid, defaults.time);
+    setActive($viewGrid, defaults.view);
 
-    let rng = makeRng(ctx.seed);
-
-    const FOOD_GROUPS = {
-      g1: { id:'g1', name:'หมู่ 1 โปรตีน', short:'โปรตีน', color:'#ffe7ef' },
-      g2: { id:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', short:'คาร์บ', color:'#fff4cc' },
-      g3: { id:'g3', name:'หมู่ 3 ผัก', short:'ผัก', color:'#e6f8df' },
-      g4: { id:'g4', name:'หมู่ 4 ผลไม้', short:'ผลไม้', color:'#e7f1ff' },
-      g5: { id:'g5', name:'หมู่ 5 ไขมัน', short:'ไขมัน', color:'#fff0d9' }
-    };
-
-    const FOOD_DB = [
-      { id:'rice', label:'ข้าว', group:'g2' },
-      { id:'brownRice', label:'ข้าวกล้อง', group:'g2' },
-      { id:'bread', label:'ขนมปัง', group:'g2' },
-      { id:'noodle', label:'เส้นก๋วยเตี๋ยว', group:'g2' },
-      { id:'corn', label:'ข้าวโพด', group:'g2' },
-      { id:'potato', label:'มันฝรั่ง', group:'g2' },
-
-      { id:'fish', label:'ปลา', group:'g1' },
-      { id:'egg', label:'ไข่', group:'g1' },
-      { id:'chicken', label:'ไก่', group:'g1' },
-      { id:'milk', label:'นม', group:'g1' },
-      { id:'bean', label:'ถั่ว', group:'g1' },
-      { id:'tofu', label:'เต้าหู้', group:'g1' },
-
-      { id:'kale', label:'คะน้า', group:'g3' },
-      { id:'carrot', label:'แครอท', group:'g3' },
-      { id:'cucumber', label:'แตงกวา', group:'g3' },
-      { id:'cabbage', label:'กะหล่ำปลี', group:'g3' },
-      { id:'pumpkin', label:'ฟักทอง', group:'g3' },
-      { id:'morningGlory', label:'ผักบุ้ง', group:'g3' },
-
-      { id:'banana', label:'กล้วย', group:'g4' },
-      { id:'orange', label:'ส้ม', group:'g4' },
-      { id:'watermelon', label:'แตงโม', group:'g4' },
-      { id:'papaya', label:'มะละกอ', group:'g4' },
-      { id:'apple', label:'แอปเปิล', group:'g4' },
-      { id:'guava', label:'ฝรั่ง', group:'g4' },
-
-      { id:'butter', label:'เนย', group:'g5' },
-      { id:'oil', label:'น้ำมันพืช', group:'g5' },
-      { id:'coconutMilk', label:'กะทิ', group:'g5' },
-      { id:'sesame', label:'งา', group:'g5' },
-
-      { id:'soda', label:'น้ำอัดลม', group:'x' },
-      { id:'candy', label:'ลูกอม', group:'x' },
-      { id:'cake', label:'เค้ก', group:'x' },
-      { id:'chips', label:'มันฝรั่งทอด', group:'x' },
-      { id:'donut', label:'โดนัท', group:'x' },
-      { id:'bubbleTea', label:'ชานมไข่มุก', group:'x' }
-    ];
-
-    const FOOD_EMOJI = {
-      rice:'🍚', brownRice:'🍚', bread:'🍞', noodle:'🍜', corn:'🌽', potato:'🥔',
-      fish:'🐟', egg:'🥚', chicken:'🍗', milk:'🥛', bean:'🫘', tofu:'⬜',
-      kale:'🥬', carrot:'🥕', cucumber:'🥒', cabbage:'🥗', pumpkin:'🎃', morningGlory:'🥬',
-      banana:'🍌', orange:'🍊', watermelon:'🍉', papaya:'🥭', apple:'🍎', guava:'🍐',
-      butter:'🧈', oil:'🫗', coconutMilk:'🥥', sesame:'⚪',
-      soda:'🥤', candy:'🍬', cake:'🍰', chips:'🍟', donut:'🍩', bubbleTea:'🧋'
-    };
-
-    const STICKERS = {
-      first_plate: { icon:'🍽️', text:'จานแรกของวัน' },
-      perfect_plate: { icon:'🌟', text:'Perfect Plate' },
-      three_plates: { icon:'🏅', text:'ครบ 3 จาน' },
-      focus_kid: { icon:'💡', text:'ตั้งใจมาก' }
-    };
-
-    const DAILY_GOAL = 3;
-
-    const $score = document.getElementById('hudScore');
-    const $time = document.getElementById('hudTime');
-    const $streak = document.getElementById('hudStreak');
-    const $plates = document.getElementById('hudPlates');
-    const $hudRound = document.getElementById('hudRound');
-    const $hudGoal = document.getElementById('hudGoal');
-    const $hudDiff = document.getElementById('hudDiff');
-
-    const $foodTray = document.getElementById('foodTray');
-    const $feedback = document.getElementById('feedback');
-
-    const $missionCount = document.getElementById('missionCount');
-    const $missionFill = document.getElementById('missionFill');
-
-    const $selectedEmoji = document.getElementById('selectedEmoji');
-    const $selectedTitle = document.getElementById('selectedTitle');
-    const $selectedHint = document.getElementById('selectedHint');
-
-    const $dailyQuestTitle = document.getElementById('dailyQuestTitle');
-    const $dailyQuestDesc = document.getElementById('dailyQuestDesc');
-    const $dailyQuestCount = document.getElementById('dailyQuestCount');
-
-    const $stickerList = document.getElementById('stickerList');
-
-    const $summaryOverlay = document.getElementById('summaryOverlay');
-    const $sumScore = document.getElementById('sumScore');
-    const $sumAcc = document.getElementById('sumAcc');
-    const $sumBest = document.getElementById('sumBestStreak');
-    const $sumComp = document.getElementById('sumCompleted');
-    const $sumMistake = document.getElementById('sumMistake');
-    const $sumInsight = document.getElementById('sumInsight');
-    const $summaryHeading = document.getElementById('summaryHeading');
-    const $summaryBadge = document.getElementById('summaryBadge');
-    const $summaryRank = document.getElementById('summaryRank');
-    const $summaryStars = document.getElementById('summaryStars');
-    const $summaryRewardBox = document.getElementById('summaryRewardBox');
-    const $summaryLatestReward = document.getElementById('summaryLatestReward');
-    const $nextGoalText = document.getElementById('nextGoalText');
-    const $nextStickerText = document.getElementById('nextStickerText');
-
-    const $btnReplay = document.getElementById('btnReplay');
-    const $btnEvaluate = document.getElementById('btnEvaluate');
-    const $btnBackHub = document.getElementById('btnBackHub');
-    const $btnClearPick = document.getElementById('btnClearPick');
-
-    const $pauseOverlay = document.getElementById('pauseOverlay');
-    const $btnResumeGame = document.getElementById('btnResumeGame');
-    const $btnRestartGame = document.getElementById('btnRestartGame');
-
-    const $guideOverlay = document.getElementById('guideOverlay');
-    const $guideDontShowToday = document.getElementById('guideDontShowToday');
-    const $guideStartBtn = document.getElementById('guideStartBtn');
-
-    const $rewardPopupOverlay = document.getElementById('rewardPopupOverlay');
-    const $rewardPopupBadge = document.getElementById('rewardPopupBadge');
-    const $rewardPopupTitle = document.getElementById('rewardPopupTitle');
-    const $rewardPopupDesc = document.getElementById('rewardPopupDesc');
-    const $rewardPopupMeta = document.getElementById('rewardPopupMeta');
-    const $rewardPopupBtn = document.getElementById('rewardPopupBtn');
-
-    const $entryChip = document.getElementById('entryChip');
-    const $entryChipText = document.getElementById('entryChipText');
-    const $heroSub = document.getElementById('heroSub');
-
-    const $evaluateOverlay = document.getElementById('evaluateOverlay');
-    const $evalChoices = document.getElementById('evalChoices');
-    const $btnEvalSubmit = document.getElementById('btnEvalSubmit');
-    const $btnEvalSkip = document.getElementById('btnEvalSkip');
-    const $evalFeedback = document.getElementById('evalFeedback');
-    const $btnEvalNext = document.getElementById('btnEvalNext');
-    const $evalNextActions = document.getElementById('evalNextActions');
-    const $evalEntrySub = document.getElementById('evalEntrySub');
-
-    const $createOverlay = document.getElementById('createOverlay');
-    const $createProgressText = document.getElementById('createProgressText');
-    const $createProgressFill = document.getElementById('createProgressFill');
-    const $createTray = document.getElementById('createTray');
-    const $createResult = document.getElementById('createResult');
-    const $btnCreateSubmit = document.getElementById('btnCreateSubmit');
-    const $btnCreateReset = document.getElementById('btnCreateReset');
-    const $btnCreateReplay = document.getElementById('btnCreateReplay');
-    const $btnCreateBackHub = document.getElementById('btnCreateBackHub');
-    const $createEndActions = document.getElementById('createEndActions');
-    const $createEntrySub = document.getElementById('createEntrySub');
-
-    const $toastLayer = document.getElementById('toastLayer');
-    const $celebrateLayer = document.getElementById('celebrateLayer');
-
-    let leavingPage = false;
-
-    const state = {
-      started:false,
-      finished:false,
-      paused:false,
-      hiddenPaused:false,
-      destroyed:false,
-      score:0,
-      timeLeft:ctx.time,
-      streak:0,
-      bestStreak:0,
-      correct:0,
-      wrong:0,
-      completedPlates:0,
-      currentRound:0,
-      selectedFoodId:null,
-      roundTargetGroups:[],
-      roundFoods:[],
-      placedByZone:{},
-      mistakeByGroup:{ g1:0, g2:0, g3:0, g4:0, g5:0 },
-      perfectPlates:0,
-      timeStartedMs:0,
-      zoneBound:false,
-      rafId:0,
-      gameDeadlineMs:0,
-      lastSecondShown:ctx.time,
-      roundAdvanceTimer:0,
-      summaryShown:0
-    };
-
-    const evaluateState = {
-      questionId:'',
-      selectedChoice:'',
-      correctChoice:'',
-      answered:false
-    };
-
-    const createState = {
-      selectedFoodId:null,
-      placedByZone:{},
-      hasSubmitted:false,
-      resultLevel:'',
-      trayFoods:[]
-    };
-
-    function pushToast(message, type='info'){
-      const el = document.createElement('div');
-      el.className = `toast ${type}`;
-      el.textContent = message;
-      $toastLayer.appendChild(el);
-      setTimeout(() => el.remove(), 2100);
-    }
-
-    function celebrate(kind='good'){
-      const icons = kind === 'perfect' ? ['⭐️','🌟','🏆','✨','💛'] : ['✨','⭐️','🍽️','🎉'];
-      const count = kind === 'perfect' ? 18 : 10;
-      for(let i=0;i<count;i++){
-        const el = document.createElement('div');
-        el.className = 'confetti';
-        el.textContent = icons[Math.floor(Math.random() * icons.length)];
-        el.style.left = `${Math.random() * 100}%`;
-        el.style.animationDuration = `${2 + Math.random() * 1.4}s`;
-        el.style.animationDelay = `${Math.random() * 0.18}s`;
-        $celebrateLayer.appendChild(el);
-        setTimeout(() => el.remove(), 3600);
-      }
-    }
-
-    function bump(el){
-      if(!el) return;
-      el.classList.remove('bump');
-      void el.offsetWidth;
-      el.classList.add('bump');
-      setTimeout(() => el.classList.remove('bump'), 180);
-    }
-
-    function setFeedback(msg){
-      $feedback.textContent = msg || '';
-    }
-
-    function dayKeyBase(){
-      return `PLATE_DAILY_${ctx.pid}_${bangkokYmd()}`;
-    }
-
-    function readDailyProgress(){
-      return safeReadJson(dayKeyBase(), {
-        completedPlates:0,
-        perfectPlates:0,
-        stickers:[],
-        questDone:0,
-        firstPlayShown:0
+    [$diffGrid, $timeGrid, $viewGrid].forEach(group => {
+      group.querySelectorAll('.optionBtn').forEach(btn => {
+        btn.addEventListener('click', () => setActive(group, btn.dataset.value));
       });
-    }
-
-    function writeDailyProgress(data){
-      safeWriteJson(dayKeyBase(), data);
-    }
-
-    function guideDayKey(){
-      return `PLATE_GUIDE_SEEN_${ctx.pid}_${bangkokYmd()}`;
-    }
-
-    function shouldShowGuide(){
-      try{ return localStorage.getItem(guideDayKey()) !== '1'; }
-      catch(_){ return true; }
-    }
-
-    function markGuideSeen(){
-      try{ localStorage.setItem(guideDayKey(), '1'); }catch(_){}
-    }
-
-    function gateKey(phase){
-      return `HHA_GATE_${phase.toUpperCase()}_${ctx.pid}_${ctx.game}_${ctx.mode}_${bangkokYmd()}`;
-    }
-
-    function isGateDone(phase){
-      try{ return localStorage.getItem(gateKey(phase)) === '1'; }
-      catch(_){ return false; }
-    }
-
-    function renderEntryContext(){
-      const stage = getEntryStage();
-
-      if (stage === 'after_quick_plate') {
-        $entryChip.hidden = false;
-        $entryChipText.textContent = 'ผ่าน Quick Plate แล้ว';
-        $heroSub.textContent = 'อุ่นเครื่องเสร็จแล้ว ตอนนี้มาจัดจานจริงให้ครบ 5 หมู่กัน';
-        $dailyQuestTitle.textContent = 'ไปต่อที่เกมหลัก';
-        $dailyQuestDesc.textContent = 'จัดจานสมดุลให้สำเร็จและเก็บรางวัลของวันนี้';
-        return;
-      }
-
-      if (stage === 'from_launcher') {
-        $entryChip.hidden = false;
-        $entryChipText.textContent = 'เริ่มจาก Launcher';
-        $heroSub.textContent = 'มาจัดอาหารให้ครบ 5 หมู่กัน';
-        return;
-      }
-
-      $entryChip.hidden = true;
-      $heroSub.textContent = 'จัดอาหารให้ครบ 5 หมู่';
-    }
-
-    function renderPostGameFlowText(){
-      const stage = getEntryStage();
-      if (stage === 'after_quick_plate') {
-        if ($evalEntrySub) $evalEntrySub.textContent = 'จาก Quick Plate มาต่อด้วยการคิดและตัดสินใจ';
-        if ($createEntrySub) $createEntrySub.textContent = 'ขั้นสุดท้าย ลองสร้างจานของคุณเอง';
-        return;
-      }
-      if ($evalEntrySub) $evalEntrySub.textContent = 'คิดต่อจากเกมหลักอีกนิด';
-      if ($createEntrySub) $createEntrySub.textContent = 'สร้างจานของคุณเองเป็นขั้นสุดท้าย';
-    }
-
-    function updateDailyQuestUi(){
-      const daily = readDailyProgress();
-      $dailyQuestTitle.textContent = daily.questDone ? 'ภารกิจวันนี้สำเร็จแล้ว' : 'ภารกิจวันนี้';
-      $dailyQuestDesc.textContent = daily.questDone
-        ? 'ยอดเยี่ยมมาก กลับมาเล่นเพิ่มได้อีกนะ'
-        : `จัดจานสมดุลให้สำเร็จ ${DAILY_GOAL} จาน`;
-      $dailyQuestCount.textContent = daily.questDone ? 'สำเร็จแล้ว' : `${Math.min(daily.completedPlates || 0, DAILY_GOAL)}/${DAILY_GOAL}`;
-    }
-
-    function renderStickerShelf(){
-      const daily = readDailyProgress();
-      const list = Array.isArray(daily.stickers) ? daily.stickers : [];
-      $stickerList.innerHTML = '';
-      if(!list.length){
-        $stickerList.innerHTML = `
-          <div class="sticker">
-            <div class="stickerIcon">✨</div>
-            <div class="stickerText">เล่นให้สำเร็จเพื่อสะสมสติกเกอร์</div>
-          </div>
-        `;
-        return;
-      }
-      list.forEach(key => {
-        const s = STICKERS[key];
-        if(!s) return;
-        const el = document.createElement('div');
-        el.className = 'sticker';
-        el.innerHTML = `<div class="stickerIcon">${s.icon}</div><div class="stickerText">${s.text}</div>`;
-        $stickerList.appendChild(el);
-      });
-    }
-
-    const rewardQueue = [];
-    let rewardShowing = false;
-    let rewardCloseLock = false;
-    let deferRewardPopupOnEntry = getEntryStage() === 'after_quick_plate';
-
-    function openRewardPopup(item){
-      if (!$rewardPopupOverlay || !$rewardPopupBtn) return;
-
-      rewardShowing = true;
-      rewardCloseLock = false;
-
-      $rewardPopupBadge.textContent = item.icon || '🎁';
-      $rewardPopupTitle.textContent = item.title || 'ได้รางวัลใหม่';
-      $rewardPopupDesc.textContent = item.desc || 'เยี่ยมมาก';
-      $rewardPopupMeta.textContent = item.meta || 'เล่นต่อได้อีก';
-      $rewardPopupBtn.textContent = item.cta || 'เยี่ยมเลย';
-
-      $rewardPopupOverlay.hidden = false;
-      $rewardPopupOverlay.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('reward-open');
-    }
-
-    function closeRewardPopup(ev){
-      if (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
-      if (!$rewardPopupOverlay) return;
-      if (rewardCloseLock) return;
-
-      rewardCloseLock = true;
-
-      $rewardPopupOverlay.hidden = true;
-      $rewardPopupOverlay.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('reward-open');
-      rewardShowing = false;
-
-      setTimeout(() => {
-        rewardCloseLock = false;
-        drainRewardQueue();
-      }, 80);
-    }
-
-    window.__plateCloseRewardPopup = closeRewardPopup;
-
-    function enqueueRewardPopup(item){
-      rewardQueue.push(item);
-      if (deferRewardPopupOnEntry) return;
-      drainRewardQueue();
-    }
-
-    function drainRewardQueue(){
-      if (rewardShowing) return;
-      const next = rewardQueue.shift();
-      if (!next) return;
-      openRewardPopup(next);
-    }
-
-    function unlockDeferredRewardPopups(){
-      if (!deferRewardPopupOnEntry) return;
-      deferRewardPopupOnEntry = false;
-      drainRewardQueue();
-    }
-
-    ['click', 'pointerup', 'touchend'].forEach(type => {
-      $rewardPopupBtn?.addEventListener(type, closeRewardPopup, { passive:false });
     });
 
-    $rewardPopupOverlay?.addEventListener('click', (ev) => {
-      if (ev.target === $rewardPopupOverlay) {
-        closeRewardPopup(ev);
-      }
-    });
-
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && rewardShowing) {
-        closeRewardPopup(ev);
-      }
-    });
-
-    function grantSticker(key){
-      const daily = readDailyProgress();
-      daily.stickers = Array.isArray(daily.stickers) ? daily.stickers : [];
-      if(daily.stickers.includes(key)) return false;
-      daily.stickers.push(key);
-      writeDailyProgress(daily);
-      renderStickerShelf();
-      const s = STICKERS[key];
-      if(s){
-        enqueueRewardPopup({
-          kind:'sticker',
-          icon:s.icon,
-          title:'ได้สติกเกอร์ใหม่',
-          desc:s.text,
-          meta:`วันนี้สะสมแล้ว ${daily.stickers.length} ชิ้น`,
-          cta:'เยี่ยมเลย'
-        });
-      }
-      return true;
-    }
-
-    function renderSummaryRewards(){
-      const daily = readDailyProgress();
-      const count = Array.isArray(daily.stickers) ? daily.stickers.length : 0;
-      $summaryRewardBox.textContent = count > 0
-        ? `วันนี้สะสมสติกเกอร์แล้ว ${count} ชิ้น`
-        : 'เล่นต่ออีกนิดเพื่อสะสมสติกเกอร์ของวันนี้';
-    }
-
-    function renderLatestReward(){
-      const daily = readDailyProgress();
-      const list = Array.isArray(daily.stickers) ? daily.stickers : [];
-      const lastKey = list[list.length - 1];
-      $summaryLatestReward.textContent = (!lastKey || !STICKERS[lastKey])
-        ? 'รางวัลล่าสุด: ยังไม่มี'
-        : `รางวัลล่าสุด: ${STICKERS[lastKey].text}`;
-    }
-
-    function renderNextGoal(summary){
-      if(summary.accuracy < 75){
-        $nextGoalText.textContent = 'ลองเพิ่มความแม่นยำให้เกิน 75%';
-        return;
-      }
-      if((summary.perfectPlates || 0) < 1){
-        $nextGoalText.textContent = 'ลองทำ Perfect Plate ให้ได้อย่างน้อย 1 ครั้ง';
-        return;
-      }
-      $nextGoalText.textContent = 'ยอดเยี่ยมมาก ลองท้าทายโหมดยากขึ้น';
-    }
-
-    function renderNextStickerHint(){
-      const daily = readDailyProgress();
-      const count = Array.isArray(daily.stickers) ? daily.stickers.length : 0;
-      if(count === 0){ $nextStickerText.textContent = 'เล่นต่ออีกนิดเพื่อปลดล็อกชิ้นแรก'; return; }
-      if(count < 4){ $nextStickerText.textContent = `วันนี้สะสมแล้ว ${count} ชิ้น ยังเก็บได้อีก`; return; }
-      $nextStickerText.textContent = 'เก่งมาก วันนี้เก็บได้หลายชิ้นแล้ว';
-    }
-
-    function updateHud(){
-      $score.textContent = String(state.score);
-      $time.textContent = String(state.timeLeft);
-      $streak.textContent = String(state.streak);
-      $plates.textContent = String(state.completedPlates);
-      $hudRound.textContent = String(state.currentRound || 1);
-      $hudGoal.textContent = `${state.roundTargetGroups.length || 5} หมู่`;
-      $hudDiff.textContent = ctx.diff;
-    }
-
-    function renderSelectedBar(){
-      const food = state.roundFoods.find(x => x.id === state.selectedFoodId);
-      if(!food){
-        $selectedEmoji.textContent = '🍽️';
-        $selectedTitle.textContent = 'ยังไม่ได้เลือกอาหาร';
-        $selectedHint.textContent = 'แตะอาหารจากถาด แล้วค่อยแตะส่วนของจาน';
-        return;
-      }
-      $selectedEmoji.textContent = FOOD_EMOJI[food.id] || '🍎';
-      $selectedTitle.textContent = `เลือก: ${food.label}`;
-      $selectedHint.textContent = food.group === 'x'
-        ? 'ลองคิดดูว่าอาหารนี้เหมาะกับจานสุขภาพไหม'
-        : `แตะส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`;
-    }
-
-    function updateMissionUi(){
-      const placed = Object.keys(state.placedByZone).length;
-      const need = state.roundTargetGroups.length || 5;
-      $missionCount.textContent = `${placed}/${need}`;
-      $missionFill.style.width = `${Math.max(0, Math.min(100, (placed / need) * 100))}%`;
-    }
-
-    function refreshZoneUi(){
-      document.querySelectorAll('.zone').forEach(zone => {
-        const zoneId = zone.dataset.zone;
-        zone.classList.toggle('hasItem', !!state.placedByZone[zoneId]);
-      });
-    }
-
-    function clearZoneMarks(){
-      document.querySelectorAll('.zone').forEach(z => {
-        z.classList.remove('correctFlash','wrongFlash');
-      });
-    }
-
-    function flashZone(zoneEl, ok){
-      zoneEl.classList.remove('correctFlash','wrongFlash');
-      void zoneEl.offsetWidth;
-      zoneEl.classList.add(ok ? 'correctFlash' : 'wrongFlash');
-    }
-
-    function getDifficultyConfig(diff, roundNo=1){
-      const r = Math.max(1, roundNo);
-      if(diff === 'easy'){
-        return {
-          useGroups: r <= 2 ? ['g2','g1','g3','g4'] : ['g2','g1','g3','g4','g5'],
-          distractorCount: r <= 2 ? 0 : 1,
-          scoreCorrect: 12,
-          scoreWrong: 2,
-          plateBonus: 24,
-          perfectBonus: 20,
-          comboCap: 4
-        };
-      }
-      if(diff === 'hard'){
-        return {
-          useGroups: ['g2','g1','g3','g4','g5'],
-          distractorCount: r <= 2 ? 2 : 3,
-          scoreCorrect: 10,
-          scoreWrong: 5,
-          plateBonus: 20,
-          perfectBonus: 28,
-          comboCap: 6
-        };
-      }
-      return {
-        useGroups: ['g2','g1','g3','g4','g5'],
-        distractorCount: r <= 2 ? 1 : 2,
-        scoreCorrect: 11,
-        scoreWrong: 4,
-        plateBonus: 22,
-        perfectBonus: 24,
-        comboCap: 5
-      };
-    }
-
-    function syncFoodUi(){
-      [...$foodTray.querySelectorAll('.food')].forEach(btn => {
-        const id = btn.dataset.id;
-        btn.classList.toggle('selected', id === state.selectedFoodId);
-        btn.classList.toggle('used', Object.values(state.placedByZone).some(v => v && v.foodId === id));
-      });
-    }
-
-    function buildTray(){
-      $foodTray.innerHTML = '';
-      state.roundFoods.forEach(item => {
-        const btn = document.createElement('button');
-        btn.className = 'food';
-        btn.type = 'button';
-        btn.dataset.id = item.id;
-        btn.innerHTML = `
-          <div class="foodEmoji">${FOOD_EMOJI[item.id] || '🍎'}</div>
-          <div class="foodMeta">
-            <div class="foodName">${item.label}</div>
-            <div class="foodTag ${item.group === 'x' ? 'x' : ''}">${item.group === 'x' ? 'ลองคิดดู' : 'เลือกให้ถูกส่วน'}</div>
-          </div>
-        `;
-        btn.addEventListener('click', () => selectFood(item.id));
-        $foodTray.appendChild(btn);
-      });
-      syncFoodUi();
-      renderSelectedBar();
-    }
-
-    function selectFood(foodId){
-      if(state.finished || state.paused || isOverlayBlocking()) return;
-      const food = state.roundFoods.find(x => x.id === foodId);
-      if(!food) return;
-      if(Object.values(state.placedByZone).some(v => v && v.foodId === foodId)) return;
-
-      state.selectedFoodId = foodId;
-      syncFoodUi();
-      renderSelectedBar();
-
-      if(food.group === 'x'){
-        setFeedback(`เลือก "${food.label}" แล้ว ลองหาว่าเหมาะกับจานไหม`);
-      }else{
-        setFeedback(`เลือก "${food.label}" แล้ว — ตอนนี้กดส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`);
+    function readLastSummary(){
+      try{
+        const raw = localStorage.getItem('HHA_LAST_SUMMARY');
+        if(!raw) return null;
+        const parsed = JSON.parse(raw);
+        if(parsed?.game !== 'plate' && parsed?.summary?.game !== 'plate') return parsed;
+        return parsed;
+      }catch(_){
+        return null;
       }
     }
 
-    function goodMsg(food, zoneId, bonus){
-      const zoneName = FOOD_GROUPS[zoneId]?.short || 'หมู่นี้';
-      const pool = [
-        `เยี่ยมมาก! ${food.label} อยู่หมู่ ${zoneName} +${bonus}`,
-        `ถูกต้อง! ${food.label} วางได้ดีมาก +${bonus}`,
-        `เก่งมาก! เลือก ${food.label} ได้ตรงหมู่ +${bonus}`
-      ];
-      return pool[Math.floor(Math.random() * pool.length)];
-    }
+    (function renderLastSummary(){
+      const s = readLastSummary();
+      if(!s || !s.summary) return;
+      const sum = s.summary;
+      $lastSummaryBox.classList.add('show');
+      $lastScore.textContent = String(sum.score ?? 0);
+      $lastHits.textContent = String(sum.hits ?? sum.goalHits ?? 0);
+      $lastMistakes.textContent = String(sum.mistakes ?? 0);
+    })();
 
-    function wrongMsg(food){
-      if(food.group === 'x'){
-        const pool = [
-          `${food.label} ยังไม่เหมาะกับจานสุขภาพรอบนี้`,
-          `ลองใหม่อีกนิด ${food.label} ไม่ใช่คำตอบของรอบนี้`,
-          `${food.label} ยังไม่ใช่อาหารหลัก 5 หมู่สำหรับโจทย์นี้`
-        ];
-        return pool[Math.floor(Math.random() * pool.length)];
-      }
-      const correctZone = FOOD_GROUPS[food.group]?.short || 'หมู่อื่น';
-      const pool = [
-        `ยังไม่ถูก ${food.label} ควรอยู่หมู่ ${correctZone}`,
-        `ลองใหม่อีกนิด ${food.label} ยังไม่อยู่ส่วนนี้`,
-        `${food.label} ควรไปที่หมู่ ${correctZone}`
-      ];
-      return pool[Math.floor(Math.random() * pool.length)];
-    }
-
-    function judgePlacement(food, zoneId){
-      if(food.group === 'x') return false;
-      return food.group === zoneId;
-    }
-
-    function bindZones(){
-      if(state.zoneBound) return;
-      state.zoneBound = true;
-      document.querySelectorAll('.zone').forEach(zone => {
-        zone.addEventListener('click', () => {
-          const zoneId = zone.dataset.zone;
-          placeSelectedFood(zoneId, zone);
-        });
-      });
-    }
-
-    function placeSelectedFood(zoneId, zoneEl){
-      if(state.finished || state.paused || isOverlayBlocking()) return;
-
-      if(!state.selectedFoodId){
-        setFeedback('เลือกอาหารจากถาดก่อนนะ');
-        pushToast('เลือกอาหารจากถาดก่อนนะ', 'info');
-        return;
-      }
-
-      if(state.placedByZone[zoneId]){
-        setFeedback('ส่วนนี้มีอาหารแล้ว ลองเลือกส่วนอื่น');
-        pushToast('ส่วนนี้มีอาหารแล้ว', 'info');
-        return;
-      }
-
-      const food = state.roundFoods.find(x => x.id === state.selectedFoodId);
-      if(!food) return;
-
-      const isCorrect = judgePlacement(food, zoneId);
-      state.placedByZone[zoneId] = { foodId: food.id, group: food.group, ok:isCorrect };
-      const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
-
-      if(isCorrect){
-        const bonus = cfg.scoreCorrect + Math.min(state.streak, cfg.comboCap);
-        state.score += bonus;
-        state.correct += 1;
-        state.streak += 1;
-        state.bestStreak = Math.max(state.bestStreak, state.streak);
-
-        flashZone(zoneEl, true);
-        setFeedback(goodMsg(food, zoneId, bonus));
-        pushToast('เยี่ยมมาก! ถูกหมู่แล้ว', 'ok');
-        bump(document.getElementById('scorePill'));
-        bump(document.getElementById('streakPill'));
-      }else{
-        state.score = Math.max(0, state.score - cfg.scoreWrong);
-        state.wrong += 1;
-        state.streak = 0;
-
-        if(FOOD_GROUPS[zoneId]) state.mistakeByGroup[zoneId] += 1;
-        flashZone(zoneEl, false);
-        setFeedback(wrongMsg(food));
-        pushToast('ลองอีกครั้งนิดเดียว', 'bad');
-        bump(document.getElementById('scorePill'));
-      }
-
-      state.selectedFoodId = null;
-      syncFoodUi();
-      renderSelectedBar();
-      refreshZoneUi();
-      updateMissionUi();
-      updateHud();
-      checkRoundComplete();
-    }
-
-    function nextRound(){
-      clearTimeout(state.roundAdvanceTimer);
-      state.roundAdvanceTimer = 0;
-
-      state.currentRound += 1;
-      state.selectedFoodId = null;
-      state.placedByZone = {};
-
-      const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
-      state.roundTargetGroups = cfg.useGroups.slice();
-
-      const foods = [];
-      cfg.useGroups.forEach(g => {
-        const item = shuffle(FOOD_DB.filter(x => x.group === g), rng)[0];
-        if(item) foods.push(item);
-      });
-
-      const distractors = shuffle(FOOD_DB.filter(x => x.group === 'x'), rng).slice(0, cfg.distractorCount);
-      state.roundFoods = shuffle([...foods, ...distractors], rng);
-
-      buildTray();
-      clearZoneMarks();
-      refreshZoneUi();
-      updateMissionUi();
-      renderSelectedBar();
-      setFeedback(`รอบที่ ${state.currentRound}: จัดให้ครบ ${cfg.useGroups.length} หมู่`);
-    }
-
-    function checkRoundComplete(){
-      const placedCount = Object.keys(state.placedByZone).length;
-      const needCount = state.roundTargetGroups.length;
-      if(placedCount < needCount) return;
-
-      const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
-      const entries = Object.values(state.placedByZone);
-      const correctPlaced = entries.filter(x => x.ok).length;
-      const allPerfect = correctPlaced === needCount;
-
-      state.completedPlates += 1;
-      state.score += cfg.plateBonus;
-
-      if(allPerfect){
-        state.perfectPlates += 1;
-        state.score += cfg.perfectBonus;
-        setFeedback(`Perfect Plate! +${cfg.plateBonus + cfg.perfectBonus}`);
-        pushToast('Perfect Plate! สุดยอดมาก', 'ok');
-        celebrate('perfect');
-      }else{
-        setFeedback(`สำเร็จ! ได้จานสมดุล +${cfg.plateBonus}`);
-        pushToast('สำเร็จ! ได้จานสมดุล 1 จาน', 'ok');
-        celebrate('good');
-      }
-
-      const daily = readDailyProgress();
-      daily.completedPlates += 1;
-      if(allPerfect) daily.perfectPlates += 1;
-
-      if(!daily.questDone && daily.completedPlates >= DAILY_GOAL){
-        daily.questDone = 1;
-        enqueueRewardPopup({
-          kind:'quest',
-          icon:'🏆',
-          title:'ภารกิจวันนี้สำเร็จ',
-          desc:'คุณจัดจานสมดุลครบเป้าหมายของวันนี้แล้ว',
-          meta:`ครบ ${DAILY_GOAL} จานแล้ว`,
-          cta:'เยี่ยมเลย'
-        });
-      }
-
-      writeDailyProgress(daily);
-      updateDailyQuestUi();
-
-      const dailyNow = readDailyProgress();
-      if(dailyNow.completedPlates >= 1) grantSticker('first_plate');
-      if(allPerfect) grantSticker('perfect_plate');
-      if(dailyNow.completedPlates >= 3) grantSticker('three_plates');
-      if(state.bestStreak >= 5) grantSticker('focus_kid');
-
-      unlockDeferredRewardPopups();
-      updateHud();
-      bump(document.getElementById('platesPill'));
-
-      state.roundAdvanceTimer = setTimeout(() => {
-        if(!state.finished && !state.destroyed){
-          nextRound();
-        }
-      }, 900);
-    }
-
-    function cancelRafLoop(){
-      if(state.rafId){
-        cancelAnimationFrame(state.rafId);
-        state.rafId = 0;
-      }
-    }
-
-    function startRafLoop(){
-      cancelRafLoop();
-      const token = `${Date.now()}_${Math.random()}`;
-
-      function frame(){
-        if(state.destroyed || state.finished || state.paused || state._token !== token) return;
-        const remainMs = Math.max(0, state.gameDeadlineMs - nowMs());
-        const nextSec = Math.ceil(remainMs / 1000);
-
-        if(nextSec !== state.lastSecondShown){
-          state.lastSecondShown = nextSec;
-          state.timeLeft = nextSec;
-          updateHud();
-          bump(document.getElementById('timePill'));
-
-          if(nextSec <= 0){
-            finishGame();
-            return;
-          }
-        }
-
-        state.rafId = requestAnimationFrame(frame);
-      }
-
-      state._token = token;
-      state.rafId = requestAnimationFrame(frame);
-    }
-
-    function startGameClock(){
-      state.gameDeadlineMs = nowMs() + (ctx.time * 1000);
-      state.lastSecondShown = ctx.time;
-      state.timeLeft = ctx.time;
-      updateHud();
-      startRafLoop();
-    }
-
-    function pauseGame(reason='pause'){
-      if(state.finished || state.paused) return;
-      state.paused = true;
-      cancelRafLoop();
-      const remainMs = Math.max(0, state.gameDeadlineMs - nowMs());
-      state.timeLeft = Math.max(0, Math.ceil(remainMs / 1000));
-      document.getElementById('pauseTitle').textContent = reason === 'hidden' ? 'เกมหยุดอัตโนมัติ' : 'หยุดเกมชั่วคราว';
-      document.getElementById('pauseText').textContent = reason === 'hidden'
-        ? 'ระบบหยุดเวลาไว้ให้แล้ว กลับมาเมื่อพร้อม'
-        : 'พักก่อน แล้วค่อยเล่นต่อได้';
-      $pauseOverlay.hidden = false;
-    }
-
-    function resumeGame(){
-      if(state.finished || !state.paused) return;
-      const remainMs = Math.max(0, state.timeLeft * 1000);
-      state.gameDeadlineMs = nowMs() + remainMs;
-      state.paused = false;
-      $pauseOverlay.hidden = true;
-      startRafLoop();
-    }
-
-    function buildSummaryPayload(){
-      const total = state.correct + state.wrong;
-      const accuracy = total > 0 ? Math.round((state.correct / total) * 100) : 0;
-      let mostMistakeGroup = null;
-      let bestVal = -1;
-      Object.entries(state.mistakeByGroup).forEach(([k,v]) => {
-        if(v > bestVal){ bestVal = v; mostMistakeGroup = k; }
-      });
-      if(bestVal <= 0) mostMistakeGroup = null;
-
-      return {
-        game: ctx.game,
-        mode: ctx.mode,
-        pid: ctx.pid,
-        diff: ctx.diff,
-        score: state.score,
-        bestStreak: state.bestStreak,
-        completedPlates: state.completedPlates,
-        perfectPlates: state.perfectPlates,
-        accuracy,
-        mostMistakeGroup,
-        ts: Date.now(),
-        iso: new Date().toISOString()
-      };
-    }
-
-    function saveLastSummary(summary){
+    function buildRunUrl(extra={}){
+      const runUrl = new URL('/webxr-health-mobile/herohealth/plate/plate-vr.html', location.origin);
       const payload = {
-        game: ctx.game,
-        zone: ctx.zone,
-        mode: ctx.mode,
-        pid: ctx.pid,
-        difficulty: ctx.diff,
-        view_mode: ctx.view,
-        run: ctx.run,
-        seed: ctx.seed,
-        summary,
-        saved_at_ms: Date.now(),
-        saved_at_iso: new Date().toISOString()
+        pid: clean($playerPid.value, 'anon'),
+        name: clean($playerName.value, 'Hero'),
+        studyId: clean($studyId.value, ''),
+        diff: getActive($diffGrid, 'normal'),
+        time: getActive($timeGrid, '90'),
+        seed: String(Date.now()),
+        hub: defaults.hub,
+        view: getActive($viewGrid, 'mobile'),
+        run: defaults.run,
+        zone: defaults.zone,
+        game: defaults.game,
+        mode: defaults.mode,
+        entry: 'warmup',
+        fromLauncher: '1',
+        ...extra
       };
-      safeWriteJson('HHA_LAST_SUMMARY', payload);
-      safeWriteJson('HHA_LAST_SUMMARY_PLATE', payload);
-    }
-
-    function getSummaryTier(summary){
-      if(summary.accuracy >= 95 && (summary.perfectPlates || 0) >= 1){
-        return { rank:'Healthy Plate Master', stars:3, badge:'🏆' };
-      }
-      if(summary.accuracy >= 85){
-        return { rank:'Healthy Plate Hero', stars:3, badge:'🌟' };
-      }
-      if(summary.accuracy >= 70){
-        return { rank:'Balanced Meal Star', stars:2, badge:'💛' };
-      }
-      return { rank:'Plate Explorer', stars:1, badge:'🍽️' };
-    }
-
-    function renderSummaryTier(summary){
-      const tier = getSummaryTier(summary);
-      $summaryRank.textContent = tier.rank;
-      $summaryBadge.textContent = tier.badge;
-      $summaryStars.textContent = `${tier.stars >= 1 ? '⭐️' : '☆'}${tier.stars >= 2 ? '⭐️' : '☆'}${tier.stars >= 3 ? '⭐️' : '☆'}`;
-    }
-
-    function insightText(summary){
-      const g = summary.mostMistakeGroup ? FOOD_GROUPS[summary.mostMistakeGroup] : null;
-      const stage = getEntryStage();
-
-      if (summary.accuracy >= 95 && (summary.perfectPlates || 0) >= 1) {
-        return stage === 'after_quick_plate'
-          ? 'อุ่นเครื่องมาดีมาก และคุณจัดจานหลักได้ยอดเยี่ยมจริง ๆ'
-          : 'ยอดเยี่ยมมาก คุณจัดจานได้แม่นและสมดุลมากจริง ๆ';
-      }
-
-      if (summary.accuracy >= 85) {
-        return g
-          ? `ทำได้ดีมาก ลองทบทวนหมู่ "${g.short}" อีกนิดเพื่อให้แม่นขึ้นกว่าเดิม`
-          : 'ทำได้ดีมาก ลองเล่นอีกครั้งเพื่อเก็บ Perfect Plate เพิ่มขึ้น';
-      }
-
-      if (summary.accuracy >= 70) {
-        return g
-          ? `เริ่มคล่องแล้ว แต่ยังสับสนหมู่ "${g.short}" เล็กน้อย`
-          : 'เริ่มทำได้ดีแล้ว ลองสังเกตแต่ละหมู่ให้มากขึ้นอีกนิด';
-      }
-
-      return g
-        ? `ไม่เป็นไร ลองจำว่าอาหารหมู่ "${g.short}" ควรอยู่ตรงไหน แล้วค่อยเล่นอีกครั้ง`
-        : 'ไม่เป็นไร ลองสังเกตชื่ออาหารและส่วนของจานให้มากขึ้น แล้วค่อยลองอีกครั้งนะ';
-    }
-
-    function showSummary(summary){
-      if(state.summaryShown) return;
-      state.summaryShown = 1;
-
-      $sumScore.textContent = String(summary.score);
-      $sumAcc.textContent = `${summary.accuracy}%`;
-      $sumBest.textContent = String(summary.bestStreak);
-      $sumComp.textContent = String(summary.completedPlates);
-      $sumMistake.textContent = summary.mostMistakeGroup ? FOOD_GROUPS[summary.mostMistakeGroup].short : '-';
-
-      renderSummaryTier(summary);
-      renderSummaryRewards();
-      renderLatestReward();
-      renderNextGoal(summary);
-      renderNextStickerHint();
-
-      const stage = getEntryStage();
-      if (stage === 'after_quick_plate' && summary.accuracy >= 80) {
-        $summaryHeading.textContent = 'ต่อจาก Quick Plate ได้ดีมาก';
-      } else if (summary.accuracy >= 95) {
-        $summaryHeading.textContent = 'สุดยอดมากวันนี้';
-      } else if (summary.accuracy >= 80) {
-        $summaryHeading.textContent = 'วันนี้ทำได้ดีมาก';
-      } else {
-        $summaryHeading.textContent = 'เก่งมากที่พยายาม';
-      }
-
-      $sumInsight.textContent = insightText(summary);
-      $summaryOverlay.classList.add('show');
-      celebrate(summary.accuracy >= 90 ? 'perfect' : 'good');
-    }
-
-    function finishGame(){
-      if(state.finished) return;
-      state.finished = true;
-      cancelRafLoop();
-      clearTimeout(state.roundAdvanceTimer);
-
-      const summary = buildSummaryPayload();
-      saveLastSummary(summary);
-
-      function openSummarySafely(){
-        if(rewardShowing || rewardQueue.length){
-          setTimeout(openSummarySafely, 120);
-          return;
-        }
-        showSummary(summary);
-      }
-      openSummarySafely();
-    }
-
-    const EVAL_TEMPLATES = [
-      {
-        id:'eval_1',
-        correct:'A',
-        explainCorrect:'ถูกต้อง! จาน A สมดุลที่สุด เพราะครบ 5 หมู่',
-        explainWrong:'จาน A ดีกว่า เพราะอีกจานยังขาดผักหรือมีของหวานแทนอาหารหลัก',
-        choices:{
-          A:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'🍌', g5:'🧈' },
-          B:{ g2:'🍚', g1:'🐟', g3:'',    g4:'🍌', g5:'🧈' },
-          C:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'🍰', g5:'🧈' }
-        }
-      },
-      {
-        id:'eval_2',
-        correct:'B',
-        explainCorrect:'เยี่ยมมาก! จาน B เหมาะที่สุด เพราะมีอาหารหลักครบและไม่มีตัวลวง',
-        explainWrong:'ลองดูอีกนิด จาน B ดีกว่า เพราะอีกจานมีน้ำอัดลมหรือขาดผลไม้',
-        choices:{
-          A:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'🥤', g5:'🧈' },
-          B:{ g2:'🍚', g1:'🥚', g3:'🥕', g4:'🍎', g5:'🫗' },
-          C:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'',    g5:'🧈' }
-        }
-      },
-      {
-        id:'eval_3',
-        correct:'C',
-        explainCorrect:'ถูกต้อง! จาน C สมดุลที่สุด เพราะอาหารอยู่หมู่เหมาะสมกว่า',
-        explainWrong:'จาน C ดีกว่า เพราะอีกจานมีอาหารวางไม่เหมาะหรือสมดุลน้อยกว่า',
-        choices:{
-          A:{ g2:'🍚', g1:'🍌', g3:'🥬', g4:'🐟', g5:'🧈' },
-          B:{ g2:'🍗', g1:'🐟', g3:'',    g4:'🍎', g5:'🫗' },
-          C:{ g2:'🍞', g1:'🥛', g3:'🥬', g4:'🍊', g5:'🫗' }
-        }
-      }
-    ];
-
-    function pickEvaluateTemplate(){
-      return EVAL_TEMPLATES[Math.floor(rng() * EVAL_TEMPLATES.length)];
-    }
-
-    function renderEvalPlate(choiceKey, foods){
-      return `
-        <div class="evalChoice" data-choice="${choiceKey}">
-          <div class="evalPlate">
-            <div class="evalZone z-g2">${foods.g2 || ''}</div>
-            <div class="evalZone z-g1">${foods.g1 || ''}</div>
-            <div class="evalZone z-g3">${foods.g3 || ''}</div>
-            <div class="evalZone z-g4">${foods.g4 || ''}</div>
-            <div class="evalZone z-g5">${foods.g5 || ''}</div>
-          </div>
-          <div class="evalLabel">จาน ${choiceKey}</div>
-        </div>
-      `;
-    }
-
-    function openEvaluate(){
-      renderPostGameFlowText();
-      const tpl = pickEvaluateTemplate();
-      evaluateState.questionId = tpl.id;
-      evaluateState.selectedChoice = '';
-      evaluateState.correctChoice = tpl.correct;
-      evaluateState.answered = false;
-
-      $evalChoices.innerHTML = ['A','B','C'].map(k => renderEvalPlate(k, tpl.choices[k])).join('');
-      $evalFeedback.textContent = 'เลือกจานที่คิดว่าสมดุลที่สุด';
-      $evalFeedback.className = 'flowFeedback';
-      $btnEvalSubmit.disabled = true;
-      $btnEvalSubmit.hidden = false;
-      $btnEvalSkip.hidden = false;
-      $evalNextActions.hidden = true;
-      $evaluateOverlay.hidden = false;
-      $summaryOverlay.classList.remove('show');
-
-      $evalChoices.querySelectorAll('.evalChoice').forEach(card => {
-        card.addEventListener('click', () => {
-          if(evaluateState.answered) return;
-          evaluateState.selectedChoice = card.dataset.choice;
-          $evalChoices.querySelectorAll('.evalChoice').forEach(x => x.classList.remove('selected'));
-          card.classList.add('selected');
-          $btnEvalSubmit.disabled = false;
-        });
+      Object.entries(payload).forEach(([k,v]) => {
+        if(v !== '' && v != null) runUrl.searchParams.set(k, String(v));
       });
+      return runUrl;
     }
 
-    function submitEvaluate(){
-      if(!evaluateState.selectedChoice || evaluateState.answered) return;
-      evaluateState.answered = true;
-      const isCorrect = evaluateState.selectedChoice === evaluateState.correctChoice;
-      const tpl = EVAL_TEMPLATES.find(x => x.id === evaluateState.questionId);
-
-      $evalChoices.querySelectorAll('.evalChoice').forEach(card => {
-        const k = card.dataset.choice;
-        if(k === evaluateState.correctChoice) card.classList.add('correct');
-        if(k === evaluateState.selectedChoice && k !== evaluateState.correctChoice) card.classList.add('wrong');
+    function buildWarmupGateUrl(extra={}){
+      const warmupUrl = new URL('/webxr-health-mobile/herohealth/warmup-gate.html', location.origin);
+      const runUrl = buildRunUrl(extra);
+      const payload = {
+        pid: clean($playerPid.value, 'anon'),
+        name: clean($playerName.value, 'Hero'),
+        studyId: clean($studyId.value, ''),
+        diff: getActive($diffGrid, 'normal'),
+        time: getActive($timeGrid, '90'),
+        seed: String(Date.now()),
+        hub: defaults.hub,
+        view: getActive($viewGrid, 'mobile'),
+        run: defaults.run,
+        zone: defaults.zone,
+        game: defaults.game,
+        mode: defaults.mode,
+        phase: 'warmup',
+        next: runUrl.toString(),
+        entry: 'launcher',
+        fromLauncher: '1'
+      };
+      Object.entries(payload).forEach(([k,v]) => {
+        if(v !== '' && v != null) warmupUrl.searchParams.set(k, String(v));
       });
-
-      if(isCorrect){
-        $evalFeedback.textContent = tpl.explainCorrect;
-        $evalFeedback.className = 'flowFeedback ok';
-      }else{
-        $evalFeedback.textContent = tpl.explainWrong;
-        $evalFeedback.className = 'flowFeedback bad';
-      }
-
-      $btnEvalSubmit.hidden = true;
-      $btnEvalSkip.hidden = true;
-      $evalNextActions.hidden = false;
+      return warmupUrl;
     }
 
-    function closeEvaluate(){
-      $evaluateOverlay.hidden = true;
+    function startCanonicalFlow(){
+      location.href = buildWarmupGateUrl().toString();
     }
 
-    function getCreateFoods(){
-      const base = [];
-      ['g2','g1','g3','g4','g5'].forEach(g => {
-        const item = shuffle(FOOD_DB.filter(x => x.group === g), rng)[0];
-        if(item) base.push(item);
-      });
-      const distractors = shuffle(FOOD_DB.filter(x => x.group === 'x'), rng).slice(0, 2);
-      return shuffle([...base, ...distractors, ...shuffle(FOOD_DB.filter(x => x.group !== 'x'), rng).slice(0, 3)], rng).slice(0, 10);
-    }
-
-    function renderCreateTray(){
-      $createTray.innerHTML = '';
-      createState.trayFoods.forEach(item => {
-        const btn = document.createElement('button');
-        btn.className = 'food';
-        btn.type = 'button';
-        btn.dataset.id = item.id;
-        btn.innerHTML = `
-          <div class="foodEmoji">${FOOD_EMOJI[item.id] || '🍎'}</div>
-          <div class="foodMeta">
-            <div class="foodName">${item.label}</div>
-            <div class="foodTag ${item.group === 'x' ? 'x' : ''}">${item.group === 'x' ? 'ลองคิดดู' : 'เลือกให้เหมาะ'}</div>
-          </div>
-        `;
-        btn.addEventListener('click', () => {
-          if(createState.hasSubmitted) return;
-          createState.selectedFoodId = item.id;
-          [...$createTray.querySelectorAll('.food')].forEach(x => x.classList.remove('selected'));
-          btn.classList.add('selected');
-        });
-        $createTray.appendChild(btn);
-      });
-    }
-
-    function renderCreateZones(){
-      document.querySelectorAll('.createZone').forEach(zone => {
-        const z = zone.dataset.zone;
-        const placed = createState.placedByZone[z];
-        zone.classList.toggle('hasItem', !!placed);
-        const inner = zone.querySelector('.zoneInner');
-
-        if(placed){
-          inner.innerHTML = `
-            <div class="zoneItemEmoji">${FOOD_EMOJI[placed.food.id] || '🍎'}</div>
-            <div class="zoneItemText">${placed.food.label}</div>
-          `;
-        }else{
-          inner.innerHTML = `<span class="zonePlaceholder">${FOOD_GROUPS[z].short}</span>`;
-        }
-      });
-
-      const filled = Object.keys(createState.placedByZone).length;
-      $createProgressText.textContent = `${filled}/5 หมู่`;
-      $createProgressFill.style.width = `${(filled / 5) * 100}%`;
-    }
-
-    function bindCreateZones(){
-      document.querySelectorAll('.createZone').forEach(zone => {
-        zone.addEventListener('click', () => {
-          if(createState.hasSubmitted) return;
-          const z = zone.dataset.zone;
-          if(!createState.selectedFoodId){
-            pushToast('เลือกอาหารจากถาดก่อนนะ', 'info');
-            return;
-          }
-          const food = createState.trayFoods.find(x => x.id === createState.selectedFoodId);
-          if(!food) return;
-          createState.placedByZone[z] = { food };
-          createState.selectedFoodId = null;
-          [...$createTray.querySelectorAll('.food')].forEach(x => x.classList.remove('selected'));
-          renderCreateZones();
-        });
-      });
-    }
-
-    function evaluateCreatePlate(){
-      const zoneKeys = ['g2','g1','g3','g4','g5'];
-      const missingGroups = zoneKeys.filter(z => !createState.placedByZone[z]);
-      let distractorCount = 0;
-      let wrongPlaced = 0;
-
-      zoneKeys.forEach(z => {
-        const placed = createState.placedByZone[z];
-        if(!placed) return;
-        if(placed.food.group === 'x') distractorCount += 1;
-        if(placed.food.group !== z) wrongPlaced += 1;
-      });
-
-      let resultLevel = 'retry';
-      if(!missingGroups.length && distractorCount === 0 && wrongPlaced === 0){
-        resultLevel = 'great';
-      }else if(missingGroups.length <= 1 && distractorCount <= 1){
-        resultLevel = 'good';
-      }
-
-      createState.resultLevel = resultLevel;
-      createState.hasSubmitted = true;
-
-      const goodBits = [];
-      const fixBits = [];
-
-      if(!missingGroups.length) goodBits.push('ครบ 5 หมู่แล้ว');
-      else fixBits.push(`ยังขาด ${missingGroups.map(g => FOOD_GROUPS[g].short).join(', ')}`);
-
-      if(distractorCount === 0) goodBits.push('ไม่มีอาหารตัวลวง');
-      else fixBits.push('ยังมีอาหารที่ไม่เหมาะกับจานสุขภาพ');
-
-      if(resultLevel === 'great'){
-        $createResult.className = 'createResult show great';
-        $createResult.innerHTML = `
-          <strong>ยอดเยี่ยมมาก</strong><br>
-          คุณสร้างจานสุขภาพได้ครบและสมดุล<br><br>
-          ทำได้ดี: ${goodBits.join(' • ')}
-        `;
-        celebrate('perfect');
-      }else if(resultLevel === 'good'){
-        $createResult.className = 'createResult show good';
-        $createResult.innerHTML = `
-          <strong>ทำได้ดีมาก</strong><br>
-          เหลืออีกนิด จานนี้เกือบสมดุลแล้ว<br><br>
-          ควรปรับ: ${fixBits.join(' • ')}
-        `;
-      }else{
-        $createResult.className = 'createResult show retry';
-        $createResult.innerHTML = `
-          <strong>ลองใหม่อีกนิดนะ</strong><br>
-          จานนี้ยังต้องปรับอีกเล็กน้อย<br><br>
-          ควรปรับ: ${fixBits.join(' • ')}
-        `;
-      }
-
-      $createEndActions.hidden = false;
-    }
-
-    function openCreate(){
-      renderPostGameFlowText();
-      createState.selectedFoodId = null;
-      createState.placedByZone = {};
-      createState.hasSubmitted = false;
-      createState.resultLevel = '';
-      createState.trayFoods = getCreateFoods();
-
-      $createResult.className = 'createResult';
-      $createResult.innerHTML = '';
-      $createEndActions.hidden = true;
-
-      renderCreateTray();
-      renderCreateZones();
-      $createOverlay.hidden = false;
-    }
-
-    function closeCreate(){
-      $createOverlay.hidden = true;
-    }
-
-    function isOverlayBlocking(){
-      const guideOpen = !$guideOverlay.hidden;
-      const rewardOpen = !$rewardPopupOverlay.hidden;
-      const pauseOpen = !$pauseOverlay.hidden;
-      const summaryOpen = $summaryOverlay.classList.contains('show');
-      const evalOpen = !$evaluateOverlay.hidden;
-      const createOpen = !$createOverlay.hidden;
-      return !!(guideOpen || rewardOpen || pauseOpen || summaryOpen || evalOpen || createOpen);
-    }
-
-    function resetRunState(){
-      cancelRafLoop();
-      clearTimeout(state.roundAdvanceTimer);
-      state.roundAdvanceTimer = 0;
-
-      state.started = false;
-      state.finished = false;
-      state.paused = false;
-      state.hiddenPaused = false;
-      state.destroyed = false;
-      state.score = 0;
-      state.timeLeft = ctx.time;
-      state.streak = 0;
-      state.bestStreak = 0;
-      state.correct = 0;
-      state.wrong = 0;
-      state.completedPlates = 0;
-      state.currentRound = 0;
-      state.selectedFoodId = null;
-      state.roundTargetGroups = [];
-      state.roundFoods = [];
-      state.placedByZone = {};
-      state.mistakeByGroup = { g1:0, g2:0, g3:0, g4:0, g5:0 };
-      state.perfectPlates = 0;
-      state.timeStartedMs = 0;
-      state.summaryShown = 0;
-      state.gameDeadlineMs = 0;
-      state.lastSecondShown = ctx.time;
-
-      rng = makeRng(ctx.seed);
-
-      updateHud();
-      updateMissionUi();
-      renderSelectedBar();
-      renderEntryContext();
-      renderPostGameFlowText();
-      $summaryOverlay.classList.remove('show');
-      $pauseOverlay.hidden = true;
-      $evaluateOverlay.hidden = true;
-      $createOverlay.hidden = true;
-      leavingPage = false;
-    }
-
-    function cancelTimers(){
-      cancelRafLoop();
-      clearTimeout(state.roundAdvanceTimer);
-      state.roundAdvanceTimer = 0;
-    }
-
-    function cleanupBeforeLeave(){
-      cancelTimers();
-      state.destroyed = true;
-      $pauseOverlay.hidden = true;
-    }
-
-    function maybeShowGuideThenStart(){
-      const stage = getEntryStage();
-
-      if (stage === 'after_quick_plate') {
-        reallyStartGame();
-        return;
-      }
-
-      if (shouldShowGuide()) {
-        $guideOverlay.hidden = false;
-        document.body.classList.add('guide-open');
-        return;
-      }
-
-      reallyStartGame();
-    }
-
-    function reallyStartGame(){
-      if(state.started) return;
-
-      resetRunState();
-      state.started = true;
-      state.finished = false;
-      state.timeStartedMs = Date.now();
-
-      updateDailyQuestUi();
-      renderStickerShelf();
-      renderEntryContext();
-      renderPostGameFlowText();
-
-      if (getEntryStage() === 'after_quick_plate') {
-        deferRewardPopupOnEntry = true;
-      }
-
-      const dailyBoot = readDailyProgress();
-      const stage = getEntryStage();
-
-      if (stage !== 'after_quick_plate' && !dailyBoot.firstPlayShown) {
-        dailyBoot.firstPlayShown = 1;
-        writeDailyProgress(dailyBoot);
-        enqueueRewardPopup({
-          kind:'hello',
-          icon:'🌞',
-          title:'ยินดีต้อนรับวันนี้',
-          desc:'มาเริ่มสะสมสติกเกอร์และทำภารกิจประจำวันกัน',
-          meta:'เป้าหมายวันนี้: 3 จาน',
-          cta:'เยี่ยมเลย'
-        });
-      }
-
-      if (stage === 'after_quick_plate') {
-        pushToast('อุ่นเครื่องเสร็จแล้ว ไปจัดจานจริงกัน!', 'ok');
-        setFeedback('พร้อมแล้ว เริ่มเกมหลักได้เลย');
-      } else if (stage === 'from_launcher') {
-        pushToast('เริ่มเกมหลักแล้ว!', 'info');
-        setFeedback('มาจัดจานสุขภาพให้ครบ 5 หมู่กัน');
-      } else {
-        setFeedback('มาจัดจานสุขภาพกัน');
-      }
-
-      bindZones();
-      nextRound();
-      startGameClock();
-    }
-
-    function closeGuide(){
-      $guideOverlay.hidden = true;
-      document.body.classList.remove('guide-open');
-    }
-
-    $guideStartBtn.addEventListener('click', () => {
-      if($guideDontShowToday.checked) markGuideSeen();
-      closeGuide();
-      reallyStartGame();
+    $btnStartFlow.addEventListener('click', startCanonicalFlow);
+    $btnContinueWarmup.addEventListener('click', startCanonicalFlow);
+    $btnBackHub.addEventListener('click', () => {
+      location.href = defaults.hub;
     });
-
-    $btnClearPick.addEventListener('click', () => {
-      state.selectedFoodId = null;
-      syncFoodUi();
-      renderSelectedBar();
-      setFeedback('ยกเลิกการเลือกแล้ว');
-    });
-
-    $btnResumeGame.addEventListener('click', resumeGame);
-
-    $btnRestartGame.addEventListener('click', () => {
-      if(leavingPage) return;
-      leavingPage = true;
-      cleanupBeforeLeave();
-      const nextSeed = String(Date.now());
-      location.href = withPassthrough(
-        '/webxr-health-mobile/herohealth/plate/plate-vr.html',
-        ctx,
-        { seed: nextSeed, entry: 'replay' }
-      );
-    });
-
-    async function replayRun(){
-      if(leavingPage) return;
-      leavingPage = true;
-      cleanupBeforeLeave();
-
-      const nextSeed = String(Date.now());
-      location.href = withPassthrough(
-        '/webxr-health-mobile/herohealth/plate/plate-vr.html',
-        ctx,
-        {
-          seed: nextSeed,
-          entry: 'replay'
-        }
-      );
-    }
-
-    async function backHub(){
-      if(leavingPage) return;
-      leavingPage = true;
-      cleanupBeforeLeave();
-
-      const cooldownDone = isGateDone('cooldown');
-      if(!cooldownDone){
-        location.href = withPassthrough('/webxr-health-mobile/herohealth/warmup-gate.html', ctx, {
-          phase:'cooldown',
-          next:ctx.hub
-        });
-        return;
-      }
-
-      location.href = ctx.hub;
-    }
-
-    $btnReplay.addEventListener('click', replayRun);
-    $btnBackHub.addEventListener('click', backHub);
-    $btnEvaluate.addEventListener('click', openEvaluate);
-
-    $btnEvalSubmit.addEventListener('click', submitEvaluate);
-    $btnEvalSkip.addEventListener('click', () => {
-      closeEvaluate();
-      openCreate();
-    });
-    $btnEvalNext.addEventListener('click', () => {
-      closeEvaluate();
-      openCreate();
-    });
-
-    $btnCreateSubmit.addEventListener('click', evaluateCreatePlate);
-    $btnCreateReset.addEventListener('click', openCreate);
-    $btnCreateReplay.addEventListener('click', () => {
-      closeCreate();
-      replayRun();
-    });
-    $btnCreateBackHub.addEventListener('click', () => {
-      closeCreate();
-      backHub();
-    });
-
-    bindCreateZones();
-
-    document.addEventListener('visibilitychange', () => {
-      if(state.finished || !state.started) return;
-      if(document.hidden){
-        state.hiddenPaused = true;
-        pauseGame('hidden');
-        return;
-      }
-      if(state.hiddenPaused){
-        state.hiddenPaused = false;
-      }
-    });
-
-    renderEntryContext();
-    renderPostGameFlowText();
-    updateDailyQuestUi();
-    renderStickerShelf();
-    maybeShowGuideThenStart();
   })();
   </script>
 </body>
