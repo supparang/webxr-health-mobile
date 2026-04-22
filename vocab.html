@@ -285,6 +285,37 @@
     #feedbackBox.bad{background:rgba(225,29,72,.94)}
     #feedbackBox.warn{background:rgba(180,83,9,.94)}
 
+    #choicePad{
+      position:fixed;
+      left:12px;
+      right:12px;
+      bottom:max(14px, env(safe-area-inset-bottom));
+      z-index:65;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+    }
+
+    .choiceBtn{
+      appearance:none;
+      border:0;
+      width:100%;
+      min-height:58px;
+      border-radius:18px;
+      padding:14px 16px;
+      font-size:18px;
+      font-weight:900;
+      line-height:1.15;
+      color:#08111f;
+      background:linear-gradient(135deg,#dbeafe,#93c5fd);
+      box-shadow:0 10px 28px rgba(0,0,0,.20);
+      cursor:pointer;
+    }
+
+    .choiceBtn:active{
+      transform:translateY(1px) scale(.995);
+    }
+
     .leaderboardList,.sessionList{
       list-style:none;
       padding:0;
@@ -323,6 +354,13 @@
       .bankGrid{grid-template-columns:1fr 1fr 1fr}
       .profileGrid{grid-template-columns:1fr 1fr}
       .top3Board{grid-template-columns:1fr 1fr 1fr}
+      #choicePad{
+        left:50%;
+        right:auto;
+        width:min(720px, calc(100vw - 24px));
+        transform:translateX(-50%);
+        grid-template-columns:1fr 1fr;
+      }
     }
 
     @media (max-width:420px){
@@ -363,6 +401,7 @@
   </div>
 
   <div id="feedbackBox"></div>
+  <div id="choicePad" class="hidden" aria-live="polite"></div>
 
   <div class="overlay" id="menu">
     <div class="panel">
