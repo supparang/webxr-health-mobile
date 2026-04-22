@@ -50,7 +50,7 @@ import { installVocabGuards } from './vocab-guard.js';
   const TEACHER_PASS_KEY = 'VOCAB_V9_TEACHER_PASS_HASH';
   const GLOBAL_LB_CACHE_KEY = 'VOCAB_V9_GLOBAL_LB_CACHE';
 
-  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxk7L--kY__UJJ-9FG_KqzR09W2FNILQWYn5qo-frtc3RHLVkUrkajoL4Tb6HOXhicr/exec';
+  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyPBp9nQjeEFmOk34IImarbt4XrVpACNherA1BGuuxAsU4tPYg26ZbN2ThLY6Tu5Thu/exec';
   const VOCAB_SHEET_SOURCE = 'vocab.html';
   const VOCAB_SHEET_SCHEMA = 'vocab-v4-per-mode';
 
