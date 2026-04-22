@@ -113,6 +113,7 @@ function closeMobileHubSheetIfAny() {
   if (!sheet) return;
   sheet.classList.remove("show");
   sheet.innerHTML = "";
+  sheet.dataset.mode = "";
 }
 
 function setHubInteractionEnabled(show = true) {
@@ -258,6 +259,113 @@ window.selectAvatar = function (avatar) {
 window.savePlayerProfile = function (silent = false) {
   return savePlayerProfile(silent);
 };
+
+function renderMobileHubSheet(mode = "sessions") {
+  const sheet = $("mobile-hub-sheet");
+  if (!sheet) return;
+
+  if (sheet.classList.contains("show") && sheet.dataset.mode === mode) {
+    sheet.classList.remove("show");
+    sheet.innerHTML = "";
+    sheet.dataset.mode = "";
+    return;
+  }
+
+  sheet.dataset.mode = mode;
+
+  if (mode === "sessions") {
+    const buttons = missionDB.map((m) => `
+      <button class="session-chip" type="button" data-mission-id="${m.id}">
+        S${String(m.id).padStart(2, "0")}
+      </button>
+    `).join("");
+
+    sheet.innerHTML = `
+      <div class="session-sheet-title">เลือกด่าน</div>
+      <div class="session-grid">${buttons}</div>
+    `;
+
+    sheet.querySelectorAll("[data-mission-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.getAttribute("data-mission-id"));
+        sheet.classList.remove("show");
+        sheet.innerHTML = "";
+        sheet.dataset.mode = "";
+        loadMission(id);
+      });
+    });
+  }
+
+  if (mode === "profile") {
+    sheet.innerHTML = `
+      <div class="session-sheet-title">โปรไฟล์</div>
+      <div style="display:grid;gap:10px;">
+        <input
+          type="text"
+          id="mobile-profile-name"
+          class="input-field"
+          placeholder="ชื่อผู้เล่น"
+          value="${String(playerProfile.name || "").replace(/"/g, "&quot;")}"
+          maxlength="24"
+        />
+        <button class="btn-action" id="mobile-save-profile" type="button">บันทึกโปรไฟล์</button>
+      </div>
+    `;
+
+    const nameInput = $("mobile-profile-name");
+    const saveBtn = $("mobile-save-profile");
+
+    if (saveBtn) {
+      saveBtn.addEventListener("click", async () => {
+        if (nameInput) {
+          playerProfile.name = (nameInput.value || "").trim() || playerProfile.name || "Hero";
+        }
+        await window.savePlayerProfile();
+        sheet.classList.remove("show");
+        sheet.innerHTML = "";
+        sheet.dataset.mode = "";
+      });
+    }
+  }
+
+  if (mode === "stats") {
+    sheet.innerHTML = `
+      <div class="session-sheet-title">สถิติ</div>
+      <div style="display:grid;gap:8px;color:#eaf6ff;">
+        <div>Score: ${state.gameScore || 0}</div>
+        <div>HP: ${state.systemHP || 100}%</div>
+        <div>Cleared: ${clearedMissions.length}</div>
+        <div>Best Combo: ${sessionStats.bestCombo || 0}</div>
+      </div>
+    `;
+  }
+
+  sheet.classList.add("show");
+}
+
+function bindMobileHubButtons() {
+  $("btn-mobile-sessions")?.addEventListener("click", () => {
+    renderMobileHubSheet("sessions");
+  });
+
+  $("btn-mobile-profile")?.addEventListener("click", () => {
+    renderMobileHubSheet("profile");
+  });
+
+  $("btn-mobile-stats")?.addEventListener("click", () => {
+    renderMobileHubSheet("stats");
+  });
+
+  $("attendance-toggle")?.addEventListener("click", () => {
+    const panel = $("attendance-panel");
+    const btn = $("attendance-toggle");
+    if (!panel || !btn) return;
+
+    const compact = panel.classList.toggle("compact");
+    btn.setAttribute("aria-expanded", compact ? "false" : "true");
+    btn.textContent = compact ? "ดูรายละเอียด" : "ย่อ";
+  });
+}
 
 function shortMissionType(type) {
   if (type === "speaking") return "SPEAK";
@@ -1890,6 +1998,7 @@ window.playNextMission = function () {
 window.returnToHub = function () {
   resetMissionRuntime();
   missionTransitionLock = false;
+  closeMobileHubSheetIfAny();
 
   state.isGameOver = false;
   state.systemHP = 100;
@@ -1980,6 +2089,8 @@ window.onload = function () {
       if (!ui.classList.contains("mission-hp-critical")) return;
       togglePromptFocusExpanded();
     });
+
+    bindMobileHubButtons();
   } catch (e) {
     console.error("post-boot listener failed:", e);
   }
