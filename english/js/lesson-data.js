@@ -9,11 +9,11 @@ function toLegacyChoices(correct, distractors = []) {
   return raw.map((text, index) => `${letters[index]}. ${String(text || "").trim()}`);
 }
 
-function normalizeMissionItem(item) {
+function normalizeMissionItem(item, sessionType = "") {
   if (!item || typeof item !== "object") return item;
 
-  const isChoiceMission =
-    item.type === "reading" || item.type === "listening";
+  const type = item.type || sessionType;
+  const isChoiceMission = type === "reading" || type === "listening";
 
   if (
     isChoiceMission &&
@@ -31,8 +31,29 @@ function normalizeMissionItem(item) {
   return item;
 }
 
+function normalizeMissionGroup(group) {
+  if (!group || typeof group !== "object") return group;
+
+  const bank = group.bank || {};
+
+  return {
+    ...group,
+    bank: {
+      easy: Array.isArray(bank.easy)
+        ? bank.easy.map(item => normalizeMissionItem(item, group.type))
+        : [],
+      normal: Array.isArray(bank.normal)
+        ? bank.normal.map(item => normalizeMissionItem(item, group.type))
+        : [],
+      hard: Array.isArray(bank.hard)
+        ? bank.hard.map(item => normalizeMissionItem(item, group.type))
+        : []
+    }
+  };
+}
+
 function normalizeMissionBank(list = []) {
-  return list.map(normalizeMissionItem);
+  return list.map(normalizeMissionGroup);
 }
 
 export const missionDB = normalizeMissionBank([
