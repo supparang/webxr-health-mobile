@@ -106,6 +106,7 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 let missionTransitionLock = false;
 let missionRuntimeToken = 0;
+const recentCorrectSlots = [];
 
 function closeMobileHubSheetIfAny() {
   const sheet = $("mobile-hub-sheet");
@@ -172,6 +173,81 @@ function lockMissionTransition(ms = 700) {
   window.setTimeout(() => {
     missionTransitionLock = false;
   }, ms);
+}
+
+function stripChoicePrefix(text = "") {
+  return String(text || "")
+    .replace(/^[A-Ca-c]\s*[\.\)\]:：-]?\s*/, "")
+    .trim();
+}
+
+function shuffleArrayCopy(arr = []) {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function chooseBalancedChoiceOrder(items = []) {
+  const letters = ["A", "B", "C"];
+  let best = null;
+  let bestScore = Infinity;
+
+  for (let k = 0; k < 12; k++) {
+    const shuffled = shuffleArrayCopy(items);
+    const correctIndex = shuffled.findIndex((x) => x.isCorrect);
+    const correctLetter = letters[correctIndex];
+
+    const future = [...recentCorrectSlots.slice(-8), correctLetter];
+    const countA = future.filter((x) => x === "A").length;
+    const countB = future.filter((x) => x === "B").length;
+    const countC = future.filter((x) => x === "C").length;
+
+    const spreadScore = Math.max(countA, countB, countC) - Math.min(countA, countB, countC);
+    const repeatPenalty =
+      recentCorrectSlots.length &&
+      recentCorrectSlots[recentCorrectSlots.length - 1] === correctLetter
+        ? 0.6
+        : 0;
+
+    const score = spreadScore + repeatPenalty;
+
+    if (score < bestScore) {
+      bestScore = score;
+      best = shuffled;
+    }
+  }
+
+  return best || shuffleArrayCopy(items);
+}
+
+function shuffleChoiceMission(mission) {
+  if (!mission) return mission;
+  if (!Array.isArray(mission.choices) || mission.choices.length < 3) return mission;
+
+  const letters = ["A", "B", "C"];
+  const correctLetter = String(mission.answer || "").trim().charAt(0).toUpperCase();
+  const correctIndex = letters.indexOf(correctLetter);
+  if (correctIndex < 0) return mission;
+
+  const items = mission.choices.slice(0, 3).map((choiceText, index) => ({
+    text: stripChoicePrefix(choiceText),
+    isCorrect: index === correctIndex
+  }));
+
+  const picked = chooseBalancedChoiceOrder(items);
+  const newCorrectIndex = picked.findIndex((x) => x.isCorrect);
+  const newCorrectLetter = letters[newCorrectIndex];
+
+  mission.choices = picked.map((item, index) => `${letters[index]}. ${item.text}`);
+  mission.answer = newCorrectLetter;
+
+  recentCorrectSlots.push(newCorrectLetter);
+  if (recentCorrectSlots.length > 20) recentCorrectSlots.shift();
+
+  return mission;
 }
 
 window.selectAvatar = function (avatar) {
@@ -929,8 +1005,8 @@ function analyzeWritingAnswer(mission, answer) {
   const clean = normalizeWritingText(answer);
   const keywords = Array.isArray(mission?.keywords) ? mission.keywords : [];
 
-  const matched = keywords.filter(kw => clean.includes(String(kw).toLowerCase()));
-  const missing = keywords.filter(kw => !clean.includes(String(kw).toLowerCase()));
+  const matched = keywords.filter((kw) => clean.includes(String(kw).toLowerCase()));
+  const missing = keywords.filter((kw) => !clean.includes(String(kw).toLowerCase()));
 
   let needed = Number(mission?.minMatch || 1);
   if (aiDirector.support >= 2 || state.systemHP <= 35 || state.consecutiveLosses >= 2) {
@@ -995,7 +1071,7 @@ function loadMission(id) {
   if (!missionId) return;
   if (missionTransitionLock) return;
 
-  const missionGroup = missionDB.find(m => m.id === missionId);
+  const missionGroup = missionDB.find((m) => m.id === missionId);
   if (!missionGroup) return;
 
   lockMissionTransition(700);
@@ -1003,10 +1079,27 @@ function loadMission(id) {
   const token = missionRuntimeToken;
   closeMobileHubSheetIfAny();
 
-  state.currentMission = prepareMissionForBossPattern(missionGroup, aiDirector);
+  const preparedMission = prepareMissionForBossPattern(missionGroup, aiDirector);
+
+  state.currentMission = preparedMission
+    ? {
+        ...preparedMission,
+        choices: Array.isArray(preparedMission.choices)
+          ? [...preparedMission.choices]
+          : preparedMission.choices
+      }
+    : null;
+
   if (!state.currentMission) {
     setFeedback("⚠️ ยังไม่มีโจทย์สำหรับด่านนี้", "#ff9f43");
     return;
+  }
+
+  if (
+    state.currentMission.type === "reading" ||
+    state.currentMission.type === "listening"
+  ) {
+    shuffleChoiceMission(state.currentMission);
   }
 
   state.lastMissionId = missionGroup.id;
@@ -1168,7 +1261,7 @@ window.checkChoiceAnswer = function (selectedLetter) {
   lockMissionTransition(350);
 
   const correctChoiceStr = state.currentMission.choices.find(
-    c => typeof c === "string" && c.startsWith(state.currentMission.answer)
+    (c) => typeof c === "string" && c.startsWith(state.currentMission.answer)
   );
   if (!correctChoiceStr) return;
 
@@ -1253,7 +1346,7 @@ window.startRecognition = function () {
     const targetWords = state.currentMission.exactPhrase.split(" ");
     let matchCount = 0;
 
-    targetWords.forEach(word => {
+    targetWords.forEach((word) => {
       if (new RegExp(`\\b${word}\\b`, "i").test(text)) matchCount++;
     });
 
