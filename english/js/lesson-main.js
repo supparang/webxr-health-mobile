@@ -104,6 +104,76 @@ import {
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+let missionTransitionLock = false;
+let missionRuntimeToken = 0;
+
+function closeMobileHubSheetIfAny() {
+  const sheet = $("mobile-hub-sheet");
+  if (!sheet) return;
+  sheet.classList.remove("show");
+  sheet.innerHTML = "";
+}
+
+function setHubInteractionEnabled(show = true) {
+  setHubVisible(show);
+
+  const mobileHubDrawer = $("mobile-hub-drawer");
+  const mobileHubSheet = $("mobile-hub-sheet");
+
+  if (mobileHubDrawer) {
+    mobileHubDrawer.style.display = show ? "" : "none";
+    mobileHubDrawer.style.pointerEvents = show ? "auto" : "none";
+  }
+
+  if (mobileHubSheet) {
+    if (!show) closeMobileHubSheetIfAny();
+    mobileHubSheet.style.pointerEvents = show ? "auto" : "none";
+  }
+
+  const hubClickables = [
+    ...document.querySelectorAll("[id^='mission-box-']"),
+    $("reward-chest")
+  ].filter(Boolean);
+
+  hubClickables.forEach((el) => {
+    if (show) el.classList.add("clickable");
+    else el.classList.remove("clickable");
+  });
+}
+
+function resetMissionRuntime() {
+  missionRuntimeToken++;
+
+  if (state.missionTimer) {
+    clearInterval(state.missionTimer);
+    state.missionTimer = null;
+  }
+
+  try {
+    if (window.speechSynthesis && speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+    }
+  } catch (_) {}
+
+  try {
+    if (window.recognition && typeof window.recognition.stop === "function") {
+      window.recognition.stop();
+    }
+  } catch (_) {}
+
+  const timerEl = $("timer");
+  if (timerEl) timerEl.textContent = "00:00";
+
+  setMissionTimerAlert(false);
+}
+
+function lockMissionTransition(ms = 700) {
+  missionTransitionLock = true;
+  window.setTimeout(() => {
+    missionTransitionLock = false;
+  }, ms);
+}
+
 window.selectAvatar = function (avatar) {
   const ok = selectAvatar(avatar);
   if (!ok) setFeedback("🔒 Avatar นี้ยังไม่ปลดล็อก", "#ff9f43");
@@ -921,8 +991,17 @@ function buildWritingCoachPrompt(mission, result) {
 }
 
 function loadMission(id) {
-  const missionGroup = missionDB.find(m => m.id === id);
+  const missionId = Number(id || 0);
+  if (!missionId) return;
+  if (missionTransitionLock) return;
+
+  const missionGroup = missionDB.find(m => m.id === missionId);
   if (!missionGroup) return;
+
+  lockMissionTransition(700);
+  resetMissionRuntime();
+  const token = missionRuntimeToken;
+  closeMobileHubSheetIfAny();
 
   state.currentMission = prepareMissionForBossPattern(missionGroup, aiDirector);
   if (!state.currentMission) {
@@ -939,7 +1018,7 @@ function loadMission(id) {
   if (isFinal) ensureFinalBossState(state.currentMission.id);
   else resetFinalBossState();
 
-  setHubVisible(false);
+  setHubInteractionEnabled(false);
   hideAllScenesAndControls();
 
   resetSummaryPanel();
@@ -974,7 +1053,7 @@ function loadMission(id) {
     : (isBoss ? "#e74c3c" : "#ff4757");
 
   setTitleBlock(
-    `${titlePrefix}SESSION ${id}: ${state.currentMission.title.toUpperCase()} [${state.gameDifficulty.toUpperCase()}]`,
+    `${titlePrefix}SESSION ${missionId}: ${state.currentMission.title.toUpperCase()} [${state.gameDifficulty.toUpperCase()}]`,
     minimalDesc(state.currentMission, isFinal),
     titleColor
   );
@@ -1008,6 +1087,7 @@ function loadMission(id) {
     const bossTargetY = isFinal ? 1.4 : 2;
     const bossDur = isFinal ? 18000 : 40000;
     setTimeout(() => {
+      if (token !== missionRuntimeToken) return;
       hackerBoss.setAttribute("animation", `property: position; to: 0 ${bossTargetY} -3; dur: ${bossDur}; easing: linear`);
     }, 50);
   } else if (hackerBoss) {
@@ -1059,6 +1139,7 @@ function loadMission(id) {
     if (hackerBoss) {
       hackerBoss.removeAttribute("animation");
       setTimeout(() => {
+        if (token !== missionRuntimeToken) return;
         hackerBoss.setAttribute("animation", "property: position; to: 0 1 -2; dur: 45000; easing: linear");
       }, 50);
     }
@@ -1079,16 +1160,27 @@ window.loadMission = loadMission;
 
 window.checkChoiceAnswer = function (selectedLetter) {
   if (state.isGameOver || !state.currentMission) return;
+  if (missionTransitionLock) return;
+
   const isChoiceMission = state.currentMission.type === "reading" || state.currentMission.type === "listening";
   if (!isChoiceMission || !Array.isArray(state.currentMission.choices) || !state.currentMission.answer) return;
-  const correctChoiceStr = state.currentMission.choices.find(c => typeof c === "string" && c.startsWith(state.currentMission.answer));
+
+  lockMissionTransition(350);
+
+  const correctChoiceStr = state.currentMission.choices.find(
+    c => typeof c === "string" && c.startsWith(state.currentMission.answer)
+  );
   if (!correctChoiceStr) return;
+
   if (correctChoiceStr.startsWith(selectedLetter)) winMission();
   else takeDamage();
 };
 
 window.checkWritingAnswer = function () {
   if (state.isGameOver || !state.currentMission) return;
+  if (missionTransitionLock) return;
+
+  lockMissionTransition(350);
 
   const answer = $("write-input")?.value || "";
   const result = analyzeWritingAnswer(state.currentMission, answer);
@@ -1106,6 +1198,11 @@ window.checkWritingAnswer = function () {
   setMissionPrompt(buildWritingCoachPrompt(state.currentMission, result), "WRITE");
   setFeedback(`❌ ${result.matched.length}/${result.needed} keyword`, "#ff4757");
   scheduleFeedbackClear(900);
+
+  setTimeout(() => {
+    missionTransitionLock = false;
+  }, 280);
+
   takeDamage();
 };
 
@@ -1130,6 +1227,8 @@ window.startRecognition = function () {
   }
 
   const recognition = new SpeechRecognition();
+  window.recognition = recognition;
+
   recognition.lang = "en-US";
   recognition.interimResults = true;
 
@@ -1166,6 +1265,8 @@ window.startRecognition = function () {
     scheduleFeedbackClear(700);
 
     if (isMatch) {
+      if (missionTransitionLock) return;
+      lockMissionTransition(350);
       recognition.stop();
       winMission();
     } else if (isFinal) {
@@ -1176,6 +1277,7 @@ window.startRecognition = function () {
   };
 
   recognition.onend = () => {
+    if (missionTransitionLock) return;
     if (!state.isGameOver && $("mission-speaking-scene")?.getAttribute("visible") === "true") {
       $("btn-speak").disabled = false;
       if (($("feedback")?.innerText || "").includes("กำลังฟัง")) {
@@ -1193,6 +1295,7 @@ window.startRecognition = function () {
       setFeedback(`⚠️ ไมค์ผิดพลาด (${event.error})`, "#ff4757");
     }
     $("btn-speak").disabled = false;
+    missionTransitionLock = false;
   };
 
   recognition.start();
@@ -1482,12 +1585,23 @@ function takeDamage() {
 }
 
 function startTimer(seconds) {
-  clearInterval(state.missionTimer);
+  if (state.missionTimer) {
+    clearInterval(state.missionTimer);
+    state.missionTimer = null;
+  }
+
+  const token = missionRuntimeToken;
   state.timeLeft = seconds;
   showTimer(true);
   setMissionTimerAlert(false);
 
   state.missionTimer = setInterval(() => {
+    if (token !== missionRuntimeToken) {
+      clearInterval(state.missionTimer);
+      state.missionTimer = null;
+      return;
+    }
+
     setTimerText(state.timeLeft);
 
     if (state.timeLeft <= 10) {
@@ -1499,6 +1613,10 @@ function startTimer(seconds) {
 
     if (state.timeLeft <= 0) {
       clearInterval(state.missionTimer);
+      state.missionTimer = null;
+
+      if (token !== missionRuntimeToken) return;
+
       setMissionTimerAlert(false);
       setText("timer", "00:00 - TIME UP!");
       onMissionFailForAI("timeout");
@@ -1512,7 +1630,11 @@ function startTimer(seconds) {
 }
 
 function winMission() {
-  clearInterval(state.missionTimer);
+  if (state.missionTimer) {
+    clearInterval(state.missionTimer);
+    state.missionTimer = null;
+  }
+
   playSFX("win");
   showVRFeedback(true);
   playAnswerFX(true);
@@ -1539,7 +1661,10 @@ function winMission() {
     hideAllScenesAndControls();
 
     setTimeout(() => {
-      if (!state.isGameOver) loadMission(state.currentMission.id);
+      if (!state.isGameOver) {
+        missionTransitionLock = false;
+        loadMission(state.currentMission.id);
+      }
     }, 900);
     return;
   }
@@ -1600,6 +1725,7 @@ function winMission() {
 
   show("btn-next", "inline-block");
   show("btn-return", "inline-block");
+  missionTransitionLock = false;
 }
 
 function updateHUD(pointsToAdd = 0) {
@@ -1647,10 +1773,15 @@ function hideAllScenesAndControls() {
   resetPromptFocusExpanded();
   setMissionTimerAlert(false);
   document.body.dataset.missionType = "";
-  clearInterval(state.missionTimer);
+  if (state.missionTimer) {
+    clearInterval(state.missionTimer);
+    state.missionTimer = null;
+  }
 }
 
 window.playNextMission = function () {
+  if (missionTransitionLock) return;
+
   hide("summary-panel");
   hide("game-over-ui");
   hide("btn-next");
@@ -1664,6 +1795,9 @@ window.playNextMission = function () {
 };
 
 window.returnToHub = function () {
+  resetMissionRuntime();
+  missionTransitionLock = false;
+
   state.isGameOver = false;
   state.systemHP = 100;
 
@@ -1674,7 +1808,8 @@ window.returnToHub = function () {
   setHudMode("hub");
   hide("game-over-ui");
   $("ui-container")?.classList.remove("danger-mode");
-  setHubVisible(true);
+
+  setHubInteractionEnabled(true);
 
   document.body.classList.remove("mission-mode", "summary-mode");
   document.body.classList.add("hub-mode");
@@ -1721,6 +1856,7 @@ window.onload = function () {
     renderQuestionDiffBadge("normal");
     setRewardChestState("loading");
     setLeaderboardBoardState("idle");
+    setHubInteractionEnabled(true);
   } catch (e) {
     showBootError(e?.stack || e?.message || e);
   } finally {
