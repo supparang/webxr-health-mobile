@@ -18,7 +18,6 @@ import {
   getBaseTimeForMissionType,
   getDifficultyTimeMod,
   getAdaptiveTimeBonus,
-  getAdaptiveSpeakAllowance,
   getAdaptiveDamageAdjustment,
   onMissionLoadedForAI,
   onMissionSuccessForAI,
@@ -100,7 +99,7 @@ import {
   expandMissionHudTextCompact,
   togglePromptFocusExpanded,
   resetPromptFocusExpanded
-} from "./lesson-ui.js?v=20260423-sync-r4";
+} from "./lesson-ui.js?v=20260423-sync-r5";
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -142,6 +141,13 @@ function formatClock(totalSec = 0) {
 function missionSessionCode(missionId) {
   const num = Number(missionId) || 0;
   return `S${String(num).padStart(2, "0")}`;
+}
+
+function cleanMissionTitle(title = "", missionId = 0) {
+  const code = missionSessionCode(missionId);
+  return String(title || "")
+    .replace(new RegExp(`^${code}\\s*:\\s*`, "i"), "")
+    .trim();
 }
 
 function getQueryValue(...keys) {
@@ -311,11 +317,14 @@ function markAttendanceMissionEnd(success, mission, reason = "") {
 function syncSummaryFromRuntime(success, mission, mood, extraLines = []) {
   showEndSummary(success, mission, mood, extraLines);
 
+  const panel = $("summary-panel");
   const titleEl = $("summary-title");
   const bodyEl = $("summary-body");
   const missionCode = missionSessionCode(mission?.id);
+  const missionTitle = cleanMissionTitle(mission?.title || "-", mission?.id);
+
   const lines = [
-    `Mission: ${missionCode}: ${mission?.title || "-"}`,
+    `Mission: ${missionCode}: ${missionTitle || "-"}`,
     `Type: ${String(mission?.type || "-").toUpperCase()}`,
     `Score: ${Math.max(0, Number(state.gameScore) || 0)}`,
     `HP: ${Math.max(0, Number(state.systemHP) || 0)}%`,
@@ -333,6 +342,7 @@ function syncSummaryFromRuntime(success, mission, mood, extraLines = []) {
     bodyEl.textContent = lines.join("\n");
   }
 
+  if (panel) panel.classList.add("show");
   show("summary-panel");
   showTimer(false);
   setMissionTimerAlert(false);
@@ -919,7 +929,10 @@ function setRewardChestState(mode = "idle", opts = {}) {
     n.lid?.setAttribute("color", "#8fa7b3");
     n.text.setAttribute("value", "Loading...");
     n.text.setAttribute("color", "#ffffff");
-    n.root.setAttribute("animation__float", "property: position; dir: alternate; dur: 1800; loop: true; to: -3.72 0.77 -3.08; easing: easeInOutSine");
+    n.root.setAttribute(
+      "animation__float",
+      "property: position; dir: alternate; dur: 1800; loop: true; to: -3.72 0.77 -3.08; easing: easeInOutSine"
+    );
     return;
   }
 
@@ -934,10 +947,22 @@ function setRewardChestState(mode = "idle", opts = {}) {
     n.lid?.setAttribute("color", "#f1c40f");
     n.text.setAttribute("value", `Streak: ${streak} Days${safeNote || "\nTap to Claim"}`);
     n.text.setAttribute("color", "#ffffff");
-    n.root.setAttribute("animation__float", "property: position; dir: alternate; dur: 1050; loop: true; to: -3.72 0.82 -3.08; easing: easeInOutSine");
-    n.aura?.setAttribute("animation__pulse", "property: material.opacity; dir: alternate; dur: 800; loop: true; from: 0.14; to: 0.30; easing: easeInOutSine");
-    n.lid?.setAttribute("animation__gleam", "property: rotation; dir: alternate; dur: 1200; loop: true; to: 0 0 3; easing: easeInOutSine");
-    n.frame?.setAttribute("animation__frame", "property: material.opacity; dir: alternate; dur: 900; loop: true; from: 0.26; to: 0.52; easing: easeInOutSine");
+    n.root.setAttribute(
+      "animation__float",
+      "property: position; dir: alternate; dur: 1050; loop: true; to: -3.72 0.82 -3.08; easing: easeInOutSine"
+    );
+    n.aura?.setAttribute(
+      "animation__pulse",
+      "property: material.opacity; dir: alternate; dur: 800; loop: true; from: 0.14; to: 0.30; easing: easeInOutSine"
+    );
+    n.lid?.setAttribute(
+      "animation__gleam",
+      "property: rotation; dir: alternate; dur: 1200; loop: true; to: 0 0 3; easing: easeInOutSine"
+    );
+    n.frame?.setAttribute(
+      "animation__frame",
+      "property: material.opacity; dir: alternate; dur: 900; loop: true; from: 0.26; to: 0.52; easing: easeInOutSine"
+    );
     return;
   }
 
@@ -951,7 +976,10 @@ function setRewardChestState(mode = "idle", opts = {}) {
     n.lid?.setAttribute("color", rarityColor);
     n.text.setAttribute("value", `Streak: ${streak} Days${safeNote || "\nClaimed"}`);
     n.text.setAttribute("color", "#ffffff");
-    n.aura?.setAttribute("animation__pulse", "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.10; to: 0.20; easing: easeInOutSine");
+    n.aura?.setAttribute(
+      "animation__pulse",
+      "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.10; to: 0.20; easing: easeInOutSine"
+    );
     return;
   }
 
@@ -987,8 +1015,14 @@ function playRewardChestClaimFX(rarityColor = "#ffeaa7") {
   n.frame?.setAttribute("color", rarityColor);
   n.aura?.setAttribute("color", rarityColor);
   n.lid?.setAttribute("color", rarityColor);
-  n.root.setAttribute("animation__claim", "property: scale; dur: 260; dir: alternate; loop: 2; to: 1.08 1.08 1.08; easing: easeOutBack");
-  n.aura?.setAttribute("animation__claim", "property: scale; dur: 360; dir: alternate; loop: 2; to: 1.18 1.18 1.18; easing: easeOutQuad");
+  n.root.setAttribute(
+    "animation__claim",
+    "property: scale; dur: 260; dir: alternate; loop: 2; to: 1.08 1.08 1.08; easing: easeOutBack"
+  );
+  n.aura?.setAttribute(
+    "animation__claim",
+    "property: scale; dur: 360; dir: alternate; loop: 2; to: 1.18 1.18 1.18; easing: easeOutQuad"
+  );
 }
 
 function getLeaderboardNodes() {
@@ -1021,7 +1055,10 @@ function setLeaderboardBoardState(mode = "idle") {
     n.title?.setAttribute("color", "#ffeaa7");
     n.subtitle?.setAttribute("color", "#cbd5e1");
     n.list.setAttribute("color", "#ffffff");
-    n.frame?.setAttribute("animation__frame", "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.22; to: 0.36; easing: easeInOutSine");
+    n.frame?.setAttribute(
+      "animation__frame",
+      "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.22; to: 0.36; easing: easeInOutSine"
+    );
     return;
   }
 
@@ -1898,7 +1935,12 @@ window.submitScore = async function () {
     });
 
     setFeedback(state.gameScore > oldBest ? `✅ New High Score ${bestScore}` : `✅ บันทึกชื่อเรียบร้อยแล้ว`, "#2ed573");
-    hide("game-over-ui");
+
+    const gameOverUI = $("game-over-ui");
+    if (gameOverUI) {
+      gameOverUI.classList.remove("show");
+      hide(gameOverUI);
+    }
   } catch (e) {
     console.error("Error saving score (RTDB):", e);
     setFeedback("❌ บันทึกคะแนนไม่สำเร็จ", "#ff4757");
@@ -2018,7 +2060,7 @@ function playSFX(type) {
     osc.frequency.setValueAtTime(220, audioCtx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.25);
     osc.connect(masterGain);
-    masterGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    masterGain.gain.setValueAtTime(0.20, audioCtx.currentTime);
     masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.28);
     osc.start();
     osc.stop(audioCtx.currentTime + 0.28);
@@ -2111,8 +2153,12 @@ function takeDamage() {
     syncSummaryFromRuntime(false, state.currentMission, aiDirector.mood, ["Outcome: FAIL"]);
 
     if (state.gameScore > 0) {
-      show("game-over-ui");
-      $("player-name-input").value = playerProfile.name || "";
+      const gameOverUI = $("game-over-ui");
+      if (gameOverUI) {
+        gameOverUI.classList.add("show");
+        show(gameOverUI, "block");
+      }
+      $("player-name-input").value = playerProfile.name || attendanceState.studentName || "";
     }
     show("btn-return", "inline-block");
   } else {
@@ -2326,6 +2372,12 @@ function hideAllScenesAndControls() {
 window.playNextMission = function () {
   if (missionTransitionLock) return;
 
+  const panel = $("summary-panel");
+  if (panel) panel.classList.remove("show");
+
+  const gameOverUI = $("game-over-ui");
+  if (gameOverUI) gameOverUI.classList.remove("show");
+
   hide("summary-panel");
   hide("game-over-ui");
   hide("btn-next");
@@ -2350,6 +2402,12 @@ window.returnToHub = function () {
 
   $("boss-cinematic")?.classList.remove("show");
   $("impact-flash")?.classList.remove("impact-hit", "impact-clear");
+
+  const panel = $("summary-panel");
+  if (panel) panel.classList.remove("show");
+
+  const gameOverUI = $("game-over-ui");
+  if (gameOverUI) gameOverUI.classList.remove("show");
 
   hideAllScenesAndControls();
   setHudMode("hub");
@@ -2376,7 +2434,7 @@ window.returnToHub = function () {
   markAttendanceLobby();
   renderAttendanceTracker();
   setScoreHUD(state.gameScore, state.systemHP);
-}
+};
 
 window.onload = function () {
   const releaseLoading =
