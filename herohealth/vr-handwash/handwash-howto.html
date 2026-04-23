@@ -24,6 +24,7 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       width:100%;
@@ -206,6 +207,10 @@
       pointer-events:none;
     }
 
+    #coach-wrap.hidden{
+      display:none !important;
+    }
+
     #coach-face{
       width:56px;
       height:56px;
@@ -250,6 +255,29 @@
       justify-content:flex-end;
       pointer-events:auto;
       max-width:78vw;
+    }
+
+    #controls.scene1-mode{
+      left:50%;
+      right:auto;
+      transform:translateX(-50%);
+      bottom:14px;
+      max-width:none;
+      width:calc(100% - 24px);
+      justify-content:center;
+      gap:10px;
+      z-index:60;
+    }
+
+    #controls.scene1-mode .btn{
+      display:none !important;
+    }
+
+    #controls.scene1-mode #next-btn,
+    #controls.scene1-mode #skip-btn{
+      display:inline-flex !important;
+      min-width:132px;
+      justify-content:center;
     }
 
     .btn{
@@ -342,7 +370,6 @@
       margin-top:8px;
     }
 
-    /* Scene 1 แบบ 2D */
     #scene1-panel{
       position:fixed;
       left:50%;
@@ -355,8 +382,11 @@
       border-radius:28px;
       box-shadow:0 20px 60px rgba(0,0,0,.20);
       padding:18px;
+      padding-bottom:22px;
       color:var(--ink);
       pointer-events:auto;
+      max-height:calc(100dvh - 250px);
+      overflow-y:auto;
     }
 
     #scene1-panel.hidden{
@@ -504,6 +534,18 @@
         max-width:88vw;
       }
 
+      #controls.scene1-mode{
+        bottom:10px;
+        width:calc(100% - 18px);
+      }
+
+      #controls.scene1-mode #next-btn,
+      #controls.scene1-mode #skip-btn{
+        min-width:128px;
+        font-size:.86rem;
+        padding:10px 12px;
+      }
+
       .btn{
         padding:8px 10px;
         font-size:.82rem;
@@ -530,9 +572,11 @@
       }
 
       #scene1-panel{
-        top:132px;
+        top:124px;
         width:calc(100% - 14px);
-        padding:14px;
+        max-height:calc(100dvh - 230px);
+        padding:12px;
+        padding-bottom:22px;
         border-radius:24px;
       }
 
@@ -540,9 +584,15 @@
         font-size:1.2rem;
       }
 
+      .scene1-desc{
+        font-size:.9rem;
+        margin-top:8px;
+      }
+
       .scene1-grid{
         grid-template-columns:1fr;
         gap:10px;
+        margin-top:12px;
       }
 
       .scene1-item{
@@ -569,6 +619,7 @@
     }
   </style>
 </head>
+
 <body>
   <div id="hud">
     <div id="ui-layer">
@@ -587,7 +638,7 @@
       <div id="guide-panel">
         <div id="guide-icon" class="guide-image">📘</div>
         <div>
-          <div id="step-desc">จำ 4 อย่างนี้ก่อน: ก๊อกน้ำ สบู่ น้ำ และมือ</div>
+          <div id="step-desc">จำ 4 อย่างนี้ก่อน</div>
           <div id="action-prompt">ดูให้ชัด แล้วค่อยกด “ถัดไป”</div>
         </div>
       </div>
@@ -622,7 +673,7 @@
     <div class="card">
       <div class="badge">📘 How to Play</div>
       <h1>ก่อนเล่น มาดูให้ชัดก่อนว่าอะไรคืออะไร</h1>
-      <p>หน้านี้แก้ปัญหาเดิมที่เด็กต้องเดาเองว่าอะไรคือ <strong>ก๊อกน้ำ / สบู่ / มือ / น้ำ</strong> โดยเราจะโชว์ทีละอย่างแบบชัด ๆ</p>
+      <p>เราจะสอนให้รู้จัก <strong>ก๊อกน้ำ / สบู่ / น้ำ / มือ</strong> แบบง่าย ๆ ก่อนเริ่มฝึกจริง</p>
 
       <div class="tips">
         <div class="tip">🚰 เห็นก๊อกน้ำ = แตะก๊อกน้ำ</div>
@@ -637,11 +688,10 @@
     </div>
   </div>
 
-  <!-- Scene 1 แบบ 2D -->
   <section id="scene1-panel" class="hidden">
     <div class="scene1-badge">📘 Scene 1 • จำ 4 อย่างนี้ก่อน</div>
     <h2 class="scene1-title">ในเกมนี้มี 4 อย่างที่ต้องรู้</h2>
-    <p class="scene1-desc">ยังไม่ต้องเล่นตอนนี้ แค่ดูให้รู้ก่อนว่าเห็นอะไรแล้วต้องทำอะไร</p>
+    <p class="scene1-desc">ดูให้รู้ก่อนว่าเห็นอะไรแล้วต้องทำอะไร</p>
 
     <div class="scene1-grid">
       <div class="scene1-item">
@@ -876,6 +926,7 @@
 
     function buildZones(){
       groupEls.zoneLayer.innerHTML = '';
+
       zoneDefs.forEach(def => {
         const g = document.createElement('a-entity');
         g.setAttribute('id', def.id);
@@ -922,6 +973,7 @@
         zoneMap.set(def.id, g);
       });
     }
+
     buildZones();
 
     const SCENES = [
@@ -929,7 +981,7 @@
         id:'intro2d',
         title:'ในเกมนี้มี 4 อย่าง',
         icon:'📘',
-        desc:'จำ 4 อย่างนี้ก่อน: ก๊อกน้ำ สบู่ น้ำ และมือ',
+        desc:'จำ 4 อย่างนี้ก่อน',
         prompt:'ดูให้ชัด แล้วกด “ถัดไป”',
         type:'intro2d'
       },
@@ -937,7 +989,7 @@
         id:'tap',
         title:'นี่คือก๊อกน้ำ / สบู่ / ผ้าเช็ดมือ',
         icon:'🎯',
-        desc:'เวลาเห็นป้ายใหญ่แบบนี้ ให้แตะตรงวัตถุนั้นได้เลย',
+        desc:'เห็นป้ายใหญ่แบบนี้ ให้แตะตรงวัตถุนั้นได้เลย',
         prompt:'แตะ ก๊อกน้ำ → สบู่ → ผ้าเช็ดมือ',
         type:'tap',
         order:['faucet','soap','towel']
@@ -946,7 +998,7 @@
         id:'hold',
         title:'นี่คือโซนน้ำ',
         icon:'💧',
-        desc:'ขั้นที่เป็นน้ำ ต้องค้างไว้จนแถบเต็ม ไม่ใช่แตะครั้งเดียว',
+        desc:'เห็นน้ำ ต้องค้างไว้จนแถบเต็ม',
         prompt:'ค้างที่โซนน้ำให้เต็ม',
         type:'hold',
         need:1.0
@@ -955,8 +1007,8 @@
         id:'zones',
         title:'นี่คือมือ และจุดบนมือ',
         icon:'🖐️',
-        desc:'เวลาเห็นมือ ให้แตะ “จุดที่เรืองแสง” ทีละจุดตามที่เกมชี้',
-        prompt:'แตะจุดที่เรืองแสง: ฝ่ามือซ้าย → ซอกนิ้วขวา → หัวแม่มือซ้าย',
+        desc:'เห็นมือ ให้แตะจุดที่เรืองแสงทีละจุด',
+        prompt:'แตะจุดที่เรืองแสง',
         type:'zones',
         order:[
           { id:'left-palms', label:'ฝ่ามือซ้าย', color:'#38bdf8' },
@@ -974,6 +1026,10 @@
       lastTs:0,
       hudCompact:false
     };
+
+    function currentScene(){
+      return SCENES[state.sceneIndex];
+    }
 
     function setCoach(text, mood='normal'){
       ui.coach.textContent = text;
@@ -1011,18 +1067,17 @@
 
     function highlightZone(zoneId, color){
       zoneMap.forEach(zone => zone.setAttribute('visible', 'false'));
+
       const zone = zoneMap.get(zoneId);
       if (!zone) return;
+
       zone.setAttribute('visible', 'true');
+
       const plane = zone.querySelector('a-plane');
       if (plane){
         plane.setAttribute('color', color || '#38bdf8');
         plane.setAttribute('material', `transparent:true; opacity:0.94; emissive:${color || '#38bdf8'}; emissiveIntensity:1.2`);
       }
-    }
-
-    function currentScene(){
-      return SCENES[state.sceneIndex];
     }
 
     function updateProgress(){
@@ -1033,19 +1088,73 @@
 
     function updateUI(){
       const sceneData = currentScene();
+
       ui.stepCount.textContent = `Howto • ขั้นที่ ${state.sceneIndex + 1}/${SCENES.length}`;
       ui.stepName.textContent = sceneData.title;
       ui.stepDesc.textContent = sceneData.desc;
       ui.guideIcon.textContent = sceneData.icon;
       ui.sceneChip.textContent = `Scene ${state.sceneIndex + 1}`;
+
       updateProgress();
+    }
+
+    function setHudCompact(on){
+      const sceneData = currentScene();
+
+      if (sceneData && sceneData.type === 'intro2d'){
+        state.hudCompact = false;
+        ui.layer.classList.remove('compact');
+        ui.hudToggleBtn.textContent = 'HIDE HUD';
+        return;
+      }
+
+      state.hudCompact = !!on;
+      ui.layer.classList.toggle('compact', state.hudCompact);
+      ui.hudToggleBtn.textContent = state.hudCompact ? 'SHOW HUD' : 'HIDE HUD';
+    }
+
+    function setSceneMode(sceneType){
+      const isIntro2D = sceneType === 'intro2d';
+      const controls = document.getElementById('controls');
+      const coachWrap = document.getElementById('coach-wrap');
+
+      if (isIntro2D){
+        ui.layer.classList.remove('compact');
+
+        ui.hudToggleBtn.style.display = 'none';
+        ui.recenterBtn.style.display = 'none';
+        ui.launcherBtn.style.display = 'none';
+        ui.hubBtn.style.display = 'none';
+
+        ui.nextBtn.style.display = '';
+        ui.skipBtn.style.display = '';
+
+        if (coachWrap) coachWrap.classList.add('hidden');
+        if (controls) controls.classList.add('scene1-mode');
+
+        return;
+      }
+
+      ui.hudToggleBtn.style.display = '';
+      ui.recenterBtn.style.display = '';
+      ui.launcherBtn.style.display = '';
+      ui.hubBtn.style.display = '';
+
+      ui.nextBtn.style.display = '';
+      ui.skipBtn.style.display = '';
+
+      if (coachWrap) coachWrap.classList.remove('hidden');
+      if (controls) controls.classList.remove('scene1-mode');
     }
 
     function renderScene(){
       const sceneData = currentScene();
+
       clearVisuals();
       state.stepValue = 0;
       state.holdValue = 0;
+
+      setSceneMode(sceneData.type);
 
       if (sceneData.type === 'intro2d'){
         ui.scene1Panel.classList.remove('hidden');
@@ -1091,6 +1200,7 @@
       if (sceneData.type !== 'tap') return;
 
       const expected = sceneData.order[state.stepValue];
+
       if (objectKey !== expected){
         setCoach('ยังไม่ใช่อันนี้ ลองดูป้ายใหญ่ตรงกลางอีกที', 'warn');
         return;
@@ -1106,7 +1216,9 @@
       }
 
       const nextKey = sceneData.order[state.stepValue];
+
       clearVisuals();
+      setSceneMode(sceneData.type);
 
       if (nextKey === 'faucet'){
         setEntityVisible(groupEls.faucet, true);
@@ -1128,6 +1240,7 @@
       if (sceneData.type !== 'zones') return;
 
       const expected = sceneData.order[state.stepValue];
+
       if (!expected || zoneId !== expected.id){
         setCoach('ยังไม่ใช่จุดนี้ ดูชื่อที่เราชี้ให้ก่อน', 'warn');
         return;
@@ -1151,6 +1264,7 @@
     function triggerFocusedAction(){
       const sceneData = currentScene();
       const target = getFocusedEl();
+
       if (!target) return;
 
       const objectKey = target.dataset?.object || '';
@@ -1165,17 +1279,14 @@
       }
     }
 
-    function safeGoPractice(){
-      location.href = PRACTICE_URL;
-    }
-
     function goNextScene(){
       if (state.sceneIndex < SCENES.length - 1){
         state.sceneIndex += 1;
         renderScene();
         return;
       }
-      safeGoPractice();
+
+      location.href = PRACTICE_URL;
     }
 
     function snapFrontView(){
@@ -1189,12 +1300,6 @@
       }catch(e){
         console.warn(e);
       }
-    }
-
-    function setHudCompact(on){
-      state.hudCompact = !!on;
-      ui.layer.classList.toggle('compact', state.hudCompact);
-      ui.hudToggleBtn.textContent = state.hudCompact ? 'SHOW HUD' : 'HIDE HUD';
     }
 
     function isHoldingWater(){
