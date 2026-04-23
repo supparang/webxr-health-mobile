@@ -1103,7 +1103,7 @@
       }
 
       async function requestTeacherData() {
-        const env = (action) => JSON.stringify({
+        const envelope = (action) => JSON.stringify({
           source: 'teacher.html',
           schema: 'teacher-dashboard-v2',
           action,
@@ -1115,12 +1115,12 @@
           async () => fetchJson(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: env('teacher_dashboard_get')
+            body: envelope('teacher_dashboard_get')
           }),
           async () => fetchJson(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: env('teacher_dashboard')
+            body: envelope('teacher_dashboard')
           }),
           async () => fetchJson(API_URL + '?action=teacher_dashboard_get'),
           async () => fetchJson(API_URL)
@@ -1140,61 +1140,154 @@
         throw lastErr || new Error('Cannot load teacher dashboard data');
       }
 
-      function pickArray(obj, keys) {
-        for (const k of keys) {
-          if (Array.isArray(obj?.[k])) return obj[k];
+      function pickFirstArray(...candidates) {
+        for (const item of candidates) {
+          if (Array.isArray(item)) return item;
         }
         return [];
       }
 
       function normalizeDashboardPayload(data) {
-        const root = data?.data || data || {};
-        let students = pickArray(root, [
-          'students', 'student_profiles', 'students_profile_rows', 'studentsProfile', 'profiles'
-        ]);
+        const root = data?.data || data?.payload || data?.result || data || {};
 
-        let sessions = pickArray(root, [
-          'sessions', 'session_rows', 'sessions_rows', 'sessionSummaryRows'
-        ]);
+        let students = pickFirstArray(
+          root.students,
+          root.student_profiles,
+          root.students_profile,
+          root.studentsProfile,
+          root.students_profile_rows,
+          root.studentProfileRows,
+          root.profiles
+        );
 
-        let termAnswers = pickArray(root, [
-          'term_answers', 'term_answer_rows', 'answers', 'events'
-        ]);
+        let sessions = pickFirstArray(
+          root.sessions,
+          root.session_rows,
+          root.sessions_rows,
+          root.sessionSummaryRows,
+          root.session_summary,
+          root.sessionsSheet,
+          root.sessionSheet
+        );
 
-        if (!students.length && Array.isArray(root.rows)) {
-          students = root.rows.filter(r => (
-            'last_session_id' in r ||
-            'last_bank' in r ||
-            'last_mode' in r ||
-            'last_accuracy' in r ||
-            'recommended_mode' in r
-          ));
-        }
+        let termAnswers = pickFirstArray(
+          root.term_answers,
+          root.term_answer,
+          root.term_answer_rows,
+          root.termAnswers,
+          root.answers,
+          root.events
+        );
 
-        if (!sessions.length && Array.isArray(root.rows)) {
-          sessions = root.rows.filter(r => (
-            'started_at' in r ||
-            'ended_at' in r ||
-            'duration_sec' in r ||
-            ((r.action || r.type) === 'session_end') ||
-            ((r.action || r.type) === 'session_start')
-          ));
-        }
+        const flatRows = pickFirstArray(
+          root.rows,
+          root.all_rows,
+          root.items
+        );
 
-        if (!termAnswers.length && Array.isArray(root.rows)) {
-          termAnswers = root.rows.filter(r => (
-            'term_id' in r ||
-            'variant_type' in r ||
-            'response_ms' in r ||
-            ((r.action || r.type) === 'term_answer')
-          ));
+        if (flatRows.length) {
+          if (!students.length) {
+            students = flatRows.filter(r =>
+              'last_session_id' in r ||
+              'last_bank' in r ||
+              'last_mode' in r ||
+              'last_accuracy' in r ||
+              'recommended_mode' in r ||
+              'recommended_difficulty' in r
+            );
+          }
+
+          if (!sessions.length) {
+            sessions = flatRows.filter(r =>
+              'started_at' in r ||
+              'ended_at' in r ||
+              'duration_sec' in r ||
+              'score' in r ||
+              'accuracy' in r ||
+              ((r.action || r.type) === 'session_end') ||
+              ((r.action || r.type) === 'session_start')
+            );
+          }
+
+          if (!termAnswers.length) {
+            termAnswers = flatRows.filter(r =>
+              'term_id' in r ||
+              'term' in r ||
+              'variant_type' in r ||
+              'response_ms' in r ||
+              ((r.action || r.type) === 'term_answer')
+            );
+          }
         }
 
         return {
-          students,
-          sessions,
-          termAnswers
+          students: Array.isArray(students) ? students : [],
+          sessions: Array.isArray(sessions) ? sessions : [],
+          termAnswers: Array.isArray(termAnswers) ? termAnswers : []
         };
+      }
+
+      function normalizeSessionRows(rows) {
+        const map = new Map();
+
+        rows.forEach(raw => {
+          const row = { ...raw };
+          const key = text(
+            row.session_id || row.sessionId ||
+            ((row.display_name || row.displayName || 'anon') + '|' +
+            (row.mode || 'unknown') + '|' +
+            (row.started_at || row.timestamp || row.ended_at || ''))
+          );
+
+          const prev = map.get(key);
+
+          if (!prev) {
+            map.set(key, row);
+            return;
+          }
+
+          const prevHasEnd = !!text(prev.ended_at || '');
+          const currHasEnd = !!text(row.ended_at || '');
+
+          const prevTime = text(prev.ended_at || prev.timestamp || prev.started_at || '');
+          const currTime = text(row.ended_at || row.timestamp || row.started_at || '');
+
+          let winner = prev;
+          let loser = row;
+
+          if (currHasEnd && !prevHasEnd) {
+            winner = row;
+            loser = prev;
+          } else if (currHasEnd === prevHasEnd && currTime >= prevTime) {
+            winner = row;
+            loser = prev;
+          }
+
+          map.set(key, {
+            ...loser,
+            ...winner,
+            session_id: text(winner.session_id || loser.session_id || ''),
+            display_name: text(winner.display_name || loser.display_name || ''),
+            student_id: text(winner.student_id || loser.student_id || ''),
+            section: text(winner.section || loser.section || ''),
+            session_code: text(winner.session_code || loser.session_code || ''),
+            bank: text(winner.bank || loser.bank || ''),
+            mode: text(winner.mode || loser.mode || ''),
+            started_at: text(winner.started_at || loser.started_at || ''),
+            ended_at: text(winner.ended_at || loser.ended_at || ''),
+            duration_sec: num(winner.duration_sec || loser.duration_sec || 0, 0),
+            score: num(winner.score || loser.score || 0, 0),
+            accuracy: num(winner.accuracy || loser.accuracy || 0, 0),
+            mistakes: num(winner.mistakes || loser.mistakes || 0, 0),
+            timestamp: text(winner.timestamp || loser.timestamp || '')
+          });
+        });
+
+        return Array.from(map.values()).sort((a, b) => {
+          const ta = text(a.ended_at || a.timestamp || a.started_at || '');
+          const tb = text(b.ended_at || b.timestamp || b.started_at || '');
+          return tb.localeCompare(ta);
+        });
       }
 
       function deriveAttendanceMeta(students, sessions) {
@@ -1263,6 +1356,65 @@
           .slice(0, 8);
       }
 
+      function deriveStudentsFromSessionsFallback(sessionRows, termAnswerRows) {
+        const map = {};
+
+        sessionRows.forEach(row => {
+          const sid = text(row.student_id || row.studentId || '');
+          const name = text(row.display_name || row.displayName || 'Unknown');
+          const key = sid || name;
+          if (!key) return;
+
+          if (!map[key]) {
+            map[key] = {
+              student_id: sid,
+              display_name: name,
+              section: text(row.section || ''),
+              last_session_id: '',
+              last_bank: '',
+              last_mode: '',
+              last_score: 0,
+              last_accuracy: 0,
+              recommended_mode: '',
+              recommended_difficulty: '',
+              weak_terms_json: [],
+              mastery_json: {},
+              recent_sessions: [],
+              last_ended_at: ''
+            };
+          }
+
+          map[key].recent_sessions.push(row);
+
+          const rowTime = text(row.ended_at || row.timestamp || row.started_at || '');
+          const currentTime = text(map[key].last_ended_at || '');
+
+          if (!currentTime || rowTime >= currentTime) {
+            map[key].section = text(row.section || map[key].section || '');
+            map[key].last_session_id = text(row.session_id || map[key].last_session_id || '');
+            map[key].last_bank = text(row.bank || map[key].last_bank || '');
+            map[key].last_mode = text(row.mode || map[key].last_mode || '');
+            map[key].last_score = num(row.score, map[key].last_score || 0);
+            map[key].last_accuracy = num(row.accuracy, map[key].last_accuracy || 0);
+            map[key].last_ended_at = rowTime;
+          }
+        });
+
+        Object.values(map).forEach(student => {
+          const weak = deriveWeakTermsForStudent(student, termAnswerRows);
+          student.term_weak_terms = weak;
+          student.weak_terms_json = weak.map(x => ({
+            term: x.term,
+            wrong: x.wrong,
+            accuracy: x.accuracy
+          }));
+          student.recommended_mode = student.last_accuracy < 75 ? 'ai_training' : (student.last_mode || 'code_battle');
+          student.recommended_difficulty = student.last_accuracy < 60 ? 'easy' : student.last_accuracy < 80 ? 'normal' : 'hard';
+        });
+
+        return Object.values(map);
+      }
+
       function getStudentStatus(student) {
         const acc = num(student.last_accuracy, 0);
         const attendanceRate = num(student.attendance_rate, 0);
@@ -1319,24 +1471,24 @@
               const name = text(s.display_name || s.displayName || '');
               return (studentId && sid === studentId) || (!studentId && name === displayName);
             })
-            .sort((a, b) => String(b.timestamp || b.ended_at || '').localeCompare(String(a.timestamp || a.ended_at || '')));
+            .sort((a, b) => String(b.ended_at || b.timestamp || '').localeCompare(String(a.ended_at || a.timestamp || '')));
 
-          const attendanceCount = attendanceMeta.byStudent[studentId]?.codes?.size || 0;
+          const attendanceCount = attendanceMeta.byStudent[studentId || displayName]?.codes?.size || 0;
           const totalExpected = attendanceMeta.totalExpected || 0;
           const attendanceRate = totalExpected ? Math.round((attendanceCount / totalExpected) * 100) : 100;
           const weakTermsJson = safeJsonParse(row.weak_terms_json || row.weak_terms_js || '[]', []);
           const masteryJson = safeJsonParse(row.mastery_json || '{}', {});
-          const termWeak = deriveWeakTermsForStudent(row, termAnswerRows);
+          const termWeak = row.term_weak_terms?.length ? row.term_weak_terms : deriveWeakTermsForStudent(row, termAnswerRows);
 
           const student = {
             student_id: studentId,
             display_name: displayName,
             section,
-            last_session_id: text(row.last_session_id || ''),
-            last_bank: text(row.last_bank || ''),
-            last_mode: text(row.last_mode || ''),
-            last_score: num(row.last_score, 0),
-            last_accuracy: num(row.last_accuracy, 0),
+            last_session_id: text(row.last_session_id || row.session_id || ''),
+            last_bank: text(row.last_bank || row.bank || ''),
+            last_mode: text(row.last_mode || row.mode || ''),
+            last_score: num(row.last_score ?? row.score, 0),
+            last_accuracy: num(row.last_accuracy ?? row.accuracy, 0),
             recommended_mode: text(row.recommended_mode || row.recommended_r || ''),
             recommended_difficulty: text(row.recommended_difficulty || row.recommended_d || ''),
             weak_terms_json: Array.isArray(weakTermsJson) ? weakTermsJson : [],
@@ -1349,6 +1501,13 @@
             term_weak_terms: termWeak,
             note: state.notes[studentId || displayName] || ''
           };
+
+          if (!student.recommended_mode) {
+            student.recommended_mode = student.last_accuracy < 75 ? 'ai_training' : (student.last_mode || 'code_battle');
+          }
+          if (!student.recommended_difficulty) {
+            student.recommended_difficulty = student.last_accuracy < 60 ? 'easy' : student.last_accuracy < 80 ? 'normal' : 'hard';
+          }
 
           const s = getStudentStatus(student);
           student.status = s.status;
@@ -1383,12 +1542,18 @@
         });
       }
 
+      function getFilteredSessions(students = getFilteredStudents()) {
+        if (!students.length) return [];
+        return state.sessions.filter(row => {
+          const sid = text(row.student_id || row.studentId || '');
+          const name = text(row.display_name || row.displayName || '');
+          return students.some(s => (s.student_id && s.student_id === sid) || (!s.student_id && s.display_name === name));
+        });
+      }
+
       function setSummary() {
         const students = getFilteredStudents();
-        const sessions = state.sessions.filter(row => {
-          const sid = text(row.student_id || row.studentId || '');
-          return !students.length || students.some(s => s.student_id === sid || (!s.student_id && text(row.display_name || row.displayName || '') === s.display_name));
-        });
+        const sessions = getFilteredSessions(students);
 
         const followup = students.filter(s => s.status === 'followup').length;
         const risk = students.filter(s => s.status === 'risk').length;
@@ -1501,7 +1666,7 @@
           <div class="list-item">
             <strong>${escapeHtml(text(row.mode || row.last_mode || '-', '-'))}</strong>
             <div class="meta">
-              ${escapeHtml(shortWhenText(row.timestamp || row.ended_at || row.started_at || '-'))}
+              ${escapeHtml(shortWhenText(row.ended_at || row.timestamp || row.started_at || '-'))}
               • score ${escapeHtml(num(row.score, row.last_score || 0))}
               • accuracy ${escapeHtml(pct(row.accuracy || row.last_accuracy || 0))}%
               • session ${escapeHtml(text(row.session_code || '-', '-'))}
@@ -1871,13 +2036,21 @@
           const raw = await requestTeacherData();
           const normalized = normalizeDashboardPayload(raw);
 
+          console.log('TEACHER RAW:', raw);
+          console.log('TEACHER NORMALIZED:', normalized);
+
           state.raw = raw;
-          state.sessions = normalized.sessions || [];
+          state.sessions = normalizeSessionRows(normalized.sessions || []);
           state.termAnswers = normalized.termAnswers || [];
+
+          const baseStudents = (normalized.students && normalized.students.length)
+            ? normalized.students
+            : deriveStudentsFromSessionsFallback(state.sessions, state.termAnswers);
+
           state.students = buildUnifiedStudents(
-            normalized.students || [],
-            normalized.sessions || [],
-            normalized.termAnswers || []
+            baseStudents || [],
+            state.sessions || [],
+            state.termAnswers || []
           );
 
           if (!state.selectedStudentId && state.students[0]) {
@@ -1886,7 +2059,14 @@
 
           renderAll();
           attachListEvents();
-          showStatus('โหลดข้อมูล teacher dashboard สำเร็จแล้ว', 'ok');
+
+          showStatus(
+            'โหลดข้อมูล teacher dashboard สำเร็จแล้ว • students ' +
+            state.students.length + ' • sessions ' +
+            state.sessions.length + ' • answers ' +
+            state.termAnswers.length,
+            'ok'
+          );
         } catch (err) {
           console.error(err);
           showStatus('โหลดข้อมูลไม่สำเร็จ: ' + (err?.message || err), 'bad');
@@ -1936,7 +2116,7 @@
         });
 
         els.exportSessionsBtn?.addEventListener('click', () => {
-          downloadCsv('teacher_sessions.csv', state.sessions);
+          downloadCsv('teacher_sessions.csv', getFilteredSessions());
         });
 
         els.exportFollowupBtn?.addEventListener('click', () => {
@@ -1958,13 +2138,13 @@
         });
       }
 
-      bindEvents();
-      loadDashboard();
-
       const highlightStudent = qs('student_id') || qs('student');
       if (highlightStudent) {
         state.selectedStudentId = highlightStudent;
       }
+
+      bindEvents();
+      loadDashboard();
     })();
   </script>
 </body>
