@@ -735,6 +735,142 @@
       line-height:1.5;
     }
 
+    .metricGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .metricCard{
+      position:relative;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.10), transparent 36%),
+        rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+      padding:12px;
+      box-shadow:0 10px 24px rgba(0,0,0,.12);
+    }
+
+    .metricCard .label{
+      font-size:11px;
+      color:#c7d4ff;
+      margin-bottom:6px;
+    }
+
+    .metricCard .value{
+      font-size:24px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .metricCard .sub{
+      font-size:11px;
+      color:#dbeafe;
+      margin-top:8px;
+      line-height:1.35;
+    }
+
+    .barList{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .barRow{
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:16px;
+      padding:12px;
+    }
+
+    .barHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+
+    .barHead .name{
+      font-size:14px;
+      font-weight:900;
+      line-height:1.15;
+    }
+
+    .barHead .meta{
+      font-size:11px;
+      color:#c7d4ff;
+      text-align:right;
+    }
+
+    .barTrack{
+      height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+
+    .barFill{
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#67e8f9,#a78bfa);
+      transform-origin:left center;
+    }
+
+    .recentRuns{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .recentRunCard{
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.10), transparent 36%),
+        rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:16px;
+      padding:12px;
+    }
+
+    .recentRunCard .top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .recentRunCard .mode{
+      font-size:14px;
+      font-weight:1000;
+    }
+
+    .recentRunCard .when{
+      font-size:11px;
+      color:#c7d4ff;
+    }
+
+    .recentRunCard .stats{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:8px;
+    }
+
+    .miniChip{
+      display:inline-flex;
+      align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:900;
+      color:#eaf2ff;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+    }
+
     table{
       width:100%;
       border-collapse:collapse;
@@ -814,6 +950,30 @@
         padding:10px 8px;
         font-size:14px;
         line-height:1.05;
+      }
+
+      .metricGrid{
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+      }
+
+      .metricCard{
+        padding:10px;
+        border-radius:16px;
+      }
+
+      .metricCard .value{
+        font-size:20px;
+      }
+
+      .barRow,
+      .recentRunCard{
+        padding:10px;
+        border-radius:14px;
+      }
+
+      .barHead .name{
+        font-size:13px;
       }
     }
 
@@ -1012,6 +1172,7 @@
     <div class="panel">
       <h2 style="margin:0">Teacher Dashboard</h2>
       <div class="desc">Dashboard-only mode สำหรับครู ดูภาพรวมคำอ่อน จุดที่ผิดบ่อย และสรุปรอบล่าสุดจากเครื่องนี้</div>
+
       <table>
         <thead>
           <tr>
@@ -1028,6 +1189,18 @@
 
       <div class="sectionTitle">Weakest Terms</div>
       <ul class="sessionList" id="weakList"></ul>
+
+      <div class="sectionTitle">Teacher Analytics</div>
+      <div class="metricGrid" id="teacherOverview"></div>
+
+      <div class="sectionTitle">Mode Breakdown</div>
+      <div class="barList" id="teacherModeBreakdown"></div>
+
+      <div class="sectionTitle">Hardest Terms</div>
+      <div class="barList" id="teacherHardTerms"></div>
+
+      <div class="sectionTitle">Recent Runs</div>
+      <div class="recentRuns" id="teacherRecentRuns"></div>
 
       <div class="actionGrid" style="margin-top:14px;">
         <button class="btn ghost" id="clearTeacherBtn">CLEAR LOCAL DATA</button>
