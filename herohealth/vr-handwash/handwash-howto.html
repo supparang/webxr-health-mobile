@@ -16,6 +16,11 @@
       --text:#ecfeff;
       --yellow:#ffe66d;
       --shadow:0 12px 30px rgba(0,0,0,.26);
+      --card:#ffffffee;
+      --ink:#163046;
+      --muted:#5d778c;
+      --soft:#f4fbff;
+      --soft-line:#d6ebf8;
     }
 
     *{ box-sizing:border-box; }
@@ -337,6 +342,107 @@
       margin-top:8px;
     }
 
+    /* Scene 1 แบบ 2D */
+    #scene1-panel{
+      position:fixed;
+      left:50%;
+      top:150px;
+      transform:translateX(-50%);
+      z-index:25;
+      width:min(94%,860px);
+      background:rgba(255,255,255,.96);
+      border:2px solid rgba(255,255,255,.98);
+      border-radius:28px;
+      box-shadow:0 20px 60px rgba(0,0,0,.20);
+      padding:18px;
+      color:var(--ink);
+      pointer-events:auto;
+    }
+
+    #scene1-panel.hidden{
+      display:none !important;
+    }
+
+    .scene1-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#dcfff2;
+      color:#047857;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    .scene1-title{
+      margin:0;
+      font-size:1.55rem;
+      line-height:1.15;
+      color:#0f172a;
+      font-weight:1000;
+    }
+
+    .scene1-desc{
+      margin:10px 0 0;
+      color:#475569;
+      font-weight:800;
+      line-height:1.5;
+    }
+
+    .scene1-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:16px;
+    }
+
+    .scene1-item{
+      background:#f7fcff;
+      border:1px solid #d9ecf8;
+      border-radius:22px;
+      padding:14px;
+      display:grid;
+      grid-template-columns:56px 1fr;
+      gap:12px;
+      align-items:center;
+      min-height:92px;
+    }
+
+    .scene1-icon{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.7rem;
+      font-weight:1000;
+      color:#0f172a;
+      box-shadow:inset 0 0 0 3px rgba(255,255,255,.30);
+    }
+
+    .scene1-icon.faucet{ background:linear-gradient(180deg,#9ae7ff 0%,#38bdf8 100%); }
+    .scene1-icon.soap{ background:linear-gradient(180deg,#ffc7e3 0%,#f472b6 100%); }
+    .scene1-icon.water{ background:linear-gradient(180deg,#bbf7ff 0%,#22d3ee 100%); }
+    .scene1-icon.hand{ background:linear-gradient(180deg,#ffe8b6 0%,#facc15 100%); }
+
+    .scene1-copy strong{
+      display:block;
+      font-size:1.06rem;
+      line-height:1.25;
+      color:#0f172a;
+    }
+
+    .scene1-copy span{
+      display:block;
+      margin-top:4px;
+      color:#5b7083;
+      font-weight:800;
+      line-height:1.4;
+      font-size:.94rem;
+    }
+
     .hidden{ display:none !important; }
 
     @keyframes pulse{
@@ -395,7 +501,7 @@
       #controls{
         right:8px;
         bottom:66px;
-        max-width:80vw;
+        max-width:88vw;
       }
 
       .btn{
@@ -422,6 +528,44 @@
         padding:7px 9px;
         font-size:.76rem;
       }
+
+      #scene1-panel{
+        top:132px;
+        width:calc(100% - 14px);
+        padding:14px;
+        border-radius:24px;
+      }
+
+      .scene1-title{
+        font-size:1.2rem;
+      }
+
+      .scene1-grid{
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+
+      .scene1-item{
+        grid-template-columns:48px 1fr;
+        min-height:82px;
+        padding:12px;
+        border-radius:18px;
+      }
+
+      .scene1-icon{
+        width:48px;
+        height:48px;
+        border-radius:16px;
+        font-size:1.4rem;
+      }
+
+      .scene1-copy strong{
+        font-size:.98rem;
+      }
+
+      .scene1-copy span{
+        font-size:.86rem;
+      }
     }
   </style>
 </head>
@@ -431,7 +575,7 @@
       <div class="top-row">
         <div>
           <div class="title-main" id="step-count">Howto • ขั้นที่ 1/4</div>
-          <div class="title-sub" id="step-name">รู้จักของในเกมก่อน</div>
+          <div class="title-sub" id="step-name">ในเกมนี้มี 4 อย่าง</div>
         </div>
 
         <div class="chips">
@@ -441,10 +585,10 @@
       </div>
 
       <div id="guide-panel">
-        <div id="guide-icon" class="guide-image">🧼</div>
+        <div id="guide-icon" class="guide-image">📘</div>
         <div>
-          <div id="step-desc">หน้านี้จะสอนให้รู้จัก ก๊อกน้ำ สบู่ น้ำ และมือ แบบเห็นชัดทีละอย่าง</div>
-          <div id="action-prompt">กด “ถัดไป” เพื่อดูทีละอย่าง</div>
+          <div id="step-desc">จำ 4 อย่างนี้ก่อน: ก๊อกน้ำ สบู่ น้ำ และมือ</div>
+          <div id="action-prompt">ดูให้ชัด แล้วค่อยกด “ถัดไป”</div>
         </div>
       </div>
 
@@ -461,7 +605,7 @@
 
     <div id="coach-wrap">
       <div id="coach-face">🙂</div>
-      <div id="coach">เดี๋ยวเราจะสอนทีละอย่างแบบง่าย ๆ ไม่ต้องเดาเอง</div>
+      <div id="coach">เริ่มจากดูให้รู้ก่อนว่าอะไรคืออะไร</div>
     </div>
   </div>
 
@@ -493,6 +637,47 @@
     </div>
   </div>
 
+  <!-- Scene 1 แบบ 2D -->
+  <section id="scene1-panel" class="hidden">
+    <div class="scene1-badge">📘 Scene 1 • จำ 4 อย่างนี้ก่อน</div>
+    <h2 class="scene1-title">ในเกมนี้มี 4 อย่างที่ต้องรู้</h2>
+    <p class="scene1-desc">ยังไม่ต้องเล่นตอนนี้ แค่ดูให้รู้ก่อนว่าเห็นอะไรแล้วต้องทำอะไร</p>
+
+    <div class="scene1-grid">
+      <div class="scene1-item">
+        <div class="scene1-icon faucet">🚰</div>
+        <div class="scene1-copy">
+          <strong>ก๊อกน้ำ</strong>
+          <span>เห็นก๊อกน้ำ = แตะก๊อกน้ำ</span>
+        </div>
+      </div>
+
+      <div class="scene1-item">
+        <div class="scene1-icon soap">🧼</div>
+        <div class="scene1-copy">
+          <strong>สบู่</strong>
+          <span>เห็นสบู่ = แตะสบู่</span>
+        </div>
+      </div>
+
+      <div class="scene1-item">
+        <div class="scene1-icon water">💧</div>
+        <div class="scene1-copy">
+          <strong>โซนน้ำ</strong>
+          <span>เห็นน้ำ = ค้างไว้จนเต็ม</span>
+        </div>
+      </div>
+
+      <div class="scene1-item">
+        <div class="scene1-icon hand">🖐️</div>
+        <div class="scene1-copy">
+          <strong>มือ</strong>
+          <span>เห็นมือ = แตะจุดที่เรืองแสง</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <a-scene id="scene" vr-mode-ui="enabled: false" renderer="colorManagement: true; antialias: true">
     <a-entity environment="preset: flat; dressingAmount: 0; groundColor: #dbeafe; groundColor2: #c7d2fe; skyColor: #e0f2fe"></a-entity>
 
@@ -502,26 +687,6 @@
     <a-entity id="board-root" position="0 1.00 -1.24">
       <a-box id="sink-rim" position="0 0.78 0" width="1.48" height="0.08" depth="0.82" color="#cbd5e1"></a-box>
       <a-box id="sink-body" position="0 0.12 -0.08" width="1.30" height="0.24" depth="0.62" color="#f8fafc" material="opacity:0.96"></a-box>
-
-      <a-entity id="overview-group" visible="false" position="0 0.82 0.18">
-        <a-plane width="1.42" height="0.78" color="#0f2942" opacity="0.92"></a-plane>
-        <a-text value="Flow หลักของเกม" align="center" color="#ffffff" width="2.2" position="0 0.28 0.02"></a-text>
-
-        <a-plane width="0.22" height="0.12" color="#38bdf8" position="-0.50 0.05 0.02"></a-plane>
-        <a-text value="เปิดน้ำ" align="center" color="#ffffff" width="0.8" position="-0.50 0.05 0.03"></a-text>
-
-        <a-plane width="0.22" height="0.12" color="#22d3ee" position="-0.20 0.05 0.02"></a-plane>
-        <a-text value="น้ำ" align="center" color="#ffffff" width="0.8" position="-0.20 0.05 0.03"></a-text>
-
-        <a-plane width="0.22" height="0.12" color="#f472b6" position="0.10 0.05 0.02"></a-plane>
-        <a-text value="สบู่" align="center" color="#ffffff" width="0.8" position="0.10 0.05 0.03"></a-text>
-
-        <a-plane width="0.24" height="0.12" color="#7dd3fc" position="0.42 0.05 0.02"></a-plane>
-        <a-text value="ถูมือ" align="center" color="#ffffff" width="0.8" position="0.42 0.05 0.03"></a-text>
-
-        <a-plane width="0.30" height="0.12" color="#facc15" position="0.0 -0.20 0.02"></a-plane>
-        <a-text value="ล้างฟอง + เช็ดมือ" align="center" color="#111827" width="1.1" position="0.0 -0.20 0.03"></a-text>
-      </a-entity>
 
       <a-entity id="faucet-group" visible="false" position="0 0.70 0.20">
         <a-box width="0.62" height="0.20" depth="0.06" color="#38bdf8" material="emissive:#38bdf8; emissiveIntensity:1.05"></a-box>
@@ -685,11 +850,11 @@
       startBtn:$('start-btn'),
       startOverlay:$('start-overlay'),
       hudToggleBtn:$('hud-toggle-btn'),
-      recenterBtn:$('recenter-btn')
+      recenterBtn:$('recenter-btn'),
+      scene1Panel:$('scene1-panel')
     };
 
     const groupEls = {
-      overview:$('overview-group'),
       faucet:$('faucet-group'),
       soap:$('soap-group'),
       towel:$('towel-group'),
@@ -761,12 +926,12 @@
 
     const SCENES = [
       {
-        id:'overview',
-        title:'รู้จักของในเกมก่อน',
-        icon:'🧼',
-        desc:'เกมนี้มีของหลัก 4 อย่าง: ก๊อกน้ำ สบู่ น้ำ และมือ',
-        prompt:'กด “ถัดไป” เพื่อดูทีละอย่าง',
-        type:'info'
+        id:'intro2d',
+        title:'ในเกมนี้มี 4 อย่าง',
+        icon:'📘',
+        desc:'จำ 4 อย่างนี้ก่อน: ก๊อกน้ำ สบู่ น้ำ และมือ',
+        prompt:'ดูให้ชัด แล้วกด “ถัดไป”',
+        type:'intro2d'
       },
       {
         id:'tap',
@@ -831,12 +996,13 @@
     }
 
     function clearVisuals(){
-      setEntityVisible(groupEls.overview, false);
       setEntityVisible(groupEls.faucet, false);
       setEntityVisible(groupEls.soap, false);
       setEntityVisible(groupEls.towel, false);
       setEntityVisible(groupEls.water, false);
       setEntityVisible(groupEls.hands, false);
+
+      ui.scene1Panel.classList.add('hidden');
 
       zoneMap.forEach(zone => {
         zone.setAttribute('visible', 'false');
@@ -881,11 +1047,11 @@
       state.stepValue = 0;
       state.holdValue = 0;
 
-      if (sceneData.type === 'info'){
-        setEntityVisible(groupEls.overview, true);
-        ui.prompt.textContent = sceneData.prompt;
+      if (sceneData.type === 'intro2d'){
+        ui.scene1Panel.classList.remove('hidden');
+        ui.prompt.textContent = 'ดูให้ชัด แล้วกด “ถัดไป”';
         ui.nextBtn.disabled = false;
-        setCoach('ดูภาพรวมก่อน เดี๋ยวถัดไปจะชี้ของให้ชัดทีละอย่าง');
+        setCoach('ฉากแรกยังไม่ต้องเล่น แค่จำ 4 อย่างนี้ก่อน');
       }
 
       if (sceneData.type === 'tap'){
