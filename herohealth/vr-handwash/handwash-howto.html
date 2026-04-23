@@ -337,6 +337,8 @@
       margin-top:8px;
     }
 
+    .hidden{ display:none !important; }
+
     @keyframes pulse{
       0%{ transform:scale(1); }
       50%{ transform:scale(1.04); }
@@ -442,7 +444,7 @@
         <div id="guide-icon" class="guide-image">🧼</div>
         <div>
           <div id="step-desc">หน้านี้จะสอนให้รู้จัก ก๊อกน้ำ สบู่ น้ำ และมือ แบบเห็นชัดทีละอย่าง</div>
-          <div id="action-prompt">กด “ถัดไป” เพื่อเริ่ม</div>
+          <div id="action-prompt">กด “ถัดไป” เพื่อดูทีละอย่าง</div>
         </div>
       </div>
 
@@ -869,7 +871,6 @@
       ui.stepName.textContent = sceneData.title;
       ui.stepDesc.textContent = sceneData.desc;
       ui.guideIcon.textContent = sceneData.icon;
-      ui.prompt.textContent = sceneData.prompt;
       ui.sceneChip.textContent = `Scene ${state.sceneIndex + 1}`;
       updateProgress();
     }
@@ -882,18 +883,21 @@
 
       if (sceneData.type === 'info'){
         setEntityVisible(groupEls.overview, true);
+        ui.prompt.textContent = sceneData.prompt;
         ui.nextBtn.disabled = false;
         setCoach('ดูภาพรวมก่อน เดี๋ยวถัดไปจะชี้ของให้ชัดทีละอย่าง');
       }
 
       if (sceneData.type === 'tap'){
         setEntityVisible(groupEls.faucet, true);
+        ui.prompt.textContent = 'แตะก๊อกน้ำ';
         ui.nextBtn.disabled = true;
         setCoach('อันนี้คือ “ก๊อกน้ำ” เห็นแล้วแตะได้เลย');
       }
 
       if (sceneData.type === 'hold'){
         setEntityVisible(groupEls.water, true);
+        ui.prompt.textContent = 'ค้างที่โซนน้ำให้เต็ม';
         ui.nextBtn.disabled = true;
         setCoach('นี่คือโซนน้ำ ต้องค้างไว้จนเต็ม');
       }
@@ -930,6 +934,7 @@
 
       if (state.stepValue >= sceneData.order.length){
         ui.nextBtn.disabled = false;
+        ui.prompt.textContent = 'ผ่านแล้ว กด “ถัดไป”';
         setCoach('เยี่ยมมาก เห็นป้ายใหญ่แล้วแตะได้เลย', 'good');
         return;
       }
@@ -939,12 +944,15 @@
 
       if (nextKey === 'faucet'){
         setEntityVisible(groupEls.faucet, true);
+        ui.prompt.textContent = 'แตะก๊อกน้ำ';
         setCoach('อันนี้คือ “ก๊อกน้ำ”', 'good');
       } else if (nextKey === 'soap'){
         setEntityVisible(groupEls.soap, true);
+        ui.prompt.textContent = 'แตะสบู่';
         setCoach('อันนี้คือ “สบู่”', 'good');
       } else {
         setEntityVisible(groupEls.towel, true);
+        ui.prompt.textContent = 'แตะผ้าเช็ดมือ';
         setCoach('อันนี้คือ “ผ้าเช็ดมือ”', 'good');
       }
     }
@@ -963,6 +971,7 @@
 
       if (state.stepValue >= sceneData.order.length){
         ui.nextBtn.disabled = false;
+        ui.prompt.textContent = 'ผ่านแล้ว กด “ถัดไป”';
         setCoach('ดีมาก ตอนนี้รู้แล้วว่าเห็นจุดเรืองตรงไหน ให้แตะตรงนั้น', 'good');
         return;
       }
@@ -1034,13 +1043,22 @@
       state.stepValue = 0;
       state.holdValue = 0;
       state.lastTs = 0;
+
       ui.startOverlay.classList.add('hidden');
+      ui.startOverlay.style.display = 'none';
+
       setHudCompact(window.matchMedia('(max-width:680px)').matches);
       renderScene();
       setTimeout(snapFrontView, 60);
     }
 
-    ui.startBtn.addEventListener('click', startHowto);
+    ['click','touchend','pointerup'].forEach(evt => {
+      ui.startBtn.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!state.started) startHowto();
+      }, { passive:false });
+    });
 
     ui.nextBtn.addEventListener('click', () => {
       if (!state.started) return;
