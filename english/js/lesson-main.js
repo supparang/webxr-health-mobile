@@ -111,6 +111,230 @@ const recentCorrectSlots = [];
 let recognitionActive = false;
 let speakButtonUnlockAt = 0;
 
+const attendanceState = {
+  studentId: "",
+  studentName: "",
+  classSection: "",
+  sessionNo: "S00",
+  attendanceStatus: "tracking",
+  statusMessage: "กำลังเตรียมข้อมูลเช็กชื่อ...",
+  durationSec: 0,
+  activeTimeSec: 0,
+  enteredAt: "",
+  startedAt: "",
+  finishedAt: "",
+  lastActiveAt: ""
+};
+
+let attendancePulseTimer = null;
+
+function pad2(n) {
+  return String(Math.max(0, Number(n) || 0)).padStart(2, "0");
+}
+
+function formatClock(totalSec = 0) {
+  const safe = Math.max(0, Number(totalSec) || 0);
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${pad2(mins)}:${pad2(secs)}`;
+}
+
+function missionSessionCode(missionId) {
+  const num = Number(missionId) || 0;
+  return `S${String(num).padStart(2, "0")}`;
+}
+
+function getQueryValue(...keys) {
+  const q = new URLSearchParams(location.search);
+  for (const key of keys) {
+    const v = q.get(key);
+    if (v != null && String(v).trim() !== "") return String(v).trim();
+  }
+  return "";
+}
+
+function readLessonIdentity() {
+  const studentId =
+    getQueryValue("studentId", "sid", "id", "student_id") ||
+    localStorage.getItem("TECHPATH_STUDENT_ID") ||
+    localStorage.getItem("studentId") ||
+    "";
+
+  const studentName =
+    getQueryValue("studentName", "name", "student_name") ||
+    localStorage.getItem("TECHPATH_STUDENT_NAME") ||
+    localStorage.getItem("studentName") ||
+    playerProfile.name ||
+    "";
+
+  const classSection =
+    getQueryValue("section", "classSection", "sec", "class_section") ||
+    localStorage.getItem("TECHPATH_CLASS_SECTION") ||
+    localStorage.getItem("classSection") ||
+    "";
+
+  return { studentId, studentName, classSection };
+}
+
+function renderAttendanceTracker() {
+  const studentId = attendanceState.studentId || "-";
+  const studentName = attendanceState.studentName || "-";
+  const classSection = attendanceState.classSection || "-";
+  const sessionNo = attendanceState.sessionNo || "S00";
+  const statusText =
+    attendanceState.attendanceStatus === "in_progress"
+      ? "กำลังเรียน"
+      : attendanceState.attendanceStatus === "completed"
+        ? "เรียนเสร็จแล้ว"
+        : attendanceState.attendanceStatus === "failed"
+          ? "จบไม่สำเร็จ"
+          : "กำลังติดตาม";
+
+  setText("attendance-student-id", studentId);
+  setText("attendance-student-name", studentName);
+  setText("attendance-class-section", classSection);
+  setText("attendance-session-no", sessionNo);
+  setText("attendance-duration", formatClock(attendanceState.durationSec));
+  setText("attendance-active-time", formatClock(attendanceState.activeTimeSec));
+  setText("attendance-summary-name", studentName);
+  setText("attendance-summary-s", sessionNo);
+  setText("attendance-summary-status", statusText);
+
+  const statusBox = $("attendance-status");
+  if (statusBox) {
+    statusBox.textContent = attendanceState.statusMessage || "กำลังติดตาม";
+    statusBox.classList.remove("warn", "fail");
+
+    if (attendanceState.attendanceStatus === "failed") {
+      statusBox.classList.add("fail");
+    } else if (
+      attendanceState.attendanceStatus === "tracking" ||
+      attendanceState.attendanceStatus === "loading"
+    ) {
+      statusBox.classList.add("warn");
+    }
+  }
+}
+
+function hydrateAttendanceIdentity() {
+  const identity = readLessonIdentity();
+
+  attendanceState.studentId = identity.studentId || attendanceState.studentId || "";
+  attendanceState.studentName = identity.studentName || attendanceState.studentName || "";
+  attendanceState.classSection = identity.classSection || attendanceState.classSection || "";
+
+  if (attendanceState.studentId) {
+    localStorage.setItem("TECHPATH_STUDENT_ID", attendanceState.studentId);
+  }
+  if (attendanceState.studentName) {
+    localStorage.setItem("TECHPATH_STUDENT_NAME", attendanceState.studentName);
+  }
+  if (attendanceState.classSection) {
+    localStorage.setItem("TECHPATH_CLASS_SECTION", attendanceState.classSection);
+  }
+
+  if (!attendanceState.studentName && playerProfile.name) {
+    attendanceState.studentName = playerProfile.name;
+  }
+
+  renderAttendanceTracker();
+}
+
+function stopAttendancePulse() {
+  if (attendancePulseTimer) {
+    clearInterval(attendancePulseTimer);
+    attendancePulseTimer = null;
+  }
+}
+
+function startAttendancePulse() {
+  stopAttendancePulse();
+  attendancePulseTimer = setInterval(() => {
+    attendanceState.durationSec += 1;
+    attendanceState.activeTimeSec += 1;
+    attendanceState.lastActiveAt = new Date().toISOString();
+    renderAttendanceTracker();
+  }, 1000);
+}
+
+function markAttendanceLoading(msg = "กำลังเตรียมข้อมูลเช็กชื่อ...") {
+  attendanceState.attendanceStatus = "loading";
+  attendanceState.statusMessage = msg;
+  renderAttendanceTracker();
+}
+
+function markAttendanceLobby() {
+  stopAttendancePulse();
+  attendanceState.sessionNo = "S00";
+  attendanceState.attendanceStatus = "tracking";
+  attendanceState.statusMessage = "กำลังติดตาม";
+  attendanceState.durationSec = 0;
+  attendanceState.activeTimeSec = 0;
+  attendanceState.startedAt = "";
+  attendanceState.finishedAt = "";
+  attendanceState.lastActiveAt = "";
+  renderAttendanceTracker();
+}
+
+function markAttendanceMissionStart(mission) {
+  const now = new Date().toISOString();
+  attendanceState.sessionNo = missionSessionCode(mission?.id);
+  attendanceState.attendanceStatus = "in_progress";
+  attendanceState.statusMessage = `กำลังเรียน ${attendanceState.sessionNo}`;
+  attendanceState.enteredAt = attendanceState.enteredAt || now;
+  attendanceState.startedAt = now;
+  attendanceState.finishedAt = "";
+  attendanceState.lastActiveAt = now;
+  attendanceState.durationSec = 0;
+  attendanceState.activeTimeSec = 0;
+  renderAttendanceTracker();
+  startAttendancePulse();
+}
+
+function markAttendanceMissionEnd(success, mission, reason = "") {
+  stopAttendancePulse();
+  attendanceState.sessionNo = missionSessionCode(mission?.id);
+  attendanceState.attendanceStatus = success ? "completed" : "failed";
+  attendanceState.finishedAt = new Date().toISOString();
+  attendanceState.lastActiveAt = attendanceState.finishedAt;
+  attendanceState.statusMessage = success
+    ? `เช็กชื่อแล้ว • ${attendanceState.sessionNo} completed`
+    : `เช็กชื่อแล้ว • ${attendanceState.sessionNo} ${reason || "fail"}`;
+  renderAttendanceTracker();
+}
+
+function syncSummaryFromRuntime(success, mission, mood, extraLines = []) {
+  showEndSummary(success, mission, mood, extraLines);
+
+  const titleEl = $("summary-title");
+  const bodyEl = $("summary-body");
+  const missionCode = missionSessionCode(mission?.id);
+  const lines = [
+    `Mission: ${missionCode}: ${mission?.title || "-"}`,
+    `Type: ${String(mission?.type || "-").toUpperCase()}`,
+    `Score: ${Math.max(0, Number(state.gameScore) || 0)}`,
+    `HP: ${Math.max(0, Number(state.systemHP) || 0)}%`,
+    `Combo Peak: x${sessionStats.bestCombo || state.comboCount || 0}`,
+    `AI Mood: ${String(mood || aiDirector.mood || "STEADY").toUpperCase()}`,
+    `Question Diff: ${String(state.gameDifficulty || mission?._selectedDifficulty || "normal").toUpperCase()}`,
+    ...extraLines
+  ];
+
+  if (titleEl) {
+    titleEl.textContent = success ? "MISSION SUMMARY ✅" : "MISSION SUMMARY ⚠️";
+  }
+
+  if (bodyEl) {
+    bodyEl.textContent = lines.join("\n");
+  }
+
+  show("summary-panel");
+  showTimer(false);
+  setMissionTimerAlert(false);
+  setScoreHUD(state.gameScore, state.systemHP);
+  renderAttendanceTracker();
+}
+
 function armSpeakButton(delay = 650) {
   const btn = $("btn-speak");
   speakButtonUnlockAt = Date.now() + delay;
@@ -169,6 +393,8 @@ function resetMissionRuntime() {
   missionRuntimeToken++;
   recognitionActive = false;
   speakButtonUnlockAt = 0;
+
+  stopAttendancePulse();
 
   if (state.missionTimer) {
     clearInterval(state.missionTimer);
@@ -376,6 +602,7 @@ function renderMobileHubSheet(mode = "sessions") {
           playerProfile.name = (nameInput.value || "").trim() || playerProfile.name || "Hero";
         }
         await window.savePlayerProfile();
+        hydrateAttendanceIdentity();
         sheet.classList.remove("show");
         sheet.innerHTML = "";
         sheet.dataset.mode = "";
@@ -465,7 +692,7 @@ function getMissionTypeMeta(type = "") {
 
 function getMissionWallMeta(mGroup, cleared = false) {
   const typeMeta = getMissionTypeMeta(mGroup?.type);
-  const isBoss = (mGroup?.id % 3 === 0);
+  const isBoss = mGroup?.id % 3 === 0;
   const isFinal = isUnitFinal(mGroup?.id);
 
   const baseColor = isFinal ? "#f1c40f" : isBoss ? "#ff6b81" : typeMeta.color;
@@ -601,7 +828,7 @@ function setMissionWallVisualState(mGroup, opts = {}) {
   halo.setAttribute("color", activeColor);
   halo.setAttribute(
     "material",
-    `opacity: ${hovered ? Math.min(meta.haloOpacity + 0.10, 0.36) : meta.haloOpacity}; shader: flat`
+    `opacity: ${hovered ? Math.min(meta.haloOpacity + 0.1, 0.36) : meta.haloOpacity}; shader: flat`
   );
   halo.setAttribute("width", meta.width + (hovered ? 0.42 : 0.34));
   halo.setAttribute("height", meta.height + (hovered ? 0.42 : 0.34));
@@ -680,7 +907,10 @@ function setRewardChestState(mode = "idle", opts = {}) {
     n.lid?.setAttribute("color", "#8fa7b3");
     n.text.setAttribute("value", "Loading...");
     n.text.setAttribute("color", "#ffffff");
-    n.root.setAttribute("animation__float", "property: position; dir: alternate; dur: 1800; loop: true; to: -3.72 0.77 -3.08; easing: easeInOutSine");
+    n.root.setAttribute(
+      "animation__float",
+      "property: position; dir: alternate; dur: 1800; loop: true; to: -3.72 0.77 -3.08; easing: easeInOutSine"
+    );
     return;
   }
 
@@ -695,10 +925,22 @@ function setRewardChestState(mode = "idle", opts = {}) {
     n.lid?.setAttribute("color", "#f1c40f");
     n.text.setAttribute("value", `Streak: ${streak} Days${safeNote || "\nTap to Claim"}`);
     n.text.setAttribute("color", "#ffffff");
-    n.root.setAttribute("animation__float", "property: position; dir: alternate; dur: 1050; loop: true; to: -3.72 0.82 -3.08; easing: easeInOutSine");
-    n.aura?.setAttribute("animation__pulse", "property: material.opacity; dir: alternate; dur: 800; loop: true; from: 0.14; to: 0.30; easing: easeInOutSine");
-    n.lid?.setAttribute("animation__gleam", "property: rotation; dir: alternate; dur: 1200; loop: true; to: 0 0 3; easing: easeInOutSine");
-    n.frame?.setAttribute("animation__frame", "property: material.opacity; dir: alternate; dur: 900; loop: true; from: 0.26; to: 0.52; easing: easeInOutSine");
+    n.root.setAttribute(
+      "animation__float",
+      "property: position; dir: alternate; dur: 1050; loop: true; to: -3.72 0.82 -3.08; easing: easeInOutSine"
+    );
+    n.aura?.setAttribute(
+      "animation__pulse",
+      "property: material.opacity; dir: alternate; dur: 800; loop: true; from: 0.14; to: 0.30; easing: easeInOutSine"
+    );
+    n.lid?.setAttribute(
+      "animation__gleam",
+      "property: rotation; dir: alternate; dur: 1200; loop: true; to: 0 0 3; easing: easeInOutSine"
+    );
+    n.frame?.setAttribute(
+      "animation__frame",
+      "property: material.opacity; dir: alternate; dur: 900; loop: true; from: 0.26; to: 0.52; easing: easeInOutSine"
+    );
     return;
   }
 
@@ -712,7 +954,10 @@ function setRewardChestState(mode = "idle", opts = {}) {
     n.lid?.setAttribute("color", rarityColor);
     n.text.setAttribute("value", `Streak: ${streak} Days${safeNote || "\nClaimed"}`);
     n.text.setAttribute("color", "#ffffff");
-    n.aura?.setAttribute("animation__pulse", "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.10; to: 0.20; easing: easeInOutSine");
+    n.aura?.setAttribute(
+      "animation__pulse",
+      "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.10; to: 0.20; easing: easeInOutSine"
+    );
     return;
   }
 
@@ -733,7 +978,7 @@ function setRewardChestState(mode = "idle", opts = {}) {
   n.frame?.setAttribute("color", "#7bedff");
   n.frame?.setAttribute("material", "wireframe: true; opacity: 0.26");
   n.aura?.setAttribute("color", "#7bedff");
-  n.aura?.setAttribute("material", "opacity: 0.10; shader: flat");
+  n.aura?.setAttribute("material", "opacity: 0.1; shader: flat");
   n.body?.setAttribute("color", "#8c6239");
   n.lid?.setAttribute("color", "#8fa7b3");
   n.text.setAttribute("value", `Streak: ${streak} Days${safeNote}`);
@@ -748,8 +993,14 @@ function playRewardChestClaimFX(rarityColor = "#ffeaa7") {
   n.frame?.setAttribute("color", rarityColor);
   n.aura?.setAttribute("color", rarityColor);
   n.lid?.setAttribute("color", rarityColor);
-  n.root.setAttribute("animation__claim", "property: scale; dur: 260; dir: alternate; loop: 2; to: 1.08 1.08 1.08; easing: easeOutBack");
-  n.aura?.setAttribute("animation__claim", "property: scale; dur: 360; dir: alternate; loop: 2; to: 1.18 1.18 1.18; easing: easeOutQuad");
+  n.root.setAttribute(
+    "animation__claim",
+    "property: scale; dur: 260; dir: alternate; loop: 2; to: 1.08 1.08 1.08; easing: easeOutBack"
+  );
+  n.aura?.setAttribute(
+    "animation__claim",
+    "property: scale; dur: 360; dir: alternate; loop: 2; to: 1.18 1.18 1.18; easing: easeOutQuad"
+  );
 }
 
 function getLeaderboardNodes() {
@@ -782,7 +1033,10 @@ function setLeaderboardBoardState(mode = "idle") {
     n.title?.setAttribute("color", "#ffeaa7");
     n.subtitle?.setAttribute("color", "#cbd5e1");
     n.list.setAttribute("color", "#ffffff");
-    n.frame?.setAttribute("animation__frame", "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.22; to: 0.36; easing: easeInOutSine");
+    n.frame?.setAttribute(
+      "animation__frame",
+      "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.22; to: 0.36; easing: easeInOutSine"
+    );
     return;
   }
 
@@ -875,8 +1129,10 @@ async function bootFirebase() {
     if (!runtime || !runtime.auth || !runtime.db) {
       console.warn("Firebase runtime not ready:", runtime);
       syncProfileUI();
+      hydrateAttendanceIdentity();
       setRewardChestState("error", { note: "Reward Offline" });
       setLeaderboardBoardState("error");
+      markAttendanceLoading("เชื่อมต่อเซิร์ฟเวอร์เช็กชื่อไม่สำเร็จ");
       return;
     }
 
@@ -888,16 +1144,22 @@ async function bootFirebase() {
       if (user) {
         setupLeaderboardListener();
         await loadPlayerProfile(state.db, state.currentUser, state.appId);
+        hydrateAttendanceIdentity();
         await window.checkDailyStreak();
+        markAttendanceLobby();
       } else {
         syncProfileUI();
+        hydrateAttendanceIdentity();
+        markAttendanceLoading("รอเข้าสู่ระบบเพื่อเช็กชื่อ...");
       }
     });
   } catch (e) {
     console.error("RTDB Init Error:", e);
     syncProfileUI();
+    hydrateAttendanceIdentity();
     setRewardChestState("error", { note: "Reward Offline" });
     setLeaderboardBoardState("error");
+    markAttendanceLoading("เชื่อมต่อเซิร์ฟเวอร์เช็กชื่อไม่สำเร็จ");
   }
 }
 
@@ -1327,6 +1589,10 @@ function loadMission(id) {
   flashMissionTypeTag(state.currentMission.type, true);
   recordMissionStart(state.currentMission, aiDirector.mood);
 
+  markAttendanceMissionStart(state.currentMission);
+  setScoreHUD(state.gameScore, state.systemHP);
+  renderAttendanceTracker();
+
   const timeMod = getDifficultyTimeMod() + getAdaptiveTimeBonus() + (state.currentMission._bossTimeAdjust || 0);
   const hackerBoss = $("hackerBoss");
 
@@ -1623,6 +1889,7 @@ window.submitScore = async function () {
   try {
     playerProfile.name = name.slice(0, 24);
     syncProfileUI();
+    hydrateAttendanceIdentity();
 
     const profileRef = ref(state.db, ["artifacts", state.appId, "users", state.currentUser.uid, "profile", "main"].join("/"));
     await set(profileRef, {
@@ -1766,7 +2033,7 @@ function playSFX(type) {
     osc.frequency.setValueAtTime(220, audioCtx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.25);
     osc.connect(masterGain);
-    masterGain.gain.setValueAtTime(0.20, audioCtx.currentTime);
+    masterGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
     masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.28);
     osc.start();
     osc.stop(audioCtx.currentTime + 0.28);
@@ -1855,7 +2122,8 @@ function takeDamage() {
     setHudMode("summary");
     enterSummaryMode();
 
-    showEndSummary(false, state.currentMission, aiDirector.mood, [`Outcome: FAIL`]);
+    markAttendanceMissionEnd(false, state.currentMission, "failed");
+    syncSummaryFromRuntime(false, state.currentMission, aiDirector.mood, ["Outcome: FAIL"]);
 
     if (state.gameScore > 0) {
       show("game-over-ui");
@@ -1864,6 +2132,7 @@ function takeDamage() {
     show("btn-return", "inline-block");
   } else {
     setFeedback(minimalFailFeedback(damageAmount, levelDownMsg), "#ff4757");
+    renderAttendanceTracker();
   }
 }
 
@@ -2008,7 +2277,8 @@ function winMission() {
   setHudMode("summary");
   enterSummaryMode();
 
-  showEndSummary(true, state.currentMission, aiDirector.mood, [`Bonus: +${timeBonus}`]);
+  markAttendanceMissionEnd(true, state.currentMission, "completed");
+  syncSummaryFromRuntime(true, state.currentMission, aiDirector.mood, [`Bonus: +${timeBonus}`]);
 
   show("btn-next", "inline-block");
   show("btn-return", "inline-block");
@@ -2043,6 +2313,8 @@ function updateHUD(pointsToAdd = 0) {
     saveSessionStats();
     renderHubStatsBoard();
   }
+
+  renderAttendanceTracker();
 }
 
 function hideAllScenesAndControls() {
@@ -2073,6 +2345,8 @@ window.playNextMission = function () {
   hide("game-over-ui");
   hide("btn-next");
   hide("btn-return");
+  showTimer(false);
+  setMissionTimerAlert(false);
 
   document.body.classList.remove("summary-mode", "hub-mode");
   document.body.classList.add("mission-mode");
@@ -2095,6 +2369,8 @@ window.returnToHub = function () {
   hideAllScenesAndControls();
   setHudMode("hub");
   hide("game-over-ui");
+  hide("summary-panel");
+  showTimer(false);
   $("ui-container")?.classList.remove("danger-mode");
 
   setHubInteractionEnabled(true);
@@ -2106,12 +2382,15 @@ window.returnToHub = function () {
   applyUnitTheme(0);
   hide("btn-next");
   hide("btn-return");
-  hide("summary-panel");
   setFeedback("", "#ffffff");
   resetSummaryPanel();
   renderHubStatsBoard();
   state.currentMission = null;
   renderQuestionDiffBadge(state.gameDifficulty);
+
+  markAttendanceLobby();
+  renderAttendanceTracker();
+  setScoreHUD(state.gameScore, state.systemHP);
 };
 
 window.onload = function () {
@@ -2135,6 +2414,8 @@ window.onload = function () {
 
   try {
     setHudMode("hub");
+    hydrateAttendanceIdentity();
+    markAttendanceLoading("กำลังเตรียมข้อมูลเช็กชื่อ...");
     generateMissionWall();
     window.setDifficulty("normal");
     syncProfileUI();
@@ -2145,6 +2426,8 @@ window.onload = function () {
     setRewardChestState("loading");
     setLeaderboardBoardState("idle");
     setHubInteractionEnabled(true);
+    setScoreHUD(state.gameScore, state.systemHP);
+    showTimer(false);
   } catch (e) {
     showBootError(e?.stack || e?.message || e);
   } finally {
@@ -2157,6 +2440,7 @@ window.onload = function () {
     console.error("bootFirebase failed:", e);
     setRewardChestState("error", { note: "Reward Offline" });
     setLeaderboardBoardState("error");
+    markAttendanceLoading("เชื่อมต่อเซิร์ฟเวอร์เช็กชื่อไม่สำเร็จ");
   }
 
   try {
