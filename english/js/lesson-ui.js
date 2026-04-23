@@ -81,6 +81,12 @@ function choiceButton(letter) {
   );
 }
 
+function stripChoicePrefix(text = "") {
+  return String(text || "")
+    .replace(/^[A-Ca-c]\s*[\.\)\]:：-]?\s*/, "")
+    .trim();
+}
+
 function setCollapsedClass(className, collapsed) {
   const ui = getUi();
   if (!ui) return;
@@ -224,18 +230,26 @@ export function setChoiceLabelsFor(type, choices = []) {
   const list = Array.isArray(choices) ? choices : [];
 
   ["A", "B", "C"].forEach((letter, index) => {
-    const label = String(list[index] || `${letter}: ...`);
+    const raw = String(list[index] || "");
+    const clean = stripChoicePrefix(raw);
+    const fullLabel = `${letter}. ${clean || "..."}`;
 
     const btn = choiceButton(letter);
     if (btn) {
-      if ("value" in btn && btn.tagName && btn.tagName.toLowerCase() === "input") {
-        btn.value = label;
+      const labelEl =
+        btn.querySelector?.(".choice-label") ||
+        btn.querySelector?.("[data-choice-label]") ||
+        btn;
+
+      if ("value" in labelEl && labelEl.tagName && labelEl.tagName.toLowerCase() === "input") {
+        labelEl.value = clean || "...";
       } else {
-        btn.textContent = label;
+        labelEl.textContent = clean || "...";
       }
 
       btn.dataset.choiceType = String(type || "");
       btn.dataset.choiceLetter = letter;
+      btn.dataset.choiceFullLabel = fullLabel;
     }
 
     const sceneTextId =
@@ -247,7 +261,7 @@ export function setChoiceLabelsFor(type, choices = []) {
 
     const sceneTextEl = sceneTextId ? $(sceneTextId) : null;
     if (sceneTextEl) {
-      textLikeSet(sceneTextEl, label);
+      textLikeSet(sceneTextEl, fullLabel);
     }
   });
 }
