@@ -386,27 +386,29 @@
 
     .hud{
       position:fixed;
-      left:8px;
-      right:8px;
-      top:8px;
+      left:10px;
+      right:10px;
+      top:10px;
       z-index:20;
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:8px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
       pointer-events:none;
     }
 
     .card{
       position:relative;
       overflow:hidden;
-      border-radius:18px;
-      padding:9px 11px 10px;
+      border-radius:20px;
+      padding:10px 12px 11px;
       background:
-        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 34%),
-        linear-gradient(180deg, rgba(10,16,35,.74), rgba(10,16,35,.62));
-      border:1px solid rgba(255,255,255,.11);
-      backdrop-filter:blur(12px);
-      box-shadow:0 10px 30px rgba(0,0,0,.20);
+        radial-gradient(circle at top right, rgba(255,255,255,.16), transparent 32%),
+        linear-gradient(180deg, rgba(12,18,38,.76), rgba(8,14,28,.66));
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:
+        0 14px 34px rgba(0,0,0,.22),
+        inset 0 1px 0 rgba(255,255,255,.06);
+      backdrop-filter:blur(14px);
     }
 
     .card::after{
@@ -421,6 +423,15 @@
       pointer-events:none;
     }
 
+    .card::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:linear-gradient(135deg, rgba(255,255,255,.06), transparent 30% 70%, rgba(255,255,255,.02));
+      border-radius:inherit;
+    }
+
     .big{
       position:relative;
       font-size:13px;
@@ -431,26 +442,27 @@
 
     .sub{
       position:relative;
-      margin-top:4px;
+      margin-top:5px;
       font-size:10px;
-      color:#d1ddff;
+      color:#d8e4ff;
       line-height:1.3;
     }
 
     .bar{
-      height:10px;
+      height:11px;
       border-radius:999px;
-      background:rgba(255,255,255,.10);
+      background:rgba(255,255,255,.09);
       overflow:hidden;
-      margin-top:8px;
+      margin-top:9px;
       position:relative;
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
     }
 
     .fill{
       height:100%;
       width:100%;
-      background:linear-gradient(90deg,var(--green),var(--gold),var(--red));
+      background:
+        linear-gradient(90deg,#34d399 0%, #fde047 52%, #fb7185 100%);
       transform-origin:left center;
       position:relative;
     }
@@ -459,7 +471,7 @@
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(120deg, transparent 0 35%, rgba(255,255,255,.40) 50%, transparent 65% 100%);
+      background:linear-gradient(120deg, transparent 0 35%, rgba(255,255,255,.38) 50%, transparent 65% 100%);
       animation:barSheen 2.1s linear infinite;
     }
 
@@ -479,25 +491,26 @@
 
     #questionBox{
       position:fixed;
-      top:116px;
+      top:118px;
       left:50%;
       transform:translateX(-50%);
-      width:min(94vw,920px);
-      min-height:124px;
-      padding:15px 16px 18px;
-      border-radius:24px;
+      width:min(94vw, 940px);
+      min-height:132px;
+      padding:16px 18px 20px;
+      border-radius:26px;
       text-align:center;
       color:#fff;
       z-index:40;
       overflow:hidden;
       background:
-        radial-gradient(circle at top right, rgba(255,255,255,.16), transparent 30%),
-        linear-gradient(180deg, rgba(17,24,39,.88), rgba(12,20,34,.84));
-      border:1px solid rgba(255,255,255,.12);
+        radial-gradient(circle at top right, rgba(255,255,255,.18), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(103,232,249,.10), transparent 24%),
+        linear-gradient(180deg, rgba(18,26,48,.90), rgba(12,18,34,.86));
+      border:1px solid rgba(255,255,255,.14);
       box-shadow:
-        0 16px 36px rgba(0,0,0,.24),
+        0 18px 42px rgba(0,0,0,.28),
         0 0 0 1px rgba(255,255,255,.02) inset;
-      backdrop-filter:blur(12px);
+      backdrop-filter:blur(16px);
       transition:opacity .18s ease, transform .18s ease, filter .18s ease, box-shadow .18s ease;
     }
 
@@ -505,8 +518,11 @@
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(135deg, rgba(255,255,255,.08), transparent 24% 74%, rgba(255,255,255,.03));
+      border-radius:inherit;
       pointer-events:none;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.09), transparent 24% 76%, rgba(255,255,255,.03)),
+        radial-gradient(circle at top, rgba(255,255,255,.06), transparent 34%);
     }
 
     #questionBox.q-enter{
@@ -523,38 +539,39 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:28px;
+      min-height:30px;
       padding:0 12px;
       border-radius:999px;
       background:rgba(255,255,255,.08);
       border:1px solid rgba(255,255,255,.10);
-      font-size:12px;
-      font-weight:900;
-      letter-spacing:.06em;
-      color:#fde047;
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.08em;
+      color:#fde68a;
       margin-bottom:10px;
+      text-transform:uppercase;
     }
 
     #questionBox .q-prompt{
       position:relative;
-      font-size:clamp(20px,4.8vw,30px);
+      font-size:clamp(22px, 4.7vw, 32px);
       font-weight:1000;
-      line-height:1.2;
+      line-height:1.18;
       letter-spacing:-.02em;
       text-wrap:balance;
-      text-shadow:0 2px 14px rgba(0,0,0,.22);
+      text-shadow:0 2px 16px rgba(0,0,0,.22);
     }
 
     #questionBox.feedback-dim{
-      opacity:.80;
+      opacity:.82;
       transform:translateX(-50%) scale(.992);
-      filter:saturate(.94);
+      filter:saturate(.96);
     }
 
     #questionBox.countdown-mode{
       border-color:rgba(253,224,71,.86)!important;
       box-shadow:
-        0 16px 36px rgba(0,0,0,.24),
+        0 18px 42px rgba(0,0,0,.28),
         0 0 0 3px rgba(253,224,71,.18)!important;
     }
 
@@ -568,21 +585,21 @@
     }
 
     #questionBox.low-time{
-      border-color:rgba(251,113,133,.86)!important;
+      border-color:rgba(251,113,133,.88)!important;
       box-shadow:
-        0 16px 36px rgba(0,0,0,.24),
+        0 18px 42px rgba(0,0,0,.28),
         0 0 0 3px rgba(251,113,133,.18)!important;
     }
 
     #feedbackBox{
       position:fixed;
       left:50%;
-      top:92px;
+      top:96px;
       transform:translateX(-50%);
       min-width:220px;
       max-width:82vw;
       text-align:center;
-      padding:12px 18px;
+      padding:12px 20px;
       border-radius:999px;
       font-size:18px;
       font-weight:1000;
@@ -592,8 +609,8 @@
       opacity:0;
       pointer-events:none;
       transition:opacity .18s ease, transform .18s ease;
-      box-shadow:0 12px 30px rgba(0,0,0,.24);
-      backdrop-filter:blur(10px);
+      box-shadow:0 14px 34px rgba(0,0,0,.26);
+      backdrop-filter:blur(14px);
     }
 
     #feedbackBox.show{
@@ -602,7 +619,7 @@
     }
 
     #feedbackBox.ok{
-      background:linear-gradient(135deg, rgba(34,197,94,.95), rgba(22,163,74,.95));
+      background:linear-gradient(135deg, rgba(34,197,94,.96), rgba(22,163,74,.96));
     }
 
     #feedbackBox.bad{
@@ -621,10 +638,10 @@
       z-index:65;
       display:grid;
       grid-template-columns:1fr;
-      gap:10px;
+      gap:12px;
       align-content:start;
       overflow:auto;
-      padding-bottom:max(10px, var(--safe-b));
+      padding-bottom:max(12px, var(--safe-b));
     }
 
     .choiceBtn{
@@ -633,20 +650,20 @@
       overflow:hidden;
       border:0;
       width:100%;
-      min-height:58px;
-      padding:15px 16px;
-      border-radius:20px;
+      min-height:60px;
+      padding:15px 18px;
+      border-radius:22px;
       font-size:18px;
       font-weight:1000;
       line-height:1.12;
       color:#08111f;
       cursor:pointer;
       background:
-        radial-gradient(circle at top right, rgba(255,255,255,.35), transparent 34%),
+        radial-gradient(circle at top right, rgba(255,255,255,.42), transparent 34%),
         linear-gradient(135deg,#eff6ff,#cde4ff);
       box-shadow:
-        0 14px 32px rgba(0,0,0,.18),
-        inset 0 1px 0 rgba(255,255,255,.70);
+        0 16px 34px rgba(0,0,0,.20),
+        inset 0 1px 0 rgba(255,255,255,.72);
       transition:
         transform .12s ease,
         box-shadow .12s ease,
@@ -654,28 +671,40 @@
         opacity .12s ease,
         outline-color .12s ease,
         background .12s ease;
-      animation:choicePop .18s ease;
+      animation:
+        choicePop .20s ease,
+        choiceStagger .28s ease;
+      animation-delay:0ms, var(--stagger, 0ms);
+      animation-fill-mode:both;
     }
 
     .choiceBtn::before{
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(120deg, transparent 0 32%, rgba(255,255,255,.55) 47%, transparent 62% 100%);
-      transform:translateX(-120%);
-      transition:transform .6s ease;
       pointer-events:none;
+      background:linear-gradient(120deg, transparent 0 30%, rgba(255,255,255,.52) 47%, transparent 62% 100%);
+      transform:translateX(-120%);
+      transition:transform .62s ease;
     }
 
     .choiceBtn:hover::before{
       transform:translateX(120%);
     }
 
+    .choiceBtn:hover{
+      transform:translateY(-2px);
+      box-shadow:
+        0 20px 40px rgba(0,0,0,.22),
+        inset 0 1px 0 rgba(255,255,255,.76);
+      filter:saturate(1.03);
+    }
+
     .choiceBtn:active{
       transform:translateY(1px) scale(.995);
       box-shadow:
-        0 10px 22px rgba(0,0,0,.16),
-        inset 0 1px 0 rgba(255,255,255,.66);
+        0 10px 20px rgba(0,0,0,.16),
+        inset 0 1px 0 rgba(255,255,255,.68);
     }
 
     .choiceBtn:focus-visible{
@@ -685,14 +714,20 @@
 
     .choiceBtn.hit-correct{
       background:
-        radial-gradient(circle at top right, rgba(255,255,255,.30), transparent 34%),
+        radial-gradient(circle at top right, rgba(255,255,255,.34), transparent 34%),
         linear-gradient(135deg,#bbf7d0,#86efac);
+      box-shadow:
+        0 18px 38px rgba(34,197,94,.18),
+        inset 0 1px 0 rgba(255,255,255,.70);
     }
 
     .choiceBtn.hit-wrong{
       background:
         radial-gradient(circle at top right, rgba(255,255,255,.24), transparent 34%),
         linear-gradient(135deg,#fecdd3,#fda4af);
+      box-shadow:
+        0 18px 38px rgba(244,63,94,.16),
+        inset 0 1px 0 rgba(255,255,255,.64);
     }
 
     .choiceBtn.disabled{
@@ -706,19 +741,25 @@
       to{opacity:1;transform:translateY(0) scale(1)}
     }
 
+    @keyframes choiceStagger{
+      from{opacity:0;transform:translateY(10px) scale(.985)}
+      to{opacity:1;transform:translateY(0) scale(1)}
+    }
+
     .score-pop{
       position:fixed;
       left:50%;
-      top:88px;
+      top:92px;
       transform:translateX(-50%);
       z-index:56;
-      padding:8px 12px;
+      padding:8px 14px;
       border-radius:999px;
       font-size:14px;
       font-weight:1000;
+      letter-spacing:-.01em;
       color:#07111f;
       background:linear-gradient(135deg,#fde68a,#fef08a);
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
+      box-shadow:0 12px 28px rgba(0,0,0,.20);
       pointer-events:none;
       animation:scorePop .65s ease forwards;
     }
@@ -948,6 +989,7 @@
         radial-gradient(circle at top right, rgba(255,255,255,.18), transparent 36%),
         linear-gradient(135deg, rgba(103,232,249,.18), rgba(167,139,250,.20));
       border:1px solid rgba(255,255,255,.12);
+      box-shadow:var(--shadow-sm);
     }
 
     .summaryHero .player{
@@ -1205,6 +1247,7 @@
     .small{font-size:12px;color:#cbd5e1}
     .mono{font-family:ui-monospace,Consolas,monospace}
     .secretNote{margin-top:10px;font-size:12px;color:#fde68a;line-height:1.5}
+
     #endWrap{z-index:9999}
 
     #endWrap .actionGrid{
@@ -1217,6 +1260,864 @@
       letter-spacing:-.01em;
     }
 
+    /* ===== FX LAYERS / PREMIUM FEEDBACK PASS ===== */
+
+    #fxFlash,
+    #fxBurst,
+    #comboGlow{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:54;
+      opacity:0;
+    }
+
+    #fxFlash{
+      background:
+        radial-gradient(circle at center, rgba(255,255,255,.16), transparent 42%),
+        linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0));
+    }
+
+    #fxFlash.ok{
+      animation:fxFlashOk .38s ease;
+    }
+
+    #fxFlash.bad{
+      animation:fxFlashBad .42s ease;
+    }
+
+    @keyframes fxFlashOk{
+      0%{opacity:0}
+      25%{opacity:.9}
+      100%{opacity:0}
+    }
+
+    @keyframes fxFlashBad{
+      0%{opacity:0}
+      20%{opacity:.75}
+      100%{opacity:0}
+    }
+
+    #fxBurst{
+      background:
+        radial-gradient(circle at center, rgba(103,232,249,.22), transparent 24%),
+        radial-gradient(circle at center, rgba(167,139,250,.18), transparent 40%);
+      transform:scale(.92);
+    }
+
+    #fxBurst.ok{
+      animation:fxBurstOk .46s ease;
+    }
+
+    #fxBurst.bad{
+      background:
+        radial-gradient(circle at center, rgba(251,113,133,.18), transparent 24%),
+        radial-gradient(circle at center, rgba(244,63,94,.12), transparent 40%);
+      animation:fxBurstBad .48s ease;
+    }
+
+    @keyframes fxBurstOk{
+      0%{opacity:0;transform:scale(.86)}
+      35%{opacity:1;transform:scale(1)}
+      100%{opacity:0;transform:scale(1.12)}
+    }
+
+    @keyframes fxBurstBad{
+      0%{opacity:0;transform:scale(.90)}
+      35%{opacity:.9;transform:scale(1)}
+      100%{opacity:0;transform:scale(1.08)}
+    }
+
+    #comboGlow{
+      background:
+        radial-gradient(circle at 50% 8%, rgba(253,224,71,.20), transparent 18%),
+        radial-gradient(circle at 50% 12%, rgba(103,232,249,.12), transparent 26%);
+    }
+
+    #comboGlow.show{
+      animation:comboGlowPop .55s ease;
+    }
+
+    @keyframes comboGlowPop{
+      0%{opacity:0}
+      25%{opacity:1}
+      100%{opacity:0}
+    }
+
+    #questionBox.fx-ok{
+      animation:qboxOk .42s ease;
+    }
+
+    #questionBox.fx-bad{
+      animation:qboxBad .40s ease;
+    }
+
+    @keyframes qboxOk{
+      0%{transform:translateX(-50%) scale(.985)}
+      35%{transform:translateX(-50%) scale(1.02)}
+      100%{transform:translateX(-50%) scale(1)}
+    }
+
+    @keyframes qboxBad{
+      0%{transform:translateX(-50%) translateX(0)}
+      20%{transform:translateX(calc(-50% - 6px))}
+      40%{transform:translateX(calc(-50% + 6px))}
+      60%{transform:translateX(calc(-50% - 4px))}
+      80%{transform:translateX(calc(-50% + 4px))}
+      100%{transform:translateX(-50%)}
+    }
+
+    #feedbackBox.ok.show,
+    #feedbackBox.bad.show,
+    #feedbackBox.warn.show{
+      animation:feedbackPop .36s ease;
+    }
+
+    @keyframes feedbackPop{
+      0%{transform:translateX(-50%) translateY(4px) scale(.96)}
+      55%{transform:translateX(-50%) translateY(-5px) scale(1.03)}
+      100%{transform:translateX(-50%) translateY(-4px) scale(1)}
+    }
+
+    .card.combo-hot{
+      border-color:rgba(253,224,71,.42);
+      box-shadow:
+        0 14px 32px rgba(0,0,0,.24),
+        0 0 0 1px rgba(253,224,71,.08) inset,
+        0 0 18px rgba(253,224,71,.12);
+    }
+
+    .card.combo-super{
+      border-color:rgba(103,232,249,.46);
+      box-shadow:
+        0 14px 32px rgba(0,0,0,.24),
+        0 0 0 1px rgba(103,232,249,.12) inset,
+        0 0 22px rgba(103,232,249,.18);
+    }
+
+    .card.combo-super .big{
+      text-shadow:0 0 12px rgba(103,232,249,.24);
+    }
+
+    #hudCombo.combo-live{
+      animation:comboPulse .34s ease;
+    }
+
+    @keyframes comboPulse{
+      0%{transform:scale(.98)}
+      45%{transform:scale(1.06)}
+      100%{transform:scale(1)}
+    }
+
+    /* ===== PREMIUM SUMMARY SCREEN PASS ===== */
+
+    .summaryPanel{
+      position:relative;
+      overflow:hidden;
+      width:min(780px, 94vw);
+      border-radius:30px;
+      padding:20px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.14), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(103,232,249,.10), transparent 24%),
+        linear-gradient(180deg, rgba(17,27,57,.94), rgba(9,16,34,.95));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow:
+        0 24px 80px rgba(0,0,0,.38),
+        inset 0 1px 0 rgba(255,255,255,.06);
+    }
+
+    .summaryPanel::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:inherit;
+      pointer-events:none;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.08), transparent 24% 74%, rgba(255,255,255,.03)),
+        radial-gradient(circle at top, rgba(255,255,255,.06), transparent 34%);
+    }
+
+    .summaryHeroTop{
+      position:relative;
+      overflow:hidden;
+      border-radius:24px;
+      padding:18px 18px 16px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.18), transparent 34%),
+        linear-gradient(135deg, rgba(103,232,249,.16), rgba(167,139,250,.20));
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:0 14px 30px rgba(0,0,0,.18);
+    }
+
+    .summaryHeroGlow{
+      position:absolute;
+      inset:auto -8% -30% auto;
+      width:180px;
+      height:180px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      filter:blur(18px);
+      pointer-events:none;
+    }
+
+    .summaryRankBadge{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:34px;
+      padding:0 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.14);
+      color:#fff;
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      box-shadow:0 8px 18px rgba(0,0,0,.14);
+    }
+
+    .summaryPanel.tier-starter .summaryRankBadge{
+      background:linear-gradient(135deg,#dbeafe,#93c5fd);
+      color:#172554;
+      border-color:transparent;
+    }
+
+    .summaryPanel.tier-rising .summaryRankBadge{
+      background:linear-gradient(135deg,#bbf7d0,#4ade80);
+      color:#08351f;
+      border-color:transparent;
+    }
+
+    .summaryPanel.tier-pro .summaryRankBadge{
+      background:linear-gradient(135deg,#67e8f9,#a78bfa);
+      color:#07111f;
+      border-color:transparent;
+    }
+
+    .summaryPanel.tier-master .summaryRankBadge{
+      background:linear-gradient(135deg,#fde68a,#f59e0b);
+      color:#3b2200;
+      border-color:transparent;
+    }
+
+    .summaryPanel.tier-legend .summaryRankBadge{
+      background:linear-gradient(135deg,#f9a8d4,#a78bfa);
+      color:#2a0d3b;
+      border-color:transparent;
+    }
+
+    .summaryTitle{
+      position:relative;
+      margin:12px 0 8px;
+      font-size:clamp(28px, 5.6vw, 42px);
+      line-height:1.05;
+      letter-spacing:-.03em;
+      font-weight:1000;
+      text-wrap:balance;
+    }
+
+    .summaryResultPill{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      color:#eef5ff;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.2;
+      letter-spacing:.02em;
+    }
+
+    .summaryLead{
+      position:relative;
+      margin-top:12px;
+      color:#eef6ff;
+      font-size:15px;
+      line-height:1.6;
+    }
+
+    .summaryKpiGrid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .summaryKpiCard{
+      position:relative;
+      overflow:hidden;
+      border-radius:18px;
+      padding:12px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.10), transparent 34%),
+        rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow:0 10px 24px rgba(0,0,0,.12);
+    }
+
+    .summaryKpiCard .label{
+      font-size:11px;
+      color:#d6e3ff;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin-bottom:6px;
+    }
+
+    .summaryKpiCard .value{
+      font-size:28px;
+      font-weight:1000;
+      line-height:1;
+      letter-spacing:-.03em;
+    }
+
+    .summaryRewardCard{
+      position:relative;
+      overflow:hidden;
+      margin-top:14px;
+      border-radius:20px;
+      padding:14px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.14), transparent 34%),
+        linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow:0 12px 28px rgba(0,0,0,.14);
+    }
+
+    .summaryRewardCard::after{
+      content:"";
+      position:absolute;
+      inset:auto -16% -44% auto;
+      width:140px;
+      height:140px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      filter:blur(10px);
+      pointer-events:none;
+    }
+
+    .rewardTitle{
+      position:relative;
+      font-size:12px;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      color:#fde68a;
+      margin-bottom:6px;
+    }
+
+    .rewardText{
+      position:relative;
+      font-size:14px;
+      color:#edf5ff;
+      line-height:1.55;
+    }
+
+    .summaryPanel.success .summaryHeroTop{
+      box-shadow:
+        0 14px 30px rgba(0,0,0,.18),
+        0 0 0 1px rgba(74,222,128,.06) inset,
+        0 0 24px rgba(74,222,128,.10);
+    }
+
+    .summaryPanel.warn .summaryHeroTop{
+      box-shadow:
+        0 14px 30px rgba(0,0,0,.18),
+        0 0 0 1px rgba(253,224,71,.08) inset,
+        0 0 24px rgba(253,224,71,.10);
+    }
+
+    .summaryPanel.fail .summaryHeroTop{
+      box-shadow:
+        0 14px 30px rgba(0,0,0,.18),
+        0 0 0 1px rgba(251,113,133,.08) inset,
+        0 0 24px rgba(251,113,133,.10);
+    }
+
+    .summaryActionGrid .btn{
+      min-height:54px;
+    }
+
+    .summaryPanel.pop-in{
+      animation:summaryPopIn .34s ease;
+    }
+
+    @keyframes summaryPopIn{
+      from{opacity:0;transform:translateY(10px) scale(.985)}
+      to{opacity:1;transform:translateY(0) scale(1)}
+    }
+
+    /* ===== CINEMATIC MENU HERO PASS ===== */
+
+    .menuHero{
+      position:relative;
+      overflow:hidden;
+      border-radius:28px;
+      padding:18px 18px 16px;
+      margin-bottom:6px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.16), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(103,232,249,.10), transparent 26%),
+        linear-gradient(135deg, rgba(17,27,57,.94), rgba(10,18,38,.96));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow:
+        0 18px 48px rgba(0,0,0,.24),
+        inset 0 1px 0 rgba(255,255,255,.06);
+    }
+
+    .menuHero::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.08), transparent 22% 76%, rgba(255,255,255,.03)),
+        radial-gradient(circle at top, rgba(255,255,255,.05), transparent 36%);
+      border-radius:inherit;
+    }
+
+    .menuHeroGlow{
+      position:absolute;
+      border-radius:999px;
+      filter:blur(18px);
+      pointer-events:none;
+      opacity:.28;
+    }
+
+    .menuHeroGlowA{
+      width:180px;
+      height:180px;
+      right:-28px;
+      top:-26px;
+      background:rgba(103,232,249,.30);
+      animation:menuGlowA 11s ease-in-out infinite alternate;
+    }
+
+    .menuHeroGlowB{
+      width:160px;
+      height:160px;
+      left:-28px;
+      bottom:-42px;
+      background:rgba(167,139,250,.24);
+      animation:menuGlowB 13s ease-in-out infinite alternate;
+    }
+
+    @keyframes menuGlowA{
+      from{transform:translate3d(0,0,0) scale(1)}
+      to{transform:translate3d(-10px,8px,0) scale(1.08)}
+    }
+
+    @keyframes menuGlowB{
+      from{transform:translate3d(0,0,0) scale(1)}
+      to{transform:translate3d(12px,-8px,0) scale(1.06)}
+    }
+
+    .menuHeroBadge{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:32px;
+      padding:0 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      color:#fde68a;
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .menuHeroTitle{
+      position:relative;
+      margin-top:12px;
+      margin-bottom:0;
+      text-shadow:0 2px 18px rgba(0,0,0,.18);
+    }
+
+    .menuHeroDesc{
+      position:relative;
+      margin-top:10px;
+      max-width:62ch;
+    }
+
+    .menuHeroRibbon{
+      position:relative;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .heroLiveChip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      color:#eef5ff;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .heroLiveChip .dot{
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background:#4ade80;
+      box-shadow:0 0 0 0 rgba(74,222,128,.55);
+      animation:liveDotPulse 1.6s ease infinite;
+    }
+
+    @keyframes liveDotPulse{
+      0%{box-shadow:0 0 0 0 rgba(74,222,128,.50)}
+      70%{box-shadow:0 0 0 10px rgba(74,222,128,0)}
+      100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}
+    }
+
+    .menuHeroStats{
+      position:relative;
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .heroStatCard{
+      position:relative;
+      overflow:hidden;
+      border-radius:18px;
+      padding:12px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 34%),
+        rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow:0 10px 24px rgba(0,0,0,.12);
+    }
+
+    .heroStatCard::after{
+      content:"";
+      position:absolute;
+      right:-26px;
+      bottom:-36px;
+      width:96px;
+      height:96px;
+      border-radius:999px;
+      background:rgba(255,255,255,.04);
+      filter:blur(8px);
+      pointer-events:none;
+    }
+
+    .heroStatCard .label{
+      font-size:11px;
+      color:#d3e2ff;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin-bottom:6px;
+    }
+
+    .heroStatCard .value{
+      font-size:24px;
+      font-weight:1000;
+      line-height:1;
+      letter-spacing:-.03em;
+    }
+
+    .heroStatCard .meta{
+      margin-top:8px;
+      font-size:12px;
+      color:#dbe7ff;
+      line-height:1.45;
+    }
+
+    /* ===== PREMIUM LEADERBOARD POPUP PASS ===== */
+
+    .leaderboardPanel{
+      width:min(820px, 94vw);
+      border-radius:30px;
+      padding:18px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.16), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(103,232,249,.10), transparent 24%),
+        linear-gradient(180deg, rgba(17,27,57,.94), rgba(9,16,34,.96));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow:
+        0 24px 80px rgba(0,0,0,.38),
+        inset 0 1px 0 rgba(255,255,255,.06);
+    }
+
+    .leaderboardHero{
+      position:relative;
+      overflow:hidden;
+      border-radius:24px;
+      padding:16px 16px 14px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.18), transparent 34%),
+        linear-gradient(135deg, rgba(103,232,249,.16), rgba(167,139,250,.20));
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:0 14px 30px rgba(0,0,0,.18);
+    }
+
+    .leaderboardHero::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:inherit;
+      pointer-events:none;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.08), transparent 24% 76%, rgba(255,255,255,.03)),
+        radial-gradient(circle at top, rgba(255,255,255,.05), transparent 36%);
+    }
+
+    .leaderboardHeroGlow{
+      position:absolute;
+      border-radius:999px;
+      filter:blur(18px);
+      pointer-events:none;
+      opacity:.28;
+    }
+
+    .leaderboardHeroGlowA{
+      width:160px;
+      height:160px;
+      right:-26px;
+      top:-24px;
+      background:rgba(103,232,249,.30);
+    }
+
+    .leaderboardHeroGlowB{
+      width:140px;
+      height:140px;
+      left:-24px;
+      bottom:-36px;
+      background:rgba(167,139,250,.24);
+    }
+
+    .leaderboardHeroBadge{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:32px;
+      padding:0 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      color:#fde68a;
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .leaderboardHeroTitle{
+      position:relative;
+      margin:12px 0 6px;
+      font-size:clamp(28px, 5vw, 40px);
+      line-height:1.05;
+      letter-spacing:-.03em;
+      font-weight:1000;
+    }
+
+    .leaderboardHeroDesc{
+      position:relative;
+      color:#eef6ff;
+      font-size:14px;
+      line-height:1.55;
+    }
+
+    .leaderboardHeroChips{
+      position:relative;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .leaderboardHeroChip{
+      display:inline-flex;
+      align-items:center;
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      color:#eef5ff;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .leaderboardSpotlight{
+      position:relative;
+      overflow:hidden;
+      margin-top:14px;
+      border-radius:22px;
+      padding:14px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.14), transparent 34%),
+        linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow:0 12px 28px rgba(0,0,0,.14);
+    }
+
+    .leaderboardSpotlight::after{
+      content:"";
+      position:absolute;
+      inset:auto -16% -40% auto;
+      width:150px;
+      height:150px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      filter:blur(10px);
+      pointer-events:none;
+    }
+
+    .leaderboardSpotlightEmpty{
+      position:relative;
+      color:#e6f0ff;
+      font-size:14px;
+      line-height:1.5;
+    }
+
+    .lbSpotlightTop{
+      position:relative;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .lbSpotlightName{
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.08;
+      letter-spacing:-.02em;
+    }
+
+    .lbSpotlightMeta{
+      margin-top:6px;
+      color:#dce8ff;
+      font-size:13px;
+      line-height:1.45;
+    }
+
+    .lbSpotlightBadge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:54px;
+      height:54px;
+      padding:0 14px;
+      border-radius:18px;
+      background:linear-gradient(135deg,#fde68a,#f59e0b);
+      color:#3b2200;
+      font-size:22px;
+      font-weight:1000;
+      box-shadow:0 12px 28px rgba(245,158,11,.22);
+    }
+
+    .lbSpotlightStats{
+      position:relative;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .lbSpotStat{
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      padding:10px;
+    }
+
+    .lbSpotStat .label{
+      font-size:10px;
+      color:#d6e2ff;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin-bottom:4px;
+    }
+
+    .lbSpotStat .value{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.08;
+    }
+
+    .premiumLeaderboardList{
+      margin-top:14px;
+    }
+
+    .premiumLeaderboardList li{
+      border-radius:20px;
+      padding:14px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.14), transparent 36%),
+        rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow:0 10px 24px rgba(0,0,0,.12);
+    }
+
+    .premiumLeaderboardList li.rank-top-1{
+      border-color:rgba(253,224,71,.36);
+      box-shadow:
+        0 12px 28px rgba(0,0,0,.14),
+        0 0 0 1px rgba(253,224,71,.08) inset,
+        0 0 20px rgba(253,224,71,.10);
+    }
+
+    .premiumLeaderboardList li.rank-top-2{
+      border-color:rgba(226,232,240,.22);
+    }
+
+    .premiumLeaderboardList li.rank-top-3{
+      border-color:rgba(251,146,60,.22);
+    }
+
+    .premiumLeaderboardList .leaderTop{
+      align-items:center;
+    }
+
+    .premiumLeaderboardList .leaderName{
+      font-size:17px;
+      font-weight:1000;
+      line-height:1.12;
+    }
+
+    .premiumLeaderboardList .leaderRank{
+      min-width:46px;
+      height:46px;
+      border-radius:16px;
+      font-size:17px;
+    }
+
+    .premiumLeaderboardList .leaderStats{
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .premiumLeaderboardList .leaderStat{
+      border-radius:15px;
+    }
+
+    .premiumLeaderboardList .leaderFoot{
+      font-size:11px;
+      line-height:1.45;
+    }
+
     @media (min-width:700px){
       .bankGrid{grid-template-columns:1fr 1fr 1fr}
       .profileGrid{grid-template-columns:1fr 1fr}
@@ -1224,22 +2125,64 @@
       #choicePad{
         left:50%;
         right:auto;
-        width:min(760px, calc(100vw - 24px));
+        width:min(780px, calc(100vw - 24px));
         transform:translateX(-50%);
         grid-template-columns:1fr 1fr;
       }
     }
 
+    @media (max-width:640px){
+      .menuHero{
+        border-radius:22px;
+        padding:14px;
+      }
+
+      .menuHeroStats{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+
+      .menuHeroRibbon{
+        gap:6px;
+      }
+
+      .heroLiveChip{
+        font-size:11px;
+        min-height:32px;
+        padding:0 10px;
+      }
+
+      .heroStatCard{
+        border-radius:16px;
+        padding:10px;
+      }
+
+      .heroStatCard .value{
+        font-size:20px;
+      }
+    }
+
     @media (max-width:420px){
-      .hud{gap:6px;left:6px;right:6px;top:6px}
-      .card{padding:7px 8px;border-radius:14px}
+      .hud{
+        left:6px;
+        right:6px;
+        top:6px;
+        gap:6px;
+      }
+
+      .card{
+        border-radius:14px;
+        padding:7px 8px 8px;
+      }
+
       .big{font-size:12px}
       .sub{font-size:9px}
 
       #questionBox{
         top:164px;
-        min-height:116px;
-        border-radius:20px;
+        min-height:118px;
+        padding:14px 14px 16px;
+        border-radius:22px;
       }
 
       #questionBox .q-prompt{
@@ -1248,8 +2191,13 @@
 
       .choiceBtn{
         min-height:54px;
-        font-size:16px;
         border-radius:18px;
+        font-size:16px;
+        padding:13px 14px;
+      }
+
+      #feedbackBox{
+        font-size:16px;
       }
 
       .option h3{font-size:16px}
@@ -1260,14 +2208,46 @@
       .leaderRank{min-width:38px;height:38px;font-size:14px}
       .summaryStat .value{font-size:16px}
 
-      #endWrap .actionGrid{
+      .summaryPanel{
+        border-radius:24px;
+        padding:14px;
+      }
+
+      .summaryHeroTop{
+        border-radius:20px;
+        padding:14px;
+      }
+
+      .summaryTitle{
+        font-size:26px;
+      }
+
+      .summaryLead{
+        font-size:14px;
+      }
+
+      .summaryKpiGrid{
+        grid-template-columns:1fr 1fr;
         gap:8px;
       }
 
-      #endWrap .btn{
+      .summaryKpiCard{
+        padding:10px;
+        border-radius:16px;
+      }
+
+      .summaryKpiCard .value{
+        font-size:22px;
+      }
+
+      .summaryActionGrid{
+        gap:8px;
+      }
+
+      .summaryActionGrid .btn{
         min-height:50px;
-        padding:10px 8px;
         font-size:14px;
+        padding:10px 8px;
         line-height:1.05;
       }
 
@@ -1293,6 +2273,72 @@
 
       .barHead .name{
         font-size:13px;
+      }
+
+      .leaderboardPanel{
+        border-radius:24px;
+        padding:14px;
+      }
+
+      .leaderboardHero{
+        border-radius:20px;
+        padding:14px;
+      }
+
+      .leaderboardHeroTitle{
+        font-size:26px;
+      }
+
+      .leaderboardSpotlight{
+        border-radius:18px;
+        padding:12px;
+      }
+
+      .lbSpotlightName{
+        font-size:20px;
+      }
+
+      .lbSpotlightBadge{
+        min-width:48px;
+        height:48px;
+        border-radius:16px;
+        font-size:20px;
+      }
+
+      .lbSpotlightStats{
+        gap:8px;
+      }
+
+      .lbSpotStat{
+        border-radius:14px;
+        padding:9px;
+      }
+
+      .premiumLeaderboardList li{
+        padding:12px;
+        border-radius:18px;
+      }
+
+      .premiumLeaderboardList .leaderRank{
+        min-width:40px;
+        height:40px;
+        border-radius:14px;
+        font-size:14px;
+      }
+
+      .premiumLeaderboardList .leaderName{
+        font-size:15px;
+      }
+
+      #endWrap .actionGrid{
+        gap:8px;
+      }
+
+      #endWrap .btn{
+        min-height:50px;
+        padding:10px 8px;
+        font-size:14px;
+        line-height:1.05;
       }
     }
 
@@ -1334,6 +2380,10 @@
 <div id="app">
   <canvas id="gameCanvas"></canvas>
 
+  <div id="fxFlash" aria-hidden="true"></div>
+  <div id="fxBurst" aria-hidden="true"></div>
+  <div id="comboGlow" aria-hidden="true"></div>
+
   <div class="hud">
     <div class="card">
       <div class="big">VOCAB • ESP BATTLE</div>
@@ -1364,10 +2414,45 @@
 
   <div class="overlay" id="menu">
     <div class="panel">
-      <h1 class="title">Vocab — English for Specific Career Purposes (CS/AI)</h1>
-      <div class="desc">
-        เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ มีหลายรูปแบบคำถามต่อคำศัพท์ ปรับความยากตามการเล่น
-        มี 4 โหมดที่ต่างกันจริง และเก็บข้อมูลการเล่นตั้งแต่เริ่มจนจบ
+      <div class="menuHero">
+        <div class="menuHeroGlow menuHeroGlowA" aria-hidden="true"></div>
+        <div class="menuHeroGlow menuHeroGlowB" aria-hidden="true"></div>
+
+        <div class="menuHeroBadge">ESP BATTLE • CS/AI VOCAB</div>
+
+        <h1 class="title menuHeroTitle">Vocab — English for Specific Career Purposes (CS/AI)</h1>
+
+        <div class="desc menuHeroDesc">
+          เวอร์ชันนี้ออกแบบให้เรียนจริง ไม่ใช่จำคำตอบ มีหลายรูปแบบคำถามต่อคำศัพท์
+          ปรับความยากตามการเล่น มี 4 โหมดที่ต่างกันจริง และเก็บข้อมูลการเล่นตั้งแต่เริ่มจนจบ
+        </div>
+
+        <div class="menuHeroRibbon">
+          <div class="heroLiveChip">
+            <span class="dot"></span>
+            <span>Adaptive Learning Active</span>
+          </div>
+          <div class="heroLiveChip" id="menuHeroBankChip">Bank A</div>
+          <div class="heroLiveChip" id="menuHeroModeChip">Code Battle</div>
+        </div>
+
+        <div class="menuHeroStats">
+          <div class="heroStatCard">
+            <div class="label">Banks</div>
+            <div class="value">3</div>
+            <div class="meta">Software • Data • AI</div>
+          </div>
+          <div class="heroStatCard">
+            <div class="label">Modes</div>
+            <div class="value">4</div>
+            <div class="meta">Battle • Debug • AI • Speed</div>
+          </div>
+          <div class="heroStatCard">
+            <div class="label">Play Style</div>
+            <div class="value">Adaptive</div>
+            <div class="meta">difficulty shifts with performance</div>
+          </div>
+        </div>
       </div>
 
       <div class="menuStack">
@@ -1473,10 +2558,45 @@
   </div>
 
   <div class="overlay hidden" id="endWrap">
-    <div class="panel" style="width:min(760px,94vw)">
-      <h2 style="margin:0" id="endTitle">Run Complete</h2>
-      <div class="desc" id="endSummaryText">สรุปผล</div>
-      <div class="actionGrid" style="margin-top:16px; grid-template-columns:1fr 1fr 1fr;">
+    <div class="panel summaryPanel" id="summaryPanel">
+      <div class="summaryHeroTop">
+        <div class="summaryHeroGlow" aria-hidden="true"></div>
+        <div class="summaryRankBadge" id="endRankBadge">RESULT</div>
+
+        <h2 id="endTitle" class="summaryTitle">Run Complete</h2>
+
+        <div class="summaryResultPill" id="endResultPill">
+          รอบนี้จบแล้ว • พร้อมดูผล
+        </div>
+
+        <div class="summaryLead" id="endSummaryText">สรุปผล</div>
+      </div>
+
+      <div class="summaryKpiGrid" id="endKpiGrid">
+        <div class="summaryKpiCard">
+          <div class="label">Score</div>
+          <div class="value" id="endKpiScore">-</div>
+        </div>
+        <div class="summaryKpiCard">
+          <div class="label">Accuracy</div>
+          <div class="value" id="endKpiAccuracy">-</div>
+        </div>
+        <div class="summaryKpiCard">
+          <div class="label">Combo</div>
+          <div class="value" id="endKpiCombo">-</div>
+        </div>
+        <div class="summaryKpiCard">
+          <div class="label">Progress</div>
+          <div class="value" id="endKpiStage">-</div>
+        </div>
+      </div>
+
+      <div class="summaryRewardCard" id="endRewardCard">
+        <div class="rewardTitle">Reward Glow</div>
+        <div class="rewardText">ระบบจะสรุปผลงานรอบนี้ให้อัตโนมัติ</div>
+      </div>
+
+      <div class="actionGrid summaryActionGrid" style="margin-top:16px; grid-template-columns:1fr 1fr 1fr;">
         <button class="btn" id="endPlayAgainBtn">PLAY AGAIN</button>
         <button class="btn ghost" id="endLeaderboardBtn">RANK</button>
         <button class="btn alt" id="endMenuBtn">MENU</button>
@@ -1485,10 +2605,27 @@
   </div>
 
   <div class="overlay hidden" id="leaderboardWrap">
-    <div class="panel">
-      <h2 style="margin:0">Mode Leaderboard</h2>
-      <div class="desc">แสดง 10 อันดับสูงสุดของโหมดที่คุณเลือกอยู่ตอนนี้</div>
-      <ul class="leaderboardList" id="leaderboardList"></ul>
+    <div class="panel leaderboardPanel" id="leaderboardPanel">
+      <div class="leaderboardHero">
+        <div class="leaderboardHeroGlow leaderboardHeroGlowA" aria-hidden="true"></div>
+        <div class="leaderboardHeroGlow leaderboardHeroGlowB" aria-hidden="true"></div>
+
+        <div class="leaderboardHeroBadge">MODE LEADERBOARD</div>
+        <h2 class="leaderboardHeroTitle">Top Performers</h2>
+        <div class="leaderboardHeroDesc">แสดงอันดับสูงสุดของโหมดที่เลือกอยู่ตอนนี้ พร้อม spotlight อันดับ 1</div>
+
+        <div class="leaderboardHeroChips">
+          <div class="leaderboardHeroChip" id="lbModeChip">Mode • -</div>
+          <div class="leaderboardHeroChip" id="lbBankChip">Bank • -</div>
+        </div>
+      </div>
+
+      <div class="leaderboardSpotlight" id="leaderboardSpotlight">
+        <div class="leaderboardSpotlightEmpty">รอข้อมูลอันดับ 1</div>
+      </div>
+
+      <ul class="leaderboardList premiumLeaderboardList" id="leaderboardList"></ul>
+
       <div class="actionGrid" style="margin-top:14px;">
         <button class="btn ghost" id="closeLeaderboardBtn">CLOSE</button>
       </div>
@@ -1536,6 +2673,431 @@
     </div>
   </div>
 </div>
+
+<script>
+(() => {
+  const feedback = document.getElementById('feedbackBox');
+  const qbox = document.getElementById('questionBox');
+  const comboText = document.getElementById('hudCombo');
+  const choicePad = document.getElementById('choicePad');
+  const flash = document.getElementById('fxFlash');
+  const burst = document.getElementById('fxBurst');
+  const comboGlow = document.getElementById('comboGlow');
+
+  if (!feedback || !qbox || !comboText || !choicePad || !flash || !burst || !comboGlow) return;
+
+  let lastFeedbackKey = '';
+  let lastCombo = 0;
+
+  function restartClass(el, cls, ms = 520) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    window.setTimeout(() => el.classList.remove(cls), ms);
+  }
+
+  function runFeedbackFx(kind) {
+    if (kind === 'ok') {
+      restartClass(flash, 'ok', 420);
+      restartClass(burst, 'ok', 500);
+      restartClass(qbox, 'fx-ok', 460);
+    } else if (kind === 'bad') {
+      restartClass(flash, 'bad', 460);
+      restartClass(burst, 'bad', 520);
+      restartClass(qbox, 'fx-bad', 440);
+    }
+  }
+
+  function updateFeedbackFx() {
+    const visible = feedback.classList.contains('show');
+    const kind = feedback.classList.contains('ok')
+      ? 'ok'
+      : feedback.classList.contains('bad')
+        ? 'bad'
+        : feedback.classList.contains('warn')
+          ? 'warn'
+          : '';
+
+    const key = visible ? `${kind}|${feedback.textContent || ''}` : '';
+    if (!key || key === lastFeedbackKey) return;
+
+    lastFeedbackKey = key;
+    if (kind === 'ok' || kind === 'bad') runFeedbackFx(kind);
+
+    window.setTimeout(() => {
+      if (lastFeedbackKey === key) lastFeedbackKey = '';
+    }, 260);
+  }
+
+  function parseComboValue() {
+    const m = String(comboText.textContent || '').match(/(\d+)/);
+    return m ? Number(m[1]) : 0;
+  }
+
+  function updateComboFx() {
+    const n = parseComboValue();
+    const card = comboText.closest('.card');
+
+    comboText.classList.remove('combo-live');
+    void comboText.offsetWidth;
+    comboText.classList.add('combo-live');
+    window.setTimeout(() => comboText.classList.remove('combo-live'), 380);
+
+    if (card) {
+      card.classList.toggle('combo-hot', n >= 3);
+      card.classList.toggle('combo-super', n >= 6);
+    }
+
+    if (n >= 6 && n > lastCombo) {
+      restartClass(comboGlow, 'show', 620);
+    }
+
+    lastCombo = n;
+  }
+
+  function updateChoiceStagger() {
+    const btns = Array.from(choicePad.querySelectorAll('.choiceBtn'));
+    btns.forEach((btn, i) => {
+      btn.style.setProperty('--stagger', `${i * 45}ms`);
+    });
+  }
+
+  new MutationObserver(updateFeedbackFx).observe(feedback, {
+    attributes: true,
+    attributeFilter: ['class']
+  });
+
+  new MutationObserver(updateComboFx).observe(comboText, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  new MutationObserver(updateChoiceStagger).observe(choicePad, {
+    childList: true,
+    subtree: false
+  });
+
+  updateChoiceStagger();
+  updateComboFx();
+})();
+</script>
+
+<script>
+(() => {
+  const endWrap = document.getElementById('endWrap');
+  const summaryPanel = document.getElementById('summaryPanel');
+  const endTitle = document.getElementById('endTitle');
+  const endSummaryText = document.getElementById('endSummaryText');
+  const endRankBadge = document.getElementById('endRankBadge');
+  const endResultPill = document.getElementById('endResultPill');
+  const endRewardCard = document.getElementById('endRewardCard');
+
+  const endKpiScore = document.getElementById('endKpiScore');
+  const endKpiAccuracy = document.getElementById('endKpiAccuracy');
+  const endKpiCombo = document.getElementById('endKpiCombo');
+  const endKpiStage = document.getElementById('endKpiStage');
+
+  const hudScore = document.getElementById('hudScore');
+  const hudCombo = document.getElementById('hudCombo');
+  const hudRound = document.getElementById('hudRound');
+
+  if (!endWrap || !summaryPanel || !endTitle || !endSummaryText) return;
+
+  function numFromText(t) {
+    const m = String(t || '').match(/(\d+(?:\.\d+)?)/);
+    return m ? Number(m[1]) : 0;
+  }
+
+  function accuracyFromSummary(t) {
+    const m = String(t || '').match(/(\d+(?:\.\d+)?)\s*%/);
+    return m ? Number(m[1]) : 0;
+  }
+
+  function stageText() {
+    const raw = String(hudRound?.textContent || '').trim();
+    return raw || '-';
+  }
+
+  function scoreValue() {
+    return numFromText(hudScore?.textContent || '');
+  }
+
+  function comboValue() {
+    return numFromText(hudCombo?.textContent || '');
+  }
+
+  function tierFromStats(score, accuracy, combo) {
+    if (score >= 180 || accuracy >= 95 || combo >= 12) return 'LEGEND';
+    if (score >= 140 || accuracy >= 88 || combo >= 9) return 'MASTER';
+    if (score >= 100 || accuracy >= 78 || combo >= 6) return 'PRO';
+    if (score >= 60 || accuracy >= 65 || combo >= 3) return 'RISING';
+    return 'STARTER';
+  }
+
+  function panelTierClass(tier) {
+    return {
+      STARTER: 'tier-starter',
+      RISING: 'tier-rising',
+      PRO: 'tier-pro',
+      MASTER: 'tier-master',
+      LEGEND: 'tier-legend'
+    }[tier] || 'tier-starter';
+  }
+
+  function toneFromTitleAndText(title, summary) {
+    const text = (String(title || '') + ' ' + String(summary || '')).toLowerCase();
+
+    if (
+      text.includes('fail') ||
+      text.includes('try again') ||
+      text.includes('miss') ||
+      text.includes('wrong too many')
+    ) return 'fail';
+
+    if (
+      text.includes('great') ||
+      text.includes('clear') ||
+      text.includes('victory') ||
+      text.includes('win') ||
+      text.includes('excellent') ||
+      text.includes('passed')
+    ) return 'success';
+
+    return 'warn';
+  }
+
+  function pillText(tone, accuracy) {
+    if (tone === 'success') {
+      return accuracy ? `Excellent run • ${accuracy}% accuracy` : 'Excellent run • strong finish';
+    }
+    if (tone === 'fail') {
+      return accuracy ? `Keep training • ${accuracy}% accuracy` : 'Keep training • try one more run';
+    }
+    return accuracy ? `Good progress • ${accuracy}% accuracy` : 'Good progress • ready for next run';
+  }
+
+  function rewardText(tier, tone, score, combo) {
+    if (tier === 'LEGEND') {
+      return `Legend performance this round. Score ${score} และ combo ${combo} ทำได้ยอดเยี่ยมมาก`;
+    }
+    if (tier === 'MASTER') {
+      return `Master tier unlocked. รอบนี้คุมจังหวะและความแม่นยำได้ดีมาก`;
+    }
+    if (tier === 'PRO') {
+      return `Pro result. ผลงานรอบนี้เริ่มนิ่งและมีพลังมากขึ้นแล้ว`;
+    }
+    if (tier === 'RISING') {
+      return tone === 'fail'
+        ? 'ยังมีจุดให้แก้ แต่เริ่มจับทางได้แล้ว ลองเล่นซ้ำอีกรอบเพื่อดันคะแนน'
+        : 'กำลังไต่ระดับขึ้นดีมาก เล่นต่ออีกนิดจะเห็นผลชัดขึ้น';
+    }
+    return 'เริ่มต้นได้ดีแล้ว ใช้ปุ่ม PLAY AGAIN เพื่อฝึกต่อทันที';
+  }
+
+  function refreshSummaryFx() {
+    const title = String(endTitle.textContent || '').trim();
+    const summary = String(endSummaryText.textContent || '').trim();
+
+    const score = scoreValue();
+    const combo = comboValue();
+    const accuracy = accuracyFromSummary(summary);
+    const stage = stageText();
+
+    const tier = tierFromStats(score, accuracy, combo);
+    const tone = toneFromTitleAndText(title, summary);
+
+    summaryPanel.classList.remove(
+      'tier-starter','tier-rising','tier-pro','tier-master','tier-legend',
+      'success','warn','fail','pop-in'
+    );
+
+    summaryPanel.classList.add(panelTierClass(tier), tone);
+    void summaryPanel.offsetWidth;
+    summaryPanel.classList.add('pop-in');
+
+    if (endRankBadge) endRankBadge.textContent = tier;
+    if (endResultPill) endResultPill.textContent = pillText(tone, accuracy);
+    if (endKpiScore) endKpiScore.textContent = score || '-';
+    if (endKpiAccuracy) endKpiAccuracy.textContent = accuracy ? `${accuracy}%` : '-';
+    if (endKpiCombo) endKpiCombo.textContent = combo || '-';
+    if (endKpiStage) endKpiStage.textContent = stage || '-';
+
+    if (endRewardCard) {
+      endRewardCard.innerHTML = `
+        <div class="rewardTitle">Reward Glow</div>
+        <div class="rewardText">${rewardText(tier, tone, score, combo)}</div>
+      `;
+    }
+  }
+
+  function maybeRefresh() {
+    const isOpen = !endWrap.classList.contains('hidden');
+    if (!isOpen) return;
+    refreshSummaryFx();
+  }
+
+  new MutationObserver(maybeRefresh).observe(endWrap, {
+    attributes: true,
+    attributeFilter: ['class']
+  });
+
+  new MutationObserver(maybeRefresh).observe(endTitle, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  new MutationObserver(maybeRefresh).observe(endSummaryText, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  maybeRefresh();
+})();
+</script>
+
+<script>
+(() => {
+  const bankChip = document.getElementById('menuHeroBankChip');
+  const modeChip = document.getElementById('menuHeroModeChip');
+  const menu = document.getElementById('menu');
+
+  if (!bankChip || !modeChip || !menu) return;
+
+  function activeText(selector, fallback) {
+    const el = menu.querySelector(selector);
+    if (!el) return fallback;
+    const title = el.querySelector('h3');
+    return title ? title.textContent.trim() : fallback;
+  }
+
+  function refreshHeroChips() {
+    const activeBank = activeText('.bankBtn.active', 'Bank A');
+    const activeMode = activeText('.modeBtn.active', 'Code Battle');
+
+    bankChip.textContent = activeBank;
+    modeChip.textContent = activeMode;
+  }
+
+  menu.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.bankBtn, .modeBtn');
+    if (!btn) return;
+
+    requestAnimationFrame(() => {
+      refreshHeroChips();
+    });
+  });
+
+  refreshHeroChips();
+})();
+</script>
+
+<script>
+(() => {
+  const wrap = document.getElementById('leaderboardWrap');
+  const list = document.getElementById('leaderboardList');
+  const spotlight = document.getElementById('leaderboardSpotlight');
+  const modeChip = document.getElementById('lbModeChip');
+  const bankChip = document.getElementById('lbBankChip');
+  const menu = document.getElementById('menu');
+
+  if (!wrap || !list || !spotlight || !modeChip || !bankChip || !menu) return;
+
+  function activeTitle(selector, fallback) {
+    const el = menu.querySelector(selector);
+    const h = el?.querySelector('h3');
+    return h ? h.textContent.trim() : fallback;
+  }
+
+  function getText(el, selector, fallback = '-') {
+    const t = el?.querySelector(selector)?.textContent?.trim();
+    return t || fallback;
+  }
+
+  function refreshHeroChips() {
+    modeChip.textContent = 'Mode • ' + activeTitle('.modeBtn.active', 'Code Battle');
+    bankChip.textContent = 'Bank • ' + activeTitle('.bankBtn.active', 'Bank A');
+  }
+
+  function decorateRanks() {
+    const items = Array.from(list.querySelectorAll('li'));
+    items.forEach((li, i) => {
+      li.classList.remove('rank-top-1', 'rank-top-2', 'rank-top-3');
+      if (i === 0) li.classList.add('rank-top-1');
+      if (i === 1) li.classList.add('rank-top-2');
+      if (i === 2) li.classList.add('rank-top-3');
+    });
+  }
+
+  function buildSpotlight() {
+    const first = list.querySelector('li');
+    if (!first) {
+      spotlight.innerHTML = '<div class="leaderboardSpotlightEmpty">รอข้อมูลอันดับ 1</div>';
+      return;
+    }
+
+    const name = getText(first, '.leaderName', 'Top Player');
+    const rank = getText(first, '.leaderRank', '#1');
+    const statValues = Array.from(first.querySelectorAll('.leaderStat .value')).map(el => el.textContent.trim());
+    const statLabels = Array.from(first.querySelectorAll('.leaderStat .label')).map(el => el.textContent.trim());
+    const foot = getText(first, '.leaderFoot', 'latest leaderboard update');
+
+    const leftLabel = statLabels[0] || 'Best Score';
+    const leftValue = statValues[0] || '-';
+    const rightLabel = statLabels[1] || 'Accuracy';
+    const rightValue = statValues[1] || '-';
+
+    spotlight.innerHTML = `
+      <div class="lbSpotlightTop">
+        <div>
+          <div class="lbSpotlightName">${name}</div>
+          <div class="lbSpotlightMeta">${foot}</div>
+        </div>
+        <div class="lbSpotlightBadge">${rank.replace('#','')}</div>
+      </div>
+
+      <div class="lbSpotlightStats">
+        <div class="lbSpotStat">
+          <div class="label">${leftLabel}</div>
+          <div class="value">${leftValue}</div>
+        </div>
+        <div class="lbSpotStat">
+          <div class="label">${rightLabel}</div>
+          <div class="value">${rightValue}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function refreshLeaderboardPremium() {
+    refreshHeroChips();
+    decorateRanks();
+    buildSpotlight();
+  }
+
+  new MutationObserver(() => {
+    if (!wrap.classList.contains('hidden')) {
+      refreshLeaderboardPremium();
+    }
+  }).observe(list, { childList: true, subtree: true });
+
+  new MutationObserver(() => {
+    if (!wrap.classList.contains('hidden')) {
+      refreshLeaderboardPremium();
+    }
+  }).observe(wrap, { attributes: true, attributeFilter: ['class'] });
+
+  menu.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.bankBtn, .modeBtn');
+    if (!btn) return;
+    requestAnimationFrame(refreshHeroChips);
+  });
+
+  refreshLeaderboardPremium();
+})();
+</script>
 
 <script type="module" src="./assets/vocab-engine.js"></script>
 </body>
