@@ -100,13 +100,35 @@ import {
   expandMissionHudTextCompact,
   togglePromptFocusExpanded,
   resetPromptFocusExpanded
-} from "./lesson-ui.js?v=20260420b";
+} from "./lesson-ui.js?v=20260422k";
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 let missionTransitionLock = false;
 let missionRuntimeToken = 0;
 const recentCorrectSlots = [];
+
+let recognitionActive = false;
+let speakButtonUnlockAt = 0;
+
+function armSpeakButton(delay = 650) {
+  const btn = $("btn-speak");
+  speakButtonUnlockAt = Date.now() + delay;
+
+  if (!btn) return;
+  btn.disabled = true;
+  btn.dataset.armed = "0";
+
+  setTimeout(() => {
+    if (!btn) return;
+    if (Date.now() < speakButtonUnlockAt) return;
+    if (state.isGameOver) return;
+    if (!state.currentMission || state.currentMission.type !== "speaking") return;
+
+    btn.disabled = false;
+    btn.dataset.armed = "1";
+  }, delay);
+}
 
 function closeMobileHubSheetIfAny() {
   const sheet = $("mobile-hub-sheet");
@@ -116,20 +138,20 @@ function closeMobileHubSheetIfAny() {
   sheet.dataset.mode = "";
 }
 
-function setHubInteractionEnabled(show = true) {
-  setHubVisible(show);
+function setHubInteractionEnabled(showHub = true) {
+  setHubVisible(showHub);
 
   const mobileHubDrawer = $("mobile-hub-drawer");
   const mobileHubSheet = $("mobile-hub-sheet");
 
   if (mobileHubDrawer) {
-    mobileHubDrawer.style.display = show ? "" : "none";
-    mobileHubDrawer.style.pointerEvents = show ? "auto" : "none";
+    mobileHubDrawer.style.display = showHub ? "" : "none";
+    mobileHubDrawer.style.pointerEvents = showHub ? "auto" : "none";
   }
 
   if (mobileHubSheet) {
-    if (!show) closeMobileHubSheetIfAny();
-    mobileHubSheet.style.pointerEvents = show ? "auto" : "none";
+    if (!showHub) closeMobileHubSheetIfAny();
+    mobileHubSheet.style.pointerEvents = showHub ? "auto" : "none";
   }
 
   const hubClickables = [
@@ -138,13 +160,15 @@ function setHubInteractionEnabled(show = true) {
   ].filter(Boolean);
 
   hubClickables.forEach((el) => {
-    if (show) el.classList.add("clickable");
+    if (showHub) el.classList.add("clickable");
     else el.classList.remove("clickable");
   });
 }
 
 function resetMissionRuntime() {
   missionRuntimeToken++;
+  recognitionActive = false;
+  speakButtonUnlockAt = 0;
 
   if (state.missionTimer) {
     clearInterval(state.missionTimer);
@@ -249,6 +273,37 @@ function shuffleChoiceMission(mission) {
   if (recentCorrectSlots.length > 20) recentCorrectSlots.shift();
 
   return mission;
+}
+
+function isTouchPhoneLike() {
+  return window.matchMedia("(max-width: 700px)").matches || ("ontouchstart" in window);
+}
+
+function setSceneChoiceTapEnabled(enabled = true) {
+  const pairs = [
+    ["reading-choice-a", "A"],
+    ["reading-choice-b", "B"],
+    ["reading-choice-c", "C"],
+    ["listening-choice-a", "A"],
+    ["listening-choice-b", "B"],
+    ["listening-choice-c", "C"]
+  ];
+
+  pairs.forEach(([textId, letter]) => {
+    const textEl = $(textId);
+    const host = textEl?.parentElement;
+    if (!host) return;
+
+    const box = host.querySelector(".clickable");
+
+    if (enabled) {
+      host.setAttribute("onclick", `checkChoiceAnswer('${letter}')`);
+      box?.classList.add("clickable");
+    } else {
+      host.removeAttribute("onclick");
+      box?.classList.remove("clickable");
+    }
+  });
 }
 
 window.selectAvatar = function (avatar) {
@@ -394,6 +449,12 @@ function clipMissionTitle(text = "", max = 18) {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
+function enterSummaryMode() {
+  document.body.classList.remove("hub-mode", "mission-mode");
+  document.body.classList.add("summary-mode");
+  document.body.dataset.missionType = "";
+}
+
 function getMissionTypeMeta(type = "") {
   if (type === "speaking") return { icon: "🎤", color: "#2ed573", short: "SPEAK" };
   if (type === "reading") return { icon: "📘", color: "#4dabf7", short: "READ" };
@@ -407,24 +468,14 @@ function getMissionWallMeta(mGroup, cleared = false) {
   const isBoss = (mGroup?.id % 3 === 0);
   const isFinal = isUnitFinal(mGroup?.id);
 
-  const baseColor = isFinal
-    ? "#f1c40f"
-    : isBoss
-      ? "#ff6b81"
-      : typeMeta.color;
+  const baseColor = isFinal ? "#f1c40f" : isBoss ? "#ff6b81" : typeMeta.color;
+  const plateColor = isFinal ? "#2b2408" : isBoss ? "#2a0f18" : "#0f172a";
+  const subtitle = isFinal ? "FINAL" : isBoss ? "BOSS" : typeMeta.short;
+  const icon = isFinal ? "👑" : isBoss ? "⚡" : typeMeta.icon;
 
-  const plateColor = isFinal
-    ? "#2b2408"
-    : isBoss
-      ? "#2a0f18"
-      : "#0f172a";
-
-  const subtitle = isFinal ? "FINAL" : (isBoss ? "BOSS" : typeMeta.short);
-  const icon = isFinal ? "👑" : (isBoss ? "⚡" : typeMeta.icon);
-
-  const width = isFinal ? 1.56 : (isBoss ? 1.44 : 1.18);
-  const height = isFinal ? 0.92 : (isBoss ? 0.82 : 0.68);
-  const haloOpacity = cleared ? 0.28 : (isFinal ? 0.16 : (isBoss ? 0.13 : 0.11));
+  const width = isFinal ? 1.56 : isBoss ? 1.44 : 1.18;
+  const height = isFinal ? 0.92 : isBoss ? 0.82 : 0.68;
+  const haloOpacity = cleared ? 0.28 : isFinal ? 0.16 : isBoss ? 0.13 : 0.11;
   const boxOpacity = cleared ? 1 : 0.92;
 
   const title = clipMissionTitle(mGroup?.title || `Session ${mGroup?.id}`, isFinal ? 16 : 18);
@@ -456,8 +507,8 @@ function applyMissionWallAmbientFX(root, halo, box, meta) {
   halo.removeAttribute("animation__halo");
   box.removeAttribute("animation__idle");
 
-  const floatToY = meta.isFinal ? 0.028 : (meta.isBoss ? 0.022 : 0.016);
-  const floatDur = meta.isFinal ? 2100 : (meta.isBoss ? 2300 : 2500);
+  const floatToY = meta.isFinal ? 0.028 : meta.isBoss ? 0.022 : 0.016;
+  const floatDur = meta.isFinal ? 2100 : meta.isBoss ? 2300 : 2500;
 
   root.setAttribute(
     "animation__float",
@@ -540,7 +591,7 @@ function setMissionWallVisualState(mGroup, opts = {}) {
   if (!plate || !halo || !box || !textTop || !textBottom || !tag || !root) return;
 
   const activeColor = hovered ? "#7bedff" : meta.baseColor;
-  const activeScale = hovered ? "1.08 1.08 1.08" : (cleared ? "1.02 1.02 1.02" : "1 1 1");
+  const activeScale = hovered ? "1.08 1.08 1.08" : cleared ? "1.02 1.02 1.02" : "1 1 1";
 
   plate.setAttribute("color", meta.plateColor);
   plate.setAttribute("material", `opacity: ${hovered ? 0.98 : 0.88}; shader: flat`);
@@ -560,7 +611,7 @@ function setMissionWallVisualState(mGroup, opts = {}) {
   box.setAttribute("height", meta.height);
   box.setAttribute(
     "material",
-    `opacity: ${meta.boxOpacity}; metalness: 0.18; roughness: 0.56; emissive: ${activeColor}; emissiveIntensity: ${hovered ? 0.48 : (cleared ? 0.36 : 0.18)}`
+    `opacity: ${meta.boxOpacity}; metalness: 0.18; roughness: 0.56; emissive: ${activeColor}; emissiveIntensity: ${hovered ? 0.48 : cleared ? 0.36 : 0.18}`
   );
 
   root.setAttribute("scale", activeScale);
@@ -776,41 +827,45 @@ function setupLeaderboardListener() {
 
   const lbRef = ref(state.db, ["artifacts", state.appId, "public", "data", "vr_leaderboards"].join("/"));
 
-  onValue(lbRef, (snapshot) => {
-    let scores = [];
-    if (snapshot.exists()) {
-      const val = snapshot.val() || {};
-      scores = Object.values(val);
+  onValue(
+    lbRef,
+    (snapshot) => {
+      let scores = [];
+      if (snapshot.exists()) {
+        const val = snapshot.val() || {};
+        scores = Object.values(val);
+      }
+
+      scores.sort((a, b) => (b.score || 0) - (a.score || 0));
+      const top5 = scores.slice(0, 5);
+
+      const lbList = $("vr-leaderboard-list");
+      if (!lbList) return;
+
+      if (!top5.length) {
+        setLeaderboardBoardState("empty");
+        lbList.setAttribute("value", "No clears yet\nBe the first legend!");
+        return;
+      }
+
+      let lbText = "";
+      top5.forEach((entry, i) => {
+        const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "•";
+        const avatar = typeof entry.avatar === "string" ? entry.avatar : "🧑‍💻";
+        const safeName = String(entry.name || "Hero").substring(0, 10);
+        lbText += `${medal} ${avatar} ${safeName}  ${entry.score}\n`;
+      });
+
+      lbList.setAttribute("value", lbText.trim());
+      setLeaderboardBoardState("active");
+    },
+    (error) => {
+      console.error("RTDB leaderboard listener error:", error);
+      const lbList = $("vr-leaderboard-list");
+      if (lbList) lbList.setAttribute("value", "Leaderboard Offline");
+      setLeaderboardBoardState("error");
     }
-
-    scores.sort((a, b) => (b.score || 0) - (a.score || 0));
-    const top5 = scores.slice(0, 5);
-
-    const lbList = $("vr-leaderboard-list");
-    if (!lbList) return;
-
-    if (!top5.length) {
-      setLeaderboardBoardState("empty");
-      lbList.setAttribute("value", "No clears yet\nBe the first legend!");
-      return;
-    }
-
-    let lbText = "";
-    top5.forEach((entry, i) => {
-      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "•";
-      const avatar = typeof entry.avatar === "string" ? entry.avatar : "🧑‍💻";
-      const safeName = String(entry.name || "Hero").substring(0, 10);
-      lbText += `${medal} ${avatar} ${safeName}  ${entry.score}\n`;
-    });
-
-    lbList.setAttribute("value", lbText.trim());
-    setLeaderboardBoardState("active");
-  }, (error) => {
-    console.error("RTDB leaderboard listener error:", error);
-    const lbList = $("vr-leaderboard-list");
-    if (lbList) lbList.setAttribute("value", "Leaderboard Offline");
-    setLeaderboardBoardState("error");
-  });
+  );
 }
 
 async function bootFirebase() {
@@ -858,7 +913,7 @@ window.checkDailyStreak = async function () {
     setRewardChestState("loading");
 
     const snap = await get(rewardRef);
-    const rewardData = snap.exists() ? (snap.val() || {}) : {};
+    const rewardData = snap.exists() ? snap.val() || {} : {};
     const streak = rewardData.streak || 0;
     const lastLogin = rewardData.lastLogin || "";
 
@@ -898,7 +953,7 @@ window.claimReward = async function () {
     setRewardChestState("loading");
 
     const snap = await get(rewardRef);
-    const rewardData = snap.exists() ? (snap.val() || {}) : {};
+    const rewardData = snap.exists() ? snap.val() || {} : {};
     let streak = rewardData.streak || 0;
     const lastLogin = rewardData.lastLogin || "";
 
@@ -915,7 +970,7 @@ window.claimReward = async function () {
 
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    streak = (lastLogin === yesterday.toDateString()) ? streak + 1 : 1;
+    streak = lastLogin === yesterday.toDateString() ? streak + 1 : 1;
 
     await set(rewardRef, { lastLogin: today, streak });
 
@@ -955,8 +1010,8 @@ function generateMissionWall() {
   let index = 0;
 
   for (let row = 0; row < 3; row++) {
-    const rowY = 1.22 - (row * 0.84);
-    const rowRadius = 4.1 + (row * 0.16);
+    const rowY = 1.22 - row * 0.84;
+    const rowRadius = 4.1 + row * 0.16;
 
     for (let col = 0; col < 5; col++) {
       if (index >= missionDB.length) break;
@@ -964,7 +1019,7 @@ function generateMissionWall() {
       const mGroup = missionDB[index];
       const meta = getMissionWallMeta(mGroup, false);
       const angle = (col - 2) * 14;
-      const rad = angle * Math.PI / 180;
+      const rad = (angle * Math.PI) / 180;
       const xPos = Math.sin(rad) * rowRadius;
       const zPos = -Math.cos(rad) * rowRadius + 4.1;
 
@@ -1174,12 +1229,6 @@ function buildWritingCoachPrompt(mission, result) {
   return parts.join("\n\n");
 }
 
-function enterSummaryMode() {
-  document.body.classList.remove("hub-mode", "mission-mode");
-  document.body.classList.add("summary-mode");
-  document.body.dataset.missionType = "";
-}
-
 function loadMission(id) {
   const missionId = Number(id || 0);
   if (!missionId) return;
@@ -1198,9 +1247,7 @@ function loadMission(id) {
   state.currentMission = preparedMission
     ? {
         ...preparedMission,
-        choices: Array.isArray(preparedMission.choices)
-          ? [...preparedMission.choices]
-          : preparedMission.choices
+        choices: Array.isArray(preparedMission.choices) ? [...preparedMission.choices] : preparedMission.choices
       }
     : null;
 
@@ -1209,17 +1256,14 @@ function loadMission(id) {
     return;
   }
 
-  if (
-    state.currentMission.type === "reading" ||
-    state.currentMission.type === "listening"
-  ) {
+  if (state.currentMission.type === "reading" || state.currentMission.type === "listening") {
     shuffleChoiceMission(state.currentMission);
   }
 
   state.lastMissionId = missionGroup.id;
   state.isGameOver = false;
 
-  const isBoss = (state.currentMission.id % 3 === 0);
+  const isBoss = state.currentMission.id % 3 === 0;
   const isFinal = isUnitFinal(state.currentMission.id);
 
   if (isFinal) ensureFinalBossState(state.currentMission.id);
@@ -1254,10 +1298,8 @@ function loadMission(id) {
 
   onMissionLoadedForAI(state.currentMission, isUnitFinal);
 
-  const titlePrefix = isFinal ? "👑 " : (isBoss ? "🔥 " : "📍 ");
-  const titleColor = isFinal
-    ? (state.currentMission._bossPatternColor || "#f1c40f")
-    : (isBoss ? "#e74c3c" : "#ff4757");
+  const titlePrefix = isFinal ? "👑 " : isBoss ? "🔥 " : "📍 ";
+  const titleColor = isFinal ? state.currentMission._bossPatternColor || "#f1c40f" : isBoss ? "#e74c3c" : "#ff4757";
 
   setTitleBlock(
     `${titlePrefix}SESSION ${missionId}: ${state.currentMission.title.toUpperCase()} [${state.gameDifficulty.toUpperCase()}]`,
@@ -1274,7 +1316,7 @@ function loadMission(id) {
   setMissionTimerAlert(false);
 
   setFeedback(isFinal ? "👑 FINAL BOSS" : "START!", isFinal ? "#f1c40f" : "#00e5ff");
-  scheduleFeedbackClear(document.body.dataset.missionType === "speaking" ? 750 : (isFinal ? 1300 : 850));
+  scheduleFeedbackClear(document.body.dataset.missionType === "speaking" ? 750 : isFinal ? 1300 : 850);
   scheduleMissionHeaderCollapse(state.currentMission.type === "speaking" ? 900 : 1200);
   scheduleMissionStatsCollapse(state.currentMission.type === "speaking" ? 950 : 1300);
   scheduleMissionTopChipsCollapse(state.currentMission.type === "speaking" ? 750 : 1050);
@@ -1304,6 +1346,11 @@ function loadMission(id) {
   setMissionScene(state.currentMission.type);
   showMissionControlByType(state.currentMission.type);
 
+  setSceneChoiceTapEnabled(
+    !isTouchPhoneLike() &&
+      (state.currentMission.type === "reading" || state.currentMission.type === "listening")
+  );
+
   if (state.currentMission.type === "speaking") {
     showChoiceButtons(false);
     hide("write-input");
@@ -1312,7 +1359,7 @@ function loadMission(id) {
     setSpeakingPrompt(state.currentMission.title, state.currentMission.exactPhrase);
     setMissionPrompt(`"${state.currentMission.exactPhrase}"`, "SPEAK");
     startTimer(clamp(getBaseTimeForMissionType("speaking") + timeMod, 18, 80));
-
+    armSpeakButton(700);
   } else if (state.currentMission.type === "reading") {
     hide("write-input");
     hide("btn-submit-write");
@@ -1322,7 +1369,6 @@ function loadMission(id) {
     setMissionPrompt(state.currentMission.question || "อ่านข้อความแล้วเลือกคำตอบที่ถูกต้อง", "READ");
     showChoiceButtons(true);
     startTimer(clamp(getBaseTimeForMissionType("reading") + timeMod, 18, 80));
-
   } else if (state.currentMission.type === "listening") {
     hide("write-input");
     hide("btn-submit-write");
@@ -1330,7 +1376,6 @@ function loadMission(id) {
     setMissionPrompt("กด Play Audio แล้วเลือกคำตอบ", "LISTEN");
     showChoiceButtons(true);
     startTimer(clamp(getBaseTimeForMissionType("listening") + timeMod, 18, 80));
-
   } else if (state.currentMission.type === "writing") {
     showChoiceButtons(false);
     hide("btn-play-audio");
@@ -1427,82 +1472,120 @@ window.playAudio = function () {
 
 window.startRecognition = function () {
   if (state.isGameOver || !state.currentMission) return;
+  if (state.currentMission.type !== "speaking") return;
+  if (recognitionActive) return;
+  if (Date.now() < speakButtonUnlockAt) return;
+
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     setFeedback("⚠️ เบราว์เซอร์ไม่รองรับไมค์", "#ff9f43");
     return;
   }
 
+  const btn = $("btn-speak");
   const recognition = new SpeechRecognition();
   window.recognition = recognition;
 
   recognition.lang = "en-US";
   recognition.interimResults = true;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 3;
 
-  $("btn-speak").disabled = true;
+  recognitionActive = true;
+  if (btn) btn.disabled = true;
+
+  let liveTranscript = "";
+  let finalTranscript = "";
+  let passed = false;
+
+  const target = normalizeWritingText(state.currentMission.exactPhrase || "");
+  const targetWords = target.split(" ").filter(Boolean);
+
+  function evaluateTranscript(rawText) {
+    const heard = normalizeWritingText(rawText || "");
+    if (!heard || !target) {
+      return { pass: false, heard, matchCount: 0, total: targetWords.length || 0, coverage: 0 };
+    }
+
+    let matchCount = 0;
+    targetWords.forEach((word) => {
+      if (new RegExp(`\\b${word}\\b`, "i").test(heard)) matchCount++;
+    });
+
+    const coverage = targetWords.length ? matchCount / targetWords.length : 0;
+    const exactContains = heard.includes(target);
+    const pass = exactContains || coverage >= 0.75;
+
+    return { pass, heard, matchCount, total: targetWords.length, coverage };
+  }
+
   setFeedback("🎙️ กำลังฟัง...", "#00e5ff");
 
   recognition.onresult = (event) => {
-    let currentTranscript = "";
-    let isFinal = false;
+    let transcript = "";
+    let gotFinal = false;
 
     for (let i = event.resultIndex; i < event.results.length; ++i) {
-      currentTranscript += event.results[i][0].transcript;
-      if (event.results[i].isFinal) isFinal = true;
+      transcript += event.results[i][0].transcript + " ";
+      if (event.results[i].isFinal) gotFinal = true;
     }
 
-    const text = currentTranscript.toLowerCase()
-      .replace(/i'm/g, "i am")
-      .replace(/it's/g, "it is")
-      .replace(/we're/g, "we are")
-      .replace(/[.,!?]/g, "");
+    transcript = transcript.trim();
+    if (!transcript) return;
 
-    const targetWords = state.currentMission.exactPhrase.split(" ");
-    let matchCount = 0;
+    liveTranscript = transcript;
+    if (gotFinal) finalTranscript = transcript;
 
-    targetWords.forEach((word) => {
-      if (new RegExp(`\\b${word}\\b`, "i").test(text)) matchCount++;
-    });
+    const verdict = evaluateTranscript(transcript);
+    setFeedback(`🎙 ${verdict.matchCount}/${verdict.total}`, "#f1c40f");
 
-    const allowance = getAdaptiveSpeakAllowance();
-    const passThreshold = Math.max(1, targetWords.length - allowance);
-    const isMatch = matchCount >= passThreshold;
-
-    setFeedback(`🎙 ${matchCount}/${targetWords.length}`, "#f1c40f");
-    scheduleFeedbackClear(700);
-
-    if (isMatch) {
-      if (missionTransitionLock) return;
+    if (gotFinal && verdict.pass && !passed) {
+      passed = true;
       lockMissionTransition(350);
       recognition.stop();
       winMission();
-    } else if (isFinal) {
-      setFeedback(`❌ ${state.currentMission.failMsg}`, "#ff4757");
-      takeDamage();
-      $("btn-speak").disabled = false;
-    }
-  };
-
-  recognition.onend = () => {
-    if (missionTransitionLock) return;
-    if (!state.isGameOver && $("mission-speaking-scene")?.getAttribute("visible") === "true") {
-      $("btn-speak").disabled = false;
-      if (($("feedback")?.innerText || "").includes("กำลังฟัง")) {
-        setFeedback("⚠️ ไมค์ตัด ลองใหม่อีกครั้ง", "#ff4757");
-      }
     }
   };
 
   recognition.onerror = (event) => {
+    recognitionActive = false;
+
     if (event.error === "no-speech") {
-      setFeedback("⚠️ ไม่ได้ยินเสียง", "#ff4757");
+      setFeedback("⚠️ ไม่ได้ยินเสียง ลองพูดใหม่", "#ff9f43");
     } else if (event.error === "not-allowed") {
       setFeedback("⚠️ ยังไม่ได้อนุญาตไมค์", "#ff4757");
     } else {
       setFeedback(`⚠️ ไมค์ผิดพลาด (${event.error})`, "#ff4757");
     }
-    $("btn-speak").disabled = false;
+
+    if (btn && !state.isGameOver) btn.disabled = false;
     missionTransitionLock = false;
+  };
+
+  recognition.onend = () => {
+    recognitionActive = false;
+    if (passed) return;
+
+    const transcript = finalTranscript || liveTranscript;
+    const verdict = evaluateTranscript(transcript);
+
+    if (verdict.pass && !missionTransitionLock) {
+      lockMissionTransition(350);
+      winMission();
+      return;
+    }
+
+    if (transcript) {
+      setFeedback(`⚠️ ได้ยินว่า: "${transcript}"`, "#ff9f43");
+      scheduleFeedbackClear(1600);
+    } else {
+      setFeedback("⚠️ ยังจับคำพูดไม่ได้ ลองใหม่อีกครั้ง", "#ff9f43");
+      scheduleFeedbackClear(1600);
+    }
+
+    if (btn && !state.isGameOver && state.currentMission?.type === "speaking") {
+      btn.disabled = false;
+    }
   };
 
   recognition.start();
@@ -1562,13 +1645,7 @@ window.submitScore = async function () {
       userId: state.currentUser.uid
     });
 
-    setFeedback(
-      state.gameScore > oldBest
-        ? `✅ New High Score ${bestScore}`
-        : `✅ บันทึกชื่อเรียบร้อยแล้ว`,
-      "#2ed573"
-    );
-
+    setFeedback(state.gameScore > oldBest ? `✅ New High Score ${bestScore}` : `✅ บันทึกชื่อเรียบร้อยแล้ว`, "#2ed573");
     hide("game-over-ui");
   } catch (e) {
     console.error("Error saving score (RTDB):", e);
@@ -1676,10 +1753,10 @@ function playSFX(type) {
     [523.25, 659.25, 783.99].forEach((freq, i) => {
       const osc = audioCtx.createOscillator();
       osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.06));
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.06);
       osc.connect(masterGain);
-      osc.start(audioCtx.currentTime + (i * 0.06));
-      osc.stop(audioCtx.currentTime + 0.22 + (i * 0.06));
+      osc.start(audioCtx.currentTime + i * 0.06);
+      osc.stop(audioCtx.currentTime + 0.22 + i * 0.06);
     });
     masterGain.gain.setValueAtTime(0.18, audioCtx.currentTime);
     masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
@@ -1697,11 +1774,11 @@ function playSFX(type) {
     [164.81, 220.0, 329.63].forEach((freq, idx) => {
       const osc = audioCtx.createOscillator();
       osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (idx * 0.05));
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.9, audioCtx.currentTime + 0.55 + (idx * 0.05));
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.05);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.9, audioCtx.currentTime + 0.55 + idx * 0.05);
       osc.connect(masterGain);
-      osc.start(audioCtx.currentTime + (idx * 0.05));
-      osc.stop(audioCtx.currentTime + 0.75 + (idx * 0.05));
+      osc.start(audioCtx.currentTime + idx * 0.05);
+      osc.stop(audioCtx.currentTime + 0.75 + idx * 0.05);
     });
     masterGain.gain.setValueAtTime(0.22, audioCtx.currentTime);
     masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
@@ -1719,11 +1796,11 @@ function playSFX(type) {
     [392.0, 523.25, 783.99].forEach((freq, idx) => {
       const osc = audioCtx.createOscillator();
       osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (idx * 0.03));
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.3, audioCtx.currentTime + 0.62 + (idx * 0.03));
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.03);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.3, audioCtx.currentTime + 0.62 + idx * 0.03);
       osc.connect(masterGain);
-      osc.start(audioCtx.currentTime + (idx * 0.03));
-      osc.stop(audioCtx.currentTime + 0.72 + (idx * 0.03));
+      osc.start(audioCtx.currentTime + idx * 0.03);
+      osc.stop(audioCtx.currentTime + 0.72 + idx * 0.03);
     });
     masterGain.gain.setValueAtTime(0.34, audioCtx.currentTime);
     masterGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.75);
@@ -1734,7 +1811,7 @@ function takeDamage() {
   showVRFeedback(false);
   playAnswerFX(false);
 
-  let damageAmount = state.gameDifficulty === "easy" ? 15 : (state.gameDifficulty === "normal" ? 25 : 40);
+  let damageAmount = state.gameDifficulty === "easy" ? 15 : state.gameDifficulty === "normal" ? 25 : 40;
   damageAmount += getAdaptiveDamageAdjustment();
   if (state.currentMission && state.currentMission.id % 3 === 0) damageAmount += 10;
   damageAmount = clamp(Math.round(damageAmount), 8, 50);
@@ -1778,9 +1855,7 @@ function takeDamage() {
     setHudMode("summary");
     enterSummaryMode();
 
-    showEndSummary(false, state.currentMission, aiDirector.mood, [
-      `Outcome: FAIL`
-    ]);
+    showEndSummary(false, state.currentMission, aiDirector.mood, [`Outcome: FAIL`]);
 
     if (state.gameScore > 0) {
       show("game-over-ui");
@@ -1854,7 +1929,7 @@ function winMission() {
     finalBossState.hp -= 1;
     renderFinalBossUI();
 
-    const chipRewardBase = 450 + (state.timeLeft * 6) + (state.currentMission.id === 5 ? 180 : 0);
+    const chipRewardBase = 450 + state.timeLeft * 6 + (state.currentMission.id === 5 ? 180 : 0);
     updateHUD(chipRewardBase);
 
     playSFX("bossHit");
@@ -1879,16 +1954,21 @@ function winMission() {
 
   const timeBonus = state.timeLeft * 10;
   if (state.systemHP < 100) {
-    const healAmount = state.gameDifficulty === "easy" ? 20 : (state.gameDifficulty === "normal" ? 10 : 5);
+    const healAmount = state.gameDifficulty === "easy" ? 20 : state.gameDifficulty === "normal" ? 10 : 5;
     state.systemHP += Math.min(100 - state.systemHP, healAmount);
   }
 
-  const bossMultiplier = (state.currentMission && state.currentMission.id % 3 === 0) ? 2 : 1;
-  const finalUnitBonus = (state.currentMission && isUnitFinal(state.currentMission.id))
-    ? (state.currentMission.id === 5 ? 3000 : state.currentMission.id === 10 ? 2700 : 3200)
-    : 0;
+  const bossMultiplier = state.currentMission && state.currentMission.id % 3 === 0 ? 2 : 1;
+  const finalUnitBonus =
+    state.currentMission && isUnitFinal(state.currentMission.id)
+      ? state.currentMission.id === 5
+        ? 3000
+        : state.currentMission.id === 10
+          ? 2700
+          : 3200
+      : 0;
 
-  updateHUD(((1000 + timeBonus) * bossMultiplier) + finalUnitBonus);
+  updateHUD((1000 + timeBonus) * bossMultiplier + finalUnitBonus);
 
   if (state.currentMission) {
     markMissionCleared(state.currentMission.id);
@@ -1912,7 +1992,7 @@ function winMission() {
     state.consecutiveWins = 0;
   }
 
-  const finalUnitText = (state.currentMission && isUnitFinal(state.currentMission.id)) ? " • UNIT CLEAR" : "";
+  const finalUnitText = state.currentMission && isUnitFinal(state.currentMission.id) ? " • UNIT CLEAR" : "";
   setFeedback(minimalWinFeedback(timeBonus, finalUnitText, levelUpMsg), "#2ed573");
 
   if (state.currentMission && isUnitFinal(state.currentMission.id)) {
@@ -1928,9 +2008,7 @@ function winMission() {
   setHudMode("summary");
   enterSummaryMode();
 
-  showEndSummary(true, state.currentMission, aiDirector.mood, [
-    `Bonus: +${timeBonus}`
-  ]);
+  showEndSummary(true, state.currentMission, aiDirector.mood, [`Bonus: +${timeBonus}`]);
 
   show("btn-next", "inline-block");
   show("btn-return", "inline-block");
