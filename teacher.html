@@ -4,1090 +4,1968 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Teacher Dashboard • Vocab Analytics</title>
-  <meta name="theme-color" content="#0b1020" />
+  <meta name="theme-color" content="#08142e" />
   <style>
     :root{
       --bg1:#071122;
       --bg2:#123a7a;
-      --panel:rgba(10,16,35,.88);
-      --card:rgba(255,255,255,.06);
-      --line:rgba(255,255,255,.12);
+      --panel:rgba(10,16,35,.90);
+      --panel-soft:rgba(255,255,255,.05);
+      --line:rgba(255,255,255,.10);
+      --line-2:rgba(255,255,255,.14);
       --text:#f8fbff;
       --muted:#c7d4ff;
+      --muted-2:#9eb5df;
       --cyan:#67e8f9;
-      --pink:#f472b6;
+      --violet:#a78bfa;
       --yellow:#fde047;
       --green:#4ade80;
-      --red:#fb7185;
-      --violet:#a78bfa;
       --orange:#fb923c;
-      --shadow:0 22px 60px rgba(0,0,0,.28);
+      --red:#fb7185;
+      --shadow:0 18px 48px rgba(0,0,0,.24);
+      --radius-xl:28px;
+      --radius-lg:22px;
+      --radius-md:18px;
+      --radius-sm:14px;
+      --maxw:1280px;
     }
 
-    *{ box-sizing:border-box; }
-
+    *{box-sizing:border-box}
     html,body{
       margin:0;
       min-height:100%;
       font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;
-      color:var(--text);
       background:
-        radial-gradient(circle at top left, rgba(103,232,249,.14), transparent 28%),
-        radial-gradient(circle at top right, rgba(167,139,250,.16), transparent 25%),
+        radial-gradient(circle at top left, rgba(103,232,249,.10), transparent 22%),
+        radial-gradient(circle at top right, rgba(167,139,250,.10), transparent 24%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
+      overflow-x:hidden;
+    }
+
+    body{
+      padding:20px 0 40px;
     }
 
     .page{
-      width:min(1480px, 96vw);
+      width:min(var(--maxw),94vw);
       margin:0 auto;
-      padding:20px 0 28px;
+      display:grid;
+      gap:18px;
     }
 
-    .hero{
-      background:var(--panel);
+    .hero-card,
+    .section-card,
+    .summary-card,
+    .mini-stat-card,
+    .student-card,
+    .student-row,
+    .detail-card,
+    .analytics-card{
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.08), transparent 30%),
+        linear-gradient(180deg, rgba(20,31,63,.96), rgba(10,18,38,.96));
       border:1px solid var(--line);
-      border-radius:28px;
-      padding:22px;
       box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
     }
 
-    .hero h1{
+    .hero-card{
+      border-radius:32px;
+      padding:26px 24px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+    }
+
+    .hero-card h1{
+      margin:0 0 8px;
+      font-size:clamp(30px,4.4vw,58px);
+      line-height:1.04;
+      letter-spacing:-.03em;
+    }
+
+    .hero-card p{
       margin:0;
-      font-size:clamp(28px,4vw,42px);
+      color:#d7e4ff;
+      line-height:1.55;
+      font-size:15px;
+      max-width:860px;
+    }
+
+    .hero-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0,1fr));
+      gap:14px;
+    }
+
+    .summary-card{
+      border-radius:26px;
+      padding:18px 18px 16px;
+      min-height:132px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .summary-card::after{
+      content:'';
+      position:absolute;
+      right:-28px;
+      bottom:-36px;
+      width:130px;
+      height:130px;
+      border-radius:999px;
+      background:rgba(255,255,255,.04);
+      filter:blur(6px);
+      pointer-events:none;
+    }
+
+    .summary-label{
+      font-size:13px;
+      color:#d8e5ff;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      margin-bottom:10px;
+    }
+
+    .summary-value{
+      font-size:52px;
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-.04em;
+    }
+
+    .summary-help{
+      margin-top:10px;
+      color:#deebff;
+      font-size:13px;
+      line-height:1.4;
+    }
+
+    .secondary-stats{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:14px;
+    }
+
+    .mini-stat-card{
+      border-radius:24px;
+      padding:16px 18px;
+      min-height:104px;
+    }
+
+    .mini-stat-label{
+      font-size:13px;
+      color:#d8e5ff;
+      text-transform:uppercase;
+      margin-bottom:8px;
+    }
+
+    .mini-stat-value{
+      font-size:38px;
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-.03em;
+    }
+
+    .mini-stat-sub{
+      margin-top:10px;
+      color:#dbe8ff;
+      font-size:13px;
+      line-height:1.35;
+    }
+
+    .section-card{
+      border-radius:30px;
+      padding:20px;
+      display:grid;
+      gap:14px;
+    }
+
+    .section-head h2{
+      margin:0 0 6px;
+      font-size:clamp(24px,3.2vw,38px);
       line-height:1.08;
       letter-spacing:-.02em;
     }
 
-    .hero p{
-      margin:10px 0 0;
-      color:var(--muted);
-      line-height:1.55;
+    .section-head p{
+      margin:0;
+      color:#d6e2ff;
+      line-height:1.5;
       font-size:14px;
     }
 
-    .grid{
+    .toolbar-row{
       display:grid;
-      gap:16px;
-      margin-top:16px;
+      grid-template-columns:2fr 1fr 1fr;
+      gap:10px;
     }
 
-    .grid.cols-4{
-      grid-template-columns:repeat(4,1fr);
-    }
-
-    .grid.cols-main{
-      grid-template-columns:minmax(0, 1.15fr) minmax(360px, .85fr);
-      align-items:start;
-    }
-
-    .card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:24px;
-      padding:18px;
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(8px);
-      min-width:0;
-    }
-
-    .statCard{
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:22px;
-      padding:16px;
-      min-height:120px;
-    }
-
-    .statLabel{
-      font-size:12px;
-      color:var(--muted);
-      text-transform:uppercase;
-      letter-spacing:.06em;
-    }
-
-    .statValue{
-      margin-top:8px;
-      font-size:30px;
-      font-weight:1000;
-      line-height:1;
-    }
-
-    .statSub{
-      margin-top:10px;
-      font-size:13px;
-      color:#dbe7ff;
-      line-height:1.4;
-    }
-
-    .sectionTitle{
-      margin:0 0 12px;
-      font-size:18px;
-      font-weight:900;
-      letter-spacing:.01em;
-    }
-
-    .subtle{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.45;
-    }
-
-    .filterGrid{
-      display:grid;
-      grid-template-columns:repeat(7,1fr);
-      gap:12px;
-      margin-top:10px;
-    }
-
-    .inputBox{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:18px;
-      padding:10px;
-      min-width:0;
-    }
-
-    .inputBox label{
-      display:block;
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:6px;
-    }
-
-    .inputBox input,
-    .inputBox select{
+    .toolbar-row input,
+    .toolbar-row select{
       width:100%;
-      min-height:44px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.08);
+      min-height:50px;
+      border-radius:16px;
+      border:1px solid var(--line-2);
+      background:rgba(255,255,255,.06);
       color:#fff;
-      padding:10px 12px;
+      padding:0 14px;
       font-size:15px;
       outline:none;
     }
 
-    .inputBox input::placeholder{
-      color:#b9c6ea;
+    .toolbar-row input::placeholder{
+      color:#c8d7fb;
     }
 
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:12px;
-      align-items:center;
-    }
-
-    button{
+    .btn{
       appearance:none;
       border:0;
-      border-radius:16px;
-      min-height:48px;
+      min-height:50px;
       padding:0 16px;
-      font-weight:900;
+      border-radius:18px;
       cursor:pointer;
-      color:#071122;
-      background:linear-gradient(135deg,var(--cyan),var(--violet));
-      transition:transform .14s ease, filter .14s ease;
+      font-size:15px;
+      font-weight:900;
+      color:#06111f;
+      background:linear-gradient(135deg,#67e8f9,#a78bfa);
+      box-shadow:0 12px 26px rgba(0,0,0,.18);
+      transition:transform .12s ease, opacity .12s ease, box-shadow .12s ease;
     }
 
-    button:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.03);
-    }
-
-    button.alt{
-      background:linear-gradient(135deg,var(--yellow),var(--pink));
-      color:#35131d;
-    }
-
-    button.ghost{
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(1px) scale(.995)}
+    .btn.ghost{
       background:linear-gradient(135deg,#dbeafe,#93c5fd);
       color:#172554;
     }
-
-    .tableWrap{
-      overflow:auto;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
+    .btn.alt{
+      background:linear-gradient(135deg,#fde047,#fb7185);
+      color:#3a1620;
+    }
+    .btn.slim{
+      min-height:42px;
+      border-radius:14px;
+      padding:0 12px;
+      font-size:14px;
     }
 
-    table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:980px;
+    .status-banner{
+      display:none;
+      border-radius:16px;
+      padding:12px 14px;
+      border:1px solid var(--line-2);
+      background:rgba(255,255,255,.06);
+      font-size:14px;
+      line-height:1.45;
     }
 
-    th,td{
-      padding:12px 10px;
-      border-bottom:1px solid rgba(255,255,255,.08);
-      text-align:left;
-      font-size:13px;
-      vertical-align:top;
+    .status-banner.show{display:block}
+    .status-banner.warn{
+      border-color:rgba(253,224,71,.28);
+      background:rgba(253,224,71,.08);
+      color:#fff7cc;
+    }
+    .status-banner.bad{
+      border-color:rgba(251,113,133,.28);
+      background:rgba(251,113,133,.10);
+      color:#ffe3ea;
+    }
+    .status-banner.ok{
+      border-color:rgba(74,222,128,.25);
+      background:rgba(74,222,128,.10);
+      color:#e6fff0;
     }
 
-    th{
-      position:sticky;
-      top:0;
-      background:#101b38;
-      color:#a5d8ff;
-      z-index:1;
-      font-size:12px;
-      text-transform:uppercase;
-      letter-spacing:.04em;
+    .action-center-list,
+    .student-list,
+    .detail-grid,
+    .analytics-grid{
+      display:grid;
+      gap:12px;
     }
 
-    th[data-sort]{ cursor:pointer; }
-
-    tbody tr{ cursor:pointer; }
-
-    tbody tr:hover{
-      background:rgba(103,232,249,.08);
+    .student-card{
+      border-radius:24px;
+      padding:16px;
+      display:grid;
+      gap:12px;
     }
 
-    tbody tr.active{
-      background:rgba(167,139,250,.16);
-      outline:1px solid rgba(167,139,250,.35);
+    .student-card.status-risk{
+      border-color:rgba(251,113,133,.28);
+      box-shadow:0 18px 48px rgba(251,113,133,.10);
     }
 
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      min-height:28px;
-      padding:0 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:800;
-      background:rgba(255,255,255,.09);
-      border:1px solid rgba(255,255,255,.12);
-      color:#fff;
-      white-space:nowrap;
+    .student-card.status-followup{
+      border-color:rgba(253,224,71,.28);
+      box-shadow:0 18px 48px rgba(253,224,71,.08);
     }
 
-    .pill.good{ background:rgba(34,197,94,.16); border-color:rgba(34,197,94,.3); color:#ccffd9; }
-    .pill.warn{ background:rgba(250,204,21,.14); border-color:rgba(250,204,21,.28); color:#fff2b8; }
-    .pill.bad{ background:rgba(244,63,94,.14); border-color:rgba(244,63,94,.28); color:#ffd0d8; }
+    .student-card.status-normal{
+      border-color:rgba(74,222,128,.22);
+      box-shadow:0 18px 48px rgba(74,222,128,.07);
+    }
 
-    .detailHeader{
+    .student-top{
       display:flex;
+      align-items:flex-start;
       justify-content:space-between;
       gap:12px;
-      align-items:flex-start;
-      flex-wrap:wrap;
-      margin-bottom:12px;
     }
 
-    .detailName{
-      font-size:24px;
+    .student-top h3{
+      margin:0 0 6px;
+      font-size:28px;
+      letter-spacing:-.02em;
+    }
+
+    .student-meta{
+      color:#d9e6ff;
+      font-size:14px;
+      line-height:1.45;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      font-size:13px;
+      font-weight:1000;
+      white-space:nowrap;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.08);
+      color:#fff;
+    }
+
+    .badge.risk{
+      background:linear-gradient(135deg,#fecdd3,#fb7185);
+      color:#3d1020;
+      border-color:transparent;
+    }
+
+    .badge.followup{
+      background:linear-gradient(135deg,#fef08a,#f59e0b);
+      color:#3b2500;
+      border-color:transparent;
+    }
+
+    .badge.normal{
+      background:linear-gradient(135deg,#bbf7d0,#4ade80);
+      color:#0d3b24;
+      border-color:transparent;
+    }
+
+    .chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:900;
+      color:#edf4ff;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+    }
+
+    .student-reason,
+    .student-advice{
+      font-size:15px;
+      line-height:1.5;
+      color:#f0f6ff;
+    }
+
+    .student-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .student-row{
+      border-radius:18px;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .student-row-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+    }
+
+    .student-row-name{
+      font-size:20px;
       font-weight:1000;
       line-height:1.1;
+      margin:0 0 4px;
     }
 
-    .detailMeta{
+    .student-row-meta{
+      font-size:13px;
+      color:#cfdefd;
+      line-height:1.45;
+    }
+
+    .student-row-stats{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .student-row-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .student-detail-panel{
+      min-height:180px;
+      display:grid;
+      gap:14px;
+    }
+
+    .detail-empty{
+      min-height:180px;
+      display:grid;
+      place-items:center;
+      border-radius:20px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+      color:#d7e5ff;
+      text-align:center;
+      padding:20px;
+    }
+
+    .detail-grid{
+      grid-template-columns:1.15fr .85fr;
+      gap:14px;
+    }
+
+    .detail-card{
+      border-radius:22px;
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .detail-card h3{
+      margin:0;
+      font-size:20px;
+      letter-spacing:-.02em;
+    }
+
+    .kpi-pairs{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .kpi-box{
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      padding:12px;
+    }
+
+    .kpi-box .label{
+      font-size:11px;
+      color:#cfe0ff;
+      margin-bottom:6px;
+      text-transform:uppercase;
+    }
+
+    .kpi-box .value{
+      font-size:26px;
+      font-weight:1000;
+      line-height:1.05;
+    }
+
+    .list-box{
+      display:grid;
+      gap:8px;
+    }
+
+    .list-item{
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      padding:12px;
+      font-size:14px;
+      line-height:1.5;
+      color:#eef4ff;
+    }
+
+    .list-item .meta{
+      color:#d2e0ff;
+      font-size:12px;
       margin-top:6px;
-      color:var(--muted);
+    }
+
+    .note-box{
+      width:100%;
+      min-height:120px;
+      resize:vertical;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.05);
+      color:#fff;
+      padding:12px;
+      font:inherit;
+      outline:none;
+    }
+
+    .tab-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .tab-btn{
+      min-height:42px;
+      padding:0 14px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      cursor:pointer;
+      font-size:14px;
+      font-weight:900;
+    }
+
+    .tab-btn.active{
+      background:linear-gradient(135deg,#67e8f9,#a78bfa);
+      color:#07111f;
+      border-color:transparent;
+    }
+
+    .tab-panel{display:none}
+    .tab-panel.active{display:block}
+
+    .analytics-grid{
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+
+    .analytics-card{
+      border-radius:22px;
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .analytics-card h3{
+      margin:0;
+      font-size:19px;
+    }
+
+    .bar-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .bar-row{
+      display:grid;
+      gap:6px;
+    }
+
+    .bar-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      font-size:13px;
+      color:#e8f0ff;
+    }
+
+    .bar-head .meta{
+      color:#cfdefd;
+      font-size:12px;
+      text-align:right;
+    }
+
+    .bar-track{
+      height:12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+
+    .bar-fill{
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#67e8f9,#a78bfa);
+      transform-origin:left center;
+    }
+
+    .heatmap-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+      gap:10px;
+    }
+
+    .heat-cell{
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      padding:12px;
+      min-height:92px;
+      display:grid;
+      align-content:space-between;
+      gap:8px;
+    }
+
+    .heat-cell .name{
+      font-size:13px;
+      font-weight:900;
+      color:#eef5ff;
+    }
+
+    .heat-cell .big{
+      font-size:24px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .heat-cell .small{
+      color:#d4e2ff;
+      font-size:12px;
+    }
+
+    .reports-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .report-card{
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .report-card h4{
+      margin:0;
+      font-size:16px;
+    }
+
+    .report-card p{
+      margin:0;
+      color:#d6e4ff;
       font-size:13px;
       line-height:1.5;
     }
 
-    .miniStats{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .miniBox{
-      border-radius:18px;
-      padding:12px;
-      background:var(--card);
-      border:1px solid var(--line);
-    }
-
-    .miniBox .k{
-      color:var(--muted);
-      font-size:12px;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .miniBox .v{
-      margin-top:8px;
-      font-size:22px;
-      font-weight:1000;
-    }
-
-    .stack{
-      display:grid;
-      gap:12px;
-    }
-
-    .list{
-      display:grid;
-      gap:10px;
-      margin-top:10px;
-    }
-
-    .listItem{
-      border-radius:18px;
-      padding:12px;
+    .empty-lite{
       background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.1);
-    }
-
-    .listItem strong{
-      display:block;
-      margin-bottom:6px;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:14px;
+      color:#d6e4ff;
       font-size:14px;
+      line-height:1.5;
     }
 
-    .mono{
-      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    }
-
-    .empty{
-      border:1px dashed rgba(255,255,255,.18);
-      border-radius:18px;
-      padding:20px;
-      color:var(--muted);
-      text-align:center;
-      font-size:14px;
-    }
-
-    .loading{
-      opacity:.7;
-      pointer-events:none;
-    }
-
-    .heatmapWrap{
-      overflow:auto;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      margin-top:12px;
-    }
-
-    .heatmapTable{
-      width:100%;
-      border-collapse:collapse;
-      min-width:920px;
-    }
-
-    .heatmapTable th,
-    .heatmapTable td{
-      padding:10px 8px;
-      border-bottom:1px solid rgba(255,255,255,.08);
-      text-align:center;
-      font-size:12px;
-      vertical-align:middle;
-    }
-
-    .heatmapTable th.stickyLeft,
-    .heatmapTable td.stickyLeft{
-      position:sticky;
-      left:0;
-      z-index:2;
-      background:#101b38;
-      text-align:left;
-    }
-
-    .heatmapTable td.stickyLeft{
-      background:rgba(15,24,50,.98);
-    }
-
-    .heatCell{
-      min-width:54px;
-      font-weight:1000;
-      border-radius:10px;
-      padding:8px 0;
-    }
-
-    .heatP{ background:rgba(34,197,94,.18); color:#caffda; }
-    .heatA{ background:rgba(244,63,94,.18); color:#ffd0d8; }
-    .heatN{ background:rgba(255,255,255,.06); color:#c7d4ff; }
-
-    .legend{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:10px;
-    }
-
-    .quickRowActions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      margin-top:8px;
-    }
-
-    .quickStatusBtn{
-      appearance:none;
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:999px;
-      min-height:26px;
-      padding:0 8px;
-      font-size:11px;
-      font-weight:900;
-      cursor:pointer;
-      color:#071122;
-      background:linear-gradient(135deg,#dbeafe,#93c5fd);
-    }
-
-    .quickStatusBtn[data-status="pending"]{
-      background:linear-gradient(135deg,#fde68a,#fbbf24);
-      color:#5b3c00;
-    }
-
-    .quickStatusBtn[data-status="contacted"]{
-      background:linear-gradient(135deg,#bfdbfe,#60a5fa);
-      color:#0f2c63;
-    }
-
-    .quickStatusBtn[data-status="needs_support"]{
-      background:linear-gradient(135deg,#fecaca,#fb7185);
-      color:#5f1020;
-    }
-
-    .quickStatusBtn[data-status="improved"]{
-      background:linear-gradient(135deg,#bbf7d0,#4ade80);
-      color:#124b22;
-    }
-
-    .quickStatusBtn[data-status="closed"]{
-      background:linear-gradient(135deg,#e5e7eb,#cbd5e1);
-      color:#334155;
-    }
-
-    .timeline{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .timelineItem{
-      position:relative;
-      padding:12px 12px 12px 18px;
-      border-radius:18px;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.1);
-    }
-
-    .timelineItem::before{
-      content:'';
-      position:absolute;
-      left:8px;
-      top:14px;
-      bottom:14px;
-      width:3px;
-      border-radius:999px;
-      background:rgba(103,232,249,.7);
-    }
-
-    .timelineMeta{
-      font-size:12px;
-      color:var(--muted);
-      margin-top:6px;
-      line-height:1.45;
-    }
-
-    @media (max-width:1320px){
-      .filterGrid{ grid-template-columns:repeat(4,1fr); }
-    }
-
-    @media (max-width:1100px){
-      .grid.cols-4{ grid-template-columns:repeat(2,1fr); }
-      .grid.cols-main{ grid-template-columns:1fr; }
-    }
-
-    @media (max-width:700px){
-      .page{ width:min(96vw, 96vw); padding-top:14px; }
-      .grid.cols-4{ grid-template-columns:1fr; }
-      .filterGrid{ grid-template-columns:1fr; }
-      .miniStats{ grid-template-columns:1fr; }
-      table{ min-width:760px; }
-    }
-
-    @media print{
-      html,body{
-        background:#fff !important;
-        color:#000 !important;
+    @media (max-width:1040px){
+      .summary-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
-
-      .page{
-        width:100% !important;
-        padding:0 !important;
+      .analytics-grid{
+        grid-template-columns:1fr;
       }
-
-      .hero,.card,.statCard{
-        background:#fff !important;
-        color:#000 !important;
-        box-shadow:none !important;
-        border:1px solid #ddd !important;
+      .detail-grid{
+        grid-template-columns:1fr;
       }
-
-      .actions,
-      .filterGrid,
-      button,
-      input,
-      select{
-        display:none !important;
+      .reports-grid{
+        grid-template-columns:1fr 1fr;
       }
+    }
 
-      th{
-        background:#f2f2f2 !important;
-        color:#000 !important;
+    @media (max-width:760px){
+      body{padding-top:14px}
+      .hero-card{
+        padding:20px;
+        border-radius:24px;
+        flex-direction:column;
       }
-
-      .subtle,
-      .detailMeta,
-      .statLabel,
-      .statSub{
-        color:#444 !important;
+      .hero-card h1{
+        font-size:clamp(26px,9vw,42px);
       }
-
-      .pill{
-        color:#000 !important;
-        border-color:#bbb !important;
-        background:#f5f5f5 !important;
+      .toolbar-row{
+        grid-template-columns:1fr;
       }
+      .secondary-stats{
+        grid-template-columns:1fr;
+      }
+      .student-top h3{
+        font-size:24px;
+      }
+      .kpi-pairs{
+        grid-template-columns:1fr 1fr;
+      }
+      .reports-grid{
+        grid-template-columns:1fr;
+      }
+    }
 
-      .heatmapTable th.stickyLeft,
-      .heatmapTable td.stickyLeft{
-        background:#fff !important;
-        color:#000 !important;
+    @media (max-width:520px){
+      .summary-grid{
+        grid-template-columns:1fr;
+      }
+      .summary-value{
+        font-size:40px;
+      }
+      .student-top,
+      .student-row-top,
+      .bar-head{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+      .hero-actions{
+        width:100%;
+        justify-content:stretch;
+      }
+      .hero-actions .btn{
+        width:100%;
+      }
+      .kpi-pairs{
+        grid-template-columns:1fr;
+      }
+      .section-card{
+        padding:16px;
+        border-radius:22px;
+      }
+      .student-card,
+      .student-row,
+      .detail-card,
+      .analytics-card{
+        border-radius:18px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{
+        animation-duration:.01ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:.01ms !important;
+        scroll-behavior:auto !important;
       }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <section class="hero">
-      <h1>Teacher Dashboard • Vocab Analytics</h1>
-      <p>
-        ดูภาพรวมทั้งห้อง รายชื่อนักศึกษาทั้งหมด รายละเอียดรายคน การเข้าเรียน การติดตาม และ archive snapshots
-        โดยอิงจากข้อมูลใน Google Sheet ชุดเดียวกับเกม vocab
-      </p>
-    </section>
-
-    <section class="grid cols-4" id="overviewCards" style="margin-top:16px;">
-      <div class="statCard">
-        <div class="statLabel">Students</div>
-        <div class="statValue" id="ovStudents">-</div>
-        <div class="statSub">จำนวนนักศึกษาที่พบในข้อมูลกรองปัจจุบัน</div>
+  <main class="page">
+    <section class="hero-card">
+      <div>
+        <h1>Teacher Dashboard • Vocab Analytics</h1>
+        <p>ดูภาพรวมทั้งห้อง ติดตามนักศึกษาที่ควรดูแลก่อน เปิดรายละเอียดรายคน และค่อยดู analytics เชิงลึกเท่าที่จำเป็นจาก Google Sheet ชุดเดียวกับเกม vocab</p>
       </div>
-      <div class="statCard">
-        <div class="statLabel">Sessions</div>
-        <div class="statValue" id="ovSessions">-</div>
-        <div class="statSub">จำนวน session ที่จบแล้ว</div>
-      </div>
-      <div class="statCard">
-        <div class="statLabel">Avg Score</div>
-        <div class="statValue" id="ovScore">-</div>
-        <div class="statSub">ค่าเฉลี่ยคะแนนรวมของข้อมูลที่กรอง</div>
-      </div>
-      <div class="statCard">
-        <div class="statLabel">Avg Accuracy</div>
-        <div class="statValue" id="ovAcc">-</div>
-        <div class="statSub">ค่าเฉลี่ย accuracy ของข้อมูลที่กรอง</div>
+      <div class="hero-actions">
+        <button class="btn" id="refreshDashboardBtn">รีเฟรชข้อมูล</button>
+        <button class="btn ghost" id="printDashboardBtn">พิมพ์รายงาน</button>
       </div>
     </section>
 
-    <section class="card" style="margin-top:16px;">
-      <h2 class="sectionTitle">Today Action Summary</h2>
-      <div class="subtle">สรุปสิ่งที่ควรทำก่อนจากข้อมูลปัจจุบัน</div>
-      <div id="todayActionGrid" class="grid cols-4" style="margin-top:12px;">
-        <div class="statCard"><div class="statLabel">Pending</div><div class="statValue">-</div></div>
-        <div class="statCard"><div class="statLabel">Needs Support</div><div class="statValue">-</div></div>
-        <div class="statCard"><div class="statLabel">No Attendance</div><div class="statValue">-</div></div>
-        <div class="statCard"><div class="statLabel">At Risk</div><div class="statValue">-</div></div>
+    <div class="status-banner" id="statusBanner"></div>
+
+    <section class="summary-grid">
+      <article class="summary-card">
+        <div class="summary-label">นักศึกษาที่มีข้อมูล</div>
+        <div class="summary-value" id="kpiStudents">0</div>
+        <div class="summary-help">จำนวนนักศึกษาที่พบในข้อมูลล่าสุด</div>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label">รอบเรียนที่บันทึก</div>
+        <div class="summary-value" id="kpiSessions">0</div>
+        <div class="summary-help">จำนวน session ที่ระบบบันทึกแล้ว</div>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label">ต้องติดตาม</div>
+        <div class="summary-value" id="kpiFollowup">0</div>
+        <div class="summary-help">ควรดูแลหรือติดตามเพิ่มก่อน</div>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label">กลุ่มเสี่ยง</div>
+        <div class="summary-value" id="kpiRisk">0</div>
+        <div class="summary-help">attendance ต่ำหรือ accuracy ต่ำกว่าเกณฑ์</div>
+      </article>
+    </section>
+
+    <section class="secondary-stats">
+      <article class="mini-stat-card">
+        <div class="mini-stat-label">คะแนนเฉลี่ย</div>
+        <div class="mini-stat-value" id="kpiAvgScore">0</div>
+        <div class="mini-stat-sub">ค่าเฉลี่ย score จาก session ที่กรองอยู่</div>
+      </article>
+      <article class="mini-stat-card">
+        <div class="mini-stat-label">ความแม่นยำเฉลี่ย</div>
+        <div class="mini-stat-value" id="kpiAvgAccuracy">0%</div>
+        <div class="mini-stat-sub">ค่าเฉลี่ย accuracy ของข้อมูลที่กรองอยู่</div>
+      </article>
+    </section>
+
+    <section class="section-card">
+      <div class="section-head">
+        <h2>นักศึกษาที่ควรติดตามก่อน</h2>
+        <p>เปิดมาหน้านี้ให้ดูคนที่ควรได้รับการช่วยเหลือหรือติดตามก่อนเป็นอันดับแรก</p>
+      </div>
+      <div class="action-center-list" id="actionCenterList"></div>
+    </section>
+
+    <section class="section-card">
+      <div class="section-head">
+        <h2>รายชื่อนักศึกษา</h2>
+        <p>ค้นหา กรอง และเลือกดูรายละเอียดรายคนได้ทันที</p>
+      </div>
+
+      <div class="toolbar-row">
+        <input id="studentSearchInput" type="text" placeholder="ค้นหาชื่อ / รหัส / section" />
+        <select id="sectionFilter">
+          <option value="">ทุก section</option>
+        </select>
+        <select id="statusFilter">
+          <option value="">ทุกสถานะ</option>
+          <option value="normal">ปกติ</option>
+          <option value="followup">ต้องติดตาม</option>
+          <option value="risk">กลุ่มเสี่ยง</option>
+        </select>
+      </div>
+
+      <div class="student-list" id="studentList"></div>
+    </section>
+
+    <section class="section-card">
+      <div class="section-head">
+        <h2>รายละเอียดนักศึกษา</h2>
+        <p>เลือกนักศึกษาจากรายการด้านบนเพื่อดูข้อมูลเชิงลึก ใช้ติดตามผลได้ง่ายขึ้น</p>
+      </div>
+      <div class="student-detail-panel" id="studentDetailPanel">
+        <div class="detail-empty">ยังไม่ได้เลือกนักศึกษา</div>
       </div>
     </section>
 
-    <section class="card" style="margin-top:16px;">
-      <h2 class="sectionTitle">Urgent Landing</h2>
-      <div class="subtle">เมื่อเปิดโหมดนี้ หน้า dashboard จะเน้นเคสเร่งด่วนก่อน</div>
-      <div id="urgentLandingList" class="list" style="margin-top:12px;">
-        <div class="empty">กำลังประเมิน...</div>
+    <section class="section-card">
+      <div class="section-head">
+        <h2>วิเคราะห์เพิ่มเติม</h2>
+        <p>ส่วนนี้สำหรับดูแนวโน้มเชิงลึก การเข้าเรียน คำศัพท์ที่อ่อน และส่งออกรายงาน</p>
       </div>
-    </section>
 
-    <section class="card" style="margin-top:16px;">
-      <h2 class="sectionTitle">Filters</h2>
-      <div class="subtle">กรองตามห้องเรียน รหัส session กลุ่มคำศัพท์ โหมด และ follow-up status ก่อนดูรายชื่อหรือรายงาน</div>
+      <div class="tab-row">
+        <button class="tab-btn active" data-tab="overview">ภาพรวม</button>
+        <button class="tab-btn" data-tab="attendance">การเข้าเรียน</button>
+        <button class="tab-btn" data-tab="weakterms">คำศัพท์ที่อ่อน</button>
+        <button class="tab-btn" data-tab="reports">รายงาน</button>
+      </div>
 
-      <div class="filterGrid">
-        <div class="inputBox">
-          <label for="sectionFilter">Section</label>
-          <input id="sectionFilter" type="text" placeholder="เช่น CS4 หรือ 2" />
-        </div>
-
-        <div class="inputBox">
-          <label for="sessionCodeFilter">Session Code</label>
-          <input id="sessionCodeFilter" type="text" placeholder="เช่น S01" />
-        </div>
-
-        <div class="inputBox">
-          <label for="bankFilter">Bank</label>
-          <select id="bankFilter">
-            <option value="">ทั้งหมด</option>
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-          </select>
-        </div>
-
-        <div class="inputBox">
-          <label for="modeFilter">Mode</label>
-          <select id="modeFilter">
-            <option value="">ทั้งหมด</option>
-            <option value="code_battle">code_battle</option>
-            <option value="debug_mission">debug_mission</option>
-            <option value="ai_training">ai_training</option>
-            <option value="speed_run">speed_run</option>
-          </select>
-        </div>
-
-        <div class="inputBox">
-          <label for="studentSearch">ค้นหานักศึกษา</label>
-          <input id="studentSearch" type="text" placeholder="ชื่อ / รหัสนักศึกษา" />
-        </div>
-
-        <div class="inputBox">
-          <label for="lowAccOnly">Quick Filter</label>
-          <select id="lowAccOnly">
-            <option value="">ทั้งหมด</option>
-            <option value="lt60">accuracy ต่ำกว่า 60%</option>
-            <option value="lt80">accuracy ต่ำกว่า 80%</option>
-            <option value="nosession">ยังไม่มี session จบ</option>
-          </select>
-        </div>
-
-        <div class="inputBox">
-          <label for="followupFilter">Follow-up Filter</label>
-          <select id="followupFilter">
-            <option value="">ทั้งหมด</option>
-            <option value="pending">pending</option>
-            <option value="contacted">contacted</option>
-            <option value="needs_support">needs_support</option>
-            <option value="improved">improved</option>
-            <option value="closed">closed</option>
-          </select>
+      <div class="tab-panel active" data-panel="overview">
+        <div class="analytics-grid">
+          <article class="analytics-card">
+            <h3>ภาพรวมตามโหมด</h3>
+            <div class="bar-list" id="modeBreakdownMount"></div>
+          </article>
+          <article class="analytics-card">
+            <h3>ภาพรวมตาม section</h3>
+            <div class="bar-list" id="sectionBreakdownMount"></div>
+          </article>
         </div>
       </div>
 
-      <div class="actions">
-        <button id="applyFilterBtn">APPLY FILTER</button>
-        <button id="refreshBtn" class="ghost">REFRESH</button>
-        <button id="importRosterBtn" class="ghost">IMPORT ROSTER CSV</button>
-        <button id="exportStudentsBtn" class="ghost">EXPORT STUDENTS CSV</button>
-        <button id="exportDetailBtn" class="ghost">EXPORT SELECTED DETAIL CSV</button>
-        <button id="exportAbsenteeBtn" class="ghost">EXPORT ABSENTEES CSV</button>
-        <button id="exportAttendanceSummaryBtn" class="ghost">EXPORT ATTENDANCE SUMMARY CSV</button>
-        <button id="exportInterventionBtn" class="ghost">EXPORT INTERVENTION CSV</button>
-        <button id="exportFollowupBtn" class="ghost">EXPORT FOLLOW-UP CSV</button>
-        <button id="exportArchiveBtn" class="ghost">EXPORT ARCHIVE CSV</button>
-        <button id="printTeacherReportBtn" class="ghost">PRINT TEACHER REPORT</button>
-        <button id="printSelectedStudentBtn" class="ghost">PRINT SELECTED STUDENT REPORT</button>
-        <label class="pill" style="cursor:pointer;">
-          <input id="urgentLandingChk" type="checkbox" style="margin-right:8px;" />
-          Urgent landing mode
-        </label>
-        <button id="clearFilterBtn" class="alt">CLEAR FILTER</button>
-        <input id="rosterFileInput" type="file" accept=".csv,text/csv" hidden />
-      </div>
-    </section>
-
-    <section class="grid cols-main">
-      <div class="stack">
-        <div class="card">
-          <h2 class="sectionTitle">Student List</h2>
-          <div class="subtle">กดที่แถวของนักศึกษาเพื่อดูรายละเอียดรายคน</div>
-
-          <div class="actions" style="margin-top:12px;">
-            <label class="pill" style="cursor:pointer;">
-              <input id="selectAllFilteredChk" type="checkbox" style="margin-right:8px;" />
-              เลือกทั้งหมดในตาราง
-            </label>
-
-            <select id="bulkFollowupStatus" style="min-height:48px;border-radius:16px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.08);color:#fff;">
-              <option value="pending">pending</option>
-              <option value="contacted">contacted</option>
-              <option value="needs_support">needs_support</option>
-              <option value="improved">improved</option>
-              <option value="closed">closed</option>
-            </select>
-
-            <input id="bulkNoteInput" type="text" placeholder="หมายเหตุ bulk update"
-              style="min-height:48px;border-radius:16px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.08);color:#fff;min-width:240px;" />
-
-            <button id="applyBulkStatusBtn" class="ghost">APPLY BULK STATUS</button>
-            <button id="archiveSnapshotBtn" class="ghost">ARCHIVE SNAPSHOT</button>
-          </div>
-
-          <div class="tableWrap" style="margin-top:12px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>Select</th>
-                  <th data-sort="student_id">Student ID</th>
-                  <th data-sort="display_name">Name</th>
-                  <th data-sort="section">Section</th>
-                  <th data-sort="sessions_count">Sessions</th>
-                  <th data-sort="last_score">Last Score</th>
-                  <th data-sort="last_accuracy">Last Accuracy</th>
-                  <th data-sort="last_session_code">Last Session</th>
-                  <th>Recommendation</th>
-                </tr>
-              </thead>
-              <tbody id="studentsTableBody">
-                <tr><td colspan="9">กำลังโหลด...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Attendance by Session Code</h2>
-          <div class="subtle">สรุปผู้เข้าเรียนแยกตาม section และ session_code</div>
-
-          <div class="tableWrap" style="margin-top:12px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>Section</th>
-                  <th>Session Code</th>
-                  <th>Roster</th>
-                  <th>Attendees</th>
-                  <th>Absent</th>
-                  <th>Completed Sessions</th>
-                  <th>Avg Score</th>
-                  <th>Avg Accuracy</th>
-                </tr>
-              </thead>
-              <tbody id="attendanceTableBody">
-                <tr><td colspan="8">กำลังโหลด...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Attendance Heatmap</h2>
-          <div class="subtle">ดูสถานะเข้าเรียนรายคนเทียบกับ session_code ที่มีใน section เดียวกัน</div>
-
-          <div class="legend">
-            <span class="pill good">P = Present</span>
-            <span class="pill bad">A = Absent</span>
-            <span class="pill">— = Not Applicable</span>
-          </div>
-
-          <div id="heatmapWrap" class="heatmapWrap">
-            <div class="empty" style="margin:12px;">กำลังโหลด heatmap...</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Session Comparison</h2>
-          <div class="subtle">เปรียบเทียบ performance ราย session_code จากข้อมูลที่กรองอยู่ตอนนี้</div>
-
-          <div class="tableWrap" style="margin-top:12px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>Session Code</th>
-                  <th>Sections</th>
-                  <th>Roster</th>
-                  <th>Attendees</th>
-                  <th>Absent</th>
-                  <th>Avg Score</th>
-                  <th>Avg Accuracy</th>
-                </tr>
-              </thead>
-              <tbody id="sessionComparisonBody">
-                <tr><td colspan="7">กำลังโหลด...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Section Summary</h2>
-          <div class="subtle">สรุปภาพรวมรายห้องเรียน</div>
-          <div class="tableWrap" style="margin-top:12px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>Section</th>
-                  <th>Unique Students</th>
-                  <th>Completed Sessions</th>
-                  <th>Avg Score</th>
-                  <th>Avg Accuracy</th>
-                </tr>
-              </thead>
-              <tbody id="sectionSummaryBody">
-                <tr><td colspan="5">กำลังโหลด...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Follow-up Summary</h2>
-          <div class="subtle">สรุปสถานะการติดตามล่าสุดของนักศึกษาแต่ละคน</div>
-          <div id="followupSummaryGrid" class="list" style="margin-top:12px;">
-            <div class="empty">กำลังโหลด follow-up summary...</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Follow-up by Section</h2>
-          <div class="subtle">สรุปสถานะการติดตามล่าสุดแยกตาม section</div>
-
-          <div class="tableWrap" style="margin-top:12px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>Section</th>
-                  <th>Total</th>
-                  <th>Pending</th>
-                  <th>Contacted</th>
-                  <th>Needs Support</th>
-                  <th>Improved</th>
-                  <th>Closed</th>
-                  <th>No Status</th>
-                </tr>
-              </thead>
-              <tbody id="followupSectionSummaryBody">
-                <tr><td colspan="8">กำลังโหลด...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">At-Risk Students</h2>
-          <div class="subtle">นักศึกษาที่มีความเสี่ยงจากการขาดเรียนหรือ accuracy ต่ำ</div>
-          <div id="riskList" class="list">
-            <div class="empty">กำลังประเมิน...</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Intervention Queue</h2>
-          <div class="subtle">ลำดับนักศึกษาที่ควรติดตามก่อน พร้อมคำแนะนำการช่วยเหลือเบื้องต้น</div>
-          <div id="interventionList" class="list">
-            <div class="empty">กำลังประเมิน...</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Top Performers</h2>
-          <div class="subtle">นักศึกษาที่ทำได้ดีจาก accuracy, attendance และ score</div>
-          <div id="topPerformersList" class="list">
-            <div class="empty">กำลังประเมิน...</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Archive Viewer</h2>
-          <div class="subtle">ดู snapshot ที่เคยเก็บไว้ และเลือก 2 รอบมาเปรียบเทียบกัน</div>
-
-          <div class="actions">
-            <button id="refreshArchiveBtn" class="ghost">REFRESH ARCHIVE</button>
-            <button id="compareArchiveBtn" class="ghost">COMPARE SELECTED SNAPSHOTS</button>
-          </div>
-
-          <div class="tableWrap" style="margin-top:12px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>A</th>
-                  <th>B</th>
-                  <th>Archived At</th>
-                  <th>Section</th>
-                  <th>Session Code</th>
-                  <th>Avg Score</th>
-                  <th>Avg Accuracy</th>
-                  <th>Students</th>
-                  <th>Sessions</th>
-                  <th>Type</th>
-                  <th>Label</th>
-                </tr>
-              </thead>
-              <tbody id="archiveTableBody">
-                <tr><td colspan="11">กำลังโหลด archive...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Snapshot Comparison</h2>
-          <div class="subtle">ผลต่างระหว่าง snapshot A และ B</div>
-          <div id="archiveCompareBox" class="list">
-            <div class="empty">เลือก snapshot A และ B ก่อน</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Semester Reset Helper</h2>
-          <div class="subtle">สร้าง term boundary / archive รอบใหม่แบบปลอดภัย โดยไม่ลบข้อมูลดิบ</div>
-
-          <div class="filterGrid" style="grid-template-columns:1fr 1fr;">
-            <div class="inputBox">
-              <label for="termBoundaryLabel">Boundary Label</label>
-              <input id="termBoundaryLabel" type="text" placeholder="เช่น TERM-1-END / 2026-S1-END" />
-            </div>
-            <div class="inputBox">
-              <label for="termBoundaryMessage">Message</label>
-              <input id="termBoundaryMessage" type="text" placeholder="เช่น ปิดภาคเรียน 1 และเริ่มรอบใหม่" />
-            </div>
-          </div>
-
-          <div class="actions">
-            <button id="createBoundaryBtn">CREATE TERM BOUNDARY</button>
-            <button id="softResetViewBtn" class="ghost">SOFT RESET VIEW</button>
-          </div>
-
-          <div class="subtle" style="margin-top:10px;">
-            Soft reset จะล้าง filter / selection / checkbox ในหน้า dashboard เท่านั้น
-            และ raw data ใน Google Sheet จะยังอยู่ครบ
-          </div>
+      <div class="tab-panel" data-panel="attendance">
+        <div class="analytics-grid">
+          <article class="analytics-card">
+            <h3>Attendance by Session Code</h3>
+            <div class="heatmap-grid" id="attendanceBySessionMount"></div>
+          </article>
+          <article class="analytics-card">
+            <h3>นักศึกษาที่ขาด session</h3>
+            <div id="absenteeMount" class="list-box"></div>
+          </article>
         </div>
       </div>
 
-      <div class="stack">
-        <div class="card" id="detailCard">
-          <div class="detailHeader">
-            <div>
-              <div class="detailName" id="detailName">ยังไม่ได้เลือกนักศึกษา</div>
-              <div class="detailMeta" id="detailMeta">เลือกจากตารางด้านซ้ายเพื่อดูข้อมูลรายคน</div>
-            </div>
-            <div id="detailBadges"></div>
-          </div>
-
-          <div class="miniStats">
-            <div class="miniBox">
-              <div class="k">Sessions</div>
-              <div class="v" id="detailSessions">-</div>
-            </div>
-            <div class="miniBox">
-              <div class="k">Avg Score</div>
-              <div class="v" id="detailAvgScore">-</div>
-            </div>
-            <div class="miniBox">
-              <div class="k">Avg Accuracy</div>
-              <div class="v" id="detailAvgAcc">-</div>
-            </div>
-          </div>
-
-          <div style="margin-top:16px;">
-            <h3 class="sectionTitle" style="font-size:16px;">Weak Terms</h3>
-            <div id="weakTermsList" class="list">
-              <div class="empty">ยังไม่มีข้อมูล</div>
-            </div>
-          </div>
+      <div class="tab-panel" data-panel="weakterms">
+        <div class="analytics-grid">
+          <article class="analytics-card">
+            <h3>Top Weak Terms</h3>
+            <div class="bar-list" id="weakTermsMount"></div>
+          </article>
+          <article class="analytics-card">
+            <h3>คำศัพท์ที่นักศึกษายังพลาดบ่อย</h3>
+            <div id="weakTermsDetailMount" class="list-box"></div>
+          </article>
         </div>
+      </div>
 
-        <div class="card">
-          <h2 class="sectionTitle">Recent Sessions</h2>
-          <div id="sessionsList" class="list">
-            <div class="empty">ยังไม่มีข้อมูล</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Progress Trend</h2>
-          <div class="subtle">แนวโน้ม score และ accuracy ของนักศึกษาที่เลือกจาก session ล่าสุด</div>
-          <div id="trendChartWrap" class="empty" style="margin-top:12px;">ยังไม่มีข้อมูล</div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Teacher Notes & Follow-up</h2>
-          <div class="subtle">บันทึกหมายเหตุของครูและสถานะการติดตามสำหรับนักศึกษาที่เลือก</div>
-
-          <div class="filterGrid" style="grid-template-columns:1fr 1fr; margin-top:12px;">
-            <div class="inputBox">
-              <label for="followupStatus">Follow-up Status</label>
-              <select id="followupStatus">
-                <option value="pending">pending</option>
-                <option value="contacted">contacted</option>
-                <option value="needs_support">needs_support</option>
-                <option value="improved">improved</option>
-                <option value="closed">closed</option>
-              </select>
-            </div>
-            <div class="inputBox">
-              <label for="teacherNameInput">Teacher Name</label>
-              <input id="teacherNameInput" type="text" placeholder="ชื่อผู้บันทึก" />
-            </div>
-          </div>
-
-          <div class="inputBox" style="margin-top:12px;">
-            <label for="teacherNoteInput">Teacher Note</label>
-            <input id="teacherNoteInput" type="text" placeholder="เช่น ควรทบทวนคำศัพท์ bank B ก่อนเรียน S02" />
-          </div>
-
-          <div class="actions">
-            <button id="saveFollowupBtn">SAVE NOTE</button>
-            <button id="refreshFollowupBtn" class="ghost">REFRESH NOTES</button>
-          </div>
-
-          <div id="followupLatestBox" class="list" style="margin-top:12px;">
-            <div class="empty">ยังไม่มีข้อมูล follow-up</div>
-          </div>
-
-          <div id="followupHistoryList" class="list">
-            <div class="empty">ยังไม่มีประวัติหมายเหตุ</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Follow-up Timeline</h2>
-          <div class="subtle">ลำดับประวัติการติดตามของนักศึกษาที่เลือก</div>
-          <div id="followupTimeline" class="timeline">
-            <div class="empty">ยังไม่มี timeline</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Student Profile Summary</h2>
-          <div class="subtle">สรุปรายคนแบบพร้อมนำไปใช้คุยกับอาจารย์ที่ปรึกษา/ผู้ปกครอง</div>
-          <div id="studentProfileSummaryBox" class="list" style="margin-top:12px;">
-            <div class="empty">ยังไม่ได้เลือกนักศึกษา</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Attendee List</h2>
-          <div class="subtle">กดที่แถว attendance เพื่อดูรายชื่อผู้เข้าเรียนใน session นั้น</div>
-          <div id="attendanceDetailList" class="list">
-            <div class="empty">ยังไม่ได้เลือก session</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Absentee List</h2>
-          <div class="subtle">รายชื่อผู้ที่อยู่ใน roster แต่ไม่พบว่าเข้า session นี้</div>
-          <div id="absenteeDetailList" class="list">
-            <div class="empty">ยังไม่ได้เลือก session</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="sectionTitle">Top Weak Terms (Overview)</h2>
-          <div id="overviewWeakTerms" class="list">
-            <div class="empty">ยังไม่มีข้อมูล</div>
-          </div>
+      <div class="tab-panel" data-panel="reports">
+        <div class="reports-grid">
+          <article class="report-card">
+            <h4>สรุปรายชื่อนักศึกษา</h4>
+            <p>ส่งออกข้อมูลที่กรองอยู่เป็นไฟล์ CSV ใช้ต่อในงานรายงานหรือประชุมได้</p>
+            <button class="btn slim" id="exportStudentsBtn">Export Students CSV</button>
+          </article>
+          <article class="report-card">
+            <h4>สรุป session</h4>
+            <p>ส่งออกรายการรอบเรียนที่บันทึกไว้ พร้อมคะแนนและ accuracy</p>
+            <button class="btn slim ghost" id="exportSessionsBtn">Export Sessions CSV</button>
+          </article>
+          <article class="report-card">
+            <h4>รายงานนักศึกษาที่ควรติดตาม</h4>
+            <p>ส่งออกเฉพาะกลุ่มต้องติดตามและกลุ่มเสี่ยง เพื่อใช้ติดตามรายบุคคล</p>
+            <button class="btn slim alt" id="exportFollowupBtn">Export Follow-up CSV</button>
+          </article>
         </div>
       </div>
     </section>
-  </div>
+  </main>
 
-  <script type="module" src="./assets/teacher.js?v=20260419l"></script>
+  <script>
+    (() => {
+      'use strict';
+
+      const API_URL = 'https://script.google.com/macros/s/AKfycbzMOBCDTaE6eH8iFeS3Jcv_LqFfLcOBIxk3nG-sDNKWTHeYuxaVtv9JQ3JoR48KUgBd/exec';
+      const NOTE_KEY = 'VOCAB_TEACHER_NOTES_V1';
+
+      const els = {
+        statusBanner: document.getElementById('statusBanner'),
+        refreshDashboardBtn: document.getElementById('refreshDashboardBtn'),
+        printDashboardBtn: document.getElementById('printDashboardBtn'),
+
+        kpiStudents: document.getElementById('kpiStudents'),
+        kpiSessions: document.getElementById('kpiSessions'),
+        kpiFollowup: document.getElementById('kpiFollowup'),
+        kpiRisk: document.getElementById('kpiRisk'),
+        kpiAvgScore: document.getElementById('kpiAvgScore'),
+        kpiAvgAccuracy: document.getElementById('kpiAvgAccuracy'),
+
+        actionCenterList: document.getElementById('actionCenterList'),
+        studentSearchInput: document.getElementById('studentSearchInput'),
+        sectionFilter: document.getElementById('sectionFilter'),
+        statusFilter: document.getElementById('statusFilter'),
+        studentList: document.getElementById('studentList'),
+        studentDetailPanel: document.getElementById('studentDetailPanel'),
+
+        modeBreakdownMount: document.getElementById('modeBreakdownMount'),
+        sectionBreakdownMount: document.getElementById('sectionBreakdownMount'),
+        attendanceBySessionMount: document.getElementById('attendanceBySessionMount'),
+        absenteeMount: document.getElementById('absenteeMount'),
+        weakTermsMount: document.getElementById('weakTermsMount'),
+        weakTermsDetailMount: document.getElementById('weakTermsDetailMount'),
+
+        exportStudentsBtn: document.getElementById('exportStudentsBtn'),
+        exportSessionsBtn: document.getElementById('exportSessionsBtn'),
+        exportFollowupBtn: document.getElementById('exportFollowupBtn')
+      };
+
+      const state = {
+        raw: null,
+        students: [],
+        sessions: [],
+        termAnswers: [],
+        selectedStudentId: '',
+        notes: loadNotes()
+      };
+
+      function qs(name) {
+        return new URLSearchParams(location.search).get(name) || '';
+      }
+
+      function num(v, fallback = 0) {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : fallback;
+      }
+
+      function avg(list, getter) {
+        if (!list.length) return 0;
+        const sum = list.reduce((s, item) => s + num(getter(item), 0), 0);
+        return sum / list.length;
+      }
+
+      function pct(v) {
+        return Math.round(num(v, 0) * 10) / 10;
+      }
+
+      function text(v, fallback = '-') {
+        const s = String(v ?? '').trim();
+        return s || fallback;
+      }
+
+      function escapeHtml(s) {
+        return String(s ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function safeJsonParse(raw, fallback) {
+        try {
+          return JSON.parse(raw);
+        } catch (_) {
+          return fallback;
+        }
+      }
+
+      function loadNotes() {
+        try {
+          const raw = localStorage.getItem(NOTE_KEY);
+          return raw ? JSON.parse(raw) : {};
+        } catch (_) {
+          return {};
+        }
+      }
+
+      function saveNotes() {
+        try {
+          localStorage.setItem(NOTE_KEY, JSON.stringify(state.notes));
+        } catch (_) {}
+      }
+
+      function showStatus(message, kind = 'ok') {
+        if (!els.statusBanner) return;
+        els.statusBanner.textContent = message;
+        els.statusBanner.className = 'status-banner show ' + kind;
+      }
+
+      function shortWhenText(value) {
+        if (!value) return '-';
+        try {
+          const d = new Date(value);
+          if (Number.isNaN(d.getTime())) return String(value);
+          return d.toLocaleString('th-TH', {
+            year: '2-digit',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        } catch (_) {
+          return String(value);
+        }
+      }
+
+      function toCsv(rows) {
+        if (!rows.length) return '';
+        const headers = Array.from(rows.reduce((set, row) => {
+          Object.keys(row || {}).forEach(k => set.add(k));
+          return set;
+        }, new Set()));
+
+        const esc = val => {
+          const s = String(val ?? '');
+          return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+        };
+
+        const lines = [headers.join(',')];
+        rows.forEach(row => {
+          lines.push(headers.map(h => esc(row[h])).join(','));
+        });
+        return lines.join('\n');
+      }
+
+      function downloadCsv(filename, rows) {
+        const csv = toCsv(rows);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      async function fetchJson(url, options = {}) {
+        const res = await fetch(url, options);
+        return res.json();
+      }
+
+      async function requestTeacherData() {
+        const env = (action) => JSON.stringify({
+          source: 'teacher.html',
+          schema: 'teacher-dashboard-v2',
+          action,
+          timestamp: new Date().toISOString(),
+          payload: {}
+        });
+
+        const tries = [
+          async () => fetchJson(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: env('teacher_dashboard_get')
+          }),
+          async () => fetchJson(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: env('teacher_dashboard')
+          }),
+          async () => fetchJson(API_URL + '?action=teacher_dashboard_get'),
+          async () => fetchJson(API_URL)
+        ];
+
+        let lastErr = null;
+
+        for (const run of tries) {
+          try {
+            const data = await run();
+            if (data) return data;
+          } catch (err) {
+            lastErr = err;
+          }
+        }
+
+        throw lastErr || new Error('Cannot load teacher dashboard data');
+      }
+
+      function pickArray(obj, keys) {
+        for (const k of keys) {
+          if (Array.isArray(obj?.[k])) return obj[k];
+        }
+        return [];
+      }
+
+      function normalizeDashboardPayload(data) {
+        const root = data?.data || data || {};
+        let students = pickArray(root, [
+          'students', 'student_profiles', 'students_profile_rows', 'studentsProfile', 'profiles'
+        ]);
+
+        let sessions = pickArray(root, [
+          'sessions', 'session_rows', 'sessions_rows', 'sessionSummaryRows'
+        ]);
+
+        let termAnswers = pickArray(root, [
+          'term_answers', 'term_answer_rows', 'answers', 'events'
+        ]);
+
+        if (!students.length && Array.isArray(root.rows)) {
+          students = root.rows.filter(r => (
+            'last_session_id' in r ||
+            'last_bank' in r ||
+            'last_mode' in r ||
+            'last_accuracy' in r ||
+            'recommended_mode' in r
+          ));
+        }
+
+        if (!sessions.length && Array.isArray(root.rows)) {
+          sessions = root.rows.filter(r => (
+            'started_at' in r ||
+            'ended_at' in r ||
+            'duration_sec' in r ||
+            ((r.action || r.type) === 'session_end') ||
+            ((r.action || r.type) === 'session_start')
+          ));
+        }
+
+        if (!termAnswers.length && Array.isArray(root.rows)) {
+          termAnswers = root.rows.filter(r => (
+            'term_id' in r ||
+            'variant_type' in r ||
+            'response_ms' in r ||
+            ((r.action || r.type) === 'term_answer')
+          ));
+        }
+
+        return {
+          students,
+          sessions,
+          termAnswers
+        };
+      }
+
+      function deriveAttendanceMeta(students, sessions) {
+        const allSessionCodes = Array.from(new Set(
+          sessions.map(s => text(s.session_code || s.sessionCode || '')).filter(Boolean)
+        ));
+
+        const totalExpected = allSessionCodes.length || 0;
+
+        const byStudent = {};
+        students.forEach(s => {
+          const sid = text(s.student_id || s.studentId || s.display_name || s.displayName || '');
+          byStudent[sid] = {
+            codes: new Set(),
+            rows: []
+          };
+        });
+
+        sessions.forEach(row => {
+          const sid = text(row.student_id || row.studentId || row.display_name || row.displayName || '');
+          if (!sid) return;
+          if (!byStudent[sid]) byStudent[sid] = { codes: new Set(), rows: [] };
+          const code = text(row.session_code || row.sessionCode || '');
+          if (code && code !== '-') byStudent[sid].codes.add(code);
+          byStudent[sid].rows.push(row);
+        });
+
+        return { allSessionCodes, totalExpected, byStudent };
+      }
+
+      function deriveWeakTermsForStudent(student, termAnswers) {
+        const sid = text(student.student_id || student.studentId || '');
+        const name = text(student.display_name || student.displayName || '');
+
+        const rows = termAnswers.filter(r => {
+          const rowSid = text(r.student_id || r.studentId || '');
+          const rowName = text(r.display_name || r.displayName || '');
+          return (sid && rowSid === sid) || (!sid && rowName === name);
+        });
+
+        const termMap = {};
+        rows.forEach(r => {
+          const term = text(r.term || r.term_id || '');
+          if (!term || term === '-') return;
+          if (!termMap[term]) {
+            termMap[term] = { term, seen: 0, correct: 0, wrong: 0, responseMsSum: 0, responseMsCount: 0 };
+          }
+          termMap[term].seen += 1;
+          if (r.is_correct === true || String(r.is_correct).toUpperCase() === 'TRUE') termMap[term].correct += 1;
+          else termMap[term].wrong += 1;
+
+          const rt = num(r.response_ms, 0);
+          if (rt > 0) {
+            termMap[term].responseMsSum += rt;
+            termMap[term].responseMsCount += 1;
+          }
+        });
+
+        return Object.values(termMap)
+          .map(x => ({
+            ...x,
+            accuracy: x.seen ? Math.round((x.correct / x.seen) * 100) : 0,
+            avgRt: x.responseMsCount ? Math.round(x.responseMsSum / x.responseMsCount) : 0
+          }))
+          .sort((a, b) => (b.wrong - a.wrong) || (a.accuracy - b.accuracy) || (b.avgRt - a.avgRt))
+          .slice(0, 8);
+      }
+
+      function getStudentStatus(student) {
+        const acc = num(student.last_accuracy, 0);
+        const attendanceRate = num(student.attendance_rate, 0);
+
+        if (attendanceRate < 60 || acc < 60) {
+          return {
+            status: 'risk',
+            label: 'กลุ่มเสี่ยง',
+            reason: attendanceRate < 60
+              ? 'เข้าเรียนน้อยกว่า 60%'
+              : 'accuracy ต่ำกว่า 60%'
+          };
+        }
+
+        if (attendanceRate < 80 || acc < 75) {
+          return {
+            status: 'followup',
+            label: 'ต้องติดตาม',
+            reason: attendanceRate < 80
+              ? 'เข้าเรียนยังไม่สม่ำเสมอ'
+              : 'accuracy ต่ำกว่า 75%'
+          };
+        }
+
+        return {
+          status: 'normal',
+          label: 'ปกติ',
+          reason: 'อยู่ในเกณฑ์ที่ดี'
+        };
+      }
+
+      function defaultRecommendedAction(student) {
+        const status = getStudentStatus(student);
+        if (status.status === 'risk') {
+          return 'ควรนัดติดตามและให้ฝึกจากโหมดที่ระบบแนะนำก่อน';
+        }
+        if (status.status === 'followup') {
+          return 'ฝึกเพิ่มในโหมด ' + text(student.recommended_mode, 'ที่ระบบแนะนำ') + ' และติดตามรอบถัดไป';
+        }
+        return 'อยู่ในเกณฑ์ดี ให้ฝึกต่อเพื่อคงระดับ';
+      }
+
+      function buildUnifiedStudents(studentsRows, sessionRows, termAnswerRows) {
+        const attendanceMeta = deriveAttendanceMeta(studentsRows, sessionRows);
+
+        return studentsRows.map(row => {
+          const studentId = text(row.student_id || row.studentId || '');
+          const displayName = text(row.display_name || row.displayName || 'Unknown');
+          const section = text(row.section || '');
+
+          const recentSessions = sessionRows
+            .filter(s => {
+              const sid = text(s.student_id || s.studentId || '');
+              const name = text(s.display_name || s.displayName || '');
+              return (studentId && sid === studentId) || (!studentId && name === displayName);
+            })
+            .sort((a, b) => String(b.timestamp || b.ended_at || '').localeCompare(String(a.timestamp || a.ended_at || '')));
+
+          const attendanceCount = attendanceMeta.byStudent[studentId]?.codes?.size || 0;
+          const totalExpected = attendanceMeta.totalExpected || 0;
+          const attendanceRate = totalExpected ? Math.round((attendanceCount / totalExpected) * 100) : 100;
+          const weakTermsJson = safeJsonParse(row.weak_terms_json || row.weak_terms_js || '[]', []);
+          const masteryJson = safeJsonParse(row.mastery_json || '{}', {});
+          const termWeak = deriveWeakTermsForStudent(row, termAnswerRows);
+
+          const student = {
+            student_id: studentId,
+            display_name: displayName,
+            section,
+            last_session_id: text(row.last_session_id || ''),
+            last_bank: text(row.last_bank || ''),
+            last_mode: text(row.last_mode || ''),
+            last_score: num(row.last_score, 0),
+            last_accuracy: num(row.last_accuracy, 0),
+            recommended_mode: text(row.recommended_mode || row.recommended_r || ''),
+            recommended_difficulty: text(row.recommended_difficulty || row.recommended_d || ''),
+            weak_terms_json: Array.isArray(weakTermsJson) ? weakTermsJson : [],
+            mastery_json: masteryJson && typeof masteryJson === 'object' ? masteryJson : {},
+            recent_sessions: recentSessions.slice(0, 8),
+            attendance_count: attendanceCount,
+            attendance_expected: totalExpected,
+            attendance_rate: attendanceRate,
+            attendance_text: totalExpected ? (attendanceCount + ' / ' + totalExpected + ' (' + attendanceRate + '%)') : '-',
+            term_weak_terms: termWeak,
+            note: state.notes[studentId || displayName] || ''
+          };
+
+          const s = getStudentStatus(student);
+          student.status = s.status;
+          student.status_label = s.label;
+          student.status_reason = s.reason;
+          student.recommended_action = defaultRecommendedAction(student);
+          return student;
+        }).sort((a, b) => {
+          const rank = { risk: 0, followup: 1, normal: 2 };
+          return rank[a.status] - rank[b.status]
+            || a.last_accuracy - b.last_accuracy
+            || b.last_score - a.last_score
+            || a.display_name.localeCompare(b.display_name);
+        });
+      }
+
+      function getFilteredStudents() {
+        const search = text(els.studentSearchInput?.value || '', '').toLowerCase();
+        const section = text(els.sectionFilter?.value || '', '');
+        const status = text(els.statusFilter?.value || '', '');
+
+        return state.students.filter(s => {
+          const hitSearch = !search || [
+            s.display_name,
+            s.student_id,
+            s.section
+          ].join(' ').toLowerCase().includes(search);
+
+          const hitSection = !section || s.section === section;
+          const hitStatus = !status || s.status === status;
+          return hitSearch && hitSection && hitStatus;
+        });
+      }
+
+      function setSummary() {
+        const students = getFilteredStudents();
+        const sessions = state.sessions.filter(row => {
+          const sid = text(row.student_id || row.studentId || '');
+          return !students.length || students.some(s => s.student_id === sid || (!s.student_id && text(row.display_name || row.displayName || '') === s.display_name));
+        });
+
+        const followup = students.filter(s => s.status === 'followup').length;
+        const risk = students.filter(s => s.status === 'risk').length;
+        const avgScore = students.length ? Math.round(avg(students, s => s.last_score)) : 0;
+        const avgAccuracy = students.length ? pct(avg(students, s => s.last_accuracy)) : 0;
+
+        els.kpiStudents.textContent = students.length;
+        els.kpiSessions.textContent = sessions.length;
+        els.kpiFollowup.textContent = followup;
+        els.kpiRisk.textContent = risk;
+        els.kpiAvgScore.textContent = avgScore;
+        els.kpiAvgAccuracy.textContent = avgAccuracy + '%';
+      }
+
+      function renderActionCenter() {
+        const target = els.actionCenterList;
+        if (!target) return;
+
+        const students = getFilteredStudents().filter(s => s.status !== 'normal').slice(0, 6);
+
+        if (!students.length) {
+          target.innerHTML = '<div class="empty-lite">ยังไม่พบนักศึกษาที่ต้องติดตามจากตัวกรองปัจจุบัน</div>';
+          return;
+        }
+
+        target.innerHTML = students.map(s => `
+          <article class="student-card status-${escapeHtml(s.status)}">
+            <div class="student-top">
+              <div>
+                <h3>#${escapeHtml(s.display_name)}</h3>
+                <div class="student-meta">
+                  Student ID: ${escapeHtml(s.student_id || '-')} • Section: ${escapeHtml(s.section || '-')}
+                </div>
+              </div>
+              <div class="badge ${escapeHtml(s.status)}">${escapeHtml(s.status_label)}</div>
+            </div>
+
+            <div class="chip-row">
+              <span class="chip">Attendance ${escapeHtml(s.attendance_text)}</span>
+              <span class="chip">Accuracy ${Math.round(num(s.last_accuracy, 0))}%</span>
+              <span class="chip">Score ${escapeHtml(s.last_score)}</span>
+              <span class="chip">Last Mode ${escapeHtml(s.last_mode || '-')}</span>
+            </div>
+
+            <div class="student-reason"><strong>เหตุผล:</strong> ${escapeHtml(s.status_reason)}</div>
+            <div class="student-advice"><strong>แนะนำ:</strong> ${escapeHtml(s.recommended_action)}</div>
+
+            <div class="student-actions">
+              <button class="btn slim" data-open-student="${escapeHtml(s.student_id || s.display_name)}">ดูรายละเอียด</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function renderStudentList() {
+        const target = els.studentList;
+        if (!target) return;
+
+        const rows = getFilteredStudents();
+
+        if (!rows.length) {
+          target.innerHTML = '<div class="empty-lite">ไม่พบนักศึกษาตามตัวกรองที่เลือก</div>';
+          return;
+        }
+
+        target.innerHTML = rows.map(s => `
+          <article class="student-row">
+            <div class="student-row-top">
+              <div>
+                <div class="student-row-name">${escapeHtml(s.display_name)}</div>
+                <div class="student-row-meta">รหัส ${escapeHtml(s.student_id || '-')} • Section ${escapeHtml(s.section || '-')}</div>
+              </div>
+              <div class="badge ${escapeHtml(s.status)}">${escapeHtml(s.status_label)}</div>
+            </div>
+
+            <div class="student-row-stats">
+              <span class="chip">Attendance ${escapeHtml(s.attendance_text)}</span>
+              <span class="chip">Accuracy ${Math.round(num(s.last_accuracy, 0))}%</span>
+              <span class="chip">Score ${escapeHtml(s.last_score)}</span>
+              <span class="chip">Bank ${escapeHtml(s.last_bank || '-')}</span>
+              <span class="chip">Mode ${escapeHtml(s.last_mode || '-')}</span>
+            </div>
+
+            <div class="student-row-actions">
+              <button class="btn slim" data-open-student="${escapeHtml(s.student_id || s.display_name)}">ดูรายละเอียด</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function renderWeakTermsList(terms) {
+        if (!terms.length) {
+          return '<div class="empty-lite">ยังไม่พบคำศัพท์ที่ตอบผิดชัดเจน</div>';
+        }
+
+        return terms.map(t => `
+          <div class="list-item">
+            <strong>${escapeHtml(String(t.term || t.termId || '').toUpperCase())}</strong>
+            <div class="meta">wrong ${escapeHtml(num(t.wrong, 0))} • accuracy ${escapeHtml(num(t.accuracy, 0))}%${t.avgRt ? ' • ' + escapeHtml(t.avgRt) + ' ms' : ''}</div>
+          </div>
+        `).join('');
+      }
+
+      function renderRecentSessions(sessions) {
+        if (!sessions.length) {
+          return '<div class="empty-lite">ยังไม่มี recent sessions</div>';
+        }
+
+        return sessions.slice(0, 6).map(row => `
+          <div class="list-item">
+            <strong>${escapeHtml(text(row.mode || row.last_mode || '-', '-'))}</strong>
+            <div class="meta">
+              ${escapeHtml(shortWhenText(row.timestamp || row.ended_at || row.started_at || '-'))}
+              • score ${escapeHtml(num(row.score, row.last_score || 0))}
+              • accuracy ${escapeHtml(pct(row.accuracy || row.last_accuracy || 0))}%
+              • session ${escapeHtml(text(row.session_code || '-', '-'))}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function renderMasteryList(mastery) {
+        const rows = Object.entries(mastery || {})
+          .map(([term, m]) => ({
+            term,
+            seen: num(m.seen, 0),
+            correct: num(m.correct, 0),
+            wrong: num(m.wrong, 0),
+            level: text(m.level || ''),
+            highestLevel: text(m.highestLevel || '')
+          }))
+          .sort((a, b) => (b.wrong - a.wrong) || (a.correct - b.correct))
+          .slice(0, 8);
+
+        if (!rows.length) {
+          return '<div class="empty-lite">ยังไม่มี mastery data</div>';
+        }
+
+        return rows.map(r => `
+          <div class="list-item">
+            <strong>${escapeHtml(r.term.toUpperCase())}</strong>
+            <div class="meta">seen ${r.seen} • correct ${r.correct} • wrong ${r.wrong} • level ${escapeHtml(r.level || '-')} • highest ${escapeHtml(r.highestLevel || '-')}</div>
+          </div>
+        `).join('');
+      }
+
+      function openStudent(studentKey) {
+        const student = state.students.find(s => (s.student_id || s.display_name) === studentKey) || state.students[0];
+        if (!student) return;
+
+        state.selectedStudentId = student.student_id || student.display_name;
+        renderStudentDetail();
+      }
+
+      function renderStudentDetail() {
+        const mount = els.studentDetailPanel;
+        if (!mount) return;
+
+        const student = state.students.find(s => (s.student_id || s.display_name) === state.selectedStudentId);
+
+        if (!student) {
+          mount.innerHTML = '<div class="detail-empty">ยังไม่ได้เลือกนักศึกษา</div>';
+          return;
+        }
+
+        mount.innerHTML = `
+          <div class="detail-grid">
+            <article class="detail-card">
+              <h3>${escapeHtml(student.display_name)} • ข้อมูลหลัก</h3>
+
+              <div class="kpi-pairs">
+                <div class="kpi-box">
+                  <div class="label">Student ID</div>
+                  <div class="value">${escapeHtml(student.student_id || '-')}</div>
+                </div>
+                <div class="kpi-box">
+                  <div class="label">Section</div>
+                  <div class="value">${escapeHtml(student.section || '-')}</div>
+                </div>
+                <div class="kpi-box">
+                  <div class="label">Last Score</div>
+                  <div class="value">${escapeHtml(student.last_score)}</div>
+                </div>
+                <div class="kpi-box">
+                  <div class="label">Last Accuracy</div>
+                  <div class="value">${Math.round(num(student.last_accuracy, 0))}%</div>
+                </div>
+                <div class="kpi-box">
+                  <div class="label">Attendance</div>
+                  <div class="value">${escapeHtml(student.attendance_text)}</div>
+                </div>
+                <div class="kpi-box">
+                  <div class="label">Recommended</div>
+                  <div class="value">${escapeHtml(student.recommended_mode || '-')}</div>
+                </div>
+              </div>
+
+              <div class="list-box">
+                <div class="list-item">
+                  <strong>เหตุผลที่ระบบจัดสถานะ:</strong><br />
+                  ${escapeHtml(student.status_reason)}
+                  <div class="meta">${escapeHtml(student.status_label)}</div>
+                </div>
+
+                <div class="list-item">
+                  <strong>ข้อเสนอแนะ:</strong><br />
+                  ${escapeHtml(student.recommended_action)}
+                  <div class="meta">difficulty ${escapeHtml(student.recommended_difficulty || '-')}</div>
+                </div>
+              </div>
+            </article>
+
+            <article class="detail-card">
+              <h3>Teacher Notes</h3>
+              <textarea class="note-box" id="teacherNoteBox" placeholder="บันทึกสิ่งที่ควรติดตามหรือแผนช่วยเหลือรายคน">${escapeHtml(student.note || '')}</textarea>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn slim" id="saveTeacherNoteBtn">บันทึกโน้ต</button>
+                <button class="btn slim ghost" id="clearTeacherNoteBtn">ล้างโน้ต</button>
+              </div>
+            </article>
+
+            <article class="detail-card">
+              <h3>Weak Terms</h3>
+              <div class="list-box">${renderWeakTermsList(student.term_weak_terms.length ? student.term_weak_terms : student.weak_terms_json.map(x => ({
+                term: x.term || x.termId || x.term_id,
+                wrong: x.wrong || 0,
+                accuracy: x.accuracy || 0
+              })))}</div>
+            </article>
+
+            <article class="detail-card">
+              <h3>Recent Sessions</h3>
+              <div class="list-box">${renderRecentSessions(student.recent_sessions)}</div>
+            </article>
+
+            <article class="detail-card">
+              <h3>Mastery Snapshot</h3>
+              <div class="list-box">${renderMasteryList(student.mastery_json)}</div>
+            </article>
+          </div>
+        `;
+
+        const noteBox = document.getElementById('teacherNoteBox');
+        const saveBtn = document.getElementById('saveTeacherNoteBtn');
+        const clearBtn = document.getElementById('clearTeacherNoteBtn');
+
+        saveBtn?.addEventListener('click', () => {
+          const key = student.student_id || student.display_name;
+          state.notes[key] = noteBox?.value || '';
+          saveNotes();
+          student.note = state.notes[key];
+          showStatus('บันทึก teacher note แล้ว', 'ok');
+        });
+
+        clearBtn?.addEventListener('click', () => {
+          const key = student.student_id || student.display_name;
+          delete state.notes[key];
+          saveNotes();
+          if (noteBox) noteBox.value = '';
+          student.note = '';
+          showStatus('ล้าง teacher note แล้ว', 'ok');
+        });
+      }
+
+      function renderTabs() {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab || 'overview';
+
+            document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+
+            btn.classList.add('active');
+            document.querySelector(`.tab-panel[data-panel="${tab}"]`)?.classList.add('active');
+          });
+        });
+      }
+
+      function renderModeBreakdown() {
+        const rows = {};
+        getFilteredStudents().forEach(s => {
+          const mode = text(s.last_mode || 'unknown', 'unknown');
+          if (!rows[mode]) rows[mode] = { count: 0, avgAccuracy: 0, avgScore: 0 };
+          rows[mode].count += 1;
+          rows[mode].avgAccuracy += num(s.last_accuracy, 0);
+          rows[mode].avgScore += num(s.last_score, 0);
+        });
+
+        const list = Object.entries(rows).map(([mode, r]) => ({
+          mode,
+          count: r.count,
+          avgAccuracy: r.count ? Math.round(r.avgAccuracy / r.count) : 0,
+          avgScore: r.count ? Math.round(r.avgScore / r.count) : 0
+        })).sort((a, b) => b.count - a.count || b.avgAccuracy - a.avgAccuracy);
+
+        if (!list.length) {
+          els.modeBreakdownMount.innerHTML = '<div class="empty-lite">ยังไม่มีข้อมูลตามโหมด</div>';
+          return;
+        }
+
+        els.modeBreakdownMount.innerHTML = list.map(row => {
+          const width = Math.max(8, Math.min(100, row.avgAccuracy));
+          return `
+            <div class="bar-row">
+              <div class="bar-head">
+                <strong>${escapeHtml(row.mode)}</strong>
+                <div class="meta">${row.count} students • avg ${row.avgAccuracy}% • score ${row.avgScore}</div>
+              </div>
+              <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderSectionBreakdown() {
+        const rows = {};
+        getFilteredStudents().forEach(s => {
+          const section = text(s.section || 'Unknown');
+          if (!rows[section]) rows[section] = { count: 0, avgAccuracy: 0, followup: 0, risk: 0 };
+          rows[section].count += 1;
+          rows[section].avgAccuracy += num(s.last_accuracy, 0);
+          if (s.status === 'followup') rows[section].followup += 1;
+          if (s.status === 'risk') rows[section].risk += 1;
+        });
+
+        const list = Object.entries(rows).map(([section, r]) => ({
+          section,
+          count: r.count,
+          avgAccuracy: r.count ? Math.round(r.avgAccuracy / r.count) : 0,
+          followup: r.followup,
+          risk: r.risk
+        })).sort((a, b) => b.count - a.count || a.avgAccuracy - b.avgAccuracy);
+
+        if (!list.length) {
+          els.sectionBreakdownMount.innerHTML = '<div class="empty-lite">ยังไม่มีข้อมูลตาม section</div>';
+          return;
+        }
+
+        els.sectionBreakdownMount.innerHTML = list.map(row => {
+          const width = Math.max(8, Math.min(100, row.avgAccuracy));
+          return `
+            <div class="bar-row">
+              <div class="bar-head">
+                <strong>${escapeHtml(row.section)}</strong>
+                <div class="meta">${row.count} students • avg ${row.avgAccuracy}% • follow-up ${row.followup} • risk ${row.risk}</div>
+              </div>
+              <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderAttendanceAnalytics() {
+        const students = getFilteredStudents();
+        const allCodes = Array.from(new Set(
+          state.sessions.map(s => text(s.session_code || s.sessionCode || '')).filter(Boolean)
+        )).sort();
+
+        if (!allCodes.length) {
+          els.attendanceBySessionMount.innerHTML = '<div class="empty-lite">ยังไม่มี session code ให้แสดง</div>';
+          els.absenteeMount.innerHTML = '<div class="empty-lite">ยังไม่มีข้อมูลการขาดเรียน</div>';
+          return;
+        }
+
+        const byCode = allCodes.map(code => {
+          const attendees = students.filter(s =>
+            s.recent_sessions.some(r => text(r.session_code || r.sessionCode || '') === code)
+          ).length;
+          const rate = students.length ? Math.round((attendees / students.length) * 100) : 0;
+          return { code, attendees, rate };
+        });
+
+        els.attendanceBySessionMount.innerHTML = byCode.map(row => `
+          <div class="heat-cell">
+            <div class="name">${escapeHtml(row.code)}</div>
+            <div class="big">${row.rate}%</div>
+            <div class="small">${row.attendees}/${students.length || 0} คน</div>
+          </div>
+        `).join('');
+
+        const absenteeRows = students
+          .filter(s => s.attendance_expected > 0 && s.attendance_count < s.attendance_expected)
+          .slice(0, 12);
+
+        if (!absenteeRows.length) {
+          els.absenteeMount.innerHTML = '<div class="empty-lite">ยังไม่พบนักศึกษาที่ขาด session จากข้อมูลชุดนี้</div>';
+          return;
+        }
+
+        els.absenteeMount.innerHTML = absenteeRows.map(s => `
+          <div class="list-item">
+            <strong>${escapeHtml(s.display_name)}</strong>
+            <div class="meta">Attendance ${escapeHtml(s.attendance_text)} • ${escapeHtml(s.section || '-')}</div>
+          </div>
+        `).join('');
+      }
+
+      function renderWeakTermsAnalytics() {
+        const map = {};
+
+        getFilteredStudents().forEach(student => {
+          const rows = student.term_weak_terms.length ? student.term_weak_terms : (student.weak_terms_json || []);
+          rows.forEach(item => {
+            const term = text(item.term || item.termId || item.term_id || '');
+            if (!term || term === '-') return;
+            if (!map[term]) map[term] = { term, wrong: 0, accuracySum: 0, count: 0, students: [] };
+            map[term].wrong += num(item.wrong, 0);
+            map[term].accuracySum += num(item.accuracy, 0);
+            map[term].count += 1;
+            if (!map[term].students.includes(student.display_name)) map[term].students.push(student.display_name);
+          });
+        });
+
+        const rows = Object.values(map)
+          .map(x => ({
+            ...x,
+            avgAccuracy: x.count ? Math.round(x.accuracySum / x.count) : 0
+          }))
+          .sort((a, b) => (b.wrong - a.wrong) || (a.avgAccuracy - b.avgAccuracy))
+          .slice(0, 10);
+
+        if (!rows.length) {
+          els.weakTermsMount.innerHTML = '<div class="empty-lite">ยังไม่มี weak terms รวม</div>';
+          els.weakTermsDetailMount.innerHTML = '<div class="empty-lite">ยังไม่มีรายละเอียดคำศัพท์ที่อ่อน</div>';
+          return;
+        }
+
+        const maxWrong = Math.max(1, ...rows.map(x => x.wrong));
+
+        els.weakTermsMount.innerHTML = rows.map(row => `
+          <div class="bar-row">
+            <div class="bar-head">
+              <strong>${escapeHtml(row.term.toUpperCase())}</strong>
+              <div class="meta">wrong ${row.wrong} • avg acc ${row.avgAccuracy}%</div>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:${Math.max(8, Math.min(100, (row.wrong / maxWrong) * 100))}%"></div></div>
+          </div>
+        `).join('');
+
+        els.weakTermsDetailMount.innerHTML = rows.map(row => `
+          <div class="list-item">
+            <strong>${escapeHtml(row.term.toUpperCase())}</strong>
+            <div class="meta">students: ${escapeHtml(row.students.join(', ')) || '-'} • wrong ${row.wrong} • avg acc ${row.avgAccuracy}%</div>
+          </div>
+        `).join('');
+      }
+
+      function populateSectionFilter() {
+        const sections = Array.from(new Set(state.students.map(s => text(s.section || '')).filter(Boolean))).sort();
+        const current = els.sectionFilter.value || '';
+        els.sectionFilter.innerHTML = '<option value="">ทุก section</option>' +
+          sections.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+        els.sectionFilter.value = current;
+      }
+
+      function renderAll() {
+        populateSectionFilter();
+        setSummary();
+        renderActionCenter();
+        renderStudentList();
+        renderStudentDetail();
+        renderModeBreakdown();
+        renderSectionBreakdown();
+        renderAttendanceAnalytics();
+        renderWeakTermsAnalytics();
+      }
+
+      function attachListEvents() {
+        document.querySelectorAll('[data-open-student]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            openStudent(btn.getAttribute('data-open-student') || '');
+          });
+        });
+      }
+
+      async function loadDashboard() {
+        showStatus('กำลังโหลดข้อมูล dashboard...', 'warn');
+
+        try {
+          const raw = await requestTeacherData();
+          const normalized = normalizeDashboardPayload(raw);
+
+          state.raw = raw;
+          state.sessions = normalized.sessions || [];
+          state.termAnswers = normalized.termAnswers || [];
+          state.students = buildUnifiedStudents(
+            normalized.students || [],
+            normalized.sessions || [],
+            normalized.termAnswers || []
+          );
+
+          if (!state.selectedStudentId && state.students[0]) {
+            state.selectedStudentId = state.students[0].student_id || state.students[0].display_name;
+          }
+
+          renderAll();
+          attachListEvents();
+          showStatus('โหลดข้อมูล teacher dashboard สำเร็จแล้ว', 'ok');
+        } catch (err) {
+          console.error(err);
+          showStatus('โหลดข้อมูลไม่สำเร็จ: ' + (err?.message || err), 'bad');
+
+          state.students = [];
+          state.sessions = [];
+          state.termAnswers = [];
+          renderAll();
+        }
+      }
+
+      function bindEvents() {
+        els.refreshDashboardBtn?.addEventListener('click', loadDashboard);
+        els.printDashboardBtn?.addEventListener('click', () => window.print());
+
+        els.studentSearchInput?.addEventListener('input', () => {
+          renderAll();
+          attachListEvents();
+        });
+
+        els.sectionFilter?.addEventListener('change', () => {
+          renderAll();
+          attachListEvents();
+        });
+
+        els.statusFilter?.addEventListener('change', () => {
+          renderAll();
+          attachListEvents();
+        });
+
+        renderTabs();
+
+        els.exportStudentsBtn?.addEventListener('click', () => {
+          const rows = getFilteredStudents().map(s => ({
+            student_id: s.student_id,
+            display_name: s.display_name,
+            section: s.section,
+            status: s.status_label,
+            attendance_text: s.attendance_text,
+            last_score: s.last_score,
+            last_accuracy: s.last_accuracy,
+            recommended_mode: s.recommended_mode,
+            recommended_difficulty: s.recommended_difficulty,
+            note: s.note || ''
+          }));
+          downloadCsv('teacher_students.csv', rows);
+        });
+
+        els.exportSessionsBtn?.addEventListener('click', () => {
+          downloadCsv('teacher_sessions.csv', state.sessions);
+        });
+
+        els.exportFollowupBtn?.addEventListener('click', () => {
+          const rows = getFilteredStudents()
+            .filter(s => s.status !== 'normal')
+            .map(s => ({
+              student_id: s.student_id,
+              display_name: s.display_name,
+              section: s.section,
+              status: s.status_label,
+              reason: s.status_reason,
+              attendance_text: s.attendance_text,
+              last_score: s.last_score,
+              last_accuracy: s.last_accuracy,
+              recommended_action: s.recommended_action,
+              note: s.note || ''
+            }));
+          downloadCsv('teacher_followup.csv', rows);
+        });
+      }
+
+      bindEvents();
+      loadDashboard();
+
+      const highlightStudent = qs('student_id') || qs('student');
+      if (highlightStudent) {
+        state.selectedStudentId = highlightStudent;
+      }
+    })();
+  </script>
 </body>
 </html>
