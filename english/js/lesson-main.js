@@ -100,7 +100,7 @@ import {
   expandMissionHudTextCompact,
   togglePromptFocusExpanded,
   resetPromptFocusExpanded
-} from "./lesson-ui.js?v=20260422k";
+} from "./lesson-ui.js?v=20260423-sync-r4";
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
