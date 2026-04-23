@@ -3,32 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Handwash Hero • Howto</title>
+  <title>Handwash Hero • How to Play</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
 
   <style>
     :root{
-      --bg:rgba(10,28,48,.82);
+      --bg:rgba(7,18,34,.88);
       --panel:rgba(255,255,255,.12);
       --line:#63e6ff;
-      --ink:#ffffff;
-      --yellow:#ffd84d;
-      --pink:#ff72b6;
-      --green:#86efac;
+      --text:#ecfeff;
+      --yellow:#ffe66d;
       --shadow:0 12px 30px rgba(0,0,0,.26);
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       width:100%;
       height:100%;
       overflow:hidden;
       font-family:"Segoe UI",system-ui,sans-serif;
-      background:#bfe9ff;
+      background:#d9f3ff;
       color:#fff;
       touch-action:manipulation;
     }
@@ -50,48 +47,73 @@
       top:8px;
       left:50%;
       transform:translateX(-50%);
-      width:min(94%,560px);
+      width:min(94%,780px);
       background:var(--bg);
-      color:#fff;
-      padding:12px 12px 10px;
-      border-radius:18px;
-      border:2px solid var(--line);
-      text-align:center;
+      border:2px solid rgba(99,230,255,.35);
+      border-radius:22px;
       box-shadow:var(--shadow);
-      backdrop-filter:blur(6px);
-      transition:opacity .18s ease, transform .18s ease;
+      backdrop-filter:blur(8px);
+      padding:14px;
+      transition:opacity .2s ease, transform .2s ease;
     }
 
-    #ui-layer.compact{
-      padding:8px 10px 8px;
-      width:min(94%,420px);
-    }
-
-    #ui-layer.compact #guide-panel{
+    #ui-layer.compact #guide-panel,
+    #ui-layer.compact .progress-wrap{
       display:none;
     }
 
-    #step-count{
-      font-size:.9rem;
-      font-weight:900;
-      color:var(--line);
+    #ui-layer.compact{
+      width:min(94%,520px);
+      padding:10px 12px;
     }
 
-    #step-name{
-      margin:4px 0 6px;
-      font-size:1.15rem;
-      line-height:1.15;
+    .top-row{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+    }
+
+    .title-main{
+      font-size:1rem;
+      font-weight:1000;
+      color:#baf4ff;
+    }
+
+    .title-sub{
+      margin-top:4px;
+      font-size:1.18rem;
+      line-height:1.12;
+      font-weight:1000;
+      color:#ffffff;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      justify-content:flex-end;
+    }
+
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(103,232,249,.14);
+      border:1px solid rgba(103,232,249,.18);
+      color:#e6fbff;
       font-weight:900;
+      font-size:.9rem;
+      white-space:nowrap;
     }
 
     #guide-panel{
-      margin:8px 0 8px;
-      padding:10px;
-      background:rgba(255,255,255,.10);
-      border-radius:14px;
+      margin-top:10px;
+      padding:12px;
+      background:var(--panel);
+      border-radius:16px;
       display:grid;
       grid-template-columns:78px 1fr;
-      gap:10px;
+      gap:12px;
       align-items:center;
     }
 
@@ -104,35 +126,37 @@
       align-items:center;
       justify-content:center;
       font-size:2rem;
-      margin:auto;
       box-shadow:inset 0 0 0 4px rgba(255,255,255,.22);
     }
 
-    #guide-copy{
-      text-align:left;
+    #step-count{
+      font-size:.95rem;
+      font-weight:1000;
+      color:#63e6ff;
     }
 
     #step-desc{
-      font-size:.92rem;
-      line-height:1.35;
-      font-weight:700;
+      margin-top:4px;
+      font-size:1rem;
+      line-height:1.42;
+      font-weight:800;
       color:#eefcff;
     }
 
     #action-prompt{
       display:inline-block;
-      margin-top:6px;
-      background:#ffd84d;
+      margin-top:8px;
+      background:var(--yellow);
       color:#111827;
-      padding:7px 12px;
+      padding:8px 12px;
       border-radius:999px;
-      font-weight:900;
+      font-weight:1000;
       font-size:.92rem;
       animation:pulse 1s infinite;
     }
 
     .progress-wrap{
-      margin-top:8px;
+      margin-top:10px;
       display:grid;
       gap:4px;
     }
@@ -141,9 +165,9 @@
       display:flex;
       justify-content:space-between;
       gap:10px;
-      font-weight:800;
+      font-weight:900;
       color:#d9fbff;
-      font-size:.85rem;
+      font-size:.88rem;
     }
 
     .progress-bar{
@@ -169,7 +193,7 @@
       bottom:4px;
       margin:auto;
       width:auto;
-      max-width:560px;
+      max-width:760px;
       display:grid;
       grid-template-columns:56px 1fr;
       gap:10px;
@@ -192,7 +216,7 @@
 
     #coach-face.good{
       background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%);
-      transform:scale(1.04);
+      transform:scale(1.05);
     }
 
     #coach-face.warn{
@@ -200,19 +224,14 @@
     }
 
     #coach{
-      position:static;
-      margin:0;
-      width:auto;
-      max-width:none;
-      background:rgba(255,255,255,.90);
+      background:rgba(255,255,255,.92);
       color:#0f172a;
-      border-radius:16px;
+      border-radius:14px;
       padding:8px 10px;
-      box-shadow:0 10px 24px rgba(0,0,0,.16);
+      box-shadow:0 8px 18px rgba(0,0,0,.14);
       font-weight:800;
-      font-size:.86rem;
-      line-height:1.3;
-      pointer-events:none;
+      font-size:.82rem;
+      line-height:1.25;
     }
 
     #controls{
@@ -225,7 +244,7 @@
       flex-wrap:wrap;
       justify-content:flex-end;
       pointer-events:auto;
-      max-width:60vw;
+      max-width:78vw;
     }
 
     .btn{
@@ -233,7 +252,7 @@
       border:none;
       border-radius:999px;
       padding:8px 12px;
-      font-weight:900;
+      font-weight:1000;
       font-size:.88rem;
       cursor:pointer;
       box-shadow:0 8px 20px rgba(0,0,0,.18);
@@ -245,6 +264,7 @@
     .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
     .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
     .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%); }
+    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%); }
 
     .overlay{
       position:fixed;
@@ -254,13 +274,13 @@
       align-items:center;
       justify-content:center;
       padding:18px;
-      background:rgba(8,20,40,.42);
+      background:rgba(8,20,40,.46);
       backdrop-filter:blur(8px);
     }
 
     .card{
-      width:min(760px,100%);
-      background:rgba(255,255,255,.96);
+      width:min(840px,100%);
+      background:rgba(255,255,255,.97);
       color:#0f172a;
       border-radius:28px;
       border:2px solid rgba(255,255,255,.98);
@@ -276,7 +296,7 @@
       border-radius:999px;
       background:#dcfff2;
       color:#047857;
-      font-weight:900;
+      font-weight:1000;
       margin-bottom:10px;
     }
 
@@ -290,12 +310,12 @@
       margin:0 0 12px;
       color:#334155;
       line-height:1.5;
-      font-weight:700;
+      font-weight:800;
     }
 
     .tips{
       display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
       gap:10px;
       margin:14px 0 16px;
     }
@@ -317,123 +337,10 @@
       margin-top:8px;
     }
 
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-      gap:10px;
-      margin-top:14px;
-    }
-
-    .summary-box{
-      background:#f8fcff;
-      border:1px solid #d8edf8;
-      border-radius:18px;
-      padding:14px;
-      font-weight:900;
-      color:#0f172a;
-    }
-
-    .summary-box small{
-      display:block;
-      margin-bottom:5px;
-      color:#64748b;
-      font-weight:800;
-    }
-
-    .hidden{ display:none !important; }
-
-    .scene-transition{
-      position:fixed;
-      inset:0;
-      z-index:80;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:20px;
-      background:radial-gradient(circle at center, rgba(17,24,39,.72) 0%, rgba(6,12,22,.92) 100%);
-      backdrop-filter:blur(10px);
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .28s ease;
-    }
-
-    .scene-transition.show{
-      opacity:1;
-      pointer-events:auto;
-    }
-
-    .scene-transition-card{
-      width:min(520px,100%);
-      background:rgba(255,255,255,.96);
-      color:#0f172a;
-      border-radius:28px;
-      padding:22px;
-      box-shadow:0 24px 60px rgba(0,0,0,.24);
-      border:2px solid rgba(255,255,255,.98);
-      text-align:center;
-    }
-
-    .scene-transition-icon{
-      width:78px;
-      height:78px;
-      margin:0 auto 12px;
-      border-radius:50%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:2rem;
-      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
-      box-shadow:inset 0 0 0 5px rgba(255,255,255,.35);
-      animation:transitionPulse .8s infinite;
-    }
-
-    .scene-transition-title{
-      margin:0;
-      font-size:1.35rem;
-      line-height:1.15;
-      font-weight:1000;
-      color:#12324b;
-    }
-
-    .scene-transition-desc{
-      margin:8px 0 0;
-      color:#48657f;
-      font-weight:800;
-      line-height:1.5;
-    }
-
-    .scene-transition-bar{
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      background:#e6f4fb;
-      overflow:hidden;
-      margin-top:14px;
-      border:1px solid #d3ebf8;
-    }
-
-    .scene-transition-fill{
-      width:0%;
-      height:100%;
-      background:linear-gradient(90deg,#60ff9d 0%, #00e5ff 100%);
-      animation:transitionFill 900ms linear forwards;
-    }
-
     @keyframes pulse{
       0%{ transform:scale(1); }
       50%{ transform:scale(1.04); }
       100%{ transform:scale(1); }
-    }
-
-    @keyframes transitionPulse{
-      0%{ transform:scale(1); }
-      50%{ transform:scale(1.05); }
-      100%{ transform:scale(1); }
-    }
-
-    @keyframes transitionFill{
-      from{ width:0%; }
-      to{ width:100%; }
     }
 
     @media (max-width:680px){
@@ -441,12 +348,21 @@
         top:6px;
         width:calc(100% - 12px);
         padding:10px 10px 8px;
-        border-radius:16px;
+        border-radius:18px;
       }
 
       #ui-layer.compact{
         width:calc(100% - 14px);
         padding:8px 10px;
+      }
+
+      .top-row{
+        flex-direction:column;
+        gap:8px;
+      }
+
+      .chips{
+        justify-content:flex-start;
       }
 
       #guide-panel{
@@ -461,12 +377,12 @@
         font-size:1.6rem;
       }
 
-      #step-name{
+      .title-sub{
         font-size:1rem;
       }
 
       #step-desc{
-        display:none;
+        font-size:.88rem;
       }
 
       #action-prompt{
@@ -477,7 +393,7 @@
       #controls{
         right:8px;
         bottom:66px;
-        max-width:62vw;
+        max-width:80vw;
       }
 
       .btn{
@@ -501,40 +417,39 @@
       }
 
       #coach{
-        padding:8px 10px;
-        font-size:.80rem;
-      }
-
-      .card{
-        padding:18px;
-        border-radius:22px;
-      }
-
-      .card h1{
-        font-size:1.35rem;
+        padding:7px 9px;
+        font-size:.76rem;
       }
     }
   </style>
 </head>
 <body>
-
   <div id="hud">
     <div id="ui-layer">
-      <div id="step-count">Howto • ขั้นที่ 1/5</div>
-      <div id="step-name">มองเป้ากลางจอให้ตรง</div>
+      <div class="top-row">
+        <div>
+          <div class="title-main" id="step-count">Howto • ขั้นที่ 1/4</div>
+          <div class="title-sub" id="step-name">รู้จักของในเกมก่อน</div>
+        </div>
+
+        <div class="chips">
+          <div class="chip" id="phase-chip">สอนก่อนเล่น</div>
+          <div class="chip" id="scene-chip">Scene 1</div>
+        </div>
+      </div>
 
       <div id="guide-panel">
-        <div id="guide-icon" class="guide-image">🎯</div>
-        <div id="guide-copy">
-          <div id="step-desc">ใช้วงกลมฟ้ากลางจอเล็งวัตถุที่เรืองแสง แล้วแตะหน้าจอ 1 ครั้ง</div>
-          <div id="action-prompt">เล็งเป้าสีฟ้ากลางจอให้ตรง</div>
+        <div id="guide-icon" class="guide-image">🧼</div>
+        <div>
+          <div id="step-desc">หน้านี้จะสอนให้รู้จัก ก๊อกน้ำ สบู่ น้ำ และมือ แบบเห็นชัดทีละอย่าง</div>
+          <div id="action-prompt">กด “ถัดไป” เพื่อเริ่ม</div>
         </div>
       </div>
 
       <div class="progress-wrap">
         <div class="progress-top">
           <span>ความคืบหน้า</span>
-          <span id="progress-text">0%</span>
+          <span id="progress-text">25%</span>
         </div>
         <div class="progress-bar">
           <div id="fill"></div>
@@ -544,142 +459,160 @@
 
     <div id="coach-wrap">
       <div id="coach-face">🙂</div>
-      <div id="coach">เริ่มจากมองเป้ากลางจอให้ตรงก่อน</div>
+      <div id="coach">เดี๋ยวเราจะสอนทีละอย่างแบบง่าย ๆ ไม่ต้องเดาเอง</div>
     </div>
   </div>
 
   <div id="controls">
     <button class="btn pink" id="hud-toggle-btn" type="button">HIDE HUD</button>
-    <button class="btn primary" id="vr-btn" type="button">ENTER VR</button>
     <button class="btn blue" id="recenter-btn" type="button">RECENTER</button>
+    <button class="btn primary" id="next-btn" type="button">ถัดไป</button>
+    <button class="btn green" id="skip-btn" type="button">ข้ามไปฝึก</button>
+    <button class="btn pink" id="launcher-btn" type="button">กลับ Launcher</button>
+    <button class="btn blue" id="hub-btn" type="button">กลับ Zone</button>
   </div>
 
   <div class="overlay" id="start-overlay">
     <div class="card">
-      <div class="badge">🫧 Handwash Howto</div>
-      <h1>สอนวิธีเล่นแบบเร็ว</h1>
-      <p>หน้านี้สั้นมาก มีไว้ให้รู้แค่วิธีเล็ง แตะ และค้าง ก่อนจะไป <strong>Practice Lab</strong></p>
+      <div class="badge">📘 How to Play</div>
+      <h1>ก่อนเล่น มาดูให้ชัดก่อนว่าอะไรคืออะไร</h1>
+      <p>หน้านี้แก้ปัญหาเดิมที่เด็กต้องเดาเองว่าอะไรคือ <strong>ก๊อกน้ำ / สบู่ / มือ / น้ำ</strong> โดยเราจะโชว์ทีละอย่างแบบชัด ๆ</p>
 
       <div class="tips">
-        <div class="tip">🎯 เล็งวงกลมฟ้ากลางจอให้ตรงเป้า</div>
-        <div class="tip">👆 แตะ = เลือก</div>
-        <div class="tip">💧 ค้าง = ทำให้แถบเต็ม</div>
-        <div class="tip">🧪 พร้อมแล้วจะไป Practice ต่อ</div>
+        <div class="tip">🚰 เห็นก๊อกน้ำ = แตะก๊อกน้ำ</div>
+        <div class="tip">🧼 เห็นสบู่ = แตะสบู่</div>
+        <div class="tip">💧 เห็นโซนน้ำ = ค้างไว้</div>
+        <div class="tip">🖐️ เห็นมือ = แตะจุดที่เรืองแสง</div>
       </div>
 
       <div class="actions">
-        <button class="btn primary" id="start-btn" type="button">เริ่ม Howto</button>
-        <button class="btn blue" id="skip-btn" type="button">ข้ามไป Practice</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="overlay hidden" id="summary-overlay">
-    <div class="card">
-      <div class="badge">✨ Howto ผ่านแล้ว</div>
-      <h1 id="sum-title">พร้อมไป Practice Lab</h1>
-      <p id="sum-desc">ตอนนี้รู้วิธีเล็ง แตะ และค้างแล้ว ไปฝึกในด่านถัดไปได้เลย</p>
-
-      <div class="summary-grid">
-        <div class="summary-box">
-          <small>สำเร็จ</small>
-          <span id="sum-steps">5 / 5</span>
-        </div>
-        <div class="summary-box">
-          <small>คะแนน</small>
-          <span id="sum-score">0</span>
-        </div>
-        <div class="summary-box">
-          <small>พลาด</small>
-          <span id="sum-miss">0</span>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button class="btn blue" id="restart-btn" type="button">ดูอีกครั้ง</button>
-        <button class="btn primary" id="next-btn" type="button">ไป Practice Lab</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="sceneTransition" class="scene-transition">
-    <div class="scene-transition-card">
-      <div id="sceneTransitionIcon" class="scene-transition-icon">✨</div>
-      <h2 id="sceneTransitionTitle" class="scene-transition-title">กำลังไปด่านถัดไป</h2>
-      <p id="sceneTransitionDesc" class="scene-transition-desc">เตรียมพร้อมอีกนิด</p>
-      <div class="scene-transition-bar">
-        <div class="scene-transition-fill"></div>
+        <button class="btn primary" id="start-btn" type="button">เริ่มสอน</button>
       </div>
     </div>
   </div>
 
   <a-scene id="scene" vr-mode-ui="enabled: false" renderer="colorManagement: true; antialias: true">
-    <a-entity environment="preset: forest; dressingAmount: 10; groundColor: #b9f3d0; groundColor2: #86efac; skyColor: #bfe9ff"></a-entity>
+    <a-entity environment="preset: flat; dressingAmount: 0; groundColor: #dbeafe; groundColor2: #c7d2fe; skyColor: #e0f2fe"></a-entity>
 
-    <a-entity light="type: ambient; intensity: 1.15; color: #ffffff"></a-entity>
-    <a-entity light="type: directional; intensity: 0.9; color: #fff7dd" position="1 3 2"></a-entity>
+    <a-entity light="type: ambient; intensity: 1.18; color: #ffffff"></a-entity>
+    <a-entity light="type: directional; intensity: 0.95; color: #ffffff" position="1 3 2"></a-entity>
 
-    <a-entity id="board-root" position="0 1.08 -1.08">
-      <a-plane width="2.2" height="1.55" color="#0f2741" material="opacity:0.97"></a-plane>
-      <a-plane width="2.0" height="1.35" color="#133453" position="0 0 0.01" material="opacity:0.98"></a-plane>
+    <a-entity id="board-root" position="0 1.00 -1.24">
+      <a-box id="sink-rim" position="0 0.78 0" width="1.48" height="0.08" depth="0.82" color="#cbd5e1"></a-box>
+      <a-box id="sink-body" position="0 0.12 -0.08" width="1.30" height="0.24" depth="0.62" color="#f8fafc" material="opacity:0.96"></a-box>
 
-      <a-text value="Handwash Howto" color="#ffffff" width="2.6" align="center" position="0 0.62 0.03"></a-text>
-      <a-text value="Learn • Tap • Hold" color="#baf4ff" width="1.5" align="center" position="0 0.50 0.03"></a-text>
+      <a-entity id="overview-group" visible="false" position="0 0.82 0.18">
+        <a-plane width="1.42" height="0.78" color="#0f2942" opacity="0.92"></a-plane>
+        <a-text value="Flow หลักของเกม" align="center" color="#ffffff" width="2.2" position="0 0.28 0.02"></a-text>
 
-      <!-- faucet -->
-      <a-entity id="faucet-group" position="-0.75 0.05 0.04">
-        <a-box id="faucet-btn" class="focusable" width="0.28" height="0.10" depth="0.03" color="#7dd3fc" material="emissive:#7dd3fc; emissiveIntensity:0.55"></a-box>
-        <a-cylinder position="0 -0.16 0" radius="0.03" height="0.26" color="#9ec8e3"></a-cylinder>
-        <a-cylinder position="0 -0.28 0.02" radius="0.055" height="0.12" rotation="90 0 0" color="#9ec8e3"></a-cylinder>
-        <a-plane id="faucet-hitbox" class="focusable" width="0.50" height="0.42" color="#fff" opacity="0.001" material="transparent:true" position="0 -0.06 0.06"></a-plane>
-        <a-plane id="faucet-callout-bg" class="focusable" width="0.46" height="0.12" color="#12314d" opacity="0.96" material="transparent:true" position="0 0.18 0.04"></a-plane>
-        <a-text id="faucet-callout" class="focusable" value="เปิดน้ำ" align="center" color="#ffffff" width="1.0" position="0 0.18 0.05"></a-text>
+        <a-plane width="0.22" height="0.12" color="#38bdf8" position="-0.50 0.05 0.02"></a-plane>
+        <a-text value="เปิดน้ำ" align="center" color="#ffffff" width="0.8" position="-0.50 0.05 0.03"></a-text>
+
+        <a-plane width="0.22" height="0.12" color="#22d3ee" position="-0.20 0.05 0.02"></a-plane>
+        <a-text value="น้ำ" align="center" color="#ffffff" width="0.8" position="-0.20 0.05 0.03"></a-text>
+
+        <a-plane width="0.22" height="0.12" color="#f472b6" position="0.10 0.05 0.02"></a-plane>
+        <a-text value="สบู่" align="center" color="#ffffff" width="0.8" position="0.10 0.05 0.03"></a-text>
+
+        <a-plane width="0.24" height="0.12" color="#7dd3fc" position="0.42 0.05 0.02"></a-plane>
+        <a-text value="ถูมือ" align="center" color="#ffffff" width="0.8" position="0.42 0.05 0.03"></a-text>
+
+        <a-plane width="0.30" height="0.12" color="#facc15" position="0.0 -0.20 0.02"></a-plane>
+        <a-text value="ล้างฟอง + เช็ดมือ" align="center" color="#111827" width="1.1" position="0.0 -0.20 0.03"></a-text>
       </a-entity>
 
-      <!-- soap -->
-      <a-entity id="soap-group" position="0.75 0.05 0.04">
-        <a-box id="soap-target" class="focusable" width="0.28" height="0.11" depth="0.16" color="#ff4fa3" material="emissive:#ff9ecb; emissiveIntensity:0.65"></a-box>
-        <a-plane id="soap-hitbox" class="focusable" width="0.52" height="0.34" color="#fff" opacity="0.001" material="transparent:true" position="0 0.02 0.08"></a-plane>
-        <a-plane id="soap-callout-bg" class="focusable" position="0 0.18 0.04" width="0.50" height="0.12" color="#12314d" opacity="0.96" material="transparent:true"></a-plane>
-        <a-text id="soap-callout" class="focusable" value="ใส่สบู่" align="center" color="#ffffff" width="1.1" position="0 0.18 0.05"></a-text>
+      <a-entity id="faucet-group" visible="false" position="0 0.70 0.20">
+        <a-box width="0.62" height="0.20" depth="0.06" color="#38bdf8" material="emissive:#38bdf8; emissiveIntensity:1.05"></a-box>
+        <a-plane class="focusable" data-object="faucet"
+                 width="0.82" height="0.38"
+                 color="#fff" opacity="0.001"
+                 material="transparent:true"
+                 position="0 0 0.05"></a-plane>
+        <a-plane width="0.74" height="0.16" color="#082f49" opacity="0.98" material="transparent:true" position="0 0.22 0.03"></a-plane>
+        <a-text value="ก๊อกน้ำ" align="center" color="#ffffff" width="1.8" position="0 0.22 0.04"></a-text>
+        <a-ring position="0 0 0.06" radius-inner="0.23" radius-outer="0.28" color="#ffffff" material="shader: flat; opacity:0.72" animation="property: scale; dir: alternate; loop: true; dur: 520; to:1.08 1.08 1.08"></a-ring>
       </a-entity>
 
-      <!-- water zone -->
-      <a-entity id="water-group">
-        <a-plane id="water-zone" class="focusable" width="0.26" height="0.92" color="#66e6ff" opacity="0.24" material="transparent:true" position="-1.01 -0.12 0.05"></a-plane>
-        <a-plane width="0.18" height="0.86" color="#56dbff" opacity="0.72" material="transparent:true" position="-1.01 -0.12 0.06"></a-plane>
-        <a-text value="โซนน้ำ" align="center" color="#dffbff" width="0.9" position="-1.01 0.35 0.07"></a-text>
+      <a-entity id="soap-group" visible="false" position="0 0.70 0.20">
+        <a-box width="0.56" height="0.24" depth="0.08" color="#f472b6" material="emissive:#f472b6; emissiveIntensity:1.05"></a-box>
+        <a-plane class="focusable" data-object="soap"
+                 position="0 0.02 0.06"
+                 width="0.78" height="0.40"
+                 color="#ffffff" opacity="0.001"
+                 material="transparent:true"></a-plane>
+        <a-plane width="0.72" height="0.16" color="#4a044e" opacity="0.98" material="transparent:true" position="0 0.24 0.04"></a-plane>
+        <a-text value="สบู่" align="center" color="#ffffff" width="1.7" position="0 0.24 0.05"></a-text>
+        <a-ring position="0 0.02 0.07" radius-inner="0.23" radius-outer="0.28" color="#ffffff" material="shader: flat; opacity:0.72" animation="property: scale; dir: alternate; loop: true; dur: 520; to:1.08 1.08 1.08"></a-ring>
       </a-entity>
 
-      <!-- hands -->
-      <a-entity id="hands-board" position="0 -0.12 0.03">
-        <a-plane width="1.18" height="0.82" color="#fff7d6" material="opacity:0.95"></a-plane>
+      <a-entity id="towel-group" visible="false" position="0 0.70 0.20">
+        <a-box width="0.56" height="0.24" depth="0.08" color="#facc15" material="emissive:#facc15; emissiveIntensity:1.05"></a-box>
+        <a-plane class="focusable" data-object="towel"
+                 width="0.78" height="0.40"
+                 color="#fff" opacity="0.001"
+                 material="transparent:true"
+                 position="0 0 0.06"></a-plane>
+        <a-plane width="0.72" height="0.16" color="#713f12" opacity="0.98" material="transparent:true" position="0 0.24 0.03"></a-plane>
+        <a-text value="ผ้าเช็ดมือ" align="center" color="#ffffff" width="1.7" position="0 0.24 0.04"></a-text>
+        <a-ring position="0 0 0.07" radius-inner="0.23" radius-outer="0.28" color="#ffffff" material="shader: flat; opacity:0.72" animation="property: scale; dir: alternate; loop: true; dur: 520; to:1.08 1.08 1.08"></a-ring>
+      </a-entity>
 
-        <a-entity id="left-palm-zone" position="-0.28 0 0.06">
-          <a-box width="0.24" height="0.30" depth="0.05" color="#f2c29b"></a-box>
-          <a-plane class="focusable" data-zone="left-palm" width="0.34" height="0.40" color="#fff" opacity="0.001" material="transparent:true"></a-plane>
+      <a-entity id="water-group" visible="false" position="0 0.06 0">
+        <a-plane id="water-zone" class="focusable" data-object="water"
+                 position="0 0.70 0.18"
+                 width="0.46" height="0.86"
+                 color="#22d3ee"
+                 opacity="0.34"
+                 material="transparent:true; emissive:#22d3ee; emissiveIntensity:0.95"></a-plane>
+
+        <a-plane position="0 0.70 0.19"
+                 width="0.26" height="0.80"
+                 color="#67e8f9"
+                 opacity="0.82"
+                 material="transparent:true"></a-plane>
+
+        <a-plane width="0.56" height="0.14"
+                 color="#083344" opacity="0.98"
+                 material="transparent:true"
+                 position="0 1.18 0.03"></a-plane>
+
+        <a-text value="โซนน้ำ • ค้างไว้"
+                align="center"
+                color="#ffffff"
+                width="1.2"
+                position="0 1.18 0.04"></a-text>
+      </a-entity>
+
+      <a-entity id="hands-group" visible="false" position="0 0.56 0.14" scale="1.18 1.18 1.18">
+        <a-plane width="1.24" height="0.94" color="#fff7d6" material="opacity:0.98"></a-plane>
+
+        <a-entity position="-0.34 0 0.03">
+          <a-box width="0.28" height="0.38" depth="0.05" color="#d89b6b"></a-box>
+          <a-box width="0.05" height="0.18" depth="0.05" color="#d89b6b" position="-0.17 -0.20 0"></a-box>
+          <a-plane width="0.20" height="0.08" color="#083344" opacity="0.98" material="transparent:true" position="0 -0.30 0.03"></a-plane>
+          <a-text value="ซ้าย" align="center" color="#ffffff" width="0.5" position="0 -0.30 0.04"></a-text>
         </a-entity>
 
-        <a-entity id="right-palm-zone" position="0.28 0 0.06">
-          <a-box width="0.24" height="0.30" depth="0.05" color="#f2c29b"></a-box>
-          <a-plane class="focusable" data-zone="right-palm" width="0.34" height="0.40" color="#fff" opacity="0.001" material="transparent:true"></a-plane>
+        <a-entity position="0.34 0 0.03">
+          <a-box width="0.28" height="0.38" depth="0.05" color="#d89b6b"></a-box>
+          <a-box width="0.05" height="0.18" depth="0.05" color="#d89b6b" position="0.17 -0.20 0"></a-box>
+          <a-plane width="0.20" height="0.08" color="#083344" opacity="0.98" material="transparent:true" position="0 -0.30 0.03"></a-plane>
+          <a-text value="ขวา" align="center" color="#ffffff" width="0.5" position="0 -0.30 0.04"></a-text>
         </a-entity>
+
+        <a-entity id="zone-layer"></a-entity>
       </a-entity>
     </a-entity>
 
     <a-entity id="player-rig">
-      <a-camera id="cam" position="0 1.6 0" look-controls>
+      <a-camera id="cam" position="0 1.6 0" look-controls="magicWindowTrackingEnabled: false; touchEnabled: true">
         <a-entity id="cursor"
                   cursor="fuse: false"
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.011; radiusOuter: 0.02"
                   material="color: #00f2ff; shader: flat"
-                  raycaster="objects: .focusable">
-        </a-entity>
+                  raycaster="objects: .focusable"></a-entity>
       </a-camera>
-
-      <a-entity laser-controls="hand: left" raycaster="objects: .focusable"></a-entity>
-      <a-entity laser-controls="hand: right" raycaster="objects: .focusable"></a-entity>
     </a-entity>
   </a-scene>
 
@@ -690,80 +623,45 @@
     const cam = $('cam');
     const cursor = $('cursor');
 
-    const qStr = (k, d='') => {
-      try { return new URL(location.href).searchParams.get(k) ?? d; }
-      catch { return d; }
-    };
-
-    const qNum = (k, d=0) => {
-      const n = Number(qStr(k, d));
-      return Number.isFinite(n) ? n : d;
-    };
-
     function safePracticeUrl(){
-      const raw = qStr('next', '').trim();
-      if (raw) return raw;
+      const raw = window.HandwashShared?.getParam?.('next', '') || '';
+      if (raw && raw.trim()) return raw.trim();
+
+      if (window.HandwashShared?.buildPracticeUrl){
+        return HandwashShared.buildPracticeUrl({
+          entry: window.HandwashShared?.getEntry?.() || 'full',
+          stage: 'practice'
+        });
+      }
+
       return new URL('./handwash-vr.html', location.href).toString();
     }
 
-    const HOWTO_NEXT_URL = safePracticeUrl();
-    const HUB_URL = qStr('hub', new URL('../hygiene-zone.html', location.href).toString());
+    function safeHubUrl(){
+      const raw = window.HandwashShared?.getParam?.('hub', '') || '';
+      if (raw && raw.trim()) return raw.trim();
 
-    const HOWTO_STEPS = [
-      {
-        id:'look',
-        title:'มองเป้ากลางจอให้ตรง',
-        icon:'🎯',
-        desc:'ใช้วงกลมฟ้ากลางจอเล็งวัตถุที่เรืองแสง',
-        prompt:'ขยับมือถือหรือเมาส์ให้วงกลมกลางจอไปตรงเป้า',
-        coach:'เริ่มจากมองเป้ากลางจอให้ตรงก่อน'
-      },
-      {
-        id:'tap-faucet',
-        title:'แตะป้าย “เปิดน้ำ”',
-        icon:'🚰',
-        desc:'เล็งไปที่ป้ายเปิดน้ำ แล้วแตะหน้าจอ 1 ครั้ง',
-        prompt:'เล็ง “เปิดน้ำ” แล้วแตะ',
-        coach:'ตอนนี้ลองแตะป้ายเปิดน้ำ 1 ครั้ง'
-      },
-      {
-        id:'tap-soap',
-        title:'แตะป้าย “ใส่สบู่”',
-        icon:'🧼',
-        desc:'วัตถุที่เรืองแสงแตะได้ เมื่อเล็งตรงแล้วแตะ',
-        prompt:'เล็ง “ใส่สบู่” แล้วแตะ',
-        coach:'ดีมาก ต่อไปแตะป้ายใส่สบู่'
-      },
-      {
-        id:'hold-water',
-        title:'ค้างในโซนน้ำ',
-        icon:'💧',
-        desc:'บางขั้นต้องเล็งค้างไว้จนแถบคืบหน้าเต็ม',
-        prompt:'เล็งค้างในโซนน้ำด้านซ้าย',
-        coach:'ตอนนี้ลองค้างมองที่โซนน้ำจนแถบเต็ม'
-      },
-      {
-        id:'tap-hand',
-        title:'แตะฝ่ามือ',
-        icon:'🖐️',
-        desc:'ใน Practice และ Main จะต้องแตะโซนมือที่เกมบอก',
-        prompt:'แตะฝ่ามือซ้าย แล้วแตะฝ่ามือขวา',
-        coach:'สุดท้าย แตะฝ่ามือซ้ายและขวาอย่างละ 1 ครั้ง'
+      if (window.HandwashShared?.buildZoneUrl){
+        return HandwashShared.buildZoneUrl();
       }
-    ];
 
-    const state = {
-      started:false,
-      ended:false,
-      stepIndex:0,
-      progress:0,
-      score:0,
-      miss:0,
-      lastActionAt:0,
-      holdProgress:0,
-      handHits:{ left:false, right:false },
-      hudCompact:false
-    };
+      return new URL('../hygiene-zone.html', location.href).toString();
+    }
+
+    function safeLauncherUrl(){
+      const raw = window.HandwashShared?.getParam?.('launcher', '') || '';
+      if (raw && raw.trim()) return raw.trim();
+
+      if (window.HandwashShared?.buildLauncherUrl){
+        return HandwashShared.buildLauncherUrl();
+      }
+
+      return new URL('./handwash-launcher.html', location.href).toString();
+    }
+
+    const PRACTICE_URL = safePracticeUrl();
+    const HUB_URL = safeHubUrl();
+    const LAUNCHER_URL = safeLauncherUrl();
 
     const ui = {
       layer:$('ui-layer'),
@@ -776,125 +674,346 @@
       progressText:$('progress-text'),
       coach:$('coach'),
       coachFace:$('coach-face'),
-
-      startOverlay:$('start-overlay'),
-      summaryOverlay:$('summary-overlay'),
-
-      startBtn:$('start-btn'),
-      skipBtn:$('skip-btn'),
-      restartBtn:$('restart-btn'),
+      phaseChip:$('phase-chip'),
+      sceneChip:$('scene-chip'),
       nextBtn:$('next-btn'),
-
-      vrBtn:$('vr-btn'),
-      recenterBtn:$('recenter-btn'),
+      skipBtn:$('skip-btn'),
+      launcherBtn:$('launcher-btn'),
+      hubBtn:$('hub-btn'),
+      startBtn:$('start-btn'),
+      startOverlay:$('start-overlay'),
       hudToggleBtn:$('hud-toggle-btn'),
-
-      sumSteps:$('sum-steps'),
-      sumScore:$('sum-score'),
-      sumMiss:$('sum-miss')
+      recenterBtn:$('recenter-btn')
     };
 
-    const faucetGroup = $('faucet-group');
-    const soapGroup = $('soap-group');
-    const waterZone = $('water-zone');
-    const leftPalmZone = $('left-palm-zone');
-    const rightPalmZone = $('right-palm-zone');
-
-    const transitionUI = {
-      root: document.getElementById('sceneTransition'),
-      icon: document.getElementById('sceneTransitionIcon'),
-      title: document.getElementById('sceneTransitionTitle'),
-      desc: document.getElementById('sceneTransitionDesc')
+    const groupEls = {
+      overview:$('overview-group'),
+      faucet:$('faucet-group'),
+      soap:$('soap-group'),
+      towel:$('towel-group'),
+      water:$('water-group'),
+      hands:$('hands-group'),
+      zoneLayer:$('zone-layer')
     };
 
-    let __hhPageAudio = null;
+    const zoneDefs = [
+      { id:'left-palms', x:-0.34, y:0.00, z:0.08, w:0.24, h:0.28, label:'ซ้าย' },
+      { id:'right-palms', x:0.34, y:0.00, z:0.08, w:0.24, h:0.28, label:'ขวา' },
+      { id:'left-thumbs', x:-0.50, y:-0.03, z:0.08, w:0.18, h:0.16, label:'ซ้าย' },
+      { id:'right-thumbs', x:0.50, y:-0.03, z:0.08, w:0.18, h:0.16, label:'ขวา' },
+      { id:'left-between', x:-0.34, y:0.15, z:0.08, w:0.20, h:0.12, label:'ซ้าย' },
+      { id:'right-between', x:0.34, y:0.15, z:0.08, w:0.20, h:0.12, label:'ขวา' }
+    ];
 
-    function hhAudioCtx(){
-      try{
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return null;
-        if (!__hhPageAudio) __hhPageAudio = new Ctx();
-        return __hhPageAudio;
-      }catch(e){
-        return null;
+    const zoneMap = new Map();
+
+    function buildZones(){
+      groupEls.zoneLayer.innerHTML = '';
+      zoneDefs.forEach(def => {
+        const g = document.createElement('a-entity');
+        g.setAttribute('id', def.id);
+        g.setAttribute('position', `${def.x} ${def.y} ${def.z}`);
+        g.setAttribute('visible', 'false');
+
+        const plane = document.createElement('a-plane');
+        plane.setAttribute('width', def.w);
+        plane.setAttribute('height', def.h);
+        plane.setAttribute('color', '#38bdf8');
+        plane.setAttribute('material', 'transparent:true; opacity:0.90; emissive:#22d3ee; emissiveIntensity:1.1');
+        plane.setAttribute('animation__pulse', 'property: scale; dir: alternate; loop: true; dur: 520; to: 1.08 1.08 1.08');
+        g.appendChild(plane);
+
+        const hit = document.createElement('a-plane');
+        hit.classList.add('focusable');
+        hit.dataset.zone = def.id;
+        hit.setAttribute('width', def.w + 0.10);
+        hit.setAttribute('height', def.h + 0.10);
+        hit.setAttribute('color', '#ffffff');
+        hit.setAttribute('opacity', '0.001');
+        hit.setAttribute('material', 'transparent:true');
+        hit.setAttribute('position', '0 0 0.01');
+        g.appendChild(hit);
+
+        const label = document.createElement('a-plane');
+        label.setAttribute('width', '0.18');
+        label.setAttribute('height', '0.08');
+        label.setAttribute('color', '#083344');
+        label.setAttribute('opacity', '0.98');
+        label.setAttribute('material', 'transparent:true');
+        label.setAttribute('position', `0 ${-(def.h/2 + 0.08)} 0.02`);
+        g.appendChild(label);
+
+        const text = document.createElement('a-text');
+        text.setAttribute('value', def.label);
+        text.setAttribute('align', 'center');
+        text.setAttribute('width', '0.5');
+        text.setAttribute('color', '#ffffff');
+        text.setAttribute('position', `0 ${-(def.h/2 + 0.08)} 0.03`);
+        g.appendChild(text);
+
+        groupEls.zoneLayer.appendChild(g);
+        zoneMap.set(def.id, g);
+      });
+    }
+    buildZones();
+
+    const SCENES = [
+      {
+        id:'overview',
+        title:'รู้จักของในเกมก่อน',
+        icon:'🧼',
+        desc:'เกมนี้มีของหลัก 4 อย่าง: ก๊อกน้ำ สบู่ น้ำ และมือ',
+        prompt:'กด “ถัดไป” เพื่อดูทีละอย่าง',
+        type:'info'
+      },
+      {
+        id:'tap',
+        title:'นี่คือก๊อกน้ำ / สบู่ / ผ้าเช็ดมือ',
+        icon:'🎯',
+        desc:'เวลาเห็นป้ายใหญ่แบบนี้ ให้แตะตรงวัตถุนั้นได้เลย',
+        prompt:'แตะ ก๊อกน้ำ → สบู่ → ผ้าเช็ดมือ',
+        type:'tap',
+        order:['faucet','soap','towel']
+      },
+      {
+        id:'hold',
+        title:'นี่คือโซนน้ำ',
+        icon:'💧',
+        desc:'ขั้นที่เป็นน้ำ ต้องค้างไว้จนแถบเต็ม ไม่ใช่แตะครั้งเดียว',
+        prompt:'ค้างที่โซนน้ำให้เต็ม',
+        type:'hold',
+        need:1.0
+      },
+      {
+        id:'zones',
+        title:'นี่คือมือ และจุดบนมือ',
+        icon:'🖐️',
+        desc:'เวลาเห็นมือ ให้แตะ “จุดที่เรืองแสง” ทีละจุดตามที่เกมชี้',
+        prompt:'แตะจุดที่เรืองแสง: ฝ่ามือซ้าย → ซอกนิ้วขวา → หัวแม่มือซ้าย',
+        type:'zones',
+        order:[
+          { id:'left-palms', label:'ฝ่ามือซ้าย', color:'#38bdf8' },
+          { id:'right-between', label:'ซอกนิ้วขวา', color:'#22c55e' },
+          { id:'left-thumbs', label:'หัวแม่มือซ้าย', color:'#f472b6' }
+        ]
       }
-    }
+    ];
 
-    function hhTone(freq=700, dur=0.06, type='triangle', gain=0.028, when=0){
-      const ctx = hhAudioCtx();
-      if (!ctx) return;
+    const state = {
+      started:false,
+      sceneIndex:0,
+      stepValue:0,
+      holdValue:0,
+      lastTs:0,
+      hudCompact:false
+    };
 
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-
-      osc.type = type;
-      osc.frequency.value = freq;
-      g.gain.value = gain;
-
-      osc.connect(g);
-      g.connect(ctx.destination);
-
-      const now = ctx.currentTime + when;
-      g.gain.setValueAtTime(gain, now);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
-      osc.start(now);
-      osc.stop(now + dur);
-    }
-
-    function playPageSignature(page='generic'){
-      if (page === 'howto'){
-        hhTone(620, 0.05, 'sine', 0.022, 0.00);
-        hhTone(760, 0.06, 'triangle', 0.024, 0.08);
-        return;
-      }
-      hhTone(720, 0.05, 'triangle', 0.024, 0.00);
-    }
-
-    function showSceneTransition({ icon='✨', title='กำลังไปด่านถัดไป', desc='เตรียมพร้อมอีกนิด', url='' } = {}){
-      if (!transitionUI.root || !url){
-        if (url) location.href = url;
-        return;
-      }
-
-      transitionUI.icon.textContent = icon;
-      transitionUI.title.textContent = title;
-      transitionUI.desc.textContent = desc;
-      transitionUI.root.classList.add('show');
-
-      setTimeout(() => {
-        location.href = url;
-      }, 920);
-    }
-
-    function isMobileLike(){
-      return window.matchMedia('(max-width: 680px)').matches;
-    }
-
-    function setBtnText(){
-      ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
-    }
-
-    function setCoach(text){
+    function setCoach(text, mood='normal'){
       ui.coach.textContent = text;
-    }
-
-    function setCoachMood(mood='normal'){
-      ui.coachFace.classList.remove('good', 'warn');
+      ui.coachFace.classList.remove('good','warn');
 
       if (mood === 'good'){
         ui.coachFace.textContent = '😄';
         ui.coachFace.classList.add('good');
-        return;
-      }
-
-      if (mood === 'warn'){
+      } else if (mood === 'warn'){
         ui.coachFace.textContent = '😮';
         ui.coachFace.classList.add('warn');
+      } else {
+        ui.coachFace.textContent = '🙂';
+      }
+    }
+
+    function setEntityVisible(el, on){
+      if (!el) return;
+      el.setAttribute('visible', on ? 'true' : 'false');
+    }
+
+    function clearVisuals(){
+      setEntityVisible(groupEls.overview, false);
+      setEntityVisible(groupEls.faucet, false);
+      setEntityVisible(groupEls.soap, false);
+      setEntityVisible(groupEls.towel, false);
+      setEntityVisible(groupEls.water, false);
+      setEntityVisible(groupEls.hands, false);
+
+      zoneMap.forEach(zone => {
+        zone.setAttribute('visible', 'false');
+      });
+    }
+
+    function highlightZone(zoneId, color){
+      zoneMap.forEach(zone => zone.setAttribute('visible', 'false'));
+      const zone = zoneMap.get(zoneId);
+      if (!zone) return;
+      zone.setAttribute('visible', 'true');
+      const plane = zone.querySelector('a-plane');
+      if (plane){
+        plane.setAttribute('color', color || '#38bdf8');
+        plane.setAttribute('material', `transparent:true; opacity:0.94; emissive:${color || '#38bdf8'}; emissiveIntensity:1.2`);
+      }
+    }
+
+    function currentScene(){
+      return SCENES[state.sceneIndex];
+    }
+
+    function updateProgress(){
+      const pct = Math.round(((state.sceneIndex + 1) / SCENES.length) * 100);
+      ui.fill.style.width = pct + '%';
+      ui.progressText.textContent = pct + '%';
+    }
+
+    function updateUI(){
+      const sceneData = currentScene();
+      ui.stepCount.textContent = `Howto • ขั้นที่ ${state.sceneIndex + 1}/${SCENES.length}`;
+      ui.stepName.textContent = sceneData.title;
+      ui.stepDesc.textContent = sceneData.desc;
+      ui.guideIcon.textContent = sceneData.icon;
+      ui.prompt.textContent = sceneData.prompt;
+      ui.sceneChip.textContent = `Scene ${state.sceneIndex + 1}`;
+      updateProgress();
+    }
+
+    function renderScene(){
+      const sceneData = currentScene();
+      clearVisuals();
+      state.stepValue = 0;
+      state.holdValue = 0;
+
+      if (sceneData.type === 'info'){
+        setEntityVisible(groupEls.overview, true);
+        ui.nextBtn.disabled = false;
+        setCoach('ดูภาพรวมก่อน เดี๋ยวถัดไปจะชี้ของให้ชัดทีละอย่าง');
+      }
+
+      if (sceneData.type === 'tap'){
+        setEntityVisible(groupEls.faucet, true);
+        ui.nextBtn.disabled = true;
+        setCoach('อันนี้คือ “ก๊อกน้ำ” เห็นแล้วแตะได้เลย');
+      }
+
+      if (sceneData.type === 'hold'){
+        setEntityVisible(groupEls.water, true);
+        ui.nextBtn.disabled = true;
+        setCoach('นี่คือโซนน้ำ ต้องค้างไว้จนเต็ม');
+      }
+
+      if (sceneData.type === 'zones'){
+        setEntityVisible(groupEls.hands, true);
+        const first = sceneData.order[0];
+        highlightZone(first.id, first.color);
+        ui.prompt.textContent = `แตะ ${first.label}`;
+        ui.nextBtn.disabled = true;
+        setCoach(`ตอนนี้แตะ “${first.label}” ไม่ต้องเดา เรืองตรงไหนแตะตรงนั้น`);
+      }
+
+      updateUI();
+    }
+
+    function getFocusedEl(){
+      const rc = cursor.components.raycaster;
+      if (!rc || !rc.intersectedEls || !rc.intersectedEls.length) return null;
+      return rc.intersectedEls[0];
+    }
+
+    function onTapObject(objectKey){
+      const sceneData = currentScene();
+      if (sceneData.type !== 'tap') return;
+
+      const expected = sceneData.order[state.stepValue];
+      if (objectKey !== expected){
+        setCoach('ยังไม่ใช่อันนี้ ลองดูป้ายใหญ่ตรงกลางอีกที', 'warn');
         return;
       }
 
-      ui.coachFace.textContent = '🙂';
+      state.stepValue += 1;
+
+      if (state.stepValue >= sceneData.order.length){
+        ui.nextBtn.disabled = false;
+        setCoach('เยี่ยมมาก เห็นป้ายใหญ่แล้วแตะได้เลย', 'good');
+        return;
+      }
+
+      const nextKey = sceneData.order[state.stepValue];
+      clearVisuals();
+
+      if (nextKey === 'faucet'){
+        setEntityVisible(groupEls.faucet, true);
+        setCoach('อันนี้คือ “ก๊อกน้ำ”', 'good');
+      } else if (nextKey === 'soap'){
+        setEntityVisible(groupEls.soap, true);
+        setCoach('อันนี้คือ “สบู่”', 'good');
+      } else {
+        setEntityVisible(groupEls.towel, true);
+        setCoach('อันนี้คือ “ผ้าเช็ดมือ”', 'good');
+      }
+    }
+
+    function onZoneHit(zoneId){
+      const sceneData = currentScene();
+      if (sceneData.type !== 'zones') return;
+
+      const expected = sceneData.order[state.stepValue];
+      if (!expected || zoneId !== expected.id){
+        setCoach('ยังไม่ใช่จุดนี้ ดูชื่อที่เราชี้ให้ก่อน', 'warn');
+        return;
+      }
+
+      state.stepValue += 1;
+
+      if (state.stepValue >= sceneData.order.length){
+        ui.nextBtn.disabled = false;
+        setCoach('ดีมาก ตอนนี้รู้แล้วว่าเห็นจุดเรืองตรงไหน ให้แตะตรงนั้น', 'good');
+        return;
+      }
+
+      const nextTarget = sceneData.order[state.stepValue];
+      highlightZone(nextTarget.id, nextTarget.color);
+      ui.prompt.textContent = `แตะ ${nextTarget.label}`;
+      setCoach(`ต่อไปแตะ “${nextTarget.label}”`, 'good');
+    }
+
+    function triggerFocusedAction(){
+      const sceneData = currentScene();
+      const target = getFocusedEl();
+      if (!target) return;
+
+      const objectKey = target.dataset?.object || '';
+      const zoneId = target.dataset?.zone || '';
+
+      if (sceneData.type === 'tap' && objectKey){
+        onTapObject(objectKey);
+      }
+
+      if (sceneData.type === 'zones' && zoneId){
+        onZoneHit(zoneId);
+      }
+    }
+
+    function safeGoPractice(){
+      location.href = PRACTICE_URL;
+    }
+
+    function goNextScene(){
+      if (state.sceneIndex < SCENES.length - 1){
+        state.sceneIndex += 1;
+        renderScene();
+        return;
+      }
+      safeGoPractice();
+    }
+
+    function snapFrontView(){
+      const lc = cam && cam.components && cam.components['look-controls'];
+      if (!lc) return;
+
+      try{
+        if (lc.yawObject) lc.yawObject.rotation.y = 0;
+        if (lc.pitchObject) lc.pitchObject.rotation.x = -0.05;
+        if (lc.pitchObject) lc.pitchObject.rotation.z = 0;
+      }catch(e){
+        console.warn(e);
+      }
     }
 
     function setHudCompact(on){
@@ -903,324 +1022,103 @@
       ui.hudToggleBtn.textContent = state.hudCompact ? 'SHOW HUD' : 'HIDE HUD';
     }
 
-    function currentStep(){
-      return HOWTO_STEPS[state.stepIndex] || null;
+    function isHoldingWater(){
+      const focused = getFocusedEl();
+      if (!focused) return false;
+      return focused.dataset?.object === 'water';
     }
 
-    function getFocusedEl(){
-      const rc = cursor.components.raycaster;
-      if(!rc || !rc.intersectedEls || !rc.intersectedEls.length) return null;
-      return rc.intersectedEls[0];
-    }
-
-    function setObjectHighlight(el, on, color='#63e6ff'){
-      if (!el) return;
-      const targets = el.querySelectorAll('.focusable, a-box, a-plane, a-cylinder, a-text');
-      targets.forEach(node => {
-        if (node.getAttribute('material') != null){
-          node.setAttribute('material', 'emissive', on ? color : '#000000');
-          node.setAttribute('material', 'emissiveIntensity', on ? 0.95 : 0);
-        }
-      });
-    }
-
-    function clearHighlights(){
-      setObjectHighlight(faucetGroup, false);
-      setObjectHighlight(soapGroup, false);
-      leftPalmZone.setAttribute('scale', '1 1 1');
-      rightPalmZone.setAttribute('scale', '1 1 1');
-      waterZone.setAttribute('material', 'opacity', 0.24);
-    }
-
-    function updateProgress(){
-      const pct = Math.round((state.progress / HOWTO_STEPS.length) * 100);
-      ui.fill.style.width = pct + '%';
-      ui.progressText.textContent = pct + '%';
-    }
-
-    function updateUI(){
-      const step = currentStep();
-      if (!step) return;
-
-      ui.stepCount.textContent = `Howto • ขั้นที่ ${state.stepIndex + 1}/${HOWTO_STEPS.length}`;
-      ui.stepName.textContent = step.title;
-      ui.stepDesc.textContent = step.desc;
-      ui.guideIcon.textContent = step.icon;
-      ui.prompt.textContent = step.prompt;
-      setCoach(step.coach);
-      updateProgress();
-    }
-
-    function prepareStep(){
-      clearHighlights();
-      setCoachMood('normal');
-
-      const step = currentStep();
-      if (!step) return;
-
-      if (step.id === 'look'){
-        setCoachMood('good');
-      }
-
-      if (step.id === 'tap-faucet'){
-        setObjectHighlight(faucetGroup, true, '#7dd3fc');
-      }
-
-      if (step.id === 'tap-soap'){
-        setObjectHighlight(soapGroup, true, '#ff9ecb');
-      }
-
-      if (step.id === 'hold-water'){
-        waterZone.setAttribute('material', 'opacity', 0.42);
-      }
-
-      if (step.id === 'tap-hand'){
-        leftPalmZone.setAttribute('scale', '1.06 1.06 1.06');
-        rightPalmZone.setAttribute('scale', '1.06 1.06 1.06');
-      }
-
-      updateUI();
-    }
-
-    function completeCurrentStep(scoreGain=20){
-      state.score += scoreGain;
-      state.progress = state.stepIndex + 1;
-      state.stepIndex += 1;
-      state.holdProgress = 0;
-
-      if (state.stepIndex >= HOWTO_STEPS.length){
-        finishHowto();
-        return;
-      }
-
-      prepareStep();
-    }
-
-    function finishHowto(){
-      state.ended = true;
-      playPageSignature('howto');
-
-      ui.sumSteps.textContent = `${HOWTO_STEPS.length} / ${HOWTO_STEPS.length}`;
-      ui.sumScore.textContent = String(state.score);
-      ui.sumMiss.textContent = String(state.miss);
-
-      if (window.HandwashShared && typeof HandwashShared.saveSummary === 'function'){
-        HandwashShared.saveSummary({
-          stage:'howto',
-          success:true,
-          score:state.score,
-          stars:1,
-          miss:state.miss,
-          timeLeft:0,
-          progress:100,
-          accuracy:Math.max(0, 100 - (state.miss * 10)),
-          bestStreak:0,
-          whoDone:0,
-          badges:['Howto Clear'],
-          rank:'Howto Clear',
-          notes:'Handwash howto completed'
-        });
-      }
-
-      ui.summaryOverlay.classList.remove('hidden');
-    }
-
-    function triggerFocused(){
-      if (!state.started || state.ended) return false;
-
-      const now = performance.now();
-      if(now - state.lastActionAt < 140) return false;
-      state.lastActionAt = now;
-
-      const step = currentStep();
-      const el = getFocusedEl();
-
-      if (!step) return false;
-
-      if (step.id === 'look'){
-        setCoachMood('good');
-        completeCurrentStep(10);
-        return true;
-      }
-
-      if (step.id === 'tap-faucet'){
-        if (el && ['faucet-btn','faucet-hitbox','faucet-callout','faucet-callout-bg'].includes(el.id)){
-          setCoachMood('good');
-          completeCurrentStep(20);
-          return true;
-        }
-      }
-
-      if (step.id === 'tap-soap'){
-        if (el && ['soap-target','soap-hitbox','soap-callout','soap-callout-bg'].includes(el.id)){
-          setCoachMood('good');
-          completeCurrentStep(20);
-          return true;
-        }
-      }
-
-      if (step.id === 'tap-hand'){
-        if (el && el.dataset && el.dataset.zone === 'left-palm'){
-          state.handHits.left = true;
-          leftPalmZone.setAttribute('scale', '1.14 1.14 1.14');
-          setCoachMood('good');
-          setCoach('ดีมาก ต่อไปแตะฝ่ามือขวา');
-          if (state.handHits.right){
-            completeCurrentStep(25);
-          }
-          return true;
-        }
-
-        if (el && el.dataset && el.dataset.zone === 'right-palm'){
-          state.handHits.right = true;
-          rightPalmZone.setAttribute('scale', '1.14 1.14 1.14');
-          setCoachMood('good');
-          setCoach('เยี่ยมมาก ฝึกครบแล้ว');
-          if (state.handHits.left){
-            completeCurrentStep(25);
-          }
-          return true;
-        }
-      }
-
-      state.miss += 1;
-      setCoachMood('warn');
-      return false;
-    }
-
-    function startGame(){
-      playPageSignature('howto');
-
+    function startHowto(){
       state.started = true;
-      state.ended = false;
-      state.stepIndex = 0;
-      state.progress = 0;
-      state.score = 0;
-      state.miss = 0;
-      state.lastActionAt = 0;
-      state.holdProgress = 0;
-      state.handHits = { left:false, right:false };
-
+      state.sceneIndex = 0;
+      state.stepValue = 0;
+      state.holdValue = 0;
+      state.lastTs = 0;
       ui.startOverlay.classList.add('hidden');
-      ui.summaryOverlay.classList.add('hidden');
-
-      setHudCompact(isMobileLike());
-      prepareStep();
+      setHudCompact(window.matchMedia('(max-width:680px)').matches);
+      renderScene();
+      setTimeout(snapFrontView, 60);
     }
 
-    function applyResponsiveHowtoLayout(){
-      const board = document.getElementById('board-root');
-      if (!board) return;
+    ui.startBtn.addEventListener('click', startHowto);
 
-      const mobile = window.matchMedia('(max-width: 680px)').matches;
-      const shortH = window.innerHeight < 760;
-
-      if (mobile && shortH){
-        board.setAttribute('position', '0 1.02 -1.00');
-        board.setAttribute('scale', '0.92 0.92 0.92');
-      } else if (mobile){
-        board.setAttribute('position', '0 1.05 -1.04');
-        board.setAttribute('scale', '0.96 0.96 0.96');
-      } else {
-        board.setAttribute('position', '0 1.08 -1.08');
-        board.setAttribute('scale', '1 1 1');
-      }
-    }
-
-    ui.startBtn.addEventListener('click', () => {
-      playPageSignature('howto');
-      startGame();
+    ui.nextBtn.addEventListener('click', () => {
+      if (!state.started) return;
+      goNextScene();
     });
 
     ui.skipBtn.addEventListener('click', () => {
-      showSceneTransition({
-        icon:'🧪',
-        title:'ไป Practice Lab',
-        desc:'ข้าม howto แล้วไปฝึกต่อได้เลย',
-        url: HOWTO_NEXT_URL
-      });
+      location.href = PRACTICE_URL;
     });
 
-    ui.restartBtn.addEventListener('click', startGame);
-
-    ui.nextBtn.addEventListener('click', () => {
-      showSceneTransition({
-        icon:'🧪',
-        title:'ไป Practice Lab',
-        desc:'ต่อไปจะเป็นด่านฝึกแบบมีตัวช่วย',
-        url: HOWTO_NEXT_URL
-      });
+    ui.launcherBtn.addEventListener('click', () => {
+      location.href = LAUNCHER_URL;
     });
 
-    ui.hudToggleBtn.addEventListener('click', ()=>{
+    ui.hubBtn.addEventListener('click', () => {
+      location.href = HUB_URL;
+    });
+
+    ui.hudToggleBtn.addEventListener('click', () => {
       setHudCompact(!state.hudCompact);
     });
 
-    ui.vrBtn.addEventListener('click', async ()=>{
-      try{
-        if(scene.is('vr-mode')) scene.exitVR();
-        else await scene.enterVR();
-      }catch(err){
-        console.warn(err);
-      }
-      setTimeout(setBtnText, 120);
-    });
-
-    ui.recenterBtn.addEventListener('click', ()=>{
+    ui.recenterBtn.addEventListener('click', () => {
+      snapFrontView();
       setCoach('จัดมุมมองใหม่แล้ว');
-      setCoachMood('good');
     });
 
-    scene.addEventListener('enter-vr', setBtnText);
-    scene.addEventListener('exit-vr', setBtnText);
-
-    window.addEventListener('keydown', (e)=>{
-      if(e.code === 'Space' || e.code === 'Enter'){
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'Enter'){
         e.preventDefault();
-        triggerFocused();
+        triggerFocusedAction();
       }
     }, { passive:false });
 
-    window.addEventListener('pointerup', (e)=>{
+    window.addEventListener('pointerup', (e) => {
       const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
-      if(tag === 'button') return;
-      triggerFocused();
+      if (tag === 'button') return;
+      triggerFocusedAction();
     });
 
-    window.addEventListener('resize', ()=>{
-      if (state.started && !state.ended) setHudCompact(isMobileLike());
-      applyResponsiveHowtoLayout();
+    window.addEventListener('resize', () => {
+      if (state.started) setHudCompact(window.matchMedia('(max-width:680px)').matches);
+      setTimeout(snapFrontView, 50);
     });
 
-    function loop(){
+    function loop(ts){
       requestAnimationFrame(loop);
 
-      if (!state.started || state.ended) return;
+      if (!state.started) return;
+      if (!state.lastTs) state.lastTs = ts;
 
-      const step = currentStep();
-      if (!step) return;
+      const dt = Math.min(0.05, (ts - state.lastTs) / 1000);
+      state.lastTs = ts;
 
-      if (step.id === 'hold-water'){
-        const el = getFocusedEl();
-        const isWater = !!(el && el.id === 'water-zone');
+      const sceneData = currentScene();
+      if (!sceneData) return;
 
-        if (isWater){
-          state.holdProgress = Math.min(1, state.holdProgress + 0.018);
-          ui.progressText.textContent = Math.round(((state.progress + state.holdProgress) / HOWTO_STEPS.length) * 100) + '%';
-          ui.fill.style.width = Math.round(((state.progress + state.holdProgress) / HOWTO_STEPS.length) * 100) + '%';
-          setCoachMood('good');
+      if (sceneData.type === 'hold'){
+        const need = sceneData.need || 1.0;
 
-          if (state.holdProgress >= 1){
-            completeCurrentStep(25);
-          }
+        if (isHoldingWater()){
+          state.holdValue = Math.min(need, state.holdValue + dt);
+          const hp = Math.round((state.holdValue / need) * 100);
+          ui.prompt.textContent = `ค้างต่ออีกนิด • ${hp}%`;
+          setCoach('ดีมาก ค้างต่ออีกนิด', 'good');
+        } else {
+          state.holdValue = Math.max(0, state.holdValue - dt * 0.35);
+        }
+
+        if (state.holdValue >= need){
+          ui.nextBtn.disabled = false;
+          ui.prompt.textContent = 'ผ่านแล้ว กด “ถัดไป”';
+          setCoach('ใช่เลย ขั้นน้ำต้องค้างแบบนี้', 'good');
         }
       }
     }
 
-    setBtnText();
-    setHudCompact(isMobileLike());
-    applyResponsiveHowtoLayout();
-    updateProgress();
+    renderScene();
     requestAnimationFrame(loop);
   </script>
 </body>
