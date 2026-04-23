@@ -220,21 +220,26 @@ function hydrateAttendanceIdentity() {
   const identity = readLessonIdentity();
 
   attendanceState.studentId = identity.studentId || attendanceState.studentId || "";
-  attendanceState.studentName = identity.studentName || attendanceState.studentName || "";
   attendanceState.classSection = identity.classSection || attendanceState.classSection || "";
+
+  const latestProfileName =
+    (playerProfile.name || "").trim() ||
+    (identity.studentName || "").trim() ||
+    (attendanceState.studentName || "").trim();
+
+  attendanceState.studentName = latestProfileName;
 
   if (attendanceState.studentId) {
     localStorage.setItem("TECHPATH_STUDENT_ID", attendanceState.studentId);
-  }
-  if (attendanceState.studentName) {
-    localStorage.setItem("TECHPATH_STUDENT_NAME", attendanceState.studentName);
+    localStorage.setItem("studentId", attendanceState.studentId);
   }
   if (attendanceState.classSection) {
     localStorage.setItem("TECHPATH_CLASS_SECTION", attendanceState.classSection);
+    localStorage.setItem("classSection", attendanceState.classSection);
   }
-
-  if (!attendanceState.studentName && playerProfile.name) {
-    attendanceState.studentName = playerProfile.name;
+  if (attendanceState.studentName) {
+    localStorage.setItem("TECHPATH_STUDENT_NAME", attendanceState.studentName);
+    localStorage.setItem("studentName", attendanceState.studentName);
   }
 
   renderAttendanceTracker();
@@ -537,8 +542,15 @@ window.selectAvatar = function (avatar) {
   if (!ok) setFeedback("🔒 Avatar นี้ยังไม่ปลดล็อก", "#ff9f43");
 };
 
-window.savePlayerProfile = function (silent = false) {
-  return savePlayerProfile(silent);
+window.savePlayerProfile = async function (silent = false) {
+  const result = await savePlayerProfile(silent);
+  attendanceState.studentName = playerProfile.name || attendanceState.studentName || "";
+  if (attendanceState.studentName) {
+    localStorage.setItem("TECHPATH_STUDENT_NAME", attendanceState.studentName);
+    localStorage.setItem("studentName", attendanceState.studentName);
+  }
+  renderAttendanceTracker();
+  return result;
 };
 
 function renderMobileHubSheet(mode = "sessions") {
@@ -907,10 +919,7 @@ function setRewardChestState(mode = "idle", opts = {}) {
     n.lid?.setAttribute("color", "#8fa7b3");
     n.text.setAttribute("value", "Loading...");
     n.text.setAttribute("color", "#ffffff");
-    n.root.setAttribute(
-      "animation__float",
-      "property: position; dir: alternate; dur: 1800; loop: true; to: -3.72 0.77 -3.08; easing: easeInOutSine"
-    );
+    n.root.setAttribute("animation__float", "property: position; dir: alternate; dur: 1800; loop: true; to: -3.72 0.77 -3.08; easing: easeInOutSine");
     return;
   }
 
@@ -925,22 +934,10 @@ function setRewardChestState(mode = "idle", opts = {}) {
     n.lid?.setAttribute("color", "#f1c40f");
     n.text.setAttribute("value", `Streak: ${streak} Days${safeNote || "\nTap to Claim"}`);
     n.text.setAttribute("color", "#ffffff");
-    n.root.setAttribute(
-      "animation__float",
-      "property: position; dir: alternate; dur: 1050; loop: true; to: -3.72 0.82 -3.08; easing: easeInOutSine"
-    );
-    n.aura?.setAttribute(
-      "animation__pulse",
-      "property: material.opacity; dir: alternate; dur: 800; loop: true; from: 0.14; to: 0.30; easing: easeInOutSine"
-    );
-    n.lid?.setAttribute(
-      "animation__gleam",
-      "property: rotation; dir: alternate; dur: 1200; loop: true; to: 0 0 3; easing: easeInOutSine"
-    );
-    n.frame?.setAttribute(
-      "animation__frame",
-      "property: material.opacity; dir: alternate; dur: 900; loop: true; from: 0.26; to: 0.52; easing: easeInOutSine"
-    );
+    n.root.setAttribute("animation__float", "property: position; dir: alternate; dur: 1050; loop: true; to: -3.72 0.82 -3.08; easing: easeInOutSine");
+    n.aura?.setAttribute("animation__pulse", "property: material.opacity; dir: alternate; dur: 800; loop: true; from: 0.14; to: 0.30; easing: easeInOutSine");
+    n.lid?.setAttribute("animation__gleam", "property: rotation; dir: alternate; dur: 1200; loop: true; to: 0 0 3; easing: easeInOutSine");
+    n.frame?.setAttribute("animation__frame", "property: material.opacity; dir: alternate; dur: 900; loop: true; from: 0.26; to: 0.52; easing: easeInOutSine");
     return;
   }
 
@@ -954,10 +951,7 @@ function setRewardChestState(mode = "idle", opts = {}) {
     n.lid?.setAttribute("color", rarityColor);
     n.text.setAttribute("value", `Streak: ${streak} Days${safeNote || "\nClaimed"}`);
     n.text.setAttribute("color", "#ffffff");
-    n.aura?.setAttribute(
-      "animation__pulse",
-      "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.10; to: 0.20; easing: easeInOutSine"
-    );
+    n.aura?.setAttribute("animation__pulse", "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.10; to: 0.20; easing: easeInOutSine");
     return;
   }
 
@@ -978,7 +972,7 @@ function setRewardChestState(mode = "idle", opts = {}) {
   n.frame?.setAttribute("color", "#7bedff");
   n.frame?.setAttribute("material", "wireframe: true; opacity: 0.26");
   n.aura?.setAttribute("color", "#7bedff");
-  n.aura?.setAttribute("material", "opacity: 0.1; shader: flat");
+  n.aura?.setAttribute("material", "opacity: 0.10; shader: flat");
   n.body?.setAttribute("color", "#8c6239");
   n.lid?.setAttribute("color", "#8fa7b3");
   n.text.setAttribute("value", `Streak: ${streak} Days${safeNote}`);
@@ -993,14 +987,8 @@ function playRewardChestClaimFX(rarityColor = "#ffeaa7") {
   n.frame?.setAttribute("color", rarityColor);
   n.aura?.setAttribute("color", rarityColor);
   n.lid?.setAttribute("color", rarityColor);
-  n.root.setAttribute(
-    "animation__claim",
-    "property: scale; dur: 260; dir: alternate; loop: 2; to: 1.08 1.08 1.08; easing: easeOutBack"
-  );
-  n.aura?.setAttribute(
-    "animation__claim",
-    "property: scale; dur: 360; dir: alternate; loop: 2; to: 1.18 1.18 1.18; easing: easeOutQuad"
-  );
+  n.root.setAttribute("animation__claim", "property: scale; dur: 260; dir: alternate; loop: 2; to: 1.08 1.08 1.08; easing: easeOutBack");
+  n.aura?.setAttribute("animation__claim", "property: scale; dur: 360; dir: alternate; loop: 2; to: 1.18 1.18 1.18; easing: easeOutQuad");
 }
 
 function getLeaderboardNodes() {
@@ -1033,10 +1021,7 @@ function setLeaderboardBoardState(mode = "idle") {
     n.title?.setAttribute("color", "#ffeaa7");
     n.subtitle?.setAttribute("color", "#cbd5e1");
     n.list.setAttribute("color", "#ffffff");
-    n.frame?.setAttribute(
-      "animation__frame",
-      "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.22; to: 0.36; easing: easeInOutSine"
-    );
+    n.frame?.setAttribute("animation__frame", "property: material.opacity; dir: alternate; dur: 1600; loop: true; from: 0.22; to: 0.36; easing: easeInOutSine");
     return;
   }
 
@@ -2391,7 +2376,7 @@ window.returnToHub = function () {
   markAttendanceLobby();
   renderAttendanceTracker();
   setScoreHUD(state.gameScore, state.systemHP);
-};
+}
 
 window.onload = function () {
   const releaseLoading =
