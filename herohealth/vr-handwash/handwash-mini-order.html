@@ -3,62 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Handwash Hero • Mini Order</title>
-
+  <title>Handwash Hero • WHO 7-Step Order</title>
   <style>
     :root{
-      --bg1:#dff6ff;
-      --bg2:#f7fdff;
-      --ink:#12324b;
-      --mut:#537089;
-      --line:#cfeaf7;
-      --card:#ffffff;
-      --soft:#eef8fd;
-      --yellow:#ffe66d;
-      --green:#b9f5c9;
-      --pink:#ffc7df;
-      --blue:#c8f2ff;
-      --shadow:0 14px 30px rgba(19,50,75,.12);
-      --radius:24px;
+      --bg1:#eaf8ff;
+      --bg2:#d8f1ff;
+      --ink:#163046;
+      --muted:#5d778c;
+      --card:#ffffffee;
+      --line:#cfe7f5;
+      --accent:#22d3ee;
+      --accent2:#60a5fa;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --pink:#f472b6;
+      --yellow:#fde047;
+      --shadow:0 16px 36px rgba(15, 50, 70, .14);
+      --r-xl:28px;
+      --r-lg:22px;
+      --r-md:18px;
+      --maxw:980px;
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
+      width:100%;
       min-height:100%;
-      background:
-        radial-gradient(circle at top right, #ffffff 0%, #f6fdff 24%, #e9faff 45%, #dff6ff 100%);
       font-family:"Segoe UI",system-ui,sans-serif;
       color:var(--ink);
-      overflow:hidden;
-      touch-action:manipulation;
+      background:
+        radial-gradient(circle at top right, #ffffff 0%, #ffffffb8 18%, transparent 40%),
+        linear-gradient(180deg,var(--bg1) 0%,var(--bg2) 100%);
     }
 
     body{
-      padding:14px;
+      padding:16px;
     }
 
     .shell{
-      max-width:1180px;
-      height:calc(100dvh - 28px);
+      max-width:var(--maxw);
       margin:0 auto;
-      display:grid;
-      gap:14px;
-      grid-template-rows:auto 1fr;
     }
 
-    .hud{
-      background:rgba(255,255,255,.94);
-      border:2px solid var(--line);
-      border-radius:28px;
-      box-shadow:var(--shadow);
+    .topbar{
+      background:rgba(7,18,34,.90);
+      color:#eefcff;
+      border:2px solid rgba(99,230,255,.28);
+      border-radius:24px;
+      box-shadow:0 18px 40px rgba(7,18,34,.18);
       padding:14px;
-      display:grid;
-      gap:12px;
     }
 
-    .top-row{
+    .topbar-head{
       display:flex;
       justify-content:space-between;
       gap:12px;
@@ -66,301 +63,255 @@
       flex-wrap:wrap;
     }
 
-    .title-wrap{
-      min-width:0;
-      flex:1 1 320px;
-    }
-
     .title-main{
-      font-size:.98rem;
-      font-weight:900;
-      color:#0f766e;
-      letter-spacing:.01em;
+      font-size:1rem;
+      color:#baf4ff;
+      font-weight:1000;
     }
 
     .title-sub{
       margin-top:4px;
-      font-size:1.22rem;
+      font-size:1.2rem;
       line-height:1.15;
       font-weight:1000;
-      color:var(--ink);
-    }
-
-    .guide{
-      background:var(--soft);
-      border:1px solid #d7ecf8;
-      border-radius:18px;
-      padding:12px;
-      display:grid;
-      grid-template-columns:72px 1fr;
-      gap:10px;
-      align-items:center;
-    }
-
-    .guide-icon{
-      width:72px;
-      height:72px;
-      border-radius:50%;
-      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:2rem;
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);
-    }
-
-    .guide-copy{
-      min-width:0;
-    }
-
-    .guide-copy strong{
-      display:block;
-      color:var(--ink);
-      font-size:1rem;
-      line-height:1.2;
-      margin-bottom:4px;
-    }
-
-    .guide-copy span{
-      color:var(--mut);
-      font-weight:800;
-      line-height:1.45;
-      font-size:.92rem;
-    }
-
-    .prompt{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      background:linear-gradient(180deg,#fff2a8 0%, #ffd84d 100%);
-      color:#111827;
-      padding:8px 12px;
-      border-radius:999px;
-      font-weight:1000;
-      margin-top:8px;
-      box-shadow:0 8px 18px rgba(0,0,0,.08);
+      color:#fff;
     }
 
     .chips{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
-      justify-content:flex-end;
     }
 
     .chip{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
       padding:8px 12px;
       border-radius:999px;
-      background:#ecfeff;
-      border:1px solid #bdf4ff;
-      color:#0f766e;
+      background:rgba(103,232,249,.14);
+      border:1px solid rgba(103,232,249,.18);
+      color:#e6fbff;
       font-weight:900;
-      font-size:.88rem;
+      font-size:.92rem;
+      white-space:nowrap;
     }
 
-    .chip.warn{
-      background:#fff7d6;
-      border-color:#ffe7a8;
-      color:#92400e;
+    .guide{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:72px 1fr;
+      gap:12px;
+      align-items:center;
+      background:rgba(255,255,255,.10);
+      border-radius:18px;
+      padding:12px;
     }
 
-    .chip.good{
-      background:#effcf3;
-      border-color:#c8efd1;
-      color:#166534;
+    .guide-icon{
+      width:72px;
+      height:72px;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(180deg,#8aeaff 0%,#22d3ee 100%);
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.24);
+      font-size:2rem;
+    }
+
+    .guide-copy{
+      min-width:0;
+    }
+
+    .guide-desc{
+      font-size:1rem;
+      line-height:1.45;
+      font-weight:800;
+      color:#eefcff;
+    }
+
+    .guide-prompt{
+      display:inline-block;
+      margin-top:8px;
+      background:#ffe66d;
+      color:#111827;
+      border-radius:999px;
+      padding:8px 12px;
+      font-weight:1000;
+      font-size:.92rem;
     }
 
     .progress-wrap{
-      display:grid;
-      gap:5px;
+      margin-top:12px;
     }
 
     .progress-top{
       display:flex;
       justify-content:space-between;
-      gap:10px;
+      gap:12px;
+      color:#dff8ff;
       font-weight:900;
-      color:#31536c;
-      font-size:.86rem;
+      font-size:.9rem;
+      margin-bottom:6px;
     }
 
     .progress-bar{
-      width:100%;
       height:14px;
-      background:#e8f3f9;
+      background:#08131f;
       border-radius:999px;
+      border:2px solid #63e6ff;
       overflow:hidden;
-      border:1px solid #cfe3ef;
     }
 
-    #fill{
+    .progress-fill{
       width:0%;
       height:100%;
-      background:linear-gradient(90deg,#60ff9d 0%, #00e5ff 100%);
-      transition:width .16s linear;
+      background:linear-gradient(90deg,#60ff9d 0%,#00e5ff 100%);
+      transition:width .18s ease;
     }
 
-    .play-area{
-      min-height:0;
+    .coach-wrap{
+      margin-top:12px;
       display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
-    }
-
-    .panel{
-      background:rgba(255,255,255,.96);
-      border:2px solid var(--line);
-      border-radius:28px;
-      box-shadow:var(--shadow);
-      padding:16px;
-      min-height:0;
-      display:grid;
-      gap:12px;
-    }
-
-    .panel h2{
-      margin:0;
-      font-size:1.08rem;
-    }
-
-    .slots{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      align-content:start;
-      overflow:auto;
-      padding-right:2px;
-    }
-
-    .slot{
-      background:#f8fcff;
-      border:2px dashed #d7ecf8;
-      border-radius:20px;
-      min-height:78px;
-      padding:10px;
-      display:grid;
-      grid-template-columns:42px 1fr;
+      grid-template-columns:56px 1fr;
       gap:10px;
       align-items:center;
-      transition:transform .12s ease, border-color .12s ease, background .12s ease;
     }
 
-    .slot.active{
-      border-color:#7dd3fc;
-      background:#ecfeff;
-      transform:translateY(-1px);
-    }
-
-    .slot.done{
-      border-style:solid;
-      border-color:#c8efd1;
-      background:#effcf3;
-    }
-
-    .slot-num{
-      width:42px;
-      height:42px;
-      border-radius:14px;
+    .coach-face{
+      width:56px;
+      height:56px;
+      border-radius:18px;
       display:flex;
       align-items:center;
       justify-content:center;
-      background:#e8f3f9;
-      color:#31536c;
-      font-weight:1000;
-      font-size:1rem;
+      font-size:1.55rem;
+      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
+      box-shadow:0 8px 18px rgba(0,0,0,.10), inset 0 0 0 4px rgba(255,255,255,.30);
+      transition:transform .18s ease, background .18s ease;
     }
 
-    .slot.done .slot-num{
+    .coach-face.good{
       background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%);
-      color:#166534;
+      transform:scale(1.04);
     }
 
-    .slot-copy{
-      min-width:0;
+    .coach-face.warn{
+      background:linear-gradient(180deg,#fff5b1 0%, #ffe66d 100%);
     }
 
-    .slot-title{
-      color:var(--ink);
-      font-weight:1000;
-      line-height:1.18;
-      font-size:.94rem;
-    }
-
-    .slot-sub{
-      margin-top:4px;
-      color:#60798f;
+    .coach{
+      background:rgba(255,255,255,.92);
+      border-radius:14px;
+      padding:9px 10px;
+      box-shadow:0 8px 18px rgba(0,0,0,.08);
       font-weight:800;
-      font-size:.78rem;
+      font-size:.88rem;
       line-height:1.35;
+      color:#0f172a;
     }
 
-    .bank{
+    .main-card{
+      margin-top:14px;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--r-xl);
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
+
+    .chosen-title,
+    .pool-title{
+      margin:0 0 10px;
+      font-size:1rem;
+      font-weight:1000;
+      color:#12324b;
+    }
+
+    .chosen-slots{
       display:grid;
       grid-template-columns:1fr;
-      gap:10px;
-      align-content:start;
-      overflow:auto;
-      padding-right:2px;
+      gap:8px;
+      margin-bottom:16px;
     }
 
-    .bank-item{
-      appearance:none;
-      width:100%;
-      border:none;
-      border-radius:20px;
-      padding:12px;
-      background:linear-gradient(180deg,#ffffff 0%, #f8fcff 100%);
-      border:2px solid #d8edf8;
-      box-shadow:var(--shadow);
-      cursor:pointer;
-      display:grid;
-      grid-template-columns:52px 1fr;
-      gap:10px;
-      text-align:left;
-      transition:transform .12s ease, filter .12s ease, border-color .12s ease;
-      color:var(--ink);
-    }
-
-    .bank-item:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.01);
-    }
-
-    .bank-item.disabled{
-      opacity:.45;
-      pointer-events:none;
-      filter:grayscale(.18);
-    }
-
-    .bank-icon{
-      width:52px;
-      height:52px;
+    .order-slot{
+      min-height:56px;
+      border:2px dashed #b7dff3;
+      background:#f8fcff;
+      color:#0f172a;
       border-radius:16px;
+      padding:12px 14px;
+      font-weight:1000;
       display:flex;
       align-items:center;
-      justify-content:center;
-      font-size:1.4rem;
-      background:linear-gradient(180deg,#dff8ff 0%, #baeefe 100%);
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);
-    }
-
-    .bank-title{
-      font-weight:1000;
-      line-height:1.2;
-    }
-
-    .bank-note{
-      margin-top:4px;
-      color:#60798f;
-      font-weight:800;
-      font-size:.8rem;
+      gap:10px;
       line-height:1.35;
     }
 
-    .controls{
+    .order-slot.filled{
+      border-style:solid;
+      background:#dcfff2;
+      border-color:#86efac;
+    }
+
+    .slot-no{
+      display:inline-flex;
+      width:30px;
+      height:30px;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      background:#dff5ff;
+      color:#0f4c5c;
+      font-size:.95rem;
+      font-weight:1000;
+      flex:0 0 auto;
+    }
+
+    .card-pool{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:10px;
+    }
+
+    .order-card{
+      appearance:none;
+      border:none;
+      text-align:left;
+      padding:14px;
+      border-radius:18px;
+      background:#ffffff;
+      border:2px solid #d8edf8;
+      color:#0f172a;
+      font-weight:1000;
+      box-shadow:0 8px 20px rgba(0,0,0,.06);
+      cursor:pointer;
+      transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+
+    .order-card:hover{
+      transform:translateY(-1px);
+      box-shadow:0 12px 24px rgba(0,0,0,.10);
+      border-color:#9edbf4;
+    }
+
+    .order-card:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+      transform:none;
+      box-shadow:0 8px 20px rgba(0,0,0,.04);
+    }
+
+    .order-card .sub{
+      display:block;
+      margin-top:6px;
+      color:#64748b;
+      font-size:.88rem;
+      font-weight:800;
+      line-height:1.35;
+    }
+
+    .actions{
+      margin-top:14px;
       display:flex;
       gap:10px;
       flex-wrap:wrap;
@@ -371,67 +322,29 @@
       border:none;
       border-radius:999px;
       padding:10px 14px;
-      font:inherit;
       font-weight:1000;
-      color:#12324b;
+      font-size:.92rem;
       cursor:pointer;
-      box-shadow:var(--shadow);
-      transition:transform .12s ease, filter .12s ease;
-    }
-
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.01);
-    }
-
-    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%, #ffd84d 100%); }
-    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%, #b7efff 100%); }
-    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%); }
-    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%, #ffc2dd 100%); }
-
-    .coach{
-      background:rgba(255,255,255,.92);
-      border:1px solid #d8edf8;
-      border-radius:18px;
-      padding:10px 12px;
+      box-shadow:0 8px 20px rgba(0,0,0,.12);
+      border:2px solid rgba(255,255,255,.95);
       color:#0f172a;
-      font-weight:900;
-      line-height:1.45;
-      display:grid;
-      grid-template-columns:44px 1fr;
-      gap:10px;
-      align-items:center;
+      background:rgba(255,255,255,.95);
     }
 
-    .coach-face{
-      width:44px;
-      height:44px;
-      border-radius:14px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:1.2rem;
-      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.32);
-    }
-
-    .coach-face.good{
-      background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%);
-    }
-
-    .coach-face.warn{
-      background:linear-gradient(180deg,#fff5b1 0%, #ffe66d 100%);
-    }
+    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
+    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
+    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%); }
+    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%); }
 
     .overlay{
       position:fixed;
       inset:0;
-      z-index:60;
+      z-index:50;
       display:flex;
       align-items:center;
       justify-content:center;
       padding:18px;
-      background:rgba(8,20,40,.42);
+      background:rgba(8,20,40,.46);
       backdrop-filter:blur(8px);
     }
 
@@ -453,7 +366,7 @@
       border-radius:999px;
       background:#dcfff2;
       color:#047857;
-      font-weight:900;
+      font-weight:1000;
       margin-bottom:10px;
     }
 
@@ -467,7 +380,7 @@
       margin:0 0 12px;
       color:#334155;
       line-height:1.5;
-      font-weight:700;
+      font-weight:800;
     }
 
     .tips{
@@ -499,7 +412,7 @@
       border:1px solid #d8edf8;
       border-radius:18px;
       padding:14px;
-      font-weight:900;
+      font-weight:1000;
       color:#0f172a;
     }
 
@@ -507,845 +420,490 @@
       display:block;
       margin-bottom:5px;
       color:#64748b;
-      font-weight:800;
-    }
-
-    .pill-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#eef8fd;
-      color:#37566e;
       font-weight:900;
-      font-size:.84rem;
-    }
-
-    .unlock-toast{
-      position:fixed;
-      left:50%;
-      bottom:28px;
-      transform:translateX(-50%) translateY(18px) scale(.96);
-      z-index:70;
-      min-width:min(92vw,420px);
-      max-width:92vw;
-      padding:14px 16px;
-      border-radius:20px;
-      background:linear-gradient(180deg,#fff9cf 0%, #ffe66d 100%);
-      color:#7c2d12;
-      box-shadow:0 18px 40px rgba(0,0,0,.20);
-      border:2px solid rgba(255,255,255,.95);
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .28s ease, transform .28s ease;
-      text-align:center;
-      font-weight:1000;
-    }
-
-    .unlock-toast.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0) scale(1);
-    }
-
-    .unlock-toast small{
-      display:block;
-      margin-top:4px;
-      color:#8a4b12;
-      font-weight:900;
-      line-height:1.4;
-    }
-
-    .scene-transition{
-      position:fixed;
-      inset:0;
-      z-index:80;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:20px;
-      background:radial-gradient(circle at center, rgba(17,24,39,.72) 0%, rgba(6,12,22,.92) 100%);
-      backdrop-filter:blur(10px);
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .28s ease;
-    }
-
-    .scene-transition.show{
-      opacity:1;
-      pointer-events:auto;
-    }
-
-    .scene-transition-card{
-      width:min(520px,100%);
-      background:rgba(255,255,255,.96);
-      color:#0f172a;
-      border-radius:28px;
-      padding:22px;
-      box-shadow:0 24px 60px rgba(0,0,0,.24);
-      border:2px solid rgba(255,255,255,.98);
-      text-align:center;
-    }
-
-    .scene-transition-icon{
-      width:78px;
-      height:78px;
-      margin:0 auto 12px;
-      border-radius:50%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:2rem;
-      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
-      box-shadow:inset 0 0 0 5px rgba(255,255,255,.35);
-      animation:transitionPulse .8s infinite;
-    }
-
-    .scene-transition-title{
-      margin:0;
-      font-size:1.35rem;
-      line-height:1.15;
-      font-weight:1000;
-      color:#12324b;
-    }
-
-    .scene-transition-desc{
-      margin:8px 0 0;
-      color:#48657f;
-      font-weight:800;
-      line-height:1.5;
-    }
-
-    .scene-transition-bar{
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      background:#e6f4fb;
-      overflow:hidden;
-      margin-top:14px;
-      border:1px solid #d3ebf8;
-    }
-
-    .scene-transition-fill{
-      width:0%;
-      height:100%;
-      background:linear-gradient(90deg,#60ff9d 0%, #00e5ff 100%);
-      animation:transitionFill 900ms linear forwards;
     }
 
     .hidden{ display:none !important; }
 
-    @keyframes transitionPulse{
-      0%{ transform:scale(1); }
-      50%{ transform:scale(1.05); }
-      100%{ transform:scale(1); }
-    }
-
-    @keyframes transitionFill{
-      from{ width:0%; }
-      to{ width:100%; }
-    }
-
-    @media (max-width:980px){
-      .play-area{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width:760px){
-      .slots{
-        grid-template-columns:1fr;
-      }
-    }
-
     @media (max-width:680px){
-      body{
+      body{ padding:12px; }
+      .topbar{ padding:12px; border-radius:20px; }
+      .topbar-head{ flex-direction:column; align-items:flex-start; }
+      .title-sub{ font-size:1rem; }
+      .guide{
+        grid-template-columns:64px 1fr;
+        gap:8px;
         padding:10px;
       }
-
-      .shell{
-        height:calc(100dvh - 20px);
+      .guide-icon{
+        width:64px;
+        height:64px;
+        font-size:1.6rem;
       }
-
-      .hud, .panel, .card{
-        border-radius:22px;
-        padding:12px;
-      }
-
-      .guide{
-        grid-template-columns:60px 1fr;
+      .guide-desc{ font-size:.9rem; }
+      .guide-prompt{ font-size:.84rem; padding:7px 10px; }
+      .coach-wrap{
+        grid-template-columns:48px 1fr;
         gap:8px;
       }
-
-      .guide-icon{
-        width:60px;
-        height:60px;
-        font-size:1.7rem;
+      .coach-face{
+        width:48px;
+        height:48px;
+        border-radius:16px;
+        font-size:1.35rem;
       }
-
-      .top-row{
-        flex-direction:column;
-      }
-
-      .chips{
-        justify-content:flex-start;
-      }
-
-      .controls{
-        display:grid;
-        grid-template-columns:1fr 1fr;
-      }
-
-      .bank-item{
-        grid-template-columns:46px 1fr;
-      }
-
-      .bank-icon{
-        width:46px;
-        height:46px;
-        font-size:1.2rem;
-      }
+      .coach{ font-size:.8rem; }
+      .card h1{ font-size:1.35rem; }
+      .actions{ gap:8px; }
+      .btn{ padding:9px 11px; font-size:.84rem; }
+      .card-pool{ grid-template-columns:1fr; }
     }
   </style>
 </head>
 <body>
-  <main class="shell">
-    <section class="hud">
-      <div class="top-row">
-        <div class="title-wrap">
-          <div class="title-main" id="titleMain">Mini Order • ด่านสุดท้าย</div>
-          <div class="title-sub" id="titleSub">เรียงลำดับ WHO 7 ขั้นให้ถูกต้อง</div>
+  <div class="shell">
+    <div class="topbar">
+      <div class="topbar-head">
+        <div>
+          <div class="title-main" id="miniBadge">WHO 7-Step Order</div>
+          <div class="title-sub" id="miniTitle">แตะเรียงลำดับให้ถูก</div>
         </div>
 
         <div class="chips">
-          <div class="chip" id="scoreChip">Score 0</div>
-          <div class="chip" id="comboChip">Combo 0</div>
-          <div class="chip warn" id="timeChip">Time 60s</div>
+          <div class="chip" id="progressText">0 / 7</div>
+          <div class="chip" id="timeText">60s</div>
+          <div class="chip" id="scoreText">Score 0</div>
         </div>
       </div>
 
       <div class="guide">
-        <div class="guide-icon" id="guideIcon">🧩</div>
+        <div class="guide-icon" id="guideIcon">🧠</div>
         <div class="guide-copy">
-          <strong id="guideTitle">แตะจากคลังด้านขวา ตามลำดับข้อ 1 → 7</strong>
-          <span id="guideDesc">ถ้ากดถูกจะลงช่องถัดไปทันที ถ้ากดผิดจะเสียคะแนนและคอมโบ</span>
-          <div class="prompt" id="promptText">เริ่มจาก “ฝ่ามือถูฝ่ามือ”</div>
+          <div class="guide-desc" id="miniDesc">เลือกขั้นถัดไปทีละข้อจนกว่าจะครบ 7 ขั้น</div>
+          <div class="guide-prompt" id="miniPrompt">แตะการ์ดด้านล่างเพื่อเรียงลำดับ</div>
         </div>
       </div>
 
       <div class="progress-wrap">
         <div class="progress-top">
           <span>ความคืบหน้า</span>
-          <span id="progressText">0%</span>
+          <span id="progressPct">0%</span>
         </div>
         <div class="progress-bar">
-          <div id="fill"></div>
+          <div class="progress-fill" id="progressFill"></div>
         </div>
       </div>
-    </section>
 
-    <section class="play-area">
-      <section class="panel">
-        <h2>ลำดับเป้าหมาย</h2>
-        <div id="slots" class="slots"></div>
+      <div class="coach-wrap">
+        <div class="coach-face" id="coachFace">🙂</div>
+        <div class="coach" id="coachText">เริ่มจากขั้นแรกก่อน</div>
+      </div>
+    </div>
 
-        <div class="coach">
-          <div class="coach-face" id="coachFace">🙂</div>
-          <div id="coachText">เริ่มจากข้อที่ 1 ก่อนนะ</div>
-        </div>
+    <div class="main-card">
+      <h2 class="chosen-title">ลำดับที่เลือกแล้ว</h2>
+      <div id="chosenSlots" class="chosen-slots"></div>
 
-        <div class="controls">
-          <button class="btn blue" id="btnRestart" type="button">เริ่มใหม่</button>
-          <button class="btn pink" id="btnUndo" type="button">ย้อน 1 ขั้น</button>
-          <button class="btn green" id="btnFinishHub" type="button">กลับ Hygiene Zone</button>
-        </div>
-      </section>
+      <h2 class="pool-title">การ์ดให้เลือก</h2>
+      <div id="cardPool" class="card-pool"></div>
 
-      <section class="panel">
-        <h2>คลังตัวเลือก</h2>
-        <div id="bank" class="bank"></div>
-      </section>
-    </section>
-  </main>
+      <div class="actions">
+        <button class="btn blue" id="retryBtn" type="button">เล่นใหม่</button>
+        <button class="btn pink" id="launcherBtn" type="button">กลับ Launcher</button>
+        <button class="btn green" id="hubBtn" type="button">กลับ Hygiene Zone</button>
+      </div>
+    </div>
+  </div>
 
   <div class="overlay" id="startOverlay">
     <div class="card">
-      <div class="badge">🧩 Mini Order</div>
-      <h1>ทบทวนลำดับ WHO 7 ขั้น</h1>
-      <p>ด่านสุดท้ายนี้ให้แตะตัวเลือกจากคลังด้านขวา ตามลำดับที่ถูกต้องตั้งแต่ขั้นที่ 1 ถึง 7</p>
+      <div class="badge">🧩 Final Recap</div>
+      <h1>ทบทวน WHO 7 ขั้นแบบสั้น ๆ</h1>
+      <p>ด่านนี้เอาไว้ทบทวนความจำหลังจบ Main Game เด็กจะเห็นการ์ด 7 ใบ แล้วแตะเรียงลำดับให้ถูกทีละข้อ</p>
 
       <div class="tips">
-        <div class="tip">🎯 แตะข้อที่ถูกจะลงช่องถัดไปทันที</div>
-        <div class="tip">⚠️ ถ้ากดผิดจะเสียคะแนนและคอมโบ</div>
-        <div class="tip">🧠 ถ้าจำแม่นจะได้ Perfect Recall</div>
-        <div class="tip">🏁 ผ่านแล้วจะกลับ Hygiene Zone แบบครบ flow</div>
+        <div class="tip">1️⃣ เริ่มจากขั้นที่ 1 ก่อน</div>
+        <div class="tip">👆 แตะทีละการ์ด</div>
+        <div class="tip">⚡ ด่านนี้สั้น จบไว</div>
+        <div class="tip">🏁 จบแล้วกลับ Hygiene Zone ได้เลย</div>
       </div>
 
-      <div class="controls">
-        <button class="btn primary" id="btnStart" type="button">เริ่ม Mini Order</button>
+      <div class="actions">
+        <button class="btn primary" id="startBtn" type="button">เริ่ม Mini</button>
       </div>
     </div>
   </div>
 
   <div class="overlay hidden" id="summaryOverlay">
     <div class="card">
-      <div class="badge">✨ Mini Order เสร็จแล้ว</div>
-      <h1 id="sumTitle">จบ Handwash Set</h1>
-      <p id="sumDesc">ทบทวนลำดับครบแล้ว กำลังพร้อมกลับ Hygiene Zone</p>
+      <div class="badge">✨ Mini Summary</div>
+      <h1 id="sumTitle">เรียงลำดับถูกครบแล้ว!</h1>
+      <p id="sumDesc">วันนี้จบ Handwash Flow ครบแล้ว</p>
 
       <div class="summary-grid">
         <div class="summary-box">
-          <small>ผ่าน</small>
-          <span id="sumSteps">7 / 7</span>
-        </div>
-        <div class="summary-box">
-          <small>คะแนน</small>
-          <span id="sumScore">0</span>
-        </div>
-        <div class="summary-box">
-          <small>พลาด</small>
-          <span id="sumMiss">0</span>
-        </div>
-        <div class="summary-box">
           <small>ดาว</small>
-          <span id="sumStars">⭐</span>
+          <span id="sumStars">⭐⭐⭐</span>
+        </div>
+        <div class="summary-box">
+          <small>Accuracy</small>
+          <span id="sumAccuracy">100%</span>
+        </div>
+        <div class="summary-box">
+          <small>Time Left</small>
+          <span id="sumTime">0s</span>
+        </div>
+        <div class="summary-box">
+          <small>Rank</small>
+          <span id="sumRank">WHO Memory Star</span>
         </div>
       </div>
 
-      <div class="pill-row" id="sumBadges"></div>
-
-      <div class="controls" style="margin-top:14px">
-        <button class="btn blue" id="btnSummaryRestart" type="button">เล่นใหม่</button>
-        <button class="btn primary" id="btnSummaryHub" type="button">กลับ Hygiene Zone</button>
+      <div class="summary-box" style="margin-top:10px;">
+        <small>Badge</small>
+        <span id="sumBadges">WHO Sequence Master</span>
       </div>
-    </div>
-  </div>
 
-  <div id="unlockToast" class="unlock-toast">
-    <div id="unlockToastTitle">🏅 ปลดรางวัลใหม่</div>
-    <small id="unlockToastDesc">เก็บต่อได้อีก</small>
-  </div>
-
-  <div id="sceneTransition" class="scene-transition">
-    <div class="scene-transition-card">
-      <div id="sceneTransitionIcon" class="scene-transition-icon">✨</div>
-      <h2 id="sceneTransitionTitle" class="scene-transition-title">กำลังไปด่านถัดไป</h2>
-      <p id="sceneTransitionDesc" class="scene-transition-desc">เตรียมพร้อมอีกนิด</p>
-      <div class="scene-transition-bar">
-        <div class="scene-transition-fill"></div>
+      <div class="actions">
+        <button class="btn blue" id="sumRetryBtn" type="button">เล่นใหม่</button>
+        <button class="btn pink" id="sumLauncherBtn" type="button">กลับ Launcher</button>
+        <button class="btn green" id="sumHubBtn" type="button">กลับ Hygiene Zone</button>
       </div>
     </div>
   </div>
 
   <script src="./handwash-shared.js"></script>
   <script>
-    const $ = (id) => document.getElementById(id);
+    function safeHubUrl(){
+      const raw = window.HandwashShared?.getParam?.('hub', '') || '';
+      if (raw && raw.trim()) return raw.trim();
 
-    const qStr = (k, d='') => {
-      try { return new URL(location.href).searchParams.get(k) ?? d; }
-      catch { return d; }
+      if (window.HandwashShared?.buildZoneUrl){
+        return HandwashShared.buildZoneUrl();
+      }
+
+      return new URL('../hygiene-zone.html', location.href).toString();
+    }
+
+    function safeLauncherUrl(){
+      const raw = window.HandwashShared?.getParam?.('launcher', '') || '';
+      if (raw && raw.trim()) return raw.trim();
+
+      if (window.HandwashShared?.buildLauncherUrl){
+        return HandwashShared.buildLauncherUrl();
+      }
+
+      return new URL('./handwash-launcher.html', location.href).toString();
+    }
+
+    const HUB_URL = safeHubUrl();
+    const LAUNCHER_URL = safeLauncherUrl();
+
+    const boot = window.HandwashShared?.getPublicBootConfig?.() || {
+      diff:'normal',
+      time:'60',
+      miniTime:'60',
+      view:'mobile'
     };
 
-    const qNum = (k, d=0) => {
-      const n = Number(qStr(k, d));
-      return Number.isFinite(n) ? n : d;
-    };
+    const MINI_TIME = Number(boot.miniTime || boot.time || 60);
 
-    const START_TIME = qNum('time', 60);
-    const HUB_URL = qStr('hub', new URL('../hygiene-zone.html', location.href).toString());
-
-    const ORDER_ITEMS = [
-      { id:'palms', title:'ฝ่ามือถูฝ่ามือ', note:'ถูฝ่ามือเข้าหากัน', icon:'👐' },
-      { id:'backs', title:'ฝ่ามือถูหลังมือ', note:'ถูหลังมือสลับกัน', icon:'🖐️' },
-      { id:'between', title:'ถูซอกนิ้ว', note:'ถูซอกนิ้วทั้งสองข้าง', icon:'🤝' },
-      { id:'backfingers', title:'หลังนิ้วถูฝ่ามือ', note:'พับนิ้วแล้วถูบนฝ่ามือ', icon:'👊' },
-      { id:'thumbs', title:'ถูนิ้วหัวแม่มือ', note:'ถูหัวแม่มือซ้ายและขวา', icon:'👍' },
-      { id:'fingertips', title:'ถูปลายนิ้วบนฝ่ามือ', note:'ถูปลายนิ้วและเล็บ', icon:'💅' },
-      { id:'wrists', title:'ถูรอบข้อมือ', note:'ปิดท้ายด้วยข้อมือทั้งสองข้าง', icon:'⌚' }
+    const WHO_STEPS = [
+      { id:'palms', label:'1. ฝ่ามือถูฝ่ามือ', icon:'👐' },
+      { id:'backs', label:'2. ฝ่ามือถูหลังมือ', icon:'🖐️' },
+      { id:'between', label:'3. ถูซอกนิ้ว', icon:'🤝' },
+      { id:'backfingers', label:'4. หลังนิ้วถูฝ่ามือ', icon:'👊' },
+      { id:'thumbs', label:'5. ถูนิ้วหัวแม่มือ', icon:'👍' },
+      { id:'fingertips', label:'6. ถูปลายนิ้วบนฝ่ามือ', icon:'💅' },
+      { id:'wrists', label:'7. ถูรอบข้อมือ', icon:'⌚' }
     ];
 
     const state = {
       started:false,
       ended:false,
-      timeLeft:START_TIME,
-      score:0,
-      miss:0,
-      combo:0,
-      bestCombo:0,
-      placed:[],
-      bank:[],
-      attempts:0
+      timeLeft: MINI_TIME,
+      lastTs: 0,
+
+      orderPool: [],
+      chosen: [],
+      currentIndex: 0,
+
+      score: 0,
+      miss: 0,
+      correct: 0
     };
 
-    const ui = {
-      titleMain:$('titleMain'),
-      titleSub:$('titleSub'),
-      guideIcon:$('guideIcon'),
-      guideTitle:$('guideTitle'),
-      guideDesc:$('guideDesc'),
-      promptText:$('promptText'),
+    const els = {
+      progressText: document.getElementById('progressText'),
+      timeText: document.getElementById('timeText'),
+      scoreText: document.getElementById('scoreText'),
+      progressPct: document.getElementById('progressPct'),
+      progressFill: document.getElementById('progressFill'),
+      cardPool: document.getElementById('cardPool'),
+      chosenSlots: document.getElementById('chosenSlots'),
+      coachText: document.getElementById('coachText'),
+      coachFace: document.getElementById('coachFace'),
 
-      scoreChip:$('scoreChip'),
-      comboChip:$('comboChip'),
-      timeChip:$('timeChip'),
+      startOverlay: document.getElementById('startOverlay'),
+      summaryOverlay: document.getElementById('summaryOverlay'),
 
-      progressText:$('progressText'),
-      fill:$('fill'),
+      startBtn: document.getElementById('startBtn'),
+      retryBtn: document.getElementById('retryBtn'),
+      launcherBtn: document.getElementById('launcherBtn'),
+      hubBtn: document.getElementById('hubBtn'),
 
-      slots:$('slots'),
-      bank:$('bank'),
+      sumRetryBtn: document.getElementById('sumRetryBtn'),
+      sumLauncherBtn: document.getElementById('sumLauncherBtn'),
+      sumHubBtn: document.getElementById('sumHubBtn'),
 
-      coachFace:$('coachFace'),
-      coachText:$('coachText'),
-
-      btnRestart:$('btnRestart'),
-      btnUndo:$('btnUndo'),
-      btnFinishHub:$('btnFinishHub'),
-
-      startOverlay:$('startOverlay'),
-      btnStart:$('btnStart'),
-
-      summaryOverlay:$('summaryOverlay'),
-      sumTitle:$('sumTitle'),
-      sumDesc:$('sumDesc'),
-      sumSteps:$('sumSteps'),
-      sumScore:$('sumScore'),
-      sumMiss:$('sumMiss'),
-      sumStars:$('sumStars'),
-      sumBadges:$('sumBadges'),
-      btnSummaryRestart:$('btnSummaryRestart'),
-      btnSummaryHub:$('btnSummaryHub'),
-
-      unlockToast:$('unlockToast'),
-      unlockToastTitle:$('unlockToastTitle'),
-      unlockToastDesc:$('unlockToastDesc'),
-
-      sceneTransition:$('sceneTransition'),
-      sceneTransitionIcon:$('sceneTransitionIcon'),
-      sceneTransitionTitle:$('sceneTransitionTitle'),
-      sceneTransitionDesc:$('sceneTransitionDesc')
+      sumTitle: document.getElementById('sumTitle'),
+      sumDesc: document.getElementById('sumDesc'),
+      sumStars: document.getElementById('sumStars'),
+      sumAccuracy: document.getElementById('sumAccuracy'),
+      sumTime: document.getElementById('sumTime'),
+      sumRank: document.getElementById('sumRank'),
+      sumBadges: document.getElementById('sumBadges')
     };
-
-    let __hhPageAudio = null;
-    function hhAudioCtx(){
-      try{
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return null;
-        if (!__hhPageAudio) __hhPageAudio = new Ctx();
-        return __hhPageAudio;
-      }catch(e){
-        return null;
-      }
-    }
-
-    function hhTone(freq=700, dur=0.06, type='triangle', gain=0.028, when=0){
-      const ctx = hhAudioCtx();
-      if (!ctx) return;
-
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-
-      osc.type = type;
-      osc.frequency.value = freq;
-      g.gain.value = gain;
-
-      osc.connect(g);
-      g.connect(ctx.destination);
-
-      const now = ctx.currentTime + when;
-      g.gain.setValueAtTime(gain, now);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
-      osc.start(now);
-      osc.stop(now + dur);
-    }
-
-    function playPageSignature(page='generic'){
-      if (page === 'mini'){
-        hhTone(760, 0.04, 'square', 0.022, 0.00);
-        hhTone(960, 0.05, 'triangle', 0.024, 0.07);
-        return;
-      }
-      hhTone(720, 0.05, 'triangle', 0.024, 0.00);
-    }
-
-    function showUnlockToast(title, desc, kind='badge'){
-      ui.unlockToastTitle.textContent = title;
-      ui.unlockToastDesc.textContent = desc;
-      ui.unlockToast.classList.add('show');
-
-      try{
-        if (navigator.vibrate) navigator.vibrate(kind === 'rank' ? [30, 40, 60] : [24, 30, 24]);
-      }catch(e){}
-
-      if (kind === 'rank'){
-        hhTone(740, 0.07, 'triangle', 0.03, 0.00);
-        hhTone(920, 0.11, 'triangle', 0.04, 0.09);
-      } else {
-        hhTone(960, 0.06, 'triangle', 0.03, 0.00);
-      }
-
-      clearTimeout(showUnlockToast._timer);
-      showUnlockToast._timer = setTimeout(() => {
-        ui.unlockToast.classList.remove('show');
-      }, 2200);
-    }
-
-    function showSceneTransition({ icon='✨', title='กำลังไปด่านถัดไป', desc='เตรียมพร้อมอีกนิด', url='' } = {}){
-      if (!url){
-        if (url) location.href = url;
-        return;
-      }
-
-      ui.sceneTransitionIcon.textContent = icon;
-      ui.sceneTransitionTitle.textContent = title;
-      ui.sceneTransitionDesc.textContent = desc;
-      ui.sceneTransition.classList.add('show');
-
-      setTimeout(() => {
-        location.href = url;
-      }, 920);
-    }
 
     function shuffle(arr){
-      const a = [...arr];
-      for (let i = a.length - 1; i > 0; i--){
-        const j = Math.floor(Math.random() * (i + 1));
+      const a = arr.slice();
+      for(let i=a.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
         [a[i], a[j]] = [a[j], a[i]];
       }
       return a;
     }
 
-    function accuracyPercent(){
-      const attempts = state.attempts || 0;
-      if (!attempts) return 0;
-      return Math.round((state.placed.length / attempts) * 100);
-    }
+    function setCoach(text, mood='normal'){
+      els.coachText.textContent = text;
+      els.coachFace.classList.remove('good','warn');
 
-    function progressPercent(){
-      return Math.round((state.placed.length / ORDER_ITEMS.length) * 100);
-    }
-
-    function nextExpected(){
-      return ORDER_ITEMS[state.placed.length] || null;
-    }
-
-    function coachText(kind='neutral'){
-      const bank = {
-        intro:['เริ่มจากข้อที่ 1 ก่อนนะ', 'แตะลำดับแรกให้ถูกก่อน', 'ค่อย ๆ จำตามลำดับไปทีละข้อ'],
-        good:['ดีมาก ลำดับถูกต้อง', 'ใช่เลย ทำต่อได้', 'เก่งมาก เรียงถูกแล้ว'],
-        hot:['สุดยอด! จำแม่นมาก', 'ว้าว! คอมโบกำลังมา', 'ดีมาก ตอนนี้เร็วและแม่นมาก'],
-        warn:['ยังไม่ใช่ข้อนี้นะ', 'ลองดูลำดับอีกครั้ง', 'ใจเย็นอีกนิด ค่อย ๆ จำ'],
-        finish:['ครบทั้ง 7 ขั้นแล้ว', 'เยี่ยมมาก จบ Handwash Set แล้ว', 'จำลำดับได้ดีมาก']
-      };
-      const arr = bank[kind] || bank.intro;
-      return arr[Math.floor(Math.random() * arr.length)];
-    }
-
-    function setCoach(kind='intro'){
-      ui.coachText.textContent = coachText(kind);
-      ui.coachFace.classList.remove('good', 'warn');
-
-      if (kind === 'good' || kind === 'hot'){
-        ui.coachFace.textContent = kind === 'hot' ? '🤩' : '😄';
-        ui.coachFace.classList.add('good');
-      } else if (kind === 'warn'){
-        ui.coachFace.textContent = '😮';
-        ui.coachFace.classList.add('warn');
+      if (mood === 'good'){
+        els.coachFace.textContent = '😄';
+        els.coachFace.classList.add('good');
+      } else if (mood === 'warn'){
+        els.coachFace.textContent = '😮';
+        els.coachFace.classList.add('warn');
       } else {
-        ui.coachFace.textContent = '🙂';
+        els.coachFace.textContent = '🙂';
       }
     }
 
-    function updateHUD(){
-      ui.scoreChip.textContent = `Score ${state.score}`;
-      ui.comboChip.textContent = `Combo ${state.combo}`;
-      ui.timeChip.textContent = `Time ${Math.max(0, Math.ceil(state.timeLeft))}s`;
-      ui.timeChip.className = `chip ${state.timeLeft <= 12 ? 'warn' : 'good'}`;
+    function resetRound(){
+      state.timeLeft = MINI_TIME;
+      state.lastTs = 0;
+      state.ended = false;
 
-      const pct = progressPercent();
-      ui.fill.style.width = pct + '%';
-      ui.progressText.textContent = pct + '%';
+      state.chosen = [];
+      state.currentIndex = 0;
 
-      const expected = nextExpected();
-      if (expected){
-        ui.promptText.textContent = `ต่อไป: ${expected.title}`;
-      } else {
-        ui.promptText.textContent = 'ครบทั้ง 7 ขั้นแล้ว';
+      state.score = 0;
+      state.miss = 0;
+      state.correct = 0;
+
+      state.orderPool = shuffle(WHO_STEPS);
+    }
+
+    function renderChosenSlots(){
+      els.chosenSlots.innerHTML = '';
+
+      for(let i=0;i<WHO_STEPS.length;i++){
+        const picked = state.chosen[i];
+        const div = document.createElement('div');
+        div.className = 'order-slot' + (picked ? ' filled' : '');
+
+        const no = document.createElement('span');
+        no.className = 'slot-no';
+        no.textContent = String(i + 1);
+
+        const label = document.createElement('span');
+        label.textContent = picked ? `${picked.icon} ${picked.label}` : `ช่องที่ ${i + 1}`;
+
+        div.appendChild(no);
+        div.appendChild(label);
+        els.chosenSlots.appendChild(div);
       }
     }
 
-    function renderSlots(){
-      const nextIndex = state.placed.length;
+    function renderCardPool(){
+      els.cardPool.innerHTML = '';
 
-      ui.slots.innerHTML = ORDER_ITEMS.map((item, idx) => {
-        const placed = state.placed[idx];
-        const done = !!placed;
-        const active = idx === nextIndex && !state.ended;
+      state.orderPool.forEach(step => {
+        const used = state.chosen.some(item => item.id === step.id);
 
-        return `
-          <div class="slot ${done ? 'done' : ''} ${active ? 'active' : ''}">
-            <div class="slot-num">${idx + 1}</div>
-            <div class="slot-copy">
-              <div class="slot-title">${done ? `${item.icon} ${item.title}` : 'รอคำตอบ'}</div>
-              <div class="slot-sub">${done ? item.note : 'แตะจากคลังด้านขวา'}</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
+        const btn = document.createElement('button');
+        btn.className = 'order-card';
+        btn.disabled = used || state.ended;
+        btn.type = 'button';
+        btn.innerHTML = `${step.icon} ${step.label}<span class="sub">แตะเพื่อเลือกเป็นขั้นถัดไป</span>`;
 
-    function renderBank(){
-      ui.bank.innerHTML = state.bank.map(item => `
-        <button class="bank-item ${item.used ? 'disabled' : ''}" data-id="${item.id}" type="button">
-          <div class="bank-icon">${item.icon}</div>
-          <div>
-            <div class="bank-title">${item.title}</div>
-            <div class="bank-note">${item.note}</div>
-          </div>
-        </button>
-      `).join('');
-
-      ui.bank.querySelectorAll('.bank-item').forEach(btn => {
         btn.addEventListener('click', () => {
-          const id = btn.dataset.id;
-          if (!id || state.ended || !state.started) return;
-          pickItem(id);
+          selectStep(step.id);
         });
+
+        els.cardPool.appendChild(btn);
       });
     }
 
+    function renderHUD(){
+      const pct = Math.round((state.correct / WHO_STEPS.length) * 100);
+      els.progressText.textContent = `${state.correct} / 7`;
+      els.timeText.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
+      els.scoreText.textContent = `Score ${state.score}`;
+      els.progressPct.textContent = `${pct}%`;
+      els.progressFill.style.width = `${pct}%`;
+    }
+
     function renderAll(){
-      renderSlots();
-      renderBank();
-      updateHUD();
+      renderChosenSlots();
+      renderCardPool();
+      renderHUD();
+    }
+
+    function selectStep(stepId){
+      if (!state.started || state.ended) return;
+
+      const expected = WHO_STEPS[state.currentIndex];
+      const picked = WHO_STEPS.find(s => s.id === stepId);
+      if (!picked) return;
+
+      if (picked.id === expected.id){
+        state.chosen.push(picked);
+        state.currentIndex += 1;
+        state.correct += 1;
+        state.score += 20;
+
+        setCoach('ถูกต้อง ไปขั้นถัดไปเลย', 'good');
+
+        if (state.currentIndex >= WHO_STEPS.length){
+          finishMini(true);
+          return;
+        }
+
+        renderAll();
+        return;
+      }
+
+      state.miss += 1;
+      state.score = Math.max(0, state.score - 4);
+      setCoach('ยังไม่ใช่ขั้นถัดไป ลองใหม่', 'warn');
+      renderHUD();
+    }
+
+    function startMini(){
+      state.started = true;
+      state.ended = false;
+      resetRound();
+      els.startOverlay.classList.add('hidden');
+      els.summaryOverlay.classList.add('hidden');
+      setCoach('เริ่มจากขั้นแรกก่อน');
+      renderAll();
+    }
+
+    function calcStars(success){
+      if (!success) return 1;
+      if (state.miss === 0 && state.timeLeft >= MINI_TIME * 0.35) return 3;
+      if (state.miss <= 2) return 2;
+      return 1;
     }
 
     function computeMiniBadges(success){
       const badges = [];
       if (!success) return badges;
 
-      if (state.miss === 0) badges.push('No Miss Hero');
-      if (state.bestCombo >= 5) badges.push('Combo Thinker');
-      if (state.bestCombo >= 7) badges.push('Order Master');
-      if (state.timeLeft >= START_TIME * 0.35) badges.push('Fast Recall');
-      if (accuracyPercent() >= 85) badges.push('Sharp Memory');
-      if (state.miss === 0 && accuracyPercent() === 100) badges.push('Perfect Recall');
+      if (state.miss === 0) badges.push('No Miss Order');
+      if (state.correct === 7) badges.push('WHO Sequence Master');
+      if (state.timeLeft >= MINI_TIME * 0.35) badges.push('Fast Recall');
       return badges;
     }
 
-    function resolveMiniRank(success, stars){
+    function resolveMiniRank(success, stars, badges){
       if (!success) return 'Try Again';
-      if (state.miss === 0 && accuracyPercent() === 100) return 'Recall Master';
-      if (stars >= 3) return 'Memory Pro';
-      return 'Mini Clear';
+      if (badges.includes('WHO Sequence Master') && stars === 3) return 'WHO Memory Star';
+      if (stars >= 2) return 'Sequence Pro';
+      return 'Sequence Clear';
     }
 
-    function saveLastSummary(success, stars){
-      if (!window.HandwashShared) return;
+    function showMiniSummary(success, stars, accuracy, badges, rank){
+      els.sumTitle.textContent = success ? 'เรียงลำดับถูกครบแล้ว!' : 'ยังไม่ครบ ลองอีกครั้ง';
+      els.sumDesc.textContent = success
+        ? 'วันนี้จบ Handwash Flow ครบแล้ว'
+        : 'ลองเรียง WHO 7 ขั้นใหม่อีกครั้ง';
+      els.sumStars.textContent = '⭐'.repeat(stars);
+      els.sumAccuracy.textContent = `${accuracy}%`;
+      els.sumTime.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
+      els.sumRank.textContent = rank;
+      els.sumBadges.textContent = badges.length ? badges.join(' • ') : 'ยังไม่มี badge เพิ่ม';
+      els.summaryOverlay.classList.remove('hidden');
+    }
 
+    function finishMini(success){
+      state.ended = true;
+
+      const totalAttempts = state.correct + state.miss;
+      const accuracy = Math.max(0, Math.round((state.correct / (totalAttempts || 1)) * 100));
+      const stars = calcStars(success);
       const badges = computeMiniBadges(success);
+      const rank = resolveMiniRank(success, stars, badges);
 
-      HandwashShared.saveSummary({
-        stage: 'mini-order',
+      window.HandwashShared?.saveSummary?.({
+        stage: 'mini',
         success,
         score: state.score,
         stars,
         miss: state.miss,
         timeLeft: Math.max(0, Math.ceil(state.timeLeft)),
-        accuracy: accuracyPercent(),
-        progress: progressPercent(),
-        bestStreak: state.bestCombo,
-        whoDone: 7,
+        accuracy,
+        progress: Math.round((state.correct / 7) * 100),
+        bestStreak: 0,
+        whoDone: state.correct,
         badges,
-        rank: resolveMiniRank(success, stars),
-        notes: badges.join(', ') || (success ? 'Handwash mini-order completed' : 'Handwash mini-order incomplete')
+        rank,
+        notes: success ? 'Handwash mini order completed' : 'Handwash mini order incomplete'
       });
-    }
 
-    function finishGame(success=true){
-      state.ended = true;
-
-      let stars = 1;
-      if (success && state.miss <= 2 && accuracyPercent() >= 80) stars = 2;
-      if (success && state.miss === 0 && accuracyPercent() === 100 && state.timeLeft > START_TIME * 0.2) stars = 3;
-
-      saveLastSummary(success, stars);
-
-      ui.sumTitle.textContent = success ? 'จบ Handwash Set' : 'ยังไม่ผ่าน Mini Order';
-      ui.sumDesc.textContent = success
-        ? 'ทบทวนลำดับครบแล้ว กำลังพร้อมกลับ Hygiene Zone'
-        : 'ยังเรียงไม่ครบ ลองใหม่อีกครั้งได้เลย';
-
-      ui.sumSteps.textContent = `${state.placed.length} / ${ORDER_ITEMS.length}`;
-      ui.sumScore.textContent = String(state.score);
-      ui.sumMiss.textContent = String(state.miss);
-      ui.sumStars.textContent = success ? '⭐'.repeat(stars) : '⭐';
-
-      const badges = computeMiniBadges(success);
-      ui.sumBadges.innerHTML = '';
-      if (badges.length){
-        badges.forEach(badge => {
-          const el = document.createElement('div');
-          el.className = 'pill';
-          el.textContent = badge;
-          ui.sumBadges.appendChild(el);
-        });
-      } else {
-        const el = document.createElement('div');
-        el.className = 'pill';
-        el.textContent = success ? 'Mini Clear' : 'Try Again';
-        ui.sumBadges.appendChild(el);
-      }
-
-      ui.summaryOverlay.classList.remove('hidden');
-
-      if (success){
-        hhTone(840, 0.05, 'square', 0.025, 0.00);
-        hhTone(1020, 0.07, 'triangle', 0.028, 0.08);
-
-        const miniBadges = computeMiniBadges(success);
-        const miniRank = resolveMiniRank(success, stars);
-
-        if (miniBadges.length){
-          setTimeout(() => {
-            showUnlockToast('🧠 ปลด Badge ใหม่', miniBadges.slice(0,2).join(' • '), 'badge');
-          }, 220);
-        }
-
-        setTimeout(() => {
-          showUnlockToast('🏁 Rank ใหม่', miniRank, 'rank');
-        }, miniBadges.length ? 1180 : 260);
-
-        setCoach('finish');
-      } else {
-        setCoach('warn');
-      }
-    }
-
-    function pickItem(id){
-      const expected = nextExpected();
-      if (!expected) return;
-
-      const picked = state.bank.find(item => item.id === id);
-      if (!picked || picked.used) return;
-
-      state.attempts += 1;
-
-      if (id === expected.id){
-        picked.used = true;
-        state.placed.push(picked);
-        state.combo += 1;
-        state.bestCombo = Math.max(state.bestCombo, state.combo);
-
-        const comboBonus = Math.min(30, state.combo * 2);
-        state.score += 24 + comboBonus;
-
-        if (state.combo >= 6){
-          setCoach('hot');
-        } else {
-          setCoach('good');
-        }
-
-        hhTone(860, 0.05, 'square', 0.024, 0.00);
-
-        if (state.placed.length >= ORDER_ITEMS.length){
-          renderAll();
-          finishGame(true);
-          return;
-        }
-      } else {
-        state.miss += 1;
-        state.combo = 0;
-        state.score = Math.max(0, state.score - 8);
-        setCoach('warn');
-        hhTone(220, 0.08, 'square', 0.032, 0.00);
-      }
-
+      showMiniSummary(success, stars, accuracy, badges, rank);
+      setCoach(success ? 'เก่งมาก จบครบแล้ว' : 'ลองอีกครั้งได้นะ', success ? 'good' : 'warn');
       renderAll();
     }
 
-    function undoLast(){
+    function loop(ts){
+      requestAnimationFrame(loop);
+
       if (!state.started || state.ended) return;
-      if (!state.placed.length) return;
+      if (!state.lastTs) state.lastTs = ts;
 
-      const last = state.placed.pop();
-      const bankItem = state.bank.find(item => item.id === last.id);
-      if (bankItem) bankItem.used = false;
+      const dt = Math.min(0.05, (ts - state.lastTs) / 1000);
+      state.lastTs = ts;
 
-      state.combo = 0;
-      state.score = Math.max(0, state.score - 6);
-      setCoach('warn');
-      renderAll();
-    }
+      state.timeLeft = Math.max(0, state.timeLeft - dt);
+      renderHUD();
 
-    function resetGame(){
-      state.started = true;
-      state.ended = false;
-      state.timeLeft = START_TIME;
-      state.score = 0;
-      state.miss = 0;
-      state.combo = 0;
-      state.bestCombo = 0;
-      state.placed = [];
-      state.bank = shuffle(ORDER_ITEMS).map(item => ({ ...item, used:false }));
-      state.attempts = 0;
-
-      ui.startOverlay.classList.add('hidden');
-      ui.summaryOverlay.classList.add('hidden');
-
-      setCoach('intro');
-      renderAll();
-    }
-
-    function tick(){
-      if (state.started && !state.ended){
-        state.timeLeft = Math.max(0, state.timeLeft - 0.1);
-        updateHUD();
-
-        if (state.timeLeft <= 0){
-          finishGame(false);
-        }
+      if (state.timeLeft <= 0){
+        finishMini(false);
       }
     }
 
-    ui.btnStart.addEventListener('click', () => {
-      playPageSignature('mini');
-      resetGame();
+    els.startBtn.addEventListener('click', startMini);
+    els.retryBtn.addEventListener('click', startMini);
+    els.sumRetryBtn.addEventListener('click', startMini);
+
+    els.launcherBtn.addEventListener('click', () => {
+      location.href = LAUNCHER_URL;
+    });
+    els.sumLauncherBtn.addEventListener('click', () => {
+      location.href = LAUNCHER_URL;
     });
 
-    ui.btnRestart.addEventListener('click', resetGame);
-    ui.btnSummaryRestart.addEventListener('click', resetGame);
-    ui.btnUndo.addEventListener('click', undoLast);
-
-    ui.btnFinishHub.addEventListener('click', () => {
-      showSceneTransition({
-        icon:'🏆',
-        title:'จบ Handwash Set',
-        desc:'เยี่ยมมาก กำลังกลับ Hygiene Zone',
-        url: HUB_URL
-      });
+    els.hubBtn.addEventListener('click', () => {
+      location.href = HUB_URL;
     });
-
-    ui.btnSummaryHub.addEventListener('click', () => {
-      showSceneTransition({
-        icon:'🏆',
-        title:'จบ Handwash Set',
-        desc:'เยี่ยมมาก กำลังกลับ Hygiene Zone',
-        url: HUB_URL
-      });
+    els.sumHubBtn.addEventListener('click', () => {
+      location.href = HUB_URL;
     });
 
     renderAll();
-    setCoach('intro');
-    setInterval(tick, 100);
+    requestAnimationFrame(loop);
   </script>
 </body>
 </html>
