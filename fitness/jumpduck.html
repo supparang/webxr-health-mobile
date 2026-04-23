@@ -1033,7 +1033,7 @@
     .jd-result-kid{
       padding:18px;
       display:grid;
-      gap:14px;
+      gap:12px;
     }
 
     .jd-kid-rank-wrap{
@@ -1043,11 +1043,11 @@
 
     .jd-kid-rank-wrap #jd-rank-badge{
       width:100%;
-      min-height:96px;
-      border-radius:28px;
+      min-height:72px;
+      border-radius:22px;
       display:grid;
       place-items:center;
-      font-size:56px;
+      font-size:46px;
       font-weight:1100;
       background:#fff;
       border:3px solid var(--line);
@@ -1063,21 +1063,21 @@
 
     .jd-kid-head{
       display:grid;
-      gap:6px;
+      gap:4px;
     }
 
     .jd-kid-head h2{
       margin:0;
       font-size:clamp(30px,6vw,42px);
-      line-height:1.08;
+      line-height:1.06;
       color:#1e5678;
     }
 
     .jd-kid-head p{
       margin:0;
       color:var(--muted);
-      font-size:16px;
-      line-height:1.7;
+      font-size:14px;
+      line-height:1.45;
       font-weight:1000;
     }
 
@@ -1086,8 +1086,8 @@
       grid-template-columns:72px 1fr;
       gap:12px;
       align-items:center;
-      padding:14px;
-      border-radius:22px;
+      padding:12px 14px;
+      border-radius:18px;
       border:2px solid var(--line);
       background:#fffef8;
     }
@@ -1104,17 +1104,17 @@
     }
 
     .jd-kid-reward-title{
-      font-size:24px;
+      font-size:18px;
       font-weight:1100;
-      line-height:1.08;
+      line-height:1.1;
       color:#6b5b1e;
     }
 
     .jd-kid-reward-sub{
-      margin-top:4px;
+      margin-top:2px;
       color:#7c776d;
-      font-size:15px;
-      line-height:1.7;
+      font-size:13px;
+      line-height:1.45;
       font-weight:1000;
     }
 
@@ -1125,8 +1125,8 @@
     }
 
     .jd-kid-stat{
-      padding:16px 14px;
-      border-radius:22px;
+      padding:12px;
+      border-radius:18px;
       border:2px solid var(--line);
       background:#fff;
       display:grid;
@@ -1135,36 +1135,36 @@
     }
 
     .jd-kid-stat .k{
-      font-size:14px;
+      font-size:13px;
       font-weight:1000;
       color:#6f8797;
     }
 
     .jd-kid-stat .v{
-      font-size:38px;
+      font-size:32px;
       line-height:1;
       font-weight:1100;
       color:#24435a;
     }
 
     .jd-kid-coach{
-      padding:14px;
-      border-radius:22px;
+      padding:12px 14px;
+      border-radius:18px;
       border:2px dashed #eadb9e;
       background:#fffef7;
       display:grid;
-      gap:6px;
+      gap:4px;
     }
 
     .jd-kid-coach-label{
-      font-size:14px;
+      font-size:13px;
       font-weight:1100;
       color:#8a6a18;
     }
 
     .jd-kid-coach-text{
-      font-size:18px;
-      line-height:1.6;
+      font-size:15px;
+      line-height:1.45;
       font-weight:1100;
       color:#6d6340;
     }
@@ -1173,6 +1173,15 @@
       display:flex;
       flex-wrap:wrap;
       gap:10px;
+      align-items:center;
+    }
+
+    .footer-actions .btn,
+    .footer-actions .mini-link{
+      min-height:44px;
+      padding:10px 14px;
+      font-size:14px;
+      border-radius:14px;
     }
 
     .footer-note{
@@ -1206,26 +1215,111 @@
       .control-btn{
         min-height:58px;
       }
-      .jd-kid-stats{
-        grid-template-columns:1fr;
+
+      .jd-result-kid{
+        padding:14px;
+        gap:10px;
       }
+
       .jd-kid-rank-wrap #jd-rank-badge{
-        min-height:88px;
-        font-size:48px;
+        min-height:84px;
+        font-size:44px;
+        border-radius:22px;
       }
+
+      .jd-kid-head{
+        gap:4px;
+      }
+
+      .jd-kid-head h2{
+        font-size:28px;
+        line-height:1.08;
+      }
+
+      .jd-kid-head p{
+        font-size:14px;
+        line-height:1.55;
+      }
+
       .jd-kid-reward{
-        grid-template-columns:64px 1fr;
+        grid-template-columns:56px 1fr;
+        gap:10px;
+        padding:12px;
+        border-radius:18px;
       }
+
       .jd-kid-reward-icon{
-        width:64px;
-        height:64px;
-        font-size:30px;
+        width:56px;
+        height:56px;
+        border-radius:18px;
+        font-size:26px;
       }
+
+      .jd-kid-reward-title{
+        font-size:18px;
+        line-height:1.1;
+      }
+
+      .jd-kid-reward-sub{
+        font-size:13px;
+        line-height:1.5;
+        margin-top:2px;
+      }
+
+      .jd-kid-stats{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .jd-kid-stat{
+        padding:10px 8px;
+        border-radius:16px;
+        gap:4px;
+        min-height:auto;
+      }
+
+      .jd-kid-stat .k{
+        font-size:12px;
+        line-height:1.2;
+      }
+
       .jd-kid-stat .v{
-        font-size:34px;
+        font-size:26px;
+        line-height:1;
       }
+
+      .jd-kid-coach{
+        padding:12px;
+        border-radius:18px;
+        gap:4px;
+      }
+
+      .jd-kid-coach-label{
+        font-size:13px;
+      }
+
       .jd-kid-coach-text{
-        font-size:16px;
+        font-size:15px;
+        line-height:1.5;
+      }
+
+      .footer-actions{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+      }
+
+      .footer-actions .btn,
+      .footer-actions .mini-link{
+        min-height:48px;
+        padding:10px 12px;
+        border-radius:16px;
+        font-size:15px;
+        width:100%;
+      }
+
+      .footer-actions .mini-link{
+        grid-column:1 / -1;
       }
     }
   </style>
@@ -1471,14 +1565,14 @@
 
           <div class="jd-kid-head">
             <h2 id="jd-result-title">ผ่านแล้ว! แต่ยังไปได้อีก</h2>
-            <p id="jd-result-sub">รอบหน้าลองลด miss และดัน combo ให้สูงขึ้น</p>
+            <p id="jd-result-sub">รอบหน้าลองพลาดให้น้อยลง และทำคอมโบให้สูงขึ้น</p>
           </div>
 
           <div class="jd-kid-reward">
             <div id="jd-result-reward-icon" class="jd-kid-reward-icon">⭐</div>
             <div class="jd-kid-reward-copy">
-              <div id="jd-result-reward" class="jd-kid-reward-title">Clear Run</div>
-              <div id="jd-result-reward-sub" class="jd-kid-reward-sub">ลองอ่านสิ่งกีดขวางให้เร็วขึ้น และอย่ากดรีบเกินไป</div>
+              <div id="jd-result-reward" class="jd-kid-reward-title">ผ่านด่านแล้ว</div>
+              <div id="jd-result-reward-sub" class="jd-kid-reward-sub">ลองดูสิ่งกีดขวางให้ชัดขึ้น แล้วค่อยกด</div>
             </div>
           </div>
 
@@ -1501,7 +1595,7 @@
 
           <div class="jd-kid-coach">
             <div class="jd-kid-coach-label">โค้ชแนะนำ</div>
-            <div id="jd-coach-tip-1" class="jd-kid-coach-text">รอบหน้าลองดูสิ่งกีดขวางให้เร็วขึ้นอีกนิด</div>
+            <div id="jd-coach-tip-1" class="jd-kid-coach-text">รอบหน้าลองดูรูปสิ่งกีดขวางให้ชัดก่อนกด</div>
           </div>
 
           <div class="footer-actions">
@@ -1517,7 +1611,7 @@
             <div id="jd-result-pattern">—</div>
             <div id="jd-result-rush">—</div>
 
-            <div id="jd-coach-title">AI Coach</div>
+            <div id="jd-coach-title">โค้ชแนะนำ</div>
             <div id="jd-coach-summary">สรุปคำแนะนำหลังจบเกม</div>
             <div id="jd-coach-tip-2">—</div>
 
@@ -1553,6 +1647,6 @@
     </div>
   </main>
 
-  <script src="./js/jumpduck.js?v=20260415c-JUMPDuck-DOGHERO-CUTE-G5RESULT-MOBILETUNE-FITNESSZONE-FINAL"></script>
+  <script src="./js/jumpduck.js?v=20260415d-JUMPDuck-DOGHERO-CUTE-G5RESULT-MOBILETUNE-KIDTEXT-FITNESSZONE-FINAL"></script>
 </body>
 </html>
