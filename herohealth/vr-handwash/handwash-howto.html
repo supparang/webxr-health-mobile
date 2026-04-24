@@ -17,10 +17,11 @@
       --pink:#f472b6;
       --yellow:#fde047;
       --green:#86efac;
+      --good:#22c55e;
       --shadow:0 18px 48px rgba(15,50,70,.14);
       --r-xl:28px;
       --r-lg:22px;
-      --maxw:860px;
+      --maxw:880px;
     }
 
     *{ box-sizing:border-box; }
@@ -222,6 +223,137 @@
       font-size:.94rem;
     }
 
+    .try-box{
+      margin-top:16px;
+      background:#f8fcff;
+      border:1px solid #d9ecf8;
+      border-radius:24px;
+      padding:14px;
+    }
+
+    .try-title{
+      margin:0 0 10px;
+      font-weight:1000;
+      color:#0f172a;
+      font-size:1.05rem;
+    }
+
+    .try-row{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+      gap:10px;
+    }
+
+    .try-btn{
+      appearance:none;
+      border:none;
+      width:100%;
+      border-radius:20px;
+      padding:14px;
+      min-height:74px;
+      background:#fff;
+      border:2px solid #d9ecf8;
+      color:#0f172a;
+      font-weight:1000;
+      font-size:1rem;
+      box-shadow:0 8px 18px rgba(0,0,0,.06);
+      cursor:pointer;
+      text-align:left;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .try-btn[disabled]{
+      opacity:.48;
+      cursor:not-allowed;
+      box-shadow:none;
+    }
+
+    .try-btn.active{
+      border-color:#22d3ee;
+      background:#ecfeff;
+      transform:translateY(-1px);
+    }
+
+    .try-btn.done{
+      border-color:#86efac;
+      background:#dcfff2;
+    }
+
+    .try-emoji{
+      width:48px;
+      height:48px;
+      border-radius:16px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#e9fbff;
+      font-size:1.5rem;
+      flex:0 0 auto;
+    }
+
+    .feedback{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff8d7;
+      color:#713f12;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .hold-area{
+      margin-top:16px;
+      border-radius:26px;
+      background:linear-gradient(180deg,#e0fbff,#bdf5ff);
+      border:2px solid #8defff;
+      min-height:150px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      gap:12px;
+      padding:18px;
+      user-select:none;
+      touch-action:none;
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);
+    }
+
+    .hold-icon{
+      width:78px;
+      height:78px;
+      border-radius:24px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2.35rem;
+      background:#ffffffaa;
+      box-shadow:0 10px 24px rgba(0,0,0,.08);
+    }
+
+    .hold-text{
+      font-size:1.1rem;
+      font-weight:1000;
+      color:#0f4c5c;
+    }
+
+    .hold-progress{
+      width:100%;
+      height:18px;
+      background:#e0f2fe;
+      border-radius:999px;
+      overflow:hidden;
+      border:2px solid #67e8f9;
+    }
+
+    .hold-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#60ff9d,#00e5ff);
+      transition:width .08s linear;
+    }
+
     .footer{
       display:flex;
       justify-content:center;
@@ -254,6 +386,11 @@
 
     .btn:active{
       transform:translateY(1px);
+    }
+
+    .btn[disabled]{
+      opacity:.5;
+      cursor:not-allowed;
     }
 
     .tiny-actions{
@@ -338,6 +475,28 @@
 
       .copy span{
         font-size:.86rem;
+      }
+
+      .try-row{
+        grid-template-columns:1fr;
+      }
+
+      .try-btn{
+        min-height:66px;
+        padding:12px;
+        border-radius:18px;
+        font-size:.94rem;
+      }
+
+      .try-emoji{
+        width:44px;
+        height:44px;
+        border-radius:14px;
+        font-size:1.35rem;
+      }
+
+      .hold-area{
+        min-height:140px;
       }
 
       .footer{
@@ -438,10 +597,12 @@
 
     const SCENES = [
       {
+        type:'read',
         title:'ในเกมนี้มี 4 อย่าง',
         badge:'📘 Scene 1 • จำ 4 อย่างนี้ก่อน',
         h1:'ในเกมนี้มี 4 อย่างที่ต้องรู้',
         desc:'ดูให้รู้ก่อนว่าเห็นอะไรแล้วต้องทำอะไร',
+        nextLocked:false,
         items:[
           { icon:'🚰', cls:'faucet', title:'ก๊อกน้ำ', desc:'เห็นก๊อกน้ำ = แตะก๊อกน้ำ' },
           { icon:'🧼', cls:'soap', title:'สบู่', desc:'เห็นสบู่ = แตะสบู่' },
@@ -450,37 +611,35 @@
         ]
       },
       {
-        title:'เห็นของแล้วแตะ',
-        badge:'🎯 Scene 2 • เห็นของแล้วแตะ',
-        h1:'ถ้าเห็นของพวกนี้ ให้แตะตรงของนั้น',
-        desc:'ยังไม่ต้องเล็งในหน้านี้ แค่จำก่อนว่าอะไรต้องแตะ',
-        items:[
-          { icon:'🚰', cls:'faucet', title:'ก๊อกน้ำ', desc:'แตะก๊อกน้ำเมื่อเห็นป้ายก๊อกน้ำ' },
-          { icon:'🧼', cls:'soap', title:'สบู่', desc:'แตะสบู่เมื่อเห็นป้ายสบู่' },
-          { icon:'🟨', cls:'hand', title:'ผ้าเช็ดมือ', desc:'แตะผ้าเมื่อถึงขั้นเช็ดมือ' }
+        type:'tap',
+        title:'ลองแตะของ',
+        badge:'🎯 Scene 2 • ลองแตะทีละอย่าง',
+        h1:'ลองแตะของให้ครบ 3 อย่าง',
+        desc:'แตะปุ่มใหญ่ทีละอัน ไม่ต้องเล็ง ไม่ต้องกลัวผิด',
+        order:[
+          { id:'faucet', icon:'🚰', title:'แตะก๊อกน้ำ', desc:'เห็นก๊อกน้ำ ให้แตะก๊อกน้ำ' },
+          { id:'soap', icon:'🧼', title:'แตะสบู่', desc:'เห็นสบู่ ให้แตะสบู่' },
+          { id:'towel', icon:'🟨', title:'แตะผ้าเช็ดมือ', desc:'เห็นผ้า ให้แตะผ้าเช็ดมือ' }
         ]
       },
       {
-        title:'เห็นน้ำแล้วค้างไว้',
-        badge:'💧 Scene 3 • ค้างที่โซนน้ำ',
-        h1:'ถ้าเห็นโซนน้ำ ให้ค้างไว้จนเต็ม',
-        desc:'ตอนฝึกจริง ให้เอาเป้ากลางจออยู่ในโซนน้ำ แล้วค้างไว้',
-        items:[
-          { icon:'💧', cls:'water', title:'โซนน้ำ', desc:'ค้างไว้จนแถบเต็ม' },
-          { icon:'⏳', cls:'faucet', title:'อย่าปล่อยเร็ว', desc:'ถ้าปล่อยเร็ว แถบจะยังไม่เต็ม' },
-          { icon:'✅', cls:'good', title:'เต็มแล้วผ่าน', desc:'แถบเต็มแล้วค่อยไปขั้นต่อไป' }
-        ]
+        type:'hold',
+        title:'ลองค้างน้ำ',
+        badge:'💧 Scene 3 • ลองค้างที่โซนน้ำ',
+        h1:'กดค้างที่โซนน้ำให้เต็ม',
+        desc:'แตะค้างตรงกล่องน้ำจนแถบเต็ม ปล่อยได้ ไม่เป็นไร',
+        holdNeed:1000
       },
       {
-        title:'เห็นมือแล้วแตะจุดเรืองแสง',
-        badge:'🖐️ Scene 4 • แตะจุดบนมือ',
-        h1:'ถ้าเห็นมือ ให้แตะจุดที่เรืองแสง',
-        desc:'ตอนฝึกจริง เกมจะชี้ทีละจุด ไม่ต้องเดาซ้ายขวาเอง',
-        items:[
-          { icon:'👐', cls:'faucet', title:'ฝ่ามือ', desc:'แตะจุดที่เรืองแสงบนฝ่ามือ' },
-          { icon:'🤝', cls:'water', title:'ซอกนิ้ว', desc:'แตะจุดที่เรืองแสงบริเวณซอกนิ้ว' },
-          { icon:'👍', cls:'soap', title:'หัวแม่มือ', desc:'แตะจุดที่เรืองแสงบริเวณหัวแม่มือ' },
-          { icon:'✅', cls:'good', title:'จำง่าย ๆ', desc:'เรืองตรงไหน แตะตรงนั้น' }
+        type:'tap',
+        title:'ลองแตะจุดบนมือ',
+        badge:'🖐️ Scene 4 • ลองแตะจุดบนมือ',
+        h1:'ลองแตะจุดบนมือทีละอย่าง',
+        desc:'ไม่ต้องเดาซ้ายขวา แค่แตะปุ่มใหญ่ที่เกมบอก',
+        order:[
+          { id:'palms', icon:'👐', title:'แตะฝ่ามือ', desc:'เห็นฝ่ามือ ให้แตะฝ่ามือ' },
+          { id:'between', icon:'🤝', title:'แตะซอกนิ้ว', desc:'เห็นซอกนิ้ว ให้แตะซอกนิ้ว' },
+          { id:'thumbs', icon:'👍', title:'แตะหัวแม่มือ', desc:'เห็นหัวแม่มือ ให้แตะหัวแม่มือ' }
         ]
       }
     ];
@@ -499,10 +658,19 @@
     };
 
     let index = 0;
+    let step = 0;
+    let holdValue = 0;
+    let holding = false;
+    let lastTs = 0;
+    let raf = 0;
 
-    function render(){
+    function progressPct(){
+      return Math.round(((index + 1) / SCENES.length) * 100);
+    }
+
+    function updateTop(){
       const scene = SCENES[index];
-      const pct = Math.round(((index + 1) / SCENES.length) * 100);
+      const pct = progressPct();
 
       els.stepLabel.textContent = `Howto • ขั้นที่ ${index + 1}/${SCENES.length}`;
       els.sceneTitle.textContent = scene.title;
@@ -511,7 +679,13 @@
       els.fill.style.width = `${pct}%`;
 
       els.nextBtn.textContent = index >= SCENES.length - 1 ? 'ไปฝึกจริง' : 'ถัดไป';
+    }
 
+    function setNextEnabled(on){
+      els.nextBtn.disabled = !on;
+    }
+
+    function renderRead(scene){
       const itemsHtml = scene.items.map(item => `
         <div class="item">
           <div class="icon ${item.cls || ''}">${item.icon}</div>
@@ -528,9 +702,156 @@
         <p class="desc">${scene.desc}</p>
         <div class="grid">${itemsHtml}</div>
       `;
+
+      setNextEnabled(true);
+    }
+
+    function renderTap(scene){
+      const buttonsHtml = scene.order.map((item, i) => {
+        const done = i < step;
+        const active = i === step;
+        const disabled = i !== step;
+
+        return `
+          <button class="try-btn ${done ? 'done' : ''} ${active ? 'active' : ''}"
+                  type="button"
+                  data-tap-index="${i}"
+                  ${disabled ? 'disabled' : ''}>
+            <span class="try-emoji">${done ? '✅' : item.icon}</span>
+            <span>
+              <strong>${item.title}</strong><br>
+              <small>${done ? 'ผ่านแล้ว' : item.desc}</small>
+            </span>
+          </button>
+        `;
+      }).join('');
+
+      const current = scene.order[step];
+
+      els.panel.innerHTML = `
+        <div class="badge">${scene.badge}</div>
+        <h1>${scene.h1}</h1>
+        <p class="desc">${scene.desc}</p>
+
+        <div class="try-box">
+          <p class="try-title">${current ? 'ลองทำ: ' + current.title : 'ครบแล้ว กดถัดไป'}</p>
+          <div class="try-row">${buttonsHtml}</div>
+          <div class="feedback" id="feedback">
+            ${current ? 'แตะปุ่มที่สว่างอยู่ตอนนี้' : 'เก่งมาก ผ่านแล้ว กด “ถัดไป” ได้เลย'}
+          </div>
+        </div>
+      `;
+
+      setNextEnabled(step >= scene.order.length);
+
+      document.querySelectorAll('[data-tap-index]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = Number(btn.dataset.tapIndex);
+          if (i !== step) return;
+
+          step += 1;
+          renderTap(scene);
+        });
+      });
+    }
+
+    function renderHold(scene){
+      els.panel.innerHTML = `
+        <div class="badge">${scene.badge}</div>
+        <h1>${scene.h1}</h1>
+        <p class="desc">${scene.desc}</p>
+
+        <div class="hold-area" id="holdArea">
+          <div class="hold-icon">💧</div>
+          <div class="hold-text" id="holdText">กดค้างตรงนี้</div>
+          <div class="hold-progress">
+            <div class="hold-fill" id="holdFill"></div>
+          </div>
+        </div>
+
+        <div class="feedback" id="feedback">
+          กดค้างที่กล่องน้ำจนแถบเต็ม
+        </div>
+      `;
+
+      setNextEnabled(false);
+
+      const holdArea = document.getElementById('holdArea');
+
+      function startHold(e){
+        e.preventDefault();
+        holding = true;
+      }
+
+      function endHold(e){
+        if (e) e.preventDefault();
+        holding = false;
+      }
+
+      holdArea.addEventListener('pointerdown', startHold, { passive:false });
+      window.addEventListener('pointerup', endHold, { passive:false });
+      window.addEventListener('pointercancel', endHold, { passive:false });
+
+      holdArea.addEventListener('touchstart', startHold, { passive:false });
+      window.addEventListener('touchend', endHold, { passive:false });
+      window.addEventListener('touchcancel', endHold, { passive:false });
+    }
+
+    function render(){
+      cancelAnimationFrame(raf);
+
+      step = 0;
+      holdValue = 0;
+      holding = false;
+      lastTs = 0;
+
+      const scene = SCENES[index];
+      updateTop();
+
+      if (scene.type === 'read') renderRead(scene);
+      if (scene.type === 'tap') renderTap(scene);
+      if (scene.type === 'hold') renderHold(scene);
+
+      raf = requestAnimationFrame(loop);
+    }
+
+    function loop(ts){
+      raf = requestAnimationFrame(loop);
+
+      const scene = SCENES[index];
+      if (!scene || scene.type !== 'hold') return;
+
+      if (!lastTs) lastTs = ts;
+      const dt = Math.min(50, ts - lastTs);
+      lastTs = ts;
+
+      const need = scene.holdNeed || 1000;
+
+      if (holding){
+        holdValue = Math.min(need, holdValue + dt);
+      } else {
+        holdValue = Math.max(0, holdValue - dt * 0.25);
+      }
+
+      const pct = Math.round((holdValue / need) * 100);
+      const fill = document.getElementById('holdFill');
+      const text = document.getElementById('holdText');
+      const feedback = document.getElementById('feedback');
+
+      if (fill) fill.style.width = pct + '%';
+      if (text) text.textContent = pct >= 100 ? 'เต็มแล้ว ผ่าน!' : `กดค้างต่อ • ${pct}%`;
+
+      if (pct >= 100){
+        setNextEnabled(true);
+        if (feedback) feedback.textContent = 'ดีมาก แถบเต็มแล้ว กด “ถัดไป” ได้เลย';
+      }
     }
 
     function goNext(){
+      const scene = SCENES[index];
+
+      if (els.nextBtn.disabled) return;
+
       if (index < SCENES.length - 1){
         index += 1;
         render();
@@ -541,6 +862,7 @@
     }
 
     els.nextBtn.addEventListener('click', goNext);
+
     els.skipBtn.addEventListener('click', () => {
       location.href = PRACTICE_URL;
     });
