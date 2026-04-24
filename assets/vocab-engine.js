@@ -69,7 +69,7 @@ import { installVocabGuards } from './vocab-guard.js';
   const LAST_MODE_KEY = 'VOCAB_V9_LAST_MODE';
   const LAST_BANK_KEY = 'VOCAB_V9_LAST_BANK';
 
-  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzOs6lQUEdTug17xKDDaVKEFMN0n0hkoBY9erwH309hkHMDYzNB_FhtSzhmNnF0uF5f/exec';
+  const VOCAB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
   const VOCAB_SHEET_SOURCE = 'vocab.html';
   const VOCAB_SHEET_SCHEMA = 'vocab-v4-per-mode';
 
