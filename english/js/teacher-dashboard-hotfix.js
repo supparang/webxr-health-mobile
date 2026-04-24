@@ -1,16 +1,17 @@
 // /english/js/teacher-dashboard-hotfix.js
-// PATCH v20260424-teacher-dashboard-report-r6
+// PATCH v20260424-teacher-dashboard-focus-r7
 // ✅ Force load teacher=dashboard from Apps Script
 // ✅ Smart rows: compact repeated visits by student/section/session
 // ✅ S00/Lobby is entry only, not At Risk
 // ✅ Student Detail panel with S01–S15 progress and attempts
-// ✅ Report Pack r6: date range, missing report, per-student progress, export report, print/PDF
+// ✅ Report Pack: date range, missing report, per-student progress, export report, print/PDF
+// ✅ Focus View r7: Overview / Report / Students / Advanced / Show All
 // ✅ Does not load old teacher.js
 
 (function () {
   "use strict";
 
-  const PATCH = "v20260424-teacher-dashboard-report-r6";
+  const PATCH = "v20260424-teacher-dashboard-focus-r7";
 
   const ENDPOINT =
     window.TECHPATH_ATTENDANCE_ENDPOINT ||
@@ -22,6 +23,7 @@
     filteredRows: [],
     selectedKey: "",
     selectedRow: null,
+    view: localStorage.getItem("TECHPATH_TEACHER_VIEW") || "overview",
     filters: {
       search: "",
       section: "",
@@ -440,6 +442,26 @@
     if (s === "failed") return "Failed";
     if (s === "left") return "Left";
     return status || "-";
+  }
+
+  function viewHintText(view) {
+    if (view === "overview") {
+      return "Overview: ดูภาพรวมเร็ว ๆ สำหรับติดตามชั้นเรียน เช่น จำนวนเข้าเรียน Completed, At Risk และ Heatmap";
+    }
+
+    if (view === "report") {
+      return "Report: ใช้สรุปรายงานผล เลือกช่วงวันที่ เลือก S ที่ต้องการ ตรวจคนที่ยังไม่เข้า/ยังไม่ผ่าน และ Export/Print ได้";
+    }
+
+    if (view === "students") {
+      return "Students: ดูรายชื่อนักศึกษา รายด่าน รายละเอียดรายคน ประวัติ attempts และความคืบหน้า S01–S15";
+    }
+
+    if (view === "advanced") {
+      return "Advanced: ดูข้อมูลเชิงลึก เช่น Section Summary, Section × S Matrix และ Heatmap แบบละเอียด";
+    }
+
+    return "Show All: แสดงทุกส่วนในหน้าเดียว เหมาะสำหรับตรวจสอบระบบหรือ export ภาพรวม";
   }
 
   function setEndpointPill(text, ok = true) {
@@ -1152,6 +1174,54 @@
     `).join("");
   }
 
+  function setDisplay(el, show) {
+    if (!el) return;
+    el.style.display = show ? "" : "none";
+  }
+
+  function applyFocusView() {
+    const view = state.view || "overview";
+    const showAll = view === "all";
+
+    const reportTools = $("report-tools");
+    const reportSummaryPanel = $("report-summary-panel");
+    const heatmapRows = document.querySelectorAll(".heatmap-row");
+    const advancedPanels = Array.from(document.querySelectorAll(".section-panel")).filter((el) => {
+      return el.id !== "report-summary-panel" && !el.classList.contains("report-panel");
+    });
+    const grid = document.querySelector(".grid");
+    const hint = $("view-hint");
+
+    setDisplay(reportTools, showAll || view === "report");
+    setDisplay(reportSummaryPanel, showAll || view === "report" || view === "overview");
+
+    heatmapRows.forEach((el, idx) => {
+      if (idx === 0) {
+        setDisplay(el, showAll || view === "report");
+      }
+
+      if (idx === 1) {
+        setDisplay(el, showAll || view === "overview" || view === "advanced");
+      }
+    });
+
+    advancedPanels.forEach((el) => {
+      setDisplay(el, showAll || view === "advanced");
+    });
+
+    setDisplay(grid, showAll || view === "students");
+
+    document.querySelectorAll("#view-tabs [data-view]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.view === view);
+    });
+
+    if (hint) {
+      hint.textContent = viewHintText(view);
+    }
+
+    document.body.classList.remove("teacher-view-loading");
+  }
+
   function rerender() {
     applyFilters();
 
@@ -1163,6 +1233,7 @@
     renderSectionSummary();
     renderMatrix();
     renderReportPack();
+    applyFocusView();
 
     const footer = $("footer-note");
     if (footer) {
@@ -1199,6 +1270,8 @@
 
       const footer = $("footer-note");
       if (footer) footer.textContent = `Build: ${PATCH} • ERROR: ${err.message || err}`;
+
+      document.body.classList.remove("teacher-view-loading");
     }
   }
 
@@ -1448,6 +1521,14 @@
       });
     });
 
+    document.querySelectorAll("#view-tabs [data-view]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.view = btn.dataset.view || "overview";
+        localStorage.setItem("TECHPATH_TEACHER_VIEW", state.view);
+        applyFocusView();
+      });
+    });
+
     $("mobile-filter-toggle")?.addEventListener("click", () => {
       document.body.classList.toggle("filters-collapsed");
       const collapsed = document.body.classList.contains("filters-collapsed");
@@ -1457,10 +1538,10 @@
   }
 
   function ensurePolishCss() {
-    if (document.getElementById("teacher-polish-r6-css")) return;
+    if (document.getElementById("teacher-polish-r7-css")) return;
 
     const style = document.createElement("style");
-    style.id = "teacher-polish-r6-css";
+    style.id = "teacher-polish-r7-css";
     style.textContent = `
       .student-row-active{
         background:rgba(123,237,255,.12)!important;
@@ -1511,6 +1592,7 @@
   function boot() {
     ensurePolishCss();
     bind();
+    applyFocusView();
     loadDashboard();
 
     state.timer = setInterval(() => {
