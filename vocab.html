@@ -6,6 +6,7 @@
   <title>Vocab • ESP Battle CS/AI</title>
   <meta name="theme-color" content="#0a1430" />
   <meta name="color-scheme" content="dark" />
+
   <style>
     :root{
       --bg1:#071121;
@@ -96,6 +97,7 @@
       filter:saturate(1.04) contrast(1.01);
     }
 
+    /* scene depth */
     #sceneDepth{
       position:fixed;
       inset:0;
@@ -279,6 +281,7 @@
     .actionGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .top3Board{display:grid;grid-template-columns:1fr;gap:10px;margin-top:0}
 
+    /* menu hero */
     .menuHero{
       position:relative;
       overflow:hidden;
@@ -445,6 +448,7 @@
       line-height:1.45;
     }
 
+    /* controls */
     .option,
     .inputBox,
     .top3Card,
@@ -594,6 +598,7 @@
     .btn.alt{background:linear-gradient(135deg,#fde047,#fb7185);color:#311314}
     .btn.ghost{background:linear-gradient(135deg,#dbeafe,#93c5fd);color:#172554}
 
+    /* HUD */
     .hud{
       position:fixed;
       left:10px;
@@ -694,6 +699,7 @@
       to{filter:saturate(1.18) brightness(1.08)}
     }
 
+    /* question */
     #questionBox{
       position:fixed;
       top:118px;
@@ -925,6 +931,7 @@
       100%{opacity:0;transform:translateX(-50%) translateY(-22px) scale(1.03)}
     }
 
+    /* list/card utilities from engine */
     .chipRow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
     .infoChip,.miniChip{
       display:inline-flex;
@@ -1251,6 +1258,7 @@
     .mono{font-family:ui-monospace,Consolas,monospace}
     .secretNote{margin-top:10px;font-size:12px;color:#fde68a;line-height:1.5}
 
+    /* feedback FX */
     #fxFlash,#fxBurst,#comboGlow{
       position:fixed;
       inset:0;
@@ -1360,6 +1368,7 @@
       100%{transform:scale(1)}
     }
 
+    /* round intro */
     #roundIntroFx{
       position:fixed;
       inset:0;
@@ -1428,6 +1437,7 @@
       box-shadow:0 18px 42px rgba(0,0,0,.28),0 0 0 3px rgba(103,232,249,.14),0 0 28px rgba(103,232,249,.10)!important;
     }
 
+    /* final summary */
     #endWrap{z-index:9999}
 
     .summaryPanel{
@@ -1533,6 +1543,21 @@
       line-height:1.6;
     }
 
+    #endSummaryText.summary-clean-final{
+      font-size:15px;
+      line-height:1.6;
+      color:#eef6ff;
+    }
+
+    #endSummaryText.summary-clean-final .summaryCard,
+    #endSummaryText.summary-clean-final .summaryHero,
+    #endSummaryText.summary-clean-final .summaryStats,
+    #endSummaryText.summary-clean-final .summaryWeak,
+    #endSummaryText.summary-clean-final .summaryHint,
+    #endSummaryText.summary-clean-final .actionGrid{
+      display:none !important;
+    }
+
     .summaryKpiGrid{
       margin-top:14px;
       display:grid;
@@ -1614,6 +1639,7 @@
       100%{box-shadow:0 14px 30px rgba(0,0,0,.18),0 0 0 0 rgba(103,232,249,0)}
     }
 
+    /* leaderboard premium */
     .leaderboardPanel{
       width:min(820px,94vw);
       border-radius:30px;
@@ -1820,6 +1846,7 @@
     .premiumLeaderboardList .leaderStats{grid-template-columns:1fr 1fr;gap:10px}
     .premiumLeaderboardList .leaderStat{border-radius:15px}
 
+    /* sound */
     .soundToggleBtn{
       position:fixed;
       right:12px;
@@ -1985,6 +2012,7 @@
     }
   </style>
 </head>
+
 <body>
 <div id="app">
   <canvas id="gameCanvas"></canvas>
@@ -2299,6 +2327,7 @@
   </div>
 </div>
 
+<!-- visual feedback / combo FX -->
 <script>
 (() => {
   const feedback = document.getElementById('feedbackBox');
@@ -2408,181 +2437,7 @@
 })();
 </script>
 
-<script>
-(() => {
-  const endWrap = document.getElementById('endWrap');
-  const summaryPanel = document.getElementById('summaryPanel');
-  const endTitle = document.getElementById('endTitle');
-  const endSummaryText = document.getElementById('endSummaryText');
-  const endRankBadge = document.getElementById('endRankBadge');
-  const endResultPill = document.getElementById('endResultPill');
-  const endRewardCard = document.getElementById('endRewardCard');
-
-  const endKpiScore = document.getElementById('endKpiScore');
-  const endKpiAccuracy = document.getElementById('endKpiAccuracy');
-  const endKpiCombo = document.getElementById('endKpiCombo');
-  const endKpiStage = document.getElementById('endKpiStage');
-
-  const hudScore = document.getElementById('hudScore');
-  const hudCombo = document.getElementById('hudCombo');
-  const hudRound = document.getElementById('hudRound');
-
-  if (!endWrap || !summaryPanel || !endTitle || !endSummaryText) return;
-
-  function numFromText(t) {
-    const m = String(t || '').match(/(\d+(?:\.\d+)?)/);
-    return m ? Number(m[1]) : 0;
-  }
-
-  function accuracyFromSummary(t) {
-    const m = String(t || '').match(/(\d+(?:\.\d+)?)\s*%/);
-    return m ? Number(m[1]) : 0;
-  }
-
-  function stageText() {
-    const raw = String(hudRound?.textContent || '').trim();
-    return raw || '-';
-  }
-
-  function scoreValue() {
-    return numFromText(hudScore?.textContent || '');
-  }
-
-  function comboValue() {
-    return numFromText(hudCombo?.textContent || '');
-  }
-
-  function tierFromStats(score, accuracy, combo) {
-    if (score >= 180 || accuracy >= 95 || combo >= 12) return 'LEGEND';
-    if (score >= 140 || accuracy >= 88 || combo >= 9) return 'MASTER';
-    if (score >= 100 || accuracy >= 78 || combo >= 6) return 'PRO';
-    if (score >= 60 || accuracy >= 65 || combo >= 3) return 'RISING';
-    return 'STARTER';
-  }
-
-  function panelTierClass(tier) {
-    return {
-      STARTER: 'tier-starter',
-      RISING: 'tier-rising',
-      PRO: 'tier-pro',
-      MASTER: 'tier-master',
-      LEGEND: 'tier-legend'
-    }[tier] || 'tier-starter';
-  }
-
-  function toneFromTitleAndText(title, summary) {
-    const text = (String(title || '') + ' ' + String(summary || '')).toLowerCase();
-
-    if (
-      text.includes('fail') ||
-      text.includes('try again') ||
-      text.includes('miss') ||
-      text.includes('wrong too many')
-    ) return 'fail';
-
-    if (
-      text.includes('great') ||
-      text.includes('clear') ||
-      text.includes('victory') ||
-      text.includes('win') ||
-      text.includes('excellent') ||
-      text.includes('passed')
-    ) return 'success';
-
-    return 'warn';
-  }
-
-  function pillText(tone, accuracy) {
-    if (tone === 'success') {
-      return accuracy ? `Excellent run • ${accuracy}% accuracy` : 'Excellent run • strong finish';
-    }
-    if (tone === 'fail') {
-      return accuracy ? `Keep training • ${accuracy}% accuracy` : 'Keep training • try one more run';
-    }
-    return accuracy ? `Good progress • ${accuracy}% accuracy` : 'Good progress • ready for next run';
-  }
-
-  function rewardText(tier, tone, score, combo) {
-    if (tier === 'LEGEND') {
-      return `Legend performance this round. Score ${score} และ combo ${combo} ทำได้ยอดเยี่ยมมาก`;
-    }
-    if (tier === 'MASTER') {
-      return `Master tier unlocked. รอบนี้คุมจังหวะและความแม่นยำได้ดีมาก`;
-    }
-    if (tier === 'PRO') {
-      return `Pro result. ผลงานรอบนี้เริ่มนิ่งและมีพลังมากขึ้นแล้ว`;
-    }
-    if (tier === 'RISING') {
-      return tone === 'fail'
-        ? 'ยังมีจุดให้แก้ แต่เริ่มจับทางได้แล้ว ลองเล่นซ้ำอีกรอบเพื่อดันคะแนน'
-        : 'กำลังไต่ระดับขึ้นดีมาก เล่นต่ออีกนิดจะเห็นผลชัดขึ้น';
-    }
-    return 'เริ่มต้นได้ดีแล้ว ใช้ปุ่ม PLAY AGAIN เพื่อฝึกต่อทันที';
-  }
-
-  function refreshSummaryFx() {
-    const title = String(endTitle.textContent || '').trim();
-    const summary = String(endSummaryText.textContent || '').trim();
-
-    const score = scoreValue();
-    const combo = comboValue();
-    const accuracy = accuracyFromSummary(summary);
-    const stage = stageText();
-
-    const tier = tierFromStats(score, accuracy, combo);
-    const tone = toneFromTitleAndText(title, summary);
-
-    summaryPanel.classList.remove(
-      'tier-starter','tier-rising','tier-pro','tier-master','tier-legend',
-      'success','warn','fail','pop-in'
-    );
-
-    summaryPanel.classList.add(panelTierClass(tier), tone);
-    void summaryPanel.offsetWidth;
-    summaryPanel.classList.add('pop-in');
-
-    if (endRankBadge) endRankBadge.textContent = tier;
-    if (endResultPill) endResultPill.textContent = pillText(tone, accuracy);
-    if (endKpiScore) endKpiScore.textContent = score || '-';
-    if (endKpiAccuracy) endKpiAccuracy.textContent = accuracy ? `${accuracy}%` : '-';
-    if (endKpiCombo) endKpiCombo.textContent = combo || '-';
-    if (endKpiStage) endKpiStage.textContent = stage || '-';
-
-    if (endRewardCard) {
-      endRewardCard.innerHTML = `
-        <div class="rewardTitle">Reward Glow</div>
-        <div class="rewardText">${rewardText(tier, tone, score, combo)}</div>
-      `;
-    }
-  }
-
-  function maybeRefresh() {
-    const isOpen = !endWrap.classList.contains('hidden');
-    if (!isOpen) return;
-    refreshSummaryFx();
-  }
-
-  new MutationObserver(maybeRefresh).observe(endWrap, {
-    attributes: true,
-    attributeFilter: ['class']
-  });
-
-  new MutationObserver(maybeRefresh).observe(endTitle, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
-
-  new MutationObserver(maybeRefresh).observe(endSummaryText, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
-
-  maybeRefresh();
-})();
-</script>
-
+<!-- menu hero chips -->
 <script>
 (() => {
   const bankChip = document.getElementById('menuHeroBankChip');
@@ -2606,7 +2461,6 @@
   menu.addEventListener('click', (ev) => {
     const btn = ev.target.closest('.bankBtn, .modeBtn');
     if (!btn) return;
-
     requestAnimationFrame(refreshHeroChips);
   });
 
@@ -2614,6 +2468,7 @@
 })();
 </script>
 
+<!-- premium leaderboard decorator -->
 <script>
 (() => {
   const wrap = document.getElementById('leaderboardWrap');
@@ -2716,6 +2571,7 @@
 })();
 </script>
 
+<!-- depth + round flow -->
 <script>
 (() => {
   const root = document.documentElement;
@@ -2807,6 +2663,7 @@
 })();
 </script>
 
+<!-- sound pass -->
 <script>
 (() => {
   const btn = document.getElementById('soundToggleBtn');
@@ -3112,5 +2969,196 @@
 </script>
 
 <script type="module" src="./assets/vocab-engine.js"></script>
+
+<!-- Summary Final Guard v2: must stay after vocab-engine.js -->
+<script>
+(() => {
+  const endWrap = document.getElementById('endWrap');
+  const summaryPanel = document.getElementById('summaryPanel');
+  const endSummaryText = document.getElementById('endSummaryText');
+  const endRankBadge = document.getElementById('endRankBadge');
+  const endResultPill = document.getElementById('endResultPill');
+  const endRewardCard = document.getElementById('endRewardCard');
+
+  const endKpiScore = document.getElementById('endKpiScore');
+  const endKpiAccuracy = document.getElementById('endKpiAccuracy');
+  const endKpiCombo = document.getElementById('endKpiCombo');
+  const endKpiStage = document.getElementById('endKpiStage');
+
+  const hudScore = document.getElementById('hudScore');
+  const hudCombo = document.getElementById('hudCombo');
+  const hudRound = document.getElementById('hudRound');
+
+  if (!endWrap || !summaryPanel || !endSummaryText) return;
+
+  let busy = false;
+  let lastSignature = '';
+
+  function txt(v){
+    return String(v || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function num(v){
+    const m = String(v || '').match(/(\d+(?:\.\d+)?)/);
+    return m ? Number(m[1]) : 0;
+  }
+
+  function readAllText(){
+    return txt(endSummaryText.textContent);
+  }
+
+  function readScore(raw){
+    const h = num(hudScore?.textContent || '');
+    if (h) return h;
+
+    const m =
+      raw.match(/Score\s+(\d+)/i) ||
+      raw.match(/คะแนน\s*(\d+)/i);
+
+    return m ? Number(m[1]) : 0;
+  }
+
+  function readAccuracy(raw){
+    const m =
+      raw.match(/Accuracy\s+(\d+(?:\.\d+)?)%/i) ||
+      raw.match(/ความแม่นยำ\s*(\d+(?:\.\d+)?)%/i) ||
+      raw.match(/(\d+(?:\.\d+)?)%/);
+
+    return m ? Number(m[1]) : 0;
+  }
+
+  function readCombo(){
+    const m = String(hudCombo?.textContent || '').match(/(\d+)/);
+    return m ? Number(m[1]) : 0;
+  }
+
+  function readProgress(){
+    return txt(hudRound?.textContent || '') || '-';
+  }
+
+  function readWeakest(raw){
+    if (/ยังไม่มีคำที่ตอบผิด/.test(raw)) {
+      return 'ยังไม่มีคำที่ตอบผิดในรอบนี้';
+    }
+
+    const m =
+      raw.match(/Weakest Terms\s+(.+?)(ฝึกใช้|Reward|Score|Accuracy|$)/i) ||
+      raw.match(/คำที่ควรฝึก\s+(.+?)(Reward|Score|Accuracy|$)/i);
+
+    return m && m[1] ? txt(m[1]) : '';
+  }
+
+  function tierFromStats(score, accuracy, combo, progress){
+    const sm = String(progress || '').match(/(\d+)\s*\/\s*(\d+)/);
+    const stage = sm ? Number(sm[1]) : 0;
+
+    if (score >= 180 && accuracy >= 90 && stage >= 14) return 'LEGEND';
+    if (score >= 140 && accuracy >= 85 && stage >= 10) return 'MASTER';
+    if (score >= 100 && accuracy >= 75) return 'PRO';
+    if (score >= 60 || accuracy >= 70 || combo >= 3) return 'RISING';
+    return 'STARTER';
+  }
+
+  function tierClass(tier){
+    return {
+      STARTER:'tier-starter',
+      RISING:'tier-rising',
+      PRO:'tier-pro',
+      MASTER:'tier-master',
+      LEGEND:'tier-legend'
+    }[tier] || 'tier-starter';
+  }
+
+  function reward(tier, score, accuracy){
+    if (tier === 'LEGEND') return `ยอดเยี่ยมมาก คะแนน ${score} ความแม่นยำ ${accuracy}% เล่นได้ระดับสูงจริง`;
+    if (tier === 'MASTER') return `ทำได้ดีมาก คะแนน ${score} ความแม่นยำ ${accuracy}% ใกล้ระดับสูงสุดแล้ว`;
+    if (tier === 'PRO') return `ผลงานดี คะแนน ${score} ความแม่นยำ ${accuracy}% เริ่มใช้คำศัพท์ได้คล่องขึ้น`;
+    if (tier === 'RISING') return `กำลังพัฒนาดี คะแนน ${score} ความแม่นยำ ${accuracy}% เล่นต่ออีกนิดจะขึ้นระดับได้`;
+    return `เริ่มต้นได้ดี คะแนน ${score} ความแม่นยำ ${accuracy}% ลองเล่นซ้ำเพื่อสะสมความมั่นใจ`;
+  }
+
+  function cleanOnce(){
+    if (busy) return;
+    if (endWrap.classList.contains('hidden')) return;
+
+    const raw = readAllText();
+    if (!raw) return;
+
+    const score = readScore(raw);
+    const accuracy = readAccuracy(raw);
+    const combo = readCombo();
+    const progress = readProgress();
+    const weakest = readWeakest(raw);
+    const tier = tierFromStats(score, accuracy, combo, progress);
+
+    const signature = [score, accuracy, combo, progress, weakest, tier].join('|');
+    if (signature === lastSignature && endSummaryText.classList.contains('summary-clean-final')) return;
+
+    busy = true;
+    lastSignature = signature;
+
+    summaryPanel.classList.remove(
+      'tier-starter','tier-rising','tier-pro','tier-master','tier-legend',
+      'success','warn','fail','pop-in','smooth-open'
+    );
+
+    summaryPanel.classList.add(tierClass(tier));
+    summaryPanel.classList.add(accuracy >= 70 ? 'success' : accuracy >= 50 ? 'warn' : 'fail');
+
+    if (endRankBadge) endRankBadge.textContent = tier;
+    if (endResultPill) endResultPill.textContent = `Result • ${accuracy || 0}% accuracy`;
+
+    if (endKpiScore) endKpiScore.textContent = score || '-';
+    if (endKpiAccuracy) endKpiAccuracy.textContent = accuracy ? `${accuracy}%` : '-';
+    if (endKpiCombo) endKpiCombo.textContent = combo || '-';
+    if (endKpiStage) endKpiStage.textContent = progress || '-';
+
+    const lead = weakest
+      ? `สรุปรอบนี้: คะแนน ${score} • ความแม่นยำ ${accuracy}% • ${weakest}`
+      : `สรุปรอบนี้: คะแนน ${score} • ความแม่นยำ ${accuracy}%`;
+
+    endSummaryText.classList.add('summary-clean-final');
+    endSummaryText.innerHTML = lead;
+
+    if (endRewardCard) {
+      endRewardCard.innerHTML = `
+        <div class="rewardTitle">Reward Glow</div>
+        <div class="rewardText">${reward(tier, score, accuracy)}</div>
+      `;
+    }
+
+    void summaryPanel.offsetWidth;
+    summaryPanel.classList.add('smooth-open');
+
+    setTimeout(() => {
+      busy = false;
+    }, 120);
+  }
+
+  function scheduleClean(){
+    requestAnimationFrame(cleanOnce);
+    setTimeout(cleanOnce, 80);
+    setTimeout(cleanOnce, 180);
+    setTimeout(cleanOnce, 320);
+  }
+
+  new MutationObserver(scheduleClean).observe(endWrap, {
+    attributes:true,
+    attributeFilter:['class']
+  });
+
+  new MutationObserver(scheduleClean).observe(endSummaryText, {
+    childList:true,
+    subtree:true,
+    characterData:true
+  });
+
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('#endPlayAgainBtn,#endMenuBtn,#endLeaderboardBtn');
+    if (!btn) return;
+    lastSignature = '';
+  }, true);
+})();
+</script>
 </body>
 </html>
