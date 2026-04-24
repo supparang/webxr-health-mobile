@@ -246,7 +246,6 @@
 
     .try-btn{
       appearance:none;
-      border:none;
       width:100%;
       border-radius:20px;
       padding:14px;
@@ -262,18 +261,22 @@
       display:flex;
       align-items:center;
       gap:12px;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
 
     .try-btn[disabled]{
       opacity:.48;
       cursor:not-allowed;
       box-shadow:none;
+      pointer-events:none;
     }
 
     .try-btn.active{
       border-color:#22d3ee;
       background:#ecfeff;
       transform:translateY(-1px);
+      pointer-events:auto;
     }
 
     .try-btn.done{
@@ -317,6 +320,7 @@
       padding:18px;
       user-select:none;
       touch-action:none;
+      -webkit-tap-highlight-color:transparent;
       box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);
     }
 
@@ -375,6 +379,8 @@
       color:#0f172a;
       border:2px solid rgba(255,255,255,.95);
       box-shadow:0 10px 24px rgba(0,0,0,.12);
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
 
     .btn.primary{
@@ -410,6 +416,8 @@
       text-decoration:underline;
       cursor:pointer;
       padding:4px 6px;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
 
     @media (max-width:680px){
@@ -668,6 +676,32 @@
     let lastTs = 0;
     let raf = 0;
 
+    function bindPress(el, fn){
+      if (!el) return;
+
+      let locked = false;
+
+      function run(e){
+        if (locked) return;
+        locked = true;
+
+        try{
+          e.preventDefault();
+          e.stopPropagation();
+        }catch(err){}
+
+        fn(e);
+
+        setTimeout(() => {
+          locked = false;
+        }, 180);
+      }
+
+      el.addEventListener('pointerup', run, { passive:false });
+      el.addEventListener('touchend', run, { passive:false });
+      el.addEventListener('click', run, { passive:false });
+    }
+
     function progressPct(){
       return Math.round(((index + 1) / SCENES.length) * 100);
     }
@@ -746,7 +780,7 @@
 
         <div class="try-box">
           <p class="try-title">${current ? 'ลองทำ: ' + current.title : 'ครบแล้ว กดถัดไป'}</p>
-          <div class="try-row">${buttonsHtml}</div>
+          <div class="try-row" id="tapRow">${buttonsHtml}</div>
           <div class="feedback" id="feedback">
             ${current ? 'แตะปุ่มที่สว่างอยู่ตอนนี้' : 'เก่งมาก ผ่านแล้ว กด “ถัดไป” ได้เลย'}
           </div>
@@ -755,14 +789,23 @@
 
       setNextEnabled(step >= scene.order.length);
 
-      document.querySelectorAll('[data-tap-index]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const i = Number(btn.dataset.tapIndex);
-          if (i !== step) return;
+      const tapRow = document.getElementById('tapRow');
 
-          step += 1;
-          renderTap(scene);
-        });
+      bindPress(tapRow, (e) => {
+        const btn = e.target.closest('[data-tap-index]');
+        if (!btn) return;
+        if (btn.disabled) return;
+
+        const i = Number(btn.dataset.tapIndex);
+        if (i !== step) return;
+
+        step += 1;
+
+        try{
+          if (navigator.vibrate) navigator.vibrate(24);
+        }catch(err){}
+
+        renderTap(scene);
       });
     }
 
@@ -930,19 +973,19 @@
       }
     }
 
-    els.nextBtn.addEventListener('click', goNext);
+    bindPress(els.nextBtn, goNext);
 
-    els.skipBtn.addEventListener('click', () => {
+    bindPress(els.skipBtn, () => {
       clearHoldTimer();
       location.href = PRACTICE_URL;
     });
 
-    els.launcherBtn.addEventListener('click', () => {
+    bindPress(els.launcherBtn, () => {
       clearHoldTimer();
       location.href = LAUNCHER_URL;
     });
 
-    els.zoneBtn.addEventListener('click', () => {
+    bindPress(els.zoneBtn, () => {
       clearHoldTimer();
       location.href = HUB_URL;
     });
