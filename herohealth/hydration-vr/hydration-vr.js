@@ -3,6 +3,7 @@
 // ✅ bootstrap Firebase compat if available
 // ✅ import hydration.safe.js
 // ✅ call boot()
+// ✅ install Post-game Evaluate/Create/Analyze without touching core engine
 // ✅ show visible error if boot fails
 
 'use strict';
@@ -22,8 +23,16 @@ async function bootHydrationVR(){
     await mod.boot();
 
     try{
-      console.log('[hydration-vr.js] HydrationVR booted successfully');
-    }catch(_){}
+      const post = await import('./hydration-postgame.js');
+      if (post && typeof post.installHydrationPostgame === 'function') {
+        post.installHydrationPostgame();
+      }
+    }catch(postErr){
+      console.warn('[hydration-vr.js] postgame module failed:', postErr);
+      showHydrationToast('โหลด Post-game module ไม่สำเร็จ: ' + (postErr?.message || postErr), 'warn');
+    }
+
+    console.log('[hydration-vr.js] HydrationVR booted successfully');
 
   }catch(err){
     console.error('[hydration-vr.js] boot failed:', err);
@@ -45,6 +54,29 @@ async function bootHydrationVR(){
 
     document.body.appendChild(fail);
   }
+}
+
+function showHydrationToast(text, level){
+  try{
+    const el = document.createElement('div');
+    el.textContent = String(text || '');
+    el.style.position = 'fixed';
+    el.style.left = '12px';
+    el.style.right = '12px';
+    el.style.bottom = '12px';
+    el.style.zIndex = '3100';
+    el.style.padding = '10px 12px';
+    el.style.borderRadius = '16px';
+    el.style.color = '#fff';
+    el.style.font = '13px system-ui, sans-serif';
+    el.style.boxShadow = '0 14px 34px rgba(0,0,0,.28)';
+    el.style.border = '1px solid rgba(255,255,255,.14)';
+    el.style.background = level === 'warn'
+      ? 'rgba(146,64,14,.94)'
+      : 'rgba(7,18,38,.94)';
+    document.body.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 3600);
+  }catch(_){}
 }
 
 if (document.readyState === 'loading') {
