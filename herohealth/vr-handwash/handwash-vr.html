@@ -3,26 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Handwash Hero • Practice Lab</title>
+  <title>Handwash Hero • Simulate Learning VR</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <style>
     :root{
-      --bg1:#e9fbff;
-      --bg2:#dff4ff;
-      --ink:#163046;
-      --muted:#5d778c;
-      --card:#ffffffee;
-      --line:#d7ecf8;
-      --blue:#22d3ee;
-      --pink:#f472b6;
-      --yellow:#fde047;
+      --dark:#071827;
+      --cyan:#64f3ff;
+      --yellow:#ffe66d;
+      --pink:#ff8ed1;
       --green:#86efac;
-      --good:#22c55e;
-      --bad:#fb7185;
-      --shadow:0 18px 48px rgba(15,50,70,.14);
-      --r-xl:28px;
-      --r-lg:22px;
-      --maxw:900px;
+      --white:#ffffff;
     }
 
     *{ box-sizing:border-box; }
@@ -30,341 +22,196 @@
     html,body{
       margin:0;
       width:100%;
-      min-height:100%;
-      font-family:"Segoe UI",system-ui,sans-serif;
-      color:var(--ink);
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.92) 0%, rgba(255,255,255,.45) 28%, transparent 52%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
-    }
-
-    body{
-      min-height:100dvh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:14px;
+      height:100%;
       overflow:hidden;
+      background:#000;
+      font-family:"Segoe UI",system-ui,sans-serif;
+      touch-action:none;
     }
 
-    .app{
-      width:min(100%,var(--maxw));
-      height:calc(100dvh - 28px);
-      display:grid;
-      grid-template-rows:auto 1fr auto;
-      gap:12px;
+    canvas{
+      display:block;
+      width:100%;
+      height:100%;
     }
 
-    .top{
-      background:rgba(7,18,34,.92);
-      color:#eefcff;
-      border:2px solid rgba(99,230,255,.28);
-      border-radius:24px;
-      padding:12px 14px;
-      box-shadow:0 14px 36px rgba(7,18,34,.18);
-    }
-
-    .top-row{
+    #ui-overlay{
+      position:absolute;
+      inset:0;
+      z-index:10;
+      pointer-events:none;
       display:flex;
-      align-items:flex-start;
+      flex-direction:column;
+      justify-content:space-between;
+      padding:14px;
+    }
+
+    .top-hud{
+      width:min(94vw,760px);
+      margin:0 auto;
+      background:rgba(7,24,39,.86);
+      border:2px solid rgba(100,243,255,.42);
+      border-radius:22px;
+      padding:12px;
+      color:#eefcff;
+      box-shadow:0 12px 32px rgba(0,0,0,.25);
+      backdrop-filter:blur(8px);
+    }
+
+    .hud-row{
+      display:flex;
       justify-content:space-between;
       gap:10px;
+      align-items:flex-start;
       flex-wrap:wrap;
     }
 
-    .kicker{
-      font-size:.94rem;
-      color:#80e8ff;
+    .title{
       font-weight:1000;
+      color:#86f7ff;
+      font-size:1rem;
     }
 
-    .title{
+    .mission{
       margin-top:4px;
-      font-size:1.25rem;
-      line-height:1.15;
-      font-weight:1000;
       color:#fff;
+      font-size:1.18rem;
+      line-height:1.16;
+      font-weight:1000;
     }
 
     .chips{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
+      justify-content:flex-end;
     }
 
     .chip{
       padding:8px 11px;
       border-radius:999px;
-      background:rgba(103,232,249,.14);
-      border:1px solid rgba(103,232,249,.18);
-      color:#e6fbff;
+      background:rgba(100,243,255,.14);
+      border:1px solid rgba(100,243,255,.22);
+      color:#e8fdff;
       font-weight:900;
       font-size:.88rem;
       white-space:nowrap;
     }
 
+    .msg{
+      margin-top:10px;
+      background:rgba(255,255,255,.12);
+      border-radius:16px;
+      padding:10px 12px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:#fff;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .msg-icon{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      background:#e9fbff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.55rem;
+      flex:0 0 auto;
+    }
+
     .progress-wrap{
       margin-top:10px;
+      display:grid;
+      gap:4px;
     }
 
     .progress-meta{
       display:flex;
       justify-content:space-between;
-      font-size:.86rem;
       color:#dff8ff;
       font-weight:900;
-      margin-bottom:5px;
+      font-size:.86rem;
     }
 
     .progress{
+      width:100%;
       height:14px;
       background:#08131f;
       border-radius:999px;
-      border:2px solid #63e6ff;
+      border:2px solid var(--cyan);
       overflow:hidden;
     }
 
-    .fill{
+    #fill{
       width:0%;
       height:100%;
-      background:linear-gradient(90deg,#60ff9d 0%,#00e5ff 100%);
-      transition:width .2s ease;
-    }
-
-    .panel{
-      overflow:auto;
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:var(--r-xl);
-      box-shadow:var(--shadow);
-      padding:18px;
-      min-height:0;
-    }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#dcfff2;
-      color:#047857;
-      font-weight:1000;
-      margin-bottom:12px;
-    }
-
-    .panel h1{
-      margin:0;
-      font-size:1.65rem;
-      line-height:1.12;
-      color:#0f172a;
-      font-weight:1000;
-    }
-
-    .desc{
-      margin:10px 0 0;
-      color:#475569;
-      font-weight:800;
-      line-height:1.5;
-      font-size:1rem;
-    }
-
-    .big-card{
-      margin-top:16px;
-      background:#f8fcff;
-      border:1px solid #d9ecf8;
-      border-radius:24px;
-      padding:14px;
-    }
-
-    .mission-title{
-      margin:0 0 10px;
-      font-weight:1000;
-      color:#0f172a;
-      font-size:1.05rem;
-    }
-
-    .try-row{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-      gap:10px;
-    }
-
-    .try-btn{
-      appearance:none;
-      border:none;
-      width:100%;
-      border-radius:20px;
-      padding:14px;
-      min-height:78px;
-      background:#fff;
-      border:2px solid #d9ecf8;
-      color:#0f172a;
-      font-weight:1000;
-      font-size:1rem;
-      box-shadow:0 8px 18px rgba(0,0,0,.06);
-      cursor:pointer;
-      text-align:left;
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-
-    .try-btn.active{
-      border-color:#22d3ee;
-      background:#ecfeff;
-      transform:translateY(-1px);
-    }
-
-    .try-btn.done{
-      border-color:#86efac;
-      background:#dcfff2;
-    }
-
-    .try-btn[disabled]{
-      opacity:.46;
-      cursor:not-allowed;
-      box-shadow:none;
-    }
-
-    .try-emoji{
-      width:50px;
-      height:50px;
-      border-radius:16px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:#e9fbff;
-      font-size:1.55rem;
-      flex:0 0 auto;
-    }
-
-    .hint{
-      margin-top:12px;
-      padding:10px 12px;
-      border-radius:18px;
-      background:#fff8d7;
-      color:#713f12;
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .success{
-      background:#dcfff2;
-      color:#047857;
-    }
-
-    .hold-area{
-      margin-top:16px;
-      border-radius:26px;
-      background:linear-gradient(180deg,#e0fbff,#bdf5ff);
-      border:2px solid #8defff;
-      min-height:160px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      align-items:center;
-      gap:12px;
-      padding:18px;
-      user-select:none;
-      touch-action:none;
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);
-    }
-
-    .hold-icon{
-      width:82px;
-      height:82px;
-      border-radius:26px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:2.45rem;
-      background:#ffffffaa;
-      box-shadow:0 10px 24px rgba(0,0,0,.08);
-    }
-
-    .hold-text{
-      font-size:1.1rem;
-      font-weight:1000;
-      color:#0f4c5c;
-      text-align:center;
-    }
-
-    .hold-progress{
-      width:100%;
-      height:18px;
-      background:#e0f2fe;
-      border-radius:999px;
-      overflow:hidden;
-      border:2px solid #67e8f9;
-    }
-
-    .hold-fill{
-      height:100%;
-      width:0%;
       background:linear-gradient(90deg,#60ff9d,#00e5ff);
-      transition:width .08s linear;
+      transition:width .18s ease;
     }
 
-    .coach{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns:54px 1fr;
-      gap:10px;
-      align-items:center;
+    #reticle{
+      position:absolute;
+      top:50%;
+      left:50%;
+      width:48px;
+      height:48px;
+      transform:translate(-50%,-50%);
+      z-index:20;
+      border-radius:50%;
+      border:3px solid rgba(255,255,255,.94);
+      box-shadow:0 0 16px rgba(100,243,255,.8);
+      pointer-events:none;
     }
 
-    .coach-face{
-      width:54px;
-      height:54px;
-      border-radius:18px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:1.45rem;
-      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
-      box-shadow:0 8px 18px rgba(0,0,0,.10), inset 0 0 0 4px rgba(255,255,255,.30);
+    #reticle::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:7px;
+      height:7px;
+      transform:translate(-50%,-50%);
+      border-radius:50%;
+      background:#00f2ff;
+      box-shadow:0 0 12px #00f2ff;
     }
 
-    .coach-text{
-      background:#fff;
-      border:1px solid #d9ecf8;
-      border-radius:16px;
-      padding:10px 12px;
-      color:#0f172a;
-      font-weight:900;
-      line-height:1.4;
-      box-shadow:0 8px 18px rgba(0,0,0,.06);
+    #progress-ring{
+      position:absolute;
+      inset:-7px;
+      border-radius:50%;
+      background:conic-gradient(#22c55e 0deg, transparent 0deg);
+      mask:radial-gradient(circle, transparent 55%, #000 57%);
+      -webkit-mask:radial-gradient(circle, transparent 55%, #000 57%);
+      display:none;
     }
 
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-      gap:10px;
-      margin-top:16px;
+    #nav-arrow{
+      position:absolute;
+      top:64%;
+      left:50%;
+      width:0;
+      height:0;
+      z-index:30;
+      pointer-events:none;
+      border-left:18px solid transparent;
+      border-right:18px solid transparent;
+      border-bottom:36px solid #ffe66d;
+      transform:translate(-50%,-50%);
+      filter:drop-shadow(0 0 10px #ffe66d);
+      display:none;
     }
 
-    .summary-box{
-      background:#f8fcff;
-      border:1px solid #d9ecf8;
-      border-radius:20px;
-      padding:14px;
-      font-weight:1000;
-      color:#0f172a;
-    }
-
-    .summary-box small{
-      display:block;
-      color:#64748b;
-      font-weight:900;
-      margin-bottom:5px;
-    }
-
-    .footer{
+    .bottom-hud{
       display:flex;
       justify-content:center;
       gap:10px;
       flex-wrap:wrap;
+      pointer-events:auto;
       padding-bottom:2px;
     }
 
@@ -372,165 +219,112 @@
       appearance:none;
       border:none;
       border-radius:999px;
-      padding:12px 18px;
-      min-width:140px;
+      padding:11px 14px;
+      min-width:130px;
       font-weight:1000;
-      font-size:1rem;
-      cursor:pointer;
+      font-size:.92rem;
       color:#0f172a;
+      cursor:pointer;
       border:2px solid rgba(255,255,255,.95);
-      box-shadow:0 10px 24px rgba(0,0,0,.12);
+      box-shadow:0 10px 24px rgba(0,0,0,.20);
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
 
     .btn.primary{
-      background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%);
-    }
-
-    .btn.green{
-      background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%);
-    }
-
-    .btn.pink{
-      background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%);
+      background:linear-gradient(180deg,#fff2a8,#ffd84d);
     }
 
     .btn.blue{
-      background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%);
+      background:linear-gradient(180deg,#dcf8ff,#b7efff);
     }
 
-    .btn:active{
-      transform:translateY(1px);
+    .btn.green{
+      background:linear-gradient(180deg,#dcfff2,#86efac);
     }
 
-    .btn[disabled]{
-      opacity:.5;
-      cursor:not-allowed;
+    .toast{
+      position:absolute;
+      left:50%;
+      bottom:92px;
+      z-index:40;
+      transform:translateX(-50%) translateY(12px);
+      max-width:90vw;
+      background:#fff8d7;
+      color:#713f12;
+      border-radius:18px;
+      padding:10px 14px;
+      font-weight:1000;
+      box-shadow:0 12px 28px rgba(0,0,0,.22);
+      opacity:0;
+      transition:opacity .2s ease, transform .2s ease;
+      text-align:center;
+      pointer-events:none;
     }
 
-    .tiny-actions{
-      display:flex;
-      justify-content:center;
-      gap:10px;
-      margin-top:8px;
-    }
-
-    .tiny{
-      appearance:none;
-      border:none;
-      background:transparent;
-      color:#24536b;
-      font-weight:900;
-      text-decoration:underline;
-      cursor:pointer;
-      padding:4px 6px;
-    }
-
-    .hidden{
-      display:none !important;
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
     }
 
     @media (max-width:680px){
-      body{
-        align-items:stretch;
+      #ui-overlay{
         padding:10px;
       }
 
-      .app{
-        height:calc(100dvh - 20px);
-        gap:10px;
-      }
-
-      .top{
+      .top-hud{
+        width:100%;
         border-radius:20px;
-        padding:10px 12px;
+        padding:10px;
       }
 
-      .title{
-        font-size:1.05rem;
+      .mission{
+        font-size:1.02rem;
       }
 
       .chip{
-        font-size:.82rem;
-        padding:7px 10px;
+        font-size:.8rem;
+        padding:7px 9px;
       }
 
-      .panel{
-        padding:14px;
-        border-radius:24px;
+      .msg{
+        font-size:.88rem;
+        padding:8px 10px;
       }
 
-      .panel h1{
-        font-size:1.28rem;
-      }
-
-      .desc{
-        font-size:.92rem;
-      }
-
-      .try-row{
-        grid-template-columns:1fr;
-      }
-
-      .try-btn{
-        min-height:66px;
-        padding:12px;
-        border-radius:18px;
-        font-size:.94rem;
-      }
-
-      .try-emoji{
-        width:44px;
-        height:44px;
-        border-radius:14px;
+      .msg-icon{
+        width:38px;
+        height:38px;
         font-size:1.35rem;
       }
 
-      .hold-area{
-        min-height:142px;
-      }
-
-      .coach{
-        grid-template-columns:48px 1fr;
-      }
-
-      .coach-face{
-        width:48px;
-        height:48px;
-        border-radius:16px;
-        font-size:1.3rem;
-      }
-
-      .coach-text{
-        font-size:.86rem;
-      }
-
-      .footer{
-        gap:8px;
-      }
-
       .btn{
-        min-width:130px;
-        padding:11px 14px;
-        font-size:.92rem;
+        min-width:116px;
+        padding:10px 12px;
+        font-size:.86rem;
       }
     }
   </style>
 </head>
 
 <body>
-  <main class="app">
-    <header class="top">
-      <div class="top-row">
+  <div id="ui-overlay">
+    <div class="top-hud">
+      <div class="hud-row">
         <div>
-          <div class="kicker" id="stepLabel">Practice Lab • 1/3</div>
-          <div class="title" id="missionTitle">Mission A • แตะของให้ถูก</div>
+          <div class="title" id="titleText">Simulate Learning • 1/6</div>
+          <div class="mission" id="missionText">มองหา “ก๊อกน้ำ”</div>
         </div>
 
         <div class="chips">
-          <div class="chip" id="phaseChip">Tap</div>
-          <div class="chip" id="comboChip">Combo 0</div>
-          <div class="chip" id="scoreChip">Score 0</div>
+          <div class="chip" id="scoreText">Score 0</div>
+          <div class="chip" id="timeText">เวลา 45 วิ</div>
         </div>
+      </div>
+
+      <div class="msg">
+        <div class="msg-icon" id="msgIcon">🚰</div>
+        <div id="msgText">มองเป้ากลางจอไปที่ ก๊อกน้ำ</div>
       </div>
 
       <div class="progress-wrap">
@@ -539,526 +333,688 @@
           <span id="pctText">0%</span>
         </div>
         <div class="progress">
-          <div class="fill" id="fill"></div>
+          <div id="fill"></div>
         </div>
       </div>
-    </header>
+    </div>
 
-    <section class="panel" id="panel"></section>
+    <div></div>
 
-    <footer>
-      <div class="footer">
-        <button class="btn pink" id="launcherBtn" type="button">กลับ Launcher</button>
-        <button class="btn blue" id="zoneBtn" type="button">กลับ Zone</button>
-        <button class="btn primary hidden" id="nextBtn" type="button">ไป Main Game</button>
-      </div>
-    </footer>
-  </main>
+    <div class="bottom-hud">
+      <button class="btn blue" id="recenterBtn" type="button">RECENTER</button>
+      <button class="btn primary" id="vrBtn" type="button">โหมด VR</button>
+      <button class="btn green" id="nextBtn" type="button">ไป Main Game</button>
+    </div>
+  </div>
 
-  <script src="./handwash-shared.js"></script>
+  <div id="nav-arrow"></div>
+  <div id="reticle"><div id="progress-ring"></div></div>
+  <div class="toast" id="toast">ดีมาก!</div>
+
   <script>
-    function safeMainUrl(){
-      const raw = window.HandwashShared?.getParam?.('next', '') || '';
-      if (raw && raw.trim()) return raw.trim();
+    let scene, camera, renderer, raycaster;
+    let score = 0;
+    let timeLeft = 45;
+    let currentStep = 0;
+    let isVR = false;
+    let lon = 180;
+    let lat = 0;
+    let isTouching = false;
+    let px = 0;
+    let py = 0;
+    let gazeTime = 0;
+    let completed = false;
 
-      if (window.HandwashShared?.buildMainUrl){
-        return HandwashShared.buildMainUrl({
-          entry: window.HandwashShared?.getEntry?.() || 'practice',
-          stage: 'main'
-        });
-      }
+    const targets = [];
+    const germs = [];
+    const germByHand = {
+      "มือซ้าย": [],
+      "มือขวา": []
+    };
+    const targetRefs = {};
+    const clock = new THREE.Clock();
 
-      return new URL('../handwash-v2.html', location.href).toString();
-    }
-
-    function safeHubUrl(){
-      const raw = window.HandwashShared?.getParam?.('hub', '') || '';
-      if (raw && raw.trim()) return raw.trim();
-
-      if (window.HandwashShared?.buildZoneUrl){
-        return HandwashShared.buildZoneUrl();
-      }
-
-      return new URL('../hygiene-zone.html', location.href).toString();
-    }
-
-    function safeLauncherUrl(){
-      const raw = window.HandwashShared?.getParam?.('launcher', '') || '';
-      if (raw && raw.trim()) return raw.trim();
-
-      if (window.HandwashShared?.buildLauncherUrl){
-        return HandwashShared.buildLauncherUrl();
-      }
-
-      return new URL('./handwash-launcher.html', location.href).toString();
-    }
-
-    const MAIN_URL = safeMainUrl();
-    const HUB_URL = safeHubUrl();
-    const LAUNCHER_URL = safeLauncherUrl();
-
-    const MISSIONS = [
+    const quest = [
       {
-        type:'tap',
-        phase:'Tap',
-        title:'Mission A • แตะของให้ถูก',
-        badge:'🎯 Mission A • แตะของให้ถูก',
-        h1:'แตะของที่เกมบอกทีละอย่าง',
-        desc:'ไม่ต้องเล็ง ไม่ต้องเดา แตะปุ่มใหญ่ที่สว่างอยู่',
-        order:[
-          { id:'faucet', icon:'🚰', title:'แตะก๊อกน้ำ', desc:'เห็นก๊อกน้ำ ให้แตะก๊อกน้ำ', points:20 },
-          { id:'soap', icon:'🧼', title:'แตะสบู่', desc:'เห็นสบู่ ให้แตะสบู่', points:20 },
-          { id:'towel', icon:'🟨', title:'แตะผ้าเช็ดมือ', desc:'เห็นผ้า ให้แตะผ้าเช็ดมือ', points:20 }
-        ]
+        id:"ก๊อก",
+        label:"ก๊อกน้ำ",
+        emoji:"🚰",
+        msg:"มอง/แตะ ก๊อกน้ำ",
+        hint:"เปิดน้ำก่อนล้างมือ",
+        pos:[-0.62,1.24,-0.85],
+        bg:"#dff8ff"
       },
       {
-        type:'hold',
-        phase:'Hold',
-        title:'Mission B • ค้างน้ำให้เต็ม',
-        badge:'💧 Mission B • ค้างที่โซนน้ำ',
-        h1:'ค้างน้ำ 2 รอบ',
-        desc:'กดค้างที่กล่องน้ำจนเต็ม พอเต็มแล้วปล่อยมือได้',
-        rounds:[
-          { label:'เปียกมือ', need:900, points:24 },
-          { label:'ล้างฟอง', need:1100, points:28 }
-        ]
+        id:"สบู่",
+        label:"สบู่",
+        emoji:"🧼",
+        msg:"มอง/แตะ สบู่",
+        hint:"กดสบู่เพื่อฆ่าเชื้อ",
+        pos:[-0.20,1.10,-0.85],
+        bg:"#ffe3f2"
       },
       {
-        type:'tap',
-        phase:'Hand Zones',
-        title:'Mission C • แตะจุดบนมือ',
-        badge:'🖐️ Mission C • แตะจุดบนมือ',
-        h1:'แตะจุดบนมือทีละอย่าง',
-        desc:'ไม่ต้องเดาซ้ายขวา แตะปุ่มใหญ่ที่เกมบอก',
-        order:[
-          { id:'palms', icon:'👐', title:'แตะฝ่ามือ', desc:'เห็นฝ่ามือ ให้แตะฝ่ามือ', points:22 },
-          { id:'between', icon:'🤝', title:'แตะซอกนิ้ว', desc:'เห็นซอกนิ้ว ให้แตะซอกนิ้ว', points:22 },
-          { id:'thumbs', icon:'👍', title:'แตะหัวแม่มือ', desc:'เห็นหัวแม่มือ ให้แตะหัวแม่มือ', points:22 }
-        ]
+        id:"น้ำ",
+        label:"โซนน้ำ",
+        emoji:"💧",
+        msg:"มอง/แตะ โซนน้ำ",
+        hint:"ล้างมือด้วยน้ำให้ทั่ว",
+        pos:[-0.62,0.80,-0.85],
+        bg:"#dff7ff"
+      },
+      {
+        id:"มือซ้าย",
+        label:"มือซ้าย",
+        emoji:"🖐️",
+        msg:"มอง/แตะ มือซ้าย",
+        hint:"ถูมือซ้ายให้สะอาด",
+        pos:[0.16,1.02,-0.60],
+        bg:"#fff1cc"
+      },
+      {
+        id:"มือขวา",
+        label:"มือขวา",
+        emoji:"🤚",
+        msg:"มอง/แตะ มือขวา",
+        hint:"ถูมือขวาให้สะอาด",
+        pos:[0.48,1.02,-0.60],
+        bg:"#fff1cc"
+      },
+      {
+        id:"ผ้า",
+        label:"ผ้าเช็ดมือ",
+        emoji:"🧻",
+        msg:"มอง/แตะ ผ้าเช็ดมือ",
+        hint:"เช็ดมือให้แห้ง",
+        pos:[0.82,1.20,-0.85],
+        bg:"#fff7cc"
       }
     ];
 
-    const els = {
-      panel: document.getElementById('panel'),
-      stepLabel: document.getElementById('stepLabel'),
-      missionTitle: document.getElementById('missionTitle'),
-      phaseChip: document.getElementById('phaseChip'),
-      comboChip: document.getElementById('comboChip'),
-      scoreChip: document.getElementById('scoreChip'),
+    const ui = {
+      titleText: document.getElementById('titleText'),
+      missionText: document.getElementById('missionText'),
+      msgText: document.getElementById('msgText'),
+      msgIcon: document.getElementById('msgIcon'),
+      scoreText: document.getElementById('scoreText'),
+      timeText: document.getElementById('timeText'),
       pctText: document.getElementById('pctText'),
       fill: document.getElementById('fill'),
-      nextBtn: document.getElementById('nextBtn'),
-      launcherBtn: document.getElementById('launcherBtn'),
-      zoneBtn: document.getElementById('zoneBtn')
+      progressRing: document.getElementById('progress-ring'),
+      navArrow: document.getElementById('nav-arrow'),
+      toast: document.getElementById('toast'),
+      vrBtn: document.getElementById('vrBtn'),
+      recenterBtn: document.getElementById('recenterBtn'),
+      nextBtn: document.getElementById('nextBtn')
     };
 
-    const state = {
-      missionIndex:0,
-      step:0,
-      score:0,
-      combo:0,
-      bestCombo:0,
-      miss:0,
-
-      holdRound:0,
-      holdValue:0,
-      holding:false,
-      holdDone:false,
-      lastTs:0,
-      ended:false
-    };
-
-    let raf = 0;
-
-    function mission(){
-      return MISSIONS[state.missionIndex];
+    function showToast(text){
+      ui.toast.textContent = text;
+      ui.toast.classList.add('show');
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => {
+        ui.toast.classList.remove('show');
+      }, 900);
     }
 
-    function totalUnits(){
-      return MISSIONS.reduce((sum, m) => {
-        if (m.type === 'tap') return sum + m.order.length;
-        if (m.type === 'hold') return sum + m.rounds.length;
-        return sum + 1;
-      }, 0);
+    function roundRect(ctx, x, y, w, h, r){
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
     }
 
-    function completedUnits(){
-      let done = 0;
+    function makeEmojiCardTexture(emoji, label, bg = "#ffffff", size = 512){
+      const c = document.createElement("canvas");
+      c.width = size;
+      c.height = size;
+      const ctx = c.getContext("2d");
 
-      for (let i = 0; i < state.missionIndex; i++){
-        const m = MISSIONS[i];
-        if (m.type === 'tap') done += m.order.length;
-        if (m.type === 'hold') done += m.rounds.length;
+      ctx.clearRect(0, 0, size, size);
+
+      ctx.fillStyle = bg;
+      roundRect(ctx, 24, 24, size - 48, size - 48, 56);
+      ctx.fill();
+
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = "#7fe7ff";
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255,255,255,.58)";
+      roundRect(ctx, 52, 52, size - 104, size - 160, 44);
+      ctx.fill();
+
+      ctx.font = `190px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(emoji, size / 2, 205);
+
+      ctx.fillStyle = "#14324a";
+      ctx.font = `bold 56px "Segoe UI", sans-serif`;
+      ctx.fillText(label, size / 2, 390);
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    function makeSmallEmojiTexture(emoji, bg = "#ffffff", size = 256){
+      const c = document.createElement("canvas");
+      c.width = size;
+      c.height = size;
+      const ctx = c.getContext("2d");
+
+      ctx.clearRect(0, 0, size, size);
+      ctx.fillStyle = bg;
+      roundRect(ctx, 18, 18, size - 36, size - 36, 42);
+      ctx.fill();
+
+      ctx.font = `150px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(emoji, size / 2, size / 2 + 8);
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    function makeEmojiTarget(item){
+      const group = new THREE.Group();
+      group.position.set(...item.pos);
+      group.name = item.id;
+
+      const cardMat = new THREE.SpriteMaterial({
+        map: makeEmojiCardTexture(item.emoji, item.label, item.bg),
+        transparent:true
+      });
+
+      const card = new THREE.Sprite(cardMat);
+      card.scale.set(0.55, 0.55, 1);
+      card.userData.kind = "visual";
+      group.add(card);
+
+      const haloGeo = new THREE.RingGeometry(0.34, 0.39, 40);
+      const haloMat = new THREE.MeshBasicMaterial({
+        color:0xffffff,
+        transparent:true,
+        opacity:0.62,
+        side:THREE.DoubleSide
+      });
+      const halo = new THREE.Mesh(haloGeo, haloMat);
+      halo.position.set(0, 0, -0.02);
+      halo.userData.kind = "halo";
+      group.add(halo);
+
+      const hit = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.70, 0.76),
+        new THREE.MeshBasicMaterial({
+          transparent:true,
+          opacity:0,
+          depthWrite:false
+        })
+      );
+      hit.userData.targetId = item.id;
+      hit.userData.parentGroup = group;
+      group.add(hit);
+
+      scene.add(group);
+      targets.push(hit);
+
+      targetRefs[item.id] = {
+        group,
+        card,
+        halo,
+        hit,
+        item
+      };
+
+      return group;
+    }
+
+    function createGameWorld(){
+      scene.background = new THREE.Color(0xdff6ff);
+
+      const ambient = new THREE.AmbientLight(0xffffff, 1.8);
+      scene.add(ambient);
+
+      const sun = new THREE.PointLight(0xffffff, 1.25);
+      sun.position.set(0, 3, 1.2);
+      scene.add(sun);
+
+      const floorGeo = new THREE.PlaneGeometry(8, 8);
+      const floorMat = new THREE.MeshBasicMaterial({
+        color:0xbfeeff,
+        transparent:true,
+        opacity:0.82,
+        side:THREE.DoubleSide
+      });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = 0;
+      scene.add(floor);
+
+      const wallGeo = new THREE.PlaneGeometry(6, 3.2);
+      const wallMat = new THREE.MeshBasicMaterial({
+        color:0xffffff,
+        transparent:true,
+        opacity:0.70,
+        side:THREE.DoubleSide
+      });
+      const wall = new THREE.Mesh(wallGeo, wallMat);
+      wall.position.set(0, 1.55, -1.22);
+      scene.add(wall);
+
+      quest.forEach(item => makeEmojiTarget(item));
+
+      targetRefs["น้ำ"].group.visible = false;
+
+      createGermsForHand("มือซ้าย");
+      createGermsForHand("มือขวา");
+
+      updateActiveTarget();
+    }
+
+    function createGermsForHand(handId){
+      const ref = targetRefs[handId];
+      if (!ref) return;
+
+      for (let i = 0; i < 6; i++){
+        const germ = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: makeSmallEmojiTexture("🦠", "#e8fff0"),
+            transparent:true
+          })
+        );
+
+        germ.position.set(
+          (Math.random() - 0.5) * 0.34,
+          (Math.random() - 0.5) * 0.34,
+          0.08
+        );
+
+        germ.scale.set(0.105, 0.105, 1);
+        ref.group.add(germ);
+        germs.push(germ);
+        germByHand[handId].push(germ);
+      }
+    }
+
+    function clearGerms(handId){
+      const ref = targetRefs[handId];
+      if (!ref) return;
+
+      germByHand[handId].forEach(g => {
+        if (g.parent) g.parent.remove(g);
+      });
+      germByHand[handId] = [];
+    }
+
+    function init(){
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera(
+        72,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 1.25, 1.05);
+
+      renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      raycaster = new THREE.Raycaster();
+
+      createGameWorld();
+      updateHUD();
+
+      document.addEventListener('touchstart', (e) => {
+        isTouching = true;
+        px = e.touches[0].pageX;
+        py = e.touches[0].pageY;
+      }, { passive:true });
+
+      document.addEventListener('touchmove', (e) => {
+        if (!isTouching || isVR) return;
+
+        lon -= (e.touches[0].pageX - px) * 0.25;
+        lat += (e.touches[0].pageY - py) * 0.25;
+
+        px = e.touches[0].pageX;
+        py = e.touches[0].pageY;
+      }, { passive:true });
+
+      document.addEventListener('touchend', () => {
+        isTouching = false;
+      }, { passive:true });
+
+      renderer.domElement.addEventListener('pointerup', () => {
+        tryHitNow();
+      });
+
+      ui.vrBtn.addEventListener('click', async () => {
+        isVR = !isVR;
+        ui.vrBtn.textContent = isVR ? "ออก VR" : "โหมด VR";
+
+        try{
+          if (
+            isVR &&
+            typeof DeviceOrientationEvent !== "undefined" &&
+            typeof DeviceOrientationEvent.requestPermission === "function"
+          ){
+            await DeviceOrientationEvent.requestPermission();
+          }
+        }catch(e){}
+      });
+
+      ui.recenterBtn.addEventListener('click', () => {
+        lon = 180;
+        lat = 0;
+        showToast("จัดมุมมองใหม่แล้ว");
+      });
+
+      ui.nextBtn.addEventListener('click', () => {
+        goNext();
+      });
+
+      window.addEventListener('resize', onResize);
+
+      window.addEventListener('deviceorientation', (e) => {
+        if (!isVR) return;
+        const alpha = THREE.MathUtils.degToRad(e.alpha || 0);
+        const beta = THREE.MathUtils.degToRad(e.beta || 0);
+        const gamma = THREE.MathUtils.degToRad(e.gamma || 0);
+        camera.rotation.set(beta, alpha, -gamma, 'YXZ');
+      });
+
+      setInterval(() => {
+        if (completed) return;
+        if (timeLeft > 0){
+          timeLeft -= 1;
+          updateHUD();
+        }
+      }, 1000);
+
+      animate();
+    }
+
+    function onResize(){
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      if (!isVR){
+        camera.aspect = window.innerWidth / window.innerHeight;
+      } else {
+        camera.aspect = (window.innerWidth / 2) / window.innerHeight;
       }
 
-      const m = mission();
-      if (!m) return totalUnits();
-
-      if (m.type === 'tap') done += state.step;
-      if (m.type === 'hold') done += state.holdRound;
-
-      return done;
+      camera.updateProjectionMatrix();
     }
 
-    function progressPct(){
-      return Math.round((completedUnits() / totalUnits()) * 100);
+    function updateActiveTarget(){
+      quest.forEach((item, i) => {
+        const ref = targetRefs[item.id];
+        if (!ref) return;
+
+        const active = i === currentStep;
+        const done = i < currentStep;
+
+        if (ref.card.material){
+          ref.card.material.opacity = active ? 1 : done ? 0.45 : 0.72;
+        }
+
+        if (ref.halo.material){
+          ref.halo.material.opacity = active ? 0.95 : 0.20;
+          ref.halo.material.color.set(active ? 0xffff66 : 0xffffff);
+        }
+
+        ref.group.scale.setScalar(active ? 1.08 : 0.92);
+      });
     }
 
-    function updateTop(){
-      const m = mission();
-      const pct = state.ended ? 100 : progressPct();
-
-      els.stepLabel.textContent = state.ended
-        ? 'Practice Lab • Summary'
-        : `Practice Lab • ${state.missionIndex + 1}/${MISSIONS.length}`;
-
-      els.missionTitle.textContent = state.ended
-        ? 'ฝึกครบแล้ว'
-        : m.title;
-
-      els.phaseChip.textContent = state.ended ? 'Done' : m.phase;
-      els.comboChip.textContent = `Combo ${state.combo}`;
-      els.scoreChip.textContent = `Score ${state.score}`;
-
-      els.pctText.textContent = `${pct}%`;
-      els.fill.style.width = `${pct}%`;
-    }
-
-    function reward(points){
-      state.score += points;
-      state.combo += 1;
-      state.bestCombo = Math.max(state.bestCombo, state.combo);
-      updateTop();
-    }
-
-    function renderCoach(text, mood='normal'){
-      const face = mood === 'good' ? '😄' : mood === 'warn' ? '😮' : '🙂';
-      return `
-        <div class="coach">
-          <div class="coach-face">${face}</div>
-          <div class="coach-text">${text}</div>
-        </div>
-      `;
-    }
-
-    function nextMission(){
-      state.missionIndex += 1;
-      state.step = 0;
-      state.holdRound = 0;
-      state.holdValue = 0;
-      state.holding = false;
-      state.holdDone = false;
-      state.lastTs = 0;
-
-      if (state.missionIndex >= MISSIONS.length){
-        finishPractice();
+    function updateNavigationArrow(){
+      if (completed || currentStep >= quest.length){
+        ui.navArrow.style.display = 'none';
         return;
       }
+
+      const ref = targetRefs[quest[currentStep].id];
+      if (!ref || !ref.group.visible){
+        ui.navArrow.style.display = 'none';
+        return;
+      }
+
+      const targetPos = ref.group.position.clone();
+      const projected = targetPos.clone().project(camera);
+
+      const isVisible =
+        projected.z < 1 &&
+        projected.x >= -0.78 &&
+        projected.x <= 0.78 &&
+        projected.y >= -0.78 &&
+        projected.y <= 0.78;
+
+      if (isVisible){
+        ui.navArrow.style.display = 'none';
+      } else {
+        ui.navArrow.style.display = 'block';
+
+        const angle = Math.atan2(projected.y, projected.x);
+        ui.navArrow.style.transform =
+          `translate(-50%,-50%) rotate(${angle + Math.PI / 2}rad)`;
+      }
+    }
+
+    function lookCameraByTouch(){
+      lat = Math.max(-70, Math.min(70, lat));
+      const phi = THREE.MathUtils.degToRad(90 - lat);
+      const theta = THREE.MathUtils.degToRad(lon);
+
+      const target = new THREE.Vector3()
+        .setFromSphericalCoords(1, phi, theta)
+        .add(camera.position);
+
+      camera.lookAt(target);
+    }
+
+    function getCurrentHit(){
+      if (completed || currentStep >= quest.length) return null;
+
+      raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+      const hits = raycaster.intersectObjects(targets, true);
+
+      if (!hits.length) return null;
+
+      const obj = hits[0].object;
+      const id = obj.userData.targetId;
+
+      if (id === quest[currentStep].id) return obj;
+      return null;
+    }
+
+    function tryHitNow(){
+      const hit = getCurrentHit();
+      if (!hit) return;
+
+      gazeTime = 1;
+      stepUp();
+    }
+
+    function animate(){
+      requestAnimationFrame(animate);
+
+      const dt = Math.min(clock.getDelta(), 0.05);
+
+      if (!isVR){
+        lookCameraByTouch();
+      }
+
+      updateNavigationArrow();
+
+      const hit = getCurrentHit();
+
+      if (hit){
+        gazeTime += dt;
+        const gp = Math.min(1, gazeTime / 1.0);
+        ui.progressRing.style.display = 'block';
+        ui.progressRing.style.background =
+          `conic-gradient(#22c55e ${gp * 360}deg, transparent 0deg)`;
+
+        if (gazeTime >= 1){
+          gazeTime = 0;
+          stepUp();
+        }
+      } else {
+        gazeTime = 0;
+        ui.progressRing.style.display = 'none';
+      }
+
+      germs.forEach(g => {
+        g.rotation.z += 0.02;
+      });
+
+      quest.forEach((item, i) => {
+        const ref = targetRefs[item.id];
+        if (!ref) return;
+
+        if (i === currentStep && ref.halo){
+          ref.halo.rotation.z += 0.03;
+          const s = 1.08 + Math.sin(performance.now() * 0.006) * 0.035;
+          ref.group.scale.setScalar(s);
+        }
+      });
 
       render();
     }
 
-    function renderTap(){
-      const m = mission();
-      const current = m.order[state.step];
+    function stepUp(){
+      if (completed || currentStep >= quest.length) return;
 
-      const buttonsHtml = m.order.map((item, i) => {
-        const done = i < state.step;
-        const active = i === state.step;
-        const disabled = i !== state.step;
+      const item = quest[currentStep];
 
-        return `
-          <button class="try-btn ${done ? 'done' : ''} ${active ? 'active' : ''}"
-                  type="button"
-                  data-tap-index="${i}"
-                  ${disabled ? 'disabled' : ''}>
-            <span class="try-emoji">${done ? '✅' : item.icon}</span>
-            <span>
-              <strong>${item.title}</strong><br>
-              <small>${done ? 'ผ่านแล้ว' : item.desc}</small>
-            </span>
-          </button>
-        `;
-      }).join('');
+      score += 1000;
 
-      els.panel.innerHTML = `
-        <div class="badge">${m.badge}</div>
-        <h1>${m.h1}</h1>
-        <p class="desc">${m.desc}</p>
+      if (item.id === "ก๊อก"){
+        targetRefs["น้ำ"].group.visible = true;
+      }
 
-        <div class="big-card">
-          <p class="mission-title">
-            ${current ? 'ลองทำ: ' + current.title : 'ผ่าน Mission นี้แล้ว'}
-          </p>
+      if (item.id === "มือซ้าย"){
+        clearGerms("มือซ้าย");
+      }
 
-          <div class="try-row">${buttonsHtml}</div>
+      if (item.id === "มือขวา"){
+        clearGerms("มือขวา");
+      }
 
-          <div class="hint ${current ? '' : 'success'}" id="hint">
-            ${current ? 'แตะปุ่มที่สว่างอยู่ตอนนี้' : 'เก่งมาก กำลังไปด่านถัดไป'}
-          </div>
-        </div>
+      showToast(`ดีมาก! ผ่าน ${item.label}`);
 
-        ${renderCoach(current ? 'ทำทีละอย่าง ไม่ต้องรีบ' : 'ผ่านแล้ว ไปต่อเลย', current ? 'normal' : 'good')}
-      `;
+      try{
+        if (navigator.vibrate) navigator.vibrate(35);
+      }catch(e){}
 
-      document.querySelectorAll('[data-tap-index]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const i = Number(btn.dataset.tapIndex);
-          if (i !== state.step) return;
+      currentStep += 1;
 
-          const item = m.order[state.step];
-          reward(item.points || 20);
-          state.step += 1;
+      if (currentStep >= quest.length){
+        completed = true;
+        ui.missionText.textContent = "ภารกิจสำเร็จ!";
+        ui.msgIcon.textContent = "✨";
+        ui.msgText.textContent = "มือสะอาดแล้ว เก่งมาก!";
+        ui.progressRing.style.display = 'none';
+      } else {
+        updateActiveTarget();
+      }
 
-          if (state.step >= m.order.length){
-            renderTap();
-            setTimeout(nextMission, 520);
-            return;
-          }
-
-          renderTap();
-          updateTop();
-        });
-      });
+      updateHUD();
     }
 
-    function renderHold(){
-      const m = mission();
-      const round = m.rounds[state.holdRound];
+    function updateHUD(){
+      const total = quest.length;
+      const shownStep = Math.min(currentStep + 1, total);
+      const pct = completed ? 100 : Math.round((currentStep / total) * 100);
+      const item = completed ? null : quest[currentStep];
 
-      state.holdValue = 0;
-      state.holding = false;
-      state.holdDone = false;
-      state.lastTs = 0;
+      ui.titleText.textContent = completed
+        ? "Simulate Learning • สำเร็จ"
+        : `Simulate Learning • ${shownStep}/${total}`;
 
-      els.panel.innerHTML = `
-        <div class="badge">${m.badge}</div>
-        <h1>${m.h1}</h1>
-        <p class="desc">${m.desc}</p>
+      ui.missionText.textContent = completed
+        ? "มือสะอาดแล้ว ✨"
+        : item.msg;
 
-        <div class="big-card">
-          <p class="mission-title">
-            รอบที่ ${state.holdRound + 1}/${m.rounds.length}: ${round.label}
-          </p>
+      ui.msgIcon.textContent = completed ? "✨" : item.emoji;
+      ui.msgText.textContent = completed
+        ? "กดปุ่มไป Main Game ได้เลย"
+        : `${item.hint} • มองเป้ากลางจอไปที่ ${item.label}`;
 
-          <div class="hold-area" id="holdArea">
-            <div class="hold-icon">💧</div>
-            <div class="hold-text" id="holdText">กดค้างตรงนี้</div>
-            <div class="hold-progress">
-              <div class="hold-fill" id="holdFill"></div>
-            </div>
-          </div>
+      ui.scoreText.textContent = `Score ${score}`;
+      ui.timeText.textContent = `เวลา ${timeLeft} วิ`;
+      ui.pctText.textContent = `${pct}%`;
+      ui.fill.style.width = `${pct}%`;
+    }
 
-          <div class="hint" id="hint">
-            กดค้างจนแถบเต็ม 100%
-          </div>
-        </div>
-
-        ${renderCoach('ค้างไว้จนเต็ม พอเต็มแล้วปล่อยมือได้', 'normal')}
-      `;
-
-      const holdArea = document.getElementById('holdArea');
-
-      function startHold(e){
-        e.preventDefault();
-        if (state.holdDone) return;
-        state.holding = true;
+    function goNext(){
+      const rawNext = getParam('next', '');
+      if (rawNext){
+        location.href = rawNext;
+        return;
       }
 
-      function endHold(e){
-        if (e) e.preventDefault();
-        state.holding = false;
+      const inVrFolder = location.pathname.includes('/vr-handwash/');
+      const fallback = inVrFolder ? '../handwash-v2.html' : './handwash-v2.html';
+
+      const url = new URL(fallback, location.href);
+      const params = new URLSearchParams(location.search);
+
+      ['pid','name','diff','time','view','run','zone','cat','game','gameId','theme','hub','hubRoot','zoneReturn']
+        .forEach(k => {
+          const v = params.get(k);
+          if (v) url.searchParams.set(k, v);
+        });
+
+      location.href = url.toString();
+    }
+
+    function getParam(key, fallback = ''){
+      try{
+        return new URL(location.href).searchParams.get(key) || fallback;
+      }catch(e){
+        return fallback;
       }
-
-      holdArea.addEventListener('pointerdown', startHold, { passive:false });
-      holdArea.addEventListener('pointerup', endHold, { passive:false });
-      holdArea.addEventListener('pointercancel', endHold, { passive:false });
-      holdArea.addEventListener('pointerleave', endHold, { passive:false });
-
-      holdArea.addEventListener('touchstart', startHold, { passive:false });
-      holdArea.addEventListener('touchend', endHold, { passive:false });
-      holdArea.addEventListener('touchcancel', endHold, { passive:false });
     }
 
     function render(){
-      cancelAnimationFrame(raf);
+      if (isVR){
+        const w = window.innerWidth / 2;
+        const h = window.innerHeight;
 
-      if (state.ended){
-        renderSummary();
-        updateTop();
-        return;
-      }
+        renderer.setScissorTest(true);
 
-      updateTop();
+        renderer.setScissor(0, 0, w, h);
+        renderer.setViewport(0, 0, w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.render(scene, camera);
 
-      const m = mission();
-      if (m.type === 'tap') renderTap();
-      if (m.type === 'hold') renderHold();
+        renderer.setScissor(w, 0, w, h);
+        renderer.setViewport(w, 0, w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.render(scene, camera);
 
-      raf = requestAnimationFrame(loop);
-    }
-
-    function loop(ts){
-      raf = requestAnimationFrame(loop);
-
-      if (state.ended) return;
-
-      const m = mission();
-      if (!m || m.type !== 'hold') return;
-
-      if (!state.lastTs) state.lastTs = ts;
-      const dt = Math.min(50, ts - state.lastTs);
-      state.lastTs = ts;
-
-      const round = m.rounds[state.holdRound];
-      const need = round.need || 1000;
-
-      const fill = document.getElementById('holdFill');
-      const text = document.getElementById('holdText');
-      const hint = document.getElementById('hint');
-
-      if (state.holdDone){
-        state.holdValue = need;
-
-        if (fill) fill.style.width = '100%';
-        if (text) text.textContent = 'เต็มแล้ว ผ่าน!';
-        if (hint){
-          hint.textContent = 'ดีมาก กำลังไปต่อ';
-          hint.classList.add('success');
-        }
-
-        return;
-      }
-
-      if (state.holding){
-        state.holdValue = Math.min(need, state.holdValue + dt);
+        renderer.setScissorTest(false);
       } else {
-        state.holdValue = Math.max(0, state.holdValue - dt * 0.18);
-      }
-
-      const pct = Math.round((state.holdValue / need) * 100);
-
-      if (fill) fill.style.width = pct + '%';
-
-      if (pct >= 100){
-        state.holdDone = true;
-        state.holding = false;
-        state.holdValue = need;
-
-        if (fill) fill.style.width = '100%';
-        if (text) text.textContent = 'เต็มแล้ว ผ่าน!';
-        if (hint){
-          hint.textContent = 'ดีมาก เต็มแล้ว!';
-          hint.classList.add('success');
-        }
-
-        reward(round.points || 24);
-        state.holdRound += 1;
-
-        if (state.holdRound >= m.rounds.length){
-          setTimeout(nextMission, 620);
-        } else {
-          setTimeout(renderHold, 620);
-        }
-
-        return;
-      }
-
-      if (text){
-        text.textContent = state.holding
-          ? `กดค้างต่อ • ${pct}%`
-          : `กดค้างตรงนี้ • ${pct}%`;
-      }
-
-      if (hint){
-        hint.textContent = 'กดค้างให้ครบ 100% ก่อน';
-        hint.classList.remove('success');
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.render(scene, camera);
       }
     }
 
-    function calcStars(){
-      if (state.bestCombo >= 8 && state.miss === 0) return 3;
-      if (state.bestCombo >= 5) return 2;
-      return 1;
-    }
-
-    function saveSummary(stars){
-      if (!window.HandwashShared?.saveSummary) return;
-
-      HandwashShared.saveSummary({
-        stage:'practice',
-        success:true,
-        score:state.score,
-        stars,
-        miss:state.miss,
-        timeLeft:0,
-        accuracy:100,
-        progress:100,
-        bestStreak:state.bestCombo,
-        whoDone:0,
-        badges:stars >= 3 ? ['Practice Ready', 'No Stress Practice'] : ['Practice Ready'],
-        rank:stars >= 3 ? 'Practice Pro' : 'Practice Clear',
-        notes:'2D-first Handwash Practice completed'
-      });
-    }
-
-    function finishPractice(){
-      state.ended = true;
-      state.combo = 0;
-
-      const stars = calcStars();
-      saveSummary(stars);
-
-      renderSummary(stars);
-      updateTop();
-    }
-
-    function renderSummary(stars = calcStars()){
-      els.nextBtn.classList.remove('hidden');
-
-      els.panel.innerHTML = `
-        <div class="badge">✨ Practice ผ่านแล้ว</div>
-        <h1>พร้อมไป Main Game แล้ว</h1>
-        <p class="desc">
-          ฝึกครบแล้ว: แตะของ • ค้างน้ำ • แตะจุดบนมือ
-        </p>
-
-        <div class="summary-grid">
-          <div class="summary-box">
-            <small>คะแนน</small>
-            <span>${state.score}</span>
-          </div>
-          <div class="summary-box">
-            <small>ดาว</small>
-            <span>${'⭐'.repeat(stars)}</span>
-          </div>
-          <div class="summary-box">
-            <small>Best Combo</small>
-            <span>${state.bestCombo}</span>
-          </div>
-          <div class="summary-box">
-            <small>สถานะ</small>
-            <span>พร้อมเล่นจริง</span>
-          </div>
-        </div>
-
-        ${renderCoach('เก่งมาก ไป Main Game ต่อได้เลย', 'good')}
-      `;
-    }
-
-    els.nextBtn.addEventListener('click', () => {
-      location.href = MAIN_URL;
-    });
-
-    els.launcherBtn.addEventListener('click', () => {
-      location.href = LAUNCHER_URL;
-    });
-
-    els.zoneBtn.addEventListener('click', () => {
-      location.href = HUB_URL;
-    });
-
-    render();
+    init();
   </script>
 </body>
 </html>
