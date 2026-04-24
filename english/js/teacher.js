@@ -1,6 +1,6 @@
 const ENDPOINT =
   window.TECHPATH_ATTENDANCE_ENDPOINT ||
-  'https://script.google.com/macros/s/AKfycbzMOBCDTaE6eH8iFeS3Jcv_LqFfLcOBIxk3nG-sDNKWTHeYuxaVtv9JQ3JoR48KUgBd/exec';
+  'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
 
 const BUILD = window.TEACHER_BUILD || 'teacher-rtdb-studentid-r1';
 const APP_ID = window.TECHPATH_APP_ID || 'english-d4bfa';
