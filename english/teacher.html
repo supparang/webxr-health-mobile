@@ -10,7 +10,7 @@
       'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
 
     window.TECHPATH_APP_ID = 'english-d4bfa';
-    window.TEACHER_BUILD = 'v20260424-teacher-dashboard-polish-r5';
+    window.TEACHER_BUILD = 'v20260424-teacher-dashboard-report-r6';
   </script>
 
   <style>
@@ -38,9 +38,7 @@
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
 
-    body{
-      min-height:100vh;
-    }
+    body{ min-height:100vh; }
 
     .wrap{
       width:min(1440px, calc(100% - 24px));
@@ -592,6 +590,101 @@
       margin-top:-4px;
     }
 
+    .report-tools{
+      display:grid;
+      grid-template-columns:1.2fr repeat(7, minmax(110px, auto));
+      gap:10px;
+      padding:14px;
+      margin-bottom:14px;
+      align-items:center;
+    }
+
+    .report-title strong{
+      display:block;
+      color:var(--accent);
+      font-size:1rem;
+    }
+
+    .report-title span{
+      display:block;
+      color:var(--muted);
+      font-size:.82rem;
+      margin-top:2px;
+    }
+
+    .report-tools input,
+    .report-tools select,
+    .report-tools button{
+      min-height:42px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      padding:0 12px;
+      font:inherit;
+    }
+
+    .report-tools button{
+      cursor:pointer;
+      font-weight:900;
+      background:rgba(255,255,255,.04);
+    }
+
+    .report-tools button:nth-last-child(2),
+    .report-tools button:nth-last-child(1){
+      background:linear-gradient(180deg,#2ad7ff,#14bde0);
+      color:#03131b;
+      border:none;
+    }
+
+    .report-panel{
+      margin-bottom:14px;
+    }
+
+    .report-cards{
+      padding:14px;
+      margin-bottom:0;
+    }
+
+    .progress-mini{
+      display:flex;
+      gap:4px;
+      flex-wrap:wrap;
+      margin-top:6px;
+    }
+
+    .progress-dot{
+      display:inline-flex;
+      min-width:26px;
+      height:24px;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      font-size:.72rem;
+      font-weight:900;
+      border:1px solid rgba(255,255,255,.08);
+      color:#8ea3b8;
+      background:rgba(255,255,255,.04);
+    }
+
+    .progress-dot.done{
+      color:#b9ffd0;
+      background:rgba(46,213,115,.14);
+      border-color:rgba(46,213,115,.25);
+    }
+
+    .progress-dot.risk{
+      color:#ffd4db;
+      background:rgba(255,107,129,.14);
+      border-color:rgba(255,107,129,.25);
+    }
+
+    .progress-dot.partial{
+      color:#ffeaa7;
+      background:rgba(241,196,15,.12);
+      border-color:rgba(241,196,15,.22);
+    }
+
     @media (max-width: 1280px){
       .cards{
         grid-template-columns:repeat(4, minmax(0, 1fr));
@@ -608,6 +701,10 @@
       .detail{
         position:static;
         max-height:none;
+      }
+
+      .report-tools{
+        grid-template-columns:1fr 1fr 1fr;
       }
     }
 
@@ -788,9 +885,73 @@
       .matrix-table{
         min-width:980px;
       }
+
+      .report-tools{
+        grid-template-columns:1fr;
+        padding:12px;
+      }
+
+      .report-cards{
+        padding:12px;
+      }
+    }
+
+    @media print{
+      body{
+        background:#fff!important;
+        color:#111!important;
+      }
+
+      .controls,
+      .quick-filters,
+      #teacher-action-row,
+      #section-chip-row,
+      .report-tools,
+      .detail,
+      .footer-note,
+      #endpoint-pill,
+      #mobile-filter-toggle{
+        display:none!important;
+      }
+
+      .wrap{
+        width:100%!important;
+        padding:0!important;
+      }
+
+      .panel{
+        box-shadow:none!important;
+        border:1px solid #ddd!important;
+        background:#fff!important;
+        color:#111!important;
+        break-inside:avoid;
+      }
+
+      .brand h1,
+      .section-head h2{
+        color:#111!important;
+      }
+
+      table,
+      .section-table,
+      .risk-table{
+        color:#111!important;
+      }
+
+      th{
+        color:#111!important;
+        background:#f1f5f9!important;
+      }
+
+      .card .v,
+      .card .k,
+      .section-meta{
+        color:#111!important;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="topbar">
@@ -807,20 +968,25 @@
 
     <div class="panel controls" id="teacher-controls">
       <input id="filter-search" type="text" placeholder="ค้นหา Student ID / Name / Section" />
+
       <select id="filter-section">
         <option value="">ทุก Section</option>
       </select>
+
       <select id="filter-status">
         <option value="">ทุกสถานะ</option>
       </select>
+
       <select id="filter-session">
         <option value="">ทุก S</option>
       </select>
+
       <select id="filter-minTime">
         <option value="">Min time ทั้งหมด</option>
         <option value="yes">ผ่าน min time</option>
         <option value="no">ยังไม่ผ่าน min time</option>
       </select>
+
       <button id="btn-refresh" type="button">รีเฟรช</button>
       <button id="btn-auto" class="ghost" type="button">Auto refresh: ON</button>
       <button id="btn-export" class="ghost" type="button">Export CSV</button>
@@ -844,7 +1010,113 @@
     </div>
 
     <div class="cards" id="summary-cards">
-      <div class="panel card"><div class="k">Loading</div><div class="v">...</div></div>
+      <div class="panel card">
+        <div class="k">Loading</div>
+        <div class="v">...</div>
+      </div>
+    </div>
+
+    <div class="panel report-tools" id="report-tools">
+      <div class="report-title">
+        <div>
+          <strong>Report Pack r6</strong>
+          <span>สรุปผลสำหรับติดตามและรายงานการเข้าเรียน</span>
+        </div>
+      </div>
+
+      <input id="filter-date-from" type="date" />
+      <input id="filter-date-to" type="date" />
+
+      <select id="report-session">
+        <option value="S01">รายงาน S01</option>
+        <option value="S02">รายงาน S02</option>
+        <option value="S03">รายงาน S03</option>
+        <option value="S04">รายงาน S04</option>
+        <option value="S05">รายงาน S05</option>
+        <option value="S06">รายงาน S06</option>
+        <option value="S07">รายงาน S07</option>
+        <option value="S08">รายงาน S08</option>
+        <option value="S09">รายงาน S09</option>
+        <option value="S10">รายงาน S10</option>
+        <option value="S11">รายงาน S11</option>
+        <option value="S12">รายงาน S12</option>
+        <option value="S13">รายงาน S13</option>
+        <option value="S14">รายงาน S14</option>
+        <option value="S15">รายงาน S15</option>
+      </select>
+
+      <input id="report-min-sec" type="number" min="0" value="60" placeholder="Min sec" />
+
+      <button id="btn-report-today" type="button">วันนี้</button>
+      <button id="btn-report-week" type="button">7 วันล่าสุด</button>
+      <button id="btn-export-report" type="button">Export Report</button>
+      <button id="btn-print-report" type="button">Print / PDF</button>
+    </div>
+
+    <div class="panel section-panel report-panel" id="report-summary-panel">
+      <div class="section-head">
+        <h2>Report Summary</h2>
+        <div class="section-meta" id="report-meta">กำลังโหลด...</div>
+      </div>
+
+      <div class="cards report-cards" id="report-summary-cards">
+        <div class="panel card">
+          <div class="k">Loading</div>
+          <div class="v">...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="heatmap-row report-panel">
+      <div class="panel risk-panel">
+        <div class="section-head">
+          <h2>Missing / Not Completed Report</h2>
+          <div class="section-meta" id="missing-meta">กำลังโหลด...</div>
+        </div>
+
+        <div class="risk-wrap">
+          <table class="risk-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Section</th>
+                <th>Target S</th>
+                <th>Reason</th>
+                <th>Duration</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="missing-tbody">
+              <tr><td colspan="6">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel risk-panel">
+        <div class="section-head">
+          <h2>Per Student Progress</h2>
+          <div class="section-meta" id="progress-meta">กำลังโหลด...</div>
+        </div>
+
+        <div class="risk-wrap">
+          <table class="risk-table progress-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Section</th>
+                <th>Done</th>
+                <th>Min OK</th>
+                <th>Risk</th>
+                <th>Best</th>
+              </tr>
+            </thead>
+            <tbody id="progress-tbody">
+              <tr><td colspan="6">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div class="heatmap-row">
@@ -853,6 +1125,7 @@
           <h2>S01–S15 Heatmap</h2>
           <div class="section-meta" id="heatmap-meta">กำลังโหลด...</div>
         </div>
+
         <div class="heatmap-grid" id="session-heatmap-grid">
           <div class="heatmap-empty">Loading...</div>
         </div>
@@ -863,6 +1136,7 @@
           <h2>At Risk / ยังไม่ผ่านเกณฑ์</h2>
           <div class="section-meta" id="risk-meta">กำลังโหลด...</div>
         </div>
+
         <div class="risk-wrap">
           <table class="risk-table">
             <thead>
@@ -888,6 +1162,7 @@
         <h2>Section Summary</h2>
         <div class="section-meta" id="section-meta">กำลังโหลด...</div>
       </div>
+
       <div class="section-wrap">
         <table class="section-table">
           <thead>
@@ -913,6 +1188,7 @@
         <h2>Section × S01–S15 Matrix</h2>
         <div class="section-meta" id="matrix-meta">กำลังโหลด...</div>
       </div>
+
       <div class="section-wrap">
         <table class="section-table matrix-table">
           <thead>
@@ -951,6 +1227,7 @@
           <h2>Students / Sessions</h2>
           <div class="table-meta" id="table-meta">กำลังโหลดข้อมูล...</div>
         </div>
+
         <div class="table-wrap">
           <table>
             <thead>
@@ -979,6 +1256,7 @@
         <div class="detail-head">
           <h2>Student Detail</h2>
         </div>
+
         <div class="detail-body" id="detail-body">
           <div class="detail-empty">เลือกแถวทางซ้ายเพื่อดูรายละเอียดผู้เรียน</div>
         </div>
@@ -988,6 +1266,6 @@
     <div class="footer-note" id="footer-note">Build: loading...</div>
   </div>
 
-  <script src="./js/teacher-dashboard-hotfix.js?v=20260424-teacher-dashboard-polish-r5" defer></script>
+  <script src="./js/teacher-dashboard-hotfix.js?v=20260424-teacher-dashboard-report-r6" defer></script>
 </body>
 </html>
