@@ -319,6 +319,10 @@
       box-shadow:0 18px 58px rgba(0,0,0,.22);
     }
 
+    .actionSummarySection{
+      border-color:rgba(253,224,71,.18);
+    }
+
     .sectionHead{
       display:flex;
       align-items:flex-start;
@@ -389,6 +393,80 @@
       background:rgba(255,255,255,.075);
     }
 
+    .actionSummaryGrid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .actionCard{
+      position:relative;
+      overflow:hidden;
+      border-radius:22px;
+      padding:16px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 34%),
+        rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:0 10px 28px rgba(0,0,0,.14);
+    }
+
+    .actionCard.warn{
+      border-color:rgba(253,224,71,.30);
+      background:
+        radial-gradient(circle at top right, rgba(253,224,71,.12), transparent 34%),
+        rgba(255,255,255,.06);
+    }
+
+    .actionCard.bad{
+      border-color:rgba(251,113,133,.32);
+      background:
+        radial-gradient(circle at top right, rgba(251,113,133,.13), transparent 34%),
+        rgba(255,255,255,.06);
+    }
+
+    .actionCard.good{
+      border-color:rgba(74,222,128,.28);
+      background:
+        radial-gradient(circle at top right, rgba(74,222,128,.12), transparent 34%),
+        rgba(255,255,255,.06);
+    }
+
+    .actionIcon{
+      width:42px;
+      height:42px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:16px;
+      background:rgba(255,255,255,.09);
+      border:1px solid rgba(255,255,255,.12);
+      font-size:22px;
+      margin-bottom:12px;
+    }
+
+    .actionTitle{
+      font-size:18px;
+      line-height:1.15;
+      font-weight:1000;
+      letter-spacing:-.02em;
+    }
+
+    .actionText{
+      margin-top:8px;
+      color:#dbeafe;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:700;
+    }
+
+    .actionMeta{
+      margin-top:12px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
     .list{
       display:grid;
       gap:12px;
@@ -407,6 +485,22 @@
         rgba(255,255,255,.055);
       border:1px solid rgba(255,255,255,.10);
       box-shadow:0 10px 28px rgba(0,0,0,.14);
+    }
+
+    .studentCard{
+      cursor:pointer;
+      transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;
+    }
+
+    .studentCard:hover{
+      transform:translateY(-2px);
+      border-color:rgba(103,232,249,.30);
+      box-shadow:0 16px 34px rgba(0,0,0,.22);
+    }
+
+    .studentCard:focus-visible{
+      outline:3px solid rgba(103,232,249,.65);
+      outline-offset:3px;
     }
 
     .studentTop,
@@ -431,6 +525,13 @@
       font-size:13px;
       line-height:1.45;
       font-weight:700;
+    }
+
+    .detailHint{
+      margin-top:10px;
+      color:#93c5fd;
+      font-size:12px;
+      font-weight:1000;
     }
 
     .miniStats{
@@ -526,47 +627,6 @@
       gap:16px;
     }
 
-    table{
-      width:100%;
-      border-collapse:separate;
-      border-spacing:0 10px;
-    }
-
-    th{
-      text-align:left;
-      color:#a9bee8;
-      font-size:12px;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-      padding:0 12px;
-    }
-
-    td{
-      padding:14px 12px;
-      background:rgba(255,255,255,.055);
-      border-top:1px solid rgba(255,255,255,.09);
-      border-bottom:1px solid rgba(255,255,255,.09);
-      color:#eef6ff;
-      font-size:14px;
-      font-weight:750;
-    }
-
-    td:first-child{
-      border-left:1px solid rgba(255,255,255,.09);
-      border-radius:16px 0 0 16px;
-    }
-
-    td:last-child{
-      border-right:1px solid rgba(255,255,255,.09);
-      border-radius:0 16px 16px 0;
-    }
-
-    .tableWrap{
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-      padding-bottom:4px;
-    }
-
     .empty{
       padding:18px;
       border-radius:18px;
@@ -592,6 +652,76 @@
       white-space:pre-wrap;
     }
 
+    .drawerBackdrop{
+      position:fixed;
+      inset:0;
+      z-index:90;
+      background:rgba(2,6,23,.62);
+      backdrop-filter:blur(8px);
+    }
+
+    .studentDrawer{
+      position:fixed;
+      inset:0 0 0 auto;
+      z-index:100;
+      width:min(720px,96vw);
+      height:100dvh;
+      overflow:auto;
+      padding:14px;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    .drawerPanel{
+      min-height:100%;
+      border-radius:30px;
+      padding:22px;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 30%),
+        linear-gradient(180deg,rgba(18,28,58,.98),rgba(9,17,35,.98));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow:0 28px 90px rgba(0,0,0,.46);
+      animation:drawerIn .22s ease;
+    }
+
+    @keyframes drawerIn{
+      from{transform:translateX(24px);opacity:0}
+      to{transform:translateX(0);opacity:1}
+    }
+
+    .drawerHead{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:14px;
+      margin-bottom:16px;
+    }
+
+    .drawerGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .drawerGrid .card{
+      padding:18px;
+      border-radius:22px;
+    }
+
+    .drawerGrid .kpiValue{
+      font-size:42px;
+    }
+
+    .drawerSection{
+      margin-top:18px;
+    }
+
+    .drawerSection h3{
+      margin:0 0 10px;
+      font-size:22px;
+      font-weight:1000;
+      letter-spacing:-.03em;
+    }
+
     .hidden{
       display:none!important;
     }
@@ -611,7 +741,9 @@
       .toolbar,
       .status,
       .debug,
-      #toggleDebugBtn{
+      #toggleDebugBtn,
+      .drawerBackdrop,
+      .studentDrawer{
         display:none!important;
       }
 
@@ -666,6 +798,10 @@
       .threeCol{
         grid-template-columns:1fr;
       }
+
+      .actionSummaryGrid{
+        grid-template-columns:1fr;
+      }
     }
 
     @media (max-width:620px){
@@ -710,6 +846,24 @@
 
       .kpiValue{
         font-size:48px;
+      }
+
+      .studentDrawer{
+        width:100vw;
+        padding:8px;
+      }
+
+      .drawerPanel{
+        border-radius:24px;
+        padding:16px;
+      }
+
+      .drawerHead{
+        flex-direction:column;
+      }
+
+      .drawerGrid{
+        grid-template-columns:1fr;
       }
     }
   </style>
@@ -783,6 +937,17 @@
           <option value="name">ชื่อ A-Z</option>
         </select>
       </div>
+    </section>
+
+    <section class="section actionSummarySection">
+      <div class="sectionHead">
+        <div>
+          <h2>วันนี้ครูควรทำอะไรก่อน</h2>
+          <div class="sectionDesc">สรุป action ที่ควรทำจากข้อมูลล่าสุด เพื่อให้ครูไม่ต้องตีความตัวเลขเองทั้งหมด</div>
+        </div>
+        <span class="badge warn" id="actionSummaryCount">0 งาน</span>
+      </div>
+      <div class="actionSummaryGrid" id="teacherActionList"></div>
     </section>
 
     <section class="grid">
@@ -912,6 +1077,62 @@
       </div>
       <pre class="debug hidden" id="debugBox"></pre>
     </section>
+
+    <div class="drawerBackdrop hidden" id="drawerBackdrop"></div>
+
+    <aside class="studentDrawer hidden" id="studentDrawer" aria-label="student detail">
+      <div class="drawerPanel">
+        <div class="drawerHead">
+          <div>
+            <div class="badge" id="drawerRiskBadge">DETAIL</div>
+            <h2 id="drawerTitle">Student Detail</h2>
+            <div class="sectionDesc" id="drawerSubtitle">รายละเอียดรายคน</div>
+          </div>
+          <button class="btn ghost" id="drawerCloseBtn" type="button">ปิด</button>
+        </div>
+
+        <div class="drawerGrid">
+          <div class="card">
+            <div class="kpiLabel">Score</div>
+            <div class="kpiValue" id="drawerScore">0</div>
+            <div class="kpiHelp">คะแนนล่าสุด/ดีที่สุดที่พบ</div>
+          </div>
+
+          <div class="card">
+            <div class="kpiLabel">Accuracy</div>
+            <div class="kpiValue" id="drawerAccuracy">0%</div>
+            <div class="kpiHelp">ความแม่นยำล่าสุด</div>
+          </div>
+
+          <div class="card">
+            <div class="kpiLabel">Sessions</div>
+            <div class="kpiValue" id="drawerSessions">0</div>
+            <div class="kpiHelp">จำนวนรอบที่บันทึก</div>
+          </div>
+
+          <div class="card">
+            <div class="kpiLabel">Wrong Rate</div>
+            <div class="kpiValue" id="drawerWrongRate">0%</div>
+            <div class="kpiHelp">อัตราตอบผิดจาก answers</div>
+          </div>
+        </div>
+
+        <div class="drawerSection">
+          <h3>คำแนะนำสำหรับครู</h3>
+          <div class="empty" id="drawerActionText">-</div>
+        </div>
+
+        <div class="drawerSection">
+          <h3>คำศัพท์ที่ควรทบทวนรายคน</h3>
+          <div class="barBlock" id="drawerWeakTerms"></div>
+        </div>
+
+        <div class="drawerSection">
+          <h3>Recent Sessions ของคนนี้</h3>
+          <div class="list" id="drawerRecentSessions"></div>
+        </div>
+      </div>
+    </aside>
   </main>
 
   <script>
@@ -948,6 +1169,9 @@
       riskFilter: document.getElementById('riskFilter'),
       sortSelect: document.getElementById('sortSelect'),
 
+      actionSummaryCount: document.getElementById('actionSummaryCount'),
+      teacherActionList: document.getElementById('teacherActionList'),
+
       kpiStudents: document.getElementById('kpiStudents'),
       kpiSessions: document.getElementById('kpiSessions'),
       kpiSupport: document.getElementById('kpiSupport'),
@@ -968,7 +1192,21 @@
       runCount: document.getElementById('runCount'),
       recentRuns: document.getElementById('recentRuns'),
       toggleDebugBtn: document.getElementById('toggleDebugBtn'),
-      debugBox: document.getElementById('debugBox')
+      debugBox: document.getElementById('debugBox'),
+
+      drawerBackdrop: document.getElementById('drawerBackdrop'),
+      studentDrawer: document.getElementById('studentDrawer'),
+      drawerCloseBtn: document.getElementById('drawerCloseBtn'),
+      drawerRiskBadge: document.getElementById('drawerRiskBadge'),
+      drawerTitle: document.getElementById('drawerTitle'),
+      drawerSubtitle: document.getElementById('drawerSubtitle'),
+      drawerScore: document.getElementById('drawerScore'),
+      drawerAccuracy: document.getElementById('drawerAccuracy'),
+      drawerSessions: document.getElementById('drawerSessions'),
+      drawerWrongRate: document.getElementById('drawerWrongRate'),
+      drawerActionText: document.getElementById('drawerActionText'),
+      drawerWeakTerms: document.getElementById('drawerWeakTerms'),
+      drawerRecentSessions: document.getElementById('drawerRecentSessions')
     };
 
     function showStatus(message, type = 'ok') {
@@ -1004,6 +1242,7 @@
     function dateLabel(v) {
       const d = safeDate(v);
       if (!d) return '-';
+
       return d.toLocaleString('th-TH', {
         dateStyle: 'medium',
         timeStyle: 'short'
@@ -1022,6 +1261,7 @@
     async function fetchJson(url, options) {
       const res = await fetch(url, options || {});
       if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + url);
+
       const txt = await res.text();
 
       try {
@@ -1029,6 +1269,47 @@
       } catch (err) {
         throw new Error('Invalid JSON: ' + txt.slice(0, 240));
       }
+    }
+
+    function is2dArray(arr) {
+      return Array.isArray(arr) && Array.isArray(arr[0]);
+    }
+
+    function rowsToObjects(arr) {
+      if (!is2dArray(arr) || arr.length < 2) return arr;
+
+      const headers = arr[0].map(h => cleanKey(h));
+
+      return arr.slice(1)
+        .filter(row => Array.isArray(row) && row.some(v => text(v) !== ''))
+        .map(row => {
+          const obj = {};
+          headers.forEach((h, i) => {
+            if (h) obj[h] = row[i] ?? '';
+          });
+          return obj;
+        });
+    }
+
+    function normalizeArray(arr) {
+      if (!Array.isArray(arr)) return [];
+      const converted = rowsToObjects(arr);
+      return Array.isArray(converted) ? converted : [];
+    }
+
+    function collectArraysDeep(obj, path = '', out = []) {
+      if (!obj || typeof obj !== 'object') return out;
+
+      if (Array.isArray(obj)) {
+        out.push({ path, rows: normalizeArray(obj) });
+        return out;
+      }
+
+      Object.keys(obj).forEach(key => {
+        collectArraysDeep(obj[key], path ? path + '.' + key : key, out);
+      });
+
+      return out;
     }
 
     function hasDashboardArrays(data) {
@@ -1044,7 +1325,7 @@
       const envelope = (action) => JSON.stringify({
         api: 'vocab',
         source: 'teacher.html',
-        schema: 'teacher-dashboard-v2',
+        schema: 'teacher-dashboard-v3',
         action,
         timestamp: new Date().toISOString(),
         payload: {
@@ -1132,54 +1413,15 @@
       throw lastErr || new Error('Cannot load teacher dashboard data');
     }
 
-    function is2dArray(arr) {
-      return Array.isArray(arr) && Array.isArray(arr[0]);
-    }
-
-    function rowsToObjects(arr) {
-      if (!is2dArray(arr) || arr.length < 2) return arr;
-
-      const headers = arr[0].map(h => cleanKey(h));
-
-      return arr.slice(1)
-        .filter(row => Array.isArray(row) && row.some(v => text(v) !== ''))
-        .map(row => {
-          const obj = {};
-          headers.forEach((h, i) => {
-            if (h) obj[h] = row[i] ?? '';
-          });
-          return obj;
-        });
-    }
-
-    function normalizeArray(arr) {
-      if (!Array.isArray(arr)) return [];
-      const converted = rowsToObjects(arr);
-      return Array.isArray(converted) ? converted : [];
-    }
-
-    function collectArraysDeep(obj, path = '', out = []) {
-      if (!obj || typeof obj !== 'object') return out;
-
-      if (Array.isArray(obj)) {
-        out.push({ path, rows: normalizeArray(obj) });
-        return out;
-      }
-
-      Object.keys(obj).forEach(key => {
-        collectArraysDeep(obj[key], path ? path + '.' + key : key, out);
-      });
-
-      return out;
-    }
-
     function keysOfRows(rows) {
       const set = new Set();
+
       rows.slice(0, 8).forEach(row => {
         if (row && typeof row === 'object' && !Array.isArray(row)) {
           Object.keys(row).forEach(k => set.add(cleanKey(k)));
         }
       });
+
       return Array.from(set);
     }
 
@@ -1310,6 +1552,7 @@
 
       function ensure(id, seed = {}) {
         const key = id || getRowId(seed);
+
         if (!byId.has(key)) {
           byId.set(key, {
             id: key,
@@ -1324,11 +1567,13 @@
         }
 
         const row = byId.get(key);
+
         if (seed) {
           if (!row.display_name || row.display_name === 'Unknown') row.display_name = getDisplayName(seed);
           if (!row.student_id) row.student_id = text(seed.student_id || seed.studentId || seed.sid || '');
           if (!row.section || row.section === '-') row.section = getSection(seed);
         }
+
         return row;
       }
 
@@ -1448,6 +1693,7 @@
 
     function applyFilters(rows) {
       const q = state.filters.search.toLowerCase();
+
       let out = rows.filter(r => {
         const bag = [
           r.display_name,
@@ -1468,12 +1714,15 @@
 
       out.sort((a,b) => {
         if (state.filters.sort === 'accuracyAsc') return a.accuracy - b.accuracy;
+
         if (state.filters.sort === 'scoreDesc') return b.score - a.score;
+
         if (state.filters.sort === 'recent') {
           const da = safeDate(a.lastSeen);
           const db = safeDate(b.lastSeen);
           return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         }
+
         if (state.filters.sort === 'name') return a.display_name.localeCompare(b.display_name);
 
         const rank = { risk:0, support:1, ok:2 };
@@ -1539,7 +1788,7 @@
       `;
 
       return `
-        <article class="studentCard">
+        <article class="studentCard" data-student-id="${escapeHtml(r.id)}" tabindex="0" role="button">
           <div class="studentTop">
             <div>
               <div class="name">${escapeHtml(r.display_name)}</div>
@@ -1575,6 +1824,8 @@
           <div class="meta" style="margin-top:12px">
             <strong>Action:</strong> ${escapeHtml(r.action)}
           </div>
+
+          <div class="detailHint">กดเพื่อเปิดรายละเอียดรายคน →</div>
         </article>
       `;
     }
@@ -1667,7 +1918,9 @@
 
         const row = map.get(term);
         row.seen++;
+
         const correct = a.is_correct === true || String(a.is_correct).toLowerCase() === 'true';
+
         if (correct) row.correct++;
         else row.wrong++;
 
@@ -1812,6 +2065,84 @@
       `).join('');
     }
 
+    function buildTeacherActions(rows, normalized) {
+      const actions = [];
+
+      const riskRows = rows.filter(r => r.riskLevel === 'risk');
+      const supportRows = rows.filter(r => r.riskLevel === 'support');
+      const hardTerms = termStats(normalized.termAnswers).slice(0, 5);
+
+      if (riskRows.length) {
+        actions.push({
+          tone: 'bad',
+          icon: '🚨',
+          title: 'ติดตามกลุ่มเสี่ยงก่อน',
+          text: `มีนักศึกษา ${riskRows.length} คนที่ควรดูแลก่อน โดยดูจาก accuracy, wrong rate หรือจำนวนรอบเล่น`,
+          chips: riskRows.slice(0, 3).map(r => r.display_name)
+        });
+      }
+
+      if (supportRows.length) {
+        actions.push({
+          tone: 'warn',
+          icon: '🧭',
+          title: 'ให้ฝึกเสริมรายคน',
+          text: `มี ${supportRows.length} คนที่ควรให้เล่นซ้ำหรือทบทวนคำศัพท์เฉพาะจุด`,
+          chips: supportRows.slice(0, 3).map(r => r.display_name)
+        });
+      }
+
+      if (hardTerms.length) {
+        actions.push({
+          tone: 'warn',
+          icon: '📌',
+          title: 'ทบทวนคำศัพท์ทั้งห้อง',
+          text: `คำที่ควรหยิบมาสอนซ้ำ: ${hardTerms.map(t => t.name).join(', ')}`,
+          chips: hardTerms.slice(0, 4).map(t => `${t.name} (${t.wrong})`)
+        });
+      }
+
+      const avgAcc = average(rows.map(r => r.accuracy));
+
+      if (rows.length && avgAcc >= 80) {
+        actions.push({
+          tone: 'good',
+          icon: '🌟',
+          title: 'ภาพรวมห้องทำได้ดี',
+          text: `ค่าเฉลี่ย accuracy ประมาณ ${Math.round(avgAcc)}% สามารถเพิ่มความท้าทายหรือใช้โหมด Speed Run ได้`,
+          chips: ['เพิ่ม difficulty', 'ใช้ challenge mode']
+        });
+      }
+
+      if (!actions.length) {
+        actions.push({
+          tone: 'good',
+          icon: '✅',
+          title: 'ยังไม่มีงานเร่งด่วน',
+          text: 'ข้อมูลยังไม่พบกลุ่มที่ต้องติดตามเป็นพิเศษ ให้เก็บข้อมูลต่ออีก 1–2 รอบ',
+          chips: ['เก็บข้อมูลต่อ', 'ดูแนวโน้ม']
+        });
+      }
+
+      return actions;
+    }
+
+    function renderTeacherActions(rows, normalized) {
+      const actions = buildTeacherActions(rows, normalized);
+      els.actionSummaryCount.textContent = actions.length + ' งาน';
+
+      els.teacherActionList.innerHTML = actions.map(a => `
+        <article class="actionCard ${escapeHtml(a.tone)}">
+          <div class="actionIcon">${escapeHtml(a.icon)}</div>
+          <div class="actionTitle">${escapeHtml(a.title)}</div>
+          <div class="actionText">${escapeHtml(a.text)}</div>
+          <div class="actionMeta">
+            ${(a.chips || []).map(ch => `<span class="badge">${escapeHtml(ch)}</span>`).join('')}
+          </div>
+        </article>
+      `).join('');
+    }
+
     function renderDebug(raw, normalized) {
       els.debugBox.textContent = JSON.stringify({
         usedAction: raw?.__usedAction,
@@ -1827,12 +2158,149 @@
       }, null, 2);
     }
 
+    function perStudentWeakTerms(row) {
+      const map = new Map();
+
+      row.answers.forEach(a => {
+        const term = text(a.term || a.term_id || a.word || a.vocab || '-');
+        if (!term || term === '-') return;
+
+        if (!map.has(term)) {
+          map.set(term, {
+            name: term,
+            seen: 0,
+            wrong: 0,
+            correct: 0
+          });
+        }
+
+        const item = map.get(term);
+        item.seen++;
+
+        const correct = a.is_correct === true || String(a.is_correct).toLowerCase() === 'true';
+
+        if (correct) item.correct++;
+        else item.wrong++;
+      });
+
+      return Array.from(map.values()).map(t => ({
+        ...t,
+        accuracy: t.seen ? (t.correct / t.seen) * 100 : 0
+      })).sort((a,b) => {
+        if (b.wrong !== a.wrong) return b.wrong - a.wrong;
+        return a.accuracy - b.accuracy;
+      });
+    }
+
+    function openStudentDrawer(studentId) {
+      const row = state.rows.find(r => String(r.id) === String(studentId));
+      if (!row) return;
+
+      els.drawerRiskBadge.className =
+        'badge ' + (row.riskLevel === 'risk' ? 'bad' : row.riskLevel === 'support' ? 'warn' : 'good');
+
+      els.drawerRiskBadge.textContent =
+        row.riskLevel === 'risk' ? 'กลุ่มเสี่ยง' :
+        row.riskLevel === 'support' ? 'ต้องติดตาม' :
+        'ปกติ';
+
+      els.drawerTitle.textContent = row.display_name;
+      els.drawerSubtitle.textContent =
+        `Student ID: ${row.student_id || '-'} • Section: ${row.section || '-'} • Last ${row.lastBank}/${row.lastMode}`;
+
+      els.drawerScore.textContent = Math.round(row.score);
+      els.drawerAccuracy.textContent = Math.round(row.accuracy) + '%';
+      els.drawerSessions.textContent = row.attendance;
+      els.drawerWrongRate.textContent = Math.round(row.wrongRate || 0) + '%';
+      els.drawerActionText.textContent = row.action;
+
+      const weak = perStudentWeakTerms(row).slice(0, 8);
+
+      if (!weak.length) {
+        els.drawerWeakTerms.innerHTML = '<div class="empty">ยังไม่มีข้อมูลคำศัพท์รายคน หรือยังไม่พบคำที่ผิด</div>';
+      } else {
+        const maxWrong = Math.max(...weak.map(t => t.wrong), 1);
+
+        els.drawerWeakTerms.innerHTML = weak.map(t => {
+          const w = Math.max(5, Math.min(100, t.wrong / maxWrong * 100));
+          const tone = t.wrong >= 2 ? 'bad' : t.wrong >= 1 ? 'warn' : 'good';
+
+          return `
+            <div class="barRow">
+              <div class="barHead">
+                <div class="barName">${escapeHtml(t.name)}</div>
+                <div class="barMeta">
+                  wrong ${escapeHtml(t.wrong)} / seen ${escapeHtml(t.seen)}<br>
+                  accuracy ${escapeHtml(Math.round(t.accuracy))}%
+                </div>
+              </div>
+              <div class="track">
+                <div class="fill ${tone}" style="width:${w}%"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const sessions = row.sessions.slice().sort((a,b) => {
+        const da = safeDate(a.ended_at || a.started_at || a.timestamp);
+        const db = safeDate(b.ended_at || b.started_at || b.timestamp);
+        return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+      });
+
+      if (!sessions.length) {
+        els.drawerRecentSessions.innerHTML = '<div class="empty">ยังไม่มี session ของนักศึกษาคนนี้</div>';
+      } else {
+        els.drawerRecentSessions.innerHTML = sessions.slice(0, 6).map(s => `
+          <article class="runCard">
+            <div class="runTop">
+              <div>
+                <div class="name">${escapeHtml(text(s.bank || '-'))} • ${escapeHtml(text(s.mode || '-'))}</div>
+                <div class="meta">${escapeHtml(dateLabel(s.ended_at || s.started_at || s.timestamp))}</div>
+              </div>
+              <span class="badge">${escapeHtml(text(s.session_id || '-'))}</span>
+            </div>
+
+            <div class="miniStats">
+              <div class="mini">
+                <div class="label">Score</div>
+                <div class="value">${escapeHtml(num(s.score))}</div>
+              </div>
+              <div class="mini">
+                <div class="label">Accuracy</div>
+                <div class="value">${escapeHtml(Math.round(num(s.accuracy)))}%</div>
+              </div>
+              <div class="mini">
+                <div class="label">Duration</div>
+                <div class="value">${escapeHtml(num(s.duration_sec))}s</div>
+              </div>
+              <div class="mini">
+                <div class="label">Mistakes</div>
+                <div class="value">${escapeHtml(num(s.mistakes))}</div>
+              </div>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      els.drawerBackdrop.classList.remove('hidden');
+      els.studentDrawer.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeStudentDrawer() {
+      els.drawerBackdrop.classList.add('hidden');
+      els.studentDrawer.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
     function renderAll() {
       const normalized = state.normalized;
       const rows = state.rows;
       const filtered = applyFilters(rows);
 
       renderFilters(rows);
+      renderTeacherActions(filtered, normalized);
       renderKpis(filtered, normalized);
       renderStudents(rows);
       renderTerms(normalized.termAnswers);
@@ -1926,6 +2394,27 @@
       els.toggleDebugBtn.addEventListener('click', () => {
         els.debugBox.classList.toggle('hidden');
       });
+
+      document.addEventListener('click', (ev) => {
+        const card = ev.target.closest('.studentCard[data-student-id]');
+        if (!card) return;
+        openStudentDrawer(card.dataset.studentId);
+      });
+
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') {
+          closeStudentDrawer();
+          return;
+        }
+
+        if (ev.key === 'Enter') {
+          const card = document.activeElement?.closest?.('.studentCard[data-student-id]');
+          if (card) openStudentDrawer(card.dataset.studentId);
+        }
+      });
+
+      els.drawerCloseBtn.addEventListener('click', closeStudentDrawer);
+      els.drawerBackdrop.addEventListener('click', closeStudentDrawer);
     }
 
     bindEvents();
