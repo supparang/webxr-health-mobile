@@ -336,6 +336,7 @@
       font-size:1.1rem;
       font-weight:1000;
       color:#0f4c5c;
+      text-align:center;
     }
 
     .hold-progress{
@@ -602,7 +603,6 @@
         badge:'📘 Scene 1 • จำ 4 อย่างนี้ก่อน',
         h1:'ในเกมนี้มี 4 อย่างที่ต้องรู้',
         desc:'ดูให้รู้ก่อนว่าเห็นอะไรแล้วต้องทำอะไร',
-        nextLocked:false,
         items:[
           { icon:'🚰', cls:'faucet', title:'ก๊อกน้ำ', desc:'เห็นก๊อกน้ำ = แตะก๊อกน้ำ' },
           { icon:'🧼', cls:'soap', title:'สบู่', desc:'เห็นสบู่ = แตะสบู่' },
@@ -627,8 +627,9 @@
         title:'ลองค้างน้ำ',
         badge:'💧 Scene 3 • ลองค้างที่โซนน้ำ',
         h1:'กดค้างที่โซนน้ำให้เต็ม',
-        desc:'แตะค้างตรงกล่องน้ำจนแถบเต็ม ปล่อยได้ ไม่เป็นไร',
-        holdNeed:1000
+        desc:'แตะค้างตรงกล่องน้ำจนแถบเต็ม แล้วเกมจะพาไปขั้นถัดไปเอง',
+        holdNeed:1000,
+        autoNext:true
       },
       {
         type:'tap',
@@ -659,8 +660,11 @@
 
     let index = 0;
     let step = 0;
+
     let holdValue = 0;
     let holding = false;
+    let holdDone = false;
+    let holdAutoNextTimer = null;
     let lastTs = 0;
     let raf = 0;
 
@@ -683,6 +687,13 @@
 
     function setNextEnabled(on){
       els.nextBtn.disabled = !on;
+    }
+
+    function clearHoldTimer(){
+      if (holdAutoNextTimer){
+        clearTimeout(holdAutoNextTimer);
+        holdAutoNextTimer = null;
+      }
     }
 
     function renderRead(scene){
@@ -756,6 +767,12 @@
     }
 
     function renderHold(scene){
+      holdValue = 0;
+      holding = false;
+      holdDone = false;
+      lastTs = 0;
+      clearHoldTimer();
+
       els.panel.innerHTML = `
         <div class="badge">${scene.badge}</div>
         <h1>${scene.h1}</h1>
@@ -770,7 +787,7 @@
         </div>
 
         <div class="feedback" id="feedback">
-          กดค้างที่กล่องน้ำจนแถบเต็ม
+          กดค้างที่กล่องน้ำจนแถบเต็ม 100%
         </div>
       `;
 
@@ -780,29 +797,39 @@
 
       function startHold(e){
         e.preventDefault();
+        if (holdDone) return;
         holding = true;
       }
 
       function endHold(e){
         if (e) e.preventDefault();
+        if (holdDone) return;
         holding = false;
       }
 
       holdArea.addEventListener('pointerdown', startHold, { passive:false });
-      window.addEventListener('pointerup', endHold, { passive:false });
-      window.addEventListener('pointercancel', endHold, { passive:false });
+      holdArea.addEventListener('pointerup', endHold, { passive:false });
+      holdArea.addEventListener('pointercancel', endHold, { passive:false });
+      holdArea.addEventListener('pointerleave', endHold, { passive:false });
 
       holdArea.addEventListener('touchstart', startHold, { passive:false });
+      holdArea.addEventListener('touchend', endHold, { passive:false });
+      holdArea.addEventListener('touchcancel', endHold, { passive:false });
+
+      window.addEventListener('pointerup', endHold, { passive:false });
+      window.addEventListener('pointercancel', endHold, { passive:false });
       window.addEventListener('touchend', endHold, { passive:false });
       window.addEventListener('touchcancel', endHold, { passive:false });
     }
 
     function render(){
       cancelAnimationFrame(raf);
+      clearHoldTimer();
 
       step = 0;
       holdValue = 0;
       holding = false;
+      holdDone = false;
       lastTs = 0;
 
       const scene = SCENES[index];
@@ -813,6 +840,20 @@
       if (scene.type === 'hold') renderHold(scene);
 
       raf = requestAnimationFrame(loop);
+    }
+
+    function goNext(){
+      if (els.nextBtn.disabled) return;
+
+      clearHoldTimer();
+
+      if (index < SCENES.length - 1){
+        index += 1;
+        render();
+        return;
+      }
+
+      location.href = PRACTICE_URL;
     }
 
     function loop(ts){
@@ -827,6 +868,22 @@
 
       const need = scene.holdNeed || 1000;
 
+      const fill = document.getElementById('holdFill');
+      const text = document.getElementById('holdText');
+      const feedback = document.getElementById('feedback');
+
+      if (holdDone){
+        holdValue = need;
+        holding = false;
+
+        if (fill) fill.style.width = '100%';
+        if (text) text.textContent = 'เต็มแล้ว ผ่าน!';
+        if (feedback) feedback.textContent = 'ดีมาก กำลังไปขั้นถัดไป';
+
+        setNextEnabled(true);
+        return;
+      }
+
       if (holding){
         holdValue = Math.min(need, holdValue + dt);
       } else {
@@ -834,44 +891,59 @@
       }
 
       const pct = Math.round((holdValue / need) * 100);
-      const fill = document.getElementById('holdFill');
-      const text = document.getElementById('holdText');
-      const feedback = document.getElementById('feedback');
 
       if (fill) fill.style.width = pct + '%';
-      if (text) text.textContent = pct >= 100 ? 'เต็มแล้ว ผ่าน!' : `กดค้างต่อ • ${pct}%`;
 
       if (pct >= 100){
+        holdDone = true;
+        holding = false;
+        holdValue = need;
+
+        if (fill) fill.style.width = '100%';
+        if (text) text.textContent = 'เต็มแล้ว ผ่าน!';
+        if (feedback) feedback.textContent = 'ดีมาก กำลังไป Scene 4';
+
         setNextEnabled(true);
-        if (feedback) feedback.textContent = 'ดีมาก แถบเต็มแล้ว กด “ถัดไป” ได้เลย';
-      }
-    }
 
-    function goNext(){
-      const scene = SCENES[index];
+        if (!holdAutoNextTimer){
+          holdAutoNextTimer = setTimeout(() => {
+            if (index < SCENES.length - 1){
+              index += 1;
+              render();
+            }
+          }, 700);
+        }
 
-      if (els.nextBtn.disabled) return;
-
-      if (index < SCENES.length - 1){
-        index += 1;
-        render();
         return;
       }
 
-      location.href = PRACTICE_URL;
+      setNextEnabled(false);
+
+      if (text){
+        text.textContent = holding
+          ? `กดค้างต่อ • ${pct}%`
+          : `กดค้างตรงนี้ • ${pct}%`;
+      }
+
+      if (feedback){
+        feedback.textContent = 'กดค้างให้ครบ 100% ก่อน';
+      }
     }
 
     els.nextBtn.addEventListener('click', goNext);
 
     els.skipBtn.addEventListener('click', () => {
+      clearHoldTimer();
       location.href = PRACTICE_URL;
     });
 
     els.launcherBtn.addEventListener('click', () => {
+      clearHoldTimer();
       location.href = LAUNCHER_URL;
     });
 
     els.zoneBtn.addEventListener('click', () => {
+      clearHoldTimer();
       location.href = HUB_URL;
     });
 
