@@ -5,287 +5,140 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Handwash Hero • Practice Lab</title>
 
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
-
   <style>
     :root{
-      --bg:rgba(7,18,34,.88);
-      --panel:rgba(255,255,255,.12);
-      --line:#63e6ff;
-      --text:#ecfeff;
-      --yellow:#ffe66d;
-      --shadow:0 12px 30px rgba(0,0,0,.26);
+      --bg1:#e9fbff;
+      --bg2:#dff4ff;
+      --ink:#163046;
+      --muted:#5d778c;
+      --card:#ffffffee;
+      --line:#d7ecf8;
+      --blue:#22d3ee;
+      --pink:#f472b6;
+      --yellow:#fde047;
+      --green:#86efac;
+      --good:#22c55e;
+      --bad:#fb7185;
+      --shadow:0 18px 48px rgba(15,50,70,.14);
+      --r-xl:28px;
+      --r-lg:22px;
+      --maxw:900px;
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       width:100%;
-      height:100%;
-      overflow:hidden;
+      min-height:100%;
       font-family:"Segoe UI",system-ui,sans-serif;
-      background:#d9f3ff;
-      color:#fff;
-      touch-action:manipulation;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.92) 0%, rgba(255,255,255,.45) 28%, transparent 52%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    a-scene{
-      position:fixed !important;
-      inset:0 !important;
-    }
-
-    #hud{
-      position:fixed;
-      inset:0;
-      z-index:20;
-      pointer-events:none;
-    }
-
-    #ui-layer{
-      position:absolute;
-      top:8px;
-      left:50%;
-      transform:translateX(-50%);
-      width:min(94%,780px);
-      background:var(--bg);
-      border:2px solid rgba(99,230,255,.35);
-      border-radius:22px;
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(8px);
+    body{
+      min-height:100dvh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       padding:14px;
-      transition:opacity .2s ease, transform .2s ease;
+      overflow:hidden;
     }
 
-    #ui-layer.compact #guide-panel,
-    #ui-layer.compact .progress-wrap{
-      display:none;
+    .app{
+      width:min(100%,var(--maxw));
+      height:calc(100dvh - 28px);
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:12px;
     }
 
-    #ui-layer.compact{
-      width:min(94%,520px);
-      padding:10px 12px;
+    .top{
+      background:rgba(7,18,34,.92);
+      color:#eefcff;
+      border:2px solid rgba(99,230,255,.28);
+      border-radius:24px;
+      padding:12px 14px;
+      box-shadow:0 14px 36px rgba(7,18,34,.18);
     }
 
     .top-row{
       display:flex;
-      justify-content:space-between;
-      gap:12px;
       align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
-    .title-main{
-      font-size:1rem;
+    .kicker{
+      font-size:.94rem;
+      color:#80e8ff;
       font-weight:1000;
-      color:#baf4ff;
     }
 
-    .title-sub{
+    .title{
       margin-top:4px;
-      font-size:1.18rem;
-      line-height:1.12;
+      font-size:1.25rem;
+      line-height:1.15;
       font-weight:1000;
-      color:#ffffff;
+      color:#fff;
     }
 
     .chips{
       display:flex;
-      flex-wrap:wrap;
       gap:8px;
-      justify-content:flex-end;
+      flex-wrap:wrap;
     }
 
     .chip{
-      padding:8px 12px;
+      padding:8px 11px;
       border-radius:999px;
       background:rgba(103,232,249,.14);
       border:1px solid rgba(103,232,249,.18);
       color:#e6fbff;
       font-weight:900;
-      font-size:.9rem;
+      font-size:.88rem;
       white-space:nowrap;
-    }
-
-    #guide-panel{
-      margin-top:10px;
-      padding:12px;
-      background:var(--panel);
-      border-radius:16px;
-      display:grid;
-      grid-template-columns:78px 1fr;
-      gap:12px;
-      align-items:center;
-    }
-
-    .guide-image{
-      width:78px;
-      height:78px;
-      border-radius:50%;
-      background:linear-gradient(180deg,#8aeaff 0%,#22d3ee 100%);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:2rem;
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.22);
-    }
-
-    #step-count{
-      font-size:.95rem;
-      font-weight:1000;
-      color:#63e6ff;
-    }
-
-    #step-desc{
-      margin-top:4px;
-      font-size:1rem;
-      line-height:1.42;
-      font-weight:800;
-      color:#eefcff;
-    }
-
-    #action-prompt{
-      display:inline-block;
-      margin-top:8px;
-      background:var(--yellow);
-      color:#111827;
-      padding:8px 12px;
-      border-radius:999px;
-      font-weight:1000;
-      font-size:.92rem;
-      animation:pulse 1s infinite;
     }
 
     .progress-wrap{
       margin-top:10px;
-      display:grid;
-      gap:4px;
     }
 
-    .progress-top{
+    .progress-meta{
       display:flex;
       justify-content:space-between;
-      gap:10px;
+      font-size:.86rem;
+      color:#dff8ff;
       font-weight:900;
-      color:#d9fbff;
-      font-size:.88rem;
+      margin-bottom:5px;
     }
 
-    .progress-bar{
-      width:100%;
+    .progress{
       height:14px;
-      background:#0b1220;
+      background:#08131f;
       border-radius:999px;
-      overflow:hidden;
       border:2px solid #63e6ff;
+      overflow:hidden;
     }
 
-    #fill{
+    .fill{
       width:0%;
       height:100%;
       background:linear-gradient(90deg,#60ff9d 0%,#00e5ff 100%);
-      transition:width .12s linear;
+      transition:width .2s ease;
     }
 
-    #coach-wrap{
-      position:absolute;
-      left:10px;
-      right:10px;
-      bottom:4px;
-      margin:auto;
-      width:auto;
-      max-width:760px;
-      display:grid;
-      grid-template-columns:56px 1fr;
-      gap:10px;
-      align-items:center;
-      pointer-events:none;
-    }
-
-    #coach-face{
-      width:56px;
-      height:56px;
-      border-radius:18px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:1.6rem;
-      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
-      box-shadow:0 8px 18px rgba(0,0,0,.16), inset 0 0 0 4px rgba(255,255,255,.32);
-      transition:transform .18s ease, background .18s ease;
-    }
-
-    #coach-face.good{
-      background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%);
-      transform:scale(1.05);
-    }
-
-    #coach-face.warn{
-      background:linear-gradient(180deg,#fff5b1 0%, #ffe66d 100%);
-    }
-
-    #coach{
-      background:rgba(255,255,255,.92);
-      color:#0f172a;
-      border-radius:14px;
-      padding:8px 10px;
-      box-shadow:0 8px 18px rgba(0,0,0,.14);
-      font-weight:800;
-      font-size:.82rem;
-      line-height:1.25;
-    }
-
-    #controls{
-      position:fixed;
-      right:10px;
-      bottom:74px;
-      z-index:30;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      pointer-events:auto;
-      max-width:80vw;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
-      border-radius:999px;
-      padding:8px 12px;
-      font-weight:1000;
-      font-size:.88rem;
-      cursor:pointer;
-      box-shadow:0 8px 20px rgba(0,0,0,.18);
-      border:2px solid rgba(255,255,255,.95);
-      color:#0f172a;
-      background:rgba(255,255,255,.95);
-    }
-
-    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
-    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
-    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%); }
-    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%); }
-
-    .overlay{
-      position:fixed;
-      inset:0;
-      z-index:40;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+    .panel{
+      overflow:auto;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--r-xl);
+      box-shadow:var(--shadow);
       padding:18px;
-      background:rgba(8,20,40,.46);
-      backdrop-filter:blur(8px);
-    }
-
-    .card{
-      width:min(840px,100%);
-      background:rgba(255,255,255,.97);
-      color:#0f172a;
-      border-radius:28px;
-      border:2px solid rgba(255,255,255,.98);
-      padding:22px;
-      box-shadow:0 20px 60px rgba(0,0,0,.22);
+      min-height:0;
     }
 
     .badge{
@@ -297,57 +150,204 @@
       background:#dcfff2;
       color:#047857;
       font-weight:1000;
-      margin-bottom:10px;
+      margin-bottom:12px;
     }
 
-    .card h1{
-      margin:0 0 10px;
-      font-size:1.7rem;
-      line-height:1.15;
+    .panel h1{
+      margin:0;
+      font-size:1.65rem;
+      line-height:1.12;
+      color:#0f172a;
+      font-weight:1000;
     }
 
-    .card p{
-      margin:0 0 12px;
-      color:#334155;
-      line-height:1.5;
+    .desc{
+      margin:10px 0 0;
+      color:#475569;
       font-weight:800;
+      line-height:1.5;
+      font-size:1rem;
     }
 
-    .tips{
+    .big-card{
+      margin-top:16px;
+      background:#f8fcff;
+      border:1px solid #d9ecf8;
+      border-radius:24px;
+      padding:14px;
+    }
+
+    .mission-title{
+      margin:0 0 10px;
+      font-weight:1000;
+      color:#0f172a;
+      font-size:1.05rem;
+    }
+
+    .try-row{
       display:grid;
       grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
       gap:10px;
-      margin:14px 0 16px;
     }
 
-    .tip{
-      background:#f5fbff;
-      border:1px solid #d7ecf8;
+    .try-btn{
+      appearance:none;
+      border:none;
+      width:100%;
+      border-radius:20px;
+      padding:14px;
+      min-height:78px;
+      background:#fff;
+      border:2px solid #d9ecf8;
+      color:#0f172a;
+      font-weight:1000;
+      font-size:1rem;
+      box-shadow:0 8px 18px rgba(0,0,0,.06);
+      cursor:pointer;
+      text-align:left;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .try-btn.active{
+      border-color:#22d3ee;
+      background:#ecfeff;
+      transform:translateY(-1px);
+    }
+
+    .try-btn.done{
+      border-color:#86efac;
+      background:#dcfff2;
+    }
+
+    .try-btn[disabled]{
+      opacity:.46;
+      cursor:not-allowed;
+      box-shadow:none;
+    }
+
+    .try-emoji{
+      width:50px;
+      height:50px;
       border-radius:16px;
-      padding:12px;
-      font-weight:800;
-      color:#1f2937;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#e9fbff;
+      font-size:1.55rem;
+      flex:0 0 auto;
+    }
+
+    .hint{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff8d7;
+      color:#713f12;
+      font-weight:900;
       line-height:1.45;
     }
 
-    .actions{
+    .success{
+      background:#dcfff2;
+      color:#047857;
+    }
+
+    .hold-area{
+      margin-top:16px;
+      border-radius:26px;
+      background:linear-gradient(180deg,#e0fbff,#bdf5ff);
+      border:2px solid #8defff;
+      min-height:160px;
       display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      gap:12px;
+      padding:18px;
+      user-select:none;
+      touch-action:none;
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);
+    }
+
+    .hold-icon{
+      width:82px;
+      height:82px;
+      border-radius:26px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2.45rem;
+      background:#ffffffaa;
+      box-shadow:0 10px 24px rgba(0,0,0,.08);
+    }
+
+    .hold-text{
+      font-size:1.1rem;
+      font-weight:1000;
+      color:#0f4c5c;
+      text-align:center;
+    }
+
+    .hold-progress{
+      width:100%;
+      height:18px;
+      background:#e0f2fe;
+      border-radius:999px;
+      overflow:hidden;
+      border:2px solid #67e8f9;
+    }
+
+    .hold-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#60ff9d,#00e5ff);
+      transition:width .08s linear;
+    }
+
+    .coach{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:54px 1fr;
       gap:10px;
-      flex-wrap:wrap;
-      margin-top:8px;
+      align-items:center;
+    }
+
+    .coach-face{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.45rem;
+      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
+      box-shadow:0 8px 18px rgba(0,0,0,.10), inset 0 0 0 4px rgba(255,255,255,.30);
+    }
+
+    .coach-text{
+      background:#fff;
+      border:1px solid #d9ecf8;
+      border-radius:16px;
+      padding:10px 12px;
+      color:#0f172a;
+      font-weight:900;
+      line-height:1.4;
+      box-shadow:0 8px 18px rgba(0,0,0,.06);
     }
 
     .summary-grid{
       display:grid;
       grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
       gap:10px;
-      margin-top:14px;
+      margin-top:16px;
     }
 
     .summary-box{
       background:#f8fcff;
-      border:1px solid #d8edf8;
-      border-radius:18px;
+      border:1px solid #d9ecf8;
+      border-radius:20px;
       padding:14px;
       font-weight:1000;
       color:#0f172a;
@@ -355,315 +355,208 @@
 
     .summary-box small{
       display:block;
-      margin-bottom:5px;
       color:#64748b;
       font-weight:900;
+      margin-bottom:5px;
     }
 
-    .hidden{ display:none !important; }
+    .footer{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+      padding-bottom:2px;
+    }
 
-    @keyframes pulse{
-      0%{ transform:scale(1); }
-      50%{ transform:scale(1.04); }
-      100%{ transform:scale(1); }
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:12px 18px;
+      min-width:140px;
+      font-weight:1000;
+      font-size:1rem;
+      cursor:pointer;
+      color:#0f172a;
+      border:2px solid rgba(255,255,255,.95);
+      box-shadow:0 10px 24px rgba(0,0,0,.12);
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%);
+    }
+
+    .btn.green{
+      background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%);
+    }
+
+    .btn.pink{
+      background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%);
+    }
+
+    .btn.blue{
+      background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%);
+    }
+
+    .btn:active{
+      transform:translateY(1px);
+    }
+
+    .btn[disabled]{
+      opacity:.5;
+      cursor:not-allowed;
+    }
+
+    .tiny-actions{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      margin-top:8px;
+    }
+
+    .tiny{
+      appearance:none;
+      border:none;
+      background:transparent;
+      color:#24536b;
+      font-weight:900;
+      text-decoration:underline;
+      cursor:pointer;
+      padding:4px 6px;
+    }
+
+    .hidden{
+      display:none !important;
     }
 
     @media (max-width:680px){
-      #ui-layer{
-        top:6px;
-        width:calc(100% - 12px);
-        padding:10px 10px 8px;
+      body{
+        align-items:stretch;
+        padding:10px;
+      }
+
+      .app{
+        height:calc(100dvh - 20px);
+        gap:10px;
+      }
+
+      .top{
+        border-radius:20px;
+        padding:10px 12px;
+      }
+
+      .title{
+        font-size:1.05rem;
+      }
+
+      .chip{
+        font-size:.82rem;
+        padding:7px 10px;
+      }
+
+      .panel{
+        padding:14px;
+        border-radius:24px;
+      }
+
+      .panel h1{
+        font-size:1.28rem;
+      }
+
+      .desc{
+        font-size:.92rem;
+      }
+
+      .try-row{
+        grid-template-columns:1fr;
+      }
+
+      .try-btn{
+        min-height:66px;
+        padding:12px;
         border-radius:18px;
+        font-size:.94rem;
       }
 
-      #ui-layer.compact{
-        width:calc(100% - 14px);
-        padding:8px 10px;
-      }
-
-      .top-row{
-        flex-direction:column;
-        gap:8px;
-      }
-
-      .chips{
-        justify-content:flex-start;
-      }
-
-      #guide-panel{
-        grid-template-columns:64px 1fr;
-        gap:8px;
-        padding:8px;
-      }
-
-      .guide-image{
-        width:64px;
-        height:64px;
-        font-size:1.6rem;
-      }
-
-      .title-sub{
-        font-size:1rem;
-      }
-
-      #step-desc{
-        font-size:.88rem;
-      }
-
-      #action-prompt{
-        font-size:.82rem;
-        padding:6px 10px;
-      }
-
-      #controls{
-        right:8px;
-        bottom:66px;
-        max-width:82vw;
-      }
-
-      .btn{
-        padding:8px 10px;
-        font-size:.82rem;
-      }
-
-      #coach-wrap{
-        left:8px;
-        right:8px;
-        bottom:2px;
-        grid-template-columns:48px 1fr;
-        gap:8px;
-      }
-
-      #coach-face{
-        width:48px;
-        height:48px;
-        border-radius:16px;
+      .try-emoji{
+        width:44px;
+        height:44px;
+        border-radius:14px;
         font-size:1.35rem;
       }
 
-      #coach{
-        padding:7px 9px;
-        font-size:.76rem;
+      .hold-area{
+        min-height:142px;
+      }
+
+      .coach{
+        grid-template-columns:48px 1fr;
+      }
+
+      .coach-face{
+        width:48px;
+        height:48px;
+        border-radius:16px;
+        font-size:1.3rem;
+      }
+
+      .coach-text{
+        font-size:.86rem;
+      }
+
+      .footer{
+        gap:8px;
+      }
+
+      .btn{
+        min-width:130px;
+        padding:11px 14px;
+        font-size:.92rem;
       }
     }
   </style>
 </head>
+
 <body>
-  <div id="hud">
-    <div id="ui-layer">
+  <main class="app">
+    <header class="top">
       <div class="top-row">
         <div>
-          <div class="title-main" id="step-count">Practice Lab • 1/3</div>
-          <div class="title-sub" id="step-name">Mission A • แตะเป้ากลางจอ</div>
+          <div class="kicker" id="stepLabel">Practice Lab • 1/3</div>
+          <div class="title" id="missionTitle">Mission A • แตะของให้ถูก</div>
         </div>
 
         <div class="chips">
-          <div class="chip" id="phase-chip">Tap</div>
-          <div class="chip" id="combo-chip">Combo 0</div>
-          <div class="chip" id="score-chip">Score 0</div>
-        </div>
-      </div>
-
-      <div id="guide-panel">
-        <div id="guide-icon" class="guide-image">🎯</div>
-        <div>
-          <div id="step-desc">เริ่มจากแตะก๊อกน้ำ → สบู่ → ผ้าเช็ดมือ</div>
-          <div id="action-prompt">แตะเป้าตรงกลางจอ</div>
+          <div class="chip" id="phaseChip">Tap</div>
+          <div class="chip" id="comboChip">Combo 0</div>
+          <div class="chip" id="scoreChip">Score 0</div>
         </div>
       </div>
 
       <div class="progress-wrap">
-        <div class="progress-top">
+        <div class="progress-meta">
           <span>ความคืบหน้า</span>
-          <span id="progress-text">0%</span>
+          <span id="pctText">0%</span>
         </div>
-        <div class="progress-bar">
-          <div id="fill"></div>
-        </div>
-      </div>
-    </div>
-
-    <div id="coach-wrap">
-      <div id="coach-face">🙂</div>
-      <div id="coach">ด่านฝึกนี้ไม่ต้องเดา เราจะชี้เป้าให้ทีละอย่าง</div>
-    </div>
-  </div>
-
-  <div id="controls">
-    <button class="btn pink" id="hud-toggle-btn" type="button">HIDE HUD</button>
-    <button class="btn blue" id="recenter-btn" type="button">RECENTER</button>
-    <button class="btn pink" id="launcher-btn" type="button">กลับ Launcher</button>
-    <button class="btn blue" id="hub-btn" type="button">กลับ Zone</button>
-  </div>
-
-  <div class="overlay" id="start-overlay">
-    <div class="card">
-      <div class="badge">🧪 Practice Lab</div>
-      <h1>ฝึกทีละอย่างแบบไม่ต้องเดา</h1>
-      <p>ด่านฝึกนี้แก้ปัญหาเดิมที่เด็กต้องเดาเองว่าอะไรคืออะไร โดยจะแบ่งเป็น 3 อย่างชัด ๆ</p>
-
-      <div class="tips">
-        <div class="tip">🎯 แตะเป้ากลางจอ: ก๊อกน้ำ → สบู่ → ผ้าเช็ดมือ</div>
-        <div class="tip">💧 ค้างโซนน้ำให้แถบเต็ม</div>
-        <div class="tip">🖐️ แตะโซนบนมือทีละเป้าแบบชัด ๆ</div>
-        <div class="tip">🚀 ผ่านแล้วค่อยไป Main Game</div>
-      </div>
-
-      <div class="actions">
-        <button class="btn primary" id="start-btn" type="button">เริ่ม Practice</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="overlay hidden" id="summary-overlay">
-    <div class="card">
-      <div class="badge">✨ Practice ผ่านแล้ว</div>
-      <h1 id="sum-title">พร้อมไป Main Game</h1>
-      <p id="sum-desc">ตอนนี้แยกออกแล้วว่าอะไรคือก๊อกน้ำ สบู่ น้ำ และจุดบนมือ</p>
-      <p id="sum-skills" style="margin-top:8px;color:#0f172a;font-weight:800;">
-        ฝึกครบแล้ว: แตะเป้ากลางจอ • ค้างโซนน้ำ • แตะโซนบนมือ
-      </p>
-
-      <div class="summary-grid">
-        <div class="summary-box">
-          <small>สำเร็จ</small>
-          <span id="sum-steps">3 / 3</span>
-        </div>
-        <div class="summary-box">
-          <small>คะแนน</small>
-          <span id="sum-score">0</span>
-        </div>
-        <div class="summary-box">
-          <small>พลาด</small>
-          <span id="sum-miss">0</span>
-        </div>
-        <div class="summary-box">
-          <small>ดาว</small>
-          <span id="sum-stars">⭐</span>
+        <div class="progress">
+          <div class="fill" id="fill"></div>
         </div>
       </div>
+    </header>
 
-      <div class="actions">
-        <button class="btn blue" id="restart-btn" type="button">ฝึกอีกครั้ง</button>
-        <button class="btn primary" id="next-btn" type="button">ไป Main Game</button>
-        <button class="btn pink" id="sum-launcher-btn" type="button">กลับ Launcher</button>
-        <button class="btn green" id="sum-hub-btn" type="button">กลับ Hygiene Zone</button>
+    <section class="panel" id="panel"></section>
+
+    <footer>
+      <div class="footer">
+        <button class="btn pink" id="launcherBtn" type="button">กลับ Launcher</button>
+        <button class="btn blue" id="zoneBtn" type="button">กลับ Zone</button>
+        <button class="btn primary hidden" id="nextBtn" type="button">ไป Main Game</button>
       </div>
-    </div>
-  </div>
-
-  <a-scene id="scene" vr-mode-ui="enabled: false" renderer="colorManagement: true; antialias: true">
-    <a-entity environment="preset: flat; dressingAmount: 0; groundColor: #dbeafe; groundColor2: #c7d2fe; skyColor: #e0f2fe"></a-entity>
-
-    <a-entity light="type: ambient; intensity: 1.18; color: #ffffff"></a-entity>
-    <a-entity light="type: directional; intensity: 0.95; color: #ffffff" position="1 3 2"></a-entity>
-
-    <a-entity id="board-root" position="0 1.00 -1.24">
-      <a-box id="sink-rim" position="0 0.78 0" width="1.48" height="0.08" depth="0.82" color="#cbd5e1"></a-box>
-      <a-box id="sink-body" position="0 0.12 -0.08" width="1.30" height="0.24" depth="0.62" color="#f8fafc" material="opacity:0.96"></a-box>
-
-      <a-entity id="faucet-group" visible="false" position="0 0.70 0.20">
-        <a-box width="0.62" height="0.20" depth="0.06" color="#38bdf8" material="emissive:#38bdf8; emissiveIntensity:1.05"></a-box>
-        <a-plane class="focusable" data-object="faucet"
-                 width="0.82" height="0.38"
-                 color="#fff" opacity="0.001"
-                 material="transparent:true"
-                 position="0 0 0.05"></a-plane>
-        <a-plane width="0.74" height="0.16" color="#082f49" opacity="0.98" material="transparent:true" position="0 0.22 0.03"></a-plane>
-        <a-text value="ก๊อกน้ำ" align="center" color="#ffffff" width="1.8" position="0 0.22 0.04"></a-text>
-        <a-ring position="0 0 0.06" radius-inner="0.23" radius-outer="0.28" color="#ffffff" material="shader: flat; opacity:0.72" animation="property: scale; dir: alternate; loop: true; dur: 520; to:1.08 1.08 1.08"></a-ring>
-      </a-entity>
-
-      <a-entity id="soap-group" visible="false" position="0 0.70 0.20">
-        <a-box width="0.56" height="0.24" depth="0.08" color="#f472b6" material="emissive:#f472b6; emissiveIntensity:1.05"></a-box>
-        <a-plane class="focusable" data-object="soap"
-                 position="0 0.02 0.06"
-                 width="0.78" height="0.40"
-                 color="#ffffff" opacity="0.001"
-                 material="transparent:true"></a-plane>
-        <a-plane width="0.72" height="0.16" color="#4a044e" opacity="0.98" material="transparent:true" position="0 0.24 0.04"></a-plane>
-        <a-text value="สบู่" align="center" color="#ffffff" width="1.7" position="0 0.24 0.05"></a-text>
-        <a-ring position="0 0.02 0.07" radius-inner="0.23" radius-outer="0.28" color="#ffffff" material="shader: flat; opacity:0.72" animation="property: scale; dir: alternate; loop: true; dur: 520; to:1.08 1.08 1.08"></a-ring>
-      </a-entity>
-
-      <a-entity id="towel-group" visible="false" position="0 0.70 0.20">
-        <a-box width="0.56" height="0.24" depth="0.08" color="#facc15" material="emissive:#facc15; emissiveIntensity:1.05"></a-box>
-        <a-plane class="focusable" data-object="towel"
-                 width="0.78" height="0.40"
-                 color="#fff" opacity="0.001"
-                 material="transparent:true"
-                 position="0 0 0.06"></a-plane>
-        <a-plane width="0.72" height="0.16" color="#713f12" opacity="0.98" material="transparent:true" position="0 0.24 0.03"></a-plane>
-        <a-text value="ผ้าเช็ดมือ" align="center" color="#ffffff" width="1.7" position="0 0.24 0.04"></a-text>
-        <a-ring position="0 0 0.07" radius-inner="0.23" radius-outer="0.28" color="#ffffff" material="shader: flat; opacity:0.72" animation="property: scale; dir: alternate; loop: true; dur: 520; to:1.08 1.08 1.08"></a-ring>
-      </a-entity>
-
-      <a-entity id="water-group" visible="false" position="0 0.06 0">
-        <a-plane id="water-zone" class="focusable" data-object="water"
-                 position="0 0.70 0.18"
-                 width="0.46" height="0.86"
-                 color="#22d3ee"
-                 opacity="0.34"
-                 material="transparent:true; emissive:#22d3ee; emissiveIntensity:0.95"></a-plane>
-
-        <a-plane position="0 0.70 0.19"
-                 width="0.26" height="0.80"
-                 color="#67e8f9"
-                 opacity="0.82"
-                 material="transparent:true"></a-plane>
-
-        <a-plane width="0.56" height="0.14"
-                 color="#083344" opacity="0.98"
-                 material="transparent:true"
-                 position="0 1.18 0.03"></a-plane>
-
-        <a-text id="water-title" value="โซนน้ำ • ค้างไว้"
-                align="center"
-                color="#ffffff"
-                width="1.2"
-                position="0 1.18 0.04"></a-text>
-      </a-entity>
-
-      <a-entity id="hands-group" visible="false" position="0 0.56 0.14" scale="1.18 1.18 1.18">
-        <a-plane width="1.24" height="0.94" color="#fff7d6" material="opacity:0.98"></a-plane>
-
-        <a-entity position="-0.34 0 0.03">
-          <a-box width="0.28" height="0.38" depth="0.05" color="#d89b6b"></a-box>
-          <a-box width="0.05" height="0.18" depth="0.05" color="#d89b6b" position="-0.17 -0.20 0"></a-box>
-          <a-plane width="0.20" height="0.08" color="#083344" opacity="0.98" material="transparent:true" position="0 -0.30 0.03"></a-plane>
-          <a-text value="ซ้าย" align="center" color="#ffffff" width="0.5" position="0 -0.30 0.04"></a-text>
-        </a-entity>
-
-        <a-entity position="0.34 0 0.03">
-          <a-box width="0.28" height="0.38" depth="0.05" color="#d89b6b"></a-box>
-          <a-box width="0.05" height="0.18" depth="0.05" color="#d89b6b" position="0.17 -0.20 0"></a-box>
-          <a-plane width="0.20" height="0.08" color="#083344" opacity="0.98" material="transparent:true" position="0 -0.30 0.03"></a-plane>
-          <a-text value="ขวา" align="center" color="#ffffff" width="0.5" position="0 -0.30 0.04"></a-text>
-        </a-entity>
-
-        <a-entity id="zone-layer"></a-entity>
-      </a-entity>
-    </a-entity>
-
-    <a-entity id="player-rig">
-      <a-camera id="cam" position="0 1.6 0" look-controls="magicWindowTrackingEnabled: false; touchEnabled: true">
-        <a-entity id="cursor"
-                  cursor="fuse: false"
-                  position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.011; radiusOuter: 0.02"
-                  material="color: #00f2ff; shader: flat"
-                  raycaster="objects: .focusable"></a-entity>
-      </a-camera>
-    </a-entity>
-  </a-scene>
+    </footer>
+  </main>
 
   <script src="./handwash-shared.js"></script>
   <script>
-    const $ = (id) => document.getElementById(id);
-    const scene = $('scene');
-    const cam = $('cam');
-    const cursor = $('cursor');
-
     function safeMainUrl(){
       const raw = window.HandwashShared?.getParam?.('next', '') || '';
       if (raw && raw.trim()) return raw.trim();
@@ -704,569 +597,468 @@
     const HUB_URL = safeHubUrl();
     const LAUNCHER_URL = safeLauncherUrl();
 
-    const ui = {
-      layer:$('ui-layer'),
-      stepCount:$('step-count'),
-      stepName:$('step-name'),
-      stepDesc:$('step-desc'),
-      guideIcon:$('guide-icon'),
-      prompt:$('action-prompt'),
-      fill:$('fill'),
-      progressText:$('progress-text'),
-      coach:$('coach'),
-      coachFace:$('coach-face'),
-      phaseChip:$('phase-chip'),
-      comboChip:$('combo-chip'),
-      scoreChip:$('score-chip'),
-
-      startOverlay:$('start-overlay'),
-      summaryOverlay:$('summary-overlay'),
-      startBtn:$('start-btn'),
-      restartBtn:$('restart-btn'),
-      nextBtn:$('next-btn'),
-      launcherBtn:$('launcher-btn'),
-      hubBtn:$('hub-btn'),
-      sumLauncherBtn:$('sum-launcher-btn'),
-      sumHubBtn:$('sum-hub-btn'),
-
-      hudToggleBtn:$('hud-toggle-btn'),
-      recenterBtn:$('recenter-btn'),
-
-      sumSteps:$('sum-steps'),
-      sumScore:$('sum-score'),
-      sumMiss:$('sum-miss'),
-      sumStars:$('sum-stars'),
-      sumSkills:$('sum-skills')
-    };
-
-    const groupEls = {
-      faucet:$('faucet-group'),
-      soap:$('soap-group'),
-      towel:$('towel-group'),
-      water:$('water-group'),
-      waterTitle:$('water-title'),
-      hands:$('hands-group'),
-      zoneLayer:$('zone-layer')
-    };
-
-    const zoneDefs = [
-      { id:'left-palms', x:-0.34, y:0.00, z:0.08, w:0.24, h:0.28, label:'ซ้าย' },
-      { id:'right-palms', x:0.34, y:0.00, z:0.08, w:0.24, h:0.28, label:'ขวา' },
-      { id:'left-between', x:-0.34, y:0.15, z:0.08, w:0.20, h:0.12, label:'ซ้าย' },
-      { id:'right-between', x:0.34, y:0.15, z:0.08, w:0.20, h:0.12, label:'ขวา' },
-      { id:'left-thumbs', x:-0.50, y:-0.03, z:0.08, w:0.18, h:0.16, label:'ซ้าย' },
-      { id:'right-thumbs', x:0.50, y:-0.03, z:0.08, w:0.18, h:0.16, label:'ขวา' }
-    ];
-
-    const zoneMap = new Map();
-
-    function buildZones(){
-      groupEls.zoneLayer.innerHTML = '';
-      zoneDefs.forEach(def => {
-        const g = document.createElement('a-entity');
-        g.setAttribute('id', def.id);
-        g.setAttribute('position', `${def.x} ${def.y} ${def.z}`);
-        g.setAttribute('visible', 'false');
-
-        const plane = document.createElement('a-plane');
-        plane.setAttribute('width', def.w);
-        plane.setAttribute('height', def.h);
-        plane.setAttribute('color', '#38bdf8');
-        plane.setAttribute('material', 'transparent:true; opacity:0.92; emissive:#22d3ee; emissiveIntensity:1.15');
-        plane.setAttribute('animation__pulse', 'property: scale; dir: alternate; loop: true; dur: 520; to: 1.08 1.08 1.08');
-        g.appendChild(plane);
-
-        const hit = document.createElement('a-plane');
-        hit.classList.add('focusable');
-        hit.dataset.zone = def.id;
-        hit.setAttribute('width', def.w + 0.10);
-        hit.setAttribute('height', def.h + 0.10);
-        hit.setAttribute('color', '#ffffff');
-        hit.setAttribute('opacity', '0.001');
-        hit.setAttribute('material', 'transparent:true');
-        hit.setAttribute('position', '0 0 0.01');
-        g.appendChild(hit);
-
-        const labelBg = document.createElement('a-plane');
-        labelBg.setAttribute('width', '0.18');
-        labelBg.setAttribute('height', '0.08');
-        labelBg.setAttribute('color', '#083344');
-        labelBg.setAttribute('opacity', '0.98');
-        labelBg.setAttribute('material', 'transparent:true');
-        labelBg.setAttribute('position', `0 ${-(def.h/2 + 0.08)} 0.02`);
-        g.appendChild(labelBg);
-
-        const text = document.createElement('a-text');
-        text.setAttribute('value', def.label);
-        text.setAttribute('align', 'center');
-        text.setAttribute('width', '0.5');
-        text.setAttribute('color', '#ffffff');
-        text.setAttribute('position', `0 ${-(def.h/2 + 0.08)} 0.03`);
-        g.appendChild(text);
-
-        groupEls.zoneLayer.appendChild(g);
-        zoneMap.set(def.id, g);
-      });
-    }
-    buildZones();
-
-    const PLAN = [
+    const MISSIONS = [
       {
-        module:'tap',
-        title:'Mission A • แตะเป้ากลางจอ',
-        icon:'🎯',
-        desc:'แตะ ก๊อกน้ำ → สบู่ → ผ้าเช็ดมือ',
-        prompt:'แตะเป้าตรงกลางทีละอย่าง',
-        order:['faucet','soap','towel']
-      },
-      {
-        module:'hold',
-        title:'Mission B • ค้างที่โซนน้ำ',
-        icon:'💧',
-        desc:'ค้างน้ำ 2 รอบ: เปียกมือ → ล้างฟอง',
-        prompt:'ค้างที่โซนน้ำ',
-        rounds:[
-          { id:'wet', label:'เปียกมือ', need:1.0 },
-          { id:'rinse', label:'ล้างฟอง', need:1.2 }
+        type:'tap',
+        phase:'Tap',
+        title:'Mission A • แตะของให้ถูก',
+        badge:'🎯 Mission A • แตะของให้ถูก',
+        h1:'แตะของที่เกมบอกทีละอย่าง',
+        desc:'ไม่ต้องเล็ง ไม่ต้องเดา แตะปุ่มใหญ่ที่สว่างอยู่',
+        order:[
+          { id:'faucet', icon:'🚰', title:'แตะก๊อกน้ำ', desc:'เห็นก๊อกน้ำ ให้แตะก๊อกน้ำ', points:20 },
+          { id:'soap', icon:'🧼', title:'แตะสบู่', desc:'เห็นสบู่ ให้แตะสบู่', points:20 },
+          { id:'towel', icon:'🟨', title:'แตะผ้าเช็ดมือ', desc:'เห็นผ้า ให้แตะผ้าเช็ดมือ', points:20 }
         ]
       },
       {
-        module:'zones',
-        title:'Mission C • แตะโซนบนมือ',
-        icon:'🖐️',
-        desc:'แตะตามเป้าที่เราชี้ทีละจุด ไม่ต้องเดาเอง',
-        prompt:'แตะเป้าบนมือทีละจุด',
+        type:'hold',
+        phase:'Hold',
+        title:'Mission B • ค้างน้ำให้เต็ม',
+        badge:'💧 Mission B • ค้างที่โซนน้ำ',
+        h1:'ค้างน้ำ 2 รอบ',
+        desc:'กดค้างที่กล่องน้ำจนเต็ม พอเต็มแล้วปล่อยมือได้',
+        rounds:[
+          { label:'เปียกมือ', need:900, points:24 },
+          { label:'ล้างฟอง', need:1100, points:28 }
+        ]
+      },
+      {
+        type:'tap',
+        phase:'Hand Zones',
+        title:'Mission C • แตะจุดบนมือ',
+        badge:'🖐️ Mission C • แตะจุดบนมือ',
+        h1:'แตะจุดบนมือทีละอย่าง',
+        desc:'ไม่ต้องเดาซ้ายขวา แตะปุ่มใหญ่ที่เกมบอก',
         order:[
-          { id:'left-palms', label:'ฝ่ามือซ้าย', color:'#38bdf8' },
-          { id:'right-palms', label:'ฝ่ามือขวา', color:'#38bdf8' },
-          { id:'left-between', label:'ซอกนิ้วซ้าย', color:'#22c55e' },
-          { id:'right-between', label:'ซอกนิ้วขวา', color:'#22c55e' },
-          { id:'left-thumbs', label:'หัวแม่มือซ้าย', color:'#f472b6' },
-          { id:'right-thumbs', label:'หัวแม่มือขวา', color:'#f472b6' }
+          { id:'palms', icon:'👐', title:'แตะฝ่ามือ', desc:'เห็นฝ่ามือ ให้แตะฝ่ามือ', points:22 },
+          { id:'between', icon:'🤝', title:'แตะซอกนิ้ว', desc:'เห็นซอกนิ้ว ให้แตะซอกนิ้ว', points:22 },
+          { id:'thumbs', icon:'👍', title:'แตะหัวแม่มือ', desc:'เห็นหัวแม่มือ ให้แตะหัวแม่มือ', points:22 }
         ]
       }
     ];
+
+    const els = {
+      panel: document.getElementById('panel'),
+      stepLabel: document.getElementById('stepLabel'),
+      missionTitle: document.getElementById('missionTitle'),
+      phaseChip: document.getElementById('phaseChip'),
+      comboChip: document.getElementById('comboChip'),
+      scoreChip: document.getElementById('scoreChip'),
+      pctText: document.getElementById('pctText'),
+      fill: document.getElementById('fill'),
+      nextBtn: document.getElementById('nextBtn'),
+      launcherBtn: document.getElementById('launcherBtn'),
+      zoneBtn: document.getElementById('zoneBtn')
+    };
 
     const state = {
-      started:false,
-      ended:false,
-      taskIndex:0,
-      stepValue:0,
-      holdValue:0,
-      lastTs:0,
+      missionIndex:0,
+      step:0,
       score:0,
-      miss:0,
       combo:0,
       bestCombo:0,
-      hudCompact:false
+      miss:0,
+
+      holdRound:0,
+      holdValue:0,
+      holding:false,
+      holdDone:false,
+      lastTs:0,
+      ended:false
     };
 
-    function currentTask(){
-      return PLAN[state.taskIndex];
+    let raf = 0;
+
+    function mission(){
+      return MISSIONS[state.missionIndex];
     }
 
-    function setCoach(text, mood='normal'){
-      ui.coach.textContent = text;
-      ui.coachFace.classList.remove('good','warn');
-
-      if (mood === 'good'){
-        ui.coachFace.textContent = '😄';
-        ui.coachFace.classList.add('good');
-      } else if (mood === 'warn'){
-        ui.coachFace.textContent = '😮';
-        ui.coachFace.classList.add('warn');
-      } else {
-        ui.coachFace.textContent = '🙂';
-      }
+    function totalUnits(){
+      return MISSIONS.reduce((sum, m) => {
+        if (m.type === 'tap') return sum + m.order.length;
+        if (m.type === 'hold') return sum + m.rounds.length;
+        return sum + 1;
+      }, 0);
     }
 
-    function setEntityVisible(el, on){
-      if (!el) return;
-      el.setAttribute('visible', on ? 'true' : 'false');
-    }
+    function completedUnits(){
+      let done = 0;
 
-    function clearVisuals(){
-      setEntityVisible(groupEls.faucet, false);
-      setEntityVisible(groupEls.soap, false);
-      setEntityVisible(groupEls.towel, false);
-      setEntityVisible(groupEls.water, false);
-      setEntityVisible(groupEls.hands, false);
-
-      zoneMap.forEach(zone => {
-        zone.setAttribute('visible', 'false');
-      });
-    }
-
-    function highlightZone(zoneId, color){
-      zoneMap.forEach(zone => zone.setAttribute('visible', 'false'));
-      const zone = zoneMap.get(zoneId);
-      if (!zone) return;
-      zone.setAttribute('visible', 'true');
-
-      const plane = zone.querySelector('a-plane');
-      if (plane){
-        plane.setAttribute('color', color || '#38bdf8');
-        plane.setAttribute('material', `transparent:true; opacity:0.94; emissive:${color || '#38bdf8'}; emissiveIntensity:1.2`);
-      }
-    }
-
-    function progressPercent(){
-      const total = PLAN.length;
-      const task = currentTask();
-      if (!task) return 100;
-
-      let partial = 0;
-      if (task.module === 'tap'){
-        partial = state.stepValue / task.order.length;
-      } else if (task.module === 'hold'){
-        partial = state.stepValue / task.rounds.length;
-      } else if (task.module === 'zones'){
-        partial = state.stepValue / task.order.length;
+      for (let i = 0; i < state.missionIndex; i++){
+        const m = MISSIONS[i];
+        if (m.type === 'tap') done += m.order.length;
+        if (m.type === 'hold') done += m.rounds.length;
       }
 
-      return Math.round(((state.taskIndex + partial) / total) * 100);
+      const m = mission();
+      if (!m) return totalUnits();
+
+      if (m.type === 'tap') done += state.step;
+      if (m.type === 'hold') done += state.holdRound;
+
+      return done;
     }
 
-    function updateUI(){
-      const task = currentTask();
-      if (!task) return;
-
-      ui.stepCount.textContent = `Practice Lab • ${state.taskIndex + 1}/${PLAN.length}`;
-      ui.stepName.textContent = task.title;
-      ui.stepDesc.textContent = task.desc;
-      ui.guideIcon.textContent = task.icon;
-      ui.phaseChip.textContent =
-        task.module === 'tap' ? 'Tap' :
-        task.module === 'hold' ? 'Hold' : 'Hand Zones';
-      ui.comboChip.textContent = `Combo ${state.combo}`;
-      ui.scoreChip.textContent = `Score ${state.score}`;
-      ui.fill.style.width = progressPercent() + '%';
-      ui.progressText.textContent = progressPercent() + '%';
+    function progressPct(){
+      return Math.round((completedUnits() / totalUnits()) * 100);
     }
 
-    function renderTask(){
-      const task = currentTask();
-      if (!task) return;
+    function updateTop(){
+      const m = mission();
+      const pct = state.ended ? 100 : progressPct();
 
-      clearVisuals();
-      state.stepValue = 0;
-      state.holdValue = 0;
+      els.stepLabel.textContent = state.ended
+        ? 'Practice Lab • Summary'
+        : `Practice Lab • ${state.missionIndex + 1}/${MISSIONS.length}`;
 
-      if (task.module === 'tap'){
-        showTapObject(task.order[0]);
-        setCoach('เห็นป้ายใหญ่ตรงกลางอันไหน แตะอันนั้น');
-      }
+      els.missionTitle.textContent = state.ended
+        ? 'ฝึกครบแล้ว'
+        : m.title;
 
-      if (task.module === 'hold'){
-        setEntityVisible(groupEls.water, true);
-        groupEls.waterTitle.setAttribute('value', `โซนน้ำ • ${task.rounds[0].label}`);
-        ui.prompt.textContent = `ค้างน้ำ: ${task.rounds[0].label}`;
-        setCoach('ค้างที่โซนน้ำจนเต็ม ไม่ใช่แตะครั้งเดียว');
-      }
+      els.phaseChip.textContent = state.ended ? 'Done' : m.phase;
+      els.comboChip.textContent = `Combo ${state.combo}`;
+      els.scoreChip.textContent = `Score ${state.score}`;
 
-      if (task.module === 'zones'){
-        setEntityVisible(groupEls.hands, true);
-        const target = task.order[0];
-        highlightZone(target.id, target.color);
-        ui.prompt.textContent = `แตะ ${target.label}`;
-        setCoach(`ตอนนี้แตะ “${target.label}” ไม่ต้องเดา เราชี้ให้แล้ว`);
-      }
-
-      updateUI();
+      els.pctText.textContent = `${pct}%`;
+      els.fill.style.width = `${pct}%`;
     }
 
-    function showTapObject(key){
-      clearVisuals();
-
-      if (key === 'faucet'){
-        setEntityVisible(groupEls.faucet, true);
-        ui.prompt.textContent = 'แตะก๊อกน้ำ';
-        setCoach('แตะ “ก๊อกน้ำ” ตรงกลาง');
-      } else if (key === 'soap'){
-        setEntityVisible(groupEls.soap, true);
-        ui.prompt.textContent = 'แตะสบู่';
-        setCoach('แตะ “สบู่” ตรงกลาง');
-      } else {
-        setEntityVisible(groupEls.towel, true);
-        ui.prompt.textContent = 'แตะผ้าเช็ดมือ';
-        setCoach('แตะ “ผ้าเช็ดมือ” ตรงกลาง');
-      }
-    }
-
-    function reward(points=12){
+    function reward(points){
       state.score += points;
       state.combo += 1;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
-      ui.comboChip.textContent = `Combo ${state.combo}`;
-      ui.scoreChip.textContent = `Score ${state.score}`;
-      setCoach('ถูกต้อง ไปต่อได้เลย', 'good');
+      updateTop();
     }
 
-    function warn(text='ยังไม่ใช่เป้านี้'){
-      state.miss += 1;
-      state.combo = 0;
-      ui.comboChip.textContent = `Combo ${state.combo}`;
-      setCoach(text, 'warn');
+    function renderCoach(text, mood='normal'){
+      const face = mood === 'good' ? '😄' : mood === 'warn' ? '😮' : '🙂';
+      return `
+        <div class="coach">
+          <div class="coach-face">${face}</div>
+          <div class="coach-text">${text}</div>
+        </div>
+      `;
     }
 
-    function finishTask(){
-      state.taskIndex += 1;
-      if (state.taskIndex >= PLAN.length){
+    function nextMission(){
+      state.missionIndex += 1;
+      state.step = 0;
+      state.holdRound = 0;
+      state.holdValue = 0;
+      state.holding = false;
+      state.holdDone = false;
+      state.lastTs = 0;
+
+      if (state.missionIndex >= MISSIONS.length){
         finishPractice();
         return;
       }
-      renderTask();
+
+      render();
     }
 
-    function onTapObject(objectKey){
-      const task = currentTask();
-      if (!task || task.module !== 'tap') return;
+    function renderTap(){
+      const m = mission();
+      const current = m.order[state.step];
 
-      const expected = task.order[state.stepValue];
-      if (objectKey !== expected){
-        warn('ยังไม่ใช่อันนี้ มองป้ายตรงกลางอีกที');
+      const buttonsHtml = m.order.map((item, i) => {
+        const done = i < state.step;
+        const active = i === state.step;
+        const disabled = i !== state.step;
+
+        return `
+          <button class="try-btn ${done ? 'done' : ''} ${active ? 'active' : ''}"
+                  type="button"
+                  data-tap-index="${i}"
+                  ${disabled ? 'disabled' : ''}>
+            <span class="try-emoji">${done ? '✅' : item.icon}</span>
+            <span>
+              <strong>${item.title}</strong><br>
+              <small>${done ? 'ผ่านแล้ว' : item.desc}</small>
+            </span>
+          </button>
+        `;
+      }).join('');
+
+      els.panel.innerHTML = `
+        <div class="badge">${m.badge}</div>
+        <h1>${m.h1}</h1>
+        <p class="desc">${m.desc}</p>
+
+        <div class="big-card">
+          <p class="mission-title">
+            ${current ? 'ลองทำ: ' + current.title : 'ผ่าน Mission นี้แล้ว'}
+          </p>
+
+          <div class="try-row">${buttonsHtml}</div>
+
+          <div class="hint ${current ? '' : 'success'}" id="hint">
+            ${current ? 'แตะปุ่มที่สว่างอยู่ตอนนี้' : 'เก่งมาก กำลังไปด่านถัดไป'}
+          </div>
+        </div>
+
+        ${renderCoach(current ? 'ทำทีละอย่าง ไม่ต้องรีบ' : 'ผ่านแล้ว ไปต่อเลย', current ? 'normal' : 'good')}
+      `;
+
+      document.querySelectorAll('[data-tap-index]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = Number(btn.dataset.tapIndex);
+          if (i !== state.step) return;
+
+          const item = m.order[state.step];
+          reward(item.points || 20);
+          state.step += 1;
+
+          if (state.step >= m.order.length){
+            renderTap();
+            setTimeout(nextMission, 520);
+            return;
+          }
+
+          renderTap();
+          updateTop();
+        });
+      });
+    }
+
+    function renderHold(){
+      const m = mission();
+      const round = m.rounds[state.holdRound];
+
+      state.holdValue = 0;
+      state.holding = false;
+      state.holdDone = false;
+      state.lastTs = 0;
+
+      els.panel.innerHTML = `
+        <div class="badge">${m.badge}</div>
+        <h1>${m.h1}</h1>
+        <p class="desc">${m.desc}</p>
+
+        <div class="big-card">
+          <p class="mission-title">
+            รอบที่ ${state.holdRound + 1}/${m.rounds.length}: ${round.label}
+          </p>
+
+          <div class="hold-area" id="holdArea">
+            <div class="hold-icon">💧</div>
+            <div class="hold-text" id="holdText">กดค้างตรงนี้</div>
+            <div class="hold-progress">
+              <div class="hold-fill" id="holdFill"></div>
+            </div>
+          </div>
+
+          <div class="hint" id="hint">
+            กดค้างจนแถบเต็ม 100%
+          </div>
+        </div>
+
+        ${renderCoach('ค้างไว้จนเต็ม พอเต็มแล้วปล่อยมือได้', 'normal')}
+      `;
+
+      const holdArea = document.getElementById('holdArea');
+
+      function startHold(e){
+        e.preventDefault();
+        if (state.holdDone) return;
+        state.holding = true;
+      }
+
+      function endHold(e){
+        if (e) e.preventDefault();
+        state.holding = false;
+      }
+
+      holdArea.addEventListener('pointerdown', startHold, { passive:false });
+      holdArea.addEventListener('pointerup', endHold, { passive:false });
+      holdArea.addEventListener('pointercancel', endHold, { passive:false });
+      holdArea.addEventListener('pointerleave', endHold, { passive:false });
+
+      holdArea.addEventListener('touchstart', startHold, { passive:false });
+      holdArea.addEventListener('touchend', endHold, { passive:false });
+      holdArea.addEventListener('touchcancel', endHold, { passive:false });
+    }
+
+    function render(){
+      cancelAnimationFrame(raf);
+
+      if (state.ended){
+        renderSummary();
+        updateTop();
         return;
       }
 
-      reward(16);
-      state.stepValue += 1;
+      updateTop();
 
-      if (state.stepValue >= task.order.length){
-        finishTask();
+      const m = mission();
+      if (m.type === 'tap') renderTap();
+      if (m.type === 'hold') renderHold();
+
+      raf = requestAnimationFrame(loop);
+    }
+
+    function loop(ts){
+      raf = requestAnimationFrame(loop);
+
+      if (state.ended) return;
+
+      const m = mission();
+      if (!m || m.type !== 'hold') return;
+
+      if (!state.lastTs) state.lastTs = ts;
+      const dt = Math.min(50, ts - state.lastTs);
+      state.lastTs = ts;
+
+      const round = m.rounds[state.holdRound];
+      const need = round.need || 1000;
+
+      const fill = document.getElementById('holdFill');
+      const text = document.getElementById('holdText');
+      const hint = document.getElementById('hint');
+
+      if (state.holdDone){
+        state.holdValue = need;
+
+        if (fill) fill.style.width = '100%';
+        if (text) text.textContent = 'เต็มแล้ว ผ่าน!';
+        if (hint){
+          hint.textContent = 'ดีมาก กำลังไปต่อ';
+          hint.classList.add('success');
+        }
+
         return;
       }
 
-      showTapObject(task.order[state.stepValue]);
-      updateUI();
-    }
+      if (state.holding){
+        state.holdValue = Math.min(need, state.holdValue + dt);
+      } else {
+        state.holdValue = Math.max(0, state.holdValue - dt * 0.18);
+      }
 
-    function onZoneHit(zoneId){
-      const task = currentTask();
-      if (!task || task.module !== 'zones') return;
+      const pct = Math.round((state.holdValue / need) * 100);
 
-      const expected = task.order[state.stepValue];
-      if (!expected || zoneId !== expected.id){
-        warn('ยังไม่ใช่จุดนี้ ดูชื่อที่เราชี้ให้ก่อน');
+      if (fill) fill.style.width = pct + '%';
+
+      if (pct >= 100){
+        state.holdDone = true;
+        state.holding = false;
+        state.holdValue = need;
+
+        if (fill) fill.style.width = '100%';
+        if (text) text.textContent = 'เต็มแล้ว ผ่าน!';
+        if (hint){
+          hint.textContent = 'ดีมาก เต็มแล้ว!';
+          hint.classList.add('success');
+        }
+
+        reward(round.points || 24);
+        state.holdRound += 1;
+
+        if (state.holdRound >= m.rounds.length){
+          setTimeout(nextMission, 620);
+        } else {
+          setTimeout(renderHold, 620);
+        }
+
         return;
       }
 
-      reward(18);
-      state.stepValue += 1;
-
-      if (state.stepValue >= task.order.length){
-        finishTask();
-        return;
+      if (text){
+        text.textContent = state.holding
+          ? `กดค้างต่อ • ${pct}%`
+          : `กดค้างตรงนี้ • ${pct}%`;
       }
 
-      const nextTarget = task.order[state.stepValue];
-      highlightZone(nextTarget.id, nextTarget.color);
-      ui.prompt.textContent = `แตะ ${nextTarget.label}`;
-      setCoach(`ต่อไปแตะ “${nextTarget.label}”`, 'good');
-      updateUI();
-    }
-
-    function getFocusedEl(){
-      const rc = cursor.components.raycaster;
-      if (!rc || !rc.intersectedEls || !rc.intersectedEls.length) return null;
-      return rc.intersectedEls[0];
-    }
-
-    function triggerFocusedAction(){
-      const task = currentTask();
-      const target = getFocusedEl();
-      if (!task || !target) return;
-
-      const objectKey = target.dataset?.object || '';
-      const zoneId = target.dataset?.zone || '';
-
-      if (task.module === 'tap' && objectKey){
-        onTapObject(objectKey);
+      if (hint){
+        hint.textContent = 'กดค้างให้ครบ 100% ก่อน';
+        hint.classList.remove('success');
       }
-
-      if (task.module === 'zones' && zoneId){
-        onZoneHit(zoneId);
-      }
-    }
-
-    function isHoldingWater(){
-      const focused = getFocusedEl();
-      if (!focused) return false;
-      return focused.dataset?.object === 'water';
     }
 
     function calcStars(){
-      if (state.miss === 0 && state.bestCombo >= 4) return 3;
-      if (state.miss <= 2) return 2;
+      if (state.bestCombo >= 8 && state.miss === 0) return 3;
+      if (state.bestCombo >= 5) return 2;
       return 1;
+    }
+
+    function saveSummary(stars){
+      if (!window.HandwashShared?.saveSummary) return;
+
+      HandwashShared.saveSummary({
+        stage:'practice',
+        success:true,
+        score:state.score,
+        stars,
+        miss:state.miss,
+        timeLeft:0,
+        accuracy:100,
+        progress:100,
+        bestStreak:state.bestCombo,
+        whoDone:0,
+        badges:stars >= 3 ? ['Practice Ready', 'No Stress Practice'] : ['Practice Ready'],
+        rank:stars >= 3 ? 'Practice Pro' : 'Practice Clear',
+        notes:'2D-first Handwash Practice completed'
+      });
     }
 
     function finishPractice(){
       state.ended = true;
-      const stars = calcStars();
-
-      if (window.HandwashShared?.saveSummary){
-        HandwashShared.saveSummary({
-          stage:'practice',
-          success:true,
-          score:state.score,
-          stars,
-          miss:state.miss,
-          timeLeft:0,
-          accuracy:Math.max(0, Math.round(100 - (state.miss * 5))),
-          progress:100,
-          bestStreak:state.bestCombo,
-          whoDone:0,
-          badges: state.miss === 0 ? ['No Miss Practice'] : [],
-          rank: stars === 3 ? 'Practice Pro' : 'Practice Clear',
-          notes:'Handwash practice completed'
-        });
-      }
-
-      ui.sumSteps.textContent = `${PLAN.length} / ${PLAN.length}`;
-      ui.sumScore.textContent = String(state.score);
-      ui.sumMiss.textContent = String(state.miss);
-      ui.sumStars.textContent = '⭐'.repeat(stars);
-      ui.sumSkills.textContent = 'ฝึกครบแล้ว: แตะเป้ากลางจอ • ค้างโซนน้ำ • แตะโซนบนมือ';
-      ui.summaryOverlay.classList.remove('hidden');
-      setCoach('พร้อมไป Main Game แล้ว', 'good');
-    }
-
-    function startPractice(){
-      state.started = true;
-      state.ended = false;
-      state.taskIndex = 0;
-      state.stepValue = 0;
-      state.holdValue = 0;
-      state.lastTs = 0;
-      state.score = 0;
-      state.miss = 0;
       state.combo = 0;
-      state.bestCombo = 0;
 
-      ui.startOverlay.classList.add('hidden');
-      ui.summaryOverlay.classList.add('hidden');
-      setHudCompact(window.matchMedia('(max-width:680px)').matches);
-      renderTask();
-      setTimeout(snapFrontView, 60);
+      const stars = calcStars();
+      saveSummary(stars);
+
+      renderSummary(stars);
+      updateTop();
     }
 
-    function snapFrontView(){
-      const lc = cam && cam.components && cam.components['look-controls'];
-      if (!lc) return;
+    function renderSummary(stars = calcStars()){
+      els.nextBtn.classList.remove('hidden');
 
-      try{
-        if (lc.yawObject) lc.yawObject.rotation.y = 0;
-        if (lc.pitchObject) lc.pitchObject.rotation.x = -0.05;
-        if (lc.pitchObject) lc.pitchObject.rotation.z = 0;
-      }catch(e){
-        console.warn(e);
-      }
+      els.panel.innerHTML = `
+        <div class="badge">✨ Practice ผ่านแล้ว</div>
+        <h1>พร้อมไป Main Game แล้ว</h1>
+        <p class="desc">
+          ฝึกครบแล้ว: แตะของ • ค้างน้ำ • แตะจุดบนมือ
+        </p>
+
+        <div class="summary-grid">
+          <div class="summary-box">
+            <small>คะแนน</small>
+            <span>${state.score}</span>
+          </div>
+          <div class="summary-box">
+            <small>ดาว</small>
+            <span>${'⭐'.repeat(stars)}</span>
+          </div>
+          <div class="summary-box">
+            <small>Best Combo</small>
+            <span>${state.bestCombo}</span>
+          </div>
+          <div class="summary-box">
+            <small>สถานะ</small>
+            <span>พร้อมเล่นจริง</span>
+          </div>
+        </div>
+
+        ${renderCoach('เก่งมาก ไป Main Game ต่อได้เลย', 'good')}
+      `;
     }
 
-    function setHudCompact(on){
-      state.hudCompact = !!on;
-      ui.layer.classList.toggle('compact', state.hudCompact);
-      ui.hudToggleBtn.textContent = state.hudCompact ? 'SHOW HUD' : 'HIDE HUD';
-    }
-
-    ui.startBtn.addEventListener('click', startPractice);
-    ui.restartBtn.addEventListener('click', startPractice);
-
-    ui.nextBtn.addEventListener('click', () => {
+    els.nextBtn.addEventListener('click', () => {
       location.href = MAIN_URL;
     });
 
-    ui.launcherBtn.addEventListener('click', () => {
+    els.launcherBtn.addEventListener('click', () => {
       location.href = LAUNCHER_URL;
     });
 
-    ui.hubBtn.addEventListener('click', () => {
+    els.zoneBtn.addEventListener('click', () => {
       location.href = HUB_URL;
     });
 
-    ui.sumLauncherBtn.addEventListener('click', () => {
-      location.href = LAUNCHER_URL;
-    });
-
-    ui.sumHubBtn.addEventListener('click', () => {
-      location.href = HUB_URL;
-    });
-
-    ui.hudToggleBtn.addEventListener('click', () => {
-      setHudCompact(!state.hudCompact);
-    });
-
-    ui.recenterBtn.addEventListener('click', () => {
-      snapFrontView();
-      setCoach('จัดมุมมองใหม่แล้ว');
-    });
-
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' || e.code === 'Enter'){
-        e.preventDefault();
-        triggerFocusedAction();
-      }
-    }, { passive:false });
-
-    window.addEventListener('pointerup', (e) => {
-      const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
-      if (tag === 'button') return;
-      triggerFocusedAction();
-    });
-
-    window.addEventListener('resize', () => {
-      if (state.started) setHudCompact(window.matchMedia('(max-width:680px)').matches);
-      setTimeout(snapFrontView, 50);
-    });
-
-    function loop(ts){
-      requestAnimationFrame(loop);
-
-      if (!state.started || state.ended) return;
-      if (!state.lastTs) state.lastTs = ts;
-
-      const dt = Math.min(0.05, (ts - state.lastTs) / 1000);
-      state.lastTs = ts;
-
-      const task = currentTask();
-      if (!task) return;
-
-      if (task.module === 'hold'){
-        const round = task.rounds[state.stepValue];
-        if (!round) return;
-
-        if (isHoldingWater()){
-          state.holdValue = Math.min(round.need, state.holdValue + dt);
-          const hp = Math.round((state.holdValue / round.need) * 100);
-          ui.prompt.textContent = `ค้างน้ำ: ${round.label} • ${hp}%`;
-          setCoach(`ดีมาก ค้างต่อสำหรับ “${round.label}”`, 'good');
-        } else {
-          state.holdValue = Math.max(0, state.holdValue - dt * 0.25);
-        }
-
-        if (state.holdValue >= round.need){
-          reward(20);
-          state.stepValue += 1;
-          state.holdValue = 0;
-
-          if (state.stepValue >= task.rounds.length){
-            finishTask();
-            return;
-          }
-
-          const nextRound = task.rounds[state.stepValue];
-          groupEls.waterTitle.setAttribute('value', `โซนน้ำ • ${nextRound.label}`);
-          ui.prompt.textContent = `ค้างน้ำ: ${nextRound.label}`;
-          setCoach(`ต่อไปค้างสำหรับ “${nextRound.label}”`, 'good');
-          updateUI();
-        }
-      }
-
-      updateUI();
-    }
-
-    updateUI();
-    requestAnimationFrame(loop);
+    render();
   </script>
 </body>
 </html>
