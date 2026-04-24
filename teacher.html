@@ -6,6 +6,7 @@
   <title>Teacher Dashboard • Vocab Analytics</title>
   <meta name="theme-color" content="#071426" />
   <meta name="color-scheme" content="dark" />
+
   <style>
     :root{
       --bg:#071426;
@@ -189,11 +190,13 @@
     .toolbar{
       margin-top:18px;
       display:grid;
-      grid-template-columns:repeat(6,minmax(0,1fr));
+      grid-template-columns:minmax(260px,1.6fr) repeat(5,minmax(150px,1fr));
       gap:12px;
+      align-items:stretch;
     }
 
     .field{
+      min-width:0;
       background:rgba(255,255,255,.055);
       border:1px solid var(--line);
       border-radius:18px;
@@ -213,12 +216,19 @@
     .field input,
     .field select{
       width:100%;
+      min-width:0;
       border:0;
       outline:none;
       background:transparent;
       color:#fff;
       font-size:15px;
       font-weight:800;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .field input::placeholder{
+      color:rgba(219,234,254,.62);
     }
 
     .field select option{
@@ -364,6 +374,19 @@
       color:#ffe4e9;
       border-color:rgba(251,113,133,.32);
       background:rgba(127,29,29,.22);
+    }
+
+    .chipRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .chipRow .badge{
+      min-height:28px;
+      font-size:11px;
+      background:rgba(255,255,255,.075);
     }
 
     .list{
@@ -587,7 +610,8 @@
       .heroActions,
       .toolbar,
       .status,
-      .debug{
+      .debug,
+      #toggleDebugBtn{
         display:none!important;
       }
 
@@ -690,6 +714,7 @@
     }
   </style>
 </head>
+
 <body>
   <main class="page">
     <section class="hero">
@@ -967,11 +992,6 @@
       if (v === false) return 0;
       const n = Number(String(v ?? '').replace('%','').trim());
       return Number.isFinite(n) ? n : 0;
-    }
-
-    function pct(v, digits = 0) {
-      const n = num(v);
-      return Number.isFinite(n) ? n.toFixed(digits).replace(/\.0+$/,'') + '%' : '0%';
     }
 
     function safeDate(v) {
@@ -1363,16 +1383,48 @@
         const attendance = r.sessions.length;
         const answerCount = r.answers.length;
         const wrongCount = r.answers.filter(a => String(a.is_correct).toLowerCase() === 'false' || a.is_correct === false).length;
+        const wrongRate = answerCount ? (wrongCount / answerCount) * 100 : 0;
+
+        const riskReasons = [];
+        const supportReasons = [];
+
+        if (!attendance) {
+          riskReasons.push('ยังไม่มี session ที่บันทึก');
+        }
+
+        if (accuracy > 0 && accuracy < 50) {
+          riskReasons.push('accuracy ต่ำกว่า 50%');
+        }
+
+        if (answerCount >= 10 && wrongRate >= 35) {
+          riskReasons.push('ตอบผิดมากกว่า 35%');
+        }
+
+        if (attendance > 0 && attendance < 2) {
+          supportReasons.push('จำนวนรอบเล่นยังน้อย');
+        }
+
+        if (accuracy >= 50 && accuracy < 70) {
+          supportReasons.push('accuracy ยังต่ำกว่า 70%');
+        }
+
+        if (score > 0 && score < 60) {
+          supportReasons.push('score ยังต่ำกว่า 60');
+        }
+
+        if (answerCount >= 5 && wrongRate >= 20 && wrongRate < 35) {
+          supportReasons.push('มีคำผิดที่ควรทบทวน');
+        }
 
         let riskLevel = 'ok';
-        let action = 'ติดตามตามปกติ';
+        let action = 'ติดตามตามปกติ: ให้เล่นต่อเพื่อสะสมข้อมูลและดูแนวโน้ม';
 
-        if (!attendance || accuracy < 50 || wrongCount >= 5) {
+        if (riskReasons.length) {
           riskLevel = 'risk';
-          action = 'ควรติดตามก่อน: ให้ฝึกโหมด AI Training / Code Battle เพิ่ม';
-        } else if (accuracy < 70 || score < 60 || wrongCount >= 2) {
+          action = 'ควรติดตามก่อน: ' + riskReasons.join(' / ');
+        } else if (supportReasons.length) {
           riskLevel = 'support';
-          action = 'ควรเสริม: ให้ทบทวนคำที่ผิดบ่อยและเล่นอีก 1 รอบ';
+          action = 'ควรเสริม: ' + supportReasons.join(' / ');
         }
 
         return {
@@ -1387,6 +1439,7 @@
           attendance,
           answerCount,
           wrongCount,
+          wrongRate,
           riskLevel,
           action
         };
@@ -1472,6 +1525,19 @@
     }
 
     function studentCard(r) {
+      const reasonChips = [
+        `Sessions ${r.attendance}`,
+        `Accuracy ${Math.round(r.accuracy)}%`,
+        `Wrong ${r.wrongCount}/${r.answerCount}`,
+        `Wrong rate ${Math.round(r.wrongRate || 0)}%`
+      ];
+
+      const reasonHtml = `
+        <div class="chipRow">
+          ${reasonChips.map(chip => `<span class="badge">${escapeHtml(chip)}</span>`).join('')}
+        </div>
+      `;
+
       return `
         <article class="studentCard">
           <div class="studentTop">
@@ -1503,6 +1569,8 @@
               <div class="value">${escapeHtml(r.wrongCount)}</div>
             </div>
           </div>
+
+          ${reasonHtml}
 
           <div class="meta" style="margin-top:12px">
             <strong>Action:</strong> ${escapeHtml(r.action)}
