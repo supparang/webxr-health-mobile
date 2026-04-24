@@ -5,22 +5,22 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Handwash Hero • How to Play</title>
 
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
-
   <style>
     :root{
-      --bg:rgba(7,18,34,.88);
-      --panel:rgba(255,255,255,.12);
-      --line:#63e6ff;
-      --text:#ecfeff;
-      --yellow:#ffe66d;
-      --shadow:0 12px 30px rgba(0,0,0,.26);
-      --card:#ffffffee;
+      --bg1:#e9fbff;
+      --bg2:#dff4ff;
       --ink:#163046;
       --muted:#5d778c;
-      --soft:#f4fbff;
-      --soft-line:#d6ebf8;
+      --card:#ffffffee;
+      --line:#d7ecf8;
+      --blue:#22d3ee;
+      --pink:#f472b6;
+      --yellow:#fde047;
+      --green:#86efac;
+      --shadow:0 18px 48px rgba(15,50,70,.14);
+      --r-xl:28px;
+      --r-lg:22px;
+      --maxw:860px;
     }
 
     *{ box-sizing:border-box; }
@@ -28,297 +28,115 @@
     html,body{
       margin:0;
       width:100%;
-      height:100%;
-      overflow:hidden;
+      min-height:100%;
       font-family:"Segoe UI",system-ui,sans-serif;
-      background:#d9f3ff;
-      color:#fff;
-      touch-action:manipulation;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.92) 0%, rgba(255,255,255,.45) 28%, transparent 52%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    a-scene{
-      position:fixed !important;
-      inset:0 !important;
-    }
-
-    #hud{
-      position:fixed;
-      inset:0;
-      z-index:20;
-      pointer-events:none;
-    }
-
-    #ui-layer{
-      position:absolute;
-      top:8px;
-      left:50%;
-      transform:translateX(-50%);
-      width:min(94%,780px);
-      background:var(--bg);
-      border:2px solid rgba(99,230,255,.35);
-      border-radius:22px;
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(8px);
+    body{
+      min-height:100dvh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       padding:14px;
-      transition:opacity .2s ease, transform .2s ease;
+      overflow:hidden;
     }
 
-    #ui-layer.compact #guide-panel,
-    #ui-layer.compact .progress-wrap{
-      display:none;
+    .app{
+      width:min(100%,var(--maxw));
+      height:calc(100dvh - 28px);
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:12px;
     }
 
-    #ui-layer.compact{
-      width:min(94%,520px);
-      padding:10px 12px;
+    .top{
+      background:rgba(7,18,34,.92);
+      color:#eefcff;
+      border:2px solid rgba(99,230,255,.28);
+      border-radius:24px;
+      padding:12px 14px;
+      box-shadow:0 14px 36px rgba(7,18,34,.18);
     }
 
     .top-row{
       display:flex;
-      justify-content:space-between;
-      gap:12px;
       align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
-    .title-main{
-      font-size:1rem;
+    .kicker{
+      font-size:.94rem;
+      color:#80e8ff;
       font-weight:1000;
-      color:#baf4ff;
     }
 
-    .title-sub{
+    .title{
       margin-top:4px;
-      font-size:1.18rem;
-      line-height:1.12;
+      font-size:1.25rem;
+      line-height:1.15;
       font-weight:1000;
-      color:#ffffff;
+      color:#fff;
     }
 
     .chips{
       display:flex;
-      flex-wrap:wrap;
       gap:8px;
-      justify-content:flex-end;
+      flex-wrap:wrap;
     }
 
     .chip{
-      padding:8px 12px;
+      padding:8px 11px;
       border-radius:999px;
       background:rgba(103,232,249,.14);
       border:1px solid rgba(103,232,249,.18);
       color:#e6fbff;
       font-weight:900;
-      font-size:.9rem;
+      font-size:.88rem;
       white-space:nowrap;
-    }
-
-    #guide-panel{
-      margin-top:10px;
-      padding:12px;
-      background:var(--panel);
-      border-radius:16px;
-      display:grid;
-      grid-template-columns:78px 1fr;
-      gap:12px;
-      align-items:center;
-    }
-
-    .guide-image{
-      width:78px;
-      height:78px;
-      border-radius:50%;
-      background:linear-gradient(180deg,#8aeaff 0%,#22d3ee 100%);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:2rem;
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.22);
-    }
-
-    #step-count{
-      font-size:.95rem;
-      font-weight:1000;
-      color:#63e6ff;
-    }
-
-    #step-desc{
-      margin-top:4px;
-      font-size:1rem;
-      line-height:1.42;
-      font-weight:800;
-      color:#eefcff;
-    }
-
-    #action-prompt{
-      display:inline-block;
-      margin-top:8px;
-      background:var(--yellow);
-      color:#111827;
-      padding:8px 12px;
-      border-radius:999px;
-      font-weight:1000;
-      font-size:.92rem;
-      animation:pulse 1s infinite;
     }
 
     .progress-wrap{
       margin-top:10px;
-      display:grid;
-      gap:4px;
     }
 
-    .progress-top{
+    .progress-meta{
       display:flex;
       justify-content:space-between;
-      gap:10px;
+      font-size:.86rem;
+      color:#dff8ff;
       font-weight:900;
-      color:#d9fbff;
-      font-size:.88rem;
+      margin-bottom:5px;
     }
 
-    .progress-bar{
-      width:100%;
+    .progress{
       height:14px;
-      background:#0b1220;
+      background:#08131f;
       border-radius:999px;
-      overflow:hidden;
       border:2px solid #63e6ff;
+      overflow:hidden;
     }
 
-    #fill{
-      width:0%;
+    .fill{
+      width:25%;
       height:100%;
       background:linear-gradient(90deg,#60ff9d 0%,#00e5ff 100%);
-      transition:width .12s linear;
+      transition:width .2s ease;
     }
 
-    #coach-wrap{
-      position:absolute;
-      left:10px;
-      right:10px;
-      bottom:4px;
-      margin:auto;
-      width:auto;
-      max-width:760px;
-      display:grid;
-      grid-template-columns:56px 1fr;
-      gap:10px;
-      align-items:center;
-      pointer-events:none;
-    }
-
-    #coach-wrap.hidden{
-      display:none !important;
-    }
-
-    #coach-face{
-      width:56px;
-      height:56px;
-      border-radius:18px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:1.6rem;
-      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
-      box-shadow:0 8px 18px rgba(0,0,0,.16), inset 0 0 0 4px rgba(255,255,255,.32);
-      transition:transform .18s ease, background .18s ease;
-    }
-
-    #coach-face.good{
-      background:linear-gradient(180deg,#dcfff2 0%, #86efac 100%);
-      transform:scale(1.05);
-    }
-
-    #coach-face.warn{
-      background:linear-gradient(180deg,#fff5b1 0%, #ffe66d 100%);
-    }
-
-    #coach{
-      background:rgba(255,255,255,.92);
-      color:#0f172a;
-      border-radius:14px;
-      padding:8px 10px;
-      box-shadow:0 8px 18px rgba(0,0,0,.14);
-      font-weight:800;
-      font-size:.82rem;
-      line-height:1.25;
-    }
-
-    #controls{
-      position:fixed;
-      right:10px;
-      bottom:74px;
-      z-index:30;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      pointer-events:auto;
-      max-width:78vw;
-    }
-
-    #controls.scene1-mode{
-      left:50%;
-      right:auto;
-      transform:translateX(-50%);
-      bottom:14px;
-      max-width:none;
-      width:calc(100% - 24px);
-      justify-content:center;
-      gap:10px;
-      z-index:60;
-    }
-
-    #controls.scene1-mode .btn{
-      display:none !important;
-    }
-
-    #controls.scene1-mode #next-btn,
-    #controls.scene1-mode #skip-btn{
-      display:inline-flex !important;
-      min-width:132px;
-      justify-content:center;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
-      border-radius:999px;
-      padding:8px 12px;
-      font-weight:1000;
-      font-size:.88rem;
-      cursor:pointer;
-      box-shadow:0 8px 20px rgba(0,0,0,.18);
-      border:2px solid rgba(255,255,255,.95);
-      color:#0f172a;
-      background:rgba(255,255,255,.95);
-    }
-
-    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
-    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
-    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%); }
-    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%); }
-
-    .overlay{
-      position:fixed;
-      inset:0;
-      z-index:40;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+    .panel{
+      overflow:auto;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--r-xl);
+      box-shadow:var(--shadow);
       padding:18px;
-      background:rgba(8,20,40,.46);
-      backdrop-filter:blur(8px);
-    }
-
-    .card{
-      width:min(840px,100%);
-      background:rgba(255,255,255,.97);
-      color:#0f172a;
-      border-radius:28px;
-      border:2px solid rgba(255,255,255,.98);
-      padding:22px;
-      box-shadow:0 20px 60px rgba(0,0,0,.22);
+      min-height:0;
     }
 
     .badge{
@@ -330,516 +148,254 @@
       background:#dcfff2;
       color:#047857;
       font-weight:1000;
-      margin-bottom:10px;
+      margin-bottom:12px;
     }
 
-    .card h1{
-      margin:0 0 10px;
-      font-size:1.7rem;
-      line-height:1.15;
-    }
-
-    .card p{
-      margin:0 0 12px;
-      color:#334155;
-      line-height:1.5;
-      font-weight:800;
-    }
-
-    .tips{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-      gap:10px;
-      margin:14px 0 16px;
-    }
-
-    .tip{
-      background:#f5fbff;
-      border:1px solid #d7ecf8;
-      border-radius:16px;
-      padding:12px;
-      font-weight:800;
-      color:#1f2937;
-      line-height:1.45;
-    }
-
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:8px;
-    }
-
-    #scene1-panel{
-      position:fixed;
-      left:50%;
-      top:150px;
-      transform:translateX(-50%);
-      z-index:25;
-      width:min(94%,860px);
-      background:rgba(255,255,255,.96);
-      border:2px solid rgba(255,255,255,.98);
-      border-radius:28px;
-      box-shadow:0 20px 60px rgba(0,0,0,.20);
-      padding:18px;
-      padding-bottom:22px;
-      color:var(--ink);
-      pointer-events:auto;
-      max-height:calc(100dvh - 250px);
-      overflow-y:auto;
-    }
-
-    #scene1-panel.hidden{
-      display:none !important;
-    }
-
-    .scene1-badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#dcfff2;
-      color:#047857;
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-
-    .scene1-title{
+    .panel h1{
       margin:0;
-      font-size:1.55rem;
-      line-height:1.15;
+      font-size:1.65rem;
+      line-height:1.12;
       color:#0f172a;
       font-weight:1000;
     }
 
-    .scene1-desc{
+    .desc{
       margin:10px 0 0;
       color:#475569;
       font-weight:800;
       line-height:1.5;
+      font-size:1rem;
     }
 
-    .scene1-grid{
+    .grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
       margin-top:16px;
     }
 
-    .scene1-item{
+    .item{
       background:#f7fcff;
       border:1px solid #d9ecf8;
       border-radius:22px;
       padding:14px;
       display:grid;
-      grid-template-columns:56px 1fr;
+      grid-template-columns:58px 1fr;
       gap:12px;
       align-items:center;
-      min-height:92px;
+      min-height:96px;
     }
 
-    .scene1-icon{
-      width:56px;
-      height:56px;
+    .icon{
+      width:58px;
+      height:58px;
       border-radius:18px;
       display:flex;
       align-items:center;
       justify-content:center;
-      font-size:1.7rem;
+      font-size:1.75rem;
       font-weight:1000;
       color:#0f172a;
-      box-shadow:inset 0 0 0 3px rgba(255,255,255,.30);
+      box-shadow:inset 0 0 0 3px rgba(255,255,255,.32);
     }
 
-    .scene1-icon.faucet{ background:linear-gradient(180deg,#9ae7ff 0%,#38bdf8 100%); }
-    .scene1-icon.soap{ background:linear-gradient(180deg,#ffc7e3 0%,#f472b6 100%); }
-    .scene1-icon.water{ background:linear-gradient(180deg,#bbf7ff 0%,#22d3ee 100%); }
-    .scene1-icon.hand{ background:linear-gradient(180deg,#ffe8b6 0%,#facc15 100%); }
+    .icon.faucet{ background:linear-gradient(180deg,#9ae7ff 0%,#38bdf8 100%); }
+    .icon.soap{ background:linear-gradient(180deg,#ffc7e3 0%,#f472b6 100%); }
+    .icon.water{ background:linear-gradient(180deg,#bbf7ff 0%,#22d3ee 100%); }
+    .icon.hand{ background:linear-gradient(180deg,#ffe8b6 0%,#facc15 100%); }
+    .icon.good{ background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%); }
 
-    .scene1-copy strong{
+    .copy strong{
       display:block;
-      font-size:1.06rem;
+      font-size:1.08rem;
       line-height:1.25;
       color:#0f172a;
+      font-weight:1000;
     }
 
-    .scene1-copy span{
+    .copy span{
       display:block;
-      margin-top:4px;
+      margin-top:5px;
       color:#5b7083;
       font-weight:800;
       line-height:1.4;
       font-size:.94rem;
     }
 
-    .hidden{ display:none !important; }
+    .footer{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+      padding-bottom:2px;
+    }
 
-    @keyframes pulse{
-      0%{ transform:scale(1); }
-      50%{ transform:scale(1.04); }
-      100%{ transform:scale(1); }
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:12px 18px;
+      min-width:140px;
+      font-weight:1000;
+      font-size:1rem;
+      cursor:pointer;
+      color:#0f172a;
+      border:2px solid rgba(255,255,255,.95);
+      box-shadow:0 10px 24px rgba(0,0,0,.12);
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%);
+    }
+
+    .btn.green{
+      background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%);
+    }
+
+    .btn:active{
+      transform:translateY(1px);
+    }
+
+    .tiny-actions{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      margin-top:8px;
+    }
+
+    .tiny{
+      appearance:none;
+      border:none;
+      background:transparent;
+      color:#24536b;
+      font-weight:900;
+      text-decoration:underline;
+      cursor:pointer;
+      padding:4px 6px;
     }
 
     @media (max-width:680px){
-      #ui-layer{
-        top:6px;
-        width:calc(100% - 12px);
-        padding:10px 10px 8px;
-        border-radius:18px;
+      body{
+        align-items:stretch;
+        padding:10px;
       }
 
-      #ui-layer.compact{
-        width:calc(100% - 14px);
-        padding:8px 10px;
+      .app{
+        height:calc(100dvh - 20px);
+        gap:10px;
       }
 
-      .top-row{
-        flex-direction:column;
-        gap:8px;
-      }
-
-      .chips{
-        justify-content:flex-start;
-      }
-
-      #guide-panel{
-        grid-template-columns:64px 1fr;
-        gap:8px;
-        padding:8px;
-      }
-
-      .guide-image{
-        width:64px;
-        height:64px;
-        font-size:1.6rem;
-      }
-
-      .title-sub{
-        font-size:1rem;
-      }
-
-      #step-desc{
-        font-size:.88rem;
-      }
-
-      #action-prompt{
-        font-size:.82rem;
-        padding:6px 10px;
-      }
-
-      #controls{
-        right:8px;
-        bottom:66px;
-        max-width:88vw;
-      }
-
-      #controls.scene1-mode{
-        bottom:10px;
-        width:calc(100% - 18px);
-      }
-
-      #controls.scene1-mode #next-btn,
-      #controls.scene1-mode #skip-btn{
-        min-width:128px;
-        font-size:.86rem;
+      .top{
+        border-radius:20px;
         padding:10px 12px;
       }
 
-      .btn{
-        padding:8px 10px;
+      .title{
+        font-size:1.05rem;
+      }
+
+      .chip{
         font-size:.82rem;
+        padding:7px 10px;
       }
 
-      #coach-wrap{
-        left:8px;
-        right:8px;
-        bottom:2px;
-        grid-template-columns:48px 1fr;
-        gap:8px;
-      }
-
-      #coach-face{
-        width:48px;
-        height:48px;
-        border-radius:16px;
-        font-size:1.35rem;
-      }
-
-      #coach{
-        padding:7px 9px;
-        font-size:.76rem;
-      }
-
-      #scene1-panel{
-        top:124px;
-        width:calc(100% - 14px);
-        max-height:calc(100dvh - 230px);
-        padding:12px;
-        padding-bottom:22px;
+      .panel{
+        padding:14px;
         border-radius:24px;
       }
 
-      .scene1-title{
-        font-size:1.2rem;
+      .panel h1{
+        font-size:1.28rem;
       }
 
-      .scene1-desc{
-        font-size:.9rem;
-        margin-top:8px;
+      .desc{
+        font-size:.92rem;
       }
 
-      .scene1-grid{
+      .grid{
         grid-template-columns:1fr;
         gap:10px;
         margin-top:12px;
       }
 
-      .scene1-item{
-        grid-template-columns:48px 1fr;
+      .item{
+        grid-template-columns:50px 1fr;
         min-height:82px;
         padding:12px;
         border-radius:18px;
       }
 
-      .scene1-icon{
-        width:48px;
-        height:48px;
+      .icon{
+        width:50px;
+        height:50px;
         border-radius:16px;
-        font-size:1.4rem;
+        font-size:1.45rem;
       }
 
-      .scene1-copy strong{
+      .copy strong{
         font-size:.98rem;
       }
 
-      .scene1-copy span{
+      .copy span{
         font-size:.86rem;
+      }
+
+      .footer{
+        gap:8px;
+      }
+
+      .btn{
+        min-width:130px;
+        padding:11px 14px;
+        font-size:.92rem;
       }
     }
   </style>
 </head>
 
 <body>
-  <div id="hud">
-    <div id="ui-layer">
+  <main class="app">
+    <header class="top">
       <div class="top-row">
         <div>
-          <div class="title-main" id="step-count">Howto • ขั้นที่ 1/4</div>
-          <div class="title-sub" id="step-name">ในเกมนี้มี 4 อย่าง</div>
+          <div class="kicker" id="stepLabel">Howto • ขั้นที่ 1/4</div>
+          <div class="title" id="sceneTitle">ในเกมนี้มี 4 อย่าง</div>
         </div>
 
         <div class="chips">
-          <div class="chip" id="phase-chip">สอนก่อนเล่น</div>
-          <div class="chip" id="scene-chip">Scene 1</div>
-        </div>
-      </div>
-
-      <div id="guide-panel">
-        <div id="guide-icon" class="guide-image">📘</div>
-        <div>
-          <div id="step-desc">จำ 4 อย่างนี้ก่อน</div>
-          <div id="action-prompt">ดูให้ชัด แล้วค่อยกด “ถัดไป”</div>
+          <div class="chip">สอนก่อนเล่น</div>
+          <div class="chip" id="sceneChip">Scene 1</div>
         </div>
       </div>
 
       <div class="progress-wrap">
-        <div class="progress-top">
+        <div class="progress-meta">
           <span>ความคืบหน้า</span>
-          <span id="progress-text">25%</span>
+          <span id="pctText">25%</span>
         </div>
-        <div class="progress-bar">
-          <div id="fill"></div>
-        </div>
-      </div>
-    </div>
-
-    <div id="coach-wrap">
-      <div id="coach-face">🙂</div>
-      <div id="coach">เริ่มจากดูให้รู้ก่อนว่าอะไรคืออะไร</div>
-    </div>
-  </div>
-
-  <div id="controls">
-    <button class="btn pink" id="hud-toggle-btn" type="button">HIDE HUD</button>
-    <button class="btn blue" id="recenter-btn" type="button">RECENTER</button>
-    <button class="btn primary" id="next-btn" type="button">ถัดไป</button>
-    <button class="btn green" id="skip-btn" type="button">ข้ามไปฝึก</button>
-    <button class="btn pink" id="launcher-btn" type="button">กลับ Launcher</button>
-    <button class="btn blue" id="hub-btn" type="button">กลับ Zone</button>
-  </div>
-
-  <div class="overlay" id="start-overlay">
-    <div class="card">
-      <div class="badge">📘 How to Play</div>
-      <h1>ก่อนเล่น มาดูให้ชัดก่อนว่าอะไรคืออะไร</h1>
-      <p>เราจะสอนให้รู้จัก <strong>ก๊อกน้ำ / สบู่ / น้ำ / มือ</strong> แบบง่าย ๆ ก่อนเริ่มฝึกจริง</p>
-
-      <div class="tips">
-        <div class="tip">🚰 เห็นก๊อกน้ำ = แตะก๊อกน้ำ</div>
-        <div class="tip">🧼 เห็นสบู่ = แตะสบู่</div>
-        <div class="tip">💧 เห็นโซนน้ำ = ค้างไว้</div>
-        <div class="tip">🖐️ เห็นมือ = แตะจุดที่เรืองแสง</div>
-      </div>
-
-      <div class="actions">
-        <button class="btn primary" id="start-btn" type="button">เริ่มสอน</button>
-      </div>
-    </div>
-  </div>
-
-  <section id="scene1-panel" class="hidden">
-    <div class="scene1-badge">📘 Scene 1 • จำ 4 อย่างนี้ก่อน</div>
-    <h2 class="scene1-title">ในเกมนี้มี 4 อย่างที่ต้องรู้</h2>
-    <p class="scene1-desc">ดูให้รู้ก่อนว่าเห็นอะไรแล้วต้องทำอะไร</p>
-
-    <div class="scene1-grid">
-      <div class="scene1-item">
-        <div class="scene1-icon faucet">🚰</div>
-        <div class="scene1-copy">
-          <strong>ก๊อกน้ำ</strong>
-          <span>เห็นก๊อกน้ำ = แตะก๊อกน้ำ</span>
+        <div class="progress">
+          <div class="fill" id="fill"></div>
         </div>
       </div>
+    </header>
 
-      <div class="scene1-item">
-        <div class="scene1-icon soap">🧼</div>
-        <div class="scene1-copy">
-          <strong>สบู่</strong>
-          <span>เห็นสบู่ = แตะสบู่</span>
-        </div>
+    <section class="panel" id="panel"></section>
+
+    <footer>
+      <div class="footer">
+        <button class="btn green" id="skipBtn" type="button">ข้ามไปฝึก</button>
+        <button class="btn primary" id="nextBtn" type="button">ถัดไป</button>
       </div>
 
-      <div class="scene1-item">
-        <div class="scene1-icon water">💧</div>
-        <div class="scene1-copy">
-          <strong>โซนน้ำ</strong>
-          <span>เห็นน้ำ = ค้างไว้จนเต็ม</span>
-        </div>
+      <div class="tiny-actions">
+        <button class="tiny" id="launcherBtn" type="button">กลับ Launcher</button>
+        <button class="tiny" id="zoneBtn" type="button">กลับ Zone</button>
       </div>
-
-      <div class="scene1-item">
-        <div class="scene1-icon hand">🖐️</div>
-        <div class="scene1-copy">
-          <strong>มือ</strong>
-          <span>เห็นมือ = แตะจุดที่เรืองแสง</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <a-scene id="scene" vr-mode-ui="enabled: false" renderer="colorManagement: true; antialias: true">
-    <a-entity environment="preset: flat; dressingAmount: 0; groundColor: #dbeafe; groundColor2: #c7d2fe; skyColor: #e0f2fe"></a-entity>
-
-    <a-entity light="type: ambient; intensity: 1.18; color: #ffffff"></a-entity>
-    <a-entity light="type: directional; intensity: 0.95; color: #ffffff" position="1 3 2"></a-entity>
-
-    <a-entity id="board-root" position="0 1.00 -1.24">
-      <a-box id="sink-rim" position="0 0.78 0" width="1.48" height="0.08" depth="0.82" color="#cbd5e1"></a-box>
-      <a-box id="sink-body" position="0 0.12 -0.08" width="1.30" height="0.24" depth="0.62" color="#f8fafc" material="opacity:0.96"></a-box>
-
-      <a-entity id="faucet-group" visible="false" position="0 0.70 0.20">
-        <a-box width="0.62" height="0.20" depth="0.06" color="#38bdf8" material="emissive:#38bdf8; emissiveIntensity:1.05"></a-box>
-        <a-plane class="focusable" data-object="faucet"
-                 width="0.82" height="0.38"
-                 color="#fff" opacity="0.001"
-                 material="transparent:true"
-                 position="0 0 0.05"></a-plane>
-        <a-plane width="0.74" height="0.16" color="#082f49" opacity="0.98" material="transparent:true" position="0 0.22 0.03"></a-plane>
-        <a-text value="ก๊อกน้ำ" align="center" color="#ffffff" width="1.8" position="0 0.22 0.04"></a-text>
-        <a-ring position="0 0 0.06" radius-inner="0.23" radius-outer="0.28" color="#ffffff" material="shader: flat; opacity:0.72" animation="property: scale; dir: alternate; loop: true; dur: 520; to:1.08 1.08 1.08"></a-ring>
-      </a-entity>
-
-      <a-entity id="soap-group" visible="false" position="0 0.70 0.20">
-        <a-box width="0.56" height="0.24" depth="0.08" color="#f472b6" material="emissive:#f472b6; emissiveIntensity:1.05"></a-box>
-        <a-plane class="focusable" data-object="soap"
-                 position="0 0.02 0.06"
-                 width="0.78" height="0.40"
-                 color="#ffffff" opacity="0.001"
-                 material="transparent:true"></a-plane>
-        <a-plane width="0.72" height="0.16" color="#4a044e" opacity="0.98" material="transparent:true" position="0 0.24 0.04"></a-plane>
-        <a-text value="สบู่" align="center" color="#ffffff" width="1.7" position="0 0.24 0.05"></a-text>
-        <a-ring position="0 0.02 0.07" radius-inner="0.23" radius-outer="0.28" color="#ffffff" material="shader: flat; opacity:0.72" animation="property: scale; dir: alternate; loop: true; dur: 520; to:1.08 1.08 1.08"></a-ring>
-      </a-entity>
-
-      <a-entity id="towel-group" visible="false" position="0 0.70 0.20">
-        <a-box width="0.56" height="0.24" depth="0.08" color="#facc15" material="emissive:#facc15; emissiveIntensity:1.05"></a-box>
-        <a-plane class="focusable" data-object="towel"
-                 width="0.78" height="0.40"
-                 color="#fff" opacity="0.001"
-                 material="transparent:true"
-                 position="0 0 0.06"></a-plane>
-        <a-plane width="0.72" height="0.16" color="#713f12" opacity="0.98" material="transparent:true" position="0 0.24 0.03"></a-plane>
-        <a-text value="ผ้าเช็ดมือ" align="center" color="#ffffff" width="1.7" position="0 0.24 0.04"></a-text>
-        <a-ring position="0 0 0.07" radius-inner="0.23" radius-outer="0.28" color="#ffffff" material="shader: flat; opacity:0.72" animation="property: scale; dir: alternate; loop: true; dur: 520; to:1.08 1.08 1.08"></a-ring>
-      </a-entity>
-
-      <a-entity id="water-group" visible="false" position="0 0.06 0">
-        <a-plane id="water-zone" class="focusable" data-object="water"
-                 position="0 0.70 0.18"
-                 width="0.46" height="0.86"
-                 color="#22d3ee"
-                 opacity="0.34"
-                 material="transparent:true; emissive:#22d3ee; emissiveIntensity:0.95"></a-plane>
-
-        <a-plane position="0 0.70 0.19"
-                 width="0.26" height="0.80"
-                 color="#67e8f9"
-                 opacity="0.82"
-                 material="transparent:true"></a-plane>
-
-        <a-plane width="0.56" height="0.14"
-                 color="#083344" opacity="0.98"
-                 material="transparent:true"
-                 position="0 1.18 0.03"></a-plane>
-
-        <a-text value="โซนน้ำ • ค้างไว้"
-                align="center"
-                color="#ffffff"
-                width="1.2"
-                position="0 1.18 0.04"></a-text>
-      </a-entity>
-
-      <a-entity id="hands-group" visible="false" position="0 0.56 0.14" scale="1.18 1.18 1.18">
-        <a-plane width="1.24" height="0.94" color="#fff7d6" material="opacity:0.98"></a-plane>
-
-        <a-entity position="-0.34 0 0.03">
-          <a-box width="0.28" height="0.38" depth="0.05" color="#d89b6b"></a-box>
-          <a-box width="0.05" height="0.18" depth="0.05" color="#d89b6b" position="-0.17 -0.20 0"></a-box>
-          <a-plane width="0.20" height="0.08" color="#083344" opacity="0.98" material="transparent:true" position="0 -0.30 0.03"></a-plane>
-          <a-text value="ซ้าย" align="center" color="#ffffff" width="0.5" position="0 -0.30 0.04"></a-text>
-        </a-entity>
-
-        <a-entity position="0.34 0 0.03">
-          <a-box width="0.28" height="0.38" depth="0.05" color="#d89b6b"></a-box>
-          <a-box width="0.05" height="0.18" depth="0.05" color="#d89b6b" position="0.17 -0.20 0"></a-box>
-          <a-plane width="0.20" height="0.08" color="#083344" opacity="0.98" material="transparent:true" position="0 -0.30 0.03"></a-plane>
-          <a-text value="ขวา" align="center" color="#ffffff" width="0.5" position="0 -0.30 0.04"></a-text>
-        </a-entity>
-
-        <a-entity id="zone-layer"></a-entity>
-      </a-entity>
-    </a-entity>
-
-    <a-entity id="player-rig">
-      <a-camera id="cam" position="0 1.6 0" look-controls="magicWindowTrackingEnabled: false; touchEnabled: true">
-        <a-entity id="cursor"
-                  cursor="fuse: false"
-                  position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.011; radiusOuter: 0.02"
-                  material="color: #00f2ff; shader: flat"
-                  raycaster="objects: .focusable"></a-entity>
-      </a-camera>
-    </a-entity>
-  </a-scene>
+    </footer>
+  </main>
 
   <script src="./handwash-shared.js"></script>
   <script>
-    const $ = (id) => document.getElementById(id);
-    const scene = $('scene');
-    const cam = $('cam');
-    const cursor = $('cursor');
-
     function safePracticeUrl(){
       const raw = window.HandwashShared?.getParam?.('next', '') || '';
       if (raw && raw.trim()) return raw.trim();
@@ -880,535 +436,124 @@
     const HUB_URL = safeHubUrl();
     const LAUNCHER_URL = safeLauncherUrl();
 
-    const ui = {
-      layer:$('ui-layer'),
-      stepCount:$('step-count'),
-      stepName:$('step-name'),
-      stepDesc:$('step-desc'),
-      guideIcon:$('guide-icon'),
-      prompt:$('action-prompt'),
-      fill:$('fill'),
-      progressText:$('progress-text'),
-      coach:$('coach'),
-      coachFace:$('coach-face'),
-      phaseChip:$('phase-chip'),
-      sceneChip:$('scene-chip'),
-      nextBtn:$('next-btn'),
-      skipBtn:$('skip-btn'),
-      launcherBtn:$('launcher-btn'),
-      hubBtn:$('hub-btn'),
-      startBtn:$('start-btn'),
-      startOverlay:$('start-overlay'),
-      hudToggleBtn:$('hud-toggle-btn'),
-      recenterBtn:$('recenter-btn'),
-      scene1Panel:$('scene1-panel')
-    };
-
-    const groupEls = {
-      faucet:$('faucet-group'),
-      soap:$('soap-group'),
-      towel:$('towel-group'),
-      water:$('water-group'),
-      hands:$('hands-group'),
-      zoneLayer:$('zone-layer')
-    };
-
-    const zoneDefs = [
-      { id:'left-palms', x:-0.34, y:0.00, z:0.08, w:0.24, h:0.28, label:'ซ้าย' },
-      { id:'right-palms', x:0.34, y:0.00, z:0.08, w:0.24, h:0.28, label:'ขวา' },
-      { id:'left-thumbs', x:-0.50, y:-0.03, z:0.08, w:0.18, h:0.16, label:'ซ้าย' },
-      { id:'right-thumbs', x:0.50, y:-0.03, z:0.08, w:0.18, h:0.16, label:'ขวา' },
-      { id:'left-between', x:-0.34, y:0.15, z:0.08, w:0.20, h:0.12, label:'ซ้าย' },
-      { id:'right-between', x:0.34, y:0.15, z:0.08, w:0.20, h:0.12, label:'ขวา' }
-    ];
-
-    const zoneMap = new Map();
-
-    function buildZones(){
-      groupEls.zoneLayer.innerHTML = '';
-
-      zoneDefs.forEach(def => {
-        const g = document.createElement('a-entity');
-        g.setAttribute('id', def.id);
-        g.setAttribute('position', `${def.x} ${def.y} ${def.z}`);
-        g.setAttribute('visible', 'false');
-
-        const plane = document.createElement('a-plane');
-        plane.setAttribute('width', def.w);
-        plane.setAttribute('height', def.h);
-        plane.setAttribute('color', '#38bdf8');
-        plane.setAttribute('material', 'transparent:true; opacity:0.90; emissive:#22d3ee; emissiveIntensity:1.1');
-        plane.setAttribute('animation__pulse', 'property: scale; dir: alternate; loop: true; dur: 520; to: 1.08 1.08 1.08');
-        g.appendChild(plane);
-
-        const hit = document.createElement('a-plane');
-        hit.classList.add('focusable');
-        hit.dataset.zone = def.id;
-        hit.setAttribute('width', def.w + 0.10);
-        hit.setAttribute('height', def.h + 0.10);
-        hit.setAttribute('color', '#ffffff');
-        hit.setAttribute('opacity', '0.001');
-        hit.setAttribute('material', 'transparent:true');
-        hit.setAttribute('position', '0 0 0.01');
-        g.appendChild(hit);
-
-        const label = document.createElement('a-plane');
-        label.setAttribute('width', '0.18');
-        label.setAttribute('height', '0.08');
-        label.setAttribute('color', '#083344');
-        label.setAttribute('opacity', '0.98');
-        label.setAttribute('material', 'transparent:true');
-        label.setAttribute('position', `0 ${-(def.h/2 + 0.08)} 0.02`);
-        g.appendChild(label);
-
-        const text = document.createElement('a-text');
-        text.setAttribute('value', def.label);
-        text.setAttribute('align', 'center');
-        text.setAttribute('width', '0.5');
-        text.setAttribute('color', '#ffffff');
-        text.setAttribute('position', `0 ${-(def.h/2 + 0.08)} 0.03`);
-        g.appendChild(text);
-
-        groupEls.zoneLayer.appendChild(g);
-        zoneMap.set(def.id, g);
-      });
-    }
-
-    buildZones();
-
     const SCENES = [
       {
-        id:'intro2d',
         title:'ในเกมนี้มี 4 อย่าง',
-        icon:'📘',
-        desc:'จำ 4 อย่างนี้ก่อน',
-        prompt:'ดูให้ชัด แล้วกด “ถัดไป”',
-        type:'intro2d'
+        badge:'📘 Scene 1 • จำ 4 อย่างนี้ก่อน',
+        h1:'ในเกมนี้มี 4 อย่างที่ต้องรู้',
+        desc:'ดูให้รู้ก่อนว่าเห็นอะไรแล้วต้องทำอะไร',
+        items:[
+          { icon:'🚰', cls:'faucet', title:'ก๊อกน้ำ', desc:'เห็นก๊อกน้ำ = แตะก๊อกน้ำ' },
+          { icon:'🧼', cls:'soap', title:'สบู่', desc:'เห็นสบู่ = แตะสบู่' },
+          { icon:'💧', cls:'water', title:'โซนน้ำ', desc:'เห็นน้ำ = ค้างไว้จนเต็ม' },
+          { icon:'🖐️', cls:'hand', title:'มือ', desc:'เห็นมือ = แตะจุดที่เรืองแสง' }
+        ]
       },
       {
-        id:'tap',
-        title:'นี่คือก๊อกน้ำ / สบู่ / ผ้าเช็ดมือ',
-        icon:'🎯',
-        desc:'เห็นป้ายใหญ่แบบนี้ ให้แตะตรงวัตถุนั้นได้เลย',
-        prompt:'แตะ ก๊อกน้ำ → สบู่ → ผ้าเช็ดมือ',
-        type:'tap',
-        order:['faucet','soap','towel']
+        title:'เห็นของแล้วแตะ',
+        badge:'🎯 Scene 2 • เห็นของแล้วแตะ',
+        h1:'ถ้าเห็นของพวกนี้ ให้แตะตรงของนั้น',
+        desc:'ยังไม่ต้องเล็งในหน้านี้ แค่จำก่อนว่าอะไรต้องแตะ',
+        items:[
+          { icon:'🚰', cls:'faucet', title:'ก๊อกน้ำ', desc:'แตะก๊อกน้ำเมื่อเห็นป้ายก๊อกน้ำ' },
+          { icon:'🧼', cls:'soap', title:'สบู่', desc:'แตะสบู่เมื่อเห็นป้ายสบู่' },
+          { icon:'🟨', cls:'hand', title:'ผ้าเช็ดมือ', desc:'แตะผ้าเมื่อถึงขั้นเช็ดมือ' }
+        ]
       },
       {
-        id:'hold',
-        title:'นี่คือโซนน้ำ',
-        icon:'💧',
-        desc:'เห็นน้ำ ต้องค้างไว้จนแถบเต็ม',
-        prompt:'ค้างที่โซนน้ำให้เต็ม',
-        type:'hold',
-        need:1.0
+        title:'เห็นน้ำแล้วค้างไว้',
+        badge:'💧 Scene 3 • ค้างที่โซนน้ำ',
+        h1:'ถ้าเห็นโซนน้ำ ให้ค้างไว้จนเต็ม',
+        desc:'ตอนฝึกจริง ให้เอาเป้ากลางจออยู่ในโซนน้ำ แล้วค้างไว้',
+        items:[
+          { icon:'💧', cls:'water', title:'โซนน้ำ', desc:'ค้างไว้จนแถบเต็ม' },
+          { icon:'⏳', cls:'faucet', title:'อย่าปล่อยเร็ว', desc:'ถ้าปล่อยเร็ว แถบจะยังไม่เต็ม' },
+          { icon:'✅', cls:'good', title:'เต็มแล้วผ่าน', desc:'แถบเต็มแล้วค่อยไปขั้นต่อไป' }
+        ]
       },
       {
-        id:'zones',
-        title:'นี่คือมือ และจุดบนมือ',
-        icon:'🖐️',
-        desc:'เห็นมือ ให้แตะจุดที่เรืองแสงทีละจุด',
-        prompt:'แตะจุดที่เรืองแสง',
-        type:'zones',
-        order:[
-          { id:'left-palms', label:'ฝ่ามือซ้าย', color:'#38bdf8' },
-          { id:'right-between', label:'ซอกนิ้วขวา', color:'#22c55e' },
-          { id:'left-thumbs', label:'หัวแม่มือซ้าย', color:'#f472b6' }
+        title:'เห็นมือแล้วแตะจุดเรืองแสง',
+        badge:'🖐️ Scene 4 • แตะจุดบนมือ',
+        h1:'ถ้าเห็นมือ ให้แตะจุดที่เรืองแสง',
+        desc:'ตอนฝึกจริง เกมจะชี้ทีละจุด ไม่ต้องเดาซ้ายขวาเอง',
+        items:[
+          { icon:'👐', cls:'faucet', title:'ฝ่ามือ', desc:'แตะจุดที่เรืองแสงบนฝ่ามือ' },
+          { icon:'🤝', cls:'water', title:'ซอกนิ้ว', desc:'แตะจุดที่เรืองแสงบริเวณซอกนิ้ว' },
+          { icon:'👍', cls:'soap', title:'หัวแม่มือ', desc:'แตะจุดที่เรืองแสงบริเวณหัวแม่มือ' },
+          { icon:'✅', cls:'good', title:'จำง่าย ๆ', desc:'เรืองตรงไหน แตะตรงนั้น' }
         ]
       }
     ];
 
-    const state = {
-      started:false,
-      sceneIndex:0,
-      stepValue:0,
-      holdValue:0,
-      lastTs:0,
-      hudCompact:false
+    const els = {
+      panel: document.getElementById('panel'),
+      stepLabel: document.getElementById('stepLabel'),
+      sceneTitle: document.getElementById('sceneTitle'),
+      sceneChip: document.getElementById('sceneChip'),
+      pctText: document.getElementById('pctText'),
+      fill: document.getElementById('fill'),
+      nextBtn: document.getElementById('nextBtn'),
+      skipBtn: document.getElementById('skipBtn'),
+      launcherBtn: document.getElementById('launcherBtn'),
+      zoneBtn: document.getElementById('zoneBtn')
     };
 
-    function currentScene(){
-      return SCENES[state.sceneIndex];
+    let index = 0;
+
+    function render(){
+      const scene = SCENES[index];
+      const pct = Math.round(((index + 1) / SCENES.length) * 100);
+
+      els.stepLabel.textContent = `Howto • ขั้นที่ ${index + 1}/${SCENES.length}`;
+      els.sceneTitle.textContent = scene.title;
+      els.sceneChip.textContent = `Scene ${index + 1}`;
+      els.pctText.textContent = `${pct}%`;
+      els.fill.style.width = `${pct}%`;
+
+      els.nextBtn.textContent = index >= SCENES.length - 1 ? 'ไปฝึกจริง' : 'ถัดไป';
+
+      const itemsHtml = scene.items.map(item => `
+        <div class="item">
+          <div class="icon ${item.cls || ''}">${item.icon}</div>
+          <div class="copy">
+            <strong>${item.title}</strong>
+            <span>${item.desc}</span>
+          </div>
+        </div>
+      `).join('');
+
+      els.panel.innerHTML = `
+        <div class="badge">${scene.badge}</div>
+        <h1>${scene.h1}</h1>
+        <p class="desc">${scene.desc}</p>
+        <div class="grid">${itemsHtml}</div>
+      `;
     }
 
-    function setCoach(text, mood='normal'){
-      ui.coach.textContent = text;
-      ui.coachFace.classList.remove('good','warn');
-
-      if (mood === 'good'){
-        ui.coachFace.textContent = '😄';
-        ui.coachFace.classList.add('good');
-      } else if (mood === 'warn'){
-        ui.coachFace.textContent = '😮';
-        ui.coachFace.classList.add('warn');
-      } else {
-        ui.coachFace.textContent = '🙂';
-      }
-    }
-
-    function setEntityVisible(el, on){
-      if (!el) return;
-      el.setAttribute('visible', on ? 'true' : 'false');
-    }
-
-    function clearVisuals(){
-      setEntityVisible(groupEls.faucet, false);
-      setEntityVisible(groupEls.soap, false);
-      setEntityVisible(groupEls.towel, false);
-      setEntityVisible(groupEls.water, false);
-      setEntityVisible(groupEls.hands, false);
-
-      ui.scene1Panel.classList.add('hidden');
-
-      zoneMap.forEach(zone => {
-        zone.setAttribute('visible', 'false');
-      });
-    }
-
-    function highlightZone(zoneId, color){
-      zoneMap.forEach(zone => zone.setAttribute('visible', 'false'));
-
-      const zone = zoneMap.get(zoneId);
-      if (!zone) return;
-
-      zone.setAttribute('visible', 'true');
-
-      const plane = zone.querySelector('a-plane');
-      if (plane){
-        plane.setAttribute('color', color || '#38bdf8');
-        plane.setAttribute('material', `transparent:true; opacity:0.94; emissive:${color || '#38bdf8'}; emissiveIntensity:1.2`);
-      }
-    }
-
-    function updateProgress(){
-      const pct = Math.round(((state.sceneIndex + 1) / SCENES.length) * 100);
-      ui.fill.style.width = pct + '%';
-      ui.progressText.textContent = pct + '%';
-    }
-
-    function updateUI(){
-      const sceneData = currentScene();
-
-      ui.stepCount.textContent = `Howto • ขั้นที่ ${state.sceneIndex + 1}/${SCENES.length}`;
-      ui.stepName.textContent = sceneData.title;
-      ui.stepDesc.textContent = sceneData.desc;
-      ui.guideIcon.textContent = sceneData.icon;
-      ui.sceneChip.textContent = `Scene ${state.sceneIndex + 1}`;
-
-      updateProgress();
-    }
-
-    function setHudCompact(on){
-      const sceneData = currentScene();
-
-      if (sceneData && sceneData.type === 'intro2d'){
-        state.hudCompact = false;
-        ui.layer.classList.remove('compact');
-        ui.hudToggleBtn.textContent = 'HIDE HUD';
-        return;
-      }
-
-      state.hudCompact = !!on;
-      ui.layer.classList.toggle('compact', state.hudCompact);
-      ui.hudToggleBtn.textContent = state.hudCompact ? 'SHOW HUD' : 'HIDE HUD';
-    }
-
-    function setSceneMode(sceneType){
-      const isIntro2D = sceneType === 'intro2d';
-      const controls = document.getElementById('controls');
-      const coachWrap = document.getElementById('coach-wrap');
-
-      if (isIntro2D){
-        ui.layer.classList.remove('compact');
-
-        ui.hudToggleBtn.style.display = 'none';
-        ui.recenterBtn.style.display = 'none';
-        ui.launcherBtn.style.display = 'none';
-        ui.hubBtn.style.display = 'none';
-
-        ui.nextBtn.style.display = '';
-        ui.skipBtn.style.display = '';
-
-        if (coachWrap) coachWrap.classList.add('hidden');
-        if (controls) controls.classList.add('scene1-mode');
-
-        return;
-      }
-
-      ui.hudToggleBtn.style.display = '';
-      ui.recenterBtn.style.display = '';
-      ui.launcherBtn.style.display = '';
-      ui.hubBtn.style.display = '';
-
-      ui.nextBtn.style.display = '';
-      ui.skipBtn.style.display = '';
-
-      if (coachWrap) coachWrap.classList.remove('hidden');
-      if (controls) controls.classList.remove('scene1-mode');
-    }
-
-    function renderScene(){
-      const sceneData = currentScene();
-
-      clearVisuals();
-      state.stepValue = 0;
-      state.holdValue = 0;
-
-      setSceneMode(sceneData.type);
-
-      if (sceneData.type === 'intro2d'){
-        ui.scene1Panel.classList.remove('hidden');
-        ui.prompt.textContent = 'ดูให้ชัด แล้วกด “ถัดไป”';
-        ui.nextBtn.disabled = false;
-        setCoach('ฉากแรกยังไม่ต้องเล่น แค่จำ 4 อย่างนี้ก่อน');
-      }
-
-      if (sceneData.type === 'tap'){
-        setEntityVisible(groupEls.faucet, true);
-        ui.prompt.textContent = 'แตะก๊อกน้ำ';
-        ui.nextBtn.disabled = true;
-        setCoach('อันนี้คือ “ก๊อกน้ำ” เห็นแล้วแตะได้เลย');
-      }
-
-      if (sceneData.type === 'hold'){
-        setEntityVisible(groupEls.water, true);
-        ui.prompt.textContent = 'ค้างที่โซนน้ำให้เต็ม';
-        ui.nextBtn.disabled = true;
-        setCoach('นี่คือโซนน้ำ ต้องค้างไว้จนเต็ม');
-      }
-
-      if (sceneData.type === 'zones'){
-        setEntityVisible(groupEls.hands, true);
-        const first = sceneData.order[0];
-        highlightZone(first.id, first.color);
-        ui.prompt.textContent = `แตะ ${first.label}`;
-        ui.nextBtn.disabled = true;
-        setCoach(`ตอนนี้แตะ “${first.label}” ไม่ต้องเดา เรืองตรงไหนแตะตรงนั้น`);
-      }
-
-      updateUI();
-    }
-
-    function getFocusedEl(){
-      const rc = cursor.components.raycaster;
-      if (!rc || !rc.intersectedEls || !rc.intersectedEls.length) return null;
-      return rc.intersectedEls[0];
-    }
-
-    function onTapObject(objectKey){
-      const sceneData = currentScene();
-      if (sceneData.type !== 'tap') return;
-
-      const expected = sceneData.order[state.stepValue];
-
-      if (objectKey !== expected){
-        setCoach('ยังไม่ใช่อันนี้ ลองดูป้ายใหญ่ตรงกลางอีกที', 'warn');
-        return;
-      }
-
-      state.stepValue += 1;
-
-      if (state.stepValue >= sceneData.order.length){
-        ui.nextBtn.disabled = false;
-        ui.prompt.textContent = 'ผ่านแล้ว กด “ถัดไป”';
-        setCoach('เยี่ยมมาก เห็นป้ายใหญ่แล้วแตะได้เลย', 'good');
-        return;
-      }
-
-      const nextKey = sceneData.order[state.stepValue];
-
-      clearVisuals();
-      setSceneMode(sceneData.type);
-
-      if (nextKey === 'faucet'){
-        setEntityVisible(groupEls.faucet, true);
-        ui.prompt.textContent = 'แตะก๊อกน้ำ';
-        setCoach('อันนี้คือ “ก๊อกน้ำ”', 'good');
-      } else if (nextKey === 'soap'){
-        setEntityVisible(groupEls.soap, true);
-        ui.prompt.textContent = 'แตะสบู่';
-        setCoach('อันนี้คือ “สบู่”', 'good');
-      } else {
-        setEntityVisible(groupEls.towel, true);
-        ui.prompt.textContent = 'แตะผ้าเช็ดมือ';
-        setCoach('อันนี้คือ “ผ้าเช็ดมือ”', 'good');
-      }
-    }
-
-    function onZoneHit(zoneId){
-      const sceneData = currentScene();
-      if (sceneData.type !== 'zones') return;
-
-      const expected = sceneData.order[state.stepValue];
-
-      if (!expected || zoneId !== expected.id){
-        setCoach('ยังไม่ใช่จุดนี้ ดูชื่อที่เราชี้ให้ก่อน', 'warn');
-        return;
-      }
-
-      state.stepValue += 1;
-
-      if (state.stepValue >= sceneData.order.length){
-        ui.nextBtn.disabled = false;
-        ui.prompt.textContent = 'ผ่านแล้ว กด “ถัดไป”';
-        setCoach('ดีมาก ตอนนี้รู้แล้วว่าเห็นจุดเรืองตรงไหน ให้แตะตรงนั้น', 'good');
-        return;
-      }
-
-      const nextTarget = sceneData.order[state.stepValue];
-      highlightZone(nextTarget.id, nextTarget.color);
-      ui.prompt.textContent = `แตะ ${nextTarget.label}`;
-      setCoach(`ต่อไปแตะ “${nextTarget.label}”`, 'good');
-    }
-
-    function triggerFocusedAction(){
-      const sceneData = currentScene();
-      const target = getFocusedEl();
-
-      if (!target) return;
-
-      const objectKey = target.dataset?.object || '';
-      const zoneId = target.dataset?.zone || '';
-
-      if (sceneData.type === 'tap' && objectKey){
-        onTapObject(objectKey);
-      }
-
-      if (sceneData.type === 'zones' && zoneId){
-        onZoneHit(zoneId);
-      }
-    }
-
-    function goNextScene(){
-      if (state.sceneIndex < SCENES.length - 1){
-        state.sceneIndex += 1;
-        renderScene();
+    function goNext(){
+      if (index < SCENES.length - 1){
+        index += 1;
+        render();
         return;
       }
 
       location.href = PRACTICE_URL;
     }
 
-    function snapFrontView(){
-      const lc = cam && cam.components && cam.components['look-controls'];
-      if (!lc) return;
-
-      try{
-        if (lc.yawObject) lc.yawObject.rotation.y = 0;
-        if (lc.pitchObject) lc.pitchObject.rotation.x = -0.05;
-        if (lc.pitchObject) lc.pitchObject.rotation.z = 0;
-      }catch(e){
-        console.warn(e);
-      }
-    }
-
-    function isHoldingWater(){
-      const focused = getFocusedEl();
-      if (!focused) return false;
-      return focused.dataset?.object === 'water';
-    }
-
-    function startHowto(){
-      state.started = true;
-      state.sceneIndex = 0;
-      state.stepValue = 0;
-      state.holdValue = 0;
-      state.lastTs = 0;
-
-      ui.startOverlay.classList.add('hidden');
-      ui.startOverlay.style.display = 'none';
-
-      setHudCompact(window.matchMedia('(max-width:680px)').matches);
-      renderScene();
-      setTimeout(snapFrontView, 60);
-    }
-
-    ['click','touchend','pointerup'].forEach(evt => {
-      ui.startBtn.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!state.started) startHowto();
-      }, { passive:false });
-    });
-
-    ui.nextBtn.addEventListener('click', () => {
-      if (!state.started) return;
-      goNextScene();
-    });
-
-    ui.skipBtn.addEventListener('click', () => {
+    els.nextBtn.addEventListener('click', goNext);
+    els.skipBtn.addEventListener('click', () => {
       location.href = PRACTICE_URL;
     });
 
-    ui.launcherBtn.addEventListener('click', () => {
+    els.launcherBtn.addEventListener('click', () => {
       location.href = LAUNCHER_URL;
     });
 
-    ui.hubBtn.addEventListener('click', () => {
+    els.zoneBtn.addEventListener('click', () => {
       location.href = HUB_URL;
     });
 
-    ui.hudToggleBtn.addEventListener('click', () => {
-      setHudCompact(!state.hudCompact);
-    });
-
-    ui.recenterBtn.addEventListener('click', () => {
-      snapFrontView();
-      setCoach('จัดมุมมองใหม่แล้ว');
-    });
-
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' || e.code === 'Enter'){
-        e.preventDefault();
-        triggerFocusedAction();
-      }
-    }, { passive:false });
-
-    window.addEventListener('pointerup', (e) => {
-      const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
-      if (tag === 'button') return;
-      triggerFocusedAction();
-    });
-
-    window.addEventListener('resize', () => {
-      if (state.started) setHudCompact(window.matchMedia('(max-width:680px)').matches);
-      setTimeout(snapFrontView, 50);
-    });
-
-    function loop(ts){
-      requestAnimationFrame(loop);
-
-      if (!state.started) return;
-      if (!state.lastTs) state.lastTs = ts;
-
-      const dt = Math.min(0.05, (ts - state.lastTs) / 1000);
-      state.lastTs = ts;
-
-      const sceneData = currentScene();
-      if (!sceneData) return;
-
-      if (sceneData.type === 'hold'){
-        const need = sceneData.need || 1.0;
-
-        if (isHoldingWater()){
-          state.holdValue = Math.min(need, state.holdValue + dt);
-          const hp = Math.round((state.holdValue / need) * 100);
-          ui.prompt.textContent = `ค้างต่ออีกนิด • ${hp}%`;
-          setCoach('ดีมาก ค้างต่ออีกนิด', 'good');
-        } else {
-          state.holdValue = Math.max(0, state.holdValue - dt * 0.35);
-        }
-
-        if (state.holdValue >= need){
-          ui.nextBtn.disabled = false;
-          ui.prompt.textContent = 'ผ่านแล้ว กด “ถัดไป”';
-          setCoach('ใช่เลย ขั้นน้ำต้องค้างแบบนี้', 'good');
-        }
-      }
-    }
-
-    renderScene();
-    requestAnimationFrame(loop);
+    render();
   </script>
 </body>
 </html>
