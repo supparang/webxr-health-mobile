@@ -1112,28 +1112,67 @@
         });
 
         const tries = [
-          async () => fetchJson(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: envelope('teacher_dashboard_get')
-          }),
-          async () => fetchJson(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: envelope('teacher_dashboard')
-          }),
-          async () => fetchJson(API_URL + '?action=teacher_dashboard_get'),
-          async () => fetchJson(API_URL)
+          {
+            label: 'POST teacher_dashboard_get',
+            run: () => fetchJson(API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: envelope('teacher_dashboard_get')
+            })
+          },
+          {
+            label: 'POST teacher_dashboard',
+            run: () => fetchJson(API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: envelope('teacher_dashboard')
+            })
+          },
+          {
+            label: 'GET teacher_dashboard_get',
+            run: () => fetchJson(API_URL + '?action=teacher_dashboard_get&t=' + Date.now(), {
+              method: 'GET',
+              cache: 'no-store'
+            })
+          },
+          {
+            label: 'GET teacher_dashboard',
+            run: () => fetchJson(API_URL + '?action=teacher_dashboard&t=' + Date.now(), {
+              method: 'GET',
+              cache: 'no-store'
+            })
+          },
+          {
+            label: 'GET dashboard',
+            run: () => fetchJson(API_URL + '?action=dashboard&t=' + Date.now(), {
+              method: 'GET',
+              cache: 'no-store'
+            })
+          },
+          {
+            label: 'GET raw',
+            run: () => fetchJson(API_URL + '?t=' + Date.now(), {
+              method: 'GET',
+              cache: 'no-store'
+            })
+          }
         ];
 
         let lastErr = null;
 
-        for (const run of tries) {
+        for (const item of tries) {
           try {
-            const data = await run();
-            if (data) return data;
+            const data = await item.run();
+
+            if (data) {
+              data.__usedAction = item.label;
+              window.__TEACHER_RAW__ = data;
+              window.__TEACHER_USED_ACTION__ = item.label;
+              return data;
+            }
           } catch (err) {
             lastErr = err;
+            console.warn('Teacher dashboard fetch failed:', item.label, err);
           }
         }
 
@@ -1150,81 +1189,193 @@
       function normalizeDashboardPayload(data) {
         const root = data?.data || data?.payload || data?.result || data || {};
 
-        let students = pickFirstArray(
-          root.students,
-          root.student_profiles,
-          root.students_profile,
-          root.studentsProfile,
-          root.students_profile_rows,
-          root.studentProfileRows,
-          root.profiles
-        );
-
-        let sessions = pickFirstArray(
-          root.sessions,
-          root.session_rows,
-          root.sessions_rows,
-          root.sessionSummaryRows,
-          root.session_summary,
-          root.sessionsSheet,
-          root.sessionSheet
-        );
-
-        let termAnswers = pickFirstArray(
-          root.term_answers,
-          root.term_answer,
-          root.term_answer_rows,
-          root.termAnswers,
-          root.answers,
-          root.events
-        );
-
-        const flatRows = pickFirstArray(
-          root.rows,
-          root.all_rows,
-          root.items
-        );
-
-        if (flatRows.length) {
-          if (!students.length) {
-            students = flatRows.filter(r =>
-              'last_session_id' in r ||
-              'last_bank' in r ||
-              'last_mode' in r ||
-              'last_accuracy' in r ||
-              'recommended_mode' in r ||
-              'recommended_difficulty' in r
-            );
-          }
-
-          if (!sessions.length) {
-            sessions = flatRows.filter(r =>
-              'started_at' in r ||
-              'ended_at' in r ||
-              'duration_sec' in r ||
-              'score' in r ||
-              'accuracy' in r ||
-              ((r.action || r.type) === 'session_end') ||
-              ((r.action || r.type) === 'session_start')
-            );
-          }
-
-          if (!termAnswers.length) {
-            termAnswers = flatRows.filter(r =>
-              'term_id' in r ||
-              'term' in r ||
-              'variant_type' in r ||
-              'response_ms' in r ||
-              ((r.action || r.type) === 'term_answer')
-            );
-          }
+        function cleanKey(k) {
+          return String(k || '')
+            .toLowerCase()
+            .replace(/[\s\-]+/g, '_')
+            .replace(/[^\w]/g, '');
         }
 
-        return {
-          students: Array.isArray(students) ? students : [],
-          sessions: Array.isArray(sessions) ? sessions : [],
-          termAnswers: Array.isArray(termAnswers) ? termAnswers : []
+        function is2dArray(arr) {
+          return Array.isArray(arr) && Array.isArray(arr[0]);
+        }
+
+        function rowsToObjects(arr) {
+          if (!is2dArray(arr) || arr.length < 2) return arr;
+
+          const headers = arr[0].map(h => cleanKey(h));
+
+          return arr.slice(1)
+            .filter(row => Array.isArray(row) && row.some(v => String(v ?? '').trim() !== ''))
+            .map(row => {
+              const obj = {};
+              headers.forEach((h, i) => {
+                if (h) obj[h] = row[i] ?? '';
+              });
+              return obj;
+            });
+        }
+
+        function normalizeArray(arr) {
+          if (!Array.isArray(arr)) return [];
+          const converted = rowsToObjects(arr);
+          return Array.isArray(converted) ? converted : [];
+        }
+
+        function collectArraysDeep(obj, path = '', out = []) {
+          if (!obj || typeof obj !== 'object') return out;
+
+          if (Array.isArray(obj)) {
+            out.push({
+              path,
+              rows: normalizeArray(obj)
+            });
+            return out;
+          }
+
+          Object.keys(obj).forEach(key => {
+            collectArraysDeep(obj[key], path ? path + '.' + key : key, out);
+          });
+
+          return out;
+        }
+
+        function keysOfRows(rows) {
+          const set = new Set();
+
+          rows.slice(0, 8).forEach(row => {
+            if (row && typeof row === 'object' && !Array.isArray(row)) {
+              Object.keys(row).forEach(k => set.add(cleanKey(k)));
+            }
+          });
+
+          return Array.from(set);
+        }
+
+        function hasAny(keys, candidates) {
+          return candidates.some(k => keys.includes(k));
+        }
+
+        function classifyRows(path, rows) {
+          const p = cleanKey(path);
+          const keys = keysOfRows(rows);
+
+          const studentHints = [
+            'student_id',
+            'display_name',
+            'last_session_id',
+            'last_bank',
+            'last_mode',
+            'last_score',
+            'last_accuracy',
+            'recommended_mode',
+            'recommended_difficulty',
+            'weak_terms_json',
+            'mastery_json'
+          ];
+
+          const sessionHints = [
+            'session_id',
+            'display_name',
+            'student_id',
+            'section',
+            'session_code',
+            'bank',
+            'mode',
+            'started_at',
+            'ended_at',
+            'duration_sec',
+            'score',
+            'accuracy',
+            'mistakes'
+          ];
+
+          const answerHints = [
+            'term_id',
+            'term',
+            'variant_type',
+            'is_correct',
+            'level_before',
+            'level_after',
+            'response_ms',
+            'stage_index',
+            'from_review'
+          ];
+
+          if (
+            p.includes('student') ||
+            p.includes('profile') ||
+            hasAny(keys, ['last_session_id', 'last_accuracy', 'recommended_mode', 'mastery_json', 'weak_terms_json'])
+          ) {
+            return 'students';
+          }
+
+          if (
+            p.includes('term') ||
+            p.includes('answer') ||
+            p.includes('event') ||
+            hasAny(keys, ['term_id', 'term', 'variant_type', 'is_correct', 'response_ms', 'stage_index'])
+          ) {
+            return 'termAnswers';
+          }
+
+          if (
+            p.includes('session') ||
+            hasAny(keys, ['session_id', 'started_at', 'ended_at', 'duration_sec', 'score', 'accuracy'])
+          ) {
+            return 'sessions';
+          }
+
+          const studentScore = studentHints.filter(k => keys.includes(k)).length;
+          const sessionScore = sessionHints.filter(k => keys.includes(k)).length;
+          const answerScore = answerHints.filter(k => keys.includes(k)).length;
+          const max = Math.max(studentScore, sessionScore, answerScore);
+
+          if (!max) return '';
+
+          if (max === answerScore) return 'termAnswers';
+          if (max === studentScore) return 'students';
+          return 'sessions';
+        }
+
+        const arrays = collectArraysDeep(root);
+
+        const result = {
+          students: [],
+          sessions: [],
+          termAnswers: [],
+          debugShape: {
+            usedAction: data?.__usedAction || '',
+            rootKeys: Object.keys(root || {}),
+            arraysFound: arrays.map(item => ({
+              path: item.path,
+              length: item.rows.length,
+              keys: keysOfRows(item.rows).slice(0, 30)
+            }))
+          }
         };
+
+        arrays.forEach(item => {
+          if (!item.rows.length) return;
+
+          const type = classifyRows(item.path, item.rows);
+
+          if (type === 'students' && !result.students.length) {
+            result.students = item.rows;
+          }
+
+          if (type === 'sessions' && !result.sessions.length) {
+            result.sessions = item.rows;
+          }
+
+          if (type === 'termAnswers' && !result.termAnswers.length) {
+            result.termAnswers = item.rows;
+          }
+        });
+
+        window.__TEACHER_NORMALIZED__ = result;
+
+        return result;
       }
 
       function normalizeSessionRows(rows) {
@@ -2036,8 +2187,12 @@
           const raw = await requestTeacherData();
           const normalized = normalizeDashboardPayload(raw);
 
+          console.log('TEACHER USED ACTION:', raw.__usedAction);
           console.log('TEACHER RAW:', raw);
           console.log('TEACHER NORMALIZED:', normalized);
+
+          window.__TEACHER_RAW__ = raw;
+          window.__TEACHER_NORMALIZED__ = normalized;
 
           state.raw = raw;
           state.sessions = normalizeSessionRows(normalized.sessions || []);
@@ -2060,13 +2215,24 @@
           renderAll();
           attachListEvents();
 
-          showStatus(
+          const statusMsg =
             'โหลดข้อมูล teacher dashboard สำเร็จแล้ว • students ' +
-            state.students.length + ' • sessions ' +
-            state.sessions.length + ' • answers ' +
-            state.termAnswers.length,
-            'ok'
-          );
+            state.students.length +
+            ' • sessions ' +
+            state.sessions.length +
+            ' • answers ' +
+            state.termAnswers.length +
+            ' • action ' +
+            (raw.__usedAction || '-');
+
+          if (!state.students.length && !state.sessions.length && !state.termAnswers.length) {
+            showStatus(
+              statusMsg + ' • ยัง parse array ไม่เจอ ให้เปิด Console ดู __TEACHER_RAW__ / __TEACHER_NORMALIZED__',
+              'warn'
+            );
+          } else {
+            showStatus(statusMsg, 'ok');
+          }
         } catch (err) {
           console.error(err);
           showStatus('โหลดข้อมูลไม่สำเร็จ: ' + (err?.message || err), 'bad');
