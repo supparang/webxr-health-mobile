@@ -1,15 +1,16 @@
 // /english/js/teacher-dashboard-hotfix.js
-// PATCH v20260424-teacher-dashboard-polish-r5
+// PATCH v20260424-teacher-dashboard-report-r6
 // ✅ Force load teacher=dashboard from Apps Script
 // ✅ Smart rows: compact repeated visits by student/section/session
 // ✅ S00/Lobby is entry only, not At Risk
 // ✅ Student Detail panel with S01–S15 progress and attempts
+// ✅ Report Pack r6: date range, missing report, per-student progress, export report, print/PDF
 // ✅ Does not load old teacher.js
 
 (function () {
   "use strict";
 
-  const PATCH = "v20260424-teacher-dashboard-polish-r5";
+  const PATCH = "v20260424-teacher-dashboard-report-r6";
 
   const ENDPOINT =
     window.TECHPATH_ATTENDANCE_ENDPOINT ||
@@ -26,7 +27,13 @@
       section: "",
       status: "",
       session: "",
-      minTime: ""
+      minTime: "",
+      dateFrom: "",
+      dateTo: ""
+    },
+    report: {
+      targetSession: "S01",
+      minSec: 60
     },
     quick: "all",
     auto: true,
@@ -64,9 +71,15 @@
 
   function fmtSec(value) {
     const n = Math.max(0, Math.floor(num(value)));
-    const m = String(Math.floor(n / 60)).padStart(2, "0");
-    const s = String(n % 60).padStart(2, "0");
-    return `${m}:${s}`;
+    const h = Math.floor(n / 3600);
+    const m = Math.floor((n % 3600) / 60);
+    const s = n % 60;
+
+    if (h > 0) {
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
   function fmtDate(value) {
@@ -74,6 +87,16 @@
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
     return d.toLocaleString("th-TH");
+  }
+
+  function localDateInputValue(date = new Date()) {
+    const d = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(d.getTime())) return "";
+
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   }
 
   function sessionList() {
@@ -136,6 +159,42 @@
     return personKey(a) === personKey(b);
   }
 
+  function rowTimeMs(r) {
+    const candidates = [
+      r.lastServerTs,
+      r.firstServerTs,
+      r.lastActiveAt,
+      r.finishedAt,
+      r.startedAt,
+      r.enteredAt
+    ];
+
+    for (const value of candidates) {
+      if (!value) continue;
+      const t = new Date(value).getTime();
+      if (Number.isFinite(t)) return t;
+    }
+
+    return 0;
+  }
+
+  function inDateRange(r) {
+    const t = rowTimeMs(r);
+    if (!t) return true;
+
+    if (state.filters.dateFrom) {
+      const from = new Date(`${state.filters.dateFrom}T00:00:00`).getTime();
+      if (Number.isFinite(from) && t < from) return false;
+    }
+
+    if (state.filters.dateTo) {
+      const to = new Date(`${state.filters.dateTo}T23:59:59`).getTime();
+      if (Number.isFinite(to) && t > to) return false;
+    }
+
+    return true;
+  }
+
   function rowScoreForMerge(r) {
     let score = 0;
 
@@ -148,7 +207,7 @@
     score += Math.min(99999, Number(r.durationSec) || 0);
     score += Math.min(99999, Number(r.activeTimeSec) || 0);
 
-    const t = new Date(r.lastServerTs || r.firstServerTs || r.lastActiveAt || 0).getTime();
+    const t = rowTimeMs(r);
     if (Number.isFinite(t)) score += Math.floor(t / 100000000);
 
     return score;
@@ -196,6 +255,169 @@
     return "ok";
   }
 
+  function matchesReportBaseFilters(r) {
+    const q = state.filters.search.toLowerCase().trim();
+
+    if (!inDateRange(r)) return false;
+    if (state.filters.section && r.classSection !== state.filters.section) return false;
+
+    if (q) {
+      const hay = [r.studentId, r.studentName, r.classSection, r.sessionNo, r.attendanceStatus]
+        .join(" ")
+        .toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+
+    return true;
+  }
+
+  function knownPersonsFromRows(rows) {
+    const map = new Map();
+
+    rows.forEach((r) => {
+      const key = personKey(r);
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          studentId: r.studentId,
+          studentName: r.studentName,
+          classSection: r.classSection
+        });
+      }
+    });
+
+    return [...map.values()].sort((a, b) => {
+      const sec = String(a.classSection || "").localeCompare(String(b.classSection || ""));
+      if (sec !== 0) return sec;
+      return String(a.studentName || "").localeCompare(String(b.studentName || ""));
+    });
+  }
+
+  function bestRowForPersonSession(person, sessionNo) {
+    const rows = state.rows.filter((r) =>
+      personKey(r) === person.key &&
+      normalizeSessionNo(r.sessionNo) === normalizeSessionNo(sessionNo) &&
+      matchesReportBaseFilters(r)
+    );
+
+    if (!rows.length) return null;
+
+    return rows.sort((a, b) => rowScoreForMerge(b) - rowScoreForMerge(a))[0];
+  }
+
+  function reportLearningRows() {
+    return state.rows.filter((r) =>
+      matchesReportBaseFilters(r) &&
+      isLearningSession(r.sessionNo)
+    );
+  }
+
+  function buildStudentProgressReport() {
+    const rows = state.rows.filter((r) => matchesReportBaseFilters(r));
+    const persons = knownPersonsFromRows(rows);
+
+    return persons.map((p) => {
+      const learningRows = state.rows.filter((r) =>
+        personKey(r) === p.key &&
+        matchesReportBaseFilters(r) &&
+        isLearningSession(r.sessionNo)
+      );
+
+      const done = learningRows.filter((r) => r.completed).length;
+      const minOk = learningRows.filter((r) => r.minTimeMet).length;
+      const risk = learningRows.filter((r) => isRiskRow(r)).length;
+      const best = learningRows.reduce((m, r) => Math.max(m, Number(r.score) || 0), 0);
+      const totalActive = learningRows.reduce((s, r) => s + (Number(r.activeTimeSec) || 0), 0);
+      const totalDuration = learningRows.reduce((s, r) => s + (Number(r.durationSec) || 0), 0);
+
+      const sessionMap = new Map(
+        learningRows.map((r) => [normalizeSessionNo(r.sessionNo), r])
+      );
+
+      return {
+        ...p,
+        learningRows,
+        done,
+        minOk,
+        risk,
+        best,
+        totalActive,
+        totalDuration,
+        sessionMap
+      };
+    });
+  }
+
+  function buildMissingReport() {
+    const target = normalizeSessionNo(state.report.targetSession || "S01");
+    const baseRows = state.rows.filter((r) => matchesReportBaseFilters(r));
+    const persons = knownPersonsFromRows(baseRows);
+
+    return persons.map((p) => {
+      const r = bestRowForPersonSession(p, target);
+
+      if (!r) {
+        return {
+          ...p,
+          targetSession: target,
+          reason: "not started",
+          durationSec: 0,
+          activeTimeSec: 0,
+          score: 0,
+          row: null
+        };
+      }
+
+      const minSec = Math.max(0, Number(state.report.minSec) || 0);
+      const activeOrDuration = Number(r.activeTimeSec) || Number(r.durationSec) || 0;
+
+      if (!r.completed) {
+        return {
+          ...p,
+          targetSession: target,
+          reason: "not completed",
+          durationSec: r.durationSec,
+          activeTimeSec: r.activeTimeSec,
+          score: r.score,
+          row: r
+        };
+      }
+
+      if (activeOrDuration < minSec) {
+        return {
+          ...p,
+          targetSession: target,
+          reason: `min time < ${minSec}s`,
+          durationSec: r.durationSec,
+          activeTimeSec: r.activeTimeSec,
+          score: r.score,
+          row: r
+        };
+      }
+
+      return null;
+    }).filter(Boolean);
+  }
+
+  function progressDots(sessionMap) {
+    return Array.from({ length: 15 }, (_, i) => {
+      const s = `S${String(i + 1).padStart(2, "0")}`;
+      const r = sessionMap.get(s);
+
+      if (!r) {
+        return `<span class="progress-dot" title="${s}: no data">${String(i + 1).padStart(2, "0")}</span>`;
+      }
+
+      const cls = r.completed && r.minTimeMet
+        ? "done"
+        : r.completed
+          ? "partial"
+          : "risk";
+
+      return `<span class="progress-dot ${cls}" title="${s}: ${escapeHtml(statusLabel(r.attendanceStatus))}">${String(i + 1).padStart(2, "0")}</span>`;
+    }).join("");
+  }
+
   function getPersonSmartRows(row) {
     if (!row) return [];
     return state.rows
@@ -207,11 +429,7 @@
     if (!row) return [];
     return state.rawRows
       .filter((r) => samePerson(r, row))
-      .sort((a, b) => {
-        const aa = new Date(a.lastServerTs || a.firstServerTs || a.lastActiveAt || 0).getTime();
-        const bb = new Date(b.lastServerTs || b.firstServerTs || b.lastActiveAt || 0).getTime();
-        return bb - aa;
-      });
+      .sort((a, b) => rowTimeMs(b) - rowTimeMs(a));
   }
 
   function statusLabel(status) {
@@ -361,6 +579,8 @@
     const q = state.filters.search.toLowerCase().trim();
 
     state.filteredRows = state.rows.filter((r) => {
+      if (!inDateRange(r)) return false;
+
       if (state.filters.section && r.classSection !== state.filters.section) return false;
       if (state.filters.status && r.attendanceStatus !== state.filters.status) return false;
       if (state.filters.session && r.sessionNo !== state.filters.session) return false;
@@ -558,7 +778,11 @@
   }
 
   function selectDetailRow(key) {
-    const row = state.filteredRows.find((r) => rowKey(r) === key) || state.rows.find((r) => rowKey(r) === key) || null;
+    const row =
+      state.filteredRows.find((r) => rowKey(r) === key) ||
+      state.rows.find((r) => rowKey(r) === key) ||
+      null;
+
     state.selectedKey = key || "";
     state.selectedRow = row;
     renderStudentDetail(row);
@@ -821,6 +1045,113 @@
     });
   }
 
+  function renderReportPack() {
+    renderReportSummary();
+    renderMissingReport();
+    renderProgressReport();
+  }
+
+  function renderReportSummary() {
+    const root = $("report-summary-cards");
+    const meta = $("report-meta");
+    if (!root || !meta) return;
+
+    const learning = reportLearningRows();
+    const progress = buildStudentProgressReport();
+    const missing = buildMissingReport();
+
+    const knownStudents = progress.length;
+    const completedRows = learning.filter((r) => r.completed).length;
+    const minOkRows = learning.filter((r) => r.minTimeMet).length;
+    const atRiskRows = learning.filter((r) => isRiskRow(r)).length;
+
+    const avgScore = learning.length
+      ? Math.round(learning.reduce((s, r) => s + (Number(r.score) || 0), 0) / learning.length)
+      : 0;
+
+    const avgActive = learning.length
+      ? Math.round(learning.reduce((s, r) => s + (Number(r.activeTimeSec) || 0), 0) / learning.length)
+      : 0;
+
+    meta.textContent =
+      `Target ${state.report.targetSession} • Min ${state.report.minSec}s • ${knownStudents} students`;
+
+    const cards = [
+      ["Known Students", knownStudents, ""],
+      ["Learning Rows", learning.length, ""],
+      ["Completed Rows", completedRows, "ok"],
+      ["Min Time OK", minOkRows, "ok"],
+      ["Missing / Not OK", missing.length, missing.length ? "bad" : "ok"],
+      ["At Risk Rows", atRiskRows, atRiskRows ? "bad" : "ok"],
+      ["Avg Active", fmtSec(avgActive), ""],
+      ["Avg Score", avgScore, ""]
+    ];
+
+    root.innerHTML = cards.map(([k, v, cls]) => `
+      <div class="panel card ${cls}">
+        <div class="k">${escapeHtml(k)}</div>
+        <div class="v">${escapeHtml(v)}</div>
+      </div>
+    `).join("");
+  }
+
+  function renderMissingReport() {
+    const tbody = $("missing-tbody");
+    const meta = $("missing-meta");
+    if (!tbody || !meta) return;
+
+    const rows = buildMissingReport();
+    meta.textContent = `${rows.length} students`;
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="6">ไม่มีรายการขาด/ไม่ผ่านสำหรับ ${escapeHtml(state.report.targetSession)}</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r) => `
+      <tr>
+        <td>
+          ${escapeHtml(safe(r.studentName))}
+          <br><span style="color:#9db2c7;font-size:.82rem;">${escapeHtml(safe(r.studentId))}</span>
+        </td>
+        <td>${escapeHtml(safe(r.classSection))}</td>
+        <td>${escapeHtml(safe(r.targetSession))}</td>
+        <td><span class="tag left">${escapeHtml(r.reason)}</span></td>
+        <td>${escapeHtml(fmtSec(r.durationSec))}</td>
+        <td>${escapeHtml(r.score)}</td>
+      </tr>
+    `).join("");
+  }
+
+  function renderProgressReport() {
+    const tbody = $("progress-tbody");
+    const meta = $("progress-meta");
+    if (!tbody || !meta) return;
+
+    const rows = buildStudentProgressReport();
+    meta.textContent = `${rows.length} students`;
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="6">ไม่พบข้อมูลผู้เรียน</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r) => `
+      <tr>
+        <td>
+          ${escapeHtml(safe(r.studentName))}
+          <br><span style="color:#9db2c7;font-size:.82rem;">${escapeHtml(safe(r.studentId))}</span>
+          <div class="progress-mini">${progressDots(r.sessionMap)}</div>
+        </td>
+        <td>${escapeHtml(safe(r.classSection))}</td>
+        <td class="${r.done ? "yes" : "no"}">${escapeHtml(r.done)} / 15</td>
+        <td class="${r.minOk ? "yes" : "no"}">${escapeHtml(r.minOk)} / 15</td>
+        <td class="${r.risk ? "no" : "yes"}">${escapeHtml(r.risk)}</td>
+        <td>${escapeHtml(r.best)}</td>
+      </tr>
+    `).join("");
+  }
+
   function rerender() {
     applyFilters();
 
@@ -831,6 +1162,7 @@
     renderRisk();
     renderSectionSummary();
     renderMatrix();
+    renderReportPack();
 
     const footer = $("footer-note");
     if (footer) {
@@ -914,8 +1246,81 @@
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     const url = URL.createObjectURL(blob);
+
     a.href = url;
     a.download = `${prefix}-${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportReportCsv() {
+    const progress = buildStudentProgressReport();
+    const missing = buildMissingReport();
+
+    const headers = [
+      "report_type",
+      "studentId",
+      "studentName",
+      "classSection",
+      "targetSession",
+      "doneCount",
+      "minOkCount",
+      "riskCount",
+      "bestScore",
+      "totalActiveSec",
+      "totalDurationSec",
+      "missingReason"
+    ];
+
+    const rows = [
+      ...progress.map((r) => [
+        "progress",
+        r.studentId,
+        r.studentName,
+        r.classSection,
+        state.report.targetSession,
+        r.done,
+        r.minOk,
+        r.risk,
+        r.best,
+        r.totalActive,
+        r.totalDuration,
+        ""
+      ]),
+      ...missing.map((r) => [
+        "missing",
+        r.studentId,
+        r.studentName,
+        r.classSection,
+        r.targetSession,
+        "",
+        "",
+        "",
+        r.score,
+        r.activeTimeSec,
+        r.durationSec,
+        r.reason
+      ])
+    ];
+
+    if (!rows.length) {
+      alert("ไม่มีข้อมูลสำหรับ export report");
+      return;
+    }
+
+    const csv = [
+      headers.join(","),
+      ...rows.map((row) => row.map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+
+    a.href = url;
+    a.download = `techpath-report-${state.report.targetSession}-${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -946,6 +1351,63 @@
     $("filter-minTime")?.addEventListener("change", (e) => {
       state.filters.minTime = e.target.value || "";
       rerender();
+    });
+
+    $("filter-date-from")?.addEventListener("change", (e) => {
+      state.filters.dateFrom = e.target.value || "";
+      rerender();
+    });
+
+    $("filter-date-to")?.addEventListener("change", (e) => {
+      state.filters.dateTo = e.target.value || "";
+      rerender();
+    });
+
+    $("report-session")?.addEventListener("change", (e) => {
+      state.report.targetSession = normalizeSessionNo(e.target.value || "S01");
+      rerender();
+    });
+
+    $("report-min-sec")?.addEventListener("input", (e) => {
+      state.report.minSec = Math.max(0, Number(e.target.value) || 0);
+      rerender();
+    });
+
+    $("btn-report-today")?.addEventListener("click", () => {
+      const today = localDateInputValue(new Date());
+
+      state.filters.dateFrom = today;
+      state.filters.dateTo = today;
+
+      if ($("filter-date-from")) $("filter-date-from").value = today;
+      if ($("filter-date-to")) $("filter-date-to").value = today;
+
+      rerender();
+    });
+
+    $("btn-report-week")?.addEventListener("click", () => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 6);
+
+      const from = localDateInputValue(start);
+      const to = localDateInputValue(end);
+
+      state.filters.dateFrom = from;
+      state.filters.dateTo = to;
+
+      if ($("filter-date-from")) $("filter-date-from").value = from;
+      if ($("filter-date-to")) $("filter-date-to").value = to;
+
+      rerender();
+    });
+
+    $("btn-print-report")?.addEventListener("click", () => {
+      window.print();
+    });
+
+    $("btn-export-report")?.addEventListener("click", () => {
+      exportReportCsv();
     });
 
     $("btn-refresh")?.addEventListener("click", loadDashboard);
@@ -995,10 +1457,10 @@
   }
 
   function ensurePolishCss() {
-    if (document.getElementById("teacher-polish-r5-css")) return;
+    if (document.getElementById("teacher-polish-r6-css")) return;
 
     const style = document.createElement("style");
-    style.id = "teacher-polish-r5-css";
+    style.id = "teacher-polish-r6-css";
     style.textContent = `
       .student-row-active{
         background:rgba(123,237,255,.12)!important;
