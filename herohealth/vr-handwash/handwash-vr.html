@@ -268,9 +268,7 @@
     }
 
     @media (max-width:680px){
-      #ui-overlay{
-        padding:10px;
-      }
+      #ui-overlay{ padding:10px; }
 
       .top-hud{
         width:100%;
@@ -278,9 +276,7 @@
         padding:10px;
       }
 
-      .mission{
-        font-size:1.02rem;
-      }
+      .mission{ font-size:1.02rem; }
 
       .chip{
         font-size:.8rem;
@@ -324,7 +320,7 @@
 
       <div class="msg">
         <div class="msg-icon" id="msgIcon">🚰</div>
-        <div id="msgText">มองเป้ากลางจอไปที่ ก๊อกน้ำ</div>
+        <div id="msgText">มองเป้ากลางจอไปที่ ก๊อกน้ำ หรือแตะก๊อกน้ำได้เลย</div>
       </div>
 
       <div class="progress-wrap">
@@ -353,17 +349,22 @@
 
   <script>
     let scene, camera, renderer, raycaster;
+
     let score = 0;
     let timeLeft = 45;
     let currentStep = 0;
     let isVR = false;
+
     let lon = 180;
     let lat = 0;
     let isTouching = false;
+    let movedTouch = false;
     let px = 0;
     let py = 0;
+
     let gazeTime = 0;
     let completed = false;
+    let lastDirectHitAt = 0;
 
     const targets = [];
     const germs = [];
@@ -371,8 +372,10 @@
       "มือซ้าย": [],
       "มือขวา": []
     };
+
     const targetRefs = {};
     const clock = new THREE.Clock();
+    const pointerNDC = new THREE.Vector2();
 
     const quest = [
       {
@@ -451,6 +454,7 @@
     function showToast(text){
       ui.toast.textContent = text;
       ui.toast.classList.add('show');
+
       clearTimeout(showToast._timer);
       showToast._timer = setTimeout(() => {
         ui.toast.classList.remove('show');
@@ -471,8 +475,8 @@
       const c = document.createElement("canvas");
       c.width = size;
       c.height = size;
-      const ctx = c.getContext("2d");
 
+      const ctx = c.getContext("2d");
       ctx.clearRect(0, 0, size, size);
 
       ctx.fillStyle = bg;
@@ -505,9 +509,10 @@
       const c = document.createElement("canvas");
       c.width = size;
       c.height = size;
-      const ctx = c.getContext("2d");
 
+      const ctx = c.getContext("2d");
       ctx.clearRect(0, 0, size, size);
+
       ctx.fillStyle = bg;
       roundRect(ctx, 18, 18, size - 36, size - 36, 42);
       ctx.fill();
@@ -544,19 +549,22 @@
         opacity:0.62,
         side:THREE.DoubleSide
       });
+
       const halo = new THREE.Mesh(haloGeo, haloMat);
       halo.position.set(0, 0, -0.02);
       halo.userData.kind = "halo";
       group.add(halo);
 
       const hit = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.70, 0.76),
+        new THREE.PlaneGeometry(1.10, 1.10),
         new THREE.MeshBasicMaterial({
           transparent:true,
           opacity:0,
-          depthWrite:false
+          depthWrite:false,
+          side:THREE.DoubleSide
         })
       );
+
       hit.userData.targetId = item.id;
       hit.userData.parentGroup = group;
       group.add(hit);
@@ -592,6 +600,7 @@
         opacity:0.82,
         side:THREE.DoubleSide
       });
+
       const floor = new THREE.Mesh(floorGeo, floorMat);
       floor.rotation.x = -Math.PI / 2;
       floor.position.y = 0;
@@ -604,6 +613,7 @@
         opacity:0.70,
         side:THREE.DoubleSide
       });
+
       const wall = new THREE.Mesh(wallGeo, wallMat);
       wall.position.set(0, 1.55, -1.22);
       scene.add(wall);
@@ -637,6 +647,7 @@
         );
 
         germ.scale.set(0.105, 0.105, 1);
+
         ref.group.add(germ);
         germs.push(germ);
         germByHand[handId].push(germ);
@@ -650,6 +661,7 @@
       germByHand[handId].forEach(g => {
         if (g.parent) g.parent.remove(g);
       });
+
       germByHand[handId] = [];
     }
 
@@ -662,6 +674,7 @@
         0.1,
         1000
       );
+
       camera.position.set(0, 1.25, 1.05);
 
       renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
@@ -676,6 +689,7 @@
 
       document.addEventListener('touchstart', (e) => {
         isTouching = true;
+        movedTouch = false;
         px = e.touches[0].pageX;
         py = e.touches[0].pageY;
       }, { passive:true });
@@ -683,8 +697,13 @@
       document.addEventListener('touchmove', (e) => {
         if (!isTouching || isVR) return;
 
-        lon -= (e.touches[0].pageX - px) * 0.25;
-        lat += (e.touches[0].pageY - py) * 0.25;
+        const dx = e.touches[0].pageX - px;
+        const dy = e.touches[0].pageY - py;
+
+        if (Math.abs(dx) + Math.abs(dy) > 8) movedTouch = true;
+
+        lon -= dx * 0.25;
+        lat += dy * 0.25;
 
         px = e.touches[0].pageX;
         py = e.touches[0].pageY;
@@ -694,9 +713,29 @@
         isTouching = false;
       }, { passive:true });
 
-      renderer.domElement.addEventListener('pointerup', () => {
-        tryHitNow();
-      });
+      renderer.domElement.addEventListener('pointerup', (e) => {
+        if (movedTouch) return;
+        tryHitNow(e);
+      }, { passive:false });
+
+      renderer.domElement.addEventListener('click', (e) => {
+        if (movedTouch) return;
+        tryHitNow(e);
+      }, { passive:false });
+
+      renderer.domElement.addEventListener('touchend', (e) => {
+        if (movedTouch) return;
+
+        const t = e.changedTouches && e.changedTouches[0];
+        if (!t) return;
+
+        tryHitNow({
+          clientX:t.clientX,
+          clientY:t.clientY,
+          preventDefault:() => {},
+          stopPropagation:() => {}
+        });
+      }, { passive:false });
 
       ui.vrBtn.addEventListener('click', async () => {
         isVR = !isVR;
@@ -727,14 +766,17 @@
 
       window.addEventListener('deviceorientation', (e) => {
         if (!isVR) return;
+
         const alpha = THREE.MathUtils.degToRad(e.alpha || 0);
         const beta = THREE.MathUtils.degToRad(e.beta || 0);
         const gamma = THREE.MathUtils.degToRad(e.gamma || 0);
+
         camera.rotation.set(beta, alpha, -gamma, 'YXZ');
       });
 
       setInterval(() => {
         if (completed) return;
+
         if (timeLeft > 0){
           timeLeft -= 1;
           updateHUD();
@@ -784,6 +826,7 @@
       }
 
       const ref = targetRefs[quest[currentStep].id];
+
       if (!ref || !ref.group.visible){
         ui.navArrow.style.display = 'none';
         return;
@@ -812,6 +855,7 @@
 
     function lookCameraByTouch(){
       lat = Math.max(-70, Math.min(70, lat));
+
       const phi = THREE.MathUtils.degToRad(90 - lat);
       const theta = THREE.MathUtils.degToRad(lon);
 
@@ -822,26 +866,65 @@
       camera.lookAt(target);
     }
 
-    function getCurrentHit(){
-      if (completed || currentStep >= quest.length) return null;
-
-      raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+    function findCurrentHitFromRay(){
       const hits = raycaster.intersectObjects(targets, true);
 
       if (!hits.length) return null;
 
-      const obj = hits[0].object;
-      const id = obj.userData.targetId;
+      const expectedId = quest[currentStep]?.id;
 
-      if (id === quest[currentStep].id) return obj;
-      return null;
+      const matched = hits.find(h => {
+        return h.object &&
+          h.object.userData &&
+          h.object.userData.targetId === expectedId;
+      });
+
+      return matched ? matched.object : null;
     }
 
-    function tryHitNow(){
-      const hit = getCurrentHit();
-      if (!hit) return;
+    function getCurrentHit(){
+      if (completed || currentStep >= quest.length) return null;
 
-      gazeTime = 1;
+      raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+      return findCurrentHitFromRay();
+    }
+
+    function tryHitNow(e){
+      if (completed || currentStep >= quest.length) return;
+
+      const now = performance.now();
+      if (now - lastDirectHitAt < 220) return;
+      lastDirectHitAt = now;
+
+      let hit = null;
+
+      if (e && typeof e.clientX === 'number' && typeof e.clientY === 'number'){
+        try{
+          e.preventDefault();
+          e.stopPropagation();
+        }catch(err){}
+
+        const rect = renderer.domElement.getBoundingClientRect();
+
+        pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(pointerNDC, camera);
+        hit = findCurrentHitFromRay();
+      }
+
+      if (!hit){
+        hit = getCurrentHit();
+      }
+
+      if (!hit){
+        const item = quest[currentStep];
+        showToast(`แตะที่ ${item.label}`);
+        return;
+      }
+
+      gazeTime = 0;
+      ui.progressRing.style.display = 'none';
       stepUp();
     }
 
@@ -860,6 +943,7 @@
 
       if (hit){
         gazeTime += dt;
+
         const gp = Math.min(1, gazeTime / 1.0);
         ui.progressRing.style.display = 'block';
         ui.progressRing.style.background =
@@ -884,6 +968,7 @@
 
         if (i === currentStep && ref.halo){
           ref.halo.rotation.z += 0.03;
+
           const s = 1.08 + Math.sin(performance.now() * 0.006) * 0.035;
           ref.group.scale.setScalar(s);
         }
@@ -947,9 +1032,10 @@
         : item.msg;
 
       ui.msgIcon.textContent = completed ? "✨" : item.emoji;
+
       ui.msgText.textContent = completed
         ? "กดปุ่มไป Main Game ได้เลย"
-        : `${item.hint} • มองเป้ากลางจอไปที่ ${item.label}`;
+        : `${item.hint} • มองเป้ากลางจอ หรือแตะที่ ${item.label}`;
 
       ui.scoreText.textContent = `Score ${score}`;
       ui.timeText.textContent = `เวลา ${timeLeft} วิ`;
@@ -957,8 +1043,17 @@
       ui.fill.style.width = `${pct}%`;
     }
 
+    function getParam(key, fallback = ''){
+      try{
+        return new URL(location.href).searchParams.get(key) || fallback;
+      }catch(e){
+        return fallback;
+      }
+    }
+
     function goNext(){
       const rawNext = getParam('next', '');
+
       if (rawNext){
         location.href = rawNext;
         return;
@@ -970,21 +1065,27 @@
       const url = new URL(fallback, location.href);
       const params = new URLSearchParams(location.search);
 
-      ['pid','name','diff','time','view','run','zone','cat','game','gameId','theme','hub','hubRoot','zoneReturn']
-        .forEach(k => {
-          const v = params.get(k);
-          if (v) url.searchParams.set(k, v);
-        });
+      [
+        'pid',
+        'name',
+        'diff',
+        'time',
+        'view',
+        'run',
+        'zone',
+        'cat',
+        'game',
+        'gameId',
+        'theme',
+        'hub',
+        'hubRoot',
+        'zoneReturn'
+      ].forEach(k => {
+        const v = params.get(k);
+        if (v) url.searchParams.set(k, v);
+      });
 
       location.href = url.toString();
-    }
-
-    function getParam(key, fallback = ''){
-      try{
-        return new URL(location.href).searchParams.get(key) || fallback;
-      }catch(e){
-        return fallback;
-      }
     }
 
     function render(){
