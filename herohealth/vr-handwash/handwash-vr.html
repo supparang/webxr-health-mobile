@@ -3,18 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Handwash Hero • Simulate Learning VR</title>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <title>Handwash Hero • WHO Simulation Main Game</title>
 
   <style>
     :root{
-      --dark:#071827;
-      --cyan:#64f3ff;
-      --yellow:#ffe66d;
-      --pink:#ff8ed1;
+      --bg1:#e9fbff;
+      --bg2:#dff4ff;
+      --ink:#163046;
+      --muted:#5d778c;
+      --card:#ffffffee;
+      --line:#d7ecf8;
+      --cyan:#22d3ee;
+      --cyan2:#67e8f9;
+      --yellow:#fde047;
       --green:#86efac;
-      --white:#ffffff;
+      --pink:#f472b6;
+      --good:#22c55e;
+      --bad:#fb7185;
+      --shadow:0 18px 48px rgba(15,50,70,.14);
+      --r-xl:28px;
+      --maxw:980px;
     }
 
     *{ box-sizing:border-box; }
@@ -22,62 +30,61 @@
     html,body{
       margin:0;
       width:100%;
-      height:100%;
-      overflow:hidden;
-      background:#000;
+      min-height:100%;
       font-family:"Segoe UI",system-ui,sans-serif;
-      touch-action:none;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.95) 0%, rgba(255,255,255,.45) 28%, transparent 54%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    canvas{
-      display:block;
-      width:100%;
-      height:100%;
-    }
-
-    #ui-overlay{
-      position:absolute;
-      inset:0;
-      z-index:10;
-      pointer-events:none;
+    body{
+      min-height:100dvh;
       display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-      padding:14px;
-    }
-
-    .top-hud{
-      width:min(94vw,760px);
-      margin:0 auto;
-      background:rgba(7,24,39,.86);
-      border:2px solid rgba(100,243,255,.42);
-      border-radius:22px;
+      align-items:center;
+      justify-content:center;
       padding:12px;
-      color:#eefcff;
-      box-shadow:0 12px 32px rgba(0,0,0,.25);
-      backdrop-filter:blur(8px);
+      overflow:hidden;
+      touch-action:manipulation;
     }
 
-    .hud-row{
+    .app{
+      width:min(100%,var(--maxw));
+      height:calc(100dvh - 24px);
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:10px;
+    }
+
+    .top{
+      background:rgba(7,18,34,.92);
+      color:#eefcff;
+      border:2px solid rgba(99,230,255,.28);
+      border-radius:24px;
+      padding:12px 14px;
+      box-shadow:0 14px 36px rgba(7,18,34,.18);
+    }
+
+    .top-row{
       display:flex;
+      align-items:flex-start;
       justify-content:space-between;
       gap:10px;
-      align-items:flex-start;
       flex-wrap:wrap;
     }
 
-    .title{
+    .kicker{
+      font-size:.92rem;
+      color:#80e8ff;
       font-weight:1000;
-      color:#86f7ff;
-      font-size:1rem;
     }
 
-    .mission{
+    .title{
       margin-top:4px;
-      color:#fff;
-      font-size:1.18rem;
-      line-height:1.16;
+      font-size:1.22rem;
+      line-height:1.15;
       font-weight:1000;
+      color:#fff;
     }
 
     .chips{
@@ -90,128 +97,527 @@
     .chip{
       padding:8px 11px;
       border-radius:999px;
-      background:rgba(100,243,255,.14);
-      border:1px solid rgba(100,243,255,.22);
-      color:#e8fdff;
+      background:rgba(103,232,249,.14);
+      border:1px solid rgba(103,232,249,.18);
+      color:#e6fbff;
       font-weight:900;
-      font-size:.88rem;
+      font-size:.84rem;
       white-space:nowrap;
     }
 
-    .msg{
-      margin-top:10px;
-      background:rgba(255,255,255,.12);
-      border-radius:16px;
-      padding:10px 12px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      color:#fff;
-      font-weight:900;
-      line-height:1.35;
-    }
-
-    .msg-icon{
-      width:42px;
-      height:42px;
-      border-radius:14px;
-      background:#e9fbff;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:1.55rem;
-      flex:0 0 auto;
+    .chip.version{
+      background:linear-gradient(180deg,#fff8cc,#ffe66d);
+      color:#713f12;
+      border-color:rgba(255,255,255,.85);
     }
 
     .progress-wrap{
       margin-top:10px;
-      display:grid;
-      gap:4px;
     }
 
     .progress-meta{
       display:flex;
       justify-content:space-between;
+      font-size:.84rem;
       color:#dff8ff;
       font-weight:900;
-      font-size:.86rem;
+      margin-bottom:5px;
     }
 
     .progress{
-      width:100%;
       height:14px;
       background:#08131f;
       border-radius:999px;
-      border:2px solid var(--cyan);
+      border:2px solid #63e6ff;
       overflow:hidden;
     }
 
-    #fill{
+    .fill{
       width:0%;
       height:100%;
-      background:linear-gradient(90deg,#60ff9d,#00e5ff);
+      background:linear-gradient(90deg,#60ff9d 0%,#00e5ff 100%);
       transition:width .18s ease;
     }
 
-    #reticle{
+    .main{
+      min-height:0;
+      display:grid;
+      grid-template-columns:1fr 290px;
+      gap:10px;
+    }
+
+    .scene-card,
+    .side-card{
+      min-height:0;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--r-xl);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .scene-card{
+      position:relative;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .instruction{
+      padding:14px 16px 10px;
+      border-bottom:1px solid #d9ecf8;
+      background:linear-gradient(180deg,#ffffffee,#f8fcffdd);
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 11px;
+      border-radius:999px;
+      background:#dcfff2;
+      color:#047857;
+      font-weight:1000;
+      margin-bottom:8px;
+      font-size:.9rem;
+    }
+
+    .instruction h1{
+      margin:0;
+      font-size:1.42rem;
+      line-height:1.15;
+      color:#0f172a;
+      font-weight:1000;
+    }
+
+    .instruction p{
+      margin:8px 0 0;
+      color:#475569;
+      font-weight:850;
+      line-height:1.45;
+      font-size:.94rem;
+    }
+
+    .sim-stage{
+      position:relative;
+      flex:1;
+      min-height:0;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(255,255,255,.92), rgba(255,255,255,.25) 36%, transparent 58%),
+        linear-gradient(180deg,#e8fbff,#d7f4ff);
+      overflow:hidden;
+      user-select:none;
+      touch-action:none;
+    }
+
+    .sink-back{
       position:absolute;
-      top:50%;
       left:50%;
-      width:48px;
-      height:48px;
-      transform:translate(-50%,-50%);
-      z-index:20;
-      border-radius:50%;
-      border:3px solid rgba(255,255,255,.94);
-      box-shadow:0 0 16px rgba(100,243,255,.8);
+      top:8%;
+      transform:translateX(-50%);
+      width:min(86%,680px);
+      height:84%;
+      border-radius:34px 34px 44px 44px;
+      background:linear-gradient(180deg,#ffffffcc,#e7f6fbdd);
+      border:2px solid rgba(157,212,230,.55);
+      box-shadow:inset 0 0 0 8px rgba(255,255,255,.45), 0 22px 46px rgba(74,130,150,.13);
+    }
+
+    .basin{
+      position:absolute;
+      left:50%;
+      top:38%;
+      transform:translateX(-50%);
+      width:min(72%,560px);
+      height:44%;
+      border-radius:36px 36px 70px 70px;
+      background:linear-gradient(180deg,#ffffff,#e4f5fa);
+      border:4px solid rgba(139,205,225,.68);
+      box-shadow:inset 0 18px 34px rgba(86,159,190,.13);
+    }
+
+    .drain{
+      position:absolute;
+      left:50%;
+      bottom:13%;
+      transform:translateX(-50%);
+      width:58px;
+      height:18px;
+      border-radius:999px;
+      background:#9fc6d4;
+      box-shadow:inset 0 2px 4px rgba(0,0,0,.16);
+      opacity:.72;
+    }
+
+    .object-btn{
+      appearance:none;
+      border:none;
+      position:absolute;
+      z-index:6;
+      min-width:120px;
+      min-height:112px;
+      border-radius:26px;
+      padding:10px;
+      background:rgba(255,255,255,.86);
+      border:3px solid rgba(103,232,249,.35);
+      box-shadow:0 12px 28px rgba(61,130,160,.14);
+      color:#0f172a;
+      cursor:pointer;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:5px;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      transition:transform .15s ease, filter .15s ease, opacity .15s ease, border-color .15s ease;
+    }
+
+    .object-btn:active{
+      transform:scale(.98);
+    }
+
+    .object-btn.active{
+      border-color:#facc15;
+      box-shadow:0 0 0 10px rgba(250,204,21,.22), 0 18px 32px rgba(61,130,160,.20);
+      animation:pulseObject .9s infinite;
+    }
+
+    .object-btn.done{
+      opacity:.58;
+      filter:saturate(.75);
+    }
+
+    .object-emoji{
+      width:58px;
+      height:58px;
+      border-radius:19px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2.2rem;
+      background:#e9fbff;
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.55);
+    }
+
+    .object-label{
+      display:block;
+      font-weight:1000;
+      font-size:.93rem;
+      line-height:1.2;
+    }
+
+    #faucetBtn{
+      left:50%;
+      top:8%;
+      transform:translateX(-50%);
+    }
+
+    #soapBtn{
+      left:8%;
+      top:38%;
+    }
+
+    #towelBtn{
+      right:8%;
+      top:38%;
+    }
+
+    .water-stream{
+      position:absolute;
+      left:50%;
+      top:23%;
+      transform:translateX(-50%);
+      width:82px;
+      height:0;
+      z-index:5;
+      border-radius:999px;
+      background:linear-gradient(180deg,rgba(67,220,255,.86),rgba(67,220,255,.12));
+      filter:drop-shadow(0 0 14px rgba(34,211,238,.8));
+      opacity:0;
+      transition:height .22s ease, opacity .18s ease;
       pointer-events:none;
     }
 
-    #reticle::after{
+    .water-stream.on{
+      height:230px;
+      opacity:1;
+      animation:waterFlow .38s linear infinite;
+    }
+
+    .hands-zone{
+      position:absolute;
+      left:50%;
+      top:51%;
+      transform:translate(-50%,-50%);
+      width:min(58%,420px);
+      height:240px;
+      z-index:7;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      border-radius:38px;
+      border:3px solid rgba(103,232,249,.15);
+      background:rgba(255,255,255,.24);
+      cursor:pointer;
+      touch-action:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .hands-zone.active{
+      border-color:#facc15;
+      box-shadow:0 0 0 10px rgba(250,204,21,.18);
+      animation:pulseObject .9s infinite;
+    }
+
+    .hand{
+      position:relative;
+      width:120px;
+      height:150px;
+      border-radius:42px 42px 36px 36px;
+      background:linear-gradient(180deg,#ffe5bd,#f7c99b);
+      border:3px solid rgba(164,104,56,.12);
+      box-shadow:inset 0 -10px 18px rgba(153,84,38,.10), 0 12px 22px rgba(64,100,120,.12);
+    }
+
+    .hand::before{
       content:"";
       position:absolute;
       left:50%;
-      top:50%;
-      width:7px;
-      height:7px;
-      transform:translate(-50%,-50%);
-      border-radius:50%;
-      background:#00f2ff;
-      box-shadow:0 0 12px #00f2ff;
+      top:-36px;
+      transform:translateX(-50%);
+      width:100px;
+      height:48px;
+      border-radius:36px 36px 16px 16px;
+      background:linear-gradient(180deg,#ffeac9,#f8d0a6);
+      box-shadow:
+        -34px 13px 0 -10px #f8d0a6,
+        -13px 5px 0 -10px #f8d0a6,
+        13px 5px 0 -10px #f8d0a6,
+        34px 13px 0 -10px #f8d0a6;
     }
 
-    #progress-ring{
-      position:absolute;
-      inset:-7px;
-      border-radius:50%;
-      background:conic-gradient(#22c55e 0deg, transparent 0deg);
-      mask:radial-gradient(circle, transparent 55%, #000 57%);
-      -webkit-mask:radial-gradient(circle, transparent 55%, #000 57%);
-      display:none;
+    .hand.left{
+      transform:rotate(7deg);
     }
 
-    #nav-arrow{
+    .hand.right{
+      transform:rotate(-7deg) scaleX(-1);
+    }
+
+    .hands-zone.wet .hand{
+      filter:saturate(1.06);
+      box-shadow:inset 0 -10px 18px rgba(153,84,38,.10), 0 0 22px rgba(34,211,238,.32);
+    }
+
+    .germ,
+    .bubble,
+    .rub-dot{
       position:absolute;
-      top:64%;
-      left:50%;
-      width:0;
-      height:0;
-      z-index:30;
       pointer-events:none;
-      border-left:18px solid transparent;
-      border-right:18px solid transparent;
-      border-bottom:36px solid #ffe66d;
-      transform:translate(-50%,-50%);
-      filter:drop-shadow(0 0 10px #ffe66d);
-      display:none;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.1rem;
+      line-height:1;
     }
 
-    .bottom-hud{
+    .germ{
+      width:28px;
+      height:28px;
+      border-radius:10px;
+      background:#e8fff0;
+      box-shadow:0 4px 10px rgba(0,0,0,.10);
+      animation:germWiggle 1.2s infinite;
+      transition:opacity .2s ease, transform .2s ease;
+    }
+
+    .bubble{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      background:rgba(255,255,255,.68);
+      border:2px solid rgba(103,232,249,.4);
+      opacity:0;
+      transform:scale(.7);
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    .hands-zone.foamy .bubble{
+      opacity:1;
+      transform:scale(1);
+      animation:bubbleFloat 1.6s infinite alternate;
+    }
+
+    .rub-dot{
+      width:34px;
+      height:34px;
+      border-radius:50%;
+      background:#fff8d7;
+      border:3px solid #facc15;
+      color:#713f12;
+      font-weight:1000;
+      opacity:0;
+      transform:scale(.8);
+      transition:opacity .12s ease, transform .12s ease;
+      z-index:12;
+    }
+
+    .hands-zone.active .rub-dot{
+      opacity:1;
+      transform:scale(1);
+    }
+
+    .rub-label{
+      position:absolute;
+      left:50%;
+      bottom:10px;
+      transform:translateX(-50%);
+      z-index:10;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff8d7;
+      color:#713f12;
+      font-weight:1000;
+      border:2px solid rgba(255,255,255,.92);
+      box-shadow:0 8px 18px rgba(0,0,0,.12);
+      pointer-events:none;
+    }
+
+    .step-progress-card{
+      position:absolute;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%);
+      z-index:20;
+      width:min(88%,560px);
+      background:rgba(255,255,255,.94);
+      border:1px solid #d9ecf8;
+      border-radius:20px;
+      padding:10px;
+      box-shadow:0 12px 26px rgba(15,50,70,.12);
+    }
+
+    .step-progress-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      color:#334155;
+      font-weight:1000;
+      font-size:.88rem;
+      margin-bottom:7px;
+    }
+
+    .step-progress{
+      height:16px;
+      border-radius:999px;
+      background:#e0f2fe;
+      border:2px solid #67e8f9;
+      overflow:hidden;
+    }
+
+    #stepFill{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#60ff9d,#00e5ff);
+      transition:width .08s linear;
+    }
+
+    .coach{
+      display:grid;
+      grid-template-columns:48px 1fr;
+      gap:8px;
+      align-items:center;
+      padding:10px;
+      border-top:1px solid #d9ecf8;
+      background:#f8fcff;
+    }
+
+    .coach-face{
+      width:48px;
+      height:48px;
+      border-radius:16px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.35rem;
+      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
+      box-shadow:0 8px 18px rgba(0,0,0,.10), inset 0 0 0 4px rgba(255,255,255,.30);
+    }
+
+    .coach-text{
+      background:#fff;
+      border:1px solid #d9ecf8;
+      border-radius:16px;
+      padding:9px 11px;
+      color:#0f172a;
+      font-weight:900;
+      line-height:1.35;
+      box-shadow:0 8px 18px rgba(0,0,0,.06);
+      font-size:.9rem;
+    }
+
+    .side-card{
+      padding:12px;
+      overflow:auto;
+    }
+
+    .side-title{
+      margin:0 0 8px;
+      color:#0f172a;
+      font-size:1rem;
+      font-weight:1000;
+    }
+
+    .who-list{
+      display:grid;
+      gap:7px;
+    }
+
+    .who-item{
+      display:grid;
+      grid-template-columns:30px 1fr;
+      gap:8px;
+      align-items:center;
+      padding:8px;
+      border-radius:16px;
+      background:#f7fcff;
+      border:1px solid #d9ecf8;
+      color:#475569;
+      font-weight:850;
+      font-size:.82rem;
+      line-height:1.25;
+    }
+
+    .who-item.done{
+      background:#dcfff2;
+      border-color:#86efac;
+      color:#047857;
+    }
+
+    .who-item.active{
+      background:#ecfeff;
+      border-color:#22d3ee;
+      color:#0f4c5c;
+      box-shadow:0 8px 18px rgba(34,211,238,.14);
+    }
+
+    .who-num{
+      width:30px;
+      height:30px;
+      border-radius:10px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#e9fbff;
+      font-weight:1000;
+    }
+
+    .footer{
       display:flex;
       justify-content:center;
       gap:10px;
       flex-wrap:wrap;
-      pointer-events:auto;
       padding-bottom:2px;
     }
 
@@ -219,79 +625,233 @@
       appearance:none;
       border:none;
       border-radius:999px;
-      padding:11px 14px;
+      padding:11px 16px;
       min-width:130px;
       font-weight:1000;
-      font-size:.92rem;
-      color:#0f172a;
+      font-size:.94rem;
       cursor:pointer;
+      color:#0f172a;
       border:2px solid rgba(255,255,255,.95);
-      box-shadow:0 10px 24px rgba(0,0,0,.20);
+      box-shadow:0 10px 24px rgba(0,0,0,.12);
       touch-action:manipulation;
       -webkit-tap-highlight-color:transparent;
     }
 
-    .btn.primary{
-      background:linear-gradient(180deg,#fff2a8,#ffd84d);
+    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
+    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%); }
+    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%); }
+    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
+
+    .btn:active{
+      transform:translateY(1px);
     }
 
-    .btn.blue{
-      background:linear-gradient(180deg,#dcf8ff,#b7efff);
+    .hidden{
+      display:none !important;
     }
 
-    .btn.green{
-      background:linear-gradient(180deg,#dcfff2,#86efac);
+    .summary-overlay{
+      position:fixed;
+      inset:0;
+      z-index:90;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      background:rgba(10,25,42,.42);
+      backdrop-filter:blur(8px);
     }
 
-    .toast{
-      position:absolute;
-      left:50%;
-      bottom:92px;
-      z-index:40;
-      transform:translateX(-50%) translateY(12px);
-      max-width:90vw;
-      background:#fff8d7;
-      color:#713f12;
-      border-radius:18px;
-      padding:10px 14px;
+    .summary-card{
+      width:min(760px,100%);
+      background:#fffffffa;
+      border-radius:28px;
+      padding:20px;
+      color:#0f172a;
+      box-shadow:0 24px 70px rgba(0,0,0,.22);
+      border:2px solid rgba(255,255,255,.96);
+    }
+
+    .summary-card h2{
+      margin:0 0 8px;
+      font-size:1.6rem;
       font-weight:1000;
-      box-shadow:0 12px 28px rgba(0,0,0,.22);
-      opacity:0;
-      transition:opacity .2s ease, transform .2s ease;
-      text-align:center;
-      pointer-events:none;
     }
 
-    .toast.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
+    .summary-card p{
+      margin:0;
+      color:#475569;
+      font-weight:850;
+      line-height:1.45;
     }
 
-    @media (max-width:680px){
-      #ui-overlay{ padding:10px; }
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+      gap:10px;
+      margin:14px 0;
+    }
 
-      .top-hud{
-        width:100%;
-        border-radius:20px;
-        padding:10px;
+    .summary-box{
+      border-radius:18px;
+      background:#f8fcff;
+      border:1px solid #d9ecf8;
+      padding:12px;
+      font-weight:1000;
+    }
+
+    .summary-box small{
+      display:block;
+      color:#64748b;
+      font-weight:900;
+      margin-bottom:4px;
+    }
+
+    .summary-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      margin-top:10px;
+    }
+
+    @keyframes pulseObject{
+      0%{ transform:scale(1); }
+      50%{ transform:scale(1.035); }
+      100%{ transform:scale(1); }
+    }
+
+    @keyframes waterFlow{
+      0%{ background-position-y:0; }
+      100%{ background-position-y:36px; }
+    }
+
+    @keyframes germWiggle{
+      0%,100%{ transform:rotate(-5deg) scale(1); }
+      50%{ transform:rotate(7deg) scale(1.06); }
+    }
+
+    @keyframes bubbleFloat{
+      from{ transform:translateY(0) scale(1); }
+      to{ transform:translateY(-6px) scale(1.08); }
+    }
+
+    @media (max-width:820px){
+      body{
+        align-items:stretch;
+        padding:8px;
       }
 
-      .mission{ font-size:1.02rem; }
+      .app{
+        height:calc(100dvh - 16px);
+      }
+
+      .main{
+        grid-template-columns:1fr;
+      }
+
+      .side-card{
+        display:none;
+      }
+
+      .top{
+        border-radius:20px;
+        padding:10px 12px;
+      }
+
+      .title{
+        font-size:1.02rem;
+      }
 
       .chip{
-        font-size:.8rem;
+        font-size:.78rem;
         padding:7px 9px;
       }
 
-      .msg{
-        font-size:.88rem;
-        padding:8px 10px;
+      .instruction{
+        padding:12px 13px 8px;
       }
 
-      .msg-icon{
-        width:38px;
-        height:38px;
-        font-size:1.35rem;
+      .instruction h1{
+        font-size:1.2rem;
+      }
+
+      .instruction p{
+        font-size:.86rem;
+      }
+
+      .object-btn{
+        min-width:96px;
+        min-height:90px;
+        border-radius:22px;
+      }
+
+      .object-emoji{
+        width:48px;
+        height:48px;
+        font-size:1.8rem;
+        border-radius:16px;
+      }
+
+      .object-label{
+        font-size:.82rem;
+      }
+
+      #soapBtn{
+        left:4%;
+        top:40%;
+      }
+
+      #towelBtn{
+        right:4%;
+        top:40%;
+      }
+
+      .hands-zone{
+        top:54%;
+        width:min(72%,390px);
+        height:210px;
+        gap:8px;
+      }
+
+      .hand{
+        width:98px;
+        height:128px;
+      }
+
+      .hand::before{
+        width:82px;
+        height:40px;
+        top:-30px;
+      }
+
+      .water-stream.on{
+        height:205px;
+      }
+
+      .rub-label{
+        font-size:.82rem;
+      }
+
+      .step-progress-card{
+        bottom:10px;
+        width:calc(100% - 24px);
+      }
+
+      .coach{
+        grid-template-columns:44px 1fr;
+        padding:8px;
+      }
+
+      .coach-face{
+        width:44px;
+        height:44px;
+        border-radius:14px;
+      }
+
+      .coach-text{
+        font-size:.82rem;
+        padding:8px 10px;
       }
 
       .btn{
@@ -304,746 +864,140 @@
 </head>
 
 <body>
-  <div id="ui-overlay">
-    <div class="top-hud">
-      <div class="hud-row">
+  <main class="app">
+    <header class="top">
+      <div class="top-row">
         <div>
-          <div class="title" id="titleText">Simulate Learning • 1/6</div>
-          <div class="mission" id="missionText">มองหา “ก๊อกน้ำ”</div>
+          <div class="kicker" id="stepLabel">WHO Simulation • 1/12</div>
+          <div class="title" id="stepTitle">ทำมือให้เปียก</div>
         </div>
 
         <div class="chips">
-          <div class="chip" id="scoreText">Score 0</div>
-          <div class="chip" id="timeText">เวลา 45 วิ</div>
+          <div class="chip version">WHO SIM</div>
+          <div class="chip" id="rubChip">Rub 0/6</div>
+          <div class="chip" id="comboChip">Combo 0</div>
+          <div class="chip" id="scoreChip">Score 0</div>
         </div>
-      </div>
-
-      <div class="msg">
-        <div class="msg-icon" id="msgIcon">🚰</div>
-        <div id="msgText">มองเป้ากลางจอไปที่ ก๊อกน้ำ หรือแตะก๊อกน้ำได้เลย</div>
       </div>
 
       <div class="progress-wrap">
         <div class="progress-meta">
-          <span>ความคืบหน้า</span>
+          <span>ความคืบหน้า WHO</span>
           <span id="pctText">0%</span>
         </div>
         <div class="progress">
-          <div id="fill"></div>
+          <div class="fill" id="fill"></div>
         </div>
       </div>
-    </div>
+    </header>
 
-    <div></div>
+    <section class="main">
+      <section class="scene-card">
+        <div class="instruction">
+          <div class="badge" id="stepBadge">💧 WHO 1/12</div>
+          <h1 id="actionTitle">ค้างมือใต้สายน้ำ</h1>
+          <p id="actionDesc">กดค้างที่มือกลางอ่างจนแถบเต็ม เพื่อจำลองการทำมือให้เปียก</p>
+        </div>
 
-    <div class="bottom-hud">
-      <button class="btn blue" id="recenterBtn" type="button">RECENTER</button>
-      <button class="btn primary" id="vrBtn" type="button">โหมด VR</button>
-      <button class="btn green" id="nextBtn" type="button">ไป Main Game</button>
+        <div class="sim-stage" id="simStage">
+          <div class="sink-back"></div>
+          <div class="basin"></div>
+          <div class="drain"></div>
+
+          <button class="object-btn" id="faucetBtn" type="button" aria-label="ก๊อกน้ำ">
+            <span class="object-emoji">🚰</span>
+            <span class="object-label">ก๊อกน้ำ</span>
+          </button>
+
+          <button class="object-btn" id="soapBtn" type="button" aria-label="สบู่">
+            <span class="object-emoji">🧼</span>
+            <span class="object-label">สบู่</span>
+          </button>
+
+          <button class="object-btn" id="towelBtn" type="button" aria-label="ผ้าเช็ดมือ">
+            <span class="object-emoji">🧻</span>
+            <span class="object-label">ผ้าเช็ดมือ</span>
+          </button>
+
+          <div class="water-stream" id="waterStream"></div>
+
+          <div class="hands-zone" id="handsZone" aria-label="มือ">
+            <div class="hand left" id="leftHand"></div>
+            <div class="hand right" id="rightHand"></div>
+
+            <div class="rub-dot" id="rubDot">✓</div>
+            <div class="rub-label" id="rubLabel">ค้าง/ถูตรงนี้</div>
+          </div>
+
+          <div class="step-progress-card">
+            <div class="step-progress-head">
+              <span id="stepProgressText">กดค้าง/ถูให้ครบ</span>
+              <span id="stepProgressPct">0%</span>
+            </div>
+            <div class="step-progress">
+              <div id="stepFill"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="coach">
+          <div class="coach-face" id="coachFace">🙂</div>
+          <div class="coach-text" id="coachText">เริ่มจากค้างมือใต้สายน้ำให้เปียกก่อน</div>
+        </div>
+      </section>
+
+      <aside class="side-card">
+        <h3 class="side-title">WHO 12 ขั้น</h3>
+        <div class="who-list" id="whoList"></div>
+      </aside>
+    </section>
+
+    <footer class="footer">
+      <button class="btn blue" id="restartBtn" type="button">เริ่มใหม่</button>
+      <button class="btn pink" id="launcherBtn" type="button">กลับ Launcher</button>
+      <button class="btn green" id="zoneBtn" type="button">กลับ Zone</button>
+    </footer>
+  </main>
+
+  <div class="summary-overlay hidden" id="summaryOverlay">
+    <div class="summary-card">
+      <div class="badge">✨ สำเร็จ</div>
+      <h2>ล้างมือครบตาม WHO แล้ว</h2>
+      <p>ทำครบทุกขั้น ตั้งแต่ทำมือเปียก ใส่สบู่ ถูมือ ล้างน้ำ เช็ดมือ และใช้ผ้าปิดก๊อกน้ำ</p>
+
+      <div class="summary-grid">
+        <div class="summary-box">
+          <small>คะแนน</small>
+          <span id="sumScore">0</span>
+        </div>
+        <div class="summary-box">
+          <small>Rub Steps</small>
+          <span id="sumRub">0/6</span>
+        </div>
+        <div class="summary-box">
+          <small>Best Combo</small>
+          <span id="sumCombo">0</span>
+        </div>
+        <div class="summary-box">
+          <small>ดาว</small>
+          <span id="sumStars">⭐</span>
+        </div>
+      </div>
+
+      <div class="summary-actions">
+        <button class="btn blue" id="playAgainBtn" type="button">เล่นอีกครั้ง</button>
+        <button class="btn primary" id="nextBtn" type="button">ไป Mini Game</button>
+      </div>
     </div>
   </div>
 
-  <div id="nav-arrow"></div>
-  <div id="reticle"><div id="progress-ring"></div></div>
-  <div class="toast" id="toast">ดีมาก!</div>
-
+  <script src="./handwash-shared.js"></script>
   <script>
-    let scene, camera, renderer, raycaster;
+    const HHA_HANDWASH_MAIN_VERSION = 'who-sim-main-20260424-fullpatch';
 
-    let score = 0;
-    let timeLeft = 45;
-    let currentStep = 0;
-    let isVR = false;
+    const $ = (id) => document.getElementById(id);
 
-    let lon = 180;
-    let lat = 0;
-    let isTouching = false;
-    let movedTouch = false;
-    let px = 0;
-    let py = 0;
-
-    let gazeTime = 0;
-    let completed = false;
-    let lastDirectHitAt = 0;
-
-    const targets = [];
-    const germs = [];
-    const germByHand = {
-      "มือซ้าย": [],
-      "มือขวา": []
-    };
-
-    const targetRefs = {};
-    const clock = new THREE.Clock();
-    const pointerNDC = new THREE.Vector2();
-
-    const quest = [
-      {
-        id:"ก๊อก",
-        label:"ก๊อกน้ำ",
-        emoji:"🚰",
-        msg:"มอง/แตะ ก๊อกน้ำ",
-        hint:"เปิดน้ำก่อนล้างมือ",
-        pos:[-0.62,1.24,-0.85],
-        bg:"#dff8ff"
-      },
-      {
-        id:"สบู่",
-        label:"สบู่",
-        emoji:"🧼",
-        msg:"มอง/แตะ สบู่",
-        hint:"กดสบู่เพื่อฆ่าเชื้อ",
-        pos:[-0.20,1.10,-0.85],
-        bg:"#ffe3f2"
-      },
-      {
-        id:"น้ำ",
-        label:"โซนน้ำ",
-        emoji:"💧",
-        msg:"มอง/แตะ โซนน้ำ",
-        hint:"ล้างมือด้วยน้ำให้ทั่ว",
-        pos:[-0.62,0.80,-0.85],
-        bg:"#dff7ff"
-      },
-      {
-        id:"มือซ้าย",
-        label:"มือซ้าย",
-        emoji:"🖐️",
-        msg:"มอง/แตะ มือซ้าย",
-        hint:"ถูมือซ้ายให้สะอาด",
-        pos:[0.16,1.02,-0.60],
-        bg:"#fff1cc"
-      },
-      {
-        id:"มือขวา",
-        label:"มือขวา",
-        emoji:"🤚",
-        msg:"มอง/แตะ มือขวา",
-        hint:"ถูมือขวาให้สะอาด",
-        pos:[0.48,1.02,-0.60],
-        bg:"#fff1cc"
-      },
-      {
-        id:"ผ้า",
-        label:"ผ้าเช็ดมือ",
-        emoji:"🧻",
-        msg:"มอง/แตะ ผ้าเช็ดมือ",
-        hint:"เช็ดมือให้แห้ง",
-        pos:[0.82,1.20,-0.85],
-        bg:"#fff7cc"
-      }
-    ];
-
-    const ui = {
-      titleText: document.getElementById('titleText'),
-      missionText: document.getElementById('missionText'),
-      msgText: document.getElementById('msgText'),
-      msgIcon: document.getElementById('msgIcon'),
-      scoreText: document.getElementById('scoreText'),
-      timeText: document.getElementById('timeText'),
-      pctText: document.getElementById('pctText'),
-      fill: document.getElementById('fill'),
-      progressRing: document.getElementById('progress-ring'),
-      navArrow: document.getElementById('nav-arrow'),
-      toast: document.getElementById('toast'),
-      vrBtn: document.getElementById('vrBtn'),
-      recenterBtn: document.getElementById('recenterBtn'),
-      nextBtn: document.getElementById('nextBtn')
-    };
-
-    function showToast(text){
-      ui.toast.textContent = text;
-      ui.toast.classList.add('show');
-
-      clearTimeout(showToast._timer);
-      showToast._timer = setTimeout(() => {
-        ui.toast.classList.remove('show');
-      }, 900);
-    }
-
-    function roundRect(ctx, x, y, w, h, r){
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-    }
-
-    function makeEmojiCardTexture(emoji, label, bg = "#ffffff", size = 512){
-      const c = document.createElement("canvas");
-      c.width = size;
-      c.height = size;
-
-      const ctx = c.getContext("2d");
-      ctx.clearRect(0, 0, size, size);
-
-      ctx.fillStyle = bg;
-      roundRect(ctx, 24, 24, size - 48, size - 48, 56);
-      ctx.fill();
-
-      ctx.lineWidth = 10;
-      ctx.strokeStyle = "#7fe7ff";
-      ctx.stroke();
-
-      ctx.fillStyle = "rgba(255,255,255,.58)";
-      roundRect(ctx, 52, 52, size - 104, size - 160, 44);
-      ctx.fill();
-
-      ctx.font = `190px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(emoji, size / 2, 205);
-
-      ctx.fillStyle = "#14324a";
-      ctx.font = `bold 56px "Segoe UI", sans-serif`;
-      ctx.fillText(label, size / 2, 390);
-
-      const tex = new THREE.CanvasTexture(c);
-      tex.needsUpdate = true;
-      return tex;
-    }
-
-    function makeSmallEmojiTexture(emoji, bg = "#ffffff", size = 256){
-      const c = document.createElement("canvas");
-      c.width = size;
-      c.height = size;
-
-      const ctx = c.getContext("2d");
-      ctx.clearRect(0, 0, size, size);
-
-      ctx.fillStyle = bg;
-      roundRect(ctx, 18, 18, size - 36, size - 36, 42);
-      ctx.fill();
-
-      ctx.font = `150px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(emoji, size / 2, size / 2 + 8);
-
-      const tex = new THREE.CanvasTexture(c);
-      tex.needsUpdate = true;
-      return tex;
-    }
-
-    function makeEmojiTarget(item){
-      const group = new THREE.Group();
-      group.position.set(...item.pos);
-      group.name = item.id;
-
-      const cardMat = new THREE.SpriteMaterial({
-        map: makeEmojiCardTexture(item.emoji, item.label, item.bg),
-        transparent:true
-      });
-
-      const card = new THREE.Sprite(cardMat);
-      card.scale.set(0.55, 0.55, 1);
-      card.userData.kind = "visual";
-      group.add(card);
-
-      const haloGeo = new THREE.RingGeometry(0.34, 0.39, 40);
-      const haloMat = new THREE.MeshBasicMaterial({
-        color:0xffffff,
-        transparent:true,
-        opacity:0.62,
-        side:THREE.DoubleSide
-      });
-
-      const halo = new THREE.Mesh(haloGeo, haloMat);
-      halo.position.set(0, 0, -0.02);
-      halo.userData.kind = "halo";
-      group.add(halo);
-
-      const hit = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.10, 1.10),
-        new THREE.MeshBasicMaterial({
-          transparent:true,
-          opacity:0,
-          depthWrite:false,
-          side:THREE.DoubleSide
-        })
-      );
-
-      hit.userData.targetId = item.id;
-      hit.userData.parentGroup = group;
-      group.add(hit);
-
-      scene.add(group);
-      targets.push(hit);
-
-      targetRefs[item.id] = {
-        group,
-        card,
-        halo,
-        hit,
-        item
-      };
-
-      return group;
-    }
-
-    function createGameWorld(){
-      scene.background = new THREE.Color(0xdff6ff);
-
-      const ambient = new THREE.AmbientLight(0xffffff, 1.8);
-      scene.add(ambient);
-
-      const sun = new THREE.PointLight(0xffffff, 1.25);
-      sun.position.set(0, 3, 1.2);
-      scene.add(sun);
-
-      const floorGeo = new THREE.PlaneGeometry(8, 8);
-      const floorMat = new THREE.MeshBasicMaterial({
-        color:0xbfeeff,
-        transparent:true,
-        opacity:0.82,
-        side:THREE.DoubleSide
-      });
-
-      const floor = new THREE.Mesh(floorGeo, floorMat);
-      floor.rotation.x = -Math.PI / 2;
-      floor.position.y = 0;
-      scene.add(floor);
-
-      const wallGeo = new THREE.PlaneGeometry(6, 3.2);
-      const wallMat = new THREE.MeshBasicMaterial({
-        color:0xffffff,
-        transparent:true,
-        opacity:0.70,
-        side:THREE.DoubleSide
-      });
-
-      const wall = new THREE.Mesh(wallGeo, wallMat);
-      wall.position.set(0, 1.55, -1.22);
-      scene.add(wall);
-
-      quest.forEach(item => makeEmojiTarget(item));
-
-      targetRefs["น้ำ"].group.visible = false;
-
-      createGermsForHand("มือซ้าย");
-      createGermsForHand("มือขวา");
-
-      updateActiveTarget();
-    }
-
-    function createGermsForHand(handId){
-      const ref = targetRefs[handId];
-      if (!ref) return;
-
-      for (let i = 0; i < 6; i++){
-        const germ = new THREE.Sprite(
-          new THREE.SpriteMaterial({
-            map: makeSmallEmojiTexture("🦠", "#e8fff0"),
-            transparent:true
-          })
-        );
-
-        germ.position.set(
-          (Math.random() - 0.5) * 0.34,
-          (Math.random() - 0.5) * 0.34,
-          0.08
-        );
-
-        germ.scale.set(0.105, 0.105, 1);
-
-        ref.group.add(germ);
-        germs.push(germ);
-        germByHand[handId].push(germ);
-      }
-    }
-
-    function clearGerms(handId){
-      const ref = targetRefs[handId];
-      if (!ref) return;
-
-      germByHand[handId].forEach(g => {
-        if (g.parent) g.parent.remove(g);
-      });
-
-      germByHand[handId] = [];
-    }
-
-    function init(){
-      scene = new THREE.Scene();
-
-      camera = new THREE.PerspectiveCamera(
-        72,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        1000
-      );
-
-      camera.position.set(0, 1.25, 1.05);
-
-      renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
-
-      raycaster = new THREE.Raycaster();
-
-      createGameWorld();
-      updateHUD();
-
-      document.addEventListener('touchstart', (e) => {
-        isTouching = true;
-        movedTouch = false;
-        px = e.touches[0].pageX;
-        py = e.touches[0].pageY;
-      }, { passive:true });
-
-      document.addEventListener('touchmove', (e) => {
-        if (!isTouching || isVR) return;
-
-        const dx = e.touches[0].pageX - px;
-        const dy = e.touches[0].pageY - py;
-
-        if (Math.abs(dx) + Math.abs(dy) > 8) movedTouch = true;
-
-        lon -= dx * 0.25;
-        lat += dy * 0.25;
-
-        px = e.touches[0].pageX;
-        py = e.touches[0].pageY;
-      }, { passive:true });
-
-      document.addEventListener('touchend', () => {
-        isTouching = false;
-      }, { passive:true });
-
-      renderer.domElement.addEventListener('pointerup', (e) => {
-        if (movedTouch) return;
-        tryHitNow(e);
-      }, { passive:false });
-
-      renderer.domElement.addEventListener('click', (e) => {
-        if (movedTouch) return;
-        tryHitNow(e);
-      }, { passive:false });
-
-      renderer.domElement.addEventListener('touchend', (e) => {
-        if (movedTouch) return;
-
-        const t = e.changedTouches && e.changedTouches[0];
-        if (!t) return;
-
-        tryHitNow({
-          clientX:t.clientX,
-          clientY:t.clientY,
-          preventDefault:() => {},
-          stopPropagation:() => {}
-        });
-      }, { passive:false });
-
-      ui.vrBtn.addEventListener('click', async () => {
-        isVR = !isVR;
-        ui.vrBtn.textContent = isVR ? "ออก VR" : "โหมด VR";
-
-        try{
-          if (
-            isVR &&
-            typeof DeviceOrientationEvent !== "undefined" &&
-            typeof DeviceOrientationEvent.requestPermission === "function"
-          ){
-            await DeviceOrientationEvent.requestPermission();
-          }
-        }catch(e){}
-      });
-
-      ui.recenterBtn.addEventListener('click', () => {
-        lon = 180;
-        lat = 0;
-        showToast("จัดมุมมองใหม่แล้ว");
-      });
-
-      ui.nextBtn.addEventListener('click', () => {
-        goNext();
-      });
-
-      window.addEventListener('resize', onResize);
-
-      window.addEventListener('deviceorientation', (e) => {
-        if (!isVR) return;
-
-        const alpha = THREE.MathUtils.degToRad(e.alpha || 0);
-        const beta = THREE.MathUtils.degToRad(e.beta || 0);
-        const gamma = THREE.MathUtils.degToRad(e.gamma || 0);
-
-        camera.rotation.set(beta, alpha, -gamma, 'YXZ');
-      });
-
-      setInterval(() => {
-        if (completed) return;
-
-        if (timeLeft > 0){
-          timeLeft -= 1;
-          updateHUD();
-        }
-      }, 1000);
-
-      animate();
-    }
-
-    function onResize(){
-      renderer.setSize(window.innerWidth, window.innerHeight);
-
-      if (!isVR){
-        camera.aspect = window.innerWidth / window.innerHeight;
-      } else {
-        camera.aspect = (window.innerWidth / 2) / window.innerHeight;
-      }
-
-      camera.updateProjectionMatrix();
-    }
-
-    function updateActiveTarget(){
-      quest.forEach((item, i) => {
-        const ref = targetRefs[item.id];
-        if (!ref) return;
-
-        const active = i === currentStep;
-        const done = i < currentStep;
-
-        if (ref.card.material){
-          ref.card.material.opacity = active ? 1 : done ? 0.45 : 0.72;
-        }
-
-        if (ref.halo.material){
-          ref.halo.material.opacity = active ? 0.95 : 0.20;
-          ref.halo.material.color.set(active ? 0xffff66 : 0xffffff);
-        }
-
-        ref.group.scale.setScalar(active ? 1.08 : 0.92);
-      });
-    }
-
-    function updateNavigationArrow(){
-      if (completed || currentStep >= quest.length){
-        ui.navArrow.style.display = 'none';
-        return;
-      }
-
-      const ref = targetRefs[quest[currentStep].id];
-
-      if (!ref || !ref.group.visible){
-        ui.navArrow.style.display = 'none';
-        return;
-      }
-
-      const targetPos = ref.group.position.clone();
-      const projected = targetPos.clone().project(camera);
-
-      const isVisible =
-        projected.z < 1 &&
-        projected.x >= -0.78 &&
-        projected.x <= 0.78 &&
-        projected.y >= -0.78 &&
-        projected.y <= 0.78;
-
-      if (isVisible){
-        ui.navArrow.style.display = 'none';
-      } else {
-        ui.navArrow.style.display = 'block';
-
-        const angle = Math.atan2(projected.y, projected.x);
-        ui.navArrow.style.transform =
-          `translate(-50%,-50%) rotate(${angle + Math.PI / 2}rad)`;
-      }
-    }
-
-    function lookCameraByTouch(){
-      lat = Math.max(-70, Math.min(70, lat));
-
-      const phi = THREE.MathUtils.degToRad(90 - lat);
-      const theta = THREE.MathUtils.degToRad(lon);
-
-      const target = new THREE.Vector3()
-        .setFromSphericalCoords(1, phi, theta)
-        .add(camera.position);
-
-      camera.lookAt(target);
-    }
-
-    function findCurrentHitFromRay(){
-      const hits = raycaster.intersectObjects(targets, true);
-
-      if (!hits.length) return null;
-
-      const expectedId = quest[currentStep]?.id;
-
-      const matched = hits.find(h => {
-        return h.object &&
-          h.object.userData &&
-          h.object.userData.targetId === expectedId;
-      });
-
-      return matched ? matched.object : null;
-    }
-
-    function getCurrentHit(){
-      if (completed || currentStep >= quest.length) return null;
-
-      raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-      return findCurrentHitFromRay();
-    }
-
-    function tryHitNow(e){
-      if (completed || currentStep >= quest.length) return;
-
-      const now = performance.now();
-      if (now - lastDirectHitAt < 220) return;
-      lastDirectHitAt = now;
-
-      let hit = null;
-
-      if (e && typeof e.clientX === 'number' && typeof e.clientY === 'number'){
-        try{
-          e.preventDefault();
-          e.stopPropagation();
-        }catch(err){}
-
-        const rect = renderer.domElement.getBoundingClientRect();
-
-        pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-        raycaster.setFromCamera(pointerNDC, camera);
-        hit = findCurrentHitFromRay();
-      }
-
-      if (!hit){
-        hit = getCurrentHit();
-      }
-
-      if (!hit){
-        const item = quest[currentStep];
-        showToast(`แตะที่ ${item.label}`);
-        return;
-      }
-
-      gazeTime = 0;
-      ui.progressRing.style.display = 'none';
-      stepUp();
-    }
-
-    function animate(){
-      requestAnimationFrame(animate);
-
-      const dt = Math.min(clock.getDelta(), 0.05);
-
-      if (!isVR){
-        lookCameraByTouch();
-      }
-
-      updateNavigationArrow();
-
-      const hit = getCurrentHit();
-
-      if (hit){
-        gazeTime += dt;
-
-        const gp = Math.min(1, gazeTime / 1.0);
-        ui.progressRing.style.display = 'block';
-        ui.progressRing.style.background =
-          `conic-gradient(#22c55e ${gp * 360}deg, transparent 0deg)`;
-
-        if (gazeTime >= 1){
-          gazeTime = 0;
-          stepUp();
-        }
-      } else {
-        gazeTime = 0;
-        ui.progressRing.style.display = 'none';
-      }
-
-      germs.forEach(g => {
-        g.rotation.z += 0.02;
-      });
-
-      quest.forEach((item, i) => {
-        const ref = targetRefs[item.id];
-        if (!ref) return;
-
-        if (i === currentStep && ref.halo){
-          ref.halo.rotation.z += 0.03;
-
-          const s = 1.08 + Math.sin(performance.now() * 0.006) * 0.035;
-          ref.group.scale.setScalar(s);
-        }
-      });
-
-      render();
-    }
-
-    function stepUp(){
-      if (completed || currentStep >= quest.length) return;
-
-      const item = quest[currentStep];
-
-      score += 1000;
-
-      if (item.id === "ก๊อก"){
-        targetRefs["น้ำ"].group.visible = true;
-      }
-
-      if (item.id === "มือซ้าย"){
-        clearGerms("มือซ้าย");
-      }
-
-      if (item.id === "มือขวา"){
-        clearGerms("มือขวา");
-      }
-
-      showToast(`ดีมาก! ผ่าน ${item.label}`);
-
-      try{
-        if (navigator.vibrate) navigator.vibrate(35);
-      }catch(e){}
-
-      currentStep += 1;
-
-      if (currentStep >= quest.length){
-        completed = true;
-        ui.missionText.textContent = "ภารกิจสำเร็จ!";
-        ui.msgIcon.textContent = "✨";
-        ui.msgText.textContent = "มือสะอาดแล้ว เก่งมาก!";
-        ui.progressRing.style.display = 'none';
-      } else {
-        updateActiveTarget();
-      }
-
-      updateHUD();
-    }
-
-    function updateHUD(){
-      const total = quest.length;
-      const shownStep = Math.min(currentStep + 1, total);
-      const pct = completed ? 100 : Math.round((currentStep / total) * 100);
-      const item = completed ? null : quest[currentStep];
-
-      ui.titleText.textContent = completed
-        ? "Simulate Learning • สำเร็จ"
-        : `Simulate Learning • ${shownStep}/${total}`;
-
-      ui.missionText.textContent = completed
-        ? "มือสะอาดแล้ว ✨"
-        : item.msg;
-
-      ui.msgIcon.textContent = completed ? "✨" : item.emoji;
-
-      ui.msgText.textContent = completed
-        ? "กดปุ่มไป Main Game ได้เลย"
-        : `${item.hint} • มองเป้ากลางจอ หรือแตะที่ ${item.label}`;
-
-      ui.scoreText.textContent = `Score ${score}`;
-      ui.timeText.textContent = `เวลา ${timeLeft} วิ`;
-      ui.pctText.textContent = `${pct}%`;
-      ui.fill.style.width = `${pct}%`;
-    }
-
-    function getParam(key, fallback = ''){
+    function getParam(key, fallback=''){
       try{
         return new URL(location.href).searchParams.get(key) || fallback;
       }catch(e){
@@ -1051,68 +1005,848 @@
       }
     }
 
-    function goNext(){
-      const rawNext = getParam('next', '');
+    function sanitizeHandwashUrl(raw){
+      if (!raw) return '';
 
-      if (rawNext){
-        location.href = rawNext;
-        return;
+      try{
+        const url = new URL(raw, location.href);
+
+        if (url.pathname.includes('/handwash-v2.html')){
+          return '';
+        }
+
+        return url.toString();
+      }catch(e){
+        return String(raw).includes('handwash-v2.html') ? '' : raw;
       }
+    }
 
-      const inVrFolder = location.pathname.includes('/vr-handwash/');
-      const fallback = inVrFolder ? '../handwash-v2.html' : './handwash-v2.html';
-
-      const url = new URL(fallback, location.href);
+    function carryUrl(base, overrides = {}){
+      const url = new URL(base, location.href);
       const params = new URLSearchParams(location.search);
 
       [
-        'pid',
-        'name',
-        'diff',
-        'time',
-        'view',
-        'run',
-        'zone',
-        'cat',
-        'game',
-        'gameId',
-        'theme',
-        'hub',
-        'hubRoot',
-        'zoneReturn'
+        'pid','name','diff','time','miniTime','view','run','zone','cat',
+        'game','gameId','theme','hub','hubRoot','zoneReturn','seed'
       ].forEach(k => {
         const v = params.get(k);
-        if (v) url.searchParams.set(k, v);
+        if (v && !url.searchParams.has(k)){
+          url.searchParams.set(k, v);
+        }
       });
 
-      location.href = url.toString();
+      Object.entries(overrides).forEach(([k,v]) => {
+        if (v !== undefined && v !== null && String(v).trim() !== ''){
+          url.searchParams.set(k, String(v));
+        }
+      });
+
+      return url.toString();
     }
 
-    function render(){
-      if (isVR){
-        const w = window.innerWidth / 2;
-        const h = window.innerHeight;
+    function nextMiniUrl(){
+      const raw = sanitizeHandwashUrl(getParam('next', ''));
 
-        renderer.setScissorTest(true);
-
-        renderer.setScissor(0, 0, w, h);
-        renderer.setViewport(0, 0, w, h);
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        renderer.render(scene, camera);
-
-        renderer.setScissor(w, 0, w, h);
-        renderer.setViewport(w, 0, w, h);
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        renderer.render(scene, camera);
-
-        renderer.setScissorTest(false);
-      } else {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.render(scene, camera);
+      if (raw && !String(raw).includes('handwash-v2.html')){
+        return raw;
       }
+
+      const params = new URLSearchParams(location.search);
+      const mini = new URL('./handwash-mini-order.html', location.href);
+
+      [
+        'pid','name','diff','view','run','zone','cat',
+        'game','gameId','theme','hub','hubRoot','zoneReturn','seed'
+      ].forEach(k => {
+        const v = params.get(k);
+        if (v) mini.searchParams.set(k, v);
+      });
+
+      mini.searchParams.set('time', params.get('miniTime') || '60');
+
+      const hub = params.get('hub') || params.get('zoneReturn') || '';
+      if (hub){
+        mini.searchParams.set('next', hub);
+      }
+
+      return mini.toString();
+    }
+
+    function launcherUrl(){
+      const raw = getParam('launcher', '');
+      if (raw) return raw;
+
+      return carryUrl('./handwash-launcher.html', {
+        v:'launcher-from-who-sim'
+      });
+    }
+
+    function zoneUrl(){
+      const raw = getParam('hub', '') || getParam('zoneReturn', '');
+      if (raw) return raw;
+
+      return new URL('../hygiene-zone.html', location.href).toString();
+    }
+
+    const WHO_STEPS = [
+      {
+        id:'wet',
+        icon:'💧',
+        title:'ทำมือให้เปียก',
+        action:'ค้างมือใต้สายน้ำ',
+        desc:'กดค้างที่มือกลางอ่างจนแถบเต็ม เพื่อจำลองการทำมือให้เปียก',
+        type:'hold',
+        target:'hands',
+        need:1050,
+        points:20,
+        coach:'ค้างมือใต้สายน้ำให้เปียกก่อน'
+      },
+      {
+        id:'soap',
+        icon:'🧼',
+        title:'ใส่สบู่',
+        action:'แตะสบู่',
+        desc:'แตะสบู่ด้านซ้าย เพื่อให้เกิดฟองบนมือ',
+        type:'tap',
+        target:'soap',
+        points:20,
+        coach:'แตะสบู่ เพื่อเริ่มสร้างฟอง'
+      },
+      {
+        id:'palm',
+        icon:'👐',
+        title:'ถูฝ่ามือ',
+        action:'ถูฝ่ามือเข้าหากัน',
+        desc:'ลาก/ถูบนมือกลางอ่างจนแถบเต็ม',
+        type:'rub',
+        rubKey:'palm',
+        need:1100,
+        points:28,
+        coach:'ถูฝ่ามือเข้าหากันให้ทั่ว'
+      },
+      {
+        id:'back',
+        icon:'✋',
+        title:'ถูหลังมือ',
+        action:'ถูหลังมือทั้งสองข้าง',
+        desc:'ลาก/ถูบนมือกลางอ่างจนแถบเต็ม',
+        type:'rub',
+        rubKey:'back',
+        need:1100,
+        points:28,
+        coach:'ถูหลังมือทั้งสองข้าง'
+      },
+      {
+        id:'between',
+        icon:'🤝',
+        title:'ถูซอกนิ้ว',
+        action:'ประสานนิ้วแล้วถูซอกนิ้ว',
+        desc:'ลาก/ถูบนมือกลางอ่างจนแถบเต็ม',
+        type:'rub',
+        rubKey:'between',
+        need:1150,
+        points:30,
+        coach:'ซอกนิ้วต้องถูให้ทั่ว เพราะเชื้อโรคซ่อนอยู่ได้'
+      },
+      {
+        id:'backFinger',
+        icon:'🙌',
+        title:'ถูหลังนิ้ว',
+        action:'งอนิ้วแล้วถูหลังนิ้ว',
+        desc:'ลาก/ถูบนมือกลางอ่างจนแถบเต็ม',
+        type:'rub',
+        rubKey:'backFinger',
+        need:1050,
+        points:28,
+        coach:'ถูหลังนิ้วให้ครบ'
+      },
+      {
+        id:'thumb',
+        icon:'👍',
+        title:'ถูหัวแม่มือ',
+        action:'หมุนถูหัวแม่มือทั้งสองข้าง',
+        desc:'ลาก/ถูบนมือกลางอ่างจนแถบเต็ม',
+        type:'rub',
+        rubKey:'thumb',
+        need:1150,
+        points:30,
+        coach:'หัวแม่มือมักถูกลืม ต้องถูให้ครบ'
+      },
+      {
+        id:'fingertip',
+        icon:'🖐️',
+        title:'ถูปลายนิ้ว',
+        action:'ถูปลายนิ้วกับฝ่ามือ',
+        desc:'ลาก/ถูบนมือกลางอ่างจนแถบเต็ม',
+        type:'rub',
+        rubKey:'fingertip',
+        need:1150,
+        points:30,
+        coach:'ปลายนิ้วสัมผัสสิ่งของบ่อย ต้องถูให้สะอาด'
+      },
+      {
+        id:'rinse',
+        icon:'💧',
+        title:'ล้างน้ำ',
+        action:'ล้างฟองออกด้วยน้ำ',
+        desc:'กดค้างที่มือใต้สายน้ำจนฟองหาย',
+        type:'hold',
+        target:'hands',
+        need:1300,
+        points:32,
+        coach:'ล้างฟองออกให้หมด'
+      },
+      {
+        id:'dry',
+        icon:'🧻',
+        title:'เช็ดมือให้แห้ง',
+        action:'แตะผ้าเช็ดมือ',
+        desc:'แตะผ้าด้านขวาเพื่อเช็ดมือให้แห้ง',
+        type:'tap',
+        target:'towel',
+        points:24,
+        coach:'เช็ดมือให้แห้งด้วยผ้าสะอาด'
+      },
+      {
+        id:'turnoff',
+        icon:'🚰',
+        title:'ปิดก๊อกน้ำด้วยผ้า',
+        action:'ใช้ผ้าแตะปิดก๊อกน้ำ',
+        desc:'แตะก๊อกน้ำเพื่อปิด โดยจำไว้ว่าใช้ผ้าช่วยปิดก๊อก',
+        type:'tap',
+        target:'faucet',
+        points:26,
+        coach:'ใช้ผ้าช่วยปิดก๊อกน้ำ เพื่อลดการสัมผัสเชื้อโรคซ้ำ'
+      },
+      {
+        id:'safe',
+        icon:'✨',
+        title:'มือสะอาดแล้ว',
+        action:'สำเร็จ',
+        desc:'ทำครบตามลำดับ WHO แล้ว',
+        type:'finish',
+        points:0,
+        coach:'เก่งมาก มือสะอาดแล้ว'
+      }
+    ];
+
+    const ui = {
+      stepLabel:$('stepLabel'),
+      stepTitle:$('stepTitle'),
+      rubChip:$('rubChip'),
+      comboChip:$('comboChip'),
+      scoreChip:$('scoreChip'),
+      pctText:$('pctText'),
+      fill:$('fill'),
+      stepBadge:$('stepBadge'),
+      actionTitle:$('actionTitle'),
+      actionDesc:$('actionDesc'),
+      faucetBtn:$('faucetBtn'),
+      soapBtn:$('soapBtn'),
+      towelBtn:$('towelBtn'),
+      waterStream:$('waterStream'),
+      handsZone:$('handsZone'),
+      leftHand:$('leftHand'),
+      rightHand:$('rightHand'),
+      rubDot:$('rubDot'),
+      rubLabel:$('rubLabel'),
+      stepFill:$('stepFill'),
+      stepProgressText:$('stepProgressText'),
+      stepProgressPct:$('stepProgressPct'),
+      coachFace:$('coachFace'),
+      coachText:$('coachText'),
+      whoList:$('whoList'),
+      summaryOverlay:$('summaryOverlay'),
+      sumScore:$('sumScore'),
+      sumRub:$('sumRub'),
+      sumCombo:$('sumCombo'),
+      sumStars:$('sumStars'),
+      restartBtn:$('restartBtn'),
+      launcherBtn:$('launcherBtn'),
+      zoneBtn:$('zoneBtn'),
+      playAgainBtn:$('playAgainBtn'),
+      nextBtn:$('nextBtn')
+    };
+
+    const state = {
+      index:0,
+      score:0,
+      combo:0,
+      bestCombo:0,
+      rubDone:0,
+      miss:0,
+      stepValue:0,
+      interacting:false,
+      lastTs:0,
+      lastX:0,
+      lastY:0,
+      waterOn:true,
+      wet:false,
+      foamy:false,
+      dry:false,
+      ended:false,
+      completing:false,
+      completedIds:new Set()
+    };
+
+    let raf = 0;
+    let autoTimer = null;
+
+    function bindPress(el, fn){
+      if (!el) return;
+
+      let locked = false;
+
+      function run(e){
+        if (locked) return;
+        locked = true;
+
+        try{
+          e.preventDefault();
+          e.stopPropagation();
+        }catch(err){}
+
+        fn(e);
+
+        setTimeout(() => {
+          locked = false;
+        }, 180);
+      }
+
+      el.addEventListener('pointerup', run, { passive:false });
+      el.addEventListener('touchend', run, { passive:false });
+      el.addEventListener('click', run, { passive:false });
+    }
+
+    function clearAuto(){
+      if (autoTimer){
+        clearTimeout(autoTimer);
+        autoTimer = null;
+      }
+    }
+
+    function currentStep(){
+      return WHO_STEPS[state.index] || WHO_STEPS[WHO_STEPS.length - 1];
+    }
+
+    function isRubStep(step){
+      return step && step.type === 'rub';
+    }
+
+    function mainPct(){
+      if (state.ended) return 100;
+      return Math.round((state.index / (WHO_STEPS.length - 1)) * 100);
+    }
+
+    function setCoach(text, mood='normal'){
+      ui.coachText.textContent = text;
+      ui.coachFace.textContent =
+        mood === 'good' ? '😄' :
+        mood === 'warn' ? '😮' :
+        mood === 'hot' ? '🤩' : '🙂';
+    }
+
+    function reward(points){
+      state.score += points || 0;
+      state.combo += 1;
+      state.bestCombo = Math.max(state.bestCombo, state.combo);
+    }
+
+    function showStepProgress(pct){
+      const safe = Math.max(0, Math.min(100, Math.round(pct)));
+      ui.stepFill.style.width = safe + '%';
+      ui.stepProgressPct.textContent = safe + '%';
+    }
+
+    function makeGerms(){
+      ui.leftHand.querySelectorAll('.germ,.bubble').forEach(el => el.remove());
+      ui.rightHand.querySelectorAll('.germ,.bubble').forEach(el => el.remove());
+
+      const positions = [
+        [18,28],[55,42],[35,70],[70,90],[28,108],[58,120]
+      ];
+
+      positions.forEach((p,i) => {
+        const g = document.createElement('div');
+        g.className = 'germ';
+        g.textContent = '🦠';
+        g.style.left = p[0] + 'px';
+        g.style.top = p[1] + 'px';
+        ui.leftHand.appendChild(g);
+
+        const g2 = document.createElement('div');
+        g2.className = 'germ';
+        g2.textContent = '🦠';
+        g2.style.left = (p[0] + (i % 2 ? -5 : 5)) + 'px';
+        g2.style.top = (p[1] + (i % 2 ? 6 : -6)) + 'px';
+        ui.rightHand.appendChild(g2);
+      });
+    }
+
+    function makeBubbles(){
+      ui.leftHand.querySelectorAll('.bubble').forEach(el => el.remove());
+      ui.rightHand.querySelectorAll('.bubble').forEach(el => el.remove());
+
+      const positions = [
+        [15,18],[52,30],[34,58],[72,76],[26,104],[62,116]
+      ];
+
+      positions.forEach((p,i) => {
+        const b = document.createElement('div');
+        b.className = 'bubble';
+        b.textContent = '🫧';
+        b.style.left = p[0] + 'px';
+        b.style.top = p[1] + 'px';
+        b.style.animationDelay = (i * .12) + 's';
+        ui.leftHand.appendChild(b);
+
+        const b2 = document.createElement('div');
+        b2.className = 'bubble';
+        b2.textContent = '🫧';
+        b2.style.left = (p[0] + (i % 2 ? -5 : 5)) + 'px';
+        b2.style.top = (p[1] + (i % 2 ? 6 : -6)) + 'px';
+        b2.style.animationDelay = (i * .10) + 's';
+        ui.rightHand.appendChild(b2);
+      });
+    }
+
+    function reduceGermsByProgress(){
+      const rubProgress = Math.min(1, state.rubDone / 6);
+      const all = [
+        ...ui.leftHand.querySelectorAll('.germ'),
+        ...ui.rightHand.querySelectorAll('.germ')
+      ];
+
+      const visibleCount = Math.max(0, Math.ceil(all.length * (1 - rubProgress)));
+
+      all.forEach((g, i) => {
+        g.style.opacity = i < visibleCount ? '1' : '0';
+        g.style.transform = i < visibleCount ? '' : 'scale(.2)';
+      });
+    }
+
+    function clearBubbles(){
+      ui.leftHand.querySelectorAll('.bubble').forEach(el => el.remove());
+      ui.rightHand.querySelectorAll('.bubble').forEach(el => el.remove());
+    }
+
+    function renderWhoList(){
+      ui.whoList.innerHTML = WHO_STEPS.slice(0, 11).map((s, i) => {
+        const done = i < state.index;
+        const active = i === state.index;
+
+        return `
+          <div class="who-item ${done ? 'done' : ''} ${active ? 'active' : ''}">
+            <div class="who-num">${done ? '✓' : i + 1}</div>
+            <div>${s.icon} ${s.title}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function applyVisualState(){
+      const step = currentStep();
+
+      ui.faucetBtn.classList.remove('active','done');
+      ui.soapBtn.classList.remove('active','done');
+      ui.towelBtn.classList.remove('active','done');
+      ui.handsZone.classList.remove('active','wet','foamy');
+
+      ui.waterStream.classList.toggle('on', state.waterOn);
+
+      if (state.wet) ui.handsZone.classList.add('wet');
+      if (state.foamy) ui.handsZone.classList.add('foamy');
+
+      if (step.target === 'faucet') ui.faucetBtn.classList.add('active');
+      if (step.target === 'soap') ui.soapBtn.classList.add('active');
+      if (step.target === 'towel') ui.towelBtn.classList.add('active');
+
+      if (step.type === 'hold' || step.type === 'rub'){
+        ui.handsZone.classList.add('active');
+      }
+
+      if (state.completedIds.has('soap')) ui.soapBtn.classList.add('done');
+      if (state.completedIds.has('dry')) ui.towelBtn.classList.add('done');
+
+      const rubText = {
+        palm:'ถูฝ่ามือ',
+        back:'ถูหลังมือ',
+        between:'ถูซอกนิ้ว',
+        backFinger:'ถูหลังนิ้ว',
+        thumb:'ถูหัวแม่มือ',
+        fingertip:'ถูปลายนิ้ว'
+      };
+
+      ui.rubLabel.textContent =
+        step.type === 'rub' ? rubText[step.rubKey] :
+        step.type === 'hold' ? 'ค้างมือใต้สายน้ำ' :
+        step.type === 'tap' ? 'แตะของที่เรืองแสง' : 'สำเร็จ';
+
+      positionRubDot(step);
+    }
+
+    function positionRubDot(step){
+      const map = {
+        palm:['50%','54%'],
+        back:['45%','43%'],
+        between:['50%','30%'],
+        backFinger:['50%','18%'],
+        thumb:['25%','55%'],
+        fingertip:['50%','12%']
+      };
+
+      const pos = map[step.rubKey] || ['50%','50%'];
+      ui.rubDot.style.left = pos[0];
+      ui.rubDot.style.top = pos[1];
+      ui.rubDot.style.transform = 'translate(-50%,-50%)';
+    }
+
+    function renderStep(){
+      clearAuto();
+
+      const step = currentStep();
+
+      if (step.type === 'finish'){
+        finishGame();
+        return;
+      }
+
+      state.stepValue = 0;
+      state.interacting = false;
+      state.completing = false;
+      state.lastTs = 0;
+
+      ui.stepLabel.textContent = `WHO Simulation • ${state.index + 1}/12`;
+      ui.stepTitle.textContent = step.title;
+      ui.stepBadge.textContent = `${step.icon} WHO ${state.index + 1}/12`;
+      ui.actionTitle.textContent = step.action;
+      ui.actionDesc.textContent = step.desc;
+
+      ui.rubChip.textContent = `Rub ${state.rubDone}/6`;
+      ui.comboChip.textContent = `Combo ${state.combo}`;
+      ui.scoreChip.textContent = `Score ${state.score}`;
+
+      const p = mainPct();
+      ui.pctText.textContent = p + '%';
+      ui.fill.style.width = p + '%';
+
+      ui.stepProgressText.textContent =
+        step.type === 'tap' ? 'แตะของที่เรืองแสง' :
+        step.type === 'hold' ? 'กดค้างให้ครบ' :
+        step.type === 'rub' ? 'ถู/ลากบนมือให้ครบ' : 'สำเร็จ';
+
+      showStepProgress(0);
+      setCoach(step.coach || 'ทำตามขั้นตอนนี้');
+      applyVisualState();
+      renderWhoList();
+    }
+
+    function completeStep(source='action'){
+      const step = currentStep();
+      if (!step || step.type === 'finish' || state.completing) return;
+
+      state.completing = true;
+      state.interacting = false;
+
+      reward(step.points);
+      state.completedIds.add(step.id);
+
+      if (step.id === 'wet') state.wet = true;
+
+      if (step.id === 'soap'){
+        state.foamy = true;
+        makeBubbles();
+      }
+
+      if (isRubStep(step)){
+        state.rubDone = Math.min(6, state.rubDone + 1);
+        reduceGermsByProgress();
+      }
+
+      if (step.id === 'rinse'){
+        state.foamy = false;
+        clearBubbles();
+      }
+
+      if (step.id === 'dry'){
+        state.dry = true;
+      }
+
+      if (step.id === 'turnoff'){
+        state.waterOn = false;
+      }
+
+      setCoach('ดีมาก ผ่านขั้นนี้แล้ว', 'good');
+      showStepProgress(100);
+
+      try{
+        if (navigator.vibrate) navigator.vibrate(28);
+      }catch(e){}
+
+      ui.rubChip.textContent = `Rub ${state.rubDone}/6`;
+      ui.comboChip.textContent = `Combo ${state.combo}`;
+      ui.scoreChip.textContent = `Score ${state.score}`;
+
+      applyVisualState();
+
+      clearAuto();
+      autoTimer = setTimeout(() => {
+        state.index += 1;
+        renderStep();
+      }, 620);
+    }
+
+    function wrongTarget(expected){
+      state.combo = 0;
+      state.miss += 1;
+      setCoach(`ตอนนี้ให้ทำ: ${expected}`, 'warn');
+      ui.comboChip.textContent = `Combo ${state.combo}`;
+    }
+
+    function handleTap(target){
+      const step = currentStep();
+
+      if (!step || state.completing) return;
+
+      if (step.type !== 'tap'){
+        if (step.type === 'hold' || step.type === 'rub'){
+          setCoach('ขั้นนี้ให้ทำที่มือกลางอ่างนะ', 'warn');
+        }
+        return;
+      }
+
+      if (target !== step.target){
+        wrongTarget(step.action);
+        return;
+      }
+
+      completeStep('tap');
+    }
+
+    function startInteract(e){
+      const step = currentStep();
+      if (!step || state.completing || !(step.type === 'hold' || step.type === 'rub')) return;
+
+      try{
+        e.preventDefault();
+        e.stopPropagation();
+      }catch(err){}
+
+      state.interacting = true;
+      state.lastTs = 0;
+
+      const p = getPoint(e);
+      state.lastX = p.x;
+      state.lastY = p.y;
+    }
+
+    function moveInteract(e){
+      const step = currentStep();
+      if (!state.interacting || state.completing || !step || step.type !== 'rub') return;
+
+      try{ e.preventDefault(); }catch(err){}
+
+      const p = getPoint(e);
+      const dx = p.x - state.lastX;
+      const dy = p.y - state.lastY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      state.stepValue += Math.min(90, dist * 2.4);
+
+      state.lastX = p.x;
+      state.lastY = p.y;
+
+      updateStepInteractionUI();
+    }
+
+    function endInteract(e){
+      if (e){
+        try{ e.preventDefault(); }catch(err){}
+      }
+      state.interacting = false;
+      state.lastTs = 0;
+    }
+
+    function getPoint(e){
+      if (e.touches && e.touches[0]){
+        return { x:e.touches[0].clientX, y:e.touches[0].clientY };
+      }
+      if (e.changedTouches && e.changedTouches[0]){
+        return { x:e.changedTouches[0].clientX, y:e.changedTouches[0].clientY };
+      }
+      return { x:e.clientX || 0, y:e.clientY || 0 };
+    }
+
+    function updateStepInteractionUI(){
+      const step = currentStep();
+      if (!step || state.completing || !(step.type === 'hold' || step.type === 'rub')) return;
+
+      const pct = Math.round((state.stepValue / step.need) * 100);
+      showStepProgress(pct);
+
+      if (pct >= 100){
+        completeStep(step.type);
+      }
+    }
+
+    function loop(ts){
+      raf = requestAnimationFrame(loop);
+
+      const step = currentStep();
+      if (!step || state.ended || state.completing) return;
+
+      if (!(step.type === 'hold' || step.type === 'rub')) return;
+
+      if (!state.lastTs) state.lastTs = ts;
+      const dt = Math.min(50, ts - state.lastTs);
+      state.lastTs = ts;
+
+      if (state.interacting){
+        if (step.type === 'hold'){
+          state.stepValue = Math.min(step.need, state.stepValue + dt);
+        } else if (step.type === 'rub'){
+          state.stepValue = Math.min(step.need, state.stepValue + dt * 0.55);
+        }
+      } else {
+        if (step.type === 'hold'){
+          state.stepValue = Math.max(0, state.stepValue - dt * 0.12);
+        }
+      }
+
+      updateStepInteractionUI();
+    }
+
+    function calcStars(){
+      if (state.rubDone >= 6 && state.bestCombo >= 10 && state.miss <= 1) return 3;
+      if (state.rubDone >= 6 && state.bestCombo >= 7) return 2;
+      return 1;
+    }
+
+    function saveSummary(stars){
+      const payload = {
+        stage:'main',
+        success:true,
+        score:state.score,
+        stars,
+        miss:state.miss,
+        timeLeft:0,
+        accuracy:Math.max(0, 100 - state.miss * 5),
+        progress:100,
+        bestStreak:state.bestCombo,
+        whoDone:12,
+        rubDone:state.rubDone,
+        badges:stars >= 3 ? ['WHO Handwash Hero','Clean Hands Master'] : ['WHO Handwash Clear'],
+        rank:stars >= 3 ? 'Handwash Hero' : 'Handwash Clear',
+        notes:'WHO 12-step 2.5D handwash simulation completed',
+        version:HHA_HANDWASH_MAIN_VERSION,
+        endedAt:new Date().toISOString()
+      };
+
+      try{
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+      }catch(e){}
+
+      try{
+        if (window.HandwashShared && typeof HandwashShared.saveSummary === 'function'){
+          HandwashShared.saveSummary(payload);
+        }
+      }catch(e){}
+    }
+
+    function finishGame(){
+      if (state.ended) return;
+
+      state.ended = true;
+      state.combo = 0;
+      state.index = WHO_STEPS.length - 1;
+
+      const stars = calcStars();
+      saveSummary(stars);
+
+      ui.sumScore.textContent = String(state.score);
+      ui.sumRub.textContent = `${state.rubDone}/6`;
+      ui.sumCombo.textContent = String(state.bestCombo);
+      ui.sumStars.textContent = '⭐'.repeat(stars);
+
+      ui.summaryOverlay.classList.remove('hidden');
+
+      ui.stepLabel.textContent = 'WHO Simulation • สำเร็จ';
+      ui.stepTitle.textContent = 'มือสะอาดแล้ว';
+      ui.pctText.textContent = '100%';
+      ui.fill.style.width = '100%';
+
+      setCoach('เก่งมาก ทำครบตาม WHO แล้ว', 'good');
+    }
+
+    function restart(){
+      clearAuto();
+
+      state.index = 0;
+      state.score = 0;
+      state.combo = 0;
+      state.bestCombo = 0;
+      state.rubDone = 0;
+      state.miss = 0;
+      state.stepValue = 0;
+      state.interacting = false;
+      state.completing = false;
+      state.lastTs = 0;
+      state.waterOn = true;
+      state.wet = false;
+      state.foamy = false;
+      state.dry = false;
+      state.ended = false;
+      state.completedIds = new Set();
+
+      ui.summaryOverlay.classList.add('hidden');
+
+      makeGerms();
+      clearBubbles();
+      renderStep();
+    }
+
+    function init(){
+      console.log('[Handwash Main]', {
+        file:'vr-handwash/handwash-vr.html',
+        role:'WHO Simulation Main Game',
+        version:HHA_HANDWASH_MAIN_VERSION,
+        next:nextMiniUrl()
+      });
+
+      makeGerms();
+      renderWhoList();
+      renderStep();
+
+      bindPress(ui.faucetBtn, () => handleTap('faucet'));
+      bindPress(ui.soapBtn, () => handleTap('soap'));
+      bindPress(ui.towelBtn, () => handleTap('towel'));
+
+      ui.handsZone.addEventListener('pointerdown', startInteract, { passive:false });
+      window.addEventListener('pointermove', moveInteract, { passive:false });
+      window.addEventListener('pointerup', endInteract, { passive:false });
+      window.addEventListener('pointercancel', endInteract, { passive:false });
+
+      ui.handsZone.addEventListener('touchstart', startInteract, { passive:false });
+      window.addEventListener('touchmove', moveInteract, { passive:false });
+      window.addEventListener('touchend', endInteract, { passive:false });
+      window.addEventListener('touchcancel', endInteract, { passive:false });
+
+      bindPress(ui.restartBtn, restart);
+      bindPress(ui.playAgainBtn, restart);
+
+      bindPress(ui.launcherBtn, () => {
+        location.href = launcherUrl();
+      });
+
+      bindPress(ui.zoneBtn, () => {
+        location.href = zoneUrl();
+      });
+
+      bindPress(ui.nextBtn, () => {
+        location.href = nextMiniUrl();
+      });
+
+      raf = requestAnimationFrame(loop);
     }
 
     init();
