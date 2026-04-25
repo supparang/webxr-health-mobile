@@ -1,2424 +1,1322 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Teacher Dashboard • Vocab Analytics</title>
-  <meta name="theme-color" content="#071426" />
-  <meta name="color-scheme" content="dark" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>TechPath Teacher Dashboard</title>
+
+  <script>
+    window.TECHPATH_ATTENDANCE_ENDPOINT =
+      'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
+
+    window.TECHPATH_APP_ID = 'english-d4bfa';
+    window.TEACHER_BUILD = 'v20260424-teacher-dashboard-roster-r8';
+  </script>
 
   <style>
     :root{
-      --bg:#071426;
-      --bg2:#0b1d38;
-      --panel:#101a35;
-      --panel2:#17233f;
-      --line:rgba(255,255,255,.12);
-      --line2:rgba(125,211,252,.22);
-      --text:#f8fbff;
-      --muted:#c9d8f7;
-      --soft:#9fb3d9;
-      --cyan:#67e8f9;
-      --violet:#a78bfa;
-      --blue:#93c5fd;
-      --green:#4ade80;
-      --yellow:#fde047;
-      --orange:#fb923c;
-      --red:#fb7185;
-      --shadow:0 22px 70px rgba(0,0,0,.34);
-      --r-xl:34px;
-      --r-lg:26px;
-      --r-md:18px;
-      --safe-b:env(safe-area-inset-bottom,0px);
+      --bg:#07111f;
+      --panel:#0f1b2d;
+      --panel-2:#13233a;
+      --line:rgba(123,237,255,.18);
+      --text:#eef7ff;
+      --muted:#9db2c7;
+      --accent:#7bedff;
+      --ok:#2ed573;
+      --warn:#f1c40f;
+      --bad:#ff6b81;
+      --shadow:0 14px 30px rgba(0,0,0,.25);
+      --radius:18px;
     }
 
-    *{box-sizing:border-box}
+    *{ box-sizing:border-box; }
 
     html,body{
       margin:0;
-      min-height:100%;
+      background:linear-gradient(180deg,#06101d,#0a1728 30%,#081320);
       color:var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(103,232,249,.10), transparent 25%),
-        radial-gradient(circle at top right, rgba(167,139,250,.12), transparent 30%),
-        linear-gradient(180deg,#071426,#0b1730 48%,#07111f);
-      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
 
-    body{
-      overflow-x:hidden;
+    body{ min-height:100vh; }
+
+    .wrap{
+      width:min(1440px, calc(100% - 24px));
+      margin:0 auto;
+      padding:16px 0 28px;
     }
 
-    button,input,select{
+    .topbar{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:1.5rem;
+      color:var(--accent);
+      font-weight:900;
+    }
+
+    .brand .sub{
+      color:var(--muted);
+      font-size:.95rem;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:40px;
+      padding:0 14px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      font-weight:700;
+    }
+
+    .panel{
+      background:rgba(15,27,45,.92);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns:1.3fr repeat(4, minmax(140px, .7fr)) auto auto auto;
+      gap:10px;
+      padding:14px;
+      margin-bottom:12px;
+      transition:max-height .24s ease, opacity .24s ease, padding .24s ease, margin .24s ease;
+    }
+
+    .controls input,
+    .controls select,
+    .controls button{
+      min-height:44px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      padding:0 12px;
+      outline:none;
       font:inherit;
     }
 
-    .page{
-      width:min(1440px,100%);
-      margin:0 auto;
-      padding:20px 18px 52px;
-    }
-
-    .hero{
-      position:relative;
-      overflow:hidden;
-      border-radius:var(--r-xl);
-      padding:30px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 28%),
-        radial-gradient(circle at bottom left, rgba(103,232,249,.08), transparent 28%),
-        linear-gradient(135deg,rgba(18,28,58,.96),rgba(10,17,35,.96));
-      border:1px solid rgba(255,255,255,.13);
-      box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.06);
-    }
-
-    .hero::before{
-      content:"";
-      position:absolute;
-      right:-80px;
-      top:-80px;
-      width:260px;
-      height:260px;
-      border-radius:999px;
-      background:rgba(103,232,249,.12);
-      filter:blur(24px);
-      pointer-events:none;
-    }
-
-    .heroTop{
-      position:relative;
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:20px;
-    }
-
-    h1{
-      margin:0;
-      font-size:clamp(38px,6vw,72px);
-      line-height:.98;
-      letter-spacing:-.06em;
-      font-weight:1000;
-      max-width:920px;
-      text-wrap:balance;
-    }
-
-    .hero p{
-      position:relative;
-      margin:14px 0 0;
-      max-width:960px;
-      color:#dbeafe;
-      line-height:1.65;
-      font-size:16px;
-    }
-
-    .heroActions{
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      min-width:150px;
-    }
-
-    .btn{
-      appearance:none;
-      border:0;
-      border-radius:20px;
-      min-height:56px;
-      padding:12px 18px;
-      font-weight:1000;
+    .controls button{
       cursor:pointer;
-      color:#071426;
-      background:linear-gradient(135deg,#67e8f9,#a78bfa);
-      box-shadow:0 16px 34px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.48);
-      transition:transform .15s ease, filter .15s ease, opacity .15s ease;
-      white-space:nowrap;
-    }
-
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:saturate(1.06);
-    }
-
-    .btn:active{
-      transform:translateY(1px) scale(.99);
-    }
-
-    .btn.alt{
-      background:linear-gradient(135deg,#dbeafe,#93c5fd);
-      color:#172554;
-    }
-
-    .btn.warn{
-      background:linear-gradient(135deg,#fde68a,#fb923c);
-      color:#301707;
-    }
-
-    .btn.ghost{
-      background:rgba(255,255,255,.08);
-      color:#f8fbff;
-      border:1px solid rgba(255,255,255,.12);
-    }
-
-    .status{
-      margin-top:20px;
-      border-radius:18px;
-      padding:14px 18px;
-      line-height:1.6;
       font-weight:800;
+      background:linear-gradient(180deg,#2ad7ff,#14bde0);
+      color:#03131b;
+      border:none;
+    }
+
+    .controls .ghost{
+      background:rgba(255,255,255,.04);
+      color:var(--text);
       border:1px solid var(--line);
-      background:rgba(255,255,255,.06);
-      color:#eaf2ff;
     }
 
-    .status.ok{
-      background:rgba(20,83,45,.28);
-      border-color:rgba(74,222,128,.34);
+    .quick-filters{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-bottom:14px;
     }
 
-    .status.warn{
-      background:rgba(113,63,18,.26);
-      border-color:rgba(253,224,71,.36);
-      color:#fff7cc;
-    }
-
-    .status.bad{
-      background:rgba(127,29,29,.26);
-      border-color:rgba(251,113,133,.36);
-      color:#ffe4e9;
-    }
-
-    .toolbar{
-      margin-top:18px;
-      display:grid;
-      grid-template-columns:minmax(260px,1.6fr) repeat(5,minmax(150px,1fr));
-      gap:12px;
-      align-items:stretch;
-    }
-
-    .field{
-      min-width:0;
-      background:rgba(255,255,255,.055);
+    .quick-chip,
+    .section-chip{
+      min-height:38px;
+      padding:0 14px;
+      border-radius:999px;
       border:1px solid var(--line);
-      border-radius:18px;
-      padding:11px 12px;
-    }
-
-    .field label{
-      display:block;
-      font-size:11px;
-      color:#a9bee8;
-      text-transform:uppercase;
-      letter-spacing:.06em;
-      margin-bottom:7px;
-      font-weight:900;
-    }
-
-    .field input,
-    .field select{
-      width:100%;
-      min-width:0;
-      border:0;
-      outline:none;
-      background:transparent;
-      color:#fff;
-      font-size:15px;
+      background:rgba(255,255,255,.04);
+      color:var(--text);
       font-weight:800;
-      overflow:hidden;
-      text-overflow:ellipsis;
+      cursor:pointer;
+      font:inherit;
+      flex:0 0 auto;
     }
 
-    .field input::placeholder{
-      color:rgba(219,234,254,.62);
+    .quick-chip.active,
+    .section-chip.active{
+      background:linear-gradient(180deg,#2ad7ff,#14bde0);
+      color:#03131b;
+      border-color:transparent;
     }
 
-    .field select option{
-      color:#111827;
-      background:#fff;
+    .view-tabs{
+      position:sticky;
+      top:0;
+      z-index:5;
+      padding:8px 0;
+      background:linear-gradient(180deg,rgba(7,17,31,.98),rgba(7,17,31,.78));
+      backdrop-filter:blur(10px);
     }
 
-    .grid{
-      margin-top:20px;
+    .view-hint{
+      padding:12px 14px;
+      margin:-6px 0 14px;
+      color:var(--muted);
+      font-size:.92rem;
+      line-height:1.45;
+    }
+
+    body.teacher-view-loading .report-tools,
+    body.teacher-view-loading #report-summary-panel,
+    body.teacher-view-loading .heatmap-row,
+    body.teacher-view-loading .section-panel,
+    body.teacher-view-loading .grid{
+      visibility:hidden;
+    }
+
+    .cards{
       display:grid;
-      gap:16px;
-    }
-
-    .kpiGrid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:16px;
-    }
-
-    .kpiWideGrid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
+      grid-template-columns:repeat(8, minmax(0, 1fr));
+      gap:10px;
+      margin-bottom:14px;
     }
 
     .card{
-      position:relative;
-      overflow:hidden;
-      border-radius:var(--r-lg);
-      padding:22px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.10), transparent 32%),
-        linear-gradient(180deg,rgba(18,28,58,.88),rgba(10,18,38,.88));
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 16px 42px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.05);
+      padding:14px;
+      min-height:100px;
     }
 
-    .card::before{
-      content:"";
-      position:absolute;
-      right:-70px;
-      bottom:-90px;
-      width:180px;
-      height:180px;
-      border-radius:999px;
-      background:rgba(255,255,255,.05);
-      filter:blur(10px);
-      pointer-events:none;
-    }
-
-    .kpiLabel{
-      position:relative;
-      font-size:13px;
-      color:#cae3ff;
-      font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .kpiValue{
-      position:relative;
-      margin-top:12px;
-      font-size:52px;
-      font-weight:1000;
-      line-height:.9;
-      letter-spacing:-.06em;
-    }
-
-    .kpiHelp{
-      position:relative;
-      margin-top:13px;
-      color:#dbeafe;
-      font-size:14px;
-      line-height:1.45;
+    .card .k{
+      color:var(--muted);
+      font-size:.83rem;
+      margin-bottom:8px;
       font-weight:700;
     }
 
-    .section{
-      margin-top:20px;
-      position:relative;
-      overflow:hidden;
-      border-radius:var(--r-xl);
-      padding:24px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.08), transparent 30%),
-        linear-gradient(180deg,rgba(18,28,58,.90),rgba(9,17,35,.92));
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 18px 58px rgba(0,0,0,.22);
-    }
-
-    .actionSummarySection{
-      border-color:rgba(253,224,71,.18);
-    }
-
-    .sectionHead{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:14px;
-      margin-bottom:16px;
-    }
-
-    h2{
-      margin:0;
-      font-size:clamp(28px,4vw,44px);
-      line-height:1.04;
-      font-weight:1000;
-      letter-spacing:-.045em;
-    }
-
-    .sectionDesc{
-      margin:6px 0 0;
-      color:#dbeafe;
-      line-height:1.55;
-      font-size:14px;
-    }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      min-height:30px;
-      padding:0 10px;
-      border-radius:999px;
-      background:rgba(255,255,255,.09);
-      border:1px solid rgba(255,255,255,.12);
-      color:#eaf2ff;
-      font-size:12px;
-      font-weight:1000;
-      white-space:nowrap;
-    }
-
-    .badge.good{
-      color:#dcfce7;
-      border-color:rgba(74,222,128,.32);
-      background:rgba(22,101,52,.22);
-    }
-
-    .badge.warn{
-      color:#fef3c7;
-      border-color:rgba(253,224,71,.32);
-      background:rgba(113,63,18,.22);
-    }
-
-    .badge.bad{
-      color:#ffe4e9;
-      border-color:rgba(251,113,133,.32);
-      background:rgba(127,29,29,.22);
-    }
-
-    .chipRow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .chipRow .badge{
-      min-height:28px;
-      font-size:11px;
-      background:rgba(255,255,255,.075);
-    }
-
-    .actionSummaryGrid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:12px;
-    }
-
-    .actionCard{
-      position:relative;
-      overflow:hidden;
-      border-radius:22px;
-      padding:16px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 34%),
-        rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 10px 28px rgba(0,0,0,.14);
-    }
-
-    .actionCard.warn{
-      border-color:rgba(253,224,71,.30);
-      background:
-        radial-gradient(circle at top right, rgba(253,224,71,.12), transparent 34%),
-        rgba(255,255,255,.06);
-    }
-
-    .actionCard.bad{
-      border-color:rgba(251,113,133,.32);
-      background:
-        radial-gradient(circle at top right, rgba(251,113,133,.13), transparent 34%),
-        rgba(255,255,255,.06);
-    }
-
-    .actionCard.good{
-      border-color:rgba(74,222,128,.28);
-      background:
-        radial-gradient(circle at top right, rgba(74,222,128,.12), transparent 34%),
-        rgba(255,255,255,.06);
-    }
-
-    .actionIcon{
-      width:42px;
-      height:42px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      border-radius:16px;
-      background:rgba(255,255,255,.09);
-      border:1px solid rgba(255,255,255,.12);
-      font-size:22px;
-      margin-bottom:12px;
-    }
-
-    .actionTitle{
-      font-size:18px;
-      line-height:1.15;
-      font-weight:1000;
-      letter-spacing:-.02em;
-    }
-
-    .actionText{
-      margin-top:8px;
-      color:#dbeafe;
-      font-size:13px;
-      line-height:1.55;
-      font-weight:700;
-    }
-
-    .actionMeta{
-      margin-top:12px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    .list{
-      display:grid;
-      gap:12px;
-    }
-
-    .studentCard,
-    .runCard,
-    .termCard,
-    .leaderCard{
-      position:relative;
-      overflow:hidden;
-      border-radius:20px;
-      padding:16px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.10), transparent 30%),
-        rgba(255,255,255,.055);
-      border:1px solid rgba(255,255,255,.10);
-      box-shadow:0 10px 28px rgba(0,0,0,.14);
-    }
-
-    .studentCard{
-      cursor:pointer;
-      transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;
-    }
-
-    .studentCard:hover{
-      transform:translateY(-2px);
-      border-color:rgba(103,232,249,.30);
-      box-shadow:0 16px 34px rgba(0,0,0,.22);
-    }
-
-    .studentCard:focus-visible{
-      outline:3px solid rgba(103,232,249,.65);
-      outline-offset:3px;
-    }
-
-    .studentTop,
-    .runTop,
-    .leaderTop{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-    }
-
-    .name{
-      font-size:20px;
-      font-weight:1000;
-      letter-spacing:-.02em;
-      line-height:1.1;
-    }
-
-    .meta{
-      margin-top:6px;
-      color:#c9d8f7;
-      font-size:13px;
-      line-height:1.45;
-      font-weight:700;
-    }
-
-    .detailHint{
-      margin-top:10px;
-      color:#93c5fd;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .miniStats{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .mini{
-      padding:10px;
-      border-radius:15px;
-      background:rgba(255,255,255,.055);
-      border:1px solid rgba(255,255,255,.08);
-    }
-
-    .mini .label{
-      font-size:10px;
-      color:#a9bee8;
-      text-transform:uppercase;
-      letter-spacing:.05em;
+    .card .v{
+      font-size:1.6rem;
       font-weight:900;
+      line-height:1;
     }
 
-    .mini .value{
-      margin-top:4px;
-      font-size:18px;
-      font-weight:1000;
-      line-height:1.05;
-    }
+    .card.ok .v{ color:var(--ok); }
+    .card.warn .v{ color:var(--warn); }
+    .card.bad .v{ color:var(--bad); }
 
-    .barBlock{
-      display:grid;
-      gap:12px;
-    }
-
-    .barRow{
-      border-radius:18px;
-      padding:14px;
-      background:rgba(255,255,255,.055);
-      border:1px solid rgba(255,255,255,.10);
-    }
-
-    .barHead{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:10px;
-    }
-
-    .barName{
-      font-size:15px;
-      font-weight:1000;
-      line-height:1.2;
-    }
-
-    .barMeta{
-      color:#c9d8f7;
-      font-size:12px;
-      line-height:1.4;
-      text-align:right;
-      white-space:nowrap;
-    }
-
-    .track{
-      height:11px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
+    .section-panel{
+      margin-bottom:14px;
       overflow:hidden;
     }
 
-    .fill{
-      height:100%;
-      width:0;
-      border-radius:999px;
-      background:linear-gradient(90deg,#67e8f9,#a78bfa);
-      transition:width .35s ease;
+    .section-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:14px 14px 10px;
+      border-bottom:1px solid var(--line);
     }
 
-    .fill.good{background:linear-gradient(90deg,#4ade80,#86efac)}
-    .fill.warn{background:linear-gradient(90deg,#fde047,#fb923c)}
-    .fill.bad{background:linear-gradient(90deg,#fb7185,#f43f5e)}
-
-    .twoCol{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
+    .section-head h2{
+      margin:0;
+      font-size:1.02rem;
+      color:var(--accent);
     }
 
-    .threeCol{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:16px;
+    .section-meta{
+      color:var(--muted);
+      font-size:.88rem;
     }
 
-    .empty{
-      padding:18px;
-      border-radius:18px;
-      background:rgba(255,255,255,.055);
-      border:1px solid rgba(255,255,255,.10);
-      color:#dbeafe;
-      font-weight:800;
-      line-height:1.55;
-    }
-
-    .debug{
-      margin-top:16px;
-      border-radius:18px;
-      padding:14px;
-      background:rgba(0,0,0,.26);
-      border:1px solid rgba(255,255,255,.10);
-      color:#dbeafe;
-      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      font-size:12px;
-      line-height:1.5;
+    .section-wrap,
+    .table-wrap,
+    .detail-body,
+    .risk-wrap{
       overflow:auto;
-      max-height:260px;
-      white-space:pre-wrap;
-    }
-
-    .drawerBackdrop{
-      position:fixed;
-      inset:0;
-      z-index:90;
-      background:rgba(2,6,23,.62);
-      backdrop-filter:blur(8px);
-    }
-
-    .studentDrawer{
-      position:fixed;
-      inset:0 0 0 auto;
-      z-index:100;
-      width:min(720px,96vw);
-      height:100dvh;
-      overflow:auto;
-      padding:14px;
       -webkit-overflow-scrolling:touch;
     }
 
-    .drawerPanel{
-      min-height:100%;
-      border-radius:30px;
-      padding:22px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 30%),
-        linear-gradient(180deg,rgba(18,28,58,.98),rgba(9,17,35,.98));
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow:0 28px 90px rgba(0,0,0,.46);
-      animation:drawerIn .22s ease;
+    .section-table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:760px;
     }
 
-    @keyframes drawerIn{
-      from{transform:translateX(24px);opacity:0}
-      to{transform:translateX(0);opacity:1}
+    .section-table th,
+    .section-table td{
+      padding:11px 10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      text-align:left;
+      font-size:.92rem;
     }
 
-    .drawerHead{
+    .section-table th{
+      background:#0f1b2d;
+      color:#cfefff;
+      font-size:.84rem;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:minmax(0, 1.45fr) minmax(360px, .85fr);
+      gap:14px;
+      align-items:start;
+    }
+
+    .table-panel{
+      overflow:hidden;
+    }
+
+    .table-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:14px 14px 10px;
+      border-bottom:1px solid var(--line);
+    }
+
+    .table-head h2,
+    .detail-head h2{
+      margin:0;
+      font-size:1.05rem;
+      color:var(--accent);
+    }
+
+    .table-meta{
+      color:var(--muted);
+      font-size:.88rem;
+    }
+
+    .table-wrap{
+      max-height:70vh;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:1080px;
+    }
+
+    thead th{
+      position:sticky;
+      top:0;
+      z-index:1;
+      background:#0f1b2d;
+      color:#cfefff;
+      font-size:.85rem;
+      text-align:left;
+      padding:12px 10px;
+      border-bottom:1px solid var(--line);
+    }
+
+    tbody td{
+      padding:11px 10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:.92rem;
+      vertical-align:top;
+    }
+
+    tbody tr{
+      cursor:pointer;
+    }
+
+    tbody tr:hover{
+      background:rgba(123,237,255,.05);
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      font-size:.78rem;
+      font-weight:900;
+      border:1px solid transparent;
+      white-space:nowrap;
+    }
+
+    .tag.entered{
+      background:rgba(241,196,15,.12);
+      color:#ffeaa7;
+      border-color:rgba(241,196,15,.25);
+    }
+
+    .tag.in_progress{
+      background:rgba(123,237,255,.12);
+      color:#7bedff;
+      border-color:rgba(123,237,255,.25);
+    }
+
+    .tag.completed{
+      background:rgba(46,213,115,.12);
+      color:#b9ffd0;
+      border-color:rgba(46,213,115,.25);
+    }
+
+    .tag.left{
+      background:rgba(255,107,129,.12);
+      color:#ffd4db;
+      border-color:rgba(255,107,129,.25);
+    }
+
+    .yes{ color:var(--ok); font-weight:900; }
+    .no{ color:var(--bad); font-weight:900; }
+
+    .detail{
+      padding:0;
+      overflow:hidden;
+      position:sticky;
+      top:12px;
+      max-height:84vh;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .detail-head{
+      padding:14px;
+      border-bottom:1px solid var(--line);
+    }
+
+    .detail-body{
+      padding:14px;
+    }
+
+    .detail-empty{
+      color:var(--muted);
+      line-height:1.6;
+    }
+
+    .kv{
+      display:grid;
+      grid-template-columns:110px 1fr;
+      gap:8px 12px;
+      margin-bottom:14px;
+      font-size:.92rem;
+    }
+
+    .kv .k{
+      color:var(--muted);
+      font-weight:700;
+    }
+
+    .section-title{
+      margin:18px 0 10px;
+      color:var(--accent);
+      font-weight:900;
+      font-size:.95rem;
+    }
+
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .mini-card{
+      padding:12px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+    }
+
+    .mini-card .k{
+      font-size:.8rem;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+
+    .mini-card .v{
+      font-weight:900;
+      font-size:1.15rem;
+    }
+
+    .event-list,
+    .session-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .event-item,
+    .session-item{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.07);
+      background:rgba(255,255,255,.04);
+    }
+
+    .event-item .top,
+    .session-item .top{
       display:flex;
       justify-content:space-between;
-      align-items:flex-start;
-      gap:14px;
-      margin-bottom:16px;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:4px;
     }
 
-    .drawerGrid{
+    .event-item .name,
+    .session-item .name{
+      font-weight:900;
+    }
+
+    .event-item .meta,
+    .session-item .meta{
+      color:var(--muted);
+      font-size:.84rem;
+    }
+
+    .footer-note{
+      color:var(--muted);
+      font-size:.84rem;
+      margin-top:12px;
+      text-align:right;
+    }
+
+    .mobile-only{
+      display:none;
+    }
+
+    .heatmap-row{
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
+      grid-template-columns:minmax(0,1.15fr) minmax(0,.95fr);
+      gap:14px;
+      margin-bottom:14px;
     }
 
-    .drawerGrid .card{
-      padding:18px;
-      border-radius:22px;
+    .heatmap-panel,
+    .risk-panel{
+      overflow:hidden;
     }
 
-    .drawerGrid .kpiValue{
-      font-size:42px;
+    .heatmap-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      padding:14px;
     }
 
-    .drawerSection{
-      margin-top:18px;
+    .heatmap-cell{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:rgba(255,255,255,.04);
+      padding:12px;
+      min-height:110px;
     }
 
-    .drawerSection h3{
-      margin:0 0 10px;
-      font-size:22px;
-      font-weight:1000;
-      letter-spacing:-.03em;
+    .heatmap-cell .s{
+      font-size:1rem;
+      font-weight:900;
+      color:var(--accent);
+      margin-bottom:8px;
     }
 
-    .hidden{
-      display:none!important;
+    .heatmap-cell .n{
+      font-size:1.5rem;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+
+    .heatmap-cell .m{
+      font-size:.82rem;
+      color:var(--muted);
+      line-height:1.5;
+    }
+
+    .heatmap-cell.lv0{ background:rgba(255,255,255,.03); }
+    .heatmap-cell.lv1{ background:rgba(123,237,255,.07); }
+    .heatmap-cell.lv2{ background:rgba(123,237,255,.12); }
+    .heatmap-cell.lv3{ background:rgba(46,213,115,.14); }
+    .heatmap-cell.lv4{ background:rgba(241,196,15,.16); }
+    .heatmap-cell.lv5{ background:rgba(255,107,129,.18); }
+
+    .heatmap-empty{
+      padding:14px;
+      color:var(--muted);
+    }
+
+    .risk-table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:620px;
+    }
+
+    .risk-table th,
+    .risk-table td{
+      padding:11px 10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      text-align:left;
+      font-size:.9rem;
+    }
+
+    .risk-table th{
+      background:#0f1b2d;
+      color:#cfefff;
+      font-size:.84rem;
+    }
+
+    .matrix-table{
+      min-width:1200px;
+    }
+
+    .matrix-table td.center,
+    .matrix-table th.center{
+      text-align:center;
+    }
+
+    .matrix-badge{
+      display:inline-flex;
+      min-width:28px;
+      min-height:28px;
+      align-items:center;
+      justify-content:center;
+      padding:0 8px;
+      border-radius:999px;
+      font-size:.78rem;
+      font-weight:900;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .matrix-badge.zero{
+      color:#8ea3b8;
+      background:rgba(255,255,255,.03);
+    }
+
+    .matrix-badge.low{
+      color:#7bedff;
+      background:rgba(123,237,255,.10);
+      border-color:rgba(123,237,255,.18);
+    }
+
+    .matrix-badge.mid{
+      color:#ffeaa7;
+      background:rgba(241,196,15,.12);
+      border-color:rgba(241,196,15,.20);
+    }
+
+    .matrix-badge.high{
+      color:#ffd4db;
+      background:rgba(255,107,129,.14);
+      border-color:rgba(255,107,129,.24);
+    }
+
+    #teacher-action-row{
+      margin-top:-4px;
+    }
+
+    .report-tools{
+      display:grid;
+      grid-template-columns:1.2fr repeat(7, minmax(110px, auto));
+      gap:10px;
+      padding:14px;
+      margin-bottom:14px;
+      align-items:center;
+    }
+
+    .report-title strong{
+      display:block;
+      color:var(--accent);
+      font-size:1rem;
+    }
+
+    .report-title span{
+      display:block;
+      color:var(--muted);
+      font-size:.82rem;
+      margin-top:2px;
+    }
+
+    .report-tools input,
+    .report-tools select,
+    .report-tools button{
+      min-height:42px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      padding:0 12px;
+      font:inherit;
+    }
+
+    .report-tools button{
+      cursor:pointer;
+      font-weight:900;
+      background:rgba(255,255,255,.04);
+    }
+
+    .report-tools button:nth-last-child(2),
+    .report-tools button:nth-last-child(1){
+      background:linear-gradient(180deg,#2ad7ff,#14bde0);
+      color:#03131b;
+      border:none;
+    }
+
+    .report-panel{
+      margin-bottom:14px;
+    }
+
+    .report-cards{
+      padding:14px;
+      margin-bottom:0;
+    }
+
+    .progress-mini{
+      display:flex;
+      gap:4px;
+      flex-wrap:wrap;
+      margin-top:6px;
+    }
+
+    .progress-dot{
+      display:inline-flex;
+      min-width:26px;
+      height:24px;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      font-size:.72rem;
+      font-weight:900;
+      border:1px solid rgba(255,255,255,.08);
+      color:#8ea3b8;
+      background:rgba(255,255,255,.04);
+    }
+
+    .progress-dot.done{
+      color:#b9ffd0;
+      background:rgba(46,213,115,.14);
+      border-color:rgba(46,213,115,.25);
+    }
+
+    .progress-dot.risk{
+      color:#ffd4db;
+      background:rgba(255,107,129,.14);
+      border-color:rgba(255,107,129,.25);
+    }
+
+    .progress-dot.partial{
+      color:#ffeaa7;
+      background:rgba(241,196,15,.12);
+      border-color:rgba(241,196,15,.22);
+    }
+
+    @media (max-width: 1280px){
+      .cards{
+        grid-template-columns:repeat(4, minmax(0, 1fr));
+      }
+
+      .controls{
+        grid-template-columns:1fr 1fr 1fr;
+      }
+
+      .grid{
+        grid-template-columns:1fr;
+      }
+
+      .detail{
+        position:static;
+        max-height:none;
+      }
+
+      .report-tools{
+        grid-template-columns:1fr 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 980px){
+      .heatmap-row{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width: 700px){
+      .wrap{
+        width:min(100%, calc(100% - 12px));
+        padding:12px 0 20px;
+      }
+
+      .topbar{
+        align-items:flex-start;
+        margin-bottom:10px;
+      }
+
+      .brand h1{
+        font-size:1.05rem;
+        line-height:1.15;
+      }
+
+      .brand .sub{
+        font-size:.88rem;
+        line-height:1.35;
+      }
+
+      .pill{
+        min-height:36px;
+        padding:0 12px;
+        font-size:.86rem;
+      }
+
+      .mobile-only{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+      }
+
+      #teacher-controls{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+        padding:12px;
+        margin-bottom:10px;
+      }
+
+      body.filters-collapsed #teacher-controls{
+        max-height:0;
+        opacity:0;
+        overflow:hidden;
+        padding-top:0;
+        padding-bottom:0;
+        margin-bottom:8px;
+        border-width:0;
+      }
+
+      .quick-filters{
+        flex-wrap:nowrap;
+        overflow:auto;
+        padding-bottom:4px;
+        margin-bottom:10px;
+      }
+
+      .view-tabs{
+        top:0;
+        overflow:auto;
+        flex-wrap:nowrap;
+        padding:8px 0 6px;
+      }
+
+      .view-hint{
+        font-size:.84rem;
+        padding:10px 12px;
+      }
+
+      .quick-chip,
+      .section-chip{
+        flex:0 0 auto;
+        min-height:36px;
+        padding:0 12px;
+        font-size:.88rem;
+      }
+
+      .cards{
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:8px;
+        margin-bottom:10px;
+      }
+
+      .card{
+        min-height:82px;
+        padding:12px;
+      }
+
+      .card .k{
+        font-size:.76rem;
+        margin-bottom:6px;
+      }
+
+      .card .v{
+        font-size:1.18rem;
+      }
+
+      .section-head,
+      .table-head,
+      .detail-head{
+        padding:12px 12px 10px;
+      }
+
+      .section-head h2,
+      .table-head h2,
+      .detail-head h2{
+        font-size:.96rem;
+      }
+
+      .section-meta,
+      .table-meta{
+        font-size:.8rem;
+      }
+
+      .section-table{
+        min-width:640px;
+      }
+
+      table{
+        min-width:920px;
+      }
+
+      .detail{
+        position:static;
+        max-height:none;
+      }
+
+      .detail-body{
+        max-height:none;
+      }
+
+      .kv{
+        grid-template-columns:90px 1fr;
+        gap:8px 10px;
+        font-size:.88rem;
+      }
+
+      .mini-grid{
+        grid-template-columns:1fr;
+      }
+
+      .footer-note{
+        text-align:left;
+        margin-top:10px;
+        font-size:.8rem;
+      }
+
+      .heatmap-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+        padding:12px;
+      }
+
+      .heatmap-cell{
+        min-height:96px;
+        padding:10px;
+      }
+
+      .heatmap-cell .s{
+        font-size:.92rem;
+        margin-bottom:6px;
+      }
+
+      .heatmap-cell .n{
+        font-size:1.22rem;
+        margin-bottom:6px;
+      }
+
+      .risk-table{
+        min-width:560px;
+      }
+
+      #section-chip-row,
+      #teacher-action-row{
+        flex-wrap:nowrap;
+        overflow:auto;
+        padding-bottom:4px;
+      }
+
+      .matrix-table{
+        min-width:980px;
+      }
+
+      .report-tools{
+        grid-template-columns:1fr;
+        padding:12px;
+      }
+
+      .report-cards{
+        padding:12px;
+      }
     }
 
     @media print{
       body{
-        background:#fff;
-        color:#111827;
+        background:#fff!important;
+        color:#111!important;
       }
 
-      .page{
-        width:100%;
-        padding:0;
-      }
-
-      .heroActions,
-      .toolbar,
-      .status,
-      .debug,
-      #toggleDebugBtn,
-      .drawerBackdrop,
-      .studentDrawer{
+      .controls,
+      .quick-filters,
+      #teacher-action-row,
+      #section-chip-row,
+      .view-tabs,
+      .view-hint,
+      .report-tools,
+      .detail,
+      .footer-note,
+      #endpoint-pill,
+      #mobile-filter-toggle{
         display:none!important;
       }
 
-      .hero,
-      .section,
-      .card,
-      .studentCard,
-      .runCard,
-      .termCard,
-      .leaderCard{
+      .wrap{
+        width:100%!important;
+        padding:0!important;
+      }
+
+      .panel{
         box-shadow:none!important;
+        border:1px solid #ddd!important;
         background:#fff!important;
-        color:#111827!important;
-        border-color:#d1d5db!important;
+        color:#111!important;
+        break-inside:avoid;
       }
 
-      h1,h2,.kpiValue,.name{
-        color:#111827!important;
+      .brand h1,
+      .section-head h2{
+        color:#111!important;
       }
 
-      .hero p,
-      .sectionDesc,
-      .meta,
-      .kpiHelp{
-        color:#374151!important;
-      }
-    }
-
-    @media (max-width:980px){
-      .heroTop{
-        flex-direction:column;
+      table,
+      .section-table,
+      .risk-table{
+        color:#111!important;
       }
 
-      .heroActions{
-        flex-direction:row;
-        width:100%;
+      th{
+        color:#111!important;
+        background:#f1f5f9!important;
       }
 
-      .heroActions .btn{
-        flex:1;
-      }
-
-      .toolbar{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .kpiGrid{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .twoCol,
-      .threeCol{
-        grid-template-columns:1fr;
-      }
-
-      .actionSummaryGrid{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width:620px){
-      .page{
-        padding:12px 10px 38px;
-      }
-
-      .hero{
-        padding:22px 18px;
-        border-radius:26px;
-      }
-
-      .heroActions{
-        flex-direction:column;
-      }
-
-      .toolbar{
-        grid-template-columns:1fr;
-      }
-
-      .kpiGrid,
-      .kpiWideGrid{
-        grid-template-columns:1fr;
-      }
-
-      .miniStats{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .section{
-        padding:18px;
-        border-radius:26px;
-      }
-
-      .sectionHead{
-        flex-direction:column;
-      }
-
-      h1{
-        font-size:46px;
-      }
-
-      .kpiValue{
-        font-size:48px;
-      }
-
-      .studentDrawer{
-        width:100vw;
-        padding:8px;
-      }
-
-      .drawerPanel{
-        border-radius:24px;
-        padding:16px;
-      }
-
-      .drawerHead{
-        flex-direction:column;
-      }
-
-      .drawerGrid{
-        grid-template-columns:1fr;
+      .card .v,
+      .card .k,
+      .section-meta{
+        color:#111!important;
       }
     }
   </style>
 </head>
 
-<body>
-  <main class="page">
-    <section class="hero">
-      <div class="heroTop">
+<body class="teacher-view-loading">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <h1>TechPath Teacher Dashboard</h1>
+        <div class="sub">ติดตามการเข้าเรียนและความคืบหน้าของผู้เรียนแบบ real-time</div>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <div class="pill" id="endpoint-pill">Endpoint: loading...</div>
+        <button id="mobile-filter-toggle" class="quick-chip mobile-only" type="button">แสดง Filters</button>
+      </div>
+    </div>
+
+    <div class="panel controls" id="teacher-controls">
+      <input id="filter-search" type="text" placeholder="ค้นหา Student ID / Name / Section" />
+
+      <select id="filter-section">
+        <option value="">ทุก Section</option>
+      </select>
+
+      <select id="filter-status">
+        <option value="">ทุกสถานะ</option>
+      </select>
+
+      <select id="filter-session">
+        <option value="">ทุก S</option>
+      </select>
+
+      <select id="filter-minTime">
+        <option value="">Min time ทั้งหมด</option>
+        <option value="yes">ผ่าน min time</option>
+        <option value="no">ยังไม่ผ่าน min time</option>
+      </select>
+
+      <button id="btn-refresh" type="button">รีเฟรช</button>
+      <button id="btn-auto" class="ghost" type="button">Auto refresh: ON</button>
+      <button id="btn-export" class="ghost" type="button">Export CSV</button>
+    </div>
+
+    <div class="quick-filters" id="quick-filters">
+      <button class="quick-chip active" data-qf="all" type="button">ทั้งหมด</button>
+      <button class="quick-chip" data-qf="completed" type="button">Completed</button>
+      <button class="quick-chip" data-qf="not_completed" type="button">Not Completed</button>
+      <button class="quick-chip" data-qf="in_progress" type="button">In Progress</button>
+      <button class="quick-chip" data-qf="min_fail" type="button">Min Time ไม่ผ่าน</button>
+    </div>
+
+    <div class="quick-filters" id="section-chip-row"></div>
+
+    <div class="quick-filters" id="teacher-action-row">
+      <button class="quick-chip" id="btn-show-unfinished" type="button">ยังไม่จบ</button>
+      <button class="quick-chip" id="btn-show-minfail" type="button">ยังไม่ผ่าน min time</button>
+      <button class="quick-chip" id="btn-clear-fastfilters" type="button">ล้างตัวกรองลัด</button>
+      <button class="quick-chip" id="btn-export-section" type="button">Export Section</button>
+    </div>
+
+    <div class="quick-filters view-tabs" id="view-tabs">
+      <button class="quick-chip active" data-view="overview" type="button">Overview</button>
+      <button class="quick-chip" data-view="report" type="button">Report</button>
+      <button class="quick-chip" data-view="students" type="button">Students</button>
+      <button class="quick-chip" data-view="advanced" type="button">Advanced</button>
+      <button class="quick-chip" data-view="all" type="button">Show All</button>
+    </div>
+
+    <div class="panel view-hint" id="view-hint">
+      Overview: ดูภาพรวมเร็ว ๆ สำหรับติดตามชั้นเรียน
+    </div>
+
+    <div class="cards" id="summary-cards">
+      <div class="panel card">
+        <div class="k">Loading</div>
+        <div class="v">...</div>
+      </div>
+    </div>
+
+    <div class="panel report-tools" id="report-tools">
+      <div class="report-title">
         <div>
-          <h1>Teacher Dashboard • Vocab Analytics</h1>
-          <p>
-            ดูภาพรวมทั้งห้อง ติดตามนักศึกษาที่ควรดูแลก่อน เปิดรายละเอียดรายคน
-            และค่อยดู analytics เชิงลึกเท่าที่จำเป็นจาก Google Sheet ชุดเดียวกับเกม vocab
-          </p>
-        </div>
-
-        <div class="heroActions">
-          <button class="btn" id="refreshBtn" type="button">รีเฟรชข้อมูล</button>
-          <button class="btn alt" id="printBtn" type="button">พิมพ์รายงาน</button>
-        </div>
-      </div>
-    </section>
-
-    <div class="status warn" id="statusBox">กำลังโหลดข้อมูล teacher dashboard...</div>
-
-    <section class="toolbar" aria-label="filters">
-      <div class="field">
-        <label for="searchInput">ค้นหา</label>
-        <input id="searchInput" type="search" placeholder="ชื่อ / รหัส / section" />
-      </div>
-
-      <div class="field">
-        <label for="sectionFilter">Section</label>
-        <select id="sectionFilter">
-          <option value="">ทั้งหมด</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="bankFilter">Bank</label>
-        <select id="bankFilter">
-          <option value="">ทั้งหมด</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="modeFilter">Mode</label>
-        <select id="modeFilter">
-          <option value="">ทั้งหมด</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="riskFilter">Risk</label>
-        <select id="riskFilter">
-          <option value="">ทั้งหมด</option>
-          <option value="risk">เฉพาะกลุ่มเสี่ยง</option>
-          <option value="support">ต้องติดตาม</option>
-          <option value="ok">ปกติ</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="sortSelect">เรียงลำดับ</label>
-        <select id="sortSelect">
-          <option value="risk">ความเสี่ยงก่อน</option>
-          <option value="accuracyAsc">Accuracy ต่ำก่อน</option>
-          <option value="scoreDesc">Score สูงก่อน</option>
-          <option value="recent">ล่าสุดก่อน</option>
-          <option value="name">ชื่อ A-Z</option>
-        </select>
-      </div>
-    </section>
-
-    <section class="section actionSummarySection">
-      <div class="sectionHead">
-        <div>
-          <h2>วันนี้ครูควรทำอะไรก่อน</h2>
-          <div class="sectionDesc">สรุป action ที่ควรทำจากข้อมูลล่าสุด เพื่อให้ครูไม่ต้องตีความตัวเลขเองทั้งหมด</div>
-        </div>
-        <span class="badge warn" id="actionSummaryCount">0 งาน</span>
-      </div>
-      <div class="actionSummaryGrid" id="teacherActionList"></div>
-    </section>
-
-    <section class="grid">
-      <div class="kpiGrid">
-        <div class="card">
-          <div class="kpiLabel">นักศึกษาที่มีข้อมูล</div>
-          <div class="kpiValue" id="kpiStudents">0</div>
-          <div class="kpiHelp">จำนวนนักศึกษาที่พบในข้อมูลล่าสุด</div>
-        </div>
-
-        <div class="card">
-          <div class="kpiLabel">รอบเรียนที่บันทึก</div>
-          <div class="kpiValue" id="kpiSessions">0</div>
-          <div class="kpiHelp">จำนวน session ที่ระบบบันทึกแล้ว</div>
-        </div>
-
-        <div class="card">
-          <div class="kpiLabel">ต้องติดตาม</div>
-          <div class="kpiValue" id="kpiSupport">0</div>
-          <div class="kpiHelp">ควรดูแลหรือติดตามเพิ่มก่อน</div>
-        </div>
-
-        <div class="card">
-          <div class="kpiLabel">กลุ่มเสี่ยง</div>
-          <div class="kpiValue" id="kpiRisk">0</div>
-          <div class="kpiHelp">attendance ต่ำหรือ accuracy ต่ำกว่าเกณฑ์</div>
+          <strong>Report Pack r8</strong>
+          <span>สรุปผลสำหรับติดตามและรายงานการเข้าเรียน พร้อมตรวจรายชื่อทั้งห้องจาก class_roster</span>
         </div>
       </div>
 
-      <div class="kpiWideGrid">
-        <div class="card">
-          <div class="kpiLabel">คะแนนเฉลี่ย</div>
-          <div class="kpiValue" id="kpiAvgScore">0</div>
-          <div class="kpiHelp">ค่าเฉลี่ย score จาก session ที่กรองอยู่</div>
-        </div>
+      <input id="filter-date-from" type="date" />
+      <input id="filter-date-to" type="date" />
 
-        <div class="card">
-          <div class="kpiLabel">ความแม่นยำเฉลี่ย</div>
-          <div class="kpiValue" id="kpiAvgAccuracy">0%</div>
-          <div class="kpiHelp">ค่าเฉลี่ย accuracy ของข้อมูลที่กรองอยู่</div>
-        </div>
-      </div>
-    </section>
+      <select id="report-session">
+        <option value="S01">รายงาน S01</option>
+        <option value="S02">รายงาน S02</option>
+        <option value="S03">รายงาน S03</option>
+        <option value="S04">รายงาน S04</option>
+        <option value="S05">รายงาน S05</option>
+        <option value="S06">รายงาน S06</option>
+        <option value="S07">รายงาน S07</option>
+        <option value="S08">รายงาน S08</option>
+        <option value="S09">รายงาน S09</option>
+        <option value="S10">รายงาน S10</option>
+        <option value="S11">รายงาน S11</option>
+        <option value="S12">รายงาน S12</option>
+        <option value="S13">รายงาน S13</option>
+        <option value="S14">รายงาน S14</option>
+        <option value="S15">รายงาน S15</option>
+      </select>
 
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <h2>นักศึกษาที่ควรติดตามก่อน</h2>
-          <div class="sectionDesc">เปิดมาหน้านี้ให้ดูคนที่ควรได้รับการช่วยเหลือหรือติดตามก่อนเป็นอันดับแรก</div>
-        </div>
-        <span class="badge warn" id="priorityCount">0 คน</span>
-      </div>
-      <div class="list" id="priorityList"></div>
-    </section>
+      <input id="report-min-sec" type="number" min="0" value="60" placeholder="Min sec" />
 
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <h2>รายชื่อนักศึกษา</h2>
-          <div class="sectionDesc">ดูสรุปรายคน พร้อมคะแนน ความแม่นยำ โหมดล่าสุด และคำแนะนำต่อไป</div>
-        </div>
-        <span class="badge" id="studentCount">0 คน</span>
-      </div>
-      <div class="list" id="studentList"></div>
-    </section>
+      <button id="btn-report-today" type="button">วันนี้</button>
+      <button id="btn-report-week" type="button">7 วันล่าสุด</button>
+      <button id="btn-export-report" type="button">Export Report</button>
+      <button id="btn-print-report" type="button">Print / PDF</button>
+    </div>
 
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <h2>วิเคราะห์คำศัพท์ที่ควรเสริม</h2>
-          <div class="sectionDesc">ดูคำที่ผิดบ่อย คำที่ตอบช้า หรือคำที่ควรนำไปทบทวนในชั้นเรียน</div>
-        </div>
-        <span class="badge" id="termCount">0 คำ</span>
-      </div>
-      <div class="barBlock" id="hardTerms"></div>
-    </section>
-
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <h2>Mode / Bank Analytics</h2>
-          <div class="sectionDesc">ดูว่าโหมดไหนและ bank ไหนทำคะแนนดีหรือยังต้องเสริม</div>
-        </div>
+    <div class="panel section-panel report-panel" id="report-summary-panel">
+      <div class="section-head">
+        <h2>Report Summary</h2>
+        <div class="section-meta" id="report-meta">กำลังโหลด...</div>
       </div>
 
-      <div class="twoCol">
-        <div>
-          <h3 style="margin:0 0 12px;font-size:20px">Mode Breakdown</h3>
-          <div class="barBlock" id="modeBreakdown"></div>
-        </div>
-        <div>
-          <h3 style="margin:0 0 12px;font-size:20px">Bank Breakdown</h3>
-          <div class="barBlock" id="bankBreakdown"></div>
+      <div class="cards report-cards" id="report-summary-cards">
+        <div class="panel card">
+          <div class="k">Loading</div>
+          <div class="v">...</div>
         </div>
       </div>
-    </section>
+    </div>
 
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <h2>Leaderboard</h2>
-          <div class="sectionDesc">อันดับคะแนนสูงสุดจากแท็บ vocab_leaderboard</div>
-        </div>
-        <span class="badge good" id="leaderCount">0 อันดับ</span>
-      </div>
-      <div class="list" id="leaderList"></div>
-    </section>
-
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <h2>Recent Sessions</h2>
-          <div class="sectionDesc">รอบเล่นล่าสุด ใช้ตรวจสอบว่าข้อมูลเข้า Google Sheet แล้วหรือยัง</div>
-        </div>
-        <span class="badge" id="runCount">0 รอบ</span>
-      </div>
-      <div class="list" id="recentRuns"></div>
-    </section>
-
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <h2>Raw Data Debug</h2>
-          <div class="sectionDesc">ใช้ตรวจตอนข้อมูลยังไม่เข้า dashboard</div>
-        </div>
-        <button class="btn ghost" id="toggleDebugBtn" type="button">แสดง/ซ่อน Debug</button>
-      </div>
-      <pre class="debug hidden" id="debugBox"></pre>
-    </section>
-
-    <div class="drawerBackdrop hidden" id="drawerBackdrop"></div>
-
-    <aside class="studentDrawer hidden" id="studentDrawer" aria-label="student detail">
-      <div class="drawerPanel">
-        <div class="drawerHead">
-          <div>
-            <div class="badge" id="drawerRiskBadge">DETAIL</div>
-            <h2 id="drawerTitle">Student Detail</h2>
-            <div class="sectionDesc" id="drawerSubtitle">รายละเอียดรายคน</div>
-          </div>
-          <button class="btn ghost" id="drawerCloseBtn" type="button">ปิด</button>
+    <div class="heatmap-row report-panel">
+      <div class="panel risk-panel">
+        <div class="section-head">
+          <h2>Missing / Not Completed Report</h2>
+          <div class="section-meta" id="missing-meta">กำลังโหลด...</div>
         </div>
 
-        <div class="drawerGrid">
-          <div class="card">
-            <div class="kpiLabel">Score</div>
-            <div class="kpiValue" id="drawerScore">0</div>
-            <div class="kpiHelp">คะแนนล่าสุด/ดีที่สุดที่พบ</div>
-          </div>
-
-          <div class="card">
-            <div class="kpiLabel">Accuracy</div>
-            <div class="kpiValue" id="drawerAccuracy">0%</div>
-            <div class="kpiHelp">ความแม่นยำล่าสุด</div>
-          </div>
-
-          <div class="card">
-            <div class="kpiLabel">Sessions</div>
-            <div class="kpiValue" id="drawerSessions">0</div>
-            <div class="kpiHelp">จำนวนรอบที่บันทึก</div>
-          </div>
-
-          <div class="card">
-            <div class="kpiLabel">Wrong Rate</div>
-            <div class="kpiValue" id="drawerWrongRate">0%</div>
-            <div class="kpiHelp">อัตราตอบผิดจาก answers</div>
-          </div>
-        </div>
-
-        <div class="drawerSection">
-          <h3>คำแนะนำสำหรับครู</h3>
-          <div class="empty" id="drawerActionText">-</div>
-        </div>
-
-        <div class="drawerSection">
-          <h3>คำศัพท์ที่ควรทบทวนรายคน</h3>
-          <div class="barBlock" id="drawerWeakTerms"></div>
-        </div>
-
-        <div class="drawerSection">
-          <h3>Recent Sessions ของคนนี้</h3>
-          <div class="list" id="drawerRecentSessions"></div>
+        <div class="risk-wrap">
+          <table class="risk-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Section</th>
+                <th>Target S</th>
+                <th>Reason</th>
+                <th>Duration</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="missing-tbody">
+              <tr><td colspan="6">Loading...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
-    </aside>
-  </main>
 
-  <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
-
-    const state = {
-      raw: null,
-      normalized: {
-        students: [],
-        sessions: [],
-        termAnswers: [],
-        leaderboard: [],
-        debugShape: {}
-      },
-      rows: [],
-      filters: {
-        search: '',
-        section: '',
-        bank: '',
-        mode: '',
-        risk: '',
-        sort: 'risk'
-      }
-    };
-
-    const els = {
-      statusBox: document.getElementById('statusBox'),
-      refreshBtn: document.getElementById('refreshBtn'),
-      printBtn: document.getElementById('printBtn'),
-      searchInput: document.getElementById('searchInput'),
-      sectionFilter: document.getElementById('sectionFilter'),
-      bankFilter: document.getElementById('bankFilter'),
-      modeFilter: document.getElementById('modeFilter'),
-      riskFilter: document.getElementById('riskFilter'),
-      sortSelect: document.getElementById('sortSelect'),
-
-      actionSummaryCount: document.getElementById('actionSummaryCount'),
-      teacherActionList: document.getElementById('teacherActionList'),
-
-      kpiStudents: document.getElementById('kpiStudents'),
-      kpiSessions: document.getElementById('kpiSessions'),
-      kpiSupport: document.getElementById('kpiSupport'),
-      kpiRisk: document.getElementById('kpiRisk'),
-      kpiAvgScore: document.getElementById('kpiAvgScore'),
-      kpiAvgAccuracy: document.getElementById('kpiAvgAccuracy'),
-
-      priorityCount: document.getElementById('priorityCount'),
-      priorityList: document.getElementById('priorityList'),
-      studentCount: document.getElementById('studentCount'),
-      studentList: document.getElementById('studentList'),
-      termCount: document.getElementById('termCount'),
-      hardTerms: document.getElementById('hardTerms'),
-      modeBreakdown: document.getElementById('modeBreakdown'),
-      bankBreakdown: document.getElementById('bankBreakdown'),
-      leaderCount: document.getElementById('leaderCount'),
-      leaderList: document.getElementById('leaderList'),
-      runCount: document.getElementById('runCount'),
-      recentRuns: document.getElementById('recentRuns'),
-      toggleDebugBtn: document.getElementById('toggleDebugBtn'),
-      debugBox: document.getElementById('debugBox'),
-
-      drawerBackdrop: document.getElementById('drawerBackdrop'),
-      studentDrawer: document.getElementById('studentDrawer'),
-      drawerCloseBtn: document.getElementById('drawerCloseBtn'),
-      drawerRiskBadge: document.getElementById('drawerRiskBadge'),
-      drawerTitle: document.getElementById('drawerTitle'),
-      drawerSubtitle: document.getElementById('drawerSubtitle'),
-      drawerScore: document.getElementById('drawerScore'),
-      drawerAccuracy: document.getElementById('drawerAccuracy'),
-      drawerSessions: document.getElementById('drawerSessions'),
-      drawerWrongRate: document.getElementById('drawerWrongRate'),
-      drawerActionText: document.getElementById('drawerActionText'),
-      drawerWeakTerms: document.getElementById('drawerWeakTerms'),
-      drawerRecentSessions: document.getElementById('drawerRecentSessions')
-    };
-
-    function showStatus(message, type = 'ok') {
-      els.statusBox.className = 'status ' + type;
-      els.statusBox.textContent = message;
-    }
-
-    function text(v) {
-      return String(v ?? '').trim();
-    }
-
-    function cleanKey(k) {
-      return String(k || '')
-        .toLowerCase()
-        .replace(/[\s\-]+/g, '_')
-        .replace(/[^\w]/g, '');
-    }
-
-    function num(v) {
-      if (v === true) return 1;
-      if (v === false) return 0;
-      const n = Number(String(v ?? '').replace('%','').trim());
-      return Number.isFinite(n) ? n : 0;
-    }
-
-    function safeDate(v) {
-      const s = text(v);
-      if (!s) return null;
-      const d = new Date(s);
-      return isNaN(d.getTime()) ? null : d;
-    }
-
-    function dateLabel(v) {
-      const d = safeDate(v);
-      if (!d) return '-';
-
-      return d.toLocaleString('th-TH', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      });
-    }
-
-    function escapeHtml(v) {
-      return String(v ?? '')
-        .replaceAll('&','&amp;')
-        .replaceAll('<','&lt;')
-        .replaceAll('>','&gt;')
-        .replaceAll('"','&quot;')
-        .replaceAll("'","&#039;");
-    }
-
-    async function fetchJson(url, options) {
-      const res = await fetch(url, options || {});
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + url);
-
-      const txt = await res.text();
-
-      try {
-        return JSON.parse(txt);
-      } catch (err) {
-        throw new Error('Invalid JSON: ' + txt.slice(0, 240));
-      }
-    }
-
-    function is2dArray(arr) {
-      return Array.isArray(arr) && Array.isArray(arr[0]);
-    }
-
-    function rowsToObjects(arr) {
-      if (!is2dArray(arr) || arr.length < 2) return arr;
-
-      const headers = arr[0].map(h => cleanKey(h));
-
-      return arr.slice(1)
-        .filter(row => Array.isArray(row) && row.some(v => text(v) !== ''))
-        .map(row => {
-          const obj = {};
-          headers.forEach((h, i) => {
-            if (h) obj[h] = row[i] ?? '';
-          });
-          return obj;
-        });
-    }
-
-    function normalizeArray(arr) {
-      if (!Array.isArray(arr)) return [];
-      const converted = rowsToObjects(arr);
-      return Array.isArray(converted) ? converted : [];
-    }
-
-    function collectArraysDeep(obj, path = '', out = []) {
-      if (!obj || typeof obj !== 'object') return out;
-
-      if (Array.isArray(obj)) {
-        out.push({ path, rows: normalizeArray(obj) });
-        return out;
-      }
-
-      Object.keys(obj).forEach(key => {
-        collectArraysDeep(obj[key], path ? path + '.' + key : key, out);
-      });
-
-      return out;
-    }
-
-    function hasDashboardArrays(data) {
-      const root = data?.data || data?.payload || data?.result || data || {};
-      const arrays = collectArraysDeep(root);
-      return arrays.some(item => item.rows && item.rows.length);
-    }
-
-    async function requestTeacherData() {
-      const pageParams = new URLSearchParams(location.search);
-      const requestedAction = pageParams.get('action') || 'teacher_dashboard_get';
-
-      const envelope = (action) => JSON.stringify({
-        api: 'vocab',
-        source: 'teacher.html',
-        schema: 'teacher-dashboard-v3',
-        action,
-        timestamp: new Date().toISOString(),
-        payload: {
-          api: 'vocab',
-          action
-        }
-      });
-
-      const withApiUrl = (action) =>
-        API_URL +
-        '?api=vocab' +
-        '&action=' + encodeURIComponent(action) +
-        '&t=' + Date.now();
-
-      const tries = [
-        {
-          label: 'GET api=vocab ' + requestedAction,
-          run: () => fetchJson(withApiUrl(requestedAction), { method:'GET', cache:'no-store' })
-        },
-        {
-          label: 'GET api=vocab teacher_dashboard_get',
-          run: () => fetchJson(withApiUrl('teacher_dashboard_get'), { method:'GET', cache:'no-store' })
-        },
-        {
-          label: 'GET api=vocab teacher_dashboard',
-          run: () => fetchJson(withApiUrl('teacher_dashboard'), { method:'GET', cache:'no-store' })
-        },
-        {
-          label: 'GET api=vocab dashboard',
-          run: () => fetchJson(withApiUrl('dashboard'), { method:'GET', cache:'no-store' })
-        },
-        {
-          label: 'POST api=vocab teacher_dashboard_get',
-          run: () => fetchJson(API_URL + '?api=vocab&t=' + Date.now(), {
-            method:'POST',
-            headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-            body: envelope('teacher_dashboard_get')
-          })
-        },
-        {
-          label: 'POST api=vocab teacher_dashboard',
-          run: () => fetchJson(API_URL + '?api=vocab&t=' + Date.now(), {
-            method:'POST',
-            headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-            body: envelope('teacher_dashboard')
-          })
-        },
-        {
-          label: 'GET api=vocab raw',
-          run: () => fetchJson(API_URL + '?api=vocab&t=' + Date.now(), { method:'GET', cache:'no-store' })
-        }
-      ];
-
-      let lastData = null;
-      let lastErr = null;
-
-      for (const item of tries) {
-        try {
-          const data = await item.run();
-
-          if (data) {
-            data.__usedAction = item.label;
-            lastData = data;
-
-            if (hasDashboardArrays(data)) {
-              window.__TEACHER_RAW__ = data;
-              window.__TEACHER_USED_ACTION__ = item.label;
-              return data;
-            }
-
-            console.warn('Teacher dashboard response has no arrays, continue:', item.label, data);
-          }
-        } catch (err) {
-          lastErr = err;
-          console.warn('Teacher dashboard fetch failed:', item.label, err);
-        }
-      }
-
-      if (lastData) {
-        window.__TEACHER_RAW__ = lastData;
-        window.__TEACHER_USED_ACTION__ = lastData.__usedAction || 'lastData';
-        return lastData;
-      }
-
-      throw lastErr || new Error('Cannot load teacher dashboard data');
-    }
-
-    function keysOfRows(rows) {
-      const set = new Set();
-
-      rows.slice(0, 8).forEach(row => {
-        if (row && typeof row === 'object' && !Array.isArray(row)) {
-          Object.keys(row).forEach(k => set.add(cleanKey(k)));
-        }
-      });
-
-      return Array.from(set);
-    }
-
-    function hasAny(keys, candidates) {
-      return candidates.some(k => keys.includes(k));
-    }
-
-    function classifyRows(path, rows) {
-      const p = cleanKey(path);
-      const keys = keysOfRows(rows);
-
-      const studentHints = [
-        'student_id','display_name','last_session_id','last_bank','last_mode',
-        'last_score','last_accuracy','recommended_mode','recommended_difficulty',
-        'weak_terms_json','mastery_json'
-      ];
-
-      const sessionHints = [
-        'session_id','display_name','student_id','section','session_code',
-        'bank','mode','started_at','ended_at','duration_sec','score','accuracy','mistakes'
-      ];
-
-      const answerHints = [
-        'term_id','term','variant_type','is_correct','level_before','level_after',
-        'response_ms','stage_index','from_review'
-      ];
-
-      if (
-        p.includes('student') ||
-        p.includes('profile') ||
-        hasAny(keys, ['last_session_id','last_accuracy','recommended_mode','mastery_json','weak_terms_json'])
-      ) {
-        return 'students';
-      }
-
-      if (
-        p.includes('term') ||
-        p.includes('answer') ||
-        p.includes('event') ||
-        hasAny(keys, ['term_id','term','variant_type','is_correct','response_ms','stage_index'])
-      ) {
-        return 'termAnswers';
-      }
-
-      if (
-        p.includes('leader') ||
-        hasAny(keys, ['best_score','best_accuracy','best_session_id','runs'])
-      ) {
-        return 'leaderboard';
-      }
-
-      if (
-        p.includes('session') ||
-        hasAny(keys, ['session_id','started_at','ended_at','duration_sec','score','accuracy'])
-      ) {
-        return 'sessions';
-      }
-
-      const studentScore = studentHints.filter(k => keys.includes(k)).length;
-      const sessionScore = sessionHints.filter(k => keys.includes(k)).length;
-      const answerScore = answerHints.filter(k => keys.includes(k)).length;
-      const max = Math.max(studentScore, sessionScore, answerScore);
-
-      if (!max) return '';
-      if (max === answerScore) return 'termAnswers';
-      if (max === studentScore) return 'students';
-      return 'sessions';
-    }
-
-    function normalizeDashboardPayload(data) {
-      const root = data?.data || data?.payload || data?.result || data || {};
-      const arrays = collectArraysDeep(root);
-
-      const result = {
-        students: [],
-        sessions: [],
-        termAnswers: [],
-        leaderboard: [],
-        debugShape: {
-          usedAction: data?.__usedAction || '',
-          rootKeys: Object.keys(root || {}),
-          arraysFound: arrays.map(item => ({
-            path: item.path,
-            length: item.rows.length,
-            keys: keysOfRows(item.rows).slice(0, 30)
-          }))
-        }
-      };
-
-      arrays.forEach(item => {
-        if (!item.rows.length) return;
-        const type = classifyRows(item.path, item.rows);
-
-        if (type === 'students' && !result.students.length) result.students = item.rows;
-        if (type === 'sessions' && !result.sessions.length) result.sessions = item.rows;
-        if (type === 'termAnswers' && !result.termAnswers.length) result.termAnswers = item.rows;
-        if (type === 'leaderboard' && !result.leaderboard.length) result.leaderboard = item.rows;
-      });
-
-      window.__TEACHER_NORMALIZED__ = result;
-      return result;
-    }
-
-    function getRowId(row) {
-      const studentId = text(row.student_id || row.studentId || row.sid);
-      const name = text(row.display_name || row.displayName || row.name || row.nick);
-      return studentId || name || 'unknown';
-    }
-
-    function getDisplayName(row) {
-      return text(row.display_name || row.displayName || row.name || row.nick || row.student_id || 'Unknown');
-    }
-
-    function getSection(row) {
-      return text(row.section || row.class_section || row.group || '-');
-    }
-
-    function latestBy(arr, fnDate) {
-      return arr.slice().sort((a,b) => {
-        const da = safeDate(fnDate(a));
-        const db = safeDate(fnDate(b));
-        return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
-      })[0] || null;
-    }
-
-    function buildStudentRows(normalized) {
-      const byId = new Map();
-
-      function ensure(id, seed = {}) {
-        const key = id || getRowId(seed);
-
-        if (!byId.has(key)) {
-          byId.set(key, {
-            id: key,
-            display_name: getDisplayName(seed),
-            student_id: text(seed.student_id || seed.studentId || seed.sid || ''),
-            section: getSection(seed),
-            sessions: [],
-            answers: [],
-            profile: null,
-            leaderboard: null
-          });
-        }
-
-        const row = byId.get(key);
-
-        if (seed) {
-          if (!row.display_name || row.display_name === 'Unknown') row.display_name = getDisplayName(seed);
-          if (!row.student_id) row.student_id = text(seed.student_id || seed.studentId || seed.sid || '');
-          if (!row.section || row.section === '-') row.section = getSection(seed);
-        }
-
-        return row;
-      }
-
-      normalized.students.forEach(p => {
-        const id = getRowId(p);
-        const r = ensure(id, p);
-        r.profile = p;
-      });
-
-      normalized.sessions.forEach(s => {
-        const id = getRowId(s);
-        const r = ensure(id, s);
-        r.sessions.push(s);
-      });
-
-      normalized.termAnswers.forEach(a => {
-        const id = getRowId(a);
-        const r = ensure(id, a);
-        r.answers.push(a);
-      });
-
-      normalized.leaderboard.forEach(l => {
-        const id = getRowId(l);
-        const r = ensure(id, l);
-        r.leaderboard = l;
-      });
-
-      return Array.from(byId.values()).map(r => {
-        const latestSession = latestBy(r.sessions, x => x.ended_at || x.started_at || x.timestamp);
-        const profile = r.profile || {};
-        const leaderboard = r.leaderboard || {};
-
-        const score = num(
-          profile.last_score ||
-          latestSession?.score ||
-          leaderboard.best_score ||
-          0
-        );
-
-        const accuracy = num(
-          profile.last_accuracy ||
-          latestSession?.accuracy ||
-          leaderboard.best_accuracy ||
-          0
-        );
-
-        const lastMode = text(profile.last_mode || latestSession?.mode || leaderboard.mode || '-');
-        const lastBank = text(profile.last_bank || latestSession?.bank || leaderboard.bank || '-');
-        const lastSessionId = text(profile.last_session_id || latestSession?.session_id || leaderboard.best_session_id || '-');
-        const lastSeen = text(profile.last_seen_at || latestSession?.ended_at || latestSession?.started_at || latestSession?.timestamp || leaderboard.updated_at || '');
-
-        const attendance = r.sessions.length;
-        const answerCount = r.answers.length;
-        const wrongCount = r.answers.filter(a => String(a.is_correct).toLowerCase() === 'false' || a.is_correct === false).length;
-        const wrongRate = answerCount ? (wrongCount / answerCount) * 100 : 0;
-
-        const riskReasons = [];
-        const supportReasons = [];
-
-        if (!attendance) {
-          riskReasons.push('ยังไม่มี session ที่บันทึก');
-        }
-
-        if (accuracy > 0 && accuracy < 50) {
-          riskReasons.push('accuracy ต่ำกว่า 50%');
-        }
-
-        if (answerCount >= 10 && wrongRate >= 35) {
-          riskReasons.push('ตอบผิดมากกว่า 35%');
-        }
-
-        if (attendance > 0 && attendance < 2) {
-          supportReasons.push('จำนวนรอบเล่นยังน้อย');
-        }
-
-        if (accuracy >= 50 && accuracy < 70) {
-          supportReasons.push('accuracy ยังต่ำกว่า 70%');
-        }
-
-        if (score > 0 && score < 60) {
-          supportReasons.push('score ยังต่ำกว่า 60');
-        }
-
-        if (answerCount >= 5 && wrongRate >= 20 && wrongRate < 35) {
-          supportReasons.push('มีคำผิดที่ควรทบทวน');
-        }
-
-        let riskLevel = 'ok';
-        let action = 'ติดตามตามปกติ: ให้เล่นต่อเพื่อสะสมข้อมูลและดูแนวโน้ม';
-
-        if (riskReasons.length) {
-          riskLevel = 'risk';
-          action = 'ควรติดตามก่อน: ' + riskReasons.join(' / ');
-        } else if (supportReasons.length) {
-          riskLevel = 'support';
-          action = 'ควรเสริม: ' + supportReasons.join(' / ');
-        }
-
-        return {
-          ...r,
-          latestSession,
-          score,
-          accuracy,
-          lastMode,
-          lastBank,
-          lastSessionId,
-          lastSeen,
-          attendance,
-          answerCount,
-          wrongCount,
-          wrongRate,
-          riskLevel,
-          action
-        };
-      });
-    }
-
-    function applyFilters(rows) {
-      const q = state.filters.search.toLowerCase();
-
-      let out = rows.filter(r => {
-        const bag = [
-          r.display_name,
-          r.student_id,
-          r.section,
-          r.lastMode,
-          r.lastBank
-        ].join(' ').toLowerCase();
-
-        if (q && !bag.includes(q)) return false;
-        if (state.filters.section && r.section !== state.filters.section) return false;
-        if (state.filters.bank && r.lastBank !== state.filters.bank) return false;
-        if (state.filters.mode && r.lastMode !== state.filters.mode) return false;
-        if (state.filters.risk && r.riskLevel !== state.filters.risk) return false;
-
-        return true;
-      });
-
-      out.sort((a,b) => {
-        if (state.filters.sort === 'accuracyAsc') return a.accuracy - b.accuracy;
-
-        if (state.filters.sort === 'scoreDesc') return b.score - a.score;
-
-        if (state.filters.sort === 'recent') {
-          const da = safeDate(a.lastSeen);
-          const db = safeDate(b.lastSeen);
-          return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
-        }
-
-        if (state.filters.sort === 'name') return a.display_name.localeCompare(b.display_name);
-
-        const rank = { risk:0, support:1, ok:2 };
-        return (rank[a.riskLevel] ?? 9) - (rank[b.riskLevel] ?? 9);
-      });
-
-      return out;
-    }
-
-    function uniqueOptions(rows, key) {
-      return Array.from(new Set(rows.map(r => text(r[key])).filter(v => v && v !== '-'))).sort();
-    }
-
-    function fillSelect(select, values) {
-      const current = select.value;
-      select.innerHTML = '<option value="">ทั้งหมด</option>' + values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-      if (values.includes(current)) select.value = current;
-    }
-
-    function renderFilters(rows) {
-      fillSelect(els.sectionFilter, uniqueOptions(rows, 'section'));
-      fillSelect(els.bankFilter, uniqueOptions(rows, 'lastBank'));
-      fillSelect(els.modeFilter, uniqueOptions(rows, 'lastMode'));
-    }
-
-    function average(arr) {
-      if (!arr.length) return 0;
-      return arr.reduce((s,n) => s + num(n), 0) / arr.length;
-    }
-
-    function renderKpis(rows, normalized) {
-      const risk = rows.filter(r => r.riskLevel === 'risk').length;
-      const support = rows.filter(r => r.riskLevel === 'support').length;
-      const avgScore = average(rows.map(r => r.score));
-      const avgAcc = average(rows.map(r => r.accuracy));
-
-      els.kpiStudents.textContent = rows.length;
-      els.kpiSessions.textContent = normalized.sessions.length;
-      els.kpiSupport.textContent = support;
-      els.kpiRisk.textContent = risk;
-      els.kpiAvgScore.textContent = Math.round(avgScore);
-      els.kpiAvgAccuracy.textContent = Math.round(avgAcc) + '%';
-    }
-
-    function riskBadge(level) {
-      if (level === 'risk') return '<span class="badge bad">กลุ่มเสี่ยง</span>';
-      if (level === 'support') return '<span class="badge warn">ต้องติดตาม</span>';
-      return '<span class="badge good">ปกติ</span>';
-    }
-
-    function studentCard(r) {
-      const reasonChips = [
-        `Sessions ${r.attendance}`,
-        `Accuracy ${Math.round(r.accuracy)}%`,
-        `Wrong ${r.wrongCount}/${r.answerCount}`,
-        `Wrong rate ${Math.round(r.wrongRate || 0)}%`
-      ];
-
-      const reasonHtml = `
-        <div class="chipRow">
-          ${reasonChips.map(chip => `<span class="badge">${escapeHtml(chip)}</span>`).join('')}
+      <div class="panel risk-panel">
+        <div class="section-head">
+          <h2>Per Student Progress</h2>
+          <div class="section-meta" id="progress-meta">กำลังโหลด...</div>
         </div>
-      `;
 
-      return `
-        <article class="studentCard" data-student-id="${escapeHtml(r.id)}" tabindex="0" role="button">
-          <div class="studentTop">
-            <div>
-              <div class="name">${escapeHtml(r.display_name)}</div>
-              <div class="meta">
-                Student ID: ${escapeHtml(r.student_id || '-')} • Section: ${escapeHtml(r.section || '-')}<br>
-                Last: ${escapeHtml(r.lastBank)} / ${escapeHtml(r.lastMode)} • ${escapeHtml(dateLabel(r.lastSeen))}
-              </div>
-            </div>
-            ${riskBadge(r.riskLevel)}
-          </div>
-
-          <div class="miniStats">
-            <div class="mini">
-              <div class="label">Score</div>
-              <div class="value">${escapeHtml(Math.round(r.score))}</div>
-            </div>
-            <div class="mini">
-              <div class="label">Accuracy</div>
-              <div class="value">${escapeHtml(Math.round(r.accuracy))}%</div>
-            </div>
-            <div class="mini">
-              <div class="label">Sessions</div>
-              <div class="value">${escapeHtml(r.attendance)}</div>
-            </div>
-            <div class="mini">
-              <div class="label">Wrong</div>
-              <div class="value">${escapeHtml(r.wrongCount)}</div>
-            </div>
-          </div>
-
-          ${reasonHtml}
-
-          <div class="meta" style="margin-top:12px">
-            <strong>Action:</strong> ${escapeHtml(r.action)}
-          </div>
-
-          <div class="detailHint">กดเพื่อเปิดรายละเอียดรายคน →</div>
-        </article>
-      `;
-    }
-
-    function renderStudents(rows) {
-      const filtered = applyFilters(rows);
-      const priority = filtered.filter(r => r.riskLevel === 'risk' || r.riskLevel === 'support');
-
-      els.priorityCount.textContent = priority.length + ' คน';
-      els.studentCount.textContent = filtered.length + ' คน';
-
-      els.priorityList.innerHTML = priority.length
-        ? priority.slice(0, 8).map(studentCard).join('')
-        : '<div class="empty">ยังไม่พบนักศึกษาที่ต้องติดตามจากตัวกรองปัจจุบัน</div>';
-
-      els.studentList.innerHTML = filtered.length
-        ? filtered.map(studentCard).join('')
-        : '<div class="empty">ยังไม่พบข้อมูลนักศึกษาจากตัวกรองปัจจุบัน</div>';
-    }
-
-    function groupStats(rows, key) {
-      const map = new Map();
-
-      rows.forEach(r => {
-        const k = text(r[key] || '-');
-        if (!map.has(k)) map.set(k, []);
-        map.get(k).push(r);
-      });
-
-      return Array.from(map.entries()).map(([name, list]) => ({
-        name,
-        count: list.length,
-        avgScore: average(list.map(r => r.score)),
-        avgAccuracy: average(list.map(r => r.accuracy))
-      })).sort((a,b) => b.count - a.count);
-    }
-
-    function renderBarList(el, items, metric = 'avgAccuracy') {
-      if (!items.length) {
-        el.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
-        return;
-      }
-
-      const max = Math.max(...items.map(i => num(i[metric])), 1);
-
-      el.innerHTML = items.map(item => {
-        const value = num(item[metric]);
-        const w = Math.max(4, Math.min(100, value / max * 100));
-        const tone = value >= 80 ? 'good' : value >= 60 ? 'warn' : 'bad';
-
-        return `
-          <div class="barRow">
-            <div class="barHead">
-              <div class="barName">${escapeHtml(item.name)}</div>
-              <div class="barMeta">
-                ${escapeHtml(item.count)} คน/รอบ<br>
-                Score ${escapeHtml(Math.round(item.avgScore || 0))} • Acc ${escapeHtml(Math.round(item.avgAccuracy || 0))}%
-              </div>
-            </div>
-            <div class="track">
-              <div class="fill ${tone}" style="width:${w}%"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderBreakdowns(rows) {
-      renderBarList(els.modeBreakdown, groupStats(rows, 'lastMode'));
-      renderBarList(els.bankBreakdown, groupStats(rows, 'lastBank'));
-    }
-
-    function termStats(termAnswers) {
-      const map = new Map();
-
-      termAnswers.forEach(a => {
-        const term = text(a.term || a.term_id || a.word || a.vocab || '-');
-        if (!term || term === '-') return;
-
-        if (!map.has(term)) {
-          map.set(term, {
-            name: term,
-            seen: 0,
-            correct: 0,
-            wrong: 0,
-            avgMs: 0,
-            totalMs: 0
-          });
-        }
-
-        const row = map.get(term);
-        row.seen++;
-
-        const correct = a.is_correct === true || String(a.is_correct).toLowerCase() === 'true';
-
-        if (correct) row.correct++;
-        else row.wrong++;
-
-        const ms = num(a.response_ms || a.responseMs || 0);
-        row.totalMs += ms;
-        row.avgMs = row.seen ? row.totalMs / row.seen : 0;
-      });
-
-      return Array.from(map.values()).map(t => ({
-        ...t,
-        avgAccuracy: t.seen ? (t.correct / t.seen) * 100 : 0,
-        avgScore: t.wrong
-      })).sort((a,b) => {
-        if (b.wrong !== a.wrong) return b.wrong - a.wrong;
-        return a.avgAccuracy - b.avgAccuracy;
-      });
-    }
-
-    function renderTerms(termAnswers) {
-      const terms = termStats(termAnswers);
-      els.termCount.textContent = terms.length + ' คำ';
-
-      if (!terms.length) {
-        els.hardTerms.innerHTML = '<div class="empty">ยังไม่มีข้อมูล term answers</div>';
-        return;
-      }
-
-      const maxWrong = Math.max(...terms.map(t => t.wrong), 1);
-
-      els.hardTerms.innerHTML = terms.slice(0, 12).map(t => {
-        const w = Math.max(4, Math.min(100, t.wrong / maxWrong * 100));
-        const tone = t.wrong >= 3 ? 'bad' : t.wrong >= 1 ? 'warn' : 'good';
-
-        return `
-          <div class="barRow">
-            <div class="barHead">
-              <div class="barName">${escapeHtml(t.name)}</div>
-              <div class="barMeta">
-                wrong ${escapeHtml(t.wrong)} / seen ${escapeHtml(t.seen)}<br>
-                accuracy ${escapeHtml(Math.round(t.avgAccuracy))}%
-              </div>
-            </div>
-            <div class="track">
-              <div class="fill ${tone}" style="width:${w}%"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderLeaderboard(leaderboard) {
-      const rows = leaderboard.slice().sort((a,b) => num(b.best_score || b.score) - num(a.best_score || a.score));
-      els.leaderCount.textContent = rows.length + ' อันดับ';
-
-      if (!rows.length) {
-        els.leaderList.innerHTML = '<div class="empty">ยังไม่มีข้อมูล leaderboard</div>';
-        return;
-      }
-
-      els.leaderList.innerHTML = rows.slice(0, 10).map((r, i) => `
-        <article class="leaderCard">
-          <div class="leaderTop">
-            <div>
-              <div class="name">#${i + 1} ${escapeHtml(getDisplayName(r))}</div>
-              <div class="meta">
-                ${escapeHtml(text(r.bank || '-'))} • ${escapeHtml(text(r.mode || '-'))}
-                • Section ${escapeHtml(getSection(r))}
-              </div>
-            </div>
-            <span class="badge good">${escapeHtml(num(r.best_score || r.score))} pts</span>
-          </div>
-
-          <div class="miniStats">
-            <div class="mini">
-              <div class="label">Best Score</div>
-              <div class="value">${escapeHtml(num(r.best_score || r.score))}</div>
-            </div>
-            <div class="mini">
-              <div class="label">Accuracy</div>
-              <div class="value">${escapeHtml(Math.round(num(r.best_accuracy || r.accuracy)))}%</div>
-            </div>
-            <div class="mini">
-              <div class="label">Runs</div>
-              <div class="value">${escapeHtml(num(r.runs || 1))}</div>
-            </div>
-            <div class="mini">
-              <div class="label">Updated</div>
-              <div class="value" style="font-size:12px;line-height:1.2">${escapeHtml(dateLabel(r.updated_at || r.timestamp))}</div>
-            </div>
-          </div>
-        </article>
-      `).join('');
-    }
-
-    function renderRecentRuns(sessions) {
-      const rows = sessions.slice().sort((a,b) => {
-        const da = safeDate(a.ended_at || a.started_at || a.timestamp);
-        const db = safeDate(b.ended_at || b.started_at || b.timestamp);
-        return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
-      });
-
-      els.runCount.textContent = rows.length + ' รอบ';
-
-      if (!rows.length) {
-        els.recentRuns.innerHTML = '<div class="empty">ยังไม่มี session rows</div>';
-        return;
-      }
-
-      els.recentRuns.innerHTML = rows.slice(0, 12).map(r => `
-        <article class="runCard">
-          <div class="runTop">
-            <div>
-              <div class="name">${escapeHtml(getDisplayName(r))}</div>
-              <div class="meta">
-                ${escapeHtml(text(r.bank || '-'))} • ${escapeHtml(text(r.mode || '-'))}
-                • ${escapeHtml(text(r.session_code || '-'))}<br>
-                ${escapeHtml(dateLabel(r.ended_at || r.started_at || r.timestamp))}
-              </div>
-            </div>
-            <span class="badge">${escapeHtml(text(r.session_id || '-'))}</span>
-          </div>
-
-          <div class="miniStats">
-            <div class="mini">
-              <div class="label">Score</div>
-              <div class="value">${escapeHtml(num(r.score))}</div>
-            </div>
-            <div class="mini">
-              <div class="label">Accuracy</div>
-              <div class="value">${escapeHtml(Math.round(num(r.accuracy)))}%</div>
-            </div>
-            <div class="mini">
-              <div class="label">Duration</div>
-              <div class="value">${escapeHtml(num(r.duration_sec))}s</div>
-            </div>
-            <div class="mini">
-              <div class="label">Mistakes</div>
-              <div class="value">${escapeHtml(num(r.mistakes))}</div>
-            </div>
-          </div>
-        </article>
-      `).join('');
-    }
-
-    function buildTeacherActions(rows, normalized) {
-      const actions = [];
-
-      const riskRows = rows.filter(r => r.riskLevel === 'risk');
-      const supportRows = rows.filter(r => r.riskLevel === 'support');
-      const hardTerms = termStats(normalized.termAnswers).slice(0, 5);
-
-      if (riskRows.length) {
-        actions.push({
-          tone: 'bad',
-          icon: '🚨',
-          title: 'ติดตามกลุ่มเสี่ยงก่อน',
-          text: `มีนักศึกษา ${riskRows.length} คนที่ควรดูแลก่อน โดยดูจาก accuracy, wrong rate หรือจำนวนรอบเล่น`,
-          chips: riskRows.slice(0, 3).map(r => r.display_name)
-        });
-      }
-
-      if (supportRows.length) {
-        actions.push({
-          tone: 'warn',
-          icon: '🧭',
-          title: 'ให้ฝึกเสริมรายคน',
-          text: `มี ${supportRows.length} คนที่ควรให้เล่นซ้ำหรือทบทวนคำศัพท์เฉพาะจุด`,
-          chips: supportRows.slice(0, 3).map(r => r.display_name)
-        });
-      }
-
-      if (hardTerms.length) {
-        actions.push({
-          tone: 'warn',
-          icon: '📌',
-          title: 'ทบทวนคำศัพท์ทั้งห้อง',
-          text: `คำที่ควรหยิบมาสอนซ้ำ: ${hardTerms.map(t => t.name).join(', ')}`,
-          chips: hardTerms.slice(0, 4).map(t => `${t.name} (${t.wrong})`)
-        });
-      }
-
-      const avgAcc = average(rows.map(r => r.accuracy));
-
-      if (rows.length && avgAcc >= 80) {
-        actions.push({
-          tone: 'good',
-          icon: '🌟',
-          title: 'ภาพรวมห้องทำได้ดี',
-          text: `ค่าเฉลี่ย accuracy ประมาณ ${Math.round(avgAcc)}% สามารถเพิ่มความท้าทายหรือใช้โหมด Speed Run ได้`,
-          chips: ['เพิ่ม difficulty', 'ใช้ challenge mode']
-        });
-      }
-
-      if (!actions.length) {
-        actions.push({
-          tone: 'good',
-          icon: '✅',
-          title: 'ยังไม่มีงานเร่งด่วน',
-          text: 'ข้อมูลยังไม่พบกลุ่มที่ต้องติดตามเป็นพิเศษ ให้เก็บข้อมูลต่ออีก 1–2 รอบ',
-          chips: ['เก็บข้อมูลต่อ', 'ดูแนวโน้ม']
-        });
-      }
-
-      return actions;
-    }
-
-    function renderTeacherActions(rows, normalized) {
-      const actions = buildTeacherActions(rows, normalized);
-      els.actionSummaryCount.textContent = actions.length + ' งาน';
-
-      els.teacherActionList.innerHTML = actions.map(a => `
-        <article class="actionCard ${escapeHtml(a.tone)}">
-          <div class="actionIcon">${escapeHtml(a.icon)}</div>
-          <div class="actionTitle">${escapeHtml(a.title)}</div>
-          <div class="actionText">${escapeHtml(a.text)}</div>
-          <div class="actionMeta">
-            ${(a.chips || []).map(ch => `<span class="badge">${escapeHtml(ch)}</span>`).join('')}
-          </div>
-        </article>
-      `).join('');
-    }
-
-    function renderDebug(raw, normalized) {
-      els.debugBox.textContent = JSON.stringify({
-        usedAction: raw?.__usedAction,
-        rawKeys: raw ? Object.keys(raw) : [],
-        counts: raw?.counts,
-        normalizedCounts: {
-          students: normalized.students.length,
-          sessions: normalized.sessions.length,
-          termAnswers: normalized.termAnswers.length,
-          leaderboard: normalized.leaderboard.length
-        },
-        debugShape: normalized.debugShape
-      }, null, 2);
-    }
-
-    function perStudentWeakTerms(row) {
-      const map = new Map();
-
-      row.answers.forEach(a => {
-        const term = text(a.term || a.term_id || a.word || a.vocab || '-');
-        if (!term || term === '-') return;
-
-        if (!map.has(term)) {
-          map.set(term, {
-            name: term,
-            seen: 0,
-            wrong: 0,
-            correct: 0
-          });
-        }
-
-        const item = map.get(term);
-        item.seen++;
-
-        const correct = a.is_correct === true || String(a.is_correct).toLowerCase() === 'true';
-
-        if (correct) item.correct++;
-        else item.wrong++;
-      });
-
-      return Array.from(map.values()).map(t => ({
-        ...t,
-        accuracy: t.seen ? (t.correct / t.seen) * 100 : 0
-      })).sort((a,b) => {
-        if (b.wrong !== a.wrong) return b.wrong - a.wrong;
-        return a.accuracy - b.accuracy;
-      });
-    }
-
-    function openStudentDrawer(studentId) {
-      const row = state.rows.find(r => String(r.id) === String(studentId));
-      if (!row) return;
-
-      els.drawerRiskBadge.className =
-        'badge ' + (row.riskLevel === 'risk' ? 'bad' : row.riskLevel === 'support' ? 'warn' : 'good');
-
-      els.drawerRiskBadge.textContent =
-        row.riskLevel === 'risk' ? 'กลุ่มเสี่ยง' :
-        row.riskLevel === 'support' ? 'ต้องติดตาม' :
-        'ปกติ';
-
-      els.drawerTitle.textContent = row.display_name;
-      els.drawerSubtitle.textContent =
-        `Student ID: ${row.student_id || '-'} • Section: ${row.section || '-'} • Last ${row.lastBank}/${row.lastMode}`;
-
-      els.drawerScore.textContent = Math.round(row.score);
-      els.drawerAccuracy.textContent = Math.round(row.accuracy) + '%';
-      els.drawerSessions.textContent = row.attendance;
-      els.drawerWrongRate.textContent = Math.round(row.wrongRate || 0) + '%';
-      els.drawerActionText.textContent = row.action;
-
-      const weak = perStudentWeakTerms(row).slice(0, 8);
-
-      if (!weak.length) {
-        els.drawerWeakTerms.innerHTML = '<div class="empty">ยังไม่มีข้อมูลคำศัพท์รายคน หรือยังไม่พบคำที่ผิด</div>';
-      } else {
-        const maxWrong = Math.max(...weak.map(t => t.wrong), 1);
-
-        els.drawerWeakTerms.innerHTML = weak.map(t => {
-          const w = Math.max(5, Math.min(100, t.wrong / maxWrong * 100));
-          const tone = t.wrong >= 2 ? 'bad' : t.wrong >= 1 ? 'warn' : 'good';
-
-          return `
-            <div class="barRow">
-              <div class="barHead">
-                <div class="barName">${escapeHtml(t.name)}</div>
-                <div class="barMeta">
-                  wrong ${escapeHtml(t.wrong)} / seen ${escapeHtml(t.seen)}<br>
-                  accuracy ${escapeHtml(Math.round(t.accuracy))}%
-                </div>
-              </div>
-              <div class="track">
-                <div class="fill ${tone}" style="width:${w}%"></div>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
-
-      const sessions = row.sessions.slice().sort((a,b) => {
-        const da = safeDate(a.ended_at || a.started_at || a.timestamp);
-        const db = safeDate(b.ended_at || b.started_at || b.timestamp);
-        return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
-      });
-
-      if (!sessions.length) {
-        els.drawerRecentSessions.innerHTML = '<div class="empty">ยังไม่มี session ของนักศึกษาคนนี้</div>';
-      } else {
-        els.drawerRecentSessions.innerHTML = sessions.slice(0, 6).map(s => `
-          <article class="runCard">
-            <div class="runTop">
-              <div>
-                <div class="name">${escapeHtml(text(s.bank || '-'))} • ${escapeHtml(text(s.mode || '-'))}</div>
-                <div class="meta">${escapeHtml(dateLabel(s.ended_at || s.started_at || s.timestamp))}</div>
-              </div>
-              <span class="badge">${escapeHtml(text(s.session_id || '-'))}</span>
-            </div>
-
-            <div class="miniStats">
-              <div class="mini">
-                <div class="label">Score</div>
-                <div class="value">${escapeHtml(num(s.score))}</div>
-              </div>
-              <div class="mini">
-                <div class="label">Accuracy</div>
-                <div class="value">${escapeHtml(Math.round(num(s.accuracy)))}%</div>
-              </div>
-              <div class="mini">
-                <div class="label">Duration</div>
-                <div class="value">${escapeHtml(num(s.duration_sec))}s</div>
-              </div>
-              <div class="mini">
-                <div class="label">Mistakes</div>
-                <div class="value">${escapeHtml(num(s.mistakes))}</div>
-              </div>
-            </div>
-          </article>
-        `).join('');
-      }
-
-      els.drawerBackdrop.classList.remove('hidden');
-      els.studentDrawer.classList.remove('hidden');
-      document.body.style.overflow = 'hidden';
-    }
-
-    function closeStudentDrawer() {
-      els.drawerBackdrop.classList.add('hidden');
-      els.studentDrawer.classList.add('hidden');
-      document.body.style.overflow = '';
-    }
-
-    function renderAll() {
-      const normalized = state.normalized;
-      const rows = state.rows;
-      const filtered = applyFilters(rows);
-
-      renderFilters(rows);
-      renderTeacherActions(filtered, normalized);
-      renderKpis(filtered, normalized);
-      renderStudents(rows);
-      renderTerms(normalized.termAnswers);
-      renderBreakdowns(filtered);
-      renderLeaderboard(normalized.leaderboard);
-      renderRecentRuns(normalized.sessions);
-      renderDebug(state.raw, normalized);
-    }
-
-    async function loadDashboard() {
-      showStatus('กำลังโหลดข้อมูล teacher dashboard...', 'warn');
-
-      try {
-        const raw = await requestTeacherData();
-        const normalized = normalizeDashboardPayload(raw);
-
-        console.log('TEACHER USED ACTION:', raw.__usedAction);
-        console.log('TEACHER RAW:', raw);
-        console.log('TEACHER NORMALIZED:', normalized);
-
-        window.__TEACHER_RAW__ = raw;
-        window.__TEACHER_NORMALIZED__ = normalized;
-
-        state.raw = raw;
-        state.normalized = normalized;
-        state.rows = buildStudentRows(normalized);
-
-        const statusMsg =
-          'โหลดข้อมูล teacher dashboard สำเร็จแล้ว • students ' +
-          normalized.students.length +
-          ' • sessions ' +
-          normalized.sessions.length +
-          ' • answers ' +
-          normalized.termAnswers.length +
-          ' • leaderboard ' +
-          normalized.leaderboard.length +
-          ' • action ' +
-          (raw.__usedAction || '-');
-
-        if (!normalized.students.length && !normalized.sessions.length && !normalized.termAnswers.length && !normalized.leaderboard.length) {
-          showStatus(
-            statusMsg + ' • ยัง parse array ไม่เจอ ให้เปิด Console ดู __TEACHER_RAW__ / __TEACHER_NORMALIZED__',
-            'warn'
-          );
-        } else {
-          showStatus(statusMsg, 'ok');
-        }
-
-        renderAll();
-
-      } catch (err) {
-        console.error(err);
-        showStatus('โหลดข้อมูลไม่สำเร็จ: ' + (err.message || err), 'bad');
-      }
-    }
-
-    function bindEvents() {
-      els.refreshBtn.addEventListener('click', loadDashboard);
-      els.printBtn.addEventListener('click', () => window.print());
-
-      els.searchInput.addEventListener('input', () => {
-        state.filters.search = els.searchInput.value || '';
-        renderAll();
-      });
-
-      els.sectionFilter.addEventListener('change', () => {
-        state.filters.section = els.sectionFilter.value || '';
-        renderAll();
-      });
-
-      els.bankFilter.addEventListener('change', () => {
-        state.filters.bank = els.bankFilter.value || '';
-        renderAll();
-      });
-
-      els.modeFilter.addEventListener('change', () => {
-        state.filters.mode = els.modeFilter.value || '';
-        renderAll();
-      });
-
-      els.riskFilter.addEventListener('change', () => {
-        state.filters.risk = els.riskFilter.value || '';
-        renderAll();
-      });
-
-      els.sortSelect.addEventListener('change', () => {
-        state.filters.sort = els.sortSelect.value || 'risk';
-        renderAll();
-      });
-
-      els.toggleDebugBtn.addEventListener('click', () => {
-        els.debugBox.classList.toggle('hidden');
-      });
-
-      document.addEventListener('click', (ev) => {
-        const card = ev.target.closest('.studentCard[data-student-id]');
-        if (!card) return;
-        openStudentDrawer(card.dataset.studentId);
-      });
-
-      document.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Escape') {
-          closeStudentDrawer();
-          return;
-        }
-
-        if (ev.key === 'Enter') {
-          const card = document.activeElement?.closest?.('.studentCard[data-student-id]');
-          if (card) openStudentDrawer(card.dataset.studentId);
-        }
-      });
-
-      els.drawerCloseBtn.addEventListener('click', closeStudentDrawer);
-      els.drawerBackdrop.addEventListener('click', closeStudentDrawer);
-    }
-
-    bindEvents();
-    loadDashboard();
-  </script>
+        <div class="risk-wrap">
+          <table class="risk-table progress-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Section</th>
+                <th>Done</th>
+                <th>Min OK</th>
+                <th>Risk</th>
+                <th>Best</th>
+              </tr>
+            </thead>
+            <tbody id="progress-tbody">
+              <tr><td colspan="6">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="heatmap-row">
+      <div class="panel heatmap-panel">
+        <div class="section-head">
+          <h2>S01–S15 Heatmap</h2>
+          <div class="section-meta" id="heatmap-meta">กำลังโหลด...</div>
+        </div>
+
+        <div class="heatmap-grid" id="session-heatmap-grid">
+          <div class="heatmap-empty">Loading...</div>
+        </div>
+      </div>
+
+      <div class="panel risk-panel">
+        <div class="section-head">
+          <h2>At Risk / ยังไม่ผ่านเกณฑ์</h2>
+          <div class="section-meta" id="risk-meta">กำลังโหลด...</div>
+        </div>
+
+        <div class="risk-wrap">
+          <table class="risk-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Section</th>
+                <th>S</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Min Time</th>
+              </tr>
+            </thead>
+            <tbody id="risk-tbody">
+              <tr><td colspan="6">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel section-panel">
+      <div class="section-head">
+        <h2>Section Summary</h2>
+        <div class="section-meta" id="section-meta">กำลังโหลด...</div>
+      </div>
+
+      <div class="section-wrap">
+        <table class="section-table">
+          <thead>
+            <tr>
+              <th>Section</th>
+              <th>Rows</th>
+              <th>Completed</th>
+              <th>Min Time ผ่าน</th>
+              <th>Avg Duration</th>
+              <th>Avg Active</th>
+              <th>Avg Score</th>
+            </tr>
+          </thead>
+          <tbody id="section-summary-tbody">
+            <tr><td colspan="7">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel section-panel">
+      <div class="section-head">
+        <h2>Section × S01–S15 Matrix</h2>
+        <div class="section-meta" id="matrix-meta">กำลังโหลด...</div>
+      </div>
+
+      <div class="section-wrap">
+        <table class="section-table matrix-table">
+          <thead>
+            <tr id="matrix-head-row">
+              <th>Section</th>
+              <th>Total</th>
+              <th>Done</th>
+              <th>Min OK</th>
+              <th>S01</th>
+              <th>S02</th>
+              <th>S03</th>
+              <th>S04</th>
+              <th>S05</th>
+              <th>S06</th>
+              <th>S07</th>
+              <th>S08</th>
+              <th>S09</th>
+              <th>S10</th>
+              <th>S11</th>
+              <th>S12</th>
+              <th>S13</th>
+              <th>S14</th>
+              <th>S15</th>
+            </tr>
+          </thead>
+          <tbody id="section-session-matrix-tbody">
+            <tr><td colspan="19">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel table-panel">
+        <div class="table-head">
+          <h2>Students / Sessions</h2>
+          <div class="table-meta" id="table-meta">กำลังโหลดข้อมูล...</div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Section</th>
+                <th>S</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Active</th>
+                <th>Score</th>
+                <th>Completed</th>
+                <th>Min Time</th>
+                <th>Last Server</th>
+              </tr>
+            </thead>
+            <tbody id="students-tbody">
+              <tr><td colspan="11">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel detail">
+        <div class="detail-head">
+          <h2>Student Detail</h2>
+        </div>
+
+        <div class="detail-body" id="detail-body">
+          <div class="detail-empty">เลือกแถวทางซ้ายเพื่อดูรายละเอียดผู้เรียน</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note" id="footer-note">Build: loading...</div>
+  </div>
+
+  <script src="./js/teacher-dashboard-hotfix.js?v=20260424-teacher-dashboard-roster-r8" defer></script>
 </body>
 </html>
