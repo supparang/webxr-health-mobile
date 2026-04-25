@@ -1,17 +1,18 @@
 // /english/js/teacher-dashboard-hotfix.js
-// PATCH v20260424-teacher-dashboard-focus-r7
+// PATCH v20260424-teacher-dashboard-roster-r8
 // ✅ Force load teacher=dashboard from Apps Script
 // ✅ Smart rows: compact repeated visits by student/section/session
 // ✅ S00/Lobby is entry only, not At Risk
 // ✅ Student Detail panel with S01–S15 progress and attempts
 // ✅ Report Pack: date range, missing report, per-student progress, export report, print/PDF
-// ✅ Focus View r7: Overview / Report / Students / Advanced / Show All
+// ✅ Focus View: Overview / Report / Students / Advanced / Show All
+// ✅ Roster-aware r8: loads class_roster and detects never entered students
 // ✅ Does not load old teacher.js
 
 (function () {
   "use strict";
 
-  const PATCH = "v20260424-teacher-dashboard-focus-r7";
+  const PATCH = "v20260424-teacher-dashboard-roster-r8";
 
   const ENDPOINT =
     window.TECHPATH_ATTENDANCE_ENDPOINT ||
@@ -20,6 +21,7 @@
   const state = {
     rawRows: [],
     rows: [],
+    rosterRows: [],
     filteredRows: [],
     selectedKey: "",
     selectedRow: null,
@@ -134,23 +136,26 @@
     );
   }
 
-  function studentKey(r) {
-    const id = String(r.studentId || "").trim();
-    const name = String(r.studentName || "").trim().toLowerCase();
-    const sec = String(r.classSection || "").trim().toLowerCase();
-    const s = normalizeSessionNo(r.sessionNo);
-
-    if (id) return `${id}|${sec}|${s}`;
-    return `${name || "unknown"}|${sec}|${s}`;
-  }
-
-  function personKey(r) {
-    const id = String(r.studentId || "").trim();
-    const name = String(r.studentName || "").trim().toLowerCase();
-    const sec = String(r.classSection || "").trim().toLowerCase();
+  function personKeyFromParts(studentId, studentName, classSection) {
+    const id = String(studentId || "").trim();
+    const name = String(studentName || "").trim().toLowerCase();
+    const sec = String(classSection || "").trim().toLowerCase();
 
     if (id) return `${id}|${sec}`;
     return `${name || "unknown"}|${sec}`;
+  }
+
+  function studentKey(r) {
+    const s = normalizeSessionNo(r.sessionNo);
+    return `${personKeyFromParts(r.studentId, r.studentName, r.classSection)}|${s}`;
+  }
+
+  function personKey(r) {
+    return personKeyFromParts(r.studentId, r.studentName, r.classSection);
+  }
+
+  function rosterPersonKey(r) {
+    return personKeyFromParts(r.studentId, r.studentName, r.classSection);
   }
 
   function rowKey(r) {
@@ -273,18 +278,66 @@
     return true;
   }
 
+  function personMatchesSearchAndSection(p) {
+    const q = state.filters.search.toLowerCase().trim();
+
+    if (state.filters.section && p.classSection !== state.filters.section) return false;
+
+    if (q) {
+      const hay = [
+        p.studentId,
+        p.studentName,
+        p.classSection,
+        p.email,
+        p.group
+      ].join(" ").toLowerCase();
+
+      if (!hay.includes(q)) return false;
+    }
+
+    return true;
+  }
+
   function knownPersonsFromRows(rows) {
     const map = new Map();
 
+    state.rosterRows.forEach((r) => {
+      const key = rosterPersonKey(r);
+      if (!key || key.includes("unknown|")) return;
+
+      const p = {
+        key,
+        studentId: r.studentId,
+        studentName: r.studentName,
+        classSection: r.classSection,
+        email: r.email,
+        group: r.group,
+        source: "roster"
+      };
+
+      if (personMatchesSearchAndSection(p)) {
+        map.set(key, p);
+      }
+    });
+
     rows.forEach((r) => {
       const key = personKey(r);
+      if (!key) return;
+
       if (!map.has(key)) {
-        map.set(key, {
+        const p = {
           key,
           studentId: r.studentId,
           studentName: r.studentName,
-          classSection: r.classSection
-        });
+          classSection: r.classSection,
+          email: "",
+          group: "",
+          source: "attendance"
+        };
+
+        if (personMatchesSearchAndSection(p)) {
+          map.set(key, p);
+        }
       }
     });
 
@@ -336,6 +389,11 @@
         learningRows.map((r) => [normalizeSessionNo(r.sessionNo), r])
       );
 
+      const hasAnyAttendance = state.rows.some((r) =>
+        personKey(r) === p.key &&
+        matchesReportBaseFilters(r)
+      );
+
       return {
         ...p,
         learningRows,
@@ -345,7 +403,8 @@
         best,
         totalActive,
         totalDuration,
-        sessionMap
+        sessionMap,
+        hasAnyAttendance
       };
     });
   }
@@ -356,7 +415,25 @@
     const persons = knownPersonsFromRows(baseRows);
 
     return persons.map((p) => {
+      const personAttendanceRows = state.rows.filter((r) =>
+        personKey(r) === p.key &&
+        matchesReportBaseFilters(r)
+      );
+
+      const hasAnyAttendance = personAttendanceRows.length > 0;
       const r = bestRowForPersonSession(p, target);
+
+      if (!hasAnyAttendance) {
+        return {
+          ...p,
+          targetSession: target,
+          reason: "never entered",
+          durationSec: 0,
+          activeTimeSec: 0,
+          score: 0,
+          row: null
+        };
+      }
 
       if (!r) {
         return {
@@ -502,6 +579,25 @@
     });
   }
 
+  function normalizeRosterRows(rows) {
+    return (Array.isArray(rows) ? rows : [])
+      .map((r) => ({
+        studentId: safe(r.student_id || r.studentId || r.sid, ""),
+        studentName: safe(r.display_name || r.displayName || r.studentName || r.name, ""),
+        classSection: safe(r.section || r.class_section || r.classSection || r.group, ""),
+        email: safe(r.email || r.mail, ""),
+        group: safe(r.group || r.team || r.class_group, ""),
+        status: safe(r.status || "active", "active"),
+        note: safe(r.note || r.remark, ""),
+        source: "roster"
+      }))
+      .filter((r) => {
+        if (!r.studentId && !r.studentName) return false;
+        const st = String(r.status || "").toLowerCase();
+        return st !== "inactive" && st !== "drop" && st !== "deleted";
+      });
+  }
+
   async function fetchDashboard() {
     const url = new URL(ENDPOINT);
     url.searchParams.set("teacher", "dashboard");
@@ -517,6 +613,28 @@
     }
 
     return data;
+  }
+
+  async function fetchRosterDashboard() {
+    const url = new URL(ENDPOINT);
+    url.searchParams.set("api", "vocab");
+    url.searchParams.set("action", "teacher_dashboard_get");
+    url.searchParams.set("_t", String(Date.now()));
+
+    const res = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+    const data = await res.json();
+
+    if (!data.ok) {
+      throw new Error(data.error || "Vocab roster dashboard request failed");
+    }
+
+    const roster =
+      data?.data?.class_roster ||
+      data?.data?.roster ||
+      data?.data?.students_roster ||
+      [];
+
+    return Array.isArray(roster) ? roster : [];
   }
 
   function deriveSummary(rows) {
@@ -1049,11 +1167,16 @@
     const root = $("section-chip-row");
     if (!root) return;
 
-    const sections = [...new Set(state.rows.map((r) => r.classSection).filter(Boolean))].sort();
+    const sections = [
+      ...state.rows.map((r) => r.classSection),
+      ...state.rosterRows.map((r) => r.classSection)
+    ];
+
+    const unique = [...new Set(sections.filter(Boolean))].sort();
 
     root.innerHTML =
       `<button class="section-chip ${state.filters.section ? "" : "active"}" data-sec="" type="button">ทุก Section</button>` +
-      sections.map((s) =>
+      unique.map((s) =>
         `<button class="section-chip ${state.filters.section === s ? "active" : ""}" data-sec="${escapeHtml(s)}" type="button">${escapeHtml(s)}</button>`
       ).join("");
 
@@ -1083,29 +1206,26 @@
     const missing = buildMissingReport();
 
     const knownStudents = progress.length;
+    const rosterStudents = state.rosterRows.filter((r) => personMatchesSearchAndSection(r)).length;
+    const neverEntered = progress.filter((r) => !r.hasAnyAttendance).length;
     const completedRows = learning.filter((r) => r.completed).length;
     const minOkRows = learning.filter((r) => r.minTimeMet).length;
-    const atRiskRows = learning.filter((r) => isRiskRow(r)).length;
 
     const avgScore = learning.length
       ? Math.round(learning.reduce((s, r) => s + (Number(r.score) || 0), 0) / learning.length)
       : 0;
 
-    const avgActive = learning.length
-      ? Math.round(learning.reduce((s, r) => s + (Number(r.activeTimeSec) || 0), 0) / learning.length)
-      : 0;
-
     meta.textContent =
-      `Target ${state.report.targetSession} • Min ${state.report.minSec}s • ${knownStudents} students`;
+      `Target ${state.report.targetSession} • Min ${state.report.minSec}s • roster ${state.rosterRows.length}`;
 
     const cards = [
+      ["Roster Students", rosterStudents || knownStudents, ""],
       ["Known Students", knownStudents, ""],
+      ["Never Entered", neverEntered, neverEntered ? "bad" : "ok"],
       ["Learning Rows", learning.length, ""],
       ["Completed Rows", completedRows, "ok"],
       ["Min Time OK", minOkRows, "ok"],
       ["Missing / Not OK", missing.length, missing.length ? "bad" : "ok"],
-      ["At Risk Rows", atRiskRows, atRiskRows ? "bad" : "ok"],
-      ["Avg Active", fmtSec(avgActive), ""],
       ["Avg Score", avgScore, ""]
     ];
 
@@ -1135,6 +1255,7 @@
         <td>
           ${escapeHtml(safe(r.studentName))}
           <br><span style="color:#9db2c7;font-size:.82rem;">${escapeHtml(safe(r.studentId))}</span>
+          ${r.source === "roster" ? `<br><span style="color:#7bedff;font-size:.76rem;">class_roster</span>` : ""}
         </td>
         <td>${escapeHtml(safe(r.classSection))}</td>
         <td>${escapeHtml(safe(r.targetSession))}</td>
@@ -1163,6 +1284,7 @@
         <td>
           ${escapeHtml(safe(r.studentName))}
           <br><span style="color:#9db2c7;font-size:.82rem;">${escapeHtml(safe(r.studentId))}</span>
+          ${!r.hasAnyAttendance ? `<br><span style="color:#ff6b81;font-size:.78rem;">never entered</span>` : ""}
           <div class="progress-mini">${progressDots(r.sessionMap)}</div>
         </td>
         <td>${escapeHtml(safe(r.classSection))}</td>
@@ -1238,23 +1360,35 @@
     const footer = $("footer-note");
     if (footer) {
       footer.textContent =
-        `Build: ${PATCH} • Smart rows: ${state.rows.length} • Raw rows: ${state.rawRows.length} • ${new Date().toLocaleString("th-TH")}`;
+        `Build: ${PATCH} • Smart rows: ${state.rows.length} • Raw rows: ${state.rawRows.length} • Roster: ${state.rosterRows.length} • ${new Date().toLocaleString("th-TH")}`;
     }
   }
 
   async function loadDashboard() {
     try {
-      const data = await fetchDashboard();
+      const [attendanceData, rosterRows] = await Promise.all([
+        fetchDashboard(),
+        fetchRosterDashboard().catch((err) => {
+          console.warn("[Teacher r8] roster load failed:", err);
+          return [];
+        })
+      ]);
 
-      state.rawRows = normalizeRows(data.rows || []);
+      state.rawRows = normalizeRows(attendanceData.rows || []);
       state.rows = compactLatestRows(state.rawRows);
+      state.rosterRows = normalizeRosterRows(rosterRows);
 
       setEndpointPill(
-        `Endpoint: OK • ${state.rows.length} students/S • raw ${state.rawRows.length}`,
+        `Endpoint: OK • ${state.rows.length} students/S • raw ${state.rawRows.length} • roster ${state.rosterRows.length}`,
         true
       );
 
-      fillSelect("filter-section", state.rows.map((r) => r.classSection), "ทุก Section");
+      const allSections = [
+        ...state.rows.map((r) => r.classSection),
+        ...state.rosterRows.map((r) => r.classSection)
+      ];
+
+      fillSelect("filter-section", allSections, "ทุก Section");
       fillSelect("filter-status", state.rows.map((r) => r.attendanceStatus), "ทุกสถานะ");
       fillSelect("filter-session", state.rows.map((r) => r.sessionNo), "ทุก S");
 
@@ -1338,12 +1472,14 @@
       "studentName",
       "classSection",
       "targetSession",
+      "source",
       "doneCount",
       "minOkCount",
       "riskCount",
       "bestScore",
       "totalActiveSec",
       "totalDurationSec",
+      "hasAnyAttendance",
       "missingReason"
     ];
 
@@ -1354,12 +1490,14 @@
         r.studentName,
         r.classSection,
         state.report.targetSession,
+        r.source || "",
         r.done,
         r.minOk,
         r.risk,
         r.best,
         r.totalActive,
         r.totalDuration,
+        r.hasAnyAttendance ? "yes" : "no",
         ""
       ]),
       ...missing.map((r) => [
@@ -1368,12 +1506,14 @@
         r.studentName,
         r.classSection,
         r.targetSession,
+        r.source || "",
         "",
         "",
         "",
         r.score,
         r.activeTimeSec,
         r.durationSec,
+        r.row ? "yes" : "no",
         r.reason
       ])
     ];
@@ -1538,10 +1678,10 @@
   }
 
   function ensurePolishCss() {
-    if (document.getElementById("teacher-polish-r7-css")) return;
+    if (document.getElementById("teacher-polish-r8-css")) return;
 
     const style = document.createElement("style");
-    style.id = "teacher-polish-r7-css";
+    style.id = "teacher-polish-r8-css";
     style.textContent = `
       .student-row-active{
         background:rgba(123,237,255,.12)!important;
