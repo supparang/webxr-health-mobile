@@ -356,7 +356,7 @@
       grid-template-columns:1fr 1fr;
     }
 
-    html.lesson-mode-mobile #lessonSpeakOpenBtn{
+    html.lesson-mode-mobile #lessonSpeakingOpenBtn{
       grid-column:1 / -1;
     }
 
@@ -400,7 +400,6 @@
 </head>
 
 <body>
-  <!-- Clean A-Frame background scene: no old blue/white panels -->
   <a-scene
     id="lessonScene"
     embedded
@@ -413,17 +412,15 @@
 
     <a-sky color="#07111f"></a-sky>
 
-    <!-- dark grid floor only -->
-    <a-grid
+    <a-plane
       position="0 0 -8"
       rotation="-90 0 0"
       width="36"
       height="36"
-      color="#0ea5e9"
-      opacity="0.18"
-    ></a-grid>
+      color="#06101d"
+      opacity="1"
+    ></a-plane>
 
-    <!-- simple session selector in scene, dark only; router can click data-sid -->
     <a-entity id="cleanSceneSessionMenu" position="0 2.2 -5.4">
       <a-text
         value="TECHPATH SESSION MAP"
@@ -433,65 +430,76 @@
         position="0 1.1 0"
       ></a-text>
 
-      <!-- Row 1 -->
       <a-entity class="lesson-scene-sid-router" data-sid="S1" data-lesson-scene-sid="S1" position="-3.2 .45 0">
         <a-plane width="0.86" height="0.42" color="#0f172a" opacity="0.72"></a-plane>
         <a-text value="S1" align="center" color="#ffffff" width="2.2" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S2" data-lesson-scene-sid="S2" position="-2.4 .45 0">
         <a-plane width="0.86" height="0.42" color="#0f172a" opacity="0.72"></a-plane>
         <a-text value="S2" align="center" color="#ffffff" width="2.2" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S3" data-lesson-scene-sid="S3" position="-1.6 .45 0">
         <a-plane width="0.86" height="0.42" color="#291d08" opacity="0.78"></a-plane>
         <a-text value="S3 Boss" align="center" color="#fde68a" width="2" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S4" data-lesson-scene-sid="S4" position="-.8 .45 0">
         <a-plane width="0.86" height="0.42" color="#0f172a" opacity="0.72"></a-plane>
         <a-text value="S4" align="center" color="#ffffff" width="2.2" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S5" data-lesson-scene-sid="S5" position="0 .45 0">
         <a-plane width="0.86" height="0.42" color="#0f172a" opacity="0.72"></a-plane>
         <a-text value="S5" align="center" color="#ffffff" width="2.2" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S6" data-lesson-scene-sid="S6" position=".8 .45 0">
         <a-plane width="0.86" height="0.42" color="#291d08" opacity="0.78"></a-plane>
         <a-text value="S6 Boss" align="center" color="#fde68a" width="2" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S7" data-lesson-scene-sid="S7" position="1.6 .45 0">
         <a-plane width="0.86" height="0.42" color="#0f172a" opacity="0.72"></a-plane>
         <a-text value="S7" align="center" color="#ffffff" width="2.2" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S8" data-lesson-scene-sid="S8" position="2.4 .45 0">
         <a-plane width="0.86" height="0.42" color="#0f172a" opacity="0.72"></a-plane>
         <a-text value="S8" align="center" color="#ffffff" width="2.2" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S9" data-lesson-scene-sid="S9" position="3.2 .45 0">
         <a-plane width="0.86" height="0.42" color="#291d08" opacity="0.78"></a-plane>
         <a-text value="S9 Boss" align="center" color="#fde68a" width="2" position="0 0 .02"></a-text>
       </a-entity>
 
-      <!-- Row 2 -->
       <a-entity class="lesson-scene-sid-router" data-sid="S10" data-lesson-scene-sid="S10" position="-2.4 -.15 0">
         <a-plane width="0.94" height="0.42" color="#0f172a" opacity="0.72"></a-plane>
         <a-text value="S10" align="center" color="#ffffff" width="2.1" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S11" data-lesson-scene-sid="S11" position="-1.44 -.15 0">
         <a-plane width="0.94" height="0.42" color="#0f172a" opacity="0.72"></a-plane>
         <a-text value="S11" align="center" color="#ffffff" width="2.1" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S12" data-lesson-scene-sid="S12" position="-.48 -.15 0">
         <a-plane width="0.94" height="0.42" color="#291d08" opacity="0.78"></a-plane>
         <a-text value="S12 Boss" align="center" color="#fde68a" width="1.9" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S13" data-lesson-scene-sid="S13" position=".48 -.15 0">
         <a-plane width="0.94" height="0.42" color="#0f172a" opacity="0.72"></a-plane>
         <a-text value="S13" align="center" color="#ffffff" width="2.1" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S14" data-lesson-scene-sid="S14" position="1.44 -.15 0">
         <a-plane width="0.94" height="0.42" color="#0f172a" opacity="0.72"></a-plane>
         <a-text value="S14" align="center" color="#ffffff" width="2.1" position="0 0 .02"></a-text>
       </a-entity>
+
       <a-entity class="lesson-scene-sid-router" data-sid="S15" data-lesson-scene-sid="S15" position="2.4 -.15 0">
         <a-plane width="0.94" height="0.42" color="#291d08" opacity="0.78"></a-plane>
         <a-text value="S15 Final" align="center" color="#fde68a" width="1.9" position="0 0 .02"></a-text>
@@ -577,11 +585,10 @@
   </div>
 
   <div class="fallback-warning" id="fallbackWarning">
-    โหลดข้อมูลบทเรียนไม่สำเร็จ กรุณาตรวจว่าไฟล์ <b>/english/js/lesson-data.js</b> เป็น JavaScript แบบปกติ ไม่ใช่ export/module
+    โหลดข้อมูลบทเรียนไม่สำเร็จ กรุณาตรวจไฟล์ <b>/english/js/lesson-data.js</b>
   </div>
 
   <script>
-    // === inline boot state: no module, no export ===
     (function () {
       'use strict';
 
@@ -650,7 +657,7 @@
         sid,
         sessionId: sidNumber(sid),
         view,
-        version: 'v20260426-lesson-html-clean-bootstrap'
+        version: 'v20260426b-lesson-html-data-bridge'
       };
 
       document.addEventListener('DOMContentLoaded', function () {
@@ -735,17 +742,23 @@
           if (scoreText) scoreText.textContent = 'SCORE ' + String(Number(d.score || 0));
         });
 
+        window.addEventListener('lesson:data-bridge-ready', function () {
+          document.body.classList.remove('lesson-data-error');
+        });
+
         setTimeout(function () {
           if (!window.missionDB && !window.LESSON_DATA && !window.LESSON_SESSIONS) {
             document.body.classList.add('lesson-data-error');
+          } else {
+            document.body.classList.remove('lesson-data-error');
           }
-        }, 2500);
+        }, 6500);
       });
     })();
   </script>
 
   <!-- ===== Data / Router Layer ===== -->
-  <script defer src="./js/lesson-data.js?v=20260426"></script>
+  <script defer src="./js/lesson-data-module-bridge-fix.js?v=20260426a"></script>
   <script defer src="./js/lesson-skill-data-guard.js?v=20260424g"></script>
   <script defer src="./js/lesson-view-mode-router.js?v=20260424f"></script>
   <script defer src="./js/lesson-vr-visibility-fix.js?v=20260424e"></script>
