@@ -1,18 +1,31 @@
 // === /english/js/lesson-data-module-bridge-fix.js ===
-// PATCH v20260426a-LESSON-DATA-MODULE-BRIDGE
-// Fix: lesson-data.js is ES module/export, but lesson.html needs window.missionDB.
-// ✅ Do not load lesson-data.js as normal script
-// ✅ Dynamically imports module lesson-data.js
+// PATCH v20260426c-LESSON-DATA-MODULE-BRIDGE-ABSOLUTE-PATH
+// Fix: browser still imports /english/js/js/lesson-data.js.
+// ✅ Uses absolute GitHub Pages path
+// ✅ No ./js relative path anymore
+// ✅ Correct URL: /webxr-health-mobile/english/js/lesson-data.js
+// ✅ Dynamically imports lesson-data.js as module
 // ✅ Exposes window.missionDB / window.LESSON_DATA / window.LESSON_SESSIONS
-// ✅ Dispatches lesson:data-bridge-ready and lesson:data-skill-ready
-// ✅ Removes data error warning after successful load
-// ✅ Re-renders Mission Panel after data is ready
+// ✅ Dispatches lesson:data-bridge-ready
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426a-LESSON-DATA-MODULE-BRIDGE';
-  const DATA_URL = './js/lesson-data.js?v=20260426';
+  const VERSION = 'v20260426c-LESSON-DATA-MODULE-BRIDGE-ABSOLUTE-PATH';
+
+  function makeDataUrl() {
+    const origin = location.origin;
+    const path = location.pathname || '';
+
+    // GitHub Pages repo path
+    const repoBase = path.includes('/webxr-health-mobile/')
+      ? '/webxr-health-mobile'
+      : '';
+
+    return `${origin}${repoBase}/english/js/lesson-data.js?v=20260426c`;
+  }
+
+  const DATA_URL = makeDataUrl();
 
   function safe(v) {
     return String(v == null ? '' : v).trim();
@@ -111,14 +124,13 @@
       warning.innerHTML =
         'โหลดข้อมูลบทเรียนไม่สำเร็จ<br>' +
         'ตรวจไฟล์ <b>/english/js/lesson-data.js</b> หรือ export data ให้ถูกต้อง<br>' +
-        '<small>' + safe(err && err.message) + '</small>';
+        '<small>' + safe(err && err.message) + '</small><br>' +
+        '<small>DATA_URL: ' + DATA_URL + '</small>';
     }
   }
 
   function rerenderMissionPanel() {
-    const tries = [80, 350, 800, 1500, 2500];
-
-    tries.forEach((ms) => {
+    [80, 350, 800, 1500, 2500].forEach((ms) => {
       setTimeout(() => {
         try {
           window.LESSON_MISSION_PANEL_FIX?.render?.(true);
