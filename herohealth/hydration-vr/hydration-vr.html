@@ -1394,39 +1394,6 @@
     <div class="debug-row"><span>fps</span><strong id="dbgFps">—</strong></div>
   </div>
 
-  <script type="module">
-    async function startHydrationGame() {
-      try {
-        if (typeof window.HHA_bootstrapFirebaseCompat === 'function') {
-          window.HHA_bootstrapFirebaseCompat();
-        }
-
-        const mod = await import('./hydration.safe.js');
-        if (!mod || typeof mod.boot !== 'function') {
-          throw new Error('hydration.safe.js ไม่พบฟังก์ชัน boot()');
-        }
-
-        await mod.boot();
-      } catch (err) {
-        console.error('[hydration-vr] boot failed:', err);
-        const fail = document.createElement('div');
-        fail.style.position = 'fixed';
-        fail.style.left = '12px';
-        fail.style.right = '12px';
-        fail.style.bottom = '12px';
-        fail.style.zIndex = '2000';
-        fail.style.padding = '12px 14px';
-        fail.style.borderRadius = '18px';
-        fail.style.background = 'rgba(127,29,29,.92)';
-        fail.style.border = '1px solid rgba(254,202,202,.28)';
-        fail.style.color = '#fff';
-        fail.style.font = '14px system-ui, sans-serif';
-        fail.textContent = 'เปิดเกมไม่สำเร็จ: ' + (err?.message || err);
-        document.body.appendChild(fail);
-      }
-    }
-
-    window.addEventListener('load', startHydrationGame, { once:true });
-  </script>
+  <script type="module" src="./hydration-vr.js"></script>
 </body>
 </html>
