@@ -1,16 +1,17 @@
 // === /english/js/lesson-mission-panel-fix.js ===
-// PATCH v20260426b-LESSON-MISSION-PANEL-ALL-SKILLS
-// Fix: only S1 speaking is playable, but S2-S15 do not show playable UI.
+// PATCH v20260426c-LESSON-MISSION-PANEL-ALL-SKILLS-CHOICES-FIX
+// Fix: S2-S15 do not show playable UI / choices look like all A
 // ✅ Renders Listening / Reading / Writing / Boss / FinalBoss
-// ✅ Pure speaking sessions still use lesson-speaking-fix + lazy open
-// ✅ Uses missionDB / LESSON_DATA generated from lesson-data.js
+// ✅ Pure speaking sessions use lesson-speaking-fix + lazy open
+// ✅ Uses missionDB / LESSON_DATA first, not stale router item
+// ✅ Shows A/B/C/D clearly
+// ✅ Listening shows clear task + optional transcript for teacher/testing
 // ✅ Emits lesson:* result events for AI Difficulty + Next Session
-// ✅ Supports PC / Mobile; Cardboard uses compact overlay for now
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426b-LESSON-MISSION-PANEL-ALL-SKILLS';
+  const VERSION = 'v20260426c-LESSON-MISSION-PANEL-ALL-SKILLS-CHOICES-FIX';
   const INDEX_KEY = 'ENGLISH_QUEST_ITEM_INDEX_V1';
 
   const DIFF_META = {
@@ -108,21 +109,6 @@
     return normalizeDifficulty(p.get('diff') || p.get('difficulty') || p.get('level') || 'normal');
   }
 
-  function currentViewMode() {
-    try {
-      if (window.LESSON_VIEW_MODE) return String(window.LESSON_VIEW_MODE);
-    } catch (err) {}
-
-    const ds = document.documentElement.dataset.lessonViewMode;
-    if (ds) return ds;
-
-    const view = safe(q().get('view')).toLowerCase();
-    if (['vr', 'cvr', 'cardboard', 'cardboard-vr'].includes(view)) return 'cardboard';
-    if (['mobile', 'phone'].includes(view)) return 'mobile';
-
-    return 'pc';
-  }
-
   function getDataList() {
     return (
       window.missionDB ||
@@ -210,22 +196,35 @@
   function selectItem(session, sid, diff) {
     if (!session) return null;
 
-    const winItem = getCurrentItemFromWindow(sid, diff);
-    if (winItem) return winItem;
-
     const bank = session.bank || session.banks || {};
-    const items = bank[diff] || bank[diff === 'challenge' ? 'expert' : diff] || bank.normal || bank.easy || [];
+    const items =
+      bank[diff] ||
+      bank[diff === 'challenge' ? 'expert' : diff] ||
+      bank.normal ||
+      bank.easy ||
+      [];
 
+    // ✅ ใช้ missionDB / lesson-data.js ก่อนเสมอ
+    // ห้ามใช้ LESSON_CURRENT_ITEM จาก router เก่าเป็นตัวหลัก
     if (Array.isArray(items) && items.length) {
       const idx = getItemIndex(sid, diff) % items.length;
       return items[idx];
     }
 
+    // fallback เฉพาะกรณี data ไม่มีจริง ๆ
     try {
       if (window.pickAdaptiveMissionItem) {
-        return window.pickAdaptiveMissionItem(sidNumber(sid), diff, {}, `${sid}-${diff}-${getItemIndex(sid, diff)}`);
+        return window.pickAdaptiveMissionItem(
+          sidNumber(sid),
+          diff,
+          {},
+          `${sid}-${diff}-${getItemIndex(sid, diff)}`
+        );
       }
     } catch (err) {}
+
+    const winItem = getCurrentItemFromWindow(sid, diff);
+    if (winItem) return winItem;
 
     return null;
   }
@@ -245,7 +244,6 @@
     const sessionSkill = normalizeSkill(session?.type || session?.skill);
     const skill = itemSkill(item, session);
 
-    // S ที่เป็น speaking จริง ๆ ให้ใช้ speaking panel/lazy-open เดิม
     return sessionSkill === 'speaking' && skill === 'speaking';
   }
 
@@ -527,13 +525,35 @@
     if (panel) panel.remove();
   }
 
-  function stripChoicePrefix(text) {
-    return safe(text).replace(/^[A-C]\.\s*/i, '');
+  function optionLetter(index) {
+    return String.fromCharCode(65 + index);
   }
 
-  function choiceLetterFromText(choiceText) {
-    const m = safe(choiceText).match(/^([A-C])\./i);
-    return m ? m[1].toUpperCase() : '';
+  function stripChoicePrefix(text) {
+    return safe(text).replace(/^[A-D][\.\)]\s*/i, '');
+  }
+
+  function cleanOptionText(text) {
+    let s = safe(text);
+
+    // ลบ prefix เดิม เช่น A. / B. / C)
+    s = s.replace(/^\s*[A-D][\.\)]\s*/i, '');
+
+    // ลบ article ที่ทำให้ดูเหมือนตัวเลือก A ทุกข้อ
+    s = s.replace(/^(a|an)\s+/i, '');
+
+    return s.trim();
+  }
+
+  function getCorrectLetter(item) {
+    const ans = safe(item.answer || 'A').toUpperCase();
+
+    if (/^[A-D]$/.test(ans)) return ans;
+
+    const choices = Array.isArray(item.choices) ? item.choices : [];
+    const idx = choices.findIndex(c => cleanOptionText(c).toLowerCase() === cleanOptionText(ans).toLowerCase());
+
+    return idx >= 0 ? optionLetter(idx) : 'A';
   }
 
   function setResult(message, type) {
@@ -586,17 +606,55 @@
     }
   }
 
+  function toChoicesFromItem(item) {
+    const correct = cleanOptionText(item.correct || item.answerText || 'Technology or study project');
+
+    const distractors = Array.isArray(item.distractors) && item.distractors.length
+      ? item.distractors.map(cleanOptionText)
+      : ['Food order', 'Sports game', 'Travel plan'];
+
+    return [
+      `A. ${correct}`,
+      `B. ${distractors[0] || 'Food order'}`,
+      `C. ${distractors[1] || 'Sports game'}`,
+      `D. ${distractors[2] || 'Travel plan'}`
+    ];
+  }
+
   function renderChoiceMission(item, skill) {
     const body = $('#lessonMissionBody');
-    const title = skill === 'listening' ? '🎧 Listening Mission' : '📖 Reading Mission';
-    const question = item.question || 'Choose the best answer.';
+    const isListening = skill === 'listening';
+
+    const title = isListening ? '🎧 Listening Mission' : '📖 Reading Mission';
+
+    const question =
+      item.question && item.question !== 'What is the main idea?' && item.question !== 'What is the main topic?'
+        ? item.question
+        : isListening
+          ? 'ฟังเสียง แล้วเลือกหัวข้อหลักที่ตรงที่สุด'
+          : 'อ่านข้อความ แล้วเลือกหัวข้อหลักที่ตรงที่สุด';
+
     const choices = Array.isArray(item.choices) && item.choices.length
       ? item.choices
       : toChoicesFromItem(item);
 
-    const audioOrPassage = skill === 'listening'
-      ? `<div class="lesson-mission-audio"><b>Audio/Text:</b> ${escapeHtml(item.audioText || item.prompt || question)}</div>`
-      : `<div class="lesson-mission-passage"><b>Passage:</b> ${escapeHtml(item.passage || item.prompt || question)}</div>`;
+    const transcript = item.audioText || item.passage || item.prompt || '';
+
+    const audioOrPassage = isListening
+      ? `
+        <div class="lesson-mission-audio">
+          <b>วิธีเล่น:</b> กด Listen เพื่อฟัง แล้วเลือกคำตอบที่ตรงกับเรื่องที่ได้ยิน
+          <details style="margin-top:8px">
+            <summary style="cursor:pointer;font-weight:900;color:#2563eb">ดู transcript สำหรับครู/ทดสอบ</summary>
+            <div style="margin-top:6px">${escapeHtml(transcript)}</div>
+          </details>
+        </div>
+      `
+      : `
+        <div class="lesson-mission-passage">
+          <b>Passage:</b> ${escapeHtml(transcript)}
+        </div>
+      `;
 
     body.innerHTML = `
       <div class="lesson-mission-card">
@@ -607,7 +665,7 @@
 
       <div class="lesson-mission-actions">
         ${
-          skill === 'listening'
+          isListening
             ? '<button class="lesson-action-btn primary" id="lessonListenMissionBtn" type="button">🔊 Listen</button>'
             : ''
         }
@@ -615,32 +673,59 @@
       </div>
 
       <div class="lesson-mission-choices" id="lessonMissionChoices"></div>
-      <div class="lesson-mission-result" id="lessonMissionResult">เลือกคำตอบเพื่อผ่านด่าน</div>
+      <div class="lesson-mission-result" id="lessonMissionResult">
+        ${isListening ? 'กด Listen แล้วเลือกคำตอบ' : 'อ่านแล้วเลือกคำตอบ'}
+      </div>
     `;
 
     const choiceBox = $('#lessonMissionChoices');
+    const correctLetter = getCorrectLetter(item);
 
     choices.forEach((choiceText, index) => {
+      const letter = optionLetter(index);
+      const clean = cleanOptionText(choiceText);
+
       const btn = document.createElement('button');
       btn.className = 'lesson-choice-btn';
       btn.type = 'button';
-      btn.textContent = choiceText;
+      btn.dataset.letter = letter;
+      btn.innerHTML = `
+        <span style="
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          width:34px;
+          height:34px;
+          margin-right:10px;
+          border-radius:999px;
+          background:rgba(255,255,255,.38);
+          font-weight:1000;
+        ">${letter}</span>
+        <span>${escapeHtml(clean)}</span>
+      `;
 
       btn.addEventListener('click', () => {
-        const selectedLetter = choiceLetterFromText(choiceText) || String.fromCharCode(65 + index);
-        const correctLetter = safe(item.answer || 'A').toUpperCase();
+        const selectedLetter = btn.dataset.letter;
         const passed = selectedLetter === correctLetter;
 
-        choiceBox.querySelectorAll('.lesson-choice-btn').forEach(b => {
+        choiceBox.querySelectorAll('.lesson-choice-btn').forEach((b) => {
           b.disabled = true;
-          const letter = choiceLetterFromText(b.textContent);
-          if (letter === correctLetter) b.classList.add('correct');
+
+          if (b.dataset.letter === correctLetter) {
+            b.classList.add('correct');
+          }
         });
 
         if (!passed) btn.classList.add('wrong');
 
         const score = passed ? 100 : 0;
-        setResult(passed ? '✅ ถูกต้อง ผ่านด่านแล้ว' : '❌ ยังไม่ถูก ลองทบทวนอีกครั้ง', passed ? 'pass' : 'fail');
+
+        setResult(
+          passed
+            ? '✅ ถูกต้อง ผ่านด่านแล้ว'
+            : `❌ ยังไม่ถูก คำตอบที่ถูกคือข้อ ${correctLetter}`,
+          passed ? 'pass' : 'fail'
+        );
 
         emitResult({
           skill,
@@ -662,19 +747,6 @@
       advanceItemIndex(state.sid, state.difficulty);
       render(true);
     });
-  }
-
-  function toChoicesFromItem(item) {
-    const correct = item.correct || item.answerText || item.answer || 'Correct answer';
-    const distractors = Array.isArray(item.distractors) && item.distractors.length
-      ? item.distractors
-      : ['Not correct', 'Try another answer'];
-
-    return [
-      `A. ${stripChoicePrefix(correct)}`,
-      `B. ${stripChoicePrefix(distractors[0])}`,
-      `C. ${stripChoicePrefix(distractors[1])}`
-    ];
   }
 
   function normalizeForMatch(text) {
@@ -872,7 +944,7 @@
     const bossLabel = item.boss || session.boss ? ` • Boss ${item.bossNo || session.bossNo || ''}` : '';
 
     if (title) {
-      title.firstChild.nodeValue = `${session.sid || sid} ${bossLabel} • ${skill.toUpperCase()}`;
+      title.firstChild.nodeValue = `${session.sid || sid}${bossLabel} • ${skill.toUpperCase()}`;
     }
 
     if (sub) {
