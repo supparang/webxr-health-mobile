@@ -1,13 +1,14 @@
 // === /english/js/lesson-3d-selector-cleanup-fix.js ===
-// PATCH v20260426c-LESSON-3D-SELECTOR-CLEANUP
-// Fix: 3D blue/white blocks and S1-S15 labels block lesson selection.
-// PC/Mobile should use HTML session picker only.
-// Cardboard can keep VR scene UI.
+// PATCH v20260426d-LESSON-3D-SELECTOR-CLEANUP-NULLSAFE
+// Fix: material can be null in A-Frame getAttribute('material')
+// ✅ no crash when material/text/className is null/object
+// ✅ PC/Mobile use HTML session picker only
+// ✅ Cardboard keeps VR scene UI
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426c-LESSON-3D-SELECTOR-CLEANUP';
+  const VERSION = 'v20260426d-LESSON-3D-SELECTOR-CLEANUP-NULLSAFE';
 
   function $(sel, root = document) {
     return root.querySelector(sel);
@@ -62,39 +63,92 @@
   function getTextValue(el) {
     if (!el) return '';
 
-    const value = el.getAttribute('value');
-    if (value) return String(value);
+    try {
+      const value = el.getAttribute('value');
+      if (value) return String(value);
+    } catch (err) {}
 
-    const text = el.getAttribute('text');
-    if (text && typeof text === 'object' && text.value) return String(text.value);
-    if (typeof text === 'string') return text;
+    try {
+      const text = el.getAttribute('text');
+
+      if (text && typeof text === 'object' && text.value) {
+        return String(text.value);
+      }
+
+      if (typeof text === 'string') return text;
+    } catch (err) {}
 
     return '';
+  }
+
+  function getClassText(el) {
+    if (!el) return '';
+
+    try {
+      if (typeof el.className === 'string') return el.className;
+      if (el.className && typeof el.className.baseVal === 'string') return el.className.baseVal;
+      if (el.getAttribute) return safe(el.getAttribute('class'));
+    } catch (err) {}
+
+    return '';
+  }
+
+  function getMaterialColorText(el) {
+    if (!el) return '';
+
+    try {
+      const material = el.getAttribute('material');
+
+      // ✅ สำคัญ: getAttribute('material') อาจเป็น null ได้
+      if (!material) return '';
+
+      if (typeof material === 'object') {
+        return safe(material.color || material.src || material.shader || '');
+      }
+
+      return safe(material);
+    } catch (err) {
+      return '';
+    }
   }
 
   function hideEntity(el, reason) {
     if (!el) return;
 
-    el.setAttribute('visible', 'false');
-    el.setAttribute('data-lesson-hidden-by-cleanup', reason || 'cleanup');
+    try {
+      el.setAttribute('visible', 'false');
+      el.setAttribute('data-lesson-hidden-by-cleanup', reason || 'cleanup');
+    } catch (err) {}
 
     try {
-      el.object3D.visible = false;
+      if (el.object3D) el.object3D.visible = false;
     } catch (err) {}
   }
 
+  function shouldSkipEntity(el) {
+    if (!el) return true;
+
+    const id = safe(el.id).toLowerCase();
+
+    // ห้ามไปซ่อน board/UI ที่เราสร้างเองภายหลัง
+    return (
+      id.includes('lessonspeakingvr') ||
+      id.includes('lessonvrreadableboard') ||
+      id.includes('lessonmission') ||
+      id.includes('lessonwriting') ||
+      id.includes('lessonai')
+    );
+  }
+
   function isBlueWhiteBlock(el) {
-    const tag = String(el.tagName || '').toLowerCase();
+    if (!el || shouldSkipEntity(el)) return false;
+
+    const tag = safe(el.tagName).toLowerCase();
     if (!['a-box', 'a-plane', 'a-entity'].includes(tag)) return false;
 
-    const material = el.getAttribute('material');
-    const color =
-      typeof material === 'object'
-        ? String(material.color || '')
-        : String(material || '');
-
-    const cls = String(el.className || '').toLowerCase();
-    const id = String(el.id || '').toLowerCase();
+    const color = getMaterialColorText(el).toLowerCase();
+    const cls = getClassText(el).toLowerCase();
+    const id = safe(el.id).toLowerCase();
 
     const role = `${id} ${cls}`;
 
@@ -124,14 +178,16 @@
   function cleanupScene(reason) {
     const mode = getViewMode();
 
-    // Cardboard VR may need scene objects, so do not hide them there.
+    // Cardboard VR อาจต้องใช้ object ใน scene จึงไม่ซ่อน
     if (mode === 'cardboard') return;
 
     const scene = $('a-scene');
     if (!scene) return;
 
-    // Hide old 3D S1-S15 text labels.
+    // ซ่อน text label S1-S15 / old 3D selector text
     $all('a-text, [text]', scene).forEach((el) => {
+      if (shouldSkipEntity(el)) return;
+
       const v = getTextValue(el);
 
       if (looksLikeSessionText(v)) {
@@ -139,8 +195,10 @@
       }
     });
 
-    // Hide likely blocking blue/white cards/planes around 3D selector.
+    // ซ่อนกล่อง/แผงฟ้า-ขาวที่บัง selector
     $all('a-box, a-plane, a-entity', scene).forEach((el) => {
+      if (shouldSkipEntity(el)) return;
+
       const txt = getTextValue(el);
 
       if (looksLikeSessionText(txt) || isBlueWhiteBlock(el)) {
@@ -148,11 +206,10 @@
       }
     });
 
-    // Keep the core scene visible but remove mouse picking from old selector objects.
+    // ปิด clickable selector เก่าใน scene
     $all('[class*="click"], [class*="select"], [class*="session"], [id*="session"], [id*="lesson"]', scene)
       .forEach((el) => {
-        if (String(el.id || '').includes('lessonSpeakingVr')) return;
-        if (String(el.id || '').includes('lessonVrReadableBoard')) return;
+        if (shouldSkipEntity(el)) return;
 
         hideEntity(el, 'old-clickable-selector');
       });
@@ -232,6 +289,8 @@
       version: VERSION,
       cleanup: cleanupScene
     };
+
+    console.log('[Lesson3DSelectorCleanup]', VERSION);
   }
 
   if (document.readyState === 'loading') {
