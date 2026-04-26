@@ -1,16 +1,16 @@
 // === /english/js/lesson-3d-selector-cleanup-fix.js ===
-// PATCH v20260426f-LESSON-3D-SELECTOR-VISUAL-BLOCKER-ONLY
+// PATCH v20260426g-LESSON-3D-SELECTOR-WHITE-BAR-FIX
 // ✅ remove blue/white visual blocker bars behind S1-S15
+// ✅ stronger detection for white center bars: material/color/object3D mesh/geometry/scale
 // ✅ keep S1-S15 text labels visible
 // ✅ keep scene selector usable
 // ✅ do not hide whole lesson selector groups
-// ✅ safe null material handling
 // ✅ PC/Mobile cleanup only; Cardboard keeps scene as-is
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426f-LESSON-3D-SELECTOR-VISUAL-BLOCKER-ONLY';
+  const VERSION = 'v20260426g-LESSON-3D-SELECTOR-WHITE-BAR-FIX';
 
   function $(sel, root = document) {
     return root.querySelector(sel);
@@ -93,56 +93,199 @@
     );
   }
 
-  function getMaterialColorText(el) {
-    if (!el) return '';
+  function getAttrColorText(el) {
+    const parts = [];
+
+    try {
+      parts.push(safe(el.getAttribute('color')));
+    } catch (err) {}
+
+    try {
+      parts.push(safe(el.getAttribute('opacity')));
+    } catch (err) {}
 
     try {
       const material = el.getAttribute('material');
 
-      if (!material) return '';
-
-      if (typeof material === 'object') {
-        return safe(
-          material.color ||
-          material.src ||
-          material.shader ||
-          ''
-        );
+      if (material) {
+        if (typeof material === 'object') {
+          parts.push(safe(material.color));
+          parts.push(safe(material.src));
+          parts.push(safe(material.shader));
+          parts.push(safe(material.opacity));
+        } else {
+          parts.push(safe(material));
+        }
       }
+    } catch (err) {}
 
-      return safe(material);
-    } catch (err) {
-      return '';
-    }
+    try {
+      parts.push(safe(el.getAttribute('style')));
+    } catch (err) {}
+
+    return parts.filter(Boolean).join(' ').toLowerCase();
   }
 
-  function getSizeScore(el) {
-    let w = 0;
-    let h = 0;
-    let d = 0;
+  function getMeshColorText(el) {
+    const parts = [];
 
     try {
-      w = Number(el.getAttribute('width') || 0);
+      if (!el.object3D) return '';
+
+      el.object3D.traverse((obj) => {
+        if (!obj || !obj.material) return;
+
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+
+        mats.forEach((m) => {
+          try {
+            if (m.color && typeof m.color.getHexString === 'function') {
+              parts.push(`#${m.color.getHexString()}`);
+            }
+
+            if (m.emissive && typeof m.emissive.getHexString === 'function') {
+              parts.push(`#${m.emissive.getHexString()}`);
+            }
+
+            if (typeof m.opacity !== 'undefined') {
+              parts.push(`opacity:${m.opacity}`);
+            }
+
+            if (m.name) parts.push(m.name);
+          } catch (err) {}
+        });
+      });
+    } catch (err) {}
+
+    return parts.filter(Boolean).join(' ').toLowerCase();
+  }
+
+  function getFullColorText(el) {
+    return `${getAttrColorText(el)} ${getMeshColorText(el)}`.toLowerCase();
+  }
+
+  function getSizeInfo(el) {
+    const info = {
+      w: 0,
+      h: 0,
+      d: 0,
+      max: 0
+    };
+
+    try {
+      info.w = Math.max(info.w, Math.abs(Number(el.getAttribute('width') || 0)));
     } catch (err) {}
 
     try {
-      h = Number(el.getAttribute('height') || 0);
+      info.h = Math.max(info.h, Math.abs(Number(el.getAttribute('height') || 0)));
     } catch (err) {}
 
     try {
-      d = Number(el.getAttribute('depth') || 0);
+      info.d = Math.max(info.d, Math.abs(Number(el.getAttribute('depth') || 0)));
+    } catch (err) {}
+
+    try {
+      const geometry = el.getAttribute('geometry');
+
+      if (geometry && typeof geometry === 'object') {
+        info.w = Math.max(info.w, Math.abs(Number(geometry.width || 0)));
+        info.h = Math.max(info.h, Math.abs(Number(geometry.height || 0)));
+        info.d = Math.max(info.d, Math.abs(Number(geometry.depth || 0)));
+      } else if (typeof geometry === 'string') {
+        const wm = geometry.match(/width\s*:\s*([\d.]+)/i);
+        const hm = geometry.match(/height\s*:\s*([\d.]+)/i);
+        const dm = geometry.match(/depth\s*:\s*([\d.]+)/i);
+
+        if (wm) info.w = Math.max(info.w, Number(wm[1]));
+        if (hm) info.h = Math.max(info.h, Number(hm[1]));
+        if (dm) info.d = Math.max(info.d, Number(dm[1]));
+      }
     } catch (err) {}
 
     try {
       const scale = el.getAttribute('scale');
+
       if (scale && typeof scale === 'object') {
-        w = Math.max(w, Math.abs(Number(scale.x || 0)));
-        h = Math.max(h, Math.abs(Number(scale.y || 0)));
-        d = Math.max(d, Math.abs(Number(scale.z || 0)));
+        info.w = Math.max(info.w, Math.abs(Number(scale.x || 0)));
+        info.h = Math.max(info.h, Math.abs(Number(scale.y || 0)));
+        info.d = Math.max(info.d, Math.abs(Number(scale.z || 0)));
+      } else if (typeof scale === 'string') {
+        const nums = scale.split(/\s+/).map(Number).filter(Number.isFinite);
+        info.w = Math.max(info.w, Math.abs(nums[0] || 0));
+        info.h = Math.max(info.h, Math.abs(nums[1] || 0));
+        info.d = Math.max(info.d, Math.abs(nums[2] || 0));
       }
     } catch (err) {}
 
-    return Math.max(w, h, d);
+    try {
+      if (el.object3D) {
+        const s = el.object3D.scale;
+        info.w = Math.max(info.w, Math.abs(Number(s.x || 0)));
+        info.h = Math.max(info.h, Math.abs(Number(s.y || 0)));
+        info.d = Math.max(info.d, Math.abs(Number(s.z || 0)));
+      }
+    } catch (err) {}
+
+    info.max = Math.max(info.w, info.h, info.d);
+
+    return info;
+  }
+
+  function getPositionInfo(el) {
+    const info = {
+      x: 0,
+      y: 0,
+      z: 0
+    };
+
+    try {
+      const p = el.getAttribute('position');
+
+      if (p && typeof p === 'object') {
+        info.x = Number(p.x || 0);
+        info.y = Number(p.y || 0);
+        info.z = Number(p.z || 0);
+      } else if (typeof p === 'string') {
+        const nums = p.split(/\s+/).map(Number).filter(Number.isFinite);
+        info.x = nums[0] || 0;
+        info.y = nums[1] || 0;
+        info.z = nums[2] || 0;
+      }
+    } catch (err) {}
+
+    return info;
+  }
+
+  function isWhiteLike(colorText) {
+    const s = safe(colorText).toLowerCase();
+
+    return (
+      s.includes('#fff') ||
+      s.includes('#ffffff') ||
+      s.includes('white') ||
+      s.includes('rgb(255') ||
+      s.includes('rgba(255') ||
+      s.includes('#f8') ||
+      s.includes('#f9') ||
+      s.includes('#fafafa') ||
+      s.includes('#f1f5f9') ||
+      s.includes('#e2e8f0')
+    );
+  }
+
+  function isBlueLike(colorText) {
+    const s = safe(colorText).toLowerCase();
+
+    return (
+      s.includes('#2563eb') ||
+      s.includes('#1d4ed8') ||
+      s.includes('#0ea5e9') ||
+      s.includes('#0284c7') ||
+      s.includes('#0000ff') ||
+      s.includes('blue') ||
+      s.includes('rgb(37,99,235') ||
+      s.includes('rgba(37,99,235')
+    );
   }
 
   function shouldSkipEntity(el) {
@@ -171,12 +314,11 @@
     const txt = getTextValue(el);
     if (looksLikeSessionText(txt)) return true;
 
-    // ห้ามซ่อนสิ่งที่ router mark ไว้เป็น selector โดยตรง
+    // ห้ามซ่อน group router โดยตรง ถ้าไม่ใช่ plane/box
     if (
       safe(el.getAttribute && el.getAttribute('data-lesson-scene-sid')) ||
       role.includes('lesson-scene-sid-router')
     ) {
-      // ยกเว้นถ้าเป็น a-plane/a-box สีฟ้า-ขาวจริง ๆ จะตรวจต่อใน visual blocker
       const tagOk = ['a-plane', 'a-box'].includes(tag);
       if (!tagOk) return true;
     }
@@ -184,31 +326,39 @@
     return false;
   }
 
+  function isLikelyCenterWhiteBar(el) {
+    const tag = safe(el.tagName).toLowerCase();
+    if (!['a-plane', 'a-box'].includes(tag)) return false;
+
+    const colorText = getFullColorText(el);
+    const size = getSizeInfo(el);
+    const pos = getPositionInfo(el);
+
+    const white = isWhiteLike(colorText);
+    const largeEnough = size.max >= 0.75 || size.h >= 0.75 || size.w >= 0.75;
+
+    // แถบขาวที่บัง S มักอยู่กลางจอ/กลางฉากและเป็น plane/box ใหญ่
+    const nearCenter = Math.abs(pos.x) <= 4.5;
+
+    return white && largeEnough && nearCenter;
+  }
+
   function isBlueWhiteVisualBlocker(el) {
     if (!el) return false;
 
     const tag = safe(el.tagName).toLowerCase();
 
-    // สำคัญ: ซ่อนเฉพาะวัตถุภาพ เช่น plane/box เท่านั้น
-    // ไม่ซ่อน a-entity ทั้งก้อน เพราะจะทำให้ selector ใช้ไม่ได้
+    // ซ่อนเฉพาะวัตถุภาพ เช่น plane/box เท่านั้น
     if (!['a-plane', 'a-box'].includes(tag)) return false;
 
-    const color = getMaterialColorText(el).toLowerCase();
+    const color = getFullColorText(el);
     const cls = getClassText(el).toLowerCase();
     const id = safe(el.id).toLowerCase();
     const role = `${id} ${cls}`;
+    const size = getSizeInfo(el);
 
-    const isBlue =
-      color.includes('#2563eb') ||
-      color.includes('#1d4ed8') ||
-      color.includes('#0ea5e9') ||
-      color.includes('#0000ff') ||
-      color.includes('blue');
-
-    const isWhite =
-      color.includes('#fff') ||
-      color.includes('#ffffff') ||
-      color.includes('white');
+    const isBlue = isBlueLike(color);
+    const isWhite = isWhiteLike(color);
 
     const looksPanel =
       role.includes('background') ||
@@ -220,10 +370,11 @@
       role.includes('lesson') ||
       role.includes('session') ||
       role.includes('gate') ||
-      getSizeScore(el) >= 1.2;
+      size.max >= 0.75 ||
+      size.w >= 0.75 ||
+      size.h >= 0.75;
 
-    // ถ้าเป็นกล่อง/แถบสีฟ้า-ขาวและมีลักษณะเป็น panel ให้เอาออก
-    return (isBlue || isWhite) && looksPanel;
+    return ((isBlue || isWhite) && looksPanel) || isLikelyCenterWhiteBar(el);
   }
 
   function hideVisualBlocker(el, reason) {
@@ -233,11 +384,18 @@
       el.setAttribute('visible', 'false');
       el.setAttribute('data-lesson-visual-blocker-hidden', reason || 'blue-white-blocker');
       el.removeAttribute('class');
+      el.removeAttribute('material');
+      el.removeAttribute('color');
+      el.removeAttribute('opacity');
     } catch (err) {}
 
     try {
       if (el.object3D) {
         el.object3D.visible = false;
+
+        el.object3D.traverse((obj) => {
+          if (obj) obj.visible = false;
+        });
       }
     } catch (err) {}
   }
@@ -252,7 +410,6 @@
       const text = getTextValue(el);
       if (!looksLikeSessionText(text)) return;
 
-      // ให้ตัวหนังสืออยู่หน้า และอ่านง่ายขึ้น
       el.setAttribute('visible', 'true');
       el.setAttribute('color', '#ffffff');
       el.setAttribute('align', el.getAttribute('align') || 'center');
@@ -269,7 +426,6 @@
   function cleanupScene(reason) {
     const mode = getViewMode();
 
-    // Cardboard VR ยังไม่แตะ scene เพื่อไม่ให้ raycast/VR selector พัง
     if (mode === 'cardboard') return;
 
     const scene = $('a-scene');
@@ -287,21 +443,27 @@
       }
     });
 
-    // 2) เอาเฉพาะแถบ/กล่องฟ้า-ขาวออก
+    // 2) เอาเฉพาะแถบ/กล่องฟ้า-ขาวออก รวมถึงแถบขาวตรงกลาง
     $all('a-plane, a-box', scene).forEach((el) => {
-      if (shouldSkipEntity(el) && !isBlueWhiteVisualBlocker(el)) return;
+      if (shouldSkipEntity(el) && !isLikelyCenterWhiteBar(el)) return;
 
       if (isBlueWhiteVisualBlocker(el)) {
-        hideVisualBlocker(el, 'blue-white-visual-blocker');
+        hideVisualBlocker(el, 'blue-white-center-bar-blocker');
         hidden += 1;
       }
     });
 
-    // 3) กัน raycast ของวัตถุที่ถูกซ่อนแล้ว
+    // 3) enforce ซ้ำสำหรับ object ที่ถูกซ่อนแล้ว
     $all('[data-lesson-visual-blocker-hidden]', scene).forEach((el) => {
       try {
         el.setAttribute('visible', 'false');
-        if (el.object3D) el.object3D.visible = false;
+
+        if (el.object3D) {
+          el.object3D.visible = false;
+          el.object3D.traverse((obj) => {
+            if (obj) obj.visible = false;
+          });
+        }
       } catch (err) {}
     });
 
