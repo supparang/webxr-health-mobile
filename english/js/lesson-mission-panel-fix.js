@@ -1,17 +1,19 @@
 // === /english/js/lesson-mission-panel-fix.js ===
-// PATCH v20260426c-LESSON-MISSION-PANEL-ALL-SKILLS-CHOICES-FIX
-// Fix: S2-S15 do not show playable UI / choices look like all A
+// PATCH v20260426d-LESSON-MISSION-PANEL-SHUFFLE-ANSWERS
+// Fix: S2-S15 playable UI + answer choices no longer always correct at A
 // ✅ Renders Listening / Reading / Writing / Boss / FinalBoss
 // ✅ Pure speaking sessions use lesson-speaking-fix + lazy open
 // ✅ Uses missionDB / LESSON_DATA first, not stale router item
 // ✅ Shows A/B/C/D clearly
+// ✅ Shuffles answers deterministically per item
+// ✅ Correct answer can be A/B/C/D, not always A
 // ✅ Listening shows clear task + optional transcript for teacher/testing
 // ✅ Emits lesson:* result events for AI Difficulty + Next Session
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426c-LESSON-MISSION-PANEL-ALL-SKILLS-CHOICES-FIX';
+  const VERSION = 'v20260426d-LESSON-MISSION-PANEL-SHUFFLE-ANSWERS';
   const INDEX_KEY = 'ENGLISH_QUEST_ITEM_INDEX_V1';
 
   const DIFF_META = {
@@ -47,10 +49,12 @@
 
   function normalizeSid(v) {
     const raw = safe(v).toUpperCase();
+
     if (/^S\d+$/.test(raw)) {
       const n = Math.max(1, Math.min(15, parseInt(raw.replace('S', ''), 10) || 1));
       return `S${n}`;
     }
+
     const n = Math.max(1, Math.min(15, parseInt(raw, 10) || 1));
     return `S${n}`;
   }
@@ -71,6 +75,7 @@
     } catch (err) {}
 
     const p = q();
+
     return normalizeSid(
       p.get('s') ||
       p.get('sid') ||
@@ -106,7 +111,13 @@
     } catch (err) {}
 
     const p = q();
-    return normalizeDifficulty(p.get('diff') || p.get('difficulty') || p.get('level') || 'normal');
+
+    return normalizeDifficulty(
+      p.get('diff') ||
+      p.get('difficulty') ||
+      p.get('level') ||
+      'normal'
+    );
   }
 
   function getDataList() {
@@ -121,19 +132,29 @@
 
   function getSession(sid = currentSid()) {
     sid = normalizeSid(sid);
+
     const id = sidNumber(sid);
     const list = getDataList();
 
     if (Array.isArray(list)) {
       return (
-        list.find(s => Number(s.id) === id || normalizeSid(s.sid || s._sid || s.sessionId || s.id) === sid) ||
+        list.find(s =>
+          Number(s.id) === id ||
+          normalizeSid(s.sid || s._sid || s.sessionId || s.id) === sid
+        ) ||
         list[id - 1] ||
         null
       );
     }
 
     if (list && typeof list === 'object') {
-      return list[sid] || list[String(id)] || list.sessions?.[sid] || list.sessions?.[String(id)] || null;
+      return (
+        list[sid] ||
+        list[String(id)] ||
+        list.sessions?.[sid] ||
+        list.sessions?.[String(id)] ||
+        null
+      );
     }
 
     return null;
@@ -204,7 +225,7 @@
       bank.easy ||
       [];
 
-    // ✅ ใช้ missionDB / lesson-data.js ก่อนเสมอ
+    // ใช้ missionDB / lesson-data.js ก่อนเสมอ
     // ห้ามใช้ LESSON_CURRENT_ITEM จาก router เก่าเป็นตัวหลัก
     if (Array.isArray(items) && items.length) {
       const idx = getItemIndex(sid, diff) % items.length;
@@ -545,20 +566,10 @@
     return s.trim();
   }
 
-  function getCorrectLetter(item) {
-    const ans = safe(item.answer || 'A').toUpperCase();
-
-    if (/^[A-D]$/.test(ans)) return ans;
-
-    const choices = Array.isArray(item.choices) ? item.choices : [];
-    const idx = choices.findIndex(c => cleanOptionText(c).toLowerCase() === cleanOptionText(ans).toLowerCase());
-
-    return idx >= 0 ? optionLetter(idx) : 'A';
-  }
-
   function setResult(message, type) {
     const box = $('#lessonMissionResult');
     if (!box) return;
+
     box.textContent = message;
     box.className = `lesson-mission-result ${type || ''}`;
   }
@@ -596,10 +607,12 @@
   function speak(text) {
     try {
       window.speechSynthesis.cancel();
+
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'en-US';
       u.rate = 0.86;
       u.pitch = 1.02;
+
       window.speechSynthesis.speak(u);
     } catch (err) {
       setResult('เครื่องนี้เล่นเสียงไม่ได้ แต่ยังอ่านข้อความแล้วตอบได้', 'fail');
@@ -621,6 +634,140 @@
     ];
   }
 
+  function hashString(str) {
+    let h = 2166136261;
+
+    str = String(str || '');
+
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+
+    return h >>> 0;
+  }
+
+  function mulberry32(seed) {
+    let t = seed >>> 0;
+
+    return function () {
+      t += 0x6D2B79F5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function seededShuffle(list, seedText) {
+    const arr = list.slice();
+    const rng = mulberry32(hashString(seedText));
+
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+
+    return arr;
+  }
+
+  function uniqueTexts(list) {
+    const seen = new Set();
+    const out = [];
+
+    list.forEach((x) => {
+      const text = cleanOptionText(x);
+      const key = text.toLowerCase();
+
+      if (!text || seen.has(key)) return;
+
+      seen.add(key);
+      out.push(text);
+    });
+
+    return out;
+  }
+
+  function fallbackDistractorsForSkill(skill) {
+    if (skill === 'listening') {
+      return [
+        'Food order',
+        'Sports game',
+        'Travel plan',
+        'Shopping list',
+        'Weather report'
+      ];
+    }
+
+    if (skill === 'reading') {
+      return [
+        'Food menu',
+        'Travel story',
+        'Sports news',
+        'Shopping advertisement',
+        'Weather forecast'
+      ];
+    }
+
+    return [
+      'Incorrect answer',
+      'Different topic',
+      'Unrelated idea'
+    ];
+  }
+
+  function buildShuffledOptions(item, skill) {
+    const rawChoices = Array.isArray(item.choices) && item.choices.length
+      ? item.choices
+      : toChoicesFromItem(item);
+
+    const answerLetter = safe(item.answer || 'A').toUpperCase();
+    const answerIndex = /^[A-D]$/.test(answerLetter)
+      ? answerLetter.charCodeAt(0) - 65
+      : 0;
+
+    const cleanedChoices = uniqueTexts(rawChoices);
+
+    let correctText = '';
+
+    // ถ้า answer เป็น A/B/C/D ให้ดึงข้อความจากตำแหน่งเดิม
+    if (cleanedChoices[answerIndex]) {
+      correctText = cleanedChoices[answerIndex];
+    }
+
+    // ถ้ามี field correct ให้ใช้เป็นคำตอบจริง
+    if (item.correct) {
+      correctText = cleanOptionText(item.correct);
+    }
+
+    // fallback
+    if (!correctText) {
+      correctText = cleanedChoices[0] || 'Technology or study project';
+    }
+
+    const distractors = cleanedChoices
+      .filter(x => x.toLowerCase() !== correctText.toLowerCase())
+      .concat(fallbackDistractorsForSkill(skill));
+
+    const uniqueDistractors = uniqueTexts(distractors)
+      .filter(x => x.toLowerCase() !== correctText.toLowerCase())
+      .slice(0, 3);
+
+    const optionObjects = [
+      { text: correctText, correct: true },
+      ...uniqueDistractors.map(text => ({ text, correct: false }))
+    ];
+
+    const seedText = `${state.sid}|${state.difficulty}|${item.id || ''}|${item._index || ''}`;
+    const shuffled = seededShuffle(optionObjects, seedText).slice(0, 4);
+
+    return shuffled.map((opt, index) => ({
+      ...opt,
+      letter: optionLetter(index)
+    }));
+  }
+
   function renderChoiceMission(item, skill) {
     const body = $('#lessonMissionBody');
     const isListening = skill === 'listening';
@@ -634,11 +781,11 @@
           ? 'ฟังเสียง แล้วเลือกหัวข้อหลักที่ตรงที่สุด'
           : 'อ่านข้อความ แล้วเลือกหัวข้อหลักที่ตรงที่สุด';
 
-    const choices = Array.isArray(item.choices) && item.choices.length
-      ? item.choices
-      : toChoicesFromItem(item);
-
     const transcript = item.audioText || item.passage || item.prompt || '';
+
+    const options = buildShuffledOptions(item, skill);
+    const correctOption = options.find(o => o.correct);
+    const correctLetter = correctOption ? correctOption.letter : 'A';
 
     const audioOrPassage = isListening
       ? `
@@ -673,22 +820,21 @@
       </div>
 
       <div class="lesson-mission-choices" id="lessonMissionChoices"></div>
+
       <div class="lesson-mission-result" id="lessonMissionResult">
         ${isListening ? 'กด Listen แล้วเลือกคำตอบ' : 'อ่านแล้วเลือกคำตอบ'}
       </div>
     `;
 
     const choiceBox = $('#lessonMissionChoices');
-    const correctLetter = getCorrectLetter(item);
 
-    choices.forEach((choiceText, index) => {
-      const letter = optionLetter(index);
-      const clean = cleanOptionText(choiceText);
-
+    options.forEach((opt) => {
       const btn = document.createElement('button');
       btn.className = 'lesson-choice-btn';
       btn.type = 'button';
-      btn.dataset.letter = letter;
+      btn.dataset.letter = opt.letter;
+      btn.dataset.correct = opt.correct ? '1' : '0';
+
       btn.innerHTML = `
         <span style="
           display:inline-flex;
@@ -700,18 +846,18 @@
           border-radius:999px;
           background:rgba(255,255,255,.38);
           font-weight:1000;
-        ">${letter}</span>
-        <span>${escapeHtml(clean)}</span>
+        ">${opt.letter}</span>
+        <span>${escapeHtml(opt.text)}</span>
       `;
 
       btn.addEventListener('click', () => {
         const selectedLetter = btn.dataset.letter;
-        const passed = selectedLetter === correctLetter;
+        const passed = btn.dataset.correct === '1';
 
         choiceBox.querySelectorAll('.lesson-choice-btn').forEach((b) => {
           b.disabled = true;
 
-          if (b.dataset.letter === correctLetter) {
+          if (b.dataset.correct === '1') {
             b.classList.add('correct');
           }
         });
@@ -802,7 +948,10 @@
       const minMatch = Number(item.minMatch || 1);
       const minWords = Number(item.minWords || 5);
 
-      const keywordScore = keywords.length ? Math.min(100, Math.round((matched / Math.max(minMatch, 1)) * 75)) : 50;
+      const keywordScore = keywords.length
+        ? Math.min(100, Math.round((matched / Math.max(minMatch, 1)) * 75))
+        : 50;
+
       const wordScore = Math.min(25, Math.round((wc / Math.max(minWords, 1)) * 25));
       const score = Math.max(0, Math.min(100, keywordScore + wordScore));
 
@@ -909,6 +1058,7 @@
     }
 
     const item = selectItem(session, sid, diff);
+
     if (!item) {
       hidePanel();
       console.warn('[LessonMissionPanel] no item found', { sid, diff, session });
@@ -934,6 +1084,7 @@
     }
 
     if (!force && key === state.renderedKey && $('#lessonMissionPanel')) return true;
+
     state.renderedKey = key;
 
     const panel = ensurePanel();
