@@ -3,2422 +3,2297 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Teacher Dashboard • Vocab Analytics</title>
-  <meta name="theme-color" content="#071426" />
-  <meta name="color-scheme" content="dark" />
-
+  <title>Teacher Vocab Analytics • v47 Portfolio</title>
+  <meta name="theme-color" content="#08111f" />
   <style>
     :root{
-      --bg:#071426;
-      --bg2:#0b1d38;
-      --panel:#101a35;
-      --panel2:#17233f;
-      --line:rgba(255,255,255,.12);
-      --line2:rgba(125,211,252,.22);
+      --bg:#07111f;
+      --bg2:#0f1d33;
+      --panel:rgba(255,255,255,.065);
+      --panel2:rgba(255,255,255,.09);
+      --line:rgba(255,255,255,.13);
       --text:#f8fbff;
-      --muted:#c9d8f7;
-      --soft:#9fb3d9;
-      --cyan:#67e8f9;
+      --muted:#a9bee8;
+      --good:#4ade80;
+      --warn:#fde047;
+      --bad:#fb7185;
+      --sky:#67e8f9;
       --violet:#a78bfa;
-      --blue:#93c5fd;
-      --green:#4ade80;
-      --yellow:#fde047;
       --orange:#fb923c;
-      --red:#fb7185;
-      --shadow:0 22px 70px rgba(0,0,0,.34);
-      --r-xl:34px;
-      --r-lg:26px;
-      --r-md:18px;
+      --shadow:0 18px 50px rgba(0,0,0,.28);
       --safe-b:env(safe-area-inset-bottom,0px);
     }
 
     *{box-sizing:border-box}
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      color:var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(103,232,249,.10), transparent 25%),
-        radial-gradient(circle at top right, rgba(167,139,250,.12), transparent 30%),
-        linear-gradient(180deg,#071426,#0b1730 48%,#07111f);
-      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    }
-
+    html,body{margin:0;min-height:100%;scroll-behavior:smooth}
     body{
+      background:
+        radial-gradient(circle at 8% 0%,rgba(103,232,249,.18),transparent 30%),
+        radial-gradient(circle at 95% 10%,rgba(167,139,250,.16),transparent 32%),
+        linear-gradient(180deg,#07111f,#0f172a 55%,#08111f);
+      color:var(--text);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       overflow-x:hidden;
     }
 
-    button,input,select{
-      font:inherit;
-    }
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    a{color:inherit}
+    .hidden{display:none!important}
 
     .page{
       width:min(1440px,100%);
       margin:0 auto;
-      padding:20px 18px 52px;
+      padding:18px;
+      padding-bottom:calc(90px + var(--safe-b));
+    }
+
+    .hero,.section{
+      border:1px solid var(--line);
+      border-radius:32px;
+      background:
+        radial-gradient(circle at top right,rgba(255,255,255,.10),transparent 36%),
+        rgba(255,255,255,.055);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(14px);
     }
 
     .hero{
+      padding:28px;
       position:relative;
       overflow:hidden;
-      border-radius:var(--r-xl);
-      padding:30px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 28%),
-        radial-gradient(circle at bottom left, rgba(103,232,249,.08), transparent 28%),
-        linear-gradient(135deg,rgba(18,28,58,.96),rgba(10,17,35,.96));
-      border:1px solid rgba(255,255,255,.13);
-      box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.06);
     }
 
-    .hero::before{
+    .hero:before{
       content:"";
       position:absolute;
-      right:-80px;
-      top:-80px;
-      width:260px;
-      height:260px;
+      inset:auto -80px -130px auto;
+      width:330px;height:330px;
       border-radius:999px;
-      background:rgba(103,232,249,.12);
-      filter:blur(24px);
+      background:radial-gradient(circle,rgba(103,232,249,.18),transparent 62%);
       pointer-events:none;
     }
 
     .heroTop{
+      display:grid;
+      grid-template-columns:1.25fr auto;
+      gap:18px;
+      align-items:start;
       position:relative;
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:20px;
     }
 
     h1{
       margin:0;
-      font-size:clamp(38px,6vw,72px);
-      line-height:.98;
+      font-size:clamp(38px,5.5vw,72px);
+      line-height:.94;
       letter-spacing:-.06em;
-      font-weight:1000;
-      max-width:920px;
-      text-wrap:balance;
-    }
-
-    .hero p{
-      position:relative;
-      margin:14px 0 0;
-      max-width:960px;
-      color:#dbeafe;
-      line-height:1.65;
-      font-size:16px;
-    }
-
-    .heroActions{
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      min-width:150px;
-    }
-
-    .btn{
-      appearance:none;
-      border:0;
-      border-radius:20px;
-      min-height:56px;
-      padding:12px 18px;
-      font-weight:1000;
-      cursor:pointer;
-      color:#071426;
-      background:linear-gradient(135deg,#67e8f9,#a78bfa);
-      box-shadow:0 16px 34px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.48);
-      transition:transform .15s ease, filter .15s ease, opacity .15s ease;
-      white-space:nowrap;
-    }
-
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:saturate(1.06);
-    }
-
-    .btn:active{
-      transform:translateY(1px) scale(.99);
-    }
-
-    .btn.alt{
-      background:linear-gradient(135deg,#dbeafe,#93c5fd);
-      color:#172554;
-    }
-
-    .btn.warn{
-      background:linear-gradient(135deg,#fde68a,#fb923c);
-      color:#301707;
-    }
-
-    .btn.ghost{
-      background:rgba(255,255,255,.08);
-      color:#f8fbff;
-      border:1px solid rgba(255,255,255,.12);
-    }
-
-    .status{
-      margin-top:20px;
-      border-radius:18px;
-      padding:14px 18px;
-      line-height:1.6;
-      font-weight:800;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.06);
-      color:#eaf2ff;
-    }
-
-    .status.ok{
-      background:rgba(20,83,45,.28);
-      border-color:rgba(74,222,128,.34);
-    }
-
-    .status.warn{
-      background:rgba(113,63,18,.26);
-      border-color:rgba(253,224,71,.36);
-      color:#fff7cc;
-    }
-
-    .status.bad{
-      background:rgba(127,29,29,.26);
-      border-color:rgba(251,113,133,.36);
-      color:#ffe4e9;
-    }
-
-    .toolbar{
-      margin-top:18px;
-      display:grid;
-      grid-template-columns:minmax(260px,1.6fr) repeat(5,minmax(150px,1fr));
-      gap:12px;
-      align-items:stretch;
-    }
-
-    .field{
-      min-width:0;
-      background:rgba(255,255,255,.055);
-      border:1px solid var(--line);
-      border-radius:18px;
-      padding:11px 12px;
-    }
-
-    .field label{
-      display:block;
-      font-size:11px;
-      color:#a9bee8;
-      text-transform:uppercase;
-      letter-spacing:.06em;
-      margin-bottom:7px;
-      font-weight:900;
-    }
-
-    .field input,
-    .field select{
-      width:100%;
-      min-width:0;
-      border:0;
-      outline:none;
-      background:transparent;
-      color:#fff;
-      font-size:15px;
-      font-weight:800;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .field input::placeholder{
-      color:rgba(219,234,254,.62);
-    }
-
-    .field select option{
-      color:#111827;
-      background:#fff;
-    }
-
-    .grid{
-      margin-top:20px;
-      display:grid;
-      gap:16px;
-    }
-
-    .kpiGrid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:16px;
-    }
-
-    .kpiWideGrid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
-    }
-
-    .card{
-      position:relative;
-      overflow:hidden;
-      border-radius:var(--r-lg);
-      padding:22px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.10), transparent 32%),
-        linear-gradient(180deg,rgba(18,28,58,.88),rgba(10,18,38,.88));
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 16px 42px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.05);
-    }
-
-    .card::before{
-      content:"";
-      position:absolute;
-      right:-70px;
-      bottom:-90px;
-      width:180px;
-      height:180px;
-      border-radius:999px;
-      background:rgba(255,255,255,.05);
-      filter:blur(10px);
-      pointer-events:none;
-    }
-
-    .kpiLabel{
-      position:relative;
-      font-size:13px;
-      color:#cae3ff;
-      font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .kpiValue{
-      position:relative;
-      margin-top:12px;
-      font-size:52px;
-      font-weight:1000;
-      line-height:.9;
-      letter-spacing:-.06em;
-    }
-
-    .kpiHelp{
-      position:relative;
-      margin-top:13px;
-      color:#dbeafe;
-      font-size:14px;
-      line-height:1.45;
-      font-weight:700;
-    }
-
-    .section{
-      margin-top:20px;
-      position:relative;
-      overflow:hidden;
-      border-radius:var(--r-xl);
-      padding:24px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.08), transparent 30%),
-        linear-gradient(180deg,rgba(18,28,58,.90),rgba(9,17,35,.92));
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 18px 58px rgba(0,0,0,.22);
-    }
-
-    .actionSummarySection{
-      border-color:rgba(253,224,71,.18);
-    }
-
-    .sectionHead{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:14px;
-      margin-bottom:16px;
     }
 
     h2{
       margin:0;
-      font-size:clamp(28px,4vw,44px);
-      line-height:1.04;
-      font-weight:1000;
+      font-size:clamp(24px,2.7vw,38px);
       letter-spacing:-.045em;
-    }
-
-    .sectionDesc{
-      margin:6px 0 0;
-      color:#dbeafe;
-      line-height:1.55;
-      font-size:14px;
-    }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      min-height:30px;
-      padding:0 10px;
-      border-radius:999px;
-      background:rgba(255,255,255,.09);
-      border:1px solid rgba(255,255,255,.12);
-      color:#eaf2ff;
-      font-size:12px;
-      font-weight:1000;
-      white-space:nowrap;
-    }
-
-    .badge.good{
-      color:#dcfce7;
-      border-color:rgba(74,222,128,.32);
-      background:rgba(22,101,52,.22);
-    }
-
-    .badge.warn{
-      color:#fef3c7;
-      border-color:rgba(253,224,71,.32);
-      background:rgba(113,63,18,.22);
-    }
-
-    .badge.bad{
-      color:#ffe4e9;
-      border-color:rgba(251,113,133,.32);
-      background:rgba(127,29,29,.22);
-    }
-
-    .chipRow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .chipRow .badge{
-      min-height:28px;
-      font-size:11px;
-      background:rgba(255,255,255,.075);
-    }
-
-    .actionSummaryGrid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:12px;
-    }
-
-    .actionCard{
-      position:relative;
-      overflow:hidden;
-      border-radius:22px;
-      padding:16px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 34%),
-        rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 10px 28px rgba(0,0,0,.14);
-    }
-
-    .actionCard.warn{
-      border-color:rgba(253,224,71,.30);
-      background:
-        radial-gradient(circle at top right, rgba(253,224,71,.12), transparent 34%),
-        rgba(255,255,255,.06);
-    }
-
-    .actionCard.bad{
-      border-color:rgba(251,113,133,.32);
-      background:
-        radial-gradient(circle at top right, rgba(251,113,133,.13), transparent 34%),
-        rgba(255,255,255,.06);
-    }
-
-    .actionCard.good{
-      border-color:rgba(74,222,128,.28);
-      background:
-        radial-gradient(circle at top right, rgba(74,222,128,.12), transparent 34%),
-        rgba(255,255,255,.06);
-    }
-
-    .actionIcon{
-      width:42px;
-      height:42px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      border-radius:16px;
-      background:rgba(255,255,255,.09);
-      border:1px solid rgba(255,255,255,.12);
-      font-size:22px;
-      margin-bottom:12px;
-    }
-
-    .actionTitle{
-      font-size:18px;
-      line-height:1.15;
-      font-weight:1000;
-      letter-spacing:-.02em;
-    }
-
-    .actionText{
-      margin-top:8px;
-      color:#dbeafe;
-      font-size:13px;
-      line-height:1.55;
-      font-weight:700;
-    }
-
-    .actionMeta{
-      margin-top:12px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    .list{
-      display:grid;
-      gap:12px;
-    }
-
-    .studentCard,
-    .runCard,
-    .termCard,
-    .leaderCard{
-      position:relative;
-      overflow:hidden;
-      border-radius:20px;
-      padding:16px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.10), transparent 30%),
-        rgba(255,255,255,.055);
-      border:1px solid rgba(255,255,255,.10);
-      box-shadow:0 10px 28px rgba(0,0,0,.14);
-    }
-
-    .studentCard{
-      cursor:pointer;
-      transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;
-    }
-
-    .studentCard:hover{
-      transform:translateY(-2px);
-      border-color:rgba(103,232,249,.30);
-      box-shadow:0 16px 34px rgba(0,0,0,.22);
-    }
-
-    .studentCard:focus-visible{
-      outline:3px solid rgba(103,232,249,.65);
-      outline-offset:3px;
-    }
-
-    .studentTop,
-    .runTop,
-    .leaderTop{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-    }
-
-    .name{
-      font-size:20px;
-      font-weight:1000;
-      letter-spacing:-.02em;
-      line-height:1.1;
-    }
-
-    .meta{
-      margin-top:6px;
-      color:#c9d8f7;
-      font-size:13px;
-      line-height:1.45;
-      font-weight:700;
-    }
-
-    .detailHint{
-      margin-top:10px;
-      color:#93c5fd;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .miniStats{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .mini{
-      padding:10px;
-      border-radius:15px;
-      background:rgba(255,255,255,.055);
-      border:1px solid rgba(255,255,255,.08);
-    }
-
-    .mini .label{
-      font-size:10px;
-      color:#a9bee8;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-      font-weight:900;
-    }
-
-    .mini .value{
-      margin-top:4px;
-      font-size:18px;
-      font-weight:1000;
       line-height:1.05;
     }
 
-    .barBlock{
-      display:grid;
-      gap:12px;
+    h3{
+      margin:0 0 10px;
+      font-size:20px;
+      letter-spacing:-.025em;
     }
 
-    .barRow{
-      border-radius:18px;
-      padding:14px;
-      background:rgba(255,255,255,.055);
-      border:1px solid rgba(255,255,255,.10);
-    }
+    p{margin:12px 0 0;color:#dbeafe;line-height:1.65;font-weight:750}
 
-    .barHead{
+    .heroActions,.actions{
       display:flex;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:10px;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:flex-end;
+      align-items:center;
     }
 
-    .barName{
-      font-size:15px;
+    .btn{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.16);
+      border-radius:999px;
+      min-height:44px;
+      padding:9px 14px;
+      color:#071426;
+      background:linear-gradient(135deg,var(--sky),var(--violet));
       font-weight:1000;
-      line-height:1.2;
+      box-shadow:0 12px 26px rgba(0,0,0,.20);
     }
 
-    .barMeta{
-      color:#c9d8f7;
+    .btn.ghost{
+      color:#eaf2ff;
+      background:rgba(255,255,255,.075);
+      box-shadow:none;
+    }
+
+    .btn.warn{
+      color:#321b04;
+      background:linear-gradient(135deg,#fde047,#fb923c);
+    }
+
+    .btn.bad{
+      color:#fff;
+      background:linear-gradient(135deg,#fb7185,#ef4444);
+    }
+
+    .btn.good{
+      color:#062014;
+      background:linear-gradient(135deg,#4ade80,#67e8f9);
+    }
+
+    .btn:hover{transform:translateY(-1px)}
+    .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+
+    .versionBadgeRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:16px;
+    }
+
+    .versionBadge,.badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:30px;
+      padding:0 10px;
+      border-radius:999px;
+      color:#eaf2ff;
+      background:rgba(255,255,255,.085);
+      border:1px solid rgba(255,255,255,.13);
       font-size:12px;
-      line-height:1.4;
-      text-align:right;
+      font-weight:1000;
       white-space:nowrap;
     }
 
-    .track{
-      height:11px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      overflow:hidden;
+    .versionBadge:first-child{
+      color:#071426;
+      background:linear-gradient(135deg,var(--sky),var(--violet));
     }
 
-    .fill{
-      height:100%;
-      width:0;
-      border-radius:999px;
-      background:linear-gradient(90deg,#67e8f9,#a78bfa);
-      transition:width .35s ease;
-    }
+    .badge.good{color:#dcfce7;background:rgba(22,101,52,.30);border-color:rgba(74,222,128,.32)}
+    .badge.warn{color:#fef3c7;background:rgba(113,63,18,.28);border-color:rgba(253,224,71,.32)}
+    .badge.bad{color:#ffe4e9;background:rgba(127,29,29,.32);border-color:rgba(251,113,133,.34)}
 
-    .fill.good{background:linear-gradient(90deg,#4ade80,#86efac)}
-    .fill.warn{background:linear-gradient(90deg,#fde047,#fb923c)}
-    .fill.bad{background:linear-gradient(90deg,#fb7185,#f43f5e)}
-
-    .twoCol{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
-    }
-
-    .threeCol{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:16px;
-    }
-
-    .empty{
-      padding:18px;
-      border-radius:18px;
+    .status{
+      margin-top:14px;
+      border-radius:20px;
+      padding:13px 15px;
+      color:#dbeafe;
       background:rgba(255,255,255,.055);
       border:1px solid rgba(255,255,255,.10);
-      color:#dbeafe;
-      font-weight:800;
+      font-size:13px;
       line-height:1.55;
-    }
-
-    .debug{
-      margin-top:16px;
-      border-radius:18px;
-      padding:14px;
-      background:rgba(0,0,0,.26);
-      border:1px solid rgba(255,255,255,.10);
-      color:#dbeafe;
-      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      font-size:12px;
-      line-height:1.5;
-      overflow:auto;
-      max-height:260px;
+      font-weight:850;
       white-space:pre-wrap;
     }
+    .status.ok{color:#dcfce7;background:rgba(22,101,52,.22);border-color:rgba(74,222,128,.32)}
+    .status.warn{color:#fef3c7;background:rgba(113,63,18,.22);border-color:rgba(253,224,71,.32)}
+    .status.bad{color:#ffe4e9;background:rgba(127,29,29,.24);border-color:rgba(251,113,133,.34)}
 
-    .drawerBackdrop{
-      position:fixed;
-      inset:0;
-      z-index:90;
-      background:rgba(2,6,23,.62);
-      backdrop-filter:blur(8px);
+    .section{
+      margin-top:16px;
+      padding:20px;
+      scroll-margin-top:16px;
     }
 
-    .studentDrawer{
-      position:fixed;
-      inset:0 0 0 auto;
-      z-index:100;
-      width:min(720px,96vw);
-      height:100dvh;
-      overflow:auto;
-      padding:14px;
-      -webkit-overflow-scrolling:touch;
-    }
-
-    .drawerPanel{
-      min-height:100%;
-      border-radius:30px;
-      padding:22px;
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 30%),
-        linear-gradient(180deg,rgba(18,28,58,.98),rgba(9,17,35,.98));
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow:0 28px 90px rgba(0,0,0,.46);
-      animation:drawerIn .22s ease;
-    }
-
-    @keyframes drawerIn{
-      from{transform:translateX(24px);opacity:0}
-      to{transform:translateX(0);opacity:1}
-    }
-
-    .drawerHead{
+    .sectionHead{
       display:flex;
       justify-content:space-between;
       align-items:flex-start;
       gap:14px;
-      margin-bottom:16px;
+      margin-bottom:14px;
     }
 
-    .drawerGrid{
+    .sectionDesc{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      font-weight:750;
+    }
+
+    .toolbarGrid{
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
+      grid-template-columns:1.4fr repeat(4,minmax(140px,.7fr));
+      gap:10px;
     }
 
-    .drawerGrid .card{
+    .field{display:grid;gap:6px}
+    label{color:#cfe3ff;font-size:12px;font-weight:1000}
+    input,select,textarea{
+      width:100%;
+      min-height:44px;
+      border-radius:17px;
+      padding:0 12px;
+      color:#fff;
+      background:rgba(255,255,255,.075);
+      border:1px solid rgba(255,255,255,.14);
+      outline:none;
+      font-weight:850;
+    }
+    textarea{padding:12px;min-height:110px;resize:vertical;line-height:1.55}
+    option{color:#111827;background:#fff}
+    input::placeholder,textarea::placeholder{color:#a9bee8}
+
+    .grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+
+    .card,.studentCard,.runCard,.miniCard{
+      border-radius:24px;
       padding:18px;
-      border-radius:22px;
+      background:
+        radial-gradient(circle at top right,rgba(255,255,255,.10),transparent 34%),
+        rgba(255,255,255,.055);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:0 10px 28px rgba(0,0,0,.16);
     }
 
-    .drawerGrid .kpiValue{
-      font-size:42px;
-    }
+    .card.bad,.studentCard.risk,.miniCard.bad{border-color:rgba(251,113,133,.32);background:radial-gradient(circle at top right,rgba(251,113,133,.12),transparent 34%),rgba(255,255,255,.055)}
+    .card.warn,.studentCard.support,.miniCard.warn{border-color:rgba(253,224,71,.32);background:radial-gradient(circle at top right,rgba(253,224,71,.12),transparent 34%),rgba(255,255,255,.055)}
+    .card.good,.miniCard.good{border-color:rgba(74,222,128,.30);background:radial-gradient(circle at top right,rgba(74,222,128,.12),transparent 34%),rgba(255,255,255,.055)}
 
-    .drawerSection{
-      margin-top:18px;
+    .kpiLabel,.miniLabel{
+      color:var(--muted);
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      font-weight:1000;
     }
-
-    .drawerSection h3{
-      margin:0 0 10px;
-      font-size:22px;
+    .kpiValue{
+      margin-top:8px;
+      font-size:38px;
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-.05em;
+    }
+    .miniTitle,.studentName{
+      font-size:19px;
+      line-height:1.15;
       font-weight:1000;
       letter-spacing:-.03em;
     }
+    .meta,.miniMeta{
+      margin-top:7px;
+      color:#dbeafe;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:750;
+    }
 
-    .hidden{
+    .quickFilterList,.chipRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .quickChip{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.13);
+      min-height:38px;
+      border-radius:999px;
+      padding:0 13px;
+      color:#eaf2ff;
+      background:rgba(255,255,255,.075);
+      font-weight:1000;
+      font-size:12px;
+    }
+    .quickChip.active{color:#071426;background:linear-gradient(135deg,var(--sky),var(--violet))}
+    .quickChip.bad.active{background:linear-gradient(135deg,#fb7185,#fda4af)}
+    .quickChip.warn.active{background:linear-gradient(135deg,#fde047,#fb923c)}
+    .quickFocusStatus{margin-top:12px;color:#dbeafe;font-size:13px;font-weight:850}
+
+    .list{display:grid;gap:12px}
+    .studentCard{cursor:pointer}
+    .studentTop{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+    }
+    .studentCard:hover{transform:translateY(-1px);border-color:rgba(103,232,249,.34)}
+    .studentCard.live{border-color:rgba(74,222,128,.38);box-shadow:0 0 0 4px rgba(74,222,128,.08),0 16px 34px rgba(0,0,0,.22)}
+
+    .cardActions,.studentActions,.miniActions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+    .cardActions .btn,.studentActions .btn,.miniActions .btn{
+      min-height:36px;
+      padding:7px 10px;
+      font-size:12px;
+    }
+
+    .empty{
+      border-radius:20px;
+      padding:18px;
+      color:#dbeafe;
+      background:rgba(255,255,255,.045);
+      border:1px dashed rgba(255,255,255,.18);
+      font-weight:850;
+      text-align:center;
+      line-height:1.55;
+    }
+
+    .tableWrap{
+      overflow:auto;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(0,0,0,.14);
+    }
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.09);text-align:left;vertical-align:top}
+    th{position:sticky;top:0;background:rgba(15,23,42,.95);color:#dbeafe;font-weight:1000;z-index:1}
+    tr:hover td{background:rgba(255,255,255,.035)}
+
+    .textBox{
+      min-height:260px;
+      max-height:620px;
+      overflow:auto;
+      white-space:pre-wrap;
+      border-radius:24px;
+      padding:20px;
+      color:#f8fbff;
+      background:
+        radial-gradient(circle at top right,rgba(255,255,255,.10),transparent 34%),
+        rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.12);
+      font-size:14px;
+      line-height:1.8;
+      font-weight:750;
+    }
+
+    .teacherJumpNav{
+      position:fixed;
+      right:14px;
+      bottom:calc(14px + var(--safe-b));
+      z-index:80;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap:8px;
+      pointer-events:none;
+    }
+    .jumpNavToggle{
+      pointer-events:auto;
+      border:1px solid rgba(255,255,255,.16);
+      border-radius:999px;
+      min-height:46px;
+      padding:0 16px;
+      color:#071426;
+      background:linear-gradient(135deg,var(--sky),var(--violet));
+      box-shadow:0 16px 34px rgba(0,0,0,.26);
+      font-weight:1000;
+    }
+    .jumpNavPanel{
+      pointer-events:auto;
+      display:none;
+      width:min(300px,calc(100vw - 28px));
+      max-height:min(68dvh,580px);
+      overflow:auto;
+      padding:10px;
+      border-radius:24px;
+      background:linear-gradient(180deg,rgba(18,28,58,.98),rgba(9,17,35,.98));
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 24px 70px rgba(0,0,0,.40);
+      backdrop-filter:blur(12px);
+    }
+    .teacherJumpNav.open .jumpNavPanel{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+    .jumpLink{
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:15px;
+      min-height:40px;
+      padding:8px 10px;
+      color:#eaf2ff;
+      background:rgba(255,255,255,.07);
+      font-size:12px;
+      font-weight:1000;
+      text-align:left;
+    }
+    .jumpLink.active{color:#071426;background:linear-gradient(135deg,var(--sky),var(--violet))}
+
+    .drawerBackdrop{
+      position:fixed;
+      inset:0;
+      z-index:120;
+      background:rgba(2,6,23,.66);
+      backdrop-filter:blur(10px);
+    }
+    .drawer{
+      position:fixed;
+      top:0;
+      right:0;
+      z-index:130;
+      width:min(760px,100vw);
+      height:100dvh;
+      overflow:auto;
+      padding:18px;
+      background:linear-gradient(180deg,rgba(18,28,58,.98),rgba(9,17,35,.99));
+      border-left:1px solid rgba(255,255,255,.14);
+      box-shadow:-30px 0 80px rgba(0,0,0,.38);
+    }
+    .drawerPanel{
+      border-radius:28px;
+      padding:20px;
+      background:rgba(255,255,255,.055);
+      border:1px solid rgba(255,255,255,.12);
+    }
+    .drawerHead{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .debugBox{
+      white-space:pre-wrap;
+      max-height:340px;
+      overflow:auto;
+      border-radius:18px;
+      padding:14px;
+      background:rgba(0,0,0,.24);
+      border:1px solid rgba(255,255,255,.10);
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font-size:12px;
+      color:#eaf2ff;
+    }
+
+    body.compact-mode .section{padding:16px;margin-top:12px}
+    body.compact-mode .card,body.compact-mode .studentCard,body.compact-mode .miniCard{padding:14px;border-radius:18px}
+    body.compact-mode .kpiValue{font-size:32px}
+    body.focus-mode [data-focus-hide="1"]{display:none!important}
+
+    body.production-mode [data-dev="1"],
+    body.production-mode .devOnlyBtn{
       display:none!important;
+    }
+    .btn.is-on{background:linear-gradient(135deg,#4ade80,#67e8f9);color:#062014}
+
+    @media (max-width:1120px){
+      .heroTop{grid-template-columns:1fr}
+      .heroActions{justify-content:flex-start}
+      .toolbarGrid{grid-template-columns:1fr 1fr}
+      .grid4{grid-template-columns:1fr 1fr}
+      .grid3{grid-template-columns:1fr 1fr}
+    }
+    @media (max-width:700px){
+      .page{padding:10px;padding-bottom:calc(90px + var(--safe-b))}
+      .hero,.section{border-radius:24px;padding:16px}
+      .sectionHead{display:grid}
+      .toolbarGrid,.grid4,.grid3,.grid2{grid-template-columns:1fr}
+      .teacherJumpNav{left:10px;right:10px;align-items:stretch}
+      .jumpNavToggle{width:100%}
+      .jumpNavPanel{width:100%}
+      .studentTop{display:grid}
     }
 
     @media print{
-      body{
-        background:#fff;
-        color:#111827;
-      }
-
-      .page{
-        width:100%;
-        padding:0;
-      }
-
-      .heroActions,
-      .toolbar,
-      .status,
-      .debug,
-      #toggleDebugBtn,
-      .drawerBackdrop,
-      .studentDrawer{
-        display:none!important;
-      }
-
-      .hero,
-      .section,
-      .card,
-      .studentCard,
-      .runCard,
-      .termCard,
-      .leaderCard{
-        box-shadow:none!important;
-        background:#fff!important;
-        color:#111827!important;
-        border-color:#d1d5db!important;
-      }
-
-      h1,h2,.kpiValue,.name{
-        color:#111827!important;
-      }
-
-      .hero p,
-      .sectionDesc,
-      .meta,
-      .kpiHelp{
-        color:#374151!important;
-      }
-    }
-
-    @media (max-width:980px){
-      .heroTop{
-        flex-direction:column;
-      }
-
-      .heroActions{
-        flex-direction:row;
-        width:100%;
-      }
-
-      .heroActions .btn{
-        flex:1;
-      }
-
-      .toolbar{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .kpiGrid{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .twoCol,
-      .threeCol{
-        grid-template-columns:1fr;
-      }
-
-      .actionSummaryGrid{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width:620px){
-      .page{
-        padding:12px 10px 38px;
-      }
-
-      .hero{
-        padding:22px 18px;
-        border-radius:26px;
-      }
-
-      .heroActions{
-        flex-direction:column;
-      }
-
-      .toolbar{
-        grid-template-columns:1fr;
-      }
-
-      .kpiGrid,
-      .kpiWideGrid{
-        grid-template-columns:1fr;
-      }
-
-      .miniStats{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .section{
-        padding:18px;
-        border-radius:26px;
-      }
-
-      .sectionHead{
-        flex-direction:column;
-      }
-
-      h1{
-        font-size:46px;
-      }
-
-      .kpiValue{
-        font-size:48px;
-      }
-
-      .studentDrawer{
-        width:100vw;
-        padding:8px;
-      }
-
-      .drawerPanel{
-        border-radius:24px;
-        padding:16px;
-      }
-
-      .drawerHead{
-        flex-direction:column;
-      }
-
-      .drawerGrid{
-        grid-template-columns:1fr;
-      }
+      body{background:#fff;color:#111827}
+      .heroActions,.teacherJumpNav,.btn,.drawerBackdrop,.drawer{display:none!important}
+      .page{width:100%;padding:0}
+      .hero,.section{box-shadow:none;background:#fff;border:1px solid #ddd;color:#111827}
     }
   </style>
 </head>
 
 <body>
+  <nav class="teacherJumpNav" id="teacherJumpNav" aria-label="Teacher navigation">
+    <button class="jumpNavToggle" id="jumpNavToggle" type="button">☰ Menu</button>
+    <div class="jumpNavPanel" id="jumpNavPanel">
+      <button class="jumpLink" data-jump-target="top" type="button">Top</button>
+      <button class="jumpLink" data-jump-target="quick-focus" type="button">Quick</button>
+      <button class="jumpLink" data-jump-target="live" type="button">Live</button>
+      <button class="jumpLink" data-jump-target="students" type="button">Students</button>
+      <button class="jumpLink" data-jump-target="attendance" type="button">Attendance</button>
+      <button class="jumpLink" data-jump-target="workflow" type="button">Workflow</button>
+      <button class="jumpLink" data-jump-target="evidence" type="button">Evidence</button>
+      <button class="jumpLink" data-jump-target="batch-feedback" type="button">Feedback</button>
+      <button class="jumpLink" data-jump-target="templates" type="button">Templates</button>
+      <button class="jumpLink" data-jump-target="communication" type="button">Comm Log</button>
+      <button class="jumpLink" data-jump-target="comm-summary" type="button">Comm Summary</button>
+      <button class="jumpLink" data-jump-target="narrative" type="button">Narrative</button>
+      <button class="jumpLink" data-jump-target="portfolio" type="button">Portfolio</button>
+      <button class="jumpLink" data-jump-target="terms" type="button">Terms</button>
+      <button class="jumpLink" data-jump-target="recent" type="button">Recent</button>
+      <button class="jumpLink" data-jump-target="debug" type="button" data-dev="1">Debug</button>
+    </div>
+  </nav>
+
   <main class="page">
-    <section class="hero">
+    <section class="hero" data-section-id="top">
       <div class="heroTop">
         <div>
-          <h1>Teacher Dashboard • Vocab Analytics</h1>
-          <p>
-            ดูภาพรวมทั้งห้อง ติดตามนักศึกษาที่ควรดูแลก่อน เปิดรายละเอียดรายคน
-            และค่อยดู analytics เชิงลึกเท่าที่จำเป็นจาก Google Sheet ชุดเดียวกับเกม vocab
-          </p>
+          <h1>Teacher Vocab Analytics</h1>
+          <p>Dashboard สำหรับติดตามผล Vocabulary Game: attendance, weak terms, feedback, communication log, evidence pack และ course portfolio</p>
+          <div class="versionBadgeRow">
+            <span class="versionBadge" id="teacherVersionBadge">Teacher v47</span>
+            <span class="versionBadge">Build 2026-04-25</span>
+            <span class="versionBadge" id="dataModeBadge">Live Data</span>
+          </div>
         </div>
 
         <div class="heroActions">
-          <button class="btn" id="refreshBtn" type="button">รีเฟรชข้อมูล</button>
-          <button class="btn alt" id="printBtn" type="button">พิมพ์รายงาน</button>
+          <button class="btn warn" id="refreshBtn" type="button">Refresh Data</button>
+          <button class="btn ghost" id="useCacheBtn" type="button">Use Cache</button>
+          <button class="btn ghost" id="compactBtn" type="button">Compact: OFF</button>
+          <button class="btn ghost" id="focusBtn" type="button">Focus: OFF</button>
+          <button class="btn ghost" id="productionBtn" type="button">Production: OFF</button>
+          <button class="btn ghost" id="presetTeachingBtn" type="button">Teaching</button>
+          <button class="btn ghost" id="presetDebugBtn" type="button" data-dev="1">Debug</button>
+          <button class="btn ghost" id="exportStudentsBtn" type="button">Export Students</button>
+          <button class="btn ghost" id="exportSessionsBtn" type="button">Export Sessions</button>
+        </div>
+      </div>
+
+      <div class="status warn" id="statusBox">พร้อมโหลดข้อมูล teacher dashboard</div>
+    </section>
+
+    <section class="section" data-section-id="quick-focus">
+      <div class="sectionHead">
+        <div>
+          <h2>Quick Focus</h2>
+          <div class="sectionDesc">ปุ่มลัดสำหรับดู All / Risk / Support / Missing / Workflow / No Communication</div>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" id="clearQuickBtn" type="button">Clear Focus</button>
+        </div>
+      </div>
+      <div class="quickFilterList" id="quickFilterList"></div>
+      <div class="quickFocusStatus" id="quickFocusStatus">Showing all students</div>
+    </section>
+
+    <section class="section">
+      <div class="sectionHead">
+        <div>
+          <h2>Filters</h2>
+          <div class="sectionDesc">ค้นหาและกรองนักศึกษา</div>
+        </div>
+      </div>
+      <div class="toolbarGrid">
+        <div class="field">
+          <label>Search</label>
+          <input id="searchInput" placeholder="ชื่อ / รหัส / section / bank / term..." />
+        </div>
+        <div class="field">
+          <label>Section</label>
+          <select id="sectionFilter"><option value="">All</option></select>
+        </div>
+        <div class="field">
+          <label>Risk</label>
+          <select id="riskFilter">
+            <option value="">All</option>
+            <option value="risk">Risk</option>
+            <option value="support">Support</option>
+            <option value="good">Good</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Bank</label>
+          <select id="bankFilter"><option value="">All</option></select>
+        </div>
+        <div class="field">
+          <label>Sort</label>
+          <select id="sortSelect">
+            <option value="risk">Risk first</option>
+            <option value="accuracyAsc">Accuracy low → high</option>
+            <option value="scoreDesc">Score high → low</option>
+            <option value="name">Name</option>
+            <option value="recent">Recent activity</option>
+          </select>
         </div>
       </div>
     </section>
 
-    <div class="status warn" id="statusBox">กำลังโหลดข้อมูล teacher dashboard...</div>
-
-    <section class="toolbar" aria-label="filters">
-      <div class="field">
-        <label for="searchInput">ค้นหา</label>
-        <input id="searchInput" type="search" placeholder="ชื่อ / รหัส / section" />
+    <section class="section" data-section-id="live">
+      <div class="sectionHead">
+        <div>
+          <h2>Classroom Live Monitor</h2>
+          <div class="sectionDesc">ดูนักศึกษาที่เพิ่งส่งข้อมูลล่าสุด และ timeline เหตุการณ์ในชั้นเรียน</div>
+        </div>
+        <div class="actions">
+          <select id="liveWindowSelect">
+            <option value="5">5 นาที</option>
+            <option value="15" selected>15 นาที</option>
+            <option value="30">30 นาที</option>
+            <option value="60">60 นาที</option>
+          </select>
+          <button class="btn ghost" id="refreshLiveBtn" type="button">Refresh Live</button>
+        </div>
       </div>
+      <div class="grid4" id="liveKpis"></div>
+      <div class="grid3" id="liveList" style="margin-top:12px"></div>
+      <h3 style="margin-top:18px">Live Activity Timeline</h3>
+      <div class="list" id="timelineList"></div>
+    </section>
 
-      <div class="field">
-        <label for="sectionFilter">Section</label>
-        <select id="sectionFilter">
-          <option value="">ทั้งหมด</option>
+    <section class="section" data-section-id="students">
+      <div class="sectionHead">
+        <div>
+          <h2>Students</h2>
+          <div class="sectionDesc">รายชื่อนักศึกษาจาก roster + logs</div>
+        </div>
+        <div class="actions">
+          <span class="badge" id="studentCountBadge">0 students</span>
+          <button class="btn ghost" id="showMoreStudentsBtn" type="button">Show More</button>
+        </div>
+      </div>
+      <div class="grid3" id="studentList"></div>
+    </section>
+
+    <section class="section" data-section-id="attendance">
+      <div class="sectionHead">
+        <div>
+          <h2>Attendance Summary</h2>
+          <div class="sectionDesc">เช็ก session_code, joined, missing และ completion</div>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" id="exportMissingBtn" type="button">Export Missing</button>
+        </div>
+      </div>
+      <div class="grid3" id="attendanceList"></div>
+    </section>
+
+    <section class="section" data-section-id="workflow">
+      <div class="sectionHead">
+        <div>
+          <h2>Student Follow-up Workflow</h2>
+          <div class="sectionDesc">บอร์ดติดตาม New → Reviewing → Assigned Goal → Resolved</div>
+        </div>
+        <div class="actions">
+          <span class="badge warn" id="workflowCount">0 active</span>
+          <button class="btn ghost" id="buildWorkflowBtn" type="button">Build from Data</button>
+          <button class="btn ghost" id="exportWorkflowBtn" type="button">Export CSV</button>
+          <button class="btn ghost" id="clearResolvedBtn" type="button">Clear Resolved</button>
+        </div>
+      </div>
+      <div class="grid4" id="workflowBoard"></div>
+    </section>
+
+    <section class="section" data-section-id="evidence">
+      <div class="sectionHead">
+        <div>
+          <h2>Student Evidence Pack</h2>
+          <div class="sectionDesc">รวมหลักฐานรายคน: sessions, answers, weak terms, notes, goals, workflow, alerts</div>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" id="queueRiskBtn" type="button">Queue Risk</button>
+          <button class="btn ghost" id="queueVisibleBtn" type="button">Queue Visible</button>
+          <button class="btn ghost" id="exportEvidenceIndexBtn" type="button">Export Index</button>
+        </div>
+      </div>
+      <div class="grid3" id="evidenceGrid"></div>
+
+      <h3 style="margin-top:18px">Evidence Pack Batch Queue</h3>
+      <div class="actions" style="justify-content:flex-start;margin-bottom:12px">
+        <span class="badge warn" id="evidenceQueueCount">0 queue</span>
+        <button class="btn warn" id="exportNextEvidenceBtn" type="button">Export Next Pack</button>
+        <button class="btn ghost" id="exportQueueIndexBtn" type="button">Export Queue Index</button>
+        <button class="btn ghost" id="clearQueueBtn" type="button">Clear Queue</button>
+      </div>
+      <div class="grid3" id="evidenceQueueGrid"></div>
+    </section>
+
+    <section class="section" data-section-id="batch-feedback">
+      <div class="sectionHead">
+        <div>
+          <h2>Batch Feedback Composer</h2>
+          <div class="sectionDesc">สร้าง feedback รายคนแบบเป็นชุดจาก queue/risk/visible students</div>
+        </div>
+        <div class="actions">
+          <span class="badge warn" id="batchFeedbackCount">0 feedback</span>
+          <button class="btn ghost" id="composeQueueFeedbackBtn" type="button">Compose Queue</button>
+          <button class="btn ghost" id="composeRiskFeedbackBtn" type="button">Compose Risk</button>
+          <button class="btn ghost" id="composeVisibleFeedbackBtn" type="button">Compose Visible</button>
+          <button class="btn warn" id="exportBatchFeedbackTxtBtn" type="button">Export TXT</button>
+          <button class="btn ghost" id="exportBatchFeedbackCsvBtn" type="button">Export CSV</button>
+          <button class="btn ghost" id="clearBatchFeedbackBtn" type="button">Clear</button>
+        </div>
+      </div>
+      <div class="grid4">
+        <div class="field">
+          <label>Tone</label>
+          <select id="feedbackToneSelect">
+            <option value="supportive">Supportive</option>
+            <option value="direct">Direct</option>
+            <option value="encouraging">Encouraging</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Language</label>
+          <select id="feedbackLangSelect">
+            <option value="th">Thai</option>
+            <option value="en">English</option>
+            <option value="both">Thai + English</option>
+          </select>
+        </div>
+        <label class="card"><input id="includeWeakTermsChk" type="checkbox" checked /> ใส่ weak terms</label>
+        <label class="card"><input id="includeGoalSuggestionChk" type="checkbox" checked /> ใส่ goal/next action</label>
+      </div>
+      <div class="grid2" id="batchFeedbackGrid" style="margin-top:12px"></div>
+    </section>
+
+    <section class="section" data-section-id="templates">
+      <div class="sectionHead">
+        <div>
+          <h2>Student Message Templates</h2>
+          <div class="sectionDesc">ข้อความสำเร็จรูป: ชมเชย / ทบทวน / missing / goal / follow-up / advisor</div>
+        </div>
+        <div class="actions">
+          <span class="badge warn" id="templateCount">0 messages</span>
+          <button class="btn ghost" id="composeTemplateBtn" type="button">Compose Messages</button>
+          <button class="btn warn" id="exportTemplateTxtBtn" type="button">Export TXT</button>
+          <button class="btn ghost" id="exportTemplateCsvBtn" type="button">Export CSV</button>
+          <button class="btn ghost" id="clearTemplateBtn" type="button">Clear</button>
+        </div>
+      </div>
+      <div class="grid4">
+        <div class="field">
+          <label>Template</label>
+          <select id="templateTypeSelect">
+            <option value="praise">ชมเชย</option>
+            <option value="review">ต้องทบทวน</option>
+            <option value="missing">แจ้ง Missing</option>
+            <option value="goal">มอบหมาย Goal</option>
+            <option value="followup">นัดติดตาม</option>
+            <option value="advisor">แจ้งอาจารย์ที่ปรึกษา</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Source</label>
+          <select id="templateSourceSelect">
+            <option value="queue">Evidence Queue</option>
+            <option value="batchFeedback">Batch Feedback</option>
+            <option value="risk">Risk / Support</option>
+            <option value="workflow">Workflow Active</option>
+            <option value="visible">Visible Students</option>
+            <option value="focused">Focused Student</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Language</label>
+          <select id="templateLangSelect">
+            <option value="th">Thai</option>
+            <option value="en">English</option>
+            <option value="both">Thai + English</option>
+          </select>
+        </div>
+        <label class="card"><input id="templateIncludeWeakChk" type="checkbox" checked /> ใส่ weak terms</label>
+      </div>
+      <div class="grid2" id="templateGrid" style="margin-top:12px"></div>
+    </section>
+
+    <section class="section" data-section-id="communication">
+      <div class="sectionHead">
+        <div>
+          <h2>Communication Log</h2>
+          <div class="sectionDesc">ประวัติ copy / save note / mark sent / export เพื่อเป็นหลักฐานการติดตาม</div>
+        </div>
+        <div class="actions">
+          <span class="badge warn" id="communicationLogCount">0 logs</span>
+          <button class="btn ghost" id="exportCommunicationCsvBtn" type="button">Export CSV</button>
+          <button class="btn ghost" id="exportCommunicationTxtBtn" type="button">Export TXT</button>
+          <button class="btn ghost" id="clearCommunicationBtn" type="button">Clear</button>
+        </div>
+      </div>
+      <div class="toolbarGrid" style="grid-template-columns:220px 220px 1fr">
+        <select id="communicationActionFilter">
+          <option value="">ทุก action</option>
+          <option value="copy">Copy</option>
+          <option value="save_note">Save Note</option>
+          <option value="mark_sent">Mark Sent</option>
+          <option value="export">Export</option>
         </select>
-      </div>
-
-      <div class="field">
-        <label for="bankFilter">Bank</label>
-        <select id="bankFilter">
-          <option value="">ทั้งหมด</option>
+        <select id="communicationSourceFilter">
+          <option value="">ทุก source</option>
+          <option value="batch-feedback">Batch Feedback</option>
+          <option value="message-template">Message Template</option>
+          <option value="student-feedback">Student Feedback</option>
+          <option value="evidence-pack">Evidence Pack</option>
+          <option value="course-portfolio">Course Portfolio</option>
         </select>
+        <input id="communicationSearchInput" placeholder="ค้น communication log..." />
       </div>
-
-      <div class="field">
-        <label for="modeFilter">Mode</label>
-        <select id="modeFilter">
-          <option value="">ทั้งหมด</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="riskFilter">Risk</label>
-        <select id="riskFilter">
-          <option value="">ทั้งหมด</option>
-          <option value="risk">เฉพาะกลุ่มเสี่ยง</option>
-          <option value="support">ต้องติดตาม</option>
-          <option value="ok">ปกติ</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="sortSelect">เรียงลำดับ</label>
-        <select id="sortSelect">
-          <option value="risk">ความเสี่ยงก่อน</option>
-          <option value="accuracyAsc">Accuracy ต่ำก่อน</option>
-          <option value="scoreDesc">Score สูงก่อน</option>
-          <option value="recent">ล่าสุดก่อน</option>
-          <option value="name">ชื่อ A-Z</option>
-        </select>
-      </div>
+      <div class="list" id="communicationLogList" style="margin-top:12px"></div>
     </section>
 
-    <section class="section actionSummarySection">
+    <section class="section" data-section-id="comm-summary">
       <div class="sectionHead">
         <div>
-          <h2>วันนี้ครูควรทำอะไรก่อน</h2>
-          <div class="sectionDesc">สรุป action ที่ควรทำจากข้อมูลล่าสุด เพื่อให้ครูไม่ต้องตีความตัวเลขเองทั้งหมด</div>
+          <h2>Communication Summary Analytics</h2>
+          <div class="sectionDesc">สรุป coverage, mark sent, no communication, template/source usage</div>
         </div>
-        <span class="badge warn" id="actionSummaryCount">0 งาน</span>
-      </div>
-      <div class="actionSummaryGrid" id="teacherActionList"></div>
-    </section>
-
-    <section class="grid">
-      <div class="kpiGrid">
-        <div class="card">
-          <div class="kpiLabel">นักศึกษาที่มีข้อมูล</div>
-          <div class="kpiValue" id="kpiStudents">0</div>
-          <div class="kpiHelp">จำนวนนักศึกษาที่พบในข้อมูลล่าสุด</div>
-        </div>
-
-        <div class="card">
-          <div class="kpiLabel">รอบเรียนที่บันทึก</div>
-          <div class="kpiValue" id="kpiSessions">0</div>
-          <div class="kpiHelp">จำนวน session ที่ระบบบันทึกแล้ว</div>
-        </div>
-
-        <div class="card">
-          <div class="kpiLabel">ต้องติดตาม</div>
-          <div class="kpiValue" id="kpiSupport">0</div>
-          <div class="kpiHelp">ควรดูแลหรือติดตามเพิ่มก่อน</div>
-        </div>
-
-        <div class="card">
-          <div class="kpiLabel">กลุ่มเสี่ยง</div>
-          <div class="kpiValue" id="kpiRisk">0</div>
-          <div class="kpiHelp">attendance ต่ำหรือ accuracy ต่ำกว่าเกณฑ์</div>
+        <div class="actions">
+          <span class="badge good" id="communicationSummaryBadge">0% covered</span>
+          <button class="btn ghost" id="exportCommunicationSummaryBtn" type="button">Export Summary</button>
+          <button class="btn ghost" id="queueNoCommunicationBtn" type="button">Queue No Communication</button>
         </div>
       </div>
-
-      <div class="kpiWideGrid">
-        <div class="card">
-          <div class="kpiLabel">คะแนนเฉลี่ย</div>
-          <div class="kpiValue" id="kpiAvgScore">0</div>
-          <div class="kpiHelp">ค่าเฉลี่ย score จาก session ที่กรองอยู่</div>
-        </div>
-
-        <div class="card">
-          <div class="kpiLabel">ความแม่นยำเฉลี่ย</div>
-          <div class="kpiValue" id="kpiAvgAccuracy">0%</div>
-          <div class="kpiHelp">ค่าเฉลี่ย accuracy ของข้อมูลที่กรองอยู่</div>
-        </div>
+      <div class="grid4" id="communicationKpis"></div>
+      <div class="grid3" style="margin-top:12px">
+        <div class="miniCard"><h3>No Communication</h3><div class="list" id="noCommunicationList"></div></div>
+        <div class="miniCard"><h3>Action Breakdown</h3><div class="list" id="communicationActionBreakdown"></div></div>
+        <div class="miniCard"><h3>Template / Source Usage</h3><div class="list" id="communicationTemplateUsage"></div></div>
       </div>
     </section>
 
-    <section class="section">
+    <section class="section" data-section-id="narrative">
       <div class="sectionHead">
         <div>
-          <h2>นักศึกษาที่ควรติดตามก่อน</h2>
-          <div class="sectionDesc">เปิดมาหน้านี้ให้ดูคนที่ควรได้รับการช่วยเหลือหรือติดตามก่อนเป็นอันดับแรก</div>
+          <h2>Class Progress Narrative Report</h2>
+          <div class="sectionDesc">รายงานบรรยายภาพรวมทั้งห้องภาษาไทย</div>
         </div>
-        <span class="badge warn" id="priorityCount">0 คน</span>
+        <div class="actions">
+          <span class="badge good" id="narrativeBadge">Ready</span>
+          <button class="btn warn" id="generateNarrativeBtn" type="button">Generate</button>
+          <button class="btn ghost" id="copyNarrativeBtn" type="button">Copy</button>
+          <button class="btn ghost" id="exportNarrativeTxtBtn" type="button">Export TXT</button>
+          <button class="btn ghost" id="exportNarrativeHtmlBtn" type="button">Export HTML</button>
+        </div>
       </div>
-      <div class="list" id="priorityList"></div>
+      <div class="grid4">
+        <div class="field">
+          <label>Style</label>
+          <select id="narrativeStyleSelect">
+            <option value="academic">Academic</option>
+            <option value="teacher">Teacher Reflection</option>
+            <option value="executive">Executive Summary</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Scope</label>
+          <select id="narrativeScopeSelect">
+            <option value="all">ทั้งห้อง</option>
+            <option value="risk">Risk / Support</option>
+            <option value="visible">Visible</option>
+          </select>
+        </div>
+        <label class="card"><input id="narrativeIncludeNamesChk" type="checkbox" /> ใส่รายชื่อกลุ่มติดตาม</label>
+        <label class="card"><input id="narrativeIncludeNextPlanChk" type="checkbox" checked /> ใส่แผนครั้งถัดไป</label>
+      </div>
+      <div class="textBox" id="narrativePreview" style="margin-top:12px">กด Generate เพื่อสร้างรายงาน</div>
     </section>
 
-    <section class="section">
+    <section class="section" data-section-id="portfolio">
       <div class="sectionHead">
         <div>
-          <h2>รายชื่อนักศึกษา</h2>
-          <div class="sectionDesc">ดูสรุปรายคน พร้อมคะแนน ความแม่นยำ โหมดล่าสุด และคำแนะนำต่อไป</div>
+          <h2>Course-level Portfolio Export</h2>
+          <div class="sectionDesc">รวม Class Narrative + Communication Summary + Workflow + Evidence Index + Weak Terms</div>
         </div>
-        <span class="badge" id="studentCount">0 คน</span>
+        <div class="actions">
+          <span class="badge good" id="portfolioBadge">Ready</span>
+          <button class="btn warn" id="generatePortfolioBtn" type="button">Generate Portfolio</button>
+          <button class="btn ghost" id="copyPortfolioBtn" type="button">Copy Summary</button>
+          <button class="btn ghost" id="exportPortfolioHtmlBtn" type="button">Export HTML</button>
+          <button class="btn ghost" id="exportPortfolioJsonBtn" type="button">Export JSON</button>
+          <button class="btn ghost" id="exportPortfolioIndexCsvBtn" type="button">Export Index CSV</button>
+        </div>
       </div>
-      <div class="list" id="studentList"></div>
+      <div class="grid4">
+        <div class="field">
+          <label>Scope</label>
+          <select id="portfolioScopeSelect">
+            <option value="all">ทั้งห้อง</option>
+            <option value="visible">Visible</option>
+            <option value="risk">Risk / Support</option>
+            <option value="queue">Evidence Queue</option>
+          </select>
+        </div>
+        <label class="card"><input id="portfolioIncludeNarrativeChk" type="checkbox" checked /> Class Narrative</label>
+        <label class="card"><input id="portfolioIncludeEvidenceChk" type="checkbox" checked /> Evidence Index</label>
+        <label class="card"><input id="portfolioIncludeCommunicationChk" type="checkbox" checked /> Communication</label>
+      </div>
+      <div class="textBox" id="portfolioPreview" style="margin-top:12px">กด Generate Portfolio เพื่อสร้างชุดรายงาน</div>
     </section>
 
-    <section class="section">
+    <section class="section" data-section-id="terms">
       <div class="sectionHead">
         <div>
-          <h2>วิเคราะห์คำศัพท์ที่ควรเสริม</h2>
-          <div class="sectionDesc">ดูคำที่ผิดบ่อย คำที่ตอบช้า หรือคำที่ควรนำไปทบทวนในชั้นเรียน</div>
-        </div>
-        <span class="badge" id="termCount">0 คำ</span>
-      </div>
-      <div class="barBlock" id="hardTerms"></div>
-    </section>
-
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <h2>Mode / Bank Analytics</h2>
-          <div class="sectionDesc">ดูว่าโหมดไหนและ bank ไหนทำคะแนนดีหรือยังต้องเสริม</div>
+          <h2>Weak Terms</h2>
+          <div class="sectionDesc">คำศัพท์ที่ตอบผิดบ่อย</div>
         </div>
       </div>
-
-      <div class="twoCol">
-        <div>
-          <h3 style="margin:0 0 12px;font-size:20px">Mode Breakdown</h3>
-          <div class="barBlock" id="modeBreakdown"></div>
-        </div>
-        <div>
-          <h3 style="margin:0 0 12px;font-size:20px">Bank Breakdown</h3>
-          <div class="barBlock" id="bankBreakdown"></div>
-        </div>
+      <div class="tableWrap">
+        <table>
+          <thead><tr><th>Term</th><th>Seen</th><th>Wrong</th><th>Accuracy</th></tr></thead>
+          <tbody id="termTable"></tbody>
+        </table>
       </div>
     </section>
 
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <h2>Leaderboard</h2>
-          <div class="sectionDesc">อันดับคะแนนสูงสุดจากแท็บ vocab_leaderboard</div>
-        </div>
-        <span class="badge good" id="leaderCount">0 อันดับ</span>
-      </div>
-      <div class="list" id="leaderList"></div>
-    </section>
-
-    <section class="section">
+    <section class="section" data-section-id="recent">
       <div class="sectionHead">
         <div>
           <h2>Recent Sessions</h2>
-          <div class="sectionDesc">รอบเล่นล่าสุด ใช้ตรวจสอบว่าข้อมูลเข้า Google Sheet แล้วหรือยัง</div>
+          <div class="sectionDesc">รายการ session ล่าสุด</div>
         </div>
-        <span class="badge" id="runCount">0 รอบ</span>
       </div>
       <div class="list" id="recentRuns"></div>
     </section>
 
-    <section class="section">
+    <section class="section" data-section-id="debug" data-dev="1">
       <div class="sectionHead">
         <div>
-          <h2>Raw Data Debug</h2>
-          <div class="sectionDesc">ใช้ตรวจตอนข้อมูลยังไม่เข้า dashboard</div>
+          <h2>Debug</h2>
+          <div class="sectionDesc">ข้อมูล raw / normalized / runtime</div>
         </div>
-        <button class="btn ghost" id="toggleDebugBtn" type="button">แสดง/ซ่อน Debug</button>
       </div>
-      <pre class="debug hidden" id="debugBox"></pre>
+      <pre class="debugBox" id="debugBox">{}</pre>
     </section>
-
-    <div class="drawerBackdrop hidden" id="drawerBackdrop"></div>
-
-    <aside class="studentDrawer hidden" id="studentDrawer" aria-label="student detail">
-      <div class="drawerPanel">
-        <div class="drawerHead">
-          <div>
-            <div class="badge" id="drawerRiskBadge">DETAIL</div>
-            <h2 id="drawerTitle">Student Detail</h2>
-            <div class="sectionDesc" id="drawerSubtitle">รายละเอียดรายคน</div>
-          </div>
-          <button class="btn ghost" id="drawerCloseBtn" type="button">ปิด</button>
-        </div>
-
-        <div class="drawerGrid">
-          <div class="card">
-            <div class="kpiLabel">Score</div>
-            <div class="kpiValue" id="drawerScore">0</div>
-            <div class="kpiHelp">คะแนนล่าสุด/ดีที่สุดที่พบ</div>
-          </div>
-
-          <div class="card">
-            <div class="kpiLabel">Accuracy</div>
-            <div class="kpiValue" id="drawerAccuracy">0%</div>
-            <div class="kpiHelp">ความแม่นยำล่าสุด</div>
-          </div>
-
-          <div class="card">
-            <div class="kpiLabel">Sessions</div>
-            <div class="kpiValue" id="drawerSessions">0</div>
-            <div class="kpiHelp">จำนวนรอบที่บันทึก</div>
-          </div>
-
-          <div class="card">
-            <div class="kpiLabel">Wrong Rate</div>
-            <div class="kpiValue" id="drawerWrongRate">0%</div>
-            <div class="kpiHelp">อัตราตอบผิดจาก answers</div>
-          </div>
-        </div>
-
-        <div class="drawerSection">
-          <h3>คำแนะนำสำหรับครู</h3>
-          <div class="empty" id="drawerActionText">-</div>
-        </div>
-
-        <div class="drawerSection">
-          <h3>คำศัพท์ที่ควรทบทวนรายคน</h3>
-          <div class="barBlock" id="drawerWeakTerms"></div>
-        </div>
-
-        <div class="drawerSection">
-          <h3>Recent Sessions ของคนนี้</h3>
-          <div class="list" id="drawerRecentSessions"></div>
-        </div>
-      </div>
-    </aside>
   </main>
 
+  <div class="drawerBackdrop hidden" id="drawerBackdrop"></div>
+  <aside class="drawer hidden" id="studentDrawer">
+    <div class="drawerPanel">
+      <div class="drawerHead">
+        <div>
+          <h2 id="drawerTitle">Student</h2>
+          <div class="sectionDesc" id="drawerMeta">-</div>
+        </div>
+        <button class="btn ghost" id="drawerCloseBtn" type="button">ปิด</button>
+      </div>
+
+      <div class="grid4" id="drawerKpis"></div>
+
+      <h3 style="margin-top:18px">Teacher Note</h3>
+      <textarea id="studentNoteArea" placeholder="บันทึกครูรายคน..."></textarea>
+      <div class="cardActions">
+        <button class="btn ghost" id="saveStudentNoteBtn" type="button">Save Note</button>
+        <button class="btn ghost" id="copyStudentFeedbackBtn" type="button">Copy Feedback</button>
+        <button class="btn warn" id="exportEvidencePackBtn" type="button">Export Evidence Pack</button>
+      </div>
+
+      <h3 style="margin-top:18px">Goal</h3>
+      <div class="grid4">
+        <div class="field"><label>Target Accuracy</label><input id="goalAccuracyInput" type="number" min="0" max="100" /></div>
+        <div class="field"><label>Target Score</label><input id="goalScoreInput" type="number" min="0" /></div>
+        <div class="field"><label>Target Sessions</label><input id="goalSessionsInput" type="number" min="0" /></div>
+        <div class="field"><label>Due Date</label><input id="goalDueInput" type="date" /></div>
+      </div>
+      <textarea id="goalNoteInput" placeholder="Goal note..." style="margin-top:10px"></textarea>
+      <div class="cardActions">
+        <button class="btn warn" id="saveGoalBtn" type="button">Save Goal</button>
+        <button class="btn ghost" id="clearGoalBtn" type="button">Clear Goal</button>
+      </div>
+
+      <h3 style="margin-top:18px">Weak Terms</h3>
+      <div class="tableWrap">
+        <table>
+          <thead><tr><th>Term</th><th>Seen</th><th>Wrong</th><th>Accuracy</th></tr></thead>
+          <tbody id="drawerWeakTerms"></tbody>
+        </table>
+      </div>
+
+      <h3 style="margin-top:18px">Recent Sessions</h3>
+      <div class="list" id="drawerSessions"></div>
+    </div>
+  </aside>
+
   <script>
+    'use strict';
+
     const API_URL = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
 
+    const TEACHER_VERSION = {
+      app: 'Teacher Vocab Analytics',
+      version: 'v47-course-portfolio-clean-merged',
+      build: '2026-04-25',
+      schema: 'teacher-dashboard-v47',
+      apiUrl: API_URL
+    };
+
+    const LS = {
+      cache:'VOCAB_TEACHER_DASHBOARD_CACHE_V47',
+      roster:'VOCAB_TEACHER_ROSTER_V1',
+      notes:'VOCAB_TEACHER_NOTES_V1:',
+      goals:'VOCAB_TEACHER_GOALS_V1:',
+      workflow:'VOCAB_TEACHER_WORKFLOW_V1',
+      evidenceQueue:'VOCAB_TEACHER_EVIDENCE_QUEUE_V1',
+      batchFeedback:'VOCAB_TEACHER_BATCH_FEEDBACK_V1',
+      templates:'VOCAB_TEACHER_MESSAGE_TEMPLATES_V1',
+      communication:'VOCAB_TEACHER_COMMUNICATION_LOG_V1',
+      narrative:'VOCAB_TEACHER_CLASS_NARRATIVE_V1',
+      portfolio:'VOCAB_TEACHER_COURSE_PORTFOLIO_V1',
+      compact:'VOCAB_TEACHER_COMPACT_V1',
+      focus:'VOCAB_TEACHER_FOCUS_V1',
+      production:'VOCAB_TEACHER_PRODUCTION_V1'
+    };
+
     const state = {
-      raw: null,
-      normalized: {
-        students: [],
-        sessions: [],
-        termAnswers: [],
-        leaderboard: [],
-        debugShape: {}
-      },
-      rows: [],
-      filters: {
-        search: '',
-        section: '',
-        bank: '',
-        mode: '',
-        risk: '',
-        sort: 'risk'
-      }
+      raw:null,
+      normalized:{students:[],sessions:[],termAnswers:[],leaderboard:[],debugShape:{}},
+      rows:[],
+      roster:[],
+      filters:{search:'',section:'',risk:'',bank:'',sort:'risk'},
+      quickFilter:{type:'all',value:''},
+      studentRenderLimit:18,
+      activeStudentId:'',
+      usingCache:false,
+      compact:false,
+      focus:false,
+      production:false,
+      liveWindow:15,
+      workflowItems:[],
+      evidenceQueue:[],
+      batchFeedbackItems:[],
+      templateMessages:[],
+      communicationLog:[],
+      classNarrativeText:'',
+      coursePortfolio:null,
+      coursePortfolioText:''
     };
 
-    const els = {
-      statusBox: document.getElementById('statusBox'),
-      refreshBtn: document.getElementById('refreshBtn'),
-      printBtn: document.getElementById('printBtn'),
-      searchInput: document.getElementById('searchInput'),
-      sectionFilter: document.getElementById('sectionFilter'),
-      bankFilter: document.getElementById('bankFilter'),
-      modeFilter: document.getElementById('modeFilter'),
-      riskFilter: document.getElementById('riskFilter'),
-      sortSelect: document.getElementById('sortSelect'),
+    const $ = id => document.getElementById(id);
+    const els = {};
+    [
+      'statusBox','dataModeBadge','refreshBtn','useCacheBtn','compactBtn','focusBtn','productionBtn','presetTeachingBtn','presetDebugBtn',
+      'exportStudentsBtn','exportSessionsBtn','quickFilterList','quickFocusStatus','clearQuickBtn',
+      'searchInput','sectionFilter','riskFilter','bankFilter','sortSelect',
+      'liveWindowSelect','refreshLiveBtn','liveKpis','liveList','timelineList',
+      'studentCountBadge','showMoreStudentsBtn','studentList',
+      'attendanceList','exportMissingBtn','workflowCount','buildWorkflowBtn','exportWorkflowBtn','clearResolvedBtn','workflowBoard',
+      'queueRiskBtn','queueVisibleBtn','exportEvidenceIndexBtn','evidenceGrid','evidenceQueueCount','exportNextEvidenceBtn','exportQueueIndexBtn','clearQueueBtn','evidenceQueueGrid',
+      'batchFeedbackCount','feedbackToneSelect','feedbackLangSelect','includeWeakTermsChk','includeGoalSuggestionChk','composeQueueFeedbackBtn','composeRiskFeedbackBtn','composeVisibleFeedbackBtn','exportBatchFeedbackTxtBtn','exportBatchFeedbackCsvBtn','clearBatchFeedbackBtn','batchFeedbackGrid',
+      'templateCount','templateTypeSelect','templateSourceSelect','templateLangSelect','templateIncludeWeakChk','composeTemplateBtn','exportTemplateTxtBtn','exportTemplateCsvBtn','clearTemplateBtn','templateGrid',
+      'communicationLogCount','communicationLogList','communicationActionFilter','communicationSourceFilter','communicationSearchInput','exportCommunicationCsvBtn','exportCommunicationTxtBtn','clearCommunicationBtn',
+      'communicationSummaryBadge','communicationKpis','noCommunicationList','communicationActionBreakdown','communicationTemplateUsage','exportCommunicationSummaryBtn','queueNoCommunicationBtn',
+      'narrativeBadge','narrativePreview','narrativeStyleSelect','narrativeScopeSelect','narrativeIncludeNamesChk','narrativeIncludeNextPlanChk','generateNarrativeBtn','copyNarrativeBtn','exportNarrativeTxtBtn','exportNarrativeHtmlBtn',
+      'portfolioBadge','portfolioPreview','portfolioScopeSelect','portfolioIncludeNarrativeChk','portfolioIncludeEvidenceChk','portfolioIncludeCommunicationChk','generatePortfolioBtn','copyPortfolioBtn','exportPortfolioHtmlBtn','exportPortfolioJsonBtn','exportPortfolioIndexCsvBtn',
+      'termTable','recentRuns','debugBox','teacherJumpNav','jumpNavToggle','jumpNavPanel',
+      'drawerBackdrop','studentDrawer','drawerTitle','drawerMeta','drawerKpis','drawerCloseBtn','studentNoteArea','saveStudentNoteBtn','copyStudentFeedbackBtn','exportEvidencePackBtn',
+      'goalAccuracyInput','goalScoreInput','goalSessionsInput','goalDueInput','goalNoteInput','saveGoalBtn','clearGoalBtn','drawerWeakTerms','drawerSessions'
+    ].forEach(id => els[id] = $(id));
 
-      actionSummaryCount: document.getElementById('actionSummaryCount'),
-      teacherActionList: document.getElementById('teacherActionList'),
-
-      kpiStudents: document.getElementById('kpiStudents'),
-      kpiSessions: document.getElementById('kpiSessions'),
-      kpiSupport: document.getElementById('kpiSupport'),
-      kpiRisk: document.getElementById('kpiRisk'),
-      kpiAvgScore: document.getElementById('kpiAvgScore'),
-      kpiAvgAccuracy: document.getElementById('kpiAvgAccuracy'),
-
-      priorityCount: document.getElementById('priorityCount'),
-      priorityList: document.getElementById('priorityList'),
-      studentCount: document.getElementById('studentCount'),
-      studentList: document.getElementById('studentList'),
-      termCount: document.getElementById('termCount'),
-      hardTerms: document.getElementById('hardTerms'),
-      modeBreakdown: document.getElementById('modeBreakdown'),
-      bankBreakdown: document.getElementById('bankBreakdown'),
-      leaderCount: document.getElementById('leaderCount'),
-      leaderList: document.getElementById('leaderList'),
-      runCount: document.getElementById('runCount'),
-      recentRuns: document.getElementById('recentRuns'),
-      toggleDebugBtn: document.getElementById('toggleDebugBtn'),
-      debugBox: document.getElementById('debugBox'),
-
-      drawerBackdrop: document.getElementById('drawerBackdrop'),
-      studentDrawer: document.getElementById('studentDrawer'),
-      drawerCloseBtn: document.getElementById('drawerCloseBtn'),
-      drawerRiskBadge: document.getElementById('drawerRiskBadge'),
-      drawerTitle: document.getElementById('drawerTitle'),
-      drawerSubtitle: document.getElementById('drawerSubtitle'),
-      drawerScore: document.getElementById('drawerScore'),
-      drawerAccuracy: document.getElementById('drawerAccuracy'),
-      drawerSessions: document.getElementById('drawerSessions'),
-      drawerWrongRate: document.getElementById('drawerWrongRate'),
-      drawerActionText: document.getElementById('drawerActionText'),
-      drawerWeakTerms: document.getElementById('drawerWeakTerms'),
-      drawerRecentSessions: document.getElementById('drawerRecentSessions')
-    };
-
-    function showStatus(message, type = 'ok') {
-      els.statusBox.className = 'status ' + type;
-      els.statusBox.textContent = message;
+    function text(v){return String(v ?? '').trim();}
+    function num(v){const n=Number(String(v ?? '').replace('%',''));return Number.isFinite(n)?n:0;}
+    function pct(v){return Math.round(num(v));}
+    function escapeHtml(v){
+      return String(v ?? '').replace(/[&<>"']/g, ch => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+      }[ch]));
     }
-
-    function text(v) {
-      return String(v ?? '').trim();
+    function safeDate(v){
+      if(!v) return null;
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? null : d;
     }
-
-    function cleanKey(k) {
-      return String(k || '')
-        .toLowerCase()
-        .replace(/[\s\-]+/g, '_')
-        .replace(/[^\w]/g, '');
-    }
-
-    function num(v) {
-      if (v === true) return 1;
-      if (v === false) return 0;
-      const n = Number(String(v ?? '').replace('%','').trim());
-      return Number.isFinite(n) ? n : 0;
-    }
-
-    function safeDate(v) {
-      const s = text(v);
-      if (!s) return null;
-      const d = new Date(s);
-      return isNaN(d.getTime()) ? null : d;
-    }
-
-    function dateLabel(v) {
+    function dateLabel(v){
       const d = safeDate(v);
-      if (!d) return '-';
-
-      return d.toLocaleString('th-TH', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      });
+      return d ? d.toLocaleString('th-TH') : '-';
+    }
+    function bangkokNow(){return new Date().toISOString();}
+    function normalizeSearchValue(v){
+      return text(v).toLowerCase().normalize('NFKC').replace(/[._\-\/\\()[\]{}:;'"`~!@#$%^&*+=,?<>|]/g,' ').replace(/\s+/g,' ').trim();
+    }
+    function compactIdentityValue(v){return normalizeSearchValue(v).replace(/\s+/g,'');}
+    function showStatus(msg,tone='warn'){
+      els.statusBox.textContent = msg;
+      els.statusBox.className = 'status ' + tone;
+    }
+    function downloadTextFile(filename, content, mime='text/plain;charset=utf-8'){
+      const blob = new Blob([content], {type:mime});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+    function exportRowsToCsv(filename, rows){
+      const list = rows || [];
+      if(!list.length){alert('ไม่มีข้อมูลสำหรับ export');return;}
+      const headers = Array.from(list.reduce((s,r)=>{Object.keys(r||{}).forEach(k=>s.add(k));return s;}, new Set()));
+      const csv = [
+        headers.join(','),
+        ...list.map(r => headers.map(h => {
+          const v = r[h] ?? '';
+          return '"' + String(v).replace(/"/g,'""') + '"';
+        }).join(','))
+      ].join('\n');
+      downloadTextFile(filename + '-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv', csv, 'text/csv;charset=utf-8');
     }
 
-    function escapeHtml(v) {
-      return String(v ?? '')
-        .replaceAll('&','&amp;')
-        .replaceAll('<','&lt;')
-        .replaceAll('>','&gt;')
-        .replaceAll('"','&quot;')
-        .replaceAll("'","&#039;");
-    }
-
-    async function fetchJson(url, options) {
-      const res = await fetch(url, options || {});
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + url);
-
-      const txt = await res.text();
-
-      try {
-        return JSON.parse(txt);
-      } catch (err) {
-        throw new Error('Invalid JSON: ' + txt.slice(0, 240));
+    function getNested(obj, paths){
+      for(const p of paths){
+        const parts = p.split('.');
+        let cur = obj;
+        for(const k of parts){cur = cur?.[k];}
+        if(Array.isArray(cur)) return cur;
       }
+      return [];
     }
 
-    function is2dArray(arr) {
-      return Array.isArray(arr) && Array.isArray(arr[0]);
-    }
-
-    function rowsToObjects(arr) {
-      if (!is2dArray(arr) || arr.length < 2) return arr;
-
-      const headers = arr[0].map(h => cleanKey(h));
-
-      return arr.slice(1)
-        .filter(row => Array.isArray(row) && row.some(v => text(v) !== ''))
-        .map(row => {
-          const obj = {};
-          headers.forEach((h, i) => {
-            if (h) obj[h] = row[i] ?? '';
-          });
-          return obj;
-        });
-    }
-
-    function normalizeArray(arr) {
-      if (!Array.isArray(arr)) return [];
-      const converted = rowsToObjects(arr);
-      return Array.isArray(converted) ? converted : [];
-    }
-
-    function collectArraysDeep(obj, path = '', out = []) {
-      if (!obj || typeof obj !== 'object') return out;
-
-      if (Array.isArray(obj)) {
-        out.push({ path, rows: normalizeArray(obj) });
-        return out;
-      }
-
-      Object.keys(obj).forEach(key => {
-        collectArraysDeep(obj[key], path ? path + '.' + key : key, out);
-      });
-
-      return out;
-    }
-
-    function hasDashboardArrays(data) {
-      const root = data?.data || data?.payload || data?.result || data || {};
-      const arrays = collectArraysDeep(root);
-      return arrays.some(item => item.rows && item.rows.length);
-    }
-
-    async function requestTeacherData() {
-      const pageParams = new URLSearchParams(location.search);
-      const requestedAction = pageParams.get('action') || 'teacher_dashboard_get';
-
-      const envelope = (action) => JSON.stringify({
-        api: 'vocab',
-        source: 'teacher.html',
-        schema: 'teacher-dashboard-v3',
-        action,
-        timestamp: new Date().toISOString(),
-        payload: {
-          api: 'vocab',
-          action
-        }
-      });
-
-      const withApiUrl = (action) =>
-        API_URL +
-        '?api=vocab' +
-        '&action=' + encodeURIComponent(action) +
-        '&t=' + Date.now();
-
-      const tries = [
-        {
-          label: 'GET api=vocab ' + requestedAction,
-          run: () => fetchJson(withApiUrl(requestedAction), { method:'GET', cache:'no-store' })
-        },
-        {
-          label: 'GET api=vocab teacher_dashboard_get',
-          run: () => fetchJson(withApiUrl('teacher_dashboard_get'), { method:'GET', cache:'no-store' })
-        },
-        {
-          label: 'GET api=vocab teacher_dashboard',
-          run: () => fetchJson(withApiUrl('teacher_dashboard'), { method:'GET', cache:'no-store' })
-        },
-        {
-          label: 'GET api=vocab dashboard',
-          run: () => fetchJson(withApiUrl('dashboard'), { method:'GET', cache:'no-store' })
-        },
-        {
-          label: 'POST api=vocab teacher_dashboard_get',
-          run: () => fetchJson(API_URL + '?api=vocab&t=' + Date.now(), {
-            method:'POST',
-            headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-            body: envelope('teacher_dashboard_get')
-          })
-        },
-        {
-          label: 'POST api=vocab teacher_dashboard',
-          run: () => fetchJson(API_URL + '?api=vocab&t=' + Date.now(), {
-            method:'POST',
-            headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-            body: envelope('teacher_dashboard')
-          })
-        },
-        {
-          label: 'GET api=vocab raw',
-          run: () => fetchJson(API_URL + '?api=vocab&t=' + Date.now(), { method:'GET', cache:'no-store' })
-        }
-      ];
-
-      let lastData = null;
+    async function requestTeacherData(){
+      const actions = ['teacher_dashboard_get','vocab_teacher_dashboard','teacher_dashboard','get_teacher_dashboard','dashboard_get',''];
       let lastErr = null;
-
-      for (const item of tries) {
-        try {
-          const data = await item.run();
-
-          if (data) {
-            data.__usedAction = item.label;
-            lastData = data;
-
-            if (hasDashboardArrays(data)) {
-              window.__TEACHER_RAW__ = data;
-              window.__TEACHER_USED_ACTION__ = item.label;
-              return data;
-            }
-
-            console.warn('Teacher dashboard response has no arrays, continue:', item.label, data);
-          }
-        } catch (err) {
-          lastErr = err;
-          console.warn('Teacher dashboard fetch failed:', item.label, err);
-        }
+      for(const action of actions){
+        try{
+          const u = new URL(API_URL);
+          if(action) u.searchParams.set('action', action);
+          u.searchParams.set('_', Date.now());
+          const res = await fetch(u.toString(), {method:'GET', cache:'no-store'});
+          if(!res.ok) throw new Error('HTTP ' + res.status);
+          const raw = await res.json();
+          raw.__usedAction = action || '(none)';
+          if(raw && typeof raw === 'object') return raw;
+        }catch(err){lastErr = err;}
       }
-
-      if (lastData) {
-        window.__TEACHER_RAW__ = lastData;
-        window.__TEACHER_USED_ACTION__ = lastData.__usedAction || 'lastData';
-        return lastData;
-      }
-
-      throw lastErr || new Error('Cannot load teacher dashboard data');
+      throw lastErr || new Error('Cannot load teacher data');
     }
 
-    function keysOfRows(rows) {
-      const set = new Set();
-
-      rows.slice(0, 8).forEach(row => {
-        if (row && typeof row === 'object' && !Array.isArray(row)) {
-          Object.keys(row).forEach(k => set.add(cleanKey(k)));
-        }
-      });
-
-      return Array.from(set);
-    }
-
-    function hasAny(keys, candidates) {
-      return candidates.some(k => keys.includes(k));
-    }
-
-    function classifyRows(path, rows) {
-      const p = cleanKey(path);
-      const keys = keysOfRows(rows);
-
-      const studentHints = [
-        'student_id','display_name','last_session_id','last_bank','last_mode',
-        'last_score','last_accuracy','recommended_mode','recommended_difficulty',
-        'weak_terms_json','mastery_json'
-      ];
-
-      const sessionHints = [
-        'session_id','display_name','student_id','section','session_code',
-        'bank','mode','started_at','ended_at','duration_sec','score','accuracy','mistakes'
-      ];
-
-      const answerHints = [
-        'term_id','term','variant_type','is_correct','level_before','level_after',
-        'response_ms','stage_index','from_review'
-      ];
-
-      if (
-        p.includes('student') ||
-        p.includes('profile') ||
-        hasAny(keys, ['last_session_id','last_accuracy','recommended_mode','mastery_json','weak_terms_json'])
-      ) {
-        return 'students';
-      }
-
-      if (
-        p.includes('term') ||
-        p.includes('answer') ||
-        p.includes('event') ||
-        hasAny(keys, ['term_id','term','variant_type','is_correct','response_ms','stage_index'])
-      ) {
-        return 'termAnswers';
-      }
-
-      if (
-        p.includes('leader') ||
-        hasAny(keys, ['best_score','best_accuracy','best_session_id','runs'])
-      ) {
-        return 'leaderboard';
-      }
-
-      if (
-        p.includes('session') ||
-        hasAny(keys, ['session_id','started_at','ended_at','duration_sec','score','accuracy'])
-      ) {
-        return 'sessions';
-      }
-
-      const studentScore = studentHints.filter(k => keys.includes(k)).length;
-      const sessionScore = sessionHints.filter(k => keys.includes(k)).length;
-      const answerScore = answerHints.filter(k => keys.includes(k)).length;
-      const max = Math.max(studentScore, sessionScore, answerScore);
-
-      if (!max) return '';
-      if (max === answerScore) return 'termAnswers';
-      if (max === studentScore) return 'students';
-      return 'sessions';
-    }
-
-    function normalizeDashboardPayload(data) {
-      const root = data?.data || data?.payload || data?.result || data || {};
-      const arrays = collectArraysDeep(root);
-
-      const result = {
-        students: [],
-        sessions: [],
-        termAnswers: [],
-        leaderboard: [],
-        debugShape: {
-          usedAction: data?.__usedAction || '',
-          rootKeys: Object.keys(root || {}),
-          arraysFound: arrays.map(item => ({
-            path: item.path,
-            length: item.rows.length,
-            keys: keysOfRows(item.rows).slice(0, 30)
-          }))
+    function normalizeDashboardPayload(raw){
+      const root = raw?.data || raw?.payload || raw?.result || raw || {};
+      const students = getNested(root, ['students','profiles','students_profile','studentProfiles','data.students','tables.students']);
+      const sessions = getNested(root, ['sessions','vocab_sessions','sessionRows','logs.sessions','tables.sessions','data.sessions']);
+      const termAnswers = getNested(root, ['termAnswers','terms','vocab_terms','term_answers','answers','answerRows','logs.terms','tables.terms','data.termAnswers']);
+      const leaderboard = getNested(root, ['leaderboard','leaders','vocab_leaderboard','tables.leaderboard','data.leaderboard']);
+      return {
+        students, sessions, termAnswers, leaderboard,
+        debugShape:{
+          rootKeys:Object.keys(root||{}),
+          rawKeys:Object.keys(raw||{}),
+          counts:raw?.counts || root?.counts || null
         }
       };
-
-      arrays.forEach(item => {
-        if (!item.rows.length) return;
-        const type = classifyRows(item.path, item.rows);
-
-        if (type === 'students' && !result.students.length) result.students = item.rows;
-        if (type === 'sessions' && !result.sessions.length) result.sessions = item.rows;
-        if (type === 'termAnswers' && !result.termAnswers.length) result.termAnswers = item.rows;
-        if (type === 'leaderboard' && !result.leaderboard.length) result.leaderboard = item.rows;
-      });
-
-      window.__TEACHER_NORMALIZED__ = result;
-      return result;
     }
 
-    function getRowId(row) {
-      const studentId = text(row.student_id || row.studentId || row.sid);
-      const name = text(row.display_name || row.displayName || row.name || row.nick);
-      return studentId || name || 'unknown';
+    function getDisplayName(r){return text(r.display_name || r.displayName || r.name || r.nick || r.nickname || r.player_name || r.player || 'Unknown');}
+    function getStudentId(r){return text(r.student_id || r.studentId || r.sid || r.pid || r.id || '');}
+    function getSection(r){return text(r.section || r.class_section || r.group || r.room || '-');}
+    function getSessionCode(r){return text(r.session_code || r.sessionCode || r.scode || r.session || '');}
+    function getRowId(r){
+      const sid = getStudentId(r);
+      if(sid) return compactIdentityValue(sid);
+      const name = getDisplayName(r);
+      return compactIdentityValue(name || 'unknown');
+    }
+    function getEventTime(r){return text(r.ended_at || r.started_at || r.timestamp || r.updated_at || r.created_at || '');}
+    function isCorrectAnswer(a){
+      const v = a.is_correct ?? a.correct ?? a.result ?? a.status;
+      if(typeof v === 'boolean') return v;
+      return ['true','1','yes','correct','ถูก'].includes(text(v).toLowerCase());
+    }
+    function getTerm(a){return text(a.term || a.word || a.term_text || a.term_id || '-');}
+
+    function normalizeRosterRow(r){
+      return {
+        id:getRowId(r),
+        student_id:getStudentId(r),
+        display_name:getDisplayName(r),
+        section:getSection(r),
+        aliases:text(r.aliases || r.alias || r.nicknames || '')
+      };
     }
 
-    function getDisplayName(row) {
-      return text(row.display_name || row.displayName || row.name || row.nick || row.student_id || 'Unknown');
-    }
-
-    function getSection(row) {
-      return text(row.section || row.class_section || row.group || '-');
-    }
-
-    function latestBy(arr, fnDate) {
-      return arr.slice().sort((a,b) => {
-        const da = safeDate(fnDate(a));
-        const db = safeDate(fnDate(b));
-        return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
-      })[0] || null;
-    }
-
-    function buildStudentRows(normalized) {
-      const byId = new Map();
-
-      function ensure(id, seed = {}) {
-        const key = id || getRowId(seed);
-
-        if (!byId.has(key)) {
-          byId.set(key, {
-            id: key,
-            display_name: getDisplayName(seed),
-            student_id: text(seed.student_id || seed.studentId || seed.sid || ''),
-            section: getSection(seed),
-            sessions: [],
-            answers: [],
-            profile: null,
-            leaderboard: null
+    function buildStudentRows(normalized){
+      const map = new Map();
+      function ensure(seed){
+        const id = getRowId(seed);
+        if(!map.has(id)){
+          map.set(id, {
+            id,
+            student_id:getStudentId(seed),
+            display_name:getDisplayName(seed),
+            section:getSection(seed),
+            profile:null,
+            sessions:[],
+            answers:[],
+            leaderboard:null
           });
         }
-
-        const row = byId.get(key);
-
-        if (seed) {
-          if (!row.display_name || row.display_name === 'Unknown') row.display_name = getDisplayName(seed);
-          if (!row.student_id) row.student_id = text(seed.student_id || seed.studentId || seed.sid || '');
-          if (!row.section || row.section === '-') row.section = getSection(seed);
-        }
-
-        return row;
+        const r = map.get(id);
+        if(!r.student_id) r.student_id = getStudentId(seed);
+        if(r.display_name === 'Unknown') r.display_name = getDisplayName(seed);
+        if(!r.section || r.section === '-') r.section = getSection(seed);
+        return r;
       }
 
-      normalized.students.forEach(p => {
-        const id = getRowId(p);
-        const r = ensure(id, p);
+      (state.roster || []).forEach(p => {
+        const r = ensure(p);
         r.profile = p;
+        r.student_id = p.student_id || r.student_id;
+        r.display_name = p.display_name || r.display_name;
+        r.section = p.section || r.section;
       });
+      (normalized.students || []).forEach(p => { ensure(p).profile = p; });
+      (normalized.sessions || []).forEach(s => ensure(s).sessions.push(s));
+      (normalized.termAnswers || []).forEach(a => ensure(a).answers.push(a));
+      (normalized.leaderboard || []).forEach(l => ensure(l).leaderboard = l);
 
-      normalized.sessions.forEach(s => {
-        const id = getRowId(s);
-        const r = ensure(id, s);
-        r.sessions.push(s);
-      });
-
-      normalized.termAnswers.forEach(a => {
-        const id = getRowId(a);
-        const r = ensure(id, a);
-        r.answers.push(a);
-      });
-
-      normalized.leaderboard.forEach(l => {
-        const id = getRowId(l);
-        const r = ensure(id, l);
-        r.leaderboard = l;
-      });
-
-      return Array.from(byId.values()).map(r => {
-        const latestSession = latestBy(r.sessions, x => x.ended_at || x.started_at || x.timestamp);
-        const profile = r.profile || {};
-        const leaderboard = r.leaderboard || {};
-
-        const score = num(
-          profile.last_score ||
-          latestSession?.score ||
-          leaderboard.best_score ||
-          0
-        );
-
-        const accuracy = num(
-          profile.last_accuracy ||
-          latestSession?.accuracy ||
-          leaderboard.best_accuracy ||
-          0
-        );
-
-        const lastMode = text(profile.last_mode || latestSession?.mode || leaderboard.mode || '-');
-        const lastBank = text(profile.last_bank || latestSession?.bank || leaderboard.bank || '-');
-        const lastSessionId = text(profile.last_session_id || latestSession?.session_id || leaderboard.best_session_id || '-');
-        const lastSeen = text(profile.last_seen_at || latestSession?.ended_at || latestSession?.started_at || latestSession?.timestamp || leaderboard.updated_at || '');
-
-        const attendance = r.sessions.length;
-        const answerCount = r.answers.length;
-        const wrongCount = r.answers.filter(a => String(a.is_correct).toLowerCase() === 'false' || a.is_correct === false).length;
-        const wrongRate = answerCount ? (wrongCount / answerCount) * 100 : 0;
-
-        const riskReasons = [];
-        const supportReasons = [];
-
-        if (!attendance) {
-          riskReasons.push('ยังไม่มี session ที่บันทึก');
-        }
-
-        if (accuracy > 0 && accuracy < 50) {
-          riskReasons.push('accuracy ต่ำกว่า 50%');
-        }
-
-        if (answerCount >= 10 && wrongRate >= 35) {
-          riskReasons.push('ตอบผิดมากกว่า 35%');
-        }
-
-        if (attendance > 0 && attendance < 2) {
-          supportReasons.push('จำนวนรอบเล่นยังน้อย');
-        }
-
-        if (accuracy >= 50 && accuracy < 70) {
-          supportReasons.push('accuracy ยังต่ำกว่า 70%');
-        }
-
-        if (score > 0 && score < 60) {
-          supportReasons.push('score ยังต่ำกว่า 60');
-        }
-
-        if (answerCount >= 5 && wrongRate >= 20 && wrongRate < 35) {
-          supportReasons.push('มีคำผิดที่ควรทบทวน');
-        }
-
-        let riskLevel = 'ok';
-        let action = 'ติดตามตามปกติ: ให้เล่นต่อเพื่อสะสมข้อมูลและดูแนวโน้ม';
-
-        if (riskReasons.length) {
-          riskLevel = 'risk';
-          action = 'ควรติดตามก่อน: ' + riskReasons.join(' / ');
-        } else if (supportReasons.length) {
-          riskLevel = 'support';
-          action = 'ควรเสริม: ' + supportReasons.join(' / ');
-        }
-
+      return Array.from(map.values()).map(r => {
+        const sessions = r.sessions.slice().sort((a,b)=>(safeDate(getEventTime(b))?.getTime()||0)-(safeDate(getEventTime(a))?.getTime()||0));
+        const latest = sessions[0] || {};
+        const answers = r.answers || [];
+        const wrong = answers.filter(a => !isCorrectAnswer(a)).length;
+        const correct = answers.filter(isCorrectAnswer).length;
+        const answerCount = answers.length;
+        const accuracyFromAnswers = answerCount ? (correct / answerCount) * 100 : 0;
+        const latestAcc = text(latest.accuracy) ? num(latest.accuracy) : accuracyFromAnswers;
+        const score = Math.max(...sessions.map(s=>num(s.score)), num(r.leaderboard?.best_score || r.leaderboard?.score || 0), 0);
+        const wrongRate = answerCount ? (wrong/answerCount)*100 : 0;
+        const attendance = sessions.length;
+        let riskLevel = 'good';
+        if((attendance === 0 && state.roster.length) || latestAcc < 60 || wrongRate >= 45) riskLevel = 'risk';
+        else if(latestAcc < 75 || attendance < 2 || wrongRate >= 30) riskLevel = 'support';
+        const lastSeen = getEventTime(latest) || getEventTime(answers[answers.length-1]) || '';
         return {
-          ...r,
-          latestSession,
-          score,
-          accuracy,
-          lastMode,
-          lastBank,
-          lastSessionId,
-          lastSeen,
-          attendance,
-          answerCount,
-          wrongCount,
-          wrongRate,
-          riskLevel,
-          action
+          ...r, sessions, answers, latest,
+          score, accuracy:latestAcc, attendance, answerCount, wrongCount:wrong, correctCount:correct, wrongRate, riskLevel, lastSeen,
+          lastBank:text(latest.bank || '-'), lastMode:text(latest.mode || '-'), lastSessionCode:getSessionCode(latest) || '-',
+          action:riskLevel==='risk'?'ต้องติดตามใกล้ชิด':riskLevel==='support'?'ควรฝึกเพิ่ม':'ต่อยอดได้'
         };
       });
     }
 
-    function applyFilters(rows) {
-      const q = state.filters.search.toLowerCase();
-
-      let out = rows.filter(r => {
-        const bag = [
-          r.display_name,
-          r.student_id,
-          r.section,
-          r.lastMode,
-          r.lastBank
-        ].join(' ').toLowerCase();
-
-        if (q && !bag.includes(q)) return false;
-        if (state.filters.section && r.section !== state.filters.section) return false;
-        if (state.filters.bank && r.lastBank !== state.filters.bank) return false;
-        if (state.filters.mode && r.lastMode !== state.filters.mode) return false;
-        if (state.filters.risk && r.riskLevel !== state.filters.risk) return false;
-
-        return true;
-      });
-
-      out.sort((a,b) => {
-        if (state.filters.sort === 'accuracyAsc') return a.accuracy - b.accuracy;
-
-        if (state.filters.sort === 'scoreDesc') return b.score - a.score;
-
-        if (state.filters.sort === 'recent') {
-          const da = safeDate(a.lastSeen);
-          const db = safeDate(b.lastSeen);
-          return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
-        }
-
-        if (state.filters.sort === 'name') return a.display_name.localeCompare(b.display_name);
-
-        const rank = { risk:0, support:1, ok:2 };
-        return (rank[a.riskLevel] ?? 9) - (rank[b.riskLevel] ?? 9);
-      });
-
-      return out;
+    function saveCache(){
+      try{
+        localStorage.setItem(LS.cache, JSON.stringify({
+          raw:state.raw,
+          normalized:state.normalized,
+          saved_at:bangkokNow()
+        }));
+      }catch(err){console.warn(err);}
+    }
+    function useCache(){
+      try{
+        const raw = localStorage.getItem(LS.cache);
+        if(!raw){showStatus('ยังไม่มี cache ในเครื่องนี้','bad');return;}
+        const snap = JSON.parse(raw);
+        state.raw = snap.raw;
+        state.normalized = snap.normalized;
+        state.rows = buildStudentRows(state.normalized);
+        state.usingCache = true;
+        showStatus('ใช้ข้อมูลจาก cache • saved ' + dateLabel(snap.saved_at), 'warn');
+        renderAll();
+      }catch(err){showStatus('โหลด cache ไม่สำเร็จ: ' + err.message,'bad');}
     }
 
-    function uniqueOptions(rows, key) {
-      return Array.from(new Set(rows.map(r => text(r[key])).filter(v => v && v !== '-'))).sort();
-    }
-
-    function fillSelect(select, values) {
-      const current = select.value;
-      select.innerHTML = '<option value="">ทั้งหมด</option>' + values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-      if (values.includes(current)) select.value = current;
-    }
-
-    function renderFilters(rows) {
-      fillSelect(els.sectionFilter, uniqueOptions(rows, 'section'));
-      fillSelect(els.bankFilter, uniqueOptions(rows, 'lastBank'));
-      fillSelect(els.modeFilter, uniqueOptions(rows, 'lastMode'));
-    }
-
-    function average(arr) {
-      if (!arr.length) return 0;
-      return arr.reduce((s,n) => s + num(n), 0) / arr.length;
-    }
-
-    function renderKpis(rows, normalized) {
-      const risk = rows.filter(r => r.riskLevel === 'risk').length;
-      const support = rows.filter(r => r.riskLevel === 'support').length;
-      const avgScore = average(rows.map(r => r.score));
-      const avgAcc = average(rows.map(r => r.accuracy));
-
-      els.kpiStudents.textContent = rows.length;
-      els.kpiSessions.textContent = normalized.sessions.length;
-      els.kpiSupport.textContent = support;
-      els.kpiRisk.textContent = risk;
-      els.kpiAvgScore.textContent = Math.round(avgScore);
-      els.kpiAvgAccuracy.textContent = Math.round(avgAcc) + '%';
-    }
-
-    function riskBadge(level) {
-      if (level === 'risk') return '<span class="badge bad">กลุ่มเสี่ยง</span>';
-      if (level === 'support') return '<span class="badge warn">ต้องติดตาม</span>';
-      return '<span class="badge good">ปกติ</span>';
-    }
-
-    function studentCard(r) {
-      const reasonChips = [
-        `Sessions ${r.attendance}`,
-        `Accuracy ${Math.round(r.accuracy)}%`,
-        `Wrong ${r.wrongCount}/${r.answerCount}`,
-        `Wrong rate ${Math.round(r.wrongRate || 0)}%`
-      ];
-
-      const reasonHtml = `
-        <div class="chipRow">
-          ${reasonChips.map(chip => `<span class="badge">${escapeHtml(chip)}</span>`).join('')}
-        </div>
-      `;
-
-      return `
-        <article class="studentCard" data-student-id="${escapeHtml(r.id)}" tabindex="0" role="button">
-          <div class="studentTop">
-            <div>
-              <div class="name">${escapeHtml(r.display_name)}</div>
-              <div class="meta">
-                Student ID: ${escapeHtml(r.student_id || '-')} • Section: ${escapeHtml(r.section || '-')}<br>
-                Last: ${escapeHtml(r.lastBank)} / ${escapeHtml(r.lastMode)} • ${escapeHtml(dateLabel(r.lastSeen))}
-              </div>
-            </div>
-            ${riskBadge(r.riskLevel)}
-          </div>
-
-          <div class="miniStats">
-            <div class="mini">
-              <div class="label">Score</div>
-              <div class="value">${escapeHtml(Math.round(r.score))}</div>
-            </div>
-            <div class="mini">
-              <div class="label">Accuracy</div>
-              <div class="value">${escapeHtml(Math.round(r.accuracy))}%</div>
-            </div>
-            <div class="mini">
-              <div class="label">Sessions</div>
-              <div class="value">${escapeHtml(r.attendance)}</div>
-            </div>
-            <div class="mini">
-              <div class="label">Wrong</div>
-              <div class="value">${escapeHtml(r.wrongCount)}</div>
-            </div>
-          </div>
-
-          ${reasonHtml}
-
-          <div class="meta" style="margin-top:12px">
-            <strong>Action:</strong> ${escapeHtml(r.action)}
-          </div>
-
-          <div class="detailHint">กดเพื่อเปิดรายละเอียดรายคน →</div>
-        </article>
-      `;
-    }
-
-    function renderStudents(rows) {
-      const filtered = applyFilters(rows);
-      const priority = filtered.filter(r => r.riskLevel === 'risk' || r.riskLevel === 'support');
-
-      els.priorityCount.textContent = priority.length + ' คน';
-      els.studentCount.textContent = filtered.length + ' คน';
-
-      els.priorityList.innerHTML = priority.length
-        ? priority.slice(0, 8).map(studentCard).join('')
-        : '<div class="empty">ยังไม่พบนักศึกษาที่ต้องติดตามจากตัวกรองปัจจุบัน</div>';
-
-      els.studentList.innerHTML = filtered.length
-        ? filtered.map(studentCard).join('')
-        : '<div class="empty">ยังไม่พบข้อมูลนักศึกษาจากตัวกรองปัจจุบัน</div>';
-    }
-
-    function groupStats(rows, key) {
-      const map = new Map();
-
-      rows.forEach(r => {
-        const k = text(r[key] || '-');
-        if (!map.has(k)) map.set(k, []);
-        map.get(k).push(r);
-      });
-
-      return Array.from(map.entries()).map(([name, list]) => ({
-        name,
-        count: list.length,
-        avgScore: average(list.map(r => r.score)),
-        avgAccuracy: average(list.map(r => r.accuracy))
-      })).sort((a,b) => b.count - a.count);
-    }
-
-    function renderBarList(el, items, metric = 'avgAccuracy') {
-      if (!items.length) {
-        el.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
-        return;
-      }
-
-      const max = Math.max(...items.map(i => num(i[metric])), 1);
-
-      el.innerHTML = items.map(item => {
-        const value = num(item[metric]);
-        const w = Math.max(4, Math.min(100, value / max * 100));
-        const tone = value >= 80 ? 'good' : value >= 60 ? 'warn' : 'bad';
-
-        return `
-          <div class="barRow">
-            <div class="barHead">
-              <div class="barName">${escapeHtml(item.name)}</div>
-              <div class="barMeta">
-                ${escapeHtml(item.count)} คน/รอบ<br>
-                Score ${escapeHtml(Math.round(item.avgScore || 0))} • Acc ${escapeHtml(Math.round(item.avgAccuracy || 0))}%
-              </div>
-            </div>
-            <div class="track">
-              <div class="fill ${tone}" style="width:${w}%"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderBreakdowns(rows) {
-      renderBarList(els.modeBreakdown, groupStats(rows, 'lastMode'));
-      renderBarList(els.bankBreakdown, groupStats(rows, 'lastBank'));
-    }
-
-    function termStats(termAnswers) {
-      const map = new Map();
-
-      termAnswers.forEach(a => {
-        const term = text(a.term || a.term_id || a.word || a.vocab || '-');
-        if (!term || term === '-') return;
-
-        if (!map.has(term)) {
-          map.set(term, {
-            name: term,
-            seen: 0,
-            correct: 0,
-            wrong: 0,
-            avgMs: 0,
-            totalMs: 0
-          });
-        }
-
-        const row = map.get(term);
-        row.seen++;
-
-        const correct = a.is_correct === true || String(a.is_correct).toLowerCase() === 'true';
-
-        if (correct) row.correct++;
-        else row.wrong++;
-
-        const ms = num(a.response_ms || a.responseMs || 0);
-        row.totalMs += ms;
-        row.avgMs = row.seen ? row.totalMs / row.seen : 0;
-      });
-
-      return Array.from(map.values()).map(t => ({
-        ...t,
-        avgAccuracy: t.seen ? (t.correct / t.seen) * 100 : 0,
-        avgScore: t.wrong
-      })).sort((a,b) => {
-        if (b.wrong !== a.wrong) return b.wrong - a.wrong;
-        return a.avgAccuracy - b.avgAccuracy;
-      });
-    }
-
-    function renderTerms(termAnswers) {
-      const terms = termStats(termAnswers);
-      els.termCount.textContent = terms.length + ' คำ';
-
-      if (!terms.length) {
-        els.hardTerms.innerHTML = '<div class="empty">ยังไม่มีข้อมูล term answers</div>';
-        return;
-      }
-
-      const maxWrong = Math.max(...terms.map(t => t.wrong), 1);
-
-      els.hardTerms.innerHTML = terms.slice(0, 12).map(t => {
-        const w = Math.max(4, Math.min(100, t.wrong / maxWrong * 100));
-        const tone = t.wrong >= 3 ? 'bad' : t.wrong >= 1 ? 'warn' : 'good';
-
-        return `
-          <div class="barRow">
-            <div class="barHead">
-              <div class="barName">${escapeHtml(t.name)}</div>
-              <div class="barMeta">
-                wrong ${escapeHtml(t.wrong)} / seen ${escapeHtml(t.seen)}<br>
-                accuracy ${escapeHtml(Math.round(t.avgAccuracy))}%
-              </div>
-            </div>
-            <div class="track">
-              <div class="fill ${tone}" style="width:${w}%"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderLeaderboard(leaderboard) {
-      const rows = leaderboard.slice().sort((a,b) => num(b.best_score || b.score) - num(a.best_score || a.score));
-      els.leaderCount.textContent = rows.length + ' อันดับ';
-
-      if (!rows.length) {
-        els.leaderList.innerHTML = '<div class="empty">ยังไม่มีข้อมูล leaderboard</div>';
-        return;
-      }
-
-      els.leaderList.innerHTML = rows.slice(0, 10).map((r, i) => `
-        <article class="leaderCard">
-          <div class="leaderTop">
-            <div>
-              <div class="name">#${i + 1} ${escapeHtml(getDisplayName(r))}</div>
-              <div class="meta">
-                ${escapeHtml(text(r.bank || '-'))} • ${escapeHtml(text(r.mode || '-'))}
-                • Section ${escapeHtml(getSection(r))}
-              </div>
-            </div>
-            <span class="badge good">${escapeHtml(num(r.best_score || r.score))} pts</span>
-          </div>
-
-          <div class="miniStats">
-            <div class="mini">
-              <div class="label">Best Score</div>
-              <div class="value">${escapeHtml(num(r.best_score || r.score))}</div>
-            </div>
-            <div class="mini">
-              <div class="label">Accuracy</div>
-              <div class="value">${escapeHtml(Math.round(num(r.best_accuracy || r.accuracy)))}%</div>
-            </div>
-            <div class="mini">
-              <div class="label">Runs</div>
-              <div class="value">${escapeHtml(num(r.runs || 1))}</div>
-            </div>
-            <div class="mini">
-              <div class="label">Updated</div>
-              <div class="value" style="font-size:12px;line-height:1.2">${escapeHtml(dateLabel(r.updated_at || r.timestamp))}</div>
-            </div>
-          </div>
-        </article>
-      `).join('');
-    }
-
-    function renderRecentRuns(sessions) {
-      const rows = sessions.slice().sort((a,b) => {
-        const da = safeDate(a.ended_at || a.started_at || a.timestamp);
-        const db = safeDate(b.ended_at || b.started_at || b.timestamp);
-        return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
-      });
-
-      els.runCount.textContent = rows.length + ' รอบ';
-
-      if (!rows.length) {
-        els.recentRuns.innerHTML = '<div class="empty">ยังไม่มี session rows</div>';
-        return;
-      }
-
-      els.recentRuns.innerHTML = rows.slice(0, 12).map(r => `
-        <article class="runCard">
-          <div class="runTop">
-            <div>
-              <div class="name">${escapeHtml(getDisplayName(r))}</div>
-              <div class="meta">
-                ${escapeHtml(text(r.bank || '-'))} • ${escapeHtml(text(r.mode || '-'))}
-                • ${escapeHtml(text(r.session_code || '-'))}<br>
-                ${escapeHtml(dateLabel(r.ended_at || r.started_at || r.timestamp))}
-              </div>
-            </div>
-            <span class="badge">${escapeHtml(text(r.session_id || '-'))}</span>
-          </div>
-
-          <div class="miniStats">
-            <div class="mini">
-              <div class="label">Score</div>
-              <div class="value">${escapeHtml(num(r.score))}</div>
-            </div>
-            <div class="mini">
-              <div class="label">Accuracy</div>
-              <div class="value">${escapeHtml(Math.round(num(r.accuracy)))}%</div>
-            </div>
-            <div class="mini">
-              <div class="label">Duration</div>
-              <div class="value">${escapeHtml(num(r.duration_sec))}s</div>
-            </div>
-            <div class="mini">
-              <div class="label">Mistakes</div>
-              <div class="value">${escapeHtml(num(r.mistakes))}</div>
-            </div>
-          </div>
-        </article>
-      `).join('');
-    }
-
-    function buildTeacherActions(rows, normalized) {
-      const actions = [];
-
-      const riskRows = rows.filter(r => r.riskLevel === 'risk');
-      const supportRows = rows.filter(r => r.riskLevel === 'support');
-      const hardTerms = termStats(normalized.termAnswers).slice(0, 5);
-
-      if (riskRows.length) {
-        actions.push({
-          tone: 'bad',
-          icon: '🚨',
-          title: 'ติดตามกลุ่มเสี่ยงก่อน',
-          text: `มีนักศึกษา ${riskRows.length} คนที่ควรดูแลก่อน โดยดูจาก accuracy, wrong rate หรือจำนวนรอบเล่น`,
-          chips: riskRows.slice(0, 3).map(r => r.display_name)
-        });
-      }
-
-      if (supportRows.length) {
-        actions.push({
-          tone: 'warn',
-          icon: '🧭',
-          title: 'ให้ฝึกเสริมรายคน',
-          text: `มี ${supportRows.length} คนที่ควรให้เล่นซ้ำหรือทบทวนคำศัพท์เฉพาะจุด`,
-          chips: supportRows.slice(0, 3).map(r => r.display_name)
-        });
-      }
-
-      if (hardTerms.length) {
-        actions.push({
-          tone: 'warn',
-          icon: '📌',
-          title: 'ทบทวนคำศัพท์ทั้งห้อง',
-          text: `คำที่ควรหยิบมาสอนซ้ำ: ${hardTerms.map(t => t.name).join(', ')}`,
-          chips: hardTerms.slice(0, 4).map(t => `${t.name} (${t.wrong})`)
-        });
-      }
-
-      const avgAcc = average(rows.map(r => r.accuracy));
-
-      if (rows.length && avgAcc >= 80) {
-        actions.push({
-          tone: 'good',
-          icon: '🌟',
-          title: 'ภาพรวมห้องทำได้ดี',
-          text: `ค่าเฉลี่ย accuracy ประมาณ ${Math.round(avgAcc)}% สามารถเพิ่มความท้าทายหรือใช้โหมด Speed Run ได้`,
-          chips: ['เพิ่ม difficulty', 'ใช้ challenge mode']
-        });
-      }
-
-      if (!actions.length) {
-        actions.push({
-          tone: 'good',
-          icon: '✅',
-          title: 'ยังไม่มีงานเร่งด่วน',
-          text: 'ข้อมูลยังไม่พบกลุ่มที่ต้องติดตามเป็นพิเศษ ให้เก็บข้อมูลต่ออีก 1–2 รอบ',
-          chips: ['เก็บข้อมูลต่อ', 'ดูแนวโน้ม']
-        });
-      }
-
-      return actions;
-    }
-
-    function renderTeacherActions(rows, normalized) {
-      const actions = buildTeacherActions(rows, normalized);
-      els.actionSummaryCount.textContent = actions.length + ' งาน';
-
-      els.teacherActionList.innerHTML = actions.map(a => `
-        <article class="actionCard ${escapeHtml(a.tone)}">
-          <div class="actionIcon">${escapeHtml(a.icon)}</div>
-          <div class="actionTitle">${escapeHtml(a.title)}</div>
-          <div class="actionText">${escapeHtml(a.text)}</div>
-          <div class="actionMeta">
-            ${(a.chips || []).map(ch => `<span class="badge">${escapeHtml(ch)}</span>`).join('')}
-          </div>
-        </article>
-      `).join('');
-    }
-
-    function renderDebug(raw, normalized) {
-      els.debugBox.textContent = JSON.stringify({
-        usedAction: raw?.__usedAction,
-        rawKeys: raw ? Object.keys(raw) : [],
-        counts: raw?.counts,
-        normalizedCounts: {
-          students: normalized.students.length,
-          sessions: normalized.sessions.length,
-          termAnswers: normalized.termAnswers.length,
-          leaderboard: normalized.leaderboard.length
-        },
-        debugShape: normalized.debugShape
-      }, null, 2);
-    }
-
-    function perStudentWeakTerms(row) {
-      const map = new Map();
-
-      row.answers.forEach(a => {
-        const term = text(a.term || a.term_id || a.word || a.vocab || '-');
-        if (!term || term === '-') return;
-
-        if (!map.has(term)) {
-          map.set(term, {
-            name: term,
-            seen: 0,
-            wrong: 0,
-            correct: 0
-          });
-        }
-
-        const item = map.get(term);
-        item.seen++;
-
-        const correct = a.is_correct === true || String(a.is_correct).toLowerCase() === 'true';
-
-        if (correct) item.correct++;
-        else item.wrong++;
-      });
-
-      return Array.from(map.values()).map(t => ({
-        ...t,
-        accuracy: t.seen ? (t.correct / t.seen) * 100 : 0
-      })).sort((a,b) => {
-        if (b.wrong !== a.wrong) return b.wrong - a.wrong;
-        return a.accuracy - b.accuracy;
-      });
-    }
-
-    function openStudentDrawer(studentId) {
-      const row = state.rows.find(r => String(r.id) === String(studentId));
-      if (!row) return;
-
-      els.drawerRiskBadge.className =
-        'badge ' + (row.riskLevel === 'risk' ? 'bad' : row.riskLevel === 'support' ? 'warn' : 'good');
-
-      els.drawerRiskBadge.textContent =
-        row.riskLevel === 'risk' ? 'กลุ่มเสี่ยง' :
-        row.riskLevel === 'support' ? 'ต้องติดตาม' :
-        'ปกติ';
-
-      els.drawerTitle.textContent = row.display_name;
-      els.drawerSubtitle.textContent =
-        `Student ID: ${row.student_id || '-'} • Section: ${row.section || '-'} • Last ${row.lastBank}/${row.lastMode}`;
-
-      els.drawerScore.textContent = Math.round(row.score);
-      els.drawerAccuracy.textContent = Math.round(row.accuracy) + '%';
-      els.drawerSessions.textContent = row.attendance;
-      els.drawerWrongRate.textContent = Math.round(row.wrongRate || 0) + '%';
-      els.drawerActionText.textContent = row.action;
-
-      const weak = perStudentWeakTerms(row).slice(0, 8);
-
-      if (!weak.length) {
-        els.drawerWeakTerms.innerHTML = '<div class="empty">ยังไม่มีข้อมูลคำศัพท์รายคน หรือยังไม่พบคำที่ผิด</div>';
-      } else {
-        const maxWrong = Math.max(...weak.map(t => t.wrong), 1);
-
-        els.drawerWeakTerms.innerHTML = weak.map(t => {
-          const w = Math.max(5, Math.min(100, t.wrong / maxWrong * 100));
-          const tone = t.wrong >= 2 ? 'bad' : t.wrong >= 1 ? 'warn' : 'good';
-
-          return `
-            <div class="barRow">
-              <div class="barHead">
-                <div class="barName">${escapeHtml(t.name)}</div>
-                <div class="barMeta">
-                  wrong ${escapeHtml(t.wrong)} / seen ${escapeHtml(t.seen)}<br>
-                  accuracy ${escapeHtml(Math.round(t.accuracy))}%
-                </div>
-              </div>
-              <div class="track">
-                <div class="fill ${tone}" style="width:${w}%"></div>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
-
-      const sessions = row.sessions.slice().sort((a,b) => {
-        const da = safeDate(a.ended_at || a.started_at || a.timestamp);
-        const db = safeDate(b.ended_at || b.started_at || b.timestamp);
-        return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
-      });
-
-      if (!sessions.length) {
-        els.drawerRecentSessions.innerHTML = '<div class="empty">ยังไม่มี session ของนักศึกษาคนนี้</div>';
-      } else {
-        els.drawerRecentSessions.innerHTML = sessions.slice(0, 6).map(s => `
-          <article class="runCard">
-            <div class="runTop">
-              <div>
-                <div class="name">${escapeHtml(text(s.bank || '-'))} • ${escapeHtml(text(s.mode || '-'))}</div>
-                <div class="meta">${escapeHtml(dateLabel(s.ended_at || s.started_at || s.timestamp))}</div>
-              </div>
-              <span class="badge">${escapeHtml(text(s.session_id || '-'))}</span>
-            </div>
-
-            <div class="miniStats">
-              <div class="mini">
-                <div class="label">Score</div>
-                <div class="value">${escapeHtml(num(s.score))}</div>
-              </div>
-              <div class="mini">
-                <div class="label">Accuracy</div>
-                <div class="value">${escapeHtml(Math.round(num(s.accuracy)))}%</div>
-              </div>
-              <div class="mini">
-                <div class="label">Duration</div>
-                <div class="value">${escapeHtml(num(s.duration_sec))}s</div>
-              </div>
-              <div class="mini">
-                <div class="label">Mistakes</div>
-                <div class="value">${escapeHtml(num(s.mistakes))}</div>
-              </div>
-            </div>
-          </article>
-        `).join('');
-      }
-
-      els.drawerBackdrop.classList.remove('hidden');
-      els.studentDrawer.classList.remove('hidden');
-      document.body.style.overflow = 'hidden';
-    }
-
-    function closeStudentDrawer() {
-      els.drawerBackdrop.classList.add('hidden');
-      els.studentDrawer.classList.add('hidden');
-      document.body.style.overflow = '';
-    }
-
-    function renderAll() {
-      const normalized = state.normalized;
-      const rows = state.rows;
-      const filtered = applyFilters(rows);
-
-      renderFilters(rows);
-      renderTeacherActions(filtered, normalized);
-      renderKpis(filtered, normalized);
-      renderStudents(rows);
-      renderTerms(normalized.termAnswers);
-      renderBreakdowns(filtered);
-      renderLeaderboard(normalized.leaderboard);
-      renderRecentRuns(normalized.sessions);
-      renderDebug(state.raw, normalized);
-    }
-
-    async function loadDashboard() {
+    async function loadDashboard(){
       showStatus('กำลังโหลดข้อมูล teacher dashboard...', 'warn');
-
-      try {
+      try{
         const raw = await requestTeacherData();
         const normalized = normalizeDashboardPayload(raw);
-
-        console.log('TEACHER USED ACTION:', raw.__usedAction);
-        console.log('TEACHER RAW:', raw);
-        console.log('TEACHER NORMALIZED:', normalized);
-
-        window.__TEACHER_RAW__ = raw;
-        window.__TEACHER_NORMALIZED__ = normalized;
-
         state.raw = raw;
         state.normalized = normalized;
         state.rows = buildStudentRows(normalized);
-
-        const statusMsg =
-          'โหลดข้อมูล teacher dashboard สำเร็จแล้ว • students ' +
-          normalized.students.length +
-          ' • sessions ' +
-          normalized.sessions.length +
-          ' • answers ' +
-          normalized.termAnswers.length +
-          ' • leaderboard ' +
-          normalized.leaderboard.length +
-          ' • action ' +
-          (raw.__usedAction || '-');
-
-        if (!normalized.students.length && !normalized.sessions.length && !normalized.termAnswers.length && !normalized.leaderboard.length) {
-          showStatus(
-            statusMsg + ' • ยัง parse array ไม่เจอ ให้เปิด Console ดู __TEACHER_RAW__ / __TEACHER_NORMALIZED__',
-            'warn'
-          );
-        } else {
-          showStatus(statusMsg, 'ok');
-        }
-
+        state.usingCache = false;
+        saveCache();
+        showStatus(`โหลดสำเร็จ • sessions ${normalized.sessions.length} • answers ${normalized.termAnswers.length} • action ${raw.__usedAction}`, 'ok');
         renderAll();
-
-      } catch (err) {
+      }catch(err){
         console.error(err);
-        showStatus('โหลดข้อมูลไม่สำเร็จ: ' + (err.message || err), 'bad');
+        showStatus('โหลด online ไม่สำเร็จ: ' + (err.message || err) + ' • ลองใช้ cache อัตโนมัติ', 'warn');
+        useCache();
       }
     }
 
-    function bindEvents() {
-      els.refreshBtn.addEventListener('click', loadDashboard);
-      els.printBtn.addEventListener('click', () => window.print());
-
-      els.searchInput.addEventListener('input', () => {
-        state.filters.search = els.searchInput.value || '';
-        renderAll();
-      });
-
-      els.sectionFilter.addEventListener('change', () => {
-        state.filters.section = els.sectionFilter.value || '';
-        renderAll();
-      });
-
-      els.bankFilter.addEventListener('change', () => {
-        state.filters.bank = els.bankFilter.value || '';
-        renderAll();
-      });
-
-      els.modeFilter.addEventListener('change', () => {
-        state.filters.mode = els.modeFilter.value || '';
-        renderAll();
-      });
-
-      els.riskFilter.addEventListener('change', () => {
-        state.filters.risk = els.riskFilter.value || '';
-        renderAll();
-      });
-
-      els.sortSelect.addEventListener('change', () => {
-        state.filters.sort = els.sortSelect.value || 'risk';
-        renderAll();
-      });
-
-      els.toggleDebugBtn.addEventListener('click', () => {
-        els.debugBox.classList.toggle('hidden');
-      });
-
-      document.addEventListener('click', (ev) => {
-        const card = ev.target.closest('.studentCard[data-student-id]');
-        if (!card) return;
-        openStudentDrawer(card.dataset.studentId);
-      });
-
-      document.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Escape') {
-          closeStudentDrawer();
-          return;
-        }
-
-        if (ev.key === 'Enter') {
-          const card = document.activeElement?.closest?.('.studentCard[data-student-id]');
-          if (card) openStudentDrawer(card.dataset.studentId);
-        }
-      });
-
-      els.drawerCloseBtn.addEventListener('click', closeStudentDrawer);
-      els.drawerBackdrop.addEventListener('click', closeStudentDrawer);
+    function loadLocal(){
+      try{state.roster = JSON.parse(localStorage.getItem(LS.roster)||'[]');}catch{state.roster=[];}
+      try{state.workflowItems = JSON.parse(localStorage.getItem(LS.workflow)||'[]');}catch{state.workflowItems=[];}
+      try{state.evidenceQueue = JSON.parse(localStorage.getItem(LS.evidenceQueue)||'[]');}catch{state.evidenceQueue=[];}
+      try{state.batchFeedbackItems = JSON.parse(localStorage.getItem(LS.batchFeedback)||'[]');}catch{state.batchFeedbackItems=[];}
+      try{state.templateMessages = JSON.parse(localStorage.getItem(LS.templates)||'[]');}catch{state.templateMessages=[];}
+      try{state.communicationLog = JSON.parse(localStorage.getItem(LS.communication)||'[]');}catch{state.communicationLog=[];}
+      state.classNarrativeText = localStorage.getItem(LS.narrative) || '';
+      try{
+        const p = JSON.parse(localStorage.getItem(LS.portfolio)||'null');
+        state.coursePortfolio = p?.portfolio || null;
+        state.coursePortfolioText = p?.text || '';
+      }catch{}
+      state.compact = localStorage.getItem(LS.compact)==='1';
+      state.focus = localStorage.getItem(LS.focus)==='1';
+      state.production = localStorage.getItem(LS.production)==='1';
+      applyUiModes();
     }
 
-    bindEvents();
-    loadDashboard();
+    function saveWorkflow(){localStorage.setItem(LS.workflow, JSON.stringify(state.workflowItems));}
+    function saveEvidenceQueue(){localStorage.setItem(LS.evidenceQueue, JSON.stringify(state.evidenceQueue));}
+    function saveBatchFeedback(){localStorage.setItem(LS.batchFeedback, JSON.stringify(state.batchFeedbackItems));}
+    function saveTemplates(){localStorage.setItem(LS.templates, JSON.stringify(state.templateMessages));}
+    function saveComm(){localStorage.setItem(LS.communication, JSON.stringify(state.communicationLog.slice(0,500)));}
+
+    function applyUiModes(){
+      document.body.classList.toggle('compact-mode', state.compact);
+      document.body.classList.toggle('focus-mode', state.focus);
+      document.body.classList.toggle('production-mode', state.production);
+      els.compactBtn.textContent = 'Compact: ' + (state.compact?'ON':'OFF');
+      els.focusBtn.textContent = 'Focus: ' + (state.focus?'ON':'OFF');
+      els.productionBtn.textContent = 'Production: ' + (state.production?'ON':'OFF');
+      els.compactBtn.classList.toggle('is-on', state.compact);
+      els.focusBtn.classList.toggle('is-on', state.focus);
+      els.productionBtn.classList.toggle('is-on', state.production);
+      els.dataModeBadge.textContent = state.usingCache ? 'Cached Data' : 'Live Data';
+    }
+
+    function applyFilters(rows){
+      const q = normalizeSearchValue(state.filters.search);
+      let out = (rows||[]).filter(r => {
+        const bag = normalizeSearchValue([
+          r.display_name,r.student_id,r.section,r.lastBank,r.lastMode,r.lastSessionCode,r.riskLevel,
+          ...(r.answers||[]).slice(-20).map(a=>getTerm(a))
+        ].join(' '));
+        if(q && !bag.includes(q)) return false;
+        if(state.filters.section && r.section !== state.filters.section) return false;
+        if(state.filters.risk && r.riskLevel !== state.filters.risk) return false;
+        if(state.filters.bank && r.lastBank !== state.filters.bank) return false;
+
+        const qt = state.quickFilter.type;
+        const qv = state.quickFilter.value;
+        if(qt === 'risk' && r.riskLevel !== 'risk') return false;
+        if(qt === 'support' && r.riskLevel !== 'support') return false;
+        if(qt === 'workflow'){
+          const ids = new Set(state.workflowItems.filter(w=>w.status!=='resolved').map(w=>String(w.studentId)));
+          if(!ids.has(String(r.id))) return false;
+        }
+        if(qt === 'noComm'){
+          const ids = new Set(state.communicationLog.map(c=>String(c.studentId)));
+          if(ids.has(String(r.id))) return false;
+        }
+        if(qt === 'student' && String(r.id) !== String(qv)) return false;
+        return true;
+      });
+
+      const sort = state.filters.sort;
+      out.sort((a,b) => {
+        if(sort === 'accuracyAsc') return a.accuracy - b.accuracy;
+        if(sort === 'scoreDesc') return b.score - a.score;
+        if(sort === 'name') return a.display_name.localeCompare(b.display_name);
+        if(sort === 'recent') return (safeDate(b.lastSeen)?.getTime()||0)-(safeDate(a.lastSeen)?.getTime()||0);
+        const rank = {risk:0,support:1,good:2};
+        return (rank[a.riskLevel]??9)-(rank[b.riskLevel]??9) || a.display_name.localeCompare(b.display_name);
+      });
+      return out;
+    }
+
+    function renderAll(){
+      applyUiModes();
+      renderFilters();
+      renderQuickFocus();
+      renderLive();
+      renderStudents();
+      renderAttendance();
+      renderWorkflow();
+      renderEvidence();
+      renderEvidenceQueue();
+      renderBatchFeedback();
+      renderTemplates();
+      renderCommunicationLog();
+      renderCommunicationSummary();
+      renderNarrative();
+      renderPortfolio();
+      renderTerms();
+      renderRecent();
+      renderDebug();
+      updateJumpActive();
+    }
+
+    function renderFilters(){
+      const sections = Array.from(new Set(state.rows.map(r=>r.section).filter(Boolean))).sort();
+      const banks = Array.from(new Set(state.rows.map(r=>r.lastBank).filter(v=>v && v !== '-'))).sort();
+      els.sectionFilter.innerHTML = '<option value="">All</option>' + sections.map(s=>`<option ${s===state.filters.section?'selected':''}>${escapeHtml(s)}</option>`).join('');
+      els.bankFilter.innerHTML = '<option value="">All</option>' + banks.map(s=>`<option ${s===state.filters.bank?'selected':''}>${escapeHtml(s)}</option>`).join('');
+      els.riskFilter.value = state.filters.risk;
+      els.sortSelect.value = state.filters.sort;
+      els.searchInput.value = state.filters.search;
+    }
+
+    function renderQuickFocus(){
+      const rows = state.rows;
+      const idsWithComm = new Set(state.communicationLog.map(c=>String(c.studentId)));
+      const items = [
+        ['all','',`All (${rows.length})`,''],
+        ['risk','',`Risk (${rows.filter(r=>r.riskLevel==='risk').length})`,'bad'],
+        ['support','',`Support (${rows.filter(r=>r.riskLevel==='support').length})`,'warn'],
+        ['workflow','',`Workflow (${state.workflowItems.filter(w=>w.status!=='resolved').length})`,'warn'],
+        ['noComm','',`No Comm (${rows.filter(r=>!idsWithComm.has(String(r.id))).length})`,'bad']
+      ];
+      els.quickFilterList.innerHTML = items.map(([type,value,label,tone]) => {
+        const active = state.quickFilter.type===type;
+        return `<button class="quickChip ${tone} ${active?'active':''}" data-qtype="${type}" data-qvalue="${escapeHtml(value)}" type="button">${escapeHtml(label)}</button>`;
+      }).join('');
+      els.quickFocusStatus.textContent = `Showing ${applyFilters(rows).length}/${rows.length} students`;
+    }
+
+    function minutesAgo(v){
+      const d = safeDate(v);
+      if(!d) return Infinity;
+      return Math.max(0, Math.floor((Date.now()-d.getTime())/60000));
+    }
+    function agoLabel(v){
+      const m = minutesAgo(v);
+      if(!Number.isFinite(m)) return '-';
+      if(m < 1) return 'เมื่อสักครู่';
+      if(m < 60) return m + ' นาทีที่แล้ว';
+      const h = Math.floor(m/60);
+      if(h < 24) return h + ' ชั่วโมงก่อน';
+      return Math.floor(h/24) + ' วันก่อน';
+    }
+
+    function renderLive(){
+      const rows = state.rows;
+      const live = rows.filter(r => minutesAgo(r.lastSeen) <= state.liveWindow);
+      const recent = rows.filter(r => minutesAgo(r.lastSeen) > state.liveWindow && minutesAgo(r.lastSeen) <= state.liveWindow*2);
+      els.liveKpis.innerHTML = [
+        ['Live Now',live.length,'good'],
+        ['Recent Idle',recent.length,recent.length?'warn':'good'],
+        ['Today Sessions',state.normalized.sessions.filter(s=>safeDate(getEventTime(s))?.toISOString().slice(0,10)===new Date().toISOString().slice(0,10)).length,'good'],
+        ['Rows',rows.length,'good']
+      ].map(([l,v,t])=>`<div class="miniCard ${t}"><div class="kpiLabel">${l}</div><div class="kpiValue">${v}</div></div>`).join('');
+
+      els.liveList.innerHTML = live.length ? live.slice(0,12).map(r => `
+        <article class="miniCard good">
+          <div class="miniTitle">${escapeHtml(r.display_name)}</div>
+          <div class="miniMeta">ID: ${escapeHtml(r.student_id||'-')} • ${escapeHtml(r.section||'-')}<br>ล่าสุด ${escapeHtml(agoLabel(r.lastSeen))}<br>${escapeHtml(r.lastSessionCode)} • ${escapeHtml(r.lastBank)}/${escapeHtml(r.lastMode)}</div>
+          <div class="miniActions"><button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(r.id)}">เปิดรายคน</button></div>
+        </article>
+      `).join('') : '<div class="empty">ยังไม่พบ live activity ในช่วงเวลาที่เลือก</div>';
+
+      const events = [
+        ...state.normalized.sessions.map(s => ({type:'session',at:getEventTime(s),name:getDisplayName(s),studentId:getRowId(s),text:`จบ ${getSessionCode(s)||'-'} • score ${num(s.score)} • acc ${pct(s.accuracy)}%`,tone:'good'})),
+        ...state.normalized.termAnswers.map(a => ({type:'answer',at:getEventTime(a),name:getDisplayName(a),studentId:getRowId(a),text:`${isCorrectAnswer(a)?'ตอบถูก':'ตอบผิด'}: ${getTerm(a)}`,tone:isCorrectAnswer(a)?'good':'bad'}))
+      ].filter(e=>safeDate(e.at) && minutesAgo(e.at)<=60).sort((a,b)=>(safeDate(b.at)?.getTime()||0)-(safeDate(a.at)?.getTime()||0)).slice(0,30);
+
+      els.timelineList.innerHTML = events.length ? events.map(e => `
+        <article class="miniCard ${e.tone}">
+          <div class="studentTop">
+            <div>
+              <div class="miniTitle">${escapeHtml(e.name)}</div>
+              <div class="miniMeta">${escapeHtml(e.text)}<br>${escapeHtml(agoLabel(e.at))}</div>
+            </div>
+            <span class="badge ${e.tone}">${escapeHtml(e.type)}</span>
+          </div>
+          <div class="miniActions"><button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(e.studentId)}">เปิดรายคน</button></div>
+        </article>
+      `).join('') : '<div class="empty">ยังไม่มี timeline events ล่าสุด</div>';
+    }
+
+    function renderStudents(){
+      const filtered = applyFilters(state.rows);
+      els.studentCountBadge.textContent = `${filtered.length}/${state.rows.length} students`;
+      const visible = filtered.slice(0,state.studentRenderLimit);
+      els.showMoreStudentsBtn.style.display = filtered.length > visible.length ? '' : 'none';
+      els.studentList.innerHTML = visible.length ? visible.map(r => {
+        const live = minutesAgo(r.lastSeen) <= state.liveWindow;
+        return `
+          <article class="studentCard ${r.riskLevel} ${live?'live':''}" data-student-id="${escapeHtml(r.id)}" tabindex="0">
+            <div class="studentTop">
+              <div>
+                <div class="studentName">${escapeHtml(r.display_name)}</div>
+                <div class="meta">ID: ${escapeHtml(r.student_id||'-')} • Section: ${escapeHtml(r.section||'-')}<br>
+                Score ${Math.round(r.score)} • Accuracy ${Math.round(r.accuracy)}% • Sessions ${r.attendance}<br>
+                Last: ${escapeHtml(agoLabel(r.lastSeen))}</div>
+              </div>
+              <div class="chipRow">
+                ${live?'<span class="badge good">LIVE</span>':''}
+                <span class="badge ${r.riskLevel==='risk'?'bad':r.riskLevel==='support'?'warn':'good'}">${escapeHtml(r.riskLevel)}</span>
+              </div>
+            </div>
+            <div class="studentActions">
+              <button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(r.id)}">เปิดรายคน</button>
+              <button class="btn ghost queueEvidenceBtn" data-student-id="${escapeHtml(r.id)}">${isInEvidenceQueue(r.id)?'In Queue':'Queue'}</button>
+              <button class="btn warn exportEvidenceBtn" data-student-id="${escapeHtml(r.id)}">Evidence</button>
+            </div>
+          </article>
+        `;
+      }).join('') : '<div class="empty">ไม่พบนักศึกษาตามตัวกรอง</div>';
+    }
+
+    function buildAttendanceRows(){
+      const map = new Map();
+      state.normalized.sessions.forEach(s => {
+        const code = getSessionCode(s) || 'NO_CODE';
+        if(!map.has(code)) map.set(code, []);
+        map.get(code).push(s);
+      });
+      const roster = state.roster.length ? state.roster : state.rows;
+      return Array.from(map.entries()).map(([code, sessions]) => {
+        const joined = new Set(sessions.map(getRowId));
+        const missing = roster.filter(p => !joined.has(String(p.id || getRowId(p))));
+        const total = roster.length || joined.size;
+        return {code,sessions,joinedCount:joined.size,total,missing,missingCount:missing.length,percent:total?joined.size/total*100:0};
+      }).sort((a,b)=>String(a.code).localeCompare(String(b.code)));
+    }
+
+    function renderAttendance(){
+      const rows = buildAttendanceRows();
+      els.attendanceList.innerHTML = rows.length ? rows.map(a => `
+        <article class="miniCard ${a.missingCount?'warn':'good'}">
+          <div class="miniTitle">${escapeHtml(a.code)}</div>
+          <div class="miniMeta">Joined ${a.joinedCount}/${a.total} • Missing ${a.missingCount}<br>Completion ${Math.round(a.percent)}%</div>
+          <div class="miniActions"><button class="btn ghost exportMissingOneBtn" data-code="${escapeHtml(a.code)}">Export Missing</button></div>
+        </article>
+      `).join('') : '<div class="empty">ยังไม่มี session_code สำหรับ attendance</div>';
+    }
+
+    function termStats(answers = state.normalized.termAnswers){
+      const map = new Map();
+      answers.forEach(a => {
+        const k = getTerm(a);
+        if(!map.has(k)) map.set(k,{term:k,seen:0,wrong:0,correct:0});
+        const t = map.get(k);
+        t.seen++;
+        if(isCorrectAnswer(a)) t.correct++; else t.wrong++;
+      });
+      return Array.from(map.values()).map(t => ({...t,accuracy:t.seen?t.correct/t.seen*100:0})).sort((a,b)=>b.wrong-a.wrong || a.accuracy-b.accuracy);
+    }
+    function perStudentWeakTerms(row){
+      return termStats(row.answers || []).slice(0,10);
+    }
+
+    function renderTerms(){
+      const rows = termStats().slice(0,80);
+      els.termTable.innerHTML = rows.length ? rows.map(t => `
+        <tr><td>${escapeHtml(t.term)}</td><td>${t.seen}</td><td>${t.wrong}</td><td>${Math.round(t.accuracy)}%</td></tr>
+      `).join('') : '<tr><td colspan="4">ยังไม่มี term answers</td></tr>';
+    }
+
+    function renderRecent(){
+      const rows = state.normalized.sessions.slice().sort((a,b)=>(safeDate(getEventTime(b))?.getTime()||0)-(safeDate(getEventTime(a))?.getTime()||0)).slice(0,20);
+      els.recentRuns.innerHTML = rows.length ? rows.map(s => `
+        <article class="runCard">
+          <div class="miniTitle">${escapeHtml(getDisplayName(s))}</div>
+          <div class="miniMeta">${escapeHtml(getSessionCode(s)||'-')} • ${escapeHtml(s.bank||'-')}/${escapeHtml(s.mode||'-')}<br>Score ${num(s.score)} • Accuracy ${pct(s.accuracy)}%<br>${escapeHtml(dateLabel(getEventTime(s)))}</div>
+        </article>
+      `).join('') : '<div class="empty">ยังไม่มี session rows</div>';
+    }
+
+    function workflowColumns(){return [
+      ['new','New'],['reviewing','Reviewing'],['assigned','Assigned Goal'],['resolved','Resolved']
+    ];}
+
+    function upsertWorkflow(item){
+      const existing = state.workflowItems.find(w => w.key === item.key);
+      if(existing) Object.assign(existing,item,{updated_at:bangkokNow()});
+      else state.workflowItems.unshift({status:'new',created_at:bangkokNow(),updated_at:bangkokNow(),...item});
+      saveWorkflow();
+    }
+
+    function buildWorkflow(){
+      state.rows.forEach(r => {
+        if(r.riskLevel === 'risk' || r.riskLevel === 'support'){
+          upsertWorkflow({
+            key:r.id + '::' + r.riskLevel,
+            studentId:r.id, display_name:r.display_name, student_id:r.student_id, section:r.section,
+            priority:r.riskLevel==='risk'?'high':'medium',
+            reasonType:r.riskLevel,
+            reason:`${r.riskLevel} • accuracy ${Math.round(r.accuracy)}% • wrong rate ${Math.round(r.wrongRate)}%`,
+            nextAction:r.riskLevel==='risk'?'ทบทวน weak terms และตั้ง goal':'ฝึกเพิ่มอีก 1 รอบ'
+          });
+        }
+      });
+      renderWorkflow();
+      showStatus('Build workflow from data แล้ว','ok');
+    }
+
+    function renderWorkflow(){
+      els.workflowCount.textContent = state.workflowItems.filter(w=>w.status!=='resolved').length + ' active';
+      els.workflowBoard.innerHTML = workflowColumns().map(([id,title]) => {
+        const items = state.workflowItems.filter(w => (w.status||'new') === id);
+        return `
+          <article class="miniCard">
+            <div class="studentTop"><div class="miniTitle">${escapeHtml(title)}</div><span class="badge">${items.length}</span></div>
+            <div class="list" style="margin-top:12px">
+              ${items.length ? items.map(w => `
+                <div class="miniCard ${w.priority==='high'?'bad':'warn'}">
+                  <div class="miniTitle">${escapeHtml(w.display_name)}</div>
+                  <div class="miniMeta">ID: ${escapeHtml(w.student_id||'-')} • ${escapeHtml(w.section||'-')}<br>${escapeHtml(w.reason||'-')}<br><b>Next:</b> ${escapeHtml(w.nextAction||'-')}</div>
+                  <select class="workflowStatusSelect" data-key="${escapeHtml(w.key)}">
+                    ${workflowColumns().map(([cid,ct])=>`<option value="${cid}" ${cid===(w.status||'new')?'selected':''}>${ct}</option>`).join('')}
+                  </select>
+                  <div class="miniActions">
+                    <button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(w.studentId)}">เปิดรายคน</button>
+                    <button class="btn ghost workflowNoteBtn" data-key="${escapeHtml(w.key)}">Add Note</button>
+                    <button class="btn warn workflowGoalBtn" data-key="${escapeHtml(w.key)}">Set Goal</button>
+                  </div>
+                </div>
+              `).join('') : '<div class="empty">ว่าง</div>'}
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function getStudentRowById(id){return state.rows.find(r => String(r.id) === String(id));}
+    function isInEvidenceQueue(id){return state.evidenceQueue.some(x => String(x.studentId)===String(id));}
+    function addToEvidenceQueue(id, reason='manual'){
+      const r = getStudentRowById(id);
+      if(!r) return;
+      if(!isInEvidenceQueue(id)){
+        state.evidenceQueue.push({studentId:r.id,display_name:r.display_name,student_id:r.student_id,section:r.section,reason,status:'queued',queued_at:bangkokNow(),exported_at:''});
+        saveEvidenceQueue();
+      }
+      renderEvidenceQueue();
+      renderStudents();
+    }
+
+    function renderEvidence(){
+      const rows = applyFilters(state.rows).slice(0,24);
+      els.evidenceGrid.innerHTML = rows.length ? rows.map(r => `
+        <article class="miniCard ${r.riskLevel==='risk'?'bad':r.riskLevel==='support'?'warn':''}">
+          <div class="miniTitle">${escapeHtml(r.display_name)}</div>
+          <div class="miniMeta">ID: ${escapeHtml(r.student_id||'-')} • ${escapeHtml(r.section||'-')}<br>Score ${Math.round(r.score)} • Accuracy ${Math.round(r.accuracy)}%<br>Workflow ${state.workflowItems.filter(w=>String(w.studentId)===String(r.id)&&w.status!=='resolved').length} • Comm ${state.communicationLog.filter(c=>String(c.studentId)===String(r.id)).length}</div>
+          <div class="miniActions">
+            <button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(r.id)}">เปิด</button>
+            <button class="btn ghost queueEvidenceBtn" data-student-id="${escapeHtml(r.id)}">${isInEvidenceQueue(r.id)?'In Queue':'Queue'}</button>
+            <button class="btn warn exportEvidenceBtn" data-student-id="${escapeHtml(r.id)}">Export Pack</button>
+          </div>
+        </article>
+      `).join('') : '<div class="empty">ไม่มีข้อมูล evidence</div>';
+    }
+
+    function renderEvidenceQueue(){
+      const pending = state.evidenceQueue.filter(q=>q.status!=='exported').length;
+      els.evidenceQueueCount.textContent = `${pending} pending / ${state.evidenceQueue.length} total`;
+      els.evidenceQueueGrid.innerHTML = state.evidenceQueue.length ? state.evidenceQueue.map(q => `
+        <article class="miniCard ${q.status==='exported'?'good':'warn'}">
+          <div class="miniTitle">${escapeHtml(q.display_name)}</div>
+          <div class="miniMeta">ID: ${escapeHtml(q.student_id||'-')} • ${escapeHtml(q.section||'-')}<br>Reason: ${escapeHtml(q.reason)}<br>Status: ${escapeHtml(q.status)}</div>
+          <div class="miniActions">
+            <button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(q.studentId)}">เปิด</button>
+            <button class="btn warn queueExportPackBtn" data-student-id="${escapeHtml(q.studentId)}">Export</button>
+            <button class="btn ghost queueRemoveBtn" data-student-id="${escapeHtml(q.studentId)}">Remove</button>
+          </div>
+        </article>
+      `).join('') : '<div class="empty">ยังไม่มี Evidence Queue</div>';
+    }
+
+    function getStudentNote(row){return localStorage.getItem(LS.notes + row.id) || '';}
+    function saveStudentNote(row, note){localStorage.setItem(LS.notes + row.id, note || '');}
+    function getGoal(row){
+      try{return JSON.parse(localStorage.getItem(LS.goals + row.id)||'null');}catch{return null;}
+    }
+    function saveGoal(row, goal){localStorage.setItem(LS.goals + row.id, JSON.stringify(goal));}
+    function clearGoal(row){localStorage.removeItem(LS.goals + row.id);}
+
+    function buildStudentFeedback(row){
+      const weak = perStudentWeakTerms(row).slice(0,5);
+      const lines = [];
+      lines.push(`Feedback สำหรับ ${row.display_name}`);
+      lines.push(`Score ${Math.round(row.score)} • Accuracy ${Math.round(row.accuracy)}% • Sessions ${row.attendance}`);
+      if(row.riskLevel === 'risk') lines.push('ควรทบทวนคำศัพท์ที่ผิดซ้ำและฝึกเพิ่มอีก 1 รอบแบบไม่จับเวลา');
+      else if(row.riskLevel === 'support') lines.push('ควรฝึกเพิ่มเพื่อยกระดับ accuracy ให้มั่นคงขึ้น');
+      else lines.push('ผลโดยรวมดี สามารถลองโหมดที่ท้าทายขึ้นได้');
+      if(weak.length){
+        lines.push('');
+        lines.push('คำศัพท์ที่ควรทบทวน:');
+        weak.forEach(t => lines.push(`- ${t.term}: ผิด ${t.wrong}/${t.seen}`));
+      }
+      return lines.join('\n');
+    }
+
+    function getEvidenceObject(row){
+      return {
+        generated_at:bangkokNow(),
+        student:{id:row.id,display_name:row.display_name,student_id:row.student_id,section:row.section},
+        summary:{score:Math.round(row.score),accuracy:Math.round(row.accuracy),attendance:row.attendance,wrongRate:Math.round(row.wrongRate),riskLevel:row.riskLevel},
+        feedback:buildStudentFeedback(row),
+        note:getStudentNote(row),
+        goal:getGoal(row),
+        workflow:state.workflowItems.filter(w=>String(w.studentId)===String(row.id)),
+        communication:state.communicationLog.filter(c=>String(c.studentId)===String(row.id)),
+        weakTerms:perStudentWeakTerms(row),
+        sessions:row.sessions,
+        answers:row.answers
+      };
+    }
+
+    function buildEvidenceHtml(row){
+      const e = getEvidenceObject(row);
+      const weakRows = e.weakTerms.map(t=>`<tr><td>${escapeHtml(t.term)}</td><td>${t.seen}</td><td>${t.wrong}</td><td>${Math.round(t.accuracy)}%</td></tr>`).join('');
+      const sessionRows = e.sessions.map(s=>`<tr><td>${escapeHtml(getSessionCode(s)||'-')}</td><td>${escapeHtml(s.bank||'-')}</td><td>${escapeHtml(s.mode||'-')}</td><td>${num(s.score)}</td><td>${pct(s.accuracy)}%</td><td>${escapeHtml(dateLabel(getEventTime(s)))}</td></tr>`).join('');
+      return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>Evidence Pack ${escapeHtml(row.display_name)}</title>
+<style>body{font-family:Arial,"Noto Sans Thai",sans-serif;background:#f5f7fb;color:#172033;margin:0;padding:24px;line-height:1.6}main{max-width:1100px;margin:auto;background:#fff;padding:28px;border-radius:24px}h1{margin:0;font-size:34px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #e5e7eb;padding:8px;text-align:left}th{background:#eef2ff}.box{white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:14px}</style></head><body><main>
+<h1>Student Evidence Pack</h1>
+<p>${escapeHtml(row.display_name)} • ${escapeHtml(row.student_id||'-')} • ${escapeHtml(row.section||'-')}</p>
+<h2>Summary</h2><div class="box">${escapeHtml(JSON.stringify(e.summary,null,2))}</div>
+<h2>Feedback</h2><div class="box">${escapeHtml(e.feedback)}</div>
+<h2>Teacher Note</h2><div class="box">${escapeHtml(e.note||'-')}</div>
+<h2>Goal</h2><div class="box">${escapeHtml(JSON.stringify(e.goal||null,null,2))}</div>
+<h2>Weak Terms</h2><table><thead><tr><th>Term</th><th>Seen</th><th>Wrong</th><th>Accuracy</th></tr></thead><tbody>${weakRows || '<tr><td colspan="4">No data</td></tr>'}</tbody></table>
+<h2>Sessions</h2><table><thead><tr><th>Session</th><th>Bank</th><th>Mode</th><th>Score</th><th>Accuracy</th><th>Date</th></tr></thead><tbody>${sessionRows || '<tr><td colspan="6">No data</td></tr>'}</tbody></table>
+<h2>Raw JSON</h2><div class="box">${escapeHtml(JSON.stringify(e,null,2))}</div>
+</main></body></html>`;
+    }
+
+    function exportEvidence(row){
+      if(!row) return;
+      const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+      downloadTextFile(`student-evidence-pack-${row.display_name.replace(/[^\w\u0E00-\u0E7F-]+/g,'-')}-${stamp}.html`, buildEvidenceHtml(row), 'text/html;charset=utf-8');
+      addComm({action:'export',source:'evidence-pack',studentId:row.id,template:'student-evidence-pack',message:'Exported evidence pack'});
+    }
+
+    function composeFeedback(rows, source){
+      const tone = els.feedbackToneSelect.value;
+      const lang = els.feedbackLangSelect.value;
+      state.batchFeedbackItems = rows.map(r => ({
+        studentId:r.id,display_name:r.display_name,student_id:r.student_id,section:r.section,source,tone,lang,
+        risk_level:r.riskLevel,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,
+        text:buildFeedbackText(r, lang),
+        created_at:bangkokNow()
+      }));
+      saveBatchFeedback();
+      renderBatchFeedback();
+    }
+
+    function buildFeedbackText(row, lang='th'){
+      const weak = perStudentWeakTerms(row).slice(0,5);
+      if(lang === 'en'){
+        return [
+          `Hello ${row.display_name},`,
+          `Summary: score ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%, sessions ${row.attendance}.`,
+          row.riskLevel==='risk'?'Please review repeated mistakes and practice one more round.':row.riskLevel==='support'?'Please replay one round and focus on accuracy.':'Good work. Try a more challenging mode next time.',
+          weak.length ? 'Vocabulary to review: ' + weak.map(t=>`${t.term} (${t.wrong}/${t.seen})`).join(', ') : 'No repeated weak terms found yet.'
+        ].join('\n');
+      }
+      if(lang === 'both') return buildFeedbackText(row,'th') + '\n\n--- English ---\n\n' + buildFeedbackText(row,'en');
+      return [
+        `สวัสดี ${row.display_name}`,
+        `สรุปผล: score ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%, เล่นแล้ว ${row.attendance} รอบ`,
+        row.riskLevel==='risk'?'ควรทบทวนคำที่ผิดซ้ำและฝึกเพิ่มอีก 1 รอบ':row.riskLevel==='support'?'ควรเล่นซ้ำอีก 1 รอบโดยเน้น accuracy':'ทำได้ดี สามารถลองโหมดที่ท้าทายขึ้น',
+        weak.length ? 'คำศัพท์ที่ควรทบทวน: ' + weak.map(t=>`${t.term} (${t.wrong}/${t.seen})`).join(', ') : 'ยังไม่พบคำที่ผิดซ้ำชัดเจน'
+      ].join('\n');
+    }
+
+    function renderBatchFeedback(){
+      els.batchFeedbackCount.textContent = state.batchFeedbackItems.length + ' feedback';
+      els.batchFeedbackGrid.innerHTML = state.batchFeedbackItems.length ? state.batchFeedbackItems.map(item => `
+        <article class="miniCard ${item.risk_level==='risk'?'bad':item.risk_level==='support'?'warn':''}">
+          <div class="miniTitle">${escapeHtml(item.display_name)}</div>
+          <div class="miniMeta">ID: ${escapeHtml(item.student_id||'-')} • ${escapeHtml(item.section||'-')}<br>Source: ${escapeHtml(item.source)} • ${escapeHtml(item.lang)}</div>
+          <div class="debugBox" style="max-height:220px">${escapeHtml(item.text)}</div>
+          <div class="miniActions">
+            <button class="btn ghost copyFeedbackBtn" data-student-id="${escapeHtml(item.studentId)}">Copy</button>
+            <button class="btn ghost noteFeedbackBtn" data-student-id="${escapeHtml(item.studentId)}">Save Note</button>
+            <button class="btn warn markFeedbackSentBtn" data-student-id="${escapeHtml(item.studentId)}">Mark Sent</button>
+          </div>
+        </article>
+      `).join('') : '<div class="empty">ยังไม่มี batch feedback</div>';
+    }
+
+    function composeTemplates(){
+      const source = els.templateSourceSelect.value;
+      const type = els.templateTypeSelect.value;
+      const lang = els.templateLangSelect.value;
+      const rows = getRowsBySource(source);
+      state.templateMessages = rows.map(r => ({
+        studentId:r.id,display_name:r.display_name,student_id:r.student_id,section:r.section,template:type,source,lang,
+        risk_level:r.riskLevel,score:Math.round(r.score),accuracy:Math.round(r.accuracy),
+        text:buildTemplateMessage(r,type,lang),
+        created_at:bangkokNow()
+      }));
+      saveTemplates();
+      renderTemplates();
+    }
+
+    function getRowsBySource(source){
+      if(source === 'queue'){
+        const ids = new Set(state.evidenceQueue.map(q=>String(q.studentId)));
+        return state.rows.filter(r=>ids.has(String(r.id)));
+      }
+      if(source === 'batchFeedback'){
+        const ids = new Set(state.batchFeedbackItems.map(q=>String(q.studentId)));
+        return state.rows.filter(r=>ids.has(String(r.id)));
+      }
+      if(source === 'risk') return state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support');
+      if(source === 'workflow'){
+        const ids = new Set(state.workflowItems.filter(w=>w.status!=='resolved').map(w=>String(w.studentId)));
+        return state.rows.filter(r=>ids.has(String(r.id)));
+      }
+      if(source === 'visible') return applyFilters(state.rows);
+      if(source === 'focused') return state.quickFilter.type==='student' ? state.rows.filter(r=>String(r.id)===String(state.quickFilter.value)) : [];
+      return [];
+    }
+
+    function buildTemplateMessage(row,type,lang='th'){
+      const weak = perStudentWeakTerms(row).slice(0,4).map(t=>`${t.term} (${t.wrong}/${t.seen})`).join(', ') || '-';
+      const th = {
+        praise:`สวัสดี ${row.display_name}\nครูขอชื่นชมความตั้งใจในการทำกิจกรรม Vocabulary วันนี้\nผลปัจจุบัน: score ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%`,
+        review:`สวัสดี ${row.display_name}\nครูแนะนำให้ทบทวนคำศัพท์ก่อนเล่นรอบถัดไป\nคำศัพท์ที่ควรทบทวน: ${weak}`,
+        missing:`สวัสดี ${row.display_name}\nครูยังไม่พบข้อมูลการเข้าเล่น/ส่งผลของคุณ กรุณาเข้าเกมและเล่นจนจบรอบ`,
+        goal:`สวัสดี ${row.display_name}\nGoal รอบถัดไป: ตั้งเป้า accuracy อย่างน้อย ${Math.max(75,Math.round(row.accuracy+10))}%\nคำที่ควรทบทวน: ${weak}`,
+        followup:`สวัสดี ${row.display_name}\nครูอยากนัดติดตามผลการฝึกเพิ่มเติม กรุณาเตรียมคำศัพท์ที่ยาก 3–5 คำ`,
+        advisor:`เรียนอาจารย์ที่ปรึกษา\nขอแจ้งข้อมูลติดตามนักศึกษา ${row.display_name} (${row.student_id||'-'}) Section ${row.section||'-'}\nScore ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%`
+      }[type] || '';
+      const en = {
+        praise:`Hello ${row.display_name},\nGreat effort in the vocabulary activity today.\nCurrent result: score ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%.`,
+        review:`Hello ${row.display_name},\nPlease review the vocabulary before the next round.\nVocabulary to review: ${weak}`,
+        missing:`Hello ${row.display_name},\nYour activity record has not been found. Please complete the game round.`,
+        goal:`Hello ${row.display_name},\nYour next goal is at least ${Math.max(75,Math.round(row.accuracy+10))}% accuracy.\nVocabulary to review: ${weak}`,
+        followup:`Hello ${row.display_name},\nI would like to follow up on your vocabulary practice. Please prepare 3–5 difficult words.`,
+        advisor:`Dear advisor,\nThis is a follow-up note for ${row.display_name} (${row.student_id||'-'}), Section ${row.section||'-'}.\nScore ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%.`
+      }[type] || '';
+      if(lang === 'en') return en;
+      if(lang === 'both') return th + '\n\n--- English ---\n\n' + en;
+      return th;
+    }
+
+    function renderTemplates(){
+      els.templateCount.textContent = state.templateMessages.length + ' messages';
+      els.templateGrid.innerHTML = state.templateMessages.length ? state.templateMessages.map(item => `
+        <article class="miniCard ${item.risk_level==='risk'?'bad':item.risk_level==='support'?'warn':''}">
+          <div class="miniTitle">${escapeHtml(item.display_name)}</div>
+          <div class="miniMeta">Template: ${escapeHtml(item.template)} • Source: ${escapeHtml(item.source)} • ${escapeHtml(item.lang)}</div>
+          <div class="debugBox" style="max-height:220px">${escapeHtml(item.text)}</div>
+          <div class="miniActions">
+            <button class="btn ghost copyTemplateBtn" data-student-id="${escapeHtml(item.studentId)}">Copy</button>
+            <button class="btn ghost noteTemplateBtn" data-student-id="${escapeHtml(item.studentId)}">Save Note</button>
+            <button class="btn warn markTemplateSentBtn" data-student-id="${escapeHtml(item.studentId)}">Mark Sent</button>
+          </div>
+        </article>
+      `).join('') : '<div class="empty">ยังไม่มี template messages</div>';
+    }
+
+    function addComm(entry){
+      const row = entry.studentId ? getStudentRowById(entry.studentId) : null;
+      state.communicationLog.unshift({
+        id:'comm-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        created_at:bangkokNow(),
+        action:entry.action || 'copy',
+        source:entry.source || 'unknown',
+        studentId:entry.studentId || '',
+        display_name:entry.display_name || row?.display_name || '',
+        student_id:entry.student_id || row?.student_id || '',
+        section:entry.section || row?.section || '',
+        template:entry.template || '',
+        message:entry.message || '',
+        note:entry.note || ''
+      });
+      state.communicationLog = state.communicationLog.slice(0,500);
+      saveComm();
+      renderCommunicationLog();
+      renderCommunicationSummary();
+    }
+
+    function renderCommunicationLog(){
+      const q = normalizeSearchValue(els.communicationSearchInput.value);
+      const action = els.communicationActionFilter.value;
+      const source = els.communicationSourceFilter.value;
+      const items = state.communicationLog.filter(c => {
+        if(action && c.action !== action) return false;
+        if(source && c.source !== source) return false;
+        if(q && !normalizeSearchValue([c.display_name,c.student_id,c.section,c.action,c.source,c.template,c.message].join(' ')).includes(q)) return false;
+        return true;
+      });
+      els.communicationLogCount.textContent = `${items.length}/${state.communicationLog.length} logs`;
+      els.communicationLogList.innerHTML = items.length ? items.slice(0,80).map(c => `
+        <article class="miniCard ${c.action==='mark_sent'?'good':c.action==='save_note'?'warn':''}">
+          <div class="studentTop">
+            <div>
+              <div class="miniTitle">${escapeHtml(c.action)} • ${escapeHtml(c.display_name || 'Class')}</div>
+              <div class="miniMeta">${escapeHtml(c.source)} • ${escapeHtml(c.template||'-')}<br>${escapeHtml(dateLabel(c.created_at))}</div>
+            </div>
+            <span class="badge">${escapeHtml(c.action)}</span>
+          </div>
+          ${c.message?`<div class="debugBox" style="max-height:120px;margin-top:10px">${escapeHtml(c.message)}</div>`:''}
+          <div class="miniActions">
+            ${c.studentId?`<button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(c.studentId)}">เปิดรายคน</button>`:''}
+          </div>
+        </article>
+      `).join('') : '<div class="empty">ยังไม่มี communication log</div>';
+    }
+
+    function buildCommSummary(){
+      const ids = new Set(state.communicationLog.map(c=>String(c.studentId)).filter(Boolean));
+      const covered = state.rows.filter(r=>ids.has(String(r.id)));
+      const uncovered = state.rows.filter(r=>!ids.has(String(r.id)));
+      const riskRows = state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support');
+      const riskCovered = riskRows.filter(r=>ids.has(String(r.id)));
+      const markSent = new Set(state.communicationLog.filter(c=>c.action==='mark_sent').map(c=>String(c.studentId))).size;
+      return {
+        total:state.rows.length,
+        covered:covered.length,
+        uncovered,
+        coverage:state.rows.length?Math.round(covered.length/state.rows.length*100):0,
+        riskCoverage:riskRows.length?Math.round(riskCovered.length/riskRows.length*100):0,
+        markSent,
+        actionCounts:countBy(state.communicationLog, c=>c.action),
+        sourceCounts:countBy(state.communicationLog, c=>c.source)
+      };
+    }
+    function countBy(items, fn){
+      const map = new Map();
+      items.forEach(x => {
+        const k = text(fn(x)||'unknown');
+        map.set(k,(map.get(k)||0)+1);
+      });
+      return Array.from(map.entries()).map(([key,count])=>({key,count})).sort((a,b)=>b.count-a.count);
+    }
+
+    function renderCommunicationSummary(){
+      const s = buildCommSummary();
+      els.communicationSummaryBadge.textContent = s.coverage + '% covered';
+      els.communicationSummaryBadge.className = 'badge ' + (s.coverage>=80?'good':s.coverage>=50?'warn':'bad');
+      els.communicationKpis.innerHTML = [
+        ['Coverage',s.coverage+'%',s.coverage>=80?'good':s.coverage>=50?'warn':'bad'],
+        ['Covered',s.covered + '/' + s.total,'good'],
+        ['Mark Sent',s.markSent,s.markSent?'good':'warn'],
+        ['Risk Coverage',s.riskCoverage+'%',s.riskCoverage>=80?'good':'warn']
+      ].map(([l,v,t])=>`<div class="miniCard ${t}"><div class="kpiLabel">${l}</div><div class="kpiValue">${v}</div></div>`).join('');
+
+      els.noCommunicationList.innerHTML = s.uncovered.length ? s.uncovered.slice(0,20).map(r=>`
+        <div class="miniCard ${r.riskLevel==='risk'?'bad':''}">
+          <div class="miniTitle">${escapeHtml(r.display_name)}</div>
+          <div class="miniMeta">${escapeHtml(r.student_id||'-')} • ${escapeHtml(r.section||'-')} • ${escapeHtml(r.riskLevel)}</div>
+          <div class="miniActions"><button class="btn ghost queueEvidenceBtn" data-student-id="${escapeHtml(r.id)}">Queue</button></div>
+        </div>
+      `).join('') : '<div class="empty">ทุกคนมี communication แล้ว</div>';
+
+      els.communicationActionBreakdown.innerHTML = s.actionCounts.length ? s.actionCounts.map(x=>`<div class="miniCard"><div class="miniTitle">${escapeHtml(x.key)}</div><div class="miniMeta">${x.count} records</div></div>`).join('') : '<div class="empty">No action logs</div>';
+      els.communicationTemplateUsage.innerHTML = s.sourceCounts.length ? s.sourceCounts.map(x=>`<div class="miniCard"><div class="miniTitle">${escapeHtml(x.key)}</div><div class="miniMeta">${x.count} uses</div></div>`).join('') : '<div class="empty">No source usage</div>';
+    }
+
+    function avg(arr){const xs=arr.map(num).filter(Number.isFinite);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:0;}
+
+    function buildNarrative(){
+      const scope = els.narrativeScopeSelect.value;
+      const rows = scope==='risk' ? state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support') : scope==='visible' ? applyFilters(state.rows) : state.rows;
+      const weak = termStats().slice(0,8);
+      const comm = buildCommSummary();
+      const lines = [];
+      lines.push('รายงานบรรยายภาพรวมความก้าวหน้าของชั้นเรียนจากกิจกรรม Vocabulary Game');
+      lines.push('');
+      lines.push('วันที่สร้างรายงาน: ' + new Date().toLocaleString('th-TH'));
+      lines.push(`จำนวนนักศึกษาในขอบเขตการวิเคราะห์ ${rows.length} คน จากทั้งหมด ${state.rows.length} คน`);
+      lines.push('');
+      lines.push('1. ภาพรวมผลการเรียนรู้');
+      lines.push(`นักศึกษามีค่าเฉลี่ยคะแนนประมาณ ${Math.round(avg(rows.map(r=>r.score)))} คะแนน และค่าเฉลี่ยความถูกต้องประมาณ ${Math.round(avg(rows.map(r=>r.accuracy)))}% โดยมีกลุ่ม risk ${rows.filter(r=>r.riskLevel==='risk').length} คน และกลุ่ม support ${rows.filter(r=>r.riskLevel==='support').length} คน`);
+      lines.push('');
+      lines.push('2. การเข้าเรียนและการส่งข้อมูล');
+      lines.push(`ระบบตรวจพบ session logs ${state.normalized.sessions.length} แถว และ answer logs ${state.normalized.termAnswers.length} แถว ใช้เป็นหลักฐานประกอบการติดตามผลการเรียนรู้รายบุคคล`);
+      lines.push('');
+      lines.push('3. คำศัพท์ที่ควรทบทวน');
+      if(weak.length) weak.forEach(t=>lines.push(`- ${t.term}: พบ ${t.seen} ครั้ง ผิด ${t.wrong} ครั้ง accuracy ${Math.round(t.accuracy)}%`));
+      else lines.push('- ยังไม่มีข้อมูล weak terms ชัดเจน');
+      lines.push('');
+      lines.push('4. การสื่อสารและการติดตาม');
+      lines.push(`Communication coverage อยู่ที่ ${comm.coverage}% (${comm.covered}/${comm.total} คน) และมีการ mark sent แล้ว ${comm.markSent} คน`);
+      lines.push('');
+      if(els.narrativeIncludeNamesChk.checked){
+        lines.push('5. รายชื่อกลุ่มที่ควรติดตาม');
+        rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support').slice(0,30).forEach(r=>lines.push(`- ${r.display_name} (${r.student_id||'-'}) • ${r.riskLevel} • accuracy ${Math.round(r.accuracy)}%`));
+        lines.push('');
+      }
+      if(els.narrativeIncludeNextPlanChk.checked){
+        lines.push('ข้อเสนอแนะสำหรับการสอนครั้งถัดไป');
+        lines.push('- ใช้ weak terms เป็นกิจกรรม mini review 5–7 นาที');
+        lines.push('- ให้กลุ่ม risk/support เล่นซ้ำและติดตามผ่าน Workflow Board');
+        lines.push('- ใช้ Message Templates หรือ Batch Feedback เพื่อสื่อสารรายบุคคล');
+        lines.push('- ใช้ Evidence Pack สำหรับผู้เรียนที่ต้องติดตามเพิ่มเติม');
+      }
+      state.classNarrativeText = lines.join('\n');
+      localStorage.setItem(LS.narrative, state.classNarrativeText);
+      addComm({action:'export',source:'class-narrative',message:'Generated class narrative report'});
+      renderNarrative();
+    }
+
+    function renderNarrative(){
+      els.narrativePreview.textContent = state.classNarrativeText || 'กด Generate เพื่อสร้างรายงาน';
+      els.narrativeBadge.textContent = state.classNarrativeText ? 'Generated' : 'Ready';
+    }
+
+    function buildPortfolio(){
+      const scope = els.portfolioScopeSelect.value;
+      const rows = scope==='risk' ? state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support') :
+        scope==='visible' ? applyFilters(state.rows) :
+        scope==='queue' ? state.rows.filter(r=>state.evidenceQueue.some(q=>String(q.studentId)===String(r.id))) :
+        state.rows;
+
+      if(!state.classNarrativeText && els.portfolioIncludeNarrativeChk.checked) buildNarrative();
+      const comm = buildCommSummary();
+      const p = {
+        type:'course-level-portfolio',
+        version:TEACHER_VERSION.version,
+        generated_at:bangkokNow(),
+        settings:{scope},
+        counts:{students:rows.length,allStudents:state.rows.length,sessions:state.normalized.sessions.length,termAnswers:state.normalized.termAnswers.length,communicationLogs:state.communicationLog.length,workflowItems:state.workflowItems.length},
+        summary:{avgScore:Math.round(avg(rows.map(r=>r.score))),avgAccuracy:Math.round(avg(rows.map(r=>r.accuracy))),risk:rows.filter(r=>r.riskLevel==='risk').length,support:rows.filter(r=>r.riskLevel==='support').length},
+        weakTerms:termStats().slice(0,12).map(t=>({term:t.term,seen:t.seen,wrong:t.wrong,accuracy:Math.round(t.accuracy)})),
+        communication:els.portfolioIncludeCommunicationChk.checked ? comm : null,
+        workflow:state.workflowItems,
+        evidenceIndex:els.portfolioIncludeEvidenceChk.checked ? rows.map(r=>({display_name:r.display_name,student_id:r.student_id,section:r.section,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,risk_level:r.riskLevel,weak_terms:perStudentWeakTerms(r).slice(0,5).map(t=>t.term).join(', '),has_goal:getGoal(r)?'yes':'no',has_note:getStudentNote(r)?'yes':'no'})) : [],
+        narrative:els.portfolioIncludeNarrativeChk.checked ? state.classNarrativeText : ''
+      };
+      state.coursePortfolio = p;
+      state.coursePortfolioText = buildPortfolioText(p);
+      localStorage.setItem(LS.portfolio, JSON.stringify({portfolio:p,text:state.coursePortfolioText}));
+      addComm({action:'export',source:'course-portfolio',message:'Generated course-level portfolio'});
+      renderPortfolio();
+    }
+
+    function buildPortfolioText(p){
+      const lines = [];
+      lines.push('Course-level Portfolio Export');
+      lines.push('Generated: ' + dateLabel(p.generated_at));
+      lines.push('Scope: ' + p.settings.scope);
+      lines.push('');
+      lines.push('1. Portfolio Overview');
+      lines.push(`- Students: ${p.counts.students}/${p.counts.allStudents}`);
+      lines.push(`- Session rows: ${p.counts.sessions}`);
+      lines.push(`- Answer rows: ${p.counts.termAnswers}`);
+      lines.push(`- Communication logs: ${p.counts.communicationLogs}`);
+      lines.push('');
+      lines.push('2. Learning Summary');
+      lines.push(`- Average score: ${p.summary.avgScore}`);
+      lines.push(`- Average accuracy: ${p.summary.avgAccuracy}%`);
+      lines.push(`- Risk: ${p.summary.risk}`);
+      lines.push(`- Support: ${p.summary.support}`);
+      lines.push('');
+      lines.push('3. Weak Terms');
+      p.weakTerms.forEach(t=>lines.push(`- ${t.term}: seen ${t.seen}, wrong ${t.wrong}, accuracy ${t.accuracy}%`));
+      lines.push('');
+      if(p.communication){
+        lines.push('4. Communication Summary');
+        lines.push(`- Coverage: ${p.communication.coverage}%`);
+        lines.push(`- Mark sent: ${p.communication.markSent}`);
+        lines.push('');
+      }
+      if(p.narrative){
+        lines.push('5. Class Narrative');
+        lines.push(p.narrative);
+      }
+      return lines.join('\n');
+    }
+
+    function renderPortfolio(){
+      els.portfolioPreview.textContent = state.coursePortfolioText || 'กด Generate Portfolio เพื่อสร้างชุดรายงาน';
+      els.portfolioBadge.textContent = state.coursePortfolioText ? 'Generated' : 'Ready';
+    }
+
+    function openStudentDrawer(id){
+      const row = getStudentRowById(id);
+      if(!row) return;
+      state.activeStudentId = row.id;
+      els.drawerTitle.textContent = row.display_name;
+      els.drawerMeta.textContent = `ID: ${row.student_id || '-'} • Section: ${row.section || '-'} • Risk: ${row.riskLevel}`;
+      els.drawerKpis.innerHTML = [
+        ['Score',Math.round(row.score),'good'],
+        ['Accuracy',Math.round(row.accuracy)+'%',row.accuracy<60?'bad':row.accuracy<75?'warn':'good'],
+        ['Sessions',row.attendance,'good'],
+        ['Wrong',row.wrongCount,row.wrongCount?'warn':'good']
+      ].map(([l,v,t])=>`<div class="miniCard ${t}"><div class="kpiLabel">${l}</div><div class="kpiValue">${v}</div></div>`).join('');
+      els.studentNoteArea.value = getStudentNote(row);
+      const goal = getGoal(row) || {};
+      els.goalAccuracyInput.value = goal.target_accuracy || '';
+      els.goalScoreInput.value = goal.target_score || '';
+      els.goalSessionsInput.value = goal.target_sessions || '';
+      els.goalDueInput.value = goal.due_date || '';
+      els.goalNoteInput.value = goal.note || '';
+      els.drawerWeakTerms.innerHTML = perStudentWeakTerms(row).map(t=>`<tr><td>${escapeHtml(t.term)}</td><td>${t.seen}</td><td>${t.wrong}</td><td>${Math.round(t.accuracy)}%</td></tr>`).join('') || '<tr><td colspan="4">No data</td></tr>';
+      els.drawerSessions.innerHTML = row.sessions.slice(0,10).map(s=>`<div class="miniCard"><div class="miniTitle">${escapeHtml(getSessionCode(s)||'-')}</div><div class="miniMeta">${escapeHtml(s.bank||'-')}/${escapeHtml(s.mode||'-')} • score ${num(s.score)} • acc ${pct(s.accuracy)}%<br>${escapeHtml(dateLabel(getEventTime(s)))}</div></div>`).join('') || '<div class="empty">No sessions</div>';
+      els.drawerBackdrop.classList.remove('hidden');
+      els.studentDrawer.classList.remove('hidden');
+      document.body.style.overflow='hidden';
+    }
+    function closeDrawer(){
+      els.drawerBackdrop.classList.add('hidden');
+      els.studentDrawer.classList.add('hidden');
+      document.body.style.overflow='';
+    }
+    function activeRow(){return getStudentRowById(state.activeStudentId);}
+
+    function renderDebug(){
+      els.debugBox.textContent = JSON.stringify({
+        version:TEACHER_VERSION,
+        usingCache:state.usingCache,
+        rawKeys:state.raw?Object.keys(state.raw):[],
+        normalizedCounts:{
+          students:state.normalized.students.length,
+          sessions:state.normalized.sessions.length,
+          termAnswers:state.normalized.termAnswers.length,
+          leaderboard:state.normalized.leaderboard.length
+        },
+        rows:state.rows.length,
+        filters:state.filters,
+        quickFilter:state.quickFilter,
+        ui:{compact:state.compact,focus:state.focus,production:state.production},
+        debugShape:state.normalized.debugShape
+      }, null, 2);
+    }
+
+    function copyText(value){
+      if(navigator.clipboard) return navigator.clipboard.writeText(value);
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      return Promise.resolve();
+    }
+
+    function exportPortfolioHtml(){
+      if(!state.coursePortfolio) buildPortfolio();
+      const p = state.coursePortfolio;
+      const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>Course Portfolio</title><style>body{font-family:Arial,"Noto Sans Thai";padding:24px;background:#f5f7fb;color:#172033;line-height:1.65}main{max-width:1100px;margin:auto;background:#fff;border-radius:24px;padding:28px}pre{white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:14px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #e5e7eb;padding:8px;text-align:left}th{background:#eef2ff}</style></head><body><main><h1>Course-level Portfolio Export</h1><p>Generated: ${escapeHtml(dateLabel(p.generated_at))}</p><pre>${escapeHtml(state.coursePortfolioText)}</pre><h2>Evidence Index</h2><table><thead><tr><th>Name</th><th>ID</th><th>Section</th><th>Score</th><th>Accuracy</th><th>Risk</th></tr></thead><tbody>${(p.evidenceIndex||[]).map(r=>`<tr><td>${escapeHtml(r.display_name)}</td><td>${escapeHtml(r.student_id)}</td><td>${escapeHtml(r.section)}</td><td>${r.score}</td><td>${r.accuracy}%</td><td>${escapeHtml(r.risk_level)}</td></tr>`).join('')}</tbody></table><h2>Raw JSON</h2><pre>${escapeHtml(JSON.stringify(p,null,2))}</pre></main></body></html>`;
+      downloadTextFile('teacher-vocab-course-portfolio-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.html', html, 'text/html;charset=utf-8');
+      addComm({action:'export',source:'course-portfolio',message:'Exported course portfolio HTML'});
+    }
+
+    function bindEvents(){
+      els.refreshBtn.addEventListener('click', loadDashboard);
+      els.useCacheBtn.addEventListener('click', useCache);
+      els.compactBtn.addEventListener('click',()=>{state.compact=!state.compact;localStorage.setItem(LS.compact,state.compact?'1':'0');renderAll();});
+      els.focusBtn.addEventListener('click',()=>{state.focus=!state.focus;localStorage.setItem(LS.focus,state.focus?'1':'0');renderAll();});
+      els.productionBtn.addEventListener('click',()=>{state.production=!state.production;localStorage.setItem(LS.production,state.production?'1':'0');renderAll();});
+      els.presetTeachingBtn.addEventListener('click',()=>{state.production=true;state.compact=true;state.focus=true;localStorage.setItem(LS.production,'1');localStorage.setItem(LS.compact,'1');localStorage.setItem(LS.focus,'1');renderAll();});
+      els.presetDebugBtn.addEventListener('click',()=>{state.production=false;state.compact=false;state.focus=false;localStorage.setItem(LS.production,'0');localStorage.setItem(LS.compact,'0');localStorage.setItem(LS.focus,'0');renderAll();});
+
+      els.searchInput.addEventListener('input',()=>{state.filters.search=els.searchInput.value;state.studentRenderLimit=18;renderAll();});
+      els.sectionFilter.addEventListener('change',()=>{state.filters.section=els.sectionFilter.value;renderAll();});
+      els.riskFilter.addEventListener('change',()=>{state.filters.risk=els.riskFilter.value;renderAll();});
+      els.bankFilter.addEventListener('change',()=>{state.filters.bank=els.bankFilter.value;renderAll();});
+      els.sortSelect.addEventListener('change',()=>{state.filters.sort=els.sortSelect.value;renderAll();});
+
+      els.quickFilterList.addEventListener('click',ev=>{
+        const b = ev.target.closest('[data-qtype]');
+        if(!b) return;
+        state.quickFilter = {type:b.dataset.qtype,value:b.dataset.qvalue||''};
+        renderAll();
+      });
+      els.clearQuickBtn.addEventListener('click',()=>{state.quickFilter={type:'all',value:''};renderAll();});
+
+      els.liveWindowSelect.addEventListener('change',()=>{state.liveWindow=num(els.liveWindowSelect.value||15);renderLive();renderStudents();});
+      els.refreshLiveBtn.addEventListener('click',()=>{renderLive();renderStudents();});
+      els.showMoreStudentsBtn.addEventListener('click',()=>{state.studentRenderLimit+=18;renderStudents();});
+
+      document.addEventListener('click', ev => {
+        const open = ev.target.closest('.openStudentBtn[data-student-id]');
+        if(open){openStudentDrawer(open.dataset.studentId);return;}
+
+        const q = ev.target.closest('.queueEvidenceBtn[data-student-id]');
+        if(q){const id=q.dataset.studentId;if(isInEvidenceQueue(id)) state.evidenceQueue=state.evidenceQueue.filter(x=>String(x.studentId)!==String(id)); else addToEvidenceQueue(id,'manual');saveEvidenceQueue();renderAll();return;}
+
+        const exp = ev.target.closest('.exportEvidenceBtn[data-student-id],.queueExportPackBtn[data-student-id]');
+        if(exp){const r=getStudentRowById(exp.dataset.studentId);exportEvidence(r);const item=state.evidenceQueue.find(x=>String(x.studentId)===String(exp.dataset.studentId));if(item){item.status='exported';item.exported_at=bangkokNow();saveEvidenceQueue();renderEvidenceQueue();}return;}
+
+        const rem = ev.target.closest('.queueRemoveBtn[data-student-id]');
+        if(rem){state.evidenceQueue=state.evidenceQueue.filter(x=>String(x.studentId)!==String(rem.dataset.studentId));saveEvidenceQueue();renderEvidenceQueue();renderEvidence();return;}
+      });
+
+      els.drawerCloseBtn.addEventListener('click', closeDrawer);
+      els.drawerBackdrop.addEventListener('click', closeDrawer);
+      els.saveStudentNoteBtn.addEventListener('click',()=>{const r=activeRow();if(!r)return;saveStudentNote(r,els.studentNoteArea.value);addComm({action:'save_note',source:'student-feedback',studentId:r.id,message:els.studentNoteArea.value});showStatus('บันทึก note แล้ว','ok');});
+      els.copyStudentFeedbackBtn.addEventListener('click',async()=>{const r=activeRow();if(!r)return;const fb=buildStudentFeedback(r);await copyText(fb);addComm({action:'copy',source:'student-feedback',studentId:r.id,message:fb});showStatus('Copy feedback แล้ว','ok');});
+      els.exportEvidencePackBtn.addEventListener('click',()=>exportEvidence(activeRow()));
+      els.saveGoalBtn.addEventListener('click',()=>{const r=activeRow();if(!r)return;saveGoal(r,{target_accuracy:num(els.goalAccuracyInput.value),target_score:num(els.goalScoreInput.value),target_sessions:num(els.goalSessionsInput.value),due_date:els.goalDueInput.value,note:els.goalNoteInput.value,status:'watch'});showStatus('Save goal แล้ว','ok');});
+      els.clearGoalBtn.addEventListener('click',()=>{const r=activeRow();if(!r)return;clearGoal(r);openStudentDrawer(r.id);});
+
+      els.buildWorkflowBtn.addEventListener('click', buildWorkflow);
+      els.exportWorkflowBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-workflow',state.workflowItems));
+      els.clearResolvedBtn.addEventListener('click',()=>{state.workflowItems=state.workflowItems.filter(w=>w.status!=='resolved');saveWorkflow();renderWorkflow();});
+      els.workflowBoard.addEventListener('change',ev=>{const s=ev.target.closest('.workflowStatusSelect');if(!s)return;const w=state.workflowItems.find(x=>x.key===s.dataset.key);if(w){w.status=s.value;w.updated_at=bangkokNow();saveWorkflow();renderWorkflow();}});
+      els.workflowBoard.addEventListener('click',ev=>{
+        const note = ev.target.closest('.workflowNoteBtn[data-key]');
+        if(note){const w=state.workflowItems.find(x=>x.key===note.dataset.key);const r=getStudentRowById(w?.studentId);if(r){saveStudentNote(r,(getStudentNote(r)+'\n\n['+new Date().toLocaleString('th-TH')+'] Workflow\n'+w.reason+'\nNext: '+w.nextAction).trim());w.status='reviewing';saveWorkflow();addToEvidenceQueue(r.id,'workflow-note');openStudentDrawer(r.id);}return;}
+        const goal = ev.target.closest('.workflowGoalBtn[data-key]');
+        if(goal){const w=state.workflowItems.find(x=>x.key===goal.dataset.key);const r=getStudentRowById(w?.studentId);if(r){saveGoal(r,{target_accuracy:Math.max(75,Math.round(r.accuracy+10)),target_score:Math.max(80,Math.round(r.score+10)),target_sessions:r.attendance+1,due_date:new Date(Date.now()+7*864e5).toISOString().slice(0,10),note:'สร้างจาก Workflow: '+w.reason,status:'watch'});w.status='assigned';saveWorkflow();addToEvidenceQueue(r.id,'workflow-goal');openStudentDrawer(r.id);}return;}
+      });
+
+      els.queueRiskBtn.addEventListener('click',()=>{state.rows.filter(r=>r.riskLevel==='risk').forEach(r=>addToEvidenceQueue(r.id,'risk'));renderAll();});
+      els.queueVisibleBtn.addEventListener('click',()=>{applyFilters(state.rows).forEach(r=>addToEvidenceQueue(r.id,'visible'));renderAll();});
+      els.exportEvidenceIndexBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-evidence-index',state.rows.map(r=>({display_name:r.display_name,student_id:r.student_id,section:r.section,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,risk_level:r.riskLevel,weak_terms:perStudentWeakTerms(r).slice(0,5).map(t=>t.term).join(', '),has_goal:getGoal(r)?'yes':'no',has_note:getStudentNote(r)?'yes':'no'}))));
+      els.exportNextEvidenceBtn.addEventListener('click',()=>{const item=state.evidenceQueue.find(q=>q.status!=='exported');if(!item){alert('ไม่มีรายการรอ export');return;}const r=getStudentRowById(item.studentId);exportEvidence(r);item.status='exported';item.exported_at=bangkokNow();saveEvidenceQueue();renderEvidenceQueue();});
+      els.exportQueueIndexBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-evidence-queue',state.evidenceQueue));
+      els.clearQueueBtn.addEventListener('click',()=>{state.evidenceQueue=[];saveEvidenceQueue();renderAll();});
+
+      els.composeQueueFeedbackBtn.addEventListener('click',()=>{const ids=new Set(state.evidenceQueue.map(q=>String(q.studentId)));composeFeedback(state.rows.filter(r=>ids.has(String(r.id))),'evidence-queue');});
+      els.composeRiskFeedbackBtn.addEventListener('click',()=>composeFeedback(state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support'),'risk-support'));
+      els.composeVisibleFeedbackBtn.addEventListener('click',()=>composeFeedback(applyFilters(state.rows),'visible-filter'));
+      els.exportBatchFeedbackTxtBtn.addEventListener('click',()=>{const txt=state.batchFeedbackItems.map((i,idx)=>`${idx+1}. ${i.display_name}\n${i.text}`).join('\n\n'+'='.repeat(60)+'\n\n');downloadTextFile('teacher-vocab-batch-feedback.txt',txt);addComm({action:'export',source:'batch-feedback',message:'Exported batch feedback'});});
+      els.exportBatchFeedbackCsvBtn.addEventListener('click',()=>{exportRowsToCsv('teacher-vocab-batch-feedback',state.batchFeedbackItems);addComm({action:'export',source:'batch-feedback',message:'Exported batch feedback CSV'});});
+      els.clearBatchFeedbackBtn.addEventListener('click',()=>{state.batchFeedbackItems=[];saveBatchFeedback();renderBatchFeedback();});
+      els.batchFeedbackGrid.addEventListener('click',async ev=>{
+        const copy=ev.target.closest('.copyFeedbackBtn[data-student-id]');
+        if(copy){const item=state.batchFeedbackItems.find(x=>String(x.studentId)===String(copy.dataset.studentId));await copyText(item.text);addComm({action:'copy',source:'batch-feedback',studentId:item.studentId,message:item.text,template:item.source});showStatus('Copy feedback แล้ว','ok');return;}
+        const note=ev.target.closest('.noteFeedbackBtn[data-student-id]');
+        if(note){const item=state.batchFeedbackItems.find(x=>String(x.studentId)===String(note.dataset.studentId));const r=getStudentRowById(item.studentId);saveStudentNote(r,(getStudentNote(r)+'\n\n[Batch Feedback]\n'+item.text).trim());addComm({action:'save_note',source:'batch-feedback',studentId:r.id,message:item.text});showStatus('Save to note แล้ว','ok');return;}
+        const sent=ev.target.closest('.markFeedbackSentBtn[data-student-id]');
+        if(sent){const item=state.batchFeedbackItems.find(x=>String(x.studentId)===String(sent.dataset.studentId));addComm({action:'mark_sent',source:'batch-feedback',studentId:item.studentId,message:item.text,template:item.source});showStatus('Mark sent แล้ว','ok');return;}
+      });
+
+      els.composeTemplateBtn.addEventListener('click', composeTemplates);
+      els.exportTemplateTxtBtn.addEventListener('click',()=>{downloadTextFile('teacher-vocab-message-templates.txt',state.templateMessages.map((i,idx)=>`${idx+1}. ${i.display_name}\n${i.text}`).join('\n\n'+'='.repeat(60)+'\n\n'));addComm({action:'export',source:'message-template',message:'Exported template messages'});});
+      els.exportTemplateCsvBtn.addEventListener('click',()=>{exportRowsToCsv('teacher-vocab-message-templates',state.templateMessages);addComm({action:'export',source:'message-template',message:'Exported template messages CSV'});});
+      els.clearTemplateBtn.addEventListener('click',()=>{state.templateMessages=[];saveTemplates();renderTemplates();});
+      els.templateGrid.addEventListener('click',async ev=>{
+        const copy=ev.target.closest('.copyTemplateBtn[data-student-id]');
+        if(copy){const item=state.templateMessages.find(x=>String(x.studentId)===String(copy.dataset.studentId));await copyText(item.text);addComm({action:'copy',source:'message-template',studentId:item.studentId,message:item.text,template:item.template});showStatus('Copy template แล้ว','ok');return;}
+        const note=ev.target.closest('.noteTemplateBtn[data-student-id]');
+        if(note){const item=state.templateMessages.find(x=>String(x.studentId)===String(note.dataset.studentId));const r=getStudentRowById(item.studentId);saveStudentNote(r,(getStudentNote(r)+'\n\n[Message Template]\n'+item.text).trim());addComm({action:'save_note',source:'message-template',studentId:r.id,message:item.text,template:item.template});showStatus('Save to note แล้ว','ok');return;}
+        const sent=ev.target.closest('.markTemplateSentBtn[data-student-id]');
+        if(sent){const item=state.templateMessages.find(x=>String(x.studentId)===String(sent.dataset.studentId));addComm({action:'mark_sent',source:'message-template',studentId:item.studentId,message:item.text,template:item.template});showStatus('Mark sent แล้ว','ok');return;}
+      });
+
+      els.communicationActionFilter.addEventListener('change',renderCommunicationLog);
+      els.communicationSourceFilter.addEventListener('change',renderCommunicationLog);
+      els.communicationSearchInput.addEventListener('input',renderCommunicationLog);
+      els.exportCommunicationCsvBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-communication-log',state.communicationLog));
+      els.exportCommunicationTxtBtn.addEventListener('click',()=>downloadTextFile('teacher-vocab-communication-log.txt',state.communicationLog.map((c,i)=>`${i+1}. ${c.action} • ${c.display_name}\n${dateLabel(c.created_at)}\n${c.source} • ${c.template}\n${c.message||''}`).join('\n\n'+'='.repeat(60)+'\n\n')));
+      els.clearCommunicationBtn.addEventListener('click',()=>{if(confirm('ลบ Communication Log?')){state.communicationLog=[];saveComm();renderAll();}});
+
+      els.exportCommunicationSummaryBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-communication-summary',state.rows.map(r=>{const logs=state.communicationLog.filter(c=>String(c.studentId)===String(r.id));return{display_name:r.display_name,student_id:r.student_id,section:r.section,risk_level:r.riskLevel,communication_count:logs.length,has_mark_sent:logs.some(c=>c.action==='mark_sent')?'yes':'no',latest_action:logs[0]?.action||'',latest_at:logs[0]?.created_at||''};})));
+      els.queueNoCommunicationBtn.addEventListener('click',()=>{buildCommSummary().uncovered.forEach(r=>addToEvidenceQueue(r.id,'no-communication'));renderAll();});
+
+      els.generateNarrativeBtn.addEventListener('click', buildNarrative);
+      els.copyNarrativeBtn.addEventListener('click',async()=>{if(!state.classNarrativeText)buildNarrative();await copyText(state.classNarrativeText);addComm({action:'copy',source:'class-narrative',message:state.classNarrativeText});});
+      els.exportNarrativeTxtBtn.addEventListener('click',()=>{if(!state.classNarrativeText)buildNarrative();downloadTextFile('teacher-vocab-class-narrative.txt',state.classNarrativeText);addComm({action:'export',source:'class-narrative',message:'Exported narrative TXT'});});
+      els.exportNarrativeHtmlBtn.addEventListener('click',()=>{if(!state.classNarrativeText)buildNarrative();downloadTextFile('teacher-vocab-class-narrative.html',`<!doctype html><html lang="th"><meta charset="utf-8"><body style="font-family:Arial,'Noto Sans Thai';padding:24px;line-height:1.75"><pre style="white-space:pre-wrap">${escapeHtml(state.classNarrativeText)}</pre></body></html>`,'text/html;charset=utf-8');addComm({action:'export',source:'class-narrative',message:'Exported narrative HTML'});});
+
+      els.generatePortfolioBtn.addEventListener('click', buildPortfolio);
+      els.copyPortfolioBtn.addEventListener('click',async()=>{if(!state.coursePortfolioText)buildPortfolio();await copyText(state.coursePortfolioText);addComm({action:'copy',source:'course-portfolio',message:state.coursePortfolioText});});
+      els.exportPortfolioHtmlBtn.addEventListener('click', exportPortfolioHtml);
+      els.exportPortfolioJsonBtn.addEventListener('click',()=>{if(!state.coursePortfolio)buildPortfolio();downloadTextFile('teacher-vocab-course-portfolio.json',JSON.stringify(state.coursePortfolio,null,2),'application/json;charset=utf-8');addComm({action:'export',source:'course-portfolio',message:'Exported portfolio JSON'});});
+      els.exportPortfolioIndexCsvBtn.addEventListener('click',()=>{if(!state.coursePortfolio)buildPortfolio();exportRowsToCsv('teacher-vocab-course-portfolio-evidence-index',state.coursePortfolio.evidenceIndex||[]);addComm({action:'export',source:'course-portfolio',message:'Exported portfolio index CSV'});});
+
+      els.exportStudentsBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-students',state.rows.map(r=>({display_name:r.display_name,student_id:r.student_id,section:r.section,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,answers:r.answerCount,wrong:r.wrongCount,risk_level:r.riskLevel,last_seen:r.lastSeen}))));
+      els.exportSessionsBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-sessions',state.normalized.sessions));
+      els.exportMissingBtn.addEventListener('click',()=>{const latest=buildAttendanceRows().slice(-1)[0];if(!latest){alert('No attendance');return;}exportRowsToCsv('teacher-vocab-missing-'+latest.code,latest.missing);});
+
+      els.jumpNavToggle.addEventListener('click',()=>els.teacherJumpNav.classList.toggle('open'));
+      els.jumpNavPanel.addEventListener('click',ev=>{const b=ev.target.closest('[data-jump-target]');if(!b)return;jumpTo(b.dataset.jumpTarget);});
+      document.addEventListener('keydown',ev=>{if(ev.key==='Escape'){closeDrawer();els.teacherJumpNav.classList.remove('open');}});
+    }
+
+    function jumpTo(id){
+      const target = document.querySelector(`[data-section-id="${CSS.escape(id)}"]`);
+      if(!target) return;
+      target.scrollIntoView({behavior:'smooth',block:'start'});
+      els.teacherJumpNav.classList.remove('open');
+    }
+    function updateJumpActive(){
+      document.querySelectorAll('.jumpLink').forEach(b=>b.classList.remove('active'));
+      const sections = Array.from(document.querySelectorAll('[data-section-id]'));
+      let active = sections[0]?.dataset.sectionId || 'top';
+      for(const s of sections){
+        if(s.getBoundingClientRect().top < window.innerHeight*.35) active = s.dataset.sectionId;
+      }
+      document.querySelector(`.jumpLink[data-jump-target="${active}"]`)?.classList.add('active');
+    }
+    window.addEventListener('scroll',()=>requestAnimationFrame(updateJumpActive),{passive:true});
+
+    function init(){
+      loadLocal();
+      bindEvents();
+      renderAll();
+      loadDashboard();
+    }
+
+    window.TEACHER_VERSION = TEACHER_VERSION;
+    window.__teacherState = state;
+    init();
   </script>
 </body>
 </html>
