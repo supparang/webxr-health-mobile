@@ -1,75 +1,30 @@
 // === /english/js/lesson-speaking-fix.js ===
-// PATCH v20260424b-LESSON-SPEAKING-FIX
-// Add speaking UI + microphone recognition + VR instruction board for S1-S15
+// PATCH v20260424h-LESSON-SPEAKING-FIX-DATA-GUARD-VIEWMODE
+// ✅ Speaking UI only when lesson-data says current S is speaking
+// ✅ No scene-text skill guessing
+// ✅ Supports PC / Mobile / Cardboard VR
+// ✅ Uses LESSON_DATA_GUARD first, then router/item fallback
+// ✅ Emits lesson:speaking-result + lesson:mission-pass
+// ✅ Calls LESSON_ROUTER.reportResult() for AI difficulty
 
 (function () {
   'use strict';
 
-  const PATCH = 'v20260424b-LESSON-SPEAKING-FIX';
+  const PATCH = 'v20260424h-LESSON-SPEAKING-FIX-DATA-GUARD-VIEWMODE';
 
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
-  const FALLBACK_TARGETS = {
+  const FALLBACK_SPEAKING_TARGETS = {
     S1: {
       title: 'Introduction',
       target: 'My name is Anna and I am a student.',
       tip: 'พูดแนะนำตัวเองให้ชัดเจน'
     },
-    S2: {
-      title: 'Academic Background',
-      target: 'I study computer science and artificial intelligence.',
-      tip: 'พูดชื่อสาขาและพื้นฐานการเรียน'
-    },
-    S3: {
-      title: 'Tech Jobs',
-      target: 'A software developer writes and tests programs.',
-      tip: 'พูดอธิบายงานสายเทคโนโลยี'
-    },
-    S4: {
-      title: 'Daily Workplace Communication',
-      target: 'I have a question about the project.',
-      tip: 'พูดประโยคสื่อสารในที่ทำงาน'
-    },
-    S5: {
-      title: 'Emails and Chat',
-      target: 'Please check my email and reply when you can.',
-      tip: 'พูดประโยคสุภาพสำหรับอีเมล'
-    },
-    S6: {
-      title: 'Meetings',
-      target: 'I agree with this idea because it is useful.',
-      tip: 'พูดแสดงความคิดเห็นในการประชุม'
-    },
     S7: {
       title: 'Explaining a System',
       target: 'This system helps users find information faster.',
       tip: 'พูดอธิบายระบบแบบง่าย'
-    },
-    S8: {
-      title: 'Problems and Bugs',
-      target: 'The app has a bug and the button does not work.',
-      tip: 'พูดรายงานปัญหาโปรแกรม'
-    },
-    S9: {
-      title: 'Team Stand-up',
-      target: 'Today I will fix the login page.',
-      tip: 'พูดรายงานงานวันนี้'
-    },
-    S10: {
-      title: 'Client Communication',
-      target: 'We will update the design and send it tomorrow.',
-      tip: 'พูดสื่อสารกับลูกค้า'
-    },
-    S11: {
-      title: 'Data and AI',
-      target: 'Artificial intelligence can learn from data.',
-      tip: 'พูดประโยคพื้นฐานด้าน AI'
-    },
-    S12: {
-      title: 'CV and Portfolio',
-      target: 'My portfolio shows my web application projects.',
-      tip: 'พูดแนะนำผลงานของตนเอง'
     },
     S13: {
       title: 'Job Interview',
@@ -80,26 +35,28 @@
       title: 'Project Pitch',
       target: 'Our project solves a real problem for students.',
       tip: 'พูดนำเสนอโครงงาน'
-    },
-    S15: {
-      title: 'Capstone Career Mission',
-      target: 'I can explain my skills and present my final project.',
-      tip: 'พูดสรุปทักษะและโครงงาน'
     }
   };
 
   let state = {
     sid: 'S1',
-    title: 'Introduction',
-    target: FALLBACK_TARGETS.S1.target,
-    tip: FALLBACK_TARGETS.S1.tip,
+    title: 'Speaking',
+    target: '',
+    tip: 'กด Start Speaking แล้วพูดตามประโยค',
+    prompt: 'Say the sentence clearly.',
+    difficulty: 'normal',
+    cefr: 'A2+',
+    passScore: 72,
     heard: '',
     interim: '',
     score: 0,
     passed: false,
     listening: false,
     recognition: null,
-    attempts: 0
+    attempts: 0,
+    active: false,
+    skill: 'unknown',
+    item: null
   };
 
   function $(sel, root = document) {
@@ -120,16 +77,31 @@
 
   function normalizeSid(v) {
     const raw = safeText(v || '').toUpperCase();
+
     if (/^S\d+$/.test(raw)) {
       const n = Math.max(1, Math.min(15, parseInt(raw.replace('S', ''), 10) || 1));
       return `S${n}`;
     }
+
     const n = Math.max(1, Math.min(15, parseInt(raw, 10) || 1));
     return `S${n}`;
   }
 
   function detectSid() {
     const q = getParams();
+
+    try {
+      if (window.LESSON_CURRENT_STATE && window.LESSON_CURRENT_STATE.sid) {
+        return normalizeSid(window.LESSON_CURRENT_STATE.sid);
+      }
+    } catch (err) {}
+
+    try {
+      if (window.LESSON_DATA_GUARD && window.LESSON_DATA_GUARD.currentSid) {
+        return normalizeSid(window.LESSON_DATA_GUARD.currentSid());
+      }
+    } catch (err) {}
+
     return normalizeSid(
       q.get('s') ||
       q.get('sid') ||
@@ -141,22 +113,228 @@
     );
   }
 
-  function readAFrameText() {
+  function normalizeDifficulty(v) {
+    const raw = safeText(v || '').toLowerCase();
+
+    if (['easy', 'e', 'a2'].includes(raw)) return 'easy';
+    if (['normal', 'medium', 'n', 'a2+'].includes(raw)) return 'normal';
+    if (['hard', 'h', 'b1'].includes(raw)) return 'hard';
+    if (['expert', 'challenge', 'x', 'b1+'].includes(raw)) return 'expert';
+
+    return 'normal';
+  }
+
+  function normalizeSkill(v) {
+    const raw = safeText(v || '').toLowerCase();
+
+    if (['speaking', 'speak', 'voice', 'pronunciation', 'พูด'].includes(raw)) return 'speaking';
+    if (['listening', 'listen', 'audio', 'hearing', 'ฟัง'].includes(raw)) return 'listening';
+    if (['reading', 'read', 'อ่าน'].includes(raw)) return 'reading';
+    if (['writing', 'write', 'typing', 'type', 'เขียน'].includes(raw)) return 'writing';
+    if (['boss', 'challenge', 'bossstage', 'boss-stage'].includes(raw)) return 'boss';
+    if (['finalboss', 'final-boss', 'final_boss', 'capstone'].includes(raw)) return 'finalBoss';
+
+    return '';
+  }
+
+  function getViewMode() {
+    try {
+      if (window.LESSON_VIEW_MODE) return String(window.LESSON_VIEW_MODE);
+    } catch (err) {}
+
+    try {
+      const ds = document.documentElement.dataset.lessonViewMode;
+      if (ds) return ds;
+    } catch (err) {}
+
+    const q = getParams();
+    const view = safeText(q.get('view') || q.get('display') || q.get('device') || '').toLowerCase();
+
+    if (['vr', 'cvr', 'cardboard', 'cardboard-vr', 'viewer', 'headset'].includes(view)) return 'cardboard';
+    if (['mobile', 'phone', 'touch'].includes(view)) return 'mobile';
+    return 'pc';
+  }
+
+  function isCardboardMode() {
+    return getViewMode() === 'cardboard';
+  }
+
+  function getDifficultyMeta(diff) {
+    try {
+      const levels =
+        window.LESSON_DIFFICULTY_LEVELS ||
+        window.LESSON_ROUTER?.levels ||
+        null;
+
+      if (levels && levels[diff]) return levels[diff];
+    } catch (err) {}
+
+    const fallback = {
+      easy: { cefr: 'A2', passScore: 65 },
+      normal: { cefr: 'A2+', passScore: 72 },
+      hard: { cefr: 'B1', passScore: 78 },
+      expert: { cefr: 'B1+', passScore: 84 }
+    };
+
+    return fallback[diff] || fallback.normal;
+  }
+
+  function detectCurrentSkill() {
+    // 1) ใช้ lesson-data guard เป็นหลักเท่านั้น
+    try {
+      if (window.LESSON_DATA_GUARD && window.LESSON_DATA_GUARD.getDataSkill) {
+        const s = normalizeSkill(window.LESSON_DATA_GUARD.getDataSkill());
+        if (s) return s;
+      }
+    } catch (err) {}
+
+    // 2) ใช้ dataset ที่ guard/router ตั้งไว้
+    try {
+      const ds = normalizeSkill(document.documentElement.dataset.lessonSkill);
+      if (ds) return ds;
+    } catch (err) {}
+
+    // 3) ใช้ current item เฉพาะเมื่อ item ระบุ skill ชัดเจน
+    try {
+      const item = window.LESSON_CURRENT_ITEM;
+      const s = normalizeSkill(item?.skill || item?.type || item?.activityType || item?.missionType);
+      if (s) return s;
+    } catch (err) {}
+
+    // 4) ใช้ router fallback
+    try {
+      if (window.LESSON_ROUTER && window.LESSON_ROUTER.getCurrentSkill) {
+        const s = normalizeSkill(window.LESSON_ROUTER.getCurrentSkill());
+        if (s) return s;
+      }
+    } catch (err) {}
+
+    // สำคัญ: ห้าม scan ข้อความใน scene เพื่อเดาเป็น speaking
+    return 'unknown';
+  }
+
+  function isSpeakingSession() {
+    return detectCurrentSkill() === 'speaking';
+  }
+
+  function findSessionFromData(sid) {
+    sid = normalizeSid(sid);
+
+    try {
+      if (window.LESSON_DATA_GUARD && window.LESSON_DATA_GUARD.findSessionFromData) {
+        return window.LESSON_DATA_GUARD.findSessionFromData(sid);
+      }
+    } catch (err) {}
+
+    const DATA =
+      window.LESSON_DATA ||
+      window.LESSON_SESSIONS ||
+      window.lessonData ||
+      window.sessions ||
+      null;
+
+    if (!DATA) return null;
+
+    const n = parseInt(sid.replace('S', ''), 10) || 1;
+
+    if (Array.isArray(DATA)) {
+      return (
+        DATA.find((x) => normalizeSid(x?.sid || x?.id || x?.session || x?.unit || x?.lessonNo) === sid) ||
+        DATA[n - 1] ||
+        null
+      );
+    }
+
+    if (typeof DATA === 'object') {
+      const direct =
+        DATA[sid] ||
+        DATA[sid.toLowerCase()] ||
+        DATA[String(n)] ||
+        DATA.sessions?.[sid] ||
+        DATA.sessions?.[sid.toLowerCase()] ||
+        DATA.sessions?.[String(n)] ||
+        DATA.lessons?.[sid] ||
+        DATA.lessons?.[sid.toLowerCase()] ||
+        DATA.lessons?.[String(n)];
+
+      if (direct) return direct;
+
+      const arr =
+        DATA.sessions ||
+        DATA.lessons ||
+        DATA.items ||
+        DATA.data ||
+        null;
+
+      if (Array.isArray(arr)) {
+        return (
+          arr.find((x) => normalizeSid(x?.sid || x?.id || x?.session || x?.unit || x?.lessonNo) === sid) ||
+          arr[n - 1] ||
+          null
+        );
+      }
+    }
+
+    return null;
+  }
+
+  function collectCandidates(session) {
     const out = [];
 
-    $all('a-text').forEach((el) => {
-      const v = el.getAttribute('value');
-      if (v) out.push(String(v));
-      const t = el.getAttribute('text');
-      if (t && typeof t === 'object' && t.value) out.push(String(t.value));
+    if (!session || typeof session !== 'object') return out;
+
+    const directKeys = [
+      'speaking',
+      'speak',
+      'task',
+      'mission',
+      'question',
+      'prompt',
+      'challenge',
+      'currentItem'
+    ];
+
+    directKeys.forEach((key) => {
+      const v = session[key];
+      if (!v) return;
+
+      if (Array.isArray(v)) out.push(...v);
+      else if (typeof v === 'object') out.push(v);
+      else if (typeof v === 'string') out.push({ prompt: v });
     });
 
-    $all('[text]').forEach((el) => {
-      const t = el.getAttribute('text');
-      if (t && typeof t === 'object' && t.value) out.push(String(t.value));
+    const arrayKeys = [
+      'items',
+      'questions',
+      'missions',
+      'tasks',
+      'challenges',
+      'activities',
+      'stages',
+      'variants'
+    ];
+
+    arrayKeys.forEach((key) => {
+      if (Array.isArray(session[key])) out.push(...session[key]);
     });
 
-    return out.join('\n');
+    const bankContainers = [
+      session.banks,
+      session.levels,
+      session.difficulties,
+      session.questionBanks,
+      session.itemsByDifficulty
+    ].filter(Boolean);
+
+    bankContainers.forEach((banks) => {
+      if (!banks || typeof banks !== 'object') return;
+
+      ['easy', 'normal', 'hard', 'expert'].forEach((diff) => {
+        if (Array.isArray(banks[diff])) out.push(...banks[diff]);
+      });
+    });
+
+    return out.filter(Boolean);
   }
 
   function extractSayTarget(text) {
@@ -175,101 +353,196 @@
       if (m && m[1]) return m[1].trim();
     }
 
-    const quote = s.match(/["“]([^"”]{8,160})["”]/);
+    const quote = s.match(/["“]([^"”]{6,240})["”]/);
     if (quote && quote[1]) return quote[1].trim();
 
     return '';
   }
 
-  function pickFromLessonData(sid) {
-    try {
-      const src =
-        window.LESSON_DATA ||
-        window.LESSON_SESSIONS ||
-        window.lessonData ||
-        window.sessions ||
-        null;
+  function getItemTextValue(item) {
+    if (!item) return '';
 
-      if (!src) return null;
+    return safeText(
+      item.target ||
+      item.sentence ||
+      item.text ||
+      item.say ||
+      item.repeat ||
+      item.answer ||
+      item.modelAnswer ||
+      item.expectedAnswer ||
+      item.prompt ||
+      item.question ||
+      item.challenge ||
+      ''
+    );
+  }
 
-      const n = parseInt(sid.replace('S', ''), 10);
-      const candidates = [
-        src[sid],
-        src[sid.toLowerCase()],
-        src[n],
-        Array.isArray(src) ? src[n - 1] : null
-      ].filter(Boolean);
+  function pickSpeakingItemFromData(sid, difficulty) {
+    const session = findSessionFromData(sid);
+    const candidates = collectCandidates(session);
 
-      const item = candidates[0];
-      if (!item) return null;
+    if (!candidates.length) return null;
 
-      const title =
-        item.title ||
-        item.name ||
-        item.lessonTitle ||
-        item.topic ||
-        FALLBACK_TARGETS[sid]?.title ||
-        sid;
+    const diff = normalizeDifficulty(difficulty);
 
-      const possible =
-        item.speakingPrompt ||
-        item.speakPrompt ||
-        item.speaking ||
-        item.say ||
-        item.repeat ||
-        item.prompt ||
-        item.question ||
-        item.challenge ||
-        '';
+    const speakingCandidates = candidates.filter((item) => {
+      const skill = normalizeSkill(
+        item?.skill ||
+        item?.type ||
+        item?.activityType ||
+        item?.missionType ||
+        session?.skill ||
+        session?.primarySkill ||
+        session?.mainSkill
+      );
 
-      let target = '';
+      return skill === 'speaking' || (!skill && getItemTextValue(item));
+    });
 
-      if (typeof possible === 'string') {
-        target = extractSayTarget(possible) || possible;
-      } else if (Array.isArray(possible)) {
-        const first = possible.find(Boolean);
-        target =
-          typeof first === 'string'
-            ? extractSayTarget(first) || first
-            : first?.target || first?.text || first?.sentence || '';
-      } else if (possible && typeof possible === 'object') {
-        target =
-          possible.target ||
-          possible.text ||
-          possible.sentence ||
-          possible.prompt ||
-          '';
-      }
+    const sameDiff = speakingCandidates.filter((item) => {
+      const d = normalizeDifficulty(item?.difficulty || item?.diff || item?.level || '');
+      return d === diff;
+    });
 
-      target = safeText(target);
+    return sameDiff[0] || speakingCandidates[0] || null;
+  }
 
-      if (!target || target.length < 6) return null;
+  function getCurrentSpeakingItem() {
+    const sid = detectSid();
+    const q = getParams();
 
-      return {
-        title: safeText(title),
-        target,
-        tip: safeText(item.tip || item.hint || item.objective || '')
-      };
-    } catch (err) {
-      console.warn('[LessonSpeakingFix] lesson data read skipped', err);
-      return null;
+    const currentState = window.LESSON_CURRENT_STATE || {};
+    const urlDiff = q.get('diff') || q.get('difficulty') || q.get('level') || '';
+
+    const difficulty = normalizeDifficulty(
+      urlDiff ||
+      currentState.difficulty ||
+      window.LESSON_CURRENT_ITEM?.difficulty ||
+      'normal'
+    );
+
+    // 1) ใช้ item จาก data ก่อน
+    const fromData = pickSpeakingItemFromData(sid, difficulty);
+    if (fromData) {
+      return normalizeSpeakingItem(fromData, sid, difficulty, 'lesson-data');
     }
+
+    // 2) ใช้ current item จาก router เฉพาะถ้า skill เป็น speaking
+    try {
+      const item = window.LESSON_CURRENT_ITEM;
+      const itemSkill = normalizeSkill(item?.skill || item?.type || item?.activityType || item?.missionType);
+
+      if (item && itemSkill === 'speaking') {
+        return normalizeSpeakingItem(item, sid, difficulty, 'router-current-item');
+      }
+    } catch (err) {}
+
+    // 3) fallback เฉพาะ S ที่เป็น speaking จริง ๆ
+    const fb = FALLBACK_SPEAKING_TARGETS[sid];
+    if (fb) {
+      return normalizeSpeakingItem(
+        {
+          sid,
+          title: fb.title,
+          target: fb.target,
+          prompt: 'Say the sentence clearly.',
+          tip: fb.tip,
+          difficulty
+        },
+        sid,
+        difficulty,
+        'speaking-fallback'
+      );
+    }
+
+    return null;
+  }
+
+  function normalizeSpeakingItem(item, sid, difficulty, source) {
+    const diff = normalizeDifficulty(
+      item?.difficulty ||
+      item?.diff ||
+      item?.level ||
+      difficulty ||
+      'normal'
+    );
+
+    const meta = getDifficultyMeta(diff);
+
+    let target = safeText(
+      item?.target ||
+      item?.sentence ||
+      item?.text ||
+      item?.say ||
+      item?.repeat ||
+      item?.expectedAnswer ||
+      ''
+    );
+
+    const prompt = safeText(
+      item?.prompt ||
+      item?.question ||
+      item?.challenge ||
+      item?.instruction ||
+      'Say the sentence clearly.'
+    );
+
+    if (!target) target = extractSayTarget(prompt);
+
+    if (!target) target = safeText(item?.modelAnswer || item?.answer || '');
+
+    return {
+      id: safeText(item?.id || `${sid}-SP-${diff}`),
+      sid,
+      title: safeText(item?.title || item?.routeTitle || item?.lessonTitle || 'Speaking'),
+      prompt,
+      target,
+      tip: safeText(item?.tip || item?.hint || item?.description || 'พูดช้า ๆ ชัด ๆ แล้วรอระบบตรวจคำตอบ'),
+      difficulty: diff,
+      cefr: safeText(item?.cefr || meta.cefr || 'A2+'),
+      passScore: Number(item?.passScore || meta.passScore || 72),
+      points: Number(item?.points || 10),
+      source,
+      raw: item
+    };
   }
 
   function refreshTask() {
-    const sid = detectSid();
-    const visibleText = readAFrameText();
-    const fromScene = extractSayTarget(visibleText);
-    const fromData = pickFromLessonData(sid);
-    const fb = FALLBACK_TARGETS[sid] || FALLBACK_TARGETS.S1;
+    state.sid = detectSid();
+    state.skill = detectCurrentSkill();
+    state.active = state.skill === 'speaking';
 
-    state.sid = sid;
-    state.title = fromData?.title || fb.title;
-    state.target = fromScene || fromData?.target || fb.target;
-    state.tip = fromData?.tip || fb.tip;
+    if (!state.active) {
+      removeSpeakingPanelIfNotNeeded();
+      return null;
+    }
 
+    const item = getCurrentSpeakingItem();
+
+    if (!item || !item.target) {
+      removeSpeakingPanelIfNotNeeded();
+      console.warn('[LessonSpeakingFix] speaking session but no target found', {
+        sid: state.sid,
+        skill: state.skill
+      });
+      return null;
+    }
+
+    state.item = item;
+    state.title = item.title;
+    state.target = item.target;
+    state.tip = item.tip;
+    state.prompt = item.prompt;
+    state.difficulty = item.difficulty;
+    state.cefr = item.cefr;
+    state.passScore = item.passScore;
+
+    ensureActiveUI();
     updateUI();
     updateVrBoard();
+
+    return item;
   }
 
   function normalizeSpeech(s) {
@@ -289,6 +562,7 @@
   function lcsRatio(aWords, bWords) {
     const a = aWords;
     const b = bWords;
+
     const dp = Array.from({ length: a.length + 1 }, () =>
       Array(b.length + 1).fill(0)
     );
@@ -319,6 +593,7 @@
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {
         const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+
         dp[i][j] = Math.min(
           dp[i - 1][j] + 1,
           dp[i][j - 1] + 1,
@@ -354,11 +629,11 @@
       normalizeSpeech(heard).length,
       1
     );
+
     const charScore = Math.max(0, 1 - levenshtein(target, heard) / maxLen);
 
     const score = Math.round(
-      Math.max(0, Math.min(1, coverage * 0.45 + sequence * 0.35 + charScore * 0.2)) *
-        100
+      Math.max(0, Math.min(1, coverage * 0.45 + sequence * 0.35 + charScore * 0.2)) * 100
     );
 
     const missing = targetWords.filter((w) => !heardSet.has(w));
@@ -366,21 +641,14 @@
     return { score, coverage, sequence, charScore, missing };
   }
 
-  function passThreshold() {
-    const q = getParams();
-    const diff = safeText(q.get('diff') || q.get('difficulty') || 'normal').toLowerCase();
-
-    if (diff === 'easy' || diff === 'learn') return 65;
-    if (diff === 'hard' || diff === 'challenge') return 80;
-    return 72;
-  }
-
   function analyzeHeard() {
     const result = scoreSpeech(state.target, state.heard);
+
     state.score = result.score;
-    state.passed = result.score >= passThreshold();
+    state.passed = result.score >= Number(state.passScore || 72);
 
     saveResult(result);
+    reportToRouter(result);
     emitResult(result);
     updateUI();
     updateVrBoard();
@@ -395,6 +663,11 @@
         at: new Date().toISOString(),
         sid: state.sid,
         title: state.title,
+        skill: 'speaking',
+        itemId: state.item?.id || '',
+        difficulty: state.difficulty,
+        cefr: state.cefr,
+        passScore: state.passScore,
         target: state.target,
         heard: state.heard,
         score: state.score,
@@ -414,17 +687,42 @@
     }
   }
 
+  function reportToRouter(result) {
+    try {
+      if (!window.LESSON_ROUTER || !window.LESSON_ROUTER.reportResult) return;
+
+      window.LESSON_ROUTER.reportResult({
+        sid: state.sid,
+        skill: 'speaking',
+        itemId: state.item?.id || '',
+        difficulty: state.difficulty,
+        cefr: state.cefr,
+        score: state.score,
+        passScore: state.passScore,
+        passed: state.passed,
+        accuracy: state.score,
+        missing: result.missing || []
+      });
+    } catch (err) {
+      console.warn('[LessonSpeakingFix] router report skipped', err);
+    }
+  }
+
   function emitResult(result) {
     const detail = {
       version: PATCH,
       sid: state.sid,
+      skill: 'speaking',
       title: state.title,
+      itemId: state.item?.id || '',
+      difficulty: state.difficulty,
+      cefr: state.cefr,
       target: state.target,
       heard: state.heard,
       score: state.score,
+      passScore: state.passScore,
       passed: state.passed,
       attempts: state.attempts,
-      threshold: passThreshold(),
       missing: result.missing || []
     };
 
@@ -438,6 +736,8 @@
   }
 
   function speakExample() {
+    if (!state.active) return;
+
     try {
       window.speechSynthesis.cancel();
 
@@ -455,12 +755,18 @@
   }
 
   function startSpeaking() {
-    refreshTask();
+    const item = refreshTask();
+    if (!item) return;
 
     if (!SpeechRecognition) {
       setStatus('Browser นี้ยังไม่รองรับ Speech Recognition ให้พิมพ์คำตอบแทนในช่อง Heard', 'warn');
+
       const input = $('#lessonSpeakingManualInput');
-      if (input) input.focus();
+      if (input) {
+        input.style.display = 'block';
+        input.focus();
+      }
+
       return;
     }
 
@@ -494,6 +800,7 @@
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const text = event.results[i][0]?.transcript || '';
+
         if (event.results[i].isFinal) {
           finalText += text + ' ';
         } else {
@@ -572,23 +879,28 @@
 
   function resetAttempt() {
     stopSpeaking(false);
+
     state.heard = '';
     state.interim = '';
     state.score = 0;
     state.passed = false;
+
     setStatus('พร้อมแล้ว กด Start Speaking แล้วพูดตามประโยค', 'info');
     updateUI();
     updateVrBoard();
   }
 
   function manualCheck() {
+    if (!state.active) return;
+
     const input = $('#lessonSpeakingManualInput');
-    if (input) {
-      state.heard = input.value.trim();
-      state.interim = '';
-      state.attempts += 1;
-      analyzeHeard();
-    }
+    if (!input) return;
+
+    state.heard = input.value.trim();
+    state.interim = '';
+    state.attempts += 1;
+
+    analyzeHeard();
   }
 
   function setStatus(msg, type = 'info') {
@@ -763,10 +1075,6 @@
       }
 
       #lessonSpeakingManualInput{
-        display:none;
-      }
-
-      #lessonSpeakingPanel.no-speech-api #lessonSpeakingManualInput{
         display:block;
       }
 
@@ -818,6 +1126,27 @@
         border-color:#ef4444;
       }
 
+      html.lesson-mode-pc #lessonSpeakingPanel{
+        left:auto;
+        right:20px;
+        bottom:20px;
+        width:min(560px, calc(100vw - 40px));
+        max-width:560px;
+      }
+
+      html.lesson-mode-mobile #lessonSpeakingPanel{
+        left:8px;
+        right:8px;
+        bottom:max(8px, env(safe-area-inset-bottom));
+        width:auto;
+        max-width:none;
+        border-radius:18px;
+      }
+
+      html.lesson-mode-cardboard #lessonSpeakingPanel{
+        display:none !important;
+      }
+
       @media (max-width:640px){
         #lessonSpeakingPanel{
           left:8px;
@@ -846,17 +1175,18 @@
         }
       }
     `;
+
     document.head.appendChild(style);
   }
 
   function ensurePanel() {
-    if ($('#lessonSpeakingPanel')) return;
-
     ensureCSS();
 
-    const panel = document.createElement('section');
+    let panel = $('#lessonSpeakingPanel');
+    if (panel) return panel;
+
+    panel = document.createElement('section');
     panel.id = 'lessonSpeakingPanel';
-    if (!SpeechRecognition) panel.classList.add('no-speech-api');
 
     panel.innerHTML = `
       <div class="lesson-speaking-head">
@@ -869,9 +1199,9 @@
 
       <div class="lesson-speaking-body">
         <div class="lesson-speaking-target">
-          <small id="lessonSpeakingLabel">S1 • Speaking</small>
+          <small id="lessonSpeakingLabel">Speaking</small>
           <div class="lesson-speaking-sentence" id="lessonSpeakingTarget">
-            My name is Anna and I am a student.
+            -
           </div>
           <div class="lesson-speaking-tip" id="lessonSpeakingTip">
             พูดช้า ๆ ชัด ๆ
@@ -881,14 +1211,14 @@
         <div class="lesson-speaking-buttons">
           <button id="lessonListenBtn" type="button">🔊 Listen</button>
           <button id="lessonStartSpeakBtn" type="button">🎤 Start Speaking</button>
-          <button id="lessonStopSpeakBtn" type="button">⏹ Stop</button>
+          <button id="lessonStopSpeakBtn" type="button">■ Stop</button>
           <button id="lessonTryAgainBtn" type="button">↻ Try Again</button>
         </div>
 
         <div class="lesson-speaking-heard">
           <label>Heard / ระบบได้ยินว่า</label>
           <div id="lessonSpeakingHeardBox">-</div>
-          <input id="lessonSpeakingManualInput" type="text" placeholder="พิมพ์ประโยคที่พูดในกรณี browser ไม่รองรับไมค์" />
+          <input id="lessonSpeakingManualInput" type="text" placeholder="พิมพ์ประโยคที่พูด / ใช้ทดสอบกรณีไมค์ไม่ทำงาน" />
           <button id="lessonCheckManualBtn" type="button">✅ Check Manual Answer</button>
         </div>
 
@@ -901,18 +1231,21 @@
 
     document.body.appendChild(panel);
 
-    $('#lessonListenBtn').addEventListener('click', speakExample);
-    $('#lessonStartSpeakBtn').addEventListener('click', startSpeaking);
-    $('#lessonStopSpeakBtn').addEventListener('click', () => stopSpeaking(true));
-    $('#lessonTryAgainBtn').addEventListener('click', resetAttempt);
-    $('#lessonCheckManualBtn').addEventListener('click', manualCheck);
+    $('#lessonListenBtn')?.addEventListener('click', speakExample);
+    $('#lessonStartSpeakBtn')?.addEventListener('click', startSpeaking);
+    $('#lessonStopSpeakBtn')?.addEventListener('click', () => stopSpeaking(true));
+    $('#lessonTryAgainBtn')?.addEventListener('click', resetAttempt);
+    $('#lessonCheckManualBtn')?.addEventListener('click', manualCheck);
 
-    $('#lessonSpeakingToggle').addEventListener('click', () => {
+    $('#lessonSpeakingToggle')?.addEventListener('click', () => {
       panel.classList.toggle('is-collapsed');
-      $('#lessonSpeakingToggle').textContent = panel.classList.contains('is-collapsed')
-        ? 'เปิด'
-        : 'ย่อ';
+      const toggle = $('#lessonSpeakingToggle');
+      if (toggle) {
+        toggle.textContent = panel.classList.contains('is-collapsed') ? 'เปิด' : 'ย่อ';
+      }
     });
+
+    return panel;
   }
 
   function updateUI() {
@@ -920,7 +1253,9 @@
     if (!panel) return;
 
     $('#lessonSpeakingTitle').textContent = `🎤 Speaking Mission`;
-    $('#lessonSpeakingLabel').textContent = `${state.sid} • ${state.title}`;
+    $('#lessonSpeakingLabel').textContent =
+      `${state.sid} • ${state.title} • ${state.difficulty.toUpperCase()} • ${state.cefr}`;
+
     $('#lessonSpeakingTarget').textContent = `"${state.target}"`;
     $('#lessonSpeakingTip').textContent = state.tip || 'พูดช้า ๆ ชัด ๆ แล้วรอระบบตรวจคำตอบ';
 
@@ -938,7 +1273,7 @@
         setStatus('✅ ผ่านด่านพูดแล้ว! ออกเสียงได้ดี', 'pass');
       } else {
         panel.classList.add('is-fail');
-        setStatus('ยังไม่ผ่าน ลองพูดใหม่ให้ใกล้ประโยคตัวอย่างมากขึ้น', 'fail');
+        setStatus(`ยังไม่ผ่าน ต้องได้อย่างน้อย ${state.passScore}% ลองพูดใหม่อีกครั้ง`, 'fail');
       }
     }
   }
@@ -948,6 +1283,7 @@
 
     if (!cam) {
       let rig = $('#lessonSpeakingRig', scene);
+
       if (!rig) {
         rig = document.createElement('a-entity');
         rig.id = 'lessonSpeakingRig';
@@ -975,11 +1311,29 @@
     }
   }
 
+  function addVrLights(scene) {
+    if (!$('#lessonSpeakingAmbient', scene)) {
+      const amb = document.createElement('a-entity');
+      amb.id = 'lessonSpeakingAmbient';
+      amb.setAttribute('light', 'type:ambient; color:#ffffff; intensity:0.95');
+      scene.appendChild(amb);
+    }
+
+    if (!$('#lessonSpeakingFrontLight', scene)) {
+      const light = document.createElement('a-entity');
+      light.id = 'lessonSpeakingFrontLight';
+      light.setAttribute('position', '0 2.3 1.1');
+      light.setAttribute('light', 'type:point; color:#ffffff; intensity:1.6; distance:7');
+      scene.appendChild(light);
+    }
+  }
+
   function ensureVrBoard() {
     const scene = $('a-scene');
-    if (!scene) return;
+    if (!scene) return null;
 
     ensureCameraCursor(scene);
+    addVrLights(scene);
 
     let board = $('#lessonSpeakingVrBoard', scene);
     if (board) return board;
@@ -1036,7 +1390,7 @@
     heard.setAttribute('color', '#334155');
     heard.setAttribute('width', '3.45');
     heard.setAttribute('wrap-count', '38');
-    heard.setAttribute('value', 'กดปุ่มสีเขียวด้านล่างเพื่อพูด');
+    heard.setAttribute('value', 'กดปุ่ม START หรือแตะหน้าจอเพื่อพูด');
     board.appendChild(heard);
 
     const btn = document.createElement('a-plane');
@@ -1080,26 +1434,8 @@
     board.appendChild(listenText);
 
     scene.appendChild(board);
-    addVrLights(scene);
 
     return board;
-  }
-
-  function addVrLights(scene) {
-    if (!$('#lessonSpeakingAmbient', scene)) {
-      const amb = document.createElement('a-entity');
-      amb.id = 'lessonSpeakingAmbient';
-      amb.setAttribute('light', 'type:ambient; color:#ffffff; intensity:0.95');
-      scene.appendChild(amb);
-    }
-
-    if (!$('#lessonSpeakingFrontLight', scene)) {
-      const light = document.createElement('a-entity');
-      light.id = 'lessonSpeakingFrontLight';
-      light.setAttribute('position', '0 2.3 1.1');
-      light.setAttribute('light', 'type:point; color:#ffffff; intensity:1.6; distance:7');
-      scene.appendChild(light);
-    }
   }
 
   function updateVrBoard() {
@@ -1111,22 +1447,24 @@
     const heard = $('#lessonSpeakingVrHeard', board);
     const btn = $('#lessonSpeakingVrStartBtn', board);
 
-    if (title) title.setAttribute('value', `${state.sid} • ${state.title}`);
-
-    if (target) {
-      target.setAttribute(
+    if (title) {
+      title.setAttribute(
         'value',
-        `Say clearly:\n"${state.target}"`
+        `${state.sid} • Speaking • ${state.difficulty.toUpperCase()} • ${state.cefr}`
       );
     }
 
-    let heardText = 'กดปุ่ม START หรือปุ่มไมค์ด้านล่างจอ แล้วพูดตามประโยค';
+    if (target) {
+      target.setAttribute('value', `Say clearly:\n"${state.target}"`);
+    }
+
+    let heardText = 'กด START แล้วพูดตามประโยค';
 
     if (state.listening) {
       heardText = 'Listening... พูดตอนนี้ได้เลย';
     } else if (safeText(`${state.heard} ${state.interim}`)) {
       heardText = `Heard: ${safeText(`${state.heard} ${state.interim}`)}\nScore: ${state.score}% ${
-        state.passed ? '✅ PASS' : 'ลองใหม่อีกครั้ง'
+        state.passed ? '✅ PASS' : `ต้องได้ ${state.passScore}%`
       }`;
     }
 
@@ -1144,42 +1482,102 @@
     }
   }
 
-  function makeExistingMissionTextClear() {
-    const scene = $('a-scene');
-    if (!scene) return;
+  function ensureActiveUI() {
+    if (!state.active) {
+      removeSpeakingPanelIfNotNeeded();
+      return;
+    }
 
-    $all('a-text', scene).forEach((el) => {
-      const v = safeText(el.getAttribute('value'));
-      if (/mission|say|speak|introduction/i.test(v)) {
-        el.setAttribute('color', '#ffffff');
-        el.setAttribute('width', '4');
-        el.setAttribute('wrap-count', '34');
-        el.setAttribute('position', el.getAttribute('position') || '0 2 -2');
-      }
+    if (!isCardboardMode()) {
+      ensurePanel();
+    } else {
+      const panel = $('#lessonSpeakingPanel');
+      if (panel) panel.remove();
+    }
+
+    ensureVrBoard();
+  }
+
+  function removeSpeakingPanelIfNotNeeded() {
+    stopSpeaking(false);
+
+    const panel = $('#lessonSpeakingPanel');
+    if (panel) panel.remove();
+
+    const scene = $('a-scene');
+    if (scene) {
+      const board = $('#lessonSpeakingVrBoard', scene);
+      if (board) board.remove();
+    }
+
+    state.active = false;
+    state.skill = detectCurrentSkill();
+  }
+
+  function activateOrSkip(reason) {
+    const skill = detectCurrentSkill();
+
+    state.skill = skill;
+    state.active = skill === 'speaking';
+
+    if (!state.active) {
+      removeSpeakingPanelIfNotNeeded();
+      console.log('[LessonSpeakingFix] skipped because current skill =', skill, 'reason=', reason);
+      return false;
+    }
+
+    refreshTask();
+    console.log('[LessonSpeakingFix] active', PATCH, {
+      sid: state.sid,
+      skill: state.skill,
+      title: state.title,
+      target: state.target,
+      difficulty: state.difficulty,
+      cefr: state.cefr,
+      reason
+    });
+
+    return true;
+  }
+
+  function bindEvents() {
+    const refreshEvents = [
+      'lesson:data-skill-ready',
+      'lesson:router-ready',
+      'lesson:item-ready',
+      'lesson:view-mode-ready'
+    ];
+
+    refreshEvents.forEach((name) => {
+      window.addEventListener(name, () => activateOrSkip(name));
+      document.addEventListener(name, () => activateOrSkip(`document:${name}`));
     });
   }
 
   function boot() {
-    ensurePanel();
-    refreshTask();
-    makeExistingMissionTextClear();
-    ensureVrBoard();
-    updateVrBoard();
-
-    setTimeout(refreshTask, 600);
-    setTimeout(refreshTask, 1500);
-    setTimeout(refreshTask, 3000);
+    bindEvents();
 
     window.LESSON_SPEAKING_FIX = {
       version: PATCH,
       refresh: refreshTask,
+      activate: activateOrSkip,
+      remove: removeSpeakingPanelIfNotNeeded,
       start: startSpeaking,
       stop: stopSpeaking,
       listen: speakExample,
-      getState: () => ({ ...state })
+      getState: () => ({ ...state }),
+      detectCurrentSkill
     };
 
-    console.log('[LessonSpeakingFix]', PATCH, state);
+    activateOrSkip('boot');
+
+    // รอ module data guard / router โหลดครบ แล้วเช็กซ้ำ
+    setTimeout(() => activateOrSkip('t400'), 400);
+    setTimeout(() => activateOrSkip('t1000'), 1000);
+    setTimeout(() => activateOrSkip('t2000'), 2000);
+    setTimeout(() => activateOrSkip('t3500'), 3500);
+
+    console.log('[LessonSpeakingFix]', PATCH);
   }
 
   if (document.readyState === 'loading') {
