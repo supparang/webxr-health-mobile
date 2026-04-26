@@ -1,15 +1,18 @@
 // === /english/js/lesson-writing-ai-guide-fix.js ===
-// PATCH v20260426a-LESSON-WRITING-AI-GUIDE
+// PATCH v20260426c-LESSON-WRITING-AI-GUIDE-PROGRESSIVE
 // Local AI Writing Coach for TechPath VR
 // ✅ no external API
-// ✅ supports A2 / A2+ / B1 / B1+
-// ✅ gives sentence frame, keyword guide, readiness check, and improvement tips
+// ✅ progressive guide by difficulty
+// ✅ easy/A2        = full guide + scaffold + model example
+// ✅ normal/A2+     = guide + checklist + AI check, no auto full answer
+// ✅ hard/B1        = rubric/checklist + AI check, no model answer
+// ✅ challenge/B1+  = no AI guide, challenge mode
 // ✅ works with lesson-mission-panel-fix.js writing missions
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426a-LESSON-WRITING-AI-GUIDE';
+  const VERSION = 'v20260426c-LESSON-WRITING-AI-GUIDE-PROGRESSIVE';
 
   const LEVEL_GUIDE = {
     easy: {
@@ -23,8 +26,10 @@
         'อย่างน้อย 1 ประโยค',
         'ใช้คำง่ายและตรงโจทย์'
       ],
-      phrases: ['I study...', 'I can...', 'My project is...', 'This app is...']
+      phrases: ['I study...', 'I can...', 'My project is...', 'This app is...'],
+      supportLabel: 'Full Support'
     },
+
     normal: {
       cefr: 'A2+',
       title: 'A2+ Writing Guide',
@@ -36,8 +41,10 @@
         'มีคำเกี่ยวกับ project / app / student / system',
         'ใช้คำเชื่อมง่าย ๆ เช่น and / because'
       ],
-      phrases: ['I am building...', 'It helps...', 'My project...', 'because...']
+      phrases: ['I am building...', 'It helps...', 'My project...', 'because...'],
+      supportLabel: 'Guided Practice'
     },
+
     hard: {
       cefr: 'B1',
       title: 'B1 Writing Guide',
@@ -49,12 +56,14 @@
         'อธิบาย benefit หรือ result',
         'ใช้คำเชื่อม เช่น because / so / however'
       ],
-      phrases: ['The problem is...', 'Our system...', 'This helps...', 'because...', 'so...']
+      phrases: ['The problem is...', 'Our system...', 'This helps...', 'because...', 'so...'],
+      supportLabel: 'Rubric Support'
     },
+
     challenge: {
       cefr: 'B1+',
-      title: 'B1+ Writing Guide',
-      goal: 'เขียนย่อหน้าสั้นแบบ problem + solution + benefit',
+      title: 'B1+ Challenge',
+      goal: 'เขียนเองแบบท้าทาย โดยไม่มี AI guide',
       frame: 'Many users ________. Our project solves this by ________. As a result, ________.',
       checklist: [
         'เปิดด้วยบริบทหรือปัญหา',
@@ -62,7 +71,8 @@
         'สรุป benefit หรือ next step',
         'ใช้คำเชื่อมระดับ B1+ เช่น however / therefore / as a result'
       ],
-      phrases: ['Many users...', 'Our project solves...', 'As a result...', 'However...', 'Therefore...']
+      phrases: ['Many users...', 'Our project solves...', 'As a result...', 'However...', 'Therefore...'],
+      supportLabel: 'Challenge'
     }
   };
 
@@ -125,9 +135,18 @@
     const st = getMissionState();
 
     if (st && st.skill === 'writing' && st.item) {
+      const difficulty = normalizeDifficulty(st.difficulty || st.item.difficulty || 'normal');
+
+      // ✅ Progressive support:
+      // easy / normal / hard = มี AI guide
+      // challenge = ไม่มี AI guide เพื่อให้เป็นด่านท้าทายจริง
+      if (!['easy', 'normal', 'hard'].includes(difficulty)) {
+        return null;
+      }
+
       return {
         item: st.item,
-        difficulty: normalizeDifficulty(st.difficulty || st.item.difficulty || 'normal'),
+        difficulty,
         sid: st.sid || st.item._sid || ''
       };
     }
@@ -186,6 +205,9 @@
       }
 
       .ai-guide-level {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
         padding: 6px 10px;
         border-radius: 999px;
         background: #dbeafe;
@@ -264,6 +286,11 @@
         color: #92400e;
       }
 
+      .ai-guide-btn:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+      }
+
       #lessonWritingAiFeedback {
         margin-top: 10px;
         padding: 10px 12px;
@@ -308,6 +335,18 @@
         transition: width .25s ease;
       }
 
+      .ai-guide-note {
+        margin-top: 8px;
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1.4;
+      }
+
+      html.lesson-mode-cardboard #lessonWritingAiGuide {
+        display: none !important;
+      }
+
       @media (max-width: 640px) {
         .ai-guide-head {
           flex-direction: column;
@@ -319,6 +358,7 @@
         }
       }
     `;
+
     document.head.appendChild(style);
   }
 
@@ -329,6 +369,7 @@
 
     return keywords.map((kw) => {
       const used = usedSet.has(normalizeText(kw));
+
       return `<span class="ai-keyword ${used ? 'used' : 'missing'}">${used ? '✅' : '＋'} ${escapeHtml(kw)}</span>`;
     }).join('');
   }
@@ -347,21 +388,8 @@
         : guide.frame;
     }
 
-    if (diff === 'normal') {
-      return keywords.length
-        ? `I am building a ${keywords.includes('app') ? 'web app' : 'project'}. It helps students ${keywords[0] || 'learn better'}.`
-        : guide.frame;
-    }
-
-    if (diff === 'hard') {
-      return keywords.length
-        ? `The problem is about ${keywords[0] || 'the project'}. Our system helps users ${keywords[1] || 'solve it'}. This is useful because it improves ${keywords[2] || 'the work'}.`
-        : guide.frame;
-    }
-
-    return keywords.length
-      ? `Many users have a problem with ${keywords[0] || 'the task'}. Our project solves this by using ${keywords[1] || 'a clear system'}. As a result, users can ${keywords[2] || 'work better'}.`
-      : guide.frame;
+    // normal / hard ไม่ใช้ปุ่ม insert scaffold แล้ว
+    return guide.frame;
   }
 
   function insertTextToWritingBox(text, mode) {
@@ -392,38 +420,51 @@
     const wc = wordCount(answer);
     const sc = sentenceCount(answer);
 
-    const minWords = Number(item.minWords || (diff === 'easy' ? 5 : diff === 'normal' ? 10 : diff === 'hard' ? 18 : 25));
-    const minMatch = Number(item.minMatch || (diff === 'easy' ? 1 : diff === 'normal' ? 2 : diff === 'hard' ? 3 : 4));
+    const minWords = Number(
+      item.minWords ||
+      (diff === 'easy' ? 5 : diff === 'normal' ? 10 : diff === 'hard' ? 18 : 25)
+    );
 
-    const hasBecause = /\bbecause\b|\bso\b|\btherefore\b|\bas a result\b|\bhowever\b/i.test(answer);
+    const minMatch = Number(
+      item.minMatch ||
+      (diff === 'easy' ? 1 : diff === 'normal' ? 2 : diff === 'hard' ? 3 : 4)
+    );
+
+    const hasConnector = /\band\b|\bbecause\b|\bso\b|\btherefore\b|\bas a result\b|\bhowever\b/i.test(answer);
     const hasProblem = /\bproblem\b|\bissue\b|\bbug\b|\bdifficult\b|\bchallenge\b|\bneed\b/i.test(answer);
     const hasSolution = /\bsolve\b|\bsolution\b|\bhelp\b|\bsupport\b|\bimprove\b|\bfix\b|\bbuild\b|\bsystem\b|\bapp\b/i.test(answer);
     const hasBenefit = /\bbenefit\b|\bresult\b|\buseful\b|\bfaster\b|\bbetter\b|\bclear\b|\beasy\b|\bprogress\b/i.test(answer);
 
-    const guide = LEVEL_GUIDE[diff] || LEVEL_GUIDE.normal;
-
     let featureNeed = [];
-    if (diff === 'normal' && sc < 2) featureNeed.push('เพิ่มให้เป็น 2 ประโยค');
+
+    if (diff === 'normal') {
+      if (sc < 2) featureNeed.push('เพิ่มให้เป็น 2 ประโยค');
+      if (!hasConnector) featureNeed.push('เพิ่มคำเชื่อมง่าย ๆ เช่น and/because');
+    }
+
     if (diff === 'hard') {
       if (!hasProblem) featureNeed.push('เพิ่ม problem/topic');
       if (!hasSolution) featureNeed.push('เพิ่ม solution/action');
-      if (!hasBecause) featureNeed.push('เพิ่มเหตุผลด้วย because/so');
-    }
-    if (diff === 'challenge') {
-      if (!hasProblem) featureNeed.push('เพิ่ม problem/context');
-      if (!hasSolution) featureNeed.push('เพิ่ม solution/feature');
-      if (!hasBenefit) featureNeed.push('เพิ่ม benefit/result');
-      if (!hasBecause) featureNeed.push('เพิ่มคำเชื่อม however/therefore/as a result');
+      if (!hasConnector) featureNeed.push('เพิ่มเหตุผลด้วย because/so');
     }
 
     const wordScore = Math.min(35, Math.round((wc / Math.max(minWords, 1)) * 35));
     const keywordScore = Math.min(40, Math.round((usedKeywords.length / Math.max(minMatch, 1)) * 40));
-    const featureScore = Math.max(0, 25 - featureNeed.length * 8);
+
+    let featureScore = 25;
+
+    if (diff === 'easy') {
+      featureScore = 25;
+    } else if (diff === 'normal') {
+      featureScore = Math.max(0, 25 - featureNeed.length * 10);
+    } else if (diff === 'hard') {
+      featureScore = Math.max(0, 25 - featureNeed.length * 8);
+    }
 
     const score = Math.max(0, Math.min(100, wordScore + keywordScore + featureScore));
 
     const passedBasic = wc >= minWords && usedKeywords.length >= minMatch;
-    const passedLevel = featureNeed.length === 0 || diff === 'easy' || diff === 'normal';
+    const passedLevel = featureNeed.length === 0 || diff === 'easy';
     const ready = passedBasic && passedLevel;
 
     return {
@@ -437,7 +478,6 @@
       usedKeywords,
       missingKeywords,
       featureNeed,
-      guide,
       keywords
     };
   }
@@ -458,6 +498,7 @@
 
     const usedSet = new Set(result.usedKeywords);
     const keywordWrap = $('#lessonWritingAiKeywords');
+
     if (keywordWrap) {
       keywordWrap.innerHTML = buildKeywordHtml(result.keywords, usedSet);
     }
@@ -465,14 +506,23 @@
     if (!result.answer.trim()) {
       box.className = '';
       box.id = 'lessonWritingAiFeedback';
-      box.textContent = 'AI Guide: เริ่มเขียนตาม sentence frame แล้วระบบจะช่วยตรวจให้ทันที';
+
+      if (difficulty === 'easy') {
+        box.textContent = 'AI Guide: เริ่มเขียนตาม sentence frame หรือกด “ใส่โครงคำตอบ” แล้วปรับให้เป็นคำตอบของตนเอง';
+      } else if (difficulty === 'normal') {
+        box.textContent = 'AI Guide: เขียน 2 ประโยคสั้น ๆ แล้วกด AI ตรวจก่อนส่ง';
+      } else {
+        box.textContent = 'AI Guide: เขียน problem + solution + reason แล้วกด AI ตรวจก่อนส่ง';
+      }
+
       return;
     }
 
     if (result.ready) {
       box.className = 'pass';
       box.id = 'lessonWritingAiFeedback';
-      box.innerHTML = `✅ พร้อมส่งแล้ว • ${result.wc}/${result.minWords} คำ • keyword ${result.usedKeywords.length}/${result.minMatch} • AI readiness ${result.score}%`;
+      box.innerHTML =
+        `✅ พร้อมส่งแล้ว • ${result.wc}/${result.minWords} คำ • keyword ${result.usedKeywords.length}/${result.minMatch} • readiness ${result.score}%`;
       return;
     }
 
@@ -492,7 +542,14 @@
 
     box.className = result.score >= 60 ? 'warn' : 'fail';
     box.id = 'lessonWritingAiFeedback';
-    box.innerHTML = `AI แนะนำ: ${escapeHtml(tips.join(' • ') || 'เพิ่มรายละเอียดให้ชัดขึ้น')} • readiness ${result.score}%`;
+    box.innerHTML =
+      `AI แนะนำ: ${escapeHtml(tips.join(' • ') || 'เพิ่มรายละเอียดให้ชัดขึ้น')} • readiness ${result.score}%`;
+  }
+
+  function removeGuide() {
+    const existing = $('#lessonWritingAiGuide');
+
+    if (existing) existing.remove();
   }
 
   function injectGuide() {
@@ -508,15 +565,31 @@
 
     const { item, difficulty, sid } = current;
     const guide = LEVEL_GUIDE[difficulty] || LEVEL_GUIDE.normal;
+
     const keywords = Array.isArray(item.keywords) ? item.keywords : [];
-    const minWords = Number(item.minWords || (difficulty === 'easy' ? 5 : difficulty === 'normal' ? 10 : difficulty === 'hard' ? 18 : 25));
-    const minMatch = Number(item.minMatch || (difficulty === 'easy' ? 1 : difficulty === 'normal' ? 2 : difficulty === 'hard' ? 3 : 4));
-    const model = safe(item.modelAnswer || String(item.starter || '').replace(/^Starter:\s*/i, '') || '');
+    const minWords = Number(
+      item.minWords ||
+      (difficulty === 'easy' ? 5 : difficulty === 'normal' ? 10 : difficulty === 'hard' ? 18 : 25)
+    );
+
+    const minMatch = Number(
+      item.minMatch ||
+      (difficulty === 'easy' ? 1 : difficulty === 'normal' ? 2 : difficulty === 'hard' ? 3 : 4)
+    );
+
+    const model = safe(
+      item.modelAnswer ||
+      String(item.starter || '').replace(/^Starter:\s*/i, '') ||
+      ''
+    );
+
+    const allowInsertFrame = difficulty === 'easy';
+    const allowModelAnswer = difficulty === 'easy';
 
     const existing = $('#lessonWritingAiGuide');
     const currentId = safe(item.id || `${sid}-${difficulty}`);
 
-    if (existing && existing.dataset.itemId === currentId) {
+    if (existing && existing.dataset.itemId === currentId && existing.dataset.difficulty === difficulty) {
       updateFeedback();
       return;
     }
@@ -526,6 +599,14 @@
     const guideEl = document.createElement('section');
     guideEl.id = 'lessonWritingAiGuide';
     guideEl.dataset.itemId = currentId;
+    guideEl.dataset.difficulty = difficulty;
+
+    const supportNote =
+      difficulty === 'easy'
+        ? 'ระดับ Easy มี scaffold และตัวอย่าง เพื่อช่วยเริ่มต้น'
+        : difficulty === 'normal'
+          ? 'ระดับ Normal มี guide และ AI check แต่ไม่ใส่คำตอบแทน'
+          : 'ระดับ Hard มี rubric/checklist เพื่อช่วยตรวจความครบถ้วน';
 
     guideEl.innerHTML = `
       <div class="ai-guide-head">
@@ -533,7 +614,7 @@
           🤖 AI Writing Guide
           <small>${escapeHtml(guide.goal)}</small>
         </div>
-        <div class="ai-guide-level">${escapeHtml(guide.cefr)} • ${escapeHtml(difficulty.toUpperCase())}</div>
+        <div class="ai-guide-level">${escapeHtml(guide.cefr)} • ${escapeHtml(difficulty.toUpperCase())} • ${escapeHtml(guide.supportLabel)}</div>
       </div>
 
       <div class="ai-guide-box">
@@ -561,19 +642,27 @@
       </div>
 
       <div class="ai-guide-actions">
-        <button class="ai-guide-btn primary" id="lessonAiInsertFrameBtn" type="button">✨ ใส่โครงคำตอบ</button>
+        ${
+          allowInsertFrame
+            ? '<button class="ai-guide-btn primary" id="lessonAiInsertFrameBtn" type="button">✨ ใส่โครงคำตอบ</button>'
+            : ''
+        }
         <button class="ai-guide-btn" id="lessonAiCheckBtn" type="button">🤖 AI ตรวจก่อนส่ง</button>
         <button class="ai-guide-btn warn" id="lessonAiConnectorBtn" type="button">＋ เพิ่มคำเชื่อม</button>
       </div>
 
       ${
-        model
+        model && allowModelAnswer
           ? `<details class="ai-guide-box">
                <summary style="cursor:pointer;font-weight:1000;color:#92400e">💡 ดูตัวอย่างคำตอบ</summary>
                <div style="margin-top:8px;color:#78350f">${escapeHtml(model)}</div>
              </details>`
           : ''
       }
+
+      <div class="ai-guide-note">
+        ${escapeHtml(supportNote)}
+      </div>
 
       <div class="ai-guide-progress">
         <div class="ai-guide-progress-fill" id="lessonWritingAiProgressFill"></div>
@@ -587,6 +676,8 @@
     input.parentNode.insertBefore(guideEl, input);
 
     $('#lessonAiInsertFrameBtn')?.addEventListener('click', () => {
+      if (difficulty !== 'easy') return;
+
       insertTextToWritingBox(buildScaffold(difficulty, item), 'replace');
       updateFeedback();
     });
@@ -599,9 +690,8 @@
           ? ' and '
           : difficulty === 'normal'
             ? ' because '
-            : difficulty === 'hard'
-              ? ' This helps users '
-              : ' As a result, ';
+            : ' This helps users ';
+
       insertTextToWritingBox(connector, 'append');
       updateFeedback();
     });
@@ -611,12 +701,11 @@
 
     updateFeedback();
 
-    console.log('[LessonWritingAIGuide]', VERSION, { sid, difficulty, itemId: currentId });
-  }
-
-  function removeGuide() {
-    const existing = $('#lessonWritingAiGuide');
-    if (existing) existing.remove();
+    console.log('[LessonWritingAIGuide]', VERSION, {
+      sid,
+      difficulty,
+      itemId: currentId
+    });
   }
 
   function bindEvents() {
@@ -633,10 +722,15 @@
   }
 
   function startObserver() {
+    if (!document.body) return;
+
     const obs = new MutationObserver(() => {
       const input = $('#lessonWritingInput');
+
       if (input) {
         setTimeout(injectGuide, 30);
+      } else {
+        removeGuide();
       }
     });
 
