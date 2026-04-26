@@ -1,29 +1,33 @@
 // === /english/js/lesson-pass-next-flow-fix.js ===
-// PATCH v20260426a-LESSON-PASS-NEXT-FLOW
-// Fix: after correct answer, do NOT repeat the same S.
+// PATCH v20260426b-LESSON-PASS-NEXT-FLOW-ROBUST
+// Fix: correct answer stays on same S and does not go next.
 // ✅ One correct/pass = clear current S
+// ✅ Works with lesson:item-result / writing-result / speaking-result / listening-result
+// ✅ Also detects old "Correct!" toast / SCORE 100 fallback
 // ✅ Saves completion per S
 // ✅ Shows clear "ไป S ถัดไป"
 // ✅ Auto-next to next S after short delay
-// ✅ Keeps AI difficulty as next-question/next-session support, not repeat forcing
-// ✅ Works with lesson:item-result and lesson:mission-pass
+// ✅ Prevents repeat same S after correct answer
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426a-LESSON-PASS-NEXT-FLOW';
+  const VERSION = 'v20260426b-LESSON-PASS-NEXT-FLOW-ROBUST';
   const COMPLETE_KEY = 'TECHPATH_SESSION_COMPLETED_V1';
 
   const CONFIG = {
     autoNext: true,
-    autoNextDelayMs: 1200,
-    debounceMs: 900
+    autoNextDelayMs: 950,
+    debounceMs: 1400,
+    observeCorrectToast: true
   };
 
   const state = {
     lastPassKey: '',
     lastPassAt: 0,
-    nextTimer: 0
+    nextTimer: 0,
+    observer: null,
+    lastDomCorrectAt: 0
   };
 
   function $(sel, root = document) {
@@ -84,6 +88,31 @@
     );
   }
 
+  function currentSkill(detail) {
+    if (detail && (detail.skill || detail.type)) {
+      return safe(detail.skill || detail.type).toLowerCase();
+    }
+
+    try {
+      const st = window.LESSON_MISSION_PANEL_FIX?.getState?.();
+      const skill = safe(st?.skill || st?.item?.skill || st?.type || st?.item?.type).toLowerCase();
+      if (skill) return skill;
+    } catch (err) {}
+
+    const text = safe(
+      $('#lessonMissionPanel')?.innerText ||
+      $('#lessonSpeakingPanel')?.innerText ||
+      ''
+    ).toLowerCase();
+
+    if (text.includes('writing')) return 'writing';
+    if (text.includes('speaking')) return 'speaking';
+    if (text.includes('listening')) return 'listening';
+    if (text.includes('reading')) return 'reading';
+
+    return '';
+  }
+
   function isAutoNextOff() {
     const p = q();
     const raw = safe(p.get('autoNext') || p.get('next') || '').toLowerCase();
@@ -137,8 +166,56 @@
     } catch (err) {}
   }
 
+  function getTimerInfo() {
+    try {
+      const sec = Number(window.LESSON_SESSION_TIMER_FIX?.elapsedSec?.() || 0);
+      const label = window.LESSON_SESSION_TIMER_FIX?.formatTime?.(sec) || '';
+      return { sec, label };
+    } catch (err) {
+      return { sec: 0, label: '' };
+    }
+  }
+
+  function makeInferredDetail(reason) {
+    const timer = getTimerInfo();
+
+    return {
+      version: VERSION,
+      sid: currentSid(),
+      skill: currentSkill(),
+      type: currentSkill(),
+      passed: true,
+      correct: true,
+      isCorrect: true,
+      score: 100,
+      passScore: 70,
+      reason: reason || 'inferred_correct',
+      sessionDurationSec: timer.sec,
+      sessionDurationLabel: timer.label
+    };
+  }
+
+  function isPassDetail(detail) {
+    const d = detail || {};
+
+    if (d.passed === true) return true;
+    if (d.correct === true) return true;
+    if (d.isCorrect === true) return true;
+    if (safe(d.result).toLowerCase() === 'correct') return true;
+    if (safe(d.status).toLowerCase() === 'correct') return true;
+
+    const score = Number(d.score || d.percent || d.accuracy || 0);
+    const passScore = Number(d.passScore || d.pass_score || 70);
+
+    if (score >= passScore && score > 0) return true;
+    if (score >= 100) return true;
+
+    return false;
+  }
+
   function markCompleted(detail) {
     const sid = currentSid(detail);
+    const timer = getTimerInfo();
     const store = loadCompleted();
 
     if (!store.version) store.version = VERSION;
@@ -148,13 +225,14 @@
       sid,
       completed: true,
       completedAt: new Date().toISOString(),
-      score: Number(detail?.score || 0),
-      skill: safe(detail?.skill || detail?.type || ''),
+      score: Number(detail?.score || 100),
+      skill: safe(detail?.skill || detail?.type || currentSkill(detail)),
       difficulty: safe(detail?.difficulty || ''),
       cefr: safe(detail?.cefr || ''),
       itemId: safe(detail?.itemId || detail?.id || ''),
-      durationSec: Number(detail?.sessionDurationSec || 0),
-      durationLabel: safe(detail?.sessionDurationLabel || '')
+      durationSec: Number(detail?.sessionDurationSec || timer.sec || 0),
+      durationLabel: safe(detail?.sessionDurationLabel || timer.label || ''),
+      reason: safe(detail?.reason || 'pass')
     };
 
     store.lastCompletedSid = sid;
@@ -169,9 +247,10 @@
     return [
       currentSid(detail),
       safe(detail?.itemId || detail?.id || ''),
-      safe(detail?.skill || detail?.type || ''),
+      safe(detail?.skill || detail?.type || currentSkill(detail)),
       safe(detail?.answer || ''),
-      safe(detail?.score || '')
+      safe(detail?.score || '100'),
+      safe(detail?.reason || '')
     ].join('|');
   }
 
@@ -208,7 +287,7 @@
         gap: 12px;
         border-radius: 24px;
         border: 2px solid rgba(34,197,94,.55);
-        background: rgba(240,253,244,.96);
+        background: rgba(240,253,244,.97);
         color: #052e16;
         padding: 14px 16px;
         box-shadow: 0 24px 70px rgba(0,0,0,.34);
@@ -305,13 +384,12 @@
     return box;
   }
 
-  function hideOldRepeatUi() {
-    // กันผู้เรียนกดทำซ้ำโดยไม่ตั้งใจหลังผ่านแล้ว
+  function freezeOldRepeatUi() {
     try {
       const panel = $('#lessonMissionPanel');
       if (panel) {
         panel.style.pointerEvents = 'none';
-        panel.style.opacity = '0.72';
+        panel.style.opacity = '0.70';
       }
     } catch (err) {}
 
@@ -319,9 +397,47 @@
       const speaking = $('#lessonSpeakingPanel');
       if (speaking) {
         speaking.style.pointerEvents = 'none';
-        speaking.style.opacity = '0.72';
+        speaking.style.opacity = '0.70';
       }
     } catch (err) {}
+  }
+
+  function unfreezeOldRepeatUi() {
+    try {
+      const panel = $('#lessonMissionPanel');
+      if (panel) {
+        panel.style.pointerEvents = '';
+        panel.style.opacity = '';
+      }
+    } catch (err) {}
+
+    try {
+      const speaking = $('#lessonSpeakingPanel');
+      if (speaking) {
+        speaking.style.pointerEvents = '';
+        speaking.style.opacity = '';
+      }
+    } catch (err) {}
+  }
+
+  function fireNormalizedPass(detail) {
+    const d = Object.assign({}, detail || {});
+    d.sid = currentSid(d);
+    d.skill = d.skill || d.type || currentSkill(d);
+    d.type = d.type || d.skill || currentSkill(d);
+    d.passed = true;
+    d.correct = true;
+    d.isCorrect = true;
+    d.score = Number(d.score || 100);
+    d.passScore = Number(d.passScore || 70);
+    d.normalizedBy = VERSION;
+
+    try {
+      window.dispatchEvent(new CustomEvent('lesson:pass-next-normalized', { detail: d }));
+      document.dispatchEvent(new CustomEvent('lesson:pass-next-normalized', { detail: d }));
+    } catch (err) {}
+
+    return d;
   }
 
   function showPassToast(detail) {
@@ -364,18 +480,7 @@
       stayBtn.onclick = () => {
         clearTimeout(state.nextTimer);
         box.classList.remove('show');
-
-        const panel = $('#lessonMissionPanel');
-        if (panel) {
-          panel.style.pointerEvents = '';
-          panel.style.opacity = '';
-        }
-
-        const speaking = $('#lessonSpeakingPanel');
-        if (speaking) {
-          speaking.style.pointerEvents = '';
-          speaking.style.opacity = '';
-        }
+        unfreezeOldRepeatUi();
       };
     }
 
@@ -389,19 +494,18 @@
     }
   }
 
-  function handlePass(detail) {
-    if (!detail) detail = {};
+  function handlePass(detail, source) {
+    const raw = detail || {};
 
-    const passed =
-      detail.passed === true ||
-      detail.correct === true ||
-      detail.isCorrect === true ||
-      Number(detail.score || 0) >= Number(detail.passScore || 70);
+    if (!isPassDetail(raw)) return;
 
-    if (!passed) return;
-    if (isDuplicatePass(detail)) return;
+    const normalized = fireNormalizedPass(Object.assign({}, raw, {
+      reason: raw.reason || source || 'pass'
+    }));
 
-    const completed = markCompleted(detail);
+    if (isDuplicatePass(normalized)) return;
+
+    const completed = markCompleted(normalized);
 
     try {
       if (!window.LESSON_CURRENT_STATE) window.LESSON_CURRENT_STATE = {};
@@ -410,38 +514,97 @@
       window.LESSON_CURRENT_STATE.sessionCompleted = true;
     } catch (err) {}
 
-    hideOldRepeatUi();
-    showPassToast(detail);
+    freezeOldRepeatUi();
+    showPassToast(normalized);
 
     console.log('[LessonPassNextFlow]', VERSION, {
+      source,
       completed,
       nextSid: nextSidOf(completed.sid)
     });
   }
 
+  function detectCorrectFromDom(reason) {
+    if (!CONFIG.observeCorrectToast) return;
+
+    const now = Date.now();
+
+    if (now - state.lastDomCorrectAt < CONFIG.debounceMs) return;
+
+    const bodyText = safe(document.body?.innerText || document.body?.textContent || '');
+
+    const hasCorrect =
+      /correct!/i.test(bodyText) ||
+      /✅\s*correct/i.test(bodyText) ||
+      /ถูกต้อง/i.test(bodyText) ||
+      /ผ่านด่านนี้แล้ว/i.test(bodyText);
+
+    if (!hasCorrect) return;
+
+    const scoreText = safe($('#lessonScoreText')?.textContent || '');
+    const hasScore100 = /100/.test(scoreText) || /score\s*100/i.test(bodyText);
+
+    if (!hasScore100 && !/ผ่านด่านนี้แล้ว|ถูกต้อง/i.test(bodyText)) return;
+
+    state.lastDomCorrectAt = now;
+
+    handlePass(makeInferredDetail(reason || 'dom_correct_detected'), reason || 'dom_correct_detected');
+  }
+
+  function observeCorrectDom() {
+    if (!CONFIG.observeCorrectToast) return;
+    if (state.observer) return;
+
+    try {
+      state.observer = new MutationObserver(() => {
+        setTimeout(() => detectCorrectFromDom('mutation_correct_detected'), 80);
+      });
+
+      state.observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+    } catch (err) {}
+  }
+
   function bindEvents() {
-    window.addEventListener('lesson:mission-pass', (ev) => handlePass(ev.detail || {}));
-    document.addEventListener('lesson:mission-pass', (ev) => handlePass(ev.detail || {}));
+    const resultEvents = [
+      'lesson:mission-pass',
+      'lesson:item-result',
+      'lesson:writing-result',
+      'lesson:speaking-result',
+      'lesson:listening-result',
+      'lesson:reading-result',
+      'lesson:choice-result',
+      'lesson:answer-result',
+      'lesson:correct',
+      'lesson:pass'
+    ];
 
-    window.addEventListener('lesson:item-result', (ev) => {
-      const d = ev.detail || {};
-      if (d.passed === true) handlePass(d);
+    resultEvents.forEach((name) => {
+      window.addEventListener(name, (ev) => handlePass(ev.detail || {}, name));
+      document.addEventListener(name, (ev) => handlePass(ev.detail || {}, `document:${name}`));
     });
 
-    document.addEventListener('lesson:item-result', (ev) => {
-      const d = ev.detail || {};
-      if (d.passed === true) handlePass(d);
-    });
+    window.addEventListener('click', () => {
+      setTimeout(() => detectCorrectFromDom('click_after_correct'), 180);
+      setTimeout(() => detectCorrectFromDom('click_after_correct_late'), 650);
+    }, true);
   }
 
   function boot() {
     ensureCSS();
     bindEvents();
+    observeCorrectDom();
+
+    setTimeout(() => detectCorrectFromDom('boot_check'), 900);
 
     window.LESSON_PASS_NEXT_FLOW_FIX = {
       version: VERSION,
       config: CONFIG,
       handlePass,
+      detectCorrectFromDom,
       getCompleted: loadCompleted,
       goNext() {
         const sid = currentSid();
