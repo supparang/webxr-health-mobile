@@ -1,11 +1,14 @@
 // === /herohealth/hydration-vr/hydration-postgame.js ===
 // Hydration Post-game Bloom Module
-// ✅ Evaluate: 3 plans + explainable feedback + reason + score
-// ✅ Create: daily water plan 6 slots + feedback + score
-// ✅ Analyze: combines gameplay + evaluate + create
-// ✅ Stores into HHA_LAST_SUMMARY / hha_last_summary
-// ✅ Sends optional logs via ?log= or ?logger=
-// ✅ Does NOT modify hydration.safe.js
+// PATCH v20260424-HYDRATION-POSTGAME-EVAL-CREATE-ANALYZE
+//
+// หน้าที่:
+// ✅ Evaluate: เลือกแผน 3 แบบ + explainable feedback + reason + score
+// ✅ Create: สร้างตารางน้ำ 1 วัน 6 จุดเวลา + feedback + score
+// ✅ Analyze: วิเคราะห์ gameplay + Evaluate + Create
+// ✅ บันทึกลง HHA_LAST_SUMMARY / hha_last_summary
+// ✅ ส่ง optional log ผ่าน ?log= หรือ ?logger=
+// ✅ ไม่แตะ hydration.safe.js เพื่อไม่ให้ core game พัง
 
 'use strict';
 
@@ -24,7 +27,6 @@ export function installHydrationPostgame(){
   wireEvaluate();
   wireCreate();
   wireAnalyze();
-
   wireEndAutoOpen();
 
   console.log('[hydration-postgame] installed', PATCH);
@@ -54,6 +56,7 @@ function readLastSummary(){
       localStorage.getItem('HHA_LAST_SUMMARY') ||
       localStorage.getItem('hha_last_summary') ||
       '{}';
+
     const obj = JSON.parse(raw);
     return obj && typeof obj === 'object' ? obj : {};
   }catch(_){
@@ -170,7 +173,7 @@ function injectStyles(){
 }
 .hha-post-title{
   font-size:24px;
-  font-weight:1100;
+  font-weight:1000;
   line-height:1.1;
 }
 .hha-post-sub{
@@ -354,7 +357,7 @@ function injectStyles(){
 .hha-analyze-card .v{
   margin-top:4px;
   font-size:18px;
-  font-weight:1100;
+  font-weight:1000;
 }
 @media (max-width:640px){
   .hha-create-row{ grid-template-columns:1fr; }
@@ -506,7 +509,11 @@ function wireEndAutoOpen(){
       if (shown) tryOpenEvaluate();
       else opened = false;
     });
-    obs.observe(end, { attributes:true, attributeFilter:['aria-hidden'] });
+
+    obs.observe(end, {
+      attributes:true,
+      attributeFilter:['aria-hidden']
+    });
   }
 
   window.addEventListener('hha:end', tryOpenEvaluate);
@@ -681,7 +688,10 @@ function savePostEvaluate(postEvaluate){
 
   writeLastSummary(summary);
 
-  window.dispatchEvent(new CustomEvent('hha:post_evaluate_saved', { detail: postEvaluate }));
+  window.dispatchEvent(new CustomEvent('hha:post_evaluate_saved', {
+    detail: postEvaluate
+  }));
+
   sendPostLog('herohealth.hydration.post_evaluate', postEvaluate);
 }
 
@@ -707,7 +717,12 @@ function wireCreate(){
     setCreateSlot('lunch', 2);
     setCreateSlot('activity', 2);
     setCreateSlot('evening', 1);
-    setBox($('hhaCreateFeedbackBox'), 'warn', '✨ ระบบใส่แผนเริ่มต้นให้แล้ว: กระจายดื่มทั้งวัน และให้ความสำคัญกับช่วงกิจกรรม');
+
+    setBox(
+      $('hhaCreateFeedbackBox'),
+      'warn',
+      '✨ ระบบใส่แผนเริ่มต้นให้แล้ว: กระจายดื่มทั้งวัน และให้ความสำคัญกับช่วงกิจกรรม'
+    );
   });
 
   $('hhaBtnCreateReset')?.addEventListener('click', ()=>{
@@ -756,7 +771,10 @@ function setCreateSlot(slot, value){
   if (!row) return;
 
   row.querySelectorAll('.hha-create-opt').forEach(btn=>{
-    btn.classList.toggle('is-selected', Number(btn.dataset.value) === Number(value));
+    btn.classList.toggle(
+      'is-selected',
+      Number(btn.dataset.value) === Number(value)
+    );
   });
 }
 
@@ -859,7 +877,9 @@ function computeCreatePlan(plan){
     badge = '❌ ควรปรับแผน';
   }
 
-  const compactPlan = slots.map(x => `${x.label}: ${valueText(x.value)}`).join('\n• ');
+  const compactPlan = slots
+    .map(x => `${x.label}: ${valueText(x.value)}`)
+    .join('\n• ');
 
   return {
     presented:true,
@@ -905,7 +925,10 @@ function savePostCreate(result){
 
   writeLastSummary(summary);
 
-  window.dispatchEvent(new CustomEvent('hha:create_saved', { detail: result }));
+  window.dispatchEvent(new CustomEvent('hha:create_saved', {
+    detail: result
+  }));
+
   sendPostLog('herohealth.hydration.post_create', result);
 
   setTimeout(()=> {
@@ -921,6 +944,7 @@ function savePostCreate(result){
 
 function wireAnalyze(){
   $('hhaBtnAnalyzeRefresh')?.addEventListener('click', runAnalyze);
+
   $('hhaBtnAnalyzeClose')?.addEventListener('click', ()=>{
     closeOverlay($('hhaAnalyzeOverlay'));
   });
@@ -938,8 +962,12 @@ function runAnalyze(){
   summary.pa_patternLabel = result.patternLabel;
   summary.pa_level = result.level;
   summary.pa_recommendation = result.recommendation;
-  summary.pa_strengths_text = Array.isArray(result.strengths) ? result.strengths.join(' | ') : '';
-  summary.pa_issues_text = Array.isArray(result.issues) ? result.issues.join(' | ') : '';
+  summary.pa_strengths_text = Array.isArray(result.strengths)
+    ? result.strengths.join(' | ')
+    : '';
+  summary.pa_issues_text = Array.isArray(result.issues)
+    ? result.issues.join(' | ')
+    : '';
   summary.pa_explain = result.explain;
 
   writeLastSummary(summary);
@@ -956,7 +984,10 @@ function runAnalyze(){
 
   setBox($('hhaAnalyzeFeedbackBox'), result.level, result.explain);
 
-  window.dispatchEvent(new CustomEvent('hha:analyze_saved', { detail: result }));
+  window.dispatchEvent(new CustomEvent('hha:analyze_saved', {
+    detail: result
+  }));
+
   sendPostLog('herohealth.hydration.post_analyze', result);
 }
 
@@ -971,7 +1002,11 @@ function buildPostAnalyze(summary){
 
   const stormCycles = firstNumber(s, ['stormCycles','hh_stormCycles'], 0);
   const stormSuccess = firstNumber(s, ['stormSuccess','hh_stormSuccess'], 0);
-  const block = firstNumber(s, ['blockCount','blocks','hh_bossClearCount','bossClearCount'], 0);
+  const block = firstNumber(
+    s,
+    ['blockCount','blocks','hh_bossClearCount','bossClearCount'],
+    0
+  );
 
   const pe = s.postEvaluate || {};
   const pc = s.postCreate || {};
@@ -1024,6 +1059,7 @@ function buildPostAnalyze(summary){
 
   if (issues.length) {
     const text = issues.join(' | ');
+
     if (/Storm|สายฟ้า|บล็อก/.test(text)) {
       topIssue = 'storm_block';
       topIssueLabel = 'ช่วง Storm / Block';
@@ -1078,8 +1114,12 @@ function buildPostAnalyze(summary){
     topIssue,
     topIssueLabel,
     patternLabel,
-    evaluateLabel: peSkipped ? 'ข้าม Evaluate' : (pePlan ? `Plan ${pePlan} • ${peScore}/100` : 'ยังไม่มีข้อมูล'),
-    createLabel: pcScore ? `Create • ${pcScore}/100 • ${pcFilled}/6` : 'ยังไม่มีข้อมูล',
+    evaluateLabel: peSkipped
+      ? 'ข้าม Evaluate'
+      : (pePlan ? `Plan ${pePlan} • ${peScore}/100` : 'ยังไม่มีข้อมูล'),
+    createLabel: pcScore
+      ? `Create • ${pcScore}/100 • ${pcFilled}/6`
+      : 'ยังไม่มีข้อมูล',
     level,
     strengths,
     issues,
