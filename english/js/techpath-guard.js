@@ -1,12 +1,13 @@
 // === /english/js/techpath-guard.js ===
-// PATCH v20260426a-TECHPATH-PRODUCTION-GUARD
+// PATCH v20260426b-TECHPATH-PRODUCTION-GUARD-NO-FALSE-SHIELD
 // Production-safe guard for TechPath / English Lesson
-// - no debugger
-// - no requestAnimationFrame loop
-// - no main-thread blocking
-// - safe for mobile / VR / desktop
-// - blocks common inspect shortcuts / right click / copy outside inputs
-// - shows shield when devtools-like window gap is detected
+// ✅ blocks common inspect shortcuts / right click / copy outside inputs
+// ✅ no debugger
+// ✅ no requestAnimationFrame loop
+// ✅ no main-thread blocking
+// ✅ safe for mobile / VR / desktop
+// ✅ no false full-screen shield by default
+// ✅ shield only when URL has ?guard=strict or ?protected=strict
 
 (function () {
   'use strict';
@@ -14,24 +15,67 @@
   const doc = document;
   const win = window;
 
+  const VERSION = 'v20260426b-TECHPATH-PRODUCTION-GUARD-NO-FALSE-SHIELD';
+
   const CONFIG = {
-    devtoolsThreshold: 160,
-    checkIntervalMs: 1500,
+    devtoolsThreshold: 220,
+    checkIntervalMs: 1800,
+
+    blockInspectShortcuts: true,
     blockContextMenu: true,
     blockSelection: true,
     blockCopyOutsideInputs: true,
     blockSaveViewSource: true,
+
     showToastMs: 1500,
-    showShieldOnDevtools: true
+
+    // สำคัญ: default ต้อง false เพื่อไม่บังบทเรียนเองจาก false positive
+    showShieldOnDevtools: false,
+
+    // ต้องใช้ ?guard=strict หรือ ?protected=strict ถึงเปิด shield
+    strictShieldByQuery: true,
+
+    // ต้อง detect ต่อเนื่องกี่รอบก่อนเปิด shield ใน strict mode
+    stableDetectCount: 2
   };
 
   const state = {
     devtoolsOpen: false,
-    toastTimer: 0
+    toastTimer: 0,
+    detectHits: 0,
+    strictMode: false,
+    bound: false,
+    intervalId: 0
   };
 
+  function q() {
+    return new URLSearchParams(location.search || '');
+  }
+
+  function safe(v) {
+    return String(v == null ? '' : v).trim();
+  }
+
+  function detectStrictMode() {
+    const p = q();
+
+    const guard = safe(p.get('guard') || p.get('protected') || p.get('exam') || '').toLowerCase();
+
+    return (
+      guard === 'strict' ||
+      guard === 'on' ||
+      guard === 'true' ||
+      guard === '1'
+    );
+  }
+
   function isEditable(el) {
-    return !!(el && el.closest('input, textarea, select, [contenteditable="true"], .allow-copy'));
+    return !!(
+      el &&
+      el.closest(
+        'input, textarea, select, [contenteditable="true"], .allow-copy, .lesson-allow-copy'
+      )
+    );
   }
 
   function stopEvent(e) {
@@ -62,7 +106,8 @@
       html.protected textarea,
       html.protected select,
       html.protected [contenteditable="true"],
-      html.protected .allow-copy {
+      html.protected .allow-copy,
+      html.protected .lesson-allow-copy {
         -webkit-user-select: text;
         user-select: text;
         -webkit-touch-callout: default;
@@ -159,10 +204,10 @@
     shield.setAttribute('aria-hidden', 'true');
     shield.innerHTML = `
       <div class="shield-card">
-        <div class="shield-title">Protected Mode</div>
+        <div class="shield-title">Protected Lesson Mode</div>
         <div class="shield-text">
-          หน้านี้อยู่ในโหมดป้องกันสำหรับการเรียน/การทดสอบ<br>
-          กรุณาปิด Developer Tools เพื่อกลับไปใช้งานบทเรียน
+          หน้านี้ถูกป้องกันสำหรับการเรียน/การทดสอบ<br>
+          กรุณาปิด Developer Tools เพื่อกลับเข้าใช้งาน
         </div>
       </div>
     `;
@@ -185,22 +230,53 @@
     }, CONFIG.showToastMs);
   }
 
-  function setDevtoolsGuard(on) {
+  function shouldUseShield() {
+    return !!(CONFIG.showShieldOnDevtools || state.strictMode);
+  }
+
+  function setDevtoolsGuard(on, reason) {
     state.devtoolsOpen = !!on;
 
     if (doc.body) {
-      doc.body.classList.toggle('devtools-guard', !!on && CONFIG.showShieldOnDevtools);
+      doc.body.classList.toggle('devtools-guard', !!on && shouldUseShield());
     }
 
     const shield = doc.getElementById('source-shield');
     if (shield) {
-      shield.setAttribute('aria-hidden', on ? 'false' : 'true');
+      shield.setAttribute('aria-hidden', on && shouldUseShield() ? 'false' : 'true');
     }
+
+    try {
+      doc.documentElement.dataset.techpathDevtools = on ? '1' : '0';
+      doc.documentElement.dataset.techpathGuardStrict = state.strictMode ? '1' : '0';
+    } catch (err) {}
+
+    if (on && shouldUseShield()) {
+      showToast('Protected mode');
+    }
+
+    console.log('[TechPathGuard] devtools guard:', {
+      on: !!on,
+      reason: reason || '',
+      shield: shouldUseShield(),
+      strict: state.strictMode
+    });
   }
 
   function detectDevtoolsBySize() {
-    const widthGap = Math.abs((win.outerWidth || 0) - (win.innerWidth || 0));
-    const heightGap = Math.abs((win.outerHeight || 0) - (win.innerHeight || 0));
+    const outerW = win.outerWidth || 0;
+    const innerW = win.innerWidth || 0;
+    const outerH = win.outerHeight || 0;
+    const innerH = win.innerHeight || 0;
+
+    if (!outerW || !innerW || !outerH || !innerH) return false;
+
+    // Cardboard/Mobile ห้ามใช้ shield จาก size เพราะ false positive สูง
+    const viewMode = safe(win.LESSON_VIEW_MODE || doc.documentElement.dataset.lessonViewMode || '').toLowerCase();
+    if (viewMode === 'cardboard' || viewMode === 'mobile') return false;
+
+    const widthGap = Math.abs(outerW - innerW);
+    const heightGap = Math.abs(outerH - innerH);
 
     return widthGap > CONFIG.devtoolsThreshold || heightGap > CONFIG.devtoolsThreshold;
   }
@@ -209,8 +285,11 @@
     const key = String(e.key || '').toLowerCase();
 
     const blockedInspect =
-      e.key === 'F12' ||
-      ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(key));
+      CONFIG.blockInspectShortcuts &&
+      (
+        e.key === 'F12' ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(key))
+      );
 
     const blockedSourceSave =
       CONFIG.blockSaveViewSource &&
@@ -223,6 +302,12 @@
 
     if (blockedInspect || blockedSourceSave || blockedCopy) {
       showToast('Protected mode');
+
+      // strict mode เท่านั้นที่จะเปิด shield จากการกด shortcut
+      if (blockedInspect && state.strictMode) {
+        setDevtoolsGuard(true, 'inspect shortcut');
+      }
+
       return stopEvent(e);
     }
   }
@@ -256,6 +341,9 @@
   }
 
   function bindEvents() {
+    if (state.bound) return;
+    state.bound = true;
+
     doc.addEventListener('keydown', onKeydown, true);
     doc.addEventListener('contextmenu', onContextMenu, true);
     doc.addEventListener('selectstart', onSelectStart, true);
@@ -265,30 +353,53 @@
   }
 
   function startDevtoolsCheck() {
-    setInterval(() => {
+    clearInterval(state.intervalId);
+
+    state.intervalId = setInterval(() => {
       const open = detectDevtoolsBySize();
 
-      if (open !== state.devtoolsOpen) {
-        setDevtoolsGuard(open);
+      if (open) {
+        state.detectHits += 1;
+      } else {
+        state.detectHits = 0;
+      }
 
-        if (open) {
-          showToast('Protected mode');
-        }
+      const stableOpen = state.detectHits >= CONFIG.stableDetectCount;
+
+      if (stableOpen !== state.devtoolsOpen) {
+        setDevtoolsGuard(stableOpen, 'stable size detection');
+      }
+
+      // ไม่ strict แล้ว detect หาย ให้ปลด shield เสมอ
+      if (!stableOpen && doc.body) {
+        doc.body.classList.remove('devtools-guard');
       }
     }, CONFIG.checkIntervalMs);
   }
 
   function init() {
+    state.strictMode = CONFIG.strictShieldByQuery && detectStrictMode();
+
     ensureStyle();
 
     doc.documentElement.classList.add('protected');
+    doc.documentElement.dataset.techpathGuard = VERSION;
+    doc.documentElement.dataset.techpathGuardStrict = state.strictMode ? '1' : '0';
 
     if (doc.body) {
+      // สำคัญ: กัน shield ค้างจากรอบก่อน
+      doc.body.classList.remove('devtools-guard');
+
       ensureToast();
       ensureShield();
       bindEvents();
       startDevtoolsCheck();
     }
+
+    console.log('[TechPathGuard]', VERSION, {
+      strictMode: state.strictMode,
+      showShieldOnDevtools: CONFIG.showShieldOnDevtools
+    });
   }
 
   if (doc.readyState === 'loading') {
@@ -298,10 +409,35 @@
   }
 
   win.TECHPATH_GUARD = {
-    version: 'v20260426a-TECHPATH-PRODUCTION-GUARD',
+    version: VERSION,
     config: CONFIG,
     state,
+
     showToast,
-    setDevtoolsGuard
+    setDevtoolsGuard,
+
+    setStrict(on) {
+      state.strictMode = !!on;
+      doc.documentElement.dataset.techpathGuardStrict = state.strictMode ? '1' : '0';
+
+      if (!state.strictMode) {
+        setDevtoolsGuard(false, 'strict off');
+      }
+    },
+
+    disableShield() {
+      CONFIG.showShieldOnDevtools = false;
+      state.strictMode = false;
+      setDevtoolsGuard(false, 'disable shield');
+    },
+
+    enableShield() {
+      CONFIG.showShieldOnDevtools = true;
+    },
+
+    reset() {
+      state.detectHits = 0;
+      setDevtoolsGuard(false, 'reset');
+    }
   };
 })();
