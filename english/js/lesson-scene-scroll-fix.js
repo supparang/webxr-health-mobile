@@ -1,9 +1,13 @@
 // === /english/js/lesson-scene-scroll-fix.js ===
-// PATCH v20260426a-LESSON-SCENE-SCROLL-PAN-FIX
-// Fix: 3D S1-S15 selector scene cannot scroll/pan.
+// PATCH v20260426b-LESSON-SCENE-SCROLL-PAN-NON-BLOCKING
+// Fix: 3D S1-S15 selector scene cannot scroll/pan, and pan controls block bottom buttons.
 // ✅ Allows dragging scene left/right from visible background edges
 // ✅ Allows mouse wheel / touchpad pan over A-Frame canvas
-// ✅ Adds small floating scene pan controls
+// ✅ Adds compact floating scene pan controls
+// ✅ Pan controls do NOT block other buttons behind them
+// ✅ Starts as mini button: ↔ เลื่อนฉาก
+// ✅ Expands to ◀ กลาง ▶ only when clicked
+// ✅ Suppresses scene selector routing after pan so page does not reload while dragging
 // ✅ Keeps HTML panels usable
 // ✅ Does not open old gameplay
 // ✅ Works with lesson-scene-selector-router-fix.js
@@ -11,7 +15,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426a-LESSON-SCENE-SCROLL-PAN-FIX';
+  const VERSION = 'v20260426b-LESSON-SCENE-SCROLL-PAN-NON-BLOCKING';
 
   const CONFIG = {
     enabled: true,
@@ -116,7 +120,6 @@
 
   function isEdgeArea(ev) {
     const x = Number(ev.clientX || 0);
-
     return x <= CONFIG.edgePx || x >= window.innerWidth - CONFIG.edgePx;
   }
 
@@ -206,7 +209,6 @@
       $('a-entity[camera]', scene);
 
     if (cam) {
-      // ถ้ามีกลุ่มครอบ camera ให้หมุน parent ก่อน เพื่อไม่ชน look-controls โดยตรง
       if (
         cam.parentElement &&
         cam.parentElement !== scene &&
@@ -237,6 +239,12 @@
     return state.target;
   }
 
+  function suppressSceneSelectorClick(ms) {
+    try {
+      window.LESSON_SCENE_SELECTOR_ROUTER_FIX?.suppressClick?.(Number(ms || 800));
+    } catch (err) {}
+  }
+
   function panBy(deltaDeg, reason) {
     const target = ensureTarget();
     if (!target) return;
@@ -251,6 +259,7 @@
     setRotationY(target, next);
 
     state.lastPanAt = Date.now();
+    suppressSceneSelectorClick(850);
 
     try {
       document.documentElement.dataset.lessonSceneYaw = String(Math.round(next));
@@ -272,6 +281,9 @@
 
     state.yaw = y;
     setRotationY(target, y);
+
+    state.lastPanAt = Date.now();
+    suppressSceneSelectorClick(850);
 
     console.log('[LessonSceneScroll] reset', {
       version: VERSION,
@@ -304,6 +316,8 @@
     state.startX = Number(ev.clientX || 0);
     state.lastX = state.startX;
 
+    suppressSceneSelectorClick(850);
+
     try {
       document.body.classList.add('lesson-scene-panning');
     } catch (err) {}
@@ -324,7 +338,6 @@
     ev.preventDefault();
     ev.stopPropagation();
 
-    // ลากขวา = มองซ้าย/ขวาตามธรรมชาติ ปรับทิศเล็กน้อย
     panBy(-dx * CONFIG.dragSensitivity, 'drag');
   }
 
@@ -335,6 +348,8 @@
 
     state.dragging = false;
     state.pointerId = null;
+
+    suppressSceneSelectorClick(650);
 
     try {
       document.body.classList.remove('lesson-scene-panning');
@@ -372,31 +387,35 @@
       #lessonScenePanControls {
         position: fixed;
         left: 12px;
-        bottom: max(16px, env(safe-area-inset-bottom));
-        z-index: 2147483646;
-        display: flex;
-        gap: 8px;
+        bottom: max(78px, calc(env(safe-area-inset-bottom) + 78px));
+        z-index: 2147483638;
+        display: inline-flex;
+        gap: 7px;
         align-items: center;
-        padding: 8px;
+        padding: 7px;
         border-radius: 999px;
-        background: rgba(15,23,42,.86);
-        border: 1px solid rgba(125,211,252,.46);
-        box-shadow: 0 14px 38px rgba(0,0,0,.30);
+        background: rgba(15,23,42,.72);
+        border: 1px solid rgba(125,211,252,.36);
+        box-shadow: 0 12px 30px rgba(0,0,0,.22);
         backdrop-filter: blur(10px);
+        pointer-events: none;
+        max-width: min(92vw, 460px);
       }
 
       #lessonScenePanControls button {
+        pointer-events: auto;
         border: 0;
         border-radius: 999px;
-        padding: 9px 12px;
+        padding: 8px 10px;
         background: rgba(14,165,233,.92);
         color: white;
         font: 1000 12px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
         cursor: pointer;
+        white-space: nowrap;
       }
 
       #lessonScenePanControls button.secondary {
-        background: rgba(255,255,255,.16);
+        background: rgba(255,255,255,.14);
         color: #e0faff;
         border: 1px solid rgba(255,255,255,.18);
       }
@@ -405,6 +424,16 @@
         color: #e0faff;
         font: 900 12px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
         white-space: nowrap;
+        pointer-events: none;
+      }
+
+      #lessonScenePanControls.is-mini .pan-extra {
+        display: none !important;
+      }
+
+      #lessonScenePanControls.is-mini {
+        padding: 6px;
+        background: rgba(15,23,42,.60);
       }
 
       html.lesson-mode-cardboard #lessonScenePanControls {
@@ -414,17 +443,19 @@
       @media (max-width: 680px) {
         #lessonScenePanControls {
           left: 8px;
-          right: 8px;
-          justify-content: center;
-          border-radius: 18px;
+          bottom: max(74px, calc(env(safe-area-inset-bottom) + 74px));
+          right: auto;
+          max-width: calc(100vw - 16px);
+          border-radius: 999px;
+        }
+
+        #lessonScenePanControls button {
+          padding: 8px 9px;
+          font-size: 11px;
         }
 
         #lessonScenePanControls .label {
           display: none;
-        }
-
-        #lessonScenePanControls button {
-          flex: 1;
         }
       }
     `;
@@ -441,14 +472,21 @@
 
     const box = document.createElement('div');
     box.id = 'lessonScenePanControls';
+    box.className = 'is-mini';
     box.innerHTML = `
-      <button type="button" id="lessonScenePanLeft">◀ เลื่อนฉาก</button>
-      <button type="button" class="secondary" id="lessonScenePanReset">ตรงกลาง</button>
-      <button type="button" id="lessonScenePanRight">เลื่อนฉาก ▶</button>
-      <span class="label">ลาก/เลื่อนที่ฉากได้</span>
+      <button type="button" class="secondary" id="lessonScenePanToggle">↔ เลื่อนฉาก</button>
+      <button type="button" class="pan-extra" id="lessonScenePanLeft">◀</button>
+      <button type="button" class="secondary pan-extra" id="lessonScenePanReset">กลาง</button>
+      <button type="button" class="pan-extra" id="lessonScenePanRight">▶</button>
+      <span class="label pan-extra">ลาก/เลื่อนฉากได้</span>
     `;
 
     document.body.appendChild(box);
+
+    $('#lessonScenePanToggle')?.addEventListener('click', () => {
+      box.classList.toggle('is-mini');
+      suppressSceneSelectorClick(500);
+    });
 
     $('#lessonScenePanLeft')?.addEventListener('click', () => {
       panBy(-CONFIG.buttonStepDeg, 'button-left');
@@ -525,6 +563,12 @@
       },
       disable() {
         CONFIG.enabled = false;
+      },
+      expandControls() {
+        $('#lessonScenePanControls')?.classList.remove('is-mini');
+      },
+      collapseControls() {
+        $('#lessonScenePanControls')?.classList.add('is-mini');
       }
     };
 
