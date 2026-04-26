@@ -6,13 +6,13 @@
 // ✅ Exposes window.missionDB / window.LESSON_DATA / window.LESSON_SESSIONS
 // ✅ Dispatches lesson:data-bridge-ready and lesson:data-skill-ready
 // ✅ Removes data error warning after successful load
+// ✅ Re-renders Mission Panel after data is ready
 
 (function () {
   'use strict';
 
   const VERSION = 'v20260426a-LESSON-DATA-MODULE-BRIDGE';
-
-  const DATA_URL = './lesson-data.js?v=20260426';
+  const DATA_URL = './js/lesson-data.js?v=20260426';
 
   function safe(v) {
     return String(v == null ? '' : v).trim();
@@ -40,28 +40,95 @@
         if (Array.isArray(c.sessions) && c.sessions.length) return c.sessions;
         if (Array.isArray(c.missionDB) && c.missionDB.length) return c.missionDB;
         if (Array.isArray(c.LESSON_DATA) && c.LESSON_DATA.length) return c.LESSON_DATA;
+        if (Array.isArray(c.LESSON_SESSIONS) && c.LESSON_SESSIONS.length) return c.LESSON_SESSIONS;
       }
     }
 
     return null;
   }
 
+  function exposeData(data, mod) {
+    window.missionDB = data;
+    window.LESSON_DATA = data;
+    window.LESSON_SESSIONS = data;
+
+    window.LESSON_DATA_BRIDGE_FIX = {
+      version: VERSION,
+      dataUrl: DATA_URL,
+      count: Array.isArray(data) ? data.length : 0,
+      moduleKeys: mod ? Object.keys(mod) : [],
+      module: mod,
+      data
+    };
+  }
+
   function dispatchReady(data, mod) {
     const detail = {
       version: VERSION,
+      dataUrl: DATA_URL,
       count: Array.isArray(data) ? data.length : 0,
       hasMissionDB: !!window.missionDB,
+      hasLessonData: !!window.LESSON_DATA,
+      hasLessonSessions: !!window.LESSON_SESSIONS,
       exportedKeys: mod ? Object.keys(mod) : []
     };
 
-    window.dispatchEvent(new CustomEvent('lesson:data-bridge-ready', { detail }));
-    document.dispatchEvent(new CustomEvent('lesson:data-bridge-ready', { detail }));
+    [
+      'lesson:data-bridge-ready',
+      'lesson:data-skill-ready',
+      'lesson:router-ready',
+      'lesson:item-ready'
+    ].forEach((name) => {
+      try {
+        window.dispatchEvent(new CustomEvent(name, { detail }));
+      } catch (err) {}
 
-    window.dispatchEvent(new CustomEvent('lesson:data-skill-ready', { detail }));
-    document.dispatchEvent(new CustomEvent('lesson:data-skill-ready', { detail }));
+      try {
+        document.dispatchEvent(new CustomEvent(name, { detail }));
+      } catch (err) {}
+    });
+  }
 
-    window.dispatchEvent(new CustomEvent('lesson:router-ready', { detail }));
-    document.dispatchEvent(new CustomEvent('lesson:router-ready', { detail }));
+  function clearDataError() {
+    try {
+      document.body.classList.remove('lesson-data-error');
+    } catch (err) {}
+
+    const warning = document.getElementById('fallbackWarning');
+    if (warning) {
+      warning.style.display = 'none';
+    }
+  }
+
+  function showDataError(err) {
+    try {
+      document.body.classList.add('lesson-data-error');
+    } catch (e) {}
+
+    const warning = document.getElementById('fallbackWarning');
+    if (warning) {
+      warning.style.display = '';
+      warning.innerHTML =
+        'โหลดข้อมูลบทเรียนไม่สำเร็จ<br>' +
+        'ตรวจไฟล์ <b>/english/js/lesson-data.js</b> หรือ export data ให้ถูกต้อง<br>' +
+        '<small>' + safe(err && err.message) + '</small>';
+    }
+  }
+
+  function rerenderMissionPanel() {
+    const tries = [80, 350, 800, 1500, 2500];
+
+    tries.forEach((ms) => {
+      setTimeout(() => {
+        try {
+          window.LESSON_MISSION_PANEL_FIX?.render?.(true);
+        } catch (err) {}
+
+        try {
+          window.LESSON_SPEAKING_FIX?.render?.(true);
+        } catch (err) {}
+      }, ms);
+    });
   }
 
   async function boot() {
@@ -73,37 +140,13 @@
         throw new Error('lesson-data.js imported, but no array data found');
       }
 
-      window.missionDB = data;
-      window.LESSON_DATA = data;
-      window.LESSON_SESSIONS = data;
-
-      window.LESSON_DATA_BRIDGE_FIX = {
-        version: VERSION,
-        dataUrl: DATA_URL,
-        count: data.length,
-        module: mod,
-        data
-      };
-
-      try {
-        document.body.classList.remove('lesson-data-error');
-      } catch (err) {}
-
+      exposeData(data, mod);
+      clearDataError();
       dispatchReady(data, mod);
-
-      setTimeout(() => {
-        try {
-          window.LESSON_MISSION_PANEL_FIX?.render?.(true);
-        } catch (err) {}
-      }, 80);
-
-      setTimeout(() => {
-        try {
-          window.LESSON_MISSION_PANEL_FIX?.render?.(true);
-        } catch (err) {}
-      }, 650);
+      rerenderMissionPanel();
 
       console.log('[LessonDataBridge]', VERSION, {
+        dataUrl: DATA_URL,
         count: data.length,
         keys: Object.keys(mod)
       });
@@ -112,18 +155,23 @@
 
       window.LESSON_DATA_BRIDGE_ERROR = err;
 
-      try {
-        document.body.classList.add('lesson-data-error');
-      } catch (e) {}
+      showDataError(err);
 
-      window.dispatchEvent(new CustomEvent('lesson:data-bridge-error', {
-        detail: {
-          version: VERSION,
-          message: safe(err && err.message)
-        }
-      }));
+      try {
+        window.dispatchEvent(new CustomEvent('lesson:data-bridge-error', {
+          detail: {
+            version: VERSION,
+            dataUrl: DATA_URL,
+            message: safe(err && err.message)
+          }
+        }));
+      } catch (e) {}
     }
   }
 
-  boot();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
 })();
