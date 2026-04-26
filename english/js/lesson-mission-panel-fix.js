@@ -1,5 +1,5 @@
 // === /english/js/lesson-mission-panel-fix.js ===
-// PATCH v20260426d-LESSON-MISSION-PANEL-SHUFFLE-ANSWERS
+// PATCH v20260426e-LESSON-MISSION-PANEL-FAIR-CHOICES-LISTENING-READING
 // Fix: S2-S15 playable UI + answer choices no longer always correct at A
 // ✅ Renders Listening / Reading / Writing / Boss / FinalBoss
 // ✅ Pure speaking sessions use lesson-speaking-fix + lazy open
@@ -7,13 +7,16 @@
 // ✅ Shows A/B/C/D clearly
 // ✅ Shuffles answers deterministically per item
 // ✅ Correct answer can be A/B/C/D, not always A
-// ✅ Listening shows clear task + optional transcript for teacher/testing
+// ✅ Listening: must press Listen before answering
+// ✅ Listening: hides transcript unless teacher/debug mode
+// ✅ Listening: distractors are close tech/context choices, not food/sport/travel
+// ✅ Reading: distractors are close tech/context choices, not food/sport/travel
 // ✅ Emits lesson:* result events for AI Difficulty + Next Session
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426d-LESSON-MISSION-PANEL-SHUFFLE-ANSWERS';
+  const VERSION = 'v20260426e-LESSON-MISSION-PANEL-FAIR-CHOICES-LISTENING-READING';
   const INDEX_KEY = 'ENGLISH_QUEST_ITEM_INDEX_V1';
 
   const DIFF_META = {
@@ -377,6 +380,28 @@
         font-weight: 750;
       }
 
+      .lesson-listening-note {
+        margin-top: 8px;
+        padding: 9px 11px;
+        border-radius: 14px;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        color: #9a3412;
+        font-weight: 900;
+        line-height: 1.35;
+      }
+
+      .lesson-reading-note {
+        margin-top: 8px;
+        padding: 9px 11px;
+        border-radius: 14px;
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        color: #075985;
+        font-weight: 900;
+        line-height: 1.35;
+      }
+
       .lesson-mission-choices {
         display: grid;
         gap: 8px;
@@ -399,6 +424,12 @@
       .lesson-choice-btn:hover {
         transform: translateY(-1px);
         background: #67e8f9;
+      }
+
+      .lesson-choice-btn.locked {
+        opacity: .56;
+        cursor: not-allowed;
+        filter: grayscale(.15);
       }
 
       .lesson-choice-btn.correct {
@@ -620,17 +651,21 @@
   }
 
   function toChoicesFromItem(item) {
-    const correct = cleanOptionText(item.correct || item.answerText || 'Technology or study project');
+    const correct = cleanOptionText(item.correct || item.answerText || 'Technology project and study task');
 
     const distractors = Array.isArray(item.distractors) && item.distractors.length
       ? item.distractors.map(cleanOptionText)
-      : ['Food order', 'Sports game', 'Travel plan'];
+      : [
+          'Project progress and teamwork update',
+          'Technical problem and system improvement',
+          'Client communication and requirement discussion'
+        ];
 
     return [
       `A. ${correct}`,
-      `B. ${distractors[0] || 'Food order'}`,
-      `C. ${distractors[1] || 'Sports game'}`,
-      `D. ${distractors[2] || 'Travel plan'}`
+      `B. ${distractors[0] || 'Project progress and teamwork update'}`,
+      `C. ${distractors[1] || 'Technical problem and system improvement'}`,
+      `D. ${distractors[2] || 'Client communication and requirement discussion'}`
     ];
   }
 
@@ -689,24 +724,194 @@
     return out;
   }
 
+  function isTeacherMode() {
+    const p = q();
+
+    const mode = safe(
+      p.get('teacher') ||
+      p.get('debug') ||
+      p.get('showTranscript') ||
+      ''
+    ).toLowerCase();
+
+    return ['1', 'true', 'yes', 'teacher', 'debug'].includes(mode);
+  }
+
+  function isWeakListeningDistractor(text) {
+    const s = cleanOptionText(text).toLowerCase();
+
+    return (
+      !s ||
+      s.includes('food') ||
+      s.includes('restaurant') ||
+      s.includes('sports') ||
+      s.includes('sport') ||
+      s.includes('travel') ||
+      s.includes('shopping') ||
+      s.includes('weather') ||
+      s.includes('menu') ||
+      s.includes('order')
+    );
+  }
+
+  function isWeakReadingDistractor(text) {
+    const s = cleanOptionText(text).toLowerCase();
+
+    return (
+      !s ||
+      s.includes('food') ||
+      s.includes('restaurant') ||
+      s.includes('sports') ||
+      s.includes('sport') ||
+      s.includes('travel') ||
+      s.includes('shopping') ||
+      s.includes('weather') ||
+      s.includes('menu') ||
+      s.includes('story') ||
+      s.includes('advertisement')
+    );
+  }
+
+  function closeListeningDistractors(item, correctText) {
+    const transcript = safe(item.audioText || item.passage || item.prompt || '').toLowerCase();
+    const correct = cleanOptionText(correctText).toLowerCase();
+
+    let pool = [];
+
+    if (/bug|login|button|mobile|console|error|test|testing/.test(transcript)) {
+      pool = [
+        'Bug report and testing problem',
+        'Mobile interface and login issue',
+        'System error and debugging task',
+        'Project progress and testing update',
+        'Client request about a software problem'
+      ];
+    } else if (/client|request|requirement|timeline|deliver|feedback/.test(transcript)) {
+      pool = [
+        'Client request and project update',
+        'Requirement discussion and next step',
+        'Project timeline and delivery plan',
+        'User feedback and feature improvement',
+        'Team communication with a client'
+      ];
+    } else if (/ai|model|data|dashboard|analy/.test(transcript)) {
+      pool = [
+        'AI feature and data explanation',
+        'Dashboard and user feedback system',
+        'Data analysis and project result',
+        'AI suggestion and system testing',
+        'User data and decision support'
+      ];
+    } else if (/meeting|stand-up|scrum|team|task|progress/.test(transcript)) {
+      pool = [
+        'Team stand-up and project progress',
+        'Task update and teamwork plan',
+        'Scrum meeting and next task',
+        'Project communication and blocker report',
+        'Team planning and work assignment'
+      ];
+    } else if (/portfolio|interview|career|job|pitch|presentation/.test(transcript)) {
+      pool = [
+        'Portfolio and career preparation',
+        'Job interview and project experience',
+        'Project pitch and professional skills',
+        'Presentation of learning achievement',
+        'Career goal and technology skills'
+      ];
+    } else {
+      pool = [
+        'Project progress and teamwork update',
+        'Technical problem and system improvement',
+        'Client communication and requirement discussion',
+        'AI project explanation and user value',
+        'Software testing and project result'
+      ];
+    }
+
+    return uniqueTexts(pool)
+      .filter(x => x.toLowerCase() !== correct)
+      .slice(0, 3);
+  }
+
+  function closeReadingDistractors(item, correctText) {
+    const passage = safe(item.passage || item.audioText || item.prompt || '').toLowerCase();
+    const correct = cleanOptionText(correctText).toLowerCase();
+
+    let pool = [];
+
+    if (/bug|login|button|mobile|console|error|test|testing/.test(passage)) {
+      pool = [
+        'Technical problem and testing issue',
+        'Bug report and system debugging',
+        'Mobile interface and login problem',
+        'Software testing and project update',
+        'User problem and feature improvement'
+      ];
+    } else if (/client|request|requirement|timeline|deliver|feedback/.test(passage)) {
+      pool = [
+        'Client request and project requirement',
+        'Project update and delivery plan',
+        'User feedback and feature improvement',
+        'Team response to client needs',
+        'Requirement discussion and next step'
+      ];
+    } else if (/ai|model|data|dashboard|analy/.test(passage)) {
+      pool = [
+        'AI feature and data explanation',
+        'Dashboard and user feedback system',
+        'Data analysis and project result',
+        'AI suggestion and system testing',
+        'User data and decision support'
+      ];
+    } else if (/meeting|stand-up|scrum|team|task|progress/.test(passage)) {
+      pool = [
+        'Team communication and task progress',
+        'Scrum meeting and blocker report',
+        'Project planning and work assignment',
+        'Teamwork update and next task',
+        'Progress report and project coordination'
+      ];
+    } else if (/portfolio|interview|career|job|pitch|presentation/.test(passage)) {
+      pool = [
+        'Portfolio and career preparation',
+        'Job interview and project experience',
+        'Project pitch and professional skills',
+        'Presentation of learning achievement',
+        'Career goal and technology skills'
+      ];
+    } else {
+      pool = [
+        'Technology project and user value',
+        'Project progress and teamwork update',
+        'Technical problem and system improvement',
+        'Client communication and requirement discussion',
+        'Software testing and learning result'
+      ];
+    }
+
+    return uniqueTexts(pool)
+      .filter(x => x.toLowerCase() !== correct)
+      .slice(0, 3);
+  }
+
   function fallbackDistractorsForSkill(skill) {
     if (skill === 'listening') {
       return [
-        'Food order',
-        'Sports game',
-        'Travel plan',
-        'Shopping list',
-        'Weather report'
+        'Project progress and teamwork update',
+        'Bug testing and system improvement',
+        'Client communication and requirements',
+        'AI feature and data explanation',
+        'Software project presentation'
       ];
     }
 
     if (skill === 'reading') {
       return [
-        'Food menu',
-        'Travel story',
-        'Sports news',
-        'Shopping advertisement',
-        'Weather forecast'
+        'Technology project and user value',
+        'Technical problem and system improvement',
+        'Client communication and requirement discussion',
+        'Project progress and teamwork update',
+        'Software testing and learning result'
       ];
     }
 
@@ -723,6 +928,7 @@
       : toChoicesFromItem(item);
 
     const answerLetter = safe(item.answer || 'A').toUpperCase();
+
     const answerIndex = /^[A-D]$/.test(answerLetter)
       ? answerLetter.charCodeAt(0) - 65
       : 0;
@@ -743,12 +949,35 @@
 
     // fallback
     if (!correctText) {
-      correctText = cleanedChoices[0] || 'Technology or study project';
+      correctText = cleanedChoices[0] || 'Technology project and study task';
     }
 
-    const distractors = cleanedChoices
-      .filter(x => x.toLowerCase() !== correctText.toLowerCase())
-      .concat(fallbackDistractorsForSkill(skill));
+    let distractors = cleanedChoices
+      .filter(x => x.toLowerCase() !== correctText.toLowerCase());
+
+    // ✅ Listening: ถ้าตัวหลอกง่ายเกิน เช่น food/sport/travel ให้สร้างตัวหลอก tech ใกล้เคียงแทน
+    if (skill === 'listening') {
+      const weak =
+        distractors.length < 3 ||
+        distractors.some(isWeakListeningDistractor);
+
+      if (weak) {
+        distractors = closeListeningDistractors(item, correctText);
+      }
+    }
+
+    // ✅ Reading: ถ้าตัวหลอกง่ายเกิน เช่น food/sport/travel ให้สร้างตัวหลอก tech ใกล้เคียงแทน
+    if (skill === 'reading') {
+      const weak =
+        distractors.length < 3 ||
+        distractors.some(isWeakReadingDistractor);
+
+      if (weak) {
+        distractors = closeReadingDistractors(item, correctText);
+      }
+    }
+
+    distractors = distractors.concat(fallbackDistractorsForSkill(skill));
 
     const uniqueDistractors = uniqueTexts(distractors)
       .filter(x => x.toLowerCase() !== correctText.toLowerCase())
@@ -771,15 +1000,19 @@
   function renderChoiceMission(item, skill) {
     const body = $('#lessonMissionBody');
     const isListening = skill === 'listening';
+    const isReading = skill === 'reading';
 
     const title = isListening ? '🎧 Listening Mission' : '📖 Reading Mission';
 
     const question =
-      item.question && item.question !== 'What is the main idea?' && item.question !== 'What is the main topic?'
+      item.question &&
+      item.question !== 'What is the main idea?' &&
+      item.question !== 'What is the main topic?' &&
+      item.question !== 'What is the passage mainly about?'
         ? item.question
         : isListening
           ? 'ฟังเสียง แล้วเลือกหัวข้อหลักที่ตรงที่สุด'
-          : 'อ่านข้อความ แล้วเลือกหัวข้อหลักที่ตรงที่สุด';
+          : 'อ่านข้อความ แล้วเลือกสรุปหลักที่ตรงที่สุด';
 
     const transcript = item.audioText || item.passage || item.prompt || '';
 
@@ -787,19 +1020,35 @@
     const correctOption = options.find(o => o.correct);
     const correctLetter = correctOption ? correctOption.letter : 'A';
 
+    const teacherTranscript = isTeacherMode()
+      ? `
+        <details style="margin-top:8px">
+          <summary style="cursor:pointer;font-weight:900;color:#2563eb">ดู transcript สำหรับครู/ทดสอบ</summary>
+          <div style="margin-top:6px">${escapeHtml(transcript)}</div>
+        </details>
+      `
+      : '';
+
     const audioOrPassage = isListening
       ? `
         <div class="lesson-mission-audio">
           <b>วิธีเล่น:</b> กด Listen เพื่อฟัง แล้วเลือกคำตอบที่ตรงกับเรื่องที่ได้ยิน
-          <details style="margin-top:8px">
-            <summary style="cursor:pointer;font-weight:900;color:#2563eb">ดู transcript สำหรับครู/ทดสอบ</summary>
-            <div style="margin-top:6px">${escapeHtml(transcript)}</div>
-          </details>
+          <div class="lesson-listening-note">
+            ต้องกด Listen ก่อน จึงจะเลือกคำตอบได้
+          </div>
+          ${teacherTranscript}
         </div>
       `
       : `
         <div class="lesson-mission-passage">
           <b>Passage:</b> ${escapeHtml(transcript)}
+          ${
+            isReading
+              ? `<div class="lesson-reading-note">
+                   อ่านให้ละเอียด เพราะตัวเลือกเป็นบริบทเทคโนโลยีใกล้เคียงกันทั้งหมด
+                 </div>`
+              : ''
+          }
         </div>
       `;
 
@@ -822,7 +1071,7 @@
       <div class="lesson-mission-choices" id="lessonMissionChoices"></div>
 
       <div class="lesson-mission-result" id="lessonMissionResult">
-        ${isListening ? 'กด Listen แล้วเลือกคำตอบ' : 'อ่านแล้วเลือกคำตอบ'}
+        ${isListening ? 'กด Listen ก่อน แล้วค่อยเลือกคำตอบ' : 'อ่านข้อความ แล้วเลือกคำตอบที่ตรงที่สุด'}
       </div>
     `;
 
@@ -830,10 +1079,15 @@
 
     options.forEach((opt) => {
       const btn = document.createElement('button');
-      btn.className = 'lesson-choice-btn';
+      btn.className = `lesson-choice-btn ${isListening ? 'locked' : ''}`;
       btn.type = 'button';
       btn.dataset.letter = opt.letter;
       btn.dataset.correct = opt.correct ? '1' : '0';
+
+      // Listening ต้องกด Listen ก่อน
+      if (isListening) {
+        btn.disabled = true;
+      }
 
       btn.innerHTML = `
         <span style="
@@ -887,6 +1141,13 @@
 
     $('#lessonListenMissionBtn')?.addEventListener('click', () => {
       speak(item.audioText || item.question || item.prompt || '');
+
+      choiceBox.querySelectorAll('.lesson-choice-btn').forEach((b) => {
+        b.disabled = false;
+        b.classList.remove('locked');
+      });
+
+      setResult('ฟังแล้ว เลือกคำตอบที่ตรงกับเรื่องที่ได้ยิน', '');
     });
 
     $('#lessonNewItemBtn')?.addEventListener('click', () => {
