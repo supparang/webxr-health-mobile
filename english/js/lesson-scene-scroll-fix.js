@@ -1,29 +1,34 @@
 // === /english/js/lesson-scene-scroll-fix.js ===
-// PATCH v20260426b-LESSON-SCENE-SCROLL-PAN-NON-BLOCKING
-// Fix: 3D S1-S15 selector scene cannot scroll/pan, and pan controls block bottom buttons.
-// ✅ Allows dragging scene left/right from visible background edges
-// ✅ Allows mouse wheel / touchpad pan over A-Frame canvas
-// ✅ Adds compact floating scene pan controls
-// ✅ Pan controls do NOT block other buttons behind them
-// ✅ Starts as mini button: ↔ เลื่อนฉาก
-// ✅ Expands to ◀ กลาง ▶ only when clicked
-// ✅ Suppresses scene selector routing after pan so page does not reload while dragging
-// ✅ Keeps HTML panels usable
-// ✅ Does not open old gameplay
+// PATCH v20260426c-LESSON-SCENE-SCROLL-PAN-SELECTOR-GROUP
+// Fix: pan buttons visible but scene does not move.
+// ✅ Primary mode: moves S1-S15 selector entities directly
+// ✅ Fallback mode: rotates camera/rig if selector targets are not found
+// ✅ Buttons ◀ / กลาง / ▶ now visibly move selector
+// ✅ Does not block bottom buttons
+// ✅ Suppresses scene route while panning so page does not reload
 // ✅ Works with lesson-scene-selector-router-fix.js
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426b-LESSON-SCENE-SCROLL-PAN-NON-BLOCKING';
+  const VERSION = 'v20260426c-LESSON-SCENE-SCROLL-PAN-SELECTOR-GROUP';
 
   const CONFIG = {
     enabled: true,
-    wheelSensitivity: 0.035,
-    dragSensitivity: 0.11,
-    buttonStepDeg: 14,
+
+    // direct selector movement
+    panUnitStep: 1.45,
+    dragUnitSensitivity: 0.012,
+    wheelUnitSensitivity: 0.006,
+    minPanX: -9,
+    maxPanX: 9,
+
+    // fallback camera rotation
+    cameraYawStep: 14,
+    cameraDragSensitivity: 0.11,
     maxYawDeg: 110,
     minYawDeg: -110,
+
     edgePx: 190,
     showControls: true
   };
@@ -33,15 +38,27 @@
     pointerId: null,
     startX: 0,
     lastX: 0,
+
+    panX: 0,
     yaw: 0,
     baseYaw: null,
-    target: null,
-    targetName: '',
-    lastPanAt: 0
+
+    cameraTarget: null,
+    cameraTargetName: '',
+
+    panTargets: [],
+    basePositions: new WeakMap(),
+
+    lastPanAt: 0,
+    mode: 'selector'
   };
 
   function $(sel, root = document) {
     return root.querySelector(sel);
+  }
+
+  function $all(sel, root = document) {
+    return Array.from(root.querySelectorAll(sel));
   }
 
   function safe(v) {
@@ -132,6 +149,55 @@
     return isSceneLikeTarget(ev.target) || isEdgeArea(ev);
   }
 
+  function getPosition(el) {
+    const out = { x: 0, y: 0, z: 0 };
+
+    if (!el) return out;
+
+    try {
+      const p = el.getAttribute('position');
+
+      if (p && typeof p === 'object') {
+        out.x = Number(p.x || 0);
+        out.y = Number(p.y || 0);
+        out.z = Number(p.z || 0);
+        return out;
+      }
+
+      if (typeof p === 'string') {
+        const nums = p.split(/\s+/).map(Number).filter(Number.isFinite);
+        out.x = nums[0] || 0;
+        out.y = nums[1] || 0;
+        out.z = nums[2] || 0;
+        return out;
+      }
+    } catch (err) {}
+
+    try {
+      if (el.object3D) {
+        out.x = Number(el.object3D.position.x || 0);
+        out.y = Number(el.object3D.position.y || 0);
+        out.z = Number(el.object3D.position.z || 0);
+      }
+    } catch (err) {}
+
+    return out;
+  }
+
+  function setPosition(el, p) {
+    if (!el || !p) return;
+
+    try {
+      el.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+    } catch (err) {}
+
+    try {
+      if (el.object3D) {
+        el.object3D.position.set(Number(p.x || 0), Number(p.y || 0), Number(p.z || 0));
+      }
+    } catch (err) {}
+  }
+
   function getRotation(el) {
     if (!el) return { x: 0, y: 0, z: 0 };
 
@@ -199,7 +265,7 @@
       $('[id*="camera-rig" i]', scene);
 
     if (rig) {
-      state.targetName = safe(rig.id || rig.tagName || 'rig');
+      state.cameraTargetName = safe(rig.id || rig.tagName || 'rig');
       return rig;
     }
 
@@ -214,40 +280,131 @@
         cam.parentElement !== scene &&
         safe(cam.parentElement.tagName).toLowerCase() !== 'a-scene'
       ) {
-        state.targetName = safe(cam.parentElement.id || cam.parentElement.tagName || 'camera-parent');
+        state.cameraTargetName = safe(cam.parentElement.id || cam.parentElement.tagName || 'camera-parent');
         return cam.parentElement;
       }
 
-      state.targetName = safe(cam.id || cam.tagName || 'camera');
+      state.cameraTargetName = safe(cam.id || cam.tagName || 'camera');
       return cam;
     }
 
     return null;
   }
 
-  function ensureTarget() {
-    if (state.target && document.body.contains(state.target)) return state.target;
+  function ensureCameraTarget() {
+    if (state.cameraTarget && document.body.contains(state.cameraTarget)) {
+      return state.cameraTarget;
+    }
 
-    state.target = findCameraTarget();
+    state.cameraTarget = findCameraTarget();
 
-    if (state.target && state.baseYaw == null) {
-      const r = getRotation(state.target);
+    if (state.cameraTarget && state.baseYaw == null) {
+      const r = getRotation(state.cameraTarget);
       state.baseYaw = r.y;
       state.yaw = r.y;
     }
 
-    return state.target;
+    return state.cameraTarget;
   }
 
   function suppressSceneSelectorClick(ms) {
     try {
-      window.LESSON_SCENE_SELECTOR_ROUTER_FIX?.suppressClick?.(Number(ms || 800));
+      window.LESSON_SCENE_SELECTOR_ROUTER_FIX?.suppressClick?.(Number(ms || 850));
     } catch (err) {}
   }
 
-  function panBy(deltaDeg, reason) {
-    const target = ensureTarget();
-    if (!target) return;
+  function askRouterToMark() {
+    try {
+      window.LESSON_SCENE_SELECTOR_ROUTER_FIX?.mark?.('scene-scroll-pan-collect');
+    } catch (err) {}
+  }
+
+  function getTopMostMarkedEntity(el, scene) {
+    if (!el || !scene) return el;
+
+    let cur = el;
+    let top = el;
+
+    while (cur && cur.parentElement && cur.parentElement !== scene) {
+      const p = cur.parentElement;
+
+      const parentMarked =
+        safe(p.getAttribute && p.getAttribute('data-lesson-scene-sid')) ||
+        (p.classList && p.classList.contains('lesson-scene-sid-router'));
+
+      if (!parentMarked) break;
+
+      top = p;
+      cur = p;
+    }
+
+    return top;
+  }
+
+  function collectPanTargets() {
+    const scene = $('a-scene');
+    if (!scene) return [];
+
+    askRouterToMark();
+
+    const marked = $all('[data-lesson-scene-sid], .lesson-scene-sid-router', scene);
+
+    const set = new Set();
+
+    marked.forEach((el) => {
+      const target = getTopMostMarkedEntity(el, scene);
+      if (!target || target === scene) return;
+
+      const tag = safe(target.tagName).toLowerCase();
+
+      // ไม่เอา text เดี่ยวถ้ามีพ่อแม่กลุ่มแล้ว แต่ถ้าไม่มีพ่อแม่ก็เอา text ได้
+      if (!['a-entity', 'a-text', 'a-plane', 'a-box'].includes(tag)) return;
+
+      set.add(target);
+    });
+
+    const targets = Array.from(set);
+
+    targets.forEach((el) => {
+      if (!state.basePositions.has(el)) {
+        state.basePositions.set(el, getPosition(el));
+      }
+    });
+
+    state.panTargets = targets;
+
+    return targets;
+  }
+
+  function applySelectorPan() {
+    const targets = collectPanTargets();
+
+    if (!targets.length) return false;
+
+    targets.forEach((el) => {
+      const base = state.basePositions.get(el) || getPosition(el);
+
+      setPosition(el, {
+        x: Number(base.x || 0) + state.panX,
+        y: Number(base.y || 0),
+        z: Number(base.z || 0)
+      });
+
+      try {
+        if (el.object3D) {
+          el.object3D.visible = true;
+        }
+      } catch (err) {}
+    });
+
+    state.mode = 'selector';
+
+    return true;
+  }
+
+  function applyCameraPan(deltaDeg, reason) {
+    const target = ensureCameraTarget();
+    if (!target) return false;
 
     const next = clamp(
       state.yaw + deltaDeg,
@@ -258,37 +415,77 @@
     state.yaw = next;
     setRotationY(target, next);
 
+    state.mode = 'camera';
+
+    console.log('[LessonSceneScroll] fallback camera pan', {
+      version: VERSION,
+      reason,
+      target: state.cameraTargetName,
+      yaw: Math.round(next)
+    });
+
+    return true;
+  }
+
+  function panSelectorBy(deltaUnits, reason) {
+    state.panX = clamp(
+      state.panX + Number(deltaUnits || 0),
+      CONFIG.minPanX,
+      CONFIG.maxPanX
+    );
+
+    const ok = applySelectorPan();
+
     state.lastPanAt = Date.now();
     suppressSceneSelectorClick(850);
 
     try {
-      document.documentElement.dataset.lessonSceneYaw = String(Math.round(next));
+      document.documentElement.dataset.lessonScenePanX = String(state.panX.toFixed(2));
     } catch (err) {}
 
-    console.log('[LessonSceneScroll] pan', {
-      version: VERSION,
-      reason,
-      target: state.targetName,
-      yaw: Math.round(next)
-    });
+    if (ok) {
+      console.log('[LessonSceneScroll] selector pan', {
+        version: VERSION,
+        reason,
+        panX: state.panX.toFixed(2),
+        targets: state.panTargets.length
+      });
+    }
+
+    return ok;
+  }
+
+  function panBy(delta, reason) {
+    if (!CONFIG.enabled) return;
+
+    const movedSelector = panSelectorBy(delta, reason);
+
+    if (!movedSelector) {
+      applyCameraPan(delta * CONFIG.cameraYawStep, reason);
+      state.lastPanAt = Date.now();
+      suppressSceneSelectorClick(850);
+    }
   }
 
   function resetPan() {
-    const target = ensureTarget();
-    if (!target) return;
+    state.panX = 0;
 
-    const y = Number(state.baseYaw || 0);
+    const movedSelector = applySelectorPan();
 
-    state.yaw = y;
-    setRotationY(target, y);
+    const target = ensureCameraTarget();
+    if (target) {
+      const y = Number(state.baseYaw || 0);
+      state.yaw = y;
+      setRotationY(target, y);
+    }
 
     state.lastPanAt = Date.now();
     suppressSceneSelectorClick(850);
 
     console.log('[LessonSceneScroll] reset', {
       version: VERSION,
-      target: state.targetName,
-      yaw: y
+      mode: movedSelector ? 'selector' : 'camera',
+      targets: state.panTargets.length
     });
   }
 
@@ -297,7 +494,6 @@
 
     const dx = Number(ev.deltaX || 0);
     const dy = Number(ev.deltaY || 0);
-
     const dominant = Math.abs(dx) > Math.abs(dy) ? dx : dy;
 
     if (Math.abs(dominant) < 2) return;
@@ -305,7 +501,7 @@
     ev.preventDefault();
     ev.stopPropagation();
 
-    panBy(dominant * CONFIG.wheelSensitivity, 'wheel');
+    panBy(dominant * CONFIG.wheelUnitSensitivity, 'wheel');
   }
 
   function onPointerDown(ev) {
@@ -325,7 +521,6 @@
 
   function onPointerMove(ev) {
     if (!state.dragging) return;
-
     if (state.pointerId != null && ev.pointerId !== state.pointerId) return;
 
     const x = Number(ev.clientX || 0);
@@ -338,12 +533,12 @@
     ev.preventDefault();
     ev.stopPropagation();
 
-    panBy(-dx * CONFIG.dragSensitivity, 'drag');
+    // ลากขวา = เลื่อน selector ไปขวาแบบเห็นชัด
+    panBy(dx * CONFIG.dragUnitSensitivity, 'drag');
   }
 
   function onPointerUp(ev) {
     if (!state.dragging) return;
-
     if (state.pointerId != null && ev.pointerId !== state.pointerId) return;
 
     state.dragging = false;
@@ -363,10 +558,10 @@
 
     if (key === 'ArrowLeft') {
       ev.preventDefault();
-      panBy(-CONFIG.buttonStepDeg, 'keyboard-left');
+      panBy(-CONFIG.panUnitStep, 'keyboard-left');
     } else if (key === 'ArrowRight') {
       ev.preventDefault();
-      panBy(CONFIG.buttonStepDeg, 'keyboard-right');
+      panBy(CONFIG.panUnitStep, 'keyboard-right');
     } else if (key === 'Home') {
       ev.preventDefault();
       resetPan();
@@ -489,11 +684,11 @@
     });
 
     $('#lessonScenePanLeft')?.addEventListener('click', () => {
-      panBy(-CONFIG.buttonStepDeg, 'button-left');
+      panBy(-CONFIG.panUnitStep, 'button-left');
     });
 
     $('#lessonScenePanRight')?.addEventListener('click', () => {
-      panBy(CONFIG.buttonStepDeg, 'button-right');
+      panBy(CONFIG.panUnitStep, 'button-right');
     });
 
     $('#lessonScenePanReset')?.addEventListener('click', () => {
@@ -532,22 +727,26 @@
 
   function boot() {
     ensureCSS();
-    ensureTarget();
+    ensureCameraTarget();
+    collectPanTargets();
     ensureControls();
     bindEvents();
 
     setTimeout(() => {
-      ensureTarget();
+      ensureCameraTarget();
+      collectPanTargets();
       ensureControls();
     }, 500);
 
     setTimeout(() => {
-      ensureTarget();
+      ensureCameraTarget();
+      collectPanTargets();
       ensureControls();
     }, 1500);
 
     setTimeout(() => {
-      ensureTarget();
+      ensureCameraTarget();
+      collectPanTargets();
       ensureControls();
     }, 3000);
 
@@ -557,7 +756,20 @@
       state,
       panBy,
       resetPan,
-      ensureTarget,
+      collectPanTargets,
+      applySelectorPan,
+      ensureCameraTarget,
+      debug() {
+        collectPanTargets();
+        return {
+          version: VERSION,
+          mode: state.mode,
+          panX: state.panX,
+          targets: state.panTargets.length,
+          cameraTarget: state.cameraTargetName || '',
+          lastPanAt: state.lastPanAt
+        };
+      },
       enable() {
         CONFIG.enabled = true;
       },
@@ -574,7 +786,8 @@
 
     console.log('[LessonSceneScroll]', VERSION, {
       mode: getViewMode(),
-      target: state.targetName || '(not found yet)'
+      targets: state.panTargets.length,
+      cameraTarget: state.cameraTargetName || '(not found yet)'
     });
   }
 
