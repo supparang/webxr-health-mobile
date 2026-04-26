@@ -1,1018 +1,711 @@
-// === /english/js/lesson-data.js ===
-// PATCH v20260424j-LESSON-DATA-A2-B1PLUS-600
-// English Quest / TechPath VR
+// /english/js/lesson-data.js
+// TechPath Lesson Data — Ultimate r9.2
+// PATCH v20260426-lesson-data-4levels-r9-2
 // ✅ 15 sessions
-// ✅ each S has one main route type
-// ✅ every 3 sessions = boss: S3, S6, S9, S12, S15
-// ✅ difficulty: easy / normal / hard / challenge
-// ✅ CEFR: A2 / A2+ / B1 / B1+
-// ✅ 10 items per difficulty per session
-// ✅ total: 15 × 4 × 10 = 600 generated items
-// ✅ keeps legacy export names: missionDB, pickAdaptiveMissionItem
+// ✅ 4 levels per session: easy(A2), normal(A2+), hard(B1), challenge(B1+)
+// ✅ 10 missions per level
+// ✅ 40 missions per session
+// ✅ 600 missions total
+// ✅ Compatible with lesson-main.js: export { missionDB }
+// ✅ Compatible shapes: group.easy / group.normal / group.hard / group.challenge
+// ✅ Also provides group.missions, group.variants, group.levels, group.items
 
-const DATA_VERSION = "v20260424j-LESSON-DATA-A2-B1PLUS-600";
+export const LESSON_DATA_PATCH = "v20260426-lesson-data-4levels-r9-2";
 
-export const DIFFICULTY_META = {
+export const LEVELS = ["easy", "normal", "hard", "challenge"];
+
+export const LEVEL_META = {
   easy: {
-    key: "easy",
-    label: "Easy",
+    label: "EASY",
     cefr: "A2",
-    passScore: 65,
-    itemCount: 10
+    band: "A2",
+    speed: "slow",
+    readingLength: "short",
+    sentenceTarget: 8,
+    keywordNeed: 2
   },
   normal: {
-    key: "normal",
-    label: "Normal",
+    label: "NORMAL",
     cefr: "A2+",
-    passScore: 72,
-    itemCount: 10
+    band: "A2+",
+    speed: "clear",
+    readingLength: "medium",
+    sentenceTarget: 10,
+    keywordNeed: 3
   },
   hard: {
-    key: "hard",
-    label: "Hard",
+    label: "HARD",
     cefr: "B1",
-    passScore: 78,
-    itemCount: 10
+    band: "B1",
+    speed: "natural",
+    readingLength: "extended",
+    sentenceTarget: 12,
+    keywordNeed: 4
   },
   challenge: {
-    key: "challenge",
-    label: "Challenge",
+    label: "CHALLENGE",
     cefr: "B1+",
-    passScore: 84,
-    itemCount: 10
+    band: "B1+",
+    speed: "natural plus",
+    readingLength: "extended plus",
+    sentenceTarget: 14,
+    keywordNeed: 5
   }
 };
 
-export const DIFFICULTY_ORDER = ["easy", "normal", "hard", "challenge"];
-
-export const SESSION_ROUTES = [
+export const SESSION_BLUEPRINTS = [
   {
     id: 1,
-    sid: "S1",
-    type: "speaking",
-    title: "S1: Introduction",
-    theme: "self-introduction as a CS/AI student",
-    boss: false
+    code: "S01",
+    title: "Self-Introduction in Tech",
+    shortTitle: "Self-Intro",
+    focus: "Introduce yourself as a CS/AI student",
+    domain: "profile",
+    keywords: ["student", "computer science", "AI", "project", "goal"],
+    context: "A student joins a new technology class and introduces their background."
   },
   {
     id: 2,
-    sid: "S2",
-    type: "listening",
-    title: "S2: Academic Background",
-    theme: "academic background and university projects",
-    boss: false
+    code: "S02",
+    title: "Academic Background and Projects",
+    shortTitle: "Academic Background",
+    focus: "Talk about courses, projects, and learning goals",
+    domain: "academic",
+    keywords: ["course", "project", "programming", "database", "team"],
+    context: "A student explains their academic background and a class project."
   },
   {
     id: 3,
-    sid: "S3",
-    type: "boss",
-    title: "S3: Boss 1 — Intro + Academic Challenge",
-    theme: "introduction, study background, and basic tech roles",
-    boss: true,
-    bossNo: 1
+    code: "S03",
+    title: "Tech Jobs and Roles",
+    shortTitle: "Tech Roles",
+    focus: "Describe jobs and responsibilities in tech teams",
+    domain: "career",
+    keywords: ["developer", "designer", "tester", "data analyst", "team"],
+    context: "A team discusses different roles in a software project."
   },
   {
     id: 4,
-    sid: "S4",
-    type: "reading",
-    title: "S4: Tech Jobs and Roles",
-    theme: "technology jobs and responsibilities",
-    boss: false
+    code: "S04",
+    title: "Daily Workplace Communication",
+    shortTitle: "Workplace Talk",
+    focus: "Use short workplace phrases for daily tasks",
+    domain: "workplace",
+    keywords: ["task", "deadline", "update", "message", "schedule"],
+    context: "A student intern communicates with a team during a normal workday."
   },
   {
     id: 5,
-    sid: "S5",
-    type: "writing",
-    title: "S5: Emails and Chat",
-    theme: "workplace email and chat messages",
-    boss: false
+    code: "S05",
+    title: "Emails and Chat",
+    shortTitle: "Emails & Chat",
+    focus: "Write polite emails and chat messages",
+    domain: "communication",
+    keywords: ["email", "reply", "request", "attach", "confirm"],
+    context: "A student sends a short message to ask for information politely."
   },
   {
     id: 6,
-    sid: "S6",
-    type: "boss",
-    title: "S6: Boss 2 — Workplace Communication",
-    theme: "daily work, emails, meetings, and teamwork",
-    boss: true,
-    bossNo: 2
+    code: "S06",
+    title: "Meetings",
+    shortTitle: "Meetings",
+    focus: "Join, arrange, and summarize meetings",
+    domain: "meeting",
+    keywords: ["meeting", "agenda", "minute", "decision", "follow up"],
+    context: "A team plans a short online meeting about project progress."
   },
   {
     id: 7,
-    sid: "S7",
-    type: "speaking",
-    title: "S7: Explaining a System",
-    theme: "explaining how a system works",
-    boss: false
+    code: "S07",
+    title: "Explaining a System",
+    shortTitle: "System Explanation",
+    focus: "Explain how a simple system works",
+    domain: "system",
+    keywords: ["system", "input", "process", "output", "user"],
+    context: "A student explains a web application to a classmate."
   },
   {
     id: 8,
-    sid: "S8",
-    type: "reading",
-    title: "S8: Problems and Bugs",
-    theme: "bug reports and problem descriptions",
-    boss: false
+    code: "S08",
+    title: "Problems and Bugs",
+    shortTitle: "Problems & Bugs",
+    focus: "Describe problems, bugs, and solutions",
+    domain: "debugging",
+    keywords: ["bug", "error", "problem", "fix", "test"],
+    context: "A team finds a bug in an app and discusses how to fix it."
   },
   {
     id: 9,
-    sid: "S9",
-    type: "boss",
-    title: "S9: Boss 3 — Team Stand-up Mission",
-    theme: "scrum, bug fixing, and project progress",
-    boss: true,
-    bossNo: 3
+    code: "S09",
+    title: "Client Meeting",
+    shortTitle: "Client Meeting",
+    focus: "Ask questions and respond to client needs",
+    domain: "client",
+    keywords: ["client", "requirement", "feature", "question", "confirm"],
+    context: "A student team meets a client to ask about app requirements."
   },
   {
     id: 10,
-    sid: "S10",
-    type: "listening",
-    title: "S10: Client Communication",
-    theme: "client requests and project updates",
-    boss: false
+    code: "S10",
+    title: "Data and AI Communication",
+    shortTitle: "Data & AI",
+    focus: "Explain data and AI ideas simply",
+    domain: "ai",
+    keywords: ["data", "model", "AI", "prediction", "accuracy"],
+    context: "A student explains an AI model and how it uses data."
   },
   {
     id: 11,
-    sid: "S11",
-    type: "writing",
-    title: "S11: Data and AI Communication",
-    theme: "data, AI, ethics, and deployment",
-    boss: false
+    code: "S11",
+    title: "Team Collaboration and Stand-up",
+    shortTitle: "Team Stand-up",
+    focus: "Report progress, blockers, and next steps",
+    domain: "teamwork",
+    keywords: ["progress", "blocker", "next step", "support", "team"],
+    context: "A team has a short stand-up meeting before working on a project."
   },
   {
     id: 12,
-    sid: "S12",
-    type: "boss",
-    title: "S12: Boss 4 — Portfolio + AI Mission",
-    theme: "portfolio, AI explanation, and client demo",
-    boss: true,
-    bossNo: 4
+    code: "S12",
+    title: "Product Demo",
+    shortTitle: "Product Demo",
+    focus: "Present features and demonstrate a product",
+    domain: "demo",
+    keywords: ["demo", "feature", "screen", "user", "benefit"],
+    context: "A student demonstrates a prototype app to classmates."
   },
   {
     id: 13,
-    sid: "S13",
-    type: "speaking",
-    title: "S13: Job Interview",
-    theme: "job interview for CS/AI students",
-    boss: false
+    code: "S13",
+    title: "CV and Portfolio Language",
+    shortTitle: "CV & Portfolio",
+    focus: "Describe skills, projects, and achievements",
+    domain: "portfolio",
+    keywords: ["skill", "portfolio", "experience", "project", "achievement"],
+    context: "A student prepares a short portfolio profile for a tech internship."
   },
   {
     id: 14,
-    sid: "S14",
-    type: "speaking",
-    title: "S14: Project Pitch",
-    theme: "project pitching and presentation",
-    boss: false
+    code: "S14",
+    title: "Job Interview",
+    shortTitle: "Job Interview",
+    focus: "Answer common interview questions",
+    domain: "interview",
+    keywords: ["interview", "strength", "experience", "team", "learn"],
+    context: "A student practices answering interview questions for a junior tech role."
   },
   {
     id: 15,
-    sid: "S15",
-    type: "finalBoss",
-    title: "S15: Final Boss — Capstone Career Mission",
-    theme: "final career and capstone mission",
-    boss: true,
-    bossNo: 5
+    code: "S15",
+    title: "Project Pitch",
+    shortTitle: "Project Pitch",
+    focus: "Pitch a project clearly and confidently",
+    domain: "pitch",
+    keywords: ["problem", "solution", "user", "impact", "prototype"],
+    context: "A student team gives a final pitch for a technology project."
   }
 ];
 
-const BOSS_SKILL_CYCLE = [
+const TYPE_PATTERN = [
   "listening",
   "speaking",
   "reading",
   "writing",
-  "speaking",
-  "listening",
   "reading",
   "writing",
+  "listening",
   "speaking",
+  "reading",
   "writing"
 ];
 
-const NAMES = [
-  "Anna",
-  "Ben",
-  "Mina",
-  "Krit",
-  "Nina",
-  "Mark",
-  "Ploy",
-  "Jay",
-  "Emma",
-  "Leo"
-];
+const LETTERS = ["A", "B", "C"];
 
-const ROLES = [
-  "student",
-  "developer",
-  "designer",
-  "tester",
-  "team member",
-  "project leader",
-  "AI learner",
-  "web developer",
-  "data assistant",
-  "intern"
-];
+const GENERIC_DISTRACTORS = {
+  profile: ["A food menu", "A travel story", "A sports event", "A shopping list"],
+  academic: ["A restaurant order", "A weather report", "A movie review", "A bus timetable"],
+  career: ["A cooking recipe", "A birthday party", "A hotel booking", "A holiday plan"],
+  workplace: ["A song playlist", "A restaurant review", "A family story", "A map direction"],
+  communication: ["A health exercise", "A game rule", "A city tour", "A product price"],
+  meeting: ["A clothing store", "A music lesson", "A train ticket", "A movie ticket"],
+  system: ["A pet story", "A holiday photo", "A recipe", "A sports match"],
+  debugging: ["A simple technology learning task", "A food menu", "A travel story", "A music concert"],
+  client: ["A classroom rule", "A lunch menu", "A museum visit", "A sport result"],
+  ai: ["A flower garden", "A cooking show", "A bus stop", "A cartoon story"],
+  teamwork: ["A shopping mall", "A family dinner", "A movie scene", "A weather forecast"],
+  demo: ["A history lesson", "A train route", "A restaurant table", "A birthday card"],
+  portfolio: ["A vacation plan", "A football game", "A cooking class", "A map of a park"],
+  interview: ["A hotel room", "A shopping receipt", "A pet care note", "A music event"],
+  pitch: ["A travel advertisement", "A birthday plan", "A lunch order", "A sport club"]
+};
 
-function cleanText(v) {
-  return String(v == null ? "" : v).trim();
-}
+const VERB_BANK = {
+  profile: ["introduce", "study", "learn", "build", "practice"],
+  academic: ["explain", "complete", "present", "review", "submit"],
+  career: ["design", "develop", "test", "analyze", "support"],
+  workplace: ["update", "confirm", "schedule", "report", "share"],
+  communication: ["reply", "request", "attach", "confirm", "send"],
+  meeting: ["join", "discuss", "summarize", "decide", "follow up"],
+  system: ["connect", "process", "display", "save", "send"],
+  debugging: ["find", "fix", "test", "check", "report"],
+  client: ["ask", "confirm", "clarify", "suggest", "listen"],
+  ai: ["collect", "train", "predict", "evaluate", "explain"],
+  teamwork: ["coordinate", "support", "report", "review", "help"],
+  demo: ["show", "demonstrate", "explain", "highlight", "answer"],
+  portfolio: ["describe", "include", "highlight", "organize", "share"],
+  interview: ["answer", "explain", "prepare", "describe", "learn"],
+  pitch: ["identify", "propose", "explain", "persuade", "present"]
+};
 
-function normalizeDifficulty(v = "normal") {
-  const raw = cleanText(v).toLowerCase();
-
-  if (["easy", "e", "a2"].includes(raw)) return "easy";
-  if (["normal", "medium", "n", "a2+"].includes(raw)) return "normal";
-  if (["hard", "h", "b1"].includes(raw)) return "hard";
-  if (["challenge", "expert", "x", "b1+"].includes(raw)) return "challenge";
-
-  return "normal";
-}
+const NOUN_BANK = {
+  profile: ["background", "major", "goal", "project", "skill"],
+  academic: ["course", "assignment", "project", "database", "presentation"],
+  career: ["role", "responsibility", "developer", "tester", "analyst"],
+  workplace: ["task", "deadline", "update", "schedule", "message"],
+  communication: ["email", "reply", "request", "file", "attachment"],
+  meeting: ["agenda", "meeting", "minute", "decision", "action item"],
+  system: ["input", "process", "output", "feature", "screen"],
+  debugging: ["bug", "error", "test", "solution", "system"],
+  client: ["client", "requirement", "feature", "question", "feedback"],
+  ai: ["data", "model", "prediction", "accuracy", "result"],
+  teamwork: ["progress", "blocker", "support", "next step", "team"],
+  demo: ["feature", "demo", "screen", "button", "benefit"],
+  portfolio: ["skill", "project", "experience", "portfolio", "achievement"],
+  interview: ["strength", "experience", "challenge", "answer", "example"],
+  pitch: ["problem", "solution", "user", "impact", "prototype"]
+};
 
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
 
-function toLegacyChoices(correct, distractors = []) {
-  const letters = ["A", "B", "C"];
-  const raw = [correct, ...distractors].slice(0, 3);
-  return raw.map((text, index) => `${letters[index]}. ${cleanText(text)}`);
+function normalizeLevel(level) {
+  return LEVELS.includes(level) ? level : "normal";
 }
 
-function makeChoiceItemBase({ correct, distractors = [] }) {
-  return {
-    correct,
-    distractors,
-    choices: toLegacyChoices(correct, distractors),
-    answer: "A"
-  };
+function titleCase(text) {
+  return String(text || "")
+    .split(" ")
+    .map((w) => w ? w[0].toUpperCase() + w.slice(1) : "")
+    .join(" ");
 }
 
-function getSkillForRoute(route, index) {
-  if (route.type === "boss" || route.type === "finalBoss") {
-    return BOSS_SKILL_CYCLE[(index - 1) % BOSS_SKILL_CYCLE.length];
+function clean(text) {
+  return String(text || "").replace(/\s+/g, " ").trim();
+}
+
+function getCorrectLetter(seed) {
+  return LETTERS[Math.abs(seed) % LETTERS.length];
+}
+
+function makeChoices(correctText, distractors, seed = 0) {
+  const correctLetter = getCorrectLetter(seed);
+  const pool = [...new Set((distractors || []).filter(Boolean))];
+
+  while (pool.length < 2) {
+    pool.push("A different topic");
   }
 
-  return route.type;
-}
-
-function getBossPhase(index) {
-  if (index <= 3) return "warmup";
-  if (index <= 7) return "battle";
-  return "finish";
-}
-
-function speakingTarget(route, diff, index) {
-  const name = NAMES[(index - 1) % NAMES.length];
-
   const map = {
-    easy: [
-      `My name is ${name}.`,
-      `I am a computer science student.`,
-      `I study artificial intelligence.`,
-      `I like coding.`,
-      `I can build a simple app.`,
-      `I work with my team.`,
-      `I test the web page.`,
-      `I want to learn English.`,
-      `I use data in my project.`,
-      `I am ready to present.`
-    ],
-    normal: [
-      `My name is ${name}, and I study computer science.`,
-      `I am learning artificial intelligence for my future career.`,
-      `I can write simple code and test my program.`,
-      `My project is a web app for students.`,
-      `I use English to explain my technology project.`,
-      `I can work with a team and share ideas.`,
-      `I want to become a software developer.`,
-      `I can describe a bug in simple English.`,
-      `Our system helps users find information faster.`,
-      `I can present my project clearly.`
-    ],
-    hard: [
-      `My name is ${name}. I study AI because I want to solve real problems with technology.`,
-      `A good developer should write clear code, test it, and communicate with the team.`,
-      `My application helps users save time by organizing information clearly.`,
-      `I can describe a bug, explain the problem, and suggest a possible solution.`,
-      `Artificial intelligence can help users make better decisions from data.`,
-      `I am interested in this career because I like building useful digital tools.`,
-      `In my project, users can log in, save data, and view a simple dashboard.`,
-      `I want to improve my English because many technology documents are written in English.`,
-      `My team tested the main features before the final presentation.`,
-      `I can present my skills, my project, and my learning goal in English.`
-    ],
-    challenge: [
-      `My name is ${name}. I am a CS and AI student, and I want to build applications that support real users.`,
-      `My project solves a simple but important problem by using data, a clear interface, and useful feedback.`,
-      `Communication is important for developers because a good idea must be explained clearly to users and teammates.`,
-      `In my future job, I want to design AI tools that are helpful, safe, and easy for people to understand.`,
-      `When I find a bug, I check the steps, test the feature, and explain the issue to my team clearly.`,
-      `This system collects user input, processes the data, and shows useful feedback on a dashboard.`,
-      `I chose this project because it connects programming skills with a real need in education or business.`,
-      `A strong portfolio should show the problem, the solution, the technology, and the result of the project.`,
-      `During a project pitch, I should explain the user problem, the main feature, and the value of the solution.`,
-      `I can introduce myself, explain my skills, and present my final project with confidence.`
-    ]
+    A: pool[0],
+    B: pool[1],
+    C: pool[2] || pool[0]
   };
 
-  return map[diff][index - 1];
-}
+  map[correctLetter] = correctText;
 
-function makeSpeakingItem(route, diff, index) {
-  const meta = DIFFICULTY_META[diff];
-  const target = speakingTarget(route, diff, index);
-
-  return {
-    id: `${route.sid}-SP-${diff.toUpperCase()}-${pad2(index)}`,
-    type: "speaking",
-    skill: "speaking",
-    difficulty: diff,
-    cefr: meta.cefr,
-    desc: `พูดตามระดับ ${meta.cefr}`,
-    prompt: "Say the sentence clearly.",
-    target,
-    exactPhrase: target
-      .toLowerCase()
-      .replace(/[’']/g, "")
-      .replace(/[^a-z0-9\s]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim(),
-    passScore: meta.passScore,
-    failMsg: "พูดให้ชัดและครบประโยคอีกครั้ง",
-    points: diff === "challenge" ? 20 : diff === "hard" ? 15 : 10
-  };
-}
-
-function listeningScript(route, diff, index) {
-  const name = NAMES[(index - 1) % NAMES.length];
-
-  const map = {
-    easy: [
-      `${name} studies computer science.`,
-      `${name} likes coding.`,
-      `${name} uses a laptop for class.`,
-      `${name} joins a team meeting.`,
-      `${name} checks the project file.`,
-      `${name} tests a web page.`,
-      `${name} sends an email today.`,
-      `${name} opens the task board.`,
-      `${name} writes a short note.`,
-      `${name} is ready for class.`
-    ],
-    normal: [
-      `${name} is a computer science student. The project is a simple web app for students.`,
-      `${name} studies AI and wants to build useful applications.`,
-      `${name} joins a team meeting and shares project progress.`,
-      `${name} checks the mobile version before the client demo.`,
-      `${name} writes a short summary after the online meeting.`,
-      `${name} explains that the login page is almost ready for testing.`,
-      `${name} sends the documentation to the team before lunch.`,
-      `${name} uses a task board to organize work and deadlines.`,
-      `${name} practices English to prepare for a job interview.`,
-      `${name} presents a simple project idea to classmates.`
-    ],
-    hard: [
-      `${name} is explaining a university project. The app helps students organize data, check progress, and solve a small problem.`,
-      `${name} reports that the login button works on desktop, but it still needs more testing on mobile devices.`,
-      `${name} asks the team to review the API documentation before starting the next development task.`,
-      `${name} explains that the dashboard shows user progress and helps teachers understand learning results.`,
-      `${name} tells the client that the main flow is ready, but the team needs two more days for testing.`,
-      `${name} says that communication is important because developers must explain technical problems clearly.`,
-      `${name} describes a bug, gives the steps to reproduce it, and suggests checking the browser console.`,
-      `${name} wants to improve English because many software documents and tutorials use technical English.`,
-      `${name} prepares a project pitch that explains the problem, solution, and benefit for users.`,
-      `${name} says that AI can support learning, but developers should test the output carefully.`
-    ],
-    challenge: [
-      `${name} is presenting a CS and AI project. The system collects user input, analyzes simple data, and shows useful feedback on a dashboard.`,
-      `${name} explains that the team improved the user interface after testing the first prototype with students.`,
-      `${name} reports that the model gives useful suggestions, but the team still needs to check privacy and fairness.`,
-      `${name} tells the client that the current version supports the main workflow, while advanced analytics will be added later.`,
-      `${name} explains that the project is valuable because it connects programming skills with a real educational need.`,
-      `${name} says the team used feedback from users to redesign the form, reduce confusion, and improve task completion.`,
-      `${name} describes how the system receives data, processes it, and displays results in a clear visual dashboard.`,
-      `${name} explains that a good project presentation should include the user problem, main feature, evidence, and next step.`,
-      `${name} discusses how AI can help users make decisions, but human review is still important for safety and accuracy.`,
-      `${name} summarizes the final project by explaining the problem, the solution, the technology, and the expected impact.`
-    ]
-  };
-
-  return map[diff][index - 1];
-}
-
-function makeListeningItem(route, diff, index) {
-  const meta = DIFFICULTY_META[diff];
-  const audioText = listeningScript(route, diff, index);
-
-  const correctByDiff = {
-    easy: "A simple study or technology action",
-    normal: "A university technology project or teamwork task",
-    hard: "A project update, bug report, or technical explanation",
-    challenge: "A detailed CS/AI project explanation with user value"
-  };
-
-  return {
-    id: `${route.sid}-LI-${diff.toUpperCase()}-${pad2(index)}`,
-    type: "listening",
-    skill: "listening",
-    difficulty: diff,
-    cefr: meta.cefr,
-    desc: `ฟังแล้วเลือกคำตอบ ระดับ ${meta.cefr}`,
-    audioText,
-    question: "What is the main idea?",
-    ...makeChoiceItemBase({
-      correct: correctByDiff[diff],
-      distractors: [
-        "A restaurant order",
-        "A sports activity"
-      ]
-    }),
-    passScore: meta.passScore,
-    points: diff === "challenge" ? 20 : diff === "hard" ? 15 : 10
-  };
-}
-
-function readingPassage(route, diff, index) {
-  const map = {
-    easy: [
-      "A student is learning coding. The student writes simple programs and tests them.",
-      "A web page has a button. The user clicks the button to open a form.",
-      "A team has a project. They meet every week and share tasks.",
-      "A student uses a laptop to study English and technology.",
-      "The app is simple. It helps users save notes.",
-      "A developer checks a bug on a web page.",
-      "The teacher asks students to send a short file.",
-      "A student wants to be a software developer.",
-      "The team uses data in a small project.",
-      "The project is ready for a short demo."
-    ],
-    normal: [
-      "Mina is a CS student. She is building a web app for her class project. The app helps students save notes and check tasks.",
-      "A small team is preparing a demo. One student designs the page, one student tests the form, and one student writes the report.",
-      "The login page works on a computer, but it does not work well on a phone. The team needs to test it again.",
-      "A client asks for a simple dashboard. The team will show the first version next week.",
-      "A student writes an email to explain the project progress and ask for feedback.",
-      "The app helps users organize tasks. It shows deadlines, progress, and short reminders.",
-      "A developer reads the API document before connecting the app to the server.",
-      "The team uses online meetings because some members study from home.",
-      "A student practices English to explain technical words in a job interview.",
-      "The project pitch explains the problem, the solution, and the benefit for users."
-    ],
-    hard: [
-      "A software team is testing a new feature. The login button works on a computer, but it does not work well on a mobile phone. The team needs to check the design and fix the bug.",
-      "An AI project can help users find information faster. The system receives a question, searches the data, and gives a short answer. However, the developer must test the answer carefully.",
-      "The client wants a dashboard that is easy to understand. The team decides to show charts, progress numbers, and a short summary on the main page.",
-      "A student portfolio should show more than screenshots. It should explain the problem, the technology, the role of the student, and the result of the project.",
-      "During a stand-up meeting, each team member explains what they did yesterday, what they will do today, and what problems they have.",
-      "The team found a serious bug in the mobile version. The page opens correctly, but the submit button does not send data to the server.",
-      "A project report should describe the user problem, the design process, the test result, and what the team learned.",
-      "The developer uses English when reading documentation, asking questions online, and writing comments for teammates.",
-      "A good client message should be polite, clear, and specific. It should explain what is finished and what still needs work.",
-      "The AI tool gives useful suggestions, but students should review the output and check whether it is correct."
-    ],
-    challenge: [
-      "A capstone project should connect technical skills with a real user need. A strong team explains the problem clearly, designs a useful solution, tests it with users, and presents evidence that the system works.",
-      "The team developed an AI learning assistant for students. It collects answers, identifies weak topics, and recommends practice tasks. The main challenge is to make the feedback useful without confusing beginners.",
-      "A client meeting is not only about showing features. Developers must listen carefully, ask follow-up questions, confirm requirements, and explain what can be delivered within the project timeline.",
-      "A bug report is more useful when it includes clear steps, the expected result, the actual result, the device, and screenshots. This information helps the team reproduce and fix the problem faster.",
-      "A project pitch should persuade the audience that the problem is real and the solution is practical. It should avoid too many technical details and focus on user value.",
-      "Remote teamwork requires clear communication. Team members should update tasks, respect time zones, write short summaries, and make sure decisions are recorded after meetings.",
-      "AI systems can support decision making, but developers must consider accuracy, privacy, fairness, and user trust. A useful system should explain its output in a simple way.",
-      "A portfolio interview gives students a chance to show not only what they built but also how they solved problems, worked with others, and improved from feedback.",
-      "A dashboard is effective when users can understand key information quickly. Good design uses clear labels, simple charts, and enough context for users to make decisions.",
-      "In the final presentation, students should explain the user problem, the solution, the technology, testing results, limitations, and future improvements."
-    ]
-  };
-
-  return map[diff][index - 1];
-}
-
-function makeReadingItem(route, diff, index) {
-  const meta = DIFFICULTY_META[diff];
-  const passage = readingPassage(route, diff, index);
-
-  const correctByDiff = {
-    easy: "A simple technology learning task",
-    normal: "A CS project or teamwork situation",
-    hard: "A technical problem or project explanation",
-    challenge: "A detailed project, AI, or professional communication idea"
-  };
-
-  return {
-    id: `${route.sid}-RE-${diff.toUpperCase()}-${pad2(index)}`,
-    type: "reading",
-    skill: "reading",
-    difficulty: diff,
-    cefr: meta.cefr,
-    desc: `อ่านข้อความแล้วเลือกคำตอบ ระดับ ${meta.cefr}`,
-    passage,
-    question: "What is the passage mainly about?",
-    ...makeChoiceItemBase({
-      correct: correctByDiff[diff],
-      distractors: [
-        "A food menu",
-        "A travel story"
-      ]
-    }),
-    passScore: meta.passScore,
-    points: diff === "challenge" ? 20 : diff === "hard" ? 15 : 10
-  };
-}
-
-function writingPrompt(route, diff, index) {
-  const map = {
-    easy: [
-      {
-        prompt: "SYSTEM: Write one simple sentence about your study.\nYOU:",
-        starter: "Starter: I study computer science.",
-        keywords: ["i", "study", "computer", "science"]
-      },
-      {
-        prompt: "SYSTEM: Write one simple sentence about coding.\nYOU:",
-        starter: "Starter: I like coding.",
-        keywords: ["i", "like", "coding", "code"]
-      },
-      {
-        prompt: "SYSTEM: Write one sentence about your team.\nYOU:",
-        starter: "Starter: I work with my team.",
-        keywords: ["i", "work", "team"]
-      },
-      {
-        prompt: "SYSTEM: Write one sentence about an app.\nYOU:",
-        starter: "Starter: This app is useful.",
-        keywords: ["app", "is", "useful"]
-      },
-      {
-        prompt: "SYSTEM: Write one sentence about data.\nYOU:",
-        starter: "Starter: Data is important.",
-        keywords: ["data", "is", "important"]
-      },
-      {
-        prompt: "SYSTEM: Write one sentence about a bug.\nYOU:",
-        starter: "Starter: The button has a bug.",
-        keywords: ["bug", "button"]
-      },
-      {
-        prompt: "SYSTEM: Write one sentence about English.\nYOU:",
-        starter: "Starter: I learn English.",
-        keywords: ["i", "learn", "english"]
-      },
-      {
-        prompt: "SYSTEM: Write one sentence about your project.\nYOU:",
-        starter: "Starter: My project is a web app.",
-        keywords: ["project", "web", "app"]
-      },
-      {
-        prompt: "SYSTEM: Write one sentence about your goal.\nYOU:",
-        starter: "Starter: I want to be a developer.",
-        keywords: ["i", "want", "developer"]
-      },
-      {
-        prompt: "SYSTEM: Write one thank-you sentence.\nYOU:",
-        starter: "Starter: Thank you for your help.",
-        keywords: ["thank", "you", "help"]
-      }
-    ],
-    normal: [
-      {
-        prompt: "SYSTEM: Write two sentences about your CS/AI project.\nYOU:",
-        starter: "Starter: I am building a web app. It helps students manage tasks.",
-        keywords: ["web", "app", "students", "tasks"]
-      },
-      {
-        prompt: "SYSTEM: Write a short workplace chat message.\nYOU:",
-        starter: "Starter: I finished the login page. Please check it today.",
-        keywords: ["finished", "login", "check"]
-      },
-      {
-        prompt: "SYSTEM: Write a short email to ask for feedback.\nYOU:",
-        starter: "Starter: Could you please check my project and give feedback?",
-        keywords: ["please", "check", "feedback"]
-      },
-      {
-        prompt: "SYSTEM: Write two sentences about a bug.\nYOU:",
-        starter: "Starter: The button does not work. I will test it again.",
-        keywords: ["button", "does", "not", "work", "test"]
-      },
-      {
-        prompt: "SYSTEM: Write a short project update.\nYOU:",
-        starter: "Starter: The main page is ready. We still need to test the form.",
-        keywords: ["main", "page", "ready", "test"]
-      },
-      {
-        prompt: "SYSTEM: Write two sentences about AI.\nYOU:",
-        starter: "Starter: AI can help people learn. We should check the answer carefully.",
-        keywords: ["ai", "help", "learn", "check"]
-      },
-      {
-        prompt: "SYSTEM: Write a short message after a meeting.\nYOU:",
-        starter: "Starter: Thank you for the meeting. I will update the task board.",
-        keywords: ["meeting", "update", "task"]
-      },
-      {
-        prompt: "SYSTEM: Write two sentences about your skill.\nYOU:",
-        starter: "Starter: I can use Python. I want to improve my English.",
-        keywords: ["python", "improve", "english"]
-      },
-      {
-        prompt: "SYSTEM: Write a short client reply.\nYOU:",
-        starter: "Starter: Yes, we can update the design and send it tomorrow.",
-        keywords: ["update", "design", "send"]
-      },
-      {
-        prompt: "SYSTEM: Write a short portfolio sentence.\nYOU:",
-        starter: "Starter: My portfolio shows my web app and AI project.",
-        keywords: ["portfolio", "web", "ai", "project"]
-      }
-    ],
-    hard: [
-      {
-        prompt: "SYSTEM: Write a short paragraph about your project problem and solution.\nYOU:",
-        starter: "Starter: Our project helps students manage deadlines. It solves the problem of missed tasks.",
-        keywords: ["project", "problem", "solution", "students"]
-      },
-      {
-        prompt: "SYSTEM: Write a bug report with the problem and expected result.\nYOU:",
-        starter: "Starter: The login button does not work on mobile. The page should open correctly after login.",
-        keywords: ["login", "mobile", "should", "correctly"]
-      },
-      {
-        prompt: "SYSTEM: Write a short email to a client about project progress.\nYOU:",
-        starter: "Starter: The main flow is ready for testing. We need two more days to finish the update.",
-        keywords: ["main", "flow", "testing", "update"]
-      },
-      {
-        prompt: "SYSTEM: Write a short explanation of how your system works.\nYOU:",
-        starter: "Starter: The system collects user input, saves data, and shows progress on a dashboard.",
-        keywords: ["system", "collects", "data", "dashboard"]
-      },
-      {
-        prompt: "SYSTEM: Write a short job interview answer about your strength.\nYOU:",
-        starter: "Starter: My strength is teamwork because I can communicate and solve problems with others.",
-        keywords: ["strength", "teamwork", "communicate", "problems"]
-      },
-      {
-        prompt: "SYSTEM: Write a short paragraph about AI and data.\nYOU:",
-        starter: "Starter: AI uses data to make predictions. Developers should test the results carefully.",
-        keywords: ["ai", "data", "predictions", "test"]
-      },
-      {
-        prompt: "SYSTEM: Write a project pitch paragraph.\nYOU:",
-        starter: "Starter: Our app solves a real student problem. It helps users plan tasks and check progress.",
-        keywords: ["app", "solves", "problem", "progress"]
-      },
-      {
-        prompt: "SYSTEM: Write a summary after an online meeting.\nYOU:",
-        starter: "Starter: We discussed the design and testing plan. I will update the task board today.",
-        keywords: ["discussed", "design", "testing", "update"]
-      },
-      {
-        prompt: "SYSTEM: Write a short reflection about learning English for tech.\nYOU:",
-        starter: "Starter: English helps me read documents, explain projects, and prepare for my career.",
-        keywords: ["english", "documents", "projects", "career"]
-      },
-      {
-        prompt: "SYSTEM: Write a short portfolio description.\nYOU:",
-        starter: "Starter: This project shows my skills in web development, testing, and teamwork.",
-        keywords: ["project", "skills", "development", "teamwork"]
-      }
-    ],
-    challenge: [
-      {
-        prompt: "SYSTEM: Write a B1+ project explanation with problem, solution, and benefit.\nYOU:",
-        starter: "Starter: Our project addresses missed deadlines by giving students a clear task dashboard, reminders, and progress feedback.",
-        keywords: ["problem", "solution", "benefit", "dashboard", "feedback"]
-      },
-      {
-        prompt: "SYSTEM: Write a B1+ client update with progress, limitation, and next step.\nYOU:",
-        starter: "Starter: The main workflow is complete, but mobile testing is still in progress. We will send an updated version after reviewing the results.",
-        keywords: ["workflow", "testing", "progress", "updated", "results"]
-      },
-      {
-        prompt: "SYSTEM: Write a B1+ bug report summary.\nYOU:",
-        starter: "Starter: The form works on desktop, but it fails on mobile after users press submit. The team should check the input validation and API request.",
-        keywords: ["desktop", "mobile", "submit", "validation", "api"]
-      },
-      {
-        prompt: "SYSTEM: Write a B1+ explanation of an AI feature.\nYOU:",
-        starter: "Starter: The AI feature analyzes user answers and recommends practice tasks, but the system should explain suggestions clearly to build trust.",
-        keywords: ["ai", "analyzes", "recommends", "explain", "trust"]
-      },
-      {
-        prompt: "SYSTEM: Write a B1+ portfolio paragraph.\nYOU:",
-        starter: "Starter: My portfolio demonstrates my ability to identify user needs, design a practical solution, test features, and communicate results.",
-        keywords: ["portfolio", "user", "solution", "test", "communicate"]
-      },
-      {
-        prompt: "SYSTEM: Write a B1+ project pitch introduction.\nYOU:",
-        starter: "Starter: Many students lose track of assignments, so our app provides a simple planning tool that shows priorities, deadlines, and progress.",
-        keywords: ["students", "assignments", "planning", "deadlines", "progress"]
-      },
-      {
-        prompt: "SYSTEM: Write a B1+ reflection on teamwork.\nYOU:",
-        starter: "Starter: Effective teamwork requires clear roles, regular updates, and respectful feedback, especially when a project has a short deadline.",
-        keywords: ["teamwork", "roles", "updates", "feedback", "deadline"]
-      },
-      {
-        prompt: "SYSTEM: Write a B1+ interview answer about career goals.\nYOU:",
-        starter: "Starter: I want to work as a developer because I enjoy solving problems, learning new tools, and creating products that help people.",
-        keywords: ["developer", "solving", "learning", "products", "people"]
-      },
-      {
-        prompt: "SYSTEM: Write a B1+ explanation of ethical AI.\nYOU:",
-        starter: "Starter: Ethical AI should protect privacy, reduce bias, and provide useful explanations so users can understand and trust the system.",
-        keywords: ["ethical", "privacy", "bias", "explanations", "trust"]
-      },
-      {
-        prompt: "SYSTEM: Write a B1+ final learning statement.\nYOU:",
-        starter: "Starter: This course helped me practice English for real technology situations, from teamwork and bug reports to interviews and project presentations.",
-        keywords: ["course", "english", "technology", "interviews", "presentations"]
-      }
-    ]
-  };
-
-  return map[diff][index - 1];
-}
-
-function makeWritingItem(route, diff, index) {
-  const meta = DIFFICULTY_META[diff];
-  const data = writingPrompt(route, diff, index);
-
-  return {
-    id: `${route.sid}-WR-${diff.toUpperCase()}-${pad2(index)}`,
-    type: "writing",
-    skill: "writing",
-    difficulty: diff,
-    cefr: meta.cefr,
-    desc: `เขียนตามภารกิจ ระดับ ${meta.cefr}`,
-    prompt: data.prompt,
-    starter: data.starter,
-    keywords: data.keywords,
-    minMatch:
-      diff === "easy"
-        ? 2
-        : diff === "normal"
-          ? 3
-          : diff === "hard"
-            ? 4
-            : 5,
-    minWords:
-      diff === "easy"
-        ? 5
-        : diff === "normal"
-          ? 10
-          : diff === "hard"
-            ? 18
-            : 25,
-    modelAnswer: data.starter.replace(/^Starter:\s*/i, ""),
-    passScore: meta.passScore,
-    failMsg: "ลองเขียนให้ครบตามคำสำคัญและระดับภาษาที่กำหนด",
-    points: diff === "challenge" ? 20 : diff === "hard" ? 15 : 10
-  };
-}
-
-function makeItem(route, diff, index) {
-  const skill = getSkillForRoute(route, index);
-
-  let item;
-
-  if (skill === "speaking") {
-    item = makeSpeakingItem(route, diff, index);
-  } else if (skill === "listening") {
-    item = makeListeningItem(route, diff, index);
-  } else if (skill === "reading") {
-    item = makeReadingItem(route, diff, index);
-  } else if (skill === "writing") {
-    item = makeWritingItem(route, diff, index);
-  } else {
-    item = makeReadingItem(route, diff, index);
-  }
-
-  return {
-    ...item,
-    _dataVersion: DATA_VERSION,
-    _sessionId: route.id,
-    _sid: route.sid,
-    _sessionType: route.type,
-    _routeType: route.type,
-    _title: route.title,
-    _theme: route.theme,
-    _index: index,
-    boss: !!route.boss,
-    bossNo: route.bossNo || 0,
-    bossPhase: route.boss ? getBossPhase(index) : "",
-    comboRequired: !!route.boss && index >= 8
-  };
-}
-
-function buildBankForRoute(route) {
-  const bank = {};
-
-  DIFFICULTY_ORDER.forEach((diff) => {
-    bank[diff] = [];
-
-    for (let i = 1; i <= 10; i++) {
-      bank[diff].push(makeItem(route, diff, i));
+  const used = new Set();
+  LETTERS.forEach((letter, idx) => {
+    let value = clean(map[letter]);
+    while (used.has(value.toLowerCase())) {
+      value = `${value} ${idx + 1}`;
     }
+    used.add(value.toLowerCase());
+    map[letter] = value;
   });
 
-  return bank;
+  return {
+    answer: correctLetter,
+    choices: LETTERS.map((letter) => `${letter}. ${map[letter]}`)
+  };
 }
 
-function normalizeMissionGroup(group) {
-  if (!group || typeof group !== "object") return group;
+function sentenceFor(session, level, itemIndex) {
+  const verbs = VERB_BANK[session.domain] || VERB_BANK.workplace;
+  const nouns = NOUN_BANK[session.domain] || NOUN_BANK.workplace;
+  const v1 = verbs[itemIndex % verbs.length];
+  const n1 = nouns[(itemIndex + 1) % nouns.length];
+  const n2 = nouns[(itemIndex + 3) % nouns.length];
 
-  const bank = group.bank || {};
+  if (level === "easy") {
+    return `I can ${v1} the ${n1}.`;
+  }
 
-  const normalizedBank = {
-    easy: Array.isArray(bank.easy) ? bank.easy : [],
-    normal: Array.isArray(bank.normal) ? bank.normal : [],
-    hard: Array.isArray(bank.hard) ? bank.hard : [],
-    challenge: Array.isArray(bank.challenge) ? bank.challenge : []
-  };
+  if (level === "normal") {
+    return `I can ${v1} the ${n1} and share the ${n2} with my team.`;
+  }
+
+  if (level === "hard") {
+    return `I can ${v1} the ${n1}, check the ${n2}, and explain the result clearly.`;
+  }
+
+  return `I can ${v1} the ${n1}, compare the ${n2}, and recommend the next step for users.`;
+}
+
+function readingPassage(session, level, itemIndex) {
+  const verbs = VERB_BANK[session.domain] || VERB_BANK.workplace;
+  const nouns = NOUN_BANK[session.domain] || NOUN_BANK.workplace;
+
+  const v1 = verbs[itemIndex % verbs.length];
+  const v2 = verbs[(itemIndex + 2) % verbs.length];
+  const n1 = nouns[itemIndex % nouns.length];
+  const n2 = nouns[(itemIndex + 1) % nouns.length];
+  const n3 = nouns[(itemIndex + 2) % nouns.length];
+
+  if (level === "easy") {
+    return clean(
+      `${session.context} The student needs to ${v1} the ${n1}. The main goal is to use simple English for ${session.focus.toLowerCase()}.`
+    );
+  }
+
+  if (level === "normal") {
+    return clean(
+      `${session.context} The student needs to ${v1} the ${n1} and ${v2} the ${n2}. The team wants a clear message, so everyone understands the task.`
+    );
+  }
+
+  if (level === "hard") {
+    return clean(
+      `${session.context} The student must ${v1} the ${n1}, ${v2} the ${n2}, and explain the ${n3}. The message should be polite, accurate, and useful for the team.`
+    );
+  }
+
+  return clean(
+    `${session.context} The student must ${v1} the ${n1}, ${v2} the ${n2}, compare the ${n3}, and recommend a practical next step. The message should help both technical and non-technical people understand the situation.`
+  );
+}
+
+function writingPrompt(session, level, itemIndex) {
+  const nouns = NOUN_BANK[session.domain] || NOUN_BANK.workplace;
+  const n1 = nouns[itemIndex % nouns.length];
+  const n2 = nouns[(itemIndex + 1) % nouns.length];
+
+  if (level === "easy") {
+    return `Write one sentence about your ${n1}.`;
+  }
+
+  if (level === "normal") {
+    return `Write two short sentences to explain the ${n1} and the ${n2}.`;
+  }
+
+  if (level === "hard") {
+    return `Write a short message explaining the ${n1}, the ${n2}, and one next step.`;
+  }
+
+  return `Write a short professional message that explains the ${n1}, compares it with the ${n2}, and recommends one next step.`;
+}
+
+function writingStarter(session, level, itemIndex) {
+  const nouns = NOUN_BANK[session.domain] || NOUN_BANK.workplace;
+  const n1 = nouns[itemIndex % nouns.length];
+
+  if (level === "easy") {
+    return `Starter: I can explain the ${n1}.`;
+  }
+
+  if (level === "normal") {
+    return `Starter: The ${n1} is important because...`;
+  }
+
+  if (level === "hard") {
+    return `Starter: Our team should check the ${n1} and...`;
+  }
+
+  return `Starter: Based on the ${n1}, I recommend that we...`;
+}
+
+function keywordSet(session, level, itemIndex) {
+  const base = session.keywords || [];
+  const nouns = NOUN_BANK[session.domain] || [];
+  const verbs = VERB_BANK[session.domain] || [];
+
+  const size =
+    level === "easy" ? 3 :
+    level === "normal" ? 4 :
+    level === "hard" ? 5 : 6;
+
+  return [...new Set([
+    ...base,
+    nouns[itemIndex % Math.max(1, nouns.length)],
+    nouns[(itemIndex + 1) % Math.max(1, nouns.length)],
+    verbs[itemIndex % Math.max(1, verbs.length)]
+  ].filter(Boolean))]
+    .slice(0, size)
+    .map((x) => String(x).toLowerCase());
+}
+
+function makeListeningMission(session, level, itemIndex, seed) {
+  const meta = LEVEL_META[level];
+  const sentence = sentenceFor(session, level, itemIndex);
+  const correctText =
+    level === "easy" ? `The speaker talks about ${session.shortTitle.toLowerCase()}.` :
+    level === "normal" ? `The speaker explains a task about ${session.shortTitle.toLowerCase()}.` :
+    level === "hard" ? `The speaker explains a problem and a useful next step.` :
+    `The speaker explains the situation, compares details, and recommends a next step.`;
+
+  const choices = makeChoices(
+    correctText,
+    [
+      "The speaker orders food.",
+      "The speaker describes a holiday.",
+      "The speaker talks about a sports game.",
+      "The speaker buys a train ticket."
+    ],
+    seed
+  );
 
   return {
-    ...group,
-    skill: group.type,
-    sid: group.sid || `S${group.id}`,
-    cefrRange: "A2-B1+",
-    difficultyOrder: DIFFICULTY_ORDER,
-    bank: normalizedBank,
-    banks: normalizedBank
+    id: session.id,
+    missionUid: `${session.code}-${level}-L${pad2(itemIndex)}`,
+    sessionNo: session.code,
+    level,
+    difficulty: level,
+    _selectedDifficulty: level,
+    cefr: meta.cefr,
+    type: "listening",
+    title: `${session.code} ${session.shortTitle} • Listening ${itemIndex}`,
+    prompt: "Listen and choose the best answer.",
+    question: "What is the speaker mainly talking about?",
+    audioText: sentence,
+    transcript: sentence,
+    answer: choices.answer,
+    choices: choices.choices,
+    keywords: keywordSet(session, level, itemIndex),
+    hint: "ฟังคำสำคัญก่อน เช่น topic, task, problem, next step.",
+    aiGuide: `Listen for the main idea. This level is ${meta.cefr}.`,
+    failMsg: "Listen again and focus on the main idea."
   };
 }
 
-function normalizeMissionBank(list = []) {
-  return list.map(normalizeMissionGroup);
+function makeSpeakingMission(session, level, itemIndex, seed) {
+  const meta = LEVEL_META[level];
+  const phrase = sentenceFor(session, level, itemIndex);
+
+  return {
+    id: session.id,
+    missionUid: `${session.code}-${level}-S${pad2(itemIndex)}`,
+    sessionNo: session.code,
+    level,
+    difficulty: level,
+    _selectedDifficulty: level,
+    cefr: meta.cefr,
+    type: "speaking",
+    title: `${session.code} ${session.shortTitle} • Speaking ${itemIndex}`,
+    prompt: phrase,
+    question: phrase,
+    exactPhrase: phrase.toLowerCase().replace(/[.!?]/g, ""),
+    audioText: phrase,
+    keywords: keywordSet(session, level, itemIndex),
+    hint: "พูดช้า ชัด และเน้น keyword สำคัญในประโยค.",
+    aiGuide: `Say the sentence clearly. Target level: ${meta.cefr}.`,
+    failMsg: "Try again. Speak a little slower and clearer."
+  };
 }
 
-export const missionDB = normalizeMissionBank(
-  SESSION_ROUTES.map((route) => ({
-    ...route,
-    skill: route.type,
+function makeReadingMission(session, level, itemIndex, seed) {
+  const meta = LEVEL_META[level];
+  const passage = readingPassage(session, level, itemIndex);
+  const correctText =
+    level === "easy" ? `A simple task about ${session.shortTitle.toLowerCase()}` :
+    level === "normal" ? `A team communication task about ${session.shortTitle.toLowerCase()}` :
+    level === "hard" ? `A professional situation with a clear next step` :
+    `A professional situation that compares details and recommends action`;
+
+  const distractors = GENERIC_DISTRACTORS[session.domain] || GENERIC_DISTRACTORS.profile;
+
+  const choices = makeChoices(correctText, distractors, seed);
+
+  return {
+    id: session.id,
+    missionUid: `${session.code}-${level}-R${pad2(itemIndex)}`,
+    sessionNo: session.code,
+    level,
+    difficulty: level,
+    _selectedDifficulty: level,
+    cefr: meta.cefr,
+    type: "reading",
+    title: `${session.code} ${session.shortTitle} • Reading ${itemIndex}`,
+    passage,
+    readingText: passage,
+    prompt: passage,
+    question: "What is the passage mainly about?",
+    answer: choices.answer,
+    choices: choices.choices,
+    keywords: keywordSet(session, level, itemIndex),
+    hint: "อ่านเพื่อจับใจความหลัก ไม่ใช่จำคำทุกคำ.",
+    aiGuide: `Find the main idea first. Target level: ${meta.cefr}.`,
+    failMsg: "Look for the topic and the purpose of the passage."
+  };
+}
+
+function makeWritingMission(session, level, itemIndex, seed) {
+  const meta = LEVEL_META[level];
+  const prompt = writingPrompt(session, level, itemIndex);
+  const starter = writingStarter(session, level, itemIndex);
+  const keywords = keywordSet(session, level, itemIndex);
+
+  return {
+    id: session.id,
+    missionUid: `${session.code}-${level}-W${pad2(itemIndex)}`,
+    sessionNo: session.code,
+    level,
+    difficulty: level,
+    _selectedDifficulty: level,
+    cefr: meta.cefr,
+    type: "writing",
+    title: `${session.code} ${session.shortTitle} • Writing ${itemIndex}`,
+    prompt,
+    question: prompt,
+    starter,
+    sampleAnswer: `${starter.replace("Starter: ", "")} I will use clear words and give one useful detail.`,
+    keywords,
+    minKeywords: meta.keywordNeed,
+    hint: `ใช้ keyword อย่างน้อย ${meta.keywordNeed} คำ: ${keywords.slice(0, meta.keywordNeed).join(", ")}`,
+    aiGuide: `Write clearly. Include key words and one useful detail. Target level: ${meta.cefr}.`,
+    failMsg: "Add more key words and make the message clearer."
+  };
+}
+
+function makeMissionByType(type, session, level, itemIndex, seed) {
+  if (type === "listening") return makeListeningMission(session, level, itemIndex, seed);
+  if (type === "speaking") return makeSpeakingMission(session, level, itemIndex, seed);
+  if (type === "reading") return makeReadingMission(session, level, itemIndex, seed);
+  return makeWritingMission(session, level, itemIndex, seed);
+}
+
+function makeLevelMissions(session, level) {
+  return TYPE_PATTERN.map((type, idx) => {
+    const itemIndex = idx + 1;
+    const seed = (session.id * 100) + (LEVELS.indexOf(level) * 17) + itemIndex;
+    return makeMissionByType(type, session, level, itemIndex, seed);
+  });
+}
+
+function primaryTypeForSession(sessionId) {
+  const cycle = ["speaking", "reading", "listening", "writing"];
+  return cycle[(sessionId - 1) % cycle.length];
+}
+
+function makeSessionGroup(session) {
+  const easy = makeLevelMissions(session, "easy");
+  const normal = makeLevelMissions(session, "normal");
+  const hard = makeLevelMissions(session, "hard");
+  const challenge = makeLevelMissions(session, "challenge");
+
+  const missions = {
+    easy,
+    normal,
+    hard,
+    challenge
+  };
+
+  const allItems = [...easy, ...normal, ...hard, ...challenge];
+
+  const group = {
+    id: session.id,
+    sessionNo: session.code,
+    code: session.code,
+    title: session.title,
+    shortTitle: session.shortTitle,
+    focus: session.focus,
+    domain: session.domain,
+    type: primaryTypeForSession(session.id),
+    isBoss: session.id % 3 === 0,
+    isFinal: session.id === 15,
     cefrRange: "A2-B1+",
-    difficultyOrder: DIFFICULTY_ORDER,
-    bank: buildBankForRoute(route)
-  }))
-);
+    levelCount: 4,
+    missionCount: allItems.length,
 
-export const LESSON_DATA = missionDB;
-export const LESSON_SESSIONS = missionDB;
+    easy,
+    normal,
+    hard,
+    challenge,
 
-export const lessonData = {
-  version: DATA_VERSION,
-  cefrRange: "A2-B1+",
-  difficultyOrder: DIFFICULTY_ORDER,
-  difficultyMeta: DIFFICULTY_META,
-  routes: SESSION_ROUTES,
-  sessions: missionDB
-};
+    missions,
+    variants: missions,
+    levels: missions,
+    items: allItems,
+    bank: allItems
+  };
+
+  return group;
+}
+
+export const missionDB = SESSION_BLUEPRINTS.map(makeSessionGroup);
+
+export const lessonMissionIndex = missionDB.reduce((acc, group) => {
+  acc[group.sessionNo] = group;
+  acc[String(group.id)] = group;
+  return acc;
+}, {});
+
+export function getSessionGroup(sessionIdOrCode) {
+  const raw = String(sessionIdOrCode || "").trim();
+  if (!raw) return missionDB[0];
+
+  const normalized = /^S?\d{1,2}$/i.test(raw)
+    ? `S${pad2(Number(raw.replace(/^S/i, "")))}`
+    : raw;
+
+  return lessonMissionIndex[normalized] || lessonMissionIndex[String(Number(raw))] || missionDB[0];
+}
+
+export function getLevelMissions(sessionIdOrCode, level = "normal") {
+  const group = getSessionGroup(sessionIdOrCode);
+  const safeLevel = normalizeLevel(level);
+  return group?.missions?.[safeLevel] || group?.normal || [];
+}
+
+export function getMissionBySlot(sessionIdOrCode, level = "normal", slot = 0) {
+  const list = getLevelMissions(sessionIdOrCode, level);
+  if (!list.length) return null;
+  const index = Math.abs(Number(slot) || 0) % list.length;
+  return list[index];
+}
+
+export function getAllMissions() {
+  return missionDB.flatMap((group) => group.items || []);
+}
+
+export function getMissionStats() {
+  const totalSessions = missionDB.length;
+  const totalMissions = getAllMissions().length;
+
+  return {
+    patch: LESSON_DATA_PATCH,
+    totalSessions,
+    levels: LEVELS.slice(),
+    missionsPerLevel: 10,
+    missionsPerSession: 40,
+    totalMissions,
+    cefrRange: "A2-B1+"
+  };
+}
+
+if (typeof window !== "undefined") {
+  window.TechPathMissionDB = missionDB;
+  window.TechPathLessonData = {
+    patch: LESSON_DATA_PATCH,
+    LEVELS,
+    LEVEL_META,
+    SESSION_BLUEPRINTS,
+    missionDB,
+    getSessionGroup,
+    getLevelMissions,
+    getMissionBySlot,
+    getAllMissions,
+    getMissionStats
+  };
+}
 
 export default missionDB;
-
-function hashSeed(input) {
-  const str = String(input ?? "");
-  let h = 1779033703 ^ str.length;
-
-  for (let i = 0; i < str.length; i++) {
-    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-
-  return () => {
-    h = Math.imul(h ^ (h >>> 16), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    return (h ^= h >>> 16) >>> 0;
-  };
-}
-
-function mulberry32(seed) {
-  let t = seed >>> 0;
-
-  return function () {
-    t += 0x6D2B79F5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function seededRng(seed) {
-  const make = hashSeed(seed);
-  return mulberry32(make());
-}
-
-function resolveAdaptiveDifficulty(mode = "normal", aiState = {}) {
-  let targetDiff = normalizeDifficulty(mode);
-
-  const support = Number(aiState?.support || 0);
-  const pressure = Number(aiState?.pressure || 0);
-  const accuracy = Number(aiState?.accuracy || aiState?.lastAccuracy || 0);
-  const streak = Number(aiState?.streak || aiState?.correctStreak || 0);
-  const wrongStreak = Number(aiState?.wrongStreak || 0);
-
-  if (support >= 2 || wrongStreak >= 2 || accuracy < 55) {
-    targetDiff = "easy";
-  } else if (pressure >= 3 || accuracy >= 90 || streak >= 3) {
-    targetDiff = "challenge";
-  } else if (pressure >= 2 || accuracy >= 80 || streak >= 2) {
-    targetDiff = "hard";
-  }
-
-  return targetDiff;
-}
-
-export function pickAdaptiveMissionItem(
-  sessionId,
-  mode = "normal",
-  aiState = { pressure: 0, support: 0 },
-  seed = `${sessionId}-${Date.now()}`
-) {
-  const numericId = Number(String(sessionId).replace(/^S/i, "")) || 1;
-  const sid = `S${Math.max(1, Math.min(15, numericId))}`;
-
-  const mission =
-    missionDB.find((m) => m.id === numericId || m.sid === sid) ||
-    missionDB[0];
-
-  if (!mission) return null;
-
-  const targetDiff = resolveAdaptiveDifficulty(mode, aiState);
-  const bank =
-    mission.bank?.[targetDiff] ||
-    mission.bank?.normal ||
-    mission.bank?.easy ||
-    [];
-
-  if (!bank.length) return null;
-
-  const rng = seededRng(seed);
-  const randomIndex = Math.floor(rng() * bank.length);
-  const item = bank[randomIndex];
-
-  return {
-    ...item,
-    _sessionId: mission.id,
-    _sid: mission.sid,
-    _sessionType: mission.type,
-    _selectedDifficulty: targetDiff,
-    _selectedCEFR: DIFFICULTY_META[targetDiff].cefr,
-    _dataVersion: DATA_VERSION
-  };
-}
-
-export function validateMissionDB() {
-  const issues = [];
-  let total = 0;
-
-  missionDB.forEach((session) => {
-    if (!session.id) issues.push(`${session.sid || "unknown"} missing id`);
-    if (!session.type) issues.push(`${session.sid || "unknown"} missing type`);
-    if (!session.bank) issues.push(`${session.sid || "unknown"} missing bank`);
-
-    DIFFICULTY_ORDER.forEach((diff) => {
-      const items = session.bank?.[diff];
-
-      if (!Array.isArray(items)) {
-        issues.push(`${session.sid}.${diff} is not an array`);
-        return;
-      }
-
-      total += items.length;
-
-      if (items.length !== 10) {
-        issues.push(`${session.sid}.${diff} has ${items.length} items, expected 10`);
-      }
-
-      items.forEach((item, index) => {
-        if (!item.id) issues.push(`${session.sid}.${diff}[${index}] missing id`);
-        if (!item.skill && !item.type) issues.push(`${session.sid}.${diff}[${index}] missing skill/type`);
-        if (!item.cefr) issues.push(`${session.sid}.${diff}[${index}] missing cefr`);
-        if (item.cefr !== DIFFICULTY_META[diff].cefr) {
-          issues.push(`${item.id} cefr=${item.cefr}, expected ${DIFFICULTY_META[diff].cefr}`);
-        }
-      });
-    });
-  });
-
-  return {
-    ok: issues.length === 0,
-    version: DATA_VERSION,
-    sessions: missionDB.length,
-    difficultyLevels: DIFFICULTY_ORDER.length,
-    itemsPerLevel: 10,
-    expectedTotal: 15 * 4 * 10,
-    total,
-    issues
-  };
-}
-
-try {
-  window.DIFFICULTY_META = DIFFICULTY_META;
-  window.DIFFICULTY_ORDER = DIFFICULTY_ORDER;
-  window.SESSION_ROUTES = SESSION_ROUTES;
-  window.missionDB = missionDB;
-  window.LESSON_DATA = missionDB;
-  window.LESSON_SESSIONS = missionDB;
-  window.lessonData = lessonData;
-  window.validateMissionDB = validateMissionDB;
-} catch (err) {}
