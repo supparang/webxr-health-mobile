@@ -1,21 +1,35 @@
 // === /english/js/lesson-scene-selector-router-fix.js ===
-// PATCH v20260426a-LESSON-SCENE-SELECTOR-ROUTER
-// Scene S1-S15 selector remains usable.
-// ✅ Clicking S1-S15 in A-Frame scene routes to lesson.html?s=N
+// PATCH v20260426b-LESSON-SCENE-SELECTOR-ROUTER-NO-RELOAD-ON-PAN
+// Fix: dragging / scrolling the 3D scene reloads the page.
+// ✅ Scene S1-S15 selector remains usable
+// ✅ Route only on real click/tap, not drag / wheel / pan
+// ✅ Do not listen to mousedown/touchstart for routing
+// ✅ Ignore route shortly after scene pan
 // ✅ Forces new mission panel flow
 // ✅ Prevents old scene selector from opening old native gameplay
-// ✅ Preserves player params
-// ✅ Clears stale skill/stage/mission params
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426a-LESSON-SCENE-SELECTOR-ROUTER';
+  const VERSION = 'v20260426b-LESSON-SCENE-SELECTOR-ROUTER-NO-RELOAD-ON-PAN';
 
   const SID_RE = /\bS\s*([1-9]|1[0-5])\b/i;
 
-  let bound = false;
-  let lastRouteAt = 0;
+  const CONFIG = {
+    maxClickMovePx: 10,
+    suppressAfterPanMs: 650,
+    debounceRouteMs: 600
+  };
+
+  const state = {
+    bound: false,
+    lastRouteAt: 0,
+    pointerDownX: 0,
+    pointerDownY: 0,
+    pointerMoved: false,
+    pointerCandidateSid: '',
+    suppressUntil: 0
+  };
 
   function $(sel, root = document) {
     return root.querySelector(sel);
@@ -151,13 +165,32 @@
     return '';
   }
 
+  function findSidFromEvent(ev) {
+    const scene = $('a-scene');
+    if (!scene) return '';
+
+    const path = typeof ev.composedPath === 'function'
+      ? ev.composedPath()
+      : [];
+
+    for (const node of path) {
+      if (!node || node === window || node === document) continue;
+
+      const sid = parseSidFromEntity(node);
+      if (sid) return sid;
+
+      if (node === scene) break;
+    }
+
+    return parseSidFromEntity(ev.target);
+  }
+
   function markSceneSelectors(reason) {
     const scene = $('a-scene');
     if (!scene) return 0;
 
     let count = 0;
 
-    // Mark explicit S1-S15 text labels.
     $all('a-text, [text], a-entity, a-box, a-plane', scene).forEach((el) => {
       const sid = parseSidFromEntity(el);
       if (!sid) return;
@@ -169,7 +202,6 @@
         el.classList.add('lesson-scene-sid-router');
       } catch (err) {}
 
-      // Mark parent group too because click target may be group/box behind text.
       try {
         const parent = el.parentElement;
         if (parent && parent !== scene) {
@@ -220,7 +252,6 @@
       url.searchParams.set('view', currentViewMode());
     }
 
-    // Clear stale old-mode params so the new mission panel becomes source of truth.
     [
       'skill',
       'stage',
@@ -233,7 +264,6 @@
       'modeSkill'
     ].forEach((k) => url.searchParams.delete(k));
 
-    // Let AI difficulty choose per learner.
     url.searchParams.delete('difficulty');
     url.searchParams.delete('level');
     url.searchParams.delete('diff');
@@ -247,13 +277,30 @@
     try { ev.stopImmediatePropagation(); } catch (err) {}
   }
 
+  function wasSceneRecentlyPanned() {
+    const now = Date.now();
+
+    if (now < state.suppressUntil) return true;
+
+    try {
+      const scrollState = window.LESSON_SCENE_SCROLL_FIX?.state;
+      const lastPanAt = Number(scrollState?.lastPanAt || 0);
+
+      if (lastPanAt && now - lastPanAt < CONFIG.suppressAfterPanMs) {
+        return true;
+      }
+    } catch (err) {}
+
+    return false;
+  }
+
   function routeToSid(sid, source) {
     sid = normalizeSid(sid);
 
     const now = Date.now();
-    if (now - lastRouteAt < 450) return;
+    if (now - state.lastRouteAt < CONFIG.debounceRouteMs) return;
 
-    lastRouteAt = now;
+    state.lastRouteAt = now;
 
     try {
       sessionStorage.setItem('TECHPATH_LAST_SCENE_SELECTED_SID', sid);
@@ -268,28 +315,63 @@
     location.href = buildUrlForSid(sid);
   }
 
-  function handleSceneClick(ev) {
-    const scene = $('a-scene');
-    if (!scene) return;
+  function onPointerDown(ev) {
+    const sid = findSidFromEvent(ev);
 
-    const path = typeof ev.composedPath === 'function'
-      ? ev.composedPath()
-      : [];
+    state.pointerDownX = Number(ev.clientX || 0);
+    state.pointerDownY = Number(ev.clientY || 0);
+    state.pointerMoved = false;
+    state.pointerCandidateSid = sid || '';
+  }
 
-    let sid = '';
+  function onPointerMove(ev) {
+    if (!state.pointerCandidateSid) return;
 
-    for (const node of path) {
-      if (!node || node === window || node === document) continue;
-      sid = parseSidFromEntity(node);
-      if (sid) break;
-      if (node === scene) break;
+    const dx = Math.abs(Number(ev.clientX || 0) - state.pointerDownX);
+    const dy = Math.abs(Number(ev.clientY || 0) - state.pointerDownY);
+
+    if (dx > CONFIG.maxClickMovePx || dy > CONFIG.maxClickMovePx) {
+      state.pointerMoved = true;
+      state.suppressUntil = Date.now() + CONFIG.suppressAfterPanMs;
     }
+  }
 
-    if (!sid) {
-      sid = parseSidFromEntity(ev.target);
-    }
+  function onPointerUp(ev) {
+    const sid = state.pointerCandidateSid || findSidFromEvent(ev);
+
+    const moved = state.pointerMoved;
+    const suppressed = wasSceneRecentlyPanned();
+
+    state.pointerCandidateSid = '';
+    state.pointerMoved = false;
 
     if (!sid) return;
+
+    if (moved || suppressed) {
+      console.log('[LessonSceneSelectorRouter] skip route after pan/drag', {
+        version: VERSION,
+        sid,
+        moved,
+        suppressed
+      });
+      return;
+    }
+
+    stopOldSceneEvent(ev);
+    routeToSid(sid, 'scene-pointerup-click');
+  }
+
+  function onClick(ev) {
+    const sid = findSidFromEvent(ev);
+    if (!sid) return;
+
+    if (wasSceneRecentlyPanned()) {
+      console.log('[LessonSceneSelectorRouter] skip click after pan', {
+        version: VERSION,
+        sid
+      });
+      return;
+    }
 
     stopOldSceneEvent(ev);
     routeToSid(sid, 'scene-click');
@@ -297,16 +379,18 @@
 
   function bindSceneClick() {
     const scene = $('a-scene');
-    if (!scene || bound) return;
+    if (!scene || state.bound) return;
 
-    bound = true;
+    state.bound = true;
 
-    // Capture phase: intercept before old scene gameplay handlers.
-    scene.addEventListener('click', handleSceneClick, true);
-    scene.addEventListener('mousedown', handleSceneClick, true);
-    scene.addEventListener('touchstart', handleSceneClick, true);
+    // สำคัญ: ไม่ใช้ mousedown/touchstart route แล้ว
+    // เพราะมันทำให้ลาก/เลื่อนฉากแล้ว reload
+    scene.addEventListener('pointerdown', onPointerDown, true);
+    scene.addEventListener('pointermove', onPointerMove, true);
+    scene.addEventListener('pointerup', onPointerUp, true);
+    scene.addEventListener('click', onClick, true);
 
-    console.log('[LessonSceneSelectorRouter] bound scene capture', VERSION);
+    console.log('[LessonSceneSelectorRouter] bound safe click router', VERSION);
   }
 
   function boot() {
@@ -352,7 +436,10 @@
       mark: markSceneSelectors,
       routeToSid,
       buildUrlForSid,
-      parseSidFromEntity
+      parseSidFromEntity,
+      suppressClick(ms) {
+        state.suppressUntil = Date.now() + Number(ms || CONFIG.suppressAfterPanMs);
+      }
     };
 
     console.log('[LessonSceneSelectorRouter]', VERSION);
