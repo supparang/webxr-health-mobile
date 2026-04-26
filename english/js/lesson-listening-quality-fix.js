@@ -1,9 +1,11 @@
 // === /english/js/lesson-listening-quality-fix.js ===
-// PATCH v20260426b-LESSON-LISTENING-QUALITY-FIX-CHOICES-ROBUST
-// Fix: pressed Listen but no answer choices appear.
+// PATCH v20260426c-LESSON-LISTENING-QUALITY-FIX-FORCE-ACTIVE
+// Fix: sometimes choices remain disabled after pressing Listen.
 // ✅ Intercepts legacy Listen button
 // ✅ After Listen, always renders choices A/B/C/D
-// ✅ Does not rely on old mission choices
+// ✅ Force-enables choices after Listen in multiple ticks
+// ✅ Removes disabled / aria-disabled / pointer-events locks
+// ✅ Uses delegated click handler for robustness
 // ✅ Correct answer is shuffled
 // ✅ Session-specific listening choices
 // ✅ Dispatches lesson:item-result and lesson:mission-pass
@@ -11,14 +13,16 @@
 (function () {
   'use strict';
 
-  const VERSION = 'v20260426b-LESSON-LISTENING-QUALITY-FIX-CHOICES-ROBUST';
-  const STORAGE_KEY = 'TECHPATH_LISTENING_QFIX_INDEX_V2';
+  const VERSION = 'v20260426c-LESSON-LISTENING-QUALITY-FIX-FORCE-ACTIVE';
+  const STORAGE_KEY = 'TECHPATH_LISTENING_QFIX_INDEX_V3';
 
   const state = {
     cache: {},
     listened: {},
     speaking: false,
-    lastRenderAt: 0
+    lastRenderAt: 0,
+    activeItemId: '',
+    observer: null
   };
 
   const CEFR_BY_LEVEL = {
@@ -400,13 +404,14 @@
     delete state.cache[`${sid}|${level}|active`];
 
     const item = pickItem(sid, level, true);
+    state.activeItemId = item.id;
     state.listened[item.id] = false;
     render(true, item);
   }
 
   function speak(text) {
     try {
-      if (!('speechSynthesis' in window)) return;
+      if (!('speechSynthesis' in window)) return false;
 
       window.speechSynthesis.cancel();
 
@@ -422,8 +427,16 @@
         state.speaking = false;
       };
 
+      u.onerror = function () {
+        state.speaking = false;
+      };
+
       window.speechSynthesis.speak(u);
-    } catch (err) {}
+      return true;
+    } catch (err) {
+      state.speaking = false;
+      return false;
+    }
   }
 
   function ensureCSS() {
@@ -440,6 +453,8 @@
         margin: 12px 0 0 !important;
         display: grid !important;
         gap: 12px !important;
+        visibility: visible !important;
+        opacity: 1 !important;
       }
 
       #lessonListeningQualityBox * {
@@ -511,6 +526,7 @@
         gap: 10px !important;
         visibility: visible !important;
         opacity: 1 !important;
+        pointer-events: auto !important;
       }
 
       .lqfix-choice {
@@ -530,11 +546,19 @@
         box-shadow: 0 10px 24px rgba(14,165,233,.16) !important;
         visibility: visible !important;
         opacity: 1 !important;
+        pointer-events: auto !important;
       }
 
       .lqfix-choice[disabled] {
         opacity: .45 !important;
         cursor: not-allowed !important;
+        pointer-events: none !important;
+      }
+
+      .lqfix-choice.force-active {
+        opacity: 1 !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
       }
 
       .lqfix-choice.correct {
@@ -615,6 +639,65 @@
     );
   }
 
+  function forceEnableChoices(itemId) {
+    const box = $('#lessonListeningQualityBox');
+    if (!box) return false;
+
+    const item = itemId ? findItemById(itemId) : getCurrentItem();
+
+    if (!item) return false;
+    if (!state.listened[item.id]) return false;
+
+    let count = 0;
+
+    $all('[data-lqfix-choice]', box).forEach((btn) => {
+      try {
+        btn.disabled = false;
+        btn.removeAttribute('disabled');
+        btn.removeAttribute('aria-disabled');
+        btn.dataset.lqfixActive = 'true';
+        btn.classList.add('force-active');
+        btn.style.pointerEvents = 'auto';
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        count += 1;
+      } catch (err) {}
+    });
+
+    const fb = $('#lqfixFeedback', box);
+    if (fb && count) {
+      fb.className = 'lqfix-feedback';
+      fb.textContent = 'ฟังแล้ว เลือกคำตอบที่ตรงกับเรื่องที่ได้ยิน';
+    }
+
+    console.log('[LessonListeningQualityFix] forceEnableChoices', {
+      version: VERSION,
+      itemId: item.id,
+      count
+    });
+
+    return count > 0;
+  }
+
+  function findItemById(itemId) {
+    const sid = currentSid();
+    const level = currentLevel();
+    const pool = buildPool(sid, level);
+
+    return pool.find(x => x.id === itemId) || state.cache[`${sid}|${level}|active`] || null;
+  }
+
+  function scheduleForceEnable(item) {
+    const id = item.id;
+
+    [0, 40, 120, 300, 650, 1200].forEach((ms) => {
+      setTimeout(() => {
+        state.listened[id] = true;
+        forceEnableChoices(id);
+      }, ms);
+    });
+  }
+
   function render(force, forcedItem) {
     const panel = getPanel();
 
@@ -625,6 +708,8 @@
 
     const item = forcedItem || getCurrentItem();
     const listened = !!state.listened[item.id];
+
+    state.activeItemId = item.id;
 
     hideLegacyGenericChoices(panel);
 
@@ -660,7 +745,7 @@
 
       <div class="lqfix-choices" id="lqfixChoices">
         ${item.choices.map((c, idx) => `
-          <button type="button" class="lqfix-choice" data-lqfix-choice="${idx}" ${listened ? '' : 'disabled'}>
+          <button type="button" class="lqfix-choice ${listened ? 'force-active' : ''}" data-lqfix-choice="${idx}" ${listened ? '' : 'disabled aria-disabled="true"'}>
             <span class="lqfix-letter">${String.fromCharCode(65 + idx)}</span>
             <span>${escapeHtml(c.text)}</span>
           </button>
@@ -686,6 +771,10 @@
       });
     });
 
+    if (listened) {
+      scheduleForceEnable(item);
+    }
+
     state.lastRenderAt = Date.now();
 
     console.log('[LessonListeningQualityFix] render', {
@@ -702,10 +791,13 @@
   function listenNow(item) {
     item = item || getCurrentItem();
 
+    state.activeItemId = item.id;
     state.listened[item.id] = true;
 
     speak(item.audio);
+
     render(true, item);
+    scheduleForceEnable(item);
   }
 
   function chooseAnswer(item, btn, box) {
@@ -727,6 +819,9 @@
 
     $all('[data-lqfix-choice]', box).forEach((b) => {
       b.disabled = true;
+      b.setAttribute('disabled', 'disabled');
+      b.setAttribute('aria-disabled', 'true');
+      b.classList.remove('force-active');
 
       const c = item.choices[Number(b.dataset.lqfixChoice || 0)];
       if (c.correct) b.classList.add('correct');
@@ -807,9 +902,34 @@
     }, true);
   }
 
+  function observePanelChanges() {
+    if (state.observer) return;
+
+    try {
+      state.observer = new MutationObserver(() => {
+        if (!isListeningMission()) return;
+
+        const item = getCurrentItem();
+
+        if (item && state.listened[item.id]) {
+          setTimeout(() => forceEnableChoices(item.id), 50);
+          setTimeout(() => forceEnableChoices(item.id), 250);
+        }
+      });
+
+      state.observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['disabled', 'aria-disabled', 'style', 'class']
+      });
+    } catch (err) {}
+  }
+
   function boot() {
     ensureCSS();
     interceptLegacyListen();
+    observePanelChanges();
 
     [
       'lesson:data-bridge-ready',
@@ -832,6 +952,7 @@
       version: VERSION,
       render,
       listenNow,
+      forceEnableChoices,
       advanceItem,
       buildPool,
       pickItem,
@@ -839,12 +960,15 @@
       debug() {
         render(true);
         const item = getCurrentItem();
+        if (state.listened[item.id]) forceEnableChoices(item.id);
+
         return {
           version: VERSION,
           sid: currentSid(),
           level: currentLevel(),
           item,
           listened: !!state.listened[item.id],
+          activeItemId: state.activeItemId,
           panelFound: !!getPanel(),
           isListening: isListeningMission()
         };
