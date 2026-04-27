@@ -833,9 +833,9 @@
         </div>
 
         <div class="pill-row">
+          <div class="pill ok">Path ล่าสุด</div>
           <div class="pill">Body Care</div>
           <div class="pill">Daily Habit</div>
-          <div class="pill warn">Check path</div>
         </div>
 
         <div class="game-actions">
@@ -847,7 +847,7 @@
         <div class="card-head">
           <div class="game-icon icon-germ">🦠</div>
           <div class="card-copy">
-            <h3 class="card-title">Germ Detective</h3>
+            <h3 class="card-title">Germ Detective Rush</h3>
             <p class="card-sub">
               ตามหาเชื้อโรคและจุดปนเปื้อน ฝึกการสังเกตและการตัดสินใจอย่างรวดเร็ว
             </p>
@@ -855,9 +855,9 @@
         </div>
 
         <div class="pill-row">
+          <div class="pill ok">Path ล่าสุด</div>
           <div class="pill">Observation</div>
           <div class="pill">Reaction</div>
-          <div class="pill warn">Check path</div>
         </div>
 
         <div class="game-actions">
@@ -877,9 +877,9 @@
         </div>
 
         <div class="pill-row">
+          <div class="pill ok">Kids Mode</div>
           <div class="pill">Clean Habit</div>
           <div class="pill">Object Sorting</div>
-          <div class="pill warn">Check path</div>
         </div>
 
         <div class="game-actions">
@@ -911,8 +911,13 @@
     </section>
 
     <section class="footer-note">
-      หมายเหตุ: ถ้าไฟล์จริงของ Bath / Germ Detective / Clean Objects ใช้ชื่ออื่น
-      ให้แก้เฉพาะในตัวแปร <strong>PATHS</strong> ด้านล่าง ไม่ต้องแก้ส่วนอื่นของหน้า
+      Hygiene Zone ล่าสุด:
+      Handwash ใช้ <strong>./vr-handwash/handwash-launcher.html</strong>,
+      Brush ใช้ <strong>./brush-kids-vr.html</strong>,
+      Bath ใช้ <strong>./vr-bath/bath.html</strong>,
+      Germ ใช้ <strong>./germ-detective-rush.html</strong>,
+      Clean ใช้ <strong>./clean-objects-kids.html</strong>,
+      Mask ใช้ <strong>./vr-maskcough/maskcough-v2.html</strong>
     </section>
   </main>
 
@@ -922,17 +927,50 @@
     const current = new URL(location.href);
     const q = current.searchParams;
 
+    function firstNonEmpty(){
+      for(const v of arguments){
+        if(v !== undefined && v !== null && String(v).trim() !== ''){
+          return String(v);
+        }
+      }
+      return '';
+    }
+
+    function looksLikeHygieneZone(url){
+      return String(url || '').includes('hygiene-zone.html');
+    }
+
+    function deriveMainHub(){
+      const candidate = firstNonEmpty(
+        q.get('hubRoot'),
+        q.get('mainHub'),
+        q.get('rootHub'),
+        q.get('home'),
+        q.get('zoneReturn'),
+        q.get('next'),
+        q.get('hub'),
+        './hub-v2.html'
+      );
+
+      if(looksLikeHygieneZone(candidate)){
+        return './hub-v2.html';
+      }
+
+      return candidate || './hub-v2.html';
+    }
+
+    const MAIN_HUB = deriveMainHub();
+
     const PATHS = {
-      mainHub: q.get('hub') || './hub.html',
+      mainHub: MAIN_HUB,
 
       handwashLauncher: './vr-handwash/handwash-launcher.html',
       handwashMain: './vr-handwash/handwash-vr.html',
 
-      brushLauncher: './brush-vr-kids.html',
-
+      brushLauncher: './brush-kids-vr.html',
       bath: './vr-bath/bath.html',
-      germ: './vr-germ-detective/germ-detective-vr.html',
-      clean: './vr-clean/clean.html',
+      germ: './germ-detective-rush.html',
+      clean: './clean-objects-kids.html',
       mask: './vr-maskcough/maskcough-v2.html'
     };
 
@@ -942,10 +980,15 @@
       diff: 'normal',
       time: '90',
       miniTime: '60',
-      run: 'play'
+      run: 'play',
+      mode: 'solo'
     };
 
-    let selectedView = q.get('view') || localStorage.getItem('HH_HYGIENE_VIEW') || 'mobile';
+    let selectedView = firstNonEmpty(
+      q.get('view'),
+      localStorage.getItem('HH_HYGIENE_VIEW'),
+      'mobile'
+    );
 
     const modeButtons = Array.from(document.querySelectorAll('[data-view]'));
 
@@ -959,8 +1002,9 @@
       localStorage.setItem('HH_HYGIENE_VIEW', selectedView);
 
       modeButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.view === selectedView);
-        btn.setAttribute('aria-pressed', btn.dataset.view === selectedView ? 'true' : 'false');
+        const active = btn.dataset.view === selectedView;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
     }
 
@@ -969,6 +1013,14 @@
     });
 
     setActiveView(selectedView);
+
+    function getMainHubUrl(){
+      try{
+        return new URL(PATHS.mainHub, current.href).toString();
+      }catch(err){
+        return new URL('./hub-v2.html', current.href).toString();
+      }
+    }
 
     function buildCommonParams(gameId, theme, extra = {}){
       const params = new URLSearchParams();
@@ -989,9 +1041,13 @@
       params.set('game', gameId);
       params.set('gameId', gameId);
       params.set('theme', theme || gameId);
-      params.set('mode', extra.mode || safeGet('mode', 'solo'));
+      params.set('mode', extra.mode || safeGet('mode', DEFAULTS.mode));
 
       params.set('hub', current.href);
+      params.set('zoneReturn', current.href);
+      params.set('next', current.href);
+      params.set('hubRoot', getMainHubUrl());
+
       params.set('seed', String(extra.seed || q.get('seed') || Date.now()));
 
       Object.entries(extra).forEach(([key, value]) => {
@@ -1023,7 +1079,7 @@
     }
 
     function goMainHub(){
-      location.href = new URL(PATHS.mainHub, current.href).toString();
+      location.href = getMainHubUrl();
     }
 
     function openHandwashSuite(){
