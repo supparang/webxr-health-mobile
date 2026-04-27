@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Brush Kids</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#0f172a;
+      --bg2:#172554;
+      --panel:rgba(15,23,42,.82);
+      --stroke:rgba(255,255,255,.14);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --pink:#f472b6;
+      --blue:#38bdf8;
+      --green:#22c55e;
+      --yellow:#facc15;
+      --shadow:0 18px 50px rgba(0,0,0,.28);
+      --radius:26px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; }
+
+    body{
+      min-height:100vh;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(244,114,182,.16), transparent 26%),
+        linear-gradient(180deg,var(--bg2),var(--bg1));
+    }
+
+    .wrap{
+      width:min(1100px,100%);
+      margin:0 auto;
+      padding:18px;
+      display:grid;
+      gap:16px;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:120px 1fr;
+      gap:16px;
+      align-items:center;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:var(--radius);
+      padding:18px;
+      box-shadow:var(--shadow);
+    }
+
+    .hero img{
+      width:110px;
+      height:110px;
+      object-fit:contain;
+      border-radius:22px;
+      background:rgba(255,255,255,.08);
+      padding:8px;
+    }
+
+    .kicker{
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#bfdbfe;
+    }
+
+    h1{
+      margin:6px 0 8px;
+      font-size:clamp(30px,5vw,48px);
+      line-height:1;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.55;
+      max-width:760px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .card{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
+
+    .mode-card{
+      cursor:pointer;
+      transition:transform .14s ease, outline-color .14s ease, box-shadow .14s ease;
+      outline:4px solid transparent;
+    }
+
+    .mode-card:hover{
+      transform:translateY(-2px);
+    }
+
+    .mode-card.active{
+      outline-color:var(--yellow);
+      box-shadow:0 18px 40px rgba(0,0,0,.34);
+    }
+
+    .mode-title{
+      font-size:22px;
+      font-weight:1000;
+      margin:0 0 8px;
+    }
+
+    .mode-time{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    .list{
+      margin:0;
+      padding-left:18px;
+      line-height:1.7;
+      color:#e2e8f0;
+    }
+
+    .tips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .mission{
+      font-size:18px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    .mini{
+      color:var(--muted);
+      line-height:1.55;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    button{
+      border:none;
+      border-radius:18px;
+      min-height:52px;
+      padding:12px 18px;
+      font:inherit;
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+      transition:transform .14s ease, opacity .14s ease;
+    }
+
+    button:hover{
+      transform:translateY(-1px);
+    }
+
+    .primary{
+      background:linear-gradient(180deg,#22c55e,#16a34a);
+      color:#fff;
+    }
+
+    .secondary{
+      background:linear-gradient(180deg,#38bdf8,#2563eb);
+      color:#fff;
+    }
+
+    .ghost{
+      background:rgba(255,255,255,.08);
+      color:var(--text);
+      border:1px solid var(--stroke);
+    }
+
+    .note{
+      font-size:13px;
+      color:#bfdbfe;
+      font-weight:800;
+    }
+
+    @media (max-width:800px){
+      .hero{ grid-template-columns:82px 1fr; }
+      .hero img{ width:78px; height:78px; }
+      .grid{ grid-template-columns:1fr; }
+      .actions{ display:grid; grid-template-columns:1fr; }
+      button{ width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <img src="./img/coach-happy.png" alt="Coach Smile" />
+      <div>
+        <div class="kicker">HeroHealth • Hygiene Zone</div>
+        <h1>Brush Kids</h1>
+        <div class="sub">
+          ฝึกแปรงฟันให้ครบทุกโซน ค่อย ๆ ถูอย่างสม่ำเสมอ และอยู่ให้ครบเวลาที่แนะนำ
+          เพื่อช่วยสร้างนิสัยดูแลสุขอนามัยช่องปากแบบสนุกและเหมาะกับเด็ก
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article id="modeLearn" class="card mode-card active" data-mode="learn" tabindex="0">
+        <div class="mode-title">โหมดเรียนรู้</div>
+        <div class="mode-time">2 นาที</div>
+        <ul class="list">
+          <li>เหมาะกับการฝึกครั้งแรก</li>
+          <li>เน้นแปรงให้ครบทุกโซน</li>
+          <li>ค่อย ๆ ทำตามขั้นตอน</li>
+        </ul>
+        <div class="tips">
+          <span class="chip">อ่านง่าย</span>
+          <span class="chip">ไม่รีบเกิน</span>
+          <span class="chip">เหมาะกับเด็ก</span>
+        </div>
+      </article>
+
+      <article id="modeChallenge" class="card mode-card" data-mode="challenge" tabindex="0">
+        <div class="mode-title">โหมดท้าทาย</div>
+        <div class="mode-time">3 นาที</div>
+        <ul class="list">
+          <li>อยู่ครบเวลามากขึ้น</li>
+          <li>วัดความสม่ำเสมอ</li>
+          <li>มีเก็บงานช่วงท้าย</li>
+        </ul>
+        <div class="tips">
+          <span class="chip">ท้าทายขึ้น</span>
+          <span class="chip">ฝึกต่อเนื่อง</span>
+          <span class="chip">เก็บรายละเอียด</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="card">
+      <div class="mission">ภารกิจของวันนี้</div>
+      <div class="mini" id="missionText">
+        แปรงให้ครบทุกโซนใน 2 นาที และอย่ารีบเกินไป
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="btnStart" class="primary" type="button">เริ่มผ่าน Warmup</button>
+      <button id="btnDirect" class="secondary" type="button">เข้าเกมตรง ๆ</button>
+      <button id="btnBackHub" class="ghost" type="button">กลับ HUB</button>
+    </section>
+
+    <div class="note">
+      game key ภายในยังใช้ <strong>brush</strong> และ variant ใช้ <strong>kids-vr</strong>
+    </div>
+  </div>
+
+  <script>
+    const qs = new URLSearchParams(location.search);
+
+    const HUB_URL =
+      qs.get('hub') ||
+      new URL('./hub.html', location.href).href;
+
+    let selectedMode = qs.get('mode') === 'challenge' ? 'challenge' : 'learn';
+
+    const missionText = document.getElementById('missionText');
+    const modeLearn = document.getElementById('modeLearn');
+    const modeChallenge = document.getElementById('modeChallenge');
+
+    function setMode(mode){
+      selectedMode = mode === 'challenge' ? 'challenge' : 'learn';
+
+      modeLearn.classList.toggle('active', selectedMode === 'learn');
+      modeChallenge.classList.toggle('active', selectedMode === 'challenge');
+
+      missionText.textContent =
+        selectedMode === 'learn'
+          ? 'แปรงให้ครบทุกโซนใน 2 นาที และอย่ารีบเกินไป'
+          : 'แปรงให้ครบทุกโซนใน 3 นาที เก็บรายละเอียดให้เรียบร้อย และรักษาความสม่ำเสมอ';
+    }
+
+    function buildRunUrl(){
+      const u = new URL('./vr-brush-kids/brush.html', location.href);
+      u.searchParams.set('mode', selectedMode);
+      u.searchParams.set('hub', HUB_URL);
+      u.searchParams.set('game', 'brush');
+      u.searchParams.set('variant', 'kids-vr');
+      u.searchParams.set('zone', 'hygiene');
+
+      [
+        'pid','studyId','phase','conditionGroup',
+        'runMode','seed','view','log'
+      ].forEach(k => {
+        const v = qs.get(k);
+        if (v) u.searchParams.set(k, v);
+      });
+
+      return u.href;
+    }
+
+    function buildWarmupUrl(runUrl){
+      const nextKey = 'HHA_BRUSH_NEXT';
+      try { sessionStorage.setItem(nextKey, runUrl); } catch {}
+
+      const u = new URL('./gate/warmup-gate.html', location.href);
+      u.searchParams.set('game', 'brush');
+      u.searchParams.set('variant', 'kids-vr');
+      u.searchParams.set('zone', 'hygiene');
+      u.searchParams.set('hub', HUB_URL);
+      u.searchParams.set('next', runUrl);
+      u.searchParams.set('nextKey', nextKey);
+
+      [
+        'pid','studyId','phase','conditionGroup',
+        'runMode','seed','view','log'
+      ].forEach(k => {
+        const v = qs.get(k);
+        if (v) u.searchParams.set(k, v);
+      });
+
+      return u.href;
+    }
+
+    function startViaWarmup(){
+      const runUrl = buildRunUrl();
+      location.href = buildWarmupUrl(runUrl);
+    }
+
+    function startDirect(){
+      location.href = buildRunUrl();
+    }
+
+    function goHub(){
+      location.href = HUB_URL;
+    }
+
+    [modeLearn, modeChallenge].forEach(card => {
+      card.addEventListener('click', () => setMode(card.dataset.mode || 'learn'));
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setMode(card.dataset.mode || 'learn');
+        }
+      });
+    });
+
+    document.getElementById('btnStart').addEventListener('click', startViaWarmup);
+    document.getElementById('btnDirect').addEventListener('click', startDirect);
+    document.getElementById('btnBackHub').addEventListener('click', goHub);
+
+    setMode(selectedMode);
+  </script>
+</body>
+</html>
