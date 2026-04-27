@@ -6,523 +6,687 @@
   <title>HeroHealth • Gate</title>
   <meta name="theme-color" content="#9fe3ff" />
   <meta name="color-scheme" content="light" />
+
   <style>
     :root{
-      --bg1:#f7fcff;
-      --bg2:#fffef9;
+      --bg:#f7fcff;
       --card:#ffffff;
       --line:#dbeaf4;
-      --text:#284255;
+      --text:#334155;
       --muted:#6d7d8b;
       --sky:#7fcfff;
-      --sky-soft:#eef8ff;
       --gold:#ffd45f;
-      --gold-soft:#fff7df;
-      --shadow:0 12px 28px rgba(0,0,0,.06);
-      --shadow-lg:0 24px 60px rgba(0,0,0,.16);
-      --radius-xl:30px;
-      --radius-lg:24px;
-      --radius-md:18px;
-      --safe-top:env(safe-area-inset-top, 0px);
-      --safe-bottom:env(safe-area-inset-bottom, 0px);
-      --maxw:980px;
+      --gold-soft:#fff8ea;
+      --ok:#6fd18b;
+      --ok-soft:#f1fff4;
+      --bad:#ffb3b3;
+      --shadow:0 16px 34px rgba(0,0,0,.08);
+      --shadow-lg:0 24px 60px rgba(0,0,0,.15);
     }
 
     *{ box-sizing:border-box; }
-    html{ -webkit-tap-highlight-color:transparent; }
 
-    body{
+    html,body{
       margin:0;
+      width:100%;
+      min-height:100%;
       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 10% 8%, rgba(255,232,162,.34), transparent 20%),
-        radial-gradient(circle at 92% 10%, rgba(127,207,255,.26), transparent 22%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
+        radial-gradient(circle at 10% 10%, rgba(255,233,168,.35), transparent 22%),
+        radial-gradient(circle at 90% 10%, rgba(127,207,255,.24), transparent 20%),
+        linear-gradient(180deg,#f7fcff,#fffef9);
+      -webkit-tap-highlight-color:transparent;
     }
 
-    body[data-phase="warmup"]{
-      background:
-        radial-gradient(circle at 10% 8%, rgba(127,207,255,.20), transparent 24%),
-        radial-gradient(circle at 90% 10%, rgba(255,212,95,.18), transparent 22%),
-        linear-gradient(180deg,#f6fcff,#fffef9);
-    }
-
-    body[data-phase="cooldown"]{
-      background:
-        radial-gradient(circle at 10% 8%, rgba(255,212,95,.20), transparent 24%),
-        radial-gradient(circle at 90% 10%, rgba(173,223,255,.18), transparent 22%),
-        linear-gradient(180deg,#fffdf7,#f9fcff);
-    }
-
-    .page{
-      width:min(100%, var(--maxw));
-      margin:0 auto;
-      padding:calc(16px + var(--safe-top)) 14px calc(24px + var(--safe-bottom));
+    body{
       min-height:100dvh;
       display:grid;
-      align-items:center;
+      place-items:center;
+      padding:
+        max(14px, env(safe-area-inset-top))
+        14px
+        max(14px, env(safe-area-inset-bottom));
     }
 
-    .shell{
-      display:grid;
-      gap:14px;
+    .gate{
+      width:min(94vw,780px);
     }
 
-    .hero{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
-      align-items:center;
-      padding:18px;
-      border-radius:var(--radius-xl);
-      background:linear-gradient(180deg,#fffef8,#f8fcff);
+    .gateCard{
+      background:linear-gradient(180deg,#fffef9,#f9fcff);
       border:1px solid var(--line);
-      box-shadow:var(--shadow);
+      border-radius:30px;
+      padding:20px;
+      box-shadow:var(--shadow-lg);
     }
 
-    .heroLeft{
+    .gateHead{
       display:flex;
-      align-items:flex-start;
       gap:14px;
+      align-items:flex-start;
+      margin-bottom:16px;
     }
 
     .gateBadge{
-      width:68px;
-      height:68px;
-      border-radius:22px;
+      width:72px;
+      height:72px;
+      border-radius:24px;
       display:grid;
       place-items:center;
-      font-size:34px;
-      flex:0 0 auto;
-      box-shadow:0 10px 18px rgba(127,220,255,.24);
-      background:linear-gradient(180deg,#bff4ff,#7fdcff);
-    }
-
-    body[data-phase="cooldown"] .gateBadge{
       background:linear-gradient(180deg,#ffe8a2,#ffd561);
-      box-shadow:0 10px 18px rgba(255,213,97,.22);
+      font-size:38px;
+      flex:0 0 auto;
+      box-shadow:0 12px 24px rgba(255,208,94,.22);
     }
 
-    .eyebrow{
+    .gateTitle{
       margin:0 0 6px;
-      font-size:12px;
+      font-size:30px;
+      line-height:1.14;
       font-weight:1000;
-      color:#7a8c99;
-      letter-spacing:.04em;
-      text-transform:uppercase;
+      color:#284255;
     }
 
-    .title{
-      margin:0 0 6px;
-      font-size:34px;
-      line-height:1.05;
-      font-weight:1000;
-      color:var(--text);
-    }
-
-    .sub{
+    .gateSubtitle{
       margin:0;
-      font-size:15px;
-      line-height:1.6;
-      color:var(--muted);
-      max-width:620px;
-    }
-
-    .heroRight{
-      display:grid;
-      gap:10px;
-      align-content:center;
-    }
-
-    .countdownCard{
-      padding:16px;
-      border-radius:24px;
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 8px 18px rgba(0,0,0,.04);
-      text-align:center;
-    }
-
-    .countdownLabel{
-      display:block;
-      font-size:12px;
-      font-weight:1000;
-      color:#7b8a97;
-      margin-bottom:8px;
-    }
-
-    #gateCountdown{
-      font-size:54px;
-      line-height:1;
-      font-weight:1000;
-      color:#294457;
-    }
-
-    .nextCard{
-      padding:12px 14px;
-      border-radius:20px;
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 8px 18px rgba(0,0,0,.04);
-    }
-
-    .nextLabel{
-      display:block;
-      font-size:12px;
-      font-weight:1000;
-      color:#7b8a97;
-      margin-bottom:6px;
-    }
-
-    .nextValue{
-      font-size:14px;
-      font-weight:1000;
-      color:#406175;
-      line-height:1.45;
-      word-break:break-word;
-    }
-
-    .tips{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:14px;
-    }
-
-    .tip{
-      padding:16px;
-      border-radius:24px;
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-    }
-
-    .tipIcon{
-      width:46px;
-      height:46px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      margin-bottom:10px;
-      font-size:24px;
-      background:#eef8ff;
-      border:1px solid #cfe8f8;
-    }
-
-    body[data-phase="cooldown"] .tipIcon{
-      background:var(--gold-soft);
-      border-color:#f1dfb3;
-    }
-
-    .tipTitle{
-      margin:0 0 6px;
-      font-size:18px;
-      line-height:1.2;
-      font-weight:1000;
-      color:#294457;
-    }
-
-    .tipText{
-      margin:0;
-      font-size:14px;
-      line-height:1.55;
-      color:var(--muted);
-    }
-
-    .actionCard{
-      padding:16px;
-      border-radius:24px;
-      background:linear-gradient(180deg,#fffef9,#f9fcff);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-      text-align:center;
-    }
-
-    .actionTop{
-      margin-bottom:14px;
-    }
-
-    .actionTitle{
-      margin:0 0 6px;
-      font-size:24px;
-      line-height:1.15;
-      font-weight:1000;
-      color:#294457;
-    }
-
-    .actionSub{
-      margin:0;
-      font-size:14px;
       color:var(--muted);
       line-height:1.5;
+      font-size:15px;
+      font-weight:700;
     }
 
-    .actions{
+    .gateMeta{
       display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .gateChip{
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
       justify-content:center;
+      background:#fff;
+      border:1px solid #e7dcc0;
+      color:#7b6121;
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .gateMission{
+      margin:14px 0;
+      padding:14px;
+      border-radius:24px;
+      border:1px solid #f0ddb0;
+      background:
+        radial-gradient(circle at 92% 18%, rgba(255,215,106,.16), transparent 18%),
+        linear-gradient(180deg,#fffdf6,#fff9ef);
+    }
+
+    .gateMissionTitle{
+      font-size:13px;
+      font-weight:1000;
+      color:#8a6120;
+      margin-bottom:10px;
+    }
+
+    .gateSteps{
+      display:grid;
+      gap:10px;
+    }
+
+    .gateStep{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      padding:12px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:0 6px 14px rgba(0,0,0,.035);
+    }
+
+    .gateStepIcon{
+      width:44px;
+      height:44px;
+      border-radius:15px;
+      background:#eef8ff;
+      display:grid;
+      place-items:center;
+      font-size:22px;
+      flex:0 0 auto;
+    }
+
+    .gateStepTitle{
+      font-weight:1000;
+      color:#2d4859;
+      margin-bottom:4px;
+      line-height:1.22;
+    }
+
+    .gateStepText{
+      font-size:13px;
+      line-height:1.45;
+      color:var(--muted);
+      font-weight:700;
+    }
+
+    .gateTip{
+      margin-top:14px;
+      padding:14px;
+      border-radius:20px;
+      background:#f4fbff;
+      border:1px solid #d5ebf9;
+    }
+
+    .gateTipTitle{
+      font-size:13px;
+      font-weight:1000;
+      color:#37647e;
+      margin-bottom:5px;
+    }
+
+    .gateTipText{
+      color:#557284;
+      line-height:1.5;
+      font-size:14px;
+      font-weight:800;
+    }
+
+    .gateActions{
+      display:flex;
       gap:10px;
       flex-wrap:wrap;
+      margin-top:16px;
     }
 
-    .btn{
-      min-height:50px;
-      min-width:170px;
-      padding:0 16px;
-      border-radius:16px;
-      border:1px solid var(--line);
-      background:#fff;
+    .gateBtn{
+      min-height:52px;
+      padding:0 18px;
+      border:none;
+      border-radius:18px;
       font-size:16px;
       font-weight:1000;
-      color:#315165;
       cursor:pointer;
-      box-shadow:0 8px 16px rgba(0,0,0,.04);
+      touch-action:manipulation;
+      transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
     }
 
-    .btn.primary{
+    .gateBtn:active{
+      transform:scale(.985);
+    }
+
+    .gatePrimary{
       background:var(--sky);
-      border-color:#9edcff;
       color:#17384f;
+      box-shadow:0 10px 18px rgba(127,207,255,.24);
     }
 
-    body[data-phase="cooldown"] .btn.primary{
-      background:var(--gold);
-      border-color:#f0cf73;
-      color:#5c4311;
+    .gateSecondary{
+      background:#fff;
+      color:#2f4f63;
+      border:1px solid var(--line);
     }
 
-    @media (max-width: 860px){
-      .hero{ grid-template-columns:1fr; }
-      .tips{ grid-template-columns:1fr; }
-      .heroRight{ grid-template-columns:1fr 1fr; }
+    .gateFooter{
+      margin-top:14px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:rgba(255,255,255,.76);
+      border:1px solid var(--line);
+      color:#60727f;
+      font-size:13px;
+      line-height:1.5;
+      font-weight:800;
     }
 
-    @media (max-width: 560px){
-      .page{ padding-left:10px; padding-right:10px; }
-      .hero,.tip,.actionCard,.countdownCard,.nextCard{ border-radius:24px; }
-      .heroLeft{ flex-direction:column; }
-      .gateBadge{ width:58px; height:58px; border-radius:18px; font-size:28px; }
-      .title{ font-size:30px; }
-      .heroRight{ grid-template-columns:1fr; }
-      .actions{ flex-direction:column; }
-      .btn{ width:100%; }
+    .gateProgress{
+      margin-top:12px;
+      height:10px;
+      border-radius:999px;
+      background:#f2e8cf;
+      overflow:hidden;
+    }
+
+    .gateProgressFill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#ffd76a,#ffb347);
+      transition:width .28s ease;
+    }
+
+    @media (max-width:640px){
+      body{
+        padding:
+          max(10px, env(safe-area-inset-top))
+          10px
+          max(10px, env(safe-area-inset-bottom));
+      }
+
+      .gateCard{
+        border-radius:24px;
+        padding:16px;
+      }
+
+      .gateHead{
+        gap:12px;
+      }
+
+      .gateBadge{
+        width:62px;
+        height:62px;
+        border-radius:20px;
+        font-size:32px;
+      }
+
+      .gateTitle{
+        font-size:24px;
+      }
+
+      .gateSubtitle{
+        font-size:14px;
+      }
+
+      .gateActions{
+        flex-direction:column;
+      }
+
+      .gateBtn{
+        width:100%;
+      }
     }
   </style>
 </head>
-<body data-phase="warmup">
-  <main class="page">
-    <div class="shell">
-      <section class="hero">
-        <div class="heroLeft">
-          <div class="gateBadge" aria-hidden="true">🚀</div>
-          <div>
-            <p class="eyebrow" id="gateEyebrow">Warmup Gate</p>
-            <h1 class="title" id="gateTitle">เตรียมตัวก่อนเล่นด่านหลัก</h1>
-            <p class="sub" id="gateSub">อ่านเป้าหมายเร็ว ๆ ตั้งสมาธิ แล้วค่อยเข้า Plate Solo</p>
+
+<body>
+  <main class="gate">
+    <section class="gateCard" role="main" aria-labelledby="gateTitle">
+      <div class="gateHead">
+        <div class="gateBadge" id="gateBadge">🍽️</div>
+        <div>
+          <h1 class="gateTitle" id="gateTitle">เตรียมพร้อมก่อนเล่น</h1>
+          <p class="gateSubtitle" id="gateSubtitle">อีกนิดเดียวจะเข้าเกมแล้ว</p>
+
+          <div class="gateMeta">
+            <div class="gateChip" id="gateGameChip">Plate Solo</div>
+            <div class="gateChip" id="gatePhaseChip">Warmup</div>
+            <div class="gateChip" id="gateDiffChip">normal</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gateMission">
+        <div class="gateMissionTitle" id="gateMissionTitle">ก่อนเริ่ม จำ 3 อย่างนี้</div>
+
+        <div class="gateSteps" id="gateSteps">
+          <div class="gateStep">
+            <div class="gateStepIcon" id="gateStep1Icon">🎯</div>
+            <div>
+              <div class="gateStepTitle" id="gateStep1Title">ดูเป้าหมายรอบนี้</div>
+              <div class="gateStepText" id="gateStep1Text">เกมจะบอกว่าต้องทำอะไร</div>
+            </div>
+          </div>
+
+          <div class="gateStep">
+            <div class="gateStepIcon" id="gateStep2Icon">👆</div>
+            <div>
+              <div class="gateStepTitle" id="gateStep2Title">แตะให้ถูก</div>
+              <div class="gateStepText" id="gateStep2Text">เลือกสิ่งที่ตรงกับเป้าหมาย</div>
+            </div>
+          </div>
+
+          <div class="gateStep">
+            <div class="gateStepIcon" id="gateStep3Icon">🌟</div>
+            <div>
+              <div class="gateStepTitle" id="gateStep3Title">พยายามให้ดีที่สุด</div>
+              <div class="gateStepText" id="gateStep3Text">เล่นให้สนุกและเรียนรู้ไปพร้อมกัน</div>
+            </div>
           </div>
         </div>
 
-        <div class="heroRight">
-          <div class="countdownCard">
-            <span class="countdownLabel">นับถอยหลังอัตโนมัติ</span>
-            <strong id="gateCountdown">3</strong>
-          </div>
-
-          <div class="nextCard">
-            <span class="nextLabel">ปลายทางถัดไป</span>
-            <div class="nextValue" id="nextPreview">กำลังเตรียมเส้นทาง...</div>
-          </div>
+        <div class="gateProgress">
+          <div class="gateProgressFill" id="gateProgressFill"></div>
         </div>
-      </section>
+      </div>
 
-      <section class="tips">
-        <article class="tip">
-          <div class="tipIcon">🎯</div>
-          <h3 class="tipTitle" id="tip1Title">ตั้งเป้าหมาย</h3>
-          <p class="tipText" id="tip1Text">ด่านหลักจะเริ่มหลัง warmup นี้ทันที</p>
-        </article>
+      <div class="gateTip">
+        <div class="gateTipTitle" id="gateTipTitle">เคล็ดลับ</div>
+        <div class="gateTipText" id="gateTipText">อ่านเป้าหมายให้เข้าใจก่อนเริ่มเล่น</div>
+      </div>
 
-        <article class="tip">
-          <div class="tipIcon">🧠</div>
-          <h3 class="tipTitle" id="tip2Title">โฟกัสให้แม่น</h3>
-          <p class="tipText" id="tip2Text">เลือกให้ตรงหมู่ อย่าเผลอยิงตัวลวง</p>
-        </article>
+      <div class="gateActions">
+        <button class="gateBtn gatePrimary" id="gatePrimaryBtn" type="button">เริ่มเกม</button>
+        <button class="gateBtn gateSecondary" id="gateSecondaryBtn" type="button">กลับ</button>
+      </div>
 
-        <article class="tip">
-          <div class="tipIcon">🍽️</div>
-          <h3 class="tipTitle" id="tip3Title">พร้อมเข้า Main</h3>
-          <p class="tipText" id="tip3Text">กดปุ่มด้านล่างเพื่อเข้า Plate Solo</p>
-        </article>
-      </section>
-
-      <section class="actionCard">
-        <div class="actionTop">
-          <h2 class="actionTitle" id="actionTitle">พร้อมแล้วไปต่อได้เลย</h2>
-          <p class="actionSub" id="actionSub">จะรอให้นับถอยหลังครบ หรือกดไปต่อทันทีได้</p>
-        </div>
-
-        <div class="actions">
-          <button type="button" class="btn primary" id="btnGateStart">เริ่มด่านหลัก</button>
-          <button type="button" class="btn" id="btnGateSkip">ข้าม gate</button>
-          <button type="button" class="btn" id="btnGateHub">กลับ Hub</button>
-        </div>
-      </section>
-    </div>
+      <div class="gateFooter" id="gateFooter">
+        ระบบจะส่งข้อมูล player, difficulty, view, seed, hub และ log ต่อไปยังหน้าถัดไปอัตโนมัติ
+      </div>
+    </section>
   </main>
 
   <script>
-  (function () {
+  (function(){
     'use strict';
 
-    function q(name, fallback = '') {
-      try { return new URL(location.href).searchParams.get(name) ?? fallback; }
-      catch (_) { return fallback; }
+    const q = new URLSearchParams(location.search);
+
+    function qs(name, fallback=''){
+      return q.get(name) ?? fallback;
     }
 
-    function clean(v, d = '') {
+    function clean(v, d=''){
       v = String(v ?? '').trim();
       return v || d;
     }
 
+    function isAbsUrl(s){
+      return /^https?:\/\//i.test(String(s || ''));
+    }
+
+    function safeDecodeUrlMaybe(s){
+      s = String(s || '');
+      if(!s) return '';
+      try{
+        return decodeURIComponent(s);
+      }catch(_){
+        return s;
+      }
+    }
+
+    function bangkokYmd(){
+      try{
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone:'Asia/Bangkok',
+          year:'numeric',
+          month:'2-digit',
+          day:'2-digit'
+        }).formatToParts(new Date());
+        const m = {};
+        parts.forEach(p => {
+          if(p.type !== 'literal') m[p.type] = p.value;
+        });
+        return `${m.year}${m.month}${m.day}`;
+      }catch(_){
+        const d = new Date();
+        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      }
+    }
+
     const ctx = {
-      phase: clean(q('phase'), clean(q('gatePhase'), 'warmup')).toLowerCase(),
-      pid: clean(q('pid'), 'anon'),
-      name: clean(q('name'), 'Hero'),
-      diff: clean(q('diff'), 'normal'),
-      time: clean(q('time'), '90'),
-      view: clean(q('view'), 'mobile'),
-      run: clean(q('run'), 'play'),
-      zone: clean(q('zone'), 'nutrition'),
-      cat: clean(q('cat'), 'nutrition'),
-      game: clean(q('game'), 'plate'),
-      gameId: clean(q('gameId'), 'plate'),
-      theme: clean(q('theme'), 'plate'),
-      mode: clean(q('mode'), 'solo'),
-      hub: clean(q('hub'), 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'),
-      hubRoot: clean(q('hubRoot'), ''),
-      entry: clean(q('entry'), ''),
-      next: clean(q('next'), '')
+      pid: clean(qs('pid'), 'anon'),
+      name: clean(qs('name'), 'Hero'),
+      studyId: clean(qs('studyId'), ''),
+      section: clean(qs('section'), ''),
+      session_code: clean(qs('session_code'), ''),
+      diff: clean(qs('diff'), 'normal'),
+      time: clean(qs('time'), '90'),
+      seed: clean(qs('seed'), String(Date.now())),
+      hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub-v2.html'),
+      view: clean(qs('view'), 'mobile'),
+      run: clean(qs('run'), 'play'),
+      zone: clean(qs('zone'), ''),
+      game: clean(qs('game'), ''),
+      mode: clean(qs('mode'), 'solo'),
+      phase: clean(qs('phase'), 'warmup').toLowerCase(),
+      entry: clean(qs('entry'), ''),
+      fromLauncher: clean(qs('fromLauncher'), ''),
+      log: clean(qs('log'), ''),
+      next: safeDecodeUrlMaybe(clean(qs('next'), ''))
     };
 
-    function defaultNext() {
-      if (ctx.phase === 'cooldown') return ctx.hub;
-      return 'https://supparang.github.io/webxr-health-mobile/herohealth/plate/plate-solo.html';
-    }
+    const isCooldown = ctx.phase === 'cooldown';
 
-    function resolvedNext() {
-      return ctx.next || defaultNext();
-    }
+    const isPlate =
+      ctx.game.toLowerCase() === 'plate' ||
+      ctx.next.includes('/herohealth/plate/plate-vr.html') ||
+      location.href.includes('game=plate');
 
-    function setText(id, text) {
-      const el = document.getElementById(id);
-      if (el) el.textContent = String(text ?? '');
-    }
+    const COPY = {
+      plate: {
+        warmup:{
+          badge:'🍽️',
+          title:'เตรียมจัดจานสุขภาพ',
+          subtitle:'อีกนิดเดียวจะเข้า Plate Solo แล้ว รอบนี้ goal จะติดอยู่บนจอตลอด ไม่ต้องเลื่อนหาเป้าหมาย',
+          missionTitle:'ก่อนเริ่ม จำ 3 อย่างนี้',
+          steps:[
+            ['🎯','ดูเป้าหมายรอบนี้','เกมจะบอกว่าต้องเก็บอาหารหมู่ไหน เช่น โปรตีน ผัก ผลไม้ หรือไขมันดี'],
+            ['👆','แตะเฉพาะของที่ตรงกับ goal','ถ้า goal ล็อกไว้ที่ “โปรตีน” ให้แตะเฉพาะอาหารโปรตีนเท่านั้น'],
+            ['🚫','หลบตัวหลอก','ของหวาน น้ำอัดลม หรืออาหารคนละหมู่จะเป็นตัวหลอก ถ้าแตะจะเสียคะแนน']
+          ],
+          tipTitle:'เคล็ดลับ',
+          tipText:'ระหว่างเล่นให้มอง goal bar ด้านบนไว้เสมอ เห็นจำนวนที่เก็บได้และจำนวนที่ต้องเก็บครบตลอดเวลา',
+          primary:'เริ่ม Plate Solo',
+          secondary:'กลับ Nutrition Zone',
+          titleTag:'HeroHealth • เตรียม Plate Solo',
+          footer:'Warmup นี้ช่วยให้ผู้เล่นเข้าใจ goal ก่อนเข้า main game'
+        },
 
-    function applyPhaseUi() {
-      const isCooldown = ctx.phase === 'cooldown';
-
-      document.body.dataset.phase = isCooldown ? 'cooldown' : 'warmup';
-
-      setText('gateEyebrow', isCooldown ? 'Cooldown Gate' : 'Warmup Gate');
-      setText('gateTitle', isCooldown ? 'คูลดาวน์ก่อนกลับโซน' : 'เตรียมตัวก่อนเล่นด่านหลัก');
-      setText(
-        'gateSub',
-        isCooldown
-          ? 'หายใจลึก ๆ ผ่อนจังหวะ แล้วค่อยกลับ Nutrition Zone'
-          : 'อ่านเป้าหมายเร็ว ๆ ตั้งสมาธิ แล้วค่อยเข้า Plate Solo'
-      );
-
-      setText('tip1Title', isCooldown ? 'ผ่อนแรง' : 'ตั้งเป้าหมาย');
-      setText(
-        'tip1Text',
-        isCooldown
-          ? 'จบทั้ง main และ mini แล้ว ขั้นนี้คือปิด session ให้เรียบร้อย'
-          : 'ด่านหลักจะเริ่มหลัง warmup นี้ทันที'
-      );
-
-      setText('tip2Title', isCooldown ? 'สรุปในใจ' : 'โฟกัสให้แม่น');
-      setText(
-        'tip2Text',
-        isCooldown
-          ? 'ทบทวนว่ารอบนี้หมู่ไหนทำได้ดี และหมู่ไหนยังต้องฝึกเพิ่ม'
-          : 'เลือกให้ตรงหมู่ อย่าเผลอยิงตัวลวง'
-      );
-
-      setText('tip3Title', isCooldown ? 'พร้อมกลับโซน' : 'พร้อมเข้า Main');
-      setText(
-        'tip3Text',
-        isCooldown
-          ? 'กดปุ่มด้านล่างเพื่อกลับ Hub / Nutrition Zone'
-          : 'กดปุ่มด้านล่างเพื่อเข้า Plate Solo'
-      );
-
-      setText('actionTitle', isCooldown ? 'พักเสร็จแล้ว กลับโซนได้เลย' : 'พร้อมแล้วไปต่อได้เลย');
-      setText(
-        'actionSub',
-        isCooldown
-          ? 'กดกลับโซนได้ทันที หรือกลับ Hub ถ้าต้องการ'
-          : 'จะรอให้นับถอยหลังครบ หรือกดไปต่อทันทีได้'
-      );
-
-      setText('btnGateStart', isCooldown ? 'กลับโซน' : 'เริ่มด่านหลัก');
-      setText('btnGateSkip', isCooldown ? 'กลับ Hub ทันที' : 'ข้าม gate');
-    }
-
-    function updateNextPreview() {
-      const next = resolvedNext();
-      try {
-        const u = new URL(next);
-        const path = `${u.pathname}${u.search ? u.search : ''}`;
-        setText('nextPreview', path);
-      } catch (_) {
-        setText('nextPreview', next || '-');
-      }
-    }
-
-    function goNext(ev) {
-      if (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
-      location.assign(resolvedNext());
-    }
-
-    function goHub(ev) {
-      if (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
-      location.assign(ctx.hub);
-    }
-
-    function autoAdvanceAfterCountdown() {
-      const countdownEl = document.getElementById('gateCountdown');
-      if (!countdownEl) return;
-
-      let remain = 3;
-      countdownEl.textContent = String(remain);
-
-      const timer = setInterval(() => {
-        remain -= 1;
-        countdownEl.textContent = String(Math.max(0, remain));
-        if (remain <= 0) {
-          clearInterval(timer);
-          goNext();
+        cooldown:{
+          badge:'🌟',
+          title:'สรุปการจัดจานสุขภาพ',
+          subtitle:'เล่นจบแล้ว มาทบทวนสั้น ๆ ก่อนกลับ HUB',
+          missionTitle:'หลังเล่น ลองจำ 3 อย่างนี้',
+          steps:[
+            ['✅','อาหารแต่ละหมู่อยู่คนละบทบาท','โปรตีนช่วยซ่อมแซมร่างกาย ข้าว/แป้งให้พลังงาน ผักและผลไม้ช่วยเรื่องวิตามินและใยอาหาร'],
+            ['🍽️','จานที่ดีควรสมดุล','ไม่ใช่มีแต่อาหารที่ชอบ แต่ควรมีหลายหมู่รวมกันให้เหมาะสม'],
+            ['💡','ครั้งหน้าให้ดู goal ก่อนแตะ','ถ้ารู้ว่ารอบนี้ล็อกหมู่ไหน จะลดการแตะผิดและทำคะแนนได้ดีขึ้น']
+          ],
+          tipTitle:'สิ่งที่ทำได้ดี',
+          tipText:'คุณฝึกแยกหมู่อาหารและตัดสินใจเร็วขึ้นแล้ว ต่อไปลองทำให้แม่นขึ้นและพลาดให้น้อยลง',
+          primary:'กลับ HUB',
+          secondary:'เล่น Plate Solo อีกครั้ง',
+          titleTag:'HeroHealth • สรุป Plate Solo',
+          footer:'Cooldown นี้ช่วยให้ผู้เล่นทบทวนสิ่งที่เรียนรู้ก่อนกลับ HUB'
         }
-      }, 1000);
+      },
+
+      generic: {
+        warmup:{
+          badge:'✨',
+          title:'เตรียมพร้อมก่อนเล่น',
+          subtitle:'อ่านเป้าหมายสั้น ๆ ก่อนเริ่มเกม',
+          missionTitle:'ก่อนเริ่ม จำ 3 อย่างนี้',
+          steps:[
+            ['🎯','ดูเป้าหมาย','สังเกตว่าเกมต้องการให้ทำอะไร'],
+            ['👆','เล่นอย่างตั้งใจ','แตะหรือเลือกสิ่งที่ตรงกับคำสั่ง'],
+            ['🌟','เรียนรู้จากผลลัพธ์','ถ้าพลาดไม่เป็นไร ลองใหม่ให้แม่นขึ้น']
+          ],
+          tipTitle:'เคล็ดลับ',
+          tipText:'ค่อย ๆ ดูคำสั่งก่อนเริ่ม จะช่วยให้เล่นได้ดีขึ้น',
+          primary:'เริ่มเกม',
+          secondary:'กลับ HUB',
+          titleTag:'HeroHealth • Warmup',
+          footer:'ระบบจะพาไปยังหน้าถัดไปพร้อมข้อมูลเดิม'
+        },
+
+        cooldown:{
+          badge:'🌟',
+          title:'สรุปหลังเล่น',
+          subtitle:'เล่นจบแล้ว มาทบทวนสั้น ๆ ก่อนกลับ HUB',
+          missionTitle:'หลังเล่น ลองจำ 3 อย่างนี้',
+          steps:[
+            ['✅','ดูสิ่งที่ทำได้ดี','จำจุดที่ทำได้ดีไว้'],
+            ['💡','ดูจุดที่ควรปรับ','ถ้าพลาดให้ลองคิดว่าพลาดเพราะอะไร'],
+            ['🌈','พร้อมเล่นครั้งต่อไป','ครั้งหน้าจะทำได้แม่นขึ้น']
+          ],
+          tipTitle:'สิ่งที่ทำได้ดี',
+          tipText:'คุณได้ฝึกคิด ตัดสินใจ และตอบสนองระหว่างเล่นแล้ว',
+          primary:'กลับ HUB',
+          secondary:'เล่นอีกครั้ง',
+          titleTag:'HeroHealth • Cooldown',
+          footer:'ระบบจะพากลับไปยังจุดหมายที่ตั้งไว้'
+        }
+      }
+    };
+
+    const copyGroup = isPlate ? COPY.plate : COPY.generic;
+    const copy = isCooldown ? copyGroup.cooldown : copyGroup.warmup;
+
+    const $ = id => document.getElementById(id);
+
+    function setText(id, text){
+      const el = $(id);
+      if(el) el.textContent = text;
     }
 
-    document.getElementById('btnGateStart')?.addEventListener('click', goNext);
-    document.getElementById('btnGateSkip')?.addEventListener('click', goNext);
-    document.getElementById('btnGateHub')?.addEventListener('click', goHub);
+    function preserveParams(url, extra={}){
+      const base = isAbsUrl(url) ? url : new URL(url, location.origin).toString();
+      const u = new URL(base);
 
-    applyPhaseUi();
-    updateNextPreview();
+      const keys = [
+        'pid','name','studyId','section','session_code','diff','time','seed',
+        'hub','view','run','zone','game','mode','entry','fromLauncher','log'
+      ];
 
-    if (ctx.phase === 'warmup') {
-      autoAdvanceAfterCountdown();
-    } else {
-      setText('gateCountdown', '✓');
+      keys.forEach(k => {
+        const v = ctx[k];
+        if(v !== '' && v != null) u.searchParams.set(k, String(v));
+      });
+
+      Object.entries(extra).forEach(([k,v]) => {
+        if(v !== '' && v != null) u.searchParams.set(k, String(v));
+      });
+
+      return u.toString();
     }
+
+    function gateKey(phase){
+      const pid = ctx.pid || 'anon';
+      const game = ctx.game || (isPlate ? 'plate' : 'game');
+      const mode = ctx.mode || 'solo';
+      return `HHA_GATE_${String(phase).toUpperCase()}_${pid}_${game}_${mode}_${bangkokYmd()}`;
+    }
+
+    function markGateDone(phase){
+      try{
+        localStorage.setItem(gateKey(phase), '1');
+      }catch(_){}
+    }
+
+    function defaultPlateRunUrl(){
+      return preserveParams('/webxr-health-mobile/herohealth/plate/plate-vr.html', {
+        game:'plate',
+        zone:'nutrition',
+        mode:ctx.mode || 'solo',
+        entry:'warmup',
+        fromLauncher:'1'
+      });
+    }
+
+    function plateLauncherUrl(){
+      return preserveParams('/webxr-health-mobile/herohealth/plate-vr.html', {
+        game:'plate',
+        zone:'nutrition',
+        mode:ctx.mode || 'solo',
+        entry:'cooldown_replay',
+        fromLauncher:'1',
+        seed:String(Date.now())
+      });
+    }
+
+    function nutritionZoneUrl(){
+      return preserveParams('/webxr-health-mobile/herohealth/nutrition-zone.html', {
+        focus:'plate',
+        featured:'plate',
+        zone:'nutrition'
+      });
+    }
+
+    function hubUrl(){
+      return ctx.hub || '/webxr-health-mobile/herohealth/hub-v2.html';
+    }
+
+    function primaryUrl(){
+      if(isCooldown){
+        return ctx.next || hubUrl();
+      }
+
+      if(ctx.next){
+        return ctx.next;
+      }
+
+      if(isPlate){
+        return defaultPlateRunUrl();
+      }
+
+      return preserveParams('/webxr-health-mobile/herohealth/hub-v2.html', {
+        entry:'warmup_done'
+      });
+    }
+
+    function secondaryUrl(){
+      if(isCooldown){
+        if(isPlate) return plateLauncherUrl();
+        return hubUrl();
+      }
+
+      if(isPlate){
+        return nutritionZoneUrl();
+      }
+
+      return hubUrl();
+    }
+
+    function render(){
+      document.title = copy.titleTag;
+
+      setText('gateBadge', copy.badge);
+      setText('gateTitle', copy.title);
+      setText('gateSubtitle', copy.subtitle);
+      setText('gateMissionTitle', copy.missionTitle);
+      setText('gateTipTitle', copy.tipTitle);
+      setText('gateTipText', copy.tipText);
+      setText('gatePrimaryBtn', copy.primary);
+      setText('gateSecondaryBtn', copy.secondary);
+      setText('gateFooter', copy.footer);
+
+      setText('gateGameChip', isPlate ? 'Plate Solo' : (ctx.game || 'HeroHealth'));
+      setText('gatePhaseChip', isCooldown ? 'Cooldown' : 'Warmup');
+      setText('gateDiffChip', ctx.diff || 'normal');
+
+      const stepsWrap = $('gateSteps');
+      if(stepsWrap){
+        stepsWrap.innerHTML = copy.steps.map((step, i) => `
+          <div class="gateStep">
+            <div class="gateStepIcon" id="gateStep${i+1}Icon">${step[0]}</div>
+            <div>
+              <div class="gateStepTitle" id="gateStep${i+1}Title">${step[1]}</div>
+              <div class="gateStepText" id="gateStep${i+1}Text">${step[2]}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      const fill = $('gateProgressFill');
+      if(fill){
+        requestAnimationFrame(() => {
+          fill.style.width = isCooldown ? '100%' : '72%';
+        });
+      }
+    }
+
+    function handlePrimary(){
+      markGateDone(ctx.phase);
+      location.href = primaryUrl();
+    }
+
+    function handleSecondary(){
+      if(isCooldown){
+        markGateDone(ctx.phase);
+      }
+      location.href = secondaryUrl();
+    }
+
+    $('gatePrimaryBtn')?.addEventListener('click', handlePrimary);
+    $('gateSecondaryBtn')?.addEventListener('click', handleSecondary);
+
+    render();
   })();
   </script>
 </body>
