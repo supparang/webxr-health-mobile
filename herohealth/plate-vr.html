@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Plate Launcher</title>
+  <title>HeroHealth • Plate Solo Launcher</title>
   <meta name="theme-color" content="#9fe3ff" />
   <meta name="color-scheme" content="light" />
   <style>
@@ -14,16 +14,16 @@
       --text:#334155;
       --muted:#6d7d8b;
       --sky:#7fcfff;
-      --sky-2:#eef8ff;
       --gold:#ffd45f;
-      --gold-2:#fff8eb;
+      --gold-soft:#fff8ea;
       --ok:#6fd18b;
-      --ok-bg:#f1fff4;
+      --ok-soft:#f1fff4;
       --shadow:0 14px 30px rgba(0,0,0,.08);
       --shadow-lg:0 24px 60px rgba(0,0,0,.14);
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -36,6 +36,10 @@
       -webkit-tap-highlight-color:transparent;
     }
 
+    body{
+      overflow-x:hidden;
+    }
+
     .page{
       max-width:980px;
       margin:0 auto;
@@ -44,7 +48,7 @@
 
     .hero{
       display:grid;
-      grid-template-columns:1.1fr .9fr;
+      grid-template-columns:1.08fr .92fr;
       gap:16px;
       align-items:stretch;
     }
@@ -64,22 +68,23 @@
     }
 
     .badge{
-      width:66px;
-      height:66px;
-      border-radius:20px;
+      width:70px;
+      height:70px;
+      border-radius:22px;
       display:grid;
       place-items:center;
       background:linear-gradient(180deg,#ffe49d,#ffd15f);
-      font-size:34px;
+      font-size:36px;
       flex:0 0 auto;
       box-shadow:0 10px 20px rgba(255,208,94,.24);
     }
 
     h1{
       margin:0 0 6px;
-      font-size:30px;
-      line-height:1.1;
+      font-size:32px;
+      line-height:1.08;
       color:#284255;
+      font-weight:1000;
     }
 
     .sub{
@@ -87,6 +92,7 @@
       color:var(--muted);
       line-height:1.5;
       font-size:14px;
+      font-weight:700;
     }
 
     .pillRow{
@@ -111,22 +117,24 @@
 
     .goalCard{
       border:1px solid #f0ddb0;
-      background:linear-gradient(180deg,#fffdf6,#fff9ef);
+      background:
+        radial-gradient(circle at 92% 18%, rgba(255,215,106,.16), transparent 20%),
+        linear-gradient(180deg,#fffdf6,#fff9ef);
     }
 
     .goalTitle{
       font-size:12px;
-      font-weight:900;
+      font-weight:1000;
       color:#8a6120;
       margin-bottom:6px;
     }
 
     .goalBig{
-      font-size:24px;
+      font-size:25px;
       font-weight:1000;
-      line-height:1.2;
+      line-height:1.18;
       color:#284255;
-      margin-bottom:6px;
+      margin-bottom:8px;
     }
 
     .grid{
@@ -137,10 +145,10 @@
     }
 
     .sectionTitle{
-      font-size:15px;
+      font-size:16px;
       font-weight:1000;
       color:#2d4859;
-      margin:0 0 10px;
+      margin:0 0 12px;
     }
 
     .field{
@@ -151,21 +159,26 @@
       display:block;
       font-size:12px;
       color:var(--muted);
-      font-weight:800;
+      font-weight:900;
       margin-bottom:6px;
     }
 
-    .input, .select{
+    .input{
       width:100%;
-      min-height:48px;
-      border-radius:16px;
+      min-height:50px;
+      border-radius:18px;
       border:1px solid var(--line);
       background:#fff;
       padding:0 14px;
       font-size:15px;
-      font-weight:800;
+      font-weight:850;
       color:#284255;
       outline:none;
+    }
+
+    .input:focus{
+      border-color:var(--sky);
+      box-shadow:0 0 0 4px rgba(127,207,255,.18);
     }
 
     .optionGrid{
@@ -175,13 +188,13 @@
     }
 
     .optionBtn{
-      min-height:48px;
-      border-radius:16px;
+      min-height:50px;
+      border-radius:18px;
       border:1px solid var(--line);
       background:#fff;
       color:#2f4f63;
       font-size:14px;
-      font-weight:900;
+      font-weight:1000;
       cursor:pointer;
       touch-action:manipulation;
       transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
@@ -190,7 +203,7 @@
     .optionBtn.active{
       background:#eef8ff;
       border-color:var(--sky);
-      box-shadow:0 0 0 3px rgba(127,207,255,.20);
+      box-shadow:0 0 0 4px rgba(127,207,255,.18);
       transform:translateY(-1px);
     }
 
@@ -198,7 +211,8 @@
       font-size:12px;
       color:#6d7d8b;
       line-height:1.45;
-      margin-top:4px;
+      margin-top:5px;
+      font-weight:750;
     }
 
     .steps{
@@ -217,13 +231,13 @@
     }
 
     .stepNo{
-      width:40px;
-      height:40px;
+      width:42px;
+      height:42px;
       border-radius:14px;
       display:grid;
       place-items:center;
       background:#eef8ff;
-      font-size:20px;
+      font-size:21px;
       flex:0 0 auto;
     }
 
@@ -238,6 +252,7 @@
       font-size:13px;
       line-height:1.45;
       color:var(--muted);
+      font-weight:700;
     }
 
     .lastSummary{
@@ -277,12 +292,12 @@
     .miniLabel{
       font-size:11px;
       color:#6d7d8b;
-      font-weight:800;
-      margin-bottom:3px;
+      font-weight:900;
+      margin-bottom:4px;
     }
 
     .miniValue{
-      font-size:18px;
+      font-size:19px;
       font-weight:1000;
       color:#2d4859;
       line-height:1;
@@ -296,7 +311,7 @@
     }
 
     .btn{
-      min-height:52px;
+      min-height:54px;
       padding:0 18px;
       border:none;
       border-radius:18px;
@@ -321,7 +336,7 @@
       border:1px solid var(--line);
     }
 
-    .btnWarn{
+    .btnGold{
       background:linear-gradient(180deg,#ffe7a3,#ffd468);
       color:#7a5609;
       box-shadow:0 10px 18px rgba(255,212,104,.24);
@@ -342,21 +357,27 @@
     @media (max-width: 860px){
       .hero{ grid-template-columns:1fr; }
       .grid{ grid-template-columns:1fr; }
-      .optionGrid{ grid-template-columns:repeat(3,1fr); }
       .lastSummaryGrid{ grid-template-columns:1fr 1fr 1fr; }
     }
 
     @media (max-width: 640px){
       .page{ padding:14px 12px 24px; }
-      h1{ font-size:26px; }
-      .goalBig{ font-size:21px; }
-      .optionGrid{ grid-template-columns:1fr 1fr 1fr; }
+      h1{ font-size:27px; }
+      .goalBig{ font-size:22px; }
+      .heroMain{ gap:12px; }
+      .badge{
+        width:62px;
+        height:62px;
+        border-radius:20px;
+        font-size:32px;
+      }
       .actionRow{ flex-direction:column; }
       .btn{ width:100%; }
       .lastSummaryGrid{ grid-template-columns:1fr; }
     }
   </style>
 </head>
+
 <body>
   <div class="page">
     <section class="hero">
@@ -364,15 +385,16 @@
         <div class="heroMain">
           <div class="badge">🍽️</div>
           <div>
-            <h1>Plate Solo Launcher</h1>
+            <h1>Plate Solo</h1>
             <p class="sub">
-              หน้านี้คือจุดเริ่มต้นของ flow แบบเต็ม:
-              <strong>launcher → warmup-gate → run → summary → cooldown-gate → hub</strong>
+              เกมหลักของ Plate — เข้าเล่นตรงเลย ไม่ผ่าน warmup-gate ซ้ำ
+              เพราะในเกมมี mission overlay และ goal bar อยู่แล้ว
             </p>
+
             <div class="pillRow">
-              <div class="pill">Nutrition Zone</div>
-              <div class="pill">Locked Goal Visible</div>
-              <div class="pill">Mobile First</div>
+              <div class="pill">Main Game</div>
+              <div class="pill">Goal Locked</div>
+              <div class="pill">No Scroll During Play</div>
             </div>
           </div>
         </div>
@@ -397,11 +419,11 @@
       </div>
 
       <div class="card goalCard">
-        <div class="goalTitle">สิ่งที่ผู้เล่นจะเห็น</div>
-        <div class="goalBig">goal ถูกล็อกให้เห็นตลอดระหว่างเล่น</div>
+        <div class="goalTitle">flow ใหม่</div>
+        <div class="goalBig">Launcher → Main Game → Mission Overlay → Play → Summary → HUB</div>
         <p class="sub">
-          ระหว่างเล่นจะไม่มีหน้าเลื่อนยาว ๆ อีกแล้ว ผู้เล่นจะเห็น HUD, goal bar และ play area
-          ตลอดเวลา แล้วค่อยไปอ่านสรุปหลังจบเกม
+          ตัด warmup-gate ก่อนเล่นออก เพื่อไม่ให้ผู้เล่นรู้สึกว่าย้อนไปย้อนมา
+          ส่วน cooldown-gate ก็ไม่บังคับใช้กับ Plate Solo ในรอบนี้
         </p>
       </div>
     </section>
@@ -423,6 +445,22 @@
         <div class="field">
           <label class="label" for="studyId">Study ID</label>
           <input class="input" id="studyId" type="text" placeholder="optional" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="sectionInput">Section</label>
+          <input class="input" id="sectionInput" type="text" placeholder="optional" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="sessionCodeInput">Session Code</label>
+          <input class="input" id="sessionCodeInput" type="text" placeholder="optional" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="logInput">Log Endpoint</label>
+          <input class="input" id="logInput" type="text" placeholder="https://your-script-endpoint/exec" />
+          <div class="helper">ถ้าเว้นว่าง เกมจะเล่นได้ปกติ แต่จะไม่ส่ง research log</div>
         </div>
 
         <div class="field">
@@ -450,57 +488,69 @@
             <button class="optionBtn" type="button" data-value="pc">pc</button>
             <button class="optionBtn" type="button" data-value="cvr">cVR</button>
           </div>
-          <div class="helper">หน้าเล่นจริงจะยังคงล็อก goal ไว้ให้เห็นตลอดทุกโหมด</div>
+          <div class="helper">หน้าเล่นจริงจะล็อก goal ไว้ให้เห็นตลอดทุกโหมด</div>
         </div>
       </div>
 
       <div class="card">
-        <h2 class="sectionTitle">flow ของรอบนี้</h2>
+        <h2 class="sectionTitle">flow ที่ไม่ย้อนไปย้อนมา</h2>
 
         <div class="steps">
           <div class="step">
             <div class="stepNo">1️⃣</div>
             <div>
               <div class="stepTitle">Launcher</div>
-              <div class="stepText">ตั้งค่า player / diff / time / view ก่อนเริ่ม</div>
+              <div class="stepText">เลือกชื่อ ระดับ เวลา และมุมมองก่อนเริ่ม</div>
             </div>
           </div>
 
           <div class="step">
             <div class="stepNo">2️⃣</div>
             <div>
-              <div class="stepTitle">Warmup Gate</div>
-              <div class="stepText">อุ่นเครื่องสั้น ๆ ก่อนเข้า run จริง</div>
+              <div class="stepTitle">Plate Solo Main Game</div>
+              <div class="stepText">เข้าเกมหลักทันที ไม่คั่น warmup-gate อีก</div>
             </div>
           </div>
 
           <div class="step">
             <div class="stepNo">3️⃣</div>
             <div>
-              <div class="stepTitle">Plate Run</div>
-              <div class="stepText">หน้าเล่นจะไม่เลื่อน และ goal จะถูกล็อกให้เห็นตลอด</div>
+              <div class="stepTitle">Mission Overlay</div>
+              <div class="stepText">เกมบอก goal ก่อนเริ่มเล่นในหน้าเดียวกัน</div>
             </div>
           </div>
 
           <div class="step">
             <div class="stepNo">4️⃣</div>
             <div>
-              <div class="stepTitle">Summary + Cooldown</div>
-              <div class="stepText">จบเกมแล้วค่อยสรุปผล จากนั้นผ่าน cooldown-gate กลับ hub</div>
+              <div class="stepTitle">Locked Gameplay</div>
+              <div class="stepText">ระหว่างเล่นไม่เลื่อน และ goal จะเห็นตลอด</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">5️⃣</div>
+            <div>
+              <div class="stepTitle">Summary / Create Plate</div>
+              <div class="stepText">จบแล้วค่อยดูสรุป คิดต่อ และสร้างจานของตัวเอง</div>
             </div>
           </div>
         </div>
 
         <div class="actionRow">
-          <button class="btn btnPrimary" id="btnStartFlow" type="button">เริ่ม flow นี้</button>
-          <button class="btn btnWarn" id="btnContinueWarmup" type="button">ไป warmup-gate เลย</button>
+          <button class="btn btnPrimary" id="btnStartFlow" type="button">เริ่ม Plate Solo</button>
+          <button class="btn btnGold" id="btnDirectRun" type="button">เข้า Main Game</button>
           <button class="btn btnSecondary" id="btnBackHub" type="button">กลับ HUB</button>
+        </div>
+
+        <div class="actionRow">
+          <button class="btn btnSecondary" id="btnReplayLatest" type="button">เล่นค่าล่าสุดอีกครั้ง</button>
         </div>
       </div>
     </section>
 
     <div class="footerNote">
-      หมายเหตุ: ไฟล์นี้เป็น <strong>launcher</strong> เท่านั้น ส่วน gameplay จริงอยู่ที่
+      ไฟล์นี้คือ launcher ของ Plate Solo เท่านั้น ส่วน main game จริงอยู่ที่
       <strong>/herohealth/plate/plate-vr.html</strong>
     </div>
   </div>
@@ -520,6 +570,7 @@
     }
 
     function setActive(groupEl, value){
+      if(!groupEl) return;
       groupEl.querySelectorAll('.optionBtn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.value === value);
       });
@@ -527,20 +578,24 @@
     }
 
     function getActive(groupEl, fallback){
-      return groupEl.dataset.value || fallback;
+      return groupEl?.dataset?.value || fallback;
     }
 
     const $playerName = document.getElementById('playerName');
     const $playerPid = document.getElementById('playerPid');
     const $studyId = document.getElementById('studyId');
+    const $sectionInput = document.getElementById('sectionInput');
+    const $sessionCodeInput = document.getElementById('sessionCodeInput');
+    const $logInput = document.getElementById('logInput');
 
     const $diffGrid = document.getElementById('diffGrid');
     const $timeGrid = document.getElementById('timeGrid');
     const $viewGrid = document.getElementById('viewGrid');
 
     const $btnStartFlow = document.getElementById('btnStartFlow');
-    const $btnContinueWarmup = document.getElementById('btnContinueWarmup');
+    const $btnDirectRun = document.getElementById('btnDirectRun');
     const $btnBackHub = document.getElementById('btnBackHub');
+    const $btnReplayLatest = document.getElementById('btnReplayLatest');
 
     const $lastSummaryBox = document.getElementById('lastSummaryBox');
     const $lastScore = document.getElementById('lastScore');
@@ -551,6 +606,9 @@
       pid: clean(qs('pid'),'anon'),
       name: clean(qs('name'),'Hero'),
       studyId: clean(qs('studyId'),''),
+      section: clean(qs('section'),''),
+      session_code: clean(qs('session_code'),''),
+      log: clean(qs('log'),''),
       diff: clean(qs('diff'),'normal'),
       time: clean(qs('time'),'90'),
       view: clean(qs('view'),'mobile'),
@@ -561,48 +619,89 @@
       mode: clean(qs('mode'),'solo')
     };
 
-    $playerName.value = defaults.name;
-    $playerPid.value = defaults.pid;
-    $studyId.value = defaults.studyId;
+    const LAUNCHER_SAVE_KEY = 'HHA_PLATE_LAUNCHER_LAST_V2';
 
-    setActive($diffGrid, defaults.diff);
-    setActive($timeGrid, defaults.time);
-    setActive($viewGrid, defaults.view);
+    function saveLauncherState(){
+      try{
+        localStorage.setItem(LAUNCHER_SAVE_KEY, JSON.stringify({
+          pid: clean($playerPid.value, 'anon'),
+          name: clean($playerName.value, 'Hero'),
+          studyId: clean($studyId.value, ''),
+          section: clean($sectionInput.value, ''),
+          session_code: clean($sessionCodeInput.value, ''),
+          log: clean($logInput.value, ''),
+          diff: getActive($diffGrid, 'normal'),
+          time: getActive($timeGrid, '90'),
+          view: getActive($viewGrid, 'mobile')
+        }));
+      }catch(_){}
+    }
 
-    [$diffGrid, $timeGrid, $viewGrid].forEach(group => {
-      group.querySelectorAll('.optionBtn').forEach(btn => {
-        btn.addEventListener('click', () => setActive(group, btn.dataset.value));
-      });
-    });
+    function loadLauncherState(){
+      try{
+        const raw = localStorage.getItem(LAUNCHER_SAVE_KEY);
+        if(!raw) return;
+        const saved = JSON.parse(raw);
+        if(!saved || typeof saved !== 'object') return;
+
+        if(!qs('pid')) $playerPid.value = saved.pid || defaults.pid;
+        if(!qs('name')) $playerName.value = saved.name || defaults.name;
+        if(!qs('studyId')) $studyId.value = saved.studyId || defaults.studyId;
+        if(!qs('section')) $sectionInput.value = saved.section || defaults.section;
+        if(!qs('session_code')) $sessionCodeInput.value = saved.session_code || defaults.session_code;
+        if(!qs('log')) $logInput.value = saved.log || defaults.log;
+
+        if(!qs('diff') && saved.diff) setActive($diffGrid, saved.diff);
+        if(!qs('time') && saved.time) setActive($timeGrid, String(saved.time));
+        if(!qs('view') && saved.view) setActive($viewGrid, saved.view);
+      }catch(_){}
+    }
+
+    function applyDefaults(){
+      $playerName.value = defaults.name;
+      $playerPid.value = defaults.pid;
+      $studyId.value = defaults.studyId;
+      $sectionInput.value = defaults.section;
+      $sessionCodeInput.value = defaults.session_code;
+      $logInput.value = defaults.log;
+
+      setActive($diffGrid, defaults.diff);
+      setActive($timeGrid, defaults.time);
+      setActive($viewGrid, defaults.view);
+
+      loadLauncherState();
+    }
 
     function readLastSummary(){
       try{
         const raw = localStorage.getItem('HHA_LAST_SUMMARY');
         if(!raw) return null;
-        const parsed = JSON.parse(raw);
-        if(parsed?.game !== 'plate' && parsed?.summary?.game !== 'plate') return parsed;
-        return parsed;
+        return JSON.parse(raw);
       }catch(_){
         return null;
       }
     }
 
-    (function renderLastSummary(){
+    function renderLastSummary(){
       const s = readLastSummary();
       if(!s || !s.summary) return;
       const sum = s.summary;
+
       $lastSummaryBox.classList.add('show');
       $lastScore.textContent = String(sum.score ?? 0);
       $lastHits.textContent = String(sum.hits ?? sum.goalHits ?? 0);
       $lastMistakes.textContent = String(sum.mistakes ?? 0);
-    })();
+    }
 
     function buildRunUrl(extra={}){
       const runUrl = new URL('/webxr-health-mobile/herohealth/plate/plate-vr.html', location.origin);
+
       const payload = {
         pid: clean($playerPid.value, 'anon'),
         name: clean($playerName.value, 'Hero'),
         studyId: clean($studyId.value, ''),
+        section: clean($sectionInput.value, ''),
+        session_code: clean($sessionCodeInput.value, ''),
         diff: getActive($diffGrid, 'normal'),
         time: getActive($timeGrid, '90'),
         seed: String(Date.now()),
@@ -612,52 +711,69 @@
         zone: defaults.zone,
         game: defaults.game,
         mode: defaults.mode,
-        entry: 'warmup',
+        entry: 'launcher_direct',
         fromLauncher: '1',
+        skipWarmup: '1',
+        log: clean($logInput.value, ''),
         ...extra
       };
+
       Object.entries(payload).forEach(([k,v]) => {
         if(v !== '' && v != null) runUrl.searchParams.set(k, String(v));
       });
+
       return runUrl;
     }
 
-    function buildWarmupGateUrl(extra={}){
-      const warmupUrl = new URL('/webxr-health-mobile/herohealth/warmup-gate.html', location.origin);
-      const runUrl = buildRunUrl(extra);
-      const payload = {
-        pid: clean($playerPid.value, 'anon'),
-        name: clean($playerName.value, 'Hero'),
-        studyId: clean($studyId.value, ''),
-        diff: getActive($diffGrid, 'normal'),
-        time: getActive($timeGrid, '90'),
-        seed: String(Date.now()),
-        hub: defaults.hub,
-        view: getActive($viewGrid, 'mobile'),
-        run: defaults.run,
-        zone: defaults.zone,
-        game: defaults.game,
-        mode: defaults.mode,
-        phase: 'warmup',
-        next: runUrl.toString(),
-        entry: 'launcher',
-        fromLauncher: '1'
-      };
-      Object.entries(payload).forEach(([k,v]) => {
-        if(v !== '' && v != null) warmupUrl.searchParams.set(k, String(v));
+    function startPlateSolo(extra={}){
+      saveLauncherState();
+      location.href = buildRunUrl(extra).toString();
+    }
+
+    [$diffGrid, $timeGrid, $viewGrid].forEach(group => {
+      if(!group) return;
+      group.querySelectorAll('.optionBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setActive(group, btn.dataset.value);
+          saveLauncherState();
+        });
       });
-      return warmupUrl;
-    }
+    });
 
-    function startCanonicalFlow(){
-      location.href = buildWarmupGateUrl().toString();
-    }
+    [$playerName, $playerPid, $studyId, $sectionInput, $sessionCodeInput, $logInput].forEach(el => {
+      if(!el) return;
+      el.addEventListener('input', saveLauncherState);
+      el.addEventListener('change', saveLauncherState);
+    });
 
-    $btnStartFlow.addEventListener('click', startCanonicalFlow);
-    $btnContinueWarmup.addEventListener('click', startCanonicalFlow);
+    $btnStartFlow.addEventListener('click', () => {
+      startPlateSolo({
+        entry:'launcher_direct',
+        skipWarmup:'1'
+      });
+    });
+
+    $btnDirectRun.addEventListener('click', () => {
+      startPlateSolo({
+        entry:'direct_run_from_launcher',
+        skipWarmup:'1'
+      });
+    });
+
+    $btnReplayLatest.addEventListener('click', () => {
+      loadLauncherState();
+      startPlateSolo({
+        entry:'continue_latest',
+        skipWarmup:'1'
+      });
+    });
+
     $btnBackHub.addEventListener('click', () => {
       location.href = defaults.hub;
     });
+
+    applyDefaults();
+    renderLastSummary();
   })();
   </script>
 </body>
