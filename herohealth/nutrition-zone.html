@@ -902,6 +902,27 @@
         return '';
       }
 
+      function stripToKnownPageUrl(raw, fallbackPage){
+        const fallback = new URL(fallbackPage, location.href).toString();
+
+        try{
+          const u = new URL(String(raw || ''), location.href);
+          const path = u.pathname;
+
+          let cleanPage = fallbackPage;
+
+          if(path.includes('/hub-v2.html')) cleanPage = './hub-v2.html';
+          else if(path.includes('/hub.html')) cleanPage = './hub-v2.html';
+          else if(path.includes('/hygiene-zone.html')) cleanPage = './hygiene-zone.html';
+          else if(path.includes('/nutrition-zone.html')) cleanPage = './nutrition-zone.html';
+          else if(path.includes('/fitness-zone.html')) cleanPage = './fitness-zone.html';
+
+          return new URL(cleanPage, location.href).toString();
+        }catch(_){
+          return fallback;
+        }
+      }
+
       function looksLikeNutritionZone(url){
         return String(url || '').includes('nutrition-zone.html');
       }
@@ -930,7 +951,6 @@
       const PATHS = {
         mainHub: MAIN_HUB,
 
-        // GoodJunk root router confirmed
         goodjunkLauncher: './goodjunk-vr.html',
         goodjunkSolo: './goodjunk-vr.html',
 
@@ -969,7 +989,11 @@
 
       function setActiveView(view){
         selectedView = view || 'mobile';
-        localStorage.setItem('HH_NUTRITION_VIEW', selectedView);
+
+        try{
+          localStorage.setItem('HH_NUTRITION_VIEW', selectedView);
+          localStorage.setItem('HH_LAST_VIEW', selectedView);
+        }catch(_){}
 
         modeButtons.forEach(btn => {
           const active = btn.dataset.view === selectedView;
@@ -985,15 +1009,31 @@
       setActiveView(selectedView);
 
       function getMainHubUrl(){
-        try{
-          return new URL(PATHS.mainHub, current.href).toString();
-        }catch(err){
-          return new URL('./hub-v2.html', current.href).toString();
-        }
+        return stripToKnownPageUrl(PATHS.mainHub, './hub-v2.html');
+      }
+
+      function getCleanZoneReturnUrl(){
+        const url = new URL('./nutrition-zone.html', current.href);
+
+        url.searchParams.set('pid', safeGet('pid', DEFAULTS.pid));
+        url.searchParams.set('name', safeGet('name', DEFAULTS.name));
+        url.searchParams.set('nick', safeGet('nick', safeGet('name', DEFAULTS.name)));
+        url.searchParams.set('studyId', safeGet('studyId', ''));
+        url.searchParams.set('section', safeGet('section', ''));
+        url.searchParams.set('diff', safeGet('diff', DEFAULTS.diff));
+        url.searchParams.set('view', selectedView);
+        url.searchParams.set('time', safeGet('time', DEFAULTS.time));
+        url.searchParams.set('run', safeGet('run', DEFAULTS.run));
+        url.searchParams.set('zone', 'nutrition');
+        url.searchParams.set('cat', 'nutrition');
+        url.searchParams.set('hubRoot', getMainHubUrl());
+
+        return url.toString();
       }
 
       function buildCommonParams(gameId, theme, extra = {}){
         const params = new URLSearchParams();
+        const cleanZoneReturn = getCleanZoneReturnUrl();
 
         params.set('pid', safeGet('pid', DEFAULTS.pid));
         params.set('name', safeGet('name', DEFAULTS.name));
@@ -1013,9 +1053,9 @@
         params.set('theme', theme || gameId);
         params.set('mode', extra.mode || safeGet('mode', DEFAULTS.mode));
 
-        params.set('hub', current.href);
-        params.set('zoneReturn', current.href);
-        params.set('next', current.href);
+        params.set('hub', cleanZoneReturn);
+        params.set('zoneReturn', cleanZoneReturn);
+        params.set('next', cleanZoneReturn);
         params.set('hubRoot', getMainHubUrl());
 
         params.set('seed', String(extra.seed || q.get('seed') || Date.now()));
