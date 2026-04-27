@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#8edcff" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
       --sky1:#dff6ff;
@@ -31,6 +32,7 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -64,23 +66,80 @@
       opacity:.92;
       filter:blur(.2px);
     }
-    .cloud::before,.cloud::after{
+
+    .cloud::before,
+    .cloud::after{
       content:"";
       position:absolute;
       background:inherit;
       border-radius:inherit;
     }
-    .cloud.c1{ width:160px;height:48px; top:8%; left:8%; animation:float 11s ease-in-out infinite; }
-    .cloud.c1::before{ width:62px;height:62px; left:18px; top:-22px; }
-    .cloud.c1::after{ width:70px;height:70px; right:20px; top:-26px; }
 
-    .cloud.c2{ width:190px;height:54px; top:14%; right:8%; animation:float 13s ease-in-out infinite reverse; }
-    .cloud.c2::before{ width:66px;height:66px; left:18px; top:-24px; }
-    .cloud.c2::after{ width:74px;height:74px; right:22px; top:-28px; }
+    .cloud.c1{
+      width:160px;
+      height:48px;
+      top:8%;
+      left:8%;
+      animation:float 11s ease-in-out infinite;
+    }
 
-    .cloud.c3{ width:130px;height:40px; top:22%; left:42%; animation:float 12s ease-in-out infinite; }
-    .cloud.c3::before{ width:48px;height:48px; left:14px; top:-18px; }
-    .cloud.c3::after{ width:56px;height:56px; right:18px; top:-22px; }
+    .cloud.c1::before{
+      width:62px;
+      height:62px;
+      left:18px;
+      top:-22px;
+    }
+
+    .cloud.c1::after{
+      width:70px;
+      height:70px;
+      right:20px;
+      top:-26px;
+    }
+
+    .cloud.c2{
+      width:190px;
+      height:54px;
+      top:14%;
+      right:8%;
+      animation:float 13s ease-in-out infinite reverse;
+    }
+
+    .cloud.c2::before{
+      width:66px;
+      height:66px;
+      left:18px;
+      top:-24px;
+    }
+
+    .cloud.c2::after{
+      width:74px;
+      height:74px;
+      right:22px;
+      top:-28px;
+    }
+
+    .cloud.c3{
+      width:130px;
+      height:40px;
+      top:22%;
+      left:42%;
+      animation:float 12s ease-in-out infinite;
+    }
+
+    .cloud.c3::before{
+      width:48px;
+      height:48px;
+      left:14px;
+      top:-18px;
+    }
+
+    .cloud.c3::after{
+      width:56px;
+      height:56px;
+      right:18px;
+      top:-22px;
+    }
 
     @keyframes float{
       0%,100%{ transform:translateY(0); }
@@ -137,7 +196,8 @@
     }
 
     .brand .icon{
-      width:30px;height:30px;
+      width:30px;
+      height:30px;
       border-radius:50%;
       display:grid;
       place-items:center;
@@ -417,12 +477,37 @@
       border:3px solid rgba(77,74,67,.09);
     }
 
-    .runner .arm{ width:14px;height:48px; top:54px; }
-    .runner .arm.left{ left:38px; transform:rotate(24deg); }
-    .runner .arm.right{ right:38px; transform:rotate(-24deg); }
-    .runner .leg{ width:16px;height:56px; top:88px; }
-    .runner .leg.left{ left:56px; transform:rotate(10deg); }
-    .runner .leg.right{ right:56px; transform:rotate(-10deg); }
+    .runner .arm{
+      width:14px;
+      height:48px;
+      top:54px;
+    }
+
+    .runner .arm.left{
+      left:38px;
+      transform:rotate(24deg);
+    }
+
+    .runner .arm.right{
+      right:38px;
+      transform:rotate(-24deg);
+    }
+
+    .runner .leg{
+      width:16px;
+      height:56px;
+      top:88px;
+    }
+
+    .runner .leg.left{
+      left:56px;
+      transform:rotate(10deg);
+    }
+
+    .runner .leg.right{
+      right:56px;
+      transform:rotate(-10deg);
+    }
 
     .strip{
       border-radius:24px;
@@ -514,6 +599,73 @@
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
       gap:8px;
+    }
+
+    .mode-strip{
+      padding:14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .mode-copy{
+      display:grid;
+      gap:3px;
+    }
+
+    .mode-copy strong{
+      font-size:16px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .mode-copy span{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .mode-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .mode-btn{
+      appearance:none;
+      border:none;
+      min-height:44px;
+      padding:10px 14px;
+      border-radius:999px;
+      cursor:pointer;
+      font-weight:1000;
+      color:var(--ink);
+      box-shadow:var(--shadow);
+      outline:3px solid transparent;
+      transition:transform .14s ease, filter .14s ease, outline-color .14s ease;
+    }
+
+    .mode-btn:active{
+      transform:scale(.985);
+    }
+
+    .mode-btn.active{
+      outline-color:#45b7f5;
+    }
+
+    .mode-mobile{
+      background:linear-gradient(180deg,#dff8ff,#baeefe);
+    }
+
+    .mode-pc{
+      background:linear-gradient(180deg,#fff6ba,#ffe66d);
+    }
+
+    .mode-vr{
+      background:linear-gradient(180deg,#ffe3ef,#ffc9de);
     }
 
     .content{
@@ -971,6 +1123,7 @@
       .content{
         grid-template-columns:1fr;
       }
+
       .side{
         position:relative;
         top:auto;
@@ -981,13 +1134,16 @@
       .hero-top{
         grid-template-columns:1fr;
       }
+
       .games-grid{
         grid-template-columns:1fr;
       }
+
       .mission-grid,
       .mission-actions{
         grid-template-columns:1fr;
       }
+
       .hero-actions{
         grid-template-columns:1fr;
       }
@@ -997,14 +1153,17 @@
       .topbar{
         grid-template-columns:1fr;
       }
+
       .stat-grid,
       .game-recent-grid,
       .picker-actions{
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
+
       .game-actions{
         grid-template-columns:1fr;
       }
+
       .game-actions .btn-wide{
         grid-column:auto;
       }
@@ -1016,14 +1175,26 @@
       .picker-actions{
         grid-template-columns:1fr;
       }
+
       .game-ribbon{
         position:static;
         width:max-content;
         margin-left:auto;
       }
+
+      .mode-strip,
+      .mode-row{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+
+      .mode-btn{
+        width:100%;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="bg-clouds" aria-hidden="true">
     <div class="cloud c1"></div>
@@ -1134,6 +1305,19 @@
           <a class="btn secondary" id="btnMissionResearch" href="./jump-duck-vr.html">🧪 Research Run</a>
         </div>
       </section>
+    </section>
+
+    <section class="card mode-strip" aria-label="เลือกโหมดการเล่น">
+      <div class="mode-copy">
+        <strong>เลือกโหมดการเล่น</strong>
+        <span>โหมดนี้จะถูกส่งต่อไปทุกเกมใน Fitness Zone</span>
+      </div>
+
+      <div class="mode-row">
+        <button class="mode-btn mode-mobile active" data-view="mobile" type="button">📱 Mobile</button>
+        <button class="mode-btn mode-pc" data-view="pc" type="button">🖥️ PC</button>
+        <button class="mode-btn mode-vr" data-view="cvr" type="button">🥽 Cardboard</button>
+      </div>
     </section>
 
     <section class="content">
@@ -1397,24 +1581,64 @@
         return (v == null || v === '') ? fallback : v;
       }
 
+      function firstNonEmpty(){
+        for(const v of arguments){
+          if(v !== undefined && v !== null && String(v).trim() !== ''){
+            return String(v);
+          }
+        }
+        return '';
+      }
+
       function safeAbsUrl(raw, fallback) {
         const value = String(raw || '').trim();
         try{
-          if (value) return new URL(value, location.href).toString();
+          if(value) return new URL(value, location.href).toString();
         }catch(_){}
         return new URL(fallback, location.href).toString();
       }
 
+      function looksLikeFitnessZone(url){
+        return String(url || '').includes('fitness-zone.html');
+      }
+
+      function deriveMainHub(){
+        const candidate = firstNonEmpty(
+          qget('hubRoot', ''),
+          qget('mainHub', ''),
+          qget('rootHub', ''),
+          qget('home', ''),
+          qget('zoneReturn', ''),
+          qget('next', ''),
+          qget('hub', ''),
+          './hub-v2.html'
+        );
+
+        if(looksLikeFitnessZone(candidate)){
+          return './hub-v2.html';
+        }
+
+        return candidate || './hub-v2.html';
+      }
+
+      let selectedView = firstNonEmpty(
+        qget('view', ''),
+        localStorage.getItem('HH_FITNESS_VIEW'),
+        'mobile'
+      );
+
       const ctx = {
         pid: qget('pid', 'anon'),
-        name: qget('name', qget('nickName', 'Hero')),
+        name: qget('name', qget('nickName', qget('nick', 'Hero'))),
+        nick: qget('nick', qget('nickName', qget('name', 'Hero'))),
         diff: qget('diff', 'normal'),
         run: qget('run', 'play'),
-        view: qget('view', 'mobile'),
+        view: selectedView,
         time: qget('time', '90'),
         seed: qget('seed', String(Date.now())),
         studyId: qget('studyId', ''),
-        hubRoot: safeAbsUrl(qget('hubRoot', qget('hub', './hub-v2.html')), './hub-v2.html'),
+        section: qget('section', ''),
+        hubRoot: safeAbsUrl(deriveMainHub(), './hub-v2.html'),
         zoneReturn: new URL(location.href).toString()
       };
 
@@ -1442,6 +1666,12 @@
         sideRecommendText: $('sideRecommendText'),
         gameCardJumpduck: $('gameCard-jumpduck')
       };
+
+      const modeButtons = Array.from(document.querySelectorAll('[data-view]'));
+
+      function setText(node, text){
+        if(node) node.textContent = text;
+      }
 
       function setLastZone(zone) {
         try { localStorage.setItem(LAST_ZONE_KEY, zone); } catch (_) {}
@@ -1473,13 +1703,78 @@
         return null;
       }
 
+      function showToast(text) {
+        if (!el.toast) return;
+        el.toast.textContent = text;
+        el.toast.classList.add('show');
+        clearTimeout(el.toast.__timer);
+        el.toast.__timer = setTimeout(() => {
+          el.toast.classList.remove('show');
+        }, 1800);
+      }
+
+      function setActiveView(view, opts = {}) {
+        selectedView = view || 'mobile';
+        ctx.view = selectedView;
+
+        try{
+          localStorage.setItem('HH_FITNESS_VIEW', selectedView);
+        }catch(_){}
+
+        modeButtons.forEach(btn => {
+          const active = btn.dataset.view === selectedView;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+
+        bindZoneLinks();
+
+        if(el.pickerList){
+          renderPicker('all');
+        }
+
+        if(!opts.silent){
+          const label = selectedView === 'pc'
+            ? 'PC'
+            : selectedView === 'cvr'
+              ? 'Cardboard'
+              : 'Mobile';
+          showToast(`เลือกโหมด ${label} แล้ว`);
+        }
+      }
+
+      function bindModeButtons(){
+        modeButtons.forEach(btn => {
+          if(btn.__bound) return;
+          btn.__bound = true;
+          btn.addEventListener('click', () => {
+            setActiveView(btn.dataset.view || 'mobile');
+          });
+        });
+      }
+
       function passCommon(url) {
         const passthroughKeys = [
-          'pid','name','nickName','studyId',
-          'run','diff','view','time','seed',
-          'debug','api','log',
-          'studentKey','schoolCode','classRoom','studentNo',
-          'conditionGroup','sessionNo','weekNo'
+          'pid',
+          'name',
+          'nick',
+          'nickName',
+          'studyId',
+          'section',
+          'run',
+          'diff',
+          'time',
+          'seed',
+          'debug',
+          'api',
+          'log',
+          'studentKey',
+          'schoolCode',
+          'classRoom',
+          'studentNo',
+          'conditionGroup',
+          'sessionNo',
+          'weekNo'
         ];
 
         passthroughKeys.forEach((k) => {
@@ -1487,17 +1782,27 @@
           if (v != null && v !== '') url.searchParams.set(k, v);
         });
 
-        if (!url.searchParams.get('pid')) url.searchParams.set('pid', ctx.pid);
-        if (!url.searchParams.get('name')) url.searchParams.set('name', ctx.name);
-        if (!url.searchParams.get('diff')) url.searchParams.set('diff', ctx.diff);
-        if (!url.searchParams.get('view')) url.searchParams.set('view', ctx.view);
-        if (!url.searchParams.get('time')) url.searchParams.set('time', ctx.time);
-        if (!url.searchParams.get('seed')) url.searchParams.set('seed', ctx.seed);
-        if (!url.searchParams.get('run')) url.searchParams.set('run', ctx.run);
-        if (!url.searchParams.get('studyId') && ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
+        url.searchParams.set('pid', url.searchParams.get('pid') || ctx.pid);
+        url.searchParams.set('name', url.searchParams.get('name') || ctx.name);
+        url.searchParams.set('nick', url.searchParams.get('nick') || ctx.nick);
+        url.searchParams.set('diff', url.searchParams.get('diff') || ctx.diff);
+        url.searchParams.set('time', url.searchParams.get('time') || ctx.time);
+        url.searchParams.set('seed', url.searchParams.get('seed') || ctx.seed);
+        url.searchParams.set('run', url.searchParams.get('run') || ctx.run);
+
+        if(ctx.studyId && !url.searchParams.get('studyId')){
+          url.searchParams.set('studyId', ctx.studyId);
+        }
+
+        if(ctx.section && !url.searchParams.get('section')){
+          url.searchParams.set('section', ctx.section);
+        }
+
+        url.searchParams.set('view', selectedView);
 
         url.searchParams.set('zone', 'fitness');
         url.searchParams.set('cat', 'fitness');
+
         url.searchParams.set('hubRoot', ctx.hubRoot);
         url.searchParams.set('hub', ctx.zoneReturn);
         url.searchParams.set('zoneReturn', ctx.zoneReturn);
@@ -1513,6 +1818,7 @@
         url.searchParams.set('game', 'jumpduck');
         url.searchParams.set('gameId', 'jumpduck');
         url.searchParams.set('theme', 'jumpduck');
+        url.searchParams.set('mode', 'solo');
         url.searchParams.set('focus', 'jumpduck');
         url.searchParams.set('featured', 'jumpduck');
 
@@ -1549,9 +1855,16 @@
 
         Object.keys(overrides).forEach((k) => {
           const val = overrides[k];
-          if (val === null || val === undefined || val === '') url.searchParams.delete(k);
-          else url.searchParams.set(k, String(val));
+          if (val === null || val === undefined || val === '') {
+            url.searchParams.delete(k);
+          } else {
+            url.searchParams.set(k, String(val));
+          }
         });
+
+        if(!url.searchParams.get('mode')){
+          url.searchParams.set('mode', 'solo');
+        }
 
         return url.toString();
       }
@@ -1576,17 +1889,21 @@
           btnHeroPlay: buildJumpDuckUrl('play'),
           btnHeroQuick: buildJumpDuckUrl('quick'),
           btnHeroResearch: buildJumpDuckUrl('research'),
+
           btnMissionPlay: buildJumpDuckUrl('play'),
           btnMissionQuick: buildJumpDuckUrl('quick'),
           btnMissionDemo: buildJumpDuckUrl('demo'),
           btnMissionResearch: buildJumpDuckUrl('research'),
+
           btnPlayJumpDuck: buildJumpDuckUrl('play'),
           btnQuickJumpDuck: buildJumpDuckUrl('quick'),
           btnResearchJumpDuck: buildJumpDuckUrl('research'),
           btnDemoJumpDuck: buildJumpDuckUrl('demo'),
+
           btnSidePlay: buildJumpDuckUrl('play'),
           btnSideQuick: buildJumpDuckUrl('quick'),
           btnSideResearch: buildJumpDuckUrl('research'),
+
           btnLibraryPlay: buildJumpDuckUrl('play'),
           btnLibraryQuick: buildJumpDuckUrl('quick')
         };
@@ -1602,20 +1919,87 @@
         });
 
         const otherGames = {
-          btnPlayShadow: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', gameId:'shadowbreaker', theme:'shadowbreaker' }),
-          btnQuickShadow: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', gameId:'shadowbreaker', theme:'shadowbreaker', run:'play', time:'60' }),
-          btnResearchShadow: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', gameId:'shadowbreaker', theme:'shadowbreaker', run:'research' }),
+          btnPlayShadow: buildFitnessGameUrl('shadow-breaker-vr.html', {
+            game:'shadowbreaker',
+            gameId:'shadowbreaker',
+            theme:'shadowbreaker',
+            mode:'solo'
+          }),
+          btnQuickShadow: buildFitnessGameUrl('shadow-breaker-vr.html', {
+            game:'shadowbreaker',
+            gameId:'shadowbreaker',
+            theme:'shadowbreaker',
+            mode:'solo',
+            run:'play',
+            time:'60',
+            gate:'0'
+          }),
+          btnResearchShadow: buildFitnessGameUrl('shadow-breaker-vr.html', {
+            game:'shadowbreaker',
+            gameId:'shadowbreaker',
+            theme:'shadowbreaker',
+            mode:'solo',
+            run:'research'
+          }),
 
-          btnPlayRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', gameId:'rhythmboxer', theme:'rhythmboxer' }),
-          btnQuickRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', gameId:'rhythmboxer', theme:'rhythmboxer', run:'play', time:'60' }),
-          btnResearchRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', gameId:'rhythmboxer', theme:'rhythmboxer', run:'research' }),
+          btnPlayRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', {
+            game:'rhythmboxer',
+            gameId:'rhythmboxer',
+            theme:'rhythmboxer',
+            mode:'solo'
+          }),
+          btnQuickRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', {
+            game:'rhythmboxer',
+            gameId:'rhythmboxer',
+            theme:'rhythmboxer',
+            mode:'solo',
+            run:'play',
+            time:'60',
+            gate:'0'
+          }),
+          btnResearchRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', {
+            game:'rhythmboxer',
+            gameId:'rhythmboxer',
+            theme:'rhythmboxer',
+            mode:'solo',
+            run:'research'
+          }),
 
-          btnPlayBalance: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', gameId:'balancehold', theme:'balancehold' }),
-          btnQuickBalance: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', gameId:'balancehold', theme:'balancehold', run:'play', time:'60' }),
-          btnResearchBalance: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', gameId:'balancehold', theme:'balancehold', run:'research' }),
+          btnPlayBalance: buildFitnessGameUrl('balance-hold-vr.html', {
+            game:'balancehold',
+            gameId:'balancehold',
+            theme:'balancehold',
+            mode:'solo'
+          }),
+          btnQuickBalance: buildFitnessGameUrl('balance-hold-vr.html', {
+            game:'balancehold',
+            gameId:'balancehold',
+            theme:'balancehold',
+            mode:'solo',
+            run:'play',
+            time:'60',
+            gate:'0'
+          }),
+          btnResearchBalance: buildFitnessGameUrl('balance-hold-vr.html', {
+            game:'balancehold',
+            gameId:'balancehold',
+            theme:'balancehold',
+            mode:'solo',
+            run:'research'
+          }),
 
-          btnPlayPlanner: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner', mode:'launcher' }),
-          btnQuickPlanner: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner', mode:'quick' })
+          btnPlayPlanner: buildFitnessGameUrl('fitness-planner.html', {
+            game:'fitnessplanner',
+            gameId:'fitnessplanner',
+            theme:'fitnessplanner',
+            mode:'launcher'
+          }),
+          btnQuickPlanner: buildFitnessGameUrl('fitness-planner.html', {
+            game:'fitnessplanner',
+            gameId:'fitnessplanner',
+            theme:'fitnessplanner',
+            mode:'quick'
+          })
         };
 
         Object.entries(otherGames).forEach(([id, href]) => {
@@ -1633,16 +2017,16 @@
         const summary = readJumpDuckSummary();
 
         if (!summary) {
-          el.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
-          el.recentScore.textContent = '-';
-          el.recentRhythm.textContent = '-';
-          el.recentLanding.textContent = '-';
-          el.recentStars.textContent = '-';
-          el.jdRecentStars.textContent = '-';
-          el.jdRecentRhythm.textContent = '-';
-          el.jdRecentLanding.textContent = '-';
-          el.jdRecentPosts.textContent = '-';
-          el.sideRecommendText.textContent = 'เริ่มจาก JumpDuck แบบ Standard Play ได้เลย';
+          setText(el.recentStripSub, 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย');
+          setText(el.recentScore, '-');
+          setText(el.recentRhythm, '-');
+          setText(el.recentLanding, '-');
+          setText(el.recentStars, '-');
+          setText(el.jdRecentStars, '-');
+          setText(el.jdRecentRhythm, '-');
+          setText(el.jdRecentLanding, '-');
+          setText(el.jdRecentPosts, '-');
+          setText(el.sideRecommendText, 'เริ่มจาก JumpDuck แบบ Standard Play ได้เลย');
           return;
         }
 
@@ -1652,34 +2036,24 @@
         const landing = Number(summary.landingControl || summary.landing || 0);
         const posts = Number(summary.postsCleared || summary.posts || 0);
 
-        el.recentStripSub.textContent = `JumpDuck ล่าสุด • Score ${score} • พร้อมเล่นต่อได้ทันที`;
-        el.recentScore.textContent = String(score);
-        el.recentRhythm.textContent = `${rhythm}%`;
-        el.recentLanding.textContent = `${landing}%`;
-        el.recentStars.textContent = `${stars}⭐`;
+        setText(el.recentStripSub, `JumpDuck ล่าสุด • Score ${score} • พร้อมเล่นต่อได้ทันที`);
+        setText(el.recentScore, String(score));
+        setText(el.recentRhythm, `${rhythm}%`);
+        setText(el.recentLanding, `${landing}%`);
+        setText(el.recentStars, `${stars}⭐`);
 
-        el.jdRecentStars.textContent = `${stars}⭐`;
-        el.jdRecentRhythm.textContent = `${rhythm}%`;
-        el.jdRecentLanding.textContent = `${landing}%`;
-        el.jdRecentPosts.textContent = `${posts}/7`;
+        setText(el.jdRecentStars, `${stars}⭐`);
+        setText(el.jdRecentRhythm, `${rhythm}%`);
+        setText(el.jdRecentLanding, `${landing}%`);
+        setText(el.jdRecentPosts, `${posts}/7`);
 
         if (landing < 45) {
-          el.sideRecommendText.textContent = 'แนะนำ Demo 60s หรือ Standard Play เพื่อฝึก Landing Hold ก่อน';
+          setText(el.sideRecommendText, 'แนะนำ Demo 60s หรือ Standard Play เพื่อฝึก Landing Hold ก่อน');
         } else if (rhythm >= 86 && stars >= 3) {
-          el.sideRecommendText.textContent = 'พร้อมอัปเกรดเป็น Research หรือเก็บ Final Combo ต่อแล้ว';
+          setText(el.sideRecommendText, 'พร้อมอัปเกรดเป็น Research หรือเก็บ Final Combo ต่อแล้ว');
         } else {
-          el.sideRecommendText.textContent = 'แนะนำกลับไปเล่น JumpDuck แบบ Standard Play เพื่อเก็บ combo ต่อ';
+          setText(el.sideRecommendText, 'แนะนำกลับไปเล่น JumpDuck แบบ Standard Play เพื่อเก็บ combo ต่อ');
         }
-      }
-
-      function showToast(text) {
-        if (!el.toast) return;
-        el.toast.textContent = text;
-        el.toast.classList.add('show');
-        clearTimeout(el.toast.__timer);
-        el.toast.__timer = setTimeout(() => {
-          el.toast.classList.remove('show');
-        }, 1800);
       }
 
       function makePickerItem({ title, badge, sub, playHref, quickHref, researchHref, demoHref }) {
@@ -1734,35 +2108,102 @@
             title: '🥊 Shadow Breaker',
             badge: 'Action',
             sub: 'ชกเป้าตามจังหวะ เก็บ fever และ boss round',
-            playHref: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', gameId:'shadowbreaker', theme:'shadowbreaker' }),
-            quickHref: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', gameId:'shadowbreaker', theme:'shadowbreaker', run:'play', time:'60' }),
-            researchHref: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', gameId:'shadowbreaker', theme:'shadowbreaker', run:'research' })
+            playHref: buildFitnessGameUrl('shadow-breaker-vr.html', {
+              game:'shadowbreaker',
+              gameId:'shadowbreaker',
+              theme:'shadowbreaker',
+              mode:'solo'
+            }),
+            quickHref: buildFitnessGameUrl('shadow-breaker-vr.html', {
+              game:'shadowbreaker',
+              gameId:'shadowbreaker',
+              theme:'shadowbreaker',
+              mode:'solo',
+              run:'play',
+              time:'60',
+              gate:'0'
+            }),
+            researchHref: buildFitnessGameUrl('shadow-breaker-vr.html', {
+              game:'shadowbreaker',
+              gameId:'shadowbreaker',
+              theme:'shadowbreaker',
+              mode:'solo',
+              run:'research'
+            })
           },
           {
             key: 'rhythm',
             title: '🎵 Rhythm Boxer',
             badge: 'Music',
             sub: 'ออกหมัดตาม beat เก็บ combo และ boss fight',
-            playHref: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', gameId:'rhythmboxer', theme:'rhythmboxer' }),
-            quickHref: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', gameId:'rhythmboxer', theme:'rhythmboxer', run:'play', time:'60' }),
-            researchHref: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', gameId:'rhythmboxer', theme:'rhythmboxer', run:'research' })
+            playHref: buildFitnessGameUrl('rhythm-boxer-vr.html', {
+              game:'rhythmboxer',
+              gameId:'rhythmboxer',
+              theme:'rhythmboxer',
+              mode:'solo'
+            }),
+            quickHref: buildFitnessGameUrl('rhythm-boxer-vr.html', {
+              game:'rhythmboxer',
+              gameId:'rhythmboxer',
+              theme:'rhythmboxer',
+              mode:'solo',
+              run:'play',
+              time:'60',
+              gate:'0'
+            }),
+            researchHref: buildFitnessGameUrl('rhythm-boxer-vr.html', {
+              game:'rhythmboxer',
+              gameId:'rhythmboxer',
+              theme:'rhythmboxer',
+              mode:'solo',
+              run:'research'
+            })
           },
           {
             key: 'balance',
             title: '⚖️ Balance Hold',
             badge: 'Focus',
             sub: 'ฝึกทรงตัว คุมจังหวะ และทนแรงกดดันจาก obstacle',
-            playHref: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', gameId:'balancehold', theme:'balancehold' }),
-            quickHref: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', gameId:'balancehold', theme:'balancehold', run:'play', time:'60' }),
-            researchHref: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', gameId:'balancehold', theme:'balancehold', run:'research' })
+            playHref: buildFitnessGameUrl('balance-hold-vr.html', {
+              game:'balancehold',
+              gameId:'balancehold',
+              theme:'balancehold',
+              mode:'solo'
+            }),
+            quickHref: buildFitnessGameUrl('balance-hold-vr.html', {
+              game:'balancehold',
+              gameId:'balancehold',
+              theme:'balancehold',
+              mode:'solo',
+              run:'play',
+              time:'60',
+              gate:'0'
+            }),
+            researchHref: buildFitnessGameUrl('balance-hold-vr.html', {
+              game:'balancehold',
+              gameId:'balancehold',
+              theme:'balancehold',
+              mode:'solo',
+              run:'research'
+            })
           },
           {
             key: 'planner',
             title: '🗓️ Fitness Planner',
             badge: 'Plan',
             sub: 'โหมดวางแผนกิจกรรม ออกกำลัง และฝึก routine',
-            playHref: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner', mode:'launcher' }),
-            quickHref: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner', mode:'quick' })
+            playHref: buildFitnessGameUrl('fitness-planner.html', {
+              game:'fitnessplanner',
+              gameId:'fitnessplanner',
+              theme:'fitnessplanner',
+              mode:'launcher'
+            }),
+            quickHref: buildFitnessGameUrl('fitness-planner.html', {
+              game:'fitnessplanner',
+              gameId:'fitnessplanner',
+              theme:'fitnessplanner',
+              mode:'quick'
+            })
           }
         ];
 
@@ -1779,11 +2220,13 @@
 
       function openPicker(mode = 'all') {
         renderPicker(mode);
+        if(!el.gamePicker) return;
         el.gamePicker.classList.add('show');
         el.gamePicker.setAttribute('aria-hidden', 'false');
       }
 
       function closePicker() {
+        if(!el.gamePicker) return;
         el.gamePicker.classList.remove('show');
         el.gamePicker.setAttribute('aria-hidden', 'true');
       }
@@ -1843,8 +2286,21 @@
           node.addEventListener('click', closePicker);
         });
 
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') closePicker();
+        if(!document.__fitnessEscBound){
+          document.__fitnessEscBound = true;
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePicker();
+          });
+        }
+      }
+
+      function bindModeButtons(){
+        modeButtons.forEach(btn => {
+          if(btn.__bound) return;
+          btn.__bound = true;
+          btn.addEventListener('click', () => {
+            setActiveView(btn.dataset.view || 'mobile');
+          });
         });
       }
 
@@ -1855,6 +2311,9 @@
       }
 
       function boot() {
+        bindModeButtons();
+        setActiveView(selectedView, { silent:true });
+
         bindZoneLinks();
         renderRecent();
         bindModal();
