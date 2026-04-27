@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Teacher Vocab Analytics • v47 Portfolio</title>
+  <title>Teacher Vocab Analytics • v48 Deploy Check</title>
   <meta name="theme-color" content="#08111f" />
   <style>
     :root{
@@ -470,6 +470,51 @@
       color:#eaf2ff;
     }
 
+    .deployCheckItem{
+      border-radius:22px;
+      padding:16px;
+      background:
+        radial-gradient(circle at top right,rgba(255,255,255,.10),transparent 34%),
+        rgba(255,255,255,.055);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:0 10px 28px rgba(0,0,0,.14);
+    }
+
+    .deployCheckItem.pass{
+      border-color:rgba(74,222,128,.30);
+      background:
+        radial-gradient(circle at top right,rgba(74,222,128,.12),transparent 34%),
+        rgba(255,255,255,.055);
+    }
+
+    .deployCheckItem.warn{
+      border-color:rgba(253,224,71,.32);
+      background:
+        radial-gradient(circle at top right,rgba(253,224,71,.12),transparent 34%),
+        rgba(255,255,255,.055);
+    }
+
+    .deployCheckItem.fail{
+      border-color:rgba(251,113,133,.34);
+      background:
+        radial-gradient(circle at top right,rgba(251,113,133,.14),transparent 34%),
+        rgba(255,255,255,.055);
+    }
+
+    .deployCheckTitle{
+      font-size:17px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+
+    .deployCheckText{
+      margin-top:7px;
+      color:#dbeafe;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:750;
+    }
+
     body.compact-mode .section{padding:16px;margin-top:12px}
     body.compact-mode .card,body.compact-mode .studentCard,body.compact-mode .miniCard{padding:14px;border-radius:18px}
     body.compact-mode .kpiValue{font-size:32px}
@@ -527,6 +572,7 @@
       <button class="jumpLink" data-jump-target="portfolio" type="button">Portfolio</button>
       <button class="jumpLink" data-jump-target="terms" type="button">Terms</button>
       <button class="jumpLink" data-jump-target="recent" type="button">Recent</button>
+      <button class="jumpLink" data-jump-target="deploy-check" type="button" data-dev="1">Deploy Check</button>
       <button class="jumpLink" data-jump-target="debug" type="button" data-dev="1">Debug</button>
     </div>
   </nav>
@@ -538,7 +584,7 @@
           <h1>Teacher Vocab Analytics</h1>
           <p>Dashboard สำหรับติดตามผล Vocabulary Game: attendance, weak terms, feedback, communication log, evidence pack และ course portfolio</p>
           <div class="versionBadgeRow">
-            <span class="versionBadge" id="teacherVersionBadge">Teacher v47</span>
+            <span class="versionBadge" id="teacherVersionBadge">Teacher v48</span>
             <span class="versionBadge">Build 2026-04-25</span>
             <span class="versionBadge" id="dataModeBadge">Live Data</span>
           </div>
@@ -942,6 +988,27 @@
       <div class="list" id="recentRuns"></div>
     </section>
 
+    <section class="section" data-section-id="deploy-check" data-dev="1">
+      <div class="sectionHead">
+        <div>
+          <h2>Final Clean Deploy Checklist</h2>
+          <div class="sectionDesc">
+            ตรวจความพร้อมก่อน deploy จริง: element, function, API, cache, localStorage, exports, UI modes และ runtime health
+          </div>
+        </div>
+        <div class="actions">
+          <span class="badge warn" id="deployCheckBadge">Not checked</span>
+          <button class="btn warn" id="runDeployCheckBtn" type="button">Run Deploy Check</button>
+          <button class="btn ghost" id="copyDeployCheckBtn" type="button">Copy Result</button>
+          <button class="btn ghost" id="exportDeployCheckBtn" type="button">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="grid4" id="deployCheckKpis"></div>
+      <div class="list" id="deployCheckList" style="margin-top:12px"></div>
+      <pre class="debugBox" id="deployCheckRawBox" style="margin-top:12px">ยังไม่ได้ตรวจ</pre>
+    </section>
+
     <section class="section" data-section-id="debug" data-dev="1">
       <div class="sectionHead">
         <div>
@@ -1007,14 +1074,14 @@
 
     const TEACHER_VERSION = {
       app: 'Teacher Vocab Analytics',
-      version: 'v47-course-portfolio-clean-merged',
+      version: 'v48-final-deploy-check-clean-merged',
       build: '2026-04-25',
-      schema: 'teacher-dashboard-v47',
+      schema: 'teacher-dashboard-v48',
       apiUrl: API_URL
     };
 
     const LS = {
-      cache:'VOCAB_TEACHER_DASHBOARD_CACHE_V47',
+      cache:'VOCAB_TEACHER_DASHBOARD_CACHE_V48',
       roster:'VOCAB_TEACHER_ROSTER_V1',
       notes:'VOCAB_TEACHER_NOTES_V1:',
       goals:'VOCAB_TEACHER_GOALS_V1:',
@@ -1051,7 +1118,8 @@
       communicationLog:[],
       classNarrativeText:'',
       coursePortfolio:null,
-      coursePortfolioText:''
+      coursePortfolioText:'',
+      deployCheckResult:null
     };
 
     const $ = id => document.getElementById(id);
@@ -1070,7 +1138,9 @@
       'communicationSummaryBadge','communicationKpis','noCommunicationList','communicationActionBreakdown','communicationTemplateUsage','exportCommunicationSummaryBtn','queueNoCommunicationBtn',
       'narrativeBadge','narrativePreview','narrativeStyleSelect','narrativeScopeSelect','narrativeIncludeNamesChk','narrativeIncludeNextPlanChk','generateNarrativeBtn','copyNarrativeBtn','exportNarrativeTxtBtn','exportNarrativeHtmlBtn',
       'portfolioBadge','portfolioPreview','portfolioScopeSelect','portfolioIncludeNarrativeChk','portfolioIncludeEvidenceChk','portfolioIncludeCommunicationChk','generatePortfolioBtn','copyPortfolioBtn','exportPortfolioHtmlBtn','exportPortfolioJsonBtn','exportPortfolioIndexCsvBtn',
-      'termTable','recentRuns','debugBox','teacherJumpNav','jumpNavToggle','jumpNavPanel',
+      'termTable','recentRuns',
+      'deployCheckBadge','runDeployCheckBtn','copyDeployCheckBtn','exportDeployCheckBtn','deployCheckKpis','deployCheckList','deployCheckRawBox',
+      'debugBox','teacherJumpNav','jumpNavToggle','jumpNavPanel',
       'drawerBackdrop','studentDrawer','drawerTitle','drawerMeta','drawerKpis','drawerCloseBtn','studentNoteArea','saveStudentNoteBtn','copyStudentFeedbackBtn','exportEvidencePackBtn',
       'goalAccuracyInput','goalScoreInput','goalSessionsInput','goalDueInput','goalNoteInput','saveGoalBtn','clearGoalBtn','drawerWeakTerms','drawerSessions'
     ].forEach(id => els[id] = $(id));
@@ -1293,10 +1363,12 @@
         saveCache();
         showStatus(`โหลดสำเร็จ • sessions ${normalized.sessions.length} • answers ${normalized.termAnswers.length} • action ${raw.__usedAction}`, 'ok');
         renderAll();
+        setTimeout(() => runFinalDeployCheck(), 300);
       }catch(err){
         console.error(err);
         showStatus('โหลด online ไม่สำเร็จ: ' + (err.message || err) + ' • ลองใช้ cache อัตโนมัติ', 'warn');
         useCache();
+        setTimeout(() => runFinalDeployCheck(), 300);
       }
     }
 
@@ -1396,6 +1468,7 @@
       renderPortfolio();
       renderTerms();
       renderRecent();
+      renderDeployCheck();
       renderDebug();
       updateJumpActive();
     }
@@ -2104,6 +2177,336 @@
     }
     function activeRow(){return getStudentRowById(state.activeStudentId);}
 
+    function checkItem(id, title, status, textValue, meta = {}) {
+      return { id, title, status, text: textValue, meta };
+    }
+
+    function hasElement(id) {
+      return !!document.getElementById(id);
+    }
+
+    function evalSafe(name) {
+      try {
+        return Function('return typeof ' + name + ' !== "undefined" ? ' + name + ' : undefined')();
+      } catch (err) {
+        return undefined;
+      }
+    }
+
+    function testLocalStorage() {
+      try {
+        const key = 'TEACHER_DEPLOY_TEST_TMP';
+        localStorage.setItem(key, 'ok');
+        const ok = localStorage.getItem(key) === 'ok';
+        localStorage.removeItem(key);
+        return ok;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    function testBlobDownloadSupport() {
+      try {
+        return typeof Blob !== 'undefined' && typeof URL.createObjectURL === 'function';
+      } catch (err) {
+        return false;
+      }
+    }
+
+    function getRequiredElementIds() {
+      return [
+        'statusBox',
+        'refreshBtn',
+        'useCacheBtn',
+        'compactBtn',
+        'focusBtn',
+        'productionBtn',
+        'quickFilterList',
+        'searchInput',
+        'sectionFilter',
+        'riskFilter',
+        'bankFilter',
+        'sortSelect',
+        'studentList',
+        'attendanceList',
+        'workflowBoard',
+        'evidenceGrid',
+        'evidenceQueueGrid',
+        'batchFeedbackGrid',
+        'templateGrid',
+        'communicationLogList',
+        'communicationKpis',
+        'narrativePreview',
+        'portfolioPreview',
+        'termTable',
+        'recentRuns',
+        'debugBox',
+        'deployCheckBadge',
+        'deployCheckKpis',
+        'deployCheckList',
+        'deployCheckRawBox',
+        'studentDrawer',
+        'drawerBackdrop',
+        'drawerCloseBtn',
+        'studentNoteArea',
+        'exportEvidencePackBtn'
+      ];
+    }
+
+    function getRequiredFunctions() {
+      return [
+        'loadDashboard',
+        'requestTeacherData',
+        'normalizeDashboardPayload',
+        'buildStudentRows',
+        'renderAll',
+        'renderStudents',
+        'renderAttendance',
+        'renderWorkflow',
+        'renderEvidence',
+        'renderBatchFeedback',
+        'renderTemplates',
+        'renderCommunicationLog',
+        'renderCommunicationSummary',
+        'buildNarrative',
+        'buildPortfolio',
+        'exportRowsToCsv',
+        'downloadTextFile',
+        'openStudentDrawer',
+        'closeDrawer',
+        'copyText',
+        'runFinalDeployCheck'
+      ];
+    }
+
+    function runFinalDeployCheck() {
+      const items = [];
+
+      const missingEls = getRequiredElementIds().filter(id => !hasElement(id));
+      items.push(checkItem(
+        'elements',
+        'Required DOM Elements',
+        missingEls.length ? 'fail' : 'pass',
+        missingEls.length
+          ? 'มี element id ที่หายไป: ' + missingEls.join(', ')
+          : 'element id สำคัญครบ',
+        { missing: missingEls }
+      ));
+
+      const missingFns = getRequiredFunctions().filter(name => typeof evalSafe(name) !== 'function');
+      items.push(checkItem(
+        'functions',
+        'Required Functions',
+        missingFns.length ? 'fail' : 'pass',
+        missingFns.length
+          ? 'มี function ที่หายไป: ' + missingFns.join(', ')
+          : 'function สำคัญครบ',
+        { missing: missingFns }
+      ));
+
+      const hasApi = !!API_URL && API_URL.includes('/exec');
+      items.push(checkItem(
+        'api',
+        'Apps Script API URL',
+        hasApi ? 'pass' : 'fail',
+        hasApi
+          ? 'API_URL เป็น Google Apps Script /exec แล้ว'
+          : 'API_URL ไม่ถูกต้องหรือยังไม่ได้ตั้งค่า',
+        { API_URL }
+      ));
+
+      const lsOk = testLocalStorage();
+      items.push(checkItem(
+        'localStorage',
+        'LocalStorage',
+        lsOk ? 'pass' : 'fail',
+        lsOk
+          ? 'เขียน/อ่าน localStorage ได้'
+          : 'localStorage ถูก block หรือ browser ไม่อนุญาต'
+      ));
+
+      const dlOk = testBlobDownloadSupport();
+      items.push(checkItem(
+        'download',
+        'Export / Download Support',
+        dlOk ? 'pass' : 'fail',
+        dlOk
+          ? 'รองรับ Blob download สำหรับ CSV/TXT/HTML/JSON'
+          : 'browser ไม่รองรับ Blob download'
+      ));
+
+      items.push(checkItem(
+        'data',
+        'Loaded Data Shape',
+        state.normalized.sessions.length || state.normalized.termAnswers.length
+          ? 'pass'
+          : state.usingCache
+            ? 'warn'
+            : 'warn',
+        `students ${state.normalized.students.length}, sessions ${state.normalized.sessions.length}, answers ${state.normalized.termAnswers.length}, leaderboard ${state.normalized.leaderboard.length}`,
+        {
+          usingCache: state.usingCache,
+          debugShape: state.normalized.debugShape
+        }
+      ));
+
+      items.push(checkItem(
+        'rows',
+        'Student Rows',
+        state.rows.length ? 'pass' : 'warn',
+        state.rows.length
+          ? 'สร้าง student rows ได้ ' + state.rows.length + ' คน'
+          : 'ยังไม่มี student rows อาจเกิดจากยังไม่มี logs หรือ parse field ไม่ตรง'
+      ));
+
+      items.push(checkItem(
+        'roster',
+        'Roster Coverage',
+        state.roster.length ? 'pass' : 'warn',
+        state.roster.length
+          ? 'มี roster แล้ว ' + state.roster.length + ' คน'
+          : 'ยังไม่มี roster — attendance missing/coverage อาจไม่แม่นถ้าเทียบทั้งห้อง'
+      ));
+
+      items.push(checkItem(
+        'uiModes',
+        'UI Modes',
+        'pass',
+        `compact=${state.compact}, focus=${state.focus}, production=${state.production}`
+      ));
+
+      items.push(checkItem(
+        'localData',
+        'Local Workflow Data',
+        'pass',
+        `workflow ${state.workflowItems.length}, evidence queue ${state.evidenceQueue.length}, batch feedback ${state.batchFeedbackItems.length}, templates ${state.templateMessages.length}, communication logs ${state.communicationLog.length}`
+      ));
+
+      const exportReady =
+        typeof exportRowsToCsv === 'function' &&
+        typeof downloadTextFile === 'function' &&
+        typeof buildEvidenceHtml === 'function';
+
+      items.push(checkItem(
+        'exports',
+        'Export Functions',
+        exportReady ? 'pass' : 'fail',
+        exportReady
+          ? 'CSV/TXT/HTML export core พร้อม'
+          : 'export function สำคัญหายไป'
+      ));
+
+      const pass = items.filter(x => x.status === 'pass').length;
+      const warn = items.filter(x => x.status === 'warn').length;
+      const fail = items.filter(x => x.status === 'fail').length;
+
+      const overall = fail ? 'fail' : warn ? 'warn' : 'pass';
+
+      const result = {
+        type: 'teacher-final-deploy-check',
+        version: TEACHER_VERSION,
+        checked_at: new Date().toISOString(),
+        overall,
+        summary: { pass, warn, fail, total: items.length },
+        page: location.href,
+        apiUrl: API_URL,
+        dataMode: state.usingCache ? 'cache' : 'live',
+        items
+      };
+
+      state.deployCheckResult = result;
+      renderDeployCheck();
+
+      showStatus(
+        overall === 'pass'
+          ? 'Deploy Check ผ่านทั้งหมด พร้อม deploy/test จริง'
+          : overall === 'warn'
+            ? 'Deploy Check ผ่านแบบมี warning ควรตรวจรายการสีเหลือง'
+            : 'Deploy Check พบ fail ต้องแก้ก่อน deploy จริง',
+        overall === 'pass' ? 'ok' : overall === 'fail' ? 'bad' : 'warn'
+      );
+
+      return result;
+    }
+
+    function renderDeployCheck() {
+      const result = state.deployCheckResult;
+
+      if (!result) {
+        if (els.deployCheckRawBox) els.deployCheckRawBox.textContent = 'ยังไม่ได้ตรวจ';
+        return;
+      }
+
+      const tone =
+        result.overall === 'pass'
+          ? 'good'
+          : result.overall === 'fail'
+            ? 'bad'
+            : 'warn';
+
+      if (els.deployCheckBadge) {
+        els.deployCheckBadge.className = 'badge ' + tone;
+        els.deployCheckBadge.textContent =
+          result.overall === 'pass'
+            ? 'PASS'
+            : result.overall === 'fail'
+              ? 'FAIL'
+              : 'WARN';
+      }
+
+      if (els.deployCheckKpis) {
+        els.deployCheckKpis.innerHTML = [
+          ['PASS', result.summary.pass, 'good'],
+          ['WARN', result.summary.warn, result.summary.warn ? 'warn' : 'good'],
+          ['FAIL', result.summary.fail, result.summary.fail ? 'bad' : 'good'],
+          ['TOTAL', result.summary.total, 'good']
+        ].map(([label, value, t]) => `
+          <div class="miniCard ${escapeHtml(t)}">
+            <div class="kpiLabel">${escapeHtml(label)}</div>
+            <div class="kpiValue">${escapeHtml(value)}</div>
+          </div>
+        `).join('');
+      }
+
+      if (els.deployCheckList) {
+        els.deployCheckList.innerHTML = result.items.map(item => `
+          <article class="deployCheckItem ${escapeHtml(item.status)}">
+            <div class="studentTop">
+              <div>
+                <div class="deployCheckTitle">${escapeHtml(item.title)}</div>
+                <div class="deployCheckText">${escapeHtml(item.text)}</div>
+              </div>
+              <span class="badge ${
+                item.status === 'pass' ? 'good' :
+                item.status === 'fail' ? 'bad' :
+                'warn'
+              }">${escapeHtml(item.status.toUpperCase())}</span>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      if (els.deployCheckRawBox) {
+        els.deployCheckRawBox.textContent = JSON.stringify(result, null, 2);
+      }
+    }
+
+    async function copyDeployCheckResult() {
+      const result = state.deployCheckResult || runFinalDeployCheck();
+      await copyText(JSON.stringify(result, null, 2));
+      showStatus('Copy Deploy Check result แล้ว', 'ok');
+    }
+
+    function exportDeployCheckResult() {
+      const result = state.deployCheckResult || runFinalDeployCheck();
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      downloadTextFile(
+        `teacher-vocab-deploy-check-${stamp}.json`,
+        JSON.stringify(result, null, 2),
+        'application/json;charset=utf-8'
+      );
+    }
+
     function renderDebug(){
       els.debugBox.textContent = JSON.stringify({
         version:TEACHER_VERSION,
@@ -2119,6 +2522,10 @@
         filters:state.filters,
         quickFilter:state.quickFilter,
         ui:{compact:state.compact,focus:state.focus,production:state.production},
+        deployCheck: state.deployCheckResult ? {
+          overall: state.deployCheckResult.overall,
+          summary: state.deployCheckResult.summary
+        } : null,
         debugShape:state.normalized.debugShape
       }, null, 2);
     }
@@ -2142,32 +2549,40 @@
       addComm({action:'export',source:'course-portfolio',message:'Exported course portfolio HTML'});
     }
 
+    function safeOn(el, eventName, handler, label = '') {
+      if (!el) {
+        console.warn('Missing element for event:', label || eventName);
+        return;
+      }
+      el.addEventListener(eventName, handler);
+    }
+
     function bindEvents(){
-      els.refreshBtn.addEventListener('click', loadDashboard);
-      els.useCacheBtn.addEventListener('click', useCache);
-      els.compactBtn.addEventListener('click',()=>{state.compact=!state.compact;localStorage.setItem(LS.compact,state.compact?'1':'0');renderAll();});
-      els.focusBtn.addEventListener('click',()=>{state.focus=!state.focus;localStorage.setItem(LS.focus,state.focus?'1':'0');renderAll();});
-      els.productionBtn.addEventListener('click',()=>{state.production=!state.production;localStorage.setItem(LS.production,state.production?'1':'0');renderAll();});
-      els.presetTeachingBtn.addEventListener('click',()=>{state.production=true;state.compact=true;state.focus=true;localStorage.setItem(LS.production,'1');localStorage.setItem(LS.compact,'1');localStorage.setItem(LS.focus,'1');renderAll();});
-      els.presetDebugBtn.addEventListener('click',()=>{state.production=false;state.compact=false;state.focus=false;localStorage.setItem(LS.production,'0');localStorage.setItem(LS.compact,'0');localStorage.setItem(LS.focus,'0');renderAll();});
+      safeOn(els.refreshBtn, 'click', loadDashboard, 'refreshBtn');
+      safeOn(els.useCacheBtn, 'click', useCache, 'useCacheBtn');
+      safeOn(els.compactBtn, 'click',()=>{state.compact=!state.compact;localStorage.setItem(LS.compact,state.compact?'1':'0');renderAll();}, 'compactBtn');
+      safeOn(els.focusBtn, 'click',()=>{state.focus=!state.focus;localStorage.setItem(LS.focus,state.focus?'1':'0');renderAll();}, 'focusBtn');
+      safeOn(els.productionBtn, 'click',()=>{state.production=!state.production;localStorage.setItem(LS.production,state.production?'1':'0');renderAll();}, 'productionBtn');
+      safeOn(els.presetTeachingBtn, 'click',()=>{state.production=true;state.compact=true;state.focus=true;localStorage.setItem(LS.production,'1');localStorage.setItem(LS.compact,'1');localStorage.setItem(LS.focus,'1');renderAll();}, 'presetTeachingBtn');
+      safeOn(els.presetDebugBtn, 'click',()=>{state.production=false;state.compact=false;state.focus=false;localStorage.setItem(LS.production,'0');localStorage.setItem(LS.compact,'0');localStorage.setItem(LS.focus,'0');renderAll();}, 'presetDebugBtn');
 
-      els.searchInput.addEventListener('input',()=>{state.filters.search=els.searchInput.value;state.studentRenderLimit=18;renderAll();});
-      els.sectionFilter.addEventListener('change',()=>{state.filters.section=els.sectionFilter.value;renderAll();});
-      els.riskFilter.addEventListener('change',()=>{state.filters.risk=els.riskFilter.value;renderAll();});
-      els.bankFilter.addEventListener('change',()=>{state.filters.bank=els.bankFilter.value;renderAll();});
-      els.sortSelect.addEventListener('change',()=>{state.filters.sort=els.sortSelect.value;renderAll();});
+      safeOn(els.searchInput, 'input',()=>{state.filters.search=els.searchInput.value;state.studentRenderLimit=18;renderAll();}, 'searchInput');
+      safeOn(els.sectionFilter, 'change',()=>{state.filters.section=els.sectionFilter.value;renderAll();}, 'sectionFilter');
+      safeOn(els.riskFilter, 'change',()=>{state.filters.risk=els.riskFilter.value;renderAll();}, 'riskFilter');
+      safeOn(els.bankFilter, 'change',()=>{state.filters.bank=els.bankFilter.value;renderAll();}, 'bankFilter');
+      safeOn(els.sortSelect, 'change',()=>{state.filters.sort=els.sortSelect.value;renderAll();}, 'sortSelect');
 
-      els.quickFilterList.addEventListener('click',ev=>{
+      safeOn(els.quickFilterList, 'click',ev=>{
         const b = ev.target.closest('[data-qtype]');
         if(!b) return;
         state.quickFilter = {type:b.dataset.qtype,value:b.dataset.qvalue||''};
         renderAll();
-      });
-      els.clearQuickBtn.addEventListener('click',()=>{state.quickFilter={type:'all',value:''};renderAll();});
+      }, 'quickFilterList');
+      safeOn(els.clearQuickBtn, 'click',()=>{state.quickFilter={type:'all',value:''};renderAll();}, 'clearQuickBtn');
 
-      els.liveWindowSelect.addEventListener('change',()=>{state.liveWindow=num(els.liveWindowSelect.value||15);renderLive();renderStudents();});
-      els.refreshLiveBtn.addEventListener('click',()=>{renderLive();renderStudents();});
-      els.showMoreStudentsBtn.addEventListener('click',()=>{state.studentRenderLimit+=18;renderStudents();});
+      safeOn(els.liveWindowSelect, 'change',()=>{state.liveWindow=num(els.liveWindowSelect.value||15);renderLive();renderStudents();}, 'liveWindowSelect');
+      safeOn(els.refreshLiveBtn, 'click',()=>{renderLive();renderStudents();}, 'refreshLiveBtn');
+      safeOn(els.showMoreStudentsBtn, 'click',()=>{state.studentRenderLimit+=18;renderStudents();}, 'showMoreStudentsBtn');
 
       document.addEventListener('click', ev => {
         const open = ev.target.closest('.openStudentBtn[data-student-id]');
@@ -2183,87 +2598,91 @@
         if(rem){state.evidenceQueue=state.evidenceQueue.filter(x=>String(x.studentId)!==String(rem.dataset.studentId));saveEvidenceQueue();renderEvidenceQueue();renderEvidence();return;}
       });
 
-      els.drawerCloseBtn.addEventListener('click', closeDrawer);
-      els.drawerBackdrop.addEventListener('click', closeDrawer);
-      els.saveStudentNoteBtn.addEventListener('click',()=>{const r=activeRow();if(!r)return;saveStudentNote(r,els.studentNoteArea.value);addComm({action:'save_note',source:'student-feedback',studentId:r.id,message:els.studentNoteArea.value});showStatus('บันทึก note แล้ว','ok');});
-      els.copyStudentFeedbackBtn.addEventListener('click',async()=>{const r=activeRow();if(!r)return;const fb=buildStudentFeedback(r);await copyText(fb);addComm({action:'copy',source:'student-feedback',studentId:r.id,message:fb});showStatus('Copy feedback แล้ว','ok');});
-      els.exportEvidencePackBtn.addEventListener('click',()=>exportEvidence(activeRow()));
-      els.saveGoalBtn.addEventListener('click',()=>{const r=activeRow();if(!r)return;saveGoal(r,{target_accuracy:num(els.goalAccuracyInput.value),target_score:num(els.goalScoreInput.value),target_sessions:num(els.goalSessionsInput.value),due_date:els.goalDueInput.value,note:els.goalNoteInput.value,status:'watch'});showStatus('Save goal แล้ว','ok');});
-      els.clearGoalBtn.addEventListener('click',()=>{const r=activeRow();if(!r)return;clearGoal(r);openStudentDrawer(r.id);});
+      safeOn(els.drawerCloseBtn, 'click', closeDrawer, 'drawerCloseBtn');
+      safeOn(els.drawerBackdrop, 'click', closeDrawer, 'drawerBackdrop');
+      safeOn(els.saveStudentNoteBtn, 'click',()=>{const r=activeRow();if(!r)return;saveStudentNote(r,els.studentNoteArea.value);addComm({action:'save_note',source:'student-feedback',studentId:r.id,message:els.studentNoteArea.value});showStatus('บันทึก note แล้ว','ok');}, 'saveStudentNoteBtn');
+      safeOn(els.copyStudentFeedbackBtn, 'click',async()=>{const r=activeRow();if(!r)return;const fb=buildStudentFeedback(r);await copyText(fb);addComm({action:'copy',source:'student-feedback',studentId:r.id,message:fb});showStatus('Copy feedback แล้ว','ok');}, 'copyStudentFeedbackBtn');
+      safeOn(els.exportEvidencePackBtn, 'click',()=>exportEvidence(activeRow()), 'exportEvidencePackBtn');
+      safeOn(els.saveGoalBtn, 'click',()=>{const r=activeRow();if(!r)return;saveGoal(r,{target_accuracy:num(els.goalAccuracyInput.value),target_score:num(els.goalScoreInput.value),target_sessions:num(els.goalSessionsInput.value),due_date:els.goalDueInput.value,note:els.goalNoteInput.value,status:'watch'});showStatus('Save goal แล้ว','ok');}, 'saveGoalBtn');
+      safeOn(els.clearGoalBtn, 'click',()=>{const r=activeRow();if(!r)return;clearGoal(r);openStudentDrawer(r.id);}, 'clearGoalBtn');
 
-      els.buildWorkflowBtn.addEventListener('click', buildWorkflow);
-      els.exportWorkflowBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-workflow',state.workflowItems));
-      els.clearResolvedBtn.addEventListener('click',()=>{state.workflowItems=state.workflowItems.filter(w=>w.status!=='resolved');saveWorkflow();renderWorkflow();});
-      els.workflowBoard.addEventListener('change',ev=>{const s=ev.target.closest('.workflowStatusSelect');if(!s)return;const w=state.workflowItems.find(x=>x.key===s.dataset.key);if(w){w.status=s.value;w.updated_at=bangkokNow();saveWorkflow();renderWorkflow();}});
-      els.workflowBoard.addEventListener('click',ev=>{
+      safeOn(els.buildWorkflowBtn, 'click', buildWorkflow, 'buildWorkflowBtn');
+      safeOn(els.exportWorkflowBtn, 'click',()=>exportRowsToCsv('teacher-vocab-workflow',state.workflowItems), 'exportWorkflowBtn');
+      safeOn(els.clearResolvedBtn, 'click',()=>{state.workflowItems=state.workflowItems.filter(w=>w.status!=='resolved');saveWorkflow();renderWorkflow();}, 'clearResolvedBtn');
+      safeOn(els.workflowBoard, 'change',ev=>{const s=ev.target.closest('.workflowStatusSelect');if(!s)return;const w=state.workflowItems.find(x=>x.key===s.dataset.key);if(w){w.status=s.value;w.updated_at=bangkokNow();saveWorkflow();renderWorkflow();}}, 'workflowBoard-change');
+      safeOn(els.workflowBoard, 'click',ev=>{
         const note = ev.target.closest('.workflowNoteBtn[data-key]');
         if(note){const w=state.workflowItems.find(x=>x.key===note.dataset.key);const r=getStudentRowById(w?.studentId);if(r){saveStudentNote(r,(getStudentNote(r)+'\n\n['+new Date().toLocaleString('th-TH')+'] Workflow\n'+w.reason+'\nNext: '+w.nextAction).trim());w.status='reviewing';saveWorkflow();addToEvidenceQueue(r.id,'workflow-note');openStudentDrawer(r.id);}return;}
         const goal = ev.target.closest('.workflowGoalBtn[data-key]');
         if(goal){const w=state.workflowItems.find(x=>x.key===goal.dataset.key);const r=getStudentRowById(w?.studentId);if(r){saveGoal(r,{target_accuracy:Math.max(75,Math.round(r.accuracy+10)),target_score:Math.max(80,Math.round(r.score+10)),target_sessions:r.attendance+1,due_date:new Date(Date.now()+7*864e5).toISOString().slice(0,10),note:'สร้างจาก Workflow: '+w.reason,status:'watch'});w.status='assigned';saveWorkflow();addToEvidenceQueue(r.id,'workflow-goal');openStudentDrawer(r.id);}return;}
-      });
+      }, 'workflowBoard-click');
 
-      els.queueRiskBtn.addEventListener('click',()=>{state.rows.filter(r=>r.riskLevel==='risk').forEach(r=>addToEvidenceQueue(r.id,'risk'));renderAll();});
-      els.queueVisibleBtn.addEventListener('click',()=>{applyFilters(state.rows).forEach(r=>addToEvidenceQueue(r.id,'visible'));renderAll();});
-      els.exportEvidenceIndexBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-evidence-index',state.rows.map(r=>({display_name:r.display_name,student_id:r.student_id,section:r.section,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,risk_level:r.riskLevel,weak_terms:perStudentWeakTerms(r).slice(0,5).map(t=>t.term).join(', '),has_goal:getGoal(r)?'yes':'no',has_note:getStudentNote(r)?'yes':'no'}))));
-      els.exportNextEvidenceBtn.addEventListener('click',()=>{const item=state.evidenceQueue.find(q=>q.status!=='exported');if(!item){alert('ไม่มีรายการรอ export');return;}const r=getStudentRowById(item.studentId);exportEvidence(r);item.status='exported';item.exported_at=bangkokNow();saveEvidenceQueue();renderEvidenceQueue();});
-      els.exportQueueIndexBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-evidence-queue',state.evidenceQueue));
-      els.clearQueueBtn.addEventListener('click',()=>{state.evidenceQueue=[];saveEvidenceQueue();renderAll();});
+      safeOn(els.queueRiskBtn, 'click',()=>{state.rows.filter(r=>r.riskLevel==='risk').forEach(r=>addToEvidenceQueue(r.id,'risk'));renderAll();}, 'queueRiskBtn');
+      safeOn(els.queueVisibleBtn, 'click',()=>{applyFilters(state.rows).forEach(r=>addToEvidenceQueue(r.id,'visible'));renderAll();}, 'queueVisibleBtn');
+      safeOn(els.exportEvidenceIndexBtn, 'click',()=>exportRowsToCsv('teacher-vocab-evidence-index',state.rows.map(r=>({display_name:r.display_name,student_id:r.student_id,section:r.section,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,risk_level:r.riskLevel,weak_terms:perStudentWeakTerms(r).slice(0,5).map(t=>t.term).join(', '),has_goal:getGoal(r)?'yes':'no',has_note:getStudentNote(r)?'yes':'no'}))), 'exportEvidenceIndexBtn');
+      safeOn(els.exportNextEvidenceBtn, 'click',()=>{const item=state.evidenceQueue.find(q=>q.status!=='exported');if(!item){alert('ไม่มีรายการรอ export');return;}const r=getStudentRowById(item.studentId);exportEvidence(r);item.status='exported';item.exported_at=bangkokNow();saveEvidenceQueue();renderEvidenceQueue();}, 'exportNextEvidenceBtn');
+      safeOn(els.exportQueueIndexBtn, 'click',()=>exportRowsToCsv('teacher-vocab-evidence-queue',state.evidenceQueue), 'exportQueueIndexBtn');
+      safeOn(els.clearQueueBtn, 'click',()=>{state.evidenceQueue=[];saveEvidenceQueue();renderAll();}, 'clearQueueBtn');
 
-      els.composeQueueFeedbackBtn.addEventListener('click',()=>{const ids=new Set(state.evidenceQueue.map(q=>String(q.studentId)));composeFeedback(state.rows.filter(r=>ids.has(String(r.id))),'evidence-queue');});
-      els.composeRiskFeedbackBtn.addEventListener('click',()=>composeFeedback(state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support'),'risk-support'));
-      els.composeVisibleFeedbackBtn.addEventListener('click',()=>composeFeedback(applyFilters(state.rows),'visible-filter'));
-      els.exportBatchFeedbackTxtBtn.addEventListener('click',()=>{const txt=state.batchFeedbackItems.map((i,idx)=>`${idx+1}. ${i.display_name}\n${i.text}`).join('\n\n'+'='.repeat(60)+'\n\n');downloadTextFile('teacher-vocab-batch-feedback.txt',txt);addComm({action:'export',source:'batch-feedback',message:'Exported batch feedback'});});
-      els.exportBatchFeedbackCsvBtn.addEventListener('click',()=>{exportRowsToCsv('teacher-vocab-batch-feedback',state.batchFeedbackItems);addComm({action:'export',source:'batch-feedback',message:'Exported batch feedback CSV'});});
-      els.clearBatchFeedbackBtn.addEventListener('click',()=>{state.batchFeedbackItems=[];saveBatchFeedback();renderBatchFeedback();});
-      els.batchFeedbackGrid.addEventListener('click',async ev=>{
+      safeOn(els.composeQueueFeedbackBtn, 'click',()=>{const ids=new Set(state.evidenceQueue.map(q=>String(q.studentId)));composeFeedback(state.rows.filter(r=>ids.has(String(r.id))),'evidence-queue');}, 'composeQueueFeedbackBtn');
+      safeOn(els.composeRiskFeedbackBtn, 'click',()=>composeFeedback(state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support'),'risk-support'), 'composeRiskFeedbackBtn');
+      safeOn(els.composeVisibleFeedbackBtn, 'click',()=>composeFeedback(applyFilters(state.rows),'visible-filter'), 'composeVisibleFeedbackBtn');
+      safeOn(els.exportBatchFeedbackTxtBtn, 'click',()=>{const txt=state.batchFeedbackItems.map((i,idx)=>`${idx+1}. ${i.display_name}\n${i.text}`).join('\n\n'+'='.repeat(60)+'\n\n');downloadTextFile('teacher-vocab-batch-feedback.txt',txt);addComm({action:'export',source:'batch-feedback',message:'Exported batch feedback'});}, 'exportBatchFeedbackTxtBtn');
+      safeOn(els.exportBatchFeedbackCsvBtn, 'click',()=>{exportRowsToCsv('teacher-vocab-batch-feedback',state.batchFeedbackItems);addComm({action:'export',source:'batch-feedback',message:'Exported batch feedback CSV'});}, 'exportBatchFeedbackCsvBtn');
+      safeOn(els.clearBatchFeedbackBtn, 'click',()=>{state.batchFeedbackItems=[];saveBatchFeedback();renderBatchFeedback();}, 'clearBatchFeedbackBtn');
+      safeOn(els.batchFeedbackGrid, 'click',async ev=>{
         const copy=ev.target.closest('.copyFeedbackBtn[data-student-id]');
         if(copy){const item=state.batchFeedbackItems.find(x=>String(x.studentId)===String(copy.dataset.studentId));await copyText(item.text);addComm({action:'copy',source:'batch-feedback',studentId:item.studentId,message:item.text,template:item.source});showStatus('Copy feedback แล้ว','ok');return;}
         const note=ev.target.closest('.noteFeedbackBtn[data-student-id]');
         if(note){const item=state.batchFeedbackItems.find(x=>String(x.studentId)===String(note.dataset.studentId));const r=getStudentRowById(item.studentId);saveStudentNote(r,(getStudentNote(r)+'\n\n[Batch Feedback]\n'+item.text).trim());addComm({action:'save_note',source:'batch-feedback',studentId:r.id,message:item.text});showStatus('Save to note แล้ว','ok');return;}
         const sent=ev.target.closest('.markFeedbackSentBtn[data-student-id]');
         if(sent){const item=state.batchFeedbackItems.find(x=>String(x.studentId)===String(sent.dataset.studentId));addComm({action:'mark_sent',source:'batch-feedback',studentId:item.studentId,message:item.text,template:item.source});showStatus('Mark sent แล้ว','ok');return;}
-      });
+      }, 'batchFeedbackGrid');
 
-      els.composeTemplateBtn.addEventListener('click', composeTemplates);
-      els.exportTemplateTxtBtn.addEventListener('click',()=>{downloadTextFile('teacher-vocab-message-templates.txt',state.templateMessages.map((i,idx)=>`${idx+1}. ${i.display_name}\n${i.text}`).join('\n\n'+'='.repeat(60)+'\n\n'));addComm({action:'export',source:'message-template',message:'Exported template messages'});});
-      els.exportTemplateCsvBtn.addEventListener('click',()=>{exportRowsToCsv('teacher-vocab-message-templates',state.templateMessages);addComm({action:'export',source:'message-template',message:'Exported template messages CSV'});});
-      els.clearTemplateBtn.addEventListener('click',()=>{state.templateMessages=[];saveTemplates();renderTemplates();});
-      els.templateGrid.addEventListener('click',async ev=>{
+      safeOn(els.composeTemplateBtn, 'click', composeTemplates, 'composeTemplateBtn');
+      safeOn(els.exportTemplateTxtBtn, 'click',()=>{downloadTextFile('teacher-vocab-message-templates.txt',state.templateMessages.map((i,idx)=>`${idx+1}. ${i.display_name}\n${i.text}`).join('\n\n'+'='.repeat(60)+'\n\n'));addComm({action:'export',source:'message-template',message:'Exported template messages'});}, 'exportTemplateTxtBtn');
+      safeOn(els.exportTemplateCsvBtn, 'click',()=>{exportRowsToCsv('teacher-vocab-message-templates',state.templateMessages);addComm({action:'export',source:'message-template',message:'Exported template messages CSV'});}, 'exportTemplateCsvBtn');
+      safeOn(els.clearTemplateBtn, 'click',()=>{state.templateMessages=[];saveTemplates();renderTemplates();}, 'clearTemplateBtn');
+      safeOn(els.templateGrid, 'click',async ev=>{
         const copy=ev.target.closest('.copyTemplateBtn[data-student-id]');
         if(copy){const item=state.templateMessages.find(x=>String(x.studentId)===String(copy.dataset.studentId));await copyText(item.text);addComm({action:'copy',source:'message-template',studentId:item.studentId,message:item.text,template:item.template});showStatus('Copy template แล้ว','ok');return;}
         const note=ev.target.closest('.noteTemplateBtn[data-student-id]');
         if(note){const item=state.templateMessages.find(x=>String(x.studentId)===String(note.dataset.studentId));const r=getStudentRowById(item.studentId);saveStudentNote(r,(getStudentNote(r)+'\n\n[Message Template]\n'+item.text).trim());addComm({action:'save_note',source:'message-template',studentId:r.id,message:item.text,template:item.template});showStatus('Save to note แล้ว','ok');return;}
         const sent=ev.target.closest('.markTemplateSentBtn[data-student-id]');
         if(sent){const item=state.templateMessages.find(x=>String(x.studentId)===String(sent.dataset.studentId));addComm({action:'mark_sent',source:'message-template',studentId:item.studentId,message:item.text,template:item.template});showStatus('Mark sent แล้ว','ok');return;}
-      });
+      }, 'templateGrid');
 
-      els.communicationActionFilter.addEventListener('change',renderCommunicationLog);
-      els.communicationSourceFilter.addEventListener('change',renderCommunicationLog);
-      els.communicationSearchInput.addEventListener('input',renderCommunicationLog);
-      els.exportCommunicationCsvBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-communication-log',state.communicationLog));
-      els.exportCommunicationTxtBtn.addEventListener('click',()=>downloadTextFile('teacher-vocab-communication-log.txt',state.communicationLog.map((c,i)=>`${i+1}. ${c.action} • ${c.display_name}\n${dateLabel(c.created_at)}\n${c.source} • ${c.template}\n${c.message||''}`).join('\n\n'+'='.repeat(60)+'\n\n')));
-      els.clearCommunicationBtn.addEventListener('click',()=>{if(confirm('ลบ Communication Log?')){state.communicationLog=[];saveComm();renderAll();}});
+      safeOn(els.communicationActionFilter, 'change',renderCommunicationLog, 'communicationActionFilter');
+      safeOn(els.communicationSourceFilter, 'change',renderCommunicationLog, 'communicationSourceFilter');
+      safeOn(els.communicationSearchInput, 'input',renderCommunicationLog, 'communicationSearchInput');
+      safeOn(els.exportCommunicationCsvBtn, 'click',()=>exportRowsToCsv('teacher-vocab-communication-log',state.communicationLog), 'exportCommunicationCsvBtn');
+      safeOn(els.exportCommunicationTxtBtn, 'click',()=>downloadTextFile('teacher-vocab-communication-log.txt',state.communicationLog.map((c,i)=>`${i+1}. ${c.action} • ${c.display_name}\n${dateLabel(c.created_at)}\n${c.source} • ${c.template}\n${c.message||''}`).join('\n\n'+'='.repeat(60)+'\n\n')), 'exportCommunicationTxtBtn');
+      safeOn(els.clearCommunicationBtn, 'click',()=>{if(confirm('ลบ Communication Log?')){state.communicationLog=[];saveComm();renderAll();}}, 'clearCommunicationBtn');
 
-      els.exportCommunicationSummaryBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-communication-summary',state.rows.map(r=>{const logs=state.communicationLog.filter(c=>String(c.studentId)===String(r.id));return{display_name:r.display_name,student_id:r.student_id,section:r.section,risk_level:r.riskLevel,communication_count:logs.length,has_mark_sent:logs.some(c=>c.action==='mark_sent')?'yes':'no',latest_action:logs[0]?.action||'',latest_at:logs[0]?.created_at||''};})));
-      els.queueNoCommunicationBtn.addEventListener('click',()=>{buildCommSummary().uncovered.forEach(r=>addToEvidenceQueue(r.id,'no-communication'));renderAll();});
+      safeOn(els.exportCommunicationSummaryBtn, 'click',()=>exportRowsToCsv('teacher-vocab-communication-summary',state.rows.map(r=>{const logs=state.communicationLog.filter(c=>String(c.studentId)===String(r.id));return{display_name:r.display_name,student_id:r.student_id,section:r.section,risk_level:r.riskLevel,communication_count:logs.length,has_mark_sent:logs.some(c=>c.action==='mark_sent')?'yes':'no',latest_action:logs[0]?.action||'',latest_at:logs[0]?.created_at||''};})), 'exportCommunicationSummaryBtn');
+      safeOn(els.queueNoCommunicationBtn, 'click',()=>{buildCommSummary().uncovered.forEach(r=>addToEvidenceQueue(r.id,'no-communication'));renderAll();}, 'queueNoCommunicationBtn');
 
-      els.generateNarrativeBtn.addEventListener('click', buildNarrative);
-      els.copyNarrativeBtn.addEventListener('click',async()=>{if(!state.classNarrativeText)buildNarrative();await copyText(state.classNarrativeText);addComm({action:'copy',source:'class-narrative',message:state.classNarrativeText});});
-      els.exportNarrativeTxtBtn.addEventListener('click',()=>{if(!state.classNarrativeText)buildNarrative();downloadTextFile('teacher-vocab-class-narrative.txt',state.classNarrativeText);addComm({action:'export',source:'class-narrative',message:'Exported narrative TXT'});});
-      els.exportNarrativeHtmlBtn.addEventListener('click',()=>{if(!state.classNarrativeText)buildNarrative();downloadTextFile('teacher-vocab-class-narrative.html',`<!doctype html><html lang="th"><meta charset="utf-8"><body style="font-family:Arial,'Noto Sans Thai';padding:24px;line-height:1.75"><pre style="white-space:pre-wrap">${escapeHtml(state.classNarrativeText)}</pre></body></html>`,'text/html;charset=utf-8');addComm({action:'export',source:'class-narrative',message:'Exported narrative HTML'});});
+      safeOn(els.generateNarrativeBtn, 'click', buildNarrative, 'generateNarrativeBtn');
+      safeOn(els.copyNarrativeBtn, 'click',async()=>{if(!state.classNarrativeText)buildNarrative();await copyText(state.classNarrativeText);addComm({action:'copy',source:'class-narrative',message:state.classNarrativeText});}, 'copyNarrativeBtn');
+      safeOn(els.exportNarrativeTxtBtn, 'click',()=>{if(!state.classNarrativeText)buildNarrative();downloadTextFile('teacher-vocab-class-narrative.txt',state.classNarrativeText);addComm({action:'export',source:'class-narrative',message:'Exported narrative TXT'});}, 'exportNarrativeTxtBtn');
+      safeOn(els.exportNarrativeHtmlBtn, 'click',()=>{if(!state.classNarrativeText)buildNarrative();downloadTextFile('teacher-vocab-class-narrative.html',`<!doctype html><html lang="th"><meta charset="utf-8"><body style="font-family:Arial,'Noto Sans Thai';padding:24px;line-height:1.75"><pre style="white-space:pre-wrap">${escapeHtml(state.classNarrativeText)}</pre></body></html>`,'text/html;charset=utf-8');addComm({action:'export',source:'class-narrative',message:'Exported narrative HTML'});}, 'exportNarrativeHtmlBtn');
 
-      els.generatePortfolioBtn.addEventListener('click', buildPortfolio);
-      els.copyPortfolioBtn.addEventListener('click',async()=>{if(!state.coursePortfolioText)buildPortfolio();await copyText(state.coursePortfolioText);addComm({action:'copy',source:'course-portfolio',message:state.coursePortfolioText});});
-      els.exportPortfolioHtmlBtn.addEventListener('click', exportPortfolioHtml);
-      els.exportPortfolioJsonBtn.addEventListener('click',()=>{if(!state.coursePortfolio)buildPortfolio();downloadTextFile('teacher-vocab-course-portfolio.json',JSON.stringify(state.coursePortfolio,null,2),'application/json;charset=utf-8');addComm({action:'export',source:'course-portfolio',message:'Exported portfolio JSON'});});
-      els.exportPortfolioIndexCsvBtn.addEventListener('click',()=>{if(!state.coursePortfolio)buildPortfolio();exportRowsToCsv('teacher-vocab-course-portfolio-evidence-index',state.coursePortfolio.evidenceIndex||[]);addComm({action:'export',source:'course-portfolio',message:'Exported portfolio index CSV'});});
+      safeOn(els.generatePortfolioBtn, 'click', buildPortfolio, 'generatePortfolioBtn');
+      safeOn(els.copyPortfolioBtn, 'click',async()=>{if(!state.coursePortfolioText)buildPortfolio();await copyText(state.coursePortfolioText);addComm({action:'copy',source:'course-portfolio',message:state.coursePortfolioText});}, 'copyPortfolioBtn');
+      safeOn(els.exportPortfolioHtmlBtn, 'click', exportPortfolioHtml, 'exportPortfolioHtmlBtn');
+      safeOn(els.exportPortfolioJsonBtn, 'click',()=>{if(!state.coursePortfolio)buildPortfolio();downloadTextFile('teacher-vocab-course-portfolio.json',JSON.stringify(state.coursePortfolio,null,2),'application/json;charset=utf-8');addComm({action:'export',source:'course-portfolio',message:'Exported portfolio JSON'});}, 'exportPortfolioJsonBtn');
+      safeOn(els.exportPortfolioIndexCsvBtn, 'click',()=>{if(!state.coursePortfolio)buildPortfolio();exportRowsToCsv('teacher-vocab-course-portfolio-evidence-index',state.coursePortfolio.evidenceIndex||[]);addComm({action:'export',source:'course-portfolio',message:'Exported portfolio index CSV'});}, 'exportPortfolioIndexCsvBtn');
 
-      els.exportStudentsBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-students',state.rows.map(r=>({display_name:r.display_name,student_id:r.student_id,section:r.section,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,answers:r.answerCount,wrong:r.wrongCount,risk_level:r.riskLevel,last_seen:r.lastSeen}))));
-      els.exportSessionsBtn.addEventListener('click',()=>exportRowsToCsv('teacher-vocab-sessions',state.normalized.sessions));
-      els.exportMissingBtn.addEventListener('click',()=>{const latest=buildAttendanceRows().slice(-1)[0];if(!latest){alert('No attendance');return;}exportRowsToCsv('teacher-vocab-missing-'+latest.code,latest.missing);});
+      safeOn(els.exportStudentsBtn, 'click',()=>exportRowsToCsv('teacher-vocab-students',state.rows.map(r=>({display_name:r.display_name,student_id:r.student_id,section:r.section,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,answers:r.answerCount,wrong:r.wrongCount,risk_level:r.riskLevel,last_seen:r.lastSeen}))), 'exportStudentsBtn');
+      safeOn(els.exportSessionsBtn, 'click',()=>exportRowsToCsv('teacher-vocab-sessions',state.normalized.sessions), 'exportSessionsBtn');
+      safeOn(els.exportMissingBtn, 'click',()=>{const latest=buildAttendanceRows().slice(-1)[0];if(!latest){alert('No attendance');return;}exportRowsToCsv('teacher-vocab-missing-'+latest.code,latest.missing);}, 'exportMissingBtn');
 
-      els.jumpNavToggle.addEventListener('click',()=>els.teacherJumpNav.classList.toggle('open'));
-      els.jumpNavPanel.addEventListener('click',ev=>{const b=ev.target.closest('[data-jump-target]');if(!b)return;jumpTo(b.dataset.jumpTarget);});
+      safeOn(els.runDeployCheckBtn, 'click', runFinalDeployCheck, 'runDeployCheckBtn');
+      safeOn(els.copyDeployCheckBtn, 'click', copyDeployCheckResult, 'copyDeployCheckBtn');
+      safeOn(els.exportDeployCheckBtn, 'click', exportDeployCheckResult, 'exportDeployCheckBtn');
+
+      safeOn(els.jumpNavToggle, 'click',()=>els.teacherJumpNav.classList.toggle('open'), 'jumpNavToggle');
+      safeOn(els.jumpNavPanel, 'click',ev=>{const b=ev.target.closest('[data-jump-target]');if(!b)return;jumpTo(b.dataset.jumpTarget);}, 'jumpNavPanel');
       document.addEventListener('keydown',ev=>{if(ev.key==='Escape'){closeDrawer();els.teacherJumpNav.classList.remove('open');}});
     }
 
