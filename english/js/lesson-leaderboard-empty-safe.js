@@ -45,7 +45,7 @@
     return nullObjectError && isLeaderboardLikeStack(st + " " + msg);
   }
 
-  // สำคัญ: กันโค้ดเดิมที่อาจทำ Object.entries(snapshot.val()) ตอน snapshot.val() เป็น null
+  // กันโค้ดเดิมที่อาจทำ Object.entries(snapshot.val()) ตอน snapshot.val() เป็น null
   if (!Object.__techpathLeaderboardSafePatched) {
     Object.keys = function techpathSafeKeys(value) {
       if (isNullish(value)) return [];
@@ -137,7 +137,12 @@
     selectors.forEach((selector) => {
       try {
         document.querySelectorAll(selector).forEach((el) => {
-          const existing = String(el.textContent || el.getAttribute("value") || el.getAttribute("text") || "").toLowerCase();
+          const existing = String(
+            el.textContent ||
+            el.getAttribute("value") ||
+            el.getAttribute("text") ||
+            ""
+          ).toLowerCase();
 
           if (
             existing.includes("top") ||
@@ -210,12 +215,10 @@
       paintEmptyLeaderboard();
     } catch (_) {}
 
-    // ถ้า lesson-main โหลดส่วนอื่นเสร็จแล้วแต่ติดตอน leaderboard ให้ปลด loading ได้
     setTimeout(() => {
       hideLoading(reason);
     }, 120);
 
-    // แจ้งเบา ๆ เฉพาะกรณี recovery จริง ไม่รบกวนการเล่น
     setTimeout(() => {
       const loading = document.getElementById("loading");
       const stillLoading =
@@ -272,14 +275,12 @@
   document.addEventListener(
     "DOMContentLoaded",
     () => {
-      // กรณี leaderboard ว่างจริง ให้ board แสดงข้อความว่างแบบไม่ error
       setTimeout(() => {
         try {
           paintEmptyLeaderboard();
         } catch (_) {}
       }, 1200);
 
-      // fallback กันค้างหน้า Loading ยาวเกินไป
       setTimeout(() => {
         const loading = document.getElementById("loading");
         if (!loading) return;
@@ -294,8 +295,6 @@
           document.body.classList.contains("mission-mode") ||
           document.body.classList.contains("summary-mode");
 
-        // ถ้า body ยังไม่มี mode เลย แปลว่า main อาจยังไม่ boot จริง อย่าเพิ่งซ่อน
-        // แต่ถ้ามี mode แล้ว แปลว่า boot แล้วแต่ loading ค้าง ให้ซ่อน
         if (visible && bodyHasMode) {
           hideLoading("loading-left-open");
         }
