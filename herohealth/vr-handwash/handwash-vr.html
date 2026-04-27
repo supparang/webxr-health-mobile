@@ -350,7 +350,6 @@
       top:38%;
     }
 
-    /* Faucet */
     .faucet-real{
       min-width:150px;
       min-height:126px;
@@ -422,7 +421,6 @@
     .faucet-knob.left{ left:20px; }
     .faucet-knob.right{ left:62px; }
 
-    /* Soap */
     .soap-real{
       min-width:132px;
       min-height:120px;
@@ -473,7 +471,6 @@
       font-size:1.85rem;
     }
 
-    /* Towel */
     .towel-real{
       min-width:132px;
       min-height:120px;
@@ -523,7 +520,6 @@
       z-index:2;
     }
 
-    /* Water */
     .water-stream{
       position:absolute;
       left:50%;
@@ -749,6 +745,214 @@
       font-weight:1000;
       border:2px solid rgba(255,255,255,.92);
       box-shadow:0 8px 18px rgba(0,0,0,.12);
+      pointer-events:none;
+    }
+
+    .gesture-visual{
+      position:absolute;
+      left:50%;
+      top:10px;
+      transform:translateX(-50%);
+      z-index:18;
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,.92);
+      border:2px solid rgba(103,232,249,.75);
+      box-shadow:0 10px 22px rgba(34,211,238,.18);
+      font-size:1.8rem;
+      pointer-events:none;
+    }
+
+    .part-highlight{
+      position:absolute;
+      z-index:13;
+      border-radius:999px;
+      background:rgba(250,204,21,.24);
+      border:3px solid rgba(250,204,21,.88);
+      box-shadow:0 0 0 8px rgba(250,204,21,.14);
+      pointer-events:none;
+      opacity:0;
+      transition:all .18s ease;
+    }
+
+    .hands-zone.mode-wet .part-highlight,
+    .hands-zone.mode-rinse .part-highlight{
+      opacity:1;
+      left:50%;
+      top:52%;
+      width:220px;
+      height:150px;
+      transform:translate(-50%,-50%);
+      background:rgba(103,232,249,.22);
+      border-color:rgba(34,211,238,.9);
+    }
+
+    .hands-zone.mode-soap .part-highlight{
+      opacity:1;
+      left:50%;
+      top:52%;
+      width:224px;
+      height:150px;
+      transform:translate(-50%,-50%);
+      background:rgba(255,255,255,.34);
+      border-color:rgba(244,114,182,.75);
+    }
+
+    .hands-zone.mode-palm .part-highlight{
+      opacity:1;
+      left:50%;
+      top:56%;
+      width:165px;
+      height:76px;
+      transform:translate(-50%,-50%);
+    }
+
+    .hands-zone.mode-back .part-highlight{
+      opacity:1;
+      left:50%;
+      top:48%;
+      width:196px;
+      height:82px;
+      transform:translate(-50%,-50%) rotate(-8deg);
+    }
+
+    .hands-zone.mode-between .part-highlight{
+      opacity:1;
+      left:50%;
+      top:32%;
+      width:174px;
+      height:56px;
+      transform:translate(-50%,-50%);
+    }
+
+    .hands-zone.mode-backFinger .part-highlight{
+      opacity:1;
+      left:50%;
+      top:22%;
+      width:152px;
+      height:48px;
+      transform:translate(-50%,-50%);
+    }
+
+    .hands-zone.mode-thumb .part-highlight{
+      opacity:1;
+      left:50%;
+      top:58%;
+      width:234px;
+      height:64px;
+      transform:translate(-50%,-50%);
+    }
+
+    .hands-zone.mode-fingertip .part-highlight{
+      opacity:1;
+      left:50%;
+      top:13%;
+      width:184px;
+      height:48px;
+      transform:translate(-50%,-50%);
+    }
+
+    .hands-zone.mode-dry .part-highlight{
+      opacity:1;
+      left:50%;
+      top:52%;
+      width:224px;
+      height:150px;
+      transform:translate(-50%,-50%);
+      background:rgba(253,224,71,.24);
+      border-color:rgba(250,204,21,.88);
+    }
+
+    .hands-zone.mode-turnoff .part-highlight{
+      opacity:1;
+      left:50%;
+      top:52%;
+      width:210px;
+      height:132px;
+      transform:translate(-50%,-50%);
+      background:rgba(255,248,215,.22);
+      border-color:rgba(250,204,21,.75);
+    }
+
+    .hands-zone.mode-back .hand.left{
+      transform:rotate(-15deg) translateY(4px);
+      filter:saturate(.95) brightness(.98);
+    }
+
+    .hands-zone.mode-back .hand.right{
+      transform:rotate(12deg) scaleX(-1) translateY(-6px);
+    }
+
+    .hands-zone.mode-between .hand.left{
+      transform:rotate(16deg) translateX(18px);
+    }
+
+    .hands-zone.mode-between .hand.right{
+      transform:rotate(-16deg) scaleX(-1) translateX(18px);
+    }
+
+    .hands-zone.mode-backFinger .hand.left,
+    .hands-zone.mode-backFinger .hand.right{
+      border-radius:34px 34px 44px 44px;
+    }
+
+    .hands-zone.mode-backFinger .finger{
+      transform:translateY(12px) rotate(0deg);
+      height:34px;
+    }
+
+    .hands-zone.mode-thumb .thumb{
+      box-shadow:
+        inset 0 6px 9px rgba(255,255,255,.25),
+        0 0 0 7px rgba(250,204,21,.20),
+        0 0 18px rgba(250,204,21,.34);
+    }
+
+    .hands-zone.mode-fingertip .finger{
+      box-shadow:
+        inset 0 6px 9px rgba(255,255,255,.28),
+        0 0 0 5px rgba(250,204,21,.18),
+        0 0 14px rgba(250,204,21,.30);
+    }
+
+    .hands-zone.mode-dry::after{
+      content:"🧻";
+      position:absolute;
+      right:42px;
+      top:58px;
+      z-index:17;
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#fff7cc;
+      border:3px solid rgba(255,255,255,.9);
+      font-size:2rem;
+      box-shadow:0 12px 24px rgba(0,0,0,.12);
+      animation:towelWipe 1s infinite alternate;
+      pointer-events:none;
+    }
+
+    .hands-zone.mode-turnoff::after{
+      content:"ใช้ผ้าปิดก๊อก";
+      position:absolute;
+      left:50%;
+      top:72px;
+      transform:translateX(-50%);
+      z-index:17;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff8d7;
+      color:#713f12;
+      border:2px solid rgba(255,255,255,.9);
+      box-shadow:0 10px 20px rgba(0,0,0,.12);
+      font-weight:1000;
       pointer-events:none;
     }
 
@@ -1004,6 +1208,11 @@
       to{ transform:translateY(-6px) scale(1.08); }
     }
 
+    @keyframes towelWipe{
+      from{ transform:translateX(0) rotate(-8deg); }
+      to{ transform:translateX(-26px) rotate(8deg); }
+    }
+
     @media (max-width:820px){
       body{
         align-items:stretch;
@@ -1122,6 +1331,60 @@
         right:-20px;
       }
 
+      .gesture-visual{
+        width:46px;
+        height:46px;
+        border-radius:15px;
+        font-size:1.45rem;
+        top:8px;
+      }
+
+      .hands-zone.mode-wet .part-highlight,
+      .hands-zone.mode-rinse .part-highlight,
+      .hands-zone.mode-soap .part-highlight,
+      .hands-zone.mode-dry .part-highlight{
+        width:190px;
+        height:128px;
+      }
+
+      .hands-zone.mode-palm .part-highlight{
+        width:140px;
+        height:64px;
+      }
+
+      .hands-zone.mode-back .part-highlight{
+        width:166px;
+        height:70px;
+      }
+
+      .hands-zone.mode-between .part-highlight{
+        width:150px;
+        height:48px;
+      }
+
+      .hands-zone.mode-backFinger .part-highlight{
+        width:132px;
+        height:42px;
+      }
+
+      .hands-zone.mode-thumb .part-highlight{
+        width:202px;
+        height:54px;
+      }
+
+      .hands-zone.mode-fingertip .part-highlight{
+        width:156px;
+        height:42px;
+      }
+
+      .hands-zone.mode-dry::after{
+        right:28px;
+        top:52px;
+        width:48px;
+        height:48px;
+        font-size:1.55rem;
+      }
+
       .water-stream.on{
         height:215px;
       }
@@ -1230,7 +1493,10 @@
 
           <div class="water-stream" id="waterStream"></div>
 
-          <div class="hands-zone" id="handsZone" aria-label="มือ">
+          <div class="hands-zone mode-wet" id="handsZone" aria-label="มือ">
+            <div class="gesture-visual" id="gestureVisual">💧</div>
+            <div class="part-highlight" id="partHighlight"></div>
+
             <div class="hand left" id="leftHand">
               <span class="finger f1"></span>
               <span class="finger f2"></span>
@@ -1319,7 +1585,7 @@
 
   <script src="./handwash-shared.js"></script>
   <script>
-    const HHA_HANDWASH_MAIN_VERSION = 'who-sim-main-realfeel-20260424';
+    const HHA_HANDWASH_MAIN_VERSION = 'who-sim-main-handmode-realfeel-20260424';
 
     const $ = (id) => document.getElementById(id);
 
@@ -1392,7 +1658,7 @@
       if (raw) return raw;
 
       return carryUrl('./handwash-launcher.html', {
-        v:'launcher-from-who-sim-realfeel'
+        v:'launcher-from-who-sim-handmode'
       });
     }
 
@@ -1565,6 +1831,8 @@
       rightHand:$('rightHand'),
       rubDot:$('rubDot'),
       rubLabel:$('rubLabel'),
+      gestureVisual:$('gestureVisual'),
+      partHighlight:$('partHighlight'),
       stepFill:$('stepFill'),
       stepProgressText:$('stepProgressText'),
       stepProgressPct:$('stepProgressPct'),
@@ -1759,8 +2027,56 @@
       }).join('');
     }
 
+    function setHandMode(step){
+      const modes = [
+        'mode-wet',
+        'mode-soap',
+        'mode-palm',
+        'mode-back',
+        'mode-between',
+        'mode-backFinger',
+        'mode-thumb',
+        'mode-fingertip',
+        'mode-rinse',
+        'mode-dry',
+        'mode-turnoff'
+      ];
+
+      ui.handsZone.classList.remove(...modes);
+
+      const mode =
+        step.id === 'wet' ? 'wet' :
+        step.id === 'soap' ? 'soap' :
+        step.id === 'rinse' ? 'rinse' :
+        step.id === 'dry' ? 'dry' :
+        step.id === 'turnoff' ? 'turnoff' :
+        step.rubKey || 'wet';
+
+      ui.handsZone.classList.add('mode-' + mode);
+
+      const visualMap = {
+        wet:'💧',
+        soap:'🫧',
+        palm:'👐',
+        back:'✋',
+        between:'🤝',
+        backFinger:'🙌',
+        thumb:'👍',
+        fingertip:'🖐️',
+        rinse:'💧',
+        dry:'🧻',
+        turnoff:'🚰'
+      };
+
+      if (ui.gestureVisual){
+        ui.gestureVisual.textContent = visualMap[mode] || '👐';
+      }
+    }
+
     function applyVisualState(){
       const step = currentStep();
+
+      setHandMode(step);
 
       ui.faucetBtn.classList.remove('active','done');
       ui.soapBtn.classList.remove('active','done');
@@ -2046,7 +2362,7 @@
         rubDone:state.rubDone,
         badges:stars >= 3 ? ['WHO Handwash Hero','Clean Hands Master'] : ['WHO Handwash Clear'],
         rank:stars >= 3 ? 'Handwash Hero' : 'Handwash Clear',
-        notes:'WHO 12-step real-feel 2.5D handwash simulation completed',
+        notes:'WHO 12-step real-feel hand-mode 2.5D handwash simulation completed',
         version:HHA_HANDWASH_MAIN_VERSION,
         endedAt:new Date().toISOString()
       };
