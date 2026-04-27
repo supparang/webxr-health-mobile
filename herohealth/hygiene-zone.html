@@ -745,26 +745,11 @@
     <section class="panel">
       <h2>Featured Flow • Handwash Suite</h2>
       <div class="featured-flow">
-        <div class="flow-box">
-          1. Howto
-          <small>สอนวิธีกด</small>
-        </div>
-        <div class="flow-box">
-          2. Practice
-          <small>ฝึกท่าถูมือ</small>
-        </div>
-        <div class="flow-box">
-          3. Main Game
-          <small>เล่นจริง</small>
-        </div>
-        <div class="flow-box">
-          4. Mini Order
-          <small>ทบทวนลำดับ</small>
-        </div>
-        <div class="flow-box">
-          5. Summary
-          <small>ดูผลแล้วกลับโซน</small>
-        </div>
+        <div class="flow-box">1. Howto<small>สอนวิธีกด</small></div>
+        <div class="flow-box">2. Practice<small>ฝึกท่าถูมือ</small></div>
+        <div class="flow-box">3. Main Game<small>เล่นจริง</small></div>
+        <div class="flow-box">4. Mini Order<small>ทบทวนลำดับ</small></div>
+        <div class="flow-box">5. Summary<small>ดูผลแล้วกลับโซน</small></div>
       </div>
     </section>
 
@@ -781,9 +766,7 @@
           <div class="game-icon icon-handwash">🧼</div>
           <div class="card-copy">
             <h3 class="card-title">Handwash Suite</h3>
-            <p class="card-sub">
-              ฝึกล้างมือตามขั้นตอน ตั้งแต่สอนเล่น ฝึกจริง เล่นจริง และทบทวนลำดับ
-            </p>
+            <p class="card-sub">ฝึกล้างมือตามขั้นตอน ตั้งแต่สอนเล่น ฝึกจริง เล่นจริง และทบทวนลำดับ</p>
           </div>
         </div>
 
@@ -804,9 +787,7 @@
           <div class="game-icon icon-brush">🪥</div>
           <div class="card-copy">
             <h3 class="card-title">Brush Hero</h3>
-            <p class="card-sub">
-              ฝึกแปรงฟันแบบ child-friendly เห็นเป้าหมายชัด เล่นง่าย และมี feedback ทันที
-            </p>
+            <p class="card-sub">ฝึกแปรงฟันแบบ child-friendly เห็นเป้าหมายชัด เล่นง่าย และมี feedback ทันที</p>
           </div>
         </div>
 
@@ -826,9 +807,7 @@
           <div class="game-icon icon-bath">🚿</div>
           <div class="card-copy">
             <h3 class="card-title">Bath Time</h3>
-            <p class="card-sub">
-              ฝึกอาบน้ำและดูแลร่างกายให้สะอาด ผ่านภารกิจสั้น ๆ ที่เข้าใจง่าย
-            </p>
+            <p class="card-sub">ฝึกอาบน้ำและดูแลร่างกายให้สะอาด ผ่านภารกิจสั้น ๆ ที่เข้าใจง่าย</p>
           </div>
         </div>
 
@@ -848,9 +827,7 @@
           <div class="game-icon icon-germ">🦠</div>
           <div class="card-copy">
             <h3 class="card-title">Germ Detective Rush</h3>
-            <p class="card-sub">
-              ตามหาเชื้อโรคและจุดปนเปื้อน ฝึกการสังเกตและการตัดสินใจอย่างรวดเร็ว
-            </p>
+            <p class="card-sub">ตามหาเชื้อโรคและจุดปนเปื้อน ฝึกการสังเกตและการตัดสินใจอย่างรวดเร็ว</p>
           </div>
         </div>
 
@@ -870,9 +847,7 @@
           <div class="game-icon icon-clean">🧽</div>
           <div class="card-copy">
             <h3 class="card-title">Clean Objects</h3>
-            <p class="card-sub">
-              ฝึกแยกของสะอาด/ของสกปรก และทำความสะอาดสิ่งของรอบตัวให้ถูกต้อง
-            </p>
+            <p class="card-sub">ฝึกแยกของสะอาด/ของสกปรก และทำความสะอาดสิ่งของรอบตัวให้ถูกต้อง</p>
           </div>
         </div>
 
@@ -892,9 +867,7 @@
           <div class="game-icon icon-mask">😷</div>
           <div class="card-copy">
             <h3 class="card-title">Mask & Cough</h3>
-            <p class="card-sub">
-              ฝึกสวมหน้ากากและมารยาทการไอ/จามในสถานการณ์จำลอง
-            </p>
+            <p class="card-sub">ฝึกสวมหน้ากากและมารยาทการไอ/จามในสถานการณ์จำลอง</p>
           </div>
         </div>
 
@@ -934,6 +907,27 @@
         }
       }
       return '';
+    }
+
+    function stripToKnownPageUrl(raw, fallbackPage){
+      const fallback = new URL(fallbackPage, location.href).toString();
+
+      try{
+        const u = new URL(String(raw || ''), location.href);
+        const path = u.pathname;
+
+        let cleanPage = fallbackPage;
+
+        if(path.includes('/hub-v2.html')) cleanPage = './hub-v2.html';
+        else if(path.includes('/hub.html')) cleanPage = './hub-v2.html';
+        else if(path.includes('/hygiene-zone.html')) cleanPage = './hygiene-zone.html';
+        else if(path.includes('/nutrition-zone.html')) cleanPage = './nutrition-zone.html';
+        else if(path.includes('/fitness-zone.html')) cleanPage = './fitness-zone.html';
+
+        return new URL(cleanPage, location.href).toString();
+      }catch(_){
+        return fallback;
+      }
     }
 
     function looksLikeHygieneZone(url){
@@ -999,7 +993,11 @@
 
     function setActiveView(view){
       selectedView = view || 'mobile';
-      localStorage.setItem('HH_HYGIENE_VIEW', selectedView);
+
+      try{
+        localStorage.setItem('HH_HYGIENE_VIEW', selectedView);
+        localStorage.setItem('HH_LAST_VIEW', selectedView);
+      }catch(_){}
 
       modeButtons.forEach(btn => {
         const active = btn.dataset.view === selectedView;
@@ -1015,15 +1013,31 @@
     setActiveView(selectedView);
 
     function getMainHubUrl(){
-      try{
-        return new URL(PATHS.mainHub, current.href).toString();
-      }catch(err){
-        return new URL('./hub-v2.html', current.href).toString();
-      }
+      return stripToKnownPageUrl(PATHS.mainHub, './hub-v2.html');
+    }
+
+    function getCleanZoneReturnUrl(){
+      const url = new URL('./hygiene-zone.html', current.href);
+
+      url.searchParams.set('pid', safeGet('pid', DEFAULTS.pid));
+      url.searchParams.set('name', safeGet('name', DEFAULTS.name));
+      url.searchParams.set('nick', safeGet('nick', safeGet('name', DEFAULTS.name)));
+      url.searchParams.set('studyId', safeGet('studyId', ''));
+      url.searchParams.set('section', safeGet('section', ''));
+      url.searchParams.set('diff', safeGet('diff', DEFAULTS.diff));
+      url.searchParams.set('view', selectedView);
+      url.searchParams.set('time', safeGet('time', DEFAULTS.time));
+      url.searchParams.set('run', safeGet('run', DEFAULTS.run));
+      url.searchParams.set('zone', 'hygiene');
+      url.searchParams.set('cat', 'hygiene');
+      url.searchParams.set('hubRoot', getMainHubUrl());
+
+      return url.toString();
     }
 
     function buildCommonParams(gameId, theme, extra = {}){
       const params = new URLSearchParams();
+      const cleanZoneReturn = getCleanZoneReturnUrl();
 
       params.set('pid', safeGet('pid', DEFAULTS.pid));
       params.set('name', safeGet('name', DEFAULTS.name));
@@ -1043,9 +1057,9 @@
       params.set('theme', theme || gameId);
       params.set('mode', extra.mode || safeGet('mode', DEFAULTS.mode));
 
-      params.set('hub', current.href);
-      params.set('zoneReturn', current.href);
-      params.set('next', current.href);
+      params.set('hub', cleanZoneReturn);
+      params.set('zoneReturn', cleanZoneReturn);
+      params.set('next', cleanZoneReturn);
       params.set('hubRoot', getMainHubUrl());
 
       params.set('seed', String(extra.seed || q.get('seed') || Date.now()));
