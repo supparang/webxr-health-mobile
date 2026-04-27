@@ -6,6 +6,7 @@
   <title>HeroHealth • Nutrition Zone</title>
   <meta name="theme-color" content="#9fe3ff" />
   <meta name="color-scheme" content="light" />
+
   <style>
     :root{
       --bg1:#f7fcff;
@@ -24,6 +25,7 @@
       --pink-soft:#fff6fa;
       --lav:#eef0ff;
       --lav-line:#d8defe;
+      --orange:#ffd6a5;
       --shadow:0 12px 28px rgba(0,0,0,.06);
       --shadow-lg:0 24px 60px rgba(0,0,0,.12);
       --radius-xl:30px;
@@ -33,29 +35,110 @@
     }
 
     *{ box-sizing:border-box; }
-    html{ -webkit-tap-highlight-color:transparent; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      -webkit-tap-highlight-color:transparent;
+    }
 
     body{
-      margin:0;
       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 10% 8%, rgba(255,232,162,.28), transparent 20%),
-        radial-gradient(circle at 92% 10%, rgba(127,207,255,.24), transparent 22%),
+        radial-gradient(circle at 10% 8%, rgba(255,232,162,.30), transparent 20%),
+        radial-gradient(circle at 92% 10%, rgba(127,207,255,.25), transparent 22%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    button{ font:inherit; }
+    button,a{
+      font:inherit;
+    }
 
     .page{
       width:min(100%, var(--maxw));
       margin:0 auto;
-      padding:18px 14px 28px;
+      padding:14px 12px 28px;
+      display:grid;
+      gap:16px;
+    }
+
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:50;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:6px 0 8px;
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+    }
+
+    .brand{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:9px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.86);
+      border:1px solid var(--line);
+      box-shadow:0 8px 20px rgba(0,0,0,.05);
+    }
+
+    .brandIcon{
+      width:42px;
+      height:42px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#bff4ff,#7fdcff);
+      font-size:24px;
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.42);
+      flex:0 0 auto;
+    }
+
+    .brandCopy{
+      min-width:0;
+    }
+
+    .brandCopy strong{
+      display:block;
+      line-height:1.05;
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    .brandCopy small{
+      display:block;
+      margin-top:2px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:850;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .iconBtn{
+      min-width:44px;
+      height:44px;
+      border:0;
+      border-radius:16px;
+      background:#fff;
+      color:var(--text);
+      box-shadow:0 8px 20px rgba(0,0,0,.08);
+      cursor:pointer;
+      font-weight:1000;
     }
 
     .hero{
       display:grid;
-      grid-template-columns:1.18fr .82fr;
+      grid-template-columns:1.12fr .88fr;
       gap:18px;
       align-items:center;
       padding:18px;
@@ -63,7 +146,20 @@
       background:linear-gradient(180deg,#fffef8,#f8fcff);
       border:1px solid var(--line);
       box-shadow:var(--shadow);
-      margin-bottom:16px;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-70px;
+      top:-70px;
+      width:220px;
+      height:220px;
+      border-radius:50%;
+      background:radial-gradient(circle,rgba(127,220,255,.34),transparent 70%);
+      pointer-events:none;
     }
 
     .heroLeft{
@@ -71,6 +167,8 @@
       align-items:flex-start;
       gap:14px;
       min-width:0;
+      position:relative;
+      z-index:2;
     }
 
     .heroBadge{
@@ -96,9 +194,10 @@
 
     .heroTitle{
       margin:0 0 8px;
-      font-size:42px;
+      font-size:clamp(34px,4.8vw,48px);
       line-height:1;
       font-weight:1000;
+      letter-spacing:-.03em;
     }
 
     .heroSub{
@@ -106,7 +205,8 @@
       color:var(--muted);
       line-height:1.55;
       font-size:15px;
-      max-width:640px;
+      font-weight:750;
+      max-width:660px;
     }
 
     .heroTags{
@@ -131,10 +231,12 @@
     .heroRight{
       display:grid;
       place-items:center;
+      position:relative;
+      z-index:2;
     }
 
     .dishPreview{
-      width:min(100%, 300px);
+      width:min(100%,300px);
       aspect-ratio:1/1;
       border-radius:999px;
       border:10px solid #eaf4fa;
@@ -156,6 +258,7 @@
     .dishPreview .q2{ right:8%; top:8%; background:#ffe7ef; border-radius:0 999px 0 0; }
     .dishPreview .q3{ left:8%; bottom:8%; background:#e6f8df; border-radius:0 0 0 999px; }
     .dishPreview .q4{ right:8%; bottom:8%; background:#e7f1ff; border-radius:0 0 999px 0; }
+
     .dishPreview .mid{
       position:absolute;
       left:50%;
@@ -170,62 +273,100 @@
       font-size:28px;
     }
 
-    .topActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:16px;
-    }
-
-    .btn{
-      min-height:48px;
-      padding:0 16px;
-      border:none;
-      border-radius:16px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      cursor:pointer;
-      font-size:16px;
-      font-weight:1000;
-      transition:transform .14s ease, box-shadow .14s ease, opacity .14s ease;
-      box-shadow:0 10px 18px rgba(0,0,0,.05);
-    }
-
-    .btn:active{ transform:scale(.985); }
-
-    .btn.primary{
-      background:linear-gradient(180deg,#8ed7ff,#72c9fb);
-      color:#17384f;
-    }
-
-    .btn.ghost{
-      background:#fff;
-      color:#365367;
-      border:1px solid var(--line);
-      box-shadow:none;
-    }
-
-    .grid{
+    .toolbar{
       display:grid;
-      grid-template-columns:1.08fr .92fr;
+      grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);
       gap:16px;
+      align-items:stretch;
     }
 
+    .panel,
     .card{
-      background:var(--card);
+      background:rgba(255,255,255,.94);
       border:1px solid var(--line);
       border-radius:var(--radius-lg);
       padding:16px;
       box-shadow:var(--shadow);
     }
 
+    .panel h2,
+    .card h2{
+      margin:0 0 10px;
+      font-size:1.12rem;
+      line-height:1.2;
+      font-weight:1000;
+    }
+
+    .tiny{
+      margin-top:10px;
+      font-size:.88rem;
+      color:var(--muted);
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .modeRow,
+    .topActions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .modeBtn,
+    .btn,
+    .gameBtn{
+      appearance:none;
+      border:0;
+      min-height:48px;
+      padding:12px 16px;
+      border-radius:18px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      cursor:pointer;
+      color:var(--text);
+      font-weight:1000;
+      line-height:1.15;
+      text-decoration:none;
+      outline:3px solid transparent;
+      box-shadow:0 10px 18px rgba(0,0,0,.06);
+      transition:transform .14s ease, filter .14s ease, outline-color .14s ease;
+    }
+
+    .modeBtn:active,
+    .btn:active,
+    .gameBtn:active{
+      transform:scale(.985);
+    }
+
+    .modeBtn.active{
+      outline-color:#06b6d4;
+    }
+
+    .mode-mobile{ background:linear-gradient(180deg,#dff8ff 0%, #baeefe 100%); }
+    .mode-pc{ background:linear-gradient(180deg,#fff6ba 0%, #ffe66d 100%); }
+    .mode-vr{ background:linear-gradient(180deg,#ffe3ef 0%, #ffc9de 100%); }
+
+    .btn.primary{ background:linear-gradient(180deg,#8ed7ff,#72c9fb); }
+    .btn.ghost{ background:#fff; border:1px solid var(--line); box-shadow:none; }
+    .btn.green{ background:linear-gradient(180deg,#dcfff2,#baf4cf); }
+    .btn.gold{ background:linear-gradient(180deg,#fff2a8,#ffd84d); }
+
+    .sectionHead{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:2px;
+    }
+
     .sectionTitle{
       margin:0 0 4px;
-      font-size:28px;
+      font-size:clamp(26px,3vw,34px);
       line-height:1.05;
       font-weight:1000;
+      letter-spacing:-.02em;
     }
 
     .sectionSub{
@@ -233,15 +374,51 @@
       color:var(--muted);
       line-height:1.5;
       font-size:14px;
+      font-weight:750;
+    }
+
+    .games{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:16px;
     }
 
     .gameCard{
-      margin-top:14px;
       border:1px solid var(--line);
-      border-radius:24px;
+      border-radius:26px;
       padding:16px;
       background:linear-gradient(180deg,#fffef8,#f9fcff);
       box-shadow:0 8px 18px rgba(0,0,0,.04);
+      display:flex;
+      flex-direction:column;
+      min-height:300px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .gameCard::after{
+      content:"";
+      position:absolute;
+      right:-42px;
+      bottom:-54px;
+      width:160px;
+      height:160px;
+      border-radius:999px;
+      background:rgba(255,255,255,.5);
+      pointer-events:none;
+    }
+
+    .gameCard.goodjunk{ background:linear-gradient(180deg,#fff,#fff7e7); }
+    .gameCard.groups{ background:linear-gradient(180deg,#fff,#f4fff5); }
+    .gameCard.hydration{ background:linear-gradient(180deg,#fff,#eefaff); }
+    .gameCard.plate{ background:linear-gradient(180deg,#fff,#fffaf0); }
+
+    .gameHead,
+    .statusRow,
+    .gameActions,
+    .infoCard{
+      position:relative;
+      z-index:2;
     }
 
     .gameHead{
@@ -252,20 +429,25 @@
     }
 
     .gameIcon{
-      width:56px;
-      height:56px;
-      border-radius:18px;
+      width:60px;
+      height:60px;
+      border-radius:20px;
       display:grid;
       place-items:center;
-      font-size:28px;
+      font-size:30px;
       flex:0 0 auto;
-      background:linear-gradient(180deg,#ffe49c,#ffd15f);
-      box-shadow:0 10px 18px rgba(255,209,95,.20);
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.42);
     }
+
+    .iconGoodjunk{ background:linear-gradient(180deg,#ffe49c,#ffd15f); }
+    .iconGroups{ background:linear-gradient(180deg,#c9f8d5,#87df9f); }
+    .iconHydration{ background:linear-gradient(180deg,#c8f2ff,#7fdcff); }
+    .iconPlate{ background:linear-gradient(180deg,#fff0b8,#ffd45f); }
 
     .gameTitle{
       margin:0 0 4px;
       font-size:24px;
+      line-height:1.1;
       font-weight:1000;
     }
 
@@ -274,13 +456,14 @@
       font-size:14px;
       line-height:1.55;
       color:var(--muted);
+      font-weight:720;
     }
 
     .statusRow{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
-      margin:10px 0 14px;
+      margin:4px 0 14px;
     }
 
     .pill{
@@ -291,6 +474,7 @@
       align-items:center;
       font-size:12px;
       font-weight:1000;
+      white-space:nowrap;
     }
 
     .pill.ready{
@@ -312,45 +496,26 @@
     }
 
     .gameActions{
+      margin-top:auto;
       display:grid;
       gap:10px;
     }
 
+    .gameActions.two{
+      grid-template-columns:1fr 1fr;
+    }
+
     .gameBtn{
       width:100%;
-      min-height:54px;
-      border:none;
-      border-radius:18px;
-      padding:12px 16px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      font-size:17px;
-      font-weight:1000;
-      cursor:pointer;
-      transition:transform .14s ease, box-shadow .14s ease, opacity .14s ease;
-      box-shadow:0 10px 18px rgba(0,0,0,.05);
+      min-height:52px;
+      font-size:16px;
+      box-shadow:0 10px 18px rgba(0,0,0,.06);
     }
 
-    .gameBtn:active{ transform:scale(.985); }
-
-    .gameBtn.primary{
-      background:linear-gradient(180deg,#79d98f,#58c977);
-      color:#143a22;
-    }
-
-    .gameBtn.secondary{
-      background:linear-gradient(180deg,#8ed7ff,#72c9fb);
-      color:#17384f;
-    }
-
-    .gameBtn.ghost{
-      background:#fff;
-      color:#365367;
-      border:1px solid var(--line);
-      box-shadow:none;
-    }
+    .gameBtn.primary{ background:linear-gradient(180deg,#79d98f,#58c977); color:#143a22; }
+    .gameBtn.secondary{ background:linear-gradient(180deg,#8ed7ff,#72c9fb); color:#17384f; }
+    .gameBtn.gold{ background:linear-gradient(180deg,#fff2a8,#ffd84d); color:#503c00; }
+    .gameBtn.ghost{ background:#fff; color:#365367; border:1px solid var(--line); box-shadow:none; }
 
     .infoCard{
       margin-top:14px;
@@ -373,141 +538,166 @@
       color:#7a6a49;
       line-height:1.65;
       font-size:14px;
+      font-weight:720;
     }
 
-    .modeGrid{
+    .missionStrip{
       display:grid;
-      grid-template-columns:1fr 1fr;
+      grid-template-columns:repeat(3,minmax(0,1fr));
       gap:12px;
-      margin-top:14px;
     }
 
-    .modeCard{
-      padding:14px;
-      border-radius:22px;
+    .mission{
+      background:rgba(255,255,255,.94);
       border:1px solid var(--line);
-      background:#fff;
-      box-shadow:0 8px 18px rgba(0,0,0,.04);
-    }
-
-    .modeCard.coming{
-      background:#fbfcfe;
-    }
-
-    .modeTop{
+      border-radius:22px;
+      box-shadow:0 10px 22px rgba(0,0,0,.05);
+      padding:14px;
       display:flex;
+      gap:12px;
       align-items:flex-start;
-      gap:10px;
-      margin-bottom:10px;
     }
 
-    .modeIcon{
+    .missionEmoji{
       width:42px;
       height:42px;
-      border-radius:14px;
+      border-radius:16px;
+      background:#eef8ff;
       display:grid;
       place-items:center;
-      font-size:22px;
-      background:#eef8ff;
       flex:0 0 auto;
+      font-size:24px;
     }
 
-    .modeName{
-      margin:0 0 4px;
-      font-size:18px;
+    .mission strong{
+      display:block;
+      line-height:1.2;
       font-weight:1000;
     }
 
-    .modeDesc{
-      margin:0;
-      font-size:13px;
-      line-height:1.45;
+    .mission small{
+      display:block;
+      margin-top:5px;
       color:var(--muted);
+      font-weight:800;
+      line-height:1.35;
     }
 
-    .modeStatus{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:0 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:1000;
-      margin-top:12px;
+    .footerNote{
+      background:#f8fcff;
+      border:1px dashed #cfe3ef;
+      border-radius:18px;
+      padding:14px 16px;
+      color:#56728a;
+      font-weight:800;
+      line-height:1.5;
+      font-size:.92rem;
     }
 
-    .modeStatus.ready{
-      background:#f1fff4;
-      border:1px solid #cfead7;
-      color:#2d6f43;
+    @media (max-width:980px){
+      .hero,
+      .toolbar{
+        grid-template-columns:1fr;
+      }
+
+      .heroRight{
+        justify-content:flex-start;
+      }
+
+      .games{
+        grid-template-columns:1fr;
+      }
+
+      .missionStrip{
+        grid-template-columns:1fr;
+      }
     }
 
-    .modeStatus.soon{
-      background:#f7f7fb;
-      border:1px solid #e5e7f2;
-      color:#838ea1;
-    }
+    @media (max-width:560px){
+      .page{
+        padding:10px 8px 24px;
+      }
 
-    .notice{
-      margin-top:16px;
-      padding:14px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#fff7fb,#ffffff);
-      border:1px solid #f0dde7;
-    }
+      .hero,
+      .card,
+      .panel,
+      .gameCard{
+        padding:14px;
+        border-radius:24px;
+      }
 
-    .noticeTitle{
-      margin:0 0 8px;
-      font-size:18px;
-      font-weight:1000;
-      color:#7b5163;
-    }
+      .heroLeft{
+        flex-direction:column;
+      }
 
-    .noticeText{
-      margin:0;
-      font-size:14px;
-      line-height:1.6;
-      color:#6d6070;
-    }
+      .heroBadge{
+        width:64px;
+        height:64px;
+        font-size:34px;
+      }
 
-    @media (max-width: 980px){
-      .hero, .grid{ grid-template-columns:1fr; }
-      .heroRight{ justify-content:flex-start; }
-    }
+      .dishPreview{
+        width:min(100%,220px);
+      }
 
-    @media (max-width: 720px){
-      .modeGrid{ grid-template-columns:1fr; }
-    }
+      .modeRow,
+      .topActions{
+        display:grid;
+        grid-template-columns:1fr;
+      }
 
-    @media (max-width: 560px){
-      .page{ padding:12px 10px 24px; }
-      .hero, .card{ padding:14px; border-radius:24px; }
-      .heroLeft{ flex-direction:column; }
-      .heroBadge{ width:64px; height:64px; font-size:34px; }
-      .heroTitle{ font-size:34px; }
-      .sectionTitle{ font-size:24px; }
-      .btn, .gameBtn{ width:100%; }
-      .topActions{ display:grid; grid-template-columns:1fr; }
+      .btn,
+      .modeBtn,
+      .gameBtn{
+        width:100%;
+      }
+
+      .gameActions.two{
+        grid-template-columns:1fr;
+      }
+
+      .sectionHead{
+        display:block;
+      }
+
+      .sectionSub{
+        margin-top:4px;
+      }
     }
   </style>
 </head>
+
 <body>
   <main class="page">
+    <header class="topbar">
+      <div class="brand" aria-label="HeroHealth Nutrition Zone">
+        <div class="brandIcon" aria-hidden="true">🥗</div>
+        <div class="brandCopy">
+          <strong>Nutrition Zone</strong>
+          <small>GoodJunk • Groups • Hydration • Plate</small>
+        </div>
+      </div>
+
+      <button class="iconBtn" id="btnBackHubTop" type="button" aria-label="กลับ Hub">🏠</button>
+    </header>
+
     <section class="hero">
       <div class="heroLeft">
-        <div class="heroBadge">🥗</div>
+        <div class="heroBadge" aria-hidden="true">🥗</div>
+
         <div>
           <p class="eyebrow">HeroHealth • Nutrition Zone</p>
           <h1 class="heroTitle">Nutrition Zone</h1>
           <p class="heroSub">
-            โซนนี้ใช้เรียนรู้เรื่องอาหารและจานสุขภาพ
-            ตอนนี้ล็อกเกม <strong>Plate</strong> ให้เรียกไฟล์ถูกแล้ว
-            โดยให้เข้า <strong>Plate Launcher</strong> ก่อนเสมอ
+            โซนเรียนรู้เรื่องอาหาร น้ำ และการจัดจานสุขภาพ
+            ตอนนี้จัดหน้าให้ครบ <strong>4 เกม</strong> แล้ว:
+            <strong>GoodJunk, Groups, Hydration, Plate</strong>
           </p>
+
           <div class="heroTags">
-            <span class="tag">Plate พร้อมใช้</span>
-            <span class="tag">Solo main game แยกแล้ว</span>
-            <span class="tag">Quick Plate แยกแล้ว</span>
+            <span class="tag">ครบ 4 เกม</span>
+            <span class="tag">PC / Mobile / Cardboard</span>
+            <span class="tag">Plate strict flow</span>
           </div>
         </div>
       </div>
@@ -523,258 +713,437 @@
       </div>
     </section>
 
-    <section class="topActions">
-      <button class="btn ghost" id="btnBackHub" type="button">🏠 กลับ Hub</button>
+    <section class="toolbar">
+      <div class="panel">
+        <h2>เลือกโหมดการเล่น</h2>
+        <div class="modeRow">
+          <button class="modeBtn mode-mobile active" data-view="mobile" type="button">📱 Mobile</button>
+          <button class="modeBtn mode-pc" data-view="pc" type="button">🖥️ PC</button>
+          <button class="modeBtn mode-vr" data-view="cvr" type="button">🥽 Cardboard</button>
+        </div>
+        <div class="tiny">
+          โหมดที่เลือกจะถูกส่งต่อไปยังเกมใน Nutrition Zone อัตโนมัติ
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>ทางลัด</h2>
+        <div class="topActions">
+          <button class="btn gold" id="btnQuickPlate" type="button">🍽️ เปิด Plate</button>
+          <button class="btn green" id="btnQuickHydration" type="button">💧 เปิด Hydration</button>
+          <button class="btn ghost" id="btnBackHub" type="button">🏠 กลับ Hub</button>
+        </div>
+        <div class="tiny">
+          เมื่อจบเกม จะส่งค่า <strong>hub</strong> กลับมาหน้า Nutrition Zone นี้
+        </div>
+      </div>
     </section>
 
-    <section class="grid">
-      <section class="card">
+    <section class="missionStrip" aria-label="วิธีเล่น">
+      <div class="mission">
+        <div class="missionEmoji" aria-hidden="true">1️⃣</div>
+        <div>
+          <strong>เลือกโหมด</strong>
+          <small>Mobile, PC หรือ Cardboard</small>
+        </div>
+      </div>
+
+      <div class="mission">
+        <div class="missionEmoji" aria-hidden="true">2️⃣</div>
+        <div>
+          <strong>เลือกเกม</strong>
+          <small>มี 4 เกมใน Nutrition Zone</small>
+        </div>
+      </div>
+
+      <div class="mission">
+        <div class="missionEmoji" aria-hidden="true">3️⃣</div>
+        <div>
+          <strong>เล่นจบแล้วดูสรุป</strong>
+          <small>กลับมาเลือกเกมต่อในโซนนี้</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="sectionHead">
+      <div>
         <h2 class="sectionTitle">เกมในโภชนาการ</h2>
-        <p class="sectionSub">ตอนนี้ปล่อย Plate ให้ใช้งานก่อน โดยเริ่มจาก Launcher กลางเสมอ</p>
+        <p class="sectionSub">เลือกเกมที่ต้องการ แล้วระบบจะส่ง context เดิมต่อไปให้ครบ</p>
+      </div>
+    </section>
 
-        <article class="gameCard">
-          <div class="gameHead">
-            <div class="gameIcon">🍽️</div>
-            <div>
-              <h3 class="gameTitle">Plate</h3>
-              <p class="gameText">
-                เกมจัดจานสุขภาพ ให้ผู้เล่นเข้า Launcher ก่อน
-                แล้วค่อยเลือกว่าจะเข้า <strong>Solo</strong> หรือ <strong>Quick Plate</strong>
-              </p>
-            </div>
+    <section class="games">
+      <article class="gameCard goodjunk">
+        <div class="gameHead">
+          <div class="gameIcon iconGoodjunk" aria-hidden="true">🍟</div>
+          <div>
+            <h3 class="gameTitle">GoodJunk</h3>
+            <p class="gameText">
+              แยกอาหารดีและอาหารขยะ ฝึกเลือกอาหารให้เหมาะสมแบบสนุกและท้าทาย
+            </p>
           </div>
-
-          <div class="statusRow">
-            <span class="pill ready">พร้อมใช้</span>
-            <span class="pill info">Nutrition Zone → plate-v1.html</span>
-            <span class="pill warn">Solo และ Quick Plate แยกกันแล้ว</span>
-          </div>
-
-          <div class="gameActions">
-            <button class="gameBtn primary" id="btnOpenPlate" type="button">
-              🍽️ เปิด Plate
-            </button>
-
-            <button class="gameBtn ghost" id="btnOpenSoloDirect" type="button">
-              ▶️ เข้า Solo ตรง
-            </button>
-
-            <button class="gameBtn ghost" id="btnOpenQuickPlateDirect" type="button">
-              ⚡ เข้า Quick Plate ตรง
-            </button>
-          </div>
-
-          <div class="infoCard">
-            <h4 class="infoTitle">flow ที่ล็อกไว้</h4>
-            <ul class="infoList">
-              <li>Nutrition Zone → <code>plate-v1.html</code></li>
-              <li>ใน Launcher กด <strong>เริ่ม Solo</strong> → <code>/herohealth/plate/plate-solo.html</code></li>
-              <li>ใน Launcher กด <strong>Quick Plate</strong> → <code>/herohealth/plate-vr.html</code></li>
-              <li>ห้ามให้ปุ่ม Solo ไป Quick Plate อีก</li>
-            </ul>
-          </div>
-        </article>
-      </section>
-
-      <section class="card">
-        <h2 class="sectionTitle">โหมดที่ตามมา</h2>
-        <p class="sectionSub">ตอนนี้ยังไม่เปิดใช้งานจริง เพื่อไม่ให้ flow สับสน</p>
-
-        <div class="modeGrid">
-          <article class="modeCard">
-            <div class="modeTop">
-              <div class="modeIcon">🧒</div>
-              <div>
-                <h4 class="modeName">Solo</h4>
-                <p class="modeDesc">โหมดหลักของ Plate ใช้เล่นเดี่ยวและวัดผลรายบุคคล</p>
-              </div>
-            </div>
-            <span class="modeStatus ready">ใช้งานผ่าน Plate Launcher</span>
-          </article>
-
-          <article class="modeCard">
-            <div class="modeTop">
-              <div class="modeIcon">⚡</div>
-              <div>
-                <h4 class="modeName">Quick Plate</h4>
-                <p class="modeDesc">มินิเกมอุ่นเครื่อง 20 วินาที ก่อนเข้า Solo ได้</p>
-              </div>
-            </div>
-            <span class="modeStatus ready">ใช้งานผ่าน Plate Launcher</span>
-          </article>
-
-          <article class="modeCard coming">
-            <div class="modeTop">
-              <div class="modeIcon">👫</div>
-              <div>
-                <h4 class="modeName">Duet</h4>
-                <p class="modeDesc">เล่นเป็นคู่ กำลังจัดทำต่อ</p>
-              </div>
-            </div>
-            <span class="modeStatus soon">เร็ว ๆ นี้</span>
-          </article>
-
-          <article class="modeCard coming">
-            <div class="modeTop">
-              <div class="modeIcon">🏁</div>
-              <div>
-                <h4 class="modeName">Race</h4>
-                <p class="modeDesc">แข่งความเร็ว กำลังจัดทำต่อ</p>
-              </div>
-            </div>
-            <span class="modeStatus soon">เร็ว ๆ นี้</span>
-          </article>
-
-          <article class="modeCard coming">
-            <div class="modeTop">
-              <div class="modeIcon">🤝</div>
-              <div>
-                <h4 class="modeName">Co-op</h4>
-                <p class="modeDesc">ช่วยกันเล่นเป็นทีม กำลังจัดทำต่อ</p>
-              </div>
-            </div>
-            <span class="modeStatus soon">เร็ว ๆ นี้</span>
-          </article>
-
-          <article class="modeCard coming">
-            <div class="modeTop">
-              <div class="modeIcon">⚔️</div>
-              <div>
-                <h4 class="modeName">Battle</h4>
-                <p class="modeDesc">แข่งแบบเข้มข้น กำลังจัดทำต่อ</p>
-              </div>
-            </div>
-            <span class="modeStatus soon">เร็ว ๆ นี้</span>
-          </article>
         </div>
 
-        <div class="notice">
-          <h3 class="noticeTitle">หมายเหตุ</h3>
-          <p class="noticeText">
-            เวอร์ชันนี้ตั้งใจแก้ปัญหา path ของ Plate ให้ถูกก่อน
-            เพื่อให้จาก Nutrition Zone เข้า <strong>Plate Launcher</strong> แน่นอน
-            และไม่พาไป Quick Plate หรือหน้าอื่นผิด ๆ อีก
-          </p>
+        <div class="statusRow">
+          <span class="pill ready">พร้อมใช้</span>
+          <span class="pill info">Launcher</span>
+          <span class="pill warn">Solo / Multi ภายหลัง</span>
         </div>
-      </section>
+
+        <div class="gameActions two">
+          <button class="gameBtn gold" id="btnOpenGoodJunk" type="button">เปิด Launcher</button>
+          <button class="gameBtn ghost" id="btnOpenGoodJunkSolo" type="button">Solo ตรง</button>
+        </div>
+      </article>
+
+      <article class="gameCard groups">
+        <div class="gameHead">
+          <div class="gameIcon iconGroups" aria-hidden="true">🥦</div>
+          <div>
+            <h3 class="gameTitle">Groups</h3>
+            <p class="gameText">
+              เรียนรู้อาหารหลัก 5 หมู่ของไทย ผ่านกิจกรรมจัดหมวดหมู่และตอบสนองไว
+            </p>
+          </div>
+        </div>
+
+        <div class="statusRow">
+          <span class="pill ready">พร้อมใช้</span>
+          <span class="pill info">5 Food Groups</span>
+          <span class="pill warn">Launcher → Run</span>
+        </div>
+
+        <div class="gameActions two">
+          <button class="gameBtn primary" id="btnOpenGroups" type="button">เปิด Groups</button>
+          <button class="gameBtn ghost" id="btnOpenGroupsRun" type="button">Run ตรง</button>
+        </div>
+      </article>
+
+      <article class="gameCard hydration">
+        <div class="gameHead">
+          <div class="gameIcon iconHydration" aria-hidden="true">💧</div>
+          <div>
+            <h3 class="gameTitle">Hydration</h3>
+            <p class="gameText">
+              ฝึกดื่มน้ำให้พอดี หลบสิ่งรบกวน และจัดสมดุลน้ำในร่างกาย
+            </p>
+          </div>
+        </div>
+
+        <div class="statusRow">
+          <span class="pill ready">พร้อมใช้</span>
+          <span class="pill info">Hydration VR</span>
+          <span class="pill warn">Challenge Mode</span>
+        </div>
+
+        <div class="gameActions">
+          <button class="gameBtn secondary" id="btnOpenHydration" type="button">เปิด Hydration</button>
+        </div>
+      </article>
+
+      <article class="gameCard plate">
+        <div class="gameHead">
+          <div class="gameIcon iconPlate" aria-hidden="true">🍽️</div>
+          <div>
+            <h3 class="gameTitle">Plate</h3>
+            <p class="gameText">
+              เกมจัดจานสุขภาพ โดยให้เข้า Plate Launcher ก่อนเสมอ
+              แล้วค่อยเลือก Solo หรือ Quick Plate
+            </p>
+          </div>
+        </div>
+
+        <div class="statusRow">
+          <span class="pill ready">พร้อมใช้</span>
+          <span class="pill info">Plate Launcher</span>
+          <span class="pill warn">Solo / Quick แยกกันแล้ว</span>
+        </div>
+
+        <div class="gameActions">
+          <button class="gameBtn gold" id="btnOpenPlate" type="button">🍽️ เปิด Plate Launcher</button>
+          <button class="gameBtn ghost" id="btnOpenSoloDirect" type="button">▶️ เข้า Solo ตรง</button>
+          <button class="gameBtn ghost" id="btnOpenQuickPlateDirect" type="button">⚡ เข้า Quick Plate ตรง</button>
+        </div>
+
+        <div class="infoCard">
+          <h4 class="infoTitle">Plate strict flow</h4>
+          <ul class="infoList">
+            <li>Nutrition Zone → <code>plate-v1.html</code></li>
+            <li>เริ่ม Solo → <code>/herohealth/plate/plate-solo.html</code></li>
+            <li>Quick Plate → <code>/herohealth/plate-vr.html</code></li>
+            <li>ห้ามให้ปุ่ม Solo ไป Quick Plate อีก</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="footerNote">
+      Nutrition Zone ล่าสุด:
+      GoodJunk ใช้ <strong>./vr-goodjunk/goodjunk-vr-launcher.html</strong>,
+      Groups ใช้ <strong>./nutrition-groups/groups-launcher.html</strong>,
+      Hydration ใช้ <strong>./hydration-vr/hydration-vr.html</strong>,
+      Plate ใช้ <strong>./plate-v1.html</strong>
     </section>
   </main>
 
   <script>
-  (function () {
-    'use strict';
+    (function(){
+      'use strict';
 
-    function q(name, fallback='') {
-      try { return new URL(location.href).searchParams.get(name) ?? fallback; }
-      catch (_) { return fallback; }
-    }
+      const current = new URL(location.href);
+      const q = current.searchParams;
 
-    function clean(v, d='') {
-      v = String(v ?? '').trim();
-      return v || d;
-    }
+      function firstNonEmpty(){
+        for(const v of arguments){
+          if(v !== undefined && v !== null && String(v).trim() !== ''){
+            return String(v);
+          }
+        }
+        return '';
+      }
 
-    const ctx = {
-      pid: clean(q('pid'), 'anon'),
-      name: clean(q('name'), 'Hero'),
-      nick: clean(q('nick'), ''),
-      studyId: clean(q('studyId'), ''),
-      diff: clean(q('diff'), 'normal'),
-      time: clean(q('time'), '90'),
-      seed: clean(q('seed'), String(Date.now())),
-      view: clean(q('view'), 'mobile'),
-      run: clean(q('run'), 'play'),
-      zone: 'nutrition',
-      cat: 'nutrition',
-      game: 'plate',
-      gameId: 'plate',
-      theme: 'plate',
-      mode: 'solo',
-      hub: clean(q('hub'), 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'),
-      hubRoot: clean(q('hubRoot'), '')
-    };
+      function clean(v, d=''){
+        v = String(v ?? '').trim();
+        return v || d;
+      }
 
-    function buildUrl(path, extra = {}) {
-      const u = new URL(path, location.origin);
-      const payload = {
-        pid: ctx.pid,
-        name: ctx.name,
-        nick: ctx.nick,
-        studyId: ctx.studyId,
-        diff: ctx.diff,
-        time: ctx.time,
-        seed: String(Date.now()),
-        view: ctx.view,
-        run: ctx.run,
-        zone: ctx.zone,
-        cat: ctx.cat,
-        hub: ctx.hub,
-        hubRoot: ctx.hubRoot,
-        ...extra
+      function looksLikeNutritionZone(url){
+        return String(url || '').includes('nutrition-zone.html');
+      }
+
+      function deriveMainHub(){
+        const candidate = firstNonEmpty(
+          q.get('hubRoot'),
+          q.get('mainHub'),
+          q.get('rootHub'),
+          q.get('home'),
+          q.get('zoneReturn'),
+          q.get('next'),
+          q.get('hub'),
+          './hub-v2.html'
+        );
+
+        if(looksLikeNutritionZone(candidate)){
+          return './hub-v2.html';
+        }
+
+        return candidate || './hub-v2.html';
+      }
+
+      const MAIN_HUB = deriveMainHub();
+
+      const PATHS = {
+        mainHub: MAIN_HUB,
+
+        goodjunkLauncher: './vr-goodjunk/goodjunk-vr-launcher.html',
+        goodjunkSolo: './vr-goodjunk/goodjunk-vr.html',
+
+        groupsLauncher: './nutrition-groups/groups-launcher.html',
+        groupsRun: './nutrition-groups/groups-run.html',
+
+        hydration: './hydration-vr/hydration-vr.html',
+
+        plateLauncher: './plate-v1.html',
+        plateSolo: './plate/plate-solo.html',
+        quickPlate: './plate-vr.html'
       };
-      Object.entries(payload).forEach(([k, v]) => {
-        if (v !== '' && v != null) u.searchParams.set(k, String(v));
+
+      const DEFAULTS = {
+        pid: 'anon',
+        name: 'Hero',
+        diff: 'normal',
+        time: '90',
+        miniTime: '60',
+        run: 'play',
+        mode: 'solo'
+      };
+
+      let selectedView = firstNonEmpty(
+        q.get('view'),
+        localStorage.getItem('HH_NUTRITION_VIEW'),
+        'mobile'
+      );
+
+      const modeButtons = Array.from(document.querySelectorAll('[data-view]'));
+
+      function safeGet(key, fallback){
+        const v = q.get(key);
+        return v === null || v === '' ? fallback : v;
+      }
+
+      function setActiveView(view){
+        selectedView = view || 'mobile';
+        localStorage.setItem('HH_NUTRITION_VIEW', selectedView);
+
+        modeButtons.forEach(btn => {
+          const active = btn.dataset.view === selectedView;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+      }
+
+      modeButtons.forEach(btn => {
+        btn.addEventListener('click', () => setActiveView(btn.dataset.view));
       });
-      return u.toString();
-    }
 
-    function plateLauncherUrl() {
-      return buildUrl('/webxr-health-mobile/herohealth/plate-v1.html', {
-        game: 'plate',
-        gameId: 'plate',
-        theme: 'plate',
-        mode: 'solo',
-        entry: 'nutrition_zone'
-      });
-    }
+      setActiveView(selectedView);
 
-    function plateSoloUrl() {
-      return buildUrl('/webxr-health-mobile/herohealth/plate/plate-solo.html', {
-        game: 'plate',
-        gameId: 'plate',
-        theme: 'plate',
-        mode: 'solo',
-        entry: 'launcher_direct'
-      });
-    }
+      function getMainHubUrl(){
+        try{
+          return new URL(PATHS.mainHub, current.href).toString();
+        }catch(err){
+          return new URL('./hub-v2.html', current.href).toString();
+        }
+      }
 
-    function quickPlateUrl() {
-      return buildUrl('/webxr-health-mobile/herohealth/plate-vr.html', {
-        game: 'plate',
-        gameId: 'plate',
-        theme: 'plate',
-        mode: 'solo',
-        entry: 'quick_plate',
-        launcher: plateLauncherUrl()
-      });
-    }
+      function buildCommonParams(gameId, theme, extra = {}){
+        const params = new URLSearchParams();
 
-    function goPlateLauncher() {
-      location.assign(plateLauncherUrl());
-    }
+        params.set('pid', safeGet('pid', DEFAULTS.pid));
+        params.set('name', safeGet('name', DEFAULTS.name));
+        params.set('nick', safeGet('nick', safeGet('name', DEFAULTS.name)));
+        params.set('studyId', safeGet('studyId', ''));
+        params.set('section', safeGet('section', ''));
+        params.set('diff', safeGet('diff', DEFAULTS.diff));
+        params.set('time', String(extra.time || safeGet('time', DEFAULTS.time)));
+        params.set('miniTime', String(extra.miniTime || safeGet('miniTime', DEFAULTS.miniTime)));
+        params.set('view', selectedView);
+        params.set('run', safeGet('run', DEFAULTS.run));
 
-    function goSoloDirect() {
-      location.assign(plateSoloUrl());
-    }
+        params.set('zone', 'nutrition');
+        params.set('cat', 'nutrition');
+        params.set('game', gameId);
+        params.set('gameId', gameId);
+        params.set('theme', theme || gameId);
+        params.set('mode', extra.mode || safeGet('mode', DEFAULTS.mode));
 
-    function goQuickPlateDirect() {
-      location.assign(quickPlateUrl());
-    }
+        params.set('hub', current.href);
+        params.set('zoneReturn', current.href);
+        params.set('next', current.href);
+        params.set('hubRoot', getMainHubUrl());
 
-    function goBackHub() {
-      location.assign(ctx.hub);
-    }
+        params.set('seed', String(extra.seed || q.get('seed') || Date.now()));
 
-    document.getElementById('btnOpenPlate')?.addEventListener('click', goPlateLauncher);
-    document.getElementById('btnOpenSoloDirect')?.addEventListener('click', goSoloDirect);
-    document.getElementById('btnOpenQuickPlateDirect')?.addEventListener('click', goQuickPlateDirect);
-    document.getElementById('btnBackHub')?.addEventListener('click', goBackHub);
+        Object.entries(extra).forEach(([key, value]) => {
+          if (
+            value !== undefined &&
+            value !== null &&
+            value !== '' &&
+            key !== 'time' &&
+            key !== 'miniTime' &&
+            key !== 'mode' &&
+            key !== 'seed'
+          ) {
+            params.set(key, String(value));
+          }
+        });
 
-    window.__nutritionGoPlate = goPlateLauncher;
-    window.__nutritionGoPlateSolo = goSoloDirect;
-    window.__nutritionGoQuickPlate = goQuickPlateDirect;
-    window.__nutritionGoHub = goBackHub;
-  })();
+        return params;
+      }
+
+      function openGame(path, gameId, theme, extra = {}){
+        const url = new URL(path, current.href);
+        const params = buildCommonParams(gameId, theme, extra);
+
+        params.forEach((value, key) => {
+          url.searchParams.set(key, value);
+        });
+
+        location.assign(url.toString());
+      }
+
+      function goMainHub(){
+        location.assign(getMainHubUrl());
+      }
+
+      function openGoodJunk(){
+        openGame(PATHS.goodjunkLauncher, 'goodjunk', 'goodjunk', {
+          mode: safeGet('mode', 'solo'),
+          entry: 'nutrition_zone'
+        });
+      }
+
+      function openGoodJunkSolo(){
+        openGame(PATHS.goodjunkSolo, 'goodjunk', 'goodjunk', {
+          mode: 'solo',
+          entry: 'nutrition_zone_direct'
+        });
+      }
+
+      function openGroups(){
+        openGame(PATHS.groupsLauncher, 'groups', 'groups', {
+          mode: safeGet('mode', 'solo'),
+          entry: 'nutrition_zone'
+        });
+      }
+
+      function openGroupsRun(){
+        openGame(PATHS.groupsRun, 'groups', 'groups', {
+          mode: 'solo',
+          entry: 'nutrition_zone_direct'
+        });
+      }
+
+      function openHydration(){
+        openGame(PATHS.hydration, 'hydration', 'hydration', {
+          mode: safeGet('mode', 'solo'),
+          entry: 'nutrition_zone'
+        });
+      }
+
+      function openPlate(){
+        openGame(PATHS.plateLauncher, 'plate', 'plate', {
+          mode: 'solo',
+          entry: 'nutrition_zone'
+        });
+      }
+
+      function openPlateSolo(){
+        openGame(PATHS.plateSolo, 'plate', 'plate', {
+          mode: 'solo',
+          entry: 'nutrition_zone_direct'
+        });
+      }
+
+      function openQuickPlate(){
+        openGame(PATHS.quickPlate, 'plate', 'plate', {
+          mode: 'solo',
+          entry: 'quick_plate',
+          launcher: new URL(PATHS.plateLauncher, current.href).toString()
+        });
+      }
+
+      function bind(id, fn){
+        const el = document.getElementById(id);
+        if(el) el.addEventListener('click', fn);
+      }
+
+      bind('btnBackHubTop', goMainHub);
+      bind('btnBackHub', goMainHub);
+
+      bind('btnQuickPlate', openPlate);
+      bind('btnQuickHydration', openHydration);
+
+      bind('btnOpenGoodJunk', openGoodJunk);
+      bind('btnOpenGoodJunkSolo', openGoodJunkSolo);
+
+      bind('btnOpenGroups', openGroups);
+      bind('btnOpenGroupsRun', openGroupsRun);
+
+      bind('btnOpenHydration', openHydration);
+
+      bind('btnOpenPlate', openPlate);
+      bind('btnOpenSoloDirect', openPlateSolo);
+      bind('btnOpenQuickPlateDirect', openQuickPlate);
+
+      window.__nutritionGoHub = goMainHub;
+      window.__nutritionGoGoodJunk = openGoodJunk;
+      window.__nutritionGoGroups = openGroups;
+      window.__nutritionGoHydration = openHydration;
+      window.__nutritionGoPlate = openPlate;
+      window.__nutritionGoPlateSolo = openPlateSolo;
+      window.__nutritionGoQuickPlate = openQuickPlate;
+    })();
   </script>
 </body>
 </html>
