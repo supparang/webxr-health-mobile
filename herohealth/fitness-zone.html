@@ -1590,12 +1590,25 @@
         return '';
       }
 
-      function safeAbsUrl(raw, fallback) {
-        const value = String(raw || '').trim();
+      function stripToKnownPageUrl(raw, fallbackPage){
+        const fallback = new URL(fallbackPage, location.href).toString();
+
         try{
-          if(value) return new URL(value, location.href).toString();
-        }catch(_){}
-        return new URL(fallback, location.href).toString();
+          const u = new URL(String(raw || ''), location.href);
+          const path = u.pathname;
+
+          let cleanPage = fallbackPage;
+
+          if(path.includes('/hub-v2.html')) cleanPage = './hub-v2.html';
+          else if(path.includes('/hub.html')) cleanPage = './hub-v2.html';
+          else if(path.includes('/hygiene-zone.html')) cleanPage = './hygiene-zone.html';
+          else if(path.includes('/nutrition-zone.html')) cleanPage = './nutrition-zone.html';
+          else if(path.includes('/fitness-zone.html')) cleanPage = './fitness-zone.html';
+
+          return new URL(cleanPage, location.href).toString();
+        }catch(_){
+          return fallback;
+        }
       }
 
       function looksLikeFitnessZone(url){
@@ -1627,6 +1640,26 @@
         'mobile'
       );
 
+      function getCleanFitnessZoneReturnUrl(){
+        const hubRoot = stripToKnownPageUrl(deriveMainHub(), './hub-v2.html');
+        const url = new URL('./fitness-zone.html', location.href);
+
+        url.searchParams.set('pid', qget('pid', 'anon'));
+        url.searchParams.set('name', qget('name', qget('nickName', qget('nick', 'Hero'))));
+        url.searchParams.set('nick', qget('nick', qget('nickName', qget('name', 'Hero'))));
+        url.searchParams.set('studyId', qget('studyId', ''));
+        url.searchParams.set('section', qget('section', ''));
+        url.searchParams.set('diff', qget('diff', 'normal'));
+        url.searchParams.set('view', selectedView);
+        url.searchParams.set('time', qget('time', '90'));
+        url.searchParams.set('run', qget('run', 'play'));
+        url.searchParams.set('zone', 'fitness');
+        url.searchParams.set('cat', 'fitness');
+        url.searchParams.set('hubRoot', hubRoot);
+
+        return url.toString();
+      }
+
       const ctx = {
         pid: qget('pid', 'anon'),
         name: qget('name', qget('nickName', qget('nick', 'Hero'))),
@@ -1638,8 +1671,8 @@
         seed: qget('seed', String(Date.now())),
         studyId: qget('studyId', ''),
         section: qget('section', ''),
-        hubRoot: safeAbsUrl(deriveMainHub(), './hub-v2.html'),
-        zoneReturn: new URL(location.href).toString()
+        hubRoot: stripToKnownPageUrl(deriveMainHub(), './hub-v2.html'),
+        zoneReturn: getCleanFitnessZoneReturnUrl()
       };
 
       const el = {
@@ -1716,9 +1749,11 @@
       function setActiveView(view, opts = {}) {
         selectedView = view || 'mobile';
         ctx.view = selectedView;
+        ctx.zoneReturn = getCleanFitnessZoneReturnUrl();
 
         try{
           localStorage.setItem('HH_FITNESS_VIEW', selectedView);
+          localStorage.setItem('HH_LAST_VIEW', selectedView);
         }catch(_){}
 
         modeButtons.forEach(btn => {
@@ -2236,6 +2271,7 @@
         if (focus !== 'jumpduck' || !el.gameCardJumpduck) return;
 
         el.gameCardJumpduck.classList.add('game-card-focus');
+
         setTimeout(() => {
           try {
             el.gameCardJumpduck.scrollIntoView({
@@ -2321,6 +2357,7 @@
         focusJumpDuckIfNeeded();
 
         window.addEventListener('focus', refreshZoneUi);
+
         document.addEventListener('visibilitychange', () => {
           if (!document.hidden) refreshZoneUi();
         });
