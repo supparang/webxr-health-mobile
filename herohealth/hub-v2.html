@@ -7,8 +7,533 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./hub-v2.css?v=20260413b-hub-kidminimal" />
+  <link rel="stylesheet" href="./hub-v2.css?v=20260427a-hub-kid-clear" />
+
+  <style>
+    /* =========================================================
+       HeroHealth Hub v2 — Kid Clear Layout Patch
+       PATCH v20260427a-HUB-KID-CLEAR
+       ใช้ override เฉพาะหน้า hub.html โดยไม่ต้องแก้ hub-v2.css เดิมทันที
+       ========================================================= */
+
+    html, body{
+      min-height:100%;
+      overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+    }
+
+    body{
+      margin:0;
+      overscroll-behavior-y:auto;
+    }
+
+    .shell{
+      width:min(1180px, calc(100% - 24px));
+      margin:0 auto;
+      padding:14px 0 26px;
+    }
+
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:50;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-radius:0 0 24px 24px;
+      padding:10px 4px 12px;
+    }
+
+    .brand-pill{
+      min-width:0;
+    }
+
+    .brand-title{
+      margin:0;
+      line-height:1.05;
+    }
+
+    .brand-sub{
+      margin:2px 0 0;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .icon-btn{
+      width:46px;
+      height:46px;
+      flex:0 0 auto;
+      font-size:22px;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:minmax(0, 1.35fr) minmax(300px, .65fr);
+      gap:16px;
+      margin-top:14px;
+      align-items:stretch;
+    }
+
+    .panel{
+      border-radius:28px;
+    }
+
+    .welcome{
+      min-height:260px;
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 170px;
+      align-items:center;
+      gap:14px;
+      padding:22px;
+    }
+
+    .hello{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.7);
+      font-weight:800;
+      margin-bottom:10px;
+    }
+
+    .welcome h1{
+      margin:0;
+      font-size:clamp(28px, 4vw, 46px);
+      line-height:1.06;
+      letter-spacing:-.02em;
+    }
+
+    .welcome p{
+      max-width:640px;
+      margin:10px 0 0;
+      font-size:clamp(15px, 1.8vw, 18px);
+      line-height:1.55;
+    }
+
+    .hero-quickline{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff9db;
+      border:1px solid rgba(240,180,40,.25);
+      font-weight:800;
+    }
+
+    .hero-cta-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .btn{
+      min-height:48px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      border-radius:18px;
+      text-decoration:none;
+      font-weight:900;
+      line-height:1.15;
+      touch-action:manipulation;
+    }
+
+    .btn.small{
+      padding:12px 16px;
+    }
+
+    .profile-card{
+      min-height:260px;
+      padding:20px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      text-align:center;
+      gap:12px;
+    }
+
+    .profile-main h2{
+      margin:4px 0 2px;
+      font-size:28px;
+    }
+
+    .profile-meta{
+      margin:0;
+      line-height:1.35;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .mini-badges{
+      width:100%;
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:8px;
+      margin-top:4px;
+    }
+
+    .mini-badge{
+      border-radius:18px;
+      padding:10px 6px;
+    }
+
+    .mini-badge .n{
+      font-size:22px;
+      font-weight:1000;
+      display:block;
+      line-height:1;
+    }
+
+    .mini-badge .t{
+      display:block;
+      margin-top:4px;
+      font-size:12px;
+      opacity:.78;
+      font-weight:800;
+    }
+
+    .quick-zone-title{
+      margin:22px 0 10px;
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .quick-zone-title h2{
+      margin:0;
+      font-size:clamp(22px, 3vw, 32px);
+      letter-spacing:-.01em;
+    }
+
+    .quick-zone-title p{
+      margin:0;
+      color:#64748b;
+      font-weight:700;
+    }
+
+    .content.content--kid-minimal{
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 300px;
+      gap:16px;
+      margin-top:8px;
+      align-items:start;
+    }
+
+    .zones{
+      display:grid;
+      gap:14px;
+    }
+
+    .zone-card{
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 250px;
+      gap:16px;
+      padding:18px;
+      border-radius:30px;
+      min-height:190px;
+      align-items:center;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .zone-card::after{
+      content:"";
+      position:absolute;
+      inset:auto -40px -60px auto;
+      width:190px;
+      height:190px;
+      border-radius:999px;
+      background:rgba(255,255,255,.35);
+      pointer-events:none;
+    }
+
+    .zone-left,
+    .zone-right{
+      position:relative;
+      z-index:2;
+    }
+
+    .zone-top{
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+    }
+
+    .zone-logo,
+    .zone-logo-fallback{
+      width:64px;
+      height:64px;
+      border-radius:20px;
+      flex:0 0 auto;
+    }
+
+    .zone-logo-fallback{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,.75);
+      font-size:34px;
+    }
+
+    .zone-name{
+      margin:2px 0 4px;
+      font-size:clamp(22px, 3vw, 30px);
+      line-height:1.05;
+    }
+
+    .zone-sub{
+      margin:0;
+      line-height:1.4;
+      font-weight:700;
+    }
+
+    .mascot-sub{
+      margin-top:5px;
+      font-size:14px;
+      opacity:.78;
+    }
+
+    .zone-stats{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      padding:8px 11px;
+      border-radius:999px;
+      background:rgba(255,255,255,.72);
+      font-size:13px;
+      font-weight:850;
+      white-space:nowrap;
+    }
+
+    .featured-pill{
+      background:#fff8d8;
+    }
+
+    .zone-right{
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      gap:12px;
+    }
+
+    .zone-art{
+      min-height:84px;
+      border-radius:26px;
+    }
+
+    .actions{
+      display:grid;
+      gap:8px;
+    }
+
+    .actions .btn{
+      width:100%;
+    }
+
+    .side{
+      position:sticky;
+      top:86px;
+      display:grid;
+      gap:14px;
+    }
+
+    .section{
+      padding:18px;
+    }
+
+    .section-title{
+      margin:0 0 12px;
+      font-size:20px;
+    }
+
+    .mission-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .mission-item{
+      padding:12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.7);
+    }
+
+    .mission-item strong{
+      display:block;
+      font-size:15px;
+      line-height:1.25;
+    }
+
+    .mission-item small{
+      display:block;
+      margin-top:4px;
+      line-height:1.35;
+      color:#64748b;
+      font-weight:700;
+    }
+
+    .footer-note{
+      text-align:center;
+      margin:18px 0 0;
+      color:#64748b;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    @media (max-width: 980px){
+      .hero{
+        grid-template-columns:1fr;
+      }
+
+      .welcome{
+        grid-template-columns:minmax(0, 1fr);
+      }
+
+      .hero-kid{
+        display:none;
+      }
+
+      .content.content--kid-minimal{
+        grid-template-columns:1fr;
+      }
+
+      .side{
+        position:static;
+      }
+    }
+
+    @media (max-width: 720px){
+      .shell{
+        width:min(100% - 16px, 1180px);
+        padding-top:8px;
+      }
+
+      .topbar{
+        gap:8px;
+      }
+
+      .brand-logo{
+        width:42px;
+        height:42px;
+      }
+
+      .brand-title{
+        font-size:22px;
+      }
+
+      .brand-sub{
+        font-size:11px;
+      }
+
+      .icon-btn{
+        width:42px;
+        height:42px;
+      }
+
+      .welcome{
+        min-height:auto;
+        padding:18px;
+        border-radius:26px;
+      }
+
+      .welcome h1{
+        font-size:31px;
+      }
+
+      .profile-card{
+        min-height:auto;
+      }
+
+      .zone-card{
+        grid-template-columns:1fr;
+        padding:16px;
+        border-radius:26px;
+      }
+
+      .zone-top{
+        align-items:flex-start;
+      }
+
+      .zone-logo,
+      .zone-logo-fallback{
+        width:54px;
+        height:54px;
+        border-radius:18px;
+      }
+
+      .zone-name{
+        font-size:24px;
+      }
+
+      .zone-sub{
+        font-size:14px;
+      }
+
+      .mascot-sub{
+        font-size:13px;
+      }
+
+      .zone-art{
+        display:none;
+      }
+
+      .zone-stats{
+        gap:6px;
+      }
+
+      .pill{
+        font-size:12px;
+        padding:7px 9px;
+      }
+
+      .quick-zone-title{
+        display:block;
+      }
+
+      .quick-zone-title p{
+        margin-top:4px;
+        font-size:13px;
+      }
+    }
+
+    @media (max-width: 390px){
+      .brand-sub{
+        display:none;
+      }
+
+      .welcome h1{
+        font-size:28px;
+      }
+
+      .btn{
+        min-height:46px;
+        font-size:14px;
+      }
+
+      .mini-badges{
+        grid-template-columns:repeat(3, 1fr);
+      }
+    }
+  </style>
 </head>
+
 <body>
   <div class="bg-clouds" aria-hidden="true">
     <div class="cloud c1"></div>
@@ -44,13 +569,23 @@
       <div class="panel welcome">
         <div>
           <div class="hello">🌈 ฮีโร่น้อย พร้อมผจญภัย!</div>
-          <h1>เลือกโซนแล้วเริ่มเล่นได้ทันที</h1>
-          <p>หน้า Hub นี้รวม 3 โซน 15 เกมของ HeroHealth เพื่อให้เด็ก ป.5 เข้าเล่นได้ง่ายจากจุดเดียว</p>
-          <div id="heroQuickline" class="hero-quickline">วันนี้ลองเล่นให้ครบ 3 โซนกันนะ</div>
+          <h1>เลือกโซน แล้วเริ่มเล่นได้เลย</h1>
+          <p>
+            รวมเกมสุขภาพสำหรับเด็ก ป.5 ครบ 3 โซน:
+            ความสะอาด อาหาร และการออกกำลังกาย
+          </p>
+
+          <div id="heroQuickline" class="hero-quickline">
+            วันนี้ลองเล่นให้ครบทั้ง 3 โซน เพื่อเก็บประสบการณ์ฮีโร่สุขภาพ
+          </div>
 
           <div class="hero-cta-row">
-            <a id="btnQuickRecommended" class="btn primary small" href="./fitness-zone.html">🎮 เริ่มเกมแนะนำ</a>
-            <a id="btnQuickAllGames" class="btn secondary small" href="./fitness-zone.html">🗺️ ดูทุกเกม</a>
+            <a id="btnQuickRecommended" class="btn primary small" href="./hygiene-zone.html">
+              🎮 เริ่มเกมแนะนำ
+            </a>
+            <a id="btnQuickAllGames" class="btn secondary small" href="#zones">
+              🗺️ เลือกโซนเอง
+            </a>
           </div>
         </div>
 
@@ -65,9 +600,18 @@
           <p class="profile-meta" id="playerMeta">ฮีโร่ประจำวัน • พร้อมผจญภัย</p>
 
           <div class="chips">
-            <div class="chip"><span>⭐</span><span>Lv. <b id="playerLevel">5</b></span></div>
-            <div class="chip gold"><span>🪙</span><span><b id="playerCoins">380</b> Coins</span></div>
-            <div class="chip green"><span>❤️</span><span><b id="playerHearts">8</b> Hearts</span></div>
+            <div class="chip">
+              <span>⭐</span>
+              <span>Lv. <b id="playerLevel">5</b></span>
+            </div>
+            <div class="chip gold">
+              <span>🪙</span>
+              <span><b id="playerCoins">380</b> Coins</span>
+            </div>
+            <div class="chip green">
+              <span>❤️</span>
+              <span><b id="playerHearts">8</b> Hearts</span>
+            </div>
           </div>
         </div>
 
@@ -88,18 +632,32 @@
       </div>
     </section>
 
+    <div id="zones" class="quick-zone-title">
+      <div>
+        <h2>เลือกโซนสุขภาพ</h2>
+        <p>เข้าโซนก่อน แล้วเลือกเกมที่อยากเล่น</p>
+      </div>
+    </div>
+
     <section class="content content--kid-minimal">
       <div class="zones">
         <article id="zoneCard-hygiene" class="zone-card hygiene" data-zone-card="hygiene">
           <div class="zone-left">
             <div class="zone-top">
-              <img class="zone-logo" src="./assets/logo-system/logos/brush-logo.svg" alt="Hygiene Zone"
-                onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+              <img
+                class="zone-logo"
+                src="./assets/logo-system/logos/brush-logo.svg"
+                alt="Hygiene Zone"
+                onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
+              />
               <div class="zone-logo-fallback" hidden aria-hidden="true">🧼</div>
+
               <div>
                 <h2 class="zone-name">Hygiene Zone</h2>
-                <p class="zone-sub">ล้างมือ แปรงฟัน อาบน้ำ และป้องกันเชื้อโรค</p>
-                <p class="zone-sub mascot-sub">6 เกม: Handwash, Brush, Bath, Germ Detective, Clean Objects, MaskCough</p>
+                <p class="zone-sub">ฝึกนิสัยสะอาด ล้างมือ แปรงฟัน และป้องกันเชื้อโรค</p>
+                <p class="zone-sub mascot-sub">
+                  6 เกม: Handwash, Brush, Bath, Germ Detective, Clean Objects, MaskCough
+                </p>
               </div>
             </div>
 
@@ -113,7 +671,9 @@
           <div class="zone-right">
             <div class="zone-art hygiene" aria-hidden="true"></div>
             <div class="actions">
-              <a id="btnPlayHygiene" class="btn primary" href="./hygiene-zone.html">🧼 เข้าโซน Hygiene</a>
+              <a id="btnPlayHygiene" class="btn primary" href="./hygiene-zone.html">
+                🧼 เข้าโซน Hygiene
+              </a>
             </div>
           </div>
         </article>
@@ -121,13 +681,20 @@
         <article id="zoneCard-nutrition" class="zone-card nutrition" data-zone-card="nutrition">
           <div class="zone-left">
             <div class="zone-top">
-              <img class="zone-logo" src="./assets/logo-system/logos/goodjunk-logo.svg" alt="Nutrition Zone"
-                onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+              <img
+                class="zone-logo"
+                src="./assets/logo-system/logos/goodjunk-logo.svg"
+                alt="Nutrition Zone"
+                onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
+              />
               <div class="zone-logo-fallback" hidden aria-hidden="true">🥗</div>
+
               <div>
                 <h2 class="zone-name">Nutrition Zone</h2>
-                <p class="zone-sub">เรียนรู้การเลือกอาหารและน้ำให้ดีต่อสุขภาพ</p>
-                <p class="zone-sub mascot-sub">4 เกม: GoodJunk, Groups, Hydration, Plate</p>
+                <p class="zone-sub">เลือกอาหาร ดื่มน้ำ และจัดจานให้สมดุล</p>
+                <p class="zone-sub mascot-sub">
+                  4 เกม: GoodJunk, Groups, Hydration, Plate
+                </p>
               </div>
             </div>
 
@@ -141,7 +708,9 @@
           <div class="zone-right">
             <div class="zone-art nutrition" aria-hidden="true"></div>
             <div class="actions">
-              <a id="btnPlayNutrition" class="btn primary" href="./nutrition-zone.html">🥗 เข้าโซน Nutrition</a>
+              <a id="btnPlayNutrition" class="btn primary" href="./nutrition-zone.html">
+                🥗 เข้าโซน Nutrition
+              </a>
             </div>
           </div>
         </article>
@@ -149,13 +718,20 @@
         <article id="zoneCard-fitness" class="zone-card fitness" data-zone-card="fitness">
           <div class="zone-left">
             <div class="zone-top">
-              <img class="zone-logo" src="./assets/logo-system/logos/game-logo-exercise.svg" alt="Fitness Zone"
-                onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+              <img
+                class="zone-logo"
+                src="./assets/logo-system/logos/game-logo-exercise.svg"
+                alt="Fitness Zone"
+                onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
+              />
               <div class="zone-logo-fallback" hidden aria-hidden="true">🏃</div>
+
               <div>
                 <h2 class="zone-name">Fitness Zone</h2>
-                <p class="zone-sub">ขยับร่างกาย ฝึกความไว ความแม่น และการวางแผน</p>
-                <p class="zone-sub mascot-sub">5 เกม: Shadow Breaker, JumpDuck, Balance Hold, Rhythm Boxer, Fitness Planner</p>
+                <p class="zone-sub">ขยับร่างกาย ฝึกความไว ความแม่น และความแข็งแรง</p>
+                <p class="zone-sub mascot-sub">
+                  5 เกม: Shadow Breaker, JumpDuck, Balance Hold, Rhythm Boxer, Fitness Planner
+                </p>
               </div>
             </div>
 
@@ -169,8 +745,12 @@
           <div class="zone-right">
             <div class="zone-art fitness" aria-hidden="true"></div>
             <div class="actions">
-              <a id="btnPlayFitness" class="btn primary" href="./fitness-zone.html">🏃 เข้าโซน Fitness</a>
-              <a id="btnFitnessPlanner" class="btn secondary" href="./fitness-planner.html">🗓️ Planner</a>
+              <a id="btnPlayFitness" class="btn primary" href="./fitness-zone.html">
+                🏃 เข้าโซน Fitness
+              </a>
+              <a id="btnFitnessPlanner" class="btn secondary" href="./fitness-planner.html">
+                🗓️ เปิด Fitness Planner
+              </a>
             </div>
           </div>
         </article>
@@ -178,21 +758,56 @@
 
       <aside class="side">
         <section class="panel section">
-          <h3 class="section-title">วิธีเล่นแบบง่าย</h3>
+          <h3 class="section-title">เล่นยังไง?</h3>
+
           <div class="mission-list">
-            <div class="mission-item"><strong>1) เลือกโซนที่ชอบ</strong><small>Hygiene / Nutrition / Fitness</small></div>
-            <div class="mission-item"><strong>2) กดเข้าโซน</strong><small>ไปหน้า zone แล้วเลือกเกมที่ต้องการ</small></div>
-            <div class="mission-item"><strong>3) เล่นให้ครบทั้ง 3 โซน</strong><small>เก็บประสบการณ์ให้ครบทั้งระบบ</small></div>
+            <div class="mission-item">
+              <strong>1) เลือกโซน</strong>
+              <small>Hygiene / Nutrition / Fitness</small>
+            </div>
+
+            <div class="mission-item">
+              <strong>2) เลือกเกมในโซน</strong>
+              <small>เล่นแบบ PC, Mobile หรือ Cardboard VR</small>
+            </div>
+
+            <div class="mission-item">
+              <strong>3) เล่นจบแล้วดูสรุป</strong>
+              <small>เก็บดาว เหรียญ และประสบการณ์ฮีโร่</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel section">
+          <h3 class="section-title">ภารกิจวันนี้</h3>
+
+          <div class="mission-list">
+            <div class="mission-item">
+              <strong>🧼 เล่น Hygiene 1 เกม</strong>
+              <small>ฝึกนิสัยสะอาด</small>
+            </div>
+
+            <div class="mission-item">
+              <strong>🥗 เล่น Nutrition 1 เกม</strong>
+              <small>ฝึกเลือกอาหารดี</small>
+            </div>
+
+            <div class="mission-item">
+              <strong>🏃 เล่น Fitness 1 เกม</strong>
+              <small>ขยับร่างกายให้สนุก</small>
+            </div>
           </div>
         </section>
       </aside>
     </section>
 
-    <p class="footer-note">HeroHealth Hub v2 • เวอร์ชัน local app • พร้อมเชื่อม 3 โซน 15 เกม</p>
+    <p class="footer-note">
+      HeroHealth Hub v2 • 3 โซน • 15 เกม • Kid-friendly health adventure
+    </p>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="./hub-v2.js?v=20260413c-zone-return-clean"></script>
+  <script src="./hub-v2.js?v=20260427a-zone-return-clean"></script>
 </body>
 </html>
