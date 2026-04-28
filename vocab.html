@@ -249,7 +249,6 @@
     option{color:#111827;background:#fff}
     input::placeholder{color:#9fb5d6}
 
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
     .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 
@@ -405,11 +404,7 @@
       100%{opacity:0;transform:translateY(-48px) scale(1)}
     }
 
-    .questionBox{
-      display:grid;
-      align-content:center;
-      gap:12px;
-    }
+    .questionBox{display:grid;align-content:center;gap:12px}
 
     .questionCard{
       border-radius:28px;
@@ -548,7 +543,7 @@
     @media (max-width:560px){
       .app{padding:9px;padding-bottom:calc(92px + var(--safe-b))}
       .heroShell,.battlePanel,.summaryPanel{border-radius:24px;padding:14px}
-      .missionGrid,.grid2,.grid3,.grid4,.hud{grid-template-columns:1fr}
+      .missionGrid,.grid3,.grid4,.hud{grid-template-columns:1fr}
       .hud{position:relative;top:auto}
       .hudCard{padding:11px}
       .hudValue{font-size:24px}
@@ -564,7 +559,7 @@
 <body>
   <div class="statusToast" id="statusToast">Ready</div>
 
-  <main class="app">
+  <main class="app" id="app">
     <section class="screen active" id="screenSetup">
       <div class="heroShell">
         <div class="heroContent">
@@ -572,6 +567,7 @@
             <span class="badge hot">TechPath English</span>
             <span class="badge good">Vocab Battle</span>
             <span class="badge warn">AI Learning</span>
+            <span class="badge bad">Protected</span>
           </div>
 
           <h1>Vocab Battle Quest</h1>
@@ -787,7 +783,22 @@
         { id:'network', term:'network', meaning:'connected computers or devices', th:'เครือข่าย', example:'The office network is slow today.' },
         { id:'server', term:'server', meaning:'a computer that provides services', th:'เซิร์ฟเวอร์', example:'The server sends data to the app.' },
         { id:'client', term:'client', meaning:'a user device or customer', th:'ไคลเอนต์/ลูกค้า', example:'The client requests data from the server.' },
-        { id:'backup', term:'backup', meaning:'a copy of data for safety', th:'สำรองข้อมูล', example:'We need a backup before updating the system.' }
+        { id:'backup', term:'backup', meaning:'a copy of data for safety', th:'สำรองข้อมูล', example:'We need a backup before updating the system.' },
+        { id:'loop', term:'loop', meaning:'a repeated set of instructions', th:'ลูป', example:'A loop repeats the same action many times.' },
+        { id:'array', term:'array', meaning:'a list of values in order', th:'อาร์เรย์', example:'An array stores many values in one variable.' },
+        { id:'object', term:'object', meaning:'a data structure with properties', th:'ออบเจกต์', example:'An object can store a user name and email.' },
+        { id:'condition', term:'condition', meaning:'a rule that controls what happens', th:'เงื่อนไข', example:'A condition checks if the password is correct.' },
+        { id:'compile', term:'compile', meaning:'to change code into a runnable form', th:'คอมไพล์', example:'We compile the program before running it.' },
+        { id:'syntax', term:'syntax', meaning:'the rules for writing code', th:'ไวยากรณ์ของโค้ด', example:'A syntax error means the code is written incorrectly.' },
+        { id:'repository', term:'repository', meaning:'a place to store project code', th:'คลังโค้ด', example:'The team stores code in a repository.' },
+        { id:'branch', term:'branch', meaning:'a separate version of code', th:'กิ่ง/สาขาโค้ด', example:'Create a branch before changing the feature.' },
+        { id:'commit', term:'commit', meaning:'to save code changes in version control', th:'บันทึกการเปลี่ยนแปลงโค้ด', example:'The developer made a commit after fixing the bug.' },
+        { id:'framework', term:'framework', meaning:'a set of tools for building software', th:'เฟรมเวิร์ก', example:'React is a framework for building user interfaces.' },
+        { id:'library', term:'library', meaning:'reusable code made by others', th:'ไลบรารี', example:'The app uses a chart library.' },
+        { id:'authentication', term:'authentication', meaning:'checking who a user is', th:'การยืนยันตัวตน', example:'Authentication protects private accounts.' },
+        { id:'authorization', term:'authorization', meaning:'checking what a user can access', th:'การกำหนดสิทธิ์', example:'Authorization controls who can edit data.' },
+        { id:'encryption', term:'encryption', meaning:'protecting data by making it unreadable', th:'การเข้ารหัส', example:'Encryption keeps passwords safe.' },
+        { id:'deployment', term:'deployment', meaning:'publishing software for users', th:'การนำระบบขึ้นใช้งาน', example:'Deployment happens after testing.' }
       ],
       B: [
         { id:'dataset', term:'dataset', meaning:'a collection of data', th:'ชุดข้อมูล', example:'The model learns from a dataset.' },
@@ -799,7 +810,22 @@
         { id:'prompt', term:'prompt', meaning:'an instruction given to AI', th:'คำสั่งป้อนให้ AI', example:'A clear prompt gives better answers.' },
         { id:'token', term:'token', meaning:'a small unit of text for AI processing', th:'หน่วยข้อความ', example:'The AI reads text as tokens.' },
         { id:'classification', term:'classification', meaning:'putting data into categories', th:'การจำแนกประเภท', example:'Classification can label emails as spam.' },
-        { id:'automation', term:'automation', meaning:'using technology to do tasks automatically', th:'ระบบอัตโนมัติ', example:'Automation saves time in the office.' }
+        { id:'automation', term:'automation', meaning:'using technology to do tasks automatically', th:'ระบบอัตโนมัติ', example:'Automation saves time in the office.' },
+        { id:'feature_vector', term:'feature vector', meaning:'a set of numbers used by a model', th:'เวกเตอร์คุณลักษณะ', example:'A feature vector represents data for the model.' },
+        { id:'label', term:'label', meaning:'the correct answer used in training data', th:'ป้ายกำกับ', example:'Each image has a label for training.' },
+        { id:'inference', term:'inference', meaning:'using a trained model to make an output', th:'การอนุมาน', example:'Inference happens when the model answers a new question.' },
+        { id:'overfitting', term:'overfitting', meaning:'when a model learns training data too closely', th:'การเรียนจำข้อมูลมากเกินไป', example:'Overfitting makes a model weak on new data.' },
+        { id:'validation', term:'validation', meaning:'checking model performance on separate data', th:'การตรวจสอบความถูกต้อง', example:'Validation helps test model quality.' },
+        { id:'neural_network', term:'neural network', meaning:'a model inspired by the human brain', th:'โครงข่ายประสาทเทียม', example:'A neural network can recognize images.' },
+        { id:'embedding', term:'embedding', meaning:'a numeric representation of text or data', th:'เวกเตอร์แทนความหมาย', example:'An embedding helps AI compare meanings.' },
+        { id:'chatbot', term:'chatbot', meaning:'a program that talks with users', th:'แชตบอต', example:'A chatbot answers customer questions.' },
+        { id:'natural_language', term:'natural language', meaning:'human language such as Thai or English', th:'ภาษาธรรมชาติ', example:'Natural language processing helps computers understand text.' },
+        { id:'computer_vision', term:'computer vision', meaning:'AI that understands images or video', th:'คอมพิวเตอร์วิทัศน์', example:'Computer vision can detect objects in photos.' },
+        { id:'data_cleaning', term:'data cleaning', meaning:'fixing or removing bad data', th:'การทำความสะอาดข้อมูล', example:'Data cleaning improves model accuracy.' },
+        { id:'data_privacy', term:'data privacy', meaning:'protecting personal information', th:'ความเป็นส่วนตัวของข้อมูล', example:'Data privacy is important in AI systems.' },
+        { id:'recommendation', term:'recommendation', meaning:'a suggestion made by a system', th:'คำแนะนำจากระบบ', example:'The app gives a movie recommendation.' },
+        { id:'anomaly', term:'anomaly', meaning:'something unusual in data', th:'ความผิดปกติของข้อมูล', example:'The system detects an anomaly in the network.' },
+        { id:'dashboard', term:'dashboard', meaning:'a screen that shows important data', th:'แดชบอร์ด', example:'The dashboard shows sales and user activity.' }
       ],
       C: [
         { id:'deadline', term:'deadline', meaning:'the final time to finish work', th:'กำหนดส่ง', example:'The project deadline is Friday.' },
@@ -811,75 +837,24 @@
         { id:'feature', term:'feature', meaning:'a useful function in a product', th:'ฟีเจอร์', example:'The new feature helps users search faster.' },
         { id:'feedback', term:'feedback', meaning:'comments to improve work', th:'ข้อเสนอแนะ', example:'The teacher gave useful feedback.' },
         { id:'proposal', term:'proposal', meaning:'a plan suggested for approval', th:'ข้อเสนอ', example:'We wrote a proposal for the app.' },
-        { id:'presentation', term:'presentation', meaning:'a talk that explains information', th:'การนำเสนอ', example:'The students gave a project presentation.' }
+        { id:'presentation', term:'presentation', meaning:'a talk that explains information', th:'การนำเสนอ', example:'The students gave a project presentation.' },
+        { id:'stakeholder', term:'stakeholder', meaning:'a person involved in or affected by a project', th:'ผู้มีส่วนได้ส่วนเสีย', example:'A stakeholder gives feedback on the system.' },
+        { id:'schedule', term:'schedule', meaning:'a plan of dates and times', th:'ตารางเวลา', example:'The team updated the project schedule.' },
+        { id:'milestone', term:'milestone', meaning:'an important point in a project', th:'หลักไมล์ของโครงการ', example:'The first milestone is the prototype.' },
+        { id:'prototype', term:'prototype', meaning:'an early version of a product', th:'ต้นแบบ', example:'The prototype shows how the app will work.' },
+        { id:'usability', term:'usability', meaning:'how easy a product is to use', th:'ความง่ายในการใช้งาน', example:'Good usability helps users finish tasks faster.' },
+        { id:'documentation', term:'documentation', meaning:'written information about a system', th:'เอกสารประกอบระบบ', example:'Documentation explains how to install the app.' },
+        { id:'maintenance', term:'maintenance', meaning:'work done to keep a system running', th:'การบำรุงรักษา', example:'Maintenance is needed after deployment.' },
+        { id:'collaboration', term:'collaboration', meaning:'working together with others', th:'การทำงานร่วมกัน', example:'Good collaboration helps the project succeed.' },
+        { id:'priority', term:'priority', meaning:'something more important than others', th:'ลำดับความสำคัญ', example:'Security is the top priority.' },
+        { id:'risk', term:'risk', meaning:'a possible problem in the future', th:'ความเสี่ยง', example:'The project manager checks each risk.' },
+        { id:'budget', term:'budget', meaning:'the amount of money available', th:'งบประมาณ', example:'The project budget is limited.' },
+        { id:'support', term:'support', meaning:'help given to users', th:'การสนับสนุน/ช่วยเหลือ', example:'The support team helps users with issues.' },
+        { id:'training_session', term:'training session', meaning:'a class or meeting to learn a skill', th:'ช่วงอบรม', example:'Users join a training session before using the system.' },
+        { id:'client_request', term:'client request', meaning:'something a client asks for', th:'คำขอจากลูกค้า', example:'The team reviews each client request.' },
+        { id:'status_report', term:'status report', meaning:'a document that explains current progress', th:'รายงานสถานะ', example:'The status report shows what is finished.' }
       ]
     };
-
-    function extendBank(bank, items){
-      const existing = new Set((BANKS[bank] || []).map(x=>x.id));
-      items.forEach(item => {
-        if(!existing.has(item.id)){
-          BANKS[bank].push(item);
-          existing.add(item.id);
-        }
-      });
-    }
-
-    extendBank('A', [
-      { id:'loop', term:'loop', meaning:'a repeated set of instructions', th:'ลูป', example:'A loop repeats the same action many times.' },
-      { id:'array', term:'array', meaning:'a list of values in order', th:'อาร์เรย์', example:'An array stores many values in one variable.' },
-      { id:'object', term:'object', meaning:'a data structure with properties', th:'ออบเจกต์', example:'An object can store a user name and email.' },
-      { id:'condition', term:'condition', meaning:'a rule that controls what happens', th:'เงื่อนไข', example:'A condition checks if the password is correct.' },
-      { id:'compile', term:'compile', meaning:'to change code into a runnable form', th:'คอมไพล์', example:'We compile the program before running it.' },
-      { id:'syntax', term:'syntax', meaning:'the rules for writing code', th:'ไวยากรณ์ของโค้ด', example:'A syntax error means the code is written incorrectly.' },
-      { id:'repository', term:'repository', meaning:'a place to store project code', th:'คลังโค้ด', example:'The team stores code in a repository.' },
-      { id:'branch', term:'branch', meaning:'a separate version of code', th:'กิ่ง/สาขาโค้ด', example:'Create a branch before changing the feature.' },
-      { id:'commit', term:'commit', meaning:'to save code changes in version control', th:'บันทึกการเปลี่ยนแปลงโค้ด', example:'The developer made a commit after fixing the bug.' },
-      { id:'framework', term:'framework', meaning:'a set of tools for building software', th:'เฟรมเวิร์ก', example:'React is a framework for building user interfaces.' },
-      { id:'library', term:'library', meaning:'reusable code made by others', th:'ไลบรารี', example:'The app uses a chart library.' },
-      { id:'authentication', term:'authentication', meaning:'checking who a user is', th:'การยืนยันตัวตน', example:'Authentication protects private accounts.' },
-      { id:'authorization', term:'authorization', meaning:'checking what a user can access', th:'การกำหนดสิทธิ์', example:'Authorization controls who can edit data.' },
-      { id:'encryption', term:'encryption', meaning:'protecting data by making it unreadable', th:'การเข้ารหัส', example:'Encryption keeps passwords safe.' },
-      { id:'deployment', term:'deployment', meaning:'publishing software for users', th:'การนำระบบขึ้นใช้งาน', example:'Deployment happens after testing.' }
-    ]);
-
-    extendBank('B', [
-      { id:'feature_vector', term:'feature vector', meaning:'a set of numbers used by a model', th:'เวกเตอร์คุณลักษณะ', example:'A feature vector represents data for the model.' },
-      { id:'label', term:'label', meaning:'the correct answer used in training data', th:'ป้ายกำกับ', example:'Each image has a label for training.' },
-      { id:'inference', term:'inference', meaning:'using a trained model to make an output', th:'การอนุมาน', example:'Inference happens when the model answers a new question.' },
-      { id:'overfitting', term:'overfitting', meaning:'when a model learns training data too closely', th:'การเรียนจำข้อมูลมากเกินไป', example:'Overfitting makes a model weak on new data.' },
-      { id:'validation', term:'validation', meaning:'checking model performance on separate data', th:'การตรวจสอบความถูกต้อง', example:'Validation helps test model quality.' },
-      { id:'neural_network', term:'neural network', meaning:'a model inspired by the human brain', th:'โครงข่ายประสาทเทียม', example:'A neural network can recognize images.' },
-      { id:'embedding', term:'embedding', meaning:'a numeric representation of text or data', th:'เวกเตอร์แทนความหมาย', example:'An embedding helps AI compare meanings.' },
-      { id:'chatbot', term:'chatbot', meaning:'a program that talks with users', th:'แชตบอต', example:'A chatbot answers customer questions.' },
-      { id:'natural_language', term:'natural language', meaning:'human language such as Thai or English', th:'ภาษาธรรมชาติ', example:'Natural language processing helps computers understand text.' },
-      { id:'computer_vision', term:'computer vision', meaning:'AI that understands images or video', th:'คอมพิวเตอร์วิทัศน์', example:'Computer vision can detect objects in photos.' },
-      { id:'data_cleaning', term:'data cleaning', meaning:'fixing or removing bad data', th:'การทำความสะอาดข้อมูล', example:'Data cleaning improves model accuracy.' },
-      { id:'data_privacy', term:'data privacy', meaning:'protecting personal information', th:'ความเป็นส่วนตัวของข้อมูล', example:'Data privacy is important in AI systems.' },
-      { id:'recommendation', term:'recommendation', meaning:'a suggestion made by a system', th:'คำแนะนำจากระบบ', example:'The app gives a movie recommendation.' },
-      { id:'anomaly', term:'anomaly', meaning:'something unusual in data', th:'ความผิดปกติของข้อมูล', example:'The system detects an anomaly in the network.' },
-      { id:'dashboard', term:'dashboard', meaning:'a screen that shows important data', th:'แดชบอร์ด', example:'The dashboard shows sales and user activity.' }
-    ]);
-
-    extendBank('C', [
-      { id:'stakeholder', term:'stakeholder', meaning:'a person involved in or affected by a project', th:'ผู้มีส่วนได้ส่วนเสีย', example:'A stakeholder gives feedback on the system.' },
-      { id:'schedule', term:'schedule', meaning:'a plan of dates and times', th:'ตารางเวลา', example:'The team updated the project schedule.' },
-      { id:'milestone', term:'milestone', meaning:'an important point in a project', th:'หลักไมล์ของโครงการ', example:'The first milestone is the prototype.' },
-      { id:'prototype', term:'prototype', meaning:'an early version of a product', th:'ต้นแบบ', example:'The prototype shows how the app will work.' },
-      { id:'usability', term:'usability', meaning:'how easy a product is to use', th:'ความง่ายในการใช้งาน', example:'Good usability helps users finish tasks faster.' },
-      { id:'documentation', term:'documentation', meaning:'written information about a system', th:'เอกสารประกอบระบบ', example:'Documentation explains how to install the app.' },
-      { id:'maintenance', term:'maintenance', meaning:'work done to keep a system running', th:'การบำรุงรักษา', example:'Maintenance is needed after deployment.' },
-      { id:'collaboration', term:'collaboration', meaning:'working together with others', th:'การทำงานร่วมกัน', example:'Good collaboration helps the project succeed.' },
-      { id:'priority', term:'priority', meaning:'something more important than others', th:'ลำดับความสำคัญ', example:'Security is the top priority.' },
-      { id:'risk', term:'risk', meaning:'a possible problem in the future', th:'ความเสี่ยง', example:'The project manager checks each risk.' },
-      { id:'budget', term:'budget', meaning:'the amount of money available', th:'งบประมาณ', example:'The project budget is limited.' },
-      { id:'support', term:'support', meaning:'help given to users', th:'การสนับสนุน/ช่วยเหลือ', example:'The support team helps users with issues.' },
-      { id:'training_session', term:'training session', meaning:'a class or meeting to learn a skill', th:'ช่วงอบรม', example:'Users join a training session before using the system.' },
-      { id:'client_request', term:'client request', meaning:'something a client asks for', th:'คำขอจากลูกค้า', example:'The team reviews each client request.' },
-      { id:'status_report', term:'status report', meaning:'a document that explains current progress', th:'รายงานสถานะ', example:'The status report shows what is finished.' }
-    ]);
-
-    const VARIANTS = ['meaning_mcq','context_mcq','typing','thai_to_eng'];
 
     const ENEMIES = {
       A:{name:'Bug Bot', emoji:'🐞'},
@@ -888,11 +863,10 @@
     };
 
     const AI_LEARNING_KEY = 'VOCAB_AI_LEARNING_PROFILE_V1';
-
     const AI_DIFFICULTY = {
-      easy: { questionCount: 8, typingRate: 0.05, contextRate: 0.25, hardDistractorRate: 0.10 },
-      normal: { questionCount: 12, typingRate: 0.18, contextRate: 0.40, hardDistractorRate: 0.28 },
-      hard: { questionCount: 16, typingRate: 0.35, contextRate: 0.55, hardDistractorRate: 0.50 }
+      easy: { questionCount: 8, typingRate: 0.05, contextRate: 0.25 },
+      normal: { questionCount: 12, typingRate: 0.18, contextRate: 0.40 },
+      hard: { questionCount: 16, typingRate: 0.35, contextRate: 0.55 }
     };
 
     const els = {};
@@ -918,7 +892,6 @@
       difficulty:'normal',
       sessionCode:'S01',
       aiAdaptiveLevel:'normal',
-      aiLearningSummary:null,
       questions:[],
       index:0,
       score:0,
@@ -1004,25 +977,9 @@
       try{
         const all = JSON.parse(localStorage.getItem(AI_LEARNING_KEY) || '{}');
         const key = getLearnerKey();
-        return all[key] || {
-          learnerKey:key,
-          createdAt:nowIso(),
-          updatedAt:nowIso(),
-          banks:{},
-          recentQuestionIds:[],
-          recentTerms:[],
-          totalSessions:0
-        };
-      }catch(err){
-        return {
-          learnerKey:getLearnerKey(),
-          createdAt:nowIso(),
-          updatedAt:nowIso(),
-          banks:{},
-          recentQuestionIds:[],
-          recentTerms:[],
-          totalSessions:0
-        };
+        return all[key] || {learnerKey:key,createdAt:nowIso(),updatedAt:nowIso(),banks:{},recentTerms:[],totalSessions:0};
+      }catch{
+        return {learnerKey:getLearnerKey(),createdAt:nowIso(),updatedAt:nowIso(),banks:{},recentTerms:[],totalSessions:0};
       }
     }
 
@@ -1040,13 +997,7 @@
     function ensureBankProfile(profile, bank){
       profile.banks = profile.banks || {};
       if(!profile.banks[bank]){
-        profile.banks[bank] = {
-          terms:{},
-          variants:{},
-          sessions:0,
-          lastAccuracy:0,
-          lastScore:0
-        };
+        profile.banks[bank] = {terms:{},variants:{},sessions:0,lastAccuracy:0,lastScore:0};
       }
       return profile.banks[bank];
     }
@@ -1054,14 +1005,7 @@
     function getTermStats(profile, bank, termId){
       const bp = ensureBankProfile(profile, bank);
       if(!bp.terms[termId]){
-        bp.terms[termId] = {
-          seen:0,
-          correct:0,
-          wrong:0,
-          streak:0,
-          lastSeenAt:'',
-          mastery:0
-        };
+        bp.terms[termId] = {seen:0,correct:0,wrong:0,streak:0,lastSeenAt:'',mastery:0};
       }
       return bp.terms[termId];
     }
@@ -1099,7 +1043,6 @@
       else bp.variants[variant].wrong += 1;
 
       profile.recentTerms = [termId, ...(profile.recentTerms || []).filter(x=>x!==termId)].slice(0,16);
-
       saveAiProfile(profile);
     }
 
@@ -1134,11 +1077,7 @@
     }
 
     function weightedPick(items, weightFn){
-      const pool = items.map(item => ({
-        item,
-        weight:Math.max(0.01, Number(weightFn(item)) || 0.01)
-      }));
-
+      const pool = items.map(item => ({item,weight:Math.max(0.01, Number(weightFn(item)) || 0.01)}));
       const total = pool.reduce((s,x)=>s+x.weight,0);
       let r = Math.random() * total;
 
@@ -1317,8 +1256,6 @@
       }
 
       game.aiAdaptiveLevel = adaptiveLevel;
-      game.aiLearningSummary = buildAiLearningSummary();
-
       return questions;
     }
 
@@ -1326,6 +1263,7 @@
       const total = game.questions.length || 1;
       const answered = game.correct + game.wrong;
       const accuracy = answered ? Math.round(game.correct / answered * 100) : 0;
+
       els.hpText.textContent = game.hp;
       els.hpFill.style.width = game.hp + '%';
       els.enemyHpText.textContent = game.enemyHp;
@@ -1494,26 +1432,14 @@
       const accuracy = answered ? Math.round(game.correct / answered * 100) : 0;
 
       if(accuracy < 60 || game.wrong >= 5) {
-        return {
-          mode:'debug_mission',
-          difficulty:'easy',
-          reason:'ควรฝึกทบทวนคำที่ผิดซ้ำแบบช้า ๆ ก่อน'
-        };
+        return {mode:'debug_mission',difficulty:'easy',reason:'ควรฝึกทบทวนคำที่ผิดซ้ำแบบช้า ๆ ก่อน'};
       }
 
       if(accuracy < 80) {
-        return {
-          mode:'ai_training',
-          difficulty:'normal',
-          reason:'ควรฝึกเพิ่มเพื่อยกระดับ accuracy ให้มั่นคงขึ้น'
-        };
+        return {mode:'ai_training',difficulty:'normal',reason:'ควรฝึกเพิ่มเพื่อยกระดับ accuracy ให้มั่นคงขึ้น'};
       }
 
-      return {
-        mode:'code_battle',
-        difficulty:'hard',
-        reason:'ผลดีมาก ลองโหมดท้าทายขึ้นได้'
-      };
+      return {mode:'code_battle',difficulty:'hard',reason:'ผลดีมาก ลองโหมดท้าทายขึ้นได้'};
     }
 
     async function startGame(){
@@ -1572,11 +1498,7 @@
       const weakest = getWeakestTerm();
       const rec = recommendMode();
 
-      updateAiProfileAfterSession({
-        score:game.score,
-        accuracy,
-        mistakes:game.wrong
-      });
+      updateAiProfileAfterSession({score:game.score,accuracy,mistakes:game.wrong});
 
       const victory = game.enemyHp <= 0 || accuracy >= 70;
       const rank = accuracy >= 90 ? 'S' : accuracy >= 80 ? 'A' : accuracy >= 70 ? 'B' : accuracy >= 60 ? 'C' : 'Try Again';
@@ -1619,7 +1541,8 @@
         weakTerms:Object.entries(game.weakTerms).map(([term,wrong])=>({term,wrong})),
         mastery:game.mastery,
         recommended_mode:rec.mode,
-        recommended_difficulty:rec.difficulty
+        recommended_difficulty:rec.difficulty,
+        aiLearningSummary:aiSummary
       });
 
       toast(result.ok ? 'ส่งข้อมูล session/profile/leaderboard แล้ว' : 'ส่งข้อมูลบางส่วนไม่สำเร็จ แต่เกมจบแล้ว');
@@ -1679,11 +1602,7 @@
       });
 
       els.submitTypingBtn.addEventListener('click', submitTyping);
-
-      els.typingInput.addEventListener('keydown', ev=>{
-        if(ev.key === 'Enter') submitTyping();
-      });
-
+      els.typingInput.addEventListener('keydown', ev=>{ if(ev.key === 'Enter') submitTyping(); });
       els.playAgainBtn.addEventListener('click', startGame);
       els.backSetupBtn.addEventListener('click', resetToSetup);
       els.homeBtn.addEventListener('click', resetToSetup);
@@ -1725,7 +1644,6 @@
 
       function tone(freq, duration, type, gainValue, delay){
         if(!enabled) return;
-
         const c = getCtx();
         if(!c) return;
 
@@ -1896,7 +1814,6 @@
 
       function getGameSummary(extra){
         extra = extra || {};
-
         const score = extra.score ?? window.VOCAB_SCORE ?? 0;
         const accuracy = extra.accuracy ?? window.VOCAB_ACCURACY ?? 0;
         const mistakes = extra.mistakes ?? window.VOCAB_MISTAKES ?? 0;
@@ -1920,7 +1837,7 @@
           api:'vocab',
           action,
           source:'vocab.html',
-          schema:'vocab-game-ui-v2-ai-learning-20260428',
+          schema:'vocab-game-ui-v2-ai-learning-protected-20260428',
           payload
         };
 
@@ -1986,7 +1903,6 @@
         };
 
         if(!payload.term && !payload.term_id) return {ok:false,skipped:true,reason:'empty term'};
-
         return post('term_answer', payload);
       }
 
@@ -2087,6 +2003,235 @@
   </script>
 
   <script>
+    function installVocabGuards(options = {}) {
+      const engineName = options.engineName || 'vocab.html';
+      const strict = options.strict !== false;
+      const muteConsole = options.muteConsole !== false;
+      const doc = document;
+      const win = window;
+
+      const isEditable = (target) => {
+        if (!target) return false;
+        const tag = String(target.tagName || '').toUpperCase();
+        return !!target.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      };
+
+      const blockEvent = (ev) => {
+        if (isEditable(ev.target)) return;
+        try { ev.preventDefault(); } catch (_) {}
+        try { ev.stopPropagation(); } catch (_) {}
+        try { ev.stopImmediatePropagation?.(); } catch (_) {}
+      };
+
+      const blockedKeys = new Set(['f12']);
+      const blockedCtrl = new Set(['u','s','p']);
+      const blockedCtrlShift = new Set(['i','j','c','k']);
+
+      doc.addEventListener('contextmenu', blockEvent, { capture: true });
+      doc.addEventListener('dragstart', blockEvent, { capture: true });
+      doc.addEventListener('copy', blockEvent, { capture: true });
+      doc.addEventListener('cut', blockEvent, { capture: true });
+
+      doc.addEventListener('selectstart', (ev) => {
+        if (isEditable(ev.target)) return;
+        ev.preventDefault();
+      }, { capture: true });
+
+      doc.addEventListener('keydown', (ev) => {
+        const key = String(ev.key || '').toLowerCase();
+        const ctrl = ev.ctrlKey || ev.metaKey;
+        const shift = ev.shiftKey;
+
+        if (blockedKeys.has(key)) return blockEvent(ev);
+        if (ctrl && blockedCtrl.has(key)) return blockEvent(ev);
+        if (ctrl && shift && blockedCtrlShift.has(key)) return blockEvent(ev);
+        if (ctrl && key === 'c' && !isEditable(ev.target)) return blockEvent(ev);
+      }, { capture: true });
+
+      if (muteConsole) {
+        try {
+          const noop = () => {};
+          ['log','debug','dir','dirxml','table','trace','group','groupCollapsed','groupEnd','info'].forEach((name) => {
+            try { console[name] = noop; } catch (_) {}
+          });
+        } catch (_) {}
+      }
+
+      const styleId = 'vocab-guard-style';
+
+      const installStyle = () => {
+        if (doc.getElementById(styleId)) return;
+
+        const style = doc.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+          html[data-vocab-protected="1"] {
+            -webkit-touch-callout: none;
+          }
+
+          body:not(.allow-select),
+          body:not(.allow-select) *:not(input):not(textarea):not(select) {
+            -webkit-user-select: none;
+            user-select: none;
+          }
+
+          #vocab-devtools-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 999999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            text-align: center;
+            background:
+              radial-gradient(circle at top, rgba(103,232,249,.18), transparent 32%),
+              rgba(2, 6, 23, 0.94);
+            color: #fff;
+            font: 800 18px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          }
+
+          #vocab-devtools-overlay .guard-card {
+            max-width: 620px;
+            border-radius: 28px;
+            padding: 28px;
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.16);
+            box-shadow: 0 24px 70px rgba(0,0,0,.40);
+          }
+
+          #vocab-devtools-overlay .guard-title {
+            font-size: 28px;
+            font-weight: 1000;
+            letter-spacing: -.04em;
+            margin-bottom: 10px;
+          }
+
+          #vocab-devtools-overlay .guard-text {
+            color: #dbeafe;
+            font-size: 16px;
+            font-weight: 800;
+          }
+
+          html[data-vocab-tampered="1"] #vocab-devtools-overlay {
+            display: flex;
+          }
+
+          html[data-vocab-tampered="1"] #app {
+            filter: blur(10px) grayscale(1);
+            pointer-events: none;
+          }
+        `;
+
+        doc.head.appendChild(style);
+      };
+
+      installStyle();
+
+      const ensureOverlay = () => {
+        let overlay = doc.getElementById('vocab-devtools-overlay');
+
+        if (!overlay) {
+          overlay = doc.createElement('div');
+          overlay.id = 'vocab-devtools-overlay';
+          overlay.innerHTML = `
+            <div class="guard-card">
+              <div class="guard-title">🔒 Protected Mode</div>
+              <div class="guard-text">
+                ปิดเครื่องมือ inspect / devtools แล้ว refresh หน้าใหม่ เพื่อใช้งานเกมต่อ
+              </div>
+            </div>
+          `;
+          doc.body.appendChild(overlay);
+        }
+
+        return overlay;
+      };
+
+      const flagTamper = (reason = 'tamper') => {
+        if (doc.documentElement.getAttribute('data-vocab-tampered') === '1') return;
+
+        doc.documentElement.setAttribute('data-vocab-tampered', '1');
+        ensureOverlay().setAttribute('data-reason', reason);
+
+        try {
+          win.__VOCAB_ENGINE_LOCK__.tamperedAt = Date.now();
+          win.__VOCAB_ENGINE_LOCK__.tamperReason = reason;
+        } catch (_) {}
+      };
+
+      if (strict) {
+        let devtoolsHits = 0;
+
+        const checkDevtools = () => {
+          if (doc.hidden) return;
+
+          const widthGap = Math.abs((win.outerWidth || 0) - (win.innerWidth || 0));
+          const heightGap = Math.abs((win.outerHeight || 0) - (win.innerHeight || 0));
+          const suspicious = widthGap > 180 || heightGap > 180;
+
+          devtoolsHits = suspicious ? devtoolsHits + 1 : 0;
+
+          if (devtoolsHits >= 2) flagTamper('devtools-size');
+        };
+
+        setInterval(checkDevtools, 1200);
+
+        let pauseHits = 0;
+
+        setInterval(() => {
+          if (doc.hidden) return;
+
+          const started = performance.now();
+
+          try { debugger; } catch (_) {}
+
+          const drift = performance.now() - started;
+
+          if (drift > 180) pauseHits += 1;
+          else pauseHits = 0;
+
+          if (pauseHits >= 2) flagTamper('debugger-pause');
+        }, 2500);
+      }
+
+      try {
+        const observer = new MutationObserver(() => {
+          installStyle();
+          ensureOverlay();
+        });
+
+        observer.observe(doc.documentElement, {
+          childList: true,
+          subtree: true
+        });
+      } catch (_) {}
+
+      doc.documentElement.setAttribute('data-vocab-protected', '1');
+
+      try {
+        Object.defineProperty(win, '__VOCAB_ENGINE_LOCK__', {
+          value: {
+            engineName,
+            loadedAt: Date.now(),
+            strict,
+            note: 'Client-side protection raises difficulty only.'
+          },
+          configurable: false,
+          enumerable: false,
+          writable: false
+        });
+      } catch (_) {}
+    }
+  </script>
+
+  <script>
+    installVocabGuards({
+      engineName: 'vocab.html',
+      strict: true,
+      muteConsole: true
+    });
+
     init();
   </script>
 </body>
