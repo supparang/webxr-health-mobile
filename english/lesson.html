@@ -16,27 +16,23 @@
       --card:rgba(255,255,255,.08);
       --card2:rgba(255,255,255,.13);
       --line:rgba(255,255,255,.15);
-      --line2:rgba(126,231,255,.35);
       --text:#eef7ff;
       --muted:#aec3d8;
       --cyan:#72e8ff;
-      --blue:#49bfff;
       --purple:#8e7dff;
-      --pink:#ff86d1;
       --green:#4ce39a;
       --gold:#ffd166;
       --red:#ff6e87;
+      --pink:#ff86d1;
       --shadow:0 22px 70px rgba(0,0,0,.35);
       --r1:30px;
       --r2:22px;
-      --r3:16px;
       --max:1240px;
       --safeTop:env(safe-area-inset-top,0px);
       --safeBottom:env(safe-area-inset-bottom,0px);
     }
 
     *{box-sizing:border-box}
-
     html,body{
       margin:0;
       min-height:100%;
@@ -49,24 +45,10 @@
       overflow-x:hidden;
     }
 
-    body{
-      min-height:100dvh;
-    }
-
-    button,input,select,textarea{
-      font:inherit;
-    }
-
-    button{
-      cursor:pointer;
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    button:disabled{
-      cursor:not-allowed;
-      opacity:.48;
-    }
-
+    body{min-height:100dvh}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+    button:disabled{cursor:not-allowed;opacity:.48}
     .hidden{display:none!important}
 
     .boot{
@@ -80,18 +62,8 @@
       background:linear-gradient(180deg,#07111f,#030814);
       transition:opacity .25s ease,visibility .25s ease;
     }
-
-    .boot.off{
-      opacity:0;
-      visibility:hidden;
-      pointer-events:none;
-    }
-
-    .bootBox{
-      text-align:center;
-      max-width:760px;
-    }
-
+    .boot.off{opacity:0;visibility:hidden;pointer-events:none}
+    .bootBox{text-align:center;max-width:760px}
     .bootTitle{
       margin:0 0 16px;
       color:var(--cyan);
@@ -99,7 +71,6 @@
       letter-spacing:.08em;
       font-weight:1000;
     }
-
     .bootSub{
       margin:0;
       color:#b8c9dc;
@@ -107,14 +78,12 @@
       letter-spacing:.1em;
       font-weight:900;
     }
-
     .bootDots{
       display:flex;
       justify-content:center;
       gap:10px;
       margin-top:28px;
     }
-
     .bootDots i{
       width:12px;
       height:12px;
@@ -122,10 +91,8 @@
       background:var(--cyan);
       animation:pulse 1s ease-in-out infinite;
     }
-
     .bootDots i:nth-child(2){animation-delay:.14s}
     .bootDots i:nth-child(3){animation-delay:.28s}
-
     @keyframes pulse{
       0%,100%{opacity:.28;transform:scale(.72)}
       50%{opacity:1;transform:scale(1.12)}
@@ -330,37 +297,12 @@
     .btn:hover{filter:brightness(1.08)}
     .btn:active{transform:translateY(1px) scale(.99)}
 
-    .btn.primary{
-      color:#06111f;
-      background:linear-gradient(135deg,var(--cyan),#c6f7ff);
-    }
-
-    .btn.green{
-      color:#061b12;
-      background:linear-gradient(135deg,var(--green),#b9ffd9);
-    }
-
-    .btn.gold{
-      color:#241804;
-      background:linear-gradient(135deg,var(--gold),#ffeaa8);
-    }
-
-    .btn.purple{
-      color:#080a1a;
-      background:linear-gradient(135deg,var(--purple),#c3bbff);
-    }
-
-    .btn.red{
-      color:#25050a;
-      background:linear-gradient(135deg,var(--red),#ffb0bf);
-    }
-
-    .btn.small{
-      min-height:40px;
-      padding:9px 12px;
-      border-radius:14px;
-      font-size:13px;
-    }
+    .btn.primary{color:#06111f;background:linear-gradient(135deg,var(--cyan),#c6f7ff)}
+    .btn.green{color:#061b12;background:linear-gradient(135deg,var(--green),#b9ffd9)}
+    .btn.gold{color:#241804;background:linear-gradient(135deg,var(--gold),#ffeaa8)}
+    .btn.purple{color:#080a1a;background:linear-gradient(135deg,var(--purple),#c3bbff)}
+    .btn.red{color:#25050a;background:linear-gradient(135deg,var(--red),#ffb0bf)}
+    .btn.small{min-height:40px;padding:9px 12px;border-radius:14px;font-size:13px}
 
     .statusGrid{
       padding:16px;
@@ -392,7 +334,6 @@
       color:#cfe3f6;
       font-weight:750;
     }
-
     .line:last-child{border-bottom:0}
     .line b{color:#fff}
 
@@ -402,9 +343,7 @@
       gap:16px;
     }
 
-    .section{
-      padding:18px;
-    }
+    .section{padding:18px}
 
     .head{
       display:flex;
@@ -452,9 +391,7 @@
       outline:none;
     }
 
-    select option{
-      color:#07111f;
-    }
+    select option{color:#07111f}
 
     textarea{
       resize:vertical;
@@ -544,9 +481,7 @@
       gap:16px;
     }
 
-    .game.on{
-      display:grid;
-    }
+    .game.on{display:grid}
 
     .hud{
       position:sticky;
@@ -794,9 +729,7 @@
       border:1px solid rgba(255,209,102,.30);
     }
 
-    .bossPanel.on{
-      display:block;
-    }
+    .bossPanel.on{display:block}
 
     .bossPanel h3{
       margin:0 0 8px;
@@ -827,9 +760,7 @@
       padding:22px;
     }
 
-    .summary.on{
-      display:block;
-    }
+    .summary.on{display:block}
 
     .summary h2{
       margin:0 0 10px;
@@ -957,9 +888,7 @@
       padding:20px;
     }
 
-    .modalCard h2{
-      margin:0 0 10px;
-    }
+    .modalCard h2{margin:0 0 10px}
 
     .debug{
       display:none;
@@ -977,63 +906,29 @@
     .debug.on{display:block}
 
     @media (max-width:980px){
-      .hero,.grid2,.mission{
-        grid-template-columns:1fr;
-      }
-
-      .sessions{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
+      .hero,.grid2,.mission{grid-template-columns:1fr}
+      .sessions{grid-template-columns:repeat(3,minmax(0,1fr))}
       .hud{
         top:72px;
         grid-template-columns:repeat(3,minmax(0,1fr));
       }
-
-      .choices{
-        grid-template-columns:1fr;
-      }
-
-      .summaryGrid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
+      .choices{grid-template-columns:1fr}
+      .summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
     }
 
     @media (max-width:620px){
-      .topInner{
-        grid-template-columns:1fr;
-      }
-
-      .topChips{
-        padding-bottom:2px;
-      }
-
-      .brand h1{
-        white-space:normal;
-      }
-
-      .form{
-        grid-template-columns:1fr;
-      }
-
-      .sessions{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
+      .topInner{grid-template-columns:1fr}
+      .topChips{padding-bottom:2px}
+      .brand h1{white-space:normal}
+      .form{grid-template-columns:1fr}
+      .sessions{grid-template-columns:repeat(2,minmax(0,1fr))}
       .hud{
         position:relative;
         top:auto;
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
-
-      .heroCard,.section,.side,.missionCard{
-        padding:16px;
-      }
-
-      .bottomInner{
-        grid-template-columns:repeat(4,1fr);
-      }
-
+      .heroCard,.section,.side,.missionCard{padding:16px}
+      .bottomInner{grid-template-columns:repeat(4,1fr)}
       .navBtn{
         min-height:50px;
         font-size:11px;
@@ -1086,6 +981,7 @@
                 <button class="btn primary" id="startCurrentBtn">เริ่ม Session ปัจจุบัน ▶</button>
                 <button class="btn purple" id="openSessionBtn">เลือก S1–S15</button>
                 <button class="btn" id="openGuideBtn">วิธีเล่น</button>
+                <button class="btn gold" id="testVoiceBtn">🔊 Test Voice</button>
               </div>
             </div>
           </div>
@@ -1097,6 +993,7 @@
               <div class="line"><span>Time in S</span><b id="attTime">00:00</b></div>
               <div class="line"><span>Active Time</span><b id="activeTime">00:00</b></div>
               <div class="line"><span>Sheet Status</span><b id="sheetStatus">Ready</b></div>
+              <div class="line"><span>Voice</span><b id="voiceStatus">Auto</b></div>
             </div>
 
             <div class="statusCard">
@@ -1295,9 +1192,10 @@
     window.TECHPATH_BOOT_OK = false;
 
     const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
-    const STORAGE_PROFILE = 'TECHPATH_EN_PROFILE_V2';
-    const STORAGE_PROGRESS = 'TECHPATH_EN_PROGRESS_V2';
-    const STORAGE_LAST = 'TECHPATH_EN_LAST_SESSION_V2';
+    const STORAGE_PROFILE = 'TECHPATH_EN_PROFILE_V4';
+    const STORAGE_PROGRESS = 'TECHPATH_EN_PROGRESS_V4';
+    const STORAGE_LAST = 'TECHPATH_EN_LAST_SESSION_V4';
+    const STORAGE_VOICE = 'TECHPATH_EN_VOICE_NAME_V2';
 
     const SKILLS = [
       { id:'listening', label:'Listening', icon:'🎧', verb:'ฟัง' },
@@ -1360,6 +1258,13 @@
           choices:['A simpler dashboard','A longer password','A new keyboard','A bigger classroom'],
           answer:0,
           hint:'Listen for the object after wants.'
+        },
+        {
+          say:'We need to fix the payment bug before Friday.',
+          prompt:'The speaker says: “We need to fix the payment bug before Friday.” What do they need to fix?',
+          choices:['Payment bug','Computer room','Projector cable','English book'],
+          answer:0,
+          hint:'Listen for fix + object.'
         }
       ],
 
@@ -1388,6 +1293,11 @@
           prompt:'Say this clearly: “I can explain the system workflow.”',
           sample:'I can explain the system workflow.',
           hint:'ใช้ I can + verb เพื่อบอกความสามารถ.'
+        },
+        {
+          prompt:'Say this clearly: “Our team is developing a web application.”',
+          sample:'Our team is developing a web application.',
+          hint:'พูด Our team is developing ...'
         }
       ],
 
@@ -1421,6 +1331,12 @@
           choices:['Projects and skills','Only food','Only games','Weather reports'],
           answer:0,
           hint:'Look for projects, skills, and achievements.'
+        },
+        {
+          prompt:'Read: “A prototype helps users test an idea before the final product is built.” What does a prototype help users do?',
+          choices:['Test an idea','Wash a car','Cook dinner','Close the school'],
+          answer:0,
+          hint:'Find helps users + verb.'
         }
       ],
 
@@ -1454,6 +1370,12 @@
           expected:['meeting','please','could','schedule'],
           sample:'Could we schedule a short meeting tomorrow, please?',
           hint:'ใช้ Could we ... please?'
+        },
+        {
+          prompt:'Write one sentence to describe your role in a team.',
+          expected:['team','role','develop','design'],
+          sample:'My role is to design the interface and develop the app.',
+          hint:'ใช้ My role is to ...'
         }
       ]
     };
@@ -1474,12 +1396,12 @@
       sessionId:'',
       bossHp:3,
       locked:false,
-      currentQuestion:null
+      currentQuestion:null,
+      voices:[]
     };
 
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-
     const els = {};
 
     function cacheEls(){
@@ -1487,8 +1409,8 @@
         'boot','bootStatus','studentTop','sessionTop','topSub',
         'homeView','gameView','summaryView','sessionGrid',
         'studentId','studentName','section','difficulty',
-        'saveProfileBtn','resetProgressBtn','startCurrentBtn','openSessionBtn','openGuideBtn',
-        'attSession','attTime','activeTime','sheetStatus','homeScore','homeCompleted','homeLevel',
+        'saveProfileBtn','resetProgressBtn','startCurrentBtn','openSessionBtn','openGuideBtn','testVoiceBtn',
+        'attSession','attTime','activeTime','sheetStatus','voiceStatus','homeScore','homeCompleted','homeLevel',
         'hudSession','hudSkill','hudScore','hudHp','hudTime',
         'missionTitle','missionSub','missionBadge','promptLabel','promptCount','promptText','promptHint',
         'choiceArea','answerArea','textAnswer','submitTextBtn','aiHelpBtn','speakBtn',
@@ -1624,6 +1546,215 @@
       if(active === 'stats') els.navStats.classList.add('active');
     }
 
+    function refreshVoices(){
+      try{
+        if(!('speechSynthesis' in window)) return [];
+        const voices = window.speechSynthesis.getVoices() || [];
+        state.voices = voices;
+        updateVoiceStatus();
+        return voices;
+      }catch(e){
+        state.voices = [];
+        updateVoiceStatus();
+        return [];
+      }
+    }
+
+    function updateVoiceStatus(){
+      if(!els.voiceStatus) return;
+      const voice = pickEnglishVoice(false);
+      if(voice){
+        els.voiceStatus.textContent = voice.name.replace(/\s*\(.+?\)\s*/g,'').slice(0,18);
+      }else{
+        els.voiceStatus.textContent = 'Auto';
+      }
+    }
+
+    function pickEnglishVoice(doRefresh){
+      if(doRefresh !== false) refreshVoices();
+
+      const voices = state.voices || [];
+      if(!voices.length) return null;
+
+      const savedName = localStorage.getItem(STORAGE_VOICE) || '';
+      if(savedName){
+        const saved = voices.find(v => v.name === savedName);
+        if(saved) return saved;
+      }
+
+      const preferredNames = [
+        'Samantha',
+        'Alex',
+        'Google US English',
+        'Google UK English Female',
+        'Google UK English Male',
+        'Microsoft Aria',
+        'Microsoft Jenny',
+        'Microsoft Guy',
+        'Daniel',
+        'Karen',
+        'Moira',
+        'Tessa',
+        'Victoria',
+        'Fiona'
+      ];
+
+      for(const name of preferredNames){
+        const found = voices.find(v =>
+          String(v.name || '').toLowerCase().includes(name.toLowerCase())
+        );
+        if(found){
+          try{ localStorage.setItem(STORAGE_VOICE, found.name); }catch(e){}
+          return found;
+        }
+      }
+
+      const fallback =
+        voices.find(v => /^en-US/i.test(v.lang || '') && !/compact|novelty/i.test(v.name || '')) ||
+        voices.find(v => /^en-GB/i.test(v.lang || '') && !/compact|novelty/i.test(v.name || '')) ||
+        voices.find(v => /^en/i.test(v.lang || '') && !/compact|novelty/i.test(v.name || '')) ||
+        voices.find(v => /^en/i.test(v.lang || '')) ||
+        null;
+
+      if(fallback){
+        try{ localStorage.setItem(STORAGE_VOICE, fallback.name); }catch(e){}
+      }
+
+      return fallback;
+    }
+
+    function splitSpeechText(text){
+      const raw = String(text || '')
+        .replace(/[“”]/g,'"')
+        .replace(/[’]/g,"'")
+        .replace(/\s+/g,' ')
+        .trim();
+
+      if(!raw) return [];
+
+      const parts = raw.match(/[^.!?]+[.!?]?/g) || [raw];
+      const chunks = [];
+
+      parts.forEach(function(part){
+        part = part.trim();
+        if(!part) return;
+
+        if(part.length <= 120){
+          chunks.push(part);
+          return;
+        }
+
+        const words = part.split(' ');
+        let line = '';
+
+        words.forEach(function(w){
+          const next = (line + ' ' + w).trim();
+          if(next.length > 110){
+            if(line) chunks.push(line.trim());
+            line = w;
+          }else{
+            line = next;
+          }
+        });
+
+        if(line) chunks.push(line.trim());
+      });
+
+      return chunks;
+    }
+
+    function stopSpeech(){
+      try{
+        if('speechSynthesis' in window){
+          window.speechSynthesis.cancel();
+        }
+      }catch(e){}
+    }
+
+    function speakText(text, options){
+      options = options || {};
+
+      try{
+        if(!('speechSynthesis' in window)){
+          toast('อุปกรณ์นี้ยังไม่รองรับเสียงอ่านอัตโนมัติ');
+          return;
+        }
+
+        refreshVoices();
+
+        const chunks = splitSpeechText(text);
+        if(!chunks.length) return;
+
+        const voice = pickEnglishVoice(false);
+
+        stopSpeech();
+
+        let i = 0;
+
+        function speakNext(){
+          if(i >= chunks.length) return;
+
+          const u = new SpeechSynthesisUtterance(chunks[i]);
+
+          if(voice){
+            u.voice = voice;
+            u.lang = voice.lang || 'en-US';
+          }else{
+            u.lang = 'en-US';
+          }
+
+          u.rate = options.rate || 0.72;
+          u.pitch = options.pitch || 1.0;
+          u.volume = options.volume || 1.0;
+
+          u.onend = function(){
+            i += 1;
+            setTimeout(speakNext, 150);
+          };
+
+          u.onerror = function(){
+            i += 1;
+            setTimeout(speakNext, 150);
+          };
+
+          window.speechSynthesis.speak(u);
+        }
+
+        setTimeout(speakNext, 120);
+        updateVoiceStatus();
+      }catch(e){
+        toast('เล่นเสียงไม่ได้ แต่ยังเลือกคำตอบได้');
+      }
+    }
+
+    function setupVoices(){
+      if(!('speechSynthesis' in window)){
+        if(els.voiceStatus) els.voiceStatus.textContent = 'No TTS';
+        return;
+      }
+
+      refreshVoices();
+
+      window.speechSynthesis.onvoiceschanged = function(){
+        refreshVoices();
+      };
+
+      setTimeout(refreshVoices, 200);
+      setTimeout(refreshVoices, 700);
+      setTimeout(refreshVoices, 1500);
+    }
+
+    function testVoice(){
+      refreshVoices();
+      const voice = pickEnglishVoice(false);
+      const name = voice ? voice.name : 'Auto voice';
+      toast('Testing voice: ' + name, 2600);
+      speakText('Hello. Welcome to TechPath English VR. Please listen carefully and choose the best answer.', {
+        rate:0.72,
+        pitch:1.0
+      });
+    }
+
     function loadProfile(){
       const p = params();
       const saved = safeJsonLoad(STORAGE_PROFILE, {});
@@ -1704,6 +1835,8 @@
       els.topSub.textContent = meta.level + ' • ' + meta.title;
       els.homeScore.textContent = String(state.score || 0);
       els.homeCompleted.textContent = Object.keys(state.progress.completed || {}).length + '/15';
+
+      updateVoiceStatus();
     }
 
     function renderSessions(){
@@ -1784,25 +1917,6 @@
       }
     }
 
-    function speakText(text){
-      try{
-        if(!('speechSynthesis' in window)){
-          toast('อุปกรณ์นี้ยังไม่รองรับเสียงอ่านอัตโนมัติ');
-          return;
-        }
-
-        window.speechSynthesis.cancel();
-
-        const u = new SpeechSynthesisUtterance(String(text || ''));
-        u.lang = 'en-US';
-        u.rate = 0.88;
-        u.pitch = 1.02;
-        window.speechSynthesis.speak(u);
-      }catch(e){
-        toast('เล่นเสียงไม่ได้ แต่ยังเลือกคำตอบได้');
-      }
-    }
-
     function pickQuestion(skillId){
       const arr = BANK[skillId] || [];
       const meta = sessionMeta(state.currentSession);
@@ -1868,6 +1982,7 @@
 
     function startSession(){
       saveProfile();
+      stopSpeech();
 
       const meta = sessionMeta(state.currentSession);
 
@@ -1895,6 +2010,8 @@
     }
 
     function renderMission(){
+      stopSpeech();
+
       const meta = sessionMeta(state.currentSession);
       const skill = SKILLS[state.currentSkillIndex] || SKILLS[0];
       const q = pickQuestion(skill.id);
@@ -1906,7 +2023,6 @@
       els.hudSkill.textContent = skill.label;
       els.hudScore.textContent = String(state.score);
       els.hudHp.textContent = Math.max(0,state.hp) + '%';
-      els.hudTime.textContent = '00:00';
 
       els.sideTitle.textContent = 'S' + pad(state.currentSession) + ' Progress';
       els.sideDesc.textContent = meta.focus;
@@ -1954,7 +2070,7 @@
           btn.className = 'choice';
           btn.innerHTML = '<b>' + String.fromCharCode(65+i) + '.</b> ' + esc(c);
           btn.addEventListener('click', function(){
-            answerChoice(i, btn);
+            answerChoice(i);
           });
           els.choiceArea.appendChild(btn);
         });
@@ -1964,8 +2080,9 @@
 
       if(skillId === 'listening'){
         setTimeout(function(){
-          speakText(q.say || q.prompt);
-        }, 300);
+          refreshVoices();
+          speakText(q.say || q.prompt, {rate:0.72,pitch:1.0});
+        }, 700);
       }
     }
 
@@ -2053,6 +2170,8 @@
     }
 
     function nextMission(){
+      stopSpeech();
+
       if(state.currentSkillIndex < SKILLS.length - 1){
         state.currentSkillIndex += 1;
         renderMission();
@@ -2063,6 +2182,7 @@
     }
 
     function completeSession(){
+      stopSpeech();
       stopTimers(false);
 
       const durationMs = Date.now() - state.startedAt;
@@ -2092,7 +2212,6 @@
       });
 
       state.progress.sessions = state.progress.sessions.slice(-100);
-
       saveProgress();
 
       els.summaryTitle.textContent = 'S' + pad(state.currentSession) + ' Complete!';
@@ -2148,7 +2267,7 @@
 
     function startSpeaking(){
       const q = state.currentQuestion;
-      speakText(q.sample || q.say || q.prompt);
+      speakText(q.sample || q.say || q.prompt, {rate:0.72,pitch:1.0});
       toast('ฟังตัวอย่างแล้วพูดตาม หรือพิมพ์ประโยคในช่องคำตอบ');
       els.answerArea.classList.remove('hidden');
     }
@@ -2174,6 +2293,7 @@
           <p><b>3)</b> แต่ละ S มี 4 ทักษะ: Listening, Speaking, Reading, Writing</p>
           <p><b>4)</b> S3 / S6 / S9 / S12 / S15 มี Boss Challenge</p>
           <p><b>5)</b> เมื่อจบ Session ระบบจะบันทึก score, accuracy, time และ attendance</p>
+          <p><b>6)</b> ถ้าเสียงไม่ชัด ให้กด <b>Test Voice</b> หนึ่งครั้งก่อนเริ่มเล่น</p>
         </div>
       `);
     }
@@ -2220,7 +2340,7 @@
     function sendLog(type, extra){
       const payload = {
         api:'attendance',
-        source:'techpath_lesson_html_self_contained',
+        source:'techpath_lesson_html_latest_voice_v4',
         type:type,
         timestamp:nowIso(),
         event_id:uuid(),
@@ -2237,6 +2357,7 @@
         total:state.total,
         page_url:location.href,
         user_agent:navigator.userAgent,
+        voice: els.voiceStatus ? els.voiceStatus.textContent : '',
         extra:extra || {}
       };
 
@@ -2271,6 +2392,7 @@
       els.saveProfileBtn.addEventListener('click', saveProfile);
       els.resetProgressBtn.addEventListener('click', resetProgress);
       els.startCurrentBtn.addEventListener('click', startSession);
+      els.testVoiceBtn.addEventListener('click', testVoice);
 
       els.openSessionBtn.addEventListener('click', function(){
         document.getElementById('sessionPicker').scrollIntoView({behavior:'smooth',block:'start'});
@@ -2281,22 +2403,36 @@
 
       els.listenBtn.addEventListener('click', function(){
         const q = state.currentQuestion || {};
-        speakText(q.say || q.sample || q.prompt || '');
+        refreshVoices();
+        speakText(q.say || q.sample || q.prompt || '', {rate:0.72,pitch:1.0});
       });
 
       els.nextBtn.addEventListener('click', nextMission);
-      els.backHomeBtn.addEventListener('click', showHome);
+
+      els.backHomeBtn.addEventListener('click', function(){
+        stopSpeech();
+        showHome();
+      });
+
       els.submitTextBtn.addEventListener('click', submitText);
       els.aiHelpBtn.addEventListener('click', aiHelp);
       els.speakBtn.addEventListener('click', startSpeaking);
 
       els.nextSessionBtn.addEventListener('click', nextSession);
       els.replayBtn.addEventListener('click', startSession);
-      els.summaryHomeBtn.addEventListener('click', showHome);
 
-      els.navHome.addEventListener('click', showHome);
+      els.summaryHomeBtn.addEventListener('click', function(){
+        stopSpeech();
+        showHome();
+      });
+
+      els.navHome.addEventListener('click', function(){
+        stopSpeech();
+        showHome();
+      });
 
       els.navSessions.addEventListener('click', function(){
+        stopSpeech();
         showHome();
         setTimeout(function(){
           document.getElementById('sessionPicker').scrollIntoView({behavior:'smooth'});
@@ -2306,7 +2442,6 @@
 
       els.navPlay.addEventListener('click', startSession);
       els.navStats.addEventListener('click', showStats);
-
       els.closeModalBtn.addEventListener('click', closeModal);
 
       els.modal.addEventListener('click', function(e){
@@ -2314,6 +2449,7 @@
       });
 
       window.addEventListener('beforeunload', function(){
+        stopSpeech();
         if(state.sessionId){
           sendLog('page_leave', {
             duration_ms: state.startedAt ? Date.now() - state.startedAt : 0
@@ -2323,9 +2459,11 @@
 
       document.addEventListener('visibilitychange', function(){
         if(document.hidden){
+          stopSpeech();
           sendLog('page_hidden', {});
         }else{
           state.activeStartedAt = Date.now();
+          refreshVoices();
           sendLog('page_visible', {});
         }
       });
@@ -2388,6 +2526,7 @@
         normalizeUrl();
         loadProfile();
         loadProgress();
+        setupVoices();
 
         const p = params();
         const s = parseInt(p.get('s') || localStorage.getItem(STORAGE_LAST) || '1', 10);
@@ -2399,7 +2538,6 @@
         showHome();
 
         window.TECHPATH_BOOT_OK = true;
-
         els.bootStatus.textContent = 'READY';
 
         setTimeout(function(){
@@ -2434,11 +2572,6 @@
       }
     });
 
-    /*
-      สำคัญ:
-      ไม่มี boot timeout แล้ว เพื่อไม่ให้ขึ้น Error ทั้งที่ browser กำลัง mount DOM
-      ไฟล์นี้เป็น self-contained และ script อยู่ท้าย body จึงเรียก boot ได้ทันที
-    */
     if(document.readyState === 'loading'){
       document.addEventListener('DOMContentLoaded', boot, { once:true });
     }else{
