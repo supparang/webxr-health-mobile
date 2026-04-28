@@ -9,44 +9,41 @@
 
   <style>
     :root{
-      --bg0:#050b16;
-      --bg1:#07111f;
-      --bg2:#132846;
-      --panel:rgba(12,24,44,.82);
-      --panel2:rgba(20,38,68,.78);
-      --card:rgba(255,255,255,.085);
-      --card2:rgba(255,255,255,.12);
-      --line:rgba(180,210,255,.18);
-      --line2:rgba(180,210,255,.28);
+      --bg:#06101d;
+      --bg2:#0d1d33;
+      --panel:#142238;
+      --panel2:#1a2b46;
+      --card:rgba(255,255,255,.08);
+      --card2:rgba(255,255,255,.13);
+      --line:rgba(255,255,255,.15);
+      --line2:rgba(126,231,255,.35);
       --text:#eef7ff;
-      --muted:#aac0d8;
-      --soft:#d8ecff;
-      --cyan:#70e6ff;
-      --cyan2:#31c6ef;
-      --purple:#8b7cff;
+      --muted:#aec3d8;
+      --cyan:#72e8ff;
+      --blue:#49bfff;
+      --purple:#8e7dff;
       --pink:#ff86d1;
+      --green:#4ce39a;
       --gold:#ffd166;
-      --green:#45e39a;
-      --red:#ff6d87;
-      --orange:#ffad66;
-      --shadow:0 24px 80px rgba(0,0,0,.34);
-      --r-xl:30px;
-      --r-lg:24px;
-      --r-md:18px;
-      --r-sm:14px;
-      --max:1280px;
+      --red:#ff6e87;
+      --shadow:0 22px 70px rgba(0,0,0,.35);
+      --r1:30px;
+      --r2:22px;
+      --r3:16px;
+      --max:1240px;
       --safeTop:env(safe-area-inset-top,0px);
       --safeBottom:env(safe-area-inset-bottom,0px);
     }
 
     *{box-sizing:border-box}
+
     html,body{
       margin:0;
       min-height:100%;
       background:
-        radial-gradient(circle at 16% 4%,rgba(112,230,255,.24),transparent 30%),
-        radial-gradient(circle at 82% 0%,rgba(139,124,255,.18),transparent 30%),
-        linear-gradient(180deg,var(--bg1),var(--bg0));
+        radial-gradient(circle at 18% 0%,rgba(114,232,255,.18),transparent 34%),
+        radial-gradient(circle at 82% 4%,rgba(142,125,255,.16),transparent 34%),
+        linear-gradient(180deg,#07111f,#030814);
       color:var(--text);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       overflow-x:hidden;
@@ -61,11 +58,13 @@
     }
 
     button{
+      cursor:pointer;
       -webkit-tap-highlight-color:transparent;
     }
 
-    a{
-      color:inherit;
+    button:disabled{
+      cursor:not-allowed;
+      opacity:.48;
     }
 
     .hidden{display:none!important}
@@ -78,8 +77,8 @@
       align-items:center;
       justify-content:center;
       padding:24px;
-      background:linear-gradient(180deg,#07111f,#050b16);
-      transition:opacity .28s ease,visibility .28s ease;
+      background:linear-gradient(180deg,#07111f,#030814);
+      transition:opacity .25s ease,visibility .25s ease;
     }
 
     .boot.off{
@@ -98,13 +97,13 @@
       color:var(--cyan);
       font-size:clamp(34px,7vw,58px);
       letter-spacing:.08em;
-      font-weight:950;
+      font-weight:1000;
     }
 
     .bootSub{
       margin:0;
-      color:#b6c8dc;
-      font-size:clamp(20px,4vw,34px);
+      color:#b8c9dc;
+      font-size:clamp(20px,4vw,32px);
       letter-spacing:.1em;
       font-weight:900;
     }
@@ -124,12 +123,12 @@
       animation:pulse 1s ease-in-out infinite;
     }
 
-    .bootDots i:nth-child(2){animation-delay:.15s}
-    .bootDots i:nth-child(3){animation-delay:.3s}
+    .bootDots i:nth-child(2){animation-delay:.14s}
+    .bootDots i:nth-child(3){animation-delay:.28s}
 
     @keyframes pulse{
-      0%,100%{opacity:.25;transform:scale(.7)}
-      50%{opacity:1;transform:scale(1.1)}
+      0%,100%{opacity:.28;transform:scale(.72)}
+      50%{opacity:1;transform:scale(1.12)}
     }
 
     .app{
@@ -142,15 +141,15 @@
     .topbar{
       position:sticky;
       top:0;
-      z-index:50;
+      z-index:60;
       padding:calc(10px + var(--safeTop)) 14px 10px;
-      background:linear-gradient(180deg,rgba(5,11,22,.96),rgba(5,11,22,.74));
-      border-bottom:1px solid rgba(255,255,255,.09);
+      background:linear-gradient(180deg,rgba(5,11,22,.96),rgba(5,11,22,.78));
+      border-bottom:1px solid rgba(255,255,255,.10);
       backdrop-filter:blur(16px);
     }
 
     .topInner{
-      max-width:var(--max);
+      width:min(var(--max),100%);
       margin:0 auto;
       display:grid;
       grid-template-columns:1fr auto;
@@ -159,121 +158,115 @@
     }
 
     .brand{
-      min-width:0;
       display:flex;
       gap:12px;
       align-items:center;
-    }
-
-    .logo{
-      width:46px;
-      height:46px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(135deg,var(--cyan),var(--purple));
-      color:#06111f;
-      font-weight:1000;
-      box-shadow:0 12px 30px rgba(49,198,239,.24);
-      flex:0 0 auto;
-    }
-
-    .brandText{
       min-width:0;
     }
 
-    .brandText h1{
+    .logo{
+      width:48px;
+      height:48px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      color:#05101d;
+      background:linear-gradient(135deg,var(--cyan),var(--purple));
+      font-weight:1000;
+      box-shadow:0 12px 30px rgba(73,191,255,.25);
+      flex:0 0 auto;
+    }
+
+    .brand h1{
       margin:0;
-      font-size:clamp(19px,3vw,28px);
+      font-size:clamp(20px,3vw,30px);
       line-height:1.05;
-      letter-spacing:.02em;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
 
-    .brandText p{
+    .brand p{
       margin:5px 0 0;
       color:var(--muted);
       font-size:13px;
-      font-weight:750;
+      font-weight:800;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
 
-    .topActions{
+    .topChips{
       display:flex;
       gap:8px;
       align-items:center;
+      overflow:auto;
     }
 
-    .pill{
+    .chip{
+      min-height:38px;
       display:inline-flex;
-      gap:7px;
       align-items:center;
       justify-content:center;
-      min-height:38px;
+      gap:6px;
       padding:8px 12px;
       border-radius:999px;
-      border:1px solid rgba(255,255,255,.16);
+      border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.08);
-      color:var(--soft);
+      color:#dbeeff;
       font-size:13px;
       font-weight:900;
       white-space:nowrap;
     }
 
-    .pill.good{
-      background:rgba(69,227,154,.13);
-      border-color:rgba(69,227,154,.28);
-      color:#c9ffe4;
+    .chip.ok{
+      background:rgba(76,227,154,.13);
+      border-color:rgba(76,227,154,.35);
+      color:#cffff0;
     }
 
-    .pill.gold{
+    .chip.gold{
       background:rgba(255,209,102,.13);
-      border-color:rgba(255,209,102,.32);
-      color:#ffe8a0;
+      border-color:rgba(255,209,102,.35);
+      color:#ffe9aa;
     }
 
     .main{
-      width:100%;
-      max-width:var(--max);
+      width:min(var(--max),100%);
       margin:0 auto;
-      padding:18px 14px 24px;
+      padding:18px 14px 26px;
       display:grid;
       gap:16px;
+    }
+
+    .panel{
+      border:1px solid var(--line);
+      background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.055));
+      border-radius:var(--r1);
+      box-shadow:var(--shadow);
+      overflow:hidden;
     }
 
     .hero{
       display:grid;
       grid-template-columns:1.15fr .85fr;
       gap:16px;
-      align-items:stretch;
-    }
-
-    .panel{
-      border:1px solid var(--line);
-      border-radius:var(--r-xl);
-      background:linear-gradient(180deg,rgba(255,255,255,.105),rgba(255,255,255,.06));
-      box-shadow:var(--shadow);
-      overflow:hidden;
     }
 
     .heroCard{
-      padding:22px;
+      padding:24px;
+      min-height:250px;
       position:relative;
-      min-height:245px;
     }
 
     .heroCard:before{
       content:"";
       position:absolute;
-      inset:-2px;
-      background:
-        radial-gradient(circle at 20% 0%,rgba(112,230,255,.22),transparent 30%),
-        radial-gradient(circle at 90% 10%,rgba(255,134,209,.16),transparent 30%);
+      inset:0;
       pointer-events:none;
+      background:
+        radial-gradient(circle at 18% 0%,rgba(114,232,255,.22),transparent 34%),
+        radial-gradient(circle at 92% 10%,rgba(255,134,209,.16),transparent 34%);
     }
 
     .heroContent{
@@ -283,58 +276,55 @@
 
     .kicker{
       display:inline-flex;
-      gap:8px;
       align-items:center;
+      gap:8px;
       padding:8px 12px;
       border-radius:999px;
-      color:#07111f;
       background:var(--cyan);
+      color:#06111f;
       font-weight:1000;
-      letter-spacing:.06em;
       font-size:12px;
+      letter-spacing:.08em;
       text-transform:uppercase;
     }
 
     .heroTitle{
       margin:16px 0 10px;
-      font-size:clamp(31px,6vw,58px);
+      font-size:clamp(32px,6vw,58px);
       line-height:1.02;
       letter-spacing:-.03em;
     }
 
     .heroDesc{
       margin:0;
-      max-width:780px;
-      color:#cfe2f5;
+      color:#cfe3f6;
       font-size:17px;
-      line-height:1.58;
+      line-height:1.6;
       font-weight:650;
     }
 
-    .heroButtons{
+    .actions{
       display:flex;
       flex-wrap:wrap;
       gap:10px;
-      margin-top:20px;
+      margin-top:18px;
     }
 
     .btn{
-      border:0;
       min-height:48px;
       padding:13px 17px;
       border-radius:18px;
-      font-weight:1000;
-      cursor:pointer;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.10);
       color:var(--text);
-      background:rgba(255,255,255,.12);
-      border:1px solid rgba(255,255,255,.17);
+      font-weight:1000;
       box-shadow:0 10px 26px rgba(0,0,0,.18);
-      transition:transform .12s ease,filter .12s ease,background .12s ease;
       text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
       gap:8px;
+      transition:transform .12s ease,filter .12s ease,background .12s ease;
     }
 
     .btn:hover{filter:brightness(1.08)}
@@ -342,28 +332,27 @@
 
     .btn.primary{
       color:#06111f;
-      background:linear-gradient(135deg,var(--cyan),#a5f3ff);
-      border-color:rgba(255,255,255,.28);
-    }
-
-    .btn.purple{
-      background:linear-gradient(135deg,var(--purple),#b9afff);
-      color:#080b1b;
-    }
-
-    .btn.gold{
-      background:linear-gradient(135deg,var(--gold),#ffe8a0);
-      color:#221707;
+      background:linear-gradient(135deg,var(--cyan),#c6f7ff);
     }
 
     .btn.green{
-      background:linear-gradient(135deg,var(--green),#b8ffd9);
-      color:#062014;
+      color:#061b12;
+      background:linear-gradient(135deg,var(--green),#b9ffd9);
+    }
+
+    .btn.gold{
+      color:#241804;
+      background:linear-gradient(135deg,var(--gold),#ffeaa8);
+    }
+
+    .btn.purple{
+      color:#080a1a;
+      background:linear-gradient(135deg,var(--purple),#c3bbff);
     }
 
     .btn.red{
-      background:linear-gradient(135deg,var(--red),#ffa2b2);
-      color:#23040a;
+      color:#25050a;
+      background:linear-gradient(135deg,var(--red),#ffb0bf);
     }
 
     .btn.small{
@@ -371,18 +360,6 @@
       padding:9px 12px;
       border-radius:14px;
       font-size:13px;
-    }
-
-    .btn.ghost{
-      background:rgba(255,255,255,.07);
-      color:var(--soft);
-    }
-
-    .btn:disabled{
-      opacity:.48;
-      cursor:not-allowed;
-      transform:none!important;
-      filter:none!important;
     }
 
     .statusGrid{
@@ -402,27 +379,22 @@
       margin:0 0 10px;
       font-size:14px;
       color:var(--cyan);
-      letter-spacing:.05em;
+      letter-spacing:.06em;
       text-transform:uppercase;
     }
 
-    .statusLine{
+    .line{
       display:grid;
       grid-template-columns:1fr auto;
       gap:10px;
       padding:7px 0;
-      color:#cfe2f5;
-      font-weight:750;
       border-bottom:1px dashed rgba(255,255,255,.12);
+      color:#cfe3f6;
+      font-weight:750;
     }
 
-    .statusLine:last-child{
-      border-bottom:0;
-    }
-
-    .statusLine b{
-      color:#fff;
-    }
+    .line:last-child{border-bottom:0}
+    .line b{color:#fff}
 
     .grid2{
       display:grid;
@@ -434,28 +406,28 @@
       padding:18px;
     }
 
-    .sectionHead{
+    .head{
       display:flex;
-      gap:12px;
       align-items:flex-start;
       justify-content:space-between;
+      gap:12px;
       margin-bottom:14px;
     }
 
-    .sectionHead h2{
+    .head h2{
       margin:0;
       font-size:24px;
       letter-spacing:-.02em;
     }
 
-    .sectionHead p{
+    .head p{
       margin:6px 0 0;
       color:var(--muted);
       line-height:1.45;
       font-weight:650;
     }
 
-    .studentForm{
+    .form{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
@@ -466,12 +438,10 @@
       gap:6px;
       color:var(--muted);
       font-size:13px;
-      font-weight:850;
+      font-weight:900;
     }
 
-    .field input,
-    .field select,
-    .field textarea{
+    input,select,textarea{
       width:100%;
       min-height:45px;
       border-radius:16px;
@@ -482,37 +452,34 @@
       outline:none;
     }
 
-    .field textarea{
-      min-height:120px;
-      resize:vertical;
-      line-height:1.55;
-    }
-
-    .field input:focus,
-    .field select:focus,
-    .field textarea:focus{
-      border-color:rgba(112,230,255,.72);
-      box-shadow:0 0 0 4px rgba(112,230,255,.12);
-    }
-
-    .field select option{
+    select option{
       color:#07111f;
     }
 
-    .sessionGrid{
+    textarea{
+      resize:vertical;
+      min-height:120px;
+      line-height:1.55;
+    }
+
+    input:focus,select:focus,textarea:focus{
+      border-color:rgba(114,232,255,.7);
+      box-shadow:0 0 0 4px rgba(114,232,255,.12);
+    }
+
+    .sessions{
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
       gap:10px;
     }
 
     .sessionBtn{
+      min-height:96px;
+      padding:12px;
+      border-radius:20px;
       border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.075);
       color:var(--text);
-      min-height:92px;
-      padding:12px;
-      border-radius:20px;
-      cursor:pointer;
       text-align:left;
       display:grid;
       gap:7px;
@@ -522,37 +489,35 @@
     .sessionBtn:hover{
       transform:translateY(-1px);
       background:rgba(255,255,255,.12);
-      border-color:rgba(112,230,255,.46);
+      border-color:rgba(114,232,255,.45);
     }
 
     .sessionBtn.active{
-      background:linear-gradient(180deg,rgba(112,230,255,.22),rgba(139,124,255,.14));
-      border-color:rgba(112,230,255,.62);
-      box-shadow:0 14px 34px rgba(49,198,239,.18);
+      background:linear-gradient(180deg,rgba(114,232,255,.22),rgba(142,125,255,.14));
+      border-color:rgba(114,232,255,.66);
     }
 
     .sessionBtn.done{
-      border-color:rgba(69,227,154,.42);
-      background:rgba(69,227,154,.105);
+      border-color:rgba(76,227,154,.42);
+      background:rgba(76,227,154,.11);
     }
 
     .sessionBtn .n{
-      font-size:20px;
+      font-size:21px;
       font-weight:1000;
-      color:#fff;
     }
 
     .sessionBtn .t{
+      color:#d7eaff;
       font-size:12px;
-      color:#cfe2f5;
       line-height:1.25;
-      font-weight:780;
+      font-weight:800;
     }
 
-    .sessionBtn .m{
+    .tags{
       display:flex;
-      gap:5px;
       flex-wrap:wrap;
+      gap:5px;
     }
 
     .tag{
@@ -561,32 +526,26 @@
       justify-content:center;
       padding:4px 7px;
       border-radius:999px;
-      background:rgba(255,255,255,.11);
-      color:#d9ecff;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.10);
+      color:#dbeeff;
       font-size:11px;
       font-weight:900;
-      border:1px solid rgba(255,255,255,.12);
     }
 
     .tag.boss{
-      color:#ffe8a0;
-      border-color:rgba(255,209,102,.38);
+      color:#ffe9aa;
       background:rgba(255,209,102,.13);
+      border-color:rgba(255,209,102,.34);
     }
 
-    .tag.skill{
-      color:#c8f8ff;
-      background:rgba(112,230,255,.10);
-      border-color:rgba(112,230,255,.25);
-    }
-
-    .gameShell{
+    .game{
       display:none;
+      gap:16px;
     }
 
-    .gameShell.on{
+    .game.on{
       display:grid;
-      gap:16px;
     }
 
     .hud{
@@ -598,17 +557,17 @@
       gap:10px;
       padding:10px;
       border-radius:24px;
-      border:1px solid rgba(255,255,255,.13);
-      background:rgba(7,17,31,.82);
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(7,17,31,.84);
       backdrop-filter:blur(16px);
-      box-shadow:0 16px 40px rgba(0,0,0,.24);
+      box-shadow:0 16px 40px rgba(0,0,0,.22);
     }
 
     .hudBox{
       min-height:62px;
       padding:10px;
       border-radius:18px;
-      background:rgba(255,255,255,.085);
+      background:rgba(255,255,255,.08);
       border:1px solid rgba(255,255,255,.10);
       display:grid;
       align-content:center;
@@ -632,19 +591,18 @@
       display:grid;
       grid-template-columns:1fr .85fr;
       gap:16px;
-      align-items:stretch;
+      align-items:start;
     }
 
     .missionCard{
       padding:20px;
       min-height:420px;
       display:grid;
-      align-content:start;
       gap:16px;
-      position:relative;
+      align-content:start;
     }
 
-    .missionHeader{
+    .missionTop{
       display:flex;
       justify-content:space-between;
       gap:12px;
@@ -653,30 +611,30 @@
 
     .missionTitle{
       margin:0;
-      font-size:clamp(28px,5vw,52px);
-      line-height:1.02;
+      font-size:clamp(28px,5vw,50px);
+      line-height:1.04;
       letter-spacing:-.03em;
     }
 
     .missionSub{
       margin:8px 0 0;
-      color:#cfe2f5;
+      color:#cfe3f6;
       font-size:17px;
-      font-weight:720;
       line-height:1.5;
+      font-weight:720;
     }
 
-    .promptBox{
+    .prompt{
       padding:18px;
       border-radius:24px;
       background:rgba(255,255,255,.08);
       border:1px solid rgba(255,255,255,.13);
     }
 
-    .promptLabel{
+    .promptTop{
       display:flex;
       justify-content:space-between;
-      gap:8px;
+      gap:10px;
       margin-bottom:9px;
       color:var(--cyan);
       font-size:12px;
@@ -707,31 +665,30 @@
     }
 
     .choice{
+      min-height:74px;
       border-radius:20px;
       border:1px solid rgba(255,255,255,.15);
       background:rgba(255,255,255,.085);
       color:#fff;
-      min-height:74px;
       padding:14px;
       text-align:left;
-      cursor:pointer;
       font-weight:850;
       line-height:1.35;
     }
 
     .choice:hover{
       background:rgba(255,255,255,.13);
-      border-color:rgba(112,230,255,.42);
+      border-color:rgba(114,232,255,.42);
     }
 
     .choice.correct{
-      background:rgba(69,227,154,.18);
-      border-color:rgba(69,227,154,.6);
+      background:rgba(76,227,154,.18);
+      border-color:rgba(76,227,154,.62);
     }
 
     .choice.wrong{
-      background:rgba(255,109,135,.18);
-      border-color:rgba(255,109,135,.58);
+      background:rgba(255,110,135,.18);
+      border-color:rgba(255,110,135,.58);
     }
 
     .feedback{
@@ -741,41 +698,33 @@
       border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.085);
       line-height:1.55;
-      font-weight:750;
+      font-weight:760;
     }
 
-    .feedback.on{
-      display:block;
-    }
+    .feedback.on{display:block}
 
     .feedback.good{
-      background:rgba(69,227,154,.13);
-      border-color:rgba(69,227,154,.33);
+      background:rgba(76,227,154,.13);
+      border-color:rgba(76,227,154,.35);
       color:#d7ffe9;
     }
 
     .feedback.bad{
-      background:rgba(255,109,135,.13);
-      border-color:rgba(255,109,135,.33);
-      color:#ffd5dc;
+      background:rgba(255,110,135,.13);
+      border-color:rgba(255,110,135,.35);
+      color:#ffd5dd;
     }
 
-    .sidePanel{
+    .side{
       padding:18px;
       display:grid;
       gap:12px;
-      align-content:start;
-    }
-
-    .progressWrap{
-      display:grid;
-      gap:10px;
     }
 
     .bar{
       height:14px;
       border-radius:999px;
-      background:rgba(255,255,255,.1);
+      background:rgba(255,255,255,.10);
       overflow:hidden;
       border:1px solid rgba(255,255,255,.10);
     }
@@ -811,8 +760,8 @@
       border-radius:14px;
       display:grid;
       place-items:center;
-      background:rgba(112,230,255,.12);
-      border:1px solid rgba(112,230,255,.18);
+      background:rgba(114,232,255,.12);
+      border:1px solid rgba(114,232,255,.18);
     }
 
     .skillRow b{
@@ -828,13 +777,13 @@
     }
 
     .skillRow.done{
-      border-color:rgba(69,227,154,.35);
-      background:rgba(69,227,154,.105);
+      border-color:rgba(76,227,154,.35);
+      background:rgba(76,227,154,.105);
     }
 
     .skillRow.now{
-      border-color:rgba(112,230,255,.46);
-      background:rgba(112,230,255,.105);
+      border-color:rgba(114,232,255,.46);
+      background:rgba(114,232,255,.105);
     }
 
     .bossPanel{
@@ -842,7 +791,7 @@
       padding:14px;
       border-radius:22px;
       background:linear-gradient(135deg,rgba(255,209,102,.15),rgba(255,134,209,.12));
-      border:1px solid rgba(255,209,102,.28);
+      border:1px solid rgba(255,209,102,.30);
     }
 
     .bossPanel.on{
@@ -851,13 +800,13 @@
 
     .bossPanel h3{
       margin:0 0 8px;
-      color:#ffe8a0;
+      color:#ffe9aa;
     }
 
     .bossHearts{
       display:flex;
-      gap:7px;
       flex-wrap:wrap;
+      gap:7px;
       font-size:24px;
       margin-top:8px;
     }
@@ -867,10 +816,10 @@
       gap:10px;
     }
 
-    .answerBox .row{
+    .answerActions{
       display:flex;
-      gap:9px;
       flex-wrap:wrap;
+      gap:9px;
     }
 
     .summary{
@@ -894,14 +843,14 @@
       margin:18px 0;
     }
 
-    .summaryStat{
+    .stat{
       padding:16px;
       border-radius:22px;
       background:rgba(255,255,255,.08);
       border:1px solid rgba(255,255,255,.13);
     }
 
-    .summaryStat span{
+    .stat span{
       display:block;
       color:var(--muted);
       font-size:12px;
@@ -910,7 +859,7 @@
       text-transform:uppercase;
     }
 
-    .summaryStat b{
+    .stat b{
       display:block;
       margin-top:6px;
       font-size:28px;
@@ -921,7 +870,7 @@
       left:0;
       right:0;
       bottom:0;
-      z-index:60;
+      z-index:70;
       padding:9px 12px calc(9px + var(--safeBottom));
       background:rgba(5,11,22,.88);
       border-top:1px solid rgba(255,255,255,.12);
@@ -937,13 +886,11 @@
     }
 
     .navBtn{
+      min-height:54px;
+      border-radius:18px;
       border:1px solid rgba(255,255,255,.12);
       background:rgba(255,255,255,.07);
-      color:var(--soft);
-      border-radius:18px;
-      min-height:54px;
-      padding:8px;
-      cursor:pointer;
+      color:#dbeeff;
       display:grid;
       place-items:center;
       gap:2px;
@@ -957,8 +904,8 @@
     }
 
     .navBtn.active{
-      background:rgba(112,230,255,.14);
-      border-color:rgba(112,230,255,.38);
+      background:rgba(114,232,255,.14);
+      border-color:rgba(114,232,255,.38);
       color:#d9fbff;
     }
 
@@ -967,18 +914,17 @@
       left:50%;
       bottom:calc(90px + var(--safeBottom));
       transform:translateX(-50%) translateY(12px);
-      z-index:80;
+      z-index:100;
       width:min(620px,calc(100% - 28px));
       padding:14px 16px;
       border-radius:20px;
-      background:rgba(10,22,40,.94);
+      background:rgba(10,22,40,.95);
       border:1px solid rgba(255,255,255,.18);
-      color:#fff;
       box-shadow:0 18px 50px rgba(0,0,0,.34);
       opacity:0;
       pointer-events:none;
       transition:opacity .18s ease,transform .18s ease;
-      font-weight:820;
+      font-weight:850;
       line-height:1.45;
     }
 
@@ -990,7 +936,7 @@
     .modal{
       position:fixed;
       inset:0;
-      z-index:90;
+      z-index:120;
       display:none;
       align-items:center;
       justify-content:center;
@@ -998,9 +944,7 @@
       background:rgba(0,0,0,.62);
     }
 
-    .modal.on{
-      display:flex;
-    }
+    .modal.on{display:flex}
 
     .modalCard{
       width:min(720px,100%);
@@ -1026,20 +970,18 @@
       background:rgba(0,0,0,.28);
       border-radius:16px;
       padding:12px;
-      color:#cfe2f5;
+      color:#cfe3f6;
       margin-top:12px;
     }
 
     .debug.on{display:block}
 
     @media (max-width:980px){
-      .hero,
-      .grid2,
-      .mission{
+      .hero,.grid2,.mission{
         grid-template-columns:1fr;
       }
 
-      .sessionGrid{
+      .sessions{
         grid-template-columns:repeat(3,minmax(0,1fr));
       }
 
@@ -1062,20 +1004,19 @@
         grid-template-columns:1fr;
       }
 
-      .topActions{
-        overflow:auto;
+      .topChips{
         padding-bottom:2px;
       }
 
-      .brandText h1{
+      .brand h1{
         white-space:normal;
       }
 
-      .studentForm{
+      .form{
         grid-template-columns:1fr;
       }
 
-      .sessionGrid{
+      .sessions{
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
@@ -1085,14 +1026,7 @@
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
-      .missionCard{
-        min-height:auto;
-        padding:16px;
-      }
-
-      .section,
-      .heroCard,
-      .sidePanel{
+      .heroCard,.section,.side,.missionCard{
         padding:16px;
       }
 
@@ -1122,16 +1056,16 @@
       <div class="topInner">
         <div class="brand">
           <div class="logo">TP</div>
-          <div class="brandText">
+          <div>
             <h1>TechPath English VR</h1>
             <p id="topSub">A2–B1+ • CS/AI English Session Mission</p>
           </div>
         </div>
 
-        <div class="topActions">
-          <span class="pill good" id="bootStatus">READY</span>
-          <span class="pill" id="studentTop">Student: -</span>
-          <span class="pill gold" id="sessionTop">S01</span>
+        <div class="topChips">
+          <span class="chip ok" id="bootStatus">READY</span>
+          <span class="chip" id="studentTop">Student: -</span>
+          <span class="chip gold" id="sessionTop">S01</span>
         </div>
       </div>
     </header>
@@ -1144,14 +1078,14 @@
               <span class="kicker">Session Learning</span>
               <h2 class="heroTitle">เรียนอังกฤษสาย CS/AI เป็น Session</h2>
               <p class="heroDesc">
-                ฝึกครบ 4 ทักษะ ฟัง พูด อ่าน เขียน ผ่านภารกิจสั้น ๆ แบบไม่ค้าง Loading
+                ฝึกครบ 4 ทักษะ ฟัง พูด อ่าน เขียน ผ่านภารกิจสั้น ๆ
                 มี Boss ทุก 3 Session และบันทึกการเข้าเรียนแต่ละ S เพื่อใช้ติดตามผู้เรียน
               </p>
 
-              <div class="heroButtons">
+              <div class="actions">
                 <button class="btn primary" id="startCurrentBtn">เริ่ม Session ปัจจุบัน ▶</button>
                 <button class="btn purple" id="openSessionBtn">เลือก S1–S15</button>
-                <button class="btn ghost" id="openGuideBtn">วิธีเล่น</button>
+                <button class="btn" id="openGuideBtn">วิธีเล่น</button>
               </div>
             </div>
           </div>
@@ -1159,31 +1093,31 @@
           <aside class="panel statusGrid">
             <div class="statusCard">
               <h3>Attendance Tracker</h3>
-              <div class="statusLine"><span>Current S</span><b id="attSession">S01</b></div>
-              <div class="statusLine"><span>Time in S</span><b id="attTime">00:00</b></div>
-              <div class="statusLine"><span>Active Time</span><b id="activeTime">00:00</b></div>
-              <div class="statusLine"><span>Sheet Status</span><b id="sheetStatus">Ready</b></div>
+              <div class="line"><span>Current S</span><b id="attSession">S01</b></div>
+              <div class="line"><span>Time in S</span><b id="attTime">00:00</b></div>
+              <div class="line"><span>Active Time</span><b id="activeTime">00:00</b></div>
+              <div class="line"><span>Sheet Status</span><b id="sheetStatus">Ready</b></div>
             </div>
 
             <div class="statusCard">
               <h3>Player Status</h3>
-              <div class="statusLine"><span>Score</span><b id="homeScore">0</b></div>
-              <div class="statusLine"><span>Completed</span><b id="homeCompleted">0/15</b></div>
-              <div class="statusLine"><span>Level</span><b id="homeLevel">normal</b></div>
+              <div class="line"><span>Score</span><b id="homeScore">0</b></div>
+              <div class="line"><span>Completed</span><b id="homeCompleted">0/15</b></div>
+              <div class="line"><span>Difficulty</span><b id="homeLevel">normal</b></div>
             </div>
           </aside>
         </div>
 
         <div class="grid2" style="margin-top:16px">
           <section class="panel section">
-            <div class="sectionHead">
+            <div class="head">
               <div>
                 <h2>ข้อมูลผู้เรียน</h2>
                 <p>ใส่ข้อมูลก่อนเริ่ม เพื่อให้บันทึกลง Google Sheet ได้ครบ</p>
               </div>
             </div>
 
-            <div class="studentForm">
+            <div class="form">
               <label class="field">
                 Student ID
                 <input id="studentId" placeholder="เช่น 651234567" autocomplete="off" />
@@ -1209,26 +1143,26 @@
               </label>
             </div>
 
-            <div class="heroButtons">
+            <div class="actions">
               <button class="btn green" id="saveProfileBtn">บันทึกโปรไฟล์</button>
-              <button class="btn ghost" id="resetProgressBtn">รีเซ็ตความคืบหน้า</button>
+              <button class="btn" id="resetProgressBtn">รีเซ็ตความคืบหน้า</button>
             </div>
           </section>
 
           <section class="panel section" id="sessionPicker">
-            <div class="sectionHead">
+            <div class="head">
               <div>
                 <h2>เลือก Session</h2>
                 <p>S3 / S6 / S9 / S12 / S15 มี Boss Challenge</p>
               </div>
             </div>
 
-            <div class="sessionGrid" id="sessionGrid"></div>
+            <div class="sessions" id="sessionGrid"></div>
           </section>
         </div>
       </section>
 
-      <section id="gameView" class="gameShell">
+      <section id="gameView" class="game">
         <div class="hud">
           <div class="hudBox"><span>Session</span><b id="hudSession">S01</b></div>
           <div class="hudBox"><span>Skill</span><b id="hudSkill">Listen</b></div>
@@ -1239,16 +1173,16 @@
 
         <div class="mission">
           <article class="panel missionCard">
-            <div class="missionHeader">
+            <div class="missionTop">
               <div>
                 <h2 class="missionTitle" id="missionTitle">Mission</h2>
                 <p class="missionSub" id="missionSub">Prepare your task.</p>
               </div>
-              <span class="pill gold" id="missionBadge">A2+</span>
+              <span class="chip gold" id="missionBadge">A2+</span>
             </div>
 
-            <div class="promptBox">
-              <div class="promptLabel">
+            <div class="prompt">
+              <div class="promptTop">
                 <span id="promptLabel">Prompt</span>
                 <span id="promptCount">1/4</span>
               </div>
@@ -1263,32 +1197,33 @@
                 Your answer
                 <textarea id="textAnswer" placeholder="Type your answer here..."></textarea>
               </label>
-              <div class="row">
+
+              <div class="answerActions">
                 <button class="btn primary" id="submitTextBtn">Submit</button>
-                <button class="btn ghost" id="aiHelpBtn">AI Help</button>
-                <button class="btn ghost" id="speakBtn">Speak</button>
+                <button class="btn" id="aiHelpBtn">AI Help</button>
+                <button class="btn" id="speakBtn">Speak Sample</button>
               </div>
             </div>
 
             <div id="feedback" class="feedback"></div>
 
-            <div class="heroButtons">
+            <div class="actions">
               <button class="btn primary" id="listenBtn">🔊 Play Audio</button>
               <button class="btn green" id="nextBtn" disabled>Next ▶</button>
-              <button class="btn ghost" id="backHomeBtn">กลับหน้าเลือก Session</button>
+              <button class="btn" id="backHomeBtn">กลับหน้าเลือก Session</button>
             </div>
           </article>
 
-          <aside class="panel sidePanel">
-            <div class="sectionHead" style="margin-bottom:0">
+          <aside class="panel side">
+            <div class="head" style="margin-bottom:0">
               <div>
                 <h2 id="sideTitle">S01 Progress</h2>
                 <p id="sideDesc">Complete Listening, Speaking, Reading, Writing.</p>
               </div>
             </div>
 
-            <div class="progressWrap">
-              <div class="statusLine"><span>Mission Progress</span><b id="progressText">0%</b></div>
+            <div>
+              <div class="line"><span>Mission Progress</span><b id="progressText">0%</b></div>
               <div class="bar"><i id="progressBar"></i></div>
             </div>
 
@@ -1315,16 +1250,16 @@
         <p class="heroDesc" id="summaryDesc">Session complete.</p>
 
         <div class="summaryGrid">
-          <div class="summaryStat"><span>Score</span><b id="sumScore">0</b></div>
-          <div class="summaryStat"><span>Accuracy</span><b id="sumAcc">0%</b></div>
-          <div class="summaryStat"><span>Time</span><b id="sumTime">00:00</b></div>
-          <div class="summaryStat"><span>Skills</span><b id="sumSkills">0/4</b></div>
+          <div class="stat"><span>Score</span><b id="sumScore">0</b></div>
+          <div class="stat"><span>Accuracy</span><b id="sumAcc">0%</b></div>
+          <div class="stat"><span>Time</span><b id="sumTime">00:00</b></div>
+          <div class="stat"><span>Skills</span><b id="sumSkills">0/4</b></div>
         </div>
 
-        <div class="heroButtons">
+        <div class="actions">
           <button class="btn primary" id="nextSessionBtn">เล่นด่านถัดไป ▶</button>
           <button class="btn green" id="replayBtn">เล่น S นี้อีกครั้ง</button>
-          <button class="btn ghost" id="summaryHomeBtn">กลับหน้าเลือก Session</button>
+          <button class="btn" id="summaryHomeBtn">กลับหน้าเลือก Session</button>
         </div>
       </section>
 
@@ -1347,7 +1282,7 @@
     <div class="modalCard">
       <h2 id="modalTitle">Guide</h2>
       <div id="modalBody"></div>
-      <div class="heroButtons">
+      <div class="actions">
         <button class="btn primary" id="closeModalBtn">ปิด</button>
       </div>
     </div>
@@ -1360,9 +1295,9 @@
     window.TECHPATH_BOOT_OK = false;
 
     const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
-    const STORAGE_PROFILE = 'TECHPATH_EN_PROFILE_V1';
-    const STORAGE_PROGRESS = 'TECHPATH_EN_PROGRESS_V1';
-    const STORAGE_LAST = 'TECHPATH_EN_LAST_SESSION_V1';
+    const STORAGE_PROFILE = 'TECHPATH_EN_PROFILE_V2';
+    const STORAGE_PROGRESS = 'TECHPATH_EN_PROGRESS_V2';
+    const STORAGE_LAST = 'TECHPATH_EN_LAST_SESSION_V2';
 
     const SKILLS = [
       { id:'listening', label:'Listening', icon:'🎧', verb:'ฟัง' },
@@ -1371,7 +1306,7 @@
       { id:'writing', label:'Writing', icon:'✍️', verb:'เขียน' }
     ];
 
-    const SESSION_TOPICS = [
+    const SESSIONS = [
       { id:1,  title:'Self-Introduction in Tech', focus:'Introduce yourself as a CS/AI student', level:'A2' },
       { id:2,  title:'Academic Background and Projects', focus:'Explain your study and project background', level:'A2' },
       { id:3,  title:'Tech Jobs and Roles', focus:'Describe roles in a software team', level:'A2+', boss:true },
@@ -1389,37 +1324,45 @@
       { id:15, title:'Capstone Career Mission', focus:'Final mixed skill challenge', level:'B1+', boss:true, final:true }
     ];
 
-    const QUESTION_BANK = {
+    const BANK = {
       listening: [
         {
+          say:'I am testing a new login feature today.',
           prompt:'The speaker says: “I am testing a new login feature today.” What is the speaker doing?',
           choices:['Writing a report','Testing a feature','Designing a logo','Buying a computer'],
           answer:1,
-          hint:'Listen for the action word: testing.',
-          say:'I am testing a new login feature today.'
+          hint:'Listen for the action word: testing.'
         },
         {
+          say:'The dataset is too small for training.',
           prompt:'The speaker says: “The dataset is too small for training.” What is the problem?',
           choices:['The screen is broken','The dataset is too small','The app is too colorful','The meeting is canceled'],
           answer:1,
-          hint:'Focus on the noun after “too small”.',
-          say:'The dataset is too small for training.'
+          hint:'Focus on the phrase: dataset is too small.'
         },
         {
+          say:'Please deploy the update after the meeting.',
           prompt:'The speaker says: “Please deploy the update after the meeting.” When should the update be deployed?',
           choices:['Before breakfast','After the meeting','Next month','During the exam'],
           answer:1,
-          hint:'Listen for the time phrase.',
-          say:'Please deploy the update after the meeting.'
+          hint:'Listen for the time phrase.'
         },
         {
+          say:'Our model accuracy improved this week.',
           prompt:'The speaker says: “Our model accuracy improved this week.” What improved?',
           choices:['Model accuracy','Battery life','Classroom size','Internet price'],
           answer:0,
-          hint:'The key phrase is model accuracy.',
-          say:'Our model accuracy improved this week.'
+          hint:'The key phrase is model accuracy.'
+        },
+        {
+          say:'The client wants a simpler dashboard.',
+          prompt:'The speaker says: “The client wants a simpler dashboard.” What does the client want?',
+          choices:['A simpler dashboard','A longer password','A new keyboard','A bigger classroom'],
+          answer:0,
+          hint:'Listen for the object after wants.'
         }
       ],
+
       speaking: [
         {
           prompt:'Say this clearly: “I am a CS student, and I am interested in AI.”',
@@ -1440,44 +1383,57 @@
           prompt:'Say this clearly: “The AI model needs more data.”',
           sample:'The AI model needs more data.',
           hint:'พูด subject + needs + object.'
+        },
+        {
+          prompt:'Say this clearly: “I can explain the system workflow.”',
+          sample:'I can explain the system workflow.',
+          hint:'ใช้ I can + verb เพื่อบอกความสามารถ.'
         }
       ],
+
       reading: [
         {
           prompt:'Read: “A developer writes code, tests features, and fixes bugs.” What does a developer fix?',
           choices:['Bugs','Lunch','Chairs','Weather'],
           answer:0,
-          hint:'Look for “fixes”.'
+          hint:'Look for the verb fixes.'
         },
         {
           prompt:'Read: “A dataset is a collection of data used to train a model.” What is a dataset used for?',
           choices:['To train a model','To paint a wall','To cook rice','To clean a room'],
           answer:0,
-          hint:'Find “used to”.'
+          hint:'Find the phrase used to.'
         },
         {
           prompt:'Read: “The team has a short meeting every morning to share progress.” Why do they meet?',
           choices:['To share progress','To watch movies','To play football','To delete files'],
           answer:0,
-          hint:'The purpose comes after “to”.'
+          hint:'The purpose comes after to.'
         },
         {
           prompt:'Read: “The interface should be simple so users can understand it quickly.” What should the interface be?',
           choices:['Simple','Expensive','Hidden','Noisy'],
           answer:0,
           hint:'Find the adjective after should be.'
+        },
+        {
+          prompt:'Read: “A portfolio shows your projects, skills, and achievements.” What does a portfolio show?',
+          choices:['Projects and skills','Only food','Only games','Weather reports'],
+          answer:0,
+          hint:'Look for projects, skills, and achievements.'
         }
       ],
+
       writing: [
         {
           prompt:'Write one sentence to introduce yourself as a CS/AI student.',
-          expected:['I am','student','CS','AI'],
+          expected:['i am','student','cs','ai'],
           sample:'I am a CS/AI student interested in technology.',
           hint:'ใช้ I am ... student ... interested in ...'
         },
         {
           prompt:'Write one short message to report a bug to your team.',
-          expected:['bug','page','app','found'],
+          expected:['bug','found','page','app'],
           sample:'I found a bug on the login page. Please check it.',
           hint:'ใช้ I found a bug...'
         },
@@ -1492,6 +1448,12 @@
           expected:['model','data','accuracy','train'],
           sample:'The AI model needs more data to improve accuracy.',
           hint:'ใช้ model + data + accuracy.'
+        },
+        {
+          prompt:'Write one polite email sentence to ask for a meeting.',
+          expected:['meeting','please','could','schedule'],
+          sample:'Could we schedule a short meeting tomorrow, please?',
+          hint:'ใช้ Could we ... please?'
         }
       ]
     };
@@ -1512,101 +1474,43 @@
       sessionId:'',
       bossHp:3,
       locked:false,
-      currentQuestion:null,
-      lastLogAt:0
+      currentQuestion:null
     };
 
-    const $ = sel => document.querySelector(sel);
-    const $$ = sel => Array.from(document.querySelectorAll(sel));
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-    const els = {
-      boot:$('#boot'),
-      bootStatus:$('#bootStatus'),
-      studentTop:$('#studentTop'),
-      sessionTop:$('#sessionTop'),
-      homeView:$('#homeView'),
-      gameView:$('#gameView'),
-      summaryView:$('#summaryView'),
-      sessionGrid:$('#sessionGrid'),
-      studentId:$('#studentId'),
-      studentName:$('#studentName'),
-      section:$('#section'),
-      difficulty:$('#difficulty'),
-      saveProfileBtn:$('#saveProfileBtn'),
-      resetProgressBtn:$('#resetProgressBtn'),
-      startCurrentBtn:$('#startCurrentBtn'),
-      openSessionBtn:$('#openSessionBtn'),
-      openGuideBtn:$('#openGuideBtn'),
-      attSession:$('#attSession'),
-      attTime:$('#attTime'),
-      activeTime:$('#activeTime'),
-      sheetStatus:$('#sheetStatus'),
-      homeScore:$('#homeScore'),
-      homeCompleted:$('#homeCompleted'),
-      homeLevel:$('#homeLevel'),
-      hudSession:$('#hudSession'),
-      hudSkill:$('#hudSkill'),
-      hudScore:$('#hudScore'),
-      hudHp:$('#hudHp'),
-      hudTime:$('#hudTime'),
-      missionTitle:$('#missionTitle'),
-      missionSub:$('#missionSub'),
-      missionBadge:$('#missionBadge'),
-      promptLabel:$('#promptLabel'),
-      promptCount:$('#promptCount'),
-      promptText:$('#promptText'),
-      promptHint:$('#promptHint'),
-      choiceArea:$('#choiceArea'),
-      answerArea:$('#answerArea'),
-      textAnswer:$('#textAnswer'),
-      submitTextBtn:$('#submitTextBtn'),
-      aiHelpBtn:$('#aiHelpBtn'),
-      speakBtn:$('#speakBtn'),
-      feedback:$('#feedback'),
-      listenBtn:$('#listenBtn'),
-      nextBtn:$('#nextBtn'),
-      backHomeBtn:$('#backHomeBtn'),
-      sideTitle:$('#sideTitle'),
-      sideDesc:$('#sideDesc'),
-      progressText:$('#progressText'),
-      progressBar:$('#progressBar'),
-      skillList:$('#skillList'),
-      bossPanel:$('#bossPanel'),
-      bossHearts:$('#bossHearts'),
-      coachTip:$('#coachTip'),
-      summaryTitle:$('#summaryTitle'),
-      summaryDesc:$('#summaryDesc'),
-      sumScore:$('#sumScore'),
-      sumAcc:$('#sumAcc'),
-      sumTime:$('#sumTime'),
-      sumSkills:$('#sumSkills'),
-      nextSessionBtn:$('#nextSessionBtn'),
-      replayBtn:$('#replayBtn'),
-      summaryHomeBtn:$('#summaryHomeBtn'),
-      navHome:$('#navHome'),
-      navSessions:$('#navSessions'),
-      navPlay:$('#navPlay'),
-      navStats:$('#navStats'),
-      toast:$('#toast'),
-      modal:$('#modal'),
-      modalTitle:$('#modalTitle'),
-      modalBody:$('#modalBody'),
-      closeModalBtn:$('#closeModalBtn'),
-      debugBox:$('#debugBox')
-    };
+    const els = {};
+
+    function cacheEls(){
+      [
+        'boot','bootStatus','studentTop','sessionTop','topSub',
+        'homeView','gameView','summaryView','sessionGrid',
+        'studentId','studentName','section','difficulty',
+        'saveProfileBtn','resetProgressBtn','startCurrentBtn','openSessionBtn','openGuideBtn',
+        'attSession','attTime','activeTime','sheetStatus','homeScore','homeCompleted','homeLevel',
+        'hudSession','hudSkill','hudScore','hudHp','hudTime',
+        'missionTitle','missionSub','missionBadge','promptLabel','promptCount','promptText','promptHint',
+        'choiceArea','answerArea','textAnswer','submitTextBtn','aiHelpBtn','speakBtn',
+        'feedback','listenBtn','nextBtn','backHomeBtn',
+        'sideTitle','sideDesc','progressText','progressBar','skillList','bossPanel','bossHearts','coachTip',
+        'summaryTitle','summaryDesc','sumScore','sumAcc','sumTime','sumSkills',
+        'nextSessionBtn','replayBtn','summaryHomeBtn',
+        'navHome','navSessions','navPlay','navStats',
+        'toast','modal','modalTitle','modalBody','closeModalBtn','debugBox'
+      ].forEach(id => {
+        els[id] = document.getElementById(id);
+      });
+    }
 
     function esc(s){
-      return String(s ?? '').replace(/[&<>"']/g, m => ({
-        '&':'&amp;',
-        '<':'&lt;',
-        '>':'&gt;',
-        '"':'&quot;',
-        "'":'&#39;'
-      }[m]));
+      return String(s ?? '').replace(/[&<>"']/g, function(m){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+      });
     }
 
     function clamp(n,min,max){
-      return Math.max(min,Math.min(max,n));
+      return Math.max(min, Math.min(max, n));
     }
 
     function pad(n){
@@ -1614,16 +1518,15 @@
     }
 
     function fmtTime(ms){
-      ms = Math.max(0, Number(ms)||0);
-      const sec = Math.floor(ms/1000);
-      const m = Math.floor(sec/60);
+      ms = Math.max(0, Number(ms) || 0);
+      const sec = Math.floor(ms / 1000);
+      const m = Math.floor(sec / 60);
       const s = sec % 60;
-      return pad(m)+':'+pad(s);
+      return pad(m) + ':' + pad(s);
     }
 
     function nowIso(){
-      try{ return new Date().toISOString(); }
-      catch(e){ return String(Date.now()); }
+      return new Date().toISOString();
     }
 
     function uuid(){
@@ -1635,16 +1538,28 @@
       catch(e){ return new URLSearchParams(); }
     }
 
+    function safeJsonLoad(key, fallback){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      }catch(e){
+        return fallback;
+      }
+    }
+
+    function safeJsonSave(key, val){
+      try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+    }
+
     function normalizeUrl(){
       try{
         const url = new URL(location.href);
         const p = url.searchParams;
 
-        ['level','diff','s','session','studentId','name','section'].forEach(k => {
+        ['level','diff','s','session','studentId','sid','name','nick','section'].forEach(function(k){
           const v = p.get(k);
           if(v && /^https?:\/\//i.test(v)){
-            if(k === 'diff') p.set(k,'normal');
-            else if(k === 'level') p.set(k,'normal');
+            if(k === 'diff' || k === 'level') p.set(k,'normal');
             else p.delete(k);
           }
         });
@@ -1654,33 +1569,64 @@
         s = clamp(Number.isFinite(s) ? s : 1, 1, 15);
         p.set('s', String(s));
 
-        const diff = p.get('diff') || p.get('level') || 'normal';
-        if(!['easy','normal','hard'].includes(diff)) p.set('diff','normal');
+        let diff = p.get('diff') || p.get('level') || 'normal';
+        if(!['easy','normal','hard'].includes(diff)) diff = 'normal';
+        p.set('diff', diff);
+
         if(!p.get('level')) p.set('level','normal');
         if(!p.get('run')) p.set('run','play');
 
         const fixed = url.toString();
-        if(fixed !== location.href) history.replaceState(null,'',fixed);
+        if(fixed !== location.href){
+          history.replaceState(null,'',fixed);
+        }
       }catch(e){}
     }
 
-    function loadJson(key, fallback){
-      try{
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : fallback;
-      }catch(e){
-        return fallback;
-      }
+    function sessionMeta(n){
+      return SESSIONS.find(x => x.id === Number(n)) || SESSIONS[0];
     }
 
-    function saveJson(key, val){
-      try{ localStorage.setItem(key, JSON.stringify(val)); }
-      catch(e){}
+    function diffMultiplier(){
+      if(state.profile.difficulty === 'easy') return 0.9;
+      if(state.profile.difficulty === 'hard') return 1.2;
+      return 1;
+    }
+
+    function toast(msg, ms){
+      ms = ms || 2200;
+      if(!els.toast) return;
+      els.toast.textContent = msg;
+      els.toast.classList.add('on');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(function(){
+        els.toast.classList.remove('on');
+      }, ms);
+    }
+
+    function modal(title, html){
+      els.modalTitle.textContent = title;
+      els.modalBody.innerHTML = html;
+      els.modal.classList.add('on');
+    }
+
+    function closeModal(){
+      els.modal.classList.remove('on');
+    }
+
+    function setNav(active){
+      [els.navHome,els.navSessions,els.navPlay,els.navStats].forEach(function(btn){
+        btn.classList.remove('active');
+      });
+      if(active === 'home') els.navHome.classList.add('active');
+      if(active === 'sessions') els.navSessions.classList.add('active');
+      if(active === 'play') els.navPlay.classList.add('active');
+      if(active === 'stats') els.navStats.classList.add('active');
     }
 
     function loadProfile(){
       const p = params();
-      const saved = loadJson(STORAGE_PROFILE, {});
+      const saved = safeJsonLoad(STORAGE_PROFILE, {});
       state.profile = {
         studentId: p.get('studentId') || p.get('sid') || saved.studentId || '',
         studentName: p.get('name') || p.get('nick') || saved.studentName || '',
@@ -1703,177 +1649,85 @@
         studentId: els.studentId.value.trim(),
         studentName: els.studentName.value.trim(),
         section: els.section.value.trim(),
-        difficulty: els.difficulty.value
+        difficulty: els.difficulty.value || 'normal'
       };
-      saveJson(STORAGE_PROFILE, state.profile);
+
+      safeJsonSave(STORAGE_PROFILE, state.profile);
+
+      try{
+        const url = new URL(location.href);
+        url.searchParams.set('diff', state.profile.difficulty);
+        if(state.profile.studentId) url.searchParams.set('studentId', state.profile.studentId);
+        if(state.profile.studentName) url.searchParams.set('name', state.profile.studentName);
+        if(state.profile.section) url.searchParams.set('section', state.profile.section);
+        history.replaceState(null,'',url.toString());
+      }catch(e){}
+
       updateTop();
       toast('บันทึกโปรไฟล์แล้ว');
     }
 
     function loadProgress(){
-      state.progress = loadJson(STORAGE_PROGRESS, { completed:{}, bestScore:{}, sessions:[] });
+      state.progress = safeJsonLoad(STORAGE_PROGRESS, { completed:{}, bestScore:{}, sessions:[] });
       if(!state.progress.completed) state.progress.completed = {};
       if(!state.progress.bestScore) state.progress.bestScore = {};
       if(!Array.isArray(state.progress.sessions)) state.progress.sessions = [];
     }
 
     function saveProgress(){
-      saveJson(STORAGE_PROGRESS, state.progress);
+      safeJsonSave(STORAGE_PROGRESS, state.progress);
     }
 
     function setSession(n){
-      state.currentSession = clamp(parseInt(n,10)||1,1,15);
+      state.currentSession = clamp(parseInt(n,10) || 1, 1, 15);
       localStorage.setItem(STORAGE_LAST, String(state.currentSession));
+
       try{
         const url = new URL(location.href);
         url.searchParams.set('s', String(state.currentSession));
         url.searchParams.set('diff', state.profile.difficulty || 'normal');
         history.replaceState(null,'',url.toString());
       }catch(e){}
+
       updateTop();
       renderSessions();
     }
 
-    function sessionMeta(n){
-      return SESSION_TOPICS.find(x => x.id === Number(n)) || SESSION_TOPICS[0];
-    }
-
-    function diffMultiplier(){
-      const d = state.profile.difficulty;
-      if(d === 'easy') return 0.9;
-      if(d === 'hard') return 1.2;
-      return 1;
-    }
-
-    function pickQuestion(skillId){
-      const arr = QUESTION_BANK[skillId] || [];
-      const meta = sessionMeta(state.currentSession);
-      const index = (state.currentSession + state.currentSkillIndex + (meta.boss ? 1 : 0)) % arr.length;
-      const base = JSON.parse(JSON.stringify(arr[index]));
-      return adaptQuestion(base, skillId, meta);
-    }
-
-    function adaptQuestion(q, skillId, meta){
-      const topic = meta.title;
-      if(skillId === 'writing'){
-        q.prompt = q.prompt + ' Topic: ' + topic + '.';
-      }
-      if(skillId === 'speaking'){
-        q.prompt = q.prompt + ' Session topic: ' + topic + '.';
-      }
-      return q;
-    }
-
-    function speakText(text){
-      try{
-        if(!('speechSynthesis' in window)){
-          toast('อุปกรณ์นี้ยังไม่รองรับเสียงอ่านอัตโนมัติ');
-          return;
-        }
-        speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(String(text || ''));
-        u.lang = 'en-US';
-        u.rate = 0.88;
-        u.pitch = 1.02;
-        speechSynthesis.speak(u);
-      }catch(e){
-        toast('เล่นเสียงไม่ได้ แต่ยังเลือกคำตอบได้');
-      }
-    }
-
-    function toast(msg, ms=2200){
-      els.toast.textContent = msg;
-      els.toast.classList.add('on');
-      clearTimeout(toast._t);
-      toast._t = setTimeout(() => els.toast.classList.remove('on'), ms);
-    }
-
-    function modal(title, html){
-      els.modalTitle.textContent = title;
-      els.modalBody.innerHTML = html;
-      els.modal.classList.add('on');
-    }
-
-    function closeModal(){
-      els.modal.classList.remove('on');
-    }
-
-    function logDebug(msg){
-      const line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
-      els.debugBox.textContent = line + '\n' + els.debugBox.textContent;
-    }
-
-    function sendLog(type, extra){
-      const payload = {
-        api:'attendance',
-        source:'techpath_lesson_html_patch',
-        type,
-        timestamp: nowIso(),
-        session_event_id: uuid(),
-        session_id: state.sessionId || '',
-        s: state.currentSession,
-        skill: SKILLS[state.currentSkillIndex]?.id || '',
-        student_id: state.profile.studentId || '',
-        display_name: state.profile.studentName || '',
-        section: state.profile.section || '',
-        diff: state.profile.difficulty || 'normal',
-        score: state.score,
-        hp: state.hp,
-        correct: state.correct,
-        total: state.total,
-        page_url: location.href,
-        user_agent: navigator.userAgent,
-        extra: extra || {}
-      };
-
-      try{
-        els.sheetStatus.textContent = 'Sending';
-        const body = JSON.stringify(payload);
-
-        if(navigator.sendBeacon){
-          const blob = new Blob([body], {type:'text/plain;charset=UTF-8'});
-          navigator.sendBeacon(SHEET_ENDPOINT, blob);
-          els.sheetStatus.textContent = 'Sent';
-          return;
-        }
-
-        fetch(SHEET_ENDPOINT, {
-          method:'POST',
-          mode:'no-cors',
-          headers:{'Content-Type':'text/plain;charset=UTF-8'},
-          body
-        }).then(() => {
-          els.sheetStatus.textContent = 'Sent';
-        }).catch(() => {
-          els.sheetStatus.textContent = 'Local';
-        });
-      }catch(e){
-        els.sheetStatus.textContent = 'Local';
-      }
-    }
-
     function updateTop(){
-      const n = state.currentSession;
-      const meta = sessionMeta(n);
-      const name = state.profile.studentName || state.profile.studentId || '-';
+      const meta = sessionMeta(state.currentSession);
+      const displayName = state.profile.studentName || state.profile.studentId || '-';
 
-      els.studentTop.textContent = 'Student: ' + name;
-      els.sessionTop.textContent = 'S' + pad(n);
-      els.attSession.textContent = 'S' + pad(n);
+      els.studentTop.textContent = 'Student: ' + displayName;
+      els.sessionTop.textContent = 'S' + pad(state.currentSession);
+      els.attSession.textContent = 'S' + pad(state.currentSession);
       els.homeLevel.textContent = state.profile.difficulty || 'normal';
       els.topSub.textContent = meta.level + ' • ' + meta.title;
       els.homeScore.textContent = String(state.score || 0);
-
-      const doneCount = Object.keys(state.progress.completed || {}).length;
-      els.homeCompleted.textContent = doneCount + '/15';
+      els.homeCompleted.textContent = Object.keys(state.progress.completed || {}).length + '/15';
     }
 
-    function setNav(active){
-      [els.navHome, els.navSessions, els.navPlay, els.navStats].forEach(b => b.classList.remove('active'));
-      if(active === 'home') els.navHome.classList.add('active');
-      if(active === 'sessions') els.navSessions.classList.add('active');
-      if(active === 'play') els.navPlay.classList.add('active');
-      if(active === 'stats') els.navStats.classList.add('active');
+    function renderSessions(){
+      els.sessionGrid.innerHTML = SESSIONS.map(function(s){
+        const done = !!state.progress.completed[s.id];
+        const active = s.id === state.currentSession;
+        return `
+          <button class="sessionBtn ${done?'done':''} ${active?'active':''}" data-s="${s.id}" type="button">
+            <span class="n">S${pad(s.id)}</span>
+            <span class="t">${esc(s.title)}</span>
+            <span class="tags">
+              <span class="tag">${esc(s.level)}</span>
+              ${s.boss ? '<span class="tag boss">Boss</span>' : '<span class="tag">4 Skills</span>'}
+            </span>
+          </button>
+        `;
+      }).join('');
+
+      $$('.sessionBtn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          setSession(btn.dataset.s);
+          toast('เลือก S' + pad(state.currentSession) + ' แล้ว');
+        });
+      });
     }
 
     function showHome(){
@@ -1903,34 +1757,74 @@
       window.scrollTo({top:0,behavior:'smooth'});
     }
 
-    function renderSessions(){
-      els.sessionGrid.innerHTML = SESSION_TOPICS.map(s => {
-        const done = !!state.progress.completed[s.id];
-        const active = s.id === state.currentSession;
-        return `
-          <button class="sessionBtn ${done?'done':''} ${active?'active':''}" data-s="${s.id}">
-            <span class="n">S${pad(s.id)}</span>
-            <span class="t">${esc(s.title)}</span>
-            <span class="m">
-              <span class="tag skill">${esc(s.level)}</span>
-              ${s.boss ? '<span class="tag boss">Boss</span>' : '<span class="tag">4 Skills</span>'}
-            </span>
-          </button>
-        `;
-      }).join('');
+    function startTimers(){
+      stopTimers(false);
 
-      $$('.sessionBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          setSession(btn.dataset.s);
-          toast('เลือก S' + pad(state.currentSession) + ' แล้ว');
-        });
-      });
+      state.timer = setInterval(function(){
+        const ms = Date.now() - state.startedAt;
+        els.attTime.textContent = fmtTime(ms);
+        els.hudTime.textContent = fmtTime(ms);
+      }, 500);
+
+      state.activeTimer = setInterval(function(){
+        const ms = Date.now() - state.activeStartedAt;
+        els.activeTime.textContent = fmtTime(ms);
+      }, 500);
+    }
+
+    function stopTimers(clear){
+      if(state.timer) clearInterval(state.timer);
+      if(state.activeTimer) clearInterval(state.activeTimer);
+      state.timer = null;
+      state.activeTimer = null;
+
+      if(clear){
+        els.attTime.textContent = '00:00';
+        els.activeTime.textContent = '00:00';
+      }
+    }
+
+    function speakText(text){
+      try{
+        if(!('speechSynthesis' in window)){
+          toast('อุปกรณ์นี้ยังไม่รองรับเสียงอ่านอัตโนมัติ');
+          return;
+        }
+
+        window.speechSynthesis.cancel();
+
+        const u = new SpeechSynthesisUtterance(String(text || ''));
+        u.lang = 'en-US';
+        u.rate = 0.88;
+        u.pitch = 1.02;
+        window.speechSynthesis.speak(u);
+      }catch(e){
+        toast('เล่นเสียงไม่ได้ แต่ยังเลือกคำตอบได้');
+      }
+    }
+
+    function pickQuestion(skillId){
+      const arr = BANK[skillId] || [];
+      const meta = sessionMeta(state.currentSession);
+      const idx = (state.currentSession + state.currentSkillIndex + (meta.boss ? 1 : 0)) % arr.length;
+      const q = JSON.parse(JSON.stringify(arr[idx]));
+
+      if(skillId === 'writing'){
+        q.prompt = q.prompt + ' Topic: ' + meta.title + '.';
+      }
+
+      if(skillId === 'speaking'){
+        q.prompt = q.prompt + ' Session topic: ' + meta.title + '.';
+      }
+
+      return q;
     }
 
     function renderSkillList(){
-      els.skillList.innerHTML = SKILLS.map((sk,i) => {
+      els.skillList.innerHTML = SKILLS.map(function(sk,i){
         const cls = i < state.currentSkillIndex ? 'done' : i === state.currentSkillIndex ? 'now' : '';
         const status = i < state.currentSkillIndex ? 'Done' : i === state.currentSkillIndex ? 'Now' : 'Next';
+
         return `
           <div class="skillRow ${cls}">
             <div class="skillIcon">${sk.icon}</div>
@@ -1944,15 +1838,46 @@
       }).join('');
     }
 
+    function renderBossHearts(){
+      const meta = sessionMeta(state.currentSession);
+
+      if(!meta.boss){
+        els.bossHearts.textContent = '';
+        return;
+      }
+
+      const maxHp = meta.final ? 5 : 3;
+      let out = '';
+
+      for(let i=0;i<maxHp;i++){
+        out += i < state.bossHp ? '❤️ ' : '🖤 ';
+      }
+
+      els.bossHearts.textContent = out.trim();
+    }
+
+    function coachFor(skillId){
+      const tips = {
+        listening:'ฟังกริยาและคำนามสำคัญ เช่น test, deploy, dataset, accuracy',
+        speaking:'พูดเป็นประโยคสั้น ๆ ชัด ๆ: subject + verb + detail',
+        reading:'อ่านหา keyword ก่อน แล้วดูประโยคที่ตอบคำถามโดยตรง',
+        writing:'เขียน 1–2 ประโยคพอ แต่ต้องมีใคร ทำอะไร และรายละเอียดงานเทคโนโลยี'
+      };
+      return tips[skillId] || tips.listening;
+    }
+
     function startSession(){
       saveProfile();
+
+      const meta = sessionMeta(state.currentSession);
+
       state.sessionId = uuid();
       state.currentSkillIndex = 0;
       state.score = 0;
       state.hp = 100;
       state.correct = 0;
       state.total = 0;
-      state.bossHp = sessionMeta(state.currentSession).final ? 5 : 3;
+      state.bossHp = meta.final ? 5 : 3;
       state.startedAt = Date.now();
       state.activeStartedAt = Date.now();
       state.locked = false;
@@ -1960,49 +1885,29 @@
       showGame();
       renderMission();
       startTimers();
+
       sendLog('session_start', {
-        title: sessionMeta(state.currentSession).title,
-        focus: sessionMeta(state.currentSession).focus
+        title: meta.title,
+        focus: meta.focus
       });
+
       toast('เริ่ม S' + pad(state.currentSession) + ' แล้ว');
-    }
-
-    function startTimers(){
-      stopTimers(false);
-      state.timer = setInterval(() => {
-        const ms = Date.now() - state.startedAt;
-        els.attTime.textContent = fmtTime(ms);
-        els.hudTime.textContent = fmtTime(ms);
-      }, 500);
-
-      state.activeTimer = setInterval(() => {
-        const ms = Date.now() - state.activeStartedAt;
-        els.activeTime.textContent = fmtTime(ms);
-      }, 500);
-    }
-
-    function stopTimers(clear=true){
-      if(state.timer) clearInterval(state.timer);
-      if(state.activeTimer) clearInterval(state.activeTimer);
-      state.timer = null;
-      state.activeTimer = null;
-      if(clear){
-        els.attTime.textContent = '00:00';
-        els.activeTime.textContent = '00:00';
-      }
     }
 
     function renderMission(){
       const meta = sessionMeta(state.currentSession);
       const skill = SKILLS[state.currentSkillIndex] || SKILLS[0];
       const q = pickQuestion(skill.id);
+
       state.currentQuestion = q;
       state.locked = false;
 
       els.hudSession.textContent = 'S' + pad(state.currentSession);
       els.hudSkill.textContent = skill.label;
       els.hudScore.textContent = String(state.score);
-      els.hudHp.textContent = Math.max(0, state.hp) + '%';
+      els.hudHp.textContent = Math.max(0,state.hp) + '%';
+      els.hudTime.textContent = '00:00';
+
       els.sideTitle.textContent = 'S' + pad(state.currentSession) + ' Progress';
       els.sideDesc.textContent = meta.focus;
       els.missionTitle.textContent = skill.icon + ' ' + skill.label + ' Mission';
@@ -2025,8 +1930,13 @@
       renderBossHearts();
       renderSkillList();
       renderAnswerMode(skill.id, q);
-      updateCoachTip(skill.id);
-      sendLog('skill_start', { skill: skill.id, prompt: q.prompt });
+
+      els.coachTip.textContent = coachFor(skill.id);
+
+      sendLog('skill_start', {
+        skill: skill.id,
+        prompt: q.prompt
+      });
     }
 
     function renderAnswerMode(skillId, q){
@@ -2037,12 +1947,15 @@
 
       if(skillId === 'listening' || skillId === 'reading'){
         els.choiceArea.classList.remove('hidden');
-        q.choices.forEach((c,i) => {
+
+        q.choices.forEach(function(c,i){
           const btn = document.createElement('button');
-          btn.className = 'choice';
           btn.type = 'button';
+          btn.className = 'choice';
           btn.innerHTML = '<b>' + String.fromCharCode(65+i) + '.</b> ' + esc(c);
-          btn.addEventListener('click', () => answerChoice(i, btn));
+          btn.addEventListener('click', function(){
+            answerChoice(i, btn);
+          });
           els.choiceArea.appendChild(btn);
         });
       }else{
@@ -2050,18 +1963,23 @@
       }
 
       if(skillId === 'listening'){
-        setTimeout(() => speakText(q.say || q.prompt), 250);
+        setTimeout(function(){
+          speakText(q.say || q.prompt);
+        }, 300);
       }
     }
 
-    function answerChoice(index, btn){
+    function answerChoice(index){
       if(state.locked) return;
+
       state.locked = true;
+
       const q = state.currentQuestion;
       const ok = index === q.answer;
+
       state.total += 1;
 
-      $$('.choice').forEach((b,i) => {
+      $$('.choice').forEach(function(b,i){
         if(i === q.answer) b.classList.add('correct');
         else if(i === index) b.classList.add('wrong');
         b.disabled = true;
@@ -2072,9 +1990,11 @@
 
     function submitText(){
       if(state.locked) return;
+
       const skill = SKILLS[state.currentSkillIndex].id;
       const q = state.currentQuestion;
       const txt = els.textAnswer.value.trim();
+
       if(!txt){
         toast('พิมพ์คำตอบก่อนนะ');
         return;
@@ -2084,9 +2004,11 @@
       state.total += 1;
 
       let ok = false;
+      const lower = txt.toLowerCase();
+
       if(skill === 'writing'){
-        const lower = txt.toLowerCase();
-        const hits = (q.expected || []).filter(w => lower.includes(String(w).toLowerCase())).length;
+        const expected = q.expected || [];
+        const hits = expected.filter(w => lower.includes(String(w).toLowerCase())).length;
         ok = txt.split(/\s+/).length >= 6 && hits >= 1;
       }else{
         ok = txt.split(/\s+/).length >= 4;
@@ -2095,17 +2017,19 @@
       const msg = ok
         ? 'ผ่าน! คำตอบมีโครงสร้างดีและสื่อสารได้'
         : 'ยังสั้นไป ลองเพิ่ม subject + action + detail เช่น: ' + (q.sample || 'I am a CS student interested in AI.');
+
       finishAnswer(ok, msg);
     }
 
     function finishAnswer(ok, msg){
       if(ok){
         state.correct += 1;
-        const base = Math.round(100 * diffMultiplier());
-        state.score += base;
+        state.score += Math.round(100 * diffMultiplier());
+
         if(sessionMeta(state.currentSession).boss){
           state.bossHp = Math.max(0, state.bossHp - 1);
         }
+
         els.feedback.className = 'feedback on good';
       }else{
         state.hp = Math.max(0, state.hp - (state.profile.difficulty === 'hard' ? 18 : 12));
@@ -2115,39 +2039,17 @@
       els.feedback.textContent = msg;
       els.hudScore.textContent = String(state.score);
       els.hudHp.textContent = state.hp + '%';
+
       renderBossHearts();
+
       els.nextBtn.disabled = false;
 
       sendLog('answer', {
-        ok,
+        ok: ok,
         skill: SKILLS[state.currentSkillIndex].id,
         score_after: state.score,
         hp_after: state.hp
       });
-    }
-
-    function renderBossHearts(){
-      const meta = sessionMeta(state.currentSession);
-      if(!meta.boss){
-        els.bossHearts.textContent = '';
-        return;
-      }
-      const maxHp = meta.final ? 5 : 3;
-      let out = '';
-      for(let i=0;i<maxHp;i++){
-        out += i < state.bossHp ? '❤️ ' : '🖤 ';
-      }
-      els.bossHearts.textContent = out.trim();
-    }
-
-    function updateCoachTip(skillId){
-      const tips = {
-        listening:'ฟังกริยาและคำนามสำคัญ เช่น test, deploy, dataset, accuracy',
-        speaking:'พูดเป็นประโยคสั้น ๆ ชัด ๆ: subject + verb + detail',
-        reading:'อ่านหา keyword ก่อน แล้วดูประโยคที่ตอบคำถามโดยตรง',
-        writing:'เขียน 1–2 ประโยคพอ แต่ต้องมีใคร ทำอะไร และรายละเอียดงานเทคโนโลยี'
-      };
-      els.coachTip.textContent = tips[skillId] || tips.listening;
     }
 
     function nextMission(){
@@ -2156,6 +2058,7 @@
         renderMission();
         return;
       }
+
       completeSession();
     }
 
@@ -2163,7 +2066,7 @@
       stopTimers(false);
 
       const durationMs = Date.now() - state.startedAt;
-      const acc = state.total ? Math.round((state.correct/state.total)*100) : 0;
+      const acc = state.total ? Math.round((state.correct / state.total) * 100) : 0;
       const meta = sessionMeta(state.currentSession);
 
       state.progress.completed[state.currentSession] = {
@@ -2173,10 +2076,12 @@
         duration_ms: durationMs,
         title: meta.title
       };
+
       state.progress.bestScore[state.currentSession] = Math.max(
         state.progress.bestScore[state.currentSession] || 0,
         state.score
       );
+
       state.progress.sessions.push({
         session_id: state.sessionId,
         s: state.currentSession,
@@ -2185,7 +2090,9 @@
         duration_ms: durationMs,
         at: nowIso()
       });
-      state.progress.sessions = state.progress.sessions.slice(-80);
+
+      state.progress.sessions = state.progress.sessions.slice(-100);
+
       saveProgress();
 
       els.summaryTitle.textContent = 'S' + pad(state.currentSession) + ' Complete!';
@@ -2204,6 +2111,7 @@
 
       showSummary();
       updateTop();
+
       toast('บันทึกผล S' + pad(state.currentSession) + ' แล้ว');
     }
 
@@ -2219,20 +2127,23 @@
       let text = '';
 
       if(skill === 'writing'){
-        text =
-          'ตัวอย่างโครงประโยค:\n' +
+        text = 'ตัวอย่างโครงประโยค:\\n' +
           (q.sample || 'My project is an app that helps students learn vocabulary.') +
-          '\n\nลองปรับให้เป็นคำของตัวเอง โดยใส่ชื่อ project หรือสิ่งที่ทำจริง';
+          '\\n\\nลองปรับให้เป็นคำของตัวเอง โดยใส่ชื่อ project หรือสิ่งที่ทำจริง';
         els.textAnswer.value = q.sample || '';
       }else if(skill === 'speaking'){
-        text = 'พูดตามนี้ก่อน แล้วค่อยเปลี่ยนคำบางคำ:\n' + (q.sample || q.prompt);
+        text = 'พูดตามนี้ก่อน แล้วค่อยเปลี่ยนคำบางคำ:\\n' + (q.sample || q.prompt);
         els.textAnswer.value = q.sample || '';
       }else{
         text = q.hint || 'ดู keyword สำคัญในโจทย์';
       }
 
-      modal('AI Help', '<p style="line-height:1.7;color:#d8ecff;font-weight:750;white-space:pre-wrap">' + esc(text) + '</p>');
-      sendLog('ai_help', { skill, prompt: q.prompt });
+      modal('AI Help', '<p style="line-height:1.7;color:#d8ecff;font-weight:760;white-space:pre-wrap">' + esc(text) + '</p>');
+
+      sendLog('ai_help', {
+        skill: skill,
+        prompt: q.prompt
+      });
     }
 
     function startSpeaking(){
@@ -2244,40 +2155,60 @@
 
     function resetProgress(){
       if(!confirm('รีเซ็ตความคืบหน้าทั้งหมดใช่ไหม?')) return;
+
       state.progress = { completed:{}, bestScore:{}, sessions:[] };
-      saveProgress();
       state.score = 0;
+
+      saveProgress();
       updateTop();
       renderSessions();
+
       toast('รีเซ็ตแล้ว');
     }
 
+    function showGuide(){
+      modal('วิธีเล่น TechPath English VR', `
+        <div style="color:#d8ecff;line-height:1.75;font-weight:730">
+          <p><b>1)</b> ใส่ Student ID / Name / Section ก่อนเริ่ม</p>
+          <p><b>2)</b> เลือก Session S1–S15</p>
+          <p><b>3)</b> แต่ละ S มี 4 ทักษะ: Listening, Speaking, Reading, Writing</p>
+          <p><b>4)</b> S3 / S6 / S9 / S12 / S15 มี Boss Challenge</p>
+          <p><b>5)</b> เมื่อจบ Session ระบบจะบันทึก score, accuracy, time และ attendance</p>
+        </div>
+      `);
+    }
+
     function showStats(){
-      const completed = Object.keys(state.progress.completed || {});
+      const completed = Object.keys(state.progress.completed || {}).sort(function(a,b){
+        return Number(a) - Number(b);
+      });
+
       const rows = completed.length
-        ? completed.sort((a,b)=>Number(a)-Number(b)).map(k => {
-          const r = state.progress.completed[k];
-          return `<tr>
-            <td>S${pad(k)}</td>
-            <td>${esc(r.title || '')}</td>
-            <td>${r.score || 0}</td>
-            <td>${r.accuracy || 0}%</td>
-            <td>${fmtTime(r.duration_ms || 0)}</td>
-          </tr>`;
+        ? completed.map(function(k){
+          const r = state.progress.completed[k] || {};
+          return `
+            <tr>
+              <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">S${pad(k)}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">${esc(r.title || '')}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">${r.score || 0}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">${r.accuracy || 0}%</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">${fmtTime(r.duration_ms || 0)}</td>
+            </tr>
+          `;
         }).join('')
-        : '<tr><td colspan="5">ยังไม่มี Session ที่จบ</td></tr>';
+        : '<tr><td colspan="5" style="padding:10px">ยังไม่มี Session ที่จบ</td></tr>';
 
       modal('Learning Stats', `
-        <p style="color:#cfe2f5;font-weight:750">Completed: <b>${completed.length}/15</b></p>
+        <p style="color:#cfe3f6;font-weight:760">Completed: <b>${completed.length}/15</b></p>
         <div style="overflow:auto">
           <table style="width:100%;border-collapse:collapse;color:#eef7ff">
             <thead>
               <tr>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.16)">S</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.16)">Topic</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.16)">Score</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.16)">Acc</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.16)">Time</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">S</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">Topic</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">Score</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">Acc</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">Time</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -2286,31 +2217,71 @@
       `);
     }
 
-    function showGuide(){
-      modal('วิธีเล่น TechPath English VR', `
-        <div style="color:#d8ecff;line-height:1.7;font-weight:720">
-          <p><b>1)</b> ใส่ Student ID / Name / Section ก่อนเริ่ม</p>
-          <p><b>2)</b> เลือก Session S1–S15</p>
-          <p><b>3)</b> ในแต่ละ S จะฝึก 4 ทักษะ: Listening, Speaking, Reading, Writing</p>
-          <p><b>4)</b> S3 / S6 / S9 / S12 / S15 มี Boss Challenge</p>
-          <p><b>5)</b> เมื่อจบ Session ระบบจะบันทึก score, accuracy, time และ attendance</p>
-        </div>
-      `);
+    function sendLog(type, extra){
+      const payload = {
+        api:'attendance',
+        source:'techpath_lesson_html_self_contained',
+        type:type,
+        timestamp:nowIso(),
+        event_id:uuid(),
+        session_id:state.sessionId || '',
+        s:state.currentSession,
+        skill:SKILLS[state.currentSkillIndex] ? SKILLS[state.currentSkillIndex].id : '',
+        student_id:state.profile.studentId || '',
+        display_name:state.profile.studentName || '',
+        section:state.profile.section || '',
+        diff:state.profile.difficulty || 'normal',
+        score:state.score,
+        hp:state.hp,
+        correct:state.correct,
+        total:state.total,
+        page_url:location.href,
+        user_agent:navigator.userAgent,
+        extra:extra || {}
+      };
+
+      try{
+        els.sheetStatus.textContent = 'Sending';
+
+        const body = JSON.stringify(payload);
+
+        if(navigator.sendBeacon){
+          const blob = new Blob([body], {type:'text/plain;charset=UTF-8'});
+          navigator.sendBeacon(SHEET_ENDPOINT, blob);
+          els.sheetStatus.textContent = 'Sent';
+          return;
+        }
+
+        fetch(SHEET_ENDPOINT, {
+          method:'POST',
+          mode:'no-cors',
+          headers:{'Content-Type':'text/plain;charset=UTF-8'},
+          body:body
+        }).then(function(){
+          els.sheetStatus.textContent = 'Sent';
+        }).catch(function(){
+          els.sheetStatus.textContent = 'Local';
+        });
+      }catch(e){
+        els.sheetStatus.textContent = 'Local';
+      }
     }
 
     function bind(){
       els.saveProfileBtn.addEventListener('click', saveProfile);
       els.resetProgressBtn.addEventListener('click', resetProgress);
       els.startCurrentBtn.addEventListener('click', startSession);
-      els.openSessionBtn.addEventListener('click', () => {
+
+      els.openSessionBtn.addEventListener('click', function(){
         document.getElementById('sessionPicker').scrollIntoView({behavior:'smooth',block:'start'});
         setNav('sessions');
       });
+
       els.openGuideBtn.addEventListener('click', showGuide);
 
-      els.listenBtn.addEventListener('click', () => {
-        const q = state.currentQuestion;
-        speakText(q.say || q.sample || q.prompt);
+      els.listenBtn.addEventListener('click', function(){
+        const q = state.currentQuestion || {};
+        speakText(q.say || q.sample || q.prompt || '');
       });
 
       els.nextBtn.addEventListener('click', nextMission);
@@ -2324,20 +2295,25 @@
       els.summaryHomeBtn.addEventListener('click', showHome);
 
       els.navHome.addEventListener('click', showHome);
-      els.navSessions.addEventListener('click', () => {
+
+      els.navSessions.addEventListener('click', function(){
         showHome();
-        setTimeout(() => document.getElementById('sessionPicker').scrollIntoView({behavior:'smooth'}), 80);
+        setTimeout(function(){
+          document.getElementById('sessionPicker').scrollIntoView({behavior:'smooth'});
+        },80);
         setNav('sessions');
       });
+
       els.navPlay.addEventListener('click', startSession);
       els.navStats.addEventListener('click', showStats);
 
       els.closeModalBtn.addEventListener('click', closeModal);
-      els.modal.addEventListener('click', e => {
+
+      els.modal.addEventListener('click', function(e){
         if(e.target === els.modal) closeModal();
       });
 
-      window.addEventListener('beforeunload', () => {
+      window.addEventListener('beforeunload', function(){
         if(state.sessionId){
           sendLog('page_leave', {
             duration_ms: state.startedAt ? Date.now() - state.startedAt : 0
@@ -2345,7 +2321,7 @@
         }
       });
 
-      document.addEventListener('visibilitychange', () => {
+      document.addEventListener('visibilitychange', function(){
         if(document.hidden){
           sendLog('page_hidden', {});
         }else{
@@ -2355,41 +2331,9 @@
       });
     }
 
-    function boot(){
-      try{
-        normalizeUrl();
-        loadProfile();
-        loadProgress();
-
-        const p = params();
-        const s = parseInt(p.get('s') || localStorage.getItem(STORAGE_LAST) || '1',10);
-        setSession(s);
-
-        bind();
-        renderSessions();
-        updateTop();
-        showHome();
-
-        window.TECHPATH_BOOT_OK = true;
-        els.bootStatus.textContent = 'READY';
-        logDebug('Boot OK');
-
-        setTimeout(() => {
-          els.boot.classList.add('off');
-        }, 350);
-
-        sendLog('page_open', {
-          boot:'ok',
-          title: sessionMeta(state.currentSession).title
-        });
-      }catch(err){
-        window.TECHPATH_BOOT_OK = false;
-        hardFail(err);
-      }
-    }
-
     function hardFail(err){
       const msg = err && (err.stack || err.message || String(err)) || 'Unknown boot error';
+
       document.body.innerHTML = `
         <div style="
           min-height:100vh;
@@ -2397,7 +2341,7 @@
           align-items:center;
           justify-content:center;
           padding:24px;
-          background:linear-gradient(180deg,#07111f,#050b16);
+          background:linear-gradient(180deg,#07111f,#030814);
           color:#eef7ff;
           font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
         ">
@@ -2409,8 +2353,8 @@
             padding:28px;
             box-shadow:0 22px 70px rgba(0,0,0,.35);
           ">
-            <h1 style="margin:0 0 12px;color:#70e6ff;font-size:34px">TechPath VR Boot Error</h1>
-            <p style="line-height:1.65;color:#cfe2f5;font-weight:750">
+            <h1 style="margin:0 0 12px;color:#72e8ff;font-size:34px">TechPath VR Boot Error</h1>
+            <p style="line-height:1.65;color:#cfe3f6;font-weight:760">
               ไฟล์ lesson.html โหลดแล้ว แต่ระบบเริ่มเกมไม่สำเร็จ ให้ดู error ด้านล่าง
             </p>
             <pre style="
@@ -2427,7 +2371,7 @@
                 display:inline-block;
                 padding:14px 18px;
                 border-radius:18px;
-                background:#70e6ff;
+                background:#72e8ff;
                 color:#06111f;
                 font-weight:1000;
                 text-decoration:none;
@@ -2438,9 +2382,49 @@
       `;
     }
 
+    function boot(){
+      try{
+        cacheEls();
+        normalizeUrl();
+        loadProfile();
+        loadProgress();
+
+        const p = params();
+        const s = parseInt(p.get('s') || localStorage.getItem(STORAGE_LAST) || '1', 10);
+
+        setSession(s);
+        bind();
+        renderSessions();
+        updateTop();
+        showHome();
+
+        window.TECHPATH_BOOT_OK = true;
+
+        els.bootStatus.textContent = 'READY';
+
+        setTimeout(function(){
+          if(els.boot) els.boot.classList.add('off');
+        }, 200);
+
+        sendLog('page_open', {
+          boot:'ok',
+          title: sessionMeta(state.currentSession).title
+        });
+      }catch(err){
+        window.TECHPATH_BOOT_OK = false;
+        hardFail(err);
+      }
+    }
+
     window.addEventListener('error', function(e){
       if(!window.TECHPATH_BOOT_OK){
-        hardFail(new Error((e.message || 'JS Error') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '')));
+        hardFail(new Error(
+          (e.message || 'JS Error') +
+          ' @ ' +
+          (e.filename || '') +
+          ':' +
+          (e.lineno || '')
+        ));
       }
     });
 
@@ -2450,14 +2434,13 @@
       }
     });
 
-    setTimeout(() => {
-      if(!window.TECHPATH_BOOT_OK){
-        hardFail(new Error('Boot timeout: app did not finish initialization within 6 seconds.'));
-      }
-    }, 6000);
-
+    /*
+      สำคัญ:
+      ไม่มี boot timeout แล้ว เพื่อไม่ให้ขึ้น Error ทั้งที่ browser กำลัง mount DOM
+      ไฟล์นี้เป็น self-contained และ script อยู่ท้าย body จึงเรียก boot ได้ทันที
+    */
     if(document.readyState === 'loading'){
-      document.addEventListener('DOMContentLoaded', boot);
+      document.addEventListener('DOMContentLoaded', boot, { once:true });
     }else{
       boot();
     }
