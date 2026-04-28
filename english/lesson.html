@@ -2235,6 +2235,132 @@
       .autoNextCount{margin:12px auto 0}
       .autoNextActions{justify-content:center}
     }
+
+    /* =========================================================
+       PATCH: MOBILE MISSION ROUTE HORIZONTAL SCROLL FIX
+       This block intentionally overrides previous stage map grid styles.
+    ========================================================= */
+
+    .stageMapPanel{
+      overflow:hidden;
+    }
+
+    .stageRouteMap{
+      position:relative;
+      z-index:1;
+
+      display:flex !important;
+      flex-wrap:nowrap !important;
+      grid-template-columns:none !important;
+
+      width:100%;
+      max-width:100%;
+      min-width:0;
+
+      gap:10px;
+      overflow-x:auto !important;
+      overflow-y:hidden !important;
+
+      padding:8px 4px 22px;
+
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior-x:contain;
+      touch-action:pan-x;
+
+      scroll-snap-type:x proximity;
+      scrollbar-width:thin;
+      cursor:grab;
+    }
+
+    .stageRouteMap.dragging{
+      cursor:grabbing;
+      scroll-snap-type:none;
+      user-select:none;
+    }
+
+    .stageRouteMap::-webkit-scrollbar{
+      height:10px;
+    }
+
+    .stageRouteMap::-webkit-scrollbar-track{
+      background:rgba(255,255,255,.08);
+      border-radius:999px;
+    }
+
+    .stageRouteMap::-webkit-scrollbar-thumb{
+      background:linear-gradient(90deg,var(--cyan),var(--purple));
+      border-radius:999px;
+    }
+
+    .stageNode{
+      flex:0 0 78px !important;
+      width:78px !important;
+      min-width:78px !important;
+      max-width:78px !important;
+
+      min-height:92px;
+      touch-action:pan-x;
+      scroll-snap-align:start;
+    }
+
+    .stageMapPanel:before{
+      content:"← เลื่อนดู S1–S15 ได้ →";
+      position:absolute;
+      right:18px;
+      bottom:10px;
+      z-index:3;
+      padding:5px 10px;
+      border-radius:999px;
+      background:rgba(7,17,31,.76);
+      border:1px solid rgba(255,255,255,.14);
+      color:#cfe3f6;
+      font-size:11px;
+      font-weight:900;
+      pointer-events:none;
+      backdrop-filter:blur(10px);
+    }
+
+    @media (min-width:981px){
+      .stageMapPanel:before{
+        display:none;
+      }
+    }
+
+    @media (max-width:620px){
+      .stageRouteMap{
+        gap:9px;
+        padding:8px 4px 24px;
+      }
+
+      .stageNode{
+        flex-basis:72px !important;
+        width:72px !important;
+        min-width:72px !important;
+        max-width:72px !important;
+        min-height:88px;
+        border-radius:20px;
+      }
+
+      .stageNodeIcon{
+        width:36px;
+        height:36px;
+        border-radius:15px;
+        font-size:20px;
+      }
+
+      .stageNodeCode{
+        font-size:12px;
+      }
+
+      .stageNodeSkill{
+        font-size:9px;
+      }
+
+      .stageNodeStatus{
+        font-size:9px;
+        padding:3px 6px;
+      }
+    }
   </style>
 </head>
 
@@ -2834,8 +2960,7 @@
         els[id] = document.getElementById(id);
       });
     }
-
-    function esc(s){
+        function esc(s){
       return String(s ?? '').replace(/[&<>"']/g,function(m){
         return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
       });
@@ -4249,8 +4374,7 @@
 
       setTimeout(function(){n.remove();},800);
     }
-
-    function coachFor(skillId){
+        function coachFor(skillId){
       return {
         listening:'ฟัง keyword สำคัญ อย่าอ่านคำตอบก่อนจนลืมจับเสียงหลัก',
         speaking:'กด Speak Answer แล้วพูดให้ชัด ระบบจะถอดเสียงเป็นข้อความก่อน Submit',
@@ -4402,6 +4526,79 @@
       return 'PLAY';
     }
 
+    function bindStageRouteDrag(){
+      const scroller = els.stageRouteMap;
+
+      if(!scroller || scroller.dataset.dragBound === '1') return;
+
+      scroller.dataset.dragBound = '1';
+
+      let isDown = false;
+      let startX = 0;
+      let startLeft = 0;
+      let moved = false;
+
+      scroller.addEventListener('pointerdown', function(e){
+        if(e.pointerType === 'mouse' && e.button !== 0) return;
+
+        isDown = true;
+        moved = false;
+        startX = e.clientX;
+        startLeft = scroller.scrollLeft;
+
+        scroller.classList.add('dragging');
+        scroller.dataset.justDragged = '0';
+
+        try{
+          scroller.setPointerCapture(e.pointerId);
+        }catch(err){}
+      });
+
+      scroller.addEventListener('pointermove', function(e){
+        if(!isDown) return;
+
+        const dx = e.clientX - startX;
+
+        if(Math.abs(dx) > 6){
+          moved = true;
+          scroller.scrollLeft = startLeft - dx;
+          e.preventDefault();
+        }
+      });
+
+      function endDrag(e){
+        if(!isDown) return;
+
+        isDown = false;
+        scroller.classList.remove('dragging');
+
+        try{
+          if(e && e.pointerId !== undefined){
+            scroller.releasePointerCapture(e.pointerId);
+          }
+        }catch(err){}
+
+        if(moved){
+          scroller.dataset.justDragged = '1';
+
+          setTimeout(function(){
+            scroller.dataset.justDragged = '0';
+          },140);
+        }
+      }
+
+      scroller.addEventListener('pointerup', endDrag);
+      scroller.addEventListener('pointercancel', endDrag);
+      scroller.addEventListener('pointerleave', endDrag);
+
+      scroller.addEventListener('click', function(e){
+        if(scroller.dataset.justDragged === '1'){
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
+    }
+
     function renderStageMap(){
       if(!els.stageRouteMap || !SESSIONS || !SESSIONS.length) return;
 
@@ -4427,8 +4624,14 @@
           '</button>';
       }).join('');
 
+      bindStageRouteDrag();
+
       $$('.stageNode').forEach(function(btn){
         btn.addEventListener('click',function(){
+          if(els.stageRouteMap && els.stageRouteMap.dataset.justDragged === '1'){
+            return;
+          }
+
           const s = Number(btn.dataset.stage || 1);
 
           setSession(s);
@@ -5667,6 +5870,99 @@
       });
     }
 
+    function runLessonQaGuard(){
+      const expected = {
+        1:'speaking',
+        2:'reading',
+        3:'writing',
+        4:'speaking',
+        5:'listening',
+        6:'reading',
+        7:'writing',
+        8:'listening',
+        9:'speaking',
+        10:'reading',
+        11:'listening',
+        12:'writing',
+        13:'reading',
+        14:'speaking',
+        15:'listening'
+      };
+
+      const bossExpected = {
+        3:true,
+        6:true,
+        9:true,
+        12:true,
+        15:true
+      };
+
+      const problems = [];
+
+      for(let i = 1; i <= 15; i++){
+        const meta = SESSIONS.find(function(x){return x.id === i;});
+        const bank = SESSION_BANK[i] || [];
+
+        if(!meta){
+          problems.push('S' + pad(i) + ' missing session meta');
+          continue;
+        }
+
+        if(meta.skill !== expected[i]){
+          problems.push('S' + pad(i) + ' skill mismatch: expected ' + expected[i] + ', got ' + meta.skill);
+        }
+
+        const shouldBoss = !!bossExpected[i];
+
+        if(!!meta.boss !== shouldBoss){
+          problems.push('S' + pad(i) + ' boss mismatch: expected ' + shouldBoss + ', got ' + !!meta.boss);
+        }
+
+        if(bank.length !== 10){
+          problems.push('S' + pad(i) + ' bank size should be 10, got ' + bank.length);
+        }
+
+        const counts = {easy:0, normal:0, hard:0, challenge:0};
+
+        bank.forEach(function(q){
+          if(q.skill !== expected[i]){
+            problems.push('S' + pad(i) + ' question ' + (q.id || '-') + ' has wrong skill: ' + q.skill);
+          }
+
+          if(counts[q.level] !== undefined){
+            counts[q.level] += 1;
+          }else{
+            problems.push('S' + pad(i) + ' question ' + (q.id || '-') + ' has invalid level: ' + q.level);
+          }
+        });
+
+        if(counts.easy !== 3) problems.push('S' + pad(i) + ' easy count should be 3, got ' + counts.easy);
+        if(counts.normal !== 3) problems.push('S' + pad(i) + ' normal count should be 3, got ' + counts.normal);
+        if(counts.hard !== 3) problems.push('S' + pad(i) + ' hard count should be 3, got ' + counts.hard);
+        if(counts.challenge !== 1) problems.push('S' + pad(i) + ' challenge count should be 1, got ' + counts.challenge);
+      }
+
+      if(problems.length){
+        console.warn('[TechPath QA Guard] Problems found:', problems);
+
+        if(els.bootStatus){
+          els.bootStatus.textContent = 'QA WARN';
+        }
+
+        toast('QA Guard พบจุดที่ต้องเช็กใน Console',3200);
+      }else{
+        console.log('[TechPath QA Guard] PASS: S1–S15 mapping and question banks are correct.');
+
+        if(els.bootStatus){
+          els.bootStatus.textContent = 'READY';
+        }
+      }
+
+      window.TECHPATH_QA_REPORT = problems;
+
+      return problems;
+    }
+
     function hardFail(err){
       const msg = err && (err.stack || err.message || String(err)) || 'Unknown boot error';
 
@@ -5702,6 +5998,7 @@
         updateTop();
         showHome();
         renderRouteAll();
+        runLessonQaGuard();
 
         window.TECHPATH_BOOT_OK = true;
         els.bootStatus.textContent = 'READY';
