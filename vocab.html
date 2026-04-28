@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>TechPath English • Vocab Battle Quest v5</title>
+  <title>TechPath English • Vocab Battle Quest v8</title>
   <meta name="theme-color" content="#07111f" />
 
   <style>
@@ -24,12 +24,9 @@
       --safe-b:env(safe-area-inset-bottom,0px);
     }
 
-    *{
-      box-sizing:border-box;
-    }
+    *{box-sizing:border-box}
 
-    html,
-    body{
+    html,body{
       margin:0;
       min-height:100%;
       overflow-x:hidden;
@@ -73,19 +70,9 @@
         0 22px 70px rgba(250,204,21,.18);
     }
 
-    button,
-    input,
-    select{
-      font:inherit;
-    }
-
-    button{
-      cursor:pointer;
-    }
-
-    .hidden{
-      display:none!important;
-    }
+    button,input,select{font:inherit}
+    button{cursor:pointer}
+    .hidden{display:none!important}
 
     .app{
       width:min(1180px,100%);
@@ -97,14 +84,8 @@
       gap:14px;
     }
 
-    .screen{
-      display:none;
-    }
-
-    .screen.active{
-      display:grid;
-      gap:14px;
-    }
+    .screen{display:none}
+    .screen.active{display:grid;gap:14px}
 
     .heroShell,
     .missionCard,
@@ -144,10 +125,7 @@
       pointer-events:none;
     }
 
-    .heroContent{
-      position:relative;
-      z-index:2;
-    }
+    .heroContent{position:relative;z-index:2}
 
     .logoRow,
     .badgeRow,
@@ -238,13 +216,8 @@
       transition:.16s ease;
     }
 
-    .btn:hover{
-      transform:translateY(-1px) scale(1.01);
-    }
-
-    .btn:active{
-      transform:scale(.98);
-    }
+    .btn:hover{transform:translateY(-1px) scale(1.01)}
+    .btn:active{transform:scale(.98)}
 
     .btn.ghost{
       color:#eaf2ff;
@@ -351,10 +324,7 @@
       border:1px solid rgba(255,255,255,.12);
     }
 
-    .field{
-      display:grid;
-      gap:6px;
-    }
+    .field{display:grid;gap:6px}
 
     label{
       font-size:12px;
@@ -362,8 +332,7 @@
       color:#cfe3ff;
     }
 
-    input,
-    select{
+    input,select{
       width:100%;
       min-height:46px;
       border-radius:18px;
@@ -380,9 +349,7 @@
       background:#fff;
     }
 
-    input::placeholder{
-      color:#9fb5d6;
-    }
+    input::placeholder{color:#9fb5d6}
 
     .grid3{
       display:grid;
@@ -421,9 +388,7 @@
       box-shadow:0 0 0 4px rgba(250,204,21,.12),var(--shadow);
     }
 
-    .missionIcon{
-      font-size:46px;
-    }
+    .missionIcon{font-size:46px}
 
     .missionTitle{
       font-size:19px;
@@ -497,17 +462,9 @@
       transition:width .25s ease;
     }
 
-    .hpFill{
-      background:linear-gradient(90deg,#fb7185,#facc15,#4ade80);
-    }
-
-    .enemyHpFill{
-      background:linear-gradient(90deg,#fb7185,#ef4444);
-    }
-
-    .timerFill{
-      background:linear-gradient(90deg,#facc15,#fb923c,#fb7185);
-    }
+    .hpFill{background:linear-gradient(90deg,#fb7185,#facc15,#4ade80)}
+    .enemyHpFill{background:linear-gradient(90deg,#fb7185,#ef4444)}
+    .timerFill{background:linear-gradient(90deg,#facc15,#fb923c,#fb7185)}
 
     .battlePanel{
       padding:16px;
@@ -554,9 +511,7 @@
       50%{transform:translateY(-8px) rotate(2deg)}
     }
 
-    .enemy.hit{
-      animation:enemyHit .38s ease;
-    }
+    .enemy.hit{animation:enemyHit .38s ease}
 
     @keyframes enemyHit{
       0%{transform:translateX(0) scale(1)}
@@ -578,7 +533,7 @@
       position:absolute;
       top:18%;
       right:26%;
-      z-index:4;
+      z-index:8;
       font-size:36px;
       font-weight:1000;
       color:#fde047;
@@ -588,14 +543,134 @@
       pointer-events:none;
     }
 
-    .damagePop.show{
-      animation:damagePop .65s ease forwards;
-    }
+    .damagePop.show{animation:damagePop .65s ease forwards}
 
     @keyframes damagePop{
       0%{opacity:0;transform:translateY(10px) scale(.8)}
       20%{opacity:1;transform:translateY(-8px) scale(1.2)}
       100%{opacity:0;transform:translateY(-48px) scale(1)}
+    }
+
+    .energyShot{
+      position:absolute;
+      left:18%;
+      bottom:22%;
+      width:26px;
+      height:26px;
+      border-radius:999px;
+      z-index:6;
+      opacity:0;
+      pointer-events:none;
+      background:radial-gradient(circle,#fff 0%,#67e8f9 35%,#7c3aed 72%,transparent 74%);
+      box-shadow:
+        0 0 18px rgba(103,232,249,.95),
+        0 0 40px rgba(167,139,250,.65);
+    }
+
+    .energyShot.fire{animation:energyShotFire .46s ease-out forwards}
+
+    @keyframes energyShotFire{
+      0%{opacity:0;transform:translate(0,0) scale(.55)}
+      18%{opacity:1}
+      100%{opacity:0;transform:translate(235px,-160px) scale(1.7)}
+    }
+
+    .enemyAttackFx{
+      position:absolute;
+      right:22%;
+      top:36%;
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      z-index:6;
+      opacity:0;
+      pointer-events:none;
+      background:radial-gradient(circle,#fff 0%,#fb7185 38%,#7f1d1d 72%,transparent 74%);
+      box-shadow:
+        0 0 18px rgba(251,113,133,.95),
+        0 0 44px rgba(239,68,68,.70);
+    }
+
+    .enemyAttackFx.fire{animation:enemyShotFire .42s ease-out forwards}
+
+    @keyframes enemyShotFire{
+      0%{opacity:0;transform:translate(0,0) scale(.55)}
+      18%{opacity:1}
+      100%{opacity:0;transform:translate(-230px,155px) scale(1.55)}
+    }
+
+    .laserBeam{
+      position:absolute;
+      left:18%;
+      top:48%;
+      width:0;
+      height:18px;
+      border-radius:999px;
+      z-index:7;
+      pointer-events:none;
+      opacity:0;
+      background:linear-gradient(90deg,#fff,#67e8f9,#facc15,#fb7185);
+      box-shadow:
+        0 0 18px rgba(103,232,249,.95),
+        0 0 44px rgba(250,204,21,.75),
+        0 0 80px rgba(251,113,133,.45);
+      transform:rotate(-18deg);
+      transform-origin:left center;
+    }
+
+    .laserBeam.fire{animation:laserBeamFire .52s ease-out forwards}
+
+    @keyframes laserBeamFire{
+      0%{opacity:0;width:0}
+      18%{opacity:1;width:58%}
+      72%{opacity:1;width:62%}
+      100%{opacity:0;width:62%}
+    }
+
+    .bossShield{
+      position:absolute;
+      width:250px;
+      height:250px;
+      border-radius:999px;
+      z-index:3;
+      opacity:0;
+      pointer-events:none;
+      border:4px solid rgba(103,232,249,.72);
+      box-shadow:
+        0 0 22px rgba(103,232,249,.58),
+        inset 0 0 38px rgba(103,232,249,.20);
+      animation:shieldPulse 1.3s ease-in-out infinite;
+    }
+
+    .bossShield.active{opacity:1}
+    .bossShield.break{animation:shieldBreak .46s ease forwards}
+
+    @keyframes shieldPulse{
+      0%,100%{transform:scale(.96);filter:hue-rotate(0deg)}
+      50%{transform:scale(1.04);filter:hue-rotate(70deg)}
+    }
+
+    @keyframes shieldBreak{
+      0%{opacity:1;transform:scale(1)}
+      100%{opacity:0;transform:scale(1.35) rotate(18deg)}
+    }
+
+    .enemyTelegraph{
+      position:absolute;
+      inset:12px;
+      border-radius:28px;
+      pointer-events:none;
+      z-index:5;
+      opacity:0;
+      border:3px solid rgba(251,113,133,.70);
+      box-shadow:inset 0 0 36px rgba(251,113,133,.24);
+    }
+
+    .enemyTelegraph.show{animation:telegraphPulse .55s ease 2}
+
+    @keyframes telegraphPulse{
+      0%,100%{opacity:0}
+      50%{opacity:1}
     }
 
     .questionBox{
@@ -667,7 +742,8 @@
       gap:10px;
     }
 
-    .feedback{
+    .feedback,
+    .missionStrip{
       border-radius:22px;
       padding:14px 16px;
       background:rgba(255,255,255,.08);
@@ -696,14 +772,39 @@
       color:#fef3c7;
     }
 
-    .missionStrip{
+    .comboMeter{
       border-radius:22px;
-      padding:12px 14px;
-      background:rgba(0,0,0,.20);
+      padding:10px 12px;
+      background:rgba(0,0,0,.18);
       border:1px solid rgba(255,255,255,.13);
+    }
+
+    .comboMeterTop{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
       color:#eaf2ff;
-      font-weight:950;
-      line-height:1.45;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .comboDots{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:7px;
+      margin-top:8px;
+    }
+
+    .comboDot{
+      height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.14);
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .comboDot.on{
+      background:linear-gradient(90deg,#67e8f9,#facc15);
+      box-shadow:0 0 16px rgba(250,204,21,.55);
     }
 
     .powerBar{
@@ -800,9 +901,7 @@
       pointer-events:none;
     }
 
-    .footerNav .btn{
-      pointer-events:auto;
-    }
+    .footerNav .btn{pointer-events:auto}
 
     .statusToast{
       position:fixed;
@@ -887,36 +986,19 @@
 
     @media (max-width:900px){
       .heroShell,
-      .battlePanel{
-        grid-template-columns:1fr;
-      }
+      .battlePanel{grid-template-columns:1fr}
 
-      .heroStage{
-        min-height:330px;
-      }
-
-      .arenaOrb{
-        width:min(360px,86vw);
-      }
+      .heroStage{min-height:330px}
+      .arenaOrb{width:min(360px,86vw)}
 
       .missionGrid,
       .grid3,
       .grid4,
-      .hud{
-        grid-template-columns:1fr 1fr;
-      }
+      .hud{grid-template-columns:1fr 1fr}
 
-      .battleScene{
-        min-height:320px;
-      }
-
-      .enemy{
-        font-size:130px;
-      }
-
-      .heroSmall{
-        font-size:56px;
-      }
+      .battleScene{min-height:320px}
+      .enemy{font-size:130px}
+      .heroSmall{font-size:56px}
     }
 
     @media (max-width:560px){
@@ -935,50 +1017,26 @@
       .missionGrid,
       .grid3,
       .grid4,
-      .hud{
-        grid-template-columns:1fr;
-      }
+      .hud{grid-template-columns:1fr}
 
       .hud{
         position:relative;
         top:auto;
       }
 
-      .hudCard{
-        padding:11px;
-      }
+      .hudCard{padding:11px}
+      .hudValue{font-size:24px}
 
-      .hudValue{
-        font-size:24px;
-      }
+      .typingRow{grid-template-columns:1fr}
 
-      .typingRow{
-        grid-template-columns:1fr;
-      }
+      .footerNav{justify-content:stretch}
+      .footerNav .btn{flex:1}
 
-      .footerNav{
-        justify-content:stretch;
-      }
+      .prompt{font-size:26px}
+      h1{font-size:48px}
 
-      .footerNav .btn{
-        flex:1;
-      }
-
-      .prompt{
-        font-size:26px;
-      }
-
-      h1{
-        font-size:48px;
-      }
-
-      .powerBar{
-        grid-template-columns:1fr;
-      }
-
-      .waveBanner{
-        bottom:calc(100px + var(--safe-b));
-      }
+      .powerBar{grid-template-columns:1fr}
+      .waveBanner{bottom:calc(100px + var(--safe-b))}
     }
   </style>
 </head>
@@ -998,15 +1056,15 @@
         <div class="heroContent">
           <div class="logoRow">
             <span class="badge hot">TechPath English</span>
-            <span class="badge good">Vocab Battle v5</span>
-            <span class="badge warn">AI Learning</span>
+            <span class="badge good">Vocab Battle v8</span>
+            <span class="badge warn">AI Guide</span>
             <span class="badge bad">Protected</span>
           </div>
 
           <h1>Vocab Battle Quest</h1>
 
           <p class="subtitle">
-            เป็น Tech Hero ต่อสู้กับ Bug Bot ด้วยคำศัพท์สาย CS/AI — มี Wave, Mini Mission, Power-up, Fever Mode, Boss Challenge และ AI Difficulty A2 → B1+
+            เป็น Tech Hero ต่อสู้กับ Bug Bot ด้วยคำศัพท์สาย CS/AI — มี Wave, Mini Mission, Power-up, Fever Mode, Boss Shield, Action FX, Mode System, AI Guide และ AI Learning A2 → B1+
           </p>
 
           <div class="setupBox">
@@ -1038,10 +1096,10 @@
               <div class="field">
                 <label>Mode</label>
                 <select id="modeSelect">
-                  <option value="ai_training">AI Training</option>
-                  <option value="code_battle" selected>Code Battle</option>
-                  <option value="debug_mission">Debug Mission</option>
-                  <option value="speed_run">Speed Run</option>
+                  <option value="ai_training">🧠 AI Training</option>
+                  <option value="code_battle" selected>⚔️ Code Battle</option>
+                  <option value="debug_mission">🛠️ Debug Mission</option>
+                  <option value="speed_run">⏱️ Speed Run</option>
                 </select>
               </div>
 
@@ -1135,10 +1193,17 @@
         <section class="battlePanel">
           <div class="battleScene" id="battleScene">
             <div class="damagePop" id="damagePop">-20</div>
+
+            <div class="enemyTelegraph" id="enemyTelegraph"></div>
+            <div class="bossShield" id="bossShield"></div>
+            <div class="energyShot" id="energyShot"></div>
+            <div class="enemyAttackFx" id="enemyAttackFx"></div>
+            <div class="laserBeam" id="laserBeam"></div>
+
             <div class="enemy" id="enemySprite">🐞</div>
             <div class="heroSmall">🧑‍💻</div>
 
-            <div class="chips" style="z-index:3">
+            <div class="chips" style="z-index:9">
               <span class="badge bad" id="enemyNameBadge">Bug Bot</span>
               <span class="badge warn" id="difficultyBadge">AI Normal</span>
               <span class="badge good" id="bankBadge">Bank A</span>
@@ -1170,8 +1235,24 @@
 
             <div class="feedback" id="feedbackBox">ตอบคำถามเพื่อโจมตี Bug Bot</div>
 
+            <div class="missionStrip" id="aiGuideBox">
+              🤖 AI Guide: Ready! I will help you choose the best strategy.
+            </div>
+
             <div class="missionStrip" id="miniMissionText">
               🎯 Mini Mission: Get 3 correct in a row to unlock Laser ⚡
+            </div>
+
+            <div class="comboMeter">
+              <div class="comboMeterTop">
+                <span id="comboMeterLabel">Combo Charge</span>
+                <span id="comboMeterText">0/3 → Fever</span>
+              </div>
+              <div class="comboDots">
+                <div class="comboDot" id="comboDot1"></div>
+                <div class="comboDot" id="comboDot2"></div>
+                <div class="comboDot" id="comboDot3"></div>
+              </div>
             </div>
 
             <div class="powerBar">
@@ -1794,1114 +1875,6 @@
           }
         ]
       },
-            B: {
-        easy: [
-          {
-            id:'ai',
-            term:'AI',
-            level:'easy',
-            cefr:'A2',
-            meaning:'technology that can do smart tasks',
-            th:'ปัญญาประดิษฐ์',
-            example:'AI can help students practice English.'
-          },
-          {
-            id:'robot',
-            term:'robot',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a machine that can do tasks',
-            th:'หุ่นยนต์',
-            example:'The robot moves around the classroom.'
-          },
-          {
-            id:'data',
-            term:'data',
-            level:'easy',
-            cefr:'A2',
-            meaning:'information used by a system',
-            th:'ข้อมูล',
-            example:'AI needs data to learn.'
-          },
-          {
-            id:'image',
-            term:'image',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a picture or visual file',
-            th:'รูปภาพ',
-            example:'The AI checks the image.'
-          },
-          {
-            id:'voice',
-            term:'voice',
-            level:'easy',
-            cefr:'A2',
-            meaning:'sound from a person speaking',
-            th:'เสียงพูด',
-            example:'The app listens to the user voice.'
-          },
-          {
-            id:'text',
-            term:'text',
-            level:'easy',
-            cefr:'A2',
-            meaning:'written words',
-            th:'ข้อความ',
-            example:'The chatbot reads the text.'
-          },
-          {
-            id:'answer',
-            term:'answer',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a reply to a question',
-            th:'คำตอบ',
-            example:'The AI gives an answer.'
-          },
-          {
-            id:'question',
-            term:'question',
-            level:'easy',
-            cefr:'A2',
-            meaning:'something you ask',
-            th:'คำถาม',
-            example:'Type your question into the chatbot.'
-          },
-          {
-            id:'chatbot',
-            term:'chatbot',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a program that talks with users',
-            th:'แชตบอต',
-            example:'A chatbot answers customer questions.'
-          },
-          {
-            id:'smart',
-            term:'smart',
-            level:'easy',
-            cefr:'A2',
-            meaning:'able to do tasks in an intelligent way',
-            th:'ฉลาด/อัจฉริยะ',
-            example:'A smart system can suggest the next lesson.'
-          },
-          {
-            id:'camera',
-            term:'camera',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a device that takes pictures or video',
-            th:'กล้อง',
-            example:'The camera sends images to the AI.'
-          },
-          {
-            id:'sensor',
-            term:'sensor',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a device that detects changes',
-            th:'เซ็นเซอร์',
-            example:'The sensor detects movement.'
-          },
-          {
-            id:'online',
-            term:'online',
-            level:'easy',
-            cefr:'A2',
-            meaning:'connected to the internet',
-            th:'ออนไลน์',
-            example:'The AI tool works online.'
-          },
-          {
-            id:'suggest',
-            term:'suggest',
-            level:'easy',
-            cefr:'A2',
-            meaning:'to give an idea or recommendation',
-            th:'แนะนำ',
-            example:'The system can suggest a word to review.'
-          },
-          {
-            id:'result',
-            term:'result',
-            level:'easy',
-            cefr:'A2',
-            meaning:'the outcome of an action',
-            th:'ผลลัพธ์',
-            example:'The result appears on the screen.'
-          }
-        ],
-
-        normal: [
-          {
-            id:'dataset',
-            term:'dataset',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'a collection of data',
-            th:'ชุดข้อมูล',
-            example:'The model learns from a dataset.'
-          },
-          {
-            id:'model',
-            term:'model',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'a system trained to make predictions',
-            th:'แบบจำลอง',
-            example:'The AI model predicts customer needs.'
-          },
-          {
-            id:'training',
-            term:'training',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'the process of teaching a model',
-            th:'การฝึกโมเดล',
-            example:'Training takes many examples.'
-          },
-          {
-            id:'prediction',
-            term:'prediction',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'a guess based on data',
-            th:'การทำนาย',
-            example:'The prediction shows tomorrow’s sales.'
-          },
-          {
-            id:'accuracy',
-            term:'accuracy',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'how correct the results are',
-            th:'ความแม่นยำ',
-            example:'High accuracy means fewer mistakes.'
-          },
-          {
-            id:'bias',
-            term:'bias',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'unfair preference in data or results',
-            th:'อคติ',
-            example:'Bias can make AI unfair.'
-          },
-          {
-            id:'prompt',
-            term:'prompt',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'an instruction given to AI',
-            th:'คำสั่งป้อนให้ AI',
-            example:'A clear prompt gives better answers.'
-          },
-          {
-            id:'token',
-            term:'token',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'a small unit of text for AI processing',
-            th:'หน่วยข้อความ',
-            example:'The AI reads text as tokens.'
-          },
-          {
-            id:'classification',
-            term:'classification',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'putting data into categories',
-            th:'การจำแนกประเภท',
-            example:'Classification can label emails as spam.'
-          },
-          {
-            id:'automation',
-            term:'automation',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'using technology to do tasks automatically',
-            th:'ระบบอัตโนมัติ',
-            example:'Automation saves time in the office.'
-          },
-          {
-            id:'label',
-            term:'label',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'the correct answer used in training data',
-            th:'ป้ายกำกับ',
-            example:'Each image has a label for training.'
-          },
-          {
-            id:'feature_vector',
-            term:'feature vector',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'a set of numbers used by a model',
-            th:'เวกเตอร์คุณลักษณะ',
-            example:'A feature vector represents data for the model.'
-          },
-          {
-            id:'validation',
-            term:'validation',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'checking model performance on separate data',
-            th:'การตรวจสอบความถูกต้อง',
-            example:'Validation helps test model quality.'
-          },
-          {
-            id:'inference',
-            term:'inference',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'using a trained model to make an output',
-            th:'การอนุมาน',
-            example:'Inference happens when the model answers a new question.'
-          },
-          {
-            id:'dashboard',
-            term:'dashboard',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'a screen that shows important data',
-            th:'แดชบอร์ด',
-            example:'The dashboard shows sales and user activity.'
-          }
-        ],
-
-        hard: [
-          {
-            id:'neural_network',
-            term:'neural network',
-            level:'hard',
-            cefr:'B1',
-            meaning:'a model inspired by the human brain',
-            th:'โครงข่ายประสาทเทียม',
-            example:'A neural network can recognize images.'
-          },
-          {
-            id:'embedding',
-            term:'embedding',
-            level:'hard',
-            cefr:'B1',
-            meaning:'a numeric representation of text or data',
-            th:'เวกเตอร์แทนความหมาย',
-            example:'An embedding helps AI compare meanings.'
-          },
-          {
-            id:'natural_language',
-            term:'natural language',
-            level:'hard',
-            cefr:'B1',
-            meaning:'human language such as Thai or English',
-            th:'ภาษาธรรมชาติ',
-            example:'Natural language processing helps computers understand text.'
-          },
-          {
-            id:'computer_vision',
-            term:'computer vision',
-            level:'hard',
-            cefr:'B1',
-            meaning:'AI that understands images or video',
-            th:'คอมพิวเตอร์วิทัศน์',
-            example:'Computer vision can detect objects in photos.'
-          },
-          {
-            id:'data_cleaning',
-            term:'data cleaning',
-            level:'hard',
-            cefr:'B1',
-            meaning:'fixing or removing bad data',
-            th:'การทำความสะอาดข้อมูล',
-            example:'Data cleaning improves model accuracy.'
-          },
-          {
-            id:'data_privacy',
-            term:'data privacy',
-            level:'hard',
-            cefr:'B1',
-            meaning:'protecting personal information',
-            th:'ความเป็นส่วนตัวของข้อมูล',
-            example:'Data privacy is important in AI systems.'
-          },
-          {
-            id:'recommendation',
-            term:'recommendation',
-            level:'hard',
-            cefr:'B1',
-            meaning:'a suggestion made by a system',
-            th:'คำแนะนำจากระบบ',
-            example:'The app gives a movie recommendation.'
-          },
-          {
-            id:'anomaly',
-            term:'anomaly',
-            level:'hard',
-            cefr:'B1',
-            meaning:'something unusual in data',
-            th:'ความผิดปกติของข้อมูล',
-            example:'The system detects an anomaly in the network.'
-          },
-          {
-            id:'overfitting',
-            term:'overfitting',
-            level:'hard',
-            cefr:'B1',
-            meaning:'when a model learns training data too closely',
-            th:'การเรียนจำข้อมูลมากเกินไป',
-            example:'Overfitting makes a model weak on new data.'
-          },
-          {
-            id:'underfitting',
-            term:'underfitting',
-            level:'hard',
-            cefr:'B1',
-            meaning:'when a model is too simple to learn patterns well',
-            th:'การเรียนรู้ไม่เพียงพอ',
-            example:'Underfitting causes poor results on both training and test data.'
-          },
-          {
-            id:'training_data',
-            term:'training data',
-            level:'hard',
-            cefr:'B1',
-            meaning:'data used to teach a model',
-            th:'ข้อมูลฝึก',
-            example:'The training data must be clean and balanced.'
-          },
-          {
-            id:'test_data',
-            term:'test data',
-            level:'hard',
-            cefr:'B1',
-            meaning:'data used to check a model after training',
-            th:'ข้อมูลทดสอบ',
-            example:'Test data shows how well the model works.'
-          },
-          {
-            id:'confidence_score',
-            term:'confidence score',
-            level:'hard',
-            cefr:'B1',
-            meaning:'a number showing how sure a model is',
-            th:'ค่าความมั่นใจ',
-            example:'A low confidence score means the answer may be wrong.'
-          },
-          {
-            id:'data_pipeline',
-            term:'data pipeline',
-            level:'hard',
-            cefr:'B1',
-            meaning:'a process that moves and prepares data',
-            th:'กระบวนการจัดการข้อมูล',
-            example:'The data pipeline prepares information for analysis.'
-          },
-          {
-            id:'model_evaluation',
-            term:'model evaluation',
-            level:'hard',
-            cefr:'B1',
-            meaning:'checking how well a model performs',
-            th:'การประเมินโมเดล',
-            example:'Model evaluation helps choose the best AI system.'
-          }
-        ],
-
-        challenge: [
-          {
-            id:'machine_learning',
-            term:'machine learning',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'AI that learns patterns from data',
-            th:'การเรียนรู้ของเครื่อง',
-            example:'Machine learning can improve predictions over time.'
-          },
-          {
-            id:'deep_learning',
-            term:'deep learning',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'machine learning using many-layer neural networks',
-            th:'การเรียนรู้เชิงลึก',
-            example:'Deep learning is useful for speech recognition.'
-          },
-          {
-            id:'reinforcement_learning',
-            term:'reinforcement learning',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'learning by rewards and penalties',
-            th:'การเรียนรู้แบบเสริมกำลัง',
-            example:'Reinforcement learning helps agents choose actions.'
-          },
-          {
-            id:'supervised_learning',
-            term:'supervised learning',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'learning from data with correct labels',
-            th:'การเรียนรู้แบบมีผู้สอน',
-            example:'Supervised learning needs labeled examples.'
-          },
-          {
-            id:'unsupervised_learning',
-            term:'unsupervised learning',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'finding patterns without labeled answers',
-            th:'การเรียนรู้แบบไม่มีผู้สอน',
-            example:'Unsupervised learning can group similar users.'
-          },
-          {
-            id:'generative_ai',
-            term:'generative AI',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'AI that creates text, images, code, or media',
-            th:'เอไอเชิงสร้างสรรค์',
-            example:'Generative AI can draft emails and images.'
-          },
-          {
-            id:'large_language_model',
-            term:'large language model',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'an AI model trained on very large text data',
-            th:'โมเดลภาษาขนาดใหญ่',
-            example:'A large language model can answer questions in natural language.'
-          },
-          {
-            id:'fine_tuning',
-            term:'fine-tuning',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'training a model further for a specific task',
-            th:'การปรับแต่งโมเดล',
-            example:'Fine-tuning improves performance for a special domain.'
-          },
-          {
-            id:'hallucination',
-            term:'hallucination',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'an AI output that sounds correct but is false',
-            th:'การให้ข้อมูลผิดของ AI',
-            example:'Hallucination is a risk when using AI for research.'
-          },
-          {
-            id:'explainability',
-            term:'explainability',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'the ability to explain how AI makes decisions',
-            th:'ความสามารถในการอธิบายผลของ AI',
-            example:'Explainability helps users trust AI systems.'
-          },
-          {
-            id:'data_governance',
-            term:'data governance',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'rules for managing data responsibly',
-            th:'ธรรมาภิบาลข้อมูล',
-            example:'Data governance protects data quality and privacy.'
-          },
-          {
-            id:'model_drift',
-            term:'model drift',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'when model performance changes because data changes',
-            th:'การเสื่อมของโมเดลจากข้อมูลเปลี่ยน',
-            example:'Model drift requires regular monitoring.'
-          },
-          {
-            id:'algorithmic_bias',
-            term:'algorithmic bias',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'unfair results caused by data or model design',
-            th:'อคติของอัลกอริทึม',
-            example:'Algorithmic bias can affect hiring decisions.'
-          },
-          {
-            id:'human_in_the_loop',
-            term:'human-in-the-loop',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'a system where people help check or guide AI',
-            th:'มนุษย์ร่วมตรวจสอบ AI',
-            example:'Human-in-the-loop design improves safety.'
-          },
-          {
-            id:'responsible_ai',
-            term:'responsible AI',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'AI designed to be safe, fair, and ethical',
-            th:'AI ที่มีความรับผิดชอบ',
-            example:'Responsible AI considers privacy, fairness, and safety.'
-          }
-        ]
-      },
-
-      C: {
-        easy: [
-          {
-            id:'team',
-            term:'team',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a group of people working together',
-            th:'ทีม',
-            example:'The team works on the project.'
-          },
-          {
-            id:'task',
-            term:'task',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a piece of work to do',
-            th:'งานที่ต้องทำ',
-            example:'My task is to design the login page.'
-          },
-          {
-            id:'plan',
-            term:'plan',
-            level:'easy',
-            cefr:'A2',
-            meaning:'an idea for what to do',
-            th:'แผน',
-            example:'We need a plan for the project.'
-          },
-          {
-            id:'time',
-            term:'time',
-            level:'easy',
-            cefr:'A2',
-            meaning:'minutes, hours, or days used for work',
-            th:'เวลา',
-            example:'We do not have much time.'
-          },
-          {
-            id:'help',
-            term:'help',
-            level:'easy',
-            cefr:'A2',
-            meaning:'support given to someone',
-            th:'ความช่วยเหลือ',
-            example:'Please ask for help if you have a problem.'
-          },
-          {
-            id:'email',
-            term:'email',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a message sent online',
-            th:'อีเมล',
-            example:'Send the file by email.'
-          },
-          {
-            id:'message',
-            term:'message',
-            level:'easy',
-            cefr:'A2',
-            meaning:'information sent to someone',
-            th:'ข้อความ',
-            example:'I sent a message to the client.'
-          },
-          {
-            id:'call',
-            term:'call',
-            level:'easy',
-            cefr:'A2',
-            meaning:'to talk by phone or online',
-            th:'โทร/เรียกประชุม',
-            example:'Let’s call the customer tomorrow.'
-          },
-          {
-            id:'job',
-            term:'job',
-            level:'easy',
-            cefr:'A2',
-            meaning:'work that someone does',
-            th:'งาน/อาชีพ',
-            example:'A developer job needs problem-solving skills.'
-          },
-          {
-            id:'skill',
-            term:'skill',
-            level:'easy',
-            cefr:'A2',
-            meaning:'an ability to do something well',
-            th:'ทักษะ',
-            example:'Communication is an important skill.'
-          },
-          {
-            id:'goal',
-            term:'goal',
-            level:'easy',
-            cefr:'A2',
-            meaning:'something you want to achieve',
-            th:'เป้าหมาย',
-            example:'Our goal is to finish the app.'
-          },
-          {
-            id:'report',
-            term:'report',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a document that gives information',
-            th:'รายงาน',
-            example:'The student writes a project report.'
-          },
-          {
-            id:'customer',
-            term:'customer',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a person who buys or uses a service',
-            th:'ลูกค้า',
-            example:'The customer needs help with the app.'
-          },
-          {
-            id:'office',
-            term:'office',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a place where people work',
-            th:'สำนักงาน',
-            example:'The team meets in the office.'
-          },
-          {
-            id:'workplace',
-            term:'workplace',
-            level:'easy',
-            cefr:'A2',
-            meaning:'a place where people work',
-            th:'สถานที่ทำงาน',
-            example:'English is useful in a tech workplace.'
-          }
-        ],
-
-        normal: [
-          {
-            id:'deadline',
-            term:'deadline',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'the final time to finish work',
-            th:'กำหนดส่ง',
-            example:'The project deadline is Friday.'
-          },
-          {
-            id:'meeting',
-            term:'meeting',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'a planned discussion',
-            th:'การประชุม',
-            example:'We have a team meeting at 10 a.m.'
-          },
-          {
-            id:'update',
-            term:'update',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'new information or a newer version',
-            th:'อัปเดต',
-            example:'Please send a project update.'
-          },
-          {
-            id:'requirement',
-            term:'requirement',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'something a system must do',
-            th:'ข้อกำหนด',
-            example:'The client changed the requirement.'
-          },
-          {
-            id:'solution',
-            term:'solution',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'a way to solve a problem',
-            th:'วิธีแก้ปัญหา',
-            example:'This solution is simple and fast.'
-          },
-          {
-            id:'issue',
-            term:'issue',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'a problem that needs attention',
-            th:'ปัญหา',
-            example:'There is an issue with the login page.'
-          },
-          {
-            id:'feature',
-            term:'feature',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'a useful function in a product',
-            th:'ฟีเจอร์',
-            example:'The new feature helps users search faster.'
-          },
-          {
-            id:'feedback',
-            term:'feedback',
-            level:'normal',
-            cefr:'A2+',
-            meaning:'comments to improve work',
-            th:'ข้อเสนอแนะ',
-            example:'The teacher gave useful feedback.'
-          },
-          {
-            id:'proposal',
-            term:'proposal',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'a plan suggested for approval',
-            th:'ข้อเสนอ',
-            example:'We wrote a proposal for the app.'
-          },
-          {
-            id:'presentation',
-            term:'presentation',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'a talk that explains information',
-            th:'การนำเสนอ',
-            example:'The students gave a project presentation.'
-          },
-          {
-            id:'schedule',
-            term:'schedule',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'a plan of dates and times',
-            th:'ตารางเวลา',
-            example:'The team updated the project schedule.'
-          },
-          {
-            id:'prototype',
-            term:'prototype',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'an early version of a product',
-            th:'ต้นแบบ',
-            example:'The prototype shows how the app will work.'
-          },
-          {
-            id:'support',
-            term:'support',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'help given to users',
-            th:'การสนับสนุน/ช่วยเหลือ',
-            example:'The support team helps users with issues.'
-          },
-          {
-            id:'priority',
-            term:'priority',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'something more important than others',
-            th:'ลำดับความสำคัญ',
-            example:'Security is the top priority.'
-          },
-          {
-            id:'risk',
-            term:'risk',
-            level:'normal',
-            cefr:'B1-',
-            meaning:'a possible problem in the future',
-            th:'ความเสี่ยง',
-            example:'The project manager checks each risk.'
-          }
-        ],
-
-        hard: [
-          {
-            id:'stakeholder',
-            term:'stakeholder',
-            level:'hard',
-            cefr:'B1',
-            meaning:'a person involved in or affected by a project',
-            th:'ผู้มีส่วนได้ส่วนเสีย',
-            example:'A stakeholder gives feedback on the system.'
-          },
-          {
-            id:'milestone',
-            term:'milestone',
-            level:'hard',
-            cefr:'B1',
-            meaning:'an important point in a project',
-            th:'หลักไมล์ของโครงการ',
-            example:'The first milestone is the prototype.'
-          },
-          {
-            id:'usability',
-            term:'usability',
-            level:'hard',
-            cefr:'B1',
-            meaning:'how easy a product is to use',
-            th:'ความง่ายในการใช้งาน',
-            example:'Good usability helps users finish tasks faster.'
-          },
-          {
-            id:'documentation',
-            term:'documentation',
-            level:'hard',
-            cefr:'B1',
-            meaning:'written information about a system',
-            th:'เอกสารประกอบระบบ',
-            example:'Documentation explains how to install the app.'
-          },
-          {
-            id:'maintenance',
-            term:'maintenance',
-            level:'hard',
-            cefr:'B1',
-            meaning:'work done to keep a system running',
-            th:'การบำรุงรักษา',
-            example:'Maintenance is needed after deployment.'
-          },
-          {
-            id:'collaboration',
-            term:'collaboration',
-            level:'hard',
-            cefr:'B1',
-            meaning:'working together with others',
-            th:'การทำงานร่วมกัน',
-            example:'Good collaboration helps the project succeed.'
-          },
-          {
-            id:'budget',
-            term:'budget',
-            level:'hard',
-            cefr:'B1',
-            meaning:'the amount of money available',
-            th:'งบประมาณ',
-            example:'The project budget is limited.'
-          },
-          {
-            id:'training_session',
-            term:'training session',
-            level:'hard',
-            cefr:'B1',
-            meaning:'a class or meeting to learn a skill',
-            th:'ช่วงอบรม',
-            example:'Users join a training session before using the system.'
-          },
-          {
-            id:'client_request',
-            term:'client request',
-            level:'hard',
-            cefr:'B1',
-            meaning:'something a client asks for',
-            th:'คำขอจากลูกค้า',
-            example:'The team reviews each client request.'
-          },
-          {
-            id:'status_report',
-            term:'status report',
-            level:'hard',
-            cefr:'B1',
-            meaning:'a document that explains current progress',
-            th:'รายงานสถานะ',
-            example:'The status report shows what is finished.'
-          },
-          {
-            id:'scope',
-            term:'scope',
-            level:'hard',
-            cefr:'B1',
-            meaning:'the agreed limits of a project',
-            th:'ขอบเขตงาน',
-            example:'The team must control the project scope.'
-          },
-          {
-            id:'deliverable',
-            term:'deliverable',
-            level:'hard',
-            cefr:'B1',
-            meaning:'a final item that must be delivered',
-            th:'ผลงานส่งมอบ',
-            example:'The mobile app is the main deliverable.'
-          },
-          {
-            id:'workflow',
-            term:'workflow',
-            level:'hard',
-            cefr:'B1',
-            meaning:'the steps used to complete work',
-            th:'กระบวนการทำงาน',
-            example:'A clear workflow reduces mistakes.'
-          },
-          {
-            id:'approval',
-            term:'approval',
-            level:'hard',
-            cefr:'B1',
-            meaning:'permission to continue or accept something',
-            th:'การอนุมัติ',
-            example:'The proposal needs approval from the manager.'
-          },
-          {
-            id:'revision',
-            term:'revision',
-            level:'hard',
-            cefr:'B1',
-            meaning:'a changed or improved version',
-            th:'การแก้ไขปรับปรุง',
-            example:'The team made a revision after feedback.'
-          }
-        ],
-
-        challenge: [
-          {
-            id:'requirement_analysis',
-            term:'requirement analysis',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'studying what users and systems need',
-            th:'การวิเคราะห์ความต้องการ',
-            example:'Requirement analysis helps define the project clearly.'
-          },
-          {
-            id:'project_scope',
-            term:'project scope',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'the work included and excluded in a project',
-            th:'ขอบเขตโครงการ',
-            example:'The project scope must be clear before development.'
-          },
-          {
-            id:'risk_mitigation',
-            term:'risk mitigation',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'actions taken to reduce possible problems',
-            th:'การลดความเสี่ยง',
-            example:'Risk mitigation helps avoid project delays.'
-          },
-          {
-            id:'user_acceptance_testing',
-            term:'user acceptance testing',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'testing by users to check if the system meets needs',
-            th:'การทดสอบการยอมรับของผู้ใช้',
-            example:'User acceptance testing happens before launch.'
-          },
-          {
-            id:'service_level_agreement',
-            term:'service level agreement',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'a promise about service quality and response time',
-            th:'ข้อตกลงระดับการให้บริการ',
-            example:'The service level agreement defines support response time.'
-          },
-          {
-            id:'business_requirement',
-            term:'business requirement',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'a need from the business side of a project',
-            th:'ความต้องการทางธุรกิจ',
-            example:'A business requirement explains why the feature is needed.'
-          },
-          {
-            id:'change_request',
-            term:'change request',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'a formal request to change project work',
-            th:'คำขอเปลี่ยนแปลงงาน',
-            example:'A change request may affect time and budget.'
-          },
-          {
-            id:'quality_assurance',
-            term:'quality assurance',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'processes that ensure good product quality',
-            th:'การประกันคุณภาพ',
-            example:'Quality assurance reduces defects before release.'
-          },
-          {
-            id:'incident_response',
-            term:'incident response',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'actions taken after a system problem or attack',
-            th:'การตอบสนองต่อเหตุการณ์',
-            example:'Incident response is important during a security breach.'
-          },
-          {
-            id:'root_cause_analysis',
-            term:'root cause analysis',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'finding the main reason a problem happened',
-            th:'การวิเคราะห์สาเหตุหลัก',
-            example:'Root cause analysis prevents the same issue from returning.'
-          },
-          {
-            id:'performance_indicator',
-            term:'performance indicator',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'a measure used to track success',
-            th:'ตัวชี้วัดผลการดำเนินงาน',
-            example:'A performance indicator shows whether the project is on track.'
-          },
-          {
-            id:'cross_functional_team',
-            term:'cross-functional team',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'a team with people from different roles',
-            th:'ทีมข้ามสายงาน',
-            example:'A cross-functional team includes developers, designers, and users.'
-          },
-          {
-            id:'stakeholder_alignment',
-            term:'stakeholder alignment',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'agreement among people involved in a project',
-            th:'ความสอดคล้องของผู้มีส่วนได้ส่วนเสีย',
-            example:'Stakeholder alignment reduces conflict.'
-          },
-          {
-            id:'implementation_plan',
-            term:'implementation plan',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'a detailed plan for putting a system into use',
-            th:'แผนการนำไปใช้จริง',
-            example:'The implementation plan explains training and deployment.'
-          },
-          {
-            id:'post_launch_support',
-            term:'post-launch support',
-            level:'challenge',
-            cefr:'B1+',
-            meaning:'help provided after a product is released',
-            th:'การสนับสนุนหลังเปิดใช้งาน',
-            example:'Post-launch support helps users solve early problems.'
-          }
-        ]
-      }
-    };
           const ENEMIES = {
       A:{
         name:'Bug Bot',
@@ -2969,6 +1942,72 @@
       }
     };
 
+    const MODE_CONFIG = {
+      ai_training: {
+        label:'AI Training',
+        emoji:'🧠',
+        hp:110,
+        enemyHp:90,
+        timerBonus:3,
+        scoreMultiplier:0.95,
+        enemyDamageMultiplier:0.8,
+        weakTermBoost:2.2,
+        typingBoost:-0.08,
+        startPowerUps:{hint:2, shield:1, laser:0},
+        miniTarget:3,
+        note:'ฝึกคำอ่อนแบบ AI ช่วยปรับระดับ'
+      },
+
+      code_battle: {
+        label:'Code Battle',
+        emoji:'⚔️',
+        hp:100,
+        enemyHp:100,
+        timerBonus:0,
+        scoreMultiplier:1,
+        enemyDamageMultiplier:1,
+        weakTermBoost:1.3,
+        typingBoost:0,
+        startPowerUps:{hint:1, shield:1, laser:0},
+        miniTarget:3,
+        note:'โหมดต่อสู้มาตรฐาน'
+      },
+
+      debug_mission: {
+        label:'Debug Mission',
+        emoji:'🛠️',
+        hp:120,
+        enemyHp:85,
+        timerBonus:2,
+        scoreMultiplier:0.9,
+        enemyDamageMultiplier:0.75,
+        weakTermBoost:3.2,
+        typingBoost:-0.12,
+        startPowerUps:{hint:2, shield:2, laser:0},
+        miniTarget:2,
+        note:'เน้นแก้คำที่เคยผิดและลดความกดดัน'
+      },
+
+      speed_run: {
+        label:'Speed Run',
+        emoji:'⏱️',
+        hp:85,
+        enemyHp:115,
+        timerBonus:-4,
+        scoreMultiplier:1.45,
+        enemyDamageMultiplier:1.25,
+        weakTermBoost:0.8,
+        typingBoost:0.12,
+        startPowerUps:{hint:1, shield:0, laser:0},
+        miniTarget:4,
+        note:'ตอบเร็ว เอา Critical และคะแนนสูง'
+      }
+    };
+
+    function getModeConfig(){
+      return MODE_CONFIG[game.mode] || MODE_CONFIG.code_battle;
+    }
+
     const els = {};
     [
       'statusToast',
@@ -3014,6 +2053,12 @@
       'bankBadge',
       'accuracyText',
 
+      'enemyTelegraph',
+      'bossShield',
+      'energyShot',
+      'enemyAttackFx',
+      'laserBeam',
+
       'promptText',
       'hintText',
       'choicesBox',
@@ -3022,7 +2067,14 @@
       'submitTypingBtn',
       'feedbackBox',
 
+      'aiGuideBox',
       'miniMissionText',
+      'comboMeterLabel',
+      'comboMeterText',
+      'comboDot1',
+      'comboDot2',
+      'comboDot3',
+
       'hintBtn',
       'shieldBtn',
       'laserBtn',
@@ -3121,7 +2173,16 @@
         progress:0,
         reward:'laser',
         completed:false
-      }
+      },
+
+      bossShieldActive:false,
+      bossShieldHp:0,
+      actionLocked:false,
+
+      aiGuideLastTip:'',
+      aiGuideLastAt:0,
+      aiGuideTipCount:0,
+      aiLearningRunNotes:[]
     };
 
     function toast(msg){
@@ -3327,8 +2388,520 @@
         )
       };
     }
+          const ENEMIES = {
+      A:{
+        name:'Bug Bot',
+        emoji:'🐞',
+        skill:'Glitch choices'
+      },
+      B:{
+        name:'AI Glitch',
+        emoji:'🤖',
+        skill:'Closer distractors'
+      },
+      C:{
+        name:'Deadline Ghost',
+        emoji:'👻',
+        skill:'Time pressure'
+      }
+    };
 
-    /* =====================================================
+    const AI_LEARNING_KEY = 'VOCAB_AI_LEARNING_PROFILE_V1';
+
+    const AI_DIFFICULTY = {
+      easy: {
+        label:'Easy',
+        cefr:'A2',
+        questionCount:8,
+        timerSec:18,
+        typingRate:0.05,
+        contextRate:0.25,
+        enemyDamage:10,
+        scoreMultiplier:1.0,
+        bossEvery:0
+      },
+      normal: {
+        label:'Normal',
+        cefr:'A2+/B1-',
+        questionCount:10,
+        timerSec:16,
+        typingRate:0.15,
+        contextRate:0.40,
+        enemyDamage:12,
+        scoreMultiplier:1.15,
+        bossEvery:5
+      },
+      hard: {
+        label:'Hard',
+        cefr:'B1',
+        questionCount:12,
+        timerSec:14,
+        typingRate:0.28,
+        contextRate:0.55,
+        enemyDamage:15,
+        scoreMultiplier:1.35,
+        bossEvery:4
+      },
+      challenge: {
+        label:'Challenge',
+        cefr:'B1+',
+        questionCount:15,
+        timerSec:11,
+        typingRate:0.45,
+        contextRate:0.70,
+        enemyDamage:18,
+        scoreMultiplier:1.7,
+        bossEvery:3
+      }
+    };
+
+    const MODE_CONFIG = {
+      ai_training: {
+        label:'AI Training',
+        emoji:'🧠',
+        hp:110,
+        enemyHp:90,
+        timerBonus:3,
+        scoreMultiplier:0.95,
+        enemyDamageMultiplier:0.8,
+        weakTermBoost:2.2,
+        typingBoost:-0.08,
+        startPowerUps:{hint:2, shield:1, laser:0},
+        miniTarget:3,
+        note:'ฝึกคำอ่อนแบบ AI ช่วยปรับระดับ'
+      },
+
+      code_battle: {
+        label:'Code Battle',
+        emoji:'⚔️',
+        hp:100,
+        enemyHp:100,
+        timerBonus:0,
+        scoreMultiplier:1,
+        enemyDamageMultiplier:1,
+        weakTermBoost:1.3,
+        typingBoost:0,
+        startPowerUps:{hint:1, shield:1, laser:0},
+        miniTarget:3,
+        note:'โหมดต่อสู้มาตรฐาน'
+      },
+
+      debug_mission: {
+        label:'Debug Mission',
+        emoji:'🛠️',
+        hp:120,
+        enemyHp:85,
+        timerBonus:2,
+        scoreMultiplier:0.9,
+        enemyDamageMultiplier:0.75,
+        weakTermBoost:3.2,
+        typingBoost:-0.12,
+        startPowerUps:{hint:2, shield:2, laser:0},
+        miniTarget:2,
+        note:'เน้นแก้คำที่เคยผิดและลดความกดดัน'
+      },
+
+      speed_run: {
+        label:'Speed Run',
+        emoji:'⏱️',
+        hp:85,
+        enemyHp:115,
+        timerBonus:-4,
+        scoreMultiplier:1.45,
+        enemyDamageMultiplier:1.25,
+        weakTermBoost:0.8,
+        typingBoost:0.12,
+        startPowerUps:{hint:1, shield:0, laser:0},
+        miniTarget:4,
+        note:'ตอบเร็ว เอา Critical และคะแนนสูง'
+      }
+    };
+
+    function getModeConfig(){
+      return MODE_CONFIG[game.mode] || MODE_CONFIG.code_battle;
+    }
+
+    const els = {};
+    [
+      'statusToast',
+      'waveBanner',
+      'waveBannerText',
+      'criticalFlash',
+
+      'screenSetup',
+      'screenGame',
+      'screenSummary',
+
+      'displayName',
+      'studentId',
+      'section',
+      'sessionCode',
+      'modeSelect',
+      'difficultySelect',
+      'sfxToggleBtn',
+      'resetAiBtn',
+
+      'missionGrid',
+      'startBtn',
+      'restoreBtn',
+      'testLoggerBtn',
+
+      'hpText',
+      'hpFill',
+      'enemyHpText',
+      'enemyHpFill',
+      'scoreText',
+      'comboText',
+      'questionText',
+      'progressFill',
+      'timerText',
+      'timerFill',
+
+      'battleScene',
+      'enemySprite',
+      'enemyNameBadge',
+      'damagePop',
+      'variantBadge',
+      'difficultyBadge',
+      'bankBadge',
+      'accuracyText',
+
+      'enemyTelegraph',
+      'bossShield',
+      'energyShot',
+      'enemyAttackFx',
+      'laserBeam',
+
+      'promptText',
+      'hintText',
+      'choicesBox',
+      'typingBox',
+      'typingInput',
+      'submitTypingBtn',
+      'feedbackBox',
+
+      'aiGuideBox',
+      'miniMissionText',
+      'comboMeterLabel',
+      'comboMeterText',
+      'comboDot1',
+      'comboDot2',
+      'comboDot3',
+
+      'hintBtn',
+      'shieldBtn',
+      'laserBtn',
+      'hintCount',
+      'shieldCount',
+      'laserCount',
+
+      'summaryEmoji',
+      'summaryTitle',
+      'summaryRankBadge',
+      'summaryText',
+      'sumScore',
+      'sumAccuracy',
+      'sumMistakes',
+      'sumWeakest',
+      'aiAdviceText',
+
+      'playAgainBtn',
+      'backSetupBtn',
+      'homeBtn',
+      'finishNowBtn'
+    ].forEach(id => {
+      els[id] = document.getElementById(id);
+    });
+
+    const game = {
+      selectedBank:'A',
+
+      started:false,
+      finished:false,
+
+      sessionId:'',
+      startedAt:'',
+
+      bank:'A',
+      mode:'code_battle',
+      difficulty:'normal',
+      sessionCode:'S01',
+
+      aiAdaptiveLevel:'normal',
+      aiDifficultyConfig:AI_DIFFICULTY.normal,
+
+      questions:[],
+      index:0,
+
+      score:0,
+      correct:0,
+      wrong:0,
+      combo:0,
+      bestCombo:0,
+
+      hp:100,
+      enemyHp:100,
+
+      answers:[],
+      mastery:{},
+      weakTerms:{},
+
+      current:null,
+      questionStartedAt:0,
+
+      timer:null,
+      timeLeft:0,
+      maxTime:0,
+      timedOut:false,
+
+      wave:1,
+      waveName:'Warm-up',
+
+      fever:false,
+      feverUntil:0,
+      feverTimer:null,
+
+      shieldActive:false,
+
+      powerUps:{
+        hint:1,
+        shield:1,
+        laser:0
+      },
+
+      hintUsed:0,
+      shieldUsed:0,
+      laserUsed:0,
+
+      criticalCount:0,
+      feverCount:0,
+      enemySkillCount:0,
+
+      badges:[],
+      coins:0,
+
+      miniMission:{
+        type:'combo',
+        target:3,
+        progress:0,
+        reward:'laser',
+        completed:false
+      },
+
+      bossShieldActive:false,
+      bossShieldHp:0,
+      actionLocked:false,
+
+      aiGuideLastTip:'',
+      aiGuideLastAt:0,
+      aiGuideTipCount:0,
+      aiLearningRunNotes:[]
+    };
+
+    function toast(msg){
+      if(!els.statusToast) return;
+
+      els.statusToast.textContent = msg;
+      els.statusToast.classList.add('show');
+
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => {
+        els.statusToast.classList.remove('show');
+      }, 2600);
+    }
+
+    function nowIso(){
+      return new Date().toISOString();
+    }
+
+    function uid(prefix){
+      return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+    }
+
+    function qs(name, fallback=''){
+      try{
+        return new URL(location.href).searchParams.get(name) || fallback;
+      }catch(_){
+        return fallback;
+      }
+    }
+
+    function shuffle(arr){
+      const a = arr.slice();
+
+      for(let i = a.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+
+      return a;
+    }
+
+    function clamp(n, min, max){
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function showScreen(name){
+      [
+        els.screenSetup,
+        els.screenGame,
+        els.screenSummary
+      ].forEach(s => {
+        if(s) s.classList.remove('active');
+      });
+
+      const target = document.getElementById(name);
+      if(target) target.classList.add('active');
+
+      if(els.finishNowBtn){
+        els.finishNowBtn.classList.toggle('hidden', name !== 'screenGame');
+      }
+
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
+
+    function fillSessions(){
+      if(!els.sessionCode) return;
+
+      els.sessionCode.innerHTML = Array.from({length:15}, (_, i) => {
+        const s = 'S' + String(i + 1).padStart(2, '0');
+        return `<option value="${s}">${s}</option>`;
+      }).join('');
+    }
+
+    function loadIdentityToForm(){
+      let saved = {};
+
+      try{
+        saved = JSON.parse(localStorage.getItem('VOCAB_FINAL_IDENTITY_V1') || '{}');
+      }catch(_){}
+
+      els.displayName.value =
+        qs('name') ||
+        qs('display_name') ||
+        saved.display_name ||
+        '';
+
+      els.studentId.value =
+        qs('student_id') ||
+        qs('studentId') ||
+        qs('sid') ||
+        saved.student_id ||
+        '';
+
+      els.section.value =
+        qs('section') ||
+        saved.section ||
+        '';
+
+      els.sessionCode.value =
+        qs('session_code') ||
+        qs('sessionCode') ||
+        qs('s') ||
+        saved.session_code ||
+        'S01';
+
+      els.modeSelect.value =
+        qs('mode') ||
+        saved.mode ||
+        'code_battle';
+
+      els.difficultySelect.value =
+        qs('diff') ||
+        qs('difficulty') ||
+        saved.difficulty ||
+        'normal';
+
+      game.selectedBank =
+        qs('bank') ||
+        saved.bank ||
+        'A';
+
+      updateMissionCards();
+    }
+
+    function saveIdentity(){
+      const identity = {
+        display_name: els.displayName.value.trim() || 'Guest',
+        student_id: els.studentId.value.trim() || 'anon',
+        section: els.section.value.trim() || '-',
+        session_code: els.sessionCode.value || 'S01',
+        bank: game.selectedBank || 'A',
+        mode: els.modeSelect.value || 'code_battle',
+        difficulty: els.difficultySelect.value || 'normal'
+      };
+
+      localStorage.setItem('VOCAB_FINAL_IDENTITY_V1', JSON.stringify(identity));
+
+      return identity;
+    }
+
+    function updateMissionCards(){
+      document.querySelectorAll('.missionCard').forEach(card => {
+        card.classList.toggle('active', card.dataset.bank === game.selectedBank);
+      });
+    }
+
+    function getDifficultyConfig(level){
+      return AI_DIFFICULTY[level] || AI_DIFFICULTY.normal;
+    }
+
+    function getLevelOrder(level){
+      if(level === 'easy') return ['easy'];
+      if(level === 'normal') return ['easy', 'normal'];
+      if(level === 'hard') return ['normal', 'hard'];
+      if(level === 'challenge') return ['hard', 'challenge'];
+
+      return ['easy', 'normal', 'hard', 'challenge'];
+    }
+
+    function flattenBank(bank){
+      const b = BANKS[bank] || BANKS.A;
+
+      if(Array.isArray(b)){
+        return b;
+      }
+
+      return [
+        ...(b.easy || []),
+        ...(b.normal || []),
+        ...(b.hard || []),
+        ...(b.challenge || [])
+      ];
+    }
+
+    function getBankPoolByLevel(bank, level){
+      const b = BANKS[bank] || BANKS.A;
+
+      if(Array.isArray(b)){
+        return b;
+      }
+
+      const pool = [];
+
+      getLevelOrder(level).forEach(lv => {
+        pool.push(...(b[lv] || []));
+      });
+
+      return pool.length ? pool : flattenBank(bank);
+    }
+
+    function normalizeTermLevel(term, fallbackLevel){
+      const level = term.level || fallbackLevel || 'normal';
+
+      return {
+        ...term,
+        level,
+        cefr: term.cefr || (
+          level === 'easy' ? 'A2' :
+          level === 'normal' ? 'A2+/B1-' :
+          level === 'hard' ? 'B1' :
+          level === 'challenge' ? 'B1+' :
+          ''
+        )
+      };
+    }
+          /* =====================================================
        VOCAB v5 ARCADE CORE
        Wave + Mini Mission + Power-up + Fever + Enemy Skill
     ===================================================== */
@@ -3413,9 +2986,11 @@
     }
 
     function resetMiniMission(){
+      const modeCfg = getModeConfig();
+
       game.miniMission = {
         type:'combo',
-        target:3,
+        target:modeCfg.miniTarget || 3,
         progress:0,
         reward:'laser',
         completed:false
@@ -3569,7 +3144,7 @@
 
       arcadeToast('🛡 Shield activated! Next damage will be blocked.');
 
-      VocabSFX.play('correct');
+      VocabSFX.play('shield');
 
       updatePowerButtons();
     }
@@ -3583,6 +3158,12 @@
       game.powerUps.laser -= 1;
       game.laserUsed += 1;
 
+      fireLaserBeam();
+
+      if(game.bossShieldActive){
+        breakBossShield();
+      }
+
       game.enemyHp = Math.max(0, game.enemyHp - damage);
       game.score += Math.round(30 * (cfg.scoreMultiplier || 1));
 
@@ -3593,7 +3174,7 @@
 
       arcadeToast('⚡ LASER STRIKE! Massive damage!');
 
-      VocabSFX.play('finish');
+      VocabSFX.play('laser');
 
       updateHud();
       updatePowerButtons();
@@ -3674,6 +3255,329 @@
       coins += game.badges.length * 3;
 
       return coins;
+    }
+
+    /* =====================================================
+       VOCAB v6 ACTION FX
+    ===================================================== */
+
+    function fireHeroProjectile(isCritical=false){
+      if(!els.energyShot) return;
+
+      els.energyShot.classList.remove('fire');
+      void els.energyShot.offsetWidth;
+      els.energyShot.classList.add('fire');
+
+      if(isCritical){
+        criticalFlash();
+      }
+    }
+
+    function fireEnemyProjectile(){
+      if(!els.enemyAttackFx) return;
+
+      els.enemyAttackFx.classList.remove('fire');
+      void els.enemyAttackFx.offsetWidth;
+      els.enemyAttackFx.classList.add('fire');
+    }
+
+    function fireLaserBeam(){
+      if(!els.laserBeam) return;
+
+      els.laserBeam.classList.remove('fire');
+      void els.laserBeam.offsetWidth;
+      els.laserBeam.classList.add('fire');
+
+      criticalFlash();
+    }
+
+    function showEnemyTelegraph(){
+      if(!els.enemyTelegraph) return;
+
+      els.enemyTelegraph.classList.remove('show');
+      void els.enemyTelegraph.offsetWidth;
+      els.enemyTelegraph.classList.add('show');
+    }
+
+    function setBossShield(active, hp=0){
+      game.bossShieldActive = !!active;
+      game.bossShieldHp = active ? hp : 0;
+
+      if(!els.bossShield) return;
+
+      els.bossShield.classList.remove('break');
+      els.bossShield.classList.toggle('active', !!active);
+    }
+
+    function breakBossShield(){
+      game.bossShieldActive = false;
+      game.bossShieldHp = 0;
+
+      if(!els.bossShield) return;
+
+      els.bossShield.classList.remove('active');
+      els.bossShield.classList.remove('break');
+      void els.bossShield.offsetWidth;
+      els.bossShield.classList.add('break');
+
+      arcadeToast('💥 Boss Shield Broken!');
+      VocabSFX.play('combo');
+    }
+
+    function updateComboMeter(){
+      const charge = clamp(game.combo, 0, 3);
+
+      if(els.comboMeterText){
+        els.comboMeterText.textContent = game.fever
+          ? '🔥 FEVER ACTIVE!'
+          : `${charge}/3 → Fever`;
+      }
+
+      if(els.comboMeterLabel){
+        els.comboMeterLabel.textContent = game.fever
+          ? 'Fever Mode'
+          : 'Combo Charge';
+      }
+
+      [els.comboDot1, els.comboDot2, els.comboDot3].forEach((dot, idx) => {
+        if(dot){
+          dot.classList.toggle('on', idx < charge || game.fever);
+        }
+      });
+    }
+
+    function getBossShieldHp(){
+      const level = game.aiAdaptiveLevel || game.difficulty;
+
+      if(level === 'challenge') return 2;
+      if(level === 'hard') return 2;
+
+      return 1;
+    }
+
+    /* =====================================================
+       VOCAB v8 AI GUIDE + AI LEARNING
+    ===================================================== */
+
+    function aiGuideSay(text, type='normal'){
+      if(!els.aiGuideBox) return;
+
+      const now = Date.now();
+
+      if(
+        text === game.aiGuideLastTip &&
+        now - game.aiGuideLastAt < 5000
+      ){
+        return;
+      }
+
+      game.aiGuideLastTip = text;
+      game.aiGuideLastAt = now;
+      game.aiGuideTipCount += 1;
+
+      const icon =
+        type === 'good' ? '🌟' :
+        type === 'warn' ? '⚠️' :
+        type === 'danger' ? '🚨' :
+        type === 'learn' ? '📘' :
+        type === 'power' ? '⚡' :
+        '🤖';
+
+      els.aiGuideBox.textContent = `${icon} AI Guide: ${text}`;
+
+      els.aiGuideBox.style.borderColor =
+        type === 'good' ? 'rgba(74,222,128,.46)' :
+        type === 'warn' ? 'rgba(250,204,21,.50)' :
+        type === 'danger' ? 'rgba(251,113,133,.56)' :
+        type === 'power' ? 'rgba(103,232,249,.55)' :
+        'rgba(255,255,255,.13)';
+
+      game.aiLearningRunNotes.push({
+        at:nowIso(),
+        type,
+        text,
+        wave:game.wave,
+        index:game.index + 1,
+        score:game.score,
+        hp:game.hp,
+        combo:game.combo
+      });
+    }
+
+    function aiGuideBeforeQuestion(q){
+      if(!q) return;
+
+      const answered = game.correct + game.wrong;
+      const accuracy = answered ? Math.round(game.correct / answered * 100) : 100;
+
+      if(q.ai && q.ai.boss){
+        aiGuideSay('Boss question! Focus first. Use Shield if your HP is low.', 'warn');
+        return;
+      }
+
+      if(game.hp <= 35 && game.powerUps.shield > 0 && !game.shieldActive){
+        aiGuideSay('Your HP is low. Use Shield before the next mistake.', 'danger');
+        return;
+      }
+
+      if(game.combo >= 2){
+        aiGuideSay('One more correct answer can trigger Fever Mode.', 'good');
+        return;
+      }
+
+      if(game.powerUps.laser > 0 && game.enemyHp <= 55){
+        aiGuideSay('Laser is ready. Use it to finish the enemy faster.', 'power');
+        return;
+      }
+
+      if(q.variant === 'typing'){
+        aiGuideSay('Typing question: type only the target English term, not a full sentence.', 'learn');
+        return;
+      }
+
+      if(game.mode === 'speed_run'){
+        aiGuideSay('Speed Run tip: answer fast for Critical Hit and higher score.', 'power');
+        return;
+      }
+
+      if(game.mode === 'debug_mission'){
+        aiGuideSay('Debug Mission is finding your weak words. Take your time.', 'learn');
+        return;
+      }
+
+      if(answered === 0){
+        aiGuideSay('Start with accuracy. Combo and power-ups will come later.', 'normal');
+      }
+    }
+
+    function aiGuideAfterAnswer(q, isCorrect, responseMs, timeout=false){
+      if(!q) return;
+
+      if(timeout){
+        aiGuideSay(`Time out. Remember: "${q.term.term}" means "${q.term.meaning}".`, 'learn');
+        return;
+      }
+
+      if(isCorrect){
+        if(responseMs < 3500){
+          aiGuideSay('Great speed! That was a Critical Hit.', 'good');
+          return;
+        }
+
+        if(game.combo >= 3){
+          aiGuideSay('Nice combo! Keep the streak to stay in control.', 'good');
+          return;
+        }
+
+        aiGuideSay('Correct. Keep building your combo.', 'good');
+        return;
+      }
+
+      const simpleTip = buildTermLearningTip(q.term);
+
+      aiGuideSay(simpleTip, 'learn');
+    }
+
+    function buildTermLearningTip(term){
+      if(!term) return 'Review this word once more before the next round.';
+
+      return `Review: "${term.term}" = ${term.meaning}. Example: ${term.example}`;
+    }
+
+    function getMasteryLevelFromStats(stats){
+      const mastery = Math.round((stats.mastery || 0) * 100);
+
+      if(mastery >= 85) return 'mastered';
+      if(mastery >= 65) return 'stable';
+      if(mastery >= 40) return 'learning';
+
+      return 'weak';
+    }
+
+    function buildAiLearningReport(){
+      const profile = loadAiProfile();
+      const bank = game.bank || game.selectedBank || 'A';
+      const bp = ensureBankProfile(profile, bank);
+      const terms = bp.terms || {};
+
+      const report = {
+        bank,
+        mastered:[],
+        stable:[],
+        learning:[],
+        weak:[],
+        newTerms:[],
+        recommendedFocus:[],
+        recommendedMode:'ai_training',
+        recommendedDifficulty:'normal',
+        reason:''
+      };
+
+      Object.entries(terms).forEach(([id, stats]) => {
+        const level = getMasteryLevelFromStats(stats);
+
+        const item = {
+          id,
+          seen:stats.seen || 0,
+          correct:stats.correct || 0,
+          wrong:stats.wrong || 0,
+          mastery:Math.round((stats.mastery || 0) * 100),
+          streak:stats.streak || 0
+        };
+
+        report[level].push(item);
+      });
+
+      report.weak.sort((a,b) => b.wrong - a.wrong || a.mastery - b.mastery);
+      report.learning.sort((a,b) => a.mastery - b.mastery);
+      report.stable.sort((a,b) => b.mastery - a.mastery);
+      report.mastered.sort((a,b) => b.mastery - a.mastery);
+
+      report.recommendedFocus = [
+        ...report.weak.slice(0,5),
+        ...report.learning.slice(0,3)
+      ].slice(0,6);
+
+      const answered = game.correct + game.wrong;
+      const accuracy = answered ? Math.round(game.correct / answered * 100) : 0;
+
+      if(report.weak.length >= 4 || accuracy < 60){
+        report.recommendedMode = 'debug_mission';
+        report.recommendedDifficulty = 'easy';
+        report.reason = 'มีคำอ่อนหลายคำ ควรเล่น Debug Mission เพื่อซ่อมจุดอ่อนก่อน';
+      }else if(accuracy >= 90 && game.bestCombo >= 5){
+        report.recommendedMode = 'speed_run';
+        report.recommendedDifficulty = 'hard';
+        report.reason = 'ทำได้ดีมาก เหมาะกับ Speed Run เพื่อเพิ่มความท้าทาย';
+      }else if(accuracy >= 80){
+        report.recommendedMode = 'code_battle';
+        report.recommendedDifficulty = 'hard';
+        report.reason = 'พื้นฐานดีแล้ว ควรเพิ่มระดับความยาก';
+      }else{
+        report.recommendedMode = 'ai_training';
+        report.recommendedDifficulty = 'normal';
+        report.reason = 'ควรฝึกต่อใน AI Training เพื่อเพิ่มความแม่นยำ';
+      }
+
+      return report;
+    }
+
+    function renderAiLearningSummaryHtml(report){
+      if(!report){
+        return 'AI Learning report is not available.';
+      }
+
+      const focus = report.recommendedFocus.length
+        ? report.recommendedFocus.map(x => `${x.id} (${x.mastery}%)`).join(', ')
+        : 'ยังไม่มีคำอ่อนเด่นชัด';
+
+      return (
+        `<strong>AI Learning Report</strong><br>` +
+        `Mastered: ${report.mastered.length} • Stable: ${report.stable.length} • Learning: ${report.learning.length} • Weak: ${report.weak.length}<br>` +
+        `Focus next: ${focus}<br>` +
+        `Next mode: ${report.recommendedMode} / ${report.recommendedDifficulty}<br>` +
+        `${report.reason}`
+      );
     }
           /* =====================================================
        AI LEARNING PROFILE
@@ -3828,10 +3732,11 @@
     function getAiTermWeight(term, profile, bank, usedTerms){
       const ts = getTermStats(profile, bank, term.id);
       const recentTerms = profile.recentTerms || [];
+      const modeCfg = getModeConfig();
 
       let weight = 1;
 
-      weight += ts.wrong * 2.8;
+      weight += ts.wrong * (modeCfg.weakTermBoost || 1.3);
       weight += (1 - (ts.mastery || 0)) * 2.2;
 
       if(ts.seen === 0) weight += 2.0;
@@ -3839,6 +3744,18 @@
       if(ts.mastery >= 0.85) weight -= 1.5;
       if(recentTerms.includes(term.id)) weight -= 1.4;
       if(usedTerms.has(term.id)) weight -= 2.2;
+
+      if(game.mode === 'speed_run' && ts.mastery >= 0.65){
+        weight += 1.1;
+      }
+
+      if(game.mode === 'debug_mission' && ts.wrong > 0){
+        weight += 2.2;
+      }
+
+      if(game.mode === 'ai_training' && ts.seen === 0){
+        weight += 1.2;
+      }
 
       return Math.max(0.2, weight);
     }
@@ -3925,6 +3842,7 @@
 
     function chooseAdaptiveVariant(term, index, profile, bank, adaptiveLevel){
       const cfg = getDifficultyConfig(adaptiveLevel);
+      const modeCfg = getModeConfig();
       const ts = getTermStats(profile, bank, term.id);
 
       const termWeak =
@@ -3943,12 +3861,14 @@
       }
 
       const r = Math.random();
+      const typingRate = clamp((cfg.typingRate || 0) + (modeCfg.typingBoost || 0), 0.02, 0.65);
+      const contextRate = cfg.contextRate || 0.35;
 
-      if(r < cfg.typingRate){
+      if(r < typingRate){
         return 'typing';
       }
 
-      if(r < cfg.typingRate + cfg.contextRate){
+      if(r < typingRate + contextRate){
         return 'context_mcq';
       }
 
@@ -4190,6 +4110,7 @@
 
       renderMiniMission();
       updatePowerButtons();
+      updateComboMeter();
     }
 
     function stopTimer(){
@@ -4203,8 +4124,9 @@
       stopTimer();
 
       const cfg = getDifficultyConfig(game.aiAdaptiveLevel || game.difficulty);
+      const modeCfg = getModeConfig();
 
-      game.maxTime = cfg.timerSec || 16;
+      game.maxTime = Math.max(6, (cfg.timerSec || 16) + (modeCfg.timerBonus || 0));
       game.timeLeft = game.maxTime;
       game.timedOut = false;
 
@@ -4241,7 +4163,9 @@
       game.timedOut = false;
 
       const q = game.current;
+      const modeCfg = getModeConfig();
 
+      aiGuideBeforeQuestion(q);
       updateWave();
 
       const enemy = ENEMIES[game.bank] || ENEMIES.A;
@@ -4259,7 +4183,7 @@
         `AI ${diffCfg.label} • ${diffCfg.cefr}`;
 
       els.bankBadge.textContent =
-        'Bank ' + game.bank;
+        `Bank ${game.bank} • ${modeCfg.emoji} ${modeCfg.label}`;
 
       els.promptText.textContent = q.prompt;
 
@@ -4267,6 +4191,13 @@
         'boss',
         Boolean(q.ai && q.ai.boss)
       );
+
+      if(q.ai && q.ai.boss){
+        setBossShield(true, getBossShieldHp());
+        VocabSFX.play('boss');
+      }else{
+        setBossShield(false, 0);
+      }
 
       const aiNote = q.ai
         ? ` • ${q.ai.cefr} • ${q.ai.termLevel} • seen ${q.ai.seen}, wrong ${q.ai.wrong}, mastery ${Math.round((q.ai.mastery || 0) * 100)}%`
@@ -4318,6 +4249,10 @@
       updateHud();
       startQuestionTimer();
 
+      if(q.ai && q.ai.boss){
+        arcadeToast('🛡 Boss Shield! Answer correctly to break it.');
+      }
+
       setTimeout(() => {
         applyEnemySkillBeforeQuestion(q);
       }, 260);
@@ -4360,6 +4295,7 @@
       const levelBefore = game.difficulty;
       const levelAfter = game.difficulty;
       const cfg = getDifficultyConfig(game.aiAdaptiveLevel || game.difficulty);
+      const modeCfg = getModeConfig();
       const boss = Boolean(q.ai && q.ai.boss);
       const isCritical = isCorrect && responseMs < 3500;
       const feverMultiplier = game.fever ? 1.5 : 1;
@@ -4371,7 +4307,10 @@
 
         const quickBonus = responseMs < 3500 ? 22 : responseMs < 6500 ? 10 : 0;
         const bossBonus = boss ? 22 : 0;
-        const multiplier = (cfg.scoreMultiplier || 1) * feverMultiplier;
+        const multiplier =
+          (cfg.scoreMultiplier || 1) *
+          (modeCfg.scoreMultiplier || 1) *
+          feverMultiplier;
 
         const damage = Math.round(
           (18 + quickBonus + Math.min(28, game.combo * 4) + bossBonus) * multiplier
@@ -4381,13 +4320,28 @@
           (10 + quickBonus + Math.min(28, game.combo * 3) + bossBonus) * multiplier
         );
 
+        fireHeroProjectile(isCritical);
+
         if(isCritical){
           game.criticalCount += 1;
           criticalFlash();
         }
 
         game.score += bonus;
-        game.enemyHp = Math.max(0, game.enemyHp - damage);
+
+        if(game.bossShieldActive){
+          game.bossShieldHp -= 1;
+
+          if(game.bossShieldHp <= 0){
+            breakBossShield();
+            game.enemyHp = Math.max(0, game.enemyHp - Math.round(damage * 0.85));
+          }else{
+            arcadeToast(`🛡 Boss Shield weakened! ${game.bossShieldHp} hit left`);
+            game.enemyHp = Math.max(0, game.enemyHp - Math.round(damage * 0.25));
+          }
+        }else{
+          game.enemyHp = Math.max(0, game.enemyHp - damage);
+        }
 
         popDamage(isCritical ? 'CRIT -' + damage : '-' + damage, true);
 
@@ -4418,15 +4372,21 @@
 
         const bossPenalty = boss ? 8 : 0;
         const timeoutPenalty = timeout ? 6 : 0;
-        const incomingDamage =
-          (cfg.enemyDamage || 12) + bossPenalty + timeoutPenalty;
+
+        const incomingDamage = Math.round(
+          ((cfg.enemyDamage || 12) + bossPenalty + timeoutPenalty) *
+          (modeCfg.enemyDamageMultiplier || 1)
+        );
+
+        showEnemyTelegraph();
+        fireEnemyProjectile();
 
         if(game.shieldActive){
           game.shieldActive = false;
 
           arcadeToast('🛡 Shield blocked enemy damage!');
 
-          VocabSFX.play('correct');
+          VocabSFX.play('shield');
         }else{
           game.hp = Math.max(0, game.hp - incomingDamage);
           screenShake();
@@ -4443,6 +4403,7 @@
         els.feedbackBox.className = 'feedback bad';
       }
 
+      aiGuideAfterAnswer(q, isCorrect, responseMs, timeout);
       updateMiniMission(isCorrect);
 
       game.mastery[q.term.term] = game.mastery[q.term.term] || {
@@ -4565,6 +4526,8 @@
       game.difficulty = identity.difficulty;
       game.sessionCode = identity.session_code;
 
+      const modeCfg = MODE_CONFIG[game.mode] || MODE_CONFIG.code_battle;
+
       game.index = 0;
       game.score = 0;
       game.correct = 0;
@@ -4572,8 +4535,8 @@
       game.combo = 0;
       game.bestCombo = 0;
 
-      game.hp = 100;
-      game.enemyHp = 100;
+      game.hp = modeCfg.hp || 100;
+      game.enemyHp = modeCfg.enemyHp || 100;
 
       game.answers = [];
       game.mastery = {};
@@ -4595,9 +4558,7 @@
       game.shieldActive = false;
 
       game.powerUps = {
-        hint:1,
-        shield:1,
-        laser:0
+        ...(modeCfg.startPowerUps || {hint:1, shield:1, laser:0})
       };
 
       game.hintUsed = 0;
@@ -4611,6 +4572,22 @@
       game.badges = [];
       game.coins = 0;
 
+      game.bossShieldActive = false;
+      game.bossShieldHp = 0;
+      game.actionLocked = false;
+
+      setBossShield(false, 0);
+
+      if(els.energyShot) els.energyShot.classList.remove('fire');
+      if(els.enemyAttackFx) els.enemyAttackFx.classList.remove('fire');
+      if(els.laserBeam) els.laserBeam.classList.remove('fire');
+      if(els.enemyTelegraph) els.enemyTelegraph.classList.remove('show');
+
+      game.aiGuideLastTip = '';
+      game.aiGuideLastAt = 0;
+      game.aiGuideTipCount = 0;
+      game.aiLearningRunNotes = [];
+
       resetMiniMission();
 
       game.questions = buildQuestions();
@@ -4622,7 +4599,9 @@
 
       showScreen('screenGame');
 
-      arcadeToast('🌱 Wave 1: Warm-up — Build your combo!');
+      arcadeToast(`${modeCfg.emoji} ${modeCfg.label} — ${modeCfg.note}`);
+
+      aiGuideSay('I will watch your accuracy, combo, weak words, and power-up timing.', 'normal');
 
       toast(
         `เริ่มภารกิจ • ${identity.display_name} • ${identity.student_id} • ${identity.section}`
@@ -4637,7 +4616,11 @@
         bank:game.bank,
         mode:game.mode,
         adaptive_level:game.aiAdaptiveLevel,
-        cefr:getDifficultyConfig(game.aiAdaptiveLevel).cefr
+        cefr:getDifficultyConfig(game.aiAdaptiveLevel).cefr,
+        mode_label:modeCfg.label,
+        mode_note:modeCfg.note,
+        mode_hp_start:modeCfg.hp,
+        mode_enemy_hp_start:modeCfg.enemyHp
       });
 
       renderQuestion();
@@ -4663,6 +4646,7 @@
 
       const finalLevel = game.aiAdaptiveLevel || game.difficulty;
       const finalCfg = getDifficultyConfig(finalLevel);
+      const modeCfg = getModeConfig();
 
       const finalBadges = calculateRewardBadges(accuracy);
       const finalCoins = calculateCoins(accuracy);
@@ -4707,9 +4691,10 @@
         );
 
       els.summaryText.textContent =
-        `Level ${finalCfg.label} (${finalCfg.cefr}) • Coins +${finalCoins} • Badges ${finalBadges.length}`;
+        `${modeCfg.emoji} ${modeCfg.label} • Level ${finalCfg.label} (${finalCfg.cefr}) • Coins +${finalCoins} • Badges ${finalBadges.length}`;
 
       const aiSummary = buildAiLearningSummary();
+      const aiLearningReport = buildAiLearningReport();
 
       const weakHtml = aiSummary.weakTerms.length
         ? `Weak memory: ${
@@ -4723,9 +4708,11 @@
       els.aiAdviceText.innerHTML =
         `${rec.reason}<br>` +
         `Recommended: ${rec.mode} / ${rec.difficulty}<br>` +
+        `Mode: ${modeCfg.emoji} ${modeCfg.label} — ${modeCfg.note}<br>` +
         `AI Difficulty this run: ${finalCfg.label} • ${finalCfg.cefr}<br>` +
         `Wave: ${game.waveName} • Critical ${game.criticalCount} • Fever ${game.feverCount} • Enemy Skills ${game.enemySkillCount}<br>` +
         weakHtml +
+        `<br>${renderAiLearningSummaryHtml(aiLearningReport)}<br>` +
         `<div style="margin-top:12px">` +
         finalBadges
           .map(b => `<span class="rewardBadge">🏅 ${b}</span>`)
@@ -4764,6 +4751,15 @@
         laser_used:game.laserUsed,
         coins:finalCoins,
         badges_json:finalBadges,
+
+        mode_label:modeCfg.label,
+        mode_note:modeCfg.note,
+        mode_hp_start:modeCfg.hp,
+        mode_enemy_hp_start:modeCfg.enemyHp,
+
+        ai_guide_tip_count:game.aiGuideTipCount,
+        ai_guide_notes_json:game.aiLearningRunNotes,
+        ai_learning_report_json:aiLearningReport,
 
         weakTerms:Object.entries(game.weakTerms)
           .map(([term, wrong]) => ({
@@ -4894,7 +4890,7 @@
 
       updateHud();
 
-      toast('พร้อมเริ่ม Vocab Battle Quest v5');
+      toast('พร้อมเริ่ม Vocab Battle Quest v8');
     }
   </script>
     <script>
@@ -5025,6 +5021,28 @@
           tone(659,.10,'triangle',.10,.09);
           tone(784,.10,'triangle',.11,.18);
           tone(1046,.18,'triangle',.12,.30);
+          return;
+        }
+
+        if(name === 'laser'){
+          tone(392,.06,'sawtooth',.08,0);
+          tone(784,.12,'sawtooth',.11,.06);
+          tone(1175,.18,'triangle',.12,.16);
+          noise(.12,.035);
+          return;
+        }
+
+        if(name === 'shield'){
+          tone(330,.08,'triangle',.08,0);
+          tone(494,.10,'triangle',.09,.08);
+          tone(660,.12,'triangle',.10,.16);
+          return;
+        }
+
+        if(name === 'boss'){
+          tone(110,.16,'sawtooth',.08,0);
+          tone(146,.18,'sawtooth',.08,.12);
+          noise(.16,.05);
           return;
         }
 
@@ -5223,7 +5241,16 @@
           shield_used:number(extra.shield_used || extra.shieldUsed, 0),
           laser_used:number(extra.laser_used || extra.laserUsed, 0),
           coins:number(extra.coins, 0),
-          badges_json:extra.badges_json || extra.badgesJson || extra.badges || []
+          badges_json:extra.badges_json || extra.badgesJson || extra.badges || [],
+
+          mode_label:extra.mode_label || extra.modeLabel || '',
+          mode_note:extra.mode_note || extra.modeNote || '',
+          mode_hp_start:number(extra.mode_hp_start || extra.modeHpStart, 0),
+          mode_enemy_hp_start:number(extra.mode_enemy_hp_start || extra.modeEnemyHpStart, 0),
+
+          ai_guide_tip_count:number(extra.ai_guide_tip_count || extra.aiGuideTipCount, 0),
+          ai_guide_notes_json:extra.ai_guide_notes_json || extra.aiGuideNotesJson || [],
+          ai_learning_report_json:extra.ai_learning_report_json || extra.aiLearningReportJson || {}
         };
       }
 
@@ -5234,7 +5261,7 @@
           api:'vocab',
           action,
           source:'vocab.html',
-          schema:'vocab-game-ui-v5-arcade-rush-20260428',
+          schema:'vocab-game-ui-v8-ai-guide-learning-20260428',
           payload
         };
 
