@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Teacher Vocab Analytics • v48 Deploy Check</title>
+  <title>Teacher Vocab Analytics • v49 Roster Backend</title>
   <meta name="theme-color" content="#08111f" />
+
   <style>
     :root{
       --bg:#07111f;
@@ -479,41 +480,26 @@
       border:1px solid rgba(255,255,255,.12);
       box-shadow:0 10px 28px rgba(0,0,0,.14);
     }
-
     .deployCheckItem.pass{
       border-color:rgba(74,222,128,.30);
       background:
         radial-gradient(circle at top right,rgba(74,222,128,.12),transparent 34%),
         rgba(255,255,255,.055);
     }
-
     .deployCheckItem.warn{
       border-color:rgba(253,224,71,.32);
       background:
         radial-gradient(circle at top right,rgba(253,224,71,.12),transparent 34%),
         rgba(255,255,255,.055);
     }
-
     .deployCheckItem.fail{
       border-color:rgba(251,113,133,.34);
       background:
         radial-gradient(circle at top right,rgba(251,113,133,.14),transparent 34%),
         rgba(255,255,255,.055);
     }
-
-    .deployCheckTitle{
-      font-size:17px;
-      font-weight:1000;
-      line-height:1.15;
-    }
-
-    .deployCheckText{
-      margin-top:7px;
-      color:#dbeafe;
-      font-size:13px;
-      line-height:1.55;
-      font-weight:750;
-    }
+    .deployCheckTitle{font-size:17px;font-weight:1000;line-height:1.15}
+    .deployCheckText{margin-top:7px;color:#dbeafe;font-size:13px;line-height:1.55;font-weight:750}
 
     body.compact-mode .section{padding:16px;margin-top:12px}
     body.compact-mode .card,body.compact-mode .studentCard,body.compact-mode .miniCard{padding:14px;border-radius:18px}
@@ -521,9 +507,7 @@
     body.focus-mode [data-focus-hide="1"]{display:none!important}
 
     body.production-mode [data-dev="1"],
-    body.production-mode .devOnlyBtn{
-      display:none!important;
-    }
+    body.production-mode .devOnlyBtn{display:none!important}
     .btn.is-on{background:linear-gradient(135deg,#4ade80,#67e8f9);color:#062014}
 
     @media (max-width:1120px){
@@ -584,8 +568,8 @@
           <h1>Teacher Vocab Analytics</h1>
           <p>Dashboard สำหรับติดตามผล Vocabulary Game: attendance, weak terms, feedback, communication log, evidence pack และ course portfolio</p>
           <div class="versionBadgeRow">
-            <span class="versionBadge" id="teacherVersionBadge">Teacher v48</span>
-            <span class="versionBadge">Build 2026-04-25</span>
+            <span class="versionBadge" id="teacherVersionBadge">Teacher v49</span>
+            <span class="versionBadge">Build 2026-04-28</span>
             <span class="versionBadge" id="dataModeBadge">Live Data</span>
           </div>
         </div>
@@ -688,7 +672,7 @@
       <div class="sectionHead">
         <div>
           <h2>Students</h2>
-          <div class="sectionDesc">รายชื่อนักศึกษาจาก roster + logs</div>
+          <div class="sectionDesc">รายชื่อนักศึกษาจาก class_roster + logs</div>
         </div>
         <div class="actions">
           <span class="badge" id="studentCountBadge">0 students</span>
@@ -702,7 +686,7 @@
       <div class="sectionHead">
         <div>
           <h2>Attendance Summary</h2>
-          <div class="sectionDesc">เช็ก session_code, joined, missing และ completion</div>
+          <div class="sectionDesc">เช็ก session_code, joined, missing และ completion โดยอิง class_roster ถ้ามี</div>
         </div>
         <div class="actions">
           <button class="btn ghost" id="exportMissingBtn" type="button">Export Missing</button>
@@ -1074,14 +1058,14 @@
 
     const TEACHER_VERSION = {
       app: 'Teacher Vocab Analytics',
-      version: 'v48-final-deploy-check-clean-merged',
-      build: '2026-04-25',
-      schema: 'teacher-dashboard-v48',
+      version: 'v49-roster-backend-clean-merged',
+      build: '2026-04-28',
+      schema: 'teacher-dashboard-v49',
       apiUrl: API_URL
     };
 
     const LS = {
-      cache:'VOCAB_TEACHER_DASHBOARD_CACHE_V48',
+      cache:'VOCAB_TEACHER_DASHBOARD_CACHE_V49',
       roster:'VOCAB_TEACHER_ROSTER_V1',
       notes:'VOCAB_TEACHER_NOTES_V1:',
       goals:'VOCAB_TEACHER_GOALS_V1:',
@@ -1099,7 +1083,7 @@
 
     const state = {
       raw:null,
-      normalized:{students:[],sessions:[],termAnswers:[],leaderboard:[],debugShape:{}},
+      normalized:{students:[],sessions:[],termAnswers:[],leaderboard:[],roster:[],followup:[],archive:[],debugShape:{}},
       rows:[],
       roster:[],
       filters:{search:'',section:'',risk:'',bank:'',sort:'risk'},
@@ -1209,9 +1193,11 @@
     async function requestTeacherData(){
       const actions = ['teacher_dashboard_get','vocab_teacher_dashboard','teacher_dashboard','get_teacher_dashboard','dashboard_get',''];
       let lastErr = null;
+
       for(const action of actions){
         try{
           const u = new URL(API_URL);
+          u.searchParams.set('api', 'vocab');
           if(action) u.searchParams.set('action', action);
           u.searchParams.set('_', Date.now());
           const res = await fetch(u.toString(), {method:'GET', cache:'no-store'});
@@ -1219,22 +1205,89 @@
           const raw = await res.json();
           raw.__usedAction = action || '(none)';
           if(raw && typeof raw === 'object') return raw;
-        }catch(err){lastErr = err;}
+        }catch(err){
+          lastErr = err;
+        }
       }
+
       throw lastErr || new Error('Cannot load teacher data');
     }
 
     function normalizeDashboardPayload(raw){
       const root = raw?.data || raw?.payload || raw?.result || raw || {};
-      const students = getNested(root, ['students','profiles','students_profile','studentProfiles','data.students','tables.students']);
-      const sessions = getNested(root, ['sessions','vocab_sessions','sessionRows','logs.sessions','tables.sessions','data.sessions']);
-      const termAnswers = getNested(root, ['termAnswers','terms','vocab_terms','term_answers','answers','answerRows','logs.terms','tables.terms','data.termAnswers']);
-      const leaderboard = getNested(root, ['leaderboard','leaders','vocab_leaderboard','tables.leaderboard','data.leaderboard']);
+
+      const students = getNested(root, [
+        'students',
+        'profiles',
+        'students_profile',
+        'studentProfiles',
+        'student_profiles',
+        'data.students',
+        'tables.students'
+      ]);
+
+      const sessions = getNested(root, [
+        'sessions',
+        'vocab_sessions',
+        'sessionRows',
+        'logs.sessions',
+        'tables.sessions',
+        'data.sessions'
+      ]);
+
+      const termAnswers = getNested(root, [
+        'termAnswers',
+        'term_answers',
+        'terms',
+        'vocab_terms',
+        'answers',
+        'answerRows',
+        'logs.terms',
+        'tables.terms',
+        'data.termAnswers'
+      ]);
+
+      const leaderboard = getNested(root, [
+        'leaderboard',
+        'leaders',
+        'vocab_leaderboard',
+        'tables.leaderboard',
+        'data.leaderboard'
+      ]);
+
+      const roster = getNested(root, [
+        'roster',
+        'class_roster',
+        'data.roster',
+        'data.class_roster',
+        'tables.class_roster'
+      ]);
+
+      const followup = getNested(root, [
+        'followup',
+        'teacher_followup',
+        'data.followup',
+        'data.teacher_followup'
+      ]);
+
+      const archive = getNested(root, [
+        'archive',
+        'teacher_archive',
+        'data.archive',
+        'data.teacher_archive'
+      ]);
+
       return {
-        students, sessions, termAnswers, leaderboard,
+        students,
+        sessions,
+        termAnswers,
+        leaderboard,
+        roster,
+        followup,
+        archive,
         debugShape:{
-          rootKeys:Object.keys(root||{}),
-          rawKeys:Object.keys(raw||{}),
+          rootKeys:Object.keys(root || {}),
+          rawKeys:Object.keys(raw || {}),
           counts:raw?.counts || root?.counts || null
         }
       };
@@ -1264,12 +1317,17 @@
         student_id:getStudentId(r),
         display_name:getDisplayName(r),
         section:getSection(r),
-        aliases:text(r.aliases || r.alias || r.nicknames || '')
+        aliases:text(r.aliases || r.alias || r.nicknames || ''),
+        email:text(r.email || r.mail || ''),
+        group:text(r.group || r.team || ''),
+        status:text(r.status || 'active'),
+        note:text(r.note || '')
       };
     }
 
     function buildStudentRows(normalized){
       const map = new Map();
+
       function ensure(seed){
         const id = getRowId(seed);
         if(!map.has(id)){
@@ -1279,6 +1337,7 @@
             display_name:getDisplayName(seed),
             section:getSection(seed),
             profile:null,
+            roster:null,
             sessions:[],
             answers:[],
             leaderboard:null
@@ -1293,11 +1352,13 @@
 
       (state.roster || []).forEach(p => {
         const r = ensure(p);
+        r.roster = p;
         r.profile = p;
         r.student_id = p.student_id || r.student_id;
         r.display_name = p.display_name || r.display_name;
         r.section = p.section || r.section;
       });
+
       (normalized.students || []).forEach(p => { ensure(p).profile = p; });
       (normalized.sessions || []).forEach(s => ensure(s).sessions.push(s));
       (normalized.termAnswers || []).forEach(a => ensure(a).answers.push(a));
@@ -1316,13 +1377,29 @@
         const wrongRate = answerCount ? (wrong/answerCount)*100 : 0;
         const attendance = sessions.length;
         let riskLevel = 'good';
+
         if((attendance === 0 && state.roster.length) || latestAcc < 60 || wrongRate >= 45) riskLevel = 'risk';
         else if(latestAcc < 75 || attendance < 2 || wrongRate >= 30) riskLevel = 'support';
+
         const lastSeen = getEventTime(latest) || getEventTime(answers[answers.length-1]) || '';
+
         return {
-          ...r, sessions, answers, latest,
-          score, accuracy:latestAcc, attendance, answerCount, wrongCount:wrong, correctCount:correct, wrongRate, riskLevel, lastSeen,
-          lastBank:text(latest.bank || '-'), lastMode:text(latest.mode || '-'), lastSessionCode:getSessionCode(latest) || '-',
+          ...r,
+          sessions,
+          answers,
+          latest,
+          score,
+          accuracy:latestAcc,
+          attendance,
+          answerCount,
+          wrongCount:wrong,
+          correctCount:correct,
+          wrongRate,
+          riskLevel,
+          lastSeen,
+          lastBank:text(latest.bank || r.profile?.last_bank || r.leaderboard?.bank || '-'),
+          lastMode:text(latest.mode || r.profile?.last_mode || r.leaderboard?.mode || '-'),
+          lastSessionCode:getSessionCode(latest) || '-',
           action:riskLevel==='risk'?'ต้องติดตามใกล้ชิด':riskLevel==='support'?'ควรฝึกเพิ่ม':'ต่อยอดได้'
         };
       });
@@ -1333,37 +1410,84 @@
         localStorage.setItem(LS.cache, JSON.stringify({
           raw:state.raw,
           normalized:state.normalized,
+          roster:state.roster,
           saved_at:bangkokNow()
         }));
-      }catch(err){console.warn(err);}
+      }catch(err){
+        console.warn(err);
+      }
     }
+
     function useCache(){
       try{
         const raw = localStorage.getItem(LS.cache);
-        if(!raw){showStatus('ยังไม่มี cache ในเครื่องนี้','bad');return;}
+
+        if(!raw){
+          showStatus('ยังไม่มี cache ในเครื่องนี้','bad');
+          return;
+        }
+
         const snap = JSON.parse(raw);
+
         state.raw = snap.raw;
-        state.normalized = snap.normalized;
+        state.normalized = snap.normalized || {
+          students:[],
+          sessions:[],
+          termAnswers:[],
+          leaderboard:[],
+          roster:[],
+          followup:[],
+          archive:[],
+          debugShape:{}
+        };
+
+        if (Array.isArray(snap.roster) && snap.roster.length) {
+          state.roster = snap.roster.map(normalizeRosterRow);
+          localStorage.setItem(LS.roster, JSON.stringify(state.roster));
+        } else if (Array.isArray(state.normalized.roster) && state.normalized.roster.length) {
+          state.roster = state.normalized.roster.map(normalizeRosterRow);
+          localStorage.setItem(LS.roster, JSON.stringify(state.roster));
+        }
+
         state.rows = buildStudentRows(state.normalized);
         state.usingCache = true;
+
         showStatus('ใช้ข้อมูลจาก cache • saved ' + dateLabel(snap.saved_at), 'warn');
         renderAll();
-      }catch(err){showStatus('โหลด cache ไม่สำเร็จ: ' + err.message,'bad');}
+
+      }catch(err){
+        showStatus('โหลด cache ไม่สำเร็จ: ' + err.message,'bad');
+      }
     }
 
     async function loadDashboard(){
       showStatus('กำลังโหลดข้อมูล teacher dashboard...', 'warn');
+
       try{
         const raw = await requestTeacherData();
         const normalized = normalizeDashboardPayload(raw);
+
         state.raw = raw;
         state.normalized = normalized;
+
+        if (Array.isArray(normalized.roster) && normalized.roster.length) {
+          state.roster = normalized.roster.map(normalizeRosterRow);
+          localStorage.setItem(LS.roster, JSON.stringify(state.roster));
+        }
+
         state.rows = buildStudentRows(normalized);
         state.usingCache = false;
+
         saveCache();
-        showStatus(`โหลดสำเร็จ • sessions ${normalized.sessions.length} • answers ${normalized.termAnswers.length} • action ${raw.__usedAction}`, 'ok');
+
+        showStatus(
+          `โหลดสำเร็จ • students ${state.rows.length} • roster ${state.roster.length} • sessions ${normalized.sessions.length} • answers ${normalized.termAnswers.length} • action ${raw.__usedAction}`,
+          'ok'
+        );
+
         renderAll();
         setTimeout(() => runFinalDeployCheck(), 300);
+
       }catch(err){
         console.error(err);
         showStatus('โหลด online ไม่สำเร็จ: ' + (err.message || err) + ' • ลองใช้ cache อัตโนมัติ', 'warn');
@@ -1388,6 +1512,7 @@
       state.compact = localStorage.getItem(LS.compact)==='1';
       state.focus = localStorage.getItem(LS.focus)==='1';
       state.production = localStorage.getItem(LS.production)==='1';
+      state.roster = (state.roster || []).map(normalizeRosterRow);
       applyUiModes();
     }
 
@@ -1505,6 +1630,7 @@
       if(!d) return Infinity;
       return Math.max(0, Math.floor((Date.now()-d.getTime())/60000));
     }
+
     function agoLabel(v){
       const m = minutesAgo(v);
       if(!Number.isFinite(m)) return '-';
@@ -1519,6 +1645,7 @@
       const rows = state.rows;
       const live = rows.filter(r => minutesAgo(r.lastSeen) <= state.liveWindow);
       const recent = rows.filter(r => minutesAgo(r.lastSeen) > state.liveWindow && minutesAgo(r.lastSeen) <= state.liveWindow*2);
+
       els.liveKpis.innerHTML = [
         ['Live Now',live.length,'good'],
         ['Recent Idle',recent.length,recent.length?'warn':'good'],
@@ -1552,1167 +1679,3 @@
         </article>
       `).join('') : '<div class="empty">ยังไม่มี timeline events ล่าสุด</div>';
     }
-
-    function renderStudents(){
-      const filtered = applyFilters(state.rows);
-      els.studentCountBadge.textContent = `${filtered.length}/${state.rows.length} students`;
-      const visible = filtered.slice(0,state.studentRenderLimit);
-      els.showMoreStudentsBtn.style.display = filtered.length > visible.length ? '' : 'none';
-      els.studentList.innerHTML = visible.length ? visible.map(r => {
-        const live = minutesAgo(r.lastSeen) <= state.liveWindow;
-        return `
-          <article class="studentCard ${r.riskLevel} ${live?'live':''}" data-student-id="${escapeHtml(r.id)}" tabindex="0">
-            <div class="studentTop">
-              <div>
-                <div class="studentName">${escapeHtml(r.display_name)}</div>
-                <div class="meta">ID: ${escapeHtml(r.student_id||'-')} • Section: ${escapeHtml(r.section||'-')}<br>
-                Score ${Math.round(r.score)} • Accuracy ${Math.round(r.accuracy)}% • Sessions ${r.attendance}<br>
-                Last: ${escapeHtml(agoLabel(r.lastSeen))}</div>
-              </div>
-              <div class="chipRow">
-                ${live?'<span class="badge good">LIVE</span>':''}
-                <span class="badge ${r.riskLevel==='risk'?'bad':r.riskLevel==='support'?'warn':'good'}">${escapeHtml(r.riskLevel)}</span>
-              </div>
-            </div>
-            <div class="studentActions">
-              <button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(r.id)}">เปิดรายคน</button>
-              <button class="btn ghost queueEvidenceBtn" data-student-id="${escapeHtml(r.id)}">${isInEvidenceQueue(r.id)?'In Queue':'Queue'}</button>
-              <button class="btn warn exportEvidenceBtn" data-student-id="${escapeHtml(r.id)}">Evidence</button>
-            </div>
-          </article>
-        `;
-      }).join('') : '<div class="empty">ไม่พบนักศึกษาตามตัวกรอง</div>';
-    }
-
-    function buildAttendanceRows(){
-      const map = new Map();
-      state.normalized.sessions.forEach(s => {
-        const code = getSessionCode(s) || 'NO_CODE';
-        if(!map.has(code)) map.set(code, []);
-        map.get(code).push(s);
-      });
-      const roster = state.roster.length ? state.roster : state.rows;
-      return Array.from(map.entries()).map(([code, sessions]) => {
-        const joined = new Set(sessions.map(getRowId));
-        const missing = roster.filter(p => !joined.has(String(p.id || getRowId(p))));
-        const total = roster.length || joined.size;
-        return {code,sessions,joinedCount:joined.size,total,missing,missingCount:missing.length,percent:total?joined.size/total*100:0};
-      }).sort((a,b)=>String(a.code).localeCompare(String(b.code)));
-    }
-
-    function renderAttendance(){
-      const rows = buildAttendanceRows();
-      els.attendanceList.innerHTML = rows.length ? rows.map(a => `
-        <article class="miniCard ${a.missingCount?'warn':'good'}">
-          <div class="miniTitle">${escapeHtml(a.code)}</div>
-          <div class="miniMeta">Joined ${a.joinedCount}/${a.total} • Missing ${a.missingCount}<br>Completion ${Math.round(a.percent)}%</div>
-          <div class="miniActions"><button class="btn ghost exportMissingOneBtn" data-code="${escapeHtml(a.code)}">Export Missing</button></div>
-        </article>
-      `).join('') : '<div class="empty">ยังไม่มี session_code สำหรับ attendance</div>';
-    }
-
-    function termStats(answers = state.normalized.termAnswers){
-      const map = new Map();
-      answers.forEach(a => {
-        const k = getTerm(a);
-        if(!map.has(k)) map.set(k,{term:k,seen:0,wrong:0,correct:0});
-        const t = map.get(k);
-        t.seen++;
-        if(isCorrectAnswer(a)) t.correct++; else t.wrong++;
-      });
-      return Array.from(map.values()).map(t => ({...t,accuracy:t.seen?t.correct/t.seen*100:0})).sort((a,b)=>b.wrong-a.wrong || a.accuracy-b.accuracy);
-    }
-    function perStudentWeakTerms(row){
-      return termStats(row.answers || []).slice(0,10);
-    }
-
-    function renderTerms(){
-      const rows = termStats().slice(0,80);
-      els.termTable.innerHTML = rows.length ? rows.map(t => `
-        <tr><td>${escapeHtml(t.term)}</td><td>${t.seen}</td><td>${t.wrong}</td><td>${Math.round(t.accuracy)}%</td></tr>
-      `).join('') : '<tr><td colspan="4">ยังไม่มี term answers</td></tr>';
-    }
-
-    function renderRecent(){
-      const rows = state.normalized.sessions.slice().sort((a,b)=>(safeDate(getEventTime(b))?.getTime()||0)-(safeDate(getEventTime(a))?.getTime()||0)).slice(0,20);
-      els.recentRuns.innerHTML = rows.length ? rows.map(s => `
-        <article class="runCard">
-          <div class="miniTitle">${escapeHtml(getDisplayName(s))}</div>
-          <div class="miniMeta">${escapeHtml(getSessionCode(s)||'-')} • ${escapeHtml(s.bank||'-')}/${escapeHtml(s.mode||'-')}<br>Score ${num(s.score)} • Accuracy ${pct(s.accuracy)}%<br>${escapeHtml(dateLabel(getEventTime(s)))}</div>
-        </article>
-      `).join('') : '<div class="empty">ยังไม่มี session rows</div>';
-    }
-
-    function workflowColumns(){return [
-      ['new','New'],['reviewing','Reviewing'],['assigned','Assigned Goal'],['resolved','Resolved']
-    ];}
-
-    function upsertWorkflow(item){
-      const existing = state.workflowItems.find(w => w.key === item.key);
-      if(existing) Object.assign(existing,item,{updated_at:bangkokNow()});
-      else state.workflowItems.unshift({status:'new',created_at:bangkokNow(),updated_at:bangkokNow(),...item});
-      saveWorkflow();
-    }
-
-    function buildWorkflow(){
-      state.rows.forEach(r => {
-        if(r.riskLevel === 'risk' || r.riskLevel === 'support'){
-          upsertWorkflow({
-            key:r.id + '::' + r.riskLevel,
-            studentId:r.id, display_name:r.display_name, student_id:r.student_id, section:r.section,
-            priority:r.riskLevel==='risk'?'high':'medium',
-            reasonType:r.riskLevel,
-            reason:`${r.riskLevel} • accuracy ${Math.round(r.accuracy)}% • wrong rate ${Math.round(r.wrongRate)}%`,
-            nextAction:r.riskLevel==='risk'?'ทบทวน weak terms และตั้ง goal':'ฝึกเพิ่มอีก 1 รอบ'
-          });
-        }
-      });
-      renderWorkflow();
-      showStatus('Build workflow from data แล้ว','ok');
-    }
-
-    function renderWorkflow(){
-      els.workflowCount.textContent = state.workflowItems.filter(w=>w.status!=='resolved').length + ' active';
-      els.workflowBoard.innerHTML = workflowColumns().map(([id,title]) => {
-        const items = state.workflowItems.filter(w => (w.status||'new') === id);
-        return `
-          <article class="miniCard">
-            <div class="studentTop"><div class="miniTitle">${escapeHtml(title)}</div><span class="badge">${items.length}</span></div>
-            <div class="list" style="margin-top:12px">
-              ${items.length ? items.map(w => `
-                <div class="miniCard ${w.priority==='high'?'bad':'warn'}">
-                  <div class="miniTitle">${escapeHtml(w.display_name)}</div>
-                  <div class="miniMeta">ID: ${escapeHtml(w.student_id||'-')} • ${escapeHtml(w.section||'-')}<br>${escapeHtml(w.reason||'-')}<br><b>Next:</b> ${escapeHtml(w.nextAction||'-')}</div>
-                  <select class="workflowStatusSelect" data-key="${escapeHtml(w.key)}">
-                    ${workflowColumns().map(([cid,ct])=>`<option value="${cid}" ${cid===(w.status||'new')?'selected':''}>${ct}</option>`).join('')}
-                  </select>
-                  <div class="miniActions">
-                    <button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(w.studentId)}">เปิดรายคน</button>
-                    <button class="btn ghost workflowNoteBtn" data-key="${escapeHtml(w.key)}">Add Note</button>
-                    <button class="btn warn workflowGoalBtn" data-key="${escapeHtml(w.key)}">Set Goal</button>
-                  </div>
-                </div>
-              `).join('') : '<div class="empty">ว่าง</div>'}
-            </div>
-          </article>
-        `;
-      }).join('');
-    }
-
-    function getStudentRowById(id){return state.rows.find(r => String(r.id) === String(id));}
-    function isInEvidenceQueue(id){return state.evidenceQueue.some(x => String(x.studentId)===String(id));}
-    function addToEvidenceQueue(id, reason='manual'){
-      const r = getStudentRowById(id);
-      if(!r) return;
-      if(!isInEvidenceQueue(id)){
-        state.evidenceQueue.push({studentId:r.id,display_name:r.display_name,student_id:r.student_id,section:r.section,reason,status:'queued',queued_at:bangkokNow(),exported_at:''});
-        saveEvidenceQueue();
-      }
-      renderEvidenceQueue();
-      renderStudents();
-    }
-
-    function renderEvidence(){
-      const rows = applyFilters(state.rows).slice(0,24);
-      els.evidenceGrid.innerHTML = rows.length ? rows.map(r => `
-        <article class="miniCard ${r.riskLevel==='risk'?'bad':r.riskLevel==='support'?'warn':''}">
-          <div class="miniTitle">${escapeHtml(r.display_name)}</div>
-          <div class="miniMeta">ID: ${escapeHtml(r.student_id||'-')} • ${escapeHtml(r.section||'-')}<br>Score ${Math.round(r.score)} • Accuracy ${Math.round(r.accuracy)}%<br>Workflow ${state.workflowItems.filter(w=>String(w.studentId)===String(r.id)&&w.status!=='resolved').length} • Comm ${state.communicationLog.filter(c=>String(c.studentId)===String(r.id)).length}</div>
-          <div class="miniActions">
-            <button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(r.id)}">เปิด</button>
-            <button class="btn ghost queueEvidenceBtn" data-student-id="${escapeHtml(r.id)}">${isInEvidenceQueue(r.id)?'In Queue':'Queue'}</button>
-            <button class="btn warn exportEvidenceBtn" data-student-id="${escapeHtml(r.id)}">Export Pack</button>
-          </div>
-        </article>
-      `).join('') : '<div class="empty">ไม่มีข้อมูล evidence</div>';
-    }
-
-    function renderEvidenceQueue(){
-      const pending = state.evidenceQueue.filter(q=>q.status!=='exported').length;
-      els.evidenceQueueCount.textContent = `${pending} pending / ${state.evidenceQueue.length} total`;
-      els.evidenceQueueGrid.innerHTML = state.evidenceQueue.length ? state.evidenceQueue.map(q => `
-        <article class="miniCard ${q.status==='exported'?'good':'warn'}">
-          <div class="miniTitle">${escapeHtml(q.display_name)}</div>
-          <div class="miniMeta">ID: ${escapeHtml(q.student_id||'-')} • ${escapeHtml(q.section||'-')}<br>Reason: ${escapeHtml(q.reason)}<br>Status: ${escapeHtml(q.status)}</div>
-          <div class="miniActions">
-            <button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(q.studentId)}">เปิด</button>
-            <button class="btn warn queueExportPackBtn" data-student-id="${escapeHtml(q.studentId)}">Export</button>
-            <button class="btn ghost queueRemoveBtn" data-student-id="${escapeHtml(q.studentId)}">Remove</button>
-          </div>
-        </article>
-      `).join('') : '<div class="empty">ยังไม่มี Evidence Queue</div>';
-    }
-
-    function getStudentNote(row){return localStorage.getItem(LS.notes + row.id) || '';}
-    function saveStudentNote(row, note){localStorage.setItem(LS.notes + row.id, note || '');}
-    function getGoal(row){
-      try{return JSON.parse(localStorage.getItem(LS.goals + row.id)||'null');}catch{return null;}
-    }
-    function saveGoal(row, goal){localStorage.setItem(LS.goals + row.id, JSON.stringify(goal));}
-    function clearGoal(row){localStorage.removeItem(LS.goals + row.id);}
-
-    function buildStudentFeedback(row){
-      const weak = perStudentWeakTerms(row).slice(0,5);
-      const lines = [];
-      lines.push(`Feedback สำหรับ ${row.display_name}`);
-      lines.push(`Score ${Math.round(row.score)} • Accuracy ${Math.round(row.accuracy)}% • Sessions ${row.attendance}`);
-      if(row.riskLevel === 'risk') lines.push('ควรทบทวนคำศัพท์ที่ผิดซ้ำและฝึกเพิ่มอีก 1 รอบแบบไม่จับเวลา');
-      else if(row.riskLevel === 'support') lines.push('ควรฝึกเพิ่มเพื่อยกระดับ accuracy ให้มั่นคงขึ้น');
-      else lines.push('ผลโดยรวมดี สามารถลองโหมดที่ท้าทายขึ้นได้');
-      if(weak.length){
-        lines.push('');
-        lines.push('คำศัพท์ที่ควรทบทวน:');
-        weak.forEach(t => lines.push(`- ${t.term}: ผิด ${t.wrong}/${t.seen}`));
-      }
-      return lines.join('\n');
-    }
-
-    function getEvidenceObject(row){
-      return {
-        generated_at:bangkokNow(),
-        student:{id:row.id,display_name:row.display_name,student_id:row.student_id,section:row.section},
-        summary:{score:Math.round(row.score),accuracy:Math.round(row.accuracy),attendance:row.attendance,wrongRate:Math.round(row.wrongRate),riskLevel:row.riskLevel},
-        feedback:buildStudentFeedback(row),
-        note:getStudentNote(row),
-        goal:getGoal(row),
-        workflow:state.workflowItems.filter(w=>String(w.studentId)===String(row.id)),
-        communication:state.communicationLog.filter(c=>String(c.studentId)===String(row.id)),
-        weakTerms:perStudentWeakTerms(row),
-        sessions:row.sessions,
-        answers:row.answers
-      };
-    }
-
-    function buildEvidenceHtml(row){
-      const e = getEvidenceObject(row);
-      const weakRows = e.weakTerms.map(t=>`<tr><td>${escapeHtml(t.term)}</td><td>${t.seen}</td><td>${t.wrong}</td><td>${Math.round(t.accuracy)}%</td></tr>`).join('');
-      const sessionRows = e.sessions.map(s=>`<tr><td>${escapeHtml(getSessionCode(s)||'-')}</td><td>${escapeHtml(s.bank||'-')}</td><td>${escapeHtml(s.mode||'-')}</td><td>${num(s.score)}</td><td>${pct(s.accuracy)}%</td><td>${escapeHtml(dateLabel(getEventTime(s)))}</td></tr>`).join('');
-      return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>Evidence Pack ${escapeHtml(row.display_name)}</title>
-<style>body{font-family:Arial,"Noto Sans Thai",sans-serif;background:#f5f7fb;color:#172033;margin:0;padding:24px;line-height:1.6}main{max-width:1100px;margin:auto;background:#fff;padding:28px;border-radius:24px}h1{margin:0;font-size:34px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #e5e7eb;padding:8px;text-align:left}th{background:#eef2ff}.box{white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:14px}</style></head><body><main>
-<h1>Student Evidence Pack</h1>
-<p>${escapeHtml(row.display_name)} • ${escapeHtml(row.student_id||'-')} • ${escapeHtml(row.section||'-')}</p>
-<h2>Summary</h2><div class="box">${escapeHtml(JSON.stringify(e.summary,null,2))}</div>
-<h2>Feedback</h2><div class="box">${escapeHtml(e.feedback)}</div>
-<h2>Teacher Note</h2><div class="box">${escapeHtml(e.note||'-')}</div>
-<h2>Goal</h2><div class="box">${escapeHtml(JSON.stringify(e.goal||null,null,2))}</div>
-<h2>Weak Terms</h2><table><thead><tr><th>Term</th><th>Seen</th><th>Wrong</th><th>Accuracy</th></tr></thead><tbody>${weakRows || '<tr><td colspan="4">No data</td></tr>'}</tbody></table>
-<h2>Sessions</h2><table><thead><tr><th>Session</th><th>Bank</th><th>Mode</th><th>Score</th><th>Accuracy</th><th>Date</th></tr></thead><tbody>${sessionRows || '<tr><td colspan="6">No data</td></tr>'}</tbody></table>
-<h2>Raw JSON</h2><div class="box">${escapeHtml(JSON.stringify(e,null,2))}</div>
-</main></body></html>`;
-    }
-
-    function exportEvidence(row){
-      if(!row) return;
-      const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-      downloadTextFile(`student-evidence-pack-${row.display_name.replace(/[^\w\u0E00-\u0E7F-]+/g,'-')}-${stamp}.html`, buildEvidenceHtml(row), 'text/html;charset=utf-8');
-      addComm({action:'export',source:'evidence-pack',studentId:row.id,template:'student-evidence-pack',message:'Exported evidence pack'});
-    }
-
-    function composeFeedback(rows, source){
-      const tone = els.feedbackToneSelect.value;
-      const lang = els.feedbackLangSelect.value;
-      state.batchFeedbackItems = rows.map(r => ({
-        studentId:r.id,display_name:r.display_name,student_id:r.student_id,section:r.section,source,tone,lang,
-        risk_level:r.riskLevel,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,
-        text:buildFeedbackText(r, lang),
-        created_at:bangkokNow()
-      }));
-      saveBatchFeedback();
-      renderBatchFeedback();
-    }
-
-    function buildFeedbackText(row, lang='th'){
-      const weak = perStudentWeakTerms(row).slice(0,5);
-      if(lang === 'en'){
-        return [
-          `Hello ${row.display_name},`,
-          `Summary: score ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%, sessions ${row.attendance}.`,
-          row.riskLevel==='risk'?'Please review repeated mistakes and practice one more round.':row.riskLevel==='support'?'Please replay one round and focus on accuracy.':'Good work. Try a more challenging mode next time.',
-          weak.length ? 'Vocabulary to review: ' + weak.map(t=>`${t.term} (${t.wrong}/${t.seen})`).join(', ') : 'No repeated weak terms found yet.'
-        ].join('\n');
-      }
-      if(lang === 'both') return buildFeedbackText(row,'th') + '\n\n--- English ---\n\n' + buildFeedbackText(row,'en');
-      return [
-        `สวัสดี ${row.display_name}`,
-        `สรุปผล: score ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%, เล่นแล้ว ${row.attendance} รอบ`,
-        row.riskLevel==='risk'?'ควรทบทวนคำที่ผิดซ้ำและฝึกเพิ่มอีก 1 รอบ':row.riskLevel==='support'?'ควรเล่นซ้ำอีก 1 รอบโดยเน้น accuracy':'ทำได้ดี สามารถลองโหมดที่ท้าทายขึ้น',
-        weak.length ? 'คำศัพท์ที่ควรทบทวน: ' + weak.map(t=>`${t.term} (${t.wrong}/${t.seen})`).join(', ') : 'ยังไม่พบคำที่ผิดซ้ำชัดเจน'
-      ].join('\n');
-    }
-
-    function renderBatchFeedback(){
-      els.batchFeedbackCount.textContent = state.batchFeedbackItems.length + ' feedback';
-      els.batchFeedbackGrid.innerHTML = state.batchFeedbackItems.length ? state.batchFeedbackItems.map(item => `
-        <article class="miniCard ${item.risk_level==='risk'?'bad':item.risk_level==='support'?'warn':''}">
-          <div class="miniTitle">${escapeHtml(item.display_name)}</div>
-          <div class="miniMeta">ID: ${escapeHtml(item.student_id||'-')} • ${escapeHtml(item.section||'-')}<br>Source: ${escapeHtml(item.source)} • ${escapeHtml(item.lang)}</div>
-          <div class="debugBox" style="max-height:220px">${escapeHtml(item.text)}</div>
-          <div class="miniActions">
-            <button class="btn ghost copyFeedbackBtn" data-student-id="${escapeHtml(item.studentId)}">Copy</button>
-            <button class="btn ghost noteFeedbackBtn" data-student-id="${escapeHtml(item.studentId)}">Save Note</button>
-            <button class="btn warn markFeedbackSentBtn" data-student-id="${escapeHtml(item.studentId)}">Mark Sent</button>
-          </div>
-        </article>
-      `).join('') : '<div class="empty">ยังไม่มี batch feedback</div>';
-    }
-
-    function composeTemplates(){
-      const source = els.templateSourceSelect.value;
-      const type = els.templateTypeSelect.value;
-      const lang = els.templateLangSelect.value;
-      const rows = getRowsBySource(source);
-      state.templateMessages = rows.map(r => ({
-        studentId:r.id,display_name:r.display_name,student_id:r.student_id,section:r.section,template:type,source,lang,
-        risk_level:r.riskLevel,score:Math.round(r.score),accuracy:Math.round(r.accuracy),
-        text:buildTemplateMessage(r,type,lang),
-        created_at:bangkokNow()
-      }));
-      saveTemplates();
-      renderTemplates();
-    }
-
-    function getRowsBySource(source){
-      if(source === 'queue'){
-        const ids = new Set(state.evidenceQueue.map(q=>String(q.studentId)));
-        return state.rows.filter(r=>ids.has(String(r.id)));
-      }
-      if(source === 'batchFeedback'){
-        const ids = new Set(state.batchFeedbackItems.map(q=>String(q.studentId)));
-        return state.rows.filter(r=>ids.has(String(r.id)));
-      }
-      if(source === 'risk') return state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support');
-      if(source === 'workflow'){
-        const ids = new Set(state.workflowItems.filter(w=>w.status!=='resolved').map(w=>String(w.studentId)));
-        return state.rows.filter(r=>ids.has(String(r.id)));
-      }
-      if(source === 'visible') return applyFilters(state.rows);
-      if(source === 'focused') return state.quickFilter.type==='student' ? state.rows.filter(r=>String(r.id)===String(state.quickFilter.value)) : [];
-      return [];
-    }
-
-    function buildTemplateMessage(row,type,lang='th'){
-      const weak = perStudentWeakTerms(row).slice(0,4).map(t=>`${t.term} (${t.wrong}/${t.seen})`).join(', ') || '-';
-      const th = {
-        praise:`สวัสดี ${row.display_name}\nครูขอชื่นชมความตั้งใจในการทำกิจกรรม Vocabulary วันนี้\nผลปัจจุบัน: score ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%`,
-        review:`สวัสดี ${row.display_name}\nครูแนะนำให้ทบทวนคำศัพท์ก่อนเล่นรอบถัดไป\nคำศัพท์ที่ควรทบทวน: ${weak}`,
-        missing:`สวัสดี ${row.display_name}\nครูยังไม่พบข้อมูลการเข้าเล่น/ส่งผลของคุณ กรุณาเข้าเกมและเล่นจนจบรอบ`,
-        goal:`สวัสดี ${row.display_name}\nGoal รอบถัดไป: ตั้งเป้า accuracy อย่างน้อย ${Math.max(75,Math.round(row.accuracy+10))}%\nคำที่ควรทบทวน: ${weak}`,
-        followup:`สวัสดี ${row.display_name}\nครูอยากนัดติดตามผลการฝึกเพิ่มเติม กรุณาเตรียมคำศัพท์ที่ยาก 3–5 คำ`,
-        advisor:`เรียนอาจารย์ที่ปรึกษา\nขอแจ้งข้อมูลติดตามนักศึกษา ${row.display_name} (${row.student_id||'-'}) Section ${row.section||'-'}\nScore ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%`
-      }[type] || '';
-      const en = {
-        praise:`Hello ${row.display_name},\nGreat effort in the vocabulary activity today.\nCurrent result: score ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%.`,
-        review:`Hello ${row.display_name},\nPlease review the vocabulary before the next round.\nVocabulary to review: ${weak}`,
-        missing:`Hello ${row.display_name},\nYour activity record has not been found. Please complete the game round.`,
-        goal:`Hello ${row.display_name},\nYour next goal is at least ${Math.max(75,Math.round(row.accuracy+10))}% accuracy.\nVocabulary to review: ${weak}`,
-        followup:`Hello ${row.display_name},\nI would like to follow up on your vocabulary practice. Please prepare 3–5 difficult words.`,
-        advisor:`Dear advisor,\nThis is a follow-up note for ${row.display_name} (${row.student_id||'-'}), Section ${row.section||'-'}.\nScore ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%.`
-      }[type] || '';
-      if(lang === 'en') return en;
-      if(lang === 'both') return th + '\n\n--- English ---\n\n' + en;
-      return th;
-    }
-
-    function renderTemplates(){
-      els.templateCount.textContent = state.templateMessages.length + ' messages';
-      els.templateGrid.innerHTML = state.templateMessages.length ? state.templateMessages.map(item => `
-        <article class="miniCard ${item.risk_level==='risk'?'bad':item.risk_level==='support'?'warn':''}">
-          <div class="miniTitle">${escapeHtml(item.display_name)}</div>
-          <div class="miniMeta">Template: ${escapeHtml(item.template)} • Source: ${escapeHtml(item.source)} • ${escapeHtml(item.lang)}</div>
-          <div class="debugBox" style="max-height:220px">${escapeHtml(item.text)}</div>
-          <div class="miniActions">
-            <button class="btn ghost copyTemplateBtn" data-student-id="${escapeHtml(item.studentId)}">Copy</button>
-            <button class="btn ghost noteTemplateBtn" data-student-id="${escapeHtml(item.studentId)}">Save Note</button>
-            <button class="btn warn markTemplateSentBtn" data-student-id="${escapeHtml(item.studentId)}">Mark Sent</button>
-          </div>
-        </article>
-      `).join('') : '<div class="empty">ยังไม่มี template messages</div>';
-    }
-
-    function addComm(entry){
-      const row = entry.studentId ? getStudentRowById(entry.studentId) : null;
-      state.communicationLog.unshift({
-        id:'comm-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-        created_at:bangkokNow(),
-        action:entry.action || 'copy',
-        source:entry.source || 'unknown',
-        studentId:entry.studentId || '',
-        display_name:entry.display_name || row?.display_name || '',
-        student_id:entry.student_id || row?.student_id || '',
-        section:entry.section || row?.section || '',
-        template:entry.template || '',
-        message:entry.message || '',
-        note:entry.note || ''
-      });
-      state.communicationLog = state.communicationLog.slice(0,500);
-      saveComm();
-      renderCommunicationLog();
-      renderCommunicationSummary();
-    }
-
-    function renderCommunicationLog(){
-      const q = normalizeSearchValue(els.communicationSearchInput.value);
-      const action = els.communicationActionFilter.value;
-      const source = els.communicationSourceFilter.value;
-      const items = state.communicationLog.filter(c => {
-        if(action && c.action !== action) return false;
-        if(source && c.source !== source) return false;
-        if(q && !normalizeSearchValue([c.display_name,c.student_id,c.section,c.action,c.source,c.template,c.message].join(' ')).includes(q)) return false;
-        return true;
-      });
-      els.communicationLogCount.textContent = `${items.length}/${state.communicationLog.length} logs`;
-      els.communicationLogList.innerHTML = items.length ? items.slice(0,80).map(c => `
-        <article class="miniCard ${c.action==='mark_sent'?'good':c.action==='save_note'?'warn':''}">
-          <div class="studentTop">
-            <div>
-              <div class="miniTitle">${escapeHtml(c.action)} • ${escapeHtml(c.display_name || 'Class')}</div>
-              <div class="miniMeta">${escapeHtml(c.source)} • ${escapeHtml(c.template||'-')}<br>${escapeHtml(dateLabel(c.created_at))}</div>
-            </div>
-            <span class="badge">${escapeHtml(c.action)}</span>
-          </div>
-          ${c.message?`<div class="debugBox" style="max-height:120px;margin-top:10px">${escapeHtml(c.message)}</div>`:''}
-          <div class="miniActions">
-            ${c.studentId?`<button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(c.studentId)}">เปิดรายคน</button>`:''}
-          </div>
-        </article>
-      `).join('') : '<div class="empty">ยังไม่มี communication log</div>';
-    }
-
-    function buildCommSummary(){
-      const ids = new Set(state.communicationLog.map(c=>String(c.studentId)).filter(Boolean));
-      const covered = state.rows.filter(r=>ids.has(String(r.id)));
-      const uncovered = state.rows.filter(r=>!ids.has(String(r.id)));
-      const riskRows = state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support');
-      const riskCovered = riskRows.filter(r=>ids.has(String(r.id)));
-      const markSent = new Set(state.communicationLog.filter(c=>c.action==='mark_sent').map(c=>String(c.studentId))).size;
-      return {
-        total:state.rows.length,
-        covered:covered.length,
-        uncovered,
-        coverage:state.rows.length?Math.round(covered.length/state.rows.length*100):0,
-        riskCoverage:riskRows.length?Math.round(riskCovered.length/riskRows.length*100):0,
-        markSent,
-        actionCounts:countBy(state.communicationLog, c=>c.action),
-        sourceCounts:countBy(state.communicationLog, c=>c.source)
-      };
-    }
-    function countBy(items, fn){
-      const map = new Map();
-      items.forEach(x => {
-        const k = text(fn(x)||'unknown');
-        map.set(k,(map.get(k)||0)+1);
-      });
-      return Array.from(map.entries()).map(([key,count])=>({key,count})).sort((a,b)=>b.count-a.count);
-    }
-
-    function renderCommunicationSummary(){
-      const s = buildCommSummary();
-      els.communicationSummaryBadge.textContent = s.coverage + '% covered';
-      els.communicationSummaryBadge.className = 'badge ' + (s.coverage>=80?'good':s.coverage>=50?'warn':'bad');
-      els.communicationKpis.innerHTML = [
-        ['Coverage',s.coverage+'%',s.coverage>=80?'good':s.coverage>=50?'warn':'bad'],
-        ['Covered',s.covered + '/' + s.total,'good'],
-        ['Mark Sent',s.markSent,s.markSent?'good':'warn'],
-        ['Risk Coverage',s.riskCoverage+'%',s.riskCoverage>=80?'good':'warn']
-      ].map(([l,v,t])=>`<div class="miniCard ${t}"><div class="kpiLabel">${l}</div><div class="kpiValue">${v}</div></div>`).join('');
-
-      els.noCommunicationList.innerHTML = s.uncovered.length ? s.uncovered.slice(0,20).map(r=>`
-        <div class="miniCard ${r.riskLevel==='risk'?'bad':''}">
-          <div class="miniTitle">${escapeHtml(r.display_name)}</div>
-          <div class="miniMeta">${escapeHtml(r.student_id||'-')} • ${escapeHtml(r.section||'-')} • ${escapeHtml(r.riskLevel)}</div>
-          <div class="miniActions"><button class="btn ghost queueEvidenceBtn" data-student-id="${escapeHtml(r.id)}">Queue</button></div>
-        </div>
-      `).join('') : '<div class="empty">ทุกคนมี communication แล้ว</div>';
-
-      els.communicationActionBreakdown.innerHTML = s.actionCounts.length ? s.actionCounts.map(x=>`<div class="miniCard"><div class="miniTitle">${escapeHtml(x.key)}</div><div class="miniMeta">${x.count} records</div></div>`).join('') : '<div class="empty">No action logs</div>';
-      els.communicationTemplateUsage.innerHTML = s.sourceCounts.length ? s.sourceCounts.map(x=>`<div class="miniCard"><div class="miniTitle">${escapeHtml(x.key)}</div><div class="miniMeta">${x.count} uses</div></div>`).join('') : '<div class="empty">No source usage</div>';
-    }
-
-    function avg(arr){const xs=arr.map(num).filter(Number.isFinite);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:0;}
-
-    function buildNarrative(){
-      const scope = els.narrativeScopeSelect.value;
-      const rows = scope==='risk' ? state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support') : scope==='visible' ? applyFilters(state.rows) : state.rows;
-      const weak = termStats().slice(0,8);
-      const comm = buildCommSummary();
-      const lines = [];
-      lines.push('รายงานบรรยายภาพรวมความก้าวหน้าของชั้นเรียนจากกิจกรรม Vocabulary Game');
-      lines.push('');
-      lines.push('วันที่สร้างรายงาน: ' + new Date().toLocaleString('th-TH'));
-      lines.push(`จำนวนนักศึกษาในขอบเขตการวิเคราะห์ ${rows.length} คน จากทั้งหมด ${state.rows.length} คน`);
-      lines.push('');
-      lines.push('1. ภาพรวมผลการเรียนรู้');
-      lines.push(`นักศึกษามีค่าเฉลี่ยคะแนนประมาณ ${Math.round(avg(rows.map(r=>r.score)))} คะแนน และค่าเฉลี่ยความถูกต้องประมาณ ${Math.round(avg(rows.map(r=>r.accuracy)))}% โดยมีกลุ่ม risk ${rows.filter(r=>r.riskLevel==='risk').length} คน และกลุ่ม support ${rows.filter(r=>r.riskLevel==='support').length} คน`);
-      lines.push('');
-      lines.push('2. การเข้าเรียนและการส่งข้อมูล');
-      lines.push(`ระบบตรวจพบ session logs ${state.normalized.sessions.length} แถว และ answer logs ${state.normalized.termAnswers.length} แถว ใช้เป็นหลักฐานประกอบการติดตามผลการเรียนรู้รายบุคคล`);
-      lines.push('');
-      lines.push('3. คำศัพท์ที่ควรทบทวน');
-      if(weak.length) weak.forEach(t=>lines.push(`- ${t.term}: พบ ${t.seen} ครั้ง ผิด ${t.wrong} ครั้ง accuracy ${Math.round(t.accuracy)}%`));
-      else lines.push('- ยังไม่มีข้อมูล weak terms ชัดเจน');
-      lines.push('');
-      lines.push('4. การสื่อสารและการติดตาม');
-      lines.push(`Communication coverage อยู่ที่ ${comm.coverage}% (${comm.covered}/${comm.total} คน) และมีการ mark sent แล้ว ${comm.markSent} คน`);
-      lines.push('');
-      if(els.narrativeIncludeNamesChk.checked){
-        lines.push('5. รายชื่อกลุ่มที่ควรติดตาม');
-        rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support').slice(0,30).forEach(r=>lines.push(`- ${r.display_name} (${r.student_id||'-'}) • ${r.riskLevel} • accuracy ${Math.round(r.accuracy)}%`));
-        lines.push('');
-      }
-      if(els.narrativeIncludeNextPlanChk.checked){
-        lines.push('ข้อเสนอแนะสำหรับการสอนครั้งถัดไป');
-        lines.push('- ใช้ weak terms เป็นกิจกรรม mini review 5–7 นาที');
-        lines.push('- ให้กลุ่ม risk/support เล่นซ้ำและติดตามผ่าน Workflow Board');
-        lines.push('- ใช้ Message Templates หรือ Batch Feedback เพื่อสื่อสารรายบุคคล');
-        lines.push('- ใช้ Evidence Pack สำหรับผู้เรียนที่ต้องติดตามเพิ่มเติม');
-      }
-      state.classNarrativeText = lines.join('\n');
-      localStorage.setItem(LS.narrative, state.classNarrativeText);
-      addComm({action:'export',source:'class-narrative',message:'Generated class narrative report'});
-      renderNarrative();
-    }
-
-    function renderNarrative(){
-      els.narrativePreview.textContent = state.classNarrativeText || 'กด Generate เพื่อสร้างรายงาน';
-      els.narrativeBadge.textContent = state.classNarrativeText ? 'Generated' : 'Ready';
-    }
-
-    function buildPortfolio(){
-      const scope = els.portfolioScopeSelect.value;
-      const rows = scope==='risk' ? state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support') :
-        scope==='visible' ? applyFilters(state.rows) :
-        scope==='queue' ? state.rows.filter(r=>state.evidenceQueue.some(q=>String(q.studentId)===String(r.id))) :
-        state.rows;
-
-      if(!state.classNarrativeText && els.portfolioIncludeNarrativeChk.checked) buildNarrative();
-      const comm = buildCommSummary();
-      const p = {
-        type:'course-level-portfolio',
-        version:TEACHER_VERSION.version,
-        generated_at:bangkokNow(),
-        settings:{scope},
-        counts:{students:rows.length,allStudents:state.rows.length,sessions:state.normalized.sessions.length,termAnswers:state.normalized.termAnswers.length,communicationLogs:state.communicationLog.length,workflowItems:state.workflowItems.length},
-        summary:{avgScore:Math.round(avg(rows.map(r=>r.score))),avgAccuracy:Math.round(avg(rows.map(r=>r.accuracy))),risk:rows.filter(r=>r.riskLevel==='risk').length,support:rows.filter(r=>r.riskLevel==='support').length},
-        weakTerms:termStats().slice(0,12).map(t=>({term:t.term,seen:t.seen,wrong:t.wrong,accuracy:Math.round(t.accuracy)})),
-        communication:els.portfolioIncludeCommunicationChk.checked ? comm : null,
-        workflow:state.workflowItems,
-        evidenceIndex:els.portfolioIncludeEvidenceChk.checked ? rows.map(r=>({display_name:r.display_name,student_id:r.student_id,section:r.section,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,risk_level:r.riskLevel,weak_terms:perStudentWeakTerms(r).slice(0,5).map(t=>t.term).join(', '),has_goal:getGoal(r)?'yes':'no',has_note:getStudentNote(r)?'yes':'no'})) : [],
-        narrative:els.portfolioIncludeNarrativeChk.checked ? state.classNarrativeText : ''
-      };
-      state.coursePortfolio = p;
-      state.coursePortfolioText = buildPortfolioText(p);
-      localStorage.setItem(LS.portfolio, JSON.stringify({portfolio:p,text:state.coursePortfolioText}));
-      addComm({action:'export',source:'course-portfolio',message:'Generated course-level portfolio'});
-      renderPortfolio();
-    }
-
-    function buildPortfolioText(p){
-      const lines = [];
-      lines.push('Course-level Portfolio Export');
-      lines.push('Generated: ' + dateLabel(p.generated_at));
-      lines.push('Scope: ' + p.settings.scope);
-      lines.push('');
-      lines.push('1. Portfolio Overview');
-      lines.push(`- Students: ${p.counts.students}/${p.counts.allStudents}`);
-      lines.push(`- Session rows: ${p.counts.sessions}`);
-      lines.push(`- Answer rows: ${p.counts.termAnswers}`);
-      lines.push(`- Communication logs: ${p.counts.communicationLogs}`);
-      lines.push('');
-      lines.push('2. Learning Summary');
-      lines.push(`- Average score: ${p.summary.avgScore}`);
-      lines.push(`- Average accuracy: ${p.summary.avgAccuracy}%`);
-      lines.push(`- Risk: ${p.summary.risk}`);
-      lines.push(`- Support: ${p.summary.support}`);
-      lines.push('');
-      lines.push('3. Weak Terms');
-      p.weakTerms.forEach(t=>lines.push(`- ${t.term}: seen ${t.seen}, wrong ${t.wrong}, accuracy ${t.accuracy}%`));
-      lines.push('');
-      if(p.communication){
-        lines.push('4. Communication Summary');
-        lines.push(`- Coverage: ${p.communication.coverage}%`);
-        lines.push(`- Mark sent: ${p.communication.markSent}`);
-        lines.push('');
-      }
-      if(p.narrative){
-        lines.push('5. Class Narrative');
-        lines.push(p.narrative);
-      }
-      return lines.join('\n');
-    }
-
-    function renderPortfolio(){
-      els.portfolioPreview.textContent = state.coursePortfolioText || 'กด Generate Portfolio เพื่อสร้างชุดรายงาน';
-      els.portfolioBadge.textContent = state.coursePortfolioText ? 'Generated' : 'Ready';
-    }
-
-    function openStudentDrawer(id){
-      const row = getStudentRowById(id);
-      if(!row) return;
-      state.activeStudentId = row.id;
-      els.drawerTitle.textContent = row.display_name;
-      els.drawerMeta.textContent = `ID: ${row.student_id || '-'} • Section: ${row.section || '-'} • Risk: ${row.riskLevel}`;
-      els.drawerKpis.innerHTML = [
-        ['Score',Math.round(row.score),'good'],
-        ['Accuracy',Math.round(row.accuracy)+'%',row.accuracy<60?'bad':row.accuracy<75?'warn':'good'],
-        ['Sessions',row.attendance,'good'],
-        ['Wrong',row.wrongCount,row.wrongCount?'warn':'good']
-      ].map(([l,v,t])=>`<div class="miniCard ${t}"><div class="kpiLabel">${l}</div><div class="kpiValue">${v}</div></div>`).join('');
-      els.studentNoteArea.value = getStudentNote(row);
-      const goal = getGoal(row) || {};
-      els.goalAccuracyInput.value = goal.target_accuracy || '';
-      els.goalScoreInput.value = goal.target_score || '';
-      els.goalSessionsInput.value = goal.target_sessions || '';
-      els.goalDueInput.value = goal.due_date || '';
-      els.goalNoteInput.value = goal.note || '';
-      els.drawerWeakTerms.innerHTML = perStudentWeakTerms(row).map(t=>`<tr><td>${escapeHtml(t.term)}</td><td>${t.seen}</td><td>${t.wrong}</td><td>${Math.round(t.accuracy)}%</td></tr>`).join('') || '<tr><td colspan="4">No data</td></tr>';
-      els.drawerSessions.innerHTML = row.sessions.slice(0,10).map(s=>`<div class="miniCard"><div class="miniTitle">${escapeHtml(getSessionCode(s)||'-')}</div><div class="miniMeta">${escapeHtml(s.bank||'-')}/${escapeHtml(s.mode||'-')} • score ${num(s.score)} • acc ${pct(s.accuracy)}%<br>${escapeHtml(dateLabel(getEventTime(s)))}</div></div>`).join('') || '<div class="empty">No sessions</div>';
-      els.drawerBackdrop.classList.remove('hidden');
-      els.studentDrawer.classList.remove('hidden');
-      document.body.style.overflow='hidden';
-    }
-    function closeDrawer(){
-      els.drawerBackdrop.classList.add('hidden');
-      els.studentDrawer.classList.add('hidden');
-      document.body.style.overflow='';
-    }
-    function activeRow(){return getStudentRowById(state.activeStudentId);}
-
-    function checkItem(id, title, status, textValue, meta = {}) {
-      return { id, title, status, text: textValue, meta };
-    }
-
-    function hasElement(id) {
-      return !!document.getElementById(id);
-    }
-
-    function evalSafe(name) {
-      try {
-        return Function('return typeof ' + name + ' !== "undefined" ? ' + name + ' : undefined')();
-      } catch (err) {
-        return undefined;
-      }
-    }
-
-    function testLocalStorage() {
-      try {
-        const key = 'TEACHER_DEPLOY_TEST_TMP';
-        localStorage.setItem(key, 'ok');
-        const ok = localStorage.getItem(key) === 'ok';
-        localStorage.removeItem(key);
-        return ok;
-      } catch (err) {
-        return false;
-      }
-    }
-
-    function testBlobDownloadSupport() {
-      try {
-        return typeof Blob !== 'undefined' && typeof URL.createObjectURL === 'function';
-      } catch (err) {
-        return false;
-      }
-    }
-
-    function getRequiredElementIds() {
-      return [
-        'statusBox',
-        'refreshBtn',
-        'useCacheBtn',
-        'compactBtn',
-        'focusBtn',
-        'productionBtn',
-        'quickFilterList',
-        'searchInput',
-        'sectionFilter',
-        'riskFilter',
-        'bankFilter',
-        'sortSelect',
-        'studentList',
-        'attendanceList',
-        'workflowBoard',
-        'evidenceGrid',
-        'evidenceQueueGrid',
-        'batchFeedbackGrid',
-        'templateGrid',
-        'communicationLogList',
-        'communicationKpis',
-        'narrativePreview',
-        'portfolioPreview',
-        'termTable',
-        'recentRuns',
-        'debugBox',
-        'deployCheckBadge',
-        'deployCheckKpis',
-        'deployCheckList',
-        'deployCheckRawBox',
-        'studentDrawer',
-        'drawerBackdrop',
-        'drawerCloseBtn',
-        'studentNoteArea',
-        'exportEvidencePackBtn'
-      ];
-    }
-
-    function getRequiredFunctions() {
-      return [
-        'loadDashboard',
-        'requestTeacherData',
-        'normalizeDashboardPayload',
-        'buildStudentRows',
-        'renderAll',
-        'renderStudents',
-        'renderAttendance',
-        'renderWorkflow',
-        'renderEvidence',
-        'renderBatchFeedback',
-        'renderTemplates',
-        'renderCommunicationLog',
-        'renderCommunicationSummary',
-        'buildNarrative',
-        'buildPortfolio',
-        'exportRowsToCsv',
-        'downloadTextFile',
-        'openStudentDrawer',
-        'closeDrawer',
-        'copyText',
-        'runFinalDeployCheck'
-      ];
-    }
-
-    function runFinalDeployCheck() {
-      const items = [];
-
-      const missingEls = getRequiredElementIds().filter(id => !hasElement(id));
-      items.push(checkItem(
-        'elements',
-        'Required DOM Elements',
-        missingEls.length ? 'fail' : 'pass',
-        missingEls.length
-          ? 'มี element id ที่หายไป: ' + missingEls.join(', ')
-          : 'element id สำคัญครบ',
-        { missing: missingEls }
-      ));
-
-      const missingFns = getRequiredFunctions().filter(name => typeof evalSafe(name) !== 'function');
-      items.push(checkItem(
-        'functions',
-        'Required Functions',
-        missingFns.length ? 'fail' : 'pass',
-        missingFns.length
-          ? 'มี function ที่หายไป: ' + missingFns.join(', ')
-          : 'function สำคัญครบ',
-        { missing: missingFns }
-      ));
-
-      const hasApi = !!API_URL && API_URL.includes('/exec');
-      items.push(checkItem(
-        'api',
-        'Apps Script API URL',
-        hasApi ? 'pass' : 'fail',
-        hasApi
-          ? 'API_URL เป็น Google Apps Script /exec แล้ว'
-          : 'API_URL ไม่ถูกต้องหรือยังไม่ได้ตั้งค่า',
-        { API_URL }
-      ));
-
-      const lsOk = testLocalStorage();
-      items.push(checkItem(
-        'localStorage',
-        'LocalStorage',
-        lsOk ? 'pass' : 'fail',
-        lsOk
-          ? 'เขียน/อ่าน localStorage ได้'
-          : 'localStorage ถูก block หรือ browser ไม่อนุญาต'
-      ));
-
-      const dlOk = testBlobDownloadSupport();
-      items.push(checkItem(
-        'download',
-        'Export / Download Support',
-        dlOk ? 'pass' : 'fail',
-        dlOk
-          ? 'รองรับ Blob download สำหรับ CSV/TXT/HTML/JSON'
-          : 'browser ไม่รองรับ Blob download'
-      ));
-
-      items.push(checkItem(
-        'data',
-        'Loaded Data Shape',
-        state.normalized.sessions.length || state.normalized.termAnswers.length
-          ? 'pass'
-          : state.usingCache
-            ? 'warn'
-            : 'warn',
-        `students ${state.normalized.students.length}, sessions ${state.normalized.sessions.length}, answers ${state.normalized.termAnswers.length}, leaderboard ${state.normalized.leaderboard.length}`,
-        {
-          usingCache: state.usingCache,
-          debugShape: state.normalized.debugShape
-        }
-      ));
-
-      items.push(checkItem(
-        'rows',
-        'Student Rows',
-        state.rows.length ? 'pass' : 'warn',
-        state.rows.length
-          ? 'สร้าง student rows ได้ ' + state.rows.length + ' คน'
-          : 'ยังไม่มี student rows อาจเกิดจากยังไม่มี logs หรือ parse field ไม่ตรง'
-      ));
-
-      items.push(checkItem(
-        'roster',
-        'Roster Coverage',
-        state.roster.length ? 'pass' : 'warn',
-        state.roster.length
-          ? 'มี roster แล้ว ' + state.roster.length + ' คน'
-          : 'ยังไม่มี roster — attendance missing/coverage อาจไม่แม่นถ้าเทียบทั้งห้อง'
-      ));
-
-      items.push(checkItem(
-        'uiModes',
-        'UI Modes',
-        'pass',
-        `compact=${state.compact}, focus=${state.focus}, production=${state.production}`
-      ));
-
-      items.push(checkItem(
-        'localData',
-        'Local Workflow Data',
-        'pass',
-        `workflow ${state.workflowItems.length}, evidence queue ${state.evidenceQueue.length}, batch feedback ${state.batchFeedbackItems.length}, templates ${state.templateMessages.length}, communication logs ${state.communicationLog.length}`
-      ));
-
-      const exportReady =
-        typeof exportRowsToCsv === 'function' &&
-        typeof downloadTextFile === 'function' &&
-        typeof buildEvidenceHtml === 'function';
-
-      items.push(checkItem(
-        'exports',
-        'Export Functions',
-        exportReady ? 'pass' : 'fail',
-        exportReady
-          ? 'CSV/TXT/HTML export core พร้อม'
-          : 'export function สำคัญหายไป'
-      ));
-
-      const pass = items.filter(x => x.status === 'pass').length;
-      const warn = items.filter(x => x.status === 'warn').length;
-      const fail = items.filter(x => x.status === 'fail').length;
-
-      const overall = fail ? 'fail' : warn ? 'warn' : 'pass';
-
-      const result = {
-        type: 'teacher-final-deploy-check',
-        version: TEACHER_VERSION,
-        checked_at: new Date().toISOString(),
-        overall,
-        summary: { pass, warn, fail, total: items.length },
-        page: location.href,
-        apiUrl: API_URL,
-        dataMode: state.usingCache ? 'cache' : 'live',
-        items
-      };
-
-      state.deployCheckResult = result;
-      renderDeployCheck();
-
-      showStatus(
-        overall === 'pass'
-          ? 'Deploy Check ผ่านทั้งหมด พร้อม deploy/test จริง'
-          : overall === 'warn'
-            ? 'Deploy Check ผ่านแบบมี warning ควรตรวจรายการสีเหลือง'
-            : 'Deploy Check พบ fail ต้องแก้ก่อน deploy จริง',
-        overall === 'pass' ? 'ok' : overall === 'fail' ? 'bad' : 'warn'
-      );
-
-      return result;
-    }
-
-    function renderDeployCheck() {
-      const result = state.deployCheckResult;
-
-      if (!result) {
-        if (els.deployCheckRawBox) els.deployCheckRawBox.textContent = 'ยังไม่ได้ตรวจ';
-        return;
-      }
-
-      const tone =
-        result.overall === 'pass'
-          ? 'good'
-          : result.overall === 'fail'
-            ? 'bad'
-            : 'warn';
-
-      if (els.deployCheckBadge) {
-        els.deployCheckBadge.className = 'badge ' + tone;
-        els.deployCheckBadge.textContent =
-          result.overall === 'pass'
-            ? 'PASS'
-            : result.overall === 'fail'
-              ? 'FAIL'
-              : 'WARN';
-      }
-
-      if (els.deployCheckKpis) {
-        els.deployCheckKpis.innerHTML = [
-          ['PASS', result.summary.pass, 'good'],
-          ['WARN', result.summary.warn, result.summary.warn ? 'warn' : 'good'],
-          ['FAIL', result.summary.fail, result.summary.fail ? 'bad' : 'good'],
-          ['TOTAL', result.summary.total, 'good']
-        ].map(([label, value, t]) => `
-          <div class="miniCard ${escapeHtml(t)}">
-            <div class="kpiLabel">${escapeHtml(label)}</div>
-            <div class="kpiValue">${escapeHtml(value)}</div>
-          </div>
-        `).join('');
-      }
-
-      if (els.deployCheckList) {
-        els.deployCheckList.innerHTML = result.items.map(item => `
-          <article class="deployCheckItem ${escapeHtml(item.status)}">
-            <div class="studentTop">
-              <div>
-                <div class="deployCheckTitle">${escapeHtml(item.title)}</div>
-                <div class="deployCheckText">${escapeHtml(item.text)}</div>
-              </div>
-              <span class="badge ${
-                item.status === 'pass' ? 'good' :
-                item.status === 'fail' ? 'bad' :
-                'warn'
-              }">${escapeHtml(item.status.toUpperCase())}</span>
-            </div>
-          </article>
-        `).join('');
-      }
-
-      if (els.deployCheckRawBox) {
-        els.deployCheckRawBox.textContent = JSON.stringify(result, null, 2);
-      }
-    }
-
-    async function copyDeployCheckResult() {
-      const result = state.deployCheckResult || runFinalDeployCheck();
-      await copyText(JSON.stringify(result, null, 2));
-      showStatus('Copy Deploy Check result แล้ว', 'ok');
-    }
-
-    function exportDeployCheckResult() {
-      const result = state.deployCheckResult || runFinalDeployCheck();
-      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-      downloadTextFile(
-        `teacher-vocab-deploy-check-${stamp}.json`,
-        JSON.stringify(result, null, 2),
-        'application/json;charset=utf-8'
-      );
-    }
-
-    function renderDebug(){
-      els.debugBox.textContent = JSON.stringify({
-        version:TEACHER_VERSION,
-        usingCache:state.usingCache,
-        rawKeys:state.raw?Object.keys(state.raw):[],
-        normalizedCounts:{
-          students:state.normalized.students.length,
-          sessions:state.normalized.sessions.length,
-          termAnswers:state.normalized.termAnswers.length,
-          leaderboard:state.normalized.leaderboard.length
-        },
-        rows:state.rows.length,
-        filters:state.filters,
-        quickFilter:state.quickFilter,
-        ui:{compact:state.compact,focus:state.focus,production:state.production},
-        deployCheck: state.deployCheckResult ? {
-          overall: state.deployCheckResult.overall,
-          summary: state.deployCheckResult.summary
-        } : null,
-        debugShape:state.normalized.debugShape
-      }, null, 2);
-    }
-
-    function copyText(value){
-      if(navigator.clipboard) return navigator.clipboard.writeText(value);
-      const ta = document.createElement('textarea');
-      ta.value = value;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-      return Promise.resolve();
-    }
-
-    function exportPortfolioHtml(){
-      if(!state.coursePortfolio) buildPortfolio();
-      const p = state.coursePortfolio;
-      const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>Course Portfolio</title><style>body{font-family:Arial,"Noto Sans Thai";padding:24px;background:#f5f7fb;color:#172033;line-height:1.65}main{max-width:1100px;margin:auto;background:#fff;border-radius:24px;padding:28px}pre{white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:14px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #e5e7eb;padding:8px;text-align:left}th{background:#eef2ff}</style></head><body><main><h1>Course-level Portfolio Export</h1><p>Generated: ${escapeHtml(dateLabel(p.generated_at))}</p><pre>${escapeHtml(state.coursePortfolioText)}</pre><h2>Evidence Index</h2><table><thead><tr><th>Name</th><th>ID</th><th>Section</th><th>Score</th><th>Accuracy</th><th>Risk</th></tr></thead><tbody>${(p.evidenceIndex||[]).map(r=>`<tr><td>${escapeHtml(r.display_name)}</td><td>${escapeHtml(r.student_id)}</td><td>${escapeHtml(r.section)}</td><td>${r.score}</td><td>${r.accuracy}%</td><td>${escapeHtml(r.risk_level)}</td></tr>`).join('')}</tbody></table><h2>Raw JSON</h2><pre>${escapeHtml(JSON.stringify(p,null,2))}</pre></main></body></html>`;
-      downloadTextFile('teacher-vocab-course-portfolio-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.html', html, 'text/html;charset=utf-8');
-      addComm({action:'export',source:'course-portfolio',message:'Exported course portfolio HTML'});
-    }
-
-    function safeOn(el, eventName, handler, label = '') {
-      if (!el) {
-        console.warn('Missing element for event:', label || eventName);
-        return;
-      }
-      el.addEventListener(eventName, handler);
-    }
-
-    function bindEvents(){
-      safeOn(els.refreshBtn, 'click', loadDashboard, 'refreshBtn');
-      safeOn(els.useCacheBtn, 'click', useCache, 'useCacheBtn');
-      safeOn(els.compactBtn, 'click',()=>{state.compact=!state.compact;localStorage.setItem(LS.compact,state.compact?'1':'0');renderAll();}, 'compactBtn');
-      safeOn(els.focusBtn, 'click',()=>{state.focus=!state.focus;localStorage.setItem(LS.focus,state.focus?'1':'0');renderAll();}, 'focusBtn');
-      safeOn(els.productionBtn, 'click',()=>{state.production=!state.production;localStorage.setItem(LS.production,state.production?'1':'0');renderAll();}, 'productionBtn');
-      safeOn(els.presetTeachingBtn, 'click',()=>{state.production=true;state.compact=true;state.focus=true;localStorage.setItem(LS.production,'1');localStorage.setItem(LS.compact,'1');localStorage.setItem(LS.focus,'1');renderAll();}, 'presetTeachingBtn');
-      safeOn(els.presetDebugBtn, 'click',()=>{state.production=false;state.compact=false;state.focus=false;localStorage.setItem(LS.production,'0');localStorage.setItem(LS.compact,'0');localStorage.setItem(LS.focus,'0');renderAll();}, 'presetDebugBtn');
-
-      safeOn(els.searchInput, 'input',()=>{state.filters.search=els.searchInput.value;state.studentRenderLimit=18;renderAll();}, 'searchInput');
-      safeOn(els.sectionFilter, 'change',()=>{state.filters.section=els.sectionFilter.value;renderAll();}, 'sectionFilter');
-      safeOn(els.riskFilter, 'change',()=>{state.filters.risk=els.riskFilter.value;renderAll();}, 'riskFilter');
-      safeOn(els.bankFilter, 'change',()=>{state.filters.bank=els.bankFilter.value;renderAll();}, 'bankFilter');
-      safeOn(els.sortSelect, 'change',()=>{state.filters.sort=els.sortSelect.value;renderAll();}, 'sortSelect');
-
-      safeOn(els.quickFilterList, 'click',ev=>{
-        const b = ev.target.closest('[data-qtype]');
-        if(!b) return;
-        state.quickFilter = {type:b.dataset.qtype,value:b.dataset.qvalue||''};
-        renderAll();
-      }, 'quickFilterList');
-      safeOn(els.clearQuickBtn, 'click',()=>{state.quickFilter={type:'all',value:''};renderAll();}, 'clearQuickBtn');
-
-      safeOn(els.liveWindowSelect, 'change',()=>{state.liveWindow=num(els.liveWindowSelect.value||15);renderLive();renderStudents();}, 'liveWindowSelect');
-      safeOn(els.refreshLiveBtn, 'click',()=>{renderLive();renderStudents();}, 'refreshLiveBtn');
-      safeOn(els.showMoreStudentsBtn, 'click',()=>{state.studentRenderLimit+=18;renderStudents();}, 'showMoreStudentsBtn');
-
-      document.addEventListener('click', ev => {
-        const open = ev.target.closest('.openStudentBtn[data-student-id]');
-        if(open){openStudentDrawer(open.dataset.studentId);return;}
-
-        const q = ev.target.closest('.queueEvidenceBtn[data-student-id]');
-        if(q){const id=q.dataset.studentId;if(isInEvidenceQueue(id)) state.evidenceQueue=state.evidenceQueue.filter(x=>String(x.studentId)!==String(id)); else addToEvidenceQueue(id,'manual');saveEvidenceQueue();renderAll();return;}
-
-        const exp = ev.target.closest('.exportEvidenceBtn[data-student-id],.queueExportPackBtn[data-student-id]');
-        if(exp){const r=getStudentRowById(exp.dataset.studentId);exportEvidence(r);const item=state.evidenceQueue.find(x=>String(x.studentId)===String(exp.dataset.studentId));if(item){item.status='exported';item.exported_at=bangkokNow();saveEvidenceQueue();renderEvidenceQueue();}return;}
-
-        const rem = ev.target.closest('.queueRemoveBtn[data-student-id]');
-        if(rem){state.evidenceQueue=state.evidenceQueue.filter(x=>String(x.studentId)!==String(rem.dataset.studentId));saveEvidenceQueue();renderEvidenceQueue();renderEvidence();return;}
-      });
-
-      safeOn(els.drawerCloseBtn, 'click', closeDrawer, 'drawerCloseBtn');
-      safeOn(els.drawerBackdrop, 'click', closeDrawer, 'drawerBackdrop');
-      safeOn(els.saveStudentNoteBtn, 'click',()=>{const r=activeRow();if(!r)return;saveStudentNote(r,els.studentNoteArea.value);addComm({action:'save_note',source:'student-feedback',studentId:r.id,message:els.studentNoteArea.value});showStatus('บันทึก note แล้ว','ok');}, 'saveStudentNoteBtn');
-      safeOn(els.copyStudentFeedbackBtn, 'click',async()=>{const r=activeRow();if(!r)return;const fb=buildStudentFeedback(r);await copyText(fb);addComm({action:'copy',source:'student-feedback',studentId:r.id,message:fb});showStatus('Copy feedback แล้ว','ok');}, 'copyStudentFeedbackBtn');
-      safeOn(els.exportEvidencePackBtn, 'click',()=>exportEvidence(activeRow()), 'exportEvidencePackBtn');
-      safeOn(els.saveGoalBtn, 'click',()=>{const r=activeRow();if(!r)return;saveGoal(r,{target_accuracy:num(els.goalAccuracyInput.value),target_score:num(els.goalScoreInput.value),target_sessions:num(els.goalSessionsInput.value),due_date:els.goalDueInput.value,note:els.goalNoteInput.value,status:'watch'});showStatus('Save goal แล้ว','ok');}, 'saveGoalBtn');
-      safeOn(els.clearGoalBtn, 'click',()=>{const r=activeRow();if(!r)return;clearGoal(r);openStudentDrawer(r.id);}, 'clearGoalBtn');
-
-      safeOn(els.buildWorkflowBtn, 'click', buildWorkflow, 'buildWorkflowBtn');
-      safeOn(els.exportWorkflowBtn, 'click',()=>exportRowsToCsv('teacher-vocab-workflow',state.workflowItems), 'exportWorkflowBtn');
-      safeOn(els.clearResolvedBtn, 'click',()=>{state.workflowItems=state.workflowItems.filter(w=>w.status!=='resolved');saveWorkflow();renderWorkflow();}, 'clearResolvedBtn');
-      safeOn(els.workflowBoard, 'change',ev=>{const s=ev.target.closest('.workflowStatusSelect');if(!s)return;const w=state.workflowItems.find(x=>x.key===s.dataset.key);if(w){w.status=s.value;w.updated_at=bangkokNow();saveWorkflow();renderWorkflow();}}, 'workflowBoard-change');
-      safeOn(els.workflowBoard, 'click',ev=>{
-        const note = ev.target.closest('.workflowNoteBtn[data-key]');
-        if(note){const w=state.workflowItems.find(x=>x.key===note.dataset.key);const r=getStudentRowById(w?.studentId);if(r){saveStudentNote(r,(getStudentNote(r)+'\n\n['+new Date().toLocaleString('th-TH')+'] Workflow\n'+w.reason+'\nNext: '+w.nextAction).trim());w.status='reviewing';saveWorkflow();addToEvidenceQueue(r.id,'workflow-note');openStudentDrawer(r.id);}return;}
-        const goal = ev.target.closest('.workflowGoalBtn[data-key]');
-        if(goal){const w=state.workflowItems.find(x=>x.key===goal.dataset.key);const r=getStudentRowById(w?.studentId);if(r){saveGoal(r,{target_accuracy:Math.max(75,Math.round(r.accuracy+10)),target_score:Math.max(80,Math.round(r.score+10)),target_sessions:r.attendance+1,due_date:new Date(Date.now()+7*864e5).toISOString().slice(0,10),note:'สร้างจาก Workflow: '+w.reason,status:'watch'});w.status='assigned';saveWorkflow();addToEvidenceQueue(r.id,'workflow-goal');openStudentDrawer(r.id);}return;}
-      }, 'workflowBoard-click');
-
-      safeOn(els.queueRiskBtn, 'click',()=>{state.rows.filter(r=>r.riskLevel==='risk').forEach(r=>addToEvidenceQueue(r.id,'risk'));renderAll();}, 'queueRiskBtn');
-      safeOn(els.queueVisibleBtn, 'click',()=>{applyFilters(state.rows).forEach(r=>addToEvidenceQueue(r.id,'visible'));renderAll();}, 'queueVisibleBtn');
-      safeOn(els.exportEvidenceIndexBtn, 'click',()=>exportRowsToCsv('teacher-vocab-evidence-index',state.rows.map(r=>({display_name:r.display_name,student_id:r.student_id,section:r.section,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,risk_level:r.riskLevel,weak_terms:perStudentWeakTerms(r).slice(0,5).map(t=>t.term).join(', '),has_goal:getGoal(r)?'yes':'no',has_note:getStudentNote(r)?'yes':'no'}))), 'exportEvidenceIndexBtn');
-      safeOn(els.exportNextEvidenceBtn, 'click',()=>{const item=state.evidenceQueue.find(q=>q.status!=='exported');if(!item){alert('ไม่มีรายการรอ export');return;}const r=getStudentRowById(item.studentId);exportEvidence(r);item.status='exported';item.exported_at=bangkokNow();saveEvidenceQueue();renderEvidenceQueue();}, 'exportNextEvidenceBtn');
-      safeOn(els.exportQueueIndexBtn, 'click',()=>exportRowsToCsv('teacher-vocab-evidence-queue',state.evidenceQueue), 'exportQueueIndexBtn');
-      safeOn(els.clearQueueBtn, 'click',()=>{state.evidenceQueue=[];saveEvidenceQueue();renderAll();}, 'clearQueueBtn');
-
-      safeOn(els.composeQueueFeedbackBtn, 'click',()=>{const ids=new Set(state.evidenceQueue.map(q=>String(q.studentId)));composeFeedback(state.rows.filter(r=>ids.has(String(r.id))),'evidence-queue');}, 'composeQueueFeedbackBtn');
-      safeOn(els.composeRiskFeedbackBtn, 'click',()=>composeFeedback(state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support'),'risk-support'), 'composeRiskFeedbackBtn');
-      safeOn(els.composeVisibleFeedbackBtn, 'click',()=>composeFeedback(applyFilters(state.rows),'visible-filter'), 'composeVisibleFeedbackBtn');
-      safeOn(els.exportBatchFeedbackTxtBtn, 'click',()=>{const txt=state.batchFeedbackItems.map((i,idx)=>`${idx+1}. ${i.display_name}\n${i.text}`).join('\n\n'+'='.repeat(60)+'\n\n');downloadTextFile('teacher-vocab-batch-feedback.txt',txt);addComm({action:'export',source:'batch-feedback',message:'Exported batch feedback'});}, 'exportBatchFeedbackTxtBtn');
-      safeOn(els.exportBatchFeedbackCsvBtn, 'click',()=>{exportRowsToCsv('teacher-vocab-batch-feedback',state.batchFeedbackItems);addComm({action:'export',source:'batch-feedback',message:'Exported batch feedback CSV'});}, 'exportBatchFeedbackCsvBtn');
-      safeOn(els.clearBatchFeedbackBtn, 'click',()=>{state.batchFeedbackItems=[];saveBatchFeedback();renderBatchFeedback();}, 'clearBatchFeedbackBtn');
-      safeOn(els.batchFeedbackGrid, 'click',async ev=>{
-        const copy=ev.target.closest('.copyFeedbackBtn[data-student-id]');
-        if(copy){const item=state.batchFeedbackItems.find(x=>String(x.studentId)===String(copy.dataset.studentId));await copyText(item.text);addComm({action:'copy',source:'batch-feedback',studentId:item.studentId,message:item.text,template:item.source});showStatus('Copy feedback แล้ว','ok');return;}
-        const note=ev.target.closest('.noteFeedbackBtn[data-student-id]');
-        if(note){const item=state.batchFeedbackItems.find(x=>String(x.studentId)===String(note.dataset.studentId));const r=getStudentRowById(item.studentId);saveStudentNote(r,(getStudentNote(r)+'\n\n[Batch Feedback]\n'+item.text).trim());addComm({action:'save_note',source:'batch-feedback',studentId:r.id,message:item.text});showStatus('Save to note แล้ว','ok');return;}
-        const sent=ev.target.closest('.markFeedbackSentBtn[data-student-id]');
-        if(sent){const item=state.batchFeedbackItems.find(x=>String(x.studentId)===String(sent.dataset.studentId));addComm({action:'mark_sent',source:'batch-feedback',studentId:item.studentId,message:item.text,template:item.source});showStatus('Mark sent แล้ว','ok');return;}
-      }, 'batchFeedbackGrid');
-
-      safeOn(els.composeTemplateBtn, 'click', composeTemplates, 'composeTemplateBtn');
-      safeOn(els.exportTemplateTxtBtn, 'click',()=>{downloadTextFile('teacher-vocab-message-templates.txt',state.templateMessages.map((i,idx)=>`${idx+1}. ${i.display_name}\n${i.text}`).join('\n\n'+'='.repeat(60)+'\n\n'));addComm({action:'export',source:'message-template',message:'Exported template messages'});}, 'exportTemplateTxtBtn');
-      safeOn(els.exportTemplateCsvBtn, 'click',()=>{exportRowsToCsv('teacher-vocab-message-templates',state.templateMessages);addComm({action:'export',source:'message-template',message:'Exported template messages CSV'});}, 'exportTemplateCsvBtn');
-      safeOn(els.clearTemplateBtn, 'click',()=>{state.templateMessages=[];saveTemplates();renderTemplates();}, 'clearTemplateBtn');
-      safeOn(els.templateGrid, 'click',async ev=>{
-        const copy=ev.target.closest('.copyTemplateBtn[data-student-id]');
-        if(copy){const item=state.templateMessages.find(x=>String(x.studentId)===String(copy.dataset.studentId));await copyText(item.text);addComm({action:'copy',source:'message-template',studentId:item.studentId,message:item.text,template:item.template});showStatus('Copy template แล้ว','ok');return;}
-        const note=ev.target.closest('.noteTemplateBtn[data-student-id]');
-        if(note){const item=state.templateMessages.find(x=>String(x.studentId)===String(note.dataset.studentId));const r=getStudentRowById(item.studentId);saveStudentNote(r,(getStudentNote(r)+'\n\n[Message Template]\n'+item.text).trim());addComm({action:'save_note',source:'message-template',studentId:r.id,message:item.text,template:item.template});showStatus('Save to note แล้ว','ok');return;}
-        const sent=ev.target.closest('.markTemplateSentBtn[data-student-id]');
-        if(sent){const item=state.templateMessages.find(x=>String(x.studentId)===String(sent.dataset.studentId));addComm({action:'mark_sent',source:'message-template',studentId:item.studentId,message:item.text,template:item.template});showStatus('Mark sent แล้ว','ok');return;}
-      }, 'templateGrid');
-
-      safeOn(els.communicationActionFilter, 'change',renderCommunicationLog, 'communicationActionFilter');
-      safeOn(els.communicationSourceFilter, 'change',renderCommunicationLog, 'communicationSourceFilter');
-      safeOn(els.communicationSearchInput, 'input',renderCommunicationLog, 'communicationSearchInput');
-      safeOn(els.exportCommunicationCsvBtn, 'click',()=>exportRowsToCsv('teacher-vocab-communication-log',state.communicationLog), 'exportCommunicationCsvBtn');
-      safeOn(els.exportCommunicationTxtBtn, 'click',()=>downloadTextFile('teacher-vocab-communication-log.txt',state.communicationLog.map((c,i)=>`${i+1}. ${c.action} • ${c.display_name}\n${dateLabel(c.created_at)}\n${c.source} • ${c.template}\n${c.message||''}`).join('\n\n'+'='.repeat(60)+'\n\n')), 'exportCommunicationTxtBtn');
-      safeOn(els.clearCommunicationBtn, 'click',()=>{if(confirm('ลบ Communication Log?')){state.communicationLog=[];saveComm();renderAll();}}, 'clearCommunicationBtn');
-
-      safeOn(els.exportCommunicationSummaryBtn, 'click',()=>exportRowsToCsv('teacher-vocab-communication-summary',state.rows.map(r=>{const logs=state.communicationLog.filter(c=>String(c.studentId)===String(r.id));return{display_name:r.display_name,student_id:r.student_id,section:r.section,risk_level:r.riskLevel,communication_count:logs.length,has_mark_sent:logs.some(c=>c.action==='mark_sent')?'yes':'no',latest_action:logs[0]?.action||'',latest_at:logs[0]?.created_at||''};})), 'exportCommunicationSummaryBtn');
-      safeOn(els.queueNoCommunicationBtn, 'click',()=>{buildCommSummary().uncovered.forEach(r=>addToEvidenceQueue(r.id,'no-communication'));renderAll();}, 'queueNoCommunicationBtn');
-
-      safeOn(els.generateNarrativeBtn, 'click', buildNarrative, 'generateNarrativeBtn');
-      safeOn(els.copyNarrativeBtn, 'click',async()=>{if(!state.classNarrativeText)buildNarrative();await copyText(state.classNarrativeText);addComm({action:'copy',source:'class-narrative',message:state.classNarrativeText});}, 'copyNarrativeBtn');
-      safeOn(els.exportNarrativeTxtBtn, 'click',()=>{if(!state.classNarrativeText)buildNarrative();downloadTextFile('teacher-vocab-class-narrative.txt',state.classNarrativeText);addComm({action:'export',source:'class-narrative',message:'Exported narrative TXT'});}, 'exportNarrativeTxtBtn');
-      safeOn(els.exportNarrativeHtmlBtn, 'click',()=>{if(!state.classNarrativeText)buildNarrative();downloadTextFile('teacher-vocab-class-narrative.html',`<!doctype html><html lang="th"><meta charset="utf-8"><body style="font-family:Arial,'Noto Sans Thai';padding:24px;line-height:1.75"><pre style="white-space:pre-wrap">${escapeHtml(state.classNarrativeText)}</pre></body></html>`,'text/html;charset=utf-8');addComm({action:'export',source:'class-narrative',message:'Exported narrative HTML'});}, 'exportNarrativeHtmlBtn');
-
-      safeOn(els.generatePortfolioBtn, 'click', buildPortfolio, 'generatePortfolioBtn');
-      safeOn(els.copyPortfolioBtn, 'click',async()=>{if(!state.coursePortfolioText)buildPortfolio();await copyText(state.coursePortfolioText);addComm({action:'copy',source:'course-portfolio',message:state.coursePortfolioText});}, 'copyPortfolioBtn');
-      safeOn(els.exportPortfolioHtmlBtn, 'click', exportPortfolioHtml, 'exportPortfolioHtmlBtn');
-      safeOn(els.exportPortfolioJsonBtn, 'click',()=>{if(!state.coursePortfolio)buildPortfolio();downloadTextFile('teacher-vocab-course-portfolio.json',JSON.stringify(state.coursePortfolio,null,2),'application/json;charset=utf-8');addComm({action:'export',source:'course-portfolio',message:'Exported portfolio JSON'});}, 'exportPortfolioJsonBtn');
-      safeOn(els.exportPortfolioIndexCsvBtn, 'click',()=>{if(!state.coursePortfolio)buildPortfolio();exportRowsToCsv('teacher-vocab-course-portfolio-evidence-index',state.coursePortfolio.evidenceIndex||[]);addComm({action:'export',source:'course-portfolio',message:'Exported portfolio index CSV'});}, 'exportPortfolioIndexCsvBtn');
-
-      safeOn(els.exportStudentsBtn, 'click',()=>exportRowsToCsv('teacher-vocab-students',state.rows.map(r=>({display_name:r.display_name,student_id:r.student_id,section:r.section,score:Math.round(r.score),accuracy:Math.round(r.accuracy),sessions:r.attendance,answers:r.answerCount,wrong:r.wrongCount,risk_level:r.riskLevel,last_seen:r.lastSeen}))), 'exportStudentsBtn');
-      safeOn(els.exportSessionsBtn, 'click',()=>exportRowsToCsv('teacher-vocab-sessions',state.normalized.sessions), 'exportSessionsBtn');
-      safeOn(els.exportMissingBtn, 'click',()=>{const latest=buildAttendanceRows().slice(-1)[0];if(!latest){alert('No attendance');return;}exportRowsToCsv('teacher-vocab-missing-'+latest.code,latest.missing);}, 'exportMissingBtn');
-
-      safeOn(els.runDeployCheckBtn, 'click', runFinalDeployCheck, 'runDeployCheckBtn');
-      safeOn(els.copyDeployCheckBtn, 'click', copyDeployCheckResult, 'copyDeployCheckBtn');
-      safeOn(els.exportDeployCheckBtn, 'click', exportDeployCheckResult, 'exportDeployCheckBtn');
-
-      safeOn(els.jumpNavToggle, 'click',()=>els.teacherJumpNav.classList.toggle('open'), 'jumpNavToggle');
-      safeOn(els.jumpNavPanel, 'click',ev=>{const b=ev.target.closest('[data-jump-target]');if(!b)return;jumpTo(b.dataset.jumpTarget);}, 'jumpNavPanel');
-      document.addEventListener('keydown',ev=>{if(ev.key==='Escape'){closeDrawer();els.teacherJumpNav.classList.remove('open');}});
-    }
-
-    function jumpTo(id){
-      const target = document.querySelector(`[data-section-id="${CSS.escape(id)}"]`);
-      if(!target) return;
-      target.scrollIntoView({behavior:'smooth',block:'start'});
-      els.teacherJumpNav.classList.remove('open');
-    }
-    function updateJumpActive(){
-      document.querySelectorAll('.jumpLink').forEach(b=>b.classList.remove('active'));
-      const sections = Array.from(document.querySelectorAll('[data-section-id]'));
-      let active = sections[0]?.dataset.sectionId || 'top';
-      for(const s of sections){
-        if(s.getBoundingClientRect().top < window.innerHeight*.35) active = s.dataset.sectionId;
-      }
-      document.querySelector(`.jumpLink[data-jump-target="${active}"]`)?.classList.add('active');
-    }
-    window.addEventListener('scroll',()=>requestAnimationFrame(updateJumpActive),{passive:true});
-
-    function init(){
-      loadLocal();
-      bindEvents();
-      renderAll();
-      loadDashboard();
-    }
-
-    window.TEACHER_VERSION = TEACHER_VERSION;
-    window.__teacherState = state;
-    init();
-  </script>
-</body>
-</html>
