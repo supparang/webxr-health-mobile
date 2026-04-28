@@ -1,1566 +1,2467 @@
-<!DOCTYPE html>
-<html lang="th" class="protected">
+<!doctype html>
+<html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>TechPath VR • Ultimate Lesson</title>
-  <meta name="theme-color" content="#0a0f1e" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1" />
+  <title>TechPath English VR • Session Lesson</title>
+  <meta name="theme-color" content="#07111f" />
   <meta name="color-scheme" content="dark" />
-
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
-
-  <link rel="stylesheet" href="./lesson.css" />
-
-  <script>
-    window.TECHPATH_APP_ID = window.TECHPATH_APP_ID || 'english-d4bfa';
-
-    window.TECHPATH_FIREBASE_CONFIG = window.TECHPATH_FIREBASE_CONFIG || {
-      apiKey: "AIzaSyAfp3pVutrHRVOigVQl1iybMKbsKGPhnr8",
-      authDomain: "english-d4bfa.firebaseapp.com",
-      databaseURL: "https://english-d4bfa-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "english-d4bfa",
-      storageBucket: "english-d4bfa.firebasestorage.app",
-      messagingSenderId: "247186694556",
-      appId: "1:247186694556:web:67a01e417f37eb71f42859",
-      measurementId: "G-SWT85BHVJX"
-    };
-
-    window.TECHPATH_ATTENDANCE_ENDPOINT =
-      'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
-
-    window.TECHPATH_BUILD = 'v20260426-lesson-ultimate-r9-2';
-    window.TECHPATH_ATTENDANCE_PATCH = 'v20260426-lesson-ultimate-r9-2';
-  </script>
 
   <style>
     :root{
-      --app-vh:100dvh;
-      --bg:#07111f;
-      --panel:rgba(10,18,34,.88);
-      --panel2:rgba(15,27,45,.94);
-      --line:rgba(123,237,255,.22);
+      --bg0:#050b16;
+      --bg1:#07111f;
+      --bg2:#132846;
+      --panel:rgba(12,24,44,.82);
+      --panel2:rgba(20,38,68,.78);
+      --card:rgba(255,255,255,.085);
+      --card2:rgba(255,255,255,.12);
+      --line:rgba(180,210,255,.18);
+      --line2:rgba(180,210,255,.28);
       --text:#eef7ff;
-      --muted:#a8bdd6;
-      --accent:#7bedff;
-      --good:#2ed573;
-      --warn:#f1c40f;
-      --bad:#ff6b81;
-      --challenge:#b197fc;
-      --shadow:0 18px 54px rgba(0,0,0,.36);
-      --r-lg:22px;
-      --r-md:16px;
+      --muted:#aac0d8;
+      --soft:#d8ecff;
+      --cyan:#70e6ff;
+      --cyan2:#31c6ef;
+      --purple:#8b7cff;
+      --pink:#ff86d1;
+      --gold:#ffd166;
+      --green:#45e39a;
+      --red:#ff6d87;
+      --orange:#ffad66;
+      --shadow:0 24px 80px rgba(0,0,0,.34);
+      --r-xl:30px;
+      --r-lg:24px;
+      --r-md:18px;
+      --r-sm:14px;
+      --max:1280px;
+      --safeTop:env(safe-area-inset-top,0px);
+      --safeBottom:env(safe-area-inset-bottom,0px);
     }
 
     *{box-sizing:border-box}
-
     html,body{
       margin:0;
-      max-width:100%;
-      min-height:var(--app-vh);
-      overflow-x:hidden;
-      background:radial-gradient(circle at top,#132744 0,#07111f 44%,#040914 100%);
+      min-height:100%;
+      background:
+        radial-gradient(circle at 16% 4%,rgba(112,230,255,.24),transparent 30%),
+        radial-gradient(circle at 82% 0%,rgba(139,124,255,.18),transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg0));
       color:var(--text);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      -webkit-text-size-adjust:100%;
+      overflow-x:hidden;
     }
 
-    html.protected,
-    html.protected body{
-      -webkit-user-select:none;
-      user-select:none;
-      -webkit-touch-callout:none;
+    body{
+      min-height:100dvh;
     }
 
-    html.protected input,
-    html.protected textarea,
-    html.protected [contenteditable="true"]{
-      -webkit-user-select:text!important;
-      user-select:text!important;
-      -webkit-touch-callout:default!important;
+    button,input,select,textarea{
+      font:inherit;
     }
 
-    img,a,canvas{
-      -webkit-user-drag:none;
-      user-drag:none;
-    }
-
-    a-scene{
-      position:fixed;
-      inset:0;
-      z-index:0;
-    }
-
-    #ui-container{
-      width:min(100%,980px);
-      min-height:var(--app-vh);
-      margin:0 auto;
-      position:relative;
-      z-index:20;
-      padding:10px 12px 32px;
-      pointer-events:none;
-    }
-
-    #ui-container button,
-    #ui-container input,
-    #ui-container textarea,
-    #attendance-panel,
-    #profile-panel,
-    #hub-stats-board,
-    #ai-director-board,
-    #mission-prompt-box,
-    #ai-guide-box,
-    #choice-buttons,
-    #summary-panel,
-    #game-over-ui,
-    #boss-phase-ui{
-      pointer-events:auto;
-    }
-
-    .btn-action,
-    #attendance-toggle{
-      min-height:44px;
-      border:none;
-      cursor:pointer;
-      touch-action:manipulation;
-      -webkit-user-select:none;
-      user-select:none;
+    button{
       -webkit-tap-highlight-color:transparent;
     }
 
-    .input-field{
-      width:100%;
-      max-width:100%;
-      min-height:44px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.07);
-      color:#fff;
-      padding:12px 14px;
-      outline:none;
-      font:inherit;
-      font-weight:750;
+    a{
+      color:inherit;
     }
 
-    .title{
-      margin:8px 0 4px;
-      text-align:center;
-      font-size:3rem;
-      line-height:1.04;
-      font-weight:950;
-      color:var(--accent);
-      text-shadow:0 0 18px rgba(123,237,255,.22);
-    }
-
-    .instruction{
-      margin:0 0 10px;
-      text-align:center;
-      color:#dbeafe;
-      font-size:1.08rem;
-    }
-
-    #identity-current-chip{
-      display:none;
-      margin:8px auto 10px;
-      width:max-content;
-      max-width:100%;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(123,237,255,.22);
-      background:rgba(123,237,255,.08);
-      color:#cfffff;
-      font-size:.82rem;
-      font-weight:900;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-    }
-
-    body.identity-ready #identity-current-chip{
-      display:block;
-    }
-
-    #player-avatar-hud{
-      position:absolute;
-      top:10px;
-      right:10px;
-      width:48px;
-      height:48px;
-      z-index:5;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(123,237,255,.20);
-      font-size:1.5rem;
-      pointer-events:none;
-    }
-
-    #attendance-panel,
-    #profile-panel,
-    #hub-stats-board,
-    #ai-director-board,
-    #boss-phase-ui,
-    #summary-panel,
-    #game-over-ui,
-    #mission-prompt-box{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:18px;
-      box-shadow:0 10px 24px rgba(0,0,0,.22);
-      backdrop-filter:blur(8px);
-    }
-
-    #attendance-panel{
-      margin:8px 0 10px;
-      padding:10px 12px;
-      text-align:left;
-    }
-
-    #attendance-header-row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-
-    #attendance-title{
-      color:var(--accent);
-      font-size:.92rem;
-      font-weight:950;
-      letter-spacing:.02em;
-    }
-
-    #attendance-toggle{
-      appearance:none;
-      border:1px solid rgba(123,237,255,.28);
-      background:rgba(255,255,255,.05);
-      color:#cfefff;
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:.78rem;
-      font-weight:850;
-    }
-
-    #attendance-summary-line{
-      margin-top:8px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      align-items:center;
-      font-size:.84rem;
-      color:#eaf6ff;
-    }
-
-    #attendance-summary-name{
-      font-weight:900;
-      color:#fff;
-      overflow-wrap:anywhere;
-    }
-
-    #attendance-summary-s{
-      font-weight:900;
-      color:var(--accent);
-    }
-
-    #attendance-summary-status{
-      font-weight:900;
-      color:#ffd6db;
-    }
-
-    #attendance-grid{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px 10px;
-      color:#eaf6ff;
-      font-size:.84rem;
-    }
-
-    .attendance-item{
-      min-width:0;
-      padding:8px 10px;
-      border-radius:10px;
-      border:1px solid rgba(255,255,255,.07);
-      background:rgba(255,255,255,.04);
-    }
-
-    .attendance-item b{
-      display:block;
-      margin-bottom:3px;
-      color:#9adfff;
-      font-size:.72rem;
-      font-weight:900;
-    }
-
-    #attendance-status{
-      margin-top:10px;
-      padding:8px 10px;
-      border-radius:10px;
-      border:1px solid rgba(46,213,115,.22);
-      background:rgba(46,213,115,.08);
-      color:#d9ffe8;
-      font-size:.82rem;
-      font-weight:800;
-    }
-
-    #attendance-status.warn{
-      border-color:rgba(255,159,67,.22);
-      background:rgba(255,159,67,.10);
-      color:#ffe7c9;
-    }
-
-    #attendance-status.fail{
-      border-color:rgba(255,71,87,.22);
-      background:rgba(255,71,87,.10);
-      color:#ffd7dc;
-    }
-
-    #attendance-panel.compact #attendance-grid,
-    #attendance-panel.compact #attendance-status{
-      display:none;
-    }
-
-    #hud-stats{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      margin:10px 0;
-      padding:8px 0;
-      border-top:1px solid #00e5ff;
-      border-bottom:1px solid #00e5ff;
-      font-weight:900;
-    }
-
-    .hud-stat-item{
-      width:100%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      flex-wrap:wrap;
-      font-size:1.15rem;
-    }
-
-    #hud-top-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      justify-content:center;
-      margin-bottom:10px;
-    }
-
-    #question-diff-badge,
-    #unit-theme-chip,
-    #reward-roll-badge{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      border:1px solid var(--warn);
-      color:var(--warn);
-      border-radius:999px;
-      padding:4px 10px;
-      font-weight:850;
-      font-size:.84rem;
-      background:rgba(0,0,0,.16);
-    }
-
-    #unit-theme-chip,
-    #reward-roll-badge{
-      display:none;
-      border-color:var(--accent);
-      color:var(--accent);
-    }
-
-    #ai-director-board{
-      margin:10px 0;
-      padding:10px 12px;
-    }
-
-    #ai-director-state{
-      font-weight:950;
-      color:#fff;
-    }
-
-    #ai-director-sub{
-      margin-top:3px;
-      font-size:.95rem;
-      color:#eaf6ff;
-      opacity:.94;
-    }
-
-    #profile-panel,
-    #hub-stats-board,
-    #boss-phase-ui,
-    #game-over-ui,
-    #summary-panel{
-      margin-top:10px;
-      padding:14px;
-    }
-
-    #profile-panel-title,
-    #hub-stats-title,
-    #boss-phase-title,
-    #summary-title{
-      margin-bottom:8px;
-      color:var(--accent);
-      font-weight:950;
-    }
-
-    .avatar-row{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px;
-      margin-bottom:10px;
-    }
-
-    .avatar-chip{
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.10);
-      padding:10px;
-      background:rgba(255,255,255,.04);
-      color:#fff;
-      font:inherit;
-      font-weight:850;
-      cursor:pointer;
-    }
-
-    .avatar-chip small{
-      display:block;
-      margin-top:2px;
-      color:#b8d6e8;
-      font-size:.72rem;
-    }
-
-    .avatar-chip.active{
-      border-color:#00e5ff;
-      box-shadow:0 0 0 1px rgba(0,229,255,.25) inset,0 0 18px rgba(0,229,255,.14);
-      background:rgba(0,229,255,.08);
-    }
-
-    #unlock-hint{
-      margin:8px 0 10px;
-      color:#dbeafe;
-      line-height:1.45;
-      opacity:.92;
-    }
-
-    #timer{
-      display:none;
-      margin:10px 0;
-      text-align:center;
-      color:#ffeaa7;
-      font-size:1.1rem;
-      font-weight:950;
-    }
-
-    #mission-prompt-box{
-      display:none;
-      margin-bottom:10px;
-      padding:12px;
-    }
-
-    #mission-prompt-label{
-      margin-bottom:6px;
-      color:var(--accent);
-      font-size:.78rem;
-      font-weight:950;
-    }
-
-    #mission-prompt-text{
-      color:#fff;
-      font-size:1rem;
-      line-height:1.5;
-      white-space:pre-wrap;
-      overflow-wrap:anywhere;
-    }
-
-    #choice-buttons{
-      display:none;
-      justify-content:center;
-      gap:12px;
-      margin-top:10px;
-    }
-
-    .choice-btn{
-      display:flex!important;
-      align-items:center!important;
-      justify-content:flex-start!important;
-      gap:12px!important;
-      width:100%!important;
-      min-height:60px!important;
-      padding:12px 16px!important;
-      border-radius:18px!important;
-      text-align:left!important;
-      white-space:normal!important;
-      word-break:break-word!important;
-      line-height:1.25!important;
-    }
-
-    .choice-letter{
-      flex:0 0 38px;
-      width:38px;
-      height:38px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      border-radius:999px;
-      background:rgba(255,255,255,.28);
-      color:#04131d;
-      font-size:1rem;
-      font-weight:950;
-      box-shadow:inset 0 0 0 1px rgba(4,19,29,.12);
-    }
-
-    .choice-label{
-      flex:1 1 auto;
-      min-width:0;
-      font-size:1rem;
-      font-weight:950;
-    }
-
-    #btn-next,
-    #btn-return,
-    #btn-speak,
-    #btn-play-audio,
-    #btn-submit-write,
-    #btn-save-profile,
-    #btn-submit-score,
-    #choice-buttons .btn-action,
-    #mobile-hub-drawer .btn-action{
-      border-radius:16px;
-      background:linear-gradient(180deg,#2ad7ff,#14bde0);
-      color:#04131d;
-      font-weight:950;
-      box-shadow:0 8px 20px rgba(0,0,0,.22);
-    }
-
-    #btn-next{
-      background:linear-gradient(180deg,#43e08a,#27c96b);
-      color:#08150d;
-    }
-
-    #btn-return{
-      background:linear-gradient(180deg,#ff8ea1,#ff637e);
-      color:#25030a;
-    }
-
-    #btn-speak,
-    #btn-play-audio,
-    #btn-submit-write,
-    #btn-next,
-    #btn-return,
-    #btn-save-profile,
-    #btn-submit-score{
-      width:100%;
-      margin-top:10px;
-      padding:0 14px;
-      font:inherit;
-    }
-
-    #feedback{
-      min-height:24px;
-      margin-top:12px;
-      text-align:center;
-      font-weight:950;
-    }
-
-    #boss-bar-shell{
-      width:100%;
-      height:14px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      overflow:hidden;
-      margin:10px 0;
-    }
-
-    #boss-bar-fill{
-      width:100%;
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#ff6b81,#f1c40f);
-    }
-
-    #boss-phase-ui,
-    #game-over-ui,
-    #summary-panel{
-      display:none;
-    }
-
-    #summary-body{
-      line-height:1.55;
-      color:#eaf6ff;
-    }
-
-    #impact-flash{
-      position:fixed;
-      inset:0;
-      z-index:120;
-      pointer-events:none;
-      opacity:0;
-      transition:opacity .2s ease;
-    }
-
-    #impact-flash.impact-hit{
-      opacity:.22;
-      background:rgba(255,71,87,.32);
-    }
-
-    #impact-flash.impact-clear{
-      opacity:.22;
-      background:rgba(46,213,115,.28);
-    }
-
-    #boss-cinematic{
-      position:fixed;
-      inset:0;
-      z-index:121;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      background:rgba(2,6,23,.48);
-      backdrop-filter:blur(6px);
-    }
-
-    #boss-cinematic.show{
-      display:flex;
-    }
-
-    #boss-cinematic-card{
-      width:min(92vw,520px);
-      border-radius:18px;
-      padding:18px 16px;
-      background:rgba(10,18,34,.96);
-      border:1px solid rgba(123,237,255,.18);
-      text-align:center;
-      box-shadow:0 18px 40px rgba(0,0,0,.28);
-    }
-
-    #boss-cinematic-title{
-      margin-bottom:6px;
-      color:#ffeaa7;
-      font-size:1.2rem;
-      font-weight:950;
-    }
-
-    #boss-cinematic-sub{
-      color:#eaf6ff;
-    }
-
-    #answer-fx-layer{
-      position:fixed;
-      inset:0;
-      z-index:115;
-      pointer-events:none;
-      overflow:hidden;
-    }
-
-    .answer-burst{
-      position:absolute;
-      left:50%;
-      top:50%;
-      width:12px;
-      height:12px;
-      border-radius:999px;
-      transform:translate(-50%,-50%);
-      opacity:1;
-      animation:burstFly .72s ease-out forwards;
-    }
-
-    .answer-burst.success{background:#2ed573}
-    .answer-burst.fail{background:#ff4757}
-
-    @keyframes burstFly{
-      from{transform:translate(-50%,-50%) scale(1);opacity:1}
-      to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.5);opacity:0}
-    }
-
-    .combo-popup{
-      position:fixed;
-      left:50%;
-      top:14%;
-      z-index:116;
-      opacity:0;
-      transform:translate(-50%,-10px);
-      padding:10px 16px;
-      border-radius:999px;
-      background:rgba(10,18,34,.94);
-      border:1px solid rgba(255,234,167,.28);
-      color:#ffeaa7;
-      font-weight:950;
-      box-shadow:0 10px 28px rgba(0,0,0,.22);
-      pointer-events:none;
-    }
-
-    .combo-popup.show{
-      animation:comboShow .92s ease forwards;
-    }
-
-    @keyframes comboShow{
-      0%{opacity:0;transform:translate(-50%,-10px) scale(.94)}
-      18%{opacity:1;transform:translate(-50%,0) scale(1)}
-      85%{opacity:1;transform:translate(-50%,0) scale(1)}
-      100%{opacity:0;transform:translate(-50%,-8px) scale(.98)}
-    }
-
-    .mission-type-tag{
-      position:fixed;
-      right:12px;
-      top:calc(env(safe-area-inset-top,0px) + 12px);
-      z-index:117;
-      opacity:0;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(10,18,34,.94);
-      border:1px solid rgba(123,237,255,.18);
-      color:#fff;
-      font-size:.82rem;
-      font-weight:950;
-      pointer-events:none;
-    }
-
-    .mission-type-tag.show{
-      animation:tagShow .94s ease forwards;
-    }
-
-    @keyframes tagShow{
-      0%{opacity:0;transform:translateY(-6px)}
-      18%{opacity:1;transform:translateY(0)}
-      85%{opacity:1;transform:translateY(0)}
-      100%{opacity:0;transform:translateY(-4px)}
-    }
-
-    .screen-glow-success{animation:screenSuccess .46s ease}
-    .screen-glow-fail{animation:screenFail .46s ease}
-
-    @keyframes screenSuccess{
-      0%{box-shadow:0 0 0 rgba(46,213,115,0)}
-      50%{box-shadow:0 0 0 9999px rgba(46,213,115,.06) inset}
-      100%{box-shadow:0 0 0 rgba(46,213,115,0)}
-    }
-
-    @keyframes screenFail{
-      0%{box-shadow:0 0 0 rgba(255,71,87,0)}
-      50%{box-shadow:0 0 0 9999px rgba(255,71,87,.08) inset}
-      100%{box-shadow:0 0 0 rgba(255,71,87,0)}
-    }
-
-    .shake{animation:shakeUI .3s linear}
-
-    @keyframes shakeUI{
-      0%,100%{transform:translateX(0)}
-      20%{transform:translateX(-4px)}
-      40%{transform:translateX(4px)}
-      60%{transform:translateX(-3px)}
-      80%{transform:translateX(3px)}
-    }
-
-    .score-anim{animation:scoreBump .5s ease}
-
-    @keyframes scoreBump{
-      0%{transform:scale(1)}
-      50%{transform:scale(1.16)}
-      100%{transform:scale(1)}
-    }
-
-    #source-shield{
-      position:fixed;
-      inset:0;
-      z-index:999999;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:24px;
-      background:rgba(2,6,23,.90);
-      backdrop-filter:blur(10px);
-      text-align:center;
-    }
-
-    #source-shield-card{
-      width:min(92vw,520px);
-      border-radius:18px;
-      border:1px solid rgba(123,237,255,.22);
-      padding:22px 18px;
-      background:rgba(15,23,42,.92);
-      box-shadow:0 20px 60px rgba(0,0,0,.35);
-    }
-
-    #source-shield-title{
-      margin-bottom:8px;
-      color:var(--accent);
-      font-size:1.25rem;
-      font-weight:950;
-    }
-
-    #source-shield-sub{
-      color:#e5f6ff;
-      font-size:.96rem;
-      line-height:1.5;
-    }
-
-    body.devtools-guard #source-shield{
-      display:flex;
-    }
-
-    body.devtools-guard #ui-container,
-    body.devtools-guard a-scene{
-      filter:blur(10px);
-      pointer-events:none!important;
-    }
+    .hidden{display:none!important}
 
-    #loading{
+    .boot{
       position:fixed;
       inset:0;
       z-index:99999;
       display:flex;
       align-items:center;
       justify-content:center;
-      flex-direction:column;
-      background:#07111f;
-      color:#eaf6ff;
-      transition:opacity .26s ease;
+      padding:24px;
+      background:linear-gradient(180deg,#07111f,#050b16);
+      transition:opacity .28s ease,visibility .28s ease;
     }
 
-    #loading-title{
-      margin-bottom:10px;
-      color:var(--accent);
-      font-size:1.1rem;
+    .boot.off{
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+    }
+
+    .bootBox{
+      text-align:center;
+      max-width:760px;
+    }
+
+    .bootTitle{
+      margin:0 0 16px;
+      color:var(--cyan);
+      font-size:clamp(34px,7vw,58px);
+      letter-spacing:.08em;
+      font-weight:950;
+    }
+
+    .bootSub{
+      margin:0;
+      color:#b6c8dc;
+      font-size:clamp(20px,4vw,34px);
+      letter-spacing:.1em;
       font-weight:900;
     }
 
-    #mobile-hub-drawer,
-    #mobile-hub-sheet{
+    .bootDots{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      margin-top:28px;
+    }
+
+    .bootDots i{
+      width:12px;
+      height:12px;
+      border-radius:999px;
+      background:var(--cyan);
+      animation:pulse 1s ease-in-out infinite;
+    }
+
+    .bootDots i:nth-child(2){animation-delay:.15s}
+    .bootDots i:nth-child(3){animation-delay:.3s}
+
+    @keyframes pulse{
+      0%,100%{opacity:.25;transform:scale(.7)}
+      50%{opacity:1;transform:scale(1.1)}
+    }
+
+    .app{
+      min-height:100dvh;
+      display:flex;
+      flex-direction:column;
+      padding-bottom:calc(88px + var(--safeBottom));
+    }
+
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:50;
+      padding:calc(10px + var(--safeTop)) 14px 10px;
+      background:linear-gradient(180deg,rgba(5,11,22,.96),rgba(5,11,22,.74));
+      border-bottom:1px solid rgba(255,255,255,.09);
+      backdrop-filter:blur(16px);
+    }
+
+    .topInner{
+      max-width:var(--max);
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+      align-items:center;
+    }
+
+    .brand{
+      min-width:0;
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .logo{
+      width:46px;
+      height:46px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,var(--cyan),var(--purple));
+      color:#06111f;
+      font-weight:1000;
+      box-shadow:0 12px 30px rgba(49,198,239,.24);
+      flex:0 0 auto;
+    }
+
+    .brandText{
+      min-width:0;
+    }
+
+    .brandText h1{
+      margin:0;
+      font-size:clamp(19px,3vw,28px);
+      line-height:1.05;
+      letter-spacing:.02em;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .brandText p{
+      margin:5px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:750;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .topActions{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+
+    .pill{
+      display:inline-flex;
+      gap:7px;
+      align-items:center;
+      justify-content:center;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      color:var(--soft);
+      font-size:13px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .pill.good{
+      background:rgba(69,227,154,.13);
+      border-color:rgba(69,227,154,.28);
+      color:#c9ffe4;
+    }
+
+    .pill.gold{
+      background:rgba(255,209,102,.13);
+      border-color:rgba(255,209,102,.32);
+      color:#ffe8a0;
+    }
+
+    .main{
+      width:100%;
+      max-width:var(--max);
+      margin:0 auto;
+      padding:18px 14px 24px;
+      display:grid;
+      gap:16px;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:16px;
+      align-items:stretch;
+    }
+
+    .panel{
+      border:1px solid var(--line);
+      border-radius:var(--r-xl);
+      background:linear-gradient(180deg,rgba(255,255,255,.105),rgba(255,255,255,.06));
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .heroCard{
+      padding:22px;
+      position:relative;
+      min-height:245px;
+    }
+
+    .heroCard:before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background:
+        radial-gradient(circle at 20% 0%,rgba(112,230,255,.22),transparent 30%),
+        radial-gradient(circle at 90% 10%,rgba(255,134,209,.16),transparent 30%);
+      pointer-events:none;
+    }
+
+    .heroContent{
+      position:relative;
+      z-index:1;
+    }
+
+    .kicker{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:8px 12px;
+      border-radius:999px;
+      color:#07111f;
+      background:var(--cyan);
+      font-weight:1000;
+      letter-spacing:.06em;
+      font-size:12px;
+      text-transform:uppercase;
+    }
+
+    .heroTitle{
+      margin:16px 0 10px;
+      font-size:clamp(31px,6vw,58px);
+      line-height:1.02;
+      letter-spacing:-.03em;
+    }
+
+    .heroDesc{
+      margin:0;
+      max-width:780px;
+      color:#cfe2f5;
+      font-size:17px;
+      line-height:1.58;
+      font-weight:650;
+    }
+
+    .heroButtons{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:20px;
+    }
+
+    .btn{
+      border:0;
+      min-height:48px;
+      padding:13px 17px;
+      border-radius:18px;
+      font-weight:1000;
+      cursor:pointer;
+      color:var(--text);
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.17);
+      box-shadow:0 10px 26px rgba(0,0,0,.18);
+      transition:transform .12s ease,filter .12s ease,background .12s ease;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+    }
+
+    .btn:hover{filter:brightness(1.08)}
+    .btn:active{transform:translateY(1px) scale(.99)}
+
+    .btn.primary{
+      color:#06111f;
+      background:linear-gradient(135deg,var(--cyan),#a5f3ff);
+      border-color:rgba(255,255,255,.28);
+    }
+
+    .btn.purple{
+      background:linear-gradient(135deg,var(--purple),#b9afff);
+      color:#080b1b;
+    }
+
+    .btn.gold{
+      background:linear-gradient(135deg,var(--gold),#ffe8a0);
+      color:#221707;
+    }
+
+    .btn.green{
+      background:linear-gradient(135deg,var(--green),#b8ffd9);
+      color:#062014;
+    }
+
+    .btn.red{
+      background:linear-gradient(135deg,var(--red),#ffa2b2);
+      color:#23040a;
+    }
+
+    .btn.small{
+      min-height:40px;
+      padding:9px 12px;
+      border-radius:14px;
+      font-size:13px;
+    }
+
+    .btn.ghost{
+      background:rgba(255,255,255,.07);
+      color:var(--soft);
+    }
+
+    .btn:disabled{
+      opacity:.48;
+      cursor:not-allowed;
+      transform:none!important;
+      filter:none!important;
+    }
+
+    .statusGrid{
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .statusCard{
+      padding:14px;
+      border-radius:22px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .statusCard h3{
+      margin:0 0 10px;
+      font-size:14px;
+      color:var(--cyan);
+      letter-spacing:.05em;
+      text-transform:uppercase;
+    }
+
+    .statusLine{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      padding:7px 0;
+      color:#cfe2f5;
+      font-weight:750;
+      border-bottom:1px dashed rgba(255,255,255,.12);
+    }
+
+    .statusLine:last-child{
+      border-bottom:0;
+    }
+
+    .statusLine b{
+      color:#fff;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns:.95fr 1.05fr;
+      gap:16px;
+    }
+
+    .section{
+      padding:18px;
+    }
+
+    .sectionHead{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      justify-content:space-between;
+      margin-bottom:14px;
+    }
+
+    .sectionHead h2{
+      margin:0;
+      font-size:24px;
+      letter-spacing:-.02em;
+    }
+
+    .sectionHead p{
+      margin:6px 0 0;
+      color:var(--muted);
+      line-height:1.45;
+      font-weight:650;
+    }
+
+    .studentForm{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    label.field{
+      display:grid;
+      gap:6px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .field input,
+    .field select,
+    .field textarea{
+      width:100%;
+      min-height:45px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      color:var(--text);
+      padding:11px 13px;
+      outline:none;
+    }
+
+    .field textarea{
+      min-height:120px;
+      resize:vertical;
+      line-height:1.55;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus{
+      border-color:rgba(112,230,255,.72);
+      box-shadow:0 0 0 4px rgba(112,230,255,.12);
+    }
+
+    .field select option{
+      color:#07111f;
+    }
+
+    .sessionGrid{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .sessionBtn{
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.075);
+      color:var(--text);
+      min-height:92px;
+      padding:12px;
+      border-radius:20px;
+      cursor:pointer;
+      text-align:left;
+      display:grid;
+      gap:7px;
+      transition:transform .12s ease,background .12s ease,border-color .12s ease;
+    }
+
+    .sessionBtn:hover{
+      transform:translateY(-1px);
+      background:rgba(255,255,255,.12);
+      border-color:rgba(112,230,255,.46);
+    }
+
+    .sessionBtn.active{
+      background:linear-gradient(180deg,rgba(112,230,255,.22),rgba(139,124,255,.14));
+      border-color:rgba(112,230,255,.62);
+      box-shadow:0 14px 34px rgba(49,198,239,.18);
+    }
+
+    .sessionBtn.done{
+      border-color:rgba(69,227,154,.42);
+      background:rgba(69,227,154,.105);
+    }
+
+    .sessionBtn .n{
+      font-size:20px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .sessionBtn .t{
+      font-size:12px;
+      color:#cfe2f5;
+      line-height:1.25;
+      font-weight:780;
+    }
+
+    .sessionBtn .m{
+      display:flex;
+      gap:5px;
+      flex-wrap:wrap;
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:4px 7px;
+      border-radius:999px;
+      background:rgba(255,255,255,.11);
+      color:#d9ecff;
+      font-size:11px;
+      font-weight:900;
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .tag.boss{
+      color:#ffe8a0;
+      border-color:rgba(255,209,102,.38);
+      background:rgba(255,209,102,.13);
+    }
+
+    .tag.skill{
+      color:#c8f8ff;
+      background:rgba(112,230,255,.10);
+      border-color:rgba(112,230,255,.25);
+    }
+
+    .gameShell{
       display:none;
     }
 
-    body.hub-mode #summary-panel,
-    body.hub-mode #game-over-ui,
-    body.hub-mode #boss-phase-ui,
-    body.hub-mode #mission-prompt-box,
-    body.hub-mode #btn-speak,
-    body.hub-mode #btn-play-audio,
-    body.hub-mode #write-input,
-    body.hub-mode #btn-submit-write,
-    body.hub-mode #choice-buttons,
-    body.hub-mode #btn-next,
-    body.hub-mode #btn-return{
-      display:none!important;
+    .gameShell.on{
+      display:grid;
+      gap:16px;
     }
 
-    body.mission-mode #summary-panel,
-    body.mission-mode #game-over-ui{
-      display:none!important;
+    .hud{
+      position:sticky;
+      top:76px;
+      z-index:40;
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
+      padding:10px;
+      border-radius:24px;
+      border:1px solid rgba(255,255,255,.13);
+      background:rgba(7,17,31,.82);
+      backdrop-filter:blur(16px);
+      box-shadow:0 16px 40px rgba(0,0,0,.24);
     }
 
-    body.summary-mode #mission-prompt-box,
-    body.summary-mode #ai-guide-box,
-    body.summary-mode #btn-speak,
-    body.summary-mode #btn-play-audio,
-    body.summary-mode #write-input,
-    body.summary-mode #btn-submit-write,
-    body.summary-mode #choice-buttons{
-      display:none!important;
+    .hudBox{
+      min-height:62px;
+      padding:10px;
+      border-radius:18px;
+      background:rgba(255,255,255,.085);
+      border:1px solid rgba(255,255,255,.10);
+      display:grid;
+      align-content:center;
+      gap:4px;
     }
 
-    body.summary-mode #feedback,
-    body.summary-mode #mission-type-tag,
-    body.summary-mode #combo-popup,
-    body.summary-mode #player-avatar-hud{
-      display:none!important;
+    .hudBox span{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.06em;
+      text-transform:uppercase;
     }
 
-    @media (max-width:700px){
-      html,body{
-        overflow:hidden!important;
+    .hudBox b{
+      font-size:18px;
+      line-height:1.1;
+    }
+
+    .mission{
+      display:grid;
+      grid-template-columns:1fr .85fr;
+      gap:16px;
+      align-items:stretch;
+    }
+
+    .missionCard{
+      padding:20px;
+      min-height:420px;
+      display:grid;
+      align-content:start;
+      gap:16px;
+      position:relative;
+    }
+
+    .missionHeader{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+    }
+
+    .missionTitle{
+      margin:0;
+      font-size:clamp(28px,5vw,52px);
+      line-height:1.02;
+      letter-spacing:-.03em;
+    }
+
+    .missionSub{
+      margin:8px 0 0;
+      color:#cfe2f5;
+      font-size:17px;
+      font-weight:720;
+      line-height:1.5;
+    }
+
+    .promptBox{
+      padding:18px;
+      border-radius:24px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.13);
+    }
+
+    .promptLabel{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      margin-bottom:9px;
+      color:var(--cyan);
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .promptText{
+      margin:0;
+      font-size:clamp(22px,4vw,34px);
+      line-height:1.28;
+      font-weight:950;
+    }
+
+    .hint{
+      margin:8px 0 0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.45;
+      font-weight:650;
+    }
+
+    .choices{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .choice{
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.15);
+      background:rgba(255,255,255,.085);
+      color:#fff;
+      min-height:74px;
+      padding:14px;
+      text-align:left;
+      cursor:pointer;
+      font-weight:850;
+      line-height:1.35;
+    }
+
+    .choice:hover{
+      background:rgba(255,255,255,.13);
+      border-color:rgba(112,230,255,.42);
+    }
+
+    .choice.correct{
+      background:rgba(69,227,154,.18);
+      border-color:rgba(69,227,154,.6);
+    }
+
+    .choice.wrong{
+      background:rgba(255,109,135,.18);
+      border-color:rgba(255,109,135,.58);
+    }
+
+    .feedback{
+      display:none;
+      padding:14px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.085);
+      line-height:1.55;
+      font-weight:750;
+    }
+
+    .feedback.on{
+      display:block;
+    }
+
+    .feedback.good{
+      background:rgba(69,227,154,.13);
+      border-color:rgba(69,227,154,.33);
+      color:#d7ffe9;
+    }
+
+    .feedback.bad{
+      background:rgba(255,109,135,.13);
+      border-color:rgba(255,109,135,.33);
+      color:#ffd5dc;
+    }
+
+    .sidePanel{
+      padding:18px;
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .progressWrap{
+      display:grid;
+      gap:10px;
+    }
+
+    .bar{
+      height:14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.1);
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.10);
+    }
+
+    .bar i{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink));
+      transition:width .22s ease;
+    }
+
+    .skillList{
+      display:grid;
+      gap:9px;
+    }
+
+    .skillRow{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      align-items:center;
+      gap:10px;
+      padding:11px;
+      border-radius:18px;
+      background:rgba(255,255,255,.07);
+      border:1px solid rgba(255,255,255,.10);
+    }
+
+    .skillIcon{
+      width:36px;
+      height:36px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:rgba(112,230,255,.12);
+      border:1px solid rgba(112,230,255,.18);
+    }
+
+    .skillRow b{
+      display:block;
+      font-size:14px;
+    }
+
+    .skillRow small{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      margin-top:2px;
+    }
+
+    .skillRow.done{
+      border-color:rgba(69,227,154,.35);
+      background:rgba(69,227,154,.105);
+    }
+
+    .skillRow.now{
+      border-color:rgba(112,230,255,.46);
+      background:rgba(112,230,255,.105);
+    }
+
+    .bossPanel{
+      display:none;
+      padding:14px;
+      border-radius:22px;
+      background:linear-gradient(135deg,rgba(255,209,102,.15),rgba(255,134,209,.12));
+      border:1px solid rgba(255,209,102,.28);
+    }
+
+    .bossPanel.on{
+      display:block;
+    }
+
+    .bossPanel h3{
+      margin:0 0 8px;
+      color:#ffe8a0;
+    }
+
+    .bossHearts{
+      display:flex;
+      gap:7px;
+      flex-wrap:wrap;
+      font-size:24px;
+      margin-top:8px;
+    }
+
+    .answerBox{
+      display:grid;
+      gap:10px;
+    }
+
+    .answerBox .row{
+      display:flex;
+      gap:9px;
+      flex-wrap:wrap;
+    }
+
+    .summary{
+      display:none;
+      padding:22px;
+    }
+
+    .summary.on{
+      display:block;
+    }
+
+    .summary h2{
+      margin:0 0 10px;
+      font-size:clamp(30px,6vw,52px);
+    }
+
+    .summaryGrid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin:18px 0;
+    }
+
+    .summaryStat{
+      padding:16px;
+      border-radius:22px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.13);
+    }
+
+    .summaryStat span{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+    }
+
+    .summaryStat b{
+      display:block;
+      margin-top:6px;
+      font-size:28px;
+    }
+
+    .bottomNav{
+      position:fixed;
+      left:0;
+      right:0;
+      bottom:0;
+      z-index:60;
+      padding:9px 12px calc(9px + var(--safeBottom));
+      background:rgba(5,11,22,.88);
+      border-top:1px solid rgba(255,255,255,.12);
+      backdrop-filter:blur(16px);
+    }
+
+    .bottomInner{
+      max-width:760px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:8px;
+    }
+
+    .navBtn{
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.07);
+      color:var(--soft);
+      border-radius:18px;
+      min-height:54px;
+      padding:8px;
+      cursor:pointer;
+      display:grid;
+      place-items:center;
+      gap:2px;
+      font-weight:900;
+      font-size:12px;
+    }
+
+    .navBtn b{
+      font-size:18px;
+      line-height:1;
+    }
+
+    .navBtn.active{
+      background:rgba(112,230,255,.14);
+      border-color:rgba(112,230,255,.38);
+      color:#d9fbff;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(90px + var(--safeBottom));
+      transform:translateX(-50%) translateY(12px);
+      z-index:80;
+      width:min(620px,calc(100% - 28px));
+      padding:14px 16px;
+      border-radius:20px;
+      background:rgba(10,22,40,.94);
+      border:1px solid rgba(255,255,255,.18);
+      color:#fff;
+      box-shadow:0 18px 50px rgba(0,0,0,.34);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease,transform .18s ease;
+      font-weight:820;
+      line-height:1.45;
+    }
+
+    .toast.on{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .modal{
+      position:fixed;
+      inset:0;
+      z-index:90;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(0,0,0,.62);
+    }
+
+    .modal.on{
+      display:flex;
+    }
+
+    .modalCard{
+      width:min(720px,100%);
+      max-height:min(86vh,720px);
+      overflow:auto;
+      border-radius:28px;
+      background:linear-gradient(180deg,#11243f,#091321);
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 30px 90px rgba(0,0,0,.45);
+      padding:20px;
+    }
+
+    .modalCard h2{
+      margin:0 0 10px;
+    }
+
+    .debug{
+      display:none;
+      white-space:pre-wrap;
+      word-break:break-word;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+      font-size:12px;
+      background:rgba(0,0,0,.28);
+      border-radius:16px;
+      padding:12px;
+      color:#cfe2f5;
+      margin-top:12px;
+    }
+
+    .debug.on{display:block}
+
+    @media (max-width:980px){
+      .hero,
+      .grid2,
+      .mission{
+        grid-template-columns:1fr;
       }
 
-      #ui-container{
-        position:fixed!important;
-        inset:0!important;
-        width:100%!important;
-        min-height:100dvh!important;
-        padding:8px 10px calc(120px + env(safe-area-inset-bottom,0px))!important;
-        background:transparent!important;
-        overflow:hidden!important;
-      }
-
-      body.hub-mode #ui-title{
-        margin:4px 0 2px!important;
-        text-align:center;
-        font-size:1.9rem!important;
-        line-height:1.05!important;
-      }
-
-      body.hub-mode #ui-desc{
-        margin:0 0 8px!important;
-        text-align:center;
-        font-size:.95rem!important;
-      }
-
-      body.hub-mode #attendance-panel{
-        margin:6px 0 8px!important;
-        padding:10px 12px!important;
-        border-radius:16px!important;
-      }
-
-      body.hub-mode #profile-panel,
-      body.hub-mode #hub-stats-board{
-        display:none!important;
-      }
-
-      #mobile-hub-drawer{
-        position:fixed;
-        left:10px;
-        right:10px;
-        bottom:calc(10px + env(safe-area-inset-bottom,0px));
-        z-index:50;
-        display:grid!important;
-        grid-template-columns:repeat(3,minmax(0,1fr))!important;
-        gap:8px!important;
-      }
-
-      #mobile-hub-drawer .btn-action{
-        min-width:0;
-        min-height:48px;
-        padding:0 8px;
-        border-radius:16px;
-        font-size:.96rem;
-        font-weight:950;
-      }
-
-      #mobile-hub-sheet{
-        position:fixed;
-        left:10px;
-        right:10px;
-        bottom:calc(68px + env(safe-area-inset-bottom,0px));
-        z-index:60;
-        display:none;
-        max-height:44dvh;
-        overflow:auto;
-        border-radius:18px;
-        background:rgba(10,18,34,.96);
-        border:1px solid rgba(123,237,255,.18);
-        box-shadow:0 14px 34px rgba(0,0,0,.28);
-        padding:12px;
-      }
-
-      #mobile-hub-sheet.show{
-        display:block;
-      }
-
-      #mobile-hub-sheet .session-sheet-title{
-        margin-bottom:10px;
-        color:var(--accent);
-        text-align:center;
-        font-size:1rem;
-        font-weight:950;
-      }
-
-      #mobile-hub-sheet .session-grid{
-        display:grid;
+      .sessionGrid{
         grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:8px;
       }
 
-      #mobile-hub-sheet .session-chip{
-        min-height:48px;
-        border-radius:14px;
-        border:1px solid rgba(123,237,255,.18);
-        background:linear-gradient(180deg,rgba(42,215,255,.18),rgba(20,189,224,.10));
-        color:#eaf6ff;
-        font-size:.95rem;
-        font-weight:950;
+      .hud{
+        top:72px;
+        grid-template-columns:repeat(3,minmax(0,1fr));
       }
 
-      body.mission-mode #ui-title,
-      body.mission-mode #ui-desc,
-      body.mission-mode #attendance-panel,
-      body.mission-mode #ai-director-board,
-      body.mission-mode #profile-panel,
-      body.mission-mode #hub-stats-board,
-      body.mission-mode #mobile-hub-drawer,
-      body.mission-mode #mobile-hub-sheet{
-        display:none!important;
+      .choices{
+        grid-template-columns:1fr;
       }
 
-      body.mission-mode #hud-stats{
-        position:fixed!important;
-        left:10px!important;
-        right:10px!important;
-        top:calc(env(safe-area-inset-top,0px) + 6px)!important;
-        z-index:90!important;
-        margin:0!important;
-        padding:8px 12px!important;
-        border-radius:14px!important;
-        background:rgba(6,12,24,.92)!important;
-        backdrop-filter:blur(8px);
+      .summaryGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media (max-width:620px){
+      .topInner{
+        grid-template-columns:1fr;
       }
 
-      body.mission-mode #hud-top-row{
-        position:fixed!important;
-        left:10px!important;
-        right:10px!important;
-        top:calc(env(safe-area-inset-top,0px) + 66px)!important;
-        z-index:89!important;
-        margin:0!important;
-        padding:0!important;
+      .topActions{
+        overflow:auto;
+        padding-bottom:2px;
       }
 
-      body.mission-mode #mission-prompt-box{
-        display:block!important;
-        position:fixed!important;
-        left:10px!important;
-        right:10px!important;
-        top:calc(env(safe-area-inset-top,0px) + 112px)!important;
-        z-index:88!important;
-        margin:0!important;
-        padding:12px!important;
-        border-radius:16px!important;
-        background:rgba(10,18,34,.94)!important;
+      .brandText h1{
+        white-space:normal;
       }
 
-      body.mission-mode[data-mission-type="reading"] #choice-buttons,
-      body.mission-mode[data-mission-type="listening"] #choice-buttons{
-        position:fixed!important;
-        left:10px!important;
-        right:10px!important;
-        bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;
-        z-index:95!important;
-        display:grid!important;
-        grid-template-columns:1fr!important;
-        gap:8px!important;
-        margin:0!important;
-        padding:10px 0 0!important;
-        background:linear-gradient(to top,rgba(4,10,22,.96),rgba(4,10,22,.78),rgba(4,10,22,0));
+      .studentForm{
+        grid-template-columns:1fr;
       }
 
-      body.mission-mode[data-mission-type="reading"] #choice-buttons .btn-action,
-      body.mission-mode[data-mission-type="listening"] #choice-buttons .btn-action{
-        min-height:52px!important;
-        border-radius:16px!important;
+      .sessionGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
-      body.mission-mode[data-mission-type="listening"] #btn-play-audio{
-        display:block!important;
-        position:fixed!important;
-        left:10px!important;
-        right:10px!important;
-        bottom:calc(194px + env(safe-area-inset-bottom,0px))!important;
-        z-index:96!important;
-        min-height:52px!important;
-        border-radius:16px!important;
+      .hud{
+        position:relative;
+        top:auto;
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
-      body.mission-mode[data-mission-type="speaking"] #choice-buttons,
-      body.mission-mode[data-mission-type="writing"] #choice-buttons,
-      body.mission-mode[data-mission-type="speaking"] #btn-play-audio,
-      body.mission-mode[data-mission-type="speaking"] #write-input,
-      body.mission-mode[data-mission-type="speaking"] #btn-submit-write,
-      body.mission-mode[data-mission-type="writing"] #btn-speak,
-      body.mission-mode[data-mission-type="writing"] #btn-play-audio,
-      body.mission-mode[data-mission-type="listening"] #btn-speak,
-      body.mission-mode[data-mission-type="reading"] #btn-speak,
-      body.mission-mode[data-mission-type="reading"] #write-input,
-      body.mission-mode[data-mission-type="reading"] #btn-submit-write,
-      body.mission-mode[data-mission-type="listening"] #write-input,
-      body.mission-mode[data-mission-type="listening"] #btn-submit-write{
-        display:none!important;
+      .missionCard{
+        min-height:auto;
+        padding:16px;
       }
 
-      body.mission-mode #btn-speak,
-      body.mission-mode #btn-play-audio,
-      body.mission-mode #btn-submit-write{
-        position:fixed!important;
-        left:10px!important;
-        right:10px!important;
-        bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;
-        z-index:95!important;
-        min-height:52px!important;
-        border-radius:16px!important;
+      .section,
+      .heroCard,
+      .sidePanel{
+        padding:16px;
       }
 
-      body.mission-mode #write-input{
-        position:fixed!important;
-        left:10px!important;
-        right:10px!important;
-        bottom:calc(72px + env(safe-area-inset-bottom,0px))!important;
-        z-index:94!important;
+      .bottomInner{
+        grid-template-columns:repeat(4,1fr);
       }
 
-      body.summary-mode #ui-title,
-      body.summary-mode #ui-desc,
-      body.summary-mode #attendance-panel,
-      body.summary-mode #ai-director-board,
-      body.summary-mode #profile-panel,
-      body.summary-mode #hub-stats-board,
-      body.summary-mode #mobile-hub-drawer,
-      body.summary-mode #mobile-hub-sheet,
-      body.summary-mode #hud-stats,
-      body.summary-mode #hud-top-row{
-        display:none!important;
-      }
-
-      body.summary-mode #summary-panel{
-        display:block!important;
-        position:fixed!important;
-        left:10px!important;
-        right:10px!important;
-        top:calc(env(safe-area-inset-top,0px) + 10px)!important;
-        bottom:calc(78px + env(safe-area-inset-bottom,0px))!important;
-        z-index:90!important;
-        overflow:auto!important;
-      }
-
-      body.summary-mode #btn-next,
-      body.summary-mode #btn-return{
-        position:fixed!important;
-        left:10px!important;
-        right:10px!important;
-        z-index:95!important;
-        min-height:52px!important;
-        border-radius:16px!important;
-      }
-
-      body.summary-mode #btn-next{
-        bottom:calc(68px + env(safe-area-inset-bottom,0px))!important;
-      }
-
-      body.summary-mode #btn-return{
-        bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;
-      }
-
-      .choice-letter{
-        flex:0 0 34px;
-        width:34px;
-        height:34px;
-        font-size:.96rem;
-      }
-
-      .choice-label{
-        font-size:.98rem;
+      .navBtn{
+        min-height:50px;
+        font-size:11px;
       }
     }
   </style>
 </head>
 
-<body class="hub-mode">
-  <div id="source-shield" aria-hidden="true">
-    <div id="source-shield-card">
-      <div id="source-shield-title">Protected Lesson Mode</div>
-      <div id="source-shield-sub">
-        หน้านี้ถูกป้องกันการดูโค้ดระดับพื้นฐานไว้แล้ว กรุณาปิด Developer Tools เพื่อกลับเข้าใช้งาน
-      </div>
+<body>
+  <div id="boot" class="boot" aria-live="polite">
+    <div class="bootBox">
+      <h1 class="bootTitle">Loading TechPath VR...</h1>
+      <p class="bootSub">Preparing A2–B1+ missions</p>
+      <div class="bootDots" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
   </div>
 
-  <div id="loading">
-    <div id="loading-title">Loading TechPath VR...</div>
-    <div style="color:#9db2c7;font-size:.9rem;">Preparing A2–B1+ missions</div>
+  <div id="app" class="app">
+    <header class="topbar">
+      <div class="topInner">
+        <div class="brand">
+          <div class="logo">TP</div>
+          <div class="brandText">
+            <h1>TechPath English VR</h1>
+            <p id="topSub">A2–B1+ • CS/AI English Session Mission</p>
+          </div>
+        </div>
+
+        <div class="topActions">
+          <span class="pill good" id="bootStatus">READY</span>
+          <span class="pill" id="studentTop">Student: -</span>
+          <span class="pill gold" id="sessionTop">S01</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section id="homeView">
+        <div class="hero">
+          <div class="panel heroCard">
+            <div class="heroContent">
+              <span class="kicker">Session Learning</span>
+              <h2 class="heroTitle">เรียนอังกฤษสาย CS/AI เป็น Session</h2>
+              <p class="heroDesc">
+                ฝึกครบ 4 ทักษะ ฟัง พูด อ่าน เขียน ผ่านภารกิจสั้น ๆ แบบไม่ค้าง Loading
+                มี Boss ทุก 3 Session และบันทึกการเข้าเรียนแต่ละ S เพื่อใช้ติดตามผู้เรียน
+              </p>
+
+              <div class="heroButtons">
+                <button class="btn primary" id="startCurrentBtn">เริ่ม Session ปัจจุบัน ▶</button>
+                <button class="btn purple" id="openSessionBtn">เลือก S1–S15</button>
+                <button class="btn ghost" id="openGuideBtn">วิธีเล่น</button>
+              </div>
+            </div>
+          </div>
+
+          <aside class="panel statusGrid">
+            <div class="statusCard">
+              <h3>Attendance Tracker</h3>
+              <div class="statusLine"><span>Current S</span><b id="attSession">S01</b></div>
+              <div class="statusLine"><span>Time in S</span><b id="attTime">00:00</b></div>
+              <div class="statusLine"><span>Active Time</span><b id="activeTime">00:00</b></div>
+              <div class="statusLine"><span>Sheet Status</span><b id="sheetStatus">Ready</b></div>
+            </div>
+
+            <div class="statusCard">
+              <h3>Player Status</h3>
+              <div class="statusLine"><span>Score</span><b id="homeScore">0</b></div>
+              <div class="statusLine"><span>Completed</span><b id="homeCompleted">0/15</b></div>
+              <div class="statusLine"><span>Level</span><b id="homeLevel">normal</b></div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="grid2" style="margin-top:16px">
+          <section class="panel section">
+            <div class="sectionHead">
+              <div>
+                <h2>ข้อมูลผู้เรียน</h2>
+                <p>ใส่ข้อมูลก่อนเริ่ม เพื่อให้บันทึกลง Google Sheet ได้ครบ</p>
+              </div>
+            </div>
+
+            <div class="studentForm">
+              <label class="field">
+                Student ID
+                <input id="studentId" placeholder="เช่น 651234567" autocomplete="off" />
+              </label>
+
+              <label class="field">
+                Name / Nickname
+                <input id="studentName" placeholder="เช่น Hero" autocomplete="off" />
+              </label>
+
+              <label class="field">
+                Section
+                <input id="section" placeholder="เช่น CS/AI 2A" autocomplete="off" />
+              </label>
+
+              <label class="field">
+                Difficulty
+                <select id="difficulty">
+                  <option value="easy">easy</option>
+                  <option value="normal" selected>normal</option>
+                  <option value="hard">hard</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="heroButtons">
+              <button class="btn green" id="saveProfileBtn">บันทึกโปรไฟล์</button>
+              <button class="btn ghost" id="resetProgressBtn">รีเซ็ตความคืบหน้า</button>
+            </div>
+          </section>
+
+          <section class="panel section" id="sessionPicker">
+            <div class="sectionHead">
+              <div>
+                <h2>เลือก Session</h2>
+                <p>S3 / S6 / S9 / S12 / S15 มี Boss Challenge</p>
+              </div>
+            </div>
+
+            <div class="sessionGrid" id="sessionGrid"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="gameView" class="gameShell">
+        <div class="hud">
+          <div class="hudBox"><span>Session</span><b id="hudSession">S01</b></div>
+          <div class="hudBox"><span>Skill</span><b id="hudSkill">Listen</b></div>
+          <div class="hudBox"><span>Score</span><b id="hudScore">0</b></div>
+          <div class="hudBox"><span>HP</span><b id="hudHp">100%</b></div>
+          <div class="hudBox"><span>Time</span><b id="hudTime">00:00</b></div>
+        </div>
+
+        <div class="mission">
+          <article class="panel missionCard">
+            <div class="missionHeader">
+              <div>
+                <h2 class="missionTitle" id="missionTitle">Mission</h2>
+                <p class="missionSub" id="missionSub">Prepare your task.</p>
+              </div>
+              <span class="pill gold" id="missionBadge">A2+</span>
+            </div>
+
+            <div class="promptBox">
+              <div class="promptLabel">
+                <span id="promptLabel">Prompt</span>
+                <span id="promptCount">1/4</span>
+              </div>
+              <p class="promptText" id="promptText">...</p>
+              <p class="hint" id="promptHint">Choose the best answer.</p>
+            </div>
+
+            <div id="choiceArea" class="choices"></div>
+
+            <div id="answerArea" class="answerBox hidden">
+              <label class="field">
+                Your answer
+                <textarea id="textAnswer" placeholder="Type your answer here..."></textarea>
+              </label>
+              <div class="row">
+                <button class="btn primary" id="submitTextBtn">Submit</button>
+                <button class="btn ghost" id="aiHelpBtn">AI Help</button>
+                <button class="btn ghost" id="speakBtn">Speak</button>
+              </div>
+            </div>
+
+            <div id="feedback" class="feedback"></div>
+
+            <div class="heroButtons">
+              <button class="btn primary" id="listenBtn">🔊 Play Audio</button>
+              <button class="btn green" id="nextBtn" disabled>Next ▶</button>
+              <button class="btn ghost" id="backHomeBtn">กลับหน้าเลือก Session</button>
+            </div>
+          </article>
+
+          <aside class="panel sidePanel">
+            <div class="sectionHead" style="margin-bottom:0">
+              <div>
+                <h2 id="sideTitle">S01 Progress</h2>
+                <p id="sideDesc">Complete Listening, Speaking, Reading, Writing.</p>
+              </div>
+            </div>
+
+            <div class="progressWrap">
+              <div class="statusLine"><span>Mission Progress</span><b id="progressText">0%</b></div>
+              <div class="bar"><i id="progressBar"></i></div>
+            </div>
+
+            <div class="skillList" id="skillList"></div>
+
+            <div id="bossPanel" class="bossPanel">
+              <h3>🔥 Boss Challenge</h3>
+              <p class="hint">ตอบให้ถูกเพื่อทำลาย Boss HP ก่อนจบ Session</p>
+              <div class="bossHearts" id="bossHearts">❤️ ❤️ ❤️</div>
+            </div>
+
+            <div class="statusCard">
+              <h3>Coach Tip</h3>
+              <p id="coachTip" class="hint" style="margin:0">
+                เริ่มจากจับ keyword ในโจทย์ แล้วเลือกคำตอบที่ใช้ในสถานการณ์งานเทคโนโลยี
+              </p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="summaryView" class="panel summary">
+        <h2 id="summaryTitle">Mission Summary</h2>
+        <p class="heroDesc" id="summaryDesc">Session complete.</p>
+
+        <div class="summaryGrid">
+          <div class="summaryStat"><span>Score</span><b id="sumScore">0</b></div>
+          <div class="summaryStat"><span>Accuracy</span><b id="sumAcc">0%</b></div>
+          <div class="summaryStat"><span>Time</span><b id="sumTime">00:00</b></div>
+          <div class="summaryStat"><span>Skills</span><b id="sumSkills">0/4</b></div>
+        </div>
+
+        <div class="heroButtons">
+          <button class="btn primary" id="nextSessionBtn">เล่นด่านถัดไป ▶</button>
+          <button class="btn green" id="replayBtn">เล่น S นี้อีกครั้ง</button>
+          <button class="btn ghost" id="summaryHomeBtn">กลับหน้าเลือก Session</button>
+        </div>
+      </section>
+
+      <pre id="debugBox" class="debug"></pre>
+    </main>
+
+    <nav class="bottomNav">
+      <div class="bottomInner">
+        <button class="navBtn active" id="navHome"><b>🏠</b>Home</button>
+        <button class="navBtn" id="navSessions"><b>🎯</b>Sessions</button>
+        <button class="navBtn" id="navPlay"><b>▶️</b>Play</button>
+        <button class="navBtn" id="navStats"><b>📊</b>Stats</button>
+      </div>
+    </nav>
   </div>
 
-  <div id="impact-flash" aria-hidden="true"></div>
+  <div id="toast" class="toast"></div>
 
-  <div id="boss-cinematic" aria-hidden="true">
-    <div id="boss-cinematic-card">
-      <div id="boss-cinematic-title">FINAL BOSS</div>
-      <div id="boss-cinematic-sub">Prepare for the last phase.</div>
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <div class="modalCard">
+      <h2 id="modalTitle">Guide</h2>
+      <div id="modalBody"></div>
+      <div class="heroButtons">
+        <button class="btn primary" id="closeModalBtn">ปิด</button>
+      </div>
     </div>
   </div>
-
-  <div id="answer-fx-layer" aria-hidden="true"></div>
-  <div id="combo-popup" class="combo-popup">COMBO x2</div>
-  <div id="mission-type-tag" class="mission-type-tag">MISSION</div>
-
-  <div id="ui-container" class="hub-mode">
-    <div id="player-avatar-hud">🧑‍💻</div>
-
-    <div class="title" id="ui-title">TECHPATH VR</div>
-    <p class="instruction" id="ui-desc">เลือกด่าน ฝึกครบ 4 ทักษะ และไต่ระดับ A2–B1+</p>
-    <div id="identity-current-chip">Student: -</div>
-
-    <div id="attendance-panel" class="compact">
-      <div id="attendance-header-row">
-        <div id="attendance-title">ATTENDANCE TRACKER</div>
-        <button id="attendance-toggle" type="button" aria-expanded="false">ดูรายละเอียด</button>
-      </div>
-
-      <div id="attendance-summary-line">
-        <span id="attendance-summary-name">-</span>
-        <span>•</span>
-        <span id="attendance-summary-s">S00</span>
-        <span>•</span>
-        <span id="attendance-summary-status">กำลังติดตาม</span>
-      </div>
-
-      <div id="attendance-grid">
-        <div class="attendance-item"><b>Student ID</b><span id="attendance-student-id">-</span></div>
-        <div class="attendance-item"><b>Name</b><span id="attendance-student-name">-</span></div>
-        <div class="attendance-item"><b>Class Section</b><span id="attendance-class-section">-</span></div>
-        <div class="attendance-item"><b>Current S</b><span id="attendance-session-no">Lobby</span></div>
-        <div class="attendance-item"><b>Time in S</b><span id="attendance-duration">00:00</span></div>
-        <div class="attendance-item"><b>Active Time</b><span id="attendance-active-time">00:00</span></div>
-      </div>
-
-      <div id="attendance-status" class="warn">กำลังเตรียมข้อมูลเช็กชื่อ...</div>
-    </div>
-
-    <div id="hud-stats">
-      <div id="hud-score-wrap" class="hud-stat-item" style="color:#f1c40f;">
-        <span class="hud-stat-icon">🏆</span>
-        <span class="hud-stat-label">SCORE</span>
-        <span id="score-display">0</span>
-      </div>
-
-      <div id="hud-hp-wrap" class="hud-stat-item" style="color:#2ed573;">
-        <span class="hud-stat-icon">❤️</span>
-        <span class="hud-stat-label">HP</span>
-        <span id="hp-display">100%</span>
-      </div>
-    </div>
-
-    <div id="hud-top-row">
-      <div id="question-diff-badge">Q: NORMAL • A2+</div>
-      <div id="unit-theme-chip">STANDARD FINAL</div>
-      <div id="reward-roll-badge">COMMON CHEST</div>
-    </div>
-
-    <div id="ai-director-board">
-      <div id="ai-director-state">STEADY • NORMAL A2+ P:0 S:0</div>
-      <div id="ai-director-sub">AI Difficulty พร้อมดูจังหวะการเล่นของคุณ</div>
-    </div>
-
-    <div id="profile-panel">
-      <div id="profile-panel-title">PROFILE</div>
-
-      <div class="avatar-row">
-        <button class="avatar-chip active" id="avatar-chip-1" onclick="selectAvatar('🧑‍💻')">🧑‍💻<small>ฟรี</small></button>
-        <button class="avatar-chip" id="avatar-chip-2" onclick="selectAvatar('🤖')">🤖<small>Streak 3</small></button>
-        <button class="avatar-chip" id="avatar-chip-3" onclick="selectAvatar('👩‍🚀')">👩‍🚀<small>Streak 7</small></button>
-        <button class="avatar-chip" id="avatar-chip-4" onclick="selectAvatar('🦾')">🦾<small>Clear 5</small></button>
-        <button class="avatar-chip" id="avatar-chip-5" onclick="selectAvatar('🧠')">🧠<small>14/12</small></button>
-      </div>
-
-      <div id="unlock-hint">สะสม streak และ clear เพื่อปลดล็อก</div>
-
-      <input type="text" id="profile-name-input" class="input-field" placeholder="ชื่อผู้เล่น" maxlength="24" />
-      <button class="btn-action" id="btn-save-profile" onclick="savePlayerProfile()">บันทึกโปรไฟล์</button>
-    </div>
-
-    <div id="hub-stats-board">
-      <div id="hub-stats-title">STATS</div>
-      <div id="hub-stats-body">Loading stats...</div>
-    </div>
-
-    <div id="timer">01:00</div>
-
-    <div id="mission-prompt-box">
-      <div id="mission-prompt-label">PROMPT</div>
-      <div id="mission-prompt-text">...</div>
-    </div>
-
-    <div id="boss-phase-ui">
-      <div id="boss-phase-title">👑 FINAL BOSS</div>
-      <div id="boss-phase-sub">ตอบถูกหลายครั้งเพื่อล้มบอส</div>
-      <div id="boss-bar-shell"><div id="boss-bar-fill"></div></div>
-      <div id="boss-hp-text">BOSS HP: 3 / 3</div>
-    </div>
-
-    <button class="btn-action" id="btn-speak" onclick="startRecognition()" style="display:none;">🎙️ Speak</button>
-    <button class="btn-action" id="btn-play-audio" onclick="playAudio()" style="display:none;">🔊 Play Audio</button>
-
-    <input type="text" class="input-field" id="write-input" placeholder="พิมพ์คำตอบภาษาอังกฤษ..." style="display:none;" />
-    <button class="btn-action" id="btn-submit-write" onclick="checkWritingAnswer()" style="display:none;">Submit</button>
-
-    <div id="choice-buttons">
-      <button id="choice-btn-a" class="btn-action choice-btn" type="button" onclick="checkChoiceAnswer('A')">
-        <span class="choice-letter">A</span>
-        <span class="choice-label" data-choice-label>A</span>
-      </button>
-
-      <button id="choice-btn-b" class="btn-action choice-btn" type="button" onclick="checkChoiceAnswer('B')">
-        <span class="choice-letter">B</span>
-        <span class="choice-label" data-choice-label>B</span>
-      </button>
-
-      <button id="choice-btn-c" class="btn-action choice-btn" type="button" onclick="checkChoiceAnswer('C')">
-        <span class="choice-letter">C</span>
-        <span class="choice-label" data-choice-label>C</span>
-      </button>
-    </div>
-
-    <div id="game-over-ui">
-      <p style="color:#f1c40f;margin:0 0 10px 0;">บันทึกคะแนน</p>
-      <input type="text" id="player-name-input" class="input-field" placeholder="ใส่ชื่อ..." style="display:inline-block;width:60%;margin-top:0;">
-      <button class="btn-action" id="btn-submit-score" onclick="submitScore()" style="display:inline-block;margin-left:10px;width:auto;">Save Score</button>
-    </div>
-
-    <div id="feedback"></div>
-
-    <div id="summary-panel">
-      <div id="summary-title">MISSION SUMMARY</div>
-      <div id="summary-body">Summary data</div>
-    </div>
-
-    <button class="btn-action" id="btn-next" onclick="playNextMission()" style="display:none;">เล่นด่านถัดไป ▶</button>
-    <button class="btn-action" id="btn-return" onclick="returnToHub()" style="display:none;">กลับ Main Hub</button>
-  </div>
-
-  <div id="mobile-hub-sheet"></div>
-
-  <div id="mobile-hub-drawer">
-    <button class="btn-action" id="btn-mobile-sessions" type="button">เลือกด่าน</button>
-    <button class="btn-action" id="btn-mobile-profile" type="button">โปรไฟล์</button>
-    <button class="btn-action" id="btn-mobile-stats" type="button">สถิติ</button>
-  </div>
-
-  <a-scene loading-screen="enabled: false">
-    <a-assets timeout="3000"></a-assets>
-
-    <a-entity id="hub-scene">
-      <a-entity environment="preset: tron; skyType: atmosphere; groundColor: #111"></a-entity>
-
-      <a-entity position="0 4.35 -5.15">
-        <a-text value="TECHPATH VR" position="0 0.28 0" align="center" color="#7bedff" scale="1.75 1.75 1.75"></a-text>
-        <a-text value="A2 to B1+ English missions for CS/AI students" position="0 -0.12 0" align="center" color="#dbeafe" scale="0.56 0.56 0.56"></a-text>
-        <a-plane position="0 -0.34 0" width="4.2" height="0.03" color="#00e5ff" material="opacity: 0.45; shader: flat"></a-plane>
-      </a-entity>
-
-      <a-plane position="0 1.18 -4.18" width="9.1" height="3.35" color="#09111f" material="opacity: 0.24; shader: flat"></a-plane>
-
-      <a-entity id="reward-chest" class="clickable" position="-3.72 0.72 -3.08" rotation="0 42 0" onclick="claimReward()">
-        <a-plane id="reward-card-panel" position="0 0.34 -0.18" width="2.25" height="1.55" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
-        <a-box id="reward-card-frame" position="0 0.34 -0.21" width="2.35" height="1.65" depth="0.04" color="#7bedff" material="wireframe: true; opacity: 0.35"></a-box>
-        <a-ring id="reward-aura" position="0 0.18 0.08" radius-inner="0.46" radius-outer="0.60" color="#ffeaa7" material="opacity: 0.18; shader: flat" rotation="-90 0 0"></a-ring>
-        <a-box id="reward-chest-body" position="0 0.02 0" width="0.82" height="0.50" depth="0.62" color="#8c6239" material="metalness: 0.22; roughness: 0.55"></a-box>
-        <a-box id="reward-chest-lid" position="0 0.34 0.02" width="0.84" height="0.16" depth="0.64" color="#f1c40f" material="metalness: 0.52; roughness: 0.34"></a-box>
-        <a-text value="DAILY REWARD" position="0 0.72 0.03" align="center" color="#ffeaa7" scale="0.46 0.46 0.46"></a-text>
-        <a-text id="streak-text" value="Loading..." position="0 -0.55 0.03" align="center" color="#ffffff" scale="0.38 0.38 0.38" width="5"></a-text>
-      </a-entity>
-
-      <a-entity position="-4.08 2.03 -2.82" rotation="0 25 0">
-        <a-plane width="2.18" height="1.56" color="#0f172a" material="opacity: 0.92; shader: flat"></a-plane>
-        <a-box width="2.28" height="1.66" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.34"></a-box>
-        <a-text value="PROFILE" position="0 0.54 0.05" align="center" color="#7bedff" scale="0.48 0.48 0.48"></a-text>
-        <a-circle position="0 -0.10 0.03" radius="0.22" color="#0b1327" material="opacity: 0.95; shader: flat"></a-circle>
-        <a-ring position="0 -0.10 0.04" radius-inner="0.22" radius-outer="0.26" color="#2ed573" material="opacity: 0.34; shader: flat"></a-ring>
-        <a-text id="vr-profile-avatar" value="🧑‍💻" position="0 -0.12 0.05" align="center" color="#ffffff" scale="1.02 1.02 1.02"></a-text>
-        <a-text id="vr-profile-name" value="Name: Hero" position="0 -0.50 0.05" align="center" color="#ffffff" scale="0.42 0.42 0.42" width="5"></a-text>
-      </a-entity>
-
-      <a-entity position="0 2.80 -4.56">
-        <a-plane width="4.55" height="1.12" color="#0f172a" material="opacity: 0.90; shader: flat"></a-plane>
-        <a-box width="4.66" height="1.22" depth="0.05" position="0 0 -0.05" color="#7bedff" material="wireframe: true; opacity: 0.24"></a-box>
-        <a-text value="DIFFICULTY A2-B1+" position="0 0.34 0.04" align="center" color="#7bedff" scale="0.46 0.46 0.46"></a-text>
-
-        <a-entity position="-1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('easy')">
-          <a-box id="diff-easy-box" width="1.18" height="0.42" depth="0.10" color="#2ecc71" material="opacity: 0.52"></a-box>
-          <a-text value="EASY A2" align="center" position="0 0 0.06" color="#0b1f14" scale="0.34 0.34 0.34"></a-text>
-        </a-entity>
-
-        <a-entity position="0 -0.08 0.02" class="clickable" onclick="setDifficulty('normal')">
-          <a-box id="diff-normal-box" width="1.18" height="0.42" depth="0.10" color="#f1c40f" material="opacity: 1"></a-box>
-          <a-text value="NORMAL A2+" align="center" position="0 0 0.06" color="#261d00" scale="0.30 0.30 0.30"></a-text>
-        </a-entity>
-
-        <a-entity position="1.48 -0.08 0.02" class="clickable" onclick="setDifficulty('hard')">
-          <a-box id="diff-hard-box" width="1.18" height="0.42" depth="0.10" color="#e74c3c" material="opacity: 0.52"></a-box>
-          <a-text value="HARD B1" align="center" position="0 0 0.06" color="#fff5f5" scale="0.34 0.34 0.34"></a-text>
-        </a-entity>
-      </a-entity>
-
-      <a-entity id="mission-wall" position="0 1.18 -4.0"></a-entity>
-
-      <a-entity position="4.02 2.02 -3.02" rotation="0 -34 0">
-        <a-plane id="leaderboard-panel" width="2.48" height="2.92" color="#101826" material="opacity: 0.94; shader: flat"></a-plane>
-        <a-box id="leaderboard-frame" width="2.58" height="3.02" depth="0.05" position="0 0 -0.05" color="#00e5ff" material="wireframe: true; opacity: 0.30"></a-box>
-        <a-plane id="leaderboard-header-panel" position="0 1.08 0.02" width="2.18" height="0.34" color="#152238" material="opacity: 0.96; shader: flat"></a-plane>
-        <a-text id="leaderboard-title" value="TOP 5 LEGENDS" position="0 1.08 0.05" align="center" color="#ffeaa7" scale="0.56 0.56 0.56"></a-text>
-        <a-text id="leaderboard-subtitle" value="Best mission runs" position="0 0.78 0.05" align="center" color="#cbd5e1" scale="0.34 0.34 0.34"></a-text>
-        <a-text id="vr-leaderboard-list" value="Loading..." position="0 -0.14 0.05" align="center" color="#ffffff" scale="0.54 0.54 0.54" line-height="64" width="3.5"></a-text>
-      </a-entity>
-    </a-entity>
-
-    <a-entity id="hackerBoss" visible="false" position="0 3 -15">
-      <a-box color="#ff0000" width="1.5" height="1.5" depth="1.5" animation="property: rotation; to: 360 360 360; dur: 3000; loop: true; easing: linear"></a-box>
-      <a-text value="VIRUS / HACKER" color="#ff4757" position="0 1.2 0" align="center" scale="2 2 2"></a-text>
-    </a-entity>
-
-    <a-entity id="mission-speaking-scene" visible="false">
-      <a-entity environment="preset: volcano; skyColor: #ff0000"></a-entity>
-      <a-entity position="0 1.6 -3.5">
-        <a-sphere radius="0.3" color="#f1c40f" animation="property: position; to: 0 0.1 0; dir: alternate; dur: 800; loop: true"></a-sphere>
-        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#2980b9"></a-cylinder>
-      </a-entity>
-      <a-text id="speaking-prompt" value="PROMPT TEXT" position="0 3 -3" align="center" color="#ff4757"></a-text>
-    </a-entity>
-
-    <a-entity id="mission-reading-scene" visible="false">
-      <a-entity environment="preset: arches; skyColor: #550000"></a-entity>
-      <a-entity position="0 1.6 -3.5">
-        <a-sphere radius="0.25" color="#e74c3c"></a-sphere>
-        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#34495e"></a-cylinder>
-        <a-plane position="0 1.2 0" width="4" height="1" color="#fff" material="opacity: 0.9">
-          <a-text id="reading-question" value="QUESTION TEXT" color="#000" align="center" position="0 0 0.01" scale="0.7 0.7 0.7" width="5"></a-text>
-        </a-plane>
-      </a-entity>
-
-      <a-entity position="-2.5 0.5 -3" rotation="0 15 0" animation="property: position; to: -2.5 0.8 -3; dir: alternate; dur: 1500; loop: true">
-        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
-        <a-text id="reading-choice-a" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-      </a-entity>
-
-      <a-entity position="0 0.5 -3" animation="property: position; to: 0 0.7 -3; dir: alternate; dur: 1200; loop: true">
-        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
-        <a-text id="reading-choice-b" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-      </a-entity>
-
-      <a-entity position="2.5 0.5 -3" rotation="0 -15 0" animation="property: position; to: 2.5 0.9 -3; dir: alternate; dur: 1700; loop: true">
-        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
-        <a-text id="reading-choice-c" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-      </a-entity>
-    </a-entity>
-
-    <a-entity id="mission-listening-scene" visible="false">
-      <a-entity environment="preset: forest; skyColor: #ff2222"></a-entity>
-      <a-entity position="0 1.6 -3.5">
-        <a-sphere radius="0.3" color="#3498db" animation="property: position; to: 0 0.2 0; dir: alternate; dur: 500; loop: true"></a-sphere>
-        <a-cylinder position="0 -0.8 0" radius="0.3" height="1.2" color="#ecf0f1" animation="property: rotation; to: 0 360 0; dur: 2000; easing: linear; loop: true"></a-cylinder>
-      </a-entity>
-      <a-text id="listening-prompt" value="PRESS PLAY AUDIO" position="0 3 -3" align="center" color="#f1c40f"></a-text>
-
-      <a-entity position="-2.5 0.5 -3" rotation="0 15 0">
-        <a-box class="clickable" onclick="checkChoiceAnswer('A')" width="2.2" height="0.6" depth="0.1" color="#e67e22"></a-box>
-        <a-text id="listening-choice-a" value="A: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-      </a-entity>
-
-      <a-entity position="0 0.5 -3">
-        <a-box class="clickable" onclick="checkChoiceAnswer('B')" width="2.2" height="0.6" depth="0.1" color="#2ecc71"></a-box>
-        <a-text id="listening-choice-b" value="B: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-      </a-entity>
-
-      <a-entity position="2.5 0.5 -3" rotation="0 -15 0">
-        <a-box class="clickable" onclick="checkChoiceAnswer('C')" width="2.2" height="0.6" depth="0.1" color="#9b59b6"></a-box>
-        <a-text id="listening-choice-c" value="C: Choice" align="center" position="0 0 0.06" scale="0.6 0.6 0.6"></a-text>
-      </a-entity>
-    </a-entity>
-
-    <a-entity id="mission-writing-scene" visible="false">
-      <a-entity environment="preset: starry; skyColor: #aa0000"></a-entity>
-      <a-plane position="0 1.5 -3" width="4" height="2" color="#ecf0f1">
-        <a-text id="writing-prompt" value="TERMINAL:\n..." color="#000" align="left" position="-1.8 0.5 0.01" width="3.5"></a-text>
-      </a-plane>
-    </a-entity>
-
-    <a-entity id="vr-feedback-fx" position="0 2.5 -2.5" visible="false">
-      <a-text id="vr-feedback-text" value="SUCCESS!" align="center" scale="1.5 1.5 1.5" color="#2ed573"></a-text>
-    </a-entity>
-
-    <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
-
-    <a-entity camera look-controls position="0 1.6 0">
-      <a-cursor id="vr-cursor" color="#00e5ff" raycaster="objects: .clickable" animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150" visible="false"></a-cursor>
-    </a-entity>
-
-    <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
-    <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20" line="color: #00e5ff"></a-entity>
-  </a-scene>
 
   <script>
-    (function(){
-      "use strict";
+  (function(){
+    'use strict';
 
-      window.addEventListener("load", function(){
-        const loading = document.getElementById("loading");
-        if (!loading) return;
-        loading.style.opacity = "0";
-        setTimeout(function(){
-          loading.style.display = "none";
-        }, 280);
-      });
+    window.TECHPATH_BOOT_OK = false;
 
-      document.addEventListener("DOMContentLoaded", function(){
-        const attendancePanel = document.getElementById("attendance-panel");
-        const attendanceToggle = document.getElementById("attendance-toggle");
+    const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
+    const STORAGE_PROFILE = 'TECHPATH_EN_PROFILE_V1';
+    const STORAGE_PROGRESS = 'TECHPATH_EN_PROGRESS_V1';
+    const STORAGE_LAST = 'TECHPATH_EN_LAST_SESSION_V1';
 
-        if (attendanceToggle && attendancePanel) {
-          attendanceToggle.addEventListener("click", function(){
-            const compact = attendancePanel.classList.toggle("compact");
-            attendanceToggle.textContent = compact ? "ดูรายละเอียด" : "ย่อ";
-            attendanceToggle.setAttribute("aria-expanded", compact ? "false" : "true");
-          });
+    const SKILLS = [
+      { id:'listening', label:'Listening', icon:'🎧', verb:'ฟัง' },
+      { id:'speaking', label:'Speaking', icon:'🎙️', verb:'พูด' },
+      { id:'reading', label:'Reading', icon:'📖', verb:'อ่าน' },
+      { id:'writing', label:'Writing', icon:'✍️', verb:'เขียน' }
+    ];
+
+    const SESSION_TOPICS = [
+      { id:1,  title:'Self-Introduction in Tech', focus:'Introduce yourself as a CS/AI student', level:'A2' },
+      { id:2,  title:'Academic Background and Projects', focus:'Explain your study and project background', level:'A2' },
+      { id:3,  title:'Tech Jobs and Roles', focus:'Describe roles in a software team', level:'A2+', boss:true },
+      { id:4,  title:'Daily Workplace Communication', focus:'Use simple workplace requests', level:'A2+' },
+      { id:5,  title:'Emails and Chat', focus:'Write short professional messages', level:'A2+' },
+      { id:6,  title:'Meetings and Scheduling', focus:'Join a short meeting conversation', level:'B1-', boss:true },
+      { id:7,  title:'Explaining a System', focus:'Explain how a simple system works', level:'B1-' },
+      { id:8,  title:'Describing Problems and Bugs', focus:'Report a bug clearly', level:'B1-' },
+      { id:9,  title:'Team Collaboration and Stand-up', focus:'Give a stand-up update', level:'B1', boss:true },
+      { id:10, title:'Client Communication', focus:'Ask and answer client questions', level:'B1' },
+      { id:11, title:'Data and AI Communication', focus:'Talk about dataset, model, and results', level:'B1' },
+      { id:12, title:'CV and Portfolio Language', focus:'Present skills and portfolio evidence', level:'B1', boss:true },
+      { id:13, title:'Job Interview', focus:'Answer interview questions clearly', level:'B1+' },
+      { id:14, title:'Project Pitch', focus:'Pitch a tech project in simple English', level:'B1+' },
+      { id:15, title:'Capstone Career Mission', focus:'Final mixed skill challenge', level:'B1+', boss:true, final:true }
+    ];
+
+    const QUESTION_BANK = {
+      listening: [
+        {
+          prompt:'The speaker says: “I am testing a new login feature today.” What is the speaker doing?',
+          choices:['Writing a report','Testing a feature','Designing a logo','Buying a computer'],
+          answer:1,
+          hint:'Listen for the action word: testing.',
+          say:'I am testing a new login feature today.'
+        },
+        {
+          prompt:'The speaker says: “The dataset is too small for training.” What is the problem?',
+          choices:['The screen is broken','The dataset is too small','The app is too colorful','The meeting is canceled'],
+          answer:1,
+          hint:'Focus on the noun after “too small”.',
+          say:'The dataset is too small for training.'
+        },
+        {
+          prompt:'The speaker says: “Please deploy the update after the meeting.” When should the update be deployed?',
+          choices:['Before breakfast','After the meeting','Next month','During the exam'],
+          answer:1,
+          hint:'Listen for the time phrase.',
+          say:'Please deploy the update after the meeting.'
+        },
+        {
+          prompt:'The speaker says: “Our model accuracy improved this week.” What improved?',
+          choices:['Model accuracy','Battery life','Classroom size','Internet price'],
+          answer:0,
+          hint:'The key phrase is model accuracy.',
+          say:'Our model accuracy improved this week.'
         }
-
-        const sheet = document.getElementById("mobile-hub-sheet");
-        const sessionBtn = document.getElementById("btn-mobile-sessions");
-        const profileBtn = document.getElementById("btn-mobile-profile");
-        const statsBtn = document.getElementById("btn-mobile-stats");
-
-        function renderSessionSheet(){
-          if (!sheet) return;
-          const chips = Array.from({length:15}, function(_,i){
-            const s = i + 1;
-            return '<button class="session-chip" data-session="S' + String(s).padStart(2,"0") + '" type="button">S' + String(s).padStart(2,"0") + '</button>';
-          }).join("");
-
-          sheet.innerHTML =
-            '<div class="session-sheet-title">เลือก Session</div>' +
-            '<div class="session-grid">' + chips + '</div>';
-
-          sheet.querySelectorAll("[data-session]").forEach(function(btn){
-            btn.addEventListener("click", function(){
-              const session = btn.getAttribute("data-session");
-              if (typeof window.setTechPathSession === "function") {
-                window.setTechPathSession(session);
-              }
-
-              if (typeof window.selectSession === "function") {
-                window.selectSession(session);
-              } else if (typeof window.startSession === "function") {
-                window.startSession(session);
-              } else {
-                window.dispatchEvent(new CustomEvent("techpath:session-select", { detail:{ sessionNo:session }}));
-              }
-
-              sheet.classList.remove("show");
-            });
-          });
+      ],
+      speaking: [
+        {
+          prompt:'Say this clearly: “I am a CS student, and I am interested in AI.”',
+          sample:'I am a CS student, and I am interested in AI.',
+          hint:'พูดให้ครบประโยค เน้น CS student และ interested in AI.'
+        },
+        {
+          prompt:'Say this clearly: “My project is a mobile app for learning vocabulary.”',
+          sample:'My project is a mobile app for learning vocabulary.',
+          hint:'พูดชื่อ project + purpose.'
+        },
+        {
+          prompt:'Say this clearly: “I found a bug in the login page.”',
+          sample:'I found a bug in the login page.',
+          hint:'ใช้ found a bug เพื่อรายงานปัญหา.'
+        },
+        {
+          prompt:'Say this clearly: “The AI model needs more data.”',
+          sample:'The AI model needs more data.',
+          hint:'พูด subject + needs + object.'
         }
-
-        if (sessionBtn && sheet) {
-          sessionBtn.addEventListener("click", function(){
-            renderSessionSheet();
-            sheet.classList.toggle("show");
-          });
+      ],
+      reading: [
+        {
+          prompt:'Read: “A developer writes code, tests features, and fixes bugs.” What does a developer fix?',
+          choices:['Bugs','Lunch','Chairs','Weather'],
+          answer:0,
+          hint:'Look for “fixes”.'
+        },
+        {
+          prompt:'Read: “A dataset is a collection of data used to train a model.” What is a dataset used for?',
+          choices:['To train a model','To paint a wall','To cook rice','To clean a room'],
+          answer:0,
+          hint:'Find “used to”.'
+        },
+        {
+          prompt:'Read: “The team has a short meeting every morning to share progress.” Why do they meet?',
+          choices:['To share progress','To watch movies','To play football','To delete files'],
+          answer:0,
+          hint:'The purpose comes after “to”.'
+        },
+        {
+          prompt:'Read: “The interface should be simple so users can understand it quickly.” What should the interface be?',
+          choices:['Simple','Expensive','Hidden','Noisy'],
+          answer:0,
+          hint:'Find the adjective after should be.'
         }
-
-        if (profileBtn) {
-          profileBtn.addEventListener("click", function(){
-            document.getElementById("profile-panel")?.scrollIntoView({behavior:"smooth",block:"center"});
-          });
+      ],
+      writing: [
+        {
+          prompt:'Write one sentence to introduce yourself as a CS/AI student.',
+          expected:['I am','student','CS','AI'],
+          sample:'I am a CS/AI student interested in technology.',
+          hint:'ใช้ I am ... student ... interested in ...'
+        },
+        {
+          prompt:'Write one short message to report a bug to your team.',
+          expected:['bug','page','app','found'],
+          sample:'I found a bug on the login page. Please check it.',
+          hint:'ใช้ I found a bug...'
+        },
+        {
+          prompt:'Write one sentence to explain your project.',
+          expected:['project','app','system','helps'],
+          sample:'My project is an app that helps students learn vocabulary.',
+          hint:'ใช้ My project is ... that helps ...'
+        },
+        {
+          prompt:'Write one sentence about an AI model and data.',
+          expected:['model','data','accuracy','train'],
+          sample:'The AI model needs more data to improve accuracy.',
+          hint:'ใช้ model + data + accuracy.'
         }
+      ]
+    };
 
-        if (statsBtn) {
-          statsBtn.addEventListener("click", function(){
-            document.getElementById("hub-stats-board")?.scrollIntoView({behavior:"smooth",block:"center"});
-          });
-        }
+    const state = {
+      profile:{ studentId:'', studentName:'', section:'', difficulty:'normal' },
+      progress:{ completed:{}, bestScore:{}, sessions:[] },
+      currentSession:1,
+      currentSkillIndex:0,
+      score:0,
+      hp:100,
+      correct:0,
+      total:0,
+      startedAt:0,
+      activeStartedAt:0,
+      timer:null,
+      activeTimer:null,
+      sessionId:'',
+      bossHp:3,
+      locked:false,
+      currentQuestion:null,
+      lastLogAt:0
+    };
 
-        document.addEventListener("keydown", function(ev){
-          if ((ev.ctrlKey || ev.metaKey) && ["s","u","p"].includes(ev.key.toLowerCase())) {
-            ev.preventDefault();
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+    const els = {
+      boot:$('#boot'),
+      bootStatus:$('#bootStatus'),
+      studentTop:$('#studentTop'),
+      sessionTop:$('#sessionTop'),
+      homeView:$('#homeView'),
+      gameView:$('#gameView'),
+      summaryView:$('#summaryView'),
+      sessionGrid:$('#sessionGrid'),
+      studentId:$('#studentId'),
+      studentName:$('#studentName'),
+      section:$('#section'),
+      difficulty:$('#difficulty'),
+      saveProfileBtn:$('#saveProfileBtn'),
+      resetProgressBtn:$('#resetProgressBtn'),
+      startCurrentBtn:$('#startCurrentBtn'),
+      openSessionBtn:$('#openSessionBtn'),
+      openGuideBtn:$('#openGuideBtn'),
+      attSession:$('#attSession'),
+      attTime:$('#attTime'),
+      activeTime:$('#activeTime'),
+      sheetStatus:$('#sheetStatus'),
+      homeScore:$('#homeScore'),
+      homeCompleted:$('#homeCompleted'),
+      homeLevel:$('#homeLevel'),
+      hudSession:$('#hudSession'),
+      hudSkill:$('#hudSkill'),
+      hudScore:$('#hudScore'),
+      hudHp:$('#hudHp'),
+      hudTime:$('#hudTime'),
+      missionTitle:$('#missionTitle'),
+      missionSub:$('#missionSub'),
+      missionBadge:$('#missionBadge'),
+      promptLabel:$('#promptLabel'),
+      promptCount:$('#promptCount'),
+      promptText:$('#promptText'),
+      promptHint:$('#promptHint'),
+      choiceArea:$('#choiceArea'),
+      answerArea:$('#answerArea'),
+      textAnswer:$('#textAnswer'),
+      submitTextBtn:$('#submitTextBtn'),
+      aiHelpBtn:$('#aiHelpBtn'),
+      speakBtn:$('#speakBtn'),
+      feedback:$('#feedback'),
+      listenBtn:$('#listenBtn'),
+      nextBtn:$('#nextBtn'),
+      backHomeBtn:$('#backHomeBtn'),
+      sideTitle:$('#sideTitle'),
+      sideDesc:$('#sideDesc'),
+      progressText:$('#progressText'),
+      progressBar:$('#progressBar'),
+      skillList:$('#skillList'),
+      bossPanel:$('#bossPanel'),
+      bossHearts:$('#bossHearts'),
+      coachTip:$('#coachTip'),
+      summaryTitle:$('#summaryTitle'),
+      summaryDesc:$('#summaryDesc'),
+      sumScore:$('#sumScore'),
+      sumAcc:$('#sumAcc'),
+      sumTime:$('#sumTime'),
+      sumSkills:$('#sumSkills'),
+      nextSessionBtn:$('#nextSessionBtn'),
+      replayBtn:$('#replayBtn'),
+      summaryHomeBtn:$('#summaryHomeBtn'),
+      navHome:$('#navHome'),
+      navSessions:$('#navSessions'),
+      navPlay:$('#navPlay'),
+      navStats:$('#navStats'),
+      toast:$('#toast'),
+      modal:$('#modal'),
+      modalTitle:$('#modalTitle'),
+      modalBody:$('#modalBody'),
+      closeModalBtn:$('#closeModalBtn'),
+      debugBox:$('#debugBox')
+    };
+
+    function esc(s){
+      return String(s ?? '').replace(/[&<>"']/g, m => ({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[m]));
+    }
+
+    function clamp(n,min,max){
+      return Math.max(min,Math.min(max,n));
+    }
+
+    function pad(n){
+      return String(n).padStart(2,'0');
+    }
+
+    function fmtTime(ms){
+      ms = Math.max(0, Number(ms)||0);
+      const sec = Math.floor(ms/1000);
+      const m = Math.floor(sec/60);
+      const s = sec % 60;
+      return pad(m)+':'+pad(s);
+    }
+
+    function nowIso(){
+      try{ return new Date().toISOString(); }
+      catch(e){ return String(Date.now()); }
+    }
+
+    function uuid(){
+      return 'tp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,9);
+    }
+
+    function params(){
+      try{ return new URL(location.href).searchParams; }
+      catch(e){ return new URLSearchParams(); }
+    }
+
+    function normalizeUrl(){
+      try{
+        const url = new URL(location.href);
+        const p = url.searchParams;
+
+        ['level','diff','s','session','studentId','name','section'].forEach(k => {
+          const v = p.get(k);
+          if(v && /^https?:\/\//i.test(v)){
+            if(k === 'diff') p.set(k,'normal');
+            else if(k === 'level') p.set(k,'normal');
+            else p.delete(k);
           }
         });
-      });
-    })();
-  </script>
 
-  <script src="./js/lesson-identity-gate.js?v=20260426-lesson-ultimate-r9-identity" defer></script>
-  <script type="module" src="./js/lesson-main.js?v=20260426-lesson-ultimate-r9-2"></script>
-  <script src="./js/lesson-4level-bridge.js?v=20260426-lesson-4level-bridge-r9-2" defer></script>
-  <script src="./js/lesson-prompt-guard.js?v=20260426-lesson-prompt-guard-ai-r9-2" defer></script>
-  <script src="./js/lesson-attendance-sheet.js?v=20260426-lesson-ultimate-r9-2" defer></script>
-  <script src="./lesson-vr-visibility-fix.js?v=20260424a" defer></script>
+        let s = p.get('s') || p.get('session') || p.get('lesson') || p.get('S') || localStorage.getItem(STORAGE_LAST) || '1';
+        s = parseInt(String(s).replace(/\D+/g,''),10);
+        s = clamp(Number.isFinite(s) ? s : 1, 1, 15);
+        p.set('s', String(s));
+
+        const diff = p.get('diff') || p.get('level') || 'normal';
+        if(!['easy','normal','hard'].includes(diff)) p.set('diff','normal');
+        if(!p.get('level')) p.set('level','normal');
+        if(!p.get('run')) p.set('run','play');
+
+        const fixed = url.toString();
+        if(fixed !== location.href) history.replaceState(null,'',fixed);
+      }catch(e){}
+    }
+
+    function loadJson(key, fallback){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      }catch(e){
+        return fallback;
+      }
+    }
+
+    function saveJson(key, val){
+      try{ localStorage.setItem(key, JSON.stringify(val)); }
+      catch(e){}
+    }
+
+    function loadProfile(){
+      const p = params();
+      const saved = loadJson(STORAGE_PROFILE, {});
+      state.profile = {
+        studentId: p.get('studentId') || p.get('sid') || saved.studentId || '',
+        studentName: p.get('name') || p.get('nick') || saved.studentName || '',
+        section: p.get('section') || saved.section || '',
+        difficulty: p.get('diff') || saved.difficulty || 'normal'
+      };
+
+      if(!['easy','normal','hard'].includes(state.profile.difficulty)){
+        state.profile.difficulty = 'normal';
+      }
+
+      els.studentId.value = state.profile.studentId;
+      els.studentName.value = state.profile.studentName;
+      els.section.value = state.profile.section;
+      els.difficulty.value = state.profile.difficulty;
+    }
+
+    function saveProfile(){
+      state.profile = {
+        studentId: els.studentId.value.trim(),
+        studentName: els.studentName.value.trim(),
+        section: els.section.value.trim(),
+        difficulty: els.difficulty.value
+      };
+      saveJson(STORAGE_PROFILE, state.profile);
+      updateTop();
+      toast('บันทึกโปรไฟล์แล้ว');
+    }
+
+    function loadProgress(){
+      state.progress = loadJson(STORAGE_PROGRESS, { completed:{}, bestScore:{}, sessions:[] });
+      if(!state.progress.completed) state.progress.completed = {};
+      if(!state.progress.bestScore) state.progress.bestScore = {};
+      if(!Array.isArray(state.progress.sessions)) state.progress.sessions = [];
+    }
+
+    function saveProgress(){
+      saveJson(STORAGE_PROGRESS, state.progress);
+    }
+
+    function setSession(n){
+      state.currentSession = clamp(parseInt(n,10)||1,1,15);
+      localStorage.setItem(STORAGE_LAST, String(state.currentSession));
+      try{
+        const url = new URL(location.href);
+        url.searchParams.set('s', String(state.currentSession));
+        url.searchParams.set('diff', state.profile.difficulty || 'normal');
+        history.replaceState(null,'',url.toString());
+      }catch(e){}
+      updateTop();
+      renderSessions();
+    }
+
+    function sessionMeta(n){
+      return SESSION_TOPICS.find(x => x.id === Number(n)) || SESSION_TOPICS[0];
+    }
+
+    function diffMultiplier(){
+      const d = state.profile.difficulty;
+      if(d === 'easy') return 0.9;
+      if(d === 'hard') return 1.2;
+      return 1;
+    }
+
+    function pickQuestion(skillId){
+      const arr = QUESTION_BANK[skillId] || [];
+      const meta = sessionMeta(state.currentSession);
+      const index = (state.currentSession + state.currentSkillIndex + (meta.boss ? 1 : 0)) % arr.length;
+      const base = JSON.parse(JSON.stringify(arr[index]));
+      return adaptQuestion(base, skillId, meta);
+    }
+
+    function adaptQuestion(q, skillId, meta){
+      const topic = meta.title;
+      if(skillId === 'writing'){
+        q.prompt = q.prompt + ' Topic: ' + topic + '.';
+      }
+      if(skillId === 'speaking'){
+        q.prompt = q.prompt + ' Session topic: ' + topic + '.';
+      }
+      return q;
+    }
+
+    function speakText(text){
+      try{
+        if(!('speechSynthesis' in window)){
+          toast('อุปกรณ์นี้ยังไม่รองรับเสียงอ่านอัตโนมัติ');
+          return;
+        }
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(String(text || ''));
+        u.lang = 'en-US';
+        u.rate = 0.88;
+        u.pitch = 1.02;
+        speechSynthesis.speak(u);
+      }catch(e){
+        toast('เล่นเสียงไม่ได้ แต่ยังเลือกคำตอบได้');
+      }
+    }
+
+    function toast(msg, ms=2200){
+      els.toast.textContent = msg;
+      els.toast.classList.add('on');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => els.toast.classList.remove('on'), ms);
+    }
+
+    function modal(title, html){
+      els.modalTitle.textContent = title;
+      els.modalBody.innerHTML = html;
+      els.modal.classList.add('on');
+    }
+
+    function closeModal(){
+      els.modal.classList.remove('on');
+    }
+
+    function logDebug(msg){
+      const line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+      els.debugBox.textContent = line + '\n' + els.debugBox.textContent;
+    }
+
+    function sendLog(type, extra){
+      const payload = {
+        api:'attendance',
+        source:'techpath_lesson_html_patch',
+        type,
+        timestamp: nowIso(),
+        session_event_id: uuid(),
+        session_id: state.sessionId || '',
+        s: state.currentSession,
+        skill: SKILLS[state.currentSkillIndex]?.id || '',
+        student_id: state.profile.studentId || '',
+        display_name: state.profile.studentName || '',
+        section: state.profile.section || '',
+        diff: state.profile.difficulty || 'normal',
+        score: state.score,
+        hp: state.hp,
+        correct: state.correct,
+        total: state.total,
+        page_url: location.href,
+        user_agent: navigator.userAgent,
+        extra: extra || {}
+      };
+
+      try{
+        els.sheetStatus.textContent = 'Sending';
+        const body = JSON.stringify(payload);
+
+        if(navigator.sendBeacon){
+          const blob = new Blob([body], {type:'text/plain;charset=UTF-8'});
+          navigator.sendBeacon(SHEET_ENDPOINT, blob);
+          els.sheetStatus.textContent = 'Sent';
+          return;
+        }
+
+        fetch(SHEET_ENDPOINT, {
+          method:'POST',
+          mode:'no-cors',
+          headers:{'Content-Type':'text/plain;charset=UTF-8'},
+          body
+        }).then(() => {
+          els.sheetStatus.textContent = 'Sent';
+        }).catch(() => {
+          els.sheetStatus.textContent = 'Local';
+        });
+      }catch(e){
+        els.sheetStatus.textContent = 'Local';
+      }
+    }
+
+    function updateTop(){
+      const n = state.currentSession;
+      const meta = sessionMeta(n);
+      const name = state.profile.studentName || state.profile.studentId || '-';
+
+      els.studentTop.textContent = 'Student: ' + name;
+      els.sessionTop.textContent = 'S' + pad(n);
+      els.attSession.textContent = 'S' + pad(n);
+      els.homeLevel.textContent = state.profile.difficulty || 'normal';
+      els.topSub.textContent = meta.level + ' • ' + meta.title;
+      els.homeScore.textContent = String(state.score || 0);
+
+      const doneCount = Object.keys(state.progress.completed || {}).length;
+      els.homeCompleted.textContent = doneCount + '/15';
+    }
+
+    function setNav(active){
+      [els.navHome, els.navSessions, els.navPlay, els.navStats].forEach(b => b.classList.remove('active'));
+      if(active === 'home') els.navHome.classList.add('active');
+      if(active === 'sessions') els.navSessions.classList.add('active');
+      if(active === 'play') els.navPlay.classList.add('active');
+      if(active === 'stats') els.navStats.classList.add('active');
+    }
+
+    function showHome(){
+      stopTimers(false);
+      els.homeView.classList.remove('hidden');
+      els.gameView.classList.remove('on');
+      els.summaryView.classList.remove('on');
+      setNav('home');
+      updateTop();
+      renderSessions();
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+
+    function showGame(){
+      els.homeView.classList.add('hidden');
+      els.summaryView.classList.remove('on');
+      els.gameView.classList.add('on');
+      setNav('play');
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+
+    function showSummary(){
+      els.homeView.classList.add('hidden');
+      els.gameView.classList.remove('on');
+      els.summaryView.classList.add('on');
+      setNav('stats');
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+
+    function renderSessions(){
+      els.sessionGrid.innerHTML = SESSION_TOPICS.map(s => {
+        const done = !!state.progress.completed[s.id];
+        const active = s.id === state.currentSession;
+        return `
+          <button class="sessionBtn ${done?'done':''} ${active?'active':''}" data-s="${s.id}">
+            <span class="n">S${pad(s.id)}</span>
+            <span class="t">${esc(s.title)}</span>
+            <span class="m">
+              <span class="tag skill">${esc(s.level)}</span>
+              ${s.boss ? '<span class="tag boss">Boss</span>' : '<span class="tag">4 Skills</span>'}
+            </span>
+          </button>
+        `;
+      }).join('');
+
+      $$('.sessionBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setSession(btn.dataset.s);
+          toast('เลือก S' + pad(state.currentSession) + ' แล้ว');
+        });
+      });
+    }
+
+    function renderSkillList(){
+      els.skillList.innerHTML = SKILLS.map((sk,i) => {
+        const cls = i < state.currentSkillIndex ? 'done' : i === state.currentSkillIndex ? 'now' : '';
+        const status = i < state.currentSkillIndex ? 'Done' : i === state.currentSkillIndex ? 'Now' : 'Next';
+        return `
+          <div class="skillRow ${cls}">
+            <div class="skillIcon">${sk.icon}</div>
+            <div>
+              <b>${sk.label}</b>
+              <small>${sk.verb} • ${status}</small>
+            </div>
+            <span class="tag">${i+1}/4</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function startSession(){
+      saveProfile();
+      state.sessionId = uuid();
+      state.currentSkillIndex = 0;
+      state.score = 0;
+      state.hp = 100;
+      state.correct = 0;
+      state.total = 0;
+      state.bossHp = sessionMeta(state.currentSession).final ? 5 : 3;
+      state.startedAt = Date.now();
+      state.activeStartedAt = Date.now();
+      state.locked = false;
+
+      showGame();
+      renderMission();
+      startTimers();
+      sendLog('session_start', {
+        title: sessionMeta(state.currentSession).title,
+        focus: sessionMeta(state.currentSession).focus
+      });
+      toast('เริ่ม S' + pad(state.currentSession) + ' แล้ว');
+    }
+
+    function startTimers(){
+      stopTimers(false);
+      state.timer = setInterval(() => {
+        const ms = Date.now() - state.startedAt;
+        els.attTime.textContent = fmtTime(ms);
+        els.hudTime.textContent = fmtTime(ms);
+      }, 500);
+
+      state.activeTimer = setInterval(() => {
+        const ms = Date.now() - state.activeStartedAt;
+        els.activeTime.textContent = fmtTime(ms);
+      }, 500);
+    }
+
+    function stopTimers(clear=true){
+      if(state.timer) clearInterval(state.timer);
+      if(state.activeTimer) clearInterval(state.activeTimer);
+      state.timer = null;
+      state.activeTimer = null;
+      if(clear){
+        els.attTime.textContent = '00:00';
+        els.activeTime.textContent = '00:00';
+      }
+    }
+
+    function renderMission(){
+      const meta = sessionMeta(state.currentSession);
+      const skill = SKILLS[state.currentSkillIndex] || SKILLS[0];
+      const q = pickQuestion(skill.id);
+      state.currentQuestion = q;
+      state.locked = false;
+
+      els.hudSession.textContent = 'S' + pad(state.currentSession);
+      els.hudSkill.textContent = skill.label;
+      els.hudScore.textContent = String(state.score);
+      els.hudHp.textContent = Math.max(0, state.hp) + '%';
+      els.sideTitle.textContent = 'S' + pad(state.currentSession) + ' Progress';
+      els.sideDesc.textContent = meta.focus;
+      els.missionTitle.textContent = skill.icon + ' ' + skill.label + ' Mission';
+      els.missionSub.textContent = 'S' + pad(meta.id) + ' • ' + meta.title;
+      els.missionBadge.textContent = meta.level + (meta.boss ? ' • BOSS' : '');
+      els.promptLabel.textContent = skill.label + ' Prompt';
+      els.promptCount.textContent = (state.currentSkillIndex + 1) + '/4';
+      els.promptText.textContent = q.prompt;
+      els.promptHint.textContent = q.hint || 'Complete the mission.';
+      els.feedback.className = 'feedback';
+      els.feedback.textContent = '';
+      els.nextBtn.disabled = true;
+      els.textAnswer.value = '';
+
+      const percent = Math.round((state.currentSkillIndex / SKILLS.length) * 100);
+      els.progressText.textContent = percent + '%';
+      els.progressBar.style.width = percent + '%';
+
+      els.bossPanel.classList.toggle('on', !!meta.boss);
+      renderBossHearts();
+      renderSkillList();
+      renderAnswerMode(skill.id, q);
+      updateCoachTip(skill.id);
+      sendLog('skill_start', { skill: skill.id, prompt: q.prompt });
+    }
+
+    function renderAnswerMode(skillId, q){
+      els.choiceArea.innerHTML = '';
+      els.choiceArea.classList.add('hidden');
+      els.answerArea.classList.add('hidden');
+      els.listenBtn.classList.toggle('hidden', skillId !== 'listening' && skillId !== 'speaking');
+
+      if(skillId === 'listening' || skillId === 'reading'){
+        els.choiceArea.classList.remove('hidden');
+        q.choices.forEach((c,i) => {
+          const btn = document.createElement('button');
+          btn.className = 'choice';
+          btn.type = 'button';
+          btn.innerHTML = '<b>' + String.fromCharCode(65+i) + '.</b> ' + esc(c);
+          btn.addEventListener('click', () => answerChoice(i, btn));
+          els.choiceArea.appendChild(btn);
+        });
+      }else{
+        els.answerArea.classList.remove('hidden');
+      }
+
+      if(skillId === 'listening'){
+        setTimeout(() => speakText(q.say || q.prompt), 250);
+      }
+    }
+
+    function answerChoice(index, btn){
+      if(state.locked) return;
+      state.locked = true;
+      const q = state.currentQuestion;
+      const ok = index === q.answer;
+      state.total += 1;
+
+      $$('.choice').forEach((b,i) => {
+        if(i === q.answer) b.classList.add('correct');
+        else if(i === index) b.classList.add('wrong');
+        b.disabled = true;
+      });
+
+      finishAnswer(ok, ok ? 'ถูกต้อง! จับ keyword ได้ดีมาก' : 'ยังไม่ถูก จุดสำคัญคือ: ' + (q.hint || 'อ่านโจทย์อีกครั้ง'));
+    }
+
+    function submitText(){
+      if(state.locked) return;
+      const skill = SKILLS[state.currentSkillIndex].id;
+      const q = state.currentQuestion;
+      const txt = els.textAnswer.value.trim();
+      if(!txt){
+        toast('พิมพ์คำตอบก่อนนะ');
+        return;
+      }
+
+      state.locked = true;
+      state.total += 1;
+
+      let ok = false;
+      if(skill === 'writing'){
+        const lower = txt.toLowerCase();
+        const hits = (q.expected || []).filter(w => lower.includes(String(w).toLowerCase())).length;
+        ok = txt.split(/\s+/).length >= 6 && hits >= 1;
+      }else{
+        ok = txt.split(/\s+/).length >= 4;
+      }
+
+      const msg = ok
+        ? 'ผ่าน! คำตอบมีโครงสร้างดีและสื่อสารได้'
+        : 'ยังสั้นไป ลองเพิ่ม subject + action + detail เช่น: ' + (q.sample || 'I am a CS student interested in AI.');
+      finishAnswer(ok, msg);
+    }
+
+    function finishAnswer(ok, msg){
+      if(ok){
+        state.correct += 1;
+        const base = Math.round(100 * diffMultiplier());
+        state.score += base;
+        if(sessionMeta(state.currentSession).boss){
+          state.bossHp = Math.max(0, state.bossHp - 1);
+        }
+        els.feedback.className = 'feedback on good';
+      }else{
+        state.hp = Math.max(0, state.hp - (state.profile.difficulty === 'hard' ? 18 : 12));
+        els.feedback.className = 'feedback on bad';
+      }
+
+      els.feedback.textContent = msg;
+      els.hudScore.textContent = String(state.score);
+      els.hudHp.textContent = state.hp + '%';
+      renderBossHearts();
+      els.nextBtn.disabled = false;
+
+      sendLog('answer', {
+        ok,
+        skill: SKILLS[state.currentSkillIndex].id,
+        score_after: state.score,
+        hp_after: state.hp
+      });
+    }
+
+    function renderBossHearts(){
+      const meta = sessionMeta(state.currentSession);
+      if(!meta.boss){
+        els.bossHearts.textContent = '';
+        return;
+      }
+      const maxHp = meta.final ? 5 : 3;
+      let out = '';
+      for(let i=0;i<maxHp;i++){
+        out += i < state.bossHp ? '❤️ ' : '🖤 ';
+      }
+      els.bossHearts.textContent = out.trim();
+    }
+
+    function updateCoachTip(skillId){
+      const tips = {
+        listening:'ฟังกริยาและคำนามสำคัญ เช่น test, deploy, dataset, accuracy',
+        speaking:'พูดเป็นประโยคสั้น ๆ ชัด ๆ: subject + verb + detail',
+        reading:'อ่านหา keyword ก่อน แล้วดูประโยคที่ตอบคำถามโดยตรง',
+        writing:'เขียน 1–2 ประโยคพอ แต่ต้องมีใคร ทำอะไร และรายละเอียดงานเทคโนโลยี'
+      };
+      els.coachTip.textContent = tips[skillId] || tips.listening;
+    }
+
+    function nextMission(){
+      if(state.currentSkillIndex < SKILLS.length - 1){
+        state.currentSkillIndex += 1;
+        renderMission();
+        return;
+      }
+      completeSession();
+    }
+
+    function completeSession(){
+      stopTimers(false);
+
+      const durationMs = Date.now() - state.startedAt;
+      const acc = state.total ? Math.round((state.correct/state.total)*100) : 0;
+      const meta = sessionMeta(state.currentSession);
+
+      state.progress.completed[state.currentSession] = {
+        at: nowIso(),
+        score: state.score,
+        accuracy: acc,
+        duration_ms: durationMs,
+        title: meta.title
+      };
+      state.progress.bestScore[state.currentSession] = Math.max(
+        state.progress.bestScore[state.currentSession] || 0,
+        state.score
+      );
+      state.progress.sessions.push({
+        session_id: state.sessionId,
+        s: state.currentSession,
+        score: state.score,
+        accuracy: acc,
+        duration_ms: durationMs,
+        at: nowIso()
+      });
+      state.progress.sessions = state.progress.sessions.slice(-80);
+      saveProgress();
+
+      els.summaryTitle.textContent = 'S' + pad(state.currentSession) + ' Complete!';
+      els.summaryDesc.textContent = meta.title + ' • ' + meta.focus;
+      els.sumScore.textContent = String(state.score);
+      els.sumAcc.textContent = acc + '%';
+      els.sumTime.textContent = fmtTime(durationMs);
+      els.sumSkills.textContent = '4/4';
+
+      sendLog('session_end', {
+        score: state.score,
+        accuracy: acc,
+        duration_ms: durationMs,
+        completed:true
+      });
+
+      showSummary();
+      updateTop();
+      toast('บันทึกผล S' + pad(state.currentSession) + ' แล้ว');
+    }
+
+    function nextSession(){
+      const next = state.currentSession >= 15 ? 1 : state.currentSession + 1;
+      setSession(next);
+      startSession();
+    }
+
+    function aiHelp(){
+      const skill = SKILLS[state.currentSkillIndex].id;
+      const q = state.currentQuestion;
+      let text = '';
+
+      if(skill === 'writing'){
+        text =
+          'ตัวอย่างโครงประโยค:\n' +
+          (q.sample || 'My project is an app that helps students learn vocabulary.') +
+          '\n\nลองปรับให้เป็นคำของตัวเอง โดยใส่ชื่อ project หรือสิ่งที่ทำจริง';
+        els.textAnswer.value = q.sample || '';
+      }else if(skill === 'speaking'){
+        text = 'พูดตามนี้ก่อน แล้วค่อยเปลี่ยนคำบางคำ:\n' + (q.sample || q.prompt);
+        els.textAnswer.value = q.sample || '';
+      }else{
+        text = q.hint || 'ดู keyword สำคัญในโจทย์';
+      }
+
+      modal('AI Help', '<p style="line-height:1.7;color:#d8ecff;font-weight:750;white-space:pre-wrap">' + esc(text) + '</p>');
+      sendLog('ai_help', { skill, prompt: q.prompt });
+    }
+
+    function startSpeaking(){
+      const q = state.currentQuestion;
+      speakText(q.sample || q.say || q.prompt);
+      toast('ฟังตัวอย่างแล้วพูดตาม หรือพิมพ์ประโยคในช่องคำตอบ');
+      els.answerArea.classList.remove('hidden');
+    }
+
+    function resetProgress(){
+      if(!confirm('รีเซ็ตความคืบหน้าทั้งหมดใช่ไหม?')) return;
+      state.progress = { completed:{}, bestScore:{}, sessions:[] };
+      saveProgress();
+      state.score = 0;
+      updateTop();
+      renderSessions();
+      toast('รีเซ็ตแล้ว');
+    }
+
+    function showStats(){
+      const completed = Object.keys(state.progress.completed || {});
+      const rows = completed.length
+        ? completed.sort((a,b)=>Number(a)-Number(b)).map(k => {
+          const r = state.progress.completed[k];
+          return `<tr>
+            <td>S${pad(k)}</td>
+            <td>${esc(r.title || '')}</td>
+            <td>${r.score || 0}</td>
+            <td>${r.accuracy || 0}%</td>
+            <td>${fmtTime(r.duration_ms || 0)}</td>
+          </tr>`;
+        }).join('')
+        : '<tr><td colspan="5">ยังไม่มี Session ที่จบ</td></tr>';
+
+      modal('Learning Stats', `
+        <p style="color:#cfe2f5;font-weight:750">Completed: <b>${completed.length}/15</b></p>
+        <div style="overflow:auto">
+          <table style="width:100%;border-collapse:collapse;color:#eef7ff">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.16)">S</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.16)">Topic</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.16)">Score</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.16)">Acc</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.16)">Time</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `);
+    }
+
+    function showGuide(){
+      modal('วิธีเล่น TechPath English VR', `
+        <div style="color:#d8ecff;line-height:1.7;font-weight:720">
+          <p><b>1)</b> ใส่ Student ID / Name / Section ก่อนเริ่ม</p>
+          <p><b>2)</b> เลือก Session S1–S15</p>
+          <p><b>3)</b> ในแต่ละ S จะฝึก 4 ทักษะ: Listening, Speaking, Reading, Writing</p>
+          <p><b>4)</b> S3 / S6 / S9 / S12 / S15 มี Boss Challenge</p>
+          <p><b>5)</b> เมื่อจบ Session ระบบจะบันทึก score, accuracy, time และ attendance</p>
+        </div>
+      `);
+    }
+
+    function bind(){
+      els.saveProfileBtn.addEventListener('click', saveProfile);
+      els.resetProgressBtn.addEventListener('click', resetProgress);
+      els.startCurrentBtn.addEventListener('click', startSession);
+      els.openSessionBtn.addEventListener('click', () => {
+        document.getElementById('sessionPicker').scrollIntoView({behavior:'smooth',block:'start'});
+        setNav('sessions');
+      });
+      els.openGuideBtn.addEventListener('click', showGuide);
+
+      els.listenBtn.addEventListener('click', () => {
+        const q = state.currentQuestion;
+        speakText(q.say || q.sample || q.prompt);
+      });
+
+      els.nextBtn.addEventListener('click', nextMission);
+      els.backHomeBtn.addEventListener('click', showHome);
+      els.submitTextBtn.addEventListener('click', submitText);
+      els.aiHelpBtn.addEventListener('click', aiHelp);
+      els.speakBtn.addEventListener('click', startSpeaking);
+
+      els.nextSessionBtn.addEventListener('click', nextSession);
+      els.replayBtn.addEventListener('click', startSession);
+      els.summaryHomeBtn.addEventListener('click', showHome);
+
+      els.navHome.addEventListener('click', showHome);
+      els.navSessions.addEventListener('click', () => {
+        showHome();
+        setTimeout(() => document.getElementById('sessionPicker').scrollIntoView({behavior:'smooth'}), 80);
+        setNav('sessions');
+      });
+      els.navPlay.addEventListener('click', startSession);
+      els.navStats.addEventListener('click', showStats);
+
+      els.closeModalBtn.addEventListener('click', closeModal);
+      els.modal.addEventListener('click', e => {
+        if(e.target === els.modal) closeModal();
+      });
+
+      window.addEventListener('beforeunload', () => {
+        if(state.sessionId){
+          sendLog('page_leave', {
+            duration_ms: state.startedAt ? Date.now() - state.startedAt : 0
+          });
+        }
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if(document.hidden){
+          sendLog('page_hidden', {});
+        }else{
+          state.activeStartedAt = Date.now();
+          sendLog('page_visible', {});
+        }
+      });
+    }
+
+    function boot(){
+      try{
+        normalizeUrl();
+        loadProfile();
+        loadProgress();
+
+        const p = params();
+        const s = parseInt(p.get('s') || localStorage.getItem(STORAGE_LAST) || '1',10);
+        setSession(s);
+
+        bind();
+        renderSessions();
+        updateTop();
+        showHome();
+
+        window.TECHPATH_BOOT_OK = true;
+        els.bootStatus.textContent = 'READY';
+        logDebug('Boot OK');
+
+        setTimeout(() => {
+          els.boot.classList.add('off');
+        }, 350);
+
+        sendLog('page_open', {
+          boot:'ok',
+          title: sessionMeta(state.currentSession).title
+        });
+      }catch(err){
+        window.TECHPATH_BOOT_OK = false;
+        hardFail(err);
+      }
+    }
+
+    function hardFail(err){
+      const msg = err && (err.stack || err.message || String(err)) || 'Unknown boot error';
+      document.body.innerHTML = `
+        <div style="
+          min-height:100vh;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          padding:24px;
+          background:linear-gradient(180deg,#07111f,#050b16);
+          color:#eef7ff;
+          font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        ">
+          <div style="
+            width:min(760px,100%);
+            background:rgba(255,255,255,.08);
+            border:1px solid rgba(255,255,255,.16);
+            border-radius:28px;
+            padding:28px;
+            box-shadow:0 22px 70px rgba(0,0,0,.35);
+          ">
+            <h1 style="margin:0 0 12px;color:#70e6ff;font-size:34px">TechPath VR Boot Error</h1>
+            <p style="line-height:1.65;color:#cfe2f5;font-weight:750">
+              ไฟล์ lesson.html โหลดแล้ว แต่ระบบเริ่มเกมไม่สำเร็จ ให้ดู error ด้านล่าง
+            </p>
+            <pre style="
+              white-space:pre-wrap;
+              word-break:break-word;
+              background:rgba(0,0,0,.32);
+              border-radius:16px;
+              padding:14px;
+              color:#ffd5dc;
+              font-size:13px;
+            ">${esc(msg)}</pre>
+            <p>
+              <a href="./lesson.html?s=1&level=normal&diff=normal&run=play&v=${Date.now()}" style="
+                display:inline-block;
+                padding:14px 18px;
+                border-radius:18px;
+                background:#70e6ff;
+                color:#06111f;
+                font-weight:1000;
+                text-decoration:none;
+              ">เริ่ม S1 ใหม่</a>
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    window.addEventListener('error', function(e){
+      if(!window.TECHPATH_BOOT_OK){
+        hardFail(new Error((e.message || 'JS Error') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '')));
+      }
+    });
+
+    window.addEventListener('unhandledrejection', function(e){
+      if(!window.TECHPATH_BOOT_OK){
+        hardFail(e.reason || new Error('Unhandled promise rejection'));
+      }
+    });
+
+    setTimeout(() => {
+      if(!window.TECHPATH_BOOT_OK){
+        hardFail(new Error('Boot timeout: app did not finish initialization within 6 seconds.'));
+      }
+    }, 6000);
+
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', boot);
+    }else{
+      boot();
+    }
+  })();
+  </script>
 </body>
 </html>
