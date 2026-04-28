@@ -365,9 +365,7 @@
       50%{transform:translateY(-8px) rotate(2deg)}
     }
 
-    .enemy.hit{
-      animation:enemyHit .38s ease;
-    }
+    .enemy.hit{animation:enemyHit .38s ease}
 
     @keyframes enemyHit{
       0%{transform:translateX(0) scale(1)}
@@ -399,9 +397,7 @@
       pointer-events:none;
     }
 
-    .damagePop.show{
-      animation:damagePop .65s ease forwards;
-    }
+    .damagePop.show{animation:damagePop .65s ease forwards}
 
     @keyframes damagePop{
       0%{opacity:0;transform:translateY(10px) scale(.8)}
@@ -439,10 +435,7 @@
       line-height:1.55;
     }
 
-    .choices{
-      display:grid;
-      gap:10px;
-    }
+    .choices{display:grid;gap:10px}
 
     .choice{
       border:1px solid rgba(255,255,255,.16);
@@ -578,12 +571,12 @@
           <div class="logoRow">
             <span class="badge hot">TechPath English</span>
             <span class="badge good">Vocab Battle</span>
-            <span class="badge warn">Game UI v2</span>
+            <span class="badge warn">AI Learning</span>
           </div>
 
           <h1>Vocab Battle Quest</h1>
           <p class="subtitle">
-            เป็น Tech Hero ต่อสู้กับ Bug Bot ด้วยคำศัพท์สาย CS/AI — ตอบถูกเพื่อโจมตี สะสม combo และส่งผลให้ครูดูใน Teacher Dashboard
+            เป็น Tech Hero ต่อสู้กับ Bug Bot ด้วยคำศัพท์สาย CS/AI — ระบบจะจำคำที่เคยผิด ปรับความยาก และลดโจทย์ซ้ำเดิม
           </p>
 
           <div class="setupBox">
@@ -636,19 +629,19 @@
               <article class="missionCard active" data-bank="A">
                 <div class="missionIcon">💻</div>
                 <div class="missionTitle">Basic Code Lab</div>
-                <div class="missionMeta">Algorithm, debug, variable, database</div>
+                <div class="missionMeta">Algorithm, debug, variable, database, deployment</div>
                 <span class="badge good">Bank A</span>
               </article>
               <article class="missionCard" data-bank="B">
                 <div class="missionIcon">🤖</div>
                 <div class="missionTitle">AI Data Lab</div>
-                <div class="missionMeta">Dataset, model, prediction, bias</div>
+                <div class="missionMeta">Dataset, model, prediction, bias, neural network</div>
                 <span class="badge warn">Bank B</span>
               </article>
               <article class="missionCard" data-bank="C">
                 <div class="missionIcon">🏢</div>
                 <div class="missionTitle">Tech Workplace</div>
-                <div class="missionMeta">Meeting, deadline, requirement, proposal</div>
+                <div class="missionMeta">Meeting, deadline, requirement, proposal, stakeholder</div>
                 <span class="badge">Bank C</span>
               </article>
             </div>
@@ -657,6 +650,7 @@
               <button class="btn good big" id="startBtn" type="button">🚀 Start Mission</button>
               <button class="btn ghost" id="restoreBtn" type="button">Restore Profile</button>
               <button class="btn ghost" id="testLoggerBtn" type="button">Test Logger</button>
+              <button class="btn ghost" id="resetAiBtn" type="button">Reset AI</button>
             </div>
           </div>
         </div>
@@ -702,7 +696,7 @@
             <div class="heroSmall">🧑‍💻</div>
             <div class="chips" style="z-index:3">
               <span class="badge bad" id="enemyNameBadge">Bug Bot</span>
-              <span class="badge warn" id="difficultyBadge">normal</span>
+              <span class="badge warn" id="difficultyBadge">AI normal</span>
               <span class="badge good" id="bankBadge">Bank A</span>
             </div>
           </div>
@@ -821,17 +815,90 @@
       ]
     };
 
+    function extendBank(bank, items){
+      const existing = new Set((BANKS[bank] || []).map(x=>x.id));
+      items.forEach(item => {
+        if(!existing.has(item.id)){
+          BANKS[bank].push(item);
+          existing.add(item.id);
+        }
+      });
+    }
+
+    extendBank('A', [
+      { id:'loop', term:'loop', meaning:'a repeated set of instructions', th:'ลูป', example:'A loop repeats the same action many times.' },
+      { id:'array', term:'array', meaning:'a list of values in order', th:'อาร์เรย์', example:'An array stores many values in one variable.' },
+      { id:'object', term:'object', meaning:'a data structure with properties', th:'ออบเจกต์', example:'An object can store a user name and email.' },
+      { id:'condition', term:'condition', meaning:'a rule that controls what happens', th:'เงื่อนไข', example:'A condition checks if the password is correct.' },
+      { id:'compile', term:'compile', meaning:'to change code into a runnable form', th:'คอมไพล์', example:'We compile the program before running it.' },
+      { id:'syntax', term:'syntax', meaning:'the rules for writing code', th:'ไวยากรณ์ของโค้ด', example:'A syntax error means the code is written incorrectly.' },
+      { id:'repository', term:'repository', meaning:'a place to store project code', th:'คลังโค้ด', example:'The team stores code in a repository.' },
+      { id:'branch', term:'branch', meaning:'a separate version of code', th:'กิ่ง/สาขาโค้ด', example:'Create a branch before changing the feature.' },
+      { id:'commit', term:'commit', meaning:'to save code changes in version control', th:'บันทึกการเปลี่ยนแปลงโค้ด', example:'The developer made a commit after fixing the bug.' },
+      { id:'framework', term:'framework', meaning:'a set of tools for building software', th:'เฟรมเวิร์ก', example:'React is a framework for building user interfaces.' },
+      { id:'library', term:'library', meaning:'reusable code made by others', th:'ไลบรารี', example:'The app uses a chart library.' },
+      { id:'authentication', term:'authentication', meaning:'checking who a user is', th:'การยืนยันตัวตน', example:'Authentication protects private accounts.' },
+      { id:'authorization', term:'authorization', meaning:'checking what a user can access', th:'การกำหนดสิทธิ์', example:'Authorization controls who can edit data.' },
+      { id:'encryption', term:'encryption', meaning:'protecting data by making it unreadable', th:'การเข้ารหัส', example:'Encryption keeps passwords safe.' },
+      { id:'deployment', term:'deployment', meaning:'publishing software for users', th:'การนำระบบขึ้นใช้งาน', example:'Deployment happens after testing.' }
+    ]);
+
+    extendBank('B', [
+      { id:'feature_vector', term:'feature vector', meaning:'a set of numbers used by a model', th:'เวกเตอร์คุณลักษณะ', example:'A feature vector represents data for the model.' },
+      { id:'label', term:'label', meaning:'the correct answer used in training data', th:'ป้ายกำกับ', example:'Each image has a label for training.' },
+      { id:'inference', term:'inference', meaning:'using a trained model to make an output', th:'การอนุมาน', example:'Inference happens when the model answers a new question.' },
+      { id:'overfitting', term:'overfitting', meaning:'when a model learns training data too closely', th:'การเรียนจำข้อมูลมากเกินไป', example:'Overfitting makes a model weak on new data.' },
+      { id:'validation', term:'validation', meaning:'checking model performance on separate data', th:'การตรวจสอบความถูกต้อง', example:'Validation helps test model quality.' },
+      { id:'neural_network', term:'neural network', meaning:'a model inspired by the human brain', th:'โครงข่ายประสาทเทียม', example:'A neural network can recognize images.' },
+      { id:'embedding', term:'embedding', meaning:'a numeric representation of text or data', th:'เวกเตอร์แทนความหมาย', example:'An embedding helps AI compare meanings.' },
+      { id:'chatbot', term:'chatbot', meaning:'a program that talks with users', th:'แชตบอต', example:'A chatbot answers customer questions.' },
+      { id:'natural_language', term:'natural language', meaning:'human language such as Thai or English', th:'ภาษาธรรมชาติ', example:'Natural language processing helps computers understand text.' },
+      { id:'computer_vision', term:'computer vision', meaning:'AI that understands images or video', th:'คอมพิวเตอร์วิทัศน์', example:'Computer vision can detect objects in photos.' },
+      { id:'data_cleaning', term:'data cleaning', meaning:'fixing or removing bad data', th:'การทำความสะอาดข้อมูล', example:'Data cleaning improves model accuracy.' },
+      { id:'data_privacy', term:'data privacy', meaning:'protecting personal information', th:'ความเป็นส่วนตัวของข้อมูล', example:'Data privacy is important in AI systems.' },
+      { id:'recommendation', term:'recommendation', meaning:'a suggestion made by a system', th:'คำแนะนำจากระบบ', example:'The app gives a movie recommendation.' },
+      { id:'anomaly', term:'anomaly', meaning:'something unusual in data', th:'ความผิดปกติของข้อมูล', example:'The system detects an anomaly in the network.' },
+      { id:'dashboard', term:'dashboard', meaning:'a screen that shows important data', th:'แดชบอร์ด', example:'The dashboard shows sales and user activity.' }
+    ]);
+
+    extendBank('C', [
+      { id:'stakeholder', term:'stakeholder', meaning:'a person involved in or affected by a project', th:'ผู้มีส่วนได้ส่วนเสีย', example:'A stakeholder gives feedback on the system.' },
+      { id:'schedule', term:'schedule', meaning:'a plan of dates and times', th:'ตารางเวลา', example:'The team updated the project schedule.' },
+      { id:'milestone', term:'milestone', meaning:'an important point in a project', th:'หลักไมล์ของโครงการ', example:'The first milestone is the prototype.' },
+      { id:'prototype', term:'prototype', meaning:'an early version of a product', th:'ต้นแบบ', example:'The prototype shows how the app will work.' },
+      { id:'usability', term:'usability', meaning:'how easy a product is to use', th:'ความง่ายในการใช้งาน', example:'Good usability helps users finish tasks faster.' },
+      { id:'documentation', term:'documentation', meaning:'written information about a system', th:'เอกสารประกอบระบบ', example:'Documentation explains how to install the app.' },
+      { id:'maintenance', term:'maintenance', meaning:'work done to keep a system running', th:'การบำรุงรักษา', example:'Maintenance is needed after deployment.' },
+      { id:'collaboration', term:'collaboration', meaning:'working together with others', th:'การทำงานร่วมกัน', example:'Good collaboration helps the project succeed.' },
+      { id:'priority', term:'priority', meaning:'something more important than others', th:'ลำดับความสำคัญ', example:'Security is the top priority.' },
+      { id:'risk', term:'risk', meaning:'a possible problem in the future', th:'ความเสี่ยง', example:'The project manager checks each risk.' },
+      { id:'budget', term:'budget', meaning:'the amount of money available', th:'งบประมาณ', example:'The project budget is limited.' },
+      { id:'support', term:'support', meaning:'help given to users', th:'การสนับสนุน/ช่วยเหลือ', example:'The support team helps users with issues.' },
+      { id:'training_session', term:'training session', meaning:'a class or meeting to learn a skill', th:'ช่วงอบรม', example:'Users join a training session before using the system.' },
+      { id:'client_request', term:'client request', meaning:'something a client asks for', th:'คำขอจากลูกค้า', example:'The team reviews each client request.' },
+      { id:'status_report', term:'status report', meaning:'a document that explains current progress', th:'รายงานสถานะ', example:'The status report shows what is finished.' }
+    ]);
+
     const VARIANTS = ['meaning_mcq','context_mcq','typing','thai_to_eng'];
+
     const ENEMIES = {
       A:{name:'Bug Bot', emoji:'🐞'},
       B:{name:'AI Glitch', emoji:'🤖'},
       C:{name:'Deadline Ghost', emoji:'👻'}
     };
 
+    const AI_LEARNING_KEY = 'VOCAB_AI_LEARNING_PROFILE_V1';
+
+    const AI_DIFFICULTY = {
+      easy: { questionCount: 8, typingRate: 0.05, contextRate: 0.25, hardDistractorRate: 0.10 },
+      normal: { questionCount: 12, typingRate: 0.18, contextRate: 0.40, hardDistractorRate: 0.28 },
+      hard: { questionCount: 16, typingRate: 0.35, contextRate: 0.55, hardDistractorRate: 0.50 }
+    };
+
     const els = {};
     [
       'statusToast','screenSetup','screenGame','screenSummary',
-      'displayName','studentId','section','sessionCode','modeSelect','difficultySelect','sfxToggleBtn',
+      'displayName','studentId','section','sessionCode','modeSelect','difficultySelect','sfxToggleBtn','resetAiBtn',
       'missionGrid','startBtn','restoreBtn','testLoggerBtn',
       'hpText','hpFill','enemyHpText','enemyHpFill','scoreText','comboText','questionText','progressFill',
       'enemySprite','enemyNameBadge','damagePop','variantBadge','difficultyBadge','bankBadge','accuracyText',
@@ -850,6 +917,8 @@
       mode:'code_battle',
       difficulty:'normal',
       sessionCode:'S01',
+      aiAdaptiveLevel:'normal',
+      aiLearningSummary:null,
       questions:[],
       index:0,
       score:0,
@@ -877,6 +946,7 @@
     function uid(prefix){return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);}
     function qs(name, fallback=''){try{return new URL(location.href).searchParams.get(name) || fallback;}catch{return fallback;}}
     function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
     function showScreen(name){
       [els.screenSetup,els.screenGame,els.screenSummary].forEach(s=>s.classList.remove('active'));
       document.getElementById(name).classList.add('active');
@@ -924,41 +994,332 @@
       });
     }
 
-    function questionCountByDifficulty(diff){
-      if(diff === 'easy') return 8;
-      if(diff === 'hard') return 14;
-      return 10;
+    function getLearnerKey(){
+      const sid = (els.studentId?.value || '').trim() || 'anon';
+      const name = (els.displayName?.value || '').trim() || 'guest';
+      return (sid + '::' + name).toLowerCase().replace(/\s+/g,'');
+    }
+
+    function loadAiProfile(){
+      try{
+        const all = JSON.parse(localStorage.getItem(AI_LEARNING_KEY) || '{}');
+        const key = getLearnerKey();
+        return all[key] || {
+          learnerKey:key,
+          createdAt:nowIso(),
+          updatedAt:nowIso(),
+          banks:{},
+          recentQuestionIds:[],
+          recentTerms:[],
+          totalSessions:0
+        };
+      }catch(err){
+        return {
+          learnerKey:getLearnerKey(),
+          createdAt:nowIso(),
+          updatedAt:nowIso(),
+          banks:{},
+          recentQuestionIds:[],
+          recentTerms:[],
+          totalSessions:0
+        };
+      }
+    }
+
+    function saveAiProfile(profile){
+      try{
+        const all = JSON.parse(localStorage.getItem(AI_LEARNING_KEY) || '{}');
+        profile.updatedAt = nowIso();
+        all[profile.learnerKey || getLearnerKey()] = profile;
+        localStorage.setItem(AI_LEARNING_KEY, JSON.stringify(all));
+      }catch(err){
+        console.warn('[AI Learning] save failed', err);
+      }
+    }
+
+    function ensureBankProfile(profile, bank){
+      profile.banks = profile.banks || {};
+      if(!profile.banks[bank]){
+        profile.banks[bank] = {
+          terms:{},
+          variants:{},
+          sessions:0,
+          lastAccuracy:0,
+          lastScore:0
+        };
+      }
+      return profile.banks[bank];
+    }
+
+    function getTermStats(profile, bank, termId){
+      const bp = ensureBankProfile(profile, bank);
+      if(!bp.terms[termId]){
+        bp.terms[termId] = {
+          seen:0,
+          correct:0,
+          wrong:0,
+          streak:0,
+          lastSeenAt:'',
+          mastery:0
+        };
+      }
+      return bp.terms[termId];
+    }
+
+    function updateAiProfileAfterAnswer(answerObj){
+      const profile = loadAiProfile();
+      const bank = game.bank || game.selectedBank || 'A';
+      const bp = ensureBankProfile(profile, bank);
+      const termId = answerObj.term_id || answerObj.term || '';
+
+      if(termId){
+        const ts = getTermStats(profile, bank, termId);
+        ts.seen += 1;
+        ts.lastSeenAt = nowIso();
+
+        if(answerObj.is_correct){
+          ts.correct += 1;
+          ts.streak = Math.max(0, ts.streak) + 1;
+        }else{
+          ts.wrong += 1;
+          ts.streak = Math.min(0, ts.streak) - 1;
+        }
+
+        const total = ts.correct + ts.wrong;
+        const acc = total ? ts.correct / total : 0;
+        const practiceBoost = Math.min(0.25, ts.seen * 0.025);
+        const wrongPenalty = Math.min(0.45, ts.wrong * 0.09);
+        ts.mastery = Math.max(0, Math.min(1, acc + practiceBoost - wrongPenalty));
+      }
+
+      const variant = answerObj.variant_type || 'unknown';
+      bp.variants[variant] = bp.variants[variant] || {seen:0, correct:0, wrong:0};
+      bp.variants[variant].seen += 1;
+      if(answerObj.is_correct) bp.variants[variant].correct += 1;
+      else bp.variants[variant].wrong += 1;
+
+      profile.recentTerms = [termId, ...(profile.recentTerms || []).filter(x=>x!==termId)].slice(0,16);
+
+      saveAiProfile(profile);
+    }
+
+    function updateAiProfileAfterSession(summary){
+      const profile = loadAiProfile();
+      const bank = game.bank || game.selectedBank || 'A';
+      const bp = ensureBankProfile(profile, bank);
+
+      bp.sessions += 1;
+      bp.lastAccuracy = summary.accuracy || 0;
+      bp.lastScore = summary.score || 0;
+      profile.totalSessions = (profile.totalSessions || 0) + 1;
+
+      saveAiProfile(profile);
+    }
+
+    function getAiTermWeight(term, profile, bank, usedTerms){
+      const ts = getTermStats(profile, bank, term.id);
+      const recentTerms = profile.recentTerms || [];
+
+      let weight = 1;
+      weight += ts.wrong * 2.8;
+      weight += (1 - (ts.mastery || 0)) * 2.2;
+
+      if(ts.seen === 0) weight += 2.0;
+      if(ts.streak >= 2) weight -= 1.2;
+      if(ts.mastery >= 0.85) weight -= 1.5;
+      if(recentTerms.includes(term.id)) weight -= 1.4;
+      if(usedTerms.has(term.id)) weight -= 2.2;
+
+      return Math.max(0.2, weight);
+    }
+
+    function weightedPick(items, weightFn){
+      const pool = items.map(item => ({
+        item,
+        weight:Math.max(0.01, Number(weightFn(item)) || 0.01)
+      }));
+
+      const total = pool.reduce((s,x)=>s+x.weight,0);
+      let r = Math.random() * total;
+
+      for(const x of pool){
+        r -= x.weight;
+        if(r <= 0) return x.item;
+      }
+
+      return pool[pool.length - 1]?.item || items[0];
+    }
+
+    function getAdaptiveDifficultyLevel(profile, bank){
+      const base = els.difficultySelect.value || 'normal';
+      const bp = ensureBankProfile(profile, bank);
+      const liveAnswered = game.correct + game.wrong;
+      const liveAccuracy = liveAnswered ? Math.round(game.correct / liveAnswered * 100) : null;
+      const refAccuracy = liveAccuracy ?? bp.lastAccuracy ?? 0;
+
+      if(base === 'easy') {
+        if(refAccuracy >= 90 && bp.sessions >= 1) return 'normal';
+        return 'easy';
+      }
+
+      if(base === 'normal') {
+        if(refAccuracy >= 88 && liveAnswered >= 4) return 'hard';
+        if(refAccuracy > 0 && refAccuracy < 55) return 'easy';
+        return 'normal';
+      }
+
+      if(base === 'hard') {
+        if(refAccuracy > 0 && refAccuracy < 60) return 'normal';
+        return 'hard';
+      }
+
+      return base;
+    }
+
+    function chooseAdaptiveVariant(term, index, profile, bank, adaptiveLevel){
+      const cfg = AI_DIFFICULTY[adaptiveLevel] || AI_DIFFICULTY.normal;
+      const ts = getTermStats(profile, bank, term.id);
+      const termWeak = ts.wrong > ts.correct || (ts.mastery || 0) < 0.45;
+      const answered = game.correct + game.wrong;
+      const liveAccuracy = answered ? game.correct / answered : 1;
+
+      if(liveAccuracy < 0.55 && answered >= 4) {
+        return index % 2 === 0 ? 'meaning_mcq' : 'thai_to_eng';
+      }
+
+      if(termWeak && ts.seen < 3) {
+        return index % 2 === 0 ? 'context_mcq' : 'meaning_mcq';
+      }
+
+      const r = Math.random();
+
+      if(r < cfg.typingRate) return 'typing';
+      if(r < cfg.typingRate + cfg.contextRate) return 'context_mcq';
+
+      const variants = ['meaning_mcq','thai_to_eng','context_mcq'];
+      return variants[index % variants.length];
+    }
+
+    function buildAiLearningSummary(){
+      const profile = loadAiProfile();
+      const bank = game.bank || game.selectedBank || 'A';
+      const bp = ensureBankProfile(profile, bank);
+
+      const terms = Object.entries(bp.terms || {}).map(([id,t]) => ({
+        id,
+        seen:t.seen || 0,
+        correct:t.correct || 0,
+        wrong:t.wrong || 0,
+        mastery:Math.round((t.mastery || 0) * 100),
+        streak:t.streak || 0
+      }));
+
+      const weak = terms
+        .filter(t => t.wrong > 0 || t.mastery < 60)
+        .sort((a,b)=>b.wrong-a.wrong || a.mastery-b.mastery)
+        .slice(0,8);
+
+      return {
+        learnerKey:profile.learnerKey,
+        bank,
+        totalSessions:profile.totalSessions || 0,
+        bankSessions:bp.sessions || 0,
+        lastAccuracy:bp.lastAccuracy || 0,
+        weakTerms:weak,
+        recentTerms:profile.recentTerms || []
+      };
     }
 
     function buildQuestion(term, variant, allTerms){
       const distractors = shuffle(allTerms.filter(x => x.id !== term.id)).slice(0,3);
+
       if(variant === 'meaning_mcq'){
-        return {term,variant,prompt:`What does “${term.term}” mean?`,hint:'เลือกความหมายที่ถูกต้อง',choices:shuffle([{text:term.meaning,correct:true},...distractors.map(x=>({text:x.meaning,correct:false}))])};
+        return {
+          term,
+          variant,
+          prompt:`What does “${term.term}” mean?`,
+          hint:'เลือกความหมายที่ถูกต้อง',
+          choices:shuffle([
+            {text:term.meaning, correct:true},
+            ...distractors.map(x => ({text:x.meaning, correct:false}))
+          ])
+        };
       }
+
       if(variant === 'context_mcq'){
-        return {term,variant,prompt:term.example.replace(term.term,'_____'),hint:'เลือกคำศัพท์ที่เติมในประโยคได้ดีที่สุด',choices:shuffle([{text:term.term,correct:true},...distractors.map(x=>({text:x.term,correct:false}))])};
+        return {
+          term,
+          variant,
+          prompt:term.example.replace(term.term,'_____'),
+          hint:'เลือกคำศัพท์ที่เติมในประโยคได้ดีที่สุด',
+          choices:shuffle([
+            {text:term.term, correct:true},
+            ...distractors.map(x => ({text:x.term, correct:false}))
+          ])
+        };
       }
+
       if(variant === 'thai_to_eng'){
-        return {term,variant,prompt:`คำว่า “${term.th}” ในภาษาอังกฤษคืออะไร?`,hint:'เลือกคำศัพท์ภาษาอังกฤษ',choices:shuffle([{text:term.term,correct:true},...distractors.map(x=>({text:x.term,correct:false}))])};
+        return {
+          term,
+          variant,
+          prompt:`คำว่า “${term.th}” ในภาษาอังกฤษคืออะไร?`,
+          hint:'เลือกคำศัพท์ภาษาอังกฤษ',
+          choices:shuffle([
+            {text:term.term, correct:true},
+            ...distractors.map(x => ({text:x.term, correct:false}))
+          ])
+        };
       }
-      return {term,variant:'typing',prompt:`Type the English word: ${term.meaning}`,hint:`Hint TH: ${term.th}`,choices:[]};
+
+      return {
+        term,
+        variant:'typing',
+        prompt:`Type the English word: ${term.meaning}`,
+        hint:`Hint TH: ${term.th}`,
+        choices:[]
+      };
     }
 
     function buildQuestions(){
       const bank = game.selectedBank || 'A';
-      const diff = els.difficultySelect.value || 'normal';
+      const profile = loadAiProfile();
+      const adaptiveLevel = getAdaptiveDifficultyLevel(profile, bank);
       const all = BANKS[bank] || BANKS.A;
-      const count = questionCountByDifficulty(diff);
-      const terms = shuffle(all);
-      const qs = [];
-      for(let i=0;i<count;i++){
-        const term = terms[i % terms.length];
-        let variant = VARIANTS[i % VARIANTS.length];
-        if(diff === 'easy' && variant === 'typing') variant = 'meaning_mcq';
-        if(diff === 'hard' && i % 3 === 0) variant = 'typing';
-        qs.push(buildQuestion(term, variant, all));
+      const count = AI_DIFFICULTY[adaptiveLevel]?.questionCount || 12;
+
+      const usedTerms = new Set();
+      const questions = [];
+
+      for(let i=0; i<count; i++){
+        let term = weightedPick(all, item => getAiTermWeight(item, profile, bank, usedTerms));
+
+        let guard = 0;
+        while(usedTerms.has(term.id) && usedTerms.size < all.length && guard < 12){
+          term = weightedPick(all, item => getAiTermWeight(item, profile, bank, usedTerms));
+          guard++;
+        }
+
+        usedTerms.add(term.id);
+
+        const variant = chooseAdaptiveVariant(term, i, profile, bank, adaptiveLevel);
+        const q = buildQuestion(term, variant, all);
+        const ts = getTermStats(profile, bank, term.id);
+
+        q.ai = {
+          adaptiveLevel,
+          mastery:ts.mastery || 0,
+          seen:ts.seen || 0,
+          wrong:ts.wrong || 0
+        };
+
+        questions.push(q);
       }
-      return qs;
+
+      game.aiAdaptiveLevel = adaptiveLevel;
+      game.aiLearningSummary = buildAiLearningSummary();
+
+      return questions;
     }
 
     function updateHud(){
@@ -989,20 +1350,26 @@
 
       game.current = game.questions[game.index];
       game.questionStartedAt = performance.now();
+
       const q = game.current;
       const enemy = ENEMIES[game.bank] || ENEMIES.A;
 
       els.enemySprite.textContent = enemy.emoji;
       els.enemyNameBadge.textContent = enemy.name;
       els.variantBadge.textContent = q.variant;
-      els.difficultyBadge.textContent = game.difficulty;
+      els.difficultyBadge.textContent = 'AI ' + (game.aiAdaptiveLevel || game.difficulty);
       els.bankBadge.textContent = 'Bank ' + game.bank;
       els.promptText.textContent = q.prompt;
-      els.hintText.textContent = q.hint;
+
+      const aiNote = q.ai
+        ? ` • AI: seen ${q.ai.seen}, wrong ${q.ai.wrong}, mastery ${Math.round((q.ai.mastery || 0) * 100)}%`
+        : '';
+
+      els.hintText.textContent = q.hint + aiNote;
+
       els.feedbackBox.textContent = 'เลือกคำตอบเพื่อโจมตีศัตรู';
       els.feedbackBox.className = 'feedback';
       els.choicesBox.innerHTML = '';
-
       els.typingBox.classList.toggle('hidden', q.variant !== 'typing');
       els.typingInput.value = '';
 
@@ -1018,6 +1385,7 @@
           els.choicesBox.appendChild(btn);
         });
       }
+
       updateHud();
     }
 
@@ -1035,7 +1403,9 @@
     function answerQuestion(answer, isCorrect, clickedBtn){
       const q = game.current;
       if(!q) return;
+
       document.querySelectorAll('.choice').forEach(b=>b.disabled = true);
+
       if(clickedBtn) clickedBtn.classList.add(isCorrect ? 'correct' : 'wrong');
 
       const responseMs = Math.round(performance.now() - game.questionStartedAt);
@@ -1046,13 +1416,19 @@
         game.correct++;
         game.combo++;
         game.bestCombo = Math.max(game.bestCombo, game.combo);
+
         const damage = 18 + Math.min(22, game.combo * 3);
         const bonus = 10 + Math.min(24, game.combo * 2);
+
         game.score += bonus;
         game.enemyHp = Math.max(0, game.enemyHp - damage);
+
         popDamage('-' + damage, true);
         VocabSFX.play(game.combo >= 3 ? 'combo' : 'correct');
-        els.feedbackBox.textContent = game.combo >= 3 ? `🔥 Combo x${game.combo}! +${bonus} points` : `✅ Correct! +${bonus} points`;
+
+        els.feedbackBox.textContent = game.combo >= 3
+          ? `🔥 Combo x${game.combo}! +${bonus} points`
+          : `✅ Correct! +${bonus} points`;
         els.feedbackBox.className = game.combo >= 3 ? 'feedback combo' : 'feedback good';
       }else{
         game.wrong++;
@@ -1060,8 +1436,10 @@
         game.score = Math.max(0, game.score - 3);
         game.hp = Math.max(0, game.hp - 14);
         game.weakTerms[q.term.term] = (game.weakTerms[q.term.term] || 0) + 1;
+
         popDamage('HIT!', false);
         VocabSFX.play('wrong');
+
         els.feedbackBox.textContent = `❌ Review: ${q.term.term} = ${q.term.meaning}`;
         els.feedbackBox.className = 'feedback bad';
       }
@@ -1087,17 +1465,22 @@
         difficulty_after:levelAfter
       });
 
-      VocabLoggerFinal.termAnswer(game.answers[game.answers.length-1]);
+      updateAiProfileAfterAnswer(game.answers[game.answers.length - 1]);
+      VocabLoggerFinal.termAnswer(game.answers[game.answers.length - 1]);
+
       game.index++;
       updateHud();
+
       setTimeout(renderQuestion, 850);
     }
 
     function submitTyping(){
       const q = game.current;
       if(!q) return;
+
       const ans = els.typingInput.value.trim().toLowerCase();
       const correct = q.term.term.toLowerCase();
+
       answerQuestion(ans, ans === correct, null);
     }
 
@@ -1109,13 +1492,33 @@
     function recommendMode(){
       const answered = game.correct + game.wrong;
       const accuracy = answered ? Math.round(game.correct / answered * 100) : 0;
-      if(accuracy < 60 || game.wrong >= 5) return {mode:'debug_mission',difficulty:'easy',reason:'ควรฝึกทบทวนคำที่ผิดซ้ำแบบช้า ๆ ก่อน'};
-      if(accuracy < 80) return {mode:'ai_training',difficulty:'normal',reason:'ควรฝึกเพิ่มเพื่อยกระดับ accuracy ให้มั่นคงขึ้น'};
-      return {mode:'code_battle',difficulty:'hard',reason:'ผลดีมาก ลองโหมดท้าทายขึ้นได้'};
+
+      if(accuracy < 60 || game.wrong >= 5) {
+        return {
+          mode:'debug_mission',
+          difficulty:'easy',
+          reason:'ควรฝึกทบทวนคำที่ผิดซ้ำแบบช้า ๆ ก่อน'
+        };
+      }
+
+      if(accuracy < 80) {
+        return {
+          mode:'ai_training',
+          difficulty:'normal',
+          reason:'ควรฝึกเพิ่มเพื่อยกระดับ accuracy ให้มั่นคงขึ้น'
+        };
+      }
+
+      return {
+        mode:'code_battle',
+        difficulty:'hard',
+        reason:'ผลดีมาก ลองโหมดท้าทายขึ้นได้'
+      };
     }
 
     async function startGame(){
       const identity = saveIdentity();
+
       await VocabSFX.unlock();
       VocabSFX.play('start');
 
@@ -1127,7 +1530,6 @@
       game.mode = identity.mode;
       game.difficulty = identity.difficulty;
       game.sessionCode = identity.session_code;
-      game.questions = buildQuestions();
       game.index = 0;
       game.score = 0;
       game.correct = 0;
@@ -1140,6 +1542,7 @@
       game.mastery = {};
       game.weakTerms = {};
       game.current = null;
+      game.questions = buildQuestions();
 
       VocabLoggerFinal.forceSession(game.sessionId, game.startedAt);
 
@@ -1160,6 +1563,7 @@
 
     async function finishGame(){
       if(game.finished) return;
+
       game.finished = true;
       VocabSFX.play('finish');
 
@@ -1167,6 +1571,12 @@
       const accuracy = answered ? Math.round(game.correct / answered * 100) : 0;
       const weakest = getWeakestTerm();
       const rec = recommendMode();
+
+      updateAiProfileAfterSession({
+        score:game.score,
+        accuracy,
+        mistakes:game.wrong
+      });
 
       const victory = game.enemyHp <= 0 || accuracy >= 70;
       const rank = accuracy >= 90 ? 'S' : accuracy >= 80 ? 'A' : accuracy >= 70 ? 'B' : accuracy >= 60 ? 'C' : 'Try Again';
@@ -1180,7 +1590,16 @@
       els.summaryRankBadge.textContent = 'Rank ' + rank;
       els.summaryRankBadge.className = 'badge ' + (accuracy >= 80 ? 'good' : accuracy >= 60 ? 'warn' : 'bad');
       els.summaryText.textContent = `ตอบถูก ${game.correct}/${answered} ข้อ • Best combo ${game.bestCombo} • HP เหลือ ${game.hp}`;
-      els.aiAdviceText.textContent = `${rec.reason}\nRecommended: ${rec.mode} / ${rec.difficulty}`;
+
+      const aiSummary = buildAiLearningSummary();
+      const weakLine = aiSummary.weakTerms.length
+        ? '\nWeak memory: ' + aiSummary.weakTerms.slice(0,5).map(x => `${x.id} (${x.mastery}%)`).join(', ')
+        : '\nWeak memory: ยังไม่มีคำอ่อนสะสม';
+
+      els.aiAdviceText.textContent =
+        `${rec.reason}\nRecommended: ${rec.mode} / ${rec.difficulty}` +
+        `\nAI Difficulty this run: ${game.aiAdaptiveLevel || game.difficulty}` +
+        weakLine;
 
       window.VOCAB_SCORE = game.score;
       window.VOCAB_ACCURACY = accuracy;
@@ -1217,6 +1636,7 @@
       els.missionGrid.addEventListener('click', ev=>{
         const card = ev.target.closest('.missionCard[data-bank]');
         if(!card) return;
+
         game.selectedBank = card.dataset.bank;
         saveIdentity();
         updateMissionCards();
@@ -1224,12 +1644,30 @@
       });
 
       els.startBtn.addEventListener('click', startGame);
-      els.restoreBtn.addEventListener('click',()=>{loadIdentityToForm();toast('โหลดข้อมูลผู้เล่นจากเครื่องแล้ว');});
+
+      els.restoreBtn.addEventListener('click',()=>{
+        loadIdentityToForm();
+        toast('โหลดข้อมูลผู้เล่นจากเครื่องแล้ว');
+      });
+
       els.testLoggerBtn.addEventListener('click',async()=>{
         saveIdentity();
         await VocabSFX.unlock();
         const r = await VocabLoggerFinal.sessionStart({score:0,accuracy:0});
         toast('Test Logger: ' + (r.ok ? 'OK' : 'Check'));
+      });
+
+      els.resetAiBtn.addEventListener('click',()=>{
+        if(confirm('Reset AI Learning memory ของผู้เล่นนี้?')){
+          try{
+            const all = JSON.parse(localStorage.getItem(AI_LEARNING_KEY) || '{}');
+            delete all[getLearnerKey()];
+            localStorage.setItem(AI_LEARNING_KEY, JSON.stringify(all));
+            toast('Reset AI Learning แล้ว');
+          }catch(err){
+            toast('Reset AI ไม่สำเร็จ');
+          }
+        }
       });
 
       els.sfxToggleBtn.addEventListener('click',async()=>{
@@ -1241,7 +1679,11 @@
       });
 
       els.submitTypingBtn.addEventListener('click', submitTyping);
-      els.typingInput.addEventListener('keydown', ev=>{if(ev.key === 'Enter') submitTyping();});
+
+      els.typingInput.addEventListener('keydown', ev=>{
+        if(ev.key === 'Enter') submitTyping();
+      });
+
       els.playAgainBtn.addEventListener('click', startGame);
       els.backSetupBtn.addEventListener('click', resetToSetup);
       els.homeBtn.addEventListener('click', resetToSetup);
@@ -1283,52 +1725,99 @@
 
       function tone(freq, duration, type, gainValue, delay){
         if(!enabled) return;
+
         const c = getCtx();
         if(!c) return;
+
         const t0 = c.currentTime + (delay || 0);
         const osc = c.createOscillator();
         const gain = c.createGain();
+
         osc.type = type || 'sine';
         osc.frequency.setValueAtTime(freq, t0);
+
         gain.gain.setValueAtTime(0.0001, t0);
         gain.gain.exponentialRampToValueAtTime(gainValue || 0.12, t0 + 0.015);
         gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
         osc.connect(gain);
         gain.connect(c.destination);
+
         osc.start(t0);
         osc.stop(t0 + duration + 0.03);
       }
 
       function noise(duration, gainValue){
         if(!enabled) return;
+
         const c = getCtx();
         if(!c) return;
+
         const bufferSize = Math.max(1, Math.floor(c.sampleRate * duration));
         const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
         const data = buffer.getChannelData(0);
+
         for(let i=0;i<bufferSize;i++) data[i] = Math.random()*2-1;
+
         const src = c.createBufferSource();
         const filter = c.createBiquadFilter();
         const gain = c.createGain();
+
         filter.type = 'highpass';
         filter.frequency.value = 900;
+
         gain.gain.setValueAtTime(gainValue || .05, c.currentTime);
         gain.gain.exponentialRampToValueAtTime(.0001, c.currentTime + duration);
+
         src.connect(filter);
         filter.connect(gain);
         gain.connect(c.destination);
+
         src.start();
         src.stop(c.currentTime + duration);
       }
 
       function play(name){
         if(!enabled) return;
-        if(name === 'start'){tone(392,.09,'triangle',.10,0);tone(523,.10,'triangle',.11,.08);tone(659,.13,'triangle',.12,.17);return;}
-        if(name === 'correct'){tone(660,.08,'sine',.12,0);tone(880,.10,'sine',.12,.07);return;}
-        if(name === 'wrong'){tone(220,.13,'sawtooth',.08,0);tone(165,.18,'sawtooth',.06,.08);noise(.08,.035);return;}
-        if(name === 'combo'){tone(784,.07,'triangle',.10,0);tone(988,.08,'triangle',.11,.06);tone(1175,.10,'triangle',.12,.12);return;}
-        if(name === 'finish'){tone(523,.10,'triangle',.10,0);tone(659,.10,'triangle',.10,.09);tone(784,.10,'triangle',.11,.18);tone(1046,.18,'triangle',.12,.30);return;}
-        if(name === 'click'){tone(440,.035,'square',.035,0);return;}
+
+        if(name === 'start'){
+          tone(392,.09,'triangle',.10,0);
+          tone(523,.10,'triangle',.11,.08);
+          tone(659,.13,'triangle',.12,.17);
+          return;
+        }
+
+        if(name === 'correct'){
+          tone(660,.08,'sine',.12,0);
+          tone(880,.10,'sine',.12,.07);
+          return;
+        }
+
+        if(name === 'wrong'){
+          tone(220,.13,'sawtooth',.08,0);
+          tone(165,.18,'sawtooth',.06,.08);
+          noise(.08,.035);
+          return;
+        }
+
+        if(name === 'combo'){
+          tone(784,.07,'triangle',.10,0);
+          tone(988,.08,'triangle',.11,.06);
+          tone(1175,.10,'triangle',.12,.12);
+          return;
+        }
+
+        if(name === 'finish'){
+          tone(523,.10,'triangle',.10,0);
+          tone(659,.10,'triangle',.10,.09);
+          tone(784,.10,'triangle',.11,.18);
+          tone(1046,.18,'triangle',.12,.30);
+          return;
+        }
+
+        if(name === 'click'){
+          tone(440,.035,'square',.035,0);
+        }
       }
 
       function setEnabled(v){
@@ -1356,12 +1845,24 @@
 
       function nowIso(){return new Date().toISOString();}
       function uid(prefix){return String(prefix || 'VOCAB') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);}
-      function qs(name, fallback){try{return new URL(location.href).searchParams.get(name) || fallback || '';}catch{return fallback || '';}}
-      function readInputValue(ids){for(const id of ids){const el=document.getElementById(id);if(el && String(el.value||'').trim()) return String(el.value||'').trim();}return '';}
+
+      function qs(name, fallback){
+        try{return new URL(location.href).searchParams.get(name) || fallback || '';}
+        catch{return fallback || '';}
+      }
+
+      function readInputValue(ids){
+        for(const id of ids){
+          const el=document.getElementById(id);
+          if(el && String(el.value||'').trim()) return String(el.value||'').trim();
+        }
+        return '';
+      }
 
       function readIdentity(){
         let saved = {};
         try{saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');}catch{}
+
         const identity = {
           display_name: qs('name') || qs('display_name') || readInputValue(['displayName']) || saved.display_name || '',
           student_id: qs('student_id') || qs('studentId') || qs('sid') || qs('pid') || readInputValue(['studentId']) || saved.student_id || '',
@@ -1370,6 +1871,7 @@
           bank: qs('bank') || saved.bank || 'A',
           mode: qs('mode') || saved.mode || 'code_battle'
         };
+
         localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
         return identity;
       }
@@ -1387,14 +1889,20 @@
         return {session_id:state.sessionId,started_at:state.startedAt};
       }
 
-      function number(v,fallback){const n=Number(v);return Number.isFinite(n)?n:(fallback||0);}
+      function number(v,fallback){
+        const n=Number(v);
+        return Number.isFinite(n)?n:(fallback||0);
+      }
+
       function getGameSummary(extra){
         extra = extra || {};
+
         const score = extra.score ?? window.VOCAB_SCORE ?? 0;
         const accuracy = extra.accuracy ?? window.VOCAB_ACCURACY ?? 0;
         const mistakes = extra.mistakes ?? window.VOCAB_MISTAKES ?? 0;
         const weakestTerm = extra.weakest_term ?? extra.weakestTerm ?? window.VOCAB_WEAKEST_TERM ?? '';
         const endedAt = nowIso();
+
         return {
           ended_at:endedAt,
           duration_sec:Math.max(1,Math.round((new Date(endedAt).getTime() - new Date(state.startedAt || endedAt).getTime()) / 1000)),
@@ -1407,10 +1915,25 @@
 
       async function post(action,payload){
         payload = payload || {};
-        const body = {api:'vocab',action,source:'vocab.html',schema:'vocab-game-ui-v2-20260428',payload};
+
+        const body = {
+          api:'vocab',
+          action,
+          source:'vocab.html',
+          schema:'vocab-game-ui-v2-ai-learning-20260428',
+          payload
+        };
+
         try{
-          await fetch(VOCAB_API_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+          await fetch(VOCAB_API_URL,{
+            method:'POST',
+            mode:'no-cors',
+            headers:{'Content-Type':'text/plain;charset=utf-8'},
+            body:JSON.stringify(body)
+          });
+
           return {ok:true,noCors:true,action};
+
         }catch(err){
           console.warn('[VocabLoggerFinal] post failed', action, err);
           return {ok:false,action,error:String(err?.message || err)};
@@ -1419,13 +1942,26 @@
 
       async function sessionStart(extra){
         if(state.postedStart) return {ok:true,skipped:true,reason:'session_start already posted'};
-        const payload = {...readIdentity(),...ensureSession(),timestamp:nowIso(),page_url:location.href,user_agent:navigator.userAgent,score:0,accuracy:0,mistakes:0,...(extra||{})};
+
+        const payload = {
+          ...readIdentity(),
+          ...ensureSession(),
+          timestamp:nowIso(),
+          page_url:location.href,
+          user_agent:navigator.userAgent,
+          score:0,
+          accuracy:0,
+          mistakes:0,
+          ...(extra||{})
+        };
+
         state.postedStart = true;
         return post('session_start', payload);
       }
 
       async function termAnswer(extra){
         extra = extra || {};
+
         const payload = {
           ...readIdentity(),
           ...ensureSession(),
@@ -1448,15 +1984,19 @@
           difficulty_before:extra.difficulty_before || extra.difficultyBefore || '',
           difficulty_after:extra.difficulty_after || extra.difficultyAfter || ''
         };
+
         if(!payload.term && !payload.term_id) return {ok:false,skipped:true,reason:'empty term'};
+
         return post('term_answer', payload);
       }
 
       async function profileUpdate(extra){
         extra = extra || {};
+
         const identity = readIdentity();
         const session = ensureSession();
         const summary = getGameSummary(extra);
+
         return post('profile_update', {
           ...identity,
           timestamp:nowIso(),
@@ -1469,6 +2009,7 @@
           recommended_difficulty:extra.recommended_difficulty || extra.recommendedDifficulty || '',
           weak_terms_json:extra.weak_terms_json || extra.weakTerms || [],
           mastery_json:extra.mastery_json || extra.mastery || {},
+          ai_learning_summary_json:extra.aiLearningSummary || {},
           last_seen_at:nowIso(),
           page_url:location.href,
           user_agent:navigator.userAgent
@@ -1477,10 +2018,13 @@
 
       async function leaderboardUpdate(extra){
         extra = extra || {};
+
         const identity = readIdentity();
         const session = ensureSession();
         const summary = getGameSummary(extra);
+
         if(summary.score <= 0 && summary.accuracy <= 0) return {ok:false,skipped:true,reason:'no score/accuracy'};
+
         return post('leaderboard_update', {
           ...identity,
           timestamp:nowIso(),
@@ -1496,18 +2040,49 @@
 
       async function sessionEnd(extra){
         extra = extra || {};
+
         if(state.postedEnd) return {ok:true,skipped:true,reason:'session_end already posted'};
-        const payload = {...readIdentity(),...ensureSession(),...getGameSummary(extra),timestamp:nowIso(),page_url:location.href,user_agent:navigator.userAgent};
+
+        const payload = {
+          ...readIdentity(),
+          ...ensureSession(),
+          ...getGameSummary(extra),
+          timestamp:nowIso(),
+          page_url:location.href,
+          user_agent:navigator.userAgent
+        };
+
         state.postedEnd = true;
+
         await post('session_end', payload);
         await profileUpdate(extra);
         await leaderboardUpdate(extra);
-        return {ok:true,action:'session_end',session_id:payload.session_id,display_name:payload.display_name,student_id:payload.student_id,section:payload.section,score:payload.score,accuracy:payload.accuracy};
+
+        return {
+          ok:true,
+          action:'session_end',
+          session_id:payload.session_id,
+          display_name:payload.display_name,
+          student_id:payload.student_id,
+          section:payload.section,
+          score:payload.score,
+          accuracy:payload.accuracy
+        };
       }
 
       window.addEventListener('pagehide', function(){});
 
-      return {readIdentity,forceSession,ensureSession,sessionStart,termAnswer,profileUpdate,leaderboardUpdate,sessionEnd,post};
+      return {
+        readIdentity,
+        forceSession,
+        ensureSession,
+        sessionStart,
+        termAnswer,
+        profileUpdate,
+        leaderboardUpdate,
+        sessionEnd,
+        post
+      };
     })();
   </script>
 
