@@ -1,16 +1,25 @@
-/* === /english/js/lesson-data.js ===
-   TechPath English VR — Canonical S1–S15 Data
-   PATCH v20260428-CANONICAL-1S-1Q-AI-DIFF
-   ✅ S1-S15 skill mapping ตามที่ตกลงล่าสุด
-   ✅ 1 Session = 1 Skill = เล่นจริง 1 ข้อ
-   ✅ แต่ละ Session มีคลัง 10 ข้อ
-   ✅ easy 3 / normal 3 / hard 3 / challenge 1
-   ✅ Boss: S3 / S6 / S9 / S12 / S15
-*/
-(function(){
-  'use strict';
+// === /english/js/lesson-data.js ===
+// TechPath English VR — Canonical S1-S15 Data
+// PATCH v20260428-CANONICAL-SKILL-MAP-1S-1Q-AI-BANK10
+// ✅ S1 Speaking
+// ✅ S2 Reading
+// ✅ S3 Writing Boss
+// ✅ S4 Speaking
+// ✅ S5 Listening no text prompt
+// ✅ S6 Reading Boss
+// ✅ S7 Writing
+// ✅ S8 Listening ethics
+// ✅ S9 Speaking Boss
+// ✅ S10 Reading
+// ✅ S11 Listening angry tone
+// ✅ S12 Writing Boss
+// ✅ S13 Reading
+// ✅ S14 Speaking strict
+// ✅ S15 Listening Final Boss
+// ✅ Each session bank = 10 questions: easy 3, normal 3, hard 3, challenge 1
 
-  const DATA_VERSION = 'v20260428-CANONICAL-1S-1Q-AI-DIFF';
+window.TECHPATH_LESSON_DATA = (function(){
+  'use strict';
 
   const SKILLS = [
     { id:'speaking', label:'Speaking', icon:'🎙️', verb:'พูด' },
@@ -227,30 +236,11 @@
   }
 
   function makeChoiceQuestion(id, skill, level, say, prompt, choices, answer, hint){
-    return {
-      id,
-      skill,
-      level,
-      type:'choice',
-      say:say || '',
-      prompt,
-      choices,
-      answer,
-      hint
-    };
+    return { id, skill, level, say, prompt, choices, answer, hint };
   }
 
   function makeTextQuestion(id, skill, level, prompt, sample, expected, hint){
-    return {
-      id,
-      skill,
-      level,
-      type:'text',
-      prompt,
-      sample,
-      expected,
-      hint
-    };
+    return { id, skill, level, prompt, sample, expected, hint };
   }
 
   function pickRow(rows, level, no){
@@ -273,9 +263,7 @@
     ];
 
     SESSIONS.forEach(meta => {
-      bank[meta.id] = levelPattern.map((level, idx) => {
-        return buildQuestion(meta, level, idx + 1);
-      });
+      bank[meta.id] = levelPattern.map((level, idx) => buildQuestion(meta, level, idx + 1));
     });
 
     return bank;
@@ -703,8 +691,8 @@
 
   const SESSION_BANK = buildSessionBank();
 
-  window.TECHPATH_LESSON_DATA = {
-    DATA_VERSION,
+  return {
+    version:'20260428-CANONICAL-S1-S15-1Q-AI-BANK10',
     SKILLS,
     SESSIONS,
     SESSION_BANK
