@@ -34,17 +34,9 @@
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
 
-    button,input{
-      font:inherit;
-    }
-
-    button{
-      cursor:pointer;
-    }
-
-    [hidden]{
-      display:none !important;
-    }
+    button,input{ font:inherit; }
+    button{ cursor:pointer; }
+    [hidden]{ display:none !important; }
 
     .v6-app{
       min-height:100dvh;
@@ -154,7 +146,8 @@
     .v6-pill,
     .v6-start-btn,
     .v6-main-btn,
-    .v6-power-btn{
+    .v6-power-btn,
+    .v66-mode-card{
       appearance:none;
       border:0;
       color:var(--text);
@@ -228,9 +221,51 @@
       line-height:1.45;
     }
 
+    .v66-mode-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:12px;
+    }
+
+    .v66-mode-card{
+      text-align:left;
+      min-height:142px;
+      border-radius:22px;
+      padding:15px;
+      background:rgba(255,255,255,.08);
+      border:1px solid var(--line);
+      transition:transform .14s ease, border-color .14s ease, background .14s ease;
+    }
+
+    .v66-mode-card b{
+      display:block;
+      font-size:18px;
+      margin-bottom:8px;
+    }
+
+    .v66-mode-card span{
+      display:block;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .v66-mode-card small{
+      display:block;
+      color:var(--muted);
+      margin-top:8px;
+      line-height:1.4;
+    }
+
+    .v66-mode-card:hover,
+    .v66-mode-card.active{
+      transform:translateY(-2px);
+      border-color:rgba(255,209,102,.78);
+      background:rgba(255,209,102,.15);
+    }
+
     .v6-mission-row{
       display:grid;
-      grid-template-columns:repeat(3,1fr);
+      grid-template-columns:repeat(4,1fr);
       gap:12px;
     }
 
@@ -249,6 +284,7 @@
     .v6-mission span{
       margin-top:6px;
       color:var(--muted);
+      line-height:1.4;
     }
 
     .v6-start-btn{
@@ -333,7 +369,7 @@
       top:10px;
       z-index:20;
       display:grid;
-      grid-template-columns:repeat(5,1fr);
+      grid-template-columns:repeat(6,1fr);
       gap:10px;
       margin-bottom:12px;
       pointer-events:none;
@@ -359,7 +395,7 @@
     .v6-hud-box b{
       display:block;
       margin-top:4px;
-      font-size:clamp(17px,3vw,25px);
+      font-size:clamp(15px,2.4vw,22px);
       line-height:1.1;
     }
 
@@ -451,13 +487,8 @@
       min-height:420px;
     }
 
-    .v6-enemy-card.hit{
-      animation:v62EnemyHit .28s ease;
-    }
-
-    .v6-enemy-card.attack{
-      animation:v62BossAttack .36s ease;
-    }
+    .v6-enemy-card.hit{ animation:v62EnemyHit .28s ease; }
+    .v6-enemy-card.attack{ animation:v62BossAttack .36s ease; }
 
     .v6-enemy-glow{
       position:absolute;
@@ -550,9 +581,7 @@
       flex-direction:column;
     }
 
-    .v6-question-card.shake{
-      animation:v62Shake .28s ease;
-    }
+    .v6-question-card.shake{ animation:v62Shake .28s ease; }
 
     .v6-question-meta{
       display:flex;
@@ -570,9 +599,7 @@
       letter-spacing:-.03em;
     }
 
-    .v6-question-main{
-      display:block;
-    }
+    .v6-question-main{ display:block; }
 
     .v6-question-hint{
       display:inline-flex;
@@ -624,9 +651,7 @@
       border-color:rgba(255,110,135,.82);
     }
 
-    .v6-choice:disabled{
-      cursor:not-allowed;
-    }
+    .v6-choice:disabled{ cursor:not-allowed; }
 
     .v6-eliminated{
       opacity:.35 !important;
@@ -651,7 +676,7 @@
     }
 
     .v6-reward{
-      width:min(860px,100%);
+      width:min(880px,100%);
       border-radius:34px;
       padding:26px;
       background:
@@ -873,25 +898,12 @@
     }
 
     @media (max-width: 900px){
-      .v6-menu-grid{
-        grid-template-columns:1fr;
-      }
-
-      .v6-bank-grid{
-        grid-template-columns:1fr;
-      }
-
-      .v63-student-grid{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .v6-mission-row{
-        grid-template-columns:1fr;
-      }
-
-      .v6-battle-layout{
-        grid-template-columns:1fr;
-      }
+      .v6-menu-grid{ grid-template-columns:1fr; }
+      .v6-bank-grid{ grid-template-columns:1fr; }
+      .v66-mode-grid{ grid-template-columns:1fr 1fr; }
+      .v63-student-grid{ grid-template-columns:1fr 1fr; }
+      .v6-mission-row{ grid-template-columns:1fr 1fr; }
+      .v6-battle-layout{ grid-template-columns:1fr; }
 
       .v6-enemy-card{
         min-height:auto;
@@ -917,9 +929,7 @@
         text-align:left;
       }
 
-      .v6-enemy-card h2{
-        font-size:17px;
-      }
+      .v6-enemy-card h2{ font-size:17px; }
 
       .v6-enemy-card p{
         margin:4px 0;
@@ -933,15 +943,11 @@
         padding:10px;
       }
 
-      .v6-question-card{
-        min-height:auto;
-      }
+      .v6-question-card{ min-height:auto; }
     }
 
     @media (max-width: 720px){
-      .v6-app{
-        padding:10px;
-      }
+      .v6-app{ padding:10px; }
 
       .v6-hero-card{
         align-items:flex-start;
@@ -956,9 +962,7 @@
         font-size:32px;
       }
 
-      .v6-level-grid{
-        grid-template-columns:repeat(2,1fr);
-      }
+      .v6-level-grid{ grid-template-columns:repeat(2,1fr); }
 
       .v6-battle-panel{
         border-radius:22px;
@@ -976,13 +980,8 @@
         padding:8px 6px;
       }
 
-      .v6-hud-box small{
-        font-size:10px;
-      }
-
-      .v6-hud-box b{
-        font-size:15px;
-      }
+      .v6-hud-box small{ font-size:10px; }
+      .v6-hud-box b{ font-size:14px; }
 
       .v6-power-hud{
         grid-template-columns:repeat(2,1fr);
@@ -1001,9 +1000,7 @@
         padding:14px;
       }
 
-      .v6-question-meta{
-        font-size:12px;
-      }
+      .v6-question-meta{ font-size:12px; }
 
       .v6-question-text{
         margin:18px 0;
@@ -1015,28 +1012,24 @@
         padding:14px;
       }
 
-      .v63-teacher-grid{
-        grid-template-columns:1fr 1fr;
-      }
+      .v63-teacher-grid{ grid-template-columns:1fr 1fr; }
 
       .v6-reward [data-reward-grid]{
         grid-template-columns:repeat(2,1fr) !important;
       }
     }
 
+    @media (max-width: 520px){
+      .v66-mode-grid{ grid-template-columns:1fr; }
+      .v6-mission-row{ grid-template-columns:1fr; }
+    }
+
     @media (max-width: 460px){
       .v63-student-grid,
-      .v63-teacher-grid{
-        grid-template-columns:1fr;
-      }
+      .v63-teacher-grid{ grid-template-columns:1fr; }
 
-      .v6-top-hud{
-        grid-template-columns:repeat(2,1fr);
-      }
-
-      .v6-stage-chip{
-        font-size:13px;
-      }
+      .v6-top-hud{ grid-template-columns:repeat(2,1fr); }
+      .v6-stage-chip{ font-size:13px; }
     }
   </style>
 </head>
@@ -1051,7 +1044,7 @@
           <p class="v6-kicker">English Vocabulary Arcade</p>
           <h1>Vocab Battle Arena</h1>
           <p class="v6-subtitle">
-            ฝึกศัพท์สาย CS/AI ผ่านด่านต่อสู้ ตอบไว ทำคอมโบ ปราบบอส ใช้พลังพิเศษ และรับคำแนะนำจาก AI Coach
+            ฝึกศัพท์สาย CS/AI ผ่าน 4 โหมดการเล่น: AI Training, Speed Run, Debug Mission และ Boss Battle
           </p>
         </div>
       </div>
@@ -1096,6 +1089,40 @@
         </section>
 
         <section class="v6-card v6-wide">
+          <h2>3) เลือกโหมดการเล่น</h2>
+
+          <div class="v66-mode-grid">
+            <button class="v66-mode-card active" data-v6-mode="learn" type="button">
+              <b>🤖 AI Training</b>
+              <span>เรียนรู้ + มีคำอธิบาย</span>
+              <small>เหมาะสำหรับเริ่มฝึกคำศัพท์ มี Hint และ Shield มากกว่าโหมดอื่น</small>
+            </button>
+
+            <button class="v66-mode-card" data-v6-mode="speed" type="button">
+              <b>⚡ Speed Run</b>
+              <span>ตอบไว + ทำ Combo</span>
+              <small>เหมาะสำหรับแข่งความเร็ว เข้า Fever ได้เร็วขึ้น</small>
+            </button>
+
+            <button class="v66-mode-card" data-v6-mode="mission" type="button">
+              <b>🎯 Debug Mission</b>
+              <span>โจทย์สถานการณ์จริง</span>
+              <small>เหมาะสำหรับฝึกคำศัพท์ CS/AI ในบริบทการทำงาน</small>
+            </button>
+
+            <button class="v66-mode-card" data-v6-mode="battle" type="button">
+              <b>👾 Boss Battle</b>
+              <span>ต่อสู้เต็มระบบ</span>
+              <small>เหมาะสำหรับ Challenge, Leaderboard และการเล่นแบบเร้าใจ</small>
+            </button>
+          </div>
+
+          <div id="v66ModePreview" class="v6-diff-preview">
+            🤖 AI Training: เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint เยอะ Shield มาก และคำอธิบายชัด
+          </div>
+        </section>
+
+        <section class="v6-card v6-wide">
           <h2>ข้อมูลผู้เรียน</h2>
 
           <div class="v63-student-grid">
@@ -1121,27 +1148,32 @@
           </div>
 
           <p class="v63-note">
-            ระบบจะใช้ข้อมูลนี้บันทึกผลการเล่น คำที่พลาด Stage ที่พลาด และคำแนะนำจาก AI Coach
+            ระบบจะใช้ข้อมูลนี้บันทึกผลการเล่น คำที่พลาด Stage ที่พลาด Mode ที่เล่น และคำแนะนำจาก AI Coach
           </p>
         </section>
 
         <section class="v6-card v6-wide">
-          <h2>3) ภารกิจวันนี้</h2>
+          <h2>4) ภารกิจวันนี้</h2>
 
           <div class="v6-mission-row">
             <div class="v6-mission">
-              <b>🎯 Mission</b>
-              <span>ตอบถูกอย่างน้อย 70%</span>
+              <b>🤖 AI Training</b>
+              <span>เรียนรู้ให้เข้าใจ ไม่เน้นแข่ง</span>
             </div>
 
             <div class="v6-mission">
-              <b>⚡ Combo</b>
-              <span>ทำ Combo x5 เพื่อเข้า Fever Mode</span>
+              <b>⚡ Speed Run</b>
+              <span>ตอบไว ทำ Combo เข้า Fever</span>
             </div>
 
             <div class="v6-mission">
-              <b>👾 Boss</b>
-              <span>ลด HP บอสให้หมดด้วยคำศัพท์</span>
+              <b>🎯 Debug Mission</b>
+              <span>อ่านสถานการณ์ แล้วเลือกคำที่เหมาะ</span>
+            </div>
+
+            <div class="v6-mission">
+              <b>👾 Boss Battle</b>
+              <span>สู้บอสเต็มระบบ เก็บคะแนนสูง</span>
             </div>
           </div>
 
@@ -1179,6 +1211,11 @@
         <div class="v6-hud-box">
           <small>Question</small>
           <b id="v6QuestionNo">0/0</b>
+        </div>
+
+        <div class="v6-hud-box">
+          <small>Mode</small>
+          <b id="v66ModeHud">🤖 AI</b>
         </div>
       </header>
 
@@ -1221,7 +1258,7 @@
         <section class="v6-question-card">
           <div class="v6-question-meta">
             <span>🧠 Choose the best answer</span>
-            <span id="v6BankLabel">Bank A</span>
+            <span id="v6BankLabel">Bank A • 🤖 AI Training</span>
           </div>
 
           <p id="v6QuestionText" class="v6-question-text">
@@ -1247,21 +1284,22 @@
     ========================================================= */
 
     const VOCAB_APP = {
-      version: "v6.5-clean-merged-20260428",
+      version: "v6.6-play-modes-20260428",
       sheetEndpoint:
         window.VOCAB_SHEET_ENDPOINT ||
         localStorage.getItem("VOCAB_SHEET_ENDPOINT") ||
         "",
 
-      queueKey: "VOCAB_V65_LOG_QUEUE",
-      profileKey: "VOCAB_V65_STUDENT_PROFILE",
-      teacherKey: "VOCAB_V65_TEACHER_LAST",
+      queueKey: "VOCAB_V66_LOG_QUEUE",
+      profileKey: "VOCAB_V66_STUDENT_PROFILE",
+      teacherKey: "VOCAB_V66_TEACHER_LAST",
 
       enableSheetLog: true,
       enableConsoleLog: true,
 
       selectedBank: "A",
-      selectedDifficulty: "easy"
+      selectedDifficulty: "easy",
+      selectedMode: "learn"
     };
 
     const VOCAB_DIFFICULTY = {
@@ -1296,6 +1334,76 @@
         playerHp: 2,
         distractorLevel: 4,
         bossMultiplier: 1.5
+      }
+    };
+
+    const VOCAB_PLAY_MODES = {
+      learn: {
+        id: "learn",
+        label: "AI Training",
+        shortLabel: "AI",
+        icon: "🤖",
+        title: "Learn Mode",
+        description: "เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint เยอะ Shield มาก และคำอธิบายชัด",
+        totalQuestionBonus: 0,
+        timeBonus: 5,
+        startHints: 3,
+        startShield: 2,
+        feverComboNeed: 5,
+        laserComboNeed: 8,
+        scoreMultiplier: 0.9,
+        stageOrder: ["warmup", "warmup", "trap", "mission"]
+      },
+
+      speed: {
+        id: "speed",
+        label: "Speed Run",
+        shortLabel: "Speed",
+        icon: "⚡",
+        title: "Speed Mode",
+        description: "ตอบให้ไว ทำ Combo เก็บคะแนน และเข้า Fever เร็วกว่าโหมดอื่น",
+        totalQuestionBonus: 2,
+        timeBonus: -4,
+        startHints: 1,
+        startShield: 1,
+        feverComboNeed: 4,
+        laserComboNeed: 7,
+        scoreMultiplier: 1.15,
+        stageOrder: ["warmup", "speed", "speed", "trap", "boss"]
+      },
+
+      mission: {
+        id: "mission",
+        label: "Debug Mission",
+        shortLabel: "Mission",
+        icon: "🎯",
+        title: "Mission Mode",
+        description: "อ่านสถานการณ์จริง แล้วเลือกคำศัพท์ที่เหมาะสมที่สุด เหมาะกับ CS/AI workplace context",
+        totalQuestionBonus: 2,
+        timeBonus: 2,
+        startHints: 2,
+        startShield: 1,
+        feverComboNeed: 5,
+        laserComboNeed: 7,
+        scoreMultiplier: 1.05,
+        stageOrder: ["warmup", "mission", "mission", "trap", "boss"]
+      },
+
+      battle: {
+        id: "battle",
+        label: "Boss Battle",
+        shortLabel: "Boss",
+        icon: "👾",
+        title: "Battle Mode",
+        description: "โหมดต่อสู้เต็มระบบ มีบอส HP, Fever, Laser, Shield และแรงกดดันสูง",
+        totalQuestionBonus: 3,
+        timeBonus: -2,
+        startHints: 1,
+        startShield: 1,
+        feverComboNeed: 5,
+        laserComboNeed: 7,
+        scoreMultiplier: 1.25,
+        stageOrder: ["warmup", "speed", "trap", "mission", "boss", "boss"]
       }
     };
 
@@ -1362,8 +1470,8 @@
       feverDurationMs: 8500,
       feverDamageMultiplier: 1.6,
       feverScoreMultiplier: 1.5,
-      shieldMax: 2,
-      hintMax: 3
+      shieldMax: 3,
+      hintMax: 4
     };
 
     const VOCAB_QUALITY = {
@@ -1444,6 +1552,8 @@
 
       bank: "A",
       difficulty: "easy",
+      mode: "learn",
+      modeConfig: null,
 
       terms: [],
       stagePlan: [],
@@ -1515,11 +1625,6 @@
     function setTextV6(id, value){
       const el = byId(id);
       if(el) el.textContent = value;
-    }
-
-    function setHtmlV65(id, value){
-      const el = byId(id);
-      if(el) el.innerHTML = value;
     }
 
     function hideEl(id, hidden = true){
@@ -1614,6 +1719,10 @@
       }
 
       return VOCAB_BANKS[bank] || VOCAB_BANKS.A;
+    }
+
+    function getModeConfigV66(modeId){
+      return VOCAB_PLAY_MODES[modeId || "learn"] || VOCAB_PLAY_MODES.learn;
     }
 
     /* =========================================================
@@ -1718,12 +1827,26 @@
         });
       });
 
+      document.querySelectorAll("[data-v6-mode]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          VOCAB_APP.selectedMode = btn.dataset.v6Mode || "learn";
+
+          document.querySelectorAll("[data-v6-mode]").forEach(x => {
+            x.classList.toggle("active", x === btn);
+          });
+
+          updateV66ModePreview();
+          updateV6BankLabel();
+        });
+      });
+
       const startBtn = byId("v6StartBtn");
       if(startBtn){
         startBtn.addEventListener("click", () => {
           startVocabBattleV6({
             bank: VOCAB_APP.selectedBank,
-            difficulty: VOCAB_APP.selectedDifficulty
+            difficulty: VOCAB_APP.selectedDifficulty,
+            mode: VOCAB_APP.selectedMode
           });
         });
       }
@@ -1734,6 +1857,7 @@
       }
 
       updateV6DiffPreview();
+      updateV66ModePreview();
       updateV6BankLabel();
     }
 
@@ -1745,9 +1869,27 @@
       return VOCAB_APP.selectedDifficulty || "easy";
     }
 
+    function getSelectedModeV66(){
+      return VOCAB_APP.selectedMode || "learn";
+    }
+
     function updateV6BankLabel(){
       const el = byId("v6BankLabel");
-      if(el) el.textContent = `Bank ${VOCAB_APP.selectedBank || vocabGame.bank || "A"}`;
+      if(!el) return;
+
+      const bank = vocabGame.bank || VOCAB_APP.selectedBank || "A";
+      const modeId = vocabGame.mode || VOCAB_APP.selectedMode || "learn";
+      const mode = getModeConfigV66(modeId);
+
+      el.textContent = `Bank ${bank} • ${mode.icon} ${mode.label}`;
+    }
+
+    function updateV66ModeHud(){
+      const el = byId("v66ModeHud");
+      if(!el) return;
+
+      const mode = getModeConfigV66(vocabGame.mode || VOCAB_APP.selectedMode);
+      el.textContent = `${mode.icon} ${mode.shortLabel || mode.label}`;
     }
 
     function updateV6DiffPreview(){
@@ -1764,6 +1906,14 @@
       };
 
       el.textContent = text[d] || text.easy;
+    }
+
+    function updateV66ModePreview(){
+      const el = byId("v66ModePreview");
+      if(!el) return;
+
+      const mode = getModeConfigV66(getSelectedModeV66());
+      el.textContent = `${mode.icon} ${mode.label}: ${mode.description}`;
     }
 
     function showMenuScreenV65(){
@@ -1792,6 +1942,8 @@
     function startVocabBattleV6(options = {}){
       const bank = options.bank || getSelectedBankV6();
       const difficulty = options.difficulty || getSelectedDifficultyV6();
+      const mode = options.mode || getSelectedModeV66();
+      const modeConfig = getModeConfigV66(mode);
 
       const config = VOCAB_DIFFICULTY[difficulty] || VOCAB_DIFFICULTY.easy;
       const enemyBase = VOCAB_ENEMIES[bank] || VOCAB_ENEMIES.A;
@@ -1808,9 +1960,15 @@
       vocabGame.active = true;
       vocabGame.bank = bank;
       vocabGame.difficulty = difficulty;
+      vocabGame.mode = mode;
+      vocabGame.modeConfig = modeConfig;
       vocabGame.terms = shuffleV61(terms);
 
-      vocabGame.stagePlan = buildStagePlanV6(config.totalQuestions);
+      vocabGame.stagePlan = buildStagePlanV66(
+        config.totalQuestions + (modeConfig.totalQuestionBonus || 0),
+        modeConfig.stageOrder
+      );
+
       vocabGame.stageIndex = 0;
       vocabGame.questionIndexInStage = 0;
       vocabGame.globalQuestionIndex = 0;
@@ -1850,7 +2008,9 @@
         total_questions: getTotalPlannedQuestionsV6(),
         enemy_name: vocabGame.enemy.name,
         enemy_hp_max: vocabGame.enemyHpMax,
-        player_hp_start: vocabGame.playerHp
+        player_hp_start: vocabGame.playerHp,
+        mode,
+        mode_label: modeConfig.label
       });
 
       playSfxV6("start");
@@ -1858,17 +2018,29 @@
     }
 
     function buildStagePlanV6(totalQuestions){
-      const each = Math.floor(totalQuestions / VOCAB_STAGES.length);
+      return buildStagePlanV66(totalQuestions, VOCAB_STAGES.map(s => s.id));
+    }
+
+    function buildStagePlanV66(totalQuestions, stageOrder){
+      const order = Array.isArray(stageOrder) && stageOrder.length
+        ? stageOrder
+        : VOCAB_STAGES.map(s => s.id);
+
+      const stages = order
+        .map(id => VOCAB_STAGES.find(s => s.id === id))
+        .filter(Boolean);
+
+      const each = Math.floor(totalQuestions / stages.length);
       let remaining = totalQuestions;
 
-      return VOCAB_STAGES.map((stage, index) => {
+      return stages.map((stage, index) => {
         let count = each;
 
-        if(index < totalQuestions % VOCAB_STAGES.length){
+        if(index < totalQuestions % stages.length){
           count += 1;
         }
 
-        if(index === VOCAB_STAGES.length - 1){
+        if(index === stages.length - 1){
           count = remaining;
         }
 
@@ -2420,6 +2592,9 @@
 
         let gainedScore = 50 + speedBonus + comboBonus + damage;
 
+        const modeConfig = vocabGame.modeConfig || VOCAB_PLAY_MODES.learn;
+        gainedScore = Math.round(gainedScore * (modeConfig.scoreMultiplier || 1));
+
         if(vocabGame.fever){
           gainedScore = Math.round(gainedScore * VOCAB_POWER.feverScoreMultiplier);
         }
@@ -2549,7 +2724,10 @@
 
     function startTimerV6(){
       const config = VOCAB_DIFFICULTY[vocabGame.difficulty] || VOCAB_DIFFICULTY.normal;
+      const modeConfig = vocabGame.modeConfig || VOCAB_PLAY_MODES.learn;
+
       let time = config.timePerQuestion;
+      time += modeConfig.timeBonus || 0;
 
       if(vocabGame.currentStage?.id === "speed"){
         time = Math.max(5, time - 3);
@@ -2558,6 +2736,8 @@
       if(vocabGame.currentStage?.id === "boss"){
         time = Math.max(6, time - 2);
       }
+
+      time = Math.max(5, time);
 
       vocabGame.timeLeft = time;
       renderTimerV6();
@@ -2691,6 +2871,7 @@
       if(enemyHpText) enemyHpText.textContent = `${Math.round(hpPct)}%`;
 
       updateV6BankLabel();
+      updateV66ModeHud();
       updatePowerHudV62();
     }
 
@@ -2738,6 +2919,8 @@
     ========================================================= */
 
     function resetPowerStateV62(){
+      const modeConfig = vocabGame.modeConfig || VOCAB_PLAY_MODES.learn;
+
       vocabGame.fever = false;
       vocabGame.feverUntil = 0;
 
@@ -2746,8 +2929,8 @@
       }
 
       vocabGame.feverTimerId = null;
-      vocabGame.shield = 1;
-      vocabGame.hints = 1;
+      vocabGame.shield = modeConfig.startShield ?? 1;
+      vocabGame.hints = modeConfig.startHints ?? 1;
       vocabGame.laserReady = false;
 
       vocabGame.powerStats = {
@@ -2795,11 +2978,15 @@
     function checkFeverV62(){
       if(!vocabGame.active) return;
 
-      if(vocabGame.combo >= VOCAB_POWER.feverComboNeed && !vocabGame.fever){
+      const modeConfig = vocabGame.modeConfig || VOCAB_PLAY_MODES.learn;
+      const feverNeed = modeConfig.feverComboNeed || VOCAB_POWER.feverComboNeed;
+      const laserNeed = modeConfig.laserComboNeed || VOCAB_POWER.laserComboNeed;
+
+      if(vocabGame.combo >= feverNeed && !vocabGame.fever){
         startFeverV62();
       }
 
-      if(vocabGame.combo >= VOCAB_POWER.laserComboNeed && !vocabGame.laserReady){
+      if(vocabGame.combo >= laserNeed && !vocabGame.laserReady){
         vocabGame.laserReady = true;
         showFloatingTextV6("🔴 LASER READY!", "stage");
         playSfxV6("stage");
@@ -2937,6 +3124,8 @@
 
     function rewardPowerByComboV62(){
       const combo = vocabGame.combo || 0;
+      const modeConfig = vocabGame.modeConfig || VOCAB_PLAY_MODES.learn;
+      const laserNeed = modeConfig.laserComboNeed || VOCAB_POWER.laserComboNeed;
 
       if(combo === 3){
         vocabGame.hints = Math.min(VOCAB_POWER.hintMax, (vocabGame.hints || 0) + 1);
@@ -2958,7 +3147,7 @@
         });
       }
 
-      if(combo === VOCAB_POWER.laserComboNeed){
+      if(combo === laserNeed){
         vocabGame.laserReady = true;
 
         logVocabEventV6("power_reward", {
@@ -3039,12 +3228,15 @@
       const accuracy = total > 0 ? Math.round((vocabGame.correct / total) * 100) : 0;
       const durationSec = Math.round((vocabGame.endedAt - vocabGame.startedAt) / 1000);
       const bossDefeated = vocabGame.enemyHp <= 0 || reason === "boss_defeated";
+      const modeConfig = vocabGame.modeConfig || VOCAB_PLAY_MODES.learn;
 
       const result = {
         version: VOCAB_APP.version,
         reason,
         bank: vocabGame.bank,
         difficulty: vocabGame.difficulty,
+        mode: vocabGame.mode,
+        modeLabel: modeConfig.label,
         score: vocabGame.score,
         correct: vocabGame.correct,
         wrong: vocabGame.wrong,
@@ -3126,17 +3318,25 @@
       let nextMode = "";
       let reason = "";
 
-      if(result.accuracy >= 90){
+      if(result.mode === "learn" && result.accuracy >= 75){
+        nextMode = "Debug Mission";
+        headline = "พื้นฐานเริ่มดีแล้ว ลองใช้คำศัพท์ในสถานการณ์จริงต่อ";
+        reason = "คุณทำ Learn Mode ได้ดีพอสำหรับการฝึก context";
+      }else if(result.mode === "mission" && result.accuracy >= 75){
+        nextMode = "Boss Battle";
+        headline = "คุณเริ่มใช้คำศัพท์ในบริบทได้ดี พร้อมลองโหมดต่อสู้";
+        reason = "ผลใน Mission Mode แสดงว่าคุณเข้าใจคำในสถานการณ์จริง";
+      }else if(result.accuracy >= 90){
         headline = "ยอดเยี่ยมมาก! คุณพร้อมเพิ่มระดับความท้าทายแล้ว";
-        nextMode = result.difficulty === "challenge" ? "Challenge Mode ต่ออีก 1 รอบ" : "Hard / Challenge Mode";
+        nextMode = result.difficulty === "challenge" ? "Challenge Boss Battle" : "Hard / Challenge Mode";
         reason = "คุณตอบแม่น คุมเวลาได้ดี และ combo สูง";
       }else if(result.accuracy >= 70){
         headline = "ทำได้ดีแล้ว เหลือแค่ฝึกคำที่ยังสับสน";
-        nextMode = "Mini Mission + Trap Round";
+        nextMode = "AI Training + Debug Mission";
         reason = "คุณเข้าใจคำส่วนใหญ่ แต่ยังพลาดคำที่ความหมายใกล้กัน";
       }else{
         headline = "ควรเก็บพื้นฐานอีกนิด แล้วจะชนะบอสง่ายขึ้น";
-        nextMode = "Warm-up + Easy Review";
+        nextMode = "AI Training / Easy Review";
         reason = "ระบบพบว่ายังสับสนคำหลักหลายคำ";
       }
 
@@ -3229,6 +3429,11 @@
         <div class="v6-reward">
           <div style="font-size:42px;">🏆</div>
           <h2>Victory Reward</h2>
+
+          <p style="margin:6px 0 0; color:var(--muted); font-weight:900;">
+            Mode: ${escapeHtmlV6(result.modeLabel || result.mode || "AI Training")}
+          </p>
+
           <div class="v6-stars">${starText}</div>
 
           <p style="font-size:20px; font-weight:900; margin:12px 0;">
@@ -3272,7 +3477,7 @@
           ${renderTeacherMiniAnalyticsV63(result, reward, coach)}
 
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:18px;">
-            <button class="v6-main-btn" onclick="startVocabBattleV6({bank:vocabGame.bank,difficulty:vocabGame.difficulty})">
+            <button class="v6-main-btn" onclick="startVocabBattleV6({bank:vocabGame.bank,difficulty:vocabGame.difficulty,mode:vocabGame.mode})">
               🔁 Play Again
             </button>
             <button class="v6-main-btn secondary" onclick="backToVocabMenuV6()">
@@ -3318,6 +3523,10 @@
           </div>
 
           <p style="color:var(--muted); font-weight:850; line-height:1.5;">
+            <b>Mode:</b> ${escapeHtmlV6(result.modeLabel || result.mode || "")}
+          </p>
+
+          <p style="color:var(--muted); font-weight:850; line-height:1.5;">
             <b>Stage Accuracy:</b> ${stageRows.length ? stageRows.join(" · ") : "No data"}
           </p>
 
@@ -3345,13 +3554,12 @@
       if(!vocabGame.sessionId){
         vocabGame.sessionId = `vocab_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       }
-
       return vocabGame.sessionId;
     }
 
     function saveLastVocabSummaryV6(payload){
       try{
-        localStorage.setItem("VOCAB_V65_LAST_SUMMARY", JSON.stringify({
+        localStorage.setItem("VOCAB_V66_LAST_SUMMARY", JSON.stringify({
           savedAt: new Date().toISOString(),
           ...payload
         }));
@@ -3362,6 +3570,8 @@
 
     function logVocabEventV6(type, data = {}){
       const student = getStudentContextV63();
+      const modeId = vocabGame.mode || getSelectedModeV66();
+      const mode = getModeConfigV66(modeId);
 
       const payload = {
         action: type,
@@ -3376,6 +3586,8 @@
 
         bank: vocabGame.bank || getSelectedBankV6(),
         difficulty: vocabGame.difficulty || getSelectedDifficultyV6(),
+        mode: modeId,
+        mode_label: mode.label,
 
         page_url: location.href,
         user_agent: navigator.userAgent,
@@ -3387,7 +3599,7 @@
       };
 
       if(VOCAB_APP.enableConsoleLog){
-        console.log("[VOCAB_V65]", payload);
+        console.log("[VOCAB_V66]", payload);
       }
 
       saveLocalLogV63(payload);
@@ -3401,7 +3613,7 @@
       try{
         const queue = readJsonV63(VOCAB_APP.queueKey, []);
         queue.push(payload);
-        localStorage.setItem(VOCAB_APP.queueKey, JSON.stringify(queue.slice(-600)));
+        localStorage.setItem(VOCAB_APP.queueKey, JSON.stringify(queue.slice(-700)));
       }catch(e){
         console.warn("VOCAB local log failed", e);
       }
@@ -3409,10 +3621,7 @@
 
     function postVocabSheetV63(payload){
       const endpoint = VOCAB_APP.sheetEndpoint;
-
-      if(!endpoint){
-        return;
-      }
+      if(!endpoint) return;
 
       const body = new URLSearchParams();
 
@@ -3456,6 +3665,8 @@
         session_code: student.session_code,
         bank: result.bank,
         difficulty: result.difficulty,
+        mode: result.mode,
+        mode_label: result.modeLabel,
         score: result.score,
         accuracy: result.accuracy,
         correct: result.correct,
@@ -3476,7 +3687,7 @@
       try{
         const list = readJsonV63(VOCAB_APP.teacherKey, []);
         list.push(summary);
-        localStorage.setItem(VOCAB_APP.teacherKey, JSON.stringify(list.slice(-200)));
+        localStorage.setItem(VOCAB_APP.teacherKey, JSON.stringify(list.slice(-250)));
       }catch(e){
         console.warn("save teacher summary failed", e);
       }
@@ -3493,6 +3704,8 @@
         last_session_id: getVocabSessionIdV6(),
         last_bank: result.bank,
         last_difficulty: result.difficulty,
+        last_mode: result.mode,
+        last_mode_label: result.modeLabel,
         last_score: result.score,
         last_accuracy: result.accuracy,
         last_combo_max: result.comboMax,
@@ -3639,7 +3852,9 @@
         hydrateStudentFormV63();
         initVocabV6UI();
         updateV6DiffPreview();
+        updateV66ModePreview();
         updateV6BankLabel();
+        updateV66ModeHud();
         showMenuScreenV65();
         updatePowerHudV62();
 
