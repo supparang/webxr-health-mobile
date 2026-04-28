@@ -3,24 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>TechPath English • Vocabulary Quest</title>
+  <title>TechPath English • Vocab Battle Quest</title>
   <meta name="theme-color" content="#07111f" />
+
   <style>
     :root{
+      --bg0:#050816;
       --bg1:#07111f;
       --bg2:#102647;
-      --panel:rgba(255,255,255,.075);
-      --panel2:rgba(255,255,255,.11);
+      --card:rgba(255,255,255,.085);
+      --card2:rgba(255,255,255,.13);
       --line:rgba(255,255,255,.16);
       --text:#f8fbff;
-      --muted:#b6c8e8;
+      --muted:#b8c9ee;
+      --sky:#67e8f9;
+      --blue:#60a5fa;
+      --violet:#a78bfa;
+      --pink:#fb7185;
       --good:#4ade80;
       --warn:#fde047;
+      --orange:#fb923c;
       --bad:#fb7185;
-      --sky:#67e8f9;
-      --violet:#a78bfa;
       --gold:#facc15;
-      --shadow:0 22px 70px rgba(0,0,0,.34);
+      --shadow:0 22px 70px rgba(0,0,0,.36);
       --safe-b:env(safe-area-inset-bottom,0px);
     }
 
@@ -30,9 +35,11 @@
       color:var(--text);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:
-        radial-gradient(circle at 10% 0%,rgba(103,232,249,.20),transparent 32%),
-        radial-gradient(circle at 90% 10%,rgba(167,139,250,.20),transparent 34%),
-        linear-gradient(180deg,var(--bg1),#0f172a 58%,#07111f);
+        radial-gradient(circle at 15% 5%,rgba(103,232,249,.22),transparent 28%),
+        radial-gradient(circle at 88% 12%,rgba(167,139,250,.22),transparent 32%),
+        radial-gradient(circle at 50% 92%,rgba(251,191,36,.12),transparent 26%),
+        linear-gradient(180deg,#061022,#0f172a 56%,#060914);
+      touch-action:manipulation;
     }
 
     button,input,select{font:inherit}
@@ -43,63 +50,50 @@
       width:min(1180px,100%);
       margin:0 auto;
       min-height:100dvh;
-      padding:14px;
-      padding-bottom:calc(80px + var(--safe-b));
+      padding:12px;
+      padding-bottom:calc(86px + var(--safe-b));
       display:grid;
       gap:14px;
     }
 
-    .hero,.panel,.card{
+    .screen{display:none}
+    .screen.active{display:grid;gap:14px}
+
+    .heroShell,.missionCard,.battlePanel,.glass,.summaryPanel{
       border:1px solid var(--line);
       background:
-        radial-gradient(circle at top right,rgba(255,255,255,.12),transparent 38%),
-        rgba(255,255,255,.065);
-      box-shadow:var(--shadow);
+        radial-gradient(circle at top right,rgba(255,255,255,.13),transparent 34%),
+        rgba(255,255,255,.075);
       border-radius:30px;
+      box-shadow:var(--shadow);
       backdrop-filter:blur(16px);
     }
 
-    .hero{
-      padding:22px;
+    .heroShell{
+      min-height:calc(100dvh - 110px);
+      padding:20px;
       display:grid;
-      grid-template-columns:1.2fr .8fr;
-      gap:14px;
+      grid-template-columns:1.05fr .95fr;
+      gap:16px;
       align-items:center;
+      position:relative;
+      overflow:hidden;
     }
 
-    h1{
-      margin:0;
-      font-size:clamp(36px,6vw,70px);
-      line-height:.92;
-      letter-spacing:-.06em;
+    .heroShell::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px),
+        linear-gradient(0deg,rgba(255,255,255,.035) 1px,transparent 1px);
+      background-size:42px 42px;
+      mask-image:radial-gradient(circle at center,black,transparent 76%);
+      pointer-events:none;
     }
 
-    h2{
-      margin:0;
-      font-size:clamp(24px,3vw,42px);
-      letter-spacing:-.045em;
-      line-height:1.04;
-    }
-
-    h3{
-      margin:0 0 8px;
-      font-size:20px;
-      letter-spacing:-.025em;
-    }
-
-    p{
-      margin:10px 0 0;
-      color:#dbeafe;
-      line-height:1.6;
-      font-weight:750;
-    }
-
-    .badgeRow,.actions,.chips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-    }
+    .heroContent{position:relative;z-index:2}
+    .logoRow,.badgeRow,.actions,.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 
     .badge{
       display:inline-flex;
@@ -108,42 +102,136 @@
       min-height:30px;
       padding:0 10px;
       border-radius:999px;
-      background:rgba(255,255,255,.09);
-      border:1px solid rgba(255,255,255,.14);
       color:#eaf2ff;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.15);
       font-size:12px;
       font-weight:1000;
       white-space:nowrap;
     }
-    .badge.good{background:rgba(22,101,52,.32);border-color:rgba(74,222,128,.34);color:#dcfce7}
-    .badge.warn{background:rgba(113,63,18,.30);border-color:rgba(253,224,71,.35);color:#fef3c7}
-    .badge.bad{background:rgba(127,29,29,.34);border-color:rgba(251,113,133,.36);color:#ffe4e9}
+    .badge.good{background:rgba(22,101,52,.34);border-color:rgba(74,222,128,.36);color:#dcfce7}
+    .badge.warn{background:rgba(113,63,18,.35);border-color:rgba(253,224,71,.40);color:#fef3c7}
+    .badge.bad{background:rgba(127,29,29,.36);border-color:rgba(251,113,133,.42);color:#ffe4e9}
+    .badge.hot{color:#08111f;background:linear-gradient(135deg,var(--sky),var(--violet));border:0}
+
+    h1{
+      margin:14px 0 0;
+      font-size:clamp(46px,8vw,92px);
+      line-height:.88;
+      letter-spacing:-.075em;
+      text-shadow:0 16px 48px rgba(0,0,0,.42);
+    }
+
+    h2{
+      margin:0;
+      font-size:clamp(26px,4vw,46px);
+      line-height:1;
+      letter-spacing:-.055em;
+    }
+
+    h3{margin:0 0 8px;font-size:20px;letter-spacing:-.025em}
+    p{margin:12px 0 0;color:#dbeafe;line-height:1.65;font-weight:760}
+
+    .subtitle{
+      font-size:clamp(16px,2.2vw,22px);
+      max-width:720px;
+      color:#dbeafe;
+    }
 
     .btn{
       appearance:none;
       border:1px solid rgba(255,255,255,.16);
       border-radius:999px;
-      min-height:46px;
+      min-height:48px;
       padding:10px 16px;
       color:#071426;
       background:linear-gradient(135deg,var(--sky),var(--violet));
       font-weight:1000;
-      box-shadow:0 14px 30px rgba(0,0,0,.22);
+      box-shadow:0 16px 34px rgba(0,0,0,.25);
+      transition:.16s ease;
     }
-    .btn.ghost{
-      color:#eaf2ff;
-      background:rgba(255,255,255,.08);
-      box-shadow:none;
-    }
+    .btn:hover{transform:translateY(-1px) scale(1.01)}
+    .btn:active{transform:scale(.98)}
+    .btn.ghost{color:#eaf2ff;background:rgba(255,255,255,.09);box-shadow:none}
     .btn.good{color:#052012;background:linear-gradient(135deg,#4ade80,#67e8f9)}
     .btn.warn{color:#2f1b00;background:linear-gradient(135deg,#fde047,#fb923c)}
     .btn.bad{color:#fff;background:linear-gradient(135deg,#fb7185,#ef4444)}
-    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .btn.big{min-height:60px;padding:0 24px;font-size:18px}
 
-    .panel{padding:18px}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-    .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .heroStage{
+      position:relative;
+      z-index:2;
+      min-height:560px;
+      display:grid;
+      place-items:center;
+    }
+
+    .arenaOrb{
+      width:min(460px,88vw);
+      aspect-ratio:1;
+      border-radius:44px;
+      background:
+        radial-gradient(circle at 50% 35%,rgba(103,232,249,.22),transparent 22%),
+        radial-gradient(circle at 50% 65%,rgba(167,139,250,.22),transparent 32%),
+        linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.04));
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow:0 28px 90px rgba(0,0,0,.42), inset 0 0 0 1px rgba(255,255,255,.10);
+      display:grid;
+      place-items:center;
+      position:relative;
+      overflow:hidden;
+      animation:floatOrb 4.6s ease-in-out infinite;
+    }
+
+    @keyframes floatOrb{
+      0%,100%{transform:translateY(0)}
+      50%{transform:translateY(-10px)}
+    }
+
+    .heroAvatar{
+      font-size:clamp(110px,16vw,190px);
+      filter:drop-shadow(0 24px 34px rgba(0,0,0,.34));
+      animation:heroBounce 2.2s ease-in-out infinite;
+    }
+
+    @keyframes heroBounce{
+      0%,100%{transform:translateY(0) rotate(-2deg)}
+      50%{transform:translateY(-12px) rotate(2deg)}
+    }
+
+    .enemyMini{
+      position:absolute;
+      right:8%;
+      top:12%;
+      font-size:58px;
+      animation:bugFloat 2.2s ease-in-out infinite;
+      filter:drop-shadow(0 18px 18px rgba(0,0,0,.36));
+    }
+
+    .coinMini{
+      position:absolute;
+      left:10%;
+      bottom:12%;
+      font-size:56px;
+      animation:spinCoin 3.5s linear infinite;
+    }
+
+    @keyframes bugFloat{
+      0%,100%{transform:translate(0,0) rotate(0)}
+      50%{transform:translate(-10px,8px) rotate(8deg)}
+    }
+    @keyframes spinCoin{
+      0%{transform:rotateY(0deg)}
+      100%{transform:rotateY(360deg)}
+    }
+
+    .setupBox{
+      margin-top:18px;
+      padding:16px;
+      border-radius:26px;
+      background:rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.12);
+    }
 
     .field{display:grid;gap:6px}
     label{font-size:12px;font-weight:1000;color:#cfe3ff}
@@ -152,7 +240,7 @@
       min-height:46px;
       border-radius:18px;
       border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.08);
+      background:rgba(255,255,255,.09);
       color:#fff;
       padding:0 12px;
       outline:none;
@@ -161,120 +249,268 @@
     option{color:#111827;background:#fff}
     input::placeholder{color:#9fb5d6}
 
-    .statusBox{
-      border-radius:22px;
-      padding:14px 16px;
-      border:1px solid rgba(255,255,255,.13);
-      background:rgba(0,0,0,.16);
-      color:#dbeafe;
-      line-height:1.55;
-      font-weight:850;
-      white-space:pre-wrap;
-    }
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 
-    .screen{display:none}
-    .screen.active{display:grid;gap:14px}
-
-    .kpi{
-      border-radius:22px;
+    .missionGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+    .missionCard{
       padding:16px;
-      background:
-        radial-gradient(circle at top right,rgba(255,255,255,.11),transparent 34%),
-        rgba(255,255,255,.065);
-      border:1px solid rgba(255,255,255,.13);
+      cursor:pointer;
+      transition:.18s ease;
+      position:relative;
+      overflow:hidden;
     }
-    .kpiLabel{font-size:11px;color:var(--muted);font-weight:1000;text-transform:uppercase;letter-spacing:.05em}
-    .kpiValue{margin-top:6px;font-size:34px;font-weight:1000;letter-spacing:-.05em;line-height:1}
+    .missionCard:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.50)}
+    .missionCard.active{
+      border-color:rgba(250,204,21,.70);
+      box-shadow:0 0 0 4px rgba(250,204,21,.12),var(--shadow);
+    }
+    .missionIcon{font-size:46px}
+    .missionTitle{font-size:19px;font-weight:1000;letter-spacing:-.035em;margin-top:8px}
+    .missionMeta{font-size:13px;color:#dbeafe;font-weight:750;line-height:1.5;margin-top:5px}
+
+    .battleWrap{
+      min-height:calc(100dvh - 98px);
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:12px;
+    }
+
+    .hud{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr 1fr;
+      gap:10px;
+      position:sticky;
+      top:8px;
+      z-index:20;
+    }
+
+    .hudCard{
+      border-radius:22px;
+      padding:13px;
+      background:rgba(255,255,255,.09);
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow:0 12px 28px rgba(0,0,0,.16);
+      backdrop-filter:blur(14px);
+    }
+    .hudLabel{color:var(--muted);font-size:11px;font-weight:1000;text-transform:uppercase;letter-spacing:.06em}
+    .hudValue{font-size:28px;font-weight:1000;line-height:1;margin-top:5px;letter-spacing:-.04em}
+
+    .bar{
+      height:12px;
+      margin-top:8px;
+      background:rgba(255,255,255,.12);
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.10);
+    }
+    .barFill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,var(--sky),var(--violet),var(--gold));
+      transition:width .25s ease;
+    }
+    .hpFill{background:linear-gradient(90deg,#fb7185,#facc15,#4ade80)}
+    .enemyHpFill{background:linear-gradient(90deg,#fb7185,#ef4444)}
+
+    .battlePanel{
+      padding:16px;
+      display:grid;
+      grid-template-columns:.9fr 1.1fr;
+      gap:14px;
+      min-height:520px;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .battleScene{
+      display:grid;
+      align-content:center;
+      justify-items:center;
+      gap:14px;
+      min-height:480px;
+      border-radius:28px;
+      background:
+        radial-gradient(circle at center,rgba(103,232,249,.12),transparent 42%),
+        rgba(0,0,0,.12);
+      border:1px solid rgba(255,255,255,.10);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .battleScene::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px),
+        linear-gradient(0deg,rgba(255,255,255,.03) 1px,transparent 1px);
+      background-size:36px 36px;
+      opacity:.7;
+      pointer-events:none;
+    }
+
+    .enemy{
+      font-size:clamp(100px,17vw,210px);
+      line-height:1;
+      z-index:2;
+      filter:drop-shadow(0 28px 26px rgba(0,0,0,.44));
+      transition:.18s ease;
+      animation:enemyIdle 2.4s ease-in-out infinite;
+    }
+
+    @keyframes enemyIdle{
+      0%,100%{transform:translateY(0) rotate(-1deg)}
+      50%{transform:translateY(-8px) rotate(2deg)}
+    }
+
+    .enemy.hit{
+      animation:enemyHit .38s ease;
+    }
+
+    @keyframes enemyHit{
+      0%{transform:translateX(0) scale(1)}
+      25%{transform:translateX(18px) scale(.94)}
+      50%{transform:translateX(-12px) scale(1.05)}
+      100%{transform:translateX(0) scale(1)}
+    }
+
+    .heroSmall{
+      position:absolute;
+      left:8%;
+      bottom:8%;
+      font-size:78px;
+      z-index:2;
+      filter:drop-shadow(0 20px 18px rgba(0,0,0,.36));
+    }
+
+    .damagePop{
+      position:absolute;
+      top:18%;
+      right:26%;
+      z-index:4;
+      font-size:36px;
+      font-weight:1000;
+      color:#fde047;
+      text-shadow:0 5px 22px rgba(0,0,0,.5);
+      opacity:0;
+      transform:translateY(10px) scale(.8);
+      pointer-events:none;
+    }
+
+    .damagePop.show{
+      animation:damagePop .65s ease forwards;
+    }
+
+    @keyframes damagePop{
+      0%{opacity:0;transform:translateY(10px) scale(.8)}
+      20%{opacity:1;transform:translateY(-8px) scale(1.2)}
+      100%{opacity:0;transform:translateY(-48px) scale(1)}
+    }
+
+    .questionBox{
+      display:grid;
+      align-content:center;
+      gap:12px;
+    }
 
     .questionCard{
-      padding:24px;
-      border-radius:32px;
+      border-radius:28px;
+      padding:20px;
       background:
-        radial-gradient(circle at top right,rgba(103,232,249,.15),transparent 34%),
-        rgba(255,255,255,.075);
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:var(--shadow);
+        radial-gradient(circle at top right,rgba(167,139,250,.15),transparent 34%),
+        rgba(255,255,255,.09);
+      border:1px solid rgba(255,255,255,.15);
     }
 
     .prompt{
       margin-top:10px;
-      font-size:clamp(24px,4vw,46px);
-      line-height:1.1;
+      font-size:clamp(24px,4vw,44px);
+      line-height:1.08;
       font-weight:1000;
       letter-spacing:-.045em;
+    }
+
+    .hint{
+      color:#dbeafe;
+      font-size:15px;
+      font-weight:800;
+      line-height:1.55;
     }
 
     .choices{
       display:grid;
       gap:10px;
-      margin-top:16px;
     }
 
     .choice{
       border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.085);
+      background:rgba(255,255,255,.09);
       color:#fff;
       border-radius:22px;
       padding:16px;
       text-align:left;
       font-weight:950;
       line-height:1.35;
+      box-shadow:0 10px 24px rgba(0,0,0,.14);
+      transition:.16s ease;
     }
-    .choice:hover{border-color:rgba(103,232,249,.45);transform:translateY(-1px)}
-    .choice.correct{background:rgba(22,101,52,.30);border-color:rgba(74,222,128,.45)}
-    .choice.wrong{background:rgba(127,29,29,.34);border-color:rgba(251,113,133,.50)}
+    .choice:hover{border-color:rgba(103,232,249,.55);transform:translateY(-1px)}
+    .choice.correct{background:rgba(22,101,52,.34);border-color:rgba(74,222,128,.50)}
+    .choice.wrong{background:rgba(127,29,29,.38);border-color:rgba(251,113,133,.55)}
 
     .typingRow{
       display:grid;
       grid-template-columns:1fr auto;
       gap:10px;
-      margin-top:16px;
-    }
-
-    .progressWrap{
-      height:14px;
-      background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.13);
-      border-radius:999px;
-      overflow:hidden;
-    }
-    .progressFill{
-      height:100%;
-      width:0%;
-      background:linear-gradient(90deg,var(--sky),var(--violet),var(--gold));
-      transition:width .25s ease;
     }
 
     .feedback{
       border-radius:22px;
       padding:14px 16px;
-      background:rgba(255,255,255,.075);
+      background:rgba(255,255,255,.08);
       border:1px solid rgba(255,255,255,.13);
       color:#eaf2ff;
       font-weight:900;
       line-height:1.5;
     }
-    .feedback.good{background:rgba(22,101,52,.28);border-color:rgba(74,222,128,.38);color:#dcfce7}
-    .feedback.bad{background:rgba(127,29,29,.30);border-color:rgba(251,113,133,.40);color:#ffe4e9}
+    .feedback.good{background:rgba(22,101,52,.30);border-color:rgba(74,222,128,.40);color:#dcfce7}
+    .feedback.bad{background:rgba(127,29,29,.34);border-color:rgba(251,113,133,.43);color:#ffe4e9}
+    .feedback.combo{background:rgba(113,63,18,.32);border-color:rgba(250,204,21,.45);color:#fef3c7}
 
-    .summaryHero{
+    .summaryPanel{
+      min-height:calc(100dvh - 110px);
+      padding:24px;
+      display:grid;
+      align-content:center;
       text-align:center;
-      padding:28px;
+      position:relative;
+      overflow:hidden;
     }
 
-    .small{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:800;
-      line-height:1.45;
+    .summaryEmoji{
+      font-size:clamp(96px,16vw,190px);
+      filter:drop-shadow(0 26px 28px rgba(0,0,0,.35));
+      animation:heroBounce 2.2s ease-in-out infinite;
     }
+
+    .kpi{
+      border-radius:24px;
+      padding:16px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.13);
+      text-align:left;
+    }
+    .kpiLabel{color:var(--muted);font-size:11px;font-weight:1000;text-transform:uppercase;letter-spacing:.06em}
+    .kpiValue{margin-top:7px;font-size:34px;line-height:1;font-weight:1000;letter-spacing:-.045em}
 
     .footerNav{
       position:fixed;
       left:12px;
       right:12px;
       bottom:calc(12px + var(--safe-b));
-      z-index:50;
+      z-index:60;
       display:flex;
       gap:10px;
       justify-content:center;
@@ -282,168 +518,226 @@
     }
     .footerNav .btn{pointer-events:auto}
 
-    @media (max-width:820px){
-      .hero,.grid2,.grid3,.grid4{grid-template-columns:1fr}
-      .hero{border-radius:24px;padding:16px}
-      .panel{border-radius:24px}
+    .statusToast{
+      position:fixed;
+      top:12px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:90;
+      max-width:min(760px,calc(100vw - 24px));
+      border-radius:999px;
+      padding:10px 14px;
+      background:rgba(5,8,22,.82);
+      border:1px solid rgba(255,255,255,.16);
+      color:#eaf2ff;
+      box-shadow:0 16px 46px rgba(0,0,0,.35);
+      backdrop-filter:blur(14px);
+      font-weight:900;
+      font-size:13px;
+      display:none;
+    }
+    .statusToast.show{display:block;animation:toastIn .28s ease}
+    @keyframes toastIn{
+      from{opacity:0;transform:translate(-50%,-10px)}
+      to{opacity:1;transform:translate(-50%,0)}
+    }
+
+    @media (max-width:900px){
+      .heroShell,.battlePanel{grid-template-columns:1fr}
+      .heroStage{min-height:330px}
+      .arenaOrb{width:min(360px,86vw)}
+      .missionGrid,.grid3,.grid4,.hud{grid-template-columns:1fr 1fr}
+      .battleScene{min-height:320px}
+      .enemy{font-size:130px}
+      .heroSmall{font-size:56px}
+    }
+
+    @media (max-width:560px){
+      .app{padding:9px;padding-bottom:calc(92px + var(--safe-b))}
+      .heroShell,.battlePanel,.summaryPanel{border-radius:24px;padding:14px}
+      .missionGrid,.grid2,.grid3,.grid4,.hud{grid-template-columns:1fr}
+      .hud{position:relative;top:auto}
+      .hudCard{padding:11px}
+      .hudValue{font-size:24px}
       .typingRow{grid-template-columns:1fr}
       .footerNav{justify-content:stretch}
       .footerNav .btn{flex:1}
+      .prompt{font-size:26px}
+      h1{font-size:48px}
     }
   </style>
 </head>
 
 <body>
+  <div class="statusToast" id="statusToast">Ready</div>
+
   <main class="app">
-    <section class="hero">
-      <div>
-        <div class="badgeRow">
-          <span class="badge good">TechPath English</span>
-          <span class="badge">Vocabulary Quest</span>
-          <span class="badge warn" id="buildBadge">v20260428</span>
-        </div>
-        <h1>Vocabulary Quest</h1>
-        <p>เกมฝึกคำศัพท์สาย CS/AI สำหรับ A2–B1+ พร้อมเก็บ session, term answer, profile และ leaderboard เข้า Google Sheet</p>
-      </div>
-      <div class="statusBox" id="statusBox">พร้อมเริ่มเกม</div>
-    </section>
-
     <section class="screen active" id="screenSetup">
-      <section class="panel">
-        <h2>ตั้งค่าผู้เล่น</h2>
-        <p>กรอกข้อมูลให้ครบ เพื่อให้ Teacher Dashboard ติดตามได้ถูกต้อง</p>
+      <div class="heroShell">
+        <div class="heroContent">
+          <div class="logoRow">
+            <span class="badge hot">TechPath English</span>
+            <span class="badge good">Vocab Battle</span>
+            <span class="badge warn">Game UI v2</span>
+          </div>
 
-        <div class="grid3" style="margin-top:14px">
-          <div class="field">
-            <label>ชื่อผู้เล่น / Display Name</label>
-            <input id="displayName" placeholder="เช่น Anna" autocomplete="name" />
-          </div>
-          <div class="field">
-            <label>รหัสนักศึกษา / Student ID</label>
-            <input id="studentId" placeholder="เช่น 650001" />
-          </div>
-          <div class="field">
-            <label>Section</label>
-            <input id="section" placeholder="เช่น CS-A" />
+          <h1>Vocab Battle Quest</h1>
+          <p class="subtitle">
+            เป็น Tech Hero ต่อสู้กับ Bug Bot ด้วยคำศัพท์สาย CS/AI — ตอบถูกเพื่อโจมตี สะสม combo และส่งผลให้ครูดูใน Teacher Dashboard
+          </p>
+
+          <div class="setupBox">
+            <h3>👤 Player Profile</h3>
+            <div class="grid3">
+              <div class="field">
+                <label>ชื่อผู้เล่น</label>
+                <input id="displayName" placeholder="เช่น Anna" autocomplete="name" />
+              </div>
+              <div class="field">
+                <label>รหัสนักศึกษา</label>
+                <input id="studentId" placeholder="เช่น 650001" />
+              </div>
+              <div class="field">
+                <label>Section</label>
+                <input id="section" placeholder="เช่น CS-A" />
+              </div>
+            </div>
+
+            <div class="grid4" style="margin-top:12px">
+              <div class="field">
+                <label>Session</label>
+                <select id="sessionCode"></select>
+              </div>
+              <div class="field">
+                <label>Mode</label>
+                <select id="modeSelect">
+                  <option value="ai_training">AI Training</option>
+                  <option value="code_battle" selected>Code Battle</option>
+                  <option value="debug_mission">Debug Mission</option>
+                  <option value="speed_run">Speed Run</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Difficulty</label>
+                <select id="difficultySelect">
+                  <option value="easy">Easy</option>
+                  <option value="normal" selected>Normal</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>SFX</label>
+                <button class="btn ghost" id="sfxToggleBtn" type="button">SFX: ON</button>
+              </div>
+            </div>
+
+            <h3 style="margin-top:16px">🗺️ Select Mission</h3>
+            <div class="missionGrid" id="missionGrid">
+              <article class="missionCard active" data-bank="A">
+                <div class="missionIcon">💻</div>
+                <div class="missionTitle">Basic Code Lab</div>
+                <div class="missionMeta">Algorithm, debug, variable, database</div>
+                <span class="badge good">Bank A</span>
+              </article>
+              <article class="missionCard" data-bank="B">
+                <div class="missionIcon">🤖</div>
+                <div class="missionTitle">AI Data Lab</div>
+                <div class="missionMeta">Dataset, model, prediction, bias</div>
+                <span class="badge warn">Bank B</span>
+              </article>
+              <article class="missionCard" data-bank="C">
+                <div class="missionIcon">🏢</div>
+                <div class="missionTitle">Tech Workplace</div>
+                <div class="missionMeta">Meeting, deadline, requirement, proposal</div>
+                <span class="badge">Bank C</span>
+              </article>
+            </div>
+
+            <div class="actions" style="margin-top:16px">
+              <button class="btn good big" id="startBtn" type="button">🚀 Start Mission</button>
+              <button class="btn ghost" id="restoreBtn" type="button">Restore Profile</button>
+              <button class="btn ghost" id="testLoggerBtn" type="button">Test Logger</button>
+            </div>
           </div>
         </div>
 
-        <div class="grid4" style="margin-top:14px">
-          <div class="field">
-            <label>Session Code</label>
-            <select id="sessionCode"></select>
-          </div>
-          <div class="field">
-            <label>Word Bank</label>
-            <select id="bankSelect">
-              <option value="A">Bank A • Basic CS</option>
-              <option value="B">Bank B • AI/Data</option>
-              <option value="C">Bank C • Workplace</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Mode</label>
-            <select id="modeSelect">
-              <option value="ai_training">AI Training</option>
-              <option value="code_battle" selected>Code Battle</option>
-              <option value="debug_mission">Debug Mission</option>
-              <option value="speed_run">Speed Run</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Difficulty</label>
-            <select id="difficultySelect">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
-            </select>
+        <div class="heroStage">
+          <div class="arenaOrb">
+            <div class="enemyMini">🐞</div>
+            <div class="heroAvatar">🧑‍💻</div>
+            <div class="coinMini">🪙</div>
           </div>
         </div>
-
-        <div class="actions" style="margin-top:16px">
-          <button class="btn good" id="startBtn" type="button">Start Game</button>
-          <button class="btn ghost" id="restoreBtn" type="button">Restore Profile</button>
-          <button class="btn ghost" id="testLoggerBtn" type="button">Test Logger</button>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h3>How to play</h3>
-        <div class="grid3">
-          <div class="kpi">
-            <div class="kpiLabel">Step 1</div>
-            <div class="kpiValue">Read</div>
-            <p>อ่านโจทย์หรือบริบทสั้น ๆ</p>
-          </div>
-          <div class="kpi">
-            <div class="kpiLabel">Step 2</div>
-            <div class="kpiValue">Choose</div>
-            <p>เลือกคำตอบ หรือพิมพ์คำศัพท์</p>
-          </div>
-          <div class="kpi">
-            <div class="kpiLabel">Step 3</div>
-            <div class="kpiValue">Review</div>
-            <p>ระบบบันทึกคำที่ยังอ่อนให้ครูดูต่อได้</p>
-          </div>
-        </div>
-      </section>
+      </div>
     </section>
 
     <section class="screen" id="screenGame">
-      <section class="panel">
-        <div class="grid4">
-          <div class="kpi">
-            <div class="kpiLabel">Score</div>
-            <div class="kpiValue" id="scoreText">0</div>
+      <div class="battleWrap">
+        <header class="hud">
+          <div class="hudCard">
+            <div class="hudLabel">Hero HP</div>
+            <div class="hudValue" id="hpText">100</div>
+            <div class="bar"><div class="barFill hpFill" id="hpFill"></div></div>
           </div>
-          <div class="kpi">
-            <div class="kpiLabel">Accuracy</div>
-            <div class="kpiValue" id="accuracyText">0%</div>
+          <div class="hudCard">
+            <div class="hudLabel">Enemy HP</div>
+            <div class="hudValue" id="enemyHpText">100</div>
+            <div class="bar"><div class="barFill enemyHpFill" id="enemyHpFill"></div></div>
           </div>
-          <div class="kpi">
-            <div class="kpiLabel">Combo</div>
-            <div class="kpiValue" id="comboText">0</div>
+          <div class="hudCard">
+            <div class="hudLabel">Score / Combo</div>
+            <div class="hudValue"><span id="scoreText">0</span> / <span id="comboText">0</span></div>
           </div>
-          <div class="kpi">
-            <div class="kpiLabel">Question</div>
-            <div class="kpiValue" id="questionText">1/10</div>
+          <div class="hudCard">
+            <div class="hudLabel">Progress</div>
+            <div class="hudValue" id="questionText">1/10</div>
+            <div class="bar"><div class="barFill" id="progressFill"></div></div>
           </div>
-        </div>
+        </header>
 
-        <div class="progressWrap" style="margin-top:14px">
-          <div class="progressFill" id="progressFill"></div>
-        </div>
-      </section>
+        <section class="battlePanel">
+          <div class="battleScene">
+            <div class="damagePop" id="damagePop">-20</div>
+            <div class="enemy" id="enemySprite">🐞</div>
+            <div class="heroSmall">🧑‍💻</div>
+            <div class="chips" style="z-index:3">
+              <span class="badge bad" id="enemyNameBadge">Bug Bot</span>
+              <span class="badge warn" id="difficultyBadge">normal</span>
+              <span class="badge good" id="bankBadge">Bank A</span>
+            </div>
+          </div>
 
-      <section class="questionCard">
-        <div class="badgeRow">
-          <span class="badge" id="variantBadge">context_mcq</span>
-          <span class="badge warn" id="difficultyBadge">normal</span>
-          <span class="badge good" id="bankBadge">Bank A</span>
-        </div>
+          <div class="questionBox">
+            <div class="questionCard">
+              <div class="badgeRow">
+                <span class="badge hot" id="variantBadge">context_mcq</span>
+                <span class="badge" id="accuracyText">Accuracy 0%</span>
+              </div>
+              <div class="prompt" id="promptText">Question</div>
+              <p class="hint" id="hintText">Choose the best answer.</p>
+            </div>
 
-        <div class="prompt" id="promptText">Question</div>
-        <p id="hintText">Choose the best answer.</p>
+            <div class="choices" id="choicesBox"></div>
 
-        <div class="choices" id="choicesBox"></div>
+            <div class="typingRow hidden" id="typingBox">
+              <input id="typingInput" placeholder="Type your answer..." />
+              <button class="btn good" id="submitTypingBtn" type="button">Attack</button>
+            </div>
 
-        <div class="typingRow hidden" id="typingBox">
-          <input id="typingInput" placeholder="Type your answer..." />
-          <button class="btn good" id="submitTypingBtn" type="button">Submit</button>
-        </div>
-      </section>
-
-      <section class="feedback" id="feedbackBox">ตอบคำถามเพื่อรับ feedback</section>
+            <div class="feedback" id="feedbackBox">ตอบคำถามเพื่อโจมตี Bug Bot</div>
+          </div>
+        </section>
+      </div>
     </section>
 
     <section class="screen" id="screenSummary">
-      <section class="hero summaryHero">
+      <section class="summaryPanel">
+        <div class="summaryEmoji" id="summaryEmoji">🏆</div>
         <div class="badgeRow" style="justify-content:center">
-          <span class="badge good">Session Complete</span>
-          <span class="badge" id="summaryRankBadge">Rank</span>
+          <span class="badge good">Mission Complete</span>
+          <span class="badge hot" id="summaryRankBadge">Rank S</span>
         </div>
-
-        <h1>Great Job!</h1>
+        <h1 id="summaryTitle">Victory!</h1>
         <p id="summaryText">สรุปผลการเล่น</p>
 
         <div class="grid4" style="margin-top:18px;text-align:left">
@@ -465,14 +759,14 @@
           </div>
         </div>
 
-        <div class="panel" style="margin-top:18px;text-align:left">
-          <h3>AI Recommendation</h3>
+        <div class="glass" style="padding:18px;margin-top:16px;text-align:left">
+          <h3>🤖 AI Coach Recommendation</h3>
           <p id="aiAdviceText">-</p>
         </div>
 
         <div class="actions" style="justify-content:center;margin-top:18px">
-          <button class="btn good" id="playAgainBtn" type="button">Play Again</button>
-          <button class="btn ghost" id="backSetupBtn" type="button">Back to Setup</button>
+          <button class="btn good big" id="playAgainBtn" type="button">⚔️ Play Again</button>
+          <button class="btn ghost big" id="backSetupBtn" type="button">🗺️ Back to Missions</button>
         </div>
       </section>
     </section>
@@ -528,18 +822,26 @@
     };
 
     const VARIANTS = ['meaning_mcq','context_mcq','typing','thai_to_eng'];
+    const ENEMIES = {
+      A:{name:'Bug Bot', emoji:'🐞'},
+      B:{name:'AI Glitch', emoji:'🤖'},
+      C:{name:'Deadline Ghost', emoji:'👻'}
+    };
 
     const els = {};
     [
-      'statusBox','screenSetup','screenGame','screenSummary','displayName','studentId','section','sessionCode',
-      'bankSelect','modeSelect','difficultySelect','startBtn','restoreBtn','testLoggerBtn',
-      'scoreText','accuracyText','comboText','questionText','progressFill','variantBadge','difficultyBadge','bankBadge',
+      'statusToast','screenSetup','screenGame','screenSummary',
+      'displayName','studentId','section','sessionCode','modeSelect','difficultySelect','sfxToggleBtn',
+      'missionGrid','startBtn','restoreBtn','testLoggerBtn',
+      'hpText','hpFill','enemyHpText','enemyHpFill','scoreText','comboText','questionText','progressFill',
+      'enemySprite','enemyNameBadge','damagePop','variantBadge','difficultyBadge','bankBadge','accuracyText',
       'promptText','hintText','choicesBox','typingBox','typingInput','submitTypingBtn','feedbackBox',
-      'sumScore','sumAccuracy','sumMistakes','sumWeakest','summaryText','summaryRankBadge','aiAdviceText',
+      'summaryEmoji','summaryTitle','summaryRankBadge','summaryText','sumScore','sumAccuracy','sumMistakes','sumWeakest','aiAdviceText',
       'playAgainBtn','backSetupBtn','homeBtn','finishNowBtn'
     ].forEach(id => els[id] = document.getElementById(id));
 
     const game = {
+      selectedBank:'A',
       started:false,
       finished:false,
       sessionId:'',
@@ -555,6 +857,8 @@
       wrong:0,
       combo:0,
       bestCombo:0,
+      hp:100,
+      enemyHp:100,
       answers:[],
       mastery:{},
       weakTerms:{},
@@ -562,43 +866,22 @@
       questionStartedAt:0
     };
 
-    function setStatus(msg){
-      els.statusBox.textContent = msg;
+    function toast(msg){
+      els.statusToast.textContent = msg;
+      els.statusToast.classList.add('show');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(()=>els.statusToast.classList.remove('show'), 2600);
     }
 
-    function nowIso(){
-      return new Date().toISOString();
-    }
-
-    function uid(prefix){
-      return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
-    }
-
-    function qs(name, fallback=''){
-      try{
-        return new URL(location.href).searchParams.get(name) || fallback;
-      }catch{
-        return fallback;
-      }
-    }
-
-    function shuffle(arr){
-      const a = arr.slice();
-      for(let i=a.length-1;i>0;i--){
-        const j = Math.floor(Math.random()*(i+1));
-        [a[i],a[j]] = [a[j],a[i]];
-      }
-      return a;
-    }
-
-    function clamp(n,min,max){
-      return Math.max(min,Math.min(max,n));
-    }
-
+    function nowIso(){return new Date().toISOString();}
+    function uid(prefix){return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);}
+    function qs(name, fallback=''){try{return new URL(location.href).searchParams.get(name) || fallback;}catch{return fallback;}}
+    function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
     function showScreen(name){
-      [els.screenSetup,els.screenGame,els.screenSummary].forEach(s => s.classList.remove('active'));
+      [els.screenSetup,els.screenGame,els.screenSummary].forEach(s=>s.classList.remove('active'));
       document.getElementById(name).classList.add('active');
       els.finishNowBtn.classList.toggle('hidden', name !== 'screenGame');
+      window.scrollTo({top:0,behavior:'smooth'});
     }
 
     function fillSessions(){
@@ -609,14 +892,16 @@
     }
 
     function loadIdentityToForm(){
-      const saved = JSON.parse(localStorage.getItem('VOCAB_FINAL_IDENTITY_V1') || '{}');
+      let saved = {};
+      try{saved = JSON.parse(localStorage.getItem('VOCAB_FINAL_IDENTITY_V1') || '{}');}catch{}
       els.displayName.value = qs('name') || qs('display_name') || saved.display_name || '';
       els.studentId.value = qs('student_id') || qs('studentId') || qs('sid') || saved.student_id || '';
       els.section.value = qs('section') || saved.section || '';
       els.sessionCode.value = qs('session_code') || qs('sessionCode') || qs('s') || saved.session_code || 'S01';
-      els.bankSelect.value = qs('bank') || saved.bank || 'A';
       els.modeSelect.value = qs('mode') || saved.mode || 'code_battle';
       els.difficultySelect.value = qs('diff') || qs('difficulty') || saved.difficulty || 'normal';
+      game.selectedBank = qs('bank') || saved.bank || 'A';
+      updateMissionCards();
     }
 
     function saveIdentity(){
@@ -625,7 +910,7 @@
         student_id: els.studentId.value.trim() || 'anon',
         section: els.section.value.trim() || '-',
         session_code: els.sessionCode.value || 'S01',
-        bank: els.bankSelect.value || 'A',
+        bank: game.selectedBank || 'A',
         mode: els.modeSelect.value || 'code_battle',
         difficulty: els.difficultySelect.value || 'normal'
       };
@@ -633,55 +918,10 @@
       return identity;
     }
 
-    function buildQuestion(term, variant, allTerms){
-      const distractors = shuffle(allTerms.filter(x => x.id !== term.id)).slice(0,3);
-
-      if(variant === 'meaning_mcq'){
-        return {
-          term,
-          variant,
-          prompt:`What does “${term.term}” mean?`,
-          hint:'Choose the best meaning.',
-          choices:shuffle([
-            {text:term.meaning, correct:true},
-            ...distractors.map(x => ({text:x.meaning, correct:false}))
-          ])
-        };
-      }
-
-      if(variant === 'context_mcq'){
-        return {
-          term,
-          variant,
-          prompt:term.example.replace(term.term, '_____'),
-          hint:'Choose the word that best completes the sentence.',
-          choices:shuffle([
-            {text:term.term, correct:true},
-            ...distractors.map(x => ({text:x.term, correct:false}))
-          ])
-        };
-      }
-
-      if(variant === 'thai_to_eng'){
-        return {
-          term,
-          variant,
-          prompt:`คำว่า “${term.th}” ในภาษาอังกฤษคืออะไร?`,
-          hint:'Choose the English word.',
-          choices:shuffle([
-            {text:term.term, correct:true},
-            ...distractors.map(x => ({text:x.term, correct:false}))
-          ])
-        };
-      }
-
-      return {
-        term,
-        variant:'typing',
-        prompt:`Type the English word: ${term.meaning}`,
-        hint:`Hint TH: ${term.th}`,
-        choices:[]
-      };
+    function updateMissionCards(){
+      document.querySelectorAll('.missionCard').forEach(card=>{
+        card.classList.toggle('active', card.dataset.bank === game.selectedBank);
+      });
     }
 
     function questionCountByDifficulty(diff){
@@ -690,14 +930,27 @@
       return 10;
     }
 
+    function buildQuestion(term, variant, allTerms){
+      const distractors = shuffle(allTerms.filter(x => x.id !== term.id)).slice(0,3);
+      if(variant === 'meaning_mcq'){
+        return {term,variant,prompt:`What does “${term.term}” mean?`,hint:'เลือกความหมายที่ถูกต้อง',choices:shuffle([{text:term.meaning,correct:true},...distractors.map(x=>({text:x.meaning,correct:false}))])};
+      }
+      if(variant === 'context_mcq'){
+        return {term,variant,prompt:term.example.replace(term.term,'_____'),hint:'เลือกคำศัพท์ที่เติมในประโยคได้ดีที่สุด',choices:shuffle([{text:term.term,correct:true},...distractors.map(x=>({text:x.term,correct:false}))])};
+      }
+      if(variant === 'thai_to_eng'){
+        return {term,variant,prompt:`คำว่า “${term.th}” ในภาษาอังกฤษคืออะไร?`,hint:'เลือกคำศัพท์ภาษาอังกฤษ',choices:shuffle([{text:term.term,correct:true},...distractors.map(x=>({text:x.term,correct:false}))])};
+      }
+      return {term,variant:'typing',prompt:`Type the English word: ${term.meaning}`,hint:`Hint TH: ${term.th}`,choices:[]};
+    }
+
     function buildQuestions(){
-      const bank = els.bankSelect.value || 'A';
+      const bank = game.selectedBank || 'A';
       const diff = els.difficultySelect.value || 'normal';
       const all = BANKS[bank] || BANKS.A;
       const count = questionCountByDifficulty(diff);
       const terms = shuffle(all);
       const qs = [];
-
       for(let i=0;i<count;i++){
         const term = terms[i % terms.length];
         let variant = VARIANTS[i % VARIANTS.length];
@@ -705,7 +958,6 @@
         if(diff === 'hard' && i % 3 === 0) variant = 'typing';
         qs.push(buildQuestion(term, variant, all));
       }
-
       return qs;
     }
 
@@ -713,12 +965,15 @@
       const total = game.questions.length || 1;
       const answered = game.correct + game.wrong;
       const accuracy = answered ? Math.round(game.correct / answered * 100) : 0;
-
+      els.hpText.textContent = game.hp;
+      els.hpFill.style.width = game.hp + '%';
+      els.enemyHpText.textContent = game.enemyHp;
+      els.enemyHpFill.style.width = game.enemyHp + '%';
       els.scoreText.textContent = game.score;
-      els.accuracyText.textContent = accuracy + '%';
       els.comboText.textContent = game.combo;
       els.questionText.textContent = `${Math.min(game.index+1,total)}/${total}`;
       els.progressFill.style.width = `${Math.round(game.index/total*100)}%`;
+      els.accuracyText.textContent = 'Accuracy ' + accuracy + '%';
 
       window.VOCAB_SCORE = game.score;
       window.VOCAB_ACCURACY = accuracy;
@@ -727,70 +982,86 @@
     }
 
     function renderQuestion(){
-      if(game.index >= game.questions.length){
+      if(game.index >= game.questions.length || game.enemyHp <= 0 || game.hp <= 0){
         finishGame();
         return;
       }
 
       game.current = game.questions[game.index];
       game.questionStartedAt = performance.now();
-
       const q = game.current;
+      const enemy = ENEMIES[game.bank] || ENEMIES.A;
+
+      els.enemySprite.textContent = enemy.emoji;
+      els.enemyNameBadge.textContent = enemy.name;
       els.variantBadge.textContent = q.variant;
       els.difficultyBadge.textContent = game.difficulty;
       els.bankBadge.textContent = 'Bank ' + game.bank;
       els.promptText.textContent = q.prompt;
       els.hintText.textContent = q.hint;
-      els.feedbackBox.textContent = 'เลือกคำตอบหรือพิมพ์คำตอบ';
+      els.feedbackBox.textContent = 'เลือกคำตอบเพื่อโจมตีศัตรู';
       els.feedbackBox.className = 'feedback';
-
       els.choicesBox.innerHTML = '';
+
       els.typingBox.classList.toggle('hidden', q.variant !== 'typing');
       els.typingInput.value = '';
 
       if(q.variant === 'typing'){
         els.typingInput.focus();
       }else{
-        q.choices.forEach((c, idx) => {
+        q.choices.forEach((c, idx)=>{
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'choice';
           btn.innerHTML = `<span class="badge">${String.fromCharCode(65+idx)}</span> ${c.text}`;
-          btn.addEventListener('click', () => answerQuestion(c.text, c.correct, btn));
+          btn.addEventListener('click',()=>answerQuestion(c.text,c.correct,btn));
           els.choicesBox.appendChild(btn);
         });
       }
-
       updateHud();
+    }
+
+    function popDamage(textValue, good=true){
+      els.damagePop.textContent = textValue;
+      els.damagePop.style.color = good ? '#fde047' : '#fb7185';
+      els.damagePop.classList.remove('show');
+      void els.damagePop.offsetWidth;
+      els.damagePop.classList.add('show');
+      els.enemySprite.classList.remove('hit');
+      void els.enemySprite.offsetWidth;
+      els.enemySprite.classList.add('hit');
     }
 
     function answerQuestion(answer, isCorrect, clickedBtn){
       const q = game.current;
       if(!q) return;
-
-      document.querySelectorAll('.choice').forEach(b => b.disabled = true);
-
-      if(clickedBtn){
-        clickedBtn.classList.add(isCorrect ? 'correct' : 'wrong');
-      }
+      document.querySelectorAll('.choice').forEach(b=>b.disabled = true);
+      if(clickedBtn) clickedBtn.classList.add(isCorrect ? 'correct' : 'wrong');
 
       const responseMs = Math.round(performance.now() - game.questionStartedAt);
       const levelBefore = game.difficulty;
-      let levelAfter = game.difficulty;
+      const levelAfter = game.difficulty;
 
       if(isCorrect){
         game.correct++;
         game.combo++;
         game.bestCombo = Math.max(game.bestCombo, game.combo);
-        const bonus = 10 + Math.min(20, game.combo * 2);
+        const damage = 18 + Math.min(22, game.combo * 3);
+        const bonus = 10 + Math.min(24, game.combo * 2);
         game.score += bonus;
-        els.feedbackBox.textContent = `✅ Correct! +${bonus} points`;
-        els.feedbackBox.className = 'feedback good';
+        game.enemyHp = Math.max(0, game.enemyHp - damage);
+        popDamage('-' + damage, true);
+        VocabSFX.play(game.combo >= 3 ? 'combo' : 'correct');
+        els.feedbackBox.textContent = game.combo >= 3 ? `🔥 Combo x${game.combo}! +${bonus} points` : `✅ Correct! +${bonus} points`;
+        els.feedbackBox.className = game.combo >= 3 ? 'feedback combo' : 'feedback good';
       }else{
         game.wrong++;
         game.combo = 0;
         game.score = Math.max(0, game.score - 3);
+        game.hp = Math.max(0, game.hp - 14);
         game.weakTerms[q.term.term] = (game.weakTerms[q.term.term] || 0) + 1;
+        popDamage('HIT!', false);
+        VocabSFX.play('wrong');
         els.feedbackBox.textContent = `❌ Review: ${q.term.term} = ${q.term.meaning}`;
         els.feedbackBox.className = 'feedback bad';
       }
@@ -817,22 +1088,17 @@
       });
 
       VocabLoggerFinal.termAnswer(game.answers[game.answers.length-1]);
-
       game.index++;
       updateHud();
-
-      setTimeout(renderQuestion, 750);
+      setTimeout(renderQuestion, 850);
     }
 
     function submitTyping(){
       const q = game.current;
       if(!q) return;
-
       const ans = els.typingInput.value.trim().toLowerCase();
       const correct = q.term.term.toLowerCase();
-      const ok = ans === correct;
-
-      answerQuestion(ans, ok, null);
+      answerQuestion(ans, ans === correct, null);
     }
 
     function getWeakestTerm(){
@@ -843,32 +1109,15 @@
     function recommendMode(){
       const answered = game.correct + game.wrong;
       const accuracy = answered ? Math.round(game.correct / answered * 100) : 0;
-
-      if(accuracy < 60 || game.wrong >= 5){
-        return {
-          mode:'debug_mission',
-          difficulty:'easy',
-          reason:'ควรฝึกทบทวนคำที่ผิดซ้ำแบบช้า ๆ ก่อน'
-        };
-      }
-
-      if(accuracy < 80){
-        return {
-          mode:'ai_training',
-          difficulty:'normal',
-          reason:'ควรฝึกเพิ่มเพื่อยกระดับ accuracy ให้มั่นคงขึ้น'
-        };
-      }
-
-      return {
-        mode:'code_battle',
-        difficulty:'hard',
-        reason:'ผลดีมาก ลองโหมดท้าทายขึ้นได้'
-      };
+      if(accuracy < 60 || game.wrong >= 5) return {mode:'debug_mission',difficulty:'easy',reason:'ควรฝึกทบทวนคำที่ผิดซ้ำแบบช้า ๆ ก่อน'};
+      if(accuracy < 80) return {mode:'ai_training',difficulty:'normal',reason:'ควรฝึกเพิ่มเพื่อยกระดับ accuracy ให้มั่นคงขึ้น'};
+      return {mode:'code_battle',difficulty:'hard',reason:'ผลดีมาก ลองโหมดท้าทายขึ้นได้'};
     }
 
     async function startGame(){
       const identity = saveIdentity();
+      await VocabSFX.unlock();
+      VocabSFX.play('start');
 
       game.started = true;
       game.finished = false;
@@ -885,6 +1134,8 @@
       game.wrong = 0;
       game.combo = 0;
       game.bestCombo = 0;
+      game.hp = 100;
+      game.enemyHp = 100;
       game.answers = [];
       game.mastery = {};
       game.weakTerms = {};
@@ -893,7 +1144,7 @@
       VocabLoggerFinal.forceSession(game.sessionId, game.startedAt);
 
       showScreen('screenGame');
-      setStatus(`เริ่มเกมแล้ว • ${identity.display_name} • ${identity.student_id} • ${identity.section}`);
+      toast(`เริ่มภารกิจ • ${identity.display_name} • ${identity.student_id} • ${identity.section}`);
       updateHud();
 
       await VocabLoggerFinal.sessionStart({
@@ -910,22 +1161,25 @@
     async function finishGame(){
       if(game.finished) return;
       game.finished = true;
+      VocabSFX.play('finish');
 
       const answered = game.correct + game.wrong;
       const accuracy = answered ? Math.round(game.correct / answered * 100) : 0;
       const weakest = getWeakestTerm();
       const rec = recommendMode();
 
+      const victory = game.enemyHp <= 0 || accuracy >= 70;
+      const rank = accuracy >= 90 ? 'S' : accuracy >= 80 ? 'A' : accuracy >= 70 ? 'B' : accuracy >= 60 ? 'C' : 'Try Again';
+
+      els.summaryEmoji.textContent = victory ? '🏆' : '🛡️';
+      els.summaryTitle.textContent = victory ? 'Victory!' : 'Training Complete';
       els.sumScore.textContent = game.score;
       els.sumAccuracy.textContent = accuracy + '%';
       els.sumMistakes.textContent = game.wrong;
       els.sumWeakest.textContent = weakest;
-
-      const rank = accuracy >= 90 ? 'S' : accuracy >= 80 ? 'A' : accuracy >= 70 ? 'B' : accuracy >= 60 ? 'C' : 'Try Again';
       els.summaryRankBadge.textContent = 'Rank ' + rank;
       els.summaryRankBadge.className = 'badge ' + (accuracy >= 80 ? 'good' : accuracy >= 60 ? 'warn' : 'bad');
-
-      els.summaryText.textContent = `ตอบถูก ${game.correct}/${answered} ข้อ • Best combo ${game.bestCombo}`;
+      els.summaryText.textContent = `ตอบถูก ${game.correct}/${answered} ข้อ • Best combo ${game.bestCombo} • HP เหลือ ${game.hp}`;
       els.aiAdviceText.textContent = `${rec.reason}\nRecommended: ${rec.mode} / ${rec.difficulty}`;
 
       window.VOCAB_SCORE = game.score;
@@ -934,7 +1188,7 @@
       window.VOCAB_WEAKEST_TERM = weakest;
 
       showScreen('screenSummary');
-      setStatus('จบเกมแล้ว กำลังส่งข้อมูลเข้า Sheet...');
+      toast('จบเกมแล้ว กำลังส่งข้อมูลเข้า Sheet...');
 
       const result = await VocabLoggerFinal.sessionEnd({
         session_id:game.sessionId,
@@ -949,31 +1203,45 @@
         recommended_difficulty:rec.difficulty
       });
 
-      setStatus(result.ok ? 'ส่งข้อมูล session/profile/leaderboard แล้ว' : 'ส่งข้อมูลบางส่วนไม่สำเร็จ แต่เกมจบแล้ว');
+      toast(result.ok ? 'ส่งข้อมูล session/profile/leaderboard แล้ว' : 'ส่งข้อมูลบางส่วนไม่สำเร็จ แต่เกมจบแล้ว');
     }
 
     function resetToSetup(){
       game.started = false;
       game.finished = false;
       showScreen('screenSetup');
-      setStatus('พร้อมเริ่มเกมใหม่');
+      toast('กลับหน้าเลือกภารกิจ');
     }
 
     function bind(){
-      els.startBtn.addEventListener('click', startGame);
-      els.restoreBtn.addEventListener('click', () => {
-        loadIdentityToForm();
-        setStatus('โหลดข้อมูลผู้เล่นจากเครื่องแล้ว');
-      });
-      els.testLoggerBtn.addEventListener('click', async () => {
+      els.missionGrid.addEventListener('click', ev=>{
+        const card = ev.target.closest('.missionCard[data-bank]');
+        if(!card) return;
+        game.selectedBank = card.dataset.bank;
         saveIdentity();
+        updateMissionCards();
+        VocabSFX.play('click');
+      });
+
+      els.startBtn.addEventListener('click', startGame);
+      els.restoreBtn.addEventListener('click',()=>{loadIdentityToForm();toast('โหลดข้อมูลผู้เล่นจากเครื่องแล้ว');});
+      els.testLoggerBtn.addEventListener('click',async()=>{
+        saveIdentity();
+        await VocabSFX.unlock();
         const r = await VocabLoggerFinal.sessionStart({score:0,accuracy:0});
-        setStatus('Test Logger: ' + JSON.stringify(r));
+        toast('Test Logger: ' + (r.ok ? 'OK' : 'Check'));
       });
+
+      els.sfxToggleBtn.addEventListener('click',async()=>{
+        await VocabSFX.unlock();
+        const next = !VocabSFX.isEnabled();
+        VocabSFX.setEnabled(next);
+        els.sfxToggleBtn.textContent = 'SFX: ' + (next ? 'ON' : 'OFF');
+        if(next) VocabSFX.play('click');
+      });
+
       els.submitTypingBtn.addEventListener('click', submitTyping);
-      els.typingInput.addEventListener('keydown', ev => {
-        if(ev.key === 'Enter') submitTyping();
-      });
+      els.typingInput.addEventListener('keydown', ev=>{if(ev.key === 'Enter') submitTyping();});
       els.playAgainBtn.addEventListener('click', startGame);
       els.backSetupBtn.addEventListener('click', resetToSetup);
       els.homeBtn.addEventListener('click', resetToSetup);
@@ -984,459 +1252,263 @@
       fillSessions();
       loadIdentityToForm();
       bind();
+      els.sfxToggleBtn.textContent = 'SFX: ' + (VocabSFX.isEnabled() ? 'ON' : 'OFF');
       updateHud();
+      toast('พร้อมเริ่ม Vocab Battle Quest');
     }
   </script>
 
   <script>
-/* =====================================================
-   VOCAB LOGGER FINAL PATCH
-   PATCH v20260428
-   - กัน session ว่าง
-   - บังคับ identity
-   - ส่ง session_end summary เท่านั้นเมื่อจบเกมจริง
-   - ส่ง profile + leaderboard หลังจบเกม
-===================================================== */
+    window.VocabSFX = (function(){
+      let ctx = null;
+      let enabled = true;
 
-window.VocabLoggerFinal = (function(){
-  const STORAGE_KEY = 'VOCAB_FINAL_IDENTITY_V1';
-
-  const state = {
-    sessionId: '',
-    startedAt: '',
-    postedStart: false,
-    postedEnd: false
-  };
-
-  function nowIso(){
-    return new Date().toISOString();
-  }
-
-  function uid(prefix){
-    return String(prefix || 'VOCAB') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-  }
-
-  function qs(name, fallback){
-    try {
-      const u = new URL(location.href);
-      return u.searchParams.get(name) || fallback || '';
-    } catch (err) {
-      return fallback || '';
-    }
-  }
-
-  function readInputValue(ids){
-    for (const id of ids) {
-      const el = document.getElementById(id);
-      if (el && String(el.value || '').trim()) {
-        return String(el.value || '').trim();
+      function getCtx(){
+        if(!ctx){
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if(!AudioContext) return null;
+          ctx = new AudioContext();
+        }
+        return ctx;
       }
-    }
-    return '';
-  }
 
-  function readIdentity(){
-    let saved = {};
-
-    try {
-      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    } catch (err) {
-      saved = {};
-    }
-
-    const identity = {
-      display_name:
-        qs('name') ||
-        qs('display_name') ||
-        qs('displayName') ||
-        qs('nick') ||
-        readInputValue([
-          'displayName',
-          'display_name',
-          'playerName',
-          'nameInput',
-          'studentName',
-          'student_name'
-        ]) ||
-        saved.display_name ||
-        '',
-
-      student_id:
-        qs('student_id') ||
-        qs('studentId') ||
-        qs('sid') ||
-        qs('pid') ||
-        readInputValue([
-          'studentId',
-          'student_id',
-          'sidInput',
-          'pidInput'
-        ]) ||
-        saved.student_id ||
-        '',
-
-      section:
-        qs('section') ||
-        qs('class_section') ||
-        qs('classSection') ||
-        readInputValue([
-          'section',
-          'classSection',
-          'sectionInput'
-        ]) ||
-        saved.section ||
-        '',
-
-      session_code:
-        qs('session_code') ||
-        qs('sessionCode') ||
-        qs('lesson') ||
-        qs('s') ||
-        saved.session_code ||
-        'S01',
-
-      bank:
-        qs('bank') ||
-        saved.bank ||
-        'A',
-
-      mode:
-        qs('mode') ||
-        saved.mode ||
-        'code_battle'
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
-    return identity;
-  }
-
-  function forceSession(sessionId, startedAt){
-    state.sessionId = sessionId || state.sessionId || uid('VOCAB-SESSION');
-    state.startedAt = startedAt || state.startedAt || nowIso();
-    state.postedStart = false;
-    state.postedEnd = false;
-  }
-
-  function ensureSession(){
-    if (!state.sessionId) {
-      state.sessionId = uid('VOCAB-SESSION');
-    }
-
-    if (!state.startedAt) {
-      state.startedAt = nowIso();
-    }
-
-    return {
-      session_id: state.sessionId,
-      started_at: state.startedAt
-    };
-  }
-
-  function number(v, fallback){
-    const n = Number(v);
-    return Number.isFinite(n) ? n : (fallback || 0);
-  }
-
-  function getGlobalValue(names, fallback){
-    for (const name of names) {
-      if (window[name] !== undefined && window[name] !== null) {
-        return window[name];
+      async function unlock(){
+        const c = getCtx();
+        if(!c) return false;
+        if(c.state === 'suspended'){
+          try{ await c.resume(); }catch(e){}
+        }
+        return true;
       }
-    }
-    return fallback;
-  }
 
-  function getGameSummary(extra){
-    extra = extra || {};
+      function tone(freq, duration, type, gainValue, delay){
+        if(!enabled) return;
+        const c = getCtx();
+        if(!c) return;
+        const t0 = c.currentTime + (delay || 0);
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, t0);
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(gainValue || 0.12, t0 + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+        osc.connect(gain);
+        gain.connect(c.destination);
+        osc.start(t0);
+        osc.stop(t0 + duration + 0.03);
+      }
 
-    const score =
-      extra.score ??
-      getGlobalValue(['VOCAB_SCORE','score','gameScore','currentScore'], 0);
+      function noise(duration, gainValue){
+        if(!enabled) return;
+        const c = getCtx();
+        if(!c) return;
+        const bufferSize = Math.max(1, Math.floor(c.sampleRate * duration));
+        const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
+        const data = buffer.getChannelData(0);
+        for(let i=0;i<bufferSize;i++) data[i] = Math.random()*2-1;
+        const src = c.createBufferSource();
+        const filter = c.createBiquadFilter();
+        const gain = c.createGain();
+        filter.type = 'highpass';
+        filter.frequency.value = 900;
+        gain.gain.setValueAtTime(gainValue || .05, c.currentTime);
+        gain.gain.exponentialRampToValueAtTime(.0001, c.currentTime + duration);
+        src.connect(filter);
+        filter.connect(gain);
+        gain.connect(c.destination);
+        src.start();
+        src.stop(c.currentTime + duration);
+      }
 
-    const accuracy =
-      extra.accuracy ??
-      getGlobalValue(['VOCAB_ACCURACY','accuracy','gameAccuracy','currentAccuracy'], 0);
+      function play(name){
+        if(!enabled) return;
+        if(name === 'start'){tone(392,.09,'triangle',.10,0);tone(523,.10,'triangle',.11,.08);tone(659,.13,'triangle',.12,.17);return;}
+        if(name === 'correct'){tone(660,.08,'sine',.12,0);tone(880,.10,'sine',.12,.07);return;}
+        if(name === 'wrong'){tone(220,.13,'sawtooth',.08,0);tone(165,.18,'sawtooth',.06,.08);noise(.08,.035);return;}
+        if(name === 'combo'){tone(784,.07,'triangle',.10,0);tone(988,.08,'triangle',.11,.06);tone(1175,.10,'triangle',.12,.12);return;}
+        if(name === 'finish'){tone(523,.10,'triangle',.10,0);tone(659,.10,'triangle',.10,.09);tone(784,.10,'triangle',.11,.18);tone(1046,.18,'triangle',.12,.30);return;}
+        if(name === 'click'){tone(440,.035,'square',.035,0);return;}
+      }
 
-    const mistakes =
-      extra.mistakes ??
-      getGlobalValue(['VOCAB_MISTAKES','mistakes','wrongCount','currentMistakes'], 0);
+      function setEnabled(v){
+        enabled = !!v;
+        try{localStorage.setItem('VOCAB_SFX_ENABLED', enabled ? '1' : '0');}catch(e){}
+      }
 
-    const weakestTerm =
-      extra.weakest_term ??
-      extra.weakestTerm ??
-      getGlobalValue(['VOCAB_WEAKEST_TERM','weakestTerm'], '');
+      function isEnabled(){return enabled;}
 
-    const endedAt = nowIso();
+      try{
+        if(localStorage.getItem('VOCAB_SFX_ENABLED') === '0') enabled = false;
+      }catch(e){}
 
-    return {
-      ended_at: endedAt,
-      duration_sec: Math.max(
-        1,
-        Math.round((new Date(endedAt).getTime() - new Date(state.startedAt || endedAt).getTime()) / 1000)
-      ),
-      score: number(score, 0),
-      accuracy: number(accuracy, 0),
-      mistakes: number(mistakes, 0),
-      weakest_term: weakestTerm || ''
-    };
-  }
+      window.addEventListener('pointerdown', unlock, {once:true});
+      window.addEventListener('keydown', unlock, {once:true});
 
-  function hasUsefulSessionPayload(payload){
-    return !!(
-      payload.session_id ||
-      payload.student_id ||
-      payload.display_name ||
-      payload.session_code ||
-      payload.bank ||
-      payload.mode ||
-      Number(payload.score || 0) > 0 ||
-      Number(payload.accuracy || 0) > 0 ||
-      Number(payload.duration_sec || 0) > 0
-    );
-  }
+      return {unlock,play,setEnabled,isEnabled};
+    })();
+  </script>
 
-  async function post(action, payload){
-    payload = payload || {};
+  <script>
+    window.VocabLoggerFinal = (function(){
+      const STORAGE_KEY = 'VOCAB_FINAL_IDENTITY_V1';
+      const state = {sessionId:'',startedAt:'',postedStart:false,postedEnd:false};
 
-    const body = {
-      api: 'vocab',
-      action: action,
-      source: 'vocab.html',
-      schema: 'vocab-final-logger-v20260428',
-      payload: payload
-    };
+      function nowIso(){return new Date().toISOString();}
+      function uid(prefix){return String(prefix || 'VOCAB') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);}
+      function qs(name, fallback){try{return new URL(location.href).searchParams.get(name) || fallback || '';}catch{return fallback || '';}}
+      function readInputValue(ids){for(const id of ids){const el=document.getElementById(id);if(el && String(el.value||'').trim()) return String(el.value||'').trim();}return '';}
 
-    try {
-      await fetch(VOCAB_API_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify(body)
-      });
+      function readIdentity(){
+        let saved = {};
+        try{saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');}catch{}
+        const identity = {
+          display_name: qs('name') || qs('display_name') || readInputValue(['displayName']) || saved.display_name || '',
+          student_id: qs('student_id') || qs('studentId') || qs('sid') || qs('pid') || readInputValue(['studentId']) || saved.student_id || '',
+          section: qs('section') || readInputValue(['section']) || saved.section || '',
+          session_code: qs('session_code') || qs('sessionCode') || qs('s') || saved.session_code || 'S01',
+          bank: qs('bank') || saved.bank || 'A',
+          mode: qs('mode') || saved.mode || 'code_battle'
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
+        return identity;
+      }
 
-      return {
-        ok: true,
-        noCors: true,
-        action
-      };
+      function forceSession(sessionId, startedAt){
+        state.sessionId = sessionId || state.sessionId || uid('VOCAB-SESSION');
+        state.startedAt = startedAt || state.startedAt || nowIso();
+        state.postedStart = false;
+        state.postedEnd = false;
+      }
 
-    } catch (err) {
-      console.warn('[VocabLoggerFinal] post failed', action, err);
+      function ensureSession(){
+        if(!state.sessionId) state.sessionId = uid('VOCAB-SESSION');
+        if(!state.startedAt) state.startedAt = nowIso();
+        return {session_id:state.sessionId,started_at:state.startedAt};
+      }
 
-      return {
-        ok: false,
-        action,
-        error: String(err && err.message ? err.message : err)
-      };
-    }
-  }
+      function number(v,fallback){const n=Number(v);return Number.isFinite(n)?n:(fallback||0);}
+      function getGameSummary(extra){
+        extra = extra || {};
+        const score = extra.score ?? window.VOCAB_SCORE ?? 0;
+        const accuracy = extra.accuracy ?? window.VOCAB_ACCURACY ?? 0;
+        const mistakes = extra.mistakes ?? window.VOCAB_MISTAKES ?? 0;
+        const weakestTerm = extra.weakest_term ?? extra.weakestTerm ?? window.VOCAB_WEAKEST_TERM ?? '';
+        const endedAt = nowIso();
+        return {
+          ended_at:endedAt,
+          duration_sec:Math.max(1,Math.round((new Date(endedAt).getTime() - new Date(state.startedAt || endedAt).getTime()) / 1000)),
+          score:number(score,0),
+          accuracy:number(accuracy,0),
+          mistakes:number(mistakes,0),
+          weakest_term:weakestTerm || ''
+        };
+      }
 
-  async function sessionStart(extra){
-    if (state.postedStart) {
-      return {
-        ok: true,
-        skipped: true,
-        reason: 'session_start already posted'
-      };
-    }
+      async function post(action,payload){
+        payload = payload || {};
+        const body = {api:'vocab',action,source:'vocab.html',schema:'vocab-game-ui-v2-20260428',payload};
+        try{
+          await fetch(VOCAB_API_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+          return {ok:true,noCors:true,action};
+        }catch(err){
+          console.warn('[VocabLoggerFinal] post failed', action, err);
+          return {ok:false,action,error:String(err?.message || err)};
+        }
+      }
 
-    const identity = readIdentity();
-    const session = ensureSession();
+      async function sessionStart(extra){
+        if(state.postedStart) return {ok:true,skipped:true,reason:'session_start already posted'};
+        const payload = {...readIdentity(),...ensureSession(),timestamp:nowIso(),page_url:location.href,user_agent:navigator.userAgent,score:0,accuracy:0,mistakes:0,...(extra||{})};
+        state.postedStart = true;
+        return post('session_start', payload);
+      }
 
-    const payload = {
-      ...identity,
-      ...session,
-      timestamp: nowIso(),
-      page_url: location.href,
-      user_agent: navigator.userAgent,
-      score: 0,
-      accuracy: 0,
-      mistakes: 0,
-      ...(extra || {})
-    };
+      async function termAnswer(extra){
+        extra = extra || {};
+        const payload = {
+          ...readIdentity(),
+          ...ensureSession(),
+          timestamp:nowIso(),
+          page_url:location.href,
+          user_agent:navigator.userAgent,
+          term_id:extra.term_id || extra.termId || extra.term || '',
+          term:extra.term || extra.word || '',
+          shown:extra.shown || extra.prompt || extra.question || '',
+          answer:extra.answer || extra.selected || extra.response || '',
+          variant_type:extra.variant_type || extra.variantType || extra.variant || '',
+          is_correct:!!(extra.is_correct ?? extra.isCorrect ?? extra.correct),
+          level_before:extra.level_before || extra.levelBefore || '',
+          level_after:extra.level_after || extra.levelAfter || '',
+          from_review:!!(extra.from_review ?? extra.fromReview ?? false),
+          response_ms:number(extra.response_ms ?? extra.responseMs,0),
+          score:number(extra.score,0),
+          combo:number(extra.combo,0),
+          stage_index:number(extra.stage_index ?? extra.stageIndex,0),
+          difficulty_before:extra.difficulty_before || extra.difficultyBefore || '',
+          difficulty_after:extra.difficulty_after || extra.difficultyAfter || ''
+        };
+        if(!payload.term && !payload.term_id) return {ok:false,skipped:true,reason:'empty term'};
+        return post('term_answer', payload);
+      }
 
-    if (!hasUsefulSessionPayload(payload)) {
-      console.warn('[VocabLoggerFinal] skip empty session_start');
-      return {
-        ok:false,
-        skipped:true,
-        reason:'empty session_start'
-      };
-    }
+      async function profileUpdate(extra){
+        extra = extra || {};
+        const identity = readIdentity();
+        const session = ensureSession();
+        const summary = getGameSummary(extra);
+        return post('profile_update', {
+          ...identity,
+          timestamp:nowIso(),
+          last_session_id:session.session_id,
+          last_bank:identity.bank,
+          last_mode:identity.mode,
+          last_score:summary.score,
+          last_accuracy:summary.accuracy,
+          recommended_mode:extra.recommended_mode || extra.recommendedMode || '',
+          recommended_difficulty:extra.recommended_difficulty || extra.recommendedDifficulty || '',
+          weak_terms_json:extra.weak_terms_json || extra.weakTerms || [],
+          mastery_json:extra.mastery_json || extra.mastery || {},
+          last_seen_at:nowIso(),
+          page_url:location.href,
+          user_agent:navigator.userAgent
+        });
+      }
 
-    state.postedStart = true;
+      async function leaderboardUpdate(extra){
+        extra = extra || {};
+        const identity = readIdentity();
+        const session = ensureSession();
+        const summary = getGameSummary(extra);
+        if(summary.score <= 0 && summary.accuracy <= 0) return {ok:false,skipped:true,reason:'no score/accuracy'};
+        return post('leaderboard_update', {
+          ...identity,
+          timestamp:nowIso(),
+          session_id:session.session_id,
+          best_session_id:session.session_id,
+          best_score:summary.score,
+          best_accuracy:summary.accuracy,
+          best_duration_sec:summary.duration_sec,
+          page_url:location.href,
+          user_agent:navigator.userAgent
+        });
+      }
 
-    return post('session_start', payload);
-  }
+      async function sessionEnd(extra){
+        extra = extra || {};
+        if(state.postedEnd) return {ok:true,skipped:true,reason:'session_end already posted'};
+        const payload = {...readIdentity(),...ensureSession(),...getGameSummary(extra),timestamp:nowIso(),page_url:location.href,user_agent:navigator.userAgent};
+        state.postedEnd = true;
+        await post('session_end', payload);
+        await profileUpdate(extra);
+        await leaderboardUpdate(extra);
+        return {ok:true,action:'session_end',session_id:payload.session_id,display_name:payload.display_name,student_id:payload.student_id,section:payload.section,score:payload.score,accuracy:payload.accuracy};
+      }
 
-  async function termAnswer(extra){
-    extra = extra || {};
+      window.addEventListener('pagehide', function(){});
 
-    const identity = readIdentity();
-    const session = ensureSession();
-
-    const payload = {
-      ...identity,
-      ...session,
-      timestamp: nowIso(),
-      page_url: location.href,
-      user_agent: navigator.userAgent,
-
-      term_id: extra.term_id || extra.termId || extra.term || '',
-      term: extra.term || extra.word || '',
-      shown: extra.shown || extra.prompt || extra.question || '',
-      answer: extra.answer || extra.selected || extra.response || '',
-      variant_type: extra.variant_type || extra.variantType || extra.variant || '',
-      is_correct: !!(extra.is_correct ?? extra.isCorrect ?? extra.correct),
-      level_before: extra.level_before || extra.levelBefore || '',
-      level_after: extra.level_after || extra.levelAfter || '',
-      from_review: !!(extra.from_review ?? extra.fromReview ?? false),
-      response_ms: number(extra.response_ms ?? extra.responseMs, 0),
-      score: number(extra.score, 0),
-      combo: number(extra.combo, 0),
-      stage_index: number(extra.stage_index ?? extra.stageIndex, 0),
-      difficulty_before: extra.difficulty_before || extra.difficultyBefore || '',
-      difficulty_after: extra.difficulty_after || extra.difficultyAfter || ''
-    };
-
-    if (!payload.term && !payload.term_id) {
-      console.warn('[VocabLoggerFinal] skip empty term_answer');
-      return {
-        ok:false,
-        skipped:true,
-        reason:'empty term'
-      };
-    }
-
-    return post('term_answer', payload);
-  }
-
-  async function profileUpdate(extra){
-    extra = extra || {};
-
-    const identity = readIdentity();
-    const session = ensureSession();
-    const summary = getGameSummary(extra);
-
-    const payload = {
-      ...identity,
-      timestamp: nowIso(),
-      last_session_id: session.session_id,
-      last_bank: identity.bank,
-      last_mode: identity.mode,
-      last_score: summary.score,
-      last_accuracy: summary.accuracy,
-      recommended_mode: extra.recommended_mode || extra.recommendedMode || '',
-      recommended_difficulty: extra.recommended_difficulty || extra.recommendedDifficulty || '',
-      weak_terms_json: extra.weak_terms_json || extra.weakTerms || [],
-      mastery_json: extra.mastery_json || extra.mastery || {},
-      last_seen_at: nowIso(),
-      page_url: location.href,
-      user_agent: navigator.userAgent
-    };
-
-    return post('profile_update', payload);
-  }
-
-  async function leaderboardUpdate(extra){
-    extra = extra || {};
-
-    const identity = readIdentity();
-    const session = ensureSession();
-    const summary = getGameSummary(extra);
-
-    const payload = {
-      ...identity,
-      timestamp: nowIso(),
-      session_id: session.session_id,
-      best_session_id: session.session_id,
-      best_score: summary.score,
-      best_accuracy: summary.accuracy,
-      best_duration_sec: summary.duration_sec,
-      page_url: location.href,
-      user_agent: navigator.userAgent
-    };
-
-    if (summary.score <= 0 && summary.accuracy <= 0) {
-      return {
-        ok:false,
-        skipped:true,
-        reason:'no score/accuracy'
-      };
-    }
-
-    return post('leaderboard_update', payload);
-  }
-
-  async function sessionEnd(extra){
-    extra = extra || {};
-
-    if (state.postedEnd) {
-      return {
-        ok:true,
-        skipped:true,
-        reason:'session_end already posted'
-      };
-    }
-
-    const identity = readIdentity();
-    const session = ensureSession();
-    const summary = getGameSummary(extra);
-
-    const payload = {
-      ...identity,
-      ...session,
-      ...summary,
-      timestamp: nowIso(),
-      page_url: location.href,
-      user_agent: navigator.userAgent
-    };
-
-    if (!hasUsefulSessionPayload(payload)) {
-      console.warn('[VocabLoggerFinal] skip empty session_end');
-      return {
-        ok:false,
-        skipped:true,
-        reason:'empty session_end'
-      };
-    }
-
-    state.postedEnd = true;
-
-    await post('session_end', payload);
-    await profileUpdate(extra);
-    await leaderboardUpdate(extra);
-
-    return {
-      ok:true,
-      action:'session_end',
-      session_id: payload.session_id,
-      display_name: payload.display_name,
-      student_id: payload.student_id,
-      section: payload.section,
-      score: payload.score,
-      accuracy: payload.accuracy
-    };
-  }
-
-  window.addEventListener('pagehide', function(){
-    // intentionally blank: ไม่ยิง session_event ว่างตอนออกหน้า
-  });
-
-  return {
-    readIdentity,
-    forceSession,
-    ensureSession,
-    sessionStart,
-    termAnswer,
-    profileUpdate,
-    leaderboardUpdate,
-    sessionEnd,
-    post
-  };
-})();
+      return {readIdentity,forceSession,ensureSession,sessionStart,termAnswer,profileUpdate,leaderboardUpdate,sessionEnd,post};
+    })();
   </script>
 
   <script>
