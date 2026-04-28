@@ -1,23 +1,21 @@
-// === /english/js/lesson-data.js ===
-// TechPath English VR Lesson Data
-// PATCH v20260428-CANONICAL-S1-S15-1Q-AI-DIFFICULTY
-// ✅ S1-S15 canonical mapping ตามที่ตกลงล่าสุด
-// ✅ 1 Session = 1 Skill = 1 Question
-// ✅ แต่ละ S มีคลัง 10 ข้อ: easy 3 / normal 3 / hard 3 / challenge 1
-// ✅ Boss: S3, S6, S9, S12, S15
-// ✅ S5 / S15 Listening ไม่มี text prompt ของโจทย์บนหน้าจอ
-
+/* === /english/js/lesson-data.js ===
+   TechPath English VR — Canonical S1–S15 Data
+   PATCH v20260428-CANONICAL-1S-1Q-AI-DIFF
+   ✅ S1-S15 skill mapping ตามที่ตกลงล่าสุด
+   ✅ 1 Session = 1 Skill = เล่นจริง 1 ข้อ
+   ✅ แต่ละ Session มีคลัง 10 ข้อ
+   ✅ easy 3 / normal 3 / hard 3 / challenge 1
+   ✅ Boss: S3 / S6 / S9 / S12 / S15
+*/
 (function(){
   'use strict';
 
-  function pad(n){
-    return String(n).padStart(2, '0');
-  }
+  const DATA_VERSION = 'v20260428-CANONICAL-1S-1Q-AI-DIFF';
 
   const SKILLS = [
-    { id:'speaking',  label:'Speaking',  icon:'🎙️', verb:'พูด' },
-    { id:'reading',   label:'Reading',   icon:'📖', verb:'อ่าน' },
-    { id:'writing',   label:'Writing',   icon:'⌨️', verb:'พิมพ์/เขียน' },
+    { id:'speaking', label:'Speaking', icon:'🎙️', verb:'พูด' },
+    { id:'reading', label:'Reading', icon:'📖', verb:'อ่าน' },
+    { id:'writing', label:'Writing', icon:'⌨️', verb:'เขียน/พิมพ์' },
     { id:'listening', label:'Listening', icon:'🎧', verb:'ฟัง' }
   ];
 
@@ -224,29 +222,35 @@
     }
   ];
 
-  function makeChoiceQuestion(id, skill, level, say, prompt, choices, answer, hint, extra){
-    return Object.assign({
+  function pad(n){
+    return String(n).padStart(2,'0');
+  }
+
+  function makeChoiceQuestion(id, skill, level, say, prompt, choices, answer, hint){
+    return {
       id,
       skill,
       level,
-      say: say || '',
+      type:'choice',
+      say:say || '',
       prompt,
       choices,
       answer,
       hint
-    }, extra || {});
+    };
   }
 
-  function makeTextQuestion(id, skill, level, prompt, sample, expected, hint, extra){
-    return Object.assign({
+  function makeTextQuestion(id, skill, level, prompt, sample, expected, hint){
+    return {
       id,
       skill,
       level,
+      type:'text',
       prompt,
       sample,
       expected,
       hint
-    }, extra || {});
+    };
   }
 
   function pickRow(rows, level, no){
@@ -269,7 +273,9 @@
     ];
 
     SESSIONS.forEach(meta => {
-      bank[meta.id] = levelPattern.map((level, idx) => buildQuestion(meta, level, idx + 1));
+      bank[meta.id] = levelPattern.map((level, idx) => {
+        return buildQuestion(meta, level, idx + 1);
+      });
     });
 
     return bank;
@@ -326,8 +332,9 @@
         ['Say like a pro: “I am a future AI developer who can explain ideas clearly and confidently.”','I am a future AI developer who can explain ideas clearly and confidently.',['future','ai','developer','clearly','confidently'],'ต้องพูดครบ ชัด และเป็นธรรมชาติ']
       ]
     };
+
     const r = pickRow(rows, level, no);
-    return makeTextQuestion(qid(meta, level, no), 'speaking', level, r[0], r[1], r[2], r[3], { requireMic:true });
+    return makeTextQuestion(qid(meta, level, no), 'speaking', level, r[0], r[1], r[2], r[3]);
   }
 
   function buildS2ReadingNpcContext(meta, level, no){
@@ -351,6 +358,7 @@
         ['NPC says: “We only have one minute. Give me a professional but friendly response.”', ['Nice to meet you. I’m learning CS and AI, and I’d love to hear about your work.','I am busy. Bye.','Why are you here?'], 0, 'ต้องสุภาพ กระชับ และเปิดโอกาสให้คุยต่อ']
       ]
     };
+
     const r = pickRow(rows, level, no);
     return makeChoiceQuestion(qid(meta, level, no), 'reading', level, '', r[0], r[1], r[2], r[3]);
   }
@@ -376,6 +384,7 @@
         ['Boss attack! The hacker virus is corrupting login data and stealing tokens. Type a strong counterattack plan.','Revoke stolen tokens, disable compromised accounts, restore clean backups, and monitor all login activity.',['revoke','tokens','disable','restore','monitor'],'ตอบครบเพื่อโจมตีบอสกลับ']
       ]
     };
+
     const r = pickRow(rows, level, no);
     return makeTextQuestion(qid(meta, level, no), 'writing', level, r[0], r[1], r[2], r[3]);
   }
@@ -401,8 +410,9 @@
         ['Boss-style stand-up: give a confident update with yesterday, today, blocker, and next action.','Yesterday, I fixed the authentication bug. Today, I will run security tests. My blocker is incomplete server logs, so I will ask the backend team for details.',['yesterday','today','blocker','security','backend'],'ต้องครบและเป็นธรรมชาติ']
       ]
     };
+
     const r = pickRow(rows, level, no);
-    return makeTextQuestion(qid(meta, level, no), 'speaking', level, r[0], r[1], r[2], r[3], { requireMic:true });
+    return makeTextQuestion(qid(meta, level, no), 'speaking', level, r[0], r[1], r[2], r[3]);
   }
 
   function buildS5ListeningKeyword(meta, level, no){
@@ -426,8 +436,9 @@
         ['Urgent alert. The API is unstable, the dashboard is loading slowly, and the client demo starts in ten minutes.','What is the most urgent context?', ['client demo starts in ten minutes','lunch starts tomorrow','the keyboard is new'], 0, 'จับหลาย keyword พร้อมกัน']
       ]
     };
+
     const r = pickRow(rows, level, no);
-    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'LISTEN ONLY — No text prompt on screen.', r[2], r[3], r[4], { hidePrompt:true });
+    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'Listen only. No text prompt will be shown during play.', r[2], r[3], r[4]);
   }
 
   function buildS6ReadingTicketBoss(meta, level, no){
@@ -451,6 +462,7 @@
         ['Boss Ticket: Production users see stale data, API is slow, and cache was enabled yesterday. Fastest correct fix?', ['Invalidate cache, check API logs, and verify database query performance','Change the logo and reload the page','Ask users to wait one week'], 0, 'ต้องแก้ cache + logs + query']
       ]
     };
+
     const r = pickRow(rows, level, no);
     return makeChoiceQuestion(qid(meta, level, no), 'reading', level, '', r[0], r[1], r[2], r[3]);
   }
@@ -476,6 +488,7 @@
         ['Client Terminal Challenge: “Explain AI, risk, and value in simple words.”','AI can help us make faster decisions, but we must use good data and protect user privacy.',['ai','faster','decisions','data','privacy'],'ต้องง่ายแต่ครบ value + risk']
       ]
     };
+
     const r = pickRow(rows, level, no);
     return makeTextQuestion(qid(meta, level, no), 'writing', level, r[0], r[1], r[2], r[3]);
   }
@@ -501,8 +514,9 @@
         ['Ethics challenge: An investor wants to use user data without telling users to improve profit. Is this acceptable?','Choose the best answer.', ['No, users need transparency, consent, and data protection','Yes, profit is more important','Yes, if nobody notices'], 0, 'legal + ethical + privacy']
       ]
     };
+
     const r = pickRow(rows, level, no);
-    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'Listen to the ethics question and choose the legal and ethical answer.', r[2], r[3], r[4], { hidePrompt:true });
+    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'Listen to the ethics question and choose the legal and ethical answer.', r[2], r[3], r[4]);
   }
 
   function buildS9SpeakingDataBoss(meta, level, no){
@@ -526,8 +540,9 @@
         ['Boss voice key: “The dashboard indicates a sharp decline in retention, so we should investigate onboarding friction.”','The dashboard indicates a sharp decline in retention, so we should investigate onboarding friction.',['dashboard','decline','retention','investigate','onboarding'],'ยาวและ technical']
       ]
     };
+
     const r = pickRow(rows, level, no);
-    return makeTextQuestion(qid(meta, level, no), 'speaking', level, r[0], r[1], r[2], r[3], { requireMic:true });
+    return makeTextQuestion(qid(meta, level, no), 'speaking', level, r[0], r[1], r[2], r[3]);
   }
 
   function buildS10ReadingHologram(meta, level, no){
@@ -551,6 +566,7 @@
         ['Hologram Challenge: “We need a secure AI dashboard for executives, but staff must only see their own data.” Best reply?', ['We should use role-based access, secure authentication, and clear executive-level visualizations.','We should let everyone see all data.','We should avoid security because it takes time.'], 0, 'security + roles + dashboard']
       ]
     };
+
     const r = pickRow(rows, level, no);
     return makeChoiceQuestion(qid(meta, level, no), 'reading', level, '', r[0], r[1], r[2], r[3]);
   }
@@ -576,8 +592,9 @@
         ['Listen carefully! I am angry, but the real issue is that managers see the wrong branch data after the latest dashboard update!','What is the real issue?', ['wrong branch data after dashboard update','the client dislikes meetings','the phone is expensive'], 0, 'tone หลอกได้ ต้องจับ content']
       ]
     };
+
     const r = pickRow(rows, level, no);
-    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'Listen to the angry client. Focus on the problem, not the tone.', r[2], r[3], r[4], { hidePrompt:true, angryTone:true });
+    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'Listen to the angry client. Focus on the problem, not the tone.', r[2], r[3], r[4]);
   }
 
   function buildS12WritingFounderBoss(meta, level, no){
@@ -601,6 +618,7 @@
         ['Boss Pitch: “Convince me in two sentences: problem, solution, value, and evidence.”','Students need safe English practice. Our VR-AI platform gives short missions, adaptive feedback, and progress data to prove improvement.',['students','practice','vr','ai','feedback','data'],'ต้องครบ pitch structure']
       ]
     };
+
     const r = pickRow(rows, level, no);
     return makeTextQuestion(qid(meta, level, no), 'writing', level, r[0], r[1], r[2], r[3]);
   }
@@ -626,6 +644,7 @@
         ['HR Challenge: “Why should we choose you over other candidates?” Best answer?', ['I combine technical curiosity, communication skills, and a strong willingness to learn from real projects.','Because I am the loudest person.','Because I do not need teamwork.'], 0, 'professional differentiation']
       ]
     };
+
     const r = pickRow(rows, level, no);
     return makeChoiceQuestion(qid(meta, level, no), 'reading', level, '', r[0], r[1], r[2], r[3]);
   }
@@ -651,8 +670,9 @@
         ['Strict mic challenge: “I would solve this problem by breaking it into smaller steps, checking edge cases, and testing the output.”','I would solve this problem by breaking it into smaller steps, checking edge cases, and testing the output.',['solve','smaller','steps','edge','cases','testing'],'ยาว ต้องชัดและครบ']
       ]
     };
+
     const r = pickRow(rows, level, no);
-    return makeTextQuestion(qid(meta, level, no), 'speaking', level, r[0], r[1], r[2], r[3], { requireMic:true, strictMic:true });
+    return makeTextQuestion(qid(meta, level, no), 'speaking', level, r[0], r[1], r[2], r[3]);
   }
 
   function buildS15ListeningFinalNetwork(meta, level, no){
@@ -676,14 +696,15 @@
         ['Final global attack: Asia has login failures, Europe has DNS errors, and North America has payment API timeouts. Choose the best first action.','What should the response team do first?', ['Prioritize incidents, check logs, and assign regional teams','Change the website color','Ignore all alerts'], 0, 'ต้องจัดลำดับ incident response']
       ]
     };
+
     const r = pickRow(rows, level, no);
-    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'FINAL LISTENING — No text prompt on screen.', r[2], r[3], r[4], { hidePrompt:true, final:true });
+    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'Final listening test. Listen only and choose the correct emergency action.', r[2], r[3], r[4]);
   }
 
   const SESSION_BANK = buildSessionBank();
 
   window.TECHPATH_LESSON_DATA = {
-    version:'v20260428-CANONICAL-S1-S15-1Q-AI-DIFFICULTY',
+    DATA_VERSION,
     SKILLS,
     SESSIONS,
     SESSION_BANK
