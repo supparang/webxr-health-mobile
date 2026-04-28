@@ -22,6 +22,7 @@
       --pink:#ff86d1;
       --shadow:0 22px 70px rgba(0,0,0,.35);
       --r1:30px;
+      --r2:22px;
       --max:1240px;
       --safeTop:env(safe-area-inset-top,0px);
       --safeBottom:env(safe-area-inset-bottom,0px);
@@ -422,7 +423,7 @@
     }
 
     .sessionBtn{
-      min-height:96px;
+      min-height:106px;
       padding:12px;
       border-radius:20px;
       border:1px solid rgba(255,255,255,.14);
@@ -486,6 +487,11 @@
       background:rgba(255,209,102,.13);
       border-color:rgba(255,209,102,.34);
     }
+
+    .tag.easy{color:#d7ffe9;border-color:rgba(76,227,154,.34);background:rgba(76,227,154,.11)}
+    .tag.normal{color:#d9fbff;border-color:rgba(114,232,255,.34);background:rgba(114,232,255,.11)}
+    .tag.hard{color:#ffe9aa;border-color:rgba(255,209,102,.34);background:rgba(255,209,102,.11)}
+    .tag.challenge{color:#ffd5dd;border-color:rgba(255,110,135,.34);background:rgba(255,110,135,.11)}
 
     .game{
       display:none;
@@ -747,14 +753,6 @@
       color:#ffe9aa;
     }
 
-    .bossHearts{
-      display:flex;
-      flex-wrap:wrap;
-      gap:7px;
-      font-size:24px;
-      margin-top:8px;
-    }
-
     .answerBox{
       display:grid;
       gap:10px;
@@ -952,7 +950,7 @@
   <div id="boot" class="boot" aria-live="polite">
     <div class="bootBox">
       <h1 class="bootTitle">Loading TechPath VR...</h1>
-      <p class="bootSub">Preparing A2–B1+ missions</p>
+      <p class="bootSub">Preparing S1–S15 AI missions</p>
       <div class="bootDots" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
   </div>
@@ -964,7 +962,7 @@
           <div class="logo">TP</div>
           <div>
             <h1>TechPath English VR</h1>
-            <p id="topSub">A2–B1+ • CS/AI English Session Mission</p>
+            <p id="topSub">1 Session • 1 Skill • 1 AI-random question</p>
           </div>
         </div>
 
@@ -984,8 +982,9 @@
               <span class="kicker">Session Learning</span>
               <h2 class="heroTitle">เรียนอังกฤษสาย CS/AI เป็น Session</h2>
               <p class="heroDesc">
-                ฝึกครบ 4 ทักษะ ฟัง พูด อ่าน เขียน ผ่านภารกิจสั้น ๆ
-                มี Boss ทุก 3 Session และบันทึกการเข้าเรียนแต่ละ S เพื่อใช้ติดตามผู้เรียน
+                แต่ละ Session มีทักษะหลัก 1 ทักษะ และเล่นจริง 1 ข้อเท่านั้น
+                แต่ระบบมีคลัง 10 ข้อในแต่ละ S แบ่งระดับ easy / normal / hard / challenge
+                แล้วให้ AI Difficulty Director สุ่มข้อที่เหมาะสมกับผู้เรียน
               </p>
 
               <div class="actions">
@@ -1042,11 +1041,12 @@
               </label>
 
               <label class="field">
-                Difficulty
+                Starting Difficulty
                 <select id="difficulty">
                   <option value="easy">easy</option>
                   <option value="normal" selected>normal</option>
                   <option value="hard">hard</option>
+                  <option value="challenge">challenge</option>
                 </select>
               </label>
             </div>
@@ -1061,7 +1061,7 @@
             <div class="head">
               <div>
                 <h2>เลือก Session</h2>
-                <p>S3 / S6 / S9 / S12 / S15 มี Boss Challenge</p>
+                <p>S3 / S6 / S9 / S12 / S15 เป็น Boss หรือ Final Challenge</p>
               </div>
             </div>
 
@@ -1073,9 +1073,9 @@
       <section id="gameView" class="game">
         <div class="hud">
           <div class="hudBox"><span>Session</span><b id="hudSession">S01</b></div>
-          <div class="hudBox"><span>Skill</span><b id="hudSkill">Listen</b></div>
+          <div class="hudBox"><span>Skill</span><b id="hudSkill">Listening</b></div>
+          <div class="hudBox"><span>AI Level</span><b id="hudAi">easy</b></div>
           <div class="hudBox"><span>Score</span><b id="hudScore">0</b></div>
-          <div class="hudBox"><span>HP</span><b id="hudHp">100%</b></div>
           <div class="hudBox"><span>Time</span><b id="hudTime">00:00</b></div>
         </div>
 
@@ -1086,13 +1086,13 @@
                 <h2 class="missionTitle" id="missionTitle">Mission</h2>
                 <p class="missionSub" id="missionSub">Prepare your task.</p>
               </div>
-              <span class="chip gold" id="missionBadge">A2+</span>
+              <span class="chip gold" id="missionBadge">A2 • AI</span>
             </div>
 
             <div class="prompt">
               <div class="promptTop">
                 <span id="promptLabel">Prompt</span>
-                <span id="promptCount">1/4</span>
+                <span id="promptCount">1/1</span>
               </div>
               <p class="promptText" id="promptText">...</p>
               <p class="hint" id="promptHint">Choose the best answer.</p>
@@ -1117,7 +1117,7 @@
 
             <div class="actions">
               <button class="btn primary" id="listenBtn">🔊 Play US Audio</button>
-              <button class="btn green" id="nextBtn" disabled>Next ▶</button>
+              <button class="btn green" id="nextBtn" disabled>Finish S ▶</button>
               <button class="btn" id="backHomeBtn">กลับหน้าเลือก Session</button>
             </div>
           </article>
@@ -1126,7 +1126,7 @@
             <div class="head" style="margin-bottom:0">
               <div>
                 <h2 id="sideTitle">S01 Progress</h2>
-                <p id="sideDesc">Complete Listening, Speaking, Reading, Writing.</p>
+                <p id="sideDesc">1 Session = 1 AI-random question.</p>
               </div>
             </div>
 
@@ -1138,15 +1138,14 @@
             <div class="skillList" id="skillList"></div>
 
             <div id="bossPanel" class="bossPanel">
-              <h3>🔥 Boss Challenge</h3>
-              <p class="hint">ตอบให้ถูกเพื่อทำลาย Boss HP ก่อนจบ Session</p>
-              <div class="bossHearts" id="bossHearts">❤️ ❤️ ❤️</div>
+              <h3 id="bossTitle">🔥 Boss Challenge</h3>
+              <p class="hint" id="bossHint">Boss Session จะดันระดับข้อให้ยากขึ้น</p>
             </div>
 
             <div class="statusCard">
               <h3>Coach Tip</h3>
               <p id="coachTip" class="hint" style="margin:0">
-                เริ่มจากจับ keyword ในโจทย์ แล้วเลือกคำตอบที่ใช้ในสถานการณ์งานเทคโนโลยี
+                เริ่มจากจับ keyword ในโจทย์ แล้วตอบให้ตรงกับสถานการณ์งานเทคโนโลยี
               </p>
             </div>
           </aside>
@@ -1161,12 +1160,12 @@
           <div class="stat"><span>Score</span><b id="sumScore">0</b></div>
           <div class="stat"><span>Accuracy</span><b id="sumAcc">0%</b></div>
           <div class="stat"><span>Time</span><b id="sumTime">00:00</b></div>
-          <div class="stat"><span>Skills</span><b id="sumSkills">0/4</b></div>
+          <div class="stat"><span>Question</span><b id="sumQuestion">1/1</b></div>
         </div>
 
         <div class="actions">
           <button class="btn primary" id="nextSessionBtn">เล่นด่านถัดไป ▶</button>
-          <button class="btn green" id="replayBtn">เล่น S นี้อีกครั้ง</button>
+          <button class="btn green" id="replayBtn">สุ่ม S นี้อีกครั้ง</button>
           <button class="btn" id="summaryHomeBtn">กลับหน้าเลือก Session</button>
         </div>
       </section>
@@ -1203,10 +1202,11 @@
     window.TECHPATH_BOOT_OK = false;
 
     const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
-    const STORAGE_PROFILE = 'TECHPATH_EN_PROFILE_US_V1';
-    const STORAGE_PROGRESS = 'TECHPATH_EN_PROGRESS_US_V1';
-    const STORAGE_LAST = 'TECHPATH_EN_LAST_SESSION_US_V1';
-    const STORAGE_VOICE = 'TECHPATH_EN_US_VOICE_NAME_V1';
+
+    const STORAGE_PROFILE = 'TECHPATH_EN_PROFILE_AI_1Q_V1';
+    const STORAGE_PROGRESS = 'TECHPATH_EN_PROGRESS_AI_1Q_V1';
+    const STORAGE_LAST = 'TECHPATH_EN_LAST_SESSION_AI_1Q_V1';
+    const STORAGE_VOICE = 'TECHPATH_EN_US_VOICE_NAME_AI_1Q_V1';
 
     const SKILLS = [
       { id:'listening', label:'Listening', icon:'🎧', verb:'ฟัง' },
@@ -1216,198 +1216,48 @@
     ];
 
     const SESSIONS = [
-      { id:1,  title:'Self-Introduction in Tech', focus:'Introduce yourself as a CS/AI student', level:'A2' },
-      { id:2,  title:'Academic Background and Projects', focus:'Explain your study and project background', level:'A2' },
-      { id:3,  title:'Tech Jobs and Roles', focus:'Describe roles in a software team', level:'A2+', boss:true },
-      { id:4,  title:'Daily Workplace Communication', focus:'Use simple workplace requests', level:'A2+' },
-      { id:5,  title:'Emails and Chat', focus:'Write short professional messages', level:'A2+' },
-      { id:6,  title:'Meetings and Scheduling', focus:'Join a short meeting conversation', level:'B1-', boss:true },
-      { id:7,  title:'Explaining a System', focus:'Explain how a simple system works', level:'B1-' },
-      { id:8,  title:'Describing Problems and Bugs', focus:'Report a bug clearly', level:'B1-' },
-      { id:9,  title:'Team Collaboration and Stand-up', focus:'Give a stand-up update', level:'B1', boss:true },
-      { id:10, title:'Client Communication', focus:'Ask and answer client questions', level:'B1' },
-      { id:11, title:'Data and AI Communication', focus:'Talk about dataset, model, and results', level:'B1' },
-      { id:12, title:'CV and Portfolio Language', focus:'Present skills and portfolio evidence', level:'B1', boss:true },
-      { id:13, title:'Job Interview', focus:'Answer interview questions clearly', level:'B1+' },
-      { id:14, title:'Project Pitch', focus:'Pitch a tech project in simple English', level:'B1+' },
-      { id:15, title:'Capstone Career Mission', focus:'Final mixed skill challenge', level:'B1+', boss:true, final:true }
+      { id:1,  title:'Self-Introduction in Tech', level:'A2',  skill:'listening', focus:'Listen to one short self-introduction sentence.' },
+      { id:2,  title:'Academic Background and Projects', level:'A2', skill:'speaking', focus:'Speak one sentence about your study or project.' },
+      { id:3,  title:'Tech Jobs and Roles', level:'A2+', skill:'reading', focus:'Read one short text about tech roles.', boss:true },
+
+      { id:4,  title:'Daily Workplace Communication', level:'A2+', skill:'writing', focus:'Write one simple workplace message.' },
+      { id:5,  title:'Emails and Chat', level:'A2+', skill:'listening', focus:'Listen to one email or chat instruction.' },
+      { id:6,  title:'Meetings and Scheduling', level:'B1-', skill:'speaking', focus:'Speak one meeting or scheduling expression.', boss:true },
+
+      { id:7,  title:'Explaining a System', level:'B1-', skill:'reading', focus:'Read one short system explanation.' },
+      { id:8,  title:'Describing Problems and Bugs', level:'B1-', skill:'writing', focus:'Write one clear bug report sentence.' },
+      { id:9,  title:'Team Collaboration and Stand-up', level:'B1', skill:'listening', focus:'Listen to one stand-up update.', boss:true },
+
+      { id:10, title:'Client Communication', level:'B1', skill:'speaking', focus:'Speak one response to a client question.' },
+      { id:11, title:'Data and AI Communication', level:'B1', skill:'reading', focus:'Read one short AI/data description.' },
+      { id:12, title:'CV and Portfolio Language', level:'B1', skill:'writing', focus:'Write one portfolio or CV statement.', boss:true },
+
+      { id:13, title:'Job Interview', level:'B1+', skill:'listening', focus:'Listen to one interview question.' },
+      { id:14, title:'Project Pitch', level:'B1+', skill:'speaking', focus:'Speak one short project pitch.' },
+      { id:15, title:'Capstone Career Mission', level:'B1+', skill:'writing', focus:'Write one final career/project pitch.', boss:true, final:true }
     ];
-
-    const BANK = {
-      listening: [
-        {
-          say:'I am testing a new login feature today.',
-          prompt:'The speaker says: “I am testing a new login feature today.” What is the speaker doing?',
-          choices:['Writing a report','Testing a feature','Designing a logo','Buying a computer'],
-          answer:1,
-          hint:'Listen for the action word: testing.'
-        },
-        {
-          say:'The dataset is too small for training.',
-          prompt:'The speaker says: “The dataset is too small for training.” What is the problem?',
-          choices:['The screen is broken','The dataset is too small','The app is too colorful','The meeting is canceled'],
-          answer:1,
-          hint:'Focus on the phrase: dataset is too small.'
-        },
-        {
-          say:'Please deploy the update after the meeting.',
-          prompt:'The speaker says: “Please deploy the update after the meeting.” When should the update be deployed?',
-          choices:['Before breakfast','After the meeting','Next month','During the exam'],
-          answer:1,
-          hint:'Listen for the time phrase.'
-        },
-        {
-          say:'Our model accuracy improved this week.',
-          prompt:'The speaker says: “Our model accuracy improved this week.” What improved?',
-          choices:['Model accuracy','Battery life','Classroom size','Internet price'],
-          answer:0,
-          hint:'The key phrase is model accuracy.'
-        },
-        {
-          say:'The client wants a simpler dashboard.',
-          prompt:'The speaker says: “The client wants a simpler dashboard.” What does the client want?',
-          choices:['A simpler dashboard','A longer password','A new keyboard','A bigger classroom'],
-          answer:0,
-          hint:'Listen for the object after wants.'
-        },
-        {
-          say:'We need to fix the payment bug before Friday.',
-          prompt:'The speaker says: “We need to fix the payment bug before Friday.” What do they need to fix?',
-          choices:['Payment bug','Computer room','Projector cable','English book'],
-          answer:0,
-          hint:'Listen for fix + object.'
-        }
-      ],
-
-      speaking: [
-        {
-          prompt:'Say this clearly: “I am a CS student, and I am interested in AI.”',
-          sample:'I am a CS student, and I am interested in AI.',
-          hint:'พูดให้ครบประโยค เน้น CS student และ interested in AI.'
-        },
-        {
-          prompt:'Say this clearly: “My project is a mobile app for learning vocabulary.”',
-          sample:'My project is a mobile app for learning vocabulary.',
-          hint:'พูดชื่อ project + purpose.'
-        },
-        {
-          prompt:'Say this clearly: “I found a bug in the login page.”',
-          sample:'I found a bug in the login page.',
-          hint:'ใช้ found a bug เพื่อรายงานปัญหา.'
-        },
-        {
-          prompt:'Say this clearly: “The AI model needs more data.”',
-          sample:'The AI model needs more data.',
-          hint:'พูด subject + needs + object.'
-        },
-        {
-          prompt:'Say this clearly: “I can explain the system workflow.”',
-          sample:'I can explain the system workflow.',
-          hint:'ใช้ I can + verb เพื่อบอกความสามารถ.'
-        },
-        {
-          prompt:'Say this clearly: “Our team is developing a web application.”',
-          sample:'Our team is developing a web application.',
-          hint:'พูด Our team is developing ...'
-        }
-      ],
-
-      reading: [
-        {
-          prompt:'Read: “A developer writes code, tests features, and fixes bugs.” What does a developer fix?',
-          choices:['Bugs','Lunch','Chairs','Weather'],
-          answer:0,
-          hint:'Look for the verb fixes.'
-        },
-        {
-          prompt:'Read: “A dataset is a collection of data used to train a model.” What is a dataset used for?',
-          choices:['To train a model','To paint a wall','To cook rice','To clean a room'],
-          answer:0,
-          hint:'Find the phrase used to.'
-        },
-        {
-          prompt:'Read: “The team has a short meeting every morning to share progress.” Why do they meet?',
-          choices:['To share progress','To watch movies','To play football','To delete files'],
-          answer:0,
-          hint:'The purpose comes after to.'
-        },
-        {
-          prompt:'Read: “The interface should be simple so users can understand it quickly.” What should the interface be?',
-          choices:['Simple','Expensive','Hidden','Noisy'],
-          answer:0,
-          hint:'Find the adjective after should be.'
-        },
-        {
-          prompt:'Read: “A portfolio shows your projects, skills, and achievements.” What does a portfolio show?',
-          choices:['Projects and skills','Only food','Only games','Weather reports'],
-          answer:0,
-          hint:'Look for projects, skills, and achievements.'
-        },
-        {
-          prompt:'Read: “A prototype helps users test an idea before the final product is built.” What does a prototype help users do?',
-          choices:['Test an idea','Wash a car','Cook dinner','Close the school'],
-          answer:0,
-          hint:'Find helps users + verb.'
-        }
-      ],
-
-      writing: [
-        {
-          prompt:'Write one sentence to introduce yourself as a CS/AI student.',
-          expected:['i am','student','cs','ai'],
-          sample:'I am a CS/AI student interested in technology.',
-          hint:'ใช้ I am ... student ... interested in ...'
-        },
-        {
-          prompt:'Write one short message to report a bug to your team.',
-          expected:['bug','found','page','app'],
-          sample:'I found a bug on the login page. Please check it.',
-          hint:'ใช้ I found a bug...'
-        },
-        {
-          prompt:'Write one sentence to explain your project.',
-          expected:['project','app','system','helps'],
-          sample:'My project is an app that helps students learn vocabulary.',
-          hint:'ใช้ My project is ... that helps ...'
-        },
-        {
-          prompt:'Write one sentence about an AI model and data.',
-          expected:['model','data','accuracy','train'],
-          sample:'The AI model needs more data to improve accuracy.',
-          hint:'ใช้ model + data + accuracy.'
-        },
-        {
-          prompt:'Write one polite email sentence to ask for a meeting.',
-          expected:['meeting','please','could','schedule'],
-          sample:'Could we schedule a short meeting tomorrow, please?',
-          hint:'ใช้ Could we ... please?'
-        },
-        {
-          prompt:'Write one sentence to describe your role in a team.',
-          expected:['team','role','develop','design'],
-          sample:'My role is to design the interface and develop the app.',
-          hint:'ใช้ My role is to ...'
-        }
-      ]
-    };
 
     const state = {
       profile:{ studentId:'', studentName:'', section:'', difficulty:'normal' },
       progress:{ completed:{}, bestScore:{}, sessions:[] },
+
       currentSession:1,
-      currentSkillIndex:0,
+      sessionSkill:'listening',
+
       score:0,
-      hp:100,
       correct:0,
       total:0,
+
+      aiDifficulty:'easy',
+      questionSeed:'',
+      currentQuestion:null,
+
       startedAt:0,
       activeStartedAt:0,
       timer:null,
       activeTimer:null,
       sessionId:'',
-      bossHp:3,
       locked:false,
-      currentQuestion:null,
       voices:[]
     };
 
@@ -1422,12 +1272,12 @@
         'studentId','studentName','section','difficulty',
         'saveProfileBtn','resetProgressBtn','startCurrentBtn','openSessionBtn','openGuideBtn','testVoiceBtn',
         'attSession','attTime','activeTime','sheetStatus','voiceStatus','homeScore','homeCompleted','homeLevel',
-        'hudSession','hudSkill','hudScore','hudHp','hudTime',
+        'hudSession','hudSkill','hudAi','hudScore','hudTime',
         'missionTitle','missionSub','missionBadge','promptLabel','promptCount','promptText','promptHint',
         'choiceArea','answerArea','textAnswer','submitTextBtn','aiHelpBtn','speakBtn',
         'feedback','listenBtn','nextBtn','backHomeBtn',
-        'sideTitle','sideDesc','progressText','progressBar','skillList','bossPanel','bossHearts','coachTip',
-        'summaryTitle','summaryDesc','sumScore','sumAcc','sumTime','sumSkills',
+        'sideTitle','sideDesc','progressText','progressBar','skillList','bossPanel','bossTitle','bossHint','coachTip',
+        'summaryTitle','summaryDesc','sumScore','sumAcc','sumTime','sumQuestion',
         'nextSessionBtn','replayBtn','summaryHomeBtn',
         'navHome','navSessions','navPlay','navStats',
         'toast','modal','modalTitle','modalBody','closeModalBtn','debugBox'
@@ -1484,6 +1334,15 @@
       try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
     }
 
+    function sessionMeta(n){
+      return SESSIONS.find(x => x.id === Number(n)) || SESSIONS[0];
+    }
+
+    function sessionSkillMeta(){
+      const meta = sessionMeta(state.currentSession);
+      return SKILLS.find(s => s.id === meta.skill) || SKILLS[0];
+    }
+
     function normalizeUrl(){
       try{
         const url = new URL(location.href);
@@ -1503,7 +1362,7 @@
         p.set('s', String(s));
 
         let diff = p.get('diff') || p.get('level') || 'normal';
-        if(!['easy','normal','hard'].includes(diff)) diff = 'normal';
+        if(!['easy','normal','hard','challenge'].includes(diff)) diff = 'normal';
         p.set('diff', diff);
 
         if(!p.get('level')) p.set('level','normal');
@@ -1516,14 +1375,301 @@
       }catch(e){}
     }
 
-    function sessionMeta(n){
-      return SESSIONS.find(x => x.id === Number(n)) || SESSIONS[0];
+    function makeChoiceQuestion(id, skill, level, say, prompt, choices, answer, hint){
+      return { id, skill, level, say, prompt, choices, answer, hint };
     }
 
-    function diffMultiplier(){
-      if(state.profile.difficulty === 'easy') return 0.9;
-      if(state.profile.difficulty === 'hard') return 1.2;
-      return 1;
+    function makeTextQuestion(id, skill, level, prompt, sample, expected, hint){
+      return { id, skill, level, prompt, sample, expected, hint };
+    }
+
+    function buildSessionBank(){
+      const bank = {};
+      SESSIONS.forEach(meta => {
+        const pattern = [
+          'easy','easy','easy',
+          'normal','normal','normal',
+          'hard','hard','hard',
+          'challenge'
+        ];
+
+        bank[meta.id] = pattern.map((level, idx) => buildQuestion(meta, level, idx + 1));
+      });
+      return bank;
+    }
+
+    function buildQuestion(meta, level, no){
+      const s = meta.skill;
+      const id = 'S' + meta.id + '_' + s.toUpperCase().slice(0,1) + '_' + level.toUpperCase().slice(0,1) + '_' + pad(no);
+
+      if(s === 'listening'){
+        return buildListeningQuestion(id, meta, level, no);
+      }
+
+      if(s === 'speaking'){
+        return buildSpeakingQuestion(id, meta, level, no);
+      }
+
+      if(s === 'reading'){
+        return buildReadingQuestion(id, meta, level, no);
+      }
+
+      return buildWritingQuestion(id, meta, level, no);
+    }
+
+    function buildListeningQuestion(id, meta, level, no){
+      const topic = meta.title;
+
+      const data = {
+        easy:[
+          ['I am a CS student.','What does the speaker say?',['I am a CS student.','I am a doctor.','I am cooking.','I am running.'],0,'Listen for CS student.'],
+          ['I like technology.','What does the speaker like?',['Technology','Football','Cooking','Music'],0,'Listen for like.'],
+          ['My project is a mobile app.','What is the project?',['A mobile app','A paper book','A chair','A bus ticket'],0,'Listen for mobile app.']
+        ],
+        normal:[
+          ['I am testing a new login feature today.','What is the speaker doing?',['Testing a feature','Designing a logo','Buying a computer','Cleaning a room'],0,'Listen for testing.'],
+          ['Please deploy the update after the meeting.','When should the update be deployed?',['Before breakfast','After the meeting','Next month','During the exam'],1,'Listen for after the meeting.'],
+          ['The dataset is too small for training.','What is the problem?',['The dataset is too small','The screen is broken','The app is too colorful','The meeting is canceled'],0,'Listen for dataset and too small.']
+        ],
+        hard:[
+          ['The client wants a simpler dashboard because users are confused.','Why does the client want a simpler dashboard?',['Users are confused','The price is high','The login failed','The meeting is late'],0,'Listen for because.'],
+          ['Our model accuracy improved after we cleaned the dataset.','Why did the accuracy improve?',['They cleaned the dataset','They changed the classroom','They bought a phone','They deleted the app'],0,'Listen for after.'],
+          ['We need to fix the payment bug before Friday.','What do they need to fix?',['Payment bug','Computer room','Projector cable','English book'],0,'Listen for fix + object.']
+        ],
+        challenge:[
+          ['During the stand-up meeting, I said the API was working, but the dashboard still needed testing.','Which part still needed testing?',['The dashboard','The API','The login password','The classroom'],0,'Listen for but.']
+        ]
+      };
+
+      const pool = data[level] || data.normal;
+      const row = pool[(no - 1) % pool.length];
+
+      return makeChoiceQuestion(
+        id,
+        'listening',
+        level,
+        row[0],
+        'Session topic: ' + topic + '. ' + row[1],
+        row[2],
+        row[3],
+        row[4]
+      );
+    }
+
+    function buildSpeakingQuestion(id, meta, level, no){
+      const topic = meta.title;
+
+      const data = {
+        easy:[
+          ['Say clearly: “I am a CS student.”','I am a CS student.',['i','am','cs','student'],'พูดประโยคสั้น ๆ ให้ครบ'],
+          ['Say clearly: “I like technology.”','I like technology.',['i','like','technology'],'พูด I like + noun'],
+          ['Say clearly: “My project is an app.”','My project is an app.',['project','app'],'พูด project + app']
+        ],
+        normal:[
+          ['Say clearly: “My project is a mobile app for learning vocabulary.”','My project is a mobile app for learning vocabulary.',['project','mobile','app','learning'],'พูดชื่อ project + purpose'],
+          ['Say clearly: “I found a bug in the login page.”','I found a bug in the login page.',['found','bug','login'],'ใช้ found a bug'],
+          ['Say clearly: “Our team is developing a web application.”','Our team is developing a web application.',['team','developing','web','application'],'พูด Our team is developing ...']
+        ],
+        hard:[
+          ['Say clearly: “The AI model needs more data to improve accuracy.”','The AI model needs more data to improve accuracy.',['model','data','accuracy'],'พูด model + needs + reason'],
+          ['Say clearly: “I can explain the system workflow to the client.”','I can explain the system workflow to the client.',['explain','system','workflow','client'],'ใช้ I can explain ...'],
+          ['Say clearly: “The dashboard helps users understand project progress.”','The dashboard helps users understand project progress.',['dashboard','users','progress'],'พูด noun + helps users + verb']
+        ],
+        challenge:[
+          ['Give a short project pitch in one sentence: what it is and who it helps.','My project is an AI learning app that helps students practice English.',['project','helps','students','english'],'พูดให้มี what it is + who it helps']
+        ]
+      };
+
+      const pool = data[level] || data.normal;
+      const row = pool[(no - 1) % pool.length];
+
+      return makeTextQuestion(
+        id,
+        'speaking',
+        level,
+        row[0] + ' Session topic: ' + topic + '.',
+        row[1],
+        row[2],
+        row[3]
+      );
+    }
+
+    function buildReadingQuestion(id, meta, level, no){
+      const topic = meta.title;
+
+      const data = {
+        easy:[
+          ['Read: “A developer writes code.” What does a developer write?',['Code','Food','Music','Weather'],0,'Look for writes.'],
+          ['Read: “A designer creates the interface.” What does a designer create?',['Interface','Database','Keyboard','Lunch'],0,'Look for creates.'],
+          ['Read: “A tester checks the app.” What does a tester check?',['The app','The bus','The room','The song'],0,'Look for checks.']
+        ],
+        normal:[
+          ['Read: “A dataset is a collection of data used to train a model.” What is a dataset used for?',['To train a model','To paint a wall','To cook rice','To clean a room'],0,'Find used to.'],
+          ['Read: “The team has a short meeting every morning to share progress.” Why do they meet?',['To share progress','To watch movies','To play football','To delete files'],0,'The purpose comes after to.'],
+          ['Read: “The interface should be simple so users can understand it quickly.” What should the interface be?',['Simple','Expensive','Hidden','Noisy'],0,'Find should be.']
+        ],
+        hard:[
+          ['Read: “A prototype helps users test an idea before the final product is built.” What does a prototype help users do?',['Test an idea','Wash a car','Cook dinner','Close the school'],0,'Find helps users + verb.'],
+          ['Read: “The model performed poorly because the training data was incomplete.” Why did the model perform poorly?',['The data was incomplete','The screen was bright','The team was early','The app was free'],0,'Find because.'],
+          ['Read: “A portfolio shows your projects, skills, and achievements.” What does a portfolio show?',['Projects and skills','Only food','Only games','Weather reports'],0,'Look for projects and skills.']
+        ],
+        challenge:[
+          ['Read: “Although the API was stable, the dashboard required more usability testing before release.” What still required testing?',['The dashboard','The API','The server room','The database password'],0,'Although shows contrast.']
+        ]
+      };
+
+      const pool = data[level] || data.normal;
+      const row = pool[(no - 1) % pool.length];
+
+      return makeChoiceQuestion(
+        id,
+        'reading',
+        level,
+        '',
+        'Session topic: ' + topic + '. ' + row[0],
+        row[1],
+        row[2],
+        row[3]
+      );
+    }
+
+    function buildWritingQuestion(id, meta, level, no){
+      const topic = meta.title;
+
+      const data = {
+        easy:[
+          ['Write one sentence to introduce yourself as a CS/AI student.','I am a CS/AI student.',['i am','student'],'ใช้ I am ... student'],
+          ['Write one sentence about technology you like.','I like mobile app development.',['i like','technology','app'],'ใช้ I like ...'],
+          ['Write one sentence about your project.','My project is a web app.',['project','app'],'ใช้ My project is ...']
+        ],
+        normal:[
+          ['Write one short message to report a bug to your team.','I found a bug on the login page. Please check it.',['bug','found','page'],'ใช้ I found a bug...'],
+          ['Write one sentence to explain your project.','My project is an app that helps students learn vocabulary.',['project','app','helps'],'ใช้ My project is ... that helps ...'],
+          ['Write one polite sentence to ask for a meeting.','Could we schedule a short meeting tomorrow, please?',['meeting','please','schedule'],'ใช้ Could we ... please?']
+        ],
+        hard:[
+          ['Write one sentence about an AI model and data.','The AI model needs more data to improve accuracy.',['model','data','accuracy'],'ใช้ model + data + accuracy'],
+          ['Write one sentence to describe your role in a team.','My role is to design the interface and develop the app.',['role','design','develop'],'ใช้ My role is to ...'],
+          ['Write one portfolio sentence about your skill.','I can develop a web application and explain the system workflow.',['develop','web','workflow'],'ใช้ I can + skill + detail']
+        ],
+        challenge:[
+          ['Write a final short career/project pitch in one or two sentences.','I am a CS/AI student who can develop web applications. My project helps students practice English with AI.',['cs','ai','develop','helps','students'],'ให้มี identity + skill + project value']
+        ]
+      };
+
+      const pool = data[level] || data.normal;
+      const row = pool[(no - 1) % pool.length];
+
+      return makeTextQuestion(
+        id,
+        'writing',
+        level,
+        row[0] + ' Topic: ' + topic + '.',
+        row[1],
+        row[2],
+        row[3]
+      );
+    }
+
+    const SESSION_BANK = buildSessionBank();
+
+    function decideAiDifficulty(){
+      const meta = sessionMeta(state.currentSession);
+      const completed = Object.values(state.progress.completed || {}).slice(-5);
+      const startDiff = state.profile.difficulty || 'normal';
+
+      if(meta.final){
+        return 'challenge';
+      }
+
+      if(!completed.length){
+        if(meta.boss && (startDiff === 'easy' || startDiff === 'normal')) return 'hard';
+        return startDiff === 'challenge' ? 'hard' : startDiff;
+      }
+
+      const avgAcc = completed.reduce((sum, r) => sum + Number(r.accuracy || 0), 0) / completed.length;
+      const avgScore = completed.reduce((sum, r) => sum + Number(r.score || 0), 0) / completed.length;
+
+      let level = 'easy';
+
+      if(avgAcc >= 92 && avgScore >= 120) level = 'challenge';
+      else if(avgAcc >= 78) level = 'hard';
+      else if(avgAcc >= 55) level = 'normal';
+      else level = 'easy';
+
+      if(meta.boss && level === 'easy') level = 'normal';
+      if(meta.boss && level === 'normal') level = 'hard';
+
+      return level;
+    }
+
+    function pickQuestion(){
+      const meta = sessionMeta(state.currentSession);
+      const bank = SESSION_BANK[state.currentSession] || [];
+      const skill = meta.skill || 'listening';
+
+      if(!bank.length){
+        const q = {
+          id:'EMPTY',
+          skill,
+          level:'easy',
+          prompt:'No question available.',
+          choices:['OK'],
+          answer:0,
+          hint:'Please add questions.'
+        };
+        state.aiDifficulty = 'easy';
+        state.currentQuestion = q;
+        return q;
+      }
+
+      let aiLevel = decideAiDifficulty();
+
+      if(meta.boss && aiLevel === 'easy'){
+        aiLevel = 'normal';
+      }
+
+      if(meta.final){
+        aiLevel = 'challenge';
+      }
+
+      let pool = bank.filter(q => q.level === aiLevel);
+
+      if(!pool.length && meta.boss){
+        pool = bank.filter(q => q.level === 'hard' || q.level === 'challenge');
+      }
+
+      if(!pool.length){
+        pool = bank.filter(q => q.level === 'normal');
+      }
+
+      if(!pool.length){
+        pool = bank;
+      }
+
+      const index = Math.floor(Math.random() * pool.length);
+      const q = JSON.parse(JSON.stringify(pool[index]));
+
+      state.aiDifficulty = aiLevel;
+      state.sessionSkill = q.skill || skill;
+      state.currentQuestion = q;
+      state.questionSeed = [
+        'S' + meta.id,
+        q.skill,
+        aiLevel,
+        q.id,
+        Date.now()
+      ].join('_');
+
+      return q;
+    }
+
+    function getLevelScore(level, ok){
+      if(!ok) return 0;
+      if(level === 'challenge') return 180;
+      if(level === 'hard') return 140;
+      if(level === 'normal') return 110;
+      return 90;
     }
 
     function toast(msg, ms){
@@ -1761,7 +1907,7 @@
       const voice = pickEnglishVoice(false);
       const name = voice ? voice.name : 'Auto US voice';
       toast('Testing American English: ' + name, 2600);
-      speakText('Hello. Welcome to TechPath English VR. This is American English. Please listen carefully and choose the best answer.', {
+      speakText('Hello. Welcome to TechPath English VR. This is American English. One session has one AI selected question.', {
         rate:0.72,
         pitch:1.0
       });
@@ -1777,7 +1923,7 @@
         difficulty: p.get('diff') || saved.difficulty || 'normal'
       };
 
-      if(!['easy','normal','hard'].includes(state.profile.difficulty)){
+      if(!['easy','normal','hard','challenge'].includes(state.profile.difficulty)){
         state.profile.difficulty = 'normal';
       }
 
@@ -1825,6 +1971,9 @@
       state.currentSession = clamp(parseInt(n,10) || 1, 1, 15);
       localStorage.setItem(STORAGE_LAST, String(state.currentSession));
 
+      const meta = sessionMeta(state.currentSession);
+      state.sessionSkill = meta.skill || 'listening';
+
       try{
         const url = new URL(location.href);
         url.searchParams.set('s', String(state.currentSession));
@@ -1844,7 +1993,7 @@
       els.sessionTop.textContent = 'S' + pad(state.currentSession);
       els.attSession.textContent = 'S' + pad(state.currentSession);
       els.homeLevel.textContent = state.profile.difficulty || 'normal';
-      els.topSub.textContent = meta.level + ' • ' + meta.title;
+      els.topSub.textContent = meta.level + ' • ' + meta.title + ' • ' + meta.skill;
       els.homeScore.textContent = String(state.score || 0);
       els.homeCompleted.textContent = Object.keys(state.progress.completed || {}).length + '/15';
 
@@ -1855,13 +2004,15 @@
       els.sessionGrid.innerHTML = SESSIONS.map(function(s){
         const done = !!state.progress.completed[s.id];
         const active = s.id === state.currentSession;
+        const skill = SKILLS.find(x => x.id === s.skill) || SKILLS[0];
         return `
           <button class="sessionBtn ${done?'done':''} ${active?'active':''}" data-s="${s.id}" type="button">
-            <span class="n">S${pad(s.id)}</span>
+            <span class="n">S${pad(s.id)} ${skill.icon}</span>
             <span class="t">${esc(s.title)}</span>
             <span class="tags">
               <span class="tag">${esc(s.level)}</span>
-              ${s.boss ? '<span class="tag boss">Boss</span>' : '<span class="tag">4 Skills</span>'}
+              <span class="tag">${esc(skill.label)}</span>
+              ${s.boss ? '<span class="tag boss">Boss</span>' : '<span class="tag">1Q</span>'}
             </span>
           </button>
         `;
@@ -1929,57 +2080,42 @@
       }
     }
 
-    function pickQuestion(skillId){
-      const arr = BANK[skillId] || [];
+    function renderQuestionList(){
+      const q = state.currentQuestion;
       const meta = sessionMeta(state.currentSession);
-      const idx = (state.currentSession + state.currentSkillIndex + (meta.boss ? 1 : 0)) % arr.length;
-      const q = JSON.parse(JSON.stringify(arr[idx]));
+      const bank = SESSION_BANK[state.currentSession] || [];
+      const levelCounts = {easy:0, normal:0, hard:0, challenge:0};
 
-      if(skillId === 'writing'){
-        q.prompt = q.prompt + ' Topic: ' + meta.title + '.';
-      }
+      bank.forEach(item => {
+        if(levelCounts[item.level] !== undefined) levelCounts[item.level] += 1;
+      });
 
-      if(skillId === 'speaking'){
-        q.prompt = q.prompt + ' Session topic: ' + meta.title + '.';
-      }
-
-      return q;
-    }
-
-    function renderSkillList(){
-      els.skillList.innerHTML = SKILLS.map(function(sk,i){
-        const cls = i < state.currentSkillIndex ? 'done' : i === state.currentSkillIndex ? 'now' : '';
-        const status = i < state.currentSkillIndex ? 'Done' : i === state.currentSkillIndex ? 'Now' : 'Next';
-
-        return `
-          <div class="skillRow ${cls}">
-            <div class="skillIcon">${sk.icon}</div>
-            <div>
-              <b>${sk.label}</b>
-              <small>${sk.verb} • ${status}</small>
-            </div>
-            <span class="tag">${i+1}/4</span>
+      els.skillList.innerHTML = `
+        <div class="skillRow now">
+          <div class="skillIcon">${sessionSkillMeta().icon}</div>
+          <div>
+            <b>Question 1/1</b>
+            <small>${esc(sessionSkillMeta().label)} • AI selected from 10 questions</small>
           </div>
-        `;
-      }).join('');
-    }
-
-    function renderBossHearts(){
-      const meta = sessionMeta(state.currentSession);
-
-      if(!meta.boss){
-        els.bossHearts.textContent = '';
-        return;
-      }
-
-      const maxHp = meta.final ? 5 : 3;
-      let out = '';
-
-      for(let i=0;i<maxHp;i++){
-        out += i < state.bossHp ? '❤️ ' : '🖤 ';
-      }
-
-      els.bossHearts.textContent = out.trim();
+          <span class="tag ${esc(q.level)}">${esc(q.level)}</span>
+        </div>
+        <div class="skillRow">
+          <div class="skillIcon">🧠</div>
+          <div>
+            <b>AI Difficulty</b>
+            <small>${esc(state.aiDifficulty)} • ${meta.boss ? 'Boss boost active' : 'adaptive random'}</small>
+          </div>
+          <span class="tag ${esc(state.aiDifficulty)}">${esc(state.aiDifficulty)}</span>
+        </div>
+        <div class="skillRow">
+          <div class="skillIcon">📦</div>
+          <div>
+            <b>Session Bank</b>
+            <small>easy ${levelCounts.easy} • normal ${levelCounts.normal} • hard ${levelCounts.hard} • challenge ${levelCounts.challenge}</small>
+          </div>
+          <span class="tag">10Q</span>
+        </div>
+      `;
     }
 
     function coachFor(skillId){
@@ -1999,15 +2135,17 @@
       const meta = sessionMeta(state.currentSession);
 
       state.sessionId = uuid();
-      state.currentSkillIndex = 0;
+      state.sessionSkill = meta.skill || 'listening';
       state.score = 0;
-      state.hp = 100;
       state.correct = 0;
       state.total = 0;
-      state.bossHp = meta.final ? 5 : 3;
       state.startedAt = Date.now();
       state.activeStartedAt = Date.now();
       state.locked = false;
+      state.currentQuestion = null;
+      state.questionSeed = '';
+
+      pickQuestion();
 
       showGame();
       renderMission();
@@ -2015,54 +2153,72 @@
 
       sendLog('session_start', {
         title: meta.title,
-        focus: meta.focus
+        focus: meta.focus,
+        skill: state.sessionSkill,
+        ai_difficulty: state.aiDifficulty,
+        question_id: state.currentQuestion ? state.currentQuestion.id : ''
       });
 
-      toast('เริ่ม S' + pad(state.currentSession) + ' แล้ว');
+      toast('เริ่ม S' + pad(state.currentSession) + ' • AI Level: ' + state.aiDifficulty);
     }
 
     function renderMission(){
       stopSpeech();
 
       const meta = sessionMeta(state.currentSession);
-      const skill = SKILLS[state.currentSkillIndex] || SKILLS[0];
-      const q = pickQuestion(skill.id);
+      const skill = sessionSkillMeta();
+      const q = state.currentQuestion || pickQuestion();
 
-      state.currentQuestion = q;
       state.locked = false;
 
       els.hudSession.textContent = 'S' + pad(state.currentSession);
       els.hudSkill.textContent = skill.label;
+      els.hudAi.textContent = state.aiDifficulty;
       els.hudScore.textContent = String(state.score);
-      els.hudHp.textContent = Math.max(0,state.hp) + '%';
+      els.hudTime.textContent = '00:00';
 
       els.sideTitle.textContent = 'S' + pad(state.currentSession) + ' Progress';
       els.sideDesc.textContent = meta.focus;
+
       els.missionTitle.textContent = skill.icon + ' ' + skill.label + ' Mission';
-      els.missionSub.textContent = 'S' + pad(meta.id) + ' • ' + meta.title;
-      els.missionBadge.textContent = meta.level + (meta.boss ? ' • BOSS' : '');
+      els.missionSub.textContent =
+        'S' + pad(meta.id) +
+        ' • ' + meta.title +
+        ' • 1 question from 10-question bank';
+
+      els.missionBadge.textContent =
+        meta.level + ' • ' + skill.label + ' • AI: ' + state.aiDifficulty;
+
       els.promptLabel.textContent = skill.label + ' Prompt';
-      els.promptCount.textContent = (state.currentSkillIndex + 1) + '/4';
+      els.promptCount.textContent = '1/1';
       els.promptText.textContent = q.prompt;
       els.promptHint.textContent = q.hint || 'Complete the mission.';
+
       els.feedback.className = 'feedback';
       els.feedback.textContent = '';
       els.nextBtn.disabled = true;
       els.textAnswer.value = '';
 
-      const percent = Math.round((state.currentSkillIndex / SKILLS.length) * 100);
-      els.progressText.textContent = percent + '%';
-      els.progressBar.style.width = percent + '%';
+      els.progressText.textContent = '0%';
+      els.progressBar.style.width = '0%';
 
       els.bossPanel.classList.toggle('on', !!meta.boss);
-      renderBossHearts();
-      renderSkillList();
+      els.bossTitle.textContent = meta.final ? '🏆 Final Challenge' : '🔥 Boss Challenge';
+      els.bossHint.textContent = meta.final
+        ? 'S15 จะใช้ระดับ challenge เพื่อสรุปความสามารถท้ายบทเรียน'
+        : 'Boss Session จะดันระดับข้อให้ยากขึ้นตามผลการเรียนก่อนหน้า';
+
+      renderQuestionList();
       renderAnswerMode(skill.id, q);
 
       els.coachTip.textContent = coachFor(skill.id);
 
-      sendLog('skill_start', {
+      sendLog('question_start', {
         skill: skill.id,
+        ai_difficulty: state.aiDifficulty,
+        question_id: q.id,
+        question_seed: state.questionSeed,
+        level: q.level,
         prompt: q.prompt
       });
     }
@@ -2106,7 +2262,9 @@
       const q = state.currentQuestion;
       const ok = index === q.answer;
 
-      state.total += 1;
+      state.total = 1;
+      state.correct = ok ? 1 : 0;
+      state.score = getLevelScore(q.level, ok);
 
       $$('.choice').forEach(function(b,i){
         if(i === q.answer) b.classList.add('correct');
@@ -2114,14 +2272,38 @@
         b.disabled = true;
       });
 
-      finishAnswer(ok, ok ? 'ถูกต้อง! จับ keyword ได้ดีมาก' : 'ยังไม่ถูก จุดสำคัญคือ: ' + (q.hint || 'อ่านโจทย์อีกครั้ง'));
+      finishAnswer(ok, ok ? 'ถูกต้อง! AI เลือกข้อนี้ตามระดับของผู้เรียน' : 'ยังไม่ถูก จุดสำคัญคือ: ' + (q.hint || 'อ่านโจทย์อีกครั้ง'));
+    }
+
+    function evaluateTextAnswer(txt, q, skillId){
+      const lower = txt.toLowerCase();
+      const words = txt.split(/\s+/).filter(Boolean);
+
+      if(!txt.trim()) return false;
+
+      if(q.level === 'easy'){
+        return words.length >= 3;
+      }
+
+      const expected = q.expected || [];
+      const hits = expected.filter(w => lower.includes(String(w).toLowerCase())).length;
+
+      if(q.level === 'normal'){
+        return words.length >= 5 && hits >= 1;
+      }
+
+      if(q.level === 'hard'){
+        return words.length >= 7 && hits >= 2;
+      }
+
+      return words.length >= 10 && hits >= 2;
     }
 
     function submitText(){
       if(state.locked) return;
 
-      const skill = SKILLS[state.currentSkillIndex].id;
       const q = state.currentQuestion;
+      const skillId = q.skill;
       const txt = els.textAnswer.value.trim();
 
       if(!txt){
@@ -2130,66 +2312,43 @@
       }
 
       state.locked = true;
-      state.total += 1;
 
-      let ok = false;
-      const lower = txt.toLowerCase();
+      const ok = evaluateTextAnswer(txt, q, skillId);
 
-      if(skill === 'writing'){
-        const expected = q.expected || [];
-        const hits = expected.filter(w => lower.includes(String(w).toLowerCase())).length;
-        ok = txt.split(/\s+/).length >= 6 && hits >= 1;
-      }else{
-        ok = txt.split(/\s+/).length >= 4;
-      }
+      state.total = 1;
+      state.correct = ok ? 1 : 0;
+      state.score = getLevelScore(q.level, ok);
 
       const msg = ok
-        ? 'ผ่าน! คำตอบมีโครงสร้างดีและสื่อสารได้'
-        : 'ยังสั้นไป ลองเพิ่ม subject + action + detail เช่น: ' + (q.sample || 'I am a CS student interested in AI.');
+        ? 'ผ่าน! คำตอบเหมาะกับระดับ ' + q.level
+        : 'ยังไม่พอสำหรับระดับ ' + q.level + ' ลองดูตัวอย่าง: ' + (q.sample || '');
 
       finishAnswer(ok, msg);
     }
 
     function finishAnswer(ok, msg){
-      if(ok){
-        state.correct += 1;
-        state.score += Math.round(100 * diffMultiplier());
-
-        if(sessionMeta(state.currentSession).boss){
-          state.bossHp = Math.max(0, state.bossHp - 1);
-        }
-
-        els.feedback.className = 'feedback on good';
-      }else{
-        state.hp = Math.max(0, state.hp - (state.profile.difficulty === 'hard' ? 18 : 12));
-        els.feedback.className = 'feedback on bad';
-      }
-
+      els.feedback.className = ok ? 'feedback on good' : 'feedback on bad';
       els.feedback.textContent = msg;
-      els.hudScore.textContent = String(state.score);
-      els.hudHp.textContent = state.hp + '%';
 
-      renderBossHearts();
+      els.hudScore.textContent = String(state.score);
+      els.progressText.textContent = '100%';
+      els.progressBar.style.width = '100%';
 
       els.nextBtn.disabled = false;
 
       sendLog('answer', {
         ok: ok,
-        skill: SKILLS[state.currentSkillIndex].id,
+        skill: state.sessionSkill,
+        ai_difficulty: state.aiDifficulty,
+        question_id: state.currentQuestion ? state.currentQuestion.id : '',
+        question_seed: state.questionSeed,
         score_after: state.score,
-        hp_after: state.hp
+        level: state.currentQuestion ? state.currentQuestion.level : ''
       });
     }
 
     function nextMission(){
       stopSpeech();
-
-      if(state.currentSkillIndex < SKILLS.length - 1){
-        state.currentSkillIndex += 1;
-        renderMission();
-        return;
-      }
-
       completeSession();
     }
 
@@ -2200,13 +2359,19 @@
       const durationMs = Date.now() - state.startedAt;
       const acc = state.total ? Math.round((state.correct / state.total) * 100) : 0;
       const meta = sessionMeta(state.currentSession);
+      const q = state.currentQuestion || {};
 
       state.progress.completed[state.currentSession] = {
         at: nowIso(),
         score: state.score,
         accuracy: acc,
         duration_ms: durationMs,
-        title: meta.title
+        title: meta.title,
+        skill: state.sessionSkill,
+        ai_difficulty: state.aiDifficulty,
+        question_id: q.id || '',
+        question_level: q.level || '',
+        question_seed: state.questionSeed || ''
       };
 
       state.progress.bestScore[state.currentSession] = Math.max(
@@ -2217,9 +2382,14 @@
       state.progress.sessions.push({
         session_id: state.sessionId,
         s: state.currentSession,
+        skill: state.sessionSkill,
         score: state.score,
         accuracy: acc,
         duration_ms: durationMs,
+        ai_difficulty: state.aiDifficulty,
+        question_id: q.id || '',
+        question_level: q.level || '',
+        question_seed: state.questionSeed || '',
         at: nowIso()
       });
 
@@ -2227,17 +2397,27 @@
       saveProgress();
 
       els.summaryTitle.textContent = 'S' + pad(state.currentSession) + ' Complete!';
-      els.summaryDesc.textContent = meta.title + ' • ' + meta.focus;
+      els.summaryDesc.textContent =
+        meta.title +
+        ' • Skill: ' + sessionSkillMeta().label +
+        ' • AI Difficulty: ' + state.aiDifficulty +
+        ' • Question ID: ' + (q.id || '-');
+
       els.sumScore.textContent = String(state.score);
       els.sumAcc.textContent = acc + '%';
       els.sumTime.textContent = fmtTime(durationMs);
-      els.sumSkills.textContent = '4/4';
+      els.sumQuestion.textContent = '1/1';
 
       sendLog('session_end', {
         score: state.score,
         accuracy: acc,
         duration_ms: durationMs,
-        completed:true
+        completed:true,
+        skill: state.sessionSkill,
+        ai_difficulty: state.aiDifficulty,
+        question_id: q.id || '',
+        question_level: q.level || '',
+        question_seed: state.questionSeed || ''
       });
 
       showSummary();
@@ -2253,17 +2433,22 @@
     }
 
     function aiHelp(){
-      const skill = SKILLS[state.currentSkillIndex].id;
-      const q = state.currentQuestion;
+      const q = state.currentQuestion || {};
+      const skill = q.skill || state.sessionSkill;
       let text = '';
 
       if(skill === 'writing'){
-        text = 'ตัวอย่างโครงประโยค:\\n' +
-          (q.sample || 'My project is an app that helps students learn vocabulary.') +
-          '\\n\\nลองปรับให้เป็นคำของตัวเอง โดยใส่ชื่อ project หรือสิ่งที่ทำจริง';
+        text =
+          'AI Help ระดับ ' + (q.level || state.aiDifficulty) + '\\n\\n' +
+          'ตัวอย่าง:\\n' +
+          (q.sample || 'My project helps students practice English with AI.') +
+          '\\n\\nลองปรับให้เป็นคำของตัวเอง';
         els.textAnswer.value = q.sample || '';
       }else if(skill === 'speaking'){
-        text = 'พูดตามนี้ก่อน แล้วค่อยเปลี่ยนคำบางคำ:\\n' + (q.sample || q.prompt);
+        text =
+          'AI Help ระดับ ' + (q.level || state.aiDifficulty) + '\\n\\n' +
+          'พูดตามนี้ก่อน:\\n' +
+          (q.sample || q.prompt);
         els.textAnswer.value = q.sample || '';
       }else{
         text = q.hint || 'ดู keyword สำคัญในโจทย์';
@@ -2273,12 +2458,14 @@
 
       sendLog('ai_help', {
         skill: skill,
-        prompt: q.prompt
+        ai_difficulty: state.aiDifficulty,
+        question_id: q.id || '',
+        prompt: q.prompt || ''
       });
     }
 
     function startSpeaking(){
-      const q = state.currentQuestion;
+      const q = state.currentQuestion || {};
       speakText(q.sample || q.say || q.prompt, {rate:0.72,pitch:1.0});
       toast('ฟังตัวอย่างสำเนียงอเมริกันแล้วพูดตาม หรือพิมพ์ประโยคในช่องคำตอบ');
       els.answerArea.classList.remove('hidden');
@@ -2289,6 +2476,8 @@
 
       state.progress = { completed:{}, bestScore:{}, sessions:[] };
       state.score = 0;
+      state.correct = 0;
+      state.total = 0;
 
       saveProgress();
       updateTop();
@@ -2302,10 +2491,12 @@
         <div style="color:#d8ecff;line-height:1.75;font-weight:730">
           <p><b>1)</b> ใส่ Student ID / Name / Section ก่อนเริ่ม</p>
           <p><b>2)</b> เลือก Session S1–S15</p>
-          <p><b>3)</b> แต่ละ S มี 4 ทักษะ: Listening, Speaking, Reading, Writing</p>
-          <p><b>4)</b> S3 / S6 / S9 / S12 / S15 มี Boss Challenge</p>
-          <p><b>5)</b> เมื่อจบ Session ระบบจะบันทึก score, accuracy, time และ attendance</p>
-          <p><b>6)</b> เสียงอ่านจะพยายามใช้ <b>American English / en-US</b> ก่อนเสมอ</p>
+          <p><b>3)</b> แต่ละ S มี <b>ทักษะหลัก 1 ทักษะ</b></p>
+          <p><b>4)</b> แต่ละ S เล่นจริง <b>1 ข้อ</b></p>
+          <p><b>5)</b> แต่ละ S มีคลัง <b>10 ข้อ</b>: easy 3, normal 3, hard 3, challenge 1</p>
+          <p><b>6)</b> AI Difficulty Director จะเลือกระดับ แล้วสุ่ม 1 ข้อจากคลังของ S นั้น</p>
+          <p><b>7)</b> S3 / S6 / S9 / S12 / S15 เป็น Boss หรือ Final Challenge</p>
+          <p><b>8)</b> เสียงอ่านจะพยายามใช้ <b>American English / en-US</b> ก่อนเสมอ</p>
         </div>
       `);
     }
@@ -2322,13 +2513,15 @@
             <tr>
               <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">S${pad(k)}</td>
               <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">${esc(r.title || '')}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">${esc(r.skill || '')}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">${esc(r.ai_difficulty || '')}</td>
               <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">${r.score || 0}</td>
               <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">${r.accuracy || 0}%</td>
               <td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.12)">${fmtTime(r.duration_ms || 0)}</td>
             </tr>
           `;
         }).join('')
-        : '<tr><td colspan="5" style="padding:10px">ยังไม่มี Session ที่จบ</td></tr>';
+        : '<tr><td colspan="7" style="padding:10px">ยังไม่มี Session ที่จบ</td></tr>';
 
       modal('Learning Stats', `
         <p style="color:#cfe3f6;font-weight:760">Completed: <b>${completed.length}/15</b></p>
@@ -2338,6 +2531,8 @@
               <tr>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">S</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">Topic</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">Skill</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">AI</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">Score</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">Acc</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.18)">Time</th>
@@ -2352,19 +2547,22 @@
     function sendLog(type, extra){
       const payload = {
         api:'attendance',
-        source:'techpath_lesson_html_us_voice_v1',
+        source:'techpath_lesson_html_1s_1skill_1q_ai_random_v1',
         type:type,
         timestamp:nowIso(),
         event_id:uuid(),
         session_id:state.sessionId || '',
         s:state.currentSession,
-        skill:SKILLS[state.currentSkillIndex] ? SKILLS[state.currentSkillIndex].id : '',
+        skill:state.sessionSkill || '',
+        ai_difficulty:state.aiDifficulty || '',
+        question_id:state.currentQuestion ? state.currentQuestion.id || '' : '',
+        question_level:state.currentQuestion ? state.currentQuestion.level || '' : '',
+        question_seed:state.questionSeed || '',
         student_id:state.profile.studentId || '',
         display_name:state.profile.studentName || '',
         section:state.profile.section || '',
         diff:state.profile.difficulty || 'normal',
         score:state.score,
-        hp:state.hp,
         correct:state.correct,
         total:state.total,
         page_url:location.href,
@@ -2558,7 +2756,8 @@
 
         sendLog('page_open', {
           boot:'ok',
-          title: sessionMeta(state.currentSession).title
+          title: sessionMeta(state.currentSession).title,
+          bank_size: SESSION_BANK[state.currentSession] ? SESSION_BANK[state.currentSession].length : 0
         });
       }catch(err){
         window.TECHPATH_BOOT_OK = false;
