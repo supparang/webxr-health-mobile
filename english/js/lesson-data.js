@@ -1,30 +1,21 @@
 // === /english/js/lesson-data.js ===
-// TechPath English VR — Canonical S1-S15 Data
-// PATCH v20260428-CANONICAL-SKILL-MAP-1S-1Q-AI-BANK10
-// ✅ S1 Speaking
-// ✅ S2 Reading
-// ✅ S3 Writing Boss
-// ✅ S4 Speaking
-// ✅ S5 Listening no text prompt
-// ✅ S6 Reading Boss
-// ✅ S7 Writing
-// ✅ S8 Listening ethics
-// ✅ S9 Speaking Boss
-// ✅ S10 Reading
-// ✅ S11 Listening angry tone
-// ✅ S12 Writing Boss
-// ✅ S13 Reading
-// ✅ S14 Speaking strict
-// ✅ S15 Listening Final Boss
-// ✅ Each session bank = 10 questions: easy 3, normal 3, hard 3, challenge 1
+// TechPath English VR Lesson Data
+// PATCH v20260428-CANONICAL-S1-S15-1Q-AI-DIFFICULTY
+// ✅ S1–S15 mapping ตามที่ตกลงล่าสุด
+// ✅ 1 Session = 1 Skill = 1 Question
+// ✅ แต่ละ S มีคลัง 10 ข้อ: easy 3 / normal 3 / hard 3 / challenge 1
+// ✅ Boss: S3, S6, S9, S12, S15
+// ✅ Listening stages use audio-first / no-text-prompt where appropriate
 
-window.TECHPATH_LESSON_DATA = (function(){
+(function(){
   'use strict';
 
+  const VERSION = 'v20260428-CANONICAL-S1-S15-1Q-AI-DIFFICULTY';
+
   const SKILLS = [
-    { id:'speaking', label:'Speaking', icon:'🎙️', verb:'พูด' },
-    { id:'reading', label:'Reading', icon:'📖', verb:'อ่าน' },
-    { id:'writing', label:'Writing', icon:'⌨️', verb:'เขียน/พิมพ์' },
+    { id:'speaking',  label:'Speaking',  icon:'🎙️', verb:'พูด' },
+    { id:'reading',   label:'Reading',   icon:'📖', verb:'อ่าน' },
+    { id:'writing',   label:'Writing',   icon:'⌨️', verb:'เขียน/พิมพ์' },
     { id:'listening', label:'Listening', icon:'🎧', verb:'ฟัง' }
   ];
 
@@ -132,6 +123,7 @@ window.TECHPATH_LESSON_DATA = (function(){
       playerRole:'AI ethics reviewer',
       promptStyle:'ฟังคำถาม ethics แล้วเลือกคำตอบ',
       level:'B1-',
+      noTextPrompt:true,
       boss:false
     },
     {
@@ -172,6 +164,7 @@ window.TECHPATH_LESSON_DATA = (function(){
       promptStyle:'ฟัง tone ยาก แต่ตอบจาก content',
       level:'B1',
       angryTone:true,
+      noTextPrompt:true,
       boss:false
     },
     {
@@ -231,16 +224,42 @@ window.TECHPATH_LESSON_DATA = (function(){
     }
   ];
 
+  const LEVEL_PATTERN = [
+    'easy','easy','easy',
+    'normal','normal','normal',
+    'hard','hard','hard',
+    'challenge'
+  ];
+
   function pad(n){
     return String(n).padStart(2,'0');
   }
 
   function makeChoiceQuestion(id, skill, level, say, prompt, choices, answer, hint){
-    return { id, skill, level, say, prompt, choices, answer, hint };
+    return {
+      id,
+      skill,
+      level,
+      kind:'choice',
+      say: say || '',
+      prompt,
+      choices,
+      answer,
+      hint
+    };
   }
 
   function makeTextQuestion(id, skill, level, prompt, sample, expected, hint){
-    return { id, skill, level, prompt, sample, expected, hint };
+    return {
+      id,
+      skill,
+      level,
+      kind:'text',
+      prompt,
+      sample,
+      expected,
+      hint
+    };
   }
 
   function pickRow(rows, level, no){
@@ -255,17 +274,9 @@ window.TECHPATH_LESSON_DATA = (function(){
 
   function buildSessionBank(){
     const bank = {};
-    const levelPattern = [
-      'easy','easy','easy',
-      'normal','normal','normal',
-      'hard','hard','hard',
-      'challenge'
-    ];
-
     SESSIONS.forEach(meta => {
-      bank[meta.id] = levelPattern.map((level, idx) => buildQuestion(meta, level, idx + 1));
+      bank[meta.id] = LEVEL_PATTERN.map((level, idx) => buildQuestion(meta, level, idx + 1));
     });
-
     return bank;
   }
 
@@ -312,7 +323,7 @@ window.TECHPATH_LESSON_DATA = (function(){
         ['Say clearly: “I enjoy solving problems with technology.”','I enjoy solving problems with technology.',['enjoy','solving','technology'],'พูด solving problems ให้ต่อเนื่อง']
       ],
       hard:[
-        ['Say clearly: “I want to use AI to create helpful learning tools.”','I want to use AI to create helpful learning tools.',['ai','create','helpful','learning','tools'],'พูด use AI to create... ให้ชัด'],
+        ['Say clearly: “I want to use AI to create helpful learning tools.”','I want to use AI to create helpful learning tools.',['ai','create','helpful','learning','tools'],'พูด use AI to create ให้ชัด'],
         ['Say clearly: “My focus is artificial intelligence and user-friendly applications.”','My focus is artificial intelligence and user-friendly applications.',['artificial','intelligence','user','friendly','applications'],'ศัพท์ยาว ต้องออกเสียงให้ครบ'],
         ['Say clearly: “I can explain my project confidently at a tech conference.”','I can explain my project confidently at a tech conference.',['explain','project','confidently','conference'],'พูด confidently ให้ฟังรู้เรื่อง']
       ],
@@ -426,7 +437,7 @@ window.TECHPATH_LESSON_DATA = (function(){
     };
 
     const r = pickRow(rows, level, no);
-    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'Listen only. No text prompt will be shown during play.', r[2], r[3], r[4]);
+    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], r[1], r[2], r[3], r[4]);
   }
 
   function buildS6ReadingTicketBoss(meta, level, no){
@@ -504,14 +515,14 @@ window.TECHPATH_LESSON_DATA = (function(){
     };
 
     const r = pickRow(rows, level, no);
-    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'Listen to the ethics question and choose the legal and ethical answer.', r[2], r[3], r[4]);
+    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], r[1], r[2], r[3], r[4]);
   }
 
   function buildS9SpeakingDataBoss(meta, level, no){
     const rows = {
       easy:[
         ['Say clearly: “The chart shows higher sales.”','The chart shows higher sales.',['chart','higher','sales'],'พูด chart + trend'],
-        ['Say clearly: “The data shows user growth.”','The data shows user growth.',['data','user','growth'],'พูด data shows...'],
+        ['Say clearly: “The data shows user growth.”','The data shows user growth.',['data','user','growth'],'พูด data shows'],
         ['Say clearly: “Accuracy improved this week.”','Accuracy improved this week.',['accuracy','improved','week'],'พูด improved ให้ชัด']
       ],
       normal:[
@@ -582,7 +593,7 @@ window.TECHPATH_LESSON_DATA = (function(){
     };
 
     const r = pickRow(rows, level, no);
-    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'Listen to the angry client. Focus on the problem, not the tone.', r[2], r[3], r[4]);
+    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], r[1], r[2], r[3], r[4]);
   }
 
   function buildS12WritingFounderBoss(meta, level, no){
@@ -686,15 +697,16 @@ window.TECHPATH_LESSON_DATA = (function(){
     };
 
     const r = pickRow(rows, level, no);
-    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], 'Final listening test. Listen only and choose the correct emergency action.', r[2], r[3], r[4]);
+    return makeChoiceQuestion(qid(meta, level, no), 'listening', level, r[0], r[1], r[2], r[3], r[4]);
   }
 
   const SESSION_BANK = buildSessionBank();
 
-  return {
-    version:'20260428-CANONICAL-S1-S15-1Q-AI-BANK10',
+  window.TECHPATH_LESSON_DATA = {
+    VERSION,
     SKILLS,
     SESSIONS,
+    LEVEL_PATTERN,
     SESSION_BANK
   };
 })();
