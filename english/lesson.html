@@ -10,11 +10,7 @@
   <style>
     :root{
       --bg:#06101d;
-      --bg2:#0d1d33;
       --panel:#142238;
-      --panel2:#1a2b46;
-      --card:rgba(255,255,255,.08);
-      --card2:rgba(255,255,255,.13);
       --line:rgba(255,255,255,.15);
       --text:#eef7ff;
       --muted:#aec3d8;
@@ -26,13 +22,13 @@
       --pink:#ff86d1;
       --shadow:0 22px 70px rgba(0,0,0,.35);
       --r1:30px;
-      --r2:22px;
       --max:1240px;
       --safeTop:env(safe-area-inset-top,0px);
       --safeBottom:env(safe-area-inset-bottom,0px);
     }
 
     *{box-sizing:border-box}
+
     html,body{
       margin:0;
       min-height:100%;
@@ -62,8 +58,18 @@
       background:linear-gradient(180deg,#07111f,#030814);
       transition:opacity .25s ease,visibility .25s ease;
     }
-    .boot.off{opacity:0;visibility:hidden;pointer-events:none}
-    .bootBox{text-align:center;max-width:760px}
+
+    .boot.off{
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+    }
+
+    .bootBox{
+      text-align:center;
+      max-width:760px;
+    }
+
     .bootTitle{
       margin:0 0 16px;
       color:var(--cyan);
@@ -71,6 +77,7 @@
       letter-spacing:.08em;
       font-weight:1000;
     }
+
     .bootSub{
       margin:0;
       color:#b8c9dc;
@@ -78,12 +85,14 @@
       letter-spacing:.1em;
       font-weight:900;
     }
+
     .bootDots{
       display:flex;
       justify-content:center;
       gap:10px;
       margin-top:28px;
     }
+
     .bootDots i{
       width:12px;
       height:12px;
@@ -91,8 +100,10 @@
       background:var(--cyan);
       animation:pulse 1s ease-in-out infinite;
     }
+
     .bootDots i:nth-child(2){animation-delay:.14s}
     .bootDots i:nth-child(3){animation-delay:.28s}
+
     @keyframes pulse{
       0%,100%{opacity:.28;transform:scale(.72)}
       50%{opacity:1;transform:scale(1.12)}
@@ -296,7 +307,6 @@
 
     .btn:hover{filter:brightness(1.08)}
     .btn:active{transform:translateY(1px) scale(.99)}
-
     .btn.primary{color:#06111f;background:linear-gradient(135deg,var(--cyan),#c6f7ff)}
     .btn.green{color:#061b12;background:linear-gradient(135deg,var(--green),#b9ffd9)}
     .btn.gold{color:#241804;background:linear-gradient(135deg,var(--gold),#ffeaa8)}
@@ -334,6 +344,7 @@
       color:#cfe3f6;
       font-weight:750;
     }
+
     .line:last-child{border-bottom:0}
     .line b{color:#fff}
 
@@ -981,7 +992,7 @@
                 <button class="btn primary" id="startCurrentBtn">เริ่ม Session ปัจจุบัน ▶</button>
                 <button class="btn purple" id="openSessionBtn">เลือก S1–S15</button>
                 <button class="btn" id="openGuideBtn">วิธีเล่น</button>
-                <button class="btn gold" id="testVoiceBtn">🔊 Test Voice</button>
+                <button class="btn gold" id="testVoiceBtn">🔊 Test US Voice</button>
               </div>
             </div>
           </div>
@@ -993,7 +1004,7 @@
               <div class="line"><span>Time in S</span><b id="attTime">00:00</b></div>
               <div class="line"><span>Active Time</span><b id="activeTime">00:00</b></div>
               <div class="line"><span>Sheet Status</span><b id="sheetStatus">Ready</b></div>
-              <div class="line"><span>Voice</span><b id="voiceStatus">Auto</b></div>
+              <div class="line"><span>Voice</span><b id="voiceStatus">US Auto</b></div>
             </div>
 
             <div class="statusCard">
@@ -1105,7 +1116,7 @@
             <div id="feedback" class="feedback"></div>
 
             <div class="actions">
-              <button class="btn primary" id="listenBtn">🔊 Play Audio</button>
+              <button class="btn primary" id="listenBtn">🔊 Play US Audio</button>
               <button class="btn green" id="nextBtn" disabled>Next ▶</button>
               <button class="btn" id="backHomeBtn">กลับหน้าเลือก Session</button>
             </div>
@@ -1192,10 +1203,10 @@
     window.TECHPATH_BOOT_OK = false;
 
     const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyNoI53A7XGh4ojP8wzfGOgBrGYdUbO1jqAI6day1tiw6kH_AYqabzaZAy6PIY-PhSf/exec';
-    const STORAGE_PROFILE = 'TECHPATH_EN_PROFILE_V4';
-    const STORAGE_PROGRESS = 'TECHPATH_EN_PROGRESS_V4';
-    const STORAGE_LAST = 'TECHPATH_EN_LAST_SESSION_V4';
-    const STORAGE_VOICE = 'TECHPATH_EN_VOICE_NAME_V2';
+    const STORAGE_PROFILE = 'TECHPATH_EN_PROFILE_US_V1';
+    const STORAGE_PROGRESS = 'TECHPATH_EN_PROGRESS_US_V1';
+    const STORAGE_LAST = 'TECHPATH_EN_LAST_SESSION_US_V1';
+    const STORAGE_VOICE = 'TECHPATH_EN_US_VOICE_NAME_V1';
 
     const SKILLS = [
       { id:'listening', label:'Listening', icon:'🎧', verb:'ฟัง' },
@@ -1564,9 +1575,10 @@
       if(!els.voiceStatus) return;
       const voice = pickEnglishVoice(false);
       if(voice){
-        els.voiceStatus.textContent = voice.name.replace(/\s*\(.+?\)\s*/g,'').slice(0,18);
+        const cleanName = voice.name.replace(/\s*\(.+?\)\s*/g,'').slice(0,18);
+        els.voiceStatus.textContent = cleanName + ' • US';
       }else{
-        els.voiceStatus.textContent = 'Auto';
+        els.voiceStatus.textContent = 'US Auto';
       }
     }
 
@@ -1576,31 +1588,32 @@
       const voices = state.voices || [];
       if(!voices.length) return null;
 
+      const usVoices = voices.filter(v => /^en-US/i.test(v.lang || ''));
+
       const savedName = localStorage.getItem(STORAGE_VOICE) || '';
       if(savedName){
-        const saved = voices.find(v => v.name === savedName);
+        const saved = usVoices.find(v => v.name === savedName);
         if(saved) return saved;
       }
 
-      const preferredNames = [
+      const preferredUSNames = [
+        'Google US English',
         'Samantha',
         'Alex',
-        'Google US English',
-        'Google UK English Female',
-        'Google UK English Male',
         'Microsoft Aria',
         'Microsoft Jenny',
         'Microsoft Guy',
-        'Daniel',
-        'Karen',
-        'Moira',
-        'Tessa',
+        'Microsoft Ava',
+        'Microsoft Emma',
+        'Microsoft Andrew',
         'Victoria',
-        'Fiona'
+        'Allison',
+        'Susan',
+        'Tom'
       ];
 
-      for(const name of preferredNames){
-        const found = voices.find(v =>
+      for(const name of preferredUSNames){
+        const found = usVoices.find(v =>
           String(v.name || '').toLowerCase().includes(name.toLowerCase())
         );
         if(found){
@@ -1610,9 +1623,8 @@
       }
 
       const fallback =
-        voices.find(v => /^en-US/i.test(v.lang || '') && !/compact|novelty/i.test(v.name || '')) ||
-        voices.find(v => /^en-GB/i.test(v.lang || '') && !/compact|novelty/i.test(v.name || '')) ||
-        voices.find(v => /^en/i.test(v.lang || '') && !/compact|novelty/i.test(v.name || '')) ||
+        usVoices.find(v => !/compact|novelty|whisper|organ|bad news|bells|bubbles/i.test(v.name || '')) ||
+        usVoices[0] ||
         voices.find(v => /^en/i.test(v.lang || '')) ||
         null;
 
@@ -1698,7 +1710,7 @@
 
           if(voice){
             u.voice = voice;
-            u.lang = voice.lang || 'en-US';
+            u.lang = /^en-US/i.test(voice.lang || '') ? voice.lang : 'en-US';
           }else{
             u.lang = 'en-US';
           }
@@ -1747,9 +1759,9 @@
     function testVoice(){
       refreshVoices();
       const voice = pickEnglishVoice(false);
-      const name = voice ? voice.name : 'Auto voice';
-      toast('Testing voice: ' + name, 2600);
-      speakText('Hello. Welcome to TechPath English VR. Please listen carefully and choose the best answer.', {
+      const name = voice ? voice.name : 'Auto US voice';
+      toast('Testing American English: ' + name, 2600);
+      speakText('Hello. Welcome to TechPath English VR. This is American English. Please listen carefully and choose the best answer.', {
         rate:0.72,
         pitch:1.0
       });
@@ -2268,7 +2280,7 @@
     function startSpeaking(){
       const q = state.currentQuestion;
       speakText(q.sample || q.say || q.prompt, {rate:0.72,pitch:1.0});
-      toast('ฟังตัวอย่างแล้วพูดตาม หรือพิมพ์ประโยคในช่องคำตอบ');
+      toast('ฟังตัวอย่างสำเนียงอเมริกันแล้วพูดตาม หรือพิมพ์ประโยคในช่องคำตอบ');
       els.answerArea.classList.remove('hidden');
     }
 
@@ -2293,7 +2305,7 @@
           <p><b>3)</b> แต่ละ S มี 4 ทักษะ: Listening, Speaking, Reading, Writing</p>
           <p><b>4)</b> S3 / S6 / S9 / S12 / S15 มี Boss Challenge</p>
           <p><b>5)</b> เมื่อจบ Session ระบบจะบันทึก score, accuracy, time และ attendance</p>
-          <p><b>6)</b> ถ้าเสียงไม่ชัด ให้กด <b>Test Voice</b> หนึ่งครั้งก่อนเริ่มเล่น</p>
+          <p><b>6)</b> เสียงอ่านจะพยายามใช้ <b>American English / en-US</b> ก่อนเสมอ</p>
         </div>
       `);
     }
@@ -2340,7 +2352,7 @@
     function sendLog(type, extra){
       const payload = {
         api:'attendance',
-        source:'techpath_lesson_html_latest_voice_v4',
+        source:'techpath_lesson_html_us_voice_v1',
         type:type,
         timestamp:nowIso(),
         event_id:uuid(),
