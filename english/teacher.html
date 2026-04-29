@@ -344,7 +344,7 @@
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:820px;
+      min-width:880px;
     }
 
     th,td{
@@ -425,6 +425,7 @@
       color:var(--muted);
       font-size:12px;
       font-weight:800;
+      line-height:1.35;
     }
 
     .cardsList{
@@ -607,7 +608,7 @@
       .heroCard,.section{padding:15px}
       .stageGrid{grid-template-columns:repeat(3,minmax(48px,1fr))}
       .detailGrid{grid-template-columns:1fr}
-      table{min-width:760px}
+      table{min-width:820px}
     }
   </style>
 </head>
@@ -620,7 +621,7 @@
           <div class="logo">T</div>
           <div>
             <h1>Teacher Dashboard</h1>
-            <p>TechPath English VR • Attendance / Progress / AI Help</p>
+            <p>TechPath English VR • Attendance / Progress / AI Help / Minimum Time</p>
           </div>
         </div>
 
@@ -639,7 +640,7 @@
           <h2 class="heroTitle">Who needs support?</h2>
           <p class="heroDesc">
             ดูภาพรวมผู้เรียนแบบเข้าใจง่าย: ใครเข้าเรียน, ใครเล่นจบ, คะแนนเฉลี่ย, เวลาเรียนจริง,
-            การใช้ AI Help และรายละเอียดรายบุคคล S1–S15
+            การใช้ AI Help และคุณภาพการเข้าเรียนตาม Minimum Time Requirement
           </p>
         </div>
 
@@ -716,6 +717,47 @@
         </div>
       </section>
 
+      <section class="panel section">
+        <div class="head">
+          <div>
+            <h2>Attendance Quality</h2>
+            <p>แยก “เล่นจบ” ออกจาก “เข้าเรียนสมบูรณ์ตามเวลา”</p>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi ok">
+            <span>Valid Completed</span>
+            <b id="qValidCompleted">0</b>
+            <small>จบและอยู่นานพอ</small>
+          </div>
+
+          <div class="kpi warn">
+            <span>Too Fast</span>
+            <b id="qTooFast">0</b>
+            <small>จบเร็วเกิน minimum</small>
+          </div>
+
+          <div class="kpi warn">
+            <span>Present Not Completed</span>
+            <b id="qPresentNotCompleted">0</b>
+            <small>อยู่นานพอแต่ยังไม่จบ</small>
+          </div>
+
+          <div class="kpi bad">
+            <span>Too Short</span>
+            <b id="qTooShort">0</b>
+            <small>ยังไม่นับสมบูรณ์</small>
+          </div>
+
+          <div class="kpi info">
+            <span>Valid Rate</span>
+            <b id="qValidRate">0%</b>
+            <small>valid completed / total sessions</small>
+          </div>
+        </div>
+      </section>
+
       <section class="grid2">
         <div class="panel section">
           <div class="head">
@@ -751,7 +793,7 @@
           <div class="head">
             <div>
               <h2>Need Support</h2>
-              <p>รายชื่อที่ควรติดตาม เช่น ไม่จบ คะแนนต่ำ ใช้ AI Help เยอะ หรือ active time น้อย</p>
+              <p>รายชื่อที่ควรติดตาม เช่น ไม่จบ คะแนนต่ำ ใช้ AI Help เยอะ หรือเข้าเรียนสั้นเกินไป</p>
             </div>
           </div>
 
@@ -777,7 +819,7 @@
           <div class="head">
             <div>
               <h2>Recent Sessions</h2>
-              <p>ข้อมูลจาก attendance_sessions</p>
+              <p>ข้อมูลจาก attendance_sessions พร้อม Minimum Time Requirement</p>
             </div>
           </div>
 
@@ -789,9 +831,9 @@
                   <th>S</th>
                   <th>Score</th>
                   <th>Completed</th>
-                  <th>Duration</th>
+                  <th>Duration / Minimum</th>
                   <th>Actions</th>
-                  <th>Status</th>
+                  <th>Quality</th>
                   <th>Last Active</th>
                 </tr>
               </thead>
@@ -881,10 +923,10 @@
                 <th>S</th>
                 <th>Score</th>
                 <th>Completed</th>
-                <th>Duration</th>
+                <th>Duration / Minimum</th>
                 <th>Active</th>
                 <th>Actions</th>
-                <th>Status</th>
+                <th>Quality</th>
                 <th>Last Active</th>
               </tr>
             </thead>
@@ -924,6 +966,7 @@
       'refreshBtn','exportBtn','apiStatus','lastUpdated','loadMethod','endpointText',
       'studentFilter','sectionFilter','completedFilter','applyFilterBtn','clearFilterBtn',
       'kpiStudents','kpiCompleted','kpiAvgScore','kpiActive','kpiAiHelp',
+      'qValidCompleted','qTooFast','qPresentNotCompleted','qTooShort','qValidRate',
       'studentCountBadge','studentRows','supportList','sessionOverview',
       'recentSessionRows','recentEventsList','footerStatus',
       'studentModal','modalTitle','modalSub','closeModalBtn',
@@ -1005,7 +1048,23 @@
       const avg = stu.avgScore || 0;
       const active = stu.totalActiveTimeSec || 0;
 
+      const hasTooFast = rows.some(function(r){
+        return String(r.attendanceQuality || '') === 'completed_too_fast' ||
+          String(r.attendanceStatus || '') === 'completed_too_fast';
+      });
+
+      const hasTooShort = rows.some(function(r){
+        return String(r.attendanceQuality || '') === 'too_short';
+      });
+
+      const hasPresentNotCompleted = rows.some(function(r){
+        return String(r.attendanceQuality || '') === 'present_not_completed';
+      });
+
       if(completed >= 15) return {text:'Completed All',cls:'ok'};
+      if(hasTooShort) return {text:'Too Short',cls:'bad'};
+      if(hasTooFast) return {text:'Too Fast',cls:'warn'};
+      if(hasPresentNotCompleted) return {text:'Present Not Completed',cls:'warn'};
       if(completed === 0 && active < 60) return {text:'Need Start',cls:'bad'};
       if(avg > 0 && avg < 70) return {text:'Need Support',cls:'bad'};
       if(completed < 3) return {text:'In Progress',cls:'warn'};
@@ -1024,6 +1083,63 @@
       }
 
       return {text:'No Data',cls:'bad'};
+    }
+
+    function qualityOfSession(r){
+      const q = String(r.attendanceQuality || '').trim();
+      const status = String(r.attendanceStatus || '').trim();
+
+      if(q === 'valid_completed' || status === 'completed'){
+        return {
+          text:'Valid Completed',
+          cls:'ok',
+          note:'เล่นจบและอยู่นานพอ'
+        };
+      }
+
+      if(q === 'completed_too_fast' || status === 'completed_too_fast'){
+        return {
+          text:'Completed Too Fast',
+          cls:'warn',
+          note:'เล่นจบ แต่ใช้เวลาน้อยกว่าขั้นต่ำ'
+        };
+      }
+
+      if(q === 'present_not_completed' || status === 'present'){
+        return {
+          text:'Present Not Completed',
+          cls:'warn',
+          note:'อยู่นานพอ แต่ยังไม่จบ'
+        };
+      }
+
+      if(q === 'too_short'){
+        return {
+          text:'Too Short',
+          cls:'bad',
+          note:'ใช้เวลาน้อยเกินไป ยังไม่นับสมบูรณ์'
+        };
+      }
+
+      const old = statusOfSession(r);
+
+      return {
+        text:old.text,
+        cls:old.cls,
+        note:'ใช้ logic เดิม เพราะยังไม่มี attendanceQuality'
+      };
+    }
+
+    function minTimeText(r){
+      const duration = num(r.durationSec || 0);
+      const required = num(r.requiredMinTimeSec || 0);
+      const ratio = num(r.timeRatio || 0);
+
+      if(!required){
+        return fmtMin(duration);
+      }
+
+      return fmtMin(duration) + ' / min ' + fmtMin(required) + ' • ' + ratio + '%';
     }
 
     function buildUrl(){
@@ -1112,6 +1228,56 @@
       }
     }
 
+    function buildQualitySummary(rows){
+      const out = {
+        total:0,
+        valid_completed:0,
+        completed_too_fast:0,
+        present_not_completed:0,
+        too_short:0,
+        unknown:0
+      };
+
+      (rows || []).forEach(function(r){
+        out.total += 1;
+
+        let q = String(r.attendanceQuality || '').trim();
+
+        if(!q){
+          const completed = bool(r.completed);
+          const minTimeMet = bool(r.minTimeMet);
+
+          if(completed && minTimeMet) q = 'valid_completed';
+          else if(completed && !minTimeMet) q = 'completed_too_fast';
+          else if(!completed && minTimeMet) q = 'present_not_completed';
+          else if(!completed && !minTimeMet) q = 'too_short';
+          else q = 'unknown';
+        }
+
+        if(out[q] === undefined){
+          out.unknown += 1;
+        }else{
+          out[q] += 1;
+        }
+      });
+
+      out.validRate = out.total
+        ? Math.round((out.valid_completed / out.total) * 100)
+        : 0;
+
+      return out;
+    }
+
+    function renderQualitySummary(rows){
+      const q = buildQualitySummary(rows || []);
+
+      if(els.qValidCompleted) els.qValidCompleted.textContent = q.valid_completed;
+      if(els.qTooFast) els.qTooFast.textContent = q.completed_too_fast;
+      if(els.qPresentNotCompleted) els.qPresentNotCompleted.textContent = q.present_not_completed;
+      if(els.qTooShort) els.qTooShort.textContent = q.too_short;
+      if(els.qValidRate) els.qValidRate.textContent = q.validRate + '%';
+    }
+
     function renderAll(data,method){
       if(!data || data.ok !== true){
         els.apiStatus.textContent = 'API Error';
@@ -1137,6 +1303,7 @@
       els.kpiActive.textContent = fmtMin(totals.totalActiveTimeSec || 0);
       els.kpiAiHelp.textContent = totals.aiHelpEvents || 0;
 
+      renderQualitySummary(summary.recentSessions || []);
       renderStudents(summary.students || [], summary.recentSessions || []);
       renderSupport(summary.students || [], summary.recentSessions || []);
       renderSessionOverview(summary.sessions || []);
@@ -1230,15 +1397,21 @@
         const aiHelpUsed = countAiHelpForStudent(key);
         const aiHelpBlocked = countAiHelpBlockedForStudent(key);
 
+        const hasQualityIssue = stuRows.some(function(r){
+          const q = qualityOfSession(r);
+          return q.cls !== 'ok';
+        });
+
         return {
           stu:stu,
           status:status,
           key:key,
           aiHelpUsed:aiHelpUsed,
-          aiHelpBlocked:aiHelpBlocked
+          aiHelpBlocked:aiHelpBlocked,
+          hasQualityIssue:hasQualityIssue
         };
       }).filter(function(x){
-        return x.status.cls !== 'ok' || x.aiHelpUsed >= 5 || x.aiHelpBlocked > 0;
+        return x.status.cls !== 'ok' || x.aiHelpUsed >= 5 || x.aiHelpBlocked > 0 || x.hasQualityIssue;
       });
 
       if(!support.length){
@@ -1313,7 +1486,7 @@
       }
 
       els.recentSessionRows.innerHTML = rows.slice(0,60).map(function(r){
-        const st = statusOfSession(r);
+        const st = qualityOfSession(r);
         const s = sessionNoOf(r);
 
         return '' +
@@ -1327,7 +1500,10 @@
             '<td>S' + String(s || r.sessionNo || '-').padStart(2,'0') + '</td>' +
             '<td>' + esc(r.score || 0) + '</td>' +
             '<td><span class="badge ' + (bool(r.completed) ? 'ok' : 'warn') + '">' + (bool(r.completed) ? 'Yes' : 'No') + '</span></td>' +
-            '<td>' + fmtMin(r.durationSec || 0) + '</td>' +
+            '<td>' +
+              esc(minTimeText(r)) +
+              '<div class="smallMuted">' + esc(st.note) + '</div>' +
+            '</td>' +
             '<td>' + esc(r.actionsCount || 0) + '</td>' +
             '<td><span class="badge ' + st.cls + '">' + esc(st.text) + '</span></td>' +
             '<td><span class="smallMuted">' + esc(r.lastActiveAt || '-') + '</span></td>' +
@@ -1446,7 +1622,6 @@
     function buildTeacherRecommendation(stu, rows){
       const completed = num(stu.completed || 0);
       const avg = num(stu.avgScore || 0);
-      const active = num(stu.totalActiveTimeSec || 0);
 
       const key =
         String(stu.studentId || '').trim() ||
@@ -1475,6 +1650,20 @@
         return bool(r.completed) && num(r.score) <= 0;
       });
 
+      const tooFastRows = rows.filter(function(r){
+        return String(r.attendanceQuality || '') === 'completed_too_fast' ||
+          String(r.attendanceStatus || '') === 'completed_too_fast';
+      });
+
+      const tooShortRows = rows.filter(function(r){
+        return String(r.attendanceQuality || '') === 'too_short';
+      });
+
+      const presentNotCompletedRows = rows.filter(function(r){
+        return String(r.attendanceQuality || '') === 'present_not_completed' ||
+          String(r.attendanceStatus || '') === 'present';
+      });
+
       let level = 'info';
       let title = 'Monitor Progress';
       let reason = 'มีข้อมูลการเข้าใช้งานแล้ว ควรติดตามความต่อเนื่องของการเรียน';
@@ -1499,6 +1688,24 @@
         reason = 'มี session ที่จบแล้วแต่คะแนนยังเป็น 0';
         action = 'ตรวจ patch lesson.html ฝั่ง sendLog(session_end) ให้ส่ง score, durationSec, activeTimeSec, actionsCount';
         focus = 'Logging quality';
+      }else if(tooFastRows.length > 0){
+        level = 'warn';
+        title = 'Completed Too Fast';
+        reason = 'ผู้เรียนเล่นจบ แต่ใช้เวลาน้อยกว่า Minimum Time Requirement';
+        action = 'ให้ครูตรวจว่าเด็กกดผ่านเร็วเกินไปหรือไม่ และอาจให้เล่นซ้ำ S ที่เร็วผิดปกติ';
+        focus = 'Attendance quality';
+      }else if(tooShortRows.length > 0){
+        level = 'bad';
+        title = 'Too Short';
+        reason = 'ผู้เรียนใช้เวลาน้อยกว่าขั้นต่ำ จึงยังไม่นับเป็นการเข้าเรียนสมบูรณ์';
+        action = 'ให้ผู้เรียนกลับไปเล่น session ให้ครบเวลา และตอบให้จบตามกิจกรรม';
+        focus = 'Minimum time requirement';
+      }else if(presentNotCompletedRows.length > 0){
+        level = 'warn';
+        title = 'Present but Not Completed';
+        reason = 'ผู้เรียนอยู่นานพอ แต่ยังไม่จบ session';
+        action = 'ให้ครูตรวจว่าติดข้อไหน เช่น speaking mic, listening audio, หรือ writing submit';
+        focus = 'Completion support';
       }else if(avg > 0 && avg < 70){
         level = 'bad';
         title = 'Need Support';
@@ -1545,6 +1752,9 @@
         focus: focus,
         completedRows: completedRows.length,
         startedRows: startedRows.length,
+        tooFastRows: tooFastRows.length,
+        tooShortRows: tooShortRows.length,
+        presentNotCompletedRows: presentNotCompletedRows.length,
         aiHelpUsed: aiHelpUsed,
         aiHelpBlocked: aiHelpBlocked,
         weakSessions: weakSessions.map(function(r){
@@ -1571,6 +1781,9 @@
         '<p class="smallMuted">' +
           'Completed rows: ' + rec.completedRows +
           ' • Started rows: ' + rec.startedRows +
+          (rec.tooFastRows ? ' • Too Fast: ' + rec.tooFastRows : '') +
+          (rec.tooShortRows ? ' • Too Short: ' + rec.tooShortRows : '') +
+          (rec.presentNotCompletedRows ? ' • Present not completed: ' + rec.presentNotCompletedRows : '') +
           ' • AI Help: ' + rec.aiHelpUsed +
           (rec.aiHelpBlocked ? ' • Blocked: ' + rec.aiHelpBlocked : '') +
           (rec.weakSessions.length ? ' • Weak: ' + esc(rec.weakSessions.join(', ')) : '') +
@@ -1660,7 +1873,7 @@
       }
 
       els.dSessionRows.innerHTML = rows.map(function(r){
-        const st = statusOfSession(r);
+        const st = qualityOfSession(r);
         const s = sessionNoOf(r);
 
         return '' +
@@ -1668,7 +1881,10 @@
             '<td>S' + String(s || r.sessionNo || '-').padStart(2,'0') + '</td>' +
             '<td>' + esc(r.score || 0) + '</td>' +
             '<td><span class="badge ' + (bool(r.completed) ? 'ok' : 'warn') + '">' + (bool(r.completed) ? 'Yes' : 'No') + '</span></td>' +
-            '<td>' + fmtMin(r.durationSec || 0) + '</td>' +
+            '<td>' +
+              esc(minTimeText(r)) +
+              '<div class="smallMuted">' + esc(st.note) + '</div>' +
+            '</td>' +
             '<td>' + fmtMin(r.activeTimeSec || 0) + '</td>' +
             '<td>' + esc(r.actionsCount || 0) + '</td>' +
             '<td><span class="badge ' + st.cls + '">' + esc(st.text) + '</span></td>' +
@@ -1695,8 +1911,12 @@
         'completed',
         'durationSec',
         'activeTimeSec',
-        'actionsCount',
+        'requiredMinTimeSec',
+        'timeRatio',
         'attendanceStatus',
+        'attendanceQuality',
+        'minTimeMet',
+        'actionsCount',
         'lastActiveAt'
       ];
 
