@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="th">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <title>Teacher Dashboard v9.3 • Weakness Insight</title>
-    <meta name="theme-color" content="#0f172a" />
-    <style>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Teacher Dashboard v9.4 • Student Insight</title>
+  <meta name="theme-color" content="#0f172a" />
+  <style>
     :root{
       --bg:#f6fbff;
       --panel:#ffffff;
@@ -87,185 +87,143 @@
     @media (max-width:900px){.hero,.twocol{grid-template-columns:1fr}.grid4{grid-template-columns:repeat(2,1fr)}.controls{grid-template-columns:1fr 1fr}.controls .wide{grid-column:1/-1}}
     @media (max-width:560px){.grid4,.controls{grid-template-columns:1fr}.app{padding-bottom:26px}.card{padding:14px}.topbar-inner{align-items:flex-start}.actions{width:100%}.btn{flex:1}.kpi b{font-size:26px}}
   </style>
-  </head>
-  <body>
-    <div class="topbar">
-      <div class="topbar-inner">
-        <div class="brand">
-          <div class="logo">📊</div>
-          <div>
-            <b>Teacher Dashboard</b>
-            <br />
-            <span class="muted">Clean Mode v9.2</span>
-          </div>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo">📊</div>
+        <div>
+          <b>Teacher Dashboard</b><br />
+          <span class="muted">Clean Mode v9.2</span>
         </div>
-        <div class="actions">
-          <button class="btn small" id="refreshBtn">Refresh</button>
-          <button class="btn small secondary" id="refreshViewsBtn">Refresh Views</button>
-          <button class="btn small secondary" id="toggleAdvancedBtn">Deep Analytics</button>
-        </div>
+      </div>
+      <div class="actions">
+        <button class="btn small" id="refreshBtn">Refresh</button>
+        <button class="btn small secondary" id="refreshViewsBtn">Refresh Views</button>
+        <button class="btn small secondary" id="toggleAdvancedBtn">Deep Analytics</button>
       </div>
     </div>
-    <main class="app">
-      <section class="hero">
-        <div class="card soft">
-          <h1>ภาพรวมชั้นเรียนแบบไม่รก</h1>
-          <p>หน้าแรกแสดงเฉพาะข้อมูลที่ครูต้องใช้ทันที: ใครเล่นแล้ว ใครต้องติดตาม คะแนนเฉลี่ย และคำที่ควรทบทวน ส่วนข้อมูลลึกพับไว้ใน Deep Analytics</p>
-          <div class="helpbox" id="zeroHelp">
-            <b>เริ่มใช้งานเร็ว</b>
-            <p>ถ้าค่าเป็น 0 ให้เล่น vocab.html ให้จบ 1 รอบ หรือ Run TEST_VOCAB_APPEND_SESSION / TEST_VOCAB_APPEND_TERM แล้วกด Refresh</p>
-          </div>
+  </div>
+
+  <main class="app">
+    <section class="hero">
+      <div class="card soft">
+        <h1>ภาพรวมชั้นเรียนแบบไม่รก</h1>
+        <p>หน้าแรกแสดงเฉพาะข้อมูลที่ครูต้องใช้ทันที: ใครเล่นแล้ว ใครต้องติดตาม คะแนนเฉลี่ย และคำที่ควรทบทวน ส่วนข้อมูลลึกพับไว้ใน Deep Analytics</p>
+        <div class="helpbox" id="zeroHelp">
+          <b>เริ่มใช้งานเร็ว</b>
+          <p>ถ้าค่าเป็น 0 ให้เล่น vocab.html ให้จบ 1 รอบ หรือ Run TEST_VOCAB_APPEND_SESSION / TEST_VOCAB_APPEND_TERM แล้วกด Refresh</p>
         </div>
-        <div class="card">
-          <h2>Data Source</h2>
-          <label class="muted">Apps Script endpoint</label>
-          <input id="endpointInput" value="https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec" />
-          <div class="actions" style="margin-top:10px">
-            <button class="btn secondary small" id="saveEndpointBtn">Save</button>
-            <button class="btn secondary small" id="openSheetBtn">Open API</button>
-          </div>
-          <div class="footer-status" id="statusText">พร้อมโหลดข้อมูล</div>
-        </div>
-      </section>
-      <section class="grid4" id="kpiGrid">
-        <div class="kpi">
-          <b>0</b>
-          <span>Active Students</span>
-        </div>
-        <div class="kpi">
-          <b>0</b>
-          <span>Sessions</span>
-        </div>
-        <div class="kpi">
-          <b>0</b>
-          <span>Need Follow-up</span>
-        </div>
-        <div class="kpi">
-          <b>0%</b>
-          <span>Avg Accuracy</span>
-        </div>
-      </section>
-      <section class="card" id="quickFollowCard">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
-          <div>
-            <h2>Priority Follow-up</h2>
-            <p>รายชื่อ 5 คนแรกที่ควรดูแลก่อน</p>
-          </div>
-          <span class="pill" id="lastLoadedPill">ยังไม่ได้โหลด</span>
-        </div>
-        <div class="priority-list" id="priorityList" style="margin-top:14px">
-        </div>
-      </section>
-      <section class="twocol" style="margin-top:16px">
-        <div class="card">
-          <h2>Class Snapshot</h2>
-          <div id="classSnapshot" class="empty">ยังไม่มีข้อมูลสรุป</div>
-        </div>
-        <div class="card">
-          <h2>Next Teaching Move</h2>
-          <div id="nextMove" class="empty">ยังไม่มีคำแนะนำ</div>
-        </div>
-      </section>
-      <section class="card" style="margin-top:16px">
-        <h2>Students</h2>
-        <p>ค้นหานักศึกษาแบบเร็ว ไม่ต้องเปิด raw sheets</p>
-        <div class="controls">
-          <input class="wide" id="searchInput" placeholder="Search name / ID / section" />
-          <select id="riskFilter">
-            <option value="all">All</option>
-            <option value="risk">Risk</option>
-            <option value="support">Support</option>
-            <option value="good">Good</option>
-          </select>
-          <select id="sectionFilter">
-            <option value="all">All sections</option>
-          </select>
-          <select id="modeFilter">
-            <option value="all">All modes</option>
-          </select>
-          <select id="sortFilter">
-            <option value="risk">Risk first</option>
-            <option value="accuracy">Accuracy low</option>
-            <option value="score">Score high</option>
-            <option value="recent">Recent</option>
-          </select>
-        </div>
-        <div class="table-wrap">
-          <table id="studentsTable">
-          </table>
-        </div>
-      </section>
-      <div id="advancedArea" class="hidden" style="margin-top:16px;display:grid;gap:14px">
-        <details open>
-          <summary>Deep Analytics: Mode / Bank / Weak Terms</summary>
-          <div class="details-body">
-            <div class="teach-move" id="deepTeachingMove">ยังไม่มี insight</div>
-            <div class="insight-grid" id="insightPanel">
-            </div>
-            <div class="twocol">
-              <div>
-                <h3>Mode Stats</h3>
-                <div class="table-wrap">
-                  <table id="modeTable">
-                  </table>
-                </div>
-              </div>
-              <div>
-                <h3>Weak Terms Insight</h3>
-                <div class="table-wrap">
-                  <table id="weakTable">
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </details>
-        <details>
-          <summary>Leaderboard</summary>
-          <div class="details-body">
-            <div class="table-wrap">
-              <table id="leaderboardTable">
-              </table>
-            </div>
-          </div>
-        </details>
-        <details>
-          <summary>Recent Sessions</summary>
-          <div class="details-body">
-            <div class="table-wrap">
-              <table id="sessionsTable">
-              </table>
-            </div>
-          </div>
-        </details>
-        <details>
-          <summary>Reports / Export</summary>
-          <div class="details-body">
-            <div class="actions">
-              <button class="btn secondary small" id="exportStudentsBtn">Export Students CSV</button>
-              <button class="btn secondary small" id="exportSessionsBtn">Export Sessions CSV</button>
-              <button class="btn secondary small" id="copySummaryBtn">Copy Summary</button>
-            </div>
-            <textarea id="reportBox" style="margin-top:12px" readonly placeholder="Report summary will appear here">
-            </textarea>
-          </div>
-        </details>
-        <details>
-          <summary>Debug Raw JSON</summary>
-          <div class="details-body">
-            <textarea id="debugBox" readonly>
-            </textarea>
-          </div>
-        </details>
       </div>
-    </main>
-    <script>
+      <div class="card">
+        <h2>Data Source</h2>
+        <label class="muted">Apps Script endpoint</label>
+        <input id="endpointInput" value="https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec" />
+        <div class="actions" style="margin-top:10px">
+          <button class="btn secondary small" id="saveEndpointBtn">Save</button>
+          <button class="btn secondary small" id="openSheetBtn">Open API</button>
+        </div>
+        <div class="footer-status" id="statusText">พร้อมโหลดข้อมูล</div>
+      </div>
+    </section>
+
+    <section class="grid4" id="kpiGrid">
+      <div class="kpi"><b>0</b><span>Active Students</span></div>
+      <div class="kpi"><b>0</b><span>Sessions</span></div>
+      <div class="kpi"><b>0</b><span>Need Follow-up</span></div>
+      <div class="kpi"><b>0%</b><span>Avg Accuracy</span></div>
+    </section>
+
+    <section class="card" id="quickFollowCard">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+        <div>
+          <h2>Priority Follow-up</h2>
+          <p>รายชื่อ 5 คนแรกที่ควรดูแลก่อน</p>
+        </div>
+        <span class="pill" id="lastLoadedPill">ยังไม่ได้โหลด</span>
+      </div>
+      <div class="priority-list" id="priorityList" style="margin-top:14px"></div>
+    </section>
+
+    <section class="twocol" style="margin-top:16px">
+      <div class="card">
+        <h2>Class Snapshot</h2>
+        <div id="classSnapshot" class="empty">ยังไม่มีข้อมูลสรุป</div>
+      </div>
+      <div class="card">
+        <h2>Next Teaching Move</h2>
+        <div id="nextMove" class="empty">ยังไม่มีคำแนะนำ</div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h2>Students</h2>
+      <p>ค้นหานักศึกษาแบบเร็ว ไม่ต้องเปิด raw sheets</p>
+      <div class="controls">
+        <input class="wide" id="searchInput" placeholder="Search name / ID / section" />
+        <select id="riskFilter"><option value="all">All</option><option value="risk">Risk</option><option value="support">Support</option><option value="good">Good</option></select>
+        <select id="sectionFilter"><option value="all">All sections</option></select>
+        <select id="modeFilter"><option value="all">All modes</option></select>
+        <select id="sortFilter"><option value="risk">Risk first</option><option value="accuracy">Accuracy low</option><option value="score">Score high</option><option value="recent">Recent</option></select>
+      </div>
+      <div class="table-wrap"><table id="studentsTable"></table></div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h2>Student Insight รายบุคคล</h2>
+      <p>คลิกปุ่ม “ดูรายคน” ในตาราง Students เพื่อดูว่าเด็กคนนี้พลาดคำไหน อ่อน stage ไหน ใช้ AI Help ตรงไหน และควรฝึกอะไรต่อ</p>
+      <div id="studentInsight" class="student-insight">
+        <div class="empty">ยังไม่ได้เลือกนักศึกษา</div>
+      </div>
+    </section>
+
+    <div id="advancedArea" class="hidden" style="margin-top:16px;display:grid;gap:14px">
+      <details open>
+        <summary>Deep Analytics: Mode / Bank / Weak Terms</summary>
+        <div class="details-body">
+          <div class="teach-move" id="deepTeachingMove">ยังไม่มี insight</div>
+          <div class="insight-grid" id="insightPanel"></div>
+          <div class="twocol">
+            <div><h3>Mode Stats</h3><div class="table-wrap"><table id="modeTable"></table></div></div>
+            <div><h3>Weak Terms Insight</h3><div class="table-wrap"><table id="weakTable"></table></div></div>
+          </div>
+        </div>
+      </details>
+      <details>
+        <summary>Leaderboard</summary>
+        <div class="details-body"><div class="table-wrap"><table id="leaderboardTable"></table></div></div>
+      </details>
+      <details>
+        <summary>Recent Sessions</summary>
+        <div class="details-body"><div class="table-wrap"><table id="sessionsTable"></table></div></div>
+      </details>
+      <details>
+        <summary>Reports / Export</summary>
+        <div class="details-body">
+          <div class="actions">
+            <button class="btn secondary small" id="exportStudentsBtn">Export Students CSV</button>
+            <button class="btn secondary small" id="exportSessionsBtn">Export Sessions CSV</button>
+            <button class="btn secondary small" id="copySummaryBtn">Copy Summary</button>
+          </div>
+          <textarea id="reportBox" style="margin-top:12px" readonly placeholder="Report summary will appear here"></textarea>
+        </div>
+      </details>
+      <details>
+        <summary>Debug Raw JSON</summary>
+        <div class="details-body"><textarea id="debugBox" readonly></textarea></div>
+      </details>
+    </div>
+  </main>
+
+<script>
 (function(){
   'use strict';
   const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
-  const LS_ENDPOINT = 'VOCAB_TEACHER_ENDPOINT_V93';
+  const LS_ENDPOINT = 'VOCAB_TEACHER_ENDPOINT_V94';
   let dashboard = null;
   let model = {sessions:[],terms:[],profiles:[],leaderboard:[],roster:[],students:[],weakTerms:[],modeStats:[]};
+  let selectedStudentKey = '';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -367,7 +325,7 @@
     const q = $('searchInput').value.trim().toLowerCase(); const risk=$('riskFilter').value; const section=$('sectionFilter').value; const sort=$('sortFilter').value; const mode=$('modeFilter').value;
     let rows = model.students.filter(r => {
       const text = [r.display_name,r.student_id,r.section,r.email].join(' ').toLowerCase();
-      const rowMode = normalizeModeLabelV93(r.last_mode_label || r.last_mode || r.mode);
+      const rowMode = normalizeModeLabelV94(r.last_mode_label || r.last_mode || r.mode);
       return (!q || text.includes(q)) && (risk==='all' || r.risk===risk) && (section==='all' || String(r.section)===section) && (mode==='all' || rowMode===mode);
     });
     rows.sort((a,b)=>{
@@ -380,12 +338,12 @@
   }
 
   function renderAll(){
-    renderFilters(); renderKpis(); renderPriority(); renderSnapshot(); renderStudents(); renderAdvanced(); renderReport();
+    renderFilters(); renderKpis(); renderPriority(); renderSnapshot(); renderStudents(); renderStudentInsight(); renderAdvanced(); renderReport();
     $('debugBox').value = JSON.stringify(dashboard || {}, null, 2);
   }
   function renderFilters(){
     const sections = [...new Set(model.students.map(r=>r.section).filter(Boolean))].sort();
-    const modes = [...new Set([...model.sessions.map(r=>normalizeModeLabelV93(r.mode_label||r.mode)), ...model.students.map(r=>normalizeModeLabelV93(r.last_mode_label))].filter(Boolean).filter(v=>v!=='Unknown'))].sort();
+    const modes = [...new Set([...model.sessions.map(r=>normalizeModeLabelV94(r.mode_label||r.mode)), ...model.students.map(r=>normalizeModeLabelV94(r.last_mode_label))].filter(Boolean).filter(v=>v!=='Unknown'))].sort();
     fillSelect('sectionFilter','All sections','all',sections); fillSelect('modeFilter','All modes','all',modes);
   }
   function fillSelect(id,label,allVal,values){ const el=$(id), old=el.value; el.innerHTML = `<option value="${allVal}">${label}</option>` + values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); if([...el.options].some(o=>o.value===old)) el.value=old; }
@@ -409,23 +367,272 @@
     return `<div class="student-card"><div><strong>${esc(s.display_name||'Hero')}</strong><small>${esc(s.student_id||'-')} • ${esc(s.section||'-')} • ${esc(s.last_mode_label||'-')}</small><div class="recommend">Accuracy ${pct(s.last_accuracy)} • Score ${num(s.last_score)} • AI Help ${num(s.ai_help_used)}<br><b>Next:</b> ${esc(s.recommended_mode||'Weak Rescue')} ${s.recommended_difficulty?`(${esc(s.recommended_difficulty)})`:''}<br>${esc(s.ai_reason||'ทบทวนคำที่ตอบผิดบ่อย แล้วเล่นโหมดฝึกซ้ำ')}</div></div><div>${tag}</div></div>`;
   }
   function renderSnapshot(){
-    const weak = buildWeakTermInsightsV93(model.terms).slice(0,5); const modes = computeModeStats().slice(0,4);
+    const weak = buildWeakTermInsightsV94(model.terms).slice(0,5); const modes = computeModeStats().slice(0,4);
     $('classSnapshot').innerHTML = weak.length ? `<b>คำที่ควรทบทวน:</b><br>${weak.map(w=>`<span class="tag violet" style="margin:4px 4px 0 0">${esc(w.term)} (${w.wrong} ครั้ง)</span>`).join('')}` : 'ยังไม่มี weak terms';
-    const move = buildTeachingMoveV93();
+    const move = buildTeachingMoveV94();
     $('nextMove').innerHTML = `<b>${esc(move.title)}</b><br>${esc(move.detail)}<br><br>${modes.map(m=>`<span class="tag gray" style="margin:4px 4px 0 0">${esc(m.mode)}: ${m.count}</span>`).join('') || 'ยังไม่มี mode stats'}`;
   }
   function renderStudents(){
     const rows = filteredStudents();
-    renderTable('studentsTable', ['status','display_name','student_id','section','last_score','last_accuracy','ai_help_used','recommended_mode'], rows.map(r=>({status:r.risk, display_name:r.display_name, student_id:r.student_id, section:r.section, last_score:num(r.last_score), last_accuracy:pct(r.last_accuracy), ai_help_used:num(r.ai_help_used), recommended_mode:r.recommended_mode||'-'})), {status: v=>riskTag(v)});
+    const headers = ['status','display_name','student_id','section','last_score','last_accuracy','ai_help_used','recommended_mode','insight'];
+    const table = $('studentsTable');
+    if(!rows.length){
+      table.innerHTML = `<tbody><tr><td class="empty">ยังไม่มีข้อมูลนักศึกษา</td></tr></tbody>`;
+      return;
+    }
+    table.innerHTML = `<thead><tr>${headers.map(h=>`<th>${esc(label(h))}</th>`).join('')}</tr></thead><tbody>` +
+      rows.map(r => {
+        const key = studentKeyV94(r);
+        return `<tr class="clickable-row" data-student-key="${esc(key)}">
+          <td>${riskTag(r.risk)}</td>
+          <td><b>${esc(r.display_name || 'Hero')}</b></td>
+          <td>${esc(r.student_id || '-')}</td>
+          <td>${esc(r.section || '-')}</td>
+          <td>${num(r.last_score)}</td>
+          <td>${pct(r.last_accuracy)}</td>
+          <td>${num(r.ai_help_used)}</td>
+          <td>${esc(r.recommended_mode || '-')}</td>
+          <td><button class="btn secondary small selectStudentBtn" data-student-key="${esc(key)}">ดูรายคน</button></td>
+        </tr>`;
+      }).join('') + `</tbody>`;
   }
+
+  function renderStudentInsight(){
+    const box = $('studentInsight');
+    if(!box) return;
+
+    if(!model.students.length){
+      box.innerHTML = `<div class="empty">ยังไม่มีข้อมูลนักศึกษา ให้กด Refresh Views แล้วลองเล่น vocab 1 รอบก่อน</div>`;
+      return;
+    }
+
+    let student = selectedStudentKey
+      ? model.students.find(s => studentKeyV94(s) === selectedStudentKey)
+      : null;
+
+    if(!student){
+      const firstRisk = model.students.find(s => s.risk === 'risk' || s.risk === 'support');
+      student = firstRisk || model.students[0];
+      selectedStudentKey = student ? studentKeyV94(student) : '';
+    }
+
+    if(!student){
+      box.innerHTML = `<div class="empty">ยังไม่ได้เลือกนักศึกษา</div>`;
+      return;
+    }
+
+    const insight = buildStudentInsightV94(student);
+    box.innerHTML = renderStudentInsightHtmlV94(insight);
+  }
+
+  function studentKeyV94(s){
+    return String((s && (s.student_id || `${s.display_name || 'Hero'}|${s.section || ''}`)) || '').trim();
+  }
+
+  function sameStudentV94(row, student){
+    if(!row || !student) return false;
+    const sid = String(student.student_id || '').trim();
+    if(sid && String(row.student_id || '').trim() === sid) return true;
+    const nameA = String(row.display_name || '').trim().toLowerCase();
+    const nameB = String(student.display_name || '').trim().toLowerCase();
+    const secA = String(row.section || '').trim().toLowerCase();
+    const secB = String(student.section || '').trim().toLowerCase();
+    return !!nameA && !!nameB && nameA === nameB && (!secB || !secA || secA === secB);
+  }
+
+  function buildStudentInsightV94(student){
+    const sessions = model.sessions.filter(r => sameStudentV94(r, student)).sort((a,b)=>dateVal(b.timestamp||b.ended_at)-dateVal(a.timestamp||a.ended_at));
+    const terms = model.terms.filter(r => sameStudentV94(r, student)).sort((a,b)=>dateVal(b.timestamp)-dateVal(a.timestamp));
+    const wrongTerms = terms.filter(r => !truthy(r.is_correct));
+    const slowTerms = terms.filter(r => num(r.response_ms) >= 8000);
+    const aiTerms = terms.filter(r => truthy(r.ai_help_used_on_question));
+    const weak = buildStudentWeakTermsV94(wrongTerms);
+    const stages = buildStudentStageWeaknessV94(wrongTerms);
+    const recent = sessions[0] || {};
+    const avgAcc = sessions.length ? Math.round(sessions.reduce((a,b)=>a+num(b.accuracy),0)/sessions.length) : num(student.last_accuracy);
+    const totalAi = Math.max(num(student.ai_help_used), sessions.reduce((a,b)=>a+num(b.ai_help_used),0), aiTerms.length);
+    const risk = calcStudentRiskV94(student, avgAcc, wrongTerms.length, totalAi);
+    const recommendation = recommendStudentPracticeV94(student, weak, stages, slowTerms, aiTerms, sessions);
+    return {student, sessions, terms, wrongTerms, slowTerms, aiTerms, weak, stages, recent, avgAcc, totalAi, risk, recommendation};
+  }
+
+  function buildStudentWeakTermsV94(wrongTerms){
+    const map = {};
+    wrongTerms.forEach(r=>{
+      const term = cleanPlusV94(r.term || r.term_id || '');
+      if(!term) return;
+      if(!map[term]){
+        map[term] = {term, wrong:0, stages:{}, selected:{}, examples:[], slow:0, aiHelp:0};
+      }
+      const item = map[term];
+      item.wrong += 1;
+      const stage = cleanPlusV94(r.stage_name || r.stage_id || r.stage_index || 'Unknown');
+      item.stages[stage] = (item.stages[stage]||0)+1;
+      const sel = cleanPlusV94(r.selected || r.answer || '-');
+      item.selected[sel] = (item.selected[sel]||0)+1;
+      if(num(r.response_ms) >= 8000) item.slow += 1;
+      if(truthy(r.ai_help_used_on_question)) item.aiHelp += 1;
+      if(item.examples.length < 2){
+        item.examples.push({
+          prompt: cleanPlusV94(r.prompt || r.shown || ''),
+          selected: cleanPlusV94(r.selected || ''),
+          answer: cleanPlusV94(r.answer || '')
+        });
+      }
+    });
+
+    return Object.values(map).map(x=>{
+      const topStage = Object.entries(x.stages).sort((a,b)=>b[1]-a[1])[0];
+      const topSelected = Object.entries(x.selected).sort((a,b)=>b[1]-a[1])[0];
+      return {
+        ...x,
+        top_stage: topStage ? topStage[0] : '-',
+        top_selected: topSelected ? topSelected[0] : '-',
+        recommendation: recommendWeakTermPracticeV94(x.term, topStage ? topStage[0] : '')
+      };
+    }).sort((a,b)=>b.wrong-a.wrong).slice(0,8);
+  }
+
+  function buildStudentStageWeaknessV94(wrongTerms){
+    const map = {};
+    wrongTerms.forEach(r=>{
+      const stage = cleanPlusV94(r.stage_name || r.stage_id || r.stage_index || 'Unknown');
+      map[stage] = (map[stage]||0)+1;
+    });
+    return Object.entries(map).map(([stage,wrong])=>({stage, wrong})).sort((a,b)=>b.wrong-a.wrong).slice(0,5);
+  }
+
+  function calcStudentRiskV94(student, avgAcc, wrongCount, totalAi){
+    if(avgAcc < 60 || wrongCount >= 5) return {level:'risk', label:'Risk', tag:'red', detail:'คะแนน/accuracy ต่ำ หรือมีคำผิดซ้ำหลายคำ'};
+    if(avgAcc < 75 || totalAi >= 2) return {level:'support', label:'Support', tag:'amber', detail:'ควรฝึกเสริม และลดการพึ่ง AI Help'};
+    return {level:'good', label:'Good', tag:'green', detail:'พื้นฐานดี ให้เพิ่มความท้าทายได้'};
+  }
+
+  function recommendStudentPracticeV94(student, weak, stages, slowTerms, aiTerms, sessions){
+    const topWeak = weak[0];
+    const topStage = stages[0];
+    const lastMode = normalizeModeLabelV94(student.last_mode_label || student.last_mode || '');
+    if(topWeak){
+      if(String(topStage?.stage || '').toLowerCase().includes('boss')){
+        return {
+          title:`ฝึก Weak Rescue: ${topWeak.term}`,
+          detail:`เด็กคนนี้พลาดคำ ${topWeak.term} บ่อย และพลาดใน ${topStage.stage} ให้ลดระดับไปฝึก Debug Mission / AI Training ก่อนกลับไป Boss Rush`
+        };
+      }
+      if(slowTerms.length >= 3){
+        return {
+          title:'ฝึก Speed Recognition',
+          detail:`ตอบช้าหลายข้อ โดยเฉพาะคำ ${topWeak.term} ให้ฝึก Speed Run ระดับ Easy/Normal เพื่อเพิ่มความคล่อง`
+        };
+      }
+      if(aiTerms.length >= 2){
+        return {
+          title:'Guided Practice แบบลด AI Help',
+          detail:`ใช้ AI Help หลายข้อ ให้ฝึก AI Training พร้อมจำกัด AI Help แล้วตามด้วย Weak Rescue คำ ${topWeak.term}`
+        };
+      }
+      return {
+        title:`ทบทวนคำอ่อน: ${topWeak.term}`,
+        detail:`ให้ฝึกโจทย์บริบท 5 ข้อของคำ ${topWeak.term} และเปรียบเทียบกับคำที่มักเลือกผิด เช่น ${topWeak.top_selected || '-'}`
+      };
+    }
+    if(lastMode === 'AI Training'){
+      return {title:'พร้อมขยับระดับ', detail:'ผลรายบุคคลยังไม่พบคำอ่อนชัดเจน ให้ลอง Debug Mission หรือ Speed Run เพื่อทดสอบการใช้คำในบริบท'};
+    }
+    return {title:'รักษาความต่อเนื่อง', detail:'ให้เล่นโหมดเดิมอีก 1 รอบ หรือเพิ่ม difficulty หาก accuracy เกิน 80%'};
+  }
+
+  function renderStudentInsightHtmlV94(insight){
+    const s = insight.student;
+    const risk = insight.risk;
+    const latestMode = normalizeModeLabelV94(s.last_mode_label || s.last_mode || '-');
+    const weakHtml = insight.weak.length
+      ? insight.weak.map(w=>`
+        <div class="weak-chip">
+          <b>${esc(w.term)}</b>
+          <small>ผิด ${w.wrong} ครั้ง • stage หลัก: ${esc(w.top_stage)} • มักเลือก: ${esc(w.top_selected || '-')} • AI Help ${w.aiHelp}</small>
+          <small>${esc(w.recommendation)}</small>
+          ${w.examples[0] ? `<small>ตัวอย่าง: selected = ${esc(w.examples[0].selected || '-')} | answer = ${esc(w.examples[0].answer || '-')}</small>` : ''}
+        </div>`).join('')
+      : `<div class="empty">ยังไม่พบคำที่ผิดซ้ำ</div>`;
+
+    const stageHtml = insight.stages.length
+      ? insight.stages.map(x=>`<span class="tag amber" style="margin:4px 4px 0 0">${esc(x.stage)}: ${x.wrong}</span>`).join('')
+      : `<span class="tag green">ยังไม่พบ stage อ่อนชัดเจน</span>`;
+
+    const slowTop = insight.slowTerms.slice(0,5).map(r=>cleanPlusV94(r.term || r.term_id)).filter(Boolean);
+    const aiTop = insight.aiTerms.slice(0,5).map(r=>cleanPlusV94(r.term || r.term_id)).filter(Boolean);
+    const feedback = buildIndividualFeedbackV94(insight);
+
+    return `
+      <div class="student-insight-head">
+        <div>
+          <div class="student-title">${esc(s.display_name || 'Hero')}</div>
+          <div class="student-sub">${esc(s.student_id || '-')} • ${esc(s.section || '-')} • ล่าสุด: ${esc(latestMode)} ${s.last_difficulty ? `• ${esc(s.last_difficulty)}` : ''}</div>
+        </div>
+        <div class="student-action-row">
+          <span class="tag ${risk.tag}">${esc(risk.label)}</span>
+          <button class="btn secondary small" id="copyStudentFeedbackBtn">Copy feedback</button>
+        </div>
+      </div>
+
+      <div class="insight-metrics">
+        <div class="metric"><b>${num(s.last_score)}</b><span>Last score</span></div>
+        <div class="metric"><b>${pct(s.last_accuracy)}</b><span>Last accuracy</span></div>
+        <div class="metric"><b>${pct(insight.avgAcc)}</b><span>Avg accuracy</span></div>
+        <div class="metric"><b>${insight.wrongTerms.length}</b><span>Wrong answers</span></div>
+        <div class="metric"><b>${insight.totalAi}</b><span>AI Help</span></div>
+      </div>
+
+      <div class="teach-move">
+        <b>Recommended next practice:</b> ${esc(insight.recommendation.title)}<br>
+        ${esc(insight.recommendation.detail)}
+      </div>
+
+      <div class="student-deep-grid">
+        <div class="mini-box">
+          <h3>Weak Terms รายคน</h3>
+          ${weakHtml}
+        </div>
+        <div class="mini-box">
+          <h3>Learning Pattern</h3>
+          <p><b>Weak stages:</b><br>${stageHtml}</p>
+          <p><b>Slow terms:</b> ${slowTop.length ? esc([...new Set(slowTop)].join(', ')) : '-'}</p>
+          <p><b>AI Help terms:</b> ${aiTop.length ? esc([...new Set(aiTop)].join(', ')) : '-'}</p>
+          <p><b>Risk reason:</b> ${esc(risk.detail)}</p>
+        </div>
+      </div>
+
+      <textarea id="studentFeedbackBox" readonly style="min-height:150px">${esc(feedback)}</textarea>
+    `;
+  }
+
+  function buildIndividualFeedbackV94(insight){
+    const s = insight.student;
+    const weak = insight.weak.slice(0,3).map(w=>`${w.term} (${w.wrong})`).join(', ') || '-';
+    const stage = insight.stages[0] ? `${insight.stages[0].stage} (${insight.stages[0].wrong})` : '-';
+    return [
+      `Individual Vocab Feedback`,
+      `Student: ${s.display_name || 'Hero'} (${s.student_id || '-'})`,
+      `Section: ${s.section || '-'}`,
+      `Last score: ${num(s.last_score)} | Last accuracy: ${Math.round(num(s.last_accuracy))}%`,
+      `Risk: ${insight.risk.label}`,
+      `Weak terms: ${weak}`,
+      `Weak stage: ${stage}`,
+      `AI Help used: ${insight.totalAi}`,
+      `Next practice: ${insight.recommendation.title}`,
+      `Reason: ${insight.recommendation.detail}`
+    ].join('\n');
+  }
+
   function renderAdvanced(){
-    const move = buildTeachingMoveV93();
+    const move = buildTeachingMoveV94();
     $('deepTeachingMove').innerHTML = `<b>What to teach next:</b> ${esc(move.title)}<br>${esc(move.detail)}`;
-    renderInsightPanelV93();
+    renderInsightPanelV94();
     renderTable('modeTable',['mode','count','avg_score','avg_accuracy','best_score'], computeModeStats());
-    renderTable('weakTable',['term','wrong','students','top_stage','ai_help','slow','example','recommendation'], buildWeakTermInsightsV93(model.terms).slice(0,20).map(w=>({term:w.term, wrong:w.wrong, students:w.students, top_stage:w.top_stage, ai_help:w.ai_help, slow:w.slow, example:w.examples[0] ? `selected: ${w.examples[0].selected || '-'} | answer: ${w.examples[0].answer || '-'}` : '-', recommendation:w.recommendation})), {example:v=>`<div class="weak-example">${esc(v)}</div>`, recommendation:v=>`<div class="weak-example">${esc(v)}</div>`});
+    renderTable('weakTable',['term','wrong','students','top_stage','ai_help','slow','example','recommendation'], buildWeakTermInsightsV94(model.terms).slice(0,20).map(w=>({term:w.term, wrong:w.wrong, students:w.students, top_stage:w.top_stage, ai_help:w.ai_help, slow:w.slow, example:w.examples[0] ? `selected: ${w.examples[0].selected || '-'} | answer: ${w.examples[0].answer || '-'}` : '-', recommendation:w.recommendation})), {example:v=>`<div class="weak-example">${esc(v)}</div>`, recommendation:v=>`<div class="weak-example">${esc(v)}</div>`});
     renderTable('leaderboardTable',['rank','display_name','section','bank','mode','difficulty','fair_score','accuracy','ai_assisted','runs'], computeLeaderboard().slice(0,30), {ai_assisted:v=>truthy(v)?'<span class="tag violet">AI</span>':'<span class="tag green">No help</span>'});
-    renderTable('sessionsTable',['timestamp','display_name','section','bank','mode','difficulty','score','accuracy','ai_help_used'], model.sessions.slice().sort((a,b)=>dateVal(b.timestamp)-dateVal(a.timestamp)).slice(0,50).map(s=>({timestamp:s.timestamp, display_name:s.display_name, section:s.section, bank:s.bank, mode:normalizeModeLabelV93(s.mode_label||s.mode), difficulty:s.difficulty, score:num(s.score), accuracy:pct(s.accuracy), ai_help_used:num(s.ai_help_used)})));
+    renderTable('sessionsTable',['timestamp','display_name','section','bank','mode','difficulty','score','accuracy','ai_help_used'], model.sessions.slice().sort((a,b)=>dateVal(b.timestamp)-dateVal(a.timestamp)).slice(0,50).map(s=>({timestamp:s.timestamp, display_name:s.display_name, section:s.section, bank:s.bank, mode:normalizeModeLabelV94(s.mode_label||s.mode), difficulty:s.difficulty, score:num(s.score), accuracy:pct(s.accuracy), ai_help_used:num(s.ai_help_used)})));
   }
   function renderTable(id, headers, rows, renderers={}){
     const table=$(id);
@@ -435,13 +642,13 @@
   function label(h){ return String(h).replaceAll('_',' '); }
   function riskTag(v){ const cls = v==='risk'?'red':v==='support'?'amber':v==='good'?'green':'gray'; return `<span class="tag ${cls}">${esc(v||'unknown')}</span>`; }
   function computeWeakTerms(){
-    return buildWeakTermInsightsV93(model.terms).map(w=>({term:w.term, wrong:w.wrong, total:w.wrong, accuracy:0}));
+    return buildWeakTermInsightsV94(model.terms).map(w=>({term:w.term, wrong:w.wrong, total:w.wrong, accuracy:0}));
   }
   function computeModeStats(){
-    return buildCleanModeStatsV93(model.sessions, model.modeStats);
+    return buildCleanModeStatsV94(model.sessions, model.modeStats);
   }
 
-  function normalizeModeLabelV93(value){
+  function normalizeModeLabelV94(value){
     const raw = String(value || '').replace(/\+/g,' ').replace(/_/g,' ').trim().toLowerCase();
     if(!raw) return 'Unknown';
     if(raw.includes('ai training') || raw === 'learn' || raw.includes('learning')) return 'AI Training';
@@ -452,10 +659,10 @@
     return String(value || 'Unknown').replace(/\+/g,' ');
   }
 
-  function buildCleanModeStatsV93(sessions, summaryModes){
+  function buildCleanModeStatsV94(sessions, summaryModes){
     const map = new Map();
     const add = (modeRaw, count, scoreSum, accSum, accCount, bestScore) => {
-      const mode = normalizeModeLabelV93(modeRaw);
+      const mode = normalizeModeLabelV94(modeRaw);
       const cur = map.get(mode) || {mode, count:0, scoreSum:0, accSum:0, accCount:0, bestScore:0};
       cur.count += num(count);
       cur.scoreSum += num(scoreSum);
@@ -487,26 +694,26 @@
     })).sort((a,b)=>b.count-a.count);
   }
 
-  function buildWeakTermInsightsV93(terms){
+  function buildWeakTermInsightsV94(terms){
     const map = new Map();
     const sourceTerms = (terms||[]).length ? terms : (model.weakTerms||[]);
     sourceTerms.forEach(r=>{
       const hasCorrectFlag = r.is_correct !== undefined && r.is_correct !== null && String(r.is_correct).trim() !== '';
       if(hasCorrectFlag && truthy(r.is_correct)) return;
-      const term = cleanPlusV93(r.term || r.term_id || r.word || '');
+      const term = cleanPlusV94(r.term || r.term_id || r.word || '');
       if(!term) return;
       const item = map.get(term) || {term, wrong:0, studentsSet:new Set(), stages:{}, examples:[], ai_help:0, slow:0};
       item.wrong += num(r.wrong) || 1;
       item.studentsSet.add(String(r.student_id || r.display_name || 'unknown'));
-      const stage = cleanPlusV93(r.stage_name || r.stage_id || r.stage_index || 'Unknown');
+      const stage = cleanPlusV94(r.stage_name || r.stage_id || r.stage_index || 'Unknown');
       item.stages[stage] = (item.stages[stage] || 0) + 1;
       if(num(r.response_ms) >= 8000) item.slow += 1;
       if(truthy(r.ai_help_used_on_question)) item.ai_help += 1;
       if(item.examples.length < 2){
         item.examples.push({
-          prompt: cleanPlusV93(r.prompt || r.shown || r.question || ''),
-          selected: cleanPlusV93(r.selected || ''),
-          answer: cleanPlusV93(r.answer || '')
+          prompt: cleanPlusV94(r.prompt || r.shown || r.question || ''),
+          selected: cleanPlusV94(r.selected || ''),
+          answer: cleanPlusV94(r.answer || '')
         });
       }
       map.set(term,item);
@@ -514,13 +721,13 @@
     return [...map.values()].map(x=>{
       const topStage = Object.entries(x.stages).sort((a,b)=>b[1]-a[1])[0];
       const top_stage = topStage ? topStage[0] : '-';
-      return {term:x.term, wrong:x.wrong, students:x.studentsSet.size, top_stage, ai_help:x.ai_help, slow:x.slow, examples:x.examples, recommendation:recommendWeakTermPracticeV93(x.term, top_stage)};
+      return {term:x.term, wrong:x.wrong, students:x.studentsSet.size, top_stage, ai_help:x.ai_help, slow:x.slow, examples:x.examples, recommendation:recommendWeakTermPracticeV94(x.term, top_stage)};
     }).sort((a,b)=>b.wrong-a.wrong || b.students-a.students).slice(0,30);
   }
 
-  function cleanPlusV93(v){ return String(v || '').replace(/\+/g,' ').replace(/\s+/g,' ').trim(); }
+  function cleanPlusV94(v){ return String(v || '').replace(/\+/g,' ').replace(/\s+/g,' ').trim(); }
 
-  function recommendWeakTermPracticeV93(term, stage){
+  function recommendWeakTermPracticeV94(term, stage){
     const t = String(term || '').toLowerCase();
     const st = String(stage || '').toLowerCase();
     if(t.includes('library') || t.includes('package') || t.includes('framework')) return 'ทบทวนความต่างระหว่าง library / package / framework ด้วยตัวอย่างโค้ดสั้น ๆ';
@@ -530,8 +737,8 @@
     return 'ให้ฝึก Weak Rescue ด้วยโจทย์บริบท 5 ข้อ';
   }
 
-  function buildTeachingMoveV93(){
-    const weak = buildWeakTermInsightsV93(model.terms).slice(0,3);
+  function buildTeachingMoveV94(){
+    const weak = buildWeakTermInsightsV94(model.terms).slice(0,3);
     const avg = model.sessions.length ? model.sessions.reduce((s,r)=>s+num(r.accuracy),0)/model.sessions.length : 0;
     if(weak.length){
       const terms = weak.map(w=>w.term).join(', ');
@@ -543,8 +750,8 @@
     return {title:'เพิ่มความท้าทายด้วย Boss Battle / Challenge', detail:'ภาพรวมดีพอให้เพิ่ม speed, trap และ boss ได้'};
   }
 
-  function renderInsightPanelV93(){
-    const weak = buildWeakTermInsightsV93(model.terms);
+  function renderInsightPanelV94(){
+    const weak = buildWeakTermInsightsV94(model.terms);
     const modes = computeModeStats();
     const risk = model.students.filter(s=>s.risk==='risk'||s.risk==='support').length;
     const topWeak = weak[0];
@@ -561,7 +768,7 @@
 
   function computeLeaderboard(){
     const rows = model.leaderboard.length ? model.leaderboard : model.sessions;
-    return rows.map((r,i)=>({rank:num(r.rank)||i+1, display_name:r.display_name, section:r.section, bank:r.bank, mode:normalizeModeLabelV93(r.mode_label||r.mode), difficulty:r.difficulty, fair_score:num(r.fair_score||r.best_score||r.score), accuracy:pct(r.best_accuracy||r.accuracy), ai_assisted:r.ai_assisted, runs:num(r.runs)||1})).sort((a,b)=>num(b.fair_score)-num(a.fair_score));
+    return rows.map((r,i)=>({rank:num(r.rank)||i+1, display_name:r.display_name, section:r.section, bank:r.bank, mode:normalizeModeLabelV94(r.mode_label||r.mode), difficulty:r.difficulty, fair_score:num(r.fair_score||r.best_score||r.score), accuracy:pct(r.best_accuracy||r.accuracy), ai_assisted:r.ai_assisted, runs:num(r.runs)||1})).sort((a,b)=>num(b.fair_score)-num(a.fair_score));
   }
   function renderReport(){
     const risk = model.students.filter(s=>s.risk==='risk'||s.risk==='support').length;
@@ -576,14 +783,30 @@
   $('toggleAdvancedBtn').addEventListener('click', ()=> $('advancedArea').classList.toggle('hidden'));
   $('saveEndpointBtn').addEventListener('click', ()=>{ localStorage.setItem(LS_ENDPOINT, $('endpointInput').value.trim()); setStatus('Saved endpoint'); });
   $('openSheetBtn').addEventListener('click', ()=> window.open(endpoint('health'),'_blank'));
-  ['searchInput','riskFilter','sectionFilter','modeFilter','sortFilter'].forEach(id=>$(id).addEventListener('input', renderStudents));
+  ['searchInput','riskFilter','sectionFilter','modeFilter','sortFilter'].forEach(id=>$(id).addEventListener('input', ()=>{ renderStudents(); renderStudentInsight(); }));
+  $('studentsTable').addEventListener('click', e=>{
+    const btn = e.target.closest('[data-student-key]');
+    if(!btn) return;
+    selectedStudentKey = btn.getAttribute('data-student-key') || '';
+    renderStudentInsight();
+    $('studentInsight')?.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+  $('studentInsight').addEventListener('click', async e=>{
+    if(e.target && e.target.id === 'copyStudentFeedbackBtn'){
+      const box = $('studentFeedbackBox');
+      if(box){
+        await navigator.clipboard.writeText(box.value);
+        setStatus('Copied individual feedback');
+      }
+    }
+  });
   $('exportStudentsBtn').addEventListener('click', ()=>exportCsv('students_clean_view.csv', filteredStudents()));
   $('exportSessionsBtn').addEventListener('click', ()=>exportCsv('sessions_clean_view.csv', model.sessions));
   $('copySummaryBtn').addEventListener('click', async()=>{ await navigator.clipboard.writeText($('reportBox').value); setStatus('Copied summary'); });
   $('endpointInput').value = localStorage.getItem(LS_ENDPOINT) || DEFAULT_ENDPOINT;
   loadDashboard();
-  window.teacherV93 = {loadDashboard, refreshViews, model:()=>model, dashboard:()=>dashboard};
+  window.teacherV94 = {loadDashboard, refreshViews, model:()=>model, dashboard:()=>dashboard};
 })();
 </script>
-  </body>
+</body>
 </html>
