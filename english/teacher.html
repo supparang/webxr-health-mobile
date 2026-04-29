@@ -589,6 +589,7 @@
       background:rgba(255,255,255,.05);
       font-weight:800;
       text-align:center;
+      line-height:1.5;
     }
 
     @media (max-width:980px){
@@ -804,8 +805,8 @@
         <div class="panel section">
           <div class="head">
             <div>
-              <h2>Recent Events</h2>
-              <p>ข้อมูลจาก attendance_events เช่น answer / ai_help / session_end</p>
+              <h2>Recent Learning Events</h2>
+              <p>ซ่อน page_open / page_hidden / page_visible แล้ว แสดงเฉพาะ event ที่เกี่ยวกับการเรียนจริง</p>
             </div>
           </div>
 
@@ -882,9 +883,21 @@
     const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
 
     const SKILL_BY_S = {
-      1:'Speaking',2:'Reading',3:'Boss Writing',4:'Speaking',5:'Listening',
-      6:'Boss Reading',7:'Writing',8:'Listening',9:'Boss Speaking',10:'Reading',
-      11:'Listening',12:'Boss Writing',13:'Reading',14:'Speaking',15:'Final Listening'
+      1:'Speaking',
+      2:'Reading',
+      3:'Boss Writing',
+      4:'Speaking',
+      5:'Listening',
+      6:'Boss Reading',
+      7:'Writing',
+      8:'Listening',
+      9:'Boss Speaking',
+      10:'Reading',
+      11:'Listening',
+      12:'Boss Writing',
+      13:'Reading',
+      14:'Speaking',
+      15:'Final Listening'
     };
 
     const els = {};
@@ -898,7 +911,9 @@
       'dCompleted','dAvgScore','dActive','dStatus','dStageGrid','dSessionRows'
     ];
 
-    ids.forEach(function(id){els[id]=document.getElementById(id);});
+    ids.forEach(function(id){
+      els[id] = document.getElementById(id);
+    });
 
     let RAW = null;
     let SUMMARY = null;
@@ -907,7 +922,13 @@
 
     function esc(s){
       return String(s == null ? '' : s).replace(/[&<>"']/g,function(m){
-        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+        return {
+          '&':'&amp;',
+          '<':'&lt;',
+          '>':'&gt;',
+          '"':'&quot;',
+          "'":'&#39;'
+        }[m];
       });
     }
 
@@ -922,13 +943,16 @@
 
     function fmtMin(sec){
       sec = num(sec);
+
       if(sec < 60) return sec + 's';
-      return Math.round(sec/60) + 'm';
+
+      return Math.round(sec / 60) + 'm';
     }
 
     function sessionNoOf(r){
       const raw = String(r.sessionNo || r.lessonId || '').trim();
       const m = raw.match(/S?0?([1-9]|1[0-5])/i);
+
       return m ? Number(m[1]) : 0;
     }
 
@@ -945,17 +969,27 @@
       if(completed === 0 && active < 60) return {text:'Need Start',cls:'bad'};
       if(avg > 0 && avg < 70) return {text:'Need Support',cls:'bad'};
       if(completed < 3) return {text:'In Progress',cls:'warn'};
+
       return {text:'OK',cls:'ok'};
     }
 
     function statusOfSession(r){
       if(bool(r.completed)) return {text:'Completed',cls:'ok'};
-      if(num(r.durationSec) > 0 || num(r.activeTimeSec) > 0 || num(r.actionsCount) > 0) return {text:'Started',cls:'warn'};
+
+      if(
+        num(r.durationSec) > 0 ||
+        num(r.activeTimeSec) > 0 ||
+        num(r.actionsCount) > 0
+      ){
+        return {text:'Started',cls:'warn'};
+      }
+
       return {text:'No Data',cls:'bad'};
     }
 
     function buildUrl(){
       const p = new URLSearchParams();
+
       p.set('api','attendance');
       p.set('action','summary');
       p.set('limit','1000');
@@ -986,7 +1020,12 @@
         };
 
         function cleanup(){
-          try{delete window[cb];}catch(e){window[cb]=undefined;}
+          try{
+            delete window[cb];
+          }catch(e){
+            window[cb] = undefined;
+          }
+
           script.remove();
         }
 
@@ -1013,6 +1052,7 @@
 
         RAW = data;
         SUMMARY = data.summary || {};
+
         els.loadMethod.textContent = 'fetch';
         renderAll(data,'fetch');
       }catch(err){
@@ -1021,11 +1061,13 @@
 
           RAW = data;
           SUMMARY = data.summary || {};
+
           els.loadMethod.textContent = 'jsonp';
           renderAll(data,'jsonp');
         }catch(err2){
           els.apiStatus.textContent = 'Error';
           els.footerStatus.textContent = 'โหลดข้อมูลไม่ได้: ' + (err2.message || err.message || 'unknown');
+
           renderEmpty('โหลดข้อมูลไม่ได้ กรุณาตรวจ API / Deploy / Internet');
         }
       }
@@ -1082,22 +1124,39 @@
       els.studentCountBadge.textContent = students.length + ' students';
 
       if(!students.length){
-        els.studentRows.innerHTML = '<tr><td colspan="8">ยังไม่มีข้อมูลนักศึกษา หรือยังไม่มี session_end ที่สมบูรณ์</td></tr>';
+        els.studentRows.innerHTML =
+          '<tr><td colspan="8">ยังไม่มีข้อมูลนักศึกษา หรือยังไม่มี session_end ที่สมบูรณ์</td></tr>';
         return;
       }
 
       els.studentRows.innerHTML = students.map(function(stu){
-        const key = String(stu.studentId || '').trim() || ('NAME:' + String(stu.studentName || '').trim());
-        const stuRows = rows.filter(function(r){return studentKeyOf(r) === key;});
+        const key =
+          String(stu.studentId || '').trim() ||
+          ('NAME:' + String(stu.studentName || '').trim());
+
+        const stuRows = rows.filter(function(r){
+          return studentKeyOf(r) === key;
+        });
+
         const status = statusOfStudent(stu,stuRows);
         const completed = stu.completed || 0;
         const pct = Math.min(100,Math.round((completed / 15) * 100));
 
         return '' +
           '<tr>' +
-            '<td><div class="studentName"><b>' + esc(stu.studentName || '-') + '</b><small>ID: ' + esc(stu.studentId || '-') + '</small></div></td>' +
+            '<td>' +
+              '<div class="studentName">' +
+                '<b>' + esc(stu.studentName || '-') + '</b>' +
+                '<small>ID: ' + esc(stu.studentId || '-') + '</small>' +
+              '</div>' +
+            '</td>' +
             '<td>' + esc(stu.classSection || '-') + '</td>' +
-            '<td><div class="progressTiny"><div class="bar"><i style="width:' + pct + '%"></i></div><span class="smallMuted">' + completed + '/15</span></div></td>' +
+            '<td>' +
+              '<div class="progressTiny">' +
+                '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
+                '<span class="smallMuted">' + completed + '/15</span>' +
+              '</div>' +
+            '</td>' +
             '<td><b>' + esc(stu.avgScore || 0) + '</b></td>' +
             '<td><span class="badge ok">' + completed + '</span></td>' +
             '<td><span class="badge ' + status.cls + '">' + esc(status.text) + '</span></td>' +
@@ -1115,21 +1174,34 @@
 
     function renderSupport(students, rows){
       const support = students.map(function(stu){
-        const key = String(stu.studentId || '').trim() || ('NAME:' + String(stu.studentName || '').trim());
-        const stuRows = rows.filter(function(r){return studentKeyOf(r) === key;});
+        const key =
+          String(stu.studentId || '').trim() ||
+          ('NAME:' + String(stu.studentName || '').trim());
+
+        const stuRows = rows.filter(function(r){
+          return studentKeyOf(r) === key;
+        });
+
         const status = statusOfStudent(stu,stuRows);
-        return {stu:stu,status:status,key:key};
+
+        return {
+          stu:stu,
+          status:status,
+          key:key
+        };
       }).filter(function(x){
         return x.status.cls !== 'ok';
       });
 
       if(!support.length){
-        els.supportList.innerHTML = '<div class="empty">ยังไม่พบผู้เรียนที่ต้องติดตามจากข้อมูลปัจจุบัน</div>';
+        els.supportList.innerHTML =
+          '<div class="empty">ยังไม่พบผู้เรียนที่ต้องติดตามจากข้อมูลปัจจุบัน</div>';
         return;
       }
 
       els.supportList.innerHTML = support.map(function(x){
         const stu = x.stu;
+
         return '' +
           '<div class="miniCard">' +
             '<div class="miniCardTop">' +
@@ -1139,7 +1211,11 @@
               '</div>' +
               '<span class="badge ' + x.status.cls + '">' + esc(x.status.text) + '</span>' +
             '</div>' +
-            '<p>Completed: <b>' + esc(stu.completed || 0) + '/15</b> • Avg score: <b>' + esc(stu.avgScore || 0) + '</b> • Active: <b>' + fmtMin(stu.totalActiveTimeSec || 0) + '</b></p>' +
+            '<p>' +
+              'Completed: <b>' + esc(stu.completed || 0) + '/15</b>' +
+              ' • Avg score: <b>' + esc(stu.avgScore || 0) + '</b>' +
+              ' • Active: <b>' + fmtMin(stu.totalActiveTimeSec || 0) + '</b>' +
+            '</p>' +
             '<button class="btn small primary" data-view-student="' + esc(x.key) + '">View student</button>' +
           '</div>';
       }).join('');
@@ -1153,14 +1229,19 @@
 
     function renderSessionOverview(sessions){
       const by = {};
-      sessions.forEach(function(s){by[Number(s.sessionNo)] = s;});
+
+      sessions.forEach(function(s){
+        by[Number(s.sessionNo)] = s;
+      });
 
       els.sessionOverview.innerHTML = Array.from({length:15},function(_,i){
         const n = i + 1;
         const s = by[n] || null;
+
         const attempts = s ? num(s.attempts) : 0;
         const completed = s ? num(s.completed) : 0;
         const avg = s ? num(s.avgScore) : 0;
+
         let cls = attempts ? 'started' : '';
 
         if(completed > 0) cls = 'done';
@@ -1187,7 +1268,12 @@
 
         return '' +
           '<tr>' +
-            '<td><div class="studentName"><b>' + esc(r.studentName || '-') + '</b><small>ID: ' + esc(r.studentId || '-') + '</small></div></td>' +
+            '<td>' +
+              '<div class="studentName">' +
+                '<b>' + esc(r.studentName || '-') + '</b>' +
+                '<small>ID: ' + esc(r.studentId || '-') + '</small>' +
+              '</div>' +
+            '</td>' +
             '<td>S' + String(s || r.sessionNo || '-').padStart(2,'0') + '</td>' +
             '<td>' + esc(r.score || 0) + '</td>' +
             '<td><span class="badge ' + (bool(r.completed) ? 'ok' : 'warn') + '">' + (bool(r.completed) ? 'Yes' : 'No') + '</span></td>' +
@@ -1200,112 +1286,113 @@
     }
 
     function renderRecentEvents(events){
-  const teacherEvents = (events || []).filter(function(e){
-    const type = String(e.eventType || '').trim();
+      const teacherEvents = (events || []).filter(function(e){
+        const type = String(e.eventType || '').trim();
 
-    // ซ่อน event สำหรับ debug/browser behavior
-    const noisy = [
-      'page_open',
-      'page_hidden',
-      'page_visible',
-      'page_leave',
-      'manual_test'
-    ];
+        const noisy = [
+          'page_open',
+          'page_hidden',
+          'page_visible',
+          'page_leave',
+          'manual_test'
+        ];
 
-    if(noisy.indexOf(type) >= 0) return false;
+        if(noisy.indexOf(type) >= 0) return false;
 
-    // โชว์เฉพาะ event ที่เกี่ยวกับการเรียนจริง
-    const useful = [
-      'session_start',
-      'question_start',
-      'answer',
-      'ai_help',
-      'speech_start',
-      'timeout',
-      'retry_panel_show',
-      'retry_start',
-      'session_end'
-    ];
+        const useful = [
+          'session_start',
+          'question_start',
+          'answer',
+          'ai_help',
+          'speech_start',
+          'timeout',
+          'retry_panel_show',
+          'retry_start',
+          'session_end'
+        ];
 
-    return useful.indexOf(type) >= 0;
-  });
+        return useful.indexOf(type) >= 0;
+      });
 
-  if(!teacherEvents.length){
-    els.recentEventsList.innerHTML =
-      '<div class="empty">' +
-        'ยังไม่มี learning events ที่สำคัญ เช่น answer / ai_help / session_end<br>' +
-        '<span class="smallMuted">ถ้าเห็น Session Rows แล้วแต่ยังไม่มี event สำคัญ แปลว่าต้องเล่นให้ถึงตอบคำถามหรือจบ session ก่อน</span>' +
-      '</div>';
-    return;
-  }
+      if(!teacherEvents.length){
+        els.recentEventsList.innerHTML =
+          '<div class="empty">' +
+            'ยังไม่มี learning events ที่สำคัญ เช่น answer / ai_help / session_end<br>' +
+            '<span class="smallMuted">ถ้าเห็น Session Rows แล้วแต่ยังไม่มี event สำคัญ แปลว่าต้องเล่นให้ถึงตอบคำถามหรือจบ session ก่อน</span>' +
+          '</div>';
+        return;
+      }
 
-  els.recentEventsList.innerHTML = teacherEvents.slice(0,80).map(function(e){
-    const type = String(e.eventType || '');
-    let cls = 'info';
-    let label = type;
+      els.recentEventsList.innerHTML = teacherEvents.slice(0,80).map(function(e){
+        const type = String(e.eventType || '');
+        let cls = 'info';
+        let label = type;
 
-    if(type === 'session_start'){
-      cls = 'info';
-      label = 'Started';
+        if(type === 'session_start'){
+          cls = 'info';
+          label = 'Started';
+        }
+
+        if(type === 'question_start'){
+          cls = 'purple';
+          label = 'Question';
+        }
+
+        if(type === 'answer'){
+          cls = num(e.score) > 0 ? 'ok' : 'bad';
+          label = num(e.score) > 0 ? 'Answer OK' : 'Answer';
+        }
+
+        if(type === 'ai_help'){
+          cls = 'purple';
+          label = 'AI Help';
+        }
+
+        if(type === 'speech_start'){
+          cls = 'info';
+          label = 'Speaking';
+        }
+
+        if(type === 'timeout'){
+          cls = 'bad';
+          label = 'Timeout';
+        }
+
+        if(type === 'retry_panel_show' || type === 'retry_start'){
+          cls = 'warn';
+          label = 'Retry';
+        }
+
+        if(type === 'session_end'){
+          cls = bool(e.completed) ? 'ok' : 'warn';
+          label = bool(e.completed) ? 'Completed' : 'Ended';
+        }
+
+        return '' +
+          '<div class="miniCard">' +
+            '<div class="miniCardTop">' +
+              '<div>' +
+                '<h3>' + esc(e.studentName || e.studentId || '-') + '</h3>' +
+                '<p>' +
+                  'S' + esc(e.sessionNo || '-') +
+                  ' • score ' + esc(e.score || 0) +
+                  ' • actions ' + esc(e.actionsCount || 0) +
+                  ' • completed ' + esc(e.completed || false) +
+                '</p>' +
+              '</div>' +
+              '<span class="badge ' + cls + '">' + esc(label) + '</span>' +
+            '</div>' +
+            '<p class="smallMuted">' + esc(e.serverTs || e.clientTs || '-') + '</p>' +
+          '</div>';
+      }).join('');
     }
-
-    if(type === 'question_start'){
-      cls = 'purple';
-      label = 'Question';
-    }
-
-    if(type === 'answer'){
-      cls = num(e.score) > 0 ? 'ok' : 'bad';
-      label = num(e.score) > 0 ? 'Answer OK' : 'Answer';
-    }
-
-    if(type === 'ai_help'){
-      cls = 'purple';
-      label = 'AI Help';
-    }
-
-    if(type === 'speech_start'){
-      cls = 'info';
-      label = 'Speaking';
-    }
-
-    if(type === 'timeout'){
-      cls = 'bad';
-      label = 'Timeout';
-    }
-
-    if(type === 'retry_panel_show' || type === 'retry_start'){
-      cls = 'warn';
-      label = 'Retry';
-    }
-
-    if(type === 'session_end'){
-      cls = bool(e.completed) ? 'ok' : 'warn';
-      label = bool(e.completed) ? 'Completed' : 'Ended';
-    }
-
-    return '' +
-      '<div class="miniCard">' +
-        '<div class="miniCardTop">' +
-          '<div>' +
-            '<h3>' + esc(e.studentName || e.studentId || '-') + '</h3>' +
-            '<p>' +
-              'S' + esc(e.sessionNo || '-') +
-              ' • score ' + esc(e.score || 0) +
-              ' • actions ' + esc(e.actionsCount || 0) +
-              ' • completed ' + esc(e.completed || false) +
-            '</p>' +
-          '</div>' +
-          '<span class="badge ' + cls + '">' + esc(label) + '</span>' +
-        '</div>' +
-        '<p class="smallMuted">' + esc(e.serverTs || e.clientTs || '-') + '</p>' +
-      '</div>';
-  }).join('');
-}
 
     function openStudent(key){
       const stu = CURRENT_STUDENTS.find(function(s){
-        const k = String(s.studentId || '').trim() || ('NAME:' + String(s.studentName || '').trim());
+        const k =
+          String(s.studentId || '').trim() ||
+          ('NAME:' + String(s.studentName || '').trim());
+
         return k === key;
       });
 
@@ -1317,8 +1404,11 @@
 
       const status = statusOfStudent(stu,rows);
 
-      els.modalTitle.textContent = (stu.studentName || 'Unknown Student');
-      els.modalSub.textContent = 'ID: ' + (stu.studentId || '-') + ' • Section: ' + (stu.classSection || '-');
+      els.modalTitle.textContent = stu.studentName || 'Unknown Student';
+      els.modalSub.textContent =
+        'ID: ' + (stu.studentId || '-') +
+        ' • Section: ' + (stu.classSection || '-');
+
       els.dCompleted.textContent = (stu.completed || 0) + '/15';
       els.dAvgScore.textContent = stu.avgScore || 0;
       els.dActive.textContent = fmtMin(stu.totalActiveTimeSec || 0);
@@ -1335,9 +1425,11 @@
 
       rows.forEach(function(r){
         const s = sessionNoOf(r);
+
         if(!s) return;
 
         if(!byS[s]) byS[s] = [];
+
         byS[s].push(r);
       });
 
@@ -1346,7 +1438,9 @@
         const list = byS[n] || [];
         const completed = list.some(function(r){return bool(r.completed);});
         const started = list.length > 0;
-        const bestScore = list.reduce(function(max,r){return Math.max(max,num(r.score));},0);
+        const bestScore = list.reduce(function(max,r){
+          return Math.max(max,num(r.score));
+        },0);
 
         let cls = '';
         let txt = '-';
@@ -1370,7 +1464,8 @@
 
     function renderStudentSessions(rows){
       if(!rows.length){
-        els.dSessionRows.innerHTML = '<tr><td colspan="8">ไม่มีข้อมูล session ของนักศึกษาคนนี้</td></tr>';
+        els.dSessionRows.innerHTML =
+          '<tr><td colspan="8">ไม่มีข้อมูล session ของนักศึกษาคนนี้</td></tr>';
         return;
       }
 
@@ -1401,9 +1496,18 @@
       }
 
       const headers = [
-        'studentId','studentName','classSection','sessionNo','lessonId',
-        'score','completed','durationSec','activeTimeSec','actionsCount',
-        'attendanceStatus','lastActiveAt'
+        'studentId',
+        'studentName',
+        'classSection',
+        'sessionNo',
+        'lessonId',
+        'score',
+        'completed',
+        'durationSec',
+        'activeTimeSec',
+        'actionsCount',
+        'attendanceStatus',
+        'lastActiveAt'
       ];
 
       const csv = [
@@ -1422,11 +1526,14 @@
 
       a.href = url;
       a.download = 'techpath-attendance-' + new Date().toISOString().slice(0,10) + '.csv';
+
       document.body.appendChild(a);
       a.click();
       a.remove();
 
-      setTimeout(function(){URL.revokeObjectURL(url);},500);
+      setTimeout(function(){
+        URL.revokeObjectURL(url);
+      },500);
     }
 
     function bind(){
@@ -1441,6 +1548,7 @@
       });
 
       els.exportBtn.addEventListener('click',exportCsv);
+
       els.closeModalBtn.addEventListener('click',function(){
         els.studentModal.classList.remove('on');
       });
