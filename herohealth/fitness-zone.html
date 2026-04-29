@@ -14,18 +14,14 @@
       --sky2:#bfe8ff;
       --sky3:#fff7d4;
       --card:#fffdf7;
-      --card2:#f9fff4;
       --ink:#4f4a43;
       --muted:#7a766f;
       --line:#cae6ef;
       --blue:#76cfff;
-      --blue2:#45b7f5;
       --green:#7dd957;
       --green2:#56c43c;
       --yellow:#ffd45d;
-      --orange:#ffb04f;
       --pink:#ff97c6;
-      --purple:#b995ff;
       --shadow:0 16px 36px rgba(77,74,67,.12);
       --safe-top:env(safe-area-inset-top,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
@@ -167,7 +163,14 @@
       align-items:center;
     }
 
-    .brand,
+    .top-actions{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
     .top-actions a,
     .top-actions button,
     .icon-btn{
@@ -184,46 +187,6 @@
       place-items:center;
       cursor:pointer;
       border-width:2px;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 14px;
-      text-decoration:none;
-      color:inherit;
-    }
-
-    .brand .icon{
-      width:30px;
-      height:30px;
-      border-radius:50%;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(135deg,var(--blue),var(--pink));
-      color:#fff;
-      font-size:15px;
-      box-shadow:0 8px 16px rgba(0,0,0,.12);
-    }
-
-    .brand-copy{
-      display:grid;
-      gap:2px;
-    }
-
-    .brand-title{
-      margin:0;
-      font-size:18px;
-      line-height:1;
-      font-weight:1000;
-    }
-
-    .brand-sub{
-      margin:0;
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
     }
 
     .headline{
@@ -244,14 +207,6 @@
       color:var(--muted);
       font-size:13px;
       font-weight:900;
-    }
-
-    .top-actions{
-      display:flex;
-      gap:8px;
-      justify-content:flex-end;
-      flex-wrap:wrap;
-      align-items:center;
     }
 
     .top-actions a,
@@ -656,17 +611,9 @@
       outline-color:#45b7f5;
     }
 
-    .mode-mobile{
-      background:linear-gradient(180deg,#dff8ff,#baeefe);
-    }
-
-    .mode-pc{
-      background:linear-gradient(180deg,#fff6ba,#ffe66d);
-    }
-
-    .mode-vr{
-      background:linear-gradient(180deg,#ffe3ef,#ffc9de);
-    }
+    .mode-mobile{ background:linear-gradient(180deg,#dff8ff,#baeefe); }
+    .mode-pc{ background:linear-gradient(180deg,#fff6ba,#ffe66d); }
+    .mode-vr{ background:linear-gradient(180deg,#ffe3ef,#ffc9de); }
 
     .content{
       display:grid;
@@ -1119,7 +1066,7 @@
       flex-wrap:wrap;
     }
 
-    @media (max-width: 1020px){
+    @media (max-width:1020px){
       .content{
         grid-template-columns:1fr;
       }
@@ -1130,7 +1077,7 @@
       }
     }
 
-    @media (max-width: 840px){
+    @media (max-width:840px){
       .hero-top{
         grid-template-columns:1fr;
       }
@@ -1149,7 +1096,7 @@
       }
     }
 
-    @media (max-width: 760px){
+    @media (max-width:760px){
       .topbar{
         grid-template-columns:1fr;
       }
@@ -1169,7 +1116,7 @@
       }
     }
 
-    @media (max-width: 560px){
+    @media (max-width:560px){
       .stat-grid,
       .game-recent-grid,
       .picker-actions{
@@ -1208,7 +1155,7 @@
 
       <div class="headline">
         <div class="title">Fitness Zone</div>
-        <div class="sub">ขยับร่างกายให้แข็งแรง สนุกกับการออกกำลัง • child-friendly • minimal URL</div>
+        <div class="sub">ขยับร่างกายให้แข็งแรง สนุกกับการออกกำลัง • child-friendly • URL สั้นสำหรับเล่นจริง</div>
       </div>
 
       <div class="top-actions">
@@ -1225,7 +1172,6 @@
           <p class="hero-sub">
             เกมฝึก <strong>jump + duck + landing + beat</strong> สำหรับเด็ก
             แบบอ่านง่าย มี cue กลางจอ และมีสรุปผลทักษะหลังเล่น
-            เหมาะทั้งแบบเล่นทั่วไป แบบซ้อมเร็ว และแบบ research run
           </p>
 
           <div class="hero-tags">
@@ -1286,15 +1232,15 @@
         <div class="mission-grid">
           <div class="mission-card">
             <strong>เริ่มแบบมาตรฐาน</strong>
-            <span>warmup → game → summary → cooldown</span>
+            <span>เล่นเต็มรอบและดู summary</span>
           </div>
           <div class="mission-card">
             <strong>ซ้อมเร็ว</strong>
-            <span>เข้าเกมเลย ไม่ผ่าน warmup</span>
+            <span>เข้าเกมแบบสั้นกว่า</span>
           </div>
           <div class="mission-card">
             <strong>สาธิตสั้น</strong>
-            <span>easy • 60 วินาที • เหมาะกับ intro / demo</span>
+            <span>easy • 60 วินาที</span>
           </div>
         </div>
 
@@ -1536,7 +1482,7 @@
     </section>
 
     <p class="footer-note">
-      HeroHealth Fitness Zone • child-friendly • zone-first • minimal safe URL
+      HeroHealth Fitness Zone • child-friendly • zone-first • URL สั้นสำหรับเล่นจริง
     </p>
   </main>
 
@@ -1650,9 +1596,6 @@
         run: qget('run', 'play'),
         view: selectedView,
         time: qget('time', '90'),
-        seed: qget('seed', String(Date.now())),
-        studyId: qget('studyId', ''),
-        section: qget('section', ''),
         hubRoot: stripToKnownPageUrl(deriveMainHub(), './hub-v2.html'),
         zoneReturn: getCleanFitnessZoneReturnUrl()
       };
@@ -1770,69 +1713,18 @@
         });
       }
 
-      function setIfValue(url, key, value){
-        if(value !== undefined && value !== null && String(value).trim() !== ''){
-          url.searchParams.set(key, String(value));
-        }
-      }
-
       function passCommon(url) {
         url.searchParams.set('pid', qget('pid', ctx.pid));
         url.searchParams.set('name', qget('name', ctx.name));
         url.searchParams.set('diff', qget('diff', ctx.diff));
         url.searchParams.set('time', qget('time', ctx.time));
-        url.searchParams.set('seed', qget('seed', ctx.seed));
-        url.searchParams.set('run', qget('run', ctx.run));
         url.searchParams.set('view', selectedView);
-
-        setIfValue(url, 'studyId', ctx.studyId);
-        setIfValue(url, 'section', ctx.section);
+        url.searchParams.set('run', qget('run', ctx.run));
 
         url.searchParams.set('zone', 'fitness');
-        url.searchParams.set('cat', 'fitness');
-
         url.searchParams.set('hub', ctx.zoneReturn);
-        url.searchParams.set('hubRoot', ctx.hubRoot);
 
         return url;
-      }
-
-      function buildJumpDuckUrl(mode) {
-        const url = new URL('./jump-duck-vr.html', location.href);
-        passCommon(url);
-
-        url.searchParams.set('game', 'jumpduck');
-        url.searchParams.set('gameId', 'jumpduck');
-        url.searchParams.set('theme', 'jumpduck');
-        url.searchParams.set('mode', 'solo');
-        url.searchParams.set('focus', 'jumpduck');
-        url.searchParams.set('featured', 'jumpduck');
-
-        if (mode === 'play') {
-          url.searchParams.set('run', 'play');
-          url.searchParams.set('gate', '1');
-          url.searchParams.set('cooldown', '1');
-          url.searchParams.set('returnPhase', 'cooldown');
-        } else if (mode === 'quick') {
-          url.searchParams.set('run', 'play');
-          url.searchParams.set('gate', '0');
-          url.searchParams.set('cooldown', '1');
-          url.searchParams.set('returnPhase', 'cooldown');
-        } else if (mode === 'research') {
-          url.searchParams.set('run', 'research');
-          url.searchParams.set('gate', '1');
-          url.searchParams.set('cooldown', '1');
-          url.searchParams.set('returnPhase', 'cooldown');
-        } else if (mode === 'demo') {
-          url.searchParams.set('run', 'demo');
-          url.searchParams.set('diff', 'easy');
-          url.searchParams.set('time', '60');
-          url.searchParams.set('gate', '0');
-          url.searchParams.set('cooldown', '0');
-          url.searchParams.set('returnPhase', 'hub');
-        }
-
-        return url.toString();
       }
 
       function buildFitnessGameUrl(page, overrides = {}) {
@@ -1853,6 +1745,29 @@
         }
 
         return url.toString();
+      }
+
+      function buildJumpDuckUrl(mode) {
+        const extra = {
+          game:'jumpduck',
+          mode:'solo'
+        };
+
+        if(mode === 'quick'){
+          extra.time = '60';
+        }
+
+        if(mode === 'research'){
+          extra.run = 'research';
+        }
+
+        if(mode === 'demo'){
+          extra.run = 'demo';
+          extra.diff = 'easy';
+          extra.time = '60';
+        }
+
+        return buildFitnessGameUrl('jump-duck-vr.html', extra);
       }
 
       function bindZoneLinks() {
@@ -1907,83 +1822,55 @@
         const otherGames = {
           btnPlayShadow: buildFitnessGameUrl('shadow-breaker-vr.html', {
             game:'shadowbreaker',
-            gameId:'shadowbreaker',
-            theme:'shadowbreaker',
             mode:'solo'
           }),
           btnQuickShadow: buildFitnessGameUrl('shadow-breaker-vr.html', {
             game:'shadowbreaker',
-            gameId:'shadowbreaker',
-            theme:'shadowbreaker',
             mode:'solo',
-            run:'play',
-            time:'60',
-            gate:'0'
+            time:'60'
           }),
           btnResearchShadow: buildFitnessGameUrl('shadow-breaker-vr.html', {
             game:'shadowbreaker',
-            gameId:'shadowbreaker',
-            theme:'shadowbreaker',
             mode:'solo',
             run:'research'
           }),
 
           btnPlayRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', {
             game:'rhythmboxer',
-            gameId:'rhythmboxer',
-            theme:'rhythmboxer',
             mode:'solo'
           }),
           btnQuickRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', {
             game:'rhythmboxer',
-            gameId:'rhythmboxer',
-            theme:'rhythmboxer',
             mode:'solo',
-            run:'play',
-            time:'60',
-            gate:'0'
+            time:'60'
           }),
           btnResearchRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', {
             game:'rhythmboxer',
-            gameId:'rhythmboxer',
-            theme:'rhythmboxer',
             mode:'solo',
             run:'research'
           }),
 
           btnPlayBalance: buildFitnessGameUrl('balance-hold-vr.html', {
             game:'balancehold',
-            gameId:'balancehold',
-            theme:'balancehold',
             mode:'solo'
           }),
           btnQuickBalance: buildFitnessGameUrl('balance-hold-vr.html', {
             game:'balancehold',
-            gameId:'balancehold',
-            theme:'balancehold',
             mode:'solo',
-            run:'play',
-            time:'60',
-            gate:'0'
+            time:'60'
           }),
           btnResearchBalance: buildFitnessGameUrl('balance-hold-vr.html', {
             game:'balancehold',
-            gameId:'balancehold',
-            theme:'balancehold',
             mode:'solo',
             run:'research'
           }),
 
           btnPlayPlanner: buildFitnessGameUrl('fitness-planner.html', {
             game:'fitnessplanner',
-            gameId:'fitnessplanner',
-            theme:'fitnessplanner',
             mode:'launcher'
           }),
           btnQuickPlanner: buildFitnessGameUrl('fitness-planner.html', {
             game:'fitnessplanner',
-            gameId:'fitnessplanner',
-            theme:'fitnessplanner',
             mode:'quick'
           })
         };
@@ -2094,102 +1981,35 @@
             title: '🥊 Shadow Breaker',
             badge: 'Action',
             sub: 'ชกเป้าตามจังหวะ เก็บ fever และ boss round',
-            playHref: buildFitnessGameUrl('shadow-breaker-vr.html', {
-              game:'shadowbreaker',
-              gameId:'shadowbreaker',
-              theme:'shadowbreaker',
-              mode:'solo'
-            }),
-            quickHref: buildFitnessGameUrl('shadow-breaker-vr.html', {
-              game:'shadowbreaker',
-              gameId:'shadowbreaker',
-              theme:'shadowbreaker',
-              mode:'solo',
-              run:'play',
-              time:'60',
-              gate:'0'
-            }),
-            researchHref: buildFitnessGameUrl('shadow-breaker-vr.html', {
-              game:'shadowbreaker',
-              gameId:'shadowbreaker',
-              theme:'shadowbreaker',
-              mode:'solo',
-              run:'research'
-            })
+            playHref: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', mode:'solo' }),
+            quickHref: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', mode:'solo', time:'60' }),
+            researchHref: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', mode:'solo', run:'research' })
           },
           {
             key: 'rhythm',
             title: '🎵 Rhythm Boxer',
             badge: 'Music',
             sub: 'ออกหมัดตาม beat เก็บ combo และ boss fight',
-            playHref: buildFitnessGameUrl('rhythm-boxer-vr.html', {
-              game:'rhythmboxer',
-              gameId:'rhythmboxer',
-              theme:'rhythmboxer',
-              mode:'solo'
-            }),
-            quickHref: buildFitnessGameUrl('rhythm-boxer-vr.html', {
-              game:'rhythmboxer',
-              gameId:'rhythmboxer',
-              theme:'rhythmboxer',
-              mode:'solo',
-              run:'play',
-              time:'60',
-              gate:'0'
-            }),
-            researchHref: buildFitnessGameUrl('rhythm-boxer-vr.html', {
-              game:'rhythmboxer',
-              gameId:'rhythmboxer',
-              theme:'rhythmboxer',
-              mode:'solo',
-              run:'research'
-            })
+            playHref: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', mode:'solo' }),
+            quickHref: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', mode:'solo', time:'60' }),
+            researchHref: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', mode:'solo', run:'research' })
           },
           {
             key: 'balance',
             title: '⚖️ Balance Hold',
             badge: 'Focus',
             sub: 'ฝึกทรงตัว คุมจังหวะ และทนแรงกดดันจาก obstacle',
-            playHref: buildFitnessGameUrl('balance-hold-vr.html', {
-              game:'balancehold',
-              gameId:'balancehold',
-              theme:'balancehold',
-              mode:'solo'
-            }),
-            quickHref: buildFitnessGameUrl('balance-hold-vr.html', {
-              game:'balancehold',
-              gameId:'balancehold',
-              theme:'balancehold',
-              mode:'solo',
-              run:'play',
-              time:'60',
-              gate:'0'
-            }),
-            researchHref: buildFitnessGameUrl('balance-hold-vr.html', {
-              game:'balancehold',
-              gameId:'balancehold',
-              theme:'balancehold',
-              mode:'solo',
-              run:'research'
-            })
+            playHref: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', mode:'solo' }),
+            quickHref: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', mode:'solo', time:'60' }),
+            researchHref: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', mode:'solo', run:'research' })
           },
           {
             key: 'planner',
             title: '🗓️ Fitness Planner',
             badge: 'Plan',
             sub: 'โหมดวางแผนกิจกรรม ออกกำลัง และฝึก routine',
-            playHref: buildFitnessGameUrl('fitness-planner.html', {
-              game:'fitnessplanner',
-              gameId:'fitnessplanner',
-              theme:'fitnessplanner',
-              mode:'launcher'
-            }),
-            quickHref: buildFitnessGameUrl('fitness-planner.html', {
-              game:'fitnessplanner',
-              gameId:'fitnessplanner',
-              theme:'fitnessplanner',
-              mode:'quick'
-            })
+            playHref: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', mode:'launcher' }),
+            quickHref: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', mode:'quick' })
           }
         ];
 
