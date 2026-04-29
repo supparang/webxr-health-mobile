@@ -654,7 +654,7 @@
           <div class="heroTags">
             <span class="tag">ครบ 4 เกม</span>
             <span class="tag">PC / Mobile / Cardboard</span>
-            <span class="tag">Minimal Safe URL</span>
+            <span class="tag">URL สั้นสำหรับเล่นจริง</span>
           </div>
         </div>
       </div>
@@ -691,7 +691,7 @@
           <button class="btn ghost" id="btnBackHub" type="button">🏠 กลับ Hub</button>
         </div>
         <div class="tiny">
-          URL แบบสั้น: เกมใช้ <strong>hub</strong> เพื่อกลับหน้า Nutrition Zone
+          URL แบบสั้นมาก: ส่งเฉพาะค่าที่จำเป็นสำหรับเล่นและกลับหน้าโซน
         </div>
       </div>
     </section>
@@ -987,21 +987,13 @@
         params.set('view', selectedView);
         params.set('run', safeGet('run', DEFAULTS.run));
 
-        setIfValue('studyId', safeGet('studyId', ''));
-        setIfValue('section', safeGet('section', ''));
         setIfValue('miniTime', extra.miniTime || safeGet('miniTime', ''));
 
         params.set('zone', 'nutrition');
-        params.set('cat', 'nutrition');
         params.set('game', gameId);
-        params.set('gameId', gameId);
-        params.set('theme', theme || gameId);
         params.set('mode', extra.mode || safeGet('mode', DEFAULTS.mode));
 
         params.set('hub', cleanZoneReturn);
-        params.set('hubRoot', getMainHubUrl());
-
-        params.set('seed', String(extra.seed || q.get('seed') || Date.now()));
 
         Object.entries(extra).forEach(([key, value]) => {
           if (
@@ -1010,8 +1002,7 @@
             String(value).trim() !== '' &&
             key !== 'time' &&
             key !== 'miniTime' &&
-            key !== 'mode' &&
-            key !== 'seed'
+            key !== 'mode'
           ) {
             params.set(key, String(value));
           }
@@ -1041,57 +1032,49 @@
 
       function openGoodJunk(){
         openGame(PATHS.goodjunkLauncher, 'goodjunk', 'goodjunk', {
-          mode: safeGet('mode', 'solo'),
-          entry: 'nutrition_zone'
+          mode: safeGet('mode', 'solo')
         });
       }
 
       function openGoodJunkSolo(){
         openGame(PATHS.goodjunkSolo, 'goodjunk', 'goodjunk', {
-          mode: 'solo',
-          entry: 'nutrition_zone_direct'
+          mode: 'solo'
         });
       }
 
       function openGroups(){
         openGame(PATHS.groupsLauncher, 'groups', 'groups', {
-          mode: safeGet('mode', 'solo'),
-          entry: 'nutrition_zone'
+          mode: safeGet('mode', 'solo')
         });
       }
 
       function openGroupsRun(){
         openGame(PATHS.groupsRun, 'groups', 'groups', {
-          mode: 'solo',
-          entry: 'nutrition_zone_direct'
+          mode: 'solo'
         });
       }
 
       function openHydration(){
         openGame(PATHS.hydration, 'hydration', 'hydration', {
-          mode: safeGet('mode', 'solo'),
-          entry: 'nutrition_zone'
+          mode: safeGet('mode', 'solo')
         });
       }
 
       function openPlate(){
         openGame(PATHS.plateLauncher, 'plate', 'plate', {
-          mode: 'solo',
-          entry: 'nutrition_zone'
+          mode: 'solo'
         });
       }
 
       function openPlateSolo(){
         openGame(PATHS.plateSolo, 'plate', 'plate', {
-          mode: 'solo',
-          entry: 'nutrition_zone_direct'
+          mode: 'solo'
         });
       }
 
       function openQuickPlate(){
         openGame(PATHS.quickPlate, 'plate', 'plate', {
-          mode: 'solo',
-          entry: 'quick_plate'
+          mode: 'solo'
         });
       }
 
