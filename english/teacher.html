@@ -1,1322 +1,626 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>TechPath Teacher Dashboard</title>
-
-  <script>
-    window.TECHPATH_ATTENDANCE_ENDPOINT =
-      'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
-
-    window.TECHPATH_APP_ID = 'english-d4bfa';
-    window.TEACHER_BUILD = 'v20260424-teacher-dashboard-roster-r8';
-  </script>
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>TechPath English • Teacher Dashboard</title>
+  <meta name="theme-color" content="#07111f" />
   <style>
     :root{
       --bg:#07111f;
-      --panel:#0f1b2d;
-      --panel-2:#13233a;
-      --line:rgba(123,237,255,.18);
+      --panel:rgba(255,255,255,.08);
+      --line:rgba(255,255,255,.14);
       --text:#eef7ff;
-      --muted:#9db2c7;
-      --accent:#7bedff;
-      --ok:#2ed573;
-      --warn:#f1c40f;
-      --bad:#ff6b81;
-      --shadow:0 14px 30px rgba(0,0,0,.25);
-      --radius:18px;
+      --muted:#aec3d8;
+      --cyan:#72e8ff;
+      --green:#4ce39a;
+      --gold:#ffd166;
+      --red:#ff6e87;
+      --purple:#8e7dff;
+      --r:26px;
+      --shadow:0 22px 70px rgba(0,0,0,.32);
     }
 
-    *{ box-sizing:border-box; }
+    *{box-sizing:border-box}
 
     html,body{
       margin:0;
-      background:linear-gradient(180deg,#06101d,#0a1728 30%,#081320);
+      min-height:100%;
+      background:
+        radial-gradient(circle at 15% 0%,rgba(114,232,255,.18),transparent 34%),
+        radial-gradient(circle at 88% 0%,rgba(142,125,255,.14),transparent 34%),
+        linear-gradient(180deg,#07111f,#030814);
       color:var(--text);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
 
-    body{ min-height:100vh; }
+    body{min-height:100dvh}
+    button,input,select{font:inherit}
 
-    .wrap{
-      width:min(1440px, calc(100% - 24px));
+    .app{
+      width:min(1320px,100%);
       margin:0 auto;
-      padding:16px 0 28px;
+      padding:18px 14px 40px;
+      display:grid;
+      gap:16px;
     }
 
-    .topbar{
-      display:flex;
+    .top{
+      display:grid;
+      grid-template-columns:1fr auto;
       gap:12px;
       align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
-      margin-bottom:14px;
-    }
-
-    .brand{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-
-    .brand h1{
-      margin:0;
-      font-size:1.5rem;
-      color:var(--accent);
-      font-weight:900;
-    }
-
-    .brand .sub{
-      color:var(--muted);
-      font-size:.95rem;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:40px;
-      padding:0 14px;
-      border-radius:999px;
+      padding:18px;
       border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
+      border-radius:var(--r);
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(14px);
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(28px,5vw,52px);
+      letter-spacing:-.04em;
+    }
+
+    .sub{
+      margin:7px 0 0;
+      color:var(--muted);
+      line-height:1.5;
       font-weight:700;
     }
 
-    .panel{
-      background:rgba(15,27,45,.92);
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-    }
-
-    .controls{
-      display:grid;
-      grid-template-columns:1.3fr repeat(4, minmax(140px, .7fr)) auto auto auto;
-      gap:10px;
-      padding:14px;
-      margin-bottom:12px;
-      transition:max-height .24s ease, opacity .24s ease, padding .24s ease, margin .24s ease;
-    }
-
-    .controls input,
-    .controls select,
-    .controls button{
+    .btn{
       min-height:44px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
+      padding:11px 15px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.15);
+      background:rgba(255,255,255,.09);
       color:var(--text);
-      padding:0 12px;
-      outline:none;
-      font:inherit;
-    }
-
-    .controls button{
+      font-weight:1000;
       cursor:pointer;
-      font-weight:800;
-      background:linear-gradient(180deg,#2ad7ff,#14bde0);
-      color:#03131b;
-      border:none;
-    }
-
-    .controls .ghost{
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      border:1px solid var(--line);
-    }
-
-    .quick-filters{
-      display:flex;
-      flex-wrap:wrap;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
       gap:8px;
-      margin-bottom:14px;
     }
 
-    .quick-chip,
-    .section-chip{
-      min-height:38px;
-      padding:0 14px;
-      border-radius:999px;
+    .btn.primary{
+      background:linear-gradient(135deg,var(--cyan),#c8f8ff);
+      color:#06111f;
+    }
+
+    .btn.gold{
+      background:linear-gradient(135deg,var(--gold),#ffeab0);
+      color:#261a06;
+    }
+
+    .toolbar{
+      display:grid;
+      grid-template-columns:1.2fr .8fr .7fr auto auto;
+      gap:10px;
+      align-items:end;
+      padding:16px;
       border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      font-weight:800;
-      cursor:pointer;
-      font:inherit;
-      flex:0 0 auto;
+      border-radius:var(--r);
+      background:var(--panel);
+      backdrop-filter:blur(14px);
     }
 
-    .quick-chip.active,
-    .section-chip.active{
-      background:linear-gradient(180deg,#2ad7ff,#14bde0);
-      color:#03131b;
-      border-color:transparent;
-    }
-
-    .view-tabs{
-      position:sticky;
-      top:0;
-      z-index:5;
-      padding:8px 0;
-      background:linear-gradient(180deg,rgba(7,17,31,.98),rgba(7,17,31,.78));
-      backdrop-filter:blur(10px);
-    }
-
-    .view-hint{
-      padding:12px 14px;
-      margin:-6px 0 14px;
+    label{
+      display:grid;
+      gap:6px;
       color:var(--muted);
-      font-size:.92rem;
-      line-height:1.45;
+      font-size:13px;
+      font-weight:900;
     }
 
-    body.teacher-view-loading .report-tools,
-    body.teacher-view-loading #report-summary-panel,
-    body.teacher-view-loading .heatmap-row,
-    body.teacher-view-loading .section-panel,
-    body.teacher-view-loading .grid{
-      visibility:hidden;
+    input,select{
+      width:100%;
+      min-height:44px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      color:var(--text);
+      padding:10px 12px;
+      outline:none;
     }
+
+    select option{color:#07111f}
 
     .cards{
       display:grid;
-      grid-template-columns:repeat(8, minmax(0, 1fr));
+      grid-template-columns:repeat(5,minmax(0,1fr));
       gap:10px;
-      margin-bottom:14px;
     }
 
     .card{
-      padding:14px;
-      min-height:100px;
+      padding:16px;
+      border-radius:22px;
+      border:1px solid var(--line);
+      background:var(--panel);
+      box-shadow:0 16px 44px rgba(0,0,0,.20);
     }
 
-    .card .k{
+    .card span{
+      display:block;
       color:var(--muted);
-      font-size:.83rem;
-      margin-bottom:8px;
-      font-weight:700;
+      font-size:12px;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.06em;
     }
 
-    .card .v{
-      font-size:1.6rem;
-      font-weight:900;
-      line-height:1;
-    }
-
-    .card.ok .v{ color:var(--ok); }
-    .card.warn .v{ color:var(--warn); }
-    .card.bad .v{ color:var(--bad); }
-
-    .section-panel{
-      margin-bottom:14px;
-      overflow:hidden;
-    }
-
-    .section-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:14px 14px 10px;
-      border-bottom:1px solid var(--line);
-    }
-
-    .section-head h2{
-      margin:0;
-      font-size:1.02rem;
-      color:var(--accent);
-    }
-
-    .section-meta{
-      color:var(--muted);
-      font-size:.88rem;
-    }
-
-    .section-wrap,
-    .table-wrap,
-    .detail-body,
-    .risk-wrap{
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-    }
-
-    .section-table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:760px;
-    }
-
-    .section-table th,
-    .section-table td{
-      padding:11px 10px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      text-align:left;
-      font-size:.92rem;
-    }
-
-    .section-table th{
-      background:#0f1b2d;
-      color:#cfefff;
-      font-size:.84rem;
+    .card b{
+      display:block;
+      margin-top:7px;
+      color:#fff;
+      font-size:30px;
+      letter-spacing:-.03em;
     }
 
     .grid{
       display:grid;
-      grid-template-columns:minmax(0, 1.45fr) minmax(360px, .85fr);
-      gap:14px;
-      align-items:start;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
     }
 
-    .table-panel{
+    .panel{
+      border:1px solid var(--line);
+      border-radius:var(--r);
+      background:var(--panel);
+      box-shadow:var(--shadow);
       overflow:hidden;
     }
 
-    .table-head{
+    .panelHead{
+      padding:16px;
       display:flex;
-      align-items:center;
       justify-content:space-between;
-      gap:10px;
-      padding:14px 14px 10px;
-      border-bottom:1px solid var(--line);
+      gap:12px;
+      align-items:center;
+      border-bottom:1px solid rgba(255,255,255,.10);
     }
 
-    .table-head h2,
-    .detail-head h2{
+    .panelHead h2{
       margin:0;
-      font-size:1.05rem;
-      color:var(--accent);
+      font-size:22px;
     }
 
-    .table-meta{
-      color:var(--muted);
-      font-size:.88rem;
-    }
-
-    .table-wrap{
-      max-height:70vh;
+    .tableWrap{
+      overflow:auto;
+      max-height:520px;
     }
 
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:1080px;
+      min-width:760px;
     }
 
-    thead th{
-      position:sticky;
-      top:0;
-      z-index:1;
-      background:#0f1b2d;
-      color:#cfefff;
-      font-size:.85rem;
+    th,td{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.09);
       text-align:left;
-      padding:12px 10px;
-      border-bottom:1px solid var(--line);
-    }
-
-    tbody td{
-      padding:11px 10px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      font-size:.92rem;
+      font-size:13px;
       vertical-align:top;
     }
 
-    tbody tr{
-      cursor:pointer;
+    th{
+      position:sticky;
+      top:0;
+      background:#0b1728;
+      color:#cfe3f6;
+      z-index:1;
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.05em;
     }
 
-    tbody tr:hover{
-      background:rgba(123,237,255,.05);
+    td{
+      color:#eaf6ff;
+      font-weight:650;
     }
 
-    .tag{
+    .pill{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:28px;
-      padding:0 10px;
+      padding:4px 8px;
       border-radius:999px;
-      font-size:.78rem;
-      font-weight:900;
-      border:1px solid transparent;
+      font-size:12px;
+      font-weight:1000;
+      border:1px solid rgba(255,255,255,.13);
+      background:rgba(255,255,255,.08);
       white-space:nowrap;
     }
 
-    .tag.entered{
-      background:rgba(241,196,15,.12);
-      color:#ffeaa7;
-      border-color:rgba(241,196,15,.25);
+    .pill.ok{
+      color:#d7ffe9;
+      border-color:rgba(76,227,154,.30);
+      background:rgba(76,227,154,.11);
     }
 
-    .tag.in_progress{
-      background:rgba(123,237,255,.12);
-      color:#7bedff;
-      border-color:rgba(123,237,255,.25);
+    .pill.warn{
+      color:#ffe9aa;
+      border-color:rgba(255,209,102,.30);
+      background:rgba(255,209,102,.11);
     }
 
-    .tag.completed{
-      background:rgba(46,213,115,.12);
-      color:#b9ffd0;
-      border-color:rgba(46,213,115,.25);
+    .pill.bad{
+      color:#ffd5dd;
+      border-color:rgba(255,110,135,.30);
+      background:rgba(255,110,135,.11);
     }
 
-    .tag.left{
-      background:rgba(255,107,129,.12);
-      color:#ffd4db;
-      border-color:rgba(255,107,129,.25);
-    }
-
-    .yes{ color:var(--ok); font-weight:900; }
-    .no{ color:var(--bad); font-weight:900; }
-
-    .detail{
-      padding:0;
-      overflow:hidden;
-      position:sticky;
-      top:12px;
-      max-height:84vh;
-      display:flex;
-      flex-direction:column;
-    }
-
-    .detail-head{
-      padding:14px;
-      border-bottom:1px solid var(--line);
-    }
-
-    .detail-body{
-      padding:14px;
-    }
-
-    .detail-empty{
+    .status{
       color:var(--muted);
-      line-height:1.6;
+      font-size:13px;
+      font-weight:800;
     }
 
-    .kv{
-      display:grid;
-      grid-template-columns:110px 1fr;
-      gap:8px 12px;
-      margin-bottom:14px;
-      font-size:.92rem;
-    }
-
-    .kv .k{
+    .footer{
       color:var(--muted);
+      text-align:center;
+      font-size:12px;
       font-weight:700;
     }
 
-    .section-title{
-      margin:18px 0 10px;
-      color:var(--accent);
-      font-weight:900;
-      font-size:.95rem;
-    }
-
-    .mini-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .mini-card{
-      padding:12px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-    }
-
-    .mini-card .k{
-      font-size:.8rem;
-      color:var(--muted);
-      margin-bottom:6px;
-    }
-
-    .mini-card .v{
-      font-weight:900;
-      font-size:1.15rem;
-    }
-
-    .event-list,
-    .session-list{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-
-    .event-item,
-    .session-item{
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.07);
-      background:rgba(255,255,255,.04);
-    }
-
-    .event-item .top,
-    .session-item .top{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:4px;
-    }
-
-    .event-item .name,
-    .session-item .name{
-      font-weight:900;
-    }
-
-    .event-item .meta,
-    .session-item .meta{
-      color:var(--muted);
-      font-size:.84rem;
-    }
-
-    .footer-note{
-      color:var(--muted);
-      font-size:.84rem;
-      margin-top:12px;
-      text-align:right;
-    }
-
-    .mobile-only{
-      display:none;
-    }
-
-    .heatmap-row{
-      display:grid;
-      grid-template-columns:minmax(0,1.15fr) minmax(0,.95fr);
-      gap:14px;
-      margin-bottom:14px;
-    }
-
-    .heatmap-panel,
-    .risk-panel{
-      overflow:hidden;
-    }
-
-    .heatmap-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-      padding:14px;
-    }
-
-    .heatmap-cell{
-      border:1px solid var(--line);
-      border-radius:16px;
-      background:rgba(255,255,255,.04);
-      padding:12px;
-      min-height:110px;
-    }
-
-    .heatmap-cell .s{
-      font-size:1rem;
-      font-weight:900;
-      color:var(--accent);
-      margin-bottom:8px;
-    }
-
-    .heatmap-cell .n{
-      font-size:1.5rem;
-      font-weight:900;
-      margin-bottom:8px;
-    }
-
-    .heatmap-cell .m{
-      font-size:.82rem;
-      color:var(--muted);
-      line-height:1.5;
-    }
-
-    .heatmap-cell.lv0{ background:rgba(255,255,255,.03); }
-    .heatmap-cell.lv1{ background:rgba(123,237,255,.07); }
-    .heatmap-cell.lv2{ background:rgba(123,237,255,.12); }
-    .heatmap-cell.lv3{ background:rgba(46,213,115,.14); }
-    .heatmap-cell.lv4{ background:rgba(241,196,15,.16); }
-    .heatmap-cell.lv5{ background:rgba(255,107,129,.18); }
-
-    .heatmap-empty{
-      padding:14px;
-      color:var(--muted);
-    }
-
-    .risk-table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:620px;
-    }
-
-    .risk-table th,
-    .risk-table td{
-      padding:11px 10px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      text-align:left;
-      font-size:.9rem;
-    }
-
-    .risk-table th{
-      background:#0f1b2d;
-      color:#cfefff;
-      font-size:.84rem;
-    }
-
-    .matrix-table{
-      min-width:1200px;
-    }
-
-    .matrix-table td.center,
-    .matrix-table th.center{
-      text-align:center;
-    }
-
-    .matrix-badge{
-      display:inline-flex;
-      min-width:28px;
-      min-height:28px;
-      align-items:center;
-      justify-content:center;
-      padding:0 8px;
-      border-radius:999px;
-      font-size:.78rem;
-      font-weight:900;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.08);
-    }
-
-    .matrix-badge.zero{
-      color:#8ea3b8;
-      background:rgba(255,255,255,.03);
-    }
-
-    .matrix-badge.low{
-      color:#7bedff;
-      background:rgba(123,237,255,.10);
-      border-color:rgba(123,237,255,.18);
-    }
-
-    .matrix-badge.mid{
-      color:#ffeaa7;
-      background:rgba(241,196,15,.12);
-      border-color:rgba(241,196,15,.20);
-    }
-
-    .matrix-badge.high{
-      color:#ffd4db;
-      background:rgba(255,107,129,.14);
-      border-color:rgba(255,107,129,.24);
-    }
-
-    #teacher-action-row{
-      margin-top:-4px;
-    }
-
-    .report-tools{
-      display:grid;
-      grid-template-columns:1.2fr repeat(7, minmax(110px, auto));
-      gap:10px;
-      padding:14px;
-      margin-bottom:14px;
-      align-items:center;
-    }
-
-    .report-title strong{
-      display:block;
-      color:var(--accent);
-      font-size:1rem;
-    }
-
-    .report-title span{
-      display:block;
-      color:var(--muted);
-      font-size:.82rem;
-      margin-top:2px;
-    }
-
-    .report-tools input,
-    .report-tools select,
-    .report-tools button{
-      min-height:42px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      padding:0 12px;
-      font:inherit;
-    }
-
-    .report-tools button{
-      cursor:pointer;
-      font-weight:900;
-      background:rgba(255,255,255,.04);
-    }
-
-    .report-tools button:nth-last-child(2),
-    .report-tools button:nth-last-child(1){
-      background:linear-gradient(180deg,#2ad7ff,#14bde0);
-      color:#03131b;
-      border:none;
-    }
-
-    .report-panel{
-      margin-bottom:14px;
-    }
-
-    .report-cards{
-      padding:14px;
-      margin-bottom:0;
-    }
-
-    .progress-mini{
-      display:flex;
-      gap:4px;
-      flex-wrap:wrap;
-      margin-top:6px;
-    }
-
-    .progress-dot{
-      display:inline-flex;
-      min-width:26px;
-      height:24px;
-      align-items:center;
-      justify-content:center;
-      border-radius:999px;
-      font-size:.72rem;
-      font-weight:900;
-      border:1px solid rgba(255,255,255,.08);
-      color:#8ea3b8;
-      background:rgba(255,255,255,.04);
-    }
-
-    .progress-dot.done{
-      color:#b9ffd0;
-      background:rgba(46,213,115,.14);
-      border-color:rgba(46,213,115,.25);
-    }
-
-    .progress-dot.risk{
-      color:#ffd4db;
-      background:rgba(255,107,129,.14);
-      border-color:rgba(255,107,129,.25);
-    }
-
-    .progress-dot.partial{
-      color:#ffeaa7;
-      background:rgba(241,196,15,.12);
-      border-color:rgba(241,196,15,.22);
-    }
-
-    @media (max-width: 1280px){
-      .cards{
-        grid-template-columns:repeat(4, minmax(0, 1fr));
-      }
-
-      .controls{
-        grid-template-columns:1fr 1fr 1fr;
-      }
-
-      .grid{
+    @media (max-width:980px){
+      .top,.toolbar,.grid{
         grid-template-columns:1fr;
-      }
-
-      .detail{
-        position:static;
-        max-height:none;
-      }
-
-      .report-tools{
-        grid-template-columns:1fr 1fr 1fr;
-      }
-    }
-
-    @media (max-width: 980px){
-      .heatmap-row{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width: 700px){
-      .wrap{
-        width:min(100%, calc(100% - 12px));
-        padding:12px 0 20px;
-      }
-
-      .topbar{
-        align-items:flex-start;
-        margin-bottom:10px;
-      }
-
-      .brand h1{
-        font-size:1.05rem;
-        line-height:1.15;
-      }
-
-      .brand .sub{
-        font-size:.88rem;
-        line-height:1.35;
-      }
-
-      .pill{
-        min-height:36px;
-        padding:0 12px;
-        font-size:.86rem;
-      }
-
-      .mobile-only{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-      }
-
-      #teacher-controls{
-        display:grid;
-        grid-template-columns:1fr;
-        gap:10px;
-        padding:12px;
-        margin-bottom:10px;
-      }
-
-      body.filters-collapsed #teacher-controls{
-        max-height:0;
-        opacity:0;
-        overflow:hidden;
-        padding-top:0;
-        padding-bottom:0;
-        margin-bottom:8px;
-        border-width:0;
-      }
-
-      .quick-filters{
-        flex-wrap:nowrap;
-        overflow:auto;
-        padding-bottom:4px;
-        margin-bottom:10px;
-      }
-
-      .view-tabs{
-        top:0;
-        overflow:auto;
-        flex-wrap:nowrap;
-        padding:8px 0 6px;
-      }
-
-      .view-hint{
-        font-size:.84rem;
-        padding:10px 12px;
-      }
-
-      .quick-chip,
-      .section-chip{
-        flex:0 0 auto;
-        min-height:36px;
-        padding:0 12px;
-        font-size:.88rem;
       }
 
       .cards{
-        grid-template-columns:repeat(2, minmax(0, 1fr));
-        gap:8px;
-        margin-bottom:10px;
-      }
-
-      .card{
-        min-height:82px;
-        padding:12px;
-      }
-
-      .card .k{
-        font-size:.76rem;
-        margin-bottom:6px;
-      }
-
-      .card .v{
-        font-size:1.18rem;
-      }
-
-      .section-head,
-      .table-head,
-      .detail-head{
-        padding:12px 12px 10px;
-      }
-
-      .section-head h2,
-      .table-head h2,
-      .detail-head h2{
-        font-size:.96rem;
-      }
-
-      .section-meta,
-      .table-meta{
-        font-size:.8rem;
-      }
-
-      .section-table{
-        min-width:640px;
-      }
-
-      table{
-        min-width:920px;
-      }
-
-      .detail{
-        position:static;
-        max-height:none;
-      }
-
-      .detail-body{
-        max-height:none;
-      }
-
-      .kv{
-        grid-template-columns:90px 1fr;
-        gap:8px 10px;
-        font-size:.88rem;
-      }
-
-      .mini-grid{
-        grid-template-columns:1fr;
-      }
-
-      .footer-note{
-        text-align:left;
-        margin-top:10px;
-        font-size:.8rem;
-      }
-
-      .heatmap-grid{
         grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-        padding:12px;
-      }
-
-      .heatmap-cell{
-        min-height:96px;
-        padding:10px;
-      }
-
-      .heatmap-cell .s{
-        font-size:.92rem;
-        margin-bottom:6px;
-      }
-
-      .heatmap-cell .n{
-        font-size:1.22rem;
-        margin-bottom:6px;
-      }
-
-      .risk-table{
-        min-width:560px;
-      }
-
-      #section-chip-row,
-      #teacher-action-row{
-        flex-wrap:nowrap;
-        overflow:auto;
-        padding-bottom:4px;
-      }
-
-      .matrix-table{
-        min-width:980px;
-      }
-
-      .report-tools{
-        grid-template-columns:1fr;
-        padding:12px;
-      }
-
-      .report-cards{
-        padding:12px;
       }
     }
 
-    @media print{
-      body{
-        background:#fff!important;
-        color:#111!important;
+    @media (max-width:560px){
+      .cards{
+        grid-template-columns:1fr;
       }
 
-      .controls,
-      .quick-filters,
-      #teacher-action-row,
-      #section-chip-row,
-      .view-tabs,
-      .view-hint,
-      .report-tools,
-      .detail,
-      .footer-note,
-      #endpoint-pill,
-      #mobile-filter-toggle{
-        display:none!important;
-      }
-
-      .wrap{
-        width:100%!important;
-        padding:0!important;
-      }
-
-      .panel{
-        box-shadow:none!important;
-        border:1px solid #ddd!important;
-        background:#fff!important;
-        color:#111!important;
-        break-inside:avoid;
-      }
-
-      .brand h1,
-      .section-head h2{
-        color:#111!important;
-      }
-
-      table,
-      .section-table,
-      .risk-table{
-        color:#111!important;
-      }
-
-      th{
-        color:#111!important;
-        background:#f1f5f9!important;
-      }
-
-      .card .v,
-      .card .k,
-      .section-meta{
-        color:#111!important;
+      .panelHead{
+        align-items:flex-start;
+        flex-direction:column;
       }
     }
   </style>
 </head>
 
-<body class="teacher-view-loading">
-  <div class="wrap">
-    <div class="topbar">
-      <div class="brand">
-        <h1>TechPath Teacher Dashboard</h1>
-        <div class="sub">ติดตามการเข้าเรียนและความคืบหน้าของผู้เรียนแบบ real-time</div>
+<body>
+  <main class="app">
+    <section class="top">
+      <div>
+        <h1>TechPath English • Teacher Dashboard</h1>
+        <p class="sub">
+          ดูว่าใครเข้าเรียน S ไหน ใช้เวลาเท่าไหร่ เล่นจบหรือไม่ คะแนนเท่าไหร่ และใช้ AI Help กี่ครั้ง
+        </p>
       </div>
 
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <div class="pill" id="endpoint-pill">Endpoint: loading...</div>
-        <button id="mobile-filter-toggle" class="quick-chip mobile-only" type="button">แสดง Filters</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a class="btn" href="./lesson.html?level=normal&diff=normal&s=1&run=play">เปิด Lesson</a>
+        <button id="refreshBtn" class="btn primary">Refresh</button>
       </div>
-    </div>
+    </section>
 
-    <div class="panel controls" id="teacher-controls">
-      <input id="filter-search" type="text" placeholder="ค้นหา Student ID / Name / Section" />
+    <section class="toolbar">
+      <label>
+        Student ID / Name
+        <input id="studentFilter" placeholder="ค้นหา student id หรือชื่อ" />
+      </label>
 
-      <select id="filter-section">
-        <option value="">ทุก Section</option>
-      </select>
+      <label>
+        Section
+        <input id="sectionFilter" placeholder="เช่น CS/AI 2A" />
+      </label>
 
-      <select id="filter-status">
-        <option value="">ทุกสถานะ</option>
-      </select>
+      <label>
+        Session
+        <select id="sessionFilter">
+          <option value="">All S</option>
+          <option value="1">S1</option>
+          <option value="2">S2</option>
+          <option value="3">S3</option>
+          <option value="4">S4</option>
+          <option value="5">S5</option>
+          <option value="6">S6</option>
+          <option value="7">S7</option>
+          <option value="8">S8</option>
+          <option value="9">S9</option>
+          <option value="10">S10</option>
+          <option value="11">S11</option>
+          <option value="12">S12</option>
+          <option value="13">S13</option>
+          <option value="14">S14</option>
+          <option value="15">S15</option>
+        </select>
+      </label>
 
-      <select id="filter-session">
-        <option value="">ทุก S</option>
-      </select>
+      <button id="applyFilterBtn" class="btn gold">Apply</button>
+      <button id="clearFilterBtn" class="btn">Clear</button>
+    </section>
 
-      <select id="filter-minTime">
-        <option value="">Min time ทั้งหมด</option>
-        <option value="yes">ผ่าน min time</option>
-        <option value="no">ยังไม่ผ่าน min time</option>
-      </select>
+    <section class="cards">
+      <div class="card"><span>Students</span><b id="kStudents">0</b></div>
+      <div class="card"><span>Session Rows</span><b id="kRows">0</b></div>
+      <div class="card"><span>Completed</span><b id="kCompleted">0</b></div>
+      <div class="card"><span>Avg Score</span><b id="kAvgScore">0</b></div>
+      <div class="card"><span>AI Help</span><b id="kAiHelp">0</b></div>
+    </section>
 
-      <button id="btn-refresh" type="button">รีเฟรช</button>
-      <button id="btn-auto" class="ghost" type="button">Auto refresh: ON</button>
-      <button id="btn-export" class="ghost" type="button">Export CSV</button>
-    </div>
-
-    <div class="quick-filters" id="quick-filters">
-      <button class="quick-chip active" data-qf="all" type="button">ทั้งหมด</button>
-      <button class="quick-chip" data-qf="completed" type="button">Completed</button>
-      <button class="quick-chip" data-qf="not_completed" type="button">Not Completed</button>
-      <button class="quick-chip" data-qf="in_progress" type="button">In Progress</button>
-      <button class="quick-chip" data-qf="min_fail" type="button">Min Time ไม่ผ่าน</button>
-    </div>
-
-    <div class="quick-filters" id="section-chip-row"></div>
-
-    <div class="quick-filters" id="teacher-action-row">
-      <button class="quick-chip" id="btn-show-unfinished" type="button">ยังไม่จบ</button>
-      <button class="quick-chip" id="btn-show-minfail" type="button">ยังไม่ผ่าน min time</button>
-      <button class="quick-chip" id="btn-clear-fastfilters" type="button">ล้างตัวกรองลัด</button>
-      <button class="quick-chip" id="btn-export-section" type="button">Export Section</button>
-    </div>
-
-    <div class="quick-filters view-tabs" id="view-tabs">
-      <button class="quick-chip active" data-view="overview" type="button">Overview</button>
-      <button class="quick-chip" data-view="report" type="button">Report</button>
-      <button class="quick-chip" data-view="students" type="button">Students</button>
-      <button class="quick-chip" data-view="advanced" type="button">Advanced</button>
-      <button class="quick-chip" data-view="all" type="button">Show All</button>
-    </div>
-
-    <div class="panel view-hint" id="view-hint">
-      Overview: ดูภาพรวมเร็ว ๆ สำหรับติดตามชั้นเรียน
-    </div>
-
-    <div class="cards" id="summary-cards">
-      <div class="panel card">
-        <div class="k">Loading</div>
-        <div class="v">...</div>
-      </div>
-    </div>
-
-    <div class="panel report-tools" id="report-tools">
-      <div class="report-title">
-        <div>
-          <strong>Report Pack r8</strong>
-          <span>สรุปผลสำหรับติดตามและรายงานการเข้าเรียน พร้อมตรวจรายชื่อทั้งห้องจาก class_roster</span>
+    <section class="grid">
+      <section class="panel">
+        <div class="panelHead">
+          <h2>Student Summary</h2>
+          <span id="studentStatus" class="status">-</span>
         </div>
-      </div>
-
-      <input id="filter-date-from" type="date" />
-      <input id="filter-date-to" type="date" />
-
-      <select id="report-session">
-        <option value="S01">รายงาน S01</option>
-        <option value="S02">รายงาน S02</option>
-        <option value="S03">รายงาน S03</option>
-        <option value="S04">รายงาน S04</option>
-        <option value="S05">รายงาน S05</option>
-        <option value="S06">รายงาน S06</option>
-        <option value="S07">รายงาน S07</option>
-        <option value="S08">รายงาน S08</option>
-        <option value="S09">รายงาน S09</option>
-        <option value="S10">รายงาน S10</option>
-        <option value="S11">รายงาน S11</option>
-        <option value="S12">รายงาน S12</option>
-        <option value="S13">รายงาน S13</option>
-        <option value="S14">รายงาน S14</option>
-        <option value="S15">รายงาน S15</option>
-      </select>
-
-      <input id="report-min-sec" type="number" min="0" value="60" placeholder="Min sec" />
-
-      <button id="btn-report-today" type="button">วันนี้</button>
-      <button id="btn-report-week" type="button">7 วันล่าสุด</button>
-      <button id="btn-export-report" type="button">Export Report</button>
-      <button id="btn-print-report" type="button">Print / PDF</button>
-    </div>
-
-    <div class="panel section-panel report-panel" id="report-summary-panel">
-      <div class="section-head">
-        <h2>Report Summary</h2>
-        <div class="section-meta" id="report-meta">กำลังโหลด...</div>
-      </div>
-
-      <div class="cards report-cards" id="report-summary-cards">
-        <div class="panel card">
-          <div class="k">Loading</div>
-          <div class="v">...</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="heatmap-row report-panel">
-      <div class="panel risk-panel">
-        <div class="section-head">
-          <h2>Missing / Not Completed Report</h2>
-          <div class="section-meta" id="missing-meta">กำลังโหลด...</div>
-        </div>
-
-        <div class="risk-wrap">
-          <table class="risk-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Section</th>
-                <th>Target S</th>
-                <th>Reason</th>
-                <th>Duration</th>
-                <th>Score</th>
-              </tr>
-            </thead>
-            <tbody id="missing-tbody">
-              <tr><td colspan="6">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="panel risk-panel">
-        <div class="section-head">
-          <h2>Per Student Progress</h2>
-          <div class="section-meta" id="progress-meta">กำลังโหลด...</div>
-        </div>
-
-        <div class="risk-wrap">
-          <table class="risk-table progress-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Section</th>
-                <th>Done</th>
-                <th>Min OK</th>
-                <th>Risk</th>
-                <th>Best</th>
-              </tr>
-            </thead>
-            <tbody id="progress-tbody">
-              <tr><td colspan="6">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="heatmap-row">
-      <div class="panel heatmap-panel">
-        <div class="section-head">
-          <h2>S01–S15 Heatmap</h2>
-          <div class="section-meta" id="heatmap-meta">กำลังโหลด...</div>
-        </div>
-
-        <div class="heatmap-grid" id="session-heatmap-grid">
-          <div class="heatmap-empty">Loading...</div>
-        </div>
-      </div>
-
-      <div class="panel risk-panel">
-        <div class="section-head">
-          <h2>At Risk / ยังไม่ผ่านเกณฑ์</h2>
-          <div class="section-meta" id="risk-meta">กำลังโหลด...</div>
-        </div>
-
-        <div class="risk-wrap">
-          <table class="risk-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Section</th>
-                <th>S</th>
-                <th>Status</th>
-                <th>Duration</th>
-                <th>Min Time</th>
-              </tr>
-            </thead>
-            <tbody id="risk-tbody">
-              <tr><td colspan="6">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel section-panel">
-      <div class="section-head">
-        <h2>Section Summary</h2>
-        <div class="section-meta" id="section-meta">กำลังโหลด...</div>
-      </div>
-
-      <div class="section-wrap">
-        <table class="section-table">
-          <thead>
-            <tr>
-              <th>Section</th>
-              <th>Rows</th>
-              <th>Completed</th>
-              <th>Min Time ผ่าน</th>
-              <th>Avg Duration</th>
-              <th>Avg Active</th>
-              <th>Avg Score</th>
-            </tr>
-          </thead>
-          <tbody id="section-summary-tbody">
-            <tr><td colspan="7">Loading...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="panel section-panel">
-      <div class="section-head">
-        <h2>Section × S01–S15 Matrix</h2>
-        <div class="section-meta" id="matrix-meta">กำลังโหลด...</div>
-      </div>
-
-      <div class="section-wrap">
-        <table class="section-table matrix-table">
-          <thead>
-            <tr id="matrix-head-row">
-              <th>Section</th>
-              <th>Total</th>
-              <th>Done</th>
-              <th>Min OK</th>
-              <th>S01</th>
-              <th>S02</th>
-              <th>S03</th>
-              <th>S04</th>
-              <th>S05</th>
-              <th>S06</th>
-              <th>S07</th>
-              <th>S08</th>
-              <th>S09</th>
-              <th>S10</th>
-              <th>S11</th>
-              <th>S12</th>
-              <th>S13</th>
-              <th>S14</th>
-              <th>S15</th>
-            </tr>
-          </thead>
-          <tbody id="section-session-matrix-tbody">
-            <tr><td colspan="19">Loading...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="grid">
-      <div class="panel table-panel">
-        <div class="table-head">
-          <h2>Students / Sessions</h2>
-          <div class="table-meta" id="table-meta">กำลังโหลดข้อมูล...</div>
-        </div>
-
-        <div class="table-wrap">
+        <div class="tableWrap">
           <table>
             <thead>
               <tr>
-                <th>Student ID</th>
-                <th>Name</th>
+                <th>Student</th>
                 <th>Section</th>
-                <th>S</th>
-                <th>Status</th>
-                <th>Duration</th>
-                <th>Active</th>
-                <th>Score</th>
+                <th>Sessions</th>
                 <th>Completed</th>
-                <th>Min Time</th>
-                <th>Last Server</th>
+                <th>Score</th>
+                <th>Active</th>
+                <th>Last Active</th>
               </tr>
             </thead>
-            <tbody id="students-tbody">
-              <tr><td colspan="11">Loading...</td></tr>
-            </tbody>
+            <tbody id="studentRows"></tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-      <div class="panel detail">
-        <div class="detail-head">
-          <h2>Student Detail</h2>
+      <section class="panel">
+        <div class="panelHead">
+          <h2>Session Summary</h2>
+          <span id="sessionStatus" class="status">-</span>
         </div>
-
-        <div class="detail-body" id="detail-body">
-          <div class="detail-empty">เลือกแถวทางซ้ายเพื่อดูรายละเอียดผู้เรียน</div>
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>S</th>
+                <th>Attempts</th>
+                <th>Completed</th>
+                <th>Avg Score</th>
+                <th>Avg Active</th>
+              </tr>
+            </thead>
+            <tbody id="sessionRows"></tbody>
+          </table>
         </div>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="panelHead">
+        <h2>Recent Sessions</h2>
+        <span id="recentStatus" class="status">-</span>
       </div>
-    </div>
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Section</th>
+              <th>S</th>
+              <th>Score</th>
+              <th>Completed</th>
+              <th>Status</th>
+              <th>Duration</th>
+              <th>Active</th>
+              <th>Last Active</th>
+            </tr>
+          </thead>
+          <tbody id="recentRows"></tbody>
+        </table>
+      </div>
+    </section>
 
-    <div class="footer-note" id="footer-note">Build: loading...</div>
-  </div>
+    <section class="panel">
+      <div class="panelHead">
+        <h2>Recent Events</h2>
+        <span id="eventStatus" class="status">-</span>
+      </div>
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Event</th>
+              <th>Student</th>
+              <th>S</th>
+              <th>Score</th>
+              <th>Completed</th>
+            </tr>
+          </thead>
+          <tbody id="eventRows"></tbody>
+        </table>
+      </div>
+    </section>
 
-  <script src="./js/teacher-dashboard-hotfix.js?v=20260424-teacher-dashboard-roster-r8" defer></script>
+    <p class="footer" id="footerStatus">Ready</p>
+  </main>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
+
+      const els = {};
+      [
+        'refreshBtn','applyFilterBtn','clearFilterBtn',
+        'studentFilter','sectionFilter','sessionFilter',
+        'kStudents','kRows','kCompleted','kAvgScore','kAiHelp',
+        'studentRows','sessionRows','recentRows','eventRows',
+        'studentStatus','sessionStatus','recentStatus','eventStatus','footerStatus'
+      ].forEach(id => els[id] = document.getElementById(id));
+
+      function esc(s){
+        return String(s ?? '').replace(/[&<>"']/g, m => ({
+          '&':'&amp;',
+          '<':'&lt;',
+          '>':'&gt;',
+          '"':'&quot;',
+          "'":'&#39;'
+        }[m]));
+      }
+
+      function sec(v){
+        v = Number(v || 0);
+        const m = Math.floor(v / 60);
+        const s = Math.floor(v % 60);
+        return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+      }
+
+      function pillCompleted(v){
+        const ok = String(v).toLowerCase() === 'true';
+        return '<span class="pill ' + (ok ? 'ok' : 'warn') + '">' + (ok ? 'TRUE' : 'FALSE') + '</span>';
+      }
+
+      function pillStatus(v){
+        v = String(v || 'started');
+        let cls = 'warn';
+        if(v === 'completed') cls = 'ok';
+        if(v === 'absent') cls = 'bad';
+        return '<span class="pill ' + cls + '">' + esc(v) + '</span>';
+      }
+
+      function qs(){
+        const p = new URLSearchParams();
+        p.set('api','attendance');
+        p.set('action','summary');
+        p.set('limit','1000');
+        p.set('eventLimit','1000');
+
+        const student = els.studentFilter.value.trim();
+        const section = els.sectionFilter.value.trim();
+        const s = els.sessionFilter.value;
+
+        if(student) p.set('studentId', student);
+        if(section) p.set('section', section);
+        if(s) p.set('sessionNo', s);
+
+        p.set('t', String(Date.now()));
+
+        return p.toString();
+      }
+
+      async function load(){
+        try{
+          els.footerStatus.textContent = 'Loading...';
+
+          const res = await fetch(ENDPOINT + '?' + qs(), {
+            method:'GET',
+            cache:'no-store'
+          });
+
+          const data = await res.json();
+
+          if(!data.ok){
+            throw new Error(data.error || 'API returned not ok');
+          }
+
+          render(data.summary || {});
+          els.footerStatus.textContent = 'Updated: ' + new Date().toLocaleString();
+
+        }catch(err){
+          console.error(err);
+          els.footerStatus.textContent = 'Error: ' + err.message;
+        }
+      }
+
+      function render(summary){
+        const totals = summary.totals || {};
+        const students = summary.students || [];
+        const sessions = summary.sessions || [];
+        const recentSessions = summary.recentSessions || [];
+        const recentEvents = summary.recentEvents || [];
+
+        els.kStudents.textContent = totals.students || 0;
+        els.kRows.textContent = totals.sessionRows || 0;
+        els.kCompleted.textContent = totals.completedSessions || 0;
+        els.kAvgScore.textContent = totals.avgScore || 0;
+        els.kAiHelp.textContent = totals.aiHelpEvents || 0;
+
+        els.studentStatus.textContent = students.length + ' students';
+        els.sessionStatus.textContent = sessions.length + ' sessions';
+        els.recentStatus.textContent = recentSessions.length + ' rows';
+        els.eventStatus.textContent = recentEvents.length + ' events';
+
+        els.studentRows.innerHTML = students.length ? students.map(r => `
+          <tr>
+            <td><b>${esc(r.studentName || '-')}</b><br><small>${esc(r.studentId || '')}</small></td>
+            <td>${esc(r.classSection || '-')}</td>
+            <td>${esc(r.sessions || 0)}</td>
+            <td>${esc(r.completed || 0)}</td>
+            <td>${esc(r.totalScore || 0)}<br><small>avg ${esc(r.avgScore || 0)}</small></td>
+            <td>${sec(r.totalActiveTimeSec || 0)}</td>
+            <td>${esc(r.lastActiveAt || '-')}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="7">No data</td></tr>';
+
+        els.sessionRows.innerHTML = sessions.length ? sessions.map(r => `
+          <tr>
+            <td><b>S${esc(r.sessionNo || '-')}</b><br><small>${esc(r.lessonId || '')}</small></td>
+            <td>${esc(r.attempts || 0)}</td>
+            <td>${esc(r.completed || 0)}</td>
+            <td>${esc(r.avgScore || 0)}</td>
+            <td>${sec(r.avgActiveTimeSec || 0)}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="5">No data</td></tr>';
+
+        els.recentRows.innerHTML = recentSessions.length ? recentSessions.map(r => `
+          <tr>
+            <td><b>${esc(r.studentName || '-')}</b><br><small>${esc(r.studentId || '')}</small></td>
+            <td>${esc(r.classSection || '-')}</td>
+            <td>S${esc(r.sessionNo || '-')}</td>
+            <td>${esc(r.score || 0)}</td>
+            <td>${pillCompleted(r.completed)}</td>
+            <td>${pillStatus(r.attendanceStatus)}</td>
+            <td>${sec(r.durationSec || 0)}</td>
+            <td>${sec(r.activeTimeSec || 0)}</td>
+            <td>${esc(r.lastActiveAt || '-')}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="9">No data</td></tr>';
+
+        els.eventRows.innerHTML = recentEvents.length ? recentEvents.map(r => `
+          <tr>
+            <td>${esc(r.serverTs || '-')}</td>
+            <td><span class="pill">${esc(r.eventType || '-')}</span></td>
+            <td><b>${esc(r.studentName || '-')}</b><br><small>${esc(r.studentId || '')}</small></td>
+            <td>S${esc(r.sessionNo || '-')}</td>
+            <td>${esc(r.score || 0)}</td>
+            <td>${pillCompleted(r.completed)}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="6">No data</td></tr>';
+      }
+
+      els.refreshBtn.addEventListener('click', load);
+      els.applyFilterBtn.addEventListener('click', load);
+
+      els.clearFilterBtn.addEventListener('click', function(){
+        els.studentFilter.value = '';
+        els.sectionFilter.value = '';
+        els.sessionFilter.value = '';
+        load();
+      });
+
+      ['studentFilter','sectionFilter'].forEach(id => {
+        els[id].addEventListener('keydown', e => {
+          if(e.key === 'Enter') load();
+        });
+      });
+
+      load();
+    })();
+  </script>
 </body>
 </html>
