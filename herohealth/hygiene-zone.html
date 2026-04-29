@@ -642,7 +642,7 @@
           <button class="btn green" id="btn-open-handwash-fast" type="button">🧼 Handwash</button>
           <button class="btn gray" id="btn-back-hub" type="button">🏠 กลับ Hub</button>
         </div>
-        <div class="tiny">URL แบบสั้น: เกมใช้ <strong>hub</strong> เพื่อกลับหน้า Zone</div>
+        <div class="tiny">URL แบบสั้นมาก: ส่งเฉพาะค่าที่จำเป็นสำหรับเล่นและกลับหน้าโซน</div>
       </div>
     </section>
 
@@ -958,16 +958,10 @@
       setIfValue('miniTime', extra.miniTime || safeGet('miniTime', ''));
 
       params.set('zone', 'hygiene');
-      params.set('cat', 'hygiene');
       params.set('game', gameId);
-      params.set('gameId', gameId);
-      params.set('theme', theme || gameId);
       params.set('mode', extra.mode || safeGet('mode', DEFAULTS.mode));
 
       params.set('hub', cleanZoneReturn);
-      params.set('hubRoot', getMainHubUrl());
-
-      params.set('seed', String(extra.seed || q.get('seed') || Date.now()));
 
       Object.entries(extra).forEach(([key, value]) => {
         if (
@@ -976,8 +970,7 @@
           String(value).trim() !== '' &&
           key !== 'time' &&
           key !== 'miniTime' &&
-          key !== 'mode' &&
-          key !== 'seed'
+          key !== 'mode'
         ) {
           params.set(key, String(value));
         }
