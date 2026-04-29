@@ -1,2206 +1,464 @@
 <!doctype html>
 <html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Teacher Vocab Analytics • v49b Hotfix</title>
-  <meta name="theme-color" content="#08111f" />
-
-  <style>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>Teacher Dashboard v9.2 • Clean Mode</title>
+    <meta name="theme-color" content="#0f172a" />
+    <style>
     :root{
-      --bg:#07111f;
-      --panel:rgba(255,255,255,.065);
-      --panel2:rgba(255,255,255,.09);
-      --line:rgba(255,255,255,.13);
-      --text:#f8fbff;
-      --muted:#a9bee8;
-      --good:#4ade80;
-      --warn:#fde047;
-      --bad:#fb7185;
-      --sky:#67e8f9;
-      --violet:#a78bfa;
-      --orange:#fb923c;
-      --shadow:0 18px 50px rgba(0,0,0,.28);
-      --safe-b:env(safe-area-inset-bottom,0px);
+      --bg:#f6fbff;
+      --panel:#ffffff;
+      --panel2:#f1f7ff;
+      --ink:#17324d;
+      --muted:#64748b;
+      --line:#dce8f5;
+      --blue:#2487ff;
+      --green:#17a673;
+      --amber:#f59e0b;
+      --red:#ef4444;
+      --violet:#7c3aed;
+      --shadow:0 16px 40px rgba(15,23,42,.10);
+      --radius:22px;
     }
-
     *{box-sizing:border-box}
-    html,body{margin:0;min-height:100%;scroll-behavior:smooth}
-    body{
-      background:
-        radial-gradient(circle at 8% 0%,rgba(103,232,249,.18),transparent 30%),
-        radial-gradient(circle at 95% 10%,rgba(167,139,250,.16),transparent 32%),
-        linear-gradient(180deg,#07111f,#0f172a 55%,#08111f);
-      color:var(--text);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      overflow-x:hidden;
-    }
-
+    html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:linear-gradient(180deg,#eaf6ff 0%,#f8fbff 45%,#ffffff 100%)}
     button,input,select,textarea{font:inherit}
-    button{cursor:pointer}
+    a{color:inherit}
+    .app{width:min(1180px,100%);margin:0 auto;padding:18px clamp(12px,2vw,24px) 48px}
+    .topbar{position:sticky;top:0;z-index:20;margin:-18px calc(clamp(12px,2vw,24px)*-1) 18px;padding:12px clamp(12px,2vw,24px);background:rgba(246,251,255,.88);backdrop-filter:blur(14px);border-bottom:1px solid rgba(220,232,245,.72)}
+    .topbar-inner{width:min(1180px,100%);margin:0 auto;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .brand{display:flex;gap:10px;align-items:center}
+    .logo{width:42px;height:42px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,#2487ff,#7c3aed);color:white;font-size:22px;box-shadow:0 12px 24px rgba(36,135,255,.22)}
+    h1{font-size:clamp(24px,3.2vw,40px);line-height:1.08;margin:0 0 8px;font-weight:1000;letter-spacing:-.03em}
+    h2{font-size:20px;margin:0 0 10px;font-weight:1000}
+    h3{font-size:16px;margin:0 0 8px;font-weight:1000}
+    p{margin:0;color:var(--muted);line-height:1.55}
+    .muted{color:var(--muted)}
+    .pill{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);background:rgba(255,255,255,.72);border-radius:999px;padding:7px 10px;font-size:13px;font-weight:850;color:#3b4d63;white-space:nowrap}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .btn{border:0;border-radius:16px;padding:11px 14px;font-weight:950;cursor:pointer;color:#fff;background:linear-gradient(135deg,#2487ff,#5b5cf6);box-shadow:0 10px 22px rgba(36,135,255,.18);min-height:42px}
+    .btn.secondary{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+    .btn.good{background:linear-gradient(135deg,#17a673,#22c55e)}
+    .btn.warn{background:linear-gradient(135deg,#f59e0b,#f97316)}
+    .btn.small{padding:8px 10px;min-height:34px;border-radius:13px;font-size:13px}
+    .hero{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;align-items:stretch;margin-bottom:16px}
+    .card{background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;overflow:hidden}
+    .card.soft{background:linear-gradient(180deg,#ffffff,#f4f9ff)}
+    .helpbox{border:1px dashed rgba(36,135,255,.35);background:rgba(36,135,255,.06);border-radius:18px;padding:14px;margin-top:12px}
+    .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0 16px}
+    .kpi{border:1px solid var(--line);border-radius:20px;padding:16px;background:#fff;box-shadow:0 8px 22px rgba(15,23,42,.06)}
+    .kpi b{display:block;font-size:30px;line-height:1;font-weight:1000;letter-spacing:-.03em}
+    .kpi span{display:block;color:var(--muted);font-size:13px;margin-top:6px;font-weight:800}
+    .kpi.danger{border-color:rgba(239,68,68,.28);background:#fff7f7}.kpi.good{border-color:rgba(23,166,115,.28);background:#f4fffb}.kpi.warn{border-color:rgba(245,158,11,.28);background:#fffaf0}
+    .layout{display:grid;grid-template-columns:1fr;gap:16px}
+    .twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .controls{display:grid;grid-template-columns:2fr repeat(4,1fr);gap:10px;margin:10px 0 14px}
+    input,select,textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:11px 12px;color:var(--ink);outline:none}
+    textarea{min-height:120px;resize:vertical}
+    input:focus,select:focus,textarea:focus{border-color:rgba(36,135,255,.55);box-shadow:0 0 0 4px rgba(36,135,255,.10)}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:18px;background:#fff}
+    table{width:100%;border-collapse:collapse;min-width:820px}
+    th,td{padding:11px 12px;border-bottom:1px solid #edf3fa;text-align:left;vertical-align:top;font-size:14px}
+    th{background:#f1f7ff;color:#334155;font-weight:1000;position:sticky;top:0;z-index:1}
+    tr:last-child td{border-bottom:0}
+    .tag{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:900;background:#eef6ff;color:#1d4ed8;border:1px solid #dbeafe;white-space:nowrap}
+    .tag.red{background:#fff1f2;color:#be123c;border-color:#ffe4e6}.tag.green{background:#ecfdf5;color:#047857;border-color:#d1fae5}.tag.amber{background:#fffbeb;color:#b45309;border-color:#fde68a}.tag.violet{background:#f5f3ff;color:#6d28d9;border-color:#ede9fe}.tag.gray{background:#f8fafc;color:#475569;border-color:#e2e8f0}
+    .priority-list{display:grid;gap:10px}
+    .student-card{border:1px solid var(--line);border-radius:18px;padding:14px;background:#fff;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+    .student-card strong{display:block;font-size:16px}.student-card small{display:block;color:var(--muted);margin-top:3px}
+    .recommend{padding:12px;border-radius:16px;background:#f8fbff;border:1px solid var(--line);margin-top:8px;color:#334155;line-height:1.5}
+    details{border:1px solid var(--line);background:#fff;border-radius:var(--radius);box-shadow:0 8px 22px rgba(15,23,42,.05);overflow:hidden}
+    summary{cursor:pointer;padding:16px 18px;font-weight:1000;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:center}
+    summary::-webkit-details-marker{display:none}
+    summary::after{content:"＋";font-size:18px;color:var(--muted)}
+    details[open] summary::after{content:"－"}
+    .details-body{border-top:1px solid var(--line);padding:16px 18px;background:#fbfdff}
+    .empty{padding:20px;border-radius:18px;background:#f8fbff;border:1px dashed var(--line);color:var(--muted);line-height:1.6}
+    .footer-status{font-size:13px;color:var(--muted);margin-top:10px}
     .hidden{display:none!important}
-
-    .page{
-      width:min(1440px,100%);
-      margin:0 auto;
-      padding:18px;
-      padding-bottom:calc(90px + var(--safe-b));
-    }
-
-    .hero,.section{
-      border:1px solid var(--line);
-      border-radius:32px;
-      background:
-        radial-gradient(circle at top right,rgba(255,255,255,.10),transparent 36%),
-        rgba(255,255,255,.055);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(14px);
-    }
-
-    .hero{padding:28px;position:relative;overflow:hidden}
-    .heroTop{
-      display:grid;
-      grid-template-columns:1.25fr auto;
-      gap:18px;
-      align-items:start;
-    }
-
-    h1{
-      margin:0;
-      font-size:clamp(38px,5.5vw,72px);
-      line-height:.94;
-      letter-spacing:-.06em;
-    }
-    h2{
-      margin:0;
-      font-size:clamp(24px,2.7vw,38px);
-      letter-spacing:-.045em;
-      line-height:1.05;
-    }
-    h3{margin:0 0 10px;font-size:20px;letter-spacing:-.025em}
-    p{margin:12px 0 0;color:#dbeafe;line-height:1.65;font-weight:750}
-
-    .heroActions,.actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      justify-content:flex-end;
-      align-items:center;
-    }
-
-    .btn{
-      appearance:none;
-      border:1px solid rgba(255,255,255,.16);
-      border-radius:999px;
-      min-height:44px;
-      padding:9px 14px;
-      color:#071426;
-      background:linear-gradient(135deg,var(--sky),var(--violet));
-      font-weight:1000;
-      box-shadow:0 12px 26px rgba(0,0,0,.20);
-    }
-    .btn.ghost{color:#eaf2ff;background:rgba(255,255,255,.075);box-shadow:none}
-    .btn.warn{color:#321b04;background:linear-gradient(135deg,#fde047,#fb923c)}
-    .btn.bad{color:#fff;background:linear-gradient(135deg,#fb7185,#ef4444)}
-    .btn.good{color:#062014;background:linear-gradient(135deg,#4ade80,#67e8f9)}
-    .btn:hover{transform:translateY(-1px)}
-    .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
-
-    .versionBadgeRow{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-    .versionBadge,.badge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:30px;
-      padding:0 10px;
-      border-radius:999px;
-      color:#eaf2ff;
-      background:rgba(255,255,255,.085);
-      border:1px solid rgba(255,255,255,.13);
-      font-size:12px;
-      font-weight:1000;
-      white-space:nowrap;
-    }
-    .versionBadge:first-child{color:#071426;background:linear-gradient(135deg,var(--sky),var(--violet))}
-    .badge.good{color:#dcfce7;background:rgba(22,101,52,.30);border-color:rgba(74,222,128,.32)}
-    .badge.warn{color:#fef3c7;background:rgba(113,63,18,.28);border-color:rgba(253,224,71,.32)}
-    .badge.bad{color:#ffe4e9;background:rgba(127,29,29,.32);border-color:rgba(251,113,133,.34)}
-
-    .status{
-      margin-top:14px;
-      border-radius:20px;
-      padding:13px 15px;
-      color:#dbeafe;
-      background:rgba(255,255,255,.055);
-      border:1px solid rgba(255,255,255,.10);
-      font-size:13px;
-      line-height:1.55;
-      font-weight:850;
-      white-space:pre-wrap;
-    }
-    .status.ok{color:#dcfce7;background:rgba(22,101,52,.22);border-color:rgba(74,222,128,.32)}
-    .status.warn{color:#fef3c7;background:rgba(113,63,18,.22);border-color:rgba(253,224,71,.32)}
-    .status.bad{color:#ffe4e9;background:rgba(127,29,29,.24);border-color:rgba(251,113,133,.34)}
-
-    .section{margin-top:16px;padding:20px;scroll-margin-top:16px}
-    .sectionHead{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:14px;
-      margin-bottom:14px;
-    }
-    .sectionDesc{margin-top:6px;color:var(--muted);font-size:13px;line-height:1.55;font-weight:750}
-
-    .toolbarGrid{
-      display:grid;
-      grid-template-columns:1.4fr repeat(4,minmax(140px,.7fr));
-      gap:10px;
-    }
-
-    .field{display:grid;gap:6px}
-    label{color:#cfe3ff;font-size:12px;font-weight:1000}
-    input,select,textarea{
-      width:100%;
-      min-height:44px;
-      border-radius:17px;
-      padding:0 12px;
-      color:#fff;
-      background:rgba(255,255,255,.075);
-      border:1px solid rgba(255,255,255,.14);
-      outline:none;
-      font-weight:850;
-    }
-    textarea{padding:12px;min-height:110px;resize:vertical;line-height:1.55}
-    option{color:#111827;background:#fff}
-    input::placeholder,textarea::placeholder{color:#a9bee8}
-
-    .grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-    .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-
-    .card,.studentCard,.runCard,.miniCard{
-      border-radius:24px;
-      padding:18px;
-      background:
-        radial-gradient(circle at top right,rgba(255,255,255,.10),transparent 34%),
-        rgba(255,255,255,.055);
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 10px 28px rgba(0,0,0,.16);
-    }
-    .studentCard{cursor:pointer}
-    .card.bad,.studentCard.risk,.miniCard.bad{border-color:rgba(251,113,133,.32);background:radial-gradient(circle at top right,rgba(251,113,133,.12),transparent 34%),rgba(255,255,255,.055)}
-    .card.warn,.studentCard.support,.miniCard.warn{border-color:rgba(253,224,71,.32);background:radial-gradient(circle at top right,rgba(253,224,71,.12),transparent 34%),rgba(255,255,255,.055)}
-    .card.good,.miniCard.good{border-color:rgba(74,222,128,.30);background:radial-gradient(circle at top right,rgba(74,222,128,.12),transparent 34%),rgba(255,255,255,.055)}
-
-    .kpiLabel,.miniLabel{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:1000}
-    .kpiValue{margin-top:8px;font-size:38px;line-height:1;font-weight:1000;letter-spacing:-.05em}
-    .miniTitle,.studentName{font-size:19px;line-height:1.15;font-weight:1000;letter-spacing:-.03em}
-    .meta,.miniMeta{margin-top:7px;color:#dbeafe;font-size:13px;line-height:1.55;font-weight:750}
-
-    .quickFilterList,.chipRow{display:flex;flex-wrap:wrap;gap:8px}
-    .quickChip{
-      appearance:none;
-      border:1px solid rgba(255,255,255,.13);
-      min-height:38px;
-      border-radius:999px;
-      padding:0 13px;
-      color:#eaf2ff;
-      background:rgba(255,255,255,.075);
-      font-weight:1000;
-      font-size:12px;
-    }
-    .quickChip.active{color:#071426;background:linear-gradient(135deg,var(--sky),var(--violet))}
-    .quickChip.bad.active{background:linear-gradient(135deg,#fb7185,#fda4af)}
-    .quickChip.warn.active{background:linear-gradient(135deg,#fde047,#fb923c)}
-    .quickFocusStatus{margin-top:12px;color:#dbeafe;font-size:13px;font-weight:850}
-
-    .list{display:grid;gap:12px}
-    .studentTop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-    .studentCard:hover{transform:translateY(-1px);border-color:rgba(103,232,249,.34)}
-    .studentCard.live{border-color:rgba(74,222,128,.38);box-shadow:0 0 0 4px rgba(74,222,128,.08),0 16px 34px rgba(0,0,0,.22)}
-
-    .cardActions,.studentActions,.miniActions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-    .cardActions .btn,.studentActions .btn,.miniActions .btn{min-height:36px;padding:7px 10px;font-size:12px}
-
-    .empty{
-      border-radius:20px;
-      padding:18px;
-      color:#dbeafe;
-      background:rgba(255,255,255,.045);
-      border:1px dashed rgba(255,255,255,.18);
-      font-weight:850;
-      text-align:center;
-      line-height:1.55;
-    }
-
-    .tableWrap{
-      overflow:auto;
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(0,0,0,.14);
-    }
-    table{width:100%;border-collapse:collapse;font-size:12px}
-    th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.09);text-align:left;vertical-align:top}
-    th{position:sticky;top:0;background:rgba(15,23,42,.95);color:#dbeafe;font-weight:1000;z-index:1}
-    tr:hover td{background:rgba(255,255,255,.035)}
-
-    .textBox,.debugBox{
-      min-height:220px;
-      max-height:620px;
-      overflow:auto;
-      white-space:pre-wrap;
-      border-radius:24px;
-      padding:18px;
-      color:#f8fbff;
-      background:
-        radial-gradient(circle at top right,rgba(255,255,255,.10),transparent 34%),
-        rgba(0,0,0,.18);
-      border:1px solid rgba(255,255,255,.12);
-      font-size:13px;
-      line-height:1.7;
-      font-weight:750;
-    }
-    .debugBox{
-      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      font-size:12px;
-    }
-
-    .teacherJumpNav{
-      position:fixed;
-      right:14px;
-      bottom:calc(14px + var(--safe-b));
-      z-index:80;
-      display:flex;
-      flex-direction:column;
-      align-items:flex-end;
-      gap:8px;
-      pointer-events:none;
-    }
-    .jumpNavToggle{
-      pointer-events:auto;
-      border:1px solid rgba(255,255,255,.16);
-      border-radius:999px;
-      min-height:46px;
-      padding:0 16px;
-      color:#071426;
-      background:linear-gradient(135deg,var(--sky),var(--violet));
-      box-shadow:0 16px 34px rgba(0,0,0,.26);
-      font-weight:1000;
-    }
-    .jumpNavPanel{
-      pointer-events:auto;
-      display:none;
-      width:min(300px,calc(100vw - 28px));
-      max-height:min(68dvh,580px);
-      overflow:auto;
-      padding:10px;
-      border-radius:24px;
-      background:linear-gradient(180deg,rgba(18,28,58,.98),rgba(9,17,35,.98));
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 24px 70px rgba(0,0,0,.40);
-      backdrop-filter:blur(12px);
-    }
-    .teacherJumpNav.open .jumpNavPanel{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .jumpLink{
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:15px;
-      min-height:40px;
-      padding:8px 10px;
-      color:#eaf2ff;
-      background:rgba(255,255,255,.07);
-      font-size:12px;
-      font-weight:1000;
-      text-align:left;
-    }
-    .jumpLink.active{color:#071426;background:linear-gradient(135deg,var(--sky),var(--violet))}
-
-    .drawerBackdrop{
-      position:fixed;
-      inset:0;
-      z-index:120;
-      background:rgba(2,6,23,.66);
-      backdrop-filter:blur(10px);
-    }
-    .drawer{
-      position:fixed;
-      top:0;
-      right:0;
-      z-index:130;
-      width:min(760px,100vw);
-      height:100dvh;
-      overflow:auto;
-      padding:18px;
-      background:linear-gradient(180deg,rgba(18,28,58,.98),rgba(9,17,35,.99));
-      border-left:1px solid rgba(255,255,255,.14);
-      box-shadow:-30px 0 80px rgba(0,0,0,.38);
-    }
-    .drawerPanel{border-radius:28px;padding:20px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12)}
-    .drawerHead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
-
-    .deployCheckItem{
-      border-radius:22px;
-      padding:16px;
-      background:rgba(255,255,255,.055);
-      border:1px solid rgba(255,255,255,.12);
-    }
-    .deployCheckItem.pass{border-color:rgba(74,222,128,.30)}
-    .deployCheckItem.warn{border-color:rgba(253,224,71,.32)}
-    .deployCheckItem.fail{border-color:rgba(251,113,133,.34)}
-    .deployCheckTitle{font-size:17px;font-weight:1000;line-height:1.15}
-    .deployCheckText{margin-top:7px;color:#dbeafe;font-size:13px;line-height:1.55;font-weight:750}
-
-    body.compact-mode .section{padding:16px;margin-top:12px}
-    body.compact-mode .card,body.compact-mode .studentCard,body.compact-mode .miniCard{padding:14px;border-radius:18px}
-    body.compact-mode .kpiValue{font-size:32px}
-    body.focus-mode [data-focus-hide="1"]{display:none!important}
-    body.production-mode [data-dev="1"],body.production-mode .devOnlyBtn{display:none!important}
-    .btn.is-on{background:linear-gradient(135deg,#4ade80,#67e8f9);color:#062014}
-
-    @media (max-width:1120px){
-      .heroTop{grid-template-columns:1fr}
-      .heroActions{justify-content:flex-start}
-      .toolbarGrid{grid-template-columns:1fr 1fr}
-      .grid4{grid-template-columns:1fr 1fr}
-      .grid3{grid-template-columns:1fr 1fr}
-    }
-    @media (max-width:700px){
-      .page{padding:10px;padding-bottom:calc(90px + var(--safe-b))}
-      .hero,.section{border-radius:24px;padding:16px}
-      .sectionHead{display:grid}
-      .toolbarGrid,.grid4,.grid3,.grid2{grid-template-columns:1fr}
-      .teacherJumpNav{left:10px;right:10px;align-items:stretch}
-      .jumpNavToggle{width:100%}
-      .jumpNavPanel{width:100%}
-      .studentTop{display:grid}
-    }
+    .loader{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(36,135,255,.25);border-top-color:#2487ff;animation:spin .8s linear infinite;vertical-align:-2px}@keyframes spin{to{transform:rotate(360deg)}}
+    @media (max-width:900px){.hero,.twocol{grid-template-columns:1fr}.grid4{grid-template-columns:repeat(2,1fr)}.controls{grid-template-columns:1fr 1fr}.controls .wide{grid-column:1/-1}}
+    @media (max-width:560px){.grid4,.controls{grid-template-columns:1fr}.app{padding-bottom:26px}.card{padding:14px}.topbar-inner{align-items:flex-start}.actions{width:100%}.btn{flex:1}.kpi b{font-size:26px}}
   </style>
-</head>
-
-<body>
-  <nav class="teacherJumpNav" id="teacherJumpNav">
-    <button class="jumpNavToggle" id="jumpNavToggle" type="button">☰ Menu</button>
-    <div class="jumpNavPanel" id="jumpNavPanel">
-      <button class="jumpLink" data-jump-target="top" type="button">Top</button>
-      <button class="jumpLink" data-jump-target="quick-focus" type="button">Quick</button>
-      <button class="jumpLink" data-jump-target="live" type="button">Live</button>
-      <button class="jumpLink" data-jump-target="students" type="button">Students</button>
-      <button class="jumpLink" data-jump-target="attendance" type="button">Attendance</button>
-      <button class="jumpLink" data-jump-target="feedback" type="button">Feedback</button>
-      <button class="jumpLink" data-jump-target="terms" type="button">Terms</button>
-      <button class="jumpLink" data-jump-target="recent" type="button">Recent</button>
-      <button class="jumpLink" data-jump-target="deploy-check" type="button">Deploy</button>
-      <button class="jumpLink" data-jump-target="debug" type="button">Debug</button>
-    </div>
-  </nav>
-
-  <main class="page">
-    <section class="hero" data-section-id="top">
-      <div class="heroTop">
-        <div>
-          <h1>Teacher Vocab Analytics</h1>
-          <p>Dashboard สำหรับติดตามผล Vocabulary Game: students, attendance, weak terms, feedback, exports และ deploy check</p>
-          <div class="versionBadgeRow">
-            <span class="versionBadge">Teacher v49b HOTFIX</span>
-            <span class="versionBadge">Build 2026-04-28</span>
-            <span class="versionBadge" id="dataModeBadge">Live Data</span>
+  </head>
+  <body>
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <div class="logo">📊</div>
+          <div>
+            <b>Teacher Dashboard</b>
+            <br />
+            <span class="muted">Clean Mode v9.2</span>
           </div>
         </div>
-
-        <div class="heroActions">
-          <button class="btn warn" id="refreshBtn" type="button">Refresh Data</button>
-          <button class="btn ghost" id="useCacheBtn" type="button">Use Cache</button>
-          <button class="btn ghost" id="compactBtn" type="button">Compact: OFF</button>
-          <button class="btn ghost" id="productionBtn" type="button">Production: OFF</button>
-          <button class="btn ghost" id="exportStudentsBtn" type="button">Export Students</button>
-          <button class="btn ghost" id="exportSessionsBtn" type="button">Export Sessions</button>
-        </div>
-      </div>
-
-      <div class="status warn" id="statusBox">พร้อมโหลดข้อมูล teacher dashboard</div>
-    </section>
-
-    <section class="section" data-section-id="quick-focus">
-      <div class="sectionHead">
-        <div>
-          <h2>Quick Focus</h2>
-          <div class="sectionDesc">ดู All / Risk / Support / Good / No Communication</div>
-        </div>
         <div class="actions">
-          <button class="btn ghost" id="clearQuickBtn" type="button">Clear Focus</button>
+          <button class="btn small" id="refreshBtn">Refresh</button>
+          <button class="btn small secondary" id="refreshViewsBtn">Refresh Views</button>
+          <button class="btn small secondary" id="toggleAdvancedBtn">Deep Analytics</button>
         </div>
       </div>
-      <div class="quickFilterList" id="quickFilterList"></div>
-      <div class="quickFocusStatus" id="quickFocusStatus">Showing all students</div>
-    </section>
-
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <h2>Filters</h2>
-          <div class="sectionDesc">ค้นหาและกรองนักศึกษา</div>
+    </div>
+    <main class="app">
+      <section class="hero">
+        <div class="card soft">
+          <h1>ภาพรวมชั้นเรียนแบบไม่รก</h1>
+          <p>หน้าแรกแสดงเฉพาะข้อมูลที่ครูต้องใช้ทันที: ใครเล่นแล้ว ใครต้องติดตาม คะแนนเฉลี่ย และคำที่ควรทบทวน ส่วนข้อมูลลึกพับไว้ใน Deep Analytics</p>
+          <div class="helpbox" id="zeroHelp">
+            <b>เริ่มใช้งานเร็ว</b>
+            <p>ถ้าค่าเป็น 0 ให้เล่น vocab.html ให้จบ 1 รอบ หรือ Run TEST_VOCAB_APPEND_SESSION / TEST_VOCAB_APPEND_TERM แล้วกด Refresh</p>
+          </div>
         </div>
-      </div>
-      <div class="toolbarGrid">
-        <div class="field">
-          <label>Search</label>
-          <input id="searchInput" placeholder="ชื่อ / รหัส / section / bank / term..." />
+        <div class="card">
+          <h2>Data Source</h2>
+          <label class="muted">Apps Script endpoint</label>
+          <input id="endpointInput" value="https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec" />
+          <div class="actions" style="margin-top:10px">
+            <button class="btn secondary small" id="saveEndpointBtn">Save</button>
+            <button class="btn secondary small" id="openSheetBtn">Open API</button>
+          </div>
+          <div class="footer-status" id="statusText">พร้อมโหลดข้อมูล</div>
         </div>
-        <div class="field">
-          <label>Section</label>
-          <select id="sectionFilter"><option value="">All</option></select>
+      </section>
+      <section class="grid4" id="kpiGrid">
+        <div class="kpi">
+          <b>0</b>
+          <span>Active Students</span>
         </div>
-        <div class="field">
-          <label>Risk</label>
+        <div class="kpi">
+          <b>0</b>
+          <span>Sessions</span>
+        </div>
+        <div class="kpi">
+          <b>0</b>
+          <span>Need Follow-up</span>
+        </div>
+        <div class="kpi">
+          <b>0%</b>
+          <span>Avg Accuracy</span>
+        </div>
+      </section>
+      <section class="card" id="quickFollowCard">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+          <div>
+            <h2>Priority Follow-up</h2>
+            <p>รายชื่อ 5 คนแรกที่ควรดูแลก่อน</p>
+          </div>
+          <span class="pill" id="lastLoadedPill">ยังไม่ได้โหลด</span>
+        </div>
+        <div class="priority-list" id="priorityList" style="margin-top:14px">
+        </div>
+      </section>
+      <section class="twocol" style="margin-top:16px">
+        <div class="card">
+          <h2>Class Snapshot</h2>
+          <div id="classSnapshot" class="empty">ยังไม่มีข้อมูลสรุป</div>
+        </div>
+        <div class="card">
+          <h2>Next Teaching Move</h2>
+          <div id="nextMove" class="empty">ยังไม่มีคำแนะนำ</div>
+        </div>
+      </section>
+      <section class="card" style="margin-top:16px">
+        <h2>Students</h2>
+        <p>ค้นหานักศึกษาแบบเร็ว ไม่ต้องเปิด raw sheets</p>
+        <div class="controls">
+          <input class="wide" id="searchInput" placeholder="Search name / ID / section" />
           <select id="riskFilter">
-            <option value="">All</option>
+            <option value="all">All</option>
             <option value="risk">Risk</option>
             <option value="support">Support</option>
             <option value="good">Good</option>
           </select>
-        </div>
-        <div class="field">
-          <label>Bank</label>
-          <select id="bankFilter"><option value="">All</option></select>
-        </div>
-        <div class="field">
-          <label>Sort</label>
-          <select id="sortSelect">
+          <select id="sectionFilter">
+            <option value="all">All sections</option>
+          </select>
+          <select id="modeFilter">
+            <option value="all">All modes</option>
+          </select>
+          <select id="sortFilter">
             <option value="risk">Risk first</option>
-            <option value="accuracyAsc">Accuracy low → high</option>
-            <option value="scoreDesc">Score high → low</option>
-            <option value="name">Name</option>
-            <option value="recent">Recent activity</option>
+            <option value="accuracy">Accuracy low</option>
+            <option value="score">Score high</option>
+            <option value="recent">Recent</option>
           </select>
         </div>
-      </div>
-    </section>
-
-    <section class="section" data-section-id="live">
-      <div class="sectionHead">
-        <div>
-          <h2>Classroom Live Monitor</h2>
-          <div class="sectionDesc">ดูนักศึกษาที่เพิ่งส่งข้อมูลล่าสุด</div>
+        <div class="table-wrap">
+          <table id="studentsTable">
+          </table>
         </div>
-        <div class="actions">
-          <select id="liveWindowSelect">
-            <option value="5">5 นาที</option>
-            <option value="15" selected>15 นาที</option>
-            <option value="30">30 นาที</option>
-            <option value="60">60 นาที</option>
-          </select>
-          <button class="btn ghost" id="refreshLiveBtn" type="button">Refresh Live</button>
-        </div>
-      </div>
-      <div class="grid4" id="liveKpis"></div>
-      <div class="grid3" id="liveList" style="margin-top:12px"></div>
-    </section>
-
-    <section class="section" data-section-id="students">
-      <div class="sectionHead">
-        <div>
-          <h2>Students</h2>
-          <div class="sectionDesc">รายชื่อนักศึกษาจาก class_roster + logs</div>
-        </div>
-        <div class="actions">
-          <span class="badge" id="studentCountBadge">0 students</span>
-          <button class="btn ghost" id="showMoreStudentsBtn" type="button">Show More</button>
-        </div>
-      </div>
-      <div class="grid3" id="studentList"></div>
-    </section>
-
-    <section class="section" data-section-id="attendance">
-      <div class="sectionHead">
-        <div>
-          <h2>Attendance Summary</h2>
-          <div class="sectionDesc">เช็ก session_code, joined, missing และ completion โดยอิง class_roster ถ้ามี</div>
-        </div>
-        <div class="actions">
-          <button class="btn ghost" id="exportMissingBtn" type="button">Export Missing Latest</button>
-        </div>
-      </div>
-      <div class="grid3" id="attendanceList"></div>
-    </section>
-
-    <section class="section" data-section-id="feedback">
-      <div class="sectionHead">
-        <div>
-          <h2>Batch Feedback</h2>
-          <div class="sectionDesc">สร้าง feedback สำหรับนักศึกษาตามตัวกรอง</div>
-        </div>
-        <div class="actions">
-          <button class="btn ghost" id="composeRiskFeedbackBtn" type="button">Compose Risk/Support</button>
-          <button class="btn ghost" id="composeVisibleFeedbackBtn" type="button">Compose Visible</button>
-          <button class="btn warn" id="exportBatchFeedbackTxtBtn" type="button">Export TXT</button>
-          <button class="btn ghost" id="clearBatchFeedbackBtn" type="button">Clear</button>
-        </div>
-      </div>
-      <div class="grid4">
-        <div class="field">
-          <label>Language</label>
-          <select id="feedbackLangSelect">
-            <option value="th">Thai</option>
-            <option value="en">English</option>
-            <option value="both">Thai + English</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid2" id="batchFeedbackGrid" style="margin-top:12px"></div>
-    </section>
-
-    <section class="section" data-section-id="terms">
-      <div class="sectionHead">
-        <div>
-          <h2>Weak Terms</h2>
-          <div class="sectionDesc">คำศัพท์ที่ตอบผิดบ่อย</div>
-        </div>
-      </div>
-      <div class="tableWrap">
-        <table>
-          <thead><tr><th>Term</th><th>Seen</th><th>Wrong</th><th>Accuracy</th></tr></thead>
-          <tbody id="termTable"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="section" data-section-id="recent">
-      <div class="sectionHead">
-        <div>
-          <h2>Recent Sessions</h2>
-          <div class="sectionDesc">รายการ session ล่าสุด</div>
-        </div>
-      </div>
-      <div class="list" id="recentRuns"></div>
-    </section>
-
-    <section class="section" data-section-id="deploy-check">
-      <div class="sectionHead">
-        <div>
-          <h2>Final Clean Deploy Checklist</h2>
-          <div class="sectionDesc">ตรวจความพร้อมก่อน deploy/test จริง</div>
-        </div>
-        <div class="actions">
-          <span class="badge warn" id="deployCheckBadge">Not checked</span>
-          <button class="btn warn" id="runDeployCheckBtn" type="button">Run Deploy Check</button>
-          <button class="btn ghost" id="copyDeployCheckBtn" type="button">Copy Result</button>
-          <button class="btn ghost" id="exportDeployCheckBtn" type="button">Export JSON</button>
-        </div>
-      </div>
-      <div class="grid4" id="deployCheckKpis"></div>
-      <div class="list" id="deployCheckList" style="margin-top:12px"></div>
-      <pre class="debugBox" id="deployCheckRawBox" style="margin-top:12px">ยังไม่ได้ตรวจ</pre>
-    </section>
-
-    <section class="section" data-section-id="debug">
-      <div class="sectionHead">
-        <div>
-          <h2>Debug</h2>
-          <div class="sectionDesc">ข้อมูล raw / normalized / runtime</div>
-        </div>
-      </div>
-      <pre class="debugBox" id="debugBox">{}</pre>
-    </section>
-  </main>
-
-  <div class="drawerBackdrop hidden" id="drawerBackdrop"></div>
-  <aside class="drawer hidden" id="studentDrawer">
-    <div class="drawerPanel">
-      <div class="drawerHead">
-        <div>
-          <h2 id="drawerTitle">Student</h2>
-          <div class="sectionDesc" id="drawerMeta">-</div>
-        </div>
-        <button class="btn ghost" id="drawerCloseBtn" type="button">ปิด</button>
-      </div>
-
-      <div class="grid4" id="drawerKpis"></div>
-
-      <h3 style="margin-top:18px">Teacher Note</h3>
-      <textarea id="studentNoteArea" placeholder="บันทึกครูรายคน..."></textarea>
-      <div class="cardActions">
-        <button class="btn ghost" id="saveStudentNoteBtn" type="button">Save Note</button>
-        <button class="btn ghost" id="copyStudentFeedbackBtn" type="button">Copy Feedback</button>
-        <button class="btn warn" id="exportEvidencePackBtn" type="button">Export Evidence Pack</button>
-      </div>
-
-      <h3 style="margin-top:18px">Weak Terms</h3>
-      <div class="tableWrap">
-        <table>
-          <thead><tr><th>Term</th><th>Seen</th><th>Wrong</th><th>Accuracy</th></tr></thead>
-          <tbody id="drawerWeakTerms"></tbody>
-        </table>
-      </div>
-
-      <h3 style="margin-top:18px">Recent Sessions</h3>
-      <div class="list" id="drawerSessions"></div>
-    </div>
-  </aside>
-
-  <script>
-    'use strict';
-
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
-
-    const TEACHER_VERSION = {
-      app: 'Teacher Vocab Analytics',
-      version: 'v49b-hotfix-ended-at-safe',
-      build: '2026-04-28',
-      schema: 'teacher-dashboard-v49b',
-      apiUrl: API_URL
-    };
-
-    const LS = {
-      cache:'VOCAB_TEACHER_DASHBOARD_CACHE_V49B',
-      roster:'VOCAB_TEACHER_ROSTER_V1',
-      notes:'VOCAB_TEACHER_NOTES_V1:',
-      communication:'VOCAB_TEACHER_COMMUNICATION_LOG_V1',
-      compact:'VOCAB_TEACHER_COMPACT_V1',
-      production:'VOCAB_TEACHER_PRODUCTION_V1',
-      feedback:'VOCAB_TEACHER_BATCH_FEEDBACK_V1'
-    };
-
-    const state = {
-      raw:null,
-      normalized:{students:[],sessions:[],termAnswers:[],leaderboard:[],roster:[],followup:[],archive:[],debugShape:{}},
-      rows:[],
-      roster:[],
-      filters:{search:'',section:'',risk:'',bank:'',sort:'risk'},
-      quickFilter:{type:'all',value:''},
-      studentRenderLimit:18,
-      activeStudentId:'',
-      usingCache:false,
-      compact:false,
-      production:false,
-      liveWindow:15,
-      communicationLog:[],
-      batchFeedbackItems:[],
-      deployCheckResult:null
-    };
-
-    const $ = id => document.getElementById(id);
-    const els = {};
-    [
-      'statusBox','dataModeBadge','refreshBtn','useCacheBtn','compactBtn','productionBtn',
-      'exportStudentsBtn','exportSessionsBtn',
-      'quickFilterList','quickFocusStatus','clearQuickBtn',
-      'searchInput','sectionFilter','riskFilter','bankFilter','sortSelect',
-      'liveWindowSelect','refreshLiveBtn','liveKpis','liveList',
-      'studentCountBadge','showMoreStudentsBtn','studentList',
-      'attendanceList','exportMissingBtn',
-      'feedbackLangSelect','composeRiskFeedbackBtn','composeVisibleFeedbackBtn','exportBatchFeedbackTxtBtn','clearBatchFeedbackBtn','batchFeedbackGrid',
-      'termTable','recentRuns',
-      'deployCheckBadge','runDeployCheckBtn','copyDeployCheckBtn','exportDeployCheckBtn','deployCheckKpis','deployCheckList','deployCheckRawBox',
-      'debugBox','teacherJumpNav','jumpNavToggle','jumpNavPanel',
-      'drawerBackdrop','studentDrawer','drawerTitle','drawerMeta','drawerKpis','drawerCloseBtn','studentNoteArea','saveStudentNoteBtn','copyStudentFeedbackBtn','exportEvidencePackBtn',
-      'drawerWeakTerms','drawerSessions'
-    ].forEach(id => els[id] = $(id));
-
-    function text(v){return String(v ?? '').trim();}
-    function num(v){const n=Number(String(v ?? '').replace('%',''));return Number.isFinite(n)?n:0;}
-    function pct(v){return Math.round(num(v));}
-    function escapeHtml(v){
-      return String(v ?? '').replace(/[&<>"']/g, ch => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
-      }[ch]));
-    }
-    function safeDate(v){
-      if(!v) return null;
-      const d = new Date(v);
-      return Number.isNaN(d.getTime()) ? null : d;
-    }
-    function dateLabel(v){
-      const d = safeDate(v);
-      return d ? d.toLocaleString('th-TH') : '-';
-    }
-    function bangkokNow(){return new Date().toISOString();}
-    function normalizeSearchValue(v){
-      return text(v).toLowerCase().normalize('NFKC').replace(/[._\-\/\\()[\]{}:;'"`~!@#$%^&*+=,?<>|]/g,' ').replace(/\s+/g,' ').trim();
-    }
-    function compactIdentityValue(v){return normalizeSearchValue(v).replace(/\s+/g,'');}
-    function showStatus(msg,tone='warn'){
-      els.statusBox.textContent = msg;
-      els.statusBox.className = 'status ' + tone;
-    }
-
-    function downloadTextFile(filename, content, mime='text/plain;charset=utf-8'){
-      const blob = new Blob([content], {type:mime});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    function exportRowsToCsv(filename, rows){
-      const list = (rows || []).filter(Boolean);
-      if(!list.length){alert('ไม่มีข้อมูลสำหรับ export');return;}
-      const headers = Array.from(list.reduce((s,r)=>{Object.keys(r||{}).forEach(k=>s.add(k));return s;}, new Set()));
-      const csv = [
-        headers.join(','),
-        ...list.map(r => headers.map(h => {
-          const v = r[h] ?? '';
-          return '"' + String(v).replace(/"/g,'""') + '"';
-        }).join(','))
-      ].join('\n');
-      downloadTextFile(filename + '-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv', csv, 'text/csv;charset=utf-8');
-    }
-
-    function getNested(obj, paths){
-      for(const p of paths){
-        const parts = p.split('.');
-        let cur = obj;
-        for(const k of parts){cur = cur?.[k];}
-        if(Array.isArray(cur)) return cur.filter(Boolean);
-      }
-      return [];
-    }
-
-    async function requestTeacherData(){
-      const actions = ['teacher_dashboard_get','vocab_teacher_dashboard','teacher_dashboard','get_teacher_dashboard','dashboard_get',''];
-      let lastErr = null;
-
-      for(const action of actions){
-        try{
-          const u = new URL(API_URL);
-          u.searchParams.set('api', 'vocab');
-          if(action) u.searchParams.set('action', action);
-          u.searchParams.set('_', Date.now());
-          const res = await fetch(u.toString(), {method:'GET', cache:'no-store'});
-          if(!res.ok) throw new Error('HTTP ' + res.status);
-          const raw = await res.json();
-          raw.__usedAction = action || '(none)';
-          if(raw && typeof raw === 'object') return raw;
-        }catch(err){
-          lastErr = err;
-        }
-      }
-
-      throw lastErr || new Error('Cannot load teacher data');
-    }
-
-    function normalizeDashboardPayload(raw){
-      const root = raw?.data || raw?.payload || raw?.result || raw || {};
-
-      const students = getNested(root, [
-        'students','profiles','students_profile','studentProfiles','student_profiles','data.students','tables.students'
-      ]);
-
-      const sessions = getNested(root, [
-        'sessions','vocab_sessions','sessionRows','logs.sessions','tables.sessions','data.sessions'
-      ]);
-
-      const termAnswers = getNested(root, [
-        'termAnswers','term_answers','terms','vocab_terms','answers','answerRows','logs.terms','tables.terms','data.termAnswers'
-      ]);
-
-      const leaderboard = getNested(root, [
-        'leaderboard','leaders','vocab_leaderboard','tables.leaderboard','data.leaderboard'
-      ]);
-
-      const roster = getNested(root, [
-        'roster','class_roster','data.roster','data.class_roster','tables.class_roster'
-      ]);
-
-      const followup = getNested(root, [
-        'followup','teacher_followup','data.followup','data.teacher_followup'
-      ]);
-
-      const archive = getNested(root, [
-        'archive','teacher_archive','data.archive','data.teacher_archive'
-      ]);
-
-      return {
-        students,
-        sessions,
-        termAnswers,
-        leaderboard,
-        roster,
-        followup,
-        archive,
-        debugShape:{
-          rootKeys:Object.keys(root || {}),
-          rawKeys:Object.keys(raw || {}),
-          counts:raw?.counts || root?.counts || null
-        }
-      };
-    }
-
-    function getDisplayName(r){
-      r = r || {};
-      return text(
-        r.display_name ||
-        r.displayName ||
-        r.studentName ||
-        r.student_name ||
-        r.name ||
-        r.nick ||
-        r.nickname ||
-        r.player_name ||
-        r.player ||
-        'Unknown'
-      );
-    }
-
-    function getStudentId(r){
-      r = r || {};
-      return text(
-        r.student_id ||
-        r.studentId ||
-        r.sid ||
-        r.pid ||
-        r.id ||
-        ''
-      );
-    }
-
-    function getSection(r){
-      r = r || {};
-      return text(
-        r.section ||
-        r.class_section ||
-        r.classSection ||
-        r.group ||
-        r.room ||
-        '-'
-      );
-    }
-
-    function getSessionCode(r){
-      r = r || {};
-      return text(
-        r.session_code ||
-        r.sessionCode ||
-        r.scode ||
-        r.session ||
-        r.lesson ||
-        r.lesson_id ||
-        ''
-      );
-    }
-
-    function getRowId(r){
-      r = r || {};
-      const sid = getStudentId(r);
-      if(sid) return compactIdentityValue(sid);
-
-      const name = getDisplayName(r);
-      const section = getSection(r);
-
-      if(name && name !== 'Unknown') {
-        return compactIdentityValue(name + ' ' + section);
-      }
-
-      return compactIdentityValue('unknown-' + Math.random().toString(36).slice(2,8));
-    }
-
-    function getEventTime(r){
-      r = r || {};
-      return text(
-        r.ended_at ||
-        r.endedAt ||
-        r.end_time ||
-        r.endTime ||
-        r.finished_at ||
-        r.finishedAt ||
-        r.started_at ||
-        r.startedAt ||
-        r.start_time ||
-        r.startTime ||
-        r.timestamp ||
-        r.time ||
-        r.updated_at ||
-        r.updatedAt ||
-        r.created_at ||
-        r.createdAt ||
-        ''
-      );
-    }
-
-    function isCorrectAnswer(a){
-      a = a || {};
-      const v = a.is_correct ?? a.isCorrect ?? a.correct ?? a.result ?? a.status;
-      if(typeof v === 'boolean') return v;
-      return ['true','1','yes','correct','ถูก'].includes(text(v).toLowerCase());
-    }
-
-    function getTerm(a){
-      a = a || {};
-      return text(
-        a.term ||
-        a.word ||
-        a.vocab ||
-        a.term_text ||
-        a.term_id ||
-        a.termId ||
-        '-'
-      );
-    }
-
-    function normalizeRosterRow(r){
-      r = r || {};
-      return {
-        id:getRowId(r),
-        student_id:getStudentId(r),
-        display_name:getDisplayName(r),
-        section:getSection(r),
-        aliases:text(r.aliases || r.alias || r.nicknames || ''),
-        email:text(r.email || r.mail || ''),
-        group:text(r.group || r.team || ''),
-        status:text(r.status || 'active'),
-        note:text(r.note || '')
-      };
-    }
-
-    function buildStudentRows(normalized){
-      normalized = normalized || {};
-
-      const safeStudents = Array.isArray(normalized.students) ? normalized.students.filter(Boolean) : [];
-      const safeSessions = Array.isArray(normalized.sessions) ? normalized.sessions.filter(Boolean) : [];
-      const safeTermAnswers = Array.isArray(normalized.termAnswers) ? normalized.termAnswers.filter(Boolean) : [];
-      const safeLeaderboard = Array.isArray(normalized.leaderboard) ? normalized.leaderboard.filter(Boolean) : [];
-      const safeRoster = Array.isArray(state.roster) ? state.roster.filter(Boolean) : [];
-
-      const map = new Map();
-
-      function ensure(seed){
-        seed = seed || {};
-        const id = getRowId(seed);
-
-        if(!map.has(id)){
-          map.set(id, {
-            id,
-            student_id:getStudentId(seed),
-            display_name:getDisplayName(seed),
-            section:getSection(seed),
-            profile:null,
-            roster:null,
-            sessions:[],
-            answers:[],
-            leaderboard:null
-          });
-        }
-
-        const r = map.get(id);
-
-        if(!r.student_id) r.student_id = getStudentId(seed);
-
-        const seedName = getDisplayName(seed);
-        if((!r.display_name || r.display_name === 'Unknown') && seedName) r.display_name = seedName;
-
-        const seedSection = getSection(seed);
-        if((!r.section || r.section === '-') && seedSection) r.section = seedSection;
-
-        return r;
-      }
-
-      safeRoster.forEach(p => {
-        const r = ensure(p);
-        r.roster = p;
-        r.profile = p;
-        r.student_id = p.student_id || r.student_id;
-        r.display_name = p.display_name || r.display_name;
-        r.section = p.section || r.section;
-      });
-
-      safeStudents.forEach(p => {
-        ensure(p).profile = p;
-      });
-
-      safeSessions.forEach(s => {
-        const hasAnyIdentity =
-          !!getStudentId(s) ||
-          getDisplayName(s) !== 'Unknown' ||
-          getSection(s) !== '-';
-
-        const hasAnyData =
-          !!getEventTime(s) ||
-          !!getSessionCode(s) ||
-          !!text(s.session_id || s.sessionId) ||
-          num(s.score) > 0 ||
-          num(s.accuracy) > 0 ||
-          num(s.duration_sec || s.durationSec) > 0;
-
-        if(!hasAnyIdentity && !hasAnyData) return;
-
-        ensure(s).sessions.push(s);
-      });
-
-      safeTermAnswers.forEach(a => {
-        const hasAnyIdentity =
-          !!getStudentId(a) ||
-          getDisplayName(a) !== 'Unknown' ||
-          getSection(a) !== '-';
-
-        const hasAnyAnswer =
-          getTerm(a) !== '-' ||
-          !!text(a.answer || a.response || a.selected) ||
-          !!text(a.term_id || a.termId);
-
-        if(!hasAnyIdentity && !hasAnyAnswer) return;
-
-        ensure(a).answers.push(a);
-      });
-
-      safeLeaderboard.forEach(l => {
-        const hasAnyIdentity =
-          !!getStudentId(l) ||
-          getDisplayName(l) !== 'Unknown' ||
-          getSection(l) !== '-';
-
-        const hasAnyScore =
-          num(l.best_score || l.score) > 0 ||
-          num(l.best_accuracy || l.accuracy) > 0;
-
-        if(!hasAnyIdentity && !hasAnyScore) return;
-
-        ensure(l).leaderboard = l;
-      });
-
-      return Array.from(map.values()).map(r => {
-        const sessions = (r.sessions || [])
-          .filter(Boolean)
-          .sort((a,b)=>
-            (safeDate(getEventTime(b))?.getTime() || 0) -
-            (safeDate(getEventTime(a))?.getTime() || 0)
-          );
-
-        const latest = sessions[0] || {};
-        const answers = (r.answers || []).filter(Boolean);
-
-        const wrong = answers.filter(a => !isCorrectAnswer(a)).length;
-        const correct = answers.filter(isCorrectAnswer).length;
-        const answerCount = answers.length;
-        const accuracyFromAnswers = answerCount ? (correct / answerCount) * 100 : 0;
-
-        const latestAcc = text(latest.accuracy) !== '' ? num(latest.accuracy) : accuracyFromAnswers;
-
-        const sessionScores = sessions.map(s => num(s && s.score)).filter(Number.isFinite);
-
-        const score = Math.max(
-          ...sessionScores,
-          num(r.leaderboard && (r.leaderboard.best_score || r.leaderboard.score)),
-          0
-        );
-
-        const wrongRate = answerCount ? (wrong / answerCount) * 100 : 0;
-        const attendance = sessions.length;
-
-        let riskLevel = 'good';
-
-        if((attendance === 0 && state.roster.length) || latestAcc < 60 || wrongRate >= 45) {
-          riskLevel = 'risk';
-        } else if(latestAcc < 75 || attendance < 2 || wrongRate >= 30) {
-          riskLevel = 'support';
-        }
-
-        const lastAnswerTime = answers.length ? getEventTime(answers[answers.length - 1]) : '';
-        const lastSeen = getEventTime(latest) || lastAnswerTime || '';
-
-        return {
-          ...r,
-          sessions,
-          answers,
-          latest,
-          score,
-          accuracy:latestAcc,
-          attendance,
-          answerCount,
-          wrongCount:wrong,
-          correctCount:correct,
-          wrongRate,
-          riskLevel,
-          lastSeen,
-          lastBank:text(latest.bank || r.profile?.last_bank || r.leaderboard?.bank || '-'),
-          lastMode:text(latest.mode || r.profile?.last_mode || r.leaderboard?.mode || '-'),
-          lastSessionCode:getSessionCode(latest) || '-',
-          action:riskLevel === 'risk'
-            ? 'ต้องติดตามใกล้ชิด'
-            : riskLevel === 'support'
-              ? 'ควรฝึกเพิ่ม'
-              : 'ต่อยอดได้'
-        };
-      });
-    }
-
-    function saveCache(){
-      try{
-        localStorage.setItem(LS.cache, JSON.stringify({
-          raw:state.raw,
-          normalized:state.normalized,
-          roster:state.roster,
-          saved_at:bangkokNow()
-        }));
-      }catch(err){
-        console.warn(err);
-      }
-    }
-
-    function useCache(){
-      try{
-        const raw = localStorage.getItem(LS.cache);
-
-        if(!raw){
-          showStatus('ยังไม่มี cache ในเครื่องนี้','bad');
-          return;
-        }
-
-        const snap = JSON.parse(raw);
-
-        state.raw = snap.raw;
-        state.normalized = snap.normalized || {
-          students:[],
-          sessions:[],
-          termAnswers:[],
-          leaderboard:[],
-          roster:[],
-          followup:[],
-          archive:[],
-          debugShape:{}
-        };
-
-        if (Array.isArray(snap.roster) && snap.roster.length) {
-          state.roster = snap.roster.map(normalizeRosterRow);
-          localStorage.setItem(LS.roster, JSON.stringify(state.roster));
-        } else if (Array.isArray(state.normalized.roster) && state.normalized.roster.length) {
-          state.roster = state.normalized.roster.map(normalizeRosterRow);
-          localStorage.setItem(LS.roster, JSON.stringify(state.roster));
-        }
-
-        state.rows = buildStudentRows(state.normalized);
-        state.usingCache = true;
-
-        showStatus('ใช้ข้อมูลจาก cache • saved ' + dateLabel(snap.saved_at), 'warn');
-        renderAll();
-
-      }catch(err){
-        showStatus('โหลด cache ไม่สำเร็จ: ' + err.message,'bad');
-      }
-    }
-
-    async function loadDashboard(){
-      showStatus('กำลังโหลดข้อมูล teacher dashboard...', 'warn');
-
-      try{
-        const raw = await requestTeacherData();
-        const normalized = normalizeDashboardPayload(raw);
-
-        state.raw = raw;
-        state.normalized = normalized;
-
-        if (Array.isArray(normalized.roster) && normalized.roster.length) {
-          state.roster = normalized.roster.map(normalizeRosterRow);
-          localStorage.setItem(LS.roster, JSON.stringify(state.roster));
-        }
-
-        state.rows = buildStudentRows(normalized);
-        state.usingCache = false;
-
-        saveCache();
-
-        showStatus(
-          `โหลดสำเร็จ • students ${state.rows.length} • roster ${state.roster.length} • sessions ${normalized.sessions.length} • answers ${normalized.termAnswers.length} • action ${raw.__usedAction}`,
-          'ok'
-        );
-
-        renderAll();
-        setTimeout(() => runFinalDeployCheck(), 300);
-
-      }catch(err){
-        console.error(err);
-        showStatus('โหลด online ไม่สำเร็จ: ' + (err.message || err) + ' • ลองใช้ cache อัตโนมัติ', 'warn');
-        useCache();
-        setTimeout(() => runFinalDeployCheck(), 300);
-      }
-    }
-
-    function loadLocal(){
-      try{state.roster = JSON.parse(localStorage.getItem(LS.roster)||'[]').map(normalizeRosterRow);}catch{state.roster=[];}
-      try{state.communicationLog = JSON.parse(localStorage.getItem(LS.communication)||'[]');}catch{state.communicationLog=[];}
-      try{state.batchFeedbackItems = JSON.parse(localStorage.getItem(LS.feedback)||'[]');}catch{state.batchFeedbackItems=[];}
-      state.compact = localStorage.getItem(LS.compact)==='1';
-      state.production = localStorage.getItem(LS.production)==='1';
-      applyUiModes();
-    }
-
-    function saveComm(){localStorage.setItem(LS.communication, JSON.stringify(state.communicationLog.slice(0,500)));}
-    function saveFeedback(){localStorage.setItem(LS.feedback, JSON.stringify(state.batchFeedbackItems));}
-
-    function applyUiModes(){
-      document.body.classList.toggle('compact-mode', state.compact);
-      document.body.classList.toggle('production-mode', state.production);
-      els.compactBtn.textContent = 'Compact: ' + (state.compact?'ON':'OFF');
-      els.productionBtn.textContent = 'Production: ' + (state.production?'ON':'OFF');
-      els.compactBtn.classList.toggle('is-on', state.compact);
-      els.productionBtn.classList.toggle('is-on', state.production);
-      els.dataModeBadge.textContent = state.usingCache ? 'Cached Data' : 'Live Data';
-    }
-
-    function applyFilters(rows){
-      const q = normalizeSearchValue(state.filters.search);
-      let out = (rows||[]).filter(r => {
-        const bag = normalizeSearchValue([
-          r.display_name,r.student_id,r.section,r.lastBank,r.lastMode,r.lastSessionCode,r.riskLevel,
-          ...(r.answers||[]).slice(-20).map(a=>getTerm(a))
-        ].join(' '));
-
-        if(q && !bag.includes(q)) return false;
-        if(state.filters.section && r.section !== state.filters.section) return false;
-        if(state.filters.risk && r.riskLevel !== state.filters.risk) return false;
-        if(state.filters.bank && r.lastBank !== state.filters.bank) return false;
-
-        const qt = state.quickFilter.type;
-        if(qt === 'risk' && r.riskLevel !== 'risk') return false;
-        if(qt === 'support' && r.riskLevel !== 'support') return false;
-        if(qt === 'good' && r.riskLevel !== 'good') return false;
-        if(qt === 'noComm'){
-          const ids = new Set(state.communicationLog.map(c=>String(c.studentId)));
-          if(ids.has(String(r.id))) return false;
-        }
-
-        return true;
-      });
-
-      const sort = state.filters.sort;
-      out.sort((a,b) => {
-        if(sort === 'accuracyAsc') return a.accuracy - b.accuracy;
-        if(sort === 'scoreDesc') return b.score - a.score;
-        if(sort === 'name') return a.display_name.localeCompare(b.display_name);
-        if(sort === 'recent') return (safeDate(b.lastSeen)?.getTime()||0)-(safeDate(a.lastSeen)?.getTime()||0);
-        const rank = {risk:0,support:1,good:2};
-        return (rank[a.riskLevel]??9)-(rank[b.riskLevel]??9) || a.display_name.localeCompare(b.display_name);
-      });
-
-      return out;
-    }
-
-    function renderAll(){
-      applyUiModes();
-      renderFilters();
-      renderQuickFocus();
-      renderLive();
-      renderStudents();
-      renderAttendance();
-      renderBatchFeedback();
-      renderTerms();
-      renderRecent();
-      renderDeployCheck();
-      renderDebug();
-      updateJumpActive();
-    }
-
-    function renderFilters(){
-      const sections = Array.from(new Set(state.rows.map(r=>r.section).filter(Boolean))).sort();
-      const banks = Array.from(new Set(state.rows.map(r=>r.lastBank).filter(v=>v && v !== '-'))).sort();
-
-      els.sectionFilter.innerHTML = '<option value="">All</option>' + sections.map(s=>`<option ${s===state.filters.section?'selected':''}>${escapeHtml(s)}</option>`).join('');
-      els.bankFilter.innerHTML = '<option value="">All</option>' + banks.map(s=>`<option ${s===state.filters.bank?'selected':''}>${escapeHtml(s)}</option>`).join('');
-      els.riskFilter.value = state.filters.risk;
-      els.sortSelect.value = state.filters.sort;
-      els.searchInput.value = state.filters.search;
-    }
-
-    function renderQuickFocus(){
-      const rows = state.rows;
-      const idsWithComm = new Set(state.communicationLog.map(c=>String(c.studentId)));
-
-      const items = [
-        ['all',`All (${rows.length})`,''],
-        ['risk',`Risk (${rows.filter(r=>r.riskLevel==='risk').length})`,'bad'],
-        ['support',`Support (${rows.filter(r=>r.riskLevel==='support').length})`,'warn'],
-        ['good',`Good (${rows.filter(r=>r.riskLevel==='good').length})`,'good'],
-        ['noComm',`No Comm (${rows.filter(r=>!idsWithComm.has(String(r.id))).length})`,'bad']
-      ];
-
-      els.quickFilterList.innerHTML = items.map(([type,label,tone]) => {
-        const active = state.quickFilter.type===type;
-        return `<button class="quickChip ${tone} ${active?'active':''}" data-qtype="${type}" type="button">${escapeHtml(label)}</button>`;
-      }).join('');
-
-      els.quickFocusStatus.textContent = `Showing ${applyFilters(rows).length}/${rows.length} students`;
-    }
-
-    function minutesAgo(v){
-      const d = safeDate(v);
-      if(!d) return Infinity;
-      return Math.max(0, Math.floor((Date.now()-d.getTime())/60000));
-    }
-
-    function agoLabel(v){
-      const m = minutesAgo(v);
-      if(!Number.isFinite(m)) return '-';
-      if(m < 1) return 'เมื่อสักครู่';
-      if(m < 60) return m + ' นาทีที่แล้ว';
-      const h = Math.floor(m/60);
-      if(h < 24) return h + ' ชั่วโมงก่อน';
-      return Math.floor(h/24) + ' วันก่อน';
-    }
-
-    function renderLive(){
-      const rows = state.rows;
-      const live = rows.filter(r => minutesAgo(r.lastSeen) <= state.liveWindow);
-      const risk = rows.filter(r => r.riskLevel === 'risk');
-      const support = rows.filter(r => r.riskLevel === 'support');
-
-      els.liveKpis.innerHTML = [
-        ['Live Now',live.length,'good'],
-        ['Risk',risk.length,risk.length?'bad':'good'],
-        ['Support',support.length,support.length?'warn':'good'],
-        ['Students',rows.length,'good']
-      ].map(([l,v,t])=>`<div class="miniCard ${t}"><div class="kpiLabel">${l}</div><div class="kpiValue">${v}</div></div>`).join('');
-
-      els.liveList.innerHTML = live.length ? live.slice(0,12).map(r => `
-        <article class="miniCard good">
-          <div class="miniTitle">${escapeHtml(r.display_name)}</div>
-          <div class="miniMeta">ID: ${escapeHtml(r.student_id||'-')} • ${escapeHtml(r.section||'-')}<br>ล่าสุด ${escapeHtml(agoLabel(r.lastSeen))}<br>${escapeHtml(r.lastSessionCode)} • ${escapeHtml(r.lastBank)}/${escapeHtml(r.lastMode)}</div>
-          <div class="miniActions"><button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(r.id)}">เปิดรายคน</button></div>
-        </article>
-      `).join('') : '<div class="empty">ยังไม่พบ live activity ในช่วงเวลาที่เลือก</div>';
-    }
-
-    function renderStudents(){
-      const filtered = applyFilters(state.rows);
-      els.studentCountBadge.textContent = `${filtered.length}/${state.rows.length} students`;
-
-      const visible = filtered.slice(0,state.studentRenderLimit);
-      els.showMoreStudentsBtn.style.display = filtered.length > visible.length ? '' : 'none';
-
-      els.studentList.innerHTML = visible.length ? visible.map(r => {
-        const live = minutesAgo(r.lastSeen) <= state.liveWindow;
-        return `
-          <article class="studentCard ${r.riskLevel} ${live?'live':''}" data-student-id="${escapeHtml(r.id)}" tabindex="0">
-            <div class="studentTop">
+      </section>
+      <div id="advancedArea" class="hidden" style="margin-top:16px;display:grid;gap:14px">
+        <details open>
+          <summary>Deep Analytics: Mode / Bank / Weak Terms</summary>
+          <div class="details-body">
+            <div class="twocol">
               <div>
-                <div class="studentName">${escapeHtml(r.display_name)}</div>
-                <div class="meta">
-                  ID: ${escapeHtml(r.student_id||'-')} • Section: ${escapeHtml(r.section||'-')}<br>
-                  Score ${Math.round(r.score)} • Accuracy ${Math.round(r.accuracy)}% • Sessions ${r.attendance}<br>
-                  Last: ${escapeHtml(agoLabel(r.lastSeen))}
+                <h3>Mode Stats</h3>
+                <div class="table-wrap">
+                  <table id="modeTable">
+                  </table>
                 </div>
               </div>
-              <div class="chipRow">
-                ${live?'<span class="badge good">LIVE</span>':''}
-                ${r.roster?'<span class="badge good">ROSTER</span>':''}
-                <span class="badge ${r.riskLevel==='risk'?'bad':r.riskLevel==='support'?'warn':'good'}">${escapeHtml(r.riskLevel)}</span>
+              <div>
+                <h3>Weak Terms</h3>
+                <div class="table-wrap">
+                  <table id="weakTable">
+                  </table>
+                </div>
               </div>
             </div>
-            <div class="studentActions">
-              <button class="btn ghost openStudentBtn" data-student-id="${escapeHtml(r.id)}">เปิดรายคน</button>
-              <button class="btn warn exportEvidenceBtn" data-student-id="${escapeHtml(r.id)}">Evidence</button>
+          </div>
+        </details>
+        <details>
+          <summary>Leaderboard</summary>
+          <div class="details-body">
+            <div class="table-wrap">
+              <table id="leaderboardTable">
+              </table>
             </div>
-          </article>
-        `;
-      }).join('') : '<div class="empty">ไม่พบนักศึกษาตามตัวกรอง</div>';
-    }
-
-    function buildAttendanceRows(){
-      const map = new Map();
-
-      (state.normalized.sessions || []).filter(Boolean).forEach(s => {
-        const code = getSessionCode(s) || 'NO_CODE';
-        if(!map.has(code)) map.set(code, []);
-        map.get(code).push(s);
-      });
-
-      const roster = state.roster.length ? state.roster : state.rows;
-
-      return Array.from(map.entries()).map(([code, sessions]) => {
-        const joined = new Set(sessions.filter(Boolean).map(getRowId));
-        const missing = roster.filter(p => !joined.has(String(p.id || getRowId(p))));
-        const total = roster.length || joined.size;
-
-        return {
-          code,
-          sessions,
-          joinedCount:joined.size,
-          total,
-          missing,
-          missingCount:missing.length,
-          percent:total?joined.size/total*100:0
-        };
-      }).sort((a,b)=>String(a.code).localeCompare(String(b.code)));
-    }
-
-    function renderAttendance(){
-      const rows = buildAttendanceRows();
-
-      els.attendanceList.innerHTML = rows.length ? rows.map(a => `
-        <article class="miniCard ${a.missingCount?'warn':'good'}">
-          <div class="miniTitle">${escapeHtml(a.code)}</div>
-          <div class="miniMeta">
-            Joined ${a.joinedCount}/${a.total} • Missing ${a.missingCount}<br>
-            Completion ${Math.round(a.percent)}%
           </div>
-          <div class="miniActions">
-            <button class="btn ghost exportMissingOneBtn" data-code="${escapeHtml(a.code)}">Export Missing</button>
-          </div>
-        </article>
-      `).join('') : '<div class="empty">ยังไม่มี session_code สำหรับ attendance</div>';
-    }
-
-    function termStats(answers = state.normalized.termAnswers){
-      const map = new Map();
-
-      (answers || []).filter(Boolean).forEach(a => {
-        const k = getTerm(a);
-        if(!map.has(k)) map.set(k,{term:k,seen:0,wrong:0,correct:0});
-        const t = map.get(k);
-        t.seen++;
-        if(isCorrectAnswer(a)) t.correct++;
-        else t.wrong++;
-      });
-
-      return Array.from(map.values())
-        .map(t => ({...t,accuracy:t.seen?t.correct/t.seen*100:0}))
-        .sort((a,b)=>b.wrong-a.wrong || a.accuracy-b.accuracy);
-    }
-
-    function perStudentWeakTerms(row){
-      return termStats(row?.answers || []).slice(0,10);
-    }
-
-    function renderTerms(){
-      const rows = termStats().slice(0,80);
-
-      els.termTable.innerHTML = rows.length ? rows.map(t => `
-        <tr>
-          <td>${escapeHtml(t.term)}</td>
-          <td>${t.seen}</td>
-          <td>${t.wrong}</td>
-          <td>${Math.round(t.accuracy)}%</td>
-        </tr>
-      `).join('') : '<tr><td colspan="4">ยังไม่มี term answers</td></tr>';
-    }
-
-    function renderRecent(){
-      const rows = (state.normalized.sessions || []).filter(Boolean).slice()
-        .sort((a,b)=>(safeDate(getEventTime(b))?.getTime()||0)-(safeDate(getEventTime(a))?.getTime()||0))
-        .slice(0,20);
-
-      els.recentRuns.innerHTML = rows.length ? rows.map(s => `
-        <article class="runCard">
-          <div class="miniTitle">${escapeHtml(getDisplayName(s))}</div>
-          <div class="miniMeta">
-            ${escapeHtml(getSessionCode(s)||'-')} • ${escapeHtml(s.bank||'-')}/${escapeHtml(s.mode||'-')}<br>
-            Score ${num(s.score)} • Accuracy ${pct(s.accuracy)}%<br>
-            ${escapeHtml(dateLabel(getEventTime(s)))}
-          </div>
-        </article>
-      `).join('') : '<div class="empty">ยังไม่มี session rows</div>';
-    }
-
-    function getStudentRowById(id){
-      return state.rows.find(r => String(r.id) === String(id));
-    }
-
-    function getStudentNote(row){
-      return localStorage.getItem(LS.notes + row.id) || '';
-    }
-
-    function saveStudentNote(row, note){
-      localStorage.setItem(LS.notes + row.id, note || '');
-    }
-
-    function buildStudentFeedback(row, lang='th'){
-      const weak = perStudentWeakTerms(row).slice(0,5);
-
-      if(lang === 'en'){
-        return [
-          `Hello ${row.display_name},`,
-          `Summary: score ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%, sessions ${row.attendance}.`,
-          row.riskLevel==='risk'
-            ? 'Please review repeated mistakes and practice one more round.'
-            : row.riskLevel==='support'
-              ? 'Please replay one round and focus on accuracy.'
-              : 'Good work. Try a more challenging mode next time.',
-          weak.length
-            ? 'Vocabulary to review: ' + weak.map(t=>`${t.term} (${t.wrong}/${t.seen})`).join(', ')
-            : 'No repeated weak terms found yet.'
-        ].join('\n');
-      }
-
-      if(lang === 'both') return buildStudentFeedback(row,'th') + '\n\n--- English ---\n\n' + buildStudentFeedback(row,'en');
-
-      return [
-        `สวัสดี ${row.display_name}`,
-        `สรุปผล: score ${Math.round(row.score)}, accuracy ${Math.round(row.accuracy)}%, เล่นแล้ว ${row.attendance} รอบ`,
-        row.riskLevel==='risk'
-          ? 'ควรทบทวนคำที่ผิดซ้ำและฝึกเพิ่มอีก 1 รอบ'
-          : row.riskLevel==='support'
-            ? 'ควรเล่นซ้ำอีก 1 รอบโดยเน้น accuracy'
-            : 'ทำได้ดี สามารถลองโหมดที่ท้าทายขึ้น',
-        weak.length
-          ? 'คำศัพท์ที่ควรทบทวน: ' + weak.map(t=>`${t.term} (${t.wrong}/${t.seen})`).join(', ')
-          : 'ยังไม่พบคำที่ผิดซ้ำชัดเจน'
-      ].join('\n');
-    }
-
-    function composeFeedback(rows, source){
-      const lang = els.feedbackLangSelect.value;
-
-      state.batchFeedbackItems = (rows || []).filter(Boolean).map(r => ({
-        studentId:r.id,
-        display_name:r.display_name,
-        student_id:r.student_id,
-        section:r.section,
-        source,
-        lang,
-        risk_level:r.riskLevel,
-        score:Math.round(r.score),
-        accuracy:Math.round(r.accuracy),
-        sessions:r.attendance,
-        text:buildStudentFeedback(r, lang),
-        created_at:bangkokNow()
-      }));
-
-      saveFeedback();
-      renderBatchFeedback();
-    }
-
-    function renderBatchFeedback(){
-      els.batchFeedbackGrid.innerHTML = state.batchFeedbackItems.length ? state.batchFeedbackItems.map(item => `
-        <article class="miniCard ${item.risk_level==='risk'?'bad':item.risk_level==='support'?'warn':''}">
-          <div class="miniTitle">${escapeHtml(item.display_name)}</div>
-          <div class="miniMeta">
-            ID: ${escapeHtml(item.student_id||'-')} • ${escapeHtml(item.section||'-')}<br>
-            Source: ${escapeHtml(item.source)} • ${escapeHtml(item.lang)}
-          </div>
-          <div class="debugBox" style="max-height:220px;min-height:120px">${escapeHtml(item.text)}</div>
-          <div class="miniActions">
-            <button class="btn ghost copyFeedbackBtn" data-student-id="${escapeHtml(item.studentId)}">Copy</button>
-            <button class="btn ghost noteFeedbackBtn" data-student-id="${escapeHtml(item.studentId)}">Save Note</button>
-          </div>
-        </article>
-      `).join('') : '<div class="empty">ยังไม่มี batch feedback</div>';
-    }
-
-    function addComm(entry){
-      const row = entry.studentId ? getStudentRowById(entry.studentId) : null;
-
-      state.communicationLog.unshift({
-        id:'comm-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-        created_at:bangkokNow(),
-        action:entry.action || 'copy',
-        source:entry.source || 'unknown',
-        studentId:entry.studentId || '',
-        display_name:entry.display_name || row?.display_name || '',
-        student_id:entry.student_id || row?.student_id || '',
-        section:entry.section || row?.section || '',
-        template:entry.template || '',
-        message:entry.message || '',
-        note:entry.note || ''
-      });
-
-      state.communicationLog = state.communicationLog.slice(0,500);
-      saveComm();
-    }
-
-    function openStudentDrawer(id){
-      const row = getStudentRowById(id);
-      if(!row) return;
-
-      state.activeStudentId = row.id;
-
-      els.drawerTitle.textContent = row.display_name;
-      els.drawerMeta.textContent = `ID: ${row.student_id || '-'} • Section: ${row.section || '-'} • Risk: ${row.riskLevel}`;
-
-      els.drawerKpis.innerHTML = [
-        ['Score',Math.round(row.score),'good'],
-        ['Accuracy',Math.round(row.accuracy)+'%',row.accuracy<60?'bad':row.accuracy<75?'warn':'good'],
-        ['Sessions',row.attendance,'good'],
-        ['Wrong',row.wrongCount,row.wrongCount?'warn':'good']
-      ].map(([l,v,t])=>`
-        <div class="miniCard ${t}">
-          <div class="kpiLabel">${l}</div>
-          <div class="kpiValue">${v}</div>
-        </div>
-      `).join('');
-
-      els.studentNoteArea.value = getStudentNote(row);
-
-      els.drawerWeakTerms.innerHTML = perStudentWeakTerms(row).map(t=>`
-        <tr>
-          <td>${escapeHtml(t.term)}</td>
-          <td>${t.seen}</td>
-          <td>${t.wrong}</td>
-          <td>${Math.round(t.accuracy)}%</td>
-        </tr>
-      `).join('') || '<tr><td colspan="4">No data</td></tr>';
-
-      els.drawerSessions.innerHTML = row.sessions.slice(0,10).map(s=>`
-        <div class="miniCard">
-          <div class="miniTitle">${escapeHtml(getSessionCode(s)||'-')}</div>
-          <div class="miniMeta">
-            ${escapeHtml(s.bank||'-')}/${escapeHtml(s.mode||'-')} • score ${num(s.score)} • acc ${pct(s.accuracy)}%<br>
-            ${escapeHtml(dateLabel(getEventTime(s)))}
-          </div>
-        </div>
-      `).join('') || '<div class="empty">No sessions</div>';
-
-      els.drawerBackdrop.classList.remove('hidden');
-      els.studentDrawer.classList.remove('hidden');
-      document.body.style.overflow='hidden';
-    }
-
-    function closeDrawer(){
-      els.drawerBackdrop.classList.add('hidden');
-      els.studentDrawer.classList.add('hidden');
-      document.body.style.overflow='';
-    }
-
-    function activeRow(){
-      return getStudentRowById(state.activeStudentId);
-    }
-
-    function buildEvidenceHtml(row){
-      const weakRows = perStudentWeakTerms(row).map(t=>`
-        <tr><td>${escapeHtml(t.term)}</td><td>${t.seen}</td><td>${t.wrong}</td><td>${Math.round(t.accuracy)}%</td></tr>
-      `).join('');
-
-      const sessionRows = row.sessions.map(s=>`
-        <tr>
-          <td>${escapeHtml(getSessionCode(s)||'-')}</td>
-          <td>${escapeHtml(s.bank||'-')}</td>
-          <td>${escapeHtml(s.mode||'-')}</td>
-          <td>${num(s.score)}</td>
-          <td>${pct(s.accuracy)}%</td>
-          <td>${escapeHtml(dateLabel(getEventTime(s)))}</td>
-        </tr>
-      `).join('');
-
-      return `<!doctype html>
-<html lang="th">
-<head>
-<meta charset="utf-8">
-<title>Evidence Pack ${escapeHtml(row.display_name)}</title>
-<style>
-body{font-family:Arial,"Noto Sans Thai",sans-serif;background:#f5f7fb;color:#172033;margin:0;padding:24px;line-height:1.6}
-main{max-width:1100px;margin:auto;background:#fff;padding:28px;border-radius:24px}
-h1{margin:0;font-size:34px}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th,td{border:1px solid #e5e7eb;padding:8px;text-align:left}
-th{background:#eef2ff}
-.box{white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:14px}
-</style>
-</head>
-<body>
-<main>
-<h1>Student Evidence Pack</h1>
-<p>${escapeHtml(row.display_name)} • ${escapeHtml(row.student_id||'-')} • ${escapeHtml(row.section||'-')}</p>
-<h2>Summary</h2>
-<div class="box">Score: ${Math.round(row.score)}
-Accuracy: ${Math.round(row.accuracy)}%
-Sessions: ${row.attendance}
-Risk: ${row.riskLevel}</div>
-<h2>Feedback</h2><div class="box">${escapeHtml(buildStudentFeedback(row))}</div>
-<h2>Teacher Note</h2><div class="box">${escapeHtml(getStudentNote(row)||'-')}</div>
-<h2>Weak Terms</h2>
-<table><thead><tr><th>Term</th><th>Seen</th><th>Wrong</th><th>Accuracy</th></tr></thead><tbody>${weakRows || '<tr><td colspan="4">No data</td></tr>'}</tbody></table>
-<h2>Sessions</h2>
-<table><thead><tr><th>Session</th><th>Bank</th><th>Mode</th><th>Score</th><th>Accuracy</th><th>Date</th></tr></thead><tbody>${sessionRows || '<tr><td colspan="6">No data</td></tr>'}</tbody></table>
-</main>
-</body>
-</html>`;
-    }
-
-    function exportEvidence(row){
-      if(!row) return;
-
-      const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-
-      downloadTextFile(
-        `student-evidence-pack-${row.display_name.replace(/[^\w\u0E00-\u0E7F-]+/g,'-')}-${stamp}.html`,
-        buildEvidenceHtml(row),
-        'text/html;charset=utf-8'
-      );
-
-      addComm({
-        action:'export',
-        source:'evidence-pack',
-        studentId:row.id,
-        message:'Exported evidence pack'
-      });
-    }
-
-    function checkItem(id, title, status, textValue, meta = {}) {
-      return {id,title,status,text:textValue,meta};
-    }
-
-    function hasElement(id) {
-      return !!document.getElementById(id);
-    }
-
-    function testLocalStorage() {
-      try {
-        const key = 'TEACHER_DEPLOY_TEST_TMP';
-        localStorage.setItem(key, 'ok');
-        const ok = localStorage.getItem(key) === 'ok';
-        localStorage.removeItem(key);
-        return ok;
-      } catch (err) {
-        return false;
-      }
-    }
-
-    function testBlobDownloadSupport() {
-      try {
-        return typeof Blob !== 'undefined' && typeof URL.createObjectURL === 'function';
-      } catch (err) {
-        return false;
-      }
-    }
-
-    function runFinalDeployCheck() {
-      const items = [];
-
-      const requiredEls = [
-        'statusBox','refreshBtn','studentList','attendanceList','termTable','recentRuns',
-        'debugBox','deployCheckBadge','deployCheckKpis','deployCheckList','deployCheckRawBox',
-        'studentDrawer','drawerBackdrop'
-      ];
-
-      const missingEls = requiredEls.filter(id => !hasElement(id));
-      items.push(checkItem(
-        'elements',
-        'Required DOM Elements',
-        missingEls.length ? 'fail' : 'pass',
-        missingEls.length ? 'Missing: ' + missingEls.join(', ') : 'element id สำคัญครบ',
-        {missing:missingEls}
-      ));
-
-      items.push(checkItem(
-        'api',
-        'Apps Script API URL',
-        API_URL && API_URL.includes('/exec') ? 'pass' : 'fail',
-        API_URL && API_URL.includes('/exec') ? 'API_URL เป็น Google Apps Script /exec แล้ว' : 'API_URL ไม่ถูกต้อง',
-        {API_URL}
-      ));
-
-      items.push(checkItem(
-        'localStorage',
-        'LocalStorage',
-        testLocalStorage() ? 'pass' : 'fail',
-        testLocalStorage() ? 'เขียน/อ่าน localStorage ได้' : 'localStorage ถูก block'
-      ));
-
-      items.push(checkItem(
-        'download',
-        'Export / Download Support',
-        testBlobDownloadSupport() ? 'pass' : 'fail',
-        testBlobDownloadSupport() ? 'รองรับ Blob download' : 'browser ไม่รองรับ Blob download'
-      ));
-
-      items.push(checkItem(
-        'data',
-        'Loaded Data Shape',
-        state.normalized.sessions.length || state.normalized.termAnswers.length || state.normalized.roster.length ? 'pass' : 'warn',
-        `students ${state.normalized.students.length}, roster ${state.roster.length}, sessions ${state.normalized.sessions.length}, answers ${state.normalized.termAnswers.length}, leaderboard ${state.normalized.leaderboard.length}`,
-        {usingCache:state.usingCache, debugShape:state.normalized.debugShape}
-      ));
-
-      items.push(checkItem(
-        'rows',
-        'Student Rows',
-        state.rows.length ? 'pass' : 'warn',
-        state.rows.length ? 'สร้าง student rows ได้ ' + state.rows.length + ' คน' : 'ยังไม่มี student rows'
-      ));
-
-      items.push(checkItem(
-        'roster',
-        'Backend Roster Coverage',
-        state.roster.length ? 'pass' : 'warn',
-        state.roster.length ? 'มี class_roster แล้ว ' + state.roster.length + ' คน' : 'ยังไม่มี class_roster'
-      ));
-
-      const pass = items.filter(x => x.status === 'pass').length;
-      const warn = items.filter(x => x.status === 'warn').length;
-      const fail = items.filter(x => x.status === 'fail').length;
-      const overall = fail ? 'fail' : warn ? 'warn' : 'pass';
-
-      const result = {
-        type:'teacher-final-deploy-check',
-        version:TEACHER_VERSION,
-        checked_at:new Date().toISOString(),
-        overall,
-        summary:{pass,warn,fail,total:items.length},
-        page:location.href,
-        apiUrl:API_URL,
-        dataMode:state.usingCache?'cache':'live',
-        items
-      };
-
-      state.deployCheckResult = result;
-      renderDeployCheck();
-
-      showStatus(
-        overall === 'pass'
-          ? 'Deploy Check ผ่านทั้งหมด'
-          : overall === 'warn'
-            ? 'Deploy Check ผ่านแบบมี warning'
-            : 'Deploy Check พบ fail ต้องแก้ก่อน',
-        overall === 'pass' ? 'ok' : overall === 'fail' ? 'bad' : 'warn'
-      );
-
-      return result;
-    }
-
-    function renderDeployCheck() {
-      const result = state.deployCheckResult;
-      if (!result) {
-        if (els.deployCheckRawBox) els.deployCheckRawBox.textContent = 'ยังไม่ได้ตรวจ';
-        return;
-      }
-
-      const tone = result.overall === 'pass' ? 'good' : result.overall === 'fail' ? 'bad' : 'warn';
-
-      els.deployCheckBadge.className = 'badge ' + tone;
-      els.deployCheckBadge.textContent = result.overall.toUpperCase();
-
-      els.deployCheckKpis.innerHTML = [
-        ['PASS', result.summary.pass, 'good'],
-        ['WARN', result.summary.warn, result.summary.warn ? 'warn' : 'good'],
-        ['FAIL', result.summary.fail, result.summary.fail ? 'bad' : 'good'],
-        ['TOTAL', result.summary.total, 'good']
-      ].map(([label, value, t]) => `
-        <div class="miniCard ${escapeHtml(t)}">
-          <div class="kpiLabel">${escapeHtml(label)}</div>
-          <div class="kpiValue">${escapeHtml(value)}</div>
-        </div>
-      `).join('');
-
-      els.deployCheckList.innerHTML = result.items.map(item => `
-        <article class="deployCheckItem ${escapeHtml(item.status)}">
-          <div class="studentTop">
-            <div>
-              <div class="deployCheckTitle">${escapeHtml(item.title)}</div>
-              <div class="deployCheckText">${escapeHtml(item.text)}</div>
+        </details>
+        <details>
+          <summary>Recent Sessions</summary>
+          <div class="details-body">
+            <div class="table-wrap">
+              <table id="sessionsTable">
+              </table>
             </div>
-            <span class="badge ${item.status === 'pass' ? 'good' : item.status === 'fail' ? 'bad' : 'warn'}">${escapeHtml(item.status.toUpperCase())}</span>
           </div>
-        </article>
-      `).join('');
+        </details>
+        <details>
+          <summary>Reports / Export</summary>
+          <div class="details-body">
+            <div class="actions">
+              <button class="btn secondary small" id="exportStudentsBtn">Export Students CSV</button>
+              <button class="btn secondary small" id="exportSessionsBtn">Export Sessions CSV</button>
+              <button class="btn secondary small" id="copySummaryBtn">Copy Summary</button>
+            </div>
+            <textarea id="reportBox" style="margin-top:12px" readonly placeholder="Report summary will appear here">
+            </textarea>
+          </div>
+        </details>
+        <details>
+          <summary>Debug Raw JSON</summary>
+          <div class="details-body">
+            <textarea id="debugBox" readonly>
+            </textarea>
+          </div>
+        </details>
+      </div>
+    </main>
+    <script>
+(function(){
+  'use strict';
+  const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
+  const LS_ENDPOINT = 'VOCAB_TEACHER_ENDPOINT_V92';
+  let dashboard = null;
+  let model = {sessions:[],terms:[],profiles:[],leaderboard:[],roster:[],students:[],weakTerms:[],modeStats:[]};
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const pct = v => `${Math.round(num(v))}%`;
+  const truthy = v => v===true || v===1 || ['1','true','yes','y','ถูก'].includes(String(v||'').toLowerCase());
+  const dateVal = v => { const t = Date.parse(v || ''); return Number.isFinite(t) ? t : 0; };
 
-      els.deployCheckRawBox.textContent = JSON.stringify(result, null, 2);
-    }
+  function endpoint(action){
+    const base = $('endpointInput').value.trim() || DEFAULT_ENDPOINT;
+    const u = new URL(base, location.href);
+    u.searchParams.set('api','vocab');
+    u.searchParams.set('action', action);
+    return u.toString();
+  }
+  async function getJson(action){
+    const res = await fetch(endpoint(action), {cache:'no-store'});
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  }
+  function setStatus(msg, loading=false){ $('statusText').innerHTML = loading ? `<span class="loader"></span> ${esc(msg)}` : esc(msg); }
 
-    async function copyText(value){
-      if(navigator.clipboard) return navigator.clipboard.writeText(value);
-
-      const ta = document.createElement('textarea');
-      ta.value = value;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-    }
-
-    async function copyDeployCheckResult() {
-      const result = state.deployCheckResult || runFinalDeployCheck();
-      await copyText(JSON.stringify(result, null, 2));
-      showStatus('Copy Deploy Check result แล้ว', 'ok');
-    }
-
-    function exportDeployCheckResult() {
-      const result = state.deployCheckResult || runFinalDeployCheck();
-      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-
-      downloadTextFile(
-        `teacher-vocab-deploy-check-${stamp}.json`,
-        JSON.stringify(result, null, 2),
-        'application/json;charset=utf-8'
-      );
-    }
-
-    function renderDebug(){
-      els.debugBox.textContent = JSON.stringify({
-        version:TEACHER_VERSION,
-        usingCache:state.usingCache,
-        rawKeys:state.raw?Object.keys(state.raw):[],
-        normalizedCounts:{
-          students:state.normalized.students.length,
-          roster:state.normalized.roster.length,
-          sessions:state.normalized.sessions.length,
-          termAnswers:state.normalized.termAnswers.length,
-          leaderboard:state.normalized.leaderboard.length,
-          followup:state.normalized.followup.length,
-          archive:state.normalized.archive.length
-        },
-        rows:state.rows.length,
-        roster:state.roster.length,
-        filters:state.filters,
-        quickFilter:state.quickFilter,
-        ui:{
-          compact:state.compact,
-          production:state.production
-        },
-        deployCheck: state.deployCheckResult ? {
-          overall: state.deployCheckResult.overall,
-          summary: state.deployCheckResult.summary
-        } : null,
-        debugShape:state.normalized.debugShape
-      }, null, 2);
-    }
-
-    function safeOn(el, eventName, handler, label = '') {
-      if (!el) {
-        console.warn('Missing element for event:', label || eventName);
-        return;
-      }
-      el.addEventListener(eventName, handler);
-    }
-
-    function bindEvents(){
-      safeOn(els.refreshBtn, 'click', loadDashboard);
-      safeOn(els.useCacheBtn, 'click', useCache);
-
-      safeOn(els.compactBtn, 'click',()=>{
-        state.compact=!state.compact;
-        localStorage.setItem(LS.compact,state.compact?'1':'0');
-        renderAll();
-      });
-
-      safeOn(els.productionBtn, 'click',()=>{
-        state.production=!state.production;
-        localStorage.setItem(LS.production,state.production?'1':'0');
-        renderAll();
-      });
-
-      safeOn(els.searchInput, 'input',()=>{
-        state.filters.search=els.searchInput.value;
-        state.studentRenderLimit=18;
-        renderAll();
-      });
-
-      safeOn(els.sectionFilter, 'change',()=>{
-        state.filters.section=els.sectionFilter.value;
-        renderAll();
-      });
-
-      safeOn(els.riskFilter, 'change',()=>{
-        state.filters.risk=els.riskFilter.value;
-        renderAll();
-      });
-
-      safeOn(els.bankFilter, 'change',()=>{
-        state.filters.bank=els.bankFilter.value;
-        renderAll();
-      });
-
-      safeOn(els.sortSelect, 'change',()=>{
-        state.filters.sort=els.sortSelect.value;
-        renderAll();
-      });
-
-      safeOn(els.quickFilterList, 'click',ev=>{
-        const b = ev.target.closest('[data-qtype]');
-        if(!b) return;
-        state.quickFilter = {type:b.dataset.qtype,value:''};
-        renderAll();
-      });
-
-      safeOn(els.clearQuickBtn, 'click',()=>{
-        state.quickFilter={type:'all',value:''};
-        renderAll();
-      });
-
-      safeOn(els.liveWindowSelect, 'change',()=>{
-        state.liveWindow=num(els.liveWindowSelect.value||15);
-        renderLive();
-        renderStudents();
-      });
-
-      safeOn(els.refreshLiveBtn, 'click',()=>{
-        renderLive();
-        renderStudents();
-      });
-
-      safeOn(els.showMoreStudentsBtn, 'click',()=>{
-        state.studentRenderLimit+=18;
-        renderStudents();
-      });
-
-      document.addEventListener('click', ev => {
-        const open = ev.target.closest('.openStudentBtn[data-student-id]');
-        if(open){
-          openStudentDrawer(open.dataset.studentId);
-          return;
-        }
-
-        const card = ev.target.closest('.studentCard[data-student-id]');
-        if(card && !ev.target.closest('button')){
-          openStudentDrawer(card.dataset.studentId);
-          return;
-        }
-
-        const exp = ev.target.closest('.exportEvidenceBtn[data-student-id]');
-        if(exp){
-          exportEvidence(getStudentRowById(exp.dataset.studentId));
-          return;
-        }
-
-        const oneMissing = ev.target.closest('.exportMissingOneBtn[data-code]');
-        if(oneMissing){
-          const a = buildAttendanceRows().find(x=>String(x.code)===String(oneMissing.dataset.code));
-          if(a) exportRowsToCsv('teacher-vocab-missing-' + a.code, a.missing);
-          return;
-        }
-
-        const copyFeedback = ev.target.closest('.copyFeedbackBtn[data-student-id]');
-        if(copyFeedback){
-          const item = state.batchFeedbackItems.find(x=>String(x.studentId)===String(copyFeedback.dataset.studentId));
-          if(item){
-            copyText(item.text);
-            addComm({action:'copy',source:'batch-feedback',studentId:item.studentId,message:item.text});
-            showStatus('Copy feedback แล้ว','ok');
-          }
-          return;
-        }
-
-        const noteFeedback = ev.target.closest('.noteFeedbackBtn[data-student-id]');
-        if(noteFeedback){
-          const item = state.batchFeedbackItems.find(x=>String(x.studentId)===String(noteFeedback.dataset.studentId));
-          const r = getStudentRowById(item?.studentId);
-          if(item && r){
-            saveStudentNote(r,(getStudentNote(r)+'\n\n[Batch Feedback]\n'+item.text).trim());
-            addComm({action:'save_note',source:'batch-feedback',studentId:r.id,message:item.text});
-            showStatus('Save to note แล้ว','ok');
-          }
-        }
-      });
-
-      safeOn(els.drawerCloseBtn, 'click', closeDrawer);
-      safeOn(els.drawerBackdrop, 'click', closeDrawer);
-
-      safeOn(els.saveStudentNoteBtn, 'click',()=>{
-        const r=activeRow();
-        if(!r)return;
-        saveStudentNote(r,els.studentNoteArea.value);
-        addComm({action:'save_note',source:'student-feedback',studentId:r.id,message:els.studentNoteArea.value});
-        showStatus('บันทึก note แล้ว','ok');
-      });
-
-      safeOn(els.copyStudentFeedbackBtn, 'click',async()=>{
-        const r=activeRow();
-        if(!r)return;
-        const fb=buildStudentFeedback(r);
-        await copyText(fb);
-        addComm({action:'copy',source:'student-feedback',studentId:r.id,message:fb});
-        showStatus('Copy feedback แล้ว','ok');
-      });
-
-      safeOn(els.exportEvidencePackBtn, 'click',()=>exportEvidence(activeRow()));
-
-      safeOn(els.composeRiskFeedbackBtn, 'click',()=>composeFeedback(
-        state.rows.filter(r=>r.riskLevel==='risk'||r.riskLevel==='support'),
-        'risk-support'
-      ));
-
-      safeOn(els.composeVisibleFeedbackBtn, 'click',()=>composeFeedback(
-        applyFilters(state.rows),
-        'visible-filter'
-      ));
-
-      safeOn(els.exportBatchFeedbackTxtBtn, 'click',()=>{
-        const txt=state.batchFeedbackItems.map((i,idx)=>`${idx+1}. ${i.display_name}\n${i.text}`).join('\n\n'+'='.repeat(60)+'\n\n');
-        downloadTextFile('teacher-vocab-batch-feedback.txt',txt);
-        addComm({action:'export',source:'batch-feedback',message:'Exported batch feedback'});
-      });
-
-      safeOn(els.clearBatchFeedbackBtn, 'click',()=>{
-        state.batchFeedbackItems=[];
-        saveFeedback();
-        renderBatchFeedback();
-      });
-
-      safeOn(els.exportStudentsBtn, 'click',()=>exportRowsToCsv(
-        'teacher-vocab-students',
-        state.rows.map(r=>({
-          display_name:r.display_name,
-          student_id:r.student_id,
-          section:r.section,
-          roster:r.roster ? 'yes' : 'no',
-          score:Math.round(r.score),
-          accuracy:Math.round(r.accuracy),
-          sessions:r.attendance,
-          answers:r.answerCount,
-          wrong:r.wrongCount,
-          risk_level:r.riskLevel,
-          last_seen:r.lastSeen
-        }))
-      ));
-
-      safeOn(els.exportSessionsBtn, 'click',()=>exportRowsToCsv('teacher-vocab-sessions',state.normalized.sessions));
-
-      safeOn(els.exportMissingBtn, 'click',()=>{
-        const latest=buildAttendanceRows().slice(-1)[0];
-        if(!latest){
-          alert('No attendance');
-          return;
-        }
-        exportRowsToCsv('teacher-vocab-missing-'+latest.code,latest.missing);
-      });
-
-      safeOn(els.runDeployCheckBtn, 'click', runFinalDeployCheck);
-      safeOn(els.copyDeployCheckBtn, 'click', copyDeployCheckResult);
-      safeOn(els.exportDeployCheckBtn, 'click', exportDeployCheckResult);
-
-      safeOn(els.jumpNavToggle, 'click',()=>els.teacherJumpNav.classList.toggle('open'));
-
-      safeOn(els.jumpNavPanel, 'click',ev=>{
-        const b=ev.target.closest('[data-jump-target]');
-        if(!b)return;
-        jumpTo(b.dataset.jumpTarget);
-      });
-
-      document.addEventListener('keydown',ev=>{
-        if(ev.key==='Escape'){
-          closeDrawer();
-          els.teacherJumpNav.classList.remove('open');
-        }
-      });
-    }
-
-    function jumpTo(id){
-      const target = document.querySelector(`[data-section-id="${CSS.escape(id)}"]`);
-      if(!target) return;
-      target.scrollIntoView({behavior:'smooth',block:'start'});
-      els.teacherJumpNav.classList.remove('open');
-    }
-
-    function updateJumpActive(){
-      document.querySelectorAll('.jumpLink').forEach(b=>b.classList.remove('active'));
-
-      const sections = Array.from(document.querySelectorAll('[data-section-id]'));
-      let active = sections[0]?.dataset.sectionId || 'top';
-
-      for(const s of sections){
-        if(s.getBoundingClientRect().top < window.innerHeight*.35) active = s.dataset.sectionId;
-      }
-
-      document.querySelector(`.jumpLink[data-jump-target="${active}"]`)?.classList.add('active');
-    }
-
-    window.addEventListener('scroll',()=>requestAnimationFrame(updateJumpActive),{passive:true});
-
-    function init(){
-      loadLocal();
-      bindEvents();
+  async function loadDashboard(){
+    try{
+      setStatus('กำลังโหลด dashboard...', true);
+      dashboard = await getJson('teacher_dashboard_get');
+      model = normalizeDashboard(dashboard);
       renderAll();
-      loadDashboard();
+      setStatus(`โหลดแล้ว ${new Date().toLocaleString('th-TH')}`);
+      $('lastLoadedPill').textContent = `Loaded ${new Date().toLocaleTimeString('th-TH')}`;
+    }catch(err){
+      setStatus(`โหลดไม่สำเร็จ: ${err.message}`);
+      showEmptyError(err);
     }
+  }
+  async function refreshViews(){
+    try{
+      setStatus('กำลัง refresh clean views...', true);
+      await getJson('refresh_views');
+      await loadDashboard();
+    }catch(err){ setStatus(`refresh views ไม่สำเร็จ: ${err.message}`); }
+  }
 
-    window.TEACHER_VERSION = TEACHER_VERSION;
-    window.__teacherState = state;
+  function normalizeDashboard(d){
+    const data = d?.data || {};
+    const sessions = arr(data.sessions || data.vocab_sessions);
+    const terms = arr(data.term_answers || data.vocab_terms || data.termAnswers);
+    const profiles = arr(data.student_profiles || data.students_profile || data.studentProfiles);
+    const leaderboard = arr(data.leaderboard || data.vocab_leaderboard);
+    const roster = arr(data.class_roster || data.roster);
+    const weakTerms = arr(d?.weak_terms || d?.summary?.weak_terms);
+    const modeStats = arr(d?.mode_stats || d?.summary?.mode_stats);
+    return {sessions,terms,profiles,leaderboard,roster,weakTerms,modeStats,students:buildStudentRows(sessions, profiles, roster)};
+  }
+  function arr(v){ return Array.isArray(v) ? v : []; }
 
-    init();
-  </script>
-</body>
+  function buildStudentRows(sessions, profiles, roster){
+    const map = new Map();
+    roster.forEach(r => put(r.student_id || r.display_name, {
+      student_id:r.student_id||'', display_name:r.display_name||'', section:r.section||'', email:r.email||'', roster:true,
+      last_score:0,last_accuracy:0,ai_help_used:0,last_seen_at:'',sessions:0
+    }));
+    profiles.forEach(p => {
+      const k = p.student_id || p.display_name || Math.random();
+      const row = put(k, {});
+      Object.assign(row, {
+        student_id:p.student_id || row.student_id || '', display_name:p.display_name || row.display_name || 'Hero', section:p.section || row.section || '',
+        last_score:num(p.last_score || p.score), last_accuracy:num(p.last_accuracy || p.accuracy), last_bank:p.last_bank||p.bank||'', last_mode_label:p.last_mode_label||p.last_mode||p.mode_label||p.mode||'',
+        last_difficulty:p.last_difficulty||p.difficulty||'', last_combo_max:num(p.last_combo_max||p.combo_max), personal_best:num(p.personal_best), improvement:num(p.improvement),
+        ai_help_used:num(p.ai_help_used), ai_assisted:truthy(p.ai_assisted), recommended_mode:p.recommended_mode||p.ai_recommended_mode||'', recommended_difficulty:p.recommended_difficulty||p.ai_recommended_difficulty||'', ai_reason:p.ai_reason||'',
+        last_seen_at:p.last_seen_at || p.timestamp || row.last_seen_at || ''
+      });
+    });
+    sessions.forEach(s => {
+      const k = s.student_id || s.display_name || Math.random();
+      const row = put(k, {});
+      const t = dateVal(s.timestamp || s.ended_at || s.started_at);
+      const oldT = dateVal(row.last_seen_at);
+      row.sessions = num(row.sessions)+1;
+      row.display_name = s.display_name || row.display_name || 'Hero';
+      row.student_id = s.student_id || row.student_id || '';
+      row.section = s.section || row.section || '';
+      row.ai_help_used = Math.max(num(row.ai_help_used), num(s.ai_help_used));
+      row.ai_assisted = row.ai_assisted || truthy(s.ai_assisted);
+      if(t >= oldT){
+        Object.assign(row, {last_seen_at:s.timestamp||s.ended_at||s.started_at||'', last_score:num(s.score), last_accuracy:num(s.accuracy), last_bank:s.bank||'', last_mode_label:s.mode_label||s.mode||'', last_difficulty:s.difficulty||'', last_combo_max:num(s.combo_max), ai_reason:s.ai_reason||row.ai_reason||'', recommended_mode:s.ai_recommended_mode||row.recommended_mode||'', recommended_difficulty:s.ai_recommended_difficulty||row.recommended_difficulty||''});
+      }
+    });
+    function put(key, seed){ key=String(key||Math.random()); if(!map.has(key)) map.set(key, seed); return map.get(key); }
+    return [...map.values()].map(r => ({...r, risk: calcRisk(r)}));
+  }
+  function calcRisk(r){
+    const acc = num(r.last_accuracy); const score = num(r.last_score); const help = num(r.ai_help_used);
+    if((acc>0 && acc<60) || help>=3) return 'risk';
+    if((acc>=60 && acc<75) || (score>0 && score<500) || help>0) return 'support';
+    if(acc>=75 || score>=500) return 'good';
+    return 'unknown';
+  }
+  function filteredStudents(){
+    const q = $('searchInput').value.trim().toLowerCase(); const risk=$('riskFilter').value; const section=$('sectionFilter').value; const sort=$('sortFilter').value;
+    let rows = model.students.filter(r => {
+      const text = [r.display_name,r.student_id,r.section,r.email].join(' ').toLowerCase();
+      return (!q || text.includes(q)) && (risk==='all' || r.risk===risk) && (section==='all' || String(r.section)===section);
+    });
+    rows.sort((a,b)=>{
+      if(sort==='accuracy') return num(a.last_accuracy)-num(b.last_accuracy);
+      if(sort==='score') return num(b.last_score)-num(a.last_score);
+      if(sort==='recent') return dateVal(b.last_seen_at)-dateVal(a.last_seen_at);
+      const order = {risk:0,support:1,unknown:2,good:3}; return (order[a.risk]??9)-(order[b.risk]??9) || num(a.last_accuracy)-num(b.last_accuracy);
+    });
+    return rows;
+  }
+
+  function renderAll(){
+    renderFilters(); renderKpis(); renderPriority(); renderSnapshot(); renderStudents(); renderAdvanced(); renderReport();
+    $('debugBox').value = JSON.stringify(dashboard || {}, null, 2);
+  }
+  function renderFilters(){
+    const sections = [...new Set(model.students.map(r=>r.section).filter(Boolean))].sort();
+    const modes = [...new Set([...model.sessions.map(r=>r.mode_label||r.mode), ...model.students.map(r=>r.last_mode_label)].filter(Boolean))].sort();
+    fillSelect('sectionFilter','All sections','all',sections); fillSelect('modeFilter','All modes','all',modes);
+  }
+  function fillSelect(id,label,allVal,values){ const el=$(id), old=el.value; el.innerHTML = `<option value="${allVal}">${label}</option>` + values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); if([...el.options].some(o=>o.value===old)) el.value=old; }
+  function renderKpis(){
+    const active = model.students.filter(s=>dateVal(s.last_seen_at)||s.sessions).length;
+    const risk = model.students.filter(s=>s.risk==='risk'||s.risk==='support').length;
+    const avgAcc = model.sessions.length ? model.sessions.reduce((a,b)=>a+num(b.accuracy),0)/model.sessions.length : model.students.length ? model.students.reduce((a,b)=>a+num(b.last_accuracy),0)/model.students.length : 0;
+    $('kpiGrid').innerHTML = `
+      <div class="kpi good"><b>${active}</b><span>Active Students</span></div>
+      <div class="kpi"><b>${model.sessions.length}</b><span>Sessions</span></div>
+      <div class="kpi ${risk?'danger':''}"><b>${risk}</b><span>Need Follow-up</span></div>
+      <div class="kpi ${avgAcc>=75?'good':avgAcc>=60?'warn':'danger'}"><b>${pct(avgAcc)}</b><span>Avg Accuracy</span></div>`;
+    $('zeroHelp').classList.toggle('hidden', model.sessions.length || model.students.length);
+  }
+  function renderPriority(){
+    const rows = model.students.filter(s=>s.risk==='risk'||s.risk==='support').slice(0,5);
+    $('priorityList').innerHTML = rows.length ? rows.map(renderStudentCard).join('') : `<div class="empty">ยังไม่มีรายชื่อที่ต้องติดตาม หรือยังไม่มีข้อมูลการเล่น</div>`;
+  }
+  function renderStudentCard(s){
+    const tag = s.risk==='risk' ? '<span class="tag red">Risk</span>' : '<span class="tag amber">Support</span>';
+    return `<div class="student-card"><div><strong>${esc(s.display_name||'Hero')}</strong><small>${esc(s.student_id||'-')} • ${esc(s.section||'-')} • ${esc(s.last_mode_label||'-')}</small><div class="recommend">Accuracy ${pct(s.last_accuracy)} • Score ${num(s.last_score)} • AI Help ${num(s.ai_help_used)}<br><b>Next:</b> ${esc(s.recommended_mode||'Weak Rescue')} ${s.recommended_difficulty?`(${esc(s.recommended_difficulty)})`:''}<br>${esc(s.ai_reason||'ทบทวนคำที่ตอบผิดบ่อย แล้วเล่นโหมดฝึกซ้ำ')}</div></div><div>${tag}</div></div>`;
+  }
+  function renderSnapshot(){
+    const weak = computeWeakTerms().slice(0,5); const modes = computeModeStats().slice(0,4);
+    $('classSnapshot').innerHTML = weak.length ? `<b>คำที่ควรทบทวน:</b><br>${weak.map(w=>`<span class="tag violet" style="margin:4px 4px 0 0">${esc(w.term)} (${w.wrong})</span>`).join('')}` : 'ยังไม่มี weak terms';
+    const avg = model.sessions.length ? model.sessions.reduce((s,r)=>s+num(r.accuracy),0)/model.sessions.length : 0;
+    const move = avg<60 ? 'เริ่มคาบถัดไปด้วย Weak Rescue + อธิบายคำศัพท์ที่ผิดบ่อย' : avg<75 ? 'ให้ทำ Debug Mission ระดับ normal/hard เพื่อเช็กความเข้าใจ' : 'ใช้ Boss Battle / Challenge เพื่อเพิ่มความท้าทาย';
+    $('nextMove').innerHTML = `<b>${esc(move)}</b><br><br>${modes.map(m=>`<span class="tag gray" style="margin:4px 4px 0 0">${esc(m.mode)}: ${m.count}</span>`).join('') || 'ยังไม่มี mode stats'}`;
+  }
+  function renderStudents(){
+    const rows = filteredStudents();
+    renderTable('studentsTable', ['status','display_name','student_id','section','last_score','last_accuracy','ai_help_used','recommended_mode'], rows.map(r=>({status:r.risk, display_name:r.display_name, student_id:r.student_id, section:r.section, last_score:num(r.last_score), last_accuracy:pct(r.last_accuracy), ai_help_used:num(r.ai_help_used), recommended_mode:r.recommended_mode||'-'})), {status: v=>riskTag(v)});
+  }
+  function renderAdvanced(){
+    renderTable('modeTable',['mode','count','avg_score','avg_accuracy'], computeModeStats());
+    renderTable('weakTable',['term','wrong','accuracy'], computeWeakTerms().slice(0,20).map(w=>({term:w.term, wrong:w.wrong, accuracy:pct(w.accuracy)})));
+    renderTable('leaderboardTable',['rank','display_name','section','bank','mode','difficulty','fair_score','accuracy','ai_assisted','runs'], computeLeaderboard().slice(0,30), {ai_assisted:v=>truthy(v)?'<span class="tag violet">AI</span>':'<span class="tag green">No help</span>'});
+    renderTable('sessionsTable',['timestamp','display_name','section','bank','mode','difficulty','score','accuracy','ai_help_used'], model.sessions.slice().sort((a,b)=>dateVal(b.timestamp)-dateVal(a.timestamp)).slice(0,50).map(s=>({timestamp:s.timestamp, display_name:s.display_name, section:s.section, bank:s.bank, mode:s.mode_label||s.mode, difficulty:s.difficulty, score:num(s.score), accuracy:pct(s.accuracy), ai_help_used:num(s.ai_help_used)})));
+  }
+  function renderTable(id, headers, rows, renderers={}){
+    const table=$(id);
+    if(!rows.length){ table.innerHTML = `<tbody><tr><td class="empty">ยังไม่มีข้อมูล</td></tr></tbody>`; return; }
+    table.innerHTML = `<thead><tr>${headers.map(h=>`<th>${esc(label(h))}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${headers.map(h=>`<td>${renderers[h]?renderers[h](r[h],r):esc(r[h] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  }
+  function label(h){ return String(h).replaceAll('_',' '); }
+  function riskTag(v){ const cls = v==='risk'?'red':v==='support'?'amber':v==='good'?'green':'gray'; return `<span class="tag ${cls}">${esc(v||'unknown')}</span>`; }
+  function computeWeakTerms(){
+    const map = new Map();
+    (model.weakTerms.length ? model.weakTerms : model.terms.filter(t=>!truthy(t.is_correct))).forEach(t=>{
+      const term = t.term || t.term_id; if(!term) return; const cur=map.get(term)||{term,wrong:0,total:0,correct:0}; cur.wrong += num(t.wrong)||1; cur.total += num(t.seen)||1; if(truthy(t.is_correct)) cur.correct++; map.set(term,cur);
+    });
+    return [...map.values()].map(w=>({...w, accuracy:w.total?((w.total-w.wrong)/w.total)*100:0})).sort((a,b)=>b.wrong-a.wrong);
+  }
+  function computeModeStats(){
+    if(model.modeStats.length) return model.modeStats.map(m=>({mode:m.mode_label||m.mode, count:num(m.sessions||m.count), avg_score:num(m.avg_score), avg_accuracy:pct(m.avg_accuracy)}));
+    const map=new Map(); model.sessions.forEach(s=>{ const k=s.mode_label||s.mode||'unknown'; const m=map.get(k)||{mode:k,count:0,score:0,acc:0}; m.count++; m.score+=num(s.score); m.acc+=num(s.accuracy); map.set(k,m);});
+    return [...map.values()].map(m=>({mode:m.mode,count:m.count,avg_score:Math.round(m.score/m.count||0),avg_accuracy:pct(m.acc/m.count||0)})).sort((a,b)=>b.count-a.count);
+  }
+  function computeLeaderboard(){
+    const rows = model.leaderboard.length ? model.leaderboard : model.sessions;
+    return rows.map((r,i)=>({rank:num(r.rank)||i+1, display_name:r.display_name, section:r.section, bank:r.bank, mode:r.mode_label||r.mode, difficulty:r.difficulty, fair_score:num(r.fair_score||r.best_score||r.score), accuracy:pct(r.best_accuracy||r.accuracy), ai_assisted:r.ai_assisted, runs:num(r.runs)||1})).sort((a,b)=>num(b.fair_score)-num(a.fair_score));
+  }
+  function renderReport(){
+    const risk = model.students.filter(s=>s.risk==='risk'||s.risk==='support').length;
+    const weak = computeWeakTerms().slice(0,5).map(w=>w.term).join(', ') || '-';
+    $('reportBox').value = `Teacher Dashboard Summary\nActive students: ${model.students.length}\nSessions: ${model.sessions.length}\nNeed follow-up: ${risk}\nTop weak terms: ${weak}\nGenerated: ${new Date().toLocaleString('th-TH')}`;
+  }
+  function showEmptyError(err){ $('priorityList').innerHTML = `<div class="empty">${esc(err.message)}<br>ตรวจ endpoint หรือสิทธิ์ Apps Script</div>`; }
+  function exportCsv(name, rows){ if(!rows.length) return; const headers=Object.keys(rows[0]); const csv=[headers.join(','), ...rows.map(r=>headers.map(h=>`"${String(r[h]??'').replaceAll('"','""')}"`).join(','))].join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+
+  $('refreshBtn').addEventListener('click', loadDashboard);
+  $('refreshViewsBtn').addEventListener('click', refreshViews);
+  $('toggleAdvancedBtn').addEventListener('click', ()=> $('advancedArea').classList.toggle('hidden'));
+  $('saveEndpointBtn').addEventListener('click', ()=>{ localStorage.setItem(LS_ENDPOINT, $('endpointInput').value.trim()); setStatus('Saved endpoint'); });
+  $('openSheetBtn').addEventListener('click', ()=> window.open(endpoint('health'),'_blank'));
+  ['searchInput','riskFilter','sectionFilter','modeFilter','sortFilter'].forEach(id=>$(id).addEventListener('input', renderStudents));
+  $('exportStudentsBtn').addEventListener('click', ()=>exportCsv('students_clean_view.csv', filteredStudents()));
+  $('exportSessionsBtn').addEventListener('click', ()=>exportCsv('sessions_clean_view.csv', model.sessions));
+  $('copySummaryBtn').addEventListener('click', async()=>{ await navigator.clipboard.writeText($('reportBox').value); setStatus('Copied summary'); });
+  $('endpointInput').value = localStorage.getItem(LS_ENDPOINT) || DEFAULT_ENDPOINT;
+  loadDashboard();
+  window.teacherV92 = {loadDashboard, refreshViews, model:()=>model, dashboard:()=>dashboard};
+})();
+</script>
+  </body>
 </html>
