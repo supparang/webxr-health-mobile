@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <title>Teacher Dashboard v9.5 • Cohort Triage</title>
+    <title>Teacher Dashboard v9.6 • One-click Update</title>
     <meta name="theme-color" content="#0f172a" />
     <style>
     :root{
@@ -37,13 +37,14 @@
         <div class="brand">
           <div class="logo">🧭</div>
           <div>
-            <b>Teacher Dashboard v9.5</b>
+            <b>Teacher Dashboard v9.6</b>
             <br>
-              <span class="muted small">Cohort Triage + Group Insight + Student Insight</span>
+              <span class="muted small">One-click Update + Cohort Triage + Student Insight</span>
             </div>
           </div>
           <div class="actions">
-            <button class="btn" id="refreshBtn">Refresh</button>
+            <button class="btn" id="updateDashboardBtn">Update Dashboard</button>
+            <button class="btn secondary" id="refreshBtn">Refresh Only</button>
             <button class="btn secondary" id="refreshViewsBtn">Refresh Views</button>
             <button class="btn secondary" id="toggleAdvancedBtn">Deep Analytics</button>
           </div>
@@ -53,7 +54,7 @@
         <section class="hero">
           <div class="card">
             <h1>สรุปเร็วสำหรับครู</h1>
-            <p>หน้าแรกจะจัดกลุ่มนักศึกษาให้อัตโนมัติ ครูไม่ต้องไล่เปิดทีละคน ใช้หลัก <b>Priority-first</b>: ดูกลุ่มเสี่ยงก่อน แล้วค่อยคลิกรายคนเฉพาะที่ต้องติดตาม</p>
+            <p>หน้าแรกจะจัดกลุ่มนักศึกษาให้อัตโนมัติ ครูไม่ต้องไล่เปิดทีละคน ใช้หลัก <b>Priority-first</b>: กด <b>Update Dashboard</b> ครั้งเดียวเพื่อ refresh view tabs + โหลดข้อมูลล่าสุด แล้วดูกลุ่มเสี่ยงก่อน ค่อยคลิกรายคนเฉพาะที่ต้องติดตาม</p>
             <div class="actions top-space">
               <button class="btn danger" id="showRiskBtn">Show Top Risk</button>
               <button class="btn secondary" id="copyGroupFeedbackBtn">Copy Group Feedback</button>
@@ -69,6 +70,7 @@
               <button class="btn secondary small" id="showAllBtn">Show All Tabs</button>
             </div>
             <div class="footer-status" id="statusText">พร้อมโหลดข้อมูล</div>
+            <div class="footer-status">ปุ่ม Update Dashboard = Refresh Views + Load Dashboard ในครั้งเดียว</div>
           </div>
         </section>
         <section class="grid4 top-space" id="kpiGrid">
@@ -219,7 +221,7 @@
 (function(){
   'use strict';
   const DEFAULT_ENDPOINT='https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
-  const LS_ENDPOINT='VOCAB_TEACHER_ENDPOINT_V95';
+  const LS_ENDPOINT='VOCAB_TEACHER_ENDPOINT_V96';
   let dashboard=null;
   let model={sessions:[],terms:[],profiles:[],leaderboard:[],roster:[],students:[],weakTerms:[],modeStats:[],cohorts:{}};
   let selectedStudentKey='';
@@ -235,8 +237,24 @@
   async function getJson(action){const res=await fetch(endpoint(action),{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);return await res.json();}
   function setStatus(msg,loading=false){$('statusText').innerHTML=loading?`<span class="loader"></span> ${esc(msg)}`:esc(msg);}
 
+  async function updateDashboard(){
+    try{
+      setStatus('กำลังอัปเดต view tabs...',true);
+      await getJson('refresh_views');
+      setStatus('กำลังโหลด dashboard ล่าสุด...',true);
+      dashboard=await getJson('teacher_dashboard_get');
+      model=normalizeDashboard(dashboard);
+      renderAll();
+      const now=new Date();
+      setStatus(`อัปเดตครบแล้ว ${now.toLocaleString('th-TH')}`);
+      $('lastLoadedPill').textContent=`Updated ${now.toLocaleTimeString('th-TH')}`;
+    }catch(err){
+      setStatus(`อัปเดตไม่สำเร็จ: ${err.message}`);
+      showEmptyError(err);
+    }
+  }
   async function loadDashboard(){try{setStatus('กำลังโหลด dashboard...',true);dashboard=await getJson('teacher_dashboard_get');model=normalizeDashboard(dashboard);renderAll();setStatus(`โหลดแล้ว ${new Date().toLocaleString('th-TH')}`);$('lastLoadedPill').textContent=`Loaded ${new Date().toLocaleTimeString('th-TH')}`;}catch(err){setStatus(`โหลดไม่สำเร็จ: ${err.message}`);showEmptyError(err);}}
-  async function refreshViews(){try{setStatus('กำลัง refresh clean views...',true);await getJson('refresh_views');await loadDashboard();}catch(err){setStatus(`refresh views ไม่สำเร็จ: ${err.message}`);}}
+  async function refreshViews(){try{setStatus('กำลัง refresh clean views...',true);await getJson('refresh_views');setStatus('refresh views สำเร็จแล้ว กด Refresh Only หรือ Update Dashboard เพื่อโหลดข้อมูล');}catch(err){setStatus(`refresh views ไม่สำเร็จ: ${err.message}`);}}
   async function showAllTabs(){try{setStatus('กำลัง show all tabs...',true);await getJson('show_all_tabs');setStatus('แสดงทุก tab แล้ว');}catch(err){setStatus(`show tabs ไม่สำเร็จ: ${err.message}`);}}
 
   function normalizeDashboard(d){
@@ -321,8 +339,8 @@
 
   document.addEventListener('click',e=>{const row=e.target.closest('[data-student-key]');if(row){selectedStudentKey=row.getAttribute('data-student-key')||'';renderStudentInsight();document.getElementById('studentInsight')?.scrollIntoView({behavior:'smooth',block:'start'});}const copy=e.target.closest('[data-copy-feedback]');if(copy){copyIndividualFeedback(copy.getAttribute('data-copy-feedback'));}const open=e.target.closest('[data-open-modal]');if(open){const st=model.students.find(s=>studentKey(s)===(open.getAttribute('data-open-modal')||''));if(st){$('studentModalBody').innerHTML=renderStudentInsightHtml(buildStudentInsight(st));$('studentModal').classList.add('show');}}});
   ['searchInput','cohortFilter','sectionFilter','modeFilter','sortFilter'].forEach(id=>$(id).addEventListener('input',()=>{renderStudents();}));
-  $('refreshBtn').addEventListener('click',loadDashboard);$('refreshViewsBtn').addEventListener('click',refreshViews);$('toggleAdvancedBtn').addEventListener('click',()=>$('advancedArea').classList.toggle('hidden'));$('showRiskBtn').addEventListener('click',()=>{$('cohortFilter').value='need_help';renderStudents();});$('copyGroupFeedbackBtn').addEventListener('click',copyGroupFeedback);$('saveEndpointBtn').addEventListener('click',()=>{localStorage.setItem(LS_ENDPOINT,$('endpointInput').value.trim());setStatus('Saved endpoint');});$('openApiBtn').addEventListener('click',()=>window.open(endpoint('teacher_dashboard_get'),'_blank'));$('showAllBtn').addEventListener('click',showAllTabs);$('exportStudentsBtn').addEventListener('click',()=>exportCsv('students_triage_v95.csv',filteredStudents()));$('exportSessionsBtn').addEventListener('click',()=>exportCsv('sessions_v95.csv',model.sessions));$('copySummaryBtn').addEventListener('click',() => copyText($('reportBox').value));$('closeModalBtn').addEventListener('click',()=>$('studentModal').classList.remove('show'));$('studentModal').addEventListener('click',e=>{if(e.target.id==='studentModal')$('studentModal').classList.remove('show');});
-  const saved=localStorage.getItem(LS_ENDPOINT); if(saved)$('endpointInput').value=saved; loadDashboard();
+  $('updateDashboardBtn').addEventListener('click',updateDashboard);$('refreshBtn').addEventListener('click',loadDashboard);$('refreshViewsBtn').addEventListener('click',refreshViews);$('toggleAdvancedBtn').addEventListener('click',()=>$('advancedArea').classList.toggle('hidden'));$('showRiskBtn').addEventListener('click',()=>{$('cohortFilter').value='need_help';renderStudents();});$('copyGroupFeedbackBtn').addEventListener('click',copyGroupFeedback);$('saveEndpointBtn').addEventListener('click',()=>{localStorage.setItem(LS_ENDPOINT,$('endpointInput').value.trim());setStatus('Saved endpoint');});$('openApiBtn').addEventListener('click',()=>window.open(endpoint('teacher_dashboard_get'),'_blank'));$('showAllBtn').addEventListener('click',showAllTabs);$('exportStudentsBtn').addEventListener('click',()=>exportCsv('students_triage_v96.csv',filteredStudents()));$('exportSessionsBtn').addEventListener('click',()=>exportCsv('sessions_v96.csv',model.sessions));$('copySummaryBtn').addEventListener('click',() => copyText($('reportBox').value));$('closeModalBtn').addEventListener('click',()=>$('studentModal').classList.remove('show'));$('studentModal').addEventListener('click',e=>{if(e.target.id==='studentModal')$('studentModal').classList.remove('show');});
+  const saved=localStorage.getItem(LS_ENDPOINT); if(saved)$('endpointInput').value=saved; updateDashboard();
 })();
 </script>
     </body>
