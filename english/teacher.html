@@ -1200,31 +1200,108 @@
     }
 
     function renderRecentEvents(events){
-      if(!events.length){
-        els.recentEventsList.innerHTML = '<div class="empty">ยังไม่มี recent events</div>';
-        return;
-      }
+  const teacherEvents = (events || []).filter(function(e){
+    const type = String(e.eventType || '').trim();
 
-      els.recentEventsList.innerHTML = events.slice(0,80).map(function(e){
-        const type = String(e.eventType || '');
-        let cls = 'info';
-        if(type === 'session_end') cls = 'ok';
-        if(type === 'ai_help') cls = 'purple';
-        if(type === 'timeout') cls = 'bad';
+    // ซ่อน event สำหรับ debug/browser behavior
+    const noisy = [
+      'page_open',
+      'page_hidden',
+      'page_visible',
+      'page_leave',
+      'manual_test'
+    ];
 
-        return '' +
-          '<div class="miniCard">' +
-            '<div class="miniCardTop">' +
-              '<div>' +
-                '<h3>' + esc(e.studentName || e.studentId || '-') + '</h3>' +
-                '<p>S' + esc(e.sessionNo || '-') + ' • score ' + esc(e.score || 0) + ' • actions ' + esc(e.actionsCount || 0) + '</p>' +
-              '</div>' +
-              '<span class="badge ' + cls + '">' + esc(type || '-') + '</span>' +
-            '</div>' +
-            '<p class="smallMuted">' + esc(e.serverTs || e.clientTs || '-') + '</p>' +
-          '</div>';
-      }).join('');
+    if(noisy.indexOf(type) >= 0) return false;
+
+    // โชว์เฉพาะ event ที่เกี่ยวกับการเรียนจริง
+    const useful = [
+      'session_start',
+      'question_start',
+      'answer',
+      'ai_help',
+      'speech_start',
+      'timeout',
+      'retry_panel_show',
+      'retry_start',
+      'session_end'
+    ];
+
+    return useful.indexOf(type) >= 0;
+  });
+
+  if(!teacherEvents.length){
+    els.recentEventsList.innerHTML =
+      '<div class="empty">' +
+        'ยังไม่มี learning events ที่สำคัญ เช่น answer / ai_help / session_end<br>' +
+        '<span class="smallMuted">ถ้าเห็น Session Rows แล้วแต่ยังไม่มี event สำคัญ แปลว่าต้องเล่นให้ถึงตอบคำถามหรือจบ session ก่อน</span>' +
+      '</div>';
+    return;
+  }
+
+  els.recentEventsList.innerHTML = teacherEvents.slice(0,80).map(function(e){
+    const type = String(e.eventType || '');
+    let cls = 'info';
+    let label = type;
+
+    if(type === 'session_start'){
+      cls = 'info';
+      label = 'Started';
     }
+
+    if(type === 'question_start'){
+      cls = 'purple';
+      label = 'Question';
+    }
+
+    if(type === 'answer'){
+      cls = num(e.score) > 0 ? 'ok' : 'bad';
+      label = num(e.score) > 0 ? 'Answer OK' : 'Answer';
+    }
+
+    if(type === 'ai_help'){
+      cls = 'purple';
+      label = 'AI Help';
+    }
+
+    if(type === 'speech_start'){
+      cls = 'info';
+      label = 'Speaking';
+    }
+
+    if(type === 'timeout'){
+      cls = 'bad';
+      label = 'Timeout';
+    }
+
+    if(type === 'retry_panel_show' || type === 'retry_start'){
+      cls = 'warn';
+      label = 'Retry';
+    }
+
+    if(type === 'session_end'){
+      cls = bool(e.completed) ? 'ok' : 'warn';
+      label = bool(e.completed) ? 'Completed' : 'Ended';
+    }
+
+    return '' +
+      '<div class="miniCard">' +
+        '<div class="miniCardTop">' +
+          '<div>' +
+            '<h3>' + esc(e.studentName || e.studentId || '-') + '</h3>' +
+            '<p>' +
+              'S' + esc(e.sessionNo || '-') +
+              ' • score ' + esc(e.score || 0) +
+              ' • actions ' + esc(e.actionsCount || 0) +
+              ' • completed ' + esc(e.completed || false) +
+            '</p>' +
+          '</div>' +
+          '<span class="badge ' + cls + '">' + esc(label) + '</span>' +
+        '</div>' +
+        '<p class="smallMuted">' + esc(e.serverTs || e.clientTs || '-') + '</p>' +
+      '</div>';
+  }).join('');
+}
 
     function openStudent(key){
       const stu = CURRENT_STUDENTS.find(function(s){
