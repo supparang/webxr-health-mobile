@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>English Vocab Battle Arena</title>
+  <title>English Vocab Battle Arena v7.1</title>
   <meta name="theme-color" content="#07111f" />
   <meta name="color-scheme" content="dark" />
 
@@ -1194,6 +1194,411 @@
       .v6-top-hud{ grid-template-columns:repeat(2,1fr); }
       .v6-stage-chip{ font-size:13px; }
     }
+
+    /* v7.2 ARCADE JUICE + EXTREME SFX */
+    #v72JuiceLayer{position:fixed;inset:0;z-index:99999;pointer-events:none;overflow:hidden}
+    .v72-announcer{position:fixed;left:50%;top:22%;transform:translate(-50%,-50%);min-width:min(86vw,680px);padding:18px 24px;border-radius:28px;text-align:center;font-weight:1000;font-size:clamp(26px,6vw,64px);color:#fff;background:linear-gradient(135deg,rgba(89,208,255,.94),rgba(139,92,246,.94));border:2px solid rgba(255,255,255,.36);box-shadow:0 24px 80px rgba(0,0,0,.45),0 0 54px rgba(89,208,255,.35);text-shadow:0 8px 22px rgba(0,0,0,.38);animation:v72Announce .9s cubic-bezier(.16,1,.3,1) forwards}
+    .v72-announcer.warn{background:linear-gradient(135deg,rgba(255,110,135,.96),rgba(255,209,102,.92))}
+    .v72-announcer.fever{background:linear-gradient(135deg,rgba(255,209,102,.96),rgba(255,110,135,.92),rgba(139,92,246,.92))}
+    .v72-flash{position:fixed;inset:0;opacity:0;pointer-events:none;animation:v72Flash .34s ease-out forwards;mix-blend-mode:screen}
+    .v72-flash.good{background:radial-gradient(circle,rgba(68,223,147,.45),transparent 60%)}
+    .v72-flash.bad{background:radial-gradient(circle,rgba(255,110,135,.55),transparent 62%)}
+    .v72-flash.boss{background:radial-gradient(circle,rgba(255,209,102,.38),rgba(255,110,135,.18),transparent 70%)}
+    .v72-flash.fever{background:radial-gradient(circle,rgba(255,209,102,.55),rgba(139,92,246,.28),transparent 72%)}
+    .v72-particle{position:fixed;width:10px;height:10px;border-radius:999px;background:#fff;box-shadow:0 0 14px currentColor;animation:v72Particle .8s ease-out forwards}
+    .v72-sound-toggle{position:fixed;right:12px;bottom:12px;z-index:99998;min-height:42px;padding:9px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:rgba(4,10,20,.76);color:#eef7ff;font-weight:1000;backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(0,0,0,.24)}
+    .v72-heat-wrap{position:relative;margin:0 0 12px;display:grid;grid-template-columns:120px 1fr 88px;align-items:center;gap:10px;color:var(--muted);font-weight:1000;font-size:13px}
+    .v72-heat-bar{height:14px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);overflow:hidden}
+    .v72-heat-fill{width:0%;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green),var(--yellow),var(--red),var(--purple));box-shadow:0 0 18px rgba(255,209,102,.38);transition:width .22s ease}
+    .v72-heat-text{text-align:right;color:#fff3bf}
+    body.v72-screen-shake .v6-battle-panel{animation:v72ScreenShake .34s ease}
+    body.v72-hard-hit .v6-question-card{animation:v72CardHit .42s ease}
+    body.v72-boss-rage .v6-battle-panel{border-color:rgba(255,110,135,.72);box-shadow:var(--shadow),0 0 38px rgba(255,110,135,.26)}
+    body.v72-fever-rainbow .v6-battle-panel{animation:v72RainbowGlow .7s linear infinite alternate}
+    .v72-difficulty-badge{display:inline-flex;align-items:center;gap:7px;margin-top:8px;padding:8px 11px;border-radius:999px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);color:#fff;font-weight:1000;font-size:13px}
+    @keyframes v72Flash{0%{opacity:0}20%{opacity:1}100%{opacity:0;transform:scale(1.08)}}
+    @keyframes v72Announce{0%{opacity:0;transform:translate(-50%,-50%) scale(.72) rotate(-2deg)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.06) rotate(1deg)}72%{opacity:1;transform:translate(-50%,-54%) scale(1)}100%{opacity:0;transform:translate(-50%,-82%) scale(.96)}}
+    @keyframes v72Particle{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.35)}}
+    @keyframes v72ScreenShake{0%,100%{transform:translate(0,0) rotate(0)}15%{transform:translate(-9px,5px) rotate(-.45deg)}30%{transform:translate(8px,-6px) rotate(.45deg)}45%{transform:translate(-6px,-4px) rotate(-.3deg)}60%{transform:translate(6px,4px) rotate(.3deg)}80%{transform:translate(-3px,2px) rotate(-.15deg)}}
+    @keyframes v72CardHit{0%,100%{filter:brightness(1);transform:scale(1)}28%{filter:brightness(1.45);transform:scale(1.012)}54%{filter:brightness(.95);transform:scale(.995)}}
+    @keyframes v72RainbowGlow{from{box-shadow:var(--shadow),0 0 30px rgba(89,208,255,.22)}to{box-shadow:var(--shadow),0 0 58px rgba(255,209,102,.36),0 0 78px rgba(139,92,246,.18)}}
+    @media(max-width:720px){.v72-heat-wrap{grid-template-columns:86px 1fr 64px;font-size:11px}.v72-sound-toggle{right:8px;bottom:8px;min-height:38px;font-size:12px}}
+
+
+
+    /* =========================================================
+       v7.3 BOSS PHASE + ENEMY SKILL + MINI MISSION REWARD
+       ========================================================= */
+    .v73-boss-panel{
+      margin:10px 0 14px;
+      padding:12px;
+      border-radius:22px;
+      border:1px solid rgba(255,209,102,.28);
+      background:
+        radial-gradient(circle at top left, rgba(255,209,102,.16), transparent 36%),
+        rgba(255,255,255,.07);
+      box-shadow:0 14px 36px rgba(0,0,0,.20);
+    }
+    .v73-boss-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      color:var(--text);
+      font-weight:1000;
+      margin-bottom:8px;
+      flex-wrap:wrap;
+    }
+    .v73-boss-phase{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      padding:7px 11px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+    }
+    .v73-boss-phase.rage{
+      color:#ffd166;
+      background:rgba(255,209,102,.15);
+      border-color:rgba(255,209,102,.42);
+    }
+    .v73-boss-phase.final{
+      color:#fecaca;
+      background:rgba(255,110,135,.16);
+      border-color:rgba(255,110,135,.44);
+      animation:v73Pulse 680ms infinite alternate;
+    }
+    .v73-phase-bar{
+      height:12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.12);
+    }
+    .v73-phase-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#44df93,#ffd166,#ff6e87,#8b5cf6);
+      transition:width .25s ease;
+    }
+    .v73-mini-row{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:8px;
+      margin-top:10px;
+    }
+    .v73-mini-chip{
+      min-height:42px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:8px 10px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.13);
+      background:rgba(255,255,255,.07);
+      color:var(--muted);
+      font-weight:950;
+      font-size:12px;
+      line-height:1.25;
+    }
+    .v73-mini-chip.done{
+      color:#dcfce7;
+      background:rgba(68,223,147,.16);
+      border-color:rgba(68,223,147,.42);
+      box-shadow:0 0 18px rgba(68,223,147,.18);
+    }
+    .v73-skill-banner{
+      margin:10px 0 0;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(89,208,255,.25);
+      background:rgba(89,208,255,.10);
+      color:#dff7ff;
+      font-weight:900;
+      line-height:1.35;
+    }
+    .v73-ghost-choice{
+      position:relative;
+      filter:saturate(.65) contrast(.92);
+    }
+    .v73-ghost-choice::after{
+      content:'👻';
+      position:absolute;
+      right:12px;
+      top:50%;
+      transform:translateY(-50%);
+      opacity:.48;
+      pointer-events:none;
+    }
+    .v73-reward-panel{
+      margin-top:16px;
+      padding:16px;
+      border-radius:22px;
+      text-align:left;
+      border:1px solid rgba(255,209,102,.30);
+      background:
+        radial-gradient(circle at top left, rgba(255,209,102,.16), transparent 38%),
+        rgba(255,255,255,.08);
+      line-height:1.5;
+    }
+    .v73-reward-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin-top:12px;
+    }
+    .v73-reward-card{
+      padding:12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+      text-align:center;
+    }
+    .v73-reward-card b{display:block;font-size:22px;}
+    .v73-reward-card span{display:block;color:var(--muted);font-weight:850;font-size:12px;margin-top:4px;}
+    .v73-final-lock{
+      animation:v73LockFlash .75s ease;
+    }
+    @keyframes v73Pulse{from{transform:scale(1)}to{transform:scale(1.035);filter:brightness(1.18)}}
+    @keyframes v73LockFlash{0%{filter:brightness(1)}40%{filter:brightness(1.65)}100%{filter:brightness(1)}}
+    @media(max-width:720px){
+      .v73-mini-row,.v73-reward-grid{grid-template-columns:1fr 1fr;}
+      .v73-boss-top{font-size:13px;}
+    }
+    @media(max-width:460px){
+      .v73-mini-row,.v73-reward-grid{grid-template-columns:1fr;}
+    }
+
+
+
+    /* =========================================================
+       v7.4 UNLOCK / DAILY QUEST / STREAK CHEST
+    ========================================================= */
+    .v74-panel{
+      border:1px solid rgba(255,255,255,.16);
+      border-radius:26px;
+      padding:16px;
+      background:
+        radial-gradient(circle at top left, rgba(255,209,102,.16), transparent 36%),
+        radial-gradient(circle at bottom right, rgba(139,92,246,.18), transparent 34%),
+        rgba(255,255,255,.07);
+      box-shadow:0 14px 36px rgba(0,0,0,.22);
+    }
+
+    .v74-panel h2,
+    .v74-panel h3{
+      margin:0 0 12px;
+    }
+
+    .v74-profile-grid{
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .v74-stat{
+      padding:12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+      text-align:center;
+    }
+
+    .v74-stat b{
+      display:block;
+      font-size:22px;
+      line-height:1.1;
+    }
+
+    .v74-stat span{
+      display:block;
+      margin-top:5px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .v74-xpbar{
+      height:13px;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      margin:8px 0 14px;
+    }
+
+    .v74-xpfill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#59d0ff,#8b5cf6,#ffd166);
+      transition:width .3s ease;
+    }
+
+    .v74-quest-grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .v74-quest{
+      padding:12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+      min-height:96px;
+    }
+
+    .v74-quest.done{
+      background:rgba(68,223,147,.14);
+      border-color:rgba(68,223,147,.42);
+    }
+
+    .v74-quest b,
+    .v74-skin b{
+      display:block;
+    }
+
+    .v74-quest small,
+    .v74-skin small{
+      display:block;
+      color:var(--muted);
+      margin-top:4px;
+      line-height:1.35;
+      font-weight:800;
+    }
+
+    .v74-progress{
+      margin-top:8px;
+      height:8px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(255,255,255,.10);
+    }
+
+    .v74-progress i{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#44df93,#ffd166);
+    }
+
+    .v74-skin-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .v74-skin{
+      appearance:none;
+      color:var(--text);
+      text-align:left;
+      padding:12px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      min-height:108px;
+      transition:transform .14s ease, border-color .14s ease, background .14s ease;
+    }
+
+    .v74-skin:hover:not(:disabled),
+    .v74-skin.active{
+      transform:translateY(-2px);
+      border-color:rgba(255,209,102,.70);
+      background:rgba(255,209,102,.14);
+    }
+
+    .v74-skin:disabled{
+      opacity:.48;
+      cursor:not-allowed;
+      filter:grayscale(.8);
+    }
+
+    .v74-skin-emoji{
+      font-size:30px;
+      margin-bottom:6px;
+    }
+
+    .v74-toast{
+      position:fixed;
+      right:16px;
+      bottom:16px;
+      z-index:10000;
+      max-width:min(360px,calc(100vw - 32px));
+      padding:14px 16px;
+      border-radius:22px;
+      color:#fff;
+      font-weight:950;
+      line-height:1.45;
+      background:linear-gradient(135deg,rgba(89,208,255,.96),rgba(139,92,246,.96));
+      box-shadow:0 18px 48px rgba(0,0,0,.34);
+      animation:v74Toast .35s ease both;
+    }
+
+    .v74-reward-panel{
+      text-align:left;
+      margin-top:16px;
+      padding:16px;
+      border-radius:22px;
+      background:
+        radial-gradient(circle at top left, rgba(255,209,102,.18), transparent 34%),
+        rgba(255,255,255,.08);
+      border:1px solid rgba(255,209,102,.30);
+      line-height:1.5;
+    }
+
+    .v74-unlock-list{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .v74-unlock-card{
+      padding:12px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      text-align:center;
+    }
+
+    .v74-unlock-card b{
+      display:block;
+      font-size:22px;
+    }
+
+    .v74-unlock-card span{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    @keyframes v74Toast{
+      from{ opacity:0; transform:translateY(14px) scale(.96); }
+      to{ opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    @media (max-width:900px){
+      .v74-profile-grid{ grid-template-columns:repeat(3,1fr); }
+      .v74-quest-grid{ grid-template-columns:1fr; }
+      .v74-skin-grid{ grid-template-columns:repeat(2,1fr); }
+      .v74-unlock-list{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width:520px){
+      .v74-profile-grid{ grid-template-columns:repeat(2,1fr); }
+      .v74-skin-grid{ grid-template-columns:1fr; }
+    }
+
   </style>
 </head>
 
@@ -1463,7 +1868,7 @@
     ========================================================= */
 
     const VOCAB_APP = {
-      version: "v7.0-vocab-sheet-aihelp-leaderboard-20260428",
+      version: "v7.5-story-rival-weekly-20260429",
       sheetEndpoint:
         window.VOCAB_SHEET_ENDPOINT ||
         localStorage.getItem("VOCAB_SHEET_ENDPOINT") ||
@@ -1471,11 +1876,11 @@
 
       api: "vocab",
       source: "vocab.html",
-      schema: "vocab-v7",
+      schema: "vocab-v7.2",
 
-      queueKey: "VOCAB_V70_LOG_QUEUE",
-      profileKey: "VOCAB_V70_STUDENT_PROFILE",
-      teacherKey: "VOCAB_V70_TEACHER_LAST",
+      queueKey: "VOCAB_V71_LOG_QUEUE",
+      profileKey: "VOCAB_V71_STUDENT_PROFILE",
+      teacherKey: "VOCAB_V71_TEACHER_LAST",
 
       enableSheetLog: true,
       enableConsoleLog: true,
@@ -1675,7 +2080,7 @@
     };
 
     const VOCAB_LEADERBOARD = {
-      key: "VOCAB_V70_LEADERBOARD",
+      key: "VOCAB_V71_LEADERBOARD",
       maxRowsPerMode: 30,
       showTop: 5,
       assistedScoreMultiplier: 0.95
@@ -2175,7 +2580,7 @@
 
       const config = VOCAB_DIFFICULTY[difficulty] || VOCAB_DIFFICULTY.easy;
       const enemyBase = VOCAB_ENEMIES[bank] || VOCAB_ENEMIES.A;
-      const terms = getTermsForBankV6(bank).map(normalizeTermV61).filter(t => t.term && t.meaning);
+      const terms = buildTermDeckV71(bank, difficulty);
 
       if(!Array.isArray(terms) || terms.length < 4){
         alert("ยังไม่มีคำศัพท์เพียงพอสำหรับ Bank นี้");
@@ -2213,6 +2618,7 @@
       vocabGame.enemyHp = vocabGame.enemyHpMax;
 
       vocabGame.mistakes = [];
+      vocabGame.sessionTermUse = {};
       vocabGame.stageStats = {};
       vocabGame.startedAt = Date.now();
       vocabGame.endedAt = 0;
@@ -4488,6 +4894,1231 @@
       }
     }
 
+
+
+    /* =========================================================
+       v7.1 DIFFICULTY + VOCAB VARIETY PATCH
+       Bigger decks, weighted no-repeat, and difficulty-specific variants
+    ========================================================= */
+
+    const VOCAB_DIFFICULTY_FEEL_V71 = {
+      easy:{label:"Easy",choiceCount:4,timeAdd:4,attackBase:1,attackStageBonus:0,damageScale:1.15,crossBankCount:0,preview:"✨ Easy: คำถามตรง 4 ตัวเลือก เวลาเยอะ คำไม่ข้าม bank เหมาะกับเริ่มจำความหมาย"},
+      normal:{label:"Normal",choiceCount:4,timeAdd:0,attackBase:1,attackStageBonus:1,damageScale:1,crossBankCount:0,preview:"⚔️ Normal: สลับนิยาม/สถานการณ์ มี trap ใกล้เคียง เริ่มต้องเข้าใจ ไม่ใช่จำตำแหน่ง"},
+      hard:{label:"Hard",choiceCount:5,timeAdd:-2,attackBase:2,attackStageBonus:1,damageScale:.86,crossBankCount:10,preview:"🔥 Hard: 5 ตัวเลือก โจทย์บริบทมากขึ้น มีคำข้าม bank เป็นตัวหลอก บอสตีแรงขึ้น"},
+      challenge:{label:"Challenge",choiceCount:5,timeAdd:-4,attackBase:3,attackStageBonus:2,damageScale:.72,crossBankCount:20,preview:"💀 Challenge: 5 ตัวเลือก ผสมหลาย bank โจทย์แม่นยำ/สถานการณ์ยาก เวลาเร็ว บอสลงโทษหนัก"}
+    };
+
+    const VOCAB_EXTRA_TERMS_V71 = {
+      A: [
+        ["API","a way for software systems to communicate with each other","software"],
+        ["array","a list-like data structure that stores multiple values","coding"],
+        ["object","a data structure with properties and values","coding"],
+        ["string","text data in a program","coding"],
+        ["integer","a whole number without decimals","coding"],
+        ["boolean","a true or false value","coding"],
+        ["condition","a rule that decides what code should run","coding"],
+        ["parameter","a value a function receives to work with","coding"],
+        ["argument","a value passed into a function when it is called","coding"],
+        ["return value","the result sent back by a function","coding"],
+        ["library","a collection of reusable code","software"],
+        ["framework","a structured set of tools for building software","software"],
+        ["repository","a place where project code is stored and managed","software"],
+        ["commit","a saved change in a version control system","software"],
+        ["branch","a separate line of code development","software"],
+        ["merge","to combine changes from one branch into another","software"],
+        ["request","a message asking a server for data or action","software"],
+        ["response","the message a server sends back after a request","software"],
+        ["endpoint","a specific URL where an API can be accessed","software"],
+        ["authentication","the process of checking who a user is","security"],
+        ["permission","the right to access or do something in a system","security"],
+        ["cache","temporary stored data used to make a system faster","software"],
+        ["backup","a copy of data kept for safety","software"],
+        ["query","a request to search or get data from a database","data"],
+        ["exception","an error or unusual condition in a program","coding"],
+        ["test case","a set of steps used to check if software works correctly","testing"],
+        ["unit test","a test for one small part of a program","testing"],
+        ["integration test","a test that checks if several parts work together","testing"],
+        ["documentation","written information that explains how a system works","software"],
+        ["refactor","to improve code structure without changing its behavior","coding"],
+        ["module","a separate part of a program","software"],
+        ["package","a bundled set of code or software resources","software"],
+        ["dependency","software that another program needs to run","software"],
+        ["build","the process of preparing software to run or release","software"],
+        ["runtime","the period or environment when a program is running","software"]
+      ],
+      B: [
+        ["feature engineering","creating useful input features for a machine learning model","ai"],
+        ["overfitting","when a model learns training data too closely and performs poorly on new data","ai"],
+        ["underfitting","when a model is too simple to learn the pattern well","ai"],
+        ["validation set","data used to tune and check a model during development","ai"],
+        ["testing set","data used to evaluate a model after training","ai"],
+        ["training set","data used to teach a model","ai"],
+        ["neural network","a model inspired by connected layers of artificial neurons","ai"],
+        ["embedding","a numeric representation of text, image, or data meaning","ai"],
+        ["token","a small unit of text processed by an AI model","ai"],
+        ["inference","using a trained model to produce an answer or prediction","ai"],
+        ["confidence","how sure a model is about its prediction","ai"],
+        ["recall","how many relevant items a model successfully finds","ai"],
+        ["precision","how many selected items are actually correct","ai"],
+        ["confusion matrix","a table showing correct and incorrect classification results","ai"],
+        ["regression","predicting a number or continuous value","ai"],
+        ["clustering","grouping similar items without predefined labels","ai"],
+        ["anomaly detection","finding unusual patterns or outliers in data","ai"],
+        ["data cleaning","fixing or removing incorrect or messy data","data"],
+        ["data pipeline","a process that moves and prepares data step by step","data"],
+        ["visualization","showing data as charts or graphics","data"],
+        ["metric","a number used to measure performance","data"],
+        ["baseline","a simple standard result used for comparison","ai"],
+        ["hyperparameter","a setting chosen before model training","ai"],
+        ["label noise","incorrect or inconsistent labels in training data","ai"],
+        ["annotation","adding labels or notes to data","ai"],
+        ["generative AI","AI that creates text, images, audio, or other content","ai"],
+        ["chatbot","a program that talks with users through text or voice","ai"],
+        ["recommendation system","a system that suggests items based on data","ai"],
+        ["computer vision","AI that understands images or videos","ai"],
+        ["natural language processing","AI that works with human language","ai"],
+        ["supervised learning","learning from examples with correct labels","ai"],
+        ["unsupervised learning","learning patterns from data without labels","ai"],
+        ["reinforcement learning","learning by receiving rewards or penalties from actions","ai"],
+        ["data privacy","protecting personal or sensitive data","data"],
+        ["model drift","when a model becomes less accurate because real data changes","ai"]
+      ],
+      C: [
+        ["stakeholder","a person or group affected by a project","project"],
+        ["scope","the boundaries of what a project will and will not include","project"],
+        ["milestone","an important point or achievement in a project timeline","project"],
+        ["deliverable","a finished item or result that must be delivered","project"],
+        ["sprint","a short planned work period in agile development","project"],
+        ["backlog","a list of tasks or features waiting to be done","project"],
+        ["priority","the level of importance of a task","project"],
+        ["risk","a possible problem that could affect a project","project"],
+        ["issue","a problem that needs attention","project"],
+        ["approval","official permission or agreement","workplace"],
+        ["requirement change","a change to what the system must do","project"],
+        ["user story","a short description of what a user needs and why","project"],
+        ["acceptance criteria","conditions that must be met for work to be accepted","project"],
+        ["status update","a short report about current progress","workplace"],
+        ["handover","passing work or responsibility to another person","workplace"],
+        ["maintenance","ongoing work to keep a system working well","software"],
+        ["support ticket","a record of a user problem or request","workplace"],
+        ["incident","an unexpected problem that affects service","workplace"],
+        ["escalation","moving an issue to a higher support level","workplace"],
+        ["negotiation","discussion to reach an agreement","workplace"],
+        ["proposal","a document that suggests a plan or solution","workplace"],
+        ["quotation","a document showing the expected price","workplace"],
+        ["invoice","a document requesting payment","workplace"],
+        ["contract","a formal agreement between parties","workplace"],
+        ["stakeholder meeting","a meeting with people affected by a project","project"],
+        ["progress report","a document explaining how much work is finished","project"],
+        ["timeline","a plan showing when tasks should happen","project"],
+        ["budget","the amount of money planned for a project","project"],
+        ["resource","people, time, money, or tools used for work","project"],
+        ["responsibility","a duty or task a person must handle","workplace"],
+        ["collaboration","working together with others","workplace"],
+        ["user training","teaching users how to use a system","workplace"],
+        ["rollout","the planned release of a system to users","project"],
+        ["requirement analysis","studying what users or clients need","project"]
+      ]
+    };
+
+    function applyVocabularyExpansionV71(){
+      Object.keys(VOCAB_EXTRA_TERMS_V71).forEach(bank => {
+        if(!VOCAB_BANKS[bank]) VOCAB_BANKS[bank] = [];
+        const seen = new Set(VOCAB_BANKS[bank].map(t => String(t.term || '').toLowerCase()));
+        VOCAB_EXTRA_TERMS_V71[bank].forEach(row => {
+          const t = {term: row[0], meaning: row[1], category: row[2]};
+          const k = String(t.term || '').toLowerCase();
+          if(k && !seen.has(k)){
+            VOCAB_BANKS[bank].push(t);
+            seen.add(k);
+          }
+        });
+      });
+    }
+
+    function getDifficultyFeelV71(difficulty){
+      return VOCAB_DIFFICULTY_FEEL_V71[difficulty || 'easy'] || VOCAB_DIFFICULTY_FEEL_V71.easy;
+    }
+
+    function sampleTermsV71(list, count){
+      const pool = shuffleV61((list || []).map(normalizeTermV61).filter(t => t.term && t.meaning));
+      return pool.slice(0, Math.max(0, count || 0));
+    }
+
+    function buildTermDeckV71(bank, difficulty){
+      applyVocabularyExpansionV71();
+      const feel = getDifficultyFeelV71(difficulty);
+      const main = getTermsForBankV6(bank).map(normalizeTermV61).filter(t => t.term && t.meaning);
+      let deck = main.slice();
+      if((feel.crossBankCount || 0) > 0){
+        const otherBanks = Object.keys(VOCAB_BANKS).filter(b => b !== bank);
+        const others = otherBanks.flatMap(b => getTermsForBankV6(b));
+        deck = deck.concat(sampleTermsV71(others, feel.crossBankCount));
+      }
+      const seen = new Set();
+      return shuffleV61(deck.filter(t => {
+        const k = String(t.term || '').toLowerCase();
+        if(!k || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      }));
+    }
+
+    function getHistoryKeyV71(){
+      return `VOCAB_V71_TERM_HISTORY_${vocabGame.bank || getSelectedBankV6()}_${vocabGame.difficulty || getSelectedDifficultyV6()}_${vocabGame.mode || getSelectedModeV66()}`;
+    }
+    function readTermHistoryV71(){ return readJsonV63(getHistoryKeyV71(), {}); }
+    function saveTermHistoryV71(history){ try{ localStorage.setItem(getHistoryKeyV71(), JSON.stringify(history || {})); }catch(e){} }
+
+    function pickNextTermV61(terms){
+      const clean = (terms || []).map(normalizeTermV61).filter(t => t.term && t.meaning);
+      if(!clean.length) return { term:"debug", meaning:"to find and fix errors in code", category:"coding" };
+      if(clean.length <= 1) return clean[0];
+      if(!vocabGame.sessionTermUse) vocabGame.sessionTermUse = {};
+      const history = readTermHistoryV71();
+      const recent = new Set(VOCAB_QUALITY.recentTerms.map(x => String(x).toLowerCase()));
+      return clean.map(t => {
+        const k = String(t.term || '').toLowerCase();
+        const score = (Number(vocabGame.sessionTermUse[k] || 0) * 1000) + (Number(history[k] || 0) * 6) + (recent.has(k) ? 50 : 0) + randV61();
+        return {t, score};
+      }).sort((a,b) => a.score - b.score)[0].t;
+    }
+
+    function rememberQuestionV61(term, prompt){
+      const word = String(term?.term || '').toLowerCase();
+      if(!vocabGame.sessionTermUse) vocabGame.sessionTermUse = {};
+      if(word){
+        vocabGame.sessionTermUse[word] = Number(vocabGame.sessionTermUse[word] || 0) + 1;
+        VOCAB_QUALITY.recentTerms.push(word);
+        while(VOCAB_QUALITY.recentTerms.length > 10) VOCAB_QUALITY.recentTerms.shift();
+        const history = readTermHistoryV71();
+        history[word] = Number(history[word] || 0) + 1;
+        saveTermHistoryV71(history);
+      }
+      if(prompt){
+        VOCAB_QUALITY.recentPrompts.push(String(prompt).slice(0, 120));
+        while(VOCAB_QUALITY.recentPrompts.length > VOCAB_QUALITY.maxRecentPrompts) VOCAB_QUALITY.recentPrompts.shift();
+      }
+    }
+
+    function updateV6DiffPreview(){
+      const el = byId("v6DiffPreview");
+      if(!el) return;
+      const feel = getDifficultyFeelV71(VOCAB_APP.selectedDifficulty || 'easy');
+      el.textContent = feel.preview;
+    }
+
+    function buildQuestionV6(stage){
+      const terms = vocabGame.terms || [];
+      const correctTerm = pickNextTermV61(terms);
+      const blueprint = buildQuestionBlueprintV71(correctTerm, stage);
+      rememberQuestionV61(correctTerm, blueprint.prompt);
+      const choices = buildChoicesV61({correctTerm, allTerms:terms, answerMode:blueprint.answerMode, stageId:stage.id, difficulty:vocabGame.difficulty, bank:vocabGame.bank});
+      return {id:`q_${Date.now()}_${Math.random().toString(16).slice(2)}`, stageId:stage.id, mode:blueprint.mode, answerMode:blueprint.answerMode, prompt:blueprint.prompt, correctTerm, choices, explain:blueprint.explain || '', difficulty_note:blueprint.difficultyNote || ''};
+    }
+
+    function buildQuestionBlueprintV71(term, stage){
+      const d = vocabGame.difficulty || 'easy';
+      const stageId = stage?.id || 'warmup';
+      const roll = randV61();
+      if(d === 'easy'){
+        if(stageId === 'mission' || roll > .68) return {mode:'easy_reverse', answerMode:'term', prompt:`Which word means: "${term.meaning}"?`, explain:`The word is "${term.term}".`};
+        return buildWarmupQuestionV61(term);
+      }
+      if(d === 'normal'){
+        if(stageId === 'mission' || stageId === 'boss' || roll > .45) return {mode:'normal_context', answerMode:'term', prompt:buildSituationPromptV71(term, false), explain:`In this context, the best word is "${term.term}".`};
+        return {mode:'normal_meaning', answerMode:'meaning', prompt:`Choose the best meaning of "${term.term}".`, explain:`"${term.term}" means "${term.meaning}".`};
+      }
+      if(d === 'hard'){
+        if(stageId === 'trap' || roll > .35) return {mode:'hard_precision_context', answerMode:'term', prompt:buildSituationPromptV71(term, true), explain:`The precise term is "${term.term}".`};
+        return {mode:'hard_reverse_definition', answerMode:'term', prompt:`Pick the most accurate technical word for this definition: "${term.meaning}"`, explain:`The accurate word is "${term.term}".`};
+      }
+      if(stageId === 'boss' || stageId === 'trap' || roll > .25) return {mode:'challenge_workplace_case', answerMode:'term', prompt:buildChallengeCaseV71(term), explain:`The best answer is "${term.term}" because it matches: ${term.meaning}`};
+      return {mode:'challenge_precision_meaning', answerMode:'meaning', prompt:`Precision check: which definition best matches "${term.term}" in a CS/AI project?`, explain:`"${term.term}" = ${term.meaning}`};
+    }
+
+    function buildSituationPromptV71(term, advanced){
+      const base = buildSituationPromptV61(term);
+      if(!advanced) return base;
+      const extras = ['Choose the most precise technical term, not just a similar idea.','Focus on what action is happening in the system.','Avoid the option that sounds familiar but does not match the context.','Think like a developer explaining this to a teammate.'];
+      return `${base} ${extras[Math.floor(randV61() * extras.length)]}`;
+    }
+
+    function buildChallengeCaseV71(term){
+      const w = String(term.term || '').toLowerCase();
+      const m = String(term.meaning || '').toLowerCase();
+      const cases = [
+        {keys:['api','endpoint','request','response'], text:'Your team connects a mobile app to a server. The app sends data to a specific URL and receives data back. Which term best fits?'},
+        {keys:['authentication','permission','privacy'], text:'A user cannot open private data until the system checks who they are and what they are allowed to access. Which term best fits?'},
+        {keys:['overfitting','underfitting','validation','testing set'], text:'A model looks excellent during practice but performs badly with new unseen data. Which term best explains the problem?'},
+        {keys:['precision','recall','confusion matrix','metric'], text:'A data analyst must explain how well the model finds correct results and where it makes mistakes. Which term best fits?'},
+        {keys:['stakeholder','scope','milestone','deliverable'], text:'During a project meeting, the team clarifies what must be included, who is affected, and what must be delivered. Which term best fits?'},
+        {keys:['debug','exception','bug report','test case'], text:'Before release, a tester writes steps to reproduce an error so the developer can find and fix it. Which term best fits?'},
+        {keys:['deploy','rollout','release','build'], text:'The system is ready and the team prepares it so real users can access it. Which term best fits?'},
+        {keys:['dataset','label','annotation','data cleaning'], text:'Before training AI, the team prepares examples, fixes messy records, and adds categories to data. Which term best fits?'}
+      ];
+      const found = cases.find(c => c.keys.some(k => w.includes(k) || m.includes(k)));
+      if(found) return found.text;
+      return `A project team needs the concept described as: "${term.meaning}". Which technical word is the most accurate?`;
+    }
+
+    function buildChoicesV61({ correctTerm, allTerms, answerMode, stageId, difficulty, bank }){
+      const correct = normalizeTermV61(correctTerm);
+      const terms = (allTerms || []).map(normalizeTermV61).filter(t => t.term && t.meaning);
+      const feel = getDifficultyFeelV71(difficulty || vocabGame.difficulty);
+      const choiceCount = feel.choiceCount || 4;
+      const distractorCount = Math.max(3, choiceCount - 1);
+      let pool = terms.filter(t => String(t.term).toLowerCase() !== String(correct.term).toLowerCase());
+      pool = pool.map(t => ({...t, _trapScore:scoreDistractorV61({correct, candidate:t, stageId, difficulty, bank})})).sort((a,b) => b._trapScore - a._trapScore);
+      let distractors = (difficulty || vocabGame.difficulty) === 'easy' ? shuffleV61(pool).slice(0,distractorCount) : (stageId === 'speed' ? mixDistractorsV61(pool).slice(0,distractorCount) : pool.slice(0,distractorCount));
+      while(distractors.length < distractorCount && pool.length){
+        const extra = pool[Math.floor(randV61() * pool.length)];
+        if(!distractors.some(x => x.term === extra.term)) distractors.push(extra); else break;
+      }
+      const choices = [];
+      if(answerMode === 'meaning'){
+        choices.push({text:correct.meaning, correct:true, term:correct.term, meaning:correct.meaning});
+        distractors.forEach(t => choices.push({text:t.meaning, correct:false, term:t.term, meaning:t.meaning}));
+      }else{
+        choices.push({text:correct.term, correct:true, term:correct.term, meaning:correct.meaning});
+        distractors.forEach(t => choices.push({text:t.term, correct:false, term:t.term, meaning:t.meaning}));
+      }
+      return shuffleV61(choices.slice(0, choiceCount));
+    }
+
+    function scoreDistractorV61({ correct, candidate, stageId, difficulty, bank }){
+      const d = difficulty || vocabGame.difficulty || 'normal';
+      let score = 0;
+      const cw = String(correct.term || '').toLowerCase(), cm = String(correct.meaning || '').toLowerCase(), cc = String(correct.category || '').toLowerCase();
+      const tw = String(candidate.term || '').toLowerCase(), tm = String(candidate.meaning || '').toLowerCase(), tc = String(candidate.category || '').toLowerCase();
+      if(cc && tc && cc === tc) score += d === 'easy' ? 2 : 8;
+      if(cw && tw && cw[0] === tw[0]) score += d === 'easy' ? 1 : 3;
+      if(Math.abs(cw.length - tw.length) <= 3) score += 2;
+      const shared = sharedKeywordCountV61(cm, tm);
+      score += shared * (d === 'challenge' ? 4 : d === 'hard' ? 3 : 2);
+      if(stageId === 'trap') score += 5;
+      if(stageId === 'boss') score += 3;
+      if(d === 'hard') score += 2;
+      if(d === 'challenge') score += 4;
+      if(bank === 'B' && cc === tc) score += 2;
+      return score + randV61();
+    }
+
+    function calculateEnemyAttackV6({ stageId, difficulty, bank }){
+      const feel = getDifficultyFeelV71(difficulty || vocabGame.difficulty || 'normal');
+      let attack = feel.attackBase || 1;
+      if(stageId === 'trap') attack += feel.attackStageBonus || 0;
+      if(stageId === 'boss') attack += (feel.attackStageBonus || 0) + 1;
+      if(bank === 'C' && stageId === 'boss') attack += 1;
+      return Math.max(1, attack);
+    }
+
+    function calculateDamageV6({ responseMs, combo, stageId, difficulty }){
+      const config = VOCAB_DIFFICULTY[difficulty] || VOCAB_DIFFICULTY.normal;
+      const feel = getDifficultyFeelV71(difficulty);
+      let damage = 10;
+      if(responseMs < 1800) damage += 12;
+      else if(responseMs < 3500) damage += 7;
+      else if(responseMs < 6500) damage += 3;
+      else if((difficulty || vocabGame.difficulty) === 'challenge') damage -= 2;
+      if(combo >= 3) damage += 5;
+      if(combo >= 5) damage += 8;
+      if(combo >= 8) damage += 14;
+      if(stageId === 'boss') damage += 5;
+      if(stageId === 'speed') damage += 3;
+      damage = Math.round((damage * (feel.damageScale || 1)) / config.bossMultiplier);
+      return Math.max(4, damage);
+    }
+
+    function startTimerV6(){
+      const config = VOCAB_DIFFICULTY[vocabGame.difficulty] || VOCAB_DIFFICULTY.normal;
+      const modeConfig = vocabGame.modeConfig || VOCAB_PLAY_MODES.learn;
+      const feel = getDifficultyFeelV71(vocabGame.difficulty);
+      let time = config.timePerQuestion + (modeConfig.timeBonus || 0) + (feel.timeAdd || 0);
+      if(vocabGame.currentStage?.id === 'speed') time = Math.max(4, time - 4);
+      if(vocabGame.currentStage?.id === 'boss') time = Math.max(5, time - 3);
+      if(vocabGame.difficulty === 'challenge' && vocabGame.currentStage?.id === 'trap') time = Math.max(4, time - 2);
+      vocabGame.timeLeft = Math.max(4, time);
+      renderTimerV6();
+      vocabGame.timerId = setInterval(() => {
+        vocabGame.timeLeft -= 1;
+        renderTimerV6();
+        if(vocabGame.timeLeft <= 3 && vocabGame.timeLeft > 0) playSfxV6('tick');
+        if(vocabGame.timeLeft <= 0){ clearTimerV6(); handleTimeoutV6(); }
+      }, 1000);
+    }
+
+    function resetVocabMemoryV71(){
+      try{
+        Object.keys(localStorage).forEach(k => { if(String(k).startsWith('VOCAB_V71_TERM_HISTORY_')) localStorage.removeItem(k); });
+        alert('ล้างประวัติคำศัพท์ v7.1 แล้ว รอบต่อไปจะสุ่ม deck ใหม่');
+      }catch(e){ alert('ล้างประวัติไม่ได้: ' + e.message); }
+    }
+
+
+    /* =========================================================
+       v7.2 ARCADE JUICE + EXTREME SFX PATCH
+       ========================================================= */
+    const VOCAB_JUICE_V72={soundKey:'VOCAB_V72_SOUND_ON',volume:.42,milestones:[3,5,8,12,16],rage:false,bossKey:''};
+    function sfxOnV72(){return localStorage.getItem(VOCAB_JUICE_V72.soundKey)!=='0';}
+    function setSfxV72(on){localStorage.setItem(VOCAB_JUICE_V72.soundKey,on?'1':'0');updateSfxToggleV72();}
+    function ctxV72(){try{const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;if(!window.__VOCAB_AUDIO_CTX__)window.__VOCAB_AUDIO_CTX__=new A();const c=window.__VOCAB_AUDIO_CTX__;if(c.state==='suspended')c.resume().catch(()=>{});return c;}catch(e){return null;}}
+    function ensureJuiceV72(){if(!byId('v72JuiceLayer')){const l=document.createElement('div');l.id='v72JuiceLayer';document.body.appendChild(l);}if(!byId('v72SoundToggle')){const b=document.createElement('button');b.id='v72SoundToggle';b.className='v72-sound-toggle';b.type='button';b.onclick=()=>setSfxV72(!sfxOnV72());document.body.appendChild(b);}updateSfxToggleV72();ensureHeatV72();}
+    function updateSfxToggleV72(){const b=byId('v72SoundToggle');if(b)b.textContent=sfxOnV72()?'🔊 SFX MAX':'🔇 SFX OFF';}
+    function ensureHeatV72(){if(byId('v72ComboHeat'))return;const battle=byId('v6BattlePanel'),power=byId('v6PowerHud');if(!battle||!power)return;const w=document.createElement('div');w.id='v72ComboHeat';w.className='v72-heat-wrap';w.innerHTML='<span>🔥 Combo Heat</span><div class="v72-heat-bar"><div class="v72-heat-fill" id="v72HeatFill"></div></div><span class="v72-heat-text" id="v72HeatText">0%</span>';battle.insertBefore(w,power.nextSibling);}
+    function updateHeatV72(){const f=byId('v72HeatFill'),t=byId('v72HeatText');if(!f||!t)return;const combo=Number(vocabGame.combo||0),mc=vocabGame.modeConfig||VOCAB_PLAY_MODES.learn,need=mc.feverComboNeed||VOCAB_POWER.feverComboNeed||5,p=Math.max(0,Math.min(100,Math.round(combo/need*100)));f.style.width=p+'%';t.textContent=combo>=need?'FEVER!':p+'%';}
+    function flashV72(type='good'){ensureJuiceV72();const f=document.createElement('div');f.className='v72-flash '+type;byId('v72JuiceLayer').appendChild(f);setTimeout(()=>f.remove(),420);}
+    function announceV72(txt,kind=''){ensureJuiceV72();const n=document.createElement('div');n.className='v72-announcer '+kind;n.textContent=txt;byId('v72JuiceLayer').appendChild(n);setTimeout(()=>n.remove(),980);}
+    function particlesV72(n=22,type='good'){ensureJuiceV72();const layer=byId('v72JuiceLayer'),cs=type==='bad'?['#ff6e87','#ffd166','#fff']:type==='fever'?['#ffd166','#ff6e87','#8b5cf6','#59d0ff','#44df93']:['#44df93','#59d0ff','#fff','#ffd166'];for(let i=0;i<n;i++){const p=document.createElement('div'),a=Math.PI*2*i/n+Math.random()*.6,d=70+Math.random()*210;p.className='v72-particle';p.style.setProperty('--dx',Math.cos(a)*d+'px');p.style.setProperty('--dy',Math.sin(a)*d+'px');p.style.color=cs[i%cs.length];p.style.background=cs[i%cs.length];p.style.left=(48+Math.random()*8)+'vw';p.style.top=(42+Math.random()*20)+'vh';p.style.width=p.style.height=(7+Math.random()*9)+'px';layer.appendChild(p);setTimeout(()=>p.remove(),920);}}
+    function pulseV72(cls,ms=360){document.body.classList.add(cls);setTimeout(()=>document.body.classList.remove(cls),ms);}
+    function oscV72(c,f,t,d,type='sine',g=.08,dest){const o=c.createOscillator(),gn=c.createGain();o.type=type;o.frequency.setValueAtTime(f,t);gn.gain.setValueAtTime(.0001,t);gn.gain.exponentialRampToValueAtTime(g,t+.012);gn.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(gn);gn.connect(dest||c.destination);o.start(t);o.stop(t+d+.03);}
+    function sweepV72(c,a,b,t,d,type='sawtooth',g=.1,dest){const o=c.createOscillator(),gn=c.createGain();o.type=type;o.frequency.setValueAtTime(a,t);o.frequency.exponentialRampToValueAtTime(Math.max(1,b),t+d);gn.gain.setValueAtTime(.0001,t);gn.gain.exponentialRampToValueAtTime(g,t+.018);gn.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(gn);gn.connect(dest||c.destination);o.start(t);o.stop(t+d+.05);}
+    function playSfxV6(type){if(!sfxOnV72())return;const c=ctxV72();if(!c)return;const t=c.currentTime,m=c.createGain();m.gain.value=VOCAB_JUICE_V72.volume;m.connect(c.destination);try{if(type==='correct'){[660,880,1180].forEach((f,i)=>oscV72(c,f,t+i*.045,.14,'triangle',.08,m));}else if(type==='wrong'){sweepV72(c,220,70,t,.26,'sawtooth',.13,m);oscV72(c,90,t,.18,'square',.08,m);}else if(type==='start'){[392,523,659,784].forEach((f,i)=>oscV72(c,f,t+i*.07,.18,'triangle',.08,m));sweepV72(c,180,920,t,.48,'sine',.055,m);}else if(type==='stage'){[523,659,784,1046].forEach((f,i)=>oscV72(c,f,t+i*.055,.17,'sine',.06,m));}else if(type==='tick'){oscV72(c,920,t,.055,'square',.07,m);}else if(type==='laser'){sweepV72(c,1400,120,t,.42,'sawtooth',.13,m);sweepV72(c,220,1600,t+.03,.24,'triangle',.09,m);}else if(type==='fever'){[440,554,659,880,1108].forEach((f,i)=>oscV72(c,f,t+i*.055,.22,'triangle',.08,m));sweepV72(c,110,660,t,.65,'sawtooth',.06,m);}else if(type==='shield'){[330,660,990].forEach((f,i)=>oscV72(c,f,t+i*.025,.16,'triangle',.07,m));}else if(type==='boss'){sweepV72(c,100,44,t,.55,'sawtooth',.16,m);oscV72(c,55,t,.5,'square',.08,m);}else if(type==='combo'){[784,988,1175,1568].forEach((f,i)=>oscV72(c,f,t+i*.035,.13,'triangle',.06,m));}else if(type==='countdown'){oscV72(c,700,t,.075,'square',.08,m);oscV72(c,350,t+.04,.075,'square',.04,m);}else{oscV72(c,520,t,.08,'sine',.06,m);}setTimeout(()=>{try{m.disconnect();}catch(e){}},1200);}catch(e){}}
+    const __v72UpdateHud=updateHudV6;updateHudV6=function(){__v72UpdateHud();ensureJuiceV72();updateHeatV72();const pct=vocabGame.enemyHpMax?(vocabGame.enemyHp/vocabGame.enemyHpMax):1,rage=vocabGame.active&&vocabGame.currentStage&&vocabGame.currentStage.id==='boss'&&pct<=.4;document.body.classList.toggle('v72-boss-rage',rage);if(rage&&!VOCAB_JUICE_V72.rage){VOCAB_JUICE_V72.rage=true;announceV72('BOSS RAGE!','warn');flashV72('boss');playSfxV6('boss');}};
+    const __v72Start=startVocabBattleV6;startVocabBattleV6=function(o={}){ensureJuiceV72();VOCAB_JUICE_V72.rage=false;VOCAB_JUICE_V72.bossKey='';document.body.classList.remove('v72-fever-rainbow','v72-boss-rage');playSfxV6('start');announceV72('READY!');particlesV72(18,'good');return __v72Start(o);};
+    const __v72Render=renderQuestionV6;renderQuestionV6=function(q,stage){__v72Render(q,stage);ensureJuiceV72();const qMeta=document.querySelector('.v6-question-meta');if(qMeta&&!qMeta.querySelector('.v72-difficulty-badge')){const b=document.createElement('span'),d=String(vocabGame.difficulty||'easy').toUpperCase();b.className='v72-difficulty-badge';b.textContent=(vocabGame.difficulty==='challenge'?'💀 ':vocabGame.difficulty==='hard'?'🔥 ':vocabGame.difficulty==='normal'?'⚔️ ':'✨ ')+d;qMeta.appendChild(b);}if(stage&&stage.id==='boss'){const k=`${vocabGame.stageIndex}:${vocabGame.globalQuestionIndex}`;if(VOCAB_JUICE_V72.bossKey!==k){VOCAB_JUICE_V72.bossKey=k;announceV72('BOSS BATTLE!','warn');flashV72('boss');playSfxV6('boss');pulseV72('v72-screen-shake',420);}}else if(stage&&stage.id==='speed'){playSfxV6('countdown');}};
+    const __v72Answer=answerQuestionV6;answerQuestionV6=function(choice,btn){const ok=!!(choice&&choice.correct),beforeCombo=Number(vocabGame.combo||0),beforeHp=Number(vocabGame.playerHp||0),out=__v72Answer(choice,btn);ensureJuiceV72();if(ok){const combo=Number(vocabGame.combo||0);flashV72(combo>=5?'fever':'good');particlesV72(combo>=5?38:18,combo>=5?'fever':'good');pulseV72('v72-hard-hit',260);if(VOCAB_JUICE_V72.milestones.includes(combo)&&combo>beforeCombo){announceV72(`COMBO x${combo}!`,combo>=5?'fever':'');playSfxV6('combo');}if(combo>=8){flashV72('fever');particlesV72(48,'fever');}}else{flashV72('bad');particlesV72(18,'bad');pulseV72('v72-screen-shake',420);if(Number(vocabGame.playerHp||0)<beforeHp)announceV72('OUCH!','warn');}updateHeatV72();return out;};
+    const __v72Timeout=handleTimeoutV6;handleTimeoutV6=function(){flashV72('bad');announceV72('TIME OUT!','warn');particlesV72(20,'bad');pulseV72('v72-screen-shake',480);return __v72Timeout();};
+    const __v72Fever=startFeverV62;startFeverV62=function(){document.body.classList.add('v72-fever-rainbow');announceV72('FEVER MODE!','fever');flashV72('fever');particlesV72(64,'fever');playSfxV6('fever');return __v72Fever();};
+    const __v72StopFever=stopFeverV62;stopFeverV62=function(){document.body.classList.remove('v72-fever-rainbow');return __v72StopFever();};
+    const __v72Shield=applyEnemyAttackWithShieldV62;applyEnemyAttackWithShieldV62=function(a){const before=Number(vocabGame.shield||0),out=__v72Shield(a);if(before>Number(vocabGame.shield||0)){playSfxV6('shield');flashV72('good');particlesV72(22,'good');}return out;};
+    const __v72Timer=renderTimerV6;renderTimerV6=function(){__v72Timer();if(vocabGame.active&&vocabGame.timeLeft<=3&&vocabGame.timeLeft>0){flashV72('bad');if(vocabGame.timeLeft===3)announceV72('HURRY!','warn');}};
+    const __v72Boot=bootVocabApp;bootVocabApp=function(){const r=__v72Boot();ensureJuiceV72();document.addEventListener('pointerdown',()=>ctxV72(),{once:true,passive:true});console.log('[VOCAB] v7.2 arcade juice + SFX loaded');return r;};
+
+
+
+
+    /* =========================================================
+       v7.3 BOSS PHASE + ENEMY SKILL + MINI MISSION REWARD
+       ========================================================= */
+    try{ VOCAB_APP.version = 'v7.3-boss-phase-enemy-skill-mini-mission-20260429'; }catch(e){}
+
+    const VOCAB_V73 = {
+      version:'v7.3-boss-phase-enemy-skill-mini-mission-20260429',
+      miniComboTargets:[3,5,8],
+      streakPowerNeed:3,
+      finalBurstNeed:2,
+      rewardCoinsBase:25,
+      director:{hotStreakSpeedUp:1, strugglingMercy:false}
+    };
+
+    function resetV73State(){
+      vocabGame.v73 = {
+        phase:1,
+        phaseName:'Phase 1 • Scout',
+        finalStreak:0,
+        correctStreak:0,
+        wrongStreak:0,
+        bossPhaseReached:1,
+        mini:{combo3:false,combo5:false,combo8:false,trapClean:true,noAiHelp:true,streakReward:false,finalBurst:false},
+        rewards:{coins:0,badges:[],powerups:0},
+        enemySkillUses:0,
+        directorEvents:[],
+        trapWrong:0,
+        trapTotal:0
+      };
+    }
+
+    function getV73(){
+      if(!vocabGame.v73) resetV73State();
+      return vocabGame.v73;
+    }
+
+    function getBossPhaseV73(){
+      const max = Number(vocabGame.enemyHpMax || 0);
+      const hp = Number(vocabGame.enemyHp || 0);
+      if(!max) return {id:1,name:'Phase 1 • Scout',pct:100,cls:''};
+      const pct = Math.max(0, Math.min(100, Math.round((hp / max) * 100)));
+      if(pct <= 33) return {id:3,name:'Phase 3 • FINAL BURST',pct,cls:'final'};
+      if(pct <= 66) return {id:2,name:'Phase 2 • RAGE MODE',pct,cls:'rage'};
+      return {id:1,name:'Phase 1 • Scout',pct,cls:''};
+    }
+
+    function ensureBossHUDV73(){
+      if(byId('v73BossPanel')) return;
+      const battle = byId('v6BattlePanel');
+      const stageLine = document.querySelector('.v6-stage-line');
+      if(!battle || !stageLine) return;
+      const panel = document.createElement('div');
+      panel.id = 'v73BossPanel';
+      panel.className = 'v73-boss-panel';
+      panel.innerHTML = `
+        <div class="v73-boss-top">
+          <span class="v73-boss-phase" id="v73BossPhase">👾 Phase 1 • Scout</span>
+          <span id="v73EnemySkillText">Enemy Skill: preparing...</span>
+          <span id="v73DirectorText">AI Director: Fair</span>
+        </div>
+        <div class="v73-phase-bar"><div class="v73-phase-fill" id="v73PhaseFill"></div></div>
+        <div class="v73-mini-row">
+          <div class="v73-mini-chip" id="v73MiniCombo">🔥 Combo Mission 0/3</div>
+          <div class="v73-mini-chip" id="v73MiniTrap">🧠 Trap Clean</div>
+          <div class="v73-mini-chip" id="v73MiniNoAI">🏅 No AI Help</div>
+          <div class="v73-mini-chip" id="v73MiniFinal">⚔️ Final Burst 0/2</div>
+        </div>
+        <div class="v73-skill-banner" id="v73SkillBanner">⚡ Enemy skills activate by bank, mode, and boss phase.</div>`;
+      battle.insertBefore(panel, stageLine.nextSibling);
+    }
+
+    function getEnemySkillLabelV73(){
+      const bank = vocabGame.bank || 'A';
+      const mode = vocabGame.mode || 'learn';
+      if(bank === 'A') return mode === 'speed' || mode === 'battle' ? '🟢 Bug Slime: Time Leak - timer starts shorter in speed/boss rounds.' : '🟢 Bug Slime: Combo Slippery - wrong answers reset mission streak.';
+      if(bank === 'B') return '👻 Data Ghost: Ghost Trap - hard choices look more similar and ghost marks appear.';
+      if(bank === 'C') return '🐉 Syntax Dragon: Workplace Pressure - mission/boss mistakes hit harder.';
+      return '👾 Enemy Skill: adaptive challenge active.';
+    }
+
+    function updateBossHUDV73(){
+      ensureBossHUDV73();
+      const s = getV73();
+      const phase = getBossPhaseV73();
+      s.phase = phase.id;
+      s.phaseName = phase.name;
+      s.bossPhaseReached = Math.max(s.bossPhaseReached || 1, phase.id);
+      const phaseEl = byId('v73BossPhase');
+      const fill = byId('v73PhaseFill');
+      if(phaseEl){
+        phaseEl.textContent = `${phase.id === 3 ? '💀' : phase.id === 2 ? '🔥' : '👾'} ${phase.name}`;
+        phaseEl.className = 'v73-boss-phase ' + phase.cls;
+      }
+      if(fill) fill.style.width = `${100 - phase.pct}%`;
+      const skill = byId('v73EnemySkillText');
+      if(skill) skill.textContent = getEnemySkillLabelV73();
+      const director = byId('v73DirectorText');
+      if(director){
+        const c = Number(vocabGame.combo || 0), w = Number(s.wrongStreak || 0);
+        director.textContent = c >= 5 ? 'AI Director: 🔥 Speed Up' : w >= 2 ? 'AI Director: 🛟 Mercy Window' : 'AI Director: Fair';
+      }
+      const combo = byId('v73MiniCombo');
+      if(combo){
+        const c = Number(vocabGame.combo || 0);
+        combo.textContent = `🔥 Combo Mission ${Math.min(c,8)}/8`;
+        combo.classList.toggle('done', !!s.mini.combo5 || c >= 5);
+      }
+      const trap = byId('v73MiniTrap');
+      if(trap){
+        trap.textContent = s.mini.trapClean ? '🧠 Trap Clean' : '🧠 Trap Broken';
+        trap.classList.toggle('done', !!s.mini.trapClean && Number(s.trapTotal || 0) > 0);
+      }
+      const noai = byId('v73MiniNoAI');
+      if(noai){
+        const used = Number(vocabGame.aiHelpUsed || 0);
+        noai.textContent = used ? `🤖 AI Help Used x${used}` : '🏅 No AI Help';
+        noai.classList.toggle('done', !used && vocabGame.active);
+      }
+      const final = byId('v73MiniFinal');
+      if(final){
+        final.textContent = phase.id >= 3 ? `⚔️ Final Burst ${Math.min(s.finalStreak||0,2)}/2` : '⚔️ Final Burst locked';
+        final.classList.toggle('done', !!s.mini.finalBurst);
+      }
+    }
+
+    function announceV73(txt, kind=''){
+      if(typeof announceV72 === 'function') announceV72(txt, kind);
+      else showFloatingTextV6(txt, kind === 'warn' ? 'bad' : 'stage');
+    }
+    function particlesV73(n,type){ if(typeof particlesV72 === 'function') particlesV72(n,type); }
+    function flashV73(type){ if(typeof flashV72 === 'function') flashV72(type); }
+    function pulseV73(cls,ms){ if(typeof pulseV72 === 'function') pulseV72(cls,ms); }
+
+    function applyEnemySkillOnQuestionV73(stage){
+      const s = getV73();
+      if(!stage) return;
+      const bank = vocabGame.bank || 'A';
+      const banner = byId('v73SkillBanner');
+      let msg = getEnemySkillLabelV73();
+      if(bank === 'B' && (vocabGame.difficulty === 'hard' || vocabGame.difficulty === 'challenge' || stage.id === 'trap' || stage.id === 'boss')){
+        const wrong = [...document.querySelectorAll('.v6-choice')].filter(btn => {
+          const txt = btn.textContent || '';
+          const correct = getCorrectChoiceTextV62(vocabGame.currentQuestion || {});
+          return correct && !txt.includes(correct);
+        });
+        wrong.slice(0, Math.min(2, wrong.length)).forEach(btn => btn.classList.add('v73-ghost-choice'));
+        msg = '👻 Data Ghost used Ghost Trap: read every option carefully.';
+        s.enemySkillUses++;
+      }
+      if(bank === 'C' && (stage.id === 'mission' || stage.id === 'boss')){
+        msg = '🐉 Syntax Dragon used Workplace Pressure: mistakes in this round hurt more.';
+        s.enemySkillUses++;
+      }
+      if(bank === 'A' && (stage.id === 'speed' || stage.id === 'boss')){
+        msg = '🟢 Bug Slime used Time Leak: answer fast before the clock melts.';
+        s.enemySkillUses++;
+      }
+      if(banner) banner.textContent = msg;
+    }
+
+    function updateMiniMissionsAfterAnswerV73(ok, beforeCombo){
+      const s = getV73();
+      const stage = vocabGame.currentStage || {};
+      if(ok){
+        s.correctStreak++;
+        s.wrongStreak = 0;
+        const combo = Number(vocabGame.combo || 0);
+        if(combo >= 3 && !s.mini.combo3){ s.mini.combo3 = true; s.rewards.coins += 10; announceV73('MINI MISSION: Combo x3!', 'fever'); playSfxV6('combo'); }
+        if(combo >= 5 && !s.mini.combo5){ s.mini.combo5 = true; s.rewards.coins += 18; s.rewards.badges.push('Combo Spark'); vocabGame.hints = Math.min((VOCAB_POWER.hintMax||4), Number(vocabGame.hints||0)+1); announceV73('REWARD: Hint +1!', 'fever'); playSfxV6('stage'); }
+        if(combo >= 8 && !s.mini.combo8){ s.mini.combo8 = true; s.rewards.coins += 32; s.rewards.badges.push('Combo Storm'); vocabGame.shield = Math.min((VOCAB_POWER.shieldMax||3), Number(vocabGame.shield||0)+1); announceV73('REWARD: Shield +1!', 'fever'); playSfxV6('shield'); }
+        if(s.correctStreak >= VOCAB_V73.streakPowerNeed && !s.mini.streakReward){
+          s.mini.streakReward = true; s.rewards.powerups++; s.rewards.coins += 15;
+          vocabGame.score += 60;
+          announceV73('STREAK REWARD +60!', 'fever'); particlesV73(34,'fever');
+        }
+        if(stage.id === 'trap') s.trapTotal++;
+      }else{
+        s.correctStreak = 0;
+        s.wrongStreak++;
+        if(stage.id === 'trap'){ s.mini.trapClean = false; s.trapWrong++; s.trapTotal++; }
+      }
+      s.mini.noAiHelp = Number(vocabGame.aiHelpUsed || 0) === 0;
+      updateBossHUDV73();
+      updatePowerHudV62();
+    }
+
+    function buildV73RewardSummary(){
+      const s = getV73();
+      const completed = Object.keys(s.mini || {}).filter(k => !!s.mini[k]).length;
+      const badges = Array.from(new Set(s.rewards.badges || []));
+      if(s.bossPhaseReached >= 2 && !badges.includes('Rage Survivor')) badges.push('Rage Survivor');
+      if(s.bossPhaseReached >= 3 && !badges.includes('Final Burst Fighter')) badges.push('Final Burst Fighter');
+      if(s.mini.noAiHelp && !badges.includes('No-Help Hero')) badges.push('No-Help Hero');
+      return {
+        completed,
+        coins: Number(s.rewards.coins || 0) + completed * VOCAB_V73.rewardCoinsBase,
+        badges,
+        phaseReached: s.bossPhaseReached || 1,
+        enemySkillUses: s.enemySkillUses || 0,
+        trapClean: !!s.mini.trapClean,
+        finalBurst: !!s.mini.finalBurst
+      };
+    }
+
+    const __v73Start = startVocabBattleV6;
+    startVocabBattleV6 = function(o={}){
+      resetV73State();
+      const r = __v73Start(o);
+      ensureBossHUDV73();
+      updateBossHUDV73();
+      announceV73('NEW MISSIONS UNLOCKED!','fever');
+      return r;
+    };
+
+    const __v73Render = renderQuestionV6;
+    renderQuestionV6 = function(q,stage){
+      const r = __v73Render(q,stage);
+      ensureBossHUDV73();
+      applyEnemySkillOnQuestionV73(stage);
+      updateBossHUDV73();
+      return r;
+    };
+
+    const __v73StartTimer = startTimerV6;
+    startTimerV6 = function(){
+      const r = __v73StartTimer();
+      const s = getV73();
+      const stage = vocabGame.currentStage || {};
+      let penalty = 0;
+      if(vocabGame.bank === 'A' && (stage.id === 'speed' || stage.id === 'boss')) penalty += 2;
+      if(s.phase === 2) penalty += 1;
+      if(s.phase === 3) penalty += 2;
+      if(Number(vocabGame.combo || 0) >= 5 && (vocabGame.difficulty === 'hard' || vocabGame.difficulty === 'challenge')) penalty += VOCAB_V73.director.hotStreakSpeedUp;
+      if(Number(s.wrongStreak || 0) >= 2) penalty = Math.max(0, penalty - 2);
+      if(penalty){
+        vocabGame.timeLeft = Math.max(3, Number(vocabGame.timeLeft || 0) - penalty);
+        renderTimerV6();
+        announceV73(`TIME LEAK -${penalty}s`,'warn');
+      }
+      return r;
+    };
+
+    const __v73Damage = calculateDamageV6;
+    calculateDamageV6 = function(args){
+      let dmg = __v73Damage(args);
+      const s = getV73();
+      const stageId = (args && args.stageId) || (vocabGame.currentStage && vocabGame.currentStage.id);
+      if(stageId === 'boss'){
+        const phase = getBossPhaseV73();
+        if(phase.id === 2) dmg = Math.round(dmg * .88);
+        if(phase.id === 3) dmg = Math.round(dmg * .78);
+        if(phase.id === 3 && Number(s.finalStreak || 0) < (VOCAB_V73.finalBurstNeed - 1) && dmg >= Number(vocabGame.enemyHp || 0)){
+          dmg = Math.max(1, Number(vocabGame.enemyHp || 1) - 1);
+          document.body.classList.add('v73-final-lock');
+          setTimeout(()=>document.body.classList.remove('v73-final-lock'),800);
+        }
+      }
+      return Math.max(1,dmg);
+    };
+
+    const __v73EnemyAttack = calculateEnemyAttackV6;
+    calculateEnemyAttackV6 = function(args){
+      let attack = __v73EnemyAttack(args);
+      const s = getV73();
+      const stageId = (args && args.stageId) || (vocabGame.currentStage && vocabGame.currentStage.id);
+      if(vocabGame.bank === 'C' && (stageId === 'mission' || stageId === 'boss')) attack += 1;
+      if(s.phase === 2) attack += 1;
+      if(s.phase === 3) attack += 2;
+      if(Number(s.wrongStreak || 0) >= 2){ attack = Math.max(1, attack - 1); s.directorEvents.push('mercy_attack_down'); }
+      return attack;
+    };
+
+    const __v73Answer = answerQuestionV6;
+    answerQuestionV6 = function(choice,btn){
+      const ok = !!(choice && choice.correct);
+      const phaseBefore = getBossPhaseV73();
+      const stageBefore = vocabGame.currentStage ? vocabGame.currentStage.id : '';
+      const s = getV73();
+      const beforeCombo = Number(vocabGame.combo || 0);
+      if(stageBefore === 'boss' && phaseBefore.id === 3){
+        if(ok) s.finalStreak = Number(s.finalStreak || 0) + 1;
+        else s.finalStreak = 0;
+        if(s.finalStreak >= VOCAB_V73.finalBurstNeed && !s.mini.finalBurst){
+          s.mini.finalBurst = true; s.rewards.coins += 45; s.rewards.badges.push('Final Burst Clear');
+          announceV73('FINAL BURST CLEAR!', 'fever'); particlesV73(70,'fever'); flashV73('fever'); playSfxV6('fever');
+        }else if(ok){
+          announceV73(`FINAL BURST ${s.finalStreak}/${VOCAB_V73.finalBurstNeed}`,'warn');
+          playSfxV6('boss');
+        }
+      }
+      const out = __v73Answer(choice,btn);
+      updateMiniMissionsAfterAnswerV73(ok,beforeCombo);
+      if(ok && phaseBefore.id === 3 && Number(s.finalStreak||0) < VOCAB_V73.finalBurstNeed){
+        announceV73('Boss barely holds on! One more precise answer!','warn');
+      }
+      return out;
+    };
+
+    const __v73UseAi = typeof useAiHelpV67 === 'function' ? useAiHelpV67 : null;
+    if(__v73UseAi){
+      useAiHelpV67 = function(){
+        const r = __v73UseAi();
+        const s = getV73();
+        s.mini.noAiHelp = Number(vocabGame.aiHelpUsed || 0) === 0;
+        updateBossHUDV73();
+        return r;
+      };
+    }
+
+    const __v73Reward = buildRewardDataV6;
+    buildRewardDataV6 = function(result){
+      result.v73 = buildV73RewardSummary();
+      const reward = __v73Reward(result);
+      reward.coins = Number(reward.coins || 0) + Number(result.v73.coins || 0);
+      if(result.v73.badges && result.v73.badges.length){
+        reward.badge = `${reward.badge} + ${result.v73.badges[0]}`;
+      }
+      return reward;
+    };
+
+    const __v73Coach = buildAICoachSummaryV6;
+    buildAICoachSummaryV6 = function(result){
+      const coach = __v73Coach(result);
+      const v = result.v73 || buildV73RewardSummary();
+      let line = '';
+      if(v.phaseReached >= 3) line = 'คุณไปถึง Final Burst แล้ว ถือว่าเล่นโหมดท้าทายได้ดี รอบหน้าลองรักษา combo เพื่อปิดบอสให้เร็วขึ้น';
+      else if(v.enemySkillUses >= 3) line = 'ศัตรูใช้สกิลหลายครั้ง ลองอ่าน keyword ก่อนเลือกคำตอบเพื่อกัน trap';
+      else line = 'ลองทำ Mini Mission ให้ครบ โดยเฉพาะ Combo Mission และ No AI Help Bonus';
+      coach.v73Tip = line;
+      return coach;
+    };
+
+    const __v73RenderReward = renderRewardScreenV6;
+    renderRewardScreenV6 = function(result,reward,coach){
+      __v73RenderReward(result,reward,coach);
+      const wrap = document.querySelector('.v6-reward');
+      if(!wrap) return;
+      const v = result.v73 || buildV73RewardSummary();
+      const panel = document.createElement('div');
+      panel.className = 'v73-reward-panel';
+      panel.innerHTML = `
+        <h3>🔥 v7.3 Challenge Rewards</h3>
+        <p>${escapeHtmlV6(coach.v73Tip || '')}</p>
+        <div class="v73-reward-grid">
+          <div class="v73-reward-card"><b>${v.completed || 0}</b><span>Mini Missions</span></div>
+          <div class="v73-reward-card"><b>${v.coins || 0}</b><span>Bonus Coins</span></div>
+          <div class="v73-reward-card"><b>${v.phaseReached || 1}</b><span>Boss Phase</span></div>
+          <div class="v73-reward-card"><b>${v.enemySkillUses || 0}</b><span>Enemy Skills</span></div>
+        </div>
+        <p style="margin-top:10px;color:var(--muted);font-weight:850;">Badges: ${v.badges && v.badges.length ? v.badges.map(escapeHtmlV6).join(' • ') : 'ยังไม่มี badge พิเศษ'}</p>`;
+      const coachBox = wrap.querySelector('.v6-coach-box');
+      if(coachBox) wrap.insertBefore(panel, coachBox); else wrap.appendChild(panel);
+    };
+
+    const __v73Log = logVocabEventV6;
+    logVocabEventV6 = function(type,data={}){
+      const s = getV73();
+      const extra = {
+        v73_version: VOCAB_V73.version,
+        boss_phase: s.phase || 1,
+        boss_phase_name: s.phaseName || '',
+        mini_combo3: s.mini && s.mini.combo3 ? 1 : 0,
+        mini_combo5: s.mini && s.mini.combo5 ? 1 : 0,
+        mini_combo8: s.mini && s.mini.combo8 ? 1 : 0,
+        mini_no_ai_help: s.mini && s.mini.noAiHelp ? 1 : 0,
+        mini_final_burst: s.mini && s.mini.finalBurst ? 1 : 0,
+        enemy_skill_uses: s.enemySkillUses || 0,
+        v73_bonus_coins: s.rewards ? Number(s.rewards.coins || 0) : 0
+      };
+      return __v73Log(type, Object.assign(extra, data || {}));
+    };
+
+    const __v73Hud = updateHudV6;
+    updateHudV6 = function(){
+      const r = __v73Hud();
+      if(vocabGame.active) updateBossHUDV73();
+      return r;
+    };
+
+    const __v73Boot = bootVocabApp;
+    bootVocabApp = function(){
+      const r = __v73Boot();
+      ensureBossHUDV73();
+      updateBossHUDV73();
+      console.log('[VOCAB] v7.3 boss phase + enemy skill + mini mission loaded');
+      return r;
+    };
+
+
+
+
+    /* =========================================================
+       v7.4 UNLOCK SYSTEM + ENEMY SKIN + DAILY QUEST + STREAK CHEST
+       ทำให้เด็กอยากกลับมาเล่นซ้ำ ไม่ใช่เล่นรอบเดียวแล้วจำคำได้หมด
+    ========================================================= */
+    const VOCAB_V74 = {
+      version: 'v7.4-unlock-daily-streak-20260429',
+      profileKey: 'VOCAB_V74_UNLOCK_PROFILE',
+      chestKey: 'VOCAB_V74_CHEST_LOG',
+      xpBase: 100,
+      dailyQuestCount: 3,
+      dailyChestCoins: 80,
+      streak3ChestCoins: 120,
+      streak7ChestCoins: 260,
+      skins: [
+        { id:'bug_default', bank:'A', emoji:'🟢', name:'Bug Slime', unlock:'default', need:'เริ่มต้น' },
+        { id:'bug_cyber', bank:'A', emoji:'🧪', name:'Cyber Slime', unlock:'level', level:2, need:'Level 2' },
+        { id:'bug_gold', bank:'A', emoji:'🟡', name:'Gold Bug', unlock:'achievement', achievement:'combo_8', need:'ทำ Combo x8' },
+        { id:'ghost_default', bank:'B', emoji:'👻', name:'Data Ghost', unlock:'default', need:'เริ่มต้น' },
+        { id:'ghost_neon', bank:'B', emoji:'🔮', name:'Neon Ghost', unlock:'level', level:3, need:'Level 3' },
+        { id:'ghost_omega', bank:'B', emoji:'🧬', name:'Omega Data', unlock:'achievement', achievement:'accuracy_90', need:'Accuracy 90%+' },
+        { id:'dragon_default', bank:'C', emoji:'🐉', name:'Syntax Dragon', unlock:'default', need:'เริ่มต้น' },
+        { id:'dragon_fire', bank:'C', emoji:'🔥', name:'Fire Syntax', unlock:'level', level:4, need:'Level 4' },
+        { id:'dragon_crown', bank:'C', emoji:'👑', name:'Crown Dragon', unlock:'achievement', achievement:'boss_phase3', need:'ถึง Final Burst' }
+      ]
+    };
+
+    function v74TodayKey(){
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function v74YesterdayKey(){
+      const d = new Date();
+      d.setDate(d.getDate()-1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function v74DefaultProfile(){
+      return {
+        version: VOCAB_V74.version,
+        level: 1,
+        xp: 0,
+        coins: 0,
+        streak: 0,
+        lastVisitDay: '',
+        lastQuestDay: '',
+        lastChestDay: '',
+        lastStreak3ChestDay: '',
+        lastStreak7ChestDay: '',
+        selectedSkinByBank: { A:'bug_default', B:'ghost_default', C:'dragon_default' },
+        achievements: {},
+        dailyQuests: [],
+        history: [],
+        unlockNotices: []
+      };
+    }
+
+    function v74LoadProfile(){
+      const base = v74DefaultProfile();
+      let saved = {};
+      try{ saved = JSON.parse(localStorage.getItem(VOCAB_V74.profileKey) || '{}') || {}; }
+      catch(e){ saved = {}; }
+      const p = Object.assign({}, base, saved);
+      p.selectedSkinByBank = Object.assign({}, base.selectedSkinByBank, saved.selectedSkinByBank || {});
+      p.achievements = Object.assign({}, saved.achievements || {});
+      p.dailyQuests = Array.isArray(saved.dailyQuests) ? saved.dailyQuests : [];
+      p.history = Array.isArray(saved.history) ? saved.history : [];
+      p.unlockNotices = Array.isArray(saved.unlockNotices) ? saved.unlockNotices : [];
+      return v74EnsureDaily(v74EnsureStreak(p));
+    }
+
+    function v74SaveProfile(p){
+      p.version = VOCAB_V74.version;
+      localStorage.setItem(VOCAB_V74.profileKey, JSON.stringify(p));
+      return p;
+    }
+
+    function v74EnsureStreak(p){
+      const today = v74TodayKey();
+      const yesterday = v74YesterdayKey();
+      if(p.lastVisitDay === today) return p;
+      if(p.lastVisitDay === yesterday) p.streak = Math.max(1, Number(p.streak || 0) + 1);
+      else p.streak = 1;
+      p.lastVisitDay = today;
+      return p;
+    }
+
+    function v74QuestPool(){
+      return [
+        { id:'play_round', icon:'🎮', label:'เล่นจบ 1 รอบ', target:1, reward:20 },
+        { id:'combo_5', icon:'⚡', label:'ทำ Combo x5', target:1, reward:35 },
+        { id:'accuracy_80', icon:'🎯', label:'Accuracy 80%+', target:1, reward:40 },
+        { id:'no_ai', icon:'🏅', label:'จบเกมแบบไม่ใช้ AI Help', target:1, reward:50 },
+        { id:'boss_phase2', icon:'👾', label:'พาบอสเข้า Rage Phase', target:1, reward:45 },
+        { id:'speed_mode', icon:'⏱️', label:'เล่น Speed Run', target:1, reward:25 },
+        { id:'mission_mode', icon:'🧩', label:'เล่น Debug Mission', target:1, reward:25 },
+        { id:'trap_clean', icon:'🧠', label:'ผ่าน Trap แบบไม่พลาด', target:1, reward:55 }
+      ];
+    }
+
+    function v74SeededDailyPick(today){
+      const pool = v74QuestPool();
+      let seed = 0;
+      for(let i=0;i<today.length;i++) seed += today.charCodeAt(i) * (i+3);
+      const picked = [];
+      while(picked.length < VOCAB_V74.dailyQuestCount && pool.length){
+        seed = (seed * 9301 + 49297) % 233280;
+        const idx = seed % pool.length;
+        const q = pool.splice(idx,1)[0];
+        picked.push(Object.assign({}, q, { progress:0, done:false, claimed:false }));
+      }
+      return picked;
+    }
+
+    function v74EnsureDaily(p){
+      const today = v74TodayKey();
+      if(p.lastQuestDay !== today || !Array.isArray(p.dailyQuests) || !p.dailyQuests.length){
+        p.lastQuestDay = today;
+        p.dailyQuests = v74SeededDailyPick(today);
+      }
+      return p;
+    }
+
+    function v74XpNeed(level){
+      level = Math.max(1, Number(level || 1));
+      return VOCAB_V74.xpBase + (level - 1) * 45;
+    }
+
+    function v74AddAchievement(p, id, label, notices){
+      if(!id) return false;
+      if(!p.achievements[id]){
+        p.achievements[id] = { id, label: label || id, unlockedAt: new Date().toISOString() };
+        if(notices) notices.push(`🏅 Badge: ${label || id}`);
+        return true;
+      }
+      return false;
+    }
+
+    function v74IsSkinUnlocked(p, skin){
+      if(!skin) return false;
+      if(skin.unlock === 'default') return true;
+      if(skin.unlock === 'level') return Number(p.level || 1) >= Number(skin.level || 1);
+      if(skin.unlock === 'achievement') return !!p.achievements[skin.achievement];
+      return false;
+    }
+
+    function v74GetSelectedSkin(bank){
+      const p = v74LoadProfile();
+      const id = (p.selectedSkinByBank || {})[bank] || '';
+      const skin = VOCAB_V74.skins.find(s => s.id === id && s.bank === bank && v74IsSkinUnlocked(p,s));
+      if(skin) return skin;
+      return VOCAB_V74.skins.find(s => s.bank === bank && s.unlock === 'default') || null;
+    }
+
+    function selectSkinV74(id){
+      const p = v74LoadProfile();
+      const skin = VOCAB_V74.skins.find(s => s.id === id);
+      if(!skin) return;
+      if(!v74IsSkinUnlocked(p, skin)){
+        v74Toast(`🔒 ยังปลดล็อกไม่ได้: ${skin.need}`);
+        return;
+      }
+      p.selectedSkinByBank[skin.bank] = skin.id;
+      v74SaveProfile(p);
+      v74RenderMenu();
+      v74ApplySelectedSkin();
+      v74Toast(`${skin.emoji} ใช้สกิน ${skin.name} แล้ว`);
+    }
+    window.selectSkinV74 = selectSkinV74;
+
+    function v74Toast(text){
+      try{
+        const old = document.querySelector('.v74-toast');
+        if(old) old.remove();
+        const el = document.createElement('div');
+        el.className = 'v74-toast';
+        el.textContent = text;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 3600);
+      }catch(e){}
+    }
+
+    function v74QuestProgress(q){
+      const pct = Math.max(0, Math.min(100, (Number(q.progress || 0) / Number(q.target || 1)) * 100));
+      return Math.round(pct);
+    }
+
+    function v74InjectMenu(){
+      const grid = document.querySelector('.v6-menu-grid');
+      if(!grid || byId('v74UnlockPanel')) return;
+      const panel = document.createElement('section');
+      panel.className = 'v6-card v6-wide v74-panel';
+      panel.id = 'v74UnlockPanel';
+      panel.innerHTML = `<h2>🎁 Unlock / Daily Quest / Streak Chest</h2><div id="v74UnlockBody"></div>`;
+      const startSection = byId('v6StartBtn')?.closest('.v6-card');
+      if(startSection) grid.insertBefore(panel, startSection);
+      else grid.appendChild(panel);
+      v74RenderMenu();
+    }
+
+    function v74RenderMenu(){
+      const box = byId('v74UnlockBody');
+      if(!box) return;
+      const p = v74LoadProfile();
+      v74SaveProfile(p);
+      const need = v74XpNeed(p.level);
+      const xpPct = Math.max(0, Math.min(100, Number(p.xp || 0) / need * 100));
+      const quests = p.dailyQuests || [];
+      const activeBank = VOCAB_APP.selectedBank || vocabGame.bank || 'A';
+      const skins = VOCAB_V74.skins.filter(s => s.bank === activeBank);
+      const selected = (p.selectedSkinByBank || {})[activeBank];
+      box.innerHTML = `
+        <div class="v74-profile-grid">
+          <div class="v74-stat"><b>Lv.${Number(p.level || 1)}</b><span>Level</span></div>
+          <div class="v74-stat"><b>${Number(p.coins || 0)}</b><span>Coins</span></div>
+          <div class="v74-stat"><b>${Number(p.streak || 0)}🔥</b><span>Streak</span></div>
+          <div class="v74-stat"><b>${Object.keys(p.achievements || {}).length}</b><span>Badges</span></div>
+          <div class="v74-stat"><b>${activeBank}</b><span>Skin Bank</span></div>
+        </div>
+        <div class="v74-xpbar" title="XP ${Number(p.xp||0)}/${need}"><div class="v74-xpfill" style="width:${xpPct}%"></div></div>
+        <h3>📅 Daily Quests</h3>
+        <div class="v74-quest-grid">
+          ${quests.map(q => `
+            <div class="v74-quest ${q.done ? 'done' : ''}">
+              <b>${q.icon || '⭐'} ${escapeHtmlV6(q.label)}</b>
+              <small>${Number(q.progress || 0)}/${Number(q.target || 1)} • +${Number(q.reward || 0)} coins ${q.done ? '• ✅ Done' : ''}</small>
+              <div class="v74-progress"><i style="width:${v74QuestProgress(q)}%"></i></div>
+            </div>`).join('')}
+        </div>
+        <h3 style="margin-top:14px;">🎭 Enemy Skins — Bank ${escapeHtmlV6(activeBank)}</h3>
+        <div class="v74-skin-grid">
+          ${skins.map(s => {
+            const ok = v74IsSkinUnlocked(p,s);
+            const isActive = selected === s.id || (!selected && s.unlock === 'default');
+            return `<button class="v74-skin ${isActive ? 'active' : ''}" type="button" ${ok ? '' : 'disabled'} onclick="selectSkinV74('${s.id}')">
+              <div class="v74-skin-emoji">${s.emoji}</div>
+              <b>${escapeHtmlV6(s.name)}</b>
+              <small>${ok ? (isActive ? 'ใช้งานอยู่' : 'แตะเพื่อใช้') : '🔒 ' + escapeHtmlV6(s.need)}</small>
+            </button>`;
+          }).join('')}
+        </div>`;
+    }
+
+    function v74UpdateQuest(p, id, amount, notices){
+      const q = (p.dailyQuests || []).find(x => x.id === id);
+      if(!q || q.done) return false;
+      q.progress = Math.min(Number(q.target || 1), Number(q.progress || 0) + Number(amount || 1));
+      if(q.progress >= q.target){
+        q.done = true;
+        p.coins = Number(p.coins || 0) + Number(q.reward || 0);
+        if(notices) notices.push(`✅ Daily Quest: ${q.label} (+${q.reward} coins)`);
+        return true;
+      }
+      return false;
+    }
+
+    function v74AllQuestsDone(p){
+      return (p.dailyQuests || []).length && (p.dailyQuests || []).every(q => q.done);
+    }
+
+    function v74ApplyResult(result, reward, coach){
+      const p = v74LoadProfile();
+      const sid = getVocabSessionIdV6();
+      if(p.lastRewardSessionId === sid){
+        return p.lastRewardSummary || { xp:0, coins:0, levelUps:0, notices:[] };
+      }
+      const notices = [];
+      const baseCoins = Math.max(10, Math.round(Number(result.score || 0) / 35));
+      const baseXp = Math.max(15, Math.round(Number(result.score || 0) / 45) + Number(result.accuracy || 0));
+      let coins = baseCoins;
+      let xp = baseXp;
+      if(result.bossDefeated) { coins += 45; xp += 35; }
+      if(!result.aiAssisted){ coins += 25; xp += 20; }
+      if(Number(result.comboMax || 0) >= 8){ coins += 30; xp += 30; }
+      if(Number(result.accuracy || 0) >= 90){ coins += 40; xp += 35; }
+      const v73 = result.v73 || buildV73RewardSummary?.() || {};
+      if(Number(v73.coins || 0)) coins += Number(v73.coins || 0);
+
+      p.coins = Number(p.coins || 0) + coins;
+      p.xp = Number(p.xp || 0) + xp;
+      let levelUps = 0;
+      while(p.xp >= v74XpNeed(p.level)){
+        p.xp -= v74XpNeed(p.level);
+        p.level = Number(p.level || 1) + 1;
+        levelUps++;
+        notices.push(`⬆️ Level Up! ตอนนี้ Lv.${p.level}`);
+      }
+
+      if(Number(result.comboMax || 0) >= 5) v74AddAchievement(p,'combo_5','Combo Spark x5',notices);
+      if(Number(result.comboMax || 0) >= 8) v74AddAchievement(p,'combo_8','Combo Thunder x8',notices);
+      if(Number(result.accuracy || 0) >= 90) v74AddAchievement(p,'accuracy_90','Precision 90%',notices);
+      if(result.bossDefeated) v74AddAchievement(p,'boss_win','Boss Breaker',notices);
+      if(!result.aiAssisted) v74AddAchievement(p,'no_ai_clear','No AI Clear',notices);
+      if(Number(v73.phaseReached || 0) >= 3) v74AddAchievement(p,'boss_phase3','Final Burst Survivor',notices);
+
+      v74UpdateQuest(p,'play_round',1,notices);
+      if(Number(result.comboMax || 0) >= 5) v74UpdateQuest(p,'combo_5',1,notices);
+      if(Number(result.accuracy || 0) >= 80) v74UpdateQuest(p,'accuracy_80',1,notices);
+      if(!result.aiAssisted) v74UpdateQuest(p,'no_ai',1,notices);
+      if(Number(v73.phaseReached || 0) >= 2) v74UpdateQuest(p,'boss_phase2',1,notices);
+      if(result.mode === 'speed') v74UpdateQuest(p,'speed_mode',1,notices);
+      if(result.mode === 'mission') v74UpdateQuest(p,'mission_mode',1,notices);
+      if(v73.mini && v73.mini.trapClean) v74UpdateQuest(p,'trap_clean',1,notices);
+
+      const today = v74TodayKey();
+      let chestCoins = 0;
+      if(v74AllQuestsDone(p) && p.lastChestDay !== today){
+        p.lastChestDay = today;
+        chestCoins += VOCAB_V74.dailyChestCoins;
+        p.coins += VOCAB_V74.dailyChestCoins;
+        v74AddAchievement(p,'daily_chest','Daily Chest Clear',notices);
+        notices.push(`🎁 Daily Chest +${VOCAB_V74.dailyChestCoins} coins`);
+      }
+      if(Number(p.streak || 0) >= 3 && p.lastStreak3ChestDay !== today){
+        p.lastStreak3ChestDay = today;
+        chestCoins += VOCAB_V74.streak3ChestCoins;
+        p.coins += VOCAB_V74.streak3ChestCoins;
+        notices.push(`🔥 3-Day Streak Chest +${VOCAB_V74.streak3ChestCoins} coins`);
+      }
+      if(Number(p.streak || 0) >= 7 && p.lastStreak7ChestDay !== today){
+        p.lastStreak7ChestDay = today;
+        chestCoins += VOCAB_V74.streak7ChestCoins;
+        p.coins += VOCAB_V74.streak7ChestCoins;
+        notices.push(`🏆 7-Day Streak Chest +${VOCAB_V74.streak7ChestCoins} coins`);
+      }
+
+      const unlockedSkins = VOCAB_V74.skins.filter(s => v74IsSkinUnlocked(p,s)).map(s => s.id);
+      const summary = { xp, coins, chestCoins, levelUps, notices, level:p.level, totalCoins:p.coins, streak:p.streak, unlockedSkins };
+      p.history.unshift({ session_id:sid, date:new Date().toISOString(), score:result.score, accuracy:result.accuracy, mode:result.mode, xp, coins, chestCoins });
+      p.history = p.history.slice(0,30);
+      p.lastRewardSessionId = sid;
+      p.lastRewardSummary = summary;
+      v74SaveProfile(p);
+      if(notices.length) v74Toast(notices[0]);
+      try{
+        logVocabEventV6('unlock_profile_update', {
+          v74_xp_gain: xp,
+          v74_coin_gain: coins,
+          v74_chest_coins: chestCoins,
+          v74_level: p.level,
+          v74_streak: p.streak,
+          v74_total_coins: p.coins,
+          v74_unlocked_skins: JSON.stringify(unlockedSkins),
+          v74_notices: JSON.stringify(notices)
+        });
+      }catch(e){}
+      return summary;
+    }
+
+    function v74ApplySelectedSkin(){
+      try{
+        const bank = vocabGame.bank || VOCAB_APP.selectedBank || 'A';
+        const skin = v74GetSelectedSkin(bank);
+        const avatar = byId('v6EnemyAvatar');
+        if(avatar && skin) avatar.textContent = skin.emoji;
+        const name = byId('v6EnemyName');
+        if(name && skin && vocabGame.enemy) name.textContent = `${skin.name} • ${vocabGame.enemy.title || ''}`;
+      }catch(e){}
+    }
+
+    const __v74BankLabel = updateV6BankLabel;
+    updateV6BankLabel = function(){
+      const r = __v74BankLabel();
+      v74RenderMenu();
+      return r;
+    };
+
+    const __v74RenderQuestion = renderQuestionV6;
+    renderQuestionV6 = function(question, stage){
+      const r = __v74RenderQuestion(question, stage);
+      v74ApplySelectedSkin();
+      return r;
+    };
+
+    const __v74Hud = updateHudV6;
+    updateHudV6 = function(){
+      const r = __v74Hud();
+      v74ApplySelectedSkin();
+      return r;
+    };
+
+    const __v74RenderReward = renderRewardScreenV6;
+    renderRewardScreenV6 = function(result, reward, coach){
+      const v74 = v74ApplyResult(result, reward, coach);
+      result.v74 = v74;
+      __v74RenderReward(result, reward, coach);
+      const wrap = document.querySelector('.v6-reward');
+      if(!wrap) return;
+      const panel = document.createElement('div');
+      panel.className = 'v74-reward-panel';
+      panel.innerHTML = `
+        <h3>🎁 v7.4 Unlock Rewards</h3>
+        <p>รอบนี้ได้รับ <b>${Number(v74.xp || 0)} XP</b> และ <b>${Number(v74.coins || 0)}</b> coins ${Number(v74.chestCoins || 0) ? `(+ Chest ${Number(v74.chestCoins)})` : ''}</p>
+        <div class="v74-unlock-list">
+          <div class="v74-unlock-card"><b>Lv.${Number(v74.level || 1)}</b><span>Current Level</span></div>
+          <div class="v74-unlock-card"><b>${Number(v74.totalCoins || 0)}</b><span>Total Coins</span></div>
+          <div class="v74-unlock-card"><b>${Number(v74.streak || 0)}🔥</b><span>Daily Streak</span></div>
+        </div>
+        <p style="margin-top:10px;color:var(--muted);font-weight:850;">${(v74.notices || []).length ? (v74.notices || []).map(escapeHtmlV6).join('<br>') : 'เล่นต่อเพื่อปลดล็อก Daily Chest / Enemy Skins / Badges เพิ่ม'}</p>`;
+      const coachBox = wrap.querySelector('.v6-coach-box');
+      if(coachBox) wrap.insertBefore(panel, coachBox); else wrap.appendChild(panel);
+      v74RenderMenu();
+    };
+
+    const __v74Log = logVocabEventV6;
+    logVocabEventV6 = function(type, data={}){
+      let p = null;
+      try{ p = v74LoadProfile(); }catch(e){}
+      const extra = {
+        v74_version: VOCAB_V74.version,
+        v74_level: p ? Number(p.level || 1) : '',
+        v74_coins: p ? Number(p.coins || 0) : '',
+        v74_streak: p ? Number(p.streak || 0) : '',
+        v74_selected_skin_bankA: p && p.selectedSkinByBank ? p.selectedSkinByBank.A : '',
+        v74_selected_skin_bankB: p && p.selectedSkinByBank ? p.selectedSkinByBank.B : '',
+        v74_selected_skin_bankC: p && p.selectedSkinByBank ? p.selectedSkinByBank.C : ''
+      };
+      return __v74Log(type, Object.assign(extra, data || {}));
+    };
+
+    const __v74Boot = bootVocabApp;
+    bootVocabApp = function(){
+      const r = __v74Boot();
+      try{
+        const p = v74LoadProfile();
+        v74SaveProfile(p);
+        v74InjectMenu();
+        v74RenderMenu();
+        console.log('[VOCAB] v7.4 unlock + daily quest + streak chest loaded');
+      }catch(err){ console.warn('[VOCAB] v7.4 boot warning', err); }
+      return r;
+    };
+
+
     /* =========================================================
        BOOT
     ========================================================= */
@@ -4513,6 +6144,7 @@
       __VOCAB_BOOTED__ = true;
 
       try{
+        applyVocabularyExpansionV71();
         initVocabV61Seed();
         hydrateStudentFormV63();
         initVocabV6UI();
@@ -4533,6 +6165,736 @@
     }
 
     document.addEventListener("DOMContentLoaded", bootVocabApp);
+
+
+    /* =========================================================
+       v7.5 STORY CAMPAIGN + RIVAL + WEEKLY + WEAK WORDS
+       ========================================================= */
+    (function(){
+      'use strict';
+      const V75 = {
+        version:'v7.5-story-rival-weekly-20260429',
+        profileKey:'VOCAB_V75_PROFILE',
+        activeKey:'VOCAB_V75_ACTIVE',
+        weakKey:'VOCAB_V75_WEAK',
+        weekPrefix:'VOCAB_V75_WEEK_',
+        chapters:[
+          {id:'bug', n:1, icon:'🟢', title:'Bug Invasion', bank:'A', diff:'normal', mode:'learn', level:1, target:650, acc:65, rival:'Bug Rookie', story:'กู้ระบบจากบั๊กด้วยคำพื้นฐาน Coding'},
+          {id:'ghost', n:2, icon:'👻', title:'Data Ghost Lab', bank:'B', diff:'normal', mode:'mission', level:2, target:900, acc:72, rival:'Data Witch', story:'แกะรอยข้อมูลหลอนด้วยคำศัพท์ AI/Data'},
+          {id:'deadline', n:3, icon:'🐉', title:'Deadline Crisis', bank:'C', diff:'hard', mode:'mission', level:3, target:1150, acc:78, rival:'Deadline Demon', story:'รับมือ client และ deadline pressure'},
+          {id:'core', n:4, icon:'💀', title:'Final AI Core', bank:'B', diff:'challenge', mode:'bossrush', level:4, target:1500, acc:82, rival:'AI Core Rival', story:'Boss Rush เพื่อกู้ศูนย์กลาง AI'}
+        ],
+        weekly:[
+          {id:'debug', icon:'🛠️', title:'Debug Master Week', bank:'A', diff:'hard', mode:'speed', goals:{sessions:2, combo:5, accuracy:75}, xp:70, coins:90},
+          {id:'data', icon:'📊', title:'AI/Data Sprint Week', bank:'B', diff:'hard', mode:'mission', goals:{sessions:2, accuracy:80, noHelp:1}, xp:85, coins:110},
+          {id:'work', icon:'💼', title:'Workplace Survival Week', bank:'C', diff:'hard', mode:'mission', goals:{sessions:2, accuracy:78, combo:5}, xp:90, coins:120},
+          {id:'rush', icon:'👾', title:'Boss Rush Week', bank:'B', diff:'challenge', mode:'bossrush', goals:{sessions:1, boss:1, score:1300}, xp:120, coins:160}
+        ]
+      };
+
+      try{
+        VOCAB_APP.version = V75.version;
+        VOCAB_APP.schema = 'vocab-v7.5';
+        VOCAB_APP.source = 'vocab.html';
+        VOCAB_APP.api = 'vocab';
+        VOCAB_PLAY_MODES.bossrush = VOCAB_PLAY_MODES.bossrush || {
+          id:'bossrush', label:'Boss Rush', shortLabel:'Rush', icon:'💀',
+          title:'Boss Rush Mode',
+          description:'บอสต่อเนื่อง เวลาเร็ว AI Help น้อย คะแนนสูง เหมาะกับ Weekly Challenge',
+          totalQuestionBonus:5, timeBonus:-5, startHints:0, startShield:1,
+          feverComboNeed:4, laserComboNeed:6, scoreMultiplier:1.45,
+          stageOrder:['boss','trap','boss','mission','boss','boss']
+        };
+      }catch(e){}
+
+      function rj(k,f){try{const v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}}
+      function wj(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+      function esc(s){return typeof escapeHtmlV6==='function'?escapeHtmlV6(s):String(s??'');}
+      function weekId(){const d=new Date(),o=new Date(d.getFullYear(),0,1);return d.getFullYear()+'-W'+String(Math.ceil((((d-o)/86400000)+o.getDay()+1)/7)).padStart(2,'0');}
+      function level(){try{return Number((typeof v74LoadProfile==='function'?v74LoadProfile().level:1)||1);}catch(e){return 1;}}
+      function prof(){const p=rj(V75.profileKey,{chapter:'bug',clear:{},stars:{},xp:0,badges:[],rivalWins:0,bossRushWins:0});p.clear=p.clear||{};p.stars=p.stars||{};p.badges=Array.isArray(p.badges)?p.badges:[];return p;}
+      function saveProf(p){wj(V75.profileKey,p);}
+      function badge(p,b){if(p.badges.indexOf(b)<0)p.badges.push(b);}
+      function weekly(){const idx=Math.abs(hashStringV61(weekId()))%V75.weekly.length;return Object.assign({week:weekId()},V75.weekly[idx]);}
+      function weekState(){const w=weekly(),key=V75.weekPrefix+w.week;return {w,key,s:rj(key,{sessions:0,bestScore:0,bestAccuracy:0,bestCombo:0,noHelp:0,boss:0,complete:false})};}
+      function pct(w,s){const g=w.goals||{};let n=0,d=0;if(g.sessions){d++;if(s.sessions>=g.sessions)n++;}if(g.score){d++;if(s.bestScore>=g.score)n++;}if(g.accuracy){d++;if(s.bestAccuracy>=g.accuracy)n++;}if(g.combo){d++;if(s.bestCombo>=g.combo)n++;}if(g.noHelp){d++;if(s.noHelp>=g.noHelp)n++;}if(g.boss){d++;if(s.boss>=g.boss)n++;}return d?Math.round(n/d*100):0;}
+      function goalText(w,s){const g=w.goals||{},a=[];if(g.sessions)a.push('sessions '+(s.sessions||0)+'/'+g.sessions);if(g.score)a.push('score '+(s.bestScore||0)+'/'+g.score);if(g.accuracy)a.push('accuracy '+(s.bestAccuracy||0)+'%/'+g.accuracy+'%');if(g.combo)a.push('combo '+(s.bestCombo||0)+'/'+g.combo);if(g.noHelp)a.push('no AI Help '+(s.noHelp||0)+'/'+g.noHelp);if(g.boss)a.push('boss '+(s.boss||0)+'/'+g.boss);return a.map(x=>'<span class="v75-chip">'+esc(x)+'</span>').join(' ');}
+      function select(bank,diff,mode){VOCAB_APP.selectedBank=bank;VOCAB_APP.selectedDifficulty=diff;VOCAB_APP.selectedMode=mode;document.querySelectorAll('[data-v6-bank]').forEach(b=>b.classList.toggle('active',b.dataset.v6Bank===bank));document.querySelectorAll('[data-v6-diff]').forEach(b=>b.classList.toggle('active',b.dataset.v6Diff===diff));document.querySelectorAll('[data-v6-mode]').forEach(b=>b.classList.toggle('active',b.dataset.v6Mode===mode));try{updateV6DiffPreview();updateV66ModePreview();updateV6BankLabel();}catch(e){}}
+      function active(v){if(v!==undefined)wj(V75.activeKey,v);return rj(V75.activeKey,{});}
+      function chapter(){const p=prof();return V75.chapters.find(c=>c.id===p.chapter)||V75.chapters[0];}
+      function target(c){return Math.max(c.target, c.diff==='challenge'?1400:0);}
+      function css(){if(document.getElementById('v75Style'))return;const st=document.createElement('style');st.id='v75Style';st.textContent=`
+        .v75-wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.v75-chapters{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.v75-ch{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:var(--text);border-radius:20px;padding:12px;text-align:left;min-height:148px}.v75-ch.active,.v75-ch:hover{border-color:rgba(255,209,102,.75);background:rgba(255,209,102,.14);transform:translateY(-2px)}.v75-ch.locked{opacity:.55;filter:grayscale(.4)}.v75-ch b,.v75-ch small{display:block}.v75-ch small{margin-top:6px;color:var(--muted);font-weight:850;line-height:1.35}.v75-chip{display:inline-flex;gap:6px;align-items:center;border-radius:999px;padding:7px 10px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);font-weight:950;font-size:12px}.v75-box{padding:12px;border-radius:20px;background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.36);color:var(--muted);font-weight:850;line-height:1.45}.v75-btn{border:0;border-radius:18px;padding:12px 14px;min-height:46px;color:white;background:linear-gradient(135deg,var(--blue),var(--purple));font-weight:1000}.v75-btn.secondary{background:rgba(255,255,255,.1);border:1px solid var(--line)}.v75-btn.gold{background:linear-gradient(135deg,#ffd166,#ff8f5f);color:#211}.v75-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.v75-progress{height:12px;border-radius:999px;background:rgba(255,255,255,.11);overflow:hidden;border:1px solid rgba(255,255,255,.13);margin-top:8px}.v75-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--yellow))}.v75-panel{margin-top:16px;padding:16px;border-radius:22px;background:rgba(255,255,255,.08);border:1px solid var(--line);text-align:left}.v75-statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.v75-stat{padding:12px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)}.v75-stat b{display:block;font-size:22px}.v75-stat span{display:block;margin-top:4px;color:var(--muted);font-size:12px;font-weight:900}.v75-bossrush-card{border-color:rgba(255,110,135,.78)!important;background:rgba(255,110,135,.15)!important}@media(max-width:900px){.v75-wrap{grid-template-columns:1fr}.v75-chapters{grid-template-columns:1fr 1fr}.v75-statgrid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.v75-chapters{grid-template-columns:1fr}.v75-statgrid{grid-template-columns:1fr}}`;document.head.appendChild(st);}
+      function renderMenu(){const p=prof(),lv=level(),c=chapter(),wk=weekState();const lvEl=byId('v75Level');if(lvEl)lvEl.textContent='Profile Lv.'+lv+' • Story XP '+Number(p.xp||0);const grid=byId('v75Chapters');if(grid){grid.innerHTML=V75.chapters.map(ch=>{const lock=lv<ch.level,clear=!!p.clear[ch.id],stars=Number(p.stars[ch.id]||0);return `<button type="button" class="v75-ch ${p.chapter===ch.id?'active':''} ${lock?'locked':''}" data-ch="${ch.id}"><b>${ch.icon} Ch.${ch.n} ${esc(ch.title)}</b><small>${ch.bank} • ${ch.diff} • ${ch.mode}</small><small>${esc(ch.story)}</small><small>${lock?'🔒 Unlock Lv.'+ch.level:(clear?'✅ Cleared '+('⭐'.repeat(stars)):'🎯 Target '+ch.target+' pts')}</small></button>`}).join('');grid.querySelectorAll('[data-ch]').forEach(btn=>btn.onclick=()=>{const ch=V75.chapters.find(x=>x.id===btn.dataset.ch);if(level()<ch.level){try{showFloatingTextV6('🔒 Need Lv.'+ch.level,'bad')}catch(e){}return;}const pp=prof();pp.chapter=ch.id;saveProf(pp);select(ch.bank,ch.diff,ch.mode);renderMenu();});}const rival=byId('v75Rival');if(rival)rival.innerHTML=`⚔️ <b>${esc(c.rival)}</b><br>Beat score: <b>${target(c)}</b><br><span class="v75-chip">${c.icon} ${esc(c.title)}</span>`;const wbox=byId('v75Weekly');if(wbox){const pc=pct(wk.w,wk.s);wbox.innerHTML=`${wk.w.icon} <b>${esc(wk.w.title)}</b> <span class="v75-chip">${wk.w.week}</span><br>Preset: ${wk.w.bank} • ${wk.w.diff} • ${wk.w.mode}<br>${goalText(wk.w,wk.s)}<div class="v75-progress"><div class="v75-fill" style="width:${pc}%"></div></div>Progress: <b>${pc}%</b> ${wk.s.complete?'✅':''}`;}}
+      function injectMenu(){css();const menu=document.querySelector('#v6MenuPanel .v6-menu-grid');if(!menu||byId('v75Campaign'))return;const sec=document.createElement('section');sec.id='v75Campaign';sec.className='v6-card v6-wide';sec.innerHTML=`<h2>🚀 v7.5 Story Campaign / Rival Boss / Weekly Challenge</h2><div class="v75-wrap"><div><div class="v75-row" style="justify-content:space-between;margin-bottom:12px"><div class="v75-chip">Adaptive Campaign</div><span id="v75Level" class="v75-chip"></span></div><div id="v75Chapters" class="v75-chapters"></div><div class="v75-row" style="margin-top:12px"><button id="v75StartStory" type="button" class="v75-btn gold">▶ Start Story</button><button id="v75Weak" type="button" class="v75-btn secondary">🧠 Weak Words</button><button id="v75Rush" type="button" class="v75-btn secondary">💀 Boss Rush</button></div></div><div style="display:grid;gap:10px"><div id="v75Rival" class="v75-box"></div><div id="v75Weekly" class="v75-box"></div><button id="v75StartWeekly" class="v75-btn secondary" type="button">📅 Start Weekly</button></div></div>`;const mission=[...menu.children].find(x=>x.querySelector&&x.querySelector('#v6StartBtn'));mission?menu.insertBefore(sec,mission):menu.appendChild(sec);byId('v75StartStory').onclick=startStory;byId('v75Weak').onclick=startWeak;byId('v75Rush').onclick=startRush;byId('v75StartWeekly').onclick=startWeekly;const mg=document.querySelector('.v66-mode-grid');if(mg&&!document.querySelector('[data-v6-mode="bossrush"]')){const b=document.createElement('button');b.className='v66-mode-card v75-bossrush-card';b.dataset.v6Mode='bossrush';b.type='button';b.innerHTML='<b>💀 Boss Rush</b><span>บอสต่อเนื่อง</span><small>โหมดสุดโหดสำหรับ Weekly / Rival</small>';b.onclick=()=>{VOCAB_APP.selectedMode='bossrush';document.querySelectorAll('[data-v6-mode]').forEach(x=>x.classList.toggle('active',x===b));updateV66ModePreview();updateV6BankLabel();};mg.appendChild(b);}renderMenu();}
+      function startStory(){const c=chapter();active({type:'story',chapter:c.id,target:target(c),weak:false});select(c.bank,c.diff,c.mode);startVocabBattleV6({bank:c.bank,difficulty:c.diff,mode:c.mode});}
+      function startRush(){const c=V75.chapters[3];active({type:'bossrush',chapter:c.id,target:target(c),weak:false});select(c.bank,c.diff,'bossrush');startVocabBattleV6({bank:c.bank,difficulty:c.diff,mode:'bossrush'});}
+      function startWeekly(){const {w}=weekState();active({type:'weekly',weekly:w.id,target:0,weak:false});select(w.bank,w.diff,w.mode);startVocabBattleV6({bank:w.bank,difficulty:w.diff,mode:w.mode});}
+      function startWeak(){const bank=VOCAB_APP.selectedBank||'A';active({type:'weak',weak:true,target:0});select(bank,'easy','learn');startVocabBattleV6({bank,difficulty:'easy',mode:'learn'});}
+
+      const oldTerms=getTermsForBankV6;getTermsForBankV6=function(bank){const a=active();const base=oldTerms(bank)||[];if(!a.weak)return base;const weak=rj(V75.weakKey,[]).filter(x=>x&&x.term).slice(0,12);if(!weak.length)return base;const wt=weak.map(x=>({term:x.term,meaning:x.meaning||'review this weak word',category:'weak-review'}));return wt.concat(base.filter(t=>!wt.some(w=>String(w.term).toLowerCase()===String(t.term).toLowerCase())).slice(0,20));};
+      const oldStart=startVocabBattleV6;startVocabBattleV6=function(o={}){const a=active();if(!a.type)active({type:o.mode==='bossrush'?'bossrush':'free',target:0,weak:false});const run=active();logVocabEventV6('v75_run_start',{v75_type:run.type||'free',v75_chapter:run.chapter||'',v75_weekly:run.weekly||'',v75_rival_target:run.target||0,v75_weak:run.weak?1:0});return oldStart(o);};
+      const oldLog=logVocabEventV6;logVocabEventV6=function(type,data={}){const a=active();return oldLog(type,Object.assign({v75_version:V75.version,v75_type:a.type||'free',v75_chapter:a.chapter||'',v75_weekly:a.weekly||'',v75_rival_target:a.target||0,v75_weak:a.weak?1:0},data||{}));};
+      const oldEnd=endVocabBattleV6;endVocabBattleV6=function(reason='completed'){const a=active();const score=Number(vocabGame.score||0),total=(vocabGame.correct||0)+(vocabGame.wrong||0),acc=total?Math.round(vocabGame.correct/total*100):0,combo=Number(vocabGame.comboMax||0),boss=(vocabGame.enemyHp<=0||reason==='boss_defeated')?1:0;const out=oldEnd(reason);try{updateProgress(a,{score,acc,combo,boss,reason});}catch(e){console.warn('[VOCAB] v7.5 progress',e);}active({});return out;};
+      const oldReward=renderRewardScreenV6;renderRewardScreenV6=function(result,reward,coach){const a=active();const out=oldReward(result,reward,coach);try{appendReward(result,a);}catch(e){console.warn('[VOCAB] v7.5 reward',e);}return out;};
+
+      function updateProgress(a,res){const p=prof();const c=V75.chapters.find(x=>x.id===a.chapter);if(c){const win=res.score>=Number(a.target||target(c)),clear=res.score>=c.target&&res.acc>=c.acc;if(clear){p.clear[c.id]=true;const st=res.acc>=90&&res.score>=c.target*1.2?3:res.acc>=c.acc+8?2:1;p.stars[c.id]=Math.max(Number(p.stars[c.id]||0),st);p.xp=Number(p.xp||0)+60+st*25;badge(p,'Story Ch.'+c.n+' Clear');}if(win){p.rivalWins=Number(p.rivalWins||0)+1;p.xp=Number(p.xp||0)+45;badge(p,'Rival Slayer '+c.n);}if(a.type==='bossrush'&&res.boss){p.bossRushWins=Number(p.bossRushWins||0)+1;badge(p,'Boss Rush Survivor');}}
+        const wk=weekState();if(a.type==='weekly'||(wk.w.bank===vocabGame.bank&&wk.w.mode===vocabGame.mode)){wk.s.sessions=Number(wk.s.sessions||0)+1;wk.s.bestScore=Math.max(Number(wk.s.bestScore||0),res.score);wk.s.bestAccuracy=Math.max(Number(wk.s.bestAccuracy||0),res.acc);wk.s.bestCombo=Math.max(Number(wk.s.bestCombo||0),res.combo);if(Number(vocabGame.aiHelpUsed||0)===0)wk.s.noHelp=Number(wk.s.noHelp||0)+1;if(res.boss)wk.s.boss=Number(wk.s.boss||0)+1;if(pct(wk.w,wk.s)>=100&&!wk.s.complete){wk.s.complete=true;p.xp=Number(p.xp||0)+Number(wk.w.xp||0);badge(p,wk.w.title);try{if(typeof v74LoadProfile==='function'){const vp=v74LoadProfile();vp.coins=Number(vp.coins||0)+Number(wk.w.coins||0);v74SaveProfile(vp);}}catch(e){}}wj(wk.key,wk.s);}
+        const old=rj(V75.weakKey,[]),m={};old.forEach(x=>{if(x&&x.term)m[x.term]=x;});try{(buildWeakestTermsV6()||[]).forEach(x=>{if(x&&x.term)m[x.term]={term:x.term,meaning:x.meaning||'',count:Number(x.count||1),last:new Date().toISOString().slice(0,10)};});}catch(e){}wj(V75.weakKey,Object.values(m).sort((a,b)=>Number(b.count||0)-Number(a.count||0)).slice(0,25));saveProf(p);logVocabEventV6('v75_progress_update',{v75_score:res.score,v75_accuracy:res.acc,v75_combo:res.combo,v75_boss:defNum(res.boss),v75_xp:p.xp,v75_badges:JSON.stringify(p.badges||[])});renderMenu();}
+      function defNum(x){return x?1:0;}
+      function appendReward(result,a){const box=document.querySelector('#v6RewardPanel .v6-reward');if(!box||document.getElementById('v75Reward'))return;const p=prof(),c=V75.chapters.find(x=>x.id===a.chapter)||chapter(),wk=weekState(),win=Number(a.target||0)?Number(result.score||0)>=Number(a.target):false,clear=Number(result.score||0)>=c.target&&Number(result.accuracy||0)>=c.acc;const panel=document.createElement('div');panel.id='v75Reward';panel.className='v75-panel';panel.innerHTML=`<h3>🚀 v7.5 Story / Rival / Weekly Result</h3><div class="v75-statgrid"><div class="v75-stat"><b>Ch.${c.n}</b><span>Story</span></div><div class="v75-stat"><b>${win?'WIN':'TRY'}</b><span>Rival ${a.target||'-'}</span></div><div class="v75-stat"><b>${clear?'CLEAR':'-'}</b><span>Chapter Goal</span></div><div class="v75-stat"><b>${pct(wk.w,wk.s)}%</b><span>Weekly</span></div></div><p class="v75-muted"><b>${c.icon} ${esc(c.title)}</b>: ${esc(c.story)}</p><p class="v75-muted">Badges: ${(p.badges||[]).slice(-6).map(x=>'<span class="v75-chip">'+esc(x)+'</span>').join(' ')||'<span class="v75-chip">ยังไม่มี</span>'}</p><div class="v75-row"><button type="button" class="v75-btn" onclick="v75StartStory()">▶ Next Story Run</button><button type="button" class="v75-btn secondary" onclick="v75StartWeekly()">📅 Weekly</button><button type="button" class="v75-btn secondary" onclick="v75StartWeak()">🧠 Weak Words</button></div>`;const coach=box.querySelector('.v6-coach-box');coach?box.insertBefore(panel,coach):box.appendChild(panel);}
+      window.v75StartStory=startStory;window.v75StartWeekly=startWeekly;window.v75StartWeak=startWeak;window.v75StartBossRush=startRush;window.resetVocabCampaignV75=function(){localStorage.removeItem(V75.profileKey);localStorage.removeItem(V75.activeKey);localStorage.removeItem(V75.weakKey);Object.keys(localStorage).filter(k=>k.startsWith(V75.weekPrefix)).forEach(k=>localStorage.removeItem(k));alert('Reset Vocab v7.5 campaign data');location.reload();};
+      document.addEventListener('DOMContentLoaded',()=>{try{injectMenu();setTimeout(renderMenu,250);console.log('[VOCAB] v7.5 story campaign + rival + weekly loaded');}catch(e){console.warn('[VOCAB] v7.5 boot warning',e);}});
+    })();
+
+/* =========================================================
+   VOCAB v7.7 — AI Learning Path + Personalized Weak-Term Training
+========================================================= */
+(function(){
+  'use strict';
+  const V77 = {
+    version:'v7.7-ai-learning-path-20260429',
+    activeKey:'VOCAB_V77_ACTIVE_PATH',
+    masteryKey:'VOCAB_V77_MASTERY_MAP',
+    historyKey:'VOCAB_V77_PATH_HISTORY',
+    maxWeakTerms:10,
+    maxPracticeTerms:8
+  };
+  const $ = (id)=>document.getElementById(id);
+  const esc = (s)=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const read = (k,d)=>{try{return JSON.parse(localStorage.getItem(k)||'')||d;}catch(e){return d;}};
+  const write = (k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){console.warn('[VOCAB] v7.7 save failed',e);}};
+  function active(v){ if(v!==undefined){write(V77.activeKey,v); return v;} return read(V77.activeKey,{}); }
+  function today(){ return new Date().toISOString().slice(0,10); }
+  function termKey(s){ return String(s||'').trim().toLowerCase(); }
+  function allTerms(){
+    const banks = window.VOCAB_BANKS || (typeof VOCAB_BANKS !== 'undefined' ? VOCAB_BANKS : {});
+    const out=[];
+    Object.keys(banks||{}).forEach(bank=>{
+      (banks[bank]||[]).forEach(t=>out.push(Object.assign({},t,{bank, term:String(t.term||t.word||'').trim(), meaning:String(t.meaning||t.definition||'').trim()})));
+    });
+    return out.filter(t=>t.term && t.meaning);
+  }
+  function mastery(){
+    const m = read(V77.masteryKey,{terms:{},daily:{},updatedAt:''});
+    if(!m.terms) m.terms={};
+    if(!m.daily) m.daily={};
+    return m;
+  }
+  function saveMastery(m){ m.updatedAt=new Date().toISOString(); write(V77.masteryKey,m); }
+  function levelFor(item){
+    const seen=Number(item.seen||0), correct=Number(item.correct||0), wrong=Number(item.wrong||0), streak=Number(item.streak||0);
+    if(!seen) return {label:'New', score:0, icon:'🌱'};
+    const acc = correct / Math.max(1,seen);
+    let score = Math.round(acc*70 + Math.min(20,streak*5) - Math.min(20,wrong*4));
+    score = Math.max(0, Math.min(100, score));
+    if(score>=88 && seen>=3) return {label:'Mastered', score, icon:'🏆'};
+    if(score>=68) return {label:'Strong', score, icon:'💪'};
+    if(score>=42) return {label:'Learning', score, icon:'📘'};
+    return {label:'Weak', score, icon:'🧩'};
+  }
+  function ensureTermRecord(m, term, meta={}){
+    const key=termKey(term);
+    if(!key) return null;
+    if(!m.terms[key]){
+      m.terms[key]={term:String(term||''), meaning:meta.meaning||'', bank:meta.bank||'', seen:0, correct:0, wrong:0, streak:0, missStreak:0, lastSeen:'', stages:{}, modes:{}, aiHelp:0, avgMs:0};
+    }
+    if(meta.meaning && !m.terms[key].meaning) m.terms[key].meaning=meta.meaning;
+    if(meta.bank && !m.terms[key].bank) m.terms[key].bank=meta.bank;
+    return m.terms[key];
+  }
+  function updateMasteryFromAnswer(data){
+    const term = data.term || data.term_id || '';
+    if(!term) return;
+    const m=mastery();
+    const rec=ensureTermRecord(m, term, {meaning:data.meaning||'', bank:data.bank||''});
+    if(!rec) return;
+    const ok = String(data.is_correct)==='1' || data.is_correct===1 || data.is_correct===true;
+    const ms = Number(data.response_ms||0);
+    rec.seen += 1;
+    rec.lastSeen = new Date().toISOString();
+    rec.avgMs = rec.seen <= 1 ? ms : Math.round((Number(rec.avgMs||0)*(rec.seen-1)+ms)/rec.seen);
+    if(ok){ rec.correct += 1; rec.streak += 1; rec.missStreak = 0; }
+    else { rec.wrong += 1; rec.streak = 0; rec.missStreak = Number(rec.missStreak||0)+1; }
+    const stage = data.stage_id || data.stage || 'unknown';
+    const mode = data.mode || (typeof vocabGame !== 'undefined' ? vocabGame.mode : '') || 'unknown';
+    rec.stages[stage]=(rec.stages[stage]||0)+1;
+    rec.modes[mode]=(rec.modes[mode]||0)+1;
+    if(Number(data.ai_help_used_on_question||0)) rec.aiHelp += 1;
+    rec.level = levelFor(rec).label;
+    rec.masteryScore = levelFor(rec).score;
+    const d=today();
+    if(!m.daily[d]) m.daily[d]={answers:0,correct:0,wrong:0,weakPracticed:0};
+    m.daily[d].answers += 1; ok ? m.daily[d].correct++ : m.daily[d].wrong++;
+    const a=active();
+    if(a && a.type && ['weak_rescue','spaced_review','mastery_check','ai_path'].includes(a.type)) m.daily[d].weakPracticed += 1;
+    saveMastery(m);
+  }
+  function rankedTerms(){
+    const m=mastery();
+    const records = Object.values(m.terms||{});
+    const known = new Map(allTerms().map(t=>[termKey(t.term),t]));
+    known.forEach((t,k)=>{ if(!m.terms[k]) records.push({term:t.term,meaning:t.meaning,bank:t.bank,seen:0,correct:0,wrong:0,streak:0,masteryScore:0,level:'New'}); });
+    return records.map(r=>Object.assign({},r,{levelInfo:levelFor(r)}));
+  }
+  function weakTerms(limit=V77.maxWeakTerms){
+    return rankedTerms().sort((a,b)=>{
+      const aw = (a.wrong||0)*20 + (a.seen?0:16) + (100-(a.levelInfo?a.levelInfo.score:0)) + (a.aiHelp||0)*6;
+      const bw = (b.wrong||0)*20 + (b.seen?0:16) + (100-(b.levelInfo?b.levelInfo.score:0)) + (b.aiHelp||0)*6;
+      return bw-aw;
+    }).slice(0,limit);
+  }
+  function dueTerms(limit=V77.maxPracticeTerms){
+    const now=Date.now();
+    return rankedTerms().map(r=>{
+      const last = r.lastSeen ? new Date(r.lastSeen).getTime() : 0;
+      const ageH = last ? (now-last)/36e5 : 999;
+      const score = (100-(r.levelInfo?r.levelInfo.score:0)) + Math.min(80,ageH/2) + Number(r.wrong||0)*10;
+      return Object.assign({},r,{dueScore:score});
+    }).sort((a,b)=>b.dueScore-a.dueScore).slice(0,limit);
+  }
+  function termObjectsFrom(records){
+    const map = new Map(allTerms().map(t=>[termKey(t.term),t]));
+    const out=[];
+    (records||[]).forEach(r=>{ const t=map.get(termKey(r.term)); if(t) out.push(t); });
+    return out;
+  }
+  function pathRecommendation(){
+    const w=weakTerms(5); const due=dueTerms(5);
+    const m=mastery(); const records=Object.values(m.terms||{});
+    const answered=records.reduce((s,r)=>s+Number(r.seen||0),0);
+    const avg = records.length ? Math.round(records.reduce((s,r)=>s+(levelFor(r).score||0),0)/records.length) : 0;
+    if(!answered) return {type:'foundation', title:'Start Foundation Path', mode:'learn', diff:'easy', icon:'🌱', goal:'เริ่มสะสมคำพื้นฐาน 8–10 คำแรก', terms:due};
+    if(w.filter(x=>Number(x.wrong||0)>0 || (x.levelInfo&&x.levelInfo.label==='Weak')).length>=3) return {type:'weak_rescue', title:'Weak Word Rescue', mode:'learn', diff:'normal', icon:'🧩', goal:'ช่วยคำที่พลาดบ่อยก่อนขึ้นด่านยาก', terms:w};
+    if(avg>=70) return {type:'mastery_check', title:'Mastery Check', mode:'mission', diff:'hard', icon:'🏆', goal:'ทดสอบความแม่นด้วยโจทย์บริบทและตัวหลอก', terms:due};
+    return {type:'spaced_review', title:'Spaced Review', mode:'mission', diff:'normal', icon:'⏱️', goal:'ทบทวนคำที่ถึงเวลาฝึกซ้ำ', terms:due};
+  }
+  function setUiActive(o){
+    try{
+      if(o.mode){ VOCAB_APP.selectedMode=o.mode; document.querySelectorAll('[data-v6-mode]').forEach(b=>b.classList.toggle('active',b.dataset.v6Mode===o.mode)); if(typeof updateV66ModePreview==='function') updateV66ModePreview(); }
+      if(o.diff){ VOCAB_APP.selectedDifficulty=o.diff; document.querySelectorAll('[data-v6-diff]').forEach(b=>b.classList.toggle('active',b.dataset.v6Diff===o.diff)); if(typeof updateV6DiffPreview==='function') updateV6DiffPreview(); }
+      const firstBank = (o.terms&&o.terms[0]&&o.terms[0].bank) || VOCAB_APP.selectedBank || 'A';
+      VOCAB_APP.selectedBank=firstBank; document.querySelectorAll('[data-v6-bank]').forEach(b=>b.classList.toggle('active',b.dataset.v6Bank===firstBank));
+    }catch(e){}
+  }
+  function begin(type){
+    const rec = type==='weak_rescue' ? {type:'weak_rescue', title:'Weak Word Rescue', mode:'learn', diff:'normal', icon:'🧩', goal:'ฝึกคำที่เคยพลาดแบบเจาะจง', terms:weakTerms(V77.maxPracticeTerms)}
+      : type==='spaced_review' ? {type:'spaced_review', title:'Spaced Review', mode:'mission', diff:'normal', icon:'⏱️', goal:'ทบทวนคำที่ถึงเวลาฝึกซ้ำ', terms:dueTerms(V77.maxPracticeTerms)}
+      : type==='mastery_check' ? {type:'mastery_check', title:'Mastery Check', mode:'mission', diff:'hard', icon:'🏆', goal:'วัดความแม่นกับโจทย์บริบทและ trap', terms:dueTerms(V77.maxPracticeTerms)}
+      : pathRecommendation();
+    rec.pathId = `${rec.type}_${Date.now()}`;
+    rec.startedAt = new Date().toISOString();
+    rec.termKeys = rec.terms.map(t=>termKey(t.term));
+    active(rec);
+    setUiActive(rec);
+    try{ if(typeof logVocabEventV6==='function') logVocabEventV6('v77_learning_path_start',{v77_version:V77.version,v77_type:rec.type,v77_path_id:rec.pathId,v77_goal:rec.goal,v77_terms:rec.termKeys.join('|')}); }catch(e){}
+    startVocabBattleV6({bank:VOCAB_APP.selectedBank,difficulty:VOCAB_APP.selectedDifficulty,mode:VOCAB_APP.selectedMode});
+  }
+  function renderPanel(){
+    const grid = document.querySelector('#v6MenuPanel .v6-menu-grid');
+    if(!grid || $('v77Panel')) return;
+    const rec=pathRecommendation(); const weak=weakTerms(6); const m=mastery();
+    const records=rankedTerms();
+    const mastered=records.filter(r=>r.levelInfo&&r.levelInfo.label==='Mastered').length;
+    const learning=records.filter(r=>r.levelInfo&&['Learning','Strong'].includes(r.levelInfo.label)).length;
+    const weakN=records.filter(r=>r.levelInfo&&r.levelInfo.label==='Weak').length;
+    const p=document.createElement('section');
+    p.id='v77Panel'; p.className='v6-card v6-wide v77-panel';
+    p.innerHTML=`<h2>🧠 AI Learning Path v7.7</h2>
+      <p class="v77-sub">ระบบนี้ไม่สุ่มมั่ว แต่จะดูคำที่พลาด / คำที่ถึงเวลาทบทวน / คำที่ยังไม่ mastered แล้วสร้างเส้นทางฝึกเฉพาะตัว</p>
+      <div class="v77-grid">
+        <div class="v77-card"><b>🏆 ${mastered}</b><span>Mastered</span></div>
+        <div class="v77-card"><b>📘 ${learning}</b><span>Learning/Strong</span></div>
+        <div class="v77-card"><b>🧩 ${weakN}</b><span>Weak</span></div>
+        <div class="v77-card"><b>${rec.icon}</b><span>${esc(rec.title)}</span></div>
+      </div>
+      <div class="v77-recommend"><b>${rec.icon} Recommended:</b> ${esc(rec.title)} — ${esc(rec.goal)}</div>
+      <div class="v77-weak">${weak.map(w=>`<span class="v77-term"><b>${esc(w.term)}</b><small>${esc((w.levelInfo&&w.levelInfo.label)||'New')} • ${Number(w.levelInfo?w.levelInfo.score:0)}%</small></span>`).join('') || '<span class="v77-term"><b>ยังไม่มี weak term</b><small>เริ่มเล่นเพื่อสร้างข้อมูล</small></span>'}</div>
+      <div class="v77-actions">
+        <button type="button" class="v77-btn gold" onclick="v77StartAIPath()">🚀 Start AI Path</button>
+        <button type="button" class="v77-btn" onclick="v77StartWeakRescue()">🧩 Weak Rescue</button>
+        <button type="button" class="v77-btn" onclick="v77StartSpacedReview()">⏱️ Spaced Review</button>
+        <button type="button" class="v77-btn" onclick="v77StartMasteryCheck()">🏆 Mastery Check</button>
+        <button type="button" class="v77-btn danger" onclick="resetVocabLearningPathV77()">Reset v7.7</button>
+      </div>`;
+    const mission = Array.from(grid.querySelectorAll('.v6-card')).find(x=>/ภารกิจวันนี้/.test(x.textContent||''));
+    mission ? grid.insertBefore(p, mission) : grid.appendChild(p);
+  }
+  function renderReward(a){
+    const box=document.querySelector('#v6RewardPanel .v6-reward');
+    if(!box || $('v77Reward')) return;
+    const m=mastery(); const records=rankedTerms();
+    const avg = records.length ? Math.round(records.reduce((s,r)=>s+(r.levelInfo?r.levelInfo.score:0),0)/records.length) : 0;
+    const w=weakTerms(5);
+    const p=document.createElement('div'); p.id='v77Reward'; p.className='v77-panel v77-reward';
+    p.innerHTML=`<h3>🧠 v7.7 AI Learning Path Result</h3>
+      <div class="v77-grid">
+        <div class="v77-card"><b>${avg}%</b><span>Avg Mastery</span></div>
+        <div class="v77-card"><b>${Object.keys(m.terms||{}).length}</b><span>Terms tracked</span></div>
+        <div class="v77-card"><b>${a && a.title ? esc(a.title) : 'Free Play'}</b><span>Path</span></div>
+        <div class="v77-card"><b>${w.length}</b><span>Weak Queue</span></div>
+      </div>
+      <p style="color:var(--muted);font-weight:850;line-height:1.5">Next best move: <b>${esc(pathRecommendation().title)}</b> — ${esc(pathRecommendation().goal)}</p>
+      <div class="v77-weak">${w.map(t=>`<span class="v77-term"><b>${esc(t.term)}</b><small>${esc((t.levelInfo&&t.levelInfo.label)||'New')} • ${Number(t.levelInfo?t.levelInfo.score:0)}%</small></span>`).join('')}</div>
+      <div class="v77-actions"><button type="button" class="v77-btn gold" onclick="v77StartAIPath()">🚀 Continue AI Path</button><button type="button" class="v77-btn" onclick="v77StartWeakRescue()">🧩 Train Weak Words</button></div>`;
+    const coach=box.querySelector('.v6-coach-box'); coach ? box.insertBefore(p,coach) : box.appendChild(p);
+  }
+  function injectCss(){
+    if($('v77Style')) return;
+    const s=document.createElement('style'); s.id='v77Style';
+    s.textContent=`
+      .v77-panel{border:1px solid rgba(89,208,255,.26)!important;background:radial-gradient(circle at top left,rgba(89,208,255,.16),transparent 34%),rgba(255,255,255,.075)!important;}
+      .v77-sub{color:var(--muted);font-weight:850;line-height:1.5;margin:0 0 12px;}
+      .v77-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0;}
+      .v77-card{padding:13px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);}
+      .v77-card b{display:block;font-size:22px;line-height:1.15;overflow-wrap:anywhere;}.v77-card span{display:block;color:var(--muted);font-weight:900;font-size:12px;margin-top:5px;}
+      .v77-recommend{padding:13px;border-radius:18px;background:rgba(255,209,102,.12);border:1px solid rgba(255,209,102,.34);font-weight:900;line-height:1.45;}
+      .v77-weak{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.v77-term{display:inline-flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)}.v77-term small{color:var(--muted);font-weight:800;}
+      .v77-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.v77-btn{border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.09);color:var(--text);border-radius:999px;padding:10px 14px;font-weight:1000}.v77-btn.gold{background:linear-gradient(135deg,#ffd166,#8b5cf6);border:0;color:#fff}.v77-btn.danger{background:rgba(255,110,135,.16);border-color:rgba(255,110,135,.38)}
+      @media(max-width:720px){.v77-grid{grid-template-columns:1fr 1fr}.v77-actions{flex-direction:column}.v77-btn{width:100%}}
+    `;
+    document.head.appendChild(s);
+  }
+  function patchCore(){
+    try{ VOCAB_APP.version='v7.7-ai-learning-path-20260429'; VOCAB_APP.schema='vocab-v7.7'; VOCAB_APP.api='vocab'; VOCAB_APP.source='vocab.html'; }catch(e){}
+    if(typeof logVocabEventV6==='function'){
+      const oldLog=logVocabEventV6;
+      logVocabEventV6=function(type,data={}){
+        try{ if(type==='term_answer') updateMasteryFromAnswer(data); }catch(e){ console.warn('[VOCAB] v7.7 mastery warning',e); }
+        const a=active(); const wt=weakTerms(10);
+        return oldLog(type,Object.assign({v77_version:V77.version,v77_type:a.type||'',v77_path_id:a.pathId||'',v77_goal:a.goal||'',v77_weak_terms_count:wt.length,v77_mastery_schema:'srs-local-v1'},data||{}));
+      };
+    }
+    if(typeof getTermsForBankV6==='function'){
+      const oldGet=getTermsForBankV6;
+      getTermsForBankV6=function(bank){
+        const a=active();
+        if(a && a.type && Array.isArray(a.termKeys) && a.termKeys.length){
+          const selected=termObjectsFrom(a.termKeys.map(k=>({term:k}))); const base=oldGet(bank)||[]; const extra=allTerms().slice(0,20);
+          const seen=new Set();
+          return selected.concat(base,extra).filter(t=>{const k=termKey(t.term); if(!k||seen.has(k)) return false; seen.add(k); return true;});
+        }
+        return oldGet(bank);
+      };
+    }
+    if(typeof pickNextTermV61==='function'){
+      const oldPick=pickNextTermV61;
+      pickNextTermV61=function(terms){
+        const a=active();
+        if(a && a.type && Array.isArray(a.termKeys) && a.termKeys.length && Math.random()<0.78){
+          const pool=(terms||[]).filter(t=>a.termKeys.includes(termKey(t.term))).filter(Boolean);
+          if(pool.length) return pool[Math.floor(Math.random()*pool.length)];
+        }
+        return oldPick(terms);
+      };
+    }
+    if(typeof buildQuestionV6==='function'){
+      const oldBuild=buildQuestionV6;
+      buildQuestionV6=function(stage){
+        const q=oldBuild(stage); const a=active();
+        if(a && a.type && q && q.prompt){
+          if(a.type==='weak_rescue') q.prompt='Weak Word Rescue: '+q.prompt;
+          if(a.type==='spaced_review') q.prompt='Spaced Review: '+q.prompt;
+          if(a.type==='mastery_check') q.prompt='Mastery Check: '+q.prompt;
+          if(a.type==='foundation') q.prompt='Foundation Path: '+q.prompt;
+        }
+        return q;
+      };
+    }
+    if(typeof startVocabBattleV6==='function'){
+      const oldStart=startVocabBattleV6;
+      startVocabBattleV6=function(o={}){ const a=active(); if(a&&a.type){ try{logVocabEventV6('v77_path_session_start',{v77_type:a.type,v77_path_id:a.pathId||'',v77_terms:(a.termKeys||[]).join('|')});}catch(e){} } return oldStart(o); };
+    }
+    if(typeof endVocabBattleV6==='function'){
+      const oldEnd=endVocabBattleV6;
+      endVocabBattleV6=function(reason='completed'){
+        const a=active(); const out=oldEnd(reason);
+        try{ renderReward(a); const hist=read(V77.historyKey,[]); hist.push({at:new Date().toISOString(),type:a.type||'free',pathId:a.pathId||'',reason,weakCount:weakTerms(10).length}); write(V77.historyKey,hist.slice(-100)); if(a&&a.type) active({}); }catch(e){console.warn('[VOCAB] v7.7 reward warning',e);}
+        return out;
+      };
+    }
+  }
+  window.v77StartAIPath=()=>begin('ai_path');
+  window.v77StartWeakRescue=()=>begin('weak_rescue');
+  window.v77StartSpacedReview=()=>begin('spaced_review');
+  window.v77StartMasteryCheck=()=>begin('mastery_check');
+  window.resetVocabLearningPathV77=function(){ localStorage.removeItem(V77.masteryKey); localStorage.removeItem(V77.activeKey); localStorage.removeItem(V77.historyKey); alert('Reset Vocab v7.7 AI Learning Path data'); location.reload(); };
+  document.addEventListener('DOMContentLoaded',function(){
+    try{ injectCss(); patchCore(); setTimeout(renderPanel,350); console.log('[VOCAB] v7.7 AI Learning Path loaded'); }
+    catch(e){ console.warn('[VOCAB] v7.7 boot warning',e); }
+  });
+})();
+
+
+  </script>
+
+  <script>
+/* =========================================================
+   VOCAB v7.6 — Multiplayer Class Event + Team Battle + Teacher Live Mission
+   Async multiplayer via Sheet logging + local classroom board fallback.
+========================================================= */
+(function(){
+  'use strict';
+
+  const V76 = {
+    version: 'v7.6-multiplayer-class-team-live-20260429',
+    activeKey: 'VOCAB_V76_ACTIVE',
+    profileKey: 'VOCAB_V76_PROFILE',
+    boardPrefix: 'VOCAB_V76_BOARD_',
+    teams: [
+      { id:'red', icon:'🟥', name:'Red Syntax' },
+      { id:'blue', icon:'🟦', name:'Blue Data' },
+      { id:'green', icon:'🟩', name:'Green Debug' },
+      { id:'gold', icon:'🟨', name:'Gold AI' }
+    ],
+    missions: {
+      'DEBUG-MASTER': {
+        code:'DEBUG-MASTER', title:'Debug Master Live', icon:'🐞',
+        bank:'A', difficulty:'hard', mode:'speed', target:950, accuracy:75, combo:5,
+        goal:'แข่งแก้ bug ด้วยความเร็วและความแม่นยำ'
+      },
+      'AI-SPRINT': {
+        code:'AI-SPRINT', title:'AI/Data Sprint', icon:'🤖',
+        bank:'B', difficulty:'hard', mode:'speed', target:1050, accuracy:78, combo:6,
+        goal:'คำศัพท์ AI/Data แบบเร็วและหลอกมากขึ้น'
+      },
+      'CLIENT-CRISIS': {
+        code:'CLIENT-CRISIS', title:'Client Deadline Crisis', icon:'💼',
+        bank:'C', difficulty:'challenge', mode:'mission', target:1150, accuracy:80, combo:5,
+        goal:'อ่านสถานการณ์งานจริง แล้วเลือกคำให้เหมาะที่สุด'
+      },
+      'BOSS-RUSH': {
+        code:'BOSS-RUSH', title:'Boss Rush Live', icon:'💀',
+        bank:'B', difficulty:'challenge', mode:'bossrush', target:1450, accuracy:82, combo:7, boss:1,
+        goal:'บอสต่อเนื่อง คะแนนสูง เหมาะกับ leaderboard สดในชั้นเรียน'
+      },
+      'NO-HELP': {
+        code:'NO-HELP', title:'No AI Help Honor', icon:'🏅',
+        bank:'A', difficulty:'normal', mode:'learn', target:750, accuracy:80, combo:4, noHelp:1,
+        goal:'ฝึกความมั่นใจ ไม่ใช้ AI Help เพื่อรับ honor bonus'
+      }
+    }
+  };
+
+  function esc(s){
+    try{ return escapeHtmlV6(s); }catch(e){
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+  }
+  function id(x){ try{return byId(x);}catch(e){return document.getElementById(x);} }
+  function rj(k, f){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; }catch(e){ return f; } }
+  function wj(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  function today(){ return new Date().toISOString().slice(0,10); }
+  function param(k,d=''){
+    try{ return new URL(location.href).searchParams.get(k) || d; }catch(e){ return d; }
+  }
+  function normCode(s){ return String(s || '').trim().toUpperCase().replace(/\s+/g,'-') || 'DEBUG-MASTER'; }
+  function mission(code){ return V76.missions[normCode(code)] || V76.missions['DEBUG-MASTER']; }
+  function teamById(t){ return V76.teams.find(x => x.id === t) || V76.teams[0]; }
+  function getStudentSafe(){ try{return getStudentContextV63();}catch(e){return {display_name:'Hero',student_id:'anon',section:'',session_code:''};} }
+  function profile(){
+    const p = rj(V76.profileKey, {});
+    if(!p.team) p.team = param('team','red');
+    if(!p.eventId) p.eventId = param('eventId','CLASS-'+today());
+    if(!p.missionCode) p.missionCode = normCode(param('missionCode', param('mission','DEBUG-MASTER')));
+    if(!p.history) p.history = [];
+    return p;
+  }
+  function saveProfile(p){ wj(V76.profileKey, p || profile()); }
+  function active(v){ if(arguments.length){ wj(V76.activeKey, v || {}); return v || {}; } return rj(V76.activeKey, {}); }
+  function boardKey(eventId){ return V76.boardPrefix + String(eventId || 'CLASS-'+today()); }
+  function board(eventId){
+    const b = rj(boardKey(eventId), null) || {
+      eventId: eventId || 'CLASS-'+today(),
+      updatedAt: new Date().toISOString(),
+      teams: {},
+      rows: []
+    };
+    V76.teams.forEach(t => { if(!b.teams[t.id]) b.teams[t.id] = { team:t.id, score:0, fairScore:0, sessions:0, bestScore:0, accuracySum:0, accuracyAvg:0, noHelp:0, boss:0 }; });
+    return b;
+  }
+  function saveBoard(b){ b.updatedAt = new Date().toISOString(); wj(boardKey(b.eventId), b); }
+  function teamRank(b, team){
+    const rows = Object.values(b.teams || {}).sort((a,c)=>Number(c.fairScore||c.score||0)-Number(a.fairScore||a.score||0));
+    const idx = rows.findIndex(x => x.team === team);
+    return idx >= 0 ? idx + 1 : '-';
+  }
+
+  function css(){
+    if(id('v76Style')) return;
+    const st = document.createElement('style');
+    st.id = 'v76Style';
+    st.textContent = `
+      .v76-live{border:1px solid rgba(89,208,255,.35);background:radial-gradient(circle at 0 0,rgba(89,208,255,.18),transparent 34%),rgba(255,255,255,.08);}
+      .v76-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;align-items:stretch}.v76-box{padding:14px;border-radius:20px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);line-height:1.45;color:var(--muted);font-weight:850}.v76-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.v76-input,.v76-select{min-height:46px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--text);padding:10px 12px;font:inherit;font-weight:900;outline:none}.v76-input{flex:1;min-width:170px}.v76-select{flex:1;min-width:160px}.v76-btn{border:0;border-radius:18px;min-height:46px;padding:11px 14px;background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;font-weight:1000}.v76-btn.secondary{background:rgba(255,255,255,.1);border:1px solid var(--line)}.v76-btn.gold{background:linear-gradient(135deg,#ffd166,#ff8f5f);color:#231}.v76-chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:7px 10px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);font-weight:950;font-size:12px;color:var(--text)}.v76-teams{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}.v76-team{padding:10px;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);text-align:center;font-weight:1000;color:var(--text)}.v76-team.active{border-color:rgba(255,209,102,.8);background:rgba(255,209,102,.15)}.v76-team b{display:block;font-size:20px}.v76-team small{display:block;color:var(--muted);margin-top:4px;font-weight:850}.v76-score{font-size:28px;letter-spacing:-.04em}.v76-board-row{display:grid;grid-template-columns:48px 1fr 86px 72px;gap:8px;align-items:center;border-bottom:1px solid rgba(255,255,255,.1);padding:9px 0}.v76-board-row:last-child{border-bottom:0}.v76-mission-card{border-radius:18px;padding:12px;background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.38);color:var(--muted);font-weight:850}.v76-panel{margin-top:16px;padding:16px;border-radius:22px;background:rgba(255,255,255,.08);border:1px solid var(--line);text-align:left}.v76-statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.v76-stat{padding:12px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)}.v76-stat b{display:block;font-size:22px}.v76-stat span{display:block;margin-top:4px;color:var(--muted);font-size:12px;font-weight:900}@media(max-width:900px){.v76-grid{grid-template-columns:1fr}.v76-teams{grid-template-columns:1fr 1fr}.v76-statgrid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.v76-teams,.v76-statgrid{grid-template-columns:1fr}.v76-board-row{grid-template-columns:38px 1fr 70px}.v76-hide-sm{display:none}}
+    `;
+    document.head.appendChild(st);
+  }
+
+  function selectPreset(m){
+    try{
+      VOCAB_APP.selectedBank = m.bank;
+      VOCAB_APP.selectedDifficulty = m.difficulty;
+      VOCAB_APP.selectedMode = m.mode;
+      document.querySelectorAll('[data-v6-bank]').forEach(b => b.classList.toggle('active', b.dataset.v6Bank === m.bank));
+      document.querySelectorAll('[data-v6-diff]').forEach(b => b.classList.toggle('active', b.dataset.v6Diff === m.difficulty));
+      document.querySelectorAll('[data-v6-mode]').forEach(b => b.classList.toggle('active', b.dataset.v6Mode === m.mode));
+      updateV6DiffPreview(); updateV66ModePreview(); updateV6BankLabel();
+    }catch(e){}
+  }
+  function readUi(){
+    const p = profile();
+    const team = (id('v76Team') && id('v76Team').value) || p.team || 'red';
+    const eventId = (id('v76Event') && id('v76Event').value.trim()) || p.eventId || ('CLASS-'+today());
+    const code = normCode((id('v76MissionCode') && id('v76MissionCode').value) || p.missionCode);
+    p.team = team; p.eventId = eventId; p.missionCode = code; saveProfile(p);
+    return { team, eventId, code, mission: mission(code) };
+  }
+  function renderBoard(){
+    const box = id('v76Board');
+    if(!box) return;
+    const p = profile();
+    const eventId = (id('v76Event') && id('v76Event').value.trim()) || p.eventId || ('CLASS-'+today());
+    const b = board(eventId);
+    const rows = Object.values(b.teams || {}).sort((a,c)=>Number(c.fairScore||c.score||0)-Number(a.fairScore||a.score||0));
+    box.innerHTML = rows.map((r,i)=>{
+      const t = teamById(r.team);
+      const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
+      return `<div class="v76-board-row"><div><b>${medal}</b></div><div>${t.icon} <b>${esc(t.name)}</b><br><small>${Number(r.sessions||0)} runs • avg ${Number(r.accuracyAvg||0)}%</small></div><div class="v76-score">${Number(r.fairScore||r.score||0)}</div><div class="v76-hide-sm"><span class="v76-chip">best ${Number(r.bestScore||0)}</span></div></div>`;
+    }).join('');
+    document.querySelectorAll('.v76-team').forEach(el => el.classList.toggle('active', el.dataset.team === p.team));
+  }
+  function renderMission(){
+    const ui = readUi();
+    const m = ui.mission;
+    const box = id('v76MissionPreview');
+    if(box){
+      box.innerHTML = `${m.icon} <b>${esc(m.title)}</b><br>${esc(m.goal)}<br><span class="v76-chip">${m.bank}</span> <span class="v76-chip">${m.difficulty}</span> <span class="v76-chip">${m.mode}</span> <span class="v76-chip">target ${m.target}</span> <span class="v76-chip">acc ${m.accuracy}%</span>`;
+    }
+    renderBoard();
+  }
+  function setTeam(team){ const p=profile(); p.team=team; saveProfile(p); const sel=id('v76Team'); if(sel)sel.value=team; renderBoard(); }
+
+  function injectMenu(){
+    css();
+    const menu = document.querySelector('#v6MenuPanel .v6-menu-grid');
+    if(!menu || id('v76ClassEvent')) return;
+    const p = profile();
+    const sec = document.createElement('section');
+    sec.id = 'v76ClassEvent';
+    sec.className = 'v6-card v6-wide v76-live';
+    sec.innerHTML = `
+      <h2>🌐 v7.6 Multiplayer Class Event / Team Battle / Teacher Live Mission</h2>
+      <div class="v76-grid">
+        <div class="v76-box">
+          <div class="v76-row" style="margin-bottom:10px">
+            <input id="v76Event" class="v76-input" placeholder="Event ID เช่น VOCAB-WEEK3" value="${esc(p.eventId || 'CLASS-'+today())}">
+            <input id="v76MissionCode" class="v76-input" placeholder="Mission Code เช่น BOSS-RUSH" value="${esc(p.missionCode || 'DEBUG-MASTER')}">
+            <select id="v76Team" class="v76-select">
+              ${V76.teams.map(t=>`<option value="${t.id}" ${p.team===t.id?'selected':''}>${t.icon} ${esc(t.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div id="v76MissionPreview" class="v76-mission-card"></div>
+          <div class="v76-row" style="margin-top:12px">
+            <button id="v76StartLive" type="button" class="v76-btn gold">📡 Start Teacher Live</button>
+            <button id="v76StartTeam" type="button" class="v76-btn">⚔️ Team Battle</button>
+            <button id="v76StartClass" type="button" class="v76-btn secondary">🏫 Class Event</button>
+            <button id="v76Copy" type="button" class="v76-btn secondary">🔗 Copy Join Link</button>
+          </div>
+          <div class="v76-teams">
+            ${V76.teams.map(t=>`<button type="button" class="v76-team" data-team="${t.id}"><b>${t.icon}</b>${esc(t.name)}<small>tap to join</small></button>`).join('')}
+          </div>
+        </div>
+        <div class="v76-box">
+          <div class="v76-row" style="justify-content:space-between;margin-bottom:8px"><span class="v76-chip">Live Team Board</span><span class="v76-chip">local + Sheet log</span></div>
+          <div id="v76Board"></div>
+          <p style="margin:10px 0 0;color:var(--muted);font-size:13px">หมายเหตุ: หน้าเกมแสดงกระดานทีมแบบ local fallback ส่วนข้อมูลทั้งห้องจะรวมจริงใน Google Sheet / teacher dashboard จาก log v76</p>
+        </div>
+      </div>
+    `;
+    const missionCard = [...menu.children].find(x => x.querySelector && x.querySelector('#v6StartBtn'));
+    missionCard ? menu.insertBefore(sec, missionCard) : menu.appendChild(sec);
+
+    id('v76Team').onchange = () => setTeam(id('v76Team').value);
+    id('v76MissionCode').oninput = renderMission;
+    id('v76Event').oninput = renderMission;
+    document.querySelectorAll('.v76-team').forEach(btn => btn.onclick = () => setTeam(btn.dataset.team));
+    id('v76StartLive').onclick = startLive;
+    id('v76StartTeam').onclick = startTeam;
+    id('v76StartClass').onclick = startClass;
+    id('v76Copy').onclick = copyJoinLink;
+    renderMission();
+  }
+
+  function startWith(type){
+    const ui = readUi();
+    const m = ui.mission;
+    selectPreset(m);
+    active({ type, eventId:ui.eventId, team:ui.team, missionCode:ui.code, mission:m, startedAt:new Date().toISOString() });
+    try{ showFloatingTextV6(type === 'teacher_live' ? '📡 LIVE MISSION!' : type === 'team_battle' ? '⚔️ TEAM BATTLE!' : '🏫 CLASS EVENT!', 'stage'); }catch(e){}
+    logSafe('v76_live_start', { v76_type:type, v76_event_id:ui.eventId, v76_team:ui.team, v76_mission_code:ui.code, v76_mission_title:m.title, v76_target:m.target });
+    return startVocabBattleV6({ bank:m.bank, difficulty:m.difficulty, mode:m.mode });
+  }
+  function startLive(){ return startWith('teacher_live'); }
+  function startTeam(){ const ui=readUi(); active({type:'team_battle', eventId:ui.eventId, team:ui.team, missionCode:ui.code, mission:ui.mission, startedAt:new Date().toISOString()}); logSafe('v76_team_start',{v76_event_id:ui.eventId,v76_team:ui.team,v76_mission_code:ui.code}); return startVocabBattleV6({bank:VOCAB_APP.selectedBank,difficulty:VOCAB_APP.selectedDifficulty,mode:VOCAB_APP.selectedMode}); }
+  function startClass(){ return startWith('class_event'); }
+  function copyJoinLink(){
+    const ui = readUi();
+    try{
+      const u = new URL(location.href);
+      u.searchParams.set('eventId', ui.eventId);
+      u.searchParams.set('missionCode', ui.code);
+      u.searchParams.set('team', ui.team);
+      navigator.clipboard.writeText(u.toString()).then(()=>{ try{showFloatingTextV6('🔗 Link copied','stage');}catch(e){alert('Copied');} });
+    }catch(e){ alert('Copy not available'); }
+  }
+  function logSafe(type,data){ try{ if(typeof logVocabEventV6==='function') logVocabEventV6(type, data||{}); }catch(e){} }
+  function calcFair(score, assisted){ return assisted ? Math.round(Number(score||0)*0.95) : Number(score||0); }
+  function updateBoard(run, res){
+    if(!run || !run.type) return null;
+    const b = board(run.eventId);
+    const team = run.team || 'red';
+    const assisted = Number(res.aiHelpUsed||0) > 0;
+    const fair = calcFair(res.score, assisted);
+    const t = b.teams[team] || {team,score:0,fairScore:0,sessions:0,bestScore:0,accuracySum:0,accuracyAvg:0,noHelp:0,boss:0};
+    t.score = Number(t.score||0) + Number(res.score||0);
+    t.fairScore = Number(t.fairScore||0) + fair;
+    t.sessions = Number(t.sessions||0) + 1;
+    t.bestScore = Math.max(Number(t.bestScore||0), Number(res.score||0));
+    t.accuracySum = Number(t.accuracySum||0) + Number(res.accuracy||0);
+    t.accuracyAvg = t.sessions ? Math.round(t.accuracySum / t.sessions) : 0;
+    if(!assisted) t.noHelp = Number(t.noHelp||0)+1;
+    if(res.bossDefeated) t.boss = Number(t.boss||0)+1;
+    b.teams[team] = t;
+    b.rows.push(Object.assign({
+      timestamp: new Date().toISOString(),
+      team,
+      eventId: run.eventId,
+      missionCode: run.missionCode,
+      type: run.type,
+      fairScore: fair
+    }, getStudentSafe(), res));
+    b.rows = b.rows.slice(-200);
+    saveBoard(b);
+    return { board:b, team:t, rank:teamRank(b, team), fairScore:fair };
+  }
+  function missionResult(run,res){
+    const m = run && run.mission ? run.mission : mission(run && run.missionCode);
+    const passScore = Number(res.score||0) >= Number(m.target||0);
+    const passAcc = Number(res.accuracy||0) >= Number(m.accuracy||0);
+    const passCombo = !m.combo || Number(res.comboMax||0) >= Number(m.combo||0);
+    const passBoss = !m.boss || !!res.bossDefeated;
+    const passNoHelp = !m.noHelp || Number(res.aiHelpUsed||0) === 0;
+    return { pass: passScore && passAcc && passCombo && passBoss && passNoHelp, passScore, passAcc, passCombo, passBoss, passNoHelp, mission:m };
+  }
+  function appendReward(run,res,upd){
+    const box = document.querySelector('#v6RewardPanel .v6-reward');
+    if(!box || id('v76Reward')) return;
+    const mr = missionResult(run,res);
+    const t = teamById(run.team || 'red');
+    const p = document.createElement('div');
+    p.id = 'v76Reward';
+    p.className = 'v76-panel';
+    p.innerHTML = `<h3>🌐 v7.6 Class / Team / Live Mission Result</h3>
+      <div class="v76-statgrid">
+        <div class="v76-stat"><b>${t.icon}</b><span>${esc(t.name)}</span></div>
+        <div class="v76-stat"><b>#${upd && upd.rank ? upd.rank : '-'}</b><span>Team Rank</span></div>
+        <div class="v76-stat"><b>${upd ? Number(upd.fairScore||0) : 0}</b><span>Your Fair Score</span></div>
+        <div class="v76-stat"><b>${mr.pass ? 'PASS' : 'TRY'}</b><span>${esc(mr.mission.code)}</span></div>
+      </div>
+      <p style="color:var(--muted);font-weight:850;line-height:1.5"><b>${mr.mission.icon} ${esc(mr.mission.title)}</b>: ${esc(mr.mission.goal)}</p>
+      <div class="v76-row">
+        <span class="v76-chip">Score ${Number(res.score||0)}/${Number(mr.mission.target||0)}</span>
+        <span class="v76-chip">Acc ${Number(res.accuracy||0)}%/${Number(mr.mission.accuracy||0)}%</span>
+        <span class="v76-chip">Combo ${Number(res.comboMax||0)}/${Number(mr.mission.combo||0)}</span>
+        <span class="v76-chip">${Number(res.aiHelpUsed||0) ? '🤖 Assisted' : '🏅 No Help'}</span>
+      </div>
+      <div class="v76-row" style="margin-top:12px"><button type="button" class="v76-btn gold" onclick="v76StartLiveMission()">📡 Retry Live</button><button type="button" class="v76-btn secondary" onclick="v76StartTeamBattle()">⚔️ Team Battle</button></div>`;
+    const coach = box.querySelector('.v6-coach-box');
+    coach ? box.insertBefore(p, coach) : box.appendChild(p);
+  }
+
+  function patchCore(){
+    try{ VOCAB_APP.version = V76.version; VOCAB_APP.schema = 'vocab-v7.6'; VOCAB_APP.api = 'vocab'; VOCAB_APP.source = 'vocab.html'; }catch(e){}
+    const oldLog = logVocabEventV6;
+    logVocabEventV6 = function(type, data={}){
+      const a = active();
+      const ui = (()=>{try{return readUi();}catch(e){return {team:(a.team||''),eventId:(a.eventId||''),code:(a.missionCode||'')}}})();
+      return oldLog(type, Object.assign({
+        v76_version: V76.version,
+        v76_type: a.type || '',
+        v76_event_id: a.eventId || ui.eventId || '',
+        v76_team: a.team || ui.team || '',
+        v76_mission_code: a.missionCode || ui.code || '',
+        v76_mission_title: (a.mission && a.mission.title) || ''
+      }, data || {}));
+    };
+    const oldStart = startVocabBattleV6;
+    startVocabBattleV6 = function(o={}){
+      const a = active();
+      if(!a.type){
+        const ui = readUi();
+        active({type:'free', eventId:ui.eventId, team:ui.team, missionCode:ui.code, mission:ui.mission, startedAt:new Date().toISOString()});
+      }
+      return oldStart(o);
+    };
+    const oldEnd = endVocabBattleV6;
+    endVocabBattleV6 = function(reason='completed'){
+      const a = active();
+      const total = Number(vocabGame.correct||0) + Number(vocabGame.wrong||0);
+      const res = {
+        score: Number(vocabGame.score||0),
+        accuracy: total ? Math.round(Number(vocabGame.correct||0) / total * 100) : 0,
+        comboMax: Number(vocabGame.comboMax||0),
+        correct: Number(vocabGame.correct||0),
+        wrong: Number(vocabGame.wrong||0),
+        aiHelpUsed: Number(vocabGame.aiHelpUsed||0),
+        bossDefeated: vocabGame.enemyHp <= 0 || reason === 'boss_defeated',
+        reason
+      };
+      const out = oldEnd(reason);
+      try{
+        const upd = updateBoard(a,res);
+        const mr = missionResult(a,res);
+        logVocabEventV6('v76_team_result', {
+          v76_score: res.score,
+          v76_fair_score: upd ? upd.fairScore : calcFair(res.score, res.aiHelpUsed>0),
+          v76_accuracy: res.accuracy,
+          v76_combo: res.comboMax,
+          v76_boss_defeated: res.bossDefeated ? 1 : 0,
+          v76_team_rank: upd ? upd.rank : '',
+          v76_mission_pass: mr.pass ? 1 : 0,
+          v76_pass_score: mr.passScore ? 1 : 0,
+          v76_pass_acc: mr.passAcc ? 1 : 0,
+          v76_pass_combo: mr.passCombo ? 1 : 0,
+          v76_pass_boss: mr.passBoss ? 1 : 0,
+          v76_pass_no_help: mr.passNoHelp ? 1 : 0
+        });
+        appendReward(a,res,upd);
+        renderBoard();
+      }catch(e){ console.warn('[VOCAB] v7.6 result warning', e); }
+      active({});
+      return out;
+    };
+  }
+
+  window.v76StartLiveMission = startLive;
+  window.v76StartTeamBattle = startTeam;
+  window.v76StartClassEvent = startClass;
+  window.resetVocabMultiplayerV76 = function(){
+    localStorage.removeItem(V76.activeKey);
+    localStorage.removeItem(V76.profileKey);
+    Object.keys(localStorage).filter(k=>k.startsWith(V76.boardPrefix)).forEach(k=>localStorage.removeItem(k));
+    alert('Reset Vocab v7.6 multiplayer/class event data');
+    location.reload();
+  };
+
+  document.addEventListener('DOMContentLoaded', function(){
+    try{ patchCore(); injectMenu(); setTimeout(renderMission, 300); console.log('[VOCAB] v7.6 class event + team battle + teacher live loaded'); }
+    catch(e){ console.warn('[VOCAB] v7.6 boot warning', e); }
+  });
+})();
+
   </script>
 </body>
 </html>
