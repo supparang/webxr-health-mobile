@@ -840,6 +840,25 @@
       <div class="panel section" style="box-shadow:none;margin:12px 0">
         <div class="head">
           <div>
+            <h2>Teacher Recommendation</h2>
+            <p>ระบบช่วยสรุปว่าครูควรติดตามนักศึกษาคนนี้อย่างไร</p>
+          </div>
+        </div>
+
+        <div id="dTeacherRecommendation" class="miniCard">
+          <div class="miniCardTop">
+            <div>
+              <h3>Loading...</h3>
+              <p>กำลังวิเคราะห์ข้อมูลรายบุคคล</p>
+            </div>
+            <span class="badge info">AI Summary</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section" style="box-shadow:none;margin:12px 0">
+        <div class="head">
+          <div>
             <h2>S1–S15 Progress</h2>
             <p>เขียว = completed, เหลือง = started/in progress, แดง = need support</p>
           </div>
@@ -908,7 +927,7 @@
       'studentCountBadge','studentRows','supportList','sessionOverview',
       'recentSessionRows','recentEventsList','footerStatus',
       'studentModal','modalTitle','modalSub','closeModalBtn',
-      'dCompleted','dAvgScore','dActive','dStatus','dStageGrid','dSessionRows'
+      'dCompleted','dAvgScore','dActive','dStatus','dTeacherRecommendation','dStageGrid','dSessionRows'
     ];
 
     ids.forEach(function(id){
@@ -943,16 +962,13 @@
 
     function fmtMin(sec){
       sec = num(sec);
-
       if(sec < 60) return sec + 's';
-
       return Math.round(sec / 60) + 'm';
     }
 
     function sessionNoOf(r){
       const raw = String(r.sessionNo || r.lessonId || '').trim();
       const m = raw.match(/S?0?([1-9]|1[0-5])/i);
-
       return m ? Number(m[1]) : 0;
     }
 
@@ -969,7 +985,6 @@
       if(completed === 0 && active < 60) return {text:'Need Start',cls:'bad'};
       if(avg > 0 && avg < 70) return {text:'Need Support',cls:'bad'};
       if(completed < 3) return {text:'In Progress',cls:'warn'};
-
       return {text:'OK',cls:'ok'};
     }
 
@@ -1387,6 +1402,117 @@
       }).join('');
     }
 
+    function buildTeacherRecommendation(stu, rows){
+      const completed = num(stu.completed || 0);
+      const avg = num(stu.avgScore || 0);
+      const active = num(stu.totalActiveTimeSec || 0);
+
+      const completedRows = rows.filter(function(r){
+        return bool(r.completed);
+      });
+
+      const startedRows = rows.filter(function(r){
+        return !bool(r.completed) && (
+          num(r.durationSec) > 0 ||
+          num(r.activeTimeSec) > 0 ||
+          num(r.actionsCount) > 0
+        );
+      });
+
+      const weakSessions = rows.filter(function(r){
+        return bool(r.completed) && num(r.score) > 0 && num(r.score) < 70;
+      });
+
+      const noScoreCompleted = rows.filter(function(r){
+        return bool(r.completed) && num(r.score) <= 0;
+      });
+
+      let level = 'info';
+      let title = 'Monitor Progress';
+      let reason = 'มีข้อมูลการเข้าใช้งานแล้ว ควรติดตามความต่อเนื่องของการเรียน';
+      let action = 'ให้ผู้เรียนทำต่อเนื่องตามลำดับ S1–S15 และ refresh dashboard หลังจบ session';
+      let focus = 'General progress';
+
+      if(completed === 0 && rows.length === 0){
+        level = 'bad';
+        title = 'No Learning Data Yet';
+        reason = 'ยังไม่พบข้อมูล session ของนักศึกษาคนนี้';
+        action = 'ให้ผู้เรียนเปิด lesson.html ใส่ Student ID / Name และเริ่มเล่น S1 อย่างน้อย 1 รอบ';
+        focus = 'Start first session';
+      }else if(completed === 0 && startedRows.length > 0){
+        level = 'bad';
+        title = 'Started but Not Completed';
+        reason = 'มีข้อมูลเริ่มเล่นแล้ว แต่ยังไม่มี session_end ที่ completed=true';
+        action = 'ให้ผู้เรียนเล่นให้จบ 1 session และตรวจว่า lesson.html ส่ง score / completed / durationSec ครบ';
+        focus = 'Complete one session';
+      }else if(noScoreCompleted.length > 0){
+        level = 'warn';
+        title = 'Completed but Score Missing';
+        reason = 'มี session ที่จบแล้วแต่คะแนนยังเป็น 0';
+        action = 'ตรวจ patch lesson.html ฝั่ง sendLog(session_end) ให้ส่ง score, durationSec, activeTimeSec, actionsCount';
+        focus = 'Logging quality';
+      }else if(avg > 0 && avg < 70){
+        level = 'bad';
+        title = 'Need Support';
+        reason = 'คะแนนเฉลี่ยต่ำกว่า 70';
+        action = 'ให้ทบทวน session ที่คะแนนต่ำ และใช้ AI Help แบบมีเป้าหมาย ไม่ใช่กดดูเฉลยทันที';
+        focus = 'Low score support';
+      }else if(weakSessions.length > 0){
+        level = 'warn';
+        title = 'Some Weak Sessions';
+        reason = 'มีบาง session ที่คะแนนต่ำกว่า 70';
+        action = 'เปิดดู S ที่คะแนนต่ำ แล้วให้ฝึกซ้ำเฉพาะทักษะนั้น เช่น Listening keyword / Speaking pronunciation / Writing short answer';
+        focus = 'Targeted practice';
+      }else if(completed >= 15){
+        level = 'ok';
+        title = 'Completed All Missions';
+        reason = 'ผู้เรียนทำครบ S1–S15 แล้ว';
+        action = 'ให้ทำ reflection หรือ final speaking/writing task เพื่อสรุปสิ่งที่เรียนรู้';
+        focus = 'Extension task';
+      }else if(completed >= 5){
+        level = 'ok';
+        title = 'Good Progress';
+        reason = 'ผู้เรียนมีความคืบหน้าดีและมี session completed หลายรายการ';
+        action = 'ให้เรียนต่อจาก S ถัดไป และติดตามคะแนนเฉลี่ยในแต่ละทักษะ';
+        focus = 'Continue next mission';
+      }
+
+      return {
+        level: level,
+        title: title,
+        reason: reason,
+        action: action,
+        focus: focus,
+        completedRows: completedRows.length,
+        startedRows: startedRows.length,
+        weakSessions: weakSessions.map(function(r){
+          return 'S' + String(sessionNoOf(r)).padStart(2,'0');
+        })
+      };
+    }
+
+    function renderTeacherRecommendation(stu, rows){
+      if(!els.dTeacherRecommendation) return;
+
+      const rec = buildTeacherRecommendation(stu, rows);
+
+      els.dTeacherRecommendation.innerHTML =
+        '<div class="miniCardTop">' +
+          '<div>' +
+            '<h3>' + esc(rec.title) + '</h3>' +
+            '<p><b>Focus:</b> ' + esc(rec.focus) + '</p>' +
+          '</div>' +
+          '<span class="badge ' + rec.level + '">Teacher Action</span>' +
+        '</div>' +
+        '<p><b>Reason:</b> ' + esc(rec.reason) + '</p>' +
+        '<p><b>Recommended action:</b> ' + esc(rec.action) + '</p>' +
+        '<p class="smallMuted">' +
+          'Completed rows: ' + rec.completedRows +
+          ' • Started rows: ' + rec.startedRows +
+          (rec.weakSessions.length ? ' • Weak: ' + esc(rec.weakSessions.join(', ')) : '') +
+        '</p>';
+    }
+
     function openStudent(key){
       const stu = CURRENT_STUDENTS.find(function(s){
         const k =
@@ -1414,6 +1540,7 @@
       els.dActive.textContent = fmtMin(stu.totalActiveTimeSec || 0);
       els.dStatus.textContent = status.text;
 
+      renderTeacherRecommendation(stu, rows);
       renderStudentStages(rows);
       renderStudentSessions(rows);
 
@@ -1427,7 +1554,6 @@
         const s = sessionNoOf(r);
 
         if(!s) return;
-
         if(!byS[s]) byS[s] = [];
 
         byS[s].push(r);
