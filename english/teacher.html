@@ -733,7 +733,7 @@
                   <th>Student</th>
                   <th>Section</th>
                   <th>Progress</th>
-                  <th>Avg Score</th>
+                  <th>Avg Score / AI Help</th>
                   <th>Completed</th>
                   <th>Status</th>
                   <th>Last Active</th>
@@ -751,7 +751,7 @@
           <div class="head">
             <div>
               <h2>Need Support</h2>
-              <p>รายชื่อที่ควรติดตาม เช่น ไม่จบ คะแนนต่ำ หรือ active time น้อย</p>
+              <p>รายชื่อที่ควรติดตาม เช่น ไม่จบ คะแนนต่ำ ใช้ AI Help เยอะ หรือ active time น้อย</p>
             </div>
           </div>
 
@@ -976,6 +976,30 @@
       return String(r.studentId || '').trim() || ('NAME:' + String(r.studentName || '').trim());
     }
 
+    function getStudentEvents(key){
+      const events = (SUMMARY && SUMMARY.recentEvents) ? SUMMARY.recentEvents : [];
+
+      return events.filter(function(e){
+        return studentKeyOf(e) === key;
+      });
+    }
+
+    function countAiHelpForStudent(key){
+      const events = getStudentEvents(key);
+
+      return events.filter(function(e){
+        return String(e.eventType || '').trim() === 'ai_help';
+      }).length;
+    }
+
+    function countAiHelpBlockedForStudent(key){
+      const events = getStudentEvents(key);
+
+      return events.filter(function(e){
+        return String(e.eventType || '').trim() === 'ai_help_blocked';
+      }).length;
+    }
+
     function statusOfStudent(stu, rows){
       const completed = stu.completed || 0;
       const avg = stu.avgScore || 0;
@@ -1156,6 +1180,8 @@
         const status = statusOfStudent(stu,stuRows);
         const completed = stu.completed || 0;
         const pct = Math.min(100,Math.round((completed / 15) * 100));
+        const aiHelpUsed = countAiHelpForStudent(key);
+        const aiHelpBlocked = countAiHelpBlockedForStudent(key);
 
         return '' +
           '<tr>' +
@@ -1172,7 +1198,10 @@
                 '<span class="smallMuted">' + completed + '/15</span>' +
               '</div>' +
             '</td>' +
-            '<td><b>' + esc(stu.avgScore || 0) + '</b></td>' +
+            '<td>' +
+              '<b>' + esc(stu.avgScore || 0) + '</b>' +
+              '<div class="smallMuted">AI Help: ' + aiHelpUsed + (aiHelpBlocked ? ' • Blocked: ' + aiHelpBlocked : '') + '</div>' +
+            '</td>' +
             '<td><span class="badge ok">' + completed + '</span></td>' +
             '<td><span class="badge ' + status.cls + '">' + esc(status.text) + '</span></td>' +
             '<td><span class="smallMuted">' + esc(stu.lastActiveAt || '-') + '</span></td>' +
@@ -1198,14 +1227,18 @@
         });
 
         const status = statusOfStudent(stu,stuRows);
+        const aiHelpUsed = countAiHelpForStudent(key);
+        const aiHelpBlocked = countAiHelpBlockedForStudent(key);
 
         return {
           stu:stu,
           status:status,
-          key:key
+          key:key,
+          aiHelpUsed:aiHelpUsed,
+          aiHelpBlocked:aiHelpBlocked
         };
       }).filter(function(x){
-        return x.status.cls !== 'ok';
+        return x.status.cls !== 'ok' || x.aiHelpUsed >= 5 || x.aiHelpBlocked > 0;
       });
 
       if(!support.length){
@@ -1230,6 +1263,8 @@
               'Completed: <b>' + esc(stu.completed || 0) + '/15</b>' +
               ' • Avg score: <b>' + esc(stu.avgScore || 0) + '</b>' +
               ' • Active: <b>' + fmtMin(stu.totalActiveTimeSec || 0) + '</b>' +
+              ' • AI Help: <b>' + x.aiHelpUsed + '</b>' +
+              (x.aiHelpBlocked ? ' • Blocked: <b>' + x.aiHelpBlocked + '</b>' : '') +
             '</p>' +
             '<button class="btn small primary" data-view-student="' + esc(x.key) + '">View student</button>' +
           '</div>';
@@ -1319,6 +1354,7 @@
           'question_start',
           'answer',
           'ai_help',
+          'ai_help_blocked',
           'speech_start',
           'timeout',
           'retry_panel_show',
@@ -1361,6 +1397,11 @@
         if(type === 'ai_help'){
           cls = 'purple';
           label = 'AI Help';
+        }
+
+        if(type === 'ai_help_blocked'){
+          cls = 'bad';
+          label = 'AI Help Blocked';
         }
 
         if(type === 'speech_start'){
@@ -1406,6 +1447,13 @@
       const completed = num(stu.completed || 0);
       const avg = num(stu.avgScore || 0);
       const active = num(stu.totalActiveTimeSec || 0);
+
+      const key =
+        String(stu.studentId || '').trim() ||
+        ('NAME:' + String(stu.studentName || '').trim());
+
+      const aiHelpUsed = countAiHelpForStudent(key);
+      const aiHelpBlocked = countAiHelpBlockedForStudent(key);
 
       const completedRows = rows.filter(function(r){
         return bool(r.completed);
@@ -1463,6 +1511,18 @@
         reason = 'มีบาง session ที่คะแนนต่ำกว่า 70';
         action = 'เปิดดู S ที่คะแนนต่ำ แล้วให้ฝึกซ้ำเฉพาะทักษะนั้น เช่น Listening keyword / Speaking pronunciation / Writing short answer';
         focus = 'Targeted practice';
+      }else if(aiHelpUsed >= 5){
+        level = 'warn';
+        title = 'High AI Help Usage';
+        reason = 'ผู้เรียนใช้ AI Help ค่อนข้างบ่อย อาจยังไม่มั่นใจหรือพึ่ง hint มากเกินไป';
+        action = 'ให้ครูดูว่าใช้ AI Help ในทักษะใดบ่อย แล้วให้ฝึกแบบ scaffold เช่น ฟัง keyword, พูดประโยคสั้น หรือเขียน sentence frame';
+        focus = 'AI Help dependency';
+      }else if(aiHelpBlocked > 0){
+        level = 'warn';
+        title = 'AI Help Quota Reached';
+        reason = 'ผู้เรียนพยายามใช้ AI Help เกินโควตา';
+        action = 'ให้ผู้เรียนลองตอบจาก keyword ก่อน และใช้ AI Help เฉพาะตอนติดจริง';
+        focus = 'Hint control';
       }else if(completed >= 15){
         level = 'ok';
         title = 'Completed All Missions';
@@ -1485,6 +1545,8 @@
         focus: focus,
         completedRows: completedRows.length,
         startedRows: startedRows.length,
+        aiHelpUsed: aiHelpUsed,
+        aiHelpBlocked: aiHelpBlocked,
         weakSessions: weakSessions.map(function(r){
           return 'S' + String(sessionNoOf(r)).padStart(2,'0');
         })
@@ -1509,6 +1571,8 @@
         '<p class="smallMuted">' +
           'Completed rows: ' + rec.completedRows +
           ' • Started rows: ' + rec.startedRows +
+          ' • AI Help: ' + rec.aiHelpUsed +
+          (rec.aiHelpBlocked ? ' • Blocked: ' + rec.aiHelpBlocked : '') +
           (rec.weakSessions.length ? ' • Weak: ' + esc(rec.weakSessions.join(', ')) : '') +
         '</p>';
     }
