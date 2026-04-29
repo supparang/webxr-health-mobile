@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <title>Teacher Dashboard v9.2 • Clean Mode</title>
+    <title>Teacher Dashboard v9.3 • Weakness Insight</title>
     <meta name="theme-color" content="#0f172a" />
     <style>
     :root{
@@ -77,6 +77,12 @@
     .empty{padding:20px;border-radius:18px;background:#f8fbff;border:1px dashed var(--line);color:var(--muted);line-height:1.6}
     .footer-status{font-size:13px;color:var(--muted);margin-top:10px}
     .hidden{display:none!important}
+    .insight-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+    .insight-card{border:1px solid var(--line);background:#fff;border-radius:18px;padding:14px;box-shadow:0 8px 22px rgba(15,23,42,.05)}
+    .insight-card b{display:block;font-size:16px;margin-bottom:6px;color:var(--ink)}
+    .insight-card p{font-size:13px;margin:0;color:var(--muted)}
+    .weak-example{font-size:12px;line-height:1.45;color:#475569;background:#f8fbff;border:1px solid #edf3fa;border-radius:12px;padding:8px;min-width:240px}
+    .teach-move{border-left:5px solid var(--blue);background:#f8fbff;border-radius:18px;padding:14px;margin-bottom:14px;line-height:1.55}
     .loader{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(36,135,255,.25);border-top-color:#2487ff;animation:spin .8s linear infinite;vertical-align:-2px}@keyframes spin{to{transform:rotate(360deg)}}
     @media (max-width:900px){.hero,.twocol{grid-template-columns:1fr}.grid4{grid-template-columns:repeat(2,1fr)}.controls{grid-template-columns:1fr 1fr}.controls .wide{grid-column:1/-1}}
     @media (max-width:560px){.grid4,.controls{grid-template-columns:1fr}.app{padding-bottom:26px}.card{padding:14px}.topbar-inner{align-items:flex-start}.actions{width:100%}.btn{flex:1}.kpi b{font-size:26px}}
@@ -193,6 +199,9 @@
         <details open>
           <summary>Deep Analytics: Mode / Bank / Weak Terms</summary>
           <div class="details-body">
+            <div class="teach-move" id="deepTeachingMove">ยังไม่มี insight</div>
+            <div class="insight-grid" id="insightPanel">
+            </div>
             <div class="twocol">
               <div>
                 <h3>Mode Stats</h3>
@@ -202,7 +211,7 @@
                 </div>
               </div>
               <div>
-                <h3>Weak Terms</h3>
+                <h3>Weak Terms Insight</h3>
                 <div class="table-wrap">
                   <table id="weakTable">
                   </table>
@@ -254,7 +263,7 @@
 (function(){
   'use strict';
   const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
-  const LS_ENDPOINT = 'VOCAB_TEACHER_ENDPOINT_V92';
+  const LS_ENDPOINT = 'VOCAB_TEACHER_ENDPOINT_V93';
   let dashboard = null;
   let model = {sessions:[],terms:[],profiles:[],leaderboard:[],roster:[],students:[],weakTerms:[],modeStats:[]};
   const $ = id => document.getElementById(id);
@@ -355,10 +364,11 @@
     return 'unknown';
   }
   function filteredStudents(){
-    const q = $('searchInput').value.trim().toLowerCase(); const risk=$('riskFilter').value; const section=$('sectionFilter').value; const sort=$('sortFilter').value;
+    const q = $('searchInput').value.trim().toLowerCase(); const risk=$('riskFilter').value; const section=$('sectionFilter').value; const sort=$('sortFilter').value; const mode=$('modeFilter').value;
     let rows = model.students.filter(r => {
       const text = [r.display_name,r.student_id,r.section,r.email].join(' ').toLowerCase();
-      return (!q || text.includes(q)) && (risk==='all' || r.risk===risk) && (section==='all' || String(r.section)===section);
+      const rowMode = normalizeModeLabelV93(r.last_mode_label || r.last_mode || r.mode);
+      return (!q || text.includes(q)) && (risk==='all' || r.risk===risk) && (section==='all' || String(r.section)===section) && (mode==='all' || rowMode===mode);
     });
     rows.sort((a,b)=>{
       if(sort==='accuracy') return num(a.last_accuracy)-num(b.last_accuracy);
@@ -375,7 +385,7 @@
   }
   function renderFilters(){
     const sections = [...new Set(model.students.map(r=>r.section).filter(Boolean))].sort();
-    const modes = [...new Set([...model.sessions.map(r=>r.mode_label||r.mode), ...model.students.map(r=>r.last_mode_label)].filter(Boolean))].sort();
+    const modes = [...new Set([...model.sessions.map(r=>normalizeModeLabelV93(r.mode_label||r.mode)), ...model.students.map(r=>normalizeModeLabelV93(r.last_mode_label))].filter(Boolean).filter(v=>v!=='Unknown'))].sort();
     fillSelect('sectionFilter','All sections','all',sections); fillSelect('modeFilter','All modes','all',modes);
   }
   function fillSelect(id,label,allVal,values){ const el=$(id), old=el.value; el.innerHTML = `<option value="${allVal}">${label}</option>` + values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); if([...el.options].some(o=>o.value===old)) el.value=old; }
@@ -399,21 +409,23 @@
     return `<div class="student-card"><div><strong>${esc(s.display_name||'Hero')}</strong><small>${esc(s.student_id||'-')} • ${esc(s.section||'-')} • ${esc(s.last_mode_label||'-')}</small><div class="recommend">Accuracy ${pct(s.last_accuracy)} • Score ${num(s.last_score)} • AI Help ${num(s.ai_help_used)}<br><b>Next:</b> ${esc(s.recommended_mode||'Weak Rescue')} ${s.recommended_difficulty?`(${esc(s.recommended_difficulty)})`:''}<br>${esc(s.ai_reason||'ทบทวนคำที่ตอบผิดบ่อย แล้วเล่นโหมดฝึกซ้ำ')}</div></div><div>${tag}</div></div>`;
   }
   function renderSnapshot(){
-    const weak = computeWeakTerms().slice(0,5); const modes = computeModeStats().slice(0,4);
-    $('classSnapshot').innerHTML = weak.length ? `<b>คำที่ควรทบทวน:</b><br>${weak.map(w=>`<span class="tag violet" style="margin:4px 4px 0 0">${esc(w.term)} (${w.wrong})</span>`).join('')}` : 'ยังไม่มี weak terms';
-    const avg = model.sessions.length ? model.sessions.reduce((s,r)=>s+num(r.accuracy),0)/model.sessions.length : 0;
-    const move = avg<60 ? 'เริ่มคาบถัดไปด้วย Weak Rescue + อธิบายคำศัพท์ที่ผิดบ่อย' : avg<75 ? 'ให้ทำ Debug Mission ระดับ normal/hard เพื่อเช็กความเข้าใจ' : 'ใช้ Boss Battle / Challenge เพื่อเพิ่มความท้าทาย';
-    $('nextMove').innerHTML = `<b>${esc(move)}</b><br><br>${modes.map(m=>`<span class="tag gray" style="margin:4px 4px 0 0">${esc(m.mode)}: ${m.count}</span>`).join('') || 'ยังไม่มี mode stats'}`;
+    const weak = buildWeakTermInsightsV93(model.terms).slice(0,5); const modes = computeModeStats().slice(0,4);
+    $('classSnapshot').innerHTML = weak.length ? `<b>คำที่ควรทบทวน:</b><br>${weak.map(w=>`<span class="tag violet" style="margin:4px 4px 0 0">${esc(w.term)} (${w.wrong} ครั้ง)</span>`).join('')}` : 'ยังไม่มี weak terms';
+    const move = buildTeachingMoveV93();
+    $('nextMove').innerHTML = `<b>${esc(move.title)}</b><br>${esc(move.detail)}<br><br>${modes.map(m=>`<span class="tag gray" style="margin:4px 4px 0 0">${esc(m.mode)}: ${m.count}</span>`).join('') || 'ยังไม่มี mode stats'}`;
   }
   function renderStudents(){
     const rows = filteredStudents();
     renderTable('studentsTable', ['status','display_name','student_id','section','last_score','last_accuracy','ai_help_used','recommended_mode'], rows.map(r=>({status:r.risk, display_name:r.display_name, student_id:r.student_id, section:r.section, last_score:num(r.last_score), last_accuracy:pct(r.last_accuracy), ai_help_used:num(r.ai_help_used), recommended_mode:r.recommended_mode||'-'})), {status: v=>riskTag(v)});
   }
   function renderAdvanced(){
-    renderTable('modeTable',['mode','count','avg_score','avg_accuracy'], computeModeStats());
-    renderTable('weakTable',['term','wrong','accuracy'], computeWeakTerms().slice(0,20).map(w=>({term:w.term, wrong:w.wrong, accuracy:pct(w.accuracy)})));
+    const move = buildTeachingMoveV93();
+    $('deepTeachingMove').innerHTML = `<b>What to teach next:</b> ${esc(move.title)}<br>${esc(move.detail)}`;
+    renderInsightPanelV93();
+    renderTable('modeTable',['mode','count','avg_score','avg_accuracy','best_score'], computeModeStats());
+    renderTable('weakTable',['term','wrong','students','top_stage','ai_help','slow','example','recommendation'], buildWeakTermInsightsV93(model.terms).slice(0,20).map(w=>({term:w.term, wrong:w.wrong, students:w.students, top_stage:w.top_stage, ai_help:w.ai_help, slow:w.slow, example:w.examples[0] ? `selected: ${w.examples[0].selected || '-'} | answer: ${w.examples[0].answer || '-'}` : '-', recommendation:w.recommendation})), {example:v=>`<div class="weak-example">${esc(v)}</div>`, recommendation:v=>`<div class="weak-example">${esc(v)}</div>`});
     renderTable('leaderboardTable',['rank','display_name','section','bank','mode','difficulty','fair_score','accuracy','ai_assisted','runs'], computeLeaderboard().slice(0,30), {ai_assisted:v=>truthy(v)?'<span class="tag violet">AI</span>':'<span class="tag green">No help</span>'});
-    renderTable('sessionsTable',['timestamp','display_name','section','bank','mode','difficulty','score','accuracy','ai_help_used'], model.sessions.slice().sort((a,b)=>dateVal(b.timestamp)-dateVal(a.timestamp)).slice(0,50).map(s=>({timestamp:s.timestamp, display_name:s.display_name, section:s.section, bank:s.bank, mode:s.mode_label||s.mode, difficulty:s.difficulty, score:num(s.score), accuracy:pct(s.accuracy), ai_help_used:num(s.ai_help_used)})));
+    renderTable('sessionsTable',['timestamp','display_name','section','bank','mode','difficulty','score','accuracy','ai_help_used'], model.sessions.slice().sort((a,b)=>dateVal(b.timestamp)-dateVal(a.timestamp)).slice(0,50).map(s=>({timestamp:s.timestamp, display_name:s.display_name, section:s.section, bank:s.bank, mode:normalizeModeLabelV93(s.mode_label||s.mode), difficulty:s.difficulty, score:num(s.score), accuracy:pct(s.accuracy), ai_help_used:num(s.ai_help_used)})));
   }
   function renderTable(id, headers, rows, renderers={}){
     const table=$(id);
@@ -423,20 +435,133 @@
   function label(h){ return String(h).replaceAll('_',' '); }
   function riskTag(v){ const cls = v==='risk'?'red':v==='support'?'amber':v==='good'?'green':'gray'; return `<span class="tag ${cls}">${esc(v||'unknown')}</span>`; }
   function computeWeakTerms(){
-    const map = new Map();
-    (model.weakTerms.length ? model.weakTerms : model.terms.filter(t=>!truthy(t.is_correct))).forEach(t=>{
-      const term = t.term || t.term_id; if(!term) return; const cur=map.get(term)||{term,wrong:0,total:0,correct:0}; cur.wrong += num(t.wrong)||1; cur.total += num(t.seen)||1; if(truthy(t.is_correct)) cur.correct++; map.set(term,cur);
-    });
-    return [...map.values()].map(w=>({...w, accuracy:w.total?((w.total-w.wrong)/w.total)*100:0})).sort((a,b)=>b.wrong-a.wrong);
+    return buildWeakTermInsightsV93(model.terms).map(w=>({term:w.term, wrong:w.wrong, total:w.wrong, accuracy:0}));
   }
   function computeModeStats(){
-    if(model.modeStats.length) return model.modeStats.map(m=>({mode:m.mode_label||m.mode, count:num(m.sessions||m.count), avg_score:num(m.avg_score), avg_accuracy:pct(m.avg_accuracy)}));
-    const map=new Map(); model.sessions.forEach(s=>{ const k=s.mode_label||s.mode||'unknown'; const m=map.get(k)||{mode:k,count:0,score:0,acc:0}; m.count++; m.score+=num(s.score); m.acc+=num(s.accuracy); map.set(k,m);});
-    return [...map.values()].map(m=>({mode:m.mode,count:m.count,avg_score:Math.round(m.score/m.count||0),avg_accuracy:pct(m.acc/m.count||0)})).sort((a,b)=>b.count-a.count);
+    return buildCleanModeStatsV93(model.sessions, model.modeStats);
   }
+
+  function normalizeModeLabelV93(value){
+    const raw = String(value || '').replace(/\+/g,' ').replace(/_/g,' ').trim().toLowerCase();
+    if(!raw) return 'Unknown';
+    if(raw.includes('ai training') || raw === 'learn' || raw.includes('learning')) return 'AI Training';
+    if(raw.includes('speed run') || raw === 'speed') return 'Speed Run';
+    if(raw.includes('debug mission') || raw === 'mission') return 'Debug Mission';
+    if(raw.includes('boss rush') || raw === 'bossrush') return 'Boss Rush';
+    if(raw.includes('battle') || raw === 'code battle') return 'Boss Battle';
+    return String(value || 'Unknown').replace(/\+/g,' ');
+  }
+
+  function buildCleanModeStatsV93(sessions, summaryModes){
+    const map = new Map();
+    const add = (modeRaw, count, scoreSum, accSum, accCount, bestScore) => {
+      const mode = normalizeModeLabelV93(modeRaw);
+      const cur = map.get(mode) || {mode, count:0, scoreSum:0, accSum:0, accCount:0, bestScore:0};
+      cur.count += num(count);
+      cur.scoreSum += num(scoreSum);
+      cur.accSum += num(accSum);
+      cur.accCount += num(accCount);
+      cur.bestScore = Math.max(cur.bestScore, num(bestScore));
+      map.set(mode, cur);
+    };
+    if((sessions||[]).length){
+      (sessions||[]).forEach(r=>{
+        const score = num(r.score || r.best_score);
+        const acc = num(r.accuracy || r.best_accuracy);
+        add(r.mode_label || r.mode, 1, score, acc>0?acc:0, acc>0?1:0, score);
+      });
+    }else{
+      (summaryModes||[]).forEach(m=>{
+        const c = num(m.sessions || m.count || 1);
+        const avg = num(m.avg_score);
+        const acc = num(m.avg_accuracy);
+        add(m.mode_label || m.mode, c, avg*c, acc>0?acc*c:0, acc>0?c:0, m.best_score || avg);
+      });
+    }
+    return [...map.values()].map(x=>({
+      mode:x.mode,
+      count:x.count,
+      avg_score:x.count ? Math.round(x.scoreSum / x.count) : 0,
+      avg_accuracy:x.accCount ? pct(x.accSum / x.accCount) : '—',
+      best_score:x.bestScore
+    })).sort((a,b)=>b.count-a.count);
+  }
+
+  function buildWeakTermInsightsV93(terms){
+    const map = new Map();
+    const sourceTerms = (terms||[]).length ? terms : (model.weakTerms||[]);
+    sourceTerms.forEach(r=>{
+      const hasCorrectFlag = r.is_correct !== undefined && r.is_correct !== null && String(r.is_correct).trim() !== '';
+      if(hasCorrectFlag && truthy(r.is_correct)) return;
+      const term = cleanPlusV93(r.term || r.term_id || r.word || '');
+      if(!term) return;
+      const item = map.get(term) || {term, wrong:0, studentsSet:new Set(), stages:{}, examples:[], ai_help:0, slow:0};
+      item.wrong += num(r.wrong) || 1;
+      item.studentsSet.add(String(r.student_id || r.display_name || 'unknown'));
+      const stage = cleanPlusV93(r.stage_name || r.stage_id || r.stage_index || 'Unknown');
+      item.stages[stage] = (item.stages[stage] || 0) + 1;
+      if(num(r.response_ms) >= 8000) item.slow += 1;
+      if(truthy(r.ai_help_used_on_question)) item.ai_help += 1;
+      if(item.examples.length < 2){
+        item.examples.push({
+          prompt: cleanPlusV93(r.prompt || r.shown || r.question || ''),
+          selected: cleanPlusV93(r.selected || ''),
+          answer: cleanPlusV93(r.answer || '')
+        });
+      }
+      map.set(term,item);
+    });
+    return [...map.values()].map(x=>{
+      const topStage = Object.entries(x.stages).sort((a,b)=>b[1]-a[1])[0];
+      const top_stage = topStage ? topStage[0] : '-';
+      return {term:x.term, wrong:x.wrong, students:x.studentsSet.size, top_stage, ai_help:x.ai_help, slow:x.slow, examples:x.examples, recommendation:recommendWeakTermPracticeV93(x.term, top_stage)};
+    }).sort((a,b)=>b.wrong-a.wrong || b.students-a.students).slice(0,30);
+  }
+
+  function cleanPlusV93(v){ return String(v || '').replace(/\+/g,' ').replace(/\s+/g,' ').trim(); }
+
+  function recommendWeakTermPracticeV93(term, stage){
+    const t = String(term || '').toLowerCase();
+    const st = String(stage || '').toLowerCase();
+    if(t.includes('library') || t.includes('package') || t.includes('framework')) return 'ทบทวนความต่างระหว่าง library / package / framework ด้วยตัวอย่างโค้ดสั้น ๆ';
+    if(t.includes('testing') || t.includes('test') || t.includes('debug') || t.includes('bug')) return 'ฝึกเรียงขั้นตอน testing → debug → deploy และเล่น Debug Mission ซ้ำ';
+    if(t.includes('dataset') || t.includes('model') || t.includes('training')) return 'ฝึกคำศัพท์ Data/AI ด้วยโจทย์บริบทและตัวอย่างงานจริง';
+    if(st.includes('boss')) return 'ลดระดับมาฝึก Mission ก่อน แล้วค่อยกลับไป Boss Rush';
+    return 'ให้ฝึก Weak Rescue ด้วยโจทย์บริบท 5 ข้อ';
+  }
+
+  function buildTeachingMoveV93(){
+    const weak = buildWeakTermInsightsV93(model.terms).slice(0,3);
+    const avg = model.sessions.length ? model.sessions.reduce((s,r)=>s+num(r.accuracy),0)/model.sessions.length : 0;
+    if(weak.length){
+      const terms = weak.map(w=>w.term).join(', ');
+      const rec = weak[0].recommendation;
+      return {title:`ทบทวนคำอ่อนก่อน: ${terms}`, detail:rec};
+    }
+    if(avg<60) return {title:'เริ่มคาบด้วย Weak Rescue', detail:'ภาพรวม accuracy ต่ำกว่า 60% ควรทบทวนคำศัพท์พื้นฐานและลดระดับความยากก่อน'};
+    if(avg<75) return {title:'ใช้ Debug Mission เพื่อเช็กความเข้าใจ', detail:'ภาพรวมยังอยู่ระดับต้องทบทวน ให้ฝึกโจทย์บริบทก่อนขึ้น Boss'};
+    return {title:'เพิ่มความท้าทายด้วย Boss Battle / Challenge', detail:'ภาพรวมดีพอให้เพิ่ม speed, trap และ boss ได้'};
+  }
+
+  function renderInsightPanelV93(){
+    const weak = buildWeakTermInsightsV93(model.terms);
+    const modes = computeModeStats();
+    const risk = model.students.filter(s=>s.risk==='risk'||s.risk==='support').length;
+    const topWeak = weak[0];
+    const weakestMode = modes.slice().sort((a,b)=>{
+      const aa = a.avg_accuracy === '—' ? 999 : num(String(a.avg_accuracy).replace('%',''));
+      const bb = b.avg_accuracy === '—' ? 999 : num(String(b.avg_accuracy).replace('%',''));
+      return aa-bb;
+    })[0];
+    $('insightPanel').innerHTML = `
+      <div class="insight-card"><b>Top weak term</b><p>${topWeak ? `${esc(topWeak.term)} • ผิด ${topWeak.wrong} ครั้ง • ${topWeak.students} คน` : 'ยังไม่มีข้อมูล'}</p></div>
+      <div class="insight-card"><b>Weakest mode</b><p>${weakestMode ? `${esc(weakestMode.mode)} • Avg acc ${esc(weakestMode.avg_accuracy)}` : 'ยังไม่มีข้อมูล'}</p></div>
+      <div class="insight-card"><b>Need follow-up</b><p>${risk} คนควรติดตาม/ช่วยเพิ่ม</p></div>`;
+  }
+
   function computeLeaderboard(){
     const rows = model.leaderboard.length ? model.leaderboard : model.sessions;
-    return rows.map((r,i)=>({rank:num(r.rank)||i+1, display_name:r.display_name, section:r.section, bank:r.bank, mode:r.mode_label||r.mode, difficulty:r.difficulty, fair_score:num(r.fair_score||r.best_score||r.score), accuracy:pct(r.best_accuracy||r.accuracy), ai_assisted:r.ai_assisted, runs:num(r.runs)||1})).sort((a,b)=>num(b.fair_score)-num(a.fair_score));
+    return rows.map((r,i)=>({rank:num(r.rank)||i+1, display_name:r.display_name, section:r.section, bank:r.bank, mode:normalizeModeLabelV93(r.mode_label||r.mode), difficulty:r.difficulty, fair_score:num(r.fair_score||r.best_score||r.score), accuracy:pct(r.best_accuracy||r.accuracy), ai_assisted:r.ai_assisted, runs:num(r.runs)||1})).sort((a,b)=>num(b.fair_score)-num(a.fair_score));
   }
   function renderReport(){
     const risk = model.students.filter(s=>s.risk==='risk'||s.risk==='support').length;
@@ -457,7 +582,7 @@
   $('copySummaryBtn').addEventListener('click', async()=>{ await navigator.clipboard.writeText($('reportBox').value); setStatus('Copied summary'); });
   $('endpointInput').value = localStorage.getItem(LS_ENDPOINT) || DEFAULT_ENDPOINT;
   loadDashboard();
-  window.teacherV92 = {loadDashboard, refreshViews, model:()=>model, dashboard:()=>dashboard};
+  window.teacherV93 = {loadDashboard, refreshViews, model:()=>model, dashboard:()=>dashboard};
 })();
 </script>
   </body>
