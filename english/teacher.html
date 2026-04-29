@@ -2,24 +2,28 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1" />
   <title>TechPath English • Teacher Dashboard</title>
   <meta name="theme-color" content="#07111f" />
+  <meta name="color-scheme" content="dark" />
+
   <style>
     :root{
-      --bg:#07111f;
-      --panel:rgba(255,255,255,.08);
-      --panel2:rgba(255,255,255,.11);
+      --bg:#06101d;
+      --panel:rgba(255,255,255,.085);
+      --panel2:rgba(255,255,255,.06);
       --line:rgba(255,255,255,.14);
       --text:#eef7ff;
       --muted:#aec3d8;
       --cyan:#72e8ff;
+      --purple:#8e7dff;
       --green:#4ce39a;
       --gold:#ffd166;
       --red:#ff6e87;
-      --purple:#8e7dff;
+      --pink:#ff86d1;
+      --shadow:0 22px 70px rgba(0,0,0,.35);
       --r:26px;
-      --shadow:0 22px 70px rgba(0,0,0,.32);
+      --max:1320px;
       --safeTop:env(safe-area-inset-top,0px);
       --safeBottom:env(safe-area-inset-bottom,0px);
     }
@@ -29,133 +33,218 @@
     html,body{
       margin:0;
       min-height:100%;
-      background:
-        radial-gradient(circle at 15% 0%,rgba(114,232,255,.18),transparent 34%),
-        radial-gradient(circle at 88% 0%,rgba(142,125,255,.14),transparent 34%),
-        linear-gradient(180deg,#07111f,#030814);
       color:var(--text);
+      background:
+        radial-gradient(circle at 18% 0%,rgba(114,232,255,.18),transparent 34%),
+        radial-gradient(circle at 82% 4%,rgba(142,125,255,.16),transparent 34%),
+        linear-gradient(180deg,#07111f,#030814);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    }
-
-    body{
-      min-height:100dvh;
       overflow-x:hidden;
     }
 
-    button,input,select{font:inherit}
+    body{min-height:100dvh}
 
-    .app{
-      width:min(1320px,100%);
-      margin:0 auto;
-      padding:calc(18px + var(--safeTop)) 14px calc(48px + var(--safeBottom));
-      display:grid;
-      gap:16px;
+    body:before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:0;
+      background:
+        linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.022) 1px, transparent 1px);
+      background-size:42px 42px;
+      opacity:.45;
+      mask-image:linear-gradient(to bottom,transparent,black 12%,black 86%,transparent);
     }
 
-    .top{
+    button,input,select{font:inherit}
+    button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .hidden{display:none!important}
+
+    .app{
+      position:relative;
+      z-index:1;
+      min-height:100dvh;
+      padding-bottom:calc(22px + var(--safeBottom));
+    }
+
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:50;
+      padding:calc(12px + var(--safeTop)) 14px 12px;
+      background:linear-gradient(180deg,rgba(5,11,22,.96),rgba(5,11,22,.78));
+      border-bottom:1px solid rgba(255,255,255,.10);
+      backdrop-filter:blur(16px);
+    }
+
+    .topInner{
+      width:min(var(--max),100%);
+      margin:0 auto;
       display:grid;
       grid-template-columns:1fr auto;
       gap:12px;
       align-items:center;
-      padding:18px;
-      border:1px solid var(--line);
-      border-radius:var(--r);
-      background:
-        radial-gradient(circle at 0% 0%,rgba(114,232,255,.12),transparent 34%),
-        var(--panel);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(14px);
     }
 
     .brand{
       display:flex;
       align-items:center;
       gap:12px;
+      min-width:0;
     }
 
     .logo{
-      width:58px;
-      height:58px;
+      width:52px;
+      height:52px;
       border-radius:20px;
       display:grid;
       place-items:center;
-      font-weight:1000;
       color:#06111f;
       background:linear-gradient(135deg,var(--cyan),var(--purple));
-      box-shadow:0 18px 44px rgba(114,232,255,.20);
+      font-weight:1000;
+      box-shadow:0 14px 34px rgba(73,191,255,.25);
       flex:0 0 auto;
     }
 
     h1{
       margin:0;
-      font-size:clamp(28px,5vw,52px);
-      letter-spacing:-.04em;
+      font-size:clamp(22px,3vw,34px);
       line-height:1.05;
+      letter-spacing:-.02em;
     }
 
-    .sub{
-      margin:7px 0 0;
+    .brand p{
+      margin:5px 0 0;
       color:var(--muted);
-      line-height:1.5;
-      font-weight:700;
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .topActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
     }
 
     .btn{
-      min-height:44px;
-      padding:11px 15px;
+      min-height:42px;
+      padding:10px 14px;
       border-radius:16px;
-      border:1px solid rgba(255,255,255,.15);
+      border:1px solid rgba(255,255,255,.16);
       background:rgba(255,255,255,.09);
       color:var(--text);
       font-weight:1000;
-      cursor:pointer;
-      text-decoration:none;
+      box-shadow:0 10px 26px rgba(0,0,0,.18);
       display:inline-flex;
       align-items:center;
       justify-content:center;
       gap:8px;
-      user-select:none;
-      white-space:nowrap;
+      text-decoration:none;
     }
 
-    .btn:hover{
-      transform:translateY(-1px);
-      border-color:rgba(114,232,255,.35);
-    }
+    .btn.primary{color:#06111f;background:linear-gradient(135deg,var(--cyan),#c6f7ff)}
+    .btn.green{color:#061b12;background:linear-gradient(135deg,var(--green),#b9ffd9)}
+    .btn.gold{color:#241804;background:linear-gradient(135deg,var(--gold),#ffeaa8)}
+    .btn.red{color:#25050a;background:linear-gradient(135deg,var(--red),#ffb0bf)}
+    .btn.small{min-height:34px;padding:7px 10px;border-radius:13px;font-size:12px}
 
-    .btn.primary{
-      background:linear-gradient(135deg,var(--cyan),#c8f8ff);
-      color:#06111f;
-    }
-
-    .btn.gold{
-      background:linear-gradient(135deg,var(--gold),#ffeab0);
-      color:#261a06;
-    }
-
-    .btn.green{
-      background:linear-gradient(135deg,var(--green),#c8ffdf);
-      color:#061b10;
-    }
-
-    .toolbar{
+    .main{
+      width:min(var(--max),100%);
+      margin:0 auto;
+      padding:18px 14px 30px;
       display:grid;
-      grid-template-columns:1.2fr .8fr .7fr auto auto;
+      gap:16px;
+    }
+
+    .panel{
+      position:relative;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.055));
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .section{padding:18px}
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+    }
+
+    .heroCard{
+      padding:24px;
+      min-height:230px;
+      background:
+        radial-gradient(circle at 12% 0%,rgba(114,232,255,.20),transparent 34%),
+        radial-gradient(circle at 92% 10%,rgba(255,134,209,.15),transparent 34%);
+    }
+
+    .kicker{
+      display:inline-flex;
+      padding:8px 12px;
+      border-radius:999px;
+      background:var(--cyan);
+      color:#06111f;
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .heroTitle{
+      margin:14px 0 8px;
+      font-size:clamp(32px,6vw,56px);
+      letter-spacing:-.04em;
+      line-height:1.02;
+    }
+
+    .heroDesc{
+      margin:0;
+      color:#cfe3f6;
+      line-height:1.6;
+      font-weight:700;
+    }
+
+    .statusBox{
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .line{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      padding:9px 0;
+      border-bottom:1px dashed rgba(255,255,255,.12);
+      color:#cfe3f6;
+      font-weight:800;
+    }
+
+    .line:last-child{border-bottom:0}
+    .line b{color:#fff}
+
+    .filters{
+      display:grid;
+      grid-template-columns:1.2fr .8fr .8fr auto auto;
       gap:10px;
       align-items:end;
-      padding:16px;
-      border:1px solid var(--line);
-      border-radius:var(--r);
-      background:var(--panel);
-      backdrop-filter:blur(14px);
     }
 
-    label{
+    label.field{
       display:grid;
       gap:6px;
       color:var(--muted);
-      font-size:13px;
-      font-weight:900;
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.03em;
+      text-transform:uppercase;
     }
 
     input,select{
@@ -167,719 +256,1134 @@
       color:var(--text);
       padding:10px 12px;
       outline:none;
-      font-weight:800;
-    }
-
-    input:focus,select:focus{
-      border-color:rgba(114,232,255,.52);
-      box-shadow:0 0 0 4px rgba(114,232,255,.10);
     }
 
     select option{color:#07111f}
 
-    .cards{
+    input:focus,select:focus{
+      border-color:rgba(114,232,255,.7);
+      box-shadow:0 0 0 4px rgba(114,232,255,.12);
+    }
+
+    .kpis{
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .kpi{
+      padding:16px;
+      border-radius:24px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.13);
+      min-height:112px;
+      display:grid;
+      align-content:space-between;
       gap:10px;
     }
 
-    .card{
-      padding:16px;
-      border-radius:22px;
-      border:1px solid var(--line);
-      background:
-        linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.055));
-      box-shadow:0 16px 44px rgba(0,0,0,.20);
-      min-height:112px;
-      display:grid;
-      align-content:center;
-    }
-
-    .card span{
-      display:block;
+    .kpi span{
       color:var(--muted);
       font-size:12px;
       font-weight:1000;
-      text-transform:uppercase;
       letter-spacing:.06em;
+      text-transform:uppercase;
     }
 
-    .card b{
-      display:block;
-      margin-top:7px;
-      color:#fff;
-      font-size:34px;
-      letter-spacing:-.03em;
+    .kpi b{
+      font-size:clamp(28px,4vw,42px);
       line-height:1;
+      letter-spacing:-.04em;
     }
 
-    .grid{
+    .kpi small{
+      color:#cfe3f6;
+      font-weight:800;
+    }
+
+    .kpi.ok{border-color:rgba(76,227,154,.30);background:rgba(76,227,154,.10)}
+    .kpi.warn{border-color:rgba(255,209,102,.30);background:rgba(255,209,102,.10)}
+    .kpi.bad{border-color:rgba(255,110,135,.30);background:rgba(255,110,135,.10)}
+    .kpi.info{border-color:rgba(114,232,255,.30);background:rgba(114,232,255,.10)}
+
+    .grid2{
       display:grid;
-      grid-template-columns:1fr 1fr;
+      grid-template-columns:1.08fr .92fr;
       gap:16px;
+      align-items:start;
     }
 
-    .panel{
-      border:1px solid var(--line);
-      border-radius:var(--r);
-      background:var(--panel);
-      box-shadow:var(--shadow);
-      overflow:hidden;
-      min-width:0;
-    }
-
-    .panelHead{
-      padding:16px;
+    .head{
       display:flex;
+      align-items:flex-start;
       justify-content:space-between;
       gap:12px;
-      align-items:center;
-      border-bottom:1px solid rgba(255,255,255,.10);
-      background:rgba(255,255,255,.035);
+      margin-bottom:14px;
     }
 
-    .panelHead h2{
+    .head h2{
       margin:0;
-      font-size:22px;
+      font-size:24px;
       letter-spacing:-.02em;
+    }
+
+    .head p{
+      margin:5px 0 0;
+      color:var(--muted);
+      line-height:1.45;
+      font-weight:700;
     }
 
     .tableWrap{
       overflow:auto;
-      max-height:520px;
-      -webkit-overflow-scrolling:touch;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(0,0,0,.12);
     }
 
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:760px;
+      min-width:820px;
     }
 
     th,td{
-      padding:10px 12px;
-      border-bottom:1px solid rgba(255,255,255,.09);
+      padding:12px 10px;
+      border-bottom:1px solid rgba(255,255,255,.10);
       text-align:left;
+      vertical-align:middle;
       font-size:13px;
-      vertical-align:top;
     }
 
     th{
       position:sticky;
       top:0;
-      background:#0b1728;
+      z-index:2;
+      background:rgba(10,22,40,.96);
       color:#cfe3f6;
-      z-index:1;
-      font-size:12px;
+      font-size:11px;
       text-transform:uppercase;
-      letter-spacing:.05em;
+      letter-spacing:.06em;
+      font-weight:1000;
     }
 
-    td{
-      color:#eaf6ff;
-      font-weight:650;
+    td{color:#e9f7ff;font-weight:720}
+    tr:hover td{background:rgba(114,232,255,.055)}
+
+    .studentName{
+      display:grid;
+      gap:3px;
     }
 
-    small{
-      color:var(--muted);
-      font-weight:750;
-    }
+    .studentName b{font-size:14px}
+    .studentName small{color:var(--muted);font-weight:800}
 
-    .pill{
+    .badge{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      padding:4px 8px;
+      min-height:26px;
+      padding:5px 9px;
       border-radius:999px;
-      font-size:12px;
-      font-weight:1000;
-      border:1px solid rgba(255,255,255,.13);
+      border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.08);
+      color:#dbeeff;
+      font-size:11px;
+      font-weight:1000;
       white-space:nowrap;
     }
 
-    .pill.ok{
-      color:#d7ffe9;
-      border-color:rgba(76,227,154,.30);
-      background:rgba(76,227,154,.11);
+    .badge.ok{color:#d7ffe9;background:rgba(76,227,154,.13);border-color:rgba(76,227,154,.35)}
+    .badge.warn{color:#ffe9aa;background:rgba(255,209,102,.13);border-color:rgba(255,209,102,.35)}
+    .badge.bad{color:#ffd5dd;background:rgba(255,110,135,.13);border-color:rgba(255,110,135,.35)}
+    .badge.info{color:#d9fbff;background:rgba(114,232,255,.13);border-color:rgba(114,232,255,.35)}
+    .badge.purple{color:#e5e0ff;background:rgba(142,125,255,.13);border-color:rgba(142,125,255,.35)}
+
+    .progressTiny{
+      display:grid;
+      gap:5px;
+      min-width:120px;
     }
 
-    .pill.warn{
-      color:#ffe9aa;
-      border-color:rgba(255,209,102,.30);
-      background:rgba(255,209,102,.11);
+    .bar{
+      height:10px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.10);
     }
 
-    .pill.bad{
-      color:#ffd5dd;
-      border-color:rgba(255,110,135,.30);
-      background:rgba(255,110,135,.11);
+    .bar i{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--green),var(--cyan));
     }
 
-    .pill.info{
-      color:#d8f8ff;
-      border-color:rgba(114,232,255,.30);
-      background:rgba(114,232,255,.11);
-    }
-
-    .status{
+    .smallMuted{
       color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+    }
+
+    .cardsList{
+      display:grid;
+      gap:10px;
+      max-height:520px;
+      overflow:auto;
+      padding-right:3px;
+    }
+
+    .miniCard{
+      padding:13px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.07);
+      display:grid;
+      gap:8px;
+    }
+
+    .miniCardTop{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+    }
+
+    .miniCard h3{
+      margin:0;
+      font-size:15px;
+    }
+
+    .miniCard p{
+      margin:0;
+      color:#cfe3f6;
+      line-height:1.45;
       font-size:13px;
-      font-weight:800;
+      font-weight:700;
     }
 
-    .footer{
-      color:var(--muted);
+    .stageGrid{
+      display:grid;
+      grid-template-columns:repeat(15,minmax(48px,1fr));
+      gap:8px;
+    }
+
+    .stage{
+      min-height:64px;
+      border-radius:17px;
+      border:1px solid rgba(255,255,255,.13);
+      background:rgba(255,255,255,.07);
+      display:grid;
+      place-items:center;
+      gap:3px;
+      padding:7px 5px;
+      color:#dbeeff;
+      font-weight:1000;
+      font-size:11px;
       text-align:center;
-      font-size:12px;
-      font-weight:800;
-      line-height:1.5;
     }
 
-    .debug{
-      display:none;
-      padding:12px;
-      border-radius:20px;
-      border:1px solid rgba(255,209,102,.22);
-      background:rgba(255,209,102,.08);
+    .stage.done{
+      background:rgba(76,227,154,.13);
+      border-color:rgba(76,227,154,.42);
+      color:#d7ffe9;
+    }
+
+    .stage.started{
+      background:rgba(255,209,102,.13);
+      border-color:rgba(255,209,102,.42);
       color:#ffe9aa;
-      white-space:pre-wrap;
-      word-break:break-word;
-      font-size:12px;
-      font-weight:800;
-      line-height:1.5;
     }
 
-    .debug.on{display:block}
+    .stage.bad{
+      background:rgba(255,110,135,.13);
+      border-color:rgba(255,110,135,.42);
+      color:#ffd5dd;
+    }
+
+    .stage b{font-size:12px}
+    .stage small{font-size:10px;color:inherit;opacity:.9}
+
+    .footerStatus{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+      text-align:center;
+      padding:6px;
+    }
+
+    .modal{
+      position:fixed;
+      inset:0;
+      z-index:100;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      background:rgba(0,0,0,.64);
+      backdrop-filter:blur(8px);
+    }
+
+    .modal.on{display:flex}
+
+    .modalCard{
+      width:min(1060px,100%);
+      max-height:min(88vh,820px);
+      overflow:auto;
+      border-radius:30px;
+      background:linear-gradient(180deg,#11243f,#08121f);
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 30px 100px rgba(0,0,0,.50);
+      padding:18px;
+    }
+
+    .modalHead{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .modalHead h2{
+      margin:0;
+      font-size:28px;
+    }
+
+    .detailGrid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin:12px 0;
+    }
+
+    .detailBox{
+      padding:13px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.07);
+    }
+
+    .detailBox span{
+      display:block;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .detailBox b{
+      display:block;
+      margin-top:5px;
+      font-size:22px;
+    }
 
     .empty{
-      padding:22px;
-      color:var(--muted);
-      font-weight:850;
+      padding:18px;
+      border-radius:20px;
+      border:1px dashed rgba(255,255,255,.18);
+      color:#cfe3f6;
+      background:rgba(255,255,255,.05);
+      font-weight:800;
+      text-align:center;
     }
 
     @media (max-width:980px){
-      .top,.toolbar,.grid{
-        grid-template-columns:1fr;
-      }
-
-      .cards{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .topActions{
-        justify-content:flex-start !important;
-      }
+      .topInner,.hero,.grid2{grid-template-columns:1fr}
+      .topActions{justify-content:flex-start}
+      .filters{grid-template-columns:1fr 1fr}
+      .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .stageGrid{grid-template-columns:repeat(5,minmax(48px,1fr))}
+      .detailGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
     }
 
-    @media (max-width:560px){
-      .app{
-        padding-left:12px;
-        padding-right:12px;
-      }
-
-      .brand{
-        align-items:flex-start;
-      }
-
-      .logo{
-        width:50px;
-        height:50px;
-        border-radius:18px;
-      }
-
-      .cards{
-        grid-template-columns:1fr;
-      }
-
-      .card{
-        min-height:96px;
-      }
-
-      .panelHead{
-        align-items:flex-start;
-        flex-direction:column;
-      }
-
-      .toolbar .btn{
-        width:100%;
-      }
-
-      table{
-        min-width:720px;
-      }
+    @media (max-width:620px){
+      .filters{grid-template-columns:1fr}
+      .kpis{grid-template-columns:1fr}
+      .heroCard,.section{padding:15px}
+      .stageGrid{grid-template-columns:repeat(3,minmax(48px,1fr))}
+      .detailGrid{grid-template-columns:1fr}
+      table{min-width:760px}
     }
   </style>
 </head>
 
 <body>
-  <main class="app">
-    <section class="top">
-      <div class="brand">
-        <div class="logo">TP</div>
-        <div>
-          <h1>TechPath English • Teacher Dashboard</h1>
-          <p class="sub">
-            ดูว่าใครเข้าเรียน S ไหน ใช้เวลาเท่าไหร่ เล่นจบหรือไม่ คะแนนเท่าไหร่ และใช้ AI Help กี่ครั้ง
+  <div class="app">
+    <header class="topbar">
+      <div class="topInner">
+        <div class="brand">
+          <div class="logo">T</div>
+          <div>
+            <h1>Teacher Dashboard</h1>
+            <p>TechPath English VR • Attendance / Progress / AI Help</p>
+          </div>
+        </div>
+
+        <div class="topActions">
+          <button class="btn primary" id="refreshBtn">Refresh</button>
+          <button class="btn green" id="exportBtn">Export CSV</button>
+          <a class="btn" href="./lesson.html?s=1&level=normal&diff=normal&run=play" target="_blank" rel="noopener">Open Lesson</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="hero">
+        <div class="panel heroCard">
+          <span class="kicker">Teacher View</span>
+          <h2 class="heroTitle">Who needs support?</h2>
+          <p class="heroDesc">
+            ดูภาพรวมผู้เรียนแบบเข้าใจง่าย: ใครเข้าเรียน, ใครเล่นจบ, คะแนนเฉลี่ย, เวลาเรียนจริง,
+            การใช้ AI Help และรายละเอียดรายบุคคล S1–S15
           </p>
         </div>
-      </div>
 
-      <div class="topActions" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
-        <a class="btn" href="./lesson.html?level=normal&diff=normal&s=1&run=play">เปิด Lesson</a>
-        <button id="debugBtn" class="btn" type="button">Debug</button>
-        <button id="refreshBtn" class="btn primary" type="button">Refresh</button>
-      </div>
-    </section>
+        <aside class="panel statusBox">
+          <div class="line"><span>API Status</span><b id="apiStatus">Loading</b></div>
+          <div class="line"><span>Last Updated</span><b id="lastUpdated">-</b></div>
+          <div class="line"><span>Load Method</span><b id="loadMethod">-</b></div>
+          <div class="line"><span>Endpoint</span><b id="endpointText">Attendance</b></div>
+        </aside>
+      </section>
 
-    <section class="toolbar">
-      <label>
-        Student ID / Name
-        <input id="studentFilter" placeholder="ค้นหา student id หรือชื่อ" autocomplete="off" />
-      </label>
-
-      <label>
-        Section
-        <input id="sectionFilter" placeholder="เช่น CS/AI 2A" autocomplete="off" />
-      </label>
-
-      <label>
-        Session
-        <select id="sessionFilter">
-          <option value="">All S</option>
-          <option value="1">S1</option>
-          <option value="2">S2</option>
-          <option value="3">S3</option>
-          <option value="4">S4</option>
-          <option value="5">S5</option>
-          <option value="6">S6</option>
-          <option value="7">S7</option>
-          <option value="8">S8</option>
-          <option value="9">S9</option>
-          <option value="10">S10</option>
-          <option value="11">S11</option>
-          <option value="12">S12</option>
-          <option value="13">S13</option>
-          <option value="14">S14</option>
-          <option value="15">S15</option>
-        </select>
-      </label>
-
-      <button id="applyFilterBtn" class="btn gold" type="button">Apply</button>
-      <button id="clearFilterBtn" class="btn" type="button">Clear</button>
-    </section>
-
-    <div id="debugBox" class="debug"></div>
-
-    <section class="cards">
-      <div class="card"><span>Students</span><b id="kStudents">0</b></div>
-      <div class="card"><span>Session Rows</span><b id="kRows">0</b></div>
-      <div class="card"><span>Completed</span><b id="kCompleted">0</b></div>
-      <div class="card"><span>Avg Score</span><b id="kAvgScore">0</b></div>
-      <div class="card"><span>AI Help</span><b id="kAiHelp">0</b></div>
-    </section>
-
-    <section class="grid">
-      <section class="panel">
-        <div class="panelHead">
-          <h2>Student Summary</h2>
-          <span id="studentStatus" class="status">-</span>
+      <section class="panel section">
+        <div class="head">
+          <div>
+            <h2>Filters</h2>
+            <p>ค้นหานักศึกษา / section / completed เพื่อดูข้อมูลเฉพาะกลุ่ม</p>
+          </div>
         </div>
-        <div class="tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Section</th>
-                <th>Sessions</th>
-                <th>Completed</th>
-                <th>Score</th>
-                <th>Active</th>
-                <th>Last Active</th>
-              </tr>
-            </thead>
-            <tbody id="studentRows"></tbody>
-          </table>
+
+        <div class="filters">
+          <label class="field">
+            Student ID / Name
+            <input id="studentFilter" placeholder="เช่น 50 หรือ KK" />
+          </label>
+
+          <label class="field">
+            Section
+            <input id="sectionFilter" placeholder="เช่น 2 หรือ CS-A" />
+          </label>
+
+          <label class="field">
+            Completed
+            <select id="completedFilter">
+              <option value="">All</option>
+              <option value="true">Completed only</option>
+              <option value="false">Not completed only</option>
+            </select>
+          </label>
+
+          <button class="btn primary" id="applyFilterBtn">Apply</button>
+          <button class="btn" id="clearFilterBtn">Clear</button>
         </div>
       </section>
 
-      <section class="panel">
-        <div class="panelHead">
-          <h2>Session Summary</h2>
-          <span id="sessionStatus" class="status">-</span>
+      <section class="kpis">
+        <div class="kpi info">
+          <span>Students</span>
+          <b id="kpiStudents">0</b>
+          <small>นักศึกษาที่มีข้อมูล</small>
         </div>
+
+        <div class="kpi ok">
+          <span>Completed</span>
+          <b id="kpiCompleted">0</b>
+          <small>session ที่เล่นจบ</small>
+        </div>
+
+        <div class="kpi warn">
+          <span>Avg Score</span>
+          <b id="kpiAvgScore">0</b>
+          <small>คะแนนเฉลี่ย</small>
+        </div>
+
+        <div class="kpi info">
+          <span>Active Time</span>
+          <b id="kpiActive">0m</b>
+          <small>รวมเวลาที่ active</small>
+        </div>
+
+        <div class="kpi bad">
+          <span>AI Help</span>
+          <b id="kpiAiHelp">0</b>
+          <small>จำนวนครั้งที่ใช้ AI Help</small>
+        </div>
+      </section>
+
+      <section class="grid2">
+        <div class="panel section">
+          <div class="head">
+            <div>
+              <h2>Students</h2>
+              <p>กด View เพื่อดูรายละเอียดรายบุคคล</p>
+            </div>
+            <span class="badge info" id="studentCountBadge">0 students</span>
+          </div>
+
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Section</th>
+                  <th>Progress</th>
+                  <th>Avg Score</th>
+                  <th>Completed</th>
+                  <th>Status</th>
+                  <th>Last Active</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="studentRows">
+                <tr><td colspan="8">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel section">
+          <div class="head">
+            <div>
+              <h2>Need Support</h2>
+              <p>รายชื่อที่ควรติดตาม เช่น ไม่จบ คะแนนต่ำ หรือ active time น้อย</p>
+            </div>
+          </div>
+
+          <div class="cardsList" id="supportList">
+            <div class="empty">Loading...</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section">
+        <div class="head">
+          <div>
+            <h2>S1–S15 Session Overview</h2>
+            <p>ดูภาพรวมแต่ละด่านว่ามีคนเล่น/เล่นจบ/คะแนนเฉลี่ยเท่าไร</p>
+          </div>
+        </div>
+
+        <div class="stageGrid" id="sessionOverview"></div>
+      </section>
+
+      <section class="grid2">
+        <div class="panel section">
+          <div class="head">
+            <div>
+              <h2>Recent Sessions</h2>
+              <p>ข้อมูลจาก attendance_sessions</p>
+            </div>
+          </div>
+
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>S</th>
+                  <th>Score</th>
+                  <th>Completed</th>
+                  <th>Duration</th>
+                  <th>Actions</th>
+                  <th>Status</th>
+                  <th>Last Active</th>
+                </tr>
+              </thead>
+              <tbody id="recentSessionRows">
+                <tr><td colspan="8">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel section">
+          <div class="head">
+            <div>
+              <h2>Recent Events</h2>
+              <p>ข้อมูลจาก attendance_events เช่น answer / ai_help / session_end</p>
+            </div>
+          </div>
+
+          <div class="cardsList" id="recentEventsList">
+            <div class="empty">Loading...</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="footerStatus" id="footerStatus">Loading...</div>
+    </main>
+  </div>
+
+  <div class="modal" id="studentModal" role="dialog" aria-modal="true">
+    <div class="modalCard">
+      <div class="modalHead">
+        <div>
+          <h2 id="modalTitle">Student Detail</h2>
+          <p class="smallMuted" id="modalSub">-</p>
+        </div>
+        <button class="btn red small" id="closeModalBtn">Close</button>
+      </div>
+
+      <div class="detailGrid">
+        <div class="detailBox"><span>Completed</span><b id="dCompleted">0/15</b></div>
+        <div class="detailBox"><span>Avg Score</span><b id="dAvgScore">0</b></div>
+        <div class="detailBox"><span>Total Active</span><b id="dActive">0m</b></div>
+        <div class="detailBox"><span>Status</span><b id="dStatus">-</b></div>
+      </div>
+
+      <div class="panel section" style="box-shadow:none;margin:12px 0">
+        <div class="head">
+          <div>
+            <h2>S1–S15 Progress</h2>
+            <p>เขียว = completed, เหลือง = started/in progress, แดง = need support</p>
+          </div>
+        </div>
+        <div class="stageGrid" id="dStageGrid"></div>
+      </div>
+
+      <div class="panel section" style="box-shadow:none">
+        <div class="head">
+          <div>
+            <h2>Student Sessions</h2>
+            <p>รายการ session ของนักศึกษาคนนี้</p>
+          </div>
+        </div>
+
         <div class="tableWrap">
           <table>
             <thead>
               <tr>
                 <th>S</th>
-                <th>Attempts</th>
+                <th>Score</th>
                 <th>Completed</th>
-                <th>Avg Score</th>
-                <th>Avg Active</th>
+                <th>Duration</th>
+                <th>Active</th>
+                <th>Actions</th>
+                <th>Status</th>
+                <th>Last Active</th>
               </tr>
             </thead>
-            <tbody id="sessionRows"></tbody>
+            <tbody id="dSessionRows"></tbody>
           </table>
         </div>
-      </section>
-    </section>
-
-    <section class="panel">
-      <div class="panelHead">
-        <h2>Recent Sessions</h2>
-        <span id="recentStatus" class="status">-</span>
       </div>
-      <div class="tableWrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Section</th>
-              <th>S</th>
-              <th>Score</th>
-              <th>Completed</th>
-              <th>Status</th>
-              <th>Duration</th>
-              <th>Active</th>
-              <th>Last Active</th>
-            </tr>
-          </thead>
-          <tbody id="recentRows"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panelHead">
-        <h2>Recent Events</h2>
-        <span id="eventStatus" class="status">-</span>
-      </div>
-      <div class="tableWrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Event</th>
-              <th>Student</th>
-              <th>S</th>
-              <th>Score</th>
-              <th>Completed</th>
-            </tr>
-          </thead>
-          <tbody id="eventRows"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <p class="footer" id="footerStatus">Ready</p>
-  </main>
+    </div>
+  </div>
 
   <script>
-    (function(){
-      'use strict';
+  (function(){
+    'use strict';
 
-      const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
+    const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
 
-      const els = {};
-      [
-        'refreshBtn','applyFilterBtn','clearFilterBtn','debugBtn','debugBox',
-        'studentFilter','sectionFilter','sessionFilter',
-        'kStudents','kRows','kCompleted','kAvgScore','kAiHelp',
-        'studentRows','sessionRows','recentRows','eventRows',
-        'studentStatus','sessionStatus','recentStatus','eventStatus','footerStatus'
-      ].forEach(id => els[id] = document.getElementById(id));
+    const SKILL_BY_S = {
+      1:'Speaking',2:'Reading',3:'Boss Writing',4:'Speaking',5:'Listening',
+      6:'Boss Reading',7:'Writing',8:'Listening',9:'Boss Speaking',10:'Reading',
+      11:'Listening',12:'Boss Writing',13:'Reading',14:'Speaking',15:'Final Listening'
+    };
 
-      let lastRawData = null;
-      let lastUrl = '';
-      let debugOn = false;
+    const els = {};
+    const ids = [
+      'refreshBtn','exportBtn','apiStatus','lastUpdated','loadMethod','endpointText',
+      'studentFilter','sectionFilter','completedFilter','applyFilterBtn','clearFilterBtn',
+      'kpiStudents','kpiCompleted','kpiAvgScore','kpiActive','kpiAiHelp',
+      'studentCountBadge','studentRows','supportList','sessionOverview',
+      'recentSessionRows','recentEventsList','footerStatus',
+      'studentModal','modalTitle','modalSub','closeModalBtn',
+      'dCompleted','dAvgScore','dActive','dStatus','dStageGrid','dSessionRows'
+    ];
 
-      function esc(s){
-        return String(s ?? '').replace(/[&<>"']/g, m => ({
-          '&':'&amp;',
-          '<':'&lt;',
-          '>':'&gt;',
-          '"':'&quot;',
-          "'":'&#39;'
-        }[m]));
-      }
+    ids.forEach(function(id){els[id]=document.getElementById(id);});
 
-      function sec(v){
-        v = Number(v || 0);
-        if(!Number.isFinite(v)) v = 0;
+    let RAW = null;
+    let SUMMARY = null;
+    let CURRENT_ROWS = [];
+    let CURRENT_STUDENTS = [];
 
-        const h = Math.floor(v / 3600);
-        const m = Math.floor((v % 3600) / 60);
-        const s = Math.floor(v % 60);
+    function esc(s){
+      return String(s == null ? '' : s).replace(/[&<>"']/g,function(m){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+      });
+    }
 
-        if(h > 0){
-          return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    function num(v){
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function bool(v){
+      return v === true || String(v).toLowerCase() === 'true';
+    }
+
+    function fmtMin(sec){
+      sec = num(sec);
+      if(sec < 60) return sec + 's';
+      return Math.round(sec/60) + 'm';
+    }
+
+    function sessionNoOf(r){
+      const raw = String(r.sessionNo || r.lessonId || '').trim();
+      const m = raw.match(/S?0?([1-9]|1[0-5])/i);
+      return m ? Number(m[1]) : 0;
+    }
+
+    function studentKeyOf(r){
+      return String(r.studentId || '').trim() || ('NAME:' + String(r.studentName || '').trim());
+    }
+
+    function statusOfStudent(stu, rows){
+      const completed = stu.completed || 0;
+      const avg = stu.avgScore || 0;
+      const active = stu.totalActiveTimeSec || 0;
+
+      if(completed >= 15) return {text:'Completed All',cls:'ok'};
+      if(completed === 0 && active < 60) return {text:'Need Start',cls:'bad'};
+      if(avg > 0 && avg < 70) return {text:'Need Support',cls:'bad'};
+      if(completed < 3) return {text:'In Progress',cls:'warn'};
+      return {text:'OK',cls:'ok'};
+    }
+
+    function statusOfSession(r){
+      if(bool(r.completed)) return {text:'Completed',cls:'ok'};
+      if(num(r.durationSec) > 0 || num(r.activeTimeSec) > 0 || num(r.actionsCount) > 0) return {text:'Started',cls:'warn'};
+      return {text:'No Data',cls:'bad'};
+    }
+
+    function buildUrl(){
+      const p = new URLSearchParams();
+      p.set('api','attendance');
+      p.set('action','summary');
+      p.set('limit','1000');
+      p.set('eventLimit','1000');
+
+      const student = els.studentFilter.value.trim();
+      const section = els.sectionFilter.value.trim();
+      const completed = els.completedFilter.value.trim();
+
+      if(student) p.set('studentId',student);
+      if(section) p.set('section',section);
+      if(completed) p.set('completed',completed);
+
+      p.set('_',String(Date.now()));
+
+      return ENDPOINT + '?' + p.toString();
+    }
+
+    function fetchJsonp(url){
+      return new Promise(function(resolve,reject){
+        const cb = 'tpTeacherCb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const script = document.createElement('script');
+        const sep = url.indexOf('?') >= 0 ? '&' : '?';
+
+        window[cb] = function(data){
+          cleanup();
+          resolve(data);
+        };
+
+        function cleanup(){
+          try{delete window[cb];}catch(e){window[cb]=undefined;}
+          script.remove();
         }
 
-        return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+        script.onerror = function(){
+          cleanup();
+          reject(new Error('JSONP failed'));
+        };
+
+        script.src = url + sep + 'callback=' + encodeURIComponent(cb);
+        document.body.appendChild(script);
+      });
+    }
+
+    async function load(){
+      const url = buildUrl();
+
+      els.apiStatus.textContent = 'Loading';
+      els.loadMethod.textContent = '-';
+      els.footerStatus.textContent = 'Loading attendance summary...';
+
+      try{
+        const res = await fetch(url,{cache:'no-store'});
+        const data = await res.json();
+
+        RAW = data;
+        SUMMARY = data.summary || {};
+        els.loadMethod.textContent = 'fetch';
+        renderAll(data,'fetch');
+      }catch(err){
+        try{
+          const data = await fetchJsonp(url);
+
+          RAW = data;
+          SUMMARY = data.summary || {};
+          els.loadMethod.textContent = 'jsonp';
+          renderAll(data,'jsonp');
+        }catch(err2){
+          els.apiStatus.textContent = 'Error';
+          els.footerStatus.textContent = 'โหลดข้อมูลไม่ได้: ' + (err2.message || err.message || 'unknown');
+          renderEmpty('โหลดข้อมูลไม่ได้ กรุณาตรวจ API / Deploy / Internet');
+        }
+      }
+    }
+
+    function renderAll(data,method){
+      if(!data || data.ok !== true){
+        els.apiStatus.textContent = 'API Error';
+        els.footerStatus.textContent = 'API returned error';
+        renderEmpty('API returned error');
+        return;
       }
 
-      function pillCompleted(v){
-        const ok = String(v).toLowerCase() === 'true';
-        return '<span class="pill ' + (ok ? 'ok' : 'warn') + '">' + (ok ? 'TRUE' : 'FALSE') + '</span>';
+      const summary = data.summary || {};
+      const totals = summary.totals || {};
+
+      CURRENT_ROWS = summary.recentSessions || [];
+      CURRENT_STUDENTS = summary.students || [];
+
+      els.apiStatus.textContent = 'OK';
+      els.lastUpdated.textContent = new Date().toLocaleString();
+      els.loadMethod.textContent = method;
+      els.endpointText.textContent = 'Attendance summary';
+
+      els.kpiStudents.textContent = totals.students || 0;
+      els.kpiCompleted.textContent = totals.completedSessions || 0;
+      els.kpiAvgScore.textContent = totals.avgScore || 0;
+      els.kpiActive.textContent = fmtMin(totals.totalActiveTimeSec || 0);
+      els.kpiAiHelp.textContent = totals.aiHelpEvents || 0;
+
+      renderStudents(summary.students || [], summary.recentSessions || []);
+      renderSupport(summary.students || [], summary.recentSessions || []);
+      renderSessionOverview(summary.sessions || []);
+      renderRecentSessions(summary.recentSessions || []);
+      renderRecentEvents(summary.recentEvents || []);
+
+      els.footerStatus.textContent =
+        'Updated: ' + new Date().toLocaleString() +
+        ' • via ' + method +
+        ' • sessions: ' + (totals.sessionRows || 0) +
+        ' • events: ' + (totals.eventRows || 0) +
+        ' • S1–S15 only';
+    }
+
+    function renderEmpty(msg){
+      els.studentRows.innerHTML = '<tr><td colspan="8">' + esc(msg) + '</td></tr>';
+      els.supportList.innerHTML = '<div class="empty">' + esc(msg) + '</div>';
+      els.sessionOverview.innerHTML = '<div class="empty">' + esc(msg) + '</div>';
+      els.recentSessionRows.innerHTML = '<tr><td colspan="8">' + esc(msg) + '</td></tr>';
+      els.recentEventsList.innerHTML = '<div class="empty">' + esc(msg) + '</div>';
+    }
+
+    function renderStudents(students, rows){
+      els.studentCountBadge.textContent = students.length + ' students';
+
+      if(!students.length){
+        els.studentRows.innerHTML = '<tr><td colspan="8">ยังไม่มีข้อมูลนักศึกษา หรือยังไม่มี session_end ที่สมบูรณ์</td></tr>';
+        return;
       }
 
-      function pillStatus(v){
-        v = String(v || 'started');
-        let cls = 'warn';
+      els.studentRows.innerHTML = students.map(function(stu){
+        const key = String(stu.studentId || '').trim() || ('NAME:' + String(stu.studentName || '').trim());
+        const stuRows = rows.filter(function(r){return studentKeyOf(r) === key;});
+        const status = statusOfStudent(stu,stuRows);
+        const completed = stu.completed || 0;
+        const pct = Math.min(100,Math.round((completed / 15) * 100));
 
-        if(v === 'completed') cls = 'ok';
-        if(v === 'present') cls = 'info';
-        if(v === 'absent') cls = 'bad';
+        return '' +
+          '<tr>' +
+            '<td><div class="studentName"><b>' + esc(stu.studentName || '-') + '</b><small>ID: ' + esc(stu.studentId || '-') + '</small></div></td>' +
+            '<td>' + esc(stu.classSection || '-') + '</td>' +
+            '<td><div class="progressTiny"><div class="bar"><i style="width:' + pct + '%"></i></div><span class="smallMuted">' + completed + '/15</span></div></td>' +
+            '<td><b>' + esc(stu.avgScore || 0) + '</b></td>' +
+            '<td><span class="badge ok">' + completed + '</span></td>' +
+            '<td><span class="badge ' + status.cls + '">' + esc(status.text) + '</span></td>' +
+            '<td><span class="smallMuted">' + esc(stu.lastActiveAt || '-') + '</span></td>' +
+            '<td><button class="btn small primary" data-view-student="' + esc(key) + '">View</button></td>' +
+          '</tr>';
+      }).join('');
 
-        return '<span class="pill ' + cls + '">' + esc(v) + '</span>';
+      Array.from(document.querySelectorAll('[data-view-student]')).forEach(function(btn){
+        btn.addEventListener('click',function(){
+          openStudent(btn.getAttribute('data-view-student'));
+        });
+      });
+    }
+
+    function renderSupport(students, rows){
+      const support = students.map(function(stu){
+        const key = String(stu.studentId || '').trim() || ('NAME:' + String(stu.studentName || '').trim());
+        const stuRows = rows.filter(function(r){return studentKeyOf(r) === key;});
+        const status = statusOfStudent(stu,stuRows);
+        return {stu:stu,status:status,key:key};
+      }).filter(function(x){
+        return x.status.cls !== 'ok';
+      });
+
+      if(!support.length){
+        els.supportList.innerHTML = '<div class="empty">ยังไม่พบผู้เรียนที่ต้องติดตามจากข้อมูลปัจจุบัน</div>';
+        return;
       }
 
-      function eventPill(v){
-        v = String(v || '-');
+      els.supportList.innerHTML = support.map(function(x){
+        const stu = x.stu;
+        return '' +
+          '<div class="miniCard">' +
+            '<div class="miniCardTop">' +
+              '<div>' +
+                '<h3>' + esc(stu.studentName || stu.studentId || 'Unknown') + '</h3>' +
+                '<p>ID: ' + esc(stu.studentId || '-') + ' • Section: ' + esc(stu.classSection || '-') + '</p>' +
+              '</div>' +
+              '<span class="badge ' + x.status.cls + '">' + esc(x.status.text) + '</span>' +
+            '</div>' +
+            '<p>Completed: <b>' + esc(stu.completed || 0) + '/15</b> • Avg score: <b>' + esc(stu.avgScore || 0) + '</b> • Active: <b>' + fmtMin(stu.totalActiveTimeSec || 0) + '</b></p>' +
+            '<button class="btn small primary" data-view-student="' + esc(x.key) + '">View student</button>' +
+          '</div>';
+      }).join('');
+
+      Array.from(els.supportList.querySelectorAll('[data-view-student]')).forEach(function(btn){
+        btn.addEventListener('click',function(){
+          openStudent(btn.getAttribute('data-view-student'));
+        });
+      });
+    }
+
+    function renderSessionOverview(sessions){
+      const by = {};
+      sessions.forEach(function(s){by[Number(s.sessionNo)] = s;});
+
+      els.sessionOverview.innerHTML = Array.from({length:15},function(_,i){
+        const n = i + 1;
+        const s = by[n] || null;
+        const attempts = s ? num(s.attempts) : 0;
+        const completed = s ? num(s.completed) : 0;
+        const avg = s ? num(s.avgScore) : 0;
+        let cls = attempts ? 'started' : '';
+
+        if(completed > 0) cls = 'done';
+        if(attempts > 0 && completed === 0) cls = 'started';
+
+        return '' +
+          '<div class="stage ' + cls + '">' +
+            '<b>S' + String(n).padStart(2,'0') + '</b>' +
+            '<small>' + esc(SKILL_BY_S[n] || '-') + '</small>' +
+            '<small>' + completed + '/' + attempts + ' • ' + avg + '</small>' +
+          '</div>';
+      }).join('');
+    }
+
+    function renderRecentSessions(rows){
+      if(!rows.length){
+        els.recentSessionRows.innerHTML = '<tr><td colspan="8">ยังไม่มี recent sessions</td></tr>';
+        return;
+      }
+
+      els.recentSessionRows.innerHTML = rows.slice(0,60).map(function(r){
+        const st = statusOfSession(r);
+        const s = sessionNoOf(r);
+
+        return '' +
+          '<tr>' +
+            '<td><div class="studentName"><b>' + esc(r.studentName || '-') + '</b><small>ID: ' + esc(r.studentId || '-') + '</small></div></td>' +
+            '<td>S' + String(s || r.sessionNo || '-').padStart(2,'0') + '</td>' +
+            '<td>' + esc(r.score || 0) + '</td>' +
+            '<td><span class="badge ' + (bool(r.completed) ? 'ok' : 'warn') + '">' + (bool(r.completed) ? 'Yes' : 'No') + '</span></td>' +
+            '<td>' + fmtMin(r.durationSec || 0) + '</td>' +
+            '<td>' + esc(r.actionsCount || 0) + '</td>' +
+            '<td><span class="badge ' + st.cls + '">' + esc(st.text) + '</span></td>' +
+            '<td><span class="smallMuted">' + esc(r.lastActiveAt || '-') + '</span></td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    function renderRecentEvents(events){
+      if(!events.length){
+        els.recentEventsList.innerHTML = '<div class="empty">ยังไม่มี recent events</div>';
+        return;
+      }
+
+      els.recentEventsList.innerHTML = events.slice(0,80).map(function(e){
+        const type = String(e.eventType || '');
+        let cls = 'info';
+        if(type === 'session_end') cls = 'ok';
+        if(type === 'ai_help') cls = 'purple';
+        if(type === 'timeout') cls = 'bad';
+
+        return '' +
+          '<div class="miniCard">' +
+            '<div class="miniCardTop">' +
+              '<div>' +
+                '<h3>' + esc(e.studentName || e.studentId || '-') + '</h3>' +
+                '<p>S' + esc(e.sessionNo || '-') + ' • score ' + esc(e.score || 0) + ' • actions ' + esc(e.actionsCount || 0) + '</p>' +
+              '</div>' +
+              '<span class="badge ' + cls + '">' + esc(type || '-') + '</span>' +
+            '</div>' +
+            '<p class="smallMuted">' + esc(e.serverTs || e.clientTs || '-') + '</p>' +
+          '</div>';
+      }).join('');
+    }
+
+    function openStudent(key){
+      const stu = CURRENT_STUDENTS.find(function(s){
+        const k = String(s.studentId || '').trim() || ('NAME:' + String(s.studentName || '').trim());
+        return k === key;
+      });
+
+      if(!stu) return;
+
+      const rows = CURRENT_ROWS.filter(function(r){
+        return studentKeyOf(r) === key;
+      });
+
+      const status = statusOfStudent(stu,rows);
+
+      els.modalTitle.textContent = (stu.studentName || 'Unknown Student');
+      els.modalSub.textContent = 'ID: ' + (stu.studentId || '-') + ' • Section: ' + (stu.classSection || '-');
+      els.dCompleted.textContent = (stu.completed || 0) + '/15';
+      els.dAvgScore.textContent = stu.avgScore || 0;
+      els.dActive.textContent = fmtMin(stu.totalActiveTimeSec || 0);
+      els.dStatus.textContent = status.text;
+
+      renderStudentStages(rows);
+      renderStudentSessions(rows);
+
+      els.studentModal.classList.add('on');
+    }
+
+    function renderStudentStages(rows){
+      const byS = {};
+
+      rows.forEach(function(r){
+        const s = sessionNoOf(r);
+        if(!s) return;
+
+        if(!byS[s]) byS[s] = [];
+        byS[s].push(r);
+      });
+
+      els.dStageGrid.innerHTML = Array.from({length:15},function(_,i){
+        const n = i + 1;
+        const list = byS[n] || [];
+        const completed = list.some(function(r){return bool(r.completed);});
+        const started = list.length > 0;
+        const bestScore = list.reduce(function(max,r){return Math.max(max,num(r.score));},0);
 
         let cls = '';
+        let txt = '-';
 
-        if(v === 'session_end' || v === 'badge_unlock') cls = 'ok';
-        else if(v === 'ai_help') cls = 'info';
-        else if(v === 'page_hidden' || v === 'page_leave') cls = 'warn';
-
-        return '<span class="pill ' + cls + '">' + esc(v) + '</span>';
-      }
-
-      function qs(){
-        const p = new URLSearchParams();
-
-        p.set('api','attendance');
-        p.set('action','summary');
-        p.set('limit','1000');
-        p.set('eventLimit','1000');
-
-        const student = els.studentFilter.value.trim();
-        const section = els.sectionFilter.value.trim();
-        const s = els.sessionFilter.value;
-
-        if(student) p.set('studentId', student);
-        if(section) p.set('section', section);
-        if(s) p.set('sessionNo', s);
-
-        p.set('t', String(Date.now()));
-
-        return p.toString();
-      }
-
-      function setDebug(msg,obj){
-        const text =
-          String(msg || '') +
-          (obj !== undefined ? '\n\n' + safeJson(obj) : '') +
-          '\n\nURL:\n' + lastUrl;
-
-        els.debugBox.textContent = text;
-
-        if(debugOn){
-          els.debugBox.classList.add('on');
+        if(completed){
+          cls = 'done';
+          txt = bestScore;
+        }else if(started){
+          cls = 'started';
+          txt = 'Start';
         }
+
+        return '' +
+          '<div class="stage ' + cls + '">' +
+            '<b>S' + String(n).padStart(2,'0') + '</b>' +
+            '<small>' + esc(SKILL_BY_S[n] || '-') + '</small>' +
+            '<small>' + esc(txt) + '</small>' +
+          '</div>';
+      }).join('');
+    }
+
+    function renderStudentSessions(rows){
+      if(!rows.length){
+        els.dSessionRows.innerHTML = '<tr><td colspan="8">ไม่มีข้อมูล session ของนักศึกษาคนนี้</td></tr>';
+        return;
       }
 
-      function safeJson(obj){
-        try{
-          return JSON.stringify(obj,null,2).slice(0,6000);
-        }catch(e){
-          return String(obj);
+      els.dSessionRows.innerHTML = rows.map(function(r){
+        const st = statusOfSession(r);
+        const s = sessionNoOf(r);
+
+        return '' +
+          '<tr>' +
+            '<td>S' + String(s || r.sessionNo || '-').padStart(2,'0') + '</td>' +
+            '<td>' + esc(r.score || 0) + '</td>' +
+            '<td><span class="badge ' + (bool(r.completed) ? 'ok' : 'warn') + '">' + (bool(r.completed) ? 'Yes' : 'No') + '</span></td>' +
+            '<td>' + fmtMin(r.durationSec || 0) + '</td>' +
+            '<td>' + fmtMin(r.activeTimeSec || 0) + '</td>' +
+            '<td>' + esc(r.actionsCount || 0) + '</td>' +
+            '<td><span class="badge ' + st.cls + '">' + esc(st.text) + '</span></td>' +
+            '<td><span class="smallMuted">' + esc(r.lastActiveAt || '-') + '</span></td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    function exportCsv(){
+      const rows = CURRENT_ROWS || [];
+
+      if(!rows.length){
+        alert('ยังไม่มีข้อมูลสำหรับ export');
+        return;
+      }
+
+      const headers = [
+        'studentId','studentName','classSection','sessionNo','lessonId',
+        'score','completed','durationSec','activeTimeSec','actionsCount',
+        'attendanceStatus','lastActiveAt'
+      ];
+
+      const csv = [
+        headers.join(','),
+        ...rows.map(function(r){
+          return headers.map(function(h){
+            const v = String(r[h] == null ? '' : r[h]).replace(/"/g,'""');
+            return '"' + v + '"';
+          }).join(',');
+        })
+      ].join('\n');
+
+      const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+
+      a.href = url;
+      a.download = 'techpath-attendance-' + new Date().toISOString().slice(0,10) + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(function(){URL.revokeObjectURL(url);},500);
+    }
+
+    function bind(){
+      els.refreshBtn.addEventListener('click',load);
+      els.applyFilterBtn.addEventListener('click',load);
+
+      els.clearFilterBtn.addEventListener('click',function(){
+        els.studentFilter.value = '';
+        els.sectionFilter.value = '';
+        els.completedFilter.value = '';
+        load();
+      });
+
+      els.exportBtn.addEventListener('click',exportCsv);
+      els.closeModalBtn.addEventListener('click',function(){
+        els.studentModal.classList.remove('on');
+      });
+
+      els.studentModal.addEventListener('click',function(e){
+        if(e.target === els.studentModal){
+          els.studentModal.classList.remove('on');
         }
-      }
+      });
 
-      function loadJsonp(url){
-        return new Promise(function(resolve,reject){
-          const cbName = '__TP_ATTENDANCE_CB_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-          let done = false;
-
-          window[cbName] = function(data){
-            if(done) return;
-            done = true;
-            cleanup();
-            resolve(data);
-          };
-
-          const script = document.createElement('script');
-          const sep = url.indexOf('?') >= 0 ? '&' : '?';
-
-          script.src = url + sep + 'callback=' + encodeURIComponent(cbName);
-          script.async = true;
-
-          function cleanup(){
-            try{ delete window[cbName]; }catch(e){ window[cbName] = undefined; }
-            if(script && script.parentNode) script.parentNode.removeChild(script);
-            clearTimeout(timer);
-          }
-
-          script.onerror = function(){
-            if(done) return;
-            done = true;
-            cleanup();
-            reject(new Error('JSONP load failed'));
-          };
-
-          const timer = setTimeout(function(){
-            if(done) return;
-            done = true;
-            cleanup();
-            reject(new Error('JSONP timeout'));
-          },12000);
-
-          document.body.appendChild(script);
+      ['studentFilter','sectionFilter'].forEach(function(id){
+        els[id].addEventListener('keydown',function(e){
+          if(e.key === 'Enter') load();
         });
-      }
+      });
+    }
 
-      async function load(){
-        try{
-          els.footerStatus.textContent = 'Loading...';
-
-          const url = ENDPOINT + '?' + qs();
-          lastUrl = url;
-
-          let data = null;
-          let method = 'fetch';
-
-          try{
-            const res = await fetch(url, {
-              method:'GET',
-              cache:'no-store',
-              redirect:'follow'
-            });
-
-            data = await res.json();
-          }catch(fetchErr){
-            method = 'jsonp';
-            console.warn('Fetch failed, trying JSONP...', fetchErr);
-            data = await loadJsonp(url);
-          }
-
-          lastRawData = data;
-          setDebug('Loaded with: ' + method, data);
-
-          if(!data || !data.ok){
-            throw new Error((data && data.error) || 'API returned not ok');
-          }
-
-          render(data.summary || {});
-          els.footerStatus.textContent = 'Updated: ' + new Date().toLocaleString() + ' • via ' + method;
-
-        }catch(err){
-          console.error(err);
-          els.footerStatus.textContent = 'Error: ' + err.message;
-          setDebug('ERROR: ' + err.message, lastRawData || {});
-          render({});
-        }
-      }
-
-      function render(summary){
-        const totals = summary.totals || {};
-        const students = Array.isArray(summary.students) ? summary.students : [];
-        const sessions = Array.isArray(summary.sessions) ? summary.sessions : [];
-        const recentSessions = Array.isArray(summary.recentSessions) ? summary.recentSessions : [];
-        const recentEvents = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
-
-        els.kStudents.textContent = totals.students || 0;
-        els.kRows.textContent = totals.sessionRows || 0;
-        els.kCompleted.textContent = totals.completedSessions || 0;
-        els.kAvgScore.textContent = totals.avgScore || 0;
-        els.kAiHelp.textContent = totals.aiHelpEvents || 0;
-
-        els.studentStatus.textContent = students.length + ' students';
-        els.sessionStatus.textContent = sessions.length + ' sessions';
-        els.recentStatus.textContent = recentSessions.length + ' rows';
-        els.eventStatus.textContent = recentEvents.length + ' events';
-
-        els.studentRows.innerHTML = students.length ? students.map(r => `
-          <tr>
-            <td>
-              <b>${esc(r.studentName || '-')}</b><br>
-              <small>${esc(r.studentId || '')}</small>
-            </td>
-            <td>${esc(r.classSection || '-')}</td>
-            <td>${esc(r.sessions || 0)}</td>
-            <td>${esc(r.completed || 0)}</td>
-            <td>${esc(r.totalScore || 0)}<br><small>avg ${esc(r.avgScore || 0)}</small></td>
-            <td>${sec(r.totalActiveTimeSec || 0)}</td>
-            <td>${esc(r.lastActiveAt || '-')}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="7"><div class="empty">No student data</div></td></tr>';
-
-        els.sessionRows.innerHTML = sessions.length ? sessions.map(r => `
-          <tr>
-            <td><b>S${esc(r.sessionNo || '-')}</b><br><small>${esc(r.lessonId || '')}</small></td>
-            <td>${esc(r.attempts || 0)}</td>
-            <td>${esc(r.completed || 0)}</td>
-            <td>${esc(r.avgScore || 0)}</td>
-            <td>${sec(r.avgActiveTimeSec || 0)}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="5"><div class="empty">No session summary data</div></td></tr>';
-
-        els.recentRows.innerHTML = recentSessions.length ? recentSessions.map(r => `
-          <tr>
-            <td>
-              <b>${esc(r.studentName || '-')}</b><br>
-              <small>${esc(r.studentId || '')}</small>
-            </td>
-            <td>${esc(r.classSection || '-')}</td>
-            <td>S${esc(r.sessionNo || '-')}</td>
-            <td>${esc(r.score || 0)}</td>
-            <td>${pillCompleted(r.completed)}</td>
-            <td>${pillStatus(r.attendanceStatus)}</td>
-            <td>${sec(r.durationSec || 0)}</td>
-            <td>${sec(r.activeTimeSec || 0)}</td>
-            <td>${esc(r.lastActiveAt || '-')}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="9"><div class="empty">No recent session data</div></td></tr>';
-
-        els.eventRows.innerHTML = recentEvents.length ? recentEvents.map(r => `
-          <tr>
-            <td>${esc(r.serverTs || '-')}</td>
-            <td>${eventPill(r.eventType || '-')}</td>
-            <td>
-              <b>${esc(r.studentName || '-')}</b><br>
-              <small>${esc(r.studentId || '')}</small>
-            </td>
-            <td>S${esc(r.sessionNo || '-')}</td>
-            <td>${esc(r.score || 0)}</td>
-            <td>${pillCompleted(r.completed)}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="6"><div class="empty">No recent event data</div></td></tr>';
-      }
-
-      function bind(){
-        els.refreshBtn.addEventListener('click', load);
-        els.applyFilterBtn.addEventListener('click', load);
-
-        els.clearFilterBtn.addEventListener('click', function(){
-          els.studentFilter.value = '';
-          els.sectionFilter.value = '';
-          els.sessionFilter.value = '';
-          load();
-        });
-
-        els.debugBtn.addEventListener('click', function(){
-          debugOn = !debugOn;
-          els.debugBox.classList.toggle('on',debugOn);
-
-          if(debugOn){
-            setDebug('Debug panel on', lastRawData || {});
-          }
-        });
-
-        ['studentFilter','sectionFilter'].forEach(id => {
-          els[id].addEventListener('keydown', e => {
-            if(e.key === 'Enter') load();
-          });
-        });
-
-        els.sessionFilter.addEventListener('change', load);
-      }
-
-      bind();
-      load();
-    })();
+    bind();
+    load();
+  })();
   </script>
 </body>
 </html>
