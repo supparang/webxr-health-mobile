@@ -1208,7 +1208,7 @@
 
       <div class="headline">
         <div class="title">Fitness Zone</div>
-        <div class="sub">ขยับร่างกายให้แข็งแรง สนุกกับการออกกำลัง • child-friendly • zone-first</div>
+        <div class="sub">ขยับร่างกายให้แข็งแรง สนุกกับการออกกำลัง • child-friendly • minimal URL</div>
       </div>
 
       <div class="top-actions">
@@ -1536,7 +1536,7 @@
     </section>
 
     <p class="footer-note">
-      HeroHealth Fitness Zone • child-friendly • zone-first • featured JumpDuck flow
+      HeroHealth Fitness Zone • child-friendly • zone-first • minimal safe URL
     </p>
   </main>
 
@@ -1621,8 +1621,6 @@
           qget('mainHub', ''),
           qget('rootHub', ''),
           qget('home', ''),
-          qget('zoneReturn', ''),
-          qget('next', ''),
           qget('hub', ''),
           './hub-v2.html'
         );
@@ -1637,33 +1635,17 @@
       let selectedView = firstNonEmpty(
         qget('view', ''),
         localStorage.getItem('HH_FITNESS_VIEW'),
+        localStorage.getItem('HH_LAST_VIEW'),
         'mobile'
       );
 
       function getCleanFitnessZoneReturnUrl(){
-        const hubRoot = stripToKnownPageUrl(deriveMainHub(), './hub-v2.html');
-        const url = new URL('./fitness-zone.html', location.href);
-
-        url.searchParams.set('pid', qget('pid', 'anon'));
-        url.searchParams.set('name', qget('name', qget('nickName', qget('nick', 'Hero'))));
-        url.searchParams.set('nick', qget('nick', qget('nickName', qget('name', 'Hero'))));
-        url.searchParams.set('studyId', qget('studyId', ''));
-        url.searchParams.set('section', qget('section', ''));
-        url.searchParams.set('diff', qget('diff', 'normal'));
-        url.searchParams.set('view', selectedView);
-        url.searchParams.set('time', qget('time', '90'));
-        url.searchParams.set('run', qget('run', 'play'));
-        url.searchParams.set('zone', 'fitness');
-        url.searchParams.set('cat', 'fitness');
-        url.searchParams.set('hubRoot', hubRoot);
-
-        return url.toString();
+        return new URL('./fitness-zone.html', location.href).toString();
       }
 
       const ctx = {
         pid: qget('pid', 'anon'),
-        name: qget('name', qget('nickName', qget('nick', 'Hero'))),
-        nick: qget('nick', qget('nickName', qget('name', 'Hero'))),
+        name: qget('name', qget('nickName', 'Hero')),
         diff: qget('diff', 'normal'),
         run: qget('run', 'play'),
         view: selectedView,
@@ -1788,60 +1770,29 @@
         });
       }
 
+      function setIfValue(url, key, value){
+        if(value !== undefined && value !== null && String(value).trim() !== ''){
+          url.searchParams.set(key, String(value));
+        }
+      }
+
       function passCommon(url) {
-        const passthroughKeys = [
-          'pid',
-          'name',
-          'nick',
-          'nickName',
-          'studyId',
-          'section',
-          'run',
-          'diff',
-          'time',
-          'seed',
-          'debug',
-          'api',
-          'log',
-          'studentKey',
-          'schoolCode',
-          'classRoom',
-          'studentNo',
-          'conditionGroup',
-          'sessionNo',
-          'weekNo'
-        ];
-
-        passthroughKeys.forEach((k) => {
-          const v = qs.get(k);
-          if (v != null && v !== '') url.searchParams.set(k, v);
-        });
-
-        url.searchParams.set('pid', url.searchParams.get('pid') || ctx.pid);
-        url.searchParams.set('name', url.searchParams.get('name') || ctx.name);
-        url.searchParams.set('nick', url.searchParams.get('nick') || ctx.nick);
-        url.searchParams.set('diff', url.searchParams.get('diff') || ctx.diff);
-        url.searchParams.set('time', url.searchParams.get('time') || ctx.time);
-        url.searchParams.set('seed', url.searchParams.get('seed') || ctx.seed);
-        url.searchParams.set('run', url.searchParams.get('run') || ctx.run);
-
-        if(ctx.studyId && !url.searchParams.get('studyId')){
-          url.searchParams.set('studyId', ctx.studyId);
-        }
-
-        if(ctx.section && !url.searchParams.get('section')){
-          url.searchParams.set('section', ctx.section);
-        }
-
+        url.searchParams.set('pid', qget('pid', ctx.pid));
+        url.searchParams.set('name', qget('name', ctx.name));
+        url.searchParams.set('diff', qget('diff', ctx.diff));
+        url.searchParams.set('time', qget('time', ctx.time));
+        url.searchParams.set('seed', qget('seed', ctx.seed));
+        url.searchParams.set('run', qget('run', ctx.run));
         url.searchParams.set('view', selectedView);
+
+        setIfValue(url, 'studyId', ctx.studyId);
+        setIfValue(url, 'section', ctx.section);
 
         url.searchParams.set('zone', 'fitness');
         url.searchParams.set('cat', 'fitness');
 
-        url.searchParams.set('hubRoot', ctx.hubRoot);
         url.searchParams.set('hub', ctx.zoneReturn);
-        url.searchParams.set('zoneReturn', ctx.zoneReturn);
-        url.searchParams.set('next', ctx.zoneReturn);
+        url.searchParams.set('hubRoot', ctx.hubRoot);
 
         return url;
       }
@@ -1890,7 +1841,7 @@
 
         Object.keys(overrides).forEach((k) => {
           const val = overrides[k];
-          if (val === null || val === undefined || val === '') {
+          if (val === null || val === undefined || String(val).trim() === '') {
             url.searchParams.delete(k);
           } else {
             url.searchParams.set(k, String(val));
