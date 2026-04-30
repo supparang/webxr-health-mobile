@@ -2,30 +2,27 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>TechPath English • Teacher Dashboard</title>
   <meta name="theme-color" content="#07111f" />
   <meta name="color-scheme" content="dark" />
 
   <style>
     :root{
-      --bg:#06101d;
-      --panel:rgba(255,255,255,.085);
-      --panel2:rgba(255,255,255,.06);
+      --bg:#07111f;
+      --panel:#151e2d;
+      --panel2:#1b2638;
       --line:rgba(255,255,255,.14);
       --text:#eef7ff;
-      --muted:#aec3d8;
+      --muted:#b8c9dc;
       --cyan:#72e8ff;
       --purple:#8e7dff;
       --green:#4ce39a;
       --gold:#ffd166;
       --red:#ff6e87;
-      --pink:#ff86d1;
-      --shadow:0 22px 70px rgba(0,0,0,.35);
-      --r:26px;
-      --max:1320px;
-      --safeTop:env(safe-area-inset-top,0px);
-      --safeBottom:env(safe-area-inset-bottom,0px);
+      --shadow:0 24px 70px rgba(0,0,0,.32);
+      --r:28px;
+      --max:1480px;
     }
 
     *{box-sizing:border-box}
@@ -35,133 +32,110 @@
       min-height:100%;
       color:var(--text);
       background:
-        radial-gradient(circle at 18% 0%,rgba(114,232,255,.18),transparent 34%),
-        radial-gradient(circle at 82% 4%,rgba(142,125,255,.16),transparent 34%),
+        radial-gradient(circle at 10% 0%,rgba(114,232,255,.15),transparent 34%),
+        radial-gradient(circle at 88% 8%,rgba(142,125,255,.14),transparent 34%),
         linear-gradient(180deg,#07111f,#030814);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      overflow-x:hidden;
     }
 
-    body{min-height:100dvh}
-
-    body:before{
-      content:"";
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:0;
-      background:
-        linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
-        linear-gradient(90deg,rgba(255,255,255,.022) 1px, transparent 1px);
-      background-size:42px 42px;
-      opacity:.45;
-      mask-image:linear-gradient(to bottom,transparent,black 12%,black 86%,transparent);
+    body{
+      min-height:100dvh;
+      overflow-x:hidden;
     }
 
     button,input,select{font:inherit}
     button{cursor:pointer;-webkit-tap-highlight-color:transparent}
-    button:disabled{opacity:.45;cursor:not-allowed}
-    .hidden{display:none!important}
+    a{color:inherit}
 
     .app{
-      position:relative;
-      z-index:1;
-      min-height:100dvh;
-      padding-bottom:calc(22px + var(--safeBottom));
-    }
-
-    .topbar{
-      position:sticky;
-      top:0;
-      z-index:50;
-      padding:calc(12px + var(--safeTop)) 14px 12px;
-      background:linear-gradient(180deg,rgba(5,11,22,.96),rgba(5,11,22,.78));
-      border-bottom:1px solid rgba(255,255,255,.10);
-      backdrop-filter:blur(16px);
-    }
-
-    .topInner{
       width:min(var(--max),100%);
       margin:0 auto;
+      padding:20px 14px 34px;
       display:grid;
-      grid-template-columns:1fr auto;
-      gap:12px;
+      gap:18px;
+    }
+
+    .hero{
+      display:flex;
       align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:26px;
+      border-radius:32px;
+      border:1px solid var(--line);
+      background:
+        radial-gradient(circle at 10% 0%,rgba(114,232,255,.16),transparent 34%),
+        linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.06));
+      box-shadow:var(--shadow);
     }
 
     .brand{
       display:flex;
       align-items:center;
-      gap:12px;
+      gap:14px;
       min-width:0;
     }
 
     .logo{
-      width:52px;
-      height:52px;
-      border-radius:20px;
+      width:68px;
+      height:68px;
+      border-radius:22px;
       display:grid;
       place-items:center;
-      color:#06111f;
       background:linear-gradient(135deg,var(--cyan),var(--purple));
+      color:#06111f;
       font-weight:1000;
-      box-shadow:0 14px 34px rgba(73,191,255,.25);
+      font-size:22px;
       flex:0 0 auto;
     }
 
-    h1{
+    .brand h1{
       margin:0;
-      font-size:clamp(22px,3vw,34px);
-      line-height:1.05;
-      letter-spacing:-.02em;
+      font-size:clamp(30px,5vw,56px);
+      line-height:1;
+      letter-spacing:-.05em;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     .brand p{
-      margin:5px 0 0;
+      margin:8px 0 0;
       color:var(--muted);
-      font-size:13px;
-      font-weight:800;
+      font-weight:850;
+      font-size:15px;
     }
 
-    .topActions{
+    .heroActions{
       display:flex;
-      gap:8px;
       flex-wrap:wrap;
+      gap:10px;
       justify-content:flex-end;
     }
 
     .btn{
-      min-height:42px;
-      padding:10px 14px;
-      border-radius:16px;
+      min-height:46px;
+      padding:12px 16px;
+      border-radius:18px;
       border:1px solid rgba(255,255,255,.16);
       background:rgba(255,255,255,.09);
       color:var(--text);
       font-weight:1000;
-      box-shadow:0 10px 26px rgba(0,0,0,.18);
+      box-shadow:0 12px 30px rgba(0,0,0,.18);
+      text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
       gap:8px;
-      text-decoration:none;
     }
 
-    .btn.primary{color:#06111f;background:linear-gradient(135deg,var(--cyan),#c6f7ff)}
-    .btn.green{color:#061b12;background:linear-gradient(135deg,var(--green),#b9ffd9)}
-    .btn.gold{color:#241804;background:linear-gradient(135deg,var(--gold),#ffeaa8)}
-    .btn.red{color:#25050a;background:linear-gradient(135deg,var(--red),#ffb0bf)}
-    .btn.small{min-height:34px;padding:7px 10px;border-radius:13px;font-size:12px}
-
-    .main{
-      width:min(var(--max),100%);
-      margin:0 auto;
-      padding:18px 14px 30px;
-      display:grid;
-      gap:16px;
-    }
+    .btn.primary{background:linear-gradient(135deg,var(--cyan),#c6f7ff);color:#06111f}
+    .btn.green{background:linear-gradient(135deg,var(--green),#b9ffd9);color:#061b12}
+    .btn.gold{background:linear-gradient(135deg,var(--gold),#ffeaa8);color:#241804}
+    .btn.red{background:linear-gradient(135deg,var(--red),#ffb0bf);color:#25050a}
+    .btn.purple{background:linear-gradient(135deg,var(--purple),#c3bbff);color:#080a1a}
 
     .panel{
-      position:relative;
       border:1px solid var(--line);
       background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.055));
       border-radius:var(--r);
@@ -169,71 +143,35 @@
       overflow:hidden;
     }
 
-    .section{padding:18px}
-
-    .hero{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:16px;
+    .section{
+      padding:20px;
     }
 
-    .heroCard{
-      padding:24px;
-      min-height:230px;
-      background:
-        radial-gradient(circle at 12% 0%,rgba(114,232,255,.20),transparent 34%),
-        radial-gradient(circle at 92% 10%,rgba(255,134,209,.15),transparent 34%);
+    .head{
+      display:flex;
+      justify-content:space-between;
+      gap:14px;
+      align-items:flex-start;
+      margin-bottom:16px;
     }
 
-    .kicker{
-      display:inline-flex;
-      padding:8px 12px;
-      border-radius:999px;
-      background:var(--cyan);
-      color:#06111f;
-      font-size:12px;
-      font-weight:1000;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-
-    .heroTitle{
-      margin:14px 0 8px;
-      font-size:clamp(32px,6vw,56px);
-      letter-spacing:-.04em;
-      line-height:1.02;
-    }
-
-    .heroDesc{
+    .head h2{
       margin:0;
-      color:#cfe3f6;
-      line-height:1.6;
-      font-weight:700;
+      font-size:28px;
+      letter-spacing:-.03em;
     }
 
-    .statusBox{
-      padding:16px;
-      display:grid;
-      gap:12px;
-    }
-
-    .line{
-      display:grid;
-      grid-template-columns:1fr auto;
-      gap:10px;
-      padding:9px 0;
-      border-bottom:1px dashed rgba(255,255,255,.12);
-      color:#cfe3f6;
+    .head p{
+      margin:6px 0 0;
+      color:var(--muted);
       font-weight:800;
+      line-height:1.45;
     }
-
-    .line:last-child{border-bottom:0}
-    .line b{color:#fff}
 
     .filters{
       display:grid;
-      grid-template-columns:1.2fr .8fr .8fr auto auto;
-      gap:10px;
+      grid-template-columns:1.2fr .8fr .7fr auto auto;
+      gap:12px;
       align-items:end;
     }
 
@@ -241,698 +179,1209 @@
       display:grid;
       gap:6px;
       color:var(--muted);
-      font-size:12px;
+      font-size:13px;
       font-weight:1000;
-      letter-spacing:.03em;
-      text-transform:uppercase;
     }
 
     input,select{
       width:100%;
-      min-height:44px;
-      border-radius:16px;
+      min-height:48px;
+      padding:11px 14px;
+      border-radius:17px;
       border:1px solid rgba(255,255,255,.16);
       background:rgba(255,255,255,.08);
       color:var(--text);
-      padding:10px 12px;
       outline:none;
     }
 
     select option{color:#07111f}
 
-    input:focus,select:focus{
-      border-color:rgba(114,232,255,.7);
-      box-shadow:0 0 0 4px rgba(114,232,255,.12);
-    }
-
-    .kpis{
+    .cards{
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
       gap:12px;
     }
 
-    .kpi{
-      padding:16px;
-      border-radius:24px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.13);
-      min-height:112px;
+    .card{
+      min-height:128px;
+      padding:20px;
+      border-radius:26px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.07);
       display:grid;
-      align-content:space-between;
-      gap:10px;
+      align-content:center;
+      gap:8px;
     }
 
-    .kpi span{
-      color:var(--muted);
-      font-size:12px;
+    .card span{
+      color:#b8c9dc;
+      font-size:13px;
       font-weight:1000;
       letter-spacing:.06em;
       text-transform:uppercase;
     }
 
-    .kpi b{
-      font-size:clamp(28px,4vw,42px);
+    .card b{
+      color:#fff;
+      font-size:40px;
       line-height:1;
-      letter-spacing:-.04em;
     }
 
-    .kpi small{
+    .cardSub{
+      margin-top:4px;
+      color:#b8c9dc;
+      font-size:13px;
+      font-weight:850;
+      line-height:1.35;
+    }
+
+    .miniStats{
+      display:flex;
+      flex-wrap:wrap;
+      gap:7px;
+      margin-top:8px;
+    }
+
+    .miniStats span{
+      display:inline-flex;
+      gap:5px;
+      align-items:center;
+      padding:5px 8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.07);
+      border:1px solid rgba(255,255,255,.10);
       color:#cfe3f6;
-      font-weight:800;
+      font-size:11px;
+      font-weight:900;
     }
-
-    .kpi.ok{border-color:rgba(76,227,154,.30);background:rgba(76,227,154,.10)}
-    .kpi.warn{border-color:rgba(255,209,102,.30);background:rgba(255,209,102,.10)}
-    .kpi.bad{border-color:rgba(255,110,135,.30);background:rgba(255,110,135,.10)}
-    .kpi.info{border-color:rgba(114,232,255,.30);background:rgba(114,232,255,.10)}
 
     .grid2{
       display:grid;
-      grid-template-columns:1.08fr .92fr;
+      grid-template-columns:1.05fr .95fr;
       gap:16px;
-      align-items:start;
-    }
-
-    .head{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:14px;
-    }
-
-    .head h2{
-      margin:0;
-      font-size:24px;
-      letter-spacing:-.02em;
-    }
-
-    .head p{
-      margin:5px 0 0;
-      color:var(--muted);
-      line-height:1.45;
-      font-weight:700;
     }
 
     .tableWrap{
       overflow:auto;
       border-radius:20px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(0,0,0,.12);
+      border:1px solid rgba(255,255,255,.12);
     }
 
     table{
       width:100%;
+      min-width:900px;
       border-collapse:collapse;
-      min-width:880px;
-    }
-
-    th,td{
-      padding:12px 10px;
-      border-bottom:1px solid rgba(255,255,255,.10);
-      text-align:left;
-      vertical-align:middle;
-      font-size:13px;
     }
 
     th{
-      position:sticky;
-      top:0;
-      z-index:2;
-      background:rgba(10,22,40,.96);
-      color:#cfe3f6;
-      font-size:11px;
+      text-align:left;
+      padding:12px;
+      background:#0b1728;
+      color:#dbeafe;
+      font-size:12px;
+      letter-spacing:.07em;
       text-transform:uppercase;
-      letter-spacing:.06em;
-      font-weight:1000;
+      white-space:nowrap;
     }
 
-    td{color:#e9f7ff;font-weight:720}
-    tr:hover td{background:rgba(114,232,255,.055)}
-
-    .studentName{
-      display:grid;
-      gap:3px;
+    td{
+      padding:12px;
+      border-top:1px solid rgba(255,255,255,.08);
+      color:#eef7ff;
+      font-weight:800;
+      vertical-align:top;
+      white-space:nowrap;
     }
 
-    .studentName b{font-size:14px}
-    .studentName small{color:var(--muted);font-weight:800}
+    td small{
+      display:block;
+      margin-top:3px;
+      color:#9fb3c8;
+      font-size:12px;
+      font-weight:850;
+    }
 
-    .badge{
+    tr.clickable{
+      cursor:pointer;
+    }
+
+    tr.clickable:hover{
+      background:rgba(114,232,255,.08);
+    }
+
+    .empty{
+      padding:24px;
+      text-align:center;
+      color:#cbd5e1;
+      font-weight:900;
+      border-radius:18px;
+      background:rgba(255,255,255,.05);
+      border:1px dashed rgba(255,255,255,.18);
+    }
+
+    .empty.error{
+      color:#ffd5dd;
+      background:rgba(255,110,135,.10);
+      border-color:rgba(255,110,135,.35);
+    }
+
+    .empty.ok{
+      color:#d7ffe9;
+      background:rgba(76,227,154,.10);
+      border-color:rgba(76,227,154,.35);
+    }
+
+    .pill{
       display:inline-flex;
       align-items:center;
       justify-content:center;
       min-height:26px;
-      padding:5px 9px;
+      padding:5px 10px;
       border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
+      border:1px solid rgba(255,255,255,.16);
       background:rgba(255,255,255,.08);
-      color:#dbeeff;
-      font-size:11px;
+      color:#eaf4ff;
+      font-size:12px;
       font-weight:1000;
       white-space:nowrap;
     }
 
-    .badge.ok{color:#d7ffe9;background:rgba(76,227,154,.13);border-color:rgba(76,227,154,.35)}
-    .badge.warn{color:#ffe9aa;background:rgba(255,209,102,.13);border-color:rgba(255,209,102,.35)}
-    .badge.bad{color:#ffd5dd;background:rgba(255,110,135,.13);border-color:rgba(255,110,135,.35)}
-    .badge.info{color:#d9fbff;background:rgba(114,232,255,.13);border-color:rgba(114,232,255,.35)}
-    .badge.purple{color:#e5e0ff;background:rgba(142,125,255,.13);border-color:rgba(142,125,255,.35)}
+    .pill.ok{color:#d7ffe9;background:rgba(76,227,154,.14);border-color:rgba(76,227,154,.42)}
+    .pill.warn{color:#ffe9aa;background:rgba(255,209,102,.14);border-color:rgba(255,209,102,.42)}
+    .pill.bad{color:#ffd5dd;background:rgba(255,110,135,.14);border-color:rgba(255,110,135,.42)}
+    .pill.muted,.pill.info{color:#dbeafe;background:rgba(148,163,184,.14);border-color:rgba(148,163,184,.30)}
 
-    .progressTiny{
+    .qualityGrid{
       display:grid;
-      gap:5px;
-      min-width:120px;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:12px;
     }
 
-    .bar{
-      height:10px;
-      border-radius:999px;
-      overflow:hidden;
-      background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.10);
+    .qualityCard{
+      min-height:142px;
+      padding:18px;
+      border-radius:26px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.07);
+      display:grid;
+      align-content:center;
+      gap:8px;
     }
 
-    .bar i{
-      display:block;
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,var(--green),var(--cyan));
+    .qualityCard.ok{background:rgba(76,227,154,.10);border-color:rgba(76,227,154,.35)}
+    .qualityCard.warn{background:rgba(255,209,102,.10);border-color:rgba(255,209,102,.35)}
+    .qualityCard.bad{background:rgba(255,110,135,.10);border-color:rgba(255,110,135,.35)}
+    .qualityCard.info{background:rgba(114,232,255,.10);border-color:rgba(114,232,255,.35)}
+
+    .qualityCard span{
+      color:#b8c9dc;
+      font-size:13px;
+      font-weight:1000;
+      letter-spacing:.06em;
+      text-transform:uppercase;
     }
 
-    .smallMuted{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
+    .qualityCard b{
+      color:#fff;
+      font-size:36px;
+      line-height:1;
+    }
+
+    .qualityCard small{
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:850;
       line-height:1.35;
     }
 
-    .cardsList{
+    .supportList{
       display:grid;
       gap:10px;
-      max-height:520px;
-      overflow:auto;
-      padding-right:3px;
     }
 
-    .miniCard{
-      padding:13px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
+    .supportCard{
+      width:100%;
+      text-align:left;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px 12px;
+      padding:14px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.07);
-      display:grid;
-      gap:8px;
+      color:#eef7ff;
     }
 
-    .miniCardTop{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:flex-start;
+    .supportCard:hover{
+      border-color:rgba(114,232,255,.48);
+      background:rgba(114,232,255,.10);
     }
 
-    .miniCard h3{
-      margin:0;
-      font-size:15px;
+    .supportCard b{
+      display:block;
+      color:#fff;
+      font-size:16px;
     }
 
-    .miniCard p{
+    .supportCard small{
+      display:block;
+      color:#b8c9dc;
+      font-size:12px;
+      font-weight:850;
+      margin-top:3px;
+    }
+
+    .supportCard p{
+      grid-column:1 / -1;
       margin:0;
       color:#cfe3f6;
-      line-height:1.45;
       font-size:13px;
-      font-weight:700;
+      font-weight:800;
+      line-height:1.45;
     }
 
-    .stageGrid{
+    .sessionOverviewGrid{
       display:grid;
-      grid-template-columns:repeat(15,minmax(48px,1fr));
-      gap:8px;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:12px;
     }
 
-    .stage{
-      min-height:64px;
-      border-radius:17px;
-      border:1px solid rgba(255,255,255,.13);
+    .sCard{
+      padding:14px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.07);
+    }
+
+    .sTop{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:center;
+    }
+
+    .sTop b{
+      font-size:21px;
+      color:#fff;
+    }
+
+    .sTop span{
+      color:#b8c9dc;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .sNum{
+      margin-top:10px;
+      color:#72e8ff;
+      font-size:30px;
+      font-weight:1000;
+    }
+
+    .sMeta{
+      color:#cfe3f6;
+      font-size:13px;
+      font-weight:850;
+      margin-top:3px;
+    }
+
+    .sMini{
+      display:grid;
+      gap:5px;
+      margin-top:10px;
+    }
+
+    .sMini span{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      color:#b8c9dc;
+      font-size:12px;
+      font-weight:850;
+    }
+
+    .sMini b{
+      color:#fff;
+    }
+
+    .aiPolicyGrid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .aiPolicyCard{
+      padding:18px;
+      border-radius:26px;
+      border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.07);
       display:grid;
-      place-items:center;
-      gap:3px;
-      padding:7px 5px;
-      color:#dbeeff;
-      font-weight:1000;
-      font-size:11px;
-      text-align:center;
+      gap:8px;
+      min-height:132px;
     }
 
-    .stage.done{
-      background:rgba(76,227,154,.13);
-      border-color:rgba(76,227,154,.42);
-      color:#d7ffe9;
-    }
-
-    .stage.started{
-      background:rgba(255,209,102,.13);
-      border-color:rgba(255,209,102,.42);
-      color:#ffe9aa;
-    }
-
-    .stage.bad{
-      background:rgba(255,110,135,.13);
-      border-color:rgba(255,110,135,.42);
-      color:#ffd5dd;
-    }
-
-    .stage b{font-size:12px}
-    .stage small{font-size:10px;color:inherit;opacity:.9}
-
-    .footerStatus{
-      color:var(--muted);
+    .aiPolicyCard span{
+      color:#b8c9dc;
       font-size:12px;
-      font-weight:800;
-      text-align:center;
-      padding:6px;
+      font-weight:1000;
+      letter-spacing:.06em;
+      text-transform:uppercase;
     }
 
-    .modal{
-      position:fixed;
-      inset:0;
-      z-index:100;
-      display:none;
+    .aiPolicyCard b{
+      color:#fff;
+      font-size:34px;
+      line-height:1;
+    }
+
+    .aiPolicyCard small{
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:850;
+      line-height:1.35;
+    }
+
+    .aiPolicyCard.ok{background:rgba(76,227,154,.10);border-color:rgba(76,227,154,.34)}
+    .aiPolicyCard.warn{background:rgba(255,209,102,.10);border-color:rgba(255,209,102,.34)}
+    .aiPolicyCard.bad{background:rgba(255,110,135,.10);border-color:rgba(255,110,135,.34)}
+    .aiPolicyCard.info{background:rgba(114,232,255,.10);border-color:rgba(114,232,255,.34)}
+
+    .aiPolicyNote{
+      margin-top:12px;
+      padding:14px;
+      border-radius:20px;
+      background:rgba(114,232,255,.08);
+      border:1px solid rgba(114,232,255,.22);
+      color:#cfe3f6;
+      font-size:13px;
+      font-weight:850;
+      line-height:1.55;
+    }
+
+    .aiHelpTableMark{
+      display:inline-flex;
       align-items:center;
       justify-content:center;
-      padding:16px;
-      background:rgba(0,0,0,.64);
-      backdrop-filter:blur(8px);
+      min-width:36px;
+      min-height:26px;
+      padding:4px 9px;
+      border-radius:999px;
+      background:rgba(255,209,102,.14);
+      border:1px solid rgba(255,209,102,.38);
+      color:#ffe9aa;
+      font-size:12px;
+      font-weight:1000;
     }
 
-    .modal.on{display:flex}
+    .exportBar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      margin-top:12px;
+    }
 
-    .modalCard{
-      width:min(1060px,100%);
-      max-height:min(88vh,820px);
+    .exportBar .btn{
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:16px;
+      font-size:13px;
+    }
+
+    .footerStatus{
+      text-align:center;
+      padding:18px;
+      color:#b8c9dc;
+      font-weight:900;
+    }
+
+    .studentModal,.printReportModal{
+      position:fixed;
+      inset:0;
+      z-index:9999;
+      display:none;
+      padding:18px;
+      background:rgba(0,0,0,.64);
+      backdrop-filter:blur(10px);
+      overflow:auto;
+    }
+
+    .studentModal.on,.printReportModal.on{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .studentModalCard{
+      width:min(1180px,100%);
+      max-height:min(88vh,860px);
       overflow:auto;
       border-radius:30px;
-      background:linear-gradient(180deg,#11243f,#08121f);
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 30px 100px rgba(0,0,0,.50);
-      padding:18px;
+      border:1px solid rgba(255,255,255,.18);
+      background:linear-gradient(180deg,#152033,#0b1220);
+      box-shadow:0 34px 110px rgba(0,0,0,.55);
     }
 
-    .modalHead{
+    .studentModalHead{
+      position:sticky;
+      top:0;
+      z-index:2;
       display:flex;
-      align-items:flex-start;
       justify-content:space-between;
-      gap:12px;
-      margin-bottom:14px;
+      gap:14px;
+      align-items:flex-start;
+      padding:20px;
+      background:rgba(10,18,34,.92);
+      border-bottom:1px solid rgba(255,255,255,.12);
+      backdrop-filter:blur(14px);
     }
 
-    .modalHead h2{
+    .studentModalHead h2{
       margin:0;
-      font-size:28px;
+      font-size:30px;
+      letter-spacing:-.03em;
+    }
+
+    .studentModalHead p{
+      margin:6px 0 0;
+      color:#b8c9dc;
+      font-weight:850;
+    }
+
+    .studentModalClose{
+      min-width:48px;
+      min-height:48px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      color:#fff;
+      font-size:24px;
+      font-weight:1000;
+    }
+
+    .studentModalBody{
+      padding:20px;
+      display:grid;
+      gap:16px;
     }
 
     .detailGrid{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-      margin:12px 0;
+      gap:12px;
     }
 
-    .detailBox{
-      padding:13px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
+    .detailCard,.detailSection,.detailMini{
+      border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.07);
+      border-radius:22px;
+      padding:16px;
     }
 
-    .detailBox span{
+    .detailCard span,.detailMini span{
       display:block;
-      color:var(--muted);
-      font-size:11px;
+      color:#b8c9dc;
+      font-size:12px;
       font-weight:1000;
-      text-transform:uppercase;
       letter-spacing:.06em;
+      text-transform:uppercase;
     }
 
-    .detailBox b{
+    .detailCard b{
       display:block;
-      margin-top:5px;
+      margin-top:8px;
+      color:#fff;
+      font-size:30px;
+      line-height:1;
+    }
+
+    .detailCard small{
+      display:block;
+      margin-top:8px;
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:850;
+      line-height:1.35;
+    }
+
+    .detailCard.ok{background:rgba(76,227,154,.10);border-color:rgba(76,227,154,.34)}
+    .detailCard.warn{background:rgba(255,209,102,.10);border-color:rgba(255,209,102,.34)}
+    .detailCard.bad{background:rgba(255,110,135,.10);border-color:rgba(255,110,135,.34)}
+    .detailCard.info{background:rgba(114,232,255,.10);border-color:rgba(114,232,255,.34)}
+
+    .detailSection h3{
+      margin:0 0 12px;
       font-size:22px;
     }
 
-    .empty{
-      padding:18px;
+    .detailMiniGrid{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .detailMini b{
+      display:block;
+      margin-top:6px;
+      color:#fff;
+      font-size:20px;
+    }
+
+    .detailTableWrap{
+      overflow:auto;
       border-radius:20px;
-      border:1px dashed rgba(255,255,255,.18);
-      color:#cfe3f6;
-      background:rgba(255,255,255,.05);
-      font-weight:800;
-      text-align:center;
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .aiHelpBadge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      color:#ffe9aa;
+      background:rgba(255,209,102,.14);
+      border:1px solid rgba(255,209,102,.38);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .printReportModal.on{
+      align-items:flex-start;
+      justify-content:center;
+    }
+
+    .printReportShell{
+      width:min(1120px,100%);
+      margin:0 auto;
+      border-radius:30px;
+      border:1px solid rgba(255,255,255,.18);
+      background:#f8fafc;
+      color:#0f172a;
+      box-shadow:0 34px 110px rgba(0,0,0,.55);
+      overflow:hidden;
+    }
+
+    .printReportToolbar{
+      position:sticky;
+      top:0;
+      z-index:2;
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      align-items:center;
+      padding:18px 20px;
+      background:#0f172a;
+      color:#f8fafc;
+      border-bottom:1px solid rgba(255,255,255,.14);
+    }
+
+    .printReportToolbar h2{margin:0;font-size:24px}
+    .printReportToolbar p{margin:5px 0 0;color:#cbd5e1;font-weight:800}
+    .printReportActions{display:flex;gap:10px;flex-wrap:wrap}
+    .printReportContent{padding:28px;background:#fff;color:#0f172a}
+
+    .reportHeader{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:18px;
+      align-items:start;
+      padding-bottom:18px;
+      border-bottom:3px solid #0f172a;
+      margin-bottom:18px;
+    }
+
+    .reportHeader h1{
+      margin:0;
+      font-size:30px;
+      color:#0f172a;
+      letter-spacing:-.03em;
+    }
+
+    .reportHeader p{
+      margin:6px 0 0;
+      color:#475569;
+      font-weight:700;
+      line-height:1.45;
+    }
+
+    .reportBadge{
+      padding:10px 14px;
+      border-radius:999px;
+      background:#e0f2fe;
+      color:#075985;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .reportSection{
+      margin-top:22px;
+      break-inside:avoid;
+      page-break-inside:avoid;
+    }
+
+    .reportSection h2{
+      margin:0 0 10px;
+      font-size:21px;
+      color:#0f172a;
+      border-left:6px solid #38bdf8;
+      padding-left:10px;
+    }
+
+    .reportKpiGrid{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .reportKpi{
+      padding:14px;
+      border-radius:16px;
+      border:1px solid #cbd5e1;
+      background:#f8fafc;
+    }
+
+    .reportKpi span{
+      display:block;
+      color:#64748b;
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+    }
+
+    .reportKpi b{
+      display:block;
+      margin-top:7px;
+      color:#0f172a;
+      font-size:28px;
+      line-height:1;
+    }
+
+    .reportKpi small{
+      display:block;
+      margin-top:7px;
+      color:#475569;
+      font-weight:700;
+      line-height:1.35;
+    }
+
+    .reportKpi.ok{background:#ecfdf5;border-color:#86efac}
+    .reportKpi.warn{background:#fffbeb;border-color:#fcd34d}
+    .reportKpi.bad{background:#fff1f2;border-color:#fda4af}
+
+    .reportTableWrap{
+      overflow:auto;
+      border:1px solid #cbd5e1;
+      border-radius:14px;
+    }
+
+    .reportTable{
+      width:100%;
+      border-collapse:collapse;
+      min-width:760px;
+      font-size:12px;
+    }
+
+    .reportTable th{
+      text-align:left;
+      background:#0f172a;
+      color:#f8fafc;
+      padding:9px;
+      font-size:11px;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+
+    .reportTable td{
+      padding:9px;
+      border-bottom:1px solid #e2e8f0;
+      vertical-align:top;
+      color:#0f172a;
+      white-space:normal;
+    }
+
+    .reportTable tr:nth-child(even) td{background:#f8fafc}
+
+    .reportNote{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:14px;
+      background:#eff6ff;
+      border:1px solid #bfdbfe;
+      color:#1e3a8a;
+      font-weight:750;
       line-height:1.5;
     }
 
-    @media (max-width:980px){
-      .topInner,.hero,.grid2{grid-template-columns:1fr}
-      .topActions{justify-content:flex-start}
-      .filters{grid-template-columns:1fr 1fr}
-      .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .stageGrid{grid-template-columns:repeat(5,minmax(48px,1fr))}
-      .detailGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .reportFooter{
+      margin-top:26px;
+      padding-top:14px;
+      border-top:1px solid #cbd5e1;
+      display:flex;
+      justify-content:space-between;
+      gap:14px;
+      color:#64748b;
+      font-size:12px;
+      font-weight:800;
     }
 
-    @media (max-width:620px){
-      .filters{grid-template-columns:1fr}
-      .kpis{grid-template-columns:1fr}
-      .heroCard,.section{padding:15px}
-      .stageGrid{grid-template-columns:repeat(3,minmax(48px,1fr))}
-      .detailGrid{grid-template-columns:1fr}
-      table{min-width:820px}
+    .reportPill{
+      display:inline-flex;
+      align-items:center;
+      padding:4px 8px;
+      border-radius:999px;
+      background:#e2e8f0;
+      color:#334155;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .reportPill.ok{background:#dcfce7;color:#166534}
+    .reportPill.warn{background:#fef3c7;color:#92400e}
+    .reportPill.bad{background:#ffe4e6;color:#9f1239}
+
+    @media(max-width:1100px){
+      .cards,.qualityGrid,.sessionOverviewGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .aiPolicyGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .grid2{grid-template-columns:1fr}
+      .filters{grid-template-columns:1fr 1fr}
+      .hero{display:grid}
+      .heroActions{justify-content:flex-start}
+      .detailGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .detailMiniGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .reportKpiGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+
+    @media(max-width:640px){
+      .app{padding:12px 10px 24px}
+      .hero{padding:18px;border-radius:24px}
+      .brand h1{white-space:normal;font-size:32px}
+      .logo{width:56px;height:56px}
+      .cards,.qualityGrid,.sessionOverviewGrid,.aiPolicyGrid,.filters,.detailGrid,.detailMiniGrid,.reportKpiGrid{grid-template-columns:1fr}
+      .exportBar{display:grid;grid-template-columns:1fr}
+      .exportBar .btn{width:100%}
+      .studentModal,.printReportModal{padding:8px}
+      .studentModalCard{max-height:96vh;border-radius:22px}
+      .studentModalHead,.studentModalBody{padding:14px}
+      .printReportToolbar{display:grid}
+      .printReportContent{padding:18px}
+    }
+
+    @media print{
+      body *{visibility:hidden!important}
+
+      #printReportModal,
+      #printReportModal *{
+        visibility:visible!important;
+      }
+
+      #printReportModal{
+        position:absolute!important;
+        inset:0!important;
+        display:block!important;
+        background:#fff!important;
+        padding:0!important;
+        overflow:visible!important;
+      }
+
+      .printReportShell{
+        width:100%!important;
+        margin:0!important;
+        border:0!important;
+        border-radius:0!important;
+        box-shadow:none!important;
+      }
+
+      .printReportContent{
+        padding:18mm!important;
+      }
+
+      .noPrint{
+        display:none!important;
+      }
+
+      .reportSection{
+        break-inside:avoid;
+        page-break-inside:avoid;
+      }
+
+      .reportTableWrap{
+        overflow:visible!important;
+      }
+
+      .reportTable{
+        min-width:0!important;
+        font-size:10px;
+      }
+
+      .reportTable th,
+      .reportTable td{
+        padding:6px;
+      }
+
+      @page{
+        size:A4 portrait;
+        margin:12mm;
+      }
     }
   </style>
 </head>
 
 <body>
-  <div class="app">
-    <header class="topbar">
-      <div class="topInner">
-        <div class="brand">
-          <div class="logo">T</div>
-          <div>
-            <h1>Teacher Dashboard</h1>
-            <p>TechPath English VR • Attendance / Progress / AI Help / Minimum Time</p>
-          </div>
+  <main class="app">
+    <header class="hero">
+      <div class="brand">
+        <div class="logo">TP</div>
+        <div>
+          <h1>TechPath English • Teacher Dashboard</h1>
+          <p>ดูว่าใครเข้าเรียน S ไหน ใช้เวลาเท่าไหร่ เล่นจบหรือไม่ คะแนนเท่าไหร่ และใช้ AI Help กี่ครั้ง</p>
         </div>
+      </div>
 
-        <div class="topActions">
-          <button class="btn primary" id="refreshBtn">Refresh</button>
-          <button class="btn green" id="exportBtn">Export CSV</button>
-          <a class="btn" href="./lesson.html?s=1&level=normal&diff=normal&run=play" target="_blank" rel="noopener">Open Lesson</a>
-        </div>
+      <div class="heroActions">
+        <a class="btn" id="openLessonBtn" href="./lesson.html?s=1&diff=normal&level=normal&run=play" target="_blank" rel="noopener">เปิด Lesson</a>
+        <button class="btn" id="debugBtn" type="button">Debug</button>
+        <button class="btn primary" id="refreshBtn" type="button">Refresh</button>
       </div>
     </header>
 
-    <main class="main">
-      <section class="hero">
-        <div class="panel heroCard">
-          <span class="kicker">Teacher View</span>
-          <h2 class="heroTitle">Who needs support?</h2>
-          <p class="heroDesc">
-            ดูภาพรวมผู้เรียนแบบเข้าใจง่าย: ใครเข้าเรียน, ใครเล่นจบ, คะแนนเฉลี่ย, เวลาเรียนจริง,
-            การใช้ AI Help และคุณภาพการเข้าเรียนตาม Minimum Time Requirement
-          </p>
+    <section class="panel section">
+      <div class="filters">
+        <label class="field">
+          Student ID / Name
+          <input id="studentFilter" placeholder="ค้นหา student id หรือชื่อ" />
+        </label>
+
+        <label class="field">
+          Section
+          <input id="sectionFilter" placeholder="เช่น CS/AI 2A" />
+        </label>
+
+        <label class="field">
+          Session
+          <select id="sessionFilter">
+            <option value="all">All S</option>
+          </select>
+        </label>
+
+        <button class="btn gold" id="applyBtn" type="button">Apply</button>
+        <button class="btn" id="clearBtn" type="button">Clear</button>
+      </div>
+
+      <div class="exportBar">
+        <button class="btn green" id="exportStudentsBtn" type="button">⬇️ Export Students CSV</button>
+        <button class="btn gold" id="exportSessionsBtn" type="button">⬇️ Export Sessions CSV</button>
+        <button class="btn red" id="exportSupportBtn" type="button">⬇️ Export Support CSV</button>
+        <button class="btn purple" id="exportAiHelpBtn" type="button">⬇️ Export AI Help CSV</button>
+        <button class="btn" id="exportEventsBtn" type="button">⬇️ Export Events CSV</button>
+        <button class="btn primary" id="printReportBtn" type="button">🖨️ Print / Save PDF</button>
+      </div>
+    </section>
+
+    <section class="cards">
+      <div class="card">
+        <span>STUDENTS</span>
+        <b id="studentsCount">0</b>
+        <div class="cardSub">จำนวนนักศึกษาที่มีข้อมูลเรียนจริง</div>
+      </div>
+
+      <div class="card">
+        <span>LEARNING ROWS</span>
+        <b id="sessionRowsCount">0</b>
+        <div class="cardSub">เฉพาะแถวที่นับเป็นการเรียน/เล่นจริง</div>
+        <div class="miniStats">
+          <span>All <b id="allRowsCount">0</b></span>
+          <span>Learning <b id="learningRowsCount">0</b></span>
+          <span>Ignored <b id="ignoredRowsCount">0</b></span>
         </div>
+      </div>
 
-        <aside class="panel statusBox">
-          <div class="line"><span>API Status</span><b id="apiStatus">Loading</b></div>
-          <div class="line"><span>Last Updated</span><b id="lastUpdated">-</b></div>
-          <div class="line"><span>Load Method</span><b id="loadMethod">-</b></div>
-          <div class="line"><span>Endpoint</span><b id="endpointText">Attendance</b></div>
-        </aside>
-      </section>
+      <div class="card">
+        <span>COMPLETED</span>
+        <b id="completedCount">0</b>
+        <div class="cardSub">จบ session แล้ว</div>
+      </div>
 
-      <section class="panel section">
-        <div class="head">
-          <div>
-            <h2>Filters</h2>
-            <p>ค้นหานักศึกษา / section / completed เพื่อดูข้อมูลเฉพาะกลุ่ม</p>
-          </div>
-        </div>
+      <div class="card">
+        <span>AVG SCORE</span>
+        <b id="avgScoreCount">0</b>
+        <div class="cardSub">เฉลี่ยจาก learning rows</div>
+      </div>
 
-        <div class="filters">
-          <label class="field">
-            Student ID / Name
-            <input id="studentFilter" placeholder="เช่น 50 หรือ KK" />
-          </label>
+      <div class="card">
+        <span>AI HELP</span>
+        <b id="aiHelpCount">0</b>
+        <div class="cardSub">จำนวนครั้งที่ขอ AI Help</div>
+      </div>
+    </section>
 
-          <label class="field">
-            Section
-            <input id="sectionFilter" placeholder="เช่น 2 หรือ CS-A" />
-          </label>
-
-          <label class="field">
-            Completed
-            <select id="completedFilter">
-              <option value="">All</option>
-              <option value="true">Completed only</option>
-              <option value="false">Not completed only</option>
-            </select>
-          </label>
-
-          <button class="btn primary" id="applyFilterBtn">Apply</button>
-          <button class="btn" id="clearFilterBtn">Clear</button>
-        </div>
-      </section>
-
-      <section class="kpis">
-        <div class="kpi info">
-          <span>Students</span>
-          <b id="kpiStudents">0</b>
-          <small>นักศึกษาที่มีข้อมูล</small>
-        </div>
-
-        <div class="kpi ok">
-          <span>Completed</span>
-          <b id="kpiCompleted">0</b>
-          <small>session ที่เล่นจบ</small>
-        </div>
-
-        <div class="kpi warn">
-          <span>Avg Score</span>
-          <b id="kpiAvgScore">0</b>
-          <small>คะแนนเฉลี่ย</small>
-        </div>
-
-        <div class="kpi info">
-          <span>Active Time</span>
-          <b id="kpiActive">0m</b>
-          <small>รวมเวลาที่ active</small>
-        </div>
-
-        <div class="kpi bad">
-          <span>AI Help</span>
-          <b id="kpiAiHelp">0</b>
-          <small>จำนวนครั้งที่ใช้ AI Help</small>
-        </div>
-      </section>
-
-      <section class="panel section">
-        <div class="head">
-          <div>
-            <h2>Attendance Quality</h2>
-            <p>แยก “เล่นจบ” ออกจาก “เข้าเรียนสมบูรณ์ตามเวลา”</p>
-          </div>
-        </div>
-
-        <div class="kpis">
-          <div class="kpi ok">
-            <span>Valid Completed</span>
-            <b id="qValidCompleted">0</b>
-            <small>จบและอยู่นานพอ</small>
-          </div>
-
-          <div class="kpi warn">
-            <span>Too Fast</span>
-            <b id="qTooFast">0</b>
-            <small>จบเร็วเกิน minimum</small>
-          </div>
-
-          <div class="kpi warn">
-            <span>Present Not Completed</span>
-            <b id="qPresentNotCompleted">0</b>
-            <small>อยู่นานพอแต่ยังไม่จบ</small>
-          </div>
-
-          <div class="kpi bad">
-            <span>Too Short</span>
-            <b id="qTooShort">0</b>
-            <small>ยังไม่นับสมบูรณ์</small>
-          </div>
-
-          <div class="kpi info">
-            <span>Valid Rate</span>
-            <b id="qValidRate">0%</b>
-            <small>valid completed / total sessions</small>
-          </div>
-        </div>
-      </section>
-
-      <section class="grid2">
-        <div class="panel section">
-          <div class="head">
-            <div>
-              <h2>Students</h2>
-              <p>กด View เพื่อดูรายละเอียดรายบุคคล</p>
-            </div>
-            <span class="badge info" id="studentCountBadge">0 students</span>
-          </div>
-
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Section</th>
-                  <th>Progress</th>
-                  <th>Avg Score / AI Help</th>
-                  <th>Completed</th>
-                  <th>Status</th>
-                  <th>Last Active</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="studentRows">
-                <tr><td colspan="8">Loading...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="panel section">
-          <div class="head">
-            <div>
-              <h2>Need Support</h2>
-              <p>รายชื่อที่ควรติดตาม เช่น ไม่จบ คะแนนต่ำ ใช้ AI Help เยอะ หรือเข้าเรียนสั้นเกินไป</p>
-            </div>
-          </div>
-
-          <div class="cardsList" id="supportList">
-            <div class="empty">Loading...</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel section">
-        <div class="head">
-          <div>
-            <h2>S1–S15 Session Overview</h2>
-            <p>ดูภาพรวมแต่ละด่านว่ามีคนเล่น/เล่นจบ/คะแนนเฉลี่ยเท่าไร</p>
-          </div>
-        </div>
-
-        <div class="stageGrid" id="sessionOverview"></div>
-      </section>
-
-      <section class="grid2">
-        <div class="panel section">
-          <div class="head">
-            <div>
-              <h2>Recent Sessions</h2>
-              <p>ข้อมูลจาก attendance_sessions พร้อม Minimum Time Requirement</p>
-            </div>
-          </div>
-
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>S</th>
-                  <th>Score</th>
-                  <th>Completed</th>
-                  <th>Duration / Minimum</th>
-                  <th>Actions</th>
-                  <th>Quality</th>
-                  <th>Last Active</th>
-                </tr>
-              </thead>
-              <tbody id="recentSessionRows">
-                <tr><td colspan="8">Loading...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="panel section">
-          <div class="head">
-            <div>
-              <h2>Recent Learning Events</h2>
-              <p>ซ่อน page_open / page_hidden / page_visible แล้ว แสดงเฉพาะ event ที่เกี่ยวกับการเรียนจริง</p>
-            </div>
-          </div>
-
-          <div class="cardsList" id="recentEventsList">
-            <div class="empty">Loading...</div>
-          </div>
-        </div>
-      </section>
-
-      <div class="footerStatus" id="footerStatus">Loading...</div>
-    </main>
-  </div>
-
-  <div class="modal" id="studentModal" role="dialog" aria-modal="true">
-    <div class="modalCard">
-      <div class="modalHead">
+    <section class="panel section">
+      <div class="head">
         <div>
-          <h2 id="modalTitle">Student Detail</h2>
-          <p class="smallMuted" id="modalSub">-</p>
+          <h2>Attendance Quality</h2>
+          <p>แยก “เล่นจบ” ออกจาก “เข้าเรียนสมบูรณ์ตามเวลา”</p>
         </div>
-        <button class="btn red small" id="closeModalBtn">Close</button>
+
+        <div class="miniStats">
+          <span>Learning <b id="qualityLearningRows">0</b></span>
+          <span>Ignored <b id="qualityIgnoredRows">0</b></span>
+        </div>
       </div>
 
-      <div class="detailGrid">
-        <div class="detailBox"><span>Completed</span><b id="dCompleted">0/15</b></div>
-        <div class="detailBox"><span>Avg Score</span><b id="dAvgScore">0</b></div>
-        <div class="detailBox"><span>Total Active</span><b id="dActive">0m</b></div>
-        <div class="detailBox"><span>Status</span><b id="dStatus">-</b></div>
+      <div class="qualityGrid">
+        <div class="qualityCard ok">
+          <span>VALID COMPLETED</span>
+          <b id="validCompletedCount">0</b>
+          <small>จบและอยู่ผ่าน minimum</small>
+        </div>
+
+        <div class="qualityCard warn">
+          <span>TOO FAST</span>
+          <b id="tooFastCount">0</b>
+          <small>จบเร็วเกิน minimum</small>
+        </div>
+
+        <div class="qualityCard warn">
+          <span>PRESENT NOT COMPLETED</span>
+          <b id="presentNotCompletedCount">0</b>
+          <small>อยู่นานพอแต่ยังไม่จบ</small>
+        </div>
+
+        <div class="qualityCard bad">
+          <span>TOO SHORT</span>
+          <b id="tooShortCount">0</b>
+          <small>ยังไม่นับสมบูรณ์</small>
+        </div>
+
+        <div class="qualityCard info">
+          <span>VALID RATE</span>
+          <b id="validRateCount">0%</b>
+          <small>valid completed / learning rows</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <div class="head">
+        <div>
+          <h2>AI Help Policy</h2>
+          <p>ดูการใช้ AI Help ว่าเป็นการช่วยเรียนปกติ หรือควรติดตามรายบุคคล</p>
+        </div>
+        <span class="pill info" id="aiHelpPolicyCount">0 records</span>
       </div>
 
-      <div class="panel section" style="box-shadow:none;margin:12px 0">
+      <div class="aiPolicyGrid">
+        <div class="aiPolicyCard info">
+          <span>TOTAL AI HELP</span>
+          <b id="aiPolicyTotalHelp">0</b>
+          <small>จำนวนครั้งที่กด AI Help ทั้งหมด</small>
+        </div>
+
+        <div class="aiPolicyCard ok">
+          <span>STUDENTS HELPED</span>
+          <b id="aiPolicyStudentsHelped">0</b>
+          <small>จำนวนนักศึกษาที่ใช้ AI Help</small>
+        </div>
+
+        <div class="aiPolicyCard warn">
+          <span>HIGH HELP USERS</span>
+          <b id="aiPolicyHighHelp">0</b>
+          <small>ใช้ AI Help มากกว่าที่ควรติดตาม</small>
+        </div>
+
+        <div class="aiPolicyCard bad">
+          <span>HELP + LOW SCORE</span>
+          <b id="aiPolicyHelpLowScore">0</b>
+          <small>ใช้ AI Help แล้วคะแนนยังต่ำ</small>
+        </div>
+      </div>
+
+      <div class="aiPolicyNote">
+        เกณฑ์เบื้องต้น: ใช้ AI Help 0–2 ครั้ง = Normal, 3–4 ครั้ง = Watch,
+        5 ครั้งขึ้นไป = High Help, และถ้าใช้ AI Help พร้อมคะแนนเฉลี่ยต่ำกว่า 60 = Help + Low Score
+      </div>
+
+      <div class="tableWrap" style="margin-top:14px">
+        <table>
+          <thead>
+            <tr>
+              <th>STUDENT</th>
+              <th>SECTION</th>
+              <th>AI HELP</th>
+              <th>LEARNING ROWS</th>
+              <th>AVG SCORE</th>
+              <th>STATUS</th>
+              <th>LAST ACTIVE</th>
+            </tr>
+          </thead>
+          <tbody id="aiHelpStudentBody">
+            <tr><td colspan="99" class="empty">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="studentDetailAnchor" class="grid2">
+      <div class="panel section">
         <div class="head">
           <div>
-            <h2>Teacher Recommendation</h2>
-            <p>ระบบช่วยสรุปว่าครูควรติดตามนักศึกษาคนนี้อย่างไร</p>
+            <h2>Students</h2>
+            <p>กดรายชื่อเพื่อดูรายละเอียดรายบุคคล</p>
           </div>
-        </div>
-
-        <div id="dTeacherRecommendation" class="miniCard">
-          <div class="miniCardTop">
-            <div>
-              <h3>Loading...</h3>
-              <p>กำลังวิเคราะห์ข้อมูลรายบุคคล</p>
-            </div>
-            <span class="badge info">AI Summary</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel section" style="box-shadow:none;margin:12px 0">
-        <div class="head">
-          <div>
-            <h2>S1–S15 Progress</h2>
-            <p>เขียว = completed, เหลือง = started/in progress, แดง = need support</p>
-          </div>
-        </div>
-        <div class="stageGrid" id="dStageGrid"></div>
-      </div>
-
-      <div class="panel section" style="box-shadow:none">
-        <div class="head">
-          <div>
-            <h2>Student Sessions</h2>
-            <p>รายการ session ของนักศึกษาคนนี้</p>
-          </div>
+          <span class="pill info" id="studentTableCount">0 students</span>
         </div>
 
         <div class="tableWrap">
           <table>
             <thead>
               <tr>
-                <th>S</th>
-                <th>Score</th>
-                <th>Completed</th>
-                <th>Duration / Minimum</th>
-                <th>Active</th>
-                <th>Actions</th>
-                <th>Quality</th>
-                <th>Last Active</th>
+                <th>STUDENT</th>
+                <th>SECTION</th>
+                <th>PROGRESS</th>
+                <th>AVG SCORE</th>
+                <th>COMPLETED</th>
+                <th>STATUS</th>
+                <th>DURATION</th>
+                <th>ACTIVE</th>
+                <th>LAST ACTIVE</th>
               </tr>
             </thead>
-            <tbody id="dSessionRows"></tbody>
+            <tbody id="studentTableBody">
+              <tr><td colspan="99" class="empty">Loading...</td></tr>
+            </tbody>
           </table>
         </div>
+      </div>
+
+      <div class="panel section">
+        <div class="head">
+          <div>
+            <h2>Need Support</h2>
+            <p>รายชื่อที่ควรติดตาม เช่น ไม่จบ คะแนนต่ำ ใช้ AI Help เยอะ หรือเข้าเรียนสั้นเกินไป</p>
+          </div>
+          <span class="pill warn" id="supportCount">0 students</span>
+        </div>
+
+        <div id="supportList" class="supportList">
+          <div class="empty">Loading...</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <div class="head">
+        <div>
+          <h2>S1–S15 Session Overview</h2>
+          <p>ดูภาพรวมแต่ละด่านว่ามีกี่คนเล่น/เล่นจบ/คะแนนเฉลี่ยเท่าไร</p>
+        </div>
+        <span class="pill info" id="sessionOverviewCount">0 sessions</span>
+      </div>
+
+      <div id="sessionOverviewGrid" class="sessionOverviewGrid">
+        <div class="empty">Loading...</div>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <div class="head">
+        <div>
+          <h2>Recent Learning Sessions</h2>
+          <p>แสดงเฉพาะ learning rows ไม่รวม page_open / page_hidden / page_visible ที่ไม่ใช่การเรียนจริง</p>
+        </div>
+        <span class="pill info" id="recentSessionsCount">0 rows</span>
+      </div>
+
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>STUDENT</th>
+              <th>SECTION</th>
+              <th>S</th>
+              <th>SCORE</th>
+              <th>COMPLETED</th>
+              <th>QUALITY</th>
+              <th>DURATION</th>
+              <th>ACTIVE</th>
+              <th>MIN</th>
+              <th>LAST ACTIVE</th>
+            </tr>
+          </thead>
+          <tbody id="recentSessionsBody">
+            <tr><td colspan="99" class="empty">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <div class="head">
+        <div>
+          <h2>Recent Events</h2>
+          <p>เหตุการณ์ล่าสุด เช่น page_open, answer, ai_help, session_end</p>
+        </div>
+        <span class="pill info" id="recentEventsCount">0 events</span>
+      </div>
+
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>TIME</th>
+              <th>EVENT</th>
+              <th>STUDENT</th>
+              <th>S</th>
+              <th>SCORE</th>
+              <th>COMPLETED</th>
+            </tr>
+          </thead>
+          <tbody id="recentEventsBody">
+            <tr><td colspan="99" class="empty">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footerStatus">
+      <span id="updatedAt">Loading...</span>
+      <span id="apiVersion" style="margin-left:8px"></span>
+    </footer>
+  </main>
+
+  <div id="studentModal" class="studentModal" role="dialog" aria-modal="true">
+    <div class="studentModalCard">
+      <div class="studentModalHead">
+        <div>
+          <h2 id="studentModalTitle">Student Detail</h2>
+          <p id="studentModalSub">Loading...</p>
+        </div>
+
+        <button id="studentModalClose" class="studentModalClose" type="button">×</button>
+      </div>
+
+      <div id="studentModalBody" class="studentModalBody">
+        <div class="empty">Loading student detail...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="printReportModal" class="printReportModal" role="dialog" aria-modal="true">
+    <div class="printReportShell">
+      <div class="printReportToolbar noPrint">
+        <div>
+          <h2>Teacher Report Preview</h2>
+          <p>ตรวจรายงานก่อนกด Print / Save as PDF</p>
+        </div>
+
+        <div class="printReportActions">
+          <button class="btn primary" id="doPrintReportBtn" type="button">🖨️ Print</button>
+          <button class="btn" id="closePrintReportBtn" type="button">ปิด</button>
+        </div>
+      </div>
+
+      <div id="printReportContent" class="printReportContent">
+        <div class="empty">No report data</div>
       </div>
     </div>
   </div>
@@ -941,49 +1390,36 @@
   (function(){
     'use strict';
 
-    const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
+    const API_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec';
 
-    const SKILL_BY_S = {
-      1:'Speaking',
-      2:'Reading',
-      3:'Boss Writing',
-      4:'Speaking',
-      5:'Listening',
-      6:'Boss Reading',
-      7:'Writing',
-      8:'Listening',
-      9:'Boss Speaking',
-      10:'Reading',
-      11:'Listening',
-      12:'Boss Writing',
-      13:'Reading',
-      14:'Speaking',
-      15:'Final Listening'
+    const DASHBOARD_STATE = {
+      loading:false,
+      lastData:null,
+      lastError:null,
+      lastJson:null
     };
 
-    const els = {};
-    const ids = [
-      'refreshBtn','exportBtn','apiStatus','lastUpdated','loadMethod','endpointText',
-      'studentFilter','sectionFilter','completedFilter','applyFilterBtn','clearFilterBtn',
-      'kpiStudents','kpiCompleted','kpiAvgScore','kpiActive','kpiAiHelp',
-      'qValidCompleted','qTooFast','qPresentNotCompleted','qTooShort','qValidRate',
-      'studentCountBadge','studentRows','supportList','sessionOverview',
-      'recentSessionRows','recentEventsList','footerStatus',
-      'studentModal','modalTitle','modalSub','closeModalBtn',
-      'dCompleted','dAvgScore','dActive','dStatus','dTeacherRecommendation','dStageGrid','dSessionRows'
-    ];
+    function qs(id){return document.getElementById(id);}
 
-    ids.forEach(function(id){
-      els[id] = document.getElementById(id);
-    });
+    function safeNumber(v){
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
 
-    let RAW = null;
-    let SUMMARY = null;
-    let CURRENT_ROWS = [];
-    let CURRENT_STUDENTS = [];
+    function fmtTime(sec){
+      sec = Math.max(0,Math.round(safeNumber(sec)));
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    }
 
-    function esc(s){
-      return String(s == null ? '' : s).replace(/[&<>"']/g,function(m){
+    function setText(id,text){
+      const el = qs(id);
+      if(el) el.textContent = text;
+    }
+
+    function escapeHtml(s){
+      return String(s ?? '').replace(/[&<>"']/g,function(m){
         return {
           '&':'&amp;',
           '<':'&lt;',
@@ -994,948 +1430,834 @@
       });
     }
 
-    function num(v){
-      const n = Number(v);
-      return Number.isFinite(n) ? n : 0;
-    }
+    function fillSessionOptions(){
+      const sel = qs('sessionFilter');
+      if(!sel) return;
 
-    function bool(v){
-      return v === true || String(v).toLowerCase() === 'true';
-    }
+      const current = sel.value || 'all';
+      sel.innerHTML = '<option value="all">All S</option>';
 
-    function fmtMin(sec){
-      sec = num(sec);
-      if(sec < 60) return sec + 's';
-      return Math.round(sec / 60) + 'm';
-    }
-
-    function sessionNoOf(r){
-      const raw = String(r.sessionNo || r.lessonId || '').trim();
-      const m = raw.match(/S?0?([1-9]|1[0-5])/i);
-      return m ? Number(m[1]) : 0;
-    }
-
-    function studentKeyOf(r){
-      return String(r.studentId || '').trim() || ('NAME:' + String(r.studentName || '').trim());
-    }
-
-    function getStudentEvents(key){
-      const events = (SUMMARY && SUMMARY.recentEvents) ? SUMMARY.recentEvents : [];
-
-      return events.filter(function(e){
-        return studentKeyOf(e) === key;
-      });
-    }
-
-    function countAiHelpForStudent(key){
-      const events = getStudentEvents(key);
-
-      return events.filter(function(e){
-        return String(e.eventType || '').trim() === 'ai_help';
-      }).length;
-    }
-
-    function countAiHelpBlockedForStudent(key){
-      const events = getStudentEvents(key);
-
-      return events.filter(function(e){
-        return String(e.eventType || '').trim() === 'ai_help_blocked';
-      }).length;
-    }
-
-    function statusOfStudent(stu, rows){
-      const completed = stu.completed || 0;
-      const avg = stu.avgScore || 0;
-      const active = stu.totalActiveTimeSec || 0;
-
-      const hasTooFast = rows.some(function(r){
-        return String(r.attendanceQuality || '') === 'completed_too_fast' ||
-          String(r.attendanceStatus || '') === 'completed_too_fast';
-      });
-
-      const hasTooShort = rows.some(function(r){
-        return String(r.attendanceQuality || '') === 'too_short';
-      });
-
-      const hasPresentNotCompleted = rows.some(function(r){
-        return String(r.attendanceQuality || '') === 'present_not_completed';
-      });
-
-      if(completed >= 15) return {text:'Completed All',cls:'ok'};
-      if(hasTooShort) return {text:'Too Short',cls:'bad'};
-      if(hasTooFast) return {text:'Too Fast',cls:'warn'};
-      if(hasPresentNotCompleted) return {text:'Present Not Completed',cls:'warn'};
-      if(completed === 0 && active < 60) return {text:'Need Start',cls:'bad'};
-      if(avg > 0 && avg < 70) return {text:'Need Support',cls:'bad'};
-      if(completed < 3) return {text:'In Progress',cls:'warn'};
-      return {text:'OK',cls:'ok'};
-    }
-
-    function statusOfSession(r){
-      if(bool(r.completed)) return {text:'Completed',cls:'ok'};
-
-      if(
-        num(r.durationSec) > 0 ||
-        num(r.activeTimeSec) > 0 ||
-        num(r.actionsCount) > 0
-      ){
-        return {text:'Started',cls:'warn'};
+      for(let i=1;i<=15;i++){
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = 'S' + String(i).padStart(2,'0');
+        sel.appendChild(opt);
       }
 
-      return {text:'No Data',cls:'bad'};
+      sel.value = current;
     }
 
-    function qualityOfSession(r){
-      const q = String(r.attendanceQuality || '').trim();
-      const status = String(r.attendanceStatus || '').trim();
+    function buildSummaryUrl(){
+      const url = new URL(API_ENDPOINT);
 
-      if(q === 'valid_completed' || status === 'completed'){
-        return {
-          text:'Valid Completed',
-          cls:'ok',
-          note:'เล่นจบและอยู่นานพอ'
-        };
-      }
+      url.searchParams.set('api','attendance');
+      url.searchParams.set('action','summary');
+      url.searchParams.set('limit','1000');
+      url.searchParams.set('eventLimit','1000');
+      url.searchParams.set('_',String(Date.now()));
 
-      if(q === 'completed_too_fast' || status === 'completed_too_fast'){
-        return {
-          text:'Completed Too Fast',
-          cls:'warn',
-          note:'เล่นจบ แต่ใช้เวลาน้อยกว่าขั้นต่ำ'
-        };
-      }
+      const student = qs('studentFilter')?.value?.trim() || '';
+      const section = qs('sectionFilter')?.value?.trim() || '';
+      const s = qs('sessionFilter')?.value || '';
 
-      if(q === 'present_not_completed' || status === 'present'){
-        return {
-          text:'Present Not Completed',
-          cls:'warn',
-          note:'อยู่นานพอ แต่ยังไม่จบ'
-        };
-      }
+      if(student) url.searchParams.set('studentId',student);
+      if(section) url.searchParams.set('section',section);
+      if(s && s !== 'all') url.searchParams.set('s',s);
 
-      if(q === 'too_short'){
-        return {
-          text:'Too Short',
-          cls:'bad',
-          note:'ใช้เวลาน้อยเกินไป ยังไม่นับสมบูรณ์'
-        };
-      }
-
-      const old = statusOfSession(r);
-
-      return {
-        text:old.text,
-        cls:old.cls,
-        note:'ใช้ logic เดิม เพราะยังไม่มี attendanceQuality'
-      };
+      return url.toString();
     }
 
-    function minTimeText(r){
-      const duration = num(r.durationSec || 0);
-      const required = num(r.requiredMinTimeSec || 0);
-      const ratio = num(r.timeRatio || 0);
+    function buildStudentSummaryUrl(key){
+      const url = new URL(API_ENDPOINT);
 
-      if(!required){
-        return fmtMin(duration);
+      url.searchParams.set('api','attendance');
+      url.searchParams.set('action','summary');
+      url.searchParams.set('limit','1000');
+      url.searchParams.set('eventLimit','1000');
+      url.searchParams.set('_',String(Date.now()));
+
+      if(key) url.searchParams.set('studentId',String(key).trim());
+
+      const section = qs('sectionFilter')?.value?.trim() || '';
+      const s = qs('sessionFilter')?.value || '';
+
+      if(section) url.searchParams.set('section',section);
+      if(s && s !== 'all') url.searchParams.set('s',s);
+
+      return url.toString();
+    }
+
+    async function loadJsonSmart(url){
+      try{
+        const res = await fetch(url,{method:'GET',cache:'no-store'});
+        const text = await res.text();
+        return JSON.parse(text);
+      }catch(fetchErr){
+        return loadJsonp(url);
       }
-
-      return fmtMin(duration) + ' / min ' + fmtMin(required) + ' • ' + ratio + '%';
     }
 
-    function buildUrl(){
-      const p = new URLSearchParams();
-
-      p.set('api','attendance');
-      p.set('action','summary');
-      p.set('limit','1000');
-      p.set('eventLimit','1000');
-
-      const student = els.studentFilter.value.trim();
-      const section = els.sectionFilter.value.trim();
-      const completed = els.completedFilter.value.trim();
-
-      if(student) p.set('studentId',student);
-      if(section) p.set('section',section);
-      if(completed) p.set('completed',completed);
-
-      p.set('_',String(Date.now()));
-
-      return ENDPOINT + '?' + p.toString();
-    }
-
-    function fetchJsonp(url){
+    function loadJsonp(url){
       return new Promise(function(resolve,reject){
         const cb = 'tpTeacherCb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
         const script = document.createElement('script');
-        const sep = url.indexOf('?') >= 0 ? '&' : '?';
+        const u = new URL(url);
+
+        u.searchParams.set('callback',cb);
 
         window[cb] = function(data){
           cleanup();
           resolve(data);
         };
 
-        function cleanup(){
-          try{
-            delete window[cb];
-          }catch(e){
-            window[cb] = undefined;
-          }
-
-          script.remove();
-        }
-
         script.onerror = function(){
           cleanup();
           reject(new Error('JSONP failed'));
         };
 
-        script.src = url + sep + 'callback=' + encodeURIComponent(cb);
+        function cleanup(){
+          try{delete window[cb];}catch(e){window[cb] = undefined;}
+          script.remove();
+        }
+
+        script.src = u.toString();
         document.body.appendChild(script);
+
+        setTimeout(function(){
+          if(window[cb]){
+            cleanup();
+            reject(new Error('JSONP timeout'));
+          }
+        },12000);
       });
     }
 
-    async function load(){
-      const url = buildUrl();
+    async function loadDashboard(){
+      if(DASHBOARD_STATE.loading) return;
 
-      els.apiStatus.textContent = 'Loading';
-      els.loadMethod.textContent = '-';
-      els.footerStatus.textContent = 'Loading attendance summary...';
+      DASHBOARD_STATE.loading = true;
+      DASHBOARD_STATE.lastError = null;
 
       try{
-        const res = await fetch(url,{cache:'no-store'});
-        const data = await res.json();
+        setText('updatedAt','Loading...');
 
-        RAW = data;
-        SUMMARY = data.summary || {};
+        const json = await loadJsonSmart(buildSummaryUrl());
 
-        els.loadMethod.textContent = 'fetch';
-        renderAll(data,'fetch');
-      }catch(err){
-        try{
-          const data = await fetchJsonp(url);
-
-          RAW = data;
-          SUMMARY = data.summary || {};
-
-          els.loadMethod.textContent = 'jsonp';
-          renderAll(data,'jsonp');
-        }catch(err2){
-          els.apiStatus.textContent = 'Error';
-          els.footerStatus.textContent = 'โหลดข้อมูลไม่ได้: ' + (err2.message || err.message || 'unknown');
-
-          renderEmpty('โหลดข้อมูลไม่ได้ กรุณาตรวจ API / Deploy / Internet');
+        if(!json || json.ok !== true){
+          throw new Error(json && json.error ? json.error : 'API returned error');
         }
+
+        const summary = json.summary || {};
+        DASHBOARD_STATE.lastData = summary;
+        DASHBOARD_STATE.lastJson = json;
+
+        renderDashboard(summary,json);
+        setText('updatedAt','Updated: ' + new Date().toLocaleString('th-TH'));
+
+      }catch(err){
+        DASHBOARD_STATE.lastError = err;
+        showErrorBox(err && err.message ? err.message : err);
+        setText('updatedAt','API error');
+        console.error('[Teacher Dashboard] load error:',err);
+      }finally{
+        DASHBOARD_STATE.loading = false;
       }
     }
 
-    function buildQualitySummary(rows){
-      const out = {
-        total:0,
-        valid_completed:0,
-        completed_too_fast:0,
-        present_not_completed:0,
-        too_short:0,
-        unknown:0
-      };
+    function showErrorBox(message){
+      const msg = String(message || 'API returned error');
 
-      (rows || []).forEach(function(r){
-        out.total += 1;
+      setText('studentsCount','0');
+      setText('sessionRowsCount','0');
+      setText('completedCount','0');
+      setText('avgScoreCount','0');
+      setText('aiHelpCount','0');
 
-        let q = String(r.attendanceQuality || '').trim();
-
-        if(!q){
-          const completed = bool(r.completed);
-          const minTimeMet = bool(r.minTimeMet);
-
-          if(completed && minTimeMet) q = 'valid_completed';
-          else if(completed && !minTimeMet) q = 'completed_too_fast';
-          else if(!completed && minTimeMet) q = 'present_not_completed';
-          else if(!completed && !minTimeMet) q = 'too_short';
-          else q = 'unknown';
-        }
-
-        if(out[q] === undefined){
-          out.unknown += 1;
-        }else{
-          out[q] += 1;
-        }
+      ['studentTableBody','recentSessionsBody','recentEventsBody','aiHelpStudentBody'].forEach(function(id){
+        const el = qs(id);
+        if(el) el.innerHTML = '<tr><td colspan="99" class="empty error">API error: ' + escapeHtml(msg) + '</td></tr>';
       });
 
-      out.validRate = out.total
-        ? Math.round((out.valid_completed / out.total) * 100)
-        : 0;
+      const support = qs('supportList');
+      if(support) support.innerHTML = '<div class="empty error">API error: ' + escapeHtml(msg) + '</div>';
 
-      return out;
+      const overview = qs('sessionOverviewGrid');
+      if(overview) overview.innerHTML = '<div class="empty error">API error: ' + escapeHtml(msg) + '</div>';
     }
 
-    function renderQualitySummary(rows){
-      const q = buildQualitySummary(rows || []);
+    function renderDashboard(summary,json){
+      summary = summary || {};
 
-      if(els.qValidCompleted) els.qValidCompleted.textContent = q.valid_completed;
-      if(els.qTooFast) els.qTooFast.textContent = q.completed_too_fast;
-      if(els.qPresentNotCompleted) els.qPresentNotCompleted.textContent = q.present_not_completed;
-      if(els.qTooShort) els.qTooShort.textContent = q.too_short;
-      if(els.qValidRate) els.qValidRate.textContent = q.validRate + '%';
-    }
-
-    function renderAll(data,method){
-      if(!data || data.ok !== true){
-        els.apiStatus.textContent = 'API Error';
-        els.footerStatus.textContent = 'API returned error';
-        renderEmpty('API returned error');
-        return;
-      }
-
-      const summary = data.summary || {};
       const totals = summary.totals || {};
+      const quality = summary.quality || {};
+      const students = Array.isArray(summary.students) ? summary.students : [];
+      const sessions = Array.isArray(summary.sessions) ? summary.sessions : [];
+      const support = Array.isArray(summary.support) ? summary.support : [];
+      const recentSessions = Array.isArray(summary.recentSessions) ? summary.recentSessions : [];
+      const recentEvents = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
 
-      CURRENT_ROWS = summary.recentSessions || [];
-      CURRENT_STUDENTS = summary.students || [];
+      renderTopCards(totals,quality);
+      renderQualityCards(totals,quality);
+      renderStudents(students);
+      renderSupport(support);
+      renderSessionOverview(sessions);
+      renderRecentSessions(recentSessions);
+      renderRecentEvents(recentEvents);
+      renderAiHelpPolicy(summary);
 
-      els.apiStatus.textContent = 'OK';
-      els.lastUpdated.textContent = new Date().toLocaleString();
-      els.loadMethod.textContent = method;
-      els.endpointText.textContent = 'Attendance summary';
-
-      els.kpiStudents.textContent = totals.students || 0;
-      els.kpiCompleted.textContent = totals.completedSessions || 0;
-      els.kpiAvgScore.textContent = totals.avgScore || 0;
-      els.kpiActive.textContent = fmtMin(totals.totalActiveTimeSec || 0);
-      els.kpiAiHelp.textContent = totals.aiHelpEvents || 0;
-
-      renderQualitySummary(summary.recentSessions || []);
-      renderStudents(summary.students || [], summary.recentSessions || []);
-      renderSupport(summary.students || [], summary.recentSessions || []);
-      renderSessionOverview(summary.sessions || []);
-      renderRecentSessions(summary.recentSessions || []);
-      renderRecentEvents(summary.recentEvents || []);
-
-      els.footerStatus.textContent =
-        'Updated: ' + new Date().toLocaleString() +
-        ' • via ' + method +
-        ' • sessions: ' + (totals.sessionRows || 0) +
-        ' • events: ' + (totals.eventRows || 0) +
-        ' • S1–S15 only';
+      const version = json && json.version ? json.version : '';
+      setText('apiVersion',version);
     }
 
-    function renderEmpty(msg){
-      els.studentRows.innerHTML = '<tr><td colspan="8">' + esc(msg) + '</td></tr>';
-      els.supportList.innerHTML = '<div class="empty">' + esc(msg) + '</div>';
-      els.sessionOverview.innerHTML = '<div class="empty">' + esc(msg) + '</div>';
-      els.recentSessionRows.innerHTML = '<tr><td colspan="8">' + esc(msg) + '</td></tr>';
-      els.recentEventsList.innerHTML = '<div class="empty">' + esc(msg) + '</div>';
+    function renderTopCards(totals,quality){
+      setText('studentsCount',safeNumber(totals.students));
+      setText('sessionRowsCount',safeNumber(totals.learningRows || totals.sessionRows));
+      setText('completedCount',safeNumber(totals.completedSessions));
+      setText('avgScoreCount',safeNumber(totals.avgScore));
+      setText('aiHelpCount',safeNumber(totals.aiHelpEvents));
+
+      setText('allRowsCount',safeNumber(totals.sessionRows));
+      setText('learningRowsCount',safeNumber(totals.learningRows));
+      setText('ignoredRowsCount',safeNumber(totals.ignoredRows));
     }
 
-    function renderStudents(students, rows){
-      els.studentCountBadge.textContent = students.length + ' students';
+    function renderQualityCards(totals,quality){
+      setText('validCompletedCount',safeNumber(quality.validCompleted));
+      setText('tooFastCount',safeNumber(quality.tooFast));
+      setText('presentNotCompletedCount',safeNumber(quality.presentNotCompleted));
+      setText('tooShortCount',safeNumber(quality.tooShort));
+      setText('validRateCount',safeNumber(quality.validRate) + '%');
+
+      setText('qualityLearningRows',safeNumber(quality.learningRows || totals.learningRows));
+      setText('qualityIgnoredRows',safeNumber(quality.ignoredRows || totals.ignoredRows));
+    }
+
+    function getAiHelpCountForStudent(key){
+      const summary = DASHBOARD_STATE.lastData || {};
+      const events = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
+
+      key = String(key || '').trim().toLowerCase();
+
+      return events.filter(function(e){
+        const id = String(e.studentId || '').trim().toLowerCase();
+        const name = String(e.studentName || '').trim().toLowerCase();
+
+        return String(e.eventType || '') === 'ai_help' && (id === key || name === key);
+      }).length;
+    }
+
+    function studentStatusLabel(s){
+      if(s.supportFlag === 'ok') return 'OK';
+      if(s.supportFlag === 'too_fast') return 'Too fast';
+      if(s.supportFlag === 'present_not_completed') return 'Present not completed';
+      if(s.supportFlag === 'too_short') return 'Too short';
+      return 'Need check';
+    }
+
+    function studentStatusClass(s){
+      if(s.supportFlag === 'ok') return 'ok';
+      if(s.supportFlag === 'too_fast') return 'warn';
+      if(s.supportFlag === 'present_not_completed') return 'warn';
+      if(s.supportFlag === 'too_short') return 'bad';
+      return 'muted';
+    }
+
+    function studentStatusLabelWithHelp(s,aiHelpCount){
+      if(aiHelpCount >= 5 && safeNumber(s.avgScore) < 60) return 'Help + Low Score';
+      if(aiHelpCount >= 5) return 'High AI Help';
+      if(aiHelpCount >= 3) return 'Watch AI Help';
+      return studentStatusLabel(s);
+    }
+
+    function studentStatusClassWithHelp(s,aiHelpCount){
+      if(aiHelpCount >= 5 && safeNumber(s.avgScore) < 60) return 'bad';
+      if(aiHelpCount >= 3) return 'warn';
+      return studentStatusClass(s);
+    }
+
+    function renderStudents(students){
+      const body = qs('studentTableBody');
+      if(!body) return;
+
+      setText('studentTableCount',students.length + ' students');
 
       if(!students.length){
-        els.studentRows.innerHTML =
-          '<tr><td colspan="8">ยังไม่มีข้อมูลนักศึกษา หรือยังไม่มี session_end ที่สมบูรณ์</td></tr>';
+        body.innerHTML = '<tr><td colspan="99" class="empty">No student data</td></tr>';
         return;
       }
 
-      els.studentRows.innerHTML = students.map(function(stu){
-        const key =
-          String(stu.studentId || '').trim() ||
-          ('NAME:' + String(stu.studentName || '').trim());
-
-        const stuRows = rows.filter(function(r){
-          return studentKeyOf(r) === key;
-        });
-
-        const status = statusOfStudent(stu,stuRows);
-        const completed = stu.completed || 0;
-        const pct = Math.min(100,Math.round((completed / 15) * 100));
-        const aiHelpUsed = countAiHelpForStudent(key);
-        const aiHelpBlocked = countAiHelpBlockedForStudent(key);
+      body.innerHTML = students.map(function(s){
+        const name = s.studentName || '-';
+        const id = s.studentId || '';
+        const section = s.classSection || '-';
+        const aiHelpCount = getAiHelpCountForStudent(id || name);
+        const status = studentStatusLabelWithHelp(s,aiHelpCount);
+        const statusClass = studentStatusClassWithHelp(s,aiHelpCount);
 
         return '' +
-          '<tr>' +
-            '<td>' +
-              '<div class="studentName">' +
-                '<b>' + esc(stu.studentName || '-') + '</b>' +
-                '<small>ID: ' + esc(stu.studentId || '-') + '</small>' +
-              '</div>' +
-            '</td>' +
-            '<td>' + esc(stu.classSection || '-') + '</td>' +
-            '<td>' +
-              '<div class="progressTiny">' +
-                '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
-                '<span class="smallMuted">' + completed + '/15</span>' +
-              '</div>' +
-            '</td>' +
-            '<td>' +
-              '<b>' + esc(stu.avgScore || 0) + '</b>' +
-              '<div class="smallMuted">AI Help: ' + aiHelpUsed + (aiHelpBlocked ? ' • Blocked: ' + aiHelpBlocked : '') + '</div>' +
-            '</td>' +
-            '<td><span class="badge ok">' + completed + '</span></td>' +
-            '<td><span class="badge ' + status.cls + '">' + esc(status.text) + '</span></td>' +
-            '<td><span class="smallMuted">' + esc(stu.lastActiveAt || '-') + '</span></td>' +
-            '<td><button class="btn small primary" data-view-student="' + esc(key) + '">View</button></td>' +
+          '<tr class="clickable" data-student="' + escapeHtml(id || name) + '">' +
+            '<td><b>' + escapeHtml(name) + '</b><small>' + escapeHtml(id) + '</small></td>' +
+            '<td>' + escapeHtml(section) + '</td>' +
+            '<td>' + safeNumber(s.validCompleted) + '/' + safeNumber(s.sessions) + '</td>' +
+            '<td><b>' + safeNumber(s.avgScore) + '</b><small>score</small></td>' +
+            '<td>' + safeNumber(s.completed) + '</td>' +
+            '<td><span class="pill ' + statusClass + '">' + escapeHtml(status) + '</span></td>' +
+            '<td>' + fmtTime(s.totalDurationSec) + '</td>' +
+            '<td>' + fmtTime(s.totalActiveTimeSec) + '</td>' +
+            '<td>' + escapeHtml(s.lastActiveAt || '-') + '</td>' +
           '</tr>';
       }).join('');
 
-      Array.from(document.querySelectorAll('[data-view-student]')).forEach(function(btn){
-        btn.addEventListener('click',function(){
-          openStudent(btn.getAttribute('data-view-student'));
+      body.querySelectorAll('tr[data-student]').forEach(function(row){
+        row.addEventListener('click',function(){
+          openStudentDetail(row.dataset.student);
         });
       });
     }
 
-    function renderSupport(students, rows){
-      const support = students.map(function(stu){
-        const key =
-          String(stu.studentId || '').trim() ||
-          ('NAME:' + String(stu.studentName || '').trim());
+    function renderSupport(support){
+      const box = qs('supportList');
+      if(!box) return;
 
-        const stuRows = rows.filter(function(r){
-          return studentKeyOf(r) === key;
-        });
-
-        const status = statusOfStudent(stu,stuRows);
-        const aiHelpUsed = countAiHelpForStudent(key);
-        const aiHelpBlocked = countAiHelpBlockedForStudent(key);
-
-        const hasQualityIssue = stuRows.some(function(r){
-          const q = qualityOfSession(r);
-          return q.cls !== 'ok';
-        });
-
-        return {
-          stu:stu,
-          status:status,
-          key:key,
-          aiHelpUsed:aiHelpUsed,
-          aiHelpBlocked:aiHelpBlocked,
-          hasQualityIssue:hasQualityIssue
-        };
-      }).filter(function(x){
-        return x.status.cls !== 'ok' || x.aiHelpUsed >= 5 || x.aiHelpBlocked > 0 || x.hasQualityIssue;
-      });
+      setText('supportCount',support.length + ' students');
 
       if(!support.length){
-        els.supportList.innerHTML =
-          '<div class="empty">ยังไม่พบผู้เรียนที่ต้องติดตามจากข้อมูลปัจจุบัน</div>';
+        box.innerHTML = '<div class="empty ok">ยังไม่มีรายชื่อที่ต้องติดตาม</div>';
         return;
       }
 
-      els.supportList.innerHTML = support.map(function(x){
-        const stu = x.stu;
+      box.innerHTML = support.map(function(s){
+        const status = studentStatusLabel(s);
+        const cls = studentStatusClass(s);
+
+        let reason = 'ต้องตรวจสอบเพิ่มเติม';
+        if(s.supportFlag === 'too_fast') reason = 'จบเร็วเกิน minimum อาจกดผ่านเร็ว';
+        if(s.supportFlag === 'present_not_completed') reason = 'อยู่เกินเวลาแล้วแต่ยังไม่จบ';
+        if(s.supportFlag === 'too_short') reason = 'เวลาเรียน/เล่นสั้นเกินไป';
 
         return '' +
-          '<div class="miniCard">' +
-            '<div class="miniCardTop">' +
-              '<div>' +
-                '<h3>' + esc(stu.studentName || stu.studentId || 'Unknown') + '</h3>' +
-                '<p>ID: ' + esc(stu.studentId || '-') + ' • Section: ' + esc(stu.classSection || '-') + '</p>' +
-              '</div>' +
-              '<span class="badge ' + x.status.cls + '">' + esc(x.status.text) + '</span>' +
+          '<button class="supportCard" type="button" data-student="' + escapeHtml(s.studentId || s.studentName || '') + '">' +
+            '<div>' +
+              '<b>' + escapeHtml(s.studentName || '-') + '</b>' +
+              '<small>' + escapeHtml(s.studentId || '') + ' • Section ' + escapeHtml(s.classSection || '-') + '</small>' +
             '</div>' +
-            '<p>' +
-              'Completed: <b>' + esc(stu.completed || 0) + '/15</b>' +
-              ' • Avg score: <b>' + esc(stu.avgScore || 0) + '</b>' +
-              ' • Active: <b>' + fmtMin(stu.totalActiveTimeSec || 0) + '</b>' +
-              ' • AI Help: <b>' + x.aiHelpUsed + '</b>' +
-              (x.aiHelpBlocked ? ' • Blocked: <b>' + x.aiHelpBlocked + '</b>' : '') +
-            '</p>' +
-            '<button class="btn small primary" data-view-student="' + esc(x.key) + '">View student</button>' +
-          '</div>';
+            '<span class="pill ' + cls + '">' + escapeHtml(status) + '</span>' +
+            '<p>' + escapeHtml(reason) + '</p>' +
+          '</button>';
       }).join('');
 
-      Array.from(els.supportList.querySelectorAll('[data-view-student]')).forEach(function(btn){
-        btn.addEventListener('click',function(){
-          openStudent(btn.getAttribute('data-view-student'));
+      box.querySelectorAll('.supportCard').forEach(function(card){
+        card.addEventListener('click',function(){
+          openStudentDetail(card.dataset.student);
         });
       });
     }
 
     function renderSessionOverview(sessions){
-      const by = {};
+      const grid = qs('sessionOverviewGrid');
+      if(!grid) return;
 
-      sessions.forEach(function(s){
-        by[Number(s.sessionNo)] = s;
-      });
+      setText('sessionOverviewCount',sessions.length + ' sessions');
 
-      els.sessionOverview.innerHTML = Array.from({length:15},function(_,i){
-        const n = i + 1;
-        const s = by[n] || null;
+      if(!sessions.length){
+        grid.innerHTML = '<div class="empty">No session summary data</div>';
+        return;
+      }
 
-        const attempts = s ? num(s.attempts) : 0;
-        const completed = s ? num(s.completed) : 0;
-        const avg = s ? num(s.avgScore) : 0;
-
-        let cls = attempts ? 'started' : '';
-
-        if(completed > 0) cls = 'done';
-        if(attempts > 0 && completed === 0) cls = 'started';
+      grid.innerHTML = sessions.map(function(s){
+        const valid = safeNumber(s.validCompleted);
+        const attempts = safeNumber(s.attempts);
+        const rate = attempts ? Math.round((valid / attempts) * 100) : 0;
 
         return '' +
-          '<div class="stage ' + cls + '">' +
-            '<b>S' + String(n).padStart(2,'0') + '</b>' +
-            '<small>' + esc(SKILL_BY_S[n] || '-') + '</small>' +
-            '<small>' + completed + '/' + attempts + ' • ' + avg + '</small>' +
+          '<div class="sCard">' +
+            '<div class="sTop"><b>S' + escapeHtml(s.sessionNo || '-') + '</b><span>' + escapeHtml(s.lessonId || '') + '</span></div>' +
+            '<div class="sNum">' + valid + '/' + attempts + '</div>' +
+            '<div class="sMeta">valid rate ' + rate + '%</div>' +
+            '<div class="sMini">' +
+              '<span>Too fast <b>' + safeNumber(s.tooFast) + '</b></span>' +
+              '<span>Too short <b>' + safeNumber(s.tooShort) + '</b></span>' +
+              '<span>Min <b>' + fmtTime(s.minRequiredSec) + '</b></span>' +
+            '</div>' +
           '</div>';
       }).join('');
+    }
+
+    function qualityClass(q){
+      q = String(q || '');
+      if(q === 'valid_completed') return 'ok';
+      if(q === 'too_fast') return 'warn';
+      if(q === 'present_not_completed') return 'warn';
+      if(q === 'too_short') return 'bad';
+      return 'muted';
     }
 
     function renderRecentSessions(rows){
+      const body = qs('recentSessionsBody');
+      if(!body) return;
+
+      setText('recentSessionsCount',rows.length + ' rows');
+
       if(!rows.length){
-        els.recentSessionRows.innerHTML = '<tr><td colspan="8">ยังไม่มี recent sessions</td></tr>';
+        body.innerHTML = '<tr><td colspan="99" class="empty">No recent session data</td></tr>';
         return;
       }
 
-      els.recentSessionRows.innerHTML = rows.slice(0,60).map(function(r){
-        const st = qualityOfSession(r);
-        const s = sessionNoOf(r);
+      body.innerHTML = rows.map(function(r){
+        const completed = String(r.completed || '').toLowerCase() === 'true';
+        const q = r.qualityStatus || '-';
 
         return '' +
           '<tr>' +
-            '<td>' +
-              '<div class="studentName">' +
-                '<b>' + esc(r.studentName || '-') + '</b>' +
-                '<small>ID: ' + esc(r.studentId || '-') + '</small>' +
-              '</div>' +
-            '</td>' +
-            '<td>S' + String(s || r.sessionNo || '-').padStart(2,'0') + '</td>' +
-            '<td>' + esc(r.score || 0) + '</td>' +
-            '<td><span class="badge ' + (bool(r.completed) ? 'ok' : 'warn') + '">' + (bool(r.completed) ? 'Yes' : 'No') + '</span></td>' +
-            '<td>' +
-              esc(minTimeText(r)) +
-              '<div class="smallMuted">' + esc(st.note) + '</div>' +
-            '</td>' +
-            '<td>' + esc(r.actionsCount || 0) + '</td>' +
-            '<td><span class="badge ' + st.cls + '">' + esc(st.text) + '</span></td>' +
-            '<td><span class="smallMuted">' + esc(r.lastActiveAt || '-') + '</span></td>' +
+            '<td><b>' + escapeHtml(r.studentName || '-') + '</b><small>' + escapeHtml(r.studentId || '') + '</small></td>' +
+            '<td>' + escapeHtml(r.classSection || '-') + '</td>' +
+            '<td>S' + escapeHtml(r.sessionNo || '-') + '</td>' +
+            '<td>' + safeNumber(r.score) + '</td>' +
+            '<td><span class="pill ' + (completed ? 'ok' : 'warn') + '">' + String(completed).toUpperCase() + '</span></td>' +
+            '<td><span class="pill ' + qualityClass(q) + '">' + escapeHtml(q) + '</span></td>' +
+            '<td>' + fmtTime(r.durationSec) + '</td>' +
+            '<td>' + fmtTime(r.activeTimeSec) + '</td>' +
+            '<td>' + fmtTime(r.minRequiredSec) + '</td>' +
+            '<td>' + escapeHtml(r.lastActiveAt || '-') + '</td>' +
           '</tr>';
       }).join('');
     }
 
-    function renderRecentEvents(events){
-      const teacherEvents = (events || []).filter(function(e){
-        const type = String(e.eventType || '').trim();
+    function renderRecentEvents(rows){
+      const body = qs('recentEventsBody');
+      if(!body) return;
 
-        const noisy = [
-          'page_open',
-          'page_hidden',
-          'page_visible',
-          'page_leave',
-          'manual_test'
-        ];
+      setText('recentEventsCount',rows.length + ' events');
 
-        if(noisy.indexOf(type) >= 0) return false;
-
-        const useful = [
-          'session_start',
-          'question_start',
-          'answer',
-          'ai_help',
-          'ai_help_blocked',
-          'speech_start',
-          'timeout',
-          'retry_panel_show',
-          'retry_start',
-          'session_end'
-        ];
-
-        return useful.indexOf(type) >= 0;
-      });
-
-      if(!teacherEvents.length){
-        els.recentEventsList.innerHTML =
-          '<div class="empty">' +
-            'ยังไม่มี learning events ที่สำคัญ เช่น answer / ai_help / session_end<br>' +
-            '<span class="smallMuted">ถ้าเห็น Session Rows แล้วแต่ยังไม่มี event สำคัญ แปลว่าต้องเล่นให้ถึงตอบคำถามหรือจบ session ก่อน</span>' +
-          '</div>';
+      if(!rows.length){
+        body.innerHTML = '<tr><td colspan="99" class="empty">No recent event data</td></tr>';
         return;
       }
 
-      els.recentEventsList.innerHTML = teacherEvents.slice(0,80).map(function(e){
-        const type = String(e.eventType || '');
-        let cls = 'info';
-        let label = type;
-
-        if(type === 'session_start'){
-          cls = 'info';
-          label = 'Started';
-        }
-
-        if(type === 'question_start'){
-          cls = 'purple';
-          label = 'Question';
-        }
-
-        if(type === 'answer'){
-          cls = num(e.score) > 0 ? 'ok' : 'bad';
-          label = num(e.score) > 0 ? 'Answer OK' : 'Answer';
-        }
-
-        if(type === 'ai_help'){
-          cls = 'purple';
-          label = 'AI Help';
-        }
-
-        if(type === 'ai_help_blocked'){
-          cls = 'bad';
-          label = 'AI Help Blocked';
-        }
-
-        if(type === 'speech_start'){
-          cls = 'info';
-          label = 'Speaking';
-        }
-
-        if(type === 'timeout'){
-          cls = 'bad';
-          label = 'Timeout';
-        }
-
-        if(type === 'retry_panel_show' || type === 'retry_start'){
-          cls = 'warn';
-          label = 'Retry';
-        }
-
-        if(type === 'session_end'){
-          cls = bool(e.completed) ? 'ok' : 'warn';
-          label = bool(e.completed) ? 'Completed' : 'Ended';
-        }
-
+      body.innerHTML = rows.map(function(e){
         return '' +
-          '<div class="miniCard">' +
-            '<div class="miniCardTop">' +
-              '<div>' +
-                '<h3>' + esc(e.studentName || e.studentId || '-') + '</h3>' +
-                '<p>' +
-                  'S' + esc(e.sessionNo || '-') +
-                  ' • score ' + esc(e.score || 0) +
-                  ' • actions ' + esc(e.actionsCount || 0) +
-                  ' • completed ' + esc(e.completed || false) +
-                '</p>' +
-              '</div>' +
-              '<span class="badge ' + cls + '">' + esc(label) + '</span>' +
-            '</div>' +
-            '<p class="smallMuted">' + esc(e.serverTs || e.clientTs || '-') + '</p>' +
-          '</div>';
+          '<tr>' +
+            '<td>' + escapeHtml(e.serverTs || '-') + '</td>' +
+            '<td><span class="pill muted">' + escapeHtml(e.eventType || '-') + '</span></td>' +
+            '<td><b>' + escapeHtml(e.studentName || '-') + '</b><small>' + escapeHtml(e.studentId || '') + '</small></td>' +
+            '<td>S' + escapeHtml(e.sessionNo || '-') + '</td>' +
+            '<td>' + safeNumber(e.score) + '</td>' +
+            '<td>' + escapeHtml(e.completed || '-') + '</td>' +
+          '</tr>';
       }).join('');
     }
 
-    function buildTeacherRecommendation(stu, rows){
-      const completed = num(stu.completed || 0);
-      const avg = num(stu.avgScore || 0);
+    function renderAiHelpPolicy(summary){
+      summary = summary || {};
 
-      const key =
-        String(stu.studentId || '').trim() ||
-        ('NAME:' + String(stu.studentName || '').trim());
+      const totals = summary.totals || {};
+      const students = Array.isArray(summary.students) ? summary.students : [];
+      const events = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
 
-      const aiHelpUsed = countAiHelpForStudent(key);
-      const aiHelpBlocked = countAiHelpBlockedForStudent(key);
-
-      const completedRows = rows.filter(function(r){
-        return bool(r.completed);
+      const aiEvents = events.filter(function(e){
+        return String(e.eventType || '') === 'ai_help';
       });
 
-      const startedRows = rows.filter(function(r){
-        return !bool(r.completed) && (
-          num(r.durationSec) > 0 ||
-          num(r.activeTimeSec) > 0 ||
-          num(r.actionsCount) > 0
-        );
+      const helpByStudent = {};
+
+      aiEvents.forEach(function(e){
+        const key = String(e.studentId || e.studentName || 'unknown').trim() || 'unknown';
+
+        if(!helpByStudent[key]){
+          helpByStudent[key] = {
+            studentId:e.studentId || '',
+            studentName:e.studentName || '',
+            classSection:e.classSection || '',
+            helpCount:0,
+            sessions:{},
+            lastActiveAt:e.serverTs || ''
+          };
+        }
+
+        helpByStudent[key].helpCount += 1;
+
+        if(e.sessionNo){
+          helpByStudent[key].sessions[String(e.sessionNo)] = true;
+        }
+
+        helpByStudent[key].lastActiveAt = e.serverTs || helpByStudent[key].lastActiveAt;
       });
 
-      const weakSessions = rows.filter(function(r){
-        return bool(r.completed) && num(r.score) > 0 && num(r.score) < 70;
+      const studentMap = {};
+
+      students.forEach(function(s){
+        const key = String(s.studentId || s.studentName || 'unknown').trim() || 'unknown';
+        studentMap[key] = s;
       });
 
-      const noScoreCompleted = rows.filter(function(r){
-        return bool(r.completed) && num(r.score) <= 0;
+      const records = Object.keys(helpByStudent).map(function(key){
+        const h = helpByStudent[key];
+        const s = studentMap[key] || {};
+
+        const avgScore = safeNumber(s.avgScore);
+        const learningRows = safeNumber(s.sessions);
+        const helpCount = safeNumber(h.helpCount);
+
+        let status = 'Normal';
+        let statusClass = 'ok';
+
+        if(helpCount >= 5 && avgScore < 60){
+          status = 'Help + Low Score';
+          statusClass = 'bad';
+        }else if(helpCount >= 5){
+          status = 'High Help';
+          statusClass = 'warn';
+        }else if(helpCount >= 3){
+          status = 'Watch';
+          statusClass = 'warn';
+        }
+
+        return {
+          key:key,
+          studentId:h.studentId || s.studentId || '',
+          studentName:h.studentName || s.studentName || '-',
+          classSection:h.classSection || s.classSection || '-',
+          helpCount:helpCount,
+          helpedSessions:Object.keys(h.sessions || {}).length,
+          learningRows:learningRows,
+          avgScore:avgScore,
+          status:status,
+          statusClass:statusClass,
+          lastActiveAt:h.lastActiveAt || s.lastActiveAt || '-'
+        };
+      }).sort(function(a,b){
+        if(b.helpCount !== a.helpCount) return b.helpCount - a.helpCount;
+        return a.avgScore - b.avgScore;
       });
 
-      const tooFastRows = rows.filter(function(r){
-        return String(r.attendanceQuality || '') === 'completed_too_fast' ||
-          String(r.attendanceStatus || '') === 'completed_too_fast';
-      });
+      const highHelp = records.filter(function(r){
+        return r.helpCount >= 5;
+      }).length;
 
-      const tooShortRows = rows.filter(function(r){
-        return String(r.attendanceQuality || '') === 'too_short';
-      });
+      const helpLowScore = records.filter(function(r){
+        return r.helpCount >= 1 && r.avgScore < 60;
+      }).length;
 
-      const presentNotCompletedRows = rows.filter(function(r){
-        return String(r.attendanceQuality || '') === 'present_not_completed' ||
-          String(r.attendanceStatus || '') === 'present';
-      });
+      setText('aiPolicyTotalHelp',safeNumber(totals.aiHelpEvents || aiEvents.length));
+      setText('aiPolicyStudentsHelped',records.length);
+      setText('aiPolicyHighHelp',highHelp);
+      setText('aiPolicyHelpLowScore',helpLowScore);
+      setText('aiHelpPolicyCount',records.length + ' students');
 
-      let level = 'info';
-      let title = 'Monitor Progress';
-      let reason = 'มีข้อมูลการเข้าใช้งานแล้ว ควรติดตามความต่อเนื่องของการเรียน';
-      let action = 'ให้ผู้เรียนทำต่อเนื่องตามลำดับ S1–S15 และ refresh dashboard หลังจบ session';
-      let focus = 'General progress';
-
-      if(completed === 0 && rows.length === 0){
-        level = 'bad';
-        title = 'No Learning Data Yet';
-        reason = 'ยังไม่พบข้อมูล session ของนักศึกษาคนนี้';
-        action = 'ให้ผู้เรียนเปิด lesson.html ใส่ Student ID / Name และเริ่มเล่น S1 อย่างน้อย 1 รอบ';
-        focus = 'Start first session';
-      }else if(completed === 0 && startedRows.length > 0){
-        level = 'bad';
-        title = 'Started but Not Completed';
-        reason = 'มีข้อมูลเริ่มเล่นแล้ว แต่ยังไม่มี session_end ที่ completed=true';
-        action = 'ให้ผู้เรียนเล่นให้จบ 1 session และตรวจว่า lesson.html ส่ง score / completed / durationSec ครบ';
-        focus = 'Complete one session';
-      }else if(noScoreCompleted.length > 0){
-        level = 'warn';
-        title = 'Completed but Score Missing';
-        reason = 'มี session ที่จบแล้วแต่คะแนนยังเป็น 0';
-        action = 'ตรวจ patch lesson.html ฝั่ง sendLog(session_end) ให้ส่ง score, durationSec, activeTimeSec, actionsCount';
-        focus = 'Logging quality';
-      }else if(tooFastRows.length > 0){
-        level = 'warn';
-        title = 'Completed Too Fast';
-        reason = 'ผู้เรียนเล่นจบ แต่ใช้เวลาน้อยกว่า Minimum Time Requirement';
-        action = 'ให้ครูตรวจว่าเด็กกดผ่านเร็วเกินไปหรือไม่ และอาจให้เล่นซ้ำ S ที่เร็วผิดปกติ';
-        focus = 'Attendance quality';
-      }else if(tooShortRows.length > 0){
-        level = 'bad';
-        title = 'Too Short';
-        reason = 'ผู้เรียนใช้เวลาน้อยกว่าขั้นต่ำ จึงยังไม่นับเป็นการเข้าเรียนสมบูรณ์';
-        action = 'ให้ผู้เรียนกลับไปเล่น session ให้ครบเวลา และตอบให้จบตามกิจกรรม';
-        focus = 'Minimum time requirement';
-      }else if(presentNotCompletedRows.length > 0){
-        level = 'warn';
-        title = 'Present but Not Completed';
-        reason = 'ผู้เรียนอยู่นานพอ แต่ยังไม่จบ session';
-        action = 'ให้ครูตรวจว่าติดข้อไหน เช่น speaking mic, listening audio, หรือ writing submit';
-        focus = 'Completion support';
-      }else if(avg > 0 && avg < 70){
-        level = 'bad';
-        title = 'Need Support';
-        reason = 'คะแนนเฉลี่ยต่ำกว่า 70';
-        action = 'ให้ทบทวน session ที่คะแนนต่ำ และใช้ AI Help แบบมีเป้าหมาย ไม่ใช่กดดูเฉลยทันที';
-        focus = 'Low score support';
-      }else if(weakSessions.length > 0){
-        level = 'warn';
-        title = 'Some Weak Sessions';
-        reason = 'มีบาง session ที่คะแนนต่ำกว่า 70';
-        action = 'เปิดดู S ที่คะแนนต่ำ แล้วให้ฝึกซ้ำเฉพาะทักษะนั้น เช่น Listening keyword / Speaking pronunciation / Writing short answer';
-        focus = 'Targeted practice';
-      }else if(aiHelpUsed >= 5){
-        level = 'warn';
-        title = 'High AI Help Usage';
-        reason = 'ผู้เรียนใช้ AI Help ค่อนข้างบ่อย อาจยังไม่มั่นใจหรือพึ่ง hint มากเกินไป';
-        action = 'ให้ครูดูว่าใช้ AI Help ในทักษะใดบ่อย แล้วให้ฝึกแบบ scaffold เช่น ฟัง keyword, พูดประโยคสั้น หรือเขียน sentence frame';
-        focus = 'AI Help dependency';
-      }else if(aiHelpBlocked > 0){
-        level = 'warn';
-        title = 'AI Help Quota Reached';
-        reason = 'ผู้เรียนพยายามใช้ AI Help เกินโควตา';
-        action = 'ให้ผู้เรียนลองตอบจาก keyword ก่อน และใช้ AI Help เฉพาะตอนติดจริง';
-        focus = 'Hint control';
-      }else if(completed >= 15){
-        level = 'ok';
-        title = 'Completed All Missions';
-        reason = 'ผู้เรียนทำครบ S1–S15 แล้ว';
-        action = 'ให้ทำ reflection หรือ final speaking/writing task เพื่อสรุปสิ่งที่เรียนรู้';
-        focus = 'Extension task';
-      }else if(completed >= 5){
-        level = 'ok';
-        title = 'Good Progress';
-        reason = 'ผู้เรียนมีความคืบหน้าดีและมี session completed หลายรายการ';
-        action = 'ให้เรียนต่อจาก S ถัดไป และติดตามคะแนนเฉลี่ยในแต่ละทักษะ';
-        focus = 'Continue next mission';
-      }
-
-      return {
-        level: level,
-        title: title,
-        reason: reason,
-        action: action,
-        focus: focus,
-        completedRows: completedRows.length,
-        startedRows: startedRows.length,
-        tooFastRows: tooFastRows.length,
-        tooShortRows: tooShortRows.length,
-        presentNotCompletedRows: presentNotCompletedRows.length,
-        aiHelpUsed: aiHelpUsed,
-        aiHelpBlocked: aiHelpBlocked,
-        weakSessions: weakSessions.map(function(r){
-          return 'S' + String(sessionNoOf(r)).padStart(2,'0');
-        })
-      };
+      renderAiHelpStudentRows(records);
     }
 
-    function renderTeacherRecommendation(stu, rows){
-      if(!els.dTeacherRecommendation) return;
+    function renderAiHelpStudentRows(records){
+      const body = qs('aiHelpStudentBody');
+      if(!body) return;
 
-      const rec = buildTeacherRecommendation(stu, rows);
+      if(!records.length){
+        body.innerHTML = '<tr><td colspan="99" class="empty ok">ยังไม่มีการใช้ AI Help หรือยังไม่มีข้อมูลที่ต้องติดตาม</td></tr>';
+        return;
+      }
 
-      els.dTeacherRecommendation.innerHTML =
-        '<div class="miniCardTop">' +
-          '<div>' +
-            '<h3>' + esc(rec.title) + '</h3>' +
-            '<p><b>Focus:</b> ' + esc(rec.focus) + '</p>' +
-          '</div>' +
-          '<span class="badge ' + rec.level + '">Teacher Action</span>' +
+      body.innerHTML = records.map(function(r){
+        return '' +
+          '<tr class="clickable" data-student="' + escapeHtml(r.studentId || r.studentName || '') + '">' +
+            '<td><b>' + escapeHtml(r.studentName || '-') + '</b><small>' + escapeHtml(r.studentId || '') + '</small></td>' +
+            '<td>' + escapeHtml(r.classSection || '-') + '</td>' +
+            '<td><span class="aiHelpTableMark">' + safeNumber(r.helpCount) + '</span><small>' + safeNumber(r.helpedSessions) + ' sessions</small></td>' +
+            '<td>' + safeNumber(r.learningRows) + '</td>' +
+            '<td><b>' + safeNumber(r.avgScore) + '</b><small>score</small></td>' +
+            '<td><span class="pill ' + escapeHtml(r.statusClass) + '">' + escapeHtml(r.status) + '</span></td>' +
+            '<td>' + escapeHtml(r.lastActiveAt || '-') + '</td>' +
+          '</tr>';
+      }).join('');
+
+      body.querySelectorAll('tr[data-student]').forEach(function(row){
+        row.addEventListener('click',function(){
+          openStudentDetail(row.dataset.student);
+        });
+      });
+    }
+
+    async function openStudentDetail(key){
+      key = String(key || '').trim();
+      if(!key) return;
+
+      const modal = qs('studentModal');
+      const title = qs('studentModalTitle');
+      const sub = qs('studentModalSub');
+      const body = qs('studentModalBody');
+
+      if(!modal || !title || !sub || !body){
+        const input = qs('studentFilter');
+        if(input) input.value = key;
+        loadDashboard();
+        return;
+      }
+
+      modal.classList.add('on');
+      title.textContent = 'Student Detail';
+      sub.textContent = 'Loading: ' + key;
+      body.innerHTML = '<div class="empty">Loading student detail...</div>';
+
+      try{
+        const json = await loadJsonSmart(buildStudentSummaryUrl(key));
+
+        if(!json || json.ok !== true){
+          throw new Error(json && json.error ? json.error : 'API returned error');
+        }
+
+        renderStudentDetail(json.summary || {}, key);
+
+      }catch(err){
+        title.textContent = 'Student Detail Error';
+        sub.textContent = key;
+        body.innerHTML = '<div class="empty error">API error: ' + escapeHtml(err.message || err) + '</div>';
+        console.error('[Student Detail] error:',err);
+      }
+    }
+
+    function closeStudentDetail(){
+      const modal = qs('studentModal');
+      if(modal) modal.classList.remove('on');
+    }
+
+    function detailCard(label,value,small,cls){
+      return '' +
+        '<div class="detailCard ' + escapeHtml(cls || '') + '">' +
+          '<span>' + escapeHtml(label) + '</span>' +
+          '<b>' + escapeHtml(value) + '</b>' +
+          '<small>' + escapeHtml(small || '') + '</small>' +
+        '</div>';
+    }
+
+    function detailMini(label,value){
+      return '' +
+        '<div class="detailMini">' +
+          '<span>' + escapeHtml(label) + '</span>' +
+          '<b>' + escapeHtml(value) + '</b>' +
+        '</div>';
+    }
+
+    function renderStudentDetail(summary,key){
+      const title = qs('studentModalTitle');
+      const sub = qs('studentModalSub');
+      const body = qs('studentModalBody');
+
+      const totals = summary.totals || {};
+      const quality = summary.quality || {};
+      const students = Array.isArray(summary.students) ? summary.students : [];
+      const sessions = Array.isArray(summary.sessions) ? summary.sessions : [];
+      const recentSessions = Array.isArray(summary.recentSessions) ? summary.recentSessions : [];
+      const recentEvents = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
+
+      const student = students[0] || {};
+      const studentName = student.studentName || key || '-';
+      const studentId = student.studentId || '';
+      const section = student.classSection || '-';
+
+      title.textContent = studentName;
+      sub.textContent = 'ID: ' + (studentId || '-') + ' • Section: ' + section;
+
+      const aiHelp = recentEvents.filter(function(e){
+        return String(e.eventType || '') === 'ai_help';
+      }).length;
+
+      const answerEvents = recentEvents.filter(function(e){
+        return String(e.eventType || '') === 'answer';
+      }).length;
+
+      const sessionStartEvents = recentEvents.filter(function(e){
+        return String(e.eventType || '') === 'session_start';
+      }).length;
+
+      const sessionEndEvents = recentEvents.filter(function(e){
+        return String(e.eventType || '') === 'session_end';
+      }).length;
+
+      body.innerHTML =
+        '<div class="detailGrid">' +
+          detailCard('Learning Rows', safeNumber(totals.learningRows || totals.sessionRows), 'แถวที่ถือเป็นการเรียนจริง', 'info') +
+          detailCard('Valid Completed', safeNumber(quality.validCompleted), 'จบและอยู่ครบ minimum', 'ok') +
+          detailCard('Too Fast', safeNumber(quality.tooFast), 'จบเร็วเกิน minimum', safeNumber(quality.tooFast) ? 'warn' : '') +
+          detailCard('Too Short', safeNumber(quality.tooShort), 'เวลาเรียนสั้นเกินไป', safeNumber(quality.tooShort) ? 'bad' : '') +
+          detailCard('Avg Score', safeNumber(totals.avgScore), 'คะแนนเฉลี่ย', '') +
+          detailCard('AI Help', aiHelp, 'จำนวนครั้งที่ขอ AI Help', aiHelp ? 'warn' : '') +
+          detailCard('Total Duration', fmtTime(totals.totalDurationSec), 'เวลารวม', '') +
+          detailCard('Valid Rate', safeNumber(quality.validRate) + '%', 'valid completed / learning rows', 'info') +
         '</div>' +
-        '<p><b>Reason:</b> ' + esc(rec.reason) + '</p>' +
-        '<p><b>Recommended action:</b> ' + esc(rec.action) + '</p>' +
-        '<p class="smallMuted">' +
-          'Completed rows: ' + rec.completedRows +
-          ' • Started rows: ' + rec.startedRows +
-          (rec.tooFastRows ? ' • Too Fast: ' + rec.tooFastRows : '') +
-          (rec.tooShortRows ? ' • Too Short: ' + rec.tooShortRows : '') +
-          (rec.presentNotCompletedRows ? ' • Present not completed: ' + rec.presentNotCompletedRows : '') +
-          ' • AI Help: ' + rec.aiHelpUsed +
-          (rec.aiHelpBlocked ? ' • Blocked: ' + rec.aiHelpBlocked : '') +
-          (rec.weakSessions.length ? ' • Weak: ' + esc(rec.weakSessions.join(', ')) : '') +
-        '</p>';
+
+        '<div class="detailSection">' +
+          '<h3>Learning Activity</h3>' +
+          '<div class="detailMiniGrid">' +
+            detailMini('Session Start', sessionStartEvents) +
+            detailMini('Session End', sessionEndEvents) +
+            detailMini('Answer', answerEvents) +
+            detailMini('AI Help', aiHelp) +
+            detailMini('Events', safeNumber(totals.eventRows)) +
+          '</div>' +
+        '</div>' +
+
+        '<div class="detailSection">' +
+          '<h3>S1–S15 Progress by Student</h3>' +
+          renderStudentSessionCards(sessions) +
+        '</div>' +
+
+        '<div class="detailSection">' +
+          '<h3>Recent Learning Sessions</h3>' +
+          renderStudentRecentSessions(recentSessions) +
+        '</div>' +
+
+        '<div class="detailSection">' +
+          '<h3>Recent Events</h3>' +
+          renderStudentRecentEvents(recentEvents) +
+        '</div>';
     }
 
-    function openStudent(key){
-      const stu = CURRENT_STUDENTS.find(function(s){
-        const k =
-          String(s.studentId || '').trim() ||
-          ('NAME:' + String(s.studentName || '').trim());
-
-        return k === key;
-      });
-
-      if(!stu) return;
-
-      const rows = CURRENT_ROWS.filter(function(r){
-        return studentKeyOf(r) === key;
-      });
-
-      const status = statusOfStudent(stu,rows);
-
-      els.modalTitle.textContent = stu.studentName || 'Unknown Student';
-      els.modalSub.textContent =
-        'ID: ' + (stu.studentId || '-') +
-        ' • Section: ' + (stu.classSection || '-');
-
-      els.dCompleted.textContent = (stu.completed || 0) + '/15';
-      els.dAvgScore.textContent = stu.avgScore || 0;
-      els.dActive.textContent = fmtMin(stu.totalActiveTimeSec || 0);
-      els.dStatus.textContent = status.text;
-
-      renderTeacherRecommendation(stu, rows);
-      renderStudentStages(rows);
-      renderStudentSessions(rows);
-
-      els.studentModal.classList.add('on');
-    }
-
-    function renderStudentStages(rows){
-      const byS = {};
-
-      rows.forEach(function(r){
-        const s = sessionNoOf(r);
-
-        if(!s) return;
-        if(!byS[s]) byS[s] = [];
-
-        byS[s].push(r);
-      });
-
-      els.dStageGrid.innerHTML = Array.from({length:15},function(_,i){
-        const n = i + 1;
-        const list = byS[n] || [];
-        const completed = list.some(function(r){return bool(r.completed);});
-        const started = list.length > 0;
-        const bestScore = list.reduce(function(max,r){
-          return Math.max(max,num(r.score));
-        },0);
-
-        let cls = '';
-        let txt = '-';
-
-        if(completed){
-          cls = 'done';
-          txt = bestScore;
-        }else if(started){
-          cls = 'started';
-          txt = 'Start';
-        }
-
-        return '' +
-          '<div class="stage ' + cls + '">' +
-            '<b>S' + String(n).padStart(2,'0') + '</b>' +
-            '<small>' + esc(SKILL_BY_S[n] || '-') + '</small>' +
-            '<small>' + esc(txt) + '</small>' +
-          '</div>';
-      }).join('');
-    }
-
-    function renderStudentSessions(rows){
-      if(!rows.length){
-        els.dSessionRows.innerHTML =
-          '<tr><td colspan="8">ไม่มีข้อมูล session ของนักศึกษาคนนี้</td></tr>';
-        return;
+    function renderStudentSessionCards(sessions){
+      if(!sessions || !sessions.length){
+        return '<div class="empty">ยังไม่มีข้อมูล S สำหรับนักศึกษาคนนี้</div>';
       }
 
-      els.dSessionRows.innerHTML = rows.map(function(r){
-        const st = qualityOfSession(r);
-        const s = sessionNoOf(r);
+      return '' +
+        '<div class="sessionOverviewGrid">' +
+          sessions.map(function(s){
+            const valid = safeNumber(s.validCompleted);
+            const attempts = safeNumber(s.attempts);
+            const rate = attempts ? Math.round((valid / attempts) * 100) : 0;
 
-        return '' +
-          '<tr>' +
-            '<td>S' + String(s || r.sessionNo || '-').padStart(2,'0') + '</td>' +
-            '<td>' + esc(r.score || 0) + '</td>' +
-            '<td><span class="badge ' + (bool(r.completed) ? 'ok' : 'warn') + '">' + (bool(r.completed) ? 'Yes' : 'No') + '</span></td>' +
-            '<td>' +
-              esc(minTimeText(r)) +
-              '<div class="smallMuted">' + esc(st.note) + '</div>' +
-            '</td>' +
-            '<td>' + fmtMin(r.activeTimeSec || 0) + '</td>' +
-            '<td>' + esc(r.actionsCount || 0) + '</td>' +
-            '<td><span class="badge ' + st.cls + '">' + esc(st.text) + '</span></td>' +
-            '<td><span class="smallMuted">' + esc(r.lastActiveAt || '-') + '</span></td>' +
-          '</tr>';
-      }).join('');
+            return '' +
+              '<div class="sCard">' +
+                '<div class="sTop"><b>S' + escapeHtml(s.sessionNo || '-') + '</b><span>' + escapeHtml(s.lessonId || '') + '</span></div>' +
+                '<div class="sNum">' + valid + '/' + attempts + '</div>' +
+                '<div class="sMeta">valid rate ' + rate + '%</div>' +
+                '<div class="sMini">' +
+                  '<span>Completed <b>' + safeNumber(s.completed) + '</b></span>' +
+                  '<span>Too fast <b>' + safeNumber(s.tooFast) + '</b></span>' +
+                  '<span>Too short <b>' + safeNumber(s.tooShort) + '</b></span>' +
+                  '<span>Avg score <b>' + safeNumber(s.avgScore) + '</b></span>' +
+                  '<span>Min <b>' + fmtTime(s.minRequiredSec) + '</b></span>' +
+                '</div>' +
+              '</div>';
+          }).join('') +
+        '</div>';
     }
 
-    function exportCsv(){
-      const rows = CURRENT_ROWS || [];
-
-      if(!rows.length){
-        alert('ยังไม่มีข้อมูลสำหรับ export');
-        return;
+    function renderStudentRecentSessions(rows){
+      if(!rows || !rows.length){
+        return '<div class="empty">No recent session data for this student</div>';
       }
 
-      const headers = [
-        'studentId',
-        'studentName',
-        'classSection',
-        'sessionNo',
-        'lessonId',
-        'score',
-        'completed',
-        'durationSec',
-        'activeTimeSec',
-        'requiredMinTimeSec',
-        'timeRatio',
-        'attendanceStatus',
-        'attendanceQuality',
-        'minTimeMet',
-        'actionsCount',
-        'lastActiveAt'
-      ];
+      return '' +
+        '<div class="detailTableWrap">' +
+          '<table>' +
+            '<thead>' +
+              '<tr>' +
+                '<th>S</th><th>SCORE</th><th>COMPLETED</th><th>QUALITY</th><th>DURATION</th><th>ACTIVE</th><th>MIN</th><th>LAST ACTIVE</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' +
+              rows.map(function(r){
+                const completed = String(r.completed || '').toLowerCase() === 'true';
+                const q = r.qualityStatus || '-';
 
-      const csv = [
-        headers.join(','),
-        ...rows.map(function(r){
-          return headers.map(function(h){
-            const v = String(r[h] == null ? '' : r[h]).replace(/"/g,'""');
-            return '"' + v + '"';
-          }).join(',');
-        })
-      ].join('\n');
+                return '' +
+                  '<tr>' +
+                    '<td>S' + escapeHtml(r.sessionNo || '-') + '</td>' +
+                    '<td>' + safeNumber(r.score) + '</td>' +
+                    '<td><span class="pill ' + (completed ? 'ok' : 'warn') + '">' + String(completed).toUpperCase() + '</span></td>' +
+                    '<td><span class="pill ' + qualityClass(q) + '">' + escapeHtml(q) + '</span></td>' +
+                    '<td>' + fmtTime(r.durationSec) + '</td>' +
+                    '<td>' + fmtTime(r.activeTimeSec) + '</td>' +
+                    '<td>' + fmtTime(r.minRequiredSec) + '</td>' +
+                    '<td>' + escapeHtml(r.lastActiveAt || '-') + '</td>' +
+                  '</tr>';
+              }).join('') +
+            '</tbody>' +
+          '</table>' +
+        '</div>';
+    }
 
-      const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+    function renderStudentRecentEvents(rows){
+      if(!rows || !rows.length){
+        return '<div class="empty">No recent event data for this student</div>';
+      }
+
+      return '' +
+        '<div class="detailTableWrap">' +
+          '<table>' +
+            '<thead>' +
+              '<tr>' +
+                '<th>TIME</th><th>EVENT</th><th>S</th><th>SCORE</th><th>COMPLETED</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' +
+              rows.map(function(e){
+                const isAi = String(e.eventType || '') === 'ai_help';
+
+                return '' +
+                  '<tr>' +
+                    '<td>' + escapeHtml(e.serverTs || '-') + '</td>' +
+                    '<td><span class="' + (isAi ? 'aiHelpBadge' : 'pill muted') + '">' + escapeHtml(e.eventType || '-') + '</span></td>' +
+                    '<td>S' + escapeHtml(e.sessionNo || '-') + '</td>' +
+                    '<td>' + safeNumber(e.score) + '</td>' +
+                    '<td>' + escapeHtml(e.completed || '-') + '</td>' +
+                  '</tr>';
+              }).join('') +
+            '</tbody>' +
+          '</table>' +
+        '</div>';
+    }
+
+    function getCurrentSummary(){
+      const summary = DASHBOARD_STATE.lastData;
+
+      if(!summary){
+        alert('ยังไม่มีข้อมูล Dashboard ให้กด Refresh ก่อน');
+        return null;
+      }
+
+      return summary;
+    }
+
+    function csvEscape(v){
+      if(v === null || v === undefined) return '';
+
+      let s = String(v);
+
+      if(/^[=+\-@]/.test(s)){
+        s = "'" + s;
+      }
+
+      s = s.replace(/"/g,'""');
+
+      if(/[",\n\r]/.test(s)){
+        return '"' + s + '"';
+      }
+
+      return s;
+    }
+
+    function buildCsv(headers,rows){
+      const lines = [];
+      lines.push(headers.map(csvEscape).join(','));
+
+      rows.forEach(function(row){
+        lines.push(headers.map(function(h){
+          return csvEscape(row[h]);
+        }).join(','));
+      });
+
+      return lines.join('\n');
+    }
+
+    function downloadCsv(filename,csvText){
+      const blob = new Blob(['\ufeff' + csvText],{
+        type:'text/csv;charset=utf-8;'
+      });
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
 
       a.href = url;
-      a.download = 'techpath-attendance-' + new Date().toISOString().slice(0,10) + '.csv';
+      a.download = filename;
 
       document.body.appendChild(a);
       a.click();
@@ -1946,38 +2268,555 @@
       },500);
     }
 
+    function dateStamp(){
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mm = String(d.getMinutes()).padStart(2,'0');
+
+      return y + m + day + '-' + hh + mm;
+    }
+
+    function exportStudentsCsv(){
+      const summary = getCurrentSummary();
+      if(!summary) return;
+
+      const students = Array.isArray(summary.students) ? summary.students : [];
+      const recentEvents = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
+
+      const rows = students.map(function(s){
+        const key = String(s.studentId || s.studentName || '').trim().toLowerCase();
+
+        const aiHelpCount = recentEvents.filter(function(e){
+          const id = String(e.studentId || '').trim().toLowerCase();
+          const name = String(e.studentName || '').trim().toLowerCase();
+          return String(e.eventType || '') === 'ai_help' && (id === key || name === key);
+        }).length;
+
+        return {
+          studentId:s.studentId || '',
+          studentName:s.studentName || '',
+          classSection:s.classSection || '',
+          learningSessions:s.sessions || 0,
+          completed:s.completed || 0,
+          validCompleted:s.validCompleted || 0,
+          tooFast:s.tooFast || 0,
+          presentNotCompleted:s.presentNotCompleted || 0,
+          tooShort:s.tooShort || 0,
+          avgScore:s.avgScore || 0,
+          totalScore:s.totalScore || 0,
+          totalDurationSec:s.totalDurationSec || 0,
+          totalActiveTimeSec:s.totalActiveTimeSec || 0,
+          aiHelpCount:aiHelpCount,
+          supportFlag:s.supportFlag || '',
+          lastActiveAt:s.lastActiveAt || ''
+        };
+      });
+
+      const headers = [
+        'studentId','studentName','classSection','learningSessions','completed',
+        'validCompleted','tooFast','presentNotCompleted','tooShort',
+        'avgScore','totalScore','totalDurationSec','totalActiveTimeSec',
+        'aiHelpCount','supportFlag','lastActiveAt'
+      ];
+
+      downloadCsv('techpath-student-summary-' + dateStamp() + '.csv',buildCsv(headers,rows));
+    }
+
+    function exportSessionsCsv(){
+      const summary = getCurrentSummary();
+      if(!summary) return;
+
+      const rows = Array.isArray(summary.recentSessions)
+        ? summary.recentSessions.map(function(r){
+          return {
+            visitId:r.visitId || '',
+            studentId:r.studentId || '',
+            studentName:r.studentName || '',
+            classSection:r.classSection || '',
+            sessionNo:r.sessionNo || '',
+            lessonId:r.lessonId || '',
+            score:r.score || 0,
+            completed:r.completed || '',
+            attendanceStatus:r.attendanceStatus || '',
+            minTimeMet:r.minTimeMet || '',
+            minRequiredSec:r.minRequiredSec || '',
+            qualityStatus:r.qualityStatus || '',
+            durationSec:r.durationSec || 0,
+            activeTimeSec:r.activeTimeSec || 0,
+            actionsCount:r.actionsCount || 0,
+            enteredAt:r.enteredAt || '',
+            startedAt:r.startedAt || '',
+            finishedAt:r.finishedAt || '',
+            lastActiveAt:r.lastActiveAt || ''
+          };
+        })
+        : [];
+
+      const headers = [
+        'visitId','studentId','studentName','classSection','sessionNo','lessonId',
+        'score','completed','attendanceStatus','minTimeMet','minRequiredSec',
+        'qualityStatus','durationSec','activeTimeSec','actionsCount',
+        'enteredAt','startedAt','finishedAt','lastActiveAt'
+      ];
+
+      downloadCsv('techpath-attendance-sessions-' + dateStamp() + '.csv',buildCsv(headers,rows));
+    }
+
+    function exportSupportCsv(){
+      const summary = getCurrentSummary();
+      if(!summary) return;
+
+      const support = Array.isArray(summary.support) ? summary.support : [];
+
+      const rows = support.map(function(s){
+        let reason = 'ต้องตรวจสอบเพิ่มเติม';
+
+        if(s.supportFlag === 'too_fast') reason = 'จบเร็วเกิน minimum อาจกดผ่านเร็ว';
+        else if(s.supportFlag === 'present_not_completed') reason = 'อยู่นานพอแต่ยังไม่จบ';
+        else if(s.supportFlag === 'too_short') reason = 'เวลาเรียน/เล่นสั้นเกินไป';
+        else if(s.supportFlag === 'no_learning_data') reason = 'ยังไม่มีข้อมูลการเรียนจริง';
+
+        return {
+          studentId:s.studentId || '',
+          studentName:s.studentName || '',
+          classSection:s.classSection || '',
+          sessions:s.sessions || 0,
+          completed:s.completed || 0,
+          validCompleted:s.validCompleted || 0,
+          tooFast:s.tooFast || 0,
+          presentNotCompleted:s.presentNotCompleted || 0,
+          tooShort:s.tooShort || 0,
+          avgScore:s.avgScore || 0,
+          totalDurationSec:s.totalDurationSec || 0,
+          totalActiveTimeSec:s.totalActiveTimeSec || 0,
+          supportFlag:s.supportFlag || '',
+          supportReason:reason,
+          lastActiveAt:s.lastActiveAt || ''
+        };
+      });
+
+      const headers = [
+        'studentId','studentName','classSection','sessions','completed',
+        'validCompleted','tooFast','presentNotCompleted','tooShort','avgScore',
+        'totalDurationSec','totalActiveTimeSec','supportFlag','supportReason','lastActiveAt'
+      ];
+
+      downloadCsv('techpath-need-support-' + dateStamp() + '.csv',buildCsv(headers,rows));
+    }
+
+    function exportAiHelpCsv(){
+      const summary = getCurrentSummary();
+      if(!summary) return;
+
+      const students = Array.isArray(summary.students) ? summary.students : [];
+      const events = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
+
+      const aiEvents = events.filter(function(e){
+        return String(e.eventType || '') === 'ai_help';
+      });
+
+      const helpByStudent = {};
+
+      aiEvents.forEach(function(e){
+        const key = String(e.studentId || e.studentName || 'unknown').trim() || 'unknown';
+
+        if(!helpByStudent[key]){
+          helpByStudent[key] = {
+            studentId:e.studentId || '',
+            studentName:e.studentName || '',
+            classSection:e.classSection || '',
+            helpCount:0,
+            sessions:{},
+            lastActiveAt:e.serverTs || ''
+          };
+        }
+
+        helpByStudent[key].helpCount += 1;
+
+        if(e.sessionNo){
+          helpByStudent[key].sessions[String(e.sessionNo)] = true;
+        }
+
+        helpByStudent[key].lastActiveAt = e.serverTs || helpByStudent[key].lastActiveAt;
+      });
+
+      const studentMap = {};
+
+      students.forEach(function(s){
+        const key = String(s.studentId || s.studentName || 'unknown').trim() || 'unknown';
+        studentMap[key] = s;
+      });
+
+      const rows = Object.keys(helpByStudent).map(function(key){
+        const h = helpByStudent[key];
+        const s = studentMap[key] || {};
+
+        const helpCount = safeNumber(h.helpCount);
+        const avgScore = safeNumber(s.avgScore);
+        const learningRows = safeNumber(s.sessions);
+
+        let status = 'Normal';
+
+        if(helpCount >= 5 && avgScore < 60) status = 'Help + Low Score';
+        else if(helpCount >= 5) status = 'High Help';
+        else if(helpCount >= 3) status = 'Watch';
+
+        return {
+          studentId:h.studentId || s.studentId || '',
+          studentName:h.studentName || s.studentName || '',
+          classSection:h.classSection || s.classSection || '',
+          aiHelpCount:helpCount,
+          helpedSessions:Object.keys(h.sessions || {}).length,
+          learningRows:learningRows,
+          avgScore:avgScore,
+          status:status,
+          lastActiveAt:h.lastActiveAt || s.lastActiveAt || ''
+        };
+      }).sort(function(a,b){
+        if(b.aiHelpCount !== a.aiHelpCount) return b.aiHelpCount - a.aiHelpCount;
+        return a.avgScore - b.avgScore;
+      });
+
+      const headers = [
+        'studentId','studentName','classSection','aiHelpCount','helpedSessions',
+        'learningRows','avgScore','status','lastActiveAt'
+      ];
+
+      downloadCsv('techpath-ai-help-watchlist-' + dateStamp() + '.csv',buildCsv(headers,rows));
+    }
+
+    function exportEventsCsv(){
+      const summary = getCurrentSummary();
+      if(!summary) return;
+
+      const rows = Array.isArray(summary.recentEvents)
+        ? summary.recentEvents.map(function(e){
+          return {
+            serverTs:e.serverTs || '',
+            eventType:e.eventType || '',
+            visitId:e.visitId || '',
+            studentId:e.studentId || '',
+            studentName:e.studentName || '',
+            classSection:e.classSection || '',
+            sessionNo:e.sessionNo || '',
+            lessonId:e.lessonId || '',
+            durationSec:e.durationSec || 0,
+            activeTimeSec:e.activeTimeSec || 0,
+            actionsCount:e.actionsCount || 0,
+            score:e.score || 0,
+            completed:e.completed || '',
+            pageUrl:e.pageUrl || '',
+            userAgent:e.userAgent || ''
+          };
+        })
+        : [];
+
+      const headers = [
+        'serverTs','eventType','visitId','studentId','studentName','classSection',
+        'sessionNo','lessonId','durationSec','activeTimeSec','actionsCount',
+        'score','completed','pageUrl','userAgent'
+      ];
+
+      downloadCsv('techpath-recent-events-' + dateStamp() + '.csv',buildCsv(headers,rows));
+    }
+
+    function openPrintReport(){
+      const summary = getCurrentSummary();
+      if(!summary) return;
+
+      const modal = qs('printReportModal');
+      const content = qs('printReportContent');
+
+      if(!modal || !content){
+        alert('Print report modal not found.');
+        return;
+      }
+
+      content.innerHTML = buildTeacherReportHtml(summary);
+      modal.classList.add('on');
+    }
+
+    function closePrintReport(){
+      const modal = qs('printReportModal');
+      if(modal) modal.classList.remove('on');
+    }
+
+    function doPrintReport(){
+      window.print();
+    }
+
+    function reportKpi(label,value,small,cls){
+      return '' +
+        '<div class="reportKpi ' + escapeHtml(cls || '') + '">' +
+          '<span>' + escapeHtml(label) + '</span>' +
+          '<b>' + escapeHtml(value) + '</b>' +
+          '<small>' + escapeHtml(small || '') + '</small>' +
+        '</div>';
+    }
+
+    function countAiHelpStudents(events){
+      const map = {};
+      (events || []).forEach(function(e){
+        if(String(e.eventType || '') !== 'ai_help') return;
+        const key = String(e.studentId || e.studentName || '').trim();
+        if(key) map[key] = true;
+      });
+      return Object.keys(map).length;
+    }
+
+    function buildTeacherReportHtml(summary){
+      const totals = summary.totals || {};
+      const quality = summary.quality || {};
+      const students = Array.isArray(summary.students) ? summary.students : [];
+      const sessions = Array.isArray(summary.sessions) ? summary.sessions : [];
+      const support = Array.isArray(summary.support) ? summary.support : [];
+      const recentSessions = Array.isArray(summary.recentSessions) ? summary.recentSessions : [];
+      const recentEvents = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
+
+      const aiHelpEvents = recentEvents.filter(function(e){
+        return String(e.eventType || '') === 'ai_help';
+      });
+
+      const printedAt = new Date().toLocaleString('th-TH');
+
+      return '' +
+        '<div class="reportHeader">' +
+          '<div>' +
+            '<h1>TechPath English VR — Teacher Report</h1>' +
+            '<p>รายงานสรุปการเข้าเรียน การเล่น Session S1–S15, Attendance Quality, AI Help และรายชื่อที่ควรติดตาม</p>' +
+            '<p>Generated at: ' + escapeHtml(printedAt) + '</p>' +
+          '</div>' +
+          '<div class="reportBadge">Teacher Dashboard</div>' +
+        '</div>' +
+
+        '<section class="reportSection">' +
+          '<h2>1. Overall Summary</h2>' +
+          '<div class="reportKpiGrid">' +
+            reportKpi('Students', safeNumber(totals.students), 'จำนวนนักศึกษาที่มีข้อมูล') +
+            reportKpi('Learning Rows', safeNumber(totals.learningRows || totals.sessionRows), 'แถวที่นับเป็นการเรียนจริง') +
+            reportKpi('Ignored Rows', safeNumber(totals.ignoredRows), 'แถวที่ไม่นับ เช่น page_open') +
+            reportKpi('Completed', safeNumber(totals.completedSessions), 'จำนวน session ที่จบ') +
+            reportKpi('Avg Score', safeNumber(totals.avgScore), 'คะแนนเฉลี่ย') +
+          '</div>' +
+        '</section>' +
+
+        '<section class="reportSection">' +
+          '<h2>2. Attendance Quality</h2>' +
+          '<div class="reportKpiGrid">' +
+            reportKpi('Valid Completed', safeNumber(quality.validCompleted), 'จบและอยู่ครบ minimum', 'ok') +
+            reportKpi('Too Fast', safeNumber(quality.tooFast), 'จบเร็วเกิน minimum', safeNumber(quality.tooFast) ? 'warn' : '') +
+            reportKpi('Present Not Completed', safeNumber(quality.presentNotCompleted), 'อยู่นานพอแต่ยังไม่จบ', safeNumber(quality.presentNotCompleted) ? 'warn' : '') +
+            reportKpi('Too Short', safeNumber(quality.tooShort), 'เวลาเรียนสั้นเกินไป', safeNumber(quality.tooShort) ? 'bad' : '') +
+            reportKpi('Valid Rate', safeNumber(quality.validRate) + '%', 'valid / learning rows', 'ok') +
+          '</div>' +
+          '<div class="reportNote">หมายเหตุ: Valid Completed หมายถึงผู้เรียนจบ session และใช้เวลาไม่น้อยกว่า minimum requirement ของแต่ละ S.</div>' +
+        '</section>' +
+
+        '<section class="reportSection">' +
+          '<h2>3. AI Help Overview</h2>' +
+          '<div class="reportKpiGrid">' +
+            reportKpi('Total AI Help', safeNumber(totals.aiHelpEvents || aiHelpEvents.length), 'จำนวนครั้งที่กด AI Help', safeNumber(totals.aiHelpEvents || aiHelpEvents.length) ? 'warn' : '') +
+            reportKpi('Students Helped', countAiHelpStudents(recentEvents), 'จำนวนผู้เรียนที่ใช้ AI Help') +
+            reportKpi('Need Support', support.length, 'รายชื่อที่ควรติดตาม', support.length ? 'bad' : 'ok') +
+            reportKpi('Event Rows', safeNumber(totals.eventRows), 'จำนวน event logs') +
+            reportKpi('Active Time', fmtTime(totals.totalActiveTimeSec), 'active time รวม') +
+          '</div>' +
+          '<div class="reportNote">เกณฑ์ AI Help: 0–2 ครั้ง = Normal, 3–4 ครั้ง = Watch, 5 ครั้งขึ้นไป = High Help.</div>' +
+        '</section>' +
+
+        '<section class="reportSection"><h2>4. Need Support Students</h2>' + buildSupportReportTable(support) + '</section>' +
+        '<section class="reportSection"><h2>5. S1–S15 Session Overview</h2>' + buildSessionOverviewReportTable(sessions) + '</section>' +
+        '<section class="reportSection"><h2>6. Student Summary</h2>' + buildStudentReportTable(students.slice(0,30), recentEvents) + '<div class="reportNote">แสดงสูงสุด 30 รายชื่อแรกในรายงานพิมพ์ หากต้องการข้อมูลเต็มให้ใช้ Export Students CSV.</div></section>' +
+        '<section class="reportSection"><h2>7. Recent Learning Sessions</h2>' + buildRecentSessionsReportTable(recentSessions.slice(0,30)) + '<div class="reportNote">แสดงสูงสุด 30 rows ล่าสุดในรายงานพิมพ์ หากต้องการข้อมูลเต็มให้ใช้ Export Sessions CSV.</div></section>' +
+
+        '<div class="reportFooter">' +
+          '<span>TechPath English VR Teacher Dashboard</span>' +
+          '<span>Printed: ' + escapeHtml(printedAt) + '</span>' +
+        '</div>';
+    }
+
+    function buildSupportReportTable(rows){
+      if(!rows || !rows.length){
+        return '<div class="reportNote">ยังไม่มีรายชื่อที่ต้องติดตาม</div>';
+      }
+
+      return '' +
+        '<div class="reportTableWrap"><table class="reportTable">' +
+          '<thead><tr><th>Student</th><th>Section</th><th>Valid</th><th>Too Fast</th><th>Too Short</th><th>Avg Score</th><th>Flag</th></tr></thead>' +
+          '<tbody>' +
+            rows.slice(0,30).map(function(s){
+              return '' +
+                '<tr>' +
+                  '<td><b>' + escapeHtml(s.studentName || '-') + '</b><br><small>' + escapeHtml(s.studentId || '') + '</small></td>' +
+                  '<td>' + escapeHtml(s.classSection || '-') + '</td>' +
+                  '<td>' + safeNumber(s.validCompleted) + '</td>' +
+                  '<td>' + safeNumber(s.tooFast) + '</td>' +
+                  '<td>' + safeNumber(s.tooShort) + '</td>' +
+                  '<td>' + safeNumber(s.avgScore) + '</td>' +
+                  '<td><span class="reportPill bad">' + escapeHtml(s.supportFlag || 'need_check') + '</span></td>' +
+                '</tr>';
+            }).join('') +
+          '</tbody>' +
+        '</table></div>';
+    }
+
+    function buildSessionOverviewReportTable(rows){
+      if(!rows || !rows.length){
+        return '<div class="reportNote">ยังไม่มีข้อมูล S1–S15</div>';
+      }
+
+      return '' +
+        '<div class="reportTableWrap"><table class="reportTable">' +
+          '<thead><tr><th>S</th><th>Attempts</th><th>Completed</th><th>Valid</th><th>Too Fast</th><th>Too Short</th><th>Avg Score</th><th>Min</th></tr></thead>' +
+          '<tbody>' +
+            rows.map(function(s){
+              return '' +
+                '<tr>' +
+                  '<td><b>S' + escapeHtml(s.sessionNo || '-') + '</b></td>' +
+                  '<td>' + safeNumber(s.attempts) + '</td>' +
+                  '<td>' + safeNumber(s.completed) + '</td>' +
+                  '<td>' + safeNumber(s.validCompleted) + '</td>' +
+                  '<td>' + safeNumber(s.tooFast) + '</td>' +
+                  '<td>' + safeNumber(s.tooShort) + '</td>' +
+                  '<td>' + safeNumber(s.avgScore) + '</td>' +
+                  '<td>' + fmtTime(s.minRequiredSec) + '</td>' +
+                '</tr>';
+            }).join('') +
+          '</tbody>' +
+        '</table></div>';
+    }
+
+    function buildStudentReportTable(students,recentEvents){
+      if(!students || !students.length){
+        return '<div class="reportNote">ยังไม่มีข้อมูลนักศึกษา</div>';
+      }
+
+      return '' +
+        '<div class="reportTableWrap"><table class="reportTable">' +
+          '<thead><tr><th>Student</th><th>Section</th><th>Sessions</th><th>Valid</th><th>Completed</th><th>Avg Score</th><th>AI Help</th><th>Status</th></tr></thead>' +
+          '<tbody>' +
+            students.map(function(s){
+              const key = String(s.studentId || s.studentName || '').trim().toLowerCase();
+              const aiHelp = (recentEvents || []).filter(function(e){
+                const id = String(e.studentId || '').trim().toLowerCase();
+                const name = String(e.studentName || '').trim().toLowerCase();
+                return String(e.eventType || '') === 'ai_help' && (id === key || name === key);
+              }).length;
+
+              const cls = s.supportFlag === 'ok' ? 'ok' : 'warn';
+
+              return '' +
+                '<tr>' +
+                  '<td><b>' + escapeHtml(s.studentName || '-') + '</b><br><small>' + escapeHtml(s.studentId || '') + '</small></td>' +
+                  '<td>' + escapeHtml(s.classSection || '-') + '</td>' +
+                  '<td>' + safeNumber(s.sessions) + '</td>' +
+                  '<td>' + safeNumber(s.validCompleted) + '</td>' +
+                  '<td>' + safeNumber(s.completed) + '</td>' +
+                  '<td>' + safeNumber(s.avgScore) + '</td>' +
+                  '<td>' + aiHelp + '</td>' +
+                  '<td><span class="reportPill ' + cls + '">' + escapeHtml(s.supportFlag || 'need_check') + '</span></td>' +
+                '</tr>';
+            }).join('') +
+          '</tbody>' +
+        '</table></div>';
+    }
+
+    function buildRecentSessionsReportTable(rows){
+      if(!rows || !rows.length){
+        return '<div class="reportNote">ยังไม่มี recent learning sessions</div>';
+      }
+
+      return '' +
+        '<div class="reportTableWrap"><table class="reportTable">' +
+          '<thead><tr><th>Student</th><th>S</th><th>Score</th><th>Completed</th><th>Quality</th><th>Duration</th><th>Min</th><th>Last Active</th></tr></thead>' +
+          '<tbody>' +
+            rows.map(function(r){
+              const q = String(r.qualityStatus || '');
+              const cls = q === 'valid_completed' ? 'ok' : (q === 'too_short' ? 'bad' : 'warn');
+
+              return '' +
+                '<tr>' +
+                  '<td><b>' + escapeHtml(r.studentName || '-') + '</b><br><small>' + escapeHtml(r.studentId || '') + '</small></td>' +
+                  '<td>S' + escapeHtml(r.sessionNo || '-') + '</td>' +
+                  '<td>' + safeNumber(r.score) + '</td>' +
+                  '<td>' + escapeHtml(r.completed || '') + '</td>' +
+                  '<td><span class="reportPill ' + cls + '">' + escapeHtml(q || '-') + '</span></td>' +
+                  '<td>' + fmtTime(r.durationSec) + '</td>' +
+                  '<td>' + fmtTime(r.minRequiredSec) + '</td>' +
+                  '<td>' + escapeHtml(r.lastActiveAt || '-') + '</td>' +
+                '</tr>';
+            }).join('') +
+          '</tbody>' +
+        '</table></div>';
+    }
+
     function bind(){
-      els.refreshBtn.addEventListener('click',load);
-      els.applyFilterBtn.addEventListener('click',load);
+      qs('refreshBtn')?.addEventListener('click',loadDashboard);
+      qs('applyBtn')?.addEventListener('click',loadDashboard);
 
-      els.clearFilterBtn.addEventListener('click',function(){
-        els.studentFilter.value = '';
-        els.sectionFilter.value = '';
-        els.completedFilter.value = '';
-        load();
+      qs('clearBtn')?.addEventListener('click',function(){
+        const student = qs('studentFilter');
+        const section = qs('sectionFilter');
+        const session = qs('sessionFilter');
+
+        if(student) student.value = '';
+        if(section) section.value = '';
+        if(session) session.value = 'all';
+
+        loadDashboard();
       });
 
-      els.exportBtn.addEventListener('click',exportCsv);
-
-      els.closeModalBtn.addEventListener('click',function(){
-        els.studentModal.classList.remove('on');
+      qs('debugBtn')?.addEventListener('click',function(){
+        const json = DASHBOARD_STATE.lastJson || {};
+        console.log('[Teacher Debug]',json);
+        alert('Debug printed to console. API version: ' + (json.version || '-'));
       });
 
-      els.studentModal.addEventListener('click',function(e){
-        if(e.target === els.studentModal){
-          els.studentModal.classList.remove('on');
+      qs('exportStudentsBtn')?.addEventListener('click',exportStudentsCsv);
+      qs('exportSessionsBtn')?.addEventListener('click',exportSessionsCsv);
+      qs('exportSupportBtn')?.addEventListener('click',exportSupportCsv);
+      qs('exportAiHelpBtn')?.addEventListener('click',exportAiHelpCsv);
+      qs('exportEventsBtn')?.addEventListener('click',exportEventsCsv);
+
+      qs('studentModalClose')?.addEventListener('click',closeStudentDetail);
+      qs('studentModal')?.addEventListener('click',function(e){
+        if(e.target && e.target.id === 'studentModal'){
+          closeStudentDetail();
         }
       });
 
-      ['studentFilter','sectionFilter'].forEach(function(id){
-        els[id].addEventListener('keydown',function(e){
-          if(e.key === 'Enter') load();
-        });
+      qs('printReportBtn')?.addEventListener('click',openPrintReport);
+      qs('doPrintReportBtn')?.addEventListener('click',doPrintReport);
+      qs('closePrintReportBtn')?.addEventListener('click',closePrintReport);
+
+      qs('printReportModal')?.addEventListener('click',function(e){
+        if(e.target && e.target.id === 'printReportModal'){
+          closePrintReport();
+        }
+      });
+
+      document.addEventListener('keydown',function(e){
+        if(e.key === 'Escape'){
+          closeStudentDetail();
+          closePrintReport();
+        }
       });
     }
 
-    bind();
-    load();
+    function boot(){
+      fillSessionOptions();
+      bind();
+      loadDashboard();
+    }
+
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded',boot,{once:true});
+    }else{
+      boot();
+    }
   })();
   </script>
 </body>
