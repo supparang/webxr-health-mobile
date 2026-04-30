@@ -580,6 +580,8 @@
       font-size:12px;
       font-weight:1000;
       width:max-content;
+      max-width:100%;
+      white-space:normal;
     }
 
     .race-result-title{
@@ -956,7 +958,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjrace-run-final"></script>
+  <script src="../firebase-config.js?v=20260430-gjrace-run-summary-card-fix"></script>
 
   <script>
   (function(){
@@ -1724,10 +1726,10 @@
 
       ui.raceResultMount.innerHTML = `
         <div class="race-result-card">
-          <div class="race-summary-kicker">GOODJUNK RACE • NO BOSS</div>
+          <div class="race-summary-kicker">GOODJUNK RACE • เก็บ Good / หลบ Junk</div>
           <div class="race-result-title">${esc(titleFor(Object.assign({}, summary, { rank })))}</div>
           <div class="race-result-sub">
-            Race เป็นโหมดแข่งเก็บ Good และหลบ Junk เท่านั้น ไม่มี Junk King ไม่มี Phase Boss และไม่มี Rage Finale
+            Race เป็นโหมดแข่งเก็บ Good และหลบ Junk เท่านั้น จบเกมแล้วดูอันดับของผู้เล่นทุกคน
           </div>
 
           <div class="race-top-grid">
@@ -1869,9 +1871,43 @@ Match: ${esc(state.matchId || '-')}
       return out;
     }
 
-    function setTextIfChanged(el, text){
-      if (!el) return;
-      if (el.textContent !== text) el.textContent = text;
+    function cleanLeafTextNodes(root){
+      if (!root) return;
+
+      const walker = document.createTreeWalker(
+        root,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode(node){
+            const parent = node.parentElement;
+            if (!parent) return NodeFilter.FILTER_REJECT;
+
+            const tag = parent.tagName ? parent.tagName.toLowerCase() : '';
+            if (tag === 'script' || tag === 'style' || tag === 'textarea') {
+              return NodeFilter.FILTER_REJECT;
+            }
+
+            const text = node.nodeValue || '';
+            if (!text.trim()) return NodeFilter.FILTER_REJECT;
+
+            const hasBad = BAD_WORDS.some(([bad]) => text.includes(bad));
+            return hasBad ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+          }
+        }
+      );
+
+      const nodes = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        nodes.push(node);
+      }
+
+      nodes.forEach((textNode) => {
+        const next = cleanText(textNode.nodeValue || '');
+        if (textNode.nodeValue !== next) {
+          textNode.nodeValue = next;
+        }
+      });
     }
 
     function rewriteSummaryOnly(){
@@ -1885,7 +1921,7 @@ Match: ${esc(state.matchId || '-')}
         const mount = document.getElementById('raceResultMount');
         if (!mount || !mount.classList.contains('show')) return;
 
-        setTextIfChanged(mount, cleanText(mount.textContent));
+        cleanLeafTextNodes(mount);
       } finally {
         busy = false;
       }
