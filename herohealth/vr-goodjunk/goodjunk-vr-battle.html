@@ -3,96 +3,393 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk VR Battle Wrapper</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>GoodJunk Battle • 1v1 Attack</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#ffb347" />
   <style>
     :root{
-      --bg1:#1f0a08;
-      --bg2:#4a1710;
-      --bg3:#7a2718;
-      --panel:rgba(34,10,8,.78);
-      --stroke:rgba(255,255,255,.14);
-      --text:#fffaf8;
-      --muted:#fde7df;
-      --warn:#f59e0b;
-      --info:#38bdf8;
-      --pink:#f472b6;
-      --shadow:0 24px 72px rgba(0,0,0,.34);
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
+      --bg1:#fff7ed;
+      --bg2:#fed7aa;
+      --panel:#fffaf0;
+      --line:#fdba74;
+      --text:#3b2415;
+      --muted:#7c4a22;
+      --good:#22c55e;
+      --bad:#ef4444;
+      --gold:#facc15;
+      --sky:#38bdf8;
+      --orange:#f97316;
+      --shadow:0 16px 36px rgba(154,75,20,.20);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
 
-    *{ box-sizing:border-box; }
+    *{box-sizing:border-box}
+
     html,body{
       margin:0;
+      width:100%;
       min-height:100%;
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      overflow:hidden;
       color:var(--text);
       background:
-        radial-gradient(900px 520px at 10% 10%, rgba(249,115,22,.20), transparent 60%),
-        radial-gradient(900px 560px at 90% 0%, rgba(244,114,182,.14), transparent 60%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
+        radial-gradient(circle at 10% 0%,rgba(255,255,255,.92),transparent 22%),
+        radial-gradient(circle at 90% 5%,rgba(255,236,179,.9),transparent 26%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      touch-action:none;
+      user-select:none;
     }
 
-    body{ overflow:hidden; }
-    button{ font:inherit; }
+    button{font:inherit}
 
-    .guard{
-      position:fixed;
-      inset:0;
-      z-index:30;
+    #app{
+      position:relative;
+      width:100vw;
+      height:100dvh;
+      overflow:hidden;
+      isolation:isolate;
+      padding:
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(10px + var(--sab))
+        calc(10px + var(--sal));
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:8px;
+    }
+
+    .topbar{
+      z-index:5;
+      border:3px solid var(--line);
+      background:rgba(255,250,240,.92);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      padding:10px;
+      display:grid;
+      gap:8px;
+    }
+
+    .title-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+    }
+
+    .brand-icon{
+      width:54px;
+      height:54px;
+      border-radius:18px;
       display:grid;
       place-items:center;
-      padding:
-        calc(16px + var(--sat))
-        calc(16px + var(--sar))
-        calc(16px + var(--sab))
-        calc(16px + var(--sal));
-      background:rgba(26,8,5,.84);
+      font-size:30px;
+      border:3px solid #fdba74;
+      background:linear-gradient(180deg,#ffedd5,#fed7aa);
+      flex:0 0 auto;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(20px,5vw,30px);
+      line-height:1.05;
+      color:#7c2d12;
+      font-weight:1000;
+    }
+
+    .brand p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      min-height:42px;
+      border-radius:16px;
+      border:3px solid #fdba74;
+      background:#fff7ed;
+      color:#7c2d12;
+      font-weight:1000;
+      padding:8px 12px;
+      cursor:pointer;
+      box-shadow:0 8px 16px rgba(154,75,20,.12);
+    }
+
+    .btn.attack{
+      min-height:54px;
+      font-size:17px;
+      color:white;
+      background:linear-gradient(180deg,#fb923c,#ea580c);
+      border-color:#fed7aa;
+    }
+
+    .btn.attack:disabled{
+      opacity:.55;
+      filter:grayscale(.25);
+      cursor:not-allowed;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:6px;
+    }
+
+    .pill{
+      min-height:44px;
+      border-radius:16px;
+      border:2px solid #fed7aa;
+      background:#fffaf0;
+      padding:7px 8px;
+      display:grid;
+      align-content:center;
+      gap:2px;
+      text-align:center;
+    }
+
+    .pill-k{
+      color:#9a4a0f;
+      font-size:10px;
+      font-weight:1000;
+    }
+
+    .pill-v{
+      color:#3b2415;
+      font-size:15px;
+      font-weight:1000;
+      line-height:1.1;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .arena{
+      position:relative;
+      z-index:1;
+      min-height:0;
+      border:3px solid #fdba74;
+      border-radius:28px;
+      background:
+        radial-gradient(circle at 50% 30%,rgba(255,255,255,.65),transparent 26%),
+        linear-gradient(180deg,#e0f2fe,#fef3c7);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .arena::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(90deg,rgba(255,255,255,.16) 1px,transparent 1px),
+        linear-gradient(180deg,rgba(255,255,255,.16) 1px,transparent 1px);
+      background-size:42px 42px;
+      pointer-events:none;
+      opacity:.45;
+    }
+
+    .target{
+      position:absolute;
+      width:76px;
+      height:76px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      font-size:38px;
+      border:4px solid white;
+      box-shadow:0 12px 24px rgba(0,0,0,.18);
+      cursor:pointer;
+      transform:translate(-50%,-50%);
+      animation:pop .15s ease both, bob 1.4s ease-in-out infinite;
+      z-index:2;
+      background:white;
+      touch-action:none;
+    }
+
+    .target.good{
+      background:linear-gradient(180deg,#dcfce7,#bbf7d0);
+      border-color:#86efac;
+    }
+
+    .target.junk{
+      background:linear-gradient(180deg,#fee2e2,#fecaca);
+      border-color:#fca5a5;
+    }
+
+    .target.shield{
+      background:linear-gradient(180deg,#dbeafe,#bfdbfe);
+      border-color:#93c5fd;
+    }
+
+    .target.confuse{
+      filter:hue-rotate(120deg) saturate(1.4);
+      animation:pop .15s ease both, wobble .55s ease-in-out infinite;
+    }
+
+    .target.hit{
+      pointer-events:none;
+      animation:hit .25s ease forwards;
+    }
+
+    @keyframes pop{
+      from{transform:translate(-50%,-50%) scale(.45); opacity:0}
+      to{transform:translate(-50%,-50%) scale(1); opacity:1}
+    }
+
+    @keyframes hit{
+      to{transform:translate(-50%,-50%) scale(1.35); opacity:0}
+    }
+
+    @keyframes bob{
+      0%,100%{margin-top:0}
+      50%{margin-top:-8px}
+    }
+
+    @keyframes wobble{
+      0%,100%{rotate:-8deg}
+      50%{rotate:8deg}
+    }
+
+    .effect-banner{
+      position:absolute;
+      left:50%;
+      top:12px;
+      transform:translateX(-50%);
+      z-index:4;
+      min-height:42px;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:8px 14px;
+      border-radius:999px;
+      border:3px solid #fdba74;
+      background:#fff7ed;
+      color:#7c2d12;
+      font-weight:1000;
+      box-shadow:0 12px 24px rgba(154,75,20,.18);
+      text-align:center;
+    }
+
+    .effect-banner.show{
+      display:flex;
+    }
+
+    .bottom{
+      z-index:5;
+      border:3px solid var(--line);
+      background:rgba(255,250,240,.92);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      padding:10px;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .battle-note{
+      color:#7c4a22;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(88px + var(--sab));
+      z-index:30;
+      transform:translateX(-50%);
+      max-width:min(92vw,560px);
+      padding:12px 16px;
+      border-radius:999px;
+      border:3px solid #fdba74;
+      background:#fff7ed;
+      color:#7c2d12;
+      font-weight:1000;
+      box-shadow:0 14px 30px rgba(154,75,20,.22);
+      opacity:0;
+      pointer-events:none;
+      transition:.15s ease;
+      text-align:center;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(-5px);
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:50;
+      display:grid;
+      place-items:center;
+      padding:18px;
+      background:rgba(124,45,18,.52);
       backdrop-filter:blur(8px);
     }
 
+    .overlay.hidden{
+      display:none;
+    }
+
     .card{
-      width:min(92vw,760px);
-      border-radius:28px;
-      border:1px solid rgba(255,255,255,.14);
-      background:var(--panel);
-      box-shadow:var(--shadow);
+      width:min(94vw,760px);
+      border-radius:30px;
+      border:3px solid #fdba74;
+      background:#fffaf0;
+      color:#3b2415;
+      box-shadow:0 22px 54px rgba(0,0,0,.25);
       padding:18px;
       text-align:center;
     }
 
-    .icon{
-      width:96px;
-      height:96px;
+    .card-icon{
+      width:92px;
+      height:92px;
       margin:0 auto 12px;
-      border-radius:28px;
+      border-radius:30px;
+      border:3px solid #fdba74;
       display:grid;
       place-items:center;
       font-size:46px;
-      border:1px solid rgba(255,255,255,.14);
-      background:linear-gradient(135deg, rgba(249,115,22,.22), rgba(245,158,11,.18));
+      background:linear-gradient(180deg,#ffedd5,#fed7aa);
     }
 
-    .title{
+    .card h2{
       margin:0;
-      font-size:30px;
-      line-height:1.08;
+      color:#7c2d12;
+      font-size:clamp(26px,6vw,42px);
+      line-height:1.05;
       font-weight:1000;
     }
 
-    .sub{
-      margin-top:10px;
-      color:var(--muted);
-      font-size:15px;
-      line-height:1.65;
+    .card p{
+      color:#7c4a22;
       font-weight:900;
+      line-height:1.55;
     }
 
-    .chips{
+    .card-actions{
       display:flex;
       gap:10px;
       justify-content:center;
@@ -100,175 +397,41 @@
       margin-top:14px;
     }
 
-    .chip{
-      min-height:36px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#fff5ef;
-      font-size:12px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
+    @media (max-width:820px){
+      .stats{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .bottom{
+        grid-template-columns:1fr;
+      }
+
+      .btn.attack{
+        width:100%;
+      }
     }
 
-    .players-box{
-      margin-top:16px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.05);
-      padding:12px;
-      text-align:left;
-    }
+    @media (max-width:480px){
+      .target{
+        width:68px;
+        height:68px;
+        border-radius:24px;
+        font-size:34px;
+      }
 
-    .players-title{
-      font-size:13px;
-      color:var(--muted);
-      font-weight:1000;
-    }
+      .stats{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
 
-    .players-list{
-      margin-top:10px;
-      display:grid;
-      gap:10px;
-    }
-
-    .player-row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:12px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(255,255,255,.06);
-    }
-
-    .player-name{
-      font-size:14px;
-      font-weight:1000;
-      color:#fff;
-    }
-
-    .player-pill{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:30px;
-      padding:7px 10px;
-      border-radius:999px;
-      font-size:11px;
-      font-weight:1000;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#fff;
-    }
-
-    .player-pill.host{
-      border-color:rgba(245,158,11,.34);
-      background:rgba(245,158,11,.16);
-      color:#fff7db;
-    }
-
-    .player-pill.guest{
-      border-color:rgba(249,115,22,.34);
-      background:rgba(249,115,22,.16);
-      color:#fff2ea;
-    }
-
-    .spinner{
-      margin:16px auto 0;
-      width:48px;
-      height:48px;
-      border-radius:999px;
-      border:4px solid rgba(255,255,255,.18);
-      border-top-color:#fb923c;
-      animation:spin .9s linear infinite;
-    }
-
-    .actions{
-      margin-top:16px;
-      display:flex;
-      gap:10px;
-      justify-content:center;
-      flex-wrap:wrap;
-    }
-
-    .btn{
-      min-height:48px;
-      padding:10px 14px;
-      border-radius:16px;
-      font-size:14px;
-      font-weight:1000;
-      cursor:pointer;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#fff;
-    }
-
-    .btn.info{
-      border-color:rgba(56,189,248,.34);
-      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
-      color:#eefbff;
-    }
-
-    .btn.warn{
-      border-color:rgba(245,158,11,.34);
-      background:linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
-      color:#fff7db;
-    }
-
-    .btn.pink{
-      border-color:rgba(244,114,182,.34);
-      background:linear-gradient(180deg, rgba(244,114,182,.24), rgba(244,114,182,.14));
-      color:#fff1f7;
-    }
-
-    .debug{
-      margin-top:16px;
-      white-space:pre-wrap;
-      word-break:break-word;
-      overflow:auto;
-      padding:12px 14px;
-      border-radius:18px;
-      background:rgba(24,8,3,.54);
-      border:1px solid rgba(255,255,255,.12);
-      color:#fde7df;
-      font:900 12px/1.55 ui-monospace,monospace;
-      text-align:left;
-      min-height:72px;
-    }
-
-    .frame-wrap{
-      position:fixed;
-      inset:0;
-      display:none;
-      z-index:1;
-      background:#000;
-    }
-
-    .frame-wrap.show{
-      display:block;
-    }
-
-    iframe{
-      width:100%;
-      height:100%;
-      border:0;
-      display:block;
-      background:#000;
-    }
-
-    @keyframes spin{
-      to{ transform:rotate(360deg); }
+      .brand-icon{
+        width:48px;
+        height:48px;
+        font-size:26px;
+      }
     }
 
     @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
+      *,*::before,*::after{
         animation:none !important;
         transition:none !important;
       }
@@ -276,39 +439,60 @@
   </style>
 </head>
 <body>
-  <div id="guard" class="guard">
-    <div class="card">
-      <div id="guardIcon" class="icon">⚔️</div>
-      <h1 id="guardTitle" class="title">กำลังตรวจสอบห้อง Battle</h1>
-      <div id="guardSub" class="sub">โปรดรอสักครู่ ระบบกำลังตรวจ room battle</div>
+  <div id="app">
+    <section class="topbar">
+      <div class="title-row">
+        <div class="brand">
+          <div class="brand-icon">⚔️</div>
+          <div>
+            <h1>GoodJunk Battle</h1>
+            <p id="subText">1v1 Attack Mode • เก็บของดี สะสมพลัง แล้วส่งอุปสรรคไปกวนคู่แข่ง</p>
+          </div>
+        </div>
 
-      <div class="chips">
-        <div id="chipRoom" class="chip">Room: -</div>
-        <div id="chipPlayers" class="chip">Players: -</div>
-        <div id="chipLimit" class="chip">Limit: 2/2</div>
-        <div id="chipStatus" class="chip">Status: checking</div>
+        <div class="top-actions">
+          <button id="btnLobby" class="btn" type="button">Lobby</button>
+          <button id="btnHub" class="btn" type="button">Hub</button>
+        </div>
       </div>
 
-      <div id="spinner" class="spinner"></div>
+      <div class="stats">
+        <div class="pill"><div class="pill-k">PLAYER</div><div id="pName" class="pill-v">Hero</div></div>
+        <div class="pill"><div class="pill-k">SCORE</div><div id="pScore" class="pill-v">0</div></div>
+        <div class="pill"><div class="pill-k">COMBO</div><div id="pCombo" class="pill-v">0</div></div>
+        <div class="pill"><div class="pill-k">HEART</div><div id="pHp" class="pill-v">❤️❤️❤️</div></div>
+        <div class="pill"><div class="pill-k">ATTACK</div><div id="pMeter" class="pill-v">0/3</div></div>
+        <div class="pill"><div class="pill-k">RIVAL</div><div id="rScore" class="pill-v">0</div></div>
+      </div>
+    </section>
 
-      <div class="players-box">
-        <div class="players-title">ผู้เล่นในห้อง</div>
-        <div id="playersList" class="players-list"></div>
+    <main id="arena" class="arena">
+      <div id="effectBanner" class="effect-banner">Battle Effect</div>
+    </main>
+
+    <section class="bottom">
+      <div class="battle-note" id="battleNote">
+        ✅ เก็บของดี +10 • ❌ แตะ Junk -10 และเสียหัวใจ • Combo 3 ครั้ง เติมพลังโจมตี 1 ช่อง
       </div>
 
-      <div class="actions">
-        <button id="btnRetry" class="btn warn" type="button">ลองใหม่</button>
-        <button id="btnLobby" class="btn info" type="button">กลับ Lobby</button>
-        <button id="btnLauncher" class="btn" type="button">กลับ Launcher</button>
-        <button id="btnHub" class="btn pink" type="button">กลับ Hub</button>
-      </div>
-
-      <pre id="debugLog" class="debug">Battle wrapper ready…</pre>
-    </div>
+      <button id="btnAttack" class="btn attack" type="button" disabled>
+        ⚔️ ATTACK 0/3
+      </button>
+    </section>
   </div>
 
-  <div id="frameWrap" class="frame-wrap">
-    <iframe id="engineFrame" title="GoodJunk Battle Engine"></iframe>
+  <div id="toast" class="toast"></div>
+
+  <div id="overlay" class="overlay">
+    <div class="card">
+      <div id="overlayIcon" class="card-icon">⏳</div>
+      <h2 id="overlayTitle">กำลังเตรียม Battle</h2>
+      <p id="overlayText">กำลังตรวจห้องและรอผู้เล่นให้ครบ 2 คน</p>
+      <div class="card-actions">
+        <button id="btnStartManual" class="btn" type="button">ลองเริ่มอีกครั้ง</button>
+        <button id="btnBackLobby2" class="btn" type="button">กลับ Lobby</button>
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -316,45 +500,34 @@
       makeRoomAdapter,
       ensureBattleSession,
       watchBattleSession,
-      getPlayers,
-      getPlayerCount,
-      getPlayerByPid,
-      getBattleMaxPlayers
-    } from './goodjunk-battle-room.js?v=20260410c-GJ-BATTLE-ROOM-GUARD-1V1-STABLE';
+      updateBattlePlayerStats,
+      addBattleShield,
+      sendBattleAttack,
+      consumeBattleAttacksForPlayer,
+      getBattleOpponent,
+      getPlayerByPid
+    } from './goodjunk-battle-room.js?v=20260430c-GJ-BATTLE-ROOM-ATTACK-SYSTEM';
 
     const $ = (id) => document.getElementById(id);
 
-    const qs = (k, d='') => {
+    const GOOD = ['🍎','🥦','🥕','🍌','🥛','🍚','🥚','🍊','🍇','🥬'];
+    const JUNK = ['🍟','🍩','🧃','🍭','🍫','🍕','🥤','🍰'];
+    const SHIELD = ['🛡️'];
+
+    const qs = (k, d = '') => {
       try { return new URL(location.href).searchParams.get(k) ?? d; }
       catch (_) { return d; }
     };
 
-    let roomApi = null;
-    let stopWatch = null;
-    let started = false;
-    let lastRoom = null;
-
-    function clean(v, d=''){
+    const clean = (v, d = '') => {
       const s = String(v ?? '').trim();
       return s || d;
-    }
+    };
 
-    function log(msg){
-      const el = $('debugLog');
-      if (!el) return;
-      const ts = new Date().toLocaleTimeString('th-TH', { hour12:false });
-      el.textContent = `[${ts}] ${msg}`;
-    }
-
-    function buildUrl(path, extra = {}, base = location.href){
-      const u = new URL(path, base);
-      Object.entries(extra).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') {
-          u.searchParams.set(k, String(v));
-        }
-      });
-      return u.toString();
-    }
+    const clamp = (n, min, max) => {
+      n = Number(n) || 0;
+      return Math.max(min, Math.min(max, n));
+    };
 
     function ctx(){
       return {
@@ -364,7 +537,7 @@
         name: clean(qs('name', qs('nick', 'Hero')), 'Hero'),
         nick: clean(qs('nick', qs('name', 'Hero')), 'Hero'),
         diff: clean(qs('diff', 'normal'), 'normal'),
-        time: clean(qs('time', '90'), '90'),
+        time: clean(qs('time', '150'), '150'),
         view: clean(qs('view', 'mobile'), 'mobile'),
         hub: clean(qs('hub', '../hub-v2.html'), '../hub-v2.html'),
         run: clean(qs('run', 'play'), 'play'),
@@ -374,273 +547,408 @@
         game: clean(qs('game', 'goodjunk'), 'goodjunk'),
         gameId: clean(qs('gameId', 'goodjunk'), 'goodjunk'),
         theme: clean(qs('theme', 'goodjunk'), 'goodjunk'),
-        studyId: clean(qs('studyId', ''), ''),
-        conditionGroup: clean(qs('conditionGroup', ''), '')
+        role: clean(qs('role', 'player'), 'player')
       };
     }
 
-    function setGuardState(kind, title, sub, room = null){
-      const iconMap = {
-        checking: '🔍',
-        waiting: '⏳',
-        ready: '🎮',
-        blocked: '🛑',
-        error: '⚠️',
-        launch: '🚀'
-      };
+    const C = ctx();
 
-      $('guardIcon').textContent = iconMap[kind] || '🔍';
-      $('guardTitle').textContent = title || '';
-      $('guardSub').textContent = sub || '';
+    let adapter = null;
+    let stopWatch = null;
 
-      const c = ctx();
-      $('chipRoom').textContent = `Room: ${c.room || '-'}`;
-      $('chipPlayers').textContent = room ? `Players: ${getPlayerCount(room)}/${getBattleMaxPlayers()}` : 'Players: -';
-      $('chipLimit').textContent = 'Limit: 2/2';
-      $('chipStatus').textContent = `Status: ${room?.status || kind}`;
+    const state = {
+      ready: false,
+      started: false,
+      ended: false,
+      duration: clamp(Number(C.time || 150), 30, 300),
+      timeLeft: clamp(Number(C.time || 150), 30, 300),
+      score: 0,
+      combo: 0,
+      hp: 3,
+      shield: 0,
+      attackMeter: 0,
+      goodHits: 0,
+      junkHits: 0,
+      attacksSent: 0,
+      attacksBlocked: 0,
+      attacksReceived: 0,
+      activeFx: {},
+      room: null,
+      rival: null,
+      timers: []
+    };
 
-      $('spinner').style.display =
-        kind === 'checking' || kind === 'waiting' || kind === 'launch'
-          ? 'block'
-          : 'none';
+    function buildUrl(path, params = {}, base = location.href){
+      const u = new URL(path, base);
+      Object.entries(params).forEach(([k,v]) => {
+        if(v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
+      });
+      return u.toString();
     }
 
-    function renderPlayers(room){
-      const wrap = $('playersList');
-      if (!wrap) return;
+    function lobbyUrl(){
+      return buildUrl('./goodjunk-battle-lobby.html', {
+        ...C,
+        mode:'battle',
+        room:C.room,
+        recommendedMode:'battle',
+        entry:'battle',
+        multiplayer:'1'
+      });
+    }
 
-      if (!room) {
-        wrap.innerHTML = '<div class="player-row"><div class="player-name">ยังไม่พบข้อมูลห้อง</div><div class="player-pill">-</div></div>';
+    function showToast(msg){
+      const t = $('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => t.classList.remove('show'), 1300);
+    }
+
+    function setOverlay(show, icon, title, text){
+      const o = $('overlay');
+      if(show) o.classList.remove('hidden');
+      else o.classList.add('hidden');
+
+      $('overlayIcon').textContent = icon || '⏳';
+      $('overlayTitle').textContent = title || '';
+      $('overlayText').textContent = text || '';
+    }
+
+    function isFxActive(type){
+      return Number(state.activeFx[type] || 0) > Date.now();
+    }
+
+    function updateFxBanner(){
+      const el = $('effectBanner');
+      const now = Date.now();
+      const active = Object.entries(state.activeFx).filter(([,until]) => until > now);
+
+      if(!active.length){
+        el.classList.remove('show');
+        el.textContent = '';
         return;
       }
 
-      const players = getPlayers(room);
-      if (!players.length) {
-        wrap.innerHTML = '<div class="player-row"><div class="player-name">ยังไม่มีผู้เล่น</div><div class="player-pill">0</div></div>';
-        return;
+      const labels = active.map(([type]) => {
+        if(type === 'junkStorm') return '🌪️ Junk Storm!';
+        if(type === 'slowTrap') return '🐌 Slow Trap!';
+        if(type === 'confuseSwap') return '🌀 Confuse!';
+        return '⚔️ Battle Effect!';
+      });
+
+      el.textContent = labels.join('  ');
+      el.classList.add('show');
+    }
+
+    function render(){
+      $('pName').textContent = C.name || 'Hero';
+      $('pScore').textContent = String(state.score);
+      $('pCombo').textContent = String(state.combo);
+      $('pHp').textContent = '❤️'.repeat(Math.max(0,state.hp)) || '💔';
+      $('pMeter').textContent = `${state.attackMeter}/3`;
+      $('rScore').textContent = state.rival ? `${state.rival.name || 'Rival'}: ${Number(state.rival.score || 0)}` : 'รอคู่แข่ง';
+
+      const btn = $('btnAttack');
+      btn.disabled = state.attackMeter < 3 || state.ended || !state.started;
+      btn.textContent = state.attackMeter >= 3 ? '⚔️ ATTACK พร้อม!' : `⚔️ ATTACK ${state.attackMeter}/3`;
+
+      $('battleNote').textContent =
+        `เวลา ${state.timeLeft}s • Shield ${state.shield ? '🛡️ พร้อมกันโจมตี' : 'ยังไม่มี'} • Combo 3 เติมพลังโจมตี`;
+    }
+
+    async function syncStats(){
+      await updateBattlePlayerStats(C, {
+        score: state.score,
+        combo: state.combo,
+        hp: state.hp,
+        shield: state.shield,
+        attackMeter: state.attackMeter,
+        goodHits: state.goodHits,
+        junkHits: state.junkHits,
+        attacksSent: state.attacksSent,
+        attacksBlocked: state.attacksBlocked,
+        attacksReceived: state.attacksReceived
+      }, { adapter });
+    }
+
+    function pick(arr){
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function spawnTarget(){
+      if(!state.started || state.ended) return;
+
+      const arena = $('arena');
+      const rect = arena.getBoundingClientRect();
+
+      const junkStorm = isFxActive('junkStorm');
+      const confuse = isFxActive('confuseSwap');
+
+      let type = 'good';
+      const r = Math.random();
+
+      if(junkStorm){
+        type = r < .58 ? 'junk' : 'good';
+      }else{
+        type = r < .68 ? 'good' : (r < .9 ? 'junk' : 'shield');
       }
 
-      wrap.innerHTML = players.map((p, idx) => {
-        const isHost = p.role === 'host';
-        return `
-          <div class="player-row">
-            <div class="player-name">${idx + 1}. ${String(p.name || p.pid || 'Player')}</div>
-            <div class="player-pill ${isHost ? 'host' : 'guest'}">${isHost ? '👑 Host' : '⚔️ Rival'}</div>
-          </div>
-        `;
-      }).join('');
-    }
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = `target ${type}`;
+      if(confuse && Math.random() < .45) el.classList.add('confuse');
 
-    function buildLobbyUrl(){
-      const c = ctx();
-      return buildUrl('../goodjunk-battle-lobby.html', {
-        mode: 'battle',
-        room: c.room,
-        pid: c.pid,
-        name: c.name,
-        nick: c.nick,
-        diff: c.diff,
-        time: c.time,
-        view: c.view,
-        hub: c.hub,
-        run: c.run,
-        seed: c.seed,
-        zone: c.zone,
-        cat: c.cat,
-        game: c.game,
-        gameId: c.gameId,
-        theme: c.theme,
-        studyId: c.studyId,
-        conditionGroup: c.conditionGroup
-      });
-    }
+      const emoji = type === 'good' ? pick(GOOD) : type === 'junk' ? pick(JUNK) : pick(SHIELD);
+      el.textContent = emoji;
+      el.dataset.type = type;
 
-    function buildLauncherUrl(){
-      const c = ctx();
-      return buildUrl('../goodjunk-launcher.html', {
-        pid: c.pid,
-        name: c.name,
-        diff: c.diff,
-        time: c.time,
-        hub: c.hub,
-        view: c.view,
-        run: c.run,
-        seed: c.seed,
-        zone: c.zone,
-        cat: c.cat,
-        game: c.game,
-        gameId: c.gameId,
-        theme: c.theme,
-        recommendedMode: 'battle'
-      });
-    }
+      const pad = 52;
+      const x = pad + Math.random() * Math.max(1, rect.width - pad * 2);
+      const y = pad + Math.random() * Math.max(1, rect.height - pad * 2);
 
-    function buildEngineUrl(room){
-      const c = ctx();
-      const me = getPlayerByPid(room, c.pid);
-      const role = me?.role === 'host' ? 'host' : 'player';
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
 
-      return buildUrl('./goodjunk-vr.html', {
-        mode: 'battle',
-        entry: 'battle',
-        recommendedMode: 'battle',
-        room: c.room,
-        pid: c.pid,
-        name: c.name,
-        nick: c.nick,
-        diff: c.diff,
-        time: c.time,
-        view: c.view,
-        hub: c.hub,
-        run: c.run,
-        seed: c.seed,
-        zone: c.zone,
-        cat: c.cat,
-        game: c.game,
-        gameId: c.gameId,
-        theme: c.theme,
-        studyId: c.studyId,
-        conditionGroup: c.conditionGroup,
-        role,
-        maxPlayers: 2,
-        fromLobby: '1',
-        lobby: '1',
-        multiplayer: '1',
-        modeLocked: '1',
-        battleGuardPassed: '1'
-      });
-    }
+      el.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault();
+        hitTarget(el);
+      }, { once:true });
 
-    function bootEngine(room){
-      if (started) return;
-      started = true;
+      arena.appendChild(el);
 
-      const href = buildEngineUrl(room);
-      log(`launch engine -> ${href}`);
-
-      setGuardState('launch', 'กำลังเข้าเกม Battle', 'ห้องพร้อมแล้ว ระบบกำลังเปิด engine', room);
-
-      $('engineFrame').src = href;
+      const life = isFxActive('slowTrap') ? 1150 : 1450;
       setTimeout(() => {
-        $('guard').style.display = 'none';
-        $('frameWrap').classList.add('show');
-      }, 350);
+        if(el && el.parentNode) el.remove();
+      }, life);
     }
 
-    async function evaluate(room){
-      lastRoom = room || null;
-      renderPlayers(room);
+    async function hitTarget(el){
+      if(!el || state.ended) return;
+      const type = el.dataset.type;
 
-      const c = ctx();
-      const me = room ? getPlayerByPid(room, c.pid) : null;
-      const count = room ? getPlayerCount(room) : 0;
+      el.classList.add('hit');
+      setTimeout(() => el.remove(), 220);
 
-      if (c.mode !== 'battle') {
-        setGuardState('blocked', 'โหมดไม่ถูกต้อง', 'wrapper นี้ใช้สำหรับ battle เท่านั้น', room);
-        log('blocked: MODE_NOT_BATTLE');
-        return;
+      if(type === 'good'){
+        state.score += 10;
+        state.combo += 1;
+        state.goodHits += 1;
+
+        if(state.combo > 0 && state.combo % 3 === 0){
+          state.attackMeter = clamp(state.attackMeter + 1, 0, 3);
+          showToast('⚔️ เติมพลังโจมตี +1');
+        }else{
+          showToast('✅ ดีมาก +10');
+        }
       }
 
-      if (!c.room) {
-        setGuardState('error', 'ไม่พบ Room Code', 'ต้องมี room ก่อนเข้า battle', room);
-        log('error: ROOM_MISSING');
-        return;
+      if(type === 'junk'){
+        state.score = Math.max(0, state.score - 10);
+        state.combo = 0;
+        state.hp = clamp(state.hp - 1, 0, 3);
+        state.junkHits += 1;
+        showToast('❌ Junk! เสียคะแนน');
       }
 
-      if (!room) {
-        setGuardState('checking', 'กำลังหาห้อง', 'ยังไม่พบข้อมูลห้องนี้ หรือ backend กำลังซิงก์ข้อมูล', null);
-        log('checking: ROOM_NOT_FOUND');
-        return;
+      if(type === 'shield'){
+        state.shield = 1;
+        await addBattleShield(C, { adapter });
+        showToast('🛡️ ได้ Shield กันโจมตี 1 ครั้ง');
       }
 
-      if (room.mode !== 'battle') {
-        setGuardState('blocked', 'ห้องนี้ไม่ใช่ Battle', 'พบ room แล้ว แต่ mode ของห้องไม่ใช่ battle', room);
-        log('blocked: ROOM_MODE_MISMATCH');
-        return;
-      }
+      render();
+      await syncStats();
 
-      if (!me) {
-        setGuardState('blocked', 'ผู้เล่นนี้ไม่ได้อยู่ในห้อง', 'กรุณากลับไป lobby แล้วเข้าห้องด้วย PID เดิมก่อน', room);
-        log('blocked: PLAYER_NOT_IN_ROOM');
-        return;
+      if(state.hp <= 0){
+        endGame('หมดหัวใจ');
       }
-
-      if (count < 2) {
-        setGuardState('waiting', 'รอผู้เล่นให้ครบ 2 คน', `ตอนนี้มี ${count}/2 คน ระบบจะยังไม่เปิดเกม`, room);
-        log('waiting: WAITING_PLAYER');
-        return;
-      }
-
-      if (count > 2) {
-        setGuardState('blocked', 'จำนวนผู้เล่นเกิน', `ห้อง battle ต้องมีแค่ 2 คน แต่ตอนนี้มี ${count} คน`, room);
-        log('blocked: ROOM_OVERFLOW');
-        return;
-      }
-
-      if (room.status !== 'started') {
-        setGuardState('waiting', 'รอ Host กดเริ่มเกม', 'ครบ 2/2 แล้ว แต่ห้องยังไม่ถูกสั่งเริ่ม', room);
-        log('waiting: WAITING_START');
-        return;
-      }
-
-      setGuardState('ready', 'ห้องพร้อมแล้ว', 'ตรวจสอบผ่านทั้งหมด กำลังเข้าเกม battle', room);
-      log('ready: start engine');
-      bootEngine(room);
     }
 
-    async function retry(){
-      started = false;
-      $('guard').style.display = 'grid';
-      $('frameWrap').classList.remove('show');
-      $('engineFrame').src = 'about:blank';
-      await watchRoom();
+    async function attack(){
+      if(state.attackMeter < 3 || state.ended) return;
+
+      const types = ['junkStorm','slowTrap','confuseSwap'];
+      const type = pick(types);
+
+      const result = await sendBattleAttack(C, type, { adapter });
+      if(result.ok){
+        state.attackMeter = 0;
+        state.attacksSent += 1;
+
+        if(type === 'junkStorm') showToast('🌪️ ส่ง Junk Storm ไปแล้ว!');
+        if(type === 'slowTrap') showToast('🐌 ส่ง Slow Trap ไปแล้ว!');
+        if(type === 'confuseSwap') showToast('🌀 ส่ง Confuse ไปแล้ว!');
+
+        await syncStats();
+        render();
+      }else{
+        showToast(result.message || 'ยังโจมตีไม่ได้');
+      }
     }
 
-    async function watchRoom(){
-      const c = ctx();
-      if (stopWatch && typeof stopWatch === 'function') {
-        try { stopWatch(); } catch (_) {}
-        stopWatch = null;
+    async function consumeIncoming(){
+      if(!state.started || state.ended) return;
+
+      const res = await consumeBattleAttacksForPlayer(C, { adapter });
+      if(!res || !res.ok) return;
+
+      if(res.blocked && res.blocked.length){
+        state.shield = 0;
+        state.attacksBlocked += res.blocked.length;
+        showToast('🛡️ Shield บล็อกการโจมตี!');
       }
 
-      if (!c.room) {
-        await evaluate(null);
+      if(res.attacks && res.attacks.length){
+        res.attacks.forEach((atk) => {
+          const until = Date.now() + Number(atk.durationMs || 4500);
+          state.activeFx[atk.type] = until;
+          state.attacksReceived += 1;
+
+          if(atk.type === 'junkStorm') showToast('🌪️ โดน Junk Storm!');
+          if(atk.type === 'slowTrap') showToast('🐌 โดน Slow Trap!');
+          if(atk.type === 'confuseSwap') showToast('🌀 โดน Confuse!');
+        });
+      }
+
+      updateFxBanner();
+      render();
+      await syncStats();
+    }
+
+    function startLoops(){
+      const spawnLoop = setInterval(() => {
+        const count = isFxActive('junkStorm') ? 3 : 2;
+        for(let i=0;i<count;i++){
+          setTimeout(spawnTarget, i * 120);
+        }
+      }, isFxActive('slowTrap') ? 900 : 650);
+
+      const clockLoop = setInterval(() => {
+        if(!state.started || state.ended) return;
+
+        state.timeLeft -= 1;
+        if(state.timeLeft <= 0){
+          state.timeLeft = 0;
+          render();
+          endGame('หมดเวลา');
+          return;
+        }
+
+        updateFxBanner();
+        render();
+      }, 1000);
+
+      const incomingLoop = setInterval(consumeIncoming, 700);
+      const syncLoop = setInterval(syncStats, 1800);
+
+      state.timers.push(spawnLoop, clockLoop, incomingLoop, syncLoop);
+    }
+
+    async function endGame(reason){
+      if(state.ended) return;
+      state.ended = true;
+
+      state.timers.forEach(t => clearInterval(t));
+      state.timers = [];
+
+      await syncStats();
+
+      let room = null;
+      try{
+        room = await adapter.loadRoom(C.room);
+      }catch(_){}
+
+      const me = room ? getPlayerByPid(room, C.pid) : null;
+      const rival = room ? getBattleOpponent(room, C.pid) : null;
+
+      const myScore = Number(me?.score ?? state.score) || 0;
+      const rivalScore = Number(rival?.score ?? 0) || 0;
+
+      let icon = '🏁';
+      let title = 'จบ Battle!';
+      if(rival){
+        if(myScore > rivalScore){
+          icon = '🏆';
+          title = 'ชนะ Battle!';
+        }else if(myScore < rivalScore){
+          icon = '🤝';
+          title = 'คู่แข่งนำรอบนี้';
+        }else{
+          icon = '⚖️';
+          title = 'เสมอกัน!';
+        }
+      }
+
+      setOverlay(true, icon, title,
+        `${reason} • คะแนนคุณ ${myScore} / คู่แข่ง ${rival ? rivalScore : '-'} • ส่งโจมตี ${state.attacksSent} ครั้ง • กันโจมตี ${state.attacksBlocked} ครั้ง`
+      );
+    }
+
+    async function handleRoomResult(result){
+      if(!result.ok){
+        state.ready = false;
+        state.started = false;
+
+        setOverlay(
+          true,
+          result.code === 'WAITING_PLAYER' ? '⏳' : '⚠️',
+          result.title || 'ยังเริ่มไม่ได้',
+          result.message || 'กำลังรอห้อง Battle'
+        );
+
         return;
       }
 
-      stopWatch = roomApi.subscribeRoom(c.room, async (room) => {
-        await evaluate(room);
-      });
-    }
+      state.room = result.room;
+      state.rival = getBattleOpponent(result.room, C.pid);
 
-    function bindActions(){
-      $('btnRetry')?.addEventListener('click', retry);
-      $('btnLobby')?.addEventListener('click', () => {
-        location.href = buildLobbyUrl();
-      });
-      $('btnLauncher')?.addEventListener('click', () => {
-        location.href = buildLauncherUrl();
-      });
-      $('btnHub')?.addEventListener('click', () => {
-        location.href = ctx().hub;
-      });
-      window.addEventListener('beforeunload', () => {
-        try { stopWatch?.(); } catch (_) {}
-      });
+      if(!state.started){
+        state.ready = true;
+        state.started = true;
+        setOverlay(false);
+        showToast('⚔️ Battle เริ่มแล้ว!');
+        startLoops();
+        render();
+        await syncStats();
+      }else{
+        state.rival = getBattleOpponent(result.room, C.pid);
+        render();
+      }
     }
 
     async function init(){
-      roomApi = makeRoomAdapter();
-      bindActions();
+      $('btnAttack').addEventListener('click', attack);
+      $('btnLobby').addEventListener('click', () => location.href = lobbyUrl());
+      $('btnHub').addEventListener('click', () => location.href = C.hub);
+      $('btnBackLobby2').addEventListener('click', () => location.href = lobbyUrl());
+      $('btnStartManual').addEventListener('click', async () => {
+        try{
+          const session = await ensureBattleSession(C, { adapter });
+          await handleRoomResult(session);
+        }catch(err){
+          setOverlay(true, '⏳', err.title || 'ยังเริ่มไม่ได้', err.messageUser || err.message || 'รอผู้เล่นอีกคน');
+        }
+      });
 
-      try {
-        const session = await ensureBattleSession(ctx(), { adapter: roomApi });
-        log(`initial pass -> ${session.code || 'READY'}`);
-      } catch (err) {
-        log(`initial check -> ${err?.code || err?.message || 'error'}`);
+      adapter = makeRoomAdapter();
+
+      setOverlay(true, '⏳', 'กำลังตรวจ Battle', 'รอผู้เล่นให้ครบ 2 คนในห้องเดียวกัน');
+
+      try{
+        const session = await ensureBattleSession(C, { adapter });
+        await handleRoomResult(session);
+      }catch(err){
+        setOverlay(true, '⏳', err.title || 'ยังเริ่มไม่ได้', err.messageUser || err.message || 'รอผู้เล่นอีกคน');
       }
 
-      await watchRoom();
+      stopWatch = watchBattleSession(C, handleRoomResult, { adapter });
+
+      window.addEventListener('beforeunload', () => {
+        try{ stopWatch?.(); }catch(_){}
+      });
+
+      render();
     }
 
     init();
