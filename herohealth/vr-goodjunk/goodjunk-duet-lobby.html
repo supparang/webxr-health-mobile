@@ -640,8 +640,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjduet-v4"></script>
-  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-v4"></script>
+  <script src="../firebase-config.js?v=20260430-gjduet-v5"></script>
+  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-v5"></script>
 
   <script>
   (function () {
@@ -825,6 +825,7 @@
     function showRoomFull() {
       ui.btnReady.disabled = true;
       ui.btnStart.disabled = true;
+      ui.btnStart.textContent = 'ห้องเต็ม';
       setStatus('ห้องนี้เต็มแล้ว');
       setTiny('Duet เล่นได้ 2 คนต่อห้องเท่านั้น ให้กลับไปสร้างหรือเข้าห้องใหม่');
     }
@@ -874,7 +875,13 @@
       ui.pillPlayer.textContent = 'ผู้เล่น • ' + ctx.name;
       ui.pillDiff.textContent = 'ระดับ • ' + ctx.diff;
       ui.pillTime.textContent = 'เวลา • ' + ctx.time;
-      ui.btnStart.disabled = !isActingHost();
+
+      if (!isActingHost()) {
+        ui.btnStart.disabled = true;
+        ui.btnStart.textContent = '⏳ รอ Host เริ่ม';
+      } else {
+        ui.btnStart.textContent = '🚀 เริ่ม Duet';
+      }
     }
 
     function avatarFor(index, role) {
@@ -981,11 +988,27 @@
 
       const onlineCount = players.filter((p) => p && p.online !== false).length;
       const readyCount = players.filter((p) => p && p.ready).length;
-      const canStart = isActingHost() && onlineCount >= 2 && readyCount >= 2 && !starting;
+      const hostSide = isActingHost();
+      const canStart = hostSide && onlineCount >= 2 && readyCount >= 2 && !starting;
 
-      ui.btnStart.disabled = !canStart;
+      if (hostSide) {
+        ui.btnStart.disabled = !canStart;
 
-      if (isActingHost()) {
+        if (canStart) {
+          ui.btnStart.textContent = '🚀 เริ่ม Duet';
+        } else if (onlineCount < 2) {
+          ui.btnStart.textContent = '⏳ รอผู้เล่น 2 คน';
+        } else if (readyCount < 2) {
+          ui.btnStart.textContent = '⏳ รอพร้อมทั้งคู่';
+        } else {
+          ui.btnStart.textContent = '🚀 เริ่ม Duet';
+        }
+      } else {
+        ui.btnStart.disabled = true;
+        ui.btnStart.textContent = '⏳ รอ Host เริ่ม';
+      }
+
+      if (hostSide) {
         if (onlineCount >= 2 && readyCount >= 2) {
           setStatus('ครบ 2 คนและพร้อมแล้ว กดเริ่ม Duet ได้เลย');
           setTiny('รอบนี้จะใช้สรุปทีมชุดเดียวกันทั้งสองเครื่อง');
@@ -1097,10 +1120,19 @@
     }
 
     async function onStart() {
-      if (!isActingHost() || starting) return;
+      if (!isActingHost()) {
+        setStatus('เครื่องนี้เป็น Guest รอ Host กดเริ่ม Duet');
+        setTiny('เมื่อ Host กดเริ่ม ระบบจะพาเครื่องนี้เข้าเกมอัตโนมัติ');
+        ui.btnStart.disabled = true;
+        ui.btnStart.textContent = '⏳ รอ Host เริ่ม';
+        return;
+      }
+
+      if (starting) return;
 
       starting = true;
       ui.btnStart.disabled = true;
+      ui.btnStart.textContent = 'กำลังเริ่ม…';
 
       let actionLock = null;
 
