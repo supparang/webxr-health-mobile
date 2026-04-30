@@ -1,5 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk-battle-room.js ===
-// FULL PATCH v20260410c-GJ-BATTLE-ROOM-GUARD-1V1-STABLE
+// FULL PATCH v20260430b-GJ-BATTLE-ROOM-ATTACK-SYSTEM
+// ✅ Battle 1v1 room guard
+// ✅ Local room adapter fallback
+// ✅ Stable player list
+// ✅ Battle attack queue
+// ✅ Shield block
+// ✅ Player score/combo/hp/attackMeter sync
+// ✅ Soft child-friendly attacks: junkStorm / slowTrap / confuseSwap
+// ✅ No physical violence; nutrition-themed battle only
 
 const STORAGE = {
   localRoomPrefix: 'GJ_ROOM_LOCAL:',
@@ -9,14 +17,55 @@ const STORAGE = {
 const BATTLE_REQUIRED_PLAYERS = 2;
 const BATTLE_MAX_PLAYERS = 2;
 
+const BATTLE_ATTACK_TYPES = {
+  junkStorm: {
+    id: 'junkStorm',
+    emoji: '🌪️',
+    label: 'Junk Storm',
+    labelTh: 'พายุ Junk',
+    durationMs: 5000,
+    cost: 3,
+    power: 1,
+    description: 'ส่ง Junk เพิ่มไปกวนคู่แข่งชั่วคราว'
+  },
+  slowTrap: {
+    id: 'slowTrap',
+    emoji: '🐌',
+    label: 'Slow Trap',
+    labelTh: 'กับดักช้า',
+    durationMs: 4500,
+    cost: 3,
+    power: 1,
+    description: 'ทำให้จังหวะฝั่งคู่แข่งช้าหรือหน่วงขึ้นเล็กน้อย'
+  },
+  confuseSwap: {
+    id: 'confuseSwap',
+    emoji: '🌀',
+    label: 'Confuse Swap',
+    labelTh: 'สลับชวนงง',
+    durationMs: 4200,
+    cost: 3,
+    power: 1,
+    description: 'ทำให้คู่แข่งต้องดู Good/Junk ให้ตั้งใจขึ้น'
+  }
+};
+
 function clean(v, d = '') {
   const s = String(v ?? '').trim();
   return s || d;
 }
 
+function clamp(n, min, max) {
+  n = Number(n) || 0;
+  return Math.max(min, Math.min(max, n));
+}
+
 function safeJsonParse(text, fallback = null) {
-  try { return JSON.parse(text); }
-  catch (_) { return fallback; }
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    return fallback;
+  }
 }
 
 function storageGet(key, fallback = '') {
@@ -39,8 +88,96 @@ function localRoomKey(roomId) {
 }
 
 function nowIso() {
-  try { return new Date().toISOString(); }
-  catch (_) { return ''; }
+  try {
+    return new Date().toISOString();
+  } catch (_) {
+    return '';
+  }
+}
+
+function nowMs() {
+  return Date.now();
+}
+
+function makeId(prefix = 'id') {
+  const r = Math.random().toString(36).slice(2, 8);
+  const t = String(Date.now()).slice(-6);
+  return `${prefix}-${r}-${t}`;
+}
+
+function normalizeAttackType(type) {
+  const t = clean(type, 'junkStorm');
+  return BATTLE_ATTACK_TYPES[t] ? t : 'junkStorm';
+}
+
+function createBattlePlayer(pid, payload = {}, fallbackRole = 'player') {
+  const safePid = clean(payload.pid || pid, pid || 'anon');
+  const safeName = clean(payload.name || payload.nick || safePid, 'Player');
+  const now = nowMs();
+
+  return {
+    pid: safePid,
+    name: safeName,
+    nick: clean(payload.nick || payload.name || safeName, safeName),
+    role: clean(payload.role, fallbackRole),
+    joinedAt: Number(payload.joinedAt || 0) || now,
+    ready: payload.ready === true,
+
+    score: Number(payload.score || 0) || 0,
+    combo: Number(payload.combo || 0) || 0,
+    hp: clamp(payload.hp ?? 3, 0, 3),
+    shield: clamp(payload.shield ?? 0, 0, 1),
+    attackMeter: clamp(payload.attackMeter ?? 0, 0, 3),
+
+    goodHits: Number(payload.goodHits || 0) || 0,
+    junkHits: Number(payload.junkHits || 0) || 0,
+    attacksSent: Number(payload.attacksSent || 0) || 0,
+    attacksBlocked: Number(payload.attacksBlocked || 0) || 0,
+    attacksReceived: Number(payload.attacksReceived || 0) || 0,
+
+    lastSeenAt: Number(payload.lastSeenAt || 0) || now,
+    updatedAt: Number(payload.updatedAt || 0) || now
+  };
+}
+
+function normalizeAttacks(room) {
+  const attacks = Array.isArray(room?.attacks) ? room.attacks : [];
+
+  return attacks
+    .filter(Boolean)
+    .map((a) => ({
+      id: clean(a.id, makeId('atk')),
+      fromPid: clean(a.fromPid, ''),
+      toPid: clean(a.toPid, ''),
+      type: normalizeAttackType(a.type),
+      power: Number(a.power || 1) || 1,
+      durationMs: Number(a.durationMs || BATTLE_ATTACK_TYPES[normalizeAttackType(a.type)].durationMs) || 4000,
+      createdAt: Number(a.createdAt || 0) || nowMs(),
+      appliedAt: Number(a.appliedAt || 0) || 0,
+      blockedAt: Number(a.blockedAt || 0) || 0,
+      consumedAt: Number(a.consumedAt || 0) || 0,
+      status: clean(a.status, 'pending')
+    }))
+    .slice(-30);
+}
+
+function normalizeEffects(room) {
+  const effects = Array.isArray(room?.effects) ? room.effects : [];
+
+  return effects
+    .filter(Boolean)
+    .map((e) => ({
+      id: clean(e.id, makeId('fx')),
+      pid: clean(e.pid, ''),
+      type: normalizeAttackType(e.type),
+      fromPid: clean(e.fromPid, ''),
+      power: Number(e.power || 1) || 1,
+      startedAt: Number(e.startedAt || 0) || nowMs(),
+      expiresAt: Number(e.expiresAt || 0) || nowMs(),
+      sourceAttackId: clean(e.sourceAttackId, '')
+    }))
+    .filter((e) => e.expiresAt > nowMs())
+    .slice(-20);
 }
 
 function normalizeRoom(roomId, room) {
@@ -51,26 +188,39 @@ function normalizeRoom(roomId, room) {
 
   Object.entries(playersObj).forEach(([pid, p]) => {
     if (!p || typeof p !== 'object') return;
-
-    players[pid] = {
-      pid: clean(p.pid || pid, pid),
-      name: clean(p.name || p.nick || p.pid || pid, 'Player'),
-      nick: clean(p.nick || p.name || p.pid || pid, 'Player'),
-      role: clean(p.role, 'player'),
-      joinedAt: Number(p.joinedAt || 0) || Date.now(),
-      ready: p.ready === true
-    };
+    players[pid] = createBattlePlayer(pid, p, p.role || 'player');
   });
 
   return {
     roomId: clean(room.roomId || roomId, roomId),
-    mode: clean(room.mode, ''),
+    mode: clean(room.mode, 'battle'),
     status: clean(room.status, 'waiting'),
     hostPid: clean(room.hostPid, ''),
-    createdAt: Number(room.createdAt || 0) || Date.now(),
-    updatedAt: Number(room.updatedAt || 0) || Date.now(),
+    createdAt: Number(room.createdAt || 0) || nowMs(),
+    updatedAt: Number(room.updatedAt || 0) || nowMs(),
     startedAt: Number(room.startedAt || 0) || 0,
-    players
+    players,
+    attacks: normalizeAttacks(room),
+    effects: normalizeEffects(room),
+    lastAttackAt: Number(room.lastAttackAt || 0) || 0
+  };
+}
+
+function makeEmptyRoom(roomId) {
+  const now = nowMs();
+
+  return {
+    roomId,
+    mode: 'battle',
+    status: 'waiting',
+    hostPid: '',
+    createdAt: now,
+    updatedAt: now,
+    startedAt: 0,
+    players: {},
+    attacks: [],
+    effects: [],
+    lastAttackAt: 0
   };
 }
 
@@ -82,40 +232,30 @@ function makeLocalRoomAdapter() {
   }
 
   function saveRoom(roomId, payload) {
-    const next = normalizeRoom(roomId, payload) || {
-      roomId,
-      mode: 'battle',
-      status: 'waiting',
-      hostPid: '',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      startedAt: 0,
-      players: {}
-    };
-
-    next.updatedAt = Date.now();
+    const next = normalizeRoom(roomId, payload) || makeEmptyRoom(roomId);
+    next.updatedAt = nowMs();
     storageSet(localRoomKey(roomId), JSON.stringify(next));
     return next;
   }
 
   function patchRoom(roomId, patch) {
-    const prev = loadRoom(roomId) || {
-      roomId,
-      mode: 'battle',
-      status: 'waiting',
-      hostPid: '',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      startedAt: 0,
-      players: {}
-    };
+    const prev = loadRoom(roomId) || makeEmptyRoom(roomId);
 
     const merged = {
       ...prev,
       ...patch,
-      players: patch?.players && typeof patch.players === 'object'
-        ? patch.players
-        : prev.players
+      players:
+        patch?.players && typeof patch.players === 'object'
+          ? patch.players
+          : prev.players,
+      attacks:
+        Array.isArray(patch?.attacks)
+          ? patch.attacks
+          : prev.attacks,
+      effects:
+        Array.isArray(patch?.effects)
+          ? patch.effects
+          : prev.effects
     };
 
     return saveRoom(roomId, merged);
@@ -123,7 +263,9 @@ function makeLocalRoomAdapter() {
 
   function subscribeRoom(roomId, callback) {
     const emit = () => {
-      try { callback(loadRoom(roomId)); } catch (_) {}
+      try {
+        callback(loadRoom(roomId));
+      } catch (_) {}
     };
 
     const onStorage = (ev) => {
@@ -132,12 +274,16 @@ function makeLocalRoomAdapter() {
 
     window.addEventListener('storage', onStorage);
 
-    const timer = setInterval(emit, 800);
+    const timer = setInterval(emit, 650);
     emit();
 
     return () => {
-      try { window.removeEventListener('storage', onStorage); } catch (_) {}
-      try { clearInterval(timer); } catch (_) {}
+      try {
+        window.removeEventListener('storage', onStorage);
+      } catch (_) {}
+      try {
+        clearInterval(timer);
+      } catch (_) {}
     };
   }
 
@@ -176,6 +322,10 @@ export function makeRoomAdapter() {
   return makeLocalRoomAdapter();
 }
 
+export function getBattleAttackTypes() {
+  return JSON.parse(JSON.stringify(BATTLE_ATTACK_TYPES));
+}
+
 export function getPlayers(room) {
   const players = room?.players || {};
   return Object.values(players)
@@ -194,6 +344,11 @@ export function getPlayerByPid(room, pid = '') {
 
 export function getBattleMaxPlayers() {
   return BATTLE_MAX_PLAYERS;
+}
+
+export function getBattleOpponent(room, pid = '') {
+  const safePid = clean(pid, '');
+  return getPlayers(room).find((p) => p.pid !== safePid) || null;
 }
 
 export function saveRecentRoom(mode = 'battle', roomId = '') {
@@ -220,7 +375,7 @@ export function buildBattleEngineQuery(ctx = {}, extra = {}) {
     name: clean(ctx.name || ctx.nick, 'Hero'),
     nick: clean(ctx.nick || ctx.name, 'Hero'),
     diff: clean(ctx.diff, 'normal'),
-    time: clean(ctx.time, '90'),
+    time: clean(ctx.time, '150'),
     view: clean(ctx.view, 'mobile'),
     hub: clean(ctx.hub, './hub-v2.html'),
     run: clean(ctx.run, 'play'),
@@ -241,6 +396,7 @@ export function buildBattleEngineQuery(ctx = {}, extra = {}) {
   Object.entries(payload).forEach(([k, v]) => {
     if (v !== '' && v != null) q.set(k, String(v));
   });
+
   return q;
 }
 
@@ -385,5 +541,311 @@ export function watchBattleSession(ctx = {}, callback, options = {}) {
 
   return adapter.subscribeRoom(roomId, (room) => {
     callback(classifyBattleRoom(ctx, room));
+  });
+}
+
+export async function updateBattlePlayerStats(ctx = {}, patch = {}, options = {}) {
+  const adapter = options.adapter || makeRoomAdapter();
+  const roomId = clean(ctx.room, '');
+
+  if (!roomId) return null;
+
+  const pid = clean(ctx.pid, 'anon');
+  const room = await adapter.loadRoom(roomId);
+  if (!room || !room.players || !room.players[pid]) return null;
+
+  const player = createBattlePlayer(pid, room.players[pid]);
+
+  const nextPlayer = {
+    ...player,
+    score: Number(patch.score ?? player.score) || 0,
+    combo: Number(patch.combo ?? player.combo) || 0,
+    hp: clamp(patch.hp ?? player.hp, 0, 3),
+    shield: clamp(patch.shield ?? player.shield, 0, 1),
+    attackMeter: clamp(patch.attackMeter ?? player.attackMeter, 0, 3),
+    goodHits: Number(patch.goodHits ?? player.goodHits) || 0,
+    junkHits: Number(patch.junkHits ?? player.junkHits) || 0,
+    attacksSent: Number(patch.attacksSent ?? player.attacksSent) || 0,
+    attacksBlocked: Number(patch.attacksBlocked ?? player.attacksBlocked) || 0,
+    attacksReceived: Number(patch.attacksReceived ?? player.attacksReceived) || 0,
+    lastSeenAt: nowMs(),
+    updatedAt: nowMs()
+  };
+
+  const players = {
+    ...room.players,
+    [pid]: nextPlayer
+  };
+
+  const saved = await adapter.patchRoom(roomId, {
+    ...room,
+    players,
+    updatedAt: nowMs()
+  });
+
+  return saved;
+}
+
+export async function addBattleShield(ctx = {}, options = {}) {
+  const adapter = options.adapter || makeRoomAdapter();
+  const roomId = clean(ctx.room, '');
+  const pid = clean(ctx.pid, 'anon');
+
+  if (!roomId) return null;
+
+  const room = await adapter.loadRoom(roomId);
+  if (!room || !room.players || !room.players[pid]) return null;
+
+  const player = createBattlePlayer(pid, room.players[pid]);
+  player.shield = 1;
+  player.updatedAt = nowMs();
+  player.lastSeenAt = nowMs();
+
+  const players = {
+    ...room.players,
+    [pid]: player
+  };
+
+  return await adapter.patchRoom(roomId, {
+    ...room,
+    players,
+    updatedAt: nowMs()
+  });
+}
+
+export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', options = {}) {
+  const adapter = options.adapter || makeRoomAdapter();
+  const roomId = clean(ctx.room, '');
+  const fromPid = clean(ctx.pid, 'anon');
+
+  if (!roomId) {
+    return {
+      ok: false,
+      code: 'ROOM_MISSING',
+      message: 'ไม่พบ Room Code'
+    };
+  }
+
+  const room = await adapter.loadRoom(roomId);
+  const session = classifyBattleRoom({ ...ctx, mode: 'battle' }, room);
+
+  if (!session.ok) {
+    return {
+      ok: false,
+      code: session.code,
+      message: session.message,
+      room
+    };
+  }
+
+  const fromPlayer = getPlayerByPid(room, fromPid);
+  const opponent = getBattleOpponent(room, fromPid);
+
+  if (!fromPlayer || !opponent) {
+    return {
+      ok: false,
+      code: 'OPPONENT_MISSING',
+      message: 'ยังไม่พบคู่แข่ง'
+    };
+  }
+
+  const type = normalizeAttackType(attackType);
+  const meta = BATTLE_ATTACK_TYPES[type];
+  const cost = Number(options.cost ?? meta.cost ?? 3) || 3;
+
+  const from = createBattlePlayer(fromPid, fromPlayer);
+  if (from.attackMeter < cost) {
+    return {
+      ok: false,
+      code: 'METER_NOT_READY',
+      message: `พลังโจมตียังไม่พอ ต้องมี ${cost}/3`,
+      room
+    };
+  }
+
+  const to = createBattlePlayer(opponent.pid, opponent);
+
+  const attack = {
+    id: makeId('atk'),
+    fromPid,
+    toPid: opponent.pid,
+    type,
+    power: Number(options.power ?? meta.power ?? 1) || 1,
+    durationMs: Number(options.durationMs ?? meta.durationMs ?? 4500) || 4500,
+    createdAt: nowMs(),
+    appliedAt: 0,
+    blockedAt: 0,
+    consumedAt: 0,
+    status: 'pending'
+  };
+
+  from.attackMeter = clamp(from.attackMeter - cost, 0, 3);
+  from.attacksSent += 1;
+  from.updatedAt = nowMs();
+  from.lastSeenAt = nowMs();
+
+  const attacks = normalizeAttacks(room);
+  attacks.push(attack);
+
+  const players = {
+    ...room.players,
+    [fromPid]: from,
+    [opponent.pid]: to
+  };
+
+  const saved = await adapter.patchRoom(roomId, {
+    ...room,
+    players,
+    attacks,
+    lastAttackAt: nowMs(),
+    updatedAt: nowMs()
+  });
+
+  return {
+    ok: true,
+    code: 'ATTACK_SENT',
+    attack,
+    type,
+    meta,
+    fromPid,
+    toPid: opponent.pid,
+    room: saved
+  };
+}
+
+export async function consumeBattleAttacksForPlayer(ctx = {}, options = {}) {
+  const adapter = options.adapter || makeRoomAdapter();
+  const roomId = clean(ctx.room, '');
+  const pid = clean(ctx.pid, 'anon');
+
+  if (!roomId) {
+    return {
+      ok: false,
+      code: 'ROOM_MISSING',
+      attacks: [],
+      effects: [],
+      room: null
+    };
+  }
+
+  const room = await adapter.loadRoom(roomId);
+
+  if (!room || !room.players || !room.players[pid]) {
+    return {
+      ok: false,
+      code: 'PLAYER_NOT_FOUND',
+      attacks: [],
+      effects: [],
+      room
+    };
+  }
+
+  const player = createBattlePlayer(pid, room.players[pid]);
+  const now = nowMs();
+
+  const attacks = normalizeAttacks(room);
+  const effects = normalizeEffects(room);
+  const applied = [];
+  const blocked = [];
+
+  const nextAttacks = attacks.map((attack) => {
+    if (
+      attack.toPid !== pid ||
+      attack.status !== 'pending' ||
+      attack.consumedAt ||
+      attack.blockedAt
+    ) {
+      return attack;
+    }
+
+    if (player.shield > 0) {
+      player.shield = 0;
+      player.attacksBlocked += 1;
+
+      blocked.push({
+        ...attack,
+        status: 'blocked',
+        blockedAt: now,
+        consumedAt: now
+      });
+
+      return {
+        ...attack,
+        status: 'blocked',
+        blockedAt: now,
+        consumedAt: now
+      };
+    }
+
+    const fx = {
+      id: makeId('fx'),
+      pid,
+      type: attack.type,
+      fromPid: attack.fromPid,
+      power: attack.power,
+      startedAt: now,
+      expiresAt: now + Number(attack.durationMs || 4500),
+      sourceAttackId: attack.id
+    };
+
+    effects.push(fx);
+    applied.push({
+      ...attack,
+      status: 'applied',
+      appliedAt: now,
+      consumedAt: now
+    });
+
+    player.attacksReceived += 1;
+    player.updatedAt = now;
+    player.lastSeenAt = now;
+
+    return {
+      ...attack,
+      status: 'applied',
+      appliedAt: now,
+      consumedAt: now
+    };
+  });
+
+  const players = {
+    ...room.players,
+    [pid]: player
+  };
+
+  const saved = await adapter.patchRoom(roomId, {
+    ...room,
+    players,
+    attacks: nextAttacks.slice(-30),
+    effects: effects.filter((e) => e.expiresAt > now).slice(-20),
+    updatedAt: now
+  });
+
+  return {
+    ok: true,
+    code: 'ATTACKS_CONSUMED',
+    attacks: applied,
+    blocked,
+    effects: effects.filter((e) => e.pid === pid && e.expiresAt > now),
+    room: saved
+  };
+}
+
+export async function clearExpiredBattleEffects(ctx = {}, options = {}) {
+  const adapter = options.adapter || makeRoomAdapter();
+  const roomId = clean(ctx.room, '');
+
+  if (!roomId) return null;
+
+  const room = await adapter.loadRoom(roomId);
+  if (!room) return null;
+
+  const now = nowMs();
+  const effects = normalizeEffects(room).filter((e) => e.expiresAt > now);
+
+  return await adapter.patchRoom(roomId, {
+    ...room,
+    effects,
+    updatedAt: now
   });
 }
