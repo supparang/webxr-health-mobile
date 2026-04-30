@@ -640,8 +640,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjduet-v8"></script>
-  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-v8"></script>
+  <script src="../firebase-config.js?v=20260430-gjduet-v9"></script>
+  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-v9"></script>
 
   <script>
   (function () {
@@ -693,10 +693,12 @@
     let starting = false;
     let navigating = false;
     let effectiveHostPid = '';
+
     const localReadyByPid = {};
+    const readyMirrorByPid = {};
+
     let readyKeepAliveTimer = 0;
     let lobbyPollTimer = 0;
-    const readyMirrorByPid = {};
 
     function esc(s) {
       return String(s ?? '')
@@ -927,15 +929,43 @@
       return list;
     }
 
-    function renderPlayers(players) {
-      const list = applyLocalReady(Array.isArray(players) ? players.slice() : []);
+    function isFreshOnlinePlayer(p) {
+      if (!p || !p.pid) return false;
 
-      list.sort((a, b) => {
-        const ar = String(a.pid || '') === String(effectiveHostPid || '') ? 0 : 1;
-        const br = String(b.pid || '') === String(effectiveHostPid || '') ? 0 : 1;
+      const lastSeen = Number(p.lastSeen || p.updatedAt || p.joinedAt || 0);
+      const age = lastSeen ? (Date.now() - lastSeen) : 0;
+
+      if (p.online === false) return false;
+      if (!lastSeen) return true;
+
+      return age <= 45000;
+    }
+
+    function uniqueActivePlayers(players) {
+      const list = Array.isArray(players) ? players.slice() : [];
+      const fresh = list.filter(isFreshOnlinePlayer);
+
+      fresh.sort((a, b) => {
+        const ah = String(a.pid || '') === String(effectiveHostPid || '') ? 0 : 1;
+        const bh = String(b.pid || '') === String(effectiveHostPid || '') ? 0 : 1;
+        if (ah !== bh) return ah - bh;
+
+        const ar = a.ready ? 0 : 1;
+        const br = b.ready ? 0 : 1;
         if (ar !== br) return ar - br;
-        return String(a.name || '').localeCompare(String(b.name || ''));
+
+        const at = Number(a.lastSeen || a.updatedAt || a.joinedAt || 0);
+        const bt = Number(b.lastSeen || b.updatedAt || b.joinedAt || 0);
+        return bt - at;
       });
+
+      return fresh.slice(0, 2);
+    }
+
+    function renderPlayers(players) {
+      const list = uniqueActivePlayers(
+        applyLocalReady(Array.isArray(players) ? players.slice() : [])
+      );
 
       if (!list.length) {
         ui.playersList.innerHTML = `
@@ -1059,6 +1089,43 @@
       return list;
     }
 
+    async function cleanupStalePlayers(rawPlayers, activePlayers) {
+      try {
+        if (!window.firebase || typeof window.firebase.database !== 'function') return;
+        if (!boot || typeof boot.getPlayerPath !== 'function') return;
+
+        const activePidSet = new Set(
+          (Array.isArray(activePlayers) ? activePlayers : [])
+            .map(p => String(p.pid || '').trim())
+            .filter(Boolean)
+        );
+
+        const all = Array.isArray(rawPlayers) ? rawPlayers : [];
+
+        for (const p of all) {
+          const pid = String(p && p.pid || '').trim();
+          if (!pid) continue;
+          if (activePidSet.has(pid)) continue;
+          if (String(pid) === String(effectiveHostPid || '')) continue;
+
+          const lastSeen = Number(p.lastSeen || p.updatedAt || p.joinedAt || 0);
+          const tooOld = lastSeen && (Date.now() - lastSeen > 45000);
+
+          if (p.online === false || tooOld) {
+            const path = boot.getPlayerPath(pid);
+            await window.firebase.database().ref(path).update({
+              online: false,
+              ready: false,
+              inRuntime: false,
+              cleanedAt: Date.now()
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[GJ-DUET-LOBBY] cleanupStalePlayers failed:', err);
+      }
+    }
+
     function startLobbyPoll() {
       if (lobbyPollTimer) clearInterval(lobbyPollTimer);
 
@@ -1076,6 +1143,10 @@
       effectiveHostPid = await boot.getEffectiveHostPid();
 
       applyLocalReady(players);
+      players = uniqueActivePlayers(players);
+
+      cleanupStalePlayers(rawPlayers, players).catch(function(){});
+
       renderHeader();
       renderPlayers(players);
 
@@ -1309,7 +1380,10 @@
     }
 
     function getReadyLobbySnapshot(players) {
-      const list = applyLocalReady(Array.isArray(players) ? players.slice() : []);
+      const list = uniqueActivePlayers(
+        applyLocalReady(Array.isArray(players) ? players.slice() : [])
+      );
+
       const online = list.filter((p) => p && p.online !== false);
       const ready = list.filter((p) => p && p.ready);
 
