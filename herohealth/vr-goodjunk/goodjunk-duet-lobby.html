@@ -640,8 +640,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjduet-v6"></script>
-  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-v6"></script>
+  <script src="../firebase-config.js?v=20260430-gjduet-v8"></script>
+  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-v8"></script>
 
   <script>
   (function () {
@@ -694,6 +694,7 @@
     let navigating = false;
     let effectiveHostPid = '';
     const localReadyByPid = {};
+    let readyKeepAliveTimer = 0;
 
     function esc(s) {
       return String(s ?? '')
@@ -992,19 +993,23 @@
       const canStart = hostSide && onlineCount >= 2 && readyCount >= 2 && !starting;
 
       if (hostSide) {
-        ui.btnStart.disabled = !canStart;
-
         if (canStart) {
-          ui.btnStart.textContent = '🚀 เริ่ม Duet';
-        } else if (onlineCount < 2) {
-          ui.btnStart.textContent = '⏳ รอผู้เล่น 2 คน';
-        } else if (readyCount < 2) {
-          ui.btnStart.textContent = '⏳ รอพร้อมทั้งคู่';
+          enableStartButtonNow();
         } else {
-          ui.btnStart.textContent = '🚀 เริ่ม Duet';
+          ui.btnStart.disabled = true;
+          ui.btnStart.setAttribute('disabled', 'disabled');
+
+          if (onlineCount < 2) {
+            ui.btnStart.textContent = '⏳ รอผู้เล่น 2 คน';
+          } else if (readyCount < 2) {
+            ui.btnStart.textContent = '⏳ รอพร้อมทั้งคู่';
+          } else {
+            ui.btnStart.textContent = '🚀 เริ่ม Duet';
+          }
         }
       } else {
         ui.btnStart.disabled = true;
+        ui.btnStart.setAttribute('disabled', 'disabled');
         ui.btnStart.textContent = '⏳ รอ Host เริ่ม';
       }
 
@@ -1084,6 +1089,63 @@
       }
     }
 
+    async function forceWriteReadyToFirebase() {
+      try {
+        if (!boot || !boot.getPlayerPath) return false;
+        if (!window.firebase || typeof window.firebase.database !== 'function') return false;
+
+        const path = boot.getPlayerPath(ctx.pid);
+        if (!path) return false;
+
+        await window.firebase.database().ref(path).update({
+          pid: ctx.pid,
+          name: ctx.name,
+          role: isActingHost() ? 'host' : 'guest',
+          ready: true,
+          online: true,
+          inRuntime: false,
+          lastSeen: Date.now()
+        });
+
+        return true;
+      } catch (err) {
+        console.warn('[GJ-DUET-LOBBY] forceWriteReadyToFirebase failed:', err);
+        return false;
+      }
+    }
+
+    function startReadyKeepAlive() {
+      if (readyKeepAliveTimer) clearInterval(readyKeepAliveTimer);
+
+      let count = 0;
+
+      readyKeepAliveTimer = setInterval(async function () {
+        count += 1;
+
+        try {
+          localReadyByPid[ctx.pid] = true;
+
+          if (boot && typeof boot.setPresence === 'function') {
+            await boot.setPresence({
+              ready: true,
+              online: true,
+              inRuntime: false,
+              lastSeen: Date.now()
+            });
+          }
+
+          await forceWriteReadyToFirebase();
+        } catch (err) {
+          console.warn('[GJ-DUET-LOBBY] ready keepalive failed:', err);
+        }
+
+        if (count >= 8) {
+          clearInterval(readyKeepAliveTimer);
+          readyKeepAliveTimer = 0;
+        }
+      }, 900);
+    }
+
     async function onReady() {
       readyPressed = true;
       localReadyByPid[ctx.pid] = true;
@@ -1108,12 +1170,27 @@
         });
 
         await boot.markLobbyReady(true);
+
+        await forceWriteReadyToFirebase();
+        startReadyKeepAlive();
+
+        setTimeout(function () {
+          refreshPlayers().catch(function(){});
+        }, 350);
+
+        setTimeout(function () {
+          refreshPlayers().catch(function(){});
+        }, 1000);
+
         await refreshPlayers();
       } catch (err) {
         console.warn('[GJ-DUET-LOBBY ready failed]', err);
 
-        setStatus('พร้อมแล้วบนเครื่องนี้ แต่ส่งสถานะไปห้องไม่สำเร็จ: ' + (err && err.message ? err.message : String(err)));
-        setTiny('ตรวจ Firebase connection หรือ Rules อีกครั้ง');
+        await forceWriteReadyToFirebase();
+        startReadyKeepAlive();
+
+        setStatus('พร้อมแล้วบนเครื่องนี้ กำลังส่งสถานะไปห้องอีกครั้ง');
+        setTiny('ถ้า Host ยังไม่เห็น ให้รอ 1–2 วินาที หรือกด refresh ห้อง');
 
         await refreshPlayers().catch(function(){});
       }
@@ -1166,6 +1243,52 @@
       }, 900);
     }
 
+    function makeFallbackMatchId() {
+      return 'MT-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+    }
+
+    async function forceWriteRunToFirebase(matchId, runtimeUrl) {
+      try {
+        if (!boot || !boot.getRunPath) return false;
+        if (!window.firebase || typeof window.firebase.database !== 'function') return false;
+
+        const db = window.firebase.database();
+        const runPath = boot.getRunPath();
+        const roomPath = boot.getRoomRootPath ? boot.getRoomRootPath() : '';
+
+        const payload = {
+          state: 'running',
+          matchId: String(matchId || ''),
+          runtimeUrl: String(runtimeUrl || ''),
+          startedAt: Date.now(),
+          runToken: 'RUN-' + String(matchId || '') + '-' + Date.now()
+        };
+
+        if (runPath) {
+          await db.ref(runPath).set(payload);
+        }
+
+        if (roomPath) {
+          await db.ref(roomPath).update({
+            status: 'running',
+            activeMatchId: String(matchId || ''),
+            updatedAt: Date.now()
+          });
+        }
+
+        return true;
+      } catch (err) {
+        console.warn('[GJ-DUET-LOBBY] forceWriteRunToFirebase failed:', err);
+        return false;
+      }
+    }
+
+    function enableStartButtonNow() {
+      ui.btnStart.disabled = false;
+      ui.btnStart.removeAttribute('disabled');
+      ui.btnStart.textContent = '🚀 เริ่ม Duet';
+    }
+
     async function onStart() {
       if (!isActingHost()) {
         setStatus('เครื่องนี้เป็น Guest รอ Host กดเริ่ม Duet');
@@ -1179,115 +1302,69 @@
 
       starting = true;
       ui.btnStart.disabled = true;
-      ui.btnStart.textContent = 'กำลังเริ่ม…';
-      setStatus('กำลังเริ่ม Duet...');
-      setTiny('กำลังสร้างรอบเล่นและส่งสัญญาณให้อีกเครื่อง');
+      ui.btnStart.textContent = 'กำลังเข้าเกม…';
+      setStatus('กำลังเข้าเกม Duet...');
+      setTiny('ระบบจะพาเข้าเกมทันที ไม่รอ Firebase ค้าง');
 
-      let actionLock = null;
+      let matchId = '';
+      let runtimeUrl = '';
 
       try {
-        let rawPlayers = [];
-
         try {
-          rawPlayers = await withTimeout(boot.listPlayers(), 2500, 'listPlayers');
+          await withTimeout(boot.forceResetRoomState(), 900, 'forceResetRoomState');
         } catch (err) {
-          console.warn('[GJ-DUET-LOBBY] listPlayers timeout/fail, fallback to current UI state:', err);
-          rawPlayers = [];
-        }
-
-        let snap = getReadyLobbySnapshot(rawPlayers);
-
-        if (snap.onlineCount > 2) {
-          setStatus('ห้องผิดปกติ มีผู้เล่นเกิน 2 คน');
-          starting = false;
-          await refreshPlayers(rawPlayers).catch(function(){});
-          return;
-        }
-
-        if (snap.onlineCount < 2) {
-          setStatus('ยังมีผู้เล่นไม่ครบ 2 คน');
-          starting = false;
-          await refreshPlayers(rawPlayers).catch(function(){});
-          return;
-        }
-
-        if (snap.readyCount < 2) {
-          setStatus('รอให้ทั้งสองคนกดพร้อมก่อน');
-          starting = false;
-          await refreshPlayers(rawPlayers).catch(function(){});
-          return;
+          console.warn('[GJ-DUET-LOBBY] reset skipped:', err);
         }
 
         try {
-          actionLock = await withTimeout(
-            boot.acquireRoomActionLock('start_duet', 2500),
-            3000,
-            'acquireRoomActionLock'
-          );
-
-          if (!actionLock) {
-            console.warn('[GJ-DUET-LOBBY] action lock not acquired, continue as host fallback');
-          }
+          matchId = await withTimeout(boot.ensureMatchId(true), 1200, 'ensureMatchId');
         } catch (err) {
-          console.warn('[GJ-DUET-LOBBY] action lock failed, continue as host fallback:', err);
+          console.warn('[GJ-DUET-LOBBY] ensureMatchId failed, using fallback:', err);
+          matchId = makeFallbackMatchId();
+        }
+
+        if (!matchId) {
+          matchId = makeFallbackMatchId();
+        }
+
+        runtimeUrl = buildRuntimeUrl(matchId);
+
+        try {
+          await withTimeout(forceWriteRunToFirebase(matchId, runtimeUrl), 900, 'forceWriteRunToFirebase');
+        } catch (err) {
+          console.warn('[GJ-DUET-LOBBY] force write run timeout:', err);
         }
 
         try {
-          await withTimeout(boot.forceResetRoomState(), 2500, 'forceResetRoomState');
+          await withTimeout(boot.startRoomRun(matchId, runtimeUrl), 900, 'startRoomRun');
         } catch (err) {
-          console.warn('[GJ-DUET-LOBBY] forceResetRoomState failed, continue:', err);
-        }
-
-        try {
-          effectiveHostPid = await withTimeout(boot.getEffectiveHostPid(), 2500, 'getEffectiveHostPid');
-        } catch (err) {
-          console.warn('[GJ-DUET-LOBBY] getEffectiveHostPid failed, keep current host:', err);
-          effectiveHostPid = ctx.pid;
-        }
-
-        const matchId = await withTimeout(boot.ensureMatchId(true), 3500, 'ensureMatchId');
-        const runtimeUrl = buildRuntimeUrl(matchId);
-
-        try {
-          await withTimeout(boot.clearRematchSignal(), 2000, 'clearRematchSignal');
-        } catch (err) {
-          console.warn('[GJ-DUET-LOBBY] clearRematchSignal failed, continue:', err);
-        }
-
-        try {
-          await withTimeout(boot.startRoomRun(matchId, runtimeUrl), 3500, 'startRoomRun');
-        } catch (err) {
-          console.warn('[GJ-DUET-LOBBY] startRoomRun failed, host will still enter runtime:', err);
+          console.warn('[GJ-DUET-LOBBY] startRoomRun skipped, host enters anyway:', err);
         }
 
         try {
           await withTimeout(
             boot.appendMatchEvent(matchId, 'match_started', {
-              source: 'lobby',
+              source: 'lobby-direct-start',
               byHostPid: ctx.pid
             }),
-            2000,
+            500,
             'appendMatchEvent'
           );
-        } catch (err) {
-          console.warn('[GJ-DUET-LOBBY] appendMatchEvent failed, continue:', err);
-        }
+        } catch (_) {}
 
         goRuntimeNow(runtimeUrl);
       } catch (err) {
-        console.error('[GJ-DUET-LOBBY start failed]', err);
+        console.error('[GJ-DUET-LOBBY direct start failed]', err);
 
-        setStatus('เริ่มเกมไม่สำเร็จ: ' + (err && err.message ? err.message : String(err)));
-        setTiny('ลองกดเริ่มอีกครั้ง หรือสร้างห้องใหม่');
+        if (!runtimeUrl) {
+          matchId = matchId || makeFallbackMatchId();
+          runtimeUrl = buildRuntimeUrl(matchId);
+        }
 
-        starting = false;
-        await refreshPlayers().catch(function(){});
-      } finally {
-        try {
-          if (actionLock) {
-            await boot.releaseRoomActionLock(actionLock);
-          }
-        } catch (_) {}
+        setStatus('Firebase ช้า แต่จะเข้าเกมทันที');
+        setTiny('กำลังเปิด runtime โดยตรง');
+
+        goRuntimeNow(runtimeUrl);
       }
     }
 
@@ -1322,7 +1399,12 @@
       await boot.ensureRoom();
 
       try {
-        await boot.setPresence({ ready: false, inRuntime: false });
+        await boot.setPresence({
+          ready: !!readyPressed || !!localReadyByPid[ctx.pid],
+          online: true,
+          inRuntime: false,
+          lastSeen: Date.now()
+        });
       } catch (err) {
         if (err && err.code === 'room_full') {
           renderHeader();
@@ -1394,6 +1476,12 @@
     ui.btnReady.addEventListener('click', onReady);
     ui.btnStart.addEventListener('click', onStart);
 
+    ui.btnStart.addEventListener('pointerup', function () {
+      if (!ui.btnStart.disabled && isActingHost()) {
+        onStart();
+      }
+    });
+
     ui.btnBackHub.addEventListener('click', function () {
       location.href = ctx.hub;
     });
@@ -1402,6 +1490,10 @@
       try { roomRunUnsub(); } catch (_) {}
       try { playersUnsub(); } catch (_) {}
       try { rematchUnsub(); } catch (_) {}
+
+      try {
+        if (readyKeepAliveTimer) clearInterval(readyKeepAliveTimer);
+      } catch (_) {}
     });
 
     init().catch(function (err) {
