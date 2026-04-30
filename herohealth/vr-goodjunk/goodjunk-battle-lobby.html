@@ -11,14 +11,14 @@
   <div id="app"></div>
 
   <script type="module">
-    import { mountGoodJunkModeLobby } from './goodjunk-mode-lobby.js?v=20260430a-GJ-BATTLE-QUICK-LOBBY';
+    import { mountGoodJunkModeLobby } from './goodjunk-mode-lobby.js?v=20260430c-GJ-BATTLE-QUICK-ATTACK';
 
     mountGoodJunkModeLobby({
       mode: 'battle',
       title: 'GoodJunk Battle',
-      subtitle: 'ดวลกัน 1 ต่อ 1: เก็บของดีให้ไว เลี่ยง Junk ให้แม่น ใครคะแนนสูงกว่าชนะ!',
+      subtitle: 'ดวลกัน 1 ต่อ 1: เก็บของดีให้ไว เลี่ยง Junk ให้แม่น สะสมพลังแล้วส่งอุปสรรคไปกวนคู่แข่ง!',
       emoji: '⚔️',
-      playPath: './goodjunk-battle-play.html',
+      playPath: './goodjunk-vr-battle.html',
       launcherPath: '../goodjunk-launcher.html',
 
       quickKids: true,
@@ -30,9 +30,11 @@
       joinText: '🚀 เข้าห้องนี้',
 
       tips: [
-        '✅ เก็บของดีให้เร็วที่สุด',
-        '❌ อย่าแตะ Junk เพราะจะเสียคะแนน',
-        '🏆 Battle มีผู้เล่น 2 คน ใครคะแนนสูงกว่าชนะ'
+        '✅ เก็บของดีเพื่อทำคะแนนและสะสมพลัง',
+        '❌ อย่าแตะ Junk เพราะเสียคะแนนและเสียหัวใจ',
+        '⚔️ พลังเต็มแล้วกด ATTACK เพื่อส่งอุปสรรคไปกวนคู่แข่ง',
+        '🛡️ เก็บ Shield เพื่อกันการโจมตี 1 ครั้ง',
+        '🏆 ครบเวลา ใครคะแนนสูงกว่าชนะ'
       ]
     });
   </script>
