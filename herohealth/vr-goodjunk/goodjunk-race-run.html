@@ -52,9 +52,7 @@
       overflow:hidden;
     }
 
-    button,a{
-      font:inherit;
-    }
+    button,a{ font:inherit; }
 
     .page{
       width:100vw;
@@ -537,6 +535,90 @@
       to{ opacity:0; transform:translate(-50%,-150%); }
     }
 
+    #raceWaitOverlay{
+      position:fixed;
+      inset:0;
+      z-index:99998;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(245,252,255,.78);
+      backdrop-filter:blur(8px);
+    }
+
+    #raceWaitOverlay.show{
+      display:flex;
+    }
+
+    .race-wait-card{
+      width:min(620px,96vw);
+      border-radius:30px;
+      border:4px solid var(--stroke);
+      background:linear-gradient(180deg,#fffdf8,#f7fff4);
+      box-shadow:0 28px 80px rgba(86,155,194,.25);
+      padding:22px;
+      display:grid;
+      gap:14px;
+      text-align:center;
+    }
+
+    .race-wait-icon{
+      width:110px;
+      height:110px;
+      margin:0 auto;
+      border-radius:34px;
+      border:5px solid #d7edf7;
+      background:linear-gradient(180deg,#fff8dc,#ffe8a3);
+      display:grid;
+      place-items:center;
+      font-size:56px;
+      animation:raceWaitPulse 1.35s ease-in-out infinite;
+    }
+
+    @keyframes raceWaitPulse{
+      0%,100%{ transform:scale(1); }
+      50%{ transform:scale(1.05); }
+    }
+
+    .race-wait-title{
+      font-size:30px;
+      line-height:1.08;
+      font-weight:1000;
+      color:#4197bd;
+    }
+
+    .race-wait-sub{
+      font-size:15px;
+      line-height:1.65;
+      color:#6b7280;
+      font-weight:900;
+    }
+
+    .race-wait-count{
+      width:min(240px,78vw);
+      margin:0 auto;
+      border-radius:999px;
+      border:3px solid #cde7f4;
+      background:#fff;
+      padding:12px 16px;
+      font-size:26px;
+      line-height:1;
+      font-weight:1000;
+      color:#9a6500;
+    }
+
+    .race-wait-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:4px;
+    }
+
+    .race-wait-actions .btn{
+      min-height:52px;
+    }
+
     #raceResultMount{
       position:fixed;
       inset:0;
@@ -759,29 +841,44 @@
       .topbar{
         align-items:flex-start;
       }
+
       .top-actions{
         width:100%;
       }
+
       .top-actions .btn{
         flex:1 1 160px;
       }
+
       .race-stats-grid,
       .race-top-grid{
         grid-template-columns:1fr;
       }
+
       .race-result-card{
         border-radius:22px;
         padding:12px;
       }
+
       .race-result-title{
         font-size:24px;
       }
+
       .race-result-actions{
         display:grid;
         grid-template-columns:1fr;
       }
+
       .race-result-actions .btn{
         width:100%;
+      }
+
+      .race-wait-actions{
+        grid-template-columns:1fr;
+      }
+
+      .race-wait-title{
+        font-size:25px;
       }
     }
   </style>
@@ -912,6 +1009,24 @@
 
   <div id="raceResultMount" aria-live="polite"></div>
 
+  <div id="raceWaitOverlay" aria-live="polite">
+    <div class="race-wait-card">
+      <div class="race-wait-icon">⏳</div>
+      <div class="race-wait-title">กำลังรวมอันดับ Race</div>
+      <div class="race-wait-sub" id="raceWaitText">
+        ส่งคะแนนของเราแล้ว รอผู้เล่นคนอื่นส่งคะแนนเข้ามา
+      </div>
+      <div class="race-wait-count" id="raceWaitCount">1/4</div>
+      <div class="race-wait-sub">
+        ถ้ารอนานเกินไป ระบบจะสรุปจากคะแนนที่ส่งเข้ามาก่อน
+      </div>
+      <div class="race-wait-actions">
+        <button class="btn warn" id="btnWaitPartial" type="button">🏁 สรุปเท่าที่มี</button>
+        <a class="btn primary" id="btnWaitLobby" href="./goodjunk-race-lobby.html">← กลับ Lobby</a>
+      </div>
+    </div>
+  </div>
+
   <script>
   (function goodJunkRaceNoBossGuard(){
     'use strict';
@@ -958,7 +1073,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjrace-run-summary-card-fix"></script>
+  <script src="../firebase-config.js?v=20260430-gjrace-wait-summary-v2"></script>
 
   <script>
   (function(){
@@ -1034,7 +1149,12 @@
       raceRankValue: el('raceRankValue'),
       raceOpponentScoreValue: el('raceOpponentScoreValue'),
       raceGapValue: el('raceGapValue'),
-      raceResultMount: el('raceResultMount')
+      raceResultMount: el('raceResultMount'),
+      raceWaitOverlay: el('raceWaitOverlay'),
+      raceWaitText: el('raceWaitText'),
+      raceWaitCount: el('raceWaitCount'),
+      btnWaitPartial: el('btnWaitPartial'),
+      btnWaitLobby: el('btnWaitLobby')
     };
 
     const state = {
@@ -1065,9 +1185,7 @@
       standings:[]
     };
 
-    function el(id){
-      return document.getElementById(id);
-    }
+    function el(id){ return document.getElementById(id); }
 
     function qs(k,d=''){
       try { return new URL(location.href).searchParams.get(k) ?? d; }
@@ -1103,17 +1221,11 @@
       return Number.isFinite(v) ? v : d;
     }
 
-    function now(){
-      return Date.now();
-    }
+    function now(){ return Date.now(); }
 
-    function rand(min,max){
-      return min + Math.random() * (max - min);
-    }
+    function rand(min,max){ return min + Math.random() * (max - min); }
 
-    function pick(arr){
-      return arr[Math.floor(Math.random() * arr.length)];
-    }
+    function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 
     function fmtTime(ms){
       const total = Math.max(0, Math.ceil(ms / 1000));
@@ -1159,7 +1271,21 @@
     function setupLinks(){
       ui.btnGoHub.href = ctx.hub || '../nutrition-zone.html';
       ui.btnBackLobby.href = buildLobbyUrl();
+
+      if (ui.btnWaitLobby) {
+        ui.btnWaitLobby.href = buildLobbyUrl();
+      }
+
       ui.btnEndNow.addEventListener('click', () => finishRace('manual_end'));
+
+      if (ui.btnWaitPartial) {
+        ui.btnWaitPartial.addEventListener('click', () => {
+          tryFinalizePartial().catch((err) => {
+            console.warn('[Race] manual partial failed', err);
+            showSummary(combineSummary({ [ctx.pid]: localResult('manual_partial') }, true));
+          });
+        });
+      }
     }
 
     function renderHud(){
@@ -1184,6 +1310,23 @@
 
     function showTip(text){
       ui.raceTipText.textContent = text;
+    }
+
+    function showWaitingResults(done, expected){
+      const d = Math.max(1, Number(done || 1));
+      const e = Math.max(2, Number(expected || ctx.maxPlayers || 2));
+
+      if (ui.raceWaitOverlay) ui.raceWaitOverlay.classList.add('show');
+      if (ui.raceWaitCount) ui.raceWaitCount.textContent = `${d}/${e}`;
+      if (ui.raceWaitText) {
+        ui.raceWaitText.textContent = d >= e
+          ? 'ได้คะแนนครบแล้ว กำลังจัดอันดับ...'
+          : 'ส่งคะแนนของเราแล้ว รอผู้เล่นคนอื่นส่งคะแนนเข้ามา';
+      }
+    }
+
+    function hideWaitingResults(){
+      if (ui.raceWaitOverlay) ui.raceWaitOverlay.classList.remove('show');
     }
 
     function emitFx(x,y,text,color){
@@ -1558,6 +1701,7 @@
 
       state.waitSince = now();
       showTip('ส่งผลของเราแล้ว กำลังรอผลผู้เล่นอื่น...');
+      showWaitingResults(1, ctx.maxPlayers);
 
       listenResults();
       listenFinalSummary();
@@ -1581,8 +1725,11 @@
 
       if (count < expected) {
         updateMiniStandings(results);
+        showWaitingResults(count || 1, expected);
         return;
       }
+
+      showWaitingResults(expected, expected);
 
       state.finalizing = true;
       try {
@@ -1717,6 +1864,7 @@
       state.ended = true;
 
       try { cancelAnimationFrame(state.raf); } catch(_){}
+      hideWaitingResults();
 
       const rows = Array.isArray(summary.standings) ? summary.standings : [];
       const me = summary.me || rows.find((p) => String(p.pid) === String(ctx.pid)) || null;
@@ -1724,12 +1872,39 @@
       const rank = me ? n(me.rank,0) : n(summary.rank,0);
       const score = me ? n(me.score,0) : n(summary.score,state.score);
 
+      const resultIcon =
+        rank === 1 ? '🏆' :
+        rank === 2 ? '🥈' :
+        rank === 3 ? '🥉' :
+        '⭐';
+
+      const resultMessage =
+        summary.partial
+          ? 'สรุปจากคะแนนที่ส่งเข้ามาก่อน'
+          : 'จัดอันดับครบจากคะแนนในห้องแล้ว';
+
       ui.raceResultMount.innerHTML = `
         <div class="race-result-card">
           <div class="race-summary-kicker">GOODJUNK RACE • เก็บ Good / หลบ Junk</div>
-          <div class="race-result-title">${esc(titleFor(Object.assign({}, summary, { rank })))}</div>
-          <div class="race-result-sub">
-            Race เป็นโหมดแข่งเก็บ Good และหลบ Junk เท่านั้น จบเกมแล้วดูอันดับของผู้เล่นทุกคน
+
+          <div style="text-align:center;display:grid;gap:10px;justify-items:center;">
+            <div style="
+              width:118px;
+              height:118px;
+              border-radius:34px;
+              border:5px solid #d7edf7;
+              background:linear-gradient(180deg,#fff8dc,#ffe8a3);
+              display:grid;
+              place-items:center;
+              font-size:62px;
+              box-shadow:0 16px 34px rgba(86,155,194,.16);
+            ">${resultIcon}</div>
+
+            <div class="race-result-title">${esc(titleFor(Object.assign({}, summary, { rank })))}</div>
+
+            <div class="race-result-sub">
+              ${esc(resultMessage)} • Race เป็นโหมดแข่งเก็บ Good และหลบ Junk เท่านั้น
+            </div>
           </div>
 
           <div class="race-top-grid">
