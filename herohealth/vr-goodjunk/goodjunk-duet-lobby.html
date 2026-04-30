@@ -640,8 +640,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjduet-v5"></script>
-  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-v5"></script>
+  <script src="../firebase-config.js?v=20260430-gjduet-v6"></script>
+  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-v6"></script>
 
   <script>
   (function () {
@@ -1119,6 +1119,53 @@
       }
     }
 
+    function withTimeout(promise, ms, label) {
+      return new Promise((resolve, reject) => {
+        const t = setTimeout(() => {
+          reject(new Error((label || 'task') + ' timeout'));
+        }, ms);
+
+        Promise.resolve(promise)
+          .then((v) => {
+            clearTimeout(t);
+            resolve(v);
+          })
+          .catch((err) => {
+            clearTimeout(t);
+            reject(err);
+          });
+      });
+    }
+
+    function getReadyLobbySnapshot(players) {
+      const list = applyLocalReady(Array.isArray(players) ? players.slice() : []);
+      const online = list.filter((p) => p && p.online !== false);
+      const ready = list.filter((p) => p && p.ready);
+
+      return {
+        list,
+        online,
+        ready,
+        onlineCount: online.length,
+        readyCount: ready.length
+      };
+    }
+
+    function goRuntimeNow(runtimeUrl) {
+      setStatus('เริ่มเกมแล้ว กำลังพาเข้าหน้าเล่น…');
+      setTiny('ถ้าหน้าไม่เปลี่ยนใน 1 วินาที ระบบจะพาเข้าเกมอีกครั้ง');
+
+      location.href = runtimeUrl;
+
+      setTimeout(() => {
+        try {
+          location.replace(runtimeUrl);
+        } catch (_) {
+          location.href = runtimeUrl;
+        }
+      }, 900);
+    }
+
     async function onStart() {
       if (!isActingHost()) {
         setStatus('เครื่องนี้เป็น Guest รอ Host กดเริ่ม Duet');
@@ -1133,67 +1180,114 @@
       starting = true;
       ui.btnStart.disabled = true;
       ui.btnStart.textContent = 'กำลังเริ่ม…';
+      setStatus('กำลังเริ่ม Duet...');
+      setTiny('กำลังสร้างรอบเล่นและส่งสัญญาณให้อีกเครื่อง');
 
       let actionLock = null;
 
       try {
-        actionLock = await boot.acquireRoomActionLock('start_duet', 5000);
+        let rawPlayers = [];
 
-        if (!actionLock) {
-          setStatus('มีการกดเริ่มเกมอยู่แล้ว');
-          starting = false;
-          await refreshPlayers();
-          return;
+        try {
+          rawPlayers = await withTimeout(boot.listPlayers(), 2500, 'listPlayers');
+        } catch (err) {
+          console.warn('[GJ-DUET-LOBBY] listPlayers timeout/fail, fallback to current UI state:', err);
+          rawPlayers = [];
         }
 
-        const rawPlayers = await boot.listPlayers();
-        const players = applyLocalReady(rawPlayers);
-        const online = players.filter((p) => p && p.online !== false);
-        const ready = players.filter((p) => p && p.ready);
+        let snap = getReadyLobbySnapshot(rawPlayers);
 
-        if (online.length > 2) {
+        if (snap.onlineCount > 2) {
           setStatus('ห้องผิดปกติ มีผู้เล่นเกิน 2 คน');
           starting = false;
-          await refreshPlayers(players);
+          await refreshPlayers(rawPlayers).catch(function(){});
           return;
         }
 
-        if (online.length < 2) {
+        if (snap.onlineCount < 2) {
           setStatus('ยังมีผู้เล่นไม่ครบ 2 คน');
           starting = false;
-          await refreshPlayers(players);
+          await refreshPlayers(rawPlayers).catch(function(){});
           return;
         }
 
-        if (ready.length < 2) {
+        if (snap.readyCount < 2) {
           setStatus('รอให้ทั้งสองคนกดพร้อมก่อน');
           starting = false;
-          await refreshPlayers(players);
+          await refreshPlayers(rawPlayers).catch(function(){});
           return;
         }
 
-        await boot.forceResetRoomState();
-        effectiveHostPid = await boot.getEffectiveHostPid();
+        try {
+          actionLock = await withTimeout(
+            boot.acquireRoomActionLock('start_duet', 2500),
+            3000,
+            'acquireRoomActionLock'
+          );
 
-        const matchId = await boot.ensureMatchId(true);
+          if (!actionLock) {
+            console.warn('[GJ-DUET-LOBBY] action lock not acquired, continue as host fallback');
+          }
+        } catch (err) {
+          console.warn('[GJ-DUET-LOBBY] action lock failed, continue as host fallback:', err);
+        }
+
+        try {
+          await withTimeout(boot.forceResetRoomState(), 2500, 'forceResetRoomState');
+        } catch (err) {
+          console.warn('[GJ-DUET-LOBBY] forceResetRoomState failed, continue:', err);
+        }
+
+        try {
+          effectiveHostPid = await withTimeout(boot.getEffectiveHostPid(), 2500, 'getEffectiveHostPid');
+        } catch (err) {
+          console.warn('[GJ-DUET-LOBBY] getEffectiveHostPid failed, keep current host:', err);
+          effectiveHostPid = ctx.pid;
+        }
+
+        const matchId = await withTimeout(boot.ensureMatchId(true), 3500, 'ensureMatchId');
         const runtimeUrl = buildRuntimeUrl(matchId);
 
-        await boot.clearRematchSignal();
-        await boot.startRoomRun(matchId, runtimeUrl);
-        await boot.appendMatchEvent(matchId, 'match_started', {
-          source: 'lobby',
-          byHostPid: ctx.pid
-        });
+        try {
+          await withTimeout(boot.clearRematchSignal(), 2000, 'clearRematchSignal');
+        } catch (err) {
+          console.warn('[GJ-DUET-LOBBY] clearRematchSignal failed, continue:', err);
+        }
 
-        setStatus('เริ่มเกมแล้ว กำลังพาเข้าหน้าเล่น…');
-        go(runtimeUrl);
+        try {
+          await withTimeout(boot.startRoomRun(matchId, runtimeUrl), 3500, 'startRoomRun');
+        } catch (err) {
+          console.warn('[GJ-DUET-LOBBY] startRoomRun failed, host will still enter runtime:', err);
+        }
+
+        try {
+          await withTimeout(
+            boot.appendMatchEvent(matchId, 'match_started', {
+              source: 'lobby',
+              byHostPid: ctx.pid
+            }),
+            2000,
+            'appendMatchEvent'
+          );
+        } catch (err) {
+          console.warn('[GJ-DUET-LOBBY] appendMatchEvent failed, continue:', err);
+        }
+
+        goRuntimeNow(runtimeUrl);
       } catch (err) {
-        console.error(err);
+        console.error('[GJ-DUET-LOBBY start failed]', err);
+
         setStatus('เริ่มเกมไม่สำเร็จ: ' + (err && err.message ? err.message : String(err)));
+        setTiny('ลองกดเริ่มอีกครั้ง หรือสร้างห้องใหม่');
+
         starting = false;
         await refreshPlayers().catch(function(){});
       } finally {
-        try { await boot.releaseRoomActionLock(actionLock); } catch (_) {}
+        try {
+          if (actionLock) {
+            await boot.releaseRoomActionLock(actionLock);
+          }
+        } catch (_) {}
       }
     }
 
