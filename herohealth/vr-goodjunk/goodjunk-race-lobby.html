@@ -12,46 +12,33 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-  <script src="../firebase-config.js?v=20260430-gj-race-child-friendly"></script>
-  <script src="../gj-room-adapter.js?v=20260430-gj-race-child-friendly"></script>
+  <script src="../firebase-config.js?v=20260430-gj-race-lobby-final"></script>
+  <script src="../gj-room-adapter.js?v=20260430-gj-race-lobby-final"></script>
 
   <style>
     :root{
       --bg1:#e9f8ff;
       --bg2:#dff4ff;
       --bg3:#fff7d8;
-
       --panel:#fffef9;
-      --panel2:#ffffff;
       --stroke:#bfe3f2;
-
       --text:#34515f;
       --muted:#6b8795;
-
       --good:#7ed957;
       --good2:#58c33f;
       --warn:#ffd75a;
-      --warn2:#ffbf3f;
       --info:#7fcfff;
-      --info2:#58b7f5;
       --race:#58b7f5;
       --bad:#ff8d8d;
-      --bad2:#ff7070;
-      --gold:#ffd75a;
-
       --shadow:0 14px 30px rgba(86,155,194,.14);
       --shadow-big:0 18px 42px rgba(86,155,194,.18);
-
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
     }
 
-    *{
-      box-sizing:border-box;
-      -webkit-tap-highlight-color:transparent;
-    }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
     html,body{
       margin:0;
@@ -65,17 +52,10 @@
         linear-gradient(180deg,var(--bg1),var(--bg2) 54%,var(--bg3));
     }
 
-    body{
-      overflow-x:hidden;
-    }
+    body{ overflow-x:hidden; }
 
-    a,button,input,select,summary{
-      font:inherit;
-    }
-
-    button,summary{
-      touch-action:manipulation;
-    }
+    a,button,input,select,summary{ font:inherit; }
+    button,summary{ touch-action:manipulation; }
 
     .app{
       width:min(96vw,1160px);
@@ -130,10 +110,7 @@
       filter:blur(4px);
     }
 
-    .hero > *{
-      position:relative;
-      z-index:1;
-    }
+    .hero > *{ position:relative; z-index:1; }
 
     .hero-top{
       display:flex;
@@ -159,7 +136,6 @@
       font-size:36px;
       border:4px solid #d7edf7;
       background:linear-gradient(180deg,#fff8dc,#ffe8a3);
-      color:#6b4b00;
       box-shadow:0 12px 22px rgba(86,155,194,.14);
       flex:0 0 auto;
     }
@@ -169,7 +145,6 @@
       font-weight:1000;
       line-height:1.04;
       color:#4197bd;
-      text-shadow:none;
     }
 
     .brand-sub{
@@ -209,17 +184,8 @@
       text-align:center;
     }
 
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.04);
-    }
-
-    .btn:disabled{
-      opacity:.56;
-      cursor:not-allowed;
-      transform:none !important;
-      filter:none !important;
-    }
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.04); }
+    .btn:disabled{ opacity:.56; cursor:not-allowed; transform:none!important; filter:none!important; }
 
     .btn.info{
       background:linear-gradient(180deg,#9fe3ff,#7fcfff);
@@ -266,10 +232,7 @@
       box-shadow:0 8px 18px rgba(86,155,194,.10);
     }
 
-    .kidStepIcon{
-      font-size:30px;
-      line-height:1;
-    }
+    .kidStepIcon{ font-size:30px; line-height:1; }
 
     .kidStepText{
       margin-top:6px;
@@ -313,9 +276,7 @@
       word-break:break-word;
     }
 
-    .statHidden{
-      display:none !important;
-    }
+    .statHidden{ display:none!important; }
 
     .grid{
       display:grid;
@@ -394,9 +355,7 @@
       text-align:center;
     }
 
-    .field input::placeholder{
-      color:#9ca9af;
-    }
+    .field input::placeholder{ color:#9ca9af; }
 
     .field input:focus,
     .field select:focus{
@@ -433,9 +392,7 @@
       gap:10px;
     }
 
-    .advancedBox summary::-webkit-details-marker{
-      display:none;
-    }
+    .advancedBox summary::-webkit-details-marker{ display:none; }
 
     .advancedBox summary::after{
       content:"เปิด";
@@ -449,9 +406,7 @@
       font-weight:1000;
     }
 
-    .advancedBox[open] summary::after{
-      content:"ปิด";
-    }
+    .advancedBox[open] summary::after{ content:"ปิด"; }
 
     .advancedInner{
       padding:0 14px 14px;
@@ -642,9 +597,7 @@
       list-style:none;
     }
 
-    .debugDetails summary::-webkit-details-marker{
-      display:none;
-    }
+    .debugDetails summary::-webkit-details-marker{ display:none; }
 
     .logBox{
       margin:12px;
@@ -663,9 +616,7 @@
     }
 
     @media (max-width:1040px){
-      .grid{
-        grid-template-columns:1fr;
-      }
+      .grid{ grid-template-columns:1fr; }
     }
 
     @media (max-width:720px){
@@ -679,21 +630,11 @@
       }
 
       .hero,
-      .card{
-        padding:14px;
-      }
+      .card{ padding:14px; }
 
-      .hero-top{
-        align-items:flex-start;
-      }
-
-      .hero-actions{
-        justify-content:flex-start;
-      }
-
-      .brand{
-        align-items:flex-start;
-      }
+      .hero-top{ align-items:flex-start; }
+      .hero-actions{ justify-content:flex-start; }
+      .brand{ align-items:flex-start; }
 
       .brand-icon{
         width:58px;
@@ -705,22 +646,11 @@
       .kidStepStrip,
       .statusGrid,
       .fields,
-      .roomRow{
-        grid-template-columns:1fr;
-      }
+      .roomRow{ grid-template-columns:1fr; }
 
       .bigActions .btn{
         width:100%;
         flex-basis:100%;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
-        animation:none !important;
-        transition:none !important;
       }
     }
   </style>
@@ -731,7 +661,7 @@
     <section class="panel hero kidHero">
       <div class="hero-top">
         <div class="brand">
-          <div class="brand-icon">🍎</div>
+          <div class="brand-icon">🏁</div>
           <div>
             <div class="brand-title">GoodJunk Race</div>
             <div class="brand-sub">
@@ -757,7 +687,7 @@
         </div>
         <div class="kidStep">
           <div class="kidStepIcon">3️⃣</div>
-          <div class="kidStepText">พร้อมแล้วเริ่มแข่ง!</div>
+          <div class="kidStepText">เริ่มแข่งเก็บ Good!</div>
         </div>
       </div>
 
@@ -797,9 +727,9 @@
         </div>
 
         <div class="quickHelp">
-          เด็ก ๆ เห็นแค่นี้พอ:
-          <b>ชื่อเล่น</b> + <b>รหัสห้อง</b> + <b>ปุ่มเข้าห้อง</b>
-          ส่วนค่าระบบซ่อนไว้ให้ครูแล้ว
+          Race คือแข่งคะแนน:
+          <b>เก็บ Good</b> + <b>หลบ Junk</b> + <b>จบแล้วดูอันดับ</b>
+          ไม่มี Boss ในโหมดนี้
         </div>
 
         <div class="simpleFields">
@@ -896,7 +826,7 @@
       <section class="panel card">
         <div class="playersBox">
           <div class="playersHead">
-            <div class="playersTitle">👥 เพื่อนในห้องแข่ง</div>
+            <div class="playersTitle">👥 ผู้เล่นในห้องแข่ง</div>
             <div id="chipRoomState" class="miniChip warn">รอเพื่อน</div>
           </div>
 
@@ -914,7 +844,7 @@
         <div class="ruleBox">
           🍎 เก็บของดีให้ไว<br>
           🍟 ระวังของขยะ<br>
-          🏁 มีอย่างน้อย <b>2 คน</b> แล้วเริ่มแข่งได้เลย
+          🏆 จบเกมแล้วดูอันดับผู้เล่นทุกคน
         </div>
 
         <details class="debugDetails">
@@ -927,7 +857,7 @@
 
   <script type="module">
     const MODE = 'race';
-    const PLAY_PATH = './goodjunk-race-play.html';
+    const PLAY_PATH = './goodjunk-race-run.html';
 
     let roomApi = null;
     let unsub = null;
@@ -1003,12 +933,10 @@
       let s = String(v ?? '').trim().toUpperCase();
       s = s.replace(/\s+/g, '');
       s = s.replace(/[^A-Z0-9-]/g, '');
-
       if (!s) return '';
       if (!s.startsWith('RC-')) {
         s = 'RC-' + s.replace(/^RC/, '').replace(/^-/, '');
       }
-
       return s.slice(0, 12);
     }
 
@@ -1020,9 +948,7 @@
 
     function effectivePidFromUrl() {
       const raw = clean(qs('pid', ''), '');
-      if (raw && raw !== 'anon' && raw !== 'anonymous') {
-        return raw;
-      }
+      if (raw && raw !== 'anon' && raw !== 'anonymous') return raw;
 
       try {
         const key = 'HHA_GJ_RACE_PID_SESSION';
@@ -1076,6 +1002,11 @@
         u.searchParams.set('roomId', roomId);
         u.searchParams.set('mode', 'race');
         u.searchParams.set('entry', 'race');
+        u.searchParams.set('recommendedMode', 'race');
+        u.searchParams.set('phaseBoss', '0');
+        u.searchParams.set('boss', '0');
+        u.searchParams.set('soloBoss', '0');
+        u.searchParams.set('bossMode', '0');
         u.searchParams.set('multiplayer', '1');
         history.replaceState(null, '', u.toString());
       } catch (_) {}
@@ -1098,7 +1029,14 @@
         game: p.game,
         gameId: p.gameId,
         theme: p.theme,
-        recommendedMode: 'race'
+        recommendedMode: 'race',
+        mode: 'race',
+        entry: 'race',
+        phaseBoss: '0',
+        boss: '0',
+        soloBoss: '0',
+        bossMode: '0',
+        multiplayer: '1'
       });
     }
 
@@ -1110,6 +1048,11 @@
       u.searchParams.set('roomId', roomId || p.room);
       u.searchParams.set('mode', 'race');
       u.searchParams.set('entry', 'race');
+      u.searchParams.set('recommendedMode', 'race');
+      u.searchParams.set('phaseBoss', '0');
+      u.searchParams.set('boss', '0');
+      u.searchParams.set('soloBoss', '0');
+      u.searchParams.set('bossMode', '0');
       u.searchParams.set('multiplayer', '1');
       u.searchParams.set('zone', p.zone);
       u.searchParams.set('cat', p.cat);
@@ -1120,7 +1063,6 @@
       u.searchParams.set('time', p.time);
       u.searchParams.set('view', p.view);
       u.searchParams.set('hub', p.hub);
-
       u.searchParams.delete('pid');
       u.searchParams.set('name', p.name);
       u.searchParams.set('nick', p.nick);
@@ -1131,12 +1073,19 @@
     function buildPlayUrl(room, role = 'guest') {
       const p = ctx();
       const rid = room?.roomId || p.room;
+      const matchId = room?.activeMatchId || room?.currentRun?.matchId || '';
 
       return buildUrl(PLAY_PATH, {
         mode: 'race',
         entry: 'race',
+        recommendedMode: 'race',
+        phaseBoss: '0',
+        boss: '0',
+        soloBoss: '0',
+        bossMode: '0',
         roomId: rid,
         room: rid,
+        matchId,
         pid: p.pid,
         name: p.name,
         nick: p.nick,
@@ -1238,18 +1187,17 @@
       wrap.innerHTML = players.map((p, idx) => {
         const role = p.pid === hostPid || p.role === 'host' ? 'host' : 'guest';
         const tagClass = role === 'host' ? 'host' : 'guest';
-        const roleText = role === 'host' ? '🏁 Host' : '👤 Racer';
-        const readyText = p.ready ? 'พร้อม' : 'รอ';
+        const roleText = role === 'host' ? '🏁 Host' : '🏃 Racer';
 
         return `
           <div class="playerRow">
             <div>
               <div class="playerName">${idx + 1}. ${esc(p.name || p.nick || p.pid || 'Player')}</div>
-              <div class="playerMeta">${esc(role === 'host' ? 'คนเปิดห้อง' : 'เพื่อนร่วมแข่ง')}</div>
+              <div class="playerMeta">${esc(role === 'host' ? 'คนเปิดห้อง' : 'ผู้ร่วมแข่ง')}</div>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
               <div class="playerTag ${tagClass}">${roleText}</div>
-              <div class="playerTag ready">${readyText}</div>
+              <div class="playerTag ready">พร้อม</div>
             </div>
           </div>
         `;
@@ -1334,10 +1282,7 @@
             `คุณเป็น Host • ตอนนี้มีผู้เล่น ${count}/${cap} คน ต้องมีอย่างน้อย <b>2 คน</b> ถึงจะเริ่มแข่งได้`
           );
         } else {
-          updateNotice(
-            'warn',
-            `เข้าห้องแล้ว • รอเพื่อนเพิ่มและรอ Host กดเริ่มแข่ง`
-          );
+          updateNotice('warn', 'เข้าห้องแล้ว • รอผู้เล่นเพิ่มและรอ Host กดเริ่มแข่ง');
         }
 
         log(`WAITING_PLAYERS ${count}/${cap}`);
@@ -1445,6 +1390,8 @@
           diff: p.diff,
           time: p.time,
           cap: p.cap,
+          activeMatchId: '',
+          currentRun: null,
           players: {
             [p.pid]: player
           }
@@ -1567,10 +1514,35 @@
         starting = true;
         log(`START_RACE ${p.room}`);
 
-        const room = await roomApi.startRoom(p.room, p.pid);
-        updateNotice('good', 'เริ่ม Race แล้ว กำลังเข้าเกม…');
+        const matchId = 'MT-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
 
-        location.replace(buildPlayUrl(room || lastRoom, 'host'));
+        if (roomApi.startRoom.length >= 3) {
+          await roomApi.startRoom(p.room, p.pid, {
+            activeMatchId: matchId,
+            currentRun: {
+              status: 'started',
+              matchId,
+              startedAt: Date.now(),
+              by: p.pid
+            }
+          });
+        } else {
+          await roomApi.startRoom(p.room, p.pid);
+        }
+
+        const room = Object.assign({}, lastRoom, {
+          status: 'started',
+          activeMatchId: matchId,
+          currentRun: {
+            status: 'started',
+            matchId,
+            startedAt: Date.now(),
+            by: p.pid
+          }
+        });
+
+        updateNotice('good', 'เริ่ม Race แล้ว กำลังเข้าเกม…');
+        location.replace(buildPlayUrl(room, 'host'));
       } catch (err) {
         starting = false;
         console.warn('[GoodJunk Race Lobby] startRace failed', err);
@@ -1628,9 +1600,7 @@
         el.addEventListener('input', () => {
           if (id === 'room') {
             const fixed = sanitizeRoomCode(el.value);
-            if (fixed) {
-              $('statRoom').textContent = fixed;
-            }
+            if (fixed) $('statRoom').textContent = fixed;
           }
           applyBackLinks();
         });
@@ -1645,10 +1615,7 @@
             }
           }
 
-          if (id === 'cap') {
-            updateStats(lastRoom);
-          }
-
+          if (id === 'cap') updateStats(lastRoom);
           applyBackLinks();
         });
       });
@@ -1674,9 +1641,7 @@
         await initRoomApi();
 
         const currentRoom = ctx().room;
-        if (currentRoom) {
-          subscribeRoom(currentRoom);
-        }
+        if (currentRoom) subscribeRoom(currentRoom);
 
         updateNotice('warn', 'พร้อมแล้ว • กด “สร้างห้องแข่ง” หรือ “เข้าห้องเพื่อน” เพื่อเริ่ม Race Lobby');
         updateRoomStateChip('warn', 'รอเริ่ม');
