@@ -1,22 +1,40 @@
+// === /herohealth/vr-goodjunk/goodjunk-duet-room-bootstrap.js ===
+// GoodJunk Duet Room Bootstrap
+// PATCH v20260430-gjduet-v4
+// ✅ fix Firebase invalid path "" from leading slash
+// ✅ sanitize Firebase paths and keys
+// ✅ host migration
+// ✅ players presence
+// ✅ currentRun sync
+// ✅ finalSummary sync
+// ✅ local fallback for same-browser testing
+
 (function () {
   'use strict';
 
   const qs = new URLSearchParams(location.search);
 
+  const DEBUG = qs.get('debug') === '1';
+  const MAX_ROOM_PLAYERS = 2;
+  const FALLBACK_ROOM_PREFIX = 'DU-';
+
   const ctx = {
-    pid: String(qs.get('pid') || 'anon').trim(),
-    name: String(qs.get('name') || qs.get('nick') || 'Hero').trim(),
+    pid: safeKey(String(qs.get('pid') || 'anon').trim() || 'anon'),
+    name: String(qs.get('name') || qs.get('nick') || 'Hero').trim() || 'Hero',
     role: String(qs.get('role') || (qs.get('host') === '1' ? 'host' : 'guest')).trim().toLowerCase(),
-    roomId: String(qs.get('roomId') || qs.get('room') || '').trim().toUpperCase(),
+    roomId: normalizeRoomId(String(qs.get('roomId') || qs.get('room') || '').trim()),
     game: 'goodjunk',
     mode: 'duet'
   };
 
-  const DEBUG = qs.get('debug') === '1';
-  const MAX_ROOM_PLAYERS = 2;
-  const FALLBACK_ROOM_PREFIX = 'DU-';
-  const LOCAL_KEY = ctx.roomId ? `HHA_GJ_DUET_ROOM__${ctx.roomId}` : 'HHA_GJ_DUET_ROOM__DEFAULT';
-  const CHANNEL_KEY = ctx.roomId ? `hha-gj-duet-room-${ctx.roomId}` : 'hha-gj-duet-room-default';
+  const LOCAL_KEY = ctx.roomId
+    ? `HHA_GJ_DUET_ROOM__${ctx.roomId}`
+    : 'HHA_GJ_DUET_ROOM__DEFAULT';
+
+  const CHANNEL_KEY = ctx.roomId
+    ? `hha-gj-duet-room-${ctx.roomId}`
+    : 'hha-gj-duet-room-default';
+
   const bc = ('BroadcastChannel' in window) ? new BroadcastChannel(CHANNEL_KEY) : null;
 
   let firebaseDb = null;
@@ -35,19 +53,39 @@
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  function clamp(v, a, b) {
-    return Math.max(a, Math.min(b, v));
+  function safeKey(raw) {
+    return String(raw || '')
+      .trim()
+      .replace(/[.#$/\[\]]/g, '_')
+      .slice(0, 96) || 'anon';
+  }
+
+  function normalizeRoomId(raw) {
+    let v = String(raw || '').trim().toUpperCase();
+    v = v.replace(/\s+/g, '');
+    v = v.replace(/[^A-Z0-9-]/g, '');
+
+    if (!v || v === 'DU-XXXXXX') return '';
+
+    if (!v.startsWith('DU-')) {
+      v = 'DU-' + v.replace(/^DU/, '').replace(/^-/, '');
+    }
+
+    return v.slice(0, 9);
   }
 
   function cleanPath(path) {
     return String(path || '')
+      .trim()
       .replace(/\/+/g, '/')
-      .replace(/\/$/, '');
+      .replace(/^\/+/, '')
+      .replace(/\/+$/, '');
   }
 
   function ensureRoomId(raw) {
-    const value = String(raw || '').trim().toUpperCase();
+    const value = normalizeRoomId(raw);
     if (value) return value;
+
     return `${FALLBACK_ROOM_PREFIX}${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   }
 
@@ -71,7 +109,7 @@
   }
 
   function defaultRoomRootPath() {
-    return `/hha-battle/goodjunk/duetRooms/${getRoomId()}`;
+    return `hha-battle/goodjunk/duetRooms/${getRoomId()}`;
   }
 
   function getRoomRootPath() {
@@ -80,7 +118,7 @@
   }
 
   function getMatchPath(matchId) {
-    return cleanPath(`${getRoomRootPath()}/matches/${String(matchId || '').trim()}`);
+    return cleanPath(`${getRoomRootPath()}/matches/${safeKey(matchId)}`);
   }
 
   function getRunPath() {
@@ -92,7 +130,7 @@
   }
 
   function getPlayerPath(pid) {
-    return cleanPath(`${getPlayersPath()}/${String(pid || ctx.pid || 'anon').trim()}`);
+    return cleanPath(`${getPlayersPath()}/${safeKey(pid || ctx.pid || 'anon')}`);
   }
 
   function getRematchPath() {
@@ -118,8 +156,10 @@
   function isRunFresh(runState, maxAgeMs) {
     const ageLimit = Number(maxAgeMs || 15000);
     if (!runState || typeof runState !== 'object') return false;
+
     const startedAt = Number(runState.startedAt || 0);
     if (!startedAt) return false;
+
     return (now() - startedAt) <= ageLimit;
   }
 
@@ -127,10 +167,16 @@
     if (firebaseDb) return firebaseDb;
 
     try {
+      if (window.HHA_FIREBASE && window.HHA_FIREBASE.db) {
+        firebaseDb = window.HHA_FIREBASE.db;
+        return firebaseDb;
+      }
+
       if (window.HHA_FIREBASE_DB) {
         firebaseDb = window.HHA_FIREBASE_DB;
         return firebaseDb;
       }
+
       if (window.firebase && typeof window.firebase.database === 'function') {
         firebaseDb = window.firebase.database();
         return firebaseDb;
@@ -152,19 +198,25 @@
   function dbRef(path) {
     const db = getFirebaseDb();
     if (!db) throw new Error('firebase db unavailable');
-    return db.ref(cleanPath(path));
+
+    const clean = cleanPath(path);
+    return clean ? db.ref(clean) : db.ref();
   }
 
   function dbOnce(path) {
     return new Promise((resolve, reject) => {
       try {
-        dbRef(path).once('value', (snap) => {
-          try {
-            resolve(snap && typeof snap.val === 'function' ? snap.val() : null);
-          } catch (err) {
-            reject(err);
-          }
-        }, reject);
+        dbRef(path).once(
+          'value',
+          (snap) => {
+            try {
+              resolve(snap && typeof snap.val === 'function' ? snap.val() : null);
+            } catch (err) {
+              reject(err);
+            }
+          },
+          reject
+        );
       } catch (err) {
         reject(err);
       }
@@ -211,6 +263,7 @@
               reject(err);
               return;
             }
+
             resolve({
               committed: !!committed,
               value: snap && typeof snap.val === 'function' ? snap.val() : null
@@ -226,9 +279,11 @@
 
   async function dbPushSet(path, value) {
     const ref = dbRef(path).push();
+
     await new Promise((resolve, reject) => {
       ref.set(value, (err) => err ? reject(err) : resolve(true));
     });
+
     return value;
   }
 
@@ -236,6 +291,7 @@
     try {
       const raw = localStorage.getItem(LOCAL_KEY);
       if (!raw) return null;
+
       const parsed = JSON.parse(raw);
       return parsed && typeof parsed === 'object' ? parsed : null;
     } catch (_) {
@@ -286,8 +342,10 @@
     const current = ensureLocalRoomShape();
     const draft = JSON.parse(JSON.stringify(current));
     const output = mutator(draft) || draft;
+
     output.updatedAt = now();
     writeLocalRoom(output);
+
     return output;
   }
 
@@ -295,13 +353,17 @@
     if (hasFirebase()) {
       return await dbOnce(getRoomRootPath());
     }
+
     return ensureLocalRoomShape();
   }
 
   async function ensureRoom() {
     if (hasFirebase()) {
       const current = await dbOnce(getRoomRootPath());
-      if (current && typeof current === 'object') return current;
+
+      if (current && typeof current === 'object') {
+        return current;
+      }
 
       const initial = {
         roomId: getRoomId(),
@@ -335,9 +397,11 @@
 
   function normalizePlayerShape(player, pidKey) {
     const p = player && typeof player === 'object' ? player : {};
+    const pid = safeKey(p.pid || pidKey || '');
+
     return {
-      pid: String(p.pid || pidKey || '').trim(),
-      name: String(p.name || p.pid || pidKey || 'Player').trim(),
+      pid,
+      name: String(p.name || p.pid || pidKey || 'Player').trim() || 'Player',
       role: String(p.role || 'guest').trim().toLowerCase() === 'host' ? 'host' : 'guest',
       online: p.online !== false,
       ready: !!p.ready,
@@ -352,14 +416,17 @@
     return (Array.isArray(players) ? players.slice() : []).sort((a, b) => {
       const aj = Number(a.joinedAt || 0) || Number(a.lastSeen || 0) || 0;
       const bj = Number(b.joinedAt || 0) || Number(b.lastSeen || 0) || 0;
+
       if (aj !== bj) return aj - bj;
+
       return String(a.pid || '').localeCompare(String(b.pid || ''));
     });
   }
 
   function chooseEffectiveHost(players) {
     const online = sortPlayersForElection(
-      (Array.isArray(players) ? players : []).filter((p) => p && p.online !== false)
+      (Array.isArray(players) ? players : [])
+        .filter((p) => p && String(p.pid || '').trim() && p.online !== false)
     );
 
     if (!online.length) return '';
@@ -373,16 +440,22 @@
   async function listPlayers() {
     if (hasFirebase()) {
       const value = await dbOnce(getPlayersPath()) || {};
-      return Object.keys(value).map((k) => normalizePlayerShape(value[k], k)).filter(Boolean);
+
+      return Object.keys(value)
+        .map((k) => normalizePlayerShape(value[k], k))
+        .filter((p) => p && String(p.pid || '').trim());
     }
 
     const room = ensureLocalRoomShape();
     const players = room.players || {};
-    return Object.keys(players).map((k) => normalizePlayerShape(players[k], k)).filter(Boolean);
+
+    return Object.keys(players)
+      .map((k) => normalizePlayerShape(players[k], k))
+      .filter((p) => p && String(p.pid || '').trim());
   }
 
   async function validateRoomJoin(pid) {
-    const cleanPid = String(pid || ctx.pid || '').trim();
+    const cleanPid = safeKey(pid || ctx.pid || '');
     const players = await listPlayers();
 
     const alreadyKnown = players.some((p) => String(p.pid || '').trim() === cleanPid);
@@ -392,7 +465,7 @@
       return {
         ok: false,
         reason: 'room_full',
-        onlineCount: onlineCount,
+        onlineCount,
         maxPlayers: MAX_ROOM_PLAYERS
       };
     }
@@ -400,7 +473,7 @@
     return {
       ok: true,
       reason: '',
-      onlineCount: onlineCount,
+      onlineCount,
       maxPlayers: MAX_ROOM_PLAYERS
     };
   }
@@ -408,7 +481,11 @@
   async function setPresence(extra) {
     bindBeforeUnloadOnce();
 
-    const roomCheck = await validateRoomJoin(ctx.pid);
+    const cleanPid = safeKey(ctx.pid || 'anon');
+    ctx.pid = cleanPid;
+
+    const roomCheck = await validateRoomJoin(cleanPid);
+
     if (!roomCheck.ok) {
       const err = new Error('room_full');
       err.code = 'room_full';
@@ -417,7 +494,7 @@
     }
 
     const payload = Object.assign({
-      pid: ctx.pid,
+      pid: cleanPid,
       name: ctx.name,
       role: getRole(),
       online: true,
@@ -426,11 +503,12 @@
     }, extra || {});
 
     if (hasFirebase()) {
-      await dbUpdate(getPlayerPath(ctx.pid), payload);
+      await dbUpdate(getPlayerPath(cleanPid), payload);
 
       try {
-        dbRef(getPlayerPath(ctx.pid)).onDisconnect().update({
+        dbRef(getPlayerPath(cleanPid)).onDisconnect().update({
           online: false,
+          inRuntime: false,
           lastSeen: now()
         });
       } catch (_) {}
@@ -440,7 +518,7 @@
 
     mergeLocalRoom((room) => {
       room.players = room.players || {};
-      room.players[ctx.pid] = Object.assign({}, room.players[ctx.pid] || {}, payload);
+      room.players[cleanPid] = Object.assign({}, room.players[cleanPid] || {}, payload);
       return room;
     });
 
@@ -448,9 +526,11 @@
   }
 
   async function leaveRoom() {
+    const cleanPid = safeKey(ctx.pid || 'anon');
+
     if (hasFirebase()) {
       try {
-        await dbUpdate(getPlayerPath(ctx.pid), {
+        await dbUpdate(getPlayerPath(cleanPid), {
           online: false,
           inRuntime: false,
           lastSeen: now()
@@ -461,19 +541,20 @@
 
     mergeLocalRoom((room) => {
       room.players = room.players || {};
-      if (room.players[ctx.pid]) {
-        room.players[ctx.pid].online = false;
-        room.players[ctx.pid].inRuntime = false;
-        room.players[ctx.pid].lastSeen = now();
+
+      if (room.players[cleanPid]) {
+        room.players[cleanPid].online = false;
+        room.players[cleanPid].inRuntime = false;
+        room.players[cleanPid].lastSeen = now();
       }
+
       return room;
     });
   }
 
   async function markLobbyReady(flag) {
-    const ready = !!flag;
     return await setPresence({
-      ready: ready,
+      ready: !!flag,
       inRuntime: false,
       lastSeen: now()
     });
@@ -484,12 +565,19 @@
 
     if (hasFirebase()) {
       const playersRef = dbRef(getPlayersPath());
+
       const handler = (snap) => {
         const value = snap && typeof snap.val === 'function' ? (snap.val() || {}) : {};
-        const players = Object.keys(value).map((k) => normalizePlayerShape(value[k], k)).filter(Boolean);
+
+        const players = Object.keys(value)
+          .map((k) => normalizePlayerShape(value[k], k))
+          .filter((p) => p && String(p.pid || '').trim());
+
         cb(players);
       };
+
       playersRef.on('value', handler);
+
       return function unsubscribe() {
         try { playersRef.off('value', handler); } catch (_) {}
       };
@@ -504,6 +592,7 @@
     window.addEventListener('hha:gjduet-room-local-update', winHandler);
 
     let bcHandler = null;
+
     if (bc) {
       bcHandler = () => { notify().catch(() => {}); };
       bc.addEventListener('message', bcHandler);
@@ -519,31 +608,47 @@
 
   async function maybePromoteHost() {
     const players = await listPlayers();
-    const effectiveHostPid = chooseEffectiveHost(players);
+
+    const validPlayers = players
+      .filter((p) => p && String(p.pid || '').trim())
+      .map((p) => Object.assign({}, p, {
+        pid: safeKey(p.pid)
+      }));
+
+    const effectiveHostPid = chooseEffectiveHost(validPlayers);
     if (!effectiveHostPid) return '';
 
-    const normalized = players.map((p) => Object.assign({}, p, {
+    const normalized = validPlayers.map((p) => Object.assign({}, p, {
       role: String(p.pid || '') === effectiveHostPid ? 'host' : 'guest'
     }));
 
     if (hasFirebase()) {
-      const rootUpdates = {};
-      normalized.forEach((p) => {
-        rootUpdates[`${getPlayersPath()}/${p.pid}/role`] = p.role;
-        rootUpdates[`${getPlayersPath()}/${p.pid}/lastSeen`] = now();
-      });
-      await dbRef('/').update(rootUpdates);
+      for (const p of normalized) {
+        const pid = safeKey(p.pid);
+        if (!pid) continue;
+
+        await dbUpdate(getPlayerPath(pid), {
+          role: p.role,
+          lastSeen: now()
+        });
+      }
+
       return effectiveHostPid;
     }
 
     mergeLocalRoom((room) => {
       room.players = room.players || {};
+
       normalized.forEach((p) => {
-        room.players[p.pid] = Object.assign({}, room.players[p.pid] || {}, p, {
+        const pid = safeKey(p.pid);
+        if (!pid) return;
+
+        room.players[pid] = Object.assign({}, room.players[pid] || {}, p, {
           role: p.role,
           lastSeen: now()
         });
       });
+
       return room;
     });
 
@@ -576,6 +681,7 @@
         activeMatchId: clean,
         updatedAt: now()
       });
+
       return clean;
     }
 
@@ -592,9 +698,12 @@
   }
 
   async function ensureMatchId(hostCanCreate) {
-    const allowCreate = typeof hostCanCreate === 'boolean' ? hostCanCreate : (await isEffectiveHost());
+    const allowCreate = typeof hostCanCreate === 'boolean'
+      ? hostCanCreate
+      : (await isEffectiveHost());
 
     let active = await readActiveMatchId();
+
     if (active) return active;
 
     if (allowCreate) {
@@ -623,6 +732,7 @@
       mergeLocalRoom((room) => {
         room.activeMatchId = active;
         room.matches = room.matches || {};
+
         room.matches[active] = Object.assign({}, room.matches[active] || {}, {
           matchId: active,
           createdAt: now(),
@@ -632,6 +742,7 @@
           roomId: getRoomId(),
           finalSummary: null
         });
+
         return room;
       });
 
@@ -685,7 +796,9 @@
     }
 
     const room = ensureLocalRoomShape();
-    return room.matches && room.matches[cleanMatchId] ? room.matches[cleanMatchId] : null;
+    return room.matches && room.matches[cleanMatchId]
+      ? room.matches[cleanMatchId]
+      : null;
   }
 
   function countFinishedPlayers(resultMap) {
@@ -732,6 +845,7 @@
 
     if (done >= expected) return '';
     if (done <= 0) return 'รอบนี้ยังไม่มีข้อมูลผู้เล่นพอสำหรับสรุปทีม';
+
     return 'อีกฝั่งส่งผลไม่ทัน ระบบจึงสรุปจากข้อมูลที่มาถึงก่อนเพื่อไม่ให้เกมค้าง';
   }
 
@@ -759,7 +873,7 @@
         good: Number(item.good || 0),
         junk: Number(item.junk || 0),
         miss: Number(item.miss || 0),
-        streak: Number(item.streak || 0),
+        streak: Number(item.streak || item.bestStreak || 0),
         role: String(item.role || 'guest').trim().toLowerCase()
       })),
       score: 0,
@@ -769,7 +883,8 @@
       streak: 0,
       expectedPlayers: Number(metaInfo.expectedPlayers || 2),
       finishedPlayers: Number(metaInfo.finishedPlayers || list.length),
-      partial: !!metaInfo.partial
+      partial: !!metaInfo.partial,
+      reason: String(metaInfo.reason || '')
     };
 
     list.forEach((item) => {
@@ -777,7 +892,7 @@
       merged.good += Number(item.good || 0);
       merged.junk += Number(item.junk || 0);
       merged.miss += Number(item.miss || 0);
-      merged.streak = Math.max(merged.streak, Number(item.streak || 0));
+      merged.streak = Math.max(merged.streak, Number(item.streak || item.bestStreak || 0));
     });
 
     merged.grade = calcTeamGrade(merged);
@@ -813,19 +928,22 @@
     }, payload || {});
 
     if (hasFirebase()) {
-      await dbSet(`${getMatchPath(cleanMatchId)}/playerResults/${ctx.pid}`, result);
+      await dbSet(`${getMatchPath(cleanMatchId)}/playerResults/${safeKey(ctx.pid)}`, result);
       await dbUpdate(getMatchPath(cleanMatchId), { updatedAt: now() });
     } else {
       mergeLocalRoom((room) => {
         room.matches = room.matches || {};
+
         room.matches[cleanMatchId] = room.matches[cleanMatchId] || {
           matchId: cleanMatchId,
           createdAt: now(),
           updatedAt: now()
         };
+
         room.matches[cleanMatchId].playerResults = room.matches[cleanMatchId].playerResults || {};
-        room.matches[cleanMatchId].playerResults[ctx.pid] = result;
+        room.matches[cleanMatchId].playerResults[safeKey(ctx.pid)] = result;
         room.matches[cleanMatchId].updatedAt = now();
+
         return room;
       });
     }
@@ -867,14 +985,17 @@
 
     mergeLocalRoom((room) => {
       room.matches = room.matches || {};
+
       room.matches[cleanMatchId] = room.matches[cleanMatchId] || {
         matchId: cleanMatchId,
         createdAt: now(),
         updatedAt: now()
       };
+
       room.matches[cleanMatchId].events = room.matches[cleanMatchId].events || [];
       room.matches[cleanMatchId].events.push(payload);
       room.matches[cleanMatchId].updatedAt = now();
+
       return room;
     });
 
@@ -895,7 +1016,10 @@
     let written = payload;
 
     if (hasFirebase()) {
-      const txn = await dbTransaction(`${getMatchPath(cleanMatchId)}/finalSummary`, (current) => current || payload);
+      const txn = await dbTransaction(`${getMatchPath(cleanMatchId)}/finalSummary`, (current) => {
+        return current || payload;
+      });
+
       written = txn.committed ? payload : (txn.value || payload);
 
       await dbUpdate(getMatchPath(cleanMatchId), {
@@ -905,17 +1029,21 @@
     } else {
       mergeLocalRoom((room) => {
         room.matches = room.matches || {};
+
         room.matches[cleanMatchId] = room.matches[cleanMatchId] || {
           matchId: cleanMatchId,
           createdAt: now(),
           updatedAt: now()
         };
+
         if (!room.matches[cleanMatchId].finalSummary) {
           room.matches[cleanMatchId].finalSummary = payload;
         }
+
         room.matches[cleanMatchId].endedAt = now();
         room.matches[cleanMatchId].updatedAt = now();
         written = room.matches[cleanMatchId].finalSummary;
+
         return room;
       });
     }
@@ -936,6 +1064,7 @@
 
   async function waitForAllPlayerResults(matchId, opts) {
     const cleanMatchId = String(matchId || '').trim();
+
     const options = Object.assign({
       expectedPlayers: 2,
       timeoutMs: 6000,
@@ -946,356 +1075,92 @@
 
     while ((now() - startedAt) < options.timeoutMs) {
       const results = await readPlayerResults(cleanMatchId);
+
       if (countFinishedPlayers(results) >= options.expectedPlayers) {
         return results;
       }
+
       await sleep(options.intervalMs);
     }
 
     return await readPlayerResults(cleanMatchId);
   }
 
-  async function finalizeMatchFromRoomResults(matchId, opts) {
-    const cleanMatchId = String(matchId || '').trim();
-    if (!cleanMatchId) throw new Error('finalizeMatchFromRoomResults requires matchId');
+  async function readFreshRun(maxAgeMs) {
+    const runState = hasFirebase()
+      ? await dbOnce(getRunPath())
+      : (ensureLocalRoomShape().currentRun || null);
 
-    const options = Object.assign({
-      expectedPlayers: 2,
-      force: false,
-      reason: 'finished'
-    }, opts || {});
-
-    const existing = await readFinalSummary(cleanMatchId);
-    if (existing && existing.final) return existing;
-
-    const playerResults = await readPlayerResults(cleanMatchId);
-    const finishedCount = countFinishedPlayers(playerResults);
-
-    if (finishedCount <= 0) {
-      return null;
-    }
-
-    const players = await listPlayers();
-    const activeRuntimePlayers = players.filter((p) => p && p.online !== false && (p.inRuntime || p.ready));
-
-    const dynamicExpected = clamp(
-      activeRuntimePlayers.length > 0
-        ? Math.min(Number(options.expectedPlayers || 2), activeRuntimePlayers.length)
-        : Math.min(Number(options.expectedPlayers || 2), Math.max(1, finishedCount)),
-      1,
-      2
-    );
-
-    if (!options.force && finishedCount < dynamicExpected) {
-      return null;
-    }
-
-    const partial = finishedCount < Number(options.expectedPlayers || 2);
-
-    const summary = combineDuetSummary(cleanMatchId, playerResults, {
-      expectedPlayers: Number(options.expectedPlayers || 2),
-      finishedPlayers: finishedCount,
-      partial: partial
-    });
-
-    summary.reason = options.reason || (partial ? 'timeout_partial_finalize' : 'finished');
-
-    return await publishFinalSummary(cleanMatchId, summary);
-  }
-
-  async function finalizeMatchWithPolicy(matchId, opts) {
-    const cleanMatchId = String(matchId || '').trim();
-    if (!cleanMatchId) throw new Error('finalizeMatchWithPolicy requires matchId');
-
-    const options = Object.assign({
-      expectedPlayers: 2,
-      waitTimeoutMs: 8000,
-      intervalMs: 250,
-      reason: 'finished'
-    }, opts || {});
-
-    const existing = await readFinalSummary(cleanMatchId);
-    if (existing && existing.final) return existing;
-
-    const results = await waitForAllPlayerResults(cleanMatchId, {
-      expectedPlayers: Number(options.expectedPlayers || 2),
-      timeoutMs: Number(options.waitTimeoutMs || 8000),
-      intervalMs: Number(options.intervalMs || 250)
-    });
-
-    const finishedCount = countFinishedPlayers(results);
-
-    let summary = await finalizeMatchFromRoomResults(cleanMatchId, {
-      expectedPlayers: Number(options.expectedPlayers || 2),
-      force: finishedCount >= Number(options.expectedPlayers || 2),
-      reason: options.reason || 'finished'
-    });
-
-    if (summary && summary.final) return summary;
-
-    summary = await finalizeMatchFromRoomResults(cleanMatchId, {
-      expectedPlayers: Number(options.expectedPlayers || 2),
-      force: true,
-      reason: 'timeout_partial_finalize'
-    });
-
-    return summary;
-  }
-
-  async function subscribeFinalSummary(matchId, cb) {
-    const cleanMatchId = String(matchId || '').trim();
-    if (!cleanMatchId || typeof cb !== 'function') return function(){};
-
-    if (hasFirebase()) {
-      const finalRef = dbRef(`${getMatchPath(cleanMatchId)}/finalSummary`);
-      const handler = (snap) => {
-        const value = snap && typeof snap.val === 'function' ? snap.val() : null;
-        if (value && value.final) cb(value);
-      };
-      finalRef.on('value', handler);
-      return function unsubscribe() {
-        try { finalRef.off('value', handler); } catch (_) {}
-      };
-    }
-
-    const notify = () => {
-      const room = ensureLocalRoomShape();
-      const summary =
-        room.matches &&
-        room.matches[cleanMatchId] &&
-        room.matches[cleanMatchId].finalSummary
-          ? room.matches[cleanMatchId].finalSummary
-          : null;
-      if (summary && summary.final) cb(summary);
-    };
-
-    const winHandler = () => notify();
-    window.addEventListener('hha:gjduet-room-local-update', winHandler);
-
-    let bcHandler = null;
-    if (bc) {
-      bcHandler = () => notify();
-      bc.addEventListener('message', bcHandler);
-    }
-
-    notify();
-
-    return function unsubscribe() {
-      try { window.removeEventListener('hha:gjduet-room-local-update', winHandler); } catch (_) {}
-      try { if (bc && bcHandler) bc.removeEventListener('message', bcHandler); } catch (_) {}
-    };
-  }
-
-  async function acquireRoomActionLock(kind, ttlMs) {
-    const cleanKind = String(kind || 'action').trim();
-    const ttl = Math.max(1500, Number(ttlMs || 5000));
-
-    const payload = {
-      kind: cleanKind,
-      pid: ctx.pid,
-      name: ctx.name,
-      at: now(),
-      ttlMs: ttl
-    };
-
-    if (hasFirebase()) {
-      const txn = await dbTransaction(getActionLockPath(), (current) => {
-        if (
-          current &&
-          typeof current === 'object' &&
-          Number(current.at || 0) > 0 &&
-          (now() - Number(current.at || 0)) < Number(current.ttlMs || ttl)
-        ) {
-          return;
-        }
-        return payload;
-      });
-
-      if (txn && txn.committed) return payload;
-      return null;
-    }
-
-    let acquired = null;
-    mergeLocalRoom((room) => {
-      const current = room.actionLock || null;
-      if (
-        current &&
-        typeof current === 'object' &&
-        Number(current.at || 0) > 0 &&
-        (now() - Number(current.at || 0)) < Number(current.ttlMs || ttl)
-      ) {
-        acquired = null;
-        return room;
-      }
-
-      room.actionLock = payload;
-      acquired = payload;
-      return room;
-    });
-
-    return acquired;
-  }
-
-  async function releaseRoomActionLock(lock) {
-    const payload = lock && typeof lock === 'object' ? lock : null;
-    if (!payload) return false;
-
-    if (hasFirebase()) {
-      const txn = await dbTransaction(getActionLockPath(), (current) => {
-        if (!current || typeof current !== 'object') return null;
-        if (
-          String(current.pid || '') === String(payload.pid || '') &&
-          String(current.kind || '') === String(payload.kind || '')
-        ) {
-          return null;
-        }
-        return current;
-      });
-      return !!txn;
-    }
-
-    mergeLocalRoom((room) => {
-      const current = room.actionLock || null;
-      if (
-        current &&
-        String(current.pid || '') === String(payload.pid || '') &&
-        String(current.kind || '') === String(payload.kind || '')
-      ) {
-        room.actionLock = null;
-      }
-      return room;
-    });
-
-    return true;
+    return isRunFresh(runState, maxAgeMs) ? runState : null;
   }
 
   async function startRoomRun(matchId, runtimeUrl) {
     const cleanMatchId = String(matchId || '').trim();
-    const url = String(runtimeUrl || '').trim();
-
-    if (!cleanMatchId) throw new Error('startRoomRun requires matchId');
-    if (!url) throw new Error('startRoomRun requires runtimeUrl');
 
     const payload = {
       state: 'running',
-      roomId: getRoomId(),
       matchId: cleanMatchId,
-      runtimeUrl: url,
-      runToken: buildRunToken(cleanMatchId),
+      runtimeUrl: String(runtimeUrl || '').trim(),
       startedAt: now(),
-      startedBy: {
-        pid: ctx.pid,
-        name: ctx.name,
-        role: getRole()
-      }
+      runToken: buildRunToken(cleanMatchId)
     };
 
     if (hasFirebase()) {
+      await dbSet(getRunPath(), payload);
       await dbUpdate(getRoomRootPath(), {
         status: 'running',
         activeMatchId: cleanMatchId,
         updatedAt: now()
       });
-      await dbSet(getRunPath(), payload);
+
       return payload;
     }
 
     mergeLocalRoom((room) => {
+      room.currentRun = payload;
       room.status = 'running';
       room.activeMatchId = cleanMatchId;
-      room.currentRun = payload;
       return room;
     });
 
     return payload;
   }
 
-  async function resetRoomRun() {
+  async function clearRoomRun() {
     if (hasFirebase()) {
-      await dbUpdate(getRoomRootPath(), {
-        status: 'lobby',
-        updatedAt: now()
-      });
       await dbRemove(getRunPath());
-      return;
-    }
-
-    mergeLocalRoom((room) => {
-      room.status = 'lobby';
-      room.currentRun = null;
-      return room;
-    });
-  }
-
-  async function clearActiveMatchIfEquals(matchId) {
-    const cleanMatchId = String(matchId || '').trim();
-    if (!cleanMatchId) return;
-
-    if (hasFirebase()) {
-      const current = String(await dbOnce(`${getRoomRootPath()}/activeMatchId`) || '').trim();
-      if (current === cleanMatchId) {
-        await dbUpdate(getRoomRootPath(), {
-          activeMatchId: '',
-          updatedAt: now()
-        });
-      }
-      return;
-    }
-
-    mergeLocalRoom((room) => {
-      if (String(room.activeMatchId || '').trim() === cleanMatchId) {
-        room.activeMatchId = '';
-      }
-      return room;
-    });
-  }
-
-  async function finishRoomRun(matchId) {
-    const cleanMatchId = String(matchId || '').trim();
-
-    await resetRoomRun();
-    await clearActiveMatchIfEquals(cleanMatchId);
-
-    if (hasFirebase()) {
       await dbUpdate(getRoomRootPath(), {
         status: 'lobby',
         updatedAt: now()
       });
-    } else {
-      mergeLocalRoom((room) => {
-        room.status = 'lobby';
-        return room;
-      });
+
+      return true;
     }
+
+    mergeLocalRoom((room) => {
+      room.currentRun = null;
+      room.status = 'lobby';
+      return room;
+    });
 
     return true;
-  }
-
-  async function readFreshRun(maxAgeMs) {
-    let runState = null;
-
-    if (hasFirebase()) {
-      runState = await dbOnce(getRunPath());
-    } else {
-      const room = ensureLocalRoomShape();
-      runState = room.currentRun || null;
-    }
-
-    return isRunFresh(runState, maxAgeMs || 15000) ? runState : null;
   }
 
   async function subscribeRoomRun(cb) {
     if (typeof cb !== 'function') return function(){};
 
     if (hasFirebase()) {
-      const runRef = dbRef(getRunPath());
+      const ref = dbRef(getRunPath());
+
       const handler = (snap) => {
         const value = snap && typeof snap.val === 'function' ? snap.val() : null;
         cb(value);
       };
-      runRef.on('value', handler);
+
+      ref.on('value', handler);
+
       return function unsubscribe() {
-        try { runRef.off('value', handler); } catch (_) {}
+        try { ref.off('value', handler); } catch (_) {}
       };
     }
 
@@ -1308,6 +1173,7 @@
     window.addEventListener('hha:gjduet-room-local-update', winHandler);
 
     let bcHandler = null;
+
     if (bc) {
       bcHandler = () => notify();
       bc.addEventListener('message', bcHandler);
@@ -1319,62 +1185,6 @@
       try { window.removeEventListener('hha:gjduet-room-local-update', winHandler); } catch (_) {}
       try { if (bc && bcHandler) bc.removeEventListener('message', bcHandler); } catch (_) {}
     };
-  }
-
-  async function publishRematchSignal(payload) {
-    const clean = Object.assign({
-      roomId: getRoomId(),
-      fromMatchId: '',
-      nextMatchId: '',
-      runtimeUrl: '',
-      createdAt: now(),
-      rematchToken: ''
-    }, payload || {});
-
-    clean.fromMatchId = String(clean.fromMatchId || '').trim();
-    clean.nextMatchId = String(clean.nextMatchId || '').trim();
-    clean.runtimeUrl = String(clean.runtimeUrl || '').trim();
-    clean.rematchToken = String(clean.rematchToken || buildRematchToken(clean.nextMatchId)).trim();
-    clean.by = {
-      pid: ctx.pid,
-      name: ctx.name,
-      role: getRole()
-    };
-
-    if (!clean.nextMatchId || !clean.runtimeUrl) {
-      throw new Error('publishRematchSignal requires nextMatchId and runtimeUrl');
-    }
-
-    if (hasFirebase()) {
-      await dbSet(getRematchPath(), clean);
-      return clean;
-    }
-
-    mergeLocalRoom((room) => {
-      room.rematchSignal = clean;
-      return room;
-    });
-
-    return clean;
-  }
-
-  async function readFreshRematch(maxAgeMs) {
-    let rematch = null;
-
-    if (hasFirebase()) {
-      rematch = await dbOnce(getRematchPath());
-    } else {
-      const room = ensureLocalRoomShape();
-      rematch = room.rematchSignal || null;
-    }
-
-    const ageLimit = Number(maxAgeMs || 15000);
-    if (!rematch || typeof rematch !== 'object') return null;
-    const createdAt = Number(rematch.createdAt || 0);
-    if (!createdAt) return null;
-    if ((now() - createdAt) > ageLimit) return null;
-
-    return rematch;
   }
 
   async function clearRematchSignal() {
@@ -1391,18 +1201,44 @@
     return true;
   }
 
+  async function sendRematchSignal(nextMatchId, runtimeUrl) {
+    const cleanMatchId = String(nextMatchId || '').trim();
+
+    const payload = {
+      nextMatchId: cleanMatchId,
+      runtimeUrl: String(runtimeUrl || '').trim(),
+      token: buildRematchToken(cleanMatchId),
+      createdAt: now()
+    };
+
+    if (hasFirebase()) {
+      await dbSet(getRematchPath(), payload);
+      return payload;
+    }
+
+    mergeLocalRoom((room) => {
+      room.rematchSignal = payload;
+      return room;
+    });
+
+    return payload;
+  }
+
   async function subscribeRematch(cb) {
     if (typeof cb !== 'function') return function(){};
 
     if (hasFirebase()) {
-      const rematchRef = dbRef(getRematchPath());
+      const ref = dbRef(getRematchPath());
+
       const handler = (snap) => {
         const value = snap && typeof snap.val === 'function' ? snap.val() : null;
-        if (value) cb(value);
+        cb(value);
       };
-      rematchRef.on('value', handler);
+
+      ref.on('value', handler);
+
       return function unsubscribe() {
-        try { rematchRef.off('value', handler); } catch (_) {}
+        try { ref.off('value', handler); } catch (_) {}
       };
     }
 
@@ -1415,6 +1251,7 @@
     window.addEventListener('hha:gjduet-room-local-update', winHandler);
 
     let bcHandler = null;
+
     if (bc) {
       bcHandler = () => notify();
       bc.addEventListener('message', bcHandler);
@@ -1428,21 +1265,93 @@
     };
   }
 
-  async function forceResetRoomState() {
+  async function acquireRoomActionLock(action, ttlMs) {
+    const cleanAction = String(action || 'action').trim();
+    const ttl = Number(ttlMs || 5000);
+    const token = cleanAction + '-' + safeKey(ctx.pid) + '-' + now();
+
+    const payload = {
+      action: cleanAction,
+      token,
+      byPid: ctx.pid,
+      byName: ctx.name,
+      createdAt: now(),
+      expiresAt: now() + ttl
+    };
+
     if (hasFirebase()) {
-      await dbUpdate(getRoomRootPath(), {
-        status: 'lobby',
-        activeMatchId: '',
-        updatedAt: now()
+      const txn = await dbTransaction(getActionLockPath(), (current) => {
+        if (!current || Number(current.expiresAt || 0) < now()) {
+          return payload;
+        }
+
+        return undefined;
       });
-      await dbRemove(getRunPath());
+
+      if (!txn.committed) return null;
+      return payload;
+    }
+
+    let locked = null;
+
+    mergeLocalRoom((room) => {
+      const current = room.actionLock;
+
+      if (!current || Number(current.expiresAt || 0) < now()) {
+        room.actionLock = payload;
+        locked = payload;
+      }
+
+      return room;
+    });
+
+    return locked;
+  }
+
+  async function releaseRoomActionLock(lock) {
+    if (!lock || !lock.token) return true;
+
+    if (hasFirebase()) {
+      const current = await dbOnce(getActionLockPath());
+
+      if (current && current.token === lock.token) {
+        await dbRemove(getActionLockPath());
+      }
+
       return true;
     }
 
     mergeLocalRoom((room) => {
-      room.status = 'lobby';
-      room.activeMatchId = '';
+      if (room.actionLock && room.actionLock.token === lock.token) {
+        room.actionLock = null;
+      }
+
+      return room;
+    });
+
+    return true;
+  }
+
+  async function forceResetRoomState() {
+    if (hasFirebase()) {
+      await dbUpdate(getRoomRootPath(), {
+        currentRun: null,
+        rematchSignal: null,
+        actionLock: null,
+        activeMatchId: '',
+        status: 'lobby',
+        updatedAt: now()
+      });
+
+      return true;
+    }
+
+    mergeLocalRoom((room) => {
       room.currentRun = null;
+      room.rematchSignal = null;
+      room.actionLock = null;
+      room.activeMatchId = '';
+      room.status = 'lobby';
       return room;
     });
 
@@ -1451,63 +1360,66 @@
 
   window.HHA_DUET_ROOM_BOOT = {
     ctx,
+
     getDbMode,
     hasFirebase,
+
     getRoomId,
     getRole,
     isHost,
-    getRoomRootPath,
 
-    ensureRoom,
+    getRoomRootPath,
+    getPlayersPath,
+    getPlayerPath,
+    getRunPath,
+    getRematchPath,
+    getActionLockPath,
+    getMatchPath,
+
     readRoom,
+    ensureRoom,
 
     setPresence,
     leaveRoom,
     markLobbyReady,
 
-    validateRoomJoin,
     listPlayers,
     subscribePlayers,
-    maybePromoteHost,
     getEffectiveHostPid,
     isEffectiveHost,
 
+    readActiveMatchId,
+    writeActiveMatchId,
     ensureMatchId,
     readMatch,
-    readPlayerResults,
-    readFinalSummary,
-    publishPlayerResult,
-    publishFinalSummary,
 
-    appendMatchEvent,
+    readFreshRun,
+    startRoomRun,
+    clearRoomRun,
+    subscribeRoomRun,
 
-    combineDuetSummary,
-    waitForAllPlayerResults,
-    finalizeMatchFromRoomResults,
-    finalizeMatchWithPolicy,
+    clearRematchSignal,
+    sendRematchSignal,
+    subscribeRematch,
 
     acquireRoomActionLock,
     releaseRoomActionLock,
+    forceResetRoomState,
 
-    startRoomRun,
-    resetRoomRun,
-    finishRoomRun,
-    clearActiveMatchIfEquals,
-    readFreshRun,
-    subscribeRoomRun,
-
-    publishRematchSignal,
-    readFreshRematch,
-    clearRematchSignal,
-    subscribeRematch,
-
-    forceResetRoomState
+    publishPlayerResult,
+    readPlayerResults,
+    readFinalSummary,
+    publishFinalSummary,
+    waitForAllPlayerResults,
+    combineDuetSummary,
+    appendMatchEvent
   };
 
-  dlog('boot ready', {
+  dlog('ready', {
+    mode: getDbMode(),
     roomId: getRoomId(),
-    role: getRole(),
-    dbMode: getDbMode(),
-    roomRoot: getRoomRootPath()
+    pid: ctx.pid,
+    role: ctx.role,
+    root: getRoomRootPath()
   });
 })();
