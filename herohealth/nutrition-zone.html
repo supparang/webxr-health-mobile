@@ -686,7 +686,7 @@
       <div class="panel">
         <h2>ทางลัด</h2>
         <div class="topActions">
-          <button class="btn gold" id="btnQuickPlate" type="button">🍽️ เปิด Plate</button>
+          <button class="btn gold" id="btnQuickGoodJunk" type="button">🍟 เปิด GoodJunk</button>
           <button class="btn green" id="btnQuickHydration" type="button">💧 เปิด Hydration</button>
           <button class="btn ghost" id="btnBackHub" type="button">🏠 กลับ Hub</button>
         </div>
@@ -743,12 +743,12 @@
 
         <div class="statusRow">
           <span class="pill ready">พร้อมใช้</span>
-          <span class="pill info">Root Router</span>
-          <span class="pill warn">GoodJunk path ล่าสุด</span>
+          <span class="pill info">Launcher</span>
+          <span class="pill warn">URL สั้นแล้ว</span>
         </div>
 
         <div class="gameActions two">
-          <button class="gameBtn gold" id="btnOpenGoodJunk" type="button">เปิด GoodJunk</button>
+          <button class="gameBtn gold" id="btnOpenGoodJunk" type="button">เปิด GoodJunk Launcher</button>
           <button class="gameBtn ghost" id="btnOpenGoodJunkSolo" type="button">Solo ตรง</button>
         </div>
       </article>
@@ -836,7 +836,7 @@
 
     <section class="footerNote">
       Nutrition Zone ล่าสุด:
-      GoodJunk ใช้ <strong>./goodjunk-vr.html</strong>,
+      GoodJunk ใช้ <strong>./goodjunk-launcher.html</strong>,
       Groups ใช้ <strong>./nutrition-groups/groups-launcher.html</strong>,
       Hydration ใช้ <strong>./hydration-vr/hydration-vr.html</strong>,
       Plate ใช้ <strong>./plate-v1.html</strong>
@@ -904,7 +904,7 @@
       const PATHS = {
         mainHub: deriveMainHub(),
 
-        goodjunkLauncher: './goodjunk-vr.html',
+        goodjunkLauncher: './goodjunk-launcher.html',
         goodjunkSolo: './goodjunk-vr.html',
 
         groupsLauncher: './nutrition-groups/groups-launcher.html',
@@ -922,6 +922,7 @@
         name: 'Hero',
         diff: 'normal',
         time: '90',
+        goodjunkTime: '150',
         miniTime: '60',
         run: 'play',
         mode: 'solo'
@@ -970,7 +971,7 @@
         return new URL('./nutrition-zone.html', current.href).toString();
       }
 
-      function buildCommonParams(gameId, theme, extra = {}){
+      function buildCommonParams(gameId, extra = {}){
         const params = new URLSearchParams();
         const cleanZoneReturn = getCleanZoneReturnUrl();
 
@@ -991,7 +992,10 @@
 
         params.set('zone', 'nutrition');
         params.set('game', gameId);
-        params.set('mode', extra.mode || safeGet('mode', DEFAULTS.mode));
+
+        if(extra.mode){
+          params.set('mode', extra.mode);
+        }
 
         params.set('hub', cleanZoneReturn);
 
@@ -1011,9 +1015,9 @@
         return params;
       }
 
-      function buildUrl(path, gameId, theme, extra = {}){
+      function buildUrl(path, gameId, extra = {}){
         const url = new URL(path, current.href);
-        const params = buildCommonParams(gameId, theme, extra);
+        const params = buildCommonParams(gameId, extra);
 
         params.forEach((value, key) => {
           url.searchParams.set(key, value);
@@ -1022,8 +1026,8 @@
         return url.toString();
       }
 
-      function openGame(path, gameId, theme, extra = {}){
-        location.assign(buildUrl(path, gameId, theme, extra));
+      function openGame(path, gameId, extra = {}){
+        location.assign(buildUrl(path, gameId, extra));
       }
 
       function goMainHub(){
@@ -1031,49 +1035,54 @@
       }
 
       function openGoodJunk(){
-        openGame(PATHS.goodjunkLauncher, 'goodjunk', 'goodjunk', {
-          mode: safeGet('mode', 'solo')
+        openGame(PATHS.goodjunkLauncher, 'goodjunk', {
+          time: safeGet('time', DEFAULTS.goodjunkTime)
         });
       }
 
       function openGoodJunkSolo(){
-        openGame(PATHS.goodjunkSolo, 'goodjunk', 'goodjunk', {
+        openGame(PATHS.goodjunkSolo, 'goodjunk', {
+          time: safeGet('time', DEFAULTS.goodjunkTime),
           mode: 'solo'
         });
       }
 
       function openGroups(){
-        openGame(PATHS.groupsLauncher, 'groups', 'groups', {
-          mode: safeGet('mode', 'solo')
+        openGame(PATHS.groupsLauncher, 'groups', {
+          time: safeGet('time', DEFAULTS.time)
         });
       }
 
       function openGroupsRun(){
-        openGame(PATHS.groupsRun, 'groups', 'groups', {
+        openGame(PATHS.groupsRun, 'groups', {
+          time: safeGet('time', DEFAULTS.time),
           mode: 'solo'
         });
       }
 
       function openHydration(){
-        openGame(PATHS.hydration, 'hydration', 'hydration', {
-          mode: safeGet('mode', 'solo')
-        });
-      }
-
-      function openPlate(){
-        openGame(PATHS.plateLauncher, 'plate', 'plate', {
+        openGame(PATHS.hydration, 'hydration', {
+          time: safeGet('time', DEFAULTS.time),
           mode: 'solo'
         });
       }
 
+      function openPlate(){
+        openGame(PATHS.plateLauncher, 'plate', {
+          time: safeGet('time', DEFAULTS.time)
+        });
+      }
+
       function openPlateSolo(){
-        openGame(PATHS.plateSolo, 'plate', 'plate', {
+        openGame(PATHS.plateSolo, 'plate', {
+          time: safeGet('time', DEFAULTS.time),
           mode: 'solo'
         });
       }
 
       function openQuickPlate(){
-        openGame(PATHS.quickPlate, 'plate', 'plate', {
+        openGame(PATHS.quickPlate, 'plate', {
+          time: safeGet('time', DEFAULTS.time),
           mode: 'solo'
         });
       }
@@ -1086,7 +1095,7 @@
       bind('btnBackHubTop', goMainHub);
       bind('btnBackHub', goMainHub);
 
-      bind('btnQuickPlate', openPlate);
+      bind('btnQuickGoodJunk', openGoodJunk);
       bind('btnQuickHydration', openHydration);
 
       bind('btnOpenGoodJunk', openGoodJunk);
@@ -1103,6 +1112,7 @@
 
       window.__nutritionGoHub = goMainHub;
       window.__nutritionGoGoodJunk = openGoodJunk;
+      window.__nutritionGoGoodJunkSolo = openGoodJunkSolo;
       window.__nutritionGoGroups = openGroups;
       window.__nutritionGoHydration = openHydration;
       window.__nutritionGoPlate = openPlate;
