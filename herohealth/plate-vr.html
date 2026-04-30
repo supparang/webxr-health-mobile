@@ -6,6 +6,7 @@
   <title>HeroHealth • Plate Solo Launcher</title>
   <meta name="theme-color" content="#9fe3ff" />
   <meta name="color-scheme" content="light" />
+
   <style>
     :root{
       --bg:#f7fcff;
@@ -16,10 +17,7 @@
       --sky:#7fcfff;
       --gold:#ffd45f;
       --gold-soft:#fff8ea;
-      --ok:#6fd18b;
-      --ok-soft:#f1fff4;
       --shadow:0 14px 30px rgba(0,0,0,.08);
-      --shadow-lg:0 24px 60px rgba(0,0,0,.14);
     }
 
     *{ box-sizing:border-box; }
@@ -36,9 +34,7 @@
       -webkit-tap-highlight-color:transparent;
     }
 
-    body{
-      overflow-x:hidden;
-    }
+    body{ overflow-x:hidden; }
 
     .page{
       max-width:980px;
@@ -151,9 +147,7 @@
       margin:0 0 12px;
     }
 
-    .field{
-      margin-bottom:12px;
-    }
+    .field{ margin-bottom:12px; }
 
     .label{
       display:block;
@@ -264,9 +258,7 @@
       display:none;
     }
 
-    .lastSummary.show{
-      display:block;
-    }
+    .lastSummary.show{ display:block; }
 
     .lastSummaryTitle{
       font-size:13px;
@@ -387,7 +379,7 @@
           <div>
             <h1>Plate Solo</h1>
             <p class="sub">
-              เกมหลักของ Plate — เข้าเล่นตรงเลย ไม่ผ่าน warmup-gate ซ้ำ
+              เกมหลักของ Plate — เข้าเล่นตรง ไม่ผ่าน warmup-gate ซ้ำ
               เพราะในเกมมี mission overlay และ goal bar อยู่แล้ว
             </p>
 
@@ -423,7 +415,7 @@
         <div class="goalBig">Launcher → Main Game → Mission Overlay → Play → Summary → HUB</div>
         <p class="sub">
           ตัด warmup-gate ก่อนเล่นออก เพื่อไม่ให้ผู้เล่นรู้สึกว่าย้อนไปย้อนมา
-          ส่วน cooldown-gate ก็ไม่บังคับใช้กับ Plate Solo ในรอบนี้
+          ระหว่างเล่น goal จะถูกล็อกไว้บนจอตลอด
         </p>
       </div>
     </section>
@@ -674,7 +666,7 @@
 
     function readLastSummary(){
       try{
-        const raw = localStorage.getItem('HHA_LAST_SUMMARY');
+        const raw = localStorage.getItem('HHA_LAST_SUMMARY_PLATE') || localStorage.getItem('HHA_LAST_SUMMARY');
         if(!raw) return null;
         return JSON.parse(raw);
       }catch(_){
