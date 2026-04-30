@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-mode-lobby.js ===
-// FULL PATCH v20260430a-GJ-MODE-LOBBY-QUICK-KIDS-BATTLE
+// FULL PATCH v20260430c-GJ-MODE-LOBBY-QUICK-KIDS-BATTLE-ATTACK
 // ✅ Quick Kids Lobby
 // ✅ Hide technical fields for kids
 // ✅ Battle 1v1 room create/join support
@@ -10,7 +10,7 @@
 
 import {
   makeRoomAdapter as makeBattleRoomAdapter
-} from './goodjunk-battle-room.js?v=20260430a-GJ-BATTLE-ROOM';
+} from './goodjunk-battle-room.js?v=20260430c-GJ-BATTLE-ROOM-ATTACK-SYSTEM';
 
 const PASS_KEYS = [
   'pid','name','nick','diff','time','view','hub',
@@ -184,12 +184,7 @@ function ensureStyle() {
       --text:#3b2415;
       --muted:#7c4a22;
       --shadow:0 18px 44px rgba(154,75,20,.18);
-      --good:#22c55e;
-      --duet:#14b8a6;
-      --race:#38bdf8;
       --battle:#f97316;
-      --coop:#a78bfa;
-      --danger:#ef4444;
       --gold:#facc15;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -210,13 +205,8 @@ function ensureStyle() {
       font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
     }
 
-    body{
-      min-height:100dvh;
-    }
-
-    button,input,select{
-      font:inherit;
-    }
+    body{ min-height:100dvh; }
+    button,input,select{ font:inherit; }
 
     .gjl-wrap{
       width:min(100%,1060px);
@@ -401,21 +391,6 @@ function ensureStyle() {
       transform:translateY(1px) scale(.99);
     }
 
-    .gjl-btn.host.good{
-      background:linear-gradient(180deg,#dcfce7,#bbf7d0);
-      border-color:#86efac;
-    }
-
-    .gjl-btn.host.duet{
-      background:linear-gradient(180deg,#ccfbf1,#99f6e4);
-      border-color:#5eead4;
-    }
-
-    .gjl-btn.host.race{
-      background:linear-gradient(180deg,#e0f2fe,#bae6fd);
-      border-color:#7dd3fc;
-    }
-
     .gjl-btn.host.battle{
       min-height:68px;
       font-size:19px;
@@ -423,11 +398,6 @@ function ensureStyle() {
       background:linear-gradient(180deg,#fb923c,#ea580c);
       border-color:#fdba74;
       box-shadow:0 14px 28px rgba(234,88,12,.28);
-    }
-
-    .gjl-btn.host.coop{
-      background:linear-gradient(180deg,#ede9fe,#ddd6fe);
-      border-color:#c4b5fd;
     }
 
     .gjl-btn.join-main{
@@ -449,31 +419,28 @@ function ensureStyle() {
       min-width:150px;
     }
 
-    .gjl-status{
-      display:grid;
-      gap:10px;
-      margin-top:14px;
+    .gjl-room-big{
+      margin-top:12px;
+      border-radius:24px;
+      border:3px solid #facc15;
+      background:linear-gradient(180deg,#fffbeb,#fef3c7);
+      padding:14px;
+      text-align:center;
+      box-shadow:0 10px 20px rgba(250,204,21,.18);
     }
 
-    .gjl-status-item{
-      border-radius:20px;
-      border:3px solid #ffe0b6;
-      background:#fffaf0;
-      padding:12px;
-    }
-
-    .gjl-status-k{
-      font-size:12px;
-      color:#9a4a0f;
+    .gjl-room-big-k{
+      font-size:13px;
       font-weight:1000;
+      color:#92400e;
     }
 
-    .gjl-status-v{
+    .gjl-room-big-v{
       margin-top:6px;
-      font-size:20px;
+      font-size:clamp(24px,5vw,38px);
       font-weight:1000;
-      line-height:1.15;
-      color:#522b12;
+      color:#78350f;
+      letter-spacing:.02em;
       word-break:break-word;
     }
 
@@ -504,31 +471,6 @@ function ensureStyle() {
       font-size:13px;
       line-height:1.55;
       font-weight:900;
-    }
-
-    .gjl-room-big{
-      margin-top:12px;
-      border-radius:24px;
-      border:3px solid #facc15;
-      background:linear-gradient(180deg,#fffbeb,#fef3c7);
-      padding:14px;
-      text-align:center;
-      box-shadow:0 10px 20px rgba(250,204,21,.18);
-    }
-
-    .gjl-room-big-k{
-      font-size:13px;
-      font-weight:1000;
-      color:#92400e;
-    }
-
-    .gjl-room-big-v{
-      margin-top:6px;
-      font-size:clamp(24px,5vw,38px);
-      font-weight:1000;
-      color:#78350f;
-      letter-spacing:.02em;
-      word-break:break-word;
     }
 
     .gjl-toast{
@@ -562,18 +504,9 @@ function ensureStyle() {
     }
 
     @media (max-width: 860px){
-      .gjl-wrap{
-        align-content:start;
-      }
-
-      .gjl-grid{
-        grid-template-columns:1fr;
-      }
-
-      .gjl-room-row{
-        grid-template-columns:1fr;
-      }
-
+      .gjl-wrap{ align-content:start; }
+      .gjl-grid{ grid-template-columns:1fr; }
+      .gjl-room-row{ grid-template-columns:1fr; }
       .gjl-icon{
         width:94px;
         height:94px;
@@ -582,31 +515,15 @@ function ensureStyle() {
     }
 
     @media (max-width: 520px){
-      .gjl-card{
-        padding:14px;
-      }
-
-      .gjl-title{
-        font-size:36px;
-      }
-
-      .gjl-sub{
-        font-size:14px;
-      }
-
-      .gjl-inline{
-        flex-direction:column;
-      }
-
-      .gjl-inline .gjl-btn{
-        width:100%;
-      }
+      .gjl-card{ padding:14px; }
+      .gjl-title{ font-size:36px; }
+      .gjl-sub{ font-size:14px; }
+      .gjl-inline{ flex-direction:column; }
+      .gjl-inline .gjl-btn{ width:100%; }
     }
 
     @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
+      *,*::before,*::after{
         animation:none !important;
         transition:none !important;
       }
@@ -714,7 +631,13 @@ async function prepareBattleRoom(params, role, config = {}) {
     role: players[params.pid]?.role || finalRole,
     joinedAt: Number(players[params.pid]?.joinedAt || 0) || now,
     ready: true,
-    updatedAt: now
+    score: Number(players[params.pid]?.score || 0) || 0,
+    combo: Number(players[params.pid]?.combo || 0) || 0,
+    hp: Number(players[params.pid]?.hp ?? 3) || 3,
+    shield: Number(players[params.pid]?.shield || 0) || 0,
+    attackMeter: Number(players[params.pid]?.attackMeter || 0) || 0,
+    updatedAt: now,
+    lastSeenAt: now
   };
 
   const nextCount = Object.keys(players).length;
@@ -733,7 +656,9 @@ async function prepareBattleRoom(params, role, config = {}) {
     createdAt: Number(room?.createdAt || 0) || now,
     updatedAt: now,
     startedAt: shouldStart ? (Number(room?.startedAt || 0) || now) : 0,
-    players
+    players,
+    attacks: Array.isArray(room?.attacks) ? room.attacks : [],
+    effects: Array.isArray(room?.effects) ? room.effects : []
   };
 
   try {
@@ -869,40 +794,21 @@ export function mountGoodJunkModeLobby(config = {}) {
             <div id="gjlRoomText" class="gjl-room-big-v">—</div>
           </div>
 
-          ${quickKids ? `
-            <div class="gjl-tips">
-              ${
-                tips.length
-                  ? tips.map(t => `<div class="gjl-tip">${esc(t)}</div>`).join('')
-                  : `
-                    <div class="gjl-tip">✅ เก็บของดี</div>
-                    <div class="gjl-tip">❌ เลี่ยง Junk</div>
-                    <div class="gjl-tip">🏆 คะแนนสูงกว่าชนะ</div>
-                  `
-              }
-            </div>
+          <div class="gjl-tips">
+            ${
+              tips.length
+                ? tips.map(t => `<div class="gjl-tip">${esc(t)}</div>`).join('')
+                : `
+                  <div class="gjl-tip">✅ เก็บของดี</div>
+                  <div class="gjl-tip">❌ เลี่ยง Junk</div>
+                  <div class="gjl-tip">🏆 คะแนนสูงกว่าชนะ</div>
+                `
+            }
+          </div>
 
-            <div class="gjl-mini-note">
-              Battle จะเริ่มเมื่อมีผู้เล่นครบ 2 คนในห้องเดียวกัน ระบบจะพาเข้าเกมอัตโนมัติ
-            </div>
-          ` : `
-            <div class="gjl-status">
-              <div class="gjl-status-item">
-                <div class="gjl-status-k">โหมด</div>
-                <div id="gjlModeText" class="gjl-status-v">${esc(mode.toUpperCase())}</div>
-              </div>
-              <div class="gjl-status-item">
-                <div class="gjl-status-k">ปลายทาง</div>
-                <div id="gjlPlayText" class="gjl-status-v">${esc(playPath)}</div>
-              </div>
-            </div>
-
-            <div class="gjl-tips">
-              <div class="gjl-tip">ถ้ากด “สร้างห้องและเข้าเล่น” ระบบจะสร้าง room code แล้วเข้า play page ของโหมด ${esc(mode)} ทันที</div>
-              <div class="gjl-tip">ถ้ากด “เข้าห้องนี้” ระบบจะใช้ room code ที่กรอกอยู่และเข้า play page เดิมของโหมด ${esc(mode)}</div>
-              <div class="gjl-tip">ทุก query สำคัญ เช่น pid, diff, time, hub, view, seed, studyId จะถูก passthrough ไปครบ</div>
-            </div>
-          `}
+          <div class="gjl-mini-note">
+            Battle จะเริ่มเมื่อมีผู้เล่นครบ 2 คนในห้องเดียวกัน ระบบจะพาเข้าเกมอัตโนมัติ
+          </div>
         </div>
       </section>
     </div>
@@ -914,12 +820,10 @@ export function mountGoodJunkModeLobby(config = {}) {
   const diffEl = document.getElementById('gjlDiff');
   const timeEl = document.getElementById('gjlTime');
   const viewEl = document.getElementById('gjlView');
-
   const roomTextEl = document.getElementById('gjlRoomText');
 
   nameEl.value = clean(base.name, 'Hero');
   if (pidEl) pidEl.value = clean(base.pid, getStableAnonPid());
-
   roomEl.value = defaultRoom;
 
   if (diffEl) setSelectValue(diffEl, base.diff, 'normal');
