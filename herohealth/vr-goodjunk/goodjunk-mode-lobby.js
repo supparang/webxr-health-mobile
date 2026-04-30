@@ -1,31 +1,87 @@
 // === /herohealth/vr-goodjunk/goodjunk-mode-lobby.js ===
-// FULL PATCH v20260409a-GJ-MODE-LOBBY-SHARED
+// FULL PATCH v20260430a-GJ-MODE-LOBBY-QUICK-KIDS-BATTLE
+// ✅ Quick Kids Lobby
+// ✅ Hide technical fields for kids
+// ✅ Battle 1v1 room create/join support
+// ✅ Auto-start Battle when 2 players are in room
+// ✅ Stable anon pid per device
+// ✅ Copy room + copy invite link
+// ✅ Still passthrough important query params
+
+import {
+  makeRoomAdapter as makeBattleRoomAdapter
+} from './goodjunk-battle-room.js?v=20260430a-GJ-BATTLE-ROOM';
 
 const PASS_KEYS = [
   'pid','name','nick','diff','time','view','hub',
   'sbUrl','sbAnon','studyId','conditionGroup',
   'phase','log','ai','pro','research','seed','run',
   'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
-  'cdnext','zone','cat','game','gameId','theme','room'
+  'cdnext','zone','cat','game','gameId','theme','room',
+  'entry','recommendedMode','multiplayer'
 ];
 
 const STORAGE = {
   recentRoomPrefix: 'GJ_RECENT_ROOM:',
   lastModePrefix: 'GJ_LAST_MODE:',
-  lastRunUrlPrefix: 'GJ_LAST_RUN_URL:'
+  lastRunUrlPrefix: 'GJ_LAST_RUN_URL:',
+  stablePid: 'GJ_STABLE_PLAYER_ID'
 };
 
-function qs(k, d=''){
-  try { return new URL(location.href).searchParams.get(k) ?? d; }
-  catch (_) { return d; }
+function qs(k, d = '') {
+  try {
+    return new URL(location.href).searchParams.get(k) ?? d;
+  } catch (_) {
+    return d;
+  }
 }
 
-function clean(v, d=''){
+function clean(v, d = '') {
   const s = String(v ?? '').trim();
   return s || d;
 }
 
-function buildUrl(path, params = {}, base = location.href){
+function esc(s) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function storageGet(key, fallback = '') {
+  try {
+    const v = localStorage.getItem(key);
+    return v == null ? fallback : v;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function storageSet(key, value) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch (_) {}
+}
+
+function getStableAnonPid() {
+  let pid = storageGet(STORAGE.stablePid, '');
+  if (pid) return pid;
+
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  pid = `anon-${rand}-${String(Date.now()).slice(-4)}`;
+  storageSet(STORAGE.stablePid, pid);
+  return pid;
+}
+
+function normalizePid(v) {
+  const pid = clean(v, 'anon');
+  if (!pid || pid === 'anon') return getStableAnonPid();
+  return pid;
+}
+
+function buildUrl(path, params = {}, base = location.href) {
   const u = new URL(path, base);
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== '') {
@@ -35,37 +91,38 @@ function buildUrl(path, params = {}, base = location.href){
   return u.toString();
 }
 
-function generateRoomCode(prefix = 'GJ'){
+function generateRoomCode(prefix = 'GJ') {
   const part = Math.random().toString(36).slice(2, 6).toUpperCase();
   const tail = String(Date.now()).slice(-4);
   return `${prefix}-${part}${tail}`;
 }
 
-function saveRecentRoom(mode, room){
-  try{
+function saveRecentRoom(mode, room) {
+  try {
     localStorage.setItem(`${STORAGE.recentRoomPrefix}${mode}`, String(room || ''));
-  }catch(_){}
+  } catch (_) {}
 }
 
-function loadRecentRoom(mode){
-  try{
+function loadRecentRoom(mode) {
+  try {
     return localStorage.getItem(`${STORAGE.recentRoomPrefix}${mode}`) || '';
-  }catch(_){
+  } catch (_) {
     return '';
   }
 }
 
-function saveLastMode(pid, mode, href){
-  try{
+function saveLastMode(pid, mode, href) {
+  try {
     localStorage.setItem(`${STORAGE.lastModePrefix}${pid}`, String(mode || ''));
     localStorage.setItem(`${STORAGE.lastRunUrlPrefix}${pid}`, String(href || ''));
-  }catch(_){}
+  } catch (_) {}
 }
 
-function launcherUrl(baseParams, launcherPath){
+function launcherUrl(baseParams, launcherPath) {
   return buildUrl(launcherPath || '../goodjunk-launcher.html', {
     pid: baseParams.pid,
     name: baseParams.name,
+    nick: baseParams.nick,
     diff: baseParams.diff,
     time: baseParams.time,
     hub: baseParams.hub,
@@ -77,22 +134,23 @@ function launcherUrl(baseParams, launcherPath){
     game: baseParams.game,
     gameId: baseParams.gameId,
     theme: baseParams.theme,
-    recommendedMode: baseParams.recommendedMode || ''
+    recommendedMode: baseParams.recommendedMode || baseParams.mode || ''
   });
 }
 
-function readBaseParams(config = {}){
+function readBaseParams(config = {}) {
   const out = {};
+
   PASS_KEYS.forEach((k) => {
     const v = qs(k, '');
     if (v !== '') out[k] = v;
   });
 
-  out.pid = clean(out.pid, 'anon');
+  out.pid = normalizePid(out.pid);
   out.name = clean(out.name || out.nick, 'Hero');
   out.nick = clean(out.nick || out.name, out.name);
   out.diff = clean(out.diff, 'normal');
-  out.time = clean(out.time, '90');
+  out.time = clean(out.time, '150');
   out.view = clean(out.view, 'mobile');
   out.hub = clean(out.hub, '../hub-v2.html');
   out.run = clean(out.run, 'play');
@@ -102,57 +160,82 @@ function readBaseParams(config = {}){
   out.game = clean(out.game, 'goodjunk');
   out.gameId = clean(out.gameId, 'goodjunk');
   out.theme = clean(out.theme, 'goodjunk');
+  out.entry = clean(out.entry, config.mode || 'battle');
+  out.recommendedMode = clean(out.recommendedMode, config.mode || 'battle');
+  out.multiplayer = clean(out.multiplayer, '1');
 
   if (config.mode) out.mode = config.mode;
   return out;
 }
 
-function ensureStyle(){
+function ensureStyle() {
   if (document.getElementById('gjModeLobbyStyle')) return;
 
   const style = document.createElement('style');
   style.id = 'gjModeLobbyStyle';
   style.textContent = `
     :root{
-      --bg1:#071226;
-      --bg2:#10234a;
-      --bg3:#1d4ed8;
-      --panel:rgba(2,6,23,.68);
-      --panel2:rgba(15,23,42,.56);
-      --line:rgba(255,255,255,.14);
-      --text:#f8fafc;
-      --muted:#dbeafe;
-      --shadow:0 18px 50px rgba(0,0,0,.28);
+      --bg1:#fff7ed;
+      --bg2:#ffedd5;
+      --bg3:#fed7aa;
+      --panel:#ffffff;
+      --panel2:#fffaf5;
+      --line:#ffd7a8;
+      --text:#3b2415;
+      --muted:#7c4a22;
+      --shadow:0 18px 44px rgba(154,75,20,.18);
       --good:#22c55e;
       --duet:#14b8a6;
       --race:#38bdf8;
-      --battle:#f59e0b;
+      --battle:#f97316;
       --coop:#a78bfa;
+      --danger:#ef4444;
+      --gold:#facc15;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
 
-    *{box-sizing:border-box}
+    *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
       color:var(--text);
       background:
-        radial-gradient(900px 600px at 10% 10%, rgba(56,189,248,.18), transparent 60%),
-        radial-gradient(900px 700px at 90% 0%, rgba(167,139,250,.16), transparent 58%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
+        radial-gradient(900px 580px at 10% 0%, rgba(255,186,73,.42), transparent 58%),
+        radial-gradient(840px 560px at 95% 12%, rgba(255,111,97,.20), transparent 58%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
       font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
     }
 
+    body{
+      min-height:100dvh;
+    }
+
+    button,input,select{
+      font:inherit;
+    }
+
     .gjl-wrap{
-      max-width:980px;
+      width:min(100%,1060px);
       margin:0 auto;
-      padding:16px;
+      min-height:100dvh;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(14px + var(--sab))
+        calc(14px + var(--sal));
+      display:grid;
+      align-content:center;
+      gap:14px;
     }
 
     .gjl-panel{
-      border:1px solid var(--line);
-      background:var(--panel);
-      backdrop-filter:blur(12px);
-      border-radius:28px;
+      border:3px solid var(--line);
+      background:rgba(255,255,255,.86);
+      border-radius:30px;
       box-shadow:var(--shadow);
       overflow:hidden;
     }
@@ -161,104 +244,85 @@ function ensureStyle(){
       padding:22px 18px;
       text-align:center;
       background:
-        linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.04)),
-        var(--panel);
+        radial-gradient(circle at 50% 0%, rgba(255,236,179,.88), transparent 45%),
+        linear-gradient(180deg,#fffdf7,#fff7ed);
     }
 
     .gjl-badge{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:36px;
+      min-height:34px;
       padding:8px 14px;
       border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
+      border:2px solid #ffd59b;
+      background:#fff8e7;
       font-size:12px;
       font-weight:1000;
-      color:#e0f2fe;
+      color:#9a4a0f;
+      box-shadow:0 8px 18px rgba(249,115,22,.10);
     }
 
     .gjl-icon{
-      width:104px;
-      height:104px;
+      width:108px;
+      height:108px;
       margin:14px auto 0;
-      border-radius:28px;
+      border-radius:32px;
       display:grid;
       place-items:center;
-      font-size:52px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      box-shadow:0 14px 30px rgba(0,0,0,.18);
+      font-size:54px;
+      border:3px solid #ffc46b;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.92), transparent 35%),
+        linear-gradient(135deg,#fff3c4,#ffb65c);
+      box-shadow:0 14px 28px rgba(249,115,22,.22);
     }
 
     .gjl-title{
       margin:14px 0 0;
-      font-size:clamp(30px,5vw,48px);
-      line-height:1.04;
+      font-size:clamp(34px,6vw,56px);
+      line-height:1.02;
       font-weight:1000;
+      color:#5a2b10;
+      letter-spacing:-.03em;
     }
 
     .gjl-sub{
-      margin-top:10px;
+      width:min(760px,100%);
+      margin:10px auto 0;
       color:var(--muted);
-      font-size:15px;
+      font-size:16px;
       line-height:1.65;
       font-weight:900;
     }
 
     .gjl-grid{
       display:grid;
-      grid-template-columns:1.15fr .85fr;
+      grid-template-columns:1.08fr .92fr;
       gap:14px;
-      margin-top:14px;
     }
 
     .gjl-card{
-      border:1px solid rgba(255,255,255,.12);
-      background:var(--panel2);
-      border-radius:24px;
+      border:3px solid var(--line);
+      background:rgba(255,255,255,.88);
+      border-radius:28px;
       padding:16px;
       box-shadow:var(--shadow);
     }
 
     .gjl-card h2{
       margin:0 0 8px;
-      font-size:22px;
+      font-size:24px;
       line-height:1.08;
+      color:#5a2b10;
+      letter-spacing:-.02em;
     }
 
     .gjl-muted{
       color:var(--muted);
-      font-size:13px;
+      font-size:14px;
       line-height:1.55;
       font-weight:900;
-    }
-
-    .gjl-status{
-      display:grid;
-      gap:10px;
-      margin-top:14px;
-    }
-
-    .gjl-status-item{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      padding:12px;
-    }
-
-    .gjl-status-k{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .gjl-status-v{
-      margin-top:6px;
-      font-size:18px;
-      font-weight:1000;
-      line-height:1.15;
     }
 
     .gjl-form{
@@ -275,25 +339,29 @@ function ensureStyle(){
 
     .gjl-field label{
       font-size:13px;
-      color:var(--muted);
+      color:#8a4d18;
       font-weight:1000;
     }
 
     .gjl-field input,
     .gjl-field select{
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(2,6,23,.72);
-      color:var(--text);
-      padding:10px 12px;
+      width:100%;
+      min-height:54px;
+      border-radius:18px;
+      border:3px solid #ffd7a8;
+      background:#fffdfa;
+      color:#3b2415;
+      padding:10px 14px;
       outline:none;
+      font-size:17px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(154,75,20,.08);
     }
 
     .gjl-field input:focus,
     .gjl-field select:focus,
     .gjl-btn:focus-visible{
-      outline:3px solid rgba(250,204,21,.42);
+      outline:4px solid rgba(250,204,21,.45);
       outline-offset:2px;
     }
 
@@ -311,29 +379,64 @@ function ensureStyle(){
     }
 
     .gjl-btn{
-      min-height:54px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.16);
-      color:#fff;
+      min-height:56px;
+      border-radius:20px;
+      border:3px solid #ffd7a8;
+      color:#4b260d;
       font-size:16px;
       font-weight:1000;
       cursor:pointer;
       padding:12px 16px;
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
+      box-shadow:0 10px 22px rgba(154,75,20,.14);
       transition:transform .12s ease, filter .12s ease;
-      background:rgba(255,255,255,.06);
+      background:#fffaf0;
     }
 
     .gjl-btn:hover{
       transform:translateY(-1px);
-      filter:brightness(1.05);
+      filter:brightness(1.03);
     }
 
-    .gjl-btn.host.good{ background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.14)); border-color:rgba(34,197,94,.34); }
-    .gjl-btn.host.duet{ background:linear-gradient(180deg, rgba(20,184,166,.24), rgba(20,184,166,.14)); border-color:rgba(20,184,166,.34); }
-    .gjl-btn.host.race{ background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14)); border-color:rgba(56,189,248,.34); }
-    .gjl-btn.host.battle{ background:linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14)); border-color:rgba(245,158,11,.34); }
-    .gjl-btn.host.coop{ background:linear-gradient(180deg, rgba(167,139,250,.24), rgba(167,139,250,.14)); border-color:rgba(167,139,250,.34); }
+    .gjl-btn:active{
+      transform:translateY(1px) scale(.99);
+    }
+
+    .gjl-btn.host.good{
+      background:linear-gradient(180deg,#dcfce7,#bbf7d0);
+      border-color:#86efac;
+    }
+
+    .gjl-btn.host.duet{
+      background:linear-gradient(180deg,#ccfbf1,#99f6e4);
+      border-color:#5eead4;
+    }
+
+    .gjl-btn.host.race{
+      background:linear-gradient(180deg,#e0f2fe,#bae6fd);
+      border-color:#7dd3fc;
+    }
+
+    .gjl-btn.host.battle{
+      min-height:68px;
+      font-size:19px;
+      color:#fff7ed;
+      background:linear-gradient(180deg,#fb923c,#ea580c);
+      border-color:#fdba74;
+      box-shadow:0 14px 28px rgba(234,88,12,.28);
+    }
+
+    .gjl-btn.host.coop{
+      background:linear-gradient(180deg,#ede9fe,#ddd6fe);
+      border-color:#c4b5fd;
+    }
+
+    .gjl-btn.join-main{
+      min-height:64px;
+      font-size:18px;
+      color:#3b2415;
+      background:linear-gradient(180deg,#fef3c7,#fde68a);
+      border-color:#facc15;
+    }
 
     .gjl-inline{
       display:flex;
@@ -346,6 +449,34 @@ function ensureStyle(){
       min-width:150px;
     }
 
+    .gjl-status{
+      display:grid;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .gjl-status-item{
+      border-radius:20px;
+      border:3px solid #ffe0b6;
+      background:#fffaf0;
+      padding:12px;
+    }
+
+    .gjl-status-k{
+      font-size:12px;
+      color:#9a4a0f;
+      font-weight:1000;
+    }
+
+    .gjl-status-v{
+      margin-top:6px;
+      font-size:20px;
+      font-weight:1000;
+      line-height:1.15;
+      color:#522b12;
+      word-break:break-word;
+    }
+
     .gjl-tips{
       margin-top:14px;
       display:grid;
@@ -353,42 +484,270 @@ function ensureStyle(){
     }
 
     .gjl-tip{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
+      border-radius:20px;
+      border:3px solid #ffe0b6;
+      background:#fffaf0;
+      padding:13px 14px;
+      color:#5a2b10;
+      font-size:15px;
+      line-height:1.48;
+      font-weight:1000;
+    }
+
+    .gjl-mini-note{
+      margin-top:12px;
+      border-radius:20px;
+      border:3px dashed #fdba74;
+      background:#fff7ed;
+      color:#7c2d12;
       padding:12px 14px;
-      color:#e0f2fe;
       font-size:13px;
       line-height:1.55;
       font-weight:900;
     }
 
+    .gjl-room-big{
+      margin-top:12px;
+      border-radius:24px;
+      border:3px solid #facc15;
+      background:linear-gradient(180deg,#fffbeb,#fef3c7);
+      padding:14px;
+      text-align:center;
+      box-shadow:0 10px 20px rgba(250,204,21,.18);
+    }
+
+    .gjl-room-big-k{
+      font-size:13px;
+      font-weight:1000;
+      color:#92400e;
+    }
+
+    .gjl-room-big-v{
+      margin-top:6px;
+      font-size:clamp(24px,5vw,38px);
+      font-weight:1000;
+      color:#78350f;
+      letter-spacing:.02em;
+      word-break:break-word;
+    }
+
+    .gjl-toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(18px + var(--sab));
+      transform:translateX(-50%);
+      z-index:99;
+      max-width:min(92vw,520px);
+      border-radius:999px;
+      border:3px solid #fdba74;
+      background:#fff7ed;
+      color:#7c2d12;
+      padding:12px 16px;
+      font-size:14px;
+      font-weight:1000;
+      box-shadow:0 14px 30px rgba(154,75,20,.18);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .15s ease, transform .15s ease;
+    }
+
+    .gjl-toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(-4px);
+    }
+
+    .gjl-advanced{
+      display:grid;
+      gap:12px;
+    }
+
     @media (max-width: 860px){
+      .gjl-wrap{
+        align-content:start;
+      }
+
       .gjl-grid{
         grid-template-columns:1fr;
       }
+
       .gjl-room-row{
         grid-template-columns:1fr;
+      }
+
+      .gjl-icon{
+        width:94px;
+        height:94px;
+        font-size:46px;
+      }
+    }
+
+    @media (max-width: 520px){
+      .gjl-card{
+        padding:14px;
+      }
+
+      .gjl-title{
+        font-size:36px;
+      }
+
+      .gjl-sub{
+        font-size:14px;
+      }
+
+      .gjl-inline{
+        flex-direction:column;
+      }
+
+      .gjl-inline .gjl-btn{
+        width:100%;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *,
+      *::before,
+      *::after{
+        animation:none !important;
+        transition:none !important;
       }
     }
   `;
   document.head.appendChild(style);
 }
 
-function copyText(text){
-  return navigator.clipboard?.writeText(text).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    ta.remove();
-  });
+function copyText(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  }
+  return fallbackCopy(text);
 }
 
-export function mountGoodJunkModeLobby(config = {}){
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  ta.style.top = '0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+
+  try {
+    document.execCommand('copy');
+  } catch (_) {}
+
+  ta.remove();
+  return Promise.resolve();
+}
+
+function makeToast() {
+  let toast = document.getElementById('gjlToast');
+  if (toast) return toast;
+
+  toast = document.createElement('div');
+  toast.id = 'gjlToast';
+  toast.className = 'gjl-toast';
+  toast.textContent = '';
+  document.body.appendChild(toast);
+  return toast;
+}
+
+function showToast(message) {
+  const toast = makeToast();
+  toast.textContent = message;
+  toast.classList.add('show');
+
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 1400);
+}
+
+function setSelectValue(el, value, fallback) {
+  if (!el) return;
+  const v = clean(value, fallback);
+  const has = Array.from(el.options || []).some(o => o.value === v);
+  el.value = has ? v : fallback;
+}
+
+async function prepareBattleRoom(params, role, config = {}) {
+  if (params.mode !== 'battle') return true;
+
+  const autoStartBattle = config.autoStartBattle !== false;
+  const adapter = makeBattleRoomAdapter();
+  const roomId = clean(params.room, '');
+
+  if (!roomId) {
+    showToast('ยังไม่มี Room Code');
+    return false;
+  }
+
+  let room = null;
+
+  try {
+    room = await adapter.loadRoom(roomId);
+  } catch (_) {
+    room = null;
+  }
+
+  const now = Date.now();
+  const players = room?.players && typeof room.players === 'object'
+    ? { ...room.players }
+    : {};
+
+  const currentCount = Object.keys(players).length;
+  const alreadyInRoom = !!players[params.pid];
+
+  if (!alreadyInRoom && currentCount >= 2) {
+    showToast('ห้อง Battle เต็มแล้ว ต้องมีแค่ 2 คน');
+    return false;
+  }
+
+  const hasHost = Object.values(players).some(p => p && p.role === 'host');
+  const finalRole = role === 'host' || !hasHost ? 'host' : 'player';
+
+  players[params.pid] = {
+    ...(players[params.pid] || {}),
+    pid: params.pid,
+    name: params.name,
+    nick: params.nick || params.name,
+    role: players[params.pid]?.role || finalRole,
+    joinedAt: Number(players[params.pid]?.joinedAt || 0) || now,
+    ready: true,
+    updatedAt: now
+  };
+
+  const nextCount = Object.keys(players).length;
+  const hostPid =
+    clean(room?.hostPid, '') ||
+    Object.values(players).find(p => p && p.role === 'host')?.pid ||
+    params.pid;
+
+  const shouldStart = autoStartBattle && nextCount >= 2;
+
+  const payload = {
+    roomId,
+    mode: 'battle',
+    status: shouldStart ? 'started' : 'waiting',
+    hostPid,
+    createdAt: Number(room?.createdAt || 0) || now,
+    updatedAt: now,
+    startedAt: shouldStart ? (Number(room?.startedAt || 0) || now) : 0,
+    players
+  };
+
+  try {
+    await adapter.saveRoom(roomId, payload);
+    saveRecentRoom('battle', roomId);
+    return true;
+  } catch (err) {
+    console.warn('[GoodJunk Lobby] prepareBattleRoom failed', err);
+    showToast('บันทึกห้อง Battle ไม่สำเร็จ');
+    return false;
+  }
+}
+
+export function mountGoodJunkModeLobby(config = {}) {
   ensureStyle();
 
   const mode = clean(config.mode, 'race').toLowerCase();
@@ -398,105 +757,152 @@ export function mountGoodJunkModeLobby(config = {}){
   const playPath = clean(config.playPath, './goodjunk-vr.html');
   const launcherPath = clean(config.launcherPath, '../goodjunk-launcher.html');
 
+  const quickKids = config.quickKids === true;
+  const hideAdvanced = config.hideAdvanced === true;
+  const roomPrefix = clean(config.roomPrefix, `GJ-${mode.slice(0, 2).toUpperCase()}`);
+  const primaryText = clean(config.primaryText, 'สร้างห้องและเข้าเล่น');
+  const joinText = clean(config.joinText, 'เข้าห้องนี้');
+  const tips = Array.isArray(config.tips) ? config.tips : [];
+
   const app = document.getElementById('app') || document.body;
   const base = readBaseParams({ mode });
 
+  const defaultRoom =
+    clean(base.room, '') ||
+    loadRecentRoom(mode) ||
+    generateRoomCode(roomPrefix);
+
   app.innerHTML = `
-    <div class="gjl-wrap">
+    <div class="gjl-wrap ${quickKids ? 'quick-kids' : ''}">
       <section class="gjl-panel gjl-hero">
-        <div class="gjl-badge">HeroHealth • GoodJunk • ${mode.toUpperCase()} LOBBY</div>
-        <div class="gjl-icon">${emoji}</div>
-        <h1 class="gjl-title">${title}</h1>
-        <div class="gjl-sub">${subtitle}</div>
+        <div class="gjl-badge">HeroHealth • GoodJunk • ${esc(mode.toUpperCase())}</div>
+        <div class="gjl-icon" aria-hidden="true">${esc(emoji)}</div>
+        <h1 class="gjl-title">${esc(title)}</h1>
+        <div class="gjl-sub">${esc(subtitle)}</div>
       </section>
 
       <section class="gjl-grid">
         <div class="gjl-card">
-          <h2>ตั้งค่าก่อนเข้าเล่น</h2>
-          <div class="gjl-muted">หน้านี้เป็น lobby ของโหมด ${mode} โดยตรง ไม่ย้อนกลับไป solo</div>
+          <h2>${quickKids ? 'พร้อมดวลหรือยัง?' : 'ตั้งค่าก่อนเข้าเล่น'}</h2>
+          <div class="gjl-muted">
+            ${quickKids
+              ? 'ใส่ชื่อเล่นกับรหัสห้อง แล้วเริ่ม Battle ได้เลย'
+              : `หน้านี้เป็น lobby ของโหมด ${esc(mode)} โดยตรง ไม่ย้อนกลับไป solo`}
+          </div>
 
           <div class="gjl-form">
             <div class="gjl-field">
               <label for="gjlName">ชื่อเล่น</label>
-              <input id="gjlName" type="text" />
+              <input id="gjlName" type="text" inputmode="text" autocomplete="nickname" />
             </div>
 
-            <div class="gjl-field">
-              <label for="gjlPid">PID</label>
-              <input id="gjlPid" type="text" />
-            </div>
+            ${hideAdvanced ? '' : `
+              <div class="gjl-field">
+                <label for="gjlPid">Player ID / PID</label>
+                <input id="gjlPid" type="text" />
+              </div>
+            `}
 
             <div class="gjl-room-row">
               <div class="gjl-field">
                 <label for="gjlRoom">Room Code</label>
-                <input id="gjlRoom" type="text" />
+                <input id="gjlRoom" type="text" inputmode="text" autocomplete="off" />
               </div>
               <button id="gjlGenRoom" class="gjl-btn" type="button">สุ่มห้อง</button>
               <button id="gjlCopyRoom" class="gjl-btn" type="button">คัดลอก</button>
             </div>
 
-            <div class="gjl-inline">
-              <div class="gjl-field" style="flex:1 1 0;">
-                <label for="gjlDiff">ความยาก</label>
-                <select id="gjlDiff">
-                  <option value="easy">easy</option>
-                  <option value="normal">normal</option>
-                  <option value="hard">hard</option>
-                </select>
-              </div>
+            ${hideAdvanced ? '' : `
+              <div class="gjl-advanced">
+                <div class="gjl-inline">
+                  <div class="gjl-field" style="flex:1 1 0;">
+                    <label for="gjlDiff">ความยาก</label>
+                    <select id="gjlDiff">
+                      <option value="easy">easy</option>
+                      <option value="normal">normal</option>
+                      <option value="hard">hard</option>
+                      <option value="challenge">challenge</option>
+                    </select>
+                  </div>
 
-              <div class="gjl-field" style="flex:1 1 0;">
-                <label for="gjlTime">เวลา</label>
-                <select id="gjlTime">
-                  <option value="60">60s</option>
-                  <option value="90">90s</option>
-                  <option value="120">120s</option>
-                </select>
-              </div>
+                  <div class="gjl-field" style="flex:1 1 0;">
+                    <label for="gjlTime">เวลา</label>
+                    <select id="gjlTime">
+                      <option value="60">60s</option>
+                      <option value="90">90s</option>
+                      <option value="120">120s</option>
+                      <option value="150">150s</option>
+                      <option value="180">180s</option>
+                    </select>
+                  </div>
 
-              <div class="gjl-field" style="flex:1 1 0;">
-                <label for="gjlView">มุมมอง</label>
-                <select id="gjlView">
-                  <option value="mobile">mobile</option>
-                  <option value="desktop">desktop</option>
-                  <option value="cvr">cvr</option>
-                </select>
+                  <div class="gjl-field" style="flex:1 1 0;">
+                    <label for="gjlView">มุมมอง</label>
+                    <select id="gjlView">
+                      <option value="mobile">mobile</option>
+                      <option value="desktop">desktop</option>
+                      <option value="cvr">cvr</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-            </div>
+            `}
           </div>
 
           <div class="gjl-actions">
-            <button id="gjlHostBtn" class="gjl-btn host ${mode}" type="button">สร้างห้องและเข้าเล่น</button>
-            <button id="gjlJoinBtn" class="gjl-btn" type="button">เข้าห้องนี้</button>
+            <button id="gjlHostBtn" class="gjl-btn host ${esc(mode)}" type="button">${esc(primaryText)}</button>
+            <button id="gjlJoinBtn" class="gjl-btn join-main" type="button">${esc(joinText)}</button>
+
             <div class="gjl-inline">
-              <button id="gjlLauncherBtn" class="gjl-btn" type="button">กลับ Launcher</button>
+              <button id="gjlCopyLinkBtn" class="gjl-btn" type="button">🔗 คัดลอกลิงก์ชวนเพื่อน</button>
+              <button id="gjlLauncherBtn" class="gjl-btn" type="button">กลับเมนูเกม</button>
               <button id="gjlHubBtn" class="gjl-btn" type="button">กลับ Hub</button>
             </div>
           </div>
         </div>
 
         <div class="gjl-card">
-          <h2>สถานะตอนนี้</h2>
-          <div class="gjl-status">
-            <div class="gjl-status-item">
-              <div class="gjl-status-k">โหมด</div>
-              <div id="gjlModeText" class="gjl-status-v">${mode.toUpperCase()}</div>
-            </div>
-            <div class="gjl-status-item">
-              <div class="gjl-status-k">Room ปัจจุบัน</div>
-              <div id="gjlRoomText" class="gjl-status-v">—</div>
-            </div>
-            <div class="gjl-status-item">
-              <div class="gjl-status-k">ปลายทาง</div>
-              <div id="gjlPlayText" class="gjl-status-v">${playPath}</div>
-            </div>
+          <h2>${quickKids ? 'วิธีเล่น Battle' : 'สถานะตอนนี้'}</h2>
+
+          <div class="gjl-room-big">
+            <div class="gjl-room-big-k">Room Code</div>
+            <div id="gjlRoomText" class="gjl-room-big-v">—</div>
           </div>
 
-          <div class="gjl-tips">
-            <div class="gjl-tip">ถ้ากด “สร้างห้องและเข้าเล่น” ระบบจะสร้าง room code แล้วเข้า play page ของโหมด ${mode} ทันที</div>
-            <div class="gjl-tip">ถ้ากด “เข้าห้องนี้” ระบบจะใช้ room code ที่กรอกอยู่และเข้า play page เดิมของโหมด ${mode}</div>
-            <div class="gjl-tip">ทุก query สำคัญ เช่น pid, diff, time, hub, view, seed, studyId จะถูก passthrough ไปครบ</div>
-          </div>
+          ${quickKids ? `
+            <div class="gjl-tips">
+              ${
+                tips.length
+                  ? tips.map(t => `<div class="gjl-tip">${esc(t)}</div>`).join('')
+                  : `
+                    <div class="gjl-tip">✅ เก็บของดี</div>
+                    <div class="gjl-tip">❌ เลี่ยง Junk</div>
+                    <div class="gjl-tip">🏆 คะแนนสูงกว่าชนะ</div>
+                  `
+              }
+            </div>
+
+            <div class="gjl-mini-note">
+              Battle จะเริ่มเมื่อมีผู้เล่นครบ 2 คนในห้องเดียวกัน ระบบจะพาเข้าเกมอัตโนมัติ
+            </div>
+          ` : `
+            <div class="gjl-status">
+              <div class="gjl-status-item">
+                <div class="gjl-status-k">โหมด</div>
+                <div id="gjlModeText" class="gjl-status-v">${esc(mode.toUpperCase())}</div>
+              </div>
+              <div class="gjl-status-item">
+                <div class="gjl-status-k">ปลายทาง</div>
+                <div id="gjlPlayText" class="gjl-status-v">${esc(playPath)}</div>
+              </div>
+            </div>
+
+            <div class="gjl-tips">
+              <div class="gjl-tip">ถ้ากด “สร้างห้องและเข้าเล่น” ระบบจะสร้าง room code แล้วเข้า play page ของโหมด ${esc(mode)} ทันที</div>
+              <div class="gjl-tip">ถ้ากด “เข้าห้องนี้” ระบบจะใช้ room code ที่กรอกอยู่และเข้า play page เดิมของโหมด ${esc(mode)}</div>
+              <div class="gjl-tip">ทุก query สำคัญ เช่น pid, diff, time, hub, view, seed, studyId จะถูก passthrough ไปครบ</div>
+            </div>
+          `}
         </div>
       </section>
     </div>
@@ -512,63 +918,106 @@ export function mountGoodJunkModeLobby(config = {}){
   const roomTextEl = document.getElementById('gjlRoomText');
 
   nameEl.value = clean(base.name, 'Hero');
-  pidEl.value = clean(base.pid, 'anon');
-  diffEl.value = clean(base.diff, 'normal');
-  timeEl.value = clean(base.time, '90');
-  viewEl.value = clean(base.view, 'mobile');
+  if (pidEl) pidEl.value = clean(base.pid, getStableAnonPid());
 
-  roomEl.value = clean(base.room, loadRecentRoom(mode) || generateRoomCode(`GJ-${mode.slice(0,2).toUpperCase()}`));
+  roomEl.value = defaultRoom;
 
-  function syncStatus(){
+  if (diffEl) setSelectValue(diffEl, base.diff, 'normal');
+  if (timeEl) setSelectValue(timeEl, base.time, '150');
+  if (viewEl) setSelectValue(viewEl, base.view, 'mobile');
+
+  function syncStatus() {
     roomTextEl.textContent = clean(roomEl.value, '—');
   }
 
-  function currentParams(){
+  function currentParams() {
     const p = { ...base };
-    p.name = clean(nameEl.value, 'Hero');
+
+    p.name = clean(nameEl?.value, 'Hero');
     p.nick = p.name;
-    p.pid = clean(pidEl.value, 'anon');
-    p.room = clean(roomEl.value, generateRoomCode(`GJ-${mode.slice(0,2).toUpperCase()}`));
-    p.diff = clean(diffEl.value, 'normal');
-    p.time = clean(timeEl.value, '90');
-    p.view = clean(viewEl.value, 'mobile');
+
+    const rawPid = pidEl ? pidEl.value : p.pid;
+    p.pid = normalizePid(rawPid);
+
+    p.room = clean(roomEl?.value, generateRoomCode(roomPrefix));
+    p.diff = clean(diffEl?.value, p.diff || 'normal');
+    p.time = clean(timeEl?.value, p.time || '150');
+    p.view = clean(viewEl?.value, p.view || 'mobile');
+
     p.mode = mode;
+    p.entry = mode;
+    p.recommendedMode = mode;
+    p.multiplayer = mode === 'solo' ? '' : '1';
+
     return p;
   }
 
-  function playHref(role){
+  function playHref(role) {
     const p = currentParams();
+
     const href = buildUrl(playPath, {
       ...p,
       role: clean(role, 'host'),
-      lobby: '1'
+      lobby: '1',
+      fromLobby: '1',
+      modeLocked: '1'
     });
+
     saveRecentRoom(mode, p.room);
     saveLastMode(p.pid, mode, href);
+
     return href;
   }
 
+  function inviteHref() {
+    const p = currentParams();
+
+    return buildUrl(location.pathname, {
+      ...p,
+      role: 'join',
+      lobby: '1',
+      fromLobby: '1',
+      modeLocked: '1'
+    }, location.origin + location.pathname);
+  }
+
+  async function goPlay(role) {
+    const p = currentParams();
+    p.role = clean(role, 'host');
+
+    saveRecentRoom(mode, p.room);
+
+    const ok = await prepareBattleRoom(p, role, config);
+    if (!ok) return;
+
+    location.href = playHref(role);
+  }
+
   document.getElementById('gjlGenRoom').addEventListener('click', () => {
-    roomEl.value = generateRoomCode(`GJ-${mode.slice(0,2).toUpperCase()}`);
+    roomEl.value = generateRoomCode(roomPrefix);
     syncStatus();
+    showToast('สร้าง Room ใหม่แล้ว');
   });
 
   document.getElementById('gjlCopyRoom').addEventListener('click', async () => {
     const room = clean(roomEl.value, '');
     if (!room) return;
+
     await copyText(room);
-    const btn = document.getElementById('gjlCopyRoom');
-    const old = btn.textContent;
-    btn.textContent = 'คัดลอกแล้ว';
-    setTimeout(() => btn.textContent = old, 1200);
+    showToast('คัดลอก Room Code แล้ว');
+  });
+
+  document.getElementById('gjlCopyLinkBtn').addEventListener('click', async () => {
+    await copyText(inviteHref());
+    showToast('คัดลอกลิงก์ชวนเพื่อนแล้ว');
   });
 
   document.getElementById('gjlHostBtn').addEventListener('click', () => {
-    location.href = playHref('host');
+    goPlay('host');
   });
 
   document.getElementById('gjlJoinBtn').addEventListener('click', () => {
-    location.href = playHref('join');
+    goPlay('join');
   });
 
   document.getElementById('gjlLauncherBtn').addEventListener('click', () => {
@@ -579,7 +1028,7 @@ export function mountGoodJunkModeLobby(config = {}){
     location.href = clean(currentParams().hub, '../hub-v2.html');
   });
 
-  [nameEl, pidEl, roomEl, diffEl, timeEl, viewEl].forEach(el => {
+  [nameEl, pidEl, roomEl, diffEl, timeEl, viewEl].filter(Boolean).forEach(el => {
     el.addEventListener('input', syncStatus);
     el.addEventListener('change', syncStatus);
   });
