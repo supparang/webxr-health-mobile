@@ -654,8 +654,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjduet-runtime-v10"></script>
-  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-runtime-v10"></script>
+  <script src="../firebase-config.js?v=20260430-gjduet-runtime-v11-namefix"></script>
+  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-runtime-v11-namefix"></script>
 
   <script>
   (function(){
@@ -727,30 +727,31 @@
 
     function resolveIdentity(){
       const roomId = roomIdResolved || normalizeRoomCode(qs.get('roomId') || qs.get('room') || 'DU-LOCAL');
+
       const urlPid = String(qs.get('pid') || '').trim();
-      const urlName = String(qs.get('name') || qs.get('nick') || '').trim();
+      const urlNameRaw = String(qs.get('name') || qs.get('nick') || '').trim();
+      const urlName = urlNameRaw.replace(/\s+/g, ' ');
       const urlRole = String(qs.get('role') || (qs.get('host') === '1' ? 'host' : 'guest')).trim().toLowerCase();
 
-      const guestPid = readLS('HHA_GJ_DUET_PID__' + roomId + '__guest');
-      const hostPid = readLS('HHA_GJ_DUET_PID__' + roomId + '__host');
-
       let pid = urlPid || makeId('P');
-      let name = urlName || 'Hero';
       let role = urlRole === 'host' ? 'host' : 'guest';
+      let name = urlName || (role === 'host' ? 'Hero' : 'Player 2');
+
+      const hasUrlName = !!urlName;
 
       if (ssIdentity && ssIdentity.pid && ssIdentity.roomId === roomId) {
-        pid = String(ssIdentity.pid || pid);
-        name = String(ssIdentity.name || name);
-        role = String(ssIdentity.role || role).toLowerCase() === 'host' ? 'host' : 'guest';
-      } else if (urlRole === 'host' && guestPid && guestPid !== urlPid && !hostPid) {
-        pid = guestPid;
-        role = 'guest';
-        if (!urlName || urlName === 'Hero') name = 'Player 2';
-      } else if (urlRole === 'host' && guestPid && guestPid !== urlPid && hostPid !== urlPid) {
-        pid = guestPid;
-        role = 'guest';
-        if (!urlName || urlName === 'Hero') name = 'Player 2';
+        pid = String(urlPid || ssIdentity.pid || pid);
+
+        if (hasUrlName) {
+          name = urlName;
+        } else {
+          name = String(ssIdentity.name || name).trim().replace(/\s+/g, ' ');
+        }
+
+        role = String(urlRole || ssIdentity.role || role).toLowerCase() === 'host' ? 'host' : 'guest';
       }
+
+      name = String(name || '').trim().replace(/\s+/g, ' ') || (role === 'host' ? 'Hero' : 'Player 2');
 
       writeSS(identityKey, JSON.stringify({ roomId, pid, name, role }));
 
@@ -824,6 +825,17 @@
 
     function setStatus(text){
       ui.statusText.textContent = text;
+    }
+
+    function syncBootIdentity(){
+      try {
+        if (boot && boot.ctx) {
+          boot.ctx.pid = ctx.pid;
+          boot.ctx.name = ctx.name;
+          boot.ctx.role = ctx.role;
+          boot.ctx.roomId = ctx.roomId;
+        }
+      } catch (_) {}
     }
 
     function updateHud(){
@@ -914,6 +926,7 @@
       f.style.left = x + 'px';
       f.style.top = y + 'px';
       ui.arena.appendChild(f);
+
       setTimeout(() => {
         try { f.remove(); } catch (_) {}
       }, 850);
@@ -1691,6 +1704,7 @@
       }
 
       boot = window.HHA_DUET_ROOM_BOOT || null;
+      syncBootIdentity();
     }
 
     async function init(){
@@ -1699,11 +1713,14 @@
       if (boot && typeof boot.setPresence === 'function') {
         try {
           await boot.setPresence({
+            pid: ctx.pid,
+            name: ctx.name,
             ready: true,
             online: true,
             inRuntime: true,
             runtimeAt: now(),
-            lastSeen: now()
+            lastSeen: now(),
+            updatedAt: now()
           });
         } catch (err) {
           console.warn('[GJ-DUET-RUNTIME] setPresence runtime failed:', err);
@@ -1791,9 +1808,12 @@
       try {
         if (boot && typeof boot.setPresence === 'function') {
           boot.setPresence({
+            pid: ctx.pid,
+            name: ctx.name,
             online: true,
             inRuntime: false,
-            lastSeen: now()
+            lastSeen: now(),
+            updatedAt: now()
           }).catch(function(){});
         }
       } catch (_) {}
