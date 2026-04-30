@@ -640,8 +640,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjduet-v3"></script>
-  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-v3"></script>
+  <script src="../firebase-config.js?v=20260430-gjduet-v4"></script>
+  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-v4"></script>
 
   <script>
   (function () {
@@ -693,6 +693,7 @@
     let starting = false;
     let navigating = false;
     let effectiveHostPid = '';
+    const localReadyByPid = {};
 
     function esc(s) {
       return String(s ?? '')
@@ -897,8 +898,27 @@
       return tags.join('');
     }
 
+    function applyLocalReady(players) {
+      const list = Array.isArray(players) ? players : [];
+
+      list.forEach((p) => {
+        if (!p || !p.pid) return;
+
+        if (localReadyByPid[p.pid]) {
+          p.ready = true;
+        }
+
+        if (String(p.pid || '') === String(ctx.pid || '').trim()) {
+          p.online = true;
+          if (readyPressed) p.ready = true;
+        }
+      });
+
+      return list;
+    }
+
     function renderPlayers(players) {
-      const list = Array.isArray(players) ? players.slice() : [];
+      const list = applyLocalReady(Array.isArray(players) ? players.slice() : []);
 
       list.sort((a, b) => {
         const ar = String(a.pid || '') === String(effectiveHostPid || '') ? 0 : 1;
@@ -944,15 +964,18 @@
             <div class="player-name">${esc(ctx.name || 'Hero')}</div>
             <div class="player-sub">เครื่องนี้ • ${ctx.role === 'host' ? 'Host' : 'Guest'} • ${esc(reasonText || 'รอ Firebase permission')}</div>
           </div>
-          <div class="tag ${ctx.role === 'host' ? 'host' : ''}">${ctx.role === 'host' ? 'HOST' : 'LOCAL'}</div>
+          <div class="tag ${ctx.role === 'host' ? 'host' : ''}">${readyPressed ? 'พร้อมแล้ว' : (ctx.role === 'host' ? 'HOST' : 'LOCAL')}</div>
         </div>
       `;
     }
 
     async function refreshPlayers(playersInput) {
-      const players = Array.isArray(playersInput) ? playersInput : await boot.listPlayers();
+      const rawPlayers = Array.isArray(playersInput) ? playersInput : await boot.listPlayers();
+      const players = applyLocalReady(rawPlayers);
+
       effectiveHostPid = await boot.getEffectiveHostPid();
 
+      applyLocalReady(players);
       renderHeader();
       renderPlayers(players);
 
@@ -967,15 +990,25 @@
           setStatus('ครบ 2 คนและพร้อมแล้ว กดเริ่ม Duet ได้เลย');
           setTiny('รอบนี้จะใช้สรุปทีมชุดเดียวกันทั้งสองเครื่อง');
         } else if (onlineCount >= 2) {
-          setStatus('เข้าห้องครบแล้ว รอให้ทั้งสองคนกดพร้อม');
-          setTiny('เครื่องนี้เป็น Host ปัจจุบัน');
+          if (readyPressed) {
+            setStatus('เรา พร้อมเล่นแล้ว รออีกคนกดพร้อม');
+            setTiny('เมื่ออีกคนพร้อม ปุ่มเริ่ม Duet จะเปิด');
+          } else {
+            setStatus('เข้าห้องครบแล้ว กด “พร้อมแล้ว” ก่อน');
+            setTiny('เครื่องนี้เป็น Host ปัจจุบัน');
+          }
         } else {
-          setStatus('รอผู้เล่นอีก 1 คนเข้าห้อง');
-          setTiny('กดคัดลอกลิงก์เข้าห้อง หรือให้เพื่อนกรอก Room Code นี้');
+          if (readyPressed) {
+            setStatus('เรา พร้อมเล่นแล้ว รอผู้เล่นอีก 1 คนเข้าห้อง');
+            setTiny('กดคัดลอกลิงก์เข้าห้อง หรือให้เพื่อนกรอก Room Code นี้');
+          } else {
+            setStatus('รอผู้เล่นอีก 1 คนเข้าห้อง');
+            setTiny('กดคัดลอกลิงก์เข้าห้อง หรือให้เพื่อนกรอก Room Code นี้');
+          }
         }
       } else {
         if (readyPressed) {
-          setStatus('กดพร้อมแล้ว รอ Host เริ่มเกม');
+          setStatus('เรา พร้อมเล่นแล้ว รอ Host เริ่มเกม');
           setTiny('เมื่อ Host กดเริ่ม ระบบจะพาเข้าเกมอัตโนมัติ');
         } else {
           setStatus('กด “พร้อมแล้ว” ก่อน แล้วรอ Host เริ่มเกม');
@@ -1030,16 +1063,36 @@
 
     async function onReady() {
       readyPressed = true;
-      ui.btnReady.disabled = true;
+      localReadyByPid[ctx.pid] = true;
 
-      await boot.markLobbyReady(true);
-      await boot.setPresence({ ready: true, inRuntime: false });
-      await refreshPlayers();
+      ui.btnReady.disabled = true;
+      ui.btnReady.textContent = '✅ พร้อมเล่นแล้ว';
 
       if (isActingHost()) {
-        setStatus('พร้อมแล้ว รออีกคนพร้อม แล้วเริ่มเกมได้เลย');
+        setStatus('เรา พร้อมเล่นแล้ว รออีกคนกดพร้อม');
+        setTiny('เมื่อครบ 2 คนและพร้อมทั้งคู่ ปุ่มเริ่ม Duet จะเปิดให้ Host กด');
       } else {
-        setStatus('พร้อมแล้ว รอ Host เริ่มเกม');
+        setStatus('เรา พร้อมเล่นแล้ว รอ Host เริ่มเกม');
+        setTiny('เมื่อ Host กดเริ่ม ระบบจะพาเข้าเกมอัตโนมัติ');
+      }
+
+      try {
+        await boot.setPresence({
+          ready: true,
+          online: true,
+          inRuntime: false,
+          lastSeen: Date.now()
+        });
+
+        await boot.markLobbyReady(true);
+        await refreshPlayers();
+      } catch (err) {
+        console.warn('[GJ-DUET-LOBBY ready failed]', err);
+
+        setStatus('พร้อมแล้วบนเครื่องนี้ แต่ส่งสถานะไปห้องไม่สำเร็จ: ' + (err && err.message ? err.message : String(err)));
+        setTiny('ตรวจ Firebase connection หรือ Rules อีกครั้ง');
+
+        await refreshPlayers().catch(function(){});
       }
     }
 
@@ -1061,7 +1114,8 @@
           return;
         }
 
-        const players = await boot.listPlayers();
+        const rawPlayers = await boot.listPlayers();
+        const players = applyLocalReady(rawPlayers);
         const online = players.filter((p) => p && p.online !== false);
         const ready = players.filter((p) => p && p.ready);
 
@@ -1188,10 +1242,26 @@
 
     ui.playerNameInput.addEventListener('change', function () {
       const name = getTypedName();
+      ctx.name = name;
+
       const url = new URL(location.href);
       url.searchParams.set('name', name);
       url.searchParams.set('nick', name);
       history.replaceState(null, '', url.toString());
+
+      renderHeader();
+
+      try {
+        if (boot && typeof boot.setPresence === 'function') {
+          boot.setPresence({
+            name,
+            ready: readyPressed,
+            online: true,
+            inRuntime: false,
+            lastSeen: Date.now()
+          }).catch(function(){});
+        }
+      } catch (_) {}
     });
 
     ui.btnCopyRoom.addEventListener('click', copyRoomCode);
