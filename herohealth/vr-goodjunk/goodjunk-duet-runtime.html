@@ -901,7 +901,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjduet-runtime-team-summary"></script>
+  <script src="../firebase-config.js?v=20260430-gjduet-runtime-team-summary-safe"></script>
 
   <script>
   (function () {
@@ -995,6 +995,7 @@
       paused: false,
       ended: false,
       summaryShown: false,
+      currentSummaryPartial: false,
       publishStarted: false,
       finalizing: false,
       lastTs: 0,
@@ -1057,10 +1058,6 @@
     function n(v, d = 0) {
       v = Number(v);
       return Number.isFinite(v) ? v : d;
-    }
-
-    function clamp(v, a, b) {
-      return Math.max(a, Math.min(b, v));
     }
 
     function pick(arr) {
@@ -1202,14 +1199,47 @@
     }
 
     function drawItem(item) {
-      item.el.style.transform = `translate(${item.x}px, ${item.y}px)`;
+      if (!item || !item.el) return;
+      item.el.style.transform = `translate3d(${item.x}px, ${item.y}px, 0)`;
     }
 
     function removeItem(item) {
       if (!item || item.dead) return;
       item.dead = true;
-      try { item.el.remove(); } catch (_) {}
+
+      try {
+        item.el.remove();
+      } catch (_) {}
+
       state.items.delete(item.id);
+    }
+
+    function updateItems(dt) {
+      if (!ui.arena) return;
+
+      const rect = ui.arena.getBoundingClientRect();
+      const bottomLimit = rect.height - Math.max(92, rect.height * 0.16);
+
+      state.items.forEach((item) => {
+        if (!item || item.dead) return;
+
+        item.y += item.speed * dt;
+
+        if (item.y > bottomLimit) {
+          if (item.kind === 'good') {
+            state.goodMiss += 1;
+            state.miss += 1;
+            state.streak = 0;
+            showBanner('พลาด Good ไปแล้ว ลองใหม่!');
+          }
+
+          removeItem(item);
+          renderHud();
+          return;
+        }
+
+        drawItem(item);
+      });
     }
 
     function hitItem(item) {
@@ -1244,32 +1274,6 @@
       setTimeout(() => {
         removeItem(item);
       }, 160);
-    }
-
-    function updateItems(dt) {
-      const rect = ui.arena.getBoundingClientRect();
-      const bottomLimit = rect.height - Math.max(80, rect.height * 0.16);
-
-      state.items.forEach((item) => {
-        if (!item || item.dead) return;
-
-        item.y += item.speed * dt;
-
-        if (item.y > bottomLimit) {
-          if (item.kind === 'good') {
-            state.goodMiss += 1;
-            state.miss += 1;
-            state.streak = 0;
-            showBanner('พลาด Good ไปแล้ว ลองใหม่!');
-          }
-
-          removeItem(item);
-          renderHud();
-          return;
-        }
-
-        drawItem(item);
-      });
     }
 
     function gameLoop(ts) {
@@ -1340,19 +1344,38 @@
       return fb;
     }
 
-    async function dbGet(path) {
-      const snap = await state.db.ref(path).get();
-      return snap && typeof snap.val === 'function' ? snap.val() : null;
+    function dbOnce(path) {
+      return new Promise((resolve, reject) => {
+        try {
+          state.db.ref(path).once(
+            'value',
+            (snap) => resolve(snap && typeof snap.val === 'function' ? snap.val() : null),
+            reject
+          );
+        } catch (err) {
+          reject(err);
+        }
+      });
     }
 
-    async function dbSet(path, value) {
-      await state.db.ref(path).set(value);
-      return value;
+    function dbSet(path, value) {
+      return new Promise((resolve, reject) => {
+        try {
+          state.db.ref(path).set(value, (err) => err ? reject(err) : resolve(value));
+        } catch (err) {
+          reject(err);
+        }
+      });
     }
 
-    async function dbUpdate(path, value) {
-      await state.db.ref(path).update(value);
-      return value;
+    function dbUpdate(path, value) {
+      return new Promise((resolve, reject) => {
+        try {
+          state.db.ref(path).update(value, (err) => err ? reject(err) : resolve(value));
+        } catch (err) {
+          reject(err);
+        }
+      });
     }
 
     function dbOn(path, cb) {
@@ -1370,7 +1393,7 @@
     }
 
     async function ensureRoomOnline() {
-      const room = await dbGet(roomRootPath());
+      const room = await dbOnce(roomRootPath());
 
       const patch = {
         roomId: ctx.roomId,
@@ -1410,7 +1433,7 @@
     async function ensureMatchId() {
       if (state.matchId) return state.matchId;
 
-      const room = await dbGet(roomRootPath());
+      const room = await dbOnce(roomRootPath());
       const active = String(room && room.activeMatchId || '').trim();
 
       if (active) {
@@ -1456,7 +1479,16 @@
       listenFinalSummary();
 
       setTimeout(() => {
-        tryFinalizePartial();
+        tryFinalizePartial().catch((err) => {
+          console.warn('[GoodJunk Duet] partial finalize failed', err);
+
+          const fallback = combineSummary({
+            [ctx.pid]: localResultPayload(reason || 'end')
+          }, true);
+
+          fallback.note = 'อีกเครื่องยังไม่ส่งผล ระบบจึงแสดงผลของเครื่องนี้ก่อน';
+          showTeamSummary(fallback);
+        });
       }, 12000);
     }
 
@@ -1515,6 +1547,7 @@
     function combineSummary(results, partial) {
       const players = Object.keys(results || {})
         .map((k, i) => normalizeResult(results[k], i))
+        .filter((p) => p && p.pid)
         .sort((a, b) => {
           if (a.role === 'host' && b.role !== 'host') return -1;
           if (b.role === 'host' && a.role !== 'host') return 1;
@@ -1557,8 +1590,15 @@
     }
 
     async function writeFinalSummary(summary) {
-      const existing = await dbGet(`${matchPath()}/finalSummary`);
-      if (existing && existing.final) return existing;
+      const existing = await dbOnce(`${matchPath()}/finalSummary`);
+
+      if (existing && existing.final && !existing.partial) {
+        return existing;
+      }
+
+      if (existing && existing.final && existing.partial && summary.partial) {
+        return existing;
+      }
 
       await dbSet(`${matchPath()}/finalSummary`, summary);
       await dbUpdate(roomRootPath(), {
@@ -1570,41 +1610,77 @@
     }
 
     async function tryFinalizeFromResults(results) {
-      if (state.finalizing || state.summaryShown) return;
+      if (state.finalizing) return;
+      if (state.summaryShown && !state.currentSummaryPartial) return;
 
-      const count = Object.keys(results || {}).filter((k) => results[k]).length;
+      const safeResults = results && typeof results === 'object' ? results : {};
+      const count = Object.keys(safeResults).filter((k) => safeResults[k]).length;
+
       if (count < 2) {
         const elapsed = now() - state.waitingSince;
         const waitLeft = Math.max(0, Math.ceil((12000 - elapsed) / 1000));
-        ui.waitText.textContent = `ส่งผลของเราแล้ว รออีกเครื่องส่งผล... (${waitLeft}s)`;
+
+        if (ui.waitText && ui.waitingOverlay.classList.contains('show')) {
+          ui.waitText.textContent = `ส่งผลของเราแล้ว รออีกเครื่องส่งผล... (${waitLeft}s)`;
+        }
+
         return;
       }
 
       state.finalizing = true;
 
-      const summary = combineSummary(results, false);
-      const finalSummary = await writeFinalSummary(summary);
-      showTeamSummary(finalSummary);
+      try {
+        const summary = combineSummary(safeResults, false);
+        const finalSummary = await writeFinalSummary(summary);
+        state.finalizing = false;
+        showTeamSummary(finalSummary);
+      } catch (err) {
+        state.finalizing = false;
+        console.warn('[GoodJunk Duet] tryFinalizeFromResults failed', err);
+      }
     }
 
     async function tryFinalizePartial() {
-      if (state.summaryShown || state.finalizing) return;
+      if (state.summaryShown && !state.currentSummaryPartial) return;
+      if (state.finalizing) return;
 
-      const finalSummary = await dbGet(`${matchPath()}/finalSummary`);
-      if (finalSummary && finalSummary.final) {
+      const finalSummary = await dbOnce(`${matchPath()}/finalSummary`);
+      if (finalSummary && finalSummary.final && !finalSummary.partial) {
         showTeamSummary(finalSummary);
         return;
       }
 
-      const results = await dbGet(`${matchPath()}/playerResults`) || {};
+      const results = await dbOnce(`${matchPath()}/playerResults`) || {};
       const count = Object.keys(results).filter((k) => results[k]).length;
 
-      if (count <= 0) return;
+      if (count <= 0) {
+        const fallback = combineSummary({
+          [ctx.pid]: localResultPayload('partial_no_remote_result')
+        }, true);
+
+        fallback.note = 'ยังไม่มีข้อมูลจากอีกเครื่อง ระบบจึงแสดงผลของเครื่องนี้ก่อน';
+        showTeamSummary(fallback);
+        return;
+      }
 
       state.finalizing = true;
-      const summary = combineSummary(results, true);
-      const saved = await writeFinalSummary(summary);
-      showTeamSummary(saved);
+
+      try {
+        const summary = combineSummary(results, true);
+        const saved = await writeFinalSummary(summary);
+        state.finalizing = false;
+        showTeamSummary(saved);
+      } catch (err) {
+        state.finalizing = false;
+        console.warn('[GoodJunk Duet] tryFinalizePartial failed', err);
+
+        const fallback = combineSummary({
+          [ctx.pid]: localResultPayload('partial_error')
+        }, true);
+
+        fallback.note = 'รวมผลทีมไม่สำเร็จ ระบบจึงแสดงผลของเครื่องนี้ก่อน';
+        showTeamSummary(fallback);
+      }
     }
 
     function listenResults() {
@@ -1629,6 +1705,7 @@
 
     function renderPlayerCards(players) {
       const list = Array.isArray(players) ? players.slice(0, 2) : [];
+
       while (list.length < 2) {
         list.push({
           name: list.length === 0 ? 'Player 1' : 'Player 2',
@@ -1681,8 +1758,10 @@
     }
 
     function showTeamSummary(summary) {
-      if (state.summaryShown) return;
+      if (state.summaryShown && !(state.currentSummaryPartial && summary && !summary.partial)) return;
+
       state.summaryShown = true;
+      state.currentSummaryPartial = !!summary.partial;
 
       state.running = false;
       state.paused = false;
@@ -1811,35 +1890,7 @@
       });
     }
 
-    function gameLoop(ts) {
-      if (!state.running || state.ended) return;
-
-      if (!state.lastTs) state.lastTs = ts;
-      const dt = Math.min(0.05, (ts - state.lastTs) / 1000);
-      state.lastTs = ts;
-
-      if (!state.paused) {
-        state.timeLeftMs = Math.max(0, state.timeLeftMs - dt * 1000);
-        state.spawnAcc += dt * 1000;
-
-        if (state.spawnAcc >= cfg.spawnMs && state.items.size < cfg.maxItems) {
-          state.spawnAcc = 0;
-          createItem(Math.random() < cfg.goodChance ? 'good' : 'junk');
-        }
-
-        updateItems(dt);
-        renderHud();
-
-        if (state.timeLeftMs <= 0) {
-          finishGame('timeup');
-          return;
-        }
-      }
-
-      state.raf = requestAnimationFrame(gameLoop);
-    }
-
-    function boot() {
+    async function boot() {
       if (!ctx.roomId) {
         ctx.roomId = 'DU-' + Math.random().toString(36).slice(2, 8).toUpperCase();
       }
@@ -1857,71 +1908,84 @@
   </script>
 
   <script>
-  (function duetSummaryNoBossTextGuard(){
+  (function duetSummaryNoBossTextGuardSafe(){
     'use strict';
 
     const BAD_WORDS = [
-      'Junk King',
-      'Boss Adventure',
-      'Rage Finale',
-      'Phase A',
-      'Phase B',
-      'โค่น Junk King',
-      'ชนะ Rage Finale',
-      'ด่านสุดท้าย'
+      ['Boss Adventure', 'Duet Team Challenge'],
+      ['Junk King', 'Junk'],
+      ['Rage Finale', 'Team Finale'],
+      ['Phase A', 'รอบทีม'],
+      ['Phase B', 'รอบทีม'],
+      ['โค่น Junk King', 'ช่วยกันเก็บ Good และหลบ Junk'],
+      ['ชนะ Rage Finale', 'เล่นคู่สำเร็จ'],
+      ['ด่านสุดท้าย', 'ภารกิจคู่']
     ];
+
+    let busy = false;
+    let rafId = 0;
 
     function cleanText(s){
       let out = String(s || '');
-
-      out = out.replaceAll('Boss Adventure', 'Duet Team Challenge');
-      out = out.replaceAll('Junk King', 'Junk');
-      out = out.replaceAll('Rage Finale', 'Team Finale');
-      out = out.replaceAll('Phase A', 'รอบทีม');
-      out = out.replaceAll('Phase B', 'รอบทีม');
-      out = out.replaceAll('โค่น Junk King', 'ช่วยกันเก็บ Good และหลบ Junk');
-      out = out.replaceAll('ชนะ Rage Finale', 'เล่นคู่สำเร็จ');
-      out = out.replaceAll('ด่านสุดท้าย', 'ภารกิจคู่');
-
+      BAD_WORDS.forEach(([bad, good]) => {
+        out = out.split(bad).join(good);
+      });
       return out;
     }
 
-    function rewrite(){
-      const sp = new URLSearchParams(location.search);
-      if (sp.get('mode') !== 'duet') return;
+    function setTextIfChanged(el, text){
+      if (!el) return;
+      if (el.textContent !== text) {
+        el.textContent = text;
+      }
+    }
 
-      const title = document.getElementById('sumTitle');
-      const sub = document.getElementById('sumSub');
-      const note = document.getElementById('sumNote');
-      const mode = document.getElementById('sumMode');
+    function rewriteSummaryOnly(){
+      if (busy) return;
+      busy = true;
 
-      if (mode) mode.textContent = 'DUET';
+      try {
+        const sp = new URLSearchParams(location.search);
+        if (sp.get('mode') !== 'duet') return;
 
-      [title, sub, note].forEach((el) => {
-        if (!el) return;
-        el.textContent = cleanText(el.textContent);
-      });
+        const overlay = document.getElementById('summaryOverlay');
+        if (!overlay || !overlay.classList.contains('show')) return;
 
-      document.querySelectorAll('*').forEach((el) => {
-        if (!el || !el.childNodes || el.children.length) return;
-        const t = el.textContent || '';
-        if (BAD_WORDS.some(w => t.includes(w))) {
-          el.textContent = cleanText(t);
-        }
+        const title = document.getElementById('sumTitle');
+        const sub = document.getElementById('sumSub');
+        const mode = document.getElementById('sumMode');
+        const note = document.getElementById('sumNote');
+
+        if (title) setTextIfChanged(title, cleanText(title.textContent));
+        if (sub) setTextIfChanged(sub, cleanText(sub.textContent));
+        if (note) setTextIfChanged(note, cleanText(note.textContent));
+        if (mode) setTextIfChanged(mode, 'DUET');
+      } finally {
+        busy = false;
+      }
+    }
+
+    function scheduleRewrite(){
+      if (rafId) return;
+
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        rewriteSummaryOnly();
       });
     }
 
-    const obs = new MutationObserver(rewrite);
-    obs.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    });
+    window.addEventListener('hha:duet-summary-ready', scheduleRewrite);
+    window.addEventListener('hha:summary-ready', scheduleRewrite);
 
-    window.addEventListener('hha:duet-summary-ready', rewrite);
-    window.addEventListener('hha:summary-ready', rewrite);
-    setInterval(rewrite, 1200);
-    rewrite();
+    const overlay = document.getElementById('summaryOverlay');
+    if (overlay) {
+      const obs = new MutationObserver(scheduleRewrite);
+      obs.observe(overlay, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+    }
   })();
   </script>
 </body>
