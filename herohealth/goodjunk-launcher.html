@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
   <link rel="stylesheet" href="./goodjunk-page-base.css" />
+
   <style>
     .gj-launcher-wrap{
       min-height:100dvh;
@@ -305,21 +306,23 @@
     }
   </style>
 </head>
+
 <body>
   <div class="gj-launcher-wrap">
     <div class="gj-launcher-shell">
 
       <section class="gj-hero">
         <div class="gj-hero-row">
-          <div class="gj-kicker">🍎 GOODJUNK LAUNCHER</div>
+          <div class="gj-kicker">🍎 GOODJUNK</div>
           <h1 class="gj-hero-title">เลือกโหมดที่อยากเล่น</h1>
         </div>
         <p class="gj-hero-sub">
-          โหมด multi จะเน้นเก็บ <b>good / junk</b> เท่านั้น ส่วน <b>phase boss</b> มีเฉพาะ <b>solo boss</b> ตามที่ตกลงไว้
+          เลือกชื่อ ระดับ เวลา และมุมมอง แล้วกดโหมดที่ต้องการเล่น
+          โหมดหลายคนจะเน้นเก็บ <b>good / junk</b> ส่วน <b>phase boss</b> ใช้เฉพาะ Solo Boss
         </p>
       </section>
 
-      <section class="gj-config">
+      <section class="gj-config" aria-label="ตั้งค่าการเล่น">
         <div class="gj-config-card">
           <label class="gj-field">
             <span class="gj-label">ชื่อผู้เล่น</span>
@@ -340,12 +343,12 @@
 
         <div class="gj-config-card">
           <label class="gj-field">
-            <span class="gj-label">เวลาเล่น (วินาที)</span>
+            <span class="gj-label">เวลาเล่น</span>
             <select id="fieldTime" class="gj-select">
-              <option value="60">60</option>
-              <option value="90">90</option>
-              <option value="120">120</option>
-              <option value="150">150</option>
+              <option value="60">60 วินาที</option>
+              <option value="90">90 วินาที</option>
+              <option value="120">120 วินาที</option>
+              <option value="150">150 วินาที</option>
             </select>
           </label>
         </div>
@@ -356,7 +359,7 @@
             <select id="fieldView" class="gj-select">
               <option value="mobile">mobile</option>
               <option value="pc">pc</option>
-              <option value="cvr">cvr</option>
+              <option value="cvr">cardboard</option>
             </select>
           </label>
         </div>
@@ -365,61 +368,50 @@
       <section class="gj-panel">
         <h2 class="gj-panel-title">โหมดการเล่น</h2>
         <p class="gj-panel-sub">
-          กดการ์ดที่ต้องการ แล้วระบบจะส่งไปหน้าเล่นหรือ lobby ที่ถูกต้องให้อัตโนมัติ
+          กดการ์ดเพื่อเริ่มเล่น ระบบจะส่งเฉพาะข้อมูลที่จำเป็นไปหน้าเกม
         </p>
 
         <div class="gj-mode-grid" style="margin-top:12px;">
           <button class="gj-mode-card solo" type="button" data-mode="solo-boss">
             <div class="gj-mode-icon">👑</div>
             <div class="gj-mode-title">Solo Boss</div>
-            <div class="gj-mode-desc">ผ่าน 2 phase แล้วสู้ Junk King ได้เฉพาะโหมดเดี่ยว</div>
-            <div class="gj-mode-tag">phase boss only</div>
+            <div class="gj-mode-desc">เล่นเดี่ยว ผ่าน phase แล้วสู้ Junk King</div>
+            <div class="gj-mode-tag">boss mode</div>
           </button>
 
           <button class="gj-mode-card duet" type="button" data-mode="duet">
             <div class="gj-mode-icon">🤝</div>
             <div class="gj-mode-title">Duet</div>
-            <div class="gj-mode-desc">เล่นเป็นคู่ เน้นเก็บ good และหลบ junk แล้วสรุปผลแบบ duet</div>
+            <div class="gj-mode-desc">เล่นเป็นคู่ เน้นเก็บ good และหลบ junk</div>
             <div class="gj-mode-tag">2 players</div>
           </button>
 
           <button class="gj-mode-card race" type="button" data-mode="race">
             <div class="gj-mode-icon">🏁</div>
             <div class="gj-mode-title">Race</div>
-            <div class="gj-mode-desc">แข่งกันเก็บของดีให้ได้มากกว่า แต่ไม่มี phase boss</div>
-            <div class="gj-mode-tag">multi collect</div>
+            <div class="gj-mode-desc">แข่งกันเก็บของดีให้ได้มากกว่า</div>
+            <div class="gj-mode-tag">race</div>
           </button>
 
           <button class="gj-mode-card battle" type="button" data-mode="battle">
             <div class="gj-mode-icon">⚔️</div>
             <div class="gj-mode-title">Battle</div>
-            <div class="gj-mode-desc">แข่งคะแนนกันตรง ๆ โดยประเด็นหลักยังคงเป็น good / junk</div>
-            <div class="gj-mode-tag">no boss</div>
+            <div class="gj-mode-desc">แข่งคะแนน good / junk แบบตรง ๆ</div>
+            <div class="gj-mode-tag">battle</div>
           </button>
 
           <button class="gj-mode-card coop" type="button" data-mode="coop">
             <div class="gj-mode-icon">🫶</div>
             <div class="gj-mode-title">Co-op</div>
-            <div class="gj-mode-desc">ช่วยกันเก็บของดีและลดการพลาดให้ทีมดีที่สุด</div>
+            <div class="gj-mode-desc">ช่วยกันเก็บของดี ลดการพลาดของทีม</div>
             <div class="gj-mode-tag">team play</div>
           </button>
         </div>
       </section>
 
-      <section class="gj-panel">
-        <h2 class="gj-panel-title">สถานะที่จะส่งต่อ</h2>
-        <div class="gj-chipbar" style="justify-content:flex-start; margin-top:12px;">
-          <div class="gj-chip" id="chipPid">pid: anon</div>
-          <div class="gj-chip" id="chipName">name: Hero</div>
-          <div class="gj-chip" id="chipDiff">diff: normal</div>
-          <div class="gj-chip" id="chipTime">time: 90</div>
-          <div class="gj-chip" id="chipView">view: mobile</div>
-        </div>
-      </section>
-
       <section class="gj-launcher-actions">
-        <a id="btnBackHub" class="gj-btn gj-btn-success" href="./hub.html">🏠 กลับ Hub</a>
-        <button id="btnSoloQuick" class="gj-btn gj-btn-primary" type="button">👑 เข้า Solo Boss ทันที</button>
+        <a id="btnBackHub" class="gj-btn gj-btn-success" href="./nutrition-zone.html">🥗 กลับ Nutrition</a>
+        <button id="btnSoloQuick" class="gj-btn gj-btn-primary" type="button">👑 เข้า Solo Boss</button>
         <button id="btnReload" class="gj-btn gj-btn-warn" type="button">🔄 โหลดค่าใหม่</button>
       </section>
 
@@ -431,7 +423,6 @@
       'use strict';
 
       const q = new URLSearchParams(location.search);
-
       const STORAGE_KEY = 'HHA_GJ_LAUNCHER_PREFS';
 
       const fieldName = document.getElementById('fieldName');
@@ -439,16 +430,9 @@
       const fieldTime = document.getElementById('fieldTime');
       const fieldView = document.getElementById('fieldView');
 
-      const chipPid = document.getElementById('chipPid');
-      const chipName = document.getElementById('chipName');
-      const chipDiff = document.getElementById('chipDiff');
-      const chipTime = document.getElementById('chipTime');
-      const chipView = document.getElementById('chipView');
-
       const btnBackHub = document.getElementById('btnBackHub');
       const btnSoloQuick = document.getElementById('btnSoloQuick');
       const btnReload = document.getElementById('btnReload');
-
       const modeCards = Array.from(document.querySelectorAll('.gj-mode-card'));
 
       function first(){
@@ -480,8 +464,30 @@
         try { localStorage.setItem(key, value); } catch (_) {}
       }
 
+      function cleanReturnUrl(raw){
+        const fallback = new URL('./nutrition-zone.html', location.href).toString();
+
+        try{
+          if(!String(raw || '').trim()) return fallback;
+
+          const u = new URL(String(raw), location.href);
+
+          if(u.pathname.includes('/nutrition-zone.html')){
+            return new URL('./nutrition-zone.html', location.href).toString();
+          }
+
+          if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')){
+            return fallback;
+          }
+
+          return u.toString();
+        }catch(_){
+          return fallback;
+        }
+      }
+
       function getHubHref(){
-        return first(q.get('hub'), new URL('./hub.html', location.href).toString());
+        return cleanReturnUrl(q.get('hub'));
       }
 
       function getPid(){
@@ -494,83 +500,42 @@
         return data && typeof data === 'object' ? data : {};
       }
 
+      function setSelectValue(select, value, fallback){
+        const wanted = first(value, fallback);
+        const ok = Array.from(select.options).some(opt => opt.value === wanted);
+        select.value = ok ? wanted : fallback;
+      }
+
       function savePrefs(){
         storageSet(STORAGE_KEY, JSON.stringify({
           name: fieldName.value.trim() || 'Hero',
-          diff: fieldDiff.value,
-          time: fieldTime.value,
-          view: fieldView.value
+          diff: fieldDiff.value || 'normal',
+          time: fieldTime.value || '150',
+          view: fieldView.value || 'mobile'
         }));
       }
 
       function loadPrefs(){
         const saved = getSavedPrefs();
 
-        fieldName.value = first(q.get('name'), q.get('nick'), saved.name, 'Hero');
-        fieldDiff.value = first(q.get('diff'), saved.diff, 'normal');
-        fieldTime.value = first(q.get('time'), saved.time, '90');
-        fieldView.value = first(q.get('view'), saved.view, 'mobile');
-      }
-
-      function updateChips(){
-        const pid = getPid();
-        const name = fieldName.value.trim() || 'Hero';
-        const diff = fieldDiff.value || 'normal';
-        const time = fieldTime.value || '90';
-        const view = fieldView.value || 'mobile';
-
-        chipPid.textContent = `pid: ${pid}`;
-        chipName.textContent = `name: ${name}`;
-        chipDiff.textContent = `diff: ${diff}`;
-        chipTime.textContent = `time: ${time}`;
-        chipView.textContent = `view: ${view}`;
+        fieldName.value = first(q.get('name'), saved.name, 'Hero');
+        setSelectValue(fieldDiff, first(q.get('diff'), saved.diff), 'normal');
+        setSelectValue(fieldTime, first(q.get('time'), saved.time), '150');
+        setSelectValue(fieldView, first(q.get('view'), saved.view), 'mobile');
       }
 
       function buildBaseUrl(){
         const url = new URL('./goodjunk-vr.html', location.href);
 
-        const pid = getPid();
-        const name = fieldName.value.trim() || 'Hero';
-        const diff = fieldDiff.value || 'normal';
-        const time = fieldTime.value || '90';
-        const view = fieldView.value || 'mobile';
-
-        url.searchParams.set('pid', pid);
-        url.searchParams.set('name', name);
-        url.searchParams.set('nick', name);
-        url.searchParams.set('diff', diff);
-        url.searchParams.set('time', time);
-        url.searchParams.set('view', view);
+        url.searchParams.set('pid', getPid());
+        url.searchParams.set('name', fieldName.value.trim() || 'Hero');
+        url.searchParams.set('diff', fieldDiff.value || 'normal');
+        url.searchParams.set('time', fieldTime.value || '150');
+        url.searchParams.set('view', fieldView.value || 'mobile');
         url.searchParams.set('run', first(q.get('run'), 'play'));
-        url.searchParams.set('zone', first(q.get('zone'), 'nutrition'));
-        url.searchParams.set('cat', first(q.get('cat'), 'nutrition'));
-        url.searchParams.set('game', first(q.get('game'), 'goodjunk'));
-        url.searchParams.set('gameId', first(q.get('gameId'), 'goodjunk'));
-        url.searchParams.set('theme', 'goodjunk');
+        url.searchParams.set('zone', 'nutrition');
+        url.searchParams.set('game', 'goodjunk');
         url.searchParams.set('hub', getHubHref());
-        url.searchParams.set('seed', String(Date.now()));
-
-        const passthroughKeys = [
-          'studyId',
-          'conditionGroup',
-          'log',
-          'ai',
-          'pro',
-          'research',
-          'api',
-          'schoolCode',
-          'classRoom',
-          'studentNo',
-          'studentKey',
-          'nickName'
-        ];
-
-        passthroughKeys.forEach((key) => {
-          const value = q.get(key);
-          if (value != null && value !== '') {
-            url.searchParams.set(key, value);
-          }
-        });
 
         return url;
       }
@@ -578,22 +543,14 @@
       function buildModeHref(mode){
         const url = buildBaseUrl();
 
-        if (mode === 'solo-boss') {
+        if(mode === 'solo-boss'){
           url.searchParams.set('mode', 'solo');
           url.searchParams.set('entry', 'solo-boss');
-          url.searchParams.set('recommendedMode', 'solo-boss');
           url.searchParams.set('phaseBoss', '1');
-          url.searchParams.set('boss', '1');
-          url.searchParams.set('theme', 'goodjunk');
           return url.toString();
         }
 
         url.searchParams.set('mode', mode);
-        url.searchParams.set('entry', mode);
-        url.searchParams.set('recommendedMode', mode);
-        url.searchParams.set('multiplayer', '1');
-        url.searchParams.delete('phaseBoss');
-        url.searchParams.delete('boss');
         return url.toString();
       }
 
@@ -603,19 +560,11 @@
       }
 
       loadPrefs();
-      updateChips();
-
       btnBackHub.href = getHubHref();
 
       [fieldName, fieldDiff, fieldTime, fieldView].forEach((el) => {
-        el.addEventListener('input', function(){
-          updateChips();
-          savePrefs();
-        });
-        el.addEventListener('change', function(){
-          updateChips();
-          savePrefs();
-        });
+        el.addEventListener('input', savePrefs);
+        el.addEventListener('change', savePrefs);
       });
 
       modeCards.forEach((card) => {
