@@ -20,6 +20,8 @@
       --blue2:#58b7f5;
       --yellow:#ffd75a;
       --yellow2:#ffbf3f;
+      --bad:#ff8a8a;
+      --bad2:#ff6262;
       --card:#fffef9;
       --shadow:0 18px 40px rgba(86,155,194,.16);
 
@@ -128,7 +130,7 @@
 
     .banner{
       justify-self:center;
-      max-width:min(92vw,460px);
+      max-width:min(92vw,520px);
       min-height:38px;
       padding:8px 14px;
       border-radius:999px;
@@ -188,6 +190,7 @@
       -webkit-user-select:none;
       cursor:pointer;
       z-index:8;
+      will-change:transform;
     }
 
     .item.good{
@@ -216,6 +219,17 @@
       font-weight:1000;
       color:#615d56;
       pointer-events:none;
+    }
+
+    .item.hit{
+      animation:itemHit .22s ease forwards;
+    }
+
+    @keyframes itemHit{
+      to{
+        transform:scale(1.22) rotate(7deg);
+        opacity:0;
+      }
     }
 
     .fx{
@@ -305,7 +319,7 @@
 
     .pause-card,
     .wait-card{
-      width:min(88vw,460px);
+      width:min(88vw,480px);
       padding:20px 18px;
       text-align:center;
     }
@@ -555,7 +569,7 @@
         <div class="pill" id="pillMode">🤝 DUET</div>
         <div class="pill" id="pillPlayer">PLAYER • Hero</div>
         <div class="pill" id="pillScore">Score • 0</div>
-        <div class="pill" id="pillTime">Time • 1:30</div>
+        <div class="pill" id="pillTime">Time • 2:30</div>
         <div class="pill" id="pillMiss">Miss • 0</div>
       </div>
       <div class="banner" id="banner">เก็บ good ต่อไป!</div>
@@ -639,34 +653,172 @@
     </div>
   </div>
 
-  <script src="./goodjunk-duet-room-bootstrap.js"></script>
+  <script>
+  (function(){
+    'use strict';
+
+    const url = new URL(location.href);
+    const sp = url.searchParams;
+    let changed = false;
+
+    function makeRoomId(){
+      return 'DU-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+    }
+
+    function makePid(){
+      return 'P-' + Math.random().toString(36).slice(2, 8).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
+    }
+
+    let roomId = String(sp.get('roomId') || sp.get('room') || '').trim().toUpperCase();
+    if (!roomId || roomId === 'DU-XXXXXX') {
+      roomId = makeRoomId();
+      changed = true;
+    }
+
+    if (sp.get('roomId') !== roomId) {
+      sp.set('roomId', roomId);
+      changed = true;
+    }
+
+    if (sp.get('room') !== roomId) {
+      sp.set('room', roomId);
+      changed = true;
+    }
+
+    let pid = String(sp.get('pid') || '').trim();
+    if (!pid || pid === 'anon') {
+      const key = 'HHA_GJ_DUET_PID__' + roomId;
+      try {
+        pid = localStorage.getItem(key) || '';
+        if (!pid) {
+          pid = makePid();
+          localStorage.setItem(key, pid);
+        }
+      } catch (_) {
+        pid = makePid();
+      }
+      sp.set('pid', pid);
+      changed = true;
+    }
+
+    const name = String(sp.get('name') || sp.get('nick') || 'Hero').trim() || 'Hero';
+
+    if (!sp.get('name')) {
+      sp.set('name', name);
+      changed = true;
+    }
+
+    if (!sp.get('nick')) {
+      sp.set('nick', name);
+      changed = true;
+    }
+
+    if (!sp.get('mode')) {
+      sp.set('mode', 'duet');
+      changed = true;
+    }
+
+    if (!sp.get('entry')) {
+      sp.set('entry', 'duet');
+      changed = true;
+    }
+
+    if (!sp.get('game')) {
+      sp.set('game', 'goodjunk');
+      changed = true;
+    }
+
+    if (!sp.get('gameId')) {
+      sp.set('gameId', 'goodjunk');
+      changed = true;
+    }
+
+    if (!sp.get('zone')) {
+      sp.set('zone', 'nutrition');
+      changed = true;
+    }
+
+    if (!sp.get('cat')) {
+      sp.set('cat', 'nutrition');
+      changed = true;
+    }
+
+    if (!sp.get('theme')) {
+      sp.set('theme', 'goodjunk');
+      changed = true;
+    }
+
+    if (!sp.get('time')) {
+      sp.set('time', '150');
+      changed = true;
+    }
+
+    if (changed) {
+      history.replaceState(null, '', url.toString());
+    }
+
+    window.HHA_GJ_DUET_PREBOOT = {
+      roomId,
+      pid,
+      name
+    };
+  })();
+  </script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js?v=20260430-gjduet-fix"></script>
+  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-fix"></script>
+
   <script>
   (function () {
     'use strict';
 
     const qs = new URLSearchParams(location.search);
-    const boot = window.HHA_DUET_ROOM_BOOT || null;
-    const DEBUG = qs.get('debug') === '1';
+    let boot = window.HHA_DUET_ROOM_BOOT || null;
+    const preboot = window.HHA_GJ_DUET_PREBOOT || {};
 
-    const GOOD = ['🍎','🍌','🍉','🥕','🥦','🍇','🍍','🐟','🥛'];
-    const JUNK = ['🍔','🍟','🍩','🍭','🥤','🍕','🧁','🍫'];
+    const GOOD = [
+      { e:'🍎', label:'apple' },
+      { e:'🍌', label:'banana' },
+      { e:'🍉', label:'watermelon' },
+      { e:'🥕', label:'carrot' },
+      { e:'🥦', label:'broccoli' },
+      { e:'🍇', label:'grapes' },
+      { e:'🍍', label:'pineapple' },
+      { e:'🐟', label:'fish' },
+      { e:'🥛', label:'milk' }
+    ];
+
+    const JUNK = [
+      { e:'🍔', label:'burger' },
+      { e:'🍟', label:'fries' },
+      { e:'🍩', label:'donut' },
+      { e:'🍭', label:'candy' },
+      { e:'🥤', label:'soda' },
+      { e:'🍕', label:'pizza' },
+      { e:'🧁', label:'cupcake' },
+      { e:'🍫', label:'choco' }
+    ];
 
     const ctx = {
-      pid: String(qs.get('pid') || 'anon').trim(),
-      name: String(qs.get('name') || qs.get('nick') || 'Hero').trim(),
+      pid: String(qs.get('pid') || preboot.pid || 'anon').trim(),
+      name: String(qs.get('name') || qs.get('nick') || preboot.name || 'Hero').trim(),
       role: String(qs.get('role') || '').trim().toLowerCase(),
-      roomId: String(qs.get('roomId') || qs.get('room') || '').trim().toUpperCase(),
+      roomId: String(qs.get('roomId') || qs.get('room') || preboot.roomId || '').trim().toUpperCase(),
       matchId: String(qs.get('matchId') || '').trim(),
       diff: String(qs.get('diff') || 'normal').trim().toLowerCase(),
-      timeSec: Math.max(30, Number(qs.get('time') || 90)),
-      hub: String(qs.get('hub') || '../hub-v2.html').trim(),
+      timeSec: Math.max(30, Number(qs.get('time') || 150)),
+      hub: String(qs.get('hub') || '../nutrition-zone.html').trim(),
       lobbyPath: './goodjunk-duet-lobby.html'
     };
 
     const DIFF = {
-      easy:   { spawnMs: 980, speedMin: 72,  speedMax: 118, goodChance: 0.78 },
-      normal: { spawnMs: 780, speedMin: 94,  speedMax: 148, goodChance: 0.70 },
-      hard:   { spawnMs: 620, speedMin: 118, speedMax: 180, goodChance: 0.62 }
+      easy:      { spawnMs: 950, speedMin: 78,  speedMax: 118, goodChance: 0.78, maxItems: 8,  sizeMin:78, sizeMax:90 },
+      normal:    { spawnMs: 760, speedMin: 96,  speedMax: 150, goodChance: 0.70, maxItems: 10, sizeMin:72, sizeMax:88 },
+      hard:      { spawnMs: 600, speedMin: 120, speedMax: 188, goodChance: 0.62, maxItems: 12, sizeMin:68, sizeMax:84 },
+      challenge: { spawnMs: 500, speedMin: 140, speedMax: 215, goodChance: 0.58, maxItems: 14, sizeMin:64, sizeMax:80 }
     };
 
     const cfg = DIFF[ctx.diff] || DIFF.normal;
@@ -735,11 +887,6 @@
       rematchBusy: false
     };
 
-    function dlog() {
-      if (!DEBUG) return;
-      try { console.log('[GJ-DUET-RUNTIME]', ...arguments); } catch (_) {}
-    }
-
     function now() {
       return Date.now();
     }
@@ -750,6 +897,10 @@
 
     function clamp(v, a, b) {
       return Math.max(a, Math.min(b, v));
+    }
+
+    function rnd(a, b) {
+      return a + Math.random() * (b - a);
     }
 
     function fmtTime(ms) {
@@ -767,6 +918,25 @@
 
     function arenaRect() {
       return ui.arena.getBoundingClientRect();
+    }
+
+    async function waitRoomSystemReady() {
+      try {
+        if (window.HHA_FIREBASE_READY) {
+          const fb = await window.HHA_FIREBASE_READY;
+          if (fb && fb.db) {
+            window.HHA_FIREBASE_DB = fb.db;
+          }
+        }
+      } catch (err) {
+        console.warn('[GJ-DUET-RUNTIME] Firebase ready failed:', err);
+      }
+
+      boot = window.HHA_DUET_ROOM_BOOT || null;
+
+      if (!boot) {
+        throw new Error('HHA_DUET_ROOM_BOOT unavailable');
+      }
     }
 
     function buildLobbyUrl() {
@@ -842,6 +1012,7 @@
       el.style.top = y + 'px';
       el.style.color = color || '#333';
       ui.arena.appendChild(el);
+
       safeTimeout(function () {
         try { el.remove(); } catch (_) {}
       }, 740);
@@ -875,561 +1046,680 @@
 
     function spawnItem() {
       if (state.ended || state.paused) return;
+      if (state.items.size >= cfg.maxItems) return;
 
       const r = arenaRect();
-      const size = Math.round(clamp(70 + Math.random() * 18, 70, 88));
+      const size = Math.round(rnd(cfg.sizeMin, cfg.sizeMax));
       const isGood = Math.random() < cfg.goodChance;
-      const emoji = isGood
-        ? GOOD[Math.floor(Math.random() * GOOD.length)]
-        : JUNK[Math.floor(Math.random() * JUNK.length)];
+      const source = isGood ? GOOD : JUNK;
+      const data = source[Math.floor(Math.random() * source.length)];
 
-      const x = clamp(Math.random() * (r.width - size - 24) + 12, 12, r.width - size - 12);
-      const y = -size - Math.random() * 20;
+      const hudSafe = Math.max(108, Math.round(r.height * 0.16));
+      const bottomSafe = Math.max(100, Math.round(r.height * 0.18));
+
+      const x = rnd(10, Math.max(20, r.width - size - 10));
+      const y = -size - rnd(0, 80);
+      const vx = rnd(-18, 18);
+      const vy = rnd(cfg.speedMin, cfg.speedMax);
+
+      const id = 'it-' + (++state.seq);
 
       const el = document.createElement('button');
-      el.type = 'button';
       el.className = 'item ' + (isGood ? 'good' : 'junk');
-      el.innerHTML =
-        '<div class="emoji">' + emoji + '</div>' +
-        '<div class="label">' + (isGood ? 'good' : 'junk') + '</div>';
+      el.type = 'button';
+      el.dataset.id = id;
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.borderRadius = Math.round(size * .30) + 'px';
+      el.style.left = '0px';
+      el.style.top = '0px';
+      el.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';
 
-      ui.arena.appendChild(el);
+      el.innerHTML = `
+        <div class="emoji">${data.e}</div>
+        <div class="label">${data.label}</div>
+      `;
 
       const item = {
-        id: 'it-' + (++state.seq),
-        good: isGood,
-        x: x,
-        y: y,
-        size: size,
-        vx: (Math.random() * 40 - 20),
-        vy: cfg.speedMin + Math.random() * (cfg.speedMax - cfg.speedMin),
-        el: el,
+        id,
+        el,
+        kind: isGood ? 'good' : 'junk',
+        x,
+        y,
+        vx,
+        vy,
+        size,
+        hudSafe,
+        bottomSafe,
         dead: false
       };
 
-      el.style.width = size + 'px';
-      el.style.height = size + 'px';
-      el.style.left = x + 'px';
-      el.style.top = y + 'px';
+      state.items.set(id, item);
+      ui.arena.appendChild(el);
 
       el.addEventListener('pointerdown', function (ev) {
         ev.preventDefault();
-        if (state.ended || state.paused || item.dead) return;
-
-        const cx = item.x + item.size / 2;
-        const cy = item.y + item.size / 2;
-
-        if (item.good) {
-          state.good += 1;
-          state.streak += 1;
-          state.bestStreak = Math.max(state.bestStreak, state.streak);
-
-          const bonus = Math.min(12, Math.floor(state.streak / 4) * 2);
-          const gain = 10 + bonus;
-          state.score += gain;
-
-          fx(cx, cy, '+' + gain, '#2f8f2f');
-
-          if (state.streak === 3 || state.streak === 6 || state.streak === 10) {
-            setBanner('เก็บ good ต่อไป!', 720);
-          }
-        } else {
-          state.junk += 1;
-          state.miss += 1;
-          state.streak = 0;
-          state.score = Math.max(0, state.score - 8);
-
-          fx(cx, cy, 'MISS', '#d16b27');
-          setBanner('ระวัง junk!', 720);
-        }
-
-        item.dead = true;
-        try { item.el.remove(); } catch (_) {}
-        state.items.delete(item.id);
-        renderHud();
+        hitItem(id, ev.clientX, ev.clientY);
       }, { passive:false });
+    }
 
-      state.items.set(item.id, item);
+    function removeItem(id) {
+      const item = state.items.get(id);
+      if (!item) return;
+      state.items.delete(id);
+      try { item.el.remove(); } catch (_) {}
+    }
+
+    function hitItem(id, cx, cy) {
+      if (state.ended || state.paused) return;
+
+      const item = state.items.get(id);
+      if (!item || item.dead) return;
+
+      item.dead = true;
+      item.el.classList.add('hit');
+
+      if (item.kind === 'good') {
+        state.good += 1;
+        state.streak += 1;
+        state.bestStreak = Math.max(state.bestStreak, state.streak);
+        state.score += 10 + Math.min(20, state.streak);
+        fx(cx, cy, '+GOOD', '#4f842f');
+
+        if (state.streak > 0 && state.streak % 10 === 0) {
+          setBanner('🔥 Team Combo! คอมโบต่อเนื่อง ' + state.streak, 1100);
+        } else {
+          setBanner('เยี่ยม! เก็บ good ต่อเลย', 720);
+        }
+      } else {
+        state.junk += 1;
+        state.miss += 1;
+        state.streak = 0;
+        state.score = Math.max(0, state.score - 8);
+        fx(cx, cy, 'JUNK!', '#d54848');
+        setBanner('หลบ junk นะ!', 820);
+      }
+
+      renderHud();
+
+      safeTimeout(function () {
+        removeItem(id);
+      }, 210);
+    }
+
+    function missGood(item) {
+      if (!item || item.dead) return;
+      item.dead = true;
+
+      if (item.kind === 'good') {
+        state.miss += 1;
+        state.streak = 0;
+        fx(item.x + item.size / 2, window.innerHeight - 96, 'MISS', '#d54848');
+        setBanner('good หลุดไปแล้ว รอบหน้ากดให้ทัน!', 820);
+      }
+
+      renderHud();
+      removeItem(item.id);
     }
 
     function updateItems(dt) {
       const r = arenaRect();
+      const bottomLimit = r.height - Math.max(84, Math.round(r.height * .15));
 
       state.items.forEach(function (item) {
         if (item.dead) return;
 
-        item.x += item.vx * dt / 1000;
-        item.y += item.vy * dt / 1000;
+        item.x += item.vx * dt;
+        item.y += item.vy * dt;
 
-        if (item.x <= 8) {
+        if (item.x < 8) {
           item.x = 8;
           item.vx = Math.abs(item.vx);
         }
-        if (item.x + item.size >= r.width - 8) {
+
+        if (item.x > r.width - item.size - 8) {
           item.x = r.width - item.size - 8;
           item.vx = -Math.abs(item.vx);
         }
 
-        item.el.style.left = item.x + 'px';
-        item.el.style.top = item.y + 'px';
-
-        if (item.y > r.height - 92) {
-          if (item.good) {
-            state.miss += 1;
-            state.streak = 0;
-          }
-          item.dead = true;
-          try { item.el.remove(); } catch (_) {}
-          state.items.delete(item.id);
-        }
-      });
-    }
-
-    function pauseGame() {
-      if (state.ended || state.summaryShown) return;
-      state.paused = true;
-      ui.pauseOverlay.classList.add('show');
-    }
-
-    function resumeGame() {
-      if (state.ended || state.summaryShown) return;
-      state.paused = false;
-      state.lastTs = performance.now();
-      ui.pauseOverlay.classList.remove('show');
-    }
-
-    function buildLocalPlayerResult(reason) {
-      return {
-        pid: ctx.pid,
-        name: ctx.name,
-        score: state.score,
-        good: state.good,
-        junk: state.junk,
-        miss: state.miss,
-        streak: state.bestStreak,
-        reason: String(reason || 'timeup'),
-        submittedAt: now(),
-        role: ctx.role || ((boot && boot.isHost && boot.isHost()) ? 'host' : 'guest')
-      };
-    }
-
-    function startHeartbeat() {
-      stopHeartbeat();
-
-      if (!boot) return;
-
-      state.heartbeatTimer = window.setInterval(function () {
-        boot.setPresence({
-          ready: true,
-          inRuntime: !state.summaryShown,
-          lastSeen: Date.now(),
-          runtimeAt: Date.now()
-        }).catch(function(){});
-      }, 2000);
-    }
-
-    function stopHeartbeat() {
-      if (state.heartbeatTimer) {
-        clearInterval(state.heartbeatTimer);
-        state.heartbeatTimer = 0;
-      }
-    }
-
-    function kidTitleFromGrade(grade, partial) {
-      const g = String(grade || 'C').toUpperCase();
-
-      if (partial) return 'เก่งมาก!';
-      if (g === 'S') return 'สุดยอด!';
-      if (g === 'A') return 'เยี่ยมมาก!';
-      if (g === 'B') return 'ดีมาก!';
-      return 'สู้ต่อได้!';
-    }
-
-    function kidNoteFromSummary(summary) {
-      if (!summary) return 'ช่วยกันได้ดีมาก';
-
-      if (summary.partial) {
-        return 'อีกฝั่งส่งผลไม่ทัน ระบบเลยสรุปจากคะแนนที่มาถึงก่อน';
-      }
-
-      const g = String(summary.grade || 'C').toUpperCase();
-
-      if (g === 'S') return 'ทีมนี้เก็บของดีได้เยอะมาก และพลาดน้อยมาก';
-      if (g === 'A') return 'ช่วยกันได้ดีมาก รอบหน้าลองพลาดให้น้อยลงอีก';
-      if (g === 'B') return 'ทำได้ดีแล้ว รอบหน้าลองหลบ junk ให้มากขึ้น';
-      return 'เริ่มต้นได้ดี รอบหน้าลองช่วยกันเก็บ good ให้ต่อเนื่อง';
-    }
-
-    async function ensureRoomAndMatch() {
-      if (!boot) return false;
-
-      await boot.ensureRoom();
-      ctx.roomId = ctx.roomId || boot.getRoomId();
-      ctx.role = ctx.role || boot.getRole();
-      ctx.matchId = ctx.matchId || await boot.ensureMatchId(false);
-
-      await boot.setPresence({
-        ready: true,
-        inRuntime: true,
-        runtimeAt: now(),
-        lastSeen: now()
-      });
-
-      try {
-        const existing = await boot.readFinalSummary(ctx.matchId);
-        if (existing && existing.final) {
-          state.ended = true;
-          state.running = false;
-          applyTeamSummary(existing);
-          return true;
-        }
-      } catch (_) {}
-
-      try {
-        state.finalSummaryUnsub = await boot.subscribeFinalSummary(ctx.matchId, function (summary) {
-          if (!summary || !summary.final) return;
-          state.ended = true;
-          state.running = false;
-          state.finalized = true;
-          clearItems();
-          try { cancelAnimationFrame(state.raf); } catch (_) {}
-          applyTeamSummary(summary);
-        });
-      } catch (err) {
-        console.error(err);
-      }
-
-      return false;
-    }
-
-    async function finalizeTeamSummary(reason) {
-      if (!boot || state.finalized) return null;
-
-      try {
-        const quickExisting = await boot.readFinalSummary(ctx.matchId);
-        if (quickExisting && quickExisting.final) {
-          state.finalized = true;
-          return quickExisting;
-        }
-      } catch (_) {}
-
-      showWaiting('ส่งผลของเราแล้ว กำลังรออีกเครื่องและรวมคะแนนทีม…');
-
-      const localResult = buildLocalPlayerResult(reason);
-      await boot.publishPlayerResult(ctx.matchId, localResult);
-
-      try {
-        const summary = await boot.finalizeMatchWithPolicy(ctx.matchId, {
-          expectedPlayers: 2,
-          waitTimeoutMs: 8000,
-          intervalMs: 250,
-          reason: reason || 'finished'
-        });
-
-        if (summary && summary.final) {
-          state.finalized = true;
-          return summary;
-        }
-      } catch (err) {
-        console.error('[GJ-DUET finalizeTeamSummary]', err);
-      }
-
-      for (let i = 0; i < 20; i++) {
-        await sleep(300);
-        try {
-          const finalSummary = await boot.readFinalSummary(ctx.matchId);
-          if (finalSummary && finalSummary.final) {
-            state.finalized = true;
-            return finalSummary;
-          }
-        } catch (_) {}
-      }
-
-      return null;
-    }
-
-    async function endGame(reason) {
-      if (state.publishStarted || state.summaryShown) return;
-
-      state.publishStarted = true;
-      state.ended = true;
-      state.running = false;
-      state.paused = false;
-
-      stopHeartbeat();
-
-      try { cancelAnimationFrame(state.raf); } catch (_) {}
-      clearItems();
-      ui.pauseOverlay.classList.remove('show');
-
-      let summary = null;
-
-      if (boot && ctx.matchId) {
-        summary = await finalizeTeamSummary(reason || 'finished');
-      }
-
-      if (summary && summary.final) {
-        try {
-          await boot.finishRoomRun(ctx.matchId);
-        } catch (err) {
-          console.error('[GJ-DUET finishRoomRun]', err);
-        }
-
-        try {
-          await boot.setPresence({
-            ready: false,
-            inRuntime: false,
-            lastSeen: Date.now()
-          });
-        } catch (_) {}
-
-        try {
-          await boot.appendMatchEvent(ctx.matchId, 'runtime_finished', {
-            finalizeType: summary.partial ? 'partial' : 'full',
-            score: Number(summary.score || 0),
-            good: Number(summary.good || 0),
-            miss: Number(summary.miss || 0),
-            grade: String(summary.grade || '')
-          });
-        } catch (_) {}
-
-        applyTeamSummary(summary);
-        return;
-      }
-
-      showWaiting('อีกฝั่งยังไม่ส่งผลหรือเครือข่ายช้าอยู่ ลองรอสักครู่');
-    }
-
-    function applyTeamSummary(summary) {
-      if (!summary) return;
-
-      const grade = String(summary.grade || 'C').toUpperCase();
-
-      ui.sumMedal.textContent = String(summary.medal || (
-        grade === 'S' ? '🏆' :
-        grade === 'A' ? '🥇' :
-        grade === 'B' ? '🥈' : '🥉'
-      ));
-
-      ui.sumGrade.textContent = grade;
-      ui.sumGrade.className = 'summary-grade grade-' + grade.toLowerCase();
-
-      ui.sumTitle.textContent = kidTitleFromGrade(grade, !!summary.partial);
-      ui.sumSub.textContent = 'จบเกมแล้ว มาดูผลงานของทีมกัน';
-      ui.sumScore.textContent = String(Math.max(0, Number(summary.score || 0)));
-      ui.sumGradeText.textContent = grade;
-      ui.sumGood.textContent = String(Math.max(0, Number(summary.good || 0)));
-      ui.sumMiss.textContent = String(Math.max(0, Number(summary.miss || 0)));
-      ui.sumBest.textContent = String(Math.max(0, Number(summary.streak || 0)));
-      ui.sumMode.textContent = 'DUET';
-      ui.sumNote.textContent = kidNoteFromSummary(summary);
-
-      try {
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
-          source: 'goodjunk-duet-runtime',
-          ts: Date.now(),
-          roomId: ctx.roomId,
-          matchId: ctx.matchId,
-          mode: 'DUET',
-          teamScore: Number(summary.score || 0),
-          teamGood: Number(summary.good || 0),
-          teamMiss: Number(summary.miss || 0),
-          teamBestStreak: Number(summary.streak || 0),
-          grade: grade,
-          finalSummary: summary
-        }));
-      } catch (_) {}
-
-      hideWaiting();
-      ui.pauseOverlay.classList.remove('show');
-      ui.summaryOverlay.classList.add('show');
-      state.summaryShown = true;
-
-      Promise.resolve(boot ? boot.isEffectiveHost() : false).then(function(isHost){
-        ui.btnReplay.textContent = isHost ? '🔁 รีแมตช์' : '⏳ รอ Host รีแมตช์';
-      }).catch(function(){
-        ui.btnReplay.textContent = '🔁 กลับ Lobby';
-      });
-    }
-
-    async function beginRematchFlow() {
-      if (!boot || state.rematchBusy) return;
-
-      state.rematchBusy = true;
-      let actionLock = null;
-
-      try {
-        const actingHost = await boot.isEffectiveHost();
-
-        if (!actingHost) {
-          showWaiting('รอ Host เริ่มรีแมตช์…');
-          state.rematchBusy = false;
+        if (item.y > bottomLimit) {
+          missGood(item);
           return;
         }
 
-        actionLock = await boot.acquireRoomActionLock('rematch_duet', 6000);
-        if (!actionLock) {
-          showWaiting('มีการเริ่มรีแมตช์อยู่แล้ว');
-          state.rematchBusy = false;
-          return;
-        }
-
-        showWaiting('กำลังสร้างรอบใหม่…');
-
-        await boot.forceResetRoomState();
-
-        const nextMatchId = await boot.ensureMatchId(true);
-        const nextUrl = buildRuntimeUrl(nextMatchId);
-
-        await boot.publishRematchSignal({
-          fromMatchId: ctx.matchId,
-          nextMatchId: nextMatchId,
-          runtimeUrl: nextUrl
-        });
-
-        await boot.appendMatchEvent(nextMatchId, 'rematch_started', {
-          fromMatchId: ctx.matchId
-        });
-
-        await boot.startRoomRun(nextMatchId, nextUrl);
-        location.replace(nextUrl);
-      } catch (err) {
-        console.error('[GJ-DUET rematch failed]', err);
-        showWaiting('เริ่มรีแมตช์ไม่สำเร็จ ลองกลับ Lobby');
-        state.rematchBusy = false;
-      } finally {
-        try { await boot.releaseRoomActionLock(actionLock); } catch (_) {}
-      }
+        item.el.style.transform = 'translate3d(' + item.x + 'px,' + item.y + 'px,0)';
+      });
     }
 
-    function loop(ts) {
-      if (!state.running || state.ended) return;
+    function frame(ts) {
+      if (!state.running) return;
 
       if (!state.lastTs) state.lastTs = ts;
-      const dt = Math.min(40, ts - state.lastTs || 16);
+      const rawDt = Math.min(80, ts - state.lastTs);
       state.lastTs = ts;
 
-      if (!state.paused) {
-        state.timeLeftMs -= dt;
-        if (state.timeLeftMs <= 0) {
-          state.timeLeftMs = 0;
-          renderHud();
-          endGame('timeup');
-          return;
-        }
+      if (!state.paused && !state.ended) {
+        const dt = rawDt / 1000;
 
-        state.spawnAcc += dt;
-        while (state.spawnAcc >= cfg.spawnMs) {
-          state.spawnAcc -= cfg.spawnMs;
+        state.timeLeftMs -= rawDt;
+        state.spawnAcc += rawDt;
+
+        if (state.spawnAcc >= cfg.spawnMs) {
+          state.spawnAcc = 0;
           spawnItem();
         }
 
         updateItems(dt);
         renderHud();
+
+        if (state.timeLeftMs <= 0) {
+          endGame('time_up');
+          return;
+        }
       }
 
-      state.raf = requestAnimationFrame(loop);
+      state.raf = requestAnimationFrame(frame);
     }
 
-    function bindEvents() {
-      ui.btnPause.addEventListener('click', function () {
-        if (state.paused) resumeGame();
-        else pauseGame();
+    function pauseGame() {
+      if (state.ended) return;
+      state.paused = true;
+      ui.pauseOverlay.classList.add('show');
+    }
+
+    function resumeGame() {
+      if (state.ended) return;
+      state.paused = false;
+      state.lastTs = 0;
+      ui.pauseOverlay.classList.remove('show');
+    }
+
+    function calcGrade(summary) {
+      const score = Number(summary.score || 0);
+      const miss = Number(summary.miss || 0);
+      const good = Number(summary.good || 0);
+      const best = Number(summary.streak || summary.bestStreak || 0);
+
+      if (score >= 1800 && miss <= 10 && good >= 110 && best >= 20) return 'S';
+      if (score >= 1300 && miss <= 18 && good >= 80) return 'A';
+      if (score >= 700 && good >= 40) return 'B';
+      return 'C';
+    }
+
+    function medalForGrade(grade) {
+      if (grade === 'S') return '🏆';
+      if (grade === 'A') return '🥇';
+      if (grade === 'B') return '🥈';
+      return '🥉';
+    }
+
+    function titleForGrade(grade) {
+      if (grade === 'S') return 'สุดยอดทีม!';
+      if (grade === 'A') return 'เก่งมาก!';
+      if (grade === 'B') return 'ดีมาก!';
+      return 'สู้ต่อได้!';
+    }
+
+    function noteForGrade(grade) {
+      if (grade === 'S') return 'ช่วยกันได้ยอดเยี่ยม ทั้งแม่นและพลาดน้อยมาก';
+      if (grade === 'A') return 'ทำงานเป็นทีมได้ดีมาก รอบหน้าลองต่อคอมโบให้ยาวขึ้น';
+      if (grade === 'B') return 'ช่วยกันได้ดี รอบหน้าลองหลบ junk ให้มากขึ้น';
+      return 'เริ่มต้นได้ดี รอบหน้าช่วยกันเก็บ good ให้เยอะขึ้น';
+    }
+
+    function ownSummary(reason) {
+      return {
+        final: false,
+        roomId: ctx.roomId,
+        matchId: ctx.matchId,
+        mode: 'DUET',
+        pid: ctx.pid,
+        name: ctx.name,
+        role: ctx.role || 'guest',
+        score: Number(state.score || 0),
+        good: Number(state.good || 0),
+        junk: Number(state.junk || 0),
+        miss: Number(state.miss || 0),
+        streak: Number(state.bestStreak || state.streak || 0),
+        bestStreak: Number(state.bestStreak || state.streak || 0),
+        reason: String(reason || 'ended'),
+        submittedAt: now()
+      };
+    }
+
+    function countResults(results) {
+      if (!results || typeof results !== 'object') return 0;
+      return Object.keys(results).filter((k) => !!results[k]).length;
+    }
+
+    function combineLocalSummary(results, meta) {
+      const list = Object.keys(results || {})
+        .map((k) => results[k])
+        .filter(Boolean);
+
+      const merged = {
+        final: true,
+        roomId: ctx.roomId,
+        matchId: ctx.matchId,
+        mode: 'DUET',
+        ts: now(),
+        players: list.map((item) => ({
+          pid: String(item.pid || '').trim(),
+          name: String(item.name || '').trim(),
+          score: Number(item.score || 0),
+          good: Number(item.good || 0),
+          junk: Number(item.junk || 0),
+          miss: Number(item.miss || 0),
+          streak: Number(item.streak || item.bestStreak || 0),
+          role: String(item.role || 'guest').trim().toLowerCase()
+        })),
+        score: 0,
+        good: 0,
+        junk: 0,
+        miss: 0,
+        streak: 0,
+        expectedPlayers: 2,
+        finishedPlayers: list.length,
+        partial: !!(meta && meta.partial),
+        reason: meta && meta.reason ? meta.reason : 'combined'
+      };
+
+      list.forEach((item) => {
+        merged.score += Number(item.score || 0);
+        merged.good += Number(item.good || 0);
+        merged.junk += Number(item.junk || 0);
+        merged.miss += Number(item.miss || 0);
+        merged.streak = Math.max(merged.streak, Number(item.streak || item.bestStreak || 0));
       });
 
-      ui.btnResume.addEventListener('click', function () {
-        resumeGame();
-      });
+      merged.grade = calcGrade(merged);
+      merged.medal = medalForGrade(merged.grade);
+      merged.title = titleForGrade(merged.grade);
+      merged.note = merged.partial
+        ? 'อีกฝั่งส่งผลไม่ทัน ระบบจึงสรุปจากข้อมูลที่มาถึงก่อนเพื่อไม่ให้เกมค้าง'
+        : noteForGrade(merged.grade);
 
+      return merged;
+    }
+
+    async function readResultsSafely() {
+      if (boot && typeof boot.readPlayerResults === 'function') {
+        try {
+          return await boot.readPlayerResults(ctx.matchId);
+        } catch (err) {
+          console.warn('[GJ-DUET-RUNTIME] readPlayerResults failed:', err);
+        }
+      }
+      return {};
+    }
+
+    async function publishFinalSafely(summary) {
+      if (boot && typeof boot.publishFinalSummary === 'function') {
+        try {
+          return await boot.publishFinalSummary(ctx.matchId, summary);
+        } catch (err) {
+          console.warn('[GJ-DUET-RUNTIME] publishFinalSummary failed:', err);
+        }
+      }
+      return summary;
+    }
+
+    async function readFinalSafely() {
+      if (boot && typeof boot.readFinalSummary === 'function') {
+        try {
+          return await boot.readFinalSummary(ctx.matchId);
+        } catch (err) {
+          console.warn('[GJ-DUET-RUNTIME] readFinalSummary failed:', err);
+        }
+      }
+      return null;
+    }
+
+    async function tryCreateTeamSummary(timeoutMs) {
+      const started = now();
+      let results = {};
+
+      while ((now() - started) < timeoutMs) {
+        const final = await readFinalSafely();
+        if (final && final.final) return final;
+
+        results = await readResultsSafely();
+        if (countResults(results) >= 2) break;
+
+        await sleep(420);
+      }
+
+      const finalAgain = await readFinalSafely();
+      if (finalAgain && finalAgain.final) return finalAgain;
+
+      results = await readResultsSafely();
+      const finished = countResults(results);
+
+      if (!finished) {
+        const own = ownSummary('local_fallback');
+        results = {};
+        results[ctx.pid] = own;
+      }
+
+      let merged;
+
+      if (boot && typeof boot.combineDuetSummary === 'function') {
+        try {
+          merged = boot.combineDuetSummary(ctx.matchId, results, {
+            expectedPlayers: 2,
+            finishedPlayers: countResults(results),
+            partial: countResults(results) < 2,
+            reason: countResults(results) < 2 ? 'timeout_partial' : 'all_finished'
+          });
+        } catch (err) {
+          console.warn('[GJ-DUET-RUNTIME] combineDuetSummary failed:', err);
+        }
+      }
+
+      if (!merged) {
+        merged = combineLocalSummary(results, {
+          partial: countResults(results) < 2,
+          reason: countResults(results) < 2 ? 'timeout_partial' : 'all_finished'
+        });
+      }
+
+      return await publishFinalSafely(merged);
+    }
+
+    async function waitForFinalOrCreate() {
+      const first = await readFinalSafely();
+      if (first && first.final) return first;
+
+      const isHostSide = ctx.role === 'host' || qs.get('host') === '1';
+
+      if (isHostSide) {
+        return await tryCreateTeamSummary(9000);
+      }
+
+      const guestWaitStart = now();
+
+      while ((now() - guestWaitStart) < 11000) {
+        const final = await readFinalSafely();
+        if (final && final.final) return final;
+        await sleep(500);
+      }
+
+      return await tryCreateTeamSummary(3000);
+    }
+
+    async function publishResultAndShowSummary(reason) {
+      if (state.publishStarted) return;
+      state.publishStarted = true;
+
+      showWaiting('ส่งผลของเราแล้ว กำลังรวมคะแนนทีม…');
+
+      const own = ownSummary(reason);
+
+      try {
+        if (boot && typeof boot.publishPlayerResult === 'function') {
+          await boot.publishPlayerResult(ctx.matchId, own);
+        }
+      } catch (err) {
+        console.warn('[GJ-DUET-RUNTIME] publishPlayerResult failed:', err);
+      }
+
+      try {
+        if (boot && typeof boot.appendMatchEvent === 'function') {
+          await boot.appendMatchEvent(ctx.matchId, 'player_finished', {
+            pid: ctx.pid,
+            name: ctx.name,
+            score: own.score,
+            good: own.good,
+            miss: own.miss,
+            reason: reason
+          });
+        }
+      } catch (_) {}
+
+      let finalSummary = null;
+
+      try {
+        finalSummary = await waitForFinalOrCreate();
+      } catch (err) {
+        console.warn('[GJ-DUET-RUNTIME] final summary fallback:', err);
+      }
+
+      if (!finalSummary || !finalSummary.final) {
+        const single = {};
+        single[ctx.pid] = own;
+        finalSummary = combineLocalSummary(single, {
+          partial: true,
+          reason: 'offline_local_fallback'
+        });
+      }
+
+      hideWaiting();
+      showSummary(finalSummary);
+    }
+
+    function showSummary(summary) {
+      if (state.summaryShown) return;
+
+      state.summaryShown = true;
+      state.finalized = true;
+      state.running = false;
+
+      clearItems();
+
+      const grade = String(summary.grade || calcGrade(summary) || 'B').toUpperCase();
+      const medal = summary.medal || medalForGrade(grade);
+      const title = summary.title || titleForGrade(grade);
+      const note = summary.note || noteForGrade(grade);
+
+      ui.sumMedal.textContent = medal;
+      ui.sumGrade.textContent = grade;
+      ui.sumGrade.className = 'summary-grade grade-' + grade.toLowerCase();
+      ui.sumTitle.textContent = title;
+      ui.sumSub.textContent = summary.partial
+        ? 'สรุปทีมแบบสำรอง เพื่อไม่ให้เกมค้าง'
+        : 'จบเกมแล้ว นี่คือสรุปทีมชุดเดียวกันของทั้งสองเครื่อง';
+
+      ui.sumScore.textContent = String(Math.round(Number(summary.score || 0)));
+      ui.sumGradeText.textContent = grade;
+      ui.sumGood.textContent = String(Math.round(Number(summary.good || 0)));
+      ui.sumMiss.textContent = String(Math.round(Number(summary.miss || 0)));
+      ui.sumBest.textContent = String(Math.round(Number(summary.streak || summary.bestStreak || 0)));
+      ui.sumMode.textContent = 'DUET';
+      ui.sumNote.textContent = note;
+
+      ui.summaryOverlay.classList.add('show');
+
+      try {
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+          game: 'goodjunk',
+          mode: 'duet',
+          roomId: ctx.roomId,
+          matchId: ctx.matchId,
+          score: Number(summary.score || 0),
+          good: Number(summary.good || 0),
+          miss: Number(summary.miss || 0),
+          grade: grade,
+          ts: now()
+        }));
+      } catch (_) {}
+    }
+
+    function endGame(reason) {
+      if (state.ended) return;
+
+      state.ended = true;
+      state.paused = false;
+      state.running = false;
+
+      try { cancelAnimationFrame(state.raf); } catch (_) {}
+      clearItems();
+      renderHud();
+
+      publishResultAndShowSummary(reason || 'ended').catch(function (err) {
+        console.error('[GJ-DUET-RUNTIME] publish/show failed:', err);
+        const single = {};
+        single[ctx.pid] = ownSummary('error_fallback');
+        showSummary(combineLocalSummary(single, {
+          partial: true,
+          reason: 'error_fallback'
+        }));
+      });
+    }
+
+    async function rematch() {
+      if (state.rematchBusy) return;
+      state.rematchBusy = true;
+
+      try {
+        const lobby = buildLobbyUrl();
+
+        if (boot && typeof boot.clearRoomRun === 'function') {
+          try { await boot.clearRoomRun(); } catch (_) {}
+        }
+
+        if (boot && typeof boot.clearRematchSignal === 'function') {
+          try { await boot.clearRematchSignal(); } catch (_) {}
+        }
+
+        if (boot && typeof boot.writeActiveMatchId === 'function') {
+          try { await boot.writeActiveMatchId(''); } catch (_) {}
+        }
+
+        if (boot && typeof boot.markLobbyReady === 'function') {
+          try { await boot.markLobbyReady(false); } catch (_) {}
+        }
+
+        go(lobby);
+      } catch (err) {
+        console.warn('[GJ-DUET-RUNTIME] rematch fallback:', err);
+        go(buildLobbyUrl());
+      }
+    }
+
+    function goHub() {
+      location.href = ctx.hub;
+    }
+
+    function goLobby() {
+      location.href = buildLobbyUrl();
+    }
+
+    async function startPresenceHeartbeat() {
+      if (!boot || typeof boot.setPresence !== 'function') return;
+
+      try {
+        await boot.setPresence({
+          ready: true,
+          inRuntime: true,
+          runtimeAt: now()
+        });
+      } catch (_) {}
+
+      state.heartbeatTimer = setInterval(function () {
+        try {
+          boot.setPresence({
+            ready: true,
+            inRuntime: true,
+            runtimeAt: now()
+          }).catch(function(){});
+        } catch (_) {}
+      }, 5000);
+    }
+
+    async function initRoom() {
+      await waitRoomSystemReady();
+
+      if (!ctx.roomId && boot && typeof boot.getRoomId === 'function') {
+        ctx.roomId = boot.getRoomId();
+      }
+
+      if (!ctx.matchId && boot && typeof boot.ensureMatchId === 'function') {
+        ctx.matchId = await boot.ensureMatchId(ctx.role === 'host');
+      }
+
+      if (!ctx.matchId) {
+        ctx.matchId = 'MT-' + Date.now();
+      }
+
+      try {
+        if (boot && typeof boot.ensureRoom === 'function') {
+          await boot.ensureRoom();
+        }
+      } catch (_) {}
+
+      await startPresenceHeartbeat();
+
+      try {
+        if (boot && typeof boot.appendMatchEvent === 'function') {
+          await boot.appendMatchEvent(ctx.matchId, 'runtime_entered', {
+            pid: ctx.pid,
+            name: ctx.name,
+            role: ctx.role || 'guest'
+          });
+        }
+      } catch (_) {}
+    }
+
+    function startGame() {
+      state.running = true;
+      state.paused = false;
+      state.ended = false;
+      state.lastTs = 0;
+      state.spawnAcc = cfg.spawnMs * .75;
+
+      renderHud();
+      setBanner('เริ่มแล้ว! เก็บ good และหลบ junk', 1200);
+      state.raf = requestAnimationFrame(frame);
+    }
+
+    function bindUI() {
+      ui.btnPause.addEventListener('click', pauseGame);
+      ui.btnResume.addEventListener('click', resumeGame);
       ui.btnEnd.addEventListener('click', function () {
         endGame('manual_end');
       });
 
-      ui.btnPauseHub.addEventListener('click', function () {
-        go(buildLobbyUrl());
-      });
-
-      ui.btnWaitLobby.addEventListener('click', function () {
-        go(buildLobbyUrl());
-      });
-
-      ui.btnReplay.addEventListener('click', function () {
-        if (!boot) {
-          go(buildLobbyUrl());
-          return;
-        }
-        beginRematchFlow();
-      });
-
-      ui.btnHub.addEventListener('click', function () {
-        go(ctx.hub);
-      });
-
-      document.addEventListener('visibilitychange', function () {
-        if (document.hidden && !state.ended) pauseGame();
-      });
-
-      window.addEventListener('blur', function () {
-        if (!state.ended) pauseGame();
-      });
-
-      window.addEventListener('keydown', function (ev) {
-        if (ev.key === 'p' || ev.key === 'P') {
-          ev.preventDefault();
-          if (state.paused) resumeGame();
-          else pauseGame();
-        }
-      });
+      ui.btnPauseHub.addEventListener('click', goLobby);
+      ui.btnWaitLobby.addEventListener('click', goLobby);
+      ui.btnReplay.addEventListener('click', rematch);
+      ui.btnHub.addEventListener('click', goHub);
 
       window.addEventListener('beforeunload', function () {
-        try { stopHeartbeat(); } catch (_) {}
-        try { if (state.finalSummaryUnsub) state.finalSummaryUnsub(); } catch (_) {}
-        try { if (state.rematchUnsub) state.rematchUnsub(); } catch (_) {}
-        try { if (state.roomRunUnsub) state.roomRunUnsub(); } catch (_) {}
+        try { state.finalSummaryUnsub(); } catch (_) {}
+        try { state.rematchUnsub(); } catch (_) {}
+        try { state.roomRunUnsub(); } catch (_) {}
+        try { clearInterval(state.heartbeatTimer); } catch (_) {}
+
+        try {
+          if (boot && typeof boot.setPresence === 'function') {
+            boot.setPresence({
+              inRuntime: false,
+              lastSeen: now()
+            }).catch(function(){});
+          }
+        } catch (_) {}
       });
     }
 
-    async function start() {
-      bindEvents();
-      renderHud();
-      setBanner('เก็บ good ต่อไป!', 1200);
-
-      const summaryAlreadyExists = await ensureRoomAndMatch();
-      if (summaryAlreadyExists || state.summaryShown) return;
-
-      state.running = true;
-      state.lastTs = performance.now();
-      startHeartbeat();
+    async function init() {
+      bindUI();
 
       try {
-        state.roomRunUnsub = await boot.subscribeRoomRun(function (runState) {
-          if (!runState || !runState.runtimeUrl || !runState.matchId) return;
-          if (String(runState.matchId || '') === String(ctx.matchId || '')) return;
-          location.replace(runState.runtimeUrl);
-        });
-      } catch (_) {}
+        await initRoom();
+      } catch (err) {
+        console.error('[GJ-DUET-RUNTIME init room failed]', err);
+        setBanner('เชื่อมต่อห้องไม่สำเร็จ ใช้โหมดสำรอง', 1800);
+      }
 
-      try {
-        state.rematchUnsub = await boot.subscribeRematch(function (signal) {
-          if (!signal || !signal.runtimeUrl || !signal.nextMatchId) return;
-          if (String(signal.nextMatchId || '') === String(ctx.matchId || '')) return;
-          location.replace(signal.runtimeUrl);
-        });
-      } catch (_) {}
+      ui.pillPlayer.textContent = 'PLAYER • ' + ctx.name;
+      ui.pillTime.textContent = 'Time • ' + fmtTime(state.timeLeftMs);
 
-      state.raf = requestAnimationFrame(loop);
-
-      dlog('runtime started', {
-        roomId: ctx.roomId,
-        matchId: ctx.matchId,
-        role: ctx.role,
-        diff: ctx.diff
-      });
+      startGame();
     }
 
-    start().catch(function (err) {
-      console.error('[GJ-DUET runtime start failed]', err);
-      showWaiting('เริ่มเกมไม่สำเร็จ ลองกลับ Lobby แล้วเข้าใหม่');
+    init().catch(function (err) {
+      console.error('[GJ-DUET-RUNTIME init failed]', err);
+      setBanner('โหลดเกมไม่สำเร็จ', 2000);
     });
   })();
   </script>
