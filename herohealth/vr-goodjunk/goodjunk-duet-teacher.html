@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Duet • Teacher Log</title>
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="./favicon.ico" />
+
+  <style>
+    :root{
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d8;
+      --line:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#7b7a72;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd75a;
+      --yellow2:#ffbf3f;
+      --red:#ff7a7a;
+      --card:#fffef9;
+      --white:#fff;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(255,255,255,.84), transparent 18%),
+        radial-gradient(circle at 86% 10%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
+    }
+
+    body{
+      min-height:100dvh;
+      padding:
+        calc(16px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+    }
+
+    .app{
+      width:min(1180px,100%);
+      margin:0 auto;
+      display:grid;
+      gap:14px;
+    }
+
+    .hero{
+      border-radius:30px;
+      border:4px solid var(--line);
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      box-shadow:var(--shadow);
+      padding:18px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-34px;
+      top:-34px;
+      width:132px;
+      height:132px;
+      border-radius:999px;
+      background:rgba(127,207,255,.17);
+      filter:blur(8px);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-28px;
+      bottom:-28px;
+      width:116px;
+      height:116px;
+      border-radius:999px;
+      background:rgba(255,212,92,.18);
+      filter:blur(8px);
+    }
+
+    .kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:36px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#eaf8ff;
+      color:#5ea8d0;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    h1{
+      position:relative;
+      z-index:1;
+      margin:10px 0 0;
+      font-size:clamp(30px,5vw,46px);
+      line-height:1.04;
+      font-weight:1000;
+      color:#67a91c;
+    }
+
+    .sub{
+      position:relative;
+      z-index:1;
+      margin:10px 0 0;
+      font-size:15px;
+      line-height:1.7;
+      color:var(--muted);
+      font-weight:900;
+      max-width:860px;
+    }
+
+    .toolbar{
+      border-radius:26px;
+      border:4px solid var(--line);
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      box-shadow:var(--shadow);
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .toolbar-row{
+      display:grid;
+      grid-template-columns:1fr auto auto auto auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .input{
+      width:100%;
+      min-height:50px;
+      border-radius:18px;
+      border:3px solid #d7edf7;
+      background:#fff;
+      color:#5b564f;
+      font-size:16px;
+      font-weight:1000;
+      padding:8px 12px;
+      outline:none;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      min-height:50px;
+      border-radius:18px;
+      padding:0 16px;
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+      white-space:nowrap;
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#173b0b;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#08374d;
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg,#ffd75a,#ffbf3f);
+      color:#553900;
+    }
+
+    .btn.danger{
+      background:linear-gradient(180deg,#ff9b9b,#ff6b6b);
+      color:#5a1010;
+    }
+
+    .btn.soft{
+      background:#fff;
+      border:4px solid #d7edf7;
+      color:#645f57;
+      box-shadow:none;
+    }
+
+    .grid-stats{
+      display:grid;
+      grid-template-columns:repeat(6,1fr);
+      gap:10px;
+    }
+
+    .stat{
+      min-height:100px;
+      border-radius:22px;
+      border:3px solid #d7edf7;
+      background:#fff;
+      padding:12px;
+      display:grid;
+      align-content:center;
+      gap:5px;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .stat b{
+      font-size:12px;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+
+    .stat span{
+      font-size:34px;
+      line-height:1;
+      font-weight:1000;
+      color:#3d93b8;
+    }
+
+    .section{
+      border-radius:28px;
+      border:4px solid var(--line);
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      box-shadow:var(--shadow);
+      padding:16px;
+      display:grid;
+      gap:12px;
+      min-width:0;
+    }
+
+    .section-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    h2{
+      margin:0;
+      font-size:24px;
+      line-height:1.08;
+      font-weight:1000;
+      color:#67a91c;
+    }
+
+    .hint{
+      font-size:12px;
+      line-height:1.5;
+      font-weight:900;
+      color:#7b7a72;
+    }
+
+    .table-wrap{
+      width:100%;
+      overflow:auto;
+      border-radius:20px;
+      border:3px solid #d7edf7;
+      background:#fff;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:880px;
+      background:#fff;
+    }
+
+    th,td{
+      padding:10px 12px;
+      border-bottom:2px solid #eef7fb;
+      text-align:left;
+      vertical-align:top;
+      font-size:13px;
+      line-height:1.45;
+      font-weight:850;
+    }
+
+    th{
+      position:sticky;
+      top:0;
+      background:#eaf8ff;
+      color:#4e89a6;
+      font-weight:1000;
+      z-index:1;
+    }
+
+    tr:last-child td{
+      border-bottom:none;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      padding:5px 9px;
+      border-radius:999px;
+      border:2px solid #d7edf7;
+      background:#f7fcff;
+      color:#5f7284;
+      font-size:12px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .pill.good{
+      background:#f7fff0;
+      border-color:#cfe9b8;
+      color:#4f842f;
+    }
+
+    .pill.warn{
+      background:#fff8db;
+      border-color:#ffe08a;
+      color:#a76400;
+    }
+
+    .pill.bad{
+      background:#fff0f0;
+      border-color:#ffc4c4;
+      color:#b72e2e;
+    }
+
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:12px;
+    }
+
+    .match-card,
+    .player-card{
+      border-radius:22px;
+      border:3px solid #d7edf7;
+      background:#fff;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .match-title,
+    .player-title{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .match-title b,
+    .player-title b{
+      font-size:18px;
+      font-weight:1000;
+      color:#5b564f;
+      word-break:break-word;
+    }
+
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:8px;
+    }
+
+    .mini{
+      border-radius:16px;
+      border:2px solid #d7edf7;
+      background:#f7fcff;
+      padding:9px;
+      text-align:center;
+    }
+
+    .mini b{
+      display:block;
+      font-size:10px;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+
+    .mini span{
+      display:block;
+      margin-top:3px;
+      font-size:22px;
+      line-height:1;
+      font-weight:1000;
+      color:#3d93b8;
+    }
+
+    .empty{
+      border-radius:22px;
+      border:3px dashed #d7edf7;
+      background:rgba(255,255,255,.65);
+      padding:24px;
+      text-align:center;
+      font-size:15px;
+      line-height:1.7;
+      font-weight:1000;
+      color:#7b7a72;
+    }
+
+    .footer-note{
+      text-align:center;
+      color:#7b7a72;
+      font-size:12px;
+      line-height:1.6;
+      font-weight:900;
+      padding:4px 0 10px;
+    }
+
+    @media (max-width:900px){
+      .toolbar-row{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .toolbar-row .input{
+        grid-column:1 / -1;
+      }
+
+      .grid-stats{
+        grid-template-columns:repeat(3,1fr);
+      }
+
+      .cards{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:560px){
+      body{
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(14px + var(--sab))
+          calc(10px + var(--sal));
+      }
+
+      .toolbar-row{
+        grid-template-columns:1fr;
+      }
+
+      .grid-stats{
+        grid-template-columns:repeat(2,1fr);
+      }
+
+      .mini-grid{
+        grid-template-columns:repeat(2,1fr);
+      }
+
+      .stat span{
+        font-size:28px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <section class="hero">
+      <div class="kicker">📊 GOODJUNK DUET • TEACHER LOG</div>
+      <h1>Duet Dashboard</h1>
+      <p class="sub">
+        หน้านี้อ่านข้อมูลจาก localStorage ของเครื่องนี้ก่อน เพื่อใช้ตรวจสอบรอบเล่น Duet,
+        คะแนนรายผู้เล่น, คะแนนทีม, rematch และ export CSV สำหรับครู/ผู้ทดสอบ
+      </p>
+    </section>
+
+    <section class="toolbar">
+      <div class="toolbar-row">
+        <input class="input" id="roomFilter" placeholder="กรอง Room ID เช่น DU-ABC123 หรือเว้นว่างเพื่อดูทั้งหมด" />
+        <button class="btn secondary" id="btnRefresh" type="button">🔄 Refresh</button>
+        <button class="btn primary" id="btnExportCsv" type="button">⬇️ Export CSV</button>
+        <button class="btn warn" id="btnCopyJson" type="button">📋 Copy JSON</button>
+        <button class="btn danger" id="btnClear" type="button">🧹 Clear Logs</button>
+      </div>
+
+      <div class="toolbar-row">
+        <input class="input" id="searchInput" placeholder="ค้นหา event / ชื่อ / pid / matchId" />
+        <button class="btn soft" id="btnBack" type="button">🏠 Back</button>
+        <button class="btn soft" id="btnAllRooms" type="button">🌐 All Rooms</button>
+        <button class="btn soft" id="btnCurrentRoom" type="button">🎯 Current Room</button>
+        <button class="btn soft" id="btnExportSummary" type="button">📄 Summary CSV</button>
+      </div>
+    </section>
+
+    <section class="grid-stats">
+      <div class="stat"><b>Events</b><span id="statEvents">0</span></div>
+      <div class="stat"><b>Rooms</b><span id="statRooms">0</span></div>
+      <div class="stat"><b>Matches</b><span id="statMatches">0</span></div>
+      <div class="stat"><b>Players</b><span id="statPlayers">0</span></div>
+      <div class="stat"><b>Finals</b><span id="statFinals">0</span></div>
+      <div class="stat"><b>Rematches</b><span id="statRematches">0</span></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>สรุป Match</h2>
+        <div class="hint" id="matchHint">-</div>
+      </div>
+      <div class="cards" id="matchCards"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>สรุปผู้เล่น</h2>
+        <div class="hint" id="playerHint">-</div>
+      </div>
+      <div class="cards" id="playerCards"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Event ล่าสุด</h2>
+        <div class="hint" id="eventHint">แสดงล่าสุดสูงสุด 120 รายการ</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>เวลา</th>
+              <th>Event</th>
+              <th>Phase</th>
+              <th>Room</th>
+              <th>Match</th>
+              <th>Player</th>
+              <th>Role</th>
+              <th>Score</th>
+              <th>Good</th>
+              <th>Miss</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="eventRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="footer-note" id="footerNote">
+      Local-only dashboard • ถ้าต้องการรวมข้อมูลทุกเครื่อง ให้ต่อ Apps Script / Sheet endpoint เพิ่มภายหลัง
+    </div>
+  </main>
+
+  <script>
+  (function(){
+    'use strict';
+
+    const qs = new URLSearchParams(location.search);
+    const QUEUE_KEY = 'HHA_GJ_DUET_EVENT_QUEUE';
+
+    const ui = {
+      roomFilter: document.getElementById('roomFilter'),
+      searchInput: document.getElementById('searchInput'),
+      btnRefresh: document.getElementById('btnRefresh'),
+      btnExportCsv: document.getElementById('btnExportCsv'),
+      btnExportSummary: document.getElementById('btnExportSummary'),
+      btnCopyJson: document.getElementById('btnCopyJson'),
+      btnClear: document.getElementById('btnClear'),
+      btnBack: document.getElementById('btnBack'),
+      btnAllRooms: document.getElementById('btnAllRooms'),
+      btnCurrentRoom: document.getElementById('btnCurrentRoom'),
+
+      statEvents: document.getElementById('statEvents'),
+      statRooms: document.getElementById('statRooms'),
+      statMatches: document.getElementById('statMatches'),
+      statPlayers: document.getElementById('statPlayers'),
+      statFinals: document.getElementById('statFinals'),
+      statRematches: document.getElementById('statRematches'),
+
+      matchCards: document.getElementById('matchCards'),
+      playerCards: document.getElementById('playerCards'),
+      eventRows: document.getElementById('eventRows'),
+      matchHint: document.getElementById('matchHint'),
+      playerHint: document.getElementById('playerHint'),
+      eventHint: document.getElementById('eventHint'),
+      footerNote: document.getElementById('footerNote')
+    };
+
+    const currentRoom = String(qs.get('roomId') || qs.get('room') || '').trim();
+
+    if (currentRoom) {
+      ui.roomFilter.value = currentRoom;
+    }
+
+    function esc(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#39;");
+    }
+
+    function readQueue() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+        return Array.isArray(raw) ? raw.filter(Boolean) : [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function writeQueue(list) {
+      try {
+        localStorage.setItem(QUEUE_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+      } catch (_) {}
+    }
+
+    function toDateText(ts) {
+      const n = Number(ts || 0);
+      const d = new Date(n);
+      if (!n || Number.isNaN(d.getTime())) return '-';
+      return d.toLocaleString('th-TH');
+    }
+
+    function groupBy(list, keyFn) {
+      return list.reduce((acc, item) => {
+        const key = keyFn(item) || '-';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(item);
+        return acc;
+      }, {});
+    }
+
+    function csvEscape(v) {
+      const s = String(v ?? '');
+      if (/[",\n\r]/.test(s)) return '"' + s.replaceAll('"', '""') + '"';
+      return s;
+    }
+
+    function downloadText(filename, text, mime) {
+      const blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+
+      setTimeout(() => {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 300);
+    }
+
+    function uniqueCount(list, keyFn) {
+      const s = new Set();
+      list.forEach((item) => {
+        const v = keyFn(item);
+        if (v) s.add(String(v));
+      });
+      return s.size;
+    }
+
+    function getNumber(item, keys) {
+      for (const k of keys) {
+        const n = Number(item && item[k]);
+        if (Number.isFinite(n) && n !== 0) return n;
+      }
+      return 0;
+    }
+
+    function filterEvents(list) {
+      const room = String(ui.roomFilter.value || '').trim().toUpperCase();
+      const search = String(ui.searchInput.value || '').trim().toLowerCase();
+
+      return list.filter((ev) => {
+        if (!ev) return false;
+
+        if (room) {
+          const r = String(ev.roomId || ev.room || '').trim().toUpperCase();
+          if (r !== room) return false;
+        }
+
+        if (search) {
+          const hay = [
+            ev.event,
+            ev.phase,
+            ev.roomId,
+            ev.matchId,
+            ev.pid,
+            ev.name,
+            ev.role,
+            ev.reason,
+            ev.pageUrl
+          ].map(v => String(v || '').toLowerCase()).join(' | ');
+
+          if (!hay.includes(search)) return false;
+        }
+
+        return true;
+      });
+    }
+
+    function latestBy(list, keyFn, timeFn) {
+      const out = {};
+
+      list.forEach((item) => {
+        const key = keyFn(item);
+        if (!key) return;
+
+        const t = Number(timeFn(item) || item.ts || 0);
+        const old = out[key];
+        const oldT = old ? Number(timeFn(old) || old.ts || 0) : -1;
+
+        if (!old || t >= oldT) out[key] = item;
+      });
+
+      return out;
+    }
+
+    function buildMatchSummaries(events) {
+      const byMatch = groupBy(
+        events.filter(e => e.matchId),
+        e => e.matchId
+      );
+
+      const summaries = [];
+
+      Object.keys(byMatch).forEach((matchId) => {
+        const list = byMatch[matchId].slice().sort((a,b) => Number(a.ts || 0) - Number(b.ts || 0));
+
+        const roomId = list.find(e => e.roomId)?.roomId || '-';
+        const start = list.find(e => e.event === 'duet_runtime_start' || e.event === 'duet_start_success');
+        const end = [...list].reverse().find(e => e.event === 'duet_final_summary' || e.event === 'duet_final_summary_repaired');
+        const playerResults = list.filter(e => e.event === 'duet_player_result' || e.event === 'duet_runtime_end');
+
+        const latestPlayers = latestBy(playerResults, e => e.pid, e => e.ts);
+        const players = Object.values(latestPlayers);
+
+        const teamScore = end ? Number(end.teamScore || end.score || 0) : players.reduce((sum,p) => sum + Number(p.score || p.finalScore || 0), 0);
+        const teamGood = end ? Number(end.teamGood || end.good || 0) : players.reduce((sum,p) => sum + Number(p.good || p.finalGood || 0), 0);
+        const teamMiss = end ? Number(end.teamMiss || end.miss || 0) : players.reduce((sum,p) => sum + Number(p.miss || p.finalMiss || 0), 0);
+
+        const rematches = list.filter(e => e.event === 'duet_rematch_clicked').length;
+
+        summaries.push({
+          matchId,
+          roomId,
+          startTs: start ? Number(start.ts || 0) : Number(list[0]?.ts || 0),
+          endTs: end ? Number(end.ts || 0) : Number(list[list.length - 1]?.ts || 0),
+          events: list.length,
+          players,
+          playerCount: Object.keys(latestPlayers).length,
+          teamScore,
+          teamGood,
+          teamMiss,
+          partial: !!(end && end.partial),
+          reason: end ? String(end.reason || '') : '',
+          rematches
+        });
+      });
+
+      summaries.sort((a,b) => Number(b.endTs || 0) - Number(a.endTs || 0));
+      return summaries;
+    }
+
+    function buildPlayerSummaries(events) {
+      const playerEvents = events.filter(e => e.pid);
+      const byPlayer = groupBy(playerEvents, e => e.pid);
+      const players = [];
+
+      Object.keys(byPlayer).forEach((pid) => {
+        const list = byPlayer[pid].slice().sort((a,b) => Number(a.ts || 0) - Number(b.ts || 0));
+        const latest = list[list.length - 1] || {};
+        const results = list.filter(e => e.event === 'duet_player_result' || e.event === 'duet_runtime_end');
+        const bestScore = results.reduce((m,e) => Math.max(m, Number(e.score || e.finalScore || 0)), 0);
+        const totalGood = results.reduce((m,e) => m + Number(e.good || e.finalGood || 0), 0);
+        const totalMiss = results.reduce((m,e) => m + Number(e.miss || e.finalMiss || 0), 0);
+        const bestStreak = results.reduce((m,e) => Math.max(m, Number(e.bestStreak || e.finalBestStreak || 0)), 0);
+
+        players.push({
+          pid,
+          name: latest.name || list.find(e => e.name)?.name || 'Player',
+          role: latest.role || list.find(e => e.role)?.role || '-',
+          rooms: uniqueCount(list, e => e.roomId),
+          matches: uniqueCount(list, e => e.matchId),
+          events: list.length,
+          results: results.length,
+          bestScore,
+          totalGood,
+          totalMiss,
+          bestStreak,
+          lastTs: Number(latest.ts || 0)
+        });
+      });
+
+      players.sort((a,b) => Number(b.lastTs || 0) - Number(a.lastTs || 0));
+      return players;
+    }
+
+    function renderStats(events) {
+      ui.statEvents.textContent = String(events.length);
+      ui.statRooms.textContent = String(uniqueCount(events, e => e.roomId));
+      ui.statMatches.textContent = String(uniqueCount(events, e => e.matchId));
+      ui.statPlayers.textContent = String(uniqueCount(events, e => e.pid));
+      ui.statFinals.textContent = String(events.filter(e => e.event === 'duet_final_summary' || e.event === 'duet_final_summary_repaired').length);
+      ui.statRematches.textContent = String(events.filter(e => e.event === 'duet_rematch_clicked').length);
+    }
+
+    function renderMatches(events) {
+      const matches = buildMatchSummaries(events);
+
+      ui.matchHint.textContent = matches.length
+        ? 'พบ ' + matches.length + ' match'
+        : 'ยังไม่มี match ใน filter นี้';
+
+      if (!matches.length) {
+        ui.matchCards.innerHTML = '<div class="empty">ยังไม่มีข้อมูล match</div>';
+        return;
+      }
+
+      ui.matchCards.innerHTML = matches.slice(0, 20).map((m) => {
+        const status = m.partial
+          ? '<span class="pill warn">partial</span>'
+          : '<span class="pill good">complete</span>';
+
+        const playerNames = m.players.length
+          ? m.players.map(p => esc(p.name || p.pid || 'Player')).join(' + ')
+          : 'ยังไม่มีผลผู้เล่น';
+
+        return `
+          <article class="match-card">
+            <div class="match-title">
+              <b>${esc(m.matchId)}</b>
+              ${status}
+            </div>
+            <div class="hint">
+              Room: <b>${esc(m.roomId)}</b><br>
+              เวลา: ${esc(toDateText(m.startTs))} → ${esc(toDateText(m.endTs))}<br>
+              ผู้เล่น: ${playerNames}<br>
+              เหตุผล: ${esc(m.reason || '-')}
+            </div>
+            <div class="mini-grid">
+              <div class="mini"><b>Team Score</b><span>${Number(m.teamScore || 0)}</span></div>
+              <div class="mini"><b>Good</b><span>${Number(m.teamGood || 0)}</span></div>
+              <div class="mini"><b>Miss</b><span>${Number(m.teamMiss || 0)}</span></div>
+              <div class="mini"><b>Players</b><span>${Number(m.playerCount || 0)}</span></div>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderPlayers(events) {
+      const players = buildPlayerSummaries(events);
+
+      ui.playerHint.textContent = players.length
+        ? 'พบ ' + players.length + ' ผู้เล่น'
+        : 'ยังไม่มีผู้เล่นใน filter นี้';
+
+      if (!players.length) {
+        ui.playerCards.innerHTML = '<div class="empty">ยังไม่มีข้อมูลผู้เล่น</div>';
+        return;
+      }
+
+      ui.playerCards.innerHTML = players.slice(0, 30).map((p) => {
+        const rolePill = String(p.role || '').toLowerCase() === 'host'
+          ? '<span class="pill warn">host</span>'
+          : '<span class="pill">guest</span>';
+
+        return `
+          <article class="player-card">
+            <div class="player-title">
+              <b>${esc(p.name || 'Player')}</b>
+              ${rolePill}
+            </div>
+            <div class="hint">
+              PID: ${esc(p.pid)}<br>
+              Last: ${esc(toDateText(p.lastTs))}<br>
+              Rooms: ${p.rooms} • Matches: ${p.matches} • Events: ${p.events}
+            </div>
+            <div class="mini-grid">
+              <div class="mini"><b>Best Score</b><span>${Number(p.bestScore || 0)}</span></div>
+              <div class="mini"><b>Total Good</b><span>${Number(p.totalGood || 0)}</span></div>
+              <div class="mini"><b>Total Miss</b><span>${Number(p.totalMiss || 0)}</span></div>
+              <div class="mini"><b>Best</b><span>${Number(p.bestStreak || 0)}</span></div>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function eventNote(ev) {
+      const parts = [];
+
+      if (ev.partial !== undefined) parts.push(ev.partial ? 'partial' : 'complete');
+      if (ev.reason) parts.push('reason=' + ev.reason);
+      if (ev.targetRoomId) parts.push('target=' + ev.targetRoomId);
+      if (ev.teamScore !== undefined) parts.push('team=' + ev.teamScore);
+      if (ev.finishedPlayers !== undefined) parts.push('finished=' + ev.finishedPlayers);
+
+      return parts.join(' • ') || '-';
+    }
+
+    function renderEvents(events) {
+      const latest = events
+        .slice()
+        .sort((a,b) => Number(b.ts || 0) - Number(a.ts || 0))
+        .slice(0, 120);
+
+      ui.eventHint.textContent = 'แสดง ' + latest.length + ' จาก ' + events.length + ' events';
+
+      if (!latest.length) {
+        ui.eventRows.innerHTML = `
+          <tr>
+            <td colspan="11">
+              <div class="empty">ยังไม่มี event log ในเครื่องนี้</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      ui.eventRows.innerHTML = latest.map((ev) => {
+        const eventClass =
+          String(ev.event || '').includes('final') ? 'good' :
+          String(ev.event || '').includes('failed') ? 'bad' :
+          String(ev.event || '').includes('reset') ? 'warn' :
+          '';
+
+        return `
+          <tr>
+            <td>${esc(toDateText(ev.ts))}</td>
+            <td><span class="pill ${eventClass}">${esc(ev.event || '-')}</span></td>
+            <td>${esc(ev.phase || '-')}</td>
+            <td>${esc(ev.roomId || '-')}</td>
+            <td>${esc(ev.matchId || '-')}</td>
+            <td>${esc(ev.name || '-')}${ev.pid ? '<br><span class="hint">' + esc(ev.pid) + '</span>' : ''}</td>
+            <td>${esc(ev.role || '-')}</td>
+            <td>${Number(ev.score || ev.finalScore || ev.teamScore || 0)}</td>
+            <td>${Number(ev.good || ev.finalGood || ev.teamGood || 0)}</td>
+            <td>${Number(ev.miss || ev.finalMiss || ev.teamMiss || 0)}</td>
+            <td>${esc(eventNote(ev))}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function exportCsv(events) {
+      const cols = [
+        'ts','event','phase','roomId','matchId','pid','name','role',
+        'diff','durationSec','score','good','junk','miss','bestStreak',
+        'teamScore','teamGood','teamMiss','partial','reason','pageUrl'
+      ];
+
+      const rows = [
+        cols.join(','),
+        ...events.map(ev => cols.map(c => csvEscape(ev[c])).join(','))
+      ];
+
+      const stamp = new Date().toISOString().slice(0,19).replaceAll(':','-');
+      downloadText('goodjunk-duet-events-' + stamp + '.csv', rows.join('\n'), 'text/csv;charset=utf-8');
+    }
+
+    function exportSummaryCsv(events) {
+      const matches = buildMatchSummaries(events);
+
+      const cols = [
+        'roomId','matchId','startTime','endTime','players','playerCount',
+        'teamScore','teamGood','teamMiss','partial','reason','eventCount','rematches'
+      ];
+
+      const rows = [
+        cols.join(','),
+        ...matches.map(m => {
+          const obj = {
+            roomId:m.roomId,
+            matchId:m.matchId,
+            startTime:toDateText(m.startTs),
+            endTime:toDateText(m.endTs),
+            players:m.players.map(p => p.name || p.pid).join(' + '),
+            playerCount:m.playerCount,
+            teamScore:m.teamScore,
+            teamGood:m.teamGood,
+            teamMiss:m.teamMiss,
+            partial:m.partial,
+            reason:m.reason,
+            eventCount:m.events,
+            rematches:m.rematches
+          };
+
+          return cols.map(c => csvEscape(obj[c])).join(',');
+        })
+      ];
+
+      const stamp = new Date().toISOString().slice(0,19).replaceAll(':','-');
+      downloadText('goodjunk-duet-summary-' + stamp + '.csv', rows.join('\n'), 'text/csv;charset=utf-8');
+    }
+
+    async function copyJson(events) {
+      const text = JSON.stringify(events, null, 2);
+
+      try {
+        await navigator.clipboard.writeText(text);
+        ui.footerNote.textContent = 'คัดลอก JSON แล้ว';
+        return;
+      } catch (_) {}
+
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+
+      try {
+        document.execCommand('copy');
+        ui.footerNote.textContent = 'คัดลอก JSON แล้ว';
+      } catch (_) {
+        ui.footerNote.textContent = 'คัดลอกไม่สำเร็จ';
+      }
+
+      ta.remove();
+    }
+
+    function clearLogs() {
+      const ok = confirm('ล้าง local duet logs ในเครื่องนี้หรือไม่? การล้างนี้ไม่กระทบ Firebase / Sheet');
+      if (!ok) return;
+
+      writeQueue([]);
+      render();
+      ui.footerNote.textContent = 'ล้าง local logs แล้ว';
+    }
+
+    function goBack() {
+      const hub = qs.get('hub');
+      if (hub) {
+        location.href = hub;
+        return;
+      }
+
+      location.href = './goodjunk-duet-lobby.html' + location.search;
+    }
+
+    function render() {
+      const all = readQueue();
+      const events = filterEvents(all);
+
+      renderStats(events);
+      renderMatches(events);
+      renderPlayers(events);
+      renderEvents(events);
+
+      const roomText = String(ui.roomFilter.value || '').trim();
+      ui.footerNote.textContent = roomText
+        ? 'กำลังดู local logs เฉพาะห้อง ' + roomText + ' • ทั้งหมดในเครื่องนี้ ' + all.length + ' events'
+        : 'กำลังดู local logs ทุกห้อง • ทั้งหมดในเครื่องนี้ ' + all.length + ' events';
+    }
+
+    ui.btnRefresh.addEventListener('click', render);
+    ui.btnExportCsv.addEventListener('click', function(){ exportCsv(filterEvents(readQueue())); });
+    ui.btnExportSummary.addEventListener('click', function(){ exportSummaryCsv(filterEvents(readQueue())); });
+    ui.btnCopyJson.addEventListener('click', function(){ copyJson(filterEvents(readQueue())); });
+    ui.btnClear.addEventListener('click', clearLogs);
+    ui.btnBack.addEventListener('click', goBack);
+
+    ui.btnAllRooms.addEventListener('click', function(){
+      ui.roomFilter.value = '';
+      render();
+    });
+
+    ui.btnCurrentRoom.addEventListener('click', function(){
+      ui.roomFilter.value = currentRoom || '';
+      render();
+    });
+
+    ui.roomFilter.addEventListener('input', render);
+    ui.searchInput.addEventListener('input', render);
+
+    window.addEventListener('storage', function(ev){
+      if (ev.key === QUEUE_KEY) render();
+    });
+
+    render();
+  })();
+  </script>
+</body>
+</html>
