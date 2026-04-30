@@ -3,22 +3,37 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk • Battle Lobby</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>GoodJunk Battle</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#ffb347" />
 </head>
 <body>
   <div id="app"></div>
 
   <script type="module">
-    import { mountGoodJunkModeLobby } from './goodjunk-mode-lobby.js?v=20260409a-GJ-MODE-LOBBY-SHARED';
+    import { mountGoodJunkModeLobby } from './goodjunk-mode-lobby.js?v=20260430a-GJ-BATTLE-QUICK-LOBBY';
 
     mountGoodJunkModeLobby({
       mode: 'battle',
-      title: 'GoodJunk • Battle Lobby',
-      subtitle: 'ดวลกันแบบตัวต่อตัว แล้วเข้า play ของ battle โดยตรง',
+      title: 'GoodJunk Battle',
+      subtitle: 'ดวลกัน 1 ต่อ 1: เก็บของดีให้ไว เลี่ยง Junk ให้แม่น ใครคะแนนสูงกว่าชนะ!',
       emoji: '⚔️',
       playPath: './goodjunk-battle-play.html',
-      launcherPath: '../goodjunk-launcher.html'
+      launcherPath: '../goodjunk-launcher.html',
+
+      quickKids: true,
+      hideAdvanced: true,
+      autoStartBattle: true,
+
+      roomPrefix: 'GJ-BT',
+      primaryText: '⚔️ สร้างห้อง Battle',
+      joinText: '🚀 เข้าห้องนี้',
+
+      tips: [
+        '✅ เก็บของดีให้เร็วที่สุด',
+        '❌ อย่าแตะ Junk เพราะจะเสียคะแนน',
+        '🏆 Battle มีผู้เล่น 2 คน ใครคะแนนสูงกว่าชนะ'
+      ]
     });
   </script>
 </body>
