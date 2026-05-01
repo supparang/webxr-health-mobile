@@ -1070,8 +1070,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260501-gj-battle-final"></script>
-  <script src="./goodjunk-battle-room-bootstrap.js?v=20260501-gj-battle-final"></script>
+  <script src="../firebase-config.js?v=20260501-gj-battle-sameroom"></script>
+  <script src="./goodjunk-battle-room-bootstrap.js?v=20260501-gj-battle-sameroom"></script>
 
   <script type="module">
     import {
@@ -1324,7 +1324,7 @@
     }
 
     function rematchLobbyUrl(){
-      const room = newBattleRoomCode();
+      const room = C.room || C.roomId || newBattleRoomCode();
 
       return buildUrl('./goodjunk-battle-lobby.html', {
         ...C,
@@ -1332,11 +1332,11 @@
         room,
         roomId:room,
         seed:String(Date.now()),
-        role:'host',
         recommendedMode:'battle',
         entry:'battle',
         multiplayer:'1',
-        rematch:'1'
+        rematch:'1',
+        sameRoom:'1'
       });
     }
 
@@ -2063,7 +2063,7 @@
       const myHeartText = heartText(myHp, myMaxHp);
       const rivalHeartText = rival ? heartText(rivalHp, rivalMaxHp) : '-';
 
-      $('btnStartManual').textContent = '🔁 Battle อีกครั้ง';
+      $('btnStartManual').textContent = '🔁 Battle อีกครั้ง (Room เดิม)';
       $('btnBackLobby2').textContent = '⚔️ กลับ Lobby';
 
       $('overlay').classList.remove('hidden');
