@@ -1,24 +1,26 @@
 // === /herohealth/vr-goodjunk/goodjunk-mode-lobby.js ===
-// FULL PATCH v20260430c-GJ-MODE-LOBBY-QUICK-KIDS-BATTLE-ATTACK
+// FULL PATCH v20260430e-GJ-MODE-LOBBY-QUICK-KIDS-BATTLE-FIREBASE
 // ✅ Quick Kids Lobby
 // ✅ Hide technical fields for kids
 // ✅ Battle 1v1 room create/join support
 // ✅ Auto-start Battle when 2 players are in room
-// ✅ Stable anon pid per device
+// ✅ Firebase shared adapter via goodjunk-battle-room-bootstrap.js
+// ✅ Stable anon pid per device/scope
+// ✅ Invite link no longer leaks host pid/name
 // ✅ Copy room + copy invite link
 // ✅ Still passthrough important query params
 
 import {
   makeRoomAdapter as makeBattleRoomAdapter
-} from './goodjunk-battle-room.js?v=20260430c-GJ-BATTLE-ROOM-ATTACK-SYSTEM';
+} from './goodjunk-battle-room.js?v=20260430e-GJ-BATTLE-FIREBASE-ROOM';
 
 const PASS_KEYS = [
   'pid','name','nick','diff','time','view','hub',
   'sbUrl','sbAnon','studyId','conditionGroup',
   'phase','log','ai','pro','research','seed','run',
   'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
-  'cdnext','zone','cat','game','gameId','theme','room',
-  'entry','recommendedMode','multiplayer'
+  'cdnext','zone','cat','game','gameId','theme','room','roomId',
+  'entry','recommendedMode','multiplayer','role','autojoin','fromInvite'
 ];
 
 const STORAGE = {
@@ -65,20 +67,38 @@ function storageSet(key, value) {
   } catch (_) {}
 }
 
-function getStableAnonPid() {
-  let pid = storageGet(STORAGE.stablePid, '');
+function getStableAnonPid(scope = 'player') {
+  const key = scope === 'player'
+    ? STORAGE.stablePid
+    : `${STORAGE.stablePid}:${scope}`;
+
+  let pid = storageGet(key, '');
   if (pid) return pid;
 
   const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
   pid = `anon-${rand}-${String(Date.now()).slice(-4)}`;
-  storageSet(STORAGE.stablePid, pid);
+  storageSet(key, pid);
   return pid;
 }
 
 function normalizePid(v) {
   const pid = clean(v, 'anon');
-  if (!pid || pid === 'anon') return getStableAnonPid();
+  if (!pid || pid === 'anon') return getStableAnonPid('player');
   return pid;
+}
+
+function normalizeRoomCode(v, prefix = 'GJ-BT') {
+  let s = String(v ?? '').trim().toUpperCase();
+  s = s.replace(/\s+/g, '');
+  s = s.replace(/[^A-Z0-9-]/g, '');
+
+  if (!s) return '';
+
+  if (!s.startsWith(prefix)) {
+    s = `${prefix}-${s.replace(/^GJ/i, '').replace(/^BT/i, '').replace(/^-+/, '')}`;
+  }
+
+  return s.slice(0, 18);
 }
 
 function buildUrl(path, params = {}, base = location.href) {
@@ -141,13 +161,23 @@ function launcherUrl(baseParams, launcherPath) {
 function readBaseParams(config = {}) {
   const out = {};
 
+  const isInviteGuest =
+    qs('fromInvite', '') === '1' ||
+    qs('autojoin', '') === '1' ||
+    qs('role', '') === 'join';
+
   PASS_KEYS.forEach((k) => {
     const v = qs(k, '');
     if (v !== '') out[k] = v;
   });
 
-  out.pid = normalizePid(out.pid);
-  out.name = clean(out.name || out.nick, 'Hero');
+  const roomScope = clean(qs('room', qs('roomId', '')), 'battle-guest');
+
+  out.pid = isInviteGuest
+    ? getStableAnonPid(`guest:${roomScope}`)
+    : normalizePid(out.pid);
+
+  out.name = clean(out.name || out.nick, isInviteGuest ? 'Player 2' : 'Hero');
   out.nick = clean(out.nick || out.name, out.name);
   out.diff = clean(out.diff, 'normal');
   out.time = clean(out.time, '150');
@@ -164,6 +194,12 @@ function readBaseParams(config = {}) {
   out.recommendedMode = clean(out.recommendedMode, config.mode || 'battle');
   out.multiplayer = clean(out.multiplayer, '1');
 
+  const roomFromUrl = clean(out.room || out.roomId, '');
+  if (roomFromUrl) {
+    out.room = normalizeRoomCode(roomFromUrl, config.roomPrefix || 'GJ-BT');
+    out.roomId = out.room;
+  }
+
   if (config.mode) out.mode = config.mode;
   return out;
 }
@@ -179,7 +215,6 @@ function ensureStyle() {
       --bg2:#ffedd5;
       --bg3:#fed7aa;
       --panel:#ffffff;
-      --panel2:#fffaf5;
       --line:#ffd7a8;
       --text:#3b2415;
       --muted:#7c4a22;
@@ -612,7 +647,7 @@ async function prepareBattleRoom(params, role, config = {}) {
     ? { ...room.players }
     : {};
 
-  const currentCount = Object.keys(players).length;
+  const currentCount = Object.keys(players).filter((k) => players[k]?.online !== false).length;
   const alreadyInRoom = !!players[params.pid];
 
   if (!alreadyInRoom && currentCount >= 2) {
@@ -636,11 +671,13 @@ async function prepareBattleRoom(params, role, config = {}) {
     hp: Number(players[params.pid]?.hp ?? 3) || 3,
     shield: Number(players[params.pid]?.shield || 0) || 0,
     attackMeter: Number(players[params.pid]?.attackMeter || 0) || 0,
+    online: true,
     updatedAt: now,
     lastSeenAt: now
   };
 
-  const nextCount = Object.keys(players).length;
+  const nextCount = Object.keys(players).filter((k) => players[k]?.online !== false).length;
+
   const hostPid =
     clean(room?.hostPid, '') ||
     Object.values(players).find(p => p && p.role === 'host')?.pid ||
@@ -690,10 +727,10 @@ export function mountGoodJunkModeLobby(config = {}) {
   const tips = Array.isArray(config.tips) ? config.tips : [];
 
   const app = document.getElementById('app') || document.body;
-  const base = readBaseParams({ mode });
+  const base = readBaseParams({ mode, roomPrefix });
 
   const defaultRoom =
-    clean(base.room, '') ||
+    clean(base.room || base.roomId, '') ||
     loadRecentRoom(mode) ||
     generateRoomCode(roomPrefix);
 
@@ -824,13 +861,14 @@ export function mountGoodJunkModeLobby(config = {}) {
 
   nameEl.value = clean(base.name, 'Hero');
   if (pidEl) pidEl.value = clean(base.pid, getStableAnonPid());
-  roomEl.value = defaultRoom;
+  roomEl.value = normalizeRoomCode(defaultRoom, roomPrefix);
 
   if (diffEl) setSelectValue(diffEl, base.diff, 'normal');
   if (timeEl) setSelectValue(timeEl, base.time, '150');
   if (viewEl) setSelectValue(viewEl, base.view, 'mobile');
 
   function syncStatus() {
+    roomEl.value = normalizeRoomCode(roomEl.value, roomPrefix);
     roomTextEl.textContent = clean(roomEl.value, '—');
   }
 
@@ -843,7 +881,8 @@ export function mountGoodJunkModeLobby(config = {}) {
     const rawPid = pidEl ? pidEl.value : p.pid;
     p.pid = normalizePid(rawPid);
 
-    p.room = clean(roomEl?.value, generateRoomCode(roomPrefix));
+    p.room = normalizeRoomCode(roomEl?.value, roomPrefix) || generateRoomCode(roomPrefix);
+    p.roomId = p.room;
     p.diff = clean(diffEl?.value, p.diff || 'normal');
     p.time = clean(timeEl?.value, p.time || '150');
     p.view = clean(viewEl?.value, p.view || 'mobile');
@@ -877,10 +916,29 @@ export function mountGoodJunkModeLobby(config = {}) {
     const p = currentParams();
 
     return buildUrl(location.pathname, {
-      ...p,
+      mode: p.mode,
+      entry: p.entry,
+      recommendedMode: p.recommendedMode,
+      multiplayer: '1',
+
+      room: p.room,
+      roomId: p.room,
+
+      diff: p.diff,
+      time: p.time,
+      view: p.view,
+      hub: p.hub,
+      run: p.run,
+      seed: p.seed,
+      zone: p.zone,
+      cat: p.cat,
+      game: p.game,
+      gameId: p.gameId,
+      theme: p.theme,
+
       role: 'join',
-      lobby: '1',
-      fromLobby: '1',
+      autojoin: '1',
+      fromInvite: '1',
       modeLocked: '1'
     }, location.origin + location.pathname);
   }
