@@ -1,13 +1,17 @@
 // === /herohealth/vr-goodjunk/goodjunk-battle-room.js ===
-// FULL PATCH v20260430e-GJ-BATTLE-ROOM-ATTACK-FIREBASE-ADAPTER
+// FULL PATCH v20260430h-GJ-BATTLE-ROOM-ATTACK-BUTTONS-ENDSYNC-HP-HEAL
 // ✅ Battle 1v1 room guard
 // ✅ Firebase shared adapter priority
 // ✅ Local room adapter fallback
-// ✅ Stable player list
+// ✅ HP by difficulty
 // ✅ Battle attack queue
+// ✅ 7 attack types
+// ✅ Per-attack condition checker
 // ✅ Shield block
-// ✅ Player score/combo/hp/attackMeter sync
-// ✅ Soft child-friendly attacks: junkStorm / slowTrap / confuseSwap
+// ✅ Meter Leak immediate effect
+// ✅ End sync via shared room matchEnd
+// ✅ Player score/combo/hp/maxHp/heal/attackMeter sync
+// ✅ Soft child-friendly attacks only
 
 const STORAGE = {
   localRoomPrefix: 'GJ_ROOM_LOCAL:',
@@ -47,6 +51,46 @@ const BATTLE_ATTACK_TYPES = {
     cost: 3,
     power: 1,
     description: 'ทำให้คู่แข่งต้องดู Good/Junk ให้ตั้งใจขึ้น'
+  },
+  sugarFog: {
+    id: 'sugarFog',
+    emoji: '🍬',
+    label: 'Sugar Fog',
+    labelTh: 'หมอกน้ำตาล',
+    durationMs: 3800,
+    cost: 3,
+    power: 1,
+    description: 'หมอกหวานบังจอคู่แข่งบาง ๆ ชั่วคราว'
+  },
+  junkMagnet: {
+    id: 'junkMagnet',
+    emoji: '🧲',
+    label: 'Junk Magnet',
+    labelTh: 'แม่เหล็ก Junk',
+    durationMs: 4800,
+    cost: 3,
+    power: 1,
+    description: 'ทำให้ Junk โผล่ในจุดล่อให้กดผิดง่ายขึ้น'
+  },
+  comboFreeze: {
+    id: 'comboFreeze',
+    emoji: '🧊',
+    label: 'Combo Freeze',
+    labelTh: 'แช่แข็งคอมโบ',
+    durationMs: 4200,
+    cost: 3,
+    power: 1,
+    description: 'คู่แข่งได้คะแนน แต่คอมโบไม่เพิ่มชั่วคราว'
+  },
+  meterLeak: {
+    id: 'meterLeak',
+    emoji: '💧',
+    label: 'Meter Leak',
+    labelTh: 'พลังรั่ว',
+    durationMs: 0,
+    cost: 3,
+    power: 1,
+    description: 'ลด Attack Meter คู่แข่ง 1 ช่อง'
   }
 };
 
@@ -105,6 +149,27 @@ function makeId(prefix = 'id') {
   return `${prefix}-${r}-${t}`;
 }
 
+export function getBattleMaxHp(diff = 'normal') {
+  const d = String(diff || 'normal').toLowerCase();
+
+  if (d === 'challenge') return 3;
+  if (d === 'hard') return 4;
+  if (d === 'easy') return 5;
+
+  return 5;
+}
+
+export function getBattleMaxHeals(diff = 'normal') {
+  const d = String(diff || 'normal').toLowerCase();
+
+  if (d === 'easy') return 3;
+  if (d === 'normal') return 2;
+  if (d === 'hard') return 1;
+  if (d === 'challenge') return 1;
+
+  return 2;
+}
+
 function normalizeAttackType(type) {
   const t = clean(type, 'junkStorm');
   return BATTLE_ATTACK_TYPES[t] ? t : 'junkStorm';
@@ -113,6 +178,8 @@ function normalizeAttackType(type) {
 function createBattlePlayer(pid, payload = {}, fallbackRole = 'player') {
   const safePid = clean(payload.pid || pid, pid || 'anon');
   const safeName = clean(payload.name || payload.nick || safePid, 'Player');
+  const diff = clean(payload.diff, 'normal');
+  const maxHp = clamp(payload.maxHp ?? getBattleMaxHp(diff), 1, 9);
   const now = nowMs();
 
   return {
@@ -120,20 +187,29 @@ function createBattlePlayer(pid, payload = {}, fallbackRole = 'player') {
     name: safeName,
     nick: clean(payload.nick || payload.name || safeName, safeName),
     role: clean(payload.role, fallbackRole),
+    diff,
     joinedAt: Number(payload.joinedAt || 0) || now,
     ready: payload.ready === true,
 
     score: Number(payload.score || 0) || 0,
     combo: Number(payload.combo || 0) || 0,
-    hp: clamp(payload.hp ?? 3, 0, 3),
+
+    maxHp,
+    hp: clamp(payload.hp ?? maxHp, 0, maxHp),
+
     shield: clamp(payload.shield ?? 0, 0, 1),
     attackMeter: clamp(payload.attackMeter ?? 0, 0, 3),
+
+    heartsRecovered: Number(payload.heartsRecovered || 0) || 0,
+    maxHeals: Number(payload.maxHeals ?? getBattleMaxHeals(diff)) || getBattleMaxHeals(diff),
+    lastHealAt: Number(payload.lastHealAt || 0) || 0,
 
     goodHits: Number(payload.goodHits || 0) || 0,
     junkHits: Number(payload.junkHits || 0) || 0,
     attacksSent: Number(payload.attacksSent || 0) || 0,
     attacksBlocked: Number(payload.attacksBlocked || 0) || 0,
     attacksReceived: Number(payload.attacksReceived || 0) || 0,
+    lastAttackAt: Number(payload.lastAttackAt || 0) || 0,
 
     online: payload.online !== false,
     lastSeenAt: Number(payload.lastSeenAt || 0) || now,
@@ -146,19 +222,23 @@ function normalizeAttacks(room) {
 
   return attacks
     .filter(Boolean)
-    .map((a) => ({
-      id: clean(a.id, makeId('atk')),
-      fromPid: clean(a.fromPid, ''),
-      toPid: clean(a.toPid, ''),
-      type: normalizeAttackType(a.type),
-      power: Number(a.power || 1) || 1,
-      durationMs: Number(a.durationMs || BATTLE_ATTACK_TYPES[normalizeAttackType(a.type)].durationMs) || 4000,
-      createdAt: Number(a.createdAt || 0) || nowMs(),
-      appliedAt: Number(a.appliedAt || 0) || 0,
-      blockedAt: Number(a.blockedAt || 0) || 0,
-      consumedAt: Number(a.consumedAt || 0) || 0,
-      status: clean(a.status, 'pending')
-    }))
+    .map((a) => {
+      const type = normalizeAttackType(a.type);
+
+      return {
+        id: clean(a.id, makeId('atk')),
+        fromPid: clean(a.fromPid, ''),
+        toPid: clean(a.toPid, ''),
+        type,
+        power: Number(a.power || 1) || 1,
+        durationMs: Number(a.durationMs || BATTLE_ATTACK_TYPES[type].durationMs) || 0,
+        createdAt: Number(a.createdAt || 0) || nowMs(),
+        appliedAt: Number(a.appliedAt || 0) || 0,
+        blockedAt: Number(a.blockedAt || 0) || 0,
+        consumedAt: Number(a.consumedAt || 0) || 0,
+        status: clean(a.status, 'pending')
+      };
+    })
     .slice(-30);
 }
 
@@ -200,10 +280,12 @@ function normalizeRoom(roomId, room) {
     createdAt: Number(room.createdAt || 0) || nowMs(),
     updatedAt: Number(room.updatedAt || 0) || nowMs(),
     startedAt: Number(room.startedAt || 0) || 0,
+    endedAt: Number(room.endedAt || 0) || 0,
     players,
     attacks: normalizeAttacks(room),
     effects: normalizeEffects(room),
-    lastAttackAt: Number(room.lastAttackAt || 0) || 0
+    lastAttackAt: Number(room.lastAttackAt || 0) || 0,
+    matchEnd: room.matchEnd && typeof room.matchEnd === 'object' ? room.matchEnd : null
   };
 }
 
@@ -218,10 +300,12 @@ function makeEmptyRoom(roomId) {
     createdAt: now,
     updatedAt: now,
     startedAt: 0,
+    endedAt: 0,
     players: {},
     attacks: [],
     effects: [],
-    lastAttackAt: 0
+    lastAttackAt: 0,
+    matchEnd: null
   };
 }
 
@@ -382,7 +466,8 @@ export function buildBattleEngineQuery(ctx = {}, extra = {}) {
     fromLobby: '1',
     lobby: '1',
 
-    room: clean(ctx.room, ''),
+    room: clean(ctx.room || ctx.roomId, ''),
+    roomId: clean(ctx.roomId || ctx.room, ''),
     pid: clean(ctx.pid, 'anon'),
     name: clean(ctx.name || ctx.nick, 'Hero'),
     nick: clean(ctx.nick || ctx.name, 'Hero'),
@@ -415,7 +500,7 @@ export function buildBattleEngineQuery(ctx = {}, extra = {}) {
 export function classifyBattleRoom(ctx = {}, room = null) {
   const pid = clean(ctx.pid, 'anon');
   const mode = clean(ctx.mode, 'solo');
-  const roomId = clean(ctx.room, '');
+  const roomId = clean(ctx.room || ctx.roomId, '');
 
   if (mode !== 'battle') {
     return {
@@ -468,6 +553,24 @@ export function classifyBattleRoom(ctx = {}, room = null) {
     };
   }
 
+  const roomStatus = clean(room.status, 'waiting');
+
+  if (roomStatus === 'ended') {
+    return {
+      ok: true,
+      code: 'ENDED',
+      ended: true,
+      title: 'Battle จบแล้ว',
+      message: 'มีผลสรุปของห้องนี้แล้ว',
+      room,
+      me,
+      role: clean(me.role, 'player'),
+      playerCount: getPlayerCount(room),
+      maxPlayers: 2,
+      checkedAt: nowIso()
+    };
+  }
+
   const count = getPlayerCount(room);
 
   if (count < BATTLE_REQUIRED_PLAYERS) {
@@ -490,7 +593,7 @@ export function classifyBattleRoom(ctx = {}, room = null) {
     };
   }
 
-  if (clean(room.status, 'waiting') !== 'started') {
+  if (roomStatus !== 'started') {
     return {
       ok: false,
       code: 'WAITING_START',
@@ -516,7 +619,7 @@ export function classifyBattleRoom(ctx = {}, room = null) {
 
 export async function ensureBattleSession(ctx = {}, options = {}) {
   const adapter = options.adapter || makeRoomAdapter();
-  const roomId = clean(ctx.room, '');
+  const roomId = clean(ctx.room || ctx.roomId, '');
 
   if (!roomId) {
     const err = new Error('BATTLE_ROOM_MISSING');
@@ -545,7 +648,7 @@ export async function ensureBattleSession(ctx = {}, options = {}) {
 
 export function watchBattleSession(ctx = {}, callback, options = {}) {
   const adapter = options.adapter || makeRoomAdapter();
-  const roomId = clean(ctx.room, '');
+  const roomId = clean(ctx.room || ctx.roomId, '');
 
   if (!roomId || typeof callback !== 'function') {
     return () => {};
@@ -558,7 +661,7 @@ export function watchBattleSession(ctx = {}, callback, options = {}) {
 
 export async function updateBattlePlayerStats(ctx = {}, patch = {}, options = {}) {
   const adapter = options.adapter || makeRoomAdapter();
-  const roomId = clean(ctx.room, '');
+  const roomId = clean(ctx.room || ctx.roomId, '');
 
   if (!roomId) return null;
 
@@ -570,16 +673,25 @@ export async function updateBattlePlayerStats(ctx = {}, patch = {}, options = {}
 
   const nextPlayer = {
     ...player,
+    diff: clean(patch.diff ?? player.diff, player.diff),
+    maxHp: clamp(patch.maxHp ?? player.maxHp, 1, 9),
+    hp: clamp(patch.hp ?? player.hp, 0, clamp(patch.maxHp ?? player.maxHp, 1, 9)),
     score: Number(patch.score ?? player.score) || 0,
     combo: Number(patch.combo ?? player.combo) || 0,
-    hp: clamp(patch.hp ?? player.hp, 0, 3),
     shield: clamp(patch.shield ?? player.shield, 0, 1),
     attackMeter: clamp(patch.attackMeter ?? player.attackMeter, 0, 3),
+
+    heartsRecovered: Number(patch.heartsRecovered ?? player.heartsRecovered) || 0,
+    maxHeals: Number(patch.maxHeals ?? player.maxHeals) || player.maxHeals,
+    lastHealAt: Number(patch.lastHealAt ?? player.lastHealAt) || 0,
+
     goodHits: Number(patch.goodHits ?? player.goodHits) || 0,
     junkHits: Number(patch.junkHits ?? player.junkHits) || 0,
     attacksSent: Number(patch.attacksSent ?? player.attacksSent) || 0,
     attacksBlocked: Number(patch.attacksBlocked ?? player.attacksBlocked) || 0,
     attacksReceived: Number(patch.attacksReceived ?? player.attacksReceived) || 0,
+    lastAttackAt: Number(patch.lastAttackAt ?? player.lastAttackAt) || 0,
+
     online: true,
     lastSeenAt: nowMs(),
     updatedAt: nowMs()
@@ -598,7 +710,7 @@ export async function updateBattlePlayerStats(ctx = {}, patch = {}, options = {}
 
 export async function addBattleShield(ctx = {}, options = {}) {
   const adapter = options.adapter || makeRoomAdapter();
-  const roomId = clean(ctx.room, '');
+  const roomId = clean(ctx.room || ctx.roomId, '');
   const pid = clean(ctx.pid, 'anon');
 
   if (!roomId) return null;
@@ -623,9 +735,90 @@ export async function addBattleShield(ctx = {}, options = {}) {
   });
 }
 
+export function canUseBattleAttack(room, fromPid = '', attackType = 'junkStorm') {
+  const from = getPlayerByPid(room, fromPid);
+  const opponent = getBattleOpponent(room, fromPid);
+  const type = normalizeAttackType(attackType);
+  const meta = BATTLE_ATTACK_TYPES[type];
+
+  if (!room || clean(room.status, '') !== 'started') {
+    return { ok: false, reason: 'เกมยังไม่เริ่ม' };
+  }
+
+  if (!from || !opponent) {
+    return { ok: false, reason: 'ยังไม่พบคู่แข่ง' };
+  }
+
+  if (Number(from.attackMeter || 0) < Number(meta.cost || 3)) {
+    return { ok: false, reason: `ต้องมีพลัง ${meta.cost}/3` };
+  }
+
+  const now = nowMs();
+  const cooldownMs = type === 'meterLeak' ? 8000 : 4000;
+  const lastAttackAt = Number(from.lastAttackAt || 0);
+
+  if (lastAttackAt && now - lastAttackAt < cooldownMs) {
+    const left = Math.ceil((cooldownMs - (now - lastAttackAt)) / 1000);
+    return { ok: false, reason: `รอ Cooldown ${left}s` };
+  }
+
+  const activeEffects = Array.isArray(room.effects) ? room.effects : [];
+  const opponentEffects = activeEffects.filter(e =>
+    e &&
+    e.pid === opponent.pid &&
+    Number(e.expiresAt || 0) > now
+  );
+
+  if (opponentEffects.some(e => e.type === type)) {
+    return { ok: false, reason: 'คู่แข่งโดนเอฟเฟกต์นี้อยู่แล้ว' };
+  }
+
+  if (type === 'junkStorm' && Number(opponent.hp || 0) <= 1) {
+    return { ok: false, reason: 'คู่แข่ง HP เหลือ 1 ใช้ Storm ไม่ได้' };
+  }
+
+  if (type === 'junkMagnet') {
+    if (Number(from.combo || 0) < 6) {
+      return { ok: false, reason: 'ต้องมี Combo 6' };
+    }
+
+    if (Number(opponent.hp || 0) <= 1) {
+      return { ok: false, reason: 'คู่แข่ง HP เหลือ 1 ใช้ Magnet ไม่ได้' };
+    }
+  }
+
+  if (type === 'comboFreeze' && Number(from.combo || 0) < 6) {
+    return { ok: false, reason: 'ต้องมี Combo 6' };
+  }
+
+  if (type === 'meterLeak') {
+    const scoreGap = Number(opponent.score || 0) - Number(from.score || 0);
+    const comebackAllowed = scoreGap >= 30;
+    const comboAllowed = Number(from.combo || 0) >= 9;
+
+    if (!comboAllowed && !comebackAllowed) {
+      return { ok: false, reason: 'ต้อง Combo 9 หรือคะแนนตาม 30' };
+    }
+
+    if (Number(opponent.attackMeter || 0) < 1) {
+      return { ok: false, reason: 'คู่แข่งยังไม่มีพลังให้ลด' };
+    }
+  }
+
+  if (type === 'confuseSwap' && opponentEffects.some(e => e.type === 'sugarFog')) {
+    return { ok: false, reason: 'ห้ามซ้อนกับ Sugar Fog' };
+  }
+
+  if (type === 'sugarFog' && opponentEffects.some(e => e.type === 'confuseSwap')) {
+    return { ok: false, reason: 'ห้ามซ้อนกับ Confuse' };
+  }
+
+  return { ok: true, reason: 'พร้อมใช้', meta, opponent };
+}
+
 export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', options = {}) {
   const adapter = options.adapter || makeRoomAdapter();
-  const roomId = clean(ctx.room, '');
+  const roomId = clean(ctx.room || ctx.roomId, '');
   const fromPid = clean(ctx.pid, 'anon');
 
   if (!roomId) {
@@ -639,7 +832,7 @@ export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', optio
   const room = await adapter.loadRoom(roomId);
   const session = classifyBattleRoom({ ...ctx, mode: 'battle' }, room);
 
-  if (!session.ok) {
+  if (!session.ok || session.ended) {
     return {
       ok: false,
       code: session.code,
@@ -659,21 +852,24 @@ export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', optio
     };
   }
 
+  const permission = canUseBattleAttack(room, fromPid, attackType);
+
+  if (!permission.ok) {
+    return {
+      ok: false,
+      code: 'ATTACK_CONDITION_NOT_MET',
+      message: permission.reason,
+      room
+    };
+  }
+
   const type = normalizeAttackType(attackType);
   const meta = BATTLE_ATTACK_TYPES[type];
   const cost = Number(options.cost ?? meta.cost ?? 3) || 3;
 
   const from = createBattlePlayer(fromPid, fromPlayer);
-  if (from.attackMeter < cost) {
-    return {
-      ok: false,
-      code: 'METER_NOT_READY',
-      message: `พลังโจมตียังไม่พอ ต้องมี ${cost}/3`,
-      room
-    };
-  }
-
   const to = createBattlePlayer(opponent.pid, opponent);
+  const t = nowMs();
 
   const attack = {
     id: makeId('atk'),
@@ -681,8 +877,8 @@ export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', optio
     toPid: opponent.pid,
     type,
     power: Number(options.power ?? meta.power ?? 1) || 1,
-    durationMs: Number(options.durationMs ?? meta.durationMs ?? 4500) || 4500,
-    createdAt: nowMs(),
+    durationMs: Number(options.durationMs ?? meta.durationMs ?? 0) || 0,
+    createdAt: t,
     appliedAt: 0,
     blockedAt: 0,
     consumedAt: 0,
@@ -691,9 +887,20 @@ export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', optio
 
   from.attackMeter = clamp(from.attackMeter - cost, 0, 3);
   from.attacksSent += 1;
+  from.lastAttackAt = t;
   from.online = true;
-  from.updatedAt = nowMs();
-  from.lastSeenAt = nowMs();
+  from.updatedAt = t;
+  from.lastSeenAt = t;
+
+  if (type === 'meterLeak') {
+    to.attackMeter = clamp(Number(to.attackMeter || 0) - 1, 0, 3);
+    to.updatedAt = t;
+    to.lastSeenAt = t;
+
+    attack.status = 'applied';
+    attack.appliedAt = t;
+    attack.consumedAt = t;
+  }
 
   const attacks = normalizeAttacks(room);
   attacks.push(attack);
@@ -707,8 +914,8 @@ export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', optio
     ...room,
     players,
     attacks,
-    lastAttackAt: nowMs(),
-    updatedAt: nowMs()
+    lastAttackAt: t,
+    updatedAt: t
   });
 
   return {
@@ -725,7 +932,7 @@ export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', optio
 
 export async function consumeBattleAttacksForPlayer(ctx = {}, options = {}) {
   const adapter = options.adapter || makeRoomAdapter();
-  const roomId = clean(ctx.room, '');
+  const roomId = clean(ctx.room || ctx.roomId, '');
   const pid = clean(ctx.pid, 'anon');
 
   if (!roomId) {
@@ -745,6 +952,17 @@ export async function consumeBattleAttacksForPlayer(ctx = {}, options = {}) {
     return {
       ok: false,
       code: 'PLAYER_NOT_FOUND',
+      attacks: [],
+      blocked: [],
+      effects: [],
+      room
+    };
+  }
+
+  if (room.status === 'ended') {
+    return {
+      ok: true,
+      code: 'MATCH_ALREADY_ENDED',
       attacks: [],
       blocked: [],
       effects: [],
@@ -843,9 +1061,133 @@ export async function consumeBattleAttacksForPlayer(ctx = {}, options = {}) {
   };
 }
 
+export async function finishBattleMatch(ctx = {}, reason = 'time_up', options = {}) {
+  const adapter = options.adapter || makeRoomAdapter();
+  const roomId = clean(ctx.room || ctx.roomId, '');
+  const pid = clean(ctx.pid, 'anon');
+
+  if (!roomId) {
+    return {
+      ok: false,
+      code: 'ROOM_MISSING',
+      message: 'ไม่พบ Room Code'
+    };
+  }
+
+  const room = await adapter.loadRoom(roomId);
+
+  if (!room) {
+    return {
+      ok: false,
+      code: 'ROOM_NOT_FOUND',
+      message: 'ไม่พบห้อง Battle'
+    };
+  }
+
+  if (room.status === 'ended' && room.matchEnd) {
+    return {
+      ok: true,
+      code: 'ALREADY_ENDED',
+      alreadyEnded: true,
+      matchEnd: room.matchEnd,
+      room
+    };
+  }
+
+  const now = nowMs();
+  const players = room.players && typeof room.players === 'object' ? room.players : {};
+  const me = players[pid] ? createBattlePlayer(pid, players[pid]) : null;
+  const opponent = getBattleOpponent(room, pid);
+
+  const scoreRows = getPlayers(room).map((p) => ({
+    pid: p.pid,
+    name: p.name || p.nick || p.pid,
+    score: Number(p.score || 0),
+    hp: Number(p.hp ?? 0),
+    maxHp: Number(p.maxHp ?? getBattleMaxHp(p.diff)),
+    combo: Number(p.combo || 0),
+    heartsRecovered: Number(p.heartsRecovered || 0),
+    attacksSent: Number(p.attacksSent || 0),
+    attacksBlocked: Number(p.attacksBlocked || 0),
+    attacksReceived: Number(p.attacksReceived || 0)
+  }));
+
+  let winnerPid = '';
+  let loserPid = '';
+  let outcome = 'tie';
+
+  if (reason === 'hp_zero') {
+    loserPid = pid;
+    winnerPid = opponent ? opponent.pid : '';
+    outcome = winnerPid ? 'ko' : 'ended';
+  } else {
+    const sorted = scoreRows.slice().sort((a, b) => b.score - a.score);
+
+    if (sorted.length >= 2) {
+      if (sorted[0].score > sorted[1].score) {
+        winnerPid = sorted[0].pid;
+        loserPid = sorted[1].pid;
+        outcome = 'score_win';
+      } else {
+        winnerPid = '';
+        loserPid = '';
+        outcome = 'tie';
+      }
+    } else if (sorted.length === 1) {
+      winnerPid = sorted[0].pid;
+      outcome = 'single_player_end';
+    }
+  }
+
+  const matchEnd = {
+    ended: true,
+    endedAt: now,
+    endedByPid: pid,
+    reason,
+    outcome,
+    winnerPid,
+    loserPid,
+    players: scoreRows,
+    message:
+      reason === 'hp_zero'
+        ? 'มีผู้เล่นหัวใจหมด จบ Battle ทันที'
+        : reason === 'time_up'
+          ? 'หมดเวลา ตัดสินจากคะแนน'
+          : 'จบ Battle'
+  };
+
+  const playerPatch = {};
+
+  if (me) {
+    playerPatch[pid] = {
+      ...me,
+      hp: reason === 'hp_zero' ? 0 : me.hp,
+      online: true,
+      updatedAt: now,
+      lastSeenAt: now
+    };
+  }
+
+  const saved = await adapter.patchRoom(roomId, {
+    ...room,
+    status: 'ended',
+    endedAt: now,
+    matchEnd,
+    players: playerPatch,
+    updatedAt: now
+  });
+
+  return {
+    ok: true,
+    code: 'MATCH_ENDED',
+    matchEnd,
+    room: saved
+  };
+}
+
 export async function clearExpiredBattleEffects(ctx = {}, options = {}) {
   const adapter = options.adapter || makeRoomAdapter();
-  const roomId = clean(ctx.room, '');
+  const roomId = clean(ctx.room || ctx.roomId, '');
 
   if (!roomId) return null;
 
