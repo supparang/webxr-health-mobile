@@ -7845,5 +7845,51 @@
 
 })();
   </script>
+<script>
+/* =========================================================
+   VOCAB v7.8.1 — HIDE FINAL QA PANEL IN STUDENT MODE
+   แสดง QA panel เฉพาะเมื่อ URL มี ?qa=1 หรือ ?admin=1
+   ========================================================= */
+(function(){
+  "use strict";
+
+  function isQaMode(){
+    try{
+      var p = new URLSearchParams(location.search);
+      return (
+        p.get("qa") === "1" ||
+        p.get("qa") === "true" ||
+        p.get("admin") === "1" ||
+        p.get("teacher") === "1" ||
+        p.get("debug") === "1"
+      );
+    }catch(e){
+      return false;
+    }
+  }
+
+  function hideQaPanelForStudents(){
+    if(isQaMode()){
+      console.log("[VOCAB] Final QA panel visible: QA/Admin mode");
+      return;
+    }
+
+    var panel = document.getElementById("v78FinalPanel");
+    if(panel){
+      panel.remove();
+    }
+
+    console.log("[VOCAB] Final QA panel hidden for student mode. Add ?qa=1 to show.");
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", function(){
+      setTimeout(hideQaPanelForStudents, 900);
+    }, { once:true });
+  }else{
+    setTimeout(hideQaPanelForStudents, 900);
+  }
+})();
+</script>  
 </body>
 </html>
