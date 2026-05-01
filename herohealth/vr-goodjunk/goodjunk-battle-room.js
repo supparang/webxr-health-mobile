@@ -1,17 +1,19 @@
 // === /herohealth/vr-goodjunk/goodjunk-battle-room.js ===
-// FULL PATCH v20260430h-GJ-BATTLE-ROOM-ATTACK-BUTTONS-ENDSYNC-HP-HEAL
+// FULL PATCH v20260501-GJ-BATTLE-ROOM-PRODUCTION-FINAL
 // ✅ Battle 1v1 room guard
 // ✅ Firebase shared adapter priority
 // ✅ Local room adapter fallback
 // ✅ HP by difficulty
-// ✅ Battle attack queue
+// ✅ Healthy Heart / heal limit by difficulty
 // ✅ 7 attack types
 // ✅ Per-attack condition checker
+// ✅ Active / inactive attack support
 // ✅ Shield block
 // ✅ Meter Leak immediate effect
-// ✅ End sync via shared room matchEnd
+// ✅ Shared room match end sync
+// ✅ Rematch reset helper
 // ✅ Player score/combo/hp/maxHp/heal/attackMeter sync
-// ✅ Soft child-friendly attacks only
+// ✅ Soft child-friendly nutrition attacks only
 
 const STORAGE = {
   localRoomPrefix: 'GJ_ROOM_LOCAL:',
@@ -671,11 +673,13 @@ export async function updateBattlePlayerStats(ctx = {}, patch = {}, options = {}
 
   const player = createBattlePlayer(pid, room.players[pid]);
 
+  const nextMaxHp = clamp(patch.maxHp ?? player.maxHp, 1, 9);
+
   const nextPlayer = {
     ...player,
     diff: clean(patch.diff ?? player.diff, player.diff),
-    maxHp: clamp(patch.maxHp ?? player.maxHp, 1, 9),
-    hp: clamp(patch.hp ?? player.hp, 0, clamp(patch.maxHp ?? player.maxHp, 1, 9)),
+    maxHp: nextMaxHp,
+    hp: clamp(patch.hp ?? player.hp, 0, nextMaxHp),
     score: Number(patch.score ?? player.score) || 0,
     combo: Number(patch.combo ?? player.combo) || 0,
     shield: clamp(patch.shield ?? player.shield, 0, 1),
@@ -1181,6 +1185,85 @@ export async function finishBattleMatch(ctx = {}, reason = 'time_up', options = 
     ok: true,
     code: 'MATCH_ENDED',
     matchEnd,
+    room: saved
+  };
+}
+
+export async function resetBattleRoomForRematch(ctx = {}, options = {}) {
+  const adapter = options.adapter || makeRoomAdapter();
+  const roomId = clean(ctx.room || ctx.roomId, '');
+
+  if (!roomId) {
+    return {
+      ok: false,
+      code: 'ROOM_MISSING',
+      message: 'ไม่พบ Room Code'
+    };
+  }
+
+  const room = await adapter.loadRoom(roomId);
+  const now = nowMs();
+
+  const prevPlayers = room && room.players && typeof room.players === 'object'
+    ? room.players
+    : {};
+
+  const players = {};
+
+  Object.entries(prevPlayers).forEach(([pid, raw]) => {
+    if (!raw || typeof raw !== 'object') return;
+
+    const p = createBattlePlayer(pid, raw);
+    const maxHp = Number(p.maxHp || getBattleMaxHp(p.diff));
+
+    players[p.pid] = {
+      ...p,
+      score: 0,
+      combo: 0,
+      hp: maxHp,
+      maxHp,
+      shield: 0,
+      attackMeter: 0,
+      heartsRecovered: 0,
+      maxHeals: Number(p.maxHeals || getBattleMaxHeals(p.diff)),
+      lastHealAt: 0,
+      goodHits: 0,
+      junkHits: 0,
+      attacksSent: 0,
+      attacksBlocked: 0,
+      attacksReceived: 0,
+      lastAttackAt: 0,
+      ready: true,
+      online: true,
+      updatedAt: now,
+      lastSeenAt: now
+    };
+  });
+
+  const hostPid =
+    clean(room?.hostPid, '') ||
+    Object.values(players).find(p => p.role === 'host')?.pid ||
+    clean(ctx.pid, '');
+
+  const saved = await adapter.patchRoom(roomId, {
+    roomId,
+    mode: 'battle',
+    status: Object.keys(players).length >= 2 ? 'started' : 'waiting',
+    hostPid,
+    createdAt: Number(room?.createdAt || 0) || now,
+    updatedAt: now,
+    startedAt: Object.keys(players).length >= 2 ? now : 0,
+    endedAt: 0,
+    players,
+    attacks: [],
+    effects: [],
+    lastAttackAt: 0,
+    matchEnd: null
+  });
+
+  return {
+    ok: true,
+    code: 'ROOM_RESET',
     room: saved
   };
 }
