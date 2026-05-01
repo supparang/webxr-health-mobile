@@ -1073,7 +1073,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjrace-wait-summary-v2"></script>
+  <script src="../firebase-config.js?v=20260501-gjrace-run-match-sync-pid"></script>
 
   <script>
   (function(){
@@ -1111,8 +1111,36 @@
       challenge: { spawnMs: 500, speedMin: 140, speedMax: 215, goodChance:.58, maxItems:14, sizeMin:64, sizeMax:80, target:520 }
     };
 
+    function makeRacePid(){
+      const rnd = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const t = Date.now().toString(36).toUpperCase();
+      return `P-${rnd}-${t}`;
+    }
+
+    function resolveRacePid(){
+      const raw = String(qs('pid', '') || '').trim();
+
+      if (raw && raw !== 'anon' && raw !== 'anonymous') {
+        return raw;
+      }
+
+      const roomId = normalizeRoom(qs('roomId', qs('room', 'RC-DEMO')));
+      const key = 'HHA_GJ_RACE_RUN_PID__' + roomId;
+
+      try {
+        let pid = sessionStorage.getItem(key);
+        if (!pid) {
+          pid = makeRacePid();
+          sessionStorage.setItem(key, pid);
+        }
+        return pid;
+      } catch (_) {
+        return makeRacePid();
+      }
+    }
+
     const ctx = {
-      pid: safeKey(qs('pid', 'anon')),
+      pid: safeKey(resolveRacePid()),
       name: qs('name', qs('nick', 'Hero')),
       nick: qs('nick', qs('name', 'Hero')),
       roomId: normalizeRoom(qs('roomId', qs('room', 'RC-DEMO'))),
@@ -1124,6 +1152,30 @@
       run: qs('run', 'play'),
       maxPlayers: Math.max(2, Math.min(10, Number(qs('maxPlayers', '4')) || 4))
     };
+
+    (function syncResolvedPidToUrl(){
+      try {
+        const u = new URL(location.href);
+
+        if (u.searchParams.get('pid') !== ctx.pid) {
+          u.searchParams.set('pid', ctx.pid);
+          u.searchParams.set('name', ctx.name);
+          u.searchParams.set('nick', ctx.nick);
+          u.searchParams.set('roomId', ctx.roomId);
+          u.searchParams.set('room', ctx.roomId);
+          u.searchParams.set('mode', 'race');
+          u.searchParams.set('entry', 'race');
+          u.searchParams.set('recommendedMode', 'race');
+          u.searchParams.set('phaseBoss', '0');
+          u.searchParams.set('boss', '0');
+          u.searchParams.set('soloBoss', '0');
+          u.searchParams.set('bossMode', '0');
+          u.searchParams.set('multiplayer', '1');
+
+          history.replaceState(null, '', u.toString());
+        }
+      } catch (_) {}
+    })();
 
     const cfg = DIFF[ctx.diff] || DIFF.normal;
 
@@ -1182,7 +1234,8 @@
       resultUnsub:null,
       finalUnsub:null,
       waitSince:0,
-      standings:[]
+      standings:[],
+      expectedPlayers: ctx.maxPlayers
     };
 
     function el(id){ return document.getElementById(id); }
@@ -1227,6 +1280,8 @@
 
     function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 
+    function delay(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+
     function fmtTime(ms){
       const total = Math.max(0, Math.ceil(ms / 1000));
       const m = Math.floor(total / 60);
@@ -1244,6 +1299,27 @@
 
     function playerPath(){
       return `${roomPath()}/players/${safeKey(ctx.pid)}`;
+    }
+
+    function getActiveMatchIdFromRoom(room){
+      return String(
+        (room && room.activeMatchId) ||
+        (room && room.currentRun && room.currentRun.matchId) ||
+        ''
+      ).trim();
+    }
+
+    async function waitForRoomMatchId(maxTry = 8, gapMs = 350){
+      for (let i = 0; i < maxTry; i += 1) {
+        const room = await dbGet(roomPath()).catch(() => null);
+        const active = getActiveMatchIdFromRoom(room);
+
+        if (active) return active;
+
+        await delay(gapMs);
+      }
+
+      return '';
     }
 
     function buildLobbyUrl(){
@@ -1314,7 +1390,7 @@
 
     function showWaitingResults(done, expected){
       const d = Math.max(1, Number(done || 1));
-      const e = Math.max(2, Number(expected || ctx.maxPlayers || 2));
+      const e = Math.max(2, Number(expected || state.expectedPlayers || ctx.maxPlayers || 2));
 
       if (ui.raceWaitOverlay) ui.raceWaitOverlay.classList.add('show');
       if (ui.raceWaitCount) ui.raceWaitCount.textContent = `${d}/${e}`;
@@ -1327,6 +1403,17 @@
 
     function hideWaitingResults(){
       if (ui.raceWaitOverlay) ui.raceWaitOverlay.classList.remove('show');
+    }
+
+    async function getExpectedRacePlayers(){
+      const room = await dbGet(roomPath()).catch(() => null);
+      const roomPlayers = room && room.players && typeof room.players === 'object'
+        ? Object.keys(room.players).filter(Boolean).length
+        : 0;
+
+      const expected = Math.max(2, Math.min(ctx.maxPlayers, roomPlayers || ctx.maxPlayers || 2));
+      state.expectedPlayers = expected;
+      return expected;
     }
 
     function emitFx(x,y,text,color){
@@ -1561,28 +1648,100 @@
     }
 
     async function ensureMatch(){
-      if (state.matchId) return state.matchId;
+      const fromUrl = String(ctx.matchId || '').trim();
 
-      const room = await dbGet(roomPath());
-      const active = String(room && (room.activeMatchId || room.currentRun?.matchId) || '').trim();
+      if (state.matchId) {
+        await dbUpdate(matchPath(state.matchId), {
+          matchId: state.matchId,
+          roomId: ctx.roomId,
+          mode: 'race',
+          game: 'goodjunk',
+          updatedAt: now()
+        });
+        return state.matchId;
+      }
 
-      if (active) {
-        state.matchId = active;
-      } else {
-        state.matchId = 'MT-' + safeKey(ctx.roomId) + '-' + String(Date.now());
+      if (fromUrl) {
+        state.matchId = fromUrl;
+
         await dbUpdate(roomPath(), {
           activeMatchId: state.matchId,
           currentRun: {
-            status:'started',
+            status: 'started',
             matchId: state.matchId,
             startedAt: now(),
             by: ctx.pid
           },
           updatedAt: now()
+        }).catch(() => {});
+
+        await dbUpdate(matchPath(state.matchId), {
+          matchId: state.matchId,
+          roomId: ctx.roomId,
+          mode: 'race',
+          game: 'goodjunk',
+          updatedAt: now(),
+          createdAt: now()
         });
+
+        return state.matchId;
       }
 
-      await dbUpdate(matchPath(), {
+      const room = await dbGet(roomPath()).catch(() => null);
+      const active = getActiveMatchIdFromRoom(room);
+
+      if (active) {
+        state.matchId = active;
+
+        await dbUpdate(matchPath(state.matchId), {
+          matchId: state.matchId,
+          roomId: ctx.roomId,
+          mode: 'race',
+          game: 'goodjunk',
+          updatedAt: now(),
+          createdAt: now()
+        });
+
+        return state.matchId;
+      }
+
+      const waited = await waitForRoomMatchId(8, 350);
+
+      if (waited) {
+        state.matchId = waited;
+
+        await dbUpdate(matchPath(state.matchId), {
+          matchId: state.matchId,
+          roomId: ctx.roomId,
+          mode: 'race',
+          game: 'goodjunk',
+          updatedAt: now(),
+          createdAt: now()
+        });
+
+        return state.matchId;
+      }
+
+      const fallbackBase =
+        (room && room.currentRun && room.currentRun.startedAt) ||
+        (room && room.startedAt) ||
+        (room && room.createdAt) ||
+        String(new URLSearchParams(location.search).get('seed') || 'fallback');
+
+      state.matchId = 'MT-' + safeKey(ctx.roomId) + '-' + safeKey(fallbackBase);
+
+      await dbUpdate(roomPath(), {
+        activeMatchId: state.matchId,
+        currentRun: {
+          status:'started',
+          matchId: state.matchId,
+          startedAt: now(),
+          by: ctx.pid
+        },
+        updatedAt: now()
+      });
+
+      await dbUpdate(matchPath(state.matchId), {
         matchId: state.matchId,
         roomId: ctx.roomId,
         mode: 'race',
@@ -1648,7 +1807,7 @@
         mode:'RACE',
         roomId:ctx.roomId,
         matchId:state.matchId,
-        expectedPlayers:ctx.maxPlayers,
+        expectedPlayers: state.expectedPlayers || ctx.maxPlayers,
         finishedPlayers:standings.length,
         standings,
         me,
@@ -1701,7 +1860,9 @@
 
       state.waitSince = now();
       showTip('ส่งผลของเราแล้ว กำลังรอผลผู้เล่นอื่น...');
-      showWaitingResults(1, ctx.maxPlayers);
+
+      const expectedNow = await getExpectedRacePlayers().catch(() => ctx.maxPlayers);
+      showWaitingResults(1, expectedNow);
 
       listenResults();
       listenFinalSummary();
@@ -1719,9 +1880,7 @@
       if (state.summaryShown && !state.currentPartial) return;
 
       const count = Object.keys(results || {}).filter((k) => results[k]).length;
-      const room = await dbGet(roomPath()).catch(() => null);
-      const roomPlayers = room && room.players ? Object.keys(room.players).length : 0;
-      const expected = Math.max(2, Math.min(ctx.maxPlayers, roomPlayers || ctx.maxPlayers));
+      const expected = await getExpectedRacePlayers().catch(() => ctx.maxPlayers);
 
       if (count < expected) {
         updateMiniStandings(results);
@@ -1752,6 +1911,8 @@
         showSummary(finalSummary);
         return;
       }
+
+      await getExpectedRacePlayers().catch(() => ctx.maxPlayers);
 
       const results = await dbGet(`${matchPath()}/playerResults`).catch(() => null) || {};
       if (!Object.keys(results).length) {
@@ -1953,7 +2114,9 @@
 
           <div class="race-debug">
 ห้อง: ${esc(ctx.roomId)}
-Match: ${esc(state.matchId || '-')}
+Match: ${esc(summary.matchId || state.matchId || '-')}
+PID: ${esc(ctx.pid)}
+ผู้เล่นที่ส่งผล: ${n(summary.finishedPlayers, rows.length)} / ${n(summary.expectedPlayers, state.expectedPlayers || ctx.maxPlayers)}
 สถานะ: ${summary.partial ? 'สรุปบางส่วน / รอผลบางเครื่องไม่ทัน' : 'สรุปครบตามผู้เล่นในห้อง'}
           </div>
 
