@@ -7890,6 +7890,55 @@
     setTimeout(hideQaPanelForStudents, 900);
   }
 })();
-</script>  
+</script> 
+<script>
+/* =========================================================
+   VOCAB v7.8.2 — CLEAN STUDENT MENU
+   ลบเลขขั้นตอน 4) และซ่อน mission row ที่ซ้ำกับ mode cards
+   ========================================================= */
+(function(){
+  "use strict";
+
+  function cleanStudentMenu(){
+    var startBtn = document.getElementById("v6StartBtn");
+    if(!startBtn || !startBtn.closest) return;
+
+    var startCard = startBtn.closest(".v6-card");
+    if(!startCard) return;
+
+    var h2 = startCard.querySelector("h2");
+    if(h2 && /ภารกิจวันนี้/.test(h2.textContent || "")){
+      h2.textContent = "เริ่มเล่น";
+    }
+
+    var missionRow = startCard.querySelector(".v6-mission-row");
+    if(missionRow){
+      missionRow.style.display = "none";
+    }
+
+    if(!document.getElementById("v782StartNote")){
+      var note = document.createElement("p");
+      note.id = "v782StartNote";
+      note.className = "v63-note";
+      note.textContent = "เลือก Word Bank, ระดับ, โหมดการเล่น และกรอกข้อมูลผู้เรียนให้ครบ จากนั้นกด Start เพื่อเริ่มเกม";
+      if(h2 && h2.nextSibling){
+        h2.parentNode.insertBefore(note, h2.nextSibling);
+      }else{
+        startCard.insertBefore(note, startBtn);
+      }
+    }
+
+    console.log("[VOCAB] v7.8.2 clean student menu loaded");
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", function(){
+      setTimeout(cleanStudentMenu, 1000);
+    }, { once:true });
+  }else{
+    setTimeout(cleanStudentMenu, 1000);
+  }
+})();
+</script>
 </body>
 </html>
