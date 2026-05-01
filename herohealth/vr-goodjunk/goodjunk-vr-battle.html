@@ -1070,8 +1070,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260501-gj-battle-sameroom"></script>
-  <script src="./goodjunk-battle-room-bootstrap.js?v=20260501-gj-battle-sameroom"></script>
+  <script src="../firebase-config.js?v=20260501-gj-battle-roundid-countdown"></script>
+  <script src="./goodjunk-battle-room-bootstrap.js?v=20260501-gj-battle-roundid-countdown"></script>
 
   <script type="module">
     import {
@@ -1083,13 +1083,14 @@
       sendBattleAttack,
       consumeBattleAttacksForPlayer,
       finishBattleMatch,
+      getBattleServerNowMs,
       getBattleMaxHp,
       getBattleMaxHeals,
       getBattleAttackTypes,
       canUseBattleAttack,
       getBattleOpponent,
       getPlayerByPid
-    } from './goodjunk-battle-room.js?v=20260501-GJ-BATTLE-PRODUCTION-FINAL';
+    } from './goodjunk-battle-room.js?v=20260501-GJ-BATTLE-ROUNDID-COUNTDOWN-SERVER-TIME';
 
     const $ = (id) => document.getElementById(id);
 
@@ -1163,7 +1164,10 @@
         game: clean(qs('game', 'goodjunk'), 'goodjunk'),
         gameId: clean(qs('gameId', 'goodjunk'), 'goodjunk'),
         theme: clean(qs('theme', 'goodjunk'), 'goodjunk'),
-        role: clean(qs('role', 'player'), 'player')
+        role: clean(qs('role', 'player'), 'player'),
+        roundId: clean(qs('roundId', qs('currentRoundId', '')), ''),
+        currentRoundId: clean(qs('currentRoundId', qs('roundId', '')), ''),
+        roundSeq: clean(qs('roundSeq', ''), '')
       };
     }
 
@@ -1179,6 +1183,11 @@
       started: false,
       ended: false,
       matchEndShown: false,
+
+      countdownRunning: false,
+      countdownDone: false,
+      battleStartAt: 0,
+      serverOffsetMs: 0,
 
       incomingAttackIds: new Set(),
       soundOn: true,
@@ -1212,7 +1221,8 @@
       timers: [],
       lastLocalSyncAt: 0,
       _lastRivalReadyKey: '',
-      _lastMeterReady: false
+      _lastMeterReady: false,
+      _countdownTimer: null
     };
 
     const SFX = { ctx: null };
@@ -1295,6 +1305,19 @@
       try{
         if(navigator.vibrate) navigator.vibrate(pattern);
       }catch(_){}
+    }
+
+    async function syncServerClock(){
+      try{
+        const serverNow = await getBattleServerNowMs(adapter);
+        state.serverOffsetMs = Number(serverNow || Date.now()) - Date.now();
+      }catch(_){
+        state.serverOffsetMs = 0;
+      }
+    }
+
+    function serverNowMs(){
+      return Date.now() + Number(state.serverOffsetMs || 0);
     }
 
     function buildUrl(path, params = {}, base = location.href){
@@ -1925,6 +1948,65 @@
       await syncStats();
     }
 
+    function beginBattleCountdown(room){
+      if(state.countdownRunning || state.countdownDone || state.ended) return;
+
+      state.countdownRunning = true;
+
+      const startAt = Number(room?.battleStartAt || 0) || (serverNowMs() + 3500);
+      state.battleStartAt = startAt;
+
+      setOverlay(true, '⚔️', 'เตรียมพร้อม Battle!', '3');
+
+      playSfx('warning');
+      vibrate(40);
+
+      if(state._countdownTimer){
+        clearInterval(state._countdownTimer);
+        state._countdownTimer = null;
+      }
+
+      state._countdownTimer = setInterval(() => {
+        if(state.ended || state.matchEndShown){
+          clearInterval(state._countdownTimer);
+          state._countdownTimer = null;
+          return;
+        }
+
+        const leftMs = startAt - serverNowMs();
+
+        if(leftMs > 2500){
+          $('overlayText').textContent = '3';
+          $('overlayTitle').textContent = 'เตรียมพร้อม Battle!';
+        }else if(leftMs > 1500){
+          $('overlayText').textContent = '2';
+          $('overlayTitle').textContent = 'ตั้งใจเลือกของดี!';
+        }else if(leftMs > 500){
+          $('overlayText').textContent = '1';
+          $('overlayTitle').textContent = 'เริ่มแล้ว!';
+        }else if(leftMs > -350){
+          $('overlayText').textContent = 'START!';
+          $('overlayTitle').textContent = 'ลุยเลย!';
+        }else{
+          clearInterval(state._countdownTimer);
+          state._countdownTimer = null;
+
+          state.countdownRunning = false;
+          state.countdownDone = true;
+          state.started = true;
+
+          setOverlay(false);
+          showToast('⚔️ Battle เริ่มแล้ว!');
+          playSfx('attackReady');
+          vibrate([50, 30, 80]);
+
+          startLoops();
+          render();
+          syncStats();
+        }
+      }, 160);
+    }
+
     function startLoops(){
       const spawnLoop = setInterval(() => {
         if(isFxActive('slowTrap') && Math.random() < .35) return;
@@ -1959,6 +2041,11 @@
     function stopAllLoops(){
       state.timers.forEach(t => clearInterval(t));
       state.timers = [];
+
+      if(state._countdownTimer){
+        clearInterval(state._countdownTimer);
+        state._countdownTimer = null;
+      }
     }
 
     function reasonLabel(reason){
@@ -2033,12 +2120,12 @@
 
       let icon = '🏁';
       let title = 'Battle จบแล้ว';
-      let reasonText = 'จบ Battle';
+      let reasonText = 'จบเกม • คะแนนสูงกว่าชนะ';
 
       if(reason === 'hp_zero'){
         reasonText = 'มีผู้เล่นหัวใจหมด Battle จบทันที';
       }else if(reason === 'time_up'){
-        reasonText = 'หมดเวลา ตัดสินจากคะแนนรวม';
+        reasonText = 'หมดเวลา • ตัดสินจากคะแนนรวม';
       }
 
       if(outcome === 'tie' || (!winnerPid && myScore === rivalScore)){
@@ -2097,6 +2184,8 @@
               </div>
             </div>
           </div>
+
+          <div class="result-reason">สถิติของคุณ</div>
 
           <div class="result-metrics">
             <div class="result-metric">
@@ -2188,7 +2277,7 @@
       state.rival = getBattleOpponent(result.room, C.pid);
       renderRivalPanel();
 
-      if(state.rival && Number(state.rival.attackMeter || 0) >= 3 && !state.ended){
+      if(state.rival && Number(state.rival.attackMeter || 0) >= 3 && !state.ended && state.started){
         const key = `rival-ready-${state.rival.pid}-${state.rival.attackMeter}`;
         if(state._lastRivalReadyKey !== key){
           state._lastRivalReadyKey = key;
@@ -2198,7 +2287,7 @@
 
       const me = getPlayerByPid(result.room, C.pid);
 
-      if (me && !state.started) {
+      if (me && !state.started && !state.countdownDone) {
         state.maxHp = Number(me.maxHp || state.maxHp || getBattleMaxHp(C.diff));
         state.hp = Number.isFinite(Number(me.hp)) ? Number(me.hp) : state.maxHp;
         state.attackMeter = Number(me.attackMeter || 0) || 0;
@@ -2225,12 +2314,13 @@
         }
       }
 
-      if(!state.started){
+      if(!state.started && !state.countdownDone){
         state.ready = true;
-        state.started = true;
-        setOverlay(false);
-        showToast('⚔️ Battle เริ่มแล้ว!');
-        startLoops();
+
+        await syncServerClock();
+
+        beginBattleCountdown(result.room);
+
         render();
         await syncStats();
       }else{
@@ -2275,6 +2365,8 @@
       });
 
       adapter = makeRoomAdapter();
+
+      await syncServerClock();
 
       setOverlay(true, '⏳', 'กำลังตรวจ Battle', 'รอผู้เล่นให้ครบ 2 คนในห้องเดียวกัน');
 
