@@ -1,19 +1,22 @@
 // === /herohealth/vr-goodjunk/goodjunk-mode-lobby.js ===
-// FULL PATCH v20260501-GJ-MODE-LOBBY-SAME-ROOM-REMATCH
+// FULL PATCH v20260501-GJ-MODE-LOBBY-ROUNDID-COUNTDOWN-SERVER-TIME
 // ✅ Quick Kids Lobby
 // ✅ Hide technical fields for kids
 // ✅ Battle 1v1 room create/join support
-// ✅ Auto-start Battle when 2 players are in room
+// ✅ Same Room Rematch ใช้ Room Code เดิม
+// ✅ currentRoundId / roundSeq ป้องกันผู้เล่นเก่าค้างแล้วนับเป็น 3 คน
+// ✅ Countdown server time: battleStartAt = Firebase serverNow + 3500ms
+// ✅ Auto-start Battle when current round has 2 players
 // ✅ Firebase shared adapter via goodjunk-battle-room-bootstrap.js
 // ✅ Stable anon pid per device/scope
 // ✅ Invite link no longer leaks host pid/name
 // ✅ Copy room + copy invite link
-// ✅ Same Room Rematch: rematch=1 / sameRoom=1 resets ended room safely
 // ✅ Still passthrough important query params
 
 import {
-  makeRoomAdapter as makeBattleRoomAdapter
-} from './goodjunk-battle-room.js?v=20260501-GJ-BATTLE-PRODUCTION-FINAL';
+  makeRoomAdapter as makeBattleRoomAdapter,
+  getBattleServerNowMs
+} from './goodjunk-battle-room.js?v=20260501-GJ-BATTLE-ROUNDID-COUNTDOWN-SERVER-TIME';
 
 const PASS_KEYS = [
   'pid','name','nick','diff','time','view','hub',
@@ -22,7 +25,7 @@ const PASS_KEYS = [
   'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
   'cdnext','zone','cat','game','gameId','theme','room','roomId',
   'entry','recommendedMode','multiplayer','role','autojoin','fromInvite',
-  'rematch','sameRoom','modeLocked'
+  'rematch','sameRoom','modeLocked','roundId','currentRoundId','roundSeq'
 ];
 
 const STORAGE = {
@@ -119,6 +122,24 @@ function generateRoomCode(prefix = 'GJ') {
   return `${prefix}-${part}${tail}`;
 }
 
+function makeRoundId(roomId, seq) {
+  const safeRoom = clean(roomId, 'GJ-BT');
+  const n = Number(seq || 1) || 1;
+  return `${safeRoom}-R${n}`;
+}
+
+function getActivePlayersForRound(players, currentRoundId) {
+  const rid = clean(currentRoundId, '');
+
+  return Object.values(players || {})
+    .filter(Boolean)
+    .filter(p => p.online !== false)
+    .filter(p => {
+      if (!rid) return true;
+      return clean(p.roundId, '') === rid;
+    });
+}
+
 function saveRecentRoom(mode, room) {
   try {
     localStorage.setItem(`${STORAGE.recentRoomPrefix}${mode}`, String(room || ''));
@@ -201,6 +222,10 @@ function readBaseParams(config = {}) {
     out.room = normalizeRoomCode(roomFromUrl, config.roomPrefix || 'GJ-BT');
     out.roomId = out.room;
   }
+
+  out.roundId = clean(out.roundId || out.currentRoundId, '');
+  out.currentRoundId = clean(out.currentRoundId || out.roundId, '');
+  out.roundSeq = clean(out.roundSeq, '');
 
   if (config.mode) out.mode = config.mode;
   return out;
@@ -624,7 +649,7 @@ function setSelectValue(el, value, fallback) {
   el.value = has ? v : fallback;
 }
 
-function makeFreshBattlePlayer(params, prev = {}, role = 'player') {
+function makeFreshBattlePlayer(params, prev = {}, role = 'player', roundId = '') {
   const diff = params.diff || prev.diff || 'normal';
   const maxHp =
     diff === 'challenge' ? 3 :
@@ -645,6 +670,7 @@ function makeFreshBattlePlayer(params, prev = {}, role = 'player') {
     nick: params.nick || params.name,
     role: prev.role || role,
     diff,
+    roundId: clean(roundId, params.roundId || prev.roundId || ''),
     joinedAt: Number(prev.joinedAt || 0) || now,
     ready: true,
 
@@ -696,61 +722,88 @@ async function prepareBattleRoom(params, role, config = {}) {
     qs('rematch', '') === '1' ||
     qs('sameRoom', '') === '1';
 
-  if (isRematch && room && room.status === 'ended') {
-    room = {
-      ...room,
-      status: 'waiting',
-      startedAt: 0,
-      endedAt: 0,
-      matchEnd: null,
-      attacks: [],
-      effects: [],
-      lastAttackAt: 0,
-      players: {}
-    };
+  const now = await getBattleServerNowMs(adapter);
+
+  const prevRoundSeq = Number(room?.roundSeq || 0) || 0;
+
+  let nextRoundSeq = prevRoundSeq;
+  let currentRoundId = clean(room?.currentRoundId, '');
+
+  // ✅ จุดสำคัญ:
+  // ใช้ Room Code เดิมได้ แต่ต้องแยก “รอบ” ด้วย currentRoundId
+  // เพื่อไม่ให้นับผู้เล่นเก่าที่ค้างจากรอบก่อนเป็นคนที่ 3
+  if (!room) {
+    nextRoundSeq = 1;
+    currentRoundId = makeRoundId(roomId, nextRoundSeq);
+  } else if (isRematch && room.status === 'ended') {
+    nextRoundSeq = prevRoundSeq + 1;
+    currentRoundId = makeRoundId(roomId, nextRoundSeq);
+  } else if (!currentRoundId) {
+    nextRoundSeq = prevRoundSeq || 1;
+    currentRoundId = makeRoundId(roomId, nextRoundSeq);
   }
 
-  const now = Date.now();
   const players = room?.players && typeof room.players === 'object'
     ? { ...room.players }
     : {};
 
-  const currentCount = Object.keys(players).filter((k) => players[k]?.online !== false).length;
-  const alreadyInRoom = !!players[params.pid];
+  const activePlayers = getActivePlayersForRound(players, currentRoundId);
+  const currentCount = activePlayers.length;
 
-  if (!alreadyInRoom && currentCount >= 2) {
-    showToast('ห้อง Battle เต็มแล้ว ต้องมีแค่ 2 คน');
+  const prevSelf = players[params.pid] || {};
+  const alreadyInActiveRound =
+    !!prevSelf &&
+    clean(prevSelf.roundId, '') === currentRoundId &&
+    prevSelf.online !== false;
+
+  if (!alreadyInActiveRound && currentCount >= 2) {
+    showToast('ห้อง Battle รอบนี้เต็มแล้ว ต้องมีแค่ 2 คน');
     return false;
   }
 
-  const hasHost = Object.values(players).some(p => p && p.role === 'host');
-  const finalRole = role === 'host' || !hasHost ? 'host' : 'player';
+  const activeHasHost = activePlayers.some(p => p && p.role === 'host');
+  const finalRole = role === 'host' || !activeHasHost ? 'host' : 'player';
 
   players[params.pid] = makeFreshBattlePlayer(
     params,
     players[params.pid] || {},
-    finalRole
+    finalRole,
+    currentRoundId
   );
 
-  const nextCount = Object.keys(players).filter((k) => players[k]?.online !== false).length;
+  const nextActivePlayers = getActivePlayersForRound(players, currentRoundId);
+  const nextCount = nextActivePlayers.length;
 
   const hostPid =
+    nextActivePlayers.find(p => p && p.role === 'host')?.pid ||
     clean(room?.hostPid, '') ||
-    Object.values(players).find(p => p && p.role === 'host')?.pid ||
     params.pid;
 
   const shouldStart = autoStartBattle && nextCount >= 2;
 
   const payload = {
+    ...(room || {}),
     roomId,
     mode: 'battle',
     status: shouldStart ? 'started' : 'waiting',
+
+    currentRoundId,
+    roundSeq: nextRoundSeq,
+
     hostPid,
     createdAt: Number(room?.createdAt || 0) || now,
     updatedAt: now,
     startedAt: shouldStart ? now : 0,
+
+    // ✅ ใช้เวลา server เป็นฐาน ไม่ใช่เวลาของเครื่องใดเครื่องหนึ่ง
+    battleStartAt: shouldStart ? now + 3500 : 0,
+
     endedAt: 0,
+
     players,
+
+    // ✅ ล้างเฉพาะข้อมูล gameplay ของรอบใหม่
+    // players เก่าจากรอบก่อนยังค้างได้ แต่ไม่ถูกนับ เพราะ roundId ไม่ตรง
     attacks: [],
     effects: [],
     lastAttackAt: 0,
@@ -903,7 +956,7 @@ export function mountGoodJunkModeLobby(config = {}) {
           </div>
 
           <div class="gjl-mini-note">
-            Battle จะเริ่มเมื่อมีผู้เล่นครบ 2 คนในห้องเดียวกัน ระบบจะพาเข้าเกมอัตโนมัติ
+            Battle จะเริ่มเมื่อมีผู้เล่นครบ 2 คนในห้องเดียวกัน ระบบจะพาเข้าเกมและนับถอยหลังพร้อมกันก่อนเริ่ม
           </div>
         </div>
       </section>
@@ -950,6 +1003,10 @@ export function mountGoodJunkModeLobby(config = {}) {
     p.entry = mode;
     p.recommendedMode = mode;
     p.multiplayer = mode === 'solo' ? '' : '1';
+
+    p.roundId = clean(base.roundId || base.currentRoundId, '');
+    p.currentRoundId = clean(base.currentRoundId || base.roundId, '');
+    p.roundSeq = clean(base.roundSeq, '');
 
     return p;
   }
