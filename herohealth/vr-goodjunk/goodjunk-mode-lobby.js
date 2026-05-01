@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-mode-lobby.js ===
-// FULL PATCH v20260430e-GJ-MODE-LOBBY-QUICK-KIDS-BATTLE-FIREBASE
+// FULL PATCH v20260501-GJ-MODE-LOBBY-SAME-ROOM-REMATCH
 // ✅ Quick Kids Lobby
 // ✅ Hide technical fields for kids
 // ✅ Battle 1v1 room create/join support
@@ -8,11 +8,12 @@
 // ✅ Stable anon pid per device/scope
 // ✅ Invite link no longer leaks host pid/name
 // ✅ Copy room + copy invite link
+// ✅ Same Room Rematch: rematch=1 / sameRoom=1 resets ended room safely
 // ✅ Still passthrough important query params
 
 import {
   makeRoomAdapter as makeBattleRoomAdapter
-} from './goodjunk-battle-room.js?v=20260430e-GJ-BATTLE-FIREBASE-ROOM';
+} from './goodjunk-battle-room.js?v=20260501-GJ-BATTLE-PRODUCTION-FINAL';
 
 const PASS_KEYS = [
   'pid','name','nick','diff','time','view','hub',
@@ -20,7 +21,8 @@ const PASS_KEYS = [
   'phase','log','ai','pro','research','seed','run',
   'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
   'cdnext','zone','cat','game','gameId','theme','room','roomId',
-  'entry','recommendedMode','multiplayer','role','autojoin','fromInvite'
+  'entry','recommendedMode','multiplayer','role','autojoin','fromInvite',
+  'rematch','sameRoom','modeLocked'
 ];
 
 const STORAGE = {
@@ -622,6 +624,54 @@ function setSelectValue(el, value, fallback) {
   el.value = has ? v : fallback;
 }
 
+function makeFreshBattlePlayer(params, prev = {}, role = 'player') {
+  const diff = params.diff || prev.diff || 'normal';
+  const maxHp =
+    diff === 'challenge' ? 3 :
+    diff === 'hard' ? 4 :
+    5;
+
+  const maxHeals =
+    diff === 'easy' ? 3 :
+    diff === 'normal' ? 2 :
+    1;
+
+  const now = Date.now();
+
+  return {
+    ...(prev || {}),
+    pid: params.pid,
+    name: params.name,
+    nick: params.nick || params.name,
+    role: prev.role || role,
+    diff,
+    joinedAt: Number(prev.joinedAt || 0) || now,
+    ready: true,
+
+    score: 0,
+    combo: 0,
+    hp: maxHp,
+    maxHp,
+    shield: 0,
+    attackMeter: 0,
+
+    heartsRecovered: 0,
+    maxHeals,
+    lastHealAt: 0,
+
+    goodHits: 0,
+    junkHits: 0,
+    attacksSent: 0,
+    attacksBlocked: 0,
+    attacksReceived: 0,
+    lastAttackAt: 0,
+
+    online: true,
+    updatedAt: now,
+    lastSeenAt: now
+  };
+}
+
 async function prepareBattleRoom(params, role, config = {}) {
   if (params.mode !== 'battle') return true;
 
@@ -642,6 +692,24 @@ async function prepareBattleRoom(params, role, config = {}) {
     room = null;
   }
 
+  const isRematch =
+    qs('rematch', '') === '1' ||
+    qs('sameRoom', '') === '1';
+
+  if (isRematch && room && room.status === 'ended') {
+    room = {
+      ...room,
+      status: 'waiting',
+      startedAt: 0,
+      endedAt: 0,
+      matchEnd: null,
+      attacks: [],
+      effects: [],
+      lastAttackAt: 0,
+      players: {}
+    };
+  }
+
   const now = Date.now();
   const players = room?.players && typeof room.players === 'object'
     ? { ...room.players }
@@ -658,23 +726,11 @@ async function prepareBattleRoom(params, role, config = {}) {
   const hasHost = Object.values(players).some(p => p && p.role === 'host');
   const finalRole = role === 'host' || !hasHost ? 'host' : 'player';
 
-  players[params.pid] = {
-    ...(players[params.pid] || {}),
-    pid: params.pid,
-    name: params.name,
-    nick: params.nick || params.name,
-    role: players[params.pid]?.role || finalRole,
-    joinedAt: Number(players[params.pid]?.joinedAt || 0) || now,
-    ready: true,
-    score: Number(players[params.pid]?.score || 0) || 0,
-    combo: Number(players[params.pid]?.combo || 0) || 0,
-    hp: Number(players[params.pid]?.hp ?? 3) || 3,
-    shield: Number(players[params.pid]?.shield || 0) || 0,
-    attackMeter: Number(players[params.pid]?.attackMeter || 0) || 0,
-    online: true,
-    updatedAt: now,
-    lastSeenAt: now
-  };
+  players[params.pid] = makeFreshBattlePlayer(
+    params,
+    players[params.pid] || {},
+    finalRole
+  );
 
   const nextCount = Object.keys(players).filter((k) => players[k]?.online !== false).length;
 
@@ -692,10 +748,13 @@ async function prepareBattleRoom(params, role, config = {}) {
     hostPid,
     createdAt: Number(room?.createdAt || 0) || now,
     updatedAt: now,
-    startedAt: shouldStart ? (Number(room?.startedAt || 0) || now) : 0,
+    startedAt: shouldStart ? now : 0,
+    endedAt: 0,
     players,
-    attacks: Array.isArray(room?.attacks) ? room.attacks : [],
-    effects: Array.isArray(room?.effects) ? room.effects : []
+    attacks: [],
+    effects: [],
+    lastAttackAt: 0,
+    matchEnd: null
   };
 
   try {
@@ -996,4 +1055,14 @@ export function mountGoodJunkModeLobby(config = {}) {
   });
 
   syncStatus();
+
+  if (
+    qs('autojoin', '') === '1' &&
+    qs('room', qs('roomId', '')) &&
+    mode === 'battle'
+  ) {
+    setTimeout(() => {
+      goPlay('join');
+    }, 450);
+  }
 }
