@@ -13,7 +13,7 @@
   const DEBUG = qs.get('debug') === '1';
 
   const STORAGE = {
-    localPrefix: 'GJ_BATTLE_SHARED_LOCAL:',
+    localPrefix: 'GJ_BATTLE_SHARED_LOCAL:'
   };
 
   function log(...args) {
@@ -55,8 +55,12 @@
     v = v.replace(/[^A-Z0-9-]/g, '');
 
     if (!v) return '';
+
     if (!v.startsWith('GJ-BT-')) {
-      v = 'GJ-BT-' + v.replace(/^GJ/, '').replace(/^BT/, '').replace(/^-+/, '');
+      v = 'GJ-BT-' + v
+        .replace(/^GJ/i, '')
+        .replace(/^BT/i, '')
+        .replace(/^-+/, '');
     }
 
     return v.slice(0, 18);
@@ -147,7 +151,7 @@
     };
   }
 
-  function mergeById(prevList, nextList) {
+  function mergeById(prevList, nextList, limit = 30) {
     const map = new Map();
 
     (Array.isArray(prevList) ? prevList : []).forEach((item) => {
@@ -162,7 +166,7 @@
       map.set(id, item);
     });
 
-    return Array.from(map.values()).slice(-30);
+    return Array.from(map.values()).slice(-limit);
   }
 
   async function getFirebaseCtx() {
@@ -209,19 +213,6 @@
           (snap) => resolve(snap && typeof snap.val === 'function' ? snap.val() : null),
           reject
         );
-      } catch (err) {
-        reject(err);
-      }
-    });
-  }
-
-  async function dbSet(path, value) {
-    const db = await getDb();
-    if (!db) throw new Error('firebase unavailable');
-
-    return await new Promise((resolve, reject) => {
-      try {
-        db.ref(cleanPath(path)).set(value, (err) => err ? reject(err) : resolve(true));
       } catch (err) {
         reject(err);
       }
@@ -287,6 +278,7 @@
     if (!id) return null;
 
     const db = await getDb();
+
     if (db) {
       const raw = await dbOnce(roomPath(id));
       return normalizeRoom(id, raw);
@@ -317,10 +309,10 @@
             ? { ...prev.players, ...incoming.players }
             : prev.players,
           attacks: Array.isArray(incoming.attacks)
-            ? mergeById(prev.attacks, incoming.attacks)
+            ? mergeById(prev.attacks, incoming.attacks, 30)
             : prev.attacks,
           effects: Array.isArray(incoming.effects)
-            ? mergeById(prev.effects, incoming.effects).slice(-20)
+            ? mergeById(prev.effects, incoming.effects, 20)
             : prev.effects,
           updatedAt: now()
         };
@@ -344,10 +336,10 @@
         ? { ...prev.players, ...incoming.players }
         : prev.players,
       attacks: Array.isArray(incoming.attacks)
-        ? mergeById(prev.attacks, incoming.attacks)
+        ? mergeById(prev.attacks, incoming.attacks, 30)
         : prev.attacks,
       effects: Array.isArray(incoming.effects)
-        ? mergeById(prev.effects, incoming.effects).slice(-20)
+        ? mergeById(prev.effects, incoming.effects, 20)
         : prev.effects,
       updatedAt: now()
     };
@@ -363,7 +355,31 @@
     const id = normalizeRoomId(roomId);
     let stopped = false;
     let firebaseRef = null;
+    let firebaseHandler = null;
     let localTimer = 0;
+
+    function stopLocal() {
+      try { clearInterval(localTimer); } catch (_) {}
+      localTimer = 0;
+    }
+
+    function startLocal() {
+      const emit = () => {
+        if (stopped) return;
+        callback(readLocal(id));
+      };
+
+      window.addEventListener('hha:gjbattle-local-room-update', emit);
+      localTimer = setInterval(emit, 650);
+      emit();
+
+      return () => {
+        try { window.removeEventListener('hha:gjbattle-local-room-update', emit); } catch (_) {}
+        stopLocal();
+      };
+    }
+
+    let offLocal = null;
 
     async function start() {
       const db = await getDb();
@@ -372,58 +388,35 @@
 
       if (db) {
         firebaseRef = db.ref(roomPath(id));
-        const handler = (snap) => {
+        firebaseHandler = (snap) => {
           if (stopped) return;
           const value = snap && typeof snap.val === 'function' ? snap.val() : null;
           callback(normalizeRoom(id, value));
         };
 
-        firebaseRef.on('value', handler);
-
-        subscribeRoom._off = () => {
-          try { firebaseRef.off('value', handler); } catch (_) {}
-        };
-
+        firebaseRef.on('value', firebaseHandler);
         return;
       }
 
-      const emit = () => {
-        if (stopped) return;
-        callback(readLocal(id));
-      };
-
-      window.addEventListener('hha:gjbattle-local-room-update', emit);
-      localTimer = setInterval(emit, 650);
-      emit();
-
-      subscribeRoom._off = () => {
-        try { window.removeEventListener('hha:gjbattle-local-room-update', emit); } catch (_) {}
-        try { clearInterval(localTimer); } catch (_) {}
-      };
+      offLocal = startLocal();
     }
 
     start().catch((err) => {
       warn('subscribeRoom failed; fallback local', err);
-
-      const emit = () => {
-        if (stopped) return;
-        callback(readLocal(id));
-      };
-
-      window.addEventListener('hha:gjbattle-local-room-update', emit);
-      localTimer = setInterval(emit, 650);
-      emit();
-
-      subscribeRoom._off = () => {
-        try { window.removeEventListener('hha:gjbattle-local-room-update', emit); } catch (_) {}
-        try { clearInterval(localTimer); } catch (_) {}
-      };
+      if (!offLocal) offLocal = startLocal();
     });
 
     return function unsubscribe() {
       stopped = true;
+
       try {
-        if (typeof subscribeRoom._off === 'function') subscribeRoom._off();
+        if (firebaseRef && firebaseHandler) {
+          firebaseRef.off('value', firebaseHandler);
+        }
+      } catch (_) {}
+
+      try {
+        if (typeof offLocal === 'function') offLocal();
       } catch (_) {}
     };
   }
