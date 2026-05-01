@@ -6,6 +6,7 @@
   <title>GoodJunk Battle • 1v1 Attack</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#ffb347" />
+
   <style>
     :root{
       --bg1:#fff7ed;
@@ -133,6 +134,10 @@
       box-shadow:0 8px 16px rgba(154,75,20,.12);
     }
 
+    .btn:active{
+      transform:translateY(1px) scale(.99);
+    }
+
     .stats{
       display:grid;
       grid-template-columns:repeat(6,minmax(0,1fr));
@@ -165,6 +170,108 @@
       overflow:hidden;
       text-overflow:ellipsis;
       white-space:nowrap;
+    }
+
+    .rival-panel{
+      border:3px solid #fed7aa;
+      background:linear-gradient(180deg,#fff7ed,#fffbeb);
+      border-radius:22px;
+      padding:10px;
+      display:grid;
+      gap:8px;
+    }
+
+    .rival-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .rival-k{
+      color:#9a4a0f;
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .rival-name{
+      margin-top:2px;
+      color:#7c2d12;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .rival-status{
+      min-height:30px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:2px solid #fdba74;
+      background:#fffaf0;
+      color:#7c2d12;
+      font-size:11px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .rival-status.wait{background:#fef3c7}
+    .rival-status.safe{
+      background:#dcfce7;
+      border-color:#86efac;
+      color:#166534;
+    }
+
+    .rival-status.danger{
+      background:#fee2e2;
+      border-color:#fca5a5;
+      color:#991b1b;
+      animation:rivalWarn .75s ease-in-out infinite;
+    }
+
+    .rival-status.ready{
+      background:linear-gradient(180deg,#fed7aa,#fb923c);
+      border-color:#fdba74;
+      color:#7c2d12;
+      animation:rivalWarn .75s ease-in-out infinite;
+    }
+
+    .rival-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:6px;
+    }
+
+    .rival-mini{
+      border:2px solid #fed7aa;
+      background:#fffaf0;
+      border-radius:16px;
+      min-height:46px;
+      padding:7px;
+      display:grid;
+      align-content:center;
+      gap:2px;
+      text-align:center;
+    }
+
+    .rival-mini span{
+      color:#9a4a0f;
+      font-size:10px;
+      font-weight:1000;
+    }
+
+    .rival-mini b{
+      color:#3b2415;
+      font-size:14px;
+      font-weight:1000;
+      line-height:1.1;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    @keyframes rivalWarn{
+      0%,100%{ transform:scale(1); filter:brightness(1); }
+      50%{ transform:scale(1.04); filter:brightness(1.08); }
     }
 
     .arena{
@@ -293,8 +400,73 @@
       text-align:center;
     }
 
-    .effect-banner.show{
-      display:flex;
+    .effect-banner.show{display:flex}
+
+    .attack-warning{
+      position:absolute;
+      inset:auto 12px 12px 12px;
+      z-index:8;
+      border:4px solid #fb923c;
+      border-radius:26px;
+      background:linear-gradient(180deg,rgba(255,247,237,.96),rgba(255,237,213,.96));
+      box-shadow:0 18px 36px rgba(154,75,20,.28);
+      padding:14px;
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:12px;
+      align-items:center;
+      animation:warnPop .18s ease both, warnGlow .8s ease-in-out infinite;
+    }
+
+    .attack-warning.hidden{display:none}
+
+    .warn-icon{
+      width:56px;
+      height:56px;
+      border-radius:20px;
+      border:3px solid #fdba74;
+      background:#fff7ed;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+    }
+
+    .warn-title{
+      color:#7c2d12;
+      font-size:18px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .warn-sub{
+      margin-top:4px;
+      color:#9a4a0f;
+      font-size:12px;
+      line-height:1.35;
+      font-weight:900;
+    }
+
+    .warn-count{
+      width:58px;
+      height:58px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      border:4px solid #facc15;
+      background:linear-gradient(180deg,#fef3c7,#fde68a);
+      color:#7c2d12;
+      font-size:32px;
+      font-weight:1000;
+    }
+
+    @keyframes warnPop{
+      from{ transform:translateY(12px) scale(.96); opacity:0; }
+      to{ transform:translateY(0) scale(1); opacity:1; }
+    }
+
+    @keyframes warnGlow{
+      0%,100%{ filter:brightness(1); }
+      50%{ filter:brightness(1.08); }
     }
 
     .bottom{
@@ -376,17 +548,9 @@
       animation:attackPulse .9s ease-in-out infinite;
     }
 
-    .attack-card.ready .atk-reason{
-      color:#fff7ed;
-    }
-
-    .attack-card.locked .atk-reason{
-      color:#9a6a3a;
-    }
-
-    .attack-card:disabled{
-      cursor:not-allowed;
-    }
+    .attack-card.ready .atk-reason{color:#fff7ed}
+    .attack-card.locked .atk-reason{color:#9a6a3a}
+    .attack-card:disabled{cursor:not-allowed}
 
     @keyframes attackPulse{
       0%,100%{ transform:translateY(0) scale(1); }
@@ -429,9 +593,7 @@
       backdrop-filter:blur(8px);
     }
 
-    .overlay.hidden{
-      display:none;
-    }
+    .overlay.hidden{display:none}
 
     .card{
       width:min(94vw,760px);
@@ -442,6 +604,8 @@
       box-shadow:0 22px 54px rgba(0,0,0,.25);
       padding:18px;
       text-align:center;
+      max-height:92dvh;
+      overflow:auto;
     }
 
     .card-icon{
@@ -478,6 +642,97 @@
       margin-top:14px;
     }
 
+    .result-summary{
+      display:grid;
+      gap:12px;
+      margin-top:14px;
+      text-align:left;
+    }
+
+    .result-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .result-player{
+      border:3px solid #fdba74;
+      border-radius:22px;
+      background:#fff7ed;
+      padding:12px;
+    }
+
+    .result-player.me{
+      background:linear-gradient(180deg,#fffbeb,#fef3c7);
+      border-color:#facc15;
+    }
+
+    .result-player.rival{
+      background:linear-gradient(180deg,#fff7ed,#ffedd5);
+    }
+
+    .result-name{
+      font-size:13px;
+      font-weight:1000;
+      color:#92400e;
+      margin-bottom:8px;
+    }
+
+    .result-score{
+      font-size:28px;
+      line-height:1;
+      font-weight:1000;
+      color:#7c2d12;
+    }
+
+    .result-mini{
+      margin-top:8px;
+      display:grid;
+      gap:4px;
+      color:#7c4a22;
+      font-size:13px;
+      line-height:1.35;
+      font-weight:900;
+    }
+
+    .result-reason{
+      border:3px dashed #fdba74;
+      border-radius:20px;
+      background:#fffaf0;
+      color:#7c2d12;
+      padding:12px;
+      font-size:14px;
+      line-height:1.5;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .result-metrics{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+    }
+
+    .result-metric{
+      border:2px solid #fed7aa;
+      border-radius:18px;
+      background:#fffaf0;
+      padding:10px;
+      text-align:center;
+    }
+
+    .result-metric b{
+      display:block;
+      color:#7c2d12;
+      font-size:18px;
+    }
+
+    .result-metric span{
+      color:#9a4a0f;
+      font-size:11px;
+      font-weight:1000;
+    }
+
     @media (max-width:920px){
       .bottom{
         grid-template-columns:1fr;
@@ -494,34 +749,218 @@
       }
     }
 
-    @media (max-width:480px){
-      .target{
-        width:68px;
-        height:68px;
-        border-radius:24px;
-        font-size:34px;
+    @media (max-width:620px){
+      #app{
+        padding:
+          calc(5px + var(--sat))
+          calc(5px + var(--sar))
+          calc(5px + var(--sab))
+          calc(5px + var(--sal));
+        gap:5px;
+        grid-template-rows:auto minmax(52dvh,1fr) auto;
+      }
+
+      .topbar{
+        padding:6px;
+        border-radius:16px;
+        gap:5px;
+        border-width:2px;
+      }
+
+      .brand{gap:6px}
+      .brand-icon{
+        width:34px;
+        height:34px;
+        border-radius:12px;
+        font-size:20px;
+        border-width:2px;
+      }
+
+      .brand h1{
+        font-size:17px;
+        line-height:1;
+      }
+
+      .brand p,
+      #subText{display:none}
+
+      .top-actions{gap:4px}
+      .top-actions .btn{
+        min-height:30px;
+        padding:4px 8px;
+        border-radius:12px;
+        border-width:2px;
+        font-size:12px;
       }
 
       .stats{
-        grid-template-columns:repeat(2,minmax(0,1fr));
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:4px;
       }
 
-      .brand-icon{
-        width:48px;
-        height:48px;
-        font-size:26px;
+      .stats .pill:nth-child(1){display:none}
+
+      .pill{
+        min-height:32px;
+        padding:4px 5px;
+        border-radius:11px;
+        border-width:2px;
+      }
+
+      .pill-k{font-size:8px}
+      .pill-v{font-size:11px}
+
+      .rival-panel{
+        padding:6px;
+        border-radius:14px;
+        gap:5px;
+        border-width:2px;
+      }
+
+      .rival-k{font-size:8px}
+      .rival-name{font-size:13px}
+
+      .rival-status{
+        min-height:24px;
+        padding:3px 7px;
+        font-size:9px;
+        border-width:2px;
+      }
+
+      .rival-grid{
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:4px;
+      }
+
+      .rival-mini{
+        min-height:30px;
+        padding:4px;
+        border-radius:10px;
+        border-width:2px;
+      }
+
+      .rival-mini span{font-size:7px}
+      .rival-mini b{font-size:10px}
+
+      .arena{
+        border-radius:18px;
+        border-width:2px;
+        min-height:52dvh;
+      }
+
+      .target{
+        width:58px;
+        height:58px;
+        border-radius:20px;
+        font-size:30px;
+        border-width:3px;
+      }
+
+      .bottom{
+        padding:6px;
+        border-radius:16px;
+        border-width:2px;
+        gap:5px;
+      }
+
+      .battle-note{
+        font-size:10px;
+        line-height:1.25;
+        max-height:28px;
+        overflow:hidden;
       }
 
       .attack-deck{
-        grid-template-columns:repeat(4,minmax(54px,1fr));
+        grid-template-columns:repeat(7,minmax(38px,1fr));
+        gap:4px;
       }
 
       .attack-card{
-        min-height:54px;
+        min-height:42px;
+        border-radius:12px;
+        border-width:2px;
+        padding:3px 2px;
       }
 
-      .attack-card .atk-emoji{
+      .attack-card .atk-emoji{font-size:18px}
+      .attack-card .atk-name{font-size:7px}
+      .attack-card .atk-reason{display:none}
+
+      .effect-banner{
+        top:6px;
+        min-height:32px;
+        padding:5px 10px;
+        font-size:11px;
+        border-width:2px;
+      }
+
+      .attack-warning{
+        inset:auto 6px 6px 6px;
+        padding:8px;
+        border-radius:18px;
+        border-width:3px;
+        gap:7px;
+      }
+
+      .warn-icon{
+        width:38px;
+        height:38px;
+        border-radius:14px;
         font-size:22px;
+        border-width:2px;
+      }
+
+      .warn-title{font-size:13px}
+      .warn-sub{font-size:10px}
+
+      .warn-count{
+        height:34px;
+        font-size:20px;
+        border-width:3px;
+      }
+
+      .result-grid,
+      .result-metrics{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:390px){
+      #app{
+        grid-template-rows:auto minmax(56dvh,1fr) auto;
+      }
+
+      .rival-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .rival-mini:nth-child(4){
+        display:none;
+      }
+
+      .battle-note{
+        display:none;
+      }
+
+      .attack-deck{
+        grid-template-columns:repeat(7,minmax(34px,1fr));
+      }
+
+      .attack-card{
+        min-height:38px;
+      }
+
+      .attack-card .atk-emoji{font-size:17px}
+      .attack-card .atk-name{font-size:6px}
+
+      .target{
+        width:54px;
+        height:54px;
+        font-size:28px;
+      }
+
+      .arena{
+        min-height:58dvh;
       }
     }
 
@@ -533,6 +972,7 @@
     }
   </style>
 </head>
+
 <body>
   <div id="app">
     <section class="topbar">
@@ -546,6 +986,7 @@
         </div>
 
         <div class="top-actions">
+          <button id="btnSound" class="btn" type="button">🔊 SFX</button>
           <button id="btnLobby" class="btn" type="button">Lobby</button>
           <button id="btnHub" class="btn" type="button">Hub</button>
         </div>
@@ -559,10 +1000,48 @@
         <div class="pill"><div class="pill-k">ATTACK</div><div id="pMeter" class="pill-v">0/3</div></div>
         <div class="pill"><div class="pill-k">RIVAL</div><div id="rScore" class="pill-v">0</div></div>
       </div>
+
+      <div id="rivalPanel" class="rival-panel">
+        <div class="rival-head">
+          <div>
+            <div class="rival-k">คู่แข่ง</div>
+            <div id="rivalName" class="rival-name">รอคู่แข่ง</div>
+          </div>
+          <div id="rivalStatus" class="rival-status wait">WAIT</div>
+        </div>
+
+        <div class="rival-grid">
+          <div class="rival-mini">
+            <span>Score</span>
+            <b id="rivalScoreLive">0</b>
+          </div>
+          <div class="rival-mini">
+            <span>Heart</span>
+            <b id="rivalHpLive">—</b>
+          </div>
+          <div class="rival-mini">
+            <span>Attack</span>
+            <b id="rivalMeterLive">0/3</b>
+          </div>
+          <div class="rival-mini">
+            <span>Shield</span>
+            <b id="rivalShieldLive">—</b>
+          </div>
+        </div>
+      </div>
     </section>
 
     <main id="arena" class="arena">
       <div id="effectBanner" class="effect-banner">Battle Effect</div>
+
+      <div id="attackWarning" class="attack-warning hidden">
+        <div class="warn-icon" id="warnIcon">⚠️</div>
+        <div>
+          <div class="warn-title" id="warnTitle">Rival Attack!</div>
+          <div class="warn-sub" id="warnSub">เตรียมตัวให้พร้อม</div>
+        </div>
+        <div class="warn-count" id="warnCount">3</div>
+      </div>
     </main>
 
     <section class="bottom">
@@ -591,8 +1070,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430h-gj-battle"></script>
-  <script src="./goodjunk-battle-room-bootstrap.js?v=20260430h-gj-battle"></script>
+  <script src="../firebase-config.js?v=20260501-gj-battle-final"></script>
+  <script src="./goodjunk-battle-room-bootstrap.js?v=20260501-gj-battle-final"></script>
 
   <script type="module">
     import {
@@ -610,7 +1089,7 @@
       canUseBattleAttack,
       getBattleOpponent,
       getPlayerByPid
-    } from './goodjunk-battle-room.js?v=20260430h-GJ-BATTLE-ATTACK-BUTTONS';
+    } from './goodjunk-battle-room.js?v=20260501-GJ-BATTLE-PRODUCTION-FINAL';
 
     const $ = (id) => document.getElementById(id);
 
@@ -656,6 +1135,15 @@
       return Math.max(min, Math.min(max, n));
     };
 
+    function h(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
+    }
+
     function ctx(){
       return {
         mode: clean(qs('mode', 'battle'), 'battle'),
@@ -692,6 +1180,10 @@
       ended: false,
       matchEndShown: false,
 
+      incomingAttackIds: new Set(),
+      soundOn: true,
+      audioReady: false,
+
       duration: clamp(Number(C.time || 150), 30, 300),
       timeLeft: clamp(Number(C.time || 150), 30, 300),
 
@@ -718,8 +1210,92 @@
       room: null,
       rival: null,
       timers: [],
-      lastLocalSyncAt: 0
+      lastLocalSyncAt: 0,
+      _lastRivalReadyKey: '',
+      _lastMeterReady: false
     };
+
+    const SFX = { ctx: null };
+
+    function getAudioCtx(){
+      if(SFX.ctx) return SFX.ctx;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      SFX.ctx = new AC();
+      return SFX.ctx;
+    }
+
+    function unlockAudio(){
+      const ctx = getAudioCtx();
+      if(!ctx) return;
+      if(ctx.state === 'suspended') ctx.resume().catch(() => {});
+      state.audioReady = true;
+    }
+
+    function tone(freq = 440, dur = 0.08, gain = 0.045, type = 'sine'){
+      if(!state.soundOn) return;
+
+      const ctx = getAudioCtx();
+      if(!ctx) return;
+
+      try{
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.value = freq;
+
+        g.gain.setValueAtTime(0.0001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(gain, ctx.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+
+        osc.connect(g);
+        g.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + dur + 0.02);
+      }catch(_){}
+    }
+
+    function playSfx(kind){
+      if(kind === 'good'){
+        tone(720, .07, .04, 'sine');
+        setTimeout(() => tone(920, .08, .035, 'sine'), 65);
+      }else if(kind === 'junk'){
+        tone(180, .11, .055, 'sawtooth');
+      }else if(kind === 'shield'){
+        tone(520, .08, .045, 'triangle');
+        setTimeout(() => tone(780, .09, .04, 'triangle'), 80);
+      }else if(kind === 'heart'){
+        tone(640, .08, .04, 'sine');
+        setTimeout(() => tone(860, .10, .04, 'sine'), 85);
+      }else if(kind === 'attackReady'){
+        tone(500, .08, .04, 'square');
+        setTimeout(() => tone(760, .08, .035, 'square'), 90);
+        setTimeout(() => tone(980, .12, .035, 'square'), 180);
+      }else if(kind === 'attackSend'){
+        tone(260, .06, .05, 'sawtooth');
+        setTimeout(() => tone(520, .10, .045, 'sawtooth'), 60);
+      }else if(kind === 'warning'){
+        tone(420, .09, .055, 'square');
+      }else if(kind === 'hitByAttack'){
+        tone(240, .12, .055, 'sawtooth');
+        setTimeout(() => tone(190, .12, .045, 'sawtooth'), 110);
+      }else if(kind === 'victory'){
+        tone(640, .09, .045, 'sine');
+        setTimeout(() => tone(820, .10, .04, 'sine'), 100);
+        setTimeout(() => tone(1040, .16, .035, 'sine'), 220);
+      }else if(kind === 'lose'){
+        tone(260, .13, .045, 'triangle');
+        setTimeout(() => tone(210, .16, .04, 'triangle'), 140);
+      }
+    }
+
+    function vibrate(pattern){
+      try{
+        if(navigator.vibrate) navigator.vibrate(pattern);
+      }catch(_){}
+    }
 
     function buildUrl(path, params = {}, base = location.href){
       const u = new URL(path, base);
@@ -741,6 +1317,29 @@
       });
     }
 
+    function newBattleRoomCode(){
+      const part = Math.random().toString(36).slice(2, 6).toUpperCase();
+      const tail = String(Date.now()).slice(-4);
+      return `GJ-BT-${part}${tail}`;
+    }
+
+    function rematchLobbyUrl(){
+      const room = newBattleRoomCode();
+
+      return buildUrl('./goodjunk-battle-lobby.html', {
+        ...C,
+        mode:'battle',
+        room,
+        roomId:room,
+        seed:String(Date.now()),
+        role:'host',
+        recommendedMode:'battle',
+        entry:'battle',
+        multiplayer:'1',
+        rematch:'1'
+      });
+    }
+
     function showToast(msg){
       const t = $('toast');
       t.textContent = msg;
@@ -756,18 +1355,91 @@
 
       $('overlayIcon').textContent = icon || '⏳';
       $('overlayTitle').textContent = title || '';
-      $('overlayText').textContent = text || '';
+
+      if(String(text || '').includes('<')){
+        $('overlayText').innerHTML = text || '';
+      }else{
+        $('overlayText').textContent = text || '';
+      }
     }
 
     function isFxActive(type){
       return Number(state.activeFx[type] || 0) > Date.now();
     }
 
+    function heartText(hp, maxHp){
+      const h2 = Math.max(0, Math.floor(Number(hp || 0)));
+      const m = Math.max(1, Math.floor(Number(maxHp || state.maxHp || 5)));
+
+      if(h2 <= 0) return '💔';
+      return '❤️'.repeat(Math.min(h2, m)) + '♡'.repeat(Math.max(0, m - h2));
+    }
+
+    function meterText(v){
+      const n = clamp(Number(v || 0), 0, 3);
+      return `${n}/3`;
+    }
+
+    function getRivalLive(){
+      if(state.room){
+        const r = getBattleOpponent(state.room, C.pid);
+        if(r) return r;
+      }
+      return state.rival || null;
+    }
+
+    function getRivalStatus(rival){
+      if(!rival) return { text:'WAIT', cls:'wait' };
+
+      const hp = Number(rival.hp ?? 0);
+      const meter = Number(rival.attackMeter || 0);
+      const shield = Number(rival.shield || 0);
+
+      if(hp <= 1) return { text:'ใกล้ KO', cls:'danger' };
+      if(meter >= 3) return { text:'พร้อมโจมตี!', cls:'ready' };
+      if(shield > 0) return { text:'มี Shield', cls:'safe' };
+
+      return { text:'กำลังดวล', cls:'safe' };
+    }
+
+    function renderRivalPanel(){
+      const rival = getRivalLive();
+
+      const nameEl = $('rivalName');
+      const scoreEl = $('rivalScoreLive');
+      const hpEl = $('rivalHpLive');
+      const meterEl = $('rivalMeterLive');
+      const shieldEl = $('rivalShieldLive');
+      const statusEl = $('rivalStatus');
+
+      if(!nameEl || !scoreEl || !hpEl || !meterEl || !shieldEl || !statusEl) return;
+
+      if(!rival){
+        nameEl.textContent = 'รอคู่แข่ง';
+        scoreEl.textContent = '0';
+        hpEl.textContent = '—';
+        meterEl.textContent = '0/3';
+        shieldEl.textContent = '—';
+        statusEl.textContent = 'WAIT';
+        statusEl.className = 'rival-status wait';
+        return;
+      }
+
+      const status = getRivalStatus(rival);
+
+      nameEl.textContent = rival.name || rival.nick || 'Rival';
+      scoreEl.textContent = String(Number(rival.score || 0));
+      hpEl.textContent = heartText(rival.hp, rival.maxHp || state.maxHp);
+      meterEl.textContent = meterText(rival.attackMeter);
+      shieldEl.textContent = Number(rival.shield || 0) > 0 ? '🛡️' : '—';
+
+      statusEl.textContent = status.text;
+      statusEl.className = `rival-status ${status.cls}`;
+    }
+
     function updateFxBanner(){
       const arena = $('arena');
-      if (arena) {
-        arena.classList.toggle('sugar-fog', isFxActive('sugarFog'));
-      }
+      if (arena) arena.classList.toggle('sugar-fog', isFxActive('sugarFog'));
 
       const el = $('effectBanner');
       const now = Date.now();
@@ -791,6 +1463,27 @@
 
       el.textContent = labels.join('  ');
       el.classList.add('show');
+    }
+
+    function attackDisplayName(type){
+      const meta = ATTACK_META[type] || {};
+      return meta.labelTh || meta.label || type;
+    }
+
+    function attackWarningIcon(type){
+      const meta = ATTACK_META[type] || {};
+      return meta.emoji || '⚠️';
+    }
+
+    function attackWarningSub(type){
+      if(type === 'junkStorm') return 'Junk จะโผล่มากขึ้น ระวังอย่ากดผิด!';
+      if(type === 'slowTrap') return 'จังหวะจะเปลี่ยน ตั้งสติแล้วเลือกให้แม่น';
+      if(type === 'confuseSwap') return 'ดู Good/Junk ให้ชัดก่อนกด';
+      if(type === 'sugarFog') return 'มีหมอกหวานบังบาง ๆ มองให้ดี';
+      if(type === 'junkMagnet') return 'Junk จะล่อใกล้จุดกด ระวัง!';
+      if(type === 'comboFreeze') return 'เก็บคะแนนได้ แต่คอมโบจะไม่เพิ่มชั่วคราว';
+      if(type === 'meterLeak') return 'พลังโจมตีของคุณถูกลดลง';
+      return 'เตรียมตัวรับมือการโจมตี';
     }
 
     function getRoomForAttackCheck(){
@@ -866,14 +1559,14 @@
           <button
             class="attack-card ${readyClass}"
             type="button"
-            data-attack="${type}"
-            title="${title}"
-            aria-label="${title}"
+            data-attack="${h(type)}"
+            title="${h(title)}"
+            aria-label="${h(title)}"
             ${disabled}
           >
-            <span class="atk-emoji">${meta.emoji || '⚔️'}</span>
-            <span class="atk-name">${ATTACK_SHORT[type] || type}</span>
-            <span class="atk-reason">${reason}</span>
+            <span class="atk-emoji">${h(meta.emoji || '⚔️')}</span>
+            <span class="atk-name">${h(ATTACK_SHORT[type] || type)}</span>
+            <span class="atk-reason">${h(reason)}</span>
           </button>
         `;
       }).join('');
@@ -898,24 +1591,17 @@
       $('pName').textContent = C.name || 'Hero';
       $('pScore').textContent = String(state.score);
       $('pCombo').textContent = String(state.combo);
-
-      $('pHp').textContent =
-        '❤️'.repeat(Math.max(0, state.hp)) +
-        '♡'.repeat(Math.max(0, state.maxHp - state.hp));
-
-      if (state.hp <= 0) {
-        $('pHp').textContent = '💔';
-      }
-
+      $('pHp').textContent = heartText(state.hp, state.maxHp);
       $('pMeter').textContent = `${state.attackMeter}/3`;
 
       $('rScore').textContent = state.rival
-        ? `${state.rival.name || 'Rival'}: ${Number(state.rival.score || 0)}`
+        ? `${Number(state.rival.score || 0)} pts`
         : 'รอคู่แข่ง';
 
       $('battleNote').textContent =
         `เวลา ${state.timeLeft}s • Shield ${state.shield ? '🛡️ พร้อมกันโจมตี' : 'ยังไม่มี'} • 💗 คืนหัวใจ ${state.heartsRecovered}/${state.maxHeals} • Combo 3 เติมพลังโจมตี`;
 
+      renderRivalPanel();
       renderAttackDeck();
     }
 
@@ -1033,6 +1719,7 @@
       if(type === 'good'){
         state.score += 10;
         state.goodHits += 1;
+        playSfx('good');
 
         let comboAdvanced = false;
 
@@ -1046,6 +1733,12 @@
         if(comboAdvanced && state.combo > 0 && state.combo % 3 === 0){
           state.attackMeter = clamp(state.attackMeter + 1, 0, 3);
           showToast('⚔️ เติมพลังโจมตี +1');
+
+          if(state.attackMeter >= 3 && !state._lastMeterReady){
+            state._lastMeterReady = true;
+            playSfx('attackReady');
+            vibrate([40, 30, 40]);
+          }
         }else if(comboAdvanced){
           showToast('✅ ดีมาก +10');
         }
@@ -1056,16 +1749,23 @@
         state.combo = 0;
         state.hp = clamp(state.hp - 1, 0, state.maxHp);
         state.junkHits += 1;
+        playSfx('junk');
+        vibrate(80);
         showToast('❌ Junk! เสียคะแนนและเสียหัวใจ');
       }
 
       if(type === 'shield'){
         state.shield = 1;
         await addBattleShield(C, { adapter });
+        playSfx('shield');
+        vibrate(45);
         showToast('🛡️ ได้ Shield กันโจมตี 1 ครั้ง');
       }
 
       if(type === 'heart'){
+        playSfx('heart');
+        vibrate(35);
+
         if(state.hp < state.maxHp && state.heartsRecovered < state.maxHeals){
           state.hp = clamp(state.hp + 1, 0, state.maxHp);
           state.heartsRecovered += 1;
@@ -1107,6 +1807,10 @@
       if(result.ok){
         state.attackMeter = 0;
         state.attacksSent += 1;
+        state._lastMeterReady = false;
+
+        playSfx('attackSend');
+        vibrate([60, 40, 60]);
 
         if(type === 'junkStorm') showToast('🌪️ ส่ง Junk Storm ไปแล้ว!');
         if(type === 'slowTrap') showToast('🐌 ส่ง Slow Trap ไปแล้ว!');
@@ -1124,6 +1828,78 @@
       }
     }
 
+    function applyIncomingAttack(atk){
+      if(!atk || state.ended) return;
+
+      const type = atk.type;
+      const duration = Number(atk.durationMs || 4500);
+
+      state.activeFx[type] = Date.now() + duration;
+      state.attacksReceived += 1;
+
+      playSfx('hitByAttack');
+      vibrate([80, 40, 80]);
+
+      if(type === 'junkStorm') showToast('🌪️ โดน Junk Storm!');
+      if(type === 'slowTrap') showToast('🐌 โดน Slow Trap!');
+      if(type === 'confuseSwap') showToast('🌀 โดน Confuse!');
+      if(type === 'sugarFog') showToast('🍬 โดน Sugar Fog!');
+      if(type === 'junkMagnet') showToast('🧲 โดน Junk Magnet!');
+      if(type === 'comboFreeze') showToast('🧊 โดน Combo Freeze!');
+
+      updateFxBanner();
+      render();
+      syncStats();
+    }
+
+    function hideAttackWarning(){
+      const box = $('attackWarning');
+      if(box) box.classList.add('hidden');
+    }
+
+    function showIncomingAttackWarning(atk){
+      if(!atk || !atk.id || state.incomingAttackIds.has(atk.id)) return;
+
+      state.incomingAttackIds.add(atk.id);
+
+      const box = $('attackWarning');
+      const icon = $('warnIcon');
+      const title = $('warnTitle');
+      const count = $('warnCount');
+      const sub = $('warnSub');
+
+      if(!box || !icon || !title || !count || !sub){
+        applyIncomingAttack(atk);
+        return;
+      }
+
+      let n = 3;
+
+      icon.textContent = attackWarningIcon(atk.type);
+      title.textContent = `${attackDisplayName(atk.type)} กำลังมา!`;
+      count.textContent = String(n);
+      sub.textContent = attackWarningSub(atk.type);
+      box.classList.remove('hidden');
+
+      playSfx('warning');
+      vibrate(50);
+
+      const timer = setInterval(() => {
+        n -= 1;
+
+        if(n > 0){
+          count.textContent = String(n);
+          playSfx('warning');
+          vibrate(35);
+          return;
+        }
+
+        clearInterval(timer);
+        hideAttackWarning();
+        applyIncomingAttack(atk);
+      }, 650);
+    }
+
     async function consumeIncoming(){
       if(!state.started || state.ended) return;
 
@@ -1133,21 +1909,14 @@
       if(res.blocked && res.blocked.length){
         state.shield = 0;
         state.attacksBlocked += res.blocked.length;
+        playSfx('shield');
+        vibrate([40, 30, 40]);
         showToast('🛡️ Shield บล็อกการโจมตี!');
       }
 
       if(res.attacks && res.attacks.length){
         res.attacks.forEach((atk) => {
-          const until = Date.now() + Number(atk.durationMs || 4500);
-          state.activeFx[atk.type] = until;
-          state.attacksReceived += 1;
-
-          if(atk.type === 'junkStorm') showToast('🌪️ โดน Junk Storm!');
-          if(atk.type === 'slowTrap') showToast('🐌 โดน Slow Trap!');
-          if(atk.type === 'confuseSwap') showToast('🌀 โดน Confuse!');
-          if(atk.type === 'sugarFog') showToast('🍬 โดน Sugar Fog!');
-          if(atk.type === 'junkMagnet') showToast('🧲 โดน Junk Magnet!');
-          if(atk.type === 'comboFreeze') showToast('🧊 โดน Combo Freeze!');
+          showIncomingAttackWarning(atk);
         });
       }
 
@@ -1158,6 +1927,8 @@
 
     function startLoops(){
       const spawnLoop = setInterval(() => {
+        if(isFxActive('slowTrap') && Math.random() < .35) return;
+
         const count = isFxActive('junkStorm') ? 3 : 2;
         for(let i=0;i<count;i++){
           setTimeout(spawnTarget, i * 120);
@@ -1204,9 +1975,16 @@
       stopAllLoops();
 
       const matchEnd = room && room.matchEnd ? room.matchEnd : {};
-      const rows = Array.isArray(matchEnd.players) ? matchEnd.players : [];
+      const roomPlayers = room && room.players ? Object.values(room.players) : [];
+      const rows = Array.isArray(matchEnd.players) && matchEnd.players.length
+        ? matchEnd.players
+        : roomPlayers;
 
-      const me = rows.find(p => String(p.pid) === String(C.pid)) || getPlayerByPid(room, C.pid) || null;
+      const me =
+        rows.find(p => String(p.pid) === String(C.pid)) ||
+        getPlayerByPid(room, C.pid) ||
+        null;
+
       const rival =
         rows.find(p => String(p.pid) !== String(C.pid)) ||
         getBattleOpponent(room, C.pid) ||
@@ -1215,50 +1993,128 @@
       const myScore = Number(me?.score ?? state.score) || 0;
       const rivalScore = Number(rival?.score ?? 0) || 0;
 
-      const winnerPid = String(matchEnd.winnerPid || '');
-      const loserPid = String(matchEnd.loserPid || '');
-      const reason = String(matchEnd.reason || 'ended');
-
-      let icon = '🏁';
-      let title = 'จบ Battle!';
-      let text = '';
-
-      if (!winnerPid && matchEnd.outcome === 'tie') {
-        icon = '⚖️';
-        title = 'เสมอกัน!';
-        text = `${reasonLabel(reason)} • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`;
-      } else if (winnerPid === String(C.pid)) {
-        icon = '🏆';
-        title = reason === 'hp_zero' ? 'ชนะ KO!' : 'ชนะ Battle!';
-        text =
-          reason === 'hp_zero'
-            ? `คู่แข่งหัวใจหมด • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`
-            : `${reasonLabel(reason)} • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`;
-      } else if (loserPid === String(C.pid)) {
-        icon = '💪';
-        title = reason === 'hp_zero' ? 'แพ้เพราะหัวใจหมด' : 'แพ้ Battle รอบนี้';
-        text =
-          reason === 'hp_zero'
-            ? `หัวใจคุณหมดก่อน • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`
-            : `${reasonLabel(reason)} • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`;
-      } else {
-        icon = '🏁';
-        title = 'Battle จบแล้ว';
-        text = `${reasonLabel(reason)} • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`;
-      }
-
       const myHp = Number(me?.hp ?? state.hp ?? 0);
       const rivalHp = Number(rival?.hp ?? 0);
       const myMaxHp = Number(me?.maxHp ?? state.maxHp);
       const rivalMaxHp = Number(rival?.maxHp ?? state.maxHp);
 
-      text += ` • หัวใจคุณ ${myHp}/${myMaxHp}`;
-      if (rival) text += ` • หัวใจคู่แข่ง ${rivalHp}/${rivalMaxHp}`;
-      text += ` • ฟื้นหัวใจ ${state.heartsRecovered}/${state.maxHeals}`;
-      text += ` • ส่งโจมตี ${state.attacksSent} ครั้ง`;
-      text += ` • กันโจมตี ${state.attacksBlocked} ครั้ง`;
+      let winnerPid = String(matchEnd.winnerPid || '');
+      let loserPid = String(matchEnd.loserPid || '');
+      const reason = String(matchEnd.reason || 'ended');
+      let outcome = String(matchEnd.outcome || '');
 
-      setOverlay(true, icon, title, text);
+      if(!winnerPid && !loserPid && rival){
+        if(reason === 'hp_zero'){
+          if(myHp <= 0 && rivalHp > 0){
+            loserPid = String(C.pid);
+            winnerPid = String(rival.pid || '');
+            outcome = 'ko';
+          }else if(rivalHp <= 0 && myHp > 0){
+            winnerPid = String(C.pid);
+            loserPid = String(rival.pid || '');
+            outcome = 'ko';
+          }
+        }
+
+        if(!winnerPid && !loserPid){
+          if(myScore > rivalScore){
+            winnerPid = String(C.pid);
+            loserPid = String(rival.pid || '');
+            outcome = 'score_win';
+          }else if(myScore < rivalScore){
+            winnerPid = String(rival.pid || '');
+            loserPid = String(C.pid);
+            outcome = 'score_win';
+          }else{
+            outcome = 'tie';
+          }
+        }
+      }
+
+      let icon = '🏁';
+      let title = 'Battle จบแล้ว';
+      let reasonText = 'จบ Battle';
+
+      if(reason === 'hp_zero'){
+        reasonText = 'มีผู้เล่นหัวใจหมด Battle จบทันที';
+      }else if(reason === 'time_up'){
+        reasonText = 'หมดเวลา ตัดสินจากคะแนนรวม';
+      }
+
+      if(outcome === 'tie' || (!winnerPid && myScore === rivalScore)){
+        icon = '⚖️';
+        title = 'เสมอกัน!';
+      }else if(winnerPid === String(C.pid)){
+        icon = reason === 'hp_zero' ? '🏆' : '🥇';
+        title = reason === 'hp_zero' ? 'ชนะ KO!' : 'ชนะ Battle!';
+      }else if(loserPid === String(C.pid)){
+        icon = reason === 'hp_zero' ? '💔' : '💪';
+        title = reason === 'hp_zero' ? 'แพ้เพราะหัวใจหมด' : 'แพ้ Battle รอบนี้';
+      }
+
+      if(winnerPid === String(C.pid)){
+        playSfx('victory');
+        vibrate([80, 40, 80, 40, 120]);
+      }else if(loserPid === String(C.pid)){
+        playSfx('lose');
+        vibrate([160, 80, 160]);
+      }
+
+      const myHeartText = heartText(myHp, myMaxHp);
+      const rivalHeartText = rival ? heartText(rivalHp, rivalMaxHp) : '-';
+
+      $('btnStartManual').textContent = '🔁 Battle อีกครั้ง';
+      $('btnBackLobby2').textContent = '⚔️ กลับ Lobby';
+
+      $('overlay').classList.remove('hidden');
+      $('overlayIcon').textContent = icon;
+      $('overlayTitle').textContent = title;
+
+      $('overlayText').innerHTML = `
+        <div class="result-summary">
+          <div class="result-reason">
+            ${h(reasonText)}
+          </div>
+
+          <div class="result-grid">
+            <div class="result-player me">
+              <div class="result-name">คุณ: ${h(C.name || 'Hero')}</div>
+              <div class="result-score">${myScore}</div>
+              <div class="result-mini">
+                <div>หัวใจ: ${myHeartText} (${myHp}/${myMaxHp})</div>
+                <div>ฟื้นหัวใจ: ${state.heartsRecovered}/${state.maxHeals}</div>
+                <div>ส่งโจมตี: ${state.attacksSent} ครั้ง</div>
+              </div>
+            </div>
+
+            <div class="result-player rival">
+              <div class="result-name">คู่แข่ง: ${h(rival?.name || 'Rival')}</div>
+              <div class="result-score">${rivalScore}</div>
+              <div class="result-mini">
+                <div>หัวใจ: ${rival ? `${rivalHeartText} (${rivalHp}/${rivalMaxHp})` : '-'}</div>
+                <div>รับโจมตี: ${state.attacksReceived} ครั้ง</div>
+                <div>กันโจมตี: ${state.attacksBlocked} ครั้ง</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="result-metrics">
+            <div class="result-metric">
+              <b>${state.goodHits}</b>
+              <span>Good</span>
+            </div>
+            <div class="result-metric">
+              <b>${state.junkHits}</b>
+              <span>Junk Hit</span>
+            </div>
+            <div class="result-metric">
+              <b>${state.attacksSent}</b>
+              <span>Attack</span>
+            </div>
+          </div>
+        </div>
+      `;
+
       render();
     }
 
@@ -1330,6 +2186,15 @@
 
       state.room = result.room;
       state.rival = getBattleOpponent(result.room, C.pid);
+      renderRivalPanel();
+
+      if(state.rival && Number(state.rival.attackMeter || 0) >= 3 && !state.ended){
+        const key = `rival-ready-${state.rival.pid}-${state.rival.attackMeter}`;
+        if(state._lastRivalReadyKey !== key){
+          state._lastRivalReadyKey = key;
+          showToast('⚠️ คู่แข่งพร้อมโจมตีแล้ว!');
+        }
+      }
 
       const me = getPlayerByPid(result.room, C.pid);
 
@@ -1374,16 +2239,38 @@
       }
     }
 
+    async function retrySessionCheck(){
+      try{
+        const session = await ensureBattleSession(C, { adapter });
+        await handleRoomResult(session);
+      }catch(err){
+        setOverlay(true, '⏳', err.title || 'ยังเริ่มไม่ได้', err.messageUser || err.message || 'รอผู้เล่นอีกคน');
+      }
+    }
+
     async function init(){
+      document.addEventListener('pointerdown', unlockAudio, { once:true });
+      document.addEventListener('keydown', unlockAudio, { once:true });
+
+      $('btnSound').addEventListener('click', () => {
+        unlockAudio();
+        state.soundOn = !state.soundOn;
+        $('btnSound').textContent = state.soundOn ? '🔊 SFX' : '🔇 SFX';
+        showToast(state.soundOn ? 'เปิดเสียงแล้ว' : 'ปิดเสียงแล้ว');
+      });
+
       $('btnLobby').addEventListener('click', () => location.href = lobbyUrl());
       $('btnHub').addEventListener('click', () => location.href = C.hub);
-      $('btnBackLobby2').addEventListener('click', () => location.href = lobbyUrl());
-      $('btnStartManual').addEventListener('click', async () => {
-        try{
-          const session = await ensureBattleSession(C, { adapter });
-          await handleRoomResult(session);
-        }catch(err){
-          setOverlay(true, '⏳', err.title || 'ยังเริ่มไม่ได้', err.messageUser || err.message || 'รอผู้เล่นอีกคน');
+
+      $('btnBackLobby2').addEventListener('click', () => {
+        location.href = lobbyUrl();
+      });
+
+      $('btnStartManual').addEventListener('click', () => {
+        if(state.matchEndShown || state.ended){
+          location.href = rematchLobbyUrl();
+        }else{
+          retrySessionCheck();
         }
       });
 
@@ -1391,12 +2278,7 @@
 
       setOverlay(true, '⏳', 'กำลังตรวจ Battle', 'รอผู้เล่นให้ครบ 2 คนในห้องเดียวกัน');
 
-      try{
-        const session = await ensureBattleSession(C, { adapter });
-        await handleRoomResult(session);
-      }catch(err){
-        setOverlay(true, '⏳', err.title || 'ยังเริ่มไม่ได้', err.messageUser || err.message || 'รอผู้เล่นอีกคน');
-      }
+      await retrySessionCheck();
 
       stopWatch = watchBattleSession(C, handleRoomResult, { adapter });
 
