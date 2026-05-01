@@ -133,20 +133,6 @@
       box-shadow:0 8px 16px rgba(154,75,20,.12);
     }
 
-    .btn.attack{
-      min-height:54px;
-      font-size:17px;
-      color:white;
-      background:linear-gradient(180deg,#fb923c,#ea580c);
-      border-color:#fed7aa;
-    }
-
-    .btn.attack:disabled{
-      opacity:.55;
-      filter:grayscale(.25);
-      cursor:not-allowed;
-    }
-
     .stats{
       display:grid;
       grid-template-columns:repeat(6,minmax(0,1fr));
@@ -206,6 +192,19 @@
       opacity:.45;
     }
 
+    .arena.sugar-fog::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:3;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 20% 30%,rgba(255,182,193,.32),transparent 22%),
+        radial-gradient(circle at 80% 40%,rgba(255,228,230,.36),transparent 24%),
+        linear-gradient(180deg,rgba(255,192,203,.18),rgba(255,255,255,.08));
+      backdrop-filter:blur(1.4px);
+    }
+
     .target{
       position:absolute;
       width:76px;
@@ -237,6 +236,12 @@
     .target.shield{
       background:linear-gradient(180deg,#dbeafe,#bfdbfe);
       border-color:#93c5fd;
+    }
+
+    .target.heart{
+      background:linear-gradient(180deg,#ffe4e6,#fecdd3);
+      border-color:#fb7185;
+      box-shadow:0 12px 28px rgba(244,63,94,.24);
     }
 
     .target.confuse{
@@ -300,7 +305,7 @@
       box-shadow:var(--shadow);
       padding:10px;
       display:grid;
-      grid-template-columns:1fr auto;
+      grid-template-columns:1fr minmax(360px,520px);
       gap:10px;
       align-items:center;
     }
@@ -310,6 +315,82 @@
       font-size:13px;
       font-weight:900;
       line-height:1.4;
+    }
+
+    .attack-deck{
+      display:grid;
+      grid-template-columns:repeat(7,minmax(42px,1fr));
+      gap:6px;
+      align-items:stretch;
+    }
+
+    .attack-card{
+      min-height:58px;
+      border-radius:16px;
+      border:3px solid #fdba74;
+      background:#fff7ed;
+      color:#7c2d12;
+      font-weight:1000;
+      cursor:pointer;
+      padding:5px 4px;
+      display:grid;
+      place-items:center;
+      gap:2px;
+      box-shadow:0 8px 16px rgba(154,75,20,.12);
+    }
+
+    .attack-card .atk-emoji{
+      font-size:24px;
+      line-height:1;
+    }
+
+    .attack-card .atk-name{
+      font-size:9px;
+      line-height:1.05;
+    }
+
+    .attack-card .atk-reason{
+      font-size:8px;
+      line-height:1.05;
+      font-weight:1000;
+      opacity:.92;
+      max-width:100%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .attack-card.locked{
+      opacity:.46;
+      filter:grayscale(.35);
+      background:#fffaf0;
+      color:#9a6a3a;
+      box-shadow:none;
+    }
+
+    .attack-card.ready{
+      opacity:1;
+      color:white;
+      background:linear-gradient(180deg,#fb923c,#ea580c);
+      border-color:#fed7aa;
+      animation:attackPulse .9s ease-in-out infinite;
+    }
+
+    .attack-card.ready .atk-reason{
+      color:#fff7ed;
+    }
+
+    .attack-card.locked .atk-reason{
+      color:#9a6a3a;
+    }
+
+    .attack-card:disabled{
+      cursor:not-allowed;
+    }
+
+    @keyframes attackPulse{
+      0%,100%{ transform:translateY(0) scale(1); }
+      50%{ transform:translateY(-2px) scale(1.03); }
     }
 
     .toast{
@@ -397,17 +478,19 @@
       margin-top:14px;
     }
 
-    @media (max-width:820px){
-      .stats{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
+    @media (max-width:920px){
       .bottom{
         grid-template-columns:1fr;
       }
 
-      .btn.attack{
-        width:100%;
+      .attack-deck{
+        grid-template-columns:repeat(4,minmax(58px,1fr));
+      }
+    }
+
+    @media (max-width:820px){
+      .stats{
+        grid-template-columns:repeat(3,minmax(0,1fr));
       }
     }
 
@@ -428,6 +511,18 @@
         height:48px;
         font-size:26px;
       }
+
+      .attack-deck{
+        grid-template-columns:repeat(4,minmax(54px,1fr));
+      }
+
+      .attack-card{
+        min-height:54px;
+      }
+
+      .attack-card .atk-emoji{
+        font-size:22px;
+      }
     }
 
     @media (prefers-reduced-motion: reduce){
@@ -446,7 +541,7 @@
           <div class="brand-icon">⚔️</div>
           <div>
             <h1>GoodJunk Battle</h1>
-            <p id="subText">1v1 Attack Mode • เก็บของดี สะสมพลัง แล้วส่งอุปสรรคไปกวนคู่แข่ง</p>
+            <p id="subText">1v1 Attack Mode • เก็บของดี สะสมพลัง แล้วเลือกโจมตีคู่แข่ง</p>
           </div>
         </div>
 
@@ -472,12 +567,10 @@
 
     <section class="bottom">
       <div class="battle-note" id="battleNote">
-        ✅ เก็บของดี +10 • ❌ แตะ Junk -10 และเสียหัวใจ • Combo 3 ครั้ง เติมพลังโจมตี 1 ช่อง
+        ✅ เก็บของดี +10 • ❌ แตะ Junk -1 หัวใจ • Combo 3 เติมพลังโจมตี 1 ช่อง
       </div>
 
-      <button id="btnAttack" class="btn attack" type="button" disabled>
-        ⚔️ ATTACK 0/3
-      </button>
+      <div class="attack-deck" id="attackDeck" aria-label="Battle attack buttons"></div>
     </section>
   </div>
 
@@ -498,8 +591,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430e-gj-battle"></script>
-  <script src="./goodjunk-battle-room-bootstrap.js?v=20260430e-gj-battle"></script>
+  <script src="../firebase-config.js?v=20260430h-gj-battle"></script>
+  <script src="./goodjunk-battle-room-bootstrap.js?v=20260430h-gj-battle"></script>
 
   <script type="module">
     import {
@@ -510,15 +603,43 @@
       addBattleShield,
       sendBattleAttack,
       consumeBattleAttacksForPlayer,
+      finishBattleMatch,
+      getBattleMaxHp,
+      getBattleMaxHeals,
+      getBattleAttackTypes,
+      canUseBattleAttack,
       getBattleOpponent,
       getPlayerByPid
-    } from './goodjunk-battle-room.js?v=20260430e-GJ-BATTLE-FIREBASE-ROOM';
+    } from './goodjunk-battle-room.js?v=20260430h-GJ-BATTLE-ATTACK-BUTTONS';
 
     const $ = (id) => document.getElementById(id);
 
     const GOOD = ['🍎','🥦','🥕','🍌','🥛','🍚','🥚','🍊','🍇','🥬'];
     const JUNK = ['🍟','🍩','🧃','🍭','🍫','🍕','🥤','🍰'];
     const SHIELD = ['🛡️'];
+    const HEART = ['💗','❤️‍🩹','🥗'];
+
+    const ATTACK_ORDER = [
+      'junkStorm',
+      'slowTrap',
+      'confuseSwap',
+      'sugarFog',
+      'junkMagnet',
+      'comboFreeze',
+      'meterLeak'
+    ];
+
+    const ATTACK_SHORT = {
+      junkStorm: 'Storm',
+      slowTrap: 'Slow',
+      confuseSwap: 'Confuse',
+      sugarFog: 'Fog',
+      junkMagnet: 'Magnet',
+      comboFreeze: 'Freeze',
+      meterLeak: 'Leak'
+    };
+
+    const ATTACK_META = getBattleAttackTypes();
 
     const qs = (k, d = '') => {
       try { return new URL(location.href).searchParams.get(k) ?? d; }
@@ -560,6 +681,7 @@
 
     const C = ctx();
     C.room = C.room || C.roomId;
+    C.roomId = C.roomId || C.room;
 
     let adapter = null;
     let stopWatch = null;
@@ -568,22 +690,35 @@
       ready: false,
       started: false,
       ended: false,
+      matchEndShown: false,
+
       duration: clamp(Number(C.time || 150), 30, 300),
       timeLeft: clamp(Number(C.time || 150), 30, 300),
+
       score: 0,
       combo: 0,
-      hp: 3,
+
+      maxHp: getBattleMaxHp(C.diff),
+      hp: getBattleMaxHp(C.diff),
+
+      heartsRecovered: 0,
+      maxHeals: getBattleMaxHeals(C.diff),
+      lastHealAt: 0,
+
       shield: 0,
       attackMeter: 0,
+
       goodHits: 0,
       junkHits: 0,
       attacksSent: 0,
       attacksBlocked: 0,
       attacksReceived: 0,
+
       activeFx: {},
       room: null,
       rival: null,
-      timers: []
+      timers: [],
+      lastLocalSyncAt: 0
     };
 
     function buildUrl(path, params = {}, base = location.href){
@@ -629,6 +764,11 @@
     }
 
     function updateFxBanner(){
+      const arena = $('arena');
+      if (arena) {
+        arena.classList.toggle('sugar-fog', isFxActive('sugarFog'));
+      }
+
       const el = $('effectBanner');
       const now = Date.now();
       const active = Object.entries(state.activeFx).filter(([,until]) => until > now);
@@ -643,6 +783,9 @@
         if(type === 'junkStorm') return '🌪️ Junk Storm!';
         if(type === 'slowTrap') return '🐌 Slow Trap!';
         if(type === 'confuseSwap') return '🌀 Confuse!';
+        if(type === 'sugarFog') return '🍬 Sugar Fog!';
+        if(type === 'junkMagnet') return '🧲 Junk Magnet!';
+        if(type === 'comboFreeze') return '🧊 Combo Freeze!';
         return '⚔️ Battle Effect!';
       });
 
@@ -650,37 +793,154 @@
       el.classList.add('show');
     }
 
+    function getRoomForAttackCheck(){
+      const room = state.room && typeof state.room === 'object'
+        ? JSON.parse(JSON.stringify(state.room))
+        : null;
+
+      if(!room) return null;
+
+      room.players = room.players || {};
+
+      room.players[C.pid] = {
+        ...(room.players[C.pid] || {}),
+        pid: C.pid,
+        name: C.name,
+        score: state.score,
+        combo: state.combo,
+        hp: state.hp,
+        maxHp: state.maxHp,
+        shield: state.shield,
+        attackMeter: state.attackMeter,
+        heartsRecovered: state.heartsRecovered,
+        maxHeals: state.maxHeals,
+        attacksSent: state.attacksSent,
+        attacksBlocked: state.attacksBlocked,
+        attacksReceived: state.attacksReceived,
+        online: true,
+        updatedAt: Date.now(),
+        lastSeenAt: Date.now()
+      };
+
+      return room;
+    }
+
+    function shortAttackReason(type, reason){
+      const r = String(reason || '');
+
+      if(r.includes('พลัง')) return 'Meter';
+      if(r.includes('Cooldown')) return r.replace('รอ ', '');
+      if(r.includes('Combo 6')) return 'Combo 6';
+      if(r.includes('Combo 9')) return 'Combo 9';
+      if(r.includes('คะแนนตาม')) return 'ตาม 30';
+      if(r.includes('HP เหลือ 1')) return 'HP คู่แข่ง 1';
+      if(r.includes('Sugar Fog')) return 'ติด Fog';
+      if(r.includes('Confuse')) return 'ติด Confuse';
+      if(r.includes('ยังไม่พบคู่แข่ง')) return 'รอคู่แข่ง';
+      if(r.includes('ยังไม่มีพลังให้ลด')) return 'ไม่มี Meter';
+
+      return r || 'ยังใช้ไม่ได้';
+    }
+
+    function renderAttackDeck(){
+      const deck = $('attackDeck');
+      if(!deck) return;
+
+      const room = getRoomForAttackCheck();
+
+      const buttons = ATTACK_ORDER.map((type) => {
+        const meta = ATTACK_META[type] || {};
+        const check = room
+          ? canUseBattleAttack(room, C.pid, type)
+          : { ok:false, reason:'รอห้อง Battle' };
+
+        const isReady = !!check.ok;
+        const readyClass = isReady ? 'ready' : 'locked';
+        const disabled = isReady ? '' : 'disabled';
+        const reason = isReady ? 'พร้อมโจมตี' : shortAttackReason(type, check.reason);
+        const title = isReady
+          ? `${meta.labelTh || meta.label || type}: พร้อมใช้`
+          : `${meta.labelTh || meta.label || type}: ${check.reason}`;
+
+        return `
+          <button
+            class="attack-card ${readyClass}"
+            type="button"
+            data-attack="${type}"
+            title="${title}"
+            aria-label="${title}"
+            ${disabled}
+          >
+            <span class="atk-emoji">${meta.emoji || '⚔️'}</span>
+            <span class="atk-name">${ATTACK_SHORT[type] || type}</span>
+            <span class="atk-reason">${reason}</span>
+          </button>
+        `;
+      }).join('');
+
+      deck.innerHTML = buttons;
+
+      deck.querySelectorAll('.attack-card').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const type = btn.dataset.attack;
+
+          if(!type || btn.disabled){
+            showToast(btn.title || 'ยังใช้ไม่ได้');
+            return;
+          }
+
+          attack(type);
+        });
+      });
+    }
+
     function render(){
       $('pName').textContent = C.name || 'Hero';
       $('pScore').textContent = String(state.score);
       $('pCombo').textContent = String(state.combo);
-      $('pHp').textContent = '❤️'.repeat(Math.max(0,state.hp)) || '💔';
-      $('pMeter').textContent = `${state.attackMeter}/3`;
-      $('rScore').textContent = state.rival ? `${state.rival.name || 'Rival'}: ${Number(state.rival.score || 0)}` : 'รอคู่แข่ง';
 
-      const btn = $('btnAttack');
-      btn.disabled = state.attackMeter < 3 || state.ended || !state.started;
-      btn.textContent = state.attackMeter >= 3 ? '⚔️ ATTACK พร้อม!' : `⚔️ ATTACK ${state.attackMeter}/3`;
+      $('pHp').textContent =
+        '❤️'.repeat(Math.max(0, state.hp)) +
+        '♡'.repeat(Math.max(0, state.maxHp - state.hp));
+
+      if (state.hp <= 0) {
+        $('pHp').textContent = '💔';
+      }
+
+      $('pMeter').textContent = `${state.attackMeter}/3`;
+
+      $('rScore').textContent = state.rival
+        ? `${state.rival.name || 'Rival'}: ${Number(state.rival.score || 0)}`
+        : 'รอคู่แข่ง';
 
       $('battleNote').textContent =
-        `เวลา ${state.timeLeft}s • Shield ${state.shield ? '🛡️ พร้อมกันโจมตี' : 'ยังไม่มี'} • Combo 3 เติมพลังโจมตี`;
+        `เวลา ${state.timeLeft}s • Shield ${state.shield ? '🛡️ พร้อมกันโจมตี' : 'ยังไม่มี'} • 💗 คืนหัวใจ ${state.heartsRecovered}/${state.maxHeals} • Combo 3 เติมพลังโจมตี`;
+
+      renderAttackDeck();
     }
 
     async function syncStats(){
       if(!adapter || !C.room) return;
 
       await updateBattlePlayerStats(C, {
+        diff: C.diff,
         score: state.score,
         combo: state.combo,
         hp: state.hp,
+        maxHp: state.maxHp,
         shield: state.shield,
         attackMeter: state.attackMeter,
+        heartsRecovered: state.heartsRecovered,
+        maxHeals: state.maxHeals,
+        lastHealAt: state.lastHealAt,
         goodHits: state.goodHits,
         junkHits: state.junkHits,
         attacksSent: state.attacksSent,
         attacksBlocked: state.attacksBlocked,
         attacksReceived: state.attacksReceived
       }, { adapter });
+
+      state.lastLocalSyncAt = Date.now();
     }
 
     function pick(arr){
@@ -694,15 +954,33 @@
       const rect = arena.getBoundingClientRect();
 
       const junkStorm = isFxActive('junkStorm');
+      const junkMagnet = isFxActive('junkMagnet');
       const confuse = isFxActive('confuseSwap');
 
       let type = 'good';
       const r = Math.random();
 
-      if(junkStorm){
-        type = r < .58 ? 'junk' : 'good';
+      const canHeal =
+        state.hp > 0 &&
+        state.hp < state.maxHp &&
+        state.heartsRecovered < state.maxHeals;
+
+      if(junkStorm || junkMagnet){
+        if(canHeal && r > .95){
+          type = 'heart';
+        }else{
+          type = r < .62 ? 'junk' : 'good';
+        }
       }else{
-        type = r < .68 ? 'good' : (r < .9 ? 'junk' : 'shield');
+        if(canHeal && r > .93){
+          type = 'heart';
+        }else if(r < .66){
+          type = 'good';
+        }else if(r < .88){
+          type = 'junk';
+        }else{
+          type = 'shield';
+        }
       }
 
       const el = document.createElement('button');
@@ -710,13 +988,24 @@
       el.className = `target ${type}`;
       if(confuse && Math.random() < .45) el.classList.add('confuse');
 
-      const emoji = type === 'good' ? pick(GOOD) : type === 'junk' ? pick(JUNK) : pick(SHIELD);
+      const emoji =
+        type === 'good' ? pick(GOOD) :
+        type === 'junk' ? pick(JUNK) :
+        type === 'heart' ? pick(HEART) :
+        pick(SHIELD);
+
       el.textContent = emoji;
       el.dataset.type = type;
 
       const pad = 52;
-      const x = pad + Math.random() * Math.max(1, rect.width - pad * 2);
-      const y = pad + Math.random() * Math.max(1, rect.height - pad * 2);
+
+      let x = pad + Math.random() * Math.max(1, rect.width - pad * 2);
+      let y = pad + Math.random() * Math.max(1, rect.height - pad * 2);
+
+      if(junkMagnet && type === 'junk'){
+        x = rect.width * (0.35 + Math.random() * 0.30);
+        y = rect.height * (0.35 + Math.random() * 0.30);
+      }
 
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
@@ -743,13 +1032,21 @@
 
       if(type === 'good'){
         state.score += 10;
-        state.combo += 1;
         state.goodHits += 1;
 
-        if(state.combo > 0 && state.combo % 3 === 0){
+        let comboAdvanced = false;
+
+        if(!isFxActive('comboFreeze')){
+          state.combo += 1;
+          comboAdvanced = true;
+        }else{
+          showToast('🧊 Combo ถูก Freeze! ได้คะแนนแต่คอมโบไม่เพิ่ม');
+        }
+
+        if(comboAdvanced && state.combo > 0 && state.combo % 3 === 0){
           state.attackMeter = clamp(state.attackMeter + 1, 0, 3);
           showToast('⚔️ เติมพลังโจมตี +1');
-        }else{
+        }else if(comboAdvanced){
           showToast('✅ ดีมาก +10');
         }
       }
@@ -757,9 +1054,9 @@
       if(type === 'junk'){
         state.score = Math.max(0, state.score - 10);
         state.combo = 0;
-        state.hp = clamp(state.hp - 1, 0, 3);
+        state.hp = clamp(state.hp - 1, 0, state.maxHp);
         state.junkHits += 1;
-        showToast('❌ Junk! เสียคะแนน');
+        showToast('❌ Junk! เสียคะแนนและเสียหัวใจ');
       }
 
       if(type === 'shield'){
@@ -768,21 +1065,45 @@
         showToast('🛡️ ได้ Shield กันโจมตี 1 ครั้ง');
       }
 
+      if(type === 'heart'){
+        if(state.hp < state.maxHp && state.heartsRecovered < state.maxHeals){
+          state.hp = clamp(state.hp + 1, 0, state.maxHp);
+          state.heartsRecovered += 1;
+          state.score += 5;
+          state.lastHealAt = Date.now();
+
+          showToast(`💗 ได้หัวใจคืน +1 (${state.heartsRecovered}/${state.maxHeals})`);
+        }else{
+          state.score += 3;
+          showToast('💗 หัวใจเต็มแล้ว +3 คะแนน');
+        }
+      }
+
       render();
       await syncStats();
 
       if(state.hp <= 0){
-        endGame('หมดหัวใจ');
+        endGame('hp_zero');
       }
     }
 
-    async function attack(){
-      if(state.attackMeter < 3 || state.ended) return;
+    async function attack(type = 'junkStorm'){
+      if(state.ended || !state.started) return;
 
-      const types = ['junkStorm','slowTrap','confuseSwap'];
-      const type = pick(types);
+      const room = getRoomForAttackCheck();
+
+      if(room){
+        const check = canUseBattleAttack(room, C.pid, type);
+
+        if(!check.ok){
+          showToast(check.reason || 'ยังใช้ Attack นี้ไม่ได้');
+          renderAttackDeck();
+          return;
+        }
+      }
 
       const result = await sendBattleAttack(C, type, { adapter });
+
       if(result.ok){
         state.attackMeter = 0;
         state.attacksSent += 1;
@@ -790,11 +1111,16 @@
         if(type === 'junkStorm') showToast('🌪️ ส่ง Junk Storm ไปแล้ว!');
         if(type === 'slowTrap') showToast('🐌 ส่ง Slow Trap ไปแล้ว!');
         if(type === 'confuseSwap') showToast('🌀 ส่ง Confuse ไปแล้ว!');
+        if(type === 'sugarFog') showToast('🍬 ส่ง Sugar Fog ไปแล้ว!');
+        if(type === 'junkMagnet') showToast('🧲 ส่ง Junk Magnet ไปแล้ว!');
+        if(type === 'comboFreeze') showToast('🧊 ส่ง Combo Freeze ไปแล้ว!');
+        if(type === 'meterLeak') showToast('💧 ส่ง Meter Leak ไปแล้ว!');
 
         await syncStats();
         render();
       }else{
         showToast(result.message || 'ยังโจมตีไม่ได้');
+        renderAttackDeck();
       }
     }
 
@@ -819,6 +1145,9 @@
           if(atk.type === 'junkStorm') showToast('🌪️ โดน Junk Storm!');
           if(atk.type === 'slowTrap') showToast('🐌 โดน Slow Trap!');
           if(atk.type === 'confuseSwap') showToast('🌀 โดน Confuse!');
+          if(atk.type === 'sugarFog') showToast('🍬 โดน Sugar Fog!');
+          if(atk.type === 'junkMagnet') showToast('🧲 โดน Junk Magnet!');
+          if(atk.type === 'comboFreeze') showToast('🧊 โดน Combo Freeze!');
         });
       }
 
@@ -833,7 +1162,7 @@
         for(let i=0;i<count;i++){
           setTimeout(spawnTarget, i * 120);
         }
-      }, isFxActive('slowTrap') ? 900 : 650);
+      }, 650);
 
       const clockLoop = setInterval(() => {
         if(!state.started || state.ended) return;
@@ -842,7 +1171,7 @@
         if(state.timeLeft <= 0){
           state.timeLeft = 0;
           render();
-          endGame('หมดเวลา');
+          endGame('time_up');
           return;
         }
 
@@ -856,47 +1185,135 @@
       state.timers.push(spawnLoop, clockLoop, incomingLoop, syncLoop);
     }
 
-    async function endGame(reason){
-      if(state.ended) return;
-      state.ended = true;
-
+    function stopAllLoops(){
       state.timers.forEach(t => clearInterval(t));
       state.timers = [];
+    }
+
+    function reasonLabel(reason){
+      if(reason === 'hp_zero') return 'มีผู้เล่นหัวใจหมด';
+      if(reason === 'time_up') return 'หมดเวลา';
+      return 'จบ Battle';
+    }
+
+    function showFinalFromRoom(room){
+      if(state.matchEndShown) return;
+
+      state.matchEndShown = true;
+      state.ended = true;
+      stopAllLoops();
+
+      const matchEnd = room && room.matchEnd ? room.matchEnd : {};
+      const rows = Array.isArray(matchEnd.players) ? matchEnd.players : [];
+
+      const me = rows.find(p => String(p.pid) === String(C.pid)) || getPlayerByPid(room, C.pid) || null;
+      const rival =
+        rows.find(p => String(p.pid) !== String(C.pid)) ||
+        getBattleOpponent(room, C.pid) ||
+        null;
+
+      const myScore = Number(me?.score ?? state.score) || 0;
+      const rivalScore = Number(rival?.score ?? 0) || 0;
+
+      const winnerPid = String(matchEnd.winnerPid || '');
+      const loserPid = String(matchEnd.loserPid || '');
+      const reason = String(matchEnd.reason || 'ended');
+
+      let icon = '🏁';
+      let title = 'จบ Battle!';
+      let text = '';
+
+      if (!winnerPid && matchEnd.outcome === 'tie') {
+        icon = '⚖️';
+        title = 'เสมอกัน!';
+        text = `${reasonLabel(reason)} • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`;
+      } else if (winnerPid === String(C.pid)) {
+        icon = '🏆';
+        title = reason === 'hp_zero' ? 'ชนะ KO!' : 'ชนะ Battle!';
+        text =
+          reason === 'hp_zero'
+            ? `คู่แข่งหัวใจหมด • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`
+            : `${reasonLabel(reason)} • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`;
+      } else if (loserPid === String(C.pid)) {
+        icon = '💪';
+        title = reason === 'hp_zero' ? 'แพ้เพราะหัวใจหมด' : 'แพ้ Battle รอบนี้';
+        text =
+          reason === 'hp_zero'
+            ? `หัวใจคุณหมดก่อน • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`
+            : `${reasonLabel(reason)} • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`;
+      } else {
+        icon = '🏁';
+        title = 'Battle จบแล้ว';
+        text = `${reasonLabel(reason)} • คะแนนคุณ ${myScore} / คู่แข่ง ${rivalScore}`;
+      }
+
+      const myHp = Number(me?.hp ?? state.hp ?? 0);
+      const rivalHp = Number(rival?.hp ?? 0);
+      const myMaxHp = Number(me?.maxHp ?? state.maxHp);
+      const rivalMaxHp = Number(rival?.maxHp ?? state.maxHp);
+
+      text += ` • หัวใจคุณ ${myHp}/${myMaxHp}`;
+      if (rival) text += ` • หัวใจคู่แข่ง ${rivalHp}/${rivalMaxHp}`;
+      text += ` • ฟื้นหัวใจ ${state.heartsRecovered}/${state.maxHeals}`;
+      text += ` • ส่งโจมตี ${state.attacksSent} ครั้ง`;
+      text += ` • กันโจมตี ${state.attacksBlocked} ครั้ง`;
+
+      setOverlay(true, icon, title, text);
+      render();
+    }
+
+    async function endGame(reason){
+      if(state.ended || state.matchEndShown) return;
+
+      state.ended = true;
+      stopAllLoops();
 
       await syncStats();
+
+      let result = null;
+
+      try{
+        result = await finishBattleMatch(C, reason, {
+          adapter,
+          score: state.score,
+          hp: state.hp
+        });
+      }catch(err){
+        console.warn('[Battle] finishBattleMatch failed', err);
+      }
+
+      if(result && result.room){
+        showFinalFromRoom(result.room);
+        return;
+      }
 
       let room = null;
       try{
         room = await adapter.loadRoom(C.room);
       }catch(_){}
 
-      const me = room ? getPlayerByPid(room, C.pid) : null;
-      const rival = room ? getBattleOpponent(room, C.pid) : null;
-
-      const myScore = Number(me?.score ?? state.score) || 0;
-      const rivalScore = Number(rival?.score ?? 0) || 0;
-
-      let icon = '🏁';
-      let title = 'จบ Battle!';
-      if(rival){
-        if(myScore > rivalScore){
-          icon = '🏆';
-          title = 'ชนะ Battle!';
-        }else if(myScore < rivalScore){
-          icon = '🤝';
-          title = 'คู่แข่งนำรอบนี้';
-        }else{
-          icon = '⚖️';
-          title = 'เสมอกัน!';
-        }
+      if(room && room.matchEnd){
+        showFinalFromRoom(room);
+        return;
       }
 
-      setOverlay(true, icon, title,
-        `${reason} • คะแนนคุณ ${myScore} / คู่แข่ง ${rival ? rivalScore : '-'} • ส่งโจมตี ${state.attacksSent} ครั้ง • กันโจมตี ${state.attacksBlocked} ครั้ง`
+      const rival = room ? getBattleOpponent(room, C.pid) : null;
+      const rivalScore = Number(rival?.score ?? 0) || 0;
+
+      setOverlay(
+        true,
+        reason === 'hp_zero' ? '💔' : '🏁',
+        reason === 'hp_zero' ? 'แพ้เพราะหัวใจหมด' : 'จบ Battle!',
+        `${reasonLabel(reason)} • คะแนนคุณ ${state.score} / คู่แข่ง ${rival ? rivalScore : '-'}`
       );
     }
 
     async function handleRoomResult(result){
+      if(result && (result.ended || result.code === 'ENDED' || result.room?.status === 'ended')){
+        showFinalFromRoom(result.room);
+        return;
+      }
+
       if(!result.ok){
         state.ready = false;
         state.started = false;
@@ -914,6 +1331,35 @@
       state.room = result.room;
       state.rival = getBattleOpponent(result.room, C.pid);
 
+      const me = getPlayerByPid(result.room, C.pid);
+
+      if (me && !state.started) {
+        state.maxHp = Number(me.maxHp || state.maxHp || getBattleMaxHp(C.diff));
+        state.hp = Number.isFinite(Number(me.hp)) ? Number(me.hp) : state.maxHp;
+        state.attackMeter = Number(me.attackMeter || 0) || 0;
+        state.shield = Number(me.shield || 0) || 0;
+        state.heartsRecovered = Number(me.heartsRecovered || 0) || 0;
+        state.maxHeals = Number(me.maxHeals || state.maxHeals || getBattleMaxHeals(C.diff));
+      } else if (me && state.started) {
+        const meUpdatedAt = Number(me.updatedAt || 0);
+        const remoteMeter = Number(me.attackMeter ?? state.attackMeter);
+
+        if (meUpdatedAt && meUpdatedAt > state.lastLocalSyncAt + 50) {
+          if (remoteMeter < state.attackMeter) {
+            state.attackMeter = remoteMeter;
+            showToast('💧 โดน Meter Leak! พลังโจมตีลดลง');
+          }
+
+          if (Number(me.shield ?? state.shield) < state.shield) {
+            state.shield = Number(me.shield ?? state.shield);
+          }
+
+          if (Number(me.hp ?? state.hp) < state.hp) {
+            state.hp = Number(me.hp ?? state.hp);
+          }
+        }
+      }
+
       if(!state.started){
         state.ready = true;
         state.started = true;
@@ -929,7 +1375,6 @@
     }
 
     async function init(){
-      $('btnAttack').addEventListener('click', attack);
       $('btnLobby').addEventListener('click', () => location.href = lobbyUrl());
       $('btnHub').addEventListener('click', () => location.href = C.hub);
       $('btnBackLobby2').addEventListener('click', () => location.href = lobbyUrl());
