@@ -1,8 +1,12 @@
 // === /herohealth/vr-goodjunk/goodjunk-battle-room.js ===
-// FULL PATCH v20260501-GJ-BATTLE-ROOM-PRODUCTION-FINAL
+// FULL PATCH v20260501-GJ-BATTLE-ROUNDID-COUNTDOWN-SERVER-TIME
 // ✅ Battle 1v1 room guard
 // ✅ Firebase shared adapter priority
 // ✅ Local room adapter fallback
+// ✅ Same room rematch with currentRoundId
+// ✅ Prevent stale players from previous rounds counting as 3 players
+// ✅ Server time helper for countdown
+// ✅ battleStartAt support
 // ✅ HP by difficulty
 // ✅ Healthy Heart / heal limit by difficulty
 // ✅ 7 attack types
@@ -13,7 +17,6 @@
 // ✅ Shared room match end sync
 // ✅ Rematch reset helper
 // ✅ Player score/combo/hp/maxHp/heal/attackMeter sync
-// ✅ Soft child-friendly nutrition attacks only
 
 const STORAGE = {
   localRoomPrefix: 'GJ_ROOM_LOCAL:',
@@ -145,6 +148,17 @@ function nowMs() {
   return Date.now();
 }
 
+export async function getBattleServerNowMs(adapter = null) {
+  try {
+    if (adapter && typeof adapter.getServerNowMs === 'function') {
+      const v = await adapter.getServerNowMs();
+      if (Number.isFinite(Number(v))) return Number(v);
+    }
+  } catch (_) {}
+
+  return Date.now();
+}
+
 function makeId(prefix = 'id') {
   const r = Math.random().toString(36).slice(2, 8);
   const t = String(Date.now()).slice(-6);
@@ -190,6 +204,7 @@ function createBattlePlayer(pid, payload = {}, fallbackRole = 'player') {
     nick: clean(payload.nick || payload.name || safeName, safeName),
     role: clean(payload.role, fallbackRole),
     diff,
+    roundId: clean(payload.roundId, ''),
     joinedAt: Number(payload.joinedAt || 0) || now,
     ready: payload.ready === true,
 
@@ -278,11 +293,17 @@ function normalizeRoom(roomId, room) {
     roomId: clean(room.roomId || roomId, roomId),
     mode: clean(room.mode, 'battle'),
     status: clean(room.status, 'waiting'),
+
+    currentRoundId: clean(room.currentRoundId, ''),
+    roundSeq: Number(room.roundSeq || 0) || 0,
+
     hostPid: clean(room.hostPid, ''),
     createdAt: Number(room.createdAt || 0) || nowMs(),
     updatedAt: Number(room.updatedAt || 0) || nowMs(),
     startedAt: Number(room.startedAt || 0) || 0,
+    battleStartAt: Number(room.battleStartAt || 0) || 0,
     endedAt: Number(room.endedAt || 0) || 0,
+
     players,
     attacks: normalizeAttacks(room),
     effects: normalizeEffects(room),
@@ -298,11 +319,17 @@ function makeEmptyRoom(roomId) {
     roomId,
     mode: 'battle',
     status: 'waiting',
+
+    currentRoundId: '',
+    roundSeq: 0,
+
     hostPid: '',
     createdAt: now,
     updatedAt: now,
     startedAt: 0,
+    battleStartAt: 0,
     endedAt: 0,
+
     players: {},
     attacks: [],
     effects: [],
@@ -374,12 +401,17 @@ function makeLocalRoomAdapter() {
     };
   }
 
+  async function getServerNowMs() {
+    return Date.now();
+  }
+
   return {
     type: 'local-room-adapter',
     loadRoom,
     saveRoom,
     patchRoom,
-    subscribeRoom
+    subscribeRoom,
+    getServerNowMs
   };
 }
 
@@ -425,9 +457,15 @@ export function getBattleAttackTypes() {
 
 export function getPlayers(room) {
   const players = room?.players || {};
+  const currentRoundId = clean(room?.currentRoundId, '');
+
   return Object.values(players)
     .filter(Boolean)
     .filter((p) => p.online !== false)
+    .filter((p) => {
+      if (!currentRoundId) return true;
+      return clean(p.roundId, '') === currentRoundId;
+    })
     .sort((a, b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
 }
 
@@ -435,9 +473,20 @@ export function getPlayerCount(room) {
   return getPlayers(room).length;
 }
 
-export function getPlayerByPid(room, pid = '') {
+export function getPlayerByPid(room, pid = '', options = {}) {
   const players = room?.players || {};
-  return players?.[pid] || null;
+  const p = players?.[pid] || null;
+
+  if (!p) return null;
+
+  if (options.allowStale === true) return p;
+
+  const currentRoundId = clean(room?.currentRoundId, '');
+  if (currentRoundId && clean(p.roundId, '') !== currentRoundId) {
+    return null;
+  }
+
+  return p;
 }
 
 export function getBattleMaxPlayers() {
@@ -487,6 +536,9 @@ export function buildBattleEngineQuery(ctx = {}, extra = {}) {
     studyId: clean(ctx.studyId, ''),
     conditionGroup: clean(ctx.conditionGroup, ''),
     role: clean(ctx.role, 'player'),
+    roundId: clean(ctx.roundId || ctx.currentRoundId, ''),
+    currentRoundId: clean(ctx.currentRoundId || ctx.roundId, ''),
+    roundSeq: clean(ctx.roundSeq, ''),
     maxPlayers: 2,
     ...extra
   };
@@ -549,8 +601,8 @@ export function classifyBattleRoom(ctx = {}, room = null) {
     return {
       ok: false,
       code: 'PLAYER_NOT_IN_ROOM',
-      title: 'ผู้เล่นนี้ไม่ได้อยู่ในห้อง',
-      message: 'กรุณากลับไป lobby แล้วเข้าห้องด้วย PID เดิม',
+      title: 'ผู้เล่นนี้ไม่ได้อยู่ในรอบปัจจุบัน',
+      message: 'กรุณากลับไป lobby แล้วเข้าห้องใหม่ด้วย Room Code เดิม',
       room
     };
   }
@@ -672,12 +724,12 @@ export async function updateBattlePlayerStats(ctx = {}, patch = {}, options = {}
   if (!room || !room.players || !room.players[pid]) return null;
 
   const player = createBattlePlayer(pid, room.players[pid]);
-
   const nextMaxHp = clamp(patch.maxHp ?? player.maxHp, 1, 9);
 
   const nextPlayer = {
     ...player,
     diff: clean(patch.diff ?? player.diff, player.diff),
+    roundId: clean(player.roundId || room.currentRoundId, room.currentRoundId || ''),
     maxHp: nextMaxHp,
     hp: clamp(patch.hp ?? player.hp, 0, nextMaxHp),
     score: Number(patch.score ?? player.score) || 0,
@@ -723,6 +775,7 @@ export async function addBattleShield(ctx = {}, options = {}) {
   if (!room || !room.players || !room.players[pid]) return null;
 
   const player = createBattlePlayer(pid, room.players[pid]);
+  player.roundId = clean(player.roundId || room.currentRoundId, room.currentRoundId || '');
   player.shield = 1;
   player.online = true;
   player.updatedAt = nowMs();
@@ -877,6 +930,7 @@ export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', optio
 
   const attack = {
     id: makeId('atk'),
+    roundId: clean(room.currentRoundId, ''),
     fromPid,
     toPid: opponent.pid,
     type,
@@ -888,6 +942,9 @@ export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', optio
     consumedAt: 0,
     status: 'pending'
   };
+
+  from.roundId = clean(from.roundId || room.currentRoundId, room.currentRoundId || '');
+  to.roundId = clean(to.roundId || room.currentRoundId, room.currentRoundId || '');
 
   from.attackMeter = clamp(from.attackMeter - cost, 0, 3);
   from.attacksSent += 1;
@@ -976,6 +1033,18 @@ export async function consumeBattleAttacksForPlayer(ctx = {}, options = {}) {
 
   const player = createBattlePlayer(pid, room.players[pid]);
   const now = nowMs();
+  const currentRoundId = clean(room.currentRoundId, '');
+
+  if (currentRoundId && clean(player.roundId, '') !== currentRoundId) {
+    return {
+      ok: false,
+      code: 'PLAYER_NOT_IN_CURRENT_ROUND',
+      attacks: [],
+      blocked: [],
+      effects: [],
+      room
+    };
+  }
 
   const attacks = normalizeAttacks(room);
   const effects = normalizeEffects(room);
@@ -989,6 +1058,10 @@ export async function consumeBattleAttacksForPlayer(ctx = {}, options = {}) {
       attack.consumedAt ||
       attack.blockedAt
     ) {
+      return attack;
+    }
+
+    if (currentRoundId && clean(attack.roundId, currentRoundId) !== currentRoundId) {
       return attack;
     }
 
@@ -1013,6 +1086,7 @@ export async function consumeBattleAttacksForPlayer(ctx = {}, options = {}) {
 
     const fx = {
       id: makeId('fx'),
+      roundId: currentRoundId,
       pid,
       type: attack.type,
       fromPid: attack.fromPid,
@@ -1106,6 +1180,7 @@ export async function finishBattleMatch(ctx = {}, reason = 'time_up', options = 
   const scoreRows = getPlayers(room).map((p) => ({
     pid: p.pid,
     name: p.name || p.nick || p.pid,
+    roundId: clean(p.roundId, ''),
     score: Number(p.score || 0),
     hp: Number(p.hp ?? 0),
     maxHp: Number(p.maxHp ?? getBattleMaxHp(p.diff)),
@@ -1113,7 +1188,9 @@ export async function finishBattleMatch(ctx = {}, reason = 'time_up', options = 
     heartsRecovered: Number(p.heartsRecovered || 0),
     attacksSent: Number(p.attacksSent || 0),
     attacksBlocked: Number(p.attacksBlocked || 0),
-    attacksReceived: Number(p.attacksReceived || 0)
+    attacksReceived: Number(p.attacksReceived || 0),
+    goodHits: Number(p.goodHits || 0),
+    junkHits: Number(p.junkHits || 0)
   }));
 
   let winnerPid = '';
@@ -1151,6 +1228,8 @@ export async function finishBattleMatch(ctx = {}, reason = 'time_up', options = 
     outcome,
     winnerPid,
     loserPid,
+    roundId: clean(room.currentRoundId, ''),
+    roundSeq: Number(room.roundSeq || 0) || 0,
     players: scoreRows,
     message:
       reason === 'hp_zero'
@@ -1165,6 +1244,7 @@ export async function finishBattleMatch(ctx = {}, reason = 'time_up', options = 
   if (me) {
     playerPatch[pid] = {
       ...me,
+      roundId: clean(me.roundId || room.currentRoundId, room.currentRoundId || ''),
       hp: reason === 'hp_zero' ? 0 : me.hp,
       online: true,
       updatedAt: now,
@@ -1202,7 +1282,11 @@ export async function resetBattleRoomForRematch(ctx = {}, options = {}) {
   }
 
   const room = await adapter.loadRoom(roomId);
-  const now = nowMs();
+  const now = await getBattleServerNowMs(adapter);
+
+  const prevRoundSeq = Number(room?.roundSeq || 0) || 0;
+  const nextRoundSeq = prevRoundSeq + 1;
+  const currentRoundId = `${roomId}-R${nextRoundSeq}`;
 
   const prevPlayers = room && room.players && typeof room.players === 'object'
     ? room.players
@@ -1218,6 +1302,7 @@ export async function resetBattleRoomForRematch(ctx = {}, options = {}) {
 
     players[p.pid] = {
       ...p,
+      roundId: currentRoundId,
       score: 0,
       combo: 0,
       hp: maxHp,
@@ -1240,19 +1325,27 @@ export async function resetBattleRoomForRematch(ctx = {}, options = {}) {
     };
   });
 
+  const activePlayers = Object.values(players).filter(p => p && p.online !== false && p.roundId === currentRoundId);
+
   const hostPid =
     clean(room?.hostPid, '') ||
-    Object.values(players).find(p => p.role === 'host')?.pid ||
+    activePlayers.find(p => p.role === 'host')?.pid ||
     clean(ctx.pid, '');
 
+  const shouldStart = activePlayers.length >= 2;
+
   const saved = await adapter.patchRoom(roomId, {
+    ...(room || {}),
     roomId,
     mode: 'battle',
-    status: Object.keys(players).length >= 2 ? 'started' : 'waiting',
+    status: shouldStart ? 'started' : 'waiting',
+    currentRoundId,
+    roundSeq: nextRoundSeq,
     hostPid,
     createdAt: Number(room?.createdAt || 0) || now,
     updatedAt: now,
-    startedAt: Object.keys(players).length >= 2 ? now : 0,
+    startedAt: shouldStart ? now : 0,
+    battleStartAt: shouldStart ? now + 3500 : 0,
     endedAt: 0,
     players,
     attacks: [],
@@ -1278,7 +1371,14 @@ export async function clearExpiredBattleEffects(ctx = {}, options = {}) {
   if (!room) return null;
 
   const now = nowMs();
-  const effects = normalizeEffects(room).filter((e) => e.expiresAt > now);
+  const currentRoundId = clean(room.currentRoundId, '');
+
+  const effects = normalizeEffects(room)
+    .filter((e) => e.expiresAt > now)
+    .filter((e) => {
+      if (!currentRoundId) return true;
+      return clean(e.roundId, currentRoundId) === currentRoundId;
+    });
 
   return await adapter.patchRoom(roomId, {
     ...room,
