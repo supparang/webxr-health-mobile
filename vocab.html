@@ -8334,6 +8334,292 @@
 })();
 </script>
 <script>
+/* =========================================================
+   VOCAB v7.9.2 — CLEAN PRODUCTION STUDENT UI
+   - ซ่อน Team Setup ในโหมดปกติ
+   - ซ่อน v7.3/v7.4/v7.5 reward/debug panels
+   - ซ่อน Teacher/Class/Event controls จากนักศึกษาทั่วไป
+   - แสดงเฉพาะเมื่อ URL มี ?team=1 / ?event=1 / ?teacher=1 / ?qa=1 / ?debug=1
+   ========================================================= */
+(function(){
+  "use strict";
 
+  var V792 = {
+    version: "v7.9.2-clean-production-student-ui-20260501"
+  };
+
+  function id(x){
+    return document.getElementById(x);
+  }
+
+  function qsa(sel){
+    return Array.prototype.slice.call(document.querySelectorAll(sel));
+  }
+
+  function paramOn(names){
+    try{
+      var p = new URLSearchParams(location.search);
+
+      for(var i = 0; i < names.length; i++){
+        var v = String(p.get(names[i]) || "").toLowerCase();
+        if(v === "1" || v === "true" || v === "yes" || v === "on"){
+          return true;
+        }
+      }
+    }catch(e){}
+
+    return false;
+  }
+
+  function isTeacherMode(){
+    return paramOn(["teacher", "admin", "qa", "debug"]);
+  }
+
+  function isTeamMode(){
+    return paramOn(["team", "event", "classEvent", "class_event", "liveboard"]) || isTeacherMode();
+  }
+
+  function injectCss(){
+    if(id("v792CleanCss")) return;
+
+    var style = document.createElement("style");
+    style.id = "v792CleanCss";
+    style.textContent = `
+      body.v792-student-clean .v792-hidden-for-student{
+        display:none !important;
+      }
+
+      body.v792-student-clean [data-v792-hide="1"]{
+        display:none !important;
+      }
+
+      body.v792-student-clean .v792-production-note{
+        display:block;
+      }
+
+      .v792-production-note{
+        display:none;
+        margin-top:10px;
+        padding:12px 14px;
+        border-radius:18px;
+        border:1px solid rgba(89,208,255,.24);
+        background:rgba(89,208,255,.08);
+        color:var(--muted);
+        font-weight:850;
+        line-height:1.45;
+      }
+
+      .v792-mode-chip{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        margin-top:8px;
+        padding:7px 10px;
+        border-radius:999px;
+        border:1px solid rgba(255,255,255,.14);
+        background:rgba(255,255,255,.08);
+        color:#eef7ff;
+        font-size:12px;
+        font-weight:1000;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function textOf(el){
+    return String(el && el.textContent ? el.textContent : "").trim();
+  }
+
+  function hideByTitleKeywords(){
+    var hideWords = [
+      "v7.3",
+      "v7.4",
+      "v7.5",
+      "v7.6",
+      "v7.7",
+      "v7.8",
+      "v7.9",
+      "Challenge Rewards",
+      "Unlock Rewards",
+      "Story Campaign",
+      "Rival",
+      "Weekly",
+      "AI Learning Path",
+      "Class Event",
+      "Teacher Live",
+      "Team Battle",
+      "Final QA",
+      "Source Guard",
+      "Guard Log"
+    ];
+
+    qsa(".v6-card, section, .v73-reward-panel, .v74-reward-panel, .v74-panel, .v76-panel, .v77-panel, .v78-ready-panel, .v791-card").forEach(function(el){
+      var t = textOf(el);
+      if(!t) return;
+
+      for(var i = 0; i < hideWords.length; i++){
+        if(t.indexOf(hideWords[i]) >= 0){
+          el.classList.add("v792-hidden-for-student");
+          el.setAttribute("data-v792-hide", "1");
+          return;
+        }
+      }
+    });
+  }
+
+  function hideKnownPanels(){
+    var ids = [
+      "v78FinalPanel",
+      "v791SetupCard",
+      "v79LiveBoardWrap",
+      "v76Board",
+      "v76Panel",
+      "v77PathPanel",
+      "v74Panel",
+      "v73RewardPanel"
+    ];
+
+    ids.forEach(function(x){
+      var el = id(x);
+      if(el){
+        el.classList.add("v792-hidden-for-student");
+        el.setAttribute("data-v792-hide", "1");
+      }
+    });
+
+    /*
+      ซ่อนปุ่ม extension ที่อาจไม่มี id แน่นอน
+    */
+    qsa("button").forEach(function(btn){
+      var t = textOf(btn);
+
+      if(
+        t.indexOf("Teacher Live") >= 0 ||
+        t.indexOf("Team Battle") >= 0 ||
+        t.indexOf("Class Event") >= 0 ||
+        t.indexOf("Run Final QA") >= 0 ||
+        t.indexOf("Test Source Guard") >= 0 ||
+        t.indexOf("Clear Guard Log") >= 0
+      ){
+        btn.classList.add("v792-hidden-for-student");
+        btn.setAttribute("data-v792-hide", "1");
+      }
+    });
+  }
+
+  function cleanStartCard(){
+    var startBtn = id("v6StartBtn");
+    if(!startBtn || !startBtn.closest) return;
+
+    var card = startBtn.closest(".v6-card");
+    if(!card) return;
+
+    var h2 = card.querySelector("h2");
+    if(h2){
+      h2.textContent = "เริ่มเล่น";
+    }
+
+    var missionRow = card.querySelector(".v6-mission-row");
+    if(missionRow){
+      missionRow.style.display = "none";
+    }
+
+    if(!id("v792ProductionNote")){
+      var note = document.createElement("div");
+      note.id = "v792ProductionNote";
+      note.className = "v792-production-note";
+      note.innerHTML =
+        "เลือก Word Bank, ระดับ, โหมดการเล่น และกรอกข้อมูลผู้เรียนให้ครบ จากนั้นกด Start เพื่อเริ่มเกม" +
+        "<br><span class='v792-mode-chip'>Student Mode</span>";
+
+      card.insertBefore(note, startBtn);
+    }
+  }
+
+  function showTeamOnlyWhenNeeded(){
+    var teamPanel = id("v791SetupCard");
+    var livePanel = id("v79LiveBoardWrap");
+
+    if(isTeamMode()){
+      if(teamPanel){
+        teamPanel.classList.remove("v792-hidden-for-student");
+        teamPanel.removeAttribute("data-v792-hide");
+      }
+
+      if(livePanel){
+        livePanel.classList.remove("v792-hidden-for-student");
+        livePanel.removeAttribute("data-v792-hide");
+      }
+
+      return;
+    }
+
+    if(teamPanel){
+      teamPanel.classList.add("v792-hidden-for-student");
+      teamPanel.setAttribute("data-v792-hide", "1");
+    }
+
+    if(livePanel){
+      livePanel.classList.add("v792-hidden-for-student");
+      livePanel.setAttribute("data-v792-hide", "1");
+    }
+  }
+
+  function showTeacherOnlyWhenNeeded(){
+    if(isTeacherMode()){
+      qsa("[data-v792-hide='1']").forEach(function(el){
+        /*
+          ใน teacher/debug mode ให้คืนเฉพาะ panel QA/teacher/reward diagnostics
+          แต่ยังไม่ยุ่งกับ element ที่ถูกซ่อนด้วย logic อื่น
+        */
+        el.removeAttribute("data-v792-hide");
+        el.classList.remove("v792-hidden-for-student");
+      });
+
+      document.body.classList.remove("v792-student-clean");
+      return;
+    }
+
+    document.body.classList.add("v792-student-clean");
+  }
+
+  function boot(){
+    injectCss();
+
+    /*
+      หน่วงนิดหนึ่ง เพราะ v7.3-v7.9 หลายตัว inject UI หลัง DOMContentLoaded
+    */
+    setTimeout(function(){
+      showTeacherOnlyWhenNeeded();
+      hideKnownPanels();
+      hideByTitleKeywords();
+      cleanStartCard();
+      showTeamOnlyWhenNeeded();
+
+      console.log("[VOCAB] v7.9.2 clean production student UI loaded", V792.version);
+    }, 1600);
+
+    /*
+      รอบสองกัน panel ที่ inject ช้ากว่า
+    */
+    setTimeout(function(){
+      if(!isTeacherMode()){
+        hideKnownPanels();
+        hideByTitleKeywords();
+        cleanStartCard();
+        showTeamOnlyWhenNeeded();
+      }
+    }, 3200);
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", boot, { once:true });
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
