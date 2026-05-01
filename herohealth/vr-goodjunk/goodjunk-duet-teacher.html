@@ -147,7 +147,7 @@
 
     .toolbar-row{
       display:grid;
-      grid-template-columns:1fr auto auto auto auto;
+      grid-template-columns:1fr auto auto auto auto auto;
       gap:10px;
       align-items:center;
     }
@@ -163,6 +163,11 @@
       font-weight:1000;
       padding:8px 12px;
       outline:none;
+    }
+
+    .input:focus{
+      border-color:#7fcfff;
+      box-shadow:0 0 0 4px rgba(127,207,255,.18);
     }
 
     .btn{
@@ -203,6 +208,12 @@
       border:4px solid #d7edf7;
       color:#645f57;
       box-shadow:none;
+    }
+
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      filter:grayscale(.25);
     }
 
     .grid-stats{
@@ -281,7 +292,7 @@
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:880px;
+      min-width:900px;
       background:#fff;
     }
 
@@ -339,6 +350,12 @@
       background:#fff0f0;
       border-color:#ffc4c4;
       color:#b72e2e;
+    }
+
+    .pill.firebase{
+      background:#fff8db;
+      border-color:#ffe08a;
+      color:#a76400;
     }
 
     .cards{
@@ -427,11 +444,11 @@
 
     @media (max-width:900px){
       .toolbar-row{
-        grid-template-columns:1fr 1fr;
+        grid-template-columns:1fr;
       }
 
-      .toolbar-row .input{
-        grid-column:1 / -1;
+      .toolbar-row .btn{
+        width:100%;
       }
 
       .grid-stats{
@@ -450,10 +467,6 @@
           calc(10px + var(--sar))
           calc(14px + var(--sab))
           calc(10px + var(--sal));
-      }
-
-      .toolbar-row{
-        grid-template-columns:1fr;
       }
 
       .grid-stats{
@@ -477,8 +490,8 @@
       <div class="kicker">📊 GOODJUNK DUET • TEACHER LOG</div>
       <h1>Duet Dashboard</h1>
       <p class="sub">
-        หน้านี้อ่านข้อมูลจาก localStorage ของเครื่องนี้ก่อน เพื่อใช้ตรวจสอบรอบเล่น Duet,
-        คะแนนรายผู้เล่น, คะแนนทีม, rematch และ export CSV สำหรับครู/ผู้ทดสอบ
+        หน้านี้ดูได้ทั้ง localStorage ของเครื่องนี้ และดึงข้อมูลจริงจาก Firebase ตาม Room ID
+        เพื่อใช้ตรวจสอบรอบเล่น Duet, คะแนนรายผู้เล่น, คะแนนทีม, rematch และ export CSV
       </p>
     </section>
 
@@ -486,6 +499,7 @@
       <div class="toolbar-row">
         <input class="input" id="roomFilter" placeholder="กรอง Room ID เช่น DU-ABC123 หรือเว้นว่างเพื่อดูทั้งหมด" />
         <button class="btn secondary" id="btnRefresh" type="button">🔄 Refresh</button>
+        <button class="btn secondary" id="btnSyncFirebase" type="button">🔥 Sync Firebase</button>
         <button class="btn primary" id="btnExportCsv" type="button">⬇️ Export CSV</button>
         <button class="btn warn" id="btnCopyJson" type="button">📋 Copy JSON</button>
         <button class="btn danger" id="btnClear" type="button">🧹 Clear Logs</button>
@@ -497,6 +511,7 @@
         <button class="btn soft" id="btnAllRooms" type="button">🌐 All Rooms</button>
         <button class="btn soft" id="btnCurrentRoom" type="button">🎯 Current Room</button>
         <button class="btn soft" id="btnExportSummary" type="button">📄 Summary CSV</button>
+        <button class="btn soft" id="btnAutoSync" type="button">⚡ Auto Sync</button>
       </div>
     </section>
 
@@ -536,6 +551,7 @@
             <tr>
               <th>เวลา</th>
               <th>Event</th>
+              <th>Source</th>
               <th>Phase</th>
               <th>Room</th>
               <th>Match</th>
@@ -553,9 +569,14 @@
     </section>
 
     <div class="footer-note" id="footerNote">
-      Local-only dashboard • ถ้าต้องการรวมข้อมูลทุกเครื่อง ให้ต่อ Apps Script / Sheet endpoint เพิ่มภายหลัง
+      Local + Firebase Dashboard • ใส่ Room ID แล้วกด Sync Firebase เพื่อดึงข้อมูลจริงจากห้องนั้น
     </div>
   </main>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js?v=20260501-gjduet-teacher-firebase-v16"></script>
 
   <script>
   (function(){
@@ -567,7 +588,9 @@
     const ui = {
       roomFilter: document.getElementById('roomFilter'),
       searchInput: document.getElementById('searchInput'),
+
       btnRefresh: document.getElementById('btnRefresh'),
+      btnSyncFirebase: document.getElementById('btnSyncFirebase'),
       btnExportCsv: document.getElementById('btnExportCsv'),
       btnExportSummary: document.getElementById('btnExportSummary'),
       btnCopyJson: document.getElementById('btnCopyJson'),
@@ -575,6 +598,7 @@
       btnBack: document.getElementById('btnBack'),
       btnAllRooms: document.getElementById('btnAllRooms'),
       btnCurrentRoom: document.getElementById('btnCurrentRoom'),
+      btnAutoSync: document.getElementById('btnAutoSync'),
 
       statEvents: document.getElementById('statEvents'),
       statRooms: document.getElementById('statRooms'),
@@ -592,7 +616,7 @@
       footerNote: document.getElementById('footerNote')
     };
 
-    const currentRoom = String(qs.get('roomId') || qs.get('room') || '').trim();
+    const currentRoom = String(qs.get('roomId') || qs.get('room') || '').trim().toUpperCase();
 
     if (currentRoom) {
       ui.roomFilter.value = currentRoom;
@@ -620,6 +644,278 @@
       try {
         localStorage.setItem(QUEUE_KEY, JSON.stringify(Array.isArray(list) ? list : []));
       } catch (_) {}
+    }
+
+    async function waitFirebaseReady() {
+      try {
+        if (window.HHA_FIREBASE_READY) {
+          const fb = await window.HHA_FIREBASE_READY;
+          if (fb && fb.db) return fb.db;
+        }
+
+        if (window.firebase && typeof window.firebase.database === 'function') {
+          return window.firebase.database();
+        }
+      } catch (err) {
+        console.warn('[GJ-DUET-TEACHER] Firebase ready failed:', err);
+      }
+
+      return null;
+    }
+
+    function getRoomRoot(roomId) {
+      const r = String(roomId || '').trim().toUpperCase();
+      if (!r) return '';
+      return 'hha-battle/goodjunk/duetRooms/' + r;
+    }
+
+    async function readFbPath(db, path) {
+      try {
+        const snap = await db.ref(path).once('value');
+        return snap && snap.val ? (snap.val() || {}) : {};
+      } catch (err) {
+        console.warn('[GJ-DUET-TEACHER] read failed:', path, err);
+        return {};
+      }
+    }
+
+    function pushEventFromFirebase(list, event, data) {
+      list.push(Object.assign({
+        api: 'herohealth_duet',
+        source: 'firebase',
+        game: 'goodjunk',
+        gameId: 'goodjunk',
+        mode: 'duet',
+        event,
+        phase: 'teacher_sync',
+        ts: Date.now()
+      }, data || {}));
+    }
+
+    function eventKey(ev) {
+      return [
+        ev.source || 'local',
+        ev.event || '',
+        ev.roomId || '',
+        ev.matchId || '',
+        ev.pid || '',
+        ev.ts || '',
+        ev.score || '',
+        ev.good || '',
+        ev.miss || '',
+        ev.teamScore || ''
+      ].join('|');
+    }
+
+    function dedupeEvents(list) {
+      const seen = new Set();
+      const out = [];
+
+      list.forEach((ev) => {
+        if (!ev) return;
+        const k = eventKey(ev);
+        if (seen.has(k)) return;
+        seen.add(k);
+        out.push(ev);
+      });
+
+      out.sort((a, b) => Number(a.ts || 0) - Number(b.ts || 0));
+      return out.slice(-1000);
+    }
+
+    async function syncFirebaseRoom() {
+      const roomId = String(ui.roomFilter.value || currentRoom || '').trim().toUpperCase();
+
+      if (!roomId) {
+        ui.footerNote.textContent = 'กรุณาใส่ Room ID ก่อน เช่น DU-ABC123 แล้วกด Sync Firebase';
+        return;
+      }
+
+      ui.btnSyncFirebase.disabled = true;
+      ui.btnSyncFirebase.textContent = 'กำลัง Sync…';
+      ui.footerNote.textContent = 'กำลังอ่าน Firebase ห้อง ' + roomId + ' ...';
+
+      const db = await waitFirebaseReady();
+
+      if (!db) {
+        ui.footerNote.textContent = 'ยังเชื่อม Firebase ไม่ได้ ตรวจ firebase-config.js หรือ rules';
+        ui.btnSyncFirebase.disabled = false;
+        ui.btnSyncFirebase.textContent = '🔥 Sync Firebase';
+        return;
+      }
+
+      const root = getRoomRoot(roomId);
+      const imported = [];
+
+      const players = await readFbPath(db, root + '/players');
+      const readyStatus = await readFbPath(db, root + '/readyStatus');
+      const resultMirror = await readFbPath(db, root + '/resultMirror');
+      const liveResults = await readFbPath(db, root + '/liveResults');
+      const finalSummaryMirror = await readFbPath(db, root + '/finalSummaryMirror');
+      const matches = await readFbPath(db, root + '/matches');
+      const teamFever = await readFbPath(db, root + '/teamFever');
+
+      Object.keys(players || {}).forEach((pid) => {
+        const p = players[pid] || {};
+        pushEventFromFirebase(imported, 'duet_firebase_player', {
+          roomId,
+          pid,
+          name: p.name || pid,
+          role: p.role || '',
+          ready: !!p.ready,
+          online: p.online !== false,
+          ts: Number(p.updatedAt || p.lastSeen || Date.now())
+        });
+      });
+
+      Object.keys(readyStatus || {}).forEach((pid) => {
+        const r = readyStatus[pid] || {};
+        pushEventFromFirebase(imported, 'duet_firebase_ready', {
+          roomId,
+          pid,
+          name: r.name || pid,
+          role: r.role || '',
+          ready: !!r.ready,
+          ts: Number(r.updatedAt || Date.now())
+        });
+      });
+
+      Object.keys(liveResults || {}).forEach((matchId) => {
+        const byPid = liveResults[matchId] || {};
+        Object.keys(byPid).forEach((pid) => {
+          const r = byPid[pid] || {};
+          pushEventFromFirebase(imported, 'duet_score_live', {
+            roomId,
+            matchId,
+            pid,
+            name: r.name || pid,
+            role: r.role || '',
+            score: Number(r.score || 0),
+            good: Number(r.good || 0),
+            junk: Number(r.junk || 0),
+            miss: Number(r.miss || 0),
+            bestStreak: Number(r.bestStreak || r.streak || 0),
+            feverCount: Number(r.feverCount || 0),
+            missionDoneCount: Number(r.missionDoneCount || 0),
+            ts: Number(r.updatedAt || r.submittedAt || Date.now())
+          });
+        });
+      });
+
+      Object.keys(resultMirror || {}).forEach((matchId) => {
+        const byPid = resultMirror[matchId] || {};
+        Object.keys(byPid).forEach((pid) => {
+          const r = byPid[pid] || {};
+          pushEventFromFirebase(imported, 'duet_player_result', {
+            roomId,
+            matchId,
+            pid,
+            name: r.name || pid,
+            role: r.role || '',
+            score: Number(r.score || 0),
+            good: Number(r.good || 0),
+            junk: Number(r.junk || 0),
+            miss: Number(r.miss || 0),
+            bestStreak: Number(r.bestStreak || r.streak || 0),
+            feverCount: Number(r.feverCount || 0),
+            missionDoneCount: Number(r.missionDoneCount || 0),
+            reason: r.reason || '',
+            ts: Number(r.updatedAt || r.submittedAt || Date.now())
+          });
+        });
+      });
+
+      Object.keys(finalSummaryMirror || {}).forEach((matchId) => {
+        const s = finalSummaryMirror[matchId] || {};
+        pushEventFromFirebase(imported, 'duet_final_summary', {
+          roomId,
+          matchId,
+          teamScore: Number(s.score || 0),
+          teamGood: Number(s.good || 0),
+          teamMiss: Number(s.miss || 0),
+          teamBestStreak: Number(s.streak || s.teamBestCombo || 0),
+          partial: !!s.partial,
+          reason: s.reason || '',
+          feverCount: Number(s.feverCount || 0),
+          missionDoneCount: Number(s.missionDoneCount || 0),
+          finishedPlayers: Number(s.finishedPlayers || 0),
+          expectedPlayers: Number(s.expectedPlayers || 2),
+          ts: Number(s.updatedAt || s.repairedAt || s.ts || Date.now())
+        });
+      });
+
+      Object.keys(matches || {}).forEach((matchId) => {
+        const m = matches[matchId] || {};
+
+        if (m.finalSummary) {
+          const s = m.finalSummary || {};
+          pushEventFromFirebase(imported, 'duet_final_summary', {
+            roomId,
+            matchId,
+            teamScore: Number(s.score || 0),
+            teamGood: Number(s.good || 0),
+            teamMiss: Number(s.miss || 0),
+            teamBestStreak: Number(s.streak || s.teamBestCombo || 0),
+            partial: !!s.partial,
+            reason: s.reason || '',
+            feverCount: Number(s.feverCount || 0),
+            missionDoneCount: Number(s.missionDoneCount || 0),
+            finishedPlayers: Number(s.finishedPlayers || 0),
+            expectedPlayers: Number(s.expectedPlayers || 2),
+            ts: Number(s.updatedAt || s.repairedAt || s.ts || Date.now())
+          });
+        }
+
+        if (m.playerResults) {
+          Object.keys(m.playerResults || {}).forEach((pid) => {
+            const r = m.playerResults[pid] || {};
+            pushEventFromFirebase(imported, 'duet_player_result', {
+              roomId,
+              matchId,
+              pid,
+              name: r.name || pid,
+              role: r.role || '',
+              score: Number(r.score || 0),
+              good: Number(r.good || 0),
+              junk: Number(r.junk || 0),
+              miss: Number(r.miss || 0),
+              bestStreak: Number(r.bestStreak || r.streak || 0),
+              feverCount: Number(r.feverCount || 0),
+              missionDoneCount: Number(r.missionDoneCount || 0),
+              reason: r.reason || '',
+              ts: Number(r.updatedAt || r.submittedAt || Date.now())
+            });
+          });
+        }
+      });
+
+      Object.keys(teamFever || {}).forEach((matchId) => {
+        const f = teamFever[matchId] || {};
+        pushEventFromFirebase(imported, 'duet_team_fever_signal', {
+          roomId,
+          matchId,
+          pid: f.byPid || '',
+          name: f.byName || '',
+          reason: f.reason || '',
+          feverMultiplier: Number(f.multiplier || 2),
+          untilAt: Number(f.untilAt || 0),
+          ts: Number(f.updatedAt || f.startedAt || Date.now())
+        });
+      });
+
+      const old = readQueue();
+      const merged = dedupeEvents(old.concat(imported));
+
+      writeQueue(merged);
+
+      ui.footerNote.textContent =
+        'Sync Firebase ห้อง ' + roomId + ' แล้ว เพิ่ม/รวมข้อมูล ' +
+        imported.length + ' records • local queue ตอนนี้ ' + merged.length + ' events';
+
+      ui.btnSyncFirebase.disabled = false;
+      ui.btnSyncFirebase.textContent = '🔥 Sync Firebase';
+
+      render();
     }
 
     function toDateText(ts) {
@@ -682,6 +978,7 @@
         if (search) {
           const hay = [
             ev.event,
+            ev.source,
             ev.phase,
             ev.roomId,
             ev.matchId,
@@ -738,8 +1035,9 @@
         const teamScore = end ? Number(end.teamScore || end.score || 0) : players.reduce((sum,p) => sum + Number(p.score || p.finalScore || 0), 0);
         const teamGood = end ? Number(end.teamGood || end.good || 0) : players.reduce((sum,p) => sum + Number(p.good || p.finalGood || 0), 0);
         const teamMiss = end ? Number(end.teamMiss || end.miss || 0) : players.reduce((sum,p) => sum + Number(p.miss || p.finalMiss || 0), 0);
-
         const rematches = list.filter(e => e.event === 'duet_rematch_clicked').length;
+        const feverCount = Math.max(...list.map(e => Number(e.feverCount || 0)), 0);
+        const missionDoneCount = Math.max(...list.map(e => Number(e.missionDoneCount || 0)), 0);
 
         summaries.push({
           matchId,
@@ -754,7 +1052,9 @@
           teamMiss,
           partial: !!(end && end.partial),
           reason: end ? String(end.reason || '') : '',
-          rematches
+          rematches,
+          feverCount,
+          missionDoneCount
         });
       });
 
@@ -770,11 +1070,13 @@
       Object.keys(byPlayer).forEach((pid) => {
         const list = byPlayer[pid].slice().sort((a,b) => Number(a.ts || 0) - Number(b.ts || 0));
         const latest = list[list.length - 1] || {};
-        const results = list.filter(e => e.event === 'duet_player_result' || e.event === 'duet_runtime_end');
+        const results = list.filter(e => e.event === 'duet_player_result' || e.event === 'duet_runtime_end' || e.event === 'duet_score_live');
         const bestScore = results.reduce((m,e) => Math.max(m, Number(e.score || e.finalScore || 0)), 0);
         const totalGood = results.reduce((m,e) => m + Number(e.good || e.finalGood || 0), 0);
         const totalMiss = results.reduce((m,e) => m + Number(e.miss || e.finalMiss || 0), 0);
         const bestStreak = results.reduce((m,e) => Math.max(m, Number(e.bestStreak || e.finalBestStreak || 0)), 0);
+        const feverCount = results.reduce((m,e) => Math.max(m, Number(e.feverCount || 0)), 0);
+        const missionDoneCount = results.reduce((m,e) => Math.max(m, Number(e.missionDoneCount || 0)), 0);
 
         players.push({
           pid,
@@ -788,6 +1090,8 @@
           totalGood,
           totalMiss,
           bestStreak,
+          feverCount,
+          missionDoneCount,
           lastTs: Number(latest.ts || 0)
         });
       });
@@ -813,7 +1117,7 @@
         : 'ยังไม่มี match ใน filter นี้';
 
       if (!matches.length) {
-        ui.matchCards.innerHTML = '<div class="empty">ยังไม่มีข้อมูล match</div>';
+        ui.matchCards.innerHTML = '<div class="empty">ยังไม่มีข้อมูล match<br>ถ้าเล่นแล้วแต่ยังไม่ขึ้น ให้ใส่ Room ID แล้วกด 🔥 Sync Firebase</div>';
         return;
       }
 
@@ -836,7 +1140,8 @@
               Room: <b>${esc(m.roomId)}</b><br>
               เวลา: ${esc(toDateText(m.startTs))} → ${esc(toDateText(m.endTs))}<br>
               ผู้เล่น: ${playerNames}<br>
-              เหตุผล: ${esc(m.reason || '-')}
+              เหตุผล: ${esc(m.reason || '-')}<br>
+              Mission: ${Number(m.missionDoneCount || 0)}/4 • Fever: ${Number(m.feverCount || 0)} ครั้ง
             </div>
             <div class="mini-grid">
               <div class="mini"><b>Team Score</b><span>${Number(m.teamScore || 0)}</span></div>
@@ -857,7 +1162,7 @@
         : 'ยังไม่มีผู้เล่นใน filter นี้';
 
       if (!players.length) {
-        ui.playerCards.innerHTML = '<div class="empty">ยังไม่มีข้อมูลผู้เล่น</div>';
+        ui.playerCards.innerHTML = '<div class="empty">ยังไม่มีข้อมูลผู้เล่น<br>ถ้าเล่นแล้วแต่ยังไม่ขึ้น ให้ใส่ Room ID แล้วกด 🔥 Sync Firebase</div>';
         return;
       }
 
@@ -875,7 +1180,8 @@
             <div class="hint">
               PID: ${esc(p.pid)}<br>
               Last: ${esc(toDateText(p.lastTs))}<br>
-              Rooms: ${p.rooms} • Matches: ${p.matches} • Events: ${p.events}
+              Rooms: ${p.rooms} • Matches: ${p.matches} • Events: ${p.events}<br>
+              Mission: ${Number(p.missionDoneCount || 0)}/4 • Fever: ${Number(p.feverCount || 0)} ครั้ง
             </div>
             <div class="mini-grid">
               <div class="mini"><b>Best Score</b><span>${Number(p.bestScore || 0)}</span></div>
@@ -898,6 +1204,7 @@
       if (ev.finishedPlayers !== undefined) parts.push('finished=' + ev.finishedPlayers);
       if (ev.feverCount !== undefined) parts.push('fever=' + ev.feverCount);
       if (ev.missionDoneCount !== undefined) parts.push('mission=' + ev.missionDoneCount + '/4');
+      if (ev.ready !== undefined) parts.push(ev.ready ? 'ready' : 'not ready');
 
       return parts.join(' • ') || '-';
     }
@@ -913,8 +1220,8 @@
       if (!latest.length) {
         ui.eventRows.innerHTML = `
           <tr>
-            <td colspan="11">
-              <div class="empty">ยังไม่มี event log ในเครื่องนี้</div>
+            <td colspan="12">
+              <div class="empty">ยังไม่มี event log ในเครื่องนี้<br>ใส่ Room ID แล้วกด 🔥 Sync Firebase เพื่อดึงข้อมูลจากฐานข้อมูล</div>
             </td>
           </tr>
         `;
@@ -929,10 +1236,13 @@
           String(ev.event || '').includes('fever') ? 'warn' :
           '';
 
+        const sourceClass = ev.source === 'firebase' ? 'firebase' : '';
+
         return `
           <tr>
             <td>${esc(toDateText(ev.ts))}</td>
             <td><span class="pill ${eventClass}">${esc(ev.event || '-')}</span></td>
+            <td><span class="pill ${sourceClass}">${esc(ev.source || 'local')}</span></td>
             <td>${esc(ev.phase || '-')}</td>
             <td>${esc(ev.roomId || '-')}</td>
             <td>${esc(ev.matchId || '-')}</td>
@@ -949,7 +1259,7 @@
 
     function exportCsv(events) {
       const cols = [
-        'ts','event','phase','roomId','matchId','pid','name','role',
+        'source','ts','event','phase','roomId','matchId','pid','name','role',
         'diff','durationSec','score','good','junk','miss','bestStreak',
         'teamScore','teamGood','teamMiss','partial','reason','feverCount',
         'missionDoneCount','pageUrl'
@@ -969,7 +1279,8 @@
 
       const cols = [
         'roomId','matchId','startTime','endTime','players','playerCount',
-        'teamScore','teamGood','teamMiss','partial','reason','eventCount','rematches'
+        'teamScore','teamGood','teamMiss','partial','reason','eventCount',
+        'rematches','feverCount','missionDoneCount'
       ];
 
       const rows = [
@@ -988,7 +1299,9 @@
             partial:m.partial,
             reason:m.reason,
             eventCount:m.events,
-            rematches:m.rematches
+            rematches:m.rematches,
+            feverCount:m.feverCount,
+            missionDoneCount:m.missionDoneCount
           };
 
           return cols.map(c => csvEscape(obj[c])).join(',');
@@ -1055,11 +1368,27 @@
 
       const roomText = String(ui.roomFilter.value || '').trim();
       ui.footerNote.textContent = roomText
-        ? 'กำลังดู local logs เฉพาะห้อง ' + roomText + ' • ทั้งหมดในเครื่องนี้ ' + all.length + ' events'
+        ? 'กำลังดู logs เฉพาะห้อง ' + roomText + ' • local queue ทั้งหมด ' + all.length + ' events'
         : 'กำลังดู local logs ทุกห้อง • ทั้งหมดในเครื่องนี้ ' + all.length + ' events';
     }
 
     ui.btnRefresh.addEventListener('click', render);
+
+    ui.btnSyncFirebase.addEventListener('click', function () {
+      syncFirebaseRoom().catch(function (err) {
+        console.warn('[GJ-DUET-TEACHER] syncFirebaseRoom failed:', err);
+        ui.footerNote.textContent = 'Sync Firebase ไม่สำเร็จ: ' + (err && err.message ? err.message : String(err));
+        ui.btnSyncFirebase.disabled = false;
+        ui.btnSyncFirebase.textContent = '🔥 Sync Firebase';
+      });
+    });
+
+    ui.btnAutoSync.addEventListener('click', function () {
+      syncFirebaseRoom().catch(function (err) {
+        console.warn('[GJ-DUET-TEACHER] auto sync failed:', err);
+      });
+    });
+
     ui.btnExportCsv.addEventListener('click', function(){ exportCsv(filterEvents(readQueue())); });
     ui.btnExportSummary.addEventListener('click', function(){ exportSummaryCsv(filterEvents(readQueue())); });
     ui.btnCopyJson.addEventListener('click', function(){ copyJson(filterEvents(readQueue())); });
@@ -1084,6 +1413,14 @@
     });
 
     render();
+
+    if (currentRoom) {
+      setTimeout(function(){
+        syncFirebaseRoom().catch(function(err){
+          console.warn('[GJ-DUET-TEACHER] initial sync failed:', err);
+        });
+      }, 700);
+    }
   })();
   </script>
 </body>
