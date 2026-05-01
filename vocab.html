@@ -6895,6 +6895,954 @@
   });
 })();
 
+    /* =========================================================
+   VOCAB v7.8 — FINAL CLASSROOM + SOURCE GUARD
+   PATCH DATE: 2026-05-01
+   วางก่อน </script> ตัวสุดท้ายของ vocab.html
+   ========================================================= */
+(function(){
+  "use strict";
+
+  const V78 = {
+    version: "v7.8-final-classroom-source-guard-20260501",
+    schema: "vocab-v7.8",
+    guardLogKey: "VOCAB_V78_SOURCE_GUARD_LOG",
+    qaLogKey: "VOCAB_V78_FINAL_QA_LOG",
+    maxLog: 120
+  };
+
+  function qs(sel, root){
+    return (root || document).querySelector(sel);
+  }
+
+  function qsa(sel, root){
+    return Array.from((root || document).querySelectorAll(sel));
+  }
+
+  function id(x){
+    return document.getElementById(x);
+  }
+
+  function esc(s){
+    return String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function nowIso(){
+    return new Date().toISOString();
+  }
+
+  function safeJsonRead(key, fallback){
+    try{
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    }catch(e){
+      return fallback;
+    }
+  }
+
+  function safeJsonWrite(key, value){
+    try{
+      localStorage.setItem(key, JSON.stringify(value));
+    }catch(e){}
+  }
+
+  function onReady(fn){
+    if(document.readyState === "loading"){
+      document.addEventListener("DOMContentLoaded", fn, { once:true });
+    }else{
+      fn();
+    }
+  }
+
+  function isEditableTarget(el){
+    if(!el) return false;
+
+    const tag = String(el.tagName || "").toLowerCase();
+
+    return (
+      el.isContentEditable ||
+      tag === "input" ||
+      tag === "textarea" ||
+      tag === "select" ||
+      Boolean(el.closest && el.closest("[data-v78-allow-copy='1']"))
+    );
+  }
+
+  function guardDisabled(){
+    try{
+      const p = new URLSearchParams(location.search);
+      return (
+        window.VOCAB_SOURCE_GUARD_DISABLE === true ||
+        p.get("guard") === "off" ||
+        p.get("source_guard") === "off"
+      );
+    }catch(e){
+      return window.VOCAB_SOURCE_GUARD_DISABLE === true;
+    }
+  }
+
+  function patchVersionEarly(){
+    try{
+      if(typeof VOCAB_APP === "object" && VOCAB_APP){
+        VOCAB_APP.version = V78.version;
+        VOCAB_APP.schema = V78.schema;
+        VOCAB_APP.source = "vocab.html";
+        VOCAB_APP.enableSheetLog = true;
+      }
+    }catch(e){}
+  }
+
+  patchVersionEarly();
+
+  function localGuardLog(action, extra){
+    const payload = Object.assign({
+      timestamp: nowIso(),
+      type: action,
+      v78_version: V78.version,
+      page_url: location.href,
+      user_agent: navigator.userAgent || "",
+      source_guard_enabled: guardDisabled() ? 0 : 1
+    }, extra || {});
+
+    try{
+      const list = safeJsonRead(V78.guardLogKey, []);
+      list.push(payload);
+      safeJsonWrite(V78.guardLogKey, list.slice(-V78.maxLog));
+    }catch(e){}
+
+    try{
+      if(typeof logVocabEventV6 === "function"){
+        logVocabEventV6("v78_source_guard", payload);
+      }
+    }catch(e){}
+
+    return payload;
+  }
+
+  function localQaLog(action, extra){
+    const payload = Object.assign({
+      timestamp: nowIso(),
+      type: action,
+      v78_version: V78.version,
+      page_url: location.href
+    }, extra || {});
+
+    try{
+      const list = safeJsonRead(V78.qaLogKey, []);
+      list.push(payload);
+      safeJsonWrite(V78.qaLogKey, list.slice(-V78.maxLog));
+    }catch(e){}
+
+    try{
+      if(typeof logVocabEventV6 === "function"){
+        logVocabEventV6("v78_final_qa", payload);
+      }
+    }catch(e){}
+
+    return payload;
+  }
+
+  function injectV78Css(){
+    if(id("v78FinalCss")) return;
+
+    const style = document.createElement("style");
+    style.id = "v78FinalCss";
+    style.textContent = `
+      /* ================================
+         v7.8 Final Classroom + Guard
+         ================================ */
+
+      body.v78-no-select,
+      body.v78-no-select .v6-app,
+      body.v78-no-select .v6-card,
+      body.v78-no-select .v6-question-card,
+      body.v78-no-select .v6-reward,
+      body.v78-no-select .v6-choice,
+      body.v78-no-select .v66-mode-card,
+      body.v78-no-select .v6-select-card,
+      body.v78-no-select .v6-pill{
+        -webkit-user-select:none !important;
+        user-select:none !important;
+        -webkit-touch-callout:none !important;
+      }
+
+      body.v78-no-select input,
+      body.v78-no-select textarea,
+      body.v78-no-select select,
+      body.v78-no-select [contenteditable="true"],
+      body.v78-no-select [data-v78-allow-copy="1"]{
+        -webkit-user-select:text !important;
+        user-select:text !important;
+        -webkit-touch-callout:default !important;
+      }
+
+      .v78-ready-panel{
+        border:1px solid rgba(68,223,147,.34);
+        background:
+          radial-gradient(circle at top left, rgba(68,223,147,.15), transparent 36%),
+          radial-gradient(circle at bottom right, rgba(89,208,255,.13), transparent 34%),
+          rgba(255,255,255,.075);
+      }
+
+      .v78-ready-head{
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap:12px;
+        flex-wrap:wrap;
+        margin-bottom:12px;
+      }
+
+      .v78-ready-head h2{
+        margin:0;
+      }
+
+      .v78-badge{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:7px;
+        min-height:32px;
+        padding:7px 11px;
+        border-radius:999px;
+        border:1px solid rgba(255,255,255,.15);
+        background:rgba(255,255,255,.09);
+        color:#eef7ff;
+        font-size:12px;
+        font-weight:1000;
+      }
+
+      .v78-badge.ok{
+        color:#dcfce7;
+        border-color:rgba(68,223,147,.42);
+        background:rgba(68,223,147,.14);
+      }
+
+      .v78-badge.warn{
+        color:#fff3bf;
+        border-color:rgba(255,209,102,.42);
+        background:rgba(255,209,102,.14);
+      }
+
+      .v78-badge.lock{
+        color:#dff7ff;
+        border-color:rgba(89,208,255,.42);
+        background:rgba(89,208,255,.14);
+      }
+
+      .v78-check-grid{
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:10px;
+      }
+
+      .v78-check{
+        padding:12px;
+        min-height:84px;
+        border-radius:18px;
+        border:1px solid rgba(255,255,255,.14);
+        background:rgba(255,255,255,.075);
+      }
+
+      .v78-check b{
+        display:block;
+        font-size:15px;
+        margin-bottom:5px;
+      }
+
+      .v78-check small{
+        display:block;
+        color:var(--muted);
+        line-height:1.35;
+        font-weight:850;
+      }
+
+      .v78-action-row{
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        margin-top:12px;
+      }
+
+      .v78-btn{
+        appearance:none;
+        min-height:42px;
+        padding:9px 13px;
+        border-radius:999px;
+        border:1px solid rgba(255,255,255,.16);
+        background:rgba(255,255,255,.09);
+        color:#eef7ff;
+        font:inherit;
+        font-weight:1000;
+        cursor:pointer;
+      }
+
+      .v78-btn:hover{
+        border-color:rgba(89,208,255,.58);
+        background:rgba(89,208,255,.15);
+      }
+
+      .v78-btn.primary{
+        border-color:rgba(68,223,147,.45);
+        background:rgba(68,223,147,.16);
+      }
+
+      .v78-btn.danger{
+        border-color:rgba(255,110,135,.45);
+        background:rgba(255,110,135,.15);
+      }
+
+      .v78-qa-result{
+        margin-top:12px;
+        padding:12px 14px;
+        border-radius:18px;
+        border:1px solid rgba(255,255,255,.14);
+        background:rgba(0,0,0,.18);
+        color:#eef7ff;
+        font-weight:850;
+        line-height:1.45;
+      }
+
+      .v78-qa-result.ok{
+        border-color:rgba(68,223,147,.38);
+        background:rgba(68,223,147,.10);
+      }
+
+      .v78-qa-result.warn{
+        border-color:rgba(255,209,102,.38);
+        background:rgba(255,209,102,.10);
+      }
+
+      .v78-guard-toast{
+        position:fixed;
+        right:14px;
+        bottom:14px;
+        z-index:2147483647;
+        width:min(420px, calc(100vw - 28px));
+        padding:14px 16px;
+        border-radius:22px;
+        border:1px solid rgba(255,255,255,.20);
+        background:
+          radial-gradient(circle at top left, rgba(89,208,255,.22), transparent 36%),
+          rgba(4,10,20,.92);
+        color:#eef7ff;
+        font-weight:950;
+        line-height:1.45;
+        box-shadow:0 18px 54px rgba(0,0,0,.38);
+        backdrop-filter:blur(16px);
+        animation:v78ToastIn .22s ease both;
+      }
+
+      .v78-guard-toast b{
+        color:#ffd166;
+      }
+
+      .v78-watermark{
+        position:fixed;
+        right:14px;
+        top:14px;
+        z-index:99997;
+        pointer-events:none;
+        opacity:.38;
+        padding:7px 10px;
+        border-radius:999px;
+        border:1px solid rgba(255,255,255,.14);
+        background:rgba(4,10,20,.34);
+        color:#eef7ff;
+        font-size:11px;
+        font-weight:1000;
+        letter-spacing:.04em;
+        text-transform:uppercase;
+        backdrop-filter:blur(8px);
+      }
+
+      body.v78-devtools-soft-warning .v78-watermark{
+        opacity:.85;
+        color:#fff3bf;
+        border-color:rgba(255,209,102,.36);
+        background:rgba(255,209,102,.13);
+      }
+
+      @keyframes v78ToastIn{
+        from{ opacity:0; transform:translateY(14px) scale(.97); }
+        to{ opacity:1; transform:translateY(0) scale(1); }
+      }
+
+      @media(max-width:900px){
+        .v78-check-grid{ grid-template-columns:repeat(2,1fr); }
+      }
+
+      @media(max-width:520px){
+        .v78-check-grid{ grid-template-columns:1fr; }
+        .v78-watermark{
+          top:auto;
+          bottom:62px;
+          right:8px;
+          font-size:10px;
+        }
+      }
+
+      @media print{
+        body.v78-print-guard *{
+          visibility:hidden !important;
+        }
+
+        body.v78-print-guard::before{
+          content:"Protected classroom build — printing is disabled.";
+          visibility:visible !important;
+          display:block;
+          padding:32px;
+          color:#111827;
+          font:700 22px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function showGuardToast(message, kind){
+    let box = id("v78GuardToast");
+
+    if(!box){
+      box = document.createElement("div");
+      box.id = "v78GuardToast";
+      box.className = "v78-guard-toast";
+      document.body.appendChild(box);
+    }
+
+    const icon = kind === "warn" ? "⚠️" : kind === "lock" ? "🔒" : "✅";
+    box.innerHTML = `${icon} <b>Vocab Protected Mode</b><br>${esc(message)}`;
+    box.hidden = false;
+
+    clearTimeout(showGuardToast._t);
+    showGuardToast._t = setTimeout(() => {
+      if(box) box.hidden = true;
+    }, 2600);
+  }
+
+  function addWatermark(){
+    if(id("v78Watermark")) return;
+
+    const mark = document.createElement("div");
+    mark.id = "v78Watermark";
+    mark.className = "v78-watermark";
+    mark.textContent = "Vocab v7.8 • Protected Classroom Build";
+    document.body.appendChild(mark);
+  }
+
+  function blockEvent(e, action, message){
+    if(isEditableTarget(e.target)) return true;
+
+    try{
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    }catch(err){}
+
+    localGuardLog(action, {
+      key: e.key || "",
+      ctrl: e.ctrlKey ? 1 : 0,
+      meta: e.metaKey ? 1 : 0,
+      shift: e.shiftKey ? 1 : 0,
+      alt: e.altKey ? 1 : 0
+    });
+
+    showGuardToast(message || "ระบบป้องกันการคัดลอกเนื้อหาและ source code ของเกม", "lock");
+    return false;
+  }
+
+  function installSourceGuard(){
+    if(guardDisabled()){
+      localGuardLog("source_guard_disabled", { reason:"guard=off or global flag" });
+      return;
+    }
+
+    document.body.classList.add("v78-no-select");
+    addWatermark();
+
+    window.addEventListener("contextmenu", function(e){
+      return blockEvent(e, "contextmenu_blocked", "ปิดคลิกขวาเพื่อป้องกันการคัดลอก source code");
+    }, true);
+
+    window.addEventListener("dragstart", function(e){
+      return blockEvent(e, "drag_blocked", "ปิดการลากคัดลอกเนื้อหาเกม");
+    }, true);
+
+    window.addEventListener("selectstart", function(e){
+      if(isEditableTarget(e.target)) return true;
+      return blockEvent(e, "select_blocked", "ปิดการลากเลือกข้อความในหน้าเกม");
+    }, true);
+
+    window.addEventListener("copy", function(e){
+      if(isEditableTarget(e.target)) return true;
+      try{
+        e.clipboardData.setData("text/plain", "Protected classroom build: copying is disabled.");
+      }catch(err){}
+      return blockEvent(e, "copy_blocked", "ปิดการคัดลอกเนื้อหาในหน้าเกม");
+    }, true);
+
+    window.addEventListener("cut", function(e){
+      if(isEditableTarget(e.target)) return true;
+      return blockEvent(e, "cut_blocked", "ปิดการตัด/คัดลอกเนื้อหาในหน้าเกม");
+    }, true);
+
+    window.addEventListener("keydown", function(e){
+      const key = String(e.key || "").toLowerCase();
+      const ctrl = e.ctrlKey || e.metaKey;
+      const shift = e.shiftKey;
+
+      const devToolsKeys =
+        key === "f12" ||
+        (ctrl && shift && ["i", "j", "c", "k"].includes(key));
+
+      const sourceKeys =
+        ctrl && ["u", "s", "p"].includes(key);
+
+      const pageCopyKeys =
+        ctrl && ["a", "c", "x"].includes(key) && !isEditableTarget(e.target);
+
+      if(devToolsKeys){
+        return blockEvent(e, "devtools_shortcut_blocked", "ปิด DevTools shortcut ในโหมดใช้งานจริง");
+      }
+
+      if(sourceKeys){
+        return blockEvent(e, "source_shortcut_blocked", "ปิด View Source / Save / Print เพื่อป้องกันการคัดลอกไฟล์");
+      }
+
+      if(pageCopyKeys){
+        return blockEvent(e, "page_copy_shortcut_blocked", "ปิด shortcut คัดลอกเนื้อหาในหน้าเกม");
+      }
+
+      return true;
+    }, true);
+
+    window.addEventListener("beforeprint", function(){
+      document.body.classList.add("v78-print-guard");
+      localGuardLog("print_blocked", {});
+      showGuardToast("ปิดการพิมพ์หน้าเกมใน Protected Mode", "lock");
+
+      setTimeout(() => {
+        document.body.classList.remove("v78-print-guard");
+      }, 1200);
+    });
+
+    let lastDevtoolsState = false;
+
+    setInterval(function(){
+      if(guardDisabled()) return;
+
+      const threshold = 180;
+      const maybeOpen =
+        Math.abs((window.outerWidth || 0) - (window.innerWidth || 0)) > threshold ||
+        Math.abs((window.outerHeight || 0) - (window.innerHeight || 0)) > threshold;
+
+      if(maybeOpen && !lastDevtoolsState){
+        lastDevtoolsState = true;
+        document.body.classList.add("v78-devtools-soft-warning");
+        localGuardLog("devtools_soft_warning", {});
+        showGuardToast("ตรวจพบลักษณะการเปิดเครื่องมือนักพัฒนา ระบบบันทึกเหตุการณ์ไว้แล้ว", "warn");
+      }else if(!maybeOpen && lastDevtoolsState){
+        lastDevtoolsState = false;
+        document.body.classList.remove("v78-devtools-soft-warning");
+      }
+    }, 1500);
+
+    localGuardLog("source_guard_enabled", {});
+  }
+
+  function getStudentFields(){
+    return {
+      displayName: id("v63DisplayName"),
+      studentId: id("v63StudentId"),
+      section: id("v63Section"),
+      sessionCode: id("v63SessionCode")
+    };
+  }
+
+  function getStudentInfo(){
+    const f = getStudentFields();
+
+    return {
+      display_name: f.displayName ? String(f.displayName.value || "").trim() : "",
+      student_id: f.studentId ? String(f.studentId.value || "").trim() : "",
+      section: f.section ? String(f.section.value || "").trim() : "",
+      session_code: f.sessionCode ? String(f.sessionCode.value || "").trim() : ""
+    };
+  }
+
+  function allowDemoBypass(){
+    try{
+      const p = new URLSearchParams(location.search);
+      return p.get("demo") === "1" || p.get("qa") === "1";
+    }catch(e){
+      return false;
+    }
+  }
+
+  function validateStudentInfoBeforeStart(){
+    if(allowDemoBypass()) return true;
+
+    const f = getStudentFields();
+    const info = getStudentInfo();
+
+    const missing = [];
+
+    if(!info.display_name) missing.push(["ชื่อเล่น / Display name", f.displayName]);
+    if(!info.student_id) missing.push(["รหัสนักศึกษา", f.studentId]);
+    if(!info.section) missing.push(["Section", f.section]);
+    if(!info.session_code) missing.push(["Session Code", f.sessionCode]);
+
+    if(missing.length){
+      const first = missing[0][1];
+
+      try{
+        first.focus();
+        first.scrollIntoView({ behavior:"smooth", block:"center" });
+      }catch(e){}
+
+      localQaLog("start_blocked_missing_student_info", {
+        missing_fields: missing.map(x => x[0]).join("|")
+      });
+
+      showGuardToast(
+        "กรุณากรอกข้อมูลผู้เรียนให้ครบก่อนเริ่มเกม: " + missing.map(x => x[0]).join(", "),
+        "warn"
+      );
+
+      return false;
+    }
+
+    localQaLog("student_info_validated", info);
+    return true;
+  }
+
+  function installStartGate(){
+    document.addEventListener("click", function(e){
+      const target = e.target && e.target.closest ? e.target.closest("#v6StartBtn") : null;
+      if(!target) return true;
+
+      if(!validateStudentInfoBeforeStart()){
+        try{
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }catch(err){}
+        return false;
+      }
+
+      return true;
+    }, true);
+  }
+
+  function patchLoggerV78(){
+    try{
+      if(typeof logVocabEventV6 !== "function") return;
+      if(logVocabEventV6.__v78_patched) return;
+
+      const oldLog = logVocabEventV6;
+
+      logVocabEventV6 = function(type, data){
+        const info = getStudentInfo();
+
+        const patched = Object.assign({
+          v78_version: V78.version,
+          v78_schema: V78.schema,
+          v78_source_guard: guardDisabled() ? 0 : 1,
+          v78_classroom_ready: 1,
+          display_name: data && data.display_name ? data.display_name : info.display_name,
+          student_id: data && data.student_id ? data.student_id : info.student_id,
+          section: data && data.section ? data.section : info.section,
+          session_code: data && data.session_code ? data.session_code : info.session_code
+        }, data || {});
+
+        return oldLog(type, patched);
+      };
+
+      logVocabEventV6.__v78_patched = true;
+    }catch(e){
+      console.warn("[VOCAB] v7.8 logger patch warning", e);
+    }
+  }
+
+  function injectFinalQaPanel(){
+    const menu = qs("#v6MenuPanel .v6-menu-grid");
+    if(!menu || id("v78FinalPanel")) return;
+
+    const section = document.createElement("section");
+    section.id = "v78FinalPanel";
+    section.className = "v6-card v6-wide v78-ready-panel";
+
+    section.innerHTML = `
+      <div class="v78-ready-head">
+        <div>
+          <h2>✅ Final Classroom Ready / Source Guard</h2>
+          <p class="v63-note">
+            ตรวจความพร้อมก่อนใช้จริง: UI, ข้อมูลผู้เรียน, Sheet logger, leaderboard, และระบบลดการ copy source code
+          </p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span class="v78-badge ok">Ready for Pilot</span>
+          <span class="v78-badge lock">Source Guard ON</span>
+          <span class="v78-badge warn">${esc(V78.version)}</span>
+        </div>
+      </div>
+
+      <div class="v78-check-grid">
+        <div class="v78-check">
+          <b>🎓 Classroom Data</b>
+          <small>บังคับกรอกชื่อ รหัส Section และ Session Code ก่อนเริ่มเกม</small>
+        </div>
+
+        <div class="v78-check">
+          <b>📊 Sheet Logging</b>
+          <small>แนบ version/schema v7.8 ไปกับ event log เพื่อแยกผลทดสอบได้</small>
+        </div>
+
+        <div class="v78-check">
+          <b>🛡️ Copy Protection</b>
+          <small>ปิด copy, select, context menu, print, view source shortcut และ DevTools shortcut</small>
+        </div>
+
+        <div class="v78-check">
+          <b>🏆 Pilot QA</b>
+          <small>มีปุ่มตรวจองค์ประกอบหลักก่อนนำไปให้นักศึกษาเล่นจริง</small>
+        </div>
+      </div>
+
+      <div class="v78-action-row">
+        <button id="v78RunQaBtn" class="v78-btn primary" type="button">🧪 Run Final QA</button>
+        <button id="v78ShowGuardBtn" class="v78-btn" type="button">🔒 Test Source Guard</button>
+        <button id="v78ClearGuardBtn" class="v78-btn danger" type="button">🧹 Clear Guard Log</button>
+      </div>
+
+      <div id="v78QaResult" class="v78-qa-result" data-v78-allow-copy="1">
+        กด Run Final QA เพื่อตรวจความพร้อมก่อนใช้จริง
+      </div>
+    `;
+
+    const startCard = id("v6StartBtn") ? id("v6StartBtn").closest(".v6-card") : null;
+    if(startCard && startCard.parentNode === menu){
+      menu.insertBefore(section, startCard);
+    }else{
+      menu.appendChild(section);
+    }
+
+    const runBtn = id("v78RunQaBtn");
+    const guardBtn = id("v78ShowGuardBtn");
+    const clearBtn = id("v78ClearGuardBtn");
+
+    if(runBtn){
+      runBtn.addEventListener("click", function(){
+        runFinalQaV78(true);
+      });
+    }
+
+    if(guardBtn){
+      guardBtn.addEventListener("click", function(){
+        localGuardLog("source_guard_manual_test", {});
+        showGuardToast("Protected Mode ทำงานแล้ว: ปิด copy / right click / view source shortcut", "lock");
+      });
+    }
+
+    if(clearBtn){
+      clearBtn.addEventListener("click", function(){
+        try{
+          localStorage.removeItem(V78.guardLogKey);
+          localStorage.removeItem(V78.qaLogKey);
+        }catch(e){}
+        showGuardToast("ล้าง Guard / QA log ในเครื่องนี้แล้ว", "warn");
+        runFinalQaV78(false);
+      });
+    }
+  }
+
+  function runFinalQaV78(showToast){
+    const resultBox = id("v78QaResult");
+
+    const sheetEndpoint = (() => {
+      try{
+        return String(VOCAB_APP && VOCAB_APP.sheetEndpoint ? VOCAB_APP.sheetEndpoint : "");
+      }catch(e){
+        return "";
+      }
+    })();
+
+    const selected = (() => {
+      try{
+        return {
+          bank: VOCAB_APP.selectedBank || "",
+          diff: VOCAB_APP.selectedDifficulty || "",
+          mode: VOCAB_APP.selectedMode || ""
+        };
+      }catch(e){
+        return { bank:"", diff:"", mode:"" };
+      }
+    })();
+
+    const tests = [
+      {
+        name:"VOCAB_APP",
+        ok: typeof VOCAB_APP === "object" && !!VOCAB_APP,
+        detail:"config หลักของเกม"
+      },
+      {
+        name:"Version v7.8",
+        ok: (() => {
+          try{ return String(VOCAB_APP.version || "") === V78.version; }
+          catch(e){ return false; }
+        })(),
+        detail:V78.version
+      },
+      {
+        name:"Student Fields",
+        ok: !!id("v63DisplayName") && !!id("v63StudentId") && !!id("v63Section") && !!id("v63SessionCode"),
+        detail:"name / id / section / session_code"
+      },
+      {
+        name:"Start Button",
+        ok: !!id("v6StartBtn"),
+        detail:"ปุ่มเริ่มเกมพร้อมใช้งาน"
+      },
+      {
+        name:"Difficulty / Mode",
+        ok: !!selected.bank && !!selected.diff && !!selected.mode,
+        detail:`bank=${selected.bank || "-"} diff=${selected.diff || "-"} mode=${selected.mode || "-"}`
+      },
+      {
+        name:"Sheet Endpoint",
+        ok: sheetEndpoint.includes("/exec"),
+        detail: sheetEndpoint ? "endpoint พร้อม" : "ยังไม่พบ endpoint"
+      },
+      {
+        name:"Event Logger",
+        ok: typeof logVocabEventV6 === "function",
+        detail:"logVocabEventV6 พร้อมใช้งาน"
+      },
+      {
+        name:"Leaderboard",
+        ok: !!id("v68LeaderboardBox"),
+        detail:"กล่อง leaderboard พร้อม"
+      },
+      {
+        name:"Source Guard",
+        ok: !guardDisabled() && document.body.classList.contains("v78-no-select"),
+        detail: guardDisabled() ? "guard ถูกปิด" : "guard เปิดอยู่"
+      }
+    ];
+
+    const pass = tests.filter(t => t.ok).length;
+    const total = tests.length;
+    const allOk = pass === total;
+
+    const html = `
+      <b>${allOk ? "✅ Final QA ผ่าน" : "⚠️ Final QA ยังต้องเช็ก"}</b>
+      <br>
+      ผ่าน ${pass}/${total} รายการ
+      <div style="display:grid;gap:6px;margin-top:10px">
+        ${tests.map(t => `
+          <div>
+            ${t.ok ? "✅" : "❌"} <b>${esc(t.name)}</b>
+            <span style="color:var(--muted)">— ${esc(t.detail)}</span>
+          </div>
+        `).join("")}
+      </div>
+      <div style="margin-top:10px;color:var(--muted)">
+        หมายเหตุ: Source Guard ลดการ copy/source scraping ได้ระดับหนึ่ง แต่เว็บ static ไม่สามารถซ่อน HTML/JS จาก browser ได้ 100%
+      </div>
+    `;
+
+    if(resultBox){
+      resultBox.className = "v78-qa-result " + (allOk ? "ok" : "warn");
+      resultBox.innerHTML = html;
+    }
+
+    localQaLog("final_qa_run", {
+      pass,
+      total,
+      all_ok: allOk ? 1 : 0,
+      selected_bank: selected.bank,
+      selected_difficulty: selected.diff,
+      selected_mode: selected.mode,
+      sheet_endpoint_ready: sheetEndpoint.includes("/exec") ? 1 : 0,
+      source_guard_enabled: guardDisabled() ? 0 : 1
+    });
+
+    if(showToast){
+      showGuardToast(
+        allOk ? "Final QA ผ่าน พร้อมใช้ Pilot ในชั้นเรียน" : "Final QA ยังมีบางรายการต้องเช็ก",
+        allOk ? "ok" : "warn"
+      );
+    }
+
+    return { pass, total, allOk, tests };
+  }
+
+  function installUnloadFlush(){
+    window.addEventListener("pagehide", function(){
+      try{
+        localQaLog("pagehide_flush", {
+          source_guard_enabled: guardDisabled() ? 0 : 1
+        });
+      }catch(e){}
+    }, { capture:true });
+
+    window.addEventListener("beforeunload", function(){
+      try{
+        localQaLog("beforeunload_flush", {
+          source_guard_enabled: guardDisabled() ? 0 : 1
+        });
+      }catch(e){}
+    }, { capture:true });
+  }
+
+  function exposeTools(){
+    window.vocabFinalQaV78 = runFinalQaV78;
+
+    window.vocabSourceGuardLogV78 = function(){
+      return safeJsonRead(V78.guardLogKey, []);
+    };
+
+    window.resetVocabSourceGuardV78 = function(){
+      try{
+        localStorage.removeItem(V78.guardLogKey);
+        localStorage.removeItem(V78.qaLogKey);
+      }catch(e){}
+      alert("Reset Vocab v7.8 Source Guard / QA logs");
+    };
+  }
+
+  onReady(function(){
+    try{
+      injectV78Css();
+      patchVersionEarly();
+      patchLoggerV78();
+      installSourceGuard();
+      installStartGate();
+      injectFinalQaPanel();
+      installUnloadFlush();
+      exposeTools();
+
+      setTimeout(function(){
+        runFinalQaV78(false);
+      }, 650);
+
+      localQaLog("v78_patch_loaded", {
+        source_guard_enabled: guardDisabled() ? 0 : 1
+      });
+
+      console.log("[VOCAB] v7.8 final classroom + source guard loaded", V78.version);
+    }catch(e){
+      console.warn("[VOCAB] v7.8 boot warning", e);
+    }
+  });
+
+})();
   </script>
 </body>
 </html>
