@@ -495,6 +495,12 @@
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js?v=20260430e-gj-battle"></script>
+  <script src="./goodjunk-battle-room-bootstrap.js?v=20260430e-gj-battle"></script>
+
   <script type="module">
     import {
       makeRoomAdapter,
@@ -506,7 +512,7 @@
       consumeBattleAttacksForPlayer,
       getBattleOpponent,
       getPlayerByPid
-    } from './goodjunk-battle-room.js?v=20260430c-GJ-BATTLE-ROOM-ATTACK-SYSTEM';
+    } from './goodjunk-battle-room.js?v=20260430e-GJ-BATTLE-FIREBASE-ROOM';
 
     const $ = (id) => document.getElementById(id);
 
@@ -532,7 +538,8 @@
     function ctx(){
       return {
         mode: clean(qs('mode', 'battle'), 'battle'),
-        room: clean(qs('room', ''), ''),
+        room: clean(qs('room', qs('roomId', '')), ''),
+        roomId: clean(qs('roomId', qs('room', '')), ''),
         pid: clean(qs('pid', 'anon'), 'anon'),
         name: clean(qs('name', qs('nick', 'Hero')), 'Hero'),
         nick: clean(qs('nick', qs('name', 'Hero')), 'Hero'),
@@ -552,6 +559,7 @@
     }
 
     const C = ctx();
+    C.room = C.room || C.roomId;
 
     let adapter = null;
     let stopWatch = null;
@@ -591,6 +599,7 @@
         ...C,
         mode:'battle',
         room:C.room,
+        roomId:C.room,
         recommendedMode:'battle',
         entry:'battle',
         multiplayer:'1'
@@ -658,6 +667,8 @@
     }
 
     async function syncStats(){
+      if(!adapter || !C.room) return;
+
       await updateBattlePlayerStats(C, {
         score: state.score,
         combo: state.combo,
