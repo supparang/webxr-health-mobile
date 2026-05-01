@@ -162,6 +162,90 @@
       text-align:center;
     }
 
+    .mission-bar{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:8px;
+    }
+
+    .mission-item{
+      min-height:42px;
+      border-radius:16px;
+      border:3px solid #d7edf7;
+      background:#fff;
+      color:#5b564f;
+      font-size:12px;
+      font-weight:1000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:7px 8px;
+      box-shadow:0 6px 14px rgba(86,155,194,.08);
+    }
+
+    .mission-item.done{
+      background:#f7fff0;
+      border-color:#cfe9b8;
+      color:#4f842f;
+    }
+
+    .mission-item.warn{
+      background:#fff8db;
+      border-color:#ffe08a;
+      color:#a76400;
+    }
+
+    .mission-item.bad{
+      background:#fff0f0;
+      border-color:#ffc4c4;
+      color:#b72e2e;
+    }
+
+    .fever-bar{
+      position:relative;
+      min-height:42px;
+      border-radius:18px;
+      border:3px solid #ffe08a;
+      background:linear-gradient(180deg,#fff8db,#fff2b8);
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 8px 18px rgba(255,191,63,.18);
+    }
+
+    .fever-fill{
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:0%;
+      background:linear-gradient(90deg,#ffd75a,#ff9f43,#ff6b6b);
+      opacity:.72;
+      transition:width .18s linear;
+    }
+
+    .fever-text{
+      position:relative;
+      z-index:1;
+      font-size:13px;
+      font-weight:1000;
+      color:#6d4300;
+      text-align:center;
+      padding:7px 10px;
+      text-shadow:0 1px 0 rgba(255,255,255,.72);
+    }
+
+    .fever-bar.active{
+      animation:feverPulse .62s ease-in-out infinite alternate;
+    }
+
+    @keyframes feverPulse{
+      from{ transform:scale(1); filter:saturate(1); }
+      to{ transform:scale(1.012); filter:saturate(1.18); }
+    }
+
     .arena-wrap{
       min-height:0;
       border-radius:28px;
@@ -515,6 +599,10 @@
         grid-template-columns:repeat(3,1fr);
       }
 
+      .mission-bar{
+        grid-template-columns:1fr 1fr;
+      }
+
       .hud-card{
         min-height:52px;
       }
@@ -590,6 +678,18 @@
           <div class="hud-value" id="bestText">0</div>
         </div>
       </div>
+
+      <div class="mission-bar" id="missionBar">
+        <div class="mission-item" id="missionGood">🎯 Good 0/0</div>
+        <div class="mission-item" id="missionMiss">🛡️ Miss 0/0</div>
+        <div class="mission-item" id="missionCombo">🔥 Combo 0/0</div>
+        <div class="mission-item" id="missionFinish">🤝 Team Finish</div>
+      </div>
+
+      <div class="fever-bar" id="feverBar">
+        <div class="fever-fill" id="feverFill"></div>
+        <div class="fever-text" id="feverText">🔥 Team Fever พร้อมเมื่อทำ Combo ถึงเป้า</div>
+      </div>
     </section>
 
     <section class="arena-wrap">
@@ -654,8 +754,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjduet-runtime-v11-namefix"></script>
-  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-runtime-v11-namefix"></script>
+  <script src="../firebase-config.js?v=20260430-gjduet-runtime-v15-final"></script>
+  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-runtime-v15-final"></script>
 
   <script>
   (function(){
@@ -695,19 +795,14 @@
       return v.slice(0, 9);
     }
 
-    function readLS(key){
-      try { return localStorage.getItem(key) || ''; }
+    function readSS(key){
+      try { return sessionStorage.getItem(key) || ''; }
       catch (_) { return ''; }
     }
 
     function writeSS(key, value){
       try { sessionStorage.setItem(key, value); }
       catch (_) {}
-    }
-
-    function readSS(key){
-      try { return sessionStorage.getItem(key) || ''; }
-      catch (_) { return ''; }
     }
 
     function makeId(prefix){
@@ -777,6 +872,14 @@
       missText: document.getElementById('missText'),
       comboText: document.getElementById('comboText'),
       bestText: document.getElementById('bestText'),
+      missionBar: document.getElementById('missionBar'),
+      missionGood: document.getElementById('missionGood'),
+      missionMiss: document.getElementById('missionMiss'),
+      missionCombo: document.getElementById('missionCombo'),
+      missionFinish: document.getElementById('missionFinish'),
+      feverBar: document.getElementById('feverBar'),
+      feverFill: document.getElementById('feverFill'),
+      feverText: document.getElementById('feverText'),
       arena: document.getElementById('arena'),
       guide: document.getElementById('guide'),
       statusText: document.getElementById('statusText'),
@@ -806,7 +909,6 @@
 
       startAt: 0,
       endAt: 0,
-      lastFrameAt: 0,
       nextSpawnAt: 0,
 
       score: 0,
@@ -817,14 +919,214 @@
       bestStreak: 0,
 
       targets: [],
-      targetSeq: 0
+      targetSeq: 0,
+
+      teamGoodTarget: 0,
+      teamMissLimit: 0,
+      teamComboTarget: 0,
+      missionGoodDone: false,
+      missionMissDone: false,
+      missionComboDone: false,
+      missionFinishDone: false,
+      missionDoneCount: 0,
+
+      teamCombo: 0,
+      teamBestCombo: 0,
+      feverActive: false,
+      feverStartedAt: 0,
+      feverUntil: 0,
+      feverDurationMs: 10000,
+      feverMultiplier: 2,
+      feverCount: 0,
+      lastFeverSignalAt: 0
     };
 
     let resultHeartbeatTimer = 0;
     let finalRepairTimer = 0;
+    let feverPollTimer = 0;
+    let audioCtx = null;
+    let sfxEnabled = true;
 
     function setStatus(text){
       ui.statusText.textContent = text;
+    }
+
+    function getAudioCtx(){
+      if (!sfxEnabled) return null;
+
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(function(){});
+        }
+
+        return audioCtx;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function tone(freq, duration, type, gain){
+      const ctxA = getAudioCtx();
+      if (!ctxA) return;
+
+      const osc = ctxA.createOscillator();
+      const g = ctxA.createGain();
+
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+
+      g.gain.setValueAtTime(0.0001, ctxA.currentTime);
+      g.gain.exponentialRampToValueAtTime(gain || 0.05, ctxA.currentTime + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctxA.currentTime + duration);
+
+      osc.connect(g);
+      g.connect(ctxA.destination);
+
+      osc.start();
+      osc.stop(ctxA.currentTime + duration + 0.02);
+    }
+
+    function playSfx(kind){
+      if (!sfxEnabled) return;
+
+      if (kind === 'start') {
+        tone(440, .10, 'sine', .045);
+        setTimeout(() => tone(660, .13, 'sine', .05), 90);
+        return;
+      }
+
+      if (kind === 'good') {
+        tone(720, .07, 'triangle', .04);
+        setTimeout(() => tone(920, .08, 'triangle', .035), 55);
+        return;
+      }
+
+      if (kind === 'bad') {
+        tone(180, .12, 'sawtooth', .035);
+        setTimeout(() => tone(130, .16, 'sawtooth', .025), 80);
+        return;
+      }
+
+      if (kind === 'mission') {
+        tone(660, .08, 'sine', .045);
+        setTimeout(() => tone(880, .08, 'sine', .045), 80);
+        setTimeout(() => tone(1040, .12, 'sine', .05), 160);
+        return;
+      }
+
+      if (kind === 'end') {
+        tone(520, .10, 'triangle', .04);
+        setTimeout(() => tone(680, .12, 'triangle', .04), 110);
+        setTimeout(() => tone(820, .16, 'triangle', .04), 240);
+        return;
+      }
+
+      if (kind === 'summary') {
+        tone(600, .08, 'sine', .035);
+        setTimeout(() => tone(760, .09, 'sine', .04), 90);
+        return;
+      }
+
+      if (kind === 'fever') {
+        tone(520, .07, 'triangle', .045);
+        setTimeout(() => tone(700, .08, 'triangle', .05), 70);
+        setTimeout(() => tone(920, .09, 'triangle', .05), 145);
+        setTimeout(() => tone(1160, .13, 'triangle', .045), 235);
+        return;
+      }
+
+      if (kind === 'feverGood') {
+        tone(980, .05, 'triangle', .035);
+        setTimeout(() => tone(1280, .055, 'triangle', .028), 45);
+      }
+    }
+
+    function getDuetSessionId() {
+      const key = 'HHA_GJ_DUET_SESSION__' + ctx.roomId + '__' + ctx.pid;
+
+      try {
+        let sid = sessionStorage.getItem(key);
+        if (!sid) {
+          sid = 'duet-' + ctx.roomId + '-' + ctx.pid + '-' + Date.now();
+          sessionStorage.setItem(key, sid);
+        }
+        return sid;
+      } catch (_) {
+        return 'duet-' + ctx.roomId + '-' + ctx.pid + '-' + Date.now();
+      }
+    }
+
+    function getLogEndpoint() {
+      return String(qs.get('log') || qs.get('api') || qs.get('logger') || '').trim();
+    }
+
+    function queueDuetLog(payload) {
+      try {
+        const key = 'HHA_GJ_DUET_EVENT_QUEUE';
+        const old = JSON.parse(localStorage.getItem(key) || '[]');
+        old.push(payload);
+        while (old.length > 200) old.shift();
+        localStorage.setItem(key, JSON.stringify(old));
+      } catch (_) {}
+    }
+
+    function duetLogEvent(eventName, extra) {
+      const payload = Object.assign({
+        api: 'herohealth_duet',
+        event: String(eventName || 'duet_event'),
+        game: 'goodjunk',
+        gameId: 'goodjunk',
+        mode: 'duet',
+        phase: 'runtime',
+        sessionId: getDuetSessionId(),
+        roomId: ctx.roomId,
+        matchId: ctx.matchId,
+        pid: ctx.pid,
+        name: ctx.name,
+        role: ctx.role,
+        diff: ctx.diff,
+        durationSec: ctx.durationSec,
+        score: Number(state.score || 0),
+        good: Number(state.good || 0),
+        junk: Number(state.junk || 0),
+        miss: Number(state.miss || 0),
+        streak: Number(state.streak || 0),
+        bestStreak: Number(state.bestStreak || 0),
+        ts: Date.now(),
+        pageUrl: location.href,
+        userAgent: navigator.userAgent
+      }, extra || {});
+
+      queueDuetLog(payload);
+
+      try {
+        window.dispatchEvent(new CustomEvent('hha:duet-log', { detail: payload }));
+      } catch (_) {}
+
+      try {
+        if (window.HHA_LOGGER && typeof window.HHA_LOGGER.logEvent === 'function') {
+          window.HHA_LOGGER.logEvent(payload);
+        }
+      } catch (_) {}
+
+      const endpoint = getLogEndpoint();
+
+      if (endpoint) {
+        try {
+          fetch(endpoint, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          }).catch(function(){});
+        } catch (_) {}
+      }
+
+      return payload;
     }
 
     function syncBootIdentity(){
@@ -876,6 +1178,280 @@
       }
 
       return { spawnMs: 620, lifeMs: 1450, junkRate: .31, maxTargets: 10 };
+    }
+
+    function setupTeamMissions(){
+      const d = String(ctx.diff || 'normal').toLowerCase();
+      const minutes = Math.max(1, Math.round(ctx.durationSec / 60));
+
+      let goodBase = 34;
+      let missLimit = 18;
+      let comboTarget = 8;
+
+      if (d === 'easy') {
+        goodBase = 26;
+        missLimit = 22;
+        comboTarget = 6;
+      } else if (d === 'hard') {
+        goodBase = 42;
+        missLimit = 14;
+        comboTarget = 10;
+      } else if (d === 'challenge') {
+        goodBase = 50;
+        missLimit = 10;
+        comboTarget = 12;
+      }
+
+      state.teamGoodTarget = Math.max(16, goodBase * minutes);
+      state.teamMissLimit = missLimit;
+      state.teamComboTarget = comboTarget;
+
+      state.missionGoodDone = false;
+      state.missionMissDone = true;
+      state.missionComboDone = false;
+      state.missionFinishDone = false;
+      state.missionDoneCount = 0;
+
+      renderTeamMissions();
+      renderFever();
+    }
+
+    function markMissionDone(key){
+      if (state[key]) return;
+
+      state[key] = true;
+      playSfx('mission');
+
+      const names = {
+        missionGoodDone: 'Team Good Mission สำเร็จ!',
+        missionComboDone: 'Team Combo Mission สำเร็จ!',
+        missionFinishDone: 'Team Finish Mission สำเร็จ!'
+      };
+
+      setStatus(names[key] || 'Team Mission สำเร็จ!');
+    }
+
+    function updateTeamMissions(){
+      const goodDone = state.good >= state.teamGoodTarget;
+      const missSafe = state.miss <= state.teamMissLimit;
+      const comboDone = state.bestStreak >= state.teamComboTarget;
+
+      if (goodDone) markMissionDone('missionGoodDone');
+      if (comboDone) markMissionDone('missionComboDone');
+
+      state.missionMissDone = missSafe;
+
+      state.missionDoneCount = [
+        state.missionGoodDone,
+        state.missionMissDone,
+        state.missionComboDone,
+        state.missionFinishDone
+      ].filter(Boolean).length;
+
+      renderTeamMissions();
+    }
+
+    function renderTeamMissions(){
+      if (!ui.missionGood) return;
+
+      const goodNow = Math.min(state.good, state.teamGoodTarget);
+      const missNow = state.miss;
+      const comboNow = Math.min(state.bestStreak, state.teamComboTarget);
+
+      ui.missionGood.textContent = '🎯 Good ' + goodNow + '/' + state.teamGoodTarget;
+      ui.missionMiss.textContent = '🛡️ Miss ' + missNow + '/' + state.teamMissLimit;
+      ui.missionCombo.textContent = '🔥 Combo ' + comboNow + '/' + state.teamComboTarget;
+      ui.missionFinish.textContent = state.missionFinishDone ? '🤝 Team Finish ✓' : '🤝 Team Finish';
+
+      ui.missionGood.className = 'mission-item ' + (state.missionGoodDone ? 'done' : '');
+      ui.missionMiss.className = 'mission-item ' + (state.missionMissDone ? 'done' : 'bad');
+      ui.missionCombo.className = 'mission-item ' + (state.missionComboDone ? 'done' : '');
+      ui.missionFinish.className = 'mission-item ' + (state.missionFinishDone ? 'done' : '');
+    }
+
+    function renderFever(){
+      if (!ui.feverBar || !ui.feverFill || !ui.feverText) return;
+
+      const t = now();
+
+      if (state.feverActive && t < state.feverUntil) {
+        const total = Math.max(1, state.feverUntil - state.feverStartedAt);
+        const left = Math.max(0, state.feverUntil - t);
+        const pct = Math.max(0, Math.min(100, (left / total) * 100));
+
+        ui.feverBar.classList.add('active');
+        ui.feverFill.style.width = pct + '%';
+        ui.feverText.textContent = '🔥 TEAM FEVER! คะแนน Good x' + state.feverMultiplier + ' • เหลือ ' + Math.ceil(left / 1000) + ' วิ';
+        return;
+      }
+
+      if (state.feverActive && t >= state.feverUntil) {
+        endTeamFever('time_up');
+      }
+
+      ui.feverBar.classList.remove('active');
+      ui.feverFill.style.width = '0%';
+
+      const comboNow = Math.min(state.bestStreak, state.teamComboTarget || 0);
+      ui.feverText.textContent = '🔥 Team Fever พร้อมเมื่อ Combo ' + comboNow + '/' + (state.teamComboTarget || 0);
+    }
+
+    function getRoomRootPathSafe() {
+      try {
+        if (boot && typeof boot.getRoomRootPath === 'function') {
+          return String(boot.getRoomRootPath() || '')
+            .replace(/^\/+/, '')
+            .replace(/\/+$/, '');
+        }
+      } catch (_) {}
+
+      return 'hha-battle/goodjunk/duetRooms/' + String(ctx.roomId || '').trim();
+    }
+
+    async function publishTeamFever(reason) {
+      try {
+        if (!window.firebase || typeof window.firebase.database !== 'function') return false;
+
+        const root = getRoomRootPathSafe();
+        if (!root || !ctx.matchId) return false;
+
+        const payload = {
+          active: true,
+          matchId: ctx.matchId,
+          roomId: ctx.roomId,
+          byPid: ctx.pid,
+          byName: ctx.name,
+          reason: String(reason || 'combo_trigger'),
+          startedAt: state.feverStartedAt,
+          untilAt: state.feverUntil,
+          multiplier: state.feverMultiplier,
+          updatedAt: now()
+        };
+
+        await window.firebase.database()
+          .ref(root + '/teamFever/' + ctx.matchId)
+          .set(payload);
+
+        duetLogEvent('duet_team_fever_signal', {
+          reason: payload.reason,
+          untilAt: payload.untilAt,
+          multiplier: payload.multiplier
+        });
+
+        return true;
+      } catch (err) {
+        console.warn('[GJ-DUET-RUNTIME] publishTeamFever failed:', err);
+        return false;
+      }
+    }
+
+    async function readTeamFeverSignal() {
+      try {
+        if (!window.firebase || typeof window.firebase.database !== 'function') return null;
+
+        const root = getRoomRootPathSafe();
+        if (!root || !ctx.matchId) return null;
+
+        const snap = await window.firebase.database()
+          .ref(root + '/teamFever/' + ctx.matchId)
+          .once('value');
+
+        return snap && snap.val ? snap.val() : null;
+      } catch (err) {
+        console.warn('[GJ-DUET-RUNTIME] readTeamFeverSignal failed:', err);
+        return null;
+      }
+    }
+
+    async function checkTeamFeverSignal() {
+      const sig = await readTeamFeverSignal();
+
+      if (!sig || !sig.active) return;
+
+      const untilAt = Number(sig.untilAt || 0);
+      const startedAt = Number(sig.startedAt || 0);
+      const updatedAt = Number(sig.updatedAt || 0);
+
+      if (!untilAt || untilAt <= now()) return;
+      if (updatedAt && updatedAt <= state.lastFeverSignalAt) return;
+
+      state.lastFeverSignalAt = updatedAt || now();
+
+      if (!state.feverActive || untilAt > state.feverUntil) {
+        activateTeamFever('shared_signal', {
+          startedAt,
+          untilAt,
+          multiplier: Number(sig.multiplier || state.feverMultiplier || 2),
+          silentPublish: true
+        });
+      }
+    }
+
+    function activateTeamFever(reason, opts){
+      opts = opts || {};
+
+      const t = now();
+      const startedAt = Number(opts.startedAt || t);
+      const untilAt = Number(opts.untilAt || (t + state.feverDurationMs));
+
+      if (state.feverActive && state.feverUntil >= untilAt) {
+        return;
+      }
+
+      state.feverActive = true;
+      state.feverStartedAt = startedAt;
+      state.feverUntil = untilAt;
+      state.feverMultiplier = Number(opts.multiplier || state.feverMultiplier || 2);
+      state.feverCount += 1;
+
+      playSfx('fever');
+      setStatus('🔥 Team Fever! เก็บ Good ได้คะแนน x' + state.feverMultiplier);
+
+      duetLogEvent('duet_team_fever_start', {
+        reason: String(reason || 'combo_trigger'),
+        feverUntil: state.feverUntil,
+        feverMultiplier: state.feverMultiplier,
+        feverCount: state.feverCount
+      });
+
+      renderFever();
+
+      if (!opts.silentPublish) {
+        publishTeamFever(reason).catch(function(){});
+      }
+    }
+
+    function endTeamFever(reason){
+      if (!state.feverActive) return;
+
+      state.feverActive = false;
+
+      duetLogEvent('duet_team_fever_end', {
+        reason: String(reason || 'time_up'),
+        feverCount: state.feverCount
+      });
+
+      setStatus('Team Fever จบแล้ว เก็บ Good ต่อเพื่อเปิด Fever อีกครั้ง!');
+      renderFever();
+    }
+
+    function startFeverPolling(){
+      if (feverPollTimer) clearInterval(feverPollTimer);
+
+      feverPollTimer = setInterval(function(){
+        if (!state.running || state.ended) return;
+
+        checkTeamFeverSignal().catch(function(){});
+        renderFever();
+      }, 800);
+    }
+
+    function stopFeverPolling(){
+      try {
+        if (feverPollTimer) clearInterval(feverPollTimer);
+      } catch (_) {}
+
+      feverPollTimer = 0;
     }
 
     function spawnTarget(){
@@ -956,25 +1532,43 @@
         state.good += 1;
         state.streak += 1;
         state.bestStreak = Math.max(state.bestStreak, state.streak);
+        state.teamCombo = state.streak;
+        state.teamBestCombo = Math.max(state.teamBestCombo, state.teamCombo);
+
+        if (!state.feverActive && state.bestStreak >= state.teamComboTarget && state.teamComboTarget > 0) {
+          activateTeamFever('combo_target_reached');
+        }
 
         const bonus = Math.min(8, Math.floor(state.streak / 5));
-        const gain = 10 + bonus;
+        let gain = 10 + bonus;
+
+        if (state.feverActive && now() < state.feverUntil) {
+          gain = Math.round(gain * state.feverMultiplier);
+          showFloat(x, y, '+' + gain + ' FEVER!', 'good');
+          playSfx('feverGood');
+        } else {
+          showFloat(x, y, '+' + gain + ' GOOD', 'good');
+          playSfx('good');
+        }
 
         state.score += gain;
-        showFloat(x, y, '+' + gain + ' GOOD', 'good');
         setStatus('เยี่ยม! เก็บ good ต่อเนื่อง คอมโบ ' + state.streak);
       } else {
         state.junk += 1;
         state.miss += 1;
         state.streak = 0;
+        state.teamCombo = 0;
         state.score = Math.max(0, state.score - 6);
 
         showFloat(x, y, 'MISS -6', 'bad');
+        playSfx('bad');
         setStatus('โดน junk แล้ว! ตั้งหลักใหม่ เก็บ good ต่อ');
       }
 
       removeTarget(item);
+      updateTeamMissions();
       updateHud();
+      renderFever();
     }
 
     function expireTargets(){
@@ -985,10 +1579,13 @@
         if (item.type === 'good') {
           state.miss += 1;
           state.streak = 0;
+          state.teamCombo = 0;
 
           const x = Number.parseFloat(item.el.style.left) || 0;
           const y = Number.parseFloat(item.el.style.top) || 0;
           showFloat(x, y, 'MISS', 'bad');
+          playSfx('bad');
+          updateTeamMissions();
         }
 
         removeTarget(item);
@@ -1016,6 +1613,7 @@
       }
 
       updateHud();
+      renderFever();
       requestAnimationFrame(frame);
     }
 
@@ -1051,20 +1649,23 @@
         miss: Number(state.miss || 0),
         streak: Number(state.bestStreak || state.streak || 0),
         bestStreak: Number(state.bestStreak || state.streak || 0),
+
+        missionGoodDone: !!state.missionGoodDone,
+        missionMissDone: !!state.missionMissDone,
+        missionComboDone: !!state.missionComboDone,
+        missionFinishDone: !!state.missionFinishDone,
+        missionDoneCount: Number(state.missionDoneCount || 0),
+        teamGoodTarget: Number(state.teamGoodTarget || 0),
+        teamMissLimit: Number(state.teamMissLimit || 0),
+        teamComboTarget: Number(state.teamComboTarget || 0),
+
+        teamCombo: Number(state.teamCombo || 0),
+        teamBestCombo: Number(state.teamBestCombo || 0),
+        feverCount: Number(state.feverCount || 0),
+        feverMultiplier: Number(state.feverMultiplier || 2),
+
         updatedAt: now()
       });
-    }
-
-    function getRoomRootPathSafe() {
-      try {
-        if (boot && typeof boot.getRoomRootPath === 'function') {
-          return String(boot.getRoomRootPath() || '')
-            .replace(/^\/+/, '')
-            .replace(/\/+$/, '');
-        }
-      } catch (_) {}
-
-      return 'hha-battle/goodjunk/duetRooms/' + String(ctx.roomId || '').trim();
     }
 
     async function writePlayerResultMirror(matchId, result, kind) {
@@ -1311,7 +1912,20 @@
         expectedPlayers: 2,
         finishedPlayers: list.length,
         partial: !!(meta && meta.partial),
-        reason: String(meta && meta.reason || '')
+        reason: String(meta && meta.reason || ''),
+
+        missionGoodDone: false,
+        missionMissDone: true,
+        missionComboDone: false,
+        missionFinishDone: false,
+        missionDoneCount: 0,
+        teamGoodTarget: 0,
+        teamMissLimit: 0,
+        teamComboTarget: 0,
+
+        teamBestCombo: 0,
+        feverCount: 0,
+        feverMultiplier: 2
       };
 
       merged.players = list.map(item => ({
@@ -1333,6 +1947,36 @@
         merged.streak = Math.max(merged.streak, Number(item.streak || 0));
       });
 
+      const missionSource = list.find(item => Number(item.teamGoodTarget || 0) > 0) || list[0] || {};
+
+      merged.teamGoodTarget = Number(missionSource.teamGoodTarget || 0);
+      merged.teamMissLimit = Number(missionSource.teamMissLimit || 0);
+      merged.teamComboTarget = Number(missionSource.teamComboTarget || 0);
+
+      merged.missionGoodDone = Number(merged.good || 0) >= Number(merged.teamGoodTarget || 999999);
+      merged.missionMissDone = Number(merged.miss || 0) <= Number(merged.teamMissLimit || 0);
+      merged.missionComboDone = Number(merged.streak || 0) >= Number(merged.teamComboTarget || 999999);
+      merged.missionFinishDone = true;
+
+      merged.missionDoneCount = [
+        merged.missionGoodDone,
+        merged.missionMissDone,
+        merged.missionComboDone,
+        merged.missionFinishDone
+      ].filter(Boolean).length;
+
+      merged.teamBestCombo = list.reduce((m, item) => {
+        return Math.max(m, Number(item.teamBestCombo || item.bestStreak || item.streak || 0));
+      }, 0);
+
+      merged.feverCount = list.reduce((m, item) => {
+        return Math.max(m, Number(item.feverCount || 0));
+      }, 0);
+
+      merged.feverMultiplier = list.reduce((m, item) => {
+        return Math.max(m, Number(item.feverMultiplier || 2));
+      }, 2);
+
       merged.grade = calcTeamGrade(merged);
       merged.medal = medalForGrade(merged.grade);
       merged.title = titleForGrade(merged.grade);
@@ -1350,6 +1994,14 @@
         if (!ctx.matchId || state.summaryShown || state.ended) return;
 
         const live = resultSnapshot('live');
+
+        duetLogEvent('duet_score_live', {
+          score: live.score,
+          good: live.good,
+          junk: live.junk,
+          miss: live.miss,
+          bestStreak: live.bestStreak
+        });
 
         writePlayerResultMirror(ctx.matchId, live, 'live').catch(function (err) {
           console.warn('[GJ-DUET-RUNTIME] live result heartbeat failed:', err);
@@ -1567,18 +2219,33 @@
       ui.sumScore.textContent = String(Number(s.score || 0));
       ui.sumGood.textContent = String(Number(s.good || 0));
       ui.sumMiss.textContent = String(Number(s.miss || 0));
-      ui.sumBest.textContent = String(Number(s.streak || 0));
+      ui.sumBest.textContent = String(Number(s.streak || s.teamBestCombo || 0));
 
       const players = normalizeSummaryPlayers(s);
       ui.summaryPlayers.innerHTML = players.map(playerCardHtml).join('');
 
+      const missionText = [
+        s.missionGoodDone ? '🎯 Good ✓' : '🎯 Good ยังไม่ครบ',
+        s.missionMissDone ? '🛡️ Miss ปลอดภัย ✓' : '🛡️ Miss เกินเป้า',
+        s.missionComboDone ? '🔥 Combo ✓' : '🔥 Combo ยังไม่ถึง',
+        s.missionFinishDone ? '🤝 Finish ✓' : '🤝 Finish รอข้อมูล'
+      ].join(' • ');
+
+      const feverText = '🔥 Fever ' + Number(s.feverCount || 0) + ' ครั้ง';
+
       if (s.partial) {
-        ui.summaryMessage.textContent = 'อีกฝั่งส่งผลไม่ทัน ระบบจะลองรวมคะแนนอีกครั้งอัตโนมัติภายในไม่กี่วินาที';
+        ui.summaryMessage.textContent =
+          'อีกฝั่งส่งผลไม่ทัน ระบบจะลองรวมคะแนนอีกครั้งอัตโนมัติ | ' +
+          missionText + ' • ' + feverText;
       } else {
-        ui.summaryMessage.textContent = 'รวมคะแนนครบทั้งสองคนแล้ว ยอดเยี่ยมมาก!';
+        ui.summaryMessage.textContent =
+          'รวมคะแนนครบทั้งสองคนแล้ว | Team Mission ' +
+          Number(s.missionDoneCount || 0) + '/4 • ' +
+          missionText + ' • ' + feverText;
       }
 
       ui.summaryOverlay.classList.add('show');
+      playSfx('summary');
 
       if (summary && summary.partial) {
         if (finalRepairTimer) clearTimeout(finalRepairTimer);
@@ -1602,6 +2269,13 @@
 
               await writeFinalSummaryDirect(ctx.matchId, repaired);
 
+              duetLogEvent('duet_final_summary_repaired', {
+                teamScore: Number(repaired.score || 0),
+                teamGood: Number(repaired.good || 0),
+                teamMiss: Number(repaired.miss || 0),
+                reason: String(repaired.reason || 'ui_repaired_after_partial')
+              });
+
               state.summaryShown = false;
               ui.summaryOverlay.classList.remove('show');
 
@@ -1616,6 +2290,15 @@
 
     async function publishResultAndShowSummary(reason){
       const own = resultSnapshot(reason);
+
+      duetLogEvent('duet_player_result', {
+        reason,
+        score: own.score,
+        good: own.good,
+        junk: own.junk,
+        miss: own.miss,
+        bestStreak: own.bestStreak
+      });
 
       setStatus('กำลังส่งผลคะแนนของเรา…');
 
@@ -1636,6 +2319,17 @@
 
       const summary = await waitForFinalOrCreate();
 
+      duetLogEvent('duet_final_summary', {
+        teamScore: Number(summary && summary.score || 0),
+        teamGood: Number(summary && summary.good || 0),
+        teamMiss: Number(summary && summary.miss || 0),
+        teamBestStreak: Number(summary && summary.streak || 0),
+        partial: !!(summary && summary.partial),
+        reason: String(summary && summary.reason || ''),
+        finishedPlayers: Number(summary && summary.finishedPlayers || 0),
+        expectedPlayers: Number(summary && summary.expectedPlayers || 2)
+      });
+
       showSummary(summary);
     }
 
@@ -1645,7 +2339,39 @@
       state.running = false;
       state.ended = true;
 
+      state.missionFinishDone = true;
+      updateTeamMissions();
+      playSfx('end');
+
+      duetLogEvent('duet_runtime_end', {
+        reason: reason || 'natural_end',
+        finalScore: Number(state.score || 0),
+        finalGood: Number(state.good || 0),
+        finalJunk: Number(state.junk || 0),
+        finalMiss: Number(state.miss || 0),
+        finalBestStreak: Number(state.bestStreak || 0)
+      });
+
+      duetLogEvent('duet_team_mission_end', {
+        missionGoodDone: !!state.missionGoodDone,
+        missionMissDone: !!state.missionMissDone,
+        missionComboDone: !!state.missionComboDone,
+        missionFinishDone: !!state.missionFinishDone,
+        missionDoneCount: Number(state.missionDoneCount || 0),
+        teamGoodTarget: Number(state.teamGoodTarget || 0),
+        teamMissLimit: Number(state.teamMissLimit || 0),
+        teamComboTarget: Number(state.teamComboTarget || 0),
+        teamBestCombo: Number(state.teamBestCombo || 0),
+        feverCount: Number(state.feverCount || 0),
+        feverMultiplier: Number(state.feverMultiplier || 2)
+      });
+
       stopResultHeartbeat();
+      stopFeverPolling();
+
+      if (state.feverActive) {
+        endTeamFever('game_end');
+      }
 
       state.targets.forEach(item => {
         try { item.el.remove(); } catch (_) {}
@@ -1679,12 +2405,30 @@
       state.endAt = state.startAt + ctx.durationSec * 1000;
       state.nextSpawnAt = now() + 350;
 
+      setupTeamMissions();
+
       ui.guide.classList.add('hide');
       ui.btnStart.disabled = true;
       ui.btnStart.textContent = 'กำลังเล่น';
       setStatus('เริ่มแล้ว! เก็บ good ให้เยอะที่สุด และระวัง junk');
 
+      playSfx('start');
+
+      duetLogEvent('duet_runtime_start', {
+        startAt: state.startAt,
+        endAt: state.endAt
+      });
+
+      duetLogEvent('duet_team_mission_start', {
+        teamGoodTarget: state.teamGoodTarget,
+        teamMissLimit: state.teamMissLimit,
+        teamComboTarget: state.teamComboTarget
+      });
+
       startResultHeartbeat();
+      startFeverPolling();
+      renderFever();
+
       updateHud();
       requestAnimationFrame(frame);
     }
@@ -1710,6 +2454,8 @@
     async function init(){
       await waitRoomSystemReady();
 
+      duetLogEvent('duet_runtime_open');
+
       if (boot && typeof boot.setPresence === 'function') {
         try {
           await boot.setPresence({
@@ -1722,11 +2468,16 @@
             lastSeen: now(),
             updatedAt: now()
           });
+
+          duetLogEvent('duet_runtime_presence', {
+            inRuntime: true
+          });
         } catch (err) {
           console.warn('[GJ-DUET-RUNTIME] setPresence runtime failed:', err);
         }
       }
 
+      setupTeamMissions();
       updateHud();
       setStatus('พร้อมเล่นแล้ว กดเริ่มเพื่อเริ่มรอบ Duet');
 
@@ -1766,6 +2517,8 @@
     }
 
     async function rematch(){
+      duetLogEvent('duet_rematch_clicked');
+
       const lobbyUrl = buildLobbyUrl();
 
       try {
@@ -1790,6 +2543,7 @@
     }
 
     function goHub(){
+      duetLogEvent('duet_go_hub');
       location.href = ctx.hub || '../nutrition-zone.html';
     }
 
@@ -1799,7 +2553,14 @@
     ui.btnRematch.addEventListener('click', rematch);
 
     window.addEventListener('beforeunload', function(){
+      duetLogEvent('duet_leave', {
+        running: !!state.running,
+        ended: !!state.ended,
+        summaryShown: !!state.summaryShown
+      });
+
       try { stopResultHeartbeat(); } catch (_) {}
+      try { stopFeverPolling(); } catch (_) {}
 
       try {
         if (finalRepairTimer) clearTimeout(finalRepairTimer);
