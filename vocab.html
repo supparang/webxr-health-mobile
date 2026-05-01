@@ -8621,5 +8621,296 @@
   }
 })();
 </script>
+<script>
+/* =========================================================
+   VOCAB v7.9.3 — SAFE CLEAN UI FIX
+   แก้ v7.9.2 ที่ซ่อนเมนูหลักแรงเกินไป
+   - คืน core student UI
+   - ซ่อนเฉพาะ panel เสริม/QA/teacher/reward debug
+   - ไม่ซ่อน section หลักอีก
+   ========================================================= */
+(function(){
+  "use strict";
+
+  var V793 = {
+    version: "v7.9.3-safe-clean-ui-fix-20260501"
+  };
+
+  function id(x){
+    return document.getElementById(x);
+  }
+
+  function qsa(sel){
+    return Array.prototype.slice.call(document.querySelectorAll(sel));
+  }
+
+  function textOf(el){
+    return String(el && el.textContent ? el.textContent : "").trim();
+  }
+
+  function paramOn(names){
+    try{
+      var p = new URLSearchParams(location.search);
+
+      for(var i = 0; i < names.length; i++){
+        var v = String(p.get(names[i]) || "").toLowerCase();
+        if(v === "1" || v === "true" || v === "yes" || v === "on"){
+          return true;
+        }
+      }
+    }catch(e){}
+
+    return false;
+  }
+
+  function isTeacherMode(){
+    return paramOn(["teacher", "admin", "qa", "debug"]);
+  }
+
+  function isTeamMode(){
+    return paramOn(["team", "event", "classEvent", "class_event", "liveboard"]) || isTeacherMode();
+  }
+
+  function unhide(el){
+    if(!el) return;
+
+    el.classList.remove("v792-hidden-for-student");
+    el.removeAttribute("data-v792-hide");
+
+    if(el.style && el.style.display === "none"){
+      el.style.display = "";
+    }
+  }
+
+  function hide(el){
+    if(!el) return;
+
+    el.classList.add("v793-hidden-extra");
+    el.style.display = "none";
+  }
+
+  function isCoreElement(el){
+    if(!el) return false;
+
+    return Boolean(
+      el.id === "v6MenuPanel" ||
+      el.id === "vocabV6App" ||
+      el.querySelector("[data-v6-bank]") ||
+      el.querySelector("[data-v6-diff]") ||
+      el.querySelector("[data-v6-mode]") ||
+      el.querySelector("#v63DisplayName") ||
+      el.querySelector("#v63StudentId") ||
+      el.querySelector("#v63Section") ||
+      el.querySelector("#v63SessionCode") ||
+      el.querySelector("#v6StartBtn") ||
+      el.querySelector("#v68LeaderboardBox")
+    );
+  }
+
+  function injectCss(){
+    if(id("v793Css")) return;
+
+    var style = document.createElement("style");
+    style.id = "v793Css";
+    style.textContent =
+      ".v793-hidden-extra{display:none!important;}" +
+      ".v793-production-note{margin-top:10px;padding:12px 14px;border-radius:18px;border:1px solid rgba(89,208,255,.24);background:rgba(89,208,255,.08);color:var(--muted);font-weight:850;line-height:1.45;}" +
+      ".v793-mode-chip{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;padding:7px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#eef7ff;font-size:12px;font-weight:1000;}";
+
+    document.head.appendChild(style);
+  }
+
+  function restoreCoreStudentUi(){
+    /*
+      กู้ container หลักก่อน เพราะ v7.9.2 อาจเคยซ่อนทั้ง section
+    */
+    unhide(id("vocabV6App"));
+    unhide(id("v6MenuPanel"));
+
+    var menu = id("v6MenuPanel");
+    if(menu){
+      unhide(menu.querySelector(".v6-hero-card"));
+      unhide(menu.querySelector(".v6-menu-grid"));
+    }
+
+    /*
+      กู้ card หลักของนักศึกษา
+    */
+    var coreCards = [];
+
+    var bankBtn = document.querySelector("[data-v6-bank]");
+    var diffBtn = document.querySelector("[data-v6-diff]");
+    var modeBtn = document.querySelector("[data-v6-mode]");
+    var nameInput = id("v63DisplayName");
+    var startBtn = id("v6StartBtn");
+    var leaderboard = id("v68LeaderboardBox");
+
+    if(bankBtn && bankBtn.closest) coreCards.push(bankBtn.closest(".v6-card"));
+    if(diffBtn && diffBtn.closest) coreCards.push(diffBtn.closest(".v6-card"));
+    if(modeBtn && modeBtn.closest) coreCards.push(modeBtn.closest(".v6-card"));
+    if(nameInput && nameInput.closest) coreCards.push(nameInput.closest(".v6-card"));
+    if(startBtn && startBtn.closest) coreCards.push(startBtn.closest(".v6-card"));
+    if(leaderboard && leaderboard.closest) coreCards.push(leaderboard.closest(".v6-card"));
+
+    coreCards.forEach(unhide);
+
+    /*
+      กู้ปุ่มหลักทั้งหมด
+    */
+    qsa("[data-v6-bank], [data-v6-diff], [data-v6-mode], #v6StartBtn, .v68-lb-tab").forEach(unhide);
+
+    /*
+      กู้ inputs นักศึกษา
+    */
+    qsa("#v63DisplayName, #v63StudentId, #v63Section, #v63SessionCode").forEach(unhide);
+  }
+
+  function cleanStartCard(){
+    var startBtn = id("v6StartBtn");
+    if(!startBtn || !startBtn.closest) return;
+
+    var card = startBtn.closest(".v6-card");
+    if(!card) return;
+
+    unhide(card);
+
+    var h2 = card.querySelector("h2");
+    if(h2){
+      h2.textContent = "เริ่มเล่น";
+    }
+
+    var missionRow = card.querySelector(".v6-mission-row");
+    if(missionRow){
+      missionRow.style.display = "none";
+    }
+
+    if(!id("v793ProductionNote")){
+      var note = document.createElement("div");
+      note.id = "v793ProductionNote";
+      note.className = "v793-production-note";
+      note.innerHTML =
+        "เลือก Word Bank, ระดับ, โหมดการเล่น และกรอกข้อมูลผู้เรียนให้ครบ จากนั้นกด Start เพื่อเริ่มเกม" +
+        "<br><span class='v793-mode-chip'>Student Mode</span>";
+
+      card.insertBefore(note, startBtn);
+    }
+  }
+
+  function hideOptionalPanels(){
+    if(isTeacherMode()){
+      return;
+    }
+
+    /*
+      ซ่อน panel เสริมด้วย id ที่รู้แน่นอน
+    */
+    [
+      "v78FinalPanel",
+      "v76Panel",
+      "v77PathPanel",
+      "v74Panel",
+      "v73RewardPanel"
+    ].forEach(function(x){
+      hide(id(x));
+    });
+
+    /*
+      Team/Event UI ให้โชว์เฉพาะ team/event mode
+    */
+    if(!isTeamMode()){
+      hide(id("v791SetupCard"));
+      hide(id("v79LiveBoardWrap"));
+      hide(id("v76Board"));
+    }else{
+      unhide(id("v791SetupCard"));
+      unhide(id("v79LiveBoardWrap"));
+      unhide(id("v76Board"));
+    }
+
+    /*
+      ซ่อนเฉพาะ card/panel ที่เป็น debug reward จริง
+      ห้ามซ่อน card หลัก เช่น mode card ที่มีคำ Boss Battle
+    */
+    qsa(".v6-card, .v73-reward-panel, .v74-reward-panel, .v74-panel").forEach(function(el){
+      if(isCoreElement(el)) return;
+
+      var t = textOf(el);
+
+      var shouldHide =
+        t.indexOf("v7.3 Challenge Rewards") >= 0 ||
+        t.indexOf("v7.4 Unlock Rewards") >= 0 ||
+        t.indexOf("v7.5") >= 0 ||
+        t.indexOf("v7.6") >= 0 ||
+        t.indexOf("v7.7") >= 0 ||
+        t.indexOf("Final QA") >= 0 ||
+        t.indexOf("Source Guard") >= 0 ||
+        t.indexOf("Guard Log") >= 0 ||
+        t.indexOf("Story Campaign") >= 0 ||
+        t.indexOf("AI Learning Path") >= 0 ||
+        t.indexOf("Unlock Rewards") >= 0 ||
+        t.indexOf("Challenge Rewards") >= 0;
+
+      if(shouldHide){
+        hide(el);
+      }
+    });
+
+    /*
+      ซ่อนเฉพาะปุ่ม teacher extension ไม่ซ่อน card แม่
+    */
+    qsa("button").forEach(function(btn){
+      var t = textOf(btn);
+
+      if(
+        t.indexOf("Start Teacher Live") >= 0 ||
+        t.indexOf("Run Final QA") >= 0 ||
+        t.indexOf("Test Source Guard") >= 0 ||
+        t.indexOf("Clear Guard Log") >= 0
+      ){
+        hide(btn);
+      }
+
+      /*
+        Team Battle / Class Event ปุ่ม extension ซ่อนเฉพาะ student ปกติ
+        แต่ไม่แตะ mode card หลักที่ใช้ data-v6-mode
+      */
+      if(!isTeamMode() && !btn.hasAttribute("data-v6-mode")){
+        if(t.indexOf("Team Battle") >= 0 || t.indexOf("Class Event") >= 0){
+          hide(btn);
+        }
+      }
+    });
+  }
+
+  function applyCleanUi(){
+    injectCss();
+
+    document.body.classList.remove("v792-student-clean");
+
+    restoreCoreStudentUi();
+    cleanStartCard();
+    hideOptionalPanels();
+
+    console.log("[VOCAB] v7.9.3 safe clean UI fix loaded", V793.version);
+  }
+
+  function boot(){
+    /*
+      รันหลายรอบเพื่อกู้หลัง v7.9.2 ที่อาจ setTimeout ซ่อนซ้ำ
+    */
+    applyCleanUi();
+    setTimeout(applyCleanUi, 800);
+    setTimeout(applyCleanUi, 1800);
+    setTimeout(applyCleanUi, 3600);
+    setTimeout(applyCleanUi, 5200);
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", boot, { once:true });
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
