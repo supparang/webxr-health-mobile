@@ -667,14 +667,6 @@
       return s.size;
     }
 
-    function getNumber(item, keys) {
-      for (const k of keys) {
-        const n = Number(item && item[k]);
-        if (Number.isFinite(n) && n !== 0) return n;
-      }
-      return 0;
-    }
-
     function filterEvents(list) {
       const room = String(ui.roomFilter.value || '').trim().toUpperCase();
       const search = String(ui.searchInput.value || '').trim().toLowerCase();
@@ -904,6 +896,8 @@
       if (ev.targetRoomId) parts.push('target=' + ev.targetRoomId);
       if (ev.teamScore !== undefined) parts.push('team=' + ev.teamScore);
       if (ev.finishedPlayers !== undefined) parts.push('finished=' + ev.finishedPlayers);
+      if (ev.feverCount !== undefined) parts.push('fever=' + ev.feverCount);
+      if (ev.missionDoneCount !== undefined) parts.push('mission=' + ev.missionDoneCount + '/4');
 
       return parts.join(' • ') || '-';
     }
@@ -932,6 +926,7 @@
           String(ev.event || '').includes('final') ? 'good' :
           String(ev.event || '').includes('failed') ? 'bad' :
           String(ev.event || '').includes('reset') ? 'warn' :
+          String(ev.event || '').includes('fever') ? 'warn' :
           '';
 
         return `
@@ -956,7 +951,8 @@
       const cols = [
         'ts','event','phase','roomId','matchId','pid','name','role',
         'diff','durationSec','score','good','junk','miss','bestStreak',
-        'teamScore','teamGood','teamMiss','partial','reason','pageUrl'
+        'teamScore','teamGood','teamMiss','partial','reason','feverCount',
+        'missionDoneCount','pageUrl'
       ];
 
       const rows = [
