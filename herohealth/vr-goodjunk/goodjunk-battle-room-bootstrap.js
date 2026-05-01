@@ -1,444 +1,464 @@
 // === /herohealth/vr-goodjunk/goodjunk-battle-room-bootstrap.js ===
-// PATCH v20260430e-GJ-BATTLE-FIREBASE-SHARED-ROOM
-// ✅ Shared Firebase room for Battle across devices
-// ✅ localStorage fallback only when Firebase unavailable
-// ✅ compatible with goodjunk-battle-room.js adapter API:
-//    loadRoom / saveRoom / patchRoom / subscribeRoom
-// ✅ room path: hha-battle/goodjunk/battleRooms/{roomId}
+// FULL PATCH v20260501-GJ-BATTLE-BOOTSTRAP-ROUNDID-COUNTDOWN-SERVER-TIME
+// ✅ Firebase Realtime Database adapter for GoodJunk Battle rooms
+// ✅ loadRoom / saveRoom / patchRoom / subscribeRoom
+// ✅ getServerNowMs via /.info/serverTimeOffset
+// ✅ Anonymous auth when available
+// ✅ Full room set on saveRoom
+// ✅ Safe merge on patchRoom
+// ✅ Exposes:
+//    window.HHA_BATTLE_ROOM_ADAPTER
+//    window.GJRoomAPI
+//    window.HHRoomAPI
 
-(function () {
+(function(){
   'use strict';
 
-  const qs = new URLSearchParams(location.search);
-  const DEBUG = qs.get('debug') === '1';
+  const ADAPTER_VERSION = 'v20260501-GJ-BATTLE-BOOTSTRAP-ROUNDID-COUNTDOWN-SERVER-TIME';
 
-  const STORAGE = {
-    localPrefix: 'GJ_BATTLE_SHARED_LOCAL:'
-  };
+  const DEFAULT_ROOT =
+    window.HHA_BATTLE_ROOM_ROOT ||
+    window.GJ_BATTLE_ROOM_ROOT ||
+    'herohealth/goodjunk/battleRooms';
 
-  function log(...args) {
-    if (!DEBUG) return;
-    try { console.log('[GJ-BATTLE-BOOT]', ...args); } catch (_) {}
-  }
+  const LOCAL_PREFIX = 'GJ_ROOM_LOCAL_BOOTSTRAP:';
 
-  function warn(...args) {
-    try { console.warn('[GJ-BATTLE-BOOT]', ...args); } catch (_) {}
-  }
-
-  function now() {
-    return Date.now();
-  }
-
-  function clean(v, d = '') {
+  function clean(v, d = ''){
     const s = String(v ?? '').trim();
     return s || d;
   }
 
-  function safeKey(raw) {
-    return String(raw || '')
-      .trim()
-      .replace(/[.#$/\[\]]/g, '_')
-      .slice(0, 96) || 'anon';
+  function nowMs(){
+    return Date.now();
   }
 
-  function cleanPath(path) {
-    return String(path || '')
-      .trim()
-      .replace(/\/+/g, '/')
-      .replace(/^\/+/, '')
-      .replace(/\/+$/, '');
-  }
-
-  function normalizeRoomId(raw) {
-    let v = String(raw || '').trim().toUpperCase();
-    v = v.replace(/\s+/g, '');
-    v = v.replace(/[^A-Z0-9-]/g, '');
-
-    if (!v) return '';
-
-    if (!v.startsWith('GJ-BT-')) {
-      v = 'GJ-BT-' + v
-        .replace(/^GJ/i, '')
-        .replace(/^BT/i, '')
-        .replace(/^-+/, '');
+  function safeJsonParse(text, fallback = null){
+    try{
+      return JSON.parse(text);
+    }catch(_){
+      return fallback;
     }
-
-    return v.slice(0, 18);
   }
 
-  function roomPath(roomId) {
-    const id = normalizeRoomId(roomId);
-    return cleanPath(`hha-battle/goodjunk/battleRooms/${id}`);
-  }
-
-  function localKey(roomId) {
-    return STORAGE.localPrefix + normalizeRoomId(roomId);
-  }
-
-  function emptyRoom(roomId) {
-    const id = normalizeRoomId(roomId);
-    const t = now();
-
-    return {
-      roomId: id,
-      mode: 'battle',
-      status: 'waiting',
-      hostPid: '',
-      createdAt: t,
-      updatedAt: t,
-      startedAt: 0,
-      players: {},
-      attacks: [],
-      effects: [],
-      lastAttackAt: 0
-    };
-  }
-
-  function normalizePlayer(pidKey, p) {
-    p = p && typeof p === 'object' ? p : {};
-    const pid = safeKey(p.pid || pidKey || 'anon');
-
-    return {
-      pid,
-      name: clean(p.name || p.nick || pid, 'Player'),
-      nick: clean(p.nick || p.name || pid, 'Player'),
-      role: clean(p.role, 'player'),
-      joinedAt: Number(p.joinedAt || 0) || now(),
-      ready: p.ready === true,
-
-      score: Number(p.score || 0) || 0,
-      combo: Number(p.combo || 0) || 0,
-      hp: Number.isFinite(Number(p.hp)) ? Number(p.hp) : 3,
-      shield: Number.isFinite(Number(p.shield)) ? Number(p.shield) : 0,
-      attackMeter: Number.isFinite(Number(p.attackMeter)) ? Number(p.attackMeter) : 0,
-
-      goodHits: Number(p.goodHits || 0) || 0,
-      junkHits: Number(p.junkHits || 0) || 0,
-      attacksSent: Number(p.attacksSent || 0) || 0,
-      attacksBlocked: Number(p.attacksBlocked || 0) || 0,
-      attacksReceived: Number(p.attacksReceived || 0) || 0,
-
-      online: p.online !== false,
-      lastSeenAt: Number(p.lastSeenAt || p.updatedAt || 0) || now(),
-      updatedAt: Number(p.updatedAt || 0) || now()
-    };
-  }
-
-  function normalizeRoom(roomId, raw) {
-    if (!raw || typeof raw !== 'object') return null;
-
-    const id = normalizeRoomId(raw.roomId || roomId);
-    const playersRaw = raw.players && typeof raw.players === 'object' ? raw.players : {};
-    const players = {};
-
-    Object.keys(playersRaw).forEach((pid) => {
-      const p = normalizePlayer(pid, playersRaw[pid]);
-      if (p && p.pid) players[p.pid] = p;
-    });
-
-    return {
-      roomId: id,
-      mode: clean(raw.mode, 'battle'),
-      status: clean(raw.status, 'waiting'),
-      hostPid: clean(raw.hostPid, ''),
-      createdAt: Number(raw.createdAt || 0) || now(),
-      updatedAt: Number(raw.updatedAt || 0) || now(),
-      startedAt: Number(raw.startedAt || 0) || 0,
-      players,
-      attacks: Array.isArray(raw.attacks) ? raw.attacks.slice(-30) : [],
-      effects: Array.isArray(raw.effects) ? raw.effects.slice(-20) : [],
-      lastAttackAt: Number(raw.lastAttackAt || 0) || 0
-    };
-  }
-
-  function mergeById(prevList, nextList, limit = 30) {
-    const map = new Map();
-
-    (Array.isArray(prevList) ? prevList : []).forEach((item) => {
-      if (!item) return;
-      const id = String(item.id || Math.random()).trim();
-      map.set(id, item);
-    });
-
-    (Array.isArray(nextList) ? nextList : []).forEach((item) => {
-      if (!item) return;
-      const id = String(item.id || Math.random()).trim();
-      map.set(id, item);
-    });
-
-    return Array.from(map.values()).slice(-limit);
-  }
-
-  async function getFirebaseCtx() {
-    try {
-      if (window.HHA_FIREBASE_READY) {
-        const out = await window.HHA_FIREBASE_READY;
-        if (out && out.db) return out;
-      }
-    } catch (err) {
-      warn('HHA_FIREBASE_READY failed', err);
+  function clone(obj){
+    try{
+      return JSON.parse(JSON.stringify(obj || {}));
+    }catch(_){
+      return obj || {};
     }
-
-    try {
-      if (window.HHA_FIREBASE && window.HHA_FIREBASE.db) {
-        return window.HHA_FIREBASE;
-      }
-    } catch (_) {}
-
-    try {
-      if (window.firebase && typeof window.firebase.database === 'function') {
-        return {
-          db: window.firebase.database(),
-          auth: window.firebase.auth ? window.firebase.auth() : null
-        };
-      }
-    } catch (_) {}
-
-    return null;
   }
 
-  async function getDb() {
-    const ctx = await getFirebaseCtx();
-    return ctx && ctx.db ? ctx.db : null;
+  function sanitizeFirebaseKey(key){
+    return clean(key, 'room')
+      .replace(/[.#$/[\]]/g, '_')
+      .replace(/\s+/g, '_')
+      .slice(0, 80);
   }
 
-  async function dbOnce(path) {
-    const db = await getDb();
-    if (!db) return null;
-
-    return await new Promise((resolve, reject) => {
-      try {
-        db.ref(cleanPath(path)).once(
-          'value',
-          (snap) => resolve(snap && typeof snap.val === 'function' ? snap.val() : null),
-          reject
-        );
-      } catch (err) {
-        reject(err);
-      }
-    });
+  function roomPath(roomId){
+    const safeRoom = sanitizeFirebaseKey(roomId);
+    return `${DEFAULT_ROOT}/${safeRoom}`;
   }
 
-  async function dbTransaction(path, updateFn) {
-    const db = await getDb();
-    if (!db) throw new Error('firebase unavailable');
-
-    return await new Promise((resolve, reject) => {
-      try {
-        db.ref(cleanPath(path)).transaction(
-          updateFn,
-          (err, committed, snap) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-
-            resolve({
-              committed: !!committed,
-              value: snap && typeof snap.val === 'function' ? snap.val() : null
-            });
-          },
-          false
-        );
-      } catch (err) {
-        reject(err);
-      }
-    });
+  function hasFirebase(){
+    return !!(
+      window.firebase &&
+      typeof window.firebase.initializeApp === 'function' &&
+      typeof window.firebase.database === 'function'
+    );
   }
 
-  function readLocal(roomId) {
-    try {
-      const raw = localStorage.getItem(localKey(roomId));
-      if (!raw) return null;
-      return normalizeRoom(roomId, JSON.parse(raw));
-    } catch (_) {
+  function getDb(){
+    if(!hasFirebase()) return null;
+
+    try{
+      return firebase.database();
+    }catch(err){
+      console.warn('[GJ Battle Bootstrap] database unavailable', err);
       return null;
     }
   }
 
-  function writeLocal(roomId, room) {
-    const next = normalizeRoom(roomId, room) || emptyRoom(roomId);
-    next.updatedAt = now();
+  async function ensureAuth(){
+    try{
+      if(!window.firebase || typeof firebase.auth !== 'function') return;
 
-    try {
-      localStorage.setItem(localKey(roomId), JSON.stringify(next));
-    } catch (_) {}
+      const auth = firebase.auth();
+      if(!auth) return;
 
-    try {
-      window.dispatchEvent(new CustomEvent('hha:gjbattle-local-room-update', {
-        detail: next
-      }));
-    } catch (_) {}
+      if(auth.currentUser) return;
 
-    return next;
+      if(typeof auth.signInAnonymously === 'function'){
+        await auth.signInAnonymously();
+      }
+    }catch(err){
+      // Some RTDB rules may allow public write/read, so auth failure should not block.
+      console.warn('[GJ Battle Bootstrap] anonymous auth skipped/failed', err);
+    }
   }
 
-  async function loadRoom(roomId) {
-    const id = normalizeRoomId(roomId);
-    if (!id) return null;
+  async function ensureReady(){
+    if(!hasFirebase()) return false;
 
-    const db = await getDb();
+    await ensureAuth();
 
-    if (db) {
-      const raw = await dbOnce(roomPath(id));
-      return normalizeRoom(id, raw);
-    }
-
-    return readLocal(id);
+    const db = getDb();
+    return !!db;
   }
 
-  async function patchRoom(roomId, patch) {
-    const id = normalizeRoomId(roomId);
-    if (!id) return null;
+  function normalizeRoom(roomId, payload){
+    const room = payload && typeof payload === 'object' ? clone(payload) : {};
 
-    const db = await getDb();
+    const now = nowMs();
 
-    if (db) {
-      let output = null;
+    return {
+      roomId: clean(room.roomId || roomId, roomId),
+      mode: clean(room.mode, 'battle'),
+      status: clean(room.status, 'waiting'),
 
-      await dbTransaction(roomPath(id), (current) => {
-        const prev = normalizeRoom(id, current) || emptyRoom(id);
-        const incoming = patch && typeof patch === 'object' ? patch : {};
+      currentRoundId: clean(room.currentRoundId, ''),
+      roundSeq: Number(room.roundSeq || 0) || 0,
 
-        const merged = {
-          ...prev,
-          ...incoming,
-          roomId: id,
-          mode: 'battle',
-          players: incoming.players && typeof incoming.players === 'object'
-            ? { ...prev.players, ...incoming.players }
-            : prev.players,
-          attacks: Array.isArray(incoming.attacks)
-            ? mergeById(prev.attacks, incoming.attacks, 30)
-            : prev.attacks,
-          effects: Array.isArray(incoming.effects)
-            ? mergeById(prev.effects, incoming.effects, 20)
-            : prev.effects,
-          updatedAt: now()
-        };
+      hostPid: clean(room.hostPid, ''),
+      createdAt: Number(room.createdAt || 0) || now,
+      updatedAt: Number(room.updatedAt || 0) || now,
+      startedAt: Number(room.startedAt || 0) || 0,
+      battleStartAt: Number(room.battleStartAt || 0) || 0,
+      endedAt: Number(room.endedAt || 0) || 0,
 
-        output = merged;
-        return merged;
-      });
+      players:
+        room.players && typeof room.players === 'object'
+          ? room.players
+          : {},
 
-      return output || await loadRoom(id);
+      attacks:
+        Array.isArray(room.attacks)
+          ? room.attacks
+          : [],
+
+      effects:
+        Array.isArray(room.effects)
+          ? room.effects
+          : [],
+
+      lastAttackAt: Number(room.lastAttackAt || 0) || 0,
+      matchEnd:
+        room.matchEnd && typeof room.matchEnd === 'object'
+          ? room.matchEnd
+          : null
+    };
+  }
+
+  function localKey(roomId){
+    return `${LOCAL_PREFIX}${sanitizeFirebaseKey(roomId)}`;
+  }
+
+  function localLoadRoom(roomId){
+    try{
+      const raw = localStorage.getItem(localKey(roomId));
+      const parsed = safeJsonParse(raw, null);
+      return parsed ? normalizeRoom(roomId, parsed) : null;
+    }catch(_){
+      return null;
     }
+  }
 
-    const prev = readLocal(id) || emptyRoom(id);
-    const incoming = patch && typeof patch === 'object' ? patch : {};
+  function localSaveRoom(roomId, payload){
+    const room = normalizeRoom(roomId, payload);
+    room.updatedAt = nowMs();
+
+    try{
+      localStorage.setItem(localKey(roomId), JSON.stringify(room));
+    }catch(_){}
+
+    return room;
+  }
+
+  function mergeRoom(prev, patch){
+    const base = prev && typeof prev === 'object' ? clone(prev) : {};
+    const p = patch && typeof patch === 'object' ? clone(patch) : {};
 
     const merged = {
-      ...prev,
-      ...incoming,
-      roomId: id,
-      mode: 'battle',
-      players: incoming.players && typeof incoming.players === 'object'
-        ? { ...prev.players, ...incoming.players }
-        : prev.players,
-      attacks: Array.isArray(incoming.attacks)
-        ? mergeById(prev.attacks, incoming.attacks, 30)
-        : prev.attacks,
-      effects: Array.isArray(incoming.effects)
-        ? mergeById(prev.effects, incoming.effects, 20)
-        : prev.effects,
-      updatedAt: now()
+      ...base,
+      ...p
     };
 
-    return writeLocal(id, merged);
-  }
-
-  async function saveRoom(roomId, payload) {
-    return await patchRoom(roomId, payload);
-  }
-
-  function subscribeRoom(roomId, callback) {
-    const id = normalizeRoomId(roomId);
-    let stopped = false;
-    let firebaseRef = null;
-    let firebaseHandler = null;
-    let localTimer = 0;
-
-    function stopLocal() {
-      try { clearInterval(localTimer); } catch (_) {}
-      localTimer = 0;
+    if(p.players && typeof p.players === 'object'){
+      merged.players = {
+        ...(base.players && typeof base.players === 'object' ? base.players : {}),
+        ...p.players
+      };
+    }else if(base.players && typeof base.players === 'object'){
+      merged.players = base.players;
+    }else{
+      merged.players = {};
     }
 
-    function startLocal() {
+    if(Array.isArray(p.attacks)){
+      merged.attacks = p.attacks;
+    }else if(Array.isArray(base.attacks)){
+      merged.attacks = base.attacks;
+    }else{
+      merged.attacks = [];
+    }
+
+    if(Array.isArray(p.effects)){
+      merged.effects = p.effects;
+    }else if(Array.isArray(base.effects)){
+      merged.effects = base.effects;
+    }else{
+      merged.effects = [];
+    }
+
+    if('matchEnd' in p){
+      merged.matchEnd = p.matchEnd;
+    }else if('matchEnd' in base){
+      merged.matchEnd = base.matchEnd;
+    }else{
+      merged.matchEnd = null;
+    }
+
+    merged.updatedAt = Number(p.updatedAt || 0) || nowMs();
+
+    return merged;
+  }
+
+  function makeLocalFallbackAdapter(){
+    function loadRoom(roomId){
+      return Promise.resolve(localLoadRoom(roomId));
+    }
+
+    function saveRoom(roomId, payload){
+      return Promise.resolve(localSaveRoom(roomId, payload));
+    }
+
+    async function patchRoom(roomId, patch){
+      const prev = localLoadRoom(roomId) || {};
+      const merged = mergeRoom(prev, patch);
+      return localSaveRoom(roomId, merged);
+    }
+
+    function subscribeRoom(roomId, callback){
+      if(typeof callback !== 'function') return function(){};
+
       const emit = () => {
-        if (stopped) return;
-        callback(readLocal(id));
+        try{
+          callback(localLoadRoom(roomId));
+        }catch(_){}
       };
 
-      window.addEventListener('hha:gjbattle-local-room-update', emit);
-      localTimer = setInterval(emit, 650);
+      const onStorage = (ev) => {
+        if(!ev || ev.key === localKey(roomId)) emit();
+      };
+
+      window.addEventListener('storage', onStorage);
+
+      const timer = setInterval(emit, 700);
       emit();
 
-      return () => {
-        try { window.removeEventListener('hha:gjbattle-local-room-update', emit); } catch (_) {}
-        stopLocal();
+      return function unsubscribe(){
+        try{ window.removeEventListener('storage', onStorage); }catch(_){}
+        try{ clearInterval(timer); }catch(_){}
       };
     }
 
-    let offLocal = null;
-
-    async function start() {
-      const db = await getDb();
-
-      if (stopped) return;
-
-      if (db) {
-        firebaseRef = db.ref(roomPath(id));
-        firebaseHandler = (snap) => {
-          if (stopped) return;
-          const value = snap && typeof snap.val === 'function' ? snap.val() : null;
-          callback(normalizeRoom(id, value));
-        };
-
-        firebaseRef.on('value', firebaseHandler);
-        return;
-      }
-
-      offLocal = startLocal();
+    async function getServerNowMs(){
+      return Date.now();
     }
 
-    start().catch((err) => {
-      warn('subscribeRoom failed; fallback local', err);
-      if (!offLocal) offLocal = startLocal();
-    });
-
-    return function unsubscribe() {
-      stopped = true;
-
-      try {
-        if (firebaseRef && firebaseHandler) {
-          firebaseRef.off('value', firebaseHandler);
-        }
-      } catch (_) {}
-
-      try {
-        if (typeof offLocal === 'function') offLocal();
-      } catch (_) {}
+    return {
+      type: 'local-fallback-room-adapter',
+      version: ADAPTER_VERSION,
+      root: 'localStorage',
+      loadRoom,
+      saveRoom,
+      patchRoom,
+      subscribeRoom,
+      getServerNowMs
     };
   }
 
-  const adapter = {
-    type: 'firebase-battle-shared-adapter',
-    loadRoom,
-    saveRoom,
-    patchRoom,
-    subscribeRoom
-  };
+  function makeFirebaseAdapter(){
+    async function loadRoom(roomId){
+      const ok = await ensureReady();
+
+      if(!ok){
+        return localLoadRoom(roomId);
+      }
+
+      try{
+        const snap = await firebase.database()
+          .ref(roomPath(roomId))
+          .once('value');
+
+        const val = snap.val();
+
+        if(!val) return null;
+
+        return normalizeRoom(roomId, val);
+      }catch(err){
+        console.warn('[GJ Battle Bootstrap] loadRoom failed, using local fallback', err);
+        return localLoadRoom(roomId);
+      }
+    }
+
+    async function saveRoom(roomId, payload){
+      const room = normalizeRoom(roomId, payload);
+      room.updatedAt = Number(room.updatedAt || 0) || nowMs();
+
+      const ok = await ensureReady();
+
+      if(!ok){
+        return localSaveRoom(roomId, room);
+      }
+
+      try{
+        await firebase.database()
+          .ref(roomPath(roomId))
+          .set(room);
+
+        return room;
+      }catch(err){
+        console.warn('[GJ Battle Bootstrap] saveRoom failed, using local fallback', err);
+        return localSaveRoom(roomId, room);
+      }
+    }
+
+    async function patchRoom(roomId, patch){
+      const ok = await ensureReady();
+
+      if(!ok){
+        const prev = localLoadRoom(roomId) || {};
+        const merged = normalizeRoom(roomId, mergeRoom(prev, patch));
+        return localSaveRoom(roomId, merged);
+      }
+
+      try{
+        const ref = firebase.database().ref(roomPath(roomId));
+        const snap = await ref.once('value');
+        const prev = snap.val() || {};
+
+        const merged = normalizeRoom(roomId, mergeRoom(prev, patch));
+
+        // Important:
+        // ใช้ set ทั้ง room เพื่อให้ arrays/status/matchEnd/currentRoundId ตรงกันทุกเครื่อง
+        // และลดปัญหา update แบบ shallow ที่ทำให้ field เก่าค้าง
+        await ref.set(merged);
+
+        return merged;
+      }catch(err){
+        console.warn('[GJ Battle Bootstrap] patchRoom failed, using local fallback', err);
+
+        const prev = localLoadRoom(roomId) || {};
+        const merged = normalizeRoom(roomId, mergeRoom(prev, patch));
+        return localSaveRoom(roomId, merged);
+      }
+    }
+
+    function subscribeRoom(roomId, callback){
+      if(typeof callback !== 'function') return function(){};
+
+      let firebaseRef = null;
+      let firebaseHandler = null;
+      let stopped = false;
+      let localTimer = null;
+
+      function emitLocal(){
+        if(stopped) return;
+        try{
+          callback(localLoadRoom(roomId));
+        }catch(_){}
+      }
+
+      function startLocalFallback(){
+        if(localTimer) return;
+        localTimer = setInterval(emitLocal, 750);
+        emitLocal();
+      }
+
+      ensureReady().then((ok) => {
+        if(stopped) return;
+
+        if(!ok){
+          startLocalFallback();
+          return;
+        }
+
+        try{
+          firebaseRef = firebase.database().ref(roomPath(roomId));
+          firebaseHandler = firebaseRef.on('value', (snap) => {
+            if(stopped) return;
+
+            const val = snap.val();
+            const room = val ? normalizeRoom(roomId, val) : null;
+
+            try{
+              callback(room);
+            }catch(_){}
+          }, (err) => {
+            console.warn('[GJ Battle Bootstrap] subscribeRoom error, using local fallback', err);
+            startLocalFallback();
+          });
+        }catch(err){
+          console.warn('[GJ Battle Bootstrap] subscribeRoom failed, using local fallback', err);
+          startLocalFallback();
+        }
+      });
+
+      return function unsubscribe(){
+        stopped = true;
+
+        try{
+          if(firebaseRef && firebaseHandler){
+            firebaseRef.off('value', firebaseHandler);
+          }
+        }catch(_){}
+
+        try{
+          if(localTimer) clearInterval(localTimer);
+        }catch(_){}
+      };
+    }
+
+    async function getServerNowMs(){
+      const ok = await ensureReady();
+
+      if(!ok) return Date.now();
+
+      try{
+        const snap = await firebase.database()
+          .ref('/.info/serverTimeOffset')
+          .once('value');
+
+        const offset = Number(snap.val() || 0);
+        return Date.now() + offset;
+      }catch(err){
+        console.warn('[GJ Battle Bootstrap] getServerNowMs failed', err);
+        return Date.now();
+      }
+    }
+
+    return {
+      type: 'firebase-room-adapter',
+      version: ADAPTER_VERSION,
+      root: DEFAULT_ROOT,
+      loadRoom,
+      saveRoom,
+      patchRoom,
+      subscribeRoom,
+      getServerNowMs
+    };
+  }
+
+  const adapter = hasFirebase()
+    ? makeFirebaseAdapter()
+    : makeLocalFallbackAdapter();
 
   window.HHA_BATTLE_ROOM_ADAPTER = adapter;
-  window.HHA_BATTLE_ROOM_BOOT = {
-    adapter,
-    normalizeRoomId,
-    roomPath,
-    loadRoom,
-    saveRoom,
-    patchRoom,
-    subscribeRoom
-  };
+  window.GJRoomAPI = adapter;
+  window.HHRoomAPI = adapter;
 
-  log('ready');
+  window.GJ_BATTLE_BOOTSTRAP_VERSION = ADAPTER_VERSION;
+
+  console.info('[GJ Battle Bootstrap] ready:', adapter.type, ADAPTER_VERSION);
 })();
