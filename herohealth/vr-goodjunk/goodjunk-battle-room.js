@@ -1,6 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk-battle-room.js ===
-// FULL PATCH v20260430c-GJ-BATTLE-ROOM-ATTACK-SYSTEM
+// FULL PATCH v20260430e-GJ-BATTLE-ROOM-ATTACK-FIREBASE-ADAPTER
 // ✅ Battle 1v1 room guard
+// ✅ Firebase shared adapter priority
 // ✅ Local room adapter fallback
 // ✅ Stable player list
 // ✅ Battle attack queue
@@ -134,6 +135,7 @@ function createBattlePlayer(pid, payload = {}, fallbackRole = 'player') {
     attacksBlocked: Number(payload.attacksBlocked || 0) || 0,
     attacksReceived: Number(payload.attacksReceived || 0) || 0,
 
+    online: payload.online !== false,
     lastSeenAt: Number(payload.lastSeenAt || 0) || now,
     updatedAt: Number(payload.updatedAt || 0) || now
   };
@@ -245,7 +247,7 @@ function makeLocalRoomAdapter() {
       ...patch,
       players:
         patch?.players && typeof patch.players === 'object'
-          ? patch.players
+          ? { ...prev.players, ...patch.players }
           : prev.players,
       attacks:
         Array.isArray(patch?.attacks)
@@ -299,6 +301,16 @@ export function makeRoomAdapter() {
   const g = window;
 
   if (
+    g.HHA_BATTLE_ROOM_ADAPTER &&
+    typeof g.HHA_BATTLE_ROOM_ADAPTER.loadRoom === 'function' &&
+    typeof g.HHA_BATTLE_ROOM_ADAPTER.saveRoom === 'function' &&
+    typeof g.HHA_BATTLE_ROOM_ADAPTER.patchRoom === 'function' &&
+    typeof g.HHA_BATTLE_ROOM_ADAPTER.subscribeRoom === 'function'
+  ) {
+    return g.HHA_BATTLE_ROOM_ADAPTER;
+  }
+
+  if (
     g.GJRoomAPI &&
     typeof g.GJRoomAPI.loadRoom === 'function' &&
     typeof g.GJRoomAPI.saveRoom === 'function' &&
@@ -329,6 +341,7 @@ export function getPlayers(room) {
   const players = room?.players || {};
   return Object.values(players)
     .filter(Boolean)
+    .filter((p) => p.online !== false)
     .sort((a, b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
 }
 
@@ -481,7 +494,7 @@ export function classifyBattleRoom(ctx = {}, room = null) {
     return {
       ok: false,
       code: 'WAITING_START',
-      title: 'รอ Host กดเริ่มเกม',
+      title: 'รอเริ่มเกม',
       message: 'ครบ 2/2 แล้ว แต่ห้องยังไม่ถูกสั่งเริ่ม',
       room
     };
@@ -567,12 +580,12 @@ export async function updateBattlePlayerStats(ctx = {}, patch = {}, options = {}
     attacksSent: Number(patch.attacksSent ?? player.attacksSent) || 0,
     attacksBlocked: Number(patch.attacksBlocked ?? player.attacksBlocked) || 0,
     attacksReceived: Number(patch.attacksReceived ?? player.attacksReceived) || 0,
+    online: true,
     lastSeenAt: nowMs(),
     updatedAt: nowMs()
   };
 
   const players = {
-    ...room.players,
     [pid]: nextPlayer
   };
 
@@ -595,11 +608,11 @@ export async function addBattleShield(ctx = {}, options = {}) {
 
   const player = createBattlePlayer(pid, room.players[pid]);
   player.shield = 1;
+  player.online = true;
   player.updatedAt = nowMs();
   player.lastSeenAt = nowMs();
 
   const players = {
-    ...room.players,
     [pid]: player
   };
 
@@ -678,6 +691,7 @@ export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', optio
 
   from.attackMeter = clamp(from.attackMeter - cost, 0, 3);
   from.attacksSent += 1;
+  from.online = true;
   from.updatedAt = nowMs();
   from.lastSeenAt = nowMs();
 
@@ -685,7 +699,6 @@ export async function sendBattleAttack(ctx = {}, attackType = 'junkStorm', optio
   attacks.push(attack);
 
   const players = {
-    ...room.players,
     [fromPid]: from,
     [opponent.pid]: to
   };
@@ -796,6 +809,7 @@ export async function consumeBattleAttacksForPlayer(ctx = {}, options = {}) {
     });
 
     player.attacksReceived += 1;
+    player.online = true;
     player.updatedAt = now;
     player.lastSeenAt = now;
 
@@ -808,7 +822,6 @@ export async function consumeBattleAttacksForPlayer(ctx = {}, options = {}) {
   });
 
   const players = {
-    ...room.players,
     [pid]: player
   };
 
