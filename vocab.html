@@ -8334,65 +8334,6 @@
 })();
 </script>
 <script>
-/* =========================================================
-   VOCAB v7.9.2 — CLEAN PRODUCTION UI
-   ซ่อน debug/reward/teacher/team panels จากหน้า student ปกติ
-   แสดงเฉพาะเมื่อเปิดด้วย ?qa=1 / ?admin=1 / ?teacher=1 / ?team=1 / ?event=1
-   ========================================================= */
-(function(){
-  "use strict";
 
-  var V792 = {
-    version: "v7.9.2-clean-production-ui-20260501"
-  };
-
-  function qs(sel, root){
-    return (root || document).querySelector(sel);
-  }
-
-  function qsa(sel, root){
-    return Array.prototype.slice.call((root || document).querySelectorAll(sel));
-  }
-
-  function id(x){
-    return document.getElementById(x);
-  }
-
-  function getParam(name){
-    try{
-      return new URLSearchParams(location.search).get(name) || "";
-    }catch(e){
-      return "";
-    }
-  }
-
-  function isTruthy(v){
-    v = String(v || "").toLowerCase().trim();
-    return v === "1" || v === "true" || v === "yes" || v === "on";
-  }
-
-  function isTeacherMode(){
-    return (
-      isTruthy(getParam("teacher")) ||
-      isTruthy(getParam("admin")) ||
-      isTruthy(getParam("qa")) ||
-      isTruthy(getParam("debug"))
-    );
-  }
-
-  function isTeamMode(){
-    return (
-      isTruthy(getParam("team")) ||
-      isTruthy(getParam("event")) ||
-      isTruthy(getParam("liveboard")) ||
-      String(getParam("mode")).toLowerCase() === "team" ||
-      String(getParam("mode")).toLowerCase() === "battle" ||
-      !!getParam("eventId") ||
-      !!getParam("event_id")
-    );
-  }
-
-  function shouldShowAdvanced(){
-    return
 </body>
 </html>
