@@ -1,538 +1,585 @@
 /* =========================================================
-   /vocab/vocab.config.js
-   TechPath Vocab Arena — Config
-   Version: 20260502c
-
-   สำคัญ:
-   - ไฟล์นี้ต้องโหลดก่อนทุกไฟล์ JS อื่น
-   - ต้องมี window.VOCAB_APP เสมอ
-   - endpoint ล่าสุดอยู่ตรง sheetEndpoint
+   /vocab/vocab.state.js
+   TechPath Vocab Arena — State Store
+   Version: 20260503a
+   Depends on:
+   - vocab.config.js
+   - vocab.utils.js
 ========================================================= */
 (function(){
   "use strict";
 
-  const DEFAULT_ENDPOINT =
-    "https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec";
+  const WIN = window;
 
-  function getParam(name, fallback = ""){
+  const APP =
+    WIN.VocabConfig ||
+    WIN.VOCAB_APP ||
+    WIN.VOCAB_CONFIG ||
+    {
+      selectedBank: "A",
+      selectedDifficulty: "easy",
+      selectedMode: "learn"
+    };
+
+  const U =
+    WIN.VocabUtils ||
+    WIN.VOCAB_UTILS ||
+    {};
+
+  function uid(prefix){
+    if(U.uid) return U.uid(prefix || "vocab");
+
+    return String(prefix || "vocab") + "_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+  }
+
+  function now(){
+    return Date.now();
+  }
+
+  function clone(obj){
     try{
-      const url = new URL(window.location.href);
-      return url.searchParams.get(name) || fallback;
+      return JSON.parse(JSON.stringify(obj));
     }catch(e){
-      return fallback;
+      return obj;
     }
   }
 
-  function readLocal(key, fallback = ""){
-    try{
-      return localStorage.getItem(key) || fallback;
-    }catch(e){
-      return fallback;
-    }
+  function makePowerStats(){
+    return {
+      feverCount: 0,
+      shieldUsed: 0,
+      hintUsed: 0,
+      laserUsed: 0,
+      bossAttackCount: 0,
+      aiHelpUsed: 0,
+      timeoutCount: 0
+    };
   }
 
-  function normalizeEndpoint(url){
-    url = String(url || "").trim();
+  function makeGameState(){
+    return {
+      active: false,
+      ended: false,
+      paused: false,
 
-    if(!url){
-      url = DEFAULT_ENDPOINT;
-    }
+      sessionId: "",
+      runId: "",
+      visitId: "",
 
-    try{
-      const u = new URL(url, window.location.href);
+      bank: APP.selectedBank || "A",
+      difficulty: APP.selectedDifficulty || "easy",
+      mode: APP.selectedMode || "learn",
+      modeConfig: null,
 
-      /*
-        Router ฝั่ง Apps Script ใช้ api=vocab
-        ดังนั้น endpoint ต้องมี api=vocab เสมอ
-      */
-      if(!u.searchParams.get("api")){
-        u.searchParams.set("api", "vocab");
-      }
+      terms: [],
+      stagePlan: [],
+      stageIndex: 0,
+      questionIndexInStage: 0,
+      globalQuestionIndex: 0,
+      totalQuestions: 0,
 
-      return u.toString();
-    }catch(e){
-      if(url.indexOf("?") >= 0){
-        if(url.indexOf("api=") < 0){
-          return url + "&api=vocab";
-        }
-        return url;
-      }
+      currentStage: null,
+      currentQuestion: null,
+      questionStartedAt: 0,
+      questionLocked: false,
 
-      return url + "?api=vocab";
-    }
-  }
+      timerId: null,
+      timeLeft: 0,
 
-  const endpointFromUrl =
-    getParam("apiUrl") ||
-    getParam("endpoint") ||
-    getParam("sheetEndpoint") ||
-    "";
-
-  const endpointFromLocal =
-    readLocal("VOCAB_SHEET_ENDPOINT", "");
-
-  const sheetEndpoint = normalizeEndpoint(
-    window.VOCAB_SHEET_ENDPOINT ||
-    endpointFromUrl ||
-    endpointFromLocal ||
-    DEFAULT_ENDPOINT
-  );
-
-  /*
-    Global config
-    ต้องใช้ window.VOCAB_APP เท่านั้น เพื่อให้ไฟล์อื่นเรียกได้แน่นอน
-  */
-  window.VOCAB_APP = {
-    appName: "TechPath Vocab Arena",
-    publicTitle: "TechPath Vocab Arena",
-    publicSubtitle: "CS/AI Vocabulary Challenge",
-
-    version: "vocab-split-v1-20260502c",
-    schema: "vocab-split-v1",
-    source: "vocab.html",
-    api: "vocab",
-
-    sheetEndpoint,
-
-    enableSheetLog: true,
-    enableConsoleLog: true,
-
-    /*
-      selected state เริ่มต้น
-      vocab.ui.js จะเปลี่ยนค่าตามปุ่มที่ผู้เรียนกด
-    */
-    selectedBank: getParam("bank", "A"),
-    selectedDifficulty: getParam("diff", "easy"),
-    selectedMode: getParam("mode", "learn"),
-
-    /*
-      localStorage keys
-    */
-    storageKeys: {
-      profile: "VOCAB_SPLIT_PROFILE",
-      queue: "VOCAB_SPLIT_LOG_QUEUE",
-      leaderboard: "VOCAB_SPLIT_LEADERBOARD",
-      lastSummary: "VOCAB_SPLIT_LAST_SUMMARY",
-      termHistory: "VOCAB_SPLIT_TERM_HISTORY",
-      sound: "VOCAB_SPLIT_SOUND_ON",
-      guardLog: "VOCAB_SPLIT_GUARD_LOG"
-    },
-
-    /*
-      query params / teacher settings
-    */
-    params: {
-      seed: getParam("seed", ""),
-      pid: getParam("pid", ""),
-      name: getParam("name", "") || getParam("nick", ""),
-      section: getParam("section", ""),
-      sessionCode: getParam("session_code", "") || getParam("studyId", ""),
-      qa: getParam("qa", ""),
-      teacher: getParam("teacher", ""),
-      admin: getParam("admin", ""),
-      debug: getParam("debug", "")
-    },
-
-    /*
-      student mode เป็น default
-      QA/Teacher/Admin mode จึงค่อยแสดง panel เพิ่มในอนาคต
-    */
-    isTeacherMode:
-      getParam("teacher") === "1" ||
-      getParam("admin") === "1" ||
-      getParam("qa") === "1" ||
-      getParam("debug") === "1",
-
-    /*
-      Source guard
-    */
-    sourceGuard: {
-      enabled:
-        getParam("guard", "on") !== "off" &&
-        getParam("source_guard", "on") !== "off",
-
-      blockContextMenu: true,
-      blockCopy: true,
-      blockSelect: true,
-      blockPrint: true,
-      blockDevtoolsShortcuts: true
-    }
-  };
-
-  /*
-    Backward compatibility:
-    กันไฟล์เก่าบางไฟล์เรียก VOCAB_APP ตรง ๆ
-  */
-  try{
-    window.VOCAB_CONFIG = window.VOCAB_APP;
-  }catch(e){}
-
-  /*
-    Difficulty config
-  */
-  window.VOCAB_DIFFICULTY = {
-    easy: {
-      id: "easy",
-      label: "Easy",
-      icon: "✨",
-      totalQuestions: 8,
-      timePerQuestion: 22,
+      score: 0,
+      fairScore: 0,
+      combo: 0,
+      comboMax: 0,
+      correct: 0,
+      wrong: 0,
+      timeout: 0,
       playerHp: 5,
-      choiceCount: 4,
-      bossMultiplier: 0.8,
-      scoreMultiplier: 0.9,
-      preview: "✨ Easy: เวลาเยอะ เหมาะกับเริ่มจำความหมาย"
+
+      enemy: null,
+      enemyHp: 100,
+      enemyHpMax: 100,
+
+      mistakes: [],
+      answeredTerms: [],
+      termStats: {},
+      stageStats: {},
+
+      fever: false,
+      feverUntil: 0,
+      feverTimerId: null,
+
+      shield: 1,
+      hints: 1,
+      laserReady: false,
+      aiHelpLeft: 0,
+      aiHelpUsed: 0,
+      aiHelpPenalty: 0,
+      currentAiHelpUsed: false,
+
+      powerStats: makePowerStats(),
+
+      startedAt: 0,
+      endedAt: 0,
+      lastReason: "",
+
+      meta: {},
+      lastResult: null,
+      lastReward: null,
+      lastCoach: null
+    };
+  }
+
+  const State = {
+    version: "vocab-state-20260503a",
+
+    app: APP,
+
+    game: makeGameState(),
+
+    ui: {
+      currentScreen: "menu",
+      selectedLeaderboardMode: "learn",
+      locked: false,
+      lastToast: "",
+      lastError: null
     },
 
-    normal: {
-      id: "normal",
-      label: "Normal",
-      icon: "⚔️",
-      totalQuestions: 10,
-      timePerQuestion: 16,
-      playerHp: 4,
-      choiceCount: 4,
-      bossMultiplier: 1,
-      scoreMultiplier: 1,
-      preview: "⚔️ Normal: เริ่มมีตัวเลือกหลอกและโจทย์บริบท"
+    student: {
+      display_name: "",
+      student_id: "",
+      section: "",
+      session_code: ""
     },
 
-    hard: {
-      id: "hard",
-      label: "Hard",
-      icon: "🔥",
-      totalQuestions: 12,
-      timePerQuestion: 12,
-      playerHp: 3,
-      choiceCount: 5,
-      bossMultiplier: 1.25,
-      scoreMultiplier: 1.15,
-      preview: "🔥 Hard: 5 ตัวเลือก เวลาเร็วขึ้น และต้องเข้าใจ context"
+    settings: {
+      sound: true,
+      guard: true,
+      reducedMotion: false
     },
 
-    challenge: {
-      id: "challenge",
-      label: "Challenge",
-      icon: "💀",
-      totalQuestions: 15,
-      timePerQuestion: 9,
-      playerHp: 2,
-      choiceCount: 5,
-      bossMultiplier: 1.55,
-      scoreMultiplier: 1.35,
-      preview: "💀 Challenge: เวลาน้อย ตัวหลอกหนัก เหมาะกับผู้ที่พร้อมท้าทาย"
-    }
-  };
-
-  /*
-    Play mode config
-  */
-  window.VOCAB_PLAY_MODES = {
-    learn: {
-      id: "learn",
-      label: "AI Training",
-      shortLabel: "AI",
-      icon: "🤖",
-      description: "เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint และคำอธิบายชัด",
-      totalQuestionBonus: 0,
-      timeBonus: 4,
-      startHints: 3,
-      startShield: 2,
-      startAiHelp: 3,
-      feverComboNeed: 5,
-      laserComboNeed: 8,
-      scoreMultiplier: 0.9,
-      stageOrder: ["warmup", "warmup", "trap", "mission"]
+    resetGame(){
+      this.clearTimers();
+      this.game = makeGameState();
+      this.ui.currentScreen = "menu";
+      this.ui.locked = false;
+      return this.game;
     },
 
-    speed: {
-      id: "speed",
-      label: "Speed Run",
-      shortLabel: "Speed",
-      icon: "⚡",
-      description: "ตอบให้ไว ทำ Combo เก็บคะแนน และเข้า Fever เร็วกว่าโหมดอื่น",
-      totalQuestionBonus: 2,
-      timeBonus: -4,
-      startHints: 1,
-      startShield: 1,
-      startAiHelp: 1,
-      feverComboNeed: 4,
-      laserComboNeed: 7,
-      scoreMultiplier: 1.15,
-      stageOrder: ["warmup", "speed", "speed", "trap", "boss"]
+    createSessionId(){
+      const sessionId = uid("vocab");
+      this.game.sessionId = sessionId;
+      this.game.runId = sessionId;
+      return sessionId;
     },
 
-    mission: {
-      id: "mission",
-      label: "Debug Mission",
-      shortLabel: "Mission",
-      icon: "🎯",
-      description: "อ่านสถานการณ์จริง แล้วเลือกคำศัพท์ที่เหมาะสมที่สุด",
-      totalQuestionBonus: 2,
-      timeBonus: 1,
-      startHints: 2,
-      startShield: 1,
-      startAiHelp: 2,
-      feverComboNeed: 5,
-      laserComboNeed: 7,
-      scoreMultiplier: 1.08,
-      stageOrder: ["warmup", "mission", "mission", "trap", "boss"]
+    ensureSessionId(){
+      if(!this.game.sessionId){
+        return this.createSessionId();
+      }
+      return this.game.sessionId;
     },
 
-    battle: {
-      id: "battle",
-      label: "Boss Battle",
-      shortLabel: "Boss",
-      icon: "👾",
-      description: "โหมดต่อสู้เต็มระบบ มีบอส HP, Fever, Laser, Shield และแรงกดดันสูง",
-      totalQuestionBonus: 3,
-      timeBonus: -2,
-      startHints: 1,
-      startShield: 1,
-      startAiHelp: 1,
-      feverComboNeed: 5,
-      laserComboNeed: 7,
-      scoreMultiplier: 1.25,
-      stageOrder: ["warmup", "speed", "trap", "mission", "boss", "boss"]
-    }
-  };
+    startSession(options){
+      options = options || {};
 
-  /*
-    Stage config
-  */
-  window.VOCAB_STAGES = [
-    {
-      id: "warmup",
-      name: "Warm-up Round",
-      icon: "✨",
-      goal: "เก็บความมั่นใจ ตอบให้ถูก"
-    },
-    {
-      id: "speed",
-      name: "Speed Round",
-      icon: "⚡",
-      goal: "ตอบไวเพื่อเพิ่ม Combo"
-    },
-    {
-      id: "trap",
-      name: "Trap Round",
-      icon: "🧠",
-      goal: "ระวังคำที่ความหมายใกล้กัน"
-    },
-    {
-      id: "mission",
-      name: "Mini Mission",
-      icon: "🎯",
-      goal: "ใช้คำศัพท์กับสถานการณ์จริง"
-    },
-    {
-      id: "boss",
-      name: "Boss Battle",
-      icon: "👾",
-      goal: "โจมตีบอสให้ HP หมด"
-    }
-  ];
+      this.clearTimers();
 
-  /*
-    Enemy config
-  */
-  window.VOCAB_ENEMIES = {
-    A: {
-      name: "Bug Slime",
-      title: "Basic Code Bug",
-      avatar: "🟢",
-      skill: "Speed pressure: ตอบช้าเสีย combo ง่าย",
-      hp: 100
+      const bank = options.bank || APP.selectedBank || this.game.bank || "A";
+      const difficulty = options.difficulty || APP.selectedDifficulty || this.game.difficulty || "easy";
+      const mode = options.mode || APP.selectedMode || this.game.mode || "learn";
+
+      this.game = makeGameState();
+
+      this.game.active = true;
+      this.game.ended = false;
+      this.game.paused = false;
+
+      this.game.sessionId = uid("vocab");
+      this.game.runId = this.game.sessionId;
+      this.game.visitId = options.visitId || "";
+
+      this.game.bank = bank;
+      this.game.difficulty = difficulty;
+      this.game.mode = mode;
+      this.game.modeConfig = options.modeConfig || null;
+
+      this.game.startedAt = now();
+      this.game.endedAt = 0;
+      this.game.lastReason = "";
+
+      this.game.meta = Object.assign({}, options.meta || {});
+
+      this.ui.currentScreen = "battle";
+      this.ui.locked = false;
+
+      try{
+        APP.selectedBank = bank;
+        APP.selectedDifficulty = difficulty;
+        APP.selectedMode = mode;
+      }catch(e){}
+
+      return this.game;
     },
 
-    B: {
-      name: "Data Ghost",
-      title: "AI/Data Trickster",
-      avatar: "👻",
-      skill: "Smart trap: ตัวเลือกหลอกใกล้เคียงขึ้น",
-      hp: 130
+    endSession(reason){
+      this.clearTimers();
+
+      this.game.active = false;
+      this.game.ended = true;
+      this.game.paused = false;
+      this.game.endedAt = now();
+      this.game.lastReason = reason || "completed";
+      this.ui.currentScreen = "reward";
+      this.ui.locked = false;
+
+      return this.game;
     },
 
-    C: {
-      name: "Syntax Dragon",
-      title: "Workplace Boss",
-      avatar: "🐉",
-      skill: "Heavy attack: ตอบผิดในบอสโดนแรงขึ้น",
-      hp: 160
-    }
-  };
+    setScreen(screen){
+      this.ui.currentScreen = screen || "menu";
+      return this.ui.currentScreen;
+    },
 
-  /*
-    Power-up config
-  */
-  window.VOCAB_POWER = {
-    feverDurationMs: 8500,
-    feverDamageMultiplier: 1.6,
-    feverScoreMultiplier: 1.5,
+    getScreen(){
+      return this.ui.currentScreen || "menu";
+    },
 
-    shieldMax: 3,
-    hintMax: 4,
+    getGame(){
+      return this.game;
+    },
 
-    laserDamage: 26,
-    laserDamageFever: 38,
+    setGamePatch(patch){
+      Object.assign(this.game, patch || {});
+      return this.game;
+    },
 
-    aiHelpScorePenaltyPerUse: 0.10,
-    aiHelpMaxPenalty: 0.30
-  };
+    setStudent(ctx){
+      ctx = ctx || {};
+      this.student = Object.assign({}, this.student, {
+        display_name: String(ctx.display_name || ctx.displayName || this.student.display_name || "").trim(),
+        student_id: String(ctx.student_id || ctx.studentId || this.student.student_id || "").trim(),
+        section: String(ctx.section || this.student.section || "").trim(),
+        session_code: String(ctx.session_code || ctx.sessionCode || this.student.session_code || "").trim()
+      });
 
-  /*
-    Leaderboard config
-  */
-  window.VOCAB_LEADERBOARD = {
-    maxRowsPerMode: 30,
-    showTop: 5,
-    assistedScoreMultiplier: 0.95
-  };
+      return this.student;
+    },
 
-  /*
-    Logging helper global
-  */
-  window.setVocabSheetEndpoint = function(url){
-    const endpoint = normalizeEndpoint(url);
-    window.VOCAB_APP.sheetEndpoint = endpoint;
+    getStudent(){
+      return Object.assign({}, this.student);
+    },
 
-    try{
-      localStorage.setItem("VOCAB_SHEET_ENDPOINT", endpoint);
-    }catch(e){}
+    clearTimers(){
+      try{
+        if(this.game && this.game.timerId){
+          clearInterval(this.game.timerId);
+          clearTimeout(this.game.timerId);
+          this.game.timerId = null;
+        }
+      }catch(e){}
 
-    console.log("[VOCAB CONFIG] saved endpoint", endpoint);
-    return endpoint;
-  };
+      try{
+        if(this.game && this.game.feverTimerId){
+          clearTimeout(this.game.feverTimerId);
+          clearInterval(this.game.feverTimerId);
+          this.game.feverTimerId = null;
+        }
+      }catch(e){}
 
-  window.getVocabSheetEndpoint = function(){
-    return window.VOCAB_APP.sheetEndpoint;
-  };
+      try{
+        if(this.game){
+          this.game.fever = false;
+          this.game.feverUntil = 0;
+        }
+      }catch(e){}
+    },
 
-  console.log("[VOCAB CONFIG] loaded", window.VOCAB_APP.version);
-  console.log("[VOCAB CONFIG] endpoint", window.VOCAB_APP.sheetEndpoint);
-})();
-/* =========================================================
-   EXPORT — vocab.state.js
-========================================================= */
-(function(){
-  "use strict";
+    initStageStats(stages){
+      const stats = {};
 
-  const W = window;
+      (stages || []).forEach(stage => {
+        const id = stage.id || String(stage);
+        stats[id] = {
+          correct: 0,
+          wrong: 0,
+          timeout: 0,
+          responseMsTotal: 0,
+          count: 0
+        };
+      });
 
-  const api =
-    W.VocabState ||
-    W.VOCAB_STATE ||
-    W.vocabState ||
-    {
-      version: "vocab-state-export-fallback-20260503a",
+      this.game.stageStats = stats;
+      return stats;
+    },
 
-      init(){
-        if(!W.vocabGame){
-          W.vocabGame = {
-            active:false,
-            sessionId:"",
-            bank:"A",
-            difficulty:"easy",
-            mode:"learn",
-            modeConfig:null,
-            terms:[],
-            stagePlan:[],
-            stageIndex:0,
-            questionIndexInStage:0,
-            globalQuestionIndex:0,
-            currentStage:null,
-            currentQuestion:null,
-            questionStartedAt:0,
-            timerId:null,
-            timeLeft:0,
-            score:0,
-            combo:0,
-            comboMax:0,
-            correct:0,
-            wrong:0,
-            playerHp:5,
-            enemy:null,
-            enemyHp:100,
-            enemyHpMax:100,
-            mistakes:[],
-            stageStats:{},
-            fever:false,
-            feverUntil:0,
-            feverTimerId:null,
-            shield:1,
-            hints:1,
-            laserReady:false,
-            aiHelpLeft:0,
-            aiHelpUsed:0,
-            aiHelpPenalty:0,
-            currentAiHelpUsed:false,
-            powerStats:{
-              feverCount:0,
-              shieldUsed:0,
-              hintUsed:0,
-              laserUsed:0,
-              bossAttackCount:0
-            },
-            startedAt:0,
-            endedAt:0
+    ensureStageStat(stageId){
+      const id = stageId || "unknown";
+
+      if(!this.game.stageStats) this.game.stageStats = {};
+
+      if(!this.game.stageStats[id]){
+        this.game.stageStats[id] = {
+          correct: 0,
+          wrong: 0,
+          timeout: 0,
+          responseMsTotal: 0,
+          count: 0
+        };
+      }
+
+      return this.game.stageStats[id];
+    },
+
+    recordAnswer(payload){
+      payload = payload || {};
+
+      const stageId =
+        payload.stageId ||
+        payload.stage_id ||
+        (this.game.currentStage && this.game.currentStage.id) ||
+        "unknown";
+
+      const term =
+        payload.term ||
+        payload.term_id ||
+        (this.game.currentQuestion && this.game.currentQuestion.correctTerm && this.game.currentQuestion.correctTerm.term) ||
+        "";
+
+      const meaning =
+        payload.meaning ||
+        (this.game.currentQuestion && this.game.currentQuestion.correctTerm && this.game.currentQuestion.correctTerm.meaning) ||
+        "";
+
+      const selected = payload.selected || "";
+      const isCorrect = !!payload.isCorrect;
+      const isTimeout = !!payload.isTimeout;
+      const responseMs = Number(payload.responseMs || payload.response_ms || 0) || 0;
+
+      const stat = this.ensureStageStat(stageId);
+      stat.count += 1;
+      stat.responseMsTotal += responseMs;
+
+      if(isCorrect){
+        stat.correct += 1;
+        this.game.correct += 1;
+      }else{
+        stat.wrong += 1;
+        this.game.wrong += 1;
+
+        if(isTimeout){
+          stat.timeout += 1;
+          this.game.timeout += 1;
+          this.game.powerStats.timeoutCount += 1;
+        }
+
+        if(term){
+          this.game.mistakes.push({
+            term,
+            meaning,
+            selected: selected || (isTimeout ? "TIMEOUT" : ""),
+            stageId,
+            responseMs,
+            at: new Date().toISOString()
+          });
+        }
+      }
+
+      if(term){
+        const key = String(term).toLowerCase();
+
+        if(!this.game.termStats[key]){
+          this.game.termStats[key] = {
+            term,
+            meaning,
+            seen: 0,
+            correct: 0,
+            wrong: 0,
+            timeout: 0,
+            responseMsTotal: 0,
+            aiHelp: 0
           };
         }
 
-        W.vocabGameV6 = W.vocabGame;
-        return W.vocabGame;
-      },
+        const t = this.game.termStats[key];
+        t.seen += 1;
+        t.responseMsTotal += responseMs;
 
-      get(){
-        return W.vocabGame || this.init();
-      },
+        if(isCorrect) t.correct += 1;
+        else t.wrong += 1;
 
-      reset(){
-        const g = this.init();
+        if(isTimeout) t.timeout += 1;
+        if(this.game.currentAiHelpUsed) t.aiHelp += 1;
 
-        g.active = false;
-        g.sessionId = "";
-        g.stagePlan = [];
-        g.stageIndex = 0;
-        g.questionIndexInStage = 0;
-        g.globalQuestionIndex = 0;
-        g.currentStage = null;
-        g.currentQuestion = null;
-        g.timerId = null;
-        g.timeLeft = 0;
-        g.score = 0;
-        g.combo = 0;
-        g.comboMax = 0;
-        g.correct = 0;
-        g.wrong = 0;
-        g.playerHp = 5;
-        g.enemyHp = 100;
-        g.enemyHpMax = 100;
-        g.mistakes = [];
-        g.stageStats = {};
-        g.fever = false;
-        g.feverUntil = 0;
-        g.feverTimerId = null;
-        g.shield = 1;
-        g.hints = 1;
-        g.laserReady = false;
-        g.aiHelpLeft = 0;
-        g.aiHelpUsed = 0;
-        g.aiHelpPenalty = 0;
-        g.currentAiHelpUsed = false;
-        g.startedAt = 0;
-        g.endedAt = 0;
-
-        return g;
+        this.game.answeredTerms.push({
+          term,
+          meaning,
+          selected,
+          stageId,
+          correct: isCorrect ? 1 : 0,
+          timeout: isTimeout ? 1 : 0,
+          responseMs,
+          aiHelp: this.game.currentAiHelpUsed ? 1 : 0
+        });
       }
-    };
 
-  W.VocabState = api;
-  W.VOCAB_STATE = api;
-  W.vocabState = api;
+      return {
+        stageStat: stat,
+        termStats: this.game.termStats
+      };
+    },
 
-  if(!W.vocabGame){
-    api.init();
-  }
+    getAccuracy(){
+      const total = Number(this.game.correct || 0) + Number(this.game.wrong || 0);
+      return total ? Math.round((Number(this.game.correct || 0) / total) * 100) : 0;
+    },
 
-  console.log("[VOCAB STATE] export ready", api.version || "");
+    getDurationSec(){
+      const start = Number(this.game.startedAt || 0);
+      const end = Number(this.game.endedAt || Date.now());
+      return start ? Math.max(0, Math.round((end - start) / 1000)) : 0;
+    },
+
+    getWeakestTerms(limit){
+      limit = limit || 5;
+
+      const map = new Map();
+
+      (this.game.mistakes || []).forEach(m => {
+        const key = String(m.term || "").toLowerCase();
+        if(!key) return;
+
+        if(!map.has(key)){
+          map.set(key, {
+            term: m.term,
+            meaning: m.meaning,
+            count: 0,
+            stages: new Set()
+          });
+        }
+
+        const item = map.get(key);
+        item.count += 1;
+
+        if(m.stageId){
+          item.stages.add(m.stageId);
+        }
+      });
+
+      return Array.from(map.values())
+        .map(x => ({
+          term: x.term,
+          meaning: x.meaning,
+          count: x.count,
+          stages: Array.from(x.stages)
+        }))
+        .sort((a,b) => b.count - a.count)
+        .slice(0, limit);
+    },
+
+    getStageSummary(){
+      const out = {};
+
+      Object.entries(this.game.stageStats || {}).forEach(([stageId, stat]) => {
+        const correct = Number(stat.correct || 0);
+        const wrong = Number(stat.wrong || 0);
+        const total = correct + wrong;
+
+        out[stageId] = {
+          correct,
+          wrong,
+          timeout: Number(stat.timeout || 0),
+          count: Number(stat.count || total || 0),
+          accuracy: total ? Math.round((correct / total) * 100) : 0,
+          avgResponseMs: stat.count ? Math.round(Number(stat.responseMsTotal || 0) / Number(stat.count || 1)) : 0
+        };
+      });
+
+      return out;
+    },
+
+    buildResult(reason){
+      const g = this.game;
+
+      const result = {
+        version: APP.version || this.version,
+        reason: reason || g.lastReason || "completed",
+        sessionId: g.sessionId,
+        bank: g.bank,
+        difficulty: g.difficulty,
+        mode: g.mode,
+        modeLabel: g.modeConfig ? g.modeConfig.label : g.mode,
+        score: Number(g.score || 0),
+        fairScore: Number(g.fairScore || g.score || 0),
+        correct: Number(g.correct || 0),
+        wrong: Number(g.wrong || 0),
+        timeout: Number(g.timeout || 0),
+        accuracy: this.getAccuracy(),
+        comboMax: Number(g.comboMax || 0),
+        durationSec: this.getDurationSec(),
+        bossDefeated: Number(g.enemyHp || 0) <= 0,
+        enemyName: g.enemy ? g.enemy.name : "",
+        weakestTerms: this.getWeakestTerms(8),
+        stageStats: this.getStageSummary(),
+        powerStats: clone(g.powerStats || {}),
+        feverCount: g.powerStats ? Number(g.powerStats.feverCount || 0) : 0,
+        shieldUsed: g.powerStats ? Number(g.powerStats.shieldUsed || 0) : 0,
+        hintUsed: g.powerStats ? Number(g.powerStats.hintUsed || 0) : 0,
+        laserUsed: g.powerStats ? Number(g.powerStats.laserUsed || 0) : 0,
+        aiHelpUsed: Number(g.aiHelpUsed || 0),
+        aiHelpLeft: Number(g.aiHelpLeft || 0),
+        aiHelpPenalty: Number(g.aiHelpPenalty || 0),
+        aiAssisted: Number(g.aiHelpUsed || 0) > 0,
+        startedAt: g.startedAt ? new Date(g.startedAt).toISOString() : "",
+        endedAt: g.endedAt ? new Date(g.endedAt).toISOString() : new Date().toISOString()
+      };
+
+      g.lastResult = result;
+      return result;
+    },
+
+    saveRewardData(result, reward, coach){
+      this.game.lastResult = result || null;
+      this.game.lastReward = reward || null;
+      this.game.lastCoach = coach || null;
+    },
+
+    getLastRewardData(){
+      return {
+        result: this.game.lastResult,
+        reward: this.game.lastReward,
+        coach: this.game.lastCoach
+      };
+    }
+  };
+
+  /*
+    Export หลัก — boot ต้องเจอชื่อนี้
+  */
+  WIN.VocabState = State;
+
+  /*
+    Alias รองรับไฟล์เก่า / patch เก่า
+  */
+  WIN.VOCAB_STATE = State;
+  WIN.vocabState = State;
+  WIN.VocabStore = State;
+
+  /*
+    Alias ให้โค้ดเก่าที่เรียก vocabGame ยังทำงานได้
+    สำคัญ: เป็น reference เดียวกับ State.game
+  */
+  Object.defineProperty(WIN, "vocabGame", {
+    configurable: true,
+    enumerable: true,
+    get(){
+      return State.game;
+    },
+    set(v){
+      if(v && typeof v === "object"){
+        State.game = v;
+      }
+    }
+  });
+
+  console.log("[VOCAB STATE] loaded", State.version);
 })();
