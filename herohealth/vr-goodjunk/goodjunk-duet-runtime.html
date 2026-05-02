@@ -586,6 +586,210 @@
       text-align:center;
     }
 
+    /* =========================================================
+       PATCH v17 — Gameplay Fullscreen Mode
+       ตอนเล่นจริง: HUD เล็ก + สนามใหญ่เต็มจอ
+    ========================================================= */
+
+    body.play-mode{
+      padding:0;
+      overflow:hidden;
+    }
+
+    body.play-mode .app{
+      width:100vw;
+      max-width:none;
+      height:100dvh;
+      margin:0;
+      display:block;
+      position:relative;
+    }
+
+    body.play-mode .top{
+      position:fixed;
+      left:8px;
+      right:8px;
+      top:calc(6px + var(--sat));
+      z-index:30;
+      border-radius:20px;
+      border-width:3px;
+      padding:7px;
+      gap:6px;
+      background:rgba(255,254,249,.94);
+      backdrop-filter:blur(8px);
+      box-shadow:0 10px 26px rgba(86,155,194,.16);
+    }
+
+    body.play-mode .title h1{
+      display:none;
+    }
+
+    body.play-mode .kicker{
+      min-height:26px;
+      padding:4px 9px;
+      font-size:10px;
+    }
+
+    body.play-mode .room{
+      min-height:26px;
+      padding:4px 9px;
+      font-size:11px;
+      max-width:100%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    body.play-mode .top-row{
+      grid-template-columns:auto 1fr;
+      gap:6px;
+    }
+
+    body.play-mode .hud{
+      display:flex;
+      gap:6px;
+      overflow-x:auto;
+      overflow-y:hidden;
+      padding-bottom:2px;
+      scrollbar-width:none;
+    }
+
+    body.play-mode .hud::-webkit-scrollbar{
+      display:none;
+    }
+
+    body.play-mode .hud-card{
+      min-width:76px;
+      min-height:42px;
+      border-radius:14px;
+      border-width:2px;
+      padding:5px 7px;
+      flex:0 0 auto;
+    }
+
+    body.play-mode .hud-label{
+      font-size:9px;
+    }
+
+    body.play-mode .hud-value{
+      font-size:18px;
+    }
+
+    body.play-mode .mission-bar{
+      display:flex;
+      gap:6px;
+      overflow-x:auto;
+      overflow-y:hidden;
+      padding-bottom:2px;
+      scrollbar-width:none;
+    }
+
+    body.play-mode .mission-bar::-webkit-scrollbar{
+      display:none;
+    }
+
+    body.play-mode .mission-item{
+      flex:0 0 auto;
+      min-height:30px;
+      min-width:132px;
+      border-radius:999px;
+      border-width:2px;
+      font-size:11px;
+      padding:5px 9px;
+    }
+
+    body.play-mode .fever-bar{
+      min-height:32px;
+      border-radius:999px;
+      border-width:2px;
+    }
+
+    body.play-mode .fever-text{
+      font-size:12px;
+      padding:5px 9px;
+    }
+
+    body.play-mode .arena-wrap{
+      position:fixed;
+      left:8px;
+      right:8px;
+      top:calc(150px + var(--sat));
+      bottom:calc(76px + var(--sab));
+      z-index:5;
+      border-radius:24px;
+      border-width:3px;
+      min-height:0;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(255,255,255,.94), transparent 18%),
+        radial-gradient(circle at 82% 16%, rgba(255,235,150,.36), transparent 22%),
+        linear-gradient(180deg,#fffef9,#f8fff4);
+    }
+
+    body.play-mode .target{
+      width:82px;
+      height:82px;
+      border-radius:28px;
+      font-size:40px;
+    }
+
+    body.play-mode .guide{
+      display:none !important;
+    }
+
+    body.play-mode .bottom{
+      position:fixed;
+      left:8px;
+      right:8px;
+      bottom:calc(8px + var(--sab));
+      z-index:35;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+      align-items:center;
+    }
+
+    body.play-mode .status{
+      min-height:52px;
+      border-radius:18px;
+      border-width:3px;
+      background:rgba(255,255,255,.94);
+      backdrop-filter:blur(8px);
+      font-size:14px;
+      padding:9px 12px;
+      box-shadow:0 10px 26px rgba(86,155,194,.14);
+    }
+
+    body.play-mode #btnStart{
+      display:none;
+    }
+
+    body.play-mode #btnBack{
+      min-width:92px;
+      min-height:52px;
+      border-radius:18px;
+      padding:0 12px;
+      font-size:14px;
+      background:rgba(255,255,255,.94);
+    }
+
+    body.play-mode .summary.show{
+      z-index:100;
+    }
+
+    @media (max-height:720px){
+      body.play-mode .arena-wrap{
+        top:calc(138px + var(--sat));
+        bottom:calc(70px + var(--sab));
+      }
+
+      body.play-mode .mission-item{
+        min-height:28px;
+      }
+
+      body.play-mode .fever-bar{
+        min-height:30px;
+      }
+    }
+
     @media (max-width:760px){
       .app{
         height:calc(100dvh - 20px - var(--sat) - var(--sab));
@@ -636,6 +840,32 @@
 
       .summary-actions{
         grid-template-columns:1fr;
+      }
+
+      body.play-mode .top-row{
+        grid-template-columns:auto 1fr;
+      }
+
+      body.play-mode .hud{
+        display:flex;
+      }
+
+      body.play-mode .mission-bar{
+        display:flex;
+      }
+
+      body.play-mode .bottom{
+        grid-template-columns:1fr auto;
+      }
+
+      body.play-mode .btn{
+        width:auto;
+      }
+
+      body.play-mode .target{
+        width:82px;
+        height:82px;
+        font-size:40px;
       }
     }
   </style>
@@ -754,8 +984,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260430-gjduet-runtime-v15-final"></script>
-  <script src="./goodjunk-duet-room-bootstrap.js?v=20260430-gjduet-runtime-v15-final"></script>
+  <script src="../firebase-config.js?v=20260501-gjduet-runtime-v17-playmode"></script>
+  <script src="./goodjunk-duet-room-bootstrap.js?v=20260501-gjduet-runtime-v17-playmode"></script>
 
   <script>
   (function(){
@@ -1405,7 +1635,7 @@
       state.feverCount += 1;
 
       playSfx('fever');
-      setStatus('🔥 Team Fever! เก็บ Good ได้คะแนน x' + state.feverMultiplier);
+      setStatus('🔥 Team Fever! Good x' + state.feverMultiplier);
 
       duetLogEvent('duet_team_fever_start', {
         reason: String(reason || 'combo_trigger'),
@@ -1431,7 +1661,7 @@
         feverCount: state.feverCount
       });
 
-      setStatus('Team Fever จบแล้ว เก็บ Good ต่อเพื่อเปิด Fever อีกครั้ง!');
+      setStatus('Fever จบแล้ว เก็บ Good ต่อ!');
       renderFever();
     }
 
@@ -1552,7 +1782,7 @@
         }
 
         state.score += gain;
-        setStatus('เยี่ยม! เก็บ good ต่อเนื่อง คอมโบ ' + state.streak);
+        setStatus('✅ Good! Combo ' + state.streak);
       } else {
         state.junk += 1;
         state.miss += 1;
@@ -1562,7 +1792,7 @@
 
         showFloat(x, y, 'MISS -6', 'bad');
         playSfx('bad');
-        setStatus('โดน junk แล้ว! ตั้งหลักใหม่ เก็บ good ต่อ');
+        setStatus('❌ Junk/Miss! ตั้งหลักใหม่');
       }
 
       removeTarget(item);
@@ -2339,6 +2569,8 @@
       state.running = false;
       state.ended = true;
 
+      document.body.classList.add('game-ended');
+
       state.missionFinishDone = true;
       updateTeamMissions();
       playSfx('end');
@@ -2405,12 +2637,14 @@
       state.endAt = state.startAt + ctx.durationSec * 1000;
       state.nextSpawnAt = now() + 350;
 
+      document.body.classList.add('play-mode');
+
       setupTeamMissions();
 
       ui.guide.classList.add('hide');
       ui.btnStart.disabled = true;
       ui.btnStart.textContent = 'กำลังเล่น';
-      setStatus('เริ่มแล้ว! เก็บ good ให้เยอะที่สุด และระวัง junk');
+      setStatus('เริ่มแล้ว! เก็บ Good ระวัง Junk');
 
       playSfx('start');
 
@@ -2519,6 +2753,9 @@
     async function rematch(){
       duetLogEvent('duet_rematch_clicked');
 
+      document.body.classList.remove('play-mode');
+      document.body.classList.remove('game-ended');
+
       const lobbyUrl = buildLobbyUrl();
 
       try {
@@ -2544,6 +2781,10 @@
 
     function goHub(){
       duetLogEvent('duet_go_hub');
+
+      document.body.classList.remove('play-mode');
+      document.body.classList.remove('game-ended');
+
       location.href = ctx.hub || '../nutrition-zone.html';
     }
 
