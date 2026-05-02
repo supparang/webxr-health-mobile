@@ -3,49 +3,25 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Hydration Hero Launcher</title>
-  <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#cbf0ff" />
-  <link rel="icon" href="./favicon.ico" />
+  <title>HeroHealth • Hydration Arena</title>
+  <meta name="theme-color" content="#7dd3fc" />
+  <meta name="color-scheme" content="light dark" />
+
   <style>
     :root{
-      --sky1:#e9fbff;
-      --sky2:#cff2ff;
-      --sky3:#afe4ff;
-
-      --card:#fffef9;
-      --card2:#f7fff5;
-      --card3:#eefaff;
-
-      --stroke:#d9eef7;
-      --text:#2b4f69;
-      --muted:#6f8ea3;
-
-      --green1:#87de67;
-      --green2:#57ba44;
-
-      --blue1:#7fd0ff;
-      --blue2:#4fa9ef;
-
-      --pink1:#ffcae4;
-      --pink2:#ff93c1;
-
-      --violet1:#ece8ff;
-      --violet2:#d4caff;
-      --violet3:#ae9fff;
-
-      --yellow1:#ffe179;
-      --yellow2:#f6bd42;
-      --orange1:#ffbf74;
-      --orange2:#ff9857;
-
-      --shadow:0 14px 34px rgba(90,145,180,.16);
-      --shadow-lg:0 22px 56px rgba(90,145,180,.22);
-
-      --radius-xl:32px;
-      --radius-lg:26px;
-      --radius-md:20px;
-      --radius-sm:16px;
+      --bg1:#e0f7ff;
+      --bg2:#effcff;
+      --bg3:#ffffff;
+      --card:rgba(255,255,255,.86);
+      --line:rgba(37,99,235,.16);
+      --text:#14324a;
+      --muted:#527089;
+      --blue:#2563eb;
+      --cyan:#06b6d4;
+      --good:#10b981;
+      --warn:#f59e0b;
+      --danger:#f43f5e;
+      --shadow:0 18px 44px rgba(37,99,235,.14);
     }
 
     *{ box-sizing:border-box; }
@@ -53,1867 +29,539 @@
     html,body{
       margin:0;
       min-height:100%;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at 14% 10%, rgba(255,255,255,.74), transparent 15%),
-        radial-gradient(circle at 86% 12%, rgba(255,255,255,.60), transparent 14%),
-        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 44%, var(--sky3) 100%);
     }
 
     body{
-      padding:16px;
-      display:grid;
-      place-items:center;
+      font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 16% 12%,rgba(125,211,252,.55),transparent 26%),
+        radial-gradient(circle at 86% 18%,rgba(34,211,238,.38),transparent 24%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 42%,var(--bg3));
+      overflow-x:hidden;
     }
 
-    button,input,select{ font:inherit; }
-    button{ -webkit-tap-highlight-color:transparent; }
+    button,select,input{
+      font:inherit;
+    }
 
     .page{
-      width:min(1180px,100%);
+      width:min(1120px,100%);
+      margin:0 auto;
+      padding:18px;
+      min-height:100dvh;
       display:grid;
-      gap:14px;
-    }
-
-    .hero-shell,
-    .panel{
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:
-        0 18px 40px rgba(90,145,180,.14),
-        inset 0 1px 0 rgba(255,255,255,.92);
-    }
-
-    .hero-shell{
-      position:relative;
-      overflow:hidden;
-      border-radius:var(--radius-xl);
-      padding:16px;
-      display:grid;
-      gap:14px;
-    }
-
-    .hero-shell::after{
-      content:"";
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:96px;
-      background:
-        radial-gradient(circle at 10% 76%, #d4f3ad 0 18%, transparent 19%),
-        radial-gradient(circle at 34% 100%, #a8e37f 0 12%, transparent 13%),
-        radial-gradient(circle at 84% 74%, #d4f3ad 0 18%, transparent 19%),
-        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.12) 40%, rgba(104,191,70,.24) 100%);
-      pointer-events:none;
-    }
-
-    .hero-shell > *{
-      position:relative;
-      z-index:1;
-    }
-
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .corner-btn{
-      width:46px;
-      height:46px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.95);
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      box-shadow:var(--shadow);
-      font-size:22px;
-      cursor:pointer;
-      color:#5f89a1;
-    }
-
-    .topchips{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
-    .topchip{
-      min-height:34px;
-      padding:7px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.82);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      color:#6588a0;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .logo-wrap{
-      display:grid;
-      grid-template-columns:auto 1fr auto;
-      gap:14px;
-      align-items:center;
-    }
-
-    .mascot-card{
-      width:82px;
-      height:82px;
-      border-radius:28px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#fff7e4,#ffe7ba);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .mascot-illust{
-      position:relative;
-      width:64px;
-      height:64px;
-    }
-
-    .mascot-head{
-      position:absolute;
-      left:18px;
-      top:10px;
-      width:26px;
-      height:26px;
-      border-radius:999px;
-      background:#ffd7b5;
-      z-index:3;
-    }
-
-    .mascot-hair{
-      position:absolute;
-      left:15px;
-      top:6px;
-      width:30px;
-      height:18px;
-      border-radius:16px 16px 10px 10px;
-      background:linear-gradient(180deg,#7c3f24,#5f2f18);
-      z-index:4;
-      transform:rotate(-8deg);
-    }
-
-    .mascot-body{
-      position:absolute;
-      left:14px;
-      top:31px;
-      width:32px;
-      height:22px;
-      border-radius:16px 16px 12px 12px;
-      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
-      z-index:2;
-    }
-
-    .mascot-cape{
-      position:absolute;
-      left:4px;
-      top:26px;
-      width:20px;
-      height:28px;
-      border-radius:14px 0 14px 14px;
-      background:linear-gradient(180deg,#ff7e63,#ef5c45);
-      transform:rotate(-24deg);
-      z-index:1;
-    }
-
-    .mascot-drop{
-      position:absolute;
-      right:2px;
-      bottom:6px;
-      width:22px;
-      height:22px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-size:12px;
-      color:#fff;
-      background:linear-gradient(180deg,#8add68,#59be43);
-      box-shadow:0 6px 12px rgba(86,185,67,.22);
-      z-index:5;
-    }
-
-    .logo-stack{
-      min-width:0;
-    }
-
-    .logo{
-      display:flex;
-      flex-wrap:wrap;
-      align-items:center;
-      gap:2px;
-      font-size:clamp(36px, 6vw, 60px);
-      line-height:1;
-      font-weight:1000;
-      letter-spacing:-.03em;
-      text-shadow:0 3px 0 rgba(255,255,255,.72);
-    }
-
-    .logo-hero{ color:#8fbe1e; }
-    .logo-health{
-      color:#ffffff;
-      text-shadow:
-        0 3px 0 rgba(89,145,180,.22),
-        0 0 1px rgba(89,145,180,.18);
-    }
-
-    .logo-sub{
-      color:#6e8fa3;
-      font-size:15px;
-      font-weight:900;
-      margin-top:4px;
-    }
-
-    .home-btn{
-      width:54px;
-      height:54px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:24px;
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      color:#5f89a1;
-      cursor:pointer;
-      text-decoration:none;
-    }
-
-    .profile-strip{
-      display:grid;
-      grid-template-columns:1fr auto;
-      gap:12px;
-      align-items:center;
-      padding:12px;
-      border-radius:24px;
-      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(247,255,250,.94));
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-    }
-
-    .profile-left{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      min-width:0;
-    }
-
-    .avatar-card{
-      width:70px;
-      height:70px;
-      border-radius:22px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#eefaff,#d8f2ff);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      overflow:hidden;
-      flex:0 0 70px;
-    }
-
-    .avatar-illust{
-      position:relative;
-      width:56px;
-      height:56px;
-    }
-
-    .avatar-head{
-      position:absolute;
-      left:17px;
-      top:8px;
-      width:22px;
-      height:22px;
-      border-radius:999px;
-      background:#ffd7b5;
-      z-index:3;
-    }
-
-    .avatar-hair{
-      position:absolute;
-      left:14px;
-      top:5px;
-      width:26px;
-      height:16px;
-      border-radius:16px 16px 10px 10px;
-      background:linear-gradient(180deg,#7c3f24,#5f2f18);
-      z-index:4;
-      transform:rotate(-8deg);
-    }
-
-    .avatar-body{
-      position:absolute;
-      left:13px;
-      top:27px;
-      width:28px;
-      height:20px;
-      border-radius:16px 16px 12px 12px;
-      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
-      z-index:2;
-    }
-
-    .avatar-cape{
-      position:absolute;
-      left:4px;
-      top:23px;
-      width:18px;
-      height:24px;
-      border-radius:14px 0 14px 14px;
-      background:linear-gradient(180deg,#ff7e63,#ef5c45);
-      transform:rotate(-24deg);
-      z-index:1;
-    }
-
-    .avatar-drop{
-      position:absolute;
-      right:2px;
-      bottom:6px;
-      width:18px;
-      height:18px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-size:10px;
-      color:#fff;
-      background:linear-gradient(180deg,#8add68,#59be43);
-      box-shadow:0 6px 12px rgba(86,185,67,.22);
-      z-index:5;
-    }
-
-    .profile-name{
-      color:#2b4f69;
-      font-size:28px;
-      line-height:1.05;
-      font-weight:1000;
-      margin-bottom:6px;
-    }
-
-    .speech{
-      position:relative;
-      display:inline-block;
-      max-width:100%;
-      padding:10px 14px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#fff7db,#ffefbd);
-      border:1px solid #ffe39a;
-      color:#6a5a21;
-      font-size:14px;
-      line-height:1.45;
-      font-weight:900;
-      box-shadow:var(--shadow);
-    }
-
-    .speech::before{
-      content:"";
-      position:absolute;
-      left:-10px;
-      top:18px;
-      width:16px;
-      height:16px;
-      background:linear-gradient(180deg,#fff7db,#ffefbd);
-      border-left:1px solid #ffe39a;
-      border-bottom:1px solid #ffe39a;
-      transform:rotate(45deg);
-    }
-
-    .speech.coop{
-      background:linear-gradient(180deg,#f7f3ff,#ece5ff);
-      border-color:#d7ceff;
-      color:#5a4da1;
-    }
-
-    .speech.coop::before{
-      background:linear-gradient(180deg,#f7f3ff,#ece5ff);
-      border-left:1px solid #d7ceff;
-      border-bottom:1px solid #d7ceff;
-    }
-
-    .profile-stats{
-      display:grid;
-      gap:10px;
-      min-width:280px;
-    }
-
-    .resource-strip{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .resource-pill{
-      min-height:62px;
-      padding:10px 12px;
-      border-radius:20px;
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:
-        0 10px 22px rgba(90,145,180,.12),
-        inset 0 1px 0 rgba(255,255,255,.95);
-      display:flex;
-      gap:10px;
-      align-items:center;
-      position:relative;
-      overflow:hidden;
-    }
-
-    .resource-pill::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      background:linear-gradient(180deg, rgba(255,255,255,.42), rgba(255,255,255,0) 46%);
-      pointer-events:none;
-    }
-
-    .resource-icon{
-      width:36px;
-      height:36px;
-      flex:0 0 36px;
-      border-radius:12px;
-      display:grid;
-      place-items:center;
-      font-size:18px;
-      background:linear-gradient(180deg,#fff7d5,#ffe7a8);
-      box-shadow:
-        0 6px 14px rgba(90,145,180,.12),
-        inset 0 1px 0 rgba(255,255,255,.55);
-    }
-
-    .resource-label{
-      display:block;
-      color:#7698ae;
-      font-size:12px;
-      font-weight:1000;
-      margin-bottom:2px;
-    }
-
-    .resource-pill strong{
-      color:#2c526c;
-      font-size:22px;
-      line-height:1.05;
-      font-weight:1000;
-    }
-
-    .level-strip{
-      display:grid;
-      grid-template-columns:auto 1fr auto;
-      gap:10px;
-      align-items:center;
-      min-height:58px;
-      padding:10px 12px;
-      border-radius:20px;
-      background:linear-gradient(180deg,#fffef8,#f3fff0);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-    }
-
-    .level-badge{
-      min-height:34px;
-      padding:7px 12px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#8add68,#59be43);
-      color:#fff;
-      font-size:13px;
-      font-weight:1000;
-      display:grid;
-      place-items:center;
-    }
-
-    .level-track{
-      height:14px;
-      border-radius:999px;
-      background:#e8f7df;
-      border:1px solid #cceab8;
-      overflow:hidden;
-    }
-
-    .level-track-fill{
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#8add68,#59be43);
-      width:32%;
-    }
-
-    .level-progress{
-      color:#5d8096;
-      font-size:14px;
-      font-weight:1000;
-    }
-
-    .zone-strip{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .zone-card-mini{
-      min-height:62px;
-      border-radius:22px;
-      padding:12px 14px;
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      display:grid;
-      place-items:center;
-      text-align:center;
-      color:#6d8ea3;
-      font-size:17px;
-      font-weight:1000;
-    }
-
-    .zone-card-mini.active{
-      background:linear-gradient(180deg,#fffef8,#f3fff0);
-      border-color:#b8e6a2;
-      color:#427d34;
-    }
-
-    .main-grid{
-      display:grid;
-      grid-template-columns:1.08fr .92fr;
-      gap:14px;
-    }
-
-    .panel{
-      padding:16px;
-      border-radius:28px;
-      display:grid;
-      gap:14px;
-    }
-
-    .panel-title{
-      color:#2b4f69;
-      font-size:30px;
-      line-height:1.06;
-      font-weight:1000;
-      margin:0;
-    }
-
-    .panel-sub{
-      color:var(--muted);
-      font-size:15px;
-      line-height:1.5;
-      font-weight:700;
-      margin:0;
-    }
-
-    .launch-stage{
-      position:relative;
-      overflow:hidden;
-      min-height:430px;
-      border-radius:30px;
-      background:
-        radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
-        radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%),
-        linear-gradient(180deg,#e9fbff 0%,#c9f0ff 42%,#aee2ff 100%);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      display:grid;
-      align-content:space-between;
-      padding:16px;
-    }
-
-    .launch-stage.coop{
-      background:
-        radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
-        radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%),
-        linear-gradient(180deg,#f4f1ff 0%,#e6e0ff 42%,#d8d0ff 100%);
-    }
-
-    .launch-stage::after{
-      content:"";
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:104px;
-      background:
-        radial-gradient(circle at 10% 76%, #d4f3ad 0 18%, transparent 19%),
-        radial-gradient(circle at 34% 100%, #a8e37f 0 12%, transparent 13%),
-        radial-gradient(circle at 84% 74%, #d4f3ad 0 18%, transparent 19%),
-        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.12) 40%, rgba(104,191,70,.24) 100%);
-      pointer-events:none;
-    }
-
-    .launch-stage.coop::after{
-      background:
-        radial-gradient(circle at 10% 76%, #d8d1ff 0 18%, transparent 19%),
-        radial-gradient(circle at 34% 100%, #c6bcff 0 12%, transparent 13%),
-        radial-gradient(circle at 84% 74%, #ddd7ff 0 18%, transparent 19%),
-        linear-gradient(180deg, rgba(255,255,255,0), rgba(184,170,255,.12) 40%, rgba(151,136,255,.22) 100%);
-    }
-
-    .launch-stage > *{
-      position:relative;
-      z-index:1;
-    }
-
-    .launch-top-row{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .tiny-stack{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .tiny-badge{
-      min-height:34px;
-      padding:7px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.82);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      color:#6788a0;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .tiny-badge.soon{
-      background:linear-gradient(180deg,#f7f4ff,#ece6ff);
-      border-color:#d6cdff;
-      color:#5f52a6;
-    }
-
-    .launch-scene{
-      display:grid;
-      place-items:center;
-      gap:14px;
-      text-align:center;
-      padding:8px 0;
-    }
-
-    .launch-avatar-big{
-      width:132px;
-      height:132px;
-      border-radius:34px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#f2fbff,#dff3ff);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow-lg);
-      overflow:hidden;
-    }
-
-    .launch-stage.coop .launch-avatar-big{
-      background:linear-gradient(180deg,#f8f6ff,#ebe6ff);
-    }
-
-    .launch-avatar-illust{
-      position:relative;
-      width:100px;
-      height:100px;
-    }
-
-    .launch-head{
-      position:absolute;
-      left:33px;
-      top:14px;
-      width:34px;
-      height:34px;
-      border-radius:999px;
-      background:#ffd7b5;
-      z-index:3;
-    }
-
-    .launch-hair{
-      position:absolute;
-      left:28px;
-      top:10px;
-      width:40px;
-      height:24px;
-      border-radius:18px 18px 10px 12px;
-      background:linear-gradient(180deg,#7c3f24,#5f2f18);
-      z-index:4;
-      transform:rotate(-8deg);
-    }
-
-    .launch-body{
-      position:absolute;
-      left:27px;
-      top:44px;
-      width:42px;
-      height:30px;
-      border-radius:18px 18px 14px 14px;
-      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
-      z-index:2;
-    }
-
-    .launch-cape{
-      position:absolute;
-      left:13px;
-      top:38px;
-      width:26px;
-      height:38px;
-      border-radius:18px 0 18px 18px;
-      background:linear-gradient(180deg,#ff7e63,#ef5c45);
-      transform:rotate(-24deg);
-      z-index:1;
-    }
-
-    .launch-drop{
-      position:absolute;
-      right:5px;
-      bottom:10px;
-      width:26px;
-      height:26px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-size:14px;
-      color:#fff;
-      background:linear-gradient(180deg,#8add68,#59be43);
-      box-shadow:0 6px 12px rgba(86,185,67,.22);
-      z-index:5;
-    }
-
-    .launch-bubble{
-      max-width:430px;
-      justify-self:center;
-      padding:12px 16px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#fff7db,#ffefbd);
-      border:1px solid #ffe39a;
-      color:#6a5a21;
-      font-size:16px;
-      line-height:1.45;
-      font-weight:1000;
-      box-shadow:var(--shadow);
-    }
-
-    .launch-bubble.coop{
-      background:linear-gradient(180deg,#f7f3ff,#ece5ff);
-      border-color:#d8ceff;
-      color:#5d50a2;
-    }
-
-    .launch-actions{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .level-pill{
-      min-height:44px;
-      padding:10px 16px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#8add68,#59be43);
-      color:#fff;
-      font-weight:1000;
-      box-shadow:var(--shadow);
-    }
-
-    .level-pill.duet{
-      background:linear-gradient(180deg,#ffbfe0,#ff94c2);
-    }
-
-    .level-pill.coop{
-      background:linear-gradient(180deg,#d8d1ff,#b5a8ff);
-      color:#4f4498;
-    }
-
-    .go-btn{
-      min-width:210px;
-      min-height:58px;
-      border:0;
-      border-radius:20px;
-      background:linear-gradient(180deg,#87de67,#57ba44);
-      color:#fff;
-      font-size:24px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:
-        0 12px 26px rgba(90,145,180,.14),
-        inset 0 1px 0 rgba(255,255,255,.18);
-      transition:transform .12s ease, filter .12s ease;
-    }
-
-    .go-btn.duet{
-      background:linear-gradient(180deg,#ffbfe0,#ff94c2);
-    }
-
-    .go-btn.coop{
-      background:linear-gradient(180deg,#d6ceff,#b4a7ff);
-      color:#4e4398;
-    }
-
-    .go-btn:hover{
-      transform:translateY(-1px) scale(1.01);
-      filter:brightness(1.02);
-    }
-
-    .controls-stack{
-      display:grid;
-      gap:12px;
+      gap:16px;
       align-content:start;
     }
 
-    .control-box{
-      padding:14px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      border:1px solid rgba(255,255,255,.96);
+    .hero{
+      padding:18px;
+      border-radius:32px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.72));
       box-shadow:var(--shadow);
       display:grid;
-      gap:8px;
+      gap:14px;
     }
 
-    .control-box label{
-      color:#7094ab;
-      font-size:14px;
+    .hero-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+
+    .brand{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      min-width:0;
+    }
+
+    .badge{
+      width:58px;
+      height:58px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:32px;
+      background:linear-gradient(180deg,#67e8f9,#2563eb);
+      box-shadow:0 14px 28px rgba(37,99,235,.22);
+      color:white;
+    }
+
+    .title{
+      min-width:0;
+    }
+
+    .title .k{
+      font-size:13px;
+      font-weight:1000;
+      color:#2563eb;
+      letter-spacing:.04em;
+    }
+
+    .title .v{
+      font-size:clamp(26px,4vw,46px);
+      line-height:1.02;
+      font-weight:1100;
+      letter-spacing:-.04em;
+    }
+
+    .title .s{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.45;
+    }
+
+    .chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .chip{
+      padding:8px 11px;
+      border-radius:999px;
+      background:rgba(37,99,235,.08);
+      border:1px solid rgba(37,99,235,.12);
+      color:#1d4ed8;
+      font-size:12px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr 1fr;
+      gap:10px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:12px;
+      color:var(--muted);
       font-weight:1000;
     }
 
-    .control-box input,
-    .control-box select{
-      border:1px solid #cfe8f3;
-      background:#fff;
-      color:var(--text);
-      border-radius:16px;
-      padding:12px 14px;
-      outline:none;
-      font-size:16px;
-      font-weight:800;
+    .field input,
+    .field select{
       width:100%;
-    }
-
-    .field-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
+      min-height:44px;
+      border-radius:16px;
+      border:1px solid rgba(37,99,235,.16);
+      background:rgba(255,255,255,.78);
+      padding:10px 12px;
+      color:var(--text);
+      outline:none;
+      font-weight:900;
     }
 
     .mode-grid{
       display:grid;
-      grid-template-columns:1fr 1fr 1fr;
-      gap:10px;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:12px;
     }
 
     .mode-card{
-      min-height:118px;
-      border-radius:22px;
-      padding:14px;
-      border:1px solid rgba(255,255,255,.96);
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      box-shadow:var(--shadow);
-      text-align:left;
-      cursor:pointer;
-      transition:transform .12s ease, filter .12s ease, border-color .12s ease, box-shadow .12s ease;
       position:relative;
+      min-height:250px;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:12px;
+      padding:14px;
+      border-radius:28px;
+      background:var(--card);
+      border:2px solid rgba(37,99,235,.12);
+      box-shadow:var(--shadow);
+      cursor:pointer;
+      text-align:left;
+      color:var(--text);
       overflow:hidden;
+      transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease;
+    }
+
+    .mode-card::before{
+      content:"";
+      position:absolute;
+      inset:-40% -40% auto auto;
+      width:170px;
+      height:170px;
+      border-radius:50%;
+      background:rgba(37,99,235,.08);
+      pointer-events:none;
     }
 
     .mode-card:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.02);
+      transform:translateY(-3px);
+      border-color:rgba(37,99,235,.30);
+      box-shadow:0 22px 52px rgba(37,99,235,.18);
     }
 
     .mode-card.active{
-      background:linear-gradient(180deg,#fffef8,#f3fff0);
-      border-color:#b8e6a2;
-      box-shadow:var(--shadow-lg);
+      border-color:#2563eb;
+      box-shadow:0 22px 52px rgba(37,99,235,.24),0 0 0 4px rgba(37,99,235,.10);
     }
 
-    .mode-card.duet.active{
-      background:linear-gradient(180deg,#fff8fd,#fff0f7);
-      border-color:#ffc2e0;
+    .mode-icon{
+      position:relative;
+      width:54px;
+      height:54px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:linear-gradient(180deg,#e0f2fe,#ffffff);
+      border:1px solid rgba(37,99,235,.14);
+      box-shadow:0 12px 24px rgba(37,99,235,.10);
     }
 
-    .mode-card.coop.active{
-      background:linear-gradient(180deg,#f7f4ff,#efebff);
-      border-color:#d2c8ff;
-    }
-
-    .mode-card-title{
-      color:#2f556e;
+    .mode-name{
+      position:relative;
       font-size:20px;
-      line-height:1.1;
-      font-weight:1000;
-      margin-bottom:6px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      flex-wrap:wrap;
+      font-weight:1100;
+      line-height:1.05;
     }
 
-    .mode-card-desc{
-      color:#6f91a6;
+    .mode-sub{
+      position:relative;
+      margin-top:6px;
+      color:var(--muted);
       font-size:13px;
-      line-height:1.45;
-      font-weight:800;
+      line-height:1.35;
     }
 
-    .soon-badge{
-      min-height:24px;
-      padding:3px 8px;
+    .mode-tags{
+      position:relative;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+
+    .tag{
+      padding:6px 8px;
       border-radius:999px;
-      background:linear-gradient(180deg,#f7f4ff,#ece6ff);
-      border:1px solid #d7cdff;
-      color:#5f52a6;
+      background:rgba(6,182,212,.09);
+      border:1px solid rgba(6,182,212,.14);
       font-size:11px;
       font-weight:1000;
-      display:inline-grid;
-      place-items:center;
-      white-space:nowrap;
+      color:#0e7490;
     }
 
-    .tip-card{
-      padding:16px;
-      border-radius:24px;
-      background:linear-gradient(180deg,#fffef8,#f3fff0);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      color:#5d8096;
-      font-size:15px;
-      line-height:1.55;
-      font-weight:800;
+    .start-panel{
+      position:sticky;
+      bottom:12px;
+      z-index:10;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      padding:14px;
+      border-radius:26px;
+      background:rgba(255,255,255,.88);
+      border:1px solid rgba(37,99,235,.14);
+      box-shadow:0 18px 44px rgba(37,99,235,.18);
+      backdrop-filter:blur(14px);
     }
 
-    .tip-card.coop{
-      background:linear-gradient(180deg,#f7f4ff,#efebff);
-      border-color:#d8ceff;
-      color:#61569f;
+    .selected{
+      display:grid;
+      gap:2px;
     }
 
-    .tip-card strong{
-      color:#315873;
+    .selected .k{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
     }
 
-    .tip-card.coop strong{
-      color:#4c4297;
+    .selected .v{
+      font-size:18px;
+      font-weight:1100;
     }
 
-    .action-row{
+    .actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
     }
 
-    .btn-blue,
-    .btn-soft{
-      min-height:52px;
+    .btn{
+      min-height:48px;
       padding:12px 18px;
       border-radius:18px;
-      font-size:18px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:
-        0 12px 26px rgba(90,145,180,.14),
-        inset 0 1px 0 rgba(255,255,255,.18);
-      transition:transform .12s ease, filter .12s ease;
-    }
-
-    .btn-blue{
       border:0;
-      background:linear-gradient(180deg,var(--blue1),var(--blue2));
-      color:#fff;
+      cursor:pointer;
+      font-weight:1100;
+      color:white;
+      background:linear-gradient(180deg,#22d3ee,#2563eb);
+      box-shadow:0 14px 28px rgba(37,99,235,.24);
     }
 
-    .btn-soft{
-      border:1px solid rgba(255,255,255,.96);
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      color:var(--text);
+    .btn.secondary{
+      color:#1d4ed8;
+      background:rgba(37,99,235,.08);
+      border:1px solid rgba(37,99,235,.12);
+      box-shadow:none;
     }
 
-    .btn-blue:hover,
-    .btn-soft:hover{
-      transform:translateY(-1px) scale(1.01);
-      filter:brightness(1.02);
-    }
-
-    .route-note{
-      padding:14px 16px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#fffef8,#f3fff0);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      color:#6e8fa3;
-      font-size:14px;
-      line-height:1.55;
-      font-weight:800;
-    }
-
-    .route-note.coop{
-      background:linear-gradient(180deg,#f7f4ff,#efebff);
-      border-color:#d8ceff;
-      color:#61569f;
-    }
-
-    .route-note strong{
-      color:#315873;
-    }
-
-    .route-note.coop strong{
-      color:#4c4297;
-    }
-
-    @media (max-width: 920px){
-      .logo-wrap,
-      .profile-strip,
-      .main-grid{
-        grid-template-columns:1fr;
-      }
-
-      .profile-stats{
-        min-width:0;
-      }
-
+    @media (max-width: 980px){
       .mode-grid{
-        grid-template-columns:1fr;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .controls{
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
     }
 
-    @media (max-width: 640px){
-      body{
+    @media (max-width: 620px){
+      .page{
         padding:12px;
       }
 
-      .page{
-        gap:12px;
-      }
-
-      .hero-shell,
-      .panel{
-        border-radius:24px;
-      }
-
-      .logo{
-        font-size:clamp(28px, 10vw, 40px);
-      }
-
-      .field-grid{
+      .mode-grid,
+      .controls{
         grid-template-columns:1fr;
       }
 
-      .mascot-card{
-        width:66px;
-        height:66px;
-        border-radius:22px;
+      .mode-card{
+        min-height:210px;
       }
 
-      .mascot-illust{
-        width:52px;
-        height:52px;
-      }
-
-      .mascot-head{ left:14px; top:8px; width:22px; height:22px; }
-      .mascot-hair{ left:12px; top:5px; width:24px; height:16px; }
-      .mascot-body{ left:12px; top:26px; width:26px; height:18px; }
-      .mascot-cape{ left:3px; top:22px; width:16px; height:22px; }
-      .mascot-drop{ width:18px; height:18px; font-size:10px; }
-
-      .home-btn{
-        width:44px;
-        height:44px;
-        border-radius:14px;
-        font-size:20px;
-      }
-
-      .profile-strip{
-        grid-template-columns:1fr;
-      }
-
-      .avatar-card{
-        width:58px;
-        height:58px;
-        flex-basis:58px;
-        border-radius:18px;
-      }
-
-      .avatar-illust{
-        width:46px;
-        height:46px;
-      }
-
-      .avatar-head{ left:14px; top:7px; width:18px; height:18px; }
-      .avatar-hair{ left:12px; top:4px; width:22px; height:14px; }
-      .avatar-body{ left:11px; top:22px; width:24px; height:18px; }
-      .avatar-cape{ left:3px; top:19px; width:16px; height:20px; }
-      .avatar-drop{ width:16px; height:16px; font-size:9px; }
-
-      .profile-name{
-        font-size:24px;
-      }
-
-      .zone-strip{
-        grid-template-columns:1fr;
-      }
-
-      .topbar{
-        align-items:flex-start;
-      }
-
-      .topchips{
-        justify-content:flex-start;
-      }
-
-      .launch-avatar-big{
-        width:104px;
-        height:104px;
-        border-radius:28px;
-      }
-
-      .launch-avatar-illust{
-        width:80px;
-        height:80px;
-      }
-
-      .launch-head{ left:25px; top:10px; width:28px; height:28px; }
-      .launch-hair{ left:22px; top:7px; width:34px; height:20px; }
-      .launch-body{ left:21px; top:36px; width:36px; height:26px; }
-      .launch-cape{ left:10px; top:31px; width:22px; height:30px; }
-      .launch-drop{ width:22px; height:22px; font-size:12px; }
-
-      .go-btn{
-        min-width:100%;
-      }
-
-      .launch-actions{
+      .start-panel{
         align-items:stretch;
       }
 
-      .action-row{
-        grid-template-columns:1fr;
+      .actions,
+      .btn{
+        width:100%;
       }
     }
   </style>
 </head>
+
 <body>
   <main class="page">
-    <section class="hero-shell">
-      <div class="topbar">
-        <button id="btnSettings" class="corner-btn" type="button">⚙️</button>
-        <div class="topchips">
-          <span class="topchip">💧 Hydration Zone</span>
-          <span class="topchip">🎮 Launcher</span>
-          <span class="topchip" id="topModeChip">Solo</span>
+    <section class="hero">
+      <div class="hero-top">
+        <div class="brand">
+          <div class="badge">💧</div>
+          <div class="title">
+            <div class="k">HEROHEALTH</div>
+            <div class="v">Hydration Arena</div>
+            <div class="s">เลือกโหมดเล่นน้ำดี: เดี่ยว คู่ แข่ง ต่อสู้ หรือช่วยทีมกู้ถังน้ำ</div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <div class="chip">PC</div>
+          <div class="chip">Mobile</div>
+          <div class="chip">Cardboard VR</div>
+          <div class="chip">Auto Role</div>
         </div>
       </div>
 
-      <div class="logo-wrap">
-        <div class="mascot-card">
-          <div class="mascot-illust">
-            <div class="mascot-head"></div>
-            <div class="mascot-hair"></div>
-            <div class="mascot-body"></div>
-            <div class="mascot-cape"></div>
-            <div class="mascot-drop">💧</div>
-          </div>
+      <div class="controls">
+        <div class="field">
+          <label for="playerName">ชื่อผู้เล่น</label>
+          <input id="playerName" value="Hero" autocomplete="name" />
         </div>
 
-        <div class="logo-stack">
-          <div class="logo">
-            <span class="logo-hero">Hero</span>
-            <span class="logo-health">Health</span>
-          </div>
-          <div class="logo-sub">Hydration Hero Launcher • zone-first</div>
+        <div class="field">
+          <label for="diff">ระดับ</label>
+          <select id="diff">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+            <option value="challenge">Challenge</option>
+          </select>
         </div>
 
-        <a id="hubBtnTop" class="home-btn" href="#" aria-label="กลับ Hub">🏠</a>
-      </div>
-
-      <div class="profile-strip">
-        <div class="profile-left">
-          <div class="avatar-card">
-            <div class="avatar-illust">
-              <div class="avatar-head"></div>
-              <div class="avatar-hair"></div>
-              <div class="avatar-body"></div>
-              <div class="avatar-cape"></div>
-              <div class="avatar-drop">💧</div>
-            </div>
-          </div>
-
-          <div>
-            <div id="profileName" class="profile-name">Hero</div>
-            <div id="speechText" class="speech">พร้อมแล้ว! เลือกโหมดก่อน แล้วไปลุยกันเลย</div>
-          </div>
+        <div class="field">
+          <label for="time">เวลา</label>
+          <select id="time">
+            <option value="60">60 วินาที</option>
+            <option value="80" selected>80 วินาที</option>
+            <option value="120">120 วินาที</option>
+            <option value="150">150 วินาที</option>
+          </select>
         </div>
 
-        <div class="profile-stats">
-          <div class="resource-strip">
-            <div class="resource-pill">
-              <span class="resource-icon">🪙</span>
-              <div>
-                <span class="resource-label">Coins</span>
-                <strong>0</strong>
-              </div>
-            </div>
-
-            <div class="resource-pill">
-              <span class="resource-icon">⭐</span>
-              <div>
-                <span class="resource-label">Stars</span>
-                <strong>3</strong>
-              </div>
-            </div>
-
-            <div class="resource-pill">
-              <span class="resource-icon">💧</span>
-              <div>
-                <span class="resource-label">Water</span>
-                <strong>40%</strong>
-              </div>
-            </div>
-
-            <div class="resource-pill">
-              <span class="resource-icon">🎒</span>
-              <div>
-                <span class="resource-label">Mode</span>
-                <strong id="statModeText">Solo</strong>
-              </div>
-            </div>
-          </div>
-
-          <div class="level-strip">
-            <div class="level-badge">Lv. 5</div>
-            <div class="level-track">
-              <div class="level-track-fill"></div>
-            </div>
-            <div class="level-progress">10/30</div>
-          </div>
+        <div class="field">
+          <label for="view">อุปกรณ์</label>
+          <select id="view">
+            <option value="pc">PC</option>
+            <option value="mobile" selected>Mobile</option>
+            <option value="cvr">Cardboard VR</option>
+          </select>
         </div>
-      </div>
-
-      <div class="zone-strip">
-        <div class="zone-card-mini">🧼 Hygiene Zone</div>
-        <div class="zone-card-mini active">🥗 Nutrition Zone</div>
-        <div class="zone-card-mini">🏃 Fitness Zone</div>
       </div>
     </section>
 
-    <section class="main-grid">
-      <section class="panel">
-        <div>
-          <h1 id="panelTitle" class="panel-title">Hydration Hero</h1>
-          <p id="panelSub" class="panel-sub">Launcher หลักของเกมนี้</p>
-        </div>
+    <section class="mode-grid" id="modeGrid"></section>
 
-        <section id="launchStage" class="launch-stage">
-          <div class="launch-top-row">
-            <div class="tiny-stack">
-              <span id="launchModeBadge" class="tiny-badge">💧 Solo Adventure</span>
-              <span id="launchSoonBadge" class="tiny-badge soon" style="display:none;">Coming Soon</span>
-            </div>
-            <span id="warmStatusChip" class="tiny-badge">กำลังตรวจสอบ warmup...</span>
-          </div>
+    <section class="start-panel">
+      <div class="selected">
+        <div class="k">โหมดที่เลือก</div>
+        <div class="v" id="selectedText">💧 Solo Survival</div>
+      </div>
 
-          <div class="launch-scene">
-            <div class="launch-avatar-big">
-              <div class="launch-avatar-illust">
-                <div class="launch-head"></div>
-                <div class="launch-hair"></div>
-                <div class="launch-body"></div>
-                <div class="launch-cape"></div>
-                <div class="launch-drop">💧</div>
-              </div>
-            </div>
-
-            <div id="launchBubble" class="launch-bubble">
-              Great! ไปเก็บน้ำดีให้ได้เยอะที่สุดกันเลย!
-            </div>
-          </div>
-
-          <div class="launch-actions">
-            <div id="levelPill" class="level-pill">Solo Mode</div>
-            <button id="startBtn" class="go-btn" type="button">Go Solo</button>
-          </div>
-        </section>
-      </section>
-
-      <section class="panel controls-stack">
-        <div class="control-box">
-          <label>เลือกโหมด</label>
-          <div class="mode-grid">
-            <button id="modeSoloBtn" class="mode-card active" type="button">
-              <div class="mode-card-title">💧 Solo</div>
-              <div class="mode-card-desc">ผ่าน warmup ก่อน แล้วเข้าเกมหลัก</div>
-            </button>
-
-            <button id="modeDuetBtn" class="mode-card duet" type="button">
-              <div class="mode-card-title">🤝 Duet</div>
-              <div class="mode-card-desc">เข้า lobby ก่อนเสมอ แล้วให้ 2 คนเข้าห้องเดียวกัน</div>
-            </button>
-
-            <button id="modeCoopBtn" class="mode-card coop" type="button">
-              <div class="mode-card-title">🛟 Coop <span class="soon-badge">Soon</span></div>
-              <div class="mode-card-desc">โหมดทีมยังเป็น Coming Soon แต่เปิดหน้า lobby เตรียมไว้ก่อน</div>
-            </button>
-          </div>
-        </div>
-
-        <div class="control-box">
-          <div class="field-grid">
-            <div>
-              <label for="nickInput">ชื่อเล่น</label>
-              <input id="nickInput" type="text" placeholder="Hero" />
-            </div>
-            <div>
-              <label for="pidInput">PID</label>
-              <input id="pidInput" type="text" placeholder="anon" />
-            </div>
-          </div>
-
-          <div class="field-grid">
-            <div>
-              <label for="diffSel">ความยาก</label>
-              <select id="diffSel">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </div>
-
-            <div>
-              <label for="viewSel">มุมมอง</label>
-              <select id="viewSel">
-                <option value="pc">pc</option>
-                <option value="mobile" selected>mobile</option>
-                <option value="cvr">cvr</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="field-grid">
-            <div>
-              <label for="timeSel">เวลาเล่น</label>
-              <select id="timeSel">
-                <option value="60">60 วินาที</option>
-                <option value="80" selected>80 วินาที</option>
-                <option value="90">90 วินาที</option>
-                <option value="120">120 วินาที</option>
-              </select>
-            </div>
-
-            <div>
-              <label for="hubInput">Hub Root</label>
-              <input id="hubInput" type="text" placeholder="./hub.html" />
-            </div>
-          </div>
-        </div>
-
-        <div id="tipCard" class="tip-card">
-          <strong>วิธีเล่นแบบสั้น</strong><br />
-          แตะน้ำดีเพื่อเพิ่มคะแนน เก็บโล่ไว้กันสายฟ้า และหลบของไม่ดีให้ได้มากที่สุด
-        </div>
-
-        <div class="action-row">
-          <button id="zoneBtn" class="btn-blue" type="button">🥗 กลับ Nutrition Zone</button>
-          <button id="hubBtn" class="btn-soft" type="button">🏠 กลับ HUB</button>
-          <button id="helpBtn" class="btn-soft" type="button">❓ วิธีเล่น</button>
-          <button id="continueBtn" class="btn-soft" type="button">▶ เล่นล่าสุด</button>
-        </div>
-
-        <div id="routeNote" class="route-note">
-          <strong>Canonical Flow</strong><br />
-          Solo: <strong>/herohealth/warmup-gate.html</strong> → <strong>/herohealth/hydration-vr/hydration-vr.html</strong><br />
-          Duet: <strong>/herohealth/hydration-lobby.html?mode=duet</strong><br />
-          Coop: <strong>/herohealth/hydration-lobby.html?mode=coop</strong>
-        </div>
-      </section>
+      <div class="actions">
+        <button class="btn secondary" id="btnBackHub" type="button">กลับโซน</button>
+        <button class="btn" id="btnStart" type="button">เริ่มเล่น</button>
+      </div>
     </section>
   </main>
 
-  <script type="module">
-    import { buildZoneGameUrl, buildHubRoot, rememberZoneGame } from './zone-return.js';
+  <script>
+    const MODES = [
+      {
+        id: 'solo',
+        icon: '💧',
+        name: 'Solo Survival',
+        sub: 'เอาตัวรอดคนเดียว เก็บน้ำดี เก็บโล่ และรักษาระดับน้ำให้รอดจนจบ',
+        tags: ['Survival', 'Water', 'Shield']
+      },
+      {
+        id: 'duet',
+        icon: '🤝',
+        name: 'Duet Buddy',
+        sub: 'เล่นคู่ ระบบแจกหน้าที่ Collector / Guardian อัตโนมัติ ช่วยกันทำคะแนนทีม',
+        tags: ['2 Players', 'Auto Role', 'Team Sync']
+      },
+      {
+        id: 'race',
+        icon: '🏁',
+        name: 'Water Race',
+        sub: 'แข่งเติม Water ให้ถึงเป้าก่อน เก็บบูสต์ให้ไว และลด Miss ให้มากที่สุด',
+        tags: ['Fast', 'Boost', 'Rank']
+      },
+      {
+        id: 'battle',
+        icon: '🌩️',
+        name: 'Storm Battle',
+        sub: 'ทำภารกิจเพื่อปลดล็อกสกิลพายุ แล้วส่งไปท้าทายคู่แข่ง',
+        tags: ['Mission Unlock', 'Attack', 'Shield Counter']
+      },
+      {
+        id: 'coop',
+        icon: '🚰',
+        name: 'Coop Rescue',
+        sub: 'ทุกคนช่วยกันรักษาถังน้ำรวม ผ่าน Crisis และทำภารกิจตามบทบาท',
+        tags: ['Team Tank', 'Crisis', 'Rescue']
+      }
+    ];
 
-    (function(){
-      const PASS_KEYS = [
-        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
-        'siteCode','schoolYear','semester',
-        'studentKey','schoolCode','classRoom','studentNo',
-        'nickName','grade','planDay','planSlot',
-        'teacher','run','log','api','debug','cooldown',
-        'apiUrl','logUrl'
-      ];
+    const $ = (s, r = document) => r.querySelector(s);
+    const qs = new URL(location.href).searchParams;
 
-      const qs = new URLSearchParams(location.search);
+    let selectedMode = qs.get('mode') || qs.get('recommendedMode') || 'solo';
 
-      const LS = {
-        pid:'HHA_DEVICE_PID',
-        nick:'HHA_HERO_NICK',
-        mode:'HHA_HYDRATION_LAST_MODE',
-        href:'HHA_HYDRATION_LAST_HREF'
-      };
+    function esc(s){
+      return String(s ?? '').replace(/[&<>"']/g, m => ({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[m]));
+    }
 
-      function q(name, fallback=''){
-        const v = qs.get(name);
-        return v == null || v === '' ? fallback : v;
+    function renderModes(){
+      const grid = $('#modeGrid');
+      grid.innerHTML = MODES.map(m => `
+        <button class="mode-card ${m.id === selectedMode ? 'active' : ''}" type="button" data-mode="${esc(m.id)}">
+          <div class="mode-icon">${esc(m.icon)}</div>
+          <div>
+            <div class="mode-name">${esc(m.name)}</div>
+            <div class="mode-sub">${esc(m.sub)}</div>
+          </div>
+          <div class="mode-tags">
+            ${m.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}
+          </div>
+        </button>
+      `).join('');
+
+      updateSelectedText();
+    }
+
+    function updateSelectedText(){
+      const m = MODES.find(x => x.id === selectedMode) || MODES[0];
+      $('#selectedText').textContent = `${m.icon} ${m.name}`;
+    }
+
+    function buildRunUrl(){
+      const name = $('#playerName').value.trim() || 'Hero';
+      const diff = $('#diff').value || 'normal';
+      const time = $('#time').value || '80';
+      const view = $('#view').value || 'mobile';
+
+      const hub =
+        qs.get('hub') ||
+        '../nutrition-zone.html';
+
+      const api = qs.get('api') || '';
+      const pid = qs.get('pid') || 'anon';
+      const studyId = qs.get('studyId') || '';
+      const seed = qs.get('seed') || Date.now();
+
+      const url = new URL('./hydration-vr/hydration-vr.html', location.href);
+
+      url.searchParams.set('pid', pid);
+      url.searchParams.set('name', name);
+      url.searchParams.set('diff', diff);
+      url.searchParams.set('time', time);
+      url.searchParams.set('view', view);
+      url.searchParams.set('run', 'play');
+      url.searchParams.set('mode', selectedMode);
+      url.searchParams.set('entry', selectedMode);
+      url.searchParams.set('recommendedMode', selectedMode);
+      url.searchParams.set('zone', 'nutrition');
+      url.searchParams.set('cat', 'nutrition');
+      url.searchParams.set('game', 'hydration');
+      url.searchParams.set('gameId', 'hydration');
+      url.searchParams.set('theme', 'hydration');
+      url.searchParams.set('seed', seed);
+      url.searchParams.set('hub', hub);
+
+      if(api) url.searchParams.set('api', api);
+      if(studyId) url.searchParams.set('studyId', studyId);
+
+      if(selectedMode !== 'solo'){
+        url.searchParams.set('multiplayer', '1');
+        url.searchParams.set('room', qs.get('room') || `hydr-${selectedMode}-${String(seed).slice(-6)}`);
       }
 
-      function sanitizePid(v){
-        return String(v || '')
-          .trim()
-          .replace(/[.#$[\]/]/g, '-')
-          .replace(/\s+/g, '-')
-          .slice(0, 36) || 'anon';
+      return url.toString();
+    }
+
+    document.addEventListener('click', (ev) => {
+      const card = ev.target.closest('[data-mode]');
+      if(card){
+        selectedMode = card.dataset.mode || 'solo';
+        renderModes();
       }
+    });
 
-      function sanitizeNick(v){
-        return String(v || '')
-          .trim()
-          .replace(/\s+/g, ' ')
-          .slice(0, 24) || 'Hero';
-      }
+    $('#btnStart').addEventListener('click', () => {
+      location.href = buildRunUrl();
+    });
 
-      function readLS(key, fallback=''){
-        try{ return localStorage.getItem(key) || fallback; }
-        catch{ return fallback; }
-      }
+    $('#btnBackHub').addEventListener('click', () => {
+      const hub = qs.get('hub') || '../nutrition-zone.html';
+      location.href = hub;
+    });
 
-      function writeLS(key, value){
-        try{ localStorage.setItem(key, value); }catch{}
-      }
-
-      function defaultHubRoot(){
-        return buildHubRoot(qs, location.href);
-      }
-
-      function defaultZoneUrl(){
-        const u = new URL('./nutrition-zone.html', location.href);
-
-        const passKeys = [
-          'pid','name','nickName','studyId',
-          'run','diff','view','time','seed',
-          'debug','api','log',
-          'studentKey','schoolCode','classRoom','studentNo',
-          'conditionGroup','sessionNo','weekNo','teacher','grade'
-        ];
-
-        passKeys.forEach((k) => {
-          const v = qs.get(k);
-          if (v != null && v !== '') u.searchParams.set(k, v);
-        });
-
-        if (!u.searchParams.get('pid')) u.searchParams.set('pid', ensurePid());
-        if (!u.searchParams.get('name')) u.searchParams.set('name', ensureNick());
-        if (!u.searchParams.get('diff')) u.searchParams.set('diff', 'normal');
-        if (!u.searchParams.get('time')) u.searchParams.set('time', '80');
-        if (!u.searchParams.get('view')) u.searchParams.set('view', 'mobile');
-
-        u.searchParams.set('hubRoot', defaultHubRoot());
-        u.searchParams.set('hub', defaultHubRoot());
-        return u.toString();
-      }
-
-      function defaultTimeForDiff(diff){
-        if(diff === 'easy') return '60';
-        if(diff === 'hard') return '90';
-        return '80';
-      }
-
-      function todayStampBangkok(){
-        try {
-          const parts = new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'Asia/Bangkok',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          }).formatToParts(new Date());
-          const map = Object.fromEntries(parts.filter(p => p.type !== 'literal').map(p => [p.type, p.value]));
-          return `${map.year}-${map.month}-${map.day}`;
-        } catch (_) {
-          const d = new Date();
-          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        }
-      }
-
-      function warmupKeyForHydration(pid){
-        return `HHA_GATE_DONE_V1:${pid}:nutrition:hydration:warmup:${todayStampBangkok()}`;
-      }
-
-      function isWarmupDoneToday(pid){
-        try{
-          return localStorage.getItem(warmupKeyForHydration(pid)) === '1';
-        }catch(_){
-          return false;
-        }
-      }
-
-      const UI = {
-        profileName: document.getElementById('profileName'),
-        speechText: document.getElementById('speechText'),
-        panelTitle: document.getElementById('panelTitle'),
-        panelSub: document.getElementById('panelSub'),
-        launchStage: document.getElementById('launchStage'),
-        launchModeBadge: document.getElementById('launchModeBadge'),
-        launchSoonBadge: document.getElementById('launchSoonBadge'),
-        launchBubble: document.getElementById('launchBubble'),
-        levelPill: document.getElementById('levelPill'),
-        startBtn: document.getElementById('startBtn'),
-        tipCard: document.getElementById('tipCard'),
-        routeNote: document.getElementById('routeNote'),
-        topModeChip: document.getElementById('topModeChip'),
-        statModeText: document.getElementById('statModeText'),
-        warmStatusChip: document.getElementById('warmStatusChip'),
-
-        modeSoloBtn: document.getElementById('modeSoloBtn'),
-        modeDuetBtn: document.getElementById('modeDuetBtn'),
-        modeCoopBtn: document.getElementById('modeCoopBtn'),
-
-        nickInput: document.getElementById('nickInput'),
-        pidInput: document.getElementById('pidInput'),
-        diffSel: document.getElementById('diffSel'),
-        viewSel: document.getElementById('viewSel'),
-        timeSel: document.getElementById('timeSel'),
-        hubInput: document.getElementById('hubInput'),
-
-        zoneBtn: document.getElementById('zoneBtn'),
-        hubBtn: document.getElementById('hubBtn'),
-        hubBtnTop: document.getElementById('hubBtnTop'),
-        continueBtn: document.getElementById('continueBtn'),
-        helpBtn: document.getElementById('helpBtn'),
-        btnSettings: document.getElementById('btnSettings')
-      };
-
-      let mode = q('mode', readLS(LS.mode, 'solo'));
-      if(!['solo','duet','coop'].includes(mode)) mode = 'solo';
-
-      function ensurePid(){
-        const v = sanitizePid(UI.pidInput.value || q('pid', readLS(LS.pid, 'anon')));
-        UI.pidInput.value = v;
-        writeLS(LS.pid, v);
-        return v;
-      }
-
-      function ensureNick(){
-        const v = sanitizeNick(UI.nickInput.value || q('nick', q('name', readLS(LS.nick, 'Hero'))));
-        UI.nickInput.value = v;
-        writeLS(LS.nick, v);
-        return v;
-      }
-
-      function syncProfile(){
-        const nick = ensureNick();
-        UI.profileName.textContent = nick;
-      }
-
-      function passthroughSearchParams(){
-        const sp = new URLSearchParams(qs.toString());
-        PASS_KEYS.forEach((key) => {
-          const v = qs.get(key);
-          if(v != null && v !== '') sp.set(key, v);
-        });
-
-        sp.set('pid', ensurePid());
-        sp.set('name', ensureNick());
-        sp.set('nick', ensureNick());
-        sp.set('nickName', ensureNick());
-        sp.set('diff', UI.diffSel.value || q('diff', 'normal'));
-        sp.set('view', UI.viewSel.value || q('view', 'mobile'));
-        sp.set('time', UI.timeSel.value || q('time', '80'));
-        sp.set('hubRoot', defaultHubRoot());
-        sp.set('run', q('run','play'));
-        if(!sp.get('seed')) sp.set('seed', String(Date.now()));
-        return sp;
-      }
-
-      function buildSoloRunUrl(){
-        return buildZoneGameUrl({
-          basePath: './hydration-vr/hydration-vr.html',
-          searchParams: passthroughSearchParams(),
-          zone: 'nutrition',
-          gameKey: 'hydration',
-          currentHref: location.href,
-          overrides: {
-            mode: 'solo',
-            theme: 'hydration',
-            launcher: location.href
-          }
-        });
-      }
-
-      function buildWarmupUrl(nextRun){
-        const u = new URL('./warmup-gate.html', location.href);
-        const sp = passthroughSearchParams();
-
-        PASS_KEYS.forEach((key) => {
-          const v = sp.get(key);
-          if(v) u.searchParams.set(key, v);
-        });
-
-        u.searchParams.set('phase', 'warmup');
-        u.searchParams.set('gatePhase', 'warmup');
-        u.searchParams.set('cat', 'nutrition');
-        u.searchParams.set('zone', 'nutrition');
-        u.searchParams.set('game', 'hydration');
-        u.searchParams.set('gameId', 'hydration');
-        u.searchParams.set('theme', 'hydration');
-        u.searchParams.set('pid', ensurePid());
-        u.searchParams.set('name', ensureNick());
-        u.searchParams.set('diff', UI.diffSel.value || 'normal');
-        u.searchParams.set('time', UI.timeSel.value || '80');
-        u.searchParams.set('view', UI.viewSel.value || 'mobile');
-        u.searchParams.set('hub', defaultZoneUrl());
-        u.searchParams.set('hubRoot', defaultHubRoot());
-        u.searchParams.set('launcher', location.href);
-        u.searchParams.set('next', nextRun);
-        u.searchParams.set('run', q('run','play'));
-        u.searchParams.set('seed', sp.get('seed') || String(Date.now()));
-        return u.toString();
-      }
-
-      function buildLobbyUrl(modeValue){
-        const u = new URL('./hydration-lobby.html', location.href);
-        const sp = passthroughSearchParams();
-
-        PASS_KEYS.forEach((key) => {
-          const v = sp.get(key);
-          if(v) u.searchParams.set(key, v);
-        });
-
-        u.searchParams.set('mode', modeValue);
-        u.searchParams.set('entry', modeValue);
-        u.searchParams.set('theme', 'hydration');
-        u.searchParams.set('game', 'hydration');
-        u.searchParams.set('gameId', 'hydration');
-        u.searchParams.set('zone', 'nutrition');
-        u.searchParams.set('cat', 'nutrition');
-        u.searchParams.set('pid', ensurePid());
-        u.searchParams.set('name', ensureNick());
-        u.searchParams.set('nick', ensureNick());
-        u.searchParams.set('nickName', ensureNick());
-        u.searchParams.set('diff', UI.diffSel.value || 'normal');
-        u.searchParams.set('time', UI.timeSel.value || '80');
-        u.searchParams.set('view', UI.viewSel.value || 'mobile');
-        u.searchParams.set('hub', defaultZoneUrl());
-        u.searchParams.set('hubRoot', defaultHubRoot());
-        u.searchParams.set('launcher', location.href);
-        u.searchParams.set('run', q('run','play'));
-        u.searchParams.set('seed', sp.get('seed') || String(Date.now()));
-        return u.toString();
-      }
-
-      function buildModeHref(modeValue){
-        if(modeValue === 'solo'){
-          const runUrl = buildSoloRunUrl();
-          return isWarmupDoneToday(ensurePid()) ? runUrl : buildWarmupUrl(runUrl);
-        }
-        if(modeValue === 'duet') return buildLobbyUrl('duet');
-        return buildLobbyUrl('coop');
-      }
-
-      function saveLast(href){
-        writeLS(LS.mode, mode);
-        writeLS(LS.href, href);
-      }
-
-      function syncModeUi(){
-        UI.modeSoloBtn.classList.toggle('active', mode === 'solo');
-        UI.modeDuetBtn.classList.toggle('active', mode === 'duet');
-        UI.modeCoopBtn.classList.toggle('active', mode === 'coop');
-
-        UI.launchStage.classList.remove('coop');
-        UI.launchBubble.classList.remove('coop');
-        UI.speechText.classList.remove('coop');
-        UI.tipCard.classList.remove('coop');
-        UI.routeNote.classList.remove('coop');
-        UI.levelPill.classList.remove('duet','coop');
-        UI.startBtn.classList.remove('duet','coop');
-        UI.launchModeBadge.classList.remove('soon');
-        UI.launchSoonBadge.style.display = 'none';
-
-        UI.topModeChip.textContent = mode === 'solo' ? 'Solo' : mode === 'duet' ? 'Duet' : 'Coop';
-        UI.statModeText.textContent = mode === 'solo' ? 'Solo' : mode === 'duet' ? 'Duet' : 'Coop';
-
-        if(mode === 'solo'){
-          UI.panelTitle.textContent = 'Hydration Hero';
-          UI.panelSub.textContent = 'เล่นคนเดียว ผ่าน warmup ก่อนเข้าด่านหลัก แล้วค่อยไป summary / cooldown';
-          UI.launchModeBadge.textContent = '💧 Solo Adventure';
-          UI.launchBubble.textContent = 'Great! ไปเก็บน้ำดีให้ได้เยอะที่สุดกันเลย!';
-          UI.levelPill.textContent = 'Solo Mode';
-          UI.startBtn.textContent = 'Go Solo';
-          UI.speechText.textContent = 'พร้อมแล้ว! เลือกโหมดก่อน แล้วไปลุยกันเลย';
-          UI.tipCard.innerHTML =
-            '<strong>วิธีเล่นแบบสั้น</strong><br />แตะน้ำดีเพื่อเพิ่มคะแนน เก็บโล่ไว้กันสายฟ้า และหลบของไม่ดีให้ได้มากที่สุด';
-          UI.routeNote.innerHTML =
-            '<strong>Canonical Flow</strong><br />' +
-            'Solo: <strong>/herohealth/warmup-gate.html</strong> → <strong>/herohealth/hydration-vr/hydration-vr.html</strong><br />' +
-            'Duet: <strong>/herohealth/hydration-lobby.html?mode=duet</strong><br />' +
-            'Coop: <strong>/herohealth/hydration-lobby.html?mode=coop</strong>';
-        }
-        else if(mode === 'duet'){
-          UI.panelTitle.textContent = 'Hydration Duet';
-          UI.panelSub.textContent = 'ใช้ lobby ก่อนเสมอ แล้วให้ผู้เล่น 2 คนเข้าห้องด้วย room code เดียวกัน';
-          UI.launchModeBadge.textContent = '🤝 Duet Lobby';
-          UI.launchBubble.textContent = 'ชวนเพื่อนมาเล่นด้วยกัน แล้วเข้าห้อง duet เพื่อเริ่มภารกิจทีม!';
-          UI.levelPill.textContent = 'Duet Mode';
-          UI.levelPill.classList.add('duet');
-          UI.startBtn.textContent = 'Go Duet';
-          UI.startBtn.classList.add('duet');
-          UI.speechText.textContent = 'ชวนเพื่อนเข้าห้อง แล้วช่วยกันเก็บน้ำดีให้ถึงเป้าหมายของทีม';
-          UI.tipCard.innerHTML =
-            '<strong>วิธีเริ่ม Duet</strong><br />กดเข้า lobby ก่อน แล้วให้ผู้เล่น 2 คนเข้าห้องเดียวกันด้วย room code เดียวกัน';
-          UI.routeNote.innerHTML =
-            '<strong>Canonical Flow</strong><br />' +
-            'Duet: <strong>/herohealth/hydration-lobby.html?mode=duet</strong><br />' +
-            'Solo: <strong>/herohealth/warmup-gate.html</strong> → <strong>/herohealth/hydration-vr/hydration-vr.html</strong><br />' +
-            'Coop: <strong>/herohealth/hydration-lobby.html?mode=coop</strong>';
-        }
-        else{
-          UI.panelTitle.textContent = 'Hydration Coop';
-          UI.panelSub.textContent = 'โหมดนี้ยังเป็น Coming Soon และจะพาไปหน้า lobby แบบเตรียมระบบไว้ก่อน';
-          UI.launchStage.classList.add('coop');
-          UI.launchModeBadge.textContent = '🛟 Coop Lobby';
-          UI.launchModeBadge.classList.add('soon');
-          UI.launchSoonBadge.style.display = 'inline-flex';
-          UI.launchBubble.textContent = 'โหมดทีมกำลังมาอีกนิดนะ ✨ ตอนนี้เข้าไปดูหน้า lobby ของ Coop ได้ก่อน';
-          UI.launchBubble.classList.add('coop');
-          UI.levelPill.textContent = 'Coop Soon';
-          UI.levelPill.classList.add('coop');
-          UI.startBtn.textContent = 'ดูโหมด Coop';
-          UI.startBtn.classList.add('coop');
-          UI.speechText.textContent = 'Coop กำลังมาอีกนิดนะ ตอนนี้เราเตรียม flow ของทีมไว้ก่อน';
-          UI.speechText.classList.add('coop');
-          UI.tipCard.classList.add('coop');
-          UI.tipCard.innerHTML =
-            '<strong>สถานะตอนนี้</strong><br />Coop ยังเป็น Coming Soon โดยระบบจะพาไปหน้า lobby แบบ child-friendly ที่ซ่อน flow ที่ยังไม่พร้อมไว้แล้ว';
-          UI.routeNote.classList.add('coop');
-          UI.routeNote.innerHTML =
-            '<strong>Canonical Flow</strong><br />' +
-            'Coop: <strong>/herohealth/hydration-lobby.html?mode=coop</strong><br />' +
-            'หน้า lobby จะขึ้น Coming Soon และยังไม่เปิดสร้างห้องจริง<br />' +
-            'Solo / Duet ยังเป็นโหมดที่ใช้งานหลักในตอนนี้';
-        }
-
-        const done = isWarmupDoneToday(ensurePid());
-        if(mode === 'solo'){
-          UI.warmStatusChip.textContent = done ? 'warmup วันนี้ผ่านแล้ว ✅' : 'Solo จะผ่าน warmup ก่อน';
-        } else {
-          UI.warmStatusChip.textContent = mode === 'duet' ? 'Duet ใช้ lobby ก่อน' : 'Coop ยังเป็น Coming Soon';
-        }
-      }
-
-      function syncDefaults(){
-        ensureNick();
-        ensurePid();
-
-        const diff = q('diff', 'normal');
-        UI.diffSel.value = ['easy','normal','hard'].includes(diff) ? diff : 'normal';
-
-        const view = q('view', 'mobile');
-        UI.viewSel.value = ['pc','mobile','cvr'].includes(view) ? view : 'mobile';
-
-        const time = q('time', defaultTimeForDiff(UI.diffSel.value));
-        UI.timeSel.value = ['60','80','90','120'].includes(String(time)) ? String(time) : defaultTimeForDiff(UI.diffSel.value);
-
-        UI.hubInput.value = defaultHubRoot();
-
-        syncProfile();
-        syncModeUi();
-      }
-
-      function goStart(){
-        const href = buildModeHref(mode);
-        saveLast(href);
-        rememberZoneGame({
-          zone:'nutrition',
-          gameKey:'hydration',
-          gameTitle:'Hydration'
-        });
-        location.href = href;
-      }
-
-      function goHub(){
-        location.href = defaultHubRoot();
-      }
-
-      function goZone(){
-        location.href = defaultZoneUrl();
-      }
-
-      function goContinue(){
-        const href = readLS(LS.href, '');
-        if(href){
-          rememberZoneGame({
-            zone:'nutrition',
-            gameKey:'hydration',
-            gameTitle:'Hydration'
-          });
-          location.href = href;
-          return;
-        }
-        goStart();
-      }
-
-      function showHelp(){
-        if(mode === 'solo'){
-          alert(
-            'วิธีเล่น Solo:\\n\\n' +
-            '1) ผ่าน warmup ก่อน\\n' +
-            '2) แตะน้ำดีเพื่อเพิ่มคะแนนและเพิ่มน้ำ\\n' +
-            '3) หลบของไม่ดี\\n' +
-            '4) เก็บโล่ไว้กันสายฟ้า\\n' +
-            '5) ผ่านพายุและบอสให้ได้'
-          );
-        }else if(mode === 'duet'){
-          alert(
-            'วิธีเล่น Duet:\\n\\n' +
-            '1) เข้า lobby duet ก่อน\\n' +
-            '2) ให้ผู้เล่น 2 คนใช้ room เดียวกัน\\n' +
-            '3) รอเข้าเกมพร้อมกัน\\n' +
-            '4) ช่วยกันเก็บน้ำดีให้ถึงเป้าหมายทีม'
-          );
-        }else{
-          alert(
-            'Coop ตอนนี้ยังเป็น Coming Soon\\n\\n' +
-            'ระบบจะพาไปหน้า lobby ที่เตรียม flow ไว้ก่อน แต่ยังไม่เปิดห้องจริง'
-          );
-        }
-      }
-
-      UI.modeSoloBtn.addEventListener('click', ()=>{
-        mode = 'solo';
-        syncModeUi();
-      });
-
-      UI.modeDuetBtn.addEventListener('click', ()=>{
-        mode = 'duet';
-        syncModeUi();
-      });
-
-      UI.modeCoopBtn.addEventListener('click', ()=>{
-        mode = 'coop';
-        syncModeUi();
-      });
-
-      UI.diffSel.addEventListener('change', ()=>{
-        const suggested = defaultTimeForDiff(UI.diffSel.value);
-        if(['60','80','90','120'].includes(suggested)){
-          UI.timeSel.value = suggested;
-        }
-      });
-
-      UI.nickInput.addEventListener('input', syncProfile);
-      UI.pidInput.addEventListener('input', syncModeUi);
-      UI.viewSel.addEventListener('change', syncModeUi);
-      UI.timeSel.addEventListener('change', syncModeUi);
-
-      UI.startBtn.addEventListener('click', goStart);
-      UI.hubBtn.addEventListener('click', goHub);
-      UI.hubBtnTop.addEventListener('click', goHub);
-      UI.zoneBtn.addEventListener('click', goZone);
-      UI.helpBtn.addEventListener('click', showHelp);
-      UI.continueBtn.addEventListener('click', goContinue);
-
-      UI.btnSettings.addEventListener('click', ()=>{
-        alert('ตั้งค่าหลักของรอบเล่นนี้อยู่ทางขวา เช่น โหมด ชื่อเล่น ความยาก มุมมอง เวลาเล่น และ hub root');
-      });
-
-      syncDefaults();
-    })();
+    renderModes();
   </script>
 </body>
 </html>
