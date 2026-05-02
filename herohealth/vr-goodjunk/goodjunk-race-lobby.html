@@ -12,8 +12,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-  <script src="../firebase-config.js?v=20260501-gj-race-lobby-v4-lock-match"></script>
-  <script src="../gj-room-adapter.js?v=20260501-gj-race-lobby-v4-lock-match"></script>
+  <script src="../firebase-config.js?v=20260501-gj-race-lobby-v6-rematch"></script>
+  <script src="../gj-room-adapter.js?v=20260501-gj-race-lobby-v6-rematch"></script>
 
   <style>
     :root{
@@ -1157,7 +1157,8 @@
         autostart: '1',
         modeLocked: '1',
         multiplayer: '1',
-        maxPlayers: String(room?.cap || p.cap)
+        maxPlayers: String(room?.cap || p.cap),
+        v: '20260501-v6-rematch'
       });
     }
 
@@ -1268,6 +1269,17 @@
       $('btnStartRace').disabled = !enabled;
     }
 
+    function setStartButtonMode(mode){
+      const btn = $('btnStartRace');
+      if (!btn) return;
+
+      if (mode === 'rematch') {
+        btn.textContent = '🚀 เริ่ม Race รอบใหม่';
+      } else {
+        btn.textContent = '🚀 เริ่มแข่งเลย';
+      }
+    }
+
     function syncRoomUi(room) {
       lastRoom = room || null;
 
@@ -1280,6 +1292,7 @@
       renderPlayers(room);
 
       if (!room) {
+        setStartButtonMode('start');
         updateNotice(
           'warn',
           'ยังไม่พบห้องนี้ในระบบ • กด “สร้างห้องแข่ง” ถ้าคุณเป็นคนชวนเพื่อน หรือกด “เข้าห้องเพื่อน” เพื่อเข้าห้อง'
@@ -1291,6 +1304,7 @@
       }
 
       if (room.mode !== MODE) {
+        setStartButtonMode('start');
         updateNotice('bad', 'ห้องนี้ไม่ใช่โหมด Race');
         updateRoomStateChip('warn', 'ผิดโหมด');
         setStartEnabled(false);
@@ -1299,10 +1313,45 @@
       }
 
       if (room.status === 'ended' || room.status === 'closed') {
-        updateNotice('warn', 'Race ห้องนี้จบแล้ว • กดสุ่มรหัสหรือสร้างห้องใหม่เพื่อเล่นรอบต่อไป');
         updateRoomStateChip('warn', 'จบแล้ว');
+        setStartButtonMode('rematch');
+
+        if (!me) {
+          updateNotice(
+            'warn',
+            'Race ห้องนี้จบแล้ว • ถ้าอยากเล่นรอบใหม่ ให้สร้างห้องใหม่หรือขอ Room Code ใหม่จาก Host'
+          );
+          setStartEnabled(false);
+          log('ROOM_ENDED_NOT_IN_ROOM');
+          return;
+        }
+
+        if (host && count >= 2) {
+          updateNotice(
+            'good',
+            `Race ห้องนี้จบแล้ว • มีผู้เล่นเดิม ${count}/${cap} คน • Host กด “เริ่ม Race รอบใหม่” ได้เลย`
+          );
+          setStartEnabled(true);
+          log(`ROOM_ENDED_HOST_CAN_REMATCH ${count}/${cap}`);
+          return;
+        }
+
+        if (host && count < 2) {
+          updateNotice(
+            'warn',
+            `Race ห้องนี้จบแล้ว • ตอนนี้มีผู้เล่น ${count}/${cap} คน ต้องมีอย่างน้อย 2 คนเพื่อเริ่มรอบใหม่`
+          );
+          setStartEnabled(false);
+          log(`ROOM_ENDED_WAIT_PLAYERS ${count}/${cap}`);
+          return;
+        }
+
+        updateNotice(
+          'warn',
+          'Race ห้องนี้จบแล้ว • รอ Host กดเริ่ม Race รอบใหม่'
+        );
         setStartEnabled(false);
-        log('ROOM_ENDED');
+        log('ROOM_ENDED_GUEST_WAIT_HOST');
         return;
       }
 
@@ -1322,12 +1371,15 @@
       }
 
       if (!me) {
+        setStartButtonMode('start');
         updateNotice('warn', 'คุณยังไม่ได้อยู่ในห้อง • กด “เข้าห้องเพื่อน” ก่อน');
         updateRoomStateChip('warn', 'รอเข้าห้อง');
         setStartEnabled(false);
         log('PLAYER_NOT_IN_ROOM');
         return;
       }
+
+      setStartButtonMode('start');
 
       if (count < 2) {
         updateRoomStateChip('warn', `รอเพื่อน ${count}/${cap}`);
@@ -1551,6 +1603,7 @@
 
         updateNotice('warn', 'ออกจากห้องแล้ว • เลือกสร้างห้องหรือเข้าห้องใหม่ได้เลย');
         updateRoomStateChip('warn', 'รอเริ่ม');
+        setStartButtonMode('start');
         setStartEnabled(false);
       } catch (err) {
         console.warn('[GoodJunk Race Lobby] leaveRoom failed', err);
@@ -1589,6 +1642,15 @@
         log(`START_RACE ${p.room}`);
 
         const matchId = 'MT-' + p.room + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+
+        const wasEnded = lastRoom && (
+          lastRoom.status === 'ended' ||
+          lastRoom.status === 'closed'
+        );
+
+        if (wasEnded) {
+          log(`REMATCH_START ${p.room} ${matchId}`);
+        }
 
         let roomPatch = null;
 
@@ -1682,6 +1744,7 @@
         updateStats(null);
         renderPlayers(null);
         updateRoomStateChip('warn', 'รอเริ่ม');
+        setStartButtonMode('start');
         setStartEnabled(false);
         log(`RANDOM_ROOM ${code}`);
       });
@@ -1734,6 +1797,7 @@
       renderPlayers(null);
       updateNotice('warn', 'กำลังเชื่อมต่อระบบห้องออนไลน์…');
       updateRoomStateChip('warn', 'กำลังเชื่อมต่อ');
+      setStartButtonMode('start');
       log('BOOT');
 
       try {
