@@ -973,7 +973,6 @@
       }
     }
 
-    /* === Fullscreen Game Playing Mode === */
     @media (max-width:620px){
       #app.phase-playing{
         padding:
@@ -1254,8 +1253,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260502-gj-battle-pid-fix"></script>
-  <script src="./goodjunk-battle-room-bootstrap.js?v=20260502-gj-battle-pid-fix"></script>
+  <script src="../firebase-config.js?v=20260502-gj-battle-self-upsert"></script>
+  <script src="./goodjunk-battle-room-bootstrap.js?v=20260502-gj-battle-self-upsert"></script>
 
   <script type="module">
     import {
@@ -1275,7 +1274,7 @@
       canUseBattleAttack,
       getBattleOpponent,
       getPlayerByPid
-    } from './goodjunk-battle-room.js?v=20260502-GJ-BATTLE-PID-FIX';
+    } from './goodjunk-battle-room.js?v=20260502-GJ-BATTLE-SELF-UPSERT';
 
     const $ = (id) => document.getElementById(id);
 
@@ -1548,6 +1547,178 @@
       return Date.now() + Number(state.serverOffsetMs || 0);
     }
 
+    function runtimeMakeRoundId(roomId, seq){
+      const safeRoom = clean(roomId, 'GJ-BT');
+      const n = Number(seq || 1) || 1;
+      return `${safeRoom}-R${n}`;
+    }
+
+    function runtimeActivePlayers(players, roundId){
+      const rid = clean(roundId, '');
+
+      return Object.values(players || {})
+        .filter(Boolean)
+        .filter(p => p.online !== false)
+        .filter(p => {
+          if(!rid) return true;
+          return clean(p.roundId, '') === rid;
+        });
+    }
+
+    function makeRuntimeBattlePlayer(prev = {}, role = 'player', roundId = ''){
+      const diff = C.diff || prev.diff || 'normal';
+
+      const maxHp =
+        diff === 'challenge' ? 3 :
+        diff === 'hard' ? 4 :
+        5;
+
+      const maxHeals =
+        diff === 'easy' ? 3 :
+        diff === 'normal' ? 2 :
+        1;
+
+      const now = serverNowMs();
+
+      return {
+        ...(prev || {}),
+        pid: C.pid,
+        name: C.name,
+        nick: C.nick || C.name,
+        role: prev.role || role,
+        diff,
+        roundId: clean(roundId, prev.roundId || ''),
+        joinedAt: Number(prev.joinedAt || 0) || now,
+        ready: true,
+
+        score: Number(prev.score || 0) || 0,
+        combo: Number(prev.combo || 0) || 0,
+        hp: Number.isFinite(Number(prev.hp)) ? Number(prev.hp) : maxHp,
+        maxHp: Number(prev.maxHp || maxHp) || maxHp,
+        shield: Number(prev.shield || 0) || 0,
+        attackMeter: Number(prev.attackMeter || 0) || 0,
+
+        heartsRecovered: Number(prev.heartsRecovered || 0) || 0,
+        maxHeals: Number(prev.maxHeals || maxHeals) || maxHeals,
+        lastHealAt: Number(prev.lastHealAt || 0) || 0,
+
+        goodHits: Number(prev.goodHits || 0) || 0,
+        junkHits: Number(prev.junkHits || 0) || 0,
+        attacksSent: Number(prev.attacksSent || 0) || 0,
+        attacksBlocked: Number(prev.attacksBlocked || 0) || 0,
+        attacksReceived: Number(prev.attacksReceived || 0) || 0,
+        lastAttackAt: Number(prev.lastAttackAt || 0) || 0,
+
+        online: true,
+        updatedAt: now,
+        lastSeenAt: now
+      };
+    }
+
+    async function upsertSelfIntoBattleRoom(){
+      if(!adapter || !C.room) return null;
+
+      let room = null;
+
+      try{
+        room = await adapter.loadRoom(C.room);
+      }catch(err){
+        console.warn('[Battle] load before self-upsert failed', err);
+      }
+
+      const now = await getBattleServerNowMs(adapter);
+
+      const baseRoom = room && typeof room === 'object' ? room : {};
+      const players = baseRoom.players && typeof baseRoom.players === 'object'
+        ? { ...baseRoom.players }
+        : {};
+
+      let roundSeq = Number(baseRoom.roundSeq || C.roundSeq || 1) || 1;
+      let roundId = clean(baseRoom.currentRoundId || C.currentRoundId || C.roundId, '');
+
+      if(!roundId){
+        roundId = runtimeMakeRoundId(C.room, roundSeq);
+      }
+
+      const activeBefore = runtimeActivePlayers(players, roundId);
+      const alreadyInRound =
+        players[C.pid] &&
+        clean(players[C.pid].roundId, '') === roundId &&
+        players[C.pid].online !== false;
+
+      if(!alreadyInRound && activeBefore.length >= 2){
+        return {
+          ok:false,
+          code:'ROOM_FULL',
+          room:baseRoom
+        };
+      }
+
+      const hasHost = activeBefore.some(p => p && p.role === 'host');
+      const finalRole =
+        C.role === 'host' || !hasHost
+          ? 'host'
+          : 'player';
+
+      players[C.pid] = makeRuntimeBattlePlayer(
+        players[C.pid] || {},
+        finalRole,
+        roundId
+      );
+
+      const activeAfter = runtimeActivePlayers(players, roundId);
+
+      const hostPid =
+        activeAfter.find(p => p && p.role === 'host')?.pid ||
+        clean(baseRoom.hostPid, '') ||
+        C.pid;
+
+      const shouldStart =
+        activeAfter.length >= 2 &&
+        baseRoom.status !== 'ended';
+
+      const payload = {
+        ...(baseRoom || {}),
+        roomId: C.room,
+        mode: 'battle',
+        currentRoundId: roundId,
+        roundSeq,
+        hostPid,
+        createdAt: Number(baseRoom.createdAt || 0) || now,
+        updatedAt: now,
+        players
+      };
+
+      if(shouldStart){
+        payload.status = 'started';
+        payload.startedAt = Number(baseRoom.startedAt || 0) || now;
+        payload.battleStartAt = Number(baseRoom.battleStartAt || 0) || (now + 3500);
+        payload.endedAt = 0;
+        payload.matchEnd = null;
+      }else{
+        payload.status = baseRoom.status && baseRoom.status !== 'ended'
+          ? baseRoom.status
+          : 'waiting';
+        payload.battleStartAt = Number(baseRoom.battleStartAt || 0) || 0;
+      }
+
+      try{
+        const saved = await adapter.saveRoom(C.room, payload);
+        state.room = saved || payload;
+        return {
+          ok:true,
+          room:saved || payload
+        };
+      }catch(err){
+        console.warn('[Battle] self-upsert failed', err);
+        return {
+          ok:false,
+          code:'UPSERT_FAILED',
+          error:err
+        };
+      }
+    }
+
     function buildUrl(path, params = {}, base = location.href){
       const u = new URL(path, base);
       Object.entries(params).forEach(([k,v]) => {
@@ -1667,10 +1838,6 @@
       if(state.rival && String(state.rival.pid || '') !== String(C.pid || '')) return state.rival;
       return null;
     }
-
-    /* =====================================================
-     * Local logging
-     * ===================================================== */
 
     const BATTLE_LOG_SCHEMA = 'goodjunk-battle-v1';
     const BATTLE_LOG_LOCAL_KEY = 'HHA_GJ_BATTLE_LOGS';
@@ -1961,10 +2128,6 @@
       downloadTextFile(filename, csv, 'text/csv;charset=utf-8');
       showToast(`Export Logs แล้ว ${logs.length} รายการ`);
     }
-
-    /* =====================================================
-     * Rival / rendering
-     * ===================================================== */
 
     function rivalOfflineInfo(rival){
       if(!rival){
@@ -3073,11 +3236,29 @@
 
     async function retrySessionCheck(){
       try{
+        const joined = await upsertSelfIntoBattleRoom();
+
+        if(joined && joined.ok === false && joined.code === 'ROOM_FULL'){
+          setGamePhase('waiting');
+          setOverlay(
+            true,
+            '⚠️',
+            'จำนวนผู้เล่นเกิน',
+            'ห้อง Battle นี้มีผู้เล่นครบ 2 คนแล้ว กรุณากลับ Lobby แล้วสร้างห้องใหม่'
+          );
+          return;
+        }
+
         const session = await ensureBattleSession(C, { adapter });
         await handleRoomResult(session);
       }catch(err){
         setGamePhase('waiting');
-        setOverlay(true, '⏳', err.title || 'ยังเริ่มไม่ได้', err.messageUser || err.message || 'รอผู้เล่นอีกคน');
+        setOverlay(
+          true,
+          '⏳',
+          err.title || 'ยังเริ่มไม่ได้',
+          err.messageUser || err.message || 'กำลังตรวจห้องและรอผู้เล่นให้ครบ 2 คน'
+        );
       }
     }
 
@@ -3121,6 +3302,14 @@
 
       adapter = makeRoomAdapter();
 
+      console.info('[GoodJunk Battle] adapter:', adapter && adapter.type, adapter);
+      console.info('[GoodJunk Battle] player:', {
+        pid:C.pid,
+        name:C.name,
+        room:C.room,
+        role:C.role
+      });
+
       await syncServerClock();
 
       state.sessionId = makeSessionId();
@@ -3128,7 +3317,7 @@
 
       setGamePhase('waiting');
 
-      setOverlay(true, '⏳', 'กำลังตรวจ Battle', 'รอผู้เล่นให้ครบ 2 คนในห้องเดียวกัน');
+      setOverlay(true, '⏳', 'กำลังตรวจ Battle', 'กำลังตรวจห้องและรอผู้เล่นให้ครบ 2 คน');
 
       await retrySessionCheck();
 
