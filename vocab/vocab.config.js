@@ -1,148 +1,413 @@
 /* =========================================================
    /vocab/vocab.config.js
-   TechPath Vocab Arena — Central Config
-   ใช้กำหนด endpoint / version / storage keys / default options
-   ========================================================= */
+   TechPath Vocab Arena — Config
+   Version: 20260502c
+
+   สำคัญ:
+   - ไฟล์นี้ต้องโหลดก่อนทุกไฟล์ JS อื่น
+   - ต้องมี window.VOCAB_APP เสมอ
+   - endpoint ล่าสุดอยู่ตรง sheetEndpoint
+========================================================= */
 (function(){
   "use strict";
 
-  window.VOCAB_APP_CONFIG = {
-    version: "vocab-split-v1-20260501",
+  const DEFAULT_ENDPOINT =
+    "https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec";
+
+  function getParam(name, fallback = ""){
+    try{
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name) || fallback;
+    }catch(e){
+      return fallback;
+    }
+  }
+
+  function readLocal(key, fallback = ""){
+    try{
+      return localStorage.getItem(key) || fallback;
+    }catch(e){
+      return fallback;
+    }
+  }
+
+  function normalizeEndpoint(url){
+    url = String(url || "").trim();
+
+    if(!url){
+      url = DEFAULT_ENDPOINT;
+    }
+
+    try{
+      const u = new URL(url, window.location.href);
+
+      /*
+        Router ฝั่ง Apps Script ใช้ api=vocab
+        ดังนั้น endpoint ต้องมี api=vocab เสมอ
+      */
+      if(!u.searchParams.get("api")){
+        u.searchParams.set("api", "vocab");
+      }
+
+      return u.toString();
+    }catch(e){
+      if(url.indexOf("?") >= 0){
+        if(url.indexOf("api=") < 0){
+          return url + "&api=vocab";
+        }
+        return url;
+      }
+
+      return url + "?api=vocab";
+    }
+  }
+
+  const endpointFromUrl =
+    getParam("apiUrl") ||
+    getParam("endpoint") ||
+    getParam("sheetEndpoint") ||
+    "";
+
+  const endpointFromLocal =
+    readLocal("VOCAB_SHEET_ENDPOINT", "");
+
+  const sheetEndpoint = normalizeEndpoint(
+    window.VOCAB_SHEET_ENDPOINT ||
+    endpointFromUrl ||
+    endpointFromLocal ||
+    DEFAULT_ENDPOINT
+  );
+
+  /*
+    Global config
+    ต้องใช้ window.VOCAB_APP เท่านั้น เพื่อให้ไฟล์อื่นเรียกได้แน่นอน
+  */
+  window.VOCAB_APP = {
+    appName: "TechPath Vocab Arena",
     publicTitle: "TechPath Vocab Arena",
     publicSubtitle: "CS/AI Vocabulary Challenge",
 
-    /*
-      Endpoint ล่าสุด
-      ถ้าเปลี่ยน Apps Script ในอนาคต ให้แก้ไฟล์นี้ไฟล์เดียว
-    */
-    endpoint: "https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec?api=vocab",
-
-    api: "vocab",
-    source: "vocab.html",
+    version: "vocab-split-v1-20260502c",
     schema: "vocab-split-v1",
+    source: "vocab.html",
+    api: "vocab",
 
-    storage: {
-      queueKey: "VOCAB_SPLIT_LOG_QUEUE",
-      profileKey: "VOCAB_SPLIT_STUDENT_PROFILE",
-      teacherKey: "VOCAB_SPLIT_TEACHER_LAST",
-      leaderboardKey: "VOCAB_SPLIT_LEADERBOARD",
-      lastSummaryKey: "VOCAB_SPLIT_LAST_SUMMARY",
-      soundKey: "VOCAB_SPLIT_SOUND_ON"
+    sheetEndpoint,
+
+    enableSheetLog: true,
+    enableConsoleLog: true,
+
+    /*
+      selected state เริ่มต้น
+      vocab.ui.js จะเปลี่ยนค่าตามปุ่มที่ผู้เรียนกด
+    */
+    selectedBank: getParam("bank", "A"),
+    selectedDifficulty: getParam("diff", "easy"),
+    selectedMode: getParam("mode", "learn"),
+
+    /*
+      localStorage keys
+    */
+    storageKeys: {
+      profile: "VOCAB_SPLIT_PROFILE",
+      queue: "VOCAB_SPLIT_LOG_QUEUE",
+      leaderboard: "VOCAB_SPLIT_LEADERBOARD",
+      lastSummary: "VOCAB_SPLIT_LAST_SUMMARY",
+      termHistory: "VOCAB_SPLIT_TERM_HISTORY",
+      sound: "VOCAB_SPLIT_SOUND_ON",
+      guardLog: "VOCAB_SPLIT_GUARD_LOG"
     },
 
-    defaults: {
-      bank: "A",
-      difficulty: "easy",
-      mode: "learn",
-      enableSheetLog: true,
-      enableConsoleLog: true
+    /*
+      query params / teacher settings
+    */
+    params: {
+      seed: getParam("seed", ""),
+      pid: getParam("pid", ""),
+      name: getParam("name", "") || getParam("nick", ""),
+      section: getParam("section", ""),
+      sessionCode: getParam("session_code", "") || getParam("studyId", ""),
+      qa: getParam("qa", ""),
+      teacher: getParam("teacher", ""),
+      admin: getParam("admin", ""),
+      debug: getParam("debug", "")
     },
 
-    difficulty: {
-      easy: {
-        label: "Easy",
-        totalQuestions: 8,
-        timePerQuestion: 18,
-        playerHp: 5,
-        preview: "✨ Easy: 8 ข้อ เวลาเยอะ HP มาก เหมาะกับการทบทวน"
-      },
-      normal: {
-        label: "Normal",
-        totalQuestions: 10,
-        timePerQuestion: 14,
-        playerHp: 4,
-        preview: "⚔️ Normal: 10 ข้อ เริ่มมีแรงกดดัน และตัวเลือกหลอกดีขึ้น"
-      },
-      hard: {
-        label: "Hard",
-        totalQuestions: 12,
-        timePerQuestion: 11,
-        playerHp: 3,
-        preview: "🔥 Hard: 12 ข้อ HP น้อยลง ตัวเลือกยากขึ้น และต้องตอบแม่น"
-      },
-      challenge: {
-        label: "Challenge",
-        totalQuestions: 15,
-        timePerQuestion: 8,
-        playerHp: 2,
-        preview: "💀 Challenge: 15 ข้อ เวลาน้อย HP น้อย ตัวเลือกหลอกหนักสุด"
-      }
-    },
+    /*
+      student mode เป็น default
+      QA/Teacher/Admin mode จึงค่อยแสดง panel เพิ่มในอนาคต
+    */
+    isTeacherMode:
+      getParam("teacher") === "1" ||
+      getParam("admin") === "1" ||
+      getParam("qa") === "1" ||
+      getParam("debug") === "1",
 
-    modes: {
-      learn: {
-        id: "learn",
-        label: "AI Training",
-        shortLabel: "AI",
-        icon: "🤖",
-        description: "เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint และคำอธิบายชัด",
-        startHints: 3,
-        startShield: 2,
-        timeBonus: 5,
-        scoreMultiplier: 0.9,
-        stageOrder: ["warmup", "warmup", "trap", "mission"]
-      },
-      speed: {
-        id: "speed",
-        label: "Speed Run",
-        shortLabel: "Speed",
-        icon: "⚡",
-        description: "ตอบให้ไว ทำ Combo เก็บคะแนน และเข้า Fever เร็ว",
-        startHints: 1,
-        startShield: 1,
-        timeBonus: -4,
-        scoreMultiplier: 1.15,
-        stageOrder: ["warmup", "speed", "speed", "trap", "boss"]
-      },
-      mission: {
-        id: "mission",
-        label: "Debug Mission",
-        shortLabel: "Mission",
-        icon: "🎯",
-        description: "อ่านสถานการณ์จริง แล้วเลือกคำศัพท์ที่เหมาะสมที่สุด",
-        startHints: 2,
-        startShield: 1,
-        timeBonus: 2,
-        scoreMultiplier: 1.05,
-        stageOrder: ["warmup", "mission", "mission", "trap", "boss"]
-      },
-      battle: {
-        id: "battle",
-        label: "Boss Battle",
-        shortLabel: "Boss",
-        icon: "👾",
-        description: "โหมดต่อสู้เต็มระบบ มีบอส HP, Fever, Laser และ Shield",
-        startHints: 1,
-        startShield: 1,
-        timeBonus: -2,
-        scoreMultiplier: 1.25,
-        stageOrder: ["warmup", "speed", "trap", "mission", "boss", "boss"]
-      }
-    },
+    /*
+      Source guard
+    */
+    sourceGuard: {
+      enabled:
+        getParam("guard", "on") !== "off" &&
+        getParam("source_guard", "on") !== "off",
 
-    banks: {
-      A: {
-        label: "Bank A",
-        title: "Basic CS Words",
-        desc: "คำพื้นฐานสาย Coding / Software"
-      },
-      B: {
-        label: "Bank B",
-        title: "AI / Data Words",
-        desc: "คำศัพท์ AI, Data, Dashboard"
-      },
-      C: {
-        label: "Bank C",
-        title: "Workplace / Project",
-        desc: "คำใช้จริงในงาน ทีม ลูกค้า และโปรเจกต์"
-      }
+      blockContextMenu: true,
+      blockCopy: true,
+      blockSelect: true,
+      blockPrint: true,
+      blockDevtoolsShortcuts: true
     }
   };
 
   /*
-    ให้ไฟล์อื่นเรียกใช้ endpoint ได้ง่าย
+    Backward compatibility:
+    กันไฟล์เก่าบางไฟล์เรียก VOCAB_APP ตรง ๆ
   */
-  window.VOCAB_SHEET_ENDPOINT = window.VOCAB_APP_CONFIG.endpoint;
+  try{
+    window.VOCAB_CONFIG = window.VOCAB_APP;
+  }catch(e){}
 
-  console.log("[VOCAB CONFIG] loaded", window.VOCAB_APP_CONFIG.version);
+  /*
+    Difficulty config
+  */
+  window.VOCAB_DIFFICULTY = {
+    easy: {
+      id: "easy",
+      label: "Easy",
+      icon: "✨",
+      totalQuestions: 8,
+      timePerQuestion: 22,
+      playerHp: 5,
+      choiceCount: 4,
+      bossMultiplier: 0.8,
+      scoreMultiplier: 0.9,
+      preview: "✨ Easy: เวลาเยอะ เหมาะกับเริ่มจำความหมาย"
+    },
+
+    normal: {
+      id: "normal",
+      label: "Normal",
+      icon: "⚔️",
+      totalQuestions: 10,
+      timePerQuestion: 16,
+      playerHp: 4,
+      choiceCount: 4,
+      bossMultiplier: 1,
+      scoreMultiplier: 1,
+      preview: "⚔️ Normal: เริ่มมีตัวเลือกหลอกและโจทย์บริบท"
+    },
+
+    hard: {
+      id: "hard",
+      label: "Hard",
+      icon: "🔥",
+      totalQuestions: 12,
+      timePerQuestion: 12,
+      playerHp: 3,
+      choiceCount: 5,
+      bossMultiplier: 1.25,
+      scoreMultiplier: 1.15,
+      preview: "🔥 Hard: 5 ตัวเลือก เวลาเร็วขึ้น และต้องเข้าใจ context"
+    },
+
+    challenge: {
+      id: "challenge",
+      label: "Challenge",
+      icon: "💀",
+      totalQuestions: 15,
+      timePerQuestion: 9,
+      playerHp: 2,
+      choiceCount: 5,
+      bossMultiplier: 1.55,
+      scoreMultiplier: 1.35,
+      preview: "💀 Challenge: เวลาน้อย ตัวหลอกหนัก เหมาะกับผู้ที่พร้อมท้าทาย"
+    }
+  };
+
+  /*
+    Play mode config
+  */
+  window.VOCAB_PLAY_MODES = {
+    learn: {
+      id: "learn",
+      label: "AI Training",
+      shortLabel: "AI",
+      icon: "🤖",
+      description: "เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint และคำอธิบายชัด",
+      totalQuestionBonus: 0,
+      timeBonus: 4,
+      startHints: 3,
+      startShield: 2,
+      startAiHelp: 3,
+      feverComboNeed: 5,
+      laserComboNeed: 8,
+      scoreMultiplier: 0.9,
+      stageOrder: ["warmup", "warmup", "trap", "mission"]
+    },
+
+    speed: {
+      id: "speed",
+      label: "Speed Run",
+      shortLabel: "Speed",
+      icon: "⚡",
+      description: "ตอบให้ไว ทำ Combo เก็บคะแนน และเข้า Fever เร็วกว่าโหมดอื่น",
+      totalQuestionBonus: 2,
+      timeBonus: -4,
+      startHints: 1,
+      startShield: 1,
+      startAiHelp: 1,
+      feverComboNeed: 4,
+      laserComboNeed: 7,
+      scoreMultiplier: 1.15,
+      stageOrder: ["warmup", "speed", "speed", "trap", "boss"]
+    },
+
+    mission: {
+      id: "mission",
+      label: "Debug Mission",
+      shortLabel: "Mission",
+      icon: "🎯",
+      description: "อ่านสถานการณ์จริง แล้วเลือกคำศัพท์ที่เหมาะสมที่สุด",
+      totalQuestionBonus: 2,
+      timeBonus: 1,
+      startHints: 2,
+      startShield: 1,
+      startAiHelp: 2,
+      feverComboNeed: 5,
+      laserComboNeed: 7,
+      scoreMultiplier: 1.08,
+      stageOrder: ["warmup", "mission", "mission", "trap", "boss"]
+    },
+
+    battle: {
+      id: "battle",
+      label: "Boss Battle",
+      shortLabel: "Boss",
+      icon: "👾",
+      description: "โหมดต่อสู้เต็มระบบ มีบอส HP, Fever, Laser, Shield และแรงกดดันสูง",
+      totalQuestionBonus: 3,
+      timeBonus: -2,
+      startHints: 1,
+      startShield: 1,
+      startAiHelp: 1,
+      feverComboNeed: 5,
+      laserComboNeed: 7,
+      scoreMultiplier: 1.25,
+      stageOrder: ["warmup", "speed", "trap", "mission", "boss", "boss"]
+    }
+  };
+
+  /*
+    Stage config
+  */
+  window.VOCAB_STAGES = [
+    {
+      id: "warmup",
+      name: "Warm-up Round",
+      icon: "✨",
+      goal: "เก็บความมั่นใจ ตอบให้ถูก"
+    },
+    {
+      id: "speed",
+      name: "Speed Round",
+      icon: "⚡",
+      goal: "ตอบไวเพื่อเพิ่ม Combo"
+    },
+    {
+      id: "trap",
+      name: "Trap Round",
+      icon: "🧠",
+      goal: "ระวังคำที่ความหมายใกล้กัน"
+    },
+    {
+      id: "mission",
+      name: "Mini Mission",
+      icon: "🎯",
+      goal: "ใช้คำศัพท์กับสถานการณ์จริง"
+    },
+    {
+      id: "boss",
+      name: "Boss Battle",
+      icon: "👾",
+      goal: "โจมตีบอสให้ HP หมด"
+    }
+  ];
+
+  /*
+    Enemy config
+  */
+  window.VOCAB_ENEMIES = {
+    A: {
+      name: "Bug Slime",
+      title: "Basic Code Bug",
+      avatar: "🟢",
+      skill: "Speed pressure: ตอบช้าเสีย combo ง่าย",
+      hp: 100
+    },
+
+    B: {
+      name: "Data Ghost",
+      title: "AI/Data Trickster",
+      avatar: "👻",
+      skill: "Smart trap: ตัวเลือกหลอกใกล้เคียงขึ้น",
+      hp: 130
+    },
+
+    C: {
+      name: "Syntax Dragon",
+      title: "Workplace Boss",
+      avatar: "🐉",
+      skill: "Heavy attack: ตอบผิดในบอสโดนแรงขึ้น",
+      hp: 160
+    }
+  };
+
+  /*
+    Power-up config
+  */
+  window.VOCAB_POWER = {
+    feverDurationMs: 8500,
+    feverDamageMultiplier: 1.6,
+    feverScoreMultiplier: 1.5,
+
+    shieldMax: 3,
+    hintMax: 4,
+
+    laserDamage: 26,
+    laserDamageFever: 38,
+
+    aiHelpScorePenaltyPerUse: 0.10,
+    aiHelpMaxPenalty: 0.30
+  };
+
+  /*
+    Leaderboard config
+  */
+  window.VOCAB_LEADERBOARD = {
+    maxRowsPerMode: 30,
+    showTop: 5,
+    assistedScoreMultiplier: 0.95
+  };
+
+  /*
+    Logging helper global
+  */
+  window.setVocabSheetEndpoint = function(url){
+    const endpoint = normalizeEndpoint(url);
+    window.VOCAB_APP.sheetEndpoint = endpoint;
+
+    try{
+      localStorage.setItem("VOCAB_SHEET_ENDPOINT", endpoint);
+    }catch(e){}
+
+    console.log("[VOCAB CONFIG] saved endpoint", endpoint);
+    return endpoint;
+  };
+
+  window.getVocabSheetEndpoint = function(){
+    return window.VOCAB_APP.sheetEndpoint;
+  };
+
+  console.log("[VOCAB CONFIG] loaded", window.VOCAB_APP.version);
+  console.log("[VOCAB CONFIG] endpoint", window.VOCAB_APP.sheetEndpoint);
 })();
