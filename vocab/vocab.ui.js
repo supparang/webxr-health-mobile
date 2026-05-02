@@ -1,1051 +1,1279 @@
 /* =========================================================
    /vocab/vocab.ui.js
-   TechPath Vocab Arena
-   UI / Screen / Reward / Navigation Controller
+   TechPath Vocab Arena — UI Controller
+   PATCH v20260502b
+   Fix:
+   - ใช้ window.VOCAB_APP แบบปลอดภัย
+   - ไม่พังถ้า config โหลดช้า/บางค่าไม่มี
+   - bind menu / bank / difficulty / mode / student form / leaderboard tabs
+   - รองรับ start button gate
+   - ไม่ซ่อนจอผิด state
    ========================================================= */
+(function(){
+  "use strict";
 
-"use strict";
+  const W = window;
+  const D = document;
 
-/* =========================================================
-   DOM HELPERS
-========================================================= */
+  /* =========================================================
+     SAFE CONFIG
+  ========================================================= */
 
-function byId(id){
-  return document.getElementById(id);
-}
+  function getApp(){
+    if(W.VOCAB_APP) return W.VOCAB_APP;
 
-function qs(sel, root){
-  return (root || document).querySelector(sel);
-}
+    const cfg = W.VOCAB_APP_CONFIG || {};
 
-function qsa(sel, root){
-  return Array.from((root || document).querySelectorAll(sel));
-}
+    W.VOCAB_APP = {
+      version: cfg.version || "vocab-split-ui-20260502b",
 
-function setTextV6(id, value){
-  const el = byId(id);
-  if(el) el.textContent = String(value ?? "");
-}
+      sheetEndpoint: cfg.endpoint || W.VOCAB_SHEET_ENDPOINT || "",
+      api: cfg.api || "vocab",
+      source: cfg.source || "vocab.html",
+      schema: cfg.schema || "vocab-split-v1",
 
-function hideEl(id, hidden = true){
-  const el = byId(id);
-  if(!el) return;
-  el.hidden = !!hidden;
-  el.style.display = hidden ? "none" : "";
-  el.style.pointerEvents = hidden ? "none" : "auto";
-}
+      queueKey: cfg.storage?.queueKey || "VOCAB_SPLIT_LOG_QUEUE",
+      profileKey: cfg.storage?.profileKey || "VOCAB_SPLIT_STUDENT_PROFILE",
+      teacherKey: cfg.storage?.teacherKey || "VOCAB_SPLIT_TEACHER_LAST",
+      leaderboardKey: cfg.storage?.leaderboardKey || "VOCAB_SPLIT_LEADERBOARD",
+      lastSummaryKey: cfg.storage?.lastSummaryKey || "VOCAB_SPLIT_LAST_SUMMARY",
+      soundKey: cfg.storage?.soundKey || "VOCAB_SPLIT_SOUND_ON",
 
-function escapeHtmlV6(s){
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
+      enableSheetLog: cfg.defaults?.enableSheetLog !== false,
+      enableConsoleLog: cfg.defaults?.enableConsoleLog !== false,
 
-function safeNumber(v, fallback = 0){
-  const x = Number(v);
-  return Number.isFinite(x) ? x : fallback;
-}
+      selectedBank: cfg.defaults?.bank || "A",
+      selectedDifficulty: cfg.defaults?.difficulty || "easy",
+      selectedMode: cfg.defaults?.mode || "learn"
+    };
 
-function fmtNumber(v){
-  return String(Math.round(safeNumber(v, 0)));
-}
-
-function clamp(v, min, max){
-  return Math.max(min, Math.min(max, v));
-}
-
-function safeCall(fn, fallback){
-  try{
-    if(typeof fn === "function") return fn();
-  }catch(e){
-    console.warn("[VOCAB UI] safeCall warning", e);
-  }
-  return fallback;
-}
-
-/* =========================================================
-   SCREEN GOVERNOR
-========================================================= */
-
-const VOCAB_SCREEN = {
-  MENU: "menu",
-  BATTLE: "battle",
-  REWARD: "reward"
-};
-
-let vocabCurrentScreen = VOCAB_SCREEN.MENU;
-
-function setVisibleScreenNode(node, visible, displayValue = ""){
-  if(!node) return;
-
-  node.hidden = !visible;
-  node.style.display = visible ? displayValue : "none";
-  node.style.pointerEvents = visible ? "auto" : "none";
-
-  node.classList.toggle("vocab-screen-active", !!visible);
-  node.classList.toggle("vocab-screen-hidden", !visible);
-}
-
-function getMenuPanelVocab(){
-  return byId("v6MenuPanel");
-}
-
-function getBattlePanelVocab(){
-  return byId("v6BattlePanel");
-}
-
-function getRewardPanelVocab(){
-  return byId("v6RewardPanel");
-}
-
-function showMenuScreenV65(){
-  vocabCurrentScreen = VOCAB_SCREEN.MENU;
-
-  forceClearGameTimersVocabUI();
-  forceRemoveGameFxVocabUI();
-
-  setVisibleScreenNode(getMenuPanelVocab(), true, "");
-  setVisibleScreenNode(getBattlePanelVocab(), false);
-  setVisibleScreenNode(getRewardPanelVocab(), false);
-
-  window.scrollTo({ top:0, behavior:"auto" });
-
-  try{
-    renderLeaderboardV68(VOCAB_APP?.selectedMode || "learn");
-  }catch(e){}
-}
-
-function showBattleScreenV6(){
-  vocabCurrentScreen = VOCAB_SCREEN.BATTLE;
-
-  setVisibleScreenNode(getMenuPanelVocab(), false);
-  setVisibleScreenNode(getRewardPanelVocab(), false);
-  setVisibleScreenNode(getBattlePanelVocab(), true, "");
-
-  window.scrollTo({ top:0, behavior:"auto" });
-}
-
-function showRewardScreenVocabUI(){
-  vocabCurrentScreen = VOCAB_SCREEN.REWARD;
-
-  forceClearGameTimersVocabUI();
-
-  setVisibleScreenNode(getMenuPanelVocab(), false);
-  setVisibleScreenNode(getBattlePanelVocab(), false);
-  setVisibleScreenNode(getRewardPanelVocab(), true, "block");
-
-  const reward = getRewardPanelVocab();
-  if(reward){
-    reward.style.position = "relative";
-    reward.style.zIndex = "30";
-    reward.style.minHeight = "auto";
-    reward.style.height = "auto";
-    reward.style.overflow = "visible";
+    return W.VOCAB_APP;
   }
 
-  window.scrollTo({ top:0, behavior:"auto" });
-}
-
-function governVocabScreen(){
-  const reward = getRewardPanelVocab();
-  const battle = getBattlePanelVocab();
-  const menu = getMenuPanelVocab();
-
-  if(!reward || !battle || !menu) return;
-
-  const rewardHasContent = !!(reward.innerHTML || "").trim();
-  const rewardVisible = !reward.hidden && reward.style.display !== "none";
-
-  if(rewardHasContent && rewardVisible && vocabCurrentScreen === VOCAB_SCREEN.REWARD){
-    showRewardScreenVocabUI();
-    return;
+  function getDifficultyMap(){
+    return W.VOCAB_DIFFICULTY ||
+      W.VOCAB_APP_CONFIG?.difficulty ||
+      {
+        easy:{
+          label:"Easy",
+          preview:"✨ Easy: 8 ข้อ เวลาเยอะ HP มาก เหมาะกับการทบทวน"
+        },
+        normal:{
+          label:"Normal",
+          preview:"⚔️ Normal: 10 ข้อ เริ่มมีแรงกดดัน และตัวเลือกหลอกดีขึ้น"
+        },
+        hard:{
+          label:"Hard",
+          preview:"🔥 Hard: 12 ข้อ HP น้อยลง ตัวเลือกยากขึ้น และต้องตอบแม่น"
+        },
+        challenge:{
+          label:"Challenge",
+          preview:"💀 Challenge: 15 ข้อ เวลาน้อย HP น้อย ตัวเลือกหลอกหนักสุด"
+        }
+      };
   }
 
-  if(window.vocabGame && vocabGame.active){
-    showBattleScreenV6();
-    return;
+  function getModeMap(){
+    return W.VOCAB_PLAY_MODES ||
+      W.VOCAB_APP_CONFIG?.modes ||
+      {
+        learn:{
+          id:"learn",
+          label:"AI Training",
+          shortLabel:"AI",
+          icon:"🤖",
+          description:"เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint และคำอธิบายชัด"
+        },
+        speed:{
+          id:"speed",
+          label:"Speed Run",
+          shortLabel:"Speed",
+          icon:"⚡",
+          description:"ตอบให้ไว ทำ Combo เก็บคะแนน และเข้า Fever เร็ว"
+        },
+        mission:{
+          id:"mission",
+          label:"Debug Mission",
+          shortLabel:"Mission",
+          icon:"🎯",
+          description:"อ่านสถานการณ์จริง แล้วเลือกคำศัพท์ที่เหมาะสมที่สุด"
+        },
+        battle:{
+          id:"battle",
+          label:"Boss Battle",
+          shortLabel:"Boss",
+          icon:"👾",
+          description:"โหมดต่อสู้เต็มระบบ มีบอส HP, Fever, Laser และ Shield"
+        }
+      };
   }
 
-  if(vocabCurrentScreen === VOCAB_SCREEN.MENU){
-    showMenuScreenV65();
-  }
-}
-
-/* =========================================================
-   TIMER / FX CLEANUP
-========================================================= */
-
-function forceClearGameTimersVocabUI(){
-  try{
-    if(window.vocabGame){
-      if(vocabGame.timerId){
-        clearInterval(vocabGame.timerId);
-        clearTimeout(vocabGame.timerId);
-        vocabGame.timerId = null;
-      }
-
-      if(vocabGame.feverTimerId){
-        clearInterval(vocabGame.feverTimerId);
-        clearTimeout(vocabGame.feverTimerId);
-        vocabGame.feverTimerId = null;
-      }
-
-      vocabGame.fever = false;
-      vocabGame.feverUntil = 0;
-    }
-  }catch(e){}
-
-  try{
-    if(typeof clearTimerV6 === "function") clearTimerV6();
-  }catch(e){}
-
-  try{
-    if(typeof stopFeverV62 === "function") stopFeverV62();
-  }catch(e){}
-}
-
-function forceRemoveGameFxVocabUI(){
-  [
-    ".v6-float",
-    ".v6-laser-beam",
-    ".v6-fx-burst",
-    ".v72-announcer",
-    ".v72-flash",
-    ".v72-particle",
-    ".v74-toast",
-    ".v78-guard-toast"
-  ].forEach(sel => {
-    qsa(sel).forEach(node => {
-      try{ node.remove(); }catch(e){}
-    });
-  });
-
-  document.body.classList.remove(
-    "v72-screen-shake",
-    "v72-hard-hit",
-    "v72-boss-rage",
-    "v72-fever-rainbow",
-    "v73-final-lock"
-  );
-}
-
-/* =========================================================
-   MENU UI
-========================================================= */
-
-function getSelectedBankV6(){
-  return VOCAB_APP?.selectedBank || "A";
-}
-
-function getSelectedDifficultyV6(){
-  return VOCAB_APP?.selectedDifficulty || "easy";
-}
-
-function getSelectedModeV66(){
-  return VOCAB_APP?.selectedMode || "learn";
-}
-
-function getModeConfigVocabUI(modeId){
-  if(typeof getModeConfigV66 === "function"){
-    return getModeConfigV66(modeId);
+  function getBankMeta(){
+    return W.VOCAB_BANK_META ||
+      W.VOCAB_APP_CONFIG?.banks ||
+      {
+        A:{
+          label:"Bank A",
+          title:"Basic CS Words",
+          desc:"คำพื้นฐานสาย Coding / Software"
+        },
+        B:{
+          label:"Bank B",
+          title:"AI / Data Words",
+          desc:"คำศัพท์ AI, Data, Dashboard"
+        },
+        C:{
+          label:"Bank C",
+          title:"Workplace / Project",
+          desc:"คำใช้จริงในงาน ทีม ลูกค้า และโปรเจกต์"
+        }
+      };
   }
 
-  return VOCAB_PLAY_MODES?.[modeId || "learn"] || {
-    id:"learn",
-    label:"AI Training",
-    shortLabel:"AI",
-    icon:"🤖",
-    description:"ฝึกคำศัพท์พร้อมคำแนะนำ"
-  };
-}
+  /* =========================================================
+     BASIC HELPERS
+  ========================================================= */
 
-function updateV6BankLabel(){
-  const el = byId("v6BankLabel");
-  if(!el) return;
-
-  const bank = window.vocabGame?.bank || VOCAB_APP?.selectedBank || "A";
-  const modeId = window.vocabGame?.mode || VOCAB_APP?.selectedMode || "learn";
-  const mode = getModeConfigVocabUI(modeId);
-
-  el.textContent = `Bank ${bank} • ${mode.icon || "🤖"} ${mode.label || "AI Training"}`;
-}
-
-function updateV66ModeHud(){
-  const el = byId("v66ModeHud");
-  if(!el) return;
-
-  const mode = getModeConfigVocabUI(window.vocabGame?.mode || VOCAB_APP?.selectedMode || "learn");
-  el.textContent = `${mode.icon || "🤖"} ${mode.shortLabel || mode.label || "AI"}`;
-}
-
-function updateV6DiffPreview(){
-  const el = byId("v6DiffPreview");
-  if(!el) return;
-
-  const d = VOCAB_APP?.selectedDifficulty || "easy";
-
-  const text = {
-    easy: "✨ Easy: คำถามตรง เวลาเยอะ เหมาะกับการทบทวนพื้นฐาน",
-    normal: "⚔️ Normal: เริ่มมีตัวเลือกหลอก ต้องเข้าใจคำศัพท์มากขึ้น",
-    hard: "🔥 Hard: ตัวเลือกยากขึ้น เวลาเร็วขึ้น เหมาะกับคนที่เริ่มแม่น",
-    challenge: "💀 Challenge: เวลาน้อย ตัวเลือกหลอกหนัก เหมาะกับการท้าทาย"
-  };
-
-  el.textContent = text[d] || text.easy;
-}
-
-function updateV66ModePreview(){
-  const el = byId("v66ModePreview");
-  if(!el) return;
-
-  const mode = getModeConfigVocabUI(getSelectedModeV66());
-  el.textContent = `${mode.icon || "🤖"} ${mode.label || "AI Training"}: ${mode.description || "ฝึกคำศัพท์แบบสนุกและท้าทาย"}`;
-}
-
-function syncMenuSelectionsVocabUI(options){
-  const opt = options || {};
-
-  if(window.VOCAB_APP){
-    if(opt.bank) VOCAB_APP.selectedBank = opt.bank;
-    if(opt.difficulty) VOCAB_APP.selectedDifficulty = opt.difficulty;
-    if(opt.mode) VOCAB_APP.selectedMode = opt.mode;
+  function byId(id){
+    return D.getElementById(id);
   }
 
-  qsa("[data-v6-bank]").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.v6Bank === VOCAB_APP.selectedBank);
-  });
-
-  qsa("[data-v6-diff]").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.v6Diff === VOCAB_APP.selectedDifficulty);
-  });
-
-  qsa("[data-v6-mode]").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.v6Mode === VOCAB_APP.selectedMode);
-  });
-
-  updateV6DiffPreview();
-  updateV66ModePreview();
-  updateV6BankLabel();
-  updateV66ModeHud();
-}
-
-function initVocabV6UI(){
-  qsa("[data-v6-bank]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      VOCAB_APP.selectedBank = btn.dataset.v6Bank || "A";
-      syncMenuSelectionsVocabUI({
-        bank: VOCAB_APP.selectedBank,
-        difficulty: VOCAB_APP.selectedDifficulty,
-        mode: VOCAB_APP.selectedMode
-      });
-
-      try{
-        if(typeof v74RenderMenu === "function") v74RenderMenu();
-      }catch(e){}
-    });
-  });
-
-  qsa("[data-v6-diff]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      VOCAB_APP.selectedDifficulty = btn.dataset.v6Diff || "easy";
-      syncMenuSelectionsVocabUI({
-        bank: VOCAB_APP.selectedBank,
-        difficulty: VOCAB_APP.selectedDifficulty,
-        mode: VOCAB_APP.selectedMode
-      });
-    });
-  });
-
-  qsa("[data-v6-mode]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      VOCAB_APP.selectedMode = btn.dataset.v6Mode || "learn";
-      syncMenuSelectionsVocabUI({
-        bank: VOCAB_APP.selectedBank,
-        difficulty: VOCAB_APP.selectedDifficulty,
-        mode: VOCAB_APP.selectedMode
-      });
-    });
-  });
-
-  const startBtn = byId("v6StartBtn");
-  if(startBtn){
-    startBtn.addEventListener("click", () => {
-      if(typeof validateStudentInfoBeforeStart === "function"){
-        const ok = validateStudentInfoBeforeStart();
-        if(!ok) return;
-      }
-
-      if(typeof startVocabBattleV6 === "function"){
-        startVocabBattleV6({
-          bank: VOCAB_APP.selectedBank,
-          difficulty: VOCAB_APP.selectedDifficulty,
-          mode: VOCAB_APP.selectedMode
-        });
-      }
-    });
+  function qsa(sel, root){
+    return Array.from((root || D).querySelectorAll(sel));
   }
 
-  const hintBtn = byId("v6HintBtn");
-  if(hintBtn && typeof useHintV62 === "function"){
-    hintBtn.addEventListener("click", useHintV62);
+  function qs(sel, root){
+    return (root || D).querySelector(sel);
   }
 
-  const aiHelpBtn = byId("v67AiHelpBtn");
-  if(aiHelpBtn && typeof useAiHelpV67 === "function"){
-    aiHelpBtn.addEventListener("click", useAiHelpV67);
+  function setText(id, value){
+    const el = byId(id);
+    if(el) el.textContent = String(value ?? "");
   }
 
-  qsa("[data-lb-mode]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const mode = btn.dataset.lbMode || "learn";
-
-      qsa("[data-lb-mode]").forEach(x => {
-        x.classList.toggle("active", x === btn);
-      });
-
-      if(typeof renderLeaderboardV68 === "function"){
-        renderLeaderboardV68(mode);
-      }
-    });
-  });
-
-  syncMenuSelectionsVocabUI({
-    bank: VOCAB_APP.selectedBank,
-    difficulty: VOCAB_APP.selectedDifficulty,
-    mode: VOCAB_APP.selectedMode
-  });
-}
-
-/* =========================================================
-   STUDENT MODE CLEANUP
-========================================================= */
-
-function isTeacherModeVocabUI(){
-  try{
-    const p = new URL(location.href).searchParams;
-    return (
-      p.get("teacher") === "1" ||
-      p.get("role") === "teacher" ||
-      p.get("admin") === "1" ||
-      p.get("qa") === "1" ||
-      p.get("debug") === "1"
-    );
-  }catch(e){
-    return false;
-  }
-}
-
-function cleanStudentMenuVocabUI(){
-  document.title = "TechPath Vocab Arena";
-
-  const h1 = qs(".v6-hero-card h1");
-  if(h1) h1.textContent = "TechPath Vocab Arena";
-
-  const subtitle = qs(".v6-subtitle");
-  if(subtitle){
-    subtitle.textContent = "ฝึกศัพท์สาย CS/AI สำหรับนักศึกษาปี 2 ผ่านโหมดท้าทายและระบบ AI Learning";
+  function setHtml(id, html){
+    const el = byId(id);
+    if(el) el.innerHTML = String(html ?? "");
   }
 
-  const startBtn = byId("v6StartBtn");
-  if(startBtn && startBtn.closest){
-    const startCard = startBtn.closest(".v6-card");
-    if(startCard){
-      const h2 = startCard.querySelector("h2");
-      if(h2) h2.textContent = "เริ่มเล่น";
-
-      const missionRow = startCard.querySelector(".v6-mission-row");
-      if(missionRow) missionRow.style.display = "none";
-
-      if(!byId("vocabStudentStartNote")){
-        const note = document.createElement("p");
-        note.id = "vocabStudentStartNote";
-        note.className = "v63-note";
-        note.textContent = "เลือก Word Bank, ระดับ, โหมดการเล่น และกรอกข้อมูลผู้เรียนให้ครบ จากนั้นกด Start เพื่อเริ่มเกม";
-        startCard.insertBefore(note, startBtn);
-      }
-    }
+  function hideEl(id, hidden){
+    const el = byId(id);
+    if(!el) return;
+    el.hidden = !!hidden;
+    el.style.display = hidden ? "none" : "";
+    el.style.pointerEvents = hidden ? "none" : "auto";
   }
 
-  if(!isTeacherModeVocabUI()){
-    hideOptionalStudentPanelsVocabUI();
-  }
-}
+  function esc(s){
+    if(typeof W.escapeHtmlV6 === "function") return W.escapeHtmlV6(s);
 
-function hideOptionalStudentPanelsVocabUI(){
-  const knownIds = [
-    "v78FinalPanel",
-    "v791SetupCard",
-    "v79LiveBoardWrap",
-    "v76Board",
-    "v77Panel",
-    "v75Campaign",
-    "v74UnlockPanel"
-  ];
-
-  knownIds.forEach(x => {
-    const el = byId(x);
-    if(el) el.style.display = "none";
-  });
-
-  qsa(".v73-reward-panel, .v74-reward-panel, #v75Reward, #v76Reward, #v77Reward").forEach(el => {
-    el.style.display = "none";
-  });
-}
-
-/* =========================================================
-   HUD
-========================================================= */
-
-function updateHudV6(){
-  if(!window.vocabGame) return;
-
-  setTextV6("v6Score", vocabGame.score || 0);
-  setTextV6("v6Combo", `x${vocabGame.combo || 0}`);
-
-  const hp = safeNumber(vocabGame.playerHp, 0);
-  setTextV6("v6Hp", hp > 0 ? "❤️".repeat(Math.min(hp, 8)) : "💔");
-
-  const total = typeof getTotalPlannedQuestionsV6 === "function"
-    ? getTotalPlannedQuestionsV6()
-    : safeNumber(vocabGame.stagePlan?.reduce((s,x) => s + safeNumber(x.count), 0), 0);
-
-  setTextV6("v6QuestionNo", `${vocabGame.globalQuestionIndex || 0}/${total || 0}`);
-
-  const enemyHpFill = byId("v6EnemyHpFill");
-  const enemyHpText = byId("v6EnemyHpText");
-  const enemyMax = Math.max(1, safeNumber(vocabGame.enemyHpMax, 100));
-  const hpPct = clamp((safeNumber(vocabGame.enemyHp, 0) / enemyMax) * 100, 0, 100);
-
-  if(enemyHpFill) enemyHpFill.style.width = `${hpPct}%`;
-  if(enemyHpText) enemyHpText.textContent = `${Math.round(hpPct)}%`;
-
-  updateV6BankLabel();
-  updateV66ModeHud();
-
-  if(typeof updatePowerHudV62 === "function"){
-    updatePowerHudV62();
-  }
-}
-
-/* =========================================================
-   QUESTION UI
-========================================================= */
-
-function lockChoicesV6(){
-  qsa(".v6-choice").forEach(btn => {
-    btn.disabled = true;
-    btn.classList.add("locked");
-  });
-}
-
-function getCorrectChoiceTextVocabUI(question){
-  if(typeof getCorrectChoiceTextV62 === "function"){
-    return getCorrectChoiceTextV62(question);
+    return String(s ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#39;");
   }
 
-  if(!question) return "";
-  const term = question.correctTerm || {};
-
-  if(question.answerMode === "meaning"){
-    return term.meaning || term.definition || "";
-  }
-
-  return term.term || term.word || "";
-}
-
-function revealCorrectChoiceV6(){
-  const correctText = getCorrectChoiceTextVocabUI(window.vocabGame?.currentQuestion);
-
-  qsa(".v6-choice").forEach(btn => {
-    const text = btn.textContent || "";
-    if(correctText && text.includes(correctText)){
-      btn.classList.add("correct");
-    }
-  });
-}
-
-function showAnswerExplainV61(isCorrect, question){
-  const box = byId("v6ExplainBox");
-  if(!box) return;
-
-  const correctWord = question?.correctTerm?.term || question?.correctTerm?.word || "";
-  const correctMeaning = question?.correctTerm?.meaning || question?.correctTerm?.definition || "";
-
-  box.hidden = false;
-  box.innerHTML = isCorrect
-    ? `✅ ถูกต้อง! <b>${escapeHtmlV6(correctWord)}</b> = ${escapeHtmlV6(correctMeaning)}`
-    : `💡 คำตอบที่ถูกคือ <b>${escapeHtmlV6(correctWord)}</b> = ${escapeHtmlV6(correctMeaning)}`;
-
-  setTimeout(() => {
-    if(box) box.hidden = true;
-  }, isCorrect ? 900 : 1500);
-}
-
-function showStageIntroV6(stage){
-  if(typeof showFloatingTextV6 === "function"){
-    showFloatingTextV6(`${stage.icon || "✨"} ${stage.name || "Next Stage"}`, "stage");
-  }
-
-  if(typeof playSfxV6 === "function"){
-    playSfxV6("stage");
-  }
-}
-
-/* =========================================================
-   REWARD DATA FORMAT
-========================================================= */
-
-function modeIconVocabReward(mode){
-  const m = String(mode || "").toLowerCase();
-  if(m === "speed") return "⚡";
-  if(m === "mission") return "🎯";
-  if(m === "battle") return "👾";
-  if(m === "bossrush") return "💀";
-  return "🤖";
-}
-
-function getNextDifficultyVocabReward(result){
-  const acc = safeNumber(result?.accuracy, 0);
-  const diff = String(result?.difficulty || "normal").toLowerCase();
-
-  if(acc >= 95){
-    if(diff === "easy") return "normal";
-    if(diff === "normal") return "hard";
-    if(diff === "hard") return "challenge";
-    return "challenge";
-  }
-
-  if(acc >= 85){
-    if(diff === "easy") return "normal";
-    if(diff === "normal") return "hard";
-    return diff || "normal";
-  }
-
-  if(acc < 60) return "easy";
-
-  return diff || "normal";
-}
-
-function getNextModeVocabReward(result, coach){
-  const acc = safeNumber(result?.accuracy, 0);
-  const mode = String(result?.mode || "").toLowerCase();
-
-  if(coach && coach.nextMode){
-    return String(coach.nextMode);
-  }
-
-  if(mode === "learn" && acc >= 80) return "Debug Mission";
-  if(mode === "speed" && acc >= 80) return "Debug Mission";
-  if(mode === "mission" && acc >= 80) return "Boss Battle";
-  if(acc >= 90) return "Debug Mission";
-  if(acc >= 75) return "Speed Run";
-
-  return "AI Training";
-}
-
-function getCoachTextVocabReward(result, coach){
-  if(coach && coach.headline){
-    return String(coach.headline);
-  }
-
-  const acc = safeNumber(result?.accuracy, 0);
-  const combo = safeNumber(result?.comboMax, 0);
-
-  if(acc >= 90 && combo >= 4){
-    return "แม่นยำมาก รอบต่อไปลองใช้คำศัพท์ในสถานการณ์จริงเพื่อเพิ่มความท้าทาย";
-  }
-
-  if(acc >= 75){
-    return "พื้นฐานดีแล้ว รอบต่อไปเน้นอ่าน context และทำ combo ให้ต่อเนื่องขึ้น";
-  }
-
-  return "เริ่มต้นได้ดี รอบต่อไปลองฝึกคำที่พลาดและใช้ AI Help เฉพาะตอนจำเป็น";
-}
-
-function getWeakTextVocabReward(result){
-  const list = Array.isArray(result?.weakestTerms) ? result.weakestTerms : [];
-  if(!list.length) return "ยังไม่พบคำที่ควรทบทวน";
-
-  const terms = list
-    .slice(0, 4)
-    .map(x => x.term || x.word || "")
-    .filter(Boolean);
-
-  return terms.length ? terms.join(" • ") : "ยังไม่พบคำที่ควรทบทวน";
-}
-
-function statCardVocabReward(label, value, sub = ""){
-  return `
-    <div class="v81-stat-card">
-      <b>${escapeHtmlV6(value)}</b>
-      <span>${escapeHtmlV6(label)}</span>
-      ${sub ? `<small>${escapeHtmlV6(sub)}</small>` : ""}
-    </div>
-  `;
-}
-
-function compactResultCardsVocabReward(result){
-  const rank = result?.rank ? `#${result.rank}` : "-";
-  const personalBest = result?.personalBest || result?.score || 0;
-  const improvement = safeNumber(result?.improvement, 0);
-
-  const improveText = improvement > 0
-    ? `+${improvement}`
-    : improvement < 0
-      ? `${Math.abs(improvement)} to PB`
-      : "0";
-
-  return `
-    <div class="v81-stat-grid">
-      ${statCardVocabReward("Score", fmtNumber(result?.score))}
-      ${statCardVocabReward("Accuracy", `${fmtNumber(result?.accuracy)}%`)}
-      ${statCardVocabReward("Best Combo", `x${fmtNumber(result?.comboMax)}`)}
-      ${statCardVocabReward("Rank", rank)}
-      ${statCardVocabReward("Personal Best", fmtNumber(personalBest))}
-      ${statCardVocabReward("Progress", improveText)}
-    </div>
-  `;
-}
-
-function detailCardsVocabReward(result, reward){
-  const weakText = getWeakTextVocabReward(result);
-  const fever = result?.feverCount || result?.powerStats?.feverCount || 0;
-  const aiHelp = result?.aiHelpUsed || result?.powerStats?.aiHelpUsed || 0;
-  const stars = reward?.stars || 0;
-  const duration = result?.durationSec || 0;
-  const correct = result?.correct || 0;
-  const wrong = result?.wrong || 0;
-
-  return `
-    <div class="v81-detail-grid">
-      ${statCardVocabReward("Stars", "⭐".repeat(stars) || "-")}
-      ${statCardVocabReward("Fever", fmtNumber(fever))}
-      ${statCardVocabReward("AI Help", fmtNumber(aiHelp))}
-      ${statCardVocabReward("Time", `${fmtNumber(duration)}s`)}
-      ${statCardVocabReward("Correct", fmtNumber(correct))}
-      ${statCardVocabReward("Wrong", fmtNumber(wrong))}
-      ${statCardVocabReward("Weak Words", weakText)}
-    </div>
-  `;
-}
-
-function studentDetailsVocabReward(result, reward){
-  return `
-    <details class="v81-details">
-      <summary>Details</summary>
-      <div class="v81-details-body">
-        ${detailCardsVocabReward(result, reward)}
-        <p class="v81-muted">
-          ข้อมูลรายละเอียดถูกใช้เพื่อช่วยแนะนำเส้นทางฝึกครั้งต่อไป โดยหน้าผู้เรียนจะแสดงเฉพาะข้อมูลที่จำเป็น
-        </p>
-      </div>
-    </details>
-  `;
-}
-
-function teacherDetailsVocabReward(result){
-  if(!isTeacherModeVocabUI()) return "";
-
-  const stageStats = result?.stageStats || {};
-  const stages = Object.keys(stageStats).map(k => {
-    const s = stageStats[k] || {};
-    const total = safeNumber(s.correct) + safeNumber(s.wrong);
-    const acc = total ? Math.round((safeNumber(s.correct) / total) * 100) : 0;
-    return `${k}: ${acc}%`;
-  }).join(" • ");
-
-  return `
-    <details class="v81-details" open>
-      <summary>Teacher Analytics</summary>
-      <div class="v81-details-body">
-        <p><b>Time:</b> ${fmtNumber(result?.durationSec)}s</p>
-        <p><b>Mode:</b> ${escapeHtmlV6(result?.modeLabel || result?.mode || "")}</p>
-        <p><b>Stage Accuracy:</b> ${escapeHtmlV6(stages || "-")}</p>
-        <p><b>Weak Terms:</b> ${escapeHtmlV6(getWeakTextVocabReward(result))}</p>
-      </div>
-    </details>
-  `;
-}
-
-/* =========================================================
-   REWARD RENDERER
-========================================================= */
-
-function renderRewardScreenV6(result = {}, reward = {}, coach = {}){
-  forceClearGameTimersVocabUI();
-  forceRemoveGameFxVocabUI();
-
-  const battlePanel = getBattlePanelVocab();
-  const rewardPanel = getRewardPanelVocab();
-
-  if(battlePanel) setVisibleScreenNode(battlePanel, false);
-
-  if(!rewardPanel){
-    alert(`จบเกม! Score: ${result.score || 0}, Accuracy: ${result.accuracy || 0}%`);
-    return;
-  }
-
-  const stars = reward?.stars || 1;
-  const starText = "⭐".repeat(stars) + "☆".repeat(Math.max(0, 3 - stars));
-  const nextMode = getNextModeVocabReward(result, coach);
-  const nextDiff = getNextDifficultyVocabReward(result);
-  const coachText = getCoachTextVocabReward(result, coach);
-  const modeText = result?.modeLabel || result?.mode || "AI Training";
-  const aiHelpUsed = safeNumber(result?.aiHelpUsed || result?.powerStats?.aiHelpUsed, 0);
-  const noHelpText = aiHelpUsed > 0 ? `AI Help x${aiHelpUsed}` : "No AI Help";
-  const rewardMsg = reward?.message || "คุณทำภารกิจสำเร็จ!";
-
-  rewardPanel.innerHTML = `
-    <div class="v81-reward">
-      <div class="v81-trophy">🏆</div>
-      <h2>Victory Reward</h2>
-
-      <div class="v81-mode-line">
-        ${modeIconVocabReward(result?.mode)} ${escapeHtmlV6(modeText)}
-      </div>
-
-      <div class="v81-badge-row">
-        <span class="v81-badge">🎯 ${escapeHtmlV6(result?.difficulty || "normal")}</span>
-        <span class="v81-badge">📚 Bank ${escapeHtmlV6(result?.bank || "-")}</span>
-        <span class="v81-badge">🏅 ${escapeHtmlV6(noHelpText)}</span>
-      </div>
-
-      <div class="v81-stars">${starText}</div>
-
-      <p class="v81-message">${escapeHtmlV6(rewardMsg)}</p>
-
-      ${compactResultCardsVocabReward(result)}
-
-      <section class="v81-next-card">
-        <h3>🤖 AI Coach</h3>
-        <p>${escapeHtmlV6(coachText)}</p>
-        <p><b>Next Challenge:</b> ${escapeHtmlV6(nextMode)} • ${escapeHtmlV6(nextDiff)}</p>
-        <p><b>Review:</b> ${escapeHtmlV6(getWeakTextVocabReward(result))}</p>
-      </section>
-
-      <div class="v81-actions">
-        <button class="v81-btn primary" type="button" data-vocab-reward-action="again">
-          🔁 Play Again
-        </button>
-
-        <button class="v81-btn" type="button" data-vocab-reward-action="next">
-          🚀 Next Challenge
-        </button>
-
-        <button class="v81-btn secondary" type="button" data-vocab-reward-action="menu">
-          🏠 Back to Menu
-        </button>
-      </div>
-
-      ${studentDetailsVocabReward(result, reward)}
-      ${teacherDetailsVocabReward(result)}
-    </div>
-  `;
-
-  showRewardScreenVocabUI();
-
-  bindRewardButtonsVocabUI();
-
-  setTimeout(bindRewardButtonsVocabUI, 80);
-  setTimeout(bindRewardButtonsVocabUI, 250);
-  setTimeout(showRewardScreenVocabUI, 80);
-  setTimeout(showRewardScreenVocabUI, 250);
-}
-
-/* =========================================================
-   REWARD NAVIGATION
-========================================================= */
-
-function getCurrentRunOptionsVocabUI(kind){
-  let bank = "A";
-  let difficulty = "normal";
-  let mode = "learn";
-
-  try{
-    bank =
-      window.vocabGame?.bank ||
-      window.VOCAB_APP?.selectedBank ||
-      "A";
-
-    difficulty =
-      window.vocabGame?.difficulty ||
-      window.VOCAB_APP?.selectedDifficulty ||
-      "normal";
-
-    mode =
-      window.vocabGame?.mode ||
-      window.VOCAB_APP?.selectedMode ||
-      "learn";
-  }catch(e){}
-
-  if(kind === "next"){
-    mode = "mission";
-
-    if(difficulty === "easy") difficulty = "normal";
-    else if(difficulty === "normal") difficulty = "hard";
-    else difficulty = "challenge";
-  }
-
-  return { bank, difficulty, mode };
-}
-
-function startFreshRunFromRewardVocabUI(kind){
-  forceClearGameTimersVocabUI();
-  forceRemoveGameFxVocabUI();
-
-  const opt = getCurrentRunOptionsVocabUI(kind);
-
-  syncMenuSelectionsVocabUI(opt);
-  showBattleScreenV6();
-
-  setTimeout(() => {
-    showBattleScreenV6();
-
+  function readJson(key, fallback){
     try{
-      if(typeof startVocabBattleV6 === "function"){
-        startVocabBattleV6(opt);
-
-        setTimeout(showBattleScreenV6, 80);
-        setTimeout(showBattleScreenV6, 180);
-        return;
-      }
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
     }catch(e){
-      console.error("[VOCAB UI] startFreshRunFromReward failed", e);
+      return fallback;
+    }
+  }
+
+  function writeJson(key, value){
+    try{
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    }catch(e){
+      console.warn("[VOCAB UI] writeJson failed", key, e);
+      return false;
+    }
+  }
+
+  function getParam(name, fallback){
+    try{
+      const url = new URL(location.href);
+      return url.searchParams.get(name) || fallback || "";
+    }catch(e){
+      return fallback || "";
+    }
+  }
+
+  function normalizeMode(mode){
+    mode = String(mode || "learn").toLowerCase();
+    const modes = getModeMap();
+    return modes[mode] ? mode : "learn";
+  }
+
+  function normalizeDiff(diff){
+    diff = String(diff || "easy").toLowerCase();
+    const map = getDifficultyMap();
+    return map[diff] ? diff : "easy";
+  }
+
+  function normalizeBank(bank){
+    bank = String(bank || "A").toUpperCase();
+    const meta = getBankMeta();
+    return meta[bank] ? bank : "A";
+  }
+
+  /* =========================================================
+     SELECTED STATE
+  ========================================================= */
+
+  function getSelectedBank(){
+    const app = getApp();
+    app.selectedBank = normalizeBank(app.selectedBank || "A");
+    return app.selectedBank;
+  }
+
+  function getSelectedDifficulty(){
+    const app = getApp();
+    app.selectedDifficulty = normalizeDiff(app.selectedDifficulty || "easy");
+    return app.selectedDifficulty;
+  }
+
+  function getSelectedMode(){
+    const app = getApp();
+    app.selectedMode = normalizeMode(app.selectedMode || "learn");
+    return app.selectedMode;
+  }
+
+  function setSelectedBank(bank){
+    const app = getApp();
+    app.selectedBank = normalizeBank(bank);
+    return app.selectedBank;
+  }
+
+  function setSelectedDifficulty(diff){
+    const app = getApp();
+    app.selectedDifficulty = normalizeDiff(diff);
+    return app.selectedDifficulty;
+  }
+
+  function setSelectedMode(mode){
+    const app = getApp();
+    app.selectedMode = normalizeMode(mode);
+    return app.selectedMode;
+  }
+
+  function getModeConfig(mode){
+    const modes = getModeMap();
+    mode = normalizeMode(mode || getSelectedMode());
+    return modes[mode] || modes.learn;
+  }
+
+  function getDifficultyConfig(diff){
+    const map = getDifficultyMap();
+    diff = normalizeDiff(diff || getSelectedDifficulty());
+    return map[diff] || map.easy;
+  }
+
+  /* =========================================================
+     STUDENT CONTEXT
+  ========================================================= */
+
+  function getInputValue(id){
+    const el = byId(id);
+    return el ? String(el.value || "").trim() : "";
+  }
+
+  function setInputValue(id, value){
+    const el = byId(id);
+    if(el && value !== undefined && value !== null){
+      el.value = String(value);
+    }
+  }
+
+  function getStudentContext(){
+    const app = getApp();
+    const saved = readJson(app.profileKey, {});
+
+    const displayName =
+      getInputValue("v63DisplayName") ||
+      getParam("name") ||
+      getParam("nick") ||
+      saved.display_name ||
+      saved.displayName ||
+      "Hero";
+
+    const studentId =
+      getInputValue("v63StudentId") ||
+      getParam("student_id") ||
+      getParam("studentId") ||
+      getParam("sid") ||
+      getParam("pid") ||
+      saved.student_id ||
+      saved.studentId ||
+      "anon";
+
+    const section =
+      getInputValue("v63Section") ||
+      getParam("section") ||
+      saved.section ||
+      "";
+
+    const sessionCode =
+      getInputValue("v63SessionCode") ||
+      getParam("session_code") ||
+      getParam("sessionCode") ||
+      getParam("studyId") ||
+      saved.session_code ||
+      saved.sessionCode ||
+      "";
+
+    return {
+      display_name: displayName,
+      student_id: studentId,
+      section,
+      session_code: sessionCode
+    };
+  }
+
+  function saveStudentContext(){
+    const app = getApp();
+    const ctx = getStudentContext();
+
+    writeJson(app.profileKey, {
+      ...ctx,
+      saved_at: new Date().toISOString()
+    });
+
+    return ctx;
+  }
+
+  function hydrateStudentForm(){
+    const app = getApp();
+    const saved = readJson(app.profileKey, {});
+
+    setInputValue(
+      "v63DisplayName",
+      getParam("name") ||
+      getParam("nick") ||
+      saved.display_name ||
+      saved.displayName ||
+      ""
+    );
+
+    setInputValue(
+      "v63StudentId",
+      getParam("student_id") ||
+      getParam("studentId") ||
+      getParam("sid") ||
+      getParam("pid") ||
+      saved.student_id ||
+      saved.studentId ||
+      ""
+    );
+
+    setInputValue(
+      "v63Section",
+      getParam("section") ||
+      saved.section ||
+      ""
+    );
+
+    setInputValue(
+      "v63SessionCode",
+      getParam("session_code") ||
+      getParam("sessionCode") ||
+      getParam("studyId") ||
+      saved.session_code ||
+      saved.sessionCode ||
+      ""
+    );
+  }
+
+  function isDemoMode(){
+    try{
+      const p = new URL(location.href).searchParams;
+      return p.get("demo") === "1" || p.get("qa") === "1" || p.get("debug") === "1";
+    }catch(e){
+      return false;
+    }
+  }
+
+  function validateStudentInfoBeforeStart(){
+    if(isDemoMode()) return true;
+
+    const missing = [];
+
+    const fields = [
+      ["ชื่อเล่น / Display name", byId("v63DisplayName"), getInputValue("v63DisplayName")],
+      ["รหัสนักศึกษา", byId("v63StudentId"), getInputValue("v63StudentId")],
+      ["Section", byId("v63Section"), getInputValue("v63Section")],
+      ["Session Code", byId("v63SessionCode"), getInputValue("v63SessionCode")]
+    ];
+
+    fields.forEach(([label, el, value]) => {
+      if(!value) missing.push([label, el]);
+    });
+
+    if(!missing.length){
+      saveStudentContext();
+      return true;
     }
 
-    location.reload();
-  }, 100);
-}
-
-function backToVocabMenuV6(){
-  forceClearGameTimersVocabUI();
-  forceRemoveGameFxVocabUI();
-
-  try{
-    if(window.vocabGame){
-      vocabGame.active = false;
-    }
-  }catch(e){}
-
-  showMenuScreenV65();
-}
-
-function bindRewardButtonsVocabUI(){
-  const reward = getRewardPanelVocab();
-  if(!reward) return;
-
-  reward.style.pointerEvents = "auto";
-
-  qsa("[data-vocab-reward-action], .v81-btn", reward).forEach(btn => {
-    btn.style.pointerEvents = "auto";
-    btn.style.cursor = "pointer";
-
-    if(!btn.getAttribute("data-vocab-reward-action")){
-      const t = String(btn.textContent || "").toLowerCase();
-
-      if(t.includes("play again")) btn.setAttribute("data-vocab-reward-action", "again");
-      else if(t.includes("next challenge")) btn.setAttribute("data-vocab-reward-action", "next");
-      else if(t.includes("back to menu")) btn.setAttribute("data-vocab-reward-action", "menu");
-    }
-  });
-}
-
-function installRewardDelegatedClickVocabUI(){
-  if(window.__VOCAB_REWARD_DELEGATED_CLICK__) return;
-  window.__VOCAB_REWARD_DELEGATED_CLICK__ = true;
-
-  document.addEventListener("click", function(e){
-    const btn = e.target && e.target.closest
-      ? e.target.closest("#v6RewardPanel [data-vocab-reward-action], #v6RewardPanel .v81-btn")
-      : null;
-
-    if(!btn) return;
-
-    let action = btn.getAttribute("data-vocab-reward-action") || "";
-    const text = String(btn.textContent || "").toLowerCase();
-
-    if(!action){
-      if(text.includes("play again")) action = "again";
-      else if(text.includes("next challenge")) action = "next";
-      else if(text.includes("back to menu")) action = "menu";
-    }
-
-    if(!action) return;
+    const first = missing[0][1];
 
     try{
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-    }catch(err){}
+      first.focus();
+      first.scrollIntoView({ behavior:"smooth", block:"center" });
+    }catch(e){}
 
-    if(action === "again"){
-      startFreshRunFromRewardVocabUI("again");
-    }else if(action === "next"){
-      startFreshRunFromRewardVocabUI("next");
-    }else if(action === "menu"){
-      backToVocabMenuV6();
-    }
+    showToast(
+      "กรุณากรอกข้อมูลผู้เรียนให้ครบก่อนเริ่มเกม: " +
+      missing.map(x => x[0]).join(", "),
+      "warn"
+    );
 
     return false;
-  }, true);
-}
+  }
 
-/* Inline compatibility */
-window.__VOCAB_V81_PLAY_AGAIN = function(){
-  startFreshRunFromRewardVocabUI("again");
-};
+  /* =========================================================
+     SCREEN STATE
+  ========================================================= */
 
-window.__VOCAB_V81_NEXT_CHALLENGE = function(){
-  startFreshRunFromRewardVocabUI("next");
-};
+  function showMenuScreen(){
+    hideEl("v6MenuPanel", false);
+    hideEl("v6BattlePanel", true);
+    hideEl("v6RewardPanel", true);
 
-window.__VOCAB_V81_BACK_MENU = function(){
-  backToVocabMenuV6();
-};
+    const menu = byId("v6MenuPanel");
+    if(menu){
+      menu.style.display = "";
+      menu.style.pointerEvents = "auto";
+    }
 
-/* =========================================================
-   FLOATING FX
-========================================================= */
+    try{
+      window.scrollTo({ top:0, behavior:"auto" });
+    }catch(e){}
+  }
 
-function showFloatingTextV6(text, type = "good"){
-  const fx = document.createElement("div");
-  fx.className = `v6-float ${type}`;
-  fx.textContent = text;
+  function showBattleScreen(){
+    hideEl("v6MenuPanel", true);
+    hideEl("v6BattlePanel", false);
+    hideEl("v6RewardPanel", true);
 
-  document.body.appendChild(fx);
+    const battle = byId("v6BattlePanel");
+    if(battle){
+      battle.style.display = "";
+      battle.style.pointerEvents = "auto";
+    }
 
-  setTimeout(() => {
-    try{ fx.remove(); }catch(e){}
-  }, 900);
-}
+    try{
+      window.scrollTo({ top:0, behavior:"auto" });
+    }catch(e){}
+  }
 
-/* =========================================================
-   BOOT UI
-========================================================= */
+  function showRewardScreen(){
+    hideEl("v6MenuPanel", true);
+    hideEl("v6BattlePanel", true);
+    hideEl("v6RewardPanel", false);
 
-function bootVocabUI(){
-  initVocabV6UI();
-  cleanStudentMenuVocabUI();
-  installRewardDelegatedClickVocabUI();
+    const reward = byId("v6RewardPanel");
+    if(reward){
+      reward.style.display = "block";
+      reward.style.pointerEvents = "auto";
+    }
 
-  showMenuScreenV65();
+    try{
+      window.scrollTo({ top:0, behavior:"auto" });
+    }catch(e){}
+  }
 
-  setTimeout(cleanStudentMenuVocabUI, 500);
-  setTimeout(cleanStudentMenuVocabUI, 1500);
+  function backToMenu(){
+    try{
+      if(W.vocabGame){
+        W.vocabGame.active = false;
+      }
 
-  setInterval(() => {
-    governVocabScreen();
-    bindRewardButtonsVocabUI();
-  }, 500);
+      if(typeof W.clearTimerV6 === "function") W.clearTimerV6();
+      if(typeof W.stopFeverV62 === "function") W.stopFeverV62();
+    }catch(e){}
 
-  console.log("[VOCAB] UI controller loaded");
-}
+    showMenuScreen();
 
-if(document.readyState === "loading"){
-  document.addEventListener("DOMContentLoaded", bootVocabUI, { once:true });
-}else{
-  bootVocabUI();
-}
+    if(typeof W.renderLeaderboardV68 === "function"){
+      W.renderLeaderboardV68(getSelectedMode());
+    }
+  }
+
+  /* =========================================================
+     UI UPDATES
+  ========================================================= */
+
+  function syncActiveButtons(){
+    const bank = getSelectedBank();
+    const diff = getSelectedDifficulty();
+    const mode = getSelectedMode();
+
+    qsa("[data-v6-bank]").forEach(btn => {
+      btn.classList.toggle("active", String(btn.dataset.v6Bank || "").toUpperCase() === bank);
+    });
+
+    qsa("[data-v6-diff]").forEach(btn => {
+      btn.classList.toggle("active", String(btn.dataset.v6Diff || "").toLowerCase() === diff);
+    });
+
+    qsa("[data-v6-mode]").forEach(btn => {
+      btn.classList.toggle("active", String(btn.dataset.v6Mode || "").toLowerCase() === mode);
+    });
+  }
+
+  function updateDiffPreview(){
+    const el = byId("v6DiffPreview");
+    if(!el) return;
+
+    const diff = getSelectedDifficulty();
+    const cfg = getDifficultyConfig(diff);
+
+    el.textContent = cfg.preview || `${cfg.label || diff}: พร้อมเริ่มเล่น`;
+  }
+
+  function updateModePreview(){
+    const el = byId("v66ModePreview");
+    if(!el) return;
+
+    const mode = getModeConfig(getSelectedMode());
+    el.textContent = `${mode.icon || "🎮"} ${mode.label || "Mode"}: ${mode.description || ""}`;
+  }
+
+  function updateBankLabel(){
+    const el = byId("v6BankLabel");
+    if(!el) return;
+
+    const game = W.vocabGame || {};
+    const bank = normalizeBank(game.bank || getSelectedBank());
+    const mode = getModeConfig(game.mode || getSelectedMode());
+
+    el.textContent = `Bank ${bank} • ${mode.icon || "🎮"} ${mode.label || mode.id || "Mode"}`;
+  }
+
+  function updateModeHud(){
+    const el = byId("v66ModeHud");
+    if(!el) return;
+
+    const game = W.vocabGame || {};
+    const mode = getModeConfig(game.mode || getSelectedMode());
+
+    el.textContent = `${mode.icon || "🎮"} ${mode.shortLabel || mode.label || "Mode"}`;
+  }
+
+  function updateHeroTitle(){
+    const cfg = W.VOCAB_APP_CONFIG || {};
+    const h1 = qs(".v6-hero-card h1");
+    const subtitle = qs(".v6-subtitle");
+
+    if(h1 && cfg.publicTitle){
+      h1.textContent = cfg.publicTitle;
+    }
+
+    if(subtitle && cfg.publicSubtitle){
+      subtitle.textContent = "ฝึกศัพท์สาย CS/AI สำหรับนักศึกษาปี 2 ผ่านโหมดท้าทายและระบบ AI Learning";
+    }
+  }
+
+  function updateAllStaticUi(){
+    syncActiveButtons();
+    updateDiffPreview();
+    updateModePreview();
+    updateBankLabel();
+    updateModeHud();
+    updateHeroTitle();
+  }
+
+  /* =========================================================
+     HUD HELPERS USED BY GAME
+  ========================================================= */
+
+  function updateHud(){
+    const game = W.vocabGame || {};
+
+    setText("v6Score", game.score || 0);
+    setText("v6Combo", `x${game.combo || 0}`);
+
+    const hp = Number(game.playerHp || 0);
+    setText("v6Hp", hp > 0 ? "❤️".repeat(Math.min(10, hp)) : "💔");
+
+    const total = typeof W.getTotalPlannedQuestionsV6 === "function"
+      ? W.getTotalPlannedQuestionsV6()
+      : (Array.isArray(game.stagePlan) ? game.stagePlan.reduce((s, x) => s + Number(x.count || 0), 0) : 0);
+
+    setText("v6QuestionNo", `${game.globalQuestionIndex || 0}/${total || 0}`);
+
+    const enemyHpFill = byId("v6EnemyHpFill");
+    const enemyHpText = byId("v6EnemyHpText");
+
+    const max = Number(game.enemyHpMax || 0);
+    const hpNow = Number(game.enemyHp || 0);
+    const pct = max > 0 ? Math.max(0, Math.min(100, hpNow / max * 100)) : 100;
+
+    if(enemyHpFill) enemyHpFill.style.width = `${pct}%`;
+    if(enemyHpText) enemyHpText.textContent = `${Math.round(pct)}%`;
+
+    updateBankLabel();
+    updateModeHud();
+
+    if(typeof W.updatePowerHudV62 === "function"){
+      try{ W.updatePowerHudV62(); }catch(e){}
+    }
+  }
+
+  function renderTimer(){
+    const game = W.vocabGame || {};
+    const el = byId("v6Timer");
+    if(!el) return;
+
+    const time = Number(game.timeLeft || 0);
+    el.textContent = `${time}s`;
+    el.classList.toggle("danger", time <= 3);
+  }
+
+  function lockChoices(){
+    qsa(".v6-choice").forEach(btn => {
+      btn.disabled = true;
+      btn.setAttribute("aria-disabled", "true");
+    });
+  }
+
+  function unlockChoices(){
+    qsa(".v6-choice").forEach(btn => {
+      btn.disabled = false;
+      btn.removeAttribute("aria-disabled");
+    });
+  }
+
+  function getCorrectChoiceText(question){
+    if(!question) return "";
+
+    const term = question.correctTerm || {};
+
+    if(question.answerMode === "meaning"){
+      return term.meaning || term.definition || "";
+    }
+
+    return term.term || term.word || "";
+  }
+
+  function revealCorrectChoice(){
+    const game = W.vocabGame || {};
+    const correctText = getCorrectChoiceText(game.currentQuestion);
+
+    if(!correctText) return;
+
+    qsa(".v6-choice").forEach(btn => {
+      const text = btn.textContent || "";
+      if(text.includes(correctText)){
+        btn.classList.add("correct");
+      }
+    });
+  }
+
+  function showAnswerExplain(isCorrect, question){
+    const box = byId("v6ExplainBox");
+    if(!box || !question) return;
+
+    const word = question.correctTerm?.term || question.correctTerm?.word || "";
+    const meaning = question.correctTerm?.meaning || question.correctTerm?.definition || "";
+
+    box.hidden = false;
+    box.innerHTML = isCorrect
+      ? `✅ ถูกต้อง! <b>${esc(word)}</b> = ${esc(meaning)}`
+      : `💡 คำตอบที่ถูกคือ <b>${esc(word)}</b> = ${esc(meaning)}`;
+
+    clearTimeout(showAnswerExplain._t);
+    showAnswerExplain._t = setTimeout(() => {
+      if(box) box.hidden = true;
+    }, isCorrect ? 900 : 1500);
+  }
+
+  /* =========================================================
+     QUESTION RENDER
+  ========================================================= */
+
+  function clearAiHelpBox(){
+    const box = byId("v67AiHelpBox");
+    if(box){
+      box.hidden = true;
+      box.innerHTML = "";
+    }
+  }
+
+  function renderQuestion(question, stage){
+    const game = W.vocabGame || {};
+
+    const panel = byId("v6BattlePanel");
+    const stageChip = byId("v6StageChip");
+    const stageGoal = byId("v6StageGoal");
+    const enemyAvatar = byId("v6EnemyAvatar");
+    const enemyName = byId("v6EnemyName");
+    const enemySkill = byId("v6EnemySkill");
+    const enemyHpFill = byId("v6EnemyHpFill");
+    const enemyHpText = byId("v6EnemyHpText");
+    const questionText = byId("v6QuestionText");
+    const choicesBox = byId("v6Choices");
+    const explainBox = byId("v6ExplainBox");
+
+    if(!panel || !stageChip || !choicesBox || !questionText){
+      console.warn("[VOCAB UI] battle UI not found");
+      return;
+    }
+
+    showBattleScreen();
+
+    if(explainBox){
+      explainBox.hidden = true;
+      explainBox.innerHTML = "";
+    }
+
+    clearAiHelpBox();
+
+    stage = stage || game.currentStage || {
+      icon:"✨",
+      name:"Warm-up Round",
+      goal:"เก็บความมั่นใจ ตอบให้ถูก"
+    };
+
+    stageChip.textContent = `${stage.icon || "✨"} ${stage.name || "Stage"}`;
+
+    if(stageGoal){
+      stageGoal.textContent = `Goal: ${stage.goal || "ตอบให้ถูก"}`;
+    }
+
+    if(enemyAvatar){
+      enemyAvatar.textContent = game.enemy?.avatar || "👾";
+    }
+
+    if(enemyName){
+      const name = game.enemy?.name || "Bug Slime";
+      const title = game.enemy?.title || "Enemy";
+      enemyName.textContent = `${name} • ${title}`;
+    }
+
+    if(enemySkill){
+      enemySkill.textContent = game.enemy?.skill || "Enemy skill";
+    }
+
+    const max = Number(game.enemyHpMax || 100);
+    const hp = Number(game.enemyHp || max);
+    const pct = max > 0 ? Math.max(0, Math.min(100, hp / max * 100)) : 100;
+
+    if(enemyHpFill) enemyHpFill.style.width = `${pct}%`;
+    if(enemyHpText) enemyHpText.textContent = `${Math.round(pct)}%`;
+
+    const prompt = question?.prompt || "Question text";
+    const hint = question?.answerMode === "meaning"
+      ? "เลือกความหมายที่ถูกต้อง"
+      : "เลือกคำศัพท์ที่เหมาะกับสถานการณ์";
+
+    questionText.innerHTML = `
+      <span class="v6-question-main">${esc(prompt)}</span>
+      <small class="v6-question-hint">${esc(hint)}</small>
+    `;
+
+    choicesBox.innerHTML = "";
+
+    const choices = Array.isArray(question?.choices) ? question.choices : [];
+
+    choices.forEach((choice, index) => {
+      const btn = D.createElement("button");
+      btn.className = "v6-choice";
+      btn.type = "button";
+      btn.dataset.choiceIndex = String(index);
+      btn.innerHTML = `
+        <span style="opacity:.72; margin-right:8px;">${String.fromCharCode(65 + index)}.</span>
+        <span>${esc(choice.text)}</span>
+      `;
+
+      btn.addEventListener("click", () => {
+        if(typeof W.answerQuestionV6 === "function"){
+          W.answerQuestionV6(choice, btn);
+        }else{
+          console.warn("[VOCAB UI] answerQuestionV6 missing");
+        }
+      });
+
+      choicesBox.appendChild(btn);
+    });
+
+    updateHud();
+  }
+
+  /* =========================================================
+     POWER HUD
+  ========================================================= */
+
+  function updatePowerHud(){
+    const game = W.vocabGame || {};
+    const feverChip = byId("v6FeverChip");
+    const hintBtn = byId("v6HintBtn");
+    const aiHelpBtn = byId("v67AiHelpBtn");
+    const shieldChip = byId("v6ShieldChip");
+    const laserChip = byId("v6LaserChip");
+    const battlePanel = byId("v6BattlePanel");
+
+    const feverOn = !!game.fever;
+
+    if(feverChip){
+      feverChip.textContent = feverOn ? "🔥 Fever: ON!" : "🔥 Fever: OFF";
+      feverChip.classList.toggle("active", feverOn);
+    }
+
+    if(hintBtn){
+      hintBtn.textContent = `💡 Hint x${game.hints || 0}`;
+      hintBtn.disabled = !game.active || Number(game.hints || 0) <= 0;
+    }
+
+    if(aiHelpBtn){
+      aiHelpBtn.textContent = `🤖 AI Help x${game.aiHelpLeft || 0}`;
+      aiHelpBtn.disabled = !game.active || Number(game.aiHelpLeft || 0) <= 0;
+    }
+
+    if(shieldChip){
+      shieldChip.textContent = `🛡️ Shield x${game.shield || 0}`;
+    }
+
+    if(laserChip){
+      laserChip.textContent = game.laserReady ? "🔴 Laser: READY" : "🔴 Laser: Not ready";
+      laserChip.classList.toggle("active", !!game.laserReady);
+    }
+
+    if(battlePanel){
+      battlePanel.classList.toggle("fever", feverOn);
+    }
+  }
+
+  /* =========================================================
+     TOAST / FX
+  ========================================================= */
+
+  function showToast(message, type){
+    let box = byId("vocabUiToast");
+
+    if(!box){
+      box = D.createElement("div");
+      box.id = "vocabUiToast";
+      box.style.position = "fixed";
+      box.style.right = "14px";
+      box.style.bottom = "14px";
+      box.style.zIndex = "2147483647";
+      box.style.width = "min(420px, calc(100vw - 28px))";
+      box.style.padding = "14px 16px";
+      box.style.borderRadius = "22px";
+      box.style.border = "1px solid rgba(255,255,255,.20)";
+      box.style.background = "rgba(4,10,20,.92)";
+      box.style.color = "#eef7ff";
+      box.style.fontWeight = "950";
+      box.style.lineHeight = "1.45";
+      box.style.boxShadow = "0 18px 54px rgba(0,0,0,.38)";
+      box.style.backdropFilter = "blur(16px)";
+      D.body.appendChild(box);
+    }
+
+    const icon = type === "warn" ? "⚠️" : type === "bad" ? "❌" : "✅";
+    box.innerHTML = `${icon} ${esc(message)}`;
+    box.hidden = false;
+
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => {
+      if(box) box.hidden = true;
+    }, 2600);
+  }
+
+  function showFloatingText(text, type){
+    const fx = D.createElement("div");
+    fx.className = `v6-float ${type || "good"}`;
+    fx.textContent = String(text || "");
+
+    D.body.appendChild(fx);
+
+    setTimeout(() => {
+      try{ fx.remove(); }catch(e){}
+    }, 900);
+  }
+
+  function removeFx(){
+    [
+      ".v6-float",
+      ".v6-laser-beam",
+      ".v6-fx-burst",
+      ".v72-announcer",
+      ".v72-flash",
+      ".v72-particle",
+      ".v74-toast",
+      "#vocabUiToast"
+    ].forEach(sel => {
+      qsa(sel).forEach(node => {
+        try{ node.remove(); }catch(e){}
+      });
+    });
+
+    D.body.classList.remove(
+      "v72-screen-shake",
+      "v72-hard-hit",
+      "v72-boss-rage",
+      "v72-fever-rainbow",
+      "v73-final-lock"
+    );
+  }
+
+  /* =========================================================
+     LEADERBOARD MINI RENDER
+  ========================================================= */
+
+  function readLeaderboard(){
+    const app = getApp();
+    const key = app.leaderboardKey || "VOCAB_SPLIT_LEADERBOARD";
+    return readJson(key, {
+      learn: [],
+      speed: [],
+      mission: [],
+      battle: []
+    });
+  }
+
+  function saveLeaderboard(board){
+    const app = getApp();
+    const key = app.leaderboardKey || "VOCAB_SPLIT_LEADERBOARD";
+    writeJson(key, board);
+  }
+
+  function renderLeaderboard(mode){
+    mode = normalizeMode(mode || getSelectedMode());
+
+    const box = byId("v68LeaderboardBox");
+    if(!box) return;
+
+    const board = readLeaderboard();
+    const rows = Array.isArray(board[mode]) ? board[mode] : [];
+    const modeCfg = getModeConfig(mode);
+
+    if(!rows.length){
+      box.innerHTML = `<div class="v68-lb-empty">${esc(modeCfg.icon || "🎮")} ${esc(modeCfg.label || mode)}: ยังไม่มีคะแนนในโหมดนี้</div>`;
+      return;
+    }
+
+    const top = rows
+      .slice()
+      .sort((a,b) => Number(b.fair_score || b.score || 0) - Number(a.fair_score || a.score || 0))
+      .slice(0, 5);
+
+    box.innerHTML = top.map((r, index) => {
+      const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`;
+      const score = Number(r.fair_score || r.score || 0);
+      const acc = Number(r.accuracy || 0);
+      const assisted = Number(r.ai_assisted || 0) ? "🤖 Assisted" : "🏅 No Help";
+
+      return `
+        <div class="v68-lb-row">
+          <div class="v68-rank">${esc(medal)}</div>
+          <div class="v68-lb-name">
+            <b>${esc(r.display_name || "Hero")}</b>
+            <small>${esc(r.bank || "")} • ${esc(r.difficulty || "")}</small>
+          </div>
+          <div class="v68-lb-score">${score}</div>
+          <div class="v68-hide-mobile"><span class="v68-lb-chip">${acc}%</span></div>
+          <div class="v68-hide-mobile"><span class="v68-lb-chip">${esc(assisted)}</span></div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function bindLeaderboardTabs(){
+    qsa("[data-lb-mode]").forEach(btn => {
+      if(btn.__vocabUiBound) return;
+      btn.__vocabUiBound = true;
+
+      btn.addEventListener("click", () => {
+        const mode = normalizeMode(btn.dataset.lbMode || "learn");
+
+        qsa("[data-lb-mode]").forEach(x => {
+          x.classList.toggle("active", x === btn);
+        });
+
+        renderLeaderboard(mode);
+      });
+    });
+  }
+
+  /* =========================================================
+     BIND MENU
+  ========================================================= */
+
+  function bindBankButtons(){
+    qsa("[data-v6-bank]").forEach(btn => {
+      if(btn.__vocabUiBound) return;
+      btn.__vocabUiBound = true;
+
+      btn.addEventListener("click", () => {
+        const bank = setSelectedBank(btn.dataset.v6Bank || "A");
+        syncActiveButtons();
+        updateBankLabel();
+
+        if(typeof W.v74RenderMenu === "function"){
+          try{ W.v74RenderMenu(); }catch(e){}
+        }
+
+        try{
+          localStorage.setItem("VOCAB_LAST_BANK", bank);
+        }catch(e){}
+      });
+    });
+  }
+
+  function bindDifficultyButtons(){
+    qsa("[data-v6-diff]").forEach(btn => {
+      if(btn.__vocabUiBound) return;
+      btn.__vocabUiBound = true;
+
+      btn.addEventListener("click", () => {
+        const diff = setSelectedDifficulty(btn.dataset.v6Diff || "easy");
+        syncActiveButtons();
+        updateDiffPreview();
+
+        try{
+          localStorage.setItem("VOCAB_LAST_DIFFICULTY", diff);
+        }catch(e){}
+      });
+    });
+  }
+
+  function bindModeButtons(){
+    qsa("[data-v6-mode]").forEach(btn => {
+      if(btn.__vocabUiBound) return;
+      btn.__vocabUiBound = true;
+
+      btn.addEventListener("click", () => {
+        const mode = setSelectedMode(btn.dataset.v6Mode || "learn");
+        syncActiveButtons();
+        updateModePreview();
+        updateBankLabel();
+
+        try{
+          localStorage.setItem("VOCAB_LAST_MODE", mode);
+        }catch(e){}
+      });
+    });
+  }
+
+  function bindStudentInputs(){
+    [
+      "v63DisplayName",
+      "v63StudentId",
+      "v63Section",
+      "v63SessionCode"
+    ].forEach(inputId => {
+      const el = byId(inputId);
+      if(!el || el.__vocabUiBound) return;
+      el.__vocabUiBound = true;
+
+      el.addEventListener("input", () => {
+        saveStudentContext();
+
+        if(typeof W.renderLeaderboardV68 === "function"){
+          try{ W.renderLeaderboardV68(getSelectedMode()); }catch(e){}
+        }else{
+          renderLeaderboard(getSelectedMode());
+        }
+      });
+
+      el.addEventListener("change", saveStudentContext);
+    });
+  }
+
+  function bindStartButton(){
+    const startBtn = byId("v6StartBtn");
+    if(!startBtn || startBtn.__vocabUiBound) return;
+
+    startBtn.__vocabUiBound = true;
+
+    startBtn.addEventListener("click", (e) => {
+      if(!validateStudentInfoBeforeStart()){
+        try{
+          e.preventDefault();
+          e.stopPropagation();
+        }catch(err){}
+        return false;
+      }
+
+      saveStudentContext();
+
+      const options = {
+        bank: getSelectedBank(),
+        difficulty: getSelectedDifficulty(),
+        mode: getSelectedMode()
+      };
+
+      removeFx();
+      showBattleScreen();
+
+      if(typeof W.startVocabBattleV6 === "function"){
+        W.startVocabBattleV6(options);
+      }else{
+        console.error("[VOCAB UI] startVocabBattleV6 missing");
+        showToast("ยังโหลดไฟล์เกมไม่ครบ: ไม่พบ startVocabBattleV6", "bad");
+      }
+
+      return true;
+    });
+  }
+
+  function bindPowerButtons(){
+    const hintBtn = byId("v6HintBtn");
+    if(hintBtn && !hintBtn.__vocabUiBound){
+      hintBtn.__vocabUiBound = true;
+      hintBtn.addEventListener("click", () => {
+        if(typeof W.useHintV62 === "function"){
+          W.useHintV62();
+        }
+      });
+    }
+
+    const aiBtn = byId("v67AiHelpBtn");
+    if(aiBtn && !aiBtn.__vocabUiBound){
+      aiBtn.__vocabUiBound = true;
+      aiBtn.addEventListener("click", () => {
+        if(typeof W.useAiHelpV67 === "function"){
+          W.useAiHelpV67();
+        }
+      });
+    }
+  }
+
+  function bindAllUi(){
+    bindBankButtons();
+    bindDifficultyButtons();
+    bindModeButtons();
+    bindStudentInputs();
+    bindStartButton();
+    bindPowerButtons();
+    bindLeaderboardTabs();
+  }
+
+  /* =========================================================
+     CLEAN STUDENT MENU
+  ========================================================= */
+
+  function cleanStudentMenu(){
+    const startBtn = byId("v6StartBtn");
+    if(!startBtn || !startBtn.closest) return;
+
+    const card = startBtn.closest(".v6-card");
+    if(!card) return;
+
+    const h2 = card.querySelector("h2");
+    if(h2 && /ภารกิจวันนี้|เริ่มเล่น/.test(h2.textContent || "")){
+      h2.textContent = "เริ่มเล่น";
+    }
+
+    const missionRow = card.querySelector(".v6-mission-row");
+    if(missionRow){
+      missionRow.style.display = "none";
+    }
+
+    if(!byId("vocabStartNote")){
+      const note = D.createElement("p");
+      note.id = "vocabStartNote";
+      note.className = "v63-note";
+      note.textContent = "เลือก Word Bank, ระดับ, โหมดการเล่น และกรอกข้อมูลผู้เรียนให้ครบ จากนั้นกด Start เพื่อเริ่มเกม";
+
+      card.insertBefore(note, startBtn);
+    }
+  }
+
+  /* =========================================================
+     PUBLIC API
+  ========================================================= */
+
+  W.byId = W.byId || byId;
+  W.setTextV6 = W.setTextV6 || setText;
+  W.hideEl = W.hideEl || hideEl;
+  W.escapeHtmlV6 = W.escapeHtmlV6 || esc;
+
+  W.getSelectedBankV6 = getSelectedBank;
+  W.getSelectedDifficultyV6 = getSelectedDifficulty;
+  W.getSelectedModeV66 = getSelectedMode;
+
+  W.getModeConfigV66 = getModeConfig;
+
+  W.getStudentContextV63 = getStudentContext;
+  W.saveStudentContextV63 = saveStudentContext;
+  W.hydrateStudentFormV63 = hydrateStudentForm;
+
+  W.validateStudentInfoBeforeStart = validateStudentInfoBeforeStart;
+
+  W.updateV6DiffPreview = updateDiffPreview;
+  W.updateV66ModePreview = updateModePreview;
+  W.updateV6BankLabel = updateBankLabel;
+  W.updateV66ModeHud = updateModeHud;
+  W.updateHudV6 = updateHud;
+  W.renderTimerV6 = renderTimer;
+  W.lockChoicesV6 = lockChoices;
+  W.unlockChoicesV6 = unlockChoices;
+  W.revealCorrectChoiceV6 = revealCorrectChoice;
+  W.showAnswerExplainV61 = showAnswerExplain;
+  W.renderQuestionV6 = renderQuestion;
+
+  W.showMenuScreenV65 = showMenuScreen;
+  W.showBattleScreenV6 = showBattleScreen;
+  W.showRewardScreenVocab = showRewardScreen;
+  W.backToVocabMenuV6 = backToMenu;
+
+  W.updatePowerHudV62 = W.updatePowerHudV62 || updatePowerHud;
+  W.clearAiHelpBoxV67 = W.clearAiHelpBoxV67 || clearAiHelpBox;
+
+  W.showFloatingTextV6 = W.showFloatingTextV6 || showFloatingText;
+  W.vocabUiToast = showToast;
+
+  W.renderLeaderboardV68 = W.renderLeaderboardV68 || renderLeaderboard;
+  W.readLeaderboardV68 = W.readLeaderboardV68 || readLeaderboard;
+  W.saveLeaderboardV68 = W.saveLeaderboardV68 || saveLeaderboard;
+
+  W.initVocabV6UI = function(){
+    getApp();
+    hydrateStudentForm();
+    bindAllUi();
+    updateAllStaticUi();
+    cleanStudentMenu();
+    renderLeaderboard("learn");
+  };
+
+  /* =========================================================
+     BOOT
+  ========================================================= */
+
+  function boot(){
+    try{
+      getApp();
+      hydrateStudentForm();
+      bindAllUi();
+      updateAllStaticUi();
+      cleanStudentMenu();
+
+      if(typeof W.renderLeaderboardV68 === "function"){
+        W.renderLeaderboardV68("learn");
+      }else{
+        renderLeaderboard("learn");
+      }
+
+      showMenuScreen();
+
+      console.log("[VOCAB UI] loaded v20260502b");
+    }catch(err){
+      console.error("[VOCAB UI] boot failed", err);
+      showToast("โหลด UI ไม่สำเร็จ: " + (err.message || err), "bad");
+    }
+  }
+
+  if(D.readyState === "loading"){
+    D.addEventListener("DOMContentLoaded", boot, { once:true });
+  }else{
+    boot();
+  }
+
+})();
