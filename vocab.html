@@ -9679,7 +9679,114 @@
   }else{
     bootCleanStudentUi();
   }
+})();
+</script>
+<script>
+/* =========================================================
+   VOCAB v8.1.2 — Reward Empty Space Fix
+   แก้พื้นที่ว่างด้านล่าง / reward panel สูงเกินจอ
+   ========================================================= */
+(function(){
+  "use strict";
 
+  function injectRewardSpaceFixV812(){
+    if(document.getElementById("v812RewardSpaceFixCss")) return;
+
+    const css = document.createElement("style");
+    css.id = "v812RewardSpaceFixCss";
+    css.textContent = `
+      html, body{
+        min-height:100%;
+      }
+
+      #v6RewardPanel{
+        min-height:auto !important;
+        height:auto !important;
+        display:block !important;
+        padding:12px !important;
+        overflow:visible !important;
+        background:
+          radial-gradient(circle at 50% 0%, rgba(255,209,102,.16), transparent 28%),
+          linear-gradient(180deg,#10284a,#06111f) !important;
+      }
+
+      #v6RewardPanel.v6-reward-screen{
+        min-height:auto !important;
+        display:block !important;
+        place-items:unset !important;
+      }
+
+      #v6RewardPanel .v81-reward{
+        margin:12px auto 24px !important;
+        min-height:0 !important;
+      }
+
+      #v6RewardPanel .v6-reward{
+        margin:12px auto 24px !important;
+        min-height:0 !important;
+      }
+
+      #vocabV6App{
+        min-height:100dvh !important;
+        height:auto !important;
+        overflow-x:hidden !important;
+        overflow-y:visible !important;
+      }
+
+      body:has(#v6RewardPanel:not([hidden])){
+        background:#06111f !important;
+      }
+
+      @media(max-width:720px){
+        #v6RewardPanel{
+          padding:8px !important;
+        }
+
+        #v6RewardPanel .v81-reward{
+          margin:8px auto 18px !important;
+        }
+      }
+    `;
+
+    document.head.appendChild(css);
+  }
+
+  function fixRewardScrollV812(){
+    const reward = document.getElementById("v6RewardPanel");
+    if(!reward || reward.hidden) return;
+
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    reward.style.minHeight = "auto";
+    reward.style.height = "auto";
+    reward.style.display = "block";
+    reward.style.alignItems = "initial";
+    reward.style.justifyContent = "initial";
+  }
+
+  injectRewardSpaceFixV812();
+
+  const oldRender = window.renderRewardScreenV6;
+  if(typeof oldRender === "function" && !oldRender.__v812Wrapped){
+    const wrapped = function(){
+      const out = oldRender.apply(this, arguments);
+      injectRewardSpaceFixV812();
+      setTimeout(fixRewardScrollV812, 0);
+      setTimeout(fixRewardScrollV812, 80);
+      setTimeout(fixRewardScrollV812, 250);
+      return out;
+    };
+    wrapped.__v812Wrapped = true;
+    window.renderRewardScreenV6 = wrapped;
+  }
+
+  document.addEventListener("DOMContentLoaded", function(){
+    injectRewardSpaceFixV812();
+    setTimeout(fixRewardScrollV812, 500);
+  });
+
+  console.log("[VOCAB] v8.1.2 reward empty space fix loaded");
 })();
 </script>
 </body>
