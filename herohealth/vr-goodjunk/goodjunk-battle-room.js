@@ -1386,3 +1386,94 @@ export async function clearExpiredBattleEffects(ctx = {}, options = {}) {
     updatedAt: now
   });
 }
+// === PATCH: mark player offline for Battle room ===
+// เพิ่มท้ายไฟล์ /herohealth/vr-goodjunk/goodjunk-battle-room.js
+
+export async function markBattlePlayerOffline(ctx = {}, options = {}) {
+  const adapter = options.adapter || makeRoomAdapter();
+
+  const roomId = String(ctx.room || ctx.roomId || '').trim();
+  const pid = String(ctx.pid || '').trim();
+
+  if (!adapter || !roomId || !pid) {
+    return {
+      ok: false,
+      reason: 'missing_adapter_room_or_pid'
+    };
+  }
+
+  let room = null;
+
+  try {
+    room = await adapter.loadRoom(roomId);
+  } catch (err) {
+    console.warn('[GJ Battle Room] mark offline load failed', err);
+    return {
+      ok: false,
+      reason: 'load_failed',
+      error: String(err && err.message ? err.message : err)
+    };
+  }
+
+  if (!room || !room.players || !room.players[pid]) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'player_not_found'
+    };
+  }
+
+  const now = Date.now();
+
+  const nextRoom = {
+    ...room,
+    updatedAt: now,
+    players: {
+      ...(room.players || {}),
+      [pid]: {
+        ...(room.players[pid] || {}),
+        online: false,
+        ready: false,
+        updatedAt: now,
+        lastSeenAt: now,
+        leftAt: now
+      }
+    }
+  };
+
+  try {
+    if (typeof adapter.saveRoom === 'function') {
+      const saved = await adapter.saveRoom(roomId, nextRoom);
+      return {
+        ok: true,
+        room: saved || nextRoom
+      };
+    }
+
+    if (typeof adapter.patchRoom === 'function') {
+      const saved = await adapter.patchRoom(roomId, {
+        updatedAt: now,
+        players: {
+          [pid]: nextRoom.players[pid]
+        }
+      });
+
+      return {
+        ok: true,
+        room: saved || nextRoom
+      };
+    }
+
+    return {
+      ok: false,
+      reason: 'adapter_has_no_save_or_patch'
+    };
+  } catch (err) {
+    console.warn('[GJ Battle Room] mark offline save failed', err);
+    return {
+      ok: false,
+      reason: 'save_failed',
+      error: String(err && err.message ? err.message : err)
+    };
+  }
+}
