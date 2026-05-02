@@ -9789,5 +9789,306 @@
   console.log("[VOCAB] v8.1.2 reward empty space fix loaded");
 })();
 </script>
+<script>
+/* =========================================================
+   VOCAB v8.1.3 — Reward Navigation Fix
+   Fix:
+   - Next Challenge starts behind reward screen
+   - old/new timer keeps running while reward still covers game
+   - timeout effect appears without player seeing the question
+   ========================================================= */
+(function(){
+  "use strict";
+
+  function el(id){
+    return document.getElementById(id);
+  }
+
+  function safeCall(fn){
+    try{
+      if(typeof fn === "function") return fn();
+    }catch(e){
+      console.warn("[VOCAB] safeCall warning", e);
+    }
+    return null;
+  }
+
+  function forceClearGameTimersV813(){
+    try{
+      if(window.vocabGame){
+        if(vocabGame.timerId){
+          clearInterval(vocabGame.timerId);
+          clearTimeout(vocabGame.timerId);
+          vocabGame.timerId = null;
+        }
+
+        if(vocabGame.feverTimerId){
+          clearTimeout(vocabGame.feverTimerId);
+          clearInterval(vocabGame.feverTimerId);
+          vocabGame.feverTimerId = null;
+        }
+
+        vocabGame.fever = false;
+        vocabGame.feverUntil = 0;
+      }
+    }catch(e){}
+
+    safeCall(window.clearTimerV6);
+    safeCall(window.stopFeverV62);
+  }
+
+  function forceRemoveRewardEffectsV813(){
+    [
+      ".v6-float",
+      ".v6-laser-beam",
+      ".v6-fx-burst",
+      ".v72-announcer",
+      ".v72-flash",
+      ".v72-particle",
+      ".v74-toast",
+      ".v78-guard-toast"
+    ].forEach(function(sel){
+      document.querySelectorAll(sel).forEach(function(node){
+        try{ node.remove(); }catch(e){}
+      });
+    });
+
+    document.body.classList.remove(
+      "v72-screen-shake",
+      "v72-hard-hit",
+      "v72-boss-rage",
+      "v72-fever-rainbow",
+      "v73-final-lock"
+    );
+  }
+
+  function forceHideRewardV813(){
+    var reward = el("v6RewardPanel");
+    var menu = el("v6MenuPanel");
+    var battle = el("v6BattlePanel");
+
+    if(reward){
+      reward.hidden = true;
+      reward.style.display = "none";
+      reward.style.pointerEvents = "none";
+    }
+
+    if(menu){
+      menu.hidden = true;
+      menu.style.display = "none";
+    }
+
+    if(battle){
+      battle.hidden = false;
+      battle.style.display = "";
+      battle.style.pointerEvents = "auto";
+    }
+
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
+  function getNextDifficultyV813(diff){
+    diff = String(diff || "normal").toLowerCase();
+
+    if(diff === "easy") return "normal";
+    if(diff === "normal") return "hard";
+    if(diff === "hard") return "challenge";
+    return "challenge";
+  }
+
+  function getCurrentRunOptionsV813(kind){
+    var bank = "A";
+    var diff = "normal";
+    var mode = "learn";
+
+    try{
+      bank =
+        (window.vocabGame && vocabGame.bank) ||
+        (window.VOCAB_APP && VOCAB_APP.selectedBank) ||
+        "A";
+
+      diff =
+        (window.vocabGame && vocabGame.difficulty) ||
+        (window.VOCAB_APP && VOCAB_APP.selectedDifficulty) ||
+        "normal";
+
+      mode =
+        (window.vocabGame && vocabGame.mode) ||
+        (window.VOCAB_APP && VOCAB_APP.selectedMode) ||
+        "learn";
+    }catch(e){}
+
+    if(kind === "next"){
+      mode = "mission";
+      diff = getNextDifficultyV813(diff);
+    }
+
+    return { bank: bank, difficulty: diff, mode: mode };
+  }
+
+  function syncMenuSelectionsV813(options){
+    try{
+      if(window.VOCAB_APP){
+        VOCAB_APP.selectedBank = options.bank;
+        VOCAB_APP.selectedDifficulty = options.difficulty;
+        VOCAB_APP.selectedMode = options.mode;
+      }
+
+      document.querySelectorAll("[data-v6-bank]").forEach(function(btn){
+        btn.classList.toggle("active", btn.dataset.v6Bank === options.bank);
+      });
+
+      document.querySelectorAll("[data-v6-diff]").forEach(function(btn){
+        btn.classList.toggle("active", btn.dataset.v6Diff === options.difficulty);
+      });
+
+      document.querySelectorAll("[data-v6-mode]").forEach(function(btn){
+        btn.classList.toggle("active", btn.dataset.v6Mode === options.mode);
+      });
+
+      safeCall(window.updateV6DiffPreview);
+      safeCall(window.updateV66ModePreview);
+      safeCall(window.updateV6BankLabel);
+      safeCall(window.updateV66ModeHud);
+    }catch(e){
+      console.warn("[VOCAB] syncMenuSelectionsV813 warning", e);
+    }
+  }
+
+  function startFreshRunFromRewardV813(kind){
+    forceClearGameTimersV813();
+    forceRemoveRewardEffectsV813();
+    forceHideRewardV813();
+
+    var options = getCurrentRunOptionsV813(kind);
+    syncMenuSelectionsV813(options);
+
+    /*
+      ให้ browser ซ่อน reward ให้เสร็จก่อน แล้วค่อยเริ่มเกม
+      ไม่อย่างนั้น timer รอบใหม่จะเดินหลัง reward screen
+    */
+    setTimeout(function(){
+      forceHideRewardV813();
+
+      try{
+        if(typeof window.startVocabBattleV6 === "function"){
+          window.startVocabBattleV6(options);
+
+          setTimeout(function(){
+            var reward = el("v6RewardPanel");
+            var battle = el("v6BattlePanel");
+
+            if(reward){
+              reward.hidden = true;
+              reward.style.display = "none";
+              reward.style.pointerEvents = "none";
+            }
+
+            if(battle){
+              battle.hidden = false;
+              battle.style.display = "";
+              battle.style.pointerEvents = "auto";
+            }
+
+            window.scrollTo({ top: 0, behavior: "auto" });
+          }, 80);
+
+          return;
+        }
+      }catch(e){
+        console.error("[VOCAB] startFreshRunFromRewardV813 failed", e);
+      }
+
+      location.reload();
+    }, 120);
+  }
+
+  window.__VOCAB_V81_PLAY_AGAIN = function(){
+    startFreshRunFromRewardV813("again");
+  };
+
+  window.__VOCAB_V81_NEXT_CHALLENGE = function(){
+    startFreshRunFromRewardV813("next");
+  };
+
+  window.__VOCAB_V81_BACK_MENU = function(){
+    forceClearGameTimersV813();
+    forceRemoveRewardEffectsV813();
+
+    try{
+      var reward = el("v6RewardPanel");
+      var battle = el("v6BattlePanel");
+      var menu = el("v6MenuPanel");
+
+      if(reward){
+        reward.hidden = true;
+        reward.style.display = "none";
+        reward.style.pointerEvents = "none";
+      }
+
+      if(battle){
+        battle.hidden = true;
+        battle.style.display = "none";
+      }
+
+      if(menu){
+        menu.hidden = false;
+        menu.style.display = "";
+        menu.style.pointerEvents = "auto";
+      }
+
+      window.scrollTo({ top: 0, behavior: "auto" });
+
+      if(typeof window.renderLeaderboardV68 === "function"){
+        renderLeaderboardV68((window.VOCAB_APP && VOCAB_APP.selectedMode) || "learn");
+      }
+    }catch(e){
+      location.reload();
+    }
+  };
+
+  /*
+    ป้องกัน reward panel ค้างทับ battle หลังเริ่มเกมจากทางอื่นด้วย
+  */
+  var oldStart = window.startVocabBattleV6;
+  if(typeof oldStart === "function" && !oldStart.__v813RewardNavWrapped){
+    var wrappedStart = function(){
+      var reward = el("v6RewardPanel");
+
+      if(reward){
+        reward.hidden = true;
+        reward.style.display = "none";
+        reward.style.pointerEvents = "none";
+      }
+
+      var out = oldStart.apply(this, arguments);
+
+      setTimeout(function(){
+        var reward2 = el("v6RewardPanel");
+        var battle = el("v6BattlePanel");
+
+        if(reward2){
+          reward2.hidden = true;
+          reward2.style.display = "none";
+          reward2.style.pointerEvents = "none";
+        }
+
+        if(battle && window.vocabGame && vocabGame.active){
+          battle.hidden = false;
+          battle.style.display = "";
+          battle.style.pointerEvents = "auto";
+        }
+      }, 100);
+
+      return out;
+    };
+
+    wrappedStart.__v813RewardNavWrapped = true;
+    window.startVocabBattleV6 = wrappedStart;
+  }
+
+  console.log("[VOCAB] v8.1.3 reward navigation fix loaded");
+})();
+</script>
 </body>
 </html>
