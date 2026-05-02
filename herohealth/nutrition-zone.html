@@ -15,12 +15,8 @@
       --line:#dbeaf4;
       --text:#284255;
       --muted:#6d7d8b;
-      --sky:#7fcfff;
-      --green:#6fd18b;
       --green-soft:#f1fff4;
-      --gold:#ffd45f;
       --gold-soft:#fff8eb;
-      --pink:#ffe7ef;
       --shadow:0 12px 28px rgba(0,0,0,.06);
       --radius-xl:30px;
       --radius-lg:24px;
@@ -687,7 +683,7 @@
         <h2>ทางลัด</h2>
         <div class="topActions">
           <button class="btn gold" id="btnQuickGoodJunk" type="button">🍟 เปิด GoodJunk</button>
-          <button class="btn green" id="btnQuickHydration" type="button">💧 เปิด Hydration</button>
+          <button class="btn green" id="btnQuickGroups" type="button">🥦 เปิด Groups</button>
           <button class="btn ghost" id="btnBackHub" type="button">🏠 กลับ Hub</button>
         </div>
         <div class="tiny">
@@ -766,8 +762,8 @@
 
         <div class="statusRow">
           <span class="pill ready">พร้อมใช้</span>
-          <span class="pill info">5 Food Groups</span>
-          <span class="pill warn">Launcher → Run</span>
+          <span class="pill info">groups-vr.html</span>
+          <span class="pill warn">URL สั้นแล้ว</span>
         </div>
 
         <div class="gameActions two">
@@ -837,7 +833,8 @@
     <section class="footerNote">
       Nutrition Zone ล่าสุด:
       GoodJunk ใช้ <strong>./goodjunk-launcher.html</strong>,
-      Groups ใช้ <strong>./nutrition-groups/groups-launcher.html</strong>,
+      Groups ใช้ <strong>./groups-vr.html</strong>,
+      Groups Run ใช้ <strong>./vr-groups/groups.html</strong>,
       Hydration ใช้ <strong>./hydration-vr/hydration-vr.html</strong>,
       Plate ใช้ <strong>./plate-v1.html</strong>
     </section>
@@ -907,8 +904,8 @@
         goodjunkLauncher: './goodjunk-launcher.html',
         goodjunkSolo: './goodjunk-vr.html',
 
-        groupsLauncher: './nutrition-groups/groups-launcher.html',
-        groupsRun: './nutrition-groups/groups-run.html',
+        groupsLauncher: './groups-vr.html',
+        groupsRun: './vr-groups/groups.html',
 
         hydration: './hydration-vr/hydration-vr.html',
 
@@ -922,7 +919,7 @@
         name: 'Hero',
         diff: 'normal',
         time: '90',
-        goodjunkTime: '150',
+        longTime: '150',
         miniTime: '60',
         run: 'play',
         mode: 'solo'
@@ -982,7 +979,7 @@
         }
 
         params.set('pid', safeGet('pid', DEFAULTS.pid));
-        params.set('name', safeGet('name', DEFAULTS.name));
+        params.set('name', firstNonEmpty(safeGet('name', ''), DEFAULTS.name));
         params.set('diff', safeGet('diff', DEFAULTS.diff));
         params.set('time', String(extra.time || safeGet('time', DEFAULTS.time)));
         params.set('view', selectedView);
@@ -1036,26 +1033,26 @@
 
       function openGoodJunk(){
         openGame(PATHS.goodjunkLauncher, 'goodjunk', {
-          time: safeGet('time', DEFAULTS.goodjunkTime)
+          time: safeGet('time', DEFAULTS.longTime)
         });
       }
 
       function openGoodJunkSolo(){
         openGame(PATHS.goodjunkSolo, 'goodjunk', {
-          time: safeGet('time', DEFAULTS.goodjunkTime),
+          time: safeGet('time', DEFAULTS.longTime),
           mode: 'solo'
         });
       }
 
       function openGroups(){
         openGame(PATHS.groupsLauncher, 'groups', {
-          time: safeGet('time', DEFAULTS.time)
+          time: safeGet('time', DEFAULTS.longTime)
         });
       }
 
       function openGroupsRun(){
         openGame(PATHS.groupsRun, 'groups', {
-          time: safeGet('time', DEFAULTS.time),
+          time: safeGet('time', DEFAULTS.longTime),
           mode: 'solo'
         });
       }
@@ -1096,7 +1093,7 @@
       bind('btnBackHub', goMainHub);
 
       bind('btnQuickGoodJunk', openGoodJunk);
-      bind('btnQuickHydration', openHydration);
+      bind('btnQuickGroups', openGroups);
 
       bind('btnOpenGoodJunk', openGoodJunk);
       bind('btnOpenGoodJunkSolo', openGoodJunkSolo);
@@ -1114,6 +1111,7 @@
       window.__nutritionGoGoodJunk = openGoodJunk;
       window.__nutritionGoGoodJunkSolo = openGoodJunkSolo;
       window.__nutritionGoGroups = openGroups;
+      window.__nutritionGoGroupsRun = openGroupsRun;
       window.__nutritionGoHydration = openHydration;
       window.__nutritionGoPlate = openPlate;
       window.__nutritionGoPlateSolo = openPlateSolo;
