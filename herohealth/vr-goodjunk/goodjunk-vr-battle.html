@@ -638,6 +638,63 @@
       line-height:1.55;
     }
 
+    .room-count-box{
+      margin:14px auto 6px;
+      width:min(100%,420px);
+      border:3px solid #facc15;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffbeb,#fef3c7);
+      padding:14px;
+      text-align:center;
+    }
+
+    .room-count-big{
+      color:#7c2d12;
+      font-size:clamp(38px,12vw,64px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .room-count-label{
+      margin-top:6px;
+      color:#92400e;
+      font-size:14px;
+      line-height:1.4;
+      font-weight:1000;
+    }
+
+    .room-count-box.ok{
+      border-color:#86efac;
+      background:linear-gradient(180deg,#f0fdf4,#dcfce7);
+    }
+
+    .room-count-box.bad{
+      border-color:#fca5a5;
+      background:linear-gradient(180deg,#fff1f2,#fee2e2);
+    }
+
+    .room-count-names{
+      margin-top:10px;
+      display:grid;
+      gap:6px;
+      color:#7c4a22;
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .room-chip{
+      display:inline-flex;
+      justify-content:center;
+      align-items:center;
+      min-height:30px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:2px solid #fdba74;
+      background:#fffaf0;
+      color:#7c2d12;
+      font-weight:1000;
+    }
+
     .card-actions{
       display:flex;
       gap:10px;
@@ -1193,22 +1250,10 @@
         </div>
 
         <div class="rival-grid">
-          <div class="rival-mini">
-            <span>Score</span>
-            <b id="rivalScoreLive">0</b>
-          </div>
-          <div class="rival-mini">
-            <span>Heart</span>
-            <b id="rivalHpLive">—</b>
-          </div>
-          <div class="rival-mini">
-            <span>Attack</span>
-            <b id="rivalMeterLive">0/3</b>
-          </div>
-          <div class="rival-mini">
-            <span>Shield</span>
-            <b id="rivalShieldLive">—</b>
-          </div>
+          <div class="rival-mini"><span>Score</span><b id="rivalScoreLive">0</b></div>
+          <div class="rival-mini"><span>Heart</span><b id="rivalHpLive">—</b></div>
+          <div class="rival-mini"><span>Attack</span><b id="rivalMeterLive">0/3</b></div>
+          <div class="rival-mini"><span>Shield</span><b id="rivalShieldLive">—</b></div>
         </div>
       </div>
     </section>
@@ -1253,8 +1298,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260502-gj-battle-self-upsert"></script>
-  <script src="./goodjunk-battle-room-bootstrap.js?v=20260502-gj-battle-self-upsert"></script>
+  <script src="../firebase-config.js?v=20260502-battle-count-ui"></script>
+  <script src="./goodjunk-battle-room-bootstrap.js?v=20260502-battle-count-ui"></script>
 
   <script type="module">
     import {
@@ -1274,7 +1319,7 @@
       canUseBattleAttack,
       getBattleOpponent,
       getPlayerByPid
-    } from './goodjunk-battle-room.js?v=20260502-GJ-BATTLE-SELF-UPSERT';
+    } from './goodjunk-battle-room.js?v=20260502-GJ-BATTLE-COUNT-UI';
 
     const $ = (id) => document.getElementById(id);
 
@@ -1315,6 +1360,20 @@
       return s || d;
     };
 
+    const clamp = (n, min, max) => {
+      n = Number(n) || 0;
+      return Math.max(min, Math.min(max, n));
+    };
+
+    function h(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
+    }
+
     function makeBattleRuntimePid(){
       const room = clean(qs('room', qs('roomId', '')), 'no-room');
       const role = clean(qs('role', 'player'), 'player');
@@ -1341,20 +1400,6 @@
         return makeBattleRuntimePid();
       }
       return p;
-    }
-
-    const clamp = (n, min, max) => {
-      n = Number(n) || 0;
-      return Math.max(min, Math.min(max, n));
-    };
-
-    function h(s){
-      return String(s ?? '')
-        .replaceAll('&','&amp;')
-        .replaceAll('<','&lt;')
-        .replaceAll('>','&gt;')
-        .replaceAll('"','&quot;')
-        .replaceAll("'",'&#39;');
     }
 
     function ctx(){
@@ -1471,7 +1516,6 @@
 
     function tone(freq = 440, dur = 0.08, gain = 0.045, type = 'sine'){
       if(!state.soundOn) return;
-
       const ctx = getAudioCtx();
       if(!ctx) return;
 
@@ -1488,7 +1532,6 @@
 
         osc.connect(g);
         g.connect(ctx.destination);
-
         osc.start();
         osc.stop(ctx.currentTime + dur + 0.02);
       }catch(_){}
@@ -1565,6 +1608,82 @@
         });
     }
 
+    function getBattleRoomCount(room){
+      if(!room || !room.players){
+        return {
+          activeCount: 0,
+          maxPlayers: 2,
+          roundId: '',
+          players: []
+        };
+      }
+
+      const roundSeq = Number(room.roundSeq || C.roundSeq || 1) || 1;
+      const roundId = clean(
+        room.currentRoundId || C.currentRoundId || C.roundId,
+        runtimeMakeRoundId(C.room, roundSeq)
+      );
+
+      const players = runtimeActivePlayers(room.players, roundId);
+
+      return {
+        activeCount: players.length,
+        maxPlayers: 2,
+        roundId,
+        players
+      };
+    }
+
+    function playerCountText(room){
+      const info = getBattleRoomCount(room);
+      return `${info.activeCount}/${info.maxPlayers}`;
+    }
+
+    function waitingOverlayText(room){
+      const info = getBattleRoomCount(room);
+      const cls =
+        info.activeCount >= 2
+          ? 'ok'
+          : info.activeCount > 2
+            ? 'bad'
+            : '';
+
+      const chips = info.players.length
+        ? info.players.map((p, i) => {
+            const label = clean(p.name || p.nick || p.pid, `Player ${i+1}`);
+            const role = clean(p.role, '');
+            return `<span class="room-chip">${h(label)}${role ? ` • ${h(role)}` : ''}</span>`;
+          }).join('')
+        : '<span class="room-chip">ยังไม่พบผู้เล่นในห้อง</span>';
+
+      const line =
+        info.activeCount >= 2
+          ? 'ครบแล้ว กำลังเริ่ม Battle...'
+          : `รอผู้เล่นอีก ${Math.max(0, info.maxPlayers - info.activeCount)} คน`;
+
+      return `
+        <div class="room-count-box ${cls}">
+          <div class="room-count-big">${info.activeCount}/${info.maxPlayers}</div>
+          <div class="room-count-label">${h(line)}</div>
+          <div class="room-count-names">${chips}</div>
+        </div>
+        <div style="font-size:13px;font-weight:900;color:#7c4a22;line-height:1.45">
+          Room: <b>${h(C.room || '-')}</b><br>
+          Round: <b>${h(info.roundId || '-')}</b>
+        </div>
+      `;
+    }
+
+    function updateWaitingOverlay(room, title = 'กำลังเตรียม Battle'){
+      setGamePhase('waiting');
+      setOverlay(
+        true,
+        '⏳',
+        `${title} ${playerCountText(room)}`,
+        waitingOverlayText(room)
+      );
+    }
+
     function makeRuntimeBattlePlayer(prev = {}, role = 'player', roundId = ''){
       const diff = C.diff || prev.diff || 'normal';
 
@@ -1627,7 +1746,6 @@
       }
 
       const now = await getBattleServerNowMs(adapter);
-
       const baseRoom = room && typeof room === 'object' ? room : {};
       const players = baseRoom.players && typeof baseRoom.players === 'object'
         ? { ...baseRoom.players }
@@ -1702,6 +1820,17 @@
         payload.battleStartAt = Number(baseRoom.battleStartAt || 0) || 0;
       }
 
+      console.info('[GoodJunk Battle] upsertSelf:', {
+        room:C.room,
+        pid:C.pid,
+        role:finalRole,
+        roundId,
+        before:activeBefore.length,
+        after:activeAfter.length,
+        shouldStart,
+        activePids:activeAfter.map(p => p.pid)
+      });
+
       try{
         const saved = await adapter.saveRoom(C.room, payload);
         state.room = saved || payload;
@@ -1716,6 +1845,101 @@
           code:'UPSERT_FAILED',
           error:err
         };
+      }
+    }
+
+    async function forceStartBattleIfReady(roomLike){
+      if(!adapter || !C.room) return null;
+
+      let room = roomLike && typeof roomLike === 'object' ? roomLike : null;
+
+      if(!room){
+        try{
+          room = await adapter.loadRoom(C.room);
+        }catch(err){
+          console.warn('[Battle] forceStart load failed', err);
+          return null;
+        }
+      }
+
+      if(!room || room.status === 'ended' || room.matchEnd){
+        return room;
+      }
+
+      const players = room.players && typeof room.players === 'object'
+        ? room.players
+        : {};
+
+      let roundSeq = Number(room.roundSeq || C.roundSeq || 1) || 1;
+      let roundId = clean(room.currentRoundId || C.currentRoundId || C.roundId, '');
+
+      if(!roundId){
+        roundId = runtimeMakeRoundId(C.room, roundSeq);
+      }
+
+      const active = runtimeActivePlayers(players, roundId);
+
+      console.info('[GoodJunk Battle] forceStart check:', {
+        room:C.room,
+        status:room.status,
+        roundId,
+        roundSeq,
+        activeCount:active.length,
+        activePids:active.map(p => p.pid),
+        battleStartAt:room.battleStartAt
+      });
+
+      if(active.length < 2){
+        updateWaitingOverlay(room, 'กำลังเตรียม Battle');
+        return room;
+      }
+
+      const now = await getBattleServerNowMs(adapter);
+
+      const startAt =
+        Number(room.battleStartAt || 0) > now - 2000
+          ? Number(room.battleStartAt)
+          : now + 3500;
+
+      const patch = {
+        ...room,
+        roomId:C.room,
+        mode:'battle',
+        status:'started',
+        currentRoundId:roundId,
+        roundSeq,
+        startedAt:Number(room.startedAt || 0) || now,
+        battleStartAt:startAt,
+        updatedAt:now,
+        endedAt:0,
+        matchEnd:null
+      };
+
+      try{
+        const saved = await adapter.saveRoom(C.room, patch);
+        state.room = saved || patch;
+        return saved || patch;
+      }catch(err){
+        console.warn('[Battle] forceStart saveRoom failed, try patchRoom', err);
+
+        try{
+          const saved = await adapter.patchRoom(C.room, {
+            status:'started',
+            currentRoundId:roundId,
+            roundSeq,
+            startedAt:Number(room.startedAt || 0) || now,
+            battleStartAt:startAt,
+            updatedAt:now,
+            endedAt:0,
+            matchEnd:null
+          });
+
+          state.room = saved || patch;
+          return saved || patch;
+        }catch(err2){
+          console.warn('[Battle] forceStart patchRoom failed', err2);
+          return room;
+        }
       }
     }
 
@@ -2686,6 +2910,27 @@
       if(box) box.classList.add('hidden');
     }
 
+    function attackDisplayName(type){
+      const meta = ATTACK_META[type] || {};
+      return meta.labelTh || meta.label || type;
+    }
+
+    function attackWarningIcon(type){
+      const meta = ATTACK_META[type] || {};
+      return meta.emoji || '⚠️';
+    }
+
+    function attackWarningSub(type){
+      if(type === 'junkStorm') return 'Junk จะโผล่มากขึ้น ระวังอย่ากดผิด!';
+      if(type === 'slowTrap') return 'จังหวะจะเปลี่ยน ตั้งสติแล้วเลือกให้แม่น';
+      if(type === 'confuseSwap') return 'ดู Good/Junk ให้ชัดก่อนกด';
+      if(type === 'sugarFog') return 'มีหมอกหวานบังบาง ๆ มองให้ดี';
+      if(type === 'junkMagnet') return 'Junk จะล่อใกล้จุดกด ระวัง!';
+      if(type === 'comboFreeze') return 'เก็บคะแนนได้ แต่คอมโบจะไม่เพิ่มชั่วคราว';
+      if(type === 'meterLeak') return 'พลังโจมตีของคุณถูกลดลง';
+      return 'เตรียมตัวรับมือการโจมตี';
+    }
+
     function showIncomingAttackWarning(atk){
       if(!atk || !atk.id || state.incomingAttackIds.has(atk.id)) return;
 
@@ -2769,7 +3014,7 @@
       const startAt = Number(room?.battleStartAt || 0) || (serverNowMs() + 3500);
       state.battleStartAt = startAt;
 
-      setOverlay(true, '⚔️', `${roundText(room)} • เตรียมพร้อม Battle!`, '3');
+      setOverlay(true, '⚔️', `${roundText(room)} • เตรียมพร้อม Battle ${playerCountText(room)}`, '3');
 
       playSfx('warning');
       vibrate(40);
@@ -2790,7 +3035,7 @@
 
         if(leftMs > 2500){
           $('overlayText').textContent = '3';
-          $('overlayTitle').textContent = `${roundText(room)} • เตรียมพร้อม Battle!`;
+          $('overlayTitle').textContent = `${roundText(room)} • เตรียมพร้อม Battle ${playerCountText(room)}`;
         }else if(leftMs > 1500){
           $('overlayText').textContent = '2';
           $('overlayTitle').textContent = 'ตั้งใจเลือกของดี!';
@@ -3152,17 +3397,27 @@
       }
 
       if(!result.ok){
+        const maybeRoom = result.room || state.room || null;
+
+        if(maybeRoom){
+          const fixedRoom = await forceStartBattleIfReady(maybeRoom);
+
+          if(fixedRoom && fixedRoom.status === 'started'){
+            await handleRoomResult({
+              ok:true,
+              code:'READY_AFTER_WAITING_FIX',
+              room:fixedRoom
+            });
+            return;
+          }
+
+          updateWaitingOverlay(fixedRoom || maybeRoom, 'กำลังเตรียม Battle');
+          return;
+        }
+
         state.ready = false;
         state.started = false;
-        setGamePhase('waiting');
-
-        setOverlay(
-          true,
-          result.code === 'WAITING_PLAYER' ? '⏳' : '⚠️',
-          result.title || 'ยังเริ่มไม่ได้',
-          result.message || 'กำลังรอห้อง Battle'
-        );
-
+        updateWaitingOverlay(null, 'กำลังเตรียม Battle');
         return;
       }
 
@@ -3214,7 +3469,16 @@
         }
       }
 
+      const countInfo = getBattleRoomCount(result.room);
+
       if(!state.started && !state.countdownDone){
+        if(countInfo.activeCount < 2){
+          updateWaitingOverlay(result.room, 'กำลังเตรียม Battle');
+          render();
+          await syncStats();
+          return;
+        }
+
         state.ready = true;
 
         await syncServerClock();
@@ -3249,9 +3513,62 @@
           return;
         }
 
+        let room = joined && joined.room ? joined.room : null;
+
+        if(room){
+          updateWaitingOverlay(room, 'กำลังเตรียม Battle');
+        }
+
+        room = await forceStartBattleIfReady(room);
+
+        if(room && room.status === 'started'){
+          await handleRoomResult({
+            ok:true,
+            code:'READY',
+            room
+          });
+          return;
+        }
+
         const session = await ensureBattleSession(C, { adapter });
+
+        if(session && session.room){
+          const fixedRoom = await forceStartBattleIfReady(session.room);
+
+          if(fixedRoom && fixedRoom.status === 'started'){
+            await handleRoomResult({
+              ok:true,
+              code:'READY',
+              room:fixedRoom
+            });
+            return;
+          }
+        }
+
         await handleRoomResult(session);
       }catch(err){
+        console.warn('[Battle] retrySessionCheck failed', err);
+
+        try{
+          const room = await forceStartBattleIfReady(null);
+
+          if(room && room.status === 'started'){
+            await handleRoomResult({
+              ok:true,
+              code:'READY_AFTER_FORCE_START',
+              room
+            });
+            return;
+          }
+
+          if(room){
+            updateWaitingOverlay(room, 'กำลังเตรียม Battle');
+            return;
+          }
+        }catch(err2){
+          console.warn('[Battle] retry forceStart failed', err2);
+        }
+
         setGamePhase('waiting');
         setOverlay(
           true,
@@ -3288,12 +3605,32 @@
         location.href = lobbyUrl();
       });
 
-      $('btnStartManual').addEventListener('click', () => {
+      $('btnStartManual').addEventListener('click', async () => {
         if(state.matchEndShown || state.ended){
           location.href = rematchLobbyUrl();
-        }else{
-          retrySessionCheck();
+          return;
         }
+
+        try{
+          const room = await forceStartBattleIfReady(null);
+
+          if(room && room.status === 'started'){
+            await handleRoomResult({
+              ok:true,
+              code:'READY_MANUAL_FORCE_START',
+              room
+            });
+            return;
+          }
+
+          if(room){
+            updateWaitingOverlay(room, 'กำลังเตรียม Battle');
+          }
+        }catch(err){
+          console.warn('[Battle] manual force start failed', err);
+        }
+
+        retrySessionCheck();
       });
 
       $('btnExportLogs').addEventListener('click', () => {
@@ -3315,9 +3652,7 @@
       state.sessionId = makeSessionId();
       state.sessionStartedAt = serverNowMs();
 
-      setGamePhase('waiting');
-
-      setOverlay(true, '⏳', 'กำลังตรวจ Battle', 'กำลังตรวจห้องและรอผู้เล่นให้ครบ 2 คน');
+      updateWaitingOverlay(null, 'กำลังเตรียม Battle');
 
       await retrySessionCheck();
 
