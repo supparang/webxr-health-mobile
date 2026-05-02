@@ -1,745 +1,1095 @@
 /* =========================================================
    /vocab/vocab.question.js
-   TechPath Vocab Arena — Question Builder
-   Version: 20260502a
-
-   ต้องโหลดหลัง:
-   - /vocab/vocab.config.js
-   - /vocab/vocab.utils.js
-   - /vocab/vocab.state.js
-   - /vocab/vocab.data.js
-
-   หน้าที่:
-   - สร้างโจทย์แต่ละข้อ
-   - สร้างตัวเลือก
-   - เลือกตัวหลอกตามระดับ
-   - ลดคำถามซ้ำ
-   - รองรับ warmup / speed / trap / mission / boss
+   TechPath Vocab Arena
+   Question Builder / Deck Builder / Distractors
    ========================================================= */
 
-(function(){
-  "use strict";
+"use strict";
 
-  const U = window.VocabUtils;
-  const D = window.VocabData;
-  const S = window.VocabState;
+/* =========================================================
+   DIFFICULTY FEEL
+========================================================= */
 
-  if(!U){
-    console.error("[VOCAB] vocab.question.js requires vocab.utils.js");
-    return;
+const VOCAB_DIFFICULTY_FEEL_V71 = {
+  easy: {
+    label: "Easy",
+    choiceCount: 4,
+    timeAdd: 4,
+    attackBase: 1,
+    attackStageBonus: 0,
+    damageScale: 1.15,
+    crossBankCount: 0,
+    preview: "✨ Easy: คำถามตรง 4 ตัวเลือก เวลาเยอะ เหมาะกับเริ่มจำความหมาย"
+  },
+
+  normal: {
+    label: "Normal",
+    choiceCount: 4,
+    timeAdd: 0,
+    attackBase: 1,
+    attackStageBonus: 1,
+    damageScale: 1,
+    crossBankCount: 0,
+    preview: "⚔️ Normal: สลับนิยาม/สถานการณ์ มีตัวเลือกหลอก ต้องเข้าใจมากขึ้น"
+  },
+
+  hard: {
+    label: "Hard",
+    choiceCount: 5,
+    timeAdd: -2,
+    attackBase: 2,
+    attackStageBonus: 1,
+    damageScale: 0.86,
+    crossBankCount: 10,
+    preview: "🔥 Hard: 5 ตัวเลือก โจทย์บริบทมากขึ้น มีคำข้าม Bank เป็นตัวหลอก"
+  },
+
+  challenge: {
+    label: "Challenge",
+    choiceCount: 5,
+    timeAdd: -4,
+    attackBase: 3,
+    attackStageBonus: 2,
+    damageScale: 0.72,
+    crossBankCount: 20,
+    preview: "💀 Challenge: 5 ตัวเลือก ผสมหลาย Bank เวลาเร็ว ตัวเลือกหลอกหนักสุด"
+  }
+};
+
+function getDifficultyFeelV71(difficulty){
+  return VOCAB_DIFFICULTY_FEEL_V71[difficulty || "easy"] || VOCAB_DIFFICULTY_FEEL_V71.easy;
+}
+
+/* =========================================================
+   VOCAB EXPANSION
+========================================================= */
+
+const VOCAB_EXTRA_TERMS_V71 = {
+  A: [
+    ["API", "a way for software systems to communicate with each other", "software"],
+    ["array", "a list-like data structure that stores multiple values", "coding"],
+    ["object", "a data structure with properties and values", "coding"],
+    ["string", "text data in a program", "coding"],
+    ["integer", "a whole number without decimals", "coding"],
+    ["boolean", "a true or false value", "coding"],
+    ["condition", "a rule that decides what code should run", "coding"],
+    ["parameter", "a value a function receives to work with", "coding"],
+    ["argument", "a value passed into a function when it is called", "coding"],
+    ["return value", "the result sent back by a function", "coding"],
+    ["library", "a collection of reusable code", "software"],
+    ["framework", "a structured set of tools for building software", "software"],
+    ["repository", "a place where project code is stored and managed", "software"],
+    ["commit", "a saved change in a version control system", "software"],
+    ["branch", "a separate line of code development", "software"],
+    ["merge", "to combine changes from one branch into another", "software"],
+    ["request", "a message asking a server for data or action", "software"],
+    ["response", "the message a server sends back after a request", "software"],
+    ["endpoint", "a specific URL where an API can be accessed", "software"],
+    ["authentication", "the process of checking who a user is", "security"],
+    ["permission", "the right to access or do something in a system", "security"],
+    ["cache", "temporary stored data used to make a system faster", "software"],
+    ["backup", "a copy of data kept for safety", "software"],
+    ["query", "a request to search or get data from a database", "data"],
+    ["exception", "an error or unusual condition in a program", "coding"],
+    ["test case", "a set of steps used to check if software works correctly", "testing"],
+    ["unit test", "a test for one small part of a program", "testing"],
+    ["integration test", "a test that checks if several parts work together", "testing"],
+    ["documentation", "written information that explains how a system works", "software"],
+    ["refactor", "to improve code structure without changing its behavior", "coding"],
+    ["module", "a separate part of a program", "software"],
+    ["package", "a bundled set of code or software resources", "software"],
+    ["dependency", "software that another program needs to run", "software"],
+    ["build", "the process of preparing software to run or release", "software"],
+    ["runtime", "the period or environment when a program is running", "software"]
+  ],
+
+  B: [
+    ["feature engineering", "creating useful input features for a machine learning model", "ai"],
+    ["overfitting", "when a model learns training data too closely and performs poorly on new data", "ai"],
+    ["underfitting", "when a model is too simple to learn the pattern well", "ai"],
+    ["validation set", "data used to tune and check a model during development", "ai"],
+    ["testing set", "data used to evaluate a model after training", "ai"],
+    ["training set", "data used to teach a model", "ai"],
+    ["neural network", "a model inspired by connected layers of artificial neurons", "ai"],
+    ["embedding", "a numeric representation of text, image, or data meaning", "ai"],
+    ["token", "a small unit of text processed by an AI model", "ai"],
+    ["inference", "using a trained model to produce an answer or prediction", "ai"],
+    ["confidence", "how sure a model is about its prediction", "ai"],
+    ["recall", "how many relevant items a model successfully finds", "ai"],
+    ["precision", "how many selected items are actually correct", "ai"],
+    ["confusion matrix", "a table showing correct and incorrect classification results", "ai"],
+    ["regression", "predicting a number or continuous value", "ai"],
+    ["clustering", "grouping similar items without predefined labels", "ai"],
+    ["anomaly detection", "finding unusual patterns or outliers in data", "ai"],
+    ["data cleaning", "fixing or removing incorrect or messy data", "data"],
+    ["data pipeline", "a process that moves and prepares data step by step", "data"],
+    ["visualization", "showing data as charts or graphics", "data"],
+    ["metric", "a number used to measure performance", "data"],
+    ["baseline", "a simple standard result used for comparison", "ai"],
+    ["hyperparameter", "a setting chosen before model training", "ai"],
+    ["label noise", "incorrect or inconsistent labels in training data", "ai"],
+    ["annotation", "adding labels or notes to data", "ai"],
+    ["generative AI", "AI that creates text, images, audio, or other content", "ai"],
+    ["chatbot", "a program that talks with users through text or voice", "ai"],
+    ["recommendation system", "a system that suggests items based on data", "ai"],
+    ["computer vision", "AI that understands images or videos", "ai"],
+    ["natural language processing", "AI that works with human language", "ai"],
+    ["supervised learning", "learning from examples with correct labels", "ai"],
+    ["unsupervised learning", "learning patterns from data without labels", "ai"],
+    ["reinforcement learning", "learning by receiving rewards or penalties from actions", "ai"],
+    ["data privacy", "protecting personal or sensitive data", "data"],
+    ["model drift", "when a model becomes less accurate because real data changes", "ai"]
+  ],
+
+  C: [
+    ["stakeholder", "a person or group affected by a project", "project"],
+    ["scope", "the boundaries of what a project will and will not include", "project"],
+    ["milestone", "an important point or achievement in a project timeline", "project"],
+    ["deliverable", "a finished item or result that must be delivered", "project"],
+    ["sprint", "a short planned work period in agile development", "project"],
+    ["backlog", "a list of tasks or features waiting to be done", "project"],
+    ["priority", "the level of importance of a task", "project"],
+    ["risk", "a possible problem that could affect a project", "project"],
+    ["issue", "a problem that needs attention", "project"],
+    ["approval", "official permission or agreement", "workplace"],
+    ["requirement change", "a change to what the system must do", "project"],
+    ["user story", "a short description of what a user needs and why", "project"],
+    ["acceptance criteria", "conditions that must be met for work to be accepted", "project"],
+    ["status update", "a short report about current progress", "workplace"],
+    ["handover", "passing work or responsibility to another person", "workplace"],
+    ["maintenance", "ongoing work to keep a system working well", "software"],
+    ["support ticket", "a record of a user problem or request", "workplace"],
+    ["incident", "an unexpected problem that affects service", "workplace"],
+    ["escalation", "moving an issue to a higher support level", "workplace"],
+    ["negotiation", "discussion to reach an agreement", "workplace"],
+    ["proposal", "a document that suggests a plan or solution", "workplace"],
+    ["quotation", "a document showing the expected price", "workplace"],
+    ["invoice", "a document requesting payment", "workplace"],
+    ["contract", "a formal agreement between parties", "workplace"],
+    ["stakeholder meeting", "a meeting with people affected by a project", "project"],
+    ["progress report", "a document explaining how much work is finished", "project"],
+    ["timeline", "a plan showing when tasks should happen", "project"],
+    ["budget", "the amount of money planned for a project", "project"],
+    ["resource", "people, time, money, or tools used for work", "project"],
+    ["responsibility", "a duty or task a person must handle", "workplace"],
+    ["collaboration", "working together with others", "workplace"],
+    ["user training", "teaching users how to use a system", "workplace"],
+    ["rollout", "the planned release of a system to users", "project"],
+    ["requirement analysis", "studying what users or clients need", "project"]
+  ]
+};
+
+function applyVocabularyExpansionV71(){
+  Object.keys(VOCAB_EXTRA_TERMS_V71).forEach(bank => {
+    if(!VOCAB_BANKS[bank]) VOCAB_BANKS[bank] = [];
+
+    const seen = new Set(
+      VOCAB_BANKS[bank].map(t => String(t.term || "").toLowerCase())
+    );
+
+    VOCAB_EXTRA_TERMS_V71[bank].forEach(row => {
+      const item = {
+        term: row[0],
+        meaning: row[1],
+        category: row[2]
+      };
+
+      const key = String(item.term || "").toLowerCase();
+
+      if(key && !seen.has(key)){
+        VOCAB_BANKS[bank].push(item);
+        seen.add(key);
+      }
+    });
+  });
+}
+
+/* =========================================================
+   TERM NORMALIZATION
+========================================================= */
+
+function normalizeTermV61(t){
+  return {
+    term: String(t.term || t.word || "").trim(),
+    meaning: String(t.meaning || t.definition || t.th || t.translation || "").trim(),
+    category: String(t.category || t.group || t.type || "").trim(),
+    example: String(t.example || t.sentence || "").trim(),
+    level: String(t.level || "").trim(),
+    bank: String(t.bank || "").trim()
+  };
+}
+
+function getTermsForBankV6(bank){
+  if(window.VOCAB_BANKS && Array.isArray(window.VOCAB_BANKS[bank])){
+    return window.VOCAB_BANKS[bank];
   }
 
-  if(!D){
-    console.error("[VOCAB] vocab.question.js requires vocab.data.js");
-    return;
+  if(window.WORD_BANKS && Array.isArray(window.WORD_BANKS[bank])){
+    return window.WORD_BANKS[bank];
   }
 
-  if(!S){
-    console.warn("[VOCAB] vocab.question.js works better with vocab.state.js");
+  return VOCAB_BANKS[bank] || VOCAB_BANKS.A || [];
+}
+
+function sampleTermsV71(list, count){
+  const pool = shuffleV61(
+    (list || [])
+      .map(normalizeTermV61)
+      .filter(t => t.term && t.meaning)
+  );
+
+  return pool.slice(0, Math.max(0, count || 0));
+}
+
+function buildTermDeckV71(bank, difficulty){
+  applyVocabularyExpansionV71();
+
+  const feel = getDifficultyFeelV71(difficulty);
+  const main = getTermsForBankV6(bank)
+    .map(t => ({
+      ...normalizeTermV61(t),
+      bank
+    }))
+    .filter(t => t.term && t.meaning);
+
+  let deck = main.slice();
+
+  if((feel.crossBankCount || 0) > 0){
+    const otherBanks = Object.keys(VOCAB_BANKS).filter(b => b !== bank);
+
+    const others = otherBanks.flatMap(b =>
+      getTermsForBankV6(b).map(t => ({
+        ...normalizeTermV61(t),
+        bank: b
+      }))
+    );
+
+    deck = deck.concat(sampleTermsV71(others, feel.crossBankCount));
   }
 
-  const Q = {};
+  const seen = new Set();
 
-  /* =========================================================
-     QUESTION TEMPLATE
-  ========================================================= */
+  return shuffleV61(deck.filter(t => {
+    const key = String(t.term || "").toLowerCase();
+    if(!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }));
+}
 
-  Q.stageTemplates = {
-    warmup: [
-      term => ({
-        mode: "meaning",
-        answerMode: "meaning",
-        prompt: `What does "${term.term}" mean?`,
-        explain: `"${term.term}" means "${term.meaning}".`
-      }),
-      term => ({
-        mode: "meaning",
-        answerMode: "meaning",
-        prompt: `Choose the best meaning of "${term.term}".`,
-        explain: `"${term.term}" means "${term.meaning}".`
-      }),
-      term => ({
-        mode: "reverse",
+/* =========================================================
+   TERM HISTORY / NO REPEAT
+========================================================= */
+
+function getHistoryKeyV71(){
+  return `VOCAB_TERM_HISTORY_${vocabGame.bank || VOCAB_APP.selectedBank || "A"}_${vocabGame.difficulty || VOCAB_APP.selectedDifficulty || "easy"}_${vocabGame.mode || VOCAB_APP.selectedMode || "learn"}`;
+}
+
+function readTermHistoryV71(){
+  if(typeof readJsonV63 === "function"){
+    return readJsonV63(getHistoryKeyV71(), {});
+  }
+
+  try{
+    return JSON.parse(localStorage.getItem(getHistoryKeyV71()) || "{}") || {};
+  }catch(e){
+    return {};
+  }
+}
+
+function saveTermHistoryV71(history){
+  try{
+    localStorage.setItem(getHistoryKeyV71(), JSON.stringify(history || {}));
+  }catch(e){}
+}
+
+function pickNextTermV61(terms){
+  const clean = (terms || [])
+    .map(normalizeTermV61)
+    .filter(t => t.term && t.meaning);
+
+  if(!clean.length){
+    return {
+      term: "debug",
+      meaning: "to find and fix errors in code",
+      category: "coding",
+      bank: "A"
+    };
+  }
+
+  if(clean.length <= 1){
+    return clean[0];
+  }
+
+  if(!vocabGame.sessionTermUse){
+    vocabGame.sessionTermUse = {};
+  }
+
+  const history = readTermHistoryV71();
+  const recent = new Set(
+    (VOCAB_QUALITY.recentTerms || []).map(x => String(x).toLowerCase())
+  );
+
+  const ranked = clean.map(t => {
+    const key = String(t.term || "").toLowerCase();
+
+    const sessionUsePenalty = Number(vocabGame.sessionTermUse[key] || 0) * 1000;
+    const historyPenalty = Number(history[key] || 0) * 6;
+    const recentPenalty = recent.has(key) ? 80 : 0;
+    const randomNoise = randV61();
+
+    return {
+      term: t,
+      score: sessionUsePenalty + historyPenalty + recentPenalty + randomNoise
+    };
+  });
+
+  ranked.sort((a, b) => a.score - b.score);
+
+  return ranked[0].term;
+}
+
+function rememberQuestionV61(term, prompt){
+  const word = String(term?.term || "").toLowerCase();
+
+  if(!vocabGame.sessionTermUse){
+    vocabGame.sessionTermUse = {};
+  }
+
+  if(word){
+    vocabGame.sessionTermUse[word] = Number(vocabGame.sessionTermUse[word] || 0) + 1;
+
+    VOCAB_QUALITY.recentTerms.push(word);
+
+    while(VOCAB_QUALITY.recentTerms.length > VOCAB_QUALITY.maxRecentTerms){
+      VOCAB_QUALITY.recentTerms.shift();
+    }
+
+    const history = readTermHistoryV71();
+    history[word] = Number(history[word] || 0) + 1;
+    saveTermHistoryV71(history);
+  }
+
+  if(prompt){
+    VOCAB_QUALITY.recentPrompts.push(String(prompt).slice(0, 140));
+
+    while(VOCAB_QUALITY.recentPrompts.length > VOCAB_QUALITY.maxRecentPrompts){
+      VOCAB_QUALITY.recentPrompts.shift();
+    }
+  }
+}
+
+function resetVocabMemoryV71(){
+  try{
+    Object.keys(localStorage).forEach(k => {
+      if(String(k).startsWith("VOCAB_TERM_HISTORY_")){
+        localStorage.removeItem(k);
+      }
+    });
+
+    alert("ล้างประวัติคำศัพท์แล้ว รอบต่อไปจะสุ่ม deck ใหม่");
+  }catch(e){
+    alert("ล้างประวัติไม่ได้: " + e.message);
+  }
+}
+
+/* =========================================================
+   QUESTION BUILDER
+========================================================= */
+
+function buildQuestionV6(stage){
+  const terms = vocabGame.terms || [];
+  const correctTerm = pickNextTermV61(terms);
+  const blueprint = buildQuestionBlueprintV71(correctTerm, stage);
+
+  rememberQuestionV61(correctTerm, blueprint.prompt);
+
+  const choices = buildChoicesV61({
+    correctTerm,
+    allTerms: terms,
+    answerMode: blueprint.answerMode,
+    stageId: stage.id,
+    difficulty: vocabGame.difficulty,
+    bank: vocabGame.bank
+  });
+
+  return {
+    id: `q_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    stageId: stage.id,
+    mode: blueprint.mode,
+    answerMode: blueprint.answerMode,
+    prompt: blueprint.prompt,
+    correctTerm,
+    choices,
+    explain: blueprint.explain || "",
+    difficultyNote: blueprint.difficultyNote || ""
+  };
+}
+
+function buildQuestionBlueprintV71(term, stage){
+  const difficulty = vocabGame.difficulty || "easy";
+  const stageId = stage?.id || "warmup";
+  const roll = randV61();
+
+  if(difficulty === "easy"){
+    if(stageId === "mission" || roll > 0.68){
+      return {
+        mode: "easy_reverse",
         answerMode: "term",
         prompt: `Which word means: "${term.meaning}"?`,
         explain: `The word is "${term.term}".`
-      })
-    ],
-
-    speed: [
-      term => ({
-        mode: "quick",
-        answerMode: "meaning",
-        prompt: `Quick! "${term.term}" means...`,
-        explain: `Speed question: "${term.term}" = "${term.meaning}".`
-      }),
-      term => ({
-        mode: "quick",
-        answerMode: "meaning",
-        prompt: `Fast answer: choose the meaning of "${term.term}".`,
-        explain: `Speed question: "${term.term}" = "${term.meaning}".`
-      }),
-      term => ({
-        mode: "quick_reverse",
-        answerMode: "term",
-        prompt: `Fast answer: which word means "${term.meaning}"?`,
-        explain: `The answer is "${term.term}".`
-      })
-    ],
-
-    trap: [
-      term => ({
-        mode: "trap",
-        answerMode: "meaning",
-        prompt: `Careful! Which meaning truly matches "${term.term}"?`,
-        explain: `Trap clue: focus on the exact meaning of "${term.term}".`
-      }),
-      term => ({
-        mode: "trap",
-        answerMode: "meaning",
-        prompt: `Trap Round: do not choose a similar-but-wrong meaning. What is "${term.term}"?`,
-        explain: `Trap clue: "${term.term}" means "${term.meaning}".`
-      }),
-      term => ({
-        mode: "trap_reverse",
-        answerMode: "term",
-        prompt: `Trap Round: which technical word exactly means "${term.meaning}"?`,
-        explain: `The exact word is "${term.term}".`
-      })
-    ],
-
-    mission: [
-      term => ({
-        mode: "context",
-        answerMode: "term",
-        prompt: D.buildSituationPrompt(term, false),
-        explain: `The best word for this situation is "${term.term}".`
-      }),
-      term => ({
-        mode: "context_precision",
-        answerMode: "term",
-        prompt: D.buildSituationPrompt(term, true),
-        explain: `The precise word is "${term.term}".`
-      })
-    ],
-
-    boss: [
-      term => ({
-        mode: "boss_context",
-        answerMode: "term",
-        prompt: `Boss Attack! ${D.buildSituationPrompt(term, true)}`,
-        explain: `Boss clue answer: "${term.term}".`
-      }),
-      term => ({
-        mode: "boss_meaning",
-        answerMode: "meaning",
-        prompt: `Boss Shield! Break it by choosing the exact meaning of "${term.term}".`,
-        explain: `"${term.term}" means "${term.meaning}".`
-      }),
-      term => ({
-        mode: "boss_case",
-        answerMode: "term",
-        prompt: `Final Boss Case: ${D.buildChallengeCase(term)}`,
-        explain: `The best answer is "${term.term}" because it matches: ${term.meaning}`
-      })
-    ]
-  };
-
-  /* =========================================================
-     DIFFICULTY BLUEPRINT
-  ========================================================= */
-
-  Q.buildBlueprint = function buildBlueprint(term, stage, difficulty){
-    const cleanTerm = D.normalizeTerm(term);
-    const stageId = String(stage?.id || stage || "warmup");
-    const diff = String(difficulty || window.vocabGame?.difficulty || "easy").toLowerCase();
-    const roll = U.rand();
-
-    if(diff === "easy"){
-      if(stageId === "mission" || roll > 0.72){
-        return {
-          mode: "easy_reverse",
-          answerMode: "term",
-          prompt: `Which word means: "${cleanTerm.meaning}"?`,
-          explain: `The word is "${cleanTerm.term}".`
-        };
-      }
-
-      return U.pick(Q.stageTemplates.warmup)(cleanTerm);
-    }
-
-    if(diff === "normal"){
-      if(stageId === "mission" || stageId === "boss" || roll > 0.45){
-        return {
-          mode: "normal_context",
-          answerMode: "term",
-          prompt: D.buildSituationPrompt(cleanTerm, false),
-          explain: `In this context, the best word is "${cleanTerm.term}".`
-        };
-      }
-
-      return {
-        mode: "normal_meaning",
-        answerMode: "meaning",
-        prompt: `Choose the best meaning of "${cleanTerm.term}".`,
-        explain: `"${cleanTerm.term}" means "${cleanTerm.meaning}".`
       };
     }
 
-    if(diff === "hard"){
-      if(stageId === "trap" || stageId === "mission" || roll > 0.35){
-        return {
-          mode: "hard_precision_context",
-          answerMode: "term",
-          prompt: D.buildSituationPrompt(cleanTerm, true),
-          explain: `The precise term is "${cleanTerm.term}".`
-        };
-      }
+    return buildWarmupQuestionV61(term);
+  }
 
+  if(difficulty === "normal"){
+    if(stageId === "mission" || stageId === "boss" || roll > 0.45){
       return {
-        mode: "hard_reverse_definition",
+        mode: "normal_context",
         answerMode: "term",
-        prompt: `Pick the most accurate technical word for this definition: "${cleanTerm.meaning}"`,
-        explain: `The accurate word is "${cleanTerm.term}".`
-      };
-    }
-
-    /*
-      challenge
-    */
-    if(stageId === "boss" || stageId === "trap" || roll > 0.25){
-      return {
-        mode: "challenge_workplace_case",
-        answerMode: "term",
-        prompt: D.buildChallengeCase(cleanTerm),
-        explain: `The best answer is "${cleanTerm.term}" because it matches: ${cleanTerm.meaning}`
+        prompt: buildSituationPromptV71(term, false),
+        explain: `In this context, the best word is "${term.term}".`
       };
     }
 
     return {
-      mode: "challenge_precision_meaning",
+      mode: "normal_meaning",
       answerMode: "meaning",
-      prompt: `Precision check: which definition best matches "${cleanTerm.term}" in a CS/AI project?`,
-      explain: `"${cleanTerm.term}" = ${cleanTerm.meaning}`
+      prompt: `Choose the best meaning of "${term.term}".`,
+      explain: `"${term.term}" means "${term.meaning}".`
     };
-  };
+  }
 
-  /* =========================================================
-     DISTRACTOR SCORING
-  ========================================================= */
-
-  Q.tokenizeMeaning = function tokenizeMeaning(text){
-    const stop = new Set([
-      "the","and","for","with","that","this","from","into","your","you","are","can","will",
-      "a","an","to","of","or","in","on","as","by","is","be","it","its","their","they",
-      "คือ","การ","ของ","และ","ใน","ที่","เป็น","ใช้","หรือ","ให้","ได้","กับ","จาก"
-    ]);
-
-    return String(text || "")
-      .toLowerCase()
-      .replace(/[^\w\sก-๙]/g, " ")
-      .split(/\s+/)
-      .map(x => x.trim())
-      .filter(x => x.length > 2 && !stop.has(x));
-  };
-
-  Q.sharedKeywordCount = function sharedKeywordCount(a, b){
-    const aw = Q.tokenizeMeaning(a);
-    const bw = new Set(Q.tokenizeMeaning(b));
-
-    let count = 0;
-
-    aw.forEach(x => {
-      if(bw.has(x)){
-        count += 1;
-      }
-    });
-
-    return count;
-  };
-
-  Q.scoreDistractor = function scoreDistractor(options){
-    const correct = D.normalizeTerm(options.correct || {});
-    const candidate = D.normalizeTerm(options.candidate || {});
-    const stageId = String(options.stageId || "warmup");
-    const difficulty = String(options.difficulty || window.vocabGame?.difficulty || "normal");
-    const bank = String(options.bank || window.vocabGame?.bank || "A");
-
-    let score = 0;
-
-    const cw = String(correct.term || "").toLowerCase();
-    const cm = String(correct.meaning || "").toLowerCase();
-    const cc = String(correct.category || "").toLowerCase();
-
-    const tw = String(candidate.term || "").toLowerCase();
-    const tm = String(candidate.meaning || "").toLowerCase();
-    const tc = String(candidate.category || "").toLowerCase();
-
-    /*
-      category เดียวกัน = เป็นตัวหลอกที่ดี
-    */
-    if(cc && tc && cc === tc){
-      score += difficulty === "easy" ? 2 : 8;
+  if(difficulty === "hard"){
+    if(stageId === "trap" || roll > 0.35){
+      return {
+        mode: "hard_precision_context",
+        answerMode: "term",
+        prompt: buildSituationPromptV71(term, true),
+        explain: `The precise term is "${term.term}".`
+      };
     }
-
-    /*
-      คำขึ้นต้นเหมือนกัน หรือความยาวใกล้กัน = หลอกสายตาได้
-    */
-    if(cw && tw && cw[0] === tw[0]){
-      score += difficulty === "easy" ? 1 : 3;
-    }
-
-    if(Math.abs(cw.length - tw.length) <= 3){
-      score += 2;
-    }
-
-    /*
-      meaning มี keyword ซ้ำ = หลอกเชิงความหมาย
-    */
-    const shared = Q.sharedKeywordCount(cm, tm);
-
-    if(difficulty === "challenge"){
-      score += shared * 4;
-    }else if(difficulty === "hard"){
-      score += shared * 3;
-    }else{
-      score += shared * 2;
-    }
-
-    /*
-      stage ยากต้องเลือก distractor ที่ใกล้ขึ้น
-    */
-    if(stageId === "trap"){
-      score += 5;
-    }
-
-    if(stageId === "boss"){
-      score += 3;
-    }
-
-    if(difficulty === "hard"){
-      score += 2;
-    }
-
-    if(difficulty === "challenge"){
-      score += 4;
-    }
-
-    /*
-      Bank B เน้น AI/Data ควรหลอกด้วย category ใกล้กัน
-    */
-    if(bank === "B" && cc && tc && cc === tc){
-      score += 2;
-    }
-
-    /*
-      กันคะแนนเท่ากัน
-    */
-    return score + U.rand();
-  };
-
-  Q.mixDistractors = function mixDistractors(sortedPool, count){
-    const top = sortedPool.slice(0, Math.max(4, count + 2));
-    const rest = sortedPool.slice(Math.max(4, count + 2));
-    const mixed = [];
-
-    if(top.length) mixed.push(top[0]);
-
-    if(rest.length){
-      mixed.push(rest[Math.floor(U.rand() * rest.length)]);
-    }
-
-    if(top.length > 1) mixed.push(top[1]);
-    if(top.length > 2) mixed.push(top[2]);
-    if(top.length > 3) mixed.push(top[3]);
-
-    return D.dedupeTerms(mixed).slice(0, count);
-  };
-
-  /* =========================================================
-     BUILD CHOICES
-  ========================================================= */
-
-  Q.buildChoices = function buildChoices(options){
-    const correct = D.normalizeTerm(options.correctTerm || {});
-    const allTerms = D.dedupeTerms(options.allTerms || []);
-    const answerMode = String(options.answerMode || "meaning");
-    const stageId = String(options.stageId || "warmup");
-    const difficulty = String(options.difficulty || window.vocabGame?.difficulty || "easy");
-    const bank = String(options.bank || window.vocabGame?.bank || "A");
-
-    const feel = D.getDifficultyFeel(difficulty);
-    const choiceCount = Number(feel.choiceCount || 4);
-    const distractorCount = Math.max(3, choiceCount - 1);
-
-    let pool = allTerms.filter(t => {
-      return U.termKey(t.term) !== U.termKey(correct.term);
-    });
-
-    if(pool.length < distractorCount){
-      pool = pool.concat(D.getOtherBankTerms(bank));
-      pool = D.dedupeTerms(pool).filter(t => U.termKey(t.term) !== U.termKey(correct.term));
-    }
-
-    pool = pool
-      .map(t => ({
-        ...t,
-        _trapScore: Q.scoreDistractor({
-          correct,
-          candidate: t,
-          stageId,
-          difficulty,
-          bank
-        })
-      }))
-      .sort((a,b) => Number(b._trapScore || 0) - Number(a._trapScore || 0));
-
-    let distractors;
-
-    if(difficulty === "easy" && stageId === "warmup"){
-      distractors = U.shuffle(pool).slice(0, distractorCount);
-    }else if(stageId === "speed"){
-      distractors = Q.mixDistractors(pool, distractorCount);
-    }else{
-      distractors = pool.slice(0, distractorCount);
-    }
-
-    /*
-      fallback เติมให้ครบ
-    */
-    while(distractors.length < distractorCount && pool.length){
-      const extra = U.pick(pool);
-      if(extra && !distractors.some(x => U.termKey(x.term) === U.termKey(extra.term))){
-        distractors.push(extra);
-      }else{
-        break;
-      }
-    }
-
-    const choices = [];
-
-    if(answerMode === "meaning"){
-      choices.push({
-        text: correct.meaning,
-        correct: true,
-        term: correct.term,
-        meaning: correct.meaning,
-        category: correct.category,
-        bank: correct.bank
-      });
-
-      distractors.forEach(t => {
-        choices.push({
-          text: t.meaning,
-          correct: false,
-          term: t.term,
-          meaning: t.meaning,
-          category: t.category,
-          bank: t.bank
-        });
-      });
-    }else{
-      choices.push({
-        text: correct.term,
-        correct: true,
-        term: correct.term,
-        meaning: correct.meaning,
-        category: correct.category,
-        bank: correct.bank
-      });
-
-      distractors.forEach(t => {
-        choices.push({
-          text: t.term,
-          correct: false,
-          term: t.term,
-          meaning: t.meaning,
-          category: t.category,
-          bank: t.bank
-        });
-      });
-    }
-
-    return U.shuffle(choices).slice(0, choiceCount);
-  };
-
-  /* =========================================================
-     BUILD QUESTION
-  ========================================================= */
-
-  Q.buildQuestion = function buildQuestion(stage, options = {}){
-    const game = window.vocabGame || {};
-    const bank = options.bank || game.bank || "A";
-    const difficulty = options.difficulty || game.difficulty || "easy";
-    const mode = options.mode || game.mode || "learn";
-
-    const terms = D.dedupeTerms(options.terms || game.terms || D.buildTermDeck(bank, difficulty));
-    const correctTerm = D.pickNextTerm(terms, { bank, difficulty, mode });
-    const blueprint = Q.buildBlueprint(correctTerm, stage, difficulty);
-
-    D.rememberQuestion(correctTerm, blueprint.prompt);
-
-    const choices = Q.buildChoices({
-      correctTerm,
-      allTerms: terms,
-      answerMode: blueprint.answerMode,
-      stageId: stage?.id || stage || "warmup",
-      difficulty,
-      bank
-    });
 
     return {
-      id: `q_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      stageId: stage?.id || stage || "warmup",
-      stageName: stage?.name || "",
-      mode: blueprint.mode,
-      answerMode: blueprint.answerMode,
-      prompt: blueprint.prompt,
-      correctTerm,
-      choices,
-      explain: blueprint.explain || "",
-      difficultyNote: blueprint.difficultyNote || "",
-      bank,
-      difficulty,
-      playMode: mode
+      mode: "hard_reverse_definition",
+      answerMode: "term",
+      prompt: `Pick the most accurate technical word for this definition: "${term.meaning}"`,
+      explain: `The accurate word is "${term.term}".`
     };
+  }
+
+  if(stageId === "boss" || stageId === "trap" || roll > 0.25){
+    return {
+      mode: "challenge_workplace_case",
+      answerMode: "term",
+      prompt: buildChallengeCaseV71(term),
+      explain: `The best answer is "${term.term}" because it matches: ${term.meaning}`
+    };
+  }
+
+  return {
+    mode: "challenge_precision_meaning",
+    answerMode: "meaning",
+    prompt: `Precision check: which definition best matches "${term.term}" in a CS/AI project?`,
+    explain: `"${term.term}" = ${term.meaning}`
   };
+}
 
-  /* =========================================================
-     CORRECT TEXT / ANSWER HELPERS
-  ========================================================= */
+/* =========================================================
+   BASIC QUESTION TYPES
+========================================================= */
 
-  Q.getCorrectChoiceText = function getCorrectChoiceText(question){
-    if(!question) return "";
+function buildWarmupQuestionV61(term){
+  return {
+    mode: "meaning",
+    answerMode: "meaning",
+    prompt: pickTemplateV61([
+      `What does "${term.term}" mean?`,
+      `Choose the best meaning of "${term.term}".`,
+      `"${term.term}" is closest to which meaning?`
+    ]),
+    explain: `"${term.term}" means "${term.meaning}".`
+  };
+}
 
-    const term = question.correctTerm || {};
+function buildSpeedQuestionV61(term){
+  return {
+    mode: "quick",
+    answerMode: "meaning",
+    prompt: pickTemplateV61([
+      `Quick! "${term.term}" means...`,
+      `Fast answer: choose the meaning of "${term.term}".`,
+      `Speed Round: what is "${term.term}"?`
+    ]),
+    explain: `Speed question: "${term.term}" = "${term.meaning}".`
+  };
+}
 
-    if(question.answerMode === "meaning"){
-      return term.meaning || term.definition || "";
+function buildTrapQuestionV61(term){
+  return {
+    mode: "trap",
+    answerMode: "meaning",
+    prompt: pickTemplateV61([
+      `Careful! Which meaning truly matches "${term.term}"?`,
+      `Trap Round: do not choose a similar-but-wrong meaning. What is "${term.term}"?`,
+      `"${term.term}" is often confused with other words. Pick the correct meaning.`
+    ]),
+    explain: `Trap clue: focus on the exact meaning of "${term.term}".`
+  };
+}
+
+function buildMissionQuestionV61(term){
+  return {
+    mode: "context",
+    answerMode: "term",
+    prompt: buildSituationPromptV61(term),
+    explain: `The best word for this situation is "${term.term}".`
+  };
+}
+
+function buildBossQuestionV61(term){
+  const useContext = randV61() > 0.45;
+
+  if(useContext){
+    return {
+      mode: "boss_context",
+      answerMode: "term",
+      prompt: `Boss Attack! ${buildSituationPromptV61(term)}`,
+      explain: `Boss clue answer: "${term.term}".`
+    };
+  }
+
+  return {
+    mode: "boss_meaning",
+    answerMode: "meaning",
+    prompt: `Boss Shield! Break it by choosing the exact meaning of "${term.term}".`,
+    explain: `"${term.term}" means "${term.meaning}".`
+  };
+}
+
+/* =========================================================
+   CONTEXT PROMPTS
+========================================================= */
+
+function buildSituationPromptV71(term, advanced){
+  const base = buildSituationPromptV61(term);
+
+  if(!advanced) return base;
+
+  const extras = [
+    "Choose the most precise technical term, not just a similar idea.",
+    "Focus on what action is happening in the system.",
+    "Avoid the option that sounds familiar but does not match the context.",
+    "Think like a developer explaining this to a teammate."
+  ];
+
+  return `${base} ${extras[Math.floor(randV61() * extras.length)]}`;
+}
+
+function buildSituationPromptV61(term){
+  const word = String(term.term || "").toLowerCase();
+  const meaning = String(term.meaning || "").toLowerCase();
+
+  const cases = [
+    {
+      keys: ["debug", "bug", "error"],
+      text: "Your app has an error before release. You need to find and fix the problem. Which word fits best?"
+    },
+    {
+      keys: ["deploy", "release", "publish"],
+      text: "Your team finished the website and wants users to access it online. Which word fits best?"
+    },
+    {
+      keys: ["dataset", "data"],
+      text: "An AI model learns from many examples stored together. Which word fits best?"
+    },
+    {
+      keys: ["algorithm", "step"],
+      text: "A program follows step-by-step instructions to solve a problem. Which word fits best?"
+    },
+    {
+      keys: ["database", "store"],
+      text: "A system needs to store accounts, scores, and user records. Which word fits best?"
+    },
+    {
+      keys: ["interface", "ui", "screen"],
+      text: "Users click buttons, menus, and screens to use an app. Which word fits best?"
+    },
+    {
+      keys: ["variable"],
+      text: "In code, you need a named value that can change. Which word fits best?"
+    },
+    {
+      keys: ["function"],
+      text: "You want to reuse a block of code that performs a task. Which word fits best?"
+    },
+    {
+      keys: ["loop", "repeat"],
+      text: "The program must repeat the same action many times. Which word fits best?"
+    },
+    {
+      keys: ["model", "prediction"],
+      text: "An AI system is trained to make decisions or predictions. Which word fits best?"
+    },
+    {
+      keys: ["training"],
+      text: "The AI learns from data before it can answer well. Which word fits best?"
+    },
+    {
+      keys: ["accuracy"],
+      text: "You want to measure how often the answers are correct. Which word fits best?"
+    },
+    {
+      keys: ["classification"],
+      text: "The AI puts images or messages into different categories. Which word fits best?"
+    },
+    {
+      keys: ["prompt"],
+      text: "You type an instruction to an AI system. Which word fits best?"
+    },
+    {
+      keys: ["automation"],
+      text: "A task is done by technology without a person doing every step. Which word fits best?"
+    },
+    {
+      keys: ["dashboard"],
+      text: "A screen shows scores, progress, and important information. Which word fits best?"
+    },
+    {
+      keys: ["requirement"],
+      text: "A client tells the team what the system must do. Which word fits best?"
+    },
+    {
+      keys: ["deadline"],
+      text: "The project must be finished by Friday. Which word fits best?"
+    },
+    {
+      keys: ["feedback"],
+      text: "Your teacher gives comments to help improve your project. Which word fits best?"
+    },
+    {
+      keys: ["prototype"],
+      text: "Your team builds an early version to test the idea. Which word fits best?"
+    },
+    {
+      keys: ["client"],
+      text: "A company pays your team to build a system. Which word fits best?"
+    },
+    {
+      keys: ["feature"],
+      text: "Login, leaderboard, and search are parts of an app. Which word fits best?"
+    },
+    {
+      keys: ["bug report"],
+      text: "A tester writes a document explaining a software problem. Which word fits best?"
+    },
+    {
+      keys: ["update"],
+      text: "The app gets a newer version with improvements. Which word fits best?"
+    },
+    {
+      keys: ["syntax"],
+      text: "Your code has the wrong writing rules and cannot run. Which word fits best?"
+    },
+    {
+      keys: ["compile"],
+      text: "The code is converted into a form the computer can run. Which word fits best?"
+    },
+    {
+      keys: ["schedule"],
+      text: "The team plans when each task will happen. Which word fits best?"
+    },
+    {
+      keys: ["progress"],
+      text: "You report how much work is already finished. Which word fits best?"
+    },
+    {
+      keys: ["solution"],
+      text: "You find a way to solve the client's problem. Which word fits best?"
+    },
+    {
+      keys: ["authentication"],
+      text: "Before opening private data, the system checks who the user is. Which word fits best?"
+    },
+    {
+      keys: ["permission"],
+      text: "The system decides whether a user is allowed to access a feature. Which word fits best?"
+    },
+    {
+      keys: ["cache"],
+      text: "The app stores temporary data to load faster next time. Which word fits best?"
+    },
+    {
+      keys: ["backup"],
+      text: "The team keeps a copy of important data for safety. Which word fits best?"
+    },
+    {
+      keys: ["repository"],
+      text: "The team stores and manages project code in one shared place. Which word fits best?"
+    },
+    {
+      keys: ["commit"],
+      text: "A developer saves a set of code changes in version control. Which word fits best?"
+    },
+    {
+      keys: ["branch"],
+      text: "A developer works on a separate line of code without affecting the main version. Which word fits best?"
+    },
+    {
+      keys: ["merge"],
+      text: "The team combines code changes from one branch into another. Which word fits best?"
+    },
+    {
+      keys: ["overfitting"],
+      text: "A model performs well on training data but poorly on new data. Which word fits best?"
+    },
+    {
+      keys: ["underfitting"],
+      text: "A model is too simple and cannot learn the pattern well. Which word fits best?"
+    },
+    {
+      keys: ["validation set"],
+      text: "The team uses a separate data set to tune the model during development. Which word fits best?"
+    },
+    {
+      keys: ["testing set"],
+      text: "The team uses unseen data to evaluate the final model. Which word fits best?"
+    },
+    {
+      keys: ["precision"],
+      text: "The analyst checks how many selected results are actually correct. Which word fits best?"
+    },
+    {
+      keys: ["recall"],
+      text: "The analyst checks how many relevant items the model successfully found. Which word fits best?"
+    },
+    {
+      keys: ["confusion matrix"],
+      text: "The analyst uses a table to show correct and incorrect classification results. Which word fits best?"
+    },
+    {
+      keys: ["clustering"],
+      text: "The AI groups similar items without predefined labels. Which word fits best?"
+    },
+    {
+      keys: ["anomaly detection"],
+      text: "The system finds unusual patterns that may be errors or risks. Which word fits best?"
+    },
+    {
+      keys: ["stakeholder"],
+      text: "The project manager talks to people affected by the project. Which word fits best?"
+    },
+    {
+      keys: ["scope"],
+      text: "The team defines what the project will and will not include. Which word fits best?"
+    },
+    {
+      keys: ["milestone"],
+      text: "The project reaches an important checkpoint in the timeline. Which word fits best?"
+    },
+    {
+      keys: ["deliverable"],
+      text: "The client expects a finished item or result from the team. Which word fits best?"
+    },
+    {
+      keys: ["sprint"],
+      text: "The agile team works during a short planned work period. Which word fits best?"
+    },
+    {
+      keys: ["backlog"],
+      text: "The team has a list of tasks waiting to be done. Which word fits best?"
     }
+  ];
 
-    return term.term || term.word || "";
-  };
+  const found = cases.find(c => c.keys.some(k => word.includes(k) || meaning.includes(k)));
 
-  Q.isChoiceCorrect = function isChoiceCorrect(choice){
-    return !!(choice && choice.correct);
-  };
+  if(found) return found.text;
 
-  Q.findCorrectChoice = function findCorrectChoice(question){
-    if(!question || !Array.isArray(question.choices)) return null;
-    return question.choices.find(c => c.correct) || null;
-  };
+  if(term.example){
+    return `Read this situation: "${term.example}" Which word fits best?`;
+  }
 
-  Q.explainChoice = function explainChoice(question, choice){
-    if(!question) return "";
+  return `Which word best matches this meaning: "${term.meaning}"?`;
+}
 
-    const correct = question.correctTerm || {};
-    const selected = choice || {};
+function buildChallengeCaseV71(term){
+  const word = String(term.term || "").toLowerCase();
+  const meaning = String(term.meaning || "").toLowerCase();
 
-    if(selected.correct){
-      return `✅ ถูกต้อง! ${correct.term} = ${correct.meaning}`;
+  const cases = [
+    {
+      keys: ["api", "endpoint", "request", "response"],
+      text: "Your team connects a mobile app to a server. The app sends data to a specific URL and receives data back. Which term best fits?"
+    },
+    {
+      keys: ["authentication", "permission", "privacy"],
+      text: "A user cannot open private data until the system checks who they are and what they are allowed to access. Which term best fits?"
+    },
+    {
+      keys: ["overfitting", "underfitting", "validation", "testing set"],
+      text: "A model looks excellent during practice but performs badly with new unseen data. Which term best explains the problem?"
+    },
+    {
+      keys: ["precision", "recall", "confusion matrix", "metric"],
+      text: "A data analyst must explain how well the model finds correct results and where it makes mistakes. Which term best fits?"
+    },
+    {
+      keys: ["stakeholder", "scope", "milestone", "deliverable"],
+      text: "During a project meeting, the team clarifies what must be included, who is affected, and what must be delivered. Which term best fits?"
+    },
+    {
+      keys: ["debug", "exception", "bug report", "test case"],
+      text: "Before release, a tester writes steps to reproduce an error so the developer can find and fix it. Which term best fits?"
+    },
+    {
+      keys: ["deploy", "rollout", "release", "build"],
+      text: "The system is ready and the team prepares it so real users can access it. Which term best fits?"
+    },
+    {
+      keys: ["dataset", "label", "annotation", "data cleaning"],
+      text: "Before training AI, the team prepares examples, fixes messy records, and adds categories to data. Which term best fits?"
+    },
+    {
+      keys: ["sprint", "backlog", "priority", "acceptance criteria"],
+      text: "In an agile team, members choose important tasks from a list and define when the work is accepted. Which term best fits?"
+    },
+    {
+      keys: ["risk", "issue", "escalation", "incident"],
+      text: "A serious service problem appears, and the team must report it to a higher support level. Which term best fits?"
     }
+  ];
 
-    return `💡 คำตอบที่ถูกคือ ${correct.term} = ${correct.meaning}`;
-  };
+  const found = cases.find(c => c.keys.some(k => word.includes(k) || meaning.includes(k)));
 
-  /* =========================================================
-     AI HELP CLUE
-     ใช้กับ vocab.ai.js ต่อได้ แต่มี fallback ไว้
-  ========================================================= */
+  if(found) return found.text;
 
-  Q.extractPromptKeywords = function extractPromptKeywords(text){
-    const stop = new Set([
-      "the","and","for","with","that","this","from","into","your","you","are","can","will",
-      "which","word","fits","best","choose","meaning","what","does","mean","term","technical",
-      "คำ","คือ","การ","ของ","และ","ใน","ที่","เป็น","ใช้","หรือ","ให้","ได้"
-    ]);
+  return `A project team needs the concept described as: "${term.meaning}". Which technical word is the most accurate?`;
+}
 
-    return String(text || "")
-      .toLowerCase()
-      .replace(/[^\w\sก-๙]/g, " ")
-      .split(/\s+/)
-      .map(x => x.trim())
-      .filter(x => x.length > 3 && !stop.has(x))
-      .slice(0, 8);
-  };
+/* =========================================================
+   CHOICE BUILDER
+========================================================= */
 
-  Q.buildConceptClue = function buildConceptClue(term){
-    const t = D.normalizeTerm(term);
-    const w = String(t.term || "").toLowerCase();
-    const m = String(t.meaning || "").toLowerCase();
+function buildChoicesV61({ correctTerm, allTerms, answerMode, stageId, difficulty, bank }){
+  const correct = normalizeTermV61(correctTerm);
 
-    const clues = [
-      {
-        keys:["debug","bug","error","fix"],
-        text:"กลุ่มคำใบ้: error / fix / code problem → คิดถึงการหาข้อผิดพลาดและแก้ไข"
-      },
-      {
-        keys:["deploy","release","publish","online","rollout"],
-        text:"กลุ่มคำใบ้: online / release / users access → คิดถึงการนำระบบไปให้ผู้ใช้ใช้งาน"
-      },
-      {
-        keys:["dataset","data","examples"],
-        text:"กลุ่มคำใบ้: many examples / AI learns / collection → คิดถึงชุดข้อมูล"
-      },
-      {
-        keys:["algorithm","step"],
-        text:"กลุ่มคำใบ้: step-by-step / solve problem → คิดถึงลำดับขั้นตอน"
-      },
-      {
-        keys:["database","store","records"],
-        text:"กลุ่มคำใบ้: store / accounts / records → คิดถึงระบบจัดเก็บข้อมูล"
-      },
-      {
-        keys:["interface","ui","screen","buttons"],
-        text:"กลุ่มคำใบ้: buttons / screen / users interact → คิดถึงส่วนที่ผู้ใช้โต้ตอบ"
-      },
-      {
-        keys:["requirement","client","needs"],
-        text:"กลุ่มคำใบ้: client needs / system must do → คิดถึงความต้องการของระบบ"
-      },
-      {
-        keys:["deadline","friday","finish"],
-        text:"กลุ่มคำใบ้: final date / must finish → คิดถึงกำหนดส่ง"
-      },
-      {
-        keys:["prototype","early","test"],
-        text:"กลุ่มคำใบ้: early version / testing idea → คิดถึงต้นแบบ"
-      },
-      {
-        keys:["accuracy","correct"],
-        text:"กลุ่มคำใบ้: how often correct → คิดถึงความแม่นยำ"
-      },
-      {
-        keys:["classification","categories","groups"],
-        text:"กลุ่มคำใบ้: put into groups/categories → คิดถึงการจัดประเภท"
-      },
-      {
-        keys:["prompt","instruction","ai"],
-        text:"กลุ่มคำใบ้: instruction to AI → คิดถึงคำสั่งที่ส่งให้ AI"
-      },
-      {
-        keys:["authentication","permission"],
-        text:"กลุ่มคำใบ้: check identity / allowed access → คิดถึงการยืนยันตัวตนหรือสิทธิ์"
-      },
-      {
-        keys:["overfitting"],
-        text:"กลุ่มคำใบ้: works on training data but fails on new data → คิดถึง overfitting"
-      },
-      {
-        keys:["precision","recall","metric"],
-        text:"กลุ่มคำใบ้: measure model performance → คิดถึงตัวชี้วัดการประเมินผล"
-      },
-      {
-        keys:["scope","deliverable","milestone"],
-        text:"กลุ่มคำใบ้: project boundary / important point / output → คิดถึงการจัดการโครงการ"
-      }
-    ];
+  const terms = (allTerms || [])
+    .map(normalizeTermV61)
+    .filter(t => t.term && t.meaning);
 
-    const found = clues.find(c => {
-      return c.keys.some(k => {
-        const key = String(k).toLowerCase();
-        return w.includes(key) || m.includes(key);
+  const feel = getDifficultyFeelV71(difficulty || vocabGame.difficulty);
+  const choiceCount = feel.choiceCount || 4;
+  const distractorCount = Math.max(3, choiceCount - 1);
+
+  let pool = terms.filter(t =>
+    String(t.term).toLowerCase() !== String(correct.term).toLowerCase()
+  );
+
+  pool = pool
+    .map(t => ({
+      ...t,
+      _trapScore: scoreDistractorV61({
+        correct,
+        candidate: t,
+        stageId,
+        difficulty,
+        bank
+      })
+    }))
+    .sort((a, b) => b._trapScore - a._trapScore);
+
+  let distractors;
+
+  if((difficulty || vocabGame.difficulty) === "easy"){
+    distractors = shuffleV61(pool).slice(0, distractorCount);
+  }else if(stageId === "speed"){
+    distractors = mixDistractorsV61(pool).slice(0, distractorCount);
+  }else{
+    distractors = pool.slice(0, distractorCount);
+  }
+
+  while(distractors.length < distractorCount && pool.length){
+    const extra = pool[Math.floor(randV61() * pool.length)];
+
+    if(!distractors.some(x => String(x.term).toLowerCase() === String(extra.term).toLowerCase())){
+      distractors.push(extra);
+    }else{
+      break;
+    }
+  }
+
+  const choices = [];
+
+  if(answerMode === "meaning"){
+    choices.push({
+      text: correct.meaning,
+      correct: true,
+      term: correct.term,
+      meaning: correct.meaning
+    });
+
+    distractors.forEach(t => {
+      choices.push({
+        text: t.meaning,
+        correct: false,
+        term: t.term,
+        meaning: t.meaning
       });
     });
-
-    if(found) return found.text;
-
-    return `ลองเทียบคำตอบกับแนวคิดหลัก: ${t.meaning || ""}`;
-  };
-
-  Q.buildAiHelp = function buildAiHelp(question, stage){
-    const term = D.normalizeTerm(question?.correctTerm || {});
-    const prompt = String(question?.prompt || "");
-    const answerMode = question?.answerMode || "meaning";
-    const stageId = stage?.id || question?.stageId || "";
-    const keywords = Q.extractPromptKeywords(prompt);
-
-    const lines = [];
-
-    lines.push("<b>AI Help</b> ช่วยคิด ไม่เฉลยตรง ๆ");
-
-    if(answerMode === "term"){
-      lines.push("โจทย์นี้ให้ดู “สถานการณ์” แล้วเลือกคำศัพท์ที่เหมาะที่สุด");
-    }else{
-      lines.push("โจทย์นี้ถาม “ความหมายที่ถูกต้อง” ของคำศัพท์");
-    }
-
-    if(keywords.length){
-      lines.push(`Keyword ที่ควรสังเกต: <b>${keywords.map(U.escapeHtml).join(", ")}</b>`);
-    }
-
-    const clue = Q.buildConceptClue(term);
-
-    if(clue){
-      lines.push(U.escapeHtml(clue));
-    }
-
-    if(stageId === "trap"){
-      lines.push("ระวังตัวเลือกที่ความหมายใกล้กัน ให้ดูคำหลักในนิยาม ไม่ใช่แค่คำที่ดูคุ้น");
-    }
-
-    if(stageId === "mission" || question?.mode === "context" || question?.mode === "boss_context"){
-      lines.push("ลองถามตัวเองว่า “ในสถานการณ์นี้ คนกำลังทำอะไรกับระบบ/ข้อมูล/โปรเจกต์?”");
-    }
-
-    lines.push("ใช้ AI Help แล้วคะแนนข้อนี้จะลดเล็กน้อย เพื่อให้ Leaderboard ยุติธรรม");
-
-    return lines.join("<br>");
-  };
-
-  /* =========================================================
-     PUBLIC / COMPATIBILITY
-  ========================================================= */
-
-  window.VocabQuestion = Q;
-
-  /*
-    compatibility กับ vocab.html เดิม
-  */
-  window.buildQuestionV6 = function buildQuestionV6(stage){
-    return Q.buildQuestion(stage);
-  };
-
-  window.buildQuestionBlueprintV71 = function buildQuestionBlueprintV71(term, stage){
-    return Q.buildBlueprint(term, stage, window.vocabGame?.difficulty || "easy");
-  };
-
-  window.buildChoicesV61 = function buildChoicesV61(options){
-    return Q.buildChoices(options || {});
-  };
-
-  window.buildChoicesV6 = function buildChoicesV6(correctTerm, allTerms, mode){
-    const answerMode = mode === "context" || mode === "boss_context" ? "term" : "meaning";
-
-    return Q.buildChoices({
-      correctTerm,
-      allTerms,
-      answerMode,
-      stageId: mode || "warmup",
-      difficulty: window.vocabGame?.difficulty || "normal",
-      bank: window.vocabGame?.bank || "A"
+  }else{
+    choices.push({
+      text: correct.term,
+      correct: true,
+      term: correct.term,
+      meaning: correct.meaning
     });
-  };
 
-  window.scoreDistractorV61 = function scoreDistractorV61(args){
-    return Q.scoreDistractor({
-      correct: args.correct,
-      candidate: args.candidate,
-      stageId: args.stageId,
-      difficulty: args.difficulty,
-      bank: args.bank
+    distractors.forEach(t => {
+      choices.push({
+        text: t.term,
+        correct: false,
+        term: t.term,
+        meaning: t.meaning
+      });
     });
-  };
+  }
 
-  window.sharedKeywordCountV61 = Q.sharedKeywordCount;
-  window.tokenizeMeaningV61 = Q.tokenizeMeaning;
-  window.mixDistractorsV61 = Q.mixDistractors;
-  window.getCorrectChoiceTextV62 = Q.getCorrectChoiceText;
-  window.buildAiHelpTextV67 = Q.buildAiHelp;
-  window.extractPromptKeywordsV67 = Q.extractPromptKeywords;
-  window.buildConceptClueV67 = Q.buildConceptClue;
+  return shuffleV61(choices).slice(0, choiceCount);
+}
 
-  console.log("[VOCAB] question builder loaded");
+function buildChoicesV6(correctTerm, allTerms, mode){
+  const answerMode = mode === "context" || mode === "boss_context" ? "term" : "meaning";
 
-})();
+  return buildChoicesV61({
+    correctTerm,
+    allTerms,
+    answerMode,
+    stageId: mode || "warmup",
+    difficulty: vocabGame.difficulty || "normal",
+    bank: vocabGame.bank || "A"
+  });
+}
+
+function mixDistractorsV61(sortedPool){
+  const top = sortedPool.slice(0, 6);
+  const rest = sortedPool.slice(6);
+  const mixed = [];
+
+  if(top.length) mixed.push(top[0]);
+
+  if(rest.length){
+    mixed.push(rest[Math.floor(randV61() * rest.length)]);
+  }
+
+  if(top.length > 1) mixed.push(top[1]);
+  if(top.length > 2) mixed.push(top[2]);
+  if(top.length > 3) mixed.push(top[3]);
+
+  return mixed.filter(Boolean);
+}
+
+function scoreDistractorV61({ correct, candidate, stageId, difficulty, bank }){
+  const d = difficulty || vocabGame.difficulty || "normal";
+
+  let score = 0;
+
+  const cw = String(correct.term || "").toLowerCase();
+  const cm = String(correct.meaning || "").toLowerCase();
+  const cc = String(correct.category || "").toLowerCase();
+
+  const tw = String(candidate.term || "").toLowerCase();
+  const tm = String(candidate.meaning || "").toLowerCase();
+  const tc = String(candidate.category || "").toLowerCase();
+
+  if(cc && tc && cc === tc){
+    score += d === "easy" ? 2 : 8;
+  }
+
+  if(cw && tw && cw[0] === tw[0]){
+    score += d === "easy" ? 1 : 3;
+  }
+
+  if(Math.abs(cw.length - tw.length) <= 3){
+    score += 2;
+  }
+
+  const shared = sharedKeywordCountV61(cm, tm);
+  score += shared * (d === "challenge" ? 4 : d === "hard" ? 3 : 2);
+
+  if(stageId === "trap") score += 5;
+  if(stageId === "boss") score += 3;
+  if(d === "hard") score += 2;
+  if(d === "challenge") score += 4;
+  if(bank === "B" && cc === tc) score += 2;
+
+  score += randV61();
+
+  return score;
+}
+
+/* =========================================================
+   TEXT ANALYSIS HELPERS
+========================================================= */
+
+function sharedKeywordCountV61(a, b){
+  const aw = tokenizeMeaningV61(a);
+  const bw = new Set(tokenizeMeaningV61(b));
+
+  let count = 0;
+
+  aw.forEach(x => {
+    if(bw.has(x)) count += 1;
+  });
+
+  return count;
+}
+
+function tokenizeMeaningV61(s){
+  const stop = new Set([
+    "the","and","for","with","that","this","from","into","your","you","are","can","will",
+    "a","an","to","of","or","in","on","as","by","is","be","it","its","how","when","what",
+    "using","used","user","users","system","data",
+    "คือ","การ","ของ","และ","ใน","ที่","เป็น","ใช้","หรือ","ให้","ได้"
+  ]);
+
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[^\w\sก-๙]/g, " ")
+    .split(/\s+/)
+    .map(x => x.trim())
+    .filter(x => x.length > 2 && !stop.has(x));
+}
+
+function pickTemplateV61(list){
+  if(!Array.isArray(list) || !list.length) return "";
+  return list[Math.floor(randV61() * list.length)];
+}
+
+/* =========================================================
+   PUBLIC DEBUG HELPERS
+========================================================= */
+
+window.resetVocabMemoryV71 = resetVocabMemoryV71;
+
+window.previewVocabDeck = function(bank = "A", difficulty = "normal"){
+  return buildTermDeckV71(bank, difficulty);
+};
+
+window.previewVocabQuestion = function(bank = "A", difficulty = "normal", stageId = "mission"){
+  const oldBank = vocabGame.bank;
+  const oldDifficulty = vocabGame.difficulty;
+
+  vocabGame.bank = bank;
+  vocabGame.difficulty = difficulty;
+  vocabGame.terms = buildTermDeckV71(bank, difficulty);
+
+  const stage = VOCAB_STAGES.find(s => s.id === stageId) || VOCAB_STAGES[0];
+  const q = buildQuestionV6(stage);
+
+  vocabGame.bank = oldBank;
+  vocabGame.difficulty = oldDifficulty;
+
+  return q;
+};
