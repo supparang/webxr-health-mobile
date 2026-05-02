@@ -92,9 +92,7 @@
       color:white;
     }
 
-    .title{
-      min-width:0;
-    }
+    .title{ min-width:0; }
 
     .title .k{
       font-size:13px;
@@ -314,37 +312,16 @@
     }
 
     @media (max-width: 980px){
-      .mode-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .controls{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
+      .mode-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .controls{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
 
     @media (max-width: 620px){
-      .page{
-        padding:12px;
-      }
-
-      .mode-grid,
-      .controls{
-        grid-template-columns:1fr;
-      }
-
-      .mode-card{
-        min-height:210px;
-      }
-
-      .start-panel{
-        align-items:stretch;
-      }
-
-      .actions,
-      .btn{
-        width:100%;
-      }
+      .page{ padding:12px; }
+      .mode-grid,.controls{ grid-template-columns:1fr; }
+      .mode-card{ min-height:210px; }
+      .start-panel{ align-items:stretch; }
+      .actions,.btn{ width:100%; }
     }
   </style>
 </head>
@@ -363,9 +340,11 @@
         </div>
 
         <div class="chips">
-          <div class="chip">PC</div>
-          <div class="chip">Mobile</div>
-          <div class="chip">Cardboard VR</div>
+          <div class="chip">Solo</div>
+          <div class="chip">Duet</div>
+          <div class="chip">Race 2–10</div>
+          <div class="chip">Battle 2</div>
+          <div class="chip">Coop 2–10</div>
           <div class="chip">Auto Role</div>
         </div>
       </div>
@@ -425,46 +404,46 @@
   <script>
     const MODES = [
       {
-        id: 'solo',
-        icon: '💧',
-        name: 'Solo Survival',
-        sub: 'เอาตัวรอดคนเดียว เก็บน้ำดี เก็บโล่ และรักษาระดับน้ำให้รอดจนจบ',
-        tags: ['Survival', 'Water', 'Shield']
+        id:'solo',
+        icon:'💧',
+        name:'Solo Survival',
+        sub:'เอาตัวรอดคนเดียว เก็บน้ำดี เก็บโล่ และรักษาระดับน้ำให้รอดจนจบ',
+        tags:['1 Player','Survival','Water']
       },
       {
-        id: 'duet',
-        icon: '🤝',
-        name: 'Duet Buddy',
-        sub: 'เล่นคู่ ระบบแจกหน้าที่ Collector / Guardian อัตโนมัติ ช่วยกันทำคะแนนทีม',
-        tags: ['2 Players', 'Auto Role', 'Team Sync']
+        id:'duet',
+        icon:'🤝',
+        name:'Duet Buddy',
+        sub:'เล่นคู่ 2 คน ระบบแจกหน้าที่ Collector / Guardian อัตโนมัติ ต้องรอเพื่อนก่อนเริ่ม',
+        tags:['2 Players','Auto Role','Team Sync']
       },
       {
-        id: 'race',
-        icon: '🏁',
-        name: 'Water Race',
-        sub: 'แข่งเติม Water ให้ถึงเป้าก่อน เก็บบูสต์ให้ไว และลด Miss ให้มากที่สุด',
-        tags: ['Fast', 'Boost', 'Rank']
+        id:'race',
+        icon:'🏁',
+        name:'Water Race',
+        sub:'แข่งเติม Water ให้ถึงเป้าก่อน รองรับ 2–10 คน พร้อมอันดับสด',
+        tags:['2–10 Players','Live Rank','Boost']
       },
       {
-        id: 'battle',
-        icon: '🌩️',
-        name: 'Storm Battle',
-        sub: 'ทำภารกิจเพื่อปลดล็อกสกิลพายุ แล้วส่งไปท้าทายคู่แข่ง',
-        tags: ['Mission Unlock', 'Attack', 'Shield Counter']
+        id:'battle',
+        icon:'🌩️',
+        name:'Storm Battle',
+        sub:'เล่น 2 คน ทำภารกิจเพื่อปลดล็อกสกิลพายุ แล้วส่งไปท้าทายคู่แข่ง',
+        tags:['2 Players','Mission Unlock','Attack']
       },
       {
-        id: 'coop',
-        icon: '🚰',
-        name: 'Coop Rescue',
-        sub: 'ทุกคนช่วยกันรักษาถังน้ำรวม ผ่าน Crisis และทำภารกิจตามบทบาท',
-        tags: ['Team Tank', 'Crisis', 'Rescue']
+        id:'coop',
+        icon:'🚰',
+        name:'Coop Rescue',
+        sub:'ทีม 2–10 คนช่วยกันรักษาถังน้ำรวม ผ่าน Crisis และทำภารกิจตาม Role',
+        tags:['2–10 Players','Team Tank','Crisis']
       }
     ];
 
     const $ = (s, r = document) => r.querySelector(s);
-    const qs = new URL(location.href).searchParams;
+    const params = new URL(location.href).searchParams;
 
-    let selectedMode = qs.get('mode') || qs.get('recommendedMode') || 'solo';
+    let selectedMode = params.get('mode') || params.get('recommendedMode') || 'solo';
 
     function esc(s){
       return String(s ?? '').replace(/[&<>"']/g, m => ({
@@ -505,14 +484,11 @@
       const time = $('#time').value || '80';
       const view = $('#view').value || 'mobile';
 
-      const hub =
-        qs.get('hub') ||
-        '../nutrition-zone.html';
-
-      const api = qs.get('api') || '';
-      const pid = qs.get('pid') || 'anon';
-      const studyId = qs.get('studyId') || '';
-      const seed = qs.get('seed') || Date.now();
+      const hub = params.get('hub') || './nutrition-zone.html';
+      const api = params.get('api') || '';
+      const pid = params.get('pid') || 'anon';
+      const studyId = params.get('studyId') || '';
+      const seed = params.get('seed') || Date.now();
 
       const url = new URL('./hydration-vr/hydration-vr.html', location.href);
 
@@ -538,7 +514,7 @@
 
       if(selectedMode !== 'solo'){
         url.searchParams.set('multiplayer', '1');
-        url.searchParams.set('room', qs.get('room') || `hydr-${selectedMode}-${String(seed).slice(-6)}`);
+        url.searchParams.set('room', params.get('room') || `hydr-${selectedMode}-${String(seed).slice(-6)}`);
       }
 
       return url.toString();
@@ -557,7 +533,7 @@
     });
 
     $('#btnBackHub').addEventListener('click', () => {
-      const hub = qs.get('hub') || '../nutrition-zone.html';
+      const hub = params.get('hub') || './nutrition-zone.html';
       location.href = hub;
     });
 
