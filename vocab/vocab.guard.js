@@ -1,36 +1,18 @@
 /* =========================================================
    /vocab/vocab.guard.js
-   TechPath Vocab Arena — Source Copy Guard
-   Version: 20260502a
-
-   Purpose:
-   - Reduce casual copying of source/content
-   - Block right click / select / copy / print / save / view-source shortcuts
-   - Soft-detect DevTools open
-   - Allow typing in input/textarea/select
-   - Teacher/Admin can disable by URL:
-       ?guard=off
-       ?source_guard=off
-       ?teacher=1
-       ?admin=1
-       ?qa=1
-       ?debug=1
-
-   Important:
-   - Static web apps cannot hide HTML/CSS/JS source 100%.
-   - This file is deterrence + classroom protection, not real DRM.
+   TechPath Vocab Arena
+   Source Guard / Copy Protection / Classroom Protection
    ========================================================= */
-
 (function(){
   "use strict";
 
-  const GUARD = {
-    version: "20260502a",
-    logKey: "VOCAB_SOURCE_GUARD_LOG",
+  const VOCAB_GUARD = {
+    version: "vocab-guard-20260501",
+    logKey: "VOCAB_GUARD_LOG",
     maxLog: 160,
-    watermarkText: "TechPath Vocab Arena • Protected Classroom",
-    toastMs: 2600,
-    devtoolsThreshold: 180
+    toastId: "vocabGuardToast",
+    watermarkId: "vocabGuardWatermark",
+    cssId: "vocabGuardCss"
   };
 
   function qs(sel, root){
@@ -41,17 +23,17 @@
     return Array.from((root || document).querySelectorAll(sel));
   }
 
-  function id(x){
-    return document.getElementById(x);
+  function byId(id){
+    return document.getElementById(id);
   }
 
   function esc(s){
     return String(s ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;");
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#39;");
   }
 
   function nowIso(){
@@ -73,34 +55,37 @@
     }catch(e){}
   }
 
-  function getParam(name){
+  function getParam(name, fallback){
     try{
-      return new URL(location.href).searchParams.get(name) || "";
+      const p = new URLSearchParams(location.search);
+      return p.get(name) || fallback || "";
     }catch(e){
-      return "";
+      return fallback || "";
     }
   }
 
-  function isTruthyParam(name){
-    const v = String(getParam(name) || "").toLowerCase();
-    return v === "1" || v === "true" || v === "yes" || v === "on";
-  }
+  function isTeacherOrQaMode(){
+    const keys = ["teacher", "admin", "qa", "debug", "guard"];
+    for(const k of keys){
+      const v = String(getParam(k, "")).toLowerCase();
+      if(v === "1" || v === "true" || v === "yes" || v === "on"){
+        return true;
+      }
+    }
 
-  function isTeacherOrDebugMode(){
-    return (
-      isTruthyParam("teacher") ||
-      isTruthyParam("admin") ||
-      isTruthyParam("qa") ||
-      isTruthyParam("debug")
-    );
+    return false;
   }
 
   function guardDisabled(){
+    const v1 = String(getParam("guard", "")).toLowerCase();
+    const v2 = String(getParam("source_guard", "")).toLowerCase();
+
     return (
       window.VOCAB_SOURCE_GUARD_DISABLE === true ||
-      String(getParam("guard")).toLowerCase() === "off" ||
-      String(getParam("source_guard")).toLowerCase() === "off" ||
-      isTeacherOrDebugMode()
+      v1 === "off" ||
+      v1 === "0" ||
+      v2 === "off" ||
+      v2 === "0"
     );
   }
 
@@ -109,40 +94,35 @@
 
     const tag = String(el.tagName || "").toLowerCase();
 
-    return (
+    return Boolean(
       el.isContentEditable ||
       tag === "input" ||
       tag === "textarea" ||
       tag === "select" ||
-      Boolean(el.closest && el.closest("[data-allow-copy='1']")) ||
-      Boolean(el.closest && el.closest("[data-vocab-allow-copy='1']"))
+      el.closest("[data-vocab-allow-copy='1']") ||
+      el.closest("[data-v78-allow-copy='1']")
     );
   }
 
-  function localLog(action, extra){
+  function logGuard(action, extra){
     const payload = Object.assign({
       timestamp: nowIso(),
       action,
-      guardVersion: GUARD.version,
-      pageUrl: location.href,
-      userAgent: navigator.userAgent || "",
-      enabled: guardDisabled() ? 0 : 1
+      page_url: location.href,
+      user_agent: navigator.userAgent || "",
+      guard_version: VOCAB_GUARD.version,
+      guard_enabled: guardDisabled() ? 0 : 1
     }, extra || {});
 
     try{
-      const list = readJson(GUARD.logKey, []);
+      const list = readJson(VOCAB_GUARD.logKey, []);
       list.push(payload);
-      writeJson(GUARD.logKey, list.slice(-GUARD.maxLog));
+      writeJson(VOCAB_GUARD.logKey, list.slice(-VOCAB_GUARD.maxLog));
     }catch(e){}
 
     try{
       if(typeof window.logVocabEventV6 === "function"){
-        window.logVocabEventV6("source_guard", {
-          source_guard_action: action,
-          source_guard_version: GUARD.version,
-          source_guard_enabled: guardDisabled() ? 0 : 1,
-          source_guard_extra: JSON.stringify(extra || {})
-        });
+        window.logVocabEventV6("source_guard", payload);
       }
     }catch(e){}
 
@@ -150,54 +130,32 @@
   }
 
   function injectCss(){
-    if(id("vocabGuardCss")) return;
+    if(byId(VOCAB_GUARD.cssId)) return;
 
     const css = document.createElement("style");
-    css.id = "vocabGuardCss";
+    css.id = VOCAB_GUARD.cssId;
     css.textContent = `
-      body.vocab-guard-no-select,
-      body.vocab-guard-no-select *{
+      body.vocab-guard-on,
+      body.vocab-guard-on .v6-app,
+      body.vocab-guard-on .v6-card,
+      body.vocab-guard-on .v6-question-card,
+      body.vocab-guard-on .vocab-reward-shell,
+      body.vocab-guard-on button,
+      body.vocab-guard-on .v6-choice{
         -webkit-user-select:none !important;
         user-select:none !important;
         -webkit-touch-callout:none !important;
       }
 
-      body.vocab-guard-no-select input,
-      body.vocab-guard-no-select textarea,
-      body.vocab-guard-no-select select,
-      body.vocab-guard-no-select [contenteditable="true"],
-      body.vocab-guard-no-select [data-allow-copy="1"],
-      body.vocab-guard-no-select [data-vocab-allow-copy="1"],
-      body.vocab-guard-no-select [data-allow-copy="1"] *,
-      body.vocab-guard-no-select [data-vocab-allow-copy="1"] *{
+      body.vocab-guard-on input,
+      body.vocab-guard-on textarea,
+      body.vocab-guard-on select,
+      body.vocab-guard-on [contenteditable="true"],
+      body.vocab-guard-on [data-vocab-allow-copy="1"],
+      body.vocab-guard-on [data-v78-allow-copy="1"]{
         -webkit-user-select:text !important;
         user-select:text !important;
         -webkit-touch-callout:default !important;
-      }
-
-      .vocab-guard-watermark{
-        position:fixed;
-        right:12px;
-        top:12px;
-        z-index:2147483000;
-        pointer-events:none;
-        opacity:.34;
-        padding:7px 10px;
-        border-radius:999px;
-        border:1px solid rgba(255,255,255,.16);
-        background:rgba(4,10,20,.36);
-        color:#eef7ff;
-        font:900 11px/1.2 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-        letter-spacing:.03em;
-        text-transform:uppercase;
-        backdrop-filter:blur(8px);
-      }
-
-      body.vocab-guard-devtools-warning .vocab-guard-watermark{
-        opacity:.9;
-        color:#fff3bf;
-        border-color:rgba(255,209,102,.42);
-        background:rgba(255,209,102,.15);
       }
 
       .vocab-guard-toast{
@@ -205,7 +163,7 @@
         right:14px;
         bottom:14px;
         z-index:2147483647;
-        width:min(430px, calc(100vw - 28px));
+        width:min(420px, calc(100vw - 28px));
         padding:14px 16px;
         border-radius:22px;
         border:1px solid rgba(255,255,255,.20);
@@ -213,14 +171,42 @@
           radial-gradient(circle at top left, rgba(89,208,255,.22), transparent 36%),
           rgba(4,10,20,.94);
         color:#eef7ff;
-        font:900 14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        font-weight:950;
+        line-height:1.45;
         box-shadow:0 18px 54px rgba(0,0,0,.38);
         backdrop-filter:blur(16px);
         animation:vocabGuardToastIn .22s ease both;
+        pointer-events:none;
       }
 
       .vocab-guard-toast b{
         color:#ffd166;
+      }
+
+      .vocab-guard-watermark{
+        position:fixed;
+        right:14px;
+        top:14px;
+        z-index:99997;
+        pointer-events:none;
+        opacity:.34;
+        padding:7px 10px;
+        border-radius:999px;
+        border:1px solid rgba(255,255,255,.14);
+        background:rgba(4,10,20,.34);
+        color:#eef7ff;
+        font-size:11px;
+        font-weight:1000;
+        letter-spacing:.04em;
+        text-transform:uppercase;
+        backdrop-filter:blur(8px);
+      }
+
+      body.vocab-devtools-warning .vocab-guard-watermark{
+        opacity:.9;
+        color:#fff3bf;
+        border-color:rgba(255,209,102,.36);
+        background:rgba(255,209,102,.13);
       }
 
       @keyframes vocabGuardToastIn{
@@ -228,36 +214,34 @@
         to{ opacity:1; transform:translateY(0) scale(1); }
       }
 
+      @media print{
+        body.vocab-print-guard *{
+          visibility:hidden !important;
+        }
+
+        body.vocab-print-guard::before{
+          content:"Protected classroom build — printing is disabled.";
+          visibility:visible !important;
+          display:block;
+          padding:32px;
+          color:#111827;
+          font:700 22px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        }
+      }
+
       @media(max-width:560px){
         .vocab-guard-watermark{
           top:auto;
-          right:8px;
           bottom:62px;
+          right:8px;
           font-size:10px;
-          opacity:.28;
         }
 
         .vocab-guard-toast{
           right:8px;
           bottom:8px;
           width:calc(100vw - 16px);
-          border-radius:18px;
-        }
-      }
-
-      @media print{
-        body.vocab-guard-print-block *{
-          visibility:hidden !important;
-        }
-
-        body.vocab-guard-print-block::before{
-          content:"Protected classroom build — printing is disabled.";
-          visibility:visible !important;
-          display:block;
-          padding:32px;
-          color:#111827;
-          background:#ffffff;
-          font:800 22px/1.4 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+          font-size:13px;
         }
       }
     `;
@@ -265,34 +249,35 @@
     document.head.appendChild(css);
   }
 
-  function addWatermark(){
-    if(id("vocabGuardWatermark")) return;
-
-    const mark = document.createElement("div");
-    mark.id = "vocabGuardWatermark";
-    mark.className = "vocab-guard-watermark";
-    mark.textContent = GUARD.watermarkText;
-    document.body.appendChild(mark);
-  }
-
   function showToast(message, kind){
-    let box = id("vocabGuardToast");
+    let box = byId(VOCAB_GUARD.toastId);
 
     if(!box){
       box = document.createElement("div");
-      box.id = "vocabGuardToast";
+      box.id = VOCAB_GUARD.toastId;
       box.className = "vocab-guard-toast";
       document.body.appendChild(box);
     }
 
-    const icon = kind === "warn" ? "⚠️" : "🔒";
+    const icon = kind === "warn" ? "⚠️" : kind === "ok" ? "✅" : "🔒";
+
     box.innerHTML = `${icon} <b>Protected Mode</b><br>${esc(message)}`;
     box.hidden = false;
 
     clearTimeout(showToast._timer);
     showToast._timer = setTimeout(() => {
       if(box) box.hidden = true;
-    }, GUARD.toastMs);
+    }, 2600);
+  }
+
+  function addWatermark(){
+    if(byId(VOCAB_GUARD.watermarkId)) return;
+
+    const mark = document.createElement("div");
+    mark.id = VOCAB_GUARD.watermarkId;
+    mark.className = "vocab-guard-watermark";
+    mark.textContent = "Protected Classroom";
+    document.body.appendChild(mark);
   }
 
   function blockEvent(e, action, message){
@@ -304,20 +289,22 @@
       e.stopImmediatePropagation();
     }catch(err){}
 
-    localLog(action, {
+    logGuard(action, {
       key: e.key || "",
-      code: e.code || "",
       ctrl: e.ctrlKey ? 1 : 0,
       meta: e.metaKey ? 1 : 0,
       shift: e.shiftKey ? 1 : 0,
       alt: e.altKey ? 1 : 0
     });
 
-    showToast(message || "ระบบป้องกันการคัดลอกเนื้อหาและ source code ของเกม", "lock");
+    showToast(message || "ปิดการคัดลอกเนื้อหาและ source code ในโหมดใช้งานจริง", "lock");
+
     return false;
   }
 
-  function installPointerGuards(){
+  function installCopyProtection(){
+    document.body.classList.add("vocab-guard-on");
+
     window.addEventListener("contextmenu", function(e){
       return blockEvent(e, "contextmenu_blocked", "ปิดคลิกขวาเพื่อป้องกันการคัดลอก source code");
     }, true);
@@ -345,27 +332,34 @@
       if(isEditableTarget(e.target)) return true;
       return blockEvent(e, "cut_blocked", "ปิดการตัด/คัดลอกเนื้อหาในหน้าเกม");
     }, true);
-  }
 
-  function installKeyboardGuards(){
-    window.addEventListener("keydown", function(e){
+    window.addEventListener("paste", function(e){
+      /*
+        อนุญาต paste เฉพาะ input ที่นักศึกษาต้องกรอก เช่น ชื่อ / รหัส / session code
+      */
       if(isEditableTarget(e.target)) return true;
 
+      return blockEvent(e, "paste_blocked", "ปิดการวางข้อความลงหน้าเกม");
+    }, true);
+  }
+
+  function installShortcutProtection(){
+    window.addEventListener("keydown", function(e){
       const key = String(e.key || "").toLowerCase();
       const ctrl = e.ctrlKey || e.metaKey;
       const shift = e.shiftKey;
 
-      const devtoolsKeys =
+      const devToolsKeys =
         key === "f12" ||
         (ctrl && shift && ["i", "j", "c", "k"].includes(key));
 
       const sourceKeys =
         ctrl && ["u", "s", "p"].includes(key);
 
-      const copyKeys =
-        ctrl && ["a", "c", "x"].includes(key);
+      const pageCopyKeys =
+        ctrl && ["a", "c", "x"].includes(key) && !isEditableTarget(e.target);
 
-      if(devtoolsKeys){
+      if(devToolsKeys){
         return blockEvent(e, "devtools_shortcut_blocked", "ปิด DevTools shortcut ในโหมดใช้งานจริง");
       }
 
@@ -373,7 +367,7 @@
         return blockEvent(e, "source_shortcut_blocked", "ปิด View Source / Save / Print เพื่อป้องกันการคัดลอกไฟล์");
       }
 
-      if(copyKeys){
+      if(pageCopyKeys){
         return blockEvent(e, "page_copy_shortcut_blocked", "ปิด shortcut คัดลอกเนื้อหาในหน้าเกม");
       }
 
@@ -383,62 +377,55 @@
 
   function installPrintGuard(){
     window.addEventListener("beforeprint", function(){
-      document.body.classList.add("vocab-guard-print-block");
+      document.body.classList.add("vocab-print-guard");
 
-      localLog("print_blocked", {});
+      logGuard("print_blocked", {});
       showToast("ปิดการพิมพ์หน้าเกมใน Protected Mode", "lock");
 
       setTimeout(() => {
-        document.body.classList.remove("vocab-guard-print-block");
+        document.body.classList.remove("vocab-print-guard");
       }, 1400);
     });
   }
 
-  function installDevtoolsSoftDetect(){
-    let lastOpen = false;
+  function installDevtoolsSoftWarning(){
+    let lastState = false;
 
     setInterval(function(){
       if(guardDisabled()) return;
 
+      const threshold = 180;
+
       const maybeOpen =
-        Math.abs((window.outerWidth || 0) - (window.innerWidth || 0)) > GUARD.devtoolsThreshold ||
-        Math.abs((window.outerHeight || 0) - (window.innerHeight || 0)) > GUARD.devtoolsThreshold;
+        Math.abs((window.outerWidth || 0) - (window.innerWidth || 0)) > threshold ||
+        Math.abs((window.outerHeight || 0) - (window.innerHeight || 0)) > threshold;
 
-      if(maybeOpen && !lastOpen){
-        lastOpen = true;
-        document.body.classList.add("vocab-guard-devtools-warning");
-
-        localLog("devtools_soft_warning", {});
+      if(maybeOpen && !lastState){
+        lastState = true;
+        document.body.classList.add("vocab-devtools-warning");
+        logGuard("devtools_soft_warning", {});
         showToast("ตรวจพบลักษณะการเปิดเครื่องมือนักพัฒนา ระบบบันทึกเหตุการณ์ไว้แล้ว", "warn");
-      }else if(!maybeOpen && lastOpen){
-        lastOpen = false;
-        document.body.classList.remove("vocab-guard-devtools-warning");
+      }else if(!maybeOpen && lastState){
+        lastState = false;
+        document.body.classList.remove("vocab-devtools-warning");
       }
     }, 1500);
   }
 
-  function exposeApi(){
-    window.vocabSourceGuard = {
-      version: GUARD.version,
+  function exposeGuardTools(){
+    window.vocabGuardLog = function(){
+      return readJson(VOCAB_GUARD.logKey, []);
+    };
 
-      enabled(){
-        return !guardDisabled();
-      },
+    window.resetVocabGuardLog = function(){
+      localStorage.removeItem(VOCAB_GUARD.logKey);
+      alert("Reset vocab guard log แล้ว");
+    };
 
-      logs(){
-        return readJson(GUARD.logKey, []);
-      },
-
-      clearLogs(){
-        localStorage.removeItem(GUARD.logKey);
-        return true;
-      },
-
-      test(){
-        localLog("manual_test", {});
-        showToast("Source Guard ทำงานแล้ว: ปิด copy / right click / view-source shortcut", "lock");
-        return true;
-      }
+    window.vocabGuardTest = function(){
+      logGuard("manual_test", {});
+      showToast("Protected Mode ทำงานแล้ว", "ok");
+      return true;
     };
   }
 
@@ -446,27 +433,25 @@
     injectCss();
 
     if(guardDisabled()){
-      document.body.classList.remove("vocab-guard-no-select");
-      localLog("guard_disabled", {
-        teacherOrDebugMode: isTeacherOrDebugMode() ? 1 : 0
+      logGuard("guard_disabled", {
+        reason: "URL guard=off/source_guard=off or global flag"
       });
-      exposeApi();
-      console.log("[VOCAB] source guard disabled");
+      console.log("[VOCAB GUARD] disabled by URL/global flag");
       return;
     }
 
-    document.body.classList.add("vocab-guard-no-select");
-
     addWatermark();
-    installPointerGuards();
-    installKeyboardGuards();
+    installCopyProtection();
+    installShortcutProtection();
     installPrintGuard();
-    installDevtoolsSoftDetect();
-    exposeApi();
+    installDevtoolsSoftWarning();
+    exposeGuardTools();
 
-    localLog("guard_enabled", {});
+    logGuard("guard_enabled", {
+      teacher_or_qa_mode: isTeacherOrQaMode() ? 1 : 0
+    });
 
-    console.log("[VOCAB] source guard enabled", GUARD.version);
+    console.log("[VOCAB GUARD] enabled", VOCAB_GUARD.version);
   }
 
   if(document.readyState === "loading"){
