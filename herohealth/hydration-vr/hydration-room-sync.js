@@ -1,9 +1,10 @@
 // === /herohealth/hydration-vr/hydration-room-sync.js ===
-// PATCH v20260502-HYDRATION-ROOM-SYNC-V2
+// PATCH v20260502-HYDRATION-ROOM-SYNC-V3-ROOM-CODE
 //
-// ✅ Duet/Battle require exactly 2 active players
+// ✅ Duet/Battle require 2 active players
 // ✅ Race supports 2–10 active players
 // ✅ Coop supports 2–10 active players
+// ✅ Room Code UI: HYD-482K style
 // ✅ Live scoreboard during game
 // ✅ Summary scoreboard for all players
 // ✅ Uses Firebase Realtime Database compat if available
@@ -12,7 +13,7 @@
 'use strict';
 
 (function HydrationRoomSync(){
-  const VERSION = '20260502-HYDRATION-ROOM-SYNC-V2';
+  const VERSION = '20260502-HYDRATION-ROOM-SYNC-V3-ROOM-CODE';
 
   const MULTI_MODES = new Set(['duet','race','battle','coop']);
 
@@ -76,12 +77,37 @@
     return 'solo';
   }
 
+  function normalizeRoomCode(v){
+    v = String(v || '').trim().toUpperCase();
+
+    if(!v) return '';
+
+    v = v.replace(/^HYDR-/, 'HYD-');
+
+    if(v.startsWith('HYD-')){
+      const tail = v.slice(4).replace(/[^A-Z0-9]/g, '').slice(0, 4);
+      return tail ? `HYD-${tail}` : '';
+    }
+
+    if(v.startsWith('HYD')){
+      const tail = v.slice(3).replace(/[^A-Z0-9]/g, '').slice(0, 4);
+      return tail ? `HYD-${tail}` : '';
+    }
+
+    const raw = v.replace(/[^A-Z0-9]/g, '').slice(0, 4);
+    return raw ? `HYD-${raw}` : '';
+  }
+
+  function displayRoomCode(){
+    return normalizeRoomCode(qs('roomCode', '') || state.roomId || qs('room', '')) || String(state.roomId || '').toUpperCase();
+  }
+
   function makeId(){
     return 'p_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now().toString(36);
   }
 
   function getSessionPlayerId(){
-    const key = 'HHA_HYDRATION_PLAYER_ID_V2';
+    const key = 'HHA_HYDRATION_PLAYER_ID_V3';
     let id = sessionStorage.getItem(key);
     if(!id){
       id = makeId();
@@ -110,7 +136,7 @@
   const state = {
     version:VERSION,
     mode:normalizeMode(qs('mode', qs('entry', 'solo'))),
-    roomId:qs('room', qs('roomId', '')),
+    roomId:normalizeRoomCode(qs('roomCode', '') || qs('room', qs('roomId', ''))),
     playerId:qs('playerId', '') || getSessionPlayerId(),
     playerName:qs('name', qs('nick', 'Hero')) || 'Hero',
     role:'',
@@ -131,7 +157,7 @@
 
   if(!state.roomId){
     const seed = qs('seed', Date.now());
-    state.roomId = `hydr-${state.mode}-${String(seed).slice(-6)}`;
+    state.roomId = normalizeRoomCode(String(seed).slice(-4)) || `HYD-${String(seed).slice(-4)}`;
   }
 
   function isMultiplayer(){
@@ -337,7 +363,7 @@
       }
 
       .hydr-room-wait-card{
-        width:min(92vw,620px);
+        width:min(92vw,640px);
         display:grid;
         gap:14px;
         padding:20px;
@@ -358,6 +384,31 @@
         color:#bfdbfe;
         font-size:14px;
         line-height:1.45;
+      }
+
+      .hydr-room-codebox{
+        display:grid;
+        gap:8px;
+        padding:16px;
+        border-radius:22px;
+        background:rgba(34,211,238,.12);
+        border:1px solid rgba(34,211,238,.32);
+        text-align:center;
+      }
+
+      .hydr-room-code-label{
+        color:#bfdbfe;
+        font-size:12px;
+        font-weight:1000;
+        letter-spacing:.08em;
+      }
+
+      .hydr-room-code{
+        font-size:clamp(34px,7vw,58px);
+        line-height:1;
+        font-weight:1100;
+        letter-spacing:.06em;
+        color:#eff7ff;
       }
 
       .hydr-room-linkbox{
@@ -469,7 +520,7 @@
       <div class="hydr-room-head">
         <div>
           <div class="hydr-room-title">👥 Multiplayer Scoreboard</div>
-          <div class="hydr-room-sub" id="hydrRoomStatus">Room: ${esc(state.roomId)}</div>
+          <div class="hydr-room-sub" id="hydrRoomStatus">Room: ${esc(displayRoomCode())}</div>
         </div>
         <div class="hydr-room-sub" id="hydrRoomCount">0/${state.required}</div>
       </div>
@@ -489,9 +540,12 @@
   function createWaitOverlay(){
     if(document.getElementById('hydrRoomWait')) return;
 
+    const roomCode = displayRoomCode();
+
     const shareUrl = new URL(location.href);
     shareUrl.searchParams.set('mode', state.mode);
-    shareUrl.searchParams.set('room', state.roomId);
+    shareUrl.searchParams.set('room', roomCode);
+    shareUrl.searchParams.set('roomCode', roomCode);
     shareUrl.searchParams.set('multiplayer', '1');
 
     const overlay = document.createElement('div');
@@ -502,17 +556,24 @@
         <div>
           <div class="hydr-room-wait-title">กำลังรอเพื่อน${state.mode === 'race' || state.mode === 'coop' ? ' / ทีม' : ''}</div>
           <div class="hydr-room-wait-sub" id="hydrRoomWaitSub">
-            โหมด ${esc(state.mode)} ต้องมีผู้เล่นอย่างน้อย ${state.required} คนก่อนเริ่มจริง
+            ตอนนี้ 1/${state.required} คน • ต้องมีอย่างน้อย ${state.required} คน
           </div>
         </div>
 
+        <div class="hydr-room-codebox">
+          <div class="hydr-room-code-label">ROOM CODE</div>
+          <div class="hydr-room-code" id="hydrRoomCodeText">${esc(roomCode)}</div>
+          <div class="hydr-room-sub">ให้เพื่อนเข้า Hydration Arena แล้วใส่รหัสนี้</div>
+        </div>
+
         <div class="hydr-room-linkbox">
-          <strong>ลิงก์ห้องเดียวกัน</strong>
+          <strong>ลิงก์สำรอง</strong>
           <input id="hydrRoomShareLink" readonly value="${esc(shareUrl.toString())}">
-          <div class="hydr-room-sub">ส่งลิงก์นี้ให้เพื่อน แล้วรอจนมีผู้เล่นอย่างน้อย ${state.required} คน</div>
+          <div class="hydr-room-sub">ใช้เมื่อต้องส่งลิงก์ตรงให้เพื่อน</div>
         </div>
 
         <div class="hydr-room-actions">
+          <button class="hydr-room-btn" id="hydrRoomCopyCode" type="button">Copy Code</button>
           <button class="hydr-room-btn" id="hydrRoomCopyLink" type="button">Copy Link</button>
           <button class="hydr-room-btn secondary" id="hydrRoomStartPractice" type="button">ซ้อมคนเดียวชั่วคราว</button>
         </div>
@@ -528,6 +589,22 @@
     `;
 
     document.body.appendChild(overlay);
+
+    $('#hydrRoomCopyCode')?.addEventListener('click', async () => {
+      const code = displayRoomCode();
+      try{
+        await navigator.clipboard.writeText(code);
+        $('#hydrRoomCopyCode').textContent = 'Copied!';
+        setTimeout(() => $('#hydrRoomCopyCode').textContent = 'Copy Code', 1200);
+      }catch(e){
+        const temp = document.createElement('input');
+        temp.value = code;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        temp.remove();
+      }
+    });
 
     $('#hydrRoomCopyLink')?.addEventListener('click', async () => {
       const input = $('#hydrRoomShareLink');
@@ -546,7 +623,7 @@
       state.roomReady = true;
       hideWaitOverlay();
       window.dispatchEvent(new CustomEvent('hha:hydration:room-practice', {
-        detail:{ mode:state.mode, roomId:state.roomId }
+        detail:{ mode:state.mode, roomId:state.roomId, roomCode:displayRoomCode() }
       }));
     });
   }
@@ -565,7 +642,7 @@
     const now = Date.now();
 
     const cleanAll = players
-      .filter(p => now - Number(p.lastSeen || 0) < 12000)
+      .filter(p => now - Number(p.lastSeen || p.lastPingAt || 0) < 12000)
       .sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
 
     const active = cleanAll.slice(0, state.maxPlayers).map((p, index) => {
@@ -589,11 +666,11 @@
     const clean = active;
     state.lastPlayers = clean;
 
-    const meActive = clean.some(p => p.id === state.playerId);
-    const meExists = cleanAll.some(p => p.id === state.playerId);
+    const meActive = clean.some(p => p.id === state.playerId || p.uid === state.uid);
+    const meExists = cleanAll.some(p => p.id === state.playerId || p.uid === state.uid);
 
     if(state.myRef && meActive){
-      const me = clean.find(p => p.id === state.playerId);
+      const me = clean.find(p => p.id === state.playerId || p.uid === state.uid);
       if(me && (me.role !== state.role || Number(me.slot) !== Number(state.slot))){
         state.role = me.role;
         state.slot = me.slot;
@@ -601,7 +678,8 @@
         state.myRef.update({
           role:me.role,
           slot:me.slot,
-          active:true
+          active:true,
+          lastPingAt:Date.now()
         }).catch(() => {});
       }
     }
@@ -610,20 +688,21 @@
       state.myRef.update({
         active:false,
         role:'spectator',
-        slot:state.maxPlayers
+        slot:state.maxPlayers,
+        lastPingAt:Date.now()
       }).catch(() => {});
     }
 
     const html = clean.map(p => {
-      const me = p.id === state.playerId;
-      const rank = getLiveRank(clean, p.id);
+      const me = p.id === state.playerId || p.uid === state.uid;
+      const rank = getLiveRank(clean, p.id || p.uid);
 
       return `
         <div class="hydr-room-player ${me ? 'me' : 'peer'}">
           <div>
             <div class="hydr-room-name">
               ${state.mode === 'race' ? `#${rank} ` : ''}
-              ${me ? 'ฉัน • ' : ''}${esc(p.name || 'Player')}
+              ${me ? 'ฉัน • ' : ''}${esc(p.name || p.displayName || 'Player')}
             </div>
             <div class="hydr-room-role">
               Slot ${Number(p.slot || 0) + 1} • ${esc(roleLabel(p.role, p.slot))}
@@ -671,6 +750,7 @@
         detail:{
           mode:state.mode,
           roomId:state.roomId,
+          roomCode:displayRoomCode(),
           players:clean,
           maxPlayers:state.maxPlayers
         }
@@ -683,8 +763,8 @@
     }
 
     const status = state.dbReady
-      ? `Room: ${state.roomId} • ${ready ? 'พร้อมเล่น' : 'รอเพื่อน'} • ${clean.length}/${state.maxPlayers}`
-      : `Room: ${state.roomId} • offline fallback`;
+      ? `Room Code: ${displayRoomCode()} • ${ready ? 'พร้อมเล่น' : 'รอเพื่อน'} • ${clean.length}/${state.maxPlayers}`
+      : `Room Code: ${displayRoomCode()} • offline fallback`;
 
     setText('hydrRoomStatus', status);
 
@@ -695,7 +775,7 @@
       }else{
         waitSub.textContent = ready
           ? `พร้อมแล้ว มีผู้เล่น ${clean.length}/${state.maxPlayers} คน`
-          : `ตอนนี้มี ${clean.length}/${state.required} คน • ต้องมีอย่างน้อย ${state.required} คน`;
+          : `ตอนนี้ ${clean.length}/${state.required} คน • ต้องมีอย่างน้อย ${state.required} คน`;
       }
     }
 
@@ -705,13 +785,13 @@
   function updateExistingDuetOverlay(players, ready){
     if(state.mode !== 'duet') return;
 
-    const me = players.find(p => p.id === state.playerId);
-    const peer = players.find(p => p.id !== state.playerId);
+    const me = players.find(p => p.id === state.playerId || p.uid === state.uid);
+    const peer = players.find(p => p.id !== state.playerId && p.uid !== state.uid);
 
-    setText('duetGateMeName', me?.name || state.playerName);
+    setText('duetGateMeName', me?.name || me?.displayName || state.playerName);
     setText('duetGateMeState', me ? `${roleLabel(me.role, me.slot)} • พร้อม` : 'กำลังเข้าเกม');
 
-    setText('duetGatePeerName', peer?.name || 'กำลังรอเพื่อน');
+    setText('duetGatePeerName', peer?.name || peer?.displayName || 'กำลังรอเพื่อน');
     setText('duetGatePeerState', peer ? `${roleLabel(peer.role, peer.slot)} • พร้อม` : 'ยังไม่เข้าเกม');
 
     setText('duetGateCountdown', ready ? 'พร้อมแล้ว เริ่มภารกิจคู่หู!' : `รอเพื่อน ${players.length}/${state.required}`);
@@ -729,6 +809,7 @@
     const players = state.lastPlayers.length ? state.lastPlayers : [
       {
         id:state.playerId,
+        uid:state.uid,
         name:state.playerName,
         role:state.role,
         slot:state.slot || 0,
@@ -772,29 +853,32 @@
               ${state.mode === 'battle' ? 'Battle ดูคะแนน + การป้องกัน + พายุ' : ''}
             </div>
           </div>
-          <div class="hydr-room-sub">Room: ${esc(state.roomId)} • ${players.length}/${state.maxPlayers}</div>
+          <div class="hydr-room-sub">Room Code: ${esc(displayRoomCode())} • ${players.length}/${state.maxPlayers}</div>
         </div>
 
         <div class="hydr-room-summary-grid">
-          ${sorted.map((p, idx) => `
-            <div class="hydr-room-summary-player">
-              <div class="name">
-                ${state.mode === 'race' ? `#${idx + 1} ` : ''}
-                ${p.id === state.playerId ? 'ฉัน • ' : ''}${esc(p.name || 'Player')}
+          ${sorted.map((p, idx) => {
+            const me = p.id === state.playerId || p.uid === state.uid;
+            return `
+              <div class="hydr-room-summary-player">
+                <div class="name">
+                  ${state.mode === 'race' ? `#${idx + 1} ` : ''}
+                  ${me ? 'ฉัน • ' : ''}${esc(p.name || p.displayName || 'Player')}
+                </div>
+                <div class="score">${esc(p.score ?? 0)}</div>
+                <div class="meta">
+                  Slot ${Number(p.slot || 0) + 1} • ${esc(roleLabel(p.role, p.slot))}<br>
+                  Water ${esc(p.water ?? 0)}% • Miss ${esc(p.miss ?? 0)} • Grade ${esc(p.grade ?? '-')}
+                </div>
               </div>
-              <div class="score">${esc(p.score ?? 0)}</div>
-              <div class="meta">
-                Slot ${Number(p.slot || 0) + 1} • ${esc(roleLabel(p.role, p.slot))}<br>
-                Water ${esc(p.water ?? 0)}% • Miss ${esc(p.miss ?? 0)} • Grade ${esc(p.grade ?? '-')}
-              </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
 
         <div class="hydr-room-sub">
           ${state.mode === 'coop'
             ? `🤝 Team Result • ผู้เล่น ${players.length} คน • คะแนนรวม ${teamScore} • Water เฉลี่ย ${teamWaterAvg}% • Miss รวม ${teamMiss}`
-            : `🏆 อันดับ 1: ${esc(winner?.name || 'Player')} • ${esc(winner?.score ?? 0)} คะแนน`
+            : `🏆 อันดับ 1: ${esc(winner?.name || winner?.displayName || 'Player')} • ${esc(winner?.score ?? 0)} คะแนน`
           }
         </div>
       </section>
@@ -808,17 +892,17 @@
     }
 
     if(state.mode === 'duet'){
-      const me = players.find(p => p.id === state.playerId);
-      const peer = players.find(p => p.id !== state.playerId);
+      const me = players.find(p => p.id === state.playerId || p.uid === state.uid);
+      const peer = players.find(p => p.id !== state.playerId && p.uid !== state.uid);
 
       const board = document.getElementById('duetEndBoard');
       if(board) board.classList.remove('hidden');
 
-      setText('duetEndMeName', me?.name || 'ฉัน');
+      setText('duetEndMeName', me?.name || me?.displayName || 'ฉัน');
       setText('duetEndMeScore', me?.score ?? 0);
       setText('duetEndMeMeta', `${roleLabel(me?.role, me?.slot)} • Water ${me?.water ?? 0}% • เกรด ${me?.grade ?? '-'}`);
 
-      setText('duetEndPeerName', peer?.name || 'เพื่อน');
+      setText('duetEndPeerName', peer?.name || peer?.displayName || 'เพื่อน');
       setText('duetEndPeerScore', peer?.score ?? 0);
       setText('duetEndPeerMeta', peer
         ? `${roleLabel(peer.role, peer.slot)} • Water ${peer.water ?? 0}% • เกรด ${peer.grade ?? '-'}`
@@ -853,12 +937,15 @@
 
   async function tryAnonAuth(){
     try{
-      if(!window.firebase || !window.firebase.auth) return;
+      if(!window.firebase || !window.firebase.auth) return null;
       const auth = window.firebase.auth();
-      if(auth.currentUser) return;
-      await auth.signInAnonymously();
+      if(!auth.currentUser){
+        await auth.signInAnonymously();
+      }
+      return auth.currentUser;
     }catch(err){
       console.warn('[hydration-room-sync] anonymous auth skipped/failed:', err);
+      return null;
     }
   }
 
@@ -870,22 +957,28 @@
     createWaitOverlay();
     showWaitOverlay();
 
-    await tryAnonAuth();
+    const user = await tryAnonAuth();
+    if(user && user.uid){
+      state.uid = user.uid;
+      state.playerId = user.uid;
+    }
 
     const db = getFirebaseDb();
 
     state.role = inferRole();
 
-    if(!db){
+    if(!db || !state.uid){
       state.dbReady = false;
 
       renderPlayers([{
         id:state.playerId,
+        uid:state.uid || state.playerId,
         name:state.playerName,
         role:state.role,
         slot:0,
         joinedAt:Date.now(),
         lastSeen:Date.now(),
+        lastPingAt:Date.now(),
         ...getStats()
       }]);
 
@@ -894,32 +987,76 @@
 
     state.dbReady = true;
 
-    const roomPath = `herohealth_rooms/hydration/${state.roomId}`;
+    const roomPath = `rooms/hydration/${state.mode}/${state.roomId}`;
     state.ref = db.ref(roomPath);
-    state.myRef = state.ref.child(`players/${state.playerId}`);
+    state.myRef = state.ref.child(`players/${state.uid}`);
+    state.progressRef = state.ref.child(`progress/${state.uid}`);
 
     const firstPayload = {
-      id:state.playerId,
+      uid:state.uid,
+      id:state.uid,
+      pid:qs('pid', 'anon'),
       name:state.playerName,
       role:state.role,
       mode:state.mode,
-      joinedAt:Date.now(),
-      lastSeen:Date.now(),
       ready:true,
       active:true,
-      ...getStats()
+      joinedAt:Date.now(),
+      lastPingAt:Date.now(),
+      lastSeen:Date.now(),
+      slot:0,
+      score:0,
+      water:40,
+      miss:0
     };
 
     try{
-      await state.ref.child('meta').update({
+      const metaRef = state.ref.child('meta');
+
+      const metaPayload = {
+        roomId:state.roomId,
+        game:'hydration',
+        zone:'nutrition',
         mode:state.mode,
-        required:state.required,
-        maxPlayers:state.maxPlayers,
+        hostUid:state.uid,
+        state:'lobby',
+        diff:qs('diff', 'normal'),
+        timeSec:Number(qs('time', 80)) || 80,
+        seed:String(qs('seed', Date.now())),
+        capacity:state.maxPlayers,
+        teamMode:state.mode === 'coop',
+        createdAt:Date.now(),
         updatedAt:Date.now()
-      });
+      };
+
+      const metaSnap = await metaRef.once('value');
+      if(!metaSnap.exists()){
+        await metaRef.set(metaPayload);
+      }else{
+        await metaRef.update({
+          updatedAt:Date.now(),
+          capacity:state.maxPlayers
+        });
+      }
 
       await state.myRef.set(firstPayload);
       state.myRef.onDisconnect().remove();
+
+      await state.progressRef.set({
+        updatedAt:Date.now(),
+        score:0,
+        water:40,
+        miss:0,
+        block:0,
+        combo:0,
+        shield:0,
+        grade:'D',
+        role:state.role,
+        slot:0,
+        active:true
+      });
+      state.progressRef.onDisconnect().remove();
+
     }catch(err){
       console.warn('[hydration-room-sync] write failed:', err);
       state.dbReady = false;
@@ -927,42 +1064,122 @@
       return;
     }
 
-    state.ref.child('players').on('value', snap => {
+    state.ref.child('players').on('value', async snap => {
       const val = snap.val() || {};
       const players = Object.keys(val).map(k => val[k]).filter(Boolean);
-      renderPlayers(players);
+
+      try{
+        const progressSnap = await state.ref.child('progress').once('value');
+        const progressVal = progressSnap.val() || {};
+
+        const merged = players.map(p => ({
+          ...p,
+          ...(progressVal[p.uid] || {})
+        }));
+
+        renderPlayers(merged);
+      }catch(e){
+        renderPlayers(players);
+      }
+    });
+
+    state.ref.child('progress').on('value', snap => {
+      const progressVal = snap.val() || {};
+      const merged = state.lastPlayers.map(p => ({
+        ...p,
+        ...(progressVal[p.uid] || {})
+      }));
+
+      if(merged.length) renderPlayers(merged);
     });
   }
 
   async function publishStats(){
     if(!isMultiplayer()) return;
 
-    const payload = {
-      id:state.playerId,
+    const stats = getStats();
+
+    const playerPayload = {
+      uid:state.uid || state.playerId,
+      id:state.uid || state.playerId,
+      pid:qs('pid', 'anon'),
       name:state.playerName,
       role:state.role || inferRole(),
       slot:state.slot || 0,
       mode:state.mode,
-      lastSeen:Date.now(),
       ready:true,
       active:true,
-      ...getStats()
+      joinedAt:state.startedAt,
+      lastSeen:Date.now(),
+      lastPingAt:Date.now(),
+      score:stats.score,
+      water:stats.water,
+      miss:stats.miss
     };
 
-    if(!state.dbReady || !state.myRef){
-      renderPlayers([payload, ...state.lastPlayers.filter(p => p.id !== state.playerId)]);
+    const progressPayload = {
+      updatedAt:Date.now(),
+      score:stats.score,
+      water:stats.water,
+      miss:stats.miss,
+      expire:stats.expire,
+      block:stats.block,
+      combo:stats.combo,
+      shield:stats.shield,
+      grade:stats.grade,
+      role:state.role || inferRole(),
+      slot:state.slot || 0,
+      active:true
+    };
+
+    if(!state.dbReady || !state.myRef || !state.progressRef){
+      renderPlayers([playerPayload, ...state.lastPlayers.filter(p => p.id !== state.playerId && p.uid !== state.uid)]);
       return;
     }
 
     try{
-      await state.myRef.update(payload);
+      await state.myRef.update(playerPayload);
+      await state.progressRef.update(progressPayload);
     }catch(err){
       console.warn('[hydration-room-sync] publish failed:', err);
     }
   }
 
+  async function publishResultIfEnded(){
+    const end = document.getElementById('end');
+    if(!end || end.getAttribute('aria-hidden') !== 'false') return;
+    if(state.resultPublished) return;
+    if(!state.dbReady || !state.ref || !state.uid) return;
+
+    state.resultPublished = true;
+
+    const stats = getStats();
+
+    try{
+      await state.ref.child(`results/${state.uid}`).set({
+        uid:state.uid,
+        pid:qs('pid', 'anon'),
+        score:stats.score,
+        miss:stats.miss,
+        bestStreak:stats.combo,
+        finished:true,
+        updatedAt:Date.now(),
+        water:stats.water,
+        block:stats.block,
+        combo:stats.combo,
+        shield:stats.shield,
+        grade:stats.grade,
+        role:state.role,
+        slot:state.slot || 0
+      });
+    }catch(err){
+      console.warn('[hydration-room-sync] publish result failed:', err);
+    }
+  }
+
   function tick(){
     publishStats();
+    publishResultIfEnded();
     renderSummary();
   }
 
@@ -976,6 +1193,8 @@
       roleForSlot,
       roleLabel,
       getLiveRank,
+      displayRoomCode,
+      normalizeRoomCode,
       isRoomReady:() => state.roomReady
     };
   }
@@ -995,11 +1214,12 @@
     connectRoom();
     expose();
 
-    setInterval(tick, 800);
+    setInterval(tick, 900);
 
     window.addEventListener('beforeunload', () => {
       try{
         if(state.myRef) state.myRef.remove();
+        if(state.progressRef) state.progressRef.remove();
       }catch(e){}
     });
 
@@ -1007,6 +1227,7 @@
       version:VERSION,
       mode:state.mode,
       roomId:state.roomId,
+      roomCode:displayRoomCode(),
       playerId:state.playerId,
       required:state.required,
       maxPlayers:state.maxPlayers
