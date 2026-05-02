@@ -1,19 +1,22 @@
 // === /herohealth/hydration-vr/hydration-room-sync.js ===
-// PATCH v20260502-HYDRATION-ROOM-SYNC-V3-ROOM-CODE
+// PATCH v20260503-HYDRATION-ROOM-SYNC-V4-CREATE-JOIN-ROOM-CODE
 //
 // ✅ Duet/Battle require 2 active players
 // ✅ Race supports 2–10 active players
 // ✅ Coop supports 2–10 active players
-// ✅ Room Code UI: HYD-482K style
+// ✅ Room Code UI: HYD-7P3A style
+// ✅ Supports roomAction=create / join
 // ✅ Live scoreboard during game
 // ✅ Summary scoreboard for all players
-// ✅ Uses Firebase Realtime Database compat if available
+// ✅ Battle attack events through RTDB rooms/hydration/battle/{roomId}/events
+// ✅ Uses canonical RTDB path: rooms/hydration/{mode}/{roomId}
+// ✅ Uses auth.uid as RTDB player key to match security rules
 // ✅ Safe fallback when Firebase is unavailable
 
 'use strict';
 
 (function HydrationRoomSync(){
-  const VERSION = '20260502-HYDRATION-ROOM-SYNC-V3-ROOM-CODE';
+  const VERSION = '20260503-HYDRATION-ROOM-SYNC-V4-CREATE-JOIN-ROOM-CODE';
 
   const MULTI_MODES = new Set(['duet','race','battle','coop']);
 
@@ -79,9 +82,6 @@
 
   function normalizeRoomCode(v){
     v = String(v || '').trim().toUpperCase();
-
-    if(!v) return '';
-
     v = v.replace(/^HYDR-/, 'HYD-');
 
     if(v.startsWith('HYD-')){
@@ -98,22 +98,68 @@
     return raw ? `HYD-${raw}` : '';
   }
 
-  function displayRoomCode(){
-    return normalizeRoomCode(qs('roomCode', '') || state.roomId || qs('room', '')) || String(state.roomId || '').toUpperCase();
+  function makeFallbackRoomCode(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out = 'HYD-';
+    for(let i = 0; i < 4; i++){
+      out += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return out;
   }
 
-  function makeId(){
+  function makeLocalId(){
     return 'p_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now().toString(36);
   }
 
   function getSessionPlayerId(){
-    const key = 'HHA_HYDRATION_PLAYER_ID_V3';
+    const key = 'HHA_HYDRATION_PLAYER_ID_V4';
     let id = sessionStorage.getItem(key);
     if(!id){
-      id = makeId();
+      id = makeLocalId();
       sessionStorage.setItem(key, id);
     }
     return id;
+  }
+
+  const state = {
+    version:VERSION,
+    mode:normalizeMode(qs('mode', qs('entry', 'solo'))),
+    roomId:normalizeRoomCode(qs('roomCode', '') || qs('room', qs('roomId', ''))),
+    roomAction:String(qs('roomAction', qs('join', '0') === '1' ? 'join' : 'create')).toLowerCase() === 'join' ? 'join' : 'create',
+    playerId:qs('playerId', '') || getSessionPlayerId(),
+    uid:'',
+    playerName:qs('name', qs('nick', 'Hero')) || 'Hero',
+    pid:qs('pid', 'anon') || 'anon',
+    role:'',
+    slot:0,
+    required:1,
+    maxPlayers:1,
+    dbReady:false,
+    roomReady:false,
+    startedAt:Date.now(),
+    lastPlayers:[],
+    resultPublished:false,
+    ref:null,
+    myRef:null,
+    progressRef:null,
+    eventsRef:null,
+    unsubscribed:false
+  };
+
+  state.required = MODE_REQUIRE[state.mode] || 1;
+  state.maxPlayers = MODE_MAX[state.mode] || 1;
+
+  if(!state.roomId){
+    const seed = String(qs('seed', Date.now()));
+    state.roomId = normalizeRoomCode(seed.slice(-4)) || makeFallbackRoomCode();
+  }
+
+  function displayRoomCode(){
+    return normalizeRoomCode(state.roomId || qs('roomCode', '') || qs('room', '')) || String(state.roomId || '').toUpperCase();
+  }
+
+  function isMultiplayer(){
+    return MULTI_MODES.has(state.mode);
   }
 
   function getStats(){
@@ -131,37 +177,6 @@
       grade:String(st.grade ?? text('uiGrade', 'D')),
       timeText:text('uiTime', '00:00')
     };
-  }
-
-  const state = {
-    version:VERSION,
-    mode:normalizeMode(qs('mode', qs('entry', 'solo'))),
-    roomId:normalizeRoomCode(qs('roomCode', '') || qs('room', qs('roomId', ''))),
-    playerId:qs('playerId', '') || getSessionPlayerId(),
-    playerName:qs('name', qs('nick', 'Hero')) || 'Hero',
-    role:'',
-    slot:0,
-    required:1,
-    maxPlayers:1,
-    dbReady:false,
-    roomReady:false,
-    startedAt:Date.now(),
-    lastPlayers:[],
-    ref:null,
-    myRef:null,
-    unsubscribed:false
-  };
-
-  state.required = MODE_REQUIRE[state.mode] || 1;
-  state.maxPlayers = MODE_MAX[state.mode] || 1;
-
-  if(!state.roomId){
-    const seed = qs('seed', Date.now());
-    state.roomId = normalizeRoomCode(String(seed).slice(-4)) || `HYD-${String(seed).slice(-4)}`;
-  }
-
-  function isMultiplayer(){
-    return MULTI_MODES.has(state.mode);
   }
 
   function roleForSlot(mode, slotIndex){
@@ -228,6 +243,10 @@
     return roleForSlot(state.mode, idx);
   }
 
+  function playerKey(p){
+    return p.uid || p.id || p.playerId || '';
+  }
+
   function getLiveRank(players, playerId){
     const sorted = [...players].sort((a,b) => {
       const bw = Number(b.water || 0);
@@ -241,7 +260,7 @@
       return Number(a.miss || 0) - Number(b.miss || 0);
     });
 
-    const idx = sorted.findIndex(p => p.id === playerId);
+    const idx = sorted.findIndex(p => playerKey(p) === playerId);
     return idx >= 0 ? idx + 1 : '-';
   }
 
@@ -547,6 +566,8 @@
     shareUrl.searchParams.set('room', roomCode);
     shareUrl.searchParams.set('roomCode', roomCode);
     shareUrl.searchParams.set('multiplayer', '1');
+    shareUrl.searchParams.set('join', '1');
+    shareUrl.searchParams.set('roomAction', 'join');
 
     const overlay = document.createElement('div');
     overlay.id = 'hydrRoomWait';
@@ -650,6 +671,7 @@
       const role = roleForSlot(state.mode, slot);
       return {
         ...p,
+        id:p.id || p.uid,
         slot,
         role,
         active:true
@@ -658,6 +680,7 @@
 
     const overflow = cleanAll.slice(state.maxPlayers).map((p, index) => ({
       ...p,
+      id:p.id || p.uid,
       slot:state.maxPlayers + index,
       role:'spectator',
       active:false
@@ -666,11 +689,12 @@
     const clean = active;
     state.lastPlayers = clean;
 
-    const meActive = clean.some(p => p.id === state.playerId || p.uid === state.uid);
-    const meExists = cleanAll.some(p => p.id === state.playerId || p.uid === state.uid);
+    const myKey = state.uid || state.playerId;
+    const meActive = clean.some(p => playerKey(p) === myKey);
+    const meExists = cleanAll.some(p => playerKey(p) === myKey);
 
     if(state.myRef && meActive){
-      const me = clean.find(p => p.id === state.playerId || p.uid === state.uid);
+      const me = clean.find(p => playerKey(p) === myKey);
       if(me && (me.role !== state.role || Number(me.slot) !== Number(state.slot))){
         state.role = me.role;
         state.slot = me.slot;
@@ -694,8 +718,8 @@
     }
 
     const html = clean.map(p => {
-      const me = p.id === state.playerId || p.uid === state.uid;
-      const rank = getLiveRank(clean, p.id || p.uid);
+      const me = playerKey(p) === myKey;
+      const rank = getLiveRank(clean, playerKey(p));
 
       return `
         <div class="hydr-room-player ${me ? 'me' : 'peer'}">
@@ -785,8 +809,9 @@
   function updateExistingDuetOverlay(players, ready){
     if(state.mode !== 'duet') return;
 
-    const me = players.find(p => p.id === state.playerId || p.uid === state.uid);
-    const peer = players.find(p => p.id !== state.playerId && p.uid !== state.uid);
+    const myKey = state.uid || state.playerId;
+    const me = players.find(p => playerKey(p) === myKey);
+    const peer = players.find(p => playerKey(p) !== myKey);
 
     setText('duetGateMeName', me?.name || me?.displayName || state.playerName);
     setText('duetGateMeState', me ? `${roleLabel(me.role, me.slot)} • พร้อม` : 'กำลังเข้าเกม');
@@ -841,6 +866,8 @@
     );
     const teamMiss = players.reduce((sum,p) => sum + Number(p.miss || 0), 0);
 
+    const myKey = state.uid || state.playerId;
+
     const html = `
       <section id="hydrRoomSummary" class="hydr-room-summary">
         <div class="hydr-room-head">
@@ -858,7 +885,7 @@
 
         <div class="hydr-room-summary-grid">
           ${sorted.map((p, idx) => {
-            const me = p.id === state.playerId || p.uid === state.uid;
+            const me = playerKey(p) === myKey;
             return `
               <div class="hydr-room-summary-player">
                 <div class="name">
@@ -892,8 +919,8 @@
     }
 
     if(state.mode === 'duet'){
-      const me = players.find(p => p.id === state.playerId || p.uid === state.uid);
-      const peer = players.find(p => p.id !== state.playerId && p.uid !== state.uid);
+      const me = players.find(p => playerKey(p) === myKey);
+      const peer = players.find(p => playerKey(p) !== myKey);
 
       const board = document.getElementById('duetEndBoard');
       if(board) board.classList.remove('hidden');
@@ -973,6 +1000,7 @@
       renderPlayers([{
         id:state.playerId,
         uid:state.uid || state.playerId,
+        pid:state.pid,
         name:state.playerName,
         role:state.role,
         slot:0,
@@ -991,20 +1019,21 @@
     state.ref = db.ref(roomPath);
     state.myRef = state.ref.child(`players/${state.uid}`);
     state.progressRef = state.ref.child(`progress/${state.uid}`);
+    state.eventsRef = state.ref.child('events');
 
     const firstPayload = {
       uid:state.uid,
       id:state.uid,
-      pid:qs('pid', 'anon'),
+      pid:state.pid,
       name:state.playerName,
-      role:state.role,
-      mode:state.mode,
       ready:true,
-      active:true,
+      role:state.role,
       joinedAt:Date.now(),
       lastPingAt:Date.now(),
       lastSeen:Date.now(),
+      active:true,
       slot:0,
+      mode:state.mode,
       score:0,
       water:40,
       miss:0
@@ -1030,13 +1059,9 @@
       };
 
       const metaSnap = await metaRef.once('value');
+
       if(!metaSnap.exists()){
         await metaRef.set(metaPayload);
-      }else{
-        await metaRef.update({
-          updatedAt:Date.now(),
-          capacity:state.maxPlayers
-        });
       }
 
       await state.myRef.set(firstPayload);
@@ -1092,6 +1117,64 @@
 
       if(merged.length) renderPlayers(merged);
     });
+
+    state.eventsRef.limitToLast(30).on('child_added', snap => {
+      const ev = snap.val();
+      if(!ev || !ev.type) return;
+      if(Number(ev.createdAt || 0) < state.startedAt - 2500) return;
+      if(ev.fromUid && ev.fromUid === state.uid) return;
+
+      handleRoomEvent(ev);
+    });
+  }
+
+  function handleRoomEvent(ev){
+    if(ev.type === 'battle_attack'){
+      const attackId = ev.attackId || ev.payload?.attackId || '';
+      const attack = ev.payload?.attack || null;
+
+      if(window.HHAHydrationModes && typeof window.HHAHydrationModes.showAttackVfx === 'function'){
+        window.HHAHydrationModes.showAttackVfx(attackId, attack || {
+          icon:'🌩️',
+          name:attackId || 'Storm Attack',
+          durationMs:4200
+        });
+      }
+
+      if(window.HHAHydrationModes && typeof window.HHAHydrationModes.ribbon === 'function'){
+        window.HHAHydrationModes.ribbon(`🌩️ ได้รับพายุจากคู่แข่ง: ${attack?.name || attackId}`);
+      }
+    }
+  }
+
+  async function publishBattleAttack(detail){
+    if(!state.dbReady || !state.eventsRef || !state.uid) return;
+    if(state.mode !== 'battle') return;
+
+    const attackId = detail?.id || detail?.attack?.id || '';
+    const attack = detail?.attack || {};
+
+    try{
+      await state.eventsRef.push({
+        type:'battle_attack',
+        fromUid:state.uid,
+        fromName:state.playerName,
+        attackId,
+        createdAt:Date.now(),
+        payload:{
+          attackId,
+          attack:{
+            icon:attack.icon || '🌩️',
+            name:attack.name || attackId || 'Storm Attack',
+            desc:attack.desc || '',
+            durationMs:Number(attack.durationMs || 4200),
+            effectClass:attack.effectClass || ''
+          }
+        }
+      });
+    }catch(err){
+      console.warn('[hydration-room-sync] publish battle attack failed:', err);
+    }
   }
 
   async function publishStats(){
@@ -1102,16 +1185,16 @@
     const playerPayload = {
       uid:state.uid || state.playerId,
       id:state.uid || state.playerId,
-      pid:qs('pid', 'anon'),
+      pid:state.pid,
       name:state.playerName,
+      ready:true,
       role:state.role || inferRole(),
+      joinedAt:state.startedAt,
+      lastPingAt:Date.now(),
+      lastSeen:Date.now(),
+      active:true,
       slot:state.slot || 0,
       mode:state.mode,
-      ready:true,
-      active:true,
-      joinedAt:state.startedAt,
-      lastSeen:Date.now(),
-      lastPingAt:Date.now(),
       score:stats.score,
       water:stats.water,
       miss:stats.miss
@@ -1133,7 +1216,7 @@
     };
 
     if(!state.dbReady || !state.myRef || !state.progressRef){
-      renderPlayers([playerPayload, ...state.lastPlayers.filter(p => p.id !== state.playerId && p.uid !== state.uid)]);
+      renderPlayers([playerPayload, ...state.lastPlayers.filter(p => playerKey(p) !== playerKey(playerPayload))]);
       return;
     }
 
@@ -1158,7 +1241,7 @@
     try{
       await state.ref.child(`results/${state.uid}`).set({
         uid:state.uid,
-        pid:qs('pid', 'anon'),
+        pid:state.pid,
         score:stats.score,
         miss:stats.miss,
         bestStreak:stats.combo,
@@ -1190,6 +1273,7 @@
       getStats,
       renderPlayers,
       publishStats,
+      publishBattleAttack,
       roleForSlot,
       roleLabel,
       getLiveRank,
@@ -1216,6 +1300,10 @@
 
     setInterval(tick, 900);
 
+    window.addEventListener('hha:hydration:battle-attack', ev => {
+      publishBattleAttack(ev.detail || {});
+    });
+
     window.addEventListener('beforeunload', () => {
       try{
         if(state.myRef) state.myRef.remove();
@@ -1228,6 +1316,7 @@
       mode:state.mode,
       roomId:state.roomId,
       roomCode:displayRoomCode(),
+      roomAction:state.roomAction,
       playerId:state.playerId,
       required:state.required,
       maxPlayers:state.maxPlayers
