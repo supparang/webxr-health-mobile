@@ -275,28 +275,35 @@
 
   </main>
 
-  <!-- =====================================================
-       MODULES: โหลดเฉพาะไฟล์ที่มีจริงใน /vocab/
-       สำคัญ: ห้ามเรียก vocab.banks.js / vocab.stages.js / vocab.questions.js
-       เพราะ repo ตอนนี้ไม่มีไฟล์พวกนั้น
-  ====================================================== -->
+ <!-- =========================
+     VOCAB SPLIT MODULES
+     Order is important
+========================= -->
 
-  <script src="./vocab/vocab.config.js?v=20260502c"></script>
-  <script src="./vocab/vocab.data.js?v=20260502c"></script>
+  <script src="./vocab/vocab.config.js?v=20260502d"></script>
 
-  <script src="./vocab/vocab.utils.js?v=20260502c"></script>
-  <script src="./vocab/vocab.state.js?v=20260502c"></script>
-  <script src="./vocab/vocab.storage.js?v=20260502c"></script>
-  <script src="./vocab/vocab.logger.js?v=20260502c"></script>
+<!-- 1) Core utilities ต้องมาก่อนทุกไฟล์ที่เรียกใช้ VocabUtils -->
+  <script src="./vocab/vocab.utils.js?v=20260502d"></script>
 
-  <script src="./vocab/vocab.question.js?v=20260502c"></script>
-  <script src="./vocab/vocab.ui.js?v=20260502c"></script>
-  <script src="./vocab/vocab.game.js?v=20260502c"></script>
-  <script src="./vocab/vocab.reward.js?v=20260502c"></script>
+<!-- 2) Data depends on VocabUtils -->
+  <script src="./vocab/vocab.data.js?v=20260502d"></script>
 
-  <script src="./vocab/vocab.guard.js?v=20260502c"></script>
-  <script src="./vocab/vocab.endpoint-test.js?v=20260502c"></script>
+<!-- 3) Core services -->
+  <script src="./vocab/vocab.state.js?v=20260502d"></script>
+  <script src="./vocab/vocab.storage.js?v=20260502d"></script>
+  <script src="./vocab/vocab.logger.js?v=20260502d"></script>
 
-  <script src="./vocab/vocab.boot.js?v=20260502c"></script>
+<!-- 4) Game modules -->
+  <script src="./vocab/vocab.question.js?v=20260502d"></script>
+  <script src="./vocab/vocab.ui.js?v=20260502d"></script>
+  <script src="./vocab/vocab.game.js?v=20260502d"></script>
+  <script src="./vocab/vocab.reward.js?v=20260502d"></script>
+
+<!-- 5) Optional / after core -->
+  <script src="./vocab/vocab.guard.js?v=20260502d"></script>
+  <script src="./vocab/vocab.endpoint-test.js?v=20260502d"></script>
+
+<!-- 6) Boot ต้องอยู่ท้ายสุดเสมอ -->
+  <script src="./vocab/vocab.boot.js?v=20260502d"></script>
 </body>
 </html>
