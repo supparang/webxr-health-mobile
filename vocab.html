@@ -274,119 +274,22 @@
 
   </main>
 
-<script src="./vocab/vocab.config.js?v=20260503c"></script>
-<script src="./vocab/vocab.utils.js?v=20260503c"></script>
-<script src="./vocab/vocab.data.js?v=20260503c"></script>
+<script src="./vocab/vocab.config.js?v=20260503d"></script>
+<script src="./vocab/vocab.utils.js?v=20260503d"></script>
+<script src="./vocab/vocab.data.js?v=20260503d"></script>
 
-<script src="./vocab/vocab.state.js?v=20260503c"></script>
-<script src="./vocab/vocab.storage.js?v=20260503c"></script>
+<script src="./vocab/vocab.state.js?v=20260503d"></script>
+<script src="./vocab/vocab.storage.js?v=20260503d"></script>
+<script src="./vocab/vocab.emergency-shim.js?v=20260503d"></script>
+<script src="./vocab/vocab.logger.js?v=20260503d"></script>
 
-<script>
-/* =========================================================
-   VOCAB EMERGENCY STORAGE SHIM
-   Fix pushLocalQueue missing before logger loads
-========================================================= */
-(function(){
-  "use strict";
+<script src="./vocab/vocab.question.js?v=20260503d"></script>
+<script src="./vocab/vocab.ui.js?v=20260503d"></script>
+<script src="./vocab/vocab.game.js?v=20260503d"></script>
+<script src="./vocab/vocab.reward.js?v=20260503d"></script>
 
-  window.VocabStorage = window.VocabStorage || {};
-
-  function readJson(key, fallback){
-    try{
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    }catch(e){
-      return fallback;
-    }
-  }
-
-  function writeJson(key, value){
-    try{
-      localStorage.setItem(key, JSON.stringify(value));
-      return true;
-    }catch(e){
-      console.warn("[VOCAB SHIM] write failed", e);
-      return false;
-    }
-  }
-
-  const QUEUE_KEY = "VOCAB_SPLIT_LOG_QUEUE";
-  const PROFILE_KEY = "VOCAB_SPLIT_STUDENT_PROFILE";
-
-  if(typeof window.VocabStorage.pushLocalQueue !== "function"){
-    window.VocabStorage.pushLocalQueue = function(payload){
-      const q = readJson(QUEUE_KEY, []);
-      q.push({
-        ...(payload || {}),
-        queued_at: new Date().toISOString()
-      });
-      writeJson(QUEUE_KEY, q.slice(-900));
-      return q;
-    };
-  }
-
-  if(typeof window.VocabStorage.readLocalQueue !== "function"){
-    window.VocabStorage.readLocalQueue = function(){
-      const q = readJson(QUEUE_KEY, []);
-      return Array.isArray(q) ? q : [];
-    };
-  }
-
-  if(typeof window.VocabStorage.saveLocalQueue !== "function"){
-    window.VocabStorage.saveLocalQueue = function(list){
-      return writeJson(QUEUE_KEY, Array.isArray(list) ? list.slice(-900) : []);
-    };
-  }
-
-  if(typeof window.VocabStorage.loadStudentProfile !== "function"){
-    window.VocabStorage.loadStudentProfile = function(){
-      const saved = readJson(PROFILE_KEY, {});
-      return {
-        display_name: saved.display_name || "",
-        student_id: saved.student_id || "",
-        section: saved.section || "",
-        session_code: saved.session_code || ""
-      };
-    };
-  }
-
-  if(typeof window.VocabStorage.saveStudentProfile !== "function"){
-    window.VocabStorage.saveStudentProfile = function(profile){
-      const old = window.VocabStorage.loadStudentProfile();
-      const next = {
-        ...old,
-        ...(profile || {}),
-        saved_at: new Date().toISOString()
-      };
-      writeJson(PROFILE_KEY, next);
-      return next;
-    };
-  }
-
-  if(typeof window.VocabStorage.getStudentContext !== "function"){
-    window.VocabStorage.getStudentContext = function(){
-      return window.VocabStorage.loadStudentProfile();
-    };
-  }
-
-  console.log("[VOCAB SHIM] storage compatibility ready", {
-    pushLocalQueue: typeof window.VocabStorage.pushLocalQueue,
-    loadStudentProfile: typeof window.VocabStorage.loadStudentProfile
-  });
-})();
-</script>
-
-<script src="./vocab/vocab.logger.js?v=20260503c"></script>
-<script src="./vocab/vocab.logger.js?v=20260503c"></script>
-
-<script src="./vocab/vocab.question.js?v=20260503c"></script>
-<script src="./vocab/vocab.ui.js?v=20260503c"></script>
-<script src="./vocab/vocab.game.js?v=20260503c"></script>
-<script src="./vocab/vocab.reward.js?v=20260503c"></script>
-
-<script src="./vocab/vocab.guard.js?v=20260503c"></script>
-<script src="./vocab/vocab.endpoint-test.js?v=20260503c"></script>
-
-<script src="./vocab/vocab.boot.js?v=20260503c"></script>
+<script src="./vocab/vocab.guard.js?v=20260503d"></script>
+<script src="./vocab/vocab.endpoint-test.js?v=20260503d"></script>
+<script src="./vocab/vocab.boot.js?v=20260503d"></script>>
 </body>
 </html>
