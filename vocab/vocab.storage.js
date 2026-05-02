@@ -1,210 +1,170 @@
 /* =========================================================
    /vocab/vocab.storage.js
-   TechPath Vocab Arena — Storage Module
-   Version: 20260503b
+   TechPath Vocab Arena — Storage / Local Profile / Queue
+   PATCH: v20260503c
    Fix:
-   - เพิ่ม loadStudentProfile() ให้ logger เรียกได้
-   - เพิ่ม saveStudentProfile()
-   - เพิ่ม getStudentContext()
-   - รองรับ localStorage key เดิม/ใหม่
-   - export: window.VocabStorage
-========================================================= */
+   - add loadStudentProfile()
+   - add pushLocalQueue() alias for logger
+   - add compatibility aliases for old split modules
+   - safe localStorage read/write
+   ========================================================= */
+
 (function(){
   "use strict";
 
   const WIN = window;
-  const LS = window.localStorage;
+  const DOC = document;
 
-  const STORAGE_VERSION = "vocab-storage-20260503b";
+  const STORAGE_VERSION = "vocab-storage-v20260503c";
+
+  if(!WIN.VocabUtils){
+    console.error("[VOCAB STORAGE] VocabUtils is not defined. Load vocab.utils.js first");
+  }
+
+  const U = WIN.VocabUtils || {};
 
   const KEYS = {
-    studentProfile: "VOCAB_STUDENT_PROFILE",
-    studentProfileLegacy: "VOCAB_V71_STUDENT_PROFILE",
-    leaderboard: "VOCAB_LEADERBOARD",
-    leaderboardLegacy: "VOCAB_V71_LEADERBOARD",
-    lastSummary: "VOCAB_LAST_SUMMARY",
-    lastSummaryLegacy: "VOCAB_V70_LAST_SUMMARY",
-    logQueue: "VOCAB_LOG_QUEUE",
-    logQueueLegacy: "VOCAB_V71_LOG_QUEUE",
-    settings: "VOCAB_SETTINGS"
+    profile: "VOCAB_SPLIT_STUDENT_PROFILE",
+    leaderboard: "VOCAB_SPLIT_LEADERBOARD",
+    logQueue: "VOCAB_SPLIT_LOG_QUEUE",
+    lastSummary: "VOCAB_SPLIT_LAST_SUMMARY",
+    settings: "VOCAB_SPLIT_SETTINGS"
   };
+
+  /* =========================================================
+     BASIC SAFE STORAGE
+  ========================================================= */
 
   function safeReadJson(key, fallback){
     try{
-      const raw = LS.getItem(key);
+      const raw = localStorage.getItem(key);
       if(!raw) return fallback;
-      const parsed = JSON.parse(raw);
-      return parsed == null ? fallback : parsed;
+      return JSON.parse(raw);
     }catch(err){
-      console.warn("[VOCAB STORAGE] read failed", key, err);
+      console.warn("[VOCAB STORAGE] read json failed:", key, err);
       return fallback;
     }
   }
 
   function safeWriteJson(key, value){
     try{
-      LS.setItem(key, JSON.stringify(value));
+      localStorage.setItem(key, JSON.stringify(value));
       return true;
     }catch(err){
-      console.warn("[VOCAB STORAGE] write failed", key, err);
+      console.warn("[VOCAB STORAGE] write json failed:", key, err);
       return false;
     }
   }
 
   function safeRemove(key){
     try{
-      LS.removeItem(key);
+      localStorage.removeItem(key);
       return true;
     }catch(err){
+      console.warn("[VOCAB STORAGE] remove failed:", key, err);
       return false;
     }
   }
 
-  function getParam(name, fallback = ""){
+  function safeText(v, fallback = ""){
+    if(U.safeText) return U.safeText(v, fallback);
+    const s = String(v ?? "").trim();
+    return s || fallback;
+  }
+
+  function qsParam(name, fallback = ""){
     try{
-      const url = new URL(location.href);
-      return url.searchParams.get(name) || fallback;
-    }catch(err){
+      const p = new URLSearchParams(location.search);
+      return p.get(name) || fallback;
+    }catch(e){
       return fallback;
     }
   }
 
-  function normalizeStudentProfile(input){
-    input = input || {};
-
-    const displayName =
-      input.display_name ||
-      input.displayName ||
-      input.name ||
-      input.nick ||
-      "";
-
-    const studentId =
-      input.student_id ||
-      input.studentId ||
-      input.sid ||
-      input.pid ||
-      "";
-
-    const section =
-      input.section ||
-      input.classSection ||
-      "";
-
-    const sessionCode =
-      input.session_code ||
-      input.sessionCode ||
-      input.studyId ||
-      "";
-
-    return {
-      display_name: String(displayName || "").trim(),
-      student_id: String(studentId || "").trim(),
-      section: String(section || "").trim(),
-      session_code: String(sessionCode || "").trim(),
-      saved_at: input.saved_at || input.savedAt || "",
-      last_profile: input.last_profile || input.lastProfile || null
-    };
+  function byId(id){
+    return DOC.getElementById(id);
   }
+
+  /* =========================================================
+     STUDENT PROFILE
+  ========================================================= */
 
   function readStudentInputs(){
-    const ids = {
-      display_name: ["vocabDisplayName", "v63DisplayName"],
-      student_id: ["vocabStudentId", "v63StudentId"],
-      section: ["vocabSection", "v63Section"],
-      session_code: ["vocabSessionCode", "v63SessionCode"]
+    return {
+      display_name: safeText(byId("vocabDisplayName")?.value),
+      student_id: safeText(byId("vocabStudentId")?.value),
+      section: safeText(byId("vocabSection")?.value),
+      session_code: safeText(byId("vocabSessionCode")?.value)
     };
-
-    const out = {};
-
-    Object.keys(ids).forEach(key => {
-      const found = ids[key]
-        .map(id => document.getElementById(id))
-        .find(Boolean);
-
-      out[key] = found ? String(found.value || "").trim() : "";
-    });
-
-    return out;
   }
 
-  function writeStudentInputs(profile){
-    profile = normalizeStudentProfile(profile);
-
+  function writeStudentInputs(profile = {}){
     const map = {
-      vocabDisplayName: profile.display_name,
-      v63DisplayName: profile.display_name,
-
-      vocabStudentId: profile.student_id,
-      v63StudentId: profile.student_id,
-
-      vocabSection: profile.section,
-      v63Section: profile.section,
-
-      vocabSessionCode: profile.session_code,
-      v63SessionCode: profile.session_code
+      vocabDisplayName: profile.display_name || profile.name || "",
+      vocabStudentId: profile.student_id || profile.sid || profile.pid || "",
+      vocabSection: profile.section || "",
+      vocabSessionCode: profile.session_code || profile.sessionCode || profile.studyId || ""
     };
 
     Object.entries(map).forEach(([id, value]) => {
-      const el = document.getElementById(id);
-      if(el && !String(el.value || "").trim()){
-        el.value = value || "";
+      const el = byId(id);
+      if(el && value !== undefined && value !== null){
+        el.value = String(value);
       }
     });
   }
 
   function loadStudentProfile(){
-    const savedNew = safeReadJson(KEYS.studentProfile, null);
-    const savedOld = safeReadJson(KEYS.studentProfileLegacy, null);
+    const saved = safeReadJson(KEYS.profile, {}) || {};
 
-    const saved = savedNew || savedOld || {};
-
-    const fromUrl = {
+    return {
       display_name:
-        getParam("name") ||
-        getParam("nick") ||
-        getParam("display_name"),
+        qsParam("name") ||
+        qsParam("nick") ||
+        saved.display_name ||
+        saved.name ||
+        "",
 
       student_id:
-        getParam("student_id") ||
-        getParam("sid") ||
-        getParam("pid"),
+        qsParam("student_id") ||
+        qsParam("sid") ||
+        qsParam("pid") ||
+        saved.student_id ||
+        saved.sid ||
+        saved.pid ||
+        "",
 
       section:
-        getParam("section"),
+        qsParam("section") ||
+        saved.section ||
+        "",
 
       session_code:
-        getParam("session_code") ||
-        getParam("studyId")
+        qsParam("session_code") ||
+        qsParam("studyId") ||
+        saved.session_code ||
+        saved.sessionCode ||
+        saved.studyId ||
+        ""
     };
-
-    const merged = normalizeStudentProfile({
-      ...saved,
-      ...Object.fromEntries(
-        Object.entries(fromUrl).filter(([,v]) => String(v || "").trim())
-      )
-    });
-
-    return merged;
   }
 
-  function saveStudentProfile(profile){
+  function saveStudentProfile(profile = {}){
     const current = loadStudentProfile();
-    const input = normalizeStudentProfile(profile || {});
-    const merged = normalizeStudentProfile({
+
+    const next = {
       ...current,
-      ...input,
-      saved_at: new Date().toISOString()
-    });
+      ...profile,
+      display_name: safeText(profile.display_name ?? profile.name ?? current.display_name),
+      student_id: safeText(profile.student_id ?? profile.sid ?? profile.pid ?? current.student_id),
+      section: safeText(profile.section ?? current.section),
+      session_code: safeText(profile.session_code ?? profile.sessionCode ?? profile.studyId ?? current.session_code),
+      saved_at: new Date().toISOString(),
+      storage_version: STORAGE_VERSION
+    };
 
-    safeWriteJson(KEYS.studentProfile, merged);
-
-    /*
-      เขียน key เดิมด้วย เพื่อให้ module เก่าที่ยังอ่าน VOCAB_V71_STUDENT_PROFILE ไม่พัง
-    */
-    safeWriteJson(KEYS.studentProfileLegacy, merged);
-
-    return merged;
+    safeWriteJson(KEYS.profile, next);
+    return next;
   }
 
   function hydrateStudentForm(){
@@ -213,170 +173,270 @@
     return profile;
   }
 
+  function saveStudentContextFromForm(){
+    const inputs = readStudentInputs();
+
+    const profile = saveStudentProfile({
+      display_name: inputs.display_name || qsParam("name") || qsParam("nick") || "Hero",
+      student_id: inputs.student_id || qsParam("student_id") || qsParam("sid") || qsParam("pid") || "anon",
+      section: inputs.section || qsParam("section") || "",
+      session_code: inputs.session_code || qsParam("session_code") || qsParam("studyId") || ""
+    });
+
+    return profile;
+  }
+
   function getStudentContext(){
     const saved = loadStudentProfile();
     const inputs = readStudentInputs();
 
-    const merged = normalizeStudentProfile({
-      ...saved,
-      ...Object.fromEntries(
-        Object.entries(inputs).filter(([,v]) => String(v || "").trim())
-      )
-    });
-
     return {
-      display_name: merged.display_name || "Hero",
-      student_id: merged.student_id || "anon",
-      section: merged.section || "",
-      session_code: merged.session_code || ""
+      display_name:
+        inputs.display_name ||
+        saved.display_name ||
+        qsParam("name") ||
+        qsParam("nick") ||
+        "Hero",
+
+      student_id:
+        inputs.student_id ||
+        saved.student_id ||
+        qsParam("student_id") ||
+        qsParam("sid") ||
+        qsParam("pid") ||
+        "anon",
+
+      section:
+        inputs.section ||
+        saved.section ||
+        qsParam("section") ||
+        "",
+
+      session_code:
+        inputs.session_code ||
+        saved.session_code ||
+        qsParam("session_code") ||
+        qsParam("studyId") ||
+        ""
     };
   }
 
-  function saveStudentContextFromForm(){
-    return saveStudentProfile(readStudentInputs());
+  /* =========================================================
+     LEADERBOARD
+  ========================================================= */
+
+  function defaultLeaderboard(){
+    return {
+      learn: [],
+      speed: [],
+      mission: [],
+      battle: [],
+      bossrush: []
+    };
   }
 
   function readLeaderboard(){
-    const board =
-      safeReadJson(KEYS.leaderboard, null) ||
-      safeReadJson(KEYS.leaderboardLegacy, null) ||
-      {};
+    const board = safeReadJson(KEYS.leaderboard, defaultLeaderboard()) || defaultLeaderboard();
 
-    return {
-      learn: Array.isArray(board.learn) ? board.learn : [],
-      speed: Array.isArray(board.speed) ? board.speed : [],
-      mission: Array.isArray(board.mission) ? board.mission : [],
-      battle: Array.isArray(board.battle) ? board.battle : [],
-      bossrush: Array.isArray(board.bossrush) ? board.bossrush : []
-    };
-  }
-
-  function saveLeaderboard(board){
-    const clean = {
-      learn: Array.isArray(board?.learn) ? board.learn : [],
-      speed: Array.isArray(board?.speed) ? board.speed : [],
-      mission: Array.isArray(board?.mission) ? board.mission : [],
-      battle: Array.isArray(board?.battle) ? board.battle : [],
-      bossrush: Array.isArray(board?.bossrush) ? board.bossrush : []
-    };
-
-    safeWriteJson(KEYS.leaderboard, clean);
-    safeWriteJson(KEYS.leaderboardLegacy, clean);
-
-    return clean;
-  }
-
-  function addLeaderboardEntry(mode, entry, maxRows = 30){
-    mode = String(mode || "learn").toLowerCase();
-
-    const board = readLeaderboard();
-
-    if(!Array.isArray(board[mode])){
-      board[mode] = [];
-    }
-
-    board[mode].push({
-      ...entry,
-      timestamp: entry.timestamp || new Date().toISOString()
+    ["learn", "speed", "mission", "battle", "bossrush"].forEach(mode => {
+      if(!Array.isArray(board[mode])) board[mode] = [];
     });
-
-    board[mode].sort((a,b) => {
-      const scoreA = Number(a.fair_score || a.score || 0);
-      const scoreB = Number(b.fair_score || b.score || 0);
-
-      if(scoreB !== scoreA) return scoreB - scoreA;
-
-      const accA = Number(a.accuracy || 0);
-      const accB = Number(b.accuracy || 0);
-
-      if(accB !== accA) return accB - accA;
-
-      return Number(b.combo_max || b.comboMax || 0) - Number(a.combo_max || a.comboMax || 0);
-    });
-
-    board[mode] = board[mode].slice(0, maxRows);
-
-    saveLeaderboard(board);
 
     return board;
   }
 
-  function saveLastSummary(summary){
-    const payload = {
-      saved_at: new Date().toISOString(),
-      ...summary
+  function saveLeaderboard(board){
+    return safeWriteJson(KEYS.leaderboard, board || defaultLeaderboard());
+  }
+
+  function addLeaderboardEntry(mode, entry, maxRows = 30){
+    mode = safeText(mode, "learn");
+
+    const board = readLeaderboard();
+    if(!Array.isArray(board[mode])) board[mode] = [];
+
+    board[mode].push({
+      ...entry,
+      saved_at: new Date().toISOString()
+    });
+
+    board[mode].sort((a, b) => {
+      const sa = Number(a.fair_score ?? a.score ?? 0);
+      const sb = Number(b.fair_score ?? b.score ?? 0);
+      if(sb !== sa) return sb - sa;
+
+      const aa = Number(a.accuracy ?? 0);
+      const ab = Number(b.accuracy ?? 0);
+      if(ab !== aa) return ab - aa;
+
+      return Number(b.combo_max ?? b.comboMax ?? 0) - Number(a.combo_max ?? a.comboMax ?? 0);
+    });
+
+    board[mode] = board[mode].slice(0, maxRows);
+    saveLeaderboard(board);
+
+    const sessionId = entry.session_id || entry.sessionId || "";
+    const rank = sessionId
+      ? board[mode].findIndex(x => String(x.session_id || x.sessionId || "") === String(sessionId)) + 1
+      : board[mode].indexOf(entry) + 1;
+
+    return {
+      board,
+      rows: board[mode],
+      rank: rank > 0 ? rank : "",
+      topScore: board[mode][0] ? Number(board[mode][0].fair_score ?? board[mode][0].score ?? 0) : 0
     };
-
-    safeWriteJson(KEYS.lastSummary, payload);
-    safeWriteJson(KEYS.lastSummaryLegacy, payload);
-
-    return payload;
   }
 
-  function loadLastSummary(){
-    return (
-      safeReadJson(KEYS.lastSummary, null) ||
-      safeReadJson(KEYS.lastSummaryLegacy, null)
-    );
-  }
+  /* =========================================================
+     LOG QUEUE
+  ========================================================= */
 
   function readLogQueue(){
-    const q =
-      safeReadJson(KEYS.logQueue, null) ||
-      safeReadJson(KEYS.logQueueLegacy, null) ||
-      [];
-
-    return Array.isArray(q) ? q : [];
+    const list = safeReadJson(KEYS.logQueue, []);
+    return Array.isArray(list) ? list : [];
   }
 
-  function saveLogQueue(queue){
-    const clean = Array.isArray(queue) ? queue.slice(-900) : [];
-    safeWriteJson(KEYS.logQueue, clean);
-    safeWriteJson(KEYS.logQueueLegacy, clean);
-    return clean;
+  function saveLogQueue(list){
+    const clean = Array.isArray(list) ? list.slice(-900) : [];
+    return safeWriteJson(KEYS.logQueue, clean);
   }
 
   function pushLog(payload){
     const queue = readLogQueue();
+
     queue.push({
-      queued_at: new Date().toISOString(),
-      ...payload
+      ...payload,
+      queued_at: payload?.queued_at || new Date().toISOString()
     });
-    return saveLogQueue(queue);
+
+    saveLogQueue(queue);
+    return queue;
   }
 
   function clearLogQueue(){
-    safeRemove(KEYS.logQueue);
-    safeRemove(KEYS.logQueueLegacy);
-    return true;
+    return saveLogQueue([]);
   }
+
+  /* =========================================================
+     SUMMARY
+  ========================================================= */
+
+  function saveLastSummary(summary){
+    const payload = {
+      saved_at: new Date().toISOString(),
+      storage_version: STORAGE_VERSION,
+      ...summary
+    };
+
+    safeWriteJson(KEYS.lastSummary, payload);
+    return payload;
+  }
+
+  function loadLastSummary(){
+    return safeReadJson(KEYS.lastSummary, null);
+  }
+
+  /* =========================================================
+     SETTINGS
+  ========================================================= */
 
   function loadSettings(){
-    return safeReadJson(KEYS.settings, {});
+    return safeReadJson(KEYS.settings, {
+      sound: true,
+      guard: true,
+      lastBank: "A",
+      lastDifficulty: "easy",
+      lastMode: "learn"
+    });
   }
 
-  function saveSettings(settings){
-    const merged = {
-      ...loadSettings(),
-      ...(settings || {}),
+  function saveSettings(settings = {}){
+    const old = loadSettings();
+
+    const next = {
+      ...old,
+      ...settings,
       saved_at: new Date().toISOString()
     };
 
-    safeWriteJson(KEYS.settings, merged);
-    return merged;
+    safeWriteJson(KEYS.settings, next);
+    return next;
   }
+
+  /* =========================================================
+     CLEAR
+  ========================================================= */
 
   function clearAllLocalVocabData(){
-    Object.values(KEYS).forEach(safeRemove);
-
-    Object.keys(LS).forEach(key => {
-      if(String(key).startsWith("VOCAB_")){
-        safeRemove(key);
-      }
-    });
-
+    Object.values(KEYS).forEach(key => safeRemove(key));
     return true;
   }
+
+  /* =========================================================
+     COMPATIBILITY ALIASES
+     สำคัญ: รองรับ logger/game/ui รุ่นก่อนหน้า
+  ========================================================= */
+
+  function getProfile(){
+    return loadStudentProfile();
+  }
+
+  function setProfile(profile){
+    return saveStudentProfile(profile);
+  }
+
+  function loadProfile(){
+    return loadStudentProfile();
+  }
+
+  function saveProfile(profile){
+    return saveStudentProfile(profile);
+  }
+
+  function loadStudent(){
+    return loadStudentProfile();
+  }
+
+  function saveStudent(profile){
+    return saveStudentProfile(profile);
+  }
+
+  function readQueue(){
+    return readLogQueue();
+  }
+
+  function saveQueue(list){
+    return saveLogQueue(list);
+  }
+
+  function pushQueue(payload){
+    return pushLog(payload);
+  }
+
+  function pushLocalQueue(payload){
+    return pushLog(payload);
+  }
+
+  function readLocalQueue(){
+    return readLogQueue();
+  }
+
+  function saveLocalQueue(list){
+    return saveLogQueue(list);
+  }
+
+  function enqueue(payload){
+    return pushLog(payload);
+  }
+
+  function pushEvent(payload){
+    return pushLog(payload);
+  }
+
+  /* =========================================================
+     EXPORT
+  ========================================================= */
 
   const api = {
     version: STORAGE_VERSION,
@@ -409,17 +469,35 @@
     loadSettings,
     saveSettings,
 
-    clearAllLocalVocabData
+    clearAllLocalVocabData,
+
+    // compatibility aliases
+    getProfile,
+    setProfile,
+    loadProfile,
+    saveProfile,
+    loadStudent,
+    saveStudent,
+
+    readQueue,
+    saveQueue,
+    pushQueue,
+
+    pushLocalQueue,
+    readLocalQueue,
+    saveLocalQueue,
+
+    enqueue,
+    pushEvent
   };
 
   WIN.VocabStorage = api;
-  WIN.VOCAB_STORAGE = api;
 
-  /*
-    compatibility aliases สำหรับไฟล์เก่าที่อาจเรียกชื่อเดิม
-  */
-  WIN.readJsonVocabStorage = safeReadJson;
-  WIN.writeJsonVocabStorage = safeWriteJson;
+  // legacy globals, เผื่อไฟล์อื่นเรียกตรง ๆ
+  WIN.loadStudentProfile = WIN.loadStudentProfile || loadStudentProfile;
+  WIN.saveStudentProfile = WIN.saveStudentProfile || saveStudentProfile;
+  WIN.getStudentContextVocab = WIN.getStudentContextVocab || getStudentContext;
+  WIN.pushLocalQueue = WIN.pushLocalQueue || pushLocalQueue;
 
   console.log("[VOCAB STORAGE] loaded", STORAGE_VERSION);
 })();
