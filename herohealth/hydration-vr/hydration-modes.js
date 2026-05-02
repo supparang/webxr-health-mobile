@@ -1,211 +1,232 @@
 // === /herohealth/hydration-vr/hydration-modes.js ===
 // Hydration Arena Modes Layer
-// PATCH v20260502-HYDRATION-ARENA-MODES-V1
+// PATCH v20260502-HYDRATION-ARENA-MODES-V2
 //
-// Adds:
 // ✅ 5 modes: solo / duet / race / battle / coop
 // ✅ Auto Role assignment
-// ✅ Mode-specific mission framing
-// ✅ Battle mission-unlock attack system
-// ✅ Race water-goal sprint panel
-// ✅ Coop team tank + crisis panel
-// ✅ Duet role-sync panel
+// ✅ Race supports 2–10 players as Racer
+// ✅ Coop supports 2–10 players with rotating roles
+// ✅ Battle mission-unlock attacks
+// ✅ Coop Team Tank / Race goal / Duet sync panels
 // ✅ Summary augmentation
-// ✅ Safe non-breaking DOM overlay; does not require editing hydration-vr.js internals
+// ✅ Safe overlay layer; does not require rewriting hydration-vr.js
 
 'use strict';
 
 (function HydrationArenaModes(){
-  const VERSION = '20260502-HYDRATION-ARENA-MODES-V1';
+  const VERSION = '20260502-HYDRATION-ARENA-MODES-V2';
 
   const MODE_ALIASES = {
-    solo: 'solo',
-    single: 'solo',
-    play: 'solo',
+    solo:'solo',
+    single:'solo',
+    play:'solo',
 
-    duet: 'duet',
-    buddy: 'duet',
-    pair: 'duet',
+    duet:'duet',
+    buddy:'duet',
+    pair:'duet',
 
-    race: 'race',
-    sprint: 'race',
+    race:'race',
+    sprint:'race',
 
-    battle: 'battle',
-    storm: 'battle',
-    arena: 'battle',
+    battle:'battle',
+    storm:'battle',
+    arena:'battle',
 
-    coop: 'coop',
-    co_op: 'coop',
-    team: 'coop',
-    rescue: 'coop'
+    coop:'coop',
+    co_op:'coop',
+    team:'coop',
+    rescue:'coop'
   };
 
   const ROLE_MAP = {
-    solo: ['hero'],
-    duet: ['collector', 'guardian'],
-    race: ['sprinter', 'booster', 'safe_runner'],
-    battle: ['storm_maker', 'shield_keeper'],
-    coop: ['collector', 'guardian', 'cleaner', 'booster']
+    solo:['hero'],
+    duet:['collector','guardian'],
+    race:['racer','racer','racer','racer','racer','racer','racer','racer','racer','racer'],
+    battle:['storm_maker','shield_keeper'],
+    coop:[
+      'collector',
+      'guardian',
+      'cleaner',
+      'booster',
+      'medic',
+      'collector',
+      'guardian',
+      'cleaner',
+      'booster',
+      'medic'
+    ]
   };
 
   const ROLE_INFO = {
-    hero: {
-      icon: '💧',
-      title: 'Hydration Hero',
-      short: 'ฮีโร่ดูแลน้ำ',
-      mission: 'เก็บน้ำดี เก็บโล่ บล็อกสายฟ้า และรักษาระดับน้ำให้รอดจนจบ'
+    hero:{
+      icon:'💧',
+      title:'Hydration Hero',
+      short:'ฮีโร่น้ำ',
+      mission:'เก็บน้ำดี เก็บโล่ บล็อกสายฟ้า และรักษาระดับน้ำให้รอดจนจบ'
     },
-    collector: {
-      icon: '💧',
-      title: 'Water Collector',
-      short: 'คนเก็บน้ำ',
-      mission: 'เก็บน้ำดี เติม Team Water และสร้างคอมโบให้ทีม'
+    collector:{
+      icon:'💧',
+      title:'Water Collector',
+      short:'คนเก็บน้ำ',
+      mission:'เก็บน้ำดี เติม Team Water และสร้างคอมโบให้ทีม'
     },
-    guardian: {
-      icon: '🛡️',
-      title: 'Shield Guardian',
-      short: 'ผู้พิทักษ์โล่',
-      mission: 'เก็บโล่ บล็อกสายฟ้า และลดความเสี่ยงของทีม'
+    guardian:{
+      icon:'🛡️',
+      title:'Shield Guardian',
+      short:'ผู้พิทักษ์โล่',
+      mission:'เก็บโล่ บล็อกสายฟ้า และลดความเสี่ยงของทีม'
     },
-    cleaner: {
-      icon: '🧼',
-      title: 'Clean Drop Cleaner',
-      short: 'ผู้เคลียร์ของหลอก',
-      mission: 'ล้างของหลอก เคลียร์ภัย และช่วยให้ทีมเล่นง่ายขึ้น'
+    cleaner:{
+      icon:'🧼',
+      title:'Clean Drop Cleaner',
+      short:'ผู้เคลียร์ของหลอก',
+      mission:'ล้างของหลอก เคลียร์ภัย และช่วยให้ทีมเล่นง่ายขึ้น'
     },
-    booster: {
-      icon: '⚡',
-      title: 'Boost Runner',
-      short: 'สายบูสต์',
-      mission: 'เก็บโบนัส เพิ่มเวลา เพิ่มพลัง และเร่งคอมโบทีม'
+    booster:{
+      icon:'⚡',
+      title:'Boost Runner',
+      short:'สายบูสต์',
+      mission:'เก็บโบนัส เพิ่มเวลา เพิ่มพลัง และเร่งคอมโบทีม'
     },
-    sprinter: {
-      icon: '🏃',
-      title: 'Water Sprinter',
-      short: 'นักวิ่งน้ำ',
-      mission: 'เติม Water ให้ถึงเป้าหมายเร็วที่สุด'
+    medic:{
+      icon:'💚',
+      title:'Recovery Medic',
+      short:'ผู้ฟื้นฟูทีม',
+      mission:'เก็บ Recovery Bubble ฟื้น Team Tank และช่วยทีมผ่าน Crisis'
     },
-    safe_runner: {
-      icon: '🌈',
-      title: 'Safe Runner',
-      short: 'สายปลอดภัย',
-      mission: 'วิ่งให้ไว แต่ต้องลด Miss และรักษา Water ให้มั่นคง'
+    racer:{
+      icon:'🏁',
+      title:'Water Racer',
+      short:'นักแข่งน้ำ',
+      mission:'เติม Water ให้ถึงเป้าก่อน เก็บ Boost และลด Miss เพื่อขึ้นอันดับ'
     },
-    storm_maker: {
-      icon: '🌩️',
-      title: 'Storm Maker',
-      short: 'ผู้สร้างพายุ',
-      mission: 'ทำภารกิจเพื่อปลดล็อกพายุ แล้วส่งไปท้าทายคู่แข่ง'
+    sprinter:{
+      icon:'🏁',
+      title:'Water Sprinter',
+      short:'นักวิ่งน้ำ',
+      mission:'เติม Water ให้ถึงเป้าหมายเร็วที่สุด'
     },
-    shield_keeper: {
-      icon: '🛡️',
-      title: 'Shield Keeper',
-      short: 'ผู้กันพายุ',
-      mission: 'เก็บโล่ บล็อกพายุ และสวนกลับเมื่อป้องกันสำเร็จ'
+    safe_runner:{
+      icon:'🌈',
+      title:'Safe Runner',
+      short:'สายปลอดภัย',
+      mission:'วิ่งให้ไว แต่ต้องลด Miss และรักษา Water ให้มั่นคง'
+    },
+    storm_maker:{
+      icon:'🌩️',
+      title:'Storm Maker',
+      short:'ผู้สร้างพายุ',
+      mission:'ทำภารกิจเพื่อปลดล็อกพายุ แล้วส่งไปท้าทายคู่แข่ง'
+    },
+    shield_keeper:{
+      icon:'🛡️',
+      title:'Shield Keeper',
+      short:'ผู้กันพายุ',
+      mission:'เก็บโล่ บล็อกพายุ และสวนกลับเมื่อป้องกันสำเร็จ'
     }
   };
 
   const MODE_INFO = {
-    solo: {
-      icon: '💧',
-      title: 'Solo Survival',
-      label: 'Solo',
-      sub: 'เอาตัวรอดคนเดียว เก็บน้ำดี ป้องกันสายฟ้า และรักษาระดับน้ำให้สูงจนจบ'
+    solo:{
+      icon:'💧',
+      title:'Solo Survival',
+      label:'Solo',
+      sub:'เอาตัวรอดคนเดียว เก็บน้ำดี ป้องกันสายฟ้า และรักษาระดับน้ำให้สูงจนจบ'
     },
-    duet: {
-      icon: '🤝',
-      title: 'Duet Buddy',
-      label: 'Duet',
-      sub: 'เล่นเป็นคู่ แบ่งหน้าที่คนเก็บน้ำและคนป้องกันภัย'
+    duet:{
+      icon:'🤝',
+      title:'Duet Buddy',
+      label:'Duet',
+      sub:'เล่นเป็นคู่ แบ่งหน้าที่คนเก็บน้ำและคนป้องกันภัย'
     },
-    race: {
-      icon: '🏁',
-      title: 'Water Sprint Race',
-      label: 'Race',
-      sub: 'แข่งเติม Water ให้ถึงเป้าหมายก่อน หมดเวลาให้ดูอันดับจาก Water และคะแนน'
+    race:{
+      icon:'🏁',
+      title:'Water Sprint Race',
+      label:'Race',
+      sub:'แข่งเติม Water ให้ถึงเป้าหมายก่อน รองรับ 2–10 คน และมีอันดับสด'
     },
-    battle: {
-      icon: '🌩️',
-      title: 'Storm Battle',
-      label: 'Battle',
-      sub: 'ทำภารกิจ ปลดล็อกสกิลพายุ แล้วส่งไปท้าทายคู่แข่ง'
+    battle:{
+      icon:'🌩️',
+      title:'Storm Battle',
+      label:'Battle',
+      sub:'ทำภารกิจ ปลดล็อกสกิลพายุ แล้วส่งไปท้าทายคู่แข่ง'
     },
-    coop: {
-      icon: '🚰',
-      title: 'Team Water Rescue',
-      label: 'Coop',
-      sub: 'ร่วมมือกันรักษาถังน้ำรวม ผ่าน Crisis และช่วยทีมให้รอด'
+    coop:{
+      icon:'🚰',
+      title:'Team Water Rescue',
+      label:'Coop',
+      sub:'ทีม 2–10 คนร่วมมือกันรักษาถังน้ำรวม ผ่าน Crisis และช่วยทีมให้รอด'
     }
   };
 
   const BATTLE_ATTACKS = {
-    cloud_fog: {
-      icon: '🌫️',
-      name: 'Cloud Fog',
-      desc: 'ส่งเมฆบังจอบางส่วน',
-      missionText: 'ทำ Combo x5',
-      stat: 'combo',
-      target: 5,
-      durationMs: 4200,
-      cooldownMs: 8000,
-      effectClass: 'hydr-attack-cloud'
+    cloud_fog:{
+      icon:'🌫️',
+      name:'Cloud Fog',
+      desc:'ส่งเมฆบังจอบางส่วน',
+      missionText:'ทำ Combo x5',
+      stat:'combo',
+      target:5,
+      durationMs:4200,
+      cooldownMs:8000,
+      effectClass:'hydr-attack-cloud'
     },
-    lightning_lane: {
-      icon: '⚡',
-      name: 'Lightning Lane',
-      desc: 'ส่งสายฟ้าลง 1 เลน',
-      missionText: 'บล็อกสายฟ้า 2 ครั้ง',
-      stat: 'block',
-      target: 2,
-      durationMs: 3400,
-      cooldownMs: 9000,
-      effectClass: 'hydr-attack-lightning'
+    lightning_lane:{
+      icon:'⚡',
+      name:'Lightning Lane',
+      desc:'ส่งสายฟ้าลง 1 เลน',
+      missionText:'บล็อกสายฟ้า 2 ครั้ง',
+      stat:'block',
+      target:2,
+      durationMs:3400,
+      cooldownMs:9000,
+      effectClass:'hydr-attack-lightning'
     },
-    fake_water: {
-      icon: '💧',
-      name: 'Fake Water',
-      desc: 'เพิ่มน้ำหลอกให้คู่แข่ง',
-      missionText: 'ทำ Combo x8',
-      stat: 'combo',
-      target: 8,
-      durationMs: 5200,
-      cooldownMs: 10000,
-      effectClass: 'hydr-attack-fake'
+    fake_water:{
+      icon:'💧',
+      name:'Fake Water',
+      desc:'เพิ่มน้ำหลอกให้คู่แข่ง',
+      missionText:'ทำ Combo x8',
+      stat:'combo',
+      target:8,
+      durationMs:5200,
+      cooldownMs:10000,
+      effectClass:'hydr-attack-fake'
     },
-    storm_rush: {
-      icon: '🌪️',
-      name: 'Storm Rush',
-      desc: 'ทำให้ bubble ฝั่งคู่แข่งเร็วขึ้น',
-      missionText: 'คะแนน 350+ และ Miss ไม่เกิน 2',
-      stat: 'score_safe',
-      target: 350,
-      maxMiss: 2,
-      durationMs: 4800,
-      cooldownMs: 11000,
-      effectClass: 'hydr-attack-rush'
+    storm_rush:{
+      icon:'🌪️',
+      name:'Storm Rush',
+      desc:'ทำให้ bubble ฝั่งคู่แข่งเร็วขึ้น',
+      missionText:'คะแนน 350+ และ Miss ไม่เกิน 2',
+      stat:'score_safe',
+      target:350,
+      maxMiss:2,
+      durationMs:4800,
+      cooldownMs:11000,
+      effectClass:'hydr-attack-rush'
     },
-    dry_wind: {
-      icon: '🧂',
-      name: 'Dry Wind',
-      desc: 'ลด Water ช้า ๆ ถ้าไม่มีโล่',
-      missionText: 'Water 70%+',
-      stat: 'water',
-      target: 70,
-      durationMs: 4600,
-      cooldownMs: 11000,
-      effectClass: 'hydr-attack-dry'
+    dry_wind:{
+      icon:'🧂',
+      name:'Dry Wind',
+      desc:'ลด Water ช้า ๆ ถ้าไม่มีโล่',
+      missionText:'Water 70%+',
+      stat:'water',
+      target:70,
+      durationMs:4600,
+      cooldownMs:11000,
+      effectClass:'hydr-attack-dry'
     },
-    final_storm: {
-      icon: '🌩️',
-      name: 'Final Storm',
-      desc: 'พายุใหญ่ ใช้ได้ครั้งเดียวต่อรอบ',
-      missionText: 'ปลดล็อก Attack อย่างน้อย 3 ชนิด',
-      stat: 'unlocked_attacks',
-      target: 3,
-      durationMs: 6000,
-      cooldownMs: 999999,
-      once: true,
-      effectClass: 'hydr-attack-final'
+    final_storm:{
+      icon:'🌩️',
+      name:'Final Storm',
+      desc:'พายุใหญ่ ใช้ได้ครั้งเดียวต่อรอบ',
+      missionText:'ปลดล็อก Attack อย่างน้อย 3 ชนิด',
+      stat:'unlocked_attacks',
+      target:3,
+      durationMs:6000,
+      cooldownMs:999999,
+      once:true,
+      effectClass:'hydr-attack-final'
     }
   };
 
@@ -220,11 +241,11 @@
 
   function esc(s){
     return String(s ?? '').replace(/[&<>"']/g, m => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
+      '&':'&amp;',
+      '<':'&lt;',
+      '>':'&gt;',
+      '"':'&quot;',
+      "'":'&#39;'
     }[m]));
   }
 
@@ -247,7 +268,7 @@
   }
 
   function qs(){
-    try { return new URL(location.href).searchParams; }
+    try{ return new URL(location.href).searchParams; }
     catch(e){ return new URLSearchParams(); }
   }
 
@@ -282,11 +303,7 @@
   }
 
   function getPlayerIndex(){
-    const explicit =
-      getParam('playerIndex') ||
-      getParam('pidx') ||
-      getParam('slot') ||
-      '';
+    const explicit = getParam('playerIndex') || getParam('pidx') || getParam('slot') || '';
 
     if(explicit !== ''){
       return clamp(parseInt(explicit, 10) || 0, 0, 9);
@@ -310,7 +327,15 @@
     const stableRole = getParam('role', '').trim().toLowerCase();
     if(stableRole && ROLE_INFO[stableRole]) return stableRole;
 
-    if(mode === 'duet'){
+    if(mode === 'duet' || mode === 'battle'){
+      return roles[playerIndex % roles.length];
+    }
+
+    if(mode === 'race'){
+      return 'racer';
+    }
+
+    if(mode === 'coop'){
       return roles[playerIndex % roles.length];
     }
 
@@ -320,53 +345,53 @@
 
   function currentStats(){
     return {
-      score: numOf('uiScore', 0),
-      miss: numOf('uiMiss', 0),
-      expire: numOf('uiExpire', 0),
-      block: numOf('uiBlock', 0),
-      water: numOf('uiWater', 0),
-      combo: numOf('uiCombo', 0),
-      shield: numOf('uiShield', 0),
-      grade: textOf('uiGrade', 'D'),
-      timeText: textOf('uiTime', '00:00'),
-      phase: textOf('uiPhase', '-')
+      score:numOf('uiScore', 0),
+      miss:numOf('uiMiss', 0),
+      expire:numOf('uiExpire', 0),
+      block:numOf('uiBlock', 0),
+      water:numOf('uiWater', 0),
+      combo:numOf('uiCombo', 0),
+      shield:numOf('uiShield', 0),
+      grade:textOf('uiGrade', 'D'),
+      timeText:textOf('uiTime', '00:00'),
+      phase:textOf('uiPhase', '-')
     };
   }
 
   const state = {
-    version: VERSION,
-    mode: getMode(),
-    seed: getSeed(),
-    playerIndex: getPlayerIndex(),
-    role: null,
-    startedAt: Date.now(),
-    lastStats: {},
-    battle: {
-      unlocked: {},
-      used: {},
-      ready: {},
-      cooldownUntil: {},
-      finalUsed: false,
-      attackLog: []
+    version:VERSION,
+    mode:getMode(),
+    seed:getSeed(),
+    playerIndex:getPlayerIndex(),
+    role:null,
+    startedAt:Date.now(),
+    lastStats:{},
+    battle:{
+      unlocked:{},
+      used:{},
+      ready:{},
+      cooldownUntil:{},
+      finalUsed:false,
+      attackLog:[]
     },
-    race: {
-      goal: 100,
-      finished: false,
-      finishedAt: null,
-      bestWater: 0
+    race:{
+      goal:100,
+      finished:false,
+      finishedAt:null,
+      bestWater:0
     },
-    coop: {
-      tank: 80,
-      crisis: false,
-      crisisCount: 0,
-      crisisSaved: 0,
-      lastCrisisAt: 0
+    coop:{
+      tank:80,
+      crisis:false,
+      crisisCount:0,
+      crisisSaved:0,
+      lastCrisisAt:0
     },
-    duet: {
-      sync: 0,
-      roleContribution: 0
+    duet:{
+      sync:0,
+      roleContribution:0
     },
-    summaryInjected: false
+    summaryInjected:false
   };
 
   state.role = assignRole(state.mode, state.playerIndex, state.seed);
@@ -606,7 +631,6 @@
         border:1px solid rgba(255,255,255,.16);
         box-shadow:0 24px 64px rgba(0,0,0,.34);
         text-align:center;
-        animation:hydrRolePop 3.2s ease forwards;
       }
 
       .hydr-role-big{
@@ -630,12 +654,6 @@
       @keyframes hydrRoleBg{
         0%,78%{ opacity:1; }
         100%{ opacity:0; visibility:hidden; }
-      }
-
-      @keyframes hydrRolePop{
-        0%{ opacity:0; transform:translateY(14px) scale(.94); }
-        12%,76%{ opacity:1; transform:translateY(0) scale(1); }
-        100%{ opacity:0; transform:translateY(-14px) scale(.98); }
       }
 
       .hydr-attack-vfx{
@@ -744,8 +762,7 @@
       .hydr-rush-lines{
         position:absolute;
         inset:0;
-        background:
-          repeating-linear-gradient(115deg,rgba(255,255,255,.0) 0 18px,rgba(255,255,255,.18) 18px 22px);
+        background:repeating-linear-gradient(115deg,rgba(255,255,255,0) 0 18px,rgba(255,255,255,.18) 18px 22px);
         animation:hydrRush 4.2s linear forwards;
       }
 
@@ -814,7 +831,7 @@
         100%{ opacity:0; transform:translateX(-50%) translateY(-12px); }
       }
 
-      @media (max-width: 720px){
+      @media (max-width:720px){
         .hydr-mode-grid,
         .hydr-battle-attacks{
           grid-template-columns:1fr;
@@ -973,18 +990,9 @@
     if(state.mode === 'solo'){
       root.innerHTML = `
         <div class="hydr-mode-grid">
-          <div class="hydr-mode-box">
-            <div class="k">ROLE</div>
-            <div class="v">${esc(role.icon)} ${esc(role.short)}</div>
-          </div>
-          <div class="hydr-mode-box">
-            <div class="k">GOAL</div>
-            <div class="v">Water 70%+</div>
-          </div>
-          <div class="hydr-mode-box">
-            <div class="k">STYLE</div>
-            <div class="v">Survival</div>
-          </div>
+          <div class="hydr-mode-box"><div class="k">ROLE</div><div class="v">${esc(role.icon)} ${esc(role.short)}</div></div>
+          <div class="hydr-mode-box"><div class="k">GOAL</div><div class="v">Water 70%+</div></div>
+          <div class="hydr-mode-box"><div class="k">STYLE</div><div class="v">Survival</div></div>
         </div>
       `;
     }
@@ -992,18 +1000,9 @@
     if(state.mode === 'duet'){
       root.innerHTML = `
         <div class="hydr-mode-grid">
-          <div class="hydr-mode-box">
-            <div class="k">MY ROLE</div>
-            <div class="v">${esc(role.icon)} ${esc(role.short)}</div>
-          </div>
-          <div class="hydr-mode-box">
-            <div class="k">TEAM SYNC</div>
-            <div class="v"><span id="hydrDuetSync">0</span>%</div>
-          </div>
-          <div class="hydr-mode-box">
-            <div class="k">ROLE CONTRIBUTION</div>
-            <div class="v"><span id="hydrDuetContrib">0</span></div>
-          </div>
+          <div class="hydr-mode-box"><div class="k">MY ROLE</div><div class="v">${esc(role.icon)} ${esc(role.short)}</div></div>
+          <div class="hydr-mode-box"><div class="k">TEAM SYNC</div><div class="v"><span id="hydrDuetSync">0</span>%</div></div>
+          <div class="hydr-mode-box"><div class="k">ROLE CONTRIBUTION</div><div class="v"><span id="hydrDuetContrib">0</span></div></div>
         </div>
         <div class="hydr-progress"><i id="hydrDuetSyncBar"></i></div>
       `;
@@ -1012,18 +1011,9 @@
     if(state.mode === 'race'){
       root.innerHTML = `
         <div class="hydr-mode-grid">
-          <div class="hydr-mode-box">
-            <div class="k">RACE STYLE</div>
-            <div class="v">${esc(role.icon)} ${esc(role.short)}</div>
-          </div>
-          <div class="hydr-mode-box">
-            <div class="k">WATER GOAL</div>
-            <div class="v"><span id="hydrRaceGoal">100</span>%</div>
-          </div>
-          <div class="hydr-mode-box">
-            <div class="k">RACE STATUS</div>
-            <div class="v" id="hydrRaceStatus">Racing</div>
-          </div>
+          <div class="hydr-mode-box"><div class="k">RACE ROLE</div><div class="v">${esc(role.icon)} ${esc(role.short)}</div></div>
+          <div class="hydr-mode-box"><div class="k">WATER GOAL</div><div class="v"><span id="hydrRaceGoal">100</span>%</div></div>
+          <div class="hydr-mode-box"><div class="k">RACE STATUS</div><div class="v" id="hydrRaceStatus">Racing</div></div>
         </div>
         <div class="hydr-progress"><i id="hydrRaceBar"></i></div>
       `;
@@ -1032,18 +1022,9 @@
     if(state.mode === 'coop'){
       root.innerHTML = `
         <div class="hydr-mode-grid">
-          <div class="hydr-mode-box">
-            <div class="k">MY ROLE</div>
-            <div class="v">${esc(role.icon)} ${esc(role.short)}</div>
-          </div>
-          <div class="hydr-mode-box">
-            <div class="k">TEAM TANK</div>
-            <div class="v"><span id="hydrTeamTank">80</span>%</div>
-          </div>
-          <div class="hydr-mode-box">
-            <div class="k">CRISIS</div>
-            <div class="v" id="hydrCrisisText">Safe</div>
-          </div>
+          <div class="hydr-mode-box"><div class="k">MY ROLE</div><div class="v">${esc(role.icon)} ${esc(role.short)}</div></div>
+          <div class="hydr-mode-box"><div class="k">TEAM TANK</div><div class="v"><span id="hydrTeamTank">80</span>%</div></div>
+          <div class="hydr-mode-box"><div class="k">CRISIS</div><div class="v" id="hydrCrisisText">Safe</div></div>
         </div>
         <div class="hydr-progress" id="hydrTeamTankProgress"><i id="hydrTeamTankBar"></i></div>
       `;
@@ -1052,18 +1033,9 @@
     if(state.mode === 'battle'){
       root.innerHTML = `
         <div class="hydr-mode-grid">
-          <div class="hydr-mode-box">
-            <div class="k">MY ROLE</div>
-            <div class="v">${esc(role.icon)} ${esc(role.short)}</div>
-          </div>
-          <div class="hydr-mode-box">
-            <div class="k">UNLOCKED</div>
-            <div class="v"><span id="hydrBattleUnlocked">0</span> / 6</div>
-          </div>
-          <div class="hydr-mode-box">
-            <div class="k">ATTACK USED</div>
-            <div class="v"><span id="hydrBattleUsed">0</span></div>
-          </div>
+          <div class="hydr-mode-box"><div class="k">MY ROLE</div><div class="v">${esc(role.icon)} ${esc(role.short)}</div></div>
+          <div class="hydr-mode-box"><div class="k">UNLOCKED</div><div class="v"><span id="hydrBattleUnlocked">0</span> / 6</div></div>
+          <div class="hydr-mode-box"><div class="k">ATTACK USED</div><div class="v"><span id="hydrBattleUsed">0</span></div></div>
         </div>
         <div class="hydr-battle-attacks" id="hydrBattleAttacks"></div>
       `;
@@ -1073,47 +1045,35 @@
 
   function getAttackProgress(attack, stats){
     if(attack.stat === 'combo'){
-      return {
-        now: clamp(stats.combo, 0, attack.target),
-        target: attack.target,
-        ok: stats.combo >= attack.target
-      };
+      return { now:clamp(stats.combo, 0, attack.target), target:attack.target, ok:stats.combo >= attack.target };
     }
 
     if(attack.stat === 'block'){
-      return {
-        now: clamp(stats.block, 0, attack.target),
-        target: attack.target,
-        ok: stats.block >= attack.target
-      };
+      return { now:clamp(stats.block, 0, attack.target), target:attack.target, ok:stats.block >= attack.target };
     }
 
     if(attack.stat === 'water'){
-      return {
-        now: clamp(stats.water, 0, attack.target),
-        target: attack.target,
-        ok: stats.water >= attack.target
-      };
+      return { now:clamp(stats.water, 0, attack.target), target:attack.target, ok:stats.water >= attack.target };
     }
 
     if(attack.stat === 'score_safe'){
       return {
-        now: clamp(stats.score, 0, attack.target),
-        target: attack.target,
-        ok: stats.score >= attack.target && stats.miss <= attack.maxMiss
+        now:clamp(stats.score, 0, attack.target),
+        target:attack.target,
+        ok:stats.score >= attack.target && stats.miss <= attack.maxMiss
       };
     }
 
     if(attack.stat === 'unlocked_attacks'){
       const count = Object.keys(state.battle.unlocked).filter(k => k !== 'final_storm').length;
       return {
-        now: clamp(count, 0, attack.target),
-        target: attack.target,
-        ok: count >= attack.target && !state.battle.finalUsed
+        now:clamp(count, 0, attack.target),
+        target:attack.target,
+        ok:count >= attack.target && !state.battle.finalUsed
       };
     }
 
-    return { now: 0, target: attack.target || 1, ok: false };
+    return { now:0, target:attack.target || 1, ok:false };
   }
 
   function renderBattleAttacks(){
@@ -1161,12 +1121,7 @@
 
           <div class="hydr-progress"><i style="width:${pct}%"></i></div>
 
-          <button
-            class="hydr-attack-btn"
-            type="button"
-            data-use-attack="${esc(id)}"
-            ${ready ? '' : 'disabled'}
-          >${esc(label)}</button>
+          <button class="hydr-attack-btn" type="button" data-use-attack="${esc(id)}" ${ready ? '' : 'disabled'}>${esc(label)}</button>
         </div>
       `;
     }).join('');
@@ -1202,35 +1157,32 @@
     if((state.battle.cooldownUntil[id] || 0) > now) return;
     if(atk.once && state.battle.finalUsed) return;
 
-    if(atk.once){
-      state.battle.finalUsed = true;
-    }
+    if(atk.once) state.battle.finalUsed = true;
 
     state.battle.used[id] = (state.battle.used[id] || 0) + 1;
     state.battle.cooldownUntil[id] = now + atk.cooldownMs;
     state.battle.attackLog.push({
       id,
-      name: atk.name,
-      ts: new Date().toISOString(),
-      mode: state.mode,
-      role: state.role
+      name:atk.name,
+      ts:new Date().toISOString(),
+      mode:state.mode,
+      role:state.role
     });
 
     window.dispatchEvent(new CustomEvent('hha:hydration:battle-attack', {
-      detail: {
+      detail:{
         id,
-        attack: atk,
-        mode: state.mode,
-        role: state.role,
-        playerIndex: state.playerIndex,
-        seed: state.seed,
-        at: Date.now()
+        attack:atk,
+        mode:state.mode,
+        role:state.role,
+        playerIndex:state.playerIndex,
+        seed:state.seed,
+        at:Date.now()
       }
     }));
 
     showAttackVfx(id, atk);
     ribbon(`${atk.icon} ส่ง ${atk.name} ไปท้าทายคู่แข่งแล้ว!`);
-
     renderBattleAttacks();
   }
 
@@ -1322,12 +1274,12 @@
       setText('hydrRaceStatus', 'Finished!');
       ribbon('🏁 เข้าเส้นชัยแล้ว! Water Goal สำเร็จ');
       window.dispatchEvent(new CustomEvent('hha:hydration:race-finish', {
-        detail: {
-          finishedAt: state.race.finishedAt,
-          elapsedMs: state.race.finishedAt - state.startedAt,
-          water: stats.water,
-          score: stats.score,
-          miss: stats.miss
+        detail:{
+          finishedAt:state.race.finishedAt,
+          elapsedMs:state.race.finishedAt - state.startedAt,
+          water:stats.water,
+          score:stats.score,
+          miss:stats.miss
         }
       }));
     }else if(!state.race.finished){
@@ -1400,9 +1352,7 @@
     if(bar) bar.style.width = `${state.coop.tank}%`;
 
     const progress = document.getElementById('hydrTeamTankProgress');
-    if(progress){
-      progress.classList.toggle('warn', state.coop.tank < 30);
-    }
+    if(progress) progress.classList.toggle('warn', state.coop.tank < 30);
   }
 
   function updateSolo(stats){
@@ -1419,6 +1369,7 @@
 
   function updateBattle(stats){
     if(state.mode !== 'battle') return;
+
     renderBattleAttacks();
 
     if(stats.combo >= 5 && (state.lastStats.combo || 0) < 5){
@@ -1432,17 +1383,17 @@
 
   function updateGlobalState(stats){
     window.HHA_HYDRATION_MODE_STATE = {
-      version: VERSION,
-      mode: state.mode,
-      role: state.role,
-      roleInfo: ROLE_INFO[state.role],
-      playerIndex: state.playerIndex,
-      seed: state.seed,
+      version:VERSION,
+      mode:state.mode,
+      role:state.role,
+      roleInfo:ROLE_INFO[state.role],
+      playerIndex:state.playerIndex,
+      seed:state.seed,
       stats,
-      battle: state.battle,
-      race: state.race,
-      coop: state.coop,
-      duet: state.duet
+      battle:state.battle,
+      race:state.race,
+      coop:state.coop,
+      duet:state.duet
     };
   }
 
@@ -1516,14 +1467,16 @@
 
   function exposeApi(){
     window.HHAHydrationModes = {
-      version: VERSION,
+      version:VERSION,
       state,
+      roleInfo:ROLE_INFO,
+      modeInfo:MODE_INFO,
       assignRole,
-      getStats: currentStats,
+      getStats:currentStats,
       useBattleAttack,
       showAttackVfx,
       ribbon,
-      refresh: tick
+      refresh:tick
     };
   }
 
@@ -1542,26 +1495,26 @@
     setInterval(tick, 350);
 
     window.dispatchEvent(new CustomEvent('hha:hydration:modes-ready', {
-      detail: {
-        version: VERSION,
-        mode: state.mode,
-        role: state.role,
-        seed: state.seed,
-        playerIndex: state.playerIndex
+      detail:{
+        version:VERSION,
+        mode:state.mode,
+        role:state.role,
+        seed:state.seed,
+        playerIndex:state.playerIndex
       }
     }));
 
     console.info('[hydration-modes] ready', {
-      version: VERSION,
-      mode: state.mode,
-      role: state.role,
-      playerIndex: state.playerIndex,
-      seed: state.seed
+      version:VERSION,
+      mode:state.mode,
+      role:state.role,
+      playerIndex:state.playerIndex,
+      seed:state.seed
     });
   }
 
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', init, { once: true });
+    document.addEventListener('DOMContentLoaded', init, { once:true });
   }else{
     init();
   }
