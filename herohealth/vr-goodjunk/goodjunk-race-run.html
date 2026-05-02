@@ -339,10 +339,7 @@
       text-align:center;
     }
 
-    .race-goal{
-      display:grid;
-      gap:8px;
-    }
+    .race-goal{ display:grid; gap:8px; }
 
     .race-goal-head{
       display:flex;
@@ -509,15 +506,10 @@
       pointer-events:none;
     }
 
-    .fall-item.hit{
-      animation:itemHit .2s ease forwards;
-    }
+    .fall-item.hit{ animation:itemHit .2s ease forwards; }
 
     @keyframes itemHit{
-      to{
-        opacity:0;
-        transform:scale(1.28) rotate(9deg);
-      }
+      to{ opacity:0; transform:scale(1.28) rotate(9deg); }
     }
 
     .fx{
@@ -535,6 +527,69 @@
       to{ opacity:0; transform:translate(-50%,-150%); }
     }
 
+    #raceCountdownOverlay{
+      position:fixed;
+      inset:0;
+      z-index:99997;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(245,252,255,.72);
+      backdrop-filter:blur(7px);
+    }
+
+    #raceCountdownOverlay.show{ display:flex; }
+
+    .race-count-card{
+      width:min(520px,94vw);
+      border-radius:34px;
+      border:5px solid var(--stroke);
+      background:linear-gradient(180deg,#fffdf8,#f7fff4);
+      box-shadow:0 28px 80px rgba(86,155,194,.24);
+      padding:26px;
+      display:grid;
+      gap:14px;
+      text-align:center;
+      place-items:center;
+    }
+
+    .race-count-number{
+      width:160px;
+      height:160px;
+      border-radius:44px;
+      border:6px solid #d7edf7;
+      background:linear-gradient(180deg,#fff8dc,#ffe8a3);
+      display:grid;
+      place-items:center;
+      font-size:76px;
+      line-height:1;
+      font-weight:1000;
+      color:#9a6500;
+      box-shadow:0 16px 34px rgba(86,155,194,.16);
+      animation:raceCountPop .72s ease both;
+    }
+
+    @keyframes raceCountPop{
+      from{ transform:scale(.72); opacity:.35; }
+      55%{ transform:scale(1.08); opacity:1; }
+      to{ transform:scale(1); opacity:1; }
+    }
+
+    .race-count-title{
+      font-size:30px;
+      line-height:1.08;
+      font-weight:1000;
+      color:#4197bd;
+    }
+
+    .race-count-sub{
+      color:#6b7280;
+      font-size:15px;
+      line-height:1.65;
+      font-weight:900;
+    }
+
     #raceWaitOverlay{
       position:fixed;
       inset:0;
@@ -547,9 +602,7 @@
       backdrop-filter:blur(8px);
     }
 
-    #raceWaitOverlay.show{
-      display:flex;
-    }
+    #raceWaitOverlay.show{ display:flex; }
 
     .race-wait-card{
       width:min(620px,96vw);
@@ -615,9 +668,7 @@
       margin-top:4px;
     }
 
-    .race-wait-actions .btn{
-      min-height:52px;
-    }
+    .race-wait-actions .btn{ min-height:52px; }
 
     #raceResultMount{
       position:fixed;
@@ -631,9 +682,7 @@
       overflow:auto;
     }
 
-    #raceResultMount.show{
-      display:flex;
-    }
+    #raceResultMount.show{ display:flex; }
 
     .race-result-card{
       width:min(1100px,100%);
@@ -832,53 +881,38 @@
         max-height:none;
         overflow:visible;
       }
-      .stage-wrap{
-        min-height:580px;
-      }
+      .stage-wrap{ min-height:580px; }
     }
 
     @media (max-width:760px){
-      .topbar{
-        align-items:flex-start;
-      }
-
-      .top-actions{
-        width:100%;
-      }
-
-      .top-actions .btn{
-        flex:1 1 160px;
-      }
+      .topbar{ align-items:flex-start; }
+      .top-actions{ width:100%; }
+      .top-actions .btn{ flex:1 1 160px; }
 
       .race-stats-grid,
-      .race-top-grid{
-        grid-template-columns:1fr;
-      }
+      .race-top-grid{ grid-template-columns:1fr; }
 
       .race-result-card{
         border-radius:22px;
         padding:12px;
       }
 
-      .race-result-title{
-        font-size:24px;
-      }
+      .race-result-title{ font-size:24px; }
 
       .race-result-actions{
         display:grid;
         grid-template-columns:1fr;
       }
 
-      .race-result-actions .btn{
-        width:100%;
-      }
-
-      .race-wait-actions{
-        grid-template-columns:1fr;
-      }
-
-      .race-wait-title{
-        font-size:25px;
+      .race-result-actions .btn{ width:100%; }
+      .race-wait-actions{ grid-template-columns:1fr; }
+      .race-wait-title{ font-size:25px; }
+      .race-count-title{ font-size:25px; }
+      .race-count-number{
+        width:132px;
+        height:132px;
+        font-size:58px;
+        border-radius:36px;
       }
     }
   </style>
@@ -1007,6 +1041,14 @@
     </div>
   </div>
 
+  <div id="raceCountdownOverlay" aria-live="polite">
+    <div class="race-count-card">
+      <div class="race-count-number" id="raceCountNumber">3</div>
+      <div class="race-count-title" id="raceCountTitle">เตรียมเริ่ม Race!</div>
+      <div class="race-count-sub">เก็บ Good ให้ไว • หลบ Junk • ทำคะแนนให้ดีที่สุด</div>
+    </div>
+  </div>
+
   <div id="raceResultMount" aria-live="polite"></div>
 
   <div id="raceWaitOverlay" aria-live="polite">
@@ -1073,7 +1115,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260501-gjrace-run-match-sync-pid"></script>
+  <script src="../firebase-config.js?v=20260501-gjrace-run-v4-live-countdown-summary"></script>
 
   <script>
   (function(){
@@ -1206,7 +1248,10 @@
       raceWaitText: el('raceWaitText'),
       raceWaitCount: el('raceWaitCount'),
       btnWaitPartial: el('btnWaitPartial'),
-      btnWaitLobby: el('btnWaitLobby')
+      btnWaitLobby: el('btnWaitLobby'),
+      raceCountdownOverlay: el('raceCountdownOverlay'),
+      raceCountNumber: el('raceCountNumber'),
+      raceCountTitle: el('raceCountTitle')
     };
 
     const state = {
@@ -1235,7 +1280,11 @@
       finalUnsub:null,
       waitSince:0,
       standings:[],
-      expectedPlayers: ctx.maxPlayers
+      expectedPlayers: ctx.maxPlayers,
+      liveUnsub:null,
+      lastLivePush:0,
+      livePushMs:2200,
+      countdownDone:false
     };
 
     function el(id){ return document.getElementById(id); }
@@ -1348,9 +1397,7 @@
       ui.btnGoHub.href = ctx.hub || '../nutrition-zone.html';
       ui.btnBackLobby.href = buildLobbyUrl();
 
-      if (ui.btnWaitLobby) {
-        ui.btnWaitLobby.href = buildLobbyUrl();
-      }
+      if (ui.btnWaitLobby) ui.btnWaitLobby.href = buildLobbyUrl();
 
       ui.btnEndNow.addEventListener('click', () => finishRace('manual_end'));
 
@@ -1403,6 +1450,47 @@
 
     function hideWaitingResults(){
       if (ui.raceWaitOverlay) ui.raceWaitOverlay.classList.remove('show');
+    }
+
+    function showCountdownValue(value, title){
+      if (!ui.raceCountdownOverlay) return;
+
+      ui.raceCountdownOverlay.classList.add('show');
+
+      if (ui.raceCountNumber) {
+        ui.raceCountNumber.textContent = value;
+        ui.raceCountNumber.style.animation = 'none';
+        void ui.raceCountNumber.offsetHeight;
+        ui.raceCountNumber.style.animation = 'raceCountPop .72s ease both';
+      }
+
+      if (ui.raceCountTitle) {
+        ui.raceCountTitle.textContent = title || 'เตรียมเริ่ม Race!';
+      }
+    }
+
+    function hideCountdown(){
+      if (ui.raceCountdownOverlay) ui.raceCountdownOverlay.classList.remove('show');
+    }
+
+    async function runCountdown(){
+      if (state.countdownDone) return;
+
+      state.countdownDone = true;
+
+      showCountdownValue('3', 'เตรียมตัวให้พร้อม!');
+      await delay(850);
+
+      showCountdownValue('2', 'มองหา Good!');
+      await delay(850);
+
+      showCountdownValue('1', 'อย่าแตะ Junk!');
+      await delay(850);
+
+      showCountdownValue('GO!', 'เริ่มแข่ง!');
+      await delay(620);
+
+      hideCountdown();
     }
 
     async function getExpectedRacePlayers(){
@@ -1555,6 +1643,7 @@
 
       updateItems(dt);
       renderHud();
+      maybePushLiveScore();
 
       if (state.timeLeftMs <= 0) {
         finishRace('timeup');
@@ -1584,6 +1673,68 @@
         durationSec: ctx.timeSec - Math.ceil(state.timeLeftMs / 1000),
         submittedAt: now()
       };
+    }
+
+    function liveScorePayload(reason){
+      return {
+        pid: ctx.pid,
+        name: ctx.name,
+        nick: ctx.nick,
+        role: ctx.role,
+        mode: 'race',
+        reason: reason || 'live',
+        score: state.score,
+        goodHit: state.goodHit,
+        good: state.goodHit,
+        junkHit: state.junkHit,
+        junk: state.junkHit,
+        goodMiss: state.goodMiss,
+        miss: state.miss,
+        bestStreak: state.bestStreak,
+        streak: state.bestStreak,
+        durationSec: ctx.timeSec - Math.ceil(state.timeLeftMs / 1000),
+        live:true,
+        updatedAt: now(),
+        submittedAt: now()
+      };
+    }
+
+    async function pushLiveScore(reason = 'live'){
+      if (!state.db || !state.matchId || state.ended) return;
+
+      try {
+        await dbSet(`${matchPath()}/liveScores/${safeKey(ctx.pid)}`, liveScorePayload(reason));
+        await dbUpdate(matchPath(), { updatedAt: now() });
+      } catch (err) {
+        console.warn('[Race] live score push failed', err);
+      }
+    }
+
+    function listenLiveScores(){
+      if (state.liveUnsub || !state.db || !state.matchId) return;
+
+      state.liveUnsub = dbOn(`${matchPath()}/liveScores`, (scores) => {
+        if (!scores || typeof scores !== 'object') return;
+
+        const rows = sortStandings(
+          Object.keys(scores)
+            .map((k, i) => normalizeResult(scores[k], i))
+            .filter(Boolean)
+        );
+
+        state.standings = rows;
+        updateMiniStandings();
+      });
+    }
+
+    function maybePushLiveScore(){
+      if (!state.db || !state.matchId || state.ended) return;
+
+      const t = now();
+      if (t - state.lastLivePush < state.livePushMs) return;
+
+      state.lastLivePush = t;
+      pushLiveScore('live');
     }
 
     async function firebaseReady(){
@@ -1622,7 +1773,9 @@
         roomId: ctx.roomId,
         mode: 'race',
         game: 'goodjunk',
-        status: room && room.status === 'started' ? 'started' : 'running',
+        status: room && room.status
+          ? (room.status === 'ended' || room.status === 'closed' ? room.status : 'running')
+          : 'running',
         updatedAt: now()
       });
 
@@ -1753,6 +1906,27 @@
       return state.matchId;
     }
 
+    function getActiveMatchIdFromRoom(room){
+      return String(
+        (room && room.activeMatchId) ||
+        (room && room.currentRun && room.currentRun.matchId) ||
+        ''
+      ).trim();
+    }
+
+    async function waitForRoomMatchId(maxTry = 8, gapMs = 350){
+      for (let i = 0; i < maxTry; i += 1) {
+        const room = await dbGet(roomPath()).catch(() => null);
+        const active = getActiveMatchIdFromRoom(room);
+
+        if (active) return active;
+
+        await delay(gapMs);
+      }
+
+      return '';
+    }
+
     function normalizeResult(r,i){
       const x = r && typeof r === 'object' ? r : {};
       return {
@@ -1854,6 +2028,7 @@
       state.published = true;
 
       await ensureMatch();
+      await pushLiveScore('final');
 
       await dbSet(`${matchPath()}/playerResults/${safeKey(ctx.pid)}`, localResult(reason));
       await dbUpdate(matchPath(), { updatedAt:now() });
@@ -1942,9 +2117,7 @@
       const me = rows.find((p) => String(p.pid) === String(ctx.pid));
       const leader = rows[0];
 
-      if (me) {
-        ui.raceRankValue.textContent = '#' + me.rank;
-      }
+      if (me) ui.raceRankValue.textContent = '#' + me.rank;
 
       if (leader) {
         ui.raceOpponentScoreValue.textContent = String(leader.score);
@@ -2016,6 +2189,56 @@
       }).join('');
     }
 
+    function saveRaceLastSummary(summary, rows, me, leader, rank, score){
+      try {
+        const payload = {
+          gameId:'goodjunk',
+          game:'goodjunk',
+          mode:'race',
+          zone:'nutrition',
+          cat:'nutrition',
+          theme:'goodjunk',
+          title:'GoodJunk Race',
+          status: summary.partial ? 'partial' : 'complete',
+          score: Number(score || 0),
+          rank: Number(rank || 0),
+          winner: leader ? String(leader.name || leader.nick || leader.pid || '') : '',
+          roomId: ctx.roomId,
+          matchId: summary.matchId || state.matchId || '',
+          pid: ctx.pid,
+          name: ctx.name,
+          nick: ctx.nick,
+          goodHit: me ? Number(me.goodHit || 0) : Number(state.goodHit || 0),
+          junkHit: me ? Number(me.junkHit || 0) : Number(state.junkHit || 0),
+          miss: me ? Number(me.miss || 0) : Number(state.miss || 0),
+          bestStreak: me ? Number(me.bestStreak || 0) : Number(state.bestStreak || 0),
+          finishedPlayers: Number(summary.finishedPlayers || rows.length || 0),
+          expectedPlayers: Number(summary.expectedPlayers || state.expectedPlayers || ctx.maxPlayers || 0),
+          standings: rows.map((p) => ({
+            rank:Number(p.rank || 0),
+            pid:String(p.pid || ''),
+            name:String(p.name || ''),
+            score:Number(p.score || 0),
+            goodHit:Number(p.goodHit || 0),
+            junkHit:Number(p.junkHit || 0),
+            miss:Number(p.miss || 0),
+            bestStreak:Number(p.bestStreak || 0)
+          })),
+          finishedAt: Date.now(),
+          ts: Date.now(),
+          pageUrl: location.href
+        };
+
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+        localStorage.setItem('HHA_LAST_SUMMARY_GOODJUNK_RACE', JSON.stringify(payload));
+        localStorage.setItem('HHA_GOODJUNK_LAST_SUMMARY', JSON.stringify(payload));
+
+        window.dispatchEvent(new CustomEvent('hha:last-summary-saved', { detail: payload }));
+      } catch (err) {
+        console.warn('[Race] save HHA_LAST_SUMMARY failed', err);
+      }
+    }
+
     function showSummary(summary){
       if (state.summaryShown && !(state.currentPartial && summary && !summary.partial)) return;
 
@@ -2026,12 +2249,15 @@
 
       try { cancelAnimationFrame(state.raf); } catch(_){}
       hideWaitingResults();
+      hideCountdown();
 
       const rows = Array.isArray(summary.standings) ? summary.standings : [];
       const me = summary.me || rows.find((p) => String(p.pid) === String(ctx.pid)) || null;
       const leader = summary.leader || rows[0] || null;
       const rank = me ? n(me.rank,0) : n(summary.rank,0);
       const score = me ? n(me.score,0) : n(summary.score,state.score);
+
+      saveRaceLastSummary(summary, rows, me, leader, rank, score);
 
       const resultIcon =
         rank === 1 ? '🏆' :
@@ -2140,6 +2366,8 @@ PID: ${esc(ctx.pid)}
         await ensureRoom();
         await ensureMatch();
         listenFinalSummary();
+        listenLiveScores();
+        await pushLiveScore('ready');
         showTip('เชื่อมต่อห้อง Race สำเร็จ แข่งได้เลย!');
       } catch (err) {
         console.warn('[Race] Firebase boot failed', err);
@@ -2147,12 +2375,23 @@ PID: ${esc(ctx.pid)}
       }
     }
 
-    function startGame(){
-      state.running = true;
+    async function startGame(){
+      state.running = false;
       state.ended = false;
       state.lastTs = 0;
-      ui.stageStatus.textContent = 'Running';
+
+      ui.stageStatus.textContent = 'Countdown';
       renderHud();
+
+      await runCountdown();
+
+      if (state.ended) return;
+
+      state.running = true;
+      state.lastTs = 0;
+      ui.stageStatus.textContent = 'Running';
+
+      await pushLiveScore('start');
       state.raf = requestAnimationFrame(loop);
     }
 
@@ -2163,10 +2402,20 @@ PID: ${esc(ctx.pid)}
       showTip('พร้อมแข่ง! เก็บ Good ให้ไว อย่าแตะ Junk');
 
       bootFirebase().finally(() => {
-        startGame();
+        startGame().catch((err) => {
+          console.warn('[Race] startGame failed', err);
+          state.running = true;
+          state.lastTs = 0;
+          ui.stageStatus.textContent = 'Running';
+          state.raf = requestAnimationFrame(loop);
+        });
       });
 
       window.addEventListener('beforeunload', () => {
+        try {
+          if (typeof state.liveUnsub === 'function') state.liveUnsub();
+        } catch (_) {}
+
         try {
           if (state.db) {
             state.db.ref(playerPath()).update({
@@ -2236,15 +2485,11 @@ PID: ${esc(ctx.pid)}
 
       const nodes = [];
       let node;
-      while ((node = walker.nextNode())) {
-        nodes.push(node);
-      }
+      while ((node = walker.nextNode())) nodes.push(node);
 
       nodes.forEach((textNode) => {
         const next = cleanText(textNode.nodeValue || '');
-        if (textNode.nodeValue !== next) {
-          textNode.nodeValue = next;
-        }
+        if (textNode.nodeValue !== next) textNode.nodeValue = next;
       });
     }
 
