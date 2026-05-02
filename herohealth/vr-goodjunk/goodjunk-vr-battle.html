@@ -2910,27 +2910,6 @@
       if(box) box.classList.add('hidden');
     }
 
-    function attackDisplayName(type){
-      const meta = ATTACK_META[type] || {};
-      return meta.labelTh || meta.label || type;
-    }
-
-    function attackWarningIcon(type){
-      const meta = ATTACK_META[type] || {};
-      return meta.emoji || '⚠️';
-    }
-
-    function attackWarningSub(type){
-      if(type === 'junkStorm') return 'Junk จะโผล่มากขึ้น ระวังอย่ากดผิด!';
-      if(type === 'slowTrap') return 'จังหวะจะเปลี่ยน ตั้งสติแล้วเลือกให้แม่น';
-      if(type === 'confuseSwap') return 'ดู Good/Junk ให้ชัดก่อนกด';
-      if(type === 'sugarFog') return 'มีหมอกหวานบังบาง ๆ มองให้ดี';
-      if(type === 'junkMagnet') return 'Junk จะล่อใกล้จุดกด ระวัง!';
-      if(type === 'comboFreeze') return 'เก็บคะแนนได้ แต่คอมโบจะไม่เพิ่มชั่วคราว';
-      if(type === 'meterLeak') return 'พลังโจมตีของคุณถูกลดลง';
-      return 'เตรียมตัวรับมือการโจมตี';
-    }
-
     function showIncomingAttackWarning(atk){
       if(!atk || !atk.id || state.incomingAttackIds.has(atk.id)) return;
 
