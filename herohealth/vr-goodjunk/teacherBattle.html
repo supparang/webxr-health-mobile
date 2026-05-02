@@ -415,12 +415,24 @@
         limit: 2000
       };
 
-      google.script.run
-        .withSuccessHandler(render)
-        .withFailureHandler(err => {
-          $('status').textContent = 'โหลดไม่สำเร็จ: ' + (err && err.message ? err.message : err);
-        })
-        .getBattleTeacherData(pin, filters);
+      if (
+        window.google &&
+        google.script &&
+        google.script.run
+      ) {
+        google.script.run
+          .withSuccessHandler(render)
+          .withFailureHandler(err => {
+            $('status').textContent = 'โหลดไม่สำเร็จ: ' + (err && err.message ? err.message : err);
+          })
+          .getBattleTeacherData(pin, filters);
+
+        return;
+      }
+
+      $('status').innerHTML =
+        'ไม่พบ <b>google.script.run</b> — กรุณาเปิด Dashboard ผ่านลิงก์ Web App แบบ ' +
+        '<b>?page=teacher_battle</b> และต้อง Deploy เป็น Web App ก่อน';
     }
 
     function render(data){
