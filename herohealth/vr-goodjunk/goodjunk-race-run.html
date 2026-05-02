@@ -2532,5 +2532,162 @@ PID: ${esc(ctx.pid)}
     }
   })();
   </script>
+  <style>
+  /* Race Summary v5.1 hotfix */
+  #raceResultMount .race-result-card{
+    padding-bottom:26px !important;
+  }
+
+  #raceResultMount .race-result-actions{
+    position:relative !important;
+    bottom:auto !important;
+    padding-top:8px !important;
+    margin-top:8px !important;
+    background:transparent !important;
+    z-index:1 !important;
+  }
+
+  #raceResultMount .race-debug-details{
+    border-radius:18px;
+    border:2px dashed #bfe3f2;
+    background:#fff;
+    overflow:hidden;
+  }
+
+  #raceResultMount .race-debug-details summary{
+    min-height:46px;
+    cursor:pointer;
+    padding:12px 14px;
+    font-size:13px;
+    font-weight:1000;
+    color:#6b7280;
+    background:#f4fbff;
+    list-style:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+
+  #raceResultMount .race-debug-details summary::-webkit-details-marker{
+    display:none;
+  }
+
+  #raceResultMount .race-debug-details summary::after{
+    content:"เปิด";
+    min-height:28px;
+    padding:5px 10px;
+    border-radius:999px;
+    border:2px solid #d7edf7;
+    background:#fff;
+    color:#4197bd;
+    font-size:11px;
+    font-weight:1000;
+  }
+
+  #raceResultMount .race-debug-details[open] summary::after{
+    content:"ปิด";
+  }
+
+  #raceResultMount .race-debug-details .race-debug{
+    border:0 !important;
+    border-top:2px dashed #bfe3f2 !important;
+    border-radius:0 !important;
+    margin:0 !important;
+  }
+
+  @media (max-width:760px){
+    #raceResultMount .race-result-actions{
+      display:grid !important;
+      grid-template-columns:1fr !important;
+    }
+
+    #raceResultMount .race-result-actions .btn{
+      width:100% !important;
+    }
+  }
+</style>
+
+<script>
+(function raceSummaryPolishHotfixV51(){
+  'use strict';
+
+  function esc(s){
+    return String(s ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#39;");
+  }
+
+  function polishDebug(){
+    const mount = document.getElementById('raceResultMount');
+    if (!mount) return;
+
+    const oldDebug = mount.querySelector('.race-debug');
+    if (!oldDebug) return;
+    if (oldDebug.closest('.race-debug-details')) return;
+
+    const detail = document.createElement('details');
+    detail.className = 'race-debug-details';
+    detail.innerHTML = '<summary>🛠 ข้อมูลระบบสำหรับครู</summary>';
+
+    oldDebug.parentNode.insertBefore(detail, oldDebug);
+    detail.appendChild(oldDebug);
+  }
+
+  function polishDuplicateNames(){
+    const mount = document.getElementById('raceResultMount');
+    if (!mount) return;
+
+    const rows = Array.from(mount.querySelectorAll('.race-standing-name'));
+    const parsed = rows.map((node) => {
+      const text = node.textContent || '';
+      const m = text.match(/(#\d+\s+)(.+)$/);
+      return { node, prefix:m ? m[1] : '', name:m ? m[2].trim() : text.trim() };
+    });
+
+    const counts = {};
+    parsed.forEach((x) => {
+      if (!x.name) return;
+      counts[x.name] = (counts[x.name] || 0) + 1;
+    });
+
+    const seen = {};
+    parsed.forEach((x) => {
+      if (!x.name || counts[x.name] <= 1) return;
+      seen[x.name] = (seen[x.name] || 0) + 1;
+      const medal = x.node.textContent.trim().split(' ')[0] || '';
+      x.node.textContent = `${medal} ${x.prefix}${x.name} ${seen[x.name]}`;
+    });
+  }
+
+  function moveActionsToBottom(){
+    const mount = document.getElementById('raceResultMount');
+    if (!mount) return;
+
+    const card = mount.querySelector('.race-result-card');
+    const actions = mount.querySelector('.race-result-actions');
+    if (!card || !actions) return;
+
+    card.appendChild(actions);
+  }
+
+  function run(){
+    polishDebug();
+    polishDuplicateNames();
+    moveActionsToBottom();
+  }
+
+  const obs = new MutationObserver(() => requestAnimationFrame(run));
+  obs.observe(document.body, { childList:true, subtree:true });
+
+  window.addEventListener('hha:race-summary-ready', run);
+  window.addEventListener('hha:summary-ready', run);
+  setTimeout(run, 500);
+  setTimeout(run, 1500);
+})();
+</script>
 </body>
 </html>
