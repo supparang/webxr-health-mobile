@@ -132,6 +132,10 @@
       padding:8px 12px;
       cursor:pointer;
       box-shadow:0 8px 16px rgba(154,75,20,.12);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
     }
 
     .btn:active{
@@ -733,6 +737,10 @@
       font-weight:1000;
     }
 
+    #btnExportLogs{
+      display:none;
+    }
+
     @media (max-width:920px){
       .bottom{
         grid-template-columns:1fr;
@@ -914,6 +922,7 @@
       .warn-sub{font-size:10px}
 
       .warn-count{
+        width:34px;
         height:34px;
         font-size:20px;
         border-width:3px;
@@ -961,6 +970,180 @@
 
       .arena{
         min-height:58dvh;
+      }
+    }
+
+    /* === Fullscreen Game Playing Mode === */
+    @media (max-width:620px){
+      #app.phase-playing{
+        padding:
+          calc(3px + var(--sat))
+          calc(3px + var(--sar))
+          calc(3px + var(--sab))
+          calc(3px + var(--sal));
+        gap:3px;
+        grid-template-rows:auto minmax(64dvh,1fr) auto;
+      }
+
+      #app.phase-playing .topbar{
+        padding:4px;
+        border-radius:12px;
+        gap:3px;
+      }
+
+      #app.phase-playing .title-row{
+        display:none;
+      }
+
+      #app.phase-playing .stats{
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:3px;
+      }
+
+      #app.phase-playing .stats .pill:nth-child(1){
+        display:none;
+      }
+
+      #app.phase-playing .pill{
+        min-height:28px;
+        padding:3px 4px;
+        border-radius:9px;
+        border-width:2px;
+      }
+
+      #app.phase-playing .pill-k{
+        font-size:7px;
+        line-height:1;
+      }
+
+      #app.phase-playing .pill-v{
+        font-size:10px;
+        line-height:1.05;
+      }
+
+      #app.phase-playing .rival-panel{
+        padding:3px;
+        border-width:2px;
+        border-radius:10px;
+        gap:3px;
+        background:rgba(255,250,240,.82);
+      }
+
+      #app.phase-playing .rival-head{
+        display:none;
+      }
+
+      #app.phase-playing .rival-grid{
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:3px;
+      }
+
+      #app.phase-playing .rival-mini{
+        min-height:24px;
+        padding:2px;
+        border-radius:8px;
+        border-width:1px;
+      }
+
+      #app.phase-playing .rival-mini span{
+        font-size:6px;
+        line-height:1;
+      }
+
+      #app.phase-playing .rival-mini b{
+        font-size:9px;
+        line-height:1;
+      }
+
+      #app.phase-playing .arena{
+        min-height:64dvh;
+        border-radius:14px;
+      }
+
+      #app.phase-playing .target{
+        width:62px;
+        height:62px;
+        border-radius:20px;
+        font-size:32px;
+      }
+
+      #app.phase-playing .bottom{
+        padding:4px;
+        border-radius:12px;
+        gap:3px;
+      }
+
+      #app.phase-playing .battle-note{
+        display:none;
+      }
+
+      #app.phase-playing .attack-deck{
+        grid-template-columns:repeat(7,minmax(34px,1fr));
+        gap:3px;
+      }
+
+      #app.phase-playing .attack-card{
+        min-height:36px;
+        border-radius:10px;
+        border-width:2px;
+        padding:2px;
+      }
+
+      #app.phase-playing .attack-card .atk-emoji{
+        font-size:17px;
+      }
+
+      #app.phase-playing .attack-card .atk-name{
+        font-size:6px;
+      }
+
+      #app.phase-playing .attack-card .atk-reason{
+        display:none;
+      }
+
+      #app.phase-playing .effect-banner{
+        top:4px;
+        min-height:28px;
+        padding:4px 8px;
+        font-size:10px;
+      }
+
+      #app.phase-playing .attack-warning{
+        inset:auto 5px 5px 5px;
+        padding:7px;
+        border-radius:16px;
+      }
+    }
+
+    @media (max-width:390px){
+      #app.phase-playing{
+        grid-template-rows:auto minmax(68dvh,1fr) auto;
+      }
+
+      #app.phase-playing .arena{
+        min-height:68dvh;
+      }
+
+      #app.phase-playing .rival-mini:nth-child(4){
+        display:none;
+      }
+
+      #app.phase-playing .rival-grid{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      #app.phase-playing .attack-deck{
+        grid-template-columns:repeat(7,minmax(30px,1fr));
+      }
+
+      #app.phase-playing .attack-card{
+        min-height:34px;
+      }
+
+      #app.phase-playing .target{
+        width:58px;
+        height:58px;
+        font-size:30px;
       }
     }
 
@@ -1063,6 +1246,7 @@
       <div class="card-actions">
         <button id="btnStartManual" class="btn" type="button">ลองเริ่มอีกครั้ง</button>
         <button id="btnBackLobby2" class="btn" type="button">กลับ Lobby</button>
+        <button id="btnExportLogs" class="btn" type="button">📥 Export Logs</button>
       </div>
     </div>
   </div>
@@ -1070,8 +1254,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260501-gj-battle-roundid-countdown"></script>
-  <script src="./goodjunk-battle-room-bootstrap.js?v=20260501-gj-battle-roundid-countdown"></script>
+  <script src="../firebase-config.js?v=20260502-gj-battle-pid-fix"></script>
+  <script src="./goodjunk-battle-room-bootstrap.js?v=20260502-gj-battle-pid-fix"></script>
 
   <script type="module">
     import {
@@ -1083,6 +1267,7 @@
       sendBattleAttack,
       consumeBattleAttacksForPlayer,
       finishBattleMatch,
+      markBattlePlayerOffline,
       getBattleServerNowMs,
       getBattleMaxHp,
       getBattleMaxHeals,
@@ -1090,7 +1275,7 @@
       canUseBattleAttack,
       getBattleOpponent,
       getPlayerByPid
-    } from './goodjunk-battle-room.js?v=20260501-GJ-BATTLE-ROUNDID-COUNTDOWN-SERVER-TIME';
+    } from './goodjunk-battle-room.js?v=20260502-GJ-BATTLE-PID-FIX';
 
     const $ = (id) => document.getElementById(id);
 
@@ -1131,6 +1316,34 @@
       return s || d;
     };
 
+    function makeBattleRuntimePid(){
+      const room = clean(qs('room', qs('roomId', '')), 'no-room');
+      const role = clean(qs('role', 'player'), 'player');
+      const key = `GJ_BATTLE_RUNTIME_PID:${room}:${role}`;
+
+      try{
+        let pid = localStorage.getItem(key);
+        if(pid && pid !== 'anon' && pid !== 'undefined' && pid !== 'null') return pid;
+
+        const r = Math.random().toString(36).slice(2, 8).toUpperCase();
+        const t = String(Date.now()).slice(-5);
+        pid = `${role === 'join' ? 'gj-guest' : 'gj-player'}-${r}-${t}`;
+        localStorage.setItem(key, pid);
+        return pid;
+      }catch(_){
+        const r = Math.random().toString(36).slice(2, 8).toUpperCase();
+        return `gj-player-${r}`;
+      }
+    }
+
+    function normalizeRuntimePid(raw){
+      const p = clean(raw, '');
+      if(!p || p === 'anon' || p === 'undefined' || p === 'null'){
+        return makeBattleRuntimePid();
+      }
+      return p;
+    }
+
     const clamp = (n, min, max) => {
       n = Number(n) || 0;
       return Math.max(min, Math.min(max, n));
@@ -1150,13 +1363,17 @@
         mode: clean(qs('mode', 'battle'), 'battle'),
         room: clean(qs('room', qs('roomId', '')), ''),
         roomId: clean(qs('roomId', qs('room', '')), ''),
-        pid: clean(qs('pid', 'anon'), 'anon'),
+        pid: normalizeRuntimePid(qs('pid', '')),
         name: clean(qs('name', qs('nick', 'Hero')), 'Hero'),
         nick: clean(qs('nick', qs('name', 'Hero')), 'Hero'),
         diff: clean(qs('diff', 'normal'), 'normal'),
         time: clean(qs('time', '150'), '150'),
         view: clean(qs('view', 'mobile'), 'mobile'),
         hub: clean(qs('hub', '../hub-v2.html'), '../hub-v2.html'),
+        api: clean(qs('api', ''), ''),
+        log: clean(qs('log', ''), ''),
+        studyId: clean(qs('studyId', ''), ''),
+        conditionGroup: clean(qs('conditionGroup', ''), ''),
         run: clean(qs('run', 'play'), 'play'),
         seed: clean(qs('seed', String(Date.now())), String(Date.now())),
         zone: clean(qs('zone', 'nutrition'), 'nutrition'),
@@ -1222,7 +1439,18 @@
       lastLocalSyncAt: 0,
       _lastRivalReadyKey: '',
       _lastMeterReady: false,
-      _countdownTimer: null
+      _countdownTimer: null,
+
+      rivalWarnedOffline: false,
+      rivalForfeitTriggered: false,
+
+      sessionId: '',
+      sessionStartedAt: 0,
+      battleStartedAt: 0,
+      battleEndedAt: 0,
+      loggedStart: false,
+      loggedEnd: false,
+      attackTypeCounts: {}
     };
 
     const SFX = { ctx: null };
@@ -1386,6 +1614,34 @@
       }
     }
 
+    function setGamePhase(phase){
+      const app = $('app');
+      if(!app) return;
+
+      app.classList.remove(
+        'phase-waiting',
+        'phase-countdown',
+        'phase-playing',
+        'phase-summary'
+      );
+
+      app.classList.add(`phase-${phase}`);
+      document.body.dataset.phase = phase;
+
+      const exportBtn = $('btnExportLogs');
+      if(exportBtn){
+        exportBtn.style.display = phase === 'summary' ? 'inline-flex' : 'none';
+      }
+    }
+
+    function getRoundNo(room){
+      return Number(room?.roundSeq || state.room?.roundSeq || 1) || 1;
+    }
+
+    function roundText(room){
+      return `รอบที่ ${getRoundNo(room)}`;
+    }
+
     function isFxActive(type){
       return Number(state.activeFx[type] || 0) > Date.now();
     }
@@ -1406,9 +1662,377 @@
     function getRivalLive(){
       if(state.room){
         const r = getBattleOpponent(state.room, C.pid);
-        if(r) return r;
+        if(r && String(r.pid || '') !== String(C.pid || '')) return r;
       }
-      return state.rival || null;
+      if(state.rival && String(state.rival.pid || '') !== String(C.pid || '')) return state.rival;
+      return null;
+    }
+
+    /* =====================================================
+     * Local logging
+     * ===================================================== */
+
+    const BATTLE_LOG_SCHEMA = 'goodjunk-battle-v1';
+    const BATTLE_LOG_LOCAL_KEY = 'HHA_GJ_BATTLE_LOGS';
+
+    function makeSessionId(){
+      const room = clean(C.room || C.roomId, 'room');
+      const pid = clean(C.pid, 'anon');
+      const rand = Math.random().toString(36).slice(2, 7);
+      return `${room}-${pid}-${Date.now()}-${rand}`;
+    }
+
+    function safeJson(obj){
+      try{ return JSON.stringify(obj); }
+      catch(_){ return '{}'; }
+    }
+
+    function readLocalLogs(){
+      try{
+        const raw = localStorage.getItem(BATTLE_LOG_LOCAL_KEY);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      }catch(_){
+        return [];
+      }
+    }
+
+    function saveLocalLog(row){
+      try{
+        const arr = readLocalLogs();
+        arr.push(row);
+        const keep = arr.slice(-120);
+        localStorage.setItem(BATTLE_LOG_LOCAL_KEY, JSON.stringify(keep));
+      }catch(_){}
+    }
+
+    function getCurrentRoundId(){
+      return clean(
+        state.room?.currentRoundId ||
+        C.currentRoundId ||
+        C.roundId ||
+        '',
+        ''
+      );
+    }
+
+    function getBattleDurationSec(){
+      const start = Number(state.battleStartedAt || state.sessionStartedAt || 0);
+      const end = Number(state.battleEndedAt || serverNowMs());
+      if(!start || !end) return 0;
+      return Math.max(0, Math.round((end - start) / 1000));
+    }
+
+    function getMyOutcome(room){
+      const matchEnd = room?.matchEnd || {};
+      const winnerPid = String(matchEnd.winnerPid || '');
+      const loserPid = String(matchEnd.loserPid || '');
+      const outcome = String(matchEnd.outcome || '');
+
+      if(outcome === 'tie' || (!winnerPid && !loserPid)) return 'tie';
+      if(winnerPid === String(C.pid)) return 'win';
+      if(loserPid === String(C.pid)) return 'lose';
+
+      return '';
+    }
+
+    function buildBattleLog(eventType, extra = {}){
+      const rival = getRivalLive();
+      const room = extra.room || state.room || {};
+      const matchEnd = room?.matchEnd || {};
+      const roundNo = Number(room?.roundSeq || state.room?.roundSeq || C.roundSeq || 1) || 1;
+
+      return {
+        schema: BATTLE_LOG_SCHEMA,
+        source: 'goodjunk-vr-battle.html',
+        eventType,
+        clientTs: new Date().toISOString(),
+        clientServerNowMs: Math.round(serverNowMs()),
+
+        sessionId: state.sessionId,
+        roomId: clean(C.room || C.roomId, ''),
+        roundId: getCurrentRoundId(),
+        roundSeq: roundNo,
+
+        pid: clean(C.pid, 'anon'),
+        name: clean(C.name || C.nick, 'Hero'),
+        role: clean(C.role, ''),
+        rivalPid: clean(rival?.pid, ''),
+        rivalName: clean(rival?.name || rival?.nick, ''),
+
+        game: 'goodjunk',
+        mode: 'battle',
+        zone: clean(C.zone, 'nutrition'),
+        diff: clean(C.diff, 'normal'),
+        view: clean(C.view, 'mobile'),
+        studyId: clean(C.studyId, ''),
+        conditionGroup: clean(C.conditionGroup, ''),
+
+        score: Number(state.score || 0),
+        combo: Number(state.combo || 0),
+        hp: Number(state.hp || 0),
+        maxHp: Number(state.maxHp || 0),
+        timeLeft: Number(state.timeLeft || 0),
+        durationSec: getBattleDurationSec(),
+
+        goodHits: Number(state.goodHits || 0),
+        junkHits: Number(state.junkHits || 0),
+        heartsRecovered: Number(state.heartsRecovered || 0),
+        maxHeals: Number(state.maxHeals || 0),
+
+        attacksSent: Number(state.attacksSent || 0),
+        attacksReceived: Number(state.attacksReceived || 0),
+        attacksBlocked: Number(state.attacksBlocked || 0),
+        attackTypeCounts: { ...(state.attackTypeCounts || {}) },
+
+        outcome: getMyOutcome(room),
+        winType: clean(matchEnd.outcome || '', ''),
+        endReason: clean(matchEnd.reason || extra.reason || '', ''),
+
+        pageUrl: location.href,
+        userAgent: navigator.userAgent,
+
+        ...extra
+      };
+    }
+
+    async function sendBattleLog(eventType, extra = {}){
+      const row = buildBattleLog(eventType, extra);
+
+      saveLocalLog(row);
+
+      const api = clean(C.api, '');
+      const enabled = clean(C.log, '') === '1' || clean(C.log, '').toLowerCase() === 'true' || !!api;
+
+      if(!enabled || !api){
+        return { ok:true, localOnly:true, row };
+      }
+
+      const payload = {
+        api: 'battle',
+        type: eventType,
+        action: 'battle_log',
+        payload: row,
+        row
+      };
+
+      try{
+        const body = safeJson(payload);
+
+        if(navigator.sendBeacon && eventType === 'battle_end'){
+          const blob = new Blob([body], { type:'text/plain;charset=UTF-8' });
+          navigator.sendBeacon(api, blob);
+          return { ok:true, beacon:true, row };
+        }
+
+        await fetch(api, {
+          method:'POST',
+          mode:'no-cors',
+          keepalive:true,
+          headers:{
+            'Content-Type':'text/plain;charset=UTF-8'
+          },
+          body
+        });
+
+        return { ok:true, row };
+      }catch(err){
+        console.warn('[Battle Log] send failed, kept local backup', err);
+        return { ok:false, error:String(err), row };
+      }
+    }
+
+    function logAttackType(type){
+      const t = clean(type, 'unknown');
+      state.attackTypeCounts[t] = Number(state.attackTypeCounts[t] || 0) + 1;
+    }
+
+    function flattenBattleLog(row){
+      const r = row || {};
+      return {
+        schema: r.schema || '',
+        source: r.source || '',
+        eventType: r.eventType || '',
+        clientTs: r.clientTs || '',
+        sessionId: r.sessionId || '',
+        roomId: r.roomId || '',
+        roundId: r.roundId || '',
+        roundSeq: r.roundSeq || '',
+        pid: r.pid || '',
+        name: r.name || '',
+        role: r.role || '',
+        rivalPid: r.rivalPid || '',
+        rivalName: r.rivalName || '',
+        game: r.game || '',
+        mode: r.mode || '',
+        zone: r.zone || '',
+        diff: r.diff || '',
+        view: r.view || '',
+        studyId: r.studyId || '',
+        conditionGroup: r.conditionGroup || '',
+        score: r.score ?? '',
+        combo: r.combo ?? '',
+        hp: r.hp ?? '',
+        maxHp: r.maxHp ?? '',
+        timeLeft: r.timeLeft ?? '',
+        durationSec: r.durationSec ?? '',
+        goodHits: r.goodHits ?? '',
+        junkHits: r.junkHits ?? '',
+        heartsRecovered: r.heartsRecovered ?? '',
+        maxHeals: r.maxHeals ?? '',
+        attacksSent: r.attacksSent ?? '',
+        attacksReceived: r.attacksReceived ?? '',
+        attacksBlocked: r.attacksBlocked ?? '',
+        outcome: r.outcome || '',
+        winType: r.winType || '',
+        endReason: r.endReason || '',
+        attackTypeCounts: safeJson(r.attackTypeCounts || {}),
+        attackType: r.attackType || '',
+        attackId: r.attackId || '',
+        fromPid: r.fromPid || '',
+        toPid: r.toPid || '',
+        blockedCount: r.blockedCount ?? '',
+        offlineAgeMs: r.offlineAgeMs ?? '',
+        pageUrl: r.pageUrl || '',
+        userAgent: r.userAgent || ''
+      };
+    }
+
+    function csvCell(v){
+      const s = String(v ?? '');
+      if(/[",\n\r]/.test(s)){
+        return `"${s.replaceAll('"','""')}"`;
+      }
+      return s;
+    }
+
+    function logsToCsv(logs){
+      const rows = (logs || []).map(flattenBattleLog);
+
+      const headers = [
+        'schema','source','eventType','clientTs','sessionId','roomId','roundId','roundSeq',
+        'pid','name','role','rivalPid','rivalName','game','mode','zone','diff','view',
+        'studyId','conditionGroup','score','combo','hp','maxHp','timeLeft','durationSec',
+        'goodHits','junkHits','heartsRecovered','maxHeals','attacksSent','attacksReceived',
+        'attacksBlocked','outcome','winType','endReason','attackTypeCounts','attackType',
+        'attackId','fromPid','toPid','blockedCount','offlineAgeMs','pageUrl','userAgent'
+      ];
+
+      const lines = [
+        headers.map(csvCell).join(','),
+        ...rows.map(row => headers.map(h => csvCell(row[h])).join(','))
+      ];
+
+      return lines.join('\n');
+    }
+
+    function downloadTextFile(filename, text, mime = 'text/plain;charset=utf-8'){
+      const blob = new Blob([text], { type:mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+
+      document.body.appendChild(a);
+      a.click();
+
+      setTimeout(() => {
+        try{ URL.revokeObjectURL(url); }catch(_){}
+        try{ a.remove(); }catch(_){}
+      }, 500);
+    }
+
+    function exportBattleLogs(){
+      const logs = readLocalLogs();
+
+      if(!logs.length){
+        showToast('ยังไม่มี Battle Logs ในเครื่องนี้');
+        return;
+      }
+
+      const room = clean(C.room || C.roomId, 'battle-room').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+      const csv = logsToCsv(logs);
+      const filename = `goodjunk-battle-logs-${room}-${stamp}.csv`;
+
+      downloadTextFile(filename, csv, 'text/csv;charset=utf-8');
+      showToast(`Export Logs แล้ว ${logs.length} รายการ`);
+    }
+
+    /* =====================================================
+     * Rival / rendering
+     * ===================================================== */
+
+    function rivalOfflineInfo(rival){
+      if(!rival){
+        return {
+          offline: true,
+          warn: false,
+          forfeit: false,
+          ageMs: Infinity
+        };
+      }
+
+      const lastSeen = Number(rival.lastSeenAt || rival.updatedAt || 0);
+      if(!lastSeen){
+        return {
+          offline: false,
+          warn: false,
+          forfeit: false,
+          ageMs: 0
+        };
+      }
+
+      const ageMs = serverNowMs() - lastSeen;
+
+      return {
+        offline: ageMs > 45000,
+        warn: ageMs > 45000,
+        forfeit: ageMs > 120000,
+        ageMs
+      };
+    }
+
+    async function handleRivalDisconnect(room){
+      if(!state.started || state.ended || state.matchEndShown) return;
+
+      const rival = getBattleOpponent(room || state.room, C.pid);
+      if(!rival) return;
+
+      const info = rivalOfflineInfo(rival);
+
+      if(info.warn && !state.rivalWarnedOffline){
+        state.rivalWarnedOffline = true;
+        showToast('⚠️ คู่แข่งอาจหลุดการเชื่อมต่อ');
+
+        sendBattleLog('battle_rival_offline_warn', {
+          rivalPid: clean(rival.pid, ''),
+          offlineAgeMs: Math.round(info.ageMs || 0)
+        });
+      }
+
+      if(info.forfeit && !state.rivalForfeitTriggered){
+        state.rivalForfeitTriggered = true;
+        showToast('🏁 คู่แข่งหลุดนานเกินไป จบ Battle');
+
+        sendBattleLog('battle_rival_forfeit', {
+          rivalPid: clean(rival.pid, ''),
+          offlineAgeMs: Math.round(info.ageMs || 0)
+        });
+
+        try{
+          await endGame('opponent_left');
+        }catch(err){
+          console.warn('[Battle] opponent_left end failed', err);
+        }
+      }
+
+      if(!info.warn){
+        state.rivalWarnedOffline = false;
+      }
     }
 
     function getRivalStatus(rival){
@@ -1449,6 +2073,7 @@
       }
 
       const status = getRivalStatus(rival);
+      const offline = rivalOfflineInfo(rival);
 
       nameEl.textContent = rival.name || rival.nick || 'Rival';
       scoreEl.textContent = String(Number(rival.score || 0));
@@ -1456,8 +2081,13 @@
       meterEl.textContent = meterText(rival.attackMeter);
       shieldEl.textContent = Number(rival.shield || 0) > 0 ? '🛡️' : '—';
 
-      statusEl.textContent = status.text;
-      statusEl.className = `rival-status ${status.cls}`;
+      if(offline.warn){
+        statusEl.textContent = 'หลุด?';
+        statusEl.className = 'rival-status danger';
+      }else{
+        statusEl.textContent = status.text;
+        statusEl.className = `rival-status ${status.cls}`;
+      }
     }
 
     function updateFxBanner(){
@@ -1534,8 +2164,8 @@
         attacksBlocked: state.attacksBlocked,
         attacksReceived: state.attacksReceived,
         online: true,
-        updatedAt: Date.now(),
-        lastSeenAt: Date.now()
+        updatedAt: serverNowMs(),
+        lastSeenAt: serverNowMs()
       };
 
       return room;
@@ -1649,7 +2279,7 @@
         attacksReceived: state.attacksReceived
       }, { adapter });
 
-      state.lastLocalSyncAt = Date.now();
+      state.lastLocalSyncAt = serverNowMs();
     }
 
     function pick(arr){
@@ -1793,7 +2423,7 @@
           state.hp = clamp(state.hp + 1, 0, state.maxHp);
           state.heartsRecovered += 1;
           state.score += 5;
-          state.lastHealAt = Date.now();
+          state.lastHealAt = serverNowMs();
 
           showToast(`💗 ได้หัวใจคืน +1 (${state.heartsRecovered}/${state.maxHeals})`);
         }else{
@@ -1832,6 +2462,13 @@
         state.attacksSent += 1;
         state._lastMeterReady = false;
 
+        logAttackType(type);
+        sendBattleLog('battle_attack', {
+          attackType:type,
+          toPid: clean(result.toPid, ''),
+          attackId: clean(result.attack?.id, '')
+        });
+
         playSfx('attackSend');
         vibrate([60, 40, 60]);
 
@@ -1859,6 +2496,12 @@
 
       state.activeFx[type] = Date.now() + duration;
       state.attacksReceived += 1;
+
+      sendBattleLog('battle_attack_received', {
+        attackType:type,
+        fromPid: clean(atk.fromPid, ''),
+        attackId: clean(atk.id, '')
+      });
 
       playSfx('hitByAttack');
       vibrate([80, 40, 80]);
@@ -1932,6 +2575,12 @@
       if(res.blocked && res.blocked.length){
         state.shield = 0;
         state.attacksBlocked += res.blocked.length;
+
+        sendBattleLog('battle_attack_blocked', {
+          blockedCount: res.blocked.length,
+          blockedIds: res.blocked.map(a => clean(a.id, '')).filter(Boolean)
+        });
+
         playSfx('shield');
         vibrate([40, 30, 40]);
         showToast('🛡️ Shield บล็อกการโจมตี!');
@@ -1952,11 +2601,12 @@
       if(state.countdownRunning || state.countdownDone || state.ended) return;
 
       state.countdownRunning = true;
+      setGamePhase('countdown');
 
       const startAt = Number(room?.battleStartAt || 0) || (serverNowMs() + 3500);
       state.battleStartAt = startAt;
 
-      setOverlay(true, '⚔️', 'เตรียมพร้อม Battle!', '3');
+      setOverlay(true, '⚔️', `${roundText(room)} • เตรียมพร้อม Battle!`, '3');
 
       playSfx('warning');
       vibrate(40);
@@ -1977,7 +2627,7 @@
 
         if(leftMs > 2500){
           $('overlayText').textContent = '3';
-          $('overlayTitle').textContent = 'เตรียมพร้อม Battle!';
+          $('overlayTitle').textContent = `${roundText(room)} • เตรียมพร้อม Battle!`;
         }else if(leftMs > 1500){
           $('overlayText').textContent = '2';
           $('overlayTitle').textContent = 'ตั้งใจเลือกของดี!';
@@ -1994,9 +2644,20 @@
           state.countdownRunning = false;
           state.countdownDone = true;
           state.started = true;
+          state.battleStartedAt = serverNowMs();
 
+          setGamePhase('playing');
           setOverlay(false);
-          showToast('⚔️ Battle เริ่มแล้ว!');
+          showToast(`⚔️ ${roundText(room)} เริ่มแล้ว!`);
+
+          if(!state.loggedStart){
+            state.loggedStart = true;
+            sendBattleLog('battle_start', {
+              room,
+              reason:'countdown_complete'
+            });
+          }
+
           playSfx('attackReady');
           vibrate([50, 30, 80]);
 
@@ -2033,7 +2694,11 @@
       }, 1000);
 
       const incomingLoop = setInterval(consumeIncoming, 700);
-      const syncLoop = setInterval(syncStats, 1800);
+
+      const syncLoop = setInterval(async () => {
+        await syncStats();
+        await handleRivalDisconnect(state.room);
+      }, 1800);
 
       state.timers.push(spawnLoop, clockLoop, incomingLoop, syncLoop);
     }
@@ -2050,8 +2715,52 @@
 
     function reasonLabel(reason){
       if(reason === 'hp_zero') return 'มีผู้เล่นหัวใจหมด';
+      if(reason === 'opponent_left') return 'คู่แข่งออกจากเกม';
       if(reason === 'time_up') return 'หมดเวลา';
       return 'จบ Battle';
+    }
+
+    function findSummaryPlayers(room, rows){
+      const myPid = String(C.pid || '');
+      const myName = String(C.name || C.nick || '');
+
+      const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
+
+      let me =
+        list.find(p => String(p.pid || '') === myPid) ||
+        getPlayerByPid(room, C.pid) ||
+        null;
+
+      if(!me && myName){
+        me = list.find(p => String(p.name || p.nick || '') === myName) || null;
+      }
+
+      let rival =
+        list.find(p => String(p.pid || '') && String(p.pid || '') !== myPid) ||
+        null;
+
+      if(!rival){
+        const r = getBattleOpponent(room, C.pid);
+        if(r && String(r.pid || '') !== myPid){
+          rival = r;
+        }
+      }
+
+      if(
+        rival &&
+        me &&
+        (
+          String(rival.pid || '') === String(me.pid || '') ||
+          (
+            String(rival.name || rival.nick || '') === String(me.name || me.nick || '') &&
+            Number(rival.score || 0) === Number(me.score || 0)
+          )
+        )
+      ){
+        rival = null;
+      }
+
+      return { me, rival };
     }
 
     function showFinalFromRoom(room){
@@ -2060,6 +2769,20 @@
       state.matchEndShown = true;
       state.ended = true;
       stopAllLoops();
+      setGamePhase('summary');
+
+      state.battleEndedAt = serverNowMs();
+
+      if(!state.loggedEnd){
+        state.loggedEnd = true;
+        sendBattleLog('battle_end', {
+          room,
+          reason: clean(room?.matchEnd?.reason, 'ended'),
+          outcome: clean(room?.matchEnd?.outcome, ''),
+          winnerPid: clean(room?.matchEnd?.winnerPid, ''),
+          loserPid: clean(room?.matchEnd?.loserPid, '')
+        });
+      }
 
       const matchEnd = room && room.matchEnd ? room.matchEnd : {};
       const roomPlayers = room && room.players ? Object.values(room.players) : [];
@@ -2067,23 +2790,17 @@
         ? matchEnd.players
         : roomPlayers;
 
-      const me =
-        rows.find(p => String(p.pid) === String(C.pid)) ||
-        getPlayerByPid(room, C.pid) ||
-        null;
-
-      const rival =
-        rows.find(p => String(p.pid) !== String(C.pid)) ||
-        getBattleOpponent(room, C.pid) ||
-        null;
+      const picked = findSummaryPlayers(room, rows);
+      const me = picked.me;
+      const rival = picked.rival;
 
       const myScore = Number(me?.score ?? state.score) || 0;
-      const rivalScore = Number(rival?.score ?? 0) || 0;
+      const rivalScore = rival ? (Number(rival.score ?? 0) || 0) : 0;
 
       const myHp = Number(me?.hp ?? state.hp ?? 0);
-      const rivalHp = Number(rival?.hp ?? 0);
+      const rivalHp = rival ? Number(rival.hp ?? 0) : 0;
       const myMaxHp = Number(me?.maxHp ?? state.maxHp);
-      const rivalMaxHp = Number(rival?.maxHp ?? state.maxHp);
+      const rivalMaxHp = rival ? Number(rival.maxHp ?? state.maxHp) : state.maxHp;
 
       let winnerPid = String(matchEnd.winnerPid || '');
       let loserPid = String(matchEnd.loserPid || '');
@@ -2120,15 +2837,17 @@
 
       let icon = '🏁';
       let title = 'Battle จบแล้ว';
-      let reasonText = 'จบเกม • คะแนนสูงกว่าชนะ';
+      let reasonText = `${roundText(room)} • จบเกม • คะแนนสูงกว่าชนะ`;
 
       if(reason === 'hp_zero'){
-        reasonText = 'มีผู้เล่นหัวใจหมด Battle จบทันที';
+        reasonText = `${roundText(room)} • มีผู้เล่นหัวใจหมด Battle จบทันที`;
+      }else if(reason === 'opponent_left'){
+        reasonText = `${roundText(room)} • คู่แข่งออกจากเกมหรือหลุดการเชื่อมต่อ`;
       }else if(reason === 'time_up'){
-        reasonText = 'หมดเวลา • ตัดสินจากคะแนนรวม';
+        reasonText = `${roundText(room)} • หมดเวลา • ตัดสินจากคะแนนรวม`;
       }
 
-      if(outcome === 'tie' || (!winnerPid && myScore === rivalScore)){
+      if(outcome === 'tie' || (!winnerPid && rival && myScore === rivalScore)){
         icon = '⚖️';
         title = 'เสมอกัน!';
       }else if(winnerPid === String(C.pid)){
@@ -2137,6 +2856,9 @@
       }else if(loserPid === String(C.pid)){
         icon = reason === 'hp_zero' ? '💔' : '💪';
         title = reason === 'hp_zero' ? 'แพ้เพราะหัวใจหมด' : 'แพ้ Battle รอบนี้';
+      }else if(reason === 'hp_zero' && myHp <= 0){
+        icon = '💔';
+        title = 'แพ้เพราะหัวใจหมด';
       }
 
       if(winnerPid === String(C.pid)){
@@ -2152,6 +2874,13 @@
 
       $('btnStartManual').textContent = '🔁 Battle อีกครั้ง (Room เดิม)';
       $('btnBackLobby2').textContent = '⚔️ กลับ Lobby';
+
+      const exportBtn = $('btnExportLogs');
+      if(exportBtn){
+        const count = readLocalLogs().length;
+        exportBtn.textContent = `📥 Export Logs (${count})`;
+        exportBtn.style.display = 'inline-flex';
+      }
 
       $('overlay').classList.remove('hidden');
       $('overlayIcon').textContent = icon;
@@ -2175,12 +2904,12 @@
             </div>
 
             <div class="result-player rival">
-              <div class="result-name">คู่แข่ง: ${h(rival?.name || 'Rival')}</div>
-              <div class="result-score">${rivalScore}</div>
+              <div class="result-name">คู่แข่ง: ${h(rival?.name || rival?.nick || 'ไม่พบข้อมูลคู่แข่ง')}</div>
+              <div class="result-score">${rival ? rivalScore : '-'}</div>
               <div class="result-mini">
                 <div>หัวใจ: ${rival ? `${rivalHeartText} (${rivalHp}/${rivalMaxHp})` : '-'}</div>
-                <div>รับโจมตี: ${state.attacksReceived} ครั้ง</div>
-                <div>กันโจมตี: ${state.attacksBlocked} ครั้ง</div>
+                <div>รับโจมตี: ${rival ? Number(rival.attacksReceived || 0) : '-'} ครั้ง</div>
+                <div>กันโจมตี: ${rival ? Number(rival.attacksBlocked || 0) : '-'} ครั้ง</div>
               </div>
             </div>
           </div>
@@ -2262,6 +2991,7 @@
       if(!result.ok){
         state.ready = false;
         state.started = false;
+        setGamePhase('waiting');
 
         setOverlay(
           true,
@@ -2275,7 +3005,14 @@
 
       state.room = result.room;
       state.rival = getBattleOpponent(result.room, C.pid);
+
+      if(state.rival && String(state.rival.pid || '') === String(C.pid || '')){
+        state.rival = null;
+      }
+
       renderRivalPanel();
+
+      await handleRivalDisconnect(result.room);
 
       if(state.rival && Number(state.rival.attackMeter || 0) >= 3 && !state.ended && state.started){
         const key = `rival-ready-${state.rival.pid}-${state.rival.attackMeter}`;
@@ -2325,6 +3062,11 @@
         await syncStats();
       }else{
         state.rival = getBattleOpponent(result.room, C.pid);
+
+        if(state.rival && String(state.rival.pid || '') === String(C.pid || '')){
+          state.rival = null;
+        }
+
         render();
       }
     }
@@ -2334,6 +3076,7 @@
         const session = await ensureBattleSession(C, { adapter });
         await handleRoomResult(session);
       }catch(err){
+        setGamePhase('waiting');
         setOverlay(true, '⏳', err.title || 'ยังเริ่มไม่ได้', err.messageUser || err.message || 'รอผู้เล่นอีกคน');
       }
     }
@@ -2349,10 +3092,18 @@
         showToast(state.soundOn ? 'เปิดเสียงแล้ว' : 'ปิดเสียงแล้ว');
       });
 
-      $('btnLobby').addEventListener('click', () => location.href = lobbyUrl());
-      $('btnHub').addEventListener('click', () => location.href = C.hub);
+      $('btnLobby').addEventListener('click', async () => {
+        try{ await markBattlePlayerOffline(C, { adapter }); }catch(_){}
+        location.href = lobbyUrl();
+      });
 
-      $('btnBackLobby2').addEventListener('click', () => {
+      $('btnHub').addEventListener('click', async () => {
+        try{ await markBattlePlayerOffline(C, { adapter }); }catch(_){}
+        location.href = C.hub;
+      });
+
+      $('btnBackLobby2').addEventListener('click', async () => {
+        try{ await markBattlePlayerOffline(C, { adapter }); }catch(_){}
         location.href = lobbyUrl();
       });
 
@@ -2364,9 +3115,18 @@
         }
       });
 
+      $('btnExportLogs').addEventListener('click', () => {
+        exportBattleLogs();
+      });
+
       adapter = makeRoomAdapter();
 
       await syncServerClock();
+
+      state.sessionId = makeSessionId();
+      state.sessionStartedAt = serverNowMs();
+
+      setGamePhase('waiting');
 
       setOverlay(true, '⏳', 'กำลังตรวจ Battle', 'รอผู้เล่นให้ครบ 2 คนในห้องเดียวกัน');
 
@@ -2374,7 +3134,13 @@
 
       stopWatch = watchBattleSession(C, handleRoomResult, { adapter });
 
+      window.addEventListener('pagehide', () => {
+        try{ markBattlePlayerOffline(C, { adapter }); }catch(_){}
+        try{ stopWatch?.(); }catch(_){}
+      });
+
       window.addEventListener('beforeunload', () => {
+        try{ markBattlePlayerOffline(C, { adapter }); }catch(_){}
         try{ stopWatch?.(); }catch(_){}
       });
 
