@@ -10090,5 +10090,411 @@
   console.log("[VOCAB] v8.1.3 reward navigation fix loaded");
 })();
 </script>
+<script>
+/* =========================================================
+   VOCAB v8.1.4 — Reward Button Click Fix
+   Fix:
+   - Reward buttons visible but not clickable
+   - pointer-events / overlay / inline onclick not firing
+   - buttons use delegated capture click handler
+   ========================================================= */
+(function(){
+  "use strict";
+
+  function el(id){
+    return document.getElementById(id);
+  }
+
+  function safe(fn){
+    try{
+      if(typeof fn === "function") return fn();
+    }catch(e){
+      console.warn("[VOCAB v8.1.4] safe warning", e);
+    }
+    return null;
+  }
+
+  function injectCssV814(){
+    if(el("v814RewardButtonFixCss")) return;
+
+    var css = document.createElement("style");
+    css.id = "v814RewardButtonFixCss";
+    css.textContent = `
+      #v6RewardPanel:not([hidden]){
+        pointer-events:auto !important;
+        z-index:9990 !important;
+        position:relative !important;
+      }
+
+      #v6RewardPanel .v81-reward,
+      #v6RewardPanel .v81-actions,
+      #v6RewardPanel .v81-btn{
+        pointer-events:auto !important;
+        position:relative !important;
+        z-index:9995 !important;
+      }
+
+      #v6RewardPanel .v81-btn{
+        cursor:pointer !important;
+        touch-action:manipulation !important;
+        user-select:none !important;
+        -webkit-user-select:none !important;
+        -webkit-tap-highlight-color:rgba(255,255,255,.18) !important;
+      }
+
+      #v6RewardPanel .v81-btn:active{
+        transform:scale(.985) !important;
+        filter:brightness(1.12) !important;
+      }
+
+      #v6RewardPanel .v81-details{
+        pointer-events:auto !important;
+        position:relative !important;
+        z-index:9994 !important;
+      }
+
+      .v814-click-shield{
+        pointer-events:none !important;
+      }
+    `;
+
+    document.head.appendChild(css);
+  }
+
+  function clearTimersV814(){
+    try{
+      if(window.vocabGame){
+        if(vocabGame.timerId){
+          clearInterval(vocabGame.timerId);
+          clearTimeout(vocabGame.timerId);
+          vocabGame.timerId = null;
+        }
+
+        if(vocabGame.feverTimerId){
+          clearTimeout(vocabGame.feverTimerId);
+          clearInterval(vocabGame.feverTimerId);
+          vocabGame.feverTimerId = null;
+        }
+
+        vocabGame.fever = false;
+        vocabGame.feverUntil = 0;
+      }
+    }catch(e){}
+
+    safe(window.clearTimerV6);
+    safe(window.stopFeverV62);
+  }
+
+  function removeFxV814(){
+    [
+      ".v6-float",
+      ".v6-laser-beam",
+      ".v6-fx-burst",
+      ".v72-announcer",
+      ".v72-flash",
+      ".v72-particle",
+      ".v74-toast",
+      ".v78-guard-toast"
+    ].forEach(function(sel){
+      document.querySelectorAll(sel).forEach(function(n){
+        try{ n.remove(); }catch(e){}
+      });
+    });
+
+    document.body.classList.remove(
+      "v72-screen-shake",
+      "v72-hard-hit",
+      "v72-boss-rage",
+      "v72-fever-rainbow",
+      "v73-final-lock"
+    );
+  }
+
+  function showBattleOnlyV814(){
+    var reward = el("v6RewardPanel");
+    var menu = el("v6MenuPanel");
+    var battle = el("v6BattlePanel");
+
+    if(reward){
+      reward.hidden = true;
+      reward.style.display = "none";
+      reward.style.pointerEvents = "none";
+    }
+
+    if(menu){
+      menu.hidden = true;
+      menu.style.display = "none";
+      menu.style.pointerEvents = "none";
+    }
+
+    if(battle){
+      battle.hidden = false;
+      battle.style.display = "";
+      battle.style.pointerEvents = "auto";
+    }
+
+    window.scrollTo({ top:0, behavior:"auto" });
+  }
+
+  function showMenuOnlyV814(){
+    var reward = el("v6RewardPanel");
+    var menu = el("v6MenuPanel");
+    var battle = el("v6BattlePanel");
+
+    if(reward){
+      reward.hidden = true;
+      reward.style.display = "none";
+      reward.style.pointerEvents = "none";
+    }
+
+    if(battle){
+      battle.hidden = true;
+      battle.style.display = "none";
+      battle.style.pointerEvents = "none";
+    }
+
+    if(menu){
+      menu.hidden = false;
+      menu.style.display = "";
+      menu.style.pointerEvents = "auto";
+    }
+
+    window.scrollTo({ top:0, behavior:"auto" });
+  }
+
+  function currentOptionsV814(){
+    var bank = "A";
+    var difficulty = "normal";
+    var mode = "learn";
+
+    try{
+      bank =
+        (window.vocabGame && vocabGame.bank) ||
+        (window.VOCAB_APP && VOCAB_APP.selectedBank) ||
+        "A";
+
+      difficulty =
+        (window.vocabGame && vocabGame.difficulty) ||
+        (window.VOCAB_APP && VOCAB_APP.selectedDifficulty) ||
+        "normal";
+
+      mode =
+        (window.vocabGame && vocabGame.mode) ||
+        (window.VOCAB_APP && VOCAB_APP.selectedMode) ||
+        "learn";
+    }catch(e){}
+
+    return { bank:bank, difficulty:difficulty, mode:mode };
+  }
+
+  function nextDiffV814(diff){
+    diff = String(diff || "normal").toLowerCase();
+
+    if(diff === "easy") return "normal";
+    if(diff === "normal") return "hard";
+    if(diff === "hard") return "challenge";
+    return "challenge";
+  }
+
+  function syncSelectionsV814(opt){
+    try{
+      if(window.VOCAB_APP){
+        VOCAB_APP.selectedBank = opt.bank;
+        VOCAB_APP.selectedDifficulty = opt.difficulty;
+        VOCAB_APP.selectedMode = opt.mode;
+      }
+
+      document.querySelectorAll("[data-v6-bank]").forEach(function(btn){
+        btn.classList.toggle("active", btn.dataset.v6Bank === opt.bank);
+      });
+
+      document.querySelectorAll("[data-v6-diff]").forEach(function(btn){
+        btn.classList.toggle("active", btn.dataset.v6Diff === opt.difficulty);
+      });
+
+      document.querySelectorAll("[data-v6-mode]").forEach(function(btn){
+        btn.classList.toggle("active", btn.dataset.v6Mode === opt.mode);
+      });
+
+      safe(window.updateV6DiffPreview);
+      safe(window.updateV66ModePreview);
+      safe(window.updateV6BankLabel);
+      safe(window.updateV66ModeHud);
+    }catch(e){
+      console.warn("[VOCAB v8.1.4] sync warning", e);
+    }
+  }
+
+  function startRunV814(kind){
+    clearTimersV814();
+    removeFxV814();
+
+    var opt = currentOptionsV814();
+
+    if(kind === "next"){
+      opt.mode = "mission";
+      opt.difficulty = nextDiffV814(opt.difficulty);
+    }
+
+    syncSelectionsV814(opt);
+    showBattleOnlyV814();
+
+    setTimeout(function(){
+      try{
+        if(typeof window.startVocabBattleV6 === "function"){
+          window.startVocabBattleV6(opt);
+          setTimeout(showBattleOnlyV814, 50);
+          setTimeout(showBattleOnlyV814, 180);
+          return;
+        }
+      }catch(e){
+        console.error("[VOCAB v8.1.4] start run failed", e);
+      }
+
+      location.reload();
+    }, 80);
+  }
+
+  function backMenuV814(){
+    clearTimersV814();
+    removeFxV814();
+
+    try{
+      showMenuOnlyV814();
+
+      if(typeof window.renderLeaderboardV68 === "function"){
+        window.renderLeaderboardV68((window.VOCAB_APP && VOCAB_APP.selectedMode) || "learn");
+      }
+    }catch(e){
+      location.reload();
+    }
+  }
+
+  function bindRewardButtonsV814(){
+    injectCssV814();
+
+    var reward = el("v6RewardPanel");
+    if(!reward) return;
+
+    reward.style.pointerEvents = "auto";
+
+    reward.querySelectorAll(".v81-btn").forEach(function(btn){
+      btn.style.pointerEvents = "auto";
+      btn.style.cursor = "pointer";
+
+      /*
+        ใส่ data-action เพื่อไม่ต้องพึ่ง inline onclick
+      */
+      var t = String(btn.textContent || "").toLowerCase();
+
+      if(t.indexOf("play again") >= 0){
+        btn.setAttribute("data-v814-action", "again");
+      }else if(t.indexOf("next challenge") >= 0){
+        btn.setAttribute("data-v814-action", "next");
+      }else if(t.indexOf("back to menu") >= 0){
+        btn.setAttribute("data-v814-action", "menu");
+      }
+    });
+  }
+
+  /*
+    Delegated click แบบ capture: ดักก่อน source guard / overlay handler บางตัว
+  */
+  function installDelegatedClickV814(){
+    if(window.__VOCAB_V814_DELEGATED_CLICK__) return;
+    window.__VOCAB_V814_DELEGATED_CLICK__ = true;
+
+    document.addEventListener("pointerdown", function(e){
+      var btn = e.target && e.target.closest ? e.target.closest("#v6RewardPanel .v81-btn") : null;
+      if(!btn) return;
+
+      btn.dataset.v814Pressed = "1";
+    }, true);
+
+    document.addEventListener("click", function(e){
+      var btn = e.target && e.target.closest ? e.target.closest("#v6RewardPanel .v81-btn") : null;
+      if(!btn) return;
+
+      var action = btn.getAttribute("data-v814-action") || "";
+      var text = String(btn.textContent || "").toLowerCase();
+
+      if(!action){
+        if(text.indexOf("play again") >= 0) action = "again";
+        else if(text.indexOf("next challenge") >= 0) action = "next";
+        else if(text.indexOf("back to menu") >= 0) action = "menu";
+      }
+
+      if(!action) return;
+
+      try{
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      }catch(err){}
+
+      if(action === "again"){
+        startRunV814("again");
+      }else if(action === "next"){
+        startRunV814("next");
+      }else if(action === "menu"){
+        backMenuV814();
+      }
+
+      return false;
+    }, true);
+  }
+
+  /*
+    กันกรณี inline onclick เดิมเรียกไม่ได้
+  */
+  window.__VOCAB_V81_PLAY_AGAIN = function(){
+    startRunV814("again");
+  };
+
+  window.__VOCAB_V81_NEXT_CHALLENGE = function(){
+    startRunV814("next");
+  };
+
+  window.__VOCAB_V81_BACK_MENU = function(){
+    backMenuV814();
+  };
+
+  /*
+    หลัง render reward ให้ rebind ปุ่มเสมอ
+  */
+  var oldRender = window.renderRewardScreenV6;
+  if(typeof oldRender === "function" && !oldRender.__v814ButtonWrapped){
+    var wrappedRender = function(){
+      var out = oldRender.apply(this, arguments);
+      injectCssV814();
+      setTimeout(bindRewardButtonsV814, 0);
+      setTimeout(bindRewardButtonsV814, 80);
+      setTimeout(bindRewardButtonsV814, 250);
+      return out;
+    };
+
+    wrappedRender.__v814ButtonWrapped = true;
+    window.renderRewardScreenV6 = wrappedRender;
+  }
+
+  injectCssV814();
+  installDelegatedClickV814();
+
+  document.addEventListener("DOMContentLoaded", function(){
+    injectCssV814();
+    bindRewardButtonsV814();
+    setTimeout(bindRewardButtonsV814, 600);
+  });
+
+  setInterval(function(){
+    var reward = el("v6RewardPanel");
+    if(reward && !reward.hidden){
+      bindRewardButtonsV814();
+    }
+  }, 1000);
+
+  console.log("[VOCAB] v8.1.4 reward button click fix loaded");
+})();
+</script>
 </body>
 </html>
