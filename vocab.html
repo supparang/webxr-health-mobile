@@ -11166,5 +11166,344 @@
   console.log("[VOCAB] " + PATCH + " loaded");
 })();
 </script>
+<script>
+/* =========================================================
+   VOCAB v8.1.7 — Reward Details Real Metrics Fix
+   Fix:
+   - Details แสดง 0 หลายช่อง
+   - ดึงค่าจริงจาก result + result.powerStats + vocabGame fallback
+   - แสดง Correct / Wrong / Time / Fever / Hint / Shield / Laser / AI Help / Weak Words
+   ========================================================= */
+(function(){
+  "use strict";
+
+  const PATCH = "v8.1.7-reward-details-real-metrics-fix-20260501";
+
+  function el(id){
+    return document.getElementById(id);
+  }
+
+  function esc(s){
+    if(typeof escapeHtmlV6 === "function") return escapeHtmlV6(s);
+    return String(s ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#39;");
+  }
+
+  function num(v, fallback){
+    const x = Number(v);
+    return Number.isFinite(x) ? x : (fallback || 0);
+  }
+
+  function fmt(v){
+    return String(Math.round(num(v, 0)));
+  }
+
+  function getGameFallback(){
+    try{
+      if(!window.vocabGame) return {};
+      return {
+        score: vocabGame.score,
+        correct: vocabGame.correct,
+        wrong: vocabGame.wrong,
+        comboMax: vocabGame.comboMax,
+        durationSec: vocabGame.startedAt && vocabGame.endedAt
+          ? Math.round((vocabGame.endedAt - vocabGame.startedAt) / 1000)
+          : 0,
+        playerHp: vocabGame.playerHp,
+        enemyHp: vocabGame.enemyHp,
+        enemyHpMax: vocabGame.enemyHpMax,
+        aiHelpUsed: vocabGame.aiHelpUsed,
+        aiHelpLeft: vocabGame.aiHelpLeft,
+        hintsLeft: vocabGame.hints,
+        shieldLeft: vocabGame.shield,
+        laserReady: vocabGame.laserReady ? 1 : 0,
+        powerStats: vocabGame.powerStats || {},
+        stageStats: vocabGame.stageStats || {},
+        mistakes: vocabGame.mistakes || []
+      };
+    }catch(e){
+      return {};
+    }
+  }
+
+  function mergeResultData(result){
+    const g = getGameFallback();
+    const ps = Object.assign({}, g.powerStats || {}, result.powerStats || {});
+
+    const correct = num(result.correct, num(g.correct, 0));
+    const wrong = num(result.wrong, num(g.wrong, 0));
+    const total = correct + wrong;
+    const accuracy = result.accuracy != null
+      ? num(result.accuracy, 0)
+      : total ? Math.round(correct / total * 100) : 0;
+
+    const merged = Object.assign({}, result, {
+      score: num(result.score, num(g.score, 0)),
+      correct,
+      wrong,
+      accuracy,
+      comboMax: num(result.comboMax, num(g.comboMax, 0)),
+      durationSec: num(result.durationSec, num(g.durationSec, 0)),
+      playerHp: result.playerHp != null ? result.playerHp : g.playerHp,
+      enemyHp: result.enemyHp != null ? result.enemyHp : g.enemyHp,
+      enemyHpMax: result.enemyHpMax != null ? result.enemyHpMax : g.enemyHpMax,
+      aiHelpUsed: num(result.aiHelpUsed, num(g.aiHelpUsed, 0)),
+      aiHelpLeft: num(result.aiHelpLeft, num(g.aiHelpLeft, 0)),
+      hintsLeft: result.hintsLeft != null ? result.hintsLeft : g.hintsLeft,
+      shieldLeft: result.shieldLeft != null ? result.shieldLeft : g.shieldLeft,
+      laserReady: result.laserReady != null ? result.laserReady : g.laserReady,
+      powerStats: ps,
+      stageStats: result.stageStats || g.stageStats || {},
+      mistakes: result.mistakes || g.mistakes || []
+    });
+
+    merged.feverCount = num(result.feverCount, num(ps.feverCount, 0));
+    merged.hintUsed = num(result.hintUsed, num(ps.hintUsed, 0));
+    merged.shieldUsed = num(result.shieldUsed, num(ps.shieldUsed, 0));
+    merged.laserUsed = num(result.laserUsed, num(ps.laserUsed, 0));
+    merged.bossAttackCount = num(result.bossAttackCount, num(ps.bossAttackCount, 0));
+
+    if(!Array.isArray(merged.weakestTerms) || !merged.weakestTerms.length){
+      merged.weakestTerms = buildWeakTermsFallback(merged);
+    }
+
+    return merged;
+  }
+
+  function buildWeakTermsFallback(result){
+    if(Array.isArray(result.mistakes) && result.mistakes.length){
+      const map = {};
+
+      result.mistakes.forEach(function(m){
+        const term = String(m.term || m.word || "").trim();
+        if(!term) return;
+
+        if(!map[term]){
+          map[term] = {
+            term: term,
+            meaning: m.meaning || "",
+            count: 0
+          };
+        }
+
+        map[term].count += 1;
+      });
+
+      return Object.values(map).sort(function(a,b){
+        return b.count - a.count;
+      });
+    }
+
+    try{
+      if(typeof buildWeakestTermsV6 === "function"){
+        return buildWeakestTermsV6() || [];
+      }
+    }catch(e){}
+
+    return [];
+  }
+
+  function stat(label, value, sub){
+    return `
+      <div class="v817-detail-stat">
+        <b>${esc(value)}</b>
+        <span>${esc(label)}</span>
+        ${sub ? `<small>${esc(sub)}</small>` : ""}
+      </div>
+    `;
+  }
+
+  function stageSummary(stageStats){
+    const entries = Object.entries(stageStats || {});
+    if(!entries.length) return "ยังไม่มีข้อมูล stage";
+
+    return entries.map(function(pair){
+      const key = pair[0];
+      const s = pair[1] || {};
+      const correct = num(s.correct, 0);
+      const wrong = num(s.wrong, 0);
+      const total = correct + wrong;
+      if(!total) return null;
+      const acc = Math.round(correct / total * 100);
+      return `${key}: ${acc}%`;
+    }).filter(Boolean).join(" • ") || "ยังไม่มีข้อมูล stage";
+  }
+
+  function weakText(list){
+    if(!Array.isArray(list) || !list.length){
+      return "ยังไม่พบคำที่ควรทบทวน";
+    }
+
+    return list.slice(0, 5).map(function(x){
+      return x.term || x.word || "";
+    }).filter(Boolean).join(" • ");
+  }
+
+  function renderDetailsBody(result){
+    const enemyMax = num(result.enemyHpMax, 0);
+    const enemyHp = num(result.enemyHp, 0);
+    const enemyPct = enemyMax ? Math.round(enemyHp / enemyMax * 100) : 0;
+
+    return `
+      <div class="v817-detail-grid">
+        ${stat("Correct", fmt(result.correct))}
+        ${stat("Wrong", fmt(result.wrong))}
+        ${stat("Time", fmt(result.durationSec) + "s")}
+        ${stat("Accuracy", fmt(result.accuracy) + "%")}
+
+        ${stat("Fever", fmt(result.feverCount))}
+        ${stat("Hint Used", fmt(result.hintUsed), "Left " + fmt(result.hintsLeft))}
+        ${stat("Shield Used", fmt(result.shieldUsed), "Left " + fmt(result.shieldLeft))}
+        ${stat("Laser Used", fmt(result.laserUsed), result.laserReady ? "Ready" : "Not ready")}
+
+        ${stat("AI Help", fmt(result.aiHelpUsed), "Left " + fmt(result.aiHelpLeft))}
+        ${stat("Boss Attack", fmt(result.bossAttackCount))}
+        ${stat("Enemy HP", enemyPct + "%", fmt(enemyHp) + "/" + fmt(enemyMax))}
+        ${stat("Best Combo", "x" + fmt(result.comboMax))}
+      </div>
+
+      <div class="v817-detail-note">
+        <b>Weak Words:</b> ${esc(weakText(result.weakestTerms))}
+      </div>
+
+      <div class="v817-detail-note">
+        <b>Stage Accuracy:</b> ${esc(stageSummary(result.stageStats))}
+      </div>
+    `;
+  }
+
+  function injectCss(){
+    if(el("v817DetailsCss")) return;
+
+    const css = document.createElement("style");
+    css.id = "v817DetailsCss";
+    css.textContent = `
+      #v6RewardPanel .v817-detail-grid{
+        display:grid !important;
+        grid-template-columns:repeat(4,1fr) !important;
+        gap:10px !important;
+        margin-top:10px !important;
+      }
+
+      #v6RewardPanel .v817-detail-stat{
+        min-height:86px !important;
+        padding:12px 10px !important;
+        border-radius:18px !important;
+        background:rgba(255,255,255,.08) !important;
+        border:1px solid rgba(255,255,255,.14) !important;
+        text-align:center !important;
+      }
+
+      #v6RewardPanel .v817-detail-stat b{
+        display:block !important;
+        color:#fff !important;
+        font-size:clamp(22px,3vw,32px) !important;
+        line-height:1 !important;
+        overflow-wrap:anywhere !important;
+      }
+
+      #v6RewardPanel .v817-detail-stat span{
+        display:block !important;
+        margin-top:6px !important;
+        color:#b9c9df !important;
+        font-weight:1000 !important;
+        font-size:13px !important;
+      }
+
+      #v6RewardPanel .v817-detail-stat small{
+        display:block !important;
+        margin-top:4px !important;
+        color:#94a9c2 !important;
+        font-weight:850 !important;
+        font-size:12px !important;
+      }
+
+      #v6RewardPanel .v817-detail-note{
+        margin-top:10px !important;
+        padding:12px 14px !important;
+        border-radius:16px !important;
+        background:rgba(255,255,255,.06) !important;
+        border:1px solid rgba(255,255,255,.12) !important;
+        color:#dbeafe !important;
+        font-weight:850 !important;
+        line-height:1.45 !important;
+      }
+
+      @media(max-width:800px){
+        #v6RewardPanel .v817-detail-grid{
+          grid-template-columns:repeat(2,1fr) !important;
+        }
+      }
+
+      @media(max-width:460px){
+        #v6RewardPanel .v817-detail-grid{
+          grid-template-columns:1fr !important;
+        }
+      }
+    `;
+
+    document.head.appendChild(css);
+  }
+
+  function patchDetails(result){
+    injectCss();
+
+    const reward = el("v6RewardPanel");
+    if(!reward || reward.hidden) return;
+
+    const merged = mergeResultData(result || window.__VOCAB_V817_LAST_RESULT__ || {});
+    window.__VOCAB_V817_LAST_RESULT__ = merged;
+
+    const body =
+      reward.querySelector(".v81-details .v81-details-body") ||
+      reward.querySelector(".v81-details-body");
+
+    if(!body) return;
+
+    body.innerHTML = renderDetailsBody(merged);
+  }
+
+  const oldRender = window.renderRewardScreenV6;
+
+  if(typeof oldRender === "function" && !oldRender.__v817Wrapped){
+    const wrapped = function(result, reward, coach){
+      const merged = mergeResultData(result || {});
+      window.__VOCAB_V817_LAST_RESULT__ = merged;
+
+      const out = oldRender.call(this, merged, reward || {}, coach || {});
+
+      setTimeout(function(){ patchDetails(merged); }, 0);
+      setTimeout(function(){ patchDetails(merged); }, 100);
+      setTimeout(function(){ patchDetails(merged); }, 300);
+      setTimeout(function(){ patchDetails(merged); }, 800);
+
+      return out;
+    };
+
+    wrapped.__v817Wrapped = true;
+    window.renderRewardScreenV6 = wrapped;
+  }
+
+  document.addEventListener("click", function(e){
+    const summary = e.target && e.target.closest
+      ? e.target.closest("#v6RewardPanel .v81-details summary")
+      : null;
+
+    if(!summary) return;
+
+    setTimeout(function(){
+      patchDetails(window.__VOCAB_V817_LAST_RESULT__ || {});
+    }, 40);
+  }, true);
+
+  injectCss();
+
+  console.log("[VOCAB] " + PATCH + " loaded");
+})();
+</script>
 </body>
 </html>
