@@ -10496,5 +10496,221 @@
   console.log("[VOCAB] v8.1.4 reward button click fix loaded");
 })();
 </script>
+<script>
+/* =========================================================
+   VOCAB v8.1.5 — Screen State Governor
+   Fix:
+   - Reward appears below first/menu/leaderboard screen
+   - Menu is reopened by older patches after session end
+   - Only one screen can be visible at a time
+   ========================================================= */
+(function(){
+  "use strict";
+
+  function el(id){
+    return document.getElementById(id);
+  }
+
+  function setVisible(node, visible, displayValue){
+    if(!node) return;
+
+    node.hidden = !visible;
+    node.style.display = visible ? (displayValue || "") : "none";
+    node.style.pointerEvents = visible ? "auto" : "none";
+  }
+
+  function isRewardVisible(){
+    var reward = el("v6RewardPanel");
+    return !!(reward && !reward.hidden && reward.style.display !== "none");
+  }
+
+  function isBattleActive(){
+    try{
+      return !!(window.vocabGame && vocabGame.active);
+    }catch(e){
+      return false;
+    }
+  }
+
+  function showOnlyRewardV815(){
+    var menu = el("v6MenuPanel");
+    var battle = el("v6BattlePanel");
+    var reward = el("v6RewardPanel");
+
+    setVisible(menu, false);
+    setVisible(battle, false);
+    setVisible(reward, true, "block");
+
+    if(reward){
+      reward.style.position = "relative";
+      reward.style.zIndex = "20";
+      reward.style.minHeight = "auto";
+      reward.style.height = "auto";
+    }
+
+    window.scrollTo({ top:0, behavior:"auto" });
+  }
+
+  function showOnlyBattleV815(){
+    var menu = el("v6MenuPanel");
+    var battle = el("v6BattlePanel");
+    var reward = el("v6RewardPanel");
+
+    setVisible(menu, false);
+    setVisible(reward, false);
+    setVisible(battle, true, "");
+
+    window.scrollTo({ top:0, behavior:"auto" });
+  }
+
+  function showOnlyMenuV815(){
+    var menu = el("v6MenuPanel");
+    var battle = el("v6BattlePanel");
+    var reward = el("v6RewardPanel");
+
+    setVisible(battle, false);
+    setVisible(reward, false);
+    setVisible(menu, true, "");
+
+    window.scrollTo({ top:0, behavior:"auto" });
+  }
+
+  function governScreenV815(){
+    var reward = el("v6RewardPanel");
+    var battle = el("v6BattlePanel");
+    var menu = el("v6MenuPanel");
+
+    if(!reward || !battle || !menu) return;
+
+    /*
+      ถ้า reward มีเนื้อหาและไม่ได้ hidden ให้ reward ชนะทุกอย่าง
+    */
+    if(isRewardVisible() && reward.innerHTML.trim()){
+      showOnlyRewardV815();
+      return;
+    }
+
+    /*
+      ถ้าเกม active ให้ battle ชนะ
+    */
+    if(isBattleActive()){
+      showOnlyBattleV815();
+      return;
+    }
+  }
+
+  /*
+    wrap reward renderer: หลัง render reward ต้องซ่อน menu ทันที
+  */
+  var oldRenderReward = window.renderRewardScreenV6;
+  if(typeof oldRenderReward === "function" && !oldRenderReward.__v815Governed){
+    var wrappedReward = function(){
+      var out = oldRenderReward.apply(this, arguments);
+
+      setTimeout(showOnlyRewardV815, 0);
+      setTimeout(showOnlyRewardV815, 80);
+      setTimeout(showOnlyRewardV815, 250);
+      setTimeout(showOnlyRewardV815, 700);
+
+      return out;
+    };
+
+    wrappedReward.__v815Governed = true;
+    window.renderRewardScreenV6 = wrappedReward;
+  }
+
+  /*
+    wrap start: เริ่มเกมใหม่ต้องซ่อน reward/menu ก่อนเสมอ
+  */
+  var oldStart = window.startVocabBattleV6;
+  if(typeof oldStart === "function" && !oldStart.__v815Governed){
+    var wrappedStart = function(){
+      showOnlyBattleV815();
+
+      var out = oldStart.apply(this, arguments);
+
+      setTimeout(showOnlyBattleV815, 0);
+      setTimeout(showOnlyBattleV815, 100);
+      setTimeout(showOnlyBattleV815, 300);
+
+      return out;
+    };
+
+    wrappedStart.__v815Governed = true;
+    window.startVocabBattleV6 = wrappedStart;
+  }
+
+  /*
+    wrap back menu: กลับเมนูต้องซ่อน reward/battle
+  */
+  var oldBackMenu = window.backToVocabMenuV6;
+  if(typeof oldBackMenu === "function" && !oldBackMenu.__v815Governed){
+    var wrappedBack = function(){
+      try{
+        if(window.vocabGame){
+          vocabGame.active = false;
+        }
+      }catch(e){}
+
+      var out = oldBackMenu.apply(this, arguments);
+
+      setTimeout(showOnlyMenuV815, 0);
+      setTimeout(showOnlyMenuV815, 120);
+
+      return out;
+    };
+
+    wrappedBack.__v815Governed = true;
+    window.backToVocabMenuV6 = wrappedBack;
+  }
+
+  /*
+    ปุ่ม Reward ใช้ state governor โดยตรง
+  */
+  window.__VOCAB_V81_BACK_MENU = function(){
+    try{
+      if(window.vocabGame){
+        vocabGame.active = false;
+
+        if(vocabGame.timerId){
+          clearInterval(vocabGame.timerId);
+          clearTimeout(vocabGame.timerId);
+          vocabGame.timerId = null;
+        }
+      }
+
+      if(typeof window.clearTimerV6 === "function") clearTimerV6();
+      if(typeof window.stopFeverV62 === "function") stopFeverV62();
+
+      showOnlyMenuV815();
+
+      if(typeof window.renderLeaderboardV68 === "function"){
+        renderLeaderboardV68((window.VOCAB_APP && VOCAB_APP.selectedMode) || "learn");
+      }
+    }catch(e){
+      location.reload();
+    }
+  };
+
+  /*
+    กัน patch เก่ามา unhide เมนูหลัง reward render
+  */
+  setInterval(function(){
+    var reward = el("v6RewardPanel");
+
+    if(reward && !reward.hidden && reward.innerHTML.trim()){
+      showOnlyRewardV815();
+    }
+  }, 300);
+
+  document.addEventListener("DOMContentLoaded", function(){
+    setTimeout(governScreenV815, 500);
+    setTimeout(governScreenV815, 1200);
+    setTimeout(governScreenV815, 2500);
+  });
+
+  console.log("[VOCAB] v8.1.5 screen state governor loaded");
+})();
+</script>
 </body>
 </html>
