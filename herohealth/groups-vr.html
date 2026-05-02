@@ -3,516 +3,628 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Groups Solo Launcher</title>
+  <title>HeroHealth • Groups Launcher</title>
+  <meta name="theme-color" content="#b9f5c9" />
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#8fd3ff" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
-      --sky1:#eaf8ff;
-      --sky2:#d2f0ff;
-      --sky3:#b8e5ff;
-      --card:#ffffffef;
-      --ink:#234056;
-      --muted:#648399;
-      --line:#d3e8f3;
-      --shadow:0 18px 40px rgba(90,148,177,.16);
-
-      --blue1:#84ceff;
-      --blue2:#58b7ff;
-
-      --green1:#94de82;
-      --green2:#61c55b;
-
-      --violet1:#c3b0ff;
-      --violet2:#9a79ff;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
+      --bg1:#f5fff7;
+      --bg2:#e8fbff;
+      --card:#ffffff;
+      --ink:#284255;
+      --muted:#6d7d8b;
+      --line:#dbeaf4;
+      --green:#7dd957;
+      --green2:#56c43c;
+      --sky:#8ed7ff;
+      --gold:#ffd45f;
+      --pink:#ffc8de;
+      --purple:#d8c4ff;
+      --shadow:0 14px 32px rgba(40,66,85,.10);
+      --shadow-soft:0 8px 20px rgba(40,66,85,.07);
+      --radius-xl:30px;
+      --radius-lg:24px;
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-right:env(safe-area-inset-right,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+      --safe-left:env(safe-area-inset-left,0px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{ margin:0; min-height:100%; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      -webkit-tap-highlight-color:transparent;
+    }
 
     body{
-      font-family: ui-rounded, "Nunito", "Noto Sans Thai", system-ui, sans-serif;
       color:var(--ink);
+      font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
       background:
-        radial-gradient(1200px 700px at 50% -10%, rgba(255,255,255,.95), transparent 60%),
-        radial-gradient(700px 500px at 8% 10%, rgba(255,255,255,.50), transparent 60%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 58%,var(--sky3));
+        radial-gradient(circle at 10% 8%, rgba(255,212,95,.28), transparent 22%),
+        radial-gradient(circle at 88% 8%, rgba(142,215,255,.30), transparent 24%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    .shell{
-      max-width:1000px;
+    button,a,input,select{
+      font:inherit;
+      color:inherit;
+    }
+
+    .page{
+      width:min(1120px,100%);
       margin:0 auto;
       padding:
-        calc(18px + var(--sat))
-        calc(16px + var(--sar))
-        calc(28px + var(--sab))
-        calc(16px + var(--sal));
-    }
-
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:14px;
-      flex-wrap:wrap;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      padding:12px 14px;
-      border-radius:24px;
-      background:var(--card);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-    }
-
-    .brandMark{
-      width:54px;
-      height:54px;
-      border-radius:18px;
+        calc(14px + var(--safe-top))
+        calc(12px + var(--safe-right))
+        calc(24px + var(--safe-bottom))
+        calc(12px + var(--safe-left));
       display:grid;
-      place-items:center;
-      font-size:30px;
-      background:linear-gradient(180deg,#fff7cb,#ffe27c);
-      border:1px solid #ffe8a6;
-    }
-
-    .brand h1{
-      margin:0;
-      font-size:21px;
-      line-height:1.06;
-      font-weight:1000;
-    }
-
-    .brand p{
-      margin:4px 0 0;
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 12px;
-      border-radius:999px;
-      background:var(--card);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-      font-size:12px;
-      font-weight:1000;
-      color:var(--muted);
-      white-space:nowrap;
-    }
-
-    .layout{
-      display:grid;
-      grid-template-columns:1.2fr .95fr;
       gap:14px;
     }
 
-    @media (max-width: 900px){
-      .layout{ grid-template-columns:1fr; }
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:30;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:6px 0 8px;
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
     }
 
-    .panel{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:28px;
-      box-shadow:var(--shadow);
+    .brand{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:9px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:rgba(255,255,255,.86);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .brandIcon{
+      width:44px;
+      height:44px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#c9f8d5,#87df9f);
+      font-size:25px;
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.42);
+      flex:0 0 auto;
+    }
+
+    .brandCopy{ min-width:0; }
+
+    .brandCopy strong{
+      display:block;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.05;
+    }
+
+    .brandCopy small{
+      display:block;
+      margin-top:2px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:850;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .iconBtn{
+      min-width:44px;
+      min-height:44px;
+      border:0;
+      border-radius:16px;
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+      cursor:pointer;
+      font-weight:1000;
+      text-decoration:none;
+      display:grid;
+      place-items:center;
     }
 
     .hero{
-      padding:18px;
-      min-height:300px;
       position:relative;
       overflow:hidden;
+      border-radius:var(--radius-xl);
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#ffffff,#f5fff7);
+      box-shadow:var(--shadow);
+      padding:18px;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 230px;
+      gap:16px;
+      align-items:center;
     }
 
     .hero::after{
       content:"";
       position:absolute;
-      right:-36px;
-      bottom:-42px;
-      width:190px;
-      height:190px;
+      right:-70px;
+      top:-70px;
+      width:220px;
+      height:220px;
       border-radius:50%;
-      background:
-        radial-gradient(circle at 40% 35%, #fff8 0 20%, transparent 70%),
-        linear-gradient(180deg,#fff3a3,#ffd460);
-      opacity:.85;
+      background:radial-gradient(circle,rgba(125,217,87,.22),transparent 70%);
+      pointer-events:none;
+    }
+
+    .heroCopy{
+      position:relative;
+      z-index:1;
+      min-width:0;
     }
 
     .kicker{
+      width:max-content;
+      max-width:100%;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 12px;
+      min-height:36px;
+      padding:8px 13px;
       border-radius:999px;
-      background:#f1fbff;
-      border:1px solid #d9eef8;
+      border:2px solid #cfead7;
+      background:#f1fff4;
+      color:#2d6f43;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(30px,5vw,48px);
+      line-height:1.02;
+      letter-spacing:-.03em;
+      font-weight:1000;
+      color:#2d6f43;
+    }
+
+    .lead{
+      margin:10px 0 0;
+      color:var(--muted);
+      line-height:1.65;
+      font-weight:850;
+      font-size:15px;
+      max-width:720px;
+    }
+
+    .heroTags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:13px;
+    }
+
+    .tag{
+      min-height:32px;
+      padding:7px 11px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:#506575;
       font-size:12px;
       font-weight:1000;
-      color:#608196;
-      position:relative;
-      z-index:1;
+      display:inline-flex;
+      align-items:center;
     }
 
-    .hero h2{
-      margin:14px 0 10px;
-      font-size:36px;
-      line-height:1.02;
-      font-weight:1000;
-      max-width:580px;
+    .heroArt{
       position:relative;
       z-index:1;
-    }
-
-    .hero p{
-      margin:0;
-      max-width:560px;
-      font-size:15px;
-      line-height:1.65;
-      color:#5a798e;
-      font-weight:800;
-      position:relative;
-      z-index:1;
-    }
-
-    .emojiRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:18px;
-      position:relative;
-      z-index:1;
-    }
-
-    .emojiRow span{
-      width:60px;
-      height:60px;
-      border-radius:18px;
+      min-height:180px;
+      border-radius:28px;
+      border:2px dashed rgba(45,111,67,.20);
+      background:
+        radial-gradient(circle at 30% 26%, rgba(255,255,255,.9), transparent 16%),
+        linear-gradient(180deg,#dcfff2,#f7fffb);
       display:grid;
       place-items:center;
-      font-size:30px;
-      background:#fff;
-      border:1px solid #dbeef7;
-      box-shadow:0 10px 24px rgba(108,164,190,.12);
-    }
-
-    .howto{
-      margin-top:16px;
-      padding:14px 16px;
-      border-radius:20px;
-      border:1px dashed #d3e8f2;
-      background:#f8fdff;
-      color:#648399;
-      font-size:12px;
-      font-weight:900;
-      line-height:1.75;
-      position:relative;
-      z-index:1;
+      font-size:76px;
+      box-shadow:inset 0 0 0 7px rgba(255,255,255,.45);
     }
 
     .config{
-      padding:16px;
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-    }
-
-    .sectionTitle{
-      margin:0 0 6px;
-      font-size:15px;
-      font-weight:1000;
-      color:#57768c;
-    }
-
-    .grid{
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
+      grid-template-columns:repeat(4,minmax(0,1fr));
       gap:12px;
     }
 
-    @media (max-width: 560px){
-      .grid{ grid-template-columns:1fr; }
+    .configCard,
+    .panel{
+      border-radius:var(--radius-lg);
+      border:2px solid var(--line);
+      background:rgba(255,255,255,.92);
+      box-shadow:var(--shadow-soft);
+      padding:14px;
     }
 
     .field{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-
-    .field label{
-      font-size:13px;
-      font-weight:1000;
-      color:#5d7d92;
-    }
-
-    .field input,
-    .field select{
-      width:100%;
-      min-height:48px;
-      border-radius:18px;
-      border:1px solid #d3e8f3;
-      background:#fff;
-      padding:0 14px;
-      font:inherit;
-      color:var(--ink);
-      font-weight:900;
-    }
-
-    .mini{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.7;
-    }
-
-    .checkRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .check{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-size:13px;
-      font-weight:1000;
-      color:#58768d;
-    }
-
-    .check input{
-      width:18px;
-      height:18px;
-    }
-
-    .modeCards{
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:7px;
+    }
+
+    .label{
+      color:#537089;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .input,
+    .select{
+      width:100%;
+      min-height:46px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:10px 12px;
+      outline:none;
+      color:#284255;
+      font-size:15px;
+      font-weight:1000;
+    }
+
+    .input:focus,
+    .select:focus{
+      border-color:#8ed7ff;
+      box-shadow:0 0 0 4px rgba(142,215,255,.20);
+    }
+
+    .panelTitle{
+      margin:0 0 6px;
+      color:#2d6f43;
+      font-size:22px;
+      line-height:1.12;
+      font-weight:1000;
+    }
+
+    .panelSub{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:850;
+    }
+
+    .modeGrid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
       gap:12px;
     }
 
-    @media (max-width: 760px){
-      .modeCards{ grid-template-columns:1fr; }
-    }
-
-    .playBtn{
-      min-height:94px;
-      border-radius:24px;
-      border:0;
+    .modeCard{
+      border:2px solid var(--line);
       cursor:pointer;
-      color:#fff;
-      font:inherit;
-      box-shadow:0 16px 28px rgba(85,145,175,.18);
-      padding:15px;
       text-align:left;
+      border-radius:24px;
+      background:linear-gradient(180deg,#ffffff,#fbfffb);
+      box-shadow:var(--shadow-soft);
+      padding:15px 13px;
+      transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
     }
 
-    .playBtn b{
-      display:block;
-      font-size:21px;
-      font-weight:1000;
-      margin-bottom:4px;
+    .modeCard:hover{
+      transform:translateY(-2px);
+      box-shadow:var(--shadow);
+      border-color:#9ddcff;
     }
 
-    .playBtn span{
-      display:block;
-      font-size:12px;
-      line-height:1.55;
-      opacity:.96;
-      font-weight:900;
+    .modeCard:active{
+      transform:translateY(0);
     }
 
-    .pc{ background:linear-gradient(180deg,var(--blue1),var(--blue2)); }
-    .mobile{ background:linear-gradient(180deg,var(--green1),var(--green2)); }
-    .cvr{ background:linear-gradient(180deg,var(--violet1),var(--violet2)); }
-
-    .footerBar{
-      margin-top:14px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .ghostBtn{
-      min-height:44px;
-      border-radius:16px;
-      border:1px solid #d4e7f4;
+    .modeIcon{
+      width:62px;
+      height:62px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:31px;
+      margin-bottom:10px;
+      border:3px solid transparent;
       background:#fff;
-      color:#5f8197;
-      padding:0 14px;
-      font:inherit;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:0 8px 18px rgba(111,170,200,.10);
     }
 
-    .status{
-      padding:10px 12px;
-      border-radius:16px;
-      background:#f7fdff;
-      border:1px dashed #d2e7f2;
-      color:#648399;
+    .modeCard.solo .modeIcon{
+      background:linear-gradient(180deg,#fff8dc,#fff0b8);
+      border-color:#ffe08a;
+    }
+
+    .modeCard.duet .modeIcon{
+      background:linear-gradient(180deg,#eefbff,#dff6ff);
+      border-color:#bfe8ff;
+    }
+
+    .modeCard.race .modeIcon{
+      background:linear-gradient(180deg,#f4fff1,#e5ffd9);
+      border-color:#c6efb8;
+    }
+
+    .modeCard.battle .modeIcon{
+      background:linear-gradient(180deg,#fff3f3,#ffe0e0);
+      border-color:#ffd0d0;
+    }
+
+    .modeCard.coop .modeIcon{
+      background:linear-gradient(180deg,#f8f2ff,#eee3ff);
+      border-color:#d8c4ff;
+    }
+
+    .modeTitle{
+      color:#284255;
+      font-size:19px;
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .modeDesc{
+      margin-top:6px;
+      color:#6d7d8b;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:850;
+      min-height:62px;
+    }
+
+    .modeTag{
+      margin-top:10px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:32px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:#506575;
       font-size:12px;
       font-weight:1000;
-      line-height:1.6;
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .btn{
+      min-height:50px;
+      border:0;
+      border-radius:18px;
+      padding:12px 16px;
+      cursor:pointer;
+      text-decoration:none;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-align:center;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .btn.primary{
+      color:#143a22;
+      background:linear-gradient(180deg,#9ff0b4,#69d884);
+    }
+
+    .btn.secondary{
+      color:#17384f;
+      background:linear-gradient(180deg,#dff8ff,#9fe7ff);
+    }
+
+    .btn.gold{
+      color:#503c00;
+      background:linear-gradient(180deg,#fff2a8,#ffd84d);
+    }
+
+    @media (max-width:980px){
+      .hero{
+        grid-template-columns:1fr;
+      }
+
+      .heroArt{
+        display:none;
+      }
+
+      .config{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .modeGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .actions{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:640px){
+      .page{
+        padding:
+          calc(10px + var(--safe-top))
+          calc(8px + var(--safe-right))
+          calc(20px + var(--safe-bottom))
+          calc(8px + var(--safe-left));
+      }
+
+      .topbar{
+        align-items:flex-start;
+      }
+
+      .brand{
+        padding:8px 10px;
+      }
+
+      .brandIcon{
+        width:40px;
+        height:40px;
+      }
+
+      .hero,
+      .configCard,
+      .panel{
+        border-radius:22px;
+        padding:14px;
+      }
+
+      .config,
+      .modeGrid{
+        grid-template-columns:1fr;
+      }
+
+      .modeDesc{
+        min-height:auto;
+      }
     }
   </style>
 </head>
+
 <body>
-  <main class="shell">
+  <main class="page">
     <header class="topbar">
-      <div class="brand">
-        <div class="brandMark">🥦</div>
-        <div>
-          <h1>Food Groups Solo</h1>
-          <p>Launcher สำหรับ Groups v1 — warmup mini-game ก่อนเข้า main run</p>
+      <div class="brand" aria-label="Groups Launcher">
+        <div class="brandIcon" aria-hidden="true">🥦</div>
+        <div class="brandCopy">
+          <strong>Groups</strong>
+          <small>อาหารหลัก 5 หมู่ • เลือกโหมดก่อนเล่น</small>
         </div>
       </div>
-      <div class="chip" id="chipCtx">HeroHealth • Groups Solo</div>
+
+      <button id="btnBackTop" class="iconBtn" type="button" aria-label="กลับ Nutrition">🏠</button>
     </header>
 
-    <section class="layout">
-      <section class="panel hero">
-        <div class="kicker">🌟 Child-friendly • Warmup mini-game • Solo first</div>
-        <h2>แยกอาหารให้ถูกหมู่<br>อุ่นเครื่องก่อน แล้วค่อยลุยจริง</h2>
-        <p>
-          flow นี้จะพาเข้า warmup mini-game ก่อนทุกครั้ง
-          ผ่านแล้วจึงค่อยเข้าสู่ Groups Solo main run
+    <section class="hero">
+      <div class="heroCopy">
+        <div class="kicker">🥦 GROUPS LAUNCHER</div>
+        <h1>เลือกโหมด Groups</h1>
+        <p class="lead">
+          ฝึกจัดอาหารให้ตรงกับอาหารหลัก 5 หมู่ของไทย
+          เลือกโหมดที่อยากเล่น แล้วเริ่มภารกิจได้ทันที
         </p>
 
-        <div class="emojiRow" aria-hidden="true">
-          <span>🥚</span>
-          <span>🍚</span>
-          <span>🥦</span>
-          <span>🍌</span>
-          <span>🧈</span>
+        <div class="heroTags">
+          <span class="tag">หมู่ 1 โปรตีน</span>
+          <span class="tag">หมู่ 2 คาร์โบไฮเดรต</span>
+          <span class="tag">หมู่ 3 ผัก</span>
+          <span class="tag">หมู่ 4 ผลไม้</span>
+          <span class="tag">หมู่ 5 ไขมัน</span>
         </div>
+      </div>
 
-        <div class="howto">
-          flow:
-          <br>• Launcher
-          <br>• Warmup gate + mini-game
-          <br>• Main run
-          <br>• Summary
-          <br>• Cooldown gate (ถ้าเปิดไว้)
-        </div>
-      </section>
+      <div class="heroArt" aria-hidden="true">🥗</div>
+    </section>
 
-      <section class="panel config">
-        <div>
-          <p class="sectionTitle">ข้อมูลผู้เล่น</p>
-          <div class="grid">
-            <div class="field">
-              <label for="pid">PID</label>
-              <input id="pid" type="text" placeholder="anon" />
-            </div>
-            <div class="field">
-              <label for="playerName">ชื่อเล่น</label>
-              <input id="playerName" type="text" placeholder="Rocky" />
-            </div>
-          </div>
-        </div>
+    <section class="config" aria-label="ตั้งค่าการเล่น">
+      <div class="configCard">
+        <label class="field">
+          <span class="label">ชื่อผู้เล่น</span>
+          <input id="fieldName" class="input" type="text" maxlength="40" placeholder="Hero" />
+        </label>
+      </div>
 
-        <div>
-          <p class="sectionTitle">ตั้งค่าเกม</p>
-          <div class="grid">
-            <div class="field">
-              <label for="diff">ระดับความยาก</label>
-              <select id="diff">
-                <option value="easy">Easy</option>
-                <option value="normal">Normal</option>
-                <option value="hard">Hard</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="time">เวลาเล่นจริง</label>
-              <select id="time">
-                <option value="60">60 วินาที</option>
-                <option value="80">80 วินาที</option>
-                <option value="90">90 วินาที</option>
-                <option value="120">120 วินาที</option>
-                <option value="150">150 วินาที</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="runMode">โหมด</label>
-              <select id="runMode">
-                <option value="play">play</option>
-                <option value="research">research</option>
-                <option value="demo">demo</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="studyId">Study ID</label>
-              <input id="studyId" type="text" placeholder="optional" />
-            </div>
-          </div>
-        </div>
+      <div class="configCard">
+        <label class="field">
+          <span class="label">ระดับ</span>
+          <select id="fieldDiff" class="select">
+            <option value="easy">easy</option>
+            <option value="normal">normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </label>
+      </div>
 
-        <div>
-          <p class="sectionTitle">ตัวเลือก flow</p>
-          <div class="checkRow">
-            <label class="check">
-              <input id="useGate" type="checkbox" />
-              warmup gate + mini-game
-            </label>
-            <label class="check">
-              <input id="useCooldown" type="checkbox" />
-              cooldown หลังจบเกม
-            </label>
-            <label class="check">
-              <input id="debug" type="checkbox" />
-              debug=1
-            </label>
-          </div>
-          <div class="mini" style="margin-top:8px;">
-            แนะนำให้เปิด warmup gate ไว้เสมอสำหรับ Groups Solo เพราะ mini-game จะช่วยให้ flow สมบูรณ์กว่าเดิม
-          </div>
-        </div>
+      <div class="configCard">
+        <label class="field">
+          <span class="label">เวลาเล่น</span>
+          <select id="fieldTime" class="select">
+            <option value="60">60 วินาที</option>
+            <option value="90">90 วินาที</option>
+            <option value="120">120 วินาที</option>
+            <option value="150">150 วินาที</option>
+          </select>
+        </label>
+      </div>
 
-        <div>
-          <p class="sectionTitle">เลือกวิธีเข้าเล่น</p>
-          <div class="modeCards">
-            <button class="playBtn pc" id="btnPC" type="button">
-              <b>🖥️ PC</b>
-              <span>เหมาะกับทดสอบ flow และ layout บนหน้าจอใหญ่</span>
-            </button>
+      <div class="configCard">
+        <label class="field">
+          <span class="label">มุมมอง</span>
+          <select id="fieldView" class="select">
+            <option value="mobile">mobile</option>
+            <option value="pc">pc</option>
+            <option value="cvr">cardboard</option>
+          </select>
+        </label>
+      </div>
+    </section>
 
-            <button class="playBtn mobile" id="btnMobile" type="button">
-              <b>📱 Mobile</b>
-              <span>เหมาะกับการเล่นจริงบนมือถือ พร้อม mobile HUD compact</span>
-            </button>
+    <section class="panel">
+      <h2 class="panelTitle">โหมดการเล่น</h2>
+      <p class="panelSub">
+        กดการ์ดเพื่อเริ่มเล่น ระบบจะส่งเฉพาะข้อมูลจำเป็นไปหน้าเกม ไม่แสดงข้อมูลเทคนิคให้เด็กเห็น
+      </p>
 
-            <button class="playBtn cvr" id="btnCVR" type="button">
-              <b>🥽 Cardboard</b>
-              <span>เข้าแบบ view=cvr และค่อยโหลด vr-ui.js ในหน้า run</span>
-            </button>
-          </div>
-        </div>
+      <div class="modeGrid">
+        <button class="modeCard solo" type="button" data-mode="solo">
+          <div class="modeIcon">🧒</div>
+          <div class="modeTitle">Solo</div>
+          <div class="modeDesc">เล่นเดี่ยว จัดอาหารให้ตรงหมู่ให้ได้มากที่สุด</div>
+          <div class="modeTag">เดี่ยว</div>
+        </button>
 
-        <div class="footerBar">
-          <button class="ghostBtn" id="btnBackHub" type="button">🏠 กลับ HUB</button>
-          <div class="status" id="statusLine">พร้อมเข้า warmup mini-game ของ Groups</div>
-        </div>
-      </section>
+        <button class="modeCard duet" type="button" data-mode="duet">
+          <div class="modeIcon">🤝</div>
+          <div class="modeTitle">Duet</div>
+          <div class="modeDesc">เล่นเป็นคู่ ช่วยกันตอบให้ถูกและลดความผิดพลาด</div>
+          <div class="modeTag">2 players</div>
+        </button>
+
+        <button class="modeCard race" type="button" data-mode="race">
+          <div class="modeIcon">🏁</div>
+          <div class="modeTitle">Race</div>
+          <div class="modeDesc">แข่งความเร็ว ใครจัดหมู่ถูกได้มากกว่า</div>
+          <div class="modeTag">speed</div>
+        </button>
+
+        <button class="modeCard battle" type="button" data-mode="battle">
+          <div class="modeIcon">⚔️</div>
+          <div class="modeTitle">Battle</div>
+          <div class="modeDesc">แข่งคะแนน ตอบถูกได้แต้ม พลาดเสียจังหวะ</div>
+          <div class="modeTag">score</div>
+        </button>
+
+        <button class="modeCard coop" type="button" data-mode="coop">
+          <div class="modeIcon">🫶</div>
+          <div class="modeTitle">Co-op</div>
+          <div class="modeDesc">ช่วยกันทำคะแนนทีมให้ดีที่สุด</div>
+          <div class="modeTag">team</div>
+        </button>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="btnBackNutrition" class="btn primary" type="button">🥗 กลับ Nutrition</button>
+      <button id="btnSoloQuick" class="btn gold" type="button">🧒 เข้า Solo ทันที</button>
+      <button id="btnReload" class="btn secondary" type="button">🔄 โหลดค่าใหม่</button>
     </section>
   </main>
 
@@ -520,259 +632,156 @@
     (function(){
       'use strict';
 
-      const STORE_KEY = 'HHA_GROUPS_LAUNCHER_V3';
-      const PASS_KEYS = [
-        'pid','nick','name','run','view','diff','time','seed',
-        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
-        'siteCode','schoolYear','semester','log','api','debug','grade',
-        'zone','cat','game','gameId','mode','hub','theme','sessionNo',
-        'weekNo','classRoom','studentKey','schoolCode','studentNo',
-        'cooldown','returnPhase'
-      ];
+      const q = new URLSearchParams(location.search);
+      const STORAGE_KEY = 'HHA_GROUPS_LAUNCHER_PREFS';
 
-      const q = new URL(location.href).searchParams;
-      const $ = (id) => document.getElementById(id);
+      const fieldName = document.getElementById('fieldName');
+      const fieldDiff = document.getElementById('fieldDiff');
+      const fieldTime = document.getElementById('fieldTime');
+      const fieldView = document.getElementById('fieldView');
 
-      const el = {
-        pid: $('pid'),
-        playerName: $('playerName'),
-        diff: $('diff'),
-        time: $('time'),
-        runMode: $('runMode'),
-        studyId: $('studyId'),
-        useGate: $('useGate'),
-        useCooldown: $('useCooldown'),
-        debug: $('debug'),
+      const btnBackTop = document.getElementById('btnBackTop');
+      const btnBackNutrition = document.getElementById('btnBackNutrition');
+      const btnSoloQuick = document.getElementById('btnSoloQuick');
+      const btnReload = document.getElementById('btnReload');
 
-        btnPC: $('btnPC'),
-        btnMobile: $('btnMobile'),
-        btnCVR: $('btnCVR'),
-        btnBackHub: $('btnBackHub'),
+      const modeCards = Array.from(document.querySelectorAll('.modeCard'));
 
-        chipCtx: $('chipCtx'),
-        statusLine: $('statusLine')
-      };
-
-      boot();
-
-      function boot(){
-        fillForm();
-        setChip();
-        bindEvents();
-        setStatus('พร้อมเข้า warmup mini-game ของ Groups');
+      function first(){
+        for(let i = 0; i < arguments.length; i++){
+          const v = arguments[i];
+          if(String(v || '').trim()) return String(v).trim();
+        }
+        return '';
       }
 
-      function bindEvents(){
-        el.btnPC.addEventListener('click', () => go('pc'));
-        el.btnMobile.addEventListener('click', () => go('mobile'));
-        el.btnCVR.addEventListener('click', () => go('cvr'));
-        el.btnBackHub.addEventListener('click', goHub);
-
-        ['input','change'].forEach((evt) => {
-          el.pid.addEventListener(evt, remember);
-          el.playerName.addEventListener(evt, remember);
-          el.diff.addEventListener(evt, remember);
-          el.time.addEventListener(evt, remember);
-          el.runMode.addEventListener(evt, remember);
-          el.studyId.addEventListener(evt, remember);
-          el.useGate.addEventListener(evt, remember);
-          el.useCooldown.addEventListener(evt, remember);
-          el.debug.addEventListener(evt, remember);
-        });
+      function safeJsonParse(text, fallback){
+        try{ return JSON.parse(text); }
+        catch(_){ return fallback; }
       }
 
-      function fillForm(){
-        const saved = readStore();
-
-        el.pid.value = q.get('pid') || saved.pid || 'anon';
-        el.playerName.value = q.get('name') || q.get('nick') || saved.name || '';
-        el.diff.value = q.get('diff') || saved.diff || 'normal';
-        el.time.value = q.get('time') || saved.time || '80';
-        el.runMode.value = q.get('run') || saved.run || 'play';
-        el.studyId.value = q.get('studyId') || saved.studyId || '';
-        el.useGate.checked = q.get('gate') === '1' || saved.useGate !== false;
-        el.useCooldown.checked = q.get('cooldown') === '1' || !!saved.useCooldown;
-        el.debug.checked = q.get('debug') === '1' || !!saved.debug;
-      }
-
-      function setChip(){
-        const hub = defaultHub();
-        let hubLabel = 'hub';
+      function storageGet(key, fallback){
         try{
-          const u = new URL(hub, location.href);
-          hubLabel = u.pathname.split('/').filter(Boolean).slice(-1)[0] || 'hub.html';
-        }catch{}
-        el.chipCtx.textContent = `HeroHealth • Groups Solo • ${hubLabel}`;
-      }
-
-      function readStore(){
-        try{
-          return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {};
-        }catch{
-          return {};
+          const raw = localStorage.getItem(key);
+          return raw == null ? fallback : raw;
+        }catch(_){
+          return fallback;
         }
       }
 
-      function remember(){
-        const payload = {
-          pid: cleanPid(el.pid.value || 'anon'),
-          name: cleanName(el.playerName.value || ''),
-          diff: oneOf(el.diff.value, ['easy','normal','hard'], 'normal'),
-          time: String(clampInt(el.time.value, 80, 30, 180)),
-          run: oneOf(el.runMode.value, ['play','research','demo'], 'play'),
-          studyId: String(el.studyId.value || '').trim(),
-          useGate: !!el.useGate.checked,
-          useCooldown: !!el.useCooldown.checked,
-          debug: !!el.debug.checked
-        };
+      function storageSet(key, value){
+        try{ localStorage.setItem(key, value); }catch(_){}
+      }
+
+      function setSelectValue(select, value, fallback){
+        const wanted = first(value, fallback);
+        const ok = Array.from(select.options).some(opt => opt.value === wanted);
+        select.value = ok ? wanted : fallback;
+      }
+
+      function cleanReturnUrl(raw){
+        const fallback = new URL('./nutrition-zone.html', location.href).toString();
 
         try{
-          localStorage.setItem(STORE_KEY, JSON.stringify(payload));
-        }catch{}
+          if(!String(raw || '').trim()) return fallback;
 
-        return payload;
-      }
+          const u = new URL(String(raw), location.href);
 
-      function defaultHub(){
-        return q.get('hub') || new URL('./hub.html', location.href).toString();
-      }
-
-      function defaultRunUrl(){
-        return new URL('./vr-groups/groups.html', location.href);
-      }
-
-      function defaultGateUrl(){
-        return new URL('./warmup-gate.html', location.href);
-      }
-
-      function carryQuery(url, extra = {}){
-        const u = typeof url === 'string' ? new URL(url, location.href) : url;
-
-        PASS_KEYS.forEach((key) => {
-          const v = q.get(key);
-          if (v != null && v !== '' && !u.searchParams.has(key)) {
-            u.searchParams.set(key, v);
+          if(u.pathname.includes('/nutrition-zone.html')){
+            return new URL('./nutrition-zone.html', location.href).toString();
           }
+
+          if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')){
+            return fallback;
+          }
+
+          return u.toString();
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function getHubHref(){
+        return cleanReturnUrl(q.get('hub'));
+      }
+
+      function getPid(){
+        return first(q.get('pid'), 'anon');
+      }
+
+      function getSavedPrefs(){
+        const raw = storageGet(STORAGE_KEY, '');
+        const data = safeJsonParse(raw, null);
+        return data && typeof data === 'object' ? data : {};
+      }
+
+      function savePrefs(){
+        storageSet(STORAGE_KEY, JSON.stringify({
+          name: fieldName.value.trim() || 'Hero',
+          diff: fieldDiff.value || 'normal',
+          time: fieldTime.value || '150',
+          view: fieldView.value || 'mobile'
+        }));
+      }
+
+      function loadPrefs(){
+        const saved = getSavedPrefs();
+
+        fieldName.value = first(q.get('name'), saved.name, 'Hero');
+        setSelectValue(fieldDiff, first(q.get('diff'), saved.diff), 'normal');
+        setSelectValue(fieldTime, first(q.get('time'), saved.time), '150');
+        setSelectValue(fieldView, first(q.get('view'), saved.view), 'mobile');
+      }
+
+      function buildGameUrl(mode){
+        const url = new URL('./vr-groups/groups.html', location.href);
+
+        url.searchParams.set('pid', getPid());
+        url.searchParams.set('name', fieldName.value.trim() || 'Hero');
+        url.searchParams.set('diff', fieldDiff.value || 'normal');
+        url.searchParams.set('time', fieldTime.value || '150');
+        url.searchParams.set('view', fieldView.value || 'mobile');
+        url.searchParams.set('run', first(q.get('run'), 'play'));
+        url.searchParams.set('zone', 'nutrition');
+        url.searchParams.set('game', 'groups');
+        url.searchParams.set('mode', mode || 'solo');
+        url.searchParams.set('hub', getHubHref());
+
+        return url.toString();
+      }
+
+      function goMode(mode){
+        savePrefs();
+        location.href = buildGameUrl(mode || 'solo');
+      }
+
+      function goBack(){
+        location.href = getHubHref();
+      }
+
+      loadPrefs();
+
+      [fieldName, fieldDiff, fieldTime, fieldView].forEach(el => {
+        el.addEventListener('input', savePrefs);
+        el.addEventListener('change', savePrefs);
+      });
+
+      modeCards.forEach(card => {
+        card.addEventListener('click', () => {
+          goMode(card.dataset.mode || 'solo');
         });
+      });
 
-        Object.entries(extra).forEach(([key, value]) => {
-          if (value == null || value === '') u.searchParams.delete(key);
-          else u.searchParams.set(key, String(value));
-        });
+      btnBackTop.addEventListener('click', goBack);
+      btnBackNutrition.addEventListener('click', goBack);
 
-        return u;
-      }
+      btnSoloQuick.addEventListener('click', () => {
+        goMode('solo');
+      });
 
-      function buildRunUrl(viewMode){
-        const saved = remember();
-
-        const pid = cleanPid(saved.pid || 'anon');
-        const name = cleanName(saved.name || '');
-        const diff = saved.diff || 'normal';
-        const time = String(saved.time || '80');
-        const run = saved.run || 'play';
-        const studyId = String(saved.studyId || '');
-        const hub = defaultHub();
-        const seed = String(Date.now());
-
-        return carryQuery(defaultRunUrl(), {
-          pid,
-          name,
-          diff,
-          time,
-          run,
-          studyId,
-          seed,
-          hub,
-          view: viewMode,
-          mode: 'solo',
-          game: 'groups',
-          gameId: 'groups',
-          zone: 'nutrition',
-          cat: 'nutrition',
-          theme: 'groups',
-          cooldown: saved.useCooldown ? '1' : '',
-          returnPhase: saved.useCooldown ? 'cooldown' : '',
-          debug: saved.debug ? '1' : ''
-        });
-      }
-
-      function buildEntryUrl(viewMode){
-        const saved = remember();
-        const runUrl = buildRunUrl(viewMode);
-
-        if (!saved.useGate) return runUrl.toString();
-
-        const gateUrl = carryQuery(defaultGateUrl(), {
-          pid: runUrl.searchParams.get('pid') || 'anon',
-          name: runUrl.searchParams.get('name') || '',
-          diff: runUrl.searchParams.get('diff') || 'normal',
-          time: runUrl.searchParams.get('time') || '80',
-          run: runUrl.searchParams.get('run') || 'play',
-          studyId: runUrl.searchParams.get('studyId') || '',
-          seed: runUrl.searchParams.get('seed') || String(Date.now()),
-          hub: runUrl.searchParams.get('hub') || defaultHub(),
-          view: runUrl.searchParams.get('view') || viewMode,
-
-          game: 'groups',
-          gameId: 'groups',
-          zone: 'nutrition',
-          cat: 'nutrition',
-          theme: 'groups',
-          mode: 'solo',
-
-          phase: 'warmup',
-          gatePhase: 'warmup',
-          gate: '1',
-          next: runUrl.toString(),
-
-          cooldown: saved.useCooldown ? '1' : '',
-          returnPhase: saved.useCooldown ? 'cooldown' : '',
-          debug: saved.debug ? '1' : ''
-        });
-
-        return gateUrl.toString();
-      }
-
-      function go(viewMode){
-        const entryUrl = buildEntryUrl(viewMode);
-        setStatus(`กำลังเข้า warmup ของ Groups แบบ ${viewMode.toUpperCase()}...`);
-        location.href = entryUrl;
-      }
-
-      function goHub(){
-        location.href = defaultHub();
-      }
-
-      function setStatus(text){
-        el.statusLine.textContent = String(text || '');
-      }
-
-      function cleanPid(v){
-        return String(v || 'anon')
-          .trim()
-          .replace(/[.#$[\]/]/g, '-')
-          .replace(/\s+/g, '-')
-          .slice(0, 36) || 'anon';
-      }
-
-      function cleanName(v){
-        return String(v || '')
-          .trim()
-          .replace(/\s+/g, ' ')
-          .slice(0, 24);
-      }
-
-      function oneOf(v, list, fallback){
-        const s = String(v || '').trim();
-        return list.includes(s) ? s : fallback;
-      }
-
-      function clampInt(v, fallback, min, max){
-        const n = Number(v);
-        if (!Number.isFinite(n)) return fallback;
-        return Math.max(min, Math.min(max, Math.round(n)));
-      }
+      btnReload.addEventListener('click', () => {
+        location.reload();
+      });
     })();
   </script>
 </body>
