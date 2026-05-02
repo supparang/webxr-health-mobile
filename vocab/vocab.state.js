@@ -411,3 +411,128 @@
   console.log("[VOCAB CONFIG] loaded", window.VOCAB_APP.version);
   console.log("[VOCAB CONFIG] endpoint", window.VOCAB_APP.sheetEndpoint);
 })();
+/* =========================================================
+   EXPORT — vocab.state.js
+========================================================= */
+(function(){
+  "use strict";
+
+  const W = window;
+
+  const api =
+    W.VocabState ||
+    W.VOCAB_STATE ||
+    W.vocabState ||
+    {
+      version: "vocab-state-export-fallback-20260503a",
+
+      init(){
+        if(!W.vocabGame){
+          W.vocabGame = {
+            active:false,
+            sessionId:"",
+            bank:"A",
+            difficulty:"easy",
+            mode:"learn",
+            modeConfig:null,
+            terms:[],
+            stagePlan:[],
+            stageIndex:0,
+            questionIndexInStage:0,
+            globalQuestionIndex:0,
+            currentStage:null,
+            currentQuestion:null,
+            questionStartedAt:0,
+            timerId:null,
+            timeLeft:0,
+            score:0,
+            combo:0,
+            comboMax:0,
+            correct:0,
+            wrong:0,
+            playerHp:5,
+            enemy:null,
+            enemyHp:100,
+            enemyHpMax:100,
+            mistakes:[],
+            stageStats:{},
+            fever:false,
+            feverUntil:0,
+            feverTimerId:null,
+            shield:1,
+            hints:1,
+            laserReady:false,
+            aiHelpLeft:0,
+            aiHelpUsed:0,
+            aiHelpPenalty:0,
+            currentAiHelpUsed:false,
+            powerStats:{
+              feverCount:0,
+              shieldUsed:0,
+              hintUsed:0,
+              laserUsed:0,
+              bossAttackCount:0
+            },
+            startedAt:0,
+            endedAt:0
+          };
+        }
+
+        W.vocabGameV6 = W.vocabGame;
+        return W.vocabGame;
+      },
+
+      get(){
+        return W.vocabGame || this.init();
+      },
+
+      reset(){
+        const g = this.init();
+
+        g.active = false;
+        g.sessionId = "";
+        g.stagePlan = [];
+        g.stageIndex = 0;
+        g.questionIndexInStage = 0;
+        g.globalQuestionIndex = 0;
+        g.currentStage = null;
+        g.currentQuestion = null;
+        g.timerId = null;
+        g.timeLeft = 0;
+        g.score = 0;
+        g.combo = 0;
+        g.comboMax = 0;
+        g.correct = 0;
+        g.wrong = 0;
+        g.playerHp = 5;
+        g.enemyHp = 100;
+        g.enemyHpMax = 100;
+        g.mistakes = [];
+        g.stageStats = {};
+        g.fever = false;
+        g.feverUntil = 0;
+        g.feverTimerId = null;
+        g.shield = 1;
+        g.hints = 1;
+        g.laserReady = false;
+        g.aiHelpLeft = 0;
+        g.aiHelpUsed = 0;
+        g.aiHelpPenalty = 0;
+        g.currentAiHelpUsed = false;
+        g.startedAt = 0;
+        g.endedAt = 0;
+
+        return g;
+      }
+    };
+
+  W.VocabState = api;
+  W.VOCAB_STATE = api;
+  W.vocabState = api;
+
+  if(!W.vocabGame){
+    api.init();
+  }
+
+  console.log("[VOCAB STATE] export ready", api.version || "");
+})();
