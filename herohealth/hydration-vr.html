@@ -268,8 +268,8 @@
       box-shadow:none;
     }
 
-    .room-btn:disabled{
-      opacity:.55;
+    .room-btn[disabled]{
+      opacity:.45;
       cursor:not-allowed;
       filter:grayscale(.25);
     }
@@ -435,7 +435,6 @@
       .start-panel{ align-items:stretch; }
       .actions,.btn,.room-btn{ width:100%; }
       .room-head{ align-items:stretch; }
-      .room-actions-inline{ width:100%; }
       .room-code-preview{ justify-content:flex-start; }
     }
   </style>
@@ -620,20 +619,16 @@
 
     function normalizeRoomCode(v){
       v = String(v || '').trim().toUpperCase();
-      v = v.replace(/^HYDR-/, 'HYD-');
-
-      if(v.startsWith('HYD-')){
-        const tail = v.slice(4).replace(/[^A-Z0-9]/g, '').slice(0, 4);
-        return tail ? `HYD-${tail}` : '';
-      }
+      v = v.replace(/[^A-Z0-9]/g, '');
 
       if(v.startsWith('HYD')){
-        const tail = v.slice(3).replace(/[^A-Z0-9]/g, '').slice(0, 4);
-        return tail ? `HYD-${tail}` : '';
+        v = v.slice(3);
       }
 
-      const raw = v.replace(/[^A-Z0-9]/g, '').slice(0, 4);
-      return raw ? `HYD-${raw}` : '';
+      v = v.slice(0, 4);
+
+      if(!v) return '';
+      return 'HYD-' + v;
     }
 
     function updateRoomPreview(){
@@ -653,7 +648,6 @@
 
       const input = $('#roomCode');
       const btnNew = $('#btnNewRoom');
-      const hint = $('#roomHint');
 
       if(!input) return;
 
@@ -661,13 +655,19 @@
         if(!normalizeRoomCode(input.value)){
           input.value = makeRoomCode();
         }
+
         input.readOnly = true;
         if(btnNew) btnNew.disabled = false;
-        if(hint) hint.textContent = 'คุณจะเป็นเจ้าของห้อง แชร์ Room Code นี้ให้เพื่อนเข้าห้องเดียวกัน';
+
+        const hint = $('#roomHint');
+        if(hint) hint.textContent = 'คุณจะเป็นเจ้าของห้อง และแชร์รหัสนี้ให้เพื่อน';
       }else{
         input.readOnly = false;
         input.value = normalizeRoomCode(input.value);
+
         if(btnNew) btnNew.disabled = true;
+
+        const hint = $('#roomHint');
         if(hint) hint.textContent = 'ใส่ Room Code ของเพื่อนให้ตรงกัน แล้วกดเริ่มเล่น';
       }
 
@@ -687,6 +687,7 @@
       const incomingRoom = params.get('roomCode') || params.get('room') || '';
       if(incomingRoom && !input.value.trim()){
         input.value = normalizeRoomCode(incomingRoom);
+        roomAction = 'join';
       }
 
       if(!input.value.trim()){
@@ -694,7 +695,6 @@
       }
 
       setRoomAction(roomAction);
-      updateRoomPreview();
     }
 
     function renderModes(){
@@ -780,6 +780,11 @@
       const card = ev.target.closest('[data-mode]');
       if(card){
         selectedMode = normalizeMode(card.dataset.mode || 'solo');
+
+        if(selectedMode === 'solo'){
+          roomAction = 'create';
+        }
+
         renderModes();
       }
     });
@@ -794,7 +799,6 @@
 
     $('#roomCode')?.addEventListener('input', () => {
       const input = $('#roomCode');
-      if(!input) return;
 
       if(roomAction === 'join'){
         input.value = input.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
@@ -805,7 +809,6 @@
 
     $('#roomCode')?.addEventListener('blur', () => {
       const input = $('#roomCode');
-      if(!input) return;
 
       if(roomAction === 'create'){
         input.value = normalizeRoomCode(input.value) || makeRoomCode();
@@ -824,8 +827,8 @@
 
     $('#btnPasteRoom')?.addEventListener('click', async () => {
       try{
-        const text = await navigator.clipboard.readText();
-        const code = normalizeRoomCode(text);
+        const clip = await navigator.clipboard.readText();
+        const code = normalizeRoomCode(clip);
         if(code){
           $('#roomCode').value = code;
           setRoomAction('join');
