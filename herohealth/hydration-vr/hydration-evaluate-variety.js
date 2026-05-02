@@ -1,18 +1,18 @@
 // === /herohealth/hydration-vr/hydration-evaluate-variety.js ===
-// PATCH v20260502-HYDRATION-EVAL-VARIETY-V1
-// ✅ แก้ปัญหา Post-game Evaluate ซ้ำทุกครั้ง
-// ✅ มี question bank หลายชุด
-// ✅ เลือกคำถามตาม mode / water / miss / shield / block / combo
-// ✅ กันคำถามซ้ำด้วย localStorage
-// ✅ บันทึก choice + reason + score
-// ✅ ใช้แทนคำถาม hardcode Plan A/B/C เดิม
+// PATCH v20260502-HYDRATION-EVAL-VARIETY-V2
+//
+// ✅ Fix repeated Post-game Evaluate
+// ✅ Question bank by mode/result
+// ✅ Prevent recent repeats via localStorage
+// ✅ Records choice + reason + score
+// ✅ Replaces static hardcoded Plan A/B/C style block
 
 'use strict';
 
 (function HydrationEvaluateVariety(){
-  const VERSION = '20260502-HYDRATION-EVAL-VARIETY-V1';
-  const RECENT_KEY = 'HHA_HYDRATION_EVAL_RECENT_V1';
-  const SAVED_KEY = 'HHA_HYDRATION_EVAL_LAST_V1';
+  const VERSION = '20260502-HYDRATION-EVAL-VARIETY-V2';
+  const RECENT_KEY = 'HHA_HYDRATION_EVAL_RECENT_V2';
+  const SAVED_KEY = 'HHA_HYDRATION_EVAL_LAST_V2';
 
   const $ = (s, r = document) => r.querySelector(s);
 
@@ -52,405 +52,484 @@
   function getStats(){
     const modeState = window.HHA_HYDRATION_MODE_STATE || {};
     const modeStats = modeState.stats || {};
+    const roomState = window.HHAHydrationRoomSync?.state || {};
 
     return {
-      mode: qs('mode', modeState.mode || 'solo'),
-      role: qs('role', modeState.role || ''),
-      view: qs('view', 'mobile'),
-      diff: qs('diff', 'normal'),
-      time: Number(qs('time', 80)) || 80,
-      score: Number(modeStats.score ?? numText('uiScore', 0)),
-      water: Number(modeStats.water ?? numText('uiWater', 0)),
-      miss: Number(modeStats.miss ?? numText('uiMiss', 0)),
-      expire: Number(modeStats.expire ?? numText('uiExpire', 0)),
-      block: Number(modeStats.block ?? numText('uiBlock', 0)),
-      combo: Number(modeStats.combo ?? numText('uiCombo', 0)),
-      shield: Number(modeStats.shield ?? numText('uiShield', 0)),
-      grade: String(modeStats.grade ?? text('uiGrade', 'D'))
+      mode:qs('mode', modeState.mode || 'solo'),
+      role:qs('role', modeState.role || roomState.role || ''),
+      view:qs('view', 'mobile'),
+      diff:qs('diff', 'normal'),
+      time:Number(qs('time', 80)) || 80,
+      score:Number(modeStats.score ?? numText('uiScore', 0)),
+      water:Number(modeStats.water ?? numText('uiWater', 0)),
+      miss:Number(modeStats.miss ?? numText('uiMiss', 0)),
+      expire:Number(modeStats.expire ?? numText('uiExpire', 0)),
+      block:Number(modeStats.block ?? numText('uiBlock', 0)),
+      combo:Number(modeStats.combo ?? numText('uiCombo', 0)),
+      shield:Number(modeStats.shield ?? numText('uiShield', 0)),
+      grade:String(modeStats.grade ?? text('uiGrade', 'D')),
+      roomId:roomState.roomId || qs('room', ''),
+      playerCount:Array.isArray(roomState.lastPlayers) ? roomState.lastPlayers.length : 1
     };
   }
 
   const QUESTION_BANK = [
     {
-      id: 'recovery_after_exercise_interval',
-      tags: ['solo','duet','coop','lowWater','normal'],
-      title: 'หลังเล่นเสร็จ ควรชดเชยน้ำแบบไหนดี?',
-      subtitle: 'เลือกแผนที่เหมาะที่สุดหลังจบกิจกรรม',
-      options: [
+      id:'recovery_after_exercise_interval',
+      tags:['solo','duet','coop','lowWater','normal'],
+      title:'หลังเล่นเสร็จ ควรชดเชยน้ำแบบไหนดี?',
+      subtitle:'เลือกแผนที่เหมาะที่สุดหลังจบกิจกรรม',
+      options:[
         {
-          id: 'rush_big',
-          title: 'Plan A: ดื่มรวดเดียวเยอะ ๆ',
-          desc: 'ดื่มประมาณ 600–800 ml ทันที',
-          score: 45,
-          ok: false,
-          feedback: [
+          id:'rush_big',
+          title:'Plan A: ดื่มรวดเดียวเยอะ ๆ',
+          desc:'ดื่มประมาณ 600–800 ml ทันที',
+          score:45,
+          ok:false,
+          feedback:[
             'ดื่มรวดเดียวเยอะเกินไป อาจทำให้จุกหรือไม่สบายท้อง',
             'เหมาะน้อยกว่าการแบ่งดื่มเป็นช่วง ๆ'
           ]
         },
         {
-          id: 'small_interval',
-          title: 'Plan B: แบ่งดื่มเป็นช่วง',
-          desc: 'ดื่ม 150–250 ml ทุก 15–20 นาที รวม 3–4 ครั้ง',
-          score: 92,
-          ok: true,
-          feedback: [
+          id:'small_interval',
+          title:'Plan B: แบ่งดื่มเป็นช่วง',
+          desc:'ดื่ม 150–250 ml ทุก 15–20 นาที รวม 3–4 ครั้ง',
+          score:92,
+          ok:true,
+          feedback:[
             'เหมาะสมมาก เพราะช่วยให้ร่างกายค่อย ๆ ปรับสมดุล',
             'ลดโอกาสจุกหรือดื่มมากเกินไปในเวลาสั้น',
             'เหมาะกับการชดเชยหลังออกแรงและยังควบคุมระดับน้ำได้ต่อเนื่อง'
           ]
         },
         {
-          id: 'wait_tired',
-          title: 'Plan C: รอให้หายเหนื่อยก่อน',
-          desc: 'ยังไม่ดื่มทันที รอ 30–60 นาทีแล้วค่อยเริ่มดื่ม',
-          score: 35,
-          ok: false,
-          feedback: [
+          id:'wait_tired',
+          title:'Plan C: รอให้หายเหนื่อยก่อน',
+          desc:'ยังไม่ดื่มทันที รอ 30–60 นาทีแล้วค่อยเริ่มดื่ม',
+          score:35,
+          ok:false,
+          feedback:[
             'รอนานเกินไป โดยเฉพาะถ้าร่างกายเสียเหงื่อแล้ว',
             'ควรเริ่มจิบน้ำทีละน้อยหลังพักสั้น ๆ'
           ]
         }
       ]
     },
-
     {
-      id: 'low_water_next_action',
-      tags: ['solo','race','lowWater','highMiss'],
-      title: 'ถ้ารอบนี้ Water ต่ำ ควรปรับรอบหน้าอย่างไร?',
-      subtitle: 'เลือกแผนที่ช่วยลดความเสี่ยงขาดน้ำ',
-      options: [
+      id:'low_water_next_action',
+      tags:['solo','race','lowWater','highMiss'],
+      title:'ถ้ารอบนี้ Water ต่ำ ควรปรับรอบหน้าอย่างไร?',
+      subtitle:'เลือกแผนที่ช่วยลดความเสี่ยงขาดน้ำ',
+      options:[
         {
-          id: 'focus_only_score',
-          title: 'Plan A: เน้นคะแนนก่อน',
-          desc: 'พยายามกดให้เร็วที่สุด แม้จะพลาดบ้าง',
-          score: 40,
-          ok: false,
-          feedback: [
+          id:'focus_only_score',
+          title:'Plan A: เน้นคะแนนก่อน',
+          desc:'พยายามกดให้เร็วที่สุด แม้จะพลาดบ้าง',
+          score:40,
+          ok:false,
+          feedback:[
             'ถ้า Water ต่ำ การรีบกดเพื่อเอาคะแนนอย่างเดียวจะทำให้พลาดง่าย',
             'ควรเน้นความแม่นและเก็บน้ำดีให้ต่อเนื่องก่อน'
           ]
         },
         {
-          id: 'slow_correct_water',
-          title: 'Plan B: ลดความเร็ว แต่เลือกน้ำให้แม่น',
-          desc: 'เก็บน้ำดีให้ต่อเนื่อง ใช้ Shield เมื่อมีภัย',
-          score: 90,
-          ok: true,
-          feedback: [
+          id:'slow_correct_water',
+          title:'Plan B: ลดความเร็ว แต่เลือกน้ำให้แม่น',
+          desc:'เก็บน้ำดีให้ต่อเนื่อง ใช้ Shield เมื่อมีภัย',
+          score:90,
+          ok:true,
+          feedback:[
             'เหมาะสม เพราะ Water ต่ำต้องเพิ่มความแม่นก่อน',
             'การลด Miss ช่วยให้ระดับน้ำไม่ตกเร็ว',
             'การใช้ Shield ช่วยลดความเสี่ยงช่วง Storm'
           ]
         },
         {
-          id: 'avoid_all_threat',
-          title: 'Plan C: ไม่แตะอะไรเลยถ้าไม่มั่นใจ',
-          desc: 'รอเฉพาะน้ำที่อยู่ใกล้มาก ๆ เท่านั้น',
-          score: 55,
-          ok: false,
-          feedback: [
+          id:'avoid_all_threat',
+          title:'Plan C: ไม่แตะอะไรเลยถ้าไม่มั่นใจ',
+          desc:'รอเฉพาะน้ำที่อยู่ใกล้มาก ๆ เท่านั้น',
+          score:55,
+          ok:false,
+          feedback:[
             'ปลอดภัยขึ้นเล็กน้อย แต่เก็บน้ำไม่พออาจทำให้ Water ไม่ถึงเป้า',
             'ควรเลือกแตะน้ำดีที่มั่นใจ และฝึกจังหวะให้ดีขึ้น'
           ]
         }
       ]
     },
-
     {
-      id: 'high_miss_strategy',
-      tags: ['solo','race','battle','highMiss'],
-      title: 'ถ้ารอบนี้ Miss เยอะ ควรแก้ยังไง?',
-      subtitle: 'เลือกวิธีลดการแตะผิดในรอบต่อไป',
-      options: [
+      id:'high_miss_strategy',
+      tags:['solo','race','battle','highMiss'],
+      title:'ถ้ารอบนี้ Miss เยอะ ควรแก้ยังไง?',
+      subtitle:'เลือกวิธีลดการแตะผิดในรอบต่อไป',
+      options:[
         {
-          id: 'tap_faster',
-          title: 'Plan A: แตะให้เร็วขึ้นอีก',
-          desc: 'รีบแตะทุกอย่างที่เห็นก่อนหายไป',
-          score: 25,
-          ok: false,
-          feedback: [
+          id:'tap_faster',
+          title:'Plan A: แตะให้เร็วขึ้นอีก',
+          desc:'รีบแตะทุกอย่างที่เห็นก่อนหายไป',
+          score:25,
+          ok:false,
+          feedback:[
             'ถ้า Miss เยอะ การแตะเร็วขึ้นมักทำให้พลาดมากกว่าเดิม',
             'ควรลดความเร็วและเลือกเป้าหมายให้ชัด'
           ]
         },
         {
-          id: 'scan_before_tap',
-          title: 'Plan B: มองก่อนแตะ',
-          desc: 'เช็กว่าเป็นน้ำดี/โล่ก่อน แล้วค่อยแตะ',
-          score: 94,
-          ok: true,
-          feedback: [
+          id:'scan_before_tap',
+          title:'Plan B: มองก่อนแตะ',
+          desc:'เช็กว่าเป็นน้ำดี/โล่ก่อน แล้วค่อยแตะ',
+          score:94,
+          ok:true,
+          feedback:[
             'เหมาะมาก เพราะช่วยลด Miss โดยตรง',
             'การมองก่อนแตะช่วยให้คอมโบต่อเนื่องขึ้น',
             'เหมาะกับช่วง Storm ที่มีของหลอกมากขึ้น'
           ]
         },
         {
-          id: 'only_shield',
-          title: 'Plan C: เก็บแต่ Shield',
-          desc: 'ไม่เน้นน้ำดี เน้นป้องกันอย่างเดียว',
-          score: 50,
-          ok: false,
-          feedback: [
+          id:'only_shield',
+          title:'Plan C: เก็บแต่ Shield',
+          desc:'ไม่เน้นน้ำดี เน้นป้องกันอย่างเดียว',
+          score:50,
+          ok:false,
+          feedback:[
             'Shield ช่วยได้ แต่ถ้าไม่เก็บน้ำดี Water จะไม่ขึ้น',
             'ควรผสมระหว่างเก็บน้ำดีและเก็บ Shield'
           ]
         }
       ]
     },
-
     {
-      id: 'shield_usage',
-      tags: ['solo','duet','battle','coop','lowBlock'],
-      title: 'ถ้ามี Shield ควรใช้คิดแบบไหน?',
-      subtitle: 'เลือกแนวทางป้องกันภัยที่เหมาะที่สุด',
-      options: [
+      id:'shield_usage',
+      tags:['solo','duet','battle','coop','lowBlock'],
+      title:'ถ้ามี Shield ควรใช้คิดแบบไหน?',
+      subtitle:'เลือกแนวทางป้องกันภัยที่เหมาะที่สุด',
+      options:[
         {
-          id: 'ignore_shield',
-          title: 'Plan A: ไม่ต้องสนใจ Shield',
-          desc: 'เน้นเก็บน้ำอย่างเดียวก็พอ',
-          score: 35,
-          ok: false,
-          feedback: [
+          id:'ignore_shield',
+          title:'Plan A: ไม่ต้องสนใจ Shield',
+          desc:'เน้นเก็บน้ำอย่างเดียวก็พอ',
+          score:35,
+          ok:false,
+          feedback:[
             'Shield สำคัญมากในช่วง Storm หรือ Boss',
             'ถ้าไม่เก็บ Shield อาจเสีย Water จากภัยคุกคามได้ง่าย'
           ]
         },
         {
-          id: 'save_for_threat',
-          title: 'Plan B: เก็บ Shield ไว้กันภัย',
-          desc: 'ใช้ Shield เพื่อบล็อกสายฟ้า/พายุในช่วงเสี่ยง',
-          score: 91,
-          ok: true,
-          feedback: [
+          id:'save_for_threat',
+          title:'Plan B: เก็บ Shield ไว้กันภัย',
+          desc:'ใช้ Shield เพื่อบล็อกสายฟ้า/พายุในช่วงเสี่ยง',
+          score:91,
+          ok:true,
+          feedback:[
             'เหมาะสม เพราะ Shield ช่วยกันความเสียหายได้',
             'การมี Shield ทำให้เล่นช่วงยากได้ปลอดภัยขึ้น',
             'เหมาะกับ Battle และ Coop ที่มีพายุหรือ Crisis'
           ]
         },
         {
-          id: 'use_all_now',
-          title: 'Plan C: ใช้ Shield ทันทีทุกครั้ง',
-          desc: 'มี Shield เมื่อไรก็ใช้ทันที',
-          score: 58,
-          ok: false,
-          feedback: [
+          id:'use_all_now',
+          title:'Plan C: ใช้ Shield ทันทีทุกครั้ง',
+          desc:'มี Shield เมื่อไรก็ใช้ทันที',
+          score:58,
+          ok:false,
+          feedback:[
             'ใช้ทันทีอาจทำให้ไม่มี Shield ตอนเกิดภัยจริง',
             'ควรเก็บไว้ใช้ในช่วงที่มีสายฟ้า/พายุมากกว่า'
           ]
         }
       ]
     },
-
     {
-      id: 'race_finish_plan',
-      tags: ['race'],
-      title: 'Race รอบหน้า ควรเล่นแบบไหนให้เข้าเส้นชัยไวขึ้น?',
-      subtitle: 'เลือกกลยุทธ์สำหรับโหมดแข่งเติมน้ำ',
-      options: [
+      id:'race_finish_plan',
+      tags:['race'],
+      title:'Race รอบหน้า ควรเล่นแบบไหนให้เข้าเส้นชัยไวขึ้น?',
+      subtitle:'เลือกกลยุทธ์สำหรับโหมดแข่งเติมน้ำ',
+      options:[
         {
-          id: 'boost_with_control',
-          title: 'Plan A: เก็บ Boost แต่ยังคุม Miss',
-          desc: 'เก็บน้ำดี + Boost และหลีกเลี่ยงของหลอก',
-          score: 93,
-          ok: true,
-          feedback: [
+          id:'boost_with_control',
+          title:'Plan A: เก็บ Boost แต่ยังคุม Miss',
+          desc:'เก็บน้ำดี + Boost และหลีกเลี่ยงของหลอก',
+          score:93,
+          ok:true,
+          feedback:[
             'เหมาะมากกับ Race เพราะต้องเร็วแต่ยังต้องแม่น',
             'Boost ช่วยเร่งเข้าเส้นชัย แต่ Miss จะทำให้เสียจังหวะ',
             'เล่นแบบเร็วและคุมความเสี่ยงดีที่สุด'
           ]
         },
         {
-          id: 'slow_safe_only',
-          title: 'Plan B: เล่นช้ามากเพื่อไม่ให้พลาด',
-          desc: 'รอเฉพาะเป้าหมายง่าย ๆ',
-          score: 60,
-          ok: false,
-          feedback: [
+          id:'slow_safe_only',
+          title:'Plan B: เล่นช้ามากเพื่อไม่ให้พลาด',
+          desc:'รอเฉพาะเป้าหมายง่าย ๆ',
+          score:60,
+          ok:false,
+          feedback:[
             'ปลอดภัยขึ้นแต่ Race ต้องแข่งกับเวลา',
             'ควรเก็บ Boost และเลือกน้ำดีที่มั่นใจควบคู่กัน'
           ]
         },
         {
-          id: 'tap_everything',
-          title: 'Plan C: แตะทุกอย่างเพื่อเร่งคะแนน',
-          desc: 'เน้นความเร็วมากที่สุด',
-          score: 30,
-          ok: false,
-          feedback: [
+          id:'tap_everything',
+          title:'Plan C: แตะทุกอย่างเพื่อเร่งคะแนน',
+          desc:'เน้นความเร็วมากที่สุด',
+          score:30,
+          ok:false,
+          feedback:[
             'เสี่ยง Miss สูงมาก',
             'ถ้าแตะของผิดบ่อย อาจเสีย Water และเสียเวลา'
           ]
         }
       ]
     },
-
     {
-      id: 'battle_unlock_attack',
-      tags: ['battle'],
-      title: 'Battle จะปลดล็อกสกิลโจมตีได้ดีที่สุดอย่างไร?',
-      subtitle: 'เลือกวิธีเล่นเพื่อเปิดใช้ Storm Attack',
-      options: [
+      id:'battle_unlock_attack',
+      tags:['battle'],
+      title:'Battle จะปลดล็อกสกิลโจมตีได้ดีที่สุดอย่างไร?',
+      subtitle:'เลือกวิธีเล่นเพื่อเปิดใช้ Storm Attack',
+      options:[
         {
-          id: 'combo_mission_first',
-          title: 'Plan A: ทำ Mission เพื่อปลดล็อก Attack',
-          desc: 'เก็บน้ำดีต่อเนื่อง ทำ Combo และบล็อกภัยให้ครบเงื่อนไข',
-          score: 95,
-          ok: true,
-          feedback: [
+          id:'combo_mission_first',
+          title:'Plan A: ทำ Mission เพื่อปลดล็อก Attack',
+          desc:'เก็บน้ำดีต่อเนื่อง ทำ Combo และบล็อกภัยให้ครบเงื่อนไข',
+          score:95,
+          ok:true,
+          feedback:[
             'ถูกต้อง เพราะ Battle ควรโจมตีได้หลังทำภารกิจสำเร็จ',
             'Combo และ Block ช่วยปลดล็อกสกิลอย่างยุติธรรม',
             'ทำให้การโจมตีมีจังหวะ ไม่ใช่กดมั่ว'
           ]
         },
         {
-          id: 'attack_first',
-          title: 'Plan B: กดโจมตีทันทีตั้งแต่ต้น',
-          desc: 'ไม่ต้องรอ Mission',
-          score: 25,
-          ok: false,
-          feedback: [
+          id:'attack_first',
+          title:'Plan B: กดโจมตีทันทีตั้งแต่ต้น',
+          desc:'ไม่ต้องรอ Mission',
+          score:25,
+          ok:false,
+          feedback:[
             'ไม่เหมาะ เพราะจะทำให้ Battle ไม่ยุติธรรม',
             'ควรให้ผู้เล่นทำ Mission สำเร็จก่อนจึงโจมตีได้'
           ]
         },
         {
-          id: 'defense_only',
-          title: 'Plan C: ป้องกันอย่างเดียว',
-          desc: 'ไม่ต้องปลดล็อกโจมตี',
-          score: 62,
-          ok: false,
-          feedback: [
+          id:'defense_only',
+          title:'Plan C: ป้องกันอย่างเดียว',
+          desc:'ไม่ต้องปลดล็อกโจมตี',
+          score:62,
+          ok:false,
+          feedback:[
             'ป้องกันสำคัญ แต่ Battle ต้องมีจังหวะสวนกลับด้วย',
             'ควรใช้ Shield แล้วหาทางปลดล็อก Counter หรือ Storm'
           ]
         }
       ]
     },
-
     {
-      id: 'coop_team_tank',
-      tags: ['coop'],
-      title: 'Coop ถ้า Team Tank เริ่มต่ำ ทีมควรทำอะไร?',
-      subtitle: 'เลือกแผนกู้ถังน้ำรวมของทีม',
-      options: [
+      id:'coop_team_tank',
+      tags:['coop'],
+      title:'Coop ถ้า Team Tank เริ่มต่ำ ทีมควรทำอะไร?',
+      subtitle:'เลือกแผนกู้ถังน้ำรวมของทีม',
+      options:[
         {
-          id: 'everyone_collect',
-          title: 'Plan A: ทุกคนเก็บน้ำอย่างเดียว',
-          desc: 'ไม่ต้องแบ่งหน้าที่',
-          score: 55,
-          ok: false,
-          feedback: [
+          id:'everyone_collect',
+          title:'Plan A: ทุกคนเก็บน้ำอย่างเดียว',
+          desc:'ไม่ต้องแบ่งหน้าที่',
+          score:55,
+          ok:false,
+          feedback:[
             'ช่วยเพิ่มน้ำได้ แต่ถ้าไม่มีคนป้องกัน ทีมอาจโดนภัยจน Tank ลดอีก',
             'Coop ควรแบ่งหน้าที่ให้ชัด'
           ]
         },
         {
-          id: 'role_balance',
-          title: 'Plan B: แบ่งหน้าที่ตาม Role',
-          desc: 'Collector เติมน้ำ, Guardian กันภัย, Cleaner เคลียร์ของหลอก, Booster ช่วยทีม',
-          score: 96,
-          ok: true,
-          feedback: [
+          id:'role_balance',
+          title:'Plan B: แบ่งหน้าที่ตาม Role',
+          desc:'Collector เติมน้ำ, Guardian กันภัย, Cleaner เคลียร์ของหลอก, Booster/Medic ช่วยทีม',
+          score:96,
+          ok:true,
+          feedback:[
             'เหมาะที่สุด เพราะ Coop ต้องใช้ teamwork',
             'การแบ่งหน้าที่ช่วยให้ Team Tank ฟื้นได้เร็วและปลอดภัย',
             'ช่วยผ่าน Crisis ได้ดีกว่าทุกคนทำเหมือนกัน'
           ]
         },
         {
-          id: 'wait_crisis',
-          title: 'Plan C: รอให้เข้าช่วง Crisis ก่อน',
-          desc: 'ค่อยช่วยกันตอนระบบเตือน',
-          score: 32,
-          ok: false,
-          feedback: [
+          id:'wait_crisis',
+          title:'Plan C: รอให้เข้าช่วง Crisis ก่อน',
+          desc:'ค่อยช่วยกันตอนระบบเตือน',
+          score:32,
+          ok:false,
+          feedback:[
             'รอจน Crisis อาจสายเกินไป',
             'ควรช่วยกันเติม Tank ตั้งแต่เริ่มต่ำกว่า 50%'
           ]
         }
       ]
     },
-
     {
-      id: 'duet_role_sync',
-      tags: ['duet'],
-      title: 'Duet จะทำให้ทีมเล่นดีขึ้นได้อย่างไร?',
-      subtitle: 'เลือกวิธีประสานงานของคู่หู',
-      options: [
+      id:'duet_role_sync',
+      tags:['duet'],
+      title:'Duet จะทำให้ทีมเล่นดีขึ้นได้อย่างไร?',
+      subtitle:'เลือกวิธีประสานงานของคู่หู',
+      options:[
         {
-          id: 'same_action',
-          title: 'Plan A: ทั้งสองคนทำเหมือนกัน',
-          desc: 'ต่างคนต่างเก็บน้ำให้มากที่สุด',
-          score: 55,
-          ok: false,
-          feedback: [
+          id:'same_action',
+          title:'Plan A: ทั้งสองคนทำเหมือนกัน',
+          desc:'ต่างคนต่างเก็บน้ำให้มากที่สุด',
+          score:55,
+          ok:false,
+          feedback:[
             'ทำได้ แต่ยังไม่ใช้จุดเด่นของ Duet',
             'Duet ควรแบ่งหน้าที่เพื่อให้ทีมสมดุลกว่า'
           ]
         },
         {
-          id: 'split_roles',
-          title: 'Plan B: แบ่งหน้าที่ Collector / Guardian',
-          desc: 'คนหนึ่งเก็บน้ำ อีกคนเก็บ Shield และบล็อกภัย',
-          score: 94,
-          ok: true,
-          feedback: [
+          id:'split_roles',
+          title:'Plan B: แบ่งหน้าที่ Collector / Guardian',
+          desc:'คนหนึ่งเก็บน้ำ อีกคนเก็บ Shield และบล็อกภัย',
+          score:94,
+          ok:true,
+          feedback:[
             'เหมาะมาก เพราะ Duet ต้องช่วยกันแบบคู่หู',
             'Collector เพิ่ม Water ส่วน Guardian ลดความเสี่ยง',
             'ทำให้ Team Sync สูงขึ้น'
           ]
         },
         {
-          id: 'one_player_carry',
-          title: 'Plan C: ให้คนเก่งเล่นหลักคนเดียว',
-          desc: 'อีกคนช่วยเท่าที่ทำได้',
-          score: 30,
-          ok: false,
-          feedback: [
+          id:'one_player_carry',
+          title:'Plan C: ให้คนเก่งเล่นหลักคนเดียว',
+          desc:'อีกคนช่วยเท่าที่ทำได้',
+          score:30,
+          ok:false,
+          feedback:[
             'ไม่เหมาะกับ Duet เพราะลดการมีส่วนร่วมของคู่หู',
             'ควรให้ทั้งสองคนมีภารกิจชัดเจน'
           ]
         }
       ]
     },
-
     {
-      id: 'real_life_school_day',
-      tags: ['solo','race','duet','normal'],
-      title: 'ถ้าพรุ่งนี้มีเรียน/กิจกรรมทั้งวัน ควรเตรียมน้ำอย่างไร?',
-      subtitle: 'เลือกแผนที่นำไปใช้จริงได้ง่ายที่สุด',
-      options: [
+      id:'race_many_players_rank',
+      tags:['race'],
+      title:'ถ้า Race มีผู้เล่นหลายคน ควรสนใจอะไรที่สุด?',
+      subtitle:'เลือกกลยุทธ์สำหรับ Race 2–10 คน',
+      options:[
         {
-          id: 'bring_bottle_interval',
-          title: 'Plan A: พกขวดน้ำและตั้งช่วงดื่ม',
-          desc: 'จิบเป็นช่วง เช่น หลังเข้าเรียน / หลังพัก / หลังทำกิจกรรม',
-          score: 93,
-          ok: true,
-          feedback: [
+          id:'water_score_miss_balance',
+          title:'Plan A: ดู Water + Score + Miss พร้อมกัน',
+          desc:'เติมน้ำให้สูง ทำคะแนนดี และลด Miss เพื่ออันดับที่ดี',
+          score:96,
+          ok:true,
+          feedback:[
+            'ถูกต้อง เพราะ Race หลายคนต้องจัดอันดับจากหลายค่า',
+            'Water สูงสำคัญที่สุด แต่ Score และ Miss ช่วยตัดสินอันดับ',
+            'การเล่นเร็วแต่แม่นจะได้เปรียบที่สุด'
+          ]
+        },
+        {
+          id:'only_score',
+          title:'Plan B: สนใจคะแนนอย่างเดียว',
+          desc:'ใครคะแนนสูงสุดก็พอ',
+          score:48,
+          ok:false,
+          feedback:[
+            'คะแนนสำคัญ แต่ Race เน้นเติม Water ถึงเป้าด้วย',
+            'ถ้าคะแนนสูงแต่ Water ต่ำ อาจยังไม่ใช่กลยุทธ์ที่ดีที่สุด'
+          ]
+        },
+        {
+          id:'only_fast_tap',
+          title:'Plan C: แตะให้ไวที่สุดโดยไม่ดู Miss',
+          desc:'ยิ่งแตะเร็ว ยิ่งมีโอกาสชนะ',
+          score:28,
+          ok:false,
+          feedback:[
+            'Miss สูงจะทำให้อันดับตกได้',
+            'Race ที่ดีต้องเร็วและแม่น ไม่ใช่เร็วอย่างเดียว'
+          ]
+        }
+      ]
+    },
+    {
+      id:'coop_ten_players_roles',
+      tags:['coop'],
+      title:'ถ้า Coop มีทีมใหญ่หลายคน ควรจัดทีมอย่างไร?',
+      subtitle:'เลือกแนวทางสำหรับทีม 2–10 คน',
+      options:[
+        {
+          id:'rotate_roles',
+          title:'Plan A: แบ่ง Role วนให้ครบทีม',
+          desc:'Collector / Guardian / Cleaner / Booster / Medic ช่วยกันตามหน้าที่',
+          score:97,
+          ok:true,
+          feedback:[
+            'เหมาะมาก เพราะทีมใหญ่ต้องมีหน้าที่ชัด',
+            'การมี Medic/Booster ช่วยให้ผ่าน Crisis ได้ดีขึ้น',
+            'ทุกคนมี contribution โดยไม่ต้องทำสิ่งเดียวกันทั้งหมด'
+          ]
+        },
+        {
+          id:'all_collector',
+          title:'Plan B: ให้ทุกคนเป็น Collector',
+          desc:'ทุกคนเก็บน้ำอย่างเดียวเพื่อเติม Tank',
+          score:58,
+          ok:false,
+          feedback:[
+            'น้ำขึ้นเร็วขึ้น แต่ทีมจะขาดคนป้องกันและเคลียร์ภัย',
+            'เมื่อ Crisis มา ทีมอาจรับมือไม่ทัน'
+          ]
+        },
+        {
+          id:'leader_only',
+          title:'Plan C: ให้หัวหน้าทีมเล่นหลัก',
+          desc:'คนอื่นคอยดูหรือช่วยเล็กน้อย',
+          score:30,
+          ok:false,
+          feedback:[
+            'ไม่เหมาะกับ Coop เพราะลดการมีส่วนร่วม',
+            'ควรให้ทุกคนมีภารกิจตาม Role'
+          ]
+        }
+      ]
+    },
+    {
+      id:'real_life_school_day',
+      tags:['solo','race','duet','normal'],
+      title:'ถ้าพรุ่งนี้มีเรียน/กิจกรรมทั้งวัน ควรเตรียมน้ำอย่างไร?',
+      subtitle:'เลือกแผนที่นำไปใช้จริงได้ง่ายที่สุด',
+      options:[
+        {
+          id:'bring_bottle_interval',
+          title:'Plan A: พกขวดน้ำและตั้งช่วงดื่ม',
+          desc:'จิบเป็นช่วง เช่น หลังเข้าเรียน / หลังพัก / หลังทำกิจกรรม',
+          score:93,
+          ok:true,
+          feedback:[
             'เหมาะสม เพราะนำไปใช้จริงได้ง่าย',
             'การจิบเป็นช่วงช่วยรักษาระดับน้ำต่อเนื่อง',
             'พกขวดน้ำช่วยลดการลืมดื่ม'
           ]
         },
         {
-          id: 'drink_only_thirsty',
-          title: 'Plan B: ดื่มเฉพาะตอนกระหาย',
-          desc: 'รอให้หิวน้ำก่อนค่อยดื่ม',
-          score: 48,
-          ok: false,
-          feedback: [
+          id:'drink_only_thirsty',
+          title:'Plan B: ดื่มเฉพาะตอนกระหาย',
+          desc:'รอให้หิวน้ำก่อนค่อยดื่ม',
+          score:48,
+          ok:false,
+          feedback:[
             'การรอให้กระหายอาจช้าไปสำหรับบางกิจกรรม',
             'ควรจิบน้ำเป็นช่วงก่อนจะกระหายมาก'
           ]
         },
         {
-          id: 'drink_at_home_only',
-          title: 'Plan C: ดื่มเยอะ ๆ ก่อนออกจากบ้าน',
-          desc: 'แล้วระหว่างวันไม่ต้องดื่มมาก',
-          score: 42,
-          ok: false,
-          feedback: [
+          id:'drink_at_home_only',
+          title:'Plan C: ดื่มเยอะ ๆ ก่อนออกจากบ้าน',
+          desc:'แล้วระหว่างวันไม่ต้องดื่มมาก',
+          score:42,
+          ok:false,
+          feedback:[
             'ดื่มก่อนออกจากบ้านอย่างเดียวไม่พอสำหรับทั้งวัน',
             'ควรมีน้ำติดตัวและจิบระหว่างวัน'
           ]
@@ -471,7 +550,7 @@
   function pushRecent(id){
     const recent = getRecent().filter(x => x !== id);
     recent.unshift(id);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, 6)));
+    localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, 8)));
   }
 
   function questionScore(q, stats){
@@ -490,6 +569,9 @@
     if(stats.mode === 'race' && tags.includes('race')) score += 60;
     if(stats.mode === 'duet' && tags.includes('duet')) score += 60;
 
+    if(stats.mode === 'race' && stats.playerCount >= 3 && q.id === 'race_many_players_rank') score += 80;
+    if(stats.mode === 'coop' && stats.playerCount >= 5 && q.id === 'coop_ten_players_roles') score += 80;
+
     return score;
   }
 
@@ -501,7 +583,7 @@
         const penalty = recent.includes(q.id) ? 999 : 0;
         return {
           q,
-          score: questionScore(q, stats) - penalty + Math.random() * 8
+          score:questionScore(q, stats) - penalty + Math.random() * 8
         };
       })
       .sort((a, b) => b.score - a.score);
@@ -509,8 +591,7 @@
     let pick = ranked[0]?.q || QUESTION_BANK[0];
 
     if(!pick || recent.includes(pick.id)){
-      const fallback = QUESTION_BANK.find(q => !recent.includes(q.id)) || QUESTION_BANK[0];
-      pick = fallback;
+      pick = QUESTION_BANK.find(q => !recent.includes(q.id)) || QUESTION_BANK[0];
     }
 
     return pick;
@@ -519,9 +600,11 @@
   function shuffleOptions(options, seedText){
     const arr = [...options];
     let seed = 0;
+
     for(let i = 0; i < seedText.length; i++){
       seed = ((seed << 5) - seed + seedText.charCodeAt(i)) | 0;
     }
+
     seed = Math.abs(seed || Date.now());
 
     for(let i = arr.length - 1; i > 0; i--){
@@ -529,6 +612,7 @@
       const j = seed % (i + 1);
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
+
     return arr;
   }
 
@@ -750,7 +834,7 @@
 
     const stats = getStats();
     const q = chooseQuestion(stats);
-    const options = shuffleOptions(q.options, `${q.id}-${Date.now()}-${stats.score}-${stats.water}`);
+    const options = shuffleOptions(q.options, `${q.id}-${Date.now()}-${stats.score}-${stats.water}-${stats.mode}-${stats.playerCount}`);
 
     const panel = document.createElement('section');
     panel.id = 'hydrEvalPanel';
@@ -764,6 +848,7 @@
 
       <div class="hydr-eval-meta">
         <div class="hydr-eval-chip">Mode: ${esc(stats.mode)}</div>
+        <div class="hydr-eval-chip">Players: ${esc(stats.playerCount)}</div>
         <div class="hydr-eval-chip">Water: ${esc(stats.water)}%</div>
         <div class="hydr-eval-chip">Miss: ${esc(stats.miss)}</div>
         <div class="hydr-eval-chip">Combo: ${esc(stats.combo)}</div>
@@ -871,17 +956,17 @@
     }
 
     const payload = {
-      version: VERSION,
-      savedAt: new Date().toISOString(),
-      questionId: q.id,
-      questionTitle: q.title,
-      choiceId: choice.id,
-      choiceTitle: choice.title,
-      choiceScore: choice.score,
-      choiceCorrect: !!choice.ok,
+      version:VERSION,
+      savedAt:new Date().toISOString(),
+      questionId:q.id,
+      questionTitle:q.title,
+      choiceId:choice.id,
+      choiceTitle:choice.title,
+      choiceScore:choice.score,
+      choiceCorrect:!!choice.ok,
       reason,
       stats,
-      url: location.href
+      url:location.href
     };
 
     try{
@@ -891,11 +976,8 @@
     pushRecent(q.id);
 
     window.dispatchEvent(new CustomEvent('hha:hydration:evaluate-saved', {
-      detail: payload
+      detail:payload
     }));
-
-    // ถ้า logger หลักมีฟังก์ชันรับ event ภายนอก สามารถไปต่อได้จาก event นี้
-    // window.addEventListener('hha:hydration:evaluate-saved', e => sendToCloud(e.detail));
 
     if(saved){
       saved.classList.add('show');
@@ -920,11 +1002,11 @@
     watchEnd();
 
     window.HHAHydrationEvaluate = {
-      version: VERSION,
-      mount: mountEvaluate,
+      version:VERSION,
+      mount:mountEvaluate,
       getStats,
       chooseQuestion,
-      bank: QUESTION_BANK
+      bank:QUESTION_BANK
     };
 
     console.info('[hydration-evaluate-variety] ready', VERSION);
