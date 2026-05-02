@@ -10712,5 +10712,459 @@
   console.log("[VOCAB] v8.1.5 screen state governor loaded");
 })();
 </script>
+<script>
+/* =========================================================
+   VOCAB v8.1.6 — HARD FINAL SCREEN + REWARD BUTTON FIX
+   Fix:
+   - Reward ซ้อนกับหน้า menu / leaderboard
+   - Play Again / Next Challenge / Back to Menu กดไม่ติด
+   - Timer รอบใหม่เดินหลัง reward
+   - Timeout effect เด้งหลัง reward
+   - ตัด dependency จาก inline onclick
+   ========================================================= */
+(function(){
+  "use strict";
+
+  const PATCH = "v8.1.6-hard-final-screen-reward-button-fix-20260501";
+
+  function el(id){
+    return document.getElementById(id);
+  }
+
+  function safe(fn){
+    try{
+      if(typeof fn === "function") return fn();
+    }catch(e){
+      console.warn("[VOCAB " + PATCH + "] safe warning", e);
+    }
+    return null;
+  }
+
+  function stopAllTimers(){
+    try{
+      if(window.vocabGame){
+        if(vocabGame.timerId){
+          clearInterval(vocabGame.timerId);
+          clearTimeout(vocabGame.timerId);
+          vocabGame.timerId = null;
+        }
+
+        if(vocabGame.feverTimerId){
+          clearInterval(vocabGame.feverTimerId);
+          clearTimeout(vocabGame.feverTimerId);
+          vocabGame.feverTimerId = null;
+        }
+
+        vocabGame.fever = false;
+        vocabGame.feverUntil = 0;
+      }
+    }catch(e){}
+
+    safe(window.clearTimerV6);
+    safe(window.stopFeverV62);
+  }
+
+  function removeAllFx(){
+    [
+      ".v6-float",
+      ".v6-laser-beam",
+      ".v6-fx-burst",
+      ".v72-announcer",
+      ".v72-flash",
+      ".v72-particle",
+      ".v74-toast",
+      ".v78-guard-toast"
+    ].forEach(function(sel){
+      document.querySelectorAll(sel).forEach(function(n){
+        try{ n.remove(); }catch(e){}
+      });
+    });
+
+    document.body.classList.remove(
+      "v72-screen-shake",
+      "v72-hard-hit",
+      "v72-boss-rage",
+      "v72-fever-rainbow",
+      "v73-final-lock",
+      "v78-devtools-soft-warning"
+    );
+  }
+
+  function setScreen(name){
+    const menu = el("v6MenuPanel");
+    const battle = el("v6BattlePanel");
+    const reward = el("v6RewardPanel");
+
+    const showMenu = name === "menu";
+    const showBattle = name === "battle";
+    const showReward = name === "reward";
+
+    if(menu){
+      menu.hidden = !showMenu;
+      menu.style.display = showMenu ? "" : "none";
+      menu.style.pointerEvents = showMenu ? "auto" : "none";
+    }
+
+    if(battle){
+      battle.hidden = !showBattle;
+      battle.style.display = showBattle ? "" : "none";
+      battle.style.pointerEvents = showBattle ? "auto" : "none";
+    }
+
+    if(reward){
+      reward.hidden = !showReward;
+      reward.style.display = showReward ? "block" : "none";
+      reward.style.pointerEvents = showReward ? "auto" : "none";
+      reward.style.position = "relative";
+      reward.style.zIndex = showReward ? "9990" : "";
+    }
+
+    window.scrollTo({ top:0, behavior:"auto" });
+  }
+
+  function getCurrentOptions(){
+    let bank = "A";
+    let difficulty = "normal";
+    let mode = "learn";
+
+    try{
+      bank =
+        (window.vocabGame && vocabGame.bank) ||
+        (window.VOCAB_APP && VOCAB_APP.selectedBank) ||
+        "A";
+
+      difficulty =
+        (window.vocabGame && vocabGame.difficulty) ||
+        (window.VOCAB_APP && VOCAB_APP.selectedDifficulty) ||
+        "normal";
+
+      mode =
+        (window.vocabGame && vocabGame.mode) ||
+        (window.VOCAB_APP && VOCAB_APP.selectedMode) ||
+        "learn";
+    }catch(e){}
+
+    return { bank, difficulty, mode };
+  }
+
+  function nextDifficulty(diff){
+    diff = String(diff || "normal").toLowerCase();
+
+    if(diff === "easy") return "normal";
+    if(diff === "normal") return "hard";
+    if(diff === "hard") return "challenge";
+    return "challenge";
+  }
+
+  function syncSelections(opt){
+    try{
+      if(window.VOCAB_APP){
+        VOCAB_APP.selectedBank = opt.bank;
+        VOCAB_APP.selectedDifficulty = opt.difficulty;
+        VOCAB_APP.selectedMode = opt.mode;
+      }
+
+      document.querySelectorAll("[data-v6-bank]").forEach(function(btn){
+        btn.classList.toggle("active", btn.dataset.v6Bank === opt.bank);
+      });
+
+      document.querySelectorAll("[data-v6-diff]").forEach(function(btn){
+        btn.classList.toggle("active", btn.dataset.v6Diff === opt.difficulty);
+      });
+
+      document.querySelectorAll("[data-v6-mode]").forEach(function(btn){
+        btn.classList.toggle("active", btn.dataset.v6Mode === opt.mode);
+      });
+
+      safe(window.updateV6DiffPreview);
+      safe(window.updateV66ModePreview);
+      safe(window.updateV6BankLabel);
+      safe(window.updateV66ModeHud);
+    }catch(e){
+      console.warn("[VOCAB " + PATCH + "] sync warning", e);
+    }
+  }
+
+  function startFresh(kind){
+    stopAllTimers();
+    removeAllFx();
+
+    let opt = getCurrentOptions();
+
+    if(kind === "next"){
+      opt.mode = "mission";
+      opt.difficulty = nextDifficulty(opt.difficulty);
+    }
+
+    syncSelections(opt);
+    setScreen("battle");
+
+    try{
+      if(window.vocabGame){
+        vocabGame.active = false;
+      }
+    }catch(e){}
+
+    setTimeout(function(){
+      setScreen("battle");
+
+      try{
+        if(typeof window.startVocabBattleV6 === "function"){
+          window.startVocabBattleV6(opt);
+
+          setTimeout(function(){ setScreen("battle"); }, 50);
+          setTimeout(function(){ setScreen("battle"); }, 180);
+          setTimeout(function(){ setScreen("battle"); }, 450);
+
+          return;
+        }
+      }catch(e){
+        console.error("[VOCAB " + PATCH + "] startFresh failed", e);
+      }
+
+      location.reload();
+    }, 120);
+  }
+
+  function backMenu(){
+    stopAllTimers();
+    removeAllFx();
+
+    try{
+      if(window.vocabGame){
+        vocabGame.active = false;
+      }
+    }catch(e){}
+
+    setScreen("menu");
+
+    try{
+      if(typeof window.renderLeaderboardV68 === "function"){
+        window.renderLeaderboardV68((window.VOCAB_APP && VOCAB_APP.selectedMode) || "learn");
+      }
+    }catch(e){}
+  }
+
+  function injectCss(){
+    if(el("v816HardFixCss")) return;
+
+    const css = document.createElement("style");
+    css.id = "v816HardFixCss";
+    css.textContent = `
+      #v6MenuPanel[hidden],
+      #v6BattlePanel[hidden],
+      #v6RewardPanel[hidden]{
+        display:none !important;
+      }
+
+      #v6RewardPanel:not([hidden]){
+        display:block !important;
+        min-height:auto !important;
+        height:auto !important;
+        padding:12px !important;
+        pointer-events:auto !important;
+        position:relative !important;
+        z-index:9990 !important;
+      }
+
+      #v6RewardPanel .v81-reward,
+      #v6RewardPanel .v81-actions,
+      #v6RewardPanel .v81-btn{
+        pointer-events:auto !important;
+        position:relative !important;
+        z-index:9999 !important;
+      }
+
+      #v6RewardPanel .v81-btn{
+        cursor:pointer !important;
+        touch-action:manipulation !important;
+      }
+
+      #v6BattlePanel:not([hidden]){
+        pointer-events:auto !important;
+      }
+
+      #v6MenuPanel:not([hidden]){
+        pointer-events:auto !important;
+      }
+    `;
+
+    document.head.appendChild(css);
+  }
+
+  function bindRewardButtons(){
+    const reward = el("v6RewardPanel");
+    if(!reward) return;
+
+    reward.querySelectorAll(".v81-btn").forEach(function(btn){
+      const txt = String(btn.textContent || "").toLowerCase();
+
+      btn.removeAttribute("onclick");
+      btn.style.pointerEvents = "auto";
+      btn.style.cursor = "pointer";
+
+      if(txt.indexOf("play again") >= 0){
+        btn.dataset.v816Action = "again";
+      }else if(txt.indexOf("next challenge") >= 0){
+        btn.dataset.v816Action = "next";
+      }else if(txt.indexOf("back to menu") >= 0){
+        btn.dataset.v816Action = "menu";
+      }
+    });
+  }
+
+  function installClickHandler(){
+    if(window.__VOCAB_V816_CLICK_INSTALLED__) return;
+    window.__VOCAB_V816_CLICK_INSTALLED__ = true;
+
+    document.addEventListener("click", function(e){
+      const btn = e.target && e.target.closest
+        ? e.target.closest("#v6RewardPanel .v81-btn")
+        : null;
+
+      if(!btn) return;
+
+      const action = btn.dataset.v816Action || "";
+
+      if(!action) return;
+
+      try{
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      }catch(err){}
+
+      if(action === "again"){
+        startFresh("again");
+      }else if(action === "next"){
+        startFresh("next");
+      }else if(action === "menu"){
+        backMenu();
+      }
+
+      return false;
+    }, true);
+  }
+
+  /*
+    Override ปุ่มทั้งหมดแบบ global
+  */
+  window.__VOCAB_V81_PLAY_AGAIN = function(){
+    startFresh("again");
+  };
+
+  window.__VOCAB_V81_NEXT_CHALLENGE = function(){
+    startFresh("next");
+  };
+
+  window.__VOCAB_V81_BACK_MENU = function(){
+    backMenu();
+  };
+
+  /*
+    Override show screen functions เดิม
+  */
+  window.showMenuScreenV65 = function(){
+    stopAllTimers();
+    setScreen("menu");
+  };
+
+  window.showBattleScreenV6 = function(){
+    setScreen("battle");
+  };
+
+  window.backToVocabMenuV6 = function(){
+    backMenu();
+  };
+
+  /*
+    Wrap render reward ให้ reward ชนะทุกหน้าจอ
+  */
+  const oldRenderReward = window.renderRewardScreenV6;
+  if(typeof oldRenderReward === "function" && !oldRenderReward.__v816Wrapped){
+    const wrappedReward = function(){
+      stopAllTimers();
+
+      const out = oldRenderReward.apply(this, arguments);
+
+      setTimeout(function(){
+        bindRewardButtons();
+        setScreen("reward");
+      }, 0);
+
+      setTimeout(function(){
+        bindRewardButtons();
+        setScreen("reward");
+      }, 80);
+
+      setTimeout(function(){
+        bindRewardButtons();
+        setScreen("reward");
+      }, 250);
+
+      return out;
+    };
+
+    wrappedReward.__v816Wrapped = true;
+    window.renderRewardScreenV6 = wrappedReward;
+  }
+
+  /*
+    Wrap start ให้เริ่มเกมใหม่แล้ว battle ชนะ reward/menu
+  */
+  const oldStart = window.startVocabBattleV6;
+  if(typeof oldStart === "function" && !oldStart.__v816Wrapped){
+    const wrappedStart = function(){
+      stopAllTimers();
+      removeAllFx();
+      setScreen("battle");
+
+      const out = oldStart.apply(this, arguments);
+
+      setTimeout(function(){ setScreen("battle"); }, 0);
+      setTimeout(function(){ setScreen("battle"); }, 100);
+      setTimeout(function(){ setScreen("battle"); }, 300);
+
+      return out;
+    };
+
+    wrappedStart.__v816Wrapped = true;
+    window.startVocabBattleV6 = wrappedStart;
+  }
+
+  /*
+    Governor แบบเบากว่า v8.1.5:
+    ถ้า reward visible ให้ bind ปุ่ม
+    แต่ไม่บังคับซ่อน battle ถ้าเกม active แล้ว
+  */
+  setInterval(function(){
+    const reward = el("v6RewardPanel");
+
+    if(reward && !reward.hidden && reward.innerHTML.trim()){
+      bindRewardButtons();
+
+      try{
+        if(window.vocabGame && vocabGame.active){
+          setScreen("battle");
+        }else{
+          setScreen("reward");
+        }
+      }catch(e){
+        setScreen("reward");
+      }
+    }
+  }, 500);
+
+  injectCss();
+  installClickHandler();
+
+  document.addEventListener("DOMContentLoaded", function(){
+    injectCss();
+    setTimeout(bindRewardButtons, 600);
+  });
+
+  console.log("[VOCAB] " + PATCH + " loaded");
+})();
+</script>
 </body>
 </html>
