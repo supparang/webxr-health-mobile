@@ -239,10 +239,33 @@
       font-size:34px;
     }
 
-    .dishPreview .q1{ left:8%; top:8%; background:#fff4cc; border-radius:999px 0 0 0; }
-    .dishPreview .q2{ right:8%; top:8%; background:#ffe7ef; border-radius:0 999px 0 0; }
-    .dishPreview .q3{ left:8%; bottom:8%; background:#e6f8df; border-radius:0 0 0 999px; }
-    .dishPreview .q4{ right:8%; bottom:8%; background:#e7f1ff; border-radius:0 0 999px 0; }
+    .dishPreview .q1{
+      left:8%;
+      top:8%;
+      background:#fff4cc;
+      border-radius:999px 0 0 0;
+    }
+
+    .dishPreview .q2{
+      right:8%;
+      top:8%;
+      background:#ffe7ef;
+      border-radius:0 999px 0 0;
+    }
+
+    .dishPreview .q3{
+      left:8%;
+      bottom:8%;
+      background:#e6f8df;
+      border-radius:0 0 0 999px;
+    }
+
+    .dishPreview .q4{
+      right:8%;
+      bottom:8%;
+      background:#e7f1ff;
+      border-radius:0 0 999px 0;
+    }
 
     .dishPreview .mid{
       position:absolute;
@@ -329,7 +352,12 @@
     .mode-pc{ background:linear-gradient(180deg,#fff6ba 0%, #ffe66d 100%); }
     .mode-vr{ background:linear-gradient(180deg,#ffe3ef 0%, #ffc9de 100%); }
 
-    .btn.ghost{ background:#fff; border:1px solid var(--line); box-shadow:none; }
+    .btn.ghost{
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:none;
+    }
+
     .btn.green{ background:linear-gradient(180deg,#dcfff2,#baf4cf); }
     .btn.gold{ background:linear-gradient(180deg,#fff2a8,#ffd84d); }
 
@@ -413,7 +441,7 @@
       box-shadow:0 8px 18px rgba(0,0,0,.04);
       display:flex;
       flex-direction:column;
-      min-height:300px;
+      min-height:250px;
       position:relative;
       overflow:hidden;
     }
@@ -437,8 +465,7 @@
 
     .gameHead,
     .statusRow,
-    .gameActions,
-    .infoCard{
+    .gameActions{
       position:relative;
       z-index:2;
     }
@@ -532,33 +559,26 @@
       box-shadow:0 10px 18px rgba(0,0,0,.06);
     }
 
-    .gameBtn.primary{ background:linear-gradient(180deg,#79d98f,#58c977); color:#143a22; }
-    .gameBtn.secondary{ background:linear-gradient(180deg,#8ed7ff,#72c9fb); color:#17384f; }
-    .gameBtn.gold{ background:linear-gradient(180deg,#fff2a8,#ffd84d); color:#503c00; }
-    .gameBtn.ghost{ background:#fff; color:#365367; border:1px solid var(--line); box-shadow:none; }
-
-    .infoCard{
-      margin-top:14px;
-      padding:14px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#fffaf0,#fffdf7);
-      border:1px solid #f1dfb3;
+    .gameBtn.primary{
+      background:linear-gradient(180deg,#79d98f,#58c977);
+      color:#143a22;
     }
 
-    .infoTitle{
-      margin:0 0 8px;
-      font-size:18px;
-      font-weight:1000;
-      color:#8d6118;
+    .gameBtn.secondary{
+      background:linear-gradient(180deg,#8ed7ff,#72c9fb);
+      color:#17384f;
     }
 
-    .infoList{
-      margin:0;
-      padding-left:18px;
-      color:#7a6a49;
-      line-height:1.65;
-      font-size:14px;
-      font-weight:720;
+    .gameBtn.gold{
+      background:linear-gradient(180deg,#fff2a8,#ffd84d);
+      color:#503c00;
+    }
+
+    .gameBtn.ghost{
+      background:#fff;
+      color:#365367;
+      border:1px solid var(--line);
+      box-shadow:none;
     }
 
     .footerNote{
@@ -643,8 +663,7 @@
           <h1 class="heroTitle">Nutrition Zone</h1>
           <p class="heroSub">
             โซนเรียนรู้เรื่องอาหาร น้ำ และการจัดจานสุขภาพ
-            ตอนนี้จัดหน้าให้ครบ <strong>4 เกม</strong> แล้ว:
-            <strong>GoodJunk, Groups, Hydration, Plate</strong>
+            เลือกเกมที่อยากเล่น แล้วเริ่มได้ทันที
           </p>
 
           <div class="heroTags">
@@ -682,12 +701,12 @@
       <div class="panel">
         <h2>ทางลัด</h2>
         <div class="topActions">
-          <button class="btn gold" id="btnQuickGoodJunk" type="button">🍟 เปิด GoodJunk</button>
-          <button class="btn green" id="btnQuickGroups" type="button">🥦 เปิด Groups</button>
+          <button class="btn gold" id="btnQuickGoodJunk" type="button">🍟 GoodJunk</button>
+          <button class="btn green" id="btnQuickGroups" type="button">🥦 Groups</button>
           <button class="btn ghost" id="btnBackHub" type="button">🏠 กลับ Hub</button>
         </div>
         <div class="tiny">
-          URL แบบสั้นมาก: ส่งเฉพาะค่าที่จำเป็นสำหรับเล่นและกลับหน้าโซน
+          หน้า Zone แสดงเฉพาะสิ่งที่เด็กต้องใช้ ส่วนโหมดละเอียดไปเลือกใน Launcher
         </div>
       </div>
     </section>
@@ -696,7 +715,7 @@
       <div class="mission">
         <div class="missionEmoji" aria-hidden="true">1️⃣</div>
         <div>
-          <strong>เลือกโหมด</strong>
+          <strong>เลือกโหมดเครื่อง</strong>
           <small>Mobile, PC หรือ Cardboard</small>
         </div>
       </div>
@@ -705,15 +724,15 @@
         <div class="missionEmoji" aria-hidden="true">2️⃣</div>
         <div>
           <strong>เลือกเกม</strong>
-          <small>มี 4 เกมใน Nutrition Zone</small>
+          <small>GoodJunk, Groups, Hydration หรือ Plate</small>
         </div>
       </div>
 
       <div class="mission">
         <div class="missionEmoji" aria-hidden="true">3️⃣</div>
         <div>
-          <strong>เล่นจบแล้วดูสรุป</strong>
-          <small>กลับมาเลือกเกมต่อในโซนนี้</small>
+          <strong>เริ่มเล่น</strong>
+          <small>เกมจะพากลับหน้า Nutrition เมื่อเล่นจบ</small>
         </div>
       </div>
     </section>
@@ -721,7 +740,7 @@
     <section class="sectionHead">
       <div>
         <h2 class="sectionTitle">เกมในโภชนาการ</h2>
-        <p class="sectionSub">เลือกเกมที่ต้องการ แล้วระบบจะส่ง context เฉพาะที่จำเป็นต่อไป</p>
+        <p class="sectionSub">หนึ่งเกม หนึ่งปุ่มหลัก ลดความสับสนก่อนเข้าเล่น</p>
       </div>
     </section>
 
@@ -739,13 +758,11 @@
 
         <div class="statusRow">
           <span class="pill ready">พร้อมใช้</span>
-          <span class="pill info">Launcher</span>
-          <span class="pill warn">URL สั้นแล้ว</span>
+          <span class="pill info">เลือกโหมดใน Launcher</span>
         </div>
 
-        <div class="gameActions two">
-          <button class="gameBtn gold" id="btnOpenGoodJunk" type="button">เปิด GoodJunk Launcher</button>
-          <button class="gameBtn ghost" id="btnOpenGoodJunkSolo" type="button">Solo ตรง</button>
+        <div class="gameActions">
+          <button class="gameBtn gold" id="btnOpenGoodJunk" type="button">🍟 เริ่ม GoodJunk</button>
         </div>
       </article>
 
@@ -762,13 +779,11 @@
 
         <div class="statusRow">
           <span class="pill ready">พร้อมใช้</span>
-          <span class="pill info">groups-vr.html</span>
-          <span class="pill warn">URL สั้นแล้ว</span>
+          <span class="pill info">เลือกโหมดใน Launcher</span>
         </div>
 
-        <div class="gameActions two">
-          <button class="gameBtn primary" id="btnOpenGroups" type="button">เปิด Groups</button>
-          <button class="gameBtn ghost" id="btnOpenGroupsRun" type="button">Run ตรง</button>
+        <div class="gameActions">
+          <button class="gameBtn primary" id="btnOpenGroups" type="button">🥦 เริ่ม Groups</button>
         </div>
       </article>
 
@@ -785,12 +800,11 @@
 
         <div class="statusRow">
           <span class="pill ready">พร้อมใช้</span>
-          <span class="pill info">Hydration VR</span>
-          <span class="pill warn">Challenge Mode</span>
+          <span class="pill info">ดื่มน้ำให้พอดี</span>
         </div>
 
         <div class="gameActions">
-          <button class="gameBtn secondary" id="btnOpenHydration" type="button">เปิด Hydration</button>
+          <button class="gameBtn secondary" id="btnOpenHydration" type="button">💧 เริ่ม Hydration</button>
         </div>
       </article>
 
@@ -800,32 +814,18 @@
           <div>
             <h3 class="gameTitle">Plate</h3>
             <p class="gameText">
-              เกมจัดจานสุขภาพ โดยให้เข้า Plate Launcher ก่อนเสมอ
-              แล้วค่อยเลือก Solo หรือ Quick Plate
+              เกมจัดจานสุขภาพ เลือกอาหารให้ครบหมู่ แล้วฝึกสร้างจานที่ดีต่อสุขภาพ
             </p>
           </div>
         </div>
 
         <div class="statusRow">
           <span class="pill ready">พร้อมใช้</span>
-          <span class="pill info">Plate Launcher</span>
-          <span class="pill warn">Solo / Quick แยกกันแล้ว</span>
+          <span class="pill info">เลือกโหมดใน Launcher</span>
         </div>
 
         <div class="gameActions">
-          <button class="gameBtn gold" id="btnOpenPlate" type="button">🍽️ เปิด Plate Launcher</button>
-          <button class="gameBtn ghost" id="btnOpenSoloDirect" type="button">▶️ เข้า Solo ตรง</button>
-          <button class="gameBtn ghost" id="btnOpenQuickPlateDirect" type="button">⚡ เข้า Quick Plate ตรง</button>
-        </div>
-
-        <div class="infoCard">
-          <h4 class="infoTitle">Plate strict flow</h4>
-          <ul class="infoList">
-            <li>Nutrition Zone → <code>plate-v1.html</code></li>
-            <li>เริ่ม Solo → <code>/herohealth/plate/plate-solo.html</code></li>
-            <li>Quick Plate → <code>/herohealth/plate-vr.html</code></li>
-            <li>ห้ามให้ปุ่ม Solo ไป Quick Plate อีก</li>
-          </ul>
+          <button class="gameBtn gold" id="btnOpenPlate" type="button">🍽️ เริ่ม Plate</button>
         </div>
       </article>
     </section>
@@ -834,7 +834,6 @@
       Nutrition Zone ล่าสุด:
       GoodJunk ใช้ <strong>./goodjunk-launcher.html</strong>,
       Groups ใช้ <strong>./groups-vr.html</strong>,
-      Groups Run ใช้ <strong>./vr-groups/groups.html</strong>,
       Hydration ใช้ <strong>./hydration-vr/hydration-vr.html</strong>,
       Plate ใช้ <strong>./plate-v1.html</strong>
     </section>
@@ -900,18 +899,10 @@
 
       const PATHS = {
         mainHub: deriveMainHub(),
-
         goodjunkLauncher: './goodjunk-launcher.html',
-        goodjunkSolo: './goodjunk-vr.html',
-
         groupsLauncher: './groups-vr.html',
-        groupsRun: './vr-groups/groups.html',
-
         hydration: './hydration-vr/hydration-vr.html',
-
-        plateLauncher: './plate-v1.html',
-        plateSolo: './plate/plate-solo.html',
-        quickPlate: './plate-vr.html'
+        plateLauncher: './plate-v1.html'
       };
 
       const DEFAULTS = {
@@ -921,8 +912,7 @@
         time: '90',
         longTime: '150',
         miniTime: '60',
-        run: 'play',
-        mode: 'solo'
+        run: 'play'
       };
 
       let selectedView = firstNonEmpty(
@@ -984,17 +974,11 @@
         params.set('time', String(extra.time || safeGet('time', DEFAULTS.time)));
         params.set('view', selectedView);
         params.set('run', safeGet('run', DEFAULTS.run));
-
-        setIfValue('miniTime', extra.miniTime || safeGet('miniTime', ''));
-
         params.set('zone', 'nutrition');
         params.set('game', gameId);
-
-        if(extra.mode){
-          params.set('mode', extra.mode);
-        }
-
         params.set('hub', cleanZoneReturn);
+
+        setIfValue('miniTime', extra.miniTime || safeGet('miniTime', ''));
 
         Object.entries(extra).forEach(([key, value]) => {
           if (
@@ -1002,8 +986,7 @@
             value !== null &&
             String(value).trim() !== '' &&
             key !== 'time' &&
-            key !== 'miniTime' &&
-            key !== 'mode'
+            key !== 'miniTime'
           ) {
             params.set(key, String(value));
           }
@@ -1037,23 +1020,9 @@
         });
       }
 
-      function openGoodJunkSolo(){
-        openGame(PATHS.goodjunkSolo, 'goodjunk', {
-          time: safeGet('time', DEFAULTS.longTime),
-          mode: 'solo'
-        });
-      }
-
       function openGroups(){
         openGame(PATHS.groupsLauncher, 'groups', {
           time: safeGet('time', DEFAULTS.longTime)
-        });
-      }
-
-      function openGroupsRun(){
-        openGame(PATHS.groupsRun, 'groups', {
-          time: safeGet('time', DEFAULTS.longTime),
-          mode: 'solo'
         });
       }
 
@@ -1070,20 +1039,6 @@
         });
       }
 
-      function openPlateSolo(){
-        openGame(PATHS.plateSolo, 'plate', {
-          time: safeGet('time', DEFAULTS.time),
-          mode: 'solo'
-        });
-      }
-
-      function openQuickPlate(){
-        openGame(PATHS.quickPlate, 'plate', {
-          time: safeGet('time', DEFAULTS.time),
-          mode: 'solo'
-        });
-      }
-
       function bind(id, fn){
         const el = document.getElementById(id);
         if(el) el.addEventListener('click', fn);
@@ -1096,26 +1051,15 @@
       bind('btnQuickGroups', openGroups);
 
       bind('btnOpenGoodJunk', openGoodJunk);
-      bind('btnOpenGoodJunkSolo', openGoodJunkSolo);
-
       bind('btnOpenGroups', openGroups);
-      bind('btnOpenGroupsRun', openGroupsRun);
-
       bind('btnOpenHydration', openHydration);
-
       bind('btnOpenPlate', openPlate);
-      bind('btnOpenSoloDirect', openPlateSolo);
-      bind('btnOpenQuickPlateDirect', openQuickPlate);
 
       window.__nutritionGoHub = goMainHub;
       window.__nutritionGoGoodJunk = openGoodJunk;
-      window.__nutritionGoGoodJunkSolo = openGoodJunkSolo;
       window.__nutritionGoGroups = openGroups;
-      window.__nutritionGoGroupsRun = openGroupsRun;
       window.__nutritionGoHydration = openHydration;
       window.__nutritionGoPlate = openPlate;
-      window.__nutritionGoPlateSolo = openPlateSolo;
-      window.__nutritionGoQuickPlate = openQuickPlate;
     })();
   </script>
 </body>
