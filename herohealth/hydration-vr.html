@@ -162,6 +162,75 @@
       font-weight:900;
     }
 
+    .room-box{
+      display:grid;
+      gap:12px;
+      padding:14px;
+      border-radius:24px;
+      background:rgba(37,99,235,.07);
+      border:1px solid rgba(37,99,235,.14);
+    }
+
+    .room-box[hidden]{
+      display:none !important;
+    }
+
+    .room-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .room-title{
+      font-size:18px;
+      font-weight:1100;
+    }
+
+    .room-sub,
+    .room-hint{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.4;
+      font-weight:800;
+    }
+
+    .room-grid{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:10px;
+      align-items:end;
+    }
+
+    .room-code-preview{
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:10px 14px;
+      border-radius:16px;
+      background:rgba(6,182,212,.11);
+      border:1px solid rgba(6,182,212,.18);
+      color:#0e7490;
+      font-size:18px;
+      font-weight:1100;
+      letter-spacing:.05em;
+      white-space:nowrap;
+    }
+
+    .room-btn{
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:15px;
+      border:0;
+      cursor:pointer;
+      color:#fff;
+      font-weight:1100;
+      background:linear-gradient(180deg,#22d3ee,#2563eb);
+      box-shadow:0 12px 24px rgba(37,99,235,.18);
+    }
+
     .mode-grid{
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
@@ -318,10 +387,12 @@
 
     @media (max-width: 620px){
       .page{ padding:12px; }
-      .mode-grid,.controls{ grid-template-columns:1fr; }
+      .mode-grid,.controls,.room-grid{ grid-template-columns:1fr; }
       .mode-card{ min-height:210px; }
       .start-panel{ align-items:stretch; }
-      .actions,.btn{ width:100%; }
+      .actions,.btn,.room-btn{ width:100%; }
+      .room-head{ align-items:stretch; }
+      .room-code-preview{ justify-content:flex-start; }
     }
   </style>
 </head>
@@ -345,7 +416,7 @@
           <div class="chip">Race 2–10</div>
           <div class="chip">Battle 2</div>
           <div class="chip">Coop 2–10</div>
-          <div class="chip">Auto Role</div>
+          <div class="chip">Room Code</div>
         </div>
       </div>
 
@@ -382,6 +453,29 @@
             <option value="mobile" selected>Mobile</option>
             <option value="cvr">Cardboard VR</option>
           </select>
+        </div>
+      </div>
+
+      <div class="room-box" id="roomBox" hidden>
+        <div class="room-head">
+          <div>
+            <div class="room-title">👥 Multiplayer Room</div>
+            <div class="room-sub">ใช้ Room Code สั้น ๆ ให้เพื่อนเข้าห้องเดียวกัน</div>
+          </div>
+          <button class="room-btn" id="btnNewRoom" type="button">สร้างรหัสใหม่</button>
+        </div>
+
+        <div class="room-grid">
+          <div class="field">
+            <label for="roomCode">Room Code</label>
+            <input id="roomCode" placeholder="เช่น HYD-482K" autocomplete="off" />
+          </div>
+
+          <div class="room-code-preview" id="roomCodePreview">HYD-0000</div>
+        </div>
+
+        <div class="room-hint">
+          Duet / Battle ต้องมี 2 คน • Race / Coop รองรับ 2–10 คน • ครูบอกรหัสนี้ให้ผู้เล่นทุกคนใส่เหมือนกัน
         </div>
       </div>
     </section>
@@ -443,7 +537,7 @@
     const $ = (s, r = document) => r.querySelector(s);
     const params = new URL(location.href).searchParams;
 
-    let selectedMode = params.get('mode') || params.get('recommendedMode') || 'solo';
+    let selectedMode = normalizeMode(params.get('mode') || params.get('recommendedMode') || 'solo');
 
     function esc(s){
       return String(s ?? '').replace(/[&<>"']/g, m => ({
@@ -453,6 +547,62 @@
         '"':'&quot;',
         "'":'&#39;'
       }[m]));
+    }
+
+    function normalizeMode(v){
+      v = String(v || 'solo').toLowerCase();
+      return ['solo','duet','race','battle','coop'].includes(v) ? v : 'solo';
+    }
+
+    function makeRoomCode(){
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let out = 'HYD-';
+      for(let i = 0; i < 4; i++){
+        out += chars[Math.floor(Math.random() * chars.length)];
+      }
+      return out;
+    }
+
+    function normalizeRoomCode(v){
+      v = String(v || '').trim().toUpperCase();
+      v = v.replace(/[^A-Z0-9]/g, '');
+
+      if(v.startsWith('HYD')){
+        v = v.slice(3);
+      }
+
+      v = v.slice(0, 4);
+
+      if(!v){
+        return '';
+      }
+
+      return 'HYD-' + v;
+    }
+
+    function updateRoomPreview(){
+      const input = $('#roomCode');
+      const preview = $('#roomCodePreview');
+      if(!input || !preview) return;
+
+      const normalized = normalizeRoomCode(input.value);
+      preview.textContent = normalized || 'HYD-0000';
+    }
+
+    function syncRoomBox(){
+      const box = $('#roomBox');
+      const input = $('#roomCode');
+      if(!box || !input) return;
+
+      const isMulti = selectedMode !== 'solo';
+      box.hidden = !isMulti;
+
+      if(isMulti && !normalizeRoomCode(input.value)){
+        const incomingRoom = params.get('roomCode') || params.get('room') || '';
+        input.value = normalizeRoomCode(incomingRoom) || makeRoomCode();
+      }
+
+      updateRoomPreview();
     }
 
     function renderModes(){
@@ -471,6 +621,7 @@
       `).join('');
 
       updateSelectedText();
+      syncRoomBox();
     }
 
     function updateSelectedText(){
@@ -513,8 +664,12 @@
       if(studyId) url.searchParams.set('studyId', studyId);
 
       if(selectedMode !== 'solo'){
+        const input = $('#roomCode');
+        const roomCode = normalizeRoomCode(input?.value || '') || makeRoomCode();
+
         url.searchParams.set('multiplayer', '1');
-        url.searchParams.set('room', params.get('room') || `hydr-${selectedMode}-${String(seed).slice(-6)}`);
+        url.searchParams.set('room', roomCode);
+        url.searchParams.set('roomCode', roomCode);
       }
 
       return url.toString();
@@ -523,9 +678,28 @@
     document.addEventListener('click', (ev) => {
       const card = ev.target.closest('[data-mode]');
       if(card){
-        selectedMode = card.dataset.mode || 'solo';
+        selectedMode = normalizeMode(card.dataset.mode || 'solo');
         renderModes();
       }
+    });
+
+    $('#roomCode')?.addEventListener('input', () => {
+      const input = $('#roomCode');
+      const before = input.value;
+      const cleaned = before.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+      if(before !== cleaned) input.value = cleaned;
+      updateRoomPreview();
+    });
+
+    $('#roomCode')?.addEventListener('blur', () => {
+      const input = $('#roomCode');
+      input.value = normalizeRoomCode(input.value) || makeRoomCode();
+      updateRoomPreview();
+    });
+
+    $('#btnNewRoom')?.addEventListener('click', () => {
+      $('#roomCode').value = makeRoomCode();
+      updateRoomPreview();
     });
 
     $('#btnStart').addEventListener('click', () => {
