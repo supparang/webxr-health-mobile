@@ -12,8 +12,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-  <script src="../firebase-config.js?v=20260501-gj-race-lobby-match-sync"></script>
-  <script src="../gj-room-adapter.js?v=20260501-gj-race-lobby-match-sync"></script>
+  <script src="../firebase-config.js?v=20260501-gj-race-lobby-v4-lock-match"></script>
+  <script src="../gj-room-adapter.js?v=20260501-gj-race-lobby-v4-lock-match"></script>
 
   <style>
     :root{
@@ -516,10 +516,7 @@
       color:#4197bd;
     }
 
-    .playerList{
-      display:grid;
-      gap:10px;
-    }
+    .playerList{ display:grid; gap:10px; }
 
     .playerRow{
       display:flex;
@@ -561,23 +558,9 @@
       white-space:nowrap;
     }
 
-    .playerTag.host{
-      background:#fff8db;
-      border-color:#ffe08a;
-      color:#a76400;
-    }
-
-    .playerTag.guest{
-      background:#eaf8ff;
-      border-color:#bfe3f2;
-      color:#4197bd;
-    }
-
-    .playerTag.ready{
-      background:#f7fff0;
-      border-color:#cfe9b8;
-      color:#4f842f;
-    }
+    .playerTag.host{ background:#fff8db; border-color:#ffe08a; color:#a76400; }
+    .playerTag.guest{ background:#eaf8ff; border-color:#bfe3f2; color:#4197bd; }
+    .playerTag.ready{ background:#f7fff0; border-color:#cfe9b8; color:#4f842f; }
 
     .debugDetails{
       border-radius:22px;
@@ -664,9 +647,7 @@
           <div class="brand-icon">🏁</div>
           <div>
             <div class="brand-title">GoodJunk Race</div>
-            <div class="brand-sub">
-              แข่งกับเพื่อน เก็บของดี เลี่ยงของขยะ แล้วเป็นฮีโร่สุขภาพ!
-            </div>
+            <div class="brand-sub">แข่งกับเพื่อน เก็บของดี เลี่ยงของขยะ แล้วเป็นฮีโร่สุขภาพ!</div>
           </div>
         </div>
 
@@ -677,18 +658,9 @@
       </div>
 
       <div class="kidStepStrip">
-        <div class="kidStep">
-          <div class="kidStepIcon">1️⃣</div>
-          <div class="kidStepText">ใส่ชื่อเล่น</div>
-        </div>
-        <div class="kidStep">
-          <div class="kidStepIcon">2️⃣</div>
-          <div class="kidStepText">สร้างห้องหรือเข้าห้องเพื่อน</div>
-        </div>
-        <div class="kidStep">
-          <div class="kidStepIcon">3️⃣</div>
-          <div class="kidStepText">เริ่มแข่งเก็บ Good!</div>
-        </div>
+        <div class="kidStep"><div class="kidStepIcon">1️⃣</div><div class="kidStepText">ใส่ชื่อเล่น</div></div>
+        <div class="kidStep"><div class="kidStepIcon">2️⃣</div><div class="kidStepText">สร้างห้องหรือเข้าห้องเพื่อน</div></div>
+        <div class="kidStep"><div class="kidStepIcon">3️⃣</div><div class="kidStepText">เริ่มแข่งเก็บ Good!</div></div>
       </div>
 
       <div class="statusGrid kidStatus">
@@ -696,22 +668,18 @@
           <div class="stat-label">รหัสห้อง</div>
           <div id="statRoom" class="stat-value">-</div>
         </div>
-
         <div class="stat statHidden">
           <div class="stat-label">หน้าที่</div>
           <div id="statRole" class="stat-value">-</div>
         </div>
-
         <div class="stat">
           <div class="stat-label">เพื่อนในห้อง</div>
           <div id="statPlayers" class="stat-value">0/4</div>
         </div>
-
         <div class="stat statHidden">
           <div class="stat-label">จำนวนสูงสุด</div>
           <div id="statCap" class="stat-value">4</div>
         </div>
-
         <div class="stat">
           <div class="stat-label">สถานะ</div>
           <div id="statStatus" class="stat-value">รอเริ่ม</div>
@@ -722,9 +690,7 @@
     <section class="grid">
       <section class="panel card">
         <div class="card-title">🏁 เริ่มแข่ง GoodJunk</div>
-        <div class="card-sub">
-          ใส่ชื่อเล่นและ Room Code แล้วกดเข้าห้อง รอเพื่อนครบ จากนั้น Host กดเริ่มแข่ง
-        </div>
+        <div class="card-sub">ใส่ชื่อเล่นและ Room Code แล้วกดเข้าห้อง รอเพื่อนครบ จากนั้น Host กดเริ่มแข่ง</div>
 
         <div class="quickHelp">
           Race คือแข่งคะแนน:
@@ -900,9 +866,10 @@
 
     function statusLabel(status) {
       const s = String(status || '').toLowerCase();
-      if (s === 'started') return 'เริ่มแล้ว';
+      if (s === 'started' || s === 'running') return 'เริ่มแล้ว';
       if (s === 'waiting') return 'รอเริ่ม';
       if (s === 'ready') return 'พร้อม';
+      if (s === 'ended') return 'จบแล้ว';
       if (s === 'closed') return 'ปิดห้อง';
       return s || 'รอเริ่ม';
     }
@@ -1059,6 +1026,22 @@
           by: hostPid
         }
       };
+    }
+
+    async function readRaceRoomDirect(roomId) {
+      if (!window.HHA_FIREBASE_READY) return null;
+
+      const fb = await window.HHA_FIREBASE_READY;
+      const db = fb && fb.db;
+      if (!db) return null;
+
+      const snap = await db.ref(raceRoomPath(roomId)).get();
+      return snap && snap.val ? snap.val() : null;
+    }
+
+    function isRoomLocked(room) {
+      const status = String(room?.status || '').toLowerCase();
+      return status === 'started' || status === 'running' || status === 'ended' || status === 'closed';
     }
 
     function writeRoomToUrl(roomId) {
@@ -1315,7 +1298,15 @@
         return;
       }
 
-      if (room.status === 'started') {
+      if (room.status === 'ended' || room.status === 'closed') {
+        updateNotice('warn', 'Race ห้องนี้จบแล้ว • กดสุ่มรหัสหรือสร้างห้องใหม่เพื่อเล่นรอบต่อไป');
+        updateRoomStateChip('warn', 'จบแล้ว');
+        setStartEnabled(false);
+        log('ROOM_ENDED');
+        return;
+      }
+
+      if (room.status === 'started' || room.status === 'running') {
         if (me && !starting) {
           starting = true;
           const role = host ? 'host' : 'guest';
@@ -1496,6 +1487,23 @@
       try {
         $('btnJoinRoom').disabled = true;
         log(`JOIN_ROOM ${p.room}`);
+
+        const existingRoom = await readRaceRoomDirect(p.room).catch(() => null);
+        const alreadyInRoom = !!(existingRoom && existingRoom.players && existingRoom.players[p.pid]);
+
+        if (existingRoom && isRoomLocked(existingRoom) && !alreadyInRoom) {
+          const st = String(existingRoom.status || '').toLowerCase();
+
+          if (st === 'ended' || st === 'closed') {
+            updateNotice('warn', 'ห้องนี้จบ Race แล้ว กรุณาใช้ Room Code ใหม่หรือให้ Host สร้างห้องใหม่');
+          } else {
+            updateNotice('warn', 'Race ห้องนี้เริ่มไปแล้ว ไม่สามารถเข้ากลางเกมได้');
+          }
+
+          updateRoomStateChip('warn', 'ห้องล็อกแล้ว');
+          log(`JOIN_BLOCKED_ROOM_LOCKED ${p.room} status=${st}`);
+          return;
+        }
 
         const player = makePlayer('guest');
 
